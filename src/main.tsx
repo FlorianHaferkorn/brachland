@@ -304,9 +304,10 @@ function App() {
       {seite && (
         <div style={{
           position: 'fixed', left: '50%', transform: 'translateX(-50%)',
-          // Im Kampf nach unten: oben steht dort der Gegnername.
+          // Im Kampf ganz oben ueber der Gegnerkarte statt unten: Unten liegen die
+          // Knoepfe, und die Anzeige lag genau auf „Fangen" und „Beutel".
           ...(imKampf
-            ? { bottom: 'env(safe-area-inset-bottom, 4px)' }
+            ? { top: 0 }
             : { top: 'env(safe-area-inset-top, 8px)' }),
           zIndex: 50, pointerEvents: 'none',
           fontFamily: 'ui-monospace, monospace', fontSize: 11, lineHeight: 1.4,

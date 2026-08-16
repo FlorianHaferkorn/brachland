@@ -17,7 +17,7 @@ import { useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { baueKreaturGeometrie } from '../world/kreaturgestalt.js';
-import { RIG_HOEHE, ELEMENT_FARBE, type BasisRig } from '../world/kreaturgestalt.js';
+import { ELEMENT_FARBE } from '../world/kreaturgestalt.js';
 import type { Element } from '../data/schema.js';
 
 export interface KaempferBild {
@@ -140,11 +140,30 @@ function Gestalt({ bild, seite, treffer, zug }: {
   const gruppe = useRef<THREE.Group>(null);
   const uhr = useRef(0);
 
-  // Auf eine gemeinsame Bildhöhe normieren: Ein Molch von 0,4 m und ein Nadelbaum
-  // hoher Keiler von 1,0 m sollen beide das Bild füllen. Das Größenverhältnis
-  // gehört in die Welt, nicht in ein Porträt.
-  const rig = (bild.basisRig in RIG_HOEHE ? bild.basisRig : 'quadruped') as BasisRig;
-  const norm = BILDHOEHE / RIG_HOEHE[rig];
+  /**
+   * Auf die **größte Ausdehnung** normieren, nicht auf die Höhe.
+   *
+   * Der Molch von 0,4 m und der Keiler von 1,0 m sollen beide das Bild füllen — das
+   * Größenverhältnis gehört in die Welt, nicht ins Porträt. Über die Rig-Höhe zu
+   * skalieren ging bei allem gut, was ungefähr so hoch wie lang ist, und ging bei
+   * der Schlange spektakulär schief: Die Kreuzotter ist 5,5-mal so lang wie hoch,
+   * auf Bildhöhe skaliert also ein fünf Meter langer Wurm quer durch die Leinwand.
+   * Im Kampf gegen einen Schlickotter sah man deshalb **gar nichts** — nur seine
+   * Flanke, formatfüllend.
+   *
+   * Die Bounding Box misst, was wirklich da ist, statt was die Tabelle behauptet.
+   */
+  const norm = useMemo(() => {
+    geometrie.computeBoundingBox();
+    const bb = geometrie.boundingBox!;
+    const groesste = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
+    return BILDHOEHE / Math.max(0.001, groesste);
+  }, [geometrie]);
+  const mitte = useMemo(() => {
+    geometrie.computeBoundingBox();
+    const bb = geometrie.boundingBox!;
+    return [(bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2] as const;
+  }, [geometrie]);
 
   useFrame((_, dt) => {
     const g = gruppe.current;
@@ -177,7 +196,10 @@ function Gestalt({ bild, seite, treffer, zug }: {
       {/* Der Gegner schaut zum Spieler, der Spieler vom Betrachter weg — wie im
           klassischen Aufbau: eigene Kreatur von hinten, gegnerische von vorn. */}
       <group rotation={[0, seite > 0 ? Math.PI : 0, 0]}>
-        <mesh geometry={geometrie} material={material} />
+        {/* Um den eigenen Mittelpunkt zentrieren: Die Geometrien haben ihren
+            Ursprung am Fuß und (bei der Schlange) am Kopfende, nicht in der Mitte. */}
+        <mesh geometry={geometrie} material={material}
+              position={[-mitte[0], -mitte[1] + BILDHOEHE / 2, -mitte[2]]} />
       </group>
     </group>
   );
