@@ -19,6 +19,10 @@ export interface Eingabe {
   drehRate: number;
   /** Aufgelaufene Drehung aus Wischen/Ziehen, rad. Wird je Bild verbraucht. */
   drehDelta: number;
+  /** Neigerate aus Tastatur, rad/s. Positiv heißt nach oben schauen. */
+  neigRate: number;
+  /** Aufgelaufene Neigung aus Wischen/Ziehen, rad. Wird je Bild verbraucht. */
+  neigDelta: number;
   rennen: boolean;
 }
 
@@ -28,9 +32,13 @@ const STOCK_RADIUS = 64;
 const PIXEL_JE_RADIANT = 320;
 /** Drehgeschwindigkeit der Tastatur. */
 const TASTEN_DREHRATE = 1.8;
+/** Neigegeschwindigkeit der Tastatur (R/F). */
+const TASTEN_NEIGRATE = 1.2;
 
 export function benutzeSteuerung(element: HTMLElement | null): RefObject<Eingabe> {
-  const eingabe = useRef<Eingabe>({ vor: 0, seit: 0, drehRate: 0, drehDelta: 0, rennen: false });
+  const eingabe = useRef<Eingabe>({
+    vor: 0, seit: 0, drehRate: 0, drehDelta: 0, neigRate: 0, neigDelta: 0, rennen: false,
+  });
 
   useEffect(() => {
     if (!element) return;
@@ -43,6 +51,7 @@ export function benutzeSteuerung(element: HTMLElement | null): RefObject<Eingabe
       e.seit = (tasten.has('KeyD') ? 1 : 0) - (tasten.has('KeyA') ? 1 : 0);
       e.drehRate = ((tasten.has('KeyQ') || tasten.has('ArrowLeft') ? 1 : 0)
                   - (tasten.has('KeyE') || tasten.has('ArrowRight') ? 1 : 0)) * TASTEN_DREHRATE;
+      e.neigRate = ((tasten.has('KeyR') ? 1 : 0) - (tasten.has('KeyF') ? 1 : 0)) * TASTEN_NEIGRATE;
       e.rennen = tasten.has('ShiftLeft') || tasten.has('ShiftRight');
     };
 
@@ -52,6 +61,11 @@ export function benutzeSteuerung(element: HTMLElement | null): RefObject<Eingabe
     };
     const hoch = (ev: KeyboardEvent) => { tasten.delete(ev.code); ausTasten(); };
     const verlassen = () => { tasten.clear(); ausTasten(); };
+
+    // Wischen darf die Seite nicht scrollen oder zoomen — auf dem Handy sonst
+    // unbenutzbar, weil jeder Blickwechsel am Seitenrand zieht.
+    const kein = (ev: Event) => ev.preventDefault();
+    element.addEventListener('touchmove', kein, { passive: false });
 
     window.addEventListener('keydown', runter);
     window.addEventListener('keyup', hoch);
@@ -80,6 +94,9 @@ export function benutzeSteuerung(element: HTMLElement | null): RefObject<Eingabe
         e.rennen = laenge > 0.85;        // voller Ausschlag heißt rennen
       } else {
         e.drehDelta -= (ev.clientX - z.letzte[0]) / PIXEL_JE_RADIANT;
+        // Nach oben wischen heißt nach oben schauen — dieselbe Richtung wie beim
+        // Bewegungsstock, sonst muss man beim Wechseln der Hand umdenken.
+        e.neigDelta -= (ev.clientY - z.letzte[1]) / PIXEL_JE_RADIANT;
       }
       z.letzte = [ev.clientX, ev.clientY];
     };
@@ -100,6 +117,7 @@ export function benutzeSteuerung(element: HTMLElement | null): RefObject<Eingabe
       window.removeEventListener('keydown', runter);
       window.removeEventListener('keyup', hoch);
       window.removeEventListener('blur', verlassen);
+      element.removeEventListener('touchmove', kein);
       element.removeEventListener('pointerdown', zeigerRunter);
       element.removeEventListener('pointermove', zeigerBewegt);
       element.removeEventListener('pointerup', zeigerHoch);

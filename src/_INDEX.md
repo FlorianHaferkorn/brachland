@@ -16,6 +16,7 @@ owns: *.ts, *.tsx
 | Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ |
 | Kreaturen in der Welt oder Begegnungen ändern | `world/vorkommen.ts` → `scenes/RegionsSzene.tsx` | data/inhalte.ts |
 | Team, Fangen oder Speichern ändern | `main.tsx` → `spiel/spielstand.ts` | ui/BattleScreen.tsx |
+| Bewegung, Kamera oder Blickneigung ändern | `spieler/steuerung.ts` → `scenes/RegionsSzene.tsx` | spieler/figur.ts |
 | Vegetationsdichte, Varianten, Modellgrößen | `world/props.ts` | scenes/, engine/ |
 | Bodendecker direkt um den Spieler | `world/streuung.ts` | props.ts |
 | Oberfläche des Bodens, Rauschen, Farbvariation | `world/bodenmaterial.ts` | lod.ts |
@@ -42,7 +43,9 @@ owns: *.ts, *.tsx
 | `world/vorkommen.ts` | Kreaturen in der Welt: aus Spawn-Zonen deterministische Vorkommen, Stufe abhängig von der Entfernung zur Regionsmitte |
 | `world/kreaturgestalt.ts` | Silhouetten als Platzhalter, vier Bauformen nach `basisRig`, Farbe nach Element (ADR-0002 sperrt echte Modelle) |
 | `engine/battle.ts` | Kampflogik ohne 3D: Schaden, Elementfaktor, Fokus-Ökonomie, Phasen, Zehrung, deterministischer RNG |
-| `ui/BattleScreen.tsx` | Kampfoberfläche. Noch **nicht** mit der Szene verbunden (Ledger G-5) |
+| `ui/BattleScreen.tsx` | Kampfoberfläche: Moves, Wechsel, Fangen, Rückzug. An die Szene angebunden |
+| `ui/Kampfbuehne.tsx` | Kreaturen im Kampfbild — eine kleine Leinwand für beide Seiten, Leerlaufatmung und Trefferzucken |
+| `world/bandmaterial.ts` | Wasser und Wege: weiche Ränder statt Plattenkante, Strömung und Spurrinnen im Shader |
 | `scenes/RegionsSzene.tsx` | Art Direction als Code: 3 Stimmungen mit Nebel-, Sonnen- und Umgebungswerten; Props als `InstancedMesh` |
 | `scenes/sichtweiten.ts` | Entfernungsschwellen der Szene (Terrainsicht, Attrappen, Neubewertung). Eigenes Modul, damit `tools/lastcheck.ts` dieselben Zahlen nutzt, ohne React zu laden |
 | `world/osm.ts` | OSM- und EU-DEM-Abruf, Weltdatentypen (`Weltdaten`, `Biom`), Biom-Ableitung, Spawn-Zonen |

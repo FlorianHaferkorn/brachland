@@ -143,6 +143,9 @@ export function baueTerrain(welt: Weltdaten): TerrainErgebnis {
 }
 
 /** Gewässer als eigene Ebenen — Flüsse und Bäche aus den OSM-Linien. */
+/** Wie hoch die Wasserfläche über dem Gelände liegt. */
+const WASSER_UEBER_GRUND = 0.06;
+
 export function baueGewaesser(welt: Weltdaten, terrain: TerrainErgebnis): THREE.BufferGeometry | null {
   const [sued, west, nord, ost] = welt.bbox;
   const positionen: number[] = [];
@@ -151,8 +154,11 @@ export function baueGewaesser(welt: Weltdaten, terrain: TerrainErgebnis): THREE.
     ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
   ];
 
+  const uvs: number[] = [];
+
   for (const linie of welt.linien) {
     const halbe = linie.breite / (2 * MASSSTAB.stauchung);
+    let laengs = 0;
     for (let k = 0; k < linie.punkte.length - 1; k++) {
       const [ax, az] = zuWelt(...linie.punkte[k]);
       const [bx, bz] = zuWelt(...linie.punkte[k + 1]);
@@ -170,18 +176,25 @@ export function baueGewaesser(welt: Weltdaten, terrain: TerrainErgebnis): THREE.
         const t1 = s / teile, t2 = (s + 1) / teile;
         const x1 = ax + dx * t1, z1 = az + dz * t1;
         const x2 = ax + dx * t2, z2 = az + dz * t2;
-        const y1 = terrain.hoeheAn(x1, z1) + 0.3;
-        const y2 = terrain.hoeheAn(x2, z2) + 0.3;
+        // Nur knapp über dem Gelände: Bei 30 cm stand das Band als Platte in der
+        // Landschaft. Die weichen Ränder macht jetzt das Material, nicht die Höhe.
+        const y1 = terrain.hoeheAn(x1, z1) + WASSER_UEBER_GRUND;
+        const y2 = terrain.hoeheAn(x2, z2) + WASSER_UEBER_GRUND;
+        const v1 = laengs + len * t1, v2 = laengs + len * t2;
         positionen.push(
           x1 - nx, y1, z1 - nz,  x1 + nx, y1, z1 + nz,  x2 - nx, y2, z2 - nz,
           x1 + nx, y1, z1 + nz,  x2 + nx, y2, z2 + nz,  x2 - nx, y2, z2 - nz,
         );
+        // u = quer, -1 am linken Ufer bis +1 am rechten. v = Meter flussabwärts.
+        uvs.push(-1, v1,  1, v1,  -1, v2,   1, v1,  1, v2,  -1, v2);
       }
+      laengs += len;
     }
   }
   if (!positionen.length) return null;
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.computeVertexNormals();
   return g;
 }
@@ -197,26 +210,40 @@ export function baueWege(welt: Weltdaten, terrain: TerrainErgebnis): THREE.Buffe
     ((lon - west) / (ost - west) - 0.5) * terrain.breiteMeter,
     ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
   ];
+  const uvs: number[] = [];
+
   for (const weg of welt.wege) {
     const halbe = weg.breite / (2 * MASSSTAB.stauchung);
+    let laengs = 0;
     for (let k = 0; k < weg.punkte.length - 1; k++) {
-      const [x1, z1] = zuWelt(...weg.punkte[k]);
-      const [x2, z2] = zuWelt(...weg.punkte[k + 1]);
-      const dx = x2 - x1, dz = z2 - z1;
+      const [ax, az] = zuWelt(...weg.punkte[k]);
+      const [bx, bz] = zuWelt(...weg.punkte[k + 1]);
+      const dx = bx - ax, dz = bz - az;
       const len = Math.hypot(dx, dz) || 1;
       const nx = (-dz / len) * halbe, nz = (dx / len) * halbe;
-      // knapp über dem Boden, damit nichts durch das Terrain blitzt
-      const y1 = terrain.hoeheAn(x1, z1) + 0.12;
-      const y2 = terrain.hoeheAn(x2, z2) + 0.12;
-      positionen.push(
-        x1 - nx, y1, z1 - nz,  x1 + nx, y1, z1 + nz,  x2 - nx, y2, z2 - nz,
-        x1 + nx, y1, z1 + nz,  x2 + nx, y2, z2 + nz,  x2 - nx, y2, z2 - nz,
-      );
+
+      const teile = Math.max(1, Math.ceil(len / WEG_TEILUNG));
+      for (let t = 0; t < teile; t++) {
+        const t1 = t / teile, t2 = (t + 1) / teile;
+        const x1 = ax + dx * t1, z1 = az + dz * t1;
+        const x2 = ax + dx * t2, z2 = az + dz * t2;
+        // knapp über dem Boden, damit nichts durch das Terrain blitzt
+        const y1 = terrain.hoeheAn(x1, z1) + 0.12;
+        const y2 = terrain.hoeheAn(x2, z2) + 0.12;
+        const v1 = laengs + len * t1, v2 = laengs + len * t2;
+        positionen.push(
+          x1 - nx, y1, z1 - nz,  x1 + nx, y1, z1 + nz,  x2 - nx, y2, z2 - nz,
+          x1 + nx, y1, z1 + nz,  x2 + nx, y2, z2 + nz,  x2 - nx, y2, z2 - nz,
+        );
+        uvs.push(-1, v1,  1, v1,  -1, v2,   1, v1,  1, v2,  -1, v2);
+      }
+      laengs += len;
     }
   }
   if (!positionen.length) return null;
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   g.computeVertexNormals();
   return g;
 }

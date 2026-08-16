@@ -22,7 +22,8 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial } from '../world/bodenmaterial.js';
-import { baueSpielerGeometrie } from '../spieler/figur.js';
+import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
+import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
@@ -33,15 +34,15 @@ import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/v
 export const STIMMUNG = {
   daemmerung: {
     himmel: '#141d20', nebel: '#1b2a2b', nebelNah: 60, nebelFern: 420,
-    sonne: '#c8b48a', sonneStaerke: 1.1, umgebung: '#2b3a3d', umgebungStaerke: 0.55,
+    sonne: '#c8b48a', sonneStaerke: 1.25, umgebung: '#38494c', umgebungStaerke: 0.85,
     sonnenstand: [-120, 55, -90] as const,
-    belichtung: 1.65,
+    belichtung: 2.15,
   },
   nebelmorgen: {
     himmel: '#20282a', nebel: '#2c3a39', nebelNah: 30, nebelFern: 240,
-    sonne: '#d8d2c0', sonneStaerke: 0.75, umgebung: '#39484a', umgebungStaerke: 0.8,
+    sonne: '#d8d2c0', sonneStaerke: 0.9, umgebung: '#47585a', umgebungStaerke: 1.05,
     sonnenstand: [90, 40, -110] as const,
-    belichtung: 1.15,
+    belichtung: 1.45,
   },
   nacht: {
     himmel: '#0a0f12', nebel: '#101a1c', nebelNah: 25, nebelFern: 260,
@@ -130,6 +131,15 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte }: {
    * oder im Berg verschwinden.
    */
   const aufBoden = useMemo(() => ({ ...terrain, hoeheAn: feld.hoehe }), [terrain, feld]);
+  const wasserMaterial = useMemo(() => baueWasserMaterial(), []);
+  const wegMaterial = useMemo(() => baueWegMaterial(), []);
+
+  // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
+  // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
+  useFrame((_, dt) => {
+    const z = wasserMaterial.userData.zeit as { value: number } | undefined;
+    if (z) z.value += dt;
+  });
   const { gewaesser, gebaeude, wege } = useMemo(() => ({
     gewaesser: baueGewaesser(welt, aufBoden),
     gebaeude: baueGebaeude(welt, aufBoden),
@@ -140,21 +150,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte }: {
     <group>
       <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} />
 
-      {wege && (
-        <mesh geometry={wege} receiveShadow>
-          <meshStandardMaterial color="#4a4740" roughness={1} flatShading />
-        </mesh>
-      )}
-
-      {gewaesser && (
-        <mesh geometry={gewaesser}>
-          {/* leicht durchscheinend und schwach leuchtend — Wasser soll das Auge führen */}
-          <meshStandardMaterial
-            color="#2e5560" roughness={0.15} metalness={0.35}
-            transparent opacity={0.88} emissive="#12303a" emissiveIntensity={0.35}
-          />
-        </mesh>
-      )}
+      {wege && <mesh geometry={wege} material={wegMaterial} receiveShadow />}
+      {gewaesser && <mesh geometry={gewaesser} material={wasserMaterial} />}
 
       {gebaeude && (
         <mesh geometry={gebaeude} castShadow receiveShadow>
@@ -497,8 +494,25 @@ function Streuschicht({ feld, ziel, dichte }: {
  * zäh an — die Region ist 4 km breit. Der Maßstab bleibt 1:1 (begründete Entscheidung,
  * ADR-0001), das Tempo wird überhöht. Querung rennend ~9,5 min, gehend ~22 min.
  */
-const GEHEN = 3.0;
-const RENNEN = 7.0;
+/**
+ * Gehen und Rennen in Metern je Sekunde.
+ *
+ * 4,2 und 11,0 sind schneller als der Mensch. Das ist eine bewusste Abweichung vom
+ * 1:1-Maßstab an genau einer Stelle: Die Region ist 4 km breit, und bis es Traversal
+ * gibt (Reitkreatur, Pfade, Schnellreise) ist der Weg sonst reine Wartezeit. Ledger
+ * G-27 — die Zahl geht zurück, sobald Traversal da ist.
+ */
+const GEHEN = 4.2;
+const RENNEN = 11.0;
+
+/** Eine halbe Schrittlänge in Metern — bestimmt die Frequenz der Laufanimation. */
+const SCHRITTLAENGE = 0.9;
+
+/** Blickneigung: knapp unter die Waagerechte bis steil nach oben. */
+const NEIGUNG_MIN = -0.30;
+const NEIGUNG_MAX = 1.05;
+/** Neigung im Ruhezustand — entspricht der alten festen Kamerahöhe. */
+export const NEIGUNG_START = 0.32;
 
 /**
  * Bewegt den Spieler über das Gelände.
@@ -508,10 +522,13 @@ const RENNEN = 7.0;
  * Gebäude sind derzeit durchlässig, das ist bewusst, weil dieser Schritt nur den
  * Look beurteilbar machen soll.
  */
-function Spieler({ feld, ziel, gier, kollision }: {
+function Spieler({ feld, ziel, gier, neigung, schritt, kollision }: {
   feld: HoehenFeld;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
+  neigung: React.RefObject<number>;
+  /** Laufphase in Radiant und aktuelles Tempo — die Figur hängt daran. */
+  schritt: React.RefObject<{ phase: number; tempo: number }>;
   kollision: Kollisionsfeld;
 }) {
   const { gl } = useThree();
@@ -526,6 +543,10 @@ function Spieler({ feld, ziel, gier, kollision }: {
 
     gier.current += e.drehRate * dt + e.drehDelta;
     e.drehDelta = 0;
+
+    neigung.current = Math.max(NEIGUNG_MIN, Math.min(NEIGUNG_MAX,
+      neigung.current + e.neigRate * dt + e.neigDelta));
+    e.neigDelta = 0;
 
     const g = gier.current;
     const tempo = e.rennen ? RENNEN : GEHEN;
@@ -543,6 +564,15 @@ function Spieler({ feld, ziel, gier, kollision }: {
     // Auf der GEZEICHNETEN Fläche stehen, nicht auf der stetigen Funktion —
     // sonst schwebt die Figur auf Kuppen sichtbar über dem Boden.
     p.y = hoeheAufFlaeche(feld, p.x, p.z);
+
+    // Schrittfrequenz aus der tatsächlichen Geschwindigkeit: Wer rennt, macht
+    // schnellere Schritte, nicht dieselben Schritte schneller hintereinander.
+    const strecke = Math.hypot(dx, dz);
+    const sw = schritt.current;
+    sw.tempo = dt > 0 ? strecke / dt : 0;
+    // Die Phase folgt der zurückgelegten STRECKE, nicht der Zeit. Nur so bleibt der
+    // Fuß am Boden statt zu rutschen, egal bei welcher Bildrate.
+    sw.phase += (strecke / SCHRITTLAENGE) * Math.PI;
   });
 
   return null;
@@ -551,31 +581,63 @@ function Spieler({ feld, ziel, gier, kollision }: {
 /**
  * Sichtbare Figur am Spieleranker — die Größenreferenz für alles andere.
  *
- * Dreht sich mit `gier`, damit sie in Laufrichtung schaut. Keine Animation: Sie
- * gleitet, statt zu gehen. Das ist für die Maßstabsbeurteilung unerheblich und
- * würde ein Rig brauchen, das es noch nicht gibt.
+ * Dreht sich mit `gier` und **geht**: Beine und Arme schwingen gegenläufig um Hüfte
+ * und Schulter, der Rumpf hebt sich zweimal je Schritt. Kein Rig, kein Skinning —
+ * vier Rotationen und ein Versatz je Bild. Der Unterschied zum vorherigen Zustand
+ * ist trotzdem der zwischen „gleitet über den Boden" und „läuft".
  */
-function SpielerFigur({ gier }: { gier: React.RefObject<number> }) {
-  const geometrie = useMemo(() => baueSpielerGeometrie(), []);
+function SpielerFigur({ gier, schritt }: {
+  gier: React.RefObject<number>;
+  schritt: React.RefObject<{ phase: number; tempo: number }>;
+}) {
+  const teile = useMemo(() => baueSpielerTeile(), []);
   const material = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0,
   }), []);
   const gruppe = useRef<THREE.Group>(null);
+  const rumpf = useRef<THREE.Group>(null);
+  const beinL = useRef<THREE.Mesh>(null);
+  const beinR = useRef<THREE.Mesh>(null);
+  const armL = useRef<THREE.Mesh>(null);
+  const armR = useRef<THREE.Mesh>(null);
 
   useFrame(() => {
     if (gruppe.current) gruppe.current.rotation.y = gier.current;
+    const { phase, tempo } = schritt.current;
+    // Ausschlag wächst mit dem Tempo und läuft bei Stillstand aus, statt hart
+    // einzurasten — sonst zuckt die Figur bei jedem Loslassen.
+    const stark = Math.min(1, tempo / RENNEN);
+    const schwung = Math.sin(phase) * (0.35 + 0.45 * stark);
+    if (beinL.current) beinL.current.rotation.x = schwung;
+    if (beinR.current) beinR.current.rotation.x = -schwung;
+    if (armL.current) armL.current.rotation.x = -schwung * 0.7;
+    if (armR.current) armR.current.rotation.x = schwung * 0.7;
+    // Zweimal je Schritt auf und ab — einmal je Fuß.
+    if (rumpf.current) rumpf.current.position.y = Math.abs(Math.cos(phase)) * 0.055 * stark;
   });
 
   return (
     <group ref={gruppe}>
-      <mesh geometry={geometrie} material={material} castShadow receiveShadow />
+      <group ref={rumpf}>
+        <mesh geometry={teile.rumpf} material={material} castShadow receiveShadow />
+        <mesh ref={armL} geometry={teile.arm} material={material}
+              position={[-0.28, SCHULTER, 0]} castShadow />
+        <mesh ref={armR} geometry={teile.arm} material={material}
+              position={[0.28, SCHULTER, 0]} castShadow />
+      </group>
+      <mesh ref={beinL} geometry={teile.bein} material={material}
+            position={[-0.11, HUEFTE, 0]} castShadow />
+      <mesh ref={beinR} geometry={teile.bein} material={material}
+            position={[0.11, HUEFTE, 0]} castShadow />
     </group>
   );
 }
 
 /** Third-Person-Kamera, die dem Spieler folgt. */
-function Kamera({ ziel, gier }: {
-  ziel: React.RefObject<THREE.Object3D | null>; gier: React.RefObject<number>;
+function Kamera({ ziel, gier, neigung }: {
+  ziel: React.RefObject<THREE.Object3D | null>;
+  gier: React.RefObject<number>;
+  neigung: React.RefObject<number>;
 }) {
   const { camera } = useThree();
   // Abstände in echten Metern — der Spieler ist 1,8 m hoch und soll auch so wirken.
@@ -583,12 +645,16 @@ function Kamera({ ziel, gier }: {
   const gesetzt = useRef(false);
   useFrame((_, dt) => {
     const p = ziel.current?.position ?? new THREE.Vector3();
-    // Die Kamera steht hinter dem Spieler; `gier` dreht sie um ihn herum.
+    // Die Kamera kreist auf einer Kugel um den Blickpunkt auf Brusthöhe: `gier`
+    // dreht herum, `neigung` hebt und senkt. Bei Neigung 0 steht sie waagerecht
+    // hinter dem Spieler, bei NEIGUNG_MAX fast senkrecht darüber.
     const g = gier.current;
+    const n = neigung.current;
+    const r = GROESSE.kameraAbstand;
     const wunsch = new THREE.Vector3(
-      p.x + Math.sin(g) * GROESSE.kameraAbstand,
-      p.y + GROESSE.kameraHoehe,
-      p.z + Math.cos(g) * GROESSE.kameraAbstand,
+      p.x + Math.sin(g) * Math.cos(n) * r,
+      p.y + GROESSE.kameraBlickHoehe + Math.sin(n) * r,
+      p.z + Math.cos(g) * Math.cos(n) * r,
     );
     // Erstes Bild hart setzen: sonst fliegt die Kamera aus dem Ursprung (y=0) zum
     // Startpunkt hoch — bei 170 m Geländehöhe eine sichtbare Sekunde durch den Berg.
@@ -707,6 +773,8 @@ export function RegionsSzene({
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
   const gier = useRef(0);
+  const neigung = useRef(NEIGUNG_START);
+  const schritt = useRef({ phase: 0, tempo: 0 });
 
   // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
   // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
@@ -762,14 +830,15 @@ export function RegionsSzene({
       <Beleuchtung stimmung={stimmung} ziel={ref} />
       <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} props={props} dichte={qualitaet.gras} />
       <object3D ref={ref} position={start}>
-        <SpielerFigur gier={gier} />
+        <SpielerFigur gier={gier} schritt={schritt} />
       </object3D>
-      <Spieler feld={feld} ziel={ref} gier={gier} kollision={kollision} />
+      <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
+               schritt={schritt} kollision={kollision} />
       {vorkommen.length > 0 && gestalt && (
         <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref}
                    onBegegnung={onBegegnung} verbraucht={verbraucht} />
       )}
-      <Kamera ziel={ref} gier={gier} />
+      <Kamera ziel={ref} gier={gier} neigung={neigung} />
       <Messung melde={onMessung} />
     </Canvas>
   );

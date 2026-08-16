@@ -8,6 +8,7 @@ import type { Vorkommen } from './world/vorkommen.js';
 import { baueKreaturGeometrie } from './world/kreaturgestalt.js';
 import { KREATUREN, WILDLINGE, baueKaempfer } from './data/inhalte.js';
 import { Kampfbildschirm, type KampfEnde } from './ui/BattleScreen.js';
+import type { KaempferBild } from './ui/Kampfbuehne.js';
 import type { Kaempfer, Team } from './engine/battle.js';
 import { ladeStand, speichereStand, LEERER_STAND,
          type Spielstand, type TeamEintrag } from './spiel/spielstand.js';
@@ -74,6 +75,20 @@ function App() {
     (id: string) => gestalten.get(id) ?? gestalten.values().next().value!,
     [gestalten],
   );
+
+  /**
+   * Aussehen je Kämpfer-ID für die Kampfbühne.
+   *
+   * Die Kämpfer-ID der Engine ist `<kreatur>-s<stufe>` (siehe `baueKaempfer`). Aus
+   * ihr lässt sich die Kreatur zurückgewinnen — die Engine selbst kennt weder
+   * Bauform noch Element-Optik und soll es auch nicht.
+   */
+  const bild = useCallback((kaempferId: string): KaempferBild | null => {
+    const id = kaempferId.replace(/-s\d+$/, '');
+    const stufe = Number(kaempferId.match(/-s(\d+)$/)?.[1] ?? 1) - 1;
+    const k = KREATUREN.get(id);
+    return k ? { basisRig: k.basisRig, elemente: [...k.elemente], stufe } : null;
+  }, []);
 
   const verbraucht = useMemo(
     () => new Set([...(stand?.gefangen ?? []), ...(stand?.besiegt ?? [])]),
@@ -162,8 +177,12 @@ function App() {
 
       {seite && (
         <div style={{
-          position: 'fixed', top: 'env(safe-area-inset-top, 8px)', left: '50%',
-          transform: 'translateX(-50%)', zIndex: 50, pointerEvents: 'none',
+          position: 'fixed', left: '50%', transform: 'translateX(-50%)',
+          // Im Kampf nach unten: oben steht dort der Gegnername.
+          ...(imKampf
+            ? { bottom: 'env(safe-area-inset-bottom, 4px)' }
+            : { top: 'env(safe-area-inset-top, 8px)' }),
+          zIndex: 50, pointerEvents: 'none',
           fontFamily: 'ui-monospace, monospace', fontSize: 11, lineHeight: 1.4,
           color: seite.mittel > 20 ? '#d98b6b' : '#5c8f76', textAlign: 'center',
           background: '#0d1210cc', padding: '3px 8px', borderRadius: 6,
@@ -179,6 +198,7 @@ function App() {
             team={kampfTeam}
             gegner={begegnung.gegner}
             fangbar={KREATUREN.get(begegnung.v.kreatur)?.fangbar ?? false}
+            bild={bild}
             seed={begegnung.v.id.length * 7919 + begegnung.v.stufe}
             onEnde={beendeKampf}
           />
@@ -268,7 +288,7 @@ function App() {
             textAlign: 'center', pointerEvents: 'none', zIndex: 10,
             color: '#5c6b64', fontSize: 11, letterSpacing: 0.2,
           }}>
-            links wischen = gehen · rechts wischen = umsehen · Kreaturen ansteuern = Kampf
+            links wischen = gehen · rechts wischen = umsehen und neigen · Kreaturen ansteuern = Kampf
           </div>
         </>
       )}

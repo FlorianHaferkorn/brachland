@@ -7,12 +7,13 @@
  * Bewusst für Handy gebaut: Daumenreichweite unten, große Trefferflächen,
  * kein Hover. Farbgebung folgt der Art Direction (gedämpft + eine Signalfarbe).
  */
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { BAND } from '../data/schema.js';
 import {
   REGELN, schaden, waehleMove, elementFaktor, rng,
   type Kaempfer, type Team, type MoveDef,
 } from '../engine/battle.js';
+import { Kampfbuehne, type KaempferBild } from './Kampfbuehne.js';
 
 const FARBE = {
   hintergrund: '#0d1210',
@@ -128,16 +129,22 @@ export interface KampfProps {
   seed?: number;
   /** Fangbar? Verwachsene und Regenten sind es nicht. */
   fangbar?: boolean;
+  /** Aussehen je Kämpfer-ID. Fehlt es, bleibt die Bühne leer und es gibt nur Text. */
+  bild?: (kaempferId: string) => KaempferBild | null;
   onEnde?: (ende: KampfEnde) => void;
 }
 
-export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, onEnde }: KampfProps) {
+export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, onEnde }: KampfProps) {
   const [, neuZeichnen] = useState(0);
   const [meldungen, setMeldungen] = useState<string[]>([`${gegner.name} stellt sich.`]);
   const [wechselOffen, setWechselOffen] = useState(false);
   const [beschaeftigt, setBeschaeftigt] = useState(false);
   const [ende, setEnde] = useState<KampfEnde | null>(null);
   const zufall = useMemo(() => rng(seed), [seed]);
+  // Zeitstempel des letzten Treffers je Seite. Als Ref, nicht als State: Die Bühne
+  // liest sie in ihrer eigenen Bildschleife — ein Re-Render je Treffer wäre unnötig.
+  const trefferSpieler = useRef(0);
+  const trefferGegner = useRef(0);
 
   const aktiv = team.kaempfer[team.aktiv];
   const melde = (t: string) => setMeldungen(m => [...m.slice(-3), t]);
@@ -152,6 +159,7 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, onEnde
       const roh = gm ? schaden(gegner, ich, gm, zufall) : 0;
       const d = Math.round(roh * REGELN.SHIELD_DR);
       ich.kp -= d;
+      trefferSpieler.current = performance.now() / 1000;
       melde(`${ich.name} tritt ein und fängt ${d} Schaden ab (Schild).`);
     } else if (spielerMove) {
       const zuerst = gegner.ini > ich.ini ? 'gegner' : 'ich';
@@ -160,6 +168,7 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, onEnde
         a.fokus -= BAND[m.band].fokus;
         const s = schaden(a, d, m, zufall);
         d.kp -= s;
+        (d === gegner ? trefferGegner : trefferSpieler).current = performance.now() / 1000;
         const f = elementFaktor(m.element, d.elemente);
         melde(`${a.name}: ${m.name} → ${s}${f > 1 ? ' (sehr effektiv)' : f < 1 ? ' (kaum wirksam)' : ''}`);
       };
@@ -204,6 +213,7 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, onEnde
     if (gm) {
       const s = schaden(gegner, ich, gm, zufall);
       ich.kp -= s;
+      trefferSpieler.current = performance.now() / 1000;
       melde(`${gegner.name}: ${gm.name} → ${s}`);
       if (ich.kp <= 0) {
         const naechster = team.kaempfer.findIndex(k => k.kp > 0);
@@ -217,6 +227,8 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, onEnde
   }, [team, gegner, zufall]);
 
   const vorbei = ende !== null;
+  const spielerBild = bild?.(aktiv.id) ?? null;
+  const gegnerBild = bild?.(gegner.id) ?? null;
 
   return (
     <div style={{
@@ -226,10 +238,30 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, onEnde
     }}>
       <KaempferKarte k={gegner} gegner={aktiv} oben />
 
+      {/* Bühne: feste Höhe statt flex.
+          `flex: 1` gab dem Canvas keine auflösbare Höhe — er blieb auf seiner
+          Mindesthöhe stehen, während der Kasten darum herum wuchs. Ein Anteil der
+          Sichthöhe ist auf dem Handy ohnehin das richtige Maß: Er hängt an der
+          Bildschirmhöhe, nicht daran, wie viele Zeilen gerade im Protokoll stehen. */}
+      {spielerBild && gegnerBild && (
+        <div style={{
+          height: 'clamp(170px, 30dvh, 320px)', flexShrink: 0,
+          background: FARBE.flaeche, border: `1px solid ${FARBE.rand}`,
+          borderRadius: 10, overflow: 'hidden',
+        }}>
+          <Kampfbuehne
+            spieler={spielerBild} gegner={gegnerBild}
+            trefferSpieler={trefferSpieler} trefferGegner={trefferGegner}
+            hintergrund={FARBE.flaeche}
+          />
+        </div>
+      )}
+
       <div style={{
-        flex: 1, background: FARBE.flaeche, border: `1px solid ${FARBE.rand}`,
-        borderRadius: 10, padding: 12, fontSize: 13, color: FARBE.gedaempft,
-        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 4,
+        flex: 1, minHeight: 64, background: FARBE.flaeche,
+        border: `1px solid ${FARBE.rand}`, borderRadius: 10,
+        padding: 10, fontSize: 13, color: FARBE.gedaempft,
+        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 3,
       }}>
         {meldungen.map((m, i) => (
           <div key={i} style={{ opacity: 0.4 + 0.2 * i }}>{m}</div>
