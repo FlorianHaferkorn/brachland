@@ -63,6 +63,18 @@ Lizenzrisiko. Die Maßstabsnormierung macht jeden künftigen Modell-Import trivi
 Stil-Referenz ist unwiderruflich in dem Sinn, dass ein Wechsel nach 50 generierten
 Kreaturen deren Neuproduktion bedeutet. Deshalb steht sie **vor** der Stapelproduktion.
 
+## Nachtrag 16.08.2026 — Präzisierung „keine Texturen"
+
+Die Regel meint **Textur-Assets**: Dateien, die ins Offline-Budget zählen und einen
+Art-Stil erzwingen, den ein Solo-Projekt über 200 Kreaturen nicht durchhält.
+Sie meint **nicht** prozedurale Oberflächenvariation im Shader. Die kostet null Bytes,
+wird aus der Weltposition berechnet und bleibt über Kachelgrenzen und LOD-Stufen
+stabil. Umgesetzt in `src/world/bodenmaterial.ts` (Ledger D21).
+
+Grund für die Präzisierung: Ohne diese Ebene liest sich der Boden als Fläche, egal
+wie fein er tesselliert ist — Flat Shading auf 2-m-Quads hat nichts, woran das Auge
+Oberfläche erkennt.
+
 ## Grenze (bekannte Limitation)
 
 Deckt **nicht** ab: Animation über das Auto-Rigging hinaus (Kampfposen, Idle-Zyklen),

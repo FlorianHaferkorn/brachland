@@ -20,6 +20,7 @@ import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
 import { benutzeSteuerung } from '../spieler/steuerung.js';
 import { baueBueschelGeometrie, streueUmgebung, STREU_MAX, STREU_NACHZIEHEN }
   from '../world/streuung.js';
+import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { verteileProps, chunkeProps, propGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 
@@ -72,9 +73,7 @@ function LodTerrain({ feld, kacheln, ziel }: {
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
   const [stufen, setStufen] = useState<THREE.BufferGeometry[]>([]);
 
-  const material = useMemo(() => new THREE.MeshStandardMaterial({
-    vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0,
-  }), []);
+  const material = useMemo(() => baueBodenMaterial(), []);
 
   useFrame(() => {
     const p = ziel.current?.position;

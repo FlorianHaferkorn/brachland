@@ -16,6 +16,7 @@ owns: *.ts, *.tsx
 | Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ |
 | Vegetationsdichte, Varianten, Modellgrößen | `world/props.ts` | scenes/, engine/ |
 | Bodendecker direkt um den Spieler | `world/streuung.ts` | props.ts |
+| Oberfläche des Bodens, Rauschen, Farbvariation | `world/bodenmaterial.ts` | lod.ts |
 | Terrain-Detail, LOD-Schwellen, Mikrorelief | `world/lod.ts` | scenes/, engine/ |
 | Terrain-, Gewässer-, Gebäude-, Wege-Geometrie | `world/terrain.ts` | engine/, ui/ |
 | OSM/DEM laden, Spawns, Weltdatentypen | `world/osm.ts` | scenes/, engine/ |
@@ -39,6 +40,7 @@ owns: *.ts, *.tsx
 | `world/terrain.ts` | Terrain-Mesh mit Vertex-Farben, Gewässer, Gebäude mit Dächern, Wege; `MASSSTAB`, `GROESSE`, `BIOM_FARBE` |
 | `world/props.ts` | Vegetation: deterministische Verteilung per Seed, Dichten je Biom, 4 Varianten je Art, Normierung auf reale Zielhöhen, Chunking |
 | `world/lod.ts` | Terrain-Detail: 4 LOD-Stufen (2/4/8/16 m), hangabhängiges Mikrorelief in 4 Oktaven (<1,2 m), Schürzen gegen Kachelrisse |
+| `world/bodenmaterial.ts` | Bodenmaterial mit prozeduraler Oberflächenvariation im Shader — zwei Oktaven Rauschen aus der Weltposition, null Bytes Textur |
 | `world/streuung.ts` | Nahfeld-Streuschicht: deterministische Bodendecker im 28-m-Umkreis, beim Gehen nachgezogen. Antwort auf „0 Props im 10-m-Umkreis" |
 | `spieler/steuerung.ts` | Eingabe für Bewegung und Blick. Touch (linke Bildhälfte gehen, rechte umsehen) **und** Tastatur/Maus. Zustand im Ref statt im State — 60 Re-Renders je Sekunde wären sinnlos |
 
