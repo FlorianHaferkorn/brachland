@@ -23,7 +23,17 @@ export const NEUAUFBAU_AB = 32;
  * 250.000. Zusammen mit Terrain (~84.000) und Streuschicht (~22.000) ist 75 m der
  * größte Wert, der unter das Handybudget von 400.000 passt.
  */
-export const ATTRAPPE_AB = 75;
+export const ATTRAPPE_AB = 110;
+
+/**
+ * Ab hier reicht die Mittelstufe der Bäume.
+ *
+ * Drei Bänder statt zwei: voll bis 45 m, mittel bis 110 m, danach Attrappe. Der
+ * Sprung von 872 auf 12 Dreiecke war zu groß für eine einzige Schwelle — entweder
+ * zu teuer oder zu früh Kegel. Gemessen an einem Waldstandort:
+ * 565.000 → 465.000 → mit Mittelstufe deutlich darunter.
+ */
+export const MITTEL_AB = 45;
 
 /**
  * Erst nach dieser Bewegung wird neu bestimmt, welche Prop-Chunks montiert sind.

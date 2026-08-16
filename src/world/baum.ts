@@ -50,12 +50,15 @@ export const BAUM: Record<BaumArt, BaumWerte> = {
   fichte: {
     hoehe: 24, fussRadius: 0.34, beastungAb: 0.15, astWinkel: 108,
     quirle: 8, jeQuirl: 4, laub: 0.8,
-    stammFarbe: '#3a3128', laubFarbe: '#1f3324', laubFarbe2: '#2a4530',
+    // Heller als der erste Wurf. #1f3324 war im Nebel eine schwarze Wand — ein
+    // Nadelwald ist dunkel, aber er hat Binnenzeichnung. Die Spreizung zwischen den
+    // beiden Tönen ist wichtiger als ihre Helligkeit: Sie macht aus der Fläche Volumen.
+    stammFarbe: '#453a2e', laubFarbe: '#334a33', laubFarbe2: '#476349',
   },
   buche: {
     hoehe: 17, fussRadius: 0.42, beastungAb: 0.55, astWinkel: 46,
     quirle: 4, jeQuirl: 4, laub: 0.95,
-    stammFarbe: '#5d5a51', laubFarbe: '#3c5228', laubFarbe2: '#4d6733',
+    stammFarbe: '#6b6659', laubFarbe: '#55703a', laubFarbe2: '#6d8a4a',
   },
 };
 
@@ -104,8 +107,31 @@ function faerbe(
  * Gemessen: Fichte 692, Buche 740 Dreiecke — beide unter den Kenney-GLB (1.400 bis
  * 4.600) und ohne einen einzigen Byte Download.
  */
-export function baueBaum(art: BaumArt, variante = 0): THREE.BufferGeometry {
-  const w = BAUM[art];
+/**
+ * Detailstufen.
+ *
+ * Zwei Stufen reichten nicht. Voll gegen Attrappe ist ein Sprung von 872 auf 12
+ * Dreiecke — dazwischen liegt der ganze Bereich von 40 bis 120 m, in dem ein Baum
+ * noch als Baum zu erkennen sein muss, aber niemand seine Äste zählt. Ohne
+ * Mittelstufe hat man die Wahl zwischen zu teuer und zu früh Kegel: Gemessen kostete
+ * die volle Auflösung bis 75 m rund 350.000 Dreiecke allein an Vegetation.
+ *
+ * `mittel` halbiert Quirle und Äste und lässt den Stamm in einem Stück. Das kostet
+ * ein Viertel und sieht auf 60 m identisch aus.
+ */
+export type BaumDetail = 'voll' | 'mittel';
+
+export function baueBaum(
+  art: BaumArt, variante = 0, detail: BaumDetail = 'voll',
+): THREE.BufferGeometry {
+  const roh = BAUM[art];
+  const grob = detail === 'mittel';
+  // Die Mittelstufe muss deutlich billiger sein, nicht nur etwas. Erster Versuch
+  // (Quirle halbiert, ein Ast weniger) landete bei ~330 Dreiecken und war damit auf
+  // dem Waldstandort der groesste Einzelposten. Jetzt drei Quirle zu zwei Aesten.
+  const w: BaumWerte = grob
+    ? { ...roh, quirle: 3, jeQuirl: 2, laub: roh.laub * 1.25 }
+    : roh;
   const zufall = mulberry(art.charCodeAt(0) * 7919 + variante * 104729);
   const teile: THREE.BufferGeometry[] = [];
 
@@ -118,12 +144,12 @@ export function baueBaum(art: BaumArt, variante = 0): THREE.BufferGeometry {
 
   // Stamm in drei Abschnitten: unten dick, oben dünn. Bei der Fichte läuft er bis
   // in die Spitze durch — das ist der Unterschied zwischen Nadelbaum und Laubbaum.
-  const abschnitte = 3;
+  const abschnitte = grob ? 1 : 3;
   for (let i = 0; i < abschnitte; i++) {
     const t0 = i / abschnitte, t1 = (i + 1) / abschnitte;
     const r0 = w.fussRadius * (1 - t0 * 0.85);
     const r1 = w.fussRadius * (1 - t1 * 0.85);
-    const g = new THREE.CylinderGeometry(r1, r0, stammHoehe / abschnitte, 5, 1, true);
+    const g = new THREE.CylinderGeometry(r1, r0, stammHoehe / abschnitte, grob ? 4 : 5, 1, true);
     g.translate(0, stammHoehe * (t0 + t1) / 2, 0);
     // Der Stamm bewegt sich nicht — oben minimal, damit die Spitze nicht abknickt.
     teile.push(faerbe(g, stammFarbe, t1 * t1 * 0.12));
@@ -158,6 +184,8 @@ export function baueBaum(art: BaumArt, variante = 0): THREE.BufferGeometry {
       const nick = winkel + (zufall() - 0.5) * 0.35;
       const dx = Math.cos(phi), dz = Math.sin(phi);
 
+      // Im groben Zustand tragen die Aeste kein eigenes Volumen mehr — nur das Laub
+      // zaehlt auf Entfernung, und ein Ast ohne Laub ist ein Strich.
       const ast = new THREE.CylinderGeometry(0.015, 0.05, laenge, 3, 1, true);
       ast.translate(0, laenge / 2, 0);
       ast.rotateZ(-nick + Math.PI / 2);

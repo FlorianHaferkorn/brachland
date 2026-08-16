@@ -32,7 +32,7 @@ import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
-import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
+import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, MITTEL_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 
 /**
@@ -317,7 +317,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
  */
 function Props({ props, wind }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
-  const [sichtbar, setSichtbar] = useState<{ c: PropChunk; fern: boolean; id: string }[]>([]);
+  const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
 
   useFrame(({ camera }) => {
@@ -325,19 +325,34 @@ function Props({ props, wind }: { props: PropInstanz[]; wind: THREE.MeshStandard
     if (letzte.current.distanceTo(p) < PROP_NEUBEWERTUNG) return;
     letzte.current.copy(p);
 
-    const liste: { c: PropChunk; fern: boolean; id: string }[] = [];
+    const liste: { c: PropChunk; stufe: PropStufe; id: string }[] = [];
     for (const c of chunks) {
-      const d = Math.hypot(p.x - c.mitte[0], p.z - c.mitte[1]) - c.radius;
-      if (d > c.sichtweite) continue;
-      liste.push({ c, fern: d > ATTRAPPE_AB, id: `${c.art}:${c.variante}:${c.mitte[0]}:${c.mitte[1]}` });
+      const mitte = Math.hypot(p.x - c.mitte[0], p.z - c.mitte[1]);
+      // Sichtbarkeit über den **nächsten Rand** des Chunks: Ein Chunk, von dem eine
+      // Ecke in Reichweite ragt, muss gezeichnet werden.
+      if (mitte - c.radius > c.sichtweite) continue;
+      /**
+       * Die Attrappen-Entscheidung dagegen über die **Mitte**.
+       *
+       * Vorher stand hier ebenfalls `mitte - radius`. Bei 120-m-Chunks sind das 90 m
+       * Radius, das Nahfeld reichte also bis 165 m statt bis 75 — und weil ein Chunk
+       * nur ganz oder gar nicht umschaltet, wurden rund tausend Fichten in voller
+       * Auflösung gezeichnet. Gemessen 537.000 Dreiecke, wo 200.000 erwartet waren.
+       *
+       * Über die Mitte gerechnet ist die Entscheidung im Mittel richtig: Der halbe
+       * Chunk liegt näher, der halbe ferner, und der Fehler hebt sich auf, statt
+       * sich immer zugunsten der teuren Variante zu entscheiden.
+       */
+      const stufe: PropStufe = mitte > ATTRAPPE_AB ? 'fern' : mitte > MITTEL_AB ? 'mittel' : 'nah';
+      liste.push({ c, stufe, id: `${c.art}:${c.variante}:${c.mitte[0]}:${c.mitte[1]}` });
     }
     setSichtbar(liste);
   });
 
   return (
     <>
-      {sichtbar.map(({ c, fern, id }) =>
-        <PropChunkMesh key={id} chunk={c} fern={fern} wind={wind} />)}
+      {sichtbar.map(({ c, stufe, id }) =>
+        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} />)}
     </>
   );
 }
@@ -346,7 +361,7 @@ function Props({ props, wind }: { props: PropInstanz[]; wind: THREE.MeshStandard
  * Lädt das Modell der Variante und normiert es auf die reale Zielhöhe.
  * useGLTF cached pro Pfad — 23 Dateien werden einmal geladen, egal wie viele Chunks.
  */
-function useNormiertesPropMesh(art: PropArt, variante: number) {
+function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe = 'nah') {
   const pfad = propPfad(VARIANTEN[art][variante] ?? VARIANTEN[art][0]);
   // Der Hook wird unbedingt aufgerufen, auch wenn das Ergebnis für Bäume verworfen
   // wird: Hooks dürfen nicht bedingt laufen. Der Ladevorgang ist gecacht und kostet
@@ -354,7 +369,7 @@ function useNormiertesPropMesh(art: PropArt, variante: number) {
   const { scene } = useGLTF(pfad);
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   return useMemo(() => {
-    if (eigen) return { geo: baueBaum(eigen, variante), mat: null };
+    if (eigen) return { geo: baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel'), mat: null };
     let geo: THREE.BufferGeometry | null = null;
     let mat: THREE.Material | null = null;
     scene.traverse(o => {
@@ -374,13 +389,17 @@ function useNormiertesPropMesh(art: PropArt, variante: number) {
     g.translate(0, -bb.min.y, 0);
     g.scale(faktor, faktor, faktor);
     return { geo: g, mat: mat as THREE.Material | null };
-  }, [scene, art, eigen, variante]);
+  }, [scene, art, eigen, variante, stufe]);
 }
 
-function PropChunkMesh({ chunk, fern, wind }: {
-  chunk: PropChunk; fern: boolean; wind: THREE.MeshStandardMaterial;
+/** Welche Auflösung ein Chunk gerade zeigt. */
+export type PropStufe = 'nah' | 'mittel' | 'fern';
+
+function PropChunkMesh({ chunk, stufe, wind }: {
+  chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial;
 }) {
-  const { geo, mat } = useNormiertesPropMesh(chunk.art, chunk.variante);
+  const fern = stufe === 'fern';
+  const { geo, mat } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
   const fernGeo = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
   const fernMaterial = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 1, metalness: 0,

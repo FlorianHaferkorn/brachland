@@ -226,8 +226,10 @@ export function propGeometrie(art: PropArt): THREE.BufferGeometry {
 }
 
 export const PROP_FARBE: Record<PropArt, THREE.ColorRepresentation> = {
-  nadelbaum:   '#20351f',
-  laubbaum:    '#3a4d2c',
+  // Muss zu `BAUM` in baum.ts passen: Die Attrappe uebernimmt ab 75 m, und wenn sie
+  // dunkler ist als der Baum davor, sieht man die Umschaltung als Farbsprung.
+  nadelbaum:   '#3a5138',
+  laubbaum:    '#5c774a',
   busch:       '#3f4f33',
   findling:    '#6e7276',
   totholz:     '#4a4239',
@@ -248,8 +250,21 @@ export interface PropChunk {
   instanzen: PropInstanz[];
 }
 
+/**
+ * Kantenlänge eines Chunks in Metern.
+ *
+ * 120 m waren zu grob, seit die Detailstufe je Chunk entschieden wird: Die Bänder
+ * (voll bis 45 m, mittel bis 110 m) fielen **zwischen** das Raster, weil die nächsten
+ * Chunkmitten 120 m auseinanderliegen. Das Ergebnis war eine Entscheidung mit zwei
+ * Zuständen, obwohl drei gebaut waren — gemessen unveränderte 465.000 Dreiecke.
+ *
+ * 70 m ist der Kompromiss: fein genug, dass alle drei Bänder vorkommen, grob genug,
+ * dass die Zahl der Draw Calls nicht davonläuft.
+ */
+const CHUNK_METER = 70;
+
 export function chunkeProps(
-  props: PropInstanz[], chunkGroesse = 120,
+  props: PropInstanz[], chunkGroesse = CHUNK_METER,
 ): PropChunk[] {
   const buckets = new Map<string, PropInstanz[]>();
   for (const p of props) {
