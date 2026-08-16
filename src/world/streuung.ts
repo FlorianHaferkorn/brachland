@@ -2,10 +2,8 @@
  * BRACHLAND — Nahfeld-Streuschicht
  *
  * Das Problem, das die erste Live-Sicht freigelegt hat: Im 10-m-Umkreis um den
- * Spieler stand **kein einziges Objekt**, im 25-m-Umkreis zwei Grasbüschel. Auf
- * `wiese` sind 10 Büschel je Hektar rechnerisch 0,1 Stück auf 100 m² — eine echte
- * Wiese liest sich dicht. Ohne etwas Bekanntes am Boden fehlt dem Auge der Maßstab,
- * und das Gelände wirkt als Fläche, egal wie fein es tesselliert ist.
+ * Spieler stand **kein einziges Objekt**. Ohne etwas Bekanntes am Boden fehlt dem
+ * Auge der Maßstab, und das Gelände wirkt als Fläche, egal wie fein es tesselliert ist.
  *
  * Diese Schicht ist bewusst **kein** Prop-System: Sie wird nicht gespeichert, nicht
  * gechunkt und nicht auf Entfernung sortiert. Sie existiert nur im Nahbereich, wird
@@ -20,18 +18,27 @@ import type { HoehenFeld } from './lod.js';
 export const STREU_RADIUS = 22;
 /** Büschel je Quadratmeter auf voller Dichte. */
 export const STREU_JE_QM = 2.40;
-/** Obergrenze der Instanzen — Puffergröße, nie überschritten. */
+/** Obergrenze der Grasinstanzen. */
 export const STREU_MAX = 5200;
+/** Kleinzeug ist seltener als Gras — Steine liegen nicht flächendeckend. */
+export const KLEIN_JE_QM = 0.22;
+export const KLEIN_MAX = 900;
 /** Ab dieser Bewegung wird nachgezogen. Bei 7 m/s knapp einmal je Sekunde. */
 export const STREU_NACHZIEHEN = 6;
 
 /**
- * Dichtefaktor je Biom. Fels und Wasser bleiben leer — dort wäre Gras schlicht falsch,
- * und der Kontrast macht die Biome überhaupt erst lesbar.
+ * Dichtefaktor je Biom. Fels und Wasser bleiben grasfrei — dort wäre Gras schlicht
+ * falsch, und der Kontrast macht die Biome überhaupt erst lesbar.
  */
 const DICHTE: Record<Biom, number> = {
   wiese: 1.0, gebuesch: 0.8, wald: 0.55, acker: 0.35, ruine: 0.45,
   siedlung: 0.25, industrie: 0.15, fels: 0.12, unbekannt: 0.3, wasser: 0,
+};
+
+/** Kleinzeug verteilt sich anders als Gras: viel auf Fels und in Ruinen, wenig auf der Wiese. */
+const KLEIN_DICHTE: Record<Biom, number> = {
+  fels: 1.0, ruine: 0.9, wald: 0.7, gebuesch: 0.5, industrie: 0.5,
+  acker: 0.25, wiese: 0.22, siedlung: 0.3, unbekannt: 0.3, wasser: 0,
 };
 
 /** Deterministisches Rauschen — gleicher Punkt, gleiches Ergebnis. */
@@ -42,7 +49,11 @@ function hash(x: number, y: number, k: number): number {
 }
 
 /**
- * Ein Büschel aus drei gekreuzten Halmpaaren — 6 Dreiecke.
+ * Ein Büschel aus fünf Halmen — 10 Dreiecke.
+ *
+ * Feingliedriger als die erste Fassung (drei breite Klingen): schmalere Halme,
+ * unterschiedlich hoch, leicht auseinanderfallend. Ein Büschel soll aus Halmen
+ * bestehen, nicht aus Zacken.
  *
  * Die Vertex-Farbe läuft von dunkel am Fuß zu hell an der Spitze. Das ersetzt die
  * Textur, die es hier bewusst nicht gibt (ADR-0002): Ohne den Verlauf wäre jedes
@@ -54,16 +65,26 @@ export function baueBueschelGeometrie(): THREE.BufferGeometry {
   const fuss = new THREE.Color('#46552f');
   const spitze = new THREE.Color('#a3b47a');
 
-  for (let i = 0; i < 3; i++) {
-    const w = (i / 3) * Math.PI;
-    const dx = Math.cos(w) * 0.09, dz = Math.sin(w) * 0.09;
-    // Halm als schmales Dreieck: zwei Fußpunkte, eine leicht geneigte Spitze.
-    const neigung = (i - 1) * 0.05;
-    pos.push(-dx, 0, -dz,  dx, 0, dz,  neigung, 1, neigung * 0.5);
+  const HALME = 5;
+  for (let i = 0; i < HALME; i++) {
+    const w = (i / HALME) * Math.PI * 2 + hash(i, 7, 3) * 0.5;
+    const breite = 0.035 + hash(i, 11, 5) * 0.02;
+    const dx = Math.cos(w) * breite, dz = Math.sin(w) * breite;
+    // Halme fallen nach außen und erreichen unterschiedliche Höhen.
+    const hoehe = 0.55 + hash(i, 13, 9) * 0.45;
+    const neigeX = Math.cos(w) * 0.22, neigeZ = Math.sin(w) * 0.22;
+    // Fußpunkte leicht versetzt, damit das Büschel nicht aus einem Punkt wächst.
+    const fx = Math.cos(w) * 0.03, fz = Math.sin(w) * 0.03;
+
+    const a: [number, number, number] = [fx - dx, 0, fz - dz];
+    const b: [number, number, number] = [fx + dx, 0, fz + dz];
+    const c: [number, number, number] = [fx + neigeX, hoehe, fz + neigeZ];
+
+    pos.push(...a, ...b, ...c);
     col.push(fuss.r, fuss.g, fuss.b, fuss.r, fuss.g, fuss.b, spitze.r, spitze.g, spitze.b);
     // Rückseite mit umgekehrter Wicklung — deshalb braucht das Material KEIN
     // DoubleSide: Aus jeder Blickrichtung ist genau eine der beiden Kopien vorne.
-    pos.push(dx, 0, dz,  -dx, 0, -dz,  neigung, 1, neigung * 0.5);
+    pos.push(...b, ...a, ...c);
     col.push(fuss.r, fuss.g, fuss.b, fuss.r, fuss.g, fuss.b, spitze.r, spitze.g, spitze.b);
   }
 
@@ -73,15 +94,75 @@ export function baueBueschelGeometrie(): THREE.BufferGeometry {
 
   // Normalen senkrecht nach oben statt aus der Geometrie berechnet.
   //
-  // `computeVertexNormals()` gäbe gekreuzten Halmen waagerechte Normalen — die
-  // bekommen von einer tief stehenden Sonne und einem Himmelslicht fast nichts ab
-  // und rendern als schwarze Zacken. Nach oben zeigende Normalen lassen die Büschel
-  // dasselbe Licht aufnehmen wie der Boden, auf dem sie stehen. Übliches Verfahren
-  // für Vegetation und hier doppelt richtig, weil der Boden die Bezugsfläche ist.
+  // `computeVertexNormals()` gäbe Halmen waagerechte Normalen — die bekommen von
+  // einer tief stehenden Sonne und einem Himmelslicht fast nichts ab und rendern als
+  // schwarze Zacken. Nach oben zeigende Normalen lassen die Büschel dasselbe Licht
+  // aufnehmen wie der Boden, auf dem sie stehen.
   const hoch: number[] = [];
   for (let i = 0; i < pos.length / 3; i++) hoch.push(0, 1, 0);
   g.setAttribute('normal', new THREE.Float32BufferAttribute(hoch, 3));
   return g;
+}
+
+/**
+ * Kleinzeug: Steine, Äste, Wurzelstücke — 5 Formen in einer Geometrie ist zu teuer,
+ * also eine gemischte Form, die je nach Drehung und Stauchung mal Stein, mal Ast wirkt.
+ *
+ * Ein flacher, kantiger Körper. Stark gestaucht liest er sich als Stein, lang gezogen
+ * als Ast. Die Instanz entscheidet über die Skalierung, nicht die Geometrie.
+ */
+export function baueKleinzeugGeometrie(): THREE.BufferGeometry {
+  const g = new THREE.IcosahedronGeometry(0.5, 0).toNonIndexed();
+  const stein = new THREE.Color('#5d5f57');
+  const n = g.getAttribute('position').count;
+  const col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { col[i*3] = stein.r; col[i*3+1] = stein.g; col[i*3+2] = stein.b; }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * Material der Streuschicht — mit Wind.
+ *
+ * Der Wind sitzt im Vertex-Shader, nicht in der CPU: 5.000 Instanzen je Bild neu zu
+ * berechnen wäre der teuerste Teil der ganzen Szene. Die Biegung wächst quadratisch
+ * mit der Halmhöhe, also bewegt sich die Spitze und der Fuß bleibt stehen.
+ *
+ * Die Phase kommt aus der Weltposition der Instanz. Ohne sie schwingt die ganze
+ * Wiese im Gleichtakt — das sieht sofort nach Computer aus. Mit ihr läuft eine Böe
+ * als Welle über das Feld.
+ */
+export function baueStreuMaterial(amplitude = 0.16): {
+  material: THREE.MeshStandardMaterial;
+  setzeZeit(t: number): void;
+} {
+  const zeit = { value: 0 };
+  const material = new THREE.MeshStandardMaterial({
+    vertexColors: true, flatShading: false, roughness: 1, metalness: 0,
+    side: THREE.FrontSide,
+  });
+
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uZeit = zeit;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>\nuniform float uZeit;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        {
+          // Instanzposition steckt in der vierten Spalte der Instanzmatrix.
+          vec3 wurzel = instanceMatrix[3].xyz;
+          float phase = wurzel.x * 0.11 + wurzel.z * 0.085;
+          float hoehe = clamp(transformed.y, 0.0, 1.0);
+          float biegung = hoehe * hoehe * ${amplitude.toFixed(3)};
+          // Zwei Frequenzen: eine tragende Böe, eine feine Unruhe darüber.
+          float boe = sin(uZeit * 0.9 + phase) * 0.7 + sin(uZeit * 2.3 + phase * 1.7) * 0.3;
+          transformed.x += boe * biegung;
+          transformed.z += cos(uZeit * 0.7 + phase * 1.3) * biegung * 0.45;
+        }`);
+  };
+  material.customProgramCacheKey = () => 'brachland-streu-wind-v1';
+
+  return { material, setzeZeit: (t) => { zeit.value = t; } };
 }
 
 const hilfe = new THREE.Object3D();
@@ -96,37 +177,61 @@ const hilfe = new THREE.Object3D();
 export function streueUmgebung(
   feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh,
 ): number {
+  return streue(feld, mx, mz, mesh, DICHTE, STREU_JE_QM, STREU_MAX, 0, (h1, h2, h3) => {
+    const hoehe = 0.18 + h1 * 0.30;
+    hilfe.rotation.set(0, h2 * Math.PI * 2, 0);
+    hilfe.scale.set(0.9 + h3 * 0.7, hoehe, 0.9 + h3 * 0.7);
+  });
+}
+
+/** Steine, Äste, Wurzelstücke — flach und klein, ohne Wind. */
+export function streueKleinzeug(
+  feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh,
+): number {
+  return streue(feld, mx, mz, mesh, KLEIN_DICHTE, KLEIN_JE_QM, KLEIN_MAX, 991, (h1, h2, h3) => {
+    // Unter 0,45 wird der Körper zum Ast gestreckt, darüber zum flachen Stein gestaucht.
+    const ast = h1 < 0.45;
+    const gr = 0.10 + h3 * 0.22;
+    hilfe.rotation.set(ast ? Math.PI * 0.5 : h1 * 0.3, h2 * Math.PI * 2, h3 * 0.4);
+    if (ast) hilfe.scale.set(gr * 0.28, gr * 2.6, gr * 0.28);
+    else hilfe.scale.set(gr * 1.4, gr * 0.55, gr * 1.2);
+  });
+}
+
+function streue(
+  feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh,
+  dichte: Record<Biom, number>, jeQm: number, max: number, salz: number,
+  form: (h1: number, h2: number, h3: number) => void,
+): number {
   const ZELLE = 2;
-  const jeZelle = STREU_JE_QM * ZELLE * ZELLE;
+  const jeZelle = jeQm * ZELLE * ZELLE;
   const r = STREU_RADIUS;
   let n = 0;
 
   const x0 = Math.floor((mx - r) / ZELLE), x1 = Math.ceil((mx + r) / ZELLE);
   const z0 = Math.floor((mz - r) / ZELLE), z1 = Math.ceil((mz + r) / ZELLE);
 
-  for (let iz = z0; iz <= z1 && n < STREU_MAX; iz++) {
-    for (let ix = x0; ix <= x1 && n < STREU_MAX; ix++) {
+  for (let iz = z0; iz <= z1 && n < max; iz++) {
+    for (let ix = x0; ix <= x1 && n < max; ix++) {
       const zx = ix * ZELLE, zz = iz * ZELLE;
-      const faktor = DICHTE[feld.biom(zx, zz)] ?? 0;
+      const faktor = dichte[feld.biom(zx, zz)] ?? 0;
       if (faktor === 0) continue;
 
       // Nachkommaanteil als Wahrscheinlichkeit, sonst verschwinden dünne Biome ganz.
       const erwartet = jeZelle * faktor;
-      const anzahl = Math.floor(erwartet) + (hash(ix, iz, 7) < erwartet % 1 ? 1 : 0);
+      const anzahl = Math.floor(erwartet) + (hash(ix, iz, salz + 7) < erwartet % 1 ? 1 : 0);
 
-      for (let k = 0; k < anzahl && n < STREU_MAX; k++) {
-        const x = zx + hash(ix, iz, k * 3 + 1) * ZELLE;
-        const z = zz + hash(ix, iz, k * 3 + 2) * ZELLE;
+      for (let k = 0; k < anzahl && n < max; k++) {
+        const b = salz + k * 8;
+        const x = zx + hash(ix, iz, b + 1) * ZELLE;
+        const z = zz + hash(ix, iz, b + 2) * ZELLE;
         const d = Math.hypot(x - mx, z - mz);
         if (d > r) continue;
-
         // Am Rand ausdünnen, damit die Schicht nicht als Kreis endet.
-        if (d > r * 0.75 && hash(ix, iz, k * 3 + 3) < (d - r * 0.75) / (r * 0.25)) continue;
+        if (d > r * 0.75 && hash(ix, iz, b + 3) < (d - r * 0.75) / (r * 0.25)) continue;
 
-        const hoehe = 0.18 + hash(ix, iz, k * 3 + 4) * 0.30;
         hilfe.position.set(x, feld.hoehe(x, z), z);
-        hilfe.rotation.set(0, hash(ix, iz, k * 3 + 5) * Math.PI * 2, 0);
-        hilfe.scale.set(0.9 + hash(ix, iz, k * 3 + 6) * 0.7, hoehe, 0.9 + hash(ix, iz, k * 3 + 7) * 0.7);
+        form(hash(ix, iz, b + 4), hash(ix, iz, b + 5), hash(ix, iz, b + 6));
         hilfe.updateMatrix();
         mesh.setMatrixAt(n++, hilfe.matrix);
       }

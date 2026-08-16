@@ -117,6 +117,23 @@ der Latte zu einer sichtbaren Entscheidung statt zu einem stillen Nachgeben.
 
 ---
 
+## 6b. Das Dreiecksbudget ist eine Annahme, keine Messung
+
+`tools/scenecheck.ts` vergleicht gegen **400.000 Dreiecke** — mit dem Kommentar
+„Handy verträgt ~400k". Diese Zahl steht an genau einer Stelle, ist nirgends
+hergeleitet und wurde nie auf echter Hardware geprüft. Für ein Gerät von 2026 ist
+sie vermutlich deutlich zu konservativ; moderne Handy-GPUs zeichnen Millionen von
+Dreiecken, und die realen Grenzen sind meist Draw Calls und Überzeichnung.
+
+Das ist keine Kleinigkeit: Prop-Dichte, Sichtweiten und die Attrappen-Schwelle von
+75 m hängen alle an dieser einen Zahl.
+
+Seit 16.08.2026 blendet die Szene **B/s, Dreiecke und Draw Calls** ein. Solange die
+400.000 nicht durch eine Messung auf dem Zielgerät ersetzt sind, ist jede daraus
+abgeleitete Entscheidung vorläufig. Ledger G-18.
+
+---
+
 ## 7. Was das Tor bewusst NICHT prüft
 
 - **Ob die Story gut ist.** Nicht automatisierbar. Gate ist der Fremdtest.

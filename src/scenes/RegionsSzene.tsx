@@ -18,8 +18,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung } from '../spieler/steuerung.js';
-import { baueBueschelGeometrie, streueUmgebung, STREU_MAX, STREU_NACHZIEHEN }
-  from '../world/streuung.js';
+import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
+         streueUmgebung, streueKleinzeug,
+         STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { baueSpielerGeometrie } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
@@ -352,42 +353,54 @@ function Beleuchtung({ stimmung, ziel }: {
 function Streuschicht({ feld, ziel }: {
   feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>;
 }) {
-  const geometrie = useMemo(() => baueBueschelGeometrie(), []);
-  // flatShading MUSS hier aus bleiben: Es ignoriert die Normalen-Attribute und
-  // rechnet Flächennormalen aus Bildschirm-Ableitungen — die Halme stünden dann
-  // wieder waagerecht im Licht und rendern schwarz. Der Rest der Szene ist bewusst
-  // flach schattiert, die Vegetation ist die Ausnahme.
-  // Zwei Fallen, die beide zu schwarzen Halmen führen:
-  // - `flatShading` ignoriert die Normalen und rechnet sie aus Bildschirm-Ableitungen.
-  // - `DoubleSide` lässt three bei Rückseiten die Normale umdrehen; sie zeigt dann nach
-  //   unten und nimmt die dunkle Bodenfarbe des Himmelslichts auf. Die Geometrie
-  //   enthält jeden Halm ohnehin doppelt mit umgekehrter Wicklung, FrontSide genügt.
-  const material = useMemo(() => new THREE.MeshStandardMaterial({
-    vertexColors: true, flatShading: false, roughness: 1, metalness: 0,
-    side: THREE.FrontSide,
+  const grasGeo = useMemo(() => baueBueschelGeometrie(), []);
+  const kleinGeo = useMemo(() => baueKleinzeugGeometrie(), []);
+  const gras = useMemo(() => baueStreuMaterial(), []);
+  // Steine und Äste bewegen sich nicht — eigenes Material ohne Wind.
+  const kleinMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
   }), []);
+
   // Kein Schattenwurf und kein Schattenempfang: Ein Shadow-Texel ist bei ±250 m
-  // Schattenkamera und 2048² rund 24 cm — die Büschel sind 11–30 cm hoch, also
-  // kleiner als ein Texel. Sie würden sich selbst beschatten und schwarz rendern.
-  const mesh = useRef<THREE.InstancedMesh>(null);
+  // Schattenkamera und 2048² rund 24 cm — die Büschel sind kleiner als ein Texel.
+  // Sie würden sich selbst beschatten und schwarz rendern.
+  const grasMesh = useRef<THREE.InstancedMesh>(null);
+  const kleinMesh = useRef<THREE.InstancedMesh>(null);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
 
-  useFrame(() => {
+  useFrame(({ clock }) => {
+    gras.setzeZeit(clock.elapsedTime);
+
     const p = ziel.current?.position;
-    const m = mesh.current;
-    if (!p || !m) return;
+    if (!p) return;
     if (letzte.current.distanceTo(p) < STREU_NACHZIEHEN) return;
     letzte.current.copy(p);
-    m.count = streueUmgebung(feld, p.x, p.z, m);
-    m.instanceMatrix.needsUpdate = true;
-    m.computeBoundingSphere();
+
+    const g = grasMesh.current;
+    if (g) {
+      g.count = streueUmgebung(feld, p.x, p.z, g);
+      g.instanceMatrix.needsUpdate = true;
+      g.computeBoundingSphere();
+    }
+    const k = kleinMesh.current;
+    if (k) {
+      k.count = streueKleinzeug(feld, p.x, p.z, k);
+      k.instanceMatrix.needsUpdate = true;
+      k.computeBoundingSphere();
+    }
   });
 
   return (
-    <instancedMesh
-      ref={mesh} args={[geometrie, material, STREU_MAX]}
-      frustumCulled={false} receiveShadow={false} castShadow={false}
-    />
+    <>
+      <instancedMesh
+        ref={grasMesh} args={[grasGeo, gras.material, STREU_MAX]}
+        frustumCulled={false} receiveShadow={false} castShadow={false}
+      />
+      <instancedMesh
+        ref={kleinMesh} args={[kleinGeo, kleinMaterial, KLEIN_MAX]}
+        frustumCulled={false} receiveShadow={false} castShadow={false}
+      />
+    </>
   );
 }
 
@@ -505,13 +518,52 @@ function Kamera({ ziel, gier }: {
 for (const varianten of Object.values(VARIANTEN))
   for (const v of varianten) useGLTF.preload(propPfad(v));
 
+/** Was die Szene je halbe Sekunde über sich meldet. */
+export interface Messwerte {
+  /** Bilder je Sekunde. */
+  bps: number;
+  /** Tatsächlich gezeichnete Dreiecke im letzten Bild. */
+  dreiecke: number;
+  /** Draw Calls im letzten Bild. */
+  aufrufe: number;
+}
+
+/**
+ * Meldet, was wirklich gezeichnet wird.
+ *
+ * Der Grund für diese Komponente: Das Dreiecksbudget von 400.000 stammt aus einem
+ * einzigen hartkodierten Literal in `tools/scenecheck.ts` mit dem Kommentar „Handy
+ * verträgt ~400k" — nie gemessen, nie belegt. Alle Entscheidungen zu Dichte und
+ * Attrappen hängen daran. Mit dieser Anzeige wird aus der Annahme eine Messung auf
+ * dem echten Gerät.
+ */
+function Messung({ melde }: { melde?: (m: Messwerte) => void }) {
+  const { gl } = useThree();
+  const stand = useRef({ bilder: 0, zeit: 0 });
+  useFrame((_, dt) => {
+    if (!melde) return;
+    const s = stand.current;
+    s.bilder++; s.zeit += dt;
+    if (s.zeit < 0.5) return;
+    melde({
+      bps: s.bilder / s.zeit,
+      dreiecke: gl.info.render.triangles,
+      aufrufe: gl.info.render.calls,
+    });
+    s.bilder = 0; s.zeit = 0;
+  });
+  return null;
+}
+
 export interface RegionsSzeneProps {
   welt: Weltdaten;
   stimmung?: StimmungsName;
   spielerRef?: React.RefObject<THREE.Object3D | null>;
+  /** Wird je halbe Sekunde mit den echten Renderzahlen aufgerufen. */
+  onMessung?: (m: Messwerte) => void;
 }
 
-export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: RegionsSzeneProps) {
+export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef, onMessung }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
   const gier = useRef(0);
@@ -560,6 +612,7 @@ export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: Regi
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} kollision={kollision} />
       <Kamera ziel={ref} gier={gier} />
+      <Messung melde={onMessung} />
     </Canvas>
   );
 }

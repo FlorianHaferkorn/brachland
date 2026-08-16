@@ -1,12 +1,13 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Weltdaten } from './world/osm.js';
-import { RegionsSzene, STIMMUNG, type StimmungsName } from './scenes/RegionsSzene.js';
+import { RegionsSzene, STIMMUNG, type StimmungsName, type Messwerte } from './scenes/RegionsSzene.js';
 
 function App() {
   const [welt, setWelt] = useState<Weltdaten | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [stimmung, setStimmung] = useState<StimmungsName>('daemmerung');
+  const [messung, setMessung] = useState<Messwerte | null>(null);
 
   useEffect(() => {
     fetch('/world/oental.json')
@@ -20,7 +21,7 @@ function App() {
 
   return (
     <>
-      <RegionsSzene welt={welt} stimmung={stimmung} />
+      <RegionsSzene welt={welt} stimmung={stimmung} onMessung={setMessung} />
       <div style={{
         position: 'fixed', top: 'env(safe-area-inset-top, 8px)', left: 8,
         display: 'flex', gap: 6, zIndex: 10,
@@ -33,6 +34,22 @@ function App() {
           }}>{s}</button>
         ))}
       </div>
+
+      {/* Messwerte vom echten Gerät — die Grundlage, um das Dreiecksbudget zu belegen
+          statt es zu behaupten. */}
+      {messung && (
+        <div style={{
+          position: 'fixed', top: 'env(safe-area-inset-top, 8px)', right: 8, zIndex: 10,
+          fontFamily: 'ui-monospace, monospace', fontSize: 11, lineHeight: 1.5,
+          color: messung.bps < 30 ? '#d98b6b' : '#5c8f76', textAlign: 'right',
+          background: '#0d121099', padding: '4px 7px', borderRadius: 6,
+          pointerEvents: 'none',
+        }}>
+          {messung.bps.toFixed(0)} B/s<br />
+          {Math.round(messung.dreiecke).toLocaleString('de')} Dreiecke<br />
+          {messung.aufrufe} Aufrufe
+        </div>
+      )}
 
       {/* Ohne Hinweis findet niemand die Touch-Steuerung — sie ist unsichtbar. */}
       <div style={{
