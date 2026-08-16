@@ -19,9 +19,9 @@ import type { HoehenFeld } from './lod.js';
 /** Radius, in dem gestreut wird. Darüber übernehmen die echten Props. */
 export const STREU_RADIUS = 28;
 /** Büschel je Quadratmeter auf voller Dichte. */
-export const STREU_JE_QM = 0.30;
+export const STREU_JE_QM = 0.80;
 /** Obergrenze der Instanzen — Puffergröße, nie überschritten. */
-export const STREU_MAX = 2200;
+export const STREU_MAX = 4200;
 /** Ab dieser Bewegung wird nachgezogen. Bei 7 m/s knapp einmal je Sekunde. */
 export const STREU_NACHZIEHEN = 6;
 
@@ -51,8 +51,8 @@ function hash(x: number, y: number, k: number): number {
 export function baueBueschelGeometrie(): THREE.BufferGeometry {
   const pos: number[] = [];
   const col: number[] = [];
-  const fuss = new THREE.Color('#3c4a2c');
-  const spitze = new THREE.Color('#8a9a63');
+  const fuss = new THREE.Color('#46552f');
+  const spitze = new THREE.Color('#a3b47a');
 
   for (let i = 0; i < 3; i++) {
     const w = (i / 3) * Math.PI;
@@ -123,10 +123,10 @@ export function streueUmgebung(
         // Am Rand ausdünnen, damit die Schicht nicht als Kreis endet.
         if (d > r * 0.75 && hash(ix, iz, k * 3 + 3) < (d - r * 0.75) / (r * 0.25)) continue;
 
-        const hoehe = 0.11 + hash(ix, iz, k * 3 + 4) * 0.19;
+        const hoehe = 0.18 + hash(ix, iz, k * 3 + 4) * 0.30;
         hilfe.position.set(x, feld.hoehe(x, z), z);
         hilfe.rotation.set(0, hash(ix, iz, k * 3 + 5) * Math.PI * 2, 0);
-        hilfe.scale.set(0.75 + hash(ix, iz, k * 3 + 6) * 0.5, hoehe, 0.75 + hash(ix, iz, k * 3 + 7) * 0.5);
+        hilfe.scale.set(0.9 + hash(ix, iz, k * 3 + 6) * 0.7, hoehe, 0.9 + hash(ix, iz, k * 3 + 7) * 0.7);
         hilfe.updateMatrix();
         mesh.setMatrixAt(n++, hilfe.matrix);
       }

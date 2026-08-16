@@ -112,11 +112,21 @@ function Terrain({ welt, terrain, feld, kacheln, ziel }: {
   welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
   kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
 }) {
+  /**
+   * Wege, Gewässer und Gebäude setzen auf dem Gelände auf — sie brauchen deshalb
+   * dieselbe Höhenfunktion, die den sichtbaren Boden zeichnet.
+   *
+   * `terrain.hoeheAn` tastet das 41,8-m-Raster stufig ab, `feld.hoehe` interpoliert
+   * und legt Mikrorelief darüber. Gemessen weichen die beiden im Mittel um 2,35 m
+   * ab, auf Steilhängen bis 24 m — genau die Flächen, die dann in der Luft hängen
+   * oder im Berg verschwinden.
+   */
+  const aufBoden = useMemo(() => ({ ...terrain, hoeheAn: feld.hoehe }), [terrain, feld]);
   const { gewaesser, gebaeude, wege } = useMemo(() => ({
-    gewaesser: baueGewaesser(welt, terrain),
-    gebaeude: baueGebaeude(welt, terrain),
-    wege: baueWege(welt, terrain),
-  }), [welt, terrain]);
+    gewaesser: baueGewaesser(welt, aufBoden),
+    gebaeude: baueGebaeude(welt, aufBoden),
+    wege: baueWege(welt, aufBoden),
+  }), [welt, aufBoden]);
 
   return (
     <group>
@@ -160,7 +170,7 @@ function Props({ welt, terrain, feld }: {
   // wird als LOD-Kachel mit Mikrorelief gezeichnet, und wer auf dem Raster platziert,
   // lässt seine Bäume um bis zu ~1,2 m schweben oder versinken.
   const chunks = useMemo(() => {
-    const roh = verteileProps(welt, terrain, 1);
+    const roh = verteileProps(welt, { ...terrain, hoeheAn: feld.hoehe }, 1);
     const aufBoden: PropInstanz[] = roh.map(p => ({
       ...p,
       position: [p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2]],

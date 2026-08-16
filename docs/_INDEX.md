@@ -69,7 +69,9 @@ shelf-life-days: 90
 | G-6 | `lod.ts` nicht in der Szene verdrahtet | — | ✅ | eingebaut 16.08.2026: 226 Kacheln, 84.096 Dreiecke, **4 Draw Calls**, Nahfeld-Relief 0,73 m bei 2 m Radius statt konstant 7,05 m |
 | G-8 | **Sichtbare Kachelgrenzen**: Helligkeitssprünge an LOD-Übergängen, bei flachem Blickwinkel deutlich. Schattenwurf und Schürzen als Ursache experimentell ausgeschlossen | Screenshot 16.08.2026 | 🟡 | vermutlich Flat Shading über unterschiedlich tessellierte Nachbarkacheln |
 | G-9 | Detailgewinn am Startpunkt kaum sichtbar | — | ✅ | mit Bewegung und Streuschicht adressiert, 16.08.2026 |
-| G-12 | Streuschicht wirkt **sehr zurückhaltend** — die Büschel sind dunkler als der Boden und bei tief stehender Sonne kaum abgesetzt. Dichte 0,30/m², Höhe 0,11–0,30 m | Screenshot 16.08.2026 | 🟡 | am Handy beurteilen, dann Dichte/Höhe/Farbe nachziehen |
+| G-12 | Streuschicht zu zurückhaltend | — | ✅ | nachgezogen: 0,80/m², 0,18–0,48 m, hellere Farben, breiter |
+| G-13 | **Aufgesetzte Geometrien standen auf der falschen Höhenquelle** — Wege, Gewässer und Gebäude aus dem groben Raster, sichtbarer Boden aus dem Mikrorelief-Feld. Gemessen 2,35 m Mittel, 24 m Maximum | Messung 16.08.2026 | ✅ | behoben: Wege 24 → 2,7 m, Gewässer 15 → 1,8 m |
+| G-14 | Restdrift der Wege bis ±3 m: Bänder werden nur an OSM-Stützpunkten aufs Gelände gelegt, dazwischen wellt der Boden | Messung 16.08.2026 | 🟡 | Segmente unterteilen |
 | G-7 | `daemmerung` ist am Startpunkt praktisch schwarz; erst `nebelmorgen` zeigt die Szene | Screenshot 16.08.2026 | 🟡 | Lichtwerte gegen echte Hardware prüfen, nicht gegen den Laptop |
 | G-2 | Stil-Referenz für Kreaturen festzurren; Prompt des Steinbocks sichern | ADR-0002 | 🟡 | offen |
 | G-4 | Bewegung und Kamerasteuerung | — | ✅ | 16.08.2026: Gehen 1,4 / Rennen 5,0 m/s, Blick frei drehbar. Touch **und** Tastatur. Verifiziert im Browser |
@@ -100,5 +102,6 @@ shelf-life-days: 90
 | D15 | Sonne folgt dem Spieler statt ortsfest bei y=55 zu stehen | Das Œntal reicht bis 775 m — eine ortsfeste Schattenkamera liegt unter dem Gelände. Änderte das Bild nicht sichtbar, ist aber unabhängig davon richtig | 2026-08-16 | — |
 | D16 | Touch ist gleichwertig, kein Nachtrag: linke Bildhälfte gehen, rechte umsehen | Das Handy ist das Zielgerät. Eine nur mit Tastatur bedienbare Szene lässt sich dort nicht beurteilen | 2026-08-16 | — |
 | D18 | Tempo überhöht: gehen 3,0 / rennen 7,0 m/s bei 1:1-Maßstab | 1,4 m/s ist echtes Gehtempo und fühlt sich bei 4 km Region zäh an. Maßstab echt, Tempo überhöht — der übliche Weg, Querung rennend ~9,5 min | 2026-08-16 | — |
+| D20 | **Eine Höhenquelle für alles, was aufsitzt**: `feld.hoehe` aus `baueHoehenfeld` | Zwei Quellen driften — hier um bis zu 24 m. Boden, Props, Streuschicht, Wege, Gewässer, Gebäude und Spawn nutzen dieselbe Funktion | 2026-08-16 | — |
 | D19 | Vegetation ist die Ausnahme von Flat Shading und FrontSide-Pflicht | `flatShading` ignoriert Normalen; `DoubleSide` dreht sie bei Rückseiten um und lässt Halme schwarz rendern. Beides live erlebt und einzeln nachgewiesen | 2026-08-16 | — |
 | D17 | LOD0 bleibt bei 2 m Vertexabstand | Gemessen: bei 2 m Abtastung kommen bereits **100 %** der Mikrorelief-Amplitude an. 1 m kostet 32.256 → 121.856 Dreiecke für null zusätzliches Relief | 2026-08-16 | — |
