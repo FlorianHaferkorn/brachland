@@ -25,6 +25,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
 import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
+import { baueWindMaterial } from '../world/windmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
@@ -33,8 +34,46 @@ import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad,
 import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 
-/** Tageszeiten. Der Look lebt von Dämmerung und Nebel — Mittagssonne verzeiht nichts. */
-export const STIMMUNG = {
+/**
+ * Tageszeiten als Schlüsselbilder eines durchgehenden Laufs.
+ *
+ * Vorher waren es drei Knöpfe, und dazwischen gab es nichts. Ein Sprung von Nacht auf
+ * Dämmerung ist aber kein Tageswechsel, sondern ein Schnitt — und die interessanten
+ * Zustände liegen genau dazwischen, im Übergang.
+ *
+ * Der Lauf ist bewusst **kein voller Tag**: Es gibt keinen Mittag. Die Art Direction
+ * steht auf Dämmerung, Nebel und Silhouetten; Mittagssonne verzeiht nichts und würde
+ * jede Schwäche der Geometrie zeigen. Der Zyklus läuft deshalb
+ * Nacht → Morgengrauen → Nebelmorgen → Abendrot → Nacht.
+ *
+ * **Farbvokabular.** Jeder Schlüssel benutzt dieselben vier Rollen und nichts
+ * darüber hinaus: ein kaltes Blaugrün für den Zenit, einen warmen Ton am Horizont,
+ * einen entsättigten Nebelton und **eine** Sonnenfarbe. Was daraus nicht ableitbar
+ * ist, kommt nicht ins Bild — die Signalfarbe des Befalls bleibt die einzige
+ * Ausnahme (ADR-0002).
+ */
+export interface Stimmung {
+  himmel: string; nebel: string; nebelNah: number; nebelFern: number;
+  sonne: string; sonneStaerke: number; umgebung: string; umgebungStaerke: number;
+  sonnenstand: readonly [number, number, number];
+  belichtung: number;
+  zenit: string; horizont: string; scheibe: number; hof: number;
+  /** Silhouettenlicht: Farbe des Himmels, der die Umrisse zeichnet. */
+  randFarbe: string;
+  randStaerke: number;
+}
+
+export const STIMMUNG: Record<string, Stimmung> = {
+  nacht: {
+    himmel: '#0a0f12', nebel: '#101a1c', nebelNah: 25, nebelFern: 260,
+    sonne: '#8fa9c4', sonneStaerke: 0.45, umgebung: '#162124', umgebungStaerke: 0.35,
+    sonnenstand: [-80, 90, 60] as const,
+    belichtung: 1.40,
+    // Mond: harte kleine Scheibe, fast kein Hof.
+    zenit: '#05080d', horizont: '#131c22', scheibe: 0.0009, hof: 900,
+    // Nachts trägt der Umriss fast das ganze Bild — deshalb hier am stärksten.
+    randFarbe: '#4d6b82', randStaerke: 0.30,
+  },
   daemmerung: {
     himmel: '#141d20', nebel: '#1b2a2b', nebelNah: 60, nebelFern: 420,
     sonne: '#c8b48a', sonneStaerke: 1.25, umgebung: '#38494c', umgebungStaerke: 0.85,
@@ -42,6 +81,7 @@ export const STIMMUNG = {
     belichtung: 2.15,
     // Tief stehende Sonne: kleine Scheibe, sehr weiter Hof. Der Hof IST die Stimmung.
     zenit: '#0e1a24', horizont: '#3b3a34', scheibe: 0.0016, hof: 190,
+    randFarbe: '#6e7f86', randStaerke: 0.22,
   },
   nebelmorgen: {
     himmel: '#20282a', nebel: '#2c3a39', nebelNah: 30, nebelFern: 240,
@@ -50,17 +90,79 @@ export const STIMMUNG = {
     belichtung: 1.45,
     // Im Dunst gibt es keine Scheibe, nur einen breiten hellen Fleck.
     zenit: '#26333a', horizont: '#3e4a48', scheibe: 0.0, hof: 42,
+    // Im Dunst streut das Licht ohnehin um jede Kante — Rand dezent.
+    randFarbe: '#8a9a9c', randStaerke: 0.14,
   },
-  nacht: {
-    himmel: '#0a0f12', nebel: '#101a1c', nebelNah: 25, nebelFern: 260,
-    sonne: '#8fa9c4', sonneStaerke: 0.45, umgebung: '#162124', umgebungStaerke: 0.35,
-    sonnenstand: [-80, 90, 60] as const,
-    belichtung: 1.40,
-    // Mond: harte kleine Scheibe, fast kein Hof.
-    zenit: '#05080d', horizont: '#131c22', scheibe: 0.0009, hof: 900,
+  abendrot: {
+    himmel: '#1a1614', nebel: '#2a221d', nebelNah: 50, nebelFern: 380,
+    sonne: '#d98b5b', sonneStaerke: 1.15, umgebung: '#463a35', umgebungStaerke: 0.7,
+    sonnenstand: [130, 28, 70] as const,
+    belichtung: 2.0,
+    zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
+    randFarbe: '#c07a4e', randStaerke: 0.26,
   },
-} as const;
+};
 export type StimmungsName = keyof typeof STIMMUNG;
+
+/**
+ * Schlüsselbilder auf der Zeitachse 0…1. Der Lauf ist zyklisch: 1 ist wieder 0.
+ */
+const TAGESLAUF: { zeit: number; name: string }[] = [
+  { zeit: 0.00, name: 'nacht' },
+  { zeit: 0.26, name: 'daemmerung' },
+  { zeit: 0.52, name: 'nebelmorgen' },
+  { zeit: 0.78, name: 'abendrot' },
+];
+
+function mischeFarbe(a: string, b: string, t: number): string {
+  return '#' + new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString();
+}
+
+/**
+ * Stimmung zu einem Zeitpunkt.
+ *
+ * Linear zwischen den Nachbarschlüsseln. Bewusst linear und nicht geglättet: Der
+ * Regler ist ein Werkzeug zum Suchen eines Looks, und eine Kurve würde bestimmte
+ * Zustände unerreichbar machen — genau die, die man sucht.
+ */
+export function stimmungBei(zeit: number): Stimmung {
+  const t = ((zeit % 1) + 1) % 1;
+  let i = 0;
+  for (let k = 0; k < TAGESLAUF.length; k++) if (t >= TAGESLAUF[k].zeit) i = k;
+  const a = TAGESLAUF[i];
+  const b = TAGESLAUF[(i + 1) % TAGESLAUF.length];
+  const spanne = (b.zeit > a.zeit ? b.zeit : b.zeit + 1) - a.zeit;
+  const f = spanne > 0 ? (t - a.zeit) / spanne : 0;
+
+  const A = STIMMUNG[a.name], B = STIMMUNG[b.name];
+  const z = (x: number, y: number) => x + (y - x) * f;
+  return {
+    himmel: mischeFarbe(A.himmel, B.himmel, f),
+    nebel: mischeFarbe(A.nebel, B.nebel, f),
+    nebelNah: z(A.nebelNah, B.nebelNah),
+    nebelFern: z(A.nebelFern, B.nebelFern),
+    sonne: mischeFarbe(A.sonne, B.sonne, f),
+    sonneStaerke: z(A.sonneStaerke, B.sonneStaerke),
+    umgebung: mischeFarbe(A.umgebung, B.umgebung, f),
+    umgebungStaerke: z(A.umgebungStaerke, B.umgebungStaerke),
+    // Der Sonnenstand wandert mit — das ist der Teil, den man als Bewegung sieht.
+    sonnenstand: [
+      z(A.sonnenstand[0], B.sonnenstand[0]),
+      z(A.sonnenstand[1], B.sonnenstand[1]),
+      z(A.sonnenstand[2], B.sonnenstand[2]),
+    ] as const,
+    belichtung: z(A.belichtung, B.belichtung),
+    zenit: mischeFarbe(A.zenit, B.zenit, f),
+    horizont: mischeFarbe(A.horizont, B.horizont, f),
+    scheibe: z(A.scheibe, B.scheibe),
+    hof: z(A.hof, B.hof),
+    randFarbe: mischeFarbe(A.randFarbe, B.randFarbe, f),
+    randStaerke: z(A.randStaerke, B.randStaerke),
+  };
+}
+
+/** Zeitpunkt eines Schlüsselbilds — für die Schnellwahl in der Oberfläche. */
+export const TAGESZEITEN = TAGESLAUF.map(k => ({ name: k.name, zeit: k.zeit }));
 
 
 /**
@@ -125,10 +227,12 @@ function LodTerrain({ feld, kacheln, ziel }: {
   ))}</>;
 }
 
-function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte }: {
+function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
   welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
   kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
   props: PropInstanz[]; dichte: number;
+  /** Silhouettenlicht — Farbe und Stärke kommen aus der Stimmung. */
+  rand: { farbe: string; staerke: number };
 }) {
   /**
    * Wege, Gewässer und Gebäude setzen auf dem Gelände auf — sie brauchen deshalb
@@ -142,12 +246,21 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte }: {
   const aufBoden = useMemo(() => ({ ...terrain, hoeheAn: feld.hoehe }), [terrain, feld]);
   const wasserMaterial = useMemo(() => baueWasserMaterial(), []);
   const wegMaterial = useMemo(() => baueWegMaterial(), []);
+  const wind = useMemo(() => baueWindMaterial({
+    amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
+  }), []);
+  useEffect(() => {
+    wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);
+  }, [wind, rand]);
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
+  const uhr = useRef(0);
   useFrame((_, dt) => {
+    uhr.current += dt;
     const z = wasserMaterial.userData.zeit as { value: number } | undefined;
     if (z) z.value += dt;
+    wind.setzeZeit(uhr.current);
   });
   const { gewaesser, gebaeude, wege } = useMemo(() => ({
     gewaesser: baueGewaesser(welt, aufBoden),
@@ -168,7 +281,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte }: {
         </mesh>
       )}
 
-      <Props props={props} />
+      <Props props={props} wind={wind.material} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
     </group>
   );
@@ -186,7 +299,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte }: {
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
-function Props({ props }: { props: PropInstanz[] }) {
+function Props({ props, wind }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; fern: boolean; id: string }[]>([]);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
@@ -207,7 +320,8 @@ function Props({ props }: { props: PropInstanz[] }) {
 
   return (
     <>
-      {sichtbar.map(({ c, fern, id }) => <PropChunkMesh key={id} chunk={c} fern={fern} />)}
+      {sichtbar.map(({ c, fern, id }) =>
+        <PropChunkMesh key={id} chunk={c} fern={fern} wind={wind} />)}
     </>
   );
 }
@@ -247,12 +361,18 @@ function useNormiertesPropMesh(art: PropArt, variante: number) {
   }, [scene, art, eigen, variante]);
 }
 
-function PropChunkMesh({ chunk, fern }: { chunk: PropChunk; fern: boolean }) {
+function PropChunkMesh({ chunk, fern, wind }: {
+  chunk: PropChunk; fern: boolean; wind: THREE.MeshStandardMaterial;
+}) {
   const { geo, mat } = useNormiertesPropMesh(chunk.art, chunk.variante);
   const fernGeo = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
   const fernMaterial = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
   }), []);
+  // Nur was sich biegen kann, bekommt das Windmaterial. Findlinge und Totholz
+  // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
+  // als bewegtes Laub aufbaut.
+  const biegsam = chunk.art === 'nadelbaum' || chunk.art === 'laubbaum' || chunk.art === 'busch';
   const ref = useRef<THREE.InstancedMesh>(null);
 
   useEffect(() => {
@@ -289,7 +409,7 @@ function PropChunkMesh({ chunk, fern }: { chunk: PropChunk; fern: boolean }) {
     <instancedMesh
       ref={ref} args={[undefined, undefined, chunk.instanzen.length]}
       geometry={fern ? fernGeo : geo}
-      material={fern ? fernMaterial : (mat ?? rueckfall)}
+      material={fern ? fernMaterial : (biegsam ? wind : (mat ?? rueckfall))}
       castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
     />
   );
@@ -330,7 +450,7 @@ export interface Naehe {
 /** So weit muss man sich nach einer Begegnung entfernen, bevor die nächste zählt. */
 const SPERRE_BIS = 14;
 
-function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbraucht }: {
+function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbraucht, rand }: {
   vorkommen: Vorkommen[];
   gestalt: (kreatur: string) => THREE.BufferGeometry;
   ziel: React.RefObject<THREE.Object3D | null>;
@@ -340,6 +460,7 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
   onBegegnung?: (v: Vorkommen) => void;
   /** Bereits gefangen oder besiegt — steht nicht mehr in der Welt. */
   verbraucht?: ReadonlySet<string>;
+  rand: { farbe: string; staerke: number };
 }) {
   const uebrig = useMemo(
     () => (verbraucht?.size ? vorkommen.filter(v => !verbraucht.has(v.id)) : vorkommen),
@@ -352,9 +473,15 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
   const sperre = useRef<THREE.Vector3 | null>(null);
   const naechste = useRef<{ x: number; z: number; kreatur: string } | null>(null);
 
-  const material = useMemo(() => new THREE.MeshStandardMaterial({
-    vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0,
+  // Kreaturen sind das, wonach der Spieler sucht — ihr Umriss muss vom Hang
+  // wegstehen. Wind bekommen sie keinen (Amplitude 0): Ein schwingendes Tier
+  // sieht nicht nach Wind aus, sondern nach kaputter Animation.
+  const { material, setzeRand } = useMemo(() => baueWindMaterial({
+    amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 1.4,
   }), []);
+  useEffect(() => {
+    setzeRand(new THREE.Color(rand.farbe), rand.staerke * 1.4);
+  }, [setzeRand, rand]);
 
   useFrame(() => {
     const p = ziel.current?.position;
@@ -467,10 +594,9 @@ function Regentenort({ ort, gestalt, ziel, onNah }: {
   );
 }
 
-function Beleuchtung({ stimmung, ziel }: {
-  stimmung: StimmungsName; ziel: React.RefObject<THREE.Object3D | null>;
+function Beleuchtung({ s, ziel }: {
+  s: Stimmung; ziel: React.RefObject<THREE.Object3D | null>;
 }) {
-  const s = STIMMUNG[stimmung];
   const { scene, gl } = useThree();
   const sonne = useRef<THREE.DirectionalLight>(null);
 
@@ -718,14 +844,18 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision }: {
  * vier Rotationen und ein Versatz je Bild. Der Unterschied zum vorherigen Zustand
  * ist trotzdem der zwischen „gleitet über den Boden" und „läuft".
  */
-function SpielerFigur({ gier, schritt }: {
+function SpielerFigur({ gier, schritt, rand }: {
   gier: React.RefObject<number>;
   schritt: React.RefObject<{ phase: number; tempo: number }>;
+  rand: { farbe: string; staerke: number };
 }) {
   const teile = useMemo(() => baueSpielerTeile(), []);
-  const material = useMemo(() => new THREE.MeshStandardMaterial({
-    vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0,
+  const { material, setzeRand } = useMemo(() => baueWindMaterial({
+    amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
   }), []);
+  useEffect(() => {
+    setzeRand(new THREE.Color(rand.farbe), rand.staerke);
+  }, [setzeRand, rand]);
   const gruppe = useRef<THREE.Group>(null);
   const rumpf = useRef<THREE.Group>(null);
   const beinL = useRef<THREE.Mesh>(null);
@@ -867,7 +997,8 @@ export const QUALITAET_STANDARD: Qualitaet = { dpr: 2, schatten: true, gras: 1 }
 
 export interface RegionsSzeneProps {
   welt: Weltdaten;
-  stimmung?: StimmungsName;
+  /** Tageszeit 0…1, zyklisch. Ersetzt die frühere Auswahl aus drei festen Stimmungen. */
+  tageszeit?: number;
   spielerRef?: React.RefObject<THREE.Object3D | null>;
   /** Wird je halbe Sekunde mit den echten Renderzahlen aufgerufen. */
   onMessung?: (m: Messwerte) => void;
@@ -904,13 +1035,16 @@ export interface RegionsSzeneProps {
 }
 
 export function RegionsSzene({
-  welt, stimmung = 'daemmerung', spielerRef, onMessung,
+  welt, tageszeit = 0.26, spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, onRegentNah, startPosition, angehalten = false,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
   const gier = useRef(0);
+  // Einmal je Zeitpunkt mischen, nicht je Bild: Farbmischung ist billig, aber sie
+  // hängt an einem Regler und nicht an der Bildrate.
+  const s = useMemo(() => stimmungBei(tageszeit), [tageszeit]);
   const neigung = useRef(NEIGUNG_START);
   const schritt = useRef({ phase: 0, tempo: 0 });
 
@@ -972,10 +1106,13 @@ export function RegionsSzene({
       camera={{ fov: 55, near: 0.2, far: 1500, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
-      <Beleuchtung stimmung={stimmung} ziel={ref} />
-      <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} props={props} dichte={qualitaet.gras} />
+      <Beleuchtung s={s} ziel={ref} />
+      <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref}
+               props={props} dichte={qualitaet.gras}
+               rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       <object3D ref={ref} position={start}>
-        <SpielerFigur gier={gier} schritt={schritt} />
+        <SpielerFigur gier={gier} schritt={schritt}
+                      rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} />
@@ -984,7 +1121,8 @@ export function RegionsSzene({
       )}
       {vorkommen.length > 0 && gestalt && (
         <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref} gier={gier}
-                   naehe={naehe} onBegegnung={onBegegnung} verbraucht={verbraucht} />
+                   naehe={naehe} onBegegnung={onBegegnung} verbraucht={verbraucht}
+                   rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} />
       <Messung melde={onMessung} />

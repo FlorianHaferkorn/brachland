@@ -2,9 +2,8 @@ import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'r
 import { createRoot } from 'react-dom/client';
 import * as THREE from 'three';
 import { entpackeWelt, type Weltdaten } from './world/osm.js';
-import { RegionsSzene, STIMMUNG, QUALITAET_STANDARD,
-         type StimmungsName, type Messwerte, type Qualitaet,
-         type Naehe } from './scenes/RegionsSzene.js';
+import { RegionsSzene, TAGESZEITEN, QUALITAET_STANDARD,
+         type Messwerte, type Qualitaet, type Naehe } from './scenes/RegionsSzene.js';
 import { Witterung } from './ui/Witterung.js';
 import type { Vorkommen } from './world/vorkommen.js';
 import { KREATUREN, REGENTEN, WILDLINGE, baueKaempfer, baueRegent, regentOrt } from './data/inhalte.js';
@@ -32,7 +31,7 @@ const REGENT_ID = 'flussvater';
 function App() {
   const [welt, setWelt] = useState<Weltdaten | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
-  const [stimmung, setStimmung] = useState<StimmungsName>('daemmerung');
+  const [tageszeit, setTageszeit] = useState(0.26);
   const [messung, setMessung] = useState<Messwerte | null>(null);
   const [qualitaet, setQualitaet] = useState<Qualitaet>(QUALITAET_STANDARD);
   const [schalterOffen, setSchalterOffen] = useState(false);
@@ -211,7 +210,7 @@ function App() {
   return (
     <>
       <RegionsSzene
-        welt={welt} stimmung={stimmung} onMessung={setMessung}
+        welt={welt} tageszeit={tageszeit} onMessung={setMessung}
         qualitaet={qualitaet}
         spielerRef={spielerRef}
         kreaturen={WILDLINGE}
@@ -257,17 +256,30 @@ function App() {
 
       {!imKampf && (
         <>
+          {/* Tageszeit als Regler statt als drei Knöpfe. Die interessanten Zustände
+              liegen zwischen den Schlüsselbildern, nicht auf ihnen. Die Marken
+              darunter springen zu den Schlüsseln — zum Wiederfinden, nicht als
+              einzige Auswahl. */}
           <div style={{
             position: 'fixed', top: 'env(safe-area-inset-top, 8px)', left: 8,
-            display: 'flex', gap: 6, zIndex: 10,
+            display: 'flex', flexDirection: 'column', gap: 4, zIndex: 10,
+            background: '#0d1210aa', border: '1px solid #2a3632',
+            borderRadius: 10, padding: '6px 9px', width: 168,
           }}>
-            {(Object.keys(STIMMUNG) as StimmungsName[]).map(s => (
-              <button key={s} onClick={() => setStimmung(s)} style={{
-                minHeight: 34, padding: '4px 10px', borderRadius: 8, fontSize: 12,
-                background: s === stimmung ? '#1f2b27' : 'transparent',
-                border: '1px solid #2a3632', color: s === stimmung ? '#3fd9a0' : '#7d8b85',
-              }}>{s}</button>
-            ))}
+            <input type="range" min={0} max={0.999} step={0.002} value={tageszeit}
+              onChange={e => setTageszeit(Number(e.target.value))}
+              style={{ width: '100%', accentColor: '#3fd9a0', height: 18 }} />
+            <div style={{ display: 'flex', gap: 3, justifyContent: 'space-between' }}>
+              {TAGESZEITEN.map(k => (
+                <button key={k.name} onClick={() => setTageszeit(k.zeit)} style={{
+                  flex: 1, minHeight: 24, padding: '2px 2px', borderRadius: 6, fontSize: 9,
+                  background: Math.abs(tageszeit - k.zeit) < 0.02 ? '#1f2b27' : 'transparent',
+                  border: '1px solid #2a3632',
+                  color: Math.abs(tageszeit - k.zeit) < 0.02 ? '#3fd9a0' : '#7d8b85',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{k.name.slice(0, 5)}</button>
+              ))}
+            </div>
           </div>
 
           <Witterung naehe={naehe} />

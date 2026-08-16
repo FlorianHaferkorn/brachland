@@ -70,12 +70,26 @@ function mulberry(seed: number) {
   };
 }
 
-function faerbe(g: THREE.BufferGeometry, farbe: THREE.Color): THREE.BufferGeometry {
+/**
+ * Färbt ein Teil und legt fest, wie stark der Wind daran zieht.
+ *
+ * `wind` ist der Grund, warum ein Baum sich bewegen kann, ohne dass der Stamm
+ * mitwackelt: 0 am Stamm, 1 in der Krone. Das Attribut wandert durch die
+ * Verschmelzung hindurch bis in den Vertex-Shader.
+ */
+function faerbe(
+  g: THREE.BufferGeometry, farbe: THREE.Color, wind = 0,
+): THREE.BufferGeometry {
   const roh = g.index ? g.toNonIndexed() : g;
   const n = roh.getAttribute('position').count;
   const col = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) { col[i * 3] = farbe.r; col[i * 3 + 1] = farbe.g; col[i * 3 + 2] = farbe.b; }
+  const wnd = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    col[i * 3] = farbe.r; col[i * 3 + 1] = farbe.g; col[i * 3 + 2] = farbe.b;
+    wnd[i] = wind;
+  }
   roh.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  roh.setAttribute('aWind', new THREE.BufferAttribute(wnd, 1));
   return roh;
 }
 
@@ -111,7 +125,8 @@ export function baueBaum(art: BaumArt, variante = 0): THREE.BufferGeometry {
     const r1 = w.fussRadius * (1 - t1 * 0.85);
     const g = new THREE.CylinderGeometry(r1, r0, stammHoehe / abschnitte, 5, 1, true);
     g.translate(0, stammHoehe * (t0 + t1) / 2, 0);
-    teile.push(faerbe(g, stammFarbe));
+    // Der Stamm bewegt sich nicht — oben minimal, damit die Spitze nicht abknickt.
+    teile.push(faerbe(g, stammFarbe, t1 * t1 * 0.12));
   }
 
   if (art === 'buche') {
@@ -120,7 +135,7 @@ export function baueBaum(art: BaumArt, variante = 0): THREE.BufferGeometry {
       const g = new THREE.CylinderGeometry(0.08, w.fussRadius * 0.4, hoehe * 0.3, 4, 1, true);
       g.rotateZ(seite * 0.42);
       g.translate(seite * hoehe * 0.06, stammHoehe + hoehe * 0.13, 0);
-      teile.push(faerbe(g, stammFarbe));
+      teile.push(faerbe(g, stammFarbe, 0.3));
     }
   }
 
@@ -148,7 +163,8 @@ export function baueBaum(art: BaumArt, variante = 0): THREE.BufferGeometry {
       ast.rotateZ(-nick + Math.PI / 2);
       ast.rotateY(-phi);
       ast.translate(0, y, 0);
-      teile.push(faerbe(ast, stammFarbe));
+      // Äste biegen sich mit, aber weniger als das Laub an ihrem Ende.
+      teile.push(faerbe(ast, stammFarbe, 0.45 + t * 0.3));
 
       // Laub entlang des Astes. Flach gedrückt, damit die Silhouette waagerecht
       // liest — bei Nadelbäumen ist genau das die erkennbare Form.
@@ -171,7 +187,8 @@ export function baueBaum(art: BaumArt, variante = 0): THREE.BufferGeometry {
           y + Math.cos(nick) * r + (zufall() - 0.5) * 0.2,
           dz * r * Math.sin(nick),
         );
-        teile.push(faerbe(kugel, zufall() < 0.5 ? laubA : laubB));
+        // Volles Windattribut: Laub ist das, was sich sichtbar bewegt.
+        teile.push(faerbe(kugel, zufall() < 0.5 ? laubA : laubB, 0.85 + t * 0.15));
       }
     }
   }
@@ -180,7 +197,7 @@ export function baueBaum(art: BaumArt, variante = 0): THREE.BufferGeometry {
     // Spitze — ohne sie sieht die Fichte oben abgeschnitten aus.
     const spitze = new THREE.ConeGeometry(hoehe * 0.045, hoehe * 0.13, 5);
     spitze.translate(0, hoehe * 0.955, 0);
-    teile.push(faerbe(spitze, laubA));
+    teile.push(faerbe(spitze, laubA, 1));
   }
 
   const g = mergeGeometries(teile, false);

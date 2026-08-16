@@ -48,6 +48,7 @@ owns: *.ts, *.tsx
 | `world/bandmaterial.ts` | Wasser und Wege: weiche Ränder statt Plattenkante, Strömung und Spurrinnen im Shader |
 | `world/baum.ts` | Fichte und Buche als Geometrie statt als Datei. 872 bzw. 782 Dreiecke, null Bytes Download — EZ-Tree hätte 4 MB gekostet |
 | `world/himmel.ts` | Verlaufshimmel im Shader: Zenit zu Horizont, Dunstband in Nebelfarbe, Sonnenscheibe mit Hof, Gegenlicht. 320 Dreiecke, null Bytes |
+| `world/windmaterial.ts` | Silhouettenlicht (Fresnel gegen die Himmelsfarbe) und Wind für Prop-Instanzen. Was schwingen darf, steht als Attribut `aWind` in der Geometrie |
 | `ui/Witterung.tsx` | Richtung und Abstand zur nächsten Kreatur. Notwendig, weil eine Kreatur auf 62 m nur zwölf Pixel hoch ist |
 | `spieler/peilung.ts` | Richtung zu einem Punkt relativ zum Blick. Rein und getestet — hier steckte ein Vorzeichenfehler |
 | `scenes/RegionsSzene.tsx` | Art Direction als Code: 3 Stimmungen mit Nebel-, Sonnen- und Umgebungswerten; Props als `InstancedMesh` |
