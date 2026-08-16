@@ -7,15 +7,18 @@
  * Props laufen als InstancedMesh — 40.000 Bäume als Einzelobjekte würden jedes
  * Handy erledigen, als Instanzen sind es eine Handvoll Draw Calls.
  */
-import { useMemo, useRef, useEffect } from 'react';
+import { useMemo, useRef, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
 import { baueTerrain, baueGewaesser, baueGebaeude, baueWege, GROESSE,
          type TerrainErgebnis } from '../world/terrain.js';
 import { useGLTF } from '@react-three/drei';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
+         type HoehenFeld, type Kachel } from '../world/lod.js';
 import { verteileProps, chunkeProps, propGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
-         PROP_FARBE, type PropArt, type PropChunk } from '../world/props.js';
+         PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 
 /** Tageszeiten. Der Look lebt von Dämmerung und Nebel — Mittagssonne verzeiht nichts. */
 export const STIMMUNG = {
@@ -37,7 +40,75 @@ export const STIMMUNG = {
 } as const;
 export type StimmungsName = keyof typeof STIMMUNG;
 
-function Terrain({ welt, terrain }: { welt: Weltdaten; terrain: TerrainErgebnis }) {
+/**
+ * Sichtweite des Terrains. Der Nebel endet je nach Stimmung bei 240–420 m;
+ * 500 m deckt alle drei ab, alles dahinter wäre gezeichnete Nebelfarbe.
+ */
+const TERRAIN_SICHT = 500;
+
+/** Erst ab dieser Bewegung wird die LOD-Zuordnung neu bestimmt. */
+const NEUAUFBAU_AB = 32;
+
+/**
+ * Terrain als LOD-Kacheln statt eines groben Rasters.
+ *
+ * Das alte 96×96-Raster über 4 km ergibt 41,8 m je Vertex — direkt vor dem Spieler
+ * ist der Boden dann eine einzige Fläche ohne jede Kante. Hier wird je Kachel nach
+ * Abstand aufgelöst: 2 m nah, 32 m fern.
+ *
+ * Zwei Dinge, die den Ausschlag geben:
+ * - Kacheln derselben Stufe werden zu einer Geometrie zusammengefasst. Einzeln wären
+ *   es ~180 Draw Calls; so sind es fünf.
+ * - Gebaute Kacheln bleiben im Cache. Ein Neuaufbau pro Bild wäre unbezahlbar, und
+ *   ohne Bewegung ändert sich die Zuordnung ohnehin nicht.
+ */
+function LodTerrain({ feld, kacheln, ziel }: {
+  feld: HoehenFeld; kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
+}) {
+  const cache = useRef(new Map<string, THREE.BufferGeometry>());
+  const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  const [stufen, setStufen] = useState<THREE.BufferGeometry[]>([]);
+
+  const material = useMemo(() => new THREE.MeshStandardMaterial({
+    vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0,
+  }), []);
+
+  useFrame(() => {
+    const p = ziel.current?.position;
+    if (!p) return;
+    // Beim ersten Bild ist der Abstand NaN — der Vergleich schlägt fehl, also wird gebaut.
+    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+    letzte.current.copy(p);
+
+    const jeStufe = new Map<number, THREE.BufferGeometry[]>();
+    for (const k of kacheln) {
+      const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
+      if (d > TERRAIN_SICHT) continue;
+      const lod = lodFuerAbstand(d);
+      const schluessel = `${k.ix}:${k.iz}:${lod}`;
+      let g = cache.current.get(schluessel);
+      if (!g) { g = baueKachelGeometrie(feld, k, lod); cache.current.set(schluessel, g); }
+      const liste = jeStufe.get(lod);
+      if (liste) liste.push(g); else jeStufe.set(lod, [g]);
+    }
+
+    const zusammengefasst: THREE.BufferGeometry[] = [];
+    for (const gs of jeStufe.values()) {
+      const m = mergeGeometries(gs, false);
+      if (m) zusammengefasst.push(m);
+    }
+    setStufen(vorher => { vorher.forEach(g => g.dispose()); return zusammengefasst; });
+  });
+
+  return <>{stufen.map((g, i) => (
+    <mesh key={i} geometry={g} material={material} receiveShadow castShadow />
+  ))}</>;
+}
+
+function Terrain({ welt, terrain, feld, kacheln, ziel }: {
+  welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
+  kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
+}) {
   const { gewaesser, gebaeude, wege } = useMemo(() => ({
     gewaesser: baueGewaesser(welt, terrain),
     gebaeude: baueGebaeude(welt, terrain),
@@ -46,9 +117,7 @@ function Terrain({ welt, terrain }: { welt: Weltdaten; terrain: TerrainErgebnis 
 
   return (
     <group>
-      <mesh geometry={terrain.geometrie} receiveShadow castShadow>
-        <meshStandardMaterial vertexColors flatShading roughness={0.95} metalness={0} />
-      </mesh>
+      <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} />
 
       {wege && (
         <mesh geometry={wege} receiveShadow>
@@ -72,18 +141,28 @@ function Terrain({ welt, terrain }: { welt: Weltdaten; terrain: TerrainErgebnis 
         </mesh>
       )}
 
-      <Props welt={welt} terrain={terrain} />
+      <Props welt={welt} terrain={terrain} feld={feld} />
     </group>
   );
 }
 
-function Props({ welt, terrain }: { welt: Weltdaten; terrain: ReturnType<typeof baueTerrain> }) {
+function Props({ welt, terrain, feld }: {
+  welt: Weltdaten; terrain: ReturnType<typeof baueTerrain>; feld: HoehenFeld;
+}) {
   // Chunks statt einer Riesen-Instanz je Art: nur so lässt sich nach Entfernung ausblenden.
   // Ohne Culling wären es ~485.000 Dreiecke, mit ~115.000–265.000 je nach Standort.
-  const chunks = useMemo(
-    () => chunkeProps(verteileProps(welt, terrain, 1)),
-    [welt, terrain],
-  );
+  //
+  // Die Y-Koordinate kommt aus dem Höhenfeld, nicht aus dem groben Raster: Der Boden
+  // wird als LOD-Kachel mit Mikrorelief gezeichnet, und wer auf dem Raster platziert,
+  // lässt seine Bäume um bis zu ~1,2 m schweben oder versinken.
+  const chunks = useMemo(() => {
+    const roh = verteileProps(welt, terrain, 1);
+    const aufBoden: PropInstanz[] = roh.map(p => ({
+      ...p,
+      position: [p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2]],
+    }));
+    return chunkeProps(aufBoden);
+  }, [welt, terrain, feld]);
   return (
     <>
       {chunks.map((c, i) => <PropChunkMesh key={i} chunk={c} />)}
@@ -161,19 +240,43 @@ function PropChunkMesh({ chunk }: { chunk: PropChunk }) {
   );
 }
 
-function Beleuchtung({ stimmung }: { stimmung: StimmungsName }) {
+function Beleuchtung({ stimmung, ziel }: {
+  stimmung: StimmungsName; ziel: React.RefObject<THREE.Object3D | null>;
+}) {
   const s = STIMMUNG[stimmung];
   const { scene } = useThree();
+  const sonne = useRef<THREE.DirectionalLight>(null);
+
   useEffect(() => {
     scene.fog = new THREE.Fog(s.nebel, s.nebelNah, s.nebelFern);
     scene.background = new THREE.Color(s.himmel);
     return () => { scene.fog = null; };
   }, [scene, s]);
 
+  /**
+   * Die Sonne wandert mit dem Spieler.
+   *
+   * `sonnenstand` ist ein fester Weltpunkt auf Höhe ~55 m. Das Œntal liegt aber
+   * zwischen 0 und 775 m über dem Bezugspunkt — der Spieler startet auf 199 m.
+   * Eine ortsfeste Lichtquelle hätte ihre Schattenkamera damit unter dem Gelände,
+   * und die Schattenberechnung liefert grobe Rechtecke statt Schatten. Als Versatz
+   * relativ zum Spieler bleibt die Sonnenrichtung erhalten, die Schattenkamera
+   * bleibt aber immer über der Szene.
+   */
+  useFrame(() => {
+    const p = ziel.current?.position;
+    const l = sonne.current;
+    if (!p || !l) return;
+    l.position.set(p.x + s.sonnenstand[0], p.y + s.sonnenstand[1], p.z + s.sonnenstand[2]);
+    l.target.position.copy(p);
+    l.target.updateMatrixWorld();
+  });
+
   return (
     <>
       <hemisphereLight args={[s.umgebung, '#121a16', s.umgebungStaerke]} />
       <directionalLight
+        ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
         color={s.sonne} intensity={s.sonneStaerke}
         castShadow shadow-mapSize={[2048, 2048]}
@@ -218,15 +321,20 @@ export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: Regi
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
 
-  // EIN Terrain-Build für Geometrie, Props und Startposition.
+  // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
+  // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
   const terrain = useMemo(() => baueTerrain(welt), [welt]);
+
+  // Höhenfeld mit Mikrorelief — die gemeinsame Wahrheit für Boden, Props und Spawn.
+  const feld = useMemo(() => baueHoehenfeld(welt), [welt]);
+  const kacheln = useMemo(() => baueKachelraster(feld), [feld]);
 
   // Ohne Startposition steht der Spieler im Ursprung (y = 0) — im Œntal sind das
   // ~170 m unter der Geländeoberfläche, die Kamera schaut dann von innen durch den
   // Berg. Bis es echte Bewegung gibt, ist die Regionsmitte der Startpunkt.
   const start = useMemo<[number, number, number]>(
-    () => [0, terrain.hoeheAn(0, 0), 0],
-    [terrain],
+    () => [0, feld.hoehe(0, 0), 0],
+    [feld],
   );
 
   return (
@@ -236,8 +344,8 @@ export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: Regi
       camera={{ fov: 55, near: 0.2, far: 1500, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
-      <Beleuchtung stimmung={stimmung} />
-      <Terrain welt={welt} terrain={terrain} />
+      <Beleuchtung stimmung={stimmung} ziel={ref} />
+      <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} />
       <object3D ref={ref} position={start} />
       <Kamera ziel={ref} />
     </Canvas>

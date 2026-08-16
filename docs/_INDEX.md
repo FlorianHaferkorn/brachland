@@ -66,7 +66,9 @@ shelf-life-days: 90
 | B-9 | `content/moves/` leer; 2 von 35 Kreaturen aus Kapitel 1 angelegt (Region und Regent sind da) | `content/_INDEX.md` | 🟡 | Inhalte stehen in `design/` |
 | B-10 | `assets/rigs/` leer — `autorig.py` braucht die Archetyp-Rigs | `assets/_INDEX.md` | 🟡 | offen |
 | G-1 | Szene erstmals live gesehen (Browser, 16.08.2026) | — | ✅ | rendert: Terrain, Horizont, Nebel, Props. Auf dem **Handy** noch offen |
-| G-6 | **`lod.ts` ist nicht in der Szene verdrahtet** — `RegionsSzene` nutzt `baueTerrain`, LOD nur in den Mess-Werkzeugen. Live bestätigt: 24 Vertices im 50-m-Umkreis, der Boden vor der Kamera ist eine einzige Fläche | `grep -rn lod.js src/` | 🔴 | genau das Problem, das LOD lösen sollte — Einbau steht aus |
+| G-6 | `lod.ts` nicht in der Szene verdrahtet | — | ✅ | eingebaut 16.08.2026: 226 Kacheln, 84.096 Dreiecke, **4 Draw Calls**, Nahfeld-Relief 0,73 m bei 2 m Radius statt konstant 7,05 m |
+| G-8 | **Sichtbare Kachelgrenzen**: Helligkeitssprünge an LOD-Übergängen, bei flachem Blickwinkel deutlich. Schattenwurf und Schürzen als Ursache experimentell ausgeschlossen | Screenshot 16.08.2026 | 🟡 | vermutlich Flat Shading über unterschiedlich tessellierte Nachbarkacheln |
+| G-9 | Der gemessene Detailgewinn ist am Startpunkt kaum **sichtbar** — die Kamera schaut aus 3,4 m fast waagerecht über eine glatte Wiesenflanke, das Nahfeld schrumpft auf wenige Pixel | Screenshot + Messung | 🟡 | erst mit Bewegung (G-4) beurteilbar |
 | G-7 | `daemmerung` ist am Startpunkt praktisch schwarz; erst `nebelmorgen` zeigt die Szene | Screenshot 16.08.2026 | 🟡 | Lichtwerte gegen echte Hardware prüfen, nicht gegen den Laptop |
 | G-2 | Stil-Referenz für Kreaturen festzurren; Prompt des Steinbocks sichern | ADR-0002 | 🟡 | offen |
 | G-4 | Spielerfigur und Bewegung fehlen | `GDD.md` | 🟡 | Startposition gesetzt (Regionsmitte, auf dem Gelände), Figur und Steuerung offen |
@@ -91,3 +93,5 @@ shelf-life-days: 90
 | D11 | Inhalte als validierte Daten, nie hartkodiert | Der einzige Weg, 200 Kreaturen beherrschbar zu halten | 2026-08-16 | ADR-0004 |
 | D12 | `tools/` für Spiel-Werkzeuge, `scripts/` für Repo-Kit und ROI | Zwei Herkünfte, zwei Lebenszyklen — Vermischung würde beide unklar machen | 2026-08-16 | — |
 | D13 | Startposition = Regionsmitte auf der Geländeoberfläche, ein Terrain-Build für Geometrie, Props und Spawn | Ohne sie stand die Kamera 199 m unter Grund und die Szene wirkte leer — kein Renderfehler, eine fehlende Zahl | 2026-08-16 | — |
+| D14 | Sichtbarer Boden = LOD-Kacheln; das grobe Terrain bleibt für Wege, Gewässer, Gebäude und die XZ-Verteilung der Props | Zwei Höhenquellen wären Drift; die Props holen ihr Y jetzt aus demselben Höhenfeld wie der Boden | 2026-08-16 | — |
+| D15 | Sonne folgt dem Spieler statt ortsfest bei y=55 zu stehen | Das Œntal reicht bis 775 m — eine ortsfeste Schattenkamera liegt unter dem Gelände. Änderte das Bild nicht sichtbar, ist aber unabhängig davon richtig | 2026-08-16 | — |
