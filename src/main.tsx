@@ -11,6 +11,7 @@ import { Kampfbildschirm, type KampfEnde } from './ui/BattleScreen.js';
 import type { Kaempfer, Team } from './engine/battle.js';
 import { ladeStand, speichereStand, LEERER_STAND,
          type Spielstand, type TeamEintrag } from './spiel/spielstand.js';
+import { benutzeBildrate } from './spiel/bildrate.js';
 
 /**
  * Startkreatur.
@@ -30,6 +31,9 @@ function App() {
   const [messung, setMessung] = useState<Messwerte | null>(null);
   const [qualitaet, setQualitaet] = useState<Qualitaet>(QUALITAET_STANDARD);
   const [schalterOffen, setSchalterOffen] = useState(false);
+  // Läuft immer — auch im Kampf, wenn die Szene steht. Der Vergleich beider Zahlen
+  // sagt, ob die Grenze in der Szene liegt oder im Gerät.
+  const seite = benutzeBildrate();
 
   const [stand, setStand] = useState<Spielstand | null>(null);
   const [team, setTeam] = useState<Kaempfer[]>([]);
@@ -155,6 +159,19 @@ function App() {
         startPosition={stand.position}
         angehalten={imKampf}
       />
+
+      {seite && (
+        <div style={{
+          position: 'fixed', top: 'env(safe-area-inset-top, 8px)', left: '50%',
+          transform: 'translateX(-50%)', zIndex: 50, pointerEvents: 'none',
+          fontFamily: 'ui-monospace, monospace', fontSize: 11, lineHeight: 1.4,
+          color: seite.mittel > 20 ? '#d98b6b' : '#5c8f76', textAlign: 'center',
+          background: '#0d1210cc', padding: '3px 8px', borderRadius: 6,
+        }}>
+          Seite {seite.bps.toFixed(0)} B/s · {seite.mittel.toFixed(1)} ms
+          {' · p95 '}{seite.p95.toFixed(1)} ms{imKampf ? ' · Szene steht' : ''}
+        </div>
+      )}
 
       {imKampf && begegnung && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 40, overflow: 'auto' }}>

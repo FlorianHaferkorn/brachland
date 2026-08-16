@@ -38,6 +38,7 @@ owns: *.ts, *.tsx
 | `data/schema.ts` | Zod-Schemas für Kreatur, Move, Region **plus Elementmatrix** — der Drift-Schutz. `npm run validate` prüft alle Inhalte dagegen |
 | `data/inhalte.ts` | Lädt `content/` ins Spiel und macht aus Kreatur + Stufe einen `Kaempfer` der Engine. Prüft die Daten auch im Browser |
 | `spiel/spielstand.ts` | Spielstand über IndexedDB: Team, gefangene und besiegte Vorkommen, Position. Nur Taten, keine Weltdaten |
+| `spiel/bildrate.ts` | Bildzeit der **Seite** über requestAnimationFrame — läuft auch, wenn die Szene steht. Trennt „Szene zu teuer" von „Gerät gedeckelt" |
 | `world/vorkommen.ts` | Kreaturen in der Welt: aus Spawn-Zonen deterministische Vorkommen, Stufe abhängig von der Entfernung zur Regionsmitte |
 | `world/kreaturgestalt.ts` | Silhouetten als Platzhalter, vier Bauformen nach `basisRig`, Farbe nach Element (ADR-0002 sperrt echte Modelle) |
 | `engine/battle.ts` | Kampflogik ohne 3D: Schaden, Elementfaktor, Fokus-Ökonomie, Phasen, Zehrung, deterministischer RNG |
