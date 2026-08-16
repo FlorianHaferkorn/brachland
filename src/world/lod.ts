@@ -175,11 +175,29 @@ export function lodFuerAbstand(abstand: number): number {
  * Mit Schürze: An den Rändern werden die Vertices nach unten gezogen. Ohne das
  * klaffen zwischen benachbarten LOD-Stufen sichtbare Risse, weil die feinere
  * Kachel Zwischenpunkte hat, die der gröberen fehlen.
+ *
+ * **Die Tiefe hängt an der LOD-Stufe, nicht an einer festen Zahl.** Gemessene
+ * Risse (16.08.2026):
+ *
+ * ```
+ *   LOD0/1 ( 2→ 4 m):  Mittel 0,03 m   Maximum 0,20 m
+ *   LOD1/2 ( 4→ 8 m):  Mittel 0,12 m   Maximum 0,77 m
+ *   LOD2/3 ( 8→16 m):  Mittel 0,38 m   Maximum 2,54 m
+ *   LOD3/4 (16→32 m):  Mittel 1,01 m   Maximum 6,97 m
+ * ```
+ *
+ * Eine feste Schürze von 3 m war im Nahbereich 15-fach überdimensioniert und in
+ * der Ferne zu klein. Das ist keine Kosmetik: Die überschüssige Tiefe erzeugt am
+ * Kachelrand eine senkrechte Wand, die mit Flat Shading fast kein Licht abbekommt
+ * und bei flachem Blickwinkel als dunkles Rechteckraster im Boden erscheint —
+ * genau der Fehler, der als G-8 zwei Fehldiagnosen überstanden hat.
  */
 export function baueKachelGeometrie(
-  feld: HoehenFeld, kachel: Kachel, lod: number, schuerzeTiefe = 3,
+  feld: HoehenFeld, kachel: Kachel, lod: number, schuerzeTiefeFest?: number,
 ): THREE.BufferGeometry {
   const schritt = LOD_STUFEN[Math.min(lod, LOD_STUFEN.length - 1)].schritt;
+  // 0,45 × Schritt deckt den gemessenen Maximalriss jeder Stufe mit Reserve.
+  const schuerzeTiefe = schuerzeTiefeFest ?? schritt * 0.45;
   const teile = Math.max(1, Math.round(KACHEL / schritt));
   const x0 = kachel.mitte[0] - KACHEL / 2;
   const z0 = kachel.mitte[1] - KACHEL / 2;

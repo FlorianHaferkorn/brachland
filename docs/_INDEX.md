@@ -67,7 +67,7 @@ shelf-life-days: 90
 | B-10 | `assets/rigs/` leer — `autorig.py` braucht die Archetyp-Rigs | `assets/_INDEX.md` | 🟡 | offen |
 | G-1 | Szene erstmals live gesehen (Browser, 16.08.2026) | — | ✅ | rendert: Terrain, Horizont, Nebel, Props. Auf dem **Handy** noch offen |
 | G-6 | `lod.ts` nicht in der Szene verdrahtet | — | ✅ | eingebaut 16.08.2026: 226 Kacheln, 84.096 Dreiecke, **4 Draw Calls**, Nahfeld-Relief 0,73 m bei 2 m Radius statt konstant 7,05 m |
-| G-8 | Sichtbare Kachelgrenzen: gerade, achsenparallele Hell/Dunkel-Kanten im Boden, ~64 m Raster, bewegen sich nicht mit dem Gelände | Screenshot 16.08.2026 | 📄 | wartet auf Sichtprüfung — das Boden-Rauschen (D21) könnte sie erledigt haben |
+| G-8 | Sichtbare Kachelgrenzen | — | ✅ | **Ursache: die Schürzen.** Feste 3 m erzeugen am Kachelrand eine senkrechte Wand, die mit Flat Shading kein Licht abbekommt. Tiefe jetzt an die LOD-Stufe gekoppelt |
 | G-9 | Detailgewinn am Startpunkt kaum sichtbar | — | ✅ | mit Bewegung und Streuschicht adressiert, 16.08.2026 |
 | G-12 | Streuschicht zu zurückhaltend | — | ✅ | nachgezogen: 0,80/m², 0,18–0,48 m, hellere Farben, breiter |
 | G-13 | **Aufgesetzte Geometrien standen auf der falschen Höhenquelle** — Wege, Gewässer und Gebäude aus dem groben Raster, sichtbarer Boden aus dem Mikrorelief-Feld. Gemessen 2,35 m Mittel, 24 m Maximum | Messung 16.08.2026 | ✅ | behoben: Wege 24 → 2,7 m, Gewässer 15 → 1,8 m |
@@ -104,6 +104,7 @@ shelf-life-days: 90
 | D15 | Sonne folgt dem Spieler statt ortsfest bei y=55 zu stehen | Das Œntal reicht bis 775 m — eine ortsfeste Schattenkamera liegt unter dem Gelände. Änderte das Bild nicht sichtbar, ist aber unabhängig davon richtig | 2026-08-16 | — |
 | D16 | Touch ist gleichwertig, kein Nachtrag: linke Bildhälfte gehen, rechte umsehen | Das Handy ist das Zielgerät. Eine nur mit Tastatur bedienbare Szene lässt sich dort nicht beurteilen | 2026-08-16 | — |
 | D18 | Tempo überhöht: gehen 3,0 / rennen 7,0 m/s bei 1:1-Maßstab | 1,4 m/s ist echtes Gehtempo und fühlt sich bei 4 km Region zäh an. Maßstab echt, Tempo überhöht — der übliche Weg, Querung rennend ~9,5 min | 2026-08-16 | — |
+| D25 | Schürzentiefe = 0,45 × LOD-Schritt statt fest 3 m | Gemessene Risse: 0,20 m bei LOD0/1 bis 6,97 m bei LOD3/4. Fest 3 m war nah 15-fach zu viel (sichtbare dunkle Wand) und fern zu wenig (offene Risse) | 2026-08-16 | — |
 | D23 | Figur steht auf der **gezeichneten** Fläche, nicht auf der stetigen Höhenfunktion | Zwischen Vertices im 2-m-Abstand liegt die Dreiecksfläche unter der Funktion — die Figur schwebte sichtbar auf Kuppen (`hoeheAufFlaeche`) | 2026-08-16 | — |
 | D24 | Kollision nur gegen Stämme, Findlinge und Totholz | Durch Unterholz geht man. Alles blockieren macht den Wald unbegehbar, statt ihn dicht wirken zu lassen | 2026-08-16 | — |
 | D22 | Belichtung getrennt von den Lichtwerten | Die Lichtwerte sind Art Direction und bleiben. Ob die Szene auf einem Bildschirm ankommt, ist eine andere Frage — dafür gibt es jetzt `belichtung` je Stimmung | 2026-08-16 | — |
