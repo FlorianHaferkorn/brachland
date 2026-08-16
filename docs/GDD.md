@@ -49,18 +49,24 @@ Drei umschaltbare Stimmungen: `daemmerung` (Nebel 60–420 m), `nebelmorgen`
 - **Keine Kreaturen in der Welt** — Kampf-Engine und -UI sind nicht mit der Szene verbunden
 - Keine Texturen, keine Animation über Auto-Rigging hinaus, kein Audio
 
-**Nicht im Repo:** Ein Großteil des oben Gebauten existiert nur als Beschreibung —
-die Sandbox ist weg. Was wirklich vorliegt: `docs/RECOVERY.md`.
+**Im Repo:** Alles oben Gebaute ist am 16.08.2026 rekonstruiert und verifiziert —
+`tsc` sauber, 16 Engine-Tests grün, Schema-Validierung bestanden, Build läuft.
+Was noch fehlt (Weltdaten, Prop-Modelle, Inhalte jenseits von Grathorn): `RECOVERY.md`.
+
+**Verbindliches Spieldesign:** `design/` — Story-Bibel, Kampfsystem v2.4, Roster
+Kapitel 1 (16 Linien, 35 Kreaturen), Move-System. Simulationsgeprüft, nicht ausgedacht.
 
 ## Nächste Schritte (Reihenfolge ist begründet)
 
-1. **Szene einmal live auf dem Handy sehen.** Alle bisherigen Bewertungen beruhten auf
+1. **Weltdaten erzeugen** (`npm run world oental 96`) und die 23 CC0-Prop-Modelle holen —
+   danach startet die Szene.
+2. **Szene einmal live auf dem Handy sehen.** Alle bisherigen Bewertungen beruhten auf
    Standbildern aus einem selbstgebauten Software-Renderer — kein tauglicher
-   Stellvertreter für three.js auf echter Hardware. Blockiert durch die fehlenden Module.
-2. **Stil-Referenz für die Kreaturen festzurren** (ADR-0002). Ein Bild definiert den
-   Look für alle 200. Erst danach Generierung.
-3. **Eine Kreatur komplett durch die Kette** inkl. Rigging — die letzte ungetestete Stelle.
-4. Dann erst Stapelproduktion.
+   Stellvertreter für three.js auf echter Hardware.
+3. **Grathorn-Modelle unter das 120-KB-Budget bringen** (Ledger A-6) — sonst skaliert die
+   Offline-Auslieferung nicht.
+4. **Stil-Referenz für die Kreaturen festzurren** (ADR-0002). Ein Bild definiert den
+   Look für alle 200. Erst danach Stapelproduktion.
 
 ## Nicht-Ziele
 

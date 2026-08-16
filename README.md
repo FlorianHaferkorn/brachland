@@ -1,42 +1,64 @@
 # BRACHLAND
 
-3D-Creature-Collector mit Story, als installierbare **offline-PWA** — spielbar auf dem
-Handy im Flugmodus. Die Welt ist eine **reale Alpenregion (Œntal)**, erzeugt aus
-OpenStreetMap + EU-DEM, im 1:1-Maßstab. Kreaturen: Alpen-Fauna mit Biotech-Anbauten.
+> **Stand 16.08.2026:** Das Projekt entstand in einer Chat-Sandbox, die es nicht mehr
+> gibt, und wurde an diesem Tag vollständig rekonstruiert. Verifiziert: `tsc` sauber,
+> 16 Engine-Tests grün, Schema-Validierung bestanden, Build läuft.
+> Was fehlt und was offen ist: [`docs/RECOVERY.md`](docs/RECOVERY.md).
+>
+> **Arbeit läuft in diesem Repo, nie in einer Chat-Sandbox.** Was nicht auf der Platte
+> liegt, existiert nicht.
 
-**Stack:** three.js · React · Vite 5 · TypeScript — Begründung: `docs/adr/0001-three-js-pwa-statt-engine.md`
+3D-Creature-Collector-RPG auf realer bayerischer Geographie. Offline-PWA, regionsweise
+erweiterbar. Erste Region: Œntal (Inntal-Süd).
 
-> ## ⚠️ Das Repo baut derzeit nicht
-> BRACHLAND entstand vom 13.–16.08.2026 in einer Chat-Sandbox, die es nicht mehr gibt.
-> Gerettet ist nur, was als Datei herausgereicht wurde — **`src/world/osm.ts` und
-> `src/world/terrain.ts` fehlen.** Vollständige Bilanz: **[`docs/RECOVERY.md`](docs/RECOVERY.md)**.
+## Struktur
 
-## Was gerettet ist
-
-| Datei | Inhalt |
-|---|---|
-| `src/scenes/RegionsSzene.tsx` | Art Direction: 3 Stimmungen, Nebel- und Lichtwerte, Props als `InstancedMesh` |
-| `src/world/props.ts` | Deterministische Vegetation per Seed, Dichten je Biom, Maßstabsnormierung |
-| `src/world/lod.ts` | 4 LOD-Stufen, hangabhängiges Mikrorelief, Schürzen gegen Kachelrisse |
-| `src/main.tsx`, `vite.config.ts` | Einstiegspunkt und PWA-/Offline-Setup |
-| `docs/START.md` | Projektstand und gemessene Kennzahlen aus dem Chat |
-
-Das ist der wertvolle Teil: die **erarbeiteten Zahlen** — Nebeldistanzen, LOD-Schwellen,
-Prop-Dichten, Zielhöhen. Die fehlenden Module sind Mechanik mit klarer Schnittstelle.
-
-## Loslegen
-
-```bash
-make install     # npm install --legacy-peer-deps (Flag ist Pflicht, siehe docs/TECH_STACK.md)
-make dev         # Vite — die NETZWERK-Adresse aufs Handy, nicht localhost
+```
+src/
+  data/schema.ts      Zod-Schemas + Elementmatrix  ← der Drift-Schutz
+  engine/             Kampflogik, Fokus, Wechsel (ohne 3D, testbar)
+  world/              OSM/DEM-Pipeline, Terrain, Spawns
+  scenes/             R3F-Szenen
+  ui/                 Kampf-UI, Menüs, Kreaturen-Ansicht
+content/
+  creatures/*.json    validiert gegen Kreatur-Schema
+  moves/*.json        validiert gegen Move-Schema
+  regions/*.json      Kartenausschnitt, Regent, Konzentrate
+assets/
+  rigs/               Archetyp-Rigs mit Animationen
+  creatures/          fertige, reduzierte, geriggte GLB
+tools/                reduce.mjs, autorig.py, batch.mjs, osm-fetch
 ```
 
-## Vor jedem Commit / vor jeder Session
+## Befehle
 
 ```bash
-make check       # Doku-Drift-Gate + typecheck + test
-make roi-check   # Läuft die OTel-Messung? Ungemessene Zeit ist dauerhaft verloren
+npm run dev         # Vite-Dev-Server
+npm run validate    # alle Inhalte gegen Schema prüfen + Matrix-Selbsttest
+npm run assets      # Roh-GLB → reduziert → geriggt
+npm run build       # PWA-Build
 ```
+
+`npm run validate` läuft in CI und blockt den Merge — Inhalte, die dem Schema
+widersprechen, kommen nicht ins Repo.
+
+## Design-Dokumente
+
+Verbindliche Quelle für alles, was gebaut wird:
+
+- `docs/Story-Bibel.md`
+- `docs/Kampfsystem_v2.4.md`
+- `docs/Move-System_v1.1.md`
+- `docs/Roster_Kapitel1.md`
+- `docs/Roster-Struktur.md`
+- `docs/Asset-Workflow.md`
+- `ROADMAP.md` — Meilensteine und Abnahmekriterien
+
+## Stand
+
+Konzept abgeschlossen. Asset-Pipeline verifiziert (Reduktion an echten Modellen,
+OSM/DEM an echten Daten). Rigging-Skript geschrieben, noch nicht ausgeführt.
+Nächster Schritt: M0.
 
 ## Navigation
 
@@ -45,21 +67,13 @@ Dieses Repo wird über `_INDEX.md`-Dateien navigiert, nicht durch Volltext-Scan:
 | Einstieg | Wofür |
 |---|---|
 | `CLAUDE.md` | Arbeitsregeln — Pflicht-Erstkontakt für Agenten |
-| `docs/RECOVERY.md` | **Zuerst:** was fehlt und warum |
 | `docs/_INDEX.md` | L0-Navigation aller Docs **+ Ledger** (offene Punkte, Entscheidungen) |
-| `docs/GDD.md` | Was BRACHLAND ist: Welt, Kreaturen, Art Direction, Stand |
-| `docs/TECH_STACK.md` | Stack, Befehle, Konventionen, Budget |
-| `src/_INDEX.md` | Quellcode-Struktur und die fehlenden Module |
+| `docs/design/_INDEX.md` | Die verbindlichen Design-Dokumente |
+| `src/_INDEX.md` · `tools/_INDEX.md` · `content/_INDEX.md` · `assets/_INDEX.md` | Bereichsnavigation |
 
-## Struktur
+## Vor jedem Commit / jeder Session
 
-```
-src/
-  main.tsx          Einstiegspunkt
-  scenes/           Szenen — Art Direction lebt hier
-  world/            Terrain, Props, LOD  (osm.ts + terrain.ts FEHLEN)
-  engine/           Kampf-Engine (fehlt)
-public/world/       Weltdaten als JSON  (oental.json fehlt, regenerierbar)
-docs/               Doku, ADRs, Ledger
-scripts/            Gate + ROI-Checks (zero-dependency Python)
+```bash
+make check       # Doku-Drift-Gate + typecheck + Tests + Schema-Validierung
+make roi-check   # Läuft die OTel-Messung? Ungemessene Zeit ist dauerhaft verloren
 ```

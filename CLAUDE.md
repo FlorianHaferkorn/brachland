@@ -88,16 +88,25 @@ Vorlagen liegen unter `.claude/repo-kit/templates/`.
 <!-- Stack = three.js + React + Vite 5 + TypeScript, offline-PWA.
      Doc-Bereich = docs · Code-Bereiche = src, scripts. -->
 
-### Das Repo ist unvollständig — das zuerst wissen
-`src/world/osm.ts` und `src/world/terrain.ts` **fehlen**; das Projekt baut nicht.
-BRACHLAND entstand in einer Chat-Sandbox, die es nicht mehr gibt — gerettet ist nur,
-was als Datei herausgereicht wurde. **Vor jeder Code-Arbeit `docs/RECOVERY.md` lesen.**
-Nichts als vorhanden annehmen, nur weil `docs/START.md` es beschreibt.
+### Herkunft: rekonstruiert, nicht neu gebaut
+Das Projekt entstand in einer Chat-Sandbox, die es nicht mehr gibt, und wurde am
+16.08.2026 daraus rekonstruiert. Der Code ist **erarbeitet** — Kampfwerte über tausende
+simulierte Kämpfe geprüft, Art-Direction-Werte über acht Iterationen. Nicht daran drehen,
+ohne `docs/design/` gelesen zu haben. Was noch fehlt: `docs/RECOVERY.md`.
 
 ### Arbeit läuft im Repo, nie in einer Sandbox
 Claude Code im Repo-Ordner oder Cowork „auf deinem Computer". Eine Cloud-Sandbox hat
 dieses Projekt bereits einmal um mehrere Tage Arbeit gebracht. Was nicht als Datei auf
 der Platte liegt, existiert nicht.
+
+### Inhalte sind Daten, nie Code
+Kreaturen, Moves und Regionen liegen in `content/` und werden gegen `src/data/schema.ts`
+validiert. `npm run validate` blockt den Merge. Ein hartkodierter Spielwert ist ein
+Fehler, auch wenn er funktioniert — das ist der Mechanismus, der 200 Kreaturen
+beherrschbar macht (ADR-0004).
+
+### Kampf-Engine bleibt renderfrei
+`src/engine/` und `src/data/` importieren kein three.js. Daran hängen die 16 Tests.
 
 ### Deutsch ist die Code-Sprache
 `baueTerrain`, `verteileProps`, `STIMMUNG`, `ZIELHOEHE`, `Weltdaten`, `PropArt` —
@@ -126,5 +135,6 @@ still umgesetzt — erst ADR-0004 ablösen.
 
 ### Compliance-Check
 ```bash
-make check     # Doku-Drift-Gate + typecheck + test. Muss grün sein vor jedem Commit.
+make check     # Drift-Gate + typecheck + 16 Engine-Tests + Schema-Validierung
+make quality   # Budgets. NICHT Teil von `make check` — hat offene Blocker (Ledger A-6)
 ```

@@ -5,45 +5,46 @@ owns: *.ts, *.tsx
 ---
 # src — Quellcode (_INDEX)
 
-> **Achtung: unvollständig.** Zwei importierte Module fehlen (`world/osm.ts`,
-> `world/terrain.ts`) — das Projekt baut derzeit nicht. Warum: `../docs/RECOVERY.md`.
-> Konventionen und Befehle: `../docs/TECH_STACK.md`.
+> Konventionen und Befehle: `../docs/TECH_STACK.md`. Die 3D-Schicht und die Kampf-Engine
+> sind **entkoppelt** — `engine/` kennt kein three.js und ist deshalb ohne Renderer testbar.
+> Genau daran hängen die 16 Tests.
 
 ## „Lies-wenn"-Routing
 
 | Deine Aufgabe ist … | Lies | NICHT nötig |
 |---|---|---|
-| Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/ |
-| Vegetationsdichte, Varianten, Modellgrößen ändern | `world/props.ts` | scenes/ |
-| Terrain-Detail, LOD-Schwellen, Mikrorelief ändern | `world/lod.ts` | scenes/ |
-| Weltdaten laden, Einstiegspunkt ändern | `main.tsx` | world/ |
-| Die fehlenden Module nachbauen | `../docs/RECOVERY.md` → Importe in `props.ts` und `RegionsSzene.tsx` | — |
+| Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ |
+| Vegetationsdichte, Varianten, Modellgrößen | `world/props.ts` | scenes/, engine/ |
+| Terrain-Detail, LOD-Schwellen, Mikrorelief | `world/lod.ts` | scenes/, engine/ |
+| Terrain-, Gewässer-, Gebäude-, Wege-Geometrie | `world/terrain.ts` | engine/, ui/ |
+| OSM/DEM laden, Spawns, Weltdatentypen | `world/osm.ts` | scenes/, engine/ |
+| Kampflogik, Schaden, Fokus, Wechsel | `engine/battle.ts` → `data/schema.ts` | world/, scenes/ |
+| Kampf-UI, Buttons, Anzeige | `ui/BattleScreen.tsx` | world/ |
+| Kreatur-, Move-, Regionsformat ändern | `data/schema.ts` | world/, scenes/ |
+| Einstiegspunkt, Weltdaten laden | `main.tsx` | — |
 
 ## Datei-Register (Drift-Gate erzwingt Vollständigkeit für `owns:`)
 
 | Datei | Zweck |
 |---|---|
 | `main.tsx` | Einstiegspunkt. Lädt die Weltdaten, montiert `RegionsSzene`, schaltet Stimmungen |
-| `scenes/RegionsSzene.tsx` | Art Direction als Code: 3 Stimmungen mit Nebel-, Sonnen- und Umgebungswerten; Props als `InstancedMesh`; Terrain-, Gewässer-, Gebäude- und Wege-Meshes |
+| `data/schema.ts` | Zod-Schemas für Kreatur, Move, Region **plus Elementmatrix** — der Drift-Schutz. `npm run validate` prüft alle Inhalte dagegen |
+| `engine/battle.ts` | Kampflogik ohne 3D: Schaden, Elementfaktor, Fokus-Ökonomie, Phasen, Zehrung, deterministischer RNG |
+| `ui/BattleScreen.tsx` | Kampfoberfläche. Noch **nicht** mit der Szene verbunden (Ledger G-5) |
+| `scenes/RegionsSzene.tsx` | Art Direction als Code: 3 Stimmungen mit Nebel-, Sonnen- und Umgebungswerten; Props als `InstancedMesh` |
+| `world/osm.ts` | OSM- und EU-DEM-Abruf, Weltdatentypen (`Weltdaten`, `Biom`), Biom-Ableitung, Spawn-Zonen |
+| `world/terrain.ts` | Terrain-Mesh mit Vertex-Farben, Gewässer, Gebäude mit Dächern, Wege; `MASSSTAB`, `GROESSE`, `BIOM_FARBE` |
 | `world/props.ts` | Vegetation: deterministische Verteilung per Seed, Dichten je Biom, 4 Varianten je Art, Normierung auf reale Zielhöhen, Chunking |
-| `world/lod.ts` | Terrain-Detail: 4 LOD-Stufen (2/4/8/16 m Vertexabstand), hangabhängiges Mikrorelief in 4 Oktaven (<1,2 m), Schürzen gegen Kachelrisse |
-| `world/osm.ts` | **Stub.** Typen `Weltdaten`, `Biom`, `Linienzug` — Schnittstelle aus den Zugriffsstellen belegt, Ladefunktion wirft (Ledger B-1) |
-| `world/terrain.ts` | **Stub.** `baueTerrain/-Gewaesser/-Gebaeude/-Wege`, `MASSSTAB`, `GROESSE`, `BIOM_FARBE`, `TerrainErgebnis` — alle Funktionen werfen (Ledger B-2) |
+| `world/lod.ts` | Terrain-Detail: 4 LOD-Stufen (2/4/8/16 m), hangabhängiges Mikrorelief in 4 Oktaven (<1,2 m), Schürzen gegen Kachelrisse |
 
-## Stubs — was daran echt ist
+## Was hier NICHT liegt
 
-`world/osm.ts` und `world/terrain.ts` sind **Schnittstellen-Stubs**, keine Implementierung.
-Echt daran ist die **Signatur**: jede ist aus einer konkreten Zugriffsstelle im geretteten
-Code abgeleitet und im Dateikopf mit Zeilennummer belegt. Alle Funktionen werfen mit
-Verweis auf `docs/RECOVERY.md` — nichts liefert stillschweigend Unsinn.
-
-Nicht belegt und beim Nachbau festzulegen: die Zahlenwerte in `MASSSTAB`, `GROESSE` und
-`BIOM_FARBE` sowie die Form der OSM-Geometriefelder (`wege`, `gewaesser`, `gebaeude`).
-Sie sind als Platzhalter gesetzt, damit TypeScript durchläuft — **nicht** weil sie stimmen.
+Werkzeuge (`buildworld`, `quality`, `validate`, Asset-Kette) liegen in `../tools/`,
+Inhalte in `../content/`, Modelle in `../assets/`. Tests in `../tests/`.
 
 ## Definition of Done (Code-Änderung)
 
 - **Input:** Änderung an `.ts`/`.tsx`
-- **Output:** `npm run typecheck` grün, `npm run test` grün, `make check` grün
+- **Output:** `npm run typecheck` sauber, `npm run test` 16/16, `make check` grün
 - **Fehlerfall:** Typfehler oder roter Test → nicht committen; der pre-commit-Hook blockt
 - **Rollback:** `git checkout -- src/`

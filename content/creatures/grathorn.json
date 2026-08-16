@@ -1,0 +1,25 @@
+{
+  "id": "grathorn",
+  "linie": "Grathorn",
+  "basis": "Steinbock",
+  "merkmal": "Chitinplatten-Gehörn",
+  "elemente": ["stein"],
+  "ursprung": "wildling",
+  "basisRig": "quadruped",
+  "zielTris": 3000,
+  "spawn": {
+    "osmTag": "natural=cliff",
+    "minHoehe": 900,
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "gelegentlich"
+  },
+  "grundMoves": ["plattenstoss", "kalkstaub"],
+  "stufen": [
+    { "name": "Grathorn",     "werte": { "kp": 130, "ang": 58, "ver": 62, "ini": 44 } },
+    { "name": "Grathaupt",    "werte": { "kp": 162, "ang": 72, "ver": 78, "ini": 48 }, "signaturMove": "gratsprung" },
+    { "name": "Kalkvollzug",  "werte": { "kp": 198, "ang": 88, "ver": 96, "ini": 50 }, "signaturMove": "abschuetteln" }
+  ],
+  "fangbar": true,
+  "beschreibung": "Das Wappentier der Region. Ruhig, territorial, greift erst an, wenn man den Grat betritt."
+}

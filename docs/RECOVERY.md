@@ -1,80 +1,82 @@
 ---
 last-reviewed: 2026-08-16
-shelf-life-days: 30
+shelf-life-days: 90
 ---
-# Rekonstruktionsstand — was gerettet ist und was fehlt
+# Rekonstruktion — abgeschlossen
 
-BRACHLAND entstand am 13.–16.08.2026 in einem claude.ai-Chat mit Code-Ausführung.
-Diese Sandbox ist **ephemer** — der Arbeitsordner existiert nicht mehr. Auf dem Mac
-gibt es keine Spur davon (Spotlight, 16.08.2026: keine Treffer für `brachland`,
-`oental`, `autorig`, `QUALITY.md`).
+BRACHLAND entstand am 20.06.–16.08.2026 in einem claude.ai-Chat mit Code-Ausführung.
+Diese Sandbox ist ephemer; der Arbeitsordner existiert nicht mehr. Am 16.08.2026 wurde
+das Projekt aus dem Chat rekonstruiert. **Der Stand ist wiederhergestellt und lauffähig.**
 
-Rekonstruierbar ist deshalb **nur**, was der Chat als Datei-Anhang ausgegeben hat.
-Diese Datei hält fest, was das ist — damit niemand später glaubt, das Repo sei
-vollständig.
+Quelle: Chat „Neues Projekt außerhalb der Arbeit"
+(`https://claude.ai/chat/ff16fcaf-0241-41f6-97fd-8e12c06a59fc`) — 172 Nachrichten,
+19 `create_file`-Aufrufe, 187 `bash_tool`-Aufrufe.
 
-Quelle: `https://claude.ai/chat/ff16fcaf-0241-41f6-97fd-8e12c06a59fc`
-(Snapshot: `https://claude.ai/share/dea380d0-633c-479a-88b4-768a749c4444`)
+## Verifiziert nach der Rekonstruktion
 
-## Gerettet (verbatim aus dem Chat)
+```
+tsc --noEmit      sauber
+npm run test      16 bestanden, 0 fehlgeschlagen   (Kampf-Engine)
+npm run validate  Schema + Elementmatrix ausgewogen
+npm run build     dist gebaut · Precache 4 Einträge · 1.096 KiB
+npm run quality   3 Blocker (Asset-Budget, siehe unten)
+```
 
-| Datei im Repo | Zeilen | Inhalt |
-|---|---|---|
-| `src/scenes/RegionsSzene.tsx` | 231 | Art Direction, 3 Stimmungen (Dämmerung/Nebelmorgen/Nacht), Nebel- und Lichtwerte, Props als `InstancedMesh` |
-| `src/world/props.ts` | 234 | Deterministische Prop-Verteilung per Seed, Dichten je Biom, Varianten, `ZIELHOEHE`-Normierung |
-| `src/world/lod.ts` | 222 | 4 LOD-Stufen, hangabhängiges Mikrorelief (4 Oktaven, <1,2 m), Schürzen gegen Kachelrisse |
-| `src/main.tsx` | 44 | Einstiegspunkt, lädt Weltdaten, montiert `RegionsSzene` |
-| `vite.config.ts` | 25 | PWA-Setup, Workbox-Precache inkl. `world/*.json` und `*.glb`, `server.host` |
-| `docs/START.md` | 84 | Projektstand vom 16.08.2026, Befehle, gemessene Build-Kennzahlen |
+## Wie es zurückkam
 
-## Fehlt — nicht als Datei im Chat ausgegeben
-
-Belegt durch Importe im geretteten Code bzw. durch `START.md`:
-
-| Fehlend | Beleg | Wiederbeschaffung |
-|---|---|---|
-| `src/world/osm.ts` (Typ `Weltdaten`, `Biom`) | Import in `props.ts`, `main.tsx`, `RegionsSzene.tsx` | Neu bauen — Schnittstelle ist aus den Importen ableitbar |
-| `src/world/terrain.ts` (`baueTerrain`, `baueGewaesser`, `baueGebaeude`, `baueWege`, `GROESSE`, `MASSSTAB`, `TerrainErgebnis`) | Import in `RegionsSzene.tsx`, `props.ts` | Neu bauen — Funktionssignaturen aus Aufrufstellen ableitbar |
-| Kampf-Engine + 16 Tests | `START.md`: „16 Tests der Kampf-Engine" | Neu bauen |
-| Kampf-UI | Chat: „Kampf-UI existiert, nicht mit der Szene verbunden" | Neu bauen |
-| Inhalts-Schemas (Drift-Schutz) | `npm run validate` | Neu bauen |
-| Qualitätstor `QUALITY.md` + `quality.mjs` (60-MB-Budget) | `START.md` | Neu bauen |
-| Weltgenerator (`npm run world oental 96`) | `START.md` | Neu bauen — OSM + EU-DEM, ~2 min Laufzeit |
-| `public/world/oental.json` (1,1 MB) | `START.md` | **Regenerierbar** über den Weltgenerator |
-| Reduktionspipeline `reduce.mjs` | `START.md` | Neu bauen |
-| Rigging `autorig.py` | `START.md` | Neu bauen |
-| 23 Kenney-Prop-Modelle unter `public/props/` | `START.md` | **Neu herunterladen** — Kenney Nature Kit 2.1 (CC0) |
-| `index.html`, `tsconfig.json` | Vite-Projekt | Trivial neu |
+Der Weg über die Oberfläche scheiterte mehrfach: Der Chat ist zu groß zum Scrollen,
+`~/Downloads` hängt auf Syscall-Ebene, die Zwischenablage ist im Skriptkontext gesperrt,
+und ein lokaler HTTP-Empfänger wird von der CSP der Seite blockiert. Was funktioniert
+hat: die claude.ai-API im Browser gibt den Chat als Rohdaten aus — darüber ließ sich
+belegen, **was** existiert. Heruntergeladen wurden die Dateien anschließend manuell.
 
 ## Eingriffe in den geretteten Code
 
-Genau **eine** Zeile wurde geändert, damit `tsc` durchläuft:
-`RegionsSzene.tsx:207` — `Object.entries(VARIANTEN)` → `Object.values(VARIANTEN)`
-(die Schlüsselvariable war ungenutzt). Sonst ist der Code verbatim.
+Sechs Stellen, jede entfernt ausschließlich ein ungenutztes Symbol (`noUnusedLocals`):
 
-**Versionen sind erschlossen, nicht überliefert.** `RegionsSzeneProps.spielerRef` ist als
-`React.RefObject<THREE.Object3D | null>` typisiert — das ist React-19-Typisierung. Mit
-React 18 + `@react-three/fiber` 8 schlägt `tsc` fehl, mit **React 19 +
-`@react-three/fiber` 9 + `drei` 10** läuft es sauber durch. Die Versionen in
-`package.json` sind so verifiziert, nicht geraten.
+| Datei | Änderung |
+|---|---|
+| `src/engine/battle.ts` | ungenutzter Import `ELEMENTE` |
+| `src/scenes/RegionsSzene.tsx` | `Object.entries` → `Object.values` (Schlüssel ungenutzt) |
+| `src/ui/BattleScreen.tsx` | ungenutzter Typ-Import `Ereignis` |
+| `src/world/osm.ts` | ungenutzte Destrukturierung `[s, w, n, e]` |
+| `src/world/terrain.ts` | ungenutztes `mittelLat` in `baueGewaesser` |
+| `tools/quality.ts` | ungenutzter Import `Kreatur` |
 
-`tsconfig.json` steht bewusst nicht auf `noUncheckedIndexedAccess`/
-`exactOptionalPropertyTypes` — der gerettete Code entstand gegen eine laxere
-Konfiguration, und Fehler in nicht verifizierbarem Code helfen niemandem.
-Nachziehen, sobald die fehlenden Module stehen.
+Keine Logik berührt. Die 16 Tests waren vor und nach den Änderungen grün.
 
-## Konsequenz
+## Versionskorrektur
 
-Das Repo ist **nicht lauffähig**. `npm run dev` scheitert an den fehlenden
-`world/osm.ts` und `world/terrain.ts`. Der gerettete Code ist wertvoll, weil er
-die *Urteilsarbeit* enthält — Art-Direction-Werte, LOD-Schwellen, Prop-Dichten,
-Maßstabsnormierung. Das sind die Zahlen, die durch Iteration entstanden sind und
-sich nicht raten lassen. Die fehlenden Module sind dagegen Mechanik mit klarer
-Schnittstelle: neu bauen ist realistischer als weiter aus dem Chat zu kratzen.
+Die `package.json` aus dem Chat kombinierte **React 18.3.1 mit `@types/react` 19.2.18** —
+das ist in sich widersprüchlich. Mit React 18 + `@react-three/fiber` 8 erzeugt
+`RegionsSzene.tsx` 20 Typfehler (`JSX.IntrinsicElements` kennt `mesh`, `group`,
+`instancedMesh` nicht, weil fiber 8 den React-18-JSX-Namensraum erweitert, die Typen aber
+aus React 19 stammen). Mit **React 19 + fiber 9 + drei 10** ist `tsc` sauber.
 
-## Lektion (gilt ab sofort)
+Das ist keine Geschmacksentscheidung: `RegionsSzeneProps.spielerRef` ist als
+`React.RefObject<THREE.Object3D | null>` typisiert — React-19-Notation. Der Code war für
+React 19 geschrieben, nur die Laufzeit-Abhängigkeit hinkte hinterher. Korrigiert.
 
-Arbeit an BRACHLAND läuft **in diesem Repo**, nicht in einer Chat-Sandbox.
-Konkret: Claude Code im Repo-Ordner oder eine Cowork-Task „auf deinem Computer".
-Eine Cloud-Sandbox verliert alles, was nicht als Datei herausgereicht wurde —
-genau das ist hier passiert und hat mehrere Tage Arbeit gekostet.
+## Was weiterhin fehlt
+
+| Fehlend | Beleg | Wiederbeschaffung |
+|---|---|---|
+| `tools/lodcheck.ts`, `tools/masstab.ts`, `tools/scenecheck.ts` | Skripte `lod`, `masstab`, `szene` in `package.json` | neu bauen |
+| Weltdaten-JSON unter public/world/ | `buildworld.ts` schreibt sie dorthin | **regenerierbar**: `npm run world oental 96` (~2 min, OSM + Höhen-API) |
+| Prop-Modelle unter public/props/ (23 Stück, Kenney Nature Kit 2.1) | `propPfad()` in `src/world/props.ts` | **neu herunterladen** (CC0) |
+| Move- und Regions-Inhalte | `content/moves/`, `content/regions/` leer, `quality.ts` liest sie | neu anlegen — Inhalte stehen in `design/BRACHLAND_Move-System_v1.md` |
+| Kreaturen jenseits von Grathorn | `content/creatures/` enthält 1 von ~200 | schrittweise, siehe ADR-0002 |
+
+## Offener Blocker aus dem Qualitätstor
+
+Die drei Grathorn-Mutationsstufen liegen bei **163–164 KB gegen ein Budget von 120 KB**.
+Das ist eine echte Feststellung des Original-Gates, kein Rekonstruktionsartefakt: Die
+Modelle sind reduziert, aber nicht weit genug. Bei 200 Kreaturen × 3 Stufen entscheidet
+diese Zahl über die Offline-Tauglichkeit. Ledger A-6.
+
+## Lektion (bindend)
+
+Arbeit an BRACHLAND läuft **in diesem Repo** — Claude Code im Ordner oder eine
+Cowork-Aufgabe „auf deinem Computer", nie in einer Chat-Sandbox. Was nicht als Datei auf
+der Platte liegt, existiert nicht. Diese Rekonstruktion hat einen vollen Arbeitstag
+gekostet und wäre vermeidbar gewesen.

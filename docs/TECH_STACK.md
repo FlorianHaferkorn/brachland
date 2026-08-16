@@ -14,7 +14,7 @@ Warum kein Engine-Weg: ADR-0001. Diese Datei ist die operative Seite.
 | UI | React 18 | |
 | Build | **Vite 5** + TypeScript | **nicht** auf Vite 8 heben, solange `@vitejs/plugin-react` gepinnt ist |
 | Offline | `vite-plugin-pwa` (Workbox) | Precache inkl. `world/*.json` und `*.glb`, max. 8 MB je Datei |
-| Tests | Vitest | Kampf-Engine, 16 Tests (fehlen im Repo — `RECOVERY.md`) |
+| Tests | `tsx tests/battle.test.ts` | Kampf-Engine, 16 Tests, renderfrei — kein Vitest nötig |
 | Hosting | Vercel | kein Backend, kein App-Store |
 
 ## Installation
@@ -34,20 +34,19 @@ npm run build       # tsc -b && vite build
 npm run preview     # Produktionsbuild lokal prüfen
 
 npm run typecheck   # tsc --noEmit
-npm run test        # Vitest — Kampf-Engine
-npm run validate    # Inhalte gegen Schema + Matrix-Selbsttest
-npm run quality     # Qualitätstor (Blocker verhindern den Merge)
-npm run lod         # LOD-Budget je Standort
-npm run masstab     # Größenverhältnisse Spieler/Kreatur/Umgebung
-npm run world oental 96   # Weltdaten neu erzeugen (~2 min, Höhendaten-API)
+npm run test        # Kampf-Engine, 16 Tests
+npm run validate    # Inhalte gegen Schema + Elementmatrix-Selbsttest
+npm run quality     # Qualitätstor — Budgets, Blocker verhindern den Merge
+npm run world oental 96   # Weltdaten erzeugen (~2 min, OSM + Höhendaten-API)
+npm run assets      # Roh-GLB → reduziert → geriggt
 
-make check          # Doku-Drift-Gate + typecheck + test
+make check          # Drift-Gate + typecheck + Tests + Validierung
+make quality        # Budgets separat — hat offene Blocker (Ledger A-6)
 make roi-check      # Läuft die OTel-Messung? Vor jeder Session (ADR-0003)
 ```
 
-> **Wichtig:** Bis auf `dev`, `build`, `preview` und `typecheck` zeigen diese Skripte
-> derzeit auf **fehlende Dateien** — siehe `RECOVERY.md`. Sie stehen bewusst schon in
-> `package.json`, damit die Zielschnittstelle festliegt.
+> **Ausnahme:** `npm run lod`, `masstab` und `szene` zeigen auf fehlende Mess-Werkzeuge
+> (Ledger B-8). Alles andere läuft.
 
 ## Der Test ist das Handy
 
@@ -73,8 +72,9 @@ diese Lektion hat das Projekt mehrere Runden gekostet.
 
 ```
 dist/assets/index.js   968 kB  (269 kB gzip)
-Service-Worker-Cache   2,18 MB inkl. Weltdaten und Props
-Obergrenze             60 MB   (QUALITY.md)
+Service-Worker-Cache   1.096 KiB (4 Einträge, ohne Weltdaten und Props)
+Kreatur-Modell         120 KB je Stufe — derzeit gerissen (163 KB, Ledger A-6)
+Obergrenze gesamt      60 MB   (docs/QUALITY.md)
 ```
 
 Auch mit 200 Kreaturen (~16 MB) bleibt Luft. Das Budget ist ein Gate, kein Richtwert.

@@ -4,39 +4,47 @@ shelf-life-days: 90
 ---
 # docs — Zentraler Anlaufpunkt (_INDEX)
 
-> Einstieg in `docs/`. Zuerst diese Datei lesen, dann gezielt zum Doc — nicht den
-> ganzen Ordner. **Dieses Repo hat kein zweites Statusregister:** offene Punkte in
-> Tabelle A, Entscheidungen in Tabelle B, das durable Warum in `adr/`.
+> Einstieg in `docs/`. Zuerst diese Datei lesen, dann gezielt zum Doc — nicht den ganzen
+> Ordner. **Dieses Repo hat kein zweites Statusregister:** offene Punkte in Tabelle A,
+> Entscheidungen in Tabelle B, das durable Warum in `adr/`, das verbindliche Spieldesign
+> in `design/`.
 
 ## „Lies-wenn"-Routing (Token-Disziplin)
 
 | Deine Aufgabe ist … | Lies (in dieser Reihenfolge) | NICHT nötig |
 |---|---|---|
-| Verstehen, warum das Repo unvollständig ist | `RECOVERY.md` | alles andere |
-| Wissen, was BRACHLAND überhaupt ist | `GDD.md` | ADRs |
+| Wissen, was BRACHLAND ist | `GDD.md` | ADRs, design/ |
+| Spielinhalt entwerfen oder ändern | `design/_INDEX.md` | ADRs, ROI |
 | Code schreiben, Befehl suchen, Konvention klären | `TECH_STACK.md` | GDD, ROI |
-| Szene, Terrain oder Props anfassen | `../src/_INDEX.md` → `TECH_STACK.md` | ADRs |
+| Wissen, was als Nächstes gebaut wird | `ROADMAP.md` | ADRs |
+| Budgets, Blocker, Qualitätsbegriff | `QUALITY.md` | GDD, ROI |
+| Modelle beschaffen und aufbereiten | `WORKFLOW.md` → `../tools/README.md` | GDD |
 | Projekt starten / auf dem Handy testen | `START.md` → `TECH_STACK.md` | ADRs |
+| Verstehen, warum etwas fehlt | `RECOVERY.md` | alles andere |
 | Fragen „warum kein Unreal/Godot?" | `adr/0001-three-js-pwa-statt-engine.md` | alles andere |
-| Modelle, Texturen, Kreaturen beschaffen | `adr/0002-assets-cc0-props-und-kreatur-kette.md` | GDD |
 | Scope erweitern wollen | `adr/0004-scope-episodisch-statt-100-stunden.md` | alles andere |
-| Aufwand/Kosten auswerten, Messung reparieren | `ROI.md` → `adr/0003-roi-messung-otel-und-bucket.md` | GDD, Assets |
+| Aufwand/Kosten auswerten | `ROI.md` → `adr/0003-roi-messung-otel-und-bucket.md` | GDD, design/ |
 | Verstehen, warum so navigiert wird | `NAVIGATION_PHILOSOPHY.md` | alles andere |
 
 ## Dokument-Register (vollständig — Drift-Gate erzwingt das)
 
-| Doc | Zweck | Lies-wenn |
-|---|---|---|
-| `RECOVERY.md` | **Zuerst lesen.** Was aus der verlorenen Sandbox gerettet ist und was fehlt | Repo-Zustand einschätzen |
-| `GDD.md` | Was BRACHLAND ist: Welt, Kreaturen, Art Direction, Stand, nächste Schritte | Konzeptfragen |
-| `START.md` | Projektstand 16.08.2026 aus dem Chat, Befehle, gemessene Kennzahlen (gerettet) | starten, Kennzahlen prüfen |
-| `TECH_STACK.md` | Stack, Befehle, Konventionen, Budget | operative Arbeit |
-| `ROI.md` | Wie Aufwand/Wert gemessen werden — und was die Messung nicht kann | Messung, Auswertung |
-| `NAVIGATION_PHILOSOPHY.md` | Das Warum hinter der `_INDEX`-Logik (Kit-Doku) | Repo-Struktur hinterfragen |
-| `adr/0001-three-js-pwa-statt-engine.md` | three.js/React-PWA statt Engine; Unreal und Godot verworfen | Stack-Frage |
-| `adr/0002-assets-cc0-props-und-kreatur-kette.md` | CC0-Props, Stil-Referenz vor Stapelproduktion | Assets |
-| `adr/0003-roi-messung-otel-und-bucket.md` | Messung über den bestehenden Analyzer, kein eigenes Tracking | Messkonzept |
-| `adr/0004-scope-episodisch-statt-100-stunden.md` | Episodisch bauen; Geparktes und Ausgeschlossenes | Scope-Entscheidung |
+| Doc | Zweck |
+|---|---|
+| `GDD.md` | Was BRACHLAND ist: Welt, Kreaturen, Art Direction, Stand, nächste Schritte |
+| `ROADMAP.md` | Entwicklungsplan, episodisch. Kein Meilenstein plant weiter als den nächsten |
+| `QUALITY.md` | Qualitätsstandard und Tore. Warum „premium" als Ziel unbrauchbar ist, und was stattdessen gemessen wird |
+| `WORKFLOW.md` | Asset-Kette von der KI-Generierung zur spielfertigen Kreatur. Laufende Kosten: 0 € |
+| `START.md` | Projektstand 16.08.2026 aus dem Chat, Befehle, gemessene Kennzahlen |
+| `TECH_STACK.md` | Stack, Befehle, Konventionen, Budget |
+| `RECOVERY.md` | Was die verlorene Sandbox gekostet hat, was zurückkam, was noch fehlt |
+| `ROI.md` | Wie Aufwand/Wert gemessen werden — und was die Messung nicht kann |
+| `NAVIGATION_PHILOSOPHY.md` | Das Warum hinter der `_INDEX`-Logik (Kit-Doku) |
+| `design/_INDEX.md` | Die verbindlichen Design-Dokumente (Story, Kampfsystem, Roster, Moves) |
+| `bilder/` | Renderings und Vergleichsbilder aus den Spikes. Referenz, kein Spielinhalt |
+| `adr/0001-three-js-pwa-statt-engine.md` | three.js/React-PWA statt Engine; Unreal und Godot verworfen |
+| `adr/0002-assets-cc0-props-und-kreatur-kette.md` | CC0-Props, Stil-Referenz vor Stapelproduktion |
+| `adr/0003-roi-messung-otel-und-bucket.md` | Messung über den bestehenden Analyzer, kein eigenes Tracking |
+| `adr/0004-scope-episodisch-statt-100-stunden.md` | Episodisch bauen; Geparktes und Ausgeschlossenes |
 
 ## A — Offene Punkte (Ledger — hier abhaken, NICHT im Fließtext)
 
@@ -44,19 +52,23 @@ shelf-life-days: 90
 
 | ID | Punkt | Beleg | Status | Antwort + Datum |
 |---|---|---|---|---|
-| B-1 | `src/world/osm.ts` ist nur ein **Stub** — Typen stehen, Ladefunktion wirft | Dateikopf, `docs/RECOVERY.md` | 🔴 | offen |
-| B-2 | `src/world/terrain.ts` ist nur ein **Stub** — Signaturen belegt, Implementierung und Zahlenwerte fehlen | Dateikopf, `docs/RECOVERY.md` | 🔴 | offen |
-| B-3 | Weltgenerator (`npm run world`) fehlt, dadurch auch die Weltdaten-JSON unter public/world/ | `START.md` | 🔴 | offen |
-| B-4 | Kampf-Engine + 16 Tests fehlen | `START.md` | 🟡 | offen |
-| B-5 | Kampf-UI fehlt; war ohnehin nicht mit der Szene verbunden | Chat 16.08.2026 | 🟡 | offen |
-| B-6 | Schemas, Qualitätstor, `reduce.mjs`, `autorig.py` fehlen | `RECOVERY.md` | 🟡 | offen |
-| B-7 | 23 Kenney-Prop-Modelle unter `public/props/` fehlen | `START.md` | 🟡 | neu herunterladen (CC0) |
-| G-1 | **Szene einmal live auf dem Handy sehen** — alle Look-Urteile beruhen bisher auf Software-Renderer-Standbildern | `GDD.md` | 📄 | wartet auf B-1..B-3 |
+| B-1 | `src/world/osm.ts` fehlt | — | ✅ | rekonstruiert, 16.08.2026 |
+| B-2 | `src/world/terrain.ts` fehlt | — | ✅ | rekonstruiert, 16.08.2026 |
+| B-4 | Kampf-Engine + 16 Tests fehlen | — | ✅ | zurück, 16/16 grün, 16.08.2026 |
+| B-5 | Kampf-UI fehlt | — | ✅ | `src/ui/BattleScreen.tsx` zurück, 16.08.2026 |
+| B-6 | Schemas, Qualitätstor, Asset-Kette fehlen | — | ✅ | zurück, 16.08.2026 |
+| A-6 | **Grathorn-GLB 163–164 KB gegen 120 KB Budget** — bei 200×3 Modellen entscheidet das über die Offline-Tauglichkeit | `npm run quality` | 🔴 | offen — Ansatz ist `tools/reduce.mjs`, nicht das Budget |
+| B-3 | Weltdaten fehlen; ohne sie startet die Szene nicht | `tools/buildworld.ts` | 🟡 | **regenerierbar**: `npm run world oental 96` |
+| B-7 | 23 Kenney-Prop-Modelle unter public/props/ fehlen | `propPfad()` in `src/world/props.ts` | 🟡 | neu herunterladen (CC0) |
+| B-8 | Drei Mess-Werkzeuge in tools/ fehlen (lodcheck, masstab, scenecheck) — die Skripte `lod`, `masstab` und `szene` zeigen ins Leere | `package.json` | 🟡 | Mess-Werkzeuge, kein Bauschritt |
+| B-9 | `content/moves/` und `content/regions/` leer; 1 von 35 Kreaturen aus Kapitel 1 angelegt | `content/_INDEX.md` | 🟡 | Inhalte stehen in `design/` |
+| B-10 | `assets/rigs/` leer — `autorig.py` braucht die Archetyp-Rigs | `assets/_INDEX.md` | 🟡 | offen |
+| G-1 | **Szene einmal live auf dem Handy sehen** — alle Look-Urteile beruhen auf Software-Renderer-Standbildern | `GDD.md` | 📄 | wartet auf B-3 und B-7 |
 | G-2 | Stil-Referenz für Kreaturen festzurren; Prompt des Steinbocks sichern | ADR-0002 | 🟡 | offen |
-| G-3 | Eine Kreatur komplett durch die Kette inkl. Rigging | ADR-0002 | 📄 | wartet auf G-2 |
 | G-4 | Spielerfigur und Bewegung — Kamera steht am Ursprung | `GDD.md` | 🟡 | offen |
+| G-5 | Kampf-UI ist nicht mit der Szene verbunden | `src/_INDEX.md` | 🟡 | offen |
 | A-4 | Artist für die 5 Regenten + 5–8 Startkreaturen? Einzige Stelle, an der Geld fließen dürfte | ADR-0002 | 🟡 | offen |
-| A-5 | Git-LFS-Schwelle für `.glb`, bevor die History aufgeht | — | 🟡 | offen |
+| A-5 | Git-LFS-Schwelle: 9 MB Bilder + 0,5 MB GLB liegen als Blobs in der History | `docs/bilder/`, `assets/` | 🟡 | offen |
 | R-1 | Deliverable-Eintrag im ROI-Analyzer — erst wenn der Slice läuft | `ROI.md` | 📄 | wartet auf G-1 |
 
 ## B — Entscheidungen (getroffen, mit Begründung + Datum)
@@ -70,5 +82,7 @@ shelf-life-days: 90
 | D5 | Episodisch bauen; 40–50 Std sind Decke, nicht Plan | Als geplanter Umfang stirbt das Projekt | 2026-08-16 | ADR-0004 |
 | D6 | Kein repo-eigenes Kosten-Ledger — Messung über `~/roi/claude-roi-analyzer` | Zweites Register würde driften | 2026-08-16 | ADR-0003 |
 | D7 | Code-Sprache ist Deutsch, durchgehend | Bestandscode ist so; Mischung wäre schlimmer als jede der beiden Varianten | 2026-08-16 | — |
-| D8 | Arbeit läuft **im Repo**, nie in einer Chat-Sandbox | Die Sandbox hat bereits mehrere Tage Arbeit vernichtet | 2026-08-16 | — |
-| D9 | Godot-ADRs vom 16.08.2026 gelöscht statt abgelöst | Sie beruhten auf einer falschen Prämisse und waren nie gültige Entscheidungen | 2026-08-16 | — |
+| D8 | Arbeit läuft **im Repo**, nie in einer Chat-Sandbox | Die Sandbox hat einen vollen Arbeitstag vernichtet | 2026-08-16 | — |
+| D10 | React 19 + fiber 9 + drei 10 statt React 18 + fiber 8 | Der Code ist in React-19-Notation geschrieben; die alte Kombination erzeugt 20 Typfehler | 2026-08-16 | — |
+| D11 | Inhalte als validierte Daten, nie hartkodiert | Der einzige Weg, 200 Kreaturen beherrschbar zu halten | 2026-08-16 | ADR-0004 |
+| D12 | `tools/` für Spiel-Werkzeuge, `scripts/` für Repo-Kit und ROI | Zwei Herkünfte, zwei Lebenszyklen — Vermischung würde beide unklar machen | 2026-08-16 | — |
