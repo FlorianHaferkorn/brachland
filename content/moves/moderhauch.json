@@ -1,0 +1,14 @@
+{
+  "id": "moderhauch",
+  "name": "Moderhauch",
+  "element": "faeulnis",
+  "band": "leicht",
+  "effekte": [
+    {
+      "art": "schaden_ueber_zeit",
+      "proRunde": 6,
+      "runden": 3
+    }
+  ],
+  "beschreibung": "Ausgeatmete Fäulnis. Wirkt langsam, aber sie hört nicht auf."
+}

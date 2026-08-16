@@ -1,0 +1,55 @@
+{
+  "id": "kiemenbiber",
+  "linie": "Kiemenbiber",
+  "basis": "Biber",
+  "merkmal": "Filterkiemen-Kragen",
+  "elemente": [
+    "wasser"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "quadruped",
+  "zielTris": 3500,
+  "spawn": {
+    "osmTag": "waterway=stream",
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "haeufig"
+  },
+  "grundMoves": [
+    "schwanzschlag",
+    "dammbau"
+  ],
+  "stufen": [
+    {
+      "name": "Kiemenbiber",
+      "werte": {
+        "kp": 140,
+        "ang": 50,
+        "ver": 60,
+        "ini": 38
+      }
+    },
+    {
+      "name": "Stauleib",
+      "werte": {
+        "kp": 172,
+        "ang": 62,
+        "ver": 76,
+        "ini": 40
+      },
+      "signaturMove": "filterstrom"
+    },
+    {
+      "name": "Klärgrund",
+      "werte": {
+        "kp": 208,
+        "ang": 74,
+        "ver": 94,
+        "ini": 42
+      },
+      "signaturMove": "klarwasser"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Baut Dämme aus Trümmern. Im Kapitel häufig — und gegen den Flussvater ausgerechnet nutzlos."
+}

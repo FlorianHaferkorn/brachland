@@ -1,0 +1,15 @@
+{
+  "id": "balzruf",
+  "name": "Balzruf",
+  "element": "sporen",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ver",
+      "stufen": -2,
+      "ziel": "gegner"
+    }
+  ],
+  "beschreibung": "Ein Ruf, der durch Mark und Panzer geht. Der Gegner deckt sich schlechter."
+}

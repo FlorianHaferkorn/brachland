@@ -1,0 +1,45 @@
+{
+  "id": "nebelgams",
+  "linie": "Nebelgams",
+  "basis": "Gams",
+  "merkmal": "Silikat-Hufe",
+  "elemente": [
+    "stein"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "quadruped",
+  "zielTris": 3000,
+  "spawn": {
+    "osmTag": "natural=scrub",
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "haeufig"
+  },
+  "grundMoves": [
+    "hufhieb",
+    "steilflucht"
+  ],
+  "stufen": [
+    {
+      "name": "Nebelgams",
+      "werte": {
+        "kp": 105,
+        "ang": 52,
+        "ver": 48,
+        "ini": 72
+      }
+    },
+    {
+      "name": "Firngams",
+      "werte": {
+        "kp": 138,
+        "ang": 68,
+        "ver": 60,
+        "ini": 86
+      },
+      "signaturMove": "splitterhuf"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Schnellster Steinträger der Region. Flieht, wenn man sie frontal angeht — sie muss von oben gestellt werden."
+}

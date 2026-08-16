@@ -1,0 +1,45 @@
+{
+  "id": "moderotter",
+  "linie": "Moderotter",
+  "basis": "Kreuzotter",
+  "merkmal": "Fäulnisdrüse",
+  "elemente": [
+    "faeulnis"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "serpent",
+  "zielTris": 2000,
+  "spawn": {
+    "osmTag": "waterway=ditch",
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "gelegentlich"
+  },
+  "grundMoves": [
+    "faeulnisbiss",
+    "moderhauch"
+  ],
+  "stufen": [
+    {
+      "name": "Moderotter",
+      "werte": {
+        "kp": 92,
+        "ang": 68,
+        "ver": 38,
+        "ini": 60
+      }
+    },
+    {
+      "name": "Schlickotter",
+      "werte": {
+        "kp": 120,
+        "ang": 88,
+        "ver": 48,
+        "ini": 68
+      },
+      "signaturMove": "zersetzen"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Die erste Fäulnis-Kreatur. Vergiftet über Zeit, statt hart zu treffen."
+}

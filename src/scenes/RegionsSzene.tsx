@@ -27,6 +27,7 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
+import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 
 /** Tageszeiten. Der Look lebt von Dämmerung und Nebel — Mittagssonne verzeiht nichts. */
 export const STIMMUNG = {
@@ -280,6 +281,85 @@ function PropChunkMesh({ chunk, fern }: { chunk: PropChunk; fern: boolean }) {
       material={fern ? fernMaterial : (mat ?? rueckfall)}
       castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
     />
+  );
+}
+
+/**
+ * Kreaturen in der Welt.
+ *
+ * Gezeichnet wird nur der Nahbereich: Von rund tausend Vorkommen in der Region sind
+ * je Standort ein paar Dutzend in Reichweite. Die Auswahl läuft — wie bei den Props —
+ * in **einer** Schleife und wird erst nach einigen Metern Bewegung neu bestimmt.
+ *
+ * Die Begegnung dagegen wird jedes Bild geprüft: Sie hängt an wenigen Objekten, und
+ * eine verzögerte Prüfung hieße, durch eine Kreatur hindurchzulaufen.
+ */
+const KREATUR_SICHT = 140;
+const KREATUR_NEUBEWERTUNG = 12;
+/** Ab diesem Abstand beginnt der Kampf. Etwa zwei Schritte — nah genug, dass es
+ *  gewollt wirkt, weit genug, dass man nicht in der Kreatur steht. */
+export const BEGEGNUNG_AB = 4.5;
+/** So weit muss man sich nach einer Begegnung entfernen, bevor die nächste zählt. */
+const SPERRE_BIS = 14;
+
+function Kreaturen({ vorkommen, gestalt, ziel, onBegegnung, verbraucht }: {
+  vorkommen: Vorkommen[];
+  gestalt: (kreatur: string) => THREE.BufferGeometry;
+  ziel: React.RefObject<THREE.Object3D | null>;
+  onBegegnung?: (v: Vorkommen) => void;
+  /** Bereits gefangen oder besiegt — steht nicht mehr in der Welt. */
+  verbraucht?: ReadonlySet<string>;
+}) {
+  const uebrig = useMemo(
+    () => (verbraucht?.size ? vorkommen.filter(v => !verbraucht.has(v.id)) : vorkommen),
+    [vorkommen, verbraucht],
+  );
+  const [nah, setNah] = useState<Vorkommen[]>([]);
+  const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  // Sperre nach einer Begegnung: Nach einem Rückzug steht der Spieler noch neben der
+  // Kreatur. Ohne Abstandssperre startet der Kampf im nächsten Bild erneut.
+  const sperre = useRef<THREE.Vector3 | null>(null);
+
+  const material = useMemo(() => new THREE.MeshStandardMaterial({
+    vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0,
+  }), []);
+
+  useFrame(() => {
+    const p = ziel.current?.position;
+    if (!p) return;
+
+    // Bewusst als Ausschluss formuliert, nicht als Einschluss: Beim ersten Bild ist
+    // `letzte` NaN, und `NaN >= x` ist false — die Liste waere nie gefuellt worden.
+    // `NaN < x` ist ebenfalls false, hier fuehrt das zum richtigen Ergebnis.
+    if (!(letzte.current.distanceTo(p) < KREATUR_NEUBEWERTUNG)) {
+      letzte.current.copy(p);
+      setNah(uebrig.filter(v =>
+        Math.hypot(v.position[0] - p.x, v.position[2] - p.z) <= KREATUR_SICHT));
+    }
+
+    if (!onBegegnung) return;
+    if (sperre.current) {
+      if (sperre.current.distanceTo(p) < SPERRE_BIS) return;
+      sperre.current = null;
+    }
+    for (const v of nah) {
+      const d = Math.hypot(v.position[0] - p.x, v.position[2] - p.z);
+      if (d > BEGEGNUNG_AB) continue;
+      sperre.current = p.clone();
+      onBegegnung(v);
+      break;
+    }
+  });
+
+  return (
+    <>
+      {nah.map(v => (
+        <mesh key={v.id} geometry={gestalt(v.kreatur)} material={material}
+              position={v.position} rotation={[0, v.drehung, 0]}
+              scale={1 + v.stufe * 0.18}
+              castShadow receiveShadow />
+      ))}
+    </>
   );
 }
 
@@ -594,11 +674,35 @@ export interface RegionsSzeneProps {
   /** Wird je halbe Sekunde mit den echten Renderzahlen aufgerufen. */
   onMessung?: (m: Messwerte) => void;
   qualitaet?: Qualitaet;
+  /**
+   * Kreaturen der Region als Daten. Weglassen heisst: reine Erkundung.
+   *
+   * Die Szene bekommt die Spawn-Regeln, nicht die fertigen Positionen: Die Höhe
+   * muss aus demselben Höhenfeld kommen, aus dem die Kacheln gebaut werden, sonst
+   * schweben die Kreaturen — derselbe Fehler wie einst bei den Props.
+   */
+  kreaturen?: KreaturSpawn[];
+  /** Silhouette je Kreatur-ID. Kommt von aussen, damit die Szene keine Inhalte kennt. */
+  gestalt?: (kreatur: string) => THREE.BufferGeometry;
+  /** Bereits gefangene oder besiegte Vorkommen. */
+  verbraucht?: ReadonlySet<string>;
+  onBegegnung?: (v: Vorkommen) => void;
+  /** Startposition; ohne Angabe die Regionsmitte. Der Spielstand setzt sie. */
+  startPosition?: [number, number];
+  /**
+   * Hält die Bildschleife an, ohne die Szene abzubauen.
+   *
+   * Während eines Kampfes ist die Welt unsichtbar, aber sie darf nicht neu gebaut
+   * werden: Terrain, Höhenfeld, 155.000 Props und die Kollision kosten zusammen
+   * mehrere Sekunden. `frameloop="never"` lässt alles stehen und zeichnet nichts.
+   */
+  angehalten?: boolean;
 }
 
 export function RegionsSzene({
   welt, stimmung = 'daemmerung', spielerRef, onMessung,
-  qualitaet = QUALITAET_STANDARD,
+  qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, startPosition,
+  angehalten = false,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
@@ -629,14 +733,28 @@ export function RegionsSzene({
   // Ohne Startposition steht der Spieler im Ursprung (y = 0) — im Œntal sind das
   // ~170 m unter der Geländeoberfläche, die Kamera schaut dann von innen durch den
   // Berg. Bis es echte Bewegung gibt, ist die Regionsmitte der Startpunkt.
-  const start = useMemo<[number, number, number]>(
-    () => [0, hoeheAufFlaeche(feld, 0, 0), 0],
-    [feld],
+  // Kreaturen auf derselben Fläche wie der Spieler — hoeheAufFlaeche liest die
+  // gezeichnete LOD-Oberfläche, feld.hoehe nur das grobe Raster.
+  const vorkommen = useMemo(
+    () => (kreaturen?.length
+      ? verteileKreaturen(welt, kreaturen,
+          (i, j) => [(j / (welt.aufloesung - 1) - 0.5) * feld.breiteMeter,
+                     (i / (welt.aufloesung - 1) - 0.5) * feld.tiefeMeter],
+          (x, z) => hoeheAufFlaeche(feld, x, z),
+          feld.breiteMeter, feld.tiefeMeter)
+      : []),
+    [welt, kreaturen, feld],
   );
+
+  const start = useMemo<[number, number, number]>(() => {
+    const [x, z] = startPosition ?? [0, 0];
+    return [x, hoeheAufFlaeche(feld, x, z), z];
+  }, [feld, startPosition]);
 
   return (
     <Canvas
       shadows={qualitaet.schatten}
+      frameloop={angehalten ? 'never' : 'always'}
       dpr={[1, qualitaet.dpr]}
       camera={{ fov: 55, near: 0.2, far: 1500, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
@@ -647,6 +765,10 @@ export function RegionsSzene({
         <SpielerFigur gier={gier} />
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} kollision={kollision} />
+      {vorkommen.length > 0 && gestalt && (
+        <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref}
+                   onBegegnung={onBegegnung} verbraucht={verbraucht} />
+      )}
       <Kamera ziel={ref} gier={gier} />
       <Messung melde={onMessung} />
     </Canvas>

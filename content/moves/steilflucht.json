@@ -1,0 +1,15 @@
+{
+  "id": "steilflucht",
+  "name": "Steilflucht",
+  "element": "stein",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ini",
+      "stufen": 2,
+      "ziel": "selbst"
+    }
+  ],
+  "beschreibung": "Wechsel in den Steilhang. Deckt die Flanke und macht schnell."
+}

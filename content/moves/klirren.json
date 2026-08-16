@@ -1,0 +1,15 @@
+{
+  "id": "klirren",
+  "name": "Klirren",
+  "element": "frost",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ini",
+      "stufen": -2,
+      "ziel": "gegner"
+    }
+  ],
+  "beschreibung": "Das Fell klirrt in einer Frequenz, die Gelenke steif macht."
+}

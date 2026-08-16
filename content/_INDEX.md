@@ -16,7 +16,7 @@ owns: *.json
 |---|---|
 | Eine Kreatur anlegen | `../docs/design/BRACHLAND_Roster_Kapitel1.md` → `creatures/grathorn.json` als Muster |
 | Einen Regenten anlegen | `../docs/design/BRACHLAND_Kampfsystem_v2.md` (Phasen) → `regenten/flussvater.json` |
-| Einen Move anlegen | `../docs/design/BRACHLAND_Move-System_v1.md` |
+| Einen Move anlegen | `../docs/design/BRACHLAND_Move-System_v1.md` → `moves/_INDEX.md` |
 | Eine Region anlegen | `regions/oental.json` als Muster |
 | Verstehen, was geprüft wird | `../src/data/schema.ts`, `../tools/quality.ts` |
 
@@ -28,19 +28,28 @@ owns: *.json
 | `creatures/trafomarder.json` | Trafomarder (Basis Baummarder, alt-tech + faeulnis, Trafostation-Verwachsung). Spawn an `power=substation`, Budget 4.000 Tris |
 | `regenten/flussvater.json` | Der Flussvater — Regent von Œntal, Riesenwels mit Kläranlagen-Organik. **Drei Phasen** (wasser → faeulnis → alt-tech/stein), 480 KP. Der Grund, warum Wechseln Pflicht ist |
 | `regions/oental.json` | Œntal = Inntal-Süd (Brannenburg/Wendelstein-Fuß). BBox, Regent, Traversal „Klettern", Zielspielzeit 6 Std |
-| `moves/` | **Leer.** Die Regenten-Moves (`stauwelle`, `schlickgriff`, `klaerstrom`, `wehrschlag`) und alle Kreatur-Moves fehlen (Ledger B-9) |
+| `creatures/nebelgams.json` | Nebelgams (Gams, Stein, Silikat-Hufe). 2 Stufen, `natural=scrub`, schnellster Steinträger |
+| `creatures/kiemenbiber.json` | Kiemenbiber (Biber, Wasser, Filterkiemen-Kragen). 3 Stufen, `waterway=stream` — im 96er-Raster praktisch nicht vorhanden, siehe Ledger G-22 |
+| `creatures/sporenhahn.json` | Sporenhahn (Auerhahn, Sporen, Sporenfächer). 3 Stufen, `landuse=forest`. Konter gegen Flussvater-Phase 1 |
+| `creatures/myzelmolch.json` | Myzelmolch (Feuersalamander, Sporen, Leuchtmyzel-Adern). 2 Stufen, `natural=wood`, Glaskanone |
+| `creatures/wurzelkeiler.json` | Wurzelkeiler (Wildschwein, Holz, Wurzelpanzer). 3 Stufen, `landuse=meadow` — die häufigste Kreatur der Region |
+| `creatures/linsenuhu.json` | Linsenuhu (Uhu, Alt-Tech, Facetten-Linsenaugen). 2 Stufen, `natural=cliff`, **nur nachts** |
+| `creatures/spuerfuchs.json` | Spürfuchs (Fuchs, Alt-Tech, Sensor-Fell). 3 Stufen, `landuse=farmyard`, schnellste Kreatur des Kapitels |
+| `creatures/moderotter.json` | Moderotter (Kreuzotter, Fäulnis, Fäulnisdrüse). 2 Stufen, `waterway=ditch` — kommt im aktuellen Raster **nicht** vor, Ledger G-22 |
+| `creatures/firnhase.json` | Firnhase (Schneehase, Frost, Frostkristall-Fell). 2 Stufen, `natural=scree` ab 1000 m. Einziger Frost-Konter gegen Flussvater-Phase 2 |
+| `moves/` | 41 Moves mit eigenem Index — Aufbau, Bänder und Zuordnung zu den Linien stehen in `moves/_INDEX.md` |
 
-## Offene Balance-Blocker (`npm run quality`)
+## Stand Œntal
 
-Œntal hat erst **2 von 35** geplanten Kreaturen. Das Tor rechnet damit korrekt:
+**11 von 35** geplanten Kreaturen: die 10 Wildling-Linien aus Kapitel 1 plus der
+Trafomarder. Es fehlen die Zuchtlinien und die Verhärteten. Damit sind **7 Elemente**
+vertreten (alle außer `brand`, das laut Roster erst im Aschefeld auftaucht), und jede
+Phase des Flussvaters hat einen Konter in der Region.
 
-- nur 3 Elemente vertreten (Minimum 4) → Region wäre eintönig
-- Regenten-Phase 2 (`faeulnis`) hat **keinen Konter** in der Region
-- Regenten-Phase 3 (`alt-tech`, `stein`) hat **keinen Konter** in der Region
-- Warnung: Phase 1 nur über `alt-tech` konterbar
-
-Das sind keine Fehler im Tor, sondern die ehrliche Aussage, dass der Regent derzeit
-unfair ist. Sie verschwinden mit den restlichen Kreaturen aus Kapitel 1. Ledger A-7.
+Zwei Linien stehen zwar in den Daten, kommen aber im gebauten Weltraster praktisch
+nicht vor: `kiemenbiber` (1 Vorkommen) und `moderotter` (0). Ursache ist nicht der
+Inhalt, sondern die Auflösung — 96 × 96 Zellen über 4 km lösen Bäche und Gräben nicht
+auf, es bleiben 2 Wasserzellen. Ledger G-22, prüfbar mit `npm run vorkommen`.
 
 ## Definition of Done (neuer Inhalt)
 

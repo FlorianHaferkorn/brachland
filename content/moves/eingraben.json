@@ -1,0 +1,15 @@
+{
+  "id": "eingraben",
+  "name": "Eingraben",
+  "element": "holz",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ver",
+      "stufen": 3,
+      "ziel": "selbst"
+    }
+  ],
+  "beschreibung": "Der Wurzelpanzer verwächst mit dem Boden. Kaum noch zu verschieben."
+}

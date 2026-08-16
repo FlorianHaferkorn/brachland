@@ -1,0 +1,45 @@
+{
+  "id": "linsenuhu",
+  "linie": "Linsenuhu",
+  "basis": "Uhu",
+  "merkmal": "Facetten-Linsenaugen",
+  "elemente": [
+    "alt-tech"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "biped_bird",
+  "zielTris": 3000,
+  "spawn": {
+    "osmTag": "natural=cliff",
+    "nurNachts": true,
+    "wetter": "beliebig",
+    "haeufigkeit": "selten"
+  },
+  "grundMoves": [
+    "stossflug",
+    "blendlinse"
+  ],
+  "stufen": [
+    {
+      "name": "Linsenuhu",
+      "werte": {
+        "kp": 98,
+        "ang": 66,
+        "ver": 42,
+        "ini": 64
+      }
+    },
+    {
+      "name": "Spähuhu",
+      "werte": {
+        "kp": 126,
+        "ang": 84,
+        "ver": 52,
+        "ini": 74
+      },
+      "signaturMove": "impulsschrei"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Beobachtet lange, bevor er angreift. Erkennbar an den reflektierenden Augen im Dunkeln."
+}

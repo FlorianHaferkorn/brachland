@@ -1,0 +1,46 @@
+{
+  "id": "firnhase",
+  "linie": "Firnhase",
+  "basis": "Schneehase",
+  "merkmal": "Frostkristall-Fell",
+  "elemente": [
+    "frost"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "quadruped_small",
+  "zielTris": 2500,
+  "spawn": {
+    "osmTag": "natural=scree",
+    "nurNachts": false,
+    "wetter": "frost",
+    "haeufigkeit": "selten",
+    "minHoehe": 1000
+  },
+  "grundMoves": [
+    "frostbiss",
+    "klirren"
+  ],
+  "stufen": [
+    {
+      "name": "Firnhase",
+      "werte": {
+        "kp": 88,
+        "ang": 50,
+        "ver": 44,
+        "ini": 86
+      }
+    },
+    {
+      "name": "Firnläufer",
+      "werte": {
+        "kp": 116,
+        "ang": 66,
+        "ver": 56,
+        "ini": 100
+      },
+      "signaturMove": "firnsprung"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Die einzige Frost-Kreatur des Kapitels und damit der einzige Konter gegen die zweite Phase des Flussvaters."
+}

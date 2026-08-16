@@ -1,0 +1,15 @@
+{
+  "id": "blendlinse",
+  "name": "Blendlinse",
+  "element": "alt-tech",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ang",
+      "stufen": -2,
+      "ziel": "gegner"
+    }
+  ],
+  "beschreibung": "Gebündeltes Licht aus den Facetten. Der Gegner trifft schlechter."
+}

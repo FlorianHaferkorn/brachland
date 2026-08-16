@@ -1,0 +1,8 @@
+{
+  "id": "sensorsprung",
+  "name": "Sensorsprung",
+  "element": "alt-tech",
+  "band": "schwer",
+  "effekte": [],
+  "beschreibung": "Sprung entlang der gemessenen Deckungslücke."
+}

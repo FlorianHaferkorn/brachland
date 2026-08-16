@@ -1,0 +1,8 @@
+{
+  "id": "hauerstoss",
+  "name": "Hauerstoß",
+  "element": "holz",
+  "band": "normal",
+  "effekte": [],
+  "beschreibung": "Stoß von unten mit dem Hauer. Hebt den Gegner an."
+}

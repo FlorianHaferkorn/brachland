@@ -1,0 +1,55 @@
+{
+  "id": "spuerfuchs",
+  "linie": "Spürfuchs",
+  "basis": "Fuchs",
+  "merkmal": "Sensor-Fell",
+  "elemente": [
+    "alt-tech"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "quadruped",
+  "zielTris": 3000,
+  "spawn": {
+    "osmTag": "landuse=farmyard",
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "gelegentlich"
+  },
+  "grundMoves": [
+    "schnappbiss",
+    "faehrte"
+  ],
+  "stufen": [
+    {
+      "name": "Spürfuchs",
+      "werte": {
+        "kp": 102,
+        "ang": 54,
+        "ver": 46,
+        "ini": 78
+      }
+    },
+    {
+      "name": "Witterfuchs",
+      "werte": {
+        "kp": 130,
+        "ang": 68,
+        "ver": 58,
+        "ini": 90
+      },
+      "signaturMove": "sensorsprung"
+    },
+    {
+      "name": "Meldefuchs",
+      "werte": {
+        "kp": 158,
+        "ang": 84,
+        "ver": 68,
+        "ini": 102
+      },
+      "signaturMove": "stoerfeld"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Streunt um die Enklaven. Die schnellste Kreatur des Kapitels."
+}

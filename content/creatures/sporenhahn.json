@@ -1,0 +1,55 @@
+{
+  "id": "sporenhahn",
+  "linie": "Sporenhahn",
+  "basis": "Auerhahn",
+  "merkmal": "Sporenfächer",
+  "elemente": [
+    "sporen"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "biped_bird",
+  "zielTris": 3500,
+  "spawn": {
+    "osmTag": "landuse=forest",
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "haeufig"
+  },
+  "grundMoves": [
+    "faecherschlag",
+    "sporenwolke"
+  ],
+  "stufen": [
+    {
+      "name": "Sporenhahn",
+      "werte": {
+        "kp": 100,
+        "ang": 60,
+        "ver": 44,
+        "ini": 58
+      }
+    },
+    {
+      "name": "Fächerbalz",
+      "werte": {
+        "kp": 128,
+        "ang": 76,
+        "ver": 54,
+        "ini": 66
+      },
+      "signaturMove": "balzruf"
+    },
+    {
+      "name": "Hallenbrut",
+      "werte": {
+        "kp": 156,
+        "ang": 94,
+        "ver": 62,
+        "ini": 72
+      },
+      "signaturMove": "sporenbrut"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Balzt in befallenen Lichtungen. Der zuverlässigste Konter gegen die erste Phase des Flussvaters."
+}

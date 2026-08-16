@@ -1,0 +1,13 @@
+{
+  "id": "sporenwolke",
+  "name": "Sporenwolke",
+  "element": "sporen",
+  "band": "leicht",
+  "effekte": [
+    {
+      "art": "befall",
+      "chance": 0.3
+    }
+  ],
+  "beschreibung": "Eine Wolke reifer Sporen. Wer sie einatmet, trägt sie weiter."
+}

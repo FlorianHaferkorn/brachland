@@ -1,18 +1,50 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Kreatur, effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
+import { Kreatur, Move, Regent, effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
-for (const f of readdirSync('content/creatures')) {
-  const raw = JSON.parse(readFileSync(join('content/creatures', f), 'utf8'));
-  const r = Kreatur.safeParse(raw);
-  if (r.success) { console.log(`  ✓ ${f}`); ok++; }
-  else {
-    console.log(`  ✗ ${f}`);
-    r.error.issues.forEach(i => console.log(`      ${i.path.join('.')}: ${i.message}`));
-    fehler++;
+
+/** Ein Ordner gegen ein Schema. Gibt die geparsten Objekte zurueck. */
+function pruefe<T>(ordner: string, schema: { safeParse: (x: unknown) => any }): T[] {
+  const raus: T[] = [];
+  for (const f of readdirSync(ordner).filter(f => f.endsWith('.json')).sort()) {
+    const raw = JSON.parse(readFileSync(join(ordner, f), 'utf8'));
+    const r = schema.safeParse(raw);
+    if (r.success) { console.log(`  ✓ ${f}`); ok++; raus.push(r.data); }
+    else {
+      console.log(`  ✗ ${f}`);
+      r.error.issues.forEach((i: any) => console.log(`      ${i.path.join('.')}: ${i.message}`));
+      fehler++;
+    }
   }
+  return raus;
 }
+
+console.log('Moves:');
+const moves = pruefe<{ id: string }>('content/moves', Move);
+console.log('\nKreaturen:');
+const kreaturen = pruefe<any>('content/creatures', Kreatur);
+console.log('\nRegenten:');
+const regenten = pruefe<any>('content/regenten', Regent);
+
+// Querverweise: jede referenzierte Move-ID muss es geben. Ohne diese Pruefung
+// faellt ein Tippfehler erst im Kampf auf — und dort als leerer Move-Knopf.
+console.log('\nQuerverweise:');
+const bekannt = new Set(moves.map(m => m.id));
+let tote = 0;
+const melde = (wer: string, id: string) => {
+  if (bekannt.has(id)) return;
+  console.log(`  ✗ ${wer} verweist auf unbekannten Move '${id}'`);
+  tote++;
+};
+for (const k of kreaturen) {
+  k.grundMoves.forEach((m: string) => melde(k.id, m));
+  k.stufen.forEach((s: any) => s.signaturMove && melde(k.id, s.signaturMove));
+}
+for (const r of regenten) r.moves.forEach((m: string) => melde(r.id, m));
+console.log(tote === 0 ? `  ✓ alle ${bekannt.size} Moves aufgeloest` : `  ${tote} tote Verweise`);
+if (tote > 0) fehler += tote;
+
 console.log(`\n${ok} gültig, ${fehler} fehlerhaft\n`);
 
 // Matrix-Selbsttest: jedes Element muss 2 Siege, 2 Niederlagen, 3 neutral haben

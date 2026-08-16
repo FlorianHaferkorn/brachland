@@ -134,6 +134,16 @@ export type Kreatur = z.infer<typeof Kreatur>;
 
 // ----------------------------------------------------------------- Regenten
 
+/**
+ * Regenten sprengen das Kreaturenband bewusst: Der Flussvater hat 480 KP gegen
+ * ein Kreaturenmaximum von 400. Ein Bosskampf gegen ein Team von sechs muss
+ * laenger tragen — deshalb ein eigenes Band statt einer aufgeweichten Obergrenze
+ * fuer alle. ANG/VER/INI bleiben im Kreaturenband, sonst kippt die Balance.
+ */
+export const RegentWerte = Werte.extend({
+  kp: z.number().int().min(200).max(800),
+});
+
 export const Regent = z.object({
   id: z.string(),
   name: z.string(),
@@ -146,7 +156,7 @@ export const Regent = z.object({
     abKpAnteil: z.number().min(0).max(1),
     verhalten: z.string(),
   })).min(2).max(4),
-  werte: Werte,
+  werte: RegentWerte,
   moves: z.array(z.string()).min(4).max(6),
   /** Reinkultur-Komponenten, die zur Heilung gebraucht werden. */
   reinkulturen: z.array(z.string()).length(3),

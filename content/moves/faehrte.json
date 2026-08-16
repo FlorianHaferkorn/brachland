@@ -1,0 +1,15 @@
+{
+  "id": "faehrte",
+  "name": "Fährte",
+  "element": "alt-tech",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ini",
+      "stufen": 1,
+      "ziel": "selbst"
+    }
+  ],
+  "beschreibung": "Das Fell liest die Spur des Gegners und findet den nächsten Ansatz."
+}

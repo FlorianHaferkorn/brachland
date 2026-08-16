@@ -1,0 +1,13 @@
+{
+  "id": "stoerfeld",
+  "name": "Störfeld",
+  "element": "alt-tech",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "wechselsperre",
+      "runden": 2
+    }
+  ],
+  "beschreibung": "Das Sensorfell sendet statt zu empfangen. Der Gegner kommt nicht weg."
+}

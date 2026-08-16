@@ -1,0 +1,15 @@
+{
+  "id": "schlickgriff",
+  "name": "Schlickgriff",
+  "element": "faeulnis",
+  "band": "normal",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ini",
+      "stufen": -1,
+      "ziel": "gegner"
+    }
+  ],
+  "beschreibung": "Fauliger Schlick legt sich um die Beine."
+}

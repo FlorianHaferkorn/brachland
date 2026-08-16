@@ -63,7 +63,7 @@ export interface PropInstanz {
   skalierung: number;
 }
 
-function mulberry(seed: number) {
+export function mulberry(seed: number) {
   let a = seed >>> 0;
   return () => {
     a |= 0; a = (a + 0x6D2B79F5) | 0;

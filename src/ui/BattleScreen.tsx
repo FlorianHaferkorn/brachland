@@ -101,18 +101,42 @@ function KaempferKarte({ k, gegner, oben }: { k: Kaempfer; gegner: Kaempfer; obe
   );
 }
 
+/**
+ * Fangchance.
+ *
+ * Bei voller KP 20 %, bei 10 % Rest-KP rund 74 %. Der Verlauf ist bewusst linear:
+ * Der Spieler soll abschaetzen koennen, ob sich noch ein Schlag lohnt oder ob der
+ * Wurf jetzt richtig ist. Eine versteckte Kurve macht daraus Gluecksspiel.
+ *
+ * Ein Fangversuch kostet den Zug — der Gegner greift trotzdem an. Sonst waere
+ * Fangen die dominante Handlung in jeder Runde.
+ */
+export const FANG_BASIS = 0.20;
+export const FANG_SPANNE = 0.60;
+
+export function fangchance(gegner: Kaempfer): number {
+  const anteil = Math.max(0, gegner.kp) / gegner.maxKp;
+  const bonus = gegner.zustand === 'befallen' ? 0.1 : 0;
+  return Math.min(0.95, FANG_BASIS + FANG_SPANNE * (1 - anteil) + bonus);
+}
+
+export type KampfEnde = 'sieg' | 'niederlage' | 'gefangen' | 'flucht';
+
 export interface KampfProps {
   team: Team;
   gegner: Kaempfer;
   seed?: number;
-  onEnde?: (sieg: boolean) => void;
+  /** Fangbar? Verwachsene und Regenten sind es nicht. */
+  fangbar?: boolean;
+  onEnde?: (ende: KampfEnde) => void;
 }
 
-export function Kampfbildschirm({ team, gegner, seed = 1, onEnde }: KampfProps) {
+export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, onEnde }: KampfProps) {
   const [, neuZeichnen] = useState(0);
-  const [meldungen, setMeldungen] = useState<string[]>(['Ein wilder Gegner stellt sich.']);
+  const [meldungen, setMeldungen] = useState<string[]>([`${gegner.name} stellt sich.`]);
   const [wechselOffen, setWechselOffen] = useState(false);
   const [beschaeftigt, setBeschaeftigt] = useState(false);
+  const [ende, setEnde] = useState<KampfEnde | null>(null);
   const zufall = useMemo(() => rng(seed), [seed]);
 
   const aktiv = team.kaempfer[team.aktiv];
@@ -152,18 +176,47 @@ export function Kampfbildschirm({ team, gegner, seed = 1, onEnde }: KampfProps) 
       k.fokus = Math.min(REGELN.FOKUS_MAX, k.fokus + REGELN.FOKUS_REGEN);
     }
 
-    if (gegner.kp <= 0) { melde(`${gegner.name} ist besiegt.`); onEnde?.(true); }
+    if (gegner.kp <= 0) { melde(`${gegner.name} ist besiegt.`); setEnde('sieg'); }
     else if (ich.kp <= 0) {
       melde(`${ich.name} ist ausgefallen.`);
       const naechster = team.kaempfer.findIndex(k => k.kp > 0);
-      if (naechster === -1) { melde('Kein Kämpfer mehr einsatzbereit.'); onEnde?.(false); }
+      if (naechster === -1) { melde('Kein Kämpfer mehr einsatzbereit.'); setEnde('niederlage'); }
       else { team.aktiv = naechster; team.kaempfer[naechster].fokus = REGELN.FOKUS_START; setWechselOffen(false); }
     }
     neuZeichnen(x => x + 1);
     setBeschaeftigt(false);
-  }, [team, gegner, zufall, onEnde]);
+  }, [team, gegner, zufall]);
 
-  const vorbei = gegner.kp <= 0 || team.kaempfer.every(k => k.kp <= 0);
+  /** Fangversuch. Schlaegt er fehl, hat der Gegner trotzdem seinen Zug. */
+  const fangen = useCallback(() => {
+    setBeschaeftigt(true);
+    const ich = team.kaempfer[team.aktiv];
+    const chance = fangchance(gegner);
+    if (zufall() < chance) {
+      melde(`${gegner.name} laesst sich fangen.`);
+      setEnde('gefangen');
+      setBeschaeftigt(false);
+      neuZeichnen(x => x + 1);
+      return;
+    }
+    melde(`${gegner.name} entwindet sich (${Math.round(chance * 100)} %).`);
+    const gm = waehleMove(gegner, ich);
+    if (gm) {
+      const s = schaden(gegner, ich, gm, zufall);
+      ich.kp -= s;
+      melde(`${gegner.name}: ${gm.name} → ${s}`);
+      if (ich.kp <= 0) {
+        const naechster = team.kaempfer.findIndex(k => k.kp > 0);
+        if (naechster === -1) { melde('Kein Kämpfer mehr einsatzbereit.'); setEnde('niederlage'); }
+        else { team.aktiv = naechster; team.kaempfer[naechster].fokus = REGELN.FOKUS_START; }
+      }
+    }
+    for (const k of [ich, gegner]) k.fokus = Math.min(REGELN.FOKUS_MAX, k.fokus + REGELN.FOKUS_REGEN);
+    neuZeichnen(x => x + 1);
+    setBeschaeftigt(false);
+  }, [team, gegner, zufall]);
+
+  const vorbei = ende !== null;
 
   return (
     <div style={{
@@ -218,6 +271,21 @@ export function Kampfbildschirm({ team, gegner, seed = 1, onEnde }: KampfProps) 
             }}>
             Wechseln — kostet den Zug, Schild {Math.round(REGELN.SHIELD_DR * 100)} %
           </button>
+          <button onClick={fangen} disabled={beschaeftigt || !fangbar}
+            style={{
+              minHeight: 48, borderRadius: 10, background: 'transparent',
+              border: `1px solid ${fangbar ? FARBE.signal : FARBE.rand}`,
+              color: fangbar ? FARBE.signal : '#4a544f',
+            }}>
+            {fangbar ? `Fangen — ${Math.round(fangchance(gegner) * 100)} %` : 'nicht fangbar'}
+          </button>
+          <button onClick={() => setEnde('flucht')} disabled={beschaeftigt}
+            style={{
+              minHeight: 48, borderRadius: 10, background: 'transparent',
+              border: `1px solid ${FARBE.rand}`, color: FARBE.gedaempft,
+            }}>
+            Zurückziehen
+          </button>
         </div>
       )}
 
@@ -252,11 +320,25 @@ export function Kampfbildschirm({ team, gegner, seed = 1, onEnde }: KampfProps) 
       )}
 
       {vorbei && (
-        <div style={{
-          textAlign: 'center', padding: 16, color: gegner.kp <= 0 ? FARBE.signal : FARBE.gefahr,
-          fontSize: 18, fontWeight: 600,
-        }}>
-          {gegner.kp <= 0 ? 'Gegner besiegt' : 'Niederlage'}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '8px 0' }}>
+          <div style={{
+            textAlign: 'center', color: ende === 'niederlage' ? FARBE.gefahr : FARBE.signal,
+            fontSize: 18, fontWeight: 600,
+          }}>
+            {ende === 'sieg' ? 'Gegner besiegt'
+              : ende === 'gefangen' ? `${gegner.name} ist jetzt bei dir`
+              : ende === 'flucht' ? 'Zurückgezogen'
+              : 'Niederlage'}
+          </div>
+          {/* Der Kampf endet nicht von selbst: Ohne Bestaetigung springt man aus dem
+              Ergebnis heraus, bevor man es gelesen hat. */}
+          <button onClick={() => onEnde?.(ende!)}
+            style={{
+              minHeight: 52, borderRadius: 10, background: FARBE.flaeche,
+              border: `1px solid ${FARBE.rand}`, color: FARBE.text, fontSize: 15,
+            }}>
+            Weiter
+          </button>
         </div>
       )}
     </div>

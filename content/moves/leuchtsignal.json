@@ -1,0 +1,15 @@
+{
+  "id": "leuchtsignal",
+  "name": "Leuchtsignal",
+  "element": "sporen",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ini",
+      "stufen": 2,
+      "ziel": "selbst"
+    }
+  ],
+  "beschreibung": "Das Myzel pulst hell. Der Molch wird schneller, aber sichtbar."
+}

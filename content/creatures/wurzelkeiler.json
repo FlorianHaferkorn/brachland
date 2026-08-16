@@ -1,0 +1,55 @@
+{
+  "id": "wurzelkeiler",
+  "linie": "Wurzelkeiler",
+  "basis": "Wildschwein",
+  "merkmal": "Wurzelpanzer",
+  "elemente": [
+    "holz"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "quadruped",
+  "zielTris": 4000,
+  "spawn": {
+    "osmTag": "landuse=meadow",
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "haeufig"
+  },
+  "grundMoves": [
+    "hauerstoss",
+    "wurzelgriff"
+  ],
+  "stufen": [
+    {
+      "name": "Wurzelkeiler",
+      "werte": {
+        "kp": 150,
+        "ang": 62,
+        "ver": 56,
+        "ini": 34
+      }
+    },
+    {
+      "name": "Dickichtbrecher",
+      "werte": {
+        "kp": 184,
+        "ang": 78,
+        "ver": 70,
+        "ini": 38
+      },
+      "signaturMove": "dickichtsturm"
+    },
+    {
+      "name": "Wurzelvollzug",
+      "werte": {
+        "kp": 222,
+        "ang": 96,
+        "ver": 86,
+        "ini": 40
+      },
+      "signaturMove": "eingraben"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Wühlt Wurzelwerk um. Der Panzer wächst aus dem Boden nach, den es durchbricht."
+}

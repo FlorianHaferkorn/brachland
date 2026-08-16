@@ -1,0 +1,12 @@
+{
+  "id": "abschuetteln",
+  "name": "Abschütteln",
+  "element": "stein",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "reinigung"
+    }
+  ],
+  "beschreibung": "Ein Schütteln des Nackens. Löst Befall und Statusveränderungen ab."
+}

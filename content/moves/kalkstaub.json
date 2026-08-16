@@ -1,0 +1,15 @@
+{
+  "id": "kalkstaub",
+  "name": "Kalkstaub",
+  "element": "stein",
+  "band": "leicht",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ini",
+      "stufen": -1,
+      "ziel": "gegner"
+    }
+  ],
+  "beschreibung": "Aufgewirbelter Kalk setzt sich in die Atemwege. Der Gegner wird träge."
+}

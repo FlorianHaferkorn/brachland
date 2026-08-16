@@ -1,0 +1,13 @@
+{
+  "id": "wurzelgriff",
+  "name": "Wurzelgriff",
+  "element": "holz",
+  "band": "leicht",
+  "effekte": [
+    {
+      "art": "wechselsperre",
+      "runden": 2
+    }
+  ],
+  "beschreibung": "Wurzeln schlingen sich um die Läufe. Fliehen ist erst mal vorbei."
+}

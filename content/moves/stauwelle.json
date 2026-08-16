@@ -1,0 +1,8 @@
+{
+  "id": "stauwelle",
+  "name": "Stauwelle",
+  "element": "wasser",
+  "band": "schwer",
+  "effekte": [],
+  "beschreibung": "Der aufgestaute Fluss bricht auf einmal los."
+}

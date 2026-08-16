@@ -324,7 +324,10 @@ export function baueSpawns(
     }
     if (!k.spawn.osmTag) continue;
     const [key, val] = k.spawn.osmTag.split('=');
-    const zielBiom = TAG_BIOM.find(([tk, tv]) => tk === key && tv === val)?.[2];
+    // Ueber bestimmeBiom, nicht ueber TAG_BIOM direkt: Tags wie `waterway=stream`
+    // stehen nicht in der Tabelle, fallen aber auf 'wasser' zurueck. Die Direktsuche
+    // lieferte dafuer `undefined` — und damit eine Zone ueber die ganze Karte.
+    const zielBiom = bestimmeBiom({ [key]: val });
     const zellen: [number, number][] = [];
     for (let i = 0; i < welt.aufloesung; i++) {
       for (let j = 0; j < welt.aufloesung; j++) {

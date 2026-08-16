@@ -1,0 +1,13 @@
+{
+  "id": "klarwasser",
+  "name": "Klarwasser",
+  "element": "wasser",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "heilung",
+      "anteil": 0.25
+    }
+  ],
+  "beschreibung": "Gefiltertes Wasser aus dem eigenen Kragen. Schließt Wunden."
+}

@@ -1,0 +1,45 @@
+{
+  "id": "myzelmolch",
+  "linie": "Myzelmolch",
+  "basis": "Feuersalamander",
+  "merkmal": "Leuchtmyzel-Adern",
+  "elemente": [
+    "sporen"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "quadruped_small",
+  "zielTris": 2500,
+  "spawn": {
+    "osmTag": "natural=wood",
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "gelegentlich"
+  },
+  "grundMoves": [
+    "aetzhaut",
+    "leuchtsignal"
+  ],
+  "stufen": [
+    {
+      "name": "Myzelmolch",
+      "werte": {
+        "kp": 95,
+        "ang": 64,
+        "ver": 40,
+        "ini": 50
+      }
+    },
+    {
+      "name": "Leuchtmolch",
+      "werte": {
+        "kp": 124,
+        "ang": 84,
+        "ver": 50,
+        "ini": 58
+      },
+      "signaturMove": "myzelfaden"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Leuchtet nachts. Glaskanone: hoher Angriff, dünne Verteidigung, kurze Kämpfe in beide Richtungen."
+}

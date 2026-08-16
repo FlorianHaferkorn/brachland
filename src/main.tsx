@@ -1,8 +1,27 @@
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import * as THREE from 'three';
 import type { Weltdaten } from './world/osm.js';
 import { RegionsSzene, STIMMUNG, QUALITAET_STANDARD,
          type StimmungsName, type Messwerte, type Qualitaet } from './scenes/RegionsSzene.js';
+import type { Vorkommen } from './world/vorkommen.js';
+import { baueKreaturGeometrie } from './world/kreaturgestalt.js';
+import { KREATUREN, WILDLINGE, baueKaempfer } from './data/inhalte.js';
+import { Kampfbildschirm, type KampfEnde } from './ui/BattleScreen.js';
+import type { Kaempfer, Team } from './engine/battle.js';
+import { ladeStand, speichereStand, LEERER_STAND,
+         type Spielstand, type TeamEintrag } from './spiel/spielstand.js';
+
+/**
+ * Startkreatur.
+ *
+ * Das Grathorn ist das Wappentier der Region und die einzige Linie mit drei Stufen,
+ * die von Anfang an im Œntal steht — es ist damit die Kreatur, an der ein Spieler
+ * das Aufstufen zuerst sieht. Sobald es eine Anfangsszene gibt, wird das eine
+ * Entscheidung des Spielers; bis dahin ist es gesetzt.
+ */
+const START_KREATUR = 'grathorn';
+const TEAM_MAX = 6;
 
 function App() {
   const [welt, setWelt] = useState<Weltdaten | null>(null);
@@ -10,6 +29,13 @@ function App() {
   const [stimmung, setStimmung] = useState<StimmungsName>('daemmerung');
   const [messung, setMessung] = useState<Messwerte | null>(null);
   const [qualitaet, setQualitaet] = useState<Qualitaet>(QUALITAET_STANDARD);
+  const [schalterOffen, setSchalterOffen] = useState(false);
+
+  const [stand, setStand] = useState<Spielstand | null>(null);
+  const [team, setTeam] = useState<Kaempfer[]>([]);
+  const [begegnung, setBegegnung] = useState<{ v: Vorkommen; gegner: Kaempfer } | null>(null);
+  const [hinweis, setHinweis] = useState<string | null>(null);
+  const spielerRef = useRef<THREE.Object3D>(null);
 
   useEffect(() => {
     fetch('/world/oental.json')
@@ -18,76 +44,217 @@ function App() {
       .catch(e => setFehler(String(e)));
   }, []);
 
+  // Spielstand laden, sonst neu anfangen. Beides ergibt am Ende ein Team.
+  useEffect(() => {
+    let abgebrochen = false;
+    ladeStand().then(geladen => {
+      if (abgebrochen) return;
+      const s = geladen ?? { ...LEERER_STAND, team: [{ kreatur: START_KREATUR, stufe: 0, kp: 0 }] };
+      setStand(s);
+      setTeam(s.team.map(e => {
+        const k = baueKaempfer(e.kreatur, e.stufe);
+        if (e.kp > 0) k.kp = Math.min(e.kp, k.maxKp);
+        return k;
+      }));
+    });
+    return () => { abgebrochen = true; };
+  }, []);
+
+  // Silhouetten einmal je Kreatur — 19 Geometrien statt einer je Vorkommen.
+  const gestalten = useMemo(() => {
+    const karte = new Map<string, THREE.BufferGeometry>();
+    for (const k of KREATUREN.values()) karte.set(k.id, baueKreaturGeometrie(k.basisRig, k.elemente));
+    return karte;
+  }, []);
+  const gestalt = useCallback(
+    (id: string) => gestalten.get(id) ?? gestalten.values().next().value!,
+    [gestalten],
+  );
+
+  const verbraucht = useMemo(
+    () => new Set([...(stand?.gefangen ?? []), ...(stand?.besiegt ?? [])]),
+    [stand],
+  );
+
+  const sichere = useCallback((aenderung: Partial<Spielstand>, teamJetzt: Kaempfer[]) => {
+    setStand(alt => {
+      if (!alt) return alt;
+      const p = spielerRef.current?.position;
+      const neu: Spielstand = {
+        ...alt,
+        ...aenderung,
+        position: p ? [p.x, p.z] : alt.position,
+        team: teamJetzt.map<TeamEintrag>(k => ({
+          kreatur: k.id.replace(/-s\d+$/, ''),
+          stufe: Number(k.id.match(/-s(\d+)$/)?.[1] ?? 1) - 1,
+          kp: Math.max(0, k.kp),
+        })),
+      };
+      void speichereStand(neu);
+      return neu;
+    });
+  }, []);
+
+  const beginneKampf = useCallback((v: Vorkommen) => {
+    setBegegnung({ v, gegner: baueKaempfer(v.kreatur, v.stufe) });
+  }, []);
+
+  const beendeKampf = useCallback((ende: KampfEnde) => {
+    const v = begegnung?.v;
+    setBegegnung(null);
+    if (!v || !stand) return;
+
+    if (ende === 'gefangen') {
+      if (team.length >= TEAM_MAX) {
+        setHinweis('Team ist voll — die Kreatur bleibt frei.');
+        sichere({ besiegt: [...stand.besiegt, v.id] }, team);
+        return;
+      }
+      const neuesTeam = [...team, baueKaempfer(v.kreatur, v.stufe)];
+      setTeam(neuesTeam);
+      setHinweis(`${KREATUREN.get(v.kreatur)?.linie ?? v.kreatur} aufgenommen.`);
+      sichere({ gefangen: [...stand.gefangen, v.id], gesehen: [...new Set([...stand.gesehen, v.kreatur])] }, neuesTeam);
+      return;
+    }
+
+    if (ende === 'niederlage') {
+      // Kein Verlust von Fortschritt, aber das Team muss zurück auf die Beine —
+      // sonst steht man mit 0 KP in der Welt und jede Begegnung endet sofort.
+      const geheilt = team.map(k => { k.kp = k.maxKp; return k; });
+      setTeam([...geheilt]);
+      setHinweis('Das Team ist erschöpft. Ihr habt euch zurückgezogen.');
+      sichere({}, geheilt);
+      return;
+    }
+
+    if (ende === 'sieg') {
+      setHinweis(null);
+      sichere({ besiegt: [...stand.besiegt, v.id],
+                gesehen: [...new Set([...stand.gesehen, v.kreatur])] }, team);
+      return;
+    }
+    sichere({ gesehen: [...new Set([...stand.gesehen, v.kreatur])] }, team);
+  }, [begegnung, stand, team, sichere]);
+
   if (fehler) return <Hinweis text={`Weltdaten fehlen: ${fehler} — erst "npm run world oental 96" ausführen.`} />;
-  if (!welt) return <Hinweis text="Œntal wird geladen …" />;
+  if (!welt || !stand) return <Hinweis text="Œntal wird geladen …" />;
+
+  const imKampf = begegnung !== null;
+  const kampfTeam: Team = { kaempfer: team, aktiv: Math.max(0, team.findIndex(k => k.kp > 0)) };
 
   return (
     <>
       <RegionsSzene
         welt={welt} stimmung={stimmung} onMessung={setMessung}
         qualitaet={qualitaet}
+        spielerRef={spielerRef}
+        kreaturen={WILDLINGE}
+        gestalt={gestalt}
+        verbraucht={verbraucht}
+        onBegegnung={beginneKampf}
+        startPosition={stand.position}
+        angehalten={imKampf}
       />
-      <div style={{
-        position: 'fixed', top: 'env(safe-area-inset-top, 8px)', left: 8,
-        display: 'flex', gap: 6, zIndex: 10,
-      }}>
-        {(Object.keys(STIMMUNG) as StimmungsName[]).map(s => (
-          <button key={s} onClick={() => setStimmung(s)} style={{
-            minHeight: 34, padding: '4px 10px', borderRadius: 8, fontSize: 12,
-            background: s === stimmung ? '#1f2b27' : 'transparent',
-            border: '1px solid #2a3632', color: s === stimmung ? '#3fd9a0' : '#7d8b85',
-          }}>{s}</button>
-        ))}
-      </div>
 
-      {/* Messwerte vom echten Gerät — die Grundlage, um das Dreiecksbudget zu belegen
-          statt es zu behaupten. */}
-      {messung && (
-        <div style={{
-          position: 'fixed', top: 'env(safe-area-inset-top, 8px)', right: 8, zIndex: 10,
-          fontFamily: 'ui-monospace, monospace', fontSize: 11, lineHeight: 1.5,
-          color: messung.bps < 30 ? '#d98b6b' : '#5c8f76', textAlign: 'right',
-          background: '#0d121099', padding: '4px 7px', borderRadius: 6,
-          pointerEvents: 'none',
-        }}>
-          {messung.bps.toFixed(0)} B/s<br />
-          {Math.round(messung.dreiecke).toLocaleString('de')} Dreiecke<br />
-          {messung.aufrufe} Aufrufe<br />
-          {messung.objekte.toLocaleString('de')} Objekte
+      {imKampf && begegnung && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 40, overflow: 'auto' }}>
+          <Kampfbildschirm
+            team={kampfTeam}
+            gegner={begegnung.gegner}
+            fangbar={KREATUREN.get(begegnung.v.kreatur)?.fangbar ?? false}
+            seed={begegnung.v.id.length * 7919 + begegnung.v.stufe}
+            onEnde={beendeKampf}
+          />
         </div>
       )}
 
-      {/* Schalter zum Eingrenzen des Engpasses. Gemessen wurden 23–45 B/s bei nur
-          210.000 Dreiecken — die Geometrie kann es also nicht sein. Jeden Schalter
-          einzeln umlegen und die Bildrate oben rechts ablesen. */}
-      <div style={{
-        position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom, 8px) + 30px)',
-        left: 0, right: 0, display: 'flex', gap: 6, justifyContent: 'center',
-        flexWrap: 'wrap', zIndex: 10,
-      }}>
-        {([
-          ['Pixel 1x', () => setQualitaet(q => ({ ...q, dpr: 1 })), qualitaet.dpr === 1],
-          ['1,5x', () => setQualitaet(q => ({ ...q, dpr: 1.5 })), qualitaet.dpr === 1.5],
-          ['2x', () => setQualitaet(q => ({ ...q, dpr: 2 })), qualitaet.dpr === 2],
-          ['Schatten', () => setQualitaet(q => ({ ...q, schatten: !q.schatten })), qualitaet.schatten],
-          ['Gras aus', () => setQualitaet(q => ({ ...q, gras: q.gras === 0 ? 1 : 0 })), qualitaet.gras === 0],
-        ] as [string, () => void, boolean][]).map(([text, klick, an]) => (
-          <button key={text} onClick={klick} style={{
-            minHeight: 30, padding: '3px 9px', borderRadius: 7, fontSize: 11,
-            background: an ? '#1f2b27' : 'transparent',
-            border: '1px solid #2a3632', color: an ? '#3fd9a0' : '#7d8b85',
-          }}>{text}</button>
-        ))}
-      </div>
+      {!imKampf && (
+        <>
+          <div style={{
+            position: 'fixed', top: 'env(safe-area-inset-top, 8px)', left: 8,
+            display: 'flex', gap: 6, zIndex: 10,
+          }}>
+            {(Object.keys(STIMMUNG) as StimmungsName[]).map(s => (
+              <button key={s} onClick={() => setStimmung(s)} style={{
+                minHeight: 34, padding: '4px 10px', borderRadius: 8, fontSize: 12,
+                background: s === stimmung ? '#1f2b27' : 'transparent',
+                border: '1px solid #2a3632', color: s === stimmung ? '#3fd9a0' : '#7d8b85',
+              }}>{s}</button>
+            ))}
+          </div>
 
-      {/* Ohne Hinweis findet niemand die Touch-Steuerung — sie ist unsichtbar. */}
-      <div style={{
-        position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom, 8px) + 8px)', left: 0, right: 0,
-        textAlign: 'center', pointerEvents: 'none', zIndex: 10,
-        color: '#5c6b64', fontSize: 11, letterSpacing: 0.2,
-      }}>
-        links wischen = gehen · rechts wischen = umsehen · WASD + Ziehen am Rechner
-      </div>
+          {/* Team — ohne diese Anzeige weiß niemand, womit er in den nächsten Kampf geht. */}
+          <div style={{
+            position: 'fixed', left: 8, bottom: 'calc(env(safe-area-inset-bottom, 8px) + 34px)',
+            display: 'flex', flexDirection: 'column', gap: 3, zIndex: 10, pointerEvents: 'none',
+          }}>
+            {team.map((k, i) => (
+              <div key={i} style={{
+                fontFamily: 'ui-monospace, monospace', fontSize: 11,
+                color: k.kp > 0 ? '#9fb0a8' : '#6b5450',
+                background: '#0d121099', padding: '2px 6px', borderRadius: 5,
+              }}>
+                {k.name} {Math.max(0, k.kp)}/{k.maxKp}
+              </div>
+            ))}
+          </div>
+
+          {hinweis && (
+            <div onClick={() => setHinweis(null)} style={{
+              position: 'fixed', top: 'calc(env(safe-area-inset-top, 8px) + 44px)',
+              left: '50%', transform: 'translateX(-50%)', zIndex: 20,
+              background: '#131c19ee', border: '1px solid #2a3632', borderRadius: 8,
+              padding: '7px 12px', color: '#3fd9a0', fontSize: 12, maxWidth: '80vw',
+            }}>{hinweis}</div>
+          )}
+
+          {messung && (
+            <div onClick={() => setSchalterOffen(o => !o)} style={{
+              position: 'fixed', top: 'env(safe-area-inset-top, 8px)', right: 8, zIndex: 10,
+              fontFamily: 'ui-monospace, monospace', fontSize: 11, lineHeight: 1.5,
+              color: messung.bps < 30 ? '#d98b6b' : '#5c8f76', textAlign: 'right',
+              background: '#0d121099', padding: '4px 7px', borderRadius: 6,
+            }}>
+              {messung.bps.toFixed(0)} B/s<br />
+              {Math.round(messung.dreiecke).toLocaleString('de')} Dreiecke<br />
+              {messung.aufrufe} Aufrufe<br />
+              {messung.objekte.toLocaleString('de')} Objekte
+            </div>
+          )}
+
+          {/* Qualitätsschalter liegen jetzt hinter der Messanzeige: Sie sind ein
+              Diagnosewerkzeug, kein Teil des Spiels — siehe Ledger G-20. */}
+          {schalterOffen && (
+            <div style={{
+              position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom, 8px) + 30px)',
+              left: 0, right: 0, display: 'flex', gap: 6, justifyContent: 'center',
+              flexWrap: 'wrap', zIndex: 10,
+            }}>
+              {([
+                ['Pixel 1x', () => setQualitaet(q => ({ ...q, dpr: 1 })), qualitaet.dpr === 1],
+                ['1,5x', () => setQualitaet(q => ({ ...q, dpr: 1.5 })), qualitaet.dpr === 1.5],
+                ['2x', () => setQualitaet(q => ({ ...q, dpr: 2 })), qualitaet.dpr === 2],
+                ['Schatten', () => setQualitaet(q => ({ ...q, schatten: !q.schatten })), qualitaet.schatten],
+                ['Gras aus', () => setQualitaet(q => ({ ...q, gras: q.gras === 0 ? 1 : 0 })), qualitaet.gras === 0],
+              ] as [string, () => void, boolean][]).map(([text, klick, an]) => (
+                <button key={text} onClick={klick} style={{
+                  minHeight: 30, padding: '3px 9px', borderRadius: 7, fontSize: 11,
+                  background: an ? '#1f2b27' : 'transparent',
+                  border: '1px solid #2a3632', color: an ? '#3fd9a0' : '#7d8b85',
+                }}>{text}</button>
+              ))}
+            </div>
+          )}
+
+          <div style={{
+            position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom, 8px) + 8px)', left: 0, right: 0,
+            textAlign: 'center', pointerEvents: 'none', zIndex: 10,
+            color: '#5c6b64', fontSize: 11, letterSpacing: 0.2,
+          }}>
+            links wischen = gehen · rechts wischen = umsehen · Kreaturen ansteuern = Kampf
+          </div>
+        </>
+      )}
     </>
   );
 }
