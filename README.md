@@ -69,7 +69,7 @@ Dieses Repo wird über `_INDEX.md`-Dateien navigiert, nicht durch Volltext-Scan:
 | `CLAUDE.md` | Arbeitsregeln — Pflicht-Erstkontakt für Agenten |
 | `docs/_INDEX.md` | L0-Navigation aller Docs **+ Ledger** (offene Punkte, Entscheidungen) |
 | `docs/design/_INDEX.md` | Die verbindlichen Design-Dokumente |
-| `src/_INDEX.md` · `tools/_INDEX.md` · `content/_INDEX.md` · `assets/_INDEX.md` | Bereichsnavigation |
+| `src/_INDEX.md` · `tools/_INDEX.md` · `content/_INDEX.md` · `assets/_INDEX.md` · `public/_INDEX.md` | Bereichsnavigation |
 
 ## Vor jedem Commit / jeder Session
 
