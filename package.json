@@ -13,6 +13,7 @@
     "masstab": "tsx tools/masstab.ts",
     "szene": "tsx tools/scenecheck.ts",
     "quality": "tsx tools/quality.ts",
+    "last": "tsx tools/lastcheck.ts",
     "test": "tsx tests/battle.test.ts",
     "world": "tsx tools/buildworld.ts",
     "typecheck": "tsc --noEmit",

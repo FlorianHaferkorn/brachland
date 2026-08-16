@@ -26,6 +26,7 @@ import { baueSpielerGeometrie } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
+import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
 
 /** Tageszeiten. Der Look lebt von Dämmerung und Nebel — Mittagssonne verzeiht nichts. */
 export const STIMMUNG = {
@@ -50,14 +51,6 @@ export const STIMMUNG = {
 } as const;
 export type StimmungsName = keyof typeof STIMMUNG;
 
-/**
- * Sichtweite des Terrains. Der Nebel endet je nach Stimmung bei 240–420 m;
- * 500 m deckt alle drei ab, alles dahinter wäre gezeichnete Nebelfarbe.
- */
-const TERRAIN_SICHT = 500;
-
-/** Erst ab dieser Bewegung wird die LOD-Zuordnung neu bestimmt. */
-const NEUAUFBAU_AB = 32;
 
 /**
  * Terrain als LOD-Kacheln statt eines groben Rasters.
@@ -88,6 +81,10 @@ function LodTerrain({ feld, kacheln, ziel }: {
     if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
     letzte.current.copy(p);
 
+    // Höchstens so viele Kacheln je Bild neu bauen. Alle 226 auf einmal kosten
+    // gemessen 68 ms — ein sichtbarer Ruckler alle 32 m. Fehlende Kacheln werden im
+    // nächsten Bild nachgezogen; bis dahin fehlt am Rand ein Stück, das im Nebel liegt.
+    let budget = 12;
     const jeStufe = new Map<number, THREE.BufferGeometry[]>();
     for (const k of kacheln) {
       const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
@@ -95,7 +92,11 @@ function LodTerrain({ feld, kacheln, ziel }: {
       const lod = lodFuerAbstand(d);
       const schluessel = `${k.ix}:${k.iz}:${lod}`;
       let g = cache.current.get(schluessel);
-      if (!g) { g = baueKachelGeometrie(feld, k, lod); cache.current.set(schluessel, g); }
+      if (!g) {
+        if (budget-- <= 0) { letzte.current.set(NaN, NaN, NaN); continue; }
+        g = baueKachelGeometrie(feld, k, lod);
+        cache.current.set(schluessel, g);
+      }
       const liste = jeStufe.get(lod);
       if (liste) liste.push(g); else jeStufe.set(lod, [g]);
     }
@@ -166,18 +167,40 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte }: {
   );
 }
 
+/**
+ * Verwaltet die Prop-Chunks.
+ *
+ * Der Kern: Von 16.663 Chunks sind je Standort rund 400 sichtbar. Früher war **jeder**
+ * Chunk eine montierte Komponente mit eigenem `useFrame` — 16.663 Callbacks je Bild
+ * plus ebenso viele Objekte, die three.js jedes Bild durchläuft. Das war der Grund,
+ * warum die Bildrate auch mit allen Grafikschaltern auf Minimum nicht stieg: Die Last
+ * lag in JavaScript, nicht auf der GPU.
+ *
+ * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
+ * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
+ */
 function Props({ props }: { props: PropInstanz[] }) {
-  // Chunks statt einer Riesen-Instanz je Art: nur so lässt sich nach Entfernung ausblenden.
-  // Ohne Culling wären es ~485.000 Dreiecke, mit ~115.000–265.000 je nach Standort.
-  //
-  // Die Y-Koordinate kommt aus dem Höhenfeld, nicht aus dem groben Raster: Der Boden
-  // wird als LOD-Kachel mit Mikrorelief gezeichnet, und wer auf dem Raster platziert,
-  // lässt seine Bäume um bis zu ~1,2 m schweben oder versinken.
   const chunks = useMemo(() => chunkeProps(props), [props]);
+  const [sichtbar, setSichtbar] = useState<{ c: PropChunk; fern: boolean; id: string }[]>([]);
+  const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+
+  useFrame(({ camera }) => {
+    const p = camera.position;
+    if (letzte.current.distanceTo(p) < PROP_NEUBEWERTUNG) return;
+    letzte.current.copy(p);
+
+    const liste: { c: PropChunk; fern: boolean; id: string }[] = [];
+    for (const c of chunks) {
+      const d = Math.hypot(p.x - c.mitte[0], p.z - c.mitte[1]) - c.radius;
+      if (d > c.sichtweite) continue;
+      liste.push({ c, fern: d > ATTRAPPE_AB, id: `${c.art}:${c.variante}:${c.mitte[0]}:${c.mitte[1]}` });
+    }
+    setSichtbar(liste);
+  });
 
   return (
     <>
-      {chunks.map((c, i) => <PropChunkMesh key={i} chunk={c} />)}
+      {sichtbar.map(({ c, fern, id }) => <PropChunkMesh key={id} chunk={c} fern={fern} />)}
     </>
   );
 }
@@ -212,23 +235,12 @@ function useNormiertesPropMesh(art: PropArt, variante: number) {
   }, [scene, art]);
 }
 
-/**
- * Ab dieser Entfernung wird die Attrappe gezeichnet.
- *
- * 75 m ist kein Geschmackswert: Gemessen kostet der dichteste Standort ohne
- * Attrappen 1,4 Mio Dreiecke, ab 160 m noch 524.000, ab 110 m 435.000 und ab 70 m
- * 250.000. Zusammen mit Terrain (~84.000) und Streuschicht (~22.000) ist 75 m der
- * größte Wert, der unter das Handybudget von 400.000 passt.
- */
-const ATTRAPPE_AB = 75;
-
-function PropChunkMesh({ chunk }: { chunk: PropChunk }) {
+function PropChunkMesh({ chunk, fern }: { chunk: PropChunk; fern: boolean }) {
   const { geo, mat } = useNormiertesPropMesh(chunk.art, chunk.variante);
-  const fern = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
+  const fernGeo = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
   const fernMaterial = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
   }), []);
-  const istFern = useRef(false);
   const ref = useRef<THREE.InstancedMesh>(null);
 
   useEffect(() => {
@@ -245,38 +257,29 @@ function PropChunkMesh({ chunk }: { chunk: PropChunk }) {
     ref.current.computeBoundingSphere();
   }, [chunk]);
 
-  // Entfernungs-Culling und Attrappen-Umschaltung je Bild. Billiger als jede
-  // Alternative: eine Distanz pro Chunk, und der Tausch passiert nur beim Wechsel.
-  useFrame(({ camera }) => {
-    const m = ref.current;
-    if (!m) return;
-    const dx = camera.position.x - chunk.mitte[0];
-    const dz = camera.position.z - chunk.mitte[1];
-    const d = Math.hypot(dx, dz) - chunk.radius;
-    m.visible = d <= chunk.sichtweite;
+  // Der Umriss ändert sich beim Wechsel auf die Attrappe; ohne Neuberechnung
+  // schneidet das Frustum-Culling falsch.
+  useEffect(() => { ref.current?.computeBoundingSphere(); }, [fern]);
 
-    const sollFern = d > ATTRAPPE_AB;
-    if (sollFern !== istFern.current) {
-      istFern.current = sollFern;
-      m.geometry = sollFern ? fern : geo;
-      if (sollFern) m.material = fernMaterial;
-      else if (mat) m.material = mat;
-      // Der Umriss ändert sich, die Instanzmatrizen bleiben gültig.
-      m.computeBoundingSphere();
-    }
-  });
-
-  // Kleinzeug wirft keine Schatten — der Unterschied ist unsichtbar, die Kosten nicht.
+  // Kein useFrame mehr in dieser Komponente. Sichtbarkeit und Attrappen-Entscheidung
+  // trifft die Verwaltung — bei 16.663 Chunks wären 16.663 Callbacks je Bild der
+  // teuerste Posten der ganzen Szene, unabhängig von jeder Grafikeinstellung.
+  //
+  // Wichtig: Geometrie und Material laufen als Attribute, nicht über `args`. Eine
+  // Änderung an `args` lässt R3F das InstancedMesh neu bauen — die Instanzmatrizen
+  // wären weg und der Chunk stünde beim Attrappenwechsel als Klumpen im Nullpunkt.
+  const rueckfall = useMemo(() => new THREE.MeshStandardMaterial({
+    color: PROP_FARBE[chunk.art], flatShading: true, roughness: 0.95,
+  }), [chunk.art]);
   const grossesTeil = chunk.art === 'nadelbaum' || chunk.art === 'laubbaum' || chunk.art === 'findling';
 
   return (
     <instancedMesh
-      ref={ref} args={[geo, mat ?? undefined, chunk.instanzen.length]}
-      castShadow={grossesTeil} receiveShadow={grossesTeil}
-    >
-      {/* Kenney-Modelle bringen eigene Materialien mit; nur ohne greift der Rückfall. */}
-      {!mat && <meshStandardMaterial color={PROP_FARBE[chunk.art]} flatShading roughness={0.95} />}
-    </instancedMesh>
+      ref={ref} args={[undefined, undefined, chunk.instanzen.length]}
+      geometry={fern ? fernGeo : geo}
+      material={fern ? fernMaterial : (mat ?? rueckfall)}
+      castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
+    />
   );
 }
 
@@ -529,6 +532,8 @@ export interface Messwerte {
   dreiecke: number;
   /** Draw Calls im letzten Bild. */
   aufrufe: number;
+  /** Objekte im Szenengraph — three.js läuft sie jedes Bild durch. */
+  objekte: number;
 }
 
 /**
@@ -541,17 +546,23 @@ export interface Messwerte {
  * dem echten Gerät.
  */
 function Messung({ melde }: { melde?: (m: Messwerte) => void }) {
-  const { gl } = useThree();
+  const { gl, scene } = useThree();
   const stand = useRef({ bilder: 0, zeit: 0 });
   useFrame((_, dt) => {
     if (!melde) return;
     const s = stand.current;
     s.bilder++; s.zeit += dt;
     if (s.zeit < 0.5) return;
+    // Die Objektzahl ist der zweite Messwert neben der Bildrate: Sie zeigt, ob die
+    // Last in JavaScript liegt. Der Durchlauf kostet bei einigen hundert Objekten
+    // nichts und läuft ohnehin nur zweimal je Sekunde.
+    let objekte = 0;
+    scene.traverse(() => { objekte++; });
     melde({
       bps: s.bilder / s.zeit,
       dreiecke: gl.info.render.triangles,
       aufrufe: gl.info.render.calls,
+      objekte,
     });
     s.bilder = 0; s.zeit = 0;
   });

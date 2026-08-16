@@ -52,7 +52,8 @@ function App() {
         }}>
           {messung.bps.toFixed(0)} B/s<br />
           {Math.round(messung.dreiecke).toLocaleString('de')} Dreiecke<br />
-          {messung.aufrufe} Aufrufe
+          {messung.aufrufe} Aufrufe<br />
+          {messung.objekte.toLocaleString('de')} Objekte
         </div>
       )}
 

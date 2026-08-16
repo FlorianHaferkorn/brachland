@@ -22,6 +22,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | KI-Modell spieltauglich machen | `README.md` → `reduce.mjs` → `autorig.py` |
 | Ganze Ordner durch die Kette schicken | `batch.mjs`, `pipeline.sh` |
 | Prüfen, ob das Dreiecksbudget hält | `lodcheck.ts`, `scenecheck.ts` |
+| Herausfinden, warum es ruckelt, obwohl die Geometrie passt | `lastcheck.ts` |
 | Größenverhältnisse prüfen | `masstab.ts` |
 
 ## Bauschritte
@@ -49,6 +50,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `masstab.ts` | `npm run masstab` — Kamera, Spielerhöhe, Bildanteil, Querungszeiten der Region |
 | `scenecheck.ts` | `npm run szene` — tatsächlich gezeichnete Dreiecke mit Culling gegen das 400k-Handybudget. Braucht einen Szenen-Cache unter .cache/ aus einem vorherigen Lauf |
 | `terraincheck.ts` | `npm run terrain` — Terrain-Auflösung. Braucht einen Vorschau-Cache unter .cache/ |
+| `lastcheck.ts` | `npm run last` — Objekte im Szenengraph je Standort. Die Größe, die zählt, wenn kein Grafikschalter wirkt |
 | `propcheck.ts` | `npm run props` — Dreiecke und Größe der Prop-Modelle |
 | `lodpreview.ts` | `npm run lodpreview` — Vorschau der LOD-Kachelung |
 
