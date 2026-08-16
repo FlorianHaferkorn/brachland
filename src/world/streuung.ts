@@ -175,9 +175,9 @@ const hilfe = new THREE.Object3D();
  * Nachziehen umherspringen.
  */
 export function streueUmgebung(
-  feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh,
+  feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh, faktor = 1,
 ): number {
-  return streue(feld, mx, mz, mesh, DICHTE, STREU_JE_QM, STREU_MAX, 0, (h1, h2, h3) => {
+  return streue(feld, mx, mz, mesh, DICHTE, STREU_JE_QM * faktor, STREU_MAX, 0, (h1, h2, h3) => {
     const hoehe = 0.18 + h1 * 0.30;
     hilfe.rotation.set(0, h2 * Math.PI * 2, 0);
     hilfe.scale.set(0.9 + h3 * 0.7, hoehe, 0.9 + h3 * 0.7);
@@ -186,9 +186,9 @@ export function streueUmgebung(
 
 /** Steine, Äste, Wurzelstücke — flach und klein, ohne Wind. */
 export function streueKleinzeug(
-  feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh,
+  feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh, faktor = 1,
 ): number {
-  return streue(feld, mx, mz, mesh, KLEIN_DICHTE, KLEIN_JE_QM, KLEIN_MAX, 991, (h1, h2, h3) => {
+  return streue(feld, mx, mz, mesh, KLEIN_DICHTE, KLEIN_JE_QM * faktor, KLEIN_MAX, 991, (h1, h2, h3) => {
     // Unter 0,45 wird der Körper zum Ast gestreckt, darüber zum flachen Stein gestaucht.
     const ast = h1 < 0.45;
     const gr = 0.10 + h3 * 0.22;

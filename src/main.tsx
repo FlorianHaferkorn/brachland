@@ -1,13 +1,15 @@
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Weltdaten } from './world/osm.js';
-import { RegionsSzene, STIMMUNG, type StimmungsName, type Messwerte } from './scenes/RegionsSzene.js';
+import { RegionsSzene, STIMMUNG, QUALITAET_STANDARD,
+         type StimmungsName, type Messwerte, type Qualitaet } from './scenes/RegionsSzene.js';
 
 function App() {
   const [welt, setWelt] = useState<Weltdaten | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [stimmung, setStimmung] = useState<StimmungsName>('daemmerung');
   const [messung, setMessung] = useState<Messwerte | null>(null);
+  const [qualitaet, setQualitaet] = useState<Qualitaet>(QUALITAET_STANDARD);
 
   useEffect(() => {
     fetch('/world/oental.json')
@@ -21,7 +23,10 @@ function App() {
 
   return (
     <>
-      <RegionsSzene welt={welt} stimmung={stimmung} onMessung={setMessung} />
+      <RegionsSzene
+        welt={welt} stimmung={stimmung} onMessung={setMessung}
+        qualitaet={qualitaet}
+      />
       <div style={{
         position: 'fixed', top: 'env(safe-area-inset-top, 8px)', left: 8,
         display: 'flex', gap: 6, zIndex: 10,
@@ -50,6 +55,29 @@ function App() {
           {messung.aufrufe} Aufrufe
         </div>
       )}
+
+      {/* Schalter zum Eingrenzen des Engpasses. Gemessen wurden 23–45 B/s bei nur
+          210.000 Dreiecken — die Geometrie kann es also nicht sein. Jeden Schalter
+          einzeln umlegen und die Bildrate oben rechts ablesen. */}
+      <div style={{
+        position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom, 8px) + 30px)',
+        left: 0, right: 0, display: 'flex', gap: 6, justifyContent: 'center',
+        flexWrap: 'wrap', zIndex: 10,
+      }}>
+        {([
+          ['Pixel 1x', () => setQualitaet(q => ({ ...q, dpr: 1 })), qualitaet.dpr === 1],
+          ['1,5x', () => setQualitaet(q => ({ ...q, dpr: 1.5 })), qualitaet.dpr === 1.5],
+          ['2x', () => setQualitaet(q => ({ ...q, dpr: 2 })), qualitaet.dpr === 2],
+          ['Schatten', () => setQualitaet(q => ({ ...q, schatten: !q.schatten })), qualitaet.schatten],
+          ['Gras aus', () => setQualitaet(q => ({ ...q, gras: q.gras === 0 ? 1 : 0 })), qualitaet.gras === 0],
+        ] as [string, () => void, boolean][]).map(([text, klick, an]) => (
+          <button key={text} onClick={klick} style={{
+            minHeight: 30, padding: '3px 9px', borderRadius: 7, fontSize: 11,
+            background: an ? '#1f2b27' : 'transparent',
+            border: '1px solid #2a3632', color: an ? '#3fd9a0' : '#7d8b85',
+          }}>{text}</button>
+        ))}
+      </div>
 
       {/* Ohne Hinweis findet niemand die Touch-Steuerung — sie ist unsichtbar. */}
       <div style={{

@@ -113,10 +113,10 @@ function LodTerrain({ feld, kacheln, ziel }: {
   ))}</>;
 }
 
-function Terrain({ welt, terrain, feld, kacheln, ziel, props }: {
+function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte }: {
   welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
   kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
-  props: PropInstanz[];
+  props: PropInstanz[]; dichte: number;
 }) {
   /**
    * Wege, Gewässer und Gebäude setzen auf dem Gelände auf — sie brauchen deshalb
@@ -161,7 +161,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props }: {
       )}
 
       <Props props={props} />
-      <Streuschicht feld={feld} ziel={ziel} />
+      <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
     </group>
   );
 }
@@ -350,8 +350,8 @@ function Beleuchtung({ stimmung, ziel }: {
  * Wird beim Gehen nachgezogen statt einmalig verteilt: 30.000 Props über 16 km²
  * lassen den Boden direkt vor dem Spieler leer, und genau dort schaut man hin.
  */
-function Streuschicht({ feld, ziel }: {
-  feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>;
+function Streuschicht({ feld, ziel, dichte }: {
+  feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number;
 }) {
   const grasGeo = useMemo(() => baueBueschelGeometrie(), []);
   const kleinGeo = useMemo(() => baueKleinzeugGeometrie(), []);
@@ -368,6 +368,9 @@ function Streuschicht({ feld, ziel }: {
   const kleinMesh = useRef<THREE.InstancedMesh>(null);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
 
+  // Dichteänderung erzwingt ein Nachziehen beim nächsten Bild.
+  useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [dichte]);
+
   useFrame(({ clock }) => {
     gras.setzeZeit(clock.elapsedTime);
 
@@ -378,13 +381,13 @@ function Streuschicht({ feld, ziel }: {
 
     const g = grasMesh.current;
     if (g) {
-      g.count = streueUmgebung(feld, p.x, p.z, g);
+      g.count = streueUmgebung(feld, p.x, p.z, g, dichte);
       g.instanceMatrix.needsUpdate = true;
       g.computeBoundingSphere();
     }
     const k = kleinMesh.current;
     if (k) {
-      k.count = streueKleinzeug(feld, p.x, p.z, k);
+      k.count = streueKleinzeug(feld, p.x, p.z, k, dichte);
       k.instanceMatrix.needsUpdate = true;
       k.computeBoundingSphere();
     }
@@ -555,15 +558,37 @@ function Messung({ melde }: { melde?: (m: Messwerte) => void }) {
   return null;
 }
 
+/**
+ * Schalter zum Eingrenzen des Engpasses auf dem echten Gerät.
+ *
+ * Gemessen wurden 23–45 B/s bei nur ~210.000 Dreiecken. Ein Handy von 2026 zeichnet
+ * das mühelos — der Engpass liegt also woanders. Die drei wahrscheinlichen Kandidaten
+ * sind Füllrate (Pixelauflösung), Überzeichnung (Gras) und der zweite Renderdurchgang
+ * für Schatten. Statt zu raten, macht man sie einzeln abschaltbar.
+ */
+export interface Qualitaet {
+  /** Obergrenze der Pixelverhältnisses. 2 heißt vierfache Pixelzahl gegenüber 1. */
+  dpr: number;
+  schatten: boolean;
+  /** Faktor auf die Streudichte. 0 schaltet Gras und Kleinzeug ab. */
+  gras: number;
+}
+
+export const QUALITAET_STANDARD: Qualitaet = { dpr: 2, schatten: true, gras: 1 };
+
 export interface RegionsSzeneProps {
   welt: Weltdaten;
   stimmung?: StimmungsName;
   spielerRef?: React.RefObject<THREE.Object3D | null>;
   /** Wird je halbe Sekunde mit den echten Renderzahlen aufgerufen. */
   onMessung?: (m: Messwerte) => void;
+  qualitaet?: Qualitaet;
 }
 
-export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef, onMessung }: RegionsSzeneProps) {
+export function RegionsSzene({
+  welt, stimmung = 'daemmerung', spielerRef, onMessung,
+  qualitaet = QUALITAET_STANDARD,
+}: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
   const gier = useRef(0);
@@ -600,13 +625,13 @@ export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef, onMess
 
   return (
     <Canvas
-      shadows
-      dpr={[1, 2]}                       // auf dem Handy nicht über 2 — kostet nur Bildrate
+      shadows={qualitaet.schatten}
+      dpr={[1, qualitaet.dpr]}
       camera={{ fov: 55, near: 0.2, far: 1500, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
       <Beleuchtung stimmung={stimmung} ziel={ref} />
-      <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} props={props} />
+      <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} props={props} dichte={qualitaet.gras} />
       <object3D ref={ref} position={start}>
         <SpielerFigur gier={gier} />
       </object3D>
