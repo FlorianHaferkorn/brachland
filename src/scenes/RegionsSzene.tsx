@@ -16,12 +16,13 @@ import { baueTerrain, baueGewaesser, baueGebaeude, baueWege, GROESSE,
 import { useGLTF } from '@react-three/drei';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
-         type HoehenFeld, type Kachel } from '../world/lod.js';
+         hoeheAufFlaeche, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung } from '../spieler/steuerung.js';
 import { baueBueschelGeometrie, streueUmgebung, STREU_MAX, STREU_NACHZIEHEN }
   from '../world/streuung.js';
 import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { baueSpielerGeometrie } from '../spieler/figur.js';
+import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 
@@ -111,9 +112,10 @@ function LodTerrain({ feld, kacheln, ziel }: {
   ))}</>;
 }
 
-function Terrain({ welt, terrain, feld, kacheln, ziel }: {
+function Terrain({ welt, terrain, feld, kacheln, ziel, props }: {
   welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
   kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
+  props: PropInstanz[];
 }) {
   /**
    * Wege, Gewässer und Gebäude setzen auf dem Gelände auf — sie brauchen deshalb
@@ -157,29 +159,21 @@ function Terrain({ welt, terrain, feld, kacheln, ziel }: {
         </mesh>
       )}
 
-      <Props welt={welt} terrain={terrain} feld={feld} />
+      <Props props={props} />
       <Streuschicht feld={feld} ziel={ziel} />
     </group>
   );
 }
 
-function Props({ welt, terrain, feld }: {
-  welt: Weltdaten; terrain: ReturnType<typeof baueTerrain>; feld: HoehenFeld;
-}) {
+function Props({ props }: { props: PropInstanz[] }) {
   // Chunks statt einer Riesen-Instanz je Art: nur so lässt sich nach Entfernung ausblenden.
   // Ohne Culling wären es ~485.000 Dreiecke, mit ~115.000–265.000 je nach Standort.
   //
   // Die Y-Koordinate kommt aus dem Höhenfeld, nicht aus dem groben Raster: Der Boden
   // wird als LOD-Kachel mit Mikrorelief gezeichnet, und wer auf dem Raster platziert,
   // lässt seine Bäume um bis zu ~1,2 m schweben oder versinken.
-  const chunks = useMemo(() => {
-    const roh = verteileProps(welt, { ...terrain, hoeheAn: feld.hoehe }, 1);
-    const aufBoden: PropInstanz[] = roh.map(p => ({
-      ...p,
-      position: [p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2]],
-    }));
-    return chunkeProps(aufBoden);
-  }, [welt, terrain, feld]);
+  const chunks = useMemo(() => chunkeProps(props), [props]);
+
   return (
     <>
       {chunks.map((c, i) => <PropChunkMesh key={i} chunk={c} />)}
@@ -387,10 +381,11 @@ const RENNEN = 7.0;
  * Gebäude sind derzeit durchlässig, das ist bewusst, weil dieser Schritt nur den
  * Look beurteilbar machen soll.
  */
-function Spieler({ feld, ziel, gier }: {
+function Spieler({ feld, ziel, gier, kollision }: {
   feld: HoehenFeld;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
+  kollision: Kollisionsfeld;
 }) {
   const { gl } = useThree();
   const eingabe = benutzeSteuerung(gl.domElement);
@@ -414,10 +409,13 @@ function Spieler({ feld, ziel, gier }: {
     if (dx !== 0 || dz !== 0) {
       const halbB = feld.breiteMeter / 2 - 8;
       const halbT = feld.tiefeMeter / 2 - 8;
-      p.x = Math.max(-halbB, Math.min(halbB, p.x + dx));
-      p.z = Math.max(-halbT, Math.min(halbT, p.z + dz));
+      const [kx, kz] = kollision.schiebeRaus(p.x + dx, p.z + dz);
+      p.x = Math.max(-halbB, Math.min(halbB, kx));
+      p.z = Math.max(-halbT, Math.min(halbT, kz));
     }
-    p.y = feld.hoehe(p.x, p.z);
+    // Auf der GEZEICHNETEN Fläche stehen, nicht auf der stetigen Funktion —
+    // sonst schwebt die Figur auf Kuppen sichtbar über dem Boden.
+    p.y = hoeheAufFlaeche(feld, p.x, p.z);
   });
 
   return null;
@@ -498,11 +496,22 @@ export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: Regi
   const feld = useMemo(() => baueHoehenfeld(welt), [welt]);
   const kacheln = useMemo(() => baueKachelraster(feld), [feld]);
 
+  // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben
+  // Positionen. Zweimal verteilen hieße, gegen unsichtbare Bäume zu laufen.
+  const props = useMemo(() => {
+    const roh = verteileProps(welt, { ...terrain, hoeheAn: feld.hoehe }, 1);
+    return roh.map(p => ({
+      ...p,
+      position: [p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2]],
+    })) as PropInstanz[];
+  }, [welt, terrain, feld]);
+  const kollision = useMemo(() => baueKollision(props), [props]);
+
   // Ohne Startposition steht der Spieler im Ursprung (y = 0) — im Œntal sind das
   // ~170 m unter der Geländeoberfläche, die Kamera schaut dann von innen durch den
   // Berg. Bis es echte Bewegung gibt, ist die Regionsmitte der Startpunkt.
   const start = useMemo<[number, number, number]>(
-    () => [0, feld.hoehe(0, 0), 0],
+    () => [0, hoeheAufFlaeche(feld, 0, 0), 0],
     [feld],
   );
 
@@ -514,11 +523,11 @@ export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: Regi
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
       <Beleuchtung stimmung={stimmung} ziel={ref} />
-      <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} />
+      <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} props={props} />
       <object3D ref={ref} position={start}>
         <SpielerFigur gier={gier} />
       </object3D>
-      <Spieler feld={feld} ziel={ref} gier={gier} />
+      <Spieler feld={feld} ziel={ref} gier={gier} kollision={kollision} />
       <Kamera ziel={ref} gier={gier} />
     </Canvas>
   );

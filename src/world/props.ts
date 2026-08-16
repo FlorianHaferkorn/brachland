@@ -15,18 +15,29 @@ import { MASSSTAB } from './terrain.js';
 
 export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbuschel' | 'totholz';
 
-/** Props je Hektar und Biom. Summe bestimmt die Dichte der Landschaft. */
+/**
+ * Props je Hektar und Biom.
+ *
+ * Die Ausgangswerte (Wald: 18 Nadelbäume/ha) waren eine Parklandschaft — ein
+ * bewirtschafteter Fichtenbestand trägt 400 bis 1000 Stämme je Hektar. Voll
+ * realistisch geht nicht: Bei 420 m Sichtweite wären das über zwei Millionen
+ * Dreiecke gegen ein Handybudget von 400.000.
+ *
+ * Diese Werte sind das, was das Budget hergibt — rund fünffach dichter als vorher
+ * und damit als Wald lesbar, aber weiter licht. Der nächste Hebel wären
+ * Fernattrappen statt voller Modelle (Ledger G-15), nicht noch mehr Dichte.
+ */
 const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
-  wald:      { nadelbaum: 18, laubbaum: 6, busch: 4, totholz: 1.5, grasbuschel: 4 },
-  gebuesch:  { busch: 11, nadelbaum: 1.2, findling: 2, grasbuschel: 6 },
-  wiese:     { grasbuschel: 10, busch: 0.8, laubbaum: 0.3 },
-  acker:     { grasbuschel: 2 },
-  fels:      { findling: 6, busch: 1, nadelbaum: 0.4 },
+  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30 },
+  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34 },
+  wiese:     { grasbuschel: 40, busch: 3, laubbaum: 1.2 },
+  acker:     { grasbuschel: 8 },
+  fels:      { findling: 18, busch: 4, nadelbaum: 1.6 },
   wasser:    {},
-  siedlung:  { laubbaum: 1.5, busch: 1.5 },
-  industrie: { busch: 1, totholz: 1 },
-  ruine:     { busch: 2, totholz: 1.5, findling: 1.5 },
-  unbekannt: { grasbuschel: 3 },
+  siedlung:  { laubbaum: 6, busch: 7 },
+  industrie: { busch: 4, totholz: 3 },
+  ruine:     { busch: 9, totholz: 5, findling: 5 },
+  unbekannt: { grasbuschel: 10 },
 };
 
 /**

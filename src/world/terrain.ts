@@ -13,6 +13,9 @@ import type { Weltdaten, Biom } from './osm.js';
 /** Meter je Breitengrad; für Längengrad mit cos(lat) skaliert. */
 const METER_JE_GRAD = 111_320;
 
+/** Maximale Länge eines Wege-Teilstücks in Metern, bevor neu aufs Gelände gelegt wird. */
+export const WEG_TEILUNG = 4;
+
 export const MASSSTAB = {
   /**
    * 1 Spieleinheit = 1 realer Meter.
@@ -151,17 +154,29 @@ export function baueGewaesser(welt: Weltdaten, terrain: TerrainErgebnis): THREE.
   for (const linie of welt.linien) {
     const halbe = linie.breite / (2 * MASSSTAB.stauchung);
     for (let k = 0; k < linie.punkte.length - 1; k++) {
-      const [x1, z1] = zuWelt(...linie.punkte[k]);
-      const [x2, z2] = zuWelt(...linie.punkte[k + 1]);
-      const dx = x2 - x1, dz = z2 - z1;
+      const [ax, az] = zuWelt(...linie.punkte[k]);
+      const [bx, bz] = zuWelt(...linie.punkte[k + 1]);
+      const dx = bx - ax, dz = bz - az;
       const len = Math.hypot(dx, dz) || 1;
       const nx = (-dz / len) * halbe, nz = (dx / len) * halbe;
-      const y1 = terrain.hoeheAn(x1, z1) + 0.3;
-      const y2 = terrain.hoeheAn(x2, z2) + 0.3;
-      positionen.push(
-        x1 - nx, y1, z1 - nz,  x1 + nx, y1, z1 + nz,  x2 - nx, y2, z2 - nz,
-        x1 + nx, y1, z1 + nz,  x2 + nx, y2, z2 + nz,  x2 - nx, y2, z2 - nz,
-      );
+
+      // In Teilstücke zerlegen und je Stück die Höhe neu abfragen.
+      //
+      // OSM-Stützpunkte liegen oft dutzende Meter auseinander. Ein Band, das nur an
+      // den Enden aufs Gelände gelegt wird, schneidet dazwischen durch Kuppen und
+      // schwebt über Senken — gemessen bis 3 m, obwohl beide Enden richtig sitzen.
+      const teile = Math.max(1, Math.ceil(len / WEG_TEILUNG));
+      for (let s = 0; s < teile; s++) {
+        const t1 = s / teile, t2 = (s + 1) / teile;
+        const x1 = ax + dx * t1, z1 = az + dz * t1;
+        const x2 = ax + dx * t2, z2 = az + dz * t2;
+        const y1 = terrain.hoeheAn(x1, z1) + 0.3;
+        const y2 = terrain.hoeheAn(x2, z2) + 0.3;
+        positionen.push(
+          x1 - nx, y1, z1 - nz,  x1 + nx, y1, z1 + nz,  x2 - nx, y2, z2 - nz,
+          x1 + nx, y1, z1 + nz,  x2 + nx, y2, z2 + nz,  x2 - nx, y2, z2 - nz,
+        );
+      }
     }
   }
   if (!positionen.length) return null;

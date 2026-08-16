@@ -17,11 +17,11 @@ import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
 
 /** Radius, in dem gestreut wird. Darüber übernehmen die echten Props. */
-export const STREU_RADIUS = 28;
+export const STREU_RADIUS = 22;
 /** Büschel je Quadratmeter auf voller Dichte. */
-export const STREU_JE_QM = 0.80;
+export const STREU_JE_QM = 2.40;
 /** Obergrenze der Instanzen — Puffergröße, nie überschritten. */
-export const STREU_MAX = 4200;
+export const STREU_MAX = 5200;
 /** Ab dieser Bewegung wird nachgezogen. Bei 7 m/s knapp einmal je Sekunde. */
 export const STREU_NACHZIEHEN = 6;
 

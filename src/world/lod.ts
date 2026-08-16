@@ -115,6 +115,26 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1): HoehenFeld 
   return { hoehe, biom, breiteMeter, tiefeMeter };
 }
 
+/**
+ * Höhe der **gezeichneten** Oberfläche an einer Weltposition.
+ *
+ * `feld.hoehe` liefert die stetige Funktion. Gezeichnet wird aber ein Dreiecksnetz
+ * mit Vertices im LOD0-Abstand (2 m) — dazwischen ist die Fläche linear interpoliert
+ * und liegt auf Kuppen unter der Funktion. Wer eine Figur auf `feld.hoehe` setzt,
+ * lässt sie dort schweben.
+ *
+ * Das Vertexraster liegt global auf Vielfachen des LOD0-Schritts, weil die Kacheln
+ * bei -breiteMeter/2 beginnen und 64 m breit sind.
+ */
+export function hoeheAufFlaeche(feld: HoehenFeld, x: number, z: number): number {
+  const s = LOD_STUFEN[0].schritt;
+  const x0 = Math.floor(x / s) * s, z0 = Math.floor(z / s) * s;
+  const fx = (x - x0) / s, fz = (z - z0) / s;
+  const h00 = feld.hoehe(x0, z0), h10 = feld.hoehe(x0 + s, z0);
+  const h01 = feld.hoehe(x0, z0 + s), h11 = feld.hoehe(x0 + s, z0 + s);
+  return (h00 * (1 - fx) + h10 * fx) * (1 - fz) + (h01 * (1 - fx) + h11 * fx) * fz;
+}
+
 // ------------------------------------------------------------- Kacheln
 
 export interface Kachel {
