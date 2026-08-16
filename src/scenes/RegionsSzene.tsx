@@ -23,7 +23,7 @@ import { baueBueschelGeometrie, streueUmgebung, STREU_MAX, STREU_NACHZIEHEN }
 import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { baueSpielerGeometrie } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
-import { verteileProps, chunkeProps, propGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
+import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 
 /** Tageszeiten. Der Look lebt von Dämmerung und Nebel — Mittagssonne verzeiht nichts. */
@@ -211,8 +211,23 @@ function useNormiertesPropMesh(art: PropArt, variante: number) {
   }, [scene, art]);
 }
 
+/**
+ * Ab dieser Entfernung wird die Attrappe gezeichnet.
+ *
+ * 75 m ist kein Geschmackswert: Gemessen kostet der dichteste Standort ohne
+ * Attrappen 1,4 Mio Dreiecke, ab 160 m noch 524.000, ab 110 m 435.000 und ab 70 m
+ * 250.000. Zusammen mit Terrain (~84.000) und Streuschicht (~22.000) ist 75 m der
+ * größte Wert, der unter das Handybudget von 400.000 passt.
+ */
+const ATTRAPPE_AB = 75;
+
 function PropChunkMesh({ chunk }: { chunk: PropChunk }) {
   const { geo, mat } = useNormiertesPropMesh(chunk.art, chunk.variante);
+  const fern = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
+  const fernMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
+  }), []);
+  const istFern = useRef(false);
   const ref = useRef<THREE.InstancedMesh>(null);
 
   useEffect(() => {
@@ -229,12 +244,25 @@ function PropChunkMesh({ chunk }: { chunk: PropChunk }) {
     ref.current.computeBoundingSphere();
   }, [chunk]);
 
-  // Entfernungs-Culling je Bild. Billiger als jede Alternative: eine Distanz pro Chunk.
+  // Entfernungs-Culling und Attrappen-Umschaltung je Bild. Billiger als jede
+  // Alternative: eine Distanz pro Chunk, und der Tausch passiert nur beim Wechsel.
   useFrame(({ camera }) => {
-    if (!ref.current) return;
+    const m = ref.current;
+    if (!m) return;
     const dx = camera.position.x - chunk.mitte[0];
     const dz = camera.position.z - chunk.mitte[1];
-    ref.current.visible = Math.hypot(dx, dz) - chunk.radius <= chunk.sichtweite;
+    const d = Math.hypot(dx, dz) - chunk.radius;
+    m.visible = d <= chunk.sichtweite;
+
+    const sollFern = d > ATTRAPPE_AB;
+    if (sollFern !== istFern.current) {
+      istFern.current = sollFern;
+      m.geometry = sollFern ? fern : geo;
+      if (sollFern) m.material = fernMaterial;
+      else if (mat) m.material = mat;
+      // Der Umriss ändert sich, die Instanzmatrizen bleiben gültig.
+      m.computeBoundingSphere();
+    }
   });
 
   // Kleinzeug wirft keine Schatten — der Unterschied ist unsichtbar, die Kosten nicht.

@@ -147,6 +147,42 @@ export const ZIELHOEHE: Record<PropArt, number> = {
 export const propPfad = (variante: string) => `/props/${variante}.glb`;
 
 /**
+ * Fernattrappe: dasselbe Primitiv wie der Rückfall, aber auf die reale Zielhöhe
+ * normiert und mit Vertex-Farbe versehen, damit alle Arten sich ein Material teilen.
+ *
+ * Der Grund ist Budget, nicht Faulheit. Gemessen (16.08.2026):
+ *
+ * ```
+ *   Art          GLB   Primitiv   Faktor
+ *   nadelbaum    146          9    16,2x
+ *   laubbaum     191         20     9,5x
+ *   totholz      160         11    14,1x
+ *   grasbuschel  109          6    17,2x
+ * ```
+ *
+ * Mit voller Modellqualität bis zur Sichtweite kostet der dichteste Standort
+ * 1,4 Mio Dreiecke gegen ein Handybudget von 400.000. Auf Entfernung, im Nebel und
+ * als Silhouette ist der Unterschied zwischen Kenney-Fichte und Kegel ohnehin
+ * marginal — die Art Direction lebt von Umrissen (ADR-0002).
+ */
+export function attrappeGeometrie(art: PropArt): THREE.BufferGeometry {
+  const g = propGeometrie(art);
+  g.computeBoundingBox();
+  const bb = g.boundingBox!;
+  const hoehe = bb.max.y - bb.min.y || 1;
+  const faktor = ZIELHOEHE[art] / hoehe;
+  g.translate(0, -bb.min.y, 0);
+  g.scale(faktor, faktor, faktor);
+
+  const farbe = new THREE.Color(PROP_FARBE[art]);
+  const n = g.getAttribute('position').count;
+  const col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { col[i*3] = farbe.r; col[i*3+1] = farbe.g; col[i*3+2] = farbe.b; }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return g;
+}
+
+/**
  * Rückfall auf Primitive, solange ein Modell nicht geladen ist — die Szene soll
  * nicht leer bleiben, wenn eine Datei fehlt.
  */

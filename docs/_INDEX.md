@@ -77,7 +77,8 @@ shelf-life-days: 90
 | G-4 | Bewegung und Kamerasteuerung | — | ✅ | 16.08.2026: Gehen 1,4 / Rennen 5,0 m/s, Blick frei drehbar. Touch **und** Tastatur. Verifiziert im Browser |
 | G-10 | Keine Spielerfigur | — | ✅ | Platzhalter 1,8 m, `src/spieler/figur.ts`, dreht sich in Laufrichtung. Ersetzen, sobald die Stil-Referenz steht |
 | G-11 | Keine Kollision | — | ✅ | Stämme, Findlinge, Totholz blocken (`src/spieler/kollision.ts`). Büsche und Gras bewusst durchlässig. **Gebäude noch nicht** |
-| G-15 | Wald ist mit 95 Nadelbäumen/ha weiter **licht** — real sind 400–1000. Voll wären es über 2 Mio Dreiecke gegen 400.000 Budget | `src/world/props.ts` | 🟡 | nächster Hebel sind Fernattrappen, nicht mehr Dichte |
+| G-15 | Fernattrappen für Props | — | ✅ | ab 75 m Primitive statt GLB. **Behebt zugleich eine Budget-Überschreitung, die ich mit der Dichteanhebung eingebaut hatte** |
+| G-17 | Wald bleibt bei 95 Nadelbäumen/ha; real sind 400–1000. Mehr passt auch mit Attrappen nicht ins Budget | Messung 16.08.2026 | 🟡 | nächster Hebel wären echte Billboards oder kleinere Sichtweite |
 | G-16 | Figur **gleitet**, statt zu gehen — keine Animation, kein Rig | `src/spieler/figur.ts` | 🟡 | braucht ein echtes Modell, siehe ADR-0002 |
 | G-5 | Kampf-UI ist nicht mit der Szene verbunden | `src/_INDEX.md` | 🟡 | offen |
 | A-4 | Artist für die 5 Regenten + 5–8 Startkreaturen? Einzige Stelle, an der Geld fließen dürfte | ADR-0002 | 🟡 | offen |
@@ -104,6 +105,7 @@ shelf-life-days: 90
 | D15 | Sonne folgt dem Spieler statt ortsfest bei y=55 zu stehen | Das Œntal reicht bis 775 m — eine ortsfeste Schattenkamera liegt unter dem Gelände. Änderte das Bild nicht sichtbar, ist aber unabhängig davon richtig | 2026-08-16 | — |
 | D16 | Touch ist gleichwertig, kein Nachtrag: linke Bildhälfte gehen, rechte umsehen | Das Handy ist das Zielgerät. Eine nur mit Tastatur bedienbare Szene lässt sich dort nicht beurteilen | 2026-08-16 | — |
 | D18 | Tempo überhöht: gehen 3,0 / rennen 7,0 m/s bei 1:1-Maßstab | 1,4 m/s ist echtes Gehtempo und fühlt sich bei 4 km Region zäh an. Maßstab echt, Tempo überhöht — der übliche Weg, Querung rennend ~9,5 min | 2026-08-16 | — |
+| D26 | Props ab 75 m als Primitiv statt GLB | Gemessen: ohne Attrappen 1,4 Mio Dreiecke am dichtesten Standort, mit 75 m 249.548. Auf Entfernung und im Nebel ist der Unterschied Silhouette gegen Silhouette | 2026-08-16 | ADR-0002 |
 | D25 | Schürzentiefe = 0,45 × LOD-Schritt statt fest 3 m | Gemessene Risse: 0,20 m bei LOD0/1 bis 6,97 m bei LOD3/4. Fest 3 m war nah 15-fach zu viel (sichtbare dunkle Wand) und fern zu wenig (offene Risse) | 2026-08-16 | — |
 | D23 | Figur steht auf der **gezeichneten** Fläche, nicht auf der stetigen Höhenfunktion | Zwischen Vertices im 2-m-Abstand liegt die Dreiecksfläche unter der Funktion — die Figur schwebte sichtbar auf Kuppen (`hoeheAufFlaeche`) | 2026-08-16 | — |
 | D24 | Kollision nur gegen Stämme, Findlinge und Totholz | Durch Unterholz geht man. Alles blockieren macht den Wald unbegehbar, statt ihn dicht wirken zu lassen | 2026-08-16 | — |
