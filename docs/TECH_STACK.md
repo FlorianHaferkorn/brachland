@@ -48,6 +48,31 @@ make roi-check      # Läuft die OTel-Messung? Vor jeder Session (ADR-0003)
 > **Ausnahme:** `npm run lod`, `masstab` und `szene` zeigen auf fehlende Mess-Werkzeuge
 > (Ledger B-8). Alles andere läuft.
 
+## Einmalig: Firewall-Freigabe für node
+
+Homebrew-node ist nur **adhoc-signiert**. Die macOS-Firewall lässt automatisch nur
+ordentlich signierte Software durch — ohne Freigabe blockt sie eingehende Verbindungen
+auf Port 5173, und das Handy erreicht den Dev-Server nicht (der Mac erreicht dann nicht
+einmal seine eigene Netzwerkadresse; `localhost` funktioniert weiter, was die Diagnose
+verschleiert).
+
+```bash
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add \
+  "$(readlink -f "$(which node)")"
+```
+
+**Der Cellar-Pfad muss es sein**, nicht der Symlink `/opt/homebrew/bin/node` — die
+Firewall trägt sonst den falschen Eintrag ein. Prüfen mit:
+
+```bash
+/usr/libexec/ApplicationFirewall/socketfilterfw --listapps | grep -A1 node
+curl -s -o /dev/null -w "%{http_code}\n" http://<deine-IP>:5173/
+```
+
+> **Achtung bei node-Updates:** Die Freigabe hängt an der exakten Version im Pfad
+> (`.../node@22/22.22.3/bin/node`). Nach einem Homebrew-Upgrade zeigt sie ins Leere und
+> muss neu gesetzt werden. Symptom ist identisch: localhost geht, das Handy nicht.
+
 ## Der Test ist das Handy
 
 `npm run dev` gibt eine Netzwerk-Adresse aus (`server.host = true`). **Die auf dem
