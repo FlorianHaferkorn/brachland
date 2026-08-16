@@ -1,0 +1,9 @@
+{
+  "id": "streuner",
+  "region": "oental",
+  "geber": "hof-tremmel",
+  "titel": "Was am Zaun frisst",
+  "text": "Drei Sporenhähne gehen nachts an die Silage. Ich verlange nicht, dass Sie sie umbringen — nur dass sie merken, dass hier jemand wohnt. Danach kommen sie nicht wieder.",
+  "ziel": { "art": "besiege", "kreatur": "sporenhahn", "anzahl": 3 },
+  "belohnung": { "kraeutersud": 3, "koeder": 1 }
+}

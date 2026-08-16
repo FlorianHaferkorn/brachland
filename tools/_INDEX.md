@@ -26,6 +26,8 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Herausfinden, warum es ruckelt, obwohl die Geometrie passt | `lastcheck.ts` |
 | Prüfen, ob man beim Spielen überhaupt Kreaturen findet | `vorkommencheck.ts` |
 | Größenverhältnisse prüfen | `masstab.ts` |
+| Beurteilen, ob der Wald zu dunkel ist — **bevor** man an Lichtwerten dreht | `lichtcheck.ts` |
+| Prüfen, ob eine Bewegungsregel die Welt unbegehbar macht | `steigungcheck.ts` |
 
 ## Bauschritte
 
@@ -59,6 +61,8 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `baumcheck.ts` | `npm run baum` — Dreiecke, Höhe und Bauzeit der prozeduralen Bäume |
 | `klippencheck.ts` | `npm run klippen` — Zahl, Höhe und Dreiecke der Felswände, und wie viele je Standort in Reichweite stehen |
 | `propcheck.ts` | `npm run props` — Dreiecke und Größe der Prop-Modelle |
+| `lichtcheck.ts` | `npm run licht` — Bildschirmhelligkeit je Material und Stimmung, den ganzen Weg über Lambert, ACES, sRGB und Nebel. Beantwortet „ist der Wald zu dunkel" mit einer Zahl statt mit einem Gefühl |
+| `steigungcheck.ts` | `npm run steigung` — was die 40°-Grenze an begehbarer Welt kostet: 108.568 Prüfpunkte, Anteil offener Standorte, Kessel ohne Ausweg, Gewinn durchs Klettern |
 | `lodpreview.ts` | `npm run lodpreview` — Vorschau der LOD-Kachelung |
 
 ## Sonstiges

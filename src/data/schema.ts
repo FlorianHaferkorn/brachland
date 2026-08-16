@@ -156,6 +156,72 @@ export const Fragment = z.object({
 });
 export type Fragment = z.infer<typeof Fragment>;
 
+// ----------------------------------------------------------------- Orte
+
+/**
+ * Ein fester Ort in der Welt, an dem etwas passiert.
+ *
+ * Zwei Arten, ein Schema — weil beide dasselbe brauchen: eine Position, eine
+ * sichtbare Marke, einen Auslöseradius und einen Knopf.
+ *
+ * `zuflucht` heilt das Team. Der Grund steht in G-35: Ohne Heilung außerhalb des
+ * Kampfes war die **Niederlage** der zuverlässigste Weg zu vollen KP, weil sie
+ * vollständig heilt. Gegenstände haben das entschärft, aber nicht behoben — wer
+ * keinen Sud mehr hat, hat weiterhin nur die eine Wahl. Eine Zuflucht kostet
+ * dafür den Weg dorthin, und das ist der Preis, den ein Rastplatz haben soll.
+ *
+ * `bewohner` gibt Aufträge. Kein Dialogbaum, keine Zeilen zum Durchklicken: Wer
+ * anspricht, sieht, was offen ist und was fertig ist.
+ *
+ * Die Positionen stammen aus den OSM-Gebäuden der Region — freistehende Höfe,
+ * Hütten und Kapellen. Die Welt liefert sie umsonst; sie mussten nur belegt werden.
+ */
+export const Ort = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  region: z.string(),
+  art: z.enum(['zuflucht', 'bewohner']),
+  name: z.string().max(40),
+  /** Position in der Welt (lat, lon). */
+  ort: z.tuple([z.number(), z.number()]),
+  /** Ein Satz, der beim Ansprechen oben steht. Kein Dialog, eine Feststellung. */
+  text: z.string().max(240),
+});
+export type Ort = z.infer<typeof Ort>;
+
+// ------------------------------------------------------------- Aufträge
+
+/**
+ * Was ein Auftrag verlangt.
+ *
+ * Alle vier Bedingungen sind aus dem **Spielstand allein** prüfbar — besiegte und
+ * gefangene Vorkommen, gelesene Fragmente, besiegte Regenten stehen dort ohnehin.
+ * Das ist Absicht: Ein Auftragssystem, das eigene Zähler mitschreibt, hat ab dem
+ * ersten Tag zwei Wahrheiten über denselben Sachverhalt, und die driften.
+ */
+export const Auftragsziel = z.discriminatedUnion('art', [
+  z.object({ art: z.literal('besiege'), kreatur: z.string(), anzahl: z.number().int().min(1).max(20) }),
+  z.object({ art: z.literal('fange'),   kreatur: z.string(), anzahl: z.number().int().min(1).max(6) }),
+  z.object({ art: z.literal('finde'),   fragment: z.string() }),
+  z.object({ art: z.literal('regent'),  regent: z.string() }),
+]);
+export type Auftragsziel = z.infer<typeof Auftragsziel>;
+
+export const Auftrag = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  region: z.string(),
+  /** ID eines `Ort` mit `art: 'bewohner'`. */
+  geber: z.string(),
+  titel: z.string().max(60),
+  /** Der Auftrag in seinen Worten. Höchstens vier Sätze. */
+  text: z.string().max(320),
+  ziel: Auftragsziel,
+  /** Was es dafür gibt: Gegenstands-IDs mit Anzahl. */
+  belohnung: z.record(z.string(), z.number().int().min(1).max(9)),
+  /** Vorher zu erledigender Auftrag. Leer heißt: von Anfang an offen. */
+  vorher: z.string().optional(),
+});
+export type Auftrag = z.infer<typeof Auftrag>;
+
 // ------------------------------------------------------------ Gegenstände
 
 /**

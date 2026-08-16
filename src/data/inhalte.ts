@@ -9,7 +9,7 @@
  * Solange beides dasselbe ist, kostet die zweite Prüfung nur Millisekunden; sobald es
  * auseinanderläuft, fällt es beim Start auf statt mitten im Kampf.
  */
-import { Kreatur, Move, Regent, Gegenstand, Fragment } from './schema.js';
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag } from './schema.js';
 import { erstelle, type Kaempfer, type MoveDef, type Band } from '../engine/battle.js';
 import { mutationBei, werteBei, STUFE_MAX } from '../spiel/fortschritt.js';
 
@@ -20,6 +20,8 @@ const kreaturRoh = import.meta.glob('../../content/creatures/*.json', { eager: t
 const regentRoh = import.meta.glob('../../content/regenten/*.json', { eager: true, import: 'default' }) as Roh;
 const gegenstandRoh = import.meta.glob('../../content/gegenstaende/*.json', { eager: true, import: 'default' }) as Roh;
 const fragmentRoh = import.meta.glob('../../content/fragmente/*.json', { eager: true, import: 'default' }) as Roh;
+const ortRoh = import.meta.glob('../../content/orte/*.json', { eager: true, import: 'default' }) as Roh;
+const auftragRoh = import.meta.glob('../../content/auftraege/*.json', { eager: true, import: 'default' }) as Roh;
 
 function lade<T>(roh: Roh, schema: { parse: (x: unknown) => T }, was: string): Map<string, T> {
   const karte = new Map<string, T>();
@@ -39,6 +41,8 @@ export const KREATUREN = lade(kreaturRoh, Kreatur, 'Kreatur');
 export const REGENTEN = lade(regentRoh, Regent, 'Regent');
 export const GEGENSTAENDE = lade(gegenstandRoh, Gegenstand, 'Gegenstand');
 export const FRAGMENTE = lade(fragmentRoh, Fragment, 'Fragment');
+export const ORTE = lade(ortRoh, Ort, 'Ort');
+export const AUFTRAEGE = [...lade(auftragRoh, Auftrag, 'Auftrag').values()];
 
 /** Nur die fangbaren Wildlinge — daraus werden Begegnungen gebaut. */
 export const WILDLINGE = [...KREATUREN.values()].filter(k => k.ursprung === 'wildling');
@@ -92,25 +96,47 @@ export function ausKaempferId(id: string): { kreatur: string; mutation: number; 
   return { kreatur: m[1], mutation: Number(m[2]) - 1, stufe: Number(m[3]) };
 }
 
+const METER_JE_GRAD = 111_320;
+
 /**
- * Ort des Regenten in Weltkoordinaten (Meter, x/z), abgeleitet aus lat/lon.
+ * Ausdehnung einer Region in Metern aus ihrer Bounding Box.
+ *
+ * Stand dreimal wortgleich in `main.tsx` — beim Regenten, bei den Fundstellen und
+ * beinahe ein viertes Mal bei den Orten. Drei Kopien derselben Formel sind drei
+ * Gelegenheiten, sie unterschiedlich zu ändern.
+ */
+export function regionsMasse(bbox: readonly [number, number, number, number]) {
+  const [sued, west, nord, ost] = bbox;
+  const mittelLat = (sued + nord) / 2;
+  return {
+    breite: (ost - west) * METER_JE_GRAD * Math.cos(mittelLat * Math.PI / 180),
+    tiefe: (nord - sued) * METER_JE_GRAD,
+  };
+}
+
+/**
+ * lat/lon nach Weltkoordinaten (Meter, x/z).
  *
  * Dieselbe Umrechnung wie in `baueTerrain` — sie steht hier noch einmal, weil die
  * Alternative wäre, `data/` von `world/` abhängig zu machen. Inhalte sollen die
  * Geometrie nicht kennen.
  */
+export function nachMetern(
+  latlon: readonly [number, number], bbox: readonly [number, number, number, number],
+): [number, number] {
+  const [sued, west, nord, ost] = bbox;
+  const { breite, tiefe } = regionsMasse(bbox);
+  return [
+    ((latlon[1] - west) / (ost - west) - 0.5) * breite,
+    ((nord - latlon[0]) / (nord - sued) - 0.5) * tiefe,
+  ];
+}
+
 export function regentOrt(
-  id: string, bbox: [number, number, number, number],
-  breiteMeter: number, tiefeMeter: number,
+  id: string, bbox: readonly [number, number, number, number],
 ): [number, number] | null {
   const r = REGENTEN.get(id);
-  if (!r) return null;
-  const [sued, west, nord, ost] = bbox;
-  const [lat, lon] = r.ort;
-  return [
-    ((lon - west) / (ost - west) - 0.5) * breiteMeter,
-    ((nord - lat) / (nord - sued) - 0.5) * tiefeMeter,
-  ];
+  return r ? nachMetern(r.ort, bbox) : null;
 }
 
 /** Regent als Kämpfer — mit Phasen, damit die Engine das Element wechseln kann. */

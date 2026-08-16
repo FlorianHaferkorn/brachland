@@ -34,6 +34,8 @@ import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, MITTEL_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
+import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
+         KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
 
 /**
  * Tageszeiten als Schlüsselbilder eines durchgehenden Laufs.
@@ -64,10 +66,27 @@ export interface Stimmung {
   randStaerke: number;
 }
 
+/**
+ * Zweite Farbe der Hemisphere-Lichtquelle — das Licht „von unten".
+ *
+ * War `#121a16` und damit praktisch schwarz. Wirkung: Alles, was zur Sonne
+ * abgewandt oder im Schatten stand, landete unter der **Schwarzgrenze des Tone
+ * Mappings**. Die liegt bei ACES nicht bei null, sondern bei einer linearen
+ * Strahldichte von rund 0,002/Belichtung — darunter ist der Zähler des RRT-Fits
+ * negativ und das Ergebnis wird auf 0 geklemmt. Es gibt dort kein „sehr dunkel",
+ * nur „aus". Gemessen mit `npm run licht`.
+ *
+ * Als Farbe exportiert, damit das Messwerkzeug dieselbe Zahl liest wie die Szene.
+ */
+export const HEMI_BODEN = '#2a352e';
+
 export const STIMMUNG: Record<string, Stimmung> = {
   nacht: {
     himmel: '#0a0f12', nebel: '#101a1c', nebelNah: 25, nebelFern: 260,
-    sonne: '#8fa9c4', sonneStaerke: 0.45, umgebung: '#162124', umgebungStaerke: 0.35,
+    // Umgebung von 0,35 auf 0,60: Bei 0,35 lag JEDE beschattete Fläche exakt bei
+    // 0,000 — nicht dunkel, sondern aus. Nacht bleibt die dunkelste Stimmung, aber
+    // mit Zeichnung statt mit Löchern.
+    sonne: '#8fa9c4', sonneStaerke: 0.45, umgebung: '#22323a', umgebungStaerke: 0.80,
     sonnenstand: [-80, 90, 60] as const,
     belichtung: 1.40,
     // Mond: harte kleine Scheibe, fast kein Hof.
@@ -96,7 +115,9 @@ export const STIMMUNG: Record<string, Stimmung> = {
   },
   abendrot: {
     himmel: '#1a1614', nebel: '#2a221d', nebelNah: 50, nebelFern: 380,
-    sonne: '#d98b5b', sonneStaerke: 1.15, umgebung: '#463a35', umgebungStaerke: 0.7,
+    // Die Sonne steht bei 28 von 150 Einheiten Höhe — flacher Einfall, also kaum
+    // Direktlicht auf waagerechtem Boden. Was das Bild trägt, ist hier die Umgebung.
+    sonne: '#d98b5b', sonneStaerke: 1.15, umgebung: '#4e433c', umgebungStaerke: 0.95,
     sonnenstand: [130, 28, 70] as const,
     belichtung: 2.0,
     zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
@@ -648,6 +669,88 @@ function Fundstellen({ orte, ziel, gelesen, onFund }: {
 }
 
 /**
+ * Zufluchten und Bewohner.
+ *
+ * Anders als eine Fundstelle löst ein Ort **nicht von selbst** aus: Es gibt ein
+ * Zeichen, wenn man nah genug ist, und der Knopf liegt in der Oberfläche. Der
+ * Unterschied ist beabsichtigt. Ein Fundstück will gefunden werden; ein Rastplatz,
+ * der einen im Vorbeigehen heilt, nimmt der Entscheidung ihren Wert — und ein NPC,
+ * der ungefragt anspricht, ist die unangenehmste Sorte NPC.
+ *
+ * Die Marke ist bewusst karg: ein Pfahl mit Querbalken für die Zuflucht, eine
+ * stehende Silhouette für den Bewohner. Beide tragen einen Signalpunkt, weil sie
+ * sonst zwischen 2.033 OSM-Gebäuden nicht auffindbar sind.
+ */
+export const ORT_AB = 7;
+
+export type OrtsArt = 'zuflucht' | 'bewohner';
+export interface Ortsmarke { id: string; art: OrtsArt; position: [number, number, number] }
+
+function Orte({ orte, ziel, onNah }: {
+  orte: Ortsmarke[];
+  ziel: React.RefObject<THREE.Object3D | null>;
+  /** Der nächste Ort in Reichweite, oder null. Wird nur bei Wechsel gerufen. */
+  onNah?: (id: string | null) => void;
+}) {
+  const pfahl = useMemo(() => {
+    const g = new THREE.BoxGeometry(0.14, 2.2, 0.14);
+    g.translate(0, 1.1, 0);
+    return g;
+  }, []);
+  const balken = useMemo(() => {
+    const g = new THREE.BoxGeometry(1.3, 0.13, 0.13);
+    g.translate(0, 1.95, 0);
+    return g;
+  }, []);
+  const figur = useMemo(() => {
+    const g = new THREE.CapsuleGeometry(0.28, 1.1, 3, 6);
+    g.translate(0, 0.95, 0);
+    return g;
+  }, []);
+  const punkt = useMemo(() => new THREE.OctahedronGeometry(0.13, 0), []);
+  const holz = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#6b5a44', roughness: 0.95, flatShading: true,
+  }), []);
+  const tuch = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#7a7f6c', roughness: 1, flatShading: true,
+  }), []);
+  const punktMat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#cfe9f2' }), []);
+
+  const gemeldet = useRef<string | null>(null);
+
+  useFrame(() => {
+    const p = ziel.current?.position;
+    if (!p || !onNah) return;
+    let naechster: string | null = null, beste = ORT_AB;
+    for (const o of orte) {
+      const d = Math.hypot(o.position[0] - p.x, o.position[2] - p.z);
+      if (d < beste) { beste = d; naechster = o.id; }
+    }
+    // Nur bei Wechsel melden: sonst ein setState je Bild, solange man dasteht.
+    if (naechster !== gemeldet.current) { gemeldet.current = naechster; onNah(naechster); }
+  });
+
+  return (
+    <>
+      {orte.map(o => (
+        <group key={o.id} position={o.position}>
+          {o.art === 'zuflucht' ? (
+            <>
+              <mesh geometry={pfahl} material={holz} castShadow receiveShadow />
+              <mesh geometry={balken} material={holz} castShadow />
+            </>
+          ) : (
+            <mesh geometry={figur} material={tuch} castShadow receiveShadow />
+          )}
+          <mesh geometry={punkt} position={[0, o.art === 'zuflucht' ? 2.35 : 1.85, 0]}
+                material={punktMat} />
+        </group>
+      ))}
+    </>
+  );
+}
+
+/**
  * Klippen als Instanzen.
  *
  * Eine Instanz je Wand, ein Draw Call je Variante. Gezeichnet wird nur, was in
@@ -828,7 +931,7 @@ function Beleuchtung({ s, ziel }: {
       {/* Der Himmel hängt an der Kamera: keine Ausdehnung im Spielraum, kein Nebel,
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       <primitive object={himmel} />
-      <hemisphereLight args={[s.umgebung, '#121a16', s.umgebungStaerke]} />
+      <hemisphereLight args={[s.umgebung, HEMI_BODEN, s.umgebungStaerke]} />
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
@@ -948,6 +1051,48 @@ const ABSPRUNG = 5.4;
  */
 const BODEN_TOLERANZ = 0.12;
 
+/**
+ * Klettern.
+ *
+ * Erkannt wird nicht an den Klippenplatten, sondern am **Höhenfeld**: Wer nach
+ * vorne drückt und dort eine Stufe über Brusthöhe vorfindet, greift. Das ist der
+ * robustere Weg, weil die Platten aus genau demselben Steilheitskriterium erzeugt
+ * werden — die Wand ist immer da, wo das Feld steil ist, und das Feld kennt jeder
+ * Frame ohnehin. Eine Prüfung gegen 4.031 Plattengeometrien je Bild wäre teurer
+ * und würde an den Rändern danebengreifen.
+ *
+ * Was das Klettern begrenzt, ist die Ausdauer (`src/spieler/ausdauer.ts`), nicht
+ * eine Regel darüber, wo geklettert werden darf. Deshalb gibt es keine
+ * ausgewiesenen Kletterstellen: Jede Wand geht, solange der Vorrat reicht.
+ */
+const KLETTERN_TEMPO = 2.2;
+/** Vortrieb in die Wand beim Klettern. Trägt am Ende über die Kante. */
+const KLETTERN_VOR = 0.55;
+/**
+ * So weit voraus wird der Boden getastet — für die Steigung UND fürs Klettern.
+ *
+ * Nicht über den Schritt eines Bildes messen: Bei 4,2 m/s und 60 Bildern sind das
+ * 7 cm, und auf 7 cm ist jede Mikrorelief-Beule ein Steilhang. Über 1,4 m mittelt
+ * sich das Rauschen heraus und übrig bleibt die Geländeform.
+ */
+const TAST_WEITE = 1.4;
+/** Erst ab dieser Stufenhöhe wird geklettert — darunter steigt man einfach hoch. */
+const KLETTER_STUFE = 0.9;
+/**
+ * Steiler als das geht zu Fuß nicht mehr.
+ *
+ * **Das ist der Teil, ohne den Klettern folgenlos wäre.** Bis hierher gab es keine
+ * Steigungsgrenze: Die Figur setzte ihre Höhe jedes Bild auf den Boden, also lief
+ * sie jede Felswand senkrecht hoch — schneller als jede Kletteranimation es je
+ * könnte. Eine Kletterfähigkeit einzubauen, ohne das zu ändern, hätte eine Taste
+ * für etwas ergänzt, das man ohnehin schon konnte.
+ *
+ * 40° liegt knapp unter `KLIPPE_AB_GRAD` (41°). Damit gilt: Wo eine Felsplatte
+ * steht, muss geklettert werden — und nur da.
+ */
+const GEHEN_MAX_GRAD = 40;
+const STEIGUNG_MAX = Math.tan(GEHEN_MAX_GRAD * Math.PI / 180);
+
 /** Blickneigung: knapp unter die Waagerechte bis steil nach oben. */
 const NEIGUNG_MIN = -0.30;
 const NEIGUNG_MAX = 1.05;
@@ -962,7 +1107,7 @@ export const NEIGUNG_START = 0.32;
  * Gebäude sind derzeit durchlässig, das ist bewusst, weil dieser Schritt nur den
  * Look beurteilbar machen soll.
  */
-function Spieler({ feld, ziel, gier, neigung, schritt, kollision }: {
+function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer }: {
   feld: HoehenFeld;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
@@ -970,11 +1115,15 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision }: {
   /** Laufphase in Radiant und aktuelles Tempo — die Figur hängt daran. */
   schritt: React.RefObject<{ phase: number; tempo: number }>;
   kollision: Kollisionsfeld;
+  /** Ausdauerzustand. Der Balken liest ihn, deshalb liegt er außerhalb. */
+  ausdauer: React.RefObject<Ausdauerzustand>;
 }) {
   const { gl } = useThree();
   const eingabe = benutzeSteuerung(gl.domElement);
   /** Senkrechte Geschwindigkeit in m/s. Positiv heißt aufwärts. */
   const steigen = useRef(0);
+  /** Klettert der Spieler gerade? Nur für die Anzeige und die Zehrung. */
+  const klettert = useRef(false);
 
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
@@ -991,12 +1140,43 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision }: {
     e.neigDelta = 0;
 
     const g = gier.current;
-    const tempo = e.rennen ? RENNEN : GEHEN;
     // Blickrichtung ist -Z, um `gier` um die Y-Achse gedreht.
-    const dx = (-Math.sin(g) * e.vor + Math.cos(g) * e.seit) * tempo * dt;
-    const dz = (-Math.cos(g) * e.vor - Math.sin(g) * e.seit) * tempo * dt;
+    const blickX = -Math.sin(g), blickZ = -Math.cos(g);
 
-    if (dx !== 0 || dz !== 0) {
+    // Zustand VOR der Bewegung. Die Steigungsprüfung braucht den Ausgangsboden,
+    // und ob man springen darf, entscheidet sich am Standort, nicht am Ziel.
+    const bodenAlt = hoeheAufFlaeche(feld, p.x, p.z);
+    const amBoden = p.y <= bodenAlt + BODEN_TOLERANZ && steigen.current <= 0;
+
+    // Bewegungsrichtung in der Ebene, normiert. Getastet wird dorthin, wohin man
+    // geht — beim Seitwärtsgehen an einer Wand entlang ist das nicht der Blick.
+    const rohX = blickX * e.vor + Math.cos(g) * e.seit;
+    const rohZ = blickZ * e.vor - Math.sin(g) * e.seit;
+    const laenge = Math.hypot(rohX, rohZ);
+    const richtX = laenge > 0 ? rohX / laenge : blickX;
+    const richtZ = laenge > 0 ? rohZ / laenge : blickZ;
+
+    // ---- Was liegt voraus? -------------------------------------------------
+    const vorausBoden = hoeheAufFlaeche(feld, p.x + richtX * TAST_WEITE, p.z + richtZ * TAST_WEITE);
+    const steigung = (vorausBoden - bodenAlt) / TAST_WEITE;
+    const stufe = vorausBoden - p.y;
+
+    // Klettern: nach vorne drücken, eine Wand vor sich, Ausdauer übrig. Der
+    // Schwellwert ist beim Weiterklettern niedriger als beim Ansetzen — sonst
+    // bricht der Aufstieg an jedem Absatz ab und die Figur fällt zurück.
+    const schwelle = klettert.current ? -0.25 : KLETTER_STUFE;
+    klettert.current = laenge > 0.3 && e.vor > 0.3 && stufe > schwelle
+      && steigung > STEIGUNG_MAX && reicht(ausdauer.current);
+
+    const tempo = klettert.current ? KLETTERN_VOR : e.rennen ? RENNEN : GEHEN;
+    const dx = (rohX / Math.max(1, laenge)) * tempo * dt;
+    const dz = (rohZ / Math.max(1, laenge)) * tempo * dt;
+
+    // Zu steil heißt: der Schritt findet nicht statt. Nur bergauf und nur mit
+    // Bodenkontakt — in der Luft steuert man frei, und bergab rutscht man eben.
+    const zuSteil = amBoden && !klettert.current && steigung > STEIGUNG_MAX;
+
+    if ((dx !== 0 || dz !== 0) && !zuSteil) {
       const halbB = feld.breiteMeter / 2 - 8;
       const halbT = feld.tiefeMeter / 2 - 8;
       const [kx, kz] = kollision.schiebeRaus(p.x + dx, p.z + dz);
@@ -1006,14 +1186,21 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision }: {
     // Der Boden unter dem Spieler. Auf der GEZEICHNETEN Fläche, nicht auf der
     // stetigen Funktion — sonst schwebt die Figur auf Kuppen sichtbar darüber.
     const boden = hoeheAufFlaeche(feld, p.x, p.z);
-    const amBoden = p.y <= boden + BODEN_TOLERANZ && steigen.current <= 0;
 
     if (e.springen) {
       e.springen = false;
-      if (amBoden) steigen.current = ABSPRUNG;
+      if (amBoden && reicht(ausdauer.current, SPRUNG_KOSTEN)) {
+        steigen.current = ABSPRUNG;
+        ausdauer.current = verbrauche(ausdauer.current, SPRUNG_KOSTEN);
+      }
     }
 
-    if (amBoden && steigen.current <= 0) {
+    if (klettert.current) {
+      // Am Fels zieht die Schwerkraft nicht. Der Aufstieg endet, wenn die Ausdauer
+      // leer ist — dann fällt man, und zwar aus der erreichten Höhe.
+      steigen.current = 0;
+      p.y += KLETTERN_TEMPO * dt;
+    } else if (amBoden && steigen.current <= 0) {
       // Am Boden der Kontur folgen, statt bei jedem Absatz kurz zu fallen.
       p.y = boden;
       steigen.current = 0;
@@ -1022,10 +1209,16 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision }: {
       p.y += steigen.current * dt;
       if (p.y <= boden) { p.y = boden; steigen.current = 0; }
     }
+    // Nie unter das Gelände: Beim Klettern über eine Kante liegt der Boden am
+    // neuen Standort sonst über der Figur.
+    if (p.y < boden) p.y = boden;
+
+    ausdauer.current = ausdauerSchritt(
+      ausdauer.current, dt, klettert.current ? KLETTERN_JE_SEK : 0);
 
     // Schrittfrequenz aus der tatsächlichen Geschwindigkeit: Wer rennt, macht
     // schnellere Schritte, nicht dieselben Schritte schneller hintereinander.
-    const strecke = Math.hypot(dx, dz);
+    const strecke = klettert.current ? 0 : Math.hypot(dx, dz) * (zuSteil ? 0 : 1);
     const sw = schritt.current;
     sw.tempo = dt > 0 ? strecke / dt : 0;
     // Die Phase folgt der zurückgelegten STRECKE, nicht der Zeit. Nur so bleibt der
@@ -1226,8 +1419,19 @@ export interface RegionsSzeneProps {
   fundstellen?: { id: string; ort: [number, number] }[];
   gelesen?: ReadonlySet<string>;
   onFund?: (id: string) => void;
+  /** Zufluchten und Bewohner in Weltkoordinaten (x, z). */
+  orte?: { id: string; art: OrtsArt; ort: [number, number] }[];
+  /** ID des nächsten Ortes in Reichweite, oder null. Nur bei Wechsel gerufen. */
+  onOrtNah?: (id: string | null) => void;
   /** Startposition; ohne Angabe die Regionsmitte. Der Spielstand setzt sie. */
   startPosition?: [number, number];
+  /**
+   * Ausdauer nach außen reichen — die Anzeige liegt im DOM, nicht in der Szene.
+   *
+   * Als Ref, nicht als Callback: Der Wert ändert sich jedes Bild, und ein
+   * `setState` je Bild wäre für einen Balken der teuerste denkbare Weg.
+   */
+  ausdauer?: React.RefObject<Ausdauerzustand>;
   /**
    * Hält die Bildschleife an, ohne die Szene abzubauen.
    *
@@ -1241,11 +1445,13 @@ export interface RegionsSzeneProps {
 export function RegionsSzene({
   welt, tageszeit = 0.26, spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
-  regent, onRegentNah, fundstellen, gelesen, onFund,
-  startPosition, angehalten = false,
+  regent, onRegentNah, fundstellen, gelesen, onFund, orte, onOrtNah,
+  startPosition, ausdauer, angehalten = false,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
+  const eigeneAusdauer = useRef<Ausdauerzustand>(neueAusdauer());
+  const kraft = ausdauer ?? eigeneAusdauer;
   const gier = useRef(0);
   // Einmal je Zeitpunkt mischen, nicht je Bild: Farbmischung ist billig, aber sie
   // hängt an einem Regler und nicht an der Bildrate.
@@ -1306,6 +1512,14 @@ export function RegionsSzene({
     [fundstellen, feld],
   );
 
+  const ortsmarken = useMemo<Ortsmarke[]>(
+    () => (orte ?? []).map(o => ({
+      id: o.id, art: o.art,
+      position: [o.ort[0], hoeheAufFlaeche(feld, o.ort[0], o.ort[1]), o.ort[1]],
+    })),
+    [orte, feld],
+  );
+
   const start = useMemo<[number, number, number]>(() => {
     const [x, z] = startPosition ?? [0, 0];
     return [x, hoeheAufFlaeche(feld, x, z), z];
@@ -1328,9 +1542,12 @@ export function RegionsSzene({
                       rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
-               schritt={schritt} kollision={kollision} />
+               schritt={schritt} kollision={kollision} ausdauer={kraft} />
       {funde.length > 0 && (
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
+      )}
+      {ortsmarken.length > 0 && (
+        <Orte orte={ortsmarken} ziel={ref} onNah={onOrtNah} />
       )}
       {regent && regentOrt && (
         <Regentenort ort={regentOrt} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />

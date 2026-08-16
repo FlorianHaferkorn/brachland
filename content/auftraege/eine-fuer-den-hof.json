@@ -1,0 +1,10 @@
+{
+  "id": "eine-fuer-den-hof",
+  "region": "oental",
+  "geber": "hof-tremmel",
+  "titel": "Eine für den Hof",
+  "text": "Wenn Sie ohnehin unterwegs sind: Fangen Sie mir ein Alpenmurmel. Nicht für den Topf. Die graben die Hänge um, und wo sie graben, rutscht nichts ab. Mein Vater hat das gewusst und trotzdem alle vertrieben.",
+  "ziel": { "art": "fange", "kreatur": "alpenmurmel", "anzahl": 1 },
+  "belohnung": { "netzschlinge": 1, "quellwasser": 1 },
+  "vorher": "streuner"
+}

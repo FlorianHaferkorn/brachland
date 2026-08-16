@@ -1,0 +1,9 @@
+{
+  "id": "was-am-stollen-steht",
+  "region": "oental",
+  "geber": "steinbruch-wart",
+  "titel": "Was am Stollen steht",
+  "text": "Am Stollenmund ist eine Tafel. Ich habe sie nie gelesen, ich war zu nah dran. Lesen Sie sie und kommen Sie zurück. Ich will nicht wissen, was drauf steht — ich will wissen, ob es noch lesbar ist.",
+  "ziel": { "art": "finde", "fragment": "stollenmund" },
+  "belohnung": { "harzverband": 2 }
+}

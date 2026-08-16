@@ -53,7 +53,7 @@ export const BAUM: Record<BaumArt, BaumWerte> = {
     // Heller als der erste Wurf. #1f3324 war im Nebel eine schwarze Wand — ein
     // Nadelwald ist dunkel, aber er hat Binnenzeichnung. Die Spreizung zwischen den
     // beiden Tönen ist wichtiger als ihre Helligkeit: Sie macht aus der Fläche Volumen.
-    stammFarbe: '#453a2e', laubFarbe: '#334a33', laubFarbe2: '#476349',
+    stammFarbe: '#4f4436', laubFarbe: '#3c5439', laubFarbe2: '#527050',
   },
   buche: {
     hoehe: 17, fussRadius: 0.42, beastungAb: 0.55, astWinkel: 46,

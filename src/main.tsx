@@ -5,9 +5,13 @@ import { entpackeWelt, type Weltdaten } from './world/osm.js';
 import { RegionsSzene, TAGESZEITEN, QUALITAET_STANDARD,
          type Messwerte, type Qualitaet, type Naehe } from './scenes/RegionsSzene.js';
 import { Witterung } from './ui/Witterung.js';
+import { Ausdaueranzeige } from './ui/Ausdaueranzeige.js';
+import { neueAusdauer, type Ausdauer } from './spieler/ausdauer.js';
 import type { Vorkommen } from './world/vorkommen.js';
-import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, WILDLINGE,
-         baueKaempfer, baueRegent, regentOrt, ausKaempferId } from './data/inhalte.js';
+import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, WILDLINGE,
+         baueKaempfer, baueRegent, regentOrt, nachMetern, ausKaempferId } from './data/inhalte.js';
+import { Ortsfenster } from './ui/Ortsfenster.js';
+import { beiGeber, type Taten } from './spiel/auftraege.js';
 import { erfahrungAusSieg, gutschrift, mutationBei } from './spiel/fortschritt.js';
 import { beute } from './spiel/gegenstaende.js';
 import { baueKreaturGeometrie } from './world/kreaturgestalt.js';
@@ -53,10 +57,18 @@ function App() {
   const [begegnung, setBegegnung] = useState<{ v: Vorkommen; gegner: Kaempfer } | null>(null);
   const [regentKampf, setRegentKampf] = useState<Kaempfer | null>(null);
   const [regentNah, setRegentNah] = useState(false);
+  /** ID des Ortes, an dem man gerade steht — Zuflucht oder Bewohner. */
+  const [ortNah, setOrtNah] = useState<string | null>(null);
+  /** Offenes Ortsfenster. Getrennt von `ortNah`: Nähe ist kein Grund, etwas aufzumachen. */
+  const [ortOffen, setOrtOffen] = useState<string | null>(null);
   const [fragment, setFragment] = useState<string | null>(null);
   const [hinweis, setHinweis] = useState<string | null>(null);
   const spielerRef = useRef<THREE.Object3D>(null);
   const naehe = useRef<Naehe>({ abstand: Infinity, winkel: 0, kreatur: '' });
+  // Ausdauer liegt hier und nicht in der Szene, weil beide sie brauchen: die Szene
+  // zum Zehren, der Balken zum Anzeigen. Nicht im Spielstand — sie ist nach jeder
+  // Pause wieder voll und wäre gespeichert nur eine Zahl, die immer 100 ist.
+  const ausdauer = useRef<Ausdauer>(neueAusdauer());
   /** Erfahrung je Teamplatz. Parallel zum Team, weil `Kaempfer` sie nicht kennt. */
   const erfahrungRef = useRef<number[]>([]);
 
@@ -126,12 +138,7 @@ function App() {
    */
   const regent = useMemo(() => {
     if (!welt) return undefined;
-    const [sued, west, nord, ost] = welt.bbox;
-    const METER_JE_GRAD = 111_320;
-    const mittelLat = (sued + nord) / 2;
-    const breite = (ost - west) * METER_JE_GRAD * Math.cos(mittelLat * Math.PI / 180);
-    const tiefe = (nord - sued) * METER_JE_GRAD;
-    const ort = regentOrt(REGENT_ID, welt.bbox, breite, tiefe);
+    const ort = regentOrt(REGENT_ID, welt.bbox);
     const r = REGENTEN.get(REGENT_ID);
     if (!ort || !r) return undefined;
     // Der Flussvater ist ein Riesenwels — die Schlangenform kommt dem am nächsten.
@@ -142,21 +149,24 @@ function App() {
    * Fundstellen in Weltkoordinaten. Dieselbe Umrechnung wie beim Regenten — sie
    * hängt an der Ausdehnung der Region, nicht am Inhalt.
    */
-  const fundstellen = useMemo(() => {
-    if (!welt) return [];
-    const [sued, west, nord, ost] = welt.bbox;
-    const METER_JE_GRAD = 111_320;
-    const mittelLat = (sued + nord) / 2;
-    const breite = (ost - west) * METER_JE_GRAD * Math.cos(mittelLat * Math.PI / 180);
-    const tiefe = (nord - sued) * METER_JE_GRAD;
-    return [...FRAGMENTE.values()].map(f => ({
-      id: f.id,
-      ort: [
-        ((f.ort[1] - west) / (ost - west) - 0.5) * breite,
-        ((nord - f.ort[0]) / (nord - sued) - 0.5) * tiefe,
-      ] as [number, number],
-    }));
-  }, [welt]);
+  const fundstellen = useMemo(
+    () => (welt ? [...FRAGMENTE.values()].map(f => ({ id: f.id, ort: nachMetern(f.ort, welt.bbox) })) : []),
+    [welt],
+  );
+
+  /**
+   * Zufluchten und Bewohner in Weltkoordinaten.
+   *
+   * Beide sind dasselbe für die Szene: ein Punkt mit einer Marke und einem Radius.
+   * Was beim Betreten passiert, entscheidet `main`, nicht die Szene — die kennt
+   * weder Heilung noch Aufträge und soll es nicht.
+   */
+  const ortsmarken = useMemo(
+    () => (welt
+      ? [...ORTE.values()].map(o => ({ id: o.id, art: o.art, ort: nachMetern(o.ort, welt.bbox) }))
+      : []),
+    [welt],
+  );
 
   const gelesen = useMemo(() => new Set(stand?.fragmente ?? []), [stand]);
 
@@ -299,12 +309,67 @@ function App() {
     return meldungen;
   }, [stand, team, sichere]);
 
+  /**
+   * Rasten: Team auf volle KP.
+   *
+   * Der Grund steht in G-35 — ohne Heilung außerhalb des Kampfes war die
+   * **Niederlage** der zuverlässigste Weg zu vollen KP, weil sie vollständig
+   * heilt. Gegenstände haben das entschärft; wer keinen Sud mehr hat, stand aber
+   * weiterhin vor derselben Wahl. Der Preis der Zuflucht ist der Weg dorthin, und
+   * das ist der richtige Preis: eine Entscheidung über die Route, keine Ressource.
+   *
+   * Kein Vorrat, kein Kochen, kein Zeitverbrauch. Was hier fehlt, fehlt bewusst.
+   */
+  const raste = useCallback(() => {
+    if (!stand) return;
+    const voll = team.map(k => { k.kp = k.maxKp; return k; });
+    setTeam([...voll]);
+    setHinweis(voll.length ? 'Ausgeruht. Das Team ist wieder bei Kräften.' : 'Ausgeruht.');
+    setOrtOffen(null);
+    sichere({}, voll);
+  }, [stand, team, sichere]);
+
+  /** Was der Spieler getan hat — die einzige Quelle für den Auftragsfortschritt. */
+  const taten = useMemo<Taten>(() => ({
+    besiegt: stand?.besiegt ?? [],
+    gefangen: stand?.gefangen ?? [],
+    fragmente: stand?.fragmente ?? [],
+    regenten: stand?.regenten ?? [],
+  }), [stand]);
+
+  const nimmAuftrag = useCallback((id: string) => {
+    if (!stand) return;
+    sichere({ auftraege: { ...stand.auftraege, [id]: 'angenommen' } }, team);
+    setHinweis(`Auftrag angenommen: ${AUFTRAEGE.find(a => a.id === id)?.titel ?? id}`);
+  }, [stand, team, sichere]);
+
+  /** Belohnung abholen. Erst hier ist ein Auftrag zu Ende — nicht beim letzten Schlag. */
+  const holeAuftrag = useCallback((id: string) => {
+    if (!stand) return;
+    const a = AUFTRAEGE.find(x => x.id === id);
+    if (!a) return;
+    const beutelNeu = { ...stand.beutel };
+    const teile: string[] = [];
+    for (const [gid, n] of Object.entries(a.belohnung)) {
+      beutelNeu[gid] = (beutelNeu[gid] ?? 0) + n;
+      teile.push(`${n}× ${GEGENSTAENDE.get(gid)?.name ?? gid}`);
+    }
+    sichere({ auftraege: { ...stand.auftraege, [id]: 'abgeholt' }, beutel: beutelNeu }, team);
+    setHinweis(`${a.titel} erledigt · ${teile.join(', ')}`);
+  }, [stand, team, sichere]);
+
   const beendeRegent = useCallback((ende: KampfEnde) => {
     setRegentKampf(null);
     if (!stand) return;
     if (ende === 'sieg') {
       setHinweis('Der Flussvater ist besiegt. Das Stauwasser sinkt.');
-      sichere({ besiegt: [...stand.besiegt, `regent:${REGENT_ID}`] }, team);
+      // Zweimal notiert, und das mit Absicht: `besiegt` steuert, ob der Regent
+      // noch in der Welt steht, `regenten` ist der Weltzustand, den Aufträge
+      // abfragen. Ein Regent ist kein Vorkommen — er passt nicht in dieselbe Liste.
+      sichere({
+        besiegt: [...stand.besiegt, `regent:${REGENT_ID}`],
+        regenten: [...new Set([...stand.regenten, REGENT_ID])],
+      }, team);
       return;
     }
     if (ende === 'niederlage') {
@@ -339,7 +404,10 @@ function App() {
         fundstellen={fundstellen}
         gelesen={gelesen}
         onFund={findeFragment}
+        orte={ortsmarken}
+        onOrtNah={setOrtNah}
         startPosition={stand.position}
+        ausdauer={ausdauer}
         angehalten={imKampf}
       />
 
@@ -405,6 +473,7 @@ function App() {
           </div>
 
           <Witterung naehe={naehe} />
+          <Ausdaueranzeige ausdauer={ausdauer} />
 
           {/* Ein Fundstück. Keine Karte, kein Log-Eintrag, kein Haken — man liest es
               und geht weiter. Die Leseliste steht im Beutel, falls jemand zurückwill. */}
@@ -428,6 +497,29 @@ function App() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Ort in Reichweite. Ein Knopf, kein Automatismus — siehe `Orte` in der Szene. */}
+          {ortNah && !ortOffen && ORTE.get(ortNah) && (
+            <button onClick={() => setOrtOffen(ortNah)} style={{
+              position: 'fixed', left: '50%', transform: 'translateX(-50%)',
+              bottom: 'calc(env(safe-area-inset-bottom, 8px) + 76px)', zIndex: 20,
+              minHeight: 40, padding: '0 18px', borderRadius: 9, fontSize: 13,
+              background: '#131c19ee', border: '1px solid #3fd9a0', color: '#3fd9a0',
+            }}>
+              {ORTE.get(ortNah)!.art === 'zuflucht' ? 'Rasten' : 'Ansprechen'}
+            </button>
+          )}
+
+          {ortOffen && ORTE.get(ortOffen) && (
+            <Ortsfenster
+              ort={ORTE.get(ortOffen)!}
+              auftraege={beiGeber(AUFTRAEGE, ortOffen, stand.auftraege, taten)}
+              onRasten={raste}
+              onAnnehmen={nimmAuftrag}
+              onAbholen={holeAuftrag}
+              onSchliessen={() => setOrtOffen(null)}
+            />
           )}
 
           {/* Der Bosskampf startet nicht von selbst. Wer im Vorbeigehen in einen

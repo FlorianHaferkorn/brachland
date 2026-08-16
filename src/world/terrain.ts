@@ -46,7 +46,13 @@ export const GROESSE = {
 /** Gedämpfte Naturtöne + eine Signalfarbe — siehe Art Direction. */
 export const BIOM_FARBE: Record<Biom, THREE.ColorRepresentation> = {
   fels:      '#6b6f72',
-  wald:      '#2c4232',
+  // Waldboden war `#2c4232` und damit auf denselben Helligkeitswert wie die
+  // Fichtennadel (`#334a33`) gesetzt — gemessener Kontrast 1,00:1 in allen vier
+  // Stimmungen. Beschatteter Wald war deshalb nicht nur dunkel, sondern **eine
+  // einzige Fläche**: Boden und Krone ließen sich nicht trennen. Nadelstreu ist
+  // in Wirklichkeit heller und wärmer als das Kronendach, weil sie das
+  // Chlorophyll nicht mehr hat. `npm run licht`
+  wald:      '#55613f',
   gebuesch:  '#4a5940',
   wiese:     '#5f6f4c',
   acker:     '#78714f',

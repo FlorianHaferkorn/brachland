@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag,
+         effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
 
@@ -30,6 +31,10 @@ console.log('\nGegenstände:');
 const gegenstaende = pruefe<any>('content/gegenstaende', Gegenstand);
 console.log('\nFragmente:');
 const fragmente = pruefe<any>('content/fragmente', Fragment);
+console.log('\nOrte:');
+const orte = pruefe<any>('content/orte', Ort);
+console.log('\nAufträge:');
+const auftraege = pruefe<any>('content/auftraege', Auftrag);
 
 // Querverweise: jede referenzierte Move-ID muss es geben. Ohne diese Pruefung
 // faellt ein Tippfehler erst im Kampf auf — und dort als leerer Move-Knopf.
@@ -71,6 +76,68 @@ console.log(doppelt === 0
   : `  ${doppelt} Ueberschneidungen`);
 fehler += doppelt;
 if (tote > 0) fehler += tote;
+
+/**
+ * Aufträge gegen die Welt prüfen.
+ *
+ * Ein Auftrag ist die einzige Inhaltsart, die auf **vier** andere zeigt: Geber,
+ * Zielobjekt, Belohnung und Vorgänger. Jeder dieser Verweise ist ein Tippfehler
+ * entfernt davon, einen Auftrag unerfüllbar zu machen — und unerfüllbar merkt man
+ * erst, wenn jemand ihn angenommen hat und stundenlang nichts passiert.
+ */
+let auftragsfehler = 0;
+const meldeA = (id: string, was: string) => {
+  console.log(`  ✗ Auftrag '${id}': ${was}`);
+  auftragsfehler++;
+};
+const bewohner = new Set(orte.filter((o: any) => o.art === 'bewohner').map((o: any) => o.id));
+const gegenstandIds = new Set(gegenstaende.map((g: any) => g.id));
+const kreaturIds = new Set(kreaturen.map((k: any) => k.id));
+const fragmentIds = new Set(fragmente.map((f: any) => f.id));
+const regentIds = new Set(regenten.map((r: any) => r.id));
+const auftragIds = new Set(auftraege.map((a: any) => a.id));
+
+for (const a of auftraege) {
+  if (!bewohner.has(a.geber)) meldeA(a.id, `Geber '${a.geber}' ist kein Bewohner-Ort`);
+  if (a.vorher && !auftragIds.has(a.vorher)) meldeA(a.id, `Vorbedingung '${a.vorher}' gibt es nicht`);
+  if (a.vorher === a.id) meldeA(a.id, 'ist seine eigene Vorbedingung');
+  for (const g of Object.keys(a.belohnung))
+    if (!gegenstandIds.has(g)) meldeA(a.id, `Belohnung '${g}' gibt es nicht`);
+  const z = a.ziel;
+  if ((z.art === 'besiege' || z.art === 'fange') && !kreaturIds.has(z.kreatur))
+    meldeA(a.id, `Ziel-Kreatur '${z.kreatur}' gibt es nicht`);
+  if (z.art === 'finde' && !fragmentIds.has(z.fragment))
+    meldeA(a.id, `Ziel-Fragment '${z.fragment}' gibt es nicht`);
+  if (z.art === 'regent' && !regentIds.has(z.regent))
+    meldeA(a.id, `Ziel-Regent '${z.regent}' gibt es nicht`);
+}
+
+// Zyklus in den Vorbedingungen: Zwei Aufträge, die aufeinander warten, sind beide
+// für immer gesperrt — und im Spiel sichtbar nur als „da ist nichts".
+for (const a of auftraege) {
+  const gesehen = new Set<string>([a.id]);
+  let k = a.vorher;
+  while (k) {
+    if (gesehen.has(k)) { meldeA(a.id, `Vorbedingungen laufen im Kreis (über '${k}')`); break; }
+    gesehen.add(k);
+    k = auftraege.find((x: any) => x.id === k)?.vorher;
+  }
+}
+
+// Ein Bewohner ohne Auftrag ist ein Knopf, der nichts tut.
+for (const o of orte.filter((x: any) => x.art === 'bewohner'))
+  if (!auftraege.some((a: any) => a.geber === o.id))
+    meldeA(o.id, 'Bewohner ohne einen einzigen Auftrag');
+
+const zufluchten = orte.filter((o: any) => o.art === 'zuflucht').length;
+if (zufluchten === 0) {
+  console.log('  ✗ keine Zuflucht — dann bleibt die Niederlage der beste Weg zu vollen KP');
+  auftragsfehler++;
+}
+console.log(auftragsfehler === 0
+  ? `  ✓ ${auftraege.length} Aufträge und ${orte.length} Orte hängen zusammen (${zufluchten} Zufluchten)`
+  : `  ${auftragsfehler} Fehler in Aufträgen und Orten`);
+fehler += auftragsfehler;
 
 console.log(`\n${ok} gültig, ${fehler} fehlerhaft\n`);
 

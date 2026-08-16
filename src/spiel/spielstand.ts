@@ -42,6 +42,19 @@ export interface Spielstand {
   beutel: Record<string, number>;
   /** Gelesene Fragmente. Die Leseliste im Spiel besteht aus genau diesen. */
   fragmente: string[];
+  /**
+   * Besiegte Regenten. Der einzige Weltzustand, den es gibt — und der einzige,
+   * der nicht aus `besiegt` ableitbar ist, weil ein Regent kein Vorkommen ist.
+   */
+  regenten: string[];
+  /**
+   * Aufträge: angenommen oder Belohnung abgeholt.
+   *
+   * Der **Fortschritt** steht bewusst nicht hier: Ob drei Sporenhähne besiegt sind,
+   * folgt aus `besiegt` (siehe `spiel/auftraege.ts`). Gespeichert wird nur, was
+   * nicht ableitbar ist — sonst gäbe es zwei Wahrheiten über dieselbe Sache.
+   */
+  auftraege: Record<string, 'angenommen' | 'abgeholt'>;
 }
 
 export const LEERER_STAND: Spielstand = {
@@ -55,6 +68,8 @@ export const LEERER_STAND: Spielstand = {
   // verlorene Kampf eine Sackgasse, und der erste Fang reiner Zufall.
   beutel: { kraeutersud: 2, koeder: 1 },
   fragmente: [],
+  regenten: [],
+  auftraege: {},
 };
 
 const DB = 'brachland';
@@ -75,7 +90,13 @@ export async function ladeStand(): Promise<Spielstand | null> {
     if (!roh || roh.version !== SPIELSTAND_VERSION) return null;
     // Fehlende Felder aus älteren Ständen ergänzen, statt den Stand zu verwerfen.
     // Ein verlorener Spielstand ist schlimmer als ein leerer Beutel.
-    return { ...LEERER_STAND, ...roh, beutel: roh.beutel ?? {}, fragmente: roh.fragmente ?? [] } as Spielstand;
+    return {
+      ...LEERER_STAND, ...roh,
+      beutel: roh.beutel ?? {},
+      fragmente: roh.fragmente ?? [],
+      regenten: roh.regenten ?? [],
+      auftraege: roh.auftraege ?? {},
+    } as Spielstand;
   } catch {
     // Privater Modus oder gesperrte Datenbank: lieber ohne Spielstand spielen als
     // gar nicht starten.

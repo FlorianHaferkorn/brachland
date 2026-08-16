@@ -19,6 +19,9 @@ owns: *.ts, *.tsx
 | Fortschritt, Stufen oder Gegenstände ändern | `spiel/fortschritt.ts`, `spiel/gegenstaende.ts` | data/inhalte.ts, content/gegenstaende/ |
 | Bewegung, Kamera oder Blickneigung ändern | `spieler/steuerung.ts` → `scenes/RegionsSzene.tsx` | spieler/figur.ts |
 | Springen, Schwerkraft, Bodenkontakt ändern | `scenes/RegionsSzene.tsx` (`Spieler`, `SCHWERKRAFT`/`ABSPRUNG`) → `spieler/steuerung.ts` | world/, engine/ |
+| Klettern, Steigungsgrenze, Ausdauer ändern | `spieler/ausdauer.ts` → `scenes/RegionsSzene.tsx` (`STEIGUNG_MAX`, `KLETTERN_TEMPO`) | world/, engine/ |
+| Aufträge, Zufluchten, NPCs ändern | `spiel/auftraege.ts` → `ui/Ortsfenster.tsx` → `main.tsx` | world/, engine/ |
+| Wald wirkt zu dunkel oder zu flach | `../tools/lichtcheck.ts` **erst messen**, dann `scenes/RegionsSzene.tsx` (`STIMMUNG`, `HEMI_BODEN`) | ui/, engine/ |
 | Fundstücke platzieren oder ihre Wirkung ändern | `scenes/RegionsSzene.tsx` (`Fundstellen`) → `main.tsx` (`findeFragment`) | engine/, ui/ |
 | Aussehen der Kreaturen, Pilzfächer, Mutationsstufen | `world/kreaturgestalt.ts` | engine/, ui/ |
 | Vegetationsdichte, Varianten, Modellgrößen | `world/props.ts` | scenes/, engine/ |
@@ -58,6 +61,10 @@ owns: *.ts, *.tsx
 | `world/klippen.ts` | Felswände aus der Hangneigung. Ein Höhenraster kann per Bauart keine senkrechte Wand — deshalb aufgesetzt statt geschnitzt |
 | `ui/Witterung.tsx` | Richtung und Abstand zur nächsten Kreatur. Notwendig, weil eine Kreatur auf 62 m nur zwölf Pixel hoch ist |
 | `spieler/peilung.ts` | Richtung zu einem Punkt relativ zum Blick. Rein und getestet — hier steckte ein Vorzeichenfehler |
+| `spieler/ausdauer.ts` | Ausdauer für Klettern und Springen. **Rennen zehrt bewusst nicht** — die Begründung steht in der Datei. Rein und getestet |
+| `spiel/auftraege.ts` | Auftragsfortschritt, **abgeleitet** aus besiegten/gefangenen Vorkommen und gelesenen Fragmenten. Kein eigener Zähler, deshalb keine zweite Wahrheit |
+| `ui/Ortsfenster.tsx` | Zuflucht und Bewohner in einem Fenster: rasten oder Aufträge annehmen und abschließen. Kein Dialogbaum |
+| `ui/Ausdaueranzeige.tsx` | Ausdauerbalken, der bei vollem Vorrat ausblendet. Rot heißt gesperrt, nicht wenig — das ist der Unterschied, der beim Klettern zählt |
 | `scenes/RegionsSzene.tsx` | Art Direction als Code: 4 Stimmungen mit Nebel-, Sonnen- und Umgebungswerten; Props als `InstancedMesh`; Schwerkraft und Sprung des Spielers; `Fundstellen` als Marker der Fragmente |
 | `scenes/sichtweiten.ts` | Entfernungsschwellen der Szene (Terrainsicht, Attrappen, Neubewertung). Eigenes Modul, damit `tools/lastcheck.ts` dieselben Zahlen nutzt, ohne React zu laden |
 | `world/osm.ts` | OSM- und EU-DEM-Abruf, Weltdatentypen (`Weltdaten`, `Biom`), Biom-Ableitung, Spawn-Zonen |

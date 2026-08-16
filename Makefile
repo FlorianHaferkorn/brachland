@@ -18,7 +18,7 @@ typecheck:   ## TypeScript über alles
 	@test -d node_modules || { echo "⏭  node_modules fehlt — 'make install' zuerst (übersprungen)"; exit 0; }
 	@npm run --silent typecheck
 
-test:   ## Kampf-Engine — 16 Tests
+test:   ## Alle Tests — Kampf, Peilung, Fortschritt, Ausdauer, Auftraege
 	@test -d node_modules || { echo "⏭  node_modules fehlt — 'make install' zuerst (übersprungen)"; exit 0; }
 	@npm run --silent test
 

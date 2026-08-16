@@ -41,6 +41,8 @@ owns: *.json
 | `moves/` | 41 Moves mit eigenem Index — Aufbau, Bänder und Zuordnung zu den Linien stehen in `moves/_INDEX.md` |
 | `gegenstaende/` | 8 Gegenstände mit eigenem Index — Heilung, Wiederbelebung, Reinigung, Fanghilfen, Fokus. Siehe `gegenstaende/_INDEX.md` |
 | `fragmente/` | 12 Fundstücke an OSM-Orten mit eigenem Index — die Geschichte der Region, ohne Sprecher. Siehe `fragmente/_INDEX.md` |
+| `orte/` | 2 Zufluchten und 2 Bewohner auf freistehenden OSM-Gebäuden. Siehe `orte/_INDEX.md` |
+| `auftraege/` | 3 Aufträge — der kritische Pfad. Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
 | `creatures/alpenmurmel.json` | Alpenmurmel (Alpenmurmeltier, Stein, Erdpilz-Rückenpolster). 3 Stufen, `landuse=meadow` ab 700 m |
 | `creatures/schneehuhn.json` | Alpenschneehuhn (Frost, Frostfeder-Fächer). 3 Stufen, `natural=scree` ab 950 m — zweite Frost-Linie neben dem Firnhasen |
 
