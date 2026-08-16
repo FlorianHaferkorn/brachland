@@ -15,7 +15,10 @@
     "quality": "tsx tools/quality.ts",
     "test": "tsx tests/battle.test.ts",
     "world": "tsx tools/buildworld.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "props": "tsx tools/propcheck.ts",
+    "terrain": "tsx tools/terraincheck.ts",
+    "lodpreview": "tsx tools/lodpreview.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.8",
@@ -29,9 +32,14 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/extensions": "^4.4.2",
+    "@gltf-transform/functions": "^4.4.2",
     "@types/react-dom": "^19.2.4",
     "@types/three": "^0.169.0",
     "@vitejs/plugin-react": "^4",
+    "meshoptimizer": "^1.2.0",
+    "sharp": "^0.35.3",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vite": "^5.4.0",

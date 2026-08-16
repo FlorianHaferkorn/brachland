@@ -41,3 +41,6 @@ Thumbs.db
 # ── Rekonstruktion ───────────────────────────────────────────────────────
 # Grosse Bilder aus den Spikes liegen bewusst im Repo (docs/bilder/) — sie sind
 # die Referenz fuer Art-Direction-Entscheidungen. Falls die History aufgeht: Ledger A-5.
+
+# Laufzeit-Caches der Mess-Werkzeuge
+.cache/

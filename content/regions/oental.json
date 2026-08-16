@@ -1,0 +1,11 @@
+{
+  "id": "oental",
+  "name": "Œntal",
+  "realeGrundlage": "Inntal-Süd (Brannenburg/Wendelstein-Fuß)",
+  "bbox": [47.715, 12.055, 47.751, 12.108],
+  "regent": "flussvater",
+  "kreaturen": ["grathorn", "trafomarder"],
+  "konzentrate": [],
+  "traversal": "Klettern",
+  "zielSpielzeit": 6
+}

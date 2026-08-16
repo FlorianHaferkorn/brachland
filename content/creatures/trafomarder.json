@@ -1,0 +1,23 @@
+{
+  "id": "trafomarder",
+  "linie": "Trafomarder",
+  "basis": "Baummarder",
+  "merkmal": "Trafostation-Verwachsung",
+  "elemente": ["alt-tech", "faeulnis"],
+  "ursprung": "verwachsener",
+  "basisRig": "quadruped_small",
+  "zielTris": 4000,
+  "spawn": {
+    "osmTag": "power=substation",
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "fest",
+    "position": [47.7305, 12.0812]
+  },
+  "grundMoves": ["lichtbogen", "kriechstrom"],
+  "stufen": [
+    { "name": "Trafomarder", "werte": { "kp": 112, "ang": 76, "ver": 50, "ini": 68 } }
+  ],
+  "fangbar": false,
+  "beschreibung": "Lebt im Schaltschrank. Extrem schnell, extrem dünnhäutig. Aus ihm lässt sich das Akkuherz extrahieren — dann ist er verloren."
+}

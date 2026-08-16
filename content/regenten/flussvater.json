@@ -1,0 +1,15 @@
+{
+  "id": "flussvater",
+  "name": "Der Flussvater",
+  "region": "oental",
+  "basis": "Riesenwels",
+  "merkmal": "Kläranlagen-Organik",
+  "phasen": [
+    { "elemente": ["wasser"], "abKpAnteil": 1.0, "verhalten": "staut den Fluss, flutet das Tal" },
+    { "elemente": ["faeulnis"], "abKpAnteil": 0.66, "verhalten": "lässt das Stauwasser faulen" },
+    { "elemente": ["alt-tech", "stein"], "abKpAnteil": 0.33, "verhalten": "fährt die Anlagentechnik hoch" }
+  ],
+  "werte": { "kp": 480, "ang": 74, "ver": 64, "ini": 50 },
+  "moves": ["stauwelle", "schlickgriff", "klaerstrom", "wehrschlag"],
+  "reinkulturen": ["saatgut-rein", "katalysator-v3", "wasserprobe-quell"]
+}

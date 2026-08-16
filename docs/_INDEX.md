@@ -57,13 +57,15 @@ shelf-life-days: 90
 | B-4 | Kampf-Engine + 16 Tests fehlen | — | ✅ | zurück, 16/16 grün, 16.08.2026 |
 | B-5 | Kampf-UI fehlt | — | ✅ | `src/ui/BattleScreen.tsx` zurück, 16.08.2026 |
 | B-6 | Schemas, Qualitätstor, Asset-Kette fehlen | — | ✅ | zurück, 16.08.2026 |
-| A-6 | **Grathorn-GLB 163–164 KB gegen 120 KB Budget** — bei 200×3 Modellen entscheidet das über die Offline-Tauglichkeit | `npm run quality` | 🔴 | offen — Ansatz ist `tools/reduce.mjs`, nicht das Budget |
-| B-3 | Weltdaten fehlen; ohne sie startet die Szene nicht | `tools/buildworld.ts` | 🟡 | **regenerierbar**: `npm run world oental 96` |
-| B-7 | 23 Kenney-Prop-Modelle unter public/props/ fehlen | `propPfad()` in `src/world/props.ts` | 🟡 | neu herunterladen (CC0) |
-| B-8 | Drei Mess-Werkzeuge in tools/ fehlen (lodcheck, masstab, scenecheck) — die Skripte `lod`, `masstab` und `szene` zeigen ins Leere | `package.json` | 🟡 | Mess-Werkzeuge, kein Bauschritt |
-| B-9 | `content/moves/` und `content/regions/` leer; 1 von 35 Kreaturen aus Kapitel 1 angelegt | `content/_INDEX.md` | 🟡 | Inhalte stehen in `design/` |
+| A-6 | **Alle 6 Grathorn-GLB 163–167 KB gegen 120 KB Budget.** v2 ist nicht kleiner als v1 — die zweite Runde hat das Budget nicht angefasst | `npm run quality` | 🔴 | offen — Ansatz ist `tools/reduce.mjs`, nicht das Budget |
+| A-7 | **Œntal ist unfair:** nur 3 Elemente, Regenten-Phasen 2 und 3 ohne Konter in der Region | `npm run quality` | 🔴 | löst sich mit den restlichen 33 Kreaturen aus Kapitel 1 |
+| A-8 | Grathorn v1 **und** v2 liegen parallel; welche gilt, ist nicht entschieden | `assets/_INDEX.md` | 🟡 | vor der nächsten Kreatur klären, unterlegene löschen |
+| B-3 | Weltdaten fehlen | — | ✅ | `public/world/oental.json` (1,05 MB) aus dem ZIP, 16.08.2026 |
+| B-7 | 23 Kenney-Prop-Modelle fehlen | — | ✅ | unter public/props/, Precache 29 Einträge / 2.256 KiB, 16.08.2026 |
+| B-8 | Mess-Werkzeuge in tools/ fehlen | — | ✅ | sechs zurück (lodcheck, masstab, scenecheck, terraincheck, propcheck, lodpreview), 16.08.2026 |
+| B-9 | `content/moves/` leer; 2 von 35 Kreaturen aus Kapitel 1 angelegt (Region und Regent sind da) | `content/_INDEX.md` | 🟡 | Inhalte stehen in `design/` |
 | B-10 | `assets/rigs/` leer — `autorig.py` braucht die Archetyp-Rigs | `assets/_INDEX.md` | 🟡 | offen |
-| G-1 | **Szene einmal live auf dem Handy sehen** — alle Look-Urteile beruhen auf Software-Renderer-Standbildern | `GDD.md` | 📄 | wartet auf B-3 und B-7 |
+| G-1 | **Szene einmal live auf dem Handy sehen** — alle Look-Urteile beruhen auf Software-Renderer-Standbildern | `GDD.md` | 🟡 | **nicht mehr blockiert**: Weltdaten und Props liegen vor. `npm run dev` |
 | G-2 | Stil-Referenz für Kreaturen festzurren; Prompt des Steinbocks sichern | ADR-0002 | 🟡 | offen |
 | G-4 | Spielerfigur und Bewegung — Kamera steht am Ursprung | `GDD.md` | 🟡 | offen |
 | G-5 | Kampf-UI ist nicht mit der Szene verbunden | `src/_INDEX.md` | 🟡 | offen |
@@ -83,6 +85,6 @@ shelf-life-days: 90
 | D6 | Kein repo-eigenes Kosten-Ledger — Messung über `~/roi/claude-roi-analyzer` | Zweites Register würde driften | 2026-08-16 | ADR-0003 |
 | D7 | Code-Sprache ist Deutsch, durchgehend | Bestandscode ist so; Mischung wäre schlimmer als jede der beiden Varianten | 2026-08-16 | — |
 | D8 | Arbeit läuft **im Repo**, nie in einer Chat-Sandbox | Die Sandbox hat einen vollen Arbeitstag vernichtet | 2026-08-16 | — |
-| D10 | React 19 + fiber 9 + drei 10 statt React 18 + fiber 8 | Der Code ist in React-19-Notation geschrieben; die alte Kombination erzeugt 20 Typfehler | 2026-08-16 | — |
+| D10 | React 19 + fiber 9 + drei 10 statt React 18 + fiber 8 + JSX-Shim | Das Original löste den Konflikt mit `react-three.d.ts`, das die fiber-Elemente in `React.JSX` nachtrug. fiber 9 kann das nativ — ein Shim weniger. **Korrektur:** das Original war nicht widersprüchlich, mir fehlte nur diese Datei | 2026-08-16 | — |
 | D11 | Inhalte als validierte Daten, nie hartkodiert | Der einzige Weg, 200 Kreaturen beherrschbar zu halten | 2026-08-16 | ADR-0004 |
 | D12 | `tools/` für Spiel-Werkzeuge, `scripts/` für Repo-Kit und ROI | Zwei Herkünfte, zwei Lebenszyklen — Vermischung würde beide unklar machen | 2026-08-16 | — |
