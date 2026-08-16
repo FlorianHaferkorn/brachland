@@ -1,33 +1,41 @@
-# game-dev — 3D-Spiel, solo, ausschließlich frei/OSS
+# BRACHLAND
 
-Ein 3D-Spiel, gebaut von einer Person mit Claude als Code-Multiplikator. Harte
-Randbedingung: **kostenlos oder Open Source** — keine Lizenzgebühren, keine Royalties,
-keine Subscription.
+3D-Creature-Collector mit Story, als installierbare **offline-PWA** — spielbar auf dem
+Handy im Flugmodus. Die Welt ist eine **reale Alpenregion (Œntal)**, erzeugt aus
+OpenStreetMap + EU-DEM, im 1:1-Maßstab. Kreaturen: Alpen-Fauna mit Biotech-Anbauten.
 
-**Engine:** Godot 4.7 (MIT) · Forward+ · Jolt · GDScript — Begründung: `docs/adr/0001-engine-godot-4.md`
+**Stack:** three.js · React · Vite 5 · TypeScript — Begründung: `docs/adr/0001-three-js-pwa-statt-engine.md`
 
-> **Konzeptstand:** Der technische Rahmen steht (ADR-0001 bis ADR-0004). **Welches Spiel**
-> gebaut wird, ist noch offen — siehe `docs/GDD.md` und das Ledger in `docs/_INDEX.md`.
+> ## ⚠️ Das Repo baut derzeit nicht
+> BRACHLAND entstand vom 13.–16.08.2026 in einer Chat-Sandbox, die es nicht mehr gibt.
+> Gerettet ist nur, was als Datei herausgereicht wurde — **`src/world/osm.ts` und
+> `src/world/terrain.ts` fehlen.** Vollständige Bilanz: **[`docs/RECOVERY.md`](docs/RECOVERY.md)**.
 
-## Schnellstart
+## Was gerettet ist
+
+| Datei | Inhalt |
+|---|---|
+| `src/scenes/RegionsSzene.tsx` | Art Direction: 3 Stimmungen, Nebel- und Lichtwerte, Props als `InstancedMesh` |
+| `src/world/props.ts` | Deterministische Vegetation per Seed, Dichten je Biom, Maßstabsnormierung |
+| `src/world/lod.ts` | 4 LOD-Stufen, hangabhängiges Mikrorelief, Schürzen gegen Kachelrisse |
+| `src/main.tsx`, `vite.config.ts` | Einstiegspunkt und PWA-/Offline-Setup |
+| `docs/START.md` | Projektstand und gemessene Kennzahlen aus dem Chat |
+
+Das ist der wertvolle Teil: die **erarbeiteten Zahlen** — Nebeldistanzen, LOD-Schwellen,
+Prop-Dichten, Zielhöhen. Die fehlenden Module sind Mechanik mit klarer Schnittstelle.
+
+## Loslegen
 
 ```bash
-brew install --cask godot     # falls noch nicht da
-make import                   # Ressourcen-Cache bauen (nach frischem Clone Pflicht)
-make run                      # Spiel starten
-make editor                   # Godot-Editor öffnen
+make install     # npm install --legacy-peer-deps (Flag ist Pflicht, siehe docs/TECH_STACK.md)
+make dev         # Vite — die NETZWERK-Adresse aufs Handy, nicht localhost
 ```
 
-## Vor dem Commit
+## Vor jedem Commit / vor jeder Session
 
 ```bash
-make check        # Drift-Gate (strict) + Godot-Smoke-Tests — MUSS grün sein
-```
-
-## Vor der Arbeitssession
-
-```bash
-make roi-check    # Läuft die OTel-Messung? Ungemessene Zeit ist dauerhaft verloren.
+make check       # Doku-Drift-Gate + typecheck + test
+make roi-check   # Läuft die OTel-Messung? Ungemessene Zeit ist dauerhaft verloren
 ```
 
 ## Navigation
@@ -36,23 +44,22 @@ Dieses Repo wird über `_INDEX.md`-Dateien navigiert, nicht durch Volltext-Scan:
 
 | Einstieg | Wofür |
 |---|---|
-| `CLAUDE.md` | Arbeitsregeln für Claude — Pflicht-Erstkontakt für Agenten |
-| `docs/_INDEX.md` | L0-Navigation aller Dokumente **+ Ledger** (offene Punkte, Entscheidungen) |
-| `docs/GDD.md` | Game Design Document — Konzept, aktuell offen |
-| `docs/TECH_STACK.md` | Befehle, Konventionen, 3D-Qualitätshebel |
-| `docs/ASSET_PIPELINE.md` | Blender→Godot-Workflow + Lizenz-Register |
-| `docs/ROI.md` | Wie Aufwand und Wert gemessen werden — und was die Messung nicht kann |
-| `game/_INDEX.md` | Godot-Projektstruktur |
+| `CLAUDE.md` | Arbeitsregeln — Pflicht-Erstkontakt für Agenten |
+| `docs/RECOVERY.md` | **Zuerst:** was fehlt und warum |
+| `docs/_INDEX.md` | L0-Navigation aller Docs **+ Ledger** (offene Punkte, Entscheidungen) |
+| `docs/GDD.md` | Was BRACHLAND ist: Welt, Kreaturen, Art Direction, Stand |
+| `docs/TECH_STACK.md` | Stack, Befehle, Konventionen, Budget |
+| `src/_INDEX.md` | Quellcode-Struktur und die fehlenden Module |
 
 ## Struktur
 
 ```
-game/          Godot-Projekt (project.godot liegt HIER, nicht im Repo-Root)
-  scenes/      .tscn
-  scripts/     .gd
-  assets/      importierte .glb / Materialien / Audio
-src-assets/    Blender-Quellen (.blend) — außerhalb des Godot-Scans
-docs/          Doku + ADRs + Ledger
-scripts/       Gate + ROI-Checks (zero-dependency Python)
-tests/         Headless-Smoke-Tests
+src/
+  main.tsx          Einstiegspunkt
+  scenes/           Szenen — Art Direction lebt hier
+  world/            Terrain, Props, LOD  (osm.ts + terrain.ts FEHLEN)
+  engine/           Kampf-Engine (fehlt)
+public/world/       Weltdaten als JSON  (oental.json fehlt, regenerierbar)
+docs/               Doku, ADRs, Ledger
+scripts/            Gate + ROI-Checks (zero-dependency Python)
 ```

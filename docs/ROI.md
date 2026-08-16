@@ -22,7 +22,7 @@ Claude-Code-Session in diesem Repo
                                                       Token, active_time, Edit-Decisions
 ```
 
-**Repo-Zuordnung ist geschenkt:** Der Pfad `~/Documents/Claude/Projects/game-dev` steckt
+**Repo-Zuordnung ist geschenkt:** Der Pfad `~/Documents/Claude/Projects/brachland` steckt
 kodiert im JSONL-Verzeichnisnamen. `OTEL_RESOURCE_ATTRIBUTES` wird hier **bewusst nicht**
 gesetzt (Analyzer-ADR-0019 §4 — das wäre eine zweite, schlechtere Quelle).
 
@@ -55,8 +55,8 @@ Sobald der Slice spielbar ist, kommt **ein** Eintrag in
 
 ```json
 {
-  "id": "game-dev-vertical-slice",
-  "title": "<Spielname> — spielbarer Vertical Slice",
+  "id": "brachland-vertical-slice",
+  "title": "BRACHLAND — spielbarer Vertical Slice",
   "sphere": "privat",
   "bucket": "Game Development",
   "value_type": "enablement",

@@ -85,35 +85,46 @@ Vorlagen liegen unter `.claude/repo-kit/templates/`.
 
 ## Projekt-spezifische Regeln
 
-<!-- Stack = Godot 4.7 / GDScript (3D). Python nur für Gate + ROI-Skripte (zero-dependency).
-     Doc-Bereich = docs · Code-Bereiche = game, scripts, tests. -->
+<!-- Stack = three.js + React + Vite 5 + TypeScript, offline-PWA.
+     Doc-Bereich = docs · Code-Bereiche = src, scripts. -->
 
-### Konzept ist offen — nicht darüber hinwegarbeiten
-**Welches** Spiel gebaut wird, ist nicht entschieden (`docs/GDD.md`, Ledger-Punkt G-1).
-Keine Spielmechanik, kein Level, kein Asset entsteht, bevor Genre und Core Loop im
-Ledger abgehakt sind. Wer trotzdem baut, produziert Wegwerfarbeit.
+### Das Repo ist unvollständig — das zuerst wissen
+`src/world/osm.ts` und `src/world/terrain.ts` **fehlen**; das Projekt baut nicht.
+BRACHLAND entstand in einer Chat-Sandbox, die es nicht mehr gibt — gerettet ist nur,
+was als Datei herausgereicht wurde. **Vor jeder Code-Arbeit `docs/RECOVERY.md` lesen.**
+Nichts als vorhanden annehmen, nur weil `docs/START.md` es beschreibt.
 
-### Godot: Szenen sind Code
-- `.tscn`/`.tres` sind Textdateien und gehören in den Review wie `.gd`. Genau dafür wurde
-  Godot gewählt (ADR-0001) — der Vorteil verfällt, wenn Szenen blind committet werden.
-- Godot-Projektwurzel ist **`game/`**, nicht das Repo-Root. Jeder Aufruf braucht `--path game`.
-- **Tabs, keine Spaces** in `.gd` — Godot setzt Spaces beim Re-Save zurück (Diff-Rauschen).
-- GDScript statisch typisieren; `project.godot` warnt bei untypisierten Deklarationen.
-- Diffs, die nur `uid://`-Zeilen ändern, sind Import-Rauschen → verwerfen.
+### Arbeit läuft im Repo, nie in einer Sandbox
+Claude Code im Repo-Ordner oder Cowork „auf deinem Computer". Eine Cloud-Sandbox hat
+dieses Projekt bereits einmal um mehrere Tage Arbeit gebracht. Was nicht als Datei auf
+der Platte liegt, existiert nicht.
+
+### Deutsch ist die Code-Sprache
+`baueTerrain`, `verteileProps`, `STIMMUNG`, `ZIELHOEHE`, `Weltdaten`, `PropArt` —
+durchgehend, auch Kommentare. Der Bestandscode ist so; eine Mischung wäre schlechter
+als jede der beiden Varianten konsequent.
+
+### Handy ist der Test, nicht der Laptop
+`npm run dev` gibt eine Netzwerk-Adresse aus — die aufs Handy im selben WLAN. Look,
+Nebel und Performance beurteilen sich nur auf dem Zielgerät. Keine Look-Aussage aus
+Standbildern: genau das hat das Projekt mehrere Runden gekostet.
+
+### Art Direction ist entschieden, nicht offen
+Dämmerung, Nebel als Werkzeug, Silhouetten, **eine** Signalfarbe für Befall. Keine
+Texturen — Vertex-Farben und Geometrie. Die Werte in `src/scenes/RegionsSzene.tsx`
+sind erarbeitet; nicht ohne Grund daran drehen.
+
+### Performance-Invarianten
+Props **immer** als `InstancedMesh` (40.000 Einzelobjekte erledigen jedes Handy).
+Positionen aus einem **Seed** erzeugen, nie speichern. Das Precache-Budget von 60 MB
+(`npm run quality`) ist ein Gate, kein Richtwert.
 
 ### Scope-Guardrails sind bindend
-ADR-0004 schließt Open World, Story-RPG und Online-Multiplayer aus. Eine Anfrage in diese
-Richtung wird **nicht** still umgesetzt — erst ADR-0004 per neuem ADR ablösen, dann bauen.
-
-### Assets nur CC0, mit Registereintrag
-Fremdassets ohne Zeile im Lizenz-Register (`docs/ASSET_PIPELINE.md`) gelten als unklar
-lizenziert und kommen nicht ins Repo. CC-BY-NC ist verboten (ADR-0002).
-
-### Messung vor Arbeit
-`make roi-check` vor jeder längeren Session. OTel kennt kein Replay — was bei totem
-Collector läuft, ist dauerhaft ungemessen (ADR-0003).
+ADR-0004 parkt Zelda/Soulslike, Party-Game und Photoreal als **eigene spätere
+Projekte** und schließt Online-Multiplayer aus. Anfragen in diese Richtung werden nicht
+still umgesetzt — erst ADR-0004 ablösen.
 
 ### Compliance-Check
 ```bash
-make check     # Drift-Gate (strict) + Godot-Smoke-Tests. Muss grün sein vor jedem Commit.
+make check     # Doku-Drift-Gate + typecheck + test. Muss grün sein vor jedem Commit.
 ```

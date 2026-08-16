@@ -4,65 +4,71 @@ shelf-life-days: 90
 ---
 # docs — Zentraler Anlaufpunkt (_INDEX)
 
-> Einstieg in `docs/`. Zuerst diese Datei lesen, dann gezielt zum Doc —
-> nicht den ganzen Ordner. Offene Punkte unten im Ledger, nicht im Fließtext.
->
-> **Dieses Repo ist gleichzeitig das Ledger des Projekts.** Es gibt keine zweite
-> Statusliste: offene Punkte stehen in Tabelle A, Entscheidungen in Tabelle B,
-> das *durable Warum* in `adr/`.
+> Einstieg in `docs/`. Zuerst diese Datei lesen, dann gezielt zum Doc — nicht den
+> ganzen Ordner. **Dieses Repo hat kein zweites Statusregister:** offene Punkte in
+> Tabelle A, Entscheidungen in Tabelle B, das durable Warum in `adr/`.
 
 ## „Lies-wenn"-Routing (Token-Disziplin)
 
 | Deine Aufgabe ist … | Lies (in dieser Reihenfolge) | NICHT nötig |
 |---|---|---|
-| Spielkonzept / Genre entscheiden | `GDD.md` → `adr/0004-scope-guardrails-solo-3d.md` | Asset- und ROI-Docs |
-| Code schreiben, Szene bauen, Befehl suchen | `TECH_STACK.md` | ADRs, ROI |
-| Modell/Textur/Audio hinzufügen | `ASSET_PIPELINE.md` → `adr/0002-asset-pipeline-gltf-cc0.md` | GDD, ROI |
-| Fragen „warum Godot und nicht Unity/Unreal?" | `adr/0001-engine-godot-4.md` | alles andere |
+| Verstehen, warum das Repo unvollständig ist | `RECOVERY.md` | alles andere |
+| Wissen, was BRACHLAND überhaupt ist | `GDD.md` | ADRs |
+| Code schreiben, Befehl suchen, Konvention klären | `TECH_STACK.md` | GDD, ROI |
+| Szene, Terrain oder Props anfassen | `../src/_INDEX.md` → `TECH_STACK.md` | ADRs |
+| Projekt starten / auf dem Handy testen | `START.md` → `TECH_STACK.md` | ADRs |
+| Fragen „warum kein Unreal/Godot?" | `adr/0001-three-js-pwa-statt-engine.md` | alles andere |
+| Modelle, Texturen, Kreaturen beschaffen | `adr/0002-assets-cc0-props-und-kreatur-kette.md` | GDD |
+| Scope erweitern wollen | `adr/0004-scope-episodisch-statt-100-stunden.md` | alles andere |
 | Aufwand/Kosten auswerten, Messung reparieren | `ROI.md` → `adr/0003-roi-messung-otel-und-bucket.md` | GDD, Assets |
-| Scope erweitern wollen (Multiplayer, Open World …) | `adr/0004-scope-guardrails-solo-3d.md` | alles andere |
-| Verstehen, warum das Repo so navigiert wird | `NAVIGATION_PHILOSOPHY.md` | alles andere |
-
-Faustregel: **ein L0 → ein Detail** genügt für die meisten Aufgaben.
+| Verstehen, warum so navigiert wird | `NAVIGATION_PHILOSOPHY.md` | alles andere |
 
 ## Dokument-Register (vollständig — Drift-Gate erzwingt das)
 
 | Doc | Zweck | Lies-wenn |
 |---|---|---|
-| `GDD.md` | Game Design Document. Rahmen steht, **Konzept offen** | Genre, Core Loop, Vertical Slice |
-| `TECH_STACK.md` | Installierte Werkzeuge, Befehle, Konventionen, 3D-Qualitätshebel | operative Arbeit am Code |
-| `ASSET_PIPELINE.md` | Blender→glTF→Godot-Workflow **+ Lizenz-Register** der Fremdassets | Assets anfassen |
-| `ROI.md` | Wie Aufwand/Wert gemessen werden — und was die Messung nicht kann | Messung, Auswertung, Kosten |
+| `RECOVERY.md` | **Zuerst lesen.** Was aus der verlorenen Sandbox gerettet ist und was fehlt | Repo-Zustand einschätzen |
+| `GDD.md` | Was BRACHLAND ist: Welt, Kreaturen, Art Direction, Stand, nächste Schritte | Konzeptfragen |
+| `START.md` | Projektstand 16.08.2026 aus dem Chat, Befehle, gemessene Kennzahlen (gerettet) | starten, Kennzahlen prüfen |
+| `TECH_STACK.md` | Stack, Befehle, Konventionen, Budget | operative Arbeit |
+| `ROI.md` | Wie Aufwand/Wert gemessen werden — und was die Messung nicht kann | Messung, Auswertung |
 | `NAVIGATION_PHILOSOPHY.md` | Das Warum hinter der `_INDEX`-Logik (Kit-Doku) | Repo-Struktur hinterfragen |
-| `adr/0001-engine-godot-4.md` | Engine-Wahl Godot 4.7 + verworfene Alternativen | Engine-Frage, Portierung |
-| `adr/0002-asset-pipeline-gltf-cc0.md` | Format glTF 2.0, Fremdassets nur CC0 | Asset-Quelle oder Format ändern |
-| `adr/0003-roi-messung-otel-und-bucket.md` | Messung über den bestehenden Analyzer, kein eigenes Tracking | Messkonzept ändern |
-| `adr/0004-scope-guardrails-solo-3d.md` | Zugelassene und ausgeschlossene Genres | Scope-Entscheidung |
+| `adr/0001-three-js-pwa-statt-engine.md` | three.js/React-PWA statt Engine; Unreal und Godot verworfen | Stack-Frage |
+| `adr/0002-assets-cc0-props-und-kreatur-kette.md` | CC0-Props, Stil-Referenz vor Stapelproduktion | Assets |
+| `adr/0003-roi-messung-otel-und-bucket.md` | Messung über den bestehenden Analyzer, kein eigenes Tracking | Messkonzept |
+| `adr/0004-scope-episodisch-statt-100-stunden.md` | Episodisch bauen; Geparktes und Ausgeschlossenes | Scope-Entscheidung |
 
 ## A — Offene Punkte (Ledger — hier abhaken, NICHT im Fließtext)
 
-> Legende: 🟡 offen · 📄 wartet auf Input · ✅ erledigt · ❌ out of scope
+> Legende: 🔴 blockierend · 🟡 offen · 📄 wartet auf anderes · ✅ erledigt
 
-| ID | Punkt | Beleg | Status | Owner | Antwort + Datum |
-|---|---|---|---|---|---|
-| G-1 | **Genre wählen** aus dem Korridor in ADR-0004 — blockiert G-2 bis G-5 | `adr/0004-scope-guardrails-solo-3d.md` | 📄 | Flo | offen |
-| G-2 | Core Loop in **einem** Satz formulieren | `GDD.md` §3 | 🟡 | Flo | offen (blockiert von G-1) |
-| G-3 | Vertical Slice definieren: welches eine Level beweist die Tragfähigkeit? | `GDD.md` §4 | 🟡 | Flo | offen (blockiert von G-2) |
-| G-4 | Art-Direction-Referenz: 5–10 Bilder + Farbpalette vor dem ersten Modell | `adr/0004`, Regel 2 | 🟡 | Flo | offen |
-| G-5 | Fertig-Kriterium festlegen (was ist explizit *nicht* drin?) | `GDD.md` §6 | 🟡 | Flo | offen |
-| A-1 | Blender installieren + Roundtrip Würfel→`.glb`→Godot einmal durchspielen | `ASSET_PIPELINE.md` | 🟡 | Flo | offen |
-| A-2 | Git-LFS-Schwelle für `.glb`/Texturen entscheiden, **bevor** die History aufgeht | `adr/0002`, Konsequenzen | 🟡 | Flo | offen |
-| A-3 | Export-Preset anlegen (`export_presets.cfg` ist gitignored — Vorlage committen?) | `Makefile` Target `export-linux` | 🟡 | Flo | offen |
-| R-1 | Deliverable-Eintrag im Analyzer — **erst wenn der Vertical Slice läuft** | `ROI.md`, `adr/0003` | 📄 | Flo | wartet auf G-3 |
+| ID | Punkt | Beleg | Status | Antwort + Datum |
+|---|---|---|---|---|
+| B-1 | `src/world/osm.ts` ist nur ein **Stub** — Typen stehen, Ladefunktion wirft | Dateikopf, `docs/RECOVERY.md` | 🔴 | offen |
+| B-2 | `src/world/terrain.ts` ist nur ein **Stub** — Signaturen belegt, Implementierung und Zahlenwerte fehlen | Dateikopf, `docs/RECOVERY.md` | 🔴 | offen |
+| B-3 | Weltgenerator (`npm run world`) fehlt, dadurch auch die Weltdaten-JSON unter public/world/ | `START.md` | 🔴 | offen |
+| B-4 | Kampf-Engine + 16 Tests fehlen | `START.md` | 🟡 | offen |
+| B-5 | Kampf-UI fehlt; war ohnehin nicht mit der Szene verbunden | Chat 16.08.2026 | 🟡 | offen |
+| B-6 | Schemas, Qualitätstor, `reduce.mjs`, `autorig.py` fehlen | `RECOVERY.md` | 🟡 | offen |
+| B-7 | 23 Kenney-Prop-Modelle unter `public/props/` fehlen | `START.md` | 🟡 | neu herunterladen (CC0) |
+| G-1 | **Szene einmal live auf dem Handy sehen** — alle Look-Urteile beruhen bisher auf Software-Renderer-Standbildern | `GDD.md` | 📄 | wartet auf B-1..B-3 |
+| G-2 | Stil-Referenz für Kreaturen festzurren; Prompt des Steinbocks sichern | ADR-0002 | 🟡 | offen |
+| G-3 | Eine Kreatur komplett durch die Kette inkl. Rigging | ADR-0002 | 📄 | wartet auf G-2 |
+| G-4 | Spielerfigur und Bewegung — Kamera steht am Ursprung | `GDD.md` | 🟡 | offen |
+| A-4 | Artist für die 5 Regenten + 5–8 Startkreaturen? Einzige Stelle, an der Geld fließen dürfte | ADR-0002 | 🟡 | offen |
+| A-5 | Git-LFS-Schwelle für `.glb`, bevor die History aufgeht | — | 🟡 | offen |
+| R-1 | Deliverable-Eintrag im ROI-Analyzer — erst wenn der Slice läuft | `ROI.md` | 📄 | wartet auf G-1 |
 
 ## B — Entscheidungen (getroffen, mit Begründung + Datum)
 
 | ID | Entscheidung | Begründung | Datum | ADR |
 |---|---|---|---|---|
-| D1 | Engine = Godot 4.7, Forward+, Jolt, GDScript | Einzige Option, die MIT-OSS **und** vollständig textbasiert/agentensteuerbar ist | 2026-08-16 | ADR-0001 |
-| D2 | Godot-Projekt liegt in `game/`, nicht im Repo-Root | Trennt Engine-Scan von Doku/Gate/CI; `src-assets/` bleibt außerhalb des Imports | 2026-08-16 | — |
-| D3 | Assets: glTF 2.0 (`.glb`), Fremdmaterial nur CC0 | Ein Exportpfad; CC0 macht die Verwertungsfrage später zum Nicht-Thema | 2026-08-16 | ADR-0002 |
-| D4 | Kein repo-eigenes Kosten-Ledger — Messung über `~/roi/claude-roi-analyzer` | Zweites Register würde driften; Repo-Zuordnung ist über den Pfad geschenkt | 2026-08-16 | ADR-0003 |
-| D5 | `OTEL_RESOURCE_ATTRIBUTES` wird hier **nicht** gesetzt | Analyzer-ADR-0019 §4: wäre eine zweite, schlechtere Quelle neben dem JSONL-Pfad | 2026-08-16 | ADR-0003 |
-| D6 | Genre-Korridor verbindlich; Open World / Story-RPG / Online-MP ausgeschlossen | Content-Menge skaliert dort mit Spielzeit — der KI-Multiplikator greift nicht | 2026-08-16 | ADR-0004 |
-| D7 | Kein C#/Mono; GDExtension erst bei **gemessenem** Bedarf | Verdoppelt die Toolchain ohne Gegenwert bei diesem Scope | 2026-08-16 | — |
+| D1 | Stack = three.js + React + Vite 5 + TS, offline-PWA | Offline-Handy-Auslieferung **und** vollständig textbasiert/agentenschreibbar | 2026-08-16 | ADR-0001 |
+| D2 | Unreal verworfen (zweimal geprüft) | Tötet die PWA und macht Claude vom Mitbauer zum Berater | 2026-08-16 | ADR-0001 |
+| D3 | Godot verworfen | Editor-gebunden, und die Offline-PWA-Zustellung entfällt | 2026-08-16 | ADR-0001 |
+| D4 | Props aus CC0-Packs, Kreaturen erst nach fixierter Stil-Referenz | Stil-Drift über 200 KI-Modelle ist sonst unvermeidbar | 2026-08-16 | ADR-0002 |
+| D5 | Episodisch bauen; 40–50 Std sind Decke, nicht Plan | Als geplanter Umfang stirbt das Projekt | 2026-08-16 | ADR-0004 |
+| D6 | Kein repo-eigenes Kosten-Ledger — Messung über `~/roi/claude-roi-analyzer` | Zweites Register würde driften | 2026-08-16 | ADR-0003 |
+| D7 | Code-Sprache ist Deutsch, durchgehend | Bestandscode ist so; Mischung wäre schlimmer als jede der beiden Varianten | 2026-08-16 | — |
+| D8 | Arbeit läuft **im Repo**, nie in einer Chat-Sandbox | Die Sandbox hat bereits mehrere Tage Arbeit vernichtet | 2026-08-16 | — |
+| D9 | Godot-ADRs vom 16.08.2026 gelöscht statt abgelöst | Sie beruhten auf einer falschen Prämisse und waren nie gültige Entscheidungen | 2026-08-16 | — |

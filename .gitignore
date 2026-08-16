@@ -1,41 +1,36 @@
-# ── Godot ────────────────────────────────────────────────────────────────
-# Import-Cache und generierte Artefakte: reproduzierbar, gehören nicht ins Repo.
-game/.godot/
-game/android/
-game/.import/
-*.translation
-
-# Export-Presets enthalten Signing-Pfade/Keystore-Passwörter → nur Vorlage committen
-game/export_presets.cfg
-
-# ── Builds ───────────────────────────────────────────────────────────────
-build/
+# ── Node / Vite ──────────────────────────────────────────────────────────
+node_modules/
 dist/
-*.pck
-*.app
-*.exe
-*.dmg
-*.zip
+dist-ssr/
+.vite/
+*.tsbuildinfo
+
+# Von vite-plugin-pwa generiert — reproduzierbar, nicht committen
+dev-dist/
+public/sw.js
+public/workbox-*.js
+public/registerSW.js
+
+# ── Große Weltdaten ──────────────────────────────────────────────────────
+# oental.json ist ~1,1 MB und per `npm run world oental 96` regenerierbar.
+# Bewusst NICHT ignoriert: die PWA muss sie precachen und ein frischer Clone
+# soll ohne API-Lauf startklar sein. Falls die History aufgeht → Ledger A-5.
 
 # ── Blender / DCC ────────────────────────────────────────────────────────
 *.blend1
 *.blend2
-src-assets/**/*.blend@
 
-# ── Python (scripts/, tests/) ────────────────────────────────────────────
+# ── Python (scripts/) ────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 .venv/
-venv/
 .pytest_cache/
 .ruff_cache/
 
-# ── Secrets / lokale Konfiguration ───────────────────────────────────────
+# ── Secrets / lokal ──────────────────────────────────────────────────────
 .env
 .env.local
 *.key
-*.keystore
-scripts/roi/otel_local.env
 
 # ── OS / Editor ──────────────────────────────────────────────────────────
 .DS_Store

@@ -1,63 +1,77 @@
 ---
 last-reviewed: 2026-08-16
-shelf-life-days: 30
+shelf-life-days: 60
 ---
-# Game Design Document — game-dev
+# BRACHLAND — Game Design Document
 
-> **Status: Konzept offen.** Dieses Dokument ist absichtlich unvollständig. Die
-> Engine-, Pipeline- und Scope-Entscheidungen stehen (ADR-0001 bis ADR-0004), das
-> Spiel selbst nicht. Offene Punkte werden **im Ledger** (`docs/_INDEX.md`, Tabelle A)
-> abgehakt, nicht hier im Fließtext.
+> Rekonstruiert am 16.08.2026 aus dem Entstehungs-Chat (20.06.–16.08.2026).
+> Was hier steht, ist belegt; was fehlt, steht als offener Punkt im Ledger
+> (`_INDEX.md`, Tabelle A) — nicht als Vermutung im Fließtext.
 
-## 1. Feststehender Rahmen
+## Was es ist
 
-Kein Diskussionsgegenstand mehr — hier nur zur Orientierung, Begründung in den ADRs:
+Ein **3D-Creature-Collector mit Story**, eigenes IP, als installierbare
+**offline-PWA** — spielbar auf dem Handy im Flugmodus. Rundenbasierte Kämpfe,
+Third-Person, 1:1-Maßstab.
 
-| Rahmen | Festlegung | Quelle |
+| Feld | Wert | Quelle |
 |---|---|---|
-| Engine | Godot 4.7, Forward+, Jolt, GDScript | ADR-0001 |
-| Perspektive | 3D | Vorgabe |
-| Kosten | ausschließlich frei/OSS, Assets nur CC0 | ADR-0002 |
-| Ästhetik | stilisiert / Low-Poly — **nicht** photoreal | ADR-0004 |
-| Genre-Korridor | Puzzle/Walking-Sim · Arena-Shooter · Physik-Sandbox · Roguelite | ADR-0004 |
-| Team | eine Person + Claude als Code-Multiplikator | Vorgabe |
+| Welt | reale Alpenregion **Œntal**, aus OSM + EU-DEM erzeugt | `START.md` |
+| Maßstab | 1:1 — eine Fichte ist 22 m | `props.ts` (`ZIELHOEHE`) |
+| Kreaturen | Alpen-Fauna mit **Biotech-Anbauten**, ~200 geplant, davon **5 Regenten** + 5–8 Startkreaturen | Chat 16.08.2026 |
+| Zielspielzeit | 40–50 Std, episodisch gewachsen | ADR-0004 |
+| Plattform | PWA, primär Android-Handy; Test über WLAN-Adresse auf dem echten Gerät | ADR-0001 |
 
-## 2. Was noch fehlt (Reihenfolge ist bewusst)
+## Art Direction (gebaut, nicht geplant)
 
-Die folgenden Punkte bauen aufeinander auf. Sie von unten nach oben zu beantworten
-erzeugt Arbeit, die später weggeworfen wird.
+Die Werte stehen in `src/scenes/RegionsSzene.tsx` und sind erarbeitet, nicht geraten:
 
-1. **Genre-Wahl** aus dem Korridor in ADR-0004 → danach ist der Rest ableitbar.
-2. **Core Loop in einem Satz.** Was tut die Spielerin in 30 Sekunden, und warum
-   wiederholt sie es? Wenn das keinen Satz füllt, existiert das Spiel noch nicht.
-3. **Vertical-Slice-Definition.** Welches *eine* Level in Zielqualität beweist, dass es trägt?
-4. **Kernmechanik-Prototyp.** Graue Boxen, keine Assets — funktioniert die Mechanik ohne Politur?
-5. **Art-Direction-Referenz.** 5–10 Referenzbilder + eine Farbpalette, bevor das erste
-   Modell entsteht.
-6. **Fertig-Kriterium.** Woran ist das Spiel fertig — und was ist explizit *nicht* drin?
+**Dämmerung, Nebel als Werkzeug, Silhouetten, eine Signalfarbe für Befall.**
+Keine Texturen — alles Vertex-Farben und Geometrie. Mittagssonne verzeiht nichts,
+deshalb gibt es sie nicht.
 
-## 3. Core Loop
+Drei umschaltbare Stimmungen: `daemmerung` (Nebel 60–420 m), `nebelmorgen`
+(30–240 m), `nacht` (25–260 m). Jede mit eigener Sonnen-, Umgebungs- und Nebelfarbe.
 
-*Noch nicht definiert — siehe Ledger-Punkt G-2.*
+## Stand — was läuft und was nicht
 
-## 4. Vertical Slice
+**Gebaut** (laut `START.md`, gemessen am 16.08.2026):
 
-*Noch nicht definiert — siehe Ledger-Punkt G-3.*
+- Terrain aus OSM + EU-DEM mit LOD-Kacheln (4 Stufen, 72–76k Dreiecke je Standort) und hangabhängigem Mikrorelief
+- Wege, Gewässer, Gebäude mit Dächern
+- ~30.000 Props als Instanzen mit Entfernungs-Culling, 23 echte CC0-Modelle
+- Drei Stimmungen umschaltbar, Third-Person-Kamera
+- Kampf-Engine mit 16 grünen Tests · Kampf-UI · Inhalts-Schemas · Qualitätstor
 
-## 5. Nicht-Ziele
+**Nicht gebaut:**
 
-Vorab gesetzt, damit sie nicht später „aus Versehen" hineinwachsen:
+- **Keine Spielerfigur, keine Bewegung** — die Kamera steht am Ursprung
+- **Keine Kreaturen in der Welt** — Kampf-Engine und -UI sind nicht mit der Szene verbunden
+- Keine Texturen, keine Animation über Auto-Rigging hinaus, kein Audio
 
-- Kein Online-Multiplayer (ADR-0004)
-- Kein Konsolen-Port (ADR-0001, Grenze)
-- Keine Sprachvertonung
-- Keine Ingame-Käufe / kein Live-Service
+**Nicht im Repo:** Ein Großteil des oben Gebauten existiert nur als Beschreibung —
+die Sandbox ist weg. Was wirklich vorliegt: `docs/RECOVERY.md`.
 
-## 6. Definition of Done (Vertical Slice)
+## Nächste Schritte (Reihenfolge ist begründet)
 
-- **Input:** entschiedenes Genre, Core Loop in einem Satz, Art-Direction-Referenz
-- **Output:** ein spielbares Level, aus dem Editor **und** als exportierter Build startbar,
-  in Zielästhetik, mit funktionierender Kernmechanik
-- **Fehlerfall:** die Mechanik trägt keine 10 Minuten Spielzeit → Genre neu wählen,
-  nicht Politur nachlegen
-- **Rollback:** der Slice lebt in einem eigenen Branch, bis er trägt; `main` bleibt lauffähig
+1. **Szene einmal live auf dem Handy sehen.** Alle bisherigen Bewertungen beruhten auf
+   Standbildern aus einem selbstgebauten Software-Renderer — kein tauglicher
+   Stellvertreter für three.js auf echter Hardware. Blockiert durch die fehlenden Module.
+2. **Stil-Referenz für die Kreaturen festzurren** (ADR-0002). Ein Bild definiert den
+   Look für alle 200. Erst danach Generierung.
+3. **Eine Kreatur komplett durch die Kette** inkl. Rigging — die letzte ungetestete Stelle.
+4. Dann erst Stapelproduktion.
+
+## Nicht-Ziele
+
+- Online-Multiplayer · App-Store-Release · fremdes IP (keine Nintendo-Assets)
+- Photoreal — dafür gäbe es ein eigenes Projekt mit Unreal (ADR-0001, Grenze)
+- Zelda-/Soulslike-Combat und ein Party-Game — geparkt (ADR-0004)
+
+## Definition of Done (Vertical Slice)
+
+- **Input:** lauffähiges Repo, Stil-Referenz, eine geriggte Kreatur
+- **Output:** 30–60 Min spielbar auf dem Handy im Flugmodus — Bewegung, ein Gebiet,
+  Begegnung, Kampf, Fangen, Speichern
+- **Fehlerfall:** trägt der Loop keine 30 Minuten, wird nicht poliert, sondern der Loop geändert
+- **Rollback:** `main` bleibt baubar; der Slice lebt im Branch, bis er trägt

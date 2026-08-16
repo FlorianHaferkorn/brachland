@@ -34,7 +34,7 @@ wächst aktiv.
    `spielmechanik`, …). Damit werden Sessions aus Claude Code, Cowork und claude.ai
    thematisch zugeordnet — der bestehende Pfad, keine Sonderbehandlung.
 2. **Pfad-Zuordnung geschenkt.** Das Repo liegt unter
-   `~/Documents/Claude/Projects/game-dev`; Claude-Code-Sessions landen dadurch in einem
+   `~/Documents/Claude/Projects/brachland`; Claude-Code-Sessions landen dadurch in einem
    pfadkodierten Verzeichnis unter `~/.claude/projects/`. Der Analyzer liest das bereits —
    **hier ist nichts zu konfigurieren.** Deshalb wird `OTEL_RESOURCE_ATTRIBUTES` in diesem
    Repo bewusst **nicht** gesetzt (ADR-0019 §4).

@@ -1,43 +1,40 @@
 # Single-Entry-Gate (claude-repo-kit). `make check` MUSS grün sein vor Commit/PR.
-# Der pre-commit-Hook ruft dieses Target automatisch, sobald es existiert.
-.PHONY: check check-index test roi-check import run editor export-linux clean help
+# Der pre-commit-Hook ruft dieses Target automatisch.
+.PHONY: check check-index test typecheck roi-check install dev build preview help
 
 PY := $(shell command -v python3 2>/dev/null || command -v python)
-GODOT := $(shell command -v godot 2>/dev/null || command -v godot4)
-GAME := game
 
 help:   ## Verfügbare Targets
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n",$$1,$$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n",$$1,$$2}'
 
 # ── Gate ─────────────────────────────────────────────────────────────────
-check: check-index test   ## Vollständiges Gate: Doku-Drift + Godot-Smoke-Tests
+check: check-index typecheck test   ## Vollständiges Gate vor jedem Commit
 	@echo "✓ make check grün"
 
-check-index:   ## Drift-Gate strict (blockt {{…}}-Stubs, tote Pfade, fehlende Register)
+check-index:   ## Doku-Drift-Gate strict (blockt {{…}}-Stubs, tote Pfade, fehlende Register)
 	@"$(PY)" scripts/check_index.py --strict
 
-test:   ## Godot-Smoke-Tests headless (lädt das Projekt, prüft Import)
-	@test -n "$(GODOT)" || { echo "✗ Godot fehlt im PATH — brew install --cask godot"; exit 1; }
-	@"$(PY)" tests/test_project_loads.py
+typecheck:   ## TypeScript über alles
+	@test -d node_modules || { echo "⏭  node_modules fehlt — 'make install' zuerst (übersprungen)"; exit 0; }
+	@npm run --silent typecheck
+
+test:   ## Vitest — Kampf-Engine
+	@test -d node_modules || { echo "⏭  node_modules fehlt — 'make install' zuerst (übersprungen)"; exit 0; }
+	@npm run --silent test
 
 # ── Messung ──────────────────────────────────────────────────────────────
 roi-check:   ## Läuft die OTel-Messung? Vor jeder Arbeitssession (ADR-0003)
 	@"$(PY)" scripts/roi/check_otel.py
 
-# ── Godot ────────────────────────────────────────────────────────────────
-import:   ## Ressourcen-Cache bauen (nach frischem Clone / Asset-Änderungen Pflicht)
-	@"$(GODOT)" --headless --path $(GAME) --import
+# ── Entwicklung ──────────────────────────────────────────────────────────
+install:   ## Abhängigkeiten (--legacy-peer-deps ist Pflicht, siehe docs/TECH_STACK.md)
+	@npm install --legacy-peer-deps
 
-run:   ## Spiel starten
-	@"$(GODOT)" --path $(GAME)
+dev:   ## Vite starten — die NETZWERK-Adresse aufs Handy, nicht localhost
+	@npm run dev
 
-editor:   ## Godot-Editor öffnen
-	@"$(GODOT)" --editor --path $(GAME)
+build:   ## Produktionsbuild
+	@npm run build
 
-export-linux:   ## Release-Build (setzt ein konfiguriertes Export-Preset "Linux" voraus)
-	@mkdir -p build
-	@"$(GODOT)" --headless --path $(GAME) --export-release "Linux" ../build/game.x86_64
-
-clean:   ## Import-Cache und Builds entfernen
-	@rm -rf $(GAME)/.godot build
-	@echo "✓ Cache und Builds entfernt — 'make import' baut neu"
+preview:   ## Produktionsbuild lokal prüfen
+	@npm run preview

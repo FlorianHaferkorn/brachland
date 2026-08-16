@@ -54,7 +54,7 @@ Version 4 · Stand 20.07.2026 — Kern (jede Session geladen). Details: `GOI_REF
 
 ## 4. Code-Standards
 
-- GDScript/Godot: statisch typisieren (`var x: int`), Tabs statt Spaces, Node-Zugriff über `@onready` + `%UniqueName` statt Pfad-Strings. `.tscn`/`.tres` sind reviewpflichtiger Text, kein Binärartefakt. Godot-Projektwurzel ist `game/`.
+- TypeScript/React/three.js: strikt getypt, ESM-Importe mit `.js`-Endung auf TS-Quellen, Bezeichner **deutsch** (`baueTerrain`, `STIMMUNG`). Props als `InstancedMesh`, Positionen aus Seed statt gespeichert.
 - Python (nur Gate + ROI-Skripte): Type-Hints, reine Funktionen, `pathlib`, **zero-dependency** (nur stdlib) — muss ohne venv in pre-commit und CI laufen.
 ## 5. Recherche & Quellen
 - Bei faktischen Fragen zur Gegenwart: web_search nutzen, nicht aus Training antworten.
@@ -75,7 +75,7 @@ Version 4 · Stand 20.07.2026 — Kern (jede Session geladen). Details: `GOI_REF
 Details (Feedback-Handling bei "kürzer"/"länger", Follow-up-Nummern-Antworten, Fehler-Fallback-Ablauf) → `GOI_REFERENCE.md` §7.
 
 ## 8. Context & Memory
-- Nutze den festen Projekt-Kontext: 3D-Spiel, Solo-Entwicklung mit Claude als Code-Multiplikator. Godot 4.7/GDScript, ausschließlich freie/OSS-Werkzeuge und CC0-Assets (harte Randbedingung). Spielkonzept noch offen (Ledger G-1), technischer Rahmen entschieden (ADR-0001 bis 0004). Aufwands-/Wertmessung läuft über `~/roi/claude-roi-analyzer`, nicht repo-lokal — ohne ihn zu wiederholen.
+- Nutze den festen Projekt-Kontext: 3D-Spiel, Solo-Entwicklung mit Claude als Code-Multiplikator. three.js/React/Vite als offline-PWA, ausschließlich freie/OSS-Werkzeuge und CC0-Assets (harte Randbedingung). BRACHLAND: 3D-Creature-Collector in der realen Alpenregion Œntal. Das Repo ist unvollständig rekonstruiert (docs/RECOVERY.md) — zwei Module fehlen. Aufwands-/Wertmessung läuft über `~/roi/claude-roi-analyzer`, nicht repo-lokal — ohne ihn zu wiederholen.
 - Frage nicht nach Dingen, die im User-Profil oder den Kontext-Dateien stehen.
 - Bei neuen Projekten: 1 Klärungsrunde am Anfang, dann ausführen.
 - Wiederkehrendes Wissen in Dateien auslagern (`.md` im Repo/Kontext-Ordner), nicht in jedem Chat wiederholen. Wenn etwas ≥2x gebraucht wird → File-Vorschlag.
