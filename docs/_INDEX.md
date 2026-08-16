@@ -65,9 +65,11 @@ shelf-life-days: 90
 | B-8 | Mess-Werkzeuge in tools/ fehlen | — | ✅ | sechs zurück (lodcheck, masstab, scenecheck, terraincheck, propcheck, lodpreview), 16.08.2026 |
 | B-9 | `content/moves/` leer; 2 von 35 Kreaturen aus Kapitel 1 angelegt (Region und Regent sind da) | `content/_INDEX.md` | 🟡 | Inhalte stehen in `design/` |
 | B-10 | `assets/rigs/` leer — `autorig.py` braucht die Archetyp-Rigs | `assets/_INDEX.md` | 🟡 | offen |
-| G-1 | **Szene einmal live auf dem Handy sehen** — alle Look-Urteile beruhen auf Software-Renderer-Standbildern | `GDD.md` | 🟡 | **nicht mehr blockiert**: Weltdaten und Props liegen vor. `npm run dev` |
+| G-1 | Szene erstmals live gesehen (Browser, 16.08.2026) | — | ✅ | rendert: Terrain, Horizont, Nebel, Props. Auf dem **Handy** noch offen |
+| G-6 | **`lod.ts` ist nicht in der Szene verdrahtet** — `RegionsSzene` nutzt `baueTerrain`, LOD nur in den Mess-Werkzeugen. Live bestätigt: 24 Vertices im 50-m-Umkreis, der Boden vor der Kamera ist eine einzige Fläche | `grep -rn lod.js src/` | 🔴 | genau das Problem, das LOD lösen sollte — Einbau steht aus |
+| G-7 | `daemmerung` ist am Startpunkt praktisch schwarz; erst `nebelmorgen` zeigt die Szene | Screenshot 16.08.2026 | 🟡 | Lichtwerte gegen echte Hardware prüfen, nicht gegen den Laptop |
 | G-2 | Stil-Referenz für Kreaturen festzurren; Prompt des Steinbocks sichern | ADR-0002 | 🟡 | offen |
-| G-4 | Spielerfigur und Bewegung — Kamera steht am Ursprung | `GDD.md` | 🟡 | offen |
+| G-4 | Spielerfigur und Bewegung fehlen | `GDD.md` | 🟡 | Startposition gesetzt (Regionsmitte, auf dem Gelände), Figur und Steuerung offen |
 | G-5 | Kampf-UI ist nicht mit der Szene verbunden | `src/_INDEX.md` | 🟡 | offen |
 | A-4 | Artist für die 5 Regenten + 5–8 Startkreaturen? Einzige Stelle, an der Geld fließen dürfte | ADR-0002 | 🟡 | offen |
 | A-5 | Git-LFS-Schwelle: 9 MB Bilder + 0,5 MB GLB liegen als Blobs in der History | `docs/bilder/`, `assets/` | 🟡 | offen |
@@ -88,3 +90,4 @@ shelf-life-days: 90
 | D10 | React 19 + fiber 9 + drei 10 statt React 18 + fiber 8 + JSX-Shim | Das Original löste den Konflikt mit `react-three.d.ts`, das die fiber-Elemente in `React.JSX` nachtrug. fiber 9 kann das nativ — ein Shim weniger. **Korrektur:** das Original war nicht widersprüchlich, mir fehlte nur diese Datei | 2026-08-16 | — |
 | D11 | Inhalte als validierte Daten, nie hartkodiert | Der einzige Weg, 200 Kreaturen beherrschbar zu halten | 2026-08-16 | ADR-0004 |
 | D12 | `tools/` für Spiel-Werkzeuge, `scripts/` für Repo-Kit und ROI | Zwei Herkünfte, zwei Lebenszyklen — Vermischung würde beide unklar machen | 2026-08-16 | — |
+| D13 | Startposition = Regionsmitte auf der Geländeoberfläche, ein Terrain-Build für Geometrie, Props und Spawn | Ohne sie stand die Kamera 199 m unter Grund und die Szene wirkte leer — kein Renderfehler, eine fehlende Zahl | 2026-08-16 | — |

@@ -37,7 +37,8 @@ Drei umschaltbare Stimmungen: `daemmerung` (Nebel 60–420 m), `nebelmorgen`
 
 **Gebaut** (laut `START.md`, gemessen am 16.08.2026):
 
-- Terrain aus OSM + EU-DEM mit LOD-Kacheln (4 Stufen, 72–76k Dreiecke je Standort) und hangabhängigem Mikrorelief
+- Terrain aus OSM + EU-DEM: 4 km × 4 km, 18.050 Dreiecke, Vertex-Farben je Biom
+- LOD-Kacheln und Mikrorelief sind **gebaut, aber nicht in der Szene verdrahtet** (Ledger G-6)
 - Wege, Gewässer, Gebäude mit Dächern
 - ~30.000 Props als Instanzen mit Entfernungs-Culling, 23 echte CC0-Modelle
 - Drei Stimmungen umschaltbar, Third-Person-Kamera

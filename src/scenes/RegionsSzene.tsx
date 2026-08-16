@@ -11,7 +11,8 @@ import { useMemo, useRef, useEffect } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
-import { baueTerrain, baueGewaesser, baueGebaeude, baueWege, GROESSE } from '../world/terrain.js';
+import { baueTerrain, baueGewaesser, baueGebaeude, baueWege, GROESSE,
+         type TerrainErgebnis } from '../world/terrain.js';
 import { useGLTF } from '@react-three/drei';
 import { verteileProps, chunkeProps, propGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk } from '../world/props.js';
@@ -36,16 +37,12 @@ export const STIMMUNG = {
 } as const;
 export type StimmungsName = keyof typeof STIMMUNG;
 
-function Terrain({ welt }: { welt: Weltdaten }) {
-  const { terrain, gewaesser, gebaeude, wege } = useMemo(() => {
-    const t = baueTerrain(welt);
-    return {
-      terrain: t,
-      gewaesser: baueGewaesser(welt, t),
-      gebaeude: baueGebaeude(welt, t),
-      wege: baueWege(welt, t),
-    };
-  }, [welt]);
+function Terrain({ welt, terrain }: { welt: Weltdaten; terrain: TerrainErgebnis }) {
+  const { gewaesser, gebaeude, wege } = useMemo(() => ({
+    gewaesser: baueGewaesser(welt, terrain),
+    gebaeude: baueGebaeude(welt, terrain),
+    wege: baueWege(welt, terrain),
+  }), [welt, terrain]);
 
   return (
     <group>
@@ -193,9 +190,13 @@ function Kamera({ ziel }: { ziel: React.RefObject<THREE.Object3D | null> }) {
   const { camera } = useThree();
   // Abstände in echten Metern — der Spieler ist 1,8 m hoch und soll auch so wirken.
   const geglaettet = useRef(new THREE.Vector3(0, GROESSE.kameraHoehe, GROESSE.kameraAbstand));
+  const gesetzt = useRef(false);
   useFrame((_, dt) => {
     const p = ziel.current?.position ?? new THREE.Vector3();
     const wunsch = new THREE.Vector3(p.x, p.y + GROESSE.kameraHoehe, p.z + GROESSE.kameraAbstand);
+    // Erstes Bild hart setzen: sonst fliegt die Kamera aus dem Ursprung (y=0) zum
+    // Startpunkt hoch — bei 170 m Geländehöhe eine sichtbare Sekunde durch den Berg.
+    if (!gesetzt.current) { geglaettet.current.copy(wunsch); gesetzt.current = true; }
     geglaettet.current.lerp(wunsch, Math.min(1, dt * 4));
     camera.position.copy(geglaettet.current);
     camera.lookAt(p.x, p.y + GROESSE.kameraBlickHoehe, p.z);
@@ -216,6 +217,18 @@ export interface RegionsSzeneProps {
 export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
+
+  // EIN Terrain-Build für Geometrie, Props und Startposition.
+  const terrain = useMemo(() => baueTerrain(welt), [welt]);
+
+  // Ohne Startposition steht der Spieler im Ursprung (y = 0) — im Œntal sind das
+  // ~170 m unter der Geländeoberfläche, die Kamera schaut dann von innen durch den
+  // Berg. Bis es echte Bewegung gibt, ist die Regionsmitte der Startpunkt.
+  const start = useMemo<[number, number, number]>(
+    () => [0, terrain.hoeheAn(0, 0), 0],
+    [terrain],
+  );
+
   return (
     <Canvas
       shadows
@@ -224,8 +237,8 @@ export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: Regi
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
       <Beleuchtung stimmung={stimmung} />
-      <Terrain welt={welt} />
-      <object3D ref={ref} />
+      <Terrain welt={welt} terrain={terrain} />
+      <object3D ref={ref} position={start} />
       <Kamera ziel={ref} />
     </Canvas>
   );
