@@ -25,7 +25,7 @@ owns: *.ts, *.tsx
 | Kreatur-, Move-, Regionsformat ändern | `data/schema.ts` | world/, scenes/ |
 | Einstiegspunkt, Weltdaten laden | `main.tsx` | — |
 | Steuerung anfassen (Tasten, Touch, Empfindlichkeit) | `spieler/steuerung.ts` | world/, engine/ |
-| `spieler/steuerung.ts` | world/, engine/ |
+| Aussehen der Spielerfigur | `spieler/figur.ts` | world/ |
 
 ## Datei-Register (Drift-Gate erzwingt Vollständigkeit für `owns:`)
 
@@ -43,6 +43,7 @@ owns: *.ts, *.tsx
 | `world/bodenmaterial.ts` | Bodenmaterial mit prozeduraler Oberflächenvariation im Shader — zwei Oktaven Rauschen aus der Weltposition, null Bytes Textur |
 | `world/streuung.ts` | Nahfeld-Streuschicht: deterministische Bodendecker im 28-m-Umkreis, beim Gehen nachgezogen. Antwort auf „0 Props im 10-m-Umkreis" |
 | `spieler/steuerung.ts` | Eingabe für Bewegung und Blick. Touch (linke Bildhälfte gehen, rechte umsehen) **und** Tastatur/Maus. Zustand im Ref statt im State — 60 Re-Renders je Sekunde wären sinnlos |
+| `spieler/figur.ts` | Spielerfigur als Platzhalter, 1,8 m. **Größenreferenz**, kein Charakterdesign — monochrom, unter 300 Dreiecke |
 
 ## Was hier NICHT liegt
 

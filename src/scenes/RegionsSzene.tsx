@@ -21,6 +21,7 @@ import { benutzeSteuerung } from '../spieler/steuerung.js';
 import { baueBueschelGeometrie, streueUmgebung, STREU_MAX, STREU_NACHZIEHEN }
   from '../world/streuung.js';
 import { baueBodenMaterial } from '../world/bodenmaterial.js';
+import { baueSpielerGeometrie } from '../spieler/figur.js';
 import { verteileProps, chunkeProps, propGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 
@@ -30,16 +31,19 @@ export const STIMMUNG = {
     himmel: '#141d20', nebel: '#1b2a2b', nebelNah: 60, nebelFern: 420,
     sonne: '#c8b48a', sonneStaerke: 1.1, umgebung: '#2b3a3d', umgebungStaerke: 0.55,
     sonnenstand: [-120, 55, -90] as const,
+    belichtung: 1.65,
   },
   nebelmorgen: {
     himmel: '#20282a', nebel: '#2c3a39', nebelNah: 30, nebelFern: 240,
     sonne: '#d8d2c0', sonneStaerke: 0.75, umgebung: '#39484a', umgebungStaerke: 0.8,
     sonnenstand: [90, 40, -110] as const,
+    belichtung: 1.15,
   },
   nacht: {
     himmel: '#0a0f12', nebel: '#101a1c', nebelNah: 25, nebelFern: 260,
     sonne: '#8fa9c4', sonneStaerke: 0.45, umgebung: '#162124', umgebungStaerke: 0.35,
     sonnenstand: [-80, 90, 60] as const,
+    belichtung: 1.40,
   },
 } as const;
 export type StimmungsName = keyof typeof STIMMUNG;
@@ -257,7 +261,7 @@ function Beleuchtung({ stimmung, ziel }: {
   stimmung: StimmungsName; ziel: React.RefObject<THREE.Object3D | null>;
 }) {
   const s = STIMMUNG[stimmung];
-  const { scene } = useThree();
+  const { scene, gl } = useThree();
   const sonne = useRef<THREE.DirectionalLight>(null);
 
   useEffect(() => {
@@ -265,6 +269,22 @@ function Beleuchtung({ stimmung, ziel }: {
     scene.background = new THREE.Color(s.himmel);
     return () => { scene.fog = null; };
   }, [scene, s]);
+
+  /**
+   * Belichtung je Stimmung.
+   *
+   * Die Lichtwerte selbst bleiben unangetastet — sie sind Art Direction. Was fehlte,
+   * war der Regler danach: `daemmerung` war auf einem Laptop-Display praktisch
+   * schwarz, während dasselbe Bild auf dem Handy lesbar aussah. Tone Mapping mit
+   * eigener Belichtung trennt „wie hell ist die Szene gemeint" von „wie hell kommt
+   * sie auf diesem Bildschirm an".
+   *
+   * Die Werte sind gegen ein MacBook-Display gesetzt und ausdrücklich vorläufig.
+   */
+  useEffect(() => {
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = s.belichtung;
+  }, [gl, s]);
 
   /**
    * Die Sonne wandert mit dem Spieler.
@@ -403,6 +423,31 @@ function Spieler({ feld, ziel, gier }: {
   return null;
 }
 
+/**
+ * Sichtbare Figur am Spieleranker — die Größenreferenz für alles andere.
+ *
+ * Dreht sich mit `gier`, damit sie in Laufrichtung schaut. Keine Animation: Sie
+ * gleitet, statt zu gehen. Das ist für die Maßstabsbeurteilung unerheblich und
+ * würde ein Rig brauchen, das es noch nicht gibt.
+ */
+function SpielerFigur({ gier }: { gier: React.RefObject<number> }) {
+  const geometrie = useMemo(() => baueSpielerGeometrie(), []);
+  const material = useMemo(() => new THREE.MeshStandardMaterial({
+    vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0,
+  }), []);
+  const gruppe = useRef<THREE.Group>(null);
+
+  useFrame(() => {
+    if (gruppe.current) gruppe.current.rotation.y = gier.current;
+  });
+
+  return (
+    <group ref={gruppe}>
+      <mesh geometry={geometrie} material={material} castShadow receiveShadow />
+    </group>
+  );
+}
+
 /** Third-Person-Kamera, die dem Spieler folgt. */
 function Kamera({ ziel, gier }: {
   ziel: React.RefObject<THREE.Object3D | null>; gier: React.RefObject<number>;
@@ -470,7 +515,9 @@ export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: Regi
     >
       <Beleuchtung stimmung={stimmung} ziel={ref} />
       <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} />
-      <object3D ref={ref} position={start} />
+      <object3D ref={ref} position={start}>
+        <SpielerFigur gier={gier} />
+      </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} />
       <Kamera ziel={ref} gier={gier} />
     </Canvas>

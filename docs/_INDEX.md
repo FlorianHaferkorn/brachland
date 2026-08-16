@@ -72,10 +72,10 @@ shelf-life-days: 90
 | G-12 | Streuschicht zu zurückhaltend | — | ✅ | nachgezogen: 0,80/m², 0,18–0,48 m, hellere Farben, breiter |
 | G-13 | **Aufgesetzte Geometrien standen auf der falschen Höhenquelle** — Wege, Gewässer und Gebäude aus dem groben Raster, sichtbarer Boden aus dem Mikrorelief-Feld. Gemessen 2,35 m Mittel, 24 m Maximum | Messung 16.08.2026 | ✅ | behoben: Wege 24 → 2,7 m, Gewässer 15 → 1,8 m |
 | G-14 | Restdrift der Wege bis ±3 m: Bänder werden nur an OSM-Stützpunkten aufs Gelände gelegt, dazwischen wellt der Boden | Messung 16.08.2026 | 🟡 | Segmente unterteilen |
-| G-7 | `daemmerung` ist am Startpunkt praktisch schwarz; erst `nebelmorgen` zeigt die Szene | Screenshot 16.08.2026 | 🟡 | Lichtwerte gegen echte Hardware prüfen, nicht gegen den Laptop |
+| G-7 | `daemmerung` praktisch schwarz | — | ✅ | Tone Mapping mit Belichtung je Stimmung (1,65 / 1,15 / 1,40). Werte gegen ein MacBook gesetzt — **am Handy gegenprüfen** |
 | G-2 | Stil-Referenz für Kreaturen festzurren; Prompt des Steinbocks sichern | ADR-0002 | 🟡 | offen |
 | G-4 | Bewegung und Kamerasteuerung | — | ✅ | 16.08.2026: Gehen 1,4 / Rennen 5,0 m/s, Blick frei drehbar. Touch **und** Tastatur. Verifiziert im Browser |
-| G-10 | Keine **Spielerfigur** — die Kamera folgt einem unsichtbaren Anker. Ohne Körper fehlt die Größenreferenz, die den Maßstab lesbar macht | `src/scenes/RegionsSzene.tsx` | 🟡 | offen |
+| G-10 | Keine Spielerfigur | — | ✅ | Platzhalter 1,8 m, `src/spieler/figur.ts`, dreht sich in Laufrichtung. Ersetzen, sobald die Stil-Referenz steht |
 | G-11 | Keine Kollision: Bäume, Felsen und Gebäude sind durchlässig | `src/spieler/steuerung.ts` | 🟡 | bewusst, dieser Schritt sollte nur den Look beurteilbar machen |
 | G-5 | Kampf-UI ist nicht mit der Szene verbunden | `src/_INDEX.md` | 🟡 | offen |
 | A-4 | Artist für die 5 Regenten + 5–8 Startkreaturen? Einzige Stelle, an der Geld fließen dürfte | ADR-0002 | 🟡 | offen |
@@ -102,6 +102,7 @@ shelf-life-days: 90
 | D15 | Sonne folgt dem Spieler statt ortsfest bei y=55 zu stehen | Das Œntal reicht bis 775 m — eine ortsfeste Schattenkamera liegt unter dem Gelände. Änderte das Bild nicht sichtbar, ist aber unabhängig davon richtig | 2026-08-16 | — |
 | D16 | Touch ist gleichwertig, kein Nachtrag: linke Bildhälfte gehen, rechte umsehen | Das Handy ist das Zielgerät. Eine nur mit Tastatur bedienbare Szene lässt sich dort nicht beurteilen | 2026-08-16 | — |
 | D18 | Tempo überhöht: gehen 3,0 / rennen 7,0 m/s bei 1:1-Maßstab | 1,4 m/s ist echtes Gehtempo und fühlt sich bei 4 km Region zäh an. Maßstab echt, Tempo überhöht — der übliche Weg, Querung rennend ~9,5 min | 2026-08-16 | — |
+| D22 | Belichtung getrennt von den Lichtwerten | Die Lichtwerte sind Art Direction und bleiben. Ob die Szene auf einem Bildschirm ankommt, ist eine andere Frage — dafür gibt es jetzt `belichtung` je Stimmung | 2026-08-16 | — |
 | D21 | Oberflächenvariation als **Rauschen im Shader**, nicht als Textur | ADR-0002 verbietet Textur-*Assets* (60-MB-Budget, Stilrisiko). Prozedurales Rauschen kostet null Bytes, ist über Kachelgrenzen und LOD-Stufen stabil und lässt den Biom-Farbton führen | 2026-08-16 | ADR-0002 |
 | D20 | **Eine Höhenquelle für alles, was aufsitzt**: `feld.hoehe` aus `baueHoehenfeld` | Zwei Quellen driften — hier um bis zu 24 m. Boden, Props, Streuschicht, Wege, Gewässer, Gebäude und Spawn nutzen dieselbe Funktion | 2026-08-16 | — |
 | D19 | Vegetation ist die Ausnahme von Flat Shading und FrontSide-Pflicht | `flatShading` ignoriert Normalen; `DoubleSide` dreht sie bei Rückseiten um und lässt Halme schwarz rendern. Beides live erlebt und einzeln nachgewiesen | 2026-08-16 | — |
