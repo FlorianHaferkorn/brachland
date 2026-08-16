@@ -27,13 +27,41 @@ export interface WindMaterialWerte {
   randStaerke: number;
 }
 
+/**
+ * Der Fresnel-Term wird auf `reflectedLight.indirectSpecular` addiert, **nicht** auf
+ * `outgoingLight`.
+ *
+ * Das ist kein Detail, das war ein harter Fehler: `outgoingLight` existiert an dieser
+ * Stelle im three.js-Shader noch gar nicht — es wird erst in `<opaque_fragment>`
+ * gebildet. Der Shader ließ sich deshalb **nicht kompilieren**, und jedes Material,
+ * das dieses Licht benutzt hat, verschwand: Bäume, Büsche, Kreaturen, Spielerfigur,
+ * Klippen. Genau das war „man sieht keine Monster mehr".
+ *
+ * Aufgefallen ist es erst im Browser. Typen, Gate und Build können einen GLSL-Fehler
+ * nicht sehen — Shader werden zur Laufzeit übersetzt.
+ *
+ * `indirectSpecular` ist auch inhaltlich die richtige Stelle: Der Beitrag soll nicht
+ * mit der Grundfarbe eingefärbt werden. Ein Umriss gegen den Himmel hat die Farbe
+ * des Himmels, nicht die des Fells.
+ */
 const RAND_GLSL = /* glsl */ `
   // Fresnel: 0 dort, wo die Fläche zum Betrachter zeigt, 1 an der Silhouette.
-  float randKante = 1.0 - abs(dot(normalize(normal), normalize(vViewPosition)));
-  outgoingLight += uRandFarbe * pow(randKante, 3.0) * uRandStaerke;
+  float randKante = 1.0 - abs(dot(geometryNormal, geometryViewDir));
+  reflectedLight.indirectSpecular += uRandFarbe * pow(randKante, 3.0) * uRandStaerke;
 `;
 
+/**
+ * `instanceMatrix` existiert im Shader **nur**, wenn three.js `USE_INSTANCING`
+ * gesetzt hat — also bei einem `InstancedMesh`. Dasselbe Material hängt aber auch an
+ * der Spielerfigur und an den Kreaturen, und das sind einfache Meshes. Ohne diese
+ * Abfrage ließ sich der Shader dort nicht übersetzen, und beide verschwanden.
+ *
+ * Der `#ifdef` steht deshalb im Shader und nicht als zweites Material in TypeScript:
+ * Zwei Materialien hieße zwei Programme, zwei Uniform-Sätze und zwei Stellen, an
+ * denen man die Randfarbe nachziehen muss.
+ */
 const WIND_GLSL = /* glsl */ `
+  #ifdef USE_INSTANCING
   {
     // Instanzposition steckt in der vierten Spalte der Instanzmatrix. Sie ist die
     // Phase: Ohne sie schwingt der ganze Wald im Gleichtakt, und das sieht aus wie
@@ -46,6 +74,7 @@ const WIND_GLSL = /* glsl */ `
     transformed.x += boe * b;
     transformed.z += cos(uZeit * 0.42 + phase * 1.3) * b * 0.5;
   }
+  #endif
 `;
 
 /**
@@ -78,7 +107,10 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
 
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',
-        '#include <common>\nuniform float uZeit;\nuniform float uWindAmp;\nattribute float aWind;')
+        // aWind ebenfalls nur bei Instanzen deklarieren: Ein Attribut, das die
+        // Geometrie nicht liefert, ist auf manchen Treibern ein harter Fehler.
+        '#include <common>\nuniform float uZeit;\nuniform float uWindAmp;\n'
+        + '#ifdef USE_INSTANCING\nattribute float aWind;\n#endif')
       .replace('#include <begin_vertex>', '#include <begin_vertex>' + WIND_GLSL);
 
     shader.fragmentShader = shader.fragmentShader
@@ -86,7 +118,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
         '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;')
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v1';
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v3';
 
   return {
     material,
