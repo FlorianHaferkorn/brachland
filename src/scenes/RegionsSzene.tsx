@@ -17,6 +17,7 @@ import { useGLTF } from '@react-three/drei';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          type HoehenFeld, type Kachel } from '../world/lod.js';
+import { benutzeSteuerung } from '../spieler/steuerung.js';
 import { verteileProps, chunkeProps, propGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 
@@ -288,15 +289,71 @@ function Beleuchtung({ stimmung, ziel }: {
   );
 }
 
+/** Gehen und Rennen in m/s — Werte aus `npm run masstab`, nicht geraten. */
+const GEHEN = 1.4;
+const RENNEN = 5.0;
+
+/**
+ * Bewegt den Spieler über das Gelände.
+ *
+ * Die Höhe kommt aus demselben Höhenfeld, das den Boden zeichnet — sonst läuft man
+ * durch das Mikrorelief hindurch. Eine Kollisionsprüfung gibt es nicht: Bäume und
+ * Gebäude sind derzeit durchlässig, das ist bewusst, weil dieser Schritt nur den
+ * Look beurteilbar machen soll.
+ */
+function Spieler({ feld, ziel, gier }: {
+  feld: HoehenFeld;
+  ziel: React.RefObject<THREE.Object3D | null>;
+  gier: React.RefObject<number>;
+}) {
+  const { gl } = useThree();
+  const eingabe = benutzeSteuerung(gl.domElement);
+
+  useFrame((_, rohDt) => {
+    const p = ziel.current?.position;
+    if (!p) return;
+    // Nach einem Tab-Wechsel kommt ein riesiges dt — sonst teleportiert man.
+    const dt = Math.min(rohDt, 0.1);
+    const e = eingabe.current;
+
+    gier.current += e.drehRate * dt + e.drehDelta;
+    e.drehDelta = 0;
+
+    const g = gier.current;
+    const tempo = e.rennen ? RENNEN : GEHEN;
+    // Blickrichtung ist -Z, um `gier` um die Y-Achse gedreht.
+    const dx = (-Math.sin(g) * e.vor + Math.cos(g) * e.seit) * tempo * dt;
+    const dz = (-Math.cos(g) * e.vor - Math.sin(g) * e.seit) * tempo * dt;
+
+    if (dx !== 0 || dz !== 0) {
+      const halbB = feld.breiteMeter / 2 - 8;
+      const halbT = feld.tiefeMeter / 2 - 8;
+      p.x = Math.max(-halbB, Math.min(halbB, p.x + dx));
+      p.z = Math.max(-halbT, Math.min(halbT, p.z + dz));
+    }
+    p.y = feld.hoehe(p.x, p.z);
+  });
+
+  return null;
+}
+
 /** Third-Person-Kamera, die dem Spieler folgt. */
-function Kamera({ ziel }: { ziel: React.RefObject<THREE.Object3D | null> }) {
+function Kamera({ ziel, gier }: {
+  ziel: React.RefObject<THREE.Object3D | null>; gier: React.RefObject<number>;
+}) {
   const { camera } = useThree();
   // Abstände in echten Metern — der Spieler ist 1,8 m hoch und soll auch so wirken.
   const geglaettet = useRef(new THREE.Vector3(0, GROESSE.kameraHoehe, GROESSE.kameraAbstand));
   const gesetzt = useRef(false);
   useFrame((_, dt) => {
     const p = ziel.current?.position ?? new THREE.Vector3();
-    const wunsch = new THREE.Vector3(p.x, p.y + GROESSE.kameraHoehe, p.z + GROESSE.kameraAbstand);
+    // Die Kamera steht hinter dem Spieler; `gier` dreht sie um ihn herum.
+    const g = gier.current;
+    const wunsch = new THREE.Vector3(
+      p.x + Math.sin(g) * GROESSE.kameraAbstand,
+      p.y + GROESSE.kameraHoehe,
+      p.z + Math.cos(g) * GROESSE.kameraAbstand,
+    );
     // Erstes Bild hart setzen: sonst fliegt die Kamera aus dem Ursprung (y=0) zum
     // Startpunkt hoch — bei 170 m Geländehöhe eine sichtbare Sekunde durch den Berg.
     if (!gesetzt.current) { geglaettet.current.copy(wunsch); gesetzt.current = true; }
@@ -320,6 +377,7 @@ export interface RegionsSzeneProps {
 export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
+  const gier = useRef(0);
 
   // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
   // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
@@ -347,7 +405,8 @@ export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: Regi
       <Beleuchtung stimmung={stimmung} ziel={ref} />
       <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} />
       <object3D ref={ref} position={start} />
-      <Kamera ziel={ref} />
+      <Spieler feld={feld} ziel={ref} gier={gier} />
+      <Kamera ziel={ref} gier={gier} />
     </Canvas>
   );
 }

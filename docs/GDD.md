@@ -46,7 +46,7 @@ Drei umschaltbare Stimmungen: `daemmerung` (Nebel 60–420 m), `nebelmorgen`
 
 **Nicht gebaut:**
 
-- **Keine Spielerfigur, keine Bewegung** — die Kamera steht am Ursprung
+- **Keine Spielerfigur** — man bewegt sich, aber als körperloser Anker (Bewegung und Blick sind seit 16.08.2026 da)
 - **Keine Kreaturen in der Welt** — Kampf-Engine und -UI sind nicht mit der Szene verbunden
 - Keine Texturen, keine Animation über Auto-Rigging hinaus, kein Audio
 

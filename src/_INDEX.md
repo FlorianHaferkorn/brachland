@@ -22,6 +22,7 @@ owns: *.ts, *.tsx
 | Kampf-UI, Buttons, Anzeige | `ui/BattleScreen.tsx` | world/ |
 | Kreatur-, Move-, Regionsformat ändern | `data/schema.ts` | world/, scenes/ |
 | Einstiegspunkt, Weltdaten laden | `main.tsx` | — |
+| Steuerung anfassen (Tasten, Touch, Empfindlichkeit) | `spieler/steuerung.ts` | world/, engine/ |
 
 ## Datei-Register (Drift-Gate erzwingt Vollständigkeit für `owns:`)
 
@@ -36,6 +37,7 @@ owns: *.ts, *.tsx
 | `world/terrain.ts` | Terrain-Mesh mit Vertex-Farben, Gewässer, Gebäude mit Dächern, Wege; `MASSSTAB`, `GROESSE`, `BIOM_FARBE` |
 | `world/props.ts` | Vegetation: deterministische Verteilung per Seed, Dichten je Biom, 4 Varianten je Art, Normierung auf reale Zielhöhen, Chunking |
 | `world/lod.ts` | Terrain-Detail: 4 LOD-Stufen (2/4/8/16 m), hangabhängiges Mikrorelief in 4 Oktaven (<1,2 m), Schürzen gegen Kachelrisse |
+| `spieler/steuerung.ts` | Eingabe für Bewegung und Blick. Touch (linke Bildhälfte gehen, rechte umsehen) **und** Tastatur/Maus. Zustand im Ref statt im State — 60 Re-Renders je Sekunde wären sinnlos |
 
 ## Was hier NICHT liegt
 

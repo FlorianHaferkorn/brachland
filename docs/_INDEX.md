@@ -71,7 +71,9 @@ shelf-life-days: 90
 | G-9 | Der gemessene Detailgewinn ist am Startpunkt kaum **sichtbar** — die Kamera schaut aus 3,4 m fast waagerecht über eine glatte Wiesenflanke, das Nahfeld schrumpft auf wenige Pixel | Screenshot + Messung | 🟡 | erst mit Bewegung (G-4) beurteilbar |
 | G-7 | `daemmerung` ist am Startpunkt praktisch schwarz; erst `nebelmorgen` zeigt die Szene | Screenshot 16.08.2026 | 🟡 | Lichtwerte gegen echte Hardware prüfen, nicht gegen den Laptop |
 | G-2 | Stil-Referenz für Kreaturen festzurren; Prompt des Steinbocks sichern | ADR-0002 | 🟡 | offen |
-| G-4 | Spielerfigur und Bewegung fehlen | `GDD.md` | 🟡 | Startposition gesetzt (Regionsmitte, auf dem Gelände), Figur und Steuerung offen |
+| G-4 | Bewegung und Kamerasteuerung | — | ✅ | 16.08.2026: Gehen 1,4 / Rennen 5,0 m/s, Blick frei drehbar. Touch **und** Tastatur. Verifiziert im Browser |
+| G-10 | Keine **Spielerfigur** — die Kamera folgt einem unsichtbaren Anker. Ohne Körper fehlt die Größenreferenz, die den Maßstab lesbar macht | `src/scenes/RegionsSzene.tsx` | 🟡 | offen |
+| G-11 | Keine Kollision: Bäume, Felsen und Gebäude sind durchlässig | `src/spieler/steuerung.ts` | 🟡 | bewusst, dieser Schritt sollte nur den Look beurteilbar machen |
 | G-5 | Kampf-UI ist nicht mit der Szene verbunden | `src/_INDEX.md` | 🟡 | offen |
 | A-4 | Artist für die 5 Regenten + 5–8 Startkreaturen? Einzige Stelle, an der Geld fließen dürfte | ADR-0002 | 🟡 | offen |
 | A-5 | Git-LFS-Schwelle: 9 MB Bilder + 0,5 MB GLB liegen als Blobs in der History | `docs/bilder/`, `assets/` | 🟡 | offen |
@@ -95,3 +97,5 @@ shelf-life-days: 90
 | D13 | Startposition = Regionsmitte auf der Geländeoberfläche, ein Terrain-Build für Geometrie, Props und Spawn | Ohne sie stand die Kamera 199 m unter Grund und die Szene wirkte leer — kein Renderfehler, eine fehlende Zahl | 2026-08-16 | — |
 | D14 | Sichtbarer Boden = LOD-Kacheln; das grobe Terrain bleibt für Wege, Gewässer, Gebäude und die XZ-Verteilung der Props | Zwei Höhenquellen wären Drift; die Props holen ihr Y jetzt aus demselben Höhenfeld wie der Boden | 2026-08-16 | — |
 | D15 | Sonne folgt dem Spieler statt ortsfest bei y=55 zu stehen | Das Œntal reicht bis 775 m — eine ortsfeste Schattenkamera liegt unter dem Gelände. Änderte das Bild nicht sichtbar, ist aber unabhängig davon richtig | 2026-08-16 | — |
+| D16 | Touch ist gleichwertig, kein Nachtrag: linke Bildhälfte gehen, rechte umsehen | Das Handy ist das Zielgerät. Eine nur mit Tastatur bedienbare Szene lässt sich dort nicht beurteilen | 2026-08-16 | — |
+| D17 | LOD0 bleibt bei 2 m Vertexabstand | Gemessen: bei 2 m Abtastung kommen bereits **100 %** der Mikrorelief-Amplitude an. 1 m kostet 32.256 → 121.856 Dreiecke für null zusätzliches Relief | 2026-08-16 | — |

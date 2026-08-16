@@ -33,6 +33,15 @@ function App() {
           }}>{s}</button>
         ))}
       </div>
+
+      {/* Ohne Hinweis findet niemand die Touch-Steuerung — sie ist unsichtbar. */}
+      <div style={{
+        position: 'fixed', bottom: 'calc(env(safe-area-inset-bottom, 8px) + 8px)', left: 0, right: 0,
+        textAlign: 'center', pointerEvents: 'none', zIndex: 10,
+        color: '#5c6b64', fontSize: 11, letterSpacing: 0.2,
+      }}>
+        links wischen = gehen · rechts wischen = umsehen · WASD + Ziehen am Rechner
+      </div>
     </>
   );
 }
