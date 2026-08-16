@@ -231,12 +231,45 @@ export function baueWelt(bbox: BBox, ways: OsmWay[], hoehen: number[][]): Weltda
   const zellbreiteMeter =
     ((e - w) * METER_JE_GRAD * Math.cos(mittelLat * Math.PI / 180)) / (aufloesung - 1);
 
+  /**
+   * Bäche und Gräben ins Raster stempeln.
+   *
+   * Vorher standen im Œntal ganze **zwei** Wasserzellen — die beiden einzigen
+   * OSM-Wasserflächen. Bäche sind in OSM Linien, keine Flächen, und fielen deshalb
+   * durch. Ergebnis: Kiemenbiber (1 Vorkommen) und Moderotter (0) gab es faktisch
+   * nicht, obwohl 190 Gewässerläufe in den Daten liegen. Das war kein Inhaltsfehler,
+   * sondern ein Rasterungsfehler.
+   *
+   * Gestempelt wird entlang jedes Laufs in Schritten von einer halben Zellbreite,
+   * sonst reißt die Kette bei weit auseinanderliegenden OSM-Stützpunkten.
+   */
+  const wasserZellen = new Set<number>();
+  for (const l of linien) {
+    for (let k = 0; k < l.punkte.length - 1; k++) {
+      const [alat, alon] = l.punkte[k];
+      const [blat, blon] = l.punkte[k + 1];
+      const schritte = Math.max(1, Math.ceil(
+        Math.max(Math.abs(blat - alat) / ((n - s) / (aufloesung - 1)),
+                 Math.abs(blon - alon) / ((e - w) / (aufloesung - 1))) * 2));
+      for (let t = 0; t <= schritte; t++) {
+        const lat = alat + (blat - alat) * (t / schritte);
+        const lon = alon + (blon - alon) * (t / schritte);
+        const i = Math.round((n - lat) / (n - s) * (aufloesung - 1));
+        const j = Math.round((lon - w) / (e - w) * (aufloesung - 1));
+        if (i < 0 || j < 0 || i >= aufloesung || j >= aufloesung) continue;
+        wasserZellen.add(i * aufloesung + j);
+      }
+    }
+  }
+
   const biome: Biom[][] = [];
   for (let i = 0; i < aufloesung; i++) {
     const zeile: Biom[] = [];
     const lat = n - (n - s) * (i / (aufloesung - 1));
     for (let j = 0; j < aufloesung; j++) {
       const lon = w + (e - w) * (j / (aufloesung - 1));
+      // Wasser gewinnt: Ein Bach im Wald ist ein Bach, kein Wald.
+      if (wasserZellen.has(i * aufloesung + j)) { zeile.push('wasser'); continue; }
       const treffer = flaechen.find(f => f.biom !== 'unbekannt' && imPolygon([lat, lon], f.punkte));
       if (treffer) { zeile.push(treffer.biom); continue; }
       // Linie in der Nähe? (Zellbreite als Radius)
@@ -255,7 +288,8 @@ export function baueWelt(bbox: BBox, ways: OsmWay[], hoehen: number[][]): Weltda
     bbox, aufloesung, hoehen,
     hoeheMin: Math.min(...flach), hoeheMax: Math.max(...flach),
     biome, flaechen, linien, gebaeude, wege, marker,
-    attribution: '© OpenStreetMap-Mitwirkende (ODbL) · Höhendaten: Copernicus EU-DEM',
+    attribution: '© OpenStreetMap-Mitwirkende (ODbL) · Höhendaten: Bayerische '
+      + 'Vermessungsverwaltung – www.geodaten.bayern.de (DGM1, CC BY 4.0, bearbeitet)',
   };
 }
 
@@ -294,6 +328,72 @@ export function imPolygon([y, x]: [number, number], poly: [number, number][]): b
     if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) drin = !drin;
   }
   return drin;
+}
+
+// ------------------------------------------------------------- Auslieferung
+
+/**
+ * Kompaktform für die Auslieferung.
+ *
+ * Höhen und Biome sind bei 256×256 zusammen **877 KB JSON** — bei einem
+ * Offline-Budget von wenigen Megabyte der größte Einzelposten, und beides speichert
+ * Zahlen als Text. Gepackt sind es 240 KB, ohne einen Meter Genauigkeit zu verlieren:
+ *
+ * - **Höhen** als Int16 in Dezimetern, base64. Der Wertebereich −3.276 bis 3.276 m
+ *   deckt jede Region ab, die dieses Spiel je haben wird; 10 cm liegen unter der
+ *   Sichtbarkeitsschwelle. 378 KB → 175 KB.
+ * - **Biome** als eine Zeichenkette, ein Zeichen je Zelle. 499 KB → 65 KB.
+ *
+ * Das Spiel arbeitet unverändert mit `Weltdaten`; `entpackeWelt` stellt sie her.
+ */
+export interface GepackteWelt extends Omit<Weltdaten, 'hoehen' | 'biome'> {
+  hoehenB64: string;
+  biomeStr: string;
+}
+
+const LUECKE = -32768;
+
+export function packeWelt(welt: Weltdaten): GepackteWelt {
+  const n = welt.aufloesung;
+  const dm = new Int16Array(n * n);
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++) {
+      const h = welt.hoehen[i][j];
+      dm[i * n + j] = Number.isNaN(h) ? LUECKE : Math.round(h * 10);
+    }
+  const bytes = new Uint8Array(dm.buffer);
+  let roh = '';
+  for (let i = 0; i < bytes.length; i++) roh += String.fromCharCode(bytes[i]);
+
+  let biomeStr = '';
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j < n; j++) biomeStr += String(BIOME.indexOf(welt.biome[i][j]));
+
+  const { hoehen: _h, biome: _b, ...rest } = welt;
+  return { ...rest, hoehenB64: btoa(roh), biomeStr };
+}
+
+export function entpackeWelt(g: GepackteWelt | Weltdaten): Weltdaten {
+  if ('hoehen' in g) return g;                       // ungepackt (alte Datei)
+  const n = g.aufloesung;
+  const roh = atob(g.hoehenB64);
+  const bytes = new Uint8Array(roh.length);
+  for (let i = 0; i < roh.length; i++) bytes[i] = roh.charCodeAt(i);
+  const dm = new Int16Array(bytes.buffer);
+
+  const hoehen: number[][] = [];
+  const biome: Biom[][] = [];
+  for (let i = 0; i < n; i++) {
+    const zh: number[] = [], zb: Biom[] = [];
+    for (let j = 0; j < n; j++) {
+      const v = dm[i * n + j];
+      zh.push(v === LUECKE ? NaN : v / 10);
+      zb.push(BIOME[Number(g.biomeStr[i * n + j])] ?? 'unbekannt');
+    }
+    hoehen.push(zh); biome.push(zb);
+  }
+  const { hoehenB64: _a, biomeStr: _b2, ...rest } = g;
+  return { ...rest, hoehen, biome };
 }
 
 // ------------------------------------------------------------------ Spawns

@@ -8,12 +8,13 @@
  *
  * `npm run last`
  */
+import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync } from 'node:fs';
 import { baueTerrain } from '../src/world/terrain.js';
 import { verteileProps, chunkeProps } from '../src/world/props.js';
 import { ATTRAPPE_AB } from '../src/scenes/sichtweiten.js';
 
-const { welt } = JSON.parse(readFileSync('public/world/oental.json', 'utf8'));
+const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const t = baueTerrain(welt);
 const props = verteileProps(welt, t, 1);
 const chunks = chunkeProps(props);

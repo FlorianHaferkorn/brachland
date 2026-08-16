@@ -1,10 +1,17 @@
 /** Build-Schritt: Weltdaten für eine Region erzeugen und als JSON ablegen. */
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { holeOsm, holeHoehen, baueWelt, baueSpawns, type BBox } from '../src/world/osm.js';
+import { holeOsm, holeHoehen, baueWelt, baueSpawns, packeWelt, type BBox } from '../src/world/osm.js';
+import { holeHoehenDgm1, QUELLE as DGM1_QUELLE } from './dgm1.js';
 
 const regionId = process.argv[2] ?? 'oental';
 const aufl = Number(process.argv[3] ?? 32);
+/**
+ * Höhenquelle. `dgm1` ist der Standard: 1-Meter-Gelände der Bayerischen
+ * Vermessungsverwaltung. `eudem` ist der alte Weg über eine Web-API (25 m) und
+ * bleibt als Rückfall für Regionen außerhalb Bayerns.
+ */
+const quelle = (process.argv[4] ?? 'dgm1') as 'dgm1' | 'eudem';
 const r = JSON.parse(readFileSync(`content/regions/${regionId}.json`, 'utf8'));
 const bbox = r.bbox as BBox;
 
@@ -25,14 +32,23 @@ if (existsSync(cache)) {
 }
 console.log(`  ${ways.length} Ways geladen`);
 
-const cacheH = `.cache/dem-${regionId}-${aufl}.json`;
+const cacheH = `.cache/dem-${quelle}-${regionId}-${aufl}.json`;
 let hoehen;
 if (existsSync(cacheH)) {
   hoehen = JSON.parse(readFileSync(cacheH, 'utf8'));
-  console.log('Höhen aus Zwischenspeicher');
+  console.log(`Höhen aus Zwischenspeicher (${quelle})`);
 } else {
   console.time('Höhen');
-  hoehen = await holeHoehen(bbox, aufl);
+  if (quelle === 'dgm1') {
+    console.log(`Höhen aus DGM1 — ${DGM1_QUELLE}`);
+    const e = await holeHoehenDgm1(bbox, aufl);
+    hoehen = e.raster;
+    console.log(`  ${(100 * e.luecken).toFixed(2)} % Lücken`);
+    if (e.luecken > 0.02) throw new Error(
+      `Zu viele Lücken (${(100 * e.luecken).toFixed(1)} %) — fehlen Kacheln? Lieber abbrechen als ein löchriges Gelände ausliefern.`);
+  } else {
+    hoehen = await holeHoehen(bbox, aufl);
+  }
   console.timeEnd('Höhen');
   writeFileSync(cacheH, JSON.stringify(hoehen));
 }
@@ -56,7 +72,10 @@ for (const z of spawns) console.log(`    ${z.kreatur.padEnd(14)} ${String(z.zell
 
 if (!existsSync('public/world')) mkdirSync('public/world', { recursive: true });
 const out = `public/world/${regionId}.json`;
-writeFileSync(out, JSON.stringify({ welt, spawns }));
+// Spawn-Zonen kommen NICHT mit in die Datei: Das Spiel rechnet sie beim Start aus
+// denselben Daten neu (`verteileKreaturen`). Mitzuliefern hieße, 847 KB Zellenlisten
+// auszuliefern, die im Browser sofort verworfen werden.
+writeFileSync(out, JSON.stringify({ welt: packeWelt(welt) }));
 const kb = readFileSync(out).length / 1024;
 console.log(`\n  ${out} — ${kb.toFixed(0)} KB`);
 console.log(`  ${welt.attribution}`);

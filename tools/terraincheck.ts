@@ -1,8 +1,9 @@
 /** Terrain aus den Weltdaten bauen und Kennzahlen prüfen (headless, ohne Renderer). */
+import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { baueTerrain, baueGewaesser, baueGebaeude, MASSSTAB } from '../src/world/terrain.js';
 
-const { welt } = JSON.parse(readFileSync('public/world/oental.json', 'utf8'));
+const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const t = baueTerrain(welt);
 const pos = t.geometrie.getAttribute('position');
 const bb = t.geometrie.boundingBox!;

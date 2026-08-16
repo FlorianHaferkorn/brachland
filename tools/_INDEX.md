@@ -22,6 +22,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | KI-Modell spieltauglich machen | `README.md` → `reduce.mjs` → `autorig.py` |
 | Ganze Ordner durch die Kette schicken | `batch.mjs`, `pipeline.sh` |
 | Prüfen, ob das Dreiecksbudget hält | `lodcheck.ts`, `scenecheck.ts` |
+| Gelände- oder Baumqualität beurteilen | `hoehenvergleich.ts`, `baumcheck.ts` |
 | Herausfinden, warum es ruckelt, obwohl die Geometrie passt | `lastcheck.ts` |
 | Prüfen, ob man beim Spielen überhaupt Kreaturen findet | `vorkommencheck.ts` |
 | Größenverhältnisse prüfen | `masstab.ts` |
@@ -30,7 +31,8 @@ owns: *.ts, *.mjs, *.py, *.sh
 
 | Datei | Zweck |
 |---|---|
-| `buildworld.ts` | `npm run world <region> <raster>` — OSM + EU-DEM abrufen, Welt und Spawns bauen, nach public/world schreiben (~2 min) |
+| `buildworld.ts` | `npm run world <region> <raster> [dgm1\|eudem]` — OSM und Höhen abrufen, Welt bauen, gepackt nach public/world schreiben |
+| `dgm1.ts` | Höhen aus dem 1-Meter-Geländemodell der Bayerischen Vermessungsverwaltung. Lädt Kilometerkacheln, interpoliert bilinear |
 | `reduce.mjs` | Flächenreduktion roher KI-Modelle auf die Zielzahl (gltf-transform + meshoptimizer) |
 | `batch.mjs` | Stapelverarbeitung ganzer Ordner durch die Reduktion |
 | `autorig.py` | Automatisches Rigging über Blender anhand der Archetyp-Rigs |
@@ -53,6 +55,8 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `terraincheck.ts` | `npm run terrain` — Terrain-Auflösung. Braucht einen Vorschau-Cache unter .cache/ |
 | `lastcheck.ts` | `npm run last` — Objekte im Szenengraph je Standort. Die Größe, die zählt, wenn kein Grafikschalter wirkt |
 | `vorkommencheck.ts` | `npm run vorkommen` — Kreaturen je Linie und je km², Weg bis zur nächsten Begegnung, Stufenverteilung |
+| `hoehenvergleich.ts` | `npm run hoehen` — Geländeauflösung im Vergleich: mittlere Stufe zwischen Nachbarpunkten je Raster |
+| `baumcheck.ts` | `npm run baum` — Dreiecke, Höhe und Bauzeit der prozeduralen Bäume |
 | `propcheck.ts` | `npm run props` — Dreiecke und Größe der Prop-Modelle |
 | `lodpreview.ts` | `npm run lodpreview` — Vorschau der LOD-Kachelung |
 

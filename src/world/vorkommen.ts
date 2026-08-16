@@ -25,14 +25,18 @@ export interface Vorkommen {
 }
 
 /**
- * Anteil der geeigneten Zellen, in denen tatsächlich eine Kreatur steht.
+ * Kreaturen je Quadratkilometer geeigneten Geländes.
  *
- * Eine Zelle ist im Œntal ~42 m breit. `haeufig` = jede zehnte Zelle heißt: im Wald
- * steht im Schnitt alle ~130 m eine Kreatur. Dichter wirkt wie ein Zoo, dünner
- * findet man beim Spielen nichts.
+ * Bewusst als **Flächendichte**, nicht als Anteil der Rasterzellen: Sonst hängt die
+ * Zahl der Kreaturen an der Auflösung des Weltrasters. Beim Wechsel von 96 auf 256
+ * Zellen wären aus 1.000 Kreaturen über Nacht 7.000 geworden — dieselbe Region,
+ * dieselbe Regel, siebenfacher Besatz.
+ *
+ * 55 je km² im Wald heißt: im Schnitt alle ~130 m eine. Dichter wirkt wie ein Zoo,
+ * dünner findet man beim Spielen nichts.
  */
-const ANTEIL: Record<string, number> = {
-  haeufig: 0.10, gelegentlich: 0.05, selten: 0.02, fest: 1,
+const JE_KM2: Record<string, number> = {
+  haeufig: 55, gelegentlich: 28, selten: 11, fest: 0,
 };
 
 /** Wahrscheinlichkeit für Stufe 2 bzw. 3, wenn die Linie sie hat — am Rand der Region. */
@@ -88,7 +92,10 @@ export function verteileKreaturen(
     const k = nachId.get(zone.kreatur);
     if (!k) continue;
     const maxStufe = k.stufen.length - 1;
-    const anteil = ANTEIL[zone.haeufigkeit] ?? 0.05;
+    const zellFlaecheKm2 = (zellBreite * zellTiefe) / 1e6;
+    const anteil = zone.haeufigkeit === 'fest'
+      ? 1
+      : Math.min(1, (JE_KM2[zone.haeufigkeit] ?? 28) * zellFlaecheKm2);
 
     for (const [i, j] of zone.zellen) {
       if (zufall() >= anteil) continue;

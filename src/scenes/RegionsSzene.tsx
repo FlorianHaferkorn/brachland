@@ -23,6 +23,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial } from '../world/bodenmaterial.js';
+import { baueBaum } from '../world/baum.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
@@ -210,8 +211,13 @@ function Props({ props }: { props: PropInstanz[] }) {
  */
 function useNormiertesPropMesh(art: PropArt, variante: number) {
   const pfad = propPfad(VARIANTEN[art][variante] ?? VARIANTEN[art][0]);
+  // Der Hook wird unbedingt aufgerufen, auch wenn das Ergebnis für Bäume verworfen
+  // wird: Hooks dürfen nicht bedingt laufen. Der Ladevorgang ist gecacht und kostet
+  // beim zweiten Mal nichts; die GLB verschwinden, sobald alle Arten prozedural sind.
   const { scene } = useGLTF(pfad);
+  const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   return useMemo(() => {
+    if (eigen) return { geo: baueBaum(eigen, variante), mat: null };
     let geo: THREE.BufferGeometry | null = null;
     let mat: THREE.Material | null = null;
     scene.traverse(o => {
@@ -231,7 +237,7 @@ function useNormiertesPropMesh(art: PropArt, variante: number) {
     g.translate(0, -bb.min.y, 0);
     g.scale(faktor, faktor, faktor);
     return { geo: g, mat: mat as THREE.Material | null };
-  }, [scene, art]);
+  }, [scene, art, eigen, variante]);
 }
 
 function PropChunkMesh({ chunk, fern }: { chunk: PropChunk; fern: boolean }) {
@@ -404,6 +410,53 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
               castShadow receiveShadow />
       ))}
     </>
+  );
+}
+
+/**
+ * Der Regent an seinem festen Ort.
+ *
+ * Bewusst anders gebaut als eine Begegnung mit einem Wildling. Ein Regent ist kein
+ * Zufall, dem man in den Weg läuft — er ist ein Ort, den man findet. Deshalb:
+ * immer sichtbar (kein Entfernungs-Culling, es ist genau **ein** Objekt), doppelt so
+ * groß wie jede Kreatur, und der Kampf beginnt nicht von selbst. Ein Bosskampf, der
+ * einen im Vorbeigehen erwischt, ist ein Unfall, kein Höhepunkt.
+ */
+const REGENT_HOEHE = 4.2;
+/** Ab hier wird gefragt, ob man ihn stellen will. */
+export const REGENT_AB = 18;
+
+function Regentenort({ ort, gestalt, ziel, onNah }: {
+  ort: [number, number, number];
+  gestalt: THREE.BufferGeometry;
+  ziel: React.RefObject<THREE.Object3D | null>;
+  onNah?: (nah: boolean) => void;
+}) {
+  const material = useMemo(() => new THREE.MeshStandardMaterial({
+    vertexColors: true, flatShading: true, roughness: 0.75, metalness: 0.1,
+    emissive: new THREE.Color('#1d3a34'), emissiveIntensity: 0.45,
+  }), []);
+  const gruppe = useRef<THREE.Group>(null);
+  const war = useRef(false);
+  const uhr = useRef(0);
+
+  useFrame((_, dt) => {
+    uhr.current += dt;
+    // Schweres, langsames Heben — ein Wels im Stauwasser, kein Tier an Land.
+    if (gruppe.current) {
+      gruppe.current.position.y = ort[1] + Math.sin(uhr.current * 0.5) * 0.22;
+      gruppe.current.rotation.y = Math.sin(uhr.current * 0.22) * 0.28;
+    }
+    const p = ziel.current?.position;
+    if (!p || !onNah) return;
+    const nah = Math.hypot(ort[0] - p.x, ort[2] - p.z) <= REGENT_AB;
+    if (nah !== war.current) { war.current = nah; onNah(nah); }
+  });
+
+  return (
+    <group ref={gruppe} position={ort}>
+      <mesh geometry={gestalt} material={material} scale={REGENT_HOEHE} castShadow receiveShadow />
+    </group>
   );
 }
 
@@ -802,6 +855,10 @@ export interface RegionsSzeneProps {
   onBegegnung?: (v: Vorkommen) => void;
   /** Wird jedes Bild mit der nächsten Kreatur beschrieben — Grundlage der Anzeige. */
   naehe?: React.RefObject<Naehe>;
+  /** Ort des Regenten in Weltkoordinaten (x, z) plus seine Silhouette. */
+  regent?: { ort: [number, number]; gestalt: THREE.BufferGeometry };
+  /** Wird gerufen, wenn der Spieler den Regentenort betritt oder verlässt. */
+  onRegentNah?: (nah: boolean) => void;
   /** Startposition; ohne Angabe die Regionsmitte. Der Spielstand setzt sie. */
   startPosition?: [number, number];
   /**
@@ -817,7 +874,7 @@ export interface RegionsSzeneProps {
 export function RegionsSzene({
   welt, stimmung = 'daemmerung', spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
-  startPosition, angehalten = false,
+  regent, onRegentNah, startPosition, angehalten = false,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
@@ -863,6 +920,13 @@ export function RegionsSzene({
     [welt, kreaturen, feld],
   );
 
+  const regentOrt = useMemo<[number, number, number] | null>(
+    () => (regent
+      ? [regent.ort[0], hoeheAufFlaeche(feld, regent.ort[0], regent.ort[1]) + 1.1, regent.ort[1]]
+      : null),
+    [regent, feld],
+  );
+
   const start = useMemo<[number, number, number]>(() => {
     const [x, z] = startPosition ?? [0, 0];
     return [x, hoeheAufFlaeche(feld, x, z), z];
@@ -883,6 +947,9 @@ export function RegionsSzene({
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} />
+      {regent && regentOrt && (
+        <Regentenort ort={regentOrt} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />
+      )}
       {vorkommen.length > 0 && gestalt && (
         <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref} gier={gier}
                    naehe={naehe} onBegegnung={onBegegnung} verbraucht={verbraucht} />

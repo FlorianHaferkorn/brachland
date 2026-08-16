@@ -1,9 +1,10 @@
 /** LOD-Budget prüfen: wie viele Dreiecke sieht die Kamera an typischen Standorten? */
+import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync } from 'node:fs';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, dreieckeJeKachel,
          baueKachelGeometrie, LOD_STUFEN, KACHEL } from '../src/world/lod.js';
 
-const { welt } = JSON.parse(readFileSync('public/world/oental.json', 'utf8'));
+const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const feld = baueHoehenfeld(welt);
 const kacheln = baueKachelraster(feld);
 

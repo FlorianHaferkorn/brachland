@@ -73,6 +73,27 @@ export function baueKaempfer(
   });
 }
 
+/**
+ * Ort des Regenten in Weltkoordinaten (Meter, x/z), abgeleitet aus lat/lon.
+ *
+ * Dieselbe Umrechnung wie in `baueTerrain` — sie steht hier noch einmal, weil die
+ * Alternative wäre, `data/` von `world/` abhängig zu machen. Inhalte sollen die
+ * Geometrie nicht kennen.
+ */
+export function regentOrt(
+  id: string, bbox: [number, number, number, number],
+  breiteMeter: number, tiefeMeter: number,
+): [number, number] | null {
+  const r = REGENTEN.get(id);
+  if (!r) return null;
+  const [sued, west, nord, ost] = bbox;
+  const [lat, lon] = r.ort;
+  return [
+    ((lon - west) / (ost - west) - 0.5) * breiteMeter,
+    ((nord - lat) / (nord - sued) - 0.5) * tiefeMeter,
+  ];
+}
+
 /** Regent als Kämpfer — mit Phasen, damit die Engine das Element wechseln kann. */
 export function baueRegent(id: string): Kaempfer {
   const r = REGENTEN.get(id);

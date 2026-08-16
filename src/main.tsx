@@ -1,14 +1,14 @@
 import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as THREE from 'three';
-import type { Weltdaten } from './world/osm.js';
+import { entpackeWelt, type Weltdaten } from './world/osm.js';
 import { RegionsSzene, STIMMUNG, QUALITAET_STANDARD,
          type StimmungsName, type Messwerte, type Qualitaet,
          type Naehe } from './scenes/RegionsSzene.js';
 import { Witterung } from './ui/Witterung.js';
 import type { Vorkommen } from './world/vorkommen.js';
+import { KREATUREN, REGENTEN, WILDLINGE, baueKaempfer, baueRegent, regentOrt } from './data/inhalte.js';
 import { baueKreaturGeometrie } from './world/kreaturgestalt.js';
-import { KREATUREN, WILDLINGE, baueKaempfer } from './data/inhalte.js';
 import { Kampfbildschirm, type KampfEnde } from './ui/BattleScreen.js';
 import type { KaempferBild } from './ui/Kampfbuehne.js';
 import type { Kaempfer, Team } from './engine/battle.js';
@@ -26,6 +26,8 @@ import { benutzeBildrate } from './spiel/bildrate.js';
  */
 const START_KREATUR = 'grathorn';
 const TEAM_MAX = 6;
+/** Regent der ersten Region. Später kommt der aus den Regionsdaten. */
+const REGENT_ID = 'flussvater';
 
 function App() {
   const [welt, setWelt] = useState<Weltdaten | null>(null);
@@ -41,6 +43,8 @@ function App() {
   const [stand, setStand] = useState<Spielstand | null>(null);
   const [team, setTeam] = useState<Kaempfer[]>([]);
   const [begegnung, setBegegnung] = useState<{ v: Vorkommen; gegner: Kaempfer } | null>(null);
+  const [regentKampf, setRegentKampf] = useState<Kaempfer | null>(null);
+  const [regentNah, setRegentNah] = useState(false);
   const [hinweis, setHinweis] = useState<string | null>(null);
   const spielerRef = useRef<THREE.Object3D>(null);
   const naehe = useRef<Naehe>({ abstand: Infinity, winkel: 0, kreatur: '' });
@@ -48,7 +52,7 @@ function App() {
   useEffect(() => {
     fetch('/world/oental.json')
       .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-      .then(d => setWelt(d.welt))
+      .then(d => setWelt(entpackeWelt(d.welt)))
       .catch(e => setFehler(String(e)));
   }, []);
 
@@ -90,8 +94,30 @@ function App() {
     const id = kaempferId.replace(/-s\d+$/, '');
     const stufe = Number(kaempferId.match(/-s(\d+)$/)?.[1] ?? 1) - 1;
     const k = KREATUREN.get(id);
-    return k ? { basisRig: k.basisRig, elemente: [...k.elemente], stufe } : null;
+    if (k) return { basisRig: k.basisRig, elemente: [...k.elemente], stufe };
+    const r = REGENTEN.get(id);
+    // Der Regent trägt seine Phasenelemente — im Kampfbild wechselt damit die Farbe,
+    // wenn er die Phase wechselt. Das ist die einzige Warnung, die der Spieler bekommt.
+    return r ? { basisRig: 'serpent', elemente: [...r.phasen[0].elemente], stufe: 2 } : null;
   }, []);
+
+  /**
+   * Der Regent steht an einem festen Ort. Umrechnung von lat/lon in Meter braucht
+   * die Ausdehnung der Region — die kommt aus derselben Formel wie das Terrain.
+   */
+  const regent = useMemo(() => {
+    if (!welt) return undefined;
+    const [sued, west, nord, ost] = welt.bbox;
+    const METER_JE_GRAD = 111_320;
+    const mittelLat = (sued + nord) / 2;
+    const breite = (ost - west) * METER_JE_GRAD * Math.cos(mittelLat * Math.PI / 180);
+    const tiefe = (nord - sued) * METER_JE_GRAD;
+    const ort = regentOrt(REGENT_ID, welt.bbox, breite, tiefe);
+    const r = REGENTEN.get(REGENT_ID);
+    if (!ort || !r) return undefined;
+    // Der Flussvater ist ein Riesenwels — die Schlangenform kommt dem am nächsten.
+    return { ort, gestalt: baueKreaturGeometrie('serpent', r.phasen[0].elemente) };
+  }, [welt]);
 
   const verbraucht = useMemo(
     () => new Set([...(stand?.gefangen ?? []), ...(stand?.besiegt ?? [])]),
@@ -158,10 +184,28 @@ function App() {
     sichere({ gesehen: [...new Set([...stand.gesehen, v.kreatur])] }, team);
   }, [begegnung, stand, team, sichere]);
 
+  const beendeRegent = useCallback((ende: KampfEnde) => {
+    setRegentKampf(null);
+    if (!stand) return;
+    if (ende === 'sieg') {
+      setHinweis('Der Flussvater ist besiegt. Das Stauwasser sinkt.');
+      sichere({ besiegt: [...stand.besiegt, `regent:${REGENT_ID}`] }, team);
+      return;
+    }
+    if (ende === 'niederlage') {
+      const geheilt = team.map(k => { k.kp = k.maxKp; return k; });
+      setTeam([...geheilt]);
+      setHinweis('Zu früh. Ihr habt euch aus dem Stauwasser zurückgezogen.');
+      sichere({}, geheilt);
+      return;
+    }
+    sichere({}, team);
+  }, [stand, team, sichere]);
+
   if (fehler) return <Hinweis text={`Weltdaten fehlen: ${fehler} — erst "npm run world oental 96" ausführen.`} />;
   if (!welt || !stand) return <Hinweis text="Œntal wird geladen …" />;
 
-  const imKampf = begegnung !== null;
+  const imKampf = begegnung !== null || regentKampf !== null;
   const kampfTeam: Team = { kaempfer: team, aktiv: Math.max(0, team.findIndex(k => k.kp > 0)) };
 
   return (
@@ -175,6 +219,8 @@ function App() {
         verbraucht={verbraucht}
         onBegegnung={beginneKampf}
         naehe={naehe}
+        regent={regent}
+        onRegentNah={setRegentNah}
         startPosition={stand.position}
         angehalten={imKampf}
       />
@@ -196,15 +242,15 @@ function App() {
         </div>
       )}
 
-      {imKampf && begegnung && (
+      {imKampf && (begegnung || regentKampf) && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 40, overflow: 'auto' }}>
           <Kampfbildschirm
             team={kampfTeam}
-            gegner={begegnung.gegner}
-            fangbar={KREATUREN.get(begegnung.v.kreatur)?.fangbar ?? false}
+            gegner={regentKampf ?? begegnung!.gegner}
+            fangbar={!regentKampf && (KREATUREN.get(begegnung!.v.kreatur)?.fangbar ?? false)}
             bild={bild}
-            seed={begegnung.v.id.length * 7919 + begegnung.v.stufe}
-            onEnde={beendeKampf}
+            seed={regentKampf ? 33 : begegnung!.v.id.length * 7919 + begegnung!.v.stufe}
+            onEnde={regentKampf ? beendeRegent : beendeKampf}
           />
         </div>
       )}
@@ -225,6 +271,29 @@ function App() {
           </div>
 
           <Witterung naehe={naehe} />
+
+          {/* Der Bosskampf startet nicht von selbst. Wer im Vorbeigehen in einen
+              Regenten läuft, erlebt keinen Höhepunkt, sondern einen Unfall. */}
+          {regentNah && !stand.besiegt.includes(`regent:${REGENT_ID}`) && (
+            <div style={{
+              position: 'fixed', left: '50%', transform: 'translateX(-50%)',
+              bottom: 'calc(env(safe-area-inset-bottom, 8px) + 76px)', zIndex: 20,
+              background: '#131c19ee', border: '1px solid #2a3632', borderRadius: 10,
+              padding: '10px 14px', display: 'flex', flexDirection: 'column',
+              alignItems: 'center', gap: 8, maxWidth: '86vw',
+            }}>
+              <div style={{ color: '#c4553f', fontSize: 13, fontWeight: 600 }}>
+                {REGENTEN.get(REGENT_ID)?.name}
+              </div>
+              <div style={{ color: '#7d8b85', fontSize: 11, textAlign: 'center' }}>
+                Das Wasser steht. Er wartet nicht, aber er kommt auch nicht.
+              </div>
+              <button onClick={() => setRegentKampf(baueRegent(REGENT_ID))} style={{
+                minHeight: 40, padding: '0 20px', borderRadius: 9, fontSize: 13,
+                background: 'transparent', border: '1px solid #c4553f', color: '#c4553f',
+              }}>Stellen</button>
+            </div>
+          )}
 
           {/* Team — ohne diese Anzeige weiß niemand, womit er in den nächsten Kampf geht. */}
           <div style={{

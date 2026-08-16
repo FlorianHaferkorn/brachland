@@ -1,10 +1,11 @@
 /** Nahansicht mit LOD-Kacheln exportieren — zum Vergleich mit dem alten Raster. */
+import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie } from '../src/world/lod.js';
 import { verteileProps } from '../src/world/props.js';
 import { baueTerrain, baueWege, baueGewaesser, baueGebaeude } from '../src/world/terrain.js';
 
-const { welt } = JSON.parse(readFileSync('public/world/oental.json', 'utf8'));
+const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const mikro = Number(process.argv[2] ?? 1.1);
 const feld = baueHoehenfeld(welt, mikro);
 const kacheln = baueKachelraster(feld);

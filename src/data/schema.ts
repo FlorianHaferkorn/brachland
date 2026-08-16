@@ -160,6 +160,13 @@ export const Regent = z.object({
   moves: z.array(z.string()).min(4).max(6),
   /** Reinkultur-Komponenten, die zur Heilung gebraucht werden. */
   reinkulturen: z.array(z.string()).length(3),
+  /**
+   * Fester Ort in der Welt (lat, lon).
+   *
+   * Regenten wandern nicht. Sie sind der Grund, warum eine Region eine Region ist —
+   * und man soll sie suchen können, statt ihnen zufällig zu begegnen.
+   */
+  ort: z.tuple([z.number(), z.number()]),
 })
 .refine(r => r.phasen.slice(0, -1).every(p => p.elemente.length === 1),
   { message: 'Zweites Element nur in der Schlussphase erlaubt' });

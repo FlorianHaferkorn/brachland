@@ -7,12 +7,13 @@
  *
  * `npm run vorkommen`
  */
+import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { baueTerrain } from '../src/world/terrain.js';
 import { verteileKreaturen, type KreaturSpawn } from '../src/world/vorkommen.js';
 
-const { welt } = JSON.parse(readFileSync('public/world/oental.json', 'utf8'));
+const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const t = baueTerrain(welt);
 
 const kreaturen: KreaturSpawn[] = readdirSync('content/creatures')
