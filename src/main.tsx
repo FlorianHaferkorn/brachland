@@ -3,7 +3,9 @@ import { createRoot } from 'react-dom/client';
 import * as THREE from 'three';
 import type { Weltdaten } from './world/osm.js';
 import { RegionsSzene, STIMMUNG, QUALITAET_STANDARD,
-         type StimmungsName, type Messwerte, type Qualitaet } from './scenes/RegionsSzene.js';
+         type StimmungsName, type Messwerte, type Qualitaet,
+         type Naehe } from './scenes/RegionsSzene.js';
+import { Witterung } from './ui/Witterung.js';
 import type { Vorkommen } from './world/vorkommen.js';
 import { baueKreaturGeometrie } from './world/kreaturgestalt.js';
 import { KREATUREN, WILDLINGE, baueKaempfer } from './data/inhalte.js';
@@ -41,6 +43,7 @@ function App() {
   const [begegnung, setBegegnung] = useState<{ v: Vorkommen; gegner: Kaempfer } | null>(null);
   const [hinweis, setHinweis] = useState<string | null>(null);
   const spielerRef = useRef<THREE.Object3D>(null);
+  const naehe = useRef<Naehe>({ abstand: Infinity, winkel: 0, kreatur: '' });
 
   useEffect(() => {
     fetch('/world/oental.json')
@@ -171,6 +174,7 @@ function App() {
         gestalt={gestalt}
         verbraucht={verbraucht}
         onBegegnung={beginneKampf}
+        naehe={naehe}
         startPosition={stand.position}
         angehalten={imKampf}
       />
@@ -219,6 +223,8 @@ function App() {
               }}>{s}</button>
             ))}
           </div>
+
+          <Witterung naehe={naehe} />
 
           {/* Team — ohne diese Anzeige weiß niemand, womit er in den nächsten Kampf geht. */}
           <div style={{
@@ -288,7 +294,7 @@ function App() {
             textAlign: 'center', pointerEvents: 'none', zIndex: 10,
             color: '#5c6b64', fontSize: 11, letterSpacing: 0.2,
           }}>
-            links wischen = gehen · rechts wischen = umsehen und neigen · Kreaturen ansteuern = Kampf
+            links wischen = gehen · rechts wischen = umsehen und neigen · dem Pfeil folgen
           </div>
         </>
       )}

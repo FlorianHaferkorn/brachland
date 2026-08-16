@@ -18,6 +18,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung } from '../spieler/steuerung.js';
+import { peilung } from '../spieler/peilung.js';
 import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
@@ -296,13 +297,33 @@ const KREATUR_NEUBEWERTUNG = 12;
 /** Ab diesem Abstand beginnt der Kampf. Etwa zwei Schritte — nah genug, dass es
  *  gewollt wirkt, weit genug, dass man nicht in der Kreatur steht. */
 export const BEGEGNUNG_AB = 4.5;
+
+/**
+ * Was die Witterungsanzeige braucht.
+ *
+ * Der Anlass ist eine Messung, kein Gefühl: Im Schnitt stehen 3,7 Kreaturen in
+ * Sichtweite und die nächste ist 62 m weg. Eine 0,9 m hohe Silhouette ist auf 62 m
+ * bei 55° Sichtfeld aber nur **zwölf Pixel** hoch — im Dämmerlicht und im Nebel
+ * findet die niemand durch Hinsehen. Das Problem ist nicht die Dichte, sondern die
+ * Auflösung des menschlichen Auges gegen einen 4 km breiten Hang.
+ */
+export interface Naehe {
+  /** Meter zur nächsten Kreatur, Infinity wenn keine in Reichweite. */
+  abstand: number;
+  /** Richtung relativ zum Blick in Radiant. 0 = geradeaus, positiv = rechts. */
+  winkel: number;
+  kreatur: string;
+}
 /** So weit muss man sich nach einer Begegnung entfernen, bevor die nächste zählt. */
 const SPERRE_BIS = 14;
 
-function Kreaturen({ vorkommen, gestalt, ziel, onBegegnung, verbraucht }: {
+function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbraucht }: {
   vorkommen: Vorkommen[];
   gestalt: (kreatur: string) => THREE.BufferGeometry;
   ziel: React.RefObject<THREE.Object3D | null>;
+  gier: React.RefObject<number>;
+  /** Wird jedes Bild beschrieben: nächste Kreatur, Abstand und Richtung relativ zum Blick. */
+  naehe?: React.RefObject<Naehe>;
   onBegegnung?: (v: Vorkommen) => void;
   /** Bereits gefangen oder besiegt — steht nicht mehr in der Welt. */
   verbraucht?: ReadonlySet<string>;
@@ -316,6 +337,7 @@ function Kreaturen({ vorkommen, gestalt, ziel, onBegegnung, verbraucht }: {
   // Sperre nach einer Begegnung: Nach einem Rückzug steht der Spieler noch neben der
   // Kreatur. Ohne Abstandssperre startet der Kampf im nächsten Bild erneut.
   const sperre = useRef<THREE.Vector3 | null>(null);
+  const naechste = useRef<{ x: number; z: number; kreatur: string } | null>(null);
 
   const material = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 0.9, metalness: 0,
@@ -332,6 +354,31 @@ function Kreaturen({ vorkommen, gestalt, ziel, onBegegnung, verbraucht }: {
       letzte.current.copy(p);
       setNah(uebrig.filter(v =>
         Math.hypot(v.position[0] - p.x, v.position[2] - p.z) <= KREATUR_SICHT));
+
+      // Nächste Kreatur über die GANZE Liste, nicht nur über die sichtbaren: Die
+      // Witterung soll auch dorthin zeigen, wo noch nichts gezeichnet wird — sonst
+      // hilft sie genau dann nicht, wenn man sie braucht. 1.000 Abstände alle 12 m
+      // sind billiger als 40 Abstände je Bild.
+      let beste = Infinity, bx = 0, bz = 0, art = '';
+      for (const v of uebrig) {
+        const d = Math.hypot(v.position[0] - p.x, v.position[2] - p.z);
+        if (d >= beste) continue;
+        beste = d; bx = v.position[0]; bz = v.position[2]; art = v.kreatur;
+      }
+      naechste.current = beste < Infinity ? { x: bx, z: bz, kreatur: art } : null;
+    }
+
+    // Abstand und Richtung dagegen jedes Bild: Der Pfeil muss sich beim Drehen
+    // mitdrehen, sonst zeigt er nach dem ersten Blickwechsel ins Leere.
+    if (naehe?.current) {
+      const n = naehe.current;
+      const z = naechste.current;
+      if (!z) { n.abstand = Infinity; n.winkel = 0; n.kreatur = ''; }
+      else {
+        n.abstand = Math.hypot(z.x - p.x, z.z - p.z);
+        n.kreatur = z.kreatur;
+        n.winkel = peilung(p.x, p.z, z.x, z.z, gier.current);
+      }
     }
 
     if (!onBegegnung) return;
@@ -753,6 +800,8 @@ export interface RegionsSzeneProps {
   /** Bereits gefangene oder besiegte Vorkommen. */
   verbraucht?: ReadonlySet<string>;
   onBegegnung?: (v: Vorkommen) => void;
+  /** Wird jedes Bild mit der nächsten Kreatur beschrieben — Grundlage der Anzeige. */
+  naehe?: React.RefObject<Naehe>;
   /** Startposition; ohne Angabe die Regionsmitte. Der Spielstand setzt sie. */
   startPosition?: [number, number];
   /**
@@ -767,8 +816,8 @@ export interface RegionsSzeneProps {
 
 export function RegionsSzene({
   welt, stimmung = 'daemmerung', spielerRef, onMessung,
-  qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, startPosition,
-  angehalten = false,
+  qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
+  startPosition, angehalten = false,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
@@ -835,8 +884,8 @@ export function RegionsSzene({
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} />
       {vorkommen.length > 0 && gestalt && (
-        <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref}
-                   onBegegnung={onBegegnung} verbraucht={verbraucht} />
+        <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref} gier={gier}
+                   naehe={naehe} onBegegnung={onBegegnung} verbraucht={verbraucht} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} />
       <Messung melde={onMessung} />

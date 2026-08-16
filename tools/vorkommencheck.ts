@@ -47,6 +47,35 @@ for (const [x, z] of [[0, 0], [300, -300], [-350, 350], [450, 100]] as [number, 
   console.log(`  (${String(x).padStart(4)},${String(z).padStart(5)})  ${besteD.toFixed(0).padStart(4)} m entfernt: ${bester.kreatur} S${bester.stufe + 1} bei ${bester.position[0].toFixed(1)} / ${bester.position[2].toFixed(1)}`);
 }
 
+// Die Zahl, die beim Spielen zaehlt: Wie viele stehen ueberhaupt in Sichtweite,
+// und wie weit muss man laufen, bis die naechste auftaucht?
+const SICHT = 140;
+console.log(`\nIn Sichtweite (${SICHT} m) — 400 Stichproben ueber die Region:`);
+let summe = 0, leer = 0, maxD = 0, summeD = 0;
+const zufall = (() => { let a = 4711; return () => {
+  a |= 0; a = (a + 0x6D2B79F5) | 0;
+  let t = Math.imul(a ^ (a >>> 15), 1 | a);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}; })();
+for (let n = 0; n < 400; n++) {
+  const px = (zufall() - 0.5) * t.breiteMeter * 0.9;
+  const pz = (zufall() - 0.5) * t.tiefeMeter * 0.9;
+  let inSicht = 0, naechste = Infinity;
+  for (const k of v) {
+    const d = Math.hypot(k.position[0] - px, k.position[2] - pz);
+    if (d <= SICHT) inSicht++;
+    if (d < naechste) naechste = d;
+  }
+  summe += inSicht;
+  if (inSicht === 0) leer++;
+  summeD += naechste;
+  maxD = Math.max(maxD, naechste);
+}
+console.log(`  im Schnitt      ${(summe / 400).toFixed(1)} Kreaturen sichtbar`);
+console.log(`  gar keine       ${(100 * leer / 400).toFixed(0)} % der Standorte`);
+console.log(`  naechste im Schnitt ${(summeD / 400).toFixed(0)} m, schlimmster Fall ${maxD.toFixed(0)} m`);
+
 const stufen = [0, 0, 0];
 for (const k of v) stufen[k.stufe]++;
 console.log(`\nStufen: S1 ${stufen[0]} · S2 ${stufen[1]} · S3 ${stufen[2]}`);
