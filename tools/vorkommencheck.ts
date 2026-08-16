@@ -77,6 +77,15 @@ console.log(`  im Schnitt      ${(summe / 400).toFixed(1)} Kreaturen sichtbar`);
 console.log(`  gar keine       ${(100 * leer / 400).toFixed(0)} % der Standorte`);
 console.log(`  naechste im Schnitt ${(summeD / 400).toFixed(0)} m, schlimmster Fall ${maxD.toFixed(0)} m`);
 
-const stufen = [0, 0, 0];
-for (const k of v) stufen[k.stufe]++;
-console.log(`\nStufen: S1 ${stufen[0]} · S2 ${stufen[1]} · S3 ${stufen[2]}`);
+// Stufenverteilung: Die Erfahrungsstufe folgt der Entfernung, die Mutation der Stufe.
+const eimer = [0, 0, 0, 0];
+let minS = 99, maxS = 0;
+for (const k of v) {
+  minS = Math.min(minS, k.stufe); maxS = Math.max(maxS, k.stufe);
+  eimer[Math.min(3, Math.floor(k.stufe / 10))]++;
+}
+console.log(`\nErfahrungsstufen ${minS}-${maxS}:`);
+console.log(`  1-9   ${String(eimer[0]).padStart(4)}`);
+console.log(`  10-19 ${String(eimer[1]).padStart(4)}`);
+console.log(`  20-29 ${String(eimer[2]).padStart(4)}`);
+console.log(`  30+   ${String(eimer[3]).padStart(4)}`);

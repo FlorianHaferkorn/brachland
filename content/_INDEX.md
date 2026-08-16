@@ -17,6 +17,7 @@ owns: *.json
 | Eine Kreatur anlegen | `../docs/design/BRACHLAND_Roster_Kapitel1.md` → `creatures/grathorn.json` als Muster |
 | Einen Regenten anlegen | `../docs/design/BRACHLAND_Kampfsystem_v2.md` (Phasen) → `regenten/flussvater.json` |
 | Einen Move anlegen | `../docs/design/BRACHLAND_Move-System_v1.md` → `moves/_INDEX.md` |
+| Einen Gegenstand anlegen | `gegenstaende/kraeutersud.json` als Muster → `../src/data/schema.ts` (`GegenstandWirkung`) |
 | Eine Region anlegen | `regions/oental.json` als Muster |
 | Verstehen, was geprüft wird | `../src/data/schema.ts`, `../tools/quality.ts` |
 
@@ -38,6 +39,7 @@ owns: *.json
 | `creatures/moderotter.json` | Moderotter (Kreuzotter, Fäulnis, Fäulnisdrüse). 2 Stufen, `waterway=ditch` — kommt im aktuellen Raster **nicht** vor, Ledger G-22 |
 | `creatures/firnhase.json` | Firnhase (Schneehase, Frost, Frostkristall-Fell). 2 Stufen, `natural=scree` ab 1000 m. Einziger Frost-Konter gegen Flussvater-Phase 2 |
 | `moves/` | 41 Moves mit eigenem Index — Aufbau, Bänder und Zuordnung zu den Linien stehen in `moves/_INDEX.md` |
+| `gegenstaende/` | 8 Gegenstände mit eigenem Index — Heilung, Wiederbelebung, Reinigung, Fanghilfen, Fokus. Siehe `gegenstaende/_INDEX.md` |
 
 ## Stand Œntal
 

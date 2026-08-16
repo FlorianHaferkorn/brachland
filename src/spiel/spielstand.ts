@@ -16,7 +16,15 @@ export const SPIELSTAND_VERSION = 1;
 
 export interface TeamEintrag {
   kreatur: string;
+  /**
+   * Stufe im Sinne von **Erfahrungsstufe** (1…40), nicht Mutationsstufe.
+   *
+   * Die Mutation folgt daraus (`mutationBei`) und wird nicht gespeichert: Sie ist
+   * ableitbar, und was ableitbar ist, gehört nicht in einen Spielstand — sonst
+   * driften die beiden auseinander, sobald sich eine Schwelle ändert.
+   */
   stufe: number;
+  erfahrung: number;
   /** Rest-KP. Wird beim Laden übernommen, damit ein Rückzug etwas kostet. */
   kp: number;
 }
@@ -30,6 +38,8 @@ export interface Spielstand {
   besiegt: string[];
   position: [number, number];
   gesehen: string[];
+  /** Gegenstände im Beutel: ID zu Anzahl. Nicht vorhandene ID heißt null Stück. */
+  beutel: Record<string, number>;
 }
 
 export const LEERER_STAND: Spielstand = {
@@ -39,6 +49,9 @@ export const LEERER_STAND: Spielstand = {
   besiegt: [],
   position: [0, 0],
   gesehen: [],
+  // Zwei Sude und ein Köder zum Anfangen. Ohne Startausstattung ist der erste
+  // verlorene Kampf eine Sackgasse, und der erste Fang reiner Zufall.
+  beutel: { kraeutersud: 2, koeder: 1 },
 };
 
 const DB = 'brachland';
@@ -57,7 +70,9 @@ export async function ladeStand(): Promise<Spielstand | null> {
   try {
     const roh = await (await hole()).get(LADEN, SCHLUESSEL);
     if (!roh || roh.version !== SPIELSTAND_VERSION) return null;
-    return roh as Spielstand;
+    // Fehlende Felder aus älteren Ständen ergänzen, statt den Stand zu verwerfen.
+    // Ein verlorener Spielstand ist schlimmer als ein leerer Beutel.
+    return { ...LEERER_STAND, ...roh, beutel: roh.beutel ?? {} } as Spielstand;
   } catch {
     // Privater Modus oder gesperrte Datenbank: lieber ohne Spielstand spielen als
     // gar nicht starten.

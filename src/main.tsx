@@ -6,7 +6,10 @@ import { RegionsSzene, TAGESZEITEN, QUALITAET_STANDARD,
          type Messwerte, type Qualitaet, type Naehe } from './scenes/RegionsSzene.js';
 import { Witterung } from './ui/Witterung.js';
 import type { Vorkommen } from './world/vorkommen.js';
-import { KREATUREN, REGENTEN, WILDLINGE, baueKaempfer, baueRegent, regentOrt } from './data/inhalte.js';
+import { KREATUREN, REGENTEN, GEGENSTAENDE, WILDLINGE,
+         baueKaempfer, baueRegent, regentOrt, ausKaempferId } from './data/inhalte.js';
+import { erfahrungAusSieg, gutschrift, mutationBei } from './spiel/fortschritt.js';
+import { beute } from './spiel/gegenstaende.js';
 import { baueKreaturGeometrie } from './world/kreaturgestalt.js';
 import { Kampfbildschirm, type KampfEnde } from './ui/BattleScreen.js';
 import type { KaempferBild } from './ui/Kampfbuehne.js';
@@ -28,6 +31,12 @@ const TEAM_MAX = 6;
 /** Regent der ersten Region. Später kommt der aus den Regionsdaten. */
 const REGENT_ID = 'flussvater';
 
+/** Mutation eines wilden Vorkommens — folgt aus seiner Stufe und der Länge der Linie. */
+function mutationVon(v: Vorkommen): number {
+  const k = KREATUREN.get(v.kreatur);
+  return k ? mutationBei(v.stufe, k.stufen.length) : 0;
+}
+
 function App() {
   const [welt, setWelt] = useState<Weltdaten | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
@@ -47,6 +56,8 @@ function App() {
   const [hinweis, setHinweis] = useState<string | null>(null);
   const spielerRef = useRef<THREE.Object3D>(null);
   const naehe = useRef<Naehe>({ abstand: Infinity, winkel: 0, kreatur: '' });
+  /** Erfahrung je Teamplatz. Parallel zum Team, weil `Kaempfer` sie nicht kennt. */
+  const erfahrungRef = useRef<number[]>([]);
 
   useEffect(() => {
     fetch('/world/oental.json')
@@ -60,8 +71,12 @@ function App() {
     let abgebrochen = false;
     ladeStand().then(geladen => {
       if (abgebrochen) return;
-      const s = geladen ?? { ...LEERER_STAND, team: [{ kreatur: START_KREATUR, stufe: 0, kp: 0 }] };
+      const s = geladen ?? {
+        ...LEERER_STAND,
+        team: [{ kreatur: START_KREATUR, stufe: 3, erfahrung: 0, kp: 0 }],
+      };
       setStand(s);
+      erfahrungRef.current = s.team.map(e => e.erfahrung ?? 0);
       setTeam(s.team.map(e => {
         const k = baueKaempfer(e.kreatur, e.stufe);
         if (e.kp > 0) k.kp = Math.min(e.kp, k.maxKp);
@@ -90,11 +105,10 @@ function App() {
    * Bauform noch Element-Optik und soll es auch nicht.
    */
   const bild = useCallback((kaempferId: string): KaempferBild | null => {
-    const id = kaempferId.replace(/-s\d+$/, '');
-    const stufe = Number(kaempferId.match(/-s(\d+)$/)?.[1] ?? 1) - 1;
-    const k = KREATUREN.get(id);
-    if (k) return { basisRig: k.basisRig, elemente: [...k.elemente], stufe };
-    const r = REGENTEN.get(id);
+    const a = ausKaempferId(kaempferId);
+    const k = KREATUREN.get(a.kreatur);
+    if (k) return { basisRig: k.basisRig, elemente: [...k.elemente], stufe: a.mutation };
+    const r = REGENTEN.get(a.kreatur);
     // Der Regent trägt seine Phasenelemente — im Kampfbild wechselt damit die Farbe,
     // wenn er die Phase wechselt. Das ist die einzige Warnung, die der Spieler bekommt.
     return r ? { basisRig: 'serpent', elemente: [...r.phasen[0].elemente], stufe: 2 } : null;
@@ -131,12 +145,28 @@ function App() {
         ...alt,
         ...aenderung,
         position: p ? [p.x, p.z] : alt.position,
-        team: teamJetzt.map<TeamEintrag>(k => ({
-          kreatur: k.id.replace(/-s\d+$/, ''),
-          stufe: Number(k.id.match(/-s(\d+)$/)?.[1] ?? 1) - 1,
-          kp: Math.max(0, k.kp),
-        })),
+        team: teamJetzt.map<TeamEintrag>((k, i) => {
+          const a = ausKaempferId(k.id);
+          return {
+            kreatur: a.kreatur,
+            stufe: a.stufe,
+            // Erfahrung liegt neben dem Kämpfer, nicht in ihm: Die Engine kennt
+            // keinen Fortschritt und soll ihn auch nicht kennen.
+            erfahrung: erfahrungRef.current[i] ?? 0,
+            kp: Math.max(0, k.kp),
+          };
+        }),
       };
+      void speichereStand(neu);
+      return neu;
+    });
+  }, []);
+
+  const verbrauche = useCallback((id: string) => {
+    setStand(alt => {
+      if (!alt) return alt;
+      const beutel = { ...alt.beutel, [id]: Math.max(0, (alt.beutel[id] ?? 0) - 1) };
+      const neu = { ...alt, beutel };
       void speichereStand(neu);
       return neu;
     });
@@ -158,6 +188,7 @@ function App() {
         return;
       }
       const neuesTeam = [...team, baueKaempfer(v.kreatur, v.stufe)];
+      erfahrungRef.current[neuesTeam.length - 1] = 0;
       setTeam(neuesTeam);
       setHinweis(`${KREATUREN.get(v.kreatur)?.linie ?? v.kreatur} aufgenommen.`);
       sichere({ gefangen: [...stand.gefangen, v.id], gesehen: [...new Set([...stand.gesehen, v.kreatur])] }, neuesTeam);
@@ -175,13 +206,59 @@ function App() {
     }
 
     if (ende === 'sieg') {
-      setHinweis(null);
-      sichere({ besiegt: [...stand.besiegt, v.id],
-                gesehen: [...new Set([...stand.gesehen, v.kreatur])] }, team);
+      const meldungen = belohne(v);
+      setHinweis(meldungen.length ? meldungen.join(' · ') : null);
       return;
     }
     sichere({ gesehen: [...new Set([...stand.gesehen, v.kreatur])] }, team);
   }, [begegnung, stand, team, sichere]);
+
+  /**
+   * Was ein Sieg einbringt: Erfahrung für den Kämpfer, der im Feld stand, und mit
+   * Glück ein Gegenstand.
+   *
+   * Erfahrung bekommt **nur der aktive Kämpfer**. Sie auf das ganze Team zu verteilen
+   * nimmt dem Wechseln seinen Preis — und der Preis ist die einzige Spannung, die
+   * das Wechselsystem hat.
+   */
+  const belohne = useCallback((v: Vorkommen): string[] => {
+    if (!stand) return [];
+    const meldungen: string[] = [];
+    const i = Math.max(0, team.findIndex(k => k.kp > 0));
+    const k = team[i];
+    if (k) {
+      const a = ausKaempferId(k.id);
+      const gewinn = erfahrungAusSieg(v.stufe, mutationVon(v));
+      const kr = KREATUREN.get(a.kreatur);
+      const auf = gutschrift(a.stufe, erfahrungRef.current[i] ?? 0, gewinn, kr?.stufen.length ?? 1);
+      erfahrungRef.current[i] = auf.erfahrung;
+      if (auf.gestiegen > 0) {
+        // Neu bauen statt Werte nachziehen: Bei einer Mutation ändern sich Name,
+        // Moveset und Gestalt mit — das ist kein Zahlenupdate, das ist ein anderes Wesen.
+        const anteil = k.maxKp > 0 ? k.kp / k.maxKp : 1;
+        const neu = baueKaempfer(a.kreatur, auf.stufe);
+        neu.kp = Math.max(1, Math.round(neu.maxKp * anteil));
+        const kopie = [...team]; kopie[i] = neu; setTeam(kopie);
+        meldungen.push(auf.mutiert
+          ? `${k.name} wird zu ${neu.name}`
+          : `${neu.name} erreicht Stufe ${auf.stufe}`);
+      }
+    }
+    // Beute. Der Wurf haengt an der Vorkommens-ID, ist also je Kreatur fest —
+    // Neuladen und noch einmal kaempfen bringt nicht denselben Fund zweimal.
+    let saat = v.id.length * 2654435761;
+    const wurf = () => { saat = (saat * 1103515245 + 12345) & 0x7fffffff; return saat / 0x7fffffff; };
+    const g = beute([...GEGENSTAENDE.values()], wurf);
+    const beutelNeu = { ...stand.beutel };
+    if (g) { beutelNeu[g.id] = (beutelNeu[g.id] ?? 0) + 1; meldungen.push(`${g.name} gefunden`); }
+
+    sichere({
+      besiegt: [...stand.besiegt, v.id],
+      gesehen: [...new Set([...stand.gesehen, v.kreatur])],
+      beutel: beutelNeu,
+    }, team);
+    return meldungen;
+  }, [stand, team, sichere]);
 
   const beendeRegent = useCallback((ende: KampfEnde) => {
     setRegentKampf(null);
@@ -248,6 +325,8 @@ function App() {
             gegner={regentKampf ?? begegnung!.gegner}
             fangbar={!regentKampf && (KREATUREN.get(begegnung!.v.kreatur)?.fangbar ?? false)}
             bild={bild}
+            beutel={stand.beutel}
+            onVerbraucht={verbrauche}
             seed={regentKampf ? 33 : begegnung!.v.id.length * 7919 + begegnung!.v.stufe}
             onEnde={regentKampf ? beendeRegent : beendeKampf}
           />
@@ -318,9 +397,20 @@ function App() {
                 color: k.kp > 0 ? '#9fb0a8' : '#6b5450',
                 background: '#0d121099', padding: '2px 6px', borderRadius: 5,
               }}>
-                {k.name} {Math.max(0, k.kp)}/{k.maxKp}
+                {k.name} <span style={{ color: '#6f8079' }}>S{ausKaempferId(k.id).stufe}</span>
+                {' '}{Math.max(0, k.kp)}/{k.maxKp}
               </div>
             ))}
+            {/* Beutel draussen: Was drin ist, und ob es sich lohnt stehenzubleiben. */}
+            {Object.entries(stand.beutel).filter(([, n]) => n > 0).length > 0 && (
+              <div style={{
+                fontFamily: 'ui-monospace, monospace', fontSize: 10, color: '#6f8079',
+                background: '#0d121099', padding: '2px 6px', borderRadius: 5, marginTop: 2,
+              }}>
+                {Object.entries(stand.beutel).filter(([, n]) => n > 0)
+                  .map(([id, n]) => `${GEGENSTAENDE.get(id)?.name ?? id} ×${n}`).join(' · ')}
+              </div>
+            )}
           </div>
 
           {hinweis && (

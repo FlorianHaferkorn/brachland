@@ -14,6 +14,9 @@ import {
   type Kaempfer, type Team, type MoveDef,
 } from '../engine/battle.js';
 import { Kampfbuehne, type KaempferBild, type Buehnenzug } from './Kampfbuehne.js';
+import { GEGENSTAENDE } from '../data/inhalte.js';
+import { wendeAn, wirktAuf } from '../spiel/gegenstaende.js';
+import type { Gegenstand } from '../data/schema.js';
 
 const FARBE = {
   hintergrund: '#0d1210',
@@ -131,13 +134,22 @@ export interface KampfProps {
   fangbar?: boolean;
   /** Aussehen je Kämpfer-ID. Fehlt es, bleibt die Bühne leer und es gibt nur Text. */
   bild?: (kaempferId: string) => KaempferBild | null;
+  /** Beutel: Gegenstand-ID zu Anzahl. Ohne Beutel gibt es keinen Gegenstand-Knopf. */
+  beutel?: Record<string, number>;
+  /** Wird gerufen, wenn ein Gegenstand verbraucht wurde. */
+  onVerbraucht?: (id: string) => void;
   onEnde?: (ende: KampfEnde) => void;
 }
 
-export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, onEnde }: KampfProps) {
+export function Kampfbildschirm({
+  team, gegner, seed = 1, fangbar = true, bild, beutel, onVerbraucht, onEnde,
+}: KampfProps) {
   const [, neuZeichnen] = useState(0);
   const [meldungen, setMeldungen] = useState<string[]>([`${gegner.name} stellt sich.`]);
   const [wechselOffen, setWechselOffen] = useState(false);
+  const [beutelOffen, setBeutelOffen] = useState(false);
+  /** Zuschlag aus einer ausgelegten Fanghilfe. Gilt für diesen Kampf. */
+  const [fangBonus, setFangBonus] = useState(0);
   const [beschaeftigt, setBeschaeftigt] = useState(false);
   const [ende, setEnde] = useState<KampfEnde | null>(null);
   const zufall = useMemo(() => rng(seed), [seed]);
@@ -204,11 +216,46 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, 
     setBeschaeftigt(false);
   }, [team, gegner, zufall]);
 
+  /**
+   * Gegenstand benutzen. Kostet den Zug — der Gegner greift danach an.
+   *
+   * Ohne diese Kosten wäre Heilen in jeder Runde die dominante Handlung und der
+   * Kampf ein Abnutzungsrennen, das man nur durch Vorratshaltung gewinnt.
+   */
+  const benutze = useCallback((g: Gegenstand, ziel: Kaempfer) => {
+    const w = wendeAn(g, ziel);
+    melde(w.meldung);
+    if (!w.gewirkt) { neuZeichnen(x => x + 1); return; }
+    onVerbraucht?.(g.id);
+    setBeutelOffen(false);
+    if (w.fangBonus) setFangBonus(b => Math.max(b, w.fangBonus!));
+
+    // Der Gegnerzug als Preis. Bei einer Fanghilfe ebenso: Auslegen dauert.
+    setBeschaeftigt(true);
+    const ich = team.kaempfer[team.aktiv];
+    const gm = waehleMove(gegner, ich);
+    if (gm && ich.kp > 0) {
+      const s = schaden(gegner, ich, gm, zufall);
+      ich.kp -= s;
+      inszeniere(false);
+      trefferSpieler.current = performance.now() / 1000;
+      melde(`${gegner.name}: ${gm.name} → ${s}`);
+      if (ich.kp <= 0) {
+        const naechster = team.kaempfer.findIndex(k => k.kp > 0);
+        if (naechster === -1) { melde('Kein Kämpfer mehr einsatzbereit.'); setEnde('niederlage'); }
+        else { team.aktiv = naechster; team.kaempfer[naechster].fokus = REGELN.FOKUS_START; }
+      }
+    }
+    for (const k of [ich, gegner]) k.fokus = Math.min(REGELN.FOKUS_MAX, k.fokus + REGELN.FOKUS_REGEN);
+    neuZeichnen(x => x + 1);
+    setBeschaeftigt(false);
+  }, [team, gegner, zufall, onVerbraucht]);
+
   /** Fangversuch. Schlaegt er fehl, hat der Gegner trotzdem seinen Zug. */
   const fangen = useCallback(() => {
     setBeschaeftigt(true);
     const ich = team.kaempfer[team.aktiv];
-    const chance = fangchance(gegner);
+    const chance = Math.min(0.95, fangchance(gegner) + fangBonus);
     if (zufall() < chance) {
       melde(`${gegner.name} laesst sich fangen.`);
       setEnde('gefangen');
@@ -233,7 +280,7 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, 
     for (const k of [ich, gegner]) k.fokus = Math.min(REGELN.FOKUS_MAX, k.fokus + REGELN.FOKUS_REGEN);
     neuZeichnen(x => x + 1);
     setBeschaeftigt(false);
-  }, [team, gegner, zufall]);
+  }, [team, gegner, zufall, fangBonus]);
 
   const vorbei = ende !== null;
   const spielerBild = bild?.(aktiv.id) ?? null;
@@ -280,7 +327,7 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, 
       <KaempferKarte k={aktiv} gegner={gegner} />
 
       {/* Bedienung unten — Daumenreichweite. Trefferflächen mindestens 44 px. */}
-      {!vorbei && !wechselOffen && (
+      {!vorbei && !wechselOffen && !beutelOffen && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {aktiv.moves.map(m => {
             const kosten = BAND[m.band].fokus;
@@ -318,7 +365,17 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, 
               border: `1px solid ${fangbar ? FARBE.signal : FARBE.rand}`,
               color: fangbar ? FARBE.signal : '#4a544f',
             }}>
-            {fangbar ? `Fangen — ${Math.round(fangchance(gegner) * 100)} %` : 'nicht fangbar'}
+            {fangbar
+              ? `Fangen — ${Math.round(Math.min(0.95, fangchance(gegner) + fangBonus) * 100)} %`
+              : 'nicht fangbar'}
+          </button>
+          <button onClick={() => setBeutelOffen(true)}
+            disabled={beschaeftigt || !beutel || Object.values(beutel).every(n => n <= 0)}
+            style={{
+              minHeight: 48, borderRadius: 10, background: 'transparent',
+              border: `1px solid ${FARBE.rand}`, color: FARBE.gedaempft,
+            }}>
+            Beutel
           </button>
           <button onClick={() => setEnde('flucht')} disabled={beschaeftigt}
             style={{
@@ -326,6 +383,42 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, 
               border: `1px solid ${FARBE.rand}`, color: FARBE.gedaempft,
             }}>
             Zurückziehen
+          </button>
+        </div>
+      )}
+
+      {/* Beutel: ein Gegenstand, ein Ziel, ein Zug. Ziel ist immer der aktive
+          Kämpfer — wer einen anderen versorgen will, wechselt erst. Das hält die
+          Entscheidung im Kampf bei „womit", nicht bei „auf wen". */}
+      {beutelOffen && beutel && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {Object.entries(beutel).filter(([, n]) => n > 0).map(([id, n]) => {
+            const g = GEGENSTAENDE.get(id);
+            if (!g) return null;
+            const sinnvoll = wirktAuf(g, aktiv);
+            return (
+              <button key={id} disabled={!sinnvoll || beschaeftigt}
+                onClick={() => benutze(g, aktiv)}
+                style={{
+                  minHeight: 52, borderRadius: 10, padding: '8px 12px', textAlign: 'left',
+                  background: FARBE.flaeche, border: `1px solid ${FARBE.rand}`,
+                  color: sinnvoll ? FARBE.text : '#4a544f',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+                }}>
+                <span>
+                  {g.name}
+                  <span style={{ color: FARBE.gedaempft, fontSize: 11, display: 'block' }}>
+                    {g.beschreibung}
+                  </span>
+                </span>
+                <span style={{ color: FARBE.gedaempft, fontSize: 12 }}>×{n}</span>
+              </button>
+            );
+          })}
+          <button onClick={() => setBeutelOffen(false)}
+            style={{ minHeight: 44, borderRadius: 10, background: 'transparent',
+                     border: `1px solid ${FARBE.rand}`, color: FARBE.gedaempft }}>
+            Zurück
           </button>
         </div>
       )}

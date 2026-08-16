@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
+import { Kreatur, Move, Regent, Gegenstand, effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
 
@@ -26,6 +26,8 @@ console.log('\nKreaturen:');
 const kreaturen = pruefe<any>('content/creatures', Kreatur);
 console.log('\nRegenten:');
 const regenten = pruefe<any>('content/regenten', Regent);
+console.log('\nGegenstände:');
+const gegenstaende = pruefe<any>('content/gegenstaende', Gegenstand);
 
 // Querverweise: jede referenzierte Move-ID muss es geben. Ohne diese Pruefung
 // faellt ein Tippfehler erst im Kampf auf — und dort als leerer Move-Knopf.
@@ -43,6 +45,13 @@ for (const k of kreaturen) {
 }
 for (const r of regenten) r.moves.forEach((m: string) => melde(r.id, m));
 console.log(tote === 0 ? `  ✓ alle ${bekannt.size} Moves aufgeloest` : `  ${tote} tote Verweise`);
+
+// Ohne Beute im Spiel gibt es keine Gegenstaende — dann ist der Beutel Deko.
+const mitBeute = gegenstaende.filter((g: any) => g.beuteChance > 0).length;
+console.log(mitBeute > 0
+  ? `  ✓ ${mitBeute} von ${gegenstaende.length} Gegenstaenden fallen als Beute an`
+  : '  ✗ kein Gegenstand faellt als Beute an — der Beutel bliebe leer');
+if (mitBeute === 0) fehler++;
 if (tote > 0) fehler += tote;
 
 console.log(`\n${ok} gültig, ${fehler} fehlerhaft\n`);

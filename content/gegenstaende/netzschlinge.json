@@ -1,0 +1,11 @@
+{
+  "id": "netzschlinge",
+  "name": "Netzschlinge",
+  "wirkung": {
+    "art": "fanghilfe",
+    "bonus": 0.35
+  },
+  "imKampf": true,
+  "beuteChance": 0.06,
+  "beschreibung": "Aus Kabelresten geflochten. Wer darin hängt, wehrt sich kürzer."
+}

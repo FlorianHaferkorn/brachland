@@ -16,6 +16,7 @@ owns: *.ts, *.tsx
 | Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ |
 | Kreaturen in der Welt oder Begegnungen ändern | `world/vorkommen.ts` → `scenes/RegionsSzene.tsx` | data/inhalte.ts |
 | Team, Fangen oder Speichern ändern | `main.tsx` → `spiel/spielstand.ts` | ui/BattleScreen.tsx |
+| Fortschritt, Stufen oder Gegenstände ändern | `spiel/fortschritt.ts`, `spiel/gegenstaende.ts` | data/inhalte.ts, content/gegenstaende/ |
 | Bewegung, Kamera oder Blickneigung ändern | `spieler/steuerung.ts` → `scenes/RegionsSzene.tsx` | spieler/figur.ts |
 | Vegetationsdichte, Varianten, Modellgrößen | `world/props.ts` | scenes/, engine/ |
 | Bodendecker direkt um den Spieler | `world/streuung.ts` | props.ts |
@@ -40,6 +41,8 @@ owns: *.ts, *.tsx
 | `data/inhalte.ts` | Lädt `content/` ins Spiel und macht aus Kreatur + Stufe einen `Kaempfer` der Engine. Prüft die Daten auch im Browser |
 | `spiel/spielstand.ts` | Spielstand über IndexedDB: Team, gefangene und besiegte Vorkommen, Position. Nur Taten, keine Weltdaten |
 | `spiel/bildrate.ts` | Bildzeit der **Seite** über requestAnimationFrame — läuft auch, wenn die Szene steht. Trennt „Szene zu teuer" von „Gerät gedeckelt" |
+| `spiel/fortschritt.ts` | Stufe (1–40), Erfahrung und Mutation. Kurve durchgerechnet, nicht geschätzt — `tests/fortschritt.test.ts` |
+| `spiel/gegenstaende.ts` | Wirkung von Gegenständen auf einen Kämpfer, plus Beuteverteilung nach einem Sieg |
 | `world/vorkommen.ts` | Kreaturen in der Welt: aus Spawn-Zonen deterministische Vorkommen, Stufe abhängig von der Entfernung zur Regionsmitte |
 | `world/kreaturgestalt.ts` | Silhouetten als Platzhalter, vier Bauformen nach `basisRig`, Farbe nach Element (ADR-0002 sperrt echte Modelle) |
 | `engine/battle.ts` | Kampflogik ohne 3D: Schaden, Elementfaktor, Fokus-Ökonomie, Phasen, Zehrung, deterministischer RNG |

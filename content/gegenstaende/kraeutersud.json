@@ -1,0 +1,11 @@
+{
+  "id": "kraeutersud",
+  "name": "Kräutersud",
+  "wirkung": {
+    "art": "heilung",
+    "anteil": 0.35
+  },
+  "imKampf": true,
+  "beuteChance": 0.3,
+  "beschreibung": "Aufguss aus Bergkräutern. Wirkt schnell, aber nicht tief — für zwischendurch."
+}

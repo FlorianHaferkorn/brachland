@@ -1,0 +1,11 @@
+{
+  "id": "quellwasser",
+  "name": "Quellwasser",
+  "wirkung": {
+    "art": "heilung",
+    "anteil": 1
+  },
+  "imKampf": true,
+  "beuteChance": 0.02,
+  "beschreibung": "Aus einer Quelle oberhalb des Befalls. Selten, und man merkt warum."
+}

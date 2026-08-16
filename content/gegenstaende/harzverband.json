@@ -1,0 +1,11 @@
+{
+  "id": "harzverband",
+  "name": "Harzverband",
+  "wirkung": {
+    "art": "heilung",
+    "anteil": 0.7
+  },
+  "imKampf": true,
+  "beuteChance": 0.1,
+  "beschreibung": "Fichtenharz auf Leinen. Schließt auch, was ein Sud nicht mehr erreicht."
+}

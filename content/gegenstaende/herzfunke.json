@@ -1,0 +1,11 @@
+{
+  "id": "herzfunke",
+  "name": "Herzfunke",
+  "wirkung": {
+    "art": "wiederbelebung",
+    "anteil": 0.5
+  },
+  "imKampf": true,
+  "beuteChance": 0.05,
+  "beschreibung": "Ein Akkuherz, halb entladen. Bringt einen Ausgefallenen zurück auf die Beine."
+}

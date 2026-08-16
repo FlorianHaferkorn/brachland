@@ -1,0 +1,11 @@
+{
+  "id": "zunder",
+  "name": "Zunder",
+  "wirkung": {
+    "art": "fokus",
+    "punkte": 4
+  },
+  "imKampf": true,
+  "beuteChance": 0.12,
+  "beschreibung": "Trockener Baumschwamm, glimmt lange. Sammelt den Kopf für den nächsten Zug."
+}

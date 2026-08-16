@@ -1,0 +1,10 @@
+{
+  "id": "reinkultur",
+  "name": "Reinkultur",
+  "wirkung": {
+    "art": "reinigung"
+  },
+  "imKampf": true,
+  "beuteChance": 0.08,
+  "beschreibung": "Unbefallene Sporenkultur. Verdrängt, was sich eingenistet hat."
+}

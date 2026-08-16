@@ -1,0 +1,11 @@
+{
+  "id": "koeder",
+  "name": "Köder",
+  "wirkung": {
+    "art": "fanghilfe",
+    "bonus": 0.15
+  },
+  "imKampf": true,
+  "beuteChance": 0.22,
+  "beschreibung": "Riecht nach dem, was hier oben selten geworden ist. Macht zutraulich."
+}

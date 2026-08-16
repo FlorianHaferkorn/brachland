@@ -13,12 +13,18 @@
  */
 import { baueSpawns, type Weltdaten } from './osm.js';
 import { mulberry } from './props.js';
+import { wildStufe } from '../spiel/fortschritt.js';
 
 export interface Vorkommen {
   /** Stabil über Sitzungen — Schlüssel für „schon gefangen“. */
   id: string;
   kreatur: string;
-  /** 0-basiert. Höhere Stufen sind seltener und stehen abseits. */
+  /**
+   * Erfahrungsstufe 1…40. Die Mutation folgt daraus.
+   *
+   * Höhere Stufen stehen weiter draußen — Schwierigkeit folgt dem Weg, nicht dem
+   * Würfel (Ledger D33).
+   */
   stufe: number;
   position: [number, number, number];
   drehung: number;
@@ -39,20 +45,6 @@ const JE_KM2: Record<string, number> = {
   haeufig: 55, gelegentlich: 28, selten: 11, fest: 0,
 };
 
-/** Wahrscheinlichkeit für Stufe 2 bzw. 3, wenn die Linie sie hat — am Rand der Region. */
-const STUFE2 = 0.26;
-const STUFE3 = 0.08;
-
-/**
- * Ab dieser Entfernung von der Regionsmitte sind höhere Stufen voll wahrscheinlich.
- *
- * Der Grund ist der erste Kampf: Startet man mit einem Grathorn auf Stufe 1 (130 KP)
- * und steht 90 m weiter eine Hallenbrut auf Stufe 3 (156/94/62/72), ist der Einstieg
- * eine Wand. Schwierigkeit soll aus der Entfernung folgen, nicht aus dem Würfel —
- * das ist dieselbe Logik wie beim Traversal: Der Weg ist die Fortschrittskurve.
- */
-const STUFEN_ABSTAND = 700;
-
 /**
  * Innerhalb dieses Radius um die Regionsmitte steht ausschliesslich Stufe 1.
  *
@@ -61,6 +53,13 @@ const STUFEN_ABSTAND = 700;
  * ist der einzige Ort, an dem eine Ausnahme den ganzen Einstieg kaputtmacht.
  */
 const STARTBEREICH = 150;
+
+/**
+ * Die Erfahrungsstufe folgt der Entfernung (`wildStufe`), die Mutation folgt der
+ * Stufe. Beides läuft damit über **eine** Regel statt über zwei Würfe, und der
+ * frühere Sonderfall „Mutation 3 direkt neben dem Startpunkt" kann nicht mehr
+ * auftreten.
+ */
 
 export interface KreaturSpawn {
   id: string;
@@ -91,7 +90,6 @@ export function verteileKreaturen(
   for (const zone of zonen) {
     const k = nachId.get(zone.kreatur);
     if (!k) continue;
-    const maxStufe = k.stufen.length - 1;
     const zellFlaecheKm2 = (zellBreite * zellTiefe) / 1e6;
     const anteil = zone.haeufigkeit === 'fest'
       ? 1
@@ -103,12 +101,12 @@ export function verteileKreaturen(
       // Innerhalb der Zelle versetzen, sonst stehen alle auf einem Gitter.
       const x = zx + (zufall() - 0.5) * zellBreite;
       const z = zz + (zufall() - 0.5) * zellTiefe;
-      const w = zufall();
       const abstand = Math.hypot(x, z);
-      const naehe = abstand < STARTBEREICH ? 0 : Math.min(1, abstand / STUFEN_ABSTAND);
-      const p2 = STUFE2 * naehe;
-      const p3 = STUFE3 * naehe * naehe;
-      const stufe = maxStufe >= 2 && w < p3 ? 2 : maxStufe >= 1 && w < p2 ? 1 : 0;
+      // Im Startbereich bleibt es bei den untersten Stufen — dort entscheidet die
+      // erste Begegnung, ob jemand weiterspielt.
+      const stufe = abstand < STARTBEREICH
+        ? Math.max(1, Math.min(5, Math.round(2 + zufall() * 3)))
+        : wildStufe(abstand, zufall());
       raus.push({
         id: `${zone.kreatur}:${i}:${j}`,
         kreatur: zone.kreatur,

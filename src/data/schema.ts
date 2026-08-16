@@ -132,6 +132,40 @@ export const Kreatur = z.object({
   }, { message: 'Werte müssen mit jeder Stufe steigen' });
 export type Kreatur = z.infer<typeof Kreatur>;
 
+// ------------------------------------------------------------ Gegenstände
+
+/**
+ * Was ein Gegenstand tut.
+ *
+ * Bewusst wenige Arten. Ein Beutel voller Varianten derselben Wirkung ist keine
+ * Entscheidung, sondern Verwaltung — und die Regel des Projekts lautet, dass
+ * Inhalt aus Entscheidungen besteht.
+ */
+export const GegenstandWirkung = z.discriminatedUnion('art', [
+  /** Heilt einen Anteil der maximalen KP. */
+  z.object({ art: z.literal('heilung'), anteil: z.number().min(0.05).max(1) }),
+  /** Bringt einen ausgefallenen Kämpfer zurück, mit diesem Anteil KP. */
+  z.object({ art: z.literal('wiederbelebung'), anteil: z.number().min(0.1).max(1) }),
+  /** Entfernt Befall und Statusveränderungen. */
+  z.object({ art: z.literal('reinigung') }),
+  /** Erhöht die Fangchance um diesen absoluten Betrag. */
+  z.object({ art: z.literal('fanghilfe'), bonus: z.number().min(0.05).max(0.6) }),
+  /** Füllt Fokus auf. */
+  z.object({ art: z.literal('fokus'), punkte: z.number().int().min(1).max(8) }),
+]);
+
+export const Gegenstand = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  name: z.string(),
+  wirkung: GegenstandWirkung,
+  /** Im Kampf benutzbar? Manches wirkt nur draußen. */
+  imKampf: z.boolean().default(true),
+  /** Wie häufig er als Beute nach einem Sieg anfällt, 0…1. */
+  beuteChance: z.number().min(0).max(1).default(0),
+  beschreibung: z.string().max(200),
+});
+export type Gegenstand = z.infer<typeof Gegenstand>;
+
 // ----------------------------------------------------------------- Regenten
 
 /**
