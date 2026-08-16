@@ -1,0 +1,15 @@
+{
+  "id": "kammglut",
+  "name": "Kammglut",
+  "element": "frost",
+  "band": "leicht",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ini",
+      "stufen": -1,
+      "ziel": "gegner"
+    }
+  ],
+  "beschreibung": "Der rote Kamm läuft heiß. Wer hinsieht, verliert einen Moment."
+}

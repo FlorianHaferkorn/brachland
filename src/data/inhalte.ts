@@ -9,7 +9,7 @@
  * Solange beides dasselbe ist, kostet die zweite Prüfung nur Millisekunden; sobald es
  * auseinanderläuft, fällt es beim Start auf statt mitten im Kampf.
  */
-import { Kreatur, Move, Regent, Gegenstand } from './schema.js';
+import { Kreatur, Move, Regent, Gegenstand, Fragment } from './schema.js';
 import { erstelle, type Kaempfer, type MoveDef, type Band } from '../engine/battle.js';
 import { mutationBei, werteBei, STUFE_MAX } from '../spiel/fortschritt.js';
 
@@ -19,6 +19,7 @@ const moveRoh = import.meta.glob('../../content/moves/*.json', { eager: true, im
 const kreaturRoh = import.meta.glob('../../content/creatures/*.json', { eager: true, import: 'default' }) as Roh;
 const regentRoh = import.meta.glob('../../content/regenten/*.json', { eager: true, import: 'default' }) as Roh;
 const gegenstandRoh = import.meta.glob('../../content/gegenstaende/*.json', { eager: true, import: 'default' }) as Roh;
+const fragmentRoh = import.meta.glob('../../content/fragmente/*.json', { eager: true, import: 'default' }) as Roh;
 
 function lade<T>(roh: Roh, schema: { parse: (x: unknown) => T }, was: string): Map<string, T> {
   const karte = new Map<string, T>();
@@ -37,6 +38,7 @@ export const MOVES = lade(moveRoh, Move, 'Move');
 export const KREATUREN = lade(kreaturRoh, Kreatur, 'Kreatur');
 export const REGENTEN = lade(regentRoh, Regent, 'Regent');
 export const GEGENSTAENDE = lade(gegenstandRoh, Gegenstand, 'Gegenstand');
+export const FRAGMENTE = lade(fragmentRoh, Fragment, 'Fragment');
 
 /** Nur die fangbaren Wildlinge — daraus werden Begegnungen gebaut. */
 export const WILDLINGE = [...KREATUREN.values()].filter(k => k.ursprung === 'wildling');

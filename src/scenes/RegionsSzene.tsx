@@ -392,6 +392,8 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
   }, [scene, art, eigen, variante, stufe]);
 }
 
+const LEER: ReadonlySet<string> = new Set();
+
 /** Welche Auflösung ein Chunk gerade zeigt. */
 export type PropStufe = 'nah' | 'mittel' | 'fern';
 
@@ -487,7 +489,7 @@ const SPERRE_BIS = 14;
 
 function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbraucht, rand }: {
   vorkommen: Vorkommen[];
-  gestalt: (kreatur: string) => THREE.BufferGeometry;
+  gestalt: (kreatur: string, mutation?: number) => THREE.BufferGeometry;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
   /** Wird jedes Bild beschrieben: nächste Kreatur, Abstand und Richtung relativ zum Blick. */
@@ -573,10 +575,73 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
   return (
     <>
       {nah.map(v => (
-        <mesh key={v.id} geometry={gestalt(v.kreatur)} material={material}
+        <mesh key={v.id} geometry={gestalt(v.kreatur, v.mutation)} material={material}
               position={v.position} rotation={[0, v.drehung, 0]}
-              scale={1 + v.stufe * 0.18}
+              // Stufe 2 ist 15–25 % groesser, Stufe 3 nochmal — aus der Stilreferenz.
+              scale={1 + v.mutation * 0.2}
               castShadow receiveShadow />
+      ))}
+    </>
+  );
+}
+
+/**
+ * Fundstellen in der Welt.
+ *
+ * Ein Fragment ist kein Gegenstand, den man aufhebt — es ist ein Ort, an dem etwas
+ * steht. Gezeichnet wird deshalb kein Symbol, sondern ein schmaler Steinsetzer mit
+ * einem Signalpunkt darauf: aus der Entfernung erkennbar, aus der Nähe unauffällig.
+ *
+ * Gelesene Fundstellen bleiben stehen, verlieren aber den Punkt. Die Welt vergisst
+ * nicht, dass man da war — sie hört nur auf, danach zu rufen.
+ */
+const FUND_AB = 9;
+
+function Fundstellen({ orte, ziel, gelesen, onFund }: {
+  orte: { id: string; position: [number, number, number] }[];
+  ziel: React.RefObject<THREE.Object3D | null>;
+  gelesen: ReadonlySet<string>;
+  onFund?: (id: string) => void;
+}) {
+  const stein = useMemo(() => {
+    const g = new THREE.CylinderGeometry(0.16, 0.26, 1.5, 5);
+    g.translate(0, 0.75, 0);
+    return g;
+  }, []);
+  const punkt = useMemo(() => new THREE.OctahedronGeometry(0.11, 0), []);
+  const steinMat = useMemo(() => new THREE.MeshStandardMaterial({
+    color: '#7a7c78', roughness: 0.95, flatShading: true,
+  }), []);
+  const punktMat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#cfe9f2' }), []);
+
+  const [nah, setNah] = useState<typeof orte>([]);
+  const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+
+  useFrame(() => {
+    const p = ziel.current?.position;
+    if (!p) return;
+    if (!(letzte.current.distanceTo(p) < 25)) {
+      letzte.current.copy(p);
+      setNah(orte.filter(o => Math.hypot(o.position[0] - p.x, o.position[2] - p.z) < 260));
+    }
+    if (!onFund) return;
+    for (const o of nah) {
+      if (gelesen.has(o.id)) continue;
+      if (Math.hypot(o.position[0] - p.x, o.position[2] - p.z) > FUND_AB) continue;
+      onFund(o.id);
+      break;
+    }
+  });
+
+  return (
+    <>
+      {nah.map(o => (
+        <group key={o.id} position={o.position}>
+          <mesh geometry={stein} material={steinMat} castShadow receiveShadow />
+          {!gelesen.has(o.id) && (
+            <mesh geometry={punkt} material={punktMat} position={[0, 1.62, 0]} />
+          )}
+        </group>
       ))}
     </>
   );
@@ -861,6 +926,28 @@ const RENNEN = 11.0;
 /** Eine halbe Schrittlänge in Metern — bestimmt die Frequenz der Laufanimation. */
 const SCHRITTLAENGE = 0.9;
 
+/**
+ * Schwerkraft und Sprung.
+ *
+ * Bis hierher klebte die Figur am Boden: `p.y = hoeheAufFlaeche(...)` jedes Bild,
+ * ohne Zwischenzustand. Das war für eine Größenreferenz genug und ist für ein Spiel
+ * zu wenig — ohne Vertikalbewegung geht weder Springen noch Klettern, Schwimmen
+ * oder Gleiten (`docs/design/BRACHLAND_Traversal_v1.md`).
+ *
+ * 9,81 m/s² und 5,4 m/s Absprung ergeben knapp 1,5 m Sprunghöhe und 1,1 s in der
+ * Luft. Das reicht für Geländestufen und Felsbänder bis Hüfthöhe — mehr soll es
+ * ohne Klettern auch nicht sein.
+ */
+const SCHWERKRAFT = 9.81;
+const ABSPRUNG = 5.4;
+/**
+ * Bis zu dieser Höhe über dem Boden gilt man noch als stehend.
+ *
+ * Ohne Toleranz verliert man auf jeder Geländekante den Bodenkontakt und kann für
+ * ein paar Bilder nicht springen — was sich anfühlt, als würde die Taste klemmen.
+ */
+const BODEN_TOLERANZ = 0.12;
+
 /** Blickneigung: knapp unter die Waagerechte bis steil nach oben. */
 const NEIGUNG_MIN = -0.30;
 const NEIGUNG_MAX = 1.05;
@@ -886,6 +973,8 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision }: {
 }) {
   const { gl } = useThree();
   const eingabe = benutzeSteuerung(gl.domElement);
+  /** Senkrechte Geschwindigkeit in m/s. Positiv heißt aufwärts. */
+  const steigen = useRef(0);
 
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
@@ -914,9 +1003,25 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision }: {
       p.x = Math.max(-halbB, Math.min(halbB, kx));
       p.z = Math.max(-halbT, Math.min(halbT, kz));
     }
-    // Auf der GEZEICHNETEN Fläche stehen, nicht auf der stetigen Funktion —
-    // sonst schwebt die Figur auf Kuppen sichtbar über dem Boden.
-    p.y = hoeheAufFlaeche(feld, p.x, p.z);
+    // Der Boden unter dem Spieler. Auf der GEZEICHNETEN Fläche, nicht auf der
+    // stetigen Funktion — sonst schwebt die Figur auf Kuppen sichtbar darüber.
+    const boden = hoeheAufFlaeche(feld, p.x, p.z);
+    const amBoden = p.y <= boden + BODEN_TOLERANZ && steigen.current <= 0;
+
+    if (e.springen) {
+      e.springen = false;
+      if (amBoden) steigen.current = ABSPRUNG;
+    }
+
+    if (amBoden && steigen.current <= 0) {
+      // Am Boden der Kontur folgen, statt bei jedem Absatz kurz zu fallen.
+      p.y = boden;
+      steigen.current = 0;
+    } else {
+      steigen.current -= SCHWERKRAFT * dt;
+      p.y += steigen.current * dt;
+      if (p.y <= boden) { p.y = boden; steigen.current = 0; }
+    }
 
     // Schrittfrequenz aus der tatsächlichen Geschwindigkeit: Wer rennt, macht
     // schnellere Schritte, nicht dieselben Schritte schneller hintereinander.
@@ -1106,8 +1211,8 @@ export interface RegionsSzeneProps {
    * schweben die Kreaturen — derselbe Fehler wie einst bei den Props.
    */
   kreaturen?: KreaturSpawn[];
-  /** Silhouette je Kreatur-ID. Kommt von aussen, damit die Szene keine Inhalte kennt. */
-  gestalt?: (kreatur: string) => THREE.BufferGeometry;
+  /** Silhouette je Kreatur-ID und Mutation. Von aussen, damit die Szene keine Inhalte kennt. */
+  gestalt?: (kreatur: string, mutation?: number) => THREE.BufferGeometry;
   /** Bereits gefangene oder besiegte Vorkommen. */
   verbraucht?: ReadonlySet<string>;
   onBegegnung?: (v: Vorkommen) => void;
@@ -1117,6 +1222,10 @@ export interface RegionsSzeneProps {
   regent?: { ort: [number, number]; gestalt: THREE.BufferGeometry };
   /** Wird gerufen, wenn der Spieler den Regentenort betritt oder verlässt. */
   onRegentNah?: (nah: boolean) => void;
+  /** Fundstellen in Weltkoordinaten (x, z) — die Szene kennt keine Texte. */
+  fundstellen?: { id: string; ort: [number, number] }[];
+  gelesen?: ReadonlySet<string>;
+  onFund?: (id: string) => void;
   /** Startposition; ohne Angabe die Regionsmitte. Der Spielstand setzt sie. */
   startPosition?: [number, number];
   /**
@@ -1132,7 +1241,8 @@ export interface RegionsSzeneProps {
 export function RegionsSzene({
   welt, tageszeit = 0.26, spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
-  regent, onRegentNah, startPosition, angehalten = false,
+  regent, onRegentNah, fundstellen, gelesen, onFund,
+  startPosition, angehalten = false,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
@@ -1188,6 +1298,14 @@ export function RegionsSzene({
     [regent, feld],
   );
 
+  const funde = useMemo(
+    () => (fundstellen ?? []).map(f => ({
+      id: f.id,
+      position: [f.ort[0], hoeheAufFlaeche(feld, f.ort[0], f.ort[1]), f.ort[1]] as [number, number, number],
+    })),
+    [fundstellen, feld],
+  );
+
   const start = useMemo<[number, number, number]>(() => {
     const [x, z] = startPosition ?? [0, 0];
     return [x, hoeheAufFlaeche(feld, x, z), z];
@@ -1211,6 +1329,9 @@ export function RegionsSzene({
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} />
+      {funde.length > 0 && (
+        <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
+      )}
       {regent && regentOrt && (
         <Regentenort ort={regentOrt} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />
       )}

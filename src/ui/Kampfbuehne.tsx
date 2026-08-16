@@ -128,8 +128,8 @@ function Gestalt({ bild, seite, treffer, zug }: {
   zug: React.RefObject<Buehnenzug>;
 }) {
   const geometrie = useMemo(
-    () => baueKreaturGeometrie(bild.basisRig, bild.elemente),
-    [bild.basisRig, bild.elemente],
+    () => baueKreaturGeometrie(bild.basisRig, bild.elemente, bild.stufe),
+    [bild.basisRig, bild.elemente, bild.stufe],
   );
   const material = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0,

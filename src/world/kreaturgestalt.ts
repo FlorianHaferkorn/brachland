@@ -14,6 +14,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { mulberry } from './props.js';
 import type { Element } from '../data/schema.js';
 
 /**
@@ -121,10 +122,90 @@ function bauSchlange(hell: THREE.Color, dunkel: THREE.Color, h: number) {
 }
 
 /**
+ * Farben des Befalls.
+ *
+ * Aus der Stilreferenz: Was wächst, ist Pilz und Flechte — Ocker und helles Beige
+ * für die Hüte, gedämpftes Graugrün für Moos. Die Signalfarbe erscheint **nur** als
+ * Punkt und nie am Tier selbst.
+ */
+const PILZ_HELL = new THREE.Color('#c9b389');
+const PILZ_DUNKEL = new THREE.Color('#9a8560');
+const SIGNAL = new THREE.Color('#cfe9f2');
+
+/**
+ * Der Pilzfächer — das Leitmerkmal.
+ *
+ * Aus `docs/design/BRACHLAND_Stilreferenz_v1.md`: Alle Linien tragen einen Fächer aus
+ * Baumpilzen an der Hinterhand, der mit jeder Mutation wächst, bis er auf Stufe 3
+ * fast so groß ist wie das Tier. Das ist das eine Merkmal, an dem man
+ * BRACHLAND-Kreaturen von jedem anderen Creature-Collector unterscheidet — ohne ihn
+ * sieht man dem Spiel seine eigene Handschrift nicht an.
+ *
+ * Gebaut als Reihe überlappender Platten auf einem Halbkreis, jede leicht gedreht.
+ * Dazu ein paar Hutpilze und Signalpunkte, deren Zahl mit der Mutation steigt.
+ */
+function bauFaecher(mutation: number, h: number): THREE.BufferGeometry[] {
+  const teile: THREE.BufferGeometry[] = [];
+  const zufall = mulberry(4711 + mutation * 977);
+
+  // Größe und Dichte wachsen mit der Mutation: angedeutet, halbe Körperlänge, fast körpergroß.
+  const spanne = h * (0.55 + mutation * 0.42);
+  const lamellen = 5 + mutation * 3;
+
+  for (let i = 0; i < lamellen; i++) {
+    const t = i / (lamellen - 1);
+    // Halbkreis von schräg unten nach schräg oben, hinten am Körper.
+    const winkel = -0.35 + t * 2.1;
+    const r = spanne * (0.55 + 0.45 * Math.sin(t * Math.PI));
+    const g = new THREE.CylinderGeometry(r * 0.55, r * 0.08, h * 0.045, 3, 1, false, 0, Math.PI);
+    g.rotateX(Math.PI / 2);
+    g.rotateZ(winkel - Math.PI / 2);
+    g.translate(
+      (zufall() - 0.5) * h * 0.08,
+      h * 0.55 + Math.sin(winkel) * spanne * 0.35,
+      h * 0.35 + Math.cos(winkel) * spanne * 0.12,
+    );
+    teile.push(teil(g, i % 2 ? PILZ_HELL : PILZ_DUNKEL, 0, 0, 0));
+  }
+
+  // Hutpilze auf dem Rücken. Erst wenige, auf Stufe 3 über den ganzen Rücken.
+  const huete = 2 + mutation * 3;
+  for (let i = 0; i < huete; i++) {
+    const t = i / Math.max(1, huete - 1);
+    const g = new THREE.CylinderGeometry(h * 0.075, h * 0.025, h * 0.05, 5);
+    g.translate(
+      (zufall() - 0.5) * h * 0.22,
+      h * (0.72 + zufall() * 0.08),
+      h * (0.28 - t * 0.5),
+    );
+    teile.push(teil(g, PILZ_HELL, 0, 0, 0));
+  }
+
+  // Signalpunkte. Sparsam gesetzt — Dutzende, keine Hunderte, und immer als Punkt.
+  const punkte = 3 + mutation * 4;
+  for (let i = 0; i < punkte; i++) {
+    const winkel = -0.3 + zufall() * 2.0;
+    const r = spanne * (0.5 + zufall() * 0.45);
+    const g = new THREE.TetrahedronGeometry(h * 0.022, 0);
+    g.translate(
+      (zufall() - 0.5) * h * 0.12,
+      h * 0.55 + Math.sin(winkel) * r * 0.4,
+      h * 0.35 + Math.cos(winkel) * r * 0.16,
+    );
+    teile.push(teil(g, SIGNAL, 0, 0, 0));
+  }
+  return teile;
+}
+
+/**
  * Baut die Silhouette einer Kreatur. Blickrichtung -Z, wie bei der Spielerfigur.
  * Das Ergebnis ist auf die reale Höhe der Bauform normiert.
+ *
+ * `mutation` (0…2) steuert den Befall: Größe des Fächers, Zahl der Hüte und Punkte.
  */
-export function baueKreaturGeometrie(basisRig: string, elemente: Element[]): THREE.BufferGeometry {
+export function baueKreaturGeometrie(
+  basisRig: string, elemente: Element[], mutation = 0,
+): THREE.BufferGeometry {
   const r = rig(basisRig);
   const h = RIG_HOEHE[r];
   const hell = new THREE.Color(ELEMENT_FARBE[elemente[0]] ?? '#5a6058');
@@ -135,6 +216,7 @@ export function baueKreaturGeometrie(basisRig: string, elemente: Element[]): THR
   const teile = r === 'biped_bird' ? bauVogel(hell, dunkel, h)
     : r === 'serpent' ? bauSchlange(hell, dunkel, h)
     : bauQuadruped(hell, dunkel, h);
+  teile.push(...bauFaecher(Math.max(0, Math.min(2, mutation)), h));
 
   const g = mergeGeometries(teile, false);
   if (!g) throw new Error(`Kreatursilhouette ${basisRig}: Geometrien nicht zusammenfassbar`);

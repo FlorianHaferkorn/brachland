@@ -1,0 +1,15 @@
+{
+  "id": "schneetarnung",
+  "name": "Schneetarnung",
+  "element": "frost",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ang",
+      "stufen": -2,
+      "ziel": "gegner"
+    }
+  ],
+  "beschreibung": "Weiß auf Weiß. Der Gegner schlägt, wo eben noch etwas war."
+}

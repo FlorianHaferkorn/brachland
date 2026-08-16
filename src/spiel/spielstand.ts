@@ -40,6 +40,8 @@ export interface Spielstand {
   gesehen: string[];
   /** Gegenstände im Beutel: ID zu Anzahl. Nicht vorhandene ID heißt null Stück. */
   beutel: Record<string, number>;
+  /** Gelesene Fragmente. Die Leseliste im Spiel besteht aus genau diesen. */
+  fragmente: string[];
 }
 
 export const LEERER_STAND: Spielstand = {
@@ -52,6 +54,7 @@ export const LEERER_STAND: Spielstand = {
   // Zwei Sude und ein Köder zum Anfangen. Ohne Startausstattung ist der erste
   // verlorene Kampf eine Sackgasse, und der erste Fang reiner Zufall.
   beutel: { kraeutersud: 2, koeder: 1 },
+  fragmente: [],
 };
 
 const DB = 'brachland';
@@ -72,7 +75,7 @@ export async function ladeStand(): Promise<Spielstand | null> {
     if (!roh || roh.version !== SPIELSTAND_VERSION) return null;
     // Fehlende Felder aus älteren Ständen ergänzen, statt den Stand zu verwerfen.
     // Ein verlorener Spielstand ist schlimmer als ein leerer Beutel.
-    return { ...LEERER_STAND, ...roh, beutel: roh.beutel ?? {} } as Spielstand;
+    return { ...LEERER_STAND, ...roh, beutel: roh.beutel ?? {}, fragmente: roh.fragmente ?? [] } as Spielstand;
   } catch {
     // Privater Modus oder gesperrte Datenbank: lieber ohne Spielstand spielen als
     // gar nicht starten.

@@ -24,6 +24,8 @@ export interface Eingabe {
   /** Aufgelaufene Neigung aus Wischen/Ziehen, rad. Wird je Bild verbraucht. */
   neigDelta: number;
   rennen: boolean;
+  /** Einmaliger Sprungwunsch. Wird beim Verbrauchen zurückgesetzt. */
+  springen: boolean;
 }
 
 /** Wie weit der Daumen wandern muss, bis der Stock voll ausschlägt. */
@@ -37,7 +39,8 @@ const TASTEN_NEIGRATE = 1.2;
 
 export function benutzeSteuerung(element: HTMLElement | null): RefObject<Eingabe> {
   const eingabe = useRef<Eingabe>({
-    vor: 0, seit: 0, drehRate: 0, drehDelta: 0, neigRate: 0, neigDelta: 0, rennen: false,
+    vor: 0, seit: 0, drehRate: 0, drehDelta: 0, neigRate: 0, neigDelta: 0,
+    rennen: false, springen: false,
   });
 
   useEffect(() => {
@@ -57,6 +60,8 @@ export function benutzeSteuerung(element: HTMLElement | null): RefObject<Eingabe
 
     const runter = (ev: KeyboardEvent) => {
       if (ev.target instanceof HTMLInputElement) return;
+      // Leertaste scrollt sonst die Seite — auf dem Laptop sofort spuerbar.
+      if (ev.code === 'Space') { ev.preventDefault(); e.springen = true; }
       tasten.add(ev.code); ausTasten();
     };
     const hoch = (ev: KeyboardEvent) => { tasten.delete(ev.code); ausTasten(); };
@@ -77,6 +82,9 @@ export function benutzeSteuerung(element: HTMLElement | null): RefObject<Eingabe
 
     const zeigerRunter = (ev: PointerEvent) => {
       const links = ev.clientX < element.clientWidth / 2;
+      // Tippen auf die rechte Haelfte, ohne zu ziehen, ist der Sprung. Erkannt wird
+      // das beim Loslassen — hier nur der Startpunkt.
+
       zeiger.set(ev.pointerId, { start: [ev.clientX, ev.clientY], letzte: [ev.clientX, ev.clientY], links });
       element.setPointerCapture(ev.pointerId);
     };
@@ -105,6 +113,13 @@ export function benutzeSteuerung(element: HTMLElement | null): RefObject<Eingabe
       const z = zeiger.get(ev.pointerId);
       if (!z) return;
       if (z.links) { e.vor = 0; e.seit = 0; e.rennen = false; }
+      else {
+        // Kurzer Tipp ohne nennenswerte Bewegung: springen. Der Schwellwert von
+        // 12 px trennt Tippen von einem beginnenden Blickschwenk — darunter ist
+        // jede Bewegung Wackeln der Hand, darueber will jemand die Kamera drehen.
+        const weg = Math.hypot(ev.clientX - z.start[0], ev.clientY - z.start[1]);
+        if (weg < 12) e.springen = true;
+      }
       zeiger.delete(ev.pointerId);
     };
 

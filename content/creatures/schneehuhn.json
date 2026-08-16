@@ -1,0 +1,56 @@
+{
+  "id": "schneehuhn",
+  "linie": "Alpenschneehuhn",
+  "basis": "Alpenschneehuhn",
+  "merkmal": "Frostfeder-Fächer",
+  "elemente": [
+    "frost"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "biped_bird",
+  "zielTris": 3000,
+  "spawn": {
+    "osmTag": "natural=scree",
+    "nurNachts": false,
+    "wetter": "frost",
+    "haeufigkeit": "gelegentlich",
+    "minHoehe": 950
+  },
+  "grundMoves": [
+    "firnschlag",
+    "schneetarnung"
+  ],
+  "stufen": [
+    {
+      "name": "Schneehuhn",
+      "werte": {
+        "kp": 96,
+        "ang": 58,
+        "ver": 46,
+        "ini": 66
+      }
+    },
+    {
+      "name": "Firnbalz",
+      "werte": {
+        "kp": 124,
+        "ang": 74,
+        "ver": 56,
+        "ini": 76
+      },
+      "signaturMove": "eisbalz"
+    },
+    {
+      "name": "Weißbrut",
+      "werte": {
+        "kp": 152,
+        "ang": 90,
+        "ver": 66,
+        "ini": 84
+      },
+      "signaturMove": "kammglut"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Wechselt mit dem Schnee die Farbe. Die zweite Frost-Linie des Kapitels — leichter zu finden als der Firnhase, dafür zerbrechlicher."
+}

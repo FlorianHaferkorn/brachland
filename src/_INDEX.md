@@ -18,6 +18,9 @@ owns: *.ts, *.tsx
 | Team, Fangen oder Speichern ändern | `main.tsx` → `spiel/spielstand.ts` | ui/BattleScreen.tsx |
 | Fortschritt, Stufen oder Gegenstände ändern | `spiel/fortschritt.ts`, `spiel/gegenstaende.ts` | data/inhalte.ts, content/gegenstaende/ |
 | Bewegung, Kamera oder Blickneigung ändern | `spieler/steuerung.ts` → `scenes/RegionsSzene.tsx` | spieler/figur.ts |
+| Springen, Schwerkraft, Bodenkontakt ändern | `scenes/RegionsSzene.tsx` (`Spieler`, `SCHWERKRAFT`/`ABSPRUNG`) → `spieler/steuerung.ts` | world/, engine/ |
+| Fundstücke platzieren oder ihre Wirkung ändern | `scenes/RegionsSzene.tsx` (`Fundstellen`) → `main.tsx` (`findeFragment`) | engine/, ui/ |
+| Aussehen der Kreaturen, Pilzfächer, Mutationsstufen | `world/kreaturgestalt.ts` | engine/, ui/ |
 | Vegetationsdichte, Varianten, Modellgrößen | `world/props.ts` | scenes/, engine/ |
 | Bodendecker direkt um den Spieler | `world/streuung.ts` | props.ts |
 | Oberfläche des Bodens, Rauschen, Farbvariation | `world/bodenmaterial.ts` | lod.ts |
@@ -39,12 +42,12 @@ owns: *.ts, *.tsx
 | `main.tsx` | Einstiegspunkt. Lädt die Weltdaten, montiert `RegionsSzene`, schaltet Stimmungen |
 | `data/schema.ts` | Zod-Schemas für Kreatur, Move, Region **plus Elementmatrix** — der Drift-Schutz. `npm run validate` prüft alle Inhalte dagegen |
 | `data/inhalte.ts` | Lädt `content/` ins Spiel und macht aus Kreatur + Stufe einen `Kaempfer` der Engine. Prüft die Daten auch im Browser |
-| `spiel/spielstand.ts` | Spielstand über IndexedDB: Team, gefangene und besiegte Vorkommen, Position. Nur Taten, keine Weltdaten |
+| `spiel/spielstand.ts` | Spielstand über IndexedDB: Team, gefangene und besiegte Vorkommen, Position, Beutel, gelesene Fragmente. Nur Taten, keine Weltdaten |
 | `spiel/bildrate.ts` | Bildzeit der **Seite** über requestAnimationFrame — läuft auch, wenn die Szene steht. Trennt „Szene zu teuer" von „Gerät gedeckelt" |
 | `spiel/fortschritt.ts` | Stufe (1–40), Erfahrung und Mutation. Kurve durchgerechnet, nicht geschätzt — `tests/fortschritt.test.ts` |
 | `spiel/gegenstaende.ts` | Wirkung von Gegenständen auf einen Kämpfer, plus Beuteverteilung nach einem Sieg |
 | `world/vorkommen.ts` | Kreaturen in der Welt: aus Spawn-Zonen deterministische Vorkommen, Stufe abhängig von der Entfernung zur Regionsmitte |
-| `world/kreaturgestalt.ts` | Silhouetten als Platzhalter, vier Bauformen nach `basisRig`, Farbe nach Element (ADR-0002 sperrt echte Modelle) |
+| `world/kreaturgestalt.ts` | Silhouetten als Platzhalter, vier Bauformen nach `basisRig`, Farbe nach Element (ADR-0002 sperrt echte Modelle). Trägt den **Pilzfächer** der Stilreferenz, Deckung und Größe je Mutationsstufe |
 | `engine/battle.ts` | Kampflogik ohne 3D: Schaden, Elementfaktor, Fokus-Ökonomie, Phasen, Zehrung, deterministischer RNG |
 | `ui/BattleScreen.tsx` | Kampfoberfläche: Moves, Wechsel, Fangen, Rückzug. An die Szene angebunden |
 | `ui/Kampfbuehne.tsx` | Kreaturen im Kampfbild — eine kleine Leinwand für beide Seiten, Leerlaufatmung und Trefferzucken |
@@ -55,7 +58,7 @@ owns: *.ts, *.tsx
 | `world/klippen.ts` | Felswände aus der Hangneigung. Ein Höhenraster kann per Bauart keine senkrechte Wand — deshalb aufgesetzt statt geschnitzt |
 | `ui/Witterung.tsx` | Richtung und Abstand zur nächsten Kreatur. Notwendig, weil eine Kreatur auf 62 m nur zwölf Pixel hoch ist |
 | `spieler/peilung.ts` | Richtung zu einem Punkt relativ zum Blick. Rein und getestet — hier steckte ein Vorzeichenfehler |
-| `scenes/RegionsSzene.tsx` | Art Direction als Code: 3 Stimmungen mit Nebel-, Sonnen- und Umgebungswerten; Props als `InstancedMesh` |
+| `scenes/RegionsSzene.tsx` | Art Direction als Code: 4 Stimmungen mit Nebel-, Sonnen- und Umgebungswerten; Props als `InstancedMesh`; Schwerkraft und Sprung des Spielers; `Fundstellen` als Marker der Fragmente |
 | `scenes/sichtweiten.ts` | Entfernungsschwellen der Szene (Terrainsicht, Attrappen, Neubewertung). Eigenes Modul, damit `tools/lastcheck.ts` dieselben Zahlen nutzt, ohne React zu laden |
 | `world/osm.ts` | OSM- und EU-DEM-Abruf, Weltdatentypen (`Weltdaten`, `Biom`), Biom-Ableitung, Spawn-Zonen |
 | `world/terrain.ts` | Terrain-Mesh mit Vertex-Farben, Gewässer, Gebäude mit Dächern, Wege; `MASSSTAB`, `GROESSE`, `BIOM_FARBE` |
@@ -63,7 +66,7 @@ owns: *.ts, *.tsx
 | `world/lod.ts` | Terrain-Detail: 4 LOD-Stufen (2/4/8/16 m), hangabhängiges Mikrorelief in 4 Oktaven (<1,2 m), Schürzen gegen Kachelrisse |
 | `world/bodenmaterial.ts` | Bodenmaterial mit prozeduraler Oberflächenvariation im Shader — zwei Oktaven Rauschen aus der Weltposition, null Bytes Textur |
 | `world/streuung.ts` | Nahfeld-Streuschicht: deterministische Bodendecker im 28-m-Umkreis, beim Gehen nachgezogen. Antwort auf „0 Props im 10-m-Umkreis" |
-| `spieler/steuerung.ts` | Eingabe für Bewegung und Blick. Touch (linke Bildhälfte gehen, rechte umsehen) **und** Tastatur/Maus. Zustand im Ref statt im State — 60 Re-Renders je Sekunde wären sinnlos |
+| `spieler/steuerung.ts` | Eingabe für Bewegung, Blick und **Sprung** (Leertaste, Tippen unter 12 px auf der rechten Hälfte). Touch **und** Tastatur/Maus. Zustand im Ref statt im State — 60 Re-Renders je Sekunde wären sinnlos |
 | `spieler/figur.ts` | Spielerfigur als Platzhalter, 1,8 m. **Größenreferenz**, kein Charakterdesign — monochrom, unter 300 Dreiecke |
 | `spieler/kollision.ts` | Kollision über ein Raster: Kreise für Stämme, Findlinge, Totholz; Rechtecke für Gebäudegrundrisse. Büsche und Gras bleiben durchlässig |
 

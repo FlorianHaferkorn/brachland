@@ -132,6 +132,30 @@ export const Kreatur = z.object({
   }, { message: 'Werte müssen mit jeder Stufe steigen' });
 export type Kreatur = z.infer<typeof Kreatur>;
 
+// ------------------------------------------------------------- Fragmente
+
+/**
+ * Ein Fundstück in der Welt.
+ *
+ * Die Story-Bibel legt „Fragmente statt Cutscenes" fest: Die Geschichte liegt an
+ * Orten, nicht in Dialogen. Deshalb hat ein Fragment eine Position und keinen
+ * Sprecher — wer es findet, liest es; wer nicht sucht, geht daran vorbei.
+ *
+ * 400 Zeichen sind die Obergrenze und sie sind gemeint. Der Ton verträgt keine
+ * Textwand, und ein Fundstück, das man im Stehen nicht zu Ende liest, ist keins.
+ */
+export const Fragment = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  region: z.string(),
+  /** Fundort in der Welt (lat, lon). */
+  ort: z.tuple([z.number(), z.number()]),
+  titel: z.string().max(60),
+  text: z.string().max(400),
+  /** Woran es liegt — nur zur Einordnung beim Anlegen. */
+  fundstelle: z.enum(['ruine', 'bunker', 'steinbruch', 'grat', 'bach', 'hof']),
+});
+export type Fragment = z.infer<typeof Fragment>;
+
 // ------------------------------------------------------------ Gegenstände
 
 /**

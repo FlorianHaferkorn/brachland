@@ -1,0 +1,8 @@
+{
+  "id": "erdstoss",
+  "name": "Erdstoß",
+  "element": "stein",
+  "band": "normal",
+  "effekte": [],
+  "beschreibung": "Stoß mit der gepanzerten Schulter aus dem Bau heraus."
+}

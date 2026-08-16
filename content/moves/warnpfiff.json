@@ -1,0 +1,15 @@
+{
+  "id": "warnpfiff",
+  "name": "Warnpfiff",
+  "element": "stein",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ver",
+      "stufen": 2,
+      "ziel": "selbst"
+    }
+  ],
+  "beschreibung": "Der Pfiff, den jeder im Tal kennt. Wer ihn hört, duckt sich."
+}

@@ -1,0 +1,13 @@
+{
+  "id": "moderpolster",
+  "name": "Moderpolster",
+  "element": "sporen",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "heilung",
+      "anteil": 0.3
+    }
+  ],
+  "beschreibung": "Das Rückenpolster gibt ab, was es über den Winter gespeichert hat."
+}

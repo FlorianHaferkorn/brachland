@@ -13,7 +13,7 @@
  */
 import { baueSpawns, type Weltdaten } from './osm.js';
 import { mulberry } from './props.js';
-import { wildStufe } from '../spiel/fortschritt.js';
+import { wildStufe, mutationBei } from '../spiel/fortschritt.js';
 
 export interface Vorkommen {
   /** Stabil über Sitzungen — Schlüssel für „schon gefangen“. */
@@ -26,6 +26,8 @@ export interface Vorkommen {
    * Würfel (Ledger D33).
    */
   stufe: number;
+  /** Mutation 0…2, abgeleitet aus Stufe und Länge der Linie. Für die Gestalt. */
+  mutation: number;
   position: [number, number, number];
   drehung: number;
 }
@@ -111,6 +113,7 @@ export function verteileKreaturen(
         id: `${zone.kreatur}:${i}:${j}`,
         kreatur: zone.kreatur,
         stufe,
+        mutation: mutationBei(stufe, k.stufen.length),
         position: [x, hoeheAn(x, z), z],
         drehung: zufall() * Math.PI * 2,
       });

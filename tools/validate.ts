@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
+import { Kreatur, Move, Regent, Gegenstand, Fragment, effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
 
@@ -28,6 +28,8 @@ console.log('\nRegenten:');
 const regenten = pruefe<any>('content/regenten', Regent);
 console.log('\nGegenstände:');
 const gegenstaende = pruefe<any>('content/gegenstaende', Gegenstand);
+console.log('\nFragmente:');
+const fragmente = pruefe<any>('content/fragmente', Fragment);
 
 // Querverweise: jede referenzierte Move-ID muss es geben. Ohne diese Pruefung
 // faellt ein Tippfehler erst im Kampf auf — und dort als leerer Move-Knopf.
@@ -52,6 +54,22 @@ console.log(mitBeute > 0
   ? `  ✓ ${mitBeute} von ${gegenstaende.length} Gegenstaenden fallen als Beute an`
   : '  ✗ kein Gegenstand faellt als Beute an — der Beutel bliebe leer');
 if (mitBeute === 0) fehler++;
+
+// Zwei Fragmente am selben Ort findet man nie beide — der zweite Auslöser feuert nie.
+let doppelt = 0;
+for (let i = 0; i < fragmente.length; i++)
+  for (let j = i + 1; j < fragmente.length; j++) {
+    const a = fragmente[i].ort, b = fragmente[j].ort;
+    // ~0,0002 Grad sind rund 20 m — knapp unter dem Fundradius.
+    if (Math.abs(a[0] - b[0]) < 0.0002 && Math.abs(a[1] - b[1]) < 0.0002) {
+      console.log(`  ✗ '${fragmente[i].id}' und '${fragmente[j].id}' liegen am selben Ort`);
+      doppelt++;
+    }
+  }
+console.log(doppelt === 0
+  ? `  ✓ ${fragmente.length} Fragmente liegen einzeln`
+  : `  ${doppelt} Ueberschneidungen`);
+fehler += doppelt;
 if (tote > 0) fehler += tote;
 
 console.log(`\n${ok} gültig, ${fehler} fehlerhaft\n`);

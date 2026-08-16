@@ -1,0 +1,56 @@
+{
+  "id": "alpenmurmel",
+  "linie": "Alpenmurmel",
+  "basis": "Alpenmurmeltier",
+  "merkmal": "Erdpilz-Rückenpolster",
+  "elemente": [
+    "stein"
+  ],
+  "ursprung": "wildling",
+  "basisRig": "quadruped_small",
+  "zielTris": 3000,
+  "spawn": {
+    "osmTag": "landuse=meadow",
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "haeufig",
+    "minHoehe": 700
+  },
+  "grundMoves": [
+    "erdstoss",
+    "warnpfiff"
+  ],
+  "stufen": [
+    {
+      "name": "Alpenmurmel",
+      "werte": {
+        "kp": 120,
+        "ang": 54,
+        "ver": 58,
+        "ini": 40
+      }
+    },
+    {
+      "name": "Polsterbau",
+      "werte": {
+        "kp": 152,
+        "ang": 68,
+        "ver": 76,
+        "ini": 42
+      },
+      "signaturMove": "bauschlag"
+    },
+    {
+      "name": "Grundhüter",
+      "werte": {
+        "kp": 186,
+        "ang": 82,
+        "ver": 94,
+        "ini": 44
+      },
+      "signaturMove": "moderpolster"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Steht aufrecht am Bau und pfeift, lange bevor man es sieht. Das Rückenpolster ist Vorrat und Panzer zugleich."
+}

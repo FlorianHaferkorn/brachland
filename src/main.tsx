@@ -6,7 +6,7 @@ import { RegionsSzene, TAGESZEITEN, QUALITAET_STANDARD,
          type Messwerte, type Qualitaet, type Naehe } from './scenes/RegionsSzene.js';
 import { Witterung } from './ui/Witterung.js';
 import type { Vorkommen } from './world/vorkommen.js';
-import { KREATUREN, REGENTEN, GEGENSTAENDE, WILDLINGE,
+import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, WILDLINGE,
          baueKaempfer, baueRegent, regentOrt, ausKaempferId } from './data/inhalte.js';
 import { erfahrungAusSieg, gutschrift, mutationBei } from './spiel/fortschritt.js';
 import { beute } from './spiel/gegenstaende.js';
@@ -53,6 +53,7 @@ function App() {
   const [begegnung, setBegegnung] = useState<{ v: Vorkommen; gegner: Kaempfer } | null>(null);
   const [regentKampf, setRegentKampf] = useState<Kaempfer | null>(null);
   const [regentNah, setRegentNah] = useState(false);
+  const [fragment, setFragment] = useState<string | null>(null);
   const [hinweis, setHinweis] = useState<string | null>(null);
   const spielerRef = useRef<THREE.Object3D>(null);
   const naehe = useRef<Naehe>({ abstand: Infinity, winkel: 0, kreatur: '' });
@@ -89,11 +90,16 @@ function App() {
   // Silhouetten einmal je Kreatur — 19 Geometrien statt einer je Vorkommen.
   const gestalten = useMemo(() => {
     const karte = new Map<string, THREE.BufferGeometry>();
-    for (const k of KREATUREN.values()) karte.set(k.id, baueKreaturGeometrie(k.basisRig, k.elemente));
+    // Je Kreatur eine Gestalt **je Mutation**: Der Pilzfächer wächst mit, und genau
+    // daran soll man auf Entfernung sehen, wie weit eine Kreatur ist.
+    for (const k of KREATUREN.values())
+      for (let m = 0; m < k.stufen.length; m++)
+        karte.set(`${k.id}:${m}`, baueKreaturGeometrie(k.basisRig, k.elemente, m));
     return karte;
   }, []);
-  const gestalt = useCallback(
-    (id: string) => gestalten.get(id) ?? gestalten.values().next().value!,
+  const gestalt = useCallback((id: string, mutation = 0) =>
+    gestalten.get(`${id}:${mutation}`) ?? gestalten.get(`${id}:0`)
+    ?? gestalten.values().next().value!,
     [gestalten],
   );
 
@@ -129,8 +135,41 @@ function App() {
     const r = REGENTEN.get(REGENT_ID);
     if (!ort || !r) return undefined;
     // Der Flussvater ist ein Riesenwels — die Schlangenform kommt dem am nächsten.
-    return { ort, gestalt: baueKreaturGeometrie('serpent', r.phasen[0].elemente) };
+    return { ort, gestalt: baueKreaturGeometrie('serpent', r.phasen[0].elemente, 2) };
   }, [welt]);
+
+  /**
+   * Fundstellen in Weltkoordinaten. Dieselbe Umrechnung wie beim Regenten — sie
+   * hängt an der Ausdehnung der Region, nicht am Inhalt.
+   */
+  const fundstellen = useMemo(() => {
+    if (!welt) return [];
+    const [sued, west, nord, ost] = welt.bbox;
+    const METER_JE_GRAD = 111_320;
+    const mittelLat = (sued + nord) / 2;
+    const breite = (ost - west) * METER_JE_GRAD * Math.cos(mittelLat * Math.PI / 180);
+    const tiefe = (nord - sued) * METER_JE_GRAD;
+    return [...FRAGMENTE.values()].map(f => ({
+      id: f.id,
+      ort: [
+        ((f.ort[1] - west) / (ost - west) - 0.5) * breite,
+        ((nord - f.ort[0]) / (nord - sued) - 0.5) * tiefe,
+      ] as [number, number],
+    }));
+  }, [welt]);
+
+  const gelesen = useMemo(() => new Set(stand?.fragmente ?? []), [stand]);
+
+  /** Ein Fundstück lesen: einmalig, sofort gespeichert, sichtbar bis zum Wegtippen. */
+  const findeFragment = useCallback((id: string) => {
+    setStand(alt => {
+      if (!alt || alt.fragmente.includes(id)) return alt;
+      const neu = { ...alt, fragmente: [...alt.fragmente, id] };
+      void speichereStand(neu);
+      return neu;
+    });
+    setFragment(id);
+  }, []);
 
   const verbraucht = useMemo(
     () => new Set([...(stand?.gefangen ?? []), ...(stand?.besiegt ?? [])]),
@@ -297,6 +336,9 @@ function App() {
         naehe={naehe}
         regent={regent}
         onRegentNah={setRegentNah}
+        fundstellen={fundstellen}
+        gelesen={gelesen}
+        onFund={findeFragment}
         startPosition={stand.position}
         angehalten={imKampf}
       />
@@ -363,6 +405,30 @@ function App() {
           </div>
 
           <Witterung naehe={naehe} />
+
+          {/* Ein Fundstück. Keine Karte, kein Log-Eintrag, kein Haken — man liest es
+              und geht weiter. Die Leseliste steht im Beutel, falls jemand zurückwill. */}
+          {fragment && FRAGMENTE.get(fragment) && (
+            <div onClick={() => setFragment(null)} style={{
+              position: 'fixed', inset: 0, zIndex: 30, display: 'grid', placeItems: 'center',
+              background: '#0a0f0dcc', padding: 24,
+            }}>
+              <div style={{
+                maxWidth: 420, background: '#131c19', border: '1px solid #2a3632',
+                borderRadius: 12, padding: '18px 20px',
+              }}>
+                <div style={{ color: '#9db0a6', fontSize: 15, fontWeight: 600, marginBottom: 10 }}>
+                  {FRAGMENTE.get(fragment)!.titel}
+                </div>
+                <div style={{ color: '#8b9a93', fontSize: 14, lineHeight: 1.6 }}>
+                  {FRAGMENTE.get(fragment)!.text}
+                </div>
+                <div style={{ color: '#5c6b64', fontSize: 11, marginTop: 14, textAlign: 'right' }}>
+                  {gelesen.size} von {FRAGMENTE.size} Fundstücken · tippen zum Weitergehen
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Der Bosskampf startet nicht von selbst. Wer im Vorbeigehen in einen
               Regenten läuft, erlebt keinen Höhepunkt, sondern einen Unfall. */}
@@ -466,7 +532,7 @@ function App() {
             textAlign: 'center', pointerEvents: 'none', zIndex: 10,
             color: '#5c6b64', fontSize: 11, letterSpacing: 0.2,
           }}>
-            links wischen = gehen · rechts wischen = umsehen und neigen · dem Pfeil folgen
+            links wischen = gehen · rechts wischen = umsehen · rechts tippen = springen · dem Pfeil folgen
           </div>
         </>
       )}
