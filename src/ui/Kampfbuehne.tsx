@@ -29,15 +29,38 @@ export interface KaempferBild {
 
 /** Wie lange ein Treffer nachwirkt, in Sekunden. */
 const TREFFER_DAUER = 0.32;
+/** Wie lange die Kamera auf einen Zug hält, in Sekunden. */
+const ZUG_DAUER = 0.85;
+/** Dauer des Ausfallschritts beim Angriff. */
+const AUSFALL_DAUER = 0.34;
+
+/**
+ * Was gerade passiert. Als Ref, weil die Bühne ihre eigene Bildschleife hat und ein
+ * Re-Render je Zug nichts beiträgt.
+ */
+export interface Buehnenzug {
+  /** Zeitstempel in Sekunden (`performance.now() / 1000`). 0 = nichts. */
+  zeit: number;
+  /** Wer angreift: -1 Spieler, +1 Gegner. */
+  seite: number;
+}
+
+/** Wie weit ein Wert nach `t` Sekunden abgeklungen ist, 1 → 0. */
+function klingt(zeit: number, dauer: number): number {
+  if (zeit <= 0) return 0;
+  const t = (performance.now() / 1000 - zeit) / dauer;
+  return t < 0 || t > 1 ? 0 : 1 - t;
+}
 
 /** Höhe, auf die jede Kreatur fürs Porträt normiert wird. */
 const BILDHOEHE = 0.95;
 
-function Gestalt({ bild, seite, treffer }: {
+function Gestalt({ bild, seite, treffer, zug }: {
   bild: KaempferBild;
   /** -1 links (Spieler), +1 rechts (Gegner). */
   seite: number;
   treffer: React.RefObject<number>;
+  zug: React.RefObject<Buehnenzug>;
 }) {
   const geometrie = useMemo(
     () => baueKreaturGeometrie(bild.basisRig, bild.elemente),
@@ -72,9 +95,14 @@ function Gestalt({ bild, seite, treffer }: {
     // Bild und würde einen dort gesetzten Versatz sonst überschreiben. Genau das ist
     // passiert — die Tiere standen einen halben Meter zu hoch und wurden oben
     // angeschnitten, obwohl das JSX sie mittig setzte.
+    // Ausfallschritt: Der Angreifer geht auf den Gegner zu und wieder zurück. Eine
+    // halbe Sinuswelle — vorne am schnellsten, an den Enden ruhig.
+    const meins = zug.current?.seite === seite ? klingt(zug.current.zeit, AUSFALL_DAUER) : 0;
+    const ausfall = Math.sin((1 - meins) * Math.PI) * 0.34;
+
     g.position.y = -BILDHOEHE / 2 + atem * 0.014;
-    g.position.x = seite * (0.62 + zuck * 0.18);
-    g.rotation.z = zuck * seite * 0.22;
+    g.position.x = seite * (0.62 + zuck * 0.18 - ausfall);
+    g.rotation.z = zuck * seite * 0.22 - ausfall * seite * 0.12;
     material.emissiveIntensity = zuck;
   });
 
@@ -90,17 +118,62 @@ function Gestalt({ bild, seite, treffer }: {
   );
 }
 
+/**
+ * Kameraführung.
+ *
+ * Der Kampf war eine Tabelle mit Knöpfen, dann zwei stehende Silhouetten. Was fehlt,
+ * ist das, was jeder Kampf im Kino hat: dass die Kamera auf den Schlag geht.
+ *
+ * Drei Lagen, alle rein rechnerisch:
+ * - **Ruhe:** eine sehr langsame Kreisbewegung. Ein völlig stehendes Bild wirkt wie
+ *   ein Standbild, nicht wie eine Szene.
+ * - **Zug:** Schub nach vorn und Schwenk auf den Getroffenen, dann zurück.
+ * - **Aufschlag:** ein kurzes Rütteln in den ersten Zehntelsekunden.
+ */
+function Fuehrung({ zug }: { zug: React.RefObject<Buehnenzug> }) {
+  const uhr = useRef(0);
+  const ziel = useMemo(() => new THREE.Vector3(), []);
+  const jetzt = useMemo(() => new THREE.Vector3(0, 0, 2.5), []);
+
+  useFrame(({ camera }, dt) => {
+    uhr.current += dt;
+    const z = zug.current;
+    const stark = z ? klingt(z.zeit, ZUG_DAUER) : 0;
+    // Kurz und hart, nur am Anfang des Zugs.
+    const schlag = z ? klingt(z.zeit, 0.16) : 0;
+    const seite = z?.seite ?? 0;
+
+    // Ruhe: langsames Kreisen, damit das Bild atmet.
+    const rx = Math.sin(uhr.current * 0.21) * 0.10;
+    const ry = Math.sin(uhr.current * 0.15 + 1.3) * 0.05;
+
+    ziel.set(
+      rx - seite * stark * 0.34 + (Math.random() - 0.5) * schlag * 0.035,
+      ry + stark * 0.06 + (Math.random() - 0.5) * schlag * 0.035,
+      2.5 - stark * 0.55,
+    );
+    // Nachziehen statt springen: Die Kamera folgt der Absicht, sie rastet nicht ein.
+    jetzt.lerp(ziel, Math.min(1, dt * 7));
+    camera.position.copy(jetzt);
+    camera.lookAt(-seite * stark * 0.30, 0, 0);
+  });
+
+  return null;
+}
+
 export interface KampfbuehneProps {
   spieler: KaempferBild;
   gegner: KaempferBild;
   /** Zeitstempel des letzten Treffers je Seite, in Sekunden (performance.now()/1000). */
   trefferSpieler: React.RefObject<number>;
   trefferGegner: React.RefObject<number>;
+  /** Der laufende Zug — steuert Ausfallschritt und Kamera. */
+  zug: React.RefObject<Buehnenzug>;
   hintergrund: string;
 }
 
 export function Kampfbuehne({
-  spieler, gegner, trefferSpieler, trefferGegner, hintergrund,
+  spieler, gegner, trefferSpieler, trefferGegner, zug, hintergrund,
 }: KampfbuehneProps) {
   return (
     <Canvas
@@ -122,8 +195,9 @@ export function Kampfbuehne({
       <hemisphereLight args={['#9db4bb', '#28323a', 1.6]} />
       <directionalLight position={[2.5, 4, 3]} intensity={1.5} color="#d8d2c0" />
       <directionalLight position={[-2.5, 2.5, -3]} intensity={1.1} color="#6fa8b8" />
-      <Gestalt bild={spieler} seite={-1} treffer={trefferSpieler} />
-      <Gestalt bild={gegner} seite={1} treffer={trefferGegner} />
+      <Fuehrung zug={zug} />
+      <Gestalt bild={spieler} seite={-1} treffer={trefferSpieler} zug={zug} />
+      <Gestalt bild={gegner} seite={1} treffer={trefferGegner} zug={zug} />
     </Canvas>
   );
 }

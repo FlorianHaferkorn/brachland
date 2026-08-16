@@ -24,6 +24,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { baueBaum } from '../world/baum.js';
+import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
@@ -39,18 +40,24 @@ export const STIMMUNG = {
     sonne: '#c8b48a', sonneStaerke: 1.25, umgebung: '#38494c', umgebungStaerke: 0.85,
     sonnenstand: [-120, 55, -90] as const,
     belichtung: 2.15,
+    // Tief stehende Sonne: kleine Scheibe, sehr weiter Hof. Der Hof IST die Stimmung.
+    zenit: '#0e1a24', horizont: '#3b3a34', scheibe: 0.0016, hof: 190,
   },
   nebelmorgen: {
     himmel: '#20282a', nebel: '#2c3a39', nebelNah: 30, nebelFern: 240,
     sonne: '#d8d2c0', sonneStaerke: 0.9, umgebung: '#47585a', umgebungStaerke: 1.05,
     sonnenstand: [90, 40, -110] as const,
     belichtung: 1.45,
+    // Im Dunst gibt es keine Scheibe, nur einen breiten hellen Fleck.
+    zenit: '#26333a', horizont: '#3e4a48', scheibe: 0.0, hof: 42,
   },
   nacht: {
     himmel: '#0a0f12', nebel: '#101a1c', nebelNah: 25, nebelFern: 260,
     sonne: '#8fa9c4', sonneStaerke: 0.45, umgebung: '#162124', umgebungStaerke: 0.35,
     sonnenstand: [-80, 90, 60] as const,
     belichtung: 1.40,
+    // Mond: harte kleine Scheibe, fast kein Hof.
+    zenit: '#05080d', horizont: '#131c22', scheibe: 0.0009, hof: 900,
   },
 } as const;
 export type StimmungsName = keyof typeof STIMMUNG;
@@ -467,11 +474,29 @@ function Beleuchtung({ stimmung, ziel }: {
   const { scene, gl } = useThree();
   const sonne = useRef<THREE.DirectionalLight>(null);
 
+  /**
+   * Nebel und Himmel gehören zusammen.
+   *
+   * Der Dunst am Horizont trägt dieselbe Farbe wie der Nebel — nur dann geht fernes
+   * Gelände in den Himmel über, statt als Silhouette davor zu kleben. Deshalb steht
+   * `dunst` hier nicht als eigener Wert in der Stimmung, sondern kommt aus `nebel`.
+   */
   useEffect(() => {
     scene.fog = new THREE.Fog(s.nebel, s.nebelNah, s.nebelFern);
-    scene.background = new THREE.Color(s.himmel);
+    scene.background = null;
     return () => { scene.fog = null; };
   }, [scene, s]);
+
+  const himmel = useMemo(() => baueHimmel({
+    zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
+    sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof,
+  }), [s]);
+  useEffect(() => {
+    setzeHimmel(himmel, {
+      zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
+      sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof,
+    });
+  }, [himmel, s]);
 
   /**
    * Belichtung je Stimmung.
@@ -499,7 +524,11 @@ function Beleuchtung({ stimmung, ziel }: {
    * relativ zum Spieler bleibt die Sonnenrichtung erhalten, die Schattenkamera
    * bleibt aber immer über der Szene.
    */
-  useFrame(() => {
+  useFrame(({ camera }) => {
+    // Die Himmelskugel wandert mit der Kamera. Der Shader zwingt sie ohnehin auf die
+    // ferne Ebene; sie muss die Kamera nur umschliessen, damit sie das Bild fuellt.
+    himmel.position.copy(camera.position);
+
     const p = ziel.current?.position;
     const l = sonne.current;
     if (!p || !l) return;
@@ -510,6 +539,9 @@ function Beleuchtung({ stimmung, ziel }: {
 
   return (
     <>
+      {/* Der Himmel hängt an der Kamera: keine Ausdehnung im Spielraum, kein Nebel,
+          kein Schatten. Er ist Hintergrund, kein Objekt. */}
+      <primitive object={himmel} />
       <hemisphereLight args={[s.umgebung, '#121a16', s.umgebungStaerke]} />
       <directionalLight
         ref={sonne}

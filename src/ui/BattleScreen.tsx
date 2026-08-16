@@ -13,7 +13,7 @@ import {
   REGELN, schaden, waehleMove, elementFaktor, rng,
   type Kaempfer, type Team, type MoveDef,
 } from '../engine/battle.js';
-import { Kampfbuehne, type KaempferBild } from './Kampfbuehne.js';
+import { Kampfbuehne, type KaempferBild, type Buehnenzug } from './Kampfbuehne.js';
 
 const FARBE = {
   hintergrund: '#0d1210',
@@ -145,6 +145,12 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, 
   // liest sie in ihrer eigenen Bildschleife — ein Re-Render je Treffer wäre unnötig.
   const trefferSpieler = useRef(0);
   const trefferGegner = useRef(0);
+  const zug = useRef<Buehnenzug>({ zeit: 0, seite: 0 });
+
+  /** Einen Zug an die Bühne melden: Ausfallschritt und Kamerafahrt hängen daran. */
+  const inszeniere = (angreiferIstSpieler: boolean) => {
+    zug.current = { zeit: performance.now() / 1000, seite: angreiferIstSpieler ? -1 : 1 };
+  };
 
   const aktiv = team.kaempfer[team.aktiv];
   const melde = (t: string) => setMeldungen(m => [...m.slice(-3), t]);
@@ -159,6 +165,7 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, 
       const roh = gm ? schaden(gegner, ich, gm, zufall) : 0;
       const d = Math.round(roh * REGELN.SHIELD_DR);
       ich.kp -= d;
+      inszeniere(false);
       trefferSpieler.current = performance.now() / 1000;
       melde(`${ich.name} tritt ein und fängt ${d} Schaden ab (Schild).`);
     } else if (spielerMove) {
@@ -168,6 +175,7 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, 
         a.fokus -= BAND[m.band].fokus;
         const s = schaden(a, d, m, zufall);
         d.kp -= s;
+        inszeniere(a !== gegner);
         (d === gegner ? trefferGegner : trefferSpieler).current = performance.now() / 1000;
         const f = elementFaktor(m.element, d.elemente);
         melde(`${a.name}: ${m.name} → ${s}${f > 1 ? ' (sehr effektiv)' : f < 1 ? ' (kaum wirksam)' : ''}`);
@@ -213,6 +221,7 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, 
     if (gm) {
       const s = schaden(gegner, ich, gm, zufall);
       ich.kp -= s;
+      inszeniere(false);
       trefferSpieler.current = performance.now() / 1000;
       melde(`${gegner.name}: ${gm.name} → ${s}`);
       if (ich.kp <= 0) {
@@ -251,7 +260,7 @@ export function Kampfbildschirm({ team, gegner, seed = 1, fangbar = true, bild, 
         }}>
           <Kampfbuehne
             spieler={spielerBild} gegner={gegnerBild}
-            trefferSpieler={trefferSpieler} trefferGegner={trefferGegner}
+            trefferSpieler={trefferSpieler} trefferGegner={trefferGegner} zug={zug}
             hintergrund={FARBE.flaeche}
           />
         </div>
