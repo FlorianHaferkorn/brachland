@@ -45,7 +45,7 @@ owns: *.ts, *.tsx
 | `world/streuung.ts` | Nahfeld-Streuschicht: deterministische Bodendecker im 28-m-Umkreis, beim Gehen nachgezogen. Antwort auf „0 Props im 10-m-Umkreis" |
 | `spieler/steuerung.ts` | Eingabe für Bewegung und Blick. Touch (linke Bildhälfte gehen, rechte umsehen) **und** Tastatur/Maus. Zustand im Ref statt im State — 60 Re-Renders je Sekunde wären sinnlos |
 | `spieler/figur.ts` | Spielerfigur als Platzhalter, 1,8 m. **Größenreferenz**, kein Charakterdesign — monochrom, unter 300 Dreiecke |
-| `spieler/kollision.ts` | Kreis-Kollision gegen Stämme, Findlinge und Totholz über ein Raster. Büsche und Gras bleiben durchlässig |
+| `spieler/kollision.ts` | Kollision über ein Raster: Kreise für Stämme, Findlinge, Totholz; Rechtecke für Gebäudegrundrisse. Büsche und Gras bleiben durchlässig |
 
 ## Was hier NICHT liegt
 

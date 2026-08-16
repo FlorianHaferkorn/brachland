@@ -533,7 +533,10 @@ export function RegionsSzene({ welt, stimmung = 'daemmerung', spielerRef }: Regi
       position: [p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2]],
     })) as PropInstanz[];
   }, [welt, terrain, feld]);
-  const kollision = useMemo(() => baueKollision(props), [props]);
+  const kollision = useMemo(
+    () => baueKollision(props, welt, feld.breiteMeter, feld.tiefeMeter),
+    [props, welt, feld],
+  );
 
   // Ohne Startposition steht der Spieler im Ursprung (y = 0) — im Œntal sind das
   // ~170 m unter der Geländeoberfläche, die Kamera schaut dann von innen durch den
