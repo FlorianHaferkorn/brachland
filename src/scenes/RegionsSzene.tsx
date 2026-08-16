@@ -18,6 +18,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung } from '../spieler/steuerung.js';
+import { baueBueschelGeometrie, streueUmgebung, STREU_MAX, STREU_NACHZIEHEN }
+  from '../world/streuung.js';
 import { verteileProps, chunkeProps, propGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
          PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 
@@ -143,6 +145,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel }: {
       )}
 
       <Props welt={welt} terrain={terrain} feld={feld} />
+      <Streuschicht feld={feld} ziel={ziel} />
     </group>
   );
 }
@@ -289,9 +292,63 @@ function Beleuchtung({ stimmung, ziel }: {
   );
 }
 
-/** Gehen und Rennen in m/s — Werte aus `npm run masstab`, nicht geraten. */
-const GEHEN = 1.4;
-const RENNEN = 5.0;
+/**
+ * Bodendecker im Nahbereich.
+ *
+ * Wird beim Gehen nachgezogen statt einmalig verteilt: 30.000 Props über 16 km²
+ * lassen den Boden direkt vor dem Spieler leer, und genau dort schaut man hin.
+ */
+function Streuschicht({ feld, ziel }: {
+  feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>;
+}) {
+  const geometrie = useMemo(() => baueBueschelGeometrie(), []);
+  // flatShading MUSS hier aus bleiben: Es ignoriert die Normalen-Attribute und
+  // rechnet Flächennormalen aus Bildschirm-Ableitungen — die Halme stünden dann
+  // wieder waagerecht im Licht und rendern schwarz. Der Rest der Szene ist bewusst
+  // flach schattiert, die Vegetation ist die Ausnahme.
+  // Zwei Fallen, die beide zu schwarzen Halmen führen:
+  // - `flatShading` ignoriert die Normalen und rechnet sie aus Bildschirm-Ableitungen.
+  // - `DoubleSide` lässt three bei Rückseiten die Normale umdrehen; sie zeigt dann nach
+  //   unten und nimmt die dunkle Bodenfarbe des Himmelslichts auf. Die Geometrie
+  //   enthält jeden Halm ohnehin doppelt mit umgekehrter Wicklung, FrontSide genügt.
+  const material = useMemo(() => new THREE.MeshStandardMaterial({
+    vertexColors: true, flatShading: false, roughness: 1, metalness: 0,
+    side: THREE.FrontSide,
+  }), []);
+  // Kein Schattenwurf und kein Schattenempfang: Ein Shadow-Texel ist bei ±250 m
+  // Schattenkamera und 2048² rund 24 cm — die Büschel sind 11–30 cm hoch, also
+  // kleiner als ein Texel. Sie würden sich selbst beschatten und schwarz rendern.
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+
+  useFrame(() => {
+    const p = ziel.current?.position;
+    const m = mesh.current;
+    if (!p || !m) return;
+    if (letzte.current.distanceTo(p) < STREU_NACHZIEHEN) return;
+    letzte.current.copy(p);
+    m.count = streueUmgebung(feld, p.x, p.z, m);
+    m.instanceMatrix.needsUpdate = true;
+    m.computeBoundingSphere();
+  });
+
+  return (
+    <instancedMesh
+      ref={mesh} args={[geometrie, material, STREU_MAX]}
+      frustumCulled={false} receiveShadow={false} castShadow={false}
+    />
+  );
+}
+
+/**
+ * Gehen und Rennen in m/s.
+ *
+ * Bewusst **nicht** realistisch: 1,4 m/s ist echtes Gehtempo und fühlt sich im Spiel
+ * zäh an — die Region ist 4 km breit. Der Maßstab bleibt 1:1 (begründete Entscheidung,
+ * ADR-0001), das Tempo wird überhöht. Querung rennend ~9,5 min, gehend ~22 min.
+ */
+const GEHEN = 3.0;
+const RENNEN = 7.0;
 
 /**
  * Bewegt den Spieler über das Gelände.
