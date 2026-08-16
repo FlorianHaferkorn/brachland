@@ -1,0 +1,44 @@
+# ── Godot ────────────────────────────────────────────────────────────────
+# Import-Cache und generierte Artefakte: reproduzierbar, gehören nicht ins Repo.
+game/.godot/
+game/android/
+game/.import/
+*.translation
+
+# Export-Presets enthalten Signing-Pfade/Keystore-Passwörter → nur Vorlage committen
+game/export_presets.cfg
+
+# ── Builds ───────────────────────────────────────────────────────────────
+build/
+dist/
+*.pck
+*.app
+*.exe
+*.dmg
+*.zip
+
+# ── Blender / DCC ────────────────────────────────────────────────────────
+*.blend1
+*.blend2
+src-assets/**/*.blend@
+
+# ── Python (scripts/, tests/) ────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# ── Secrets / lokale Konfiguration ───────────────────────────────────────
+.env
+.env.local
+*.key
+*.keystore
+scripts/roi/otel_local.env
+
+# ── OS / Editor ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+*.swp

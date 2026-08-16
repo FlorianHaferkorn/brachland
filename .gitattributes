@@ -1,0 +1,27 @@
+# claude-repo-kit — universelle LF-Policy gegen CRLF-Drift (Windows / iCloud / OneDrive).
+# `* text=auto eol=lf` normalisiert ALLE Textdateien auf LF — unabhängig vom Stack, daher
+# keine (irreführenden) Einzel-Extension-Zeilen für .gd/.tscn/.tres: die sind bereits gedeckt.
+# Nach Änderungen hier einmalig:  git add --renormalize .
+* text=auto eol=lf
+
+# Windows-Skripte müssen CRLF behalten:
+*.ps1   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Binär — nie EOL-normalisieren, nie diffen. Für ein 3D-Repo die kritische Liste:
+# eine als Text behandelte .glb ist beim nächsten Checkout unbrauchbar.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.exr   binary
+*.hdr   binary
+*.glb   binary
+*.gltf  binary
+*.blend binary
+*.ogg   binary
+*.wav   binary
+*.mp3   binary
+*.ttf   binary
+*.otf   binary

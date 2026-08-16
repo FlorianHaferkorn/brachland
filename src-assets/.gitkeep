@@ -1,0 +1,2 @@
+# Blender-Quellen (.blend) — bewusst AUSSERHALB von game/,
+# damit Godots Import-Scan sie nicht anfasst. Siehe docs/ASSET_PIPELINE.md.
