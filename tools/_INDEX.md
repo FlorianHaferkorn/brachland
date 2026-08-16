@@ -57,6 +57,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `vorkommencheck.ts` | `npm run vorkommen` — Kreaturen je Linie und je km², Weg bis zur nächsten Begegnung, Stufenverteilung |
 | `hoehenvergleich.ts` | `npm run hoehen` — Geländeauflösung im Vergleich: mittlere Stufe zwischen Nachbarpunkten je Raster |
 | `baumcheck.ts` | `npm run baum` — Dreiecke, Höhe und Bauzeit der prozeduralen Bäume |
+| `klippencheck.ts` | `npm run klippen` — Zahl, Höhe und Dreiecke der Felswände, und wie viele je Standort in Reichweite stehen |
 | `propcheck.ts` | `npm run props` — Dreiecke und Größe der Prop-Modelle |
 | `lodpreview.ts` | `npm run lodpreview` — Vorschau der LOD-Kachelung |
 

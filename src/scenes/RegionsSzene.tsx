@@ -11,7 +11,7 @@ import { useMemo, useRef, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
-import { baueTerrain, baueGewaesser, baueGebaeude, baueWege, GROESSE,
+import { baueTerrain, baueGewaesser, baueGebaeude, baueWege, baueWasserfaelle, GROESSE,
          type TerrainErgebnis } from '../world/terrain.js';
 import { useGLTF } from '@react-three/drei';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -26,6 +26,7 @@ import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
+import { findeKlippen, baueKlippenGeometrie, type Klippe } from '../world/klippen.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
@@ -245,6 +246,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
    */
   const aufBoden = useMemo(() => ({ ...terrain, hoeheAn: feld.hoehe }), [terrain, feld]);
   const wasserMaterial = useMemo(() => baueWasserMaterial(), []);
+  const fallMaterial = useMemo(() => baueWasserMaterial(true), []);
   const wegMaterial = useMemo(() => baueWegMaterial(), []);
   const wind = useMemo(() => baueWindMaterial({
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
@@ -255,17 +257,26 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
+  /**
+   * Klippen einmal je Welt suchen. Der Durchlauf tastet das Höhenfeld in 14-m-Schritten
+   * ab — bei 4 km Kantenlänge rund 81.000 Prüfungen, einmalig beim Start.
+   */
+  const klippen = useMemo(() => findeKlippen(feld, (x, z) => hoeheAufFlaeche(feld, x, z)), [feld]);
+
   const uhr = useRef(0);
   useFrame((_, dt) => {
     uhr.current += dt;
-    const z = wasserMaterial.userData.zeit as { value: number } | undefined;
-    if (z) z.value += dt;
+    for (const m of [wasserMaterial, fallMaterial]) {
+      const z = m.userData.zeit as { value: number } | undefined;
+      if (z) z.value += dt;
+    }
     wind.setzeZeit(uhr.current);
   });
-  const { gewaesser, gebaeude, wege } = useMemo(() => ({
+  const { gewaesser, gebaeude, wege, wasserfaelle } = useMemo(() => ({
     gewaesser: baueGewaesser(welt, aufBoden),
     gebaeude: baueGebaeude(welt, aufBoden),
     wege: baueWege(welt, aufBoden),
+    wasserfaelle: baueWasserfaelle(welt, aufBoden),
   }), [welt, aufBoden]);
 
   return (
@@ -274,10 +285,15 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
 
       {wege && <mesh geometry={wege} material={wegMaterial} receiveShadow />}
       {gewaesser && <mesh geometry={gewaesser} material={wasserMaterial} />}
+      {wasserfaelle && <mesh geometry={wasserfaelle} material={fallMaterial} />}
+
+      {klippen.length > 0 && <Klippen klippen={klippen} ziel={ziel} material={wind.material} />}
 
       {gebaeude && (
         <mesh geometry={gebaeude} castShadow receiveShadow>
-          <meshStandardMaterial color="#565049" roughness={0.9} flatShading />
+          {/* Wand, Holz und Fenster stecken jetzt als Vertex-Farben in der Geometrie.
+              Ein einziges Material für 2.033 Häuser bleibt es trotzdem. */}
+          <meshStandardMaterial vertexColors roughness={0.88} flatShading />
         </mesh>
       )}
 
@@ -542,6 +558,66 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
               position={v.position} rotation={[0, v.drehung, 0]}
               scale={1 + v.stufe * 0.18}
               castShadow receiveShadow />
+      ))}
+    </>
+  );
+}
+
+/**
+ * Klippen als Instanzen.
+ *
+ * Eine Instanz je Wand, ein Draw Call je Variante. Gezeichnet wird nur, was in
+ * Reichweite ist — Fels steht auf Entfernung ohnehin als Silhouette, und die
+ * liefert schon das Terrain.
+ */
+const KLIPPEN_SICHT = 320;
+
+function Klippen({ klippen, ziel, material }: {
+  klippen: Klippe[];
+  ziel: React.RefObject<THREE.Object3D | null>;
+  material: THREE.MeshStandardMaterial;
+}) {
+  const geometrien = useMemo(() => [0, 1, 2].map(v => baueKlippenGeometrie(v)), []);
+  const gruppen = useMemo(
+    () => geometrien.map((_, v) => klippen.filter(k => k.variante === v)),
+    [klippen, geometrien],
+  );
+  const refs = useRef<(THREE.InstancedMesh | null)[]>([]);
+  const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+
+  useFrame(() => {
+    const p = ziel.current?.position;
+    if (!p) return;
+    if (letzte.current.distanceTo(p) < 40) return;
+    letzte.current.copy(p);
+
+    const hilfe = new THREE.Object3D();
+    gruppen.forEach((liste, v) => {
+      const m = refs.current[v];
+      if (!m) return;
+      let n = 0;
+      for (const k of liste) {
+        if (Math.hypot(k.position[0] - p.x, k.position[2] - p.z) > KLIPPEN_SICHT) continue;
+        hilfe.position.set(...k.position);
+        hilfe.rotation.set(0, k.drehung, 0);
+        hilfe.scale.set(k.breite, k.hoehe, k.breite * 0.6);
+        hilfe.updateMatrix();
+        m.setMatrixAt(n++, hilfe.matrix);
+        if (n >= liste.length) break;
+      }
+      m.count = n;
+      m.instanceMatrix.needsUpdate = true;
+      m.computeBoundingSphere();
+    });
+  });
+
+  return (
+    <>
+      {gruppen.map((liste, v) => liste.length > 0 && (
+        <instancedMesh key={v}
+          ref={(el: THREE.InstancedMesh | null) => { refs.current[v] = el; }}
+          args={[geometrien[v], material, liste.length]}
+          castShadow receiveShadow />
       ))}
     </>
   );

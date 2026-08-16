@@ -159,9 +159,18 @@ export function Kampfbildschirm({
   const trefferGegner = useRef(0);
   const zug = useRef<Buehnenzug>({ zeit: 0, seite: 0 });
 
-  /** Einen Zug an die Bühne melden: Ausfallschritt und Kamerafahrt hängen daran. */
-  const inszeniere = (angreiferIstSpieler: boolean) => {
-    zug.current = { zeit: performance.now() / 1000, seite: angreiferIstSpieler ? -1 : 1 };
+  /**
+   * Einen Zug an die Bühne melden: Ausfallschritt, Kamerafahrt und Einschlag hängen
+   * daran. Element und Faktor gehen mit, damit der Einschlag zeigt, **womit**
+   * getroffen wurde — und ob es gesessen hat.
+   */
+  const inszeniere = (angreiferIstSpieler: boolean, move?: MoveDef, faktor = 1) => {
+    zug.current = {
+      zeit: performance.now() / 1000,
+      seite: angreiferIstSpieler ? -1 : 1,
+      element: move?.element,
+      faktor,
+    };
   };
 
   const aktiv = team.kaempfer[team.aktiv];
@@ -177,7 +186,7 @@ export function Kampfbildschirm({
       const roh = gm ? schaden(gegner, ich, gm, zufall) : 0;
       const d = Math.round(roh * REGELN.SHIELD_DR);
       ich.kp -= d;
-      inszeniere(false);
+      inszeniere(false, gm ?? undefined);
       trefferSpieler.current = performance.now() / 1000;
       melde(`${ich.name} tritt ein und fängt ${d} Schaden ab (Schild).`);
     } else if (spielerMove) {
@@ -187,9 +196,9 @@ export function Kampfbildschirm({
         a.fokus -= BAND[m.band].fokus;
         const s = schaden(a, d, m, zufall);
         d.kp -= s;
-        inszeniere(a !== gegner);
-        (d === gegner ? trefferGegner : trefferSpieler).current = performance.now() / 1000;
         const f = elementFaktor(m.element, d.elemente);
+        inszeniere(a !== gegner, m, f);
+        (d === gegner ? trefferGegner : trefferSpieler).current = performance.now() / 1000;
         melde(`${a.name}: ${m.name} → ${s}${f > 1 ? ' (sehr effektiv)' : f < 1 ? ' (kaum wirksam)' : ''}`);
       };
       if (zuerst === 'ich') { zug(ich, gegner, spielerMove); zug(gegner, ich, waehleMove(gegner, ich)); }
@@ -237,7 +246,7 @@ export function Kampfbildschirm({
     if (gm && ich.kp > 0) {
       const s = schaden(gegner, ich, gm, zufall);
       ich.kp -= s;
-      inszeniere(false);
+      inszeniere(false, gm, elementFaktor(gm.element, ich.elemente));
       trefferSpieler.current = performance.now() / 1000;
       melde(`${gegner.name}: ${gm.name} → ${s}`);
       if (ich.kp <= 0) {
@@ -268,7 +277,7 @@ export function Kampfbildschirm({
     if (gm) {
       const s = schaden(gegner, ich, gm, zufall);
       ich.kp -= s;
-      inszeniere(false);
+      inszeniere(false, gm, elementFaktor(gm.element, ich.elemente));
       trefferSpieler.current = performance.now() / 1000;
       melde(`${gegner.name}: ${gm.name} → ${s}`);
       if (ich.kp <= 0) {

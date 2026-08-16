@@ -17,7 +17,7 @@ import { useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { baueKreaturGeometrie } from '../world/kreaturgestalt.js';
-import { RIG_HOEHE, type BasisRig } from '../world/kreaturgestalt.js';
+import { RIG_HOEHE, ELEMENT_FARBE, type BasisRig } from '../world/kreaturgestalt.js';
 import type { Element } from '../data/schema.js';
 
 export interface KaempferBild {
@@ -43,6 +43,71 @@ export interface Buehnenzug {
   zeit: number;
   /** Wer angreift: -1 Spieler, +1 Gegner. */
   seite: number;
+  /** Element des Moves — färbt den Einschlag. */
+  element?: Element;
+  /** Elementfaktor: über 1 sehr effektiv, unter 1 kaum wirksam. */
+  faktor?: number;
+}
+
+/**
+ * Einschlag als Partikel.
+ *
+ * Ein Treffer war bisher eine Zahl im Protokoll und ein Zucken. Was fehlt, ist der
+ * Moment dazwischen — die halbe Sekunde, in der etwas passiert.
+ *
+ * Bewusst **ein** InstancedMesh mit fester Teilchenzahl, keine Partikel-Bibliothek:
+ * Die Bühne ist eine 300-Pixel-Leinwand auf einem Handy, das gleichzeitig eine
+ * 4-km-Landschaft im Speicher hält. Vierzig Splitter, die aus einem Punkt fliegen
+ * und schrumpfen, sind alles, was hier gebraucht wird.
+ *
+ * Die Farbe kommt aus dem Element des Moves — damit sieht man, **womit** getroffen
+ * wurde, nicht nur dass. Bei sehr effektiv fliegen sie weiter und heller.
+ */
+const SPLITTER = 40;
+const EINSCHLAG_DAUER = 0.55;
+
+function Einschlag({ zug }: { zug: React.RefObject<Buehnenzug> }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const geo = useMemo(() => new THREE.TetrahedronGeometry(0.045, 0), []);
+  const mat = useMemo(() => new THREE.MeshBasicMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  }), []);
+  // Richtungen einmal würfeln und behalten: Ein Einschlag, der jedes Mal anders
+  // aussieht, liest sich als Rauschen statt als Wirkung.
+  const richtungen = useMemo(() => Array.from({ length: SPLITTER }, (_, i) => {
+    const a = (i / SPLITTER) * Math.PI * 2 + (i % 3) * 0.7;
+    const h = ((i * 37) % 100) / 100;
+    return new THREE.Vector3(Math.cos(a) * (0.5 + h), h * 1.5 - 0.25, Math.sin(a) * (0.5 + h) * 0.4);
+  }), []);
+  const hilfe = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame(() => {
+    const m = ref.current;
+    const z = zug.current;
+    if (!m) return;
+    const t = z ? klingt(z.zeit, EINSCHLAG_DAUER) : 0;
+    m.visible = t > 0;
+    if (t <= 0) return;
+
+    const stark = z?.faktor && z.faktor > 1 ? 1.5 : z?.faktor && z.faktor < 1 ? 0.6 : 1;
+    mat.color.set(ELEMENT_FARBE[z!.element ?? 'stein'] ?? '#c8b48a');
+    mat.opacity = t * t;
+    // Der Einschlag sitzt beim Getroffenen, also auf der Gegenseite des Angreifers.
+    const ziel = -(z!.seite) * 0.62;
+    const flug = (1 - t) * 0.9 * stark;
+
+    for (let i = 0; i < SPLITTER; i++) {
+      const r = richtungen[i];
+      hilfe.position.set(ziel + r.x * flug, r.y * flug, r.z * flug);
+      hilfe.scale.setScalar(t * stark);
+      hilfe.rotation.set(r.x * 6 * (1 - t), r.y * 6 * (1 - t), 0);
+      hilfe.updateMatrix();
+      m.setMatrixAt(i, hilfe.matrix);
+    }
+    m.instanceMatrix.needsUpdate = true;
+  });
+
+  return <instancedMesh ref={ref} args={[geo, mat, SPLITTER]} frustumCulled={false} />;
 }
 
 /** Wie weit ein Wert nach `t` Sekunden abgeklungen ist, 1 → 0. */
@@ -196,6 +261,7 @@ export function Kampfbuehne({
       <directionalLight position={[2.5, 4, 3]} intensity={1.5} color="#d8d2c0" />
       <directionalLight position={[-2.5, 2.5, -3]} intensity={1.1} color="#6fa8b8" />
       <Fuehrung zug={zug} />
+      <Einschlag zug={zug} />
       <Gestalt bild={spieler} seite={-1} treffer={trefferSpieler} zug={zug} />
       <Gestalt bild={gegner} seite={1} treffer={trefferGegner} zug={zug} />
     </Canvas>

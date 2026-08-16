@@ -200,6 +200,74 @@ export function baueGewaesser(welt: Weltdaten, terrain: TerrainErgebnis): THREE.
 }
 
 /**
+ * Wasserfälle dort, wo ein Bachlauf abbricht.
+ *
+ * Ein Bach, der 40 Höhenmeter auf 60 Metern Lauflänge verliert, ist im echten Œntal
+ * kein Bach mehr, sondern eine Kaskade. Das flache Band, das wir bisher überall
+ * hingelegt haben, klebt an solchen Stellen als schräge Platte am Hang — genau das,
+ * was beim Spielen als unnatürlich auffällt.
+ *
+ * Erkannt wird es am **Gefälle je Teilstück**: Über 22 % wird aus dem liegenden Band
+ * eine stehende Fläche vom oberen zum unteren Punkt. Das ist keine Simulation, es ist
+ * die Feststellung, dass Wasser dort fällt statt zu fließen.
+ *
+ * `uv.y` läuft an der Wand nach unten, damit derselbe Shader die Strömung senkrecht
+ * laufen lässt — ein Wasserfall braucht kein eigenes Material.
+ */
+const WASSERFALL_AB = 0.22;
+
+export function baueWasserfaelle(
+  welt: Weltdaten, terrain: TerrainErgebnis,
+): THREE.BufferGeometry | null {
+  const [sued, west, nord, ost] = welt.bbox;
+  const positionen: number[] = [];
+  const uvs: number[] = [];
+  const zuWelt = (lat: number, lon: number): [number, number] => [
+    ((lon - west) / (ost - west) - 0.5) * terrain.breiteMeter,
+    ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
+  ];
+
+  for (const linie of welt.linien) {
+    const halbe = Math.max(0.8, linie.breite / (2 * MASSSTAB.stauchung));
+    for (let k = 0; k < linie.punkte.length - 1; k++) {
+      const [ax, az] = zuWelt(...linie.punkte[k]);
+      const [bx, bz] = zuWelt(...linie.punkte[k + 1]);
+      const dx = bx - ax, dz = bz - az;
+      const len = Math.hypot(dx, dz) || 1;
+      const nx = (-dz / len) * halbe, nz = (dx / len) * halbe;
+
+      const teile = Math.max(1, Math.ceil(len / WEG_TEILUNG));
+      for (let t = 0; t < teile; t++) {
+        const t1 = t / teile, t2 = (t + 1) / teile;
+        const x1 = ax + dx * t1, z1 = az + dz * t1;
+        const x2 = ax + dx * t2, z2 = az + dz * t2;
+        const y1 = terrain.hoeheAn(x1, z1);
+        const y2 = terrain.hoeheAn(x2, z2);
+        const stueck = len / teile;
+        const fall = y1 - y2;
+        if (fall / Math.max(1, stueck) < WASSERFALL_AB) continue;
+
+        // Senkrechte Fläche vom oberen zum unteren Punkt. Oben leicht angehoben,
+        // damit sie an der Abrisskante nicht im Gelände verschwindet.
+        const oben = y1 + 0.15, unten = y2 - 0.1;
+        positionen.push(
+          x1 - nx, oben, z1 - nz,  x1 + nx, oben, z1 + nz,  x2 - nx, unten, z2 - nz,
+          x1 + nx, oben, z1 + nz,  x2 + nx, unten, z2 + nz,  x2 - nx, unten, z2 - nz,
+        );
+        const v1 = 0, v2 = fall;
+        uvs.push(-1, v1,  1, v1,  -1, v2,   1, v1,  1, v2,  -1, v2);
+      }
+    }
+  }
+  if (!positionen.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
  * Wege und Straßen als flache Bänder auf dem Terrain. Strukturieren die Landschaft
  * stark — ohne sie wirkt selbst gutes Gelände wie unbewohnte Wildnis.
  */
@@ -255,51 +323,144 @@ export function baueWege(welt: Weltdaten, terrain: TerrainErgebnis): THREE.Buffe
 export function baueGebaeude(welt: Weltdaten, terrain: TerrainErgebnis): THREE.BufferGeometry | null {
   const [sued, west, nord, ost] = welt.bbox;
   const positionen: number[] = [];
+  const farben: number[] = [];
   const zuWelt = (lat: number, lon: number): [number, number] => [
     ((lon - west) / (ost - west) - 0.5) * terrain.breiteMeter,
     ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
   ];
   const METER_JE_EBENE = 3;
 
+  /**
+   * Farben eines Alpenhauses.
+   *
+   * Drei Rollen, nicht mehr: verputzte Wand, dunkles Holz für Dach und Balkon,
+   * fast schwarze Fenster. Alles daraus abgeleitet — das ist dasselbe enge
+   * Vokabular wie beim Himmel.
+   */
+  const WAND = new THREE.Color('#6d675d');
+  const HOLZ = new THREE.Color('#3b3229');
+  const DACH = new THREE.Color('#4a4038');
+  const FENSTER = new THREE.Color('#11171a');
+
+  /** Ein Dreieck mit Farbe. */
+  const tri = (
+    a: [number, number, number], b: [number, number, number], c: [number, number, number],
+    f: THREE.Color,
+  ) => {
+    positionen.push(...a, ...b, ...c);
+    for (let i = 0; i < 3; i++) farben.push(f.r, f.g, f.b);
+  };
+
+  /** Ein Viereck als zwei Dreiecke, gegen den Uhrzeigersinn. */
+  const quad = (
+    a: [number, number, number], b: [number, number, number],
+    c: [number, number, number], d: [number, number, number], f: THREE.Color,
+  ) => { tri(a, b, c, f); tri(a, c, d, f); };
+
   for (const g of welt.gebaeude) {
     const p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
     if (p.length < 3) continue;
     const h = (g.ebenen * METER_JE_EBENE) / MASSSTAB.stauchung;
     const boden = Math.min(...p.map(([x, z]) => terrain.hoeheAn(x, z)));
-    // Wände
-    for (let k = 0; k < p.length - 1; k++) {
-      const [x1, z1] = p[k], [x2, z2] = p[k + 1];
-      positionen.push(
-        x1, boden, z1,  x2, boden, z2,  x1, boden + h, z1,
-        x2, boden, z2,  x2, boden + h, z2,  x1, boden + h, z1,
-      );
-    }
-    // Dach: Firstlinie über der längsten Achse, Neigung nach Gebäudegröße
+
     const xs = p.map(q => q[0]), zs = p.map(q => q[1]);
     const minX = Math.min(...xs), maxX = Math.max(...xs);
     const minZ = Math.min(...zs), maxZ = Math.max(...zs);
-    const laengsX = (maxX - minX) >= (maxZ - minZ);
-    const firstH = boden + h + Math.min(maxX - minX, maxZ - minZ) * 0.35;
+    const breite = maxX - minX, tiefe = maxZ - minZ;
+    const klein = Math.min(breite, tiefe);
+    if (klein < 1.5) continue;
+
+    // Wände
+    for (let k = 0; k < p.length - 1; k++) {
+      const [x1, z1] = p[k], [x2, z2] = p[k + 1];
+      quad([x1, boden, z1], [x2, boden, z2], [x2, boden + h, z2], [x1, boden + h, z1], WAND);
+
+      /**
+       * Fenster als aufgesetzte Flächen, nicht als Löcher in der Wand.
+       *
+       * Ein Loch bräuchte eine Triangulierung mit Aussparung — bei 2.033 Grundrissen
+       * die teuerste Art, ein Rechteck dunkel zu färben. Aufgesetzt liegen sie 4 cm
+       * vor der Wand; auf jede Entfernung, auf der man Fenster überhaupt sieht, ist
+       * der Unterschied unsichtbar. Sie sind der Grund, warum ein Haus als Haus
+       * gelesen wird und nicht als Quader.
+       */
+      const laenge = Math.hypot(x2 - x1, z2 - z1);
+      if (laenge < 2.2) continue;
+      const nx = (z2 - z1) / laenge, nz = -(x2 - x1) / laenge;   // Wandnormale
+      const anzahl = Math.max(1, Math.floor(laenge / 3.2));
+      const breiteF = 0.9, hoeheF = 1.15;
+      for (let ebene = 0; ebene < g.ebenen; ebene++) {
+        const yUnten = boden + ebene * METER_JE_EBENE + 1.05;
+        if (yUnten + hoeheF > boden + h - 0.25) continue;
+        for (let i = 0; i < anzahl; i++) {
+          const t = (i + 0.5) / anzahl;
+          const cx = x1 + (x2 - x1) * t, cz = z1 + (z2 - z1) * t;
+          const ex = (x2 - x1) / laenge * breiteF / 2, ez = (z2 - z1) / laenge * breiteF / 2;
+          const o = 0.04;
+          quad(
+            [cx - ex + nx * o, yUnten, cz - ez + nz * o],
+            [cx + ex + nx * o, yUnten, cz + ez + nz * o],
+            [cx + ex + nx * o, yUnten + hoeheF, cz + ez + nz * o],
+            [cx - ex + nx * o, yUnten + hoeheF, cz - ez + nz * o],
+            FENSTER,
+          );
+        }
+      }
+    }
+
+    /**
+     * Dach mit Überstand.
+     *
+     * Der Überstand ist das Merkmal, an dem man ein Alpenhaus erkennt — bis zu
+     * anderthalb Meter weit, damit der Schnee vom Balkon bleibt. Ohne ihn sitzt das
+     * Dach bündig auf dem Quader, und genau das sah aus wie ein Karton mit Deckel.
+     */
+    const laengsX = breite >= tiefe;
+    const ueber = Math.min(1.4, klein * 0.16);
+    const traufe = boden + h;
+    const firstH = traufe + klein * 0.42;
+    const aX0 = minX - ueber, aX1 = maxX + ueber;
+    const aZ0 = minZ - ueber, aZ1 = maxZ + ueber;
     const mx = (minX + maxX) / 2, mz = (minZ + maxZ) / 2;
+
     if (laengsX) {
-      positionen.push(
-        minX, boden + h, minZ,  maxX, boden + h, minZ,  minX, firstH, mz,
-        maxX, boden + h, minZ,  maxX, firstH, mz,       minX, firstH, mz,
-        minX, boden + h, maxZ,  minX, firstH, mz,       maxX, boden + h, maxZ,
-        maxX, boden + h, maxZ,  minX, firstH, mz,       maxX, firstH, mz,
-      );
+      quad([aX0, traufe, aZ0], [aX1, traufe, aZ0], [aX1, firstH, mz], [aX0, firstH, mz], DACH);
+      quad([aX1, traufe, aZ1], [aX0, traufe, aZ1], [aX0, firstH, mz], [aX1, firstH, mz], DACH);
+      // Giebeldreiecke schließen die Stirnseiten — sonst schaut man ins Dach hinein.
+      tri([minX, traufe, minZ], [minX, traufe, maxZ], [minX, firstH, mz], WAND);
+      tri([maxX, traufe, maxZ], [maxX, traufe, minZ], [maxX, firstH, mz], WAND);
     } else {
-      positionen.push(
-        minX, boden + h, minZ,  mx, firstH, minZ,       minX, boden + h, maxZ,
-        minX, boden + h, maxZ,  mx, firstH, minZ,       mx, firstH, maxZ,
-        maxX, boden + h, minZ,  maxX, boden + h, maxZ,  mx, firstH, minZ,
-        maxX, boden + h, maxZ,  mx, firstH, maxZ,       mx, firstH, minZ,
-      );
+      quad([aX0, traufe, aZ0], [mx, firstH, aZ0], [mx, firstH, aZ1], [aX0, traufe, aZ1], DACH);
+      quad([aX1, traufe, aZ1], [mx, firstH, aZ1], [mx, firstH, aZ0], [aX1, traufe, aZ0], DACH);
+      tri([minX, traufe, minZ], [maxX, traufe, minZ], [mx, firstH, minZ], WAND);
+      tri([maxX, traufe, maxZ], [minX, traufe, maxZ], [mx, firstH, maxZ], WAND);
+    }
+
+    /**
+     * Balkon unter der Traufe der Längsseite.
+     *
+     * Nur für Häuser ab zwei Ebenen und ab 6 m Länge — ein Balkon an einer Garage
+     * wäre komischer als gar keiner. Zwei Flächen: Boden und Brüstung.
+     */
+    if (g.ebenen >= 2 && Math.max(breite, tiefe) >= 6) {
+      const y = boden + (g.ebenen - 1) * METER_JE_EBENE + 0.6;
+      const tiefeB = 1.1;
+      if (laengsX) {
+        const z0 = maxZ, z1 = maxZ + tiefeB;
+        quad([minX, y, z0], [maxX, y, z0], [maxX, y, z1], [minX, y, z1], HOLZ);
+        quad([minX, y, z1], [maxX, y, z1], [maxX, y + 0.95, z1], [minX, y + 0.95, z1], HOLZ);
+      } else {
+        const x0 = maxX, x1 = maxX + tiefeB;
+        quad([x0, y, minZ], [x0, y, maxZ], [x1, y, maxZ], [x1, y, minZ], HOLZ);
+        quad([x1, y, minZ], [x1, y, maxZ], [x1, y + 0.95, maxZ], [x1, y + 0.95, minZ], HOLZ);
+      }
     }
   }
+
   if (!positionen.length) return null;
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
   geo.computeVertexNormals();
   return geo;
 }

@@ -21,6 +21,7 @@
     "typecheck": "tsc --noEmit",
     "props": "tsx tools/propcheck.ts",
     "baum": "tsx tools/baumcheck.ts",
+    "klippen": "tsx tools/klippencheck.ts",
     "terrain": "tsx tools/terraincheck.ts",
     "lodpreview": "tsx tools/lodpreview.ts"
   },

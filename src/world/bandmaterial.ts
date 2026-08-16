@@ -40,11 +40,16 @@ float bandRauschen(vec2 p) {
  * `flatShading` ist hier bewusst **aus**. Die facettierte Optik ist Art Direction für
  * Fels und Boden; eine facettierte Wasseroberfläche sieht aus wie Bruchglas.
  */
-export function baueWasserMaterial(): THREE.MeshStandardMaterial {
+export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({
-    color: '#2e5560', roughness: 0.18, metalness: 0.28,
-    transparent: true, opacity: 0.92,
-    emissive: new THREE.Color('#12303a'), emissiveIntensity: 0.3,
+    color: fallend ? '#7d9aa2' : '#2e5560',
+    roughness: fallend ? 0.35 : 0.18,
+    metalness: fallend ? 0.05 : 0.28,
+    transparent: true, opacity: fallend ? 0.8 : 0.92,
+    emissive: new THREE.Color(fallend ? '#3a5c64' : '#12303a'),
+    emissiveIntensity: fallend ? 0.5 : 0.3,
+    // Fallendes Wasser wird von beiden Seiten gesehen — man steht auch mal darunter.
+    side: fallend ? THREE.DoubleSide : THREE.FrontSide,
   });
 
   const zeit = { value: 0 };
@@ -52,30 +57,47 @@ export function baueWasserMaterial(): THREE.MeshStandardMaterial {
 
   material.onBeforeCompile = (shader) => {
     shader.uniforms.zeit = zeit;
+    // Fallendes Wasser läuft schneller. Derselbe Shader, ein anderer Faktor.
+    shader.uniforms.uTempo = { value: fallend ? 4.5 : 1 };
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vBand;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vBand = uv;');
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float zeit;\nvarying vec2 vBand;\n' + HASH_GLSL)
+      .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\n' + HASH_GLSL)
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float ufer = 1.0 - abs(vBand.x);
-  // Tiefes Wasser in der Mitte, heller Kies am Ufer.
-  diffuseColor.rgb = mix(vec3(0.42, 0.48, 0.46), diffuseColor.rgb, smoothstep(0.0, 0.55, ufer));
+
+  /* Tiefe.
+   *
+   * Ein Bach ist am Ufer knöcheltief und in der Mitte hüfttief, und man sieht das
+   * an der Farbe, nicht an der Geometrie: Je mehr Wasser über dem Grund steht, desto
+   * mehr rotes Licht ist weg. Deshalb läuft die Mitte ins Blaugrüne und wird
+   * dunkler, das Ufer bleibt hell und sandig.
+   *
+   * Das ist billiger und robuster als echte Tiefenberechnung: Die bräuchte den
+   * Tiefenpuffer der Szene, ein zweites Rendertarget und würde auf Handys genau die
+   * Fuellrate kosten, die wir nicht haben. */
+  float tiefe = smoothstep(0.0, 0.75, ufer);
+  vec3 grund = vec3(0.44, 0.46, 0.42);
+  vec3 tief  = diffuseColor.rgb * vec3(0.55, 0.85, 0.95);
+  diffuseColor.rgb = mix(grund, tief, tiefe);
+  // Über tiefem Wasser sieht man den Grund nicht mehr — Deckkraft steigt mit.
+  float deckung = mix(0.72, 0.97, tiefe);
   // Weiche Uferkante statt Plattenrand.
-  diffuseColor.a *= smoothstep(0.0, 0.28, ufer);
+  diffuseColor.a = deckung * smoothstep(0.0, 0.28, ufer);
 `)
       .replace('#include <normal_fragment_maps>', /* glsl */ `#include <normal_fragment_maps>
   // Zwei Wellenzüge unterschiedlicher Länge und Geschwindigkeit. Der zweite läuft
   // schräg, sonst entsteht ein sichtbares Streifenmuster.
-  float w1 = sin(vBand.y * 2.3 - zeit * 1.7 + vBand.x * 1.1);
-  float w2 = sin(vBand.y * 5.9 - zeit * 2.9 - vBand.x * 2.7);
-  float kraus = bandRauschen(vec2(vBand.y * 1.7 - zeit * 0.6, vBand.x * 3.0)) - 0.5;
+  float w1 = sin(vBand.y * 2.3 - zeit * uTempo * 1.7 + vBand.x * 1.1);
+  float w2 = sin(vBand.y * 5.9 - zeit * uTempo * 2.9 - vBand.x * 2.7);
+  float kraus = bandRauschen(vec2(vBand.y * 1.7 - zeit * uTempo * 0.6, vBand.x * 3.0)) - 0.5;
   normal = normalize(normal + vec3(w2 * 0.10 + kraus * 0.16, 0.0, w1 * 0.14));
 `);
   };
 
-  material.customProgramCacheKey = () => 'brachland-wasser-v1';
+  material.customProgramCacheKey = () => `brachland-wasser-v2-${fallend ? 'fall' : 'lauf'}`;
   return material;
 }
 
