@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
@@ -128,6 +128,36 @@ for (const a of auftraege) {
 for (const o of orte.filter((x: any) => x.art === 'bewohner'))
   if (!auftraege.some((a: any) => a.geber === o.id))
     meldeA(o.id, 'Bewohner ohne einen einzigen Auftrag');
+
+/**
+ * Wie freistehend stehen die Orte wirklich?
+ *
+ * `content/orte/_INDEX.md` behauptete „0 Nachbarn im 70-m-Umkreis". Nachgemessen
+ * waren es bei zwei der vier je einer — die Zahl stimmte, als sie geschrieben
+ * wurde, und ist seitdem stehengeblieben. Deshalb steht sie jetzt hier: Eine
+ * Marke ist nur auffindbar, wenn sie nicht zwischen zwanzig Häusern sitzt, und
+ * das ist eine Messung, keine Behauptung.
+ *
+ * Keine Fehlergrenze, nur eine Ausgabe: Ab wann ein Ort „zu dicht" steht, hängt
+ * am Gefühl beim Spielen, und eine erfundene Schwelle wäre schlimmer als keine.
+ */
+if (existsSync('public/world/oental.json')) {
+  const welt = JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt;
+  const M = 111_000, MO = 111_000 * Math.cos(47.733 * Math.PI / 180);
+  const zentren = welt.gebaeude.map((g: any) => {
+    let a = 0, b = 0;
+    for (const [la, lo] of g.punkte) { a += la; b += lo; }
+    return [a / g.punkte.length, b / g.punkte.length];
+  });
+  const nachbarn = orte.map((o: any) => {
+    const d = zentren.map(([la, lo]: number[]) =>
+      Math.hypot((la - o.ort[0]) * M, (lo - o.ort[1]) * MO));
+    return { id: o.id, n: d.filter((x: number) => x > 1 && x < 70).length };
+  });
+  const schlimmster = nachbarn.reduce((a, b) => (b.n > a.n ? b : a));
+  console.log(`  ✓ ${orte.length} Orte freistehend: höchstens ${schlimmster.n} Nachbargebäude `
+    + `im 70-m-Umkreis (${schlimmster.id}), ${nachbarn.filter(x => x.n === 0).length} ganz allein`);
+}
 
 const zufluchten = orte.filter((o: any) => o.art === 'zuflucht').length;
 if (zufluchten === 0) {

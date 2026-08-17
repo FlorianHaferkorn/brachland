@@ -1,0 +1,9 @@
+{
+  "id": "die-runde",
+  "region": "oental",
+  "geber": "werk-schichtbuch",
+  "titel": "Die Runde",
+  "text": "Bringen Sie mir einen heraus. Nicht tot — sie sind nicht kaputt, sie sind nur nie abgestellt worden. Wenn einer draußen ist und die Runde trotzdem weiterläuft, weiß ich, dass es nicht an ihm liegt.",
+  "ziel": { "art": "fange", "kreatur": "k7-wolf", "anzahl": 1 },
+  "belohnung": { "reinkultur": 1, "kraeutersud": 2 }
+}

@@ -6,7 +6,11 @@
  * Aufruf: node reduce.mjs <input.glb> <output.glb> [zielTris]
  */
 import { NodeIO } from '@gltf-transform/core';
-import { KHRONOS_EXTENSIONS } from '@gltf-transform/extensions';
+// ALL_EXTENSIONS statt KHRONOS_EXTENSIONS: `EXT_texture_webp` steht nicht in der
+// Khronos-Liste. Mit der kleineren Liste hat der Writer die Wandlung unten still
+// verworfen ("Some extensions were not registered for I/O") — die Textur blieb
+// PNG, und der Lauf sah trotzdem grün aus.
+import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import {
   dedup, prune, weld, simplify, resample, textureCompress,
   flatten, join, quantize
@@ -18,7 +22,7 @@ const [,, INPUT, OUTPUT, TARGET = '4000'] = process.argv;
 if (!INPUT || !OUTPUT) { console.error('Aufruf: node reduce.mjs <in.glb> <out.glb> [zielTris]'); process.exit(1); }
 const targetTris = parseInt(TARGET, 10);
 
-const io = new NodeIO().registerExtensions(KHRONOS_EXTENSIONS);
+const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 const doc = await io.read(INPUT);
 
 const stats = (d) => {
@@ -49,12 +53,17 @@ await doc.transform(
   weld({ tolerance: 0.0001 }),                // Vertices verschweissen (Pflicht vor simplify)
   simplify({ simplifier: MeshoptSimplifier,   // Quadric Edge Collapse
              ratio, error: 0.005, lockBorder: false }),
-  resample(),                                 // Animationskeys ausduennen
+  // Greift hier nur, wenn das Rohmodell schon Animationen mitbringt. Die des
+  // Spiels entstehen erst in autorig.py — die duennt `nachbereiten.mjs` aus.
+  resample(),
   prune({ keepAttributes: isRigged,           // JOINTS/WEIGHTS nicht wegwerfen
           keepLeaves: isRigged }),            // Knochen-Nodes ohne Mesh erhalten
-  textureCompress({ encoder: sharp,           // Texturen auf Spielgroesse
-                    targetFormat: 'webp',
-                    resize: [1024, 1024], quality: 85 }),
+  // Verlustfrei und in voller Aufloesung — beides gemessen, beides gegen die
+  // Intuition. `quality: 85` machte die Grathorn-Textur 43 % GROESSER als das
+  // PNG, Verkleinern auf 512 ebenfalls. Begruendung steht in nachbereiten.mjs.
+  // `effort: 100`, weil der Wert intern auf sharps 0…6 skaliert wird.
+  textureCompress({ encoder: sharp, targetFormat: 'webp',
+                    lossless: true, effort: 100 }),
   quantize({ quantizePosition: 14, quantizeNormal: 10, quantizeTexcoord: 12,
              quantizeWeight: 8, quantizeGeneric: 12 })
 );

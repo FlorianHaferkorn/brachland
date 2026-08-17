@@ -37,7 +37,8 @@ owns: *.ts, *.mjs, *.py, *.sh
 |---|---|
 | `buildworld.ts` | `npm run world <region> <raster> [dgm1\|eudem]` — OSM und Höhen abrufen, Welt bauen, gepackt nach public/world schreiben |
 | `dgm1.ts` | Höhen aus dem 1-Meter-Geländemodell der Bayerischen Vermessungsverwaltung. Lädt Kilometerkacheln, interpoliert bilinear |
-| `reduce.mjs` | Flächenreduktion roher KI-Modelle auf die Zielzahl (gltf-transform + meshoptimizer) |
+| `reduce.mjs` | Flächenreduktion roher KI-Modelle auf die Zielzahl (gltf-transform + meshoptimizer). **Schritt 1** der Kette |
+| `nachbereiten.mjs` | `node nachbereiten.mjs <in.glb> [out.glb]` — **Schritt 3, nach dem Rigging.** Dünnt die von Blender gebackenen Animationskeys aus, quantisiert und wandelt die Textur. Muss hinter `autorig.py` laufen: Blender schreibt die Datei neu und macht alles rückgängig, was Schritt 1 an der Kodierung getan hat. Das war die Ursache von A-6 (163–167 → 100–103 KB), siehe G-63 |
 | `batch.mjs` | Stapelverarbeitung ganzer Ordner durch die Reduktion |
 | `autorig.py` | Automatisches Rigging über Blender anhand der Archetyp-Rigs |
 | `pipeline.sh` | `npm run assets` — Roh-GLB → reduziert → geriggt, in einem Durchlauf |
@@ -47,7 +48,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Datei | Zweck |
 |---|---|
 | `validate.ts` | `npm run validate` — alle Inhalte gegen die Zod-Schemas plus Elementmatrix-Selbsttest. Teil von `make check` |
-| `quality.ts` | `npm run quality` — Kreatur-, Regions-, Balance- und Asset-Budgets. **Nicht** in `make check`: hat offene Blocker (Ledger A-6, A-7) |
+| `quality.ts` | `npm run quality` — Kreatur-, Regions-, Balance- und Asset-Budgets. **Seit 17.08.2026 Teil von `make check`**: A-6 und A-7 sind erledigt, das Tor steht auf 0 Blockern. Blockt außerdem eine Brand-Kreatur im Œntal (G-62) |
 
 ## Messungen (geben Zahlen, keine Bedingungen)
 

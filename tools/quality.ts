@@ -78,9 +78,32 @@ for (const rf of regionen) {
       if (konter.length === 0)
         stop('Balance', `${rf}: Regenten-Phase ${i + 1} (${ph.elemente}) hat KEINEN Konter in der Region`);
       else if (konter.length === 1)
-        warn('Balance', `${rf}: Phase ${i + 1} nur über '${konter[0]}' konterbar — bewusst als Engpass?`);
+        warn('Balance', `${rf}: Phase ${i + 1} nur über '${konter[0]}' konterbar`
+          + (konter[0] === 'frost'
+            ? ' — bewusst: der zweite Konter wäre Brand, und Brand gehört ins Aschefeld (Roster Kap. 1)'
+            : ' — bewusst als Engpass?'));
     }
   }
+
+  /**
+   * Brand-Sperre für Kapitel 1.
+   *
+   * `brand` hat im Œntal 0 Kreaturen und 0 Moves. Das sah beim Zählen wie eine
+   * Lücke aus und ist eine **Entscheidung**: `BRACHLAND_Roster_Kapitel1.md` sagt
+   * „Brand existiert in Kapitel 1 nicht" und nennt den Preis, wenn man sie kippt —
+   * „sonst verliert das Aschefeld sein Alleinstellungsmerkmal". Der Engpass bei
+   * Flussvater-Phase 2 ist die gewollte Folge, nicht ein Nebeneffekt.
+   *
+   * Diese Prüfung steht hier, weil eine Entscheidung, die nur in einem Dokument
+   * steht, beim nächsten Inhaltsschub ohne Absicht gekippt wird: Man legt eine
+   * Linie an, die Matrix bleibt ausgewogen, `validate` bleibt grün, und niemand
+   * sieht, dass gerade das Alleinstellungsmerkmal einer späteren Region ausgegeben
+   * wurde. Wer Brand hier wirklich will, ändert erst das Roster-Dokument und dann
+   * diese Zeile — in dieser Reihenfolge.
+   */
+  if (rf === 'oental.json' && elemente.has('brand'))
+    stop('Balance', `${rf}: Brand-Kreatur in Kapitel 1 — Roster_Kapitel1.md schließt das aus `
+      + `(„sonst verliert das Aschefeld sein Alleinstellungsmerkmal"). Erst das Dokument ändern, dann diese Prüfung`);
 }
 
 // ------------------------------------------------------ 3. Asset-Budgets

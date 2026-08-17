@@ -26,12 +26,18 @@ owns: *.json
 | `almhuette.json` | zuflucht | Hütte 2 km draußen auf 1000 m. Die Rast für den zweiten Teil der Region — der Weg dorthin ist ihr Preis |
 | `hof-tremmel.json` | bewohner | Hofbesitzerin. Gibt `streuner` und danach `eine-fuer-den-hof` |
 | `steinbruch-wart.json` | bewohner | Wart eines stillgelegten Bruchs. Gibt `was-am-stollen-steht` |
+| `werk-schichtbuch.json` | bewohner | Frau am Tor des Industriegeländes. Gibt `die-runde` — der einzige Hinweis im Spiel, dass es die K7 gibt und wo sie steht |
 
 ## Warum die Positionen stimmen
 
-Alle vier stehen auf **freistehenden** OSM-Gebäuden — 0 Nachbarn im 70-m-Umkreis,
-gemessen über die 2.033 Grundrisse der Region. In einem Dorf wäre eine Marke
-zwischen zwanzig Häusern nicht auffindbar; freistehend ist sie es.
+Alle fünf stehen auf **freistehenden** OSM-Gebäuden — gemessen über die 2.033
+Grundrisse der Region: **höchstens ein** Nachbargebäude im 70-m-Umkreis, bei zwei
+der fünf gar keines. In einem Dorf wäre eine Marke zwischen zwanzig Häusern nicht
+auffindbar; so ist sie es.
+
+Hier stand „0 Nachbarn". Das war beim Anlegen der ersten zwei Orte richtig und ist
+danach stehengeblieben — `hof-tremmel` und `steinbruch-wart` haben je einen. Die
+Zahl kommt jetzt aus `npm run validate` und nicht mehr aus diesem Absatz.
 
 ## Regeln
 

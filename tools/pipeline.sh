@@ -47,7 +47,20 @@ for f in "${files[@]}"; do
           "$rig" "$TMP/$name.lp.glb" "$OUT/${name}.glb" 2>/dev/null \
           | grep '\[autorig\]' || true
 
-  if [ -f "$OUT/${name}.glb" ]; then ((ok++)); else echo "   Rigging fehlgeschlagen"; ((fail++)); fi
+  if [ ! -f "$OUT/${name}.glb" ]; then echo "   Rigging fehlgeschlagen"; ((fail++)); continue; fi
+
+  # 3) Nachbereitung — MUSS nach dem Rigging laufen, nicht davor.
+  #
+  # Blender schreibt die Datei in Schritt 2 komplett neu: Die Quantisierung aus
+  # Schritt 1 ist danach weg, die Textur wieder PNG, und die Animationen, die
+  # Blender gerade erst angelegt hat, sind pro Bild gebacken. Ohne diesen Schritt
+  # landeten die sechs Grathorn-Dateien bei 163-167 KB gegen 120 KB Budget
+  # (Ledger A-6) — nicht weil zu schwach komprimiert wurde, sondern weil
+  # komprimiert wurde, bevor es etwas zu komprimieren gab.
+  node nachbereiten.mjs "$OUT/${name}.glb" || {
+    echo "   Nachbereitung fehlgeschlagen"; ((fail++)); continue; }
+
+  ((ok++))
 done
 
 echo

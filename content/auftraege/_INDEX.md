@@ -36,6 +36,7 @@ Auftrag nicht fertig wird.
 | `streuner.json` | hof-tremmel | 3 Sporenhähne besiegen. Der Einstieg — erfüllbar mit dem, was ohnehin im Weg steht |
 | `eine-fuer-den-hof.json` | hof-tremmel | 1 Alpenmurmel **fangen**, erst nach `streuner`. Zwingt zum Fangen statt zum Besiegen |
 | `was-am-stollen-steht.json` | steinbruch-wart | Fundstück `stollenmund` lesen. Verbindet den Pfad mit den Fragmenten, statt sie nebeneinander laufen zu lassen |
+| `die-runde.json` | werk-schichtbuch | 1 **K7 fangen**. Der Zeigefinger aufs Industriegelände: Die K7 hat nur 3 Vorkommen in der ganzen Region, weil ihre Zone 0,08 km² misst (D69) — ohne einen Auftrag, der den Weg dorthin nennt, findet sie niemand. Belohnung ist eine `reinkultur`, also genau das Mittel, mit dem sich eine gefangene K7 zurückführen lässt |
 
 ## Die vier Zielarten
 

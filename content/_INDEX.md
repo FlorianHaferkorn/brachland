@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-16
+last-reviewed: 2026-08-17
 shelf-life-days: 90
 owns: *.json
 ---
@@ -41,8 +41,8 @@ owns: *.json
 | `moves/` | 53 Moves mit eigenem Index — Aufbau, Bänder und Zuordnung zu den Linien stehen in `moves/_INDEX.md` |
 | `gegenstaende/` | 8 Gegenstände mit eigenem Index — Heilung, Wiederbelebung, Reinigung, Fanghilfen, Fokus. Siehe `gegenstaende/_INDEX.md` |
 | `fragmente/` | 12 Fundstücke an OSM-Orten mit eigenem Index — die Geschichte der Region, ohne Sprecher. Siehe `fragmente/_INDEX.md` |
-| `orte/` | 2 Zufluchten und 2 Bewohner auf freistehenden OSM-Gebäuden. Siehe `orte/_INDEX.md` |
-| `auftraege/` | 3 Aufträge — der kritische Pfad. Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
+| `orte/` | 2 Zufluchten und 3 Bewohner auf freistehenden OSM-Gebäuden. Siehe `orte/_INDEX.md` |
+| `auftraege/` | 4 Aufträge — der kritische Pfad. Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
 | `creatures/alpenmurmel.json` | Alpenmurmel (Alpenmurmeltier, Stein, Erdpilz-Rückenpolster). 3 Stufen, `landuse=meadow` ab 700 m |
 | `creatures/schneehuhn.json` | Alpenschneehuhn (Frost, Frostfeder-Fächer). 3 Stufen, `natural=scree` ab 950 m — zweite Frost-Linie neben dem Firnhasen |
 | `creatures/k7-wolf.json` | **K7** (Wolf, alt-tech + frost, Klemmrippen-Rückenmodul) — die **erste Zuchtlinie**. 3 Baustände a/b/c statt Mutationen, `landuse=industrial`. Flache Werte ohne Ausreißer, angreifbar über das Element (Stein ×2), nicht über die Zahlen. Bringt die vier neuen Moves `haltebiss`, `kuehlrippen`, `reifriss`, `sterilgang` mit |
@@ -51,15 +51,21 @@ owns: *.json
 
 **12 von 35** geplanten Kreaturen: die 10 Wildling-Linien aus Kapitel 1, der
 Trafomarder als einziger Verwachsener und die K7 als erste Zuchtlinie. Es fehlen
-weitere Zuchtlinien und die Verhärteten. Damit sind **7 Elemente** vertreten (alle
-außer `brand` — Ledger G-62), und jede Phase des Flussvaters hat einen Konter.
+weitere Zuchtlinien und die Verhärteten. Damit sind **7 Elemente** vertreten, und
+jede Phase des Flussvaters hat einen Konter.
+
+**`brand` fehlt mit Absicht.** `../docs/design/BRACHLAND_Roster_Kapitel1.md`: „Brand
+existiert in Kapitel 1 nicht" — das Element gehört ins Aschefeld, und eine
+Brand-Linie hier würde jener Region ihr Alleinstellungsmerkmal nehmen. Der Preis
+steht ebenfalls dort: Flussvater-Phase 2 ist dadurch **nur über Frost** konterbar.
+`npm run quality` sagt beides an und blockt eine Brand-Linie im Œntal (G-62).
 
 ### Was `npm run vorkommen` dazu sagt
 
 Die K7 steht mit **3 Vorkommen** in der Region. Das ist kein Fehler, sondern der
 Zuschnitt ihrer Zone: `landuse=industrial` deckt 0,08 km² von 15,9 km² ab. Eine
-Wachlinie steht am Werk, nicht im Wald (D69). Offen bleibt, dass nichts im Spiel
-dorthin zeigt — ein Auftrag wäre der naheliegende Weg.
+Wachlinie steht am Werk, nicht im Wald (D69). Damit man sie überhaupt findet, zeigt
+seit `die-runde.json` ein Auftrag dorthin — der Geber sitzt am Werkstor.
 
 Zwei Linien standen zwar in den Daten, kamen aber im gebauten Weltraster praktisch
 nicht vor: `kiemenbiber` und `moderotter`. Ursache war die Rasterung von Bächen,
