@@ -152,7 +152,11 @@ export function baueTerrain(welt: Weltdaten): TerrainErgebnis {
 /** Wie hoch die Wasserfläche über dem Gelände liegt. */
 const WASSER_UEBER_GRUND = 0.06;
 
-export function baueGewaesser(welt: Weltdaten, terrain: TerrainErgebnis): THREE.BufferGeometry | null {
+export function baueGewaesser(
+  welt: Weltdaten, terrain: TerrainErgebnis,
+  /** Stehende Gewässer in Weltkoordinaten. Kommen aus `feld.teiche`. */
+  teiche: readonly { punkte: [number, number][] }[] = [],
+): THREE.BufferGeometry | null {
   const [sued, west, nord, ost] = welt.bbox;
   const positionen: number[] = [];
   const zuWelt = (lat: number, lon: number): [number, number] => [

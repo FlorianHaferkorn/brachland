@@ -49,7 +49,15 @@ export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial 
     emissive: new THREE.Color(fallend ? '#3a5c64' : '#12303a'),
     emissiveIntensity: fallend ? 0.5 : 0.3,
     // Fallendes Wasser wird von beiden Seiten gesehen — man steht auch mal darunter.
-    side: fallend ? THREE.DoubleSide : THREE.FrontSide,
+    /**
+     * Beidseitig, seit es ein Gewässerbett gibt.
+     *
+     * Vorher lag die Wasserfläche über dem Gelände — man sah sie immer von oben,
+     * `FrontSide` reichte. Jetzt steht man **darin**: Die Kamera sitzt beim
+     * Schwimmen unter dem Spiegel, und eine einseitige Fläche verschwindet von
+     * unten vollständig. Im Weiher sah das aus wie ein dunkles Loch ohne Wasser.
+     */
+    side: THREE.DoubleSide,
   });
 
   const zeit = { value: 0 };

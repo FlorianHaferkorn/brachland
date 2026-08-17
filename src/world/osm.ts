@@ -201,7 +201,24 @@ export function baueWelt(bbox: BBox, ways: OsmWay[], hoehen: number[][]): Weltda
       continue;
     }
     if (way.tags.waterway) {
-      const breite = way.tags.waterway === 'river' ? 12 : way.tags.waterway === 'stream' ? 4 : 2;
+      /**
+       * Breite eines Gewässers.
+       *
+       * **Zuerst aus OSM, dann geschätzt.** Bis hierher war die Breite rein aus
+       * der Art abgeleitet — jeder `stream` war exakt 4,0 m, weil es so im Code
+       * stand. Das ist kein Maßstab, das ist eine Konstante mit Ortsangabe: Ein
+       * Gebirgsbach im Œntal misst zwischen einem und zehn Metern, und OSM weiß
+       * das bei manchen Läufen (`width`, seltener `est_width`).
+       *
+       * Die Schätzung bleibt als Rückfall, weil die meisten Läufe kein `width`
+       * tragen. Sie ist dann als Schätzung erkennbar und nicht als Messung.
+       */
+      const roh = way.tags.width ?? way.tags.est_width ?? '';
+      const gemessen = parseFloat(roh.replace(',', '.'));
+      const geschaetzt = way.tags.waterway === 'river' ? 12
+        : way.tags.waterway === 'stream' ? 4 : 2;
+      const breite = Number.isFinite(gemessen) && gemessen > 0.2 && gemessen < 200
+        ? gemessen : geschaetzt;
       linien.push({ art: way.tags.waterway, punkte, breite });
       continue;
     }

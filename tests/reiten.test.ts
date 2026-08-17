@@ -95,5 +95,39 @@ console.log('\nWasserfeld — Breite kommt aus der Linie, nicht aus dem Raster\n
          `${graben.tiefeAn(0, 0).toFixed(2)} m gegen ${mitte.toFixed(2)} m`);
 }
 
+// ---- Stehende Gewässer ----------------------------------------------------
+//
+// Der Fall, den der erste Anlauf komplett übersehen hat: Wasser liegt nicht nur
+// in `welt.linien`, sondern auch als Polygon in `welt.flaechen`. Ohne diesen Teil
+// gäbe es die elf Weiher der Region nach wie vor nicht — und die Aussage
+// „Schwimmen hat hier keinen Ort" bliebe falsch, ohne dass es auffiele.
+{
+  // Ein quadratischer Weiher von 60 × 60 m in der Mitte einer 1000-m-Welt.
+  const r = 0.03; // Grad; bei 1000 m Kantenlänge sind das 30 m
+  const teich = baueWasserfeld({
+    bbox: [0, 0, 1, 1],
+    linien: [],
+    flaechen: [{
+      biom: 'wasser',
+      punkte: [[0.5 - r, 0.5 - r], [0.5 - r, 0.5 + r], [0.5 + r, 0.5 + r], [0.5 + r, 0.5 - r]],
+    }],
+  } as unknown as Weltdaten, 1000, 1000);
+
+  pruefe('Teich erkannt', teich.teiche.length === 1, `${teich.teiche.length}`);
+  const mitte = teich.tiefeAn(0, 0);
+  pruefe('Teichmitte ist schwimmtief', mitte > 2, `${mitte.toFixed(2)} m`);
+  pruefe('Tiefer als jeder Bach', mitte > 0.85);
+  pruefe('Außerhalb trocken', teich.tiefeAn(60, 0) === 0);
+  // Am Ufer flach — sonst fällt man beim Hineingehen in ein Loch.
+  const ufer = teich.tiefeAn(28, 0);
+  pruefe('Uferzone flach', ufer > 0 && ufer < mitte * 0.7, `${ufer.toFixed(2)} m`);
+  // Ein Polygon mit zu wenigen Punkten ist kein Weiher, sondern ein Datenfehler.
+  const kaputt = baueWasserfeld({
+    bbox: [0, 0, 1, 1], linien: [],
+    flaechen: [{ biom: 'wasser', punkte: [[0.5, 0.5], [0.5, 0.6]] }],
+  } as unknown as Weltdaten, 1000, 1000);
+  pruefe('Entartetes Polygon wird verworfen', kaputt.teiche.length === 0);
+}
+
 console.log(`\n${ok} bestanden, ${fehler} fehlgeschlagen`);
 if (fehler > 0) process.exit(1);

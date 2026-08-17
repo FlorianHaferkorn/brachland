@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-16
+last-reviewed: 2026-08-17
 shelf-life-days: 90
 owns: *.ts, *.tsx
 ---
@@ -65,7 +65,7 @@ owns: *.ts, *.tsx
 | `spieler/peilung.ts` | Richtung zu einem Punkt relativ zum Blick. Rein und getestet — hier steckte ein Vorzeichenfehler |
 | `spieler/ausdauer.ts` | Ausdauer für Klettern und Springen. **Rennen zehrt bewusst nicht** — die Begründung steht in der Datei. Rein und getestet |
 | `spiel/reiten.ts` | Wer trägt (nur `quadruped` ab Mutation 2), Reittempo, Steigungsgrenze im Sattel, und ein Satz dazu, warum es noch nicht geht |
-| `world/wasserfeld.ts` | Wassertiefe an einem Punkt, exakt aus den OSM-Linien statt aus dem Biom-Raster. Grundlage des Watens — 1.506 Segmente in 32-m-Eimern |
+| `world/wasserfeld.ts` | Wassertiefe an einem Punkt: 1.506 Bachsegmente in 32-m-Eimern **plus 11 Weiher als Polygone**. Grundlage von Waten, Schwimmen und dem aus dem Gelände geschnittenen Bett |
 | `spiel/auftraege.ts` | Auftragsfortschritt, **abgeleitet** aus besiegten/gefangenen Vorkommen und gelesenen Fragmenten. Kein eigener Zähler, deshalb keine zweite Wahrheit |
 | `ui/Ortsfenster.tsx` | Zuflucht und Bewohner in einem Fenster: rasten oder Aufträge annehmen und abschließen. Kein Dialogbaum |
 | `ui/Ausdaueranzeige.tsx` | Ausdauerbalken, der bei vollem Vorrat ausblendet. Rot heißt gesperrt, nicht wenig — das ist der Unterschied, der beim Klettern zählt |

@@ -36,7 +36,6 @@ import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, MITTEL_AB, PROP_NEUBEWERTUNG 
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
-import { baueWasserfeld, type Wasserfeld } from '../world/wasserfeld.js';
 import { REITEN_GEHEN, REITEN_RENNEN, REIT_MAX_GRAD } from '../spiel/reiten.js';
 
 /**
@@ -268,6 +267,17 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
    * oder im Berg verschwinden.
    */
   const aufBoden = useMemo(() => ({ ...terrain, hoeheAn: feld.hoehe }), [terrain, feld]);
+  /**
+   * Höhenquelle für die Wasserfläche: Sohle plus Tiefe.
+   *
+   * Seit das Bett aus dem Gelände geschnitten wird, ist `feld.hoehe` im Bach die
+   * **Sohle**. Ein Wasserband darauf läge unter der Oberfläche. Der Spiegel liegt
+   * genau dort, wo das Gelände ohne Bett läge — also Sohle + Tiefe.
+   */
+  const aufWasser = useMemo(() => ({
+    ...terrain,
+    hoeheAn: (x: number, z: number) => feld.hoehe(x, z) + feld.wasserTiefe(x, z),
+  }), [terrain, feld]);
   const wasserMaterial = useMemo(() => baueWasserMaterial(), []);
   const fallMaterial = useMemo(() => baueWasserMaterial(true), []);
   const wegMaterial = useMemo(() => baueWegMaterial(), []);
@@ -296,11 +306,11 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
     wind.setzeZeit(uhr.current);
   });
   const { gewaesser, gebaeude, wege, wasserfaelle } = useMemo(() => ({
-    gewaesser: baueGewaesser(welt, aufBoden),
+    gewaesser: baueGewaesser(welt, aufWasser, feld.teiche),
     gebaeude: baueGebaeude(welt, aufBoden),
     wege: baueWege(welt, aufBoden),
-    wasserfaelle: baueWasserfaelle(welt, aufBoden),
-  }), [welt, aufBoden]);
+    wasserfaelle: baueWasserfaelle(welt, aufWasser),
+  }), [welt, aufBoden, aufWasser, feld]);
 
   return (
     <group>
@@ -1099,19 +1109,36 @@ const REIT_STEIGUNG_MAX = Math.tan(REIT_MAX_GRAD * Math.PI / 180);
 /**
  * Waten.
  *
- * **Nicht Schwimmen** — und das ist eine gemessene Entscheidung, keine Auslassung.
- * `npm run wasser` sagt: Das breiteste Gewässer des Œntals ist ein 4-m-Bach, die
- * Sprungweite der Figur liegt bei 4,6 m. Schwimmen hätte in dieser Region keine
- * einzige Stelle, an der es auslöst. Gebaute Funktion, die nie greift, ist teurer
- * als keine Funktion.
+ * Waten greift auf 39,5 km Bachlauf — jeden Bach der Region, denn ein Gebirgsbach
+ * ist mit 4 m Breite und 85 cm Tiefe genau das: watbar, nicht schwimmbar. Für
+ * schwimmbar sorgen die Weiher (`SCHWIMMEN_AB`).
  *
- * Waten dagegen greift auf 39,5 km Bachlauf. Was es kostet, ist genau das, was
+ * Was Waten kostet, ist genau das, was
  * einen Bach zu einem Hindernis macht: Tempo, ein bisschen Ausdauer, und **kein
  * Sprung**. Wer über den Bach will, sucht die schmale Stelle oder springt vorher ab.
  */
 const WATEN_AB = 0.30;
 const WATEN_TEMPO = 1.9;
 const WATEN_JE_SEK = 7;
+
+/**
+ * Schwimmen — **Korrektur einer falschen Messung.**
+ *
+ * Die erste Fassung dieser Datei hielt fest, Schwimmen habe im Œntal keinen Ort.
+ * Das war falsch, und der Fehler steckte nicht im Schluss, sondern in den Daten:
+ * Gemessen wurden nur `welt.linien` (Bäche). Die elf `natural=water`-Flächen der
+ * Region standen in `welt.flaechen` und wurden übersehen — der größte Weiher misst
+ * 62 × 71 m. Darin schwimmt man.
+ *
+ * Ab Brusttiefe verliert man den Boden. Der Kopf bleibt knapp unter dem Spiegel,
+ * die Schwerkraft ist ausgesetzt, und die Ausdauer läuft — wer sie aufbraucht,
+ * treibt langsamer, ertrinkt aber nicht. Ertrinken bestraft Erkundung.
+ */
+const SCHWIMMEN_AB = 1.35;
+const SCHWIMMEN_TEMPO = 1.6;
+const SCHWIMMEN_JE_SEK = 9;
+/** Wie tief der Kopf unter dem Wasserspiegel liegt. */
+const SCHWIMM_TIEFGANG = 1.15;
 
 /** Blickneigung: knapp unter die Waagerechte bis steil nach oben. */
 const NEIGUNG_MIN = -0.30;
@@ -1127,7 +1154,7 @@ export const NEIGUNG_START = 0.32;
  * Gebäude sind derzeit durchlässig, das ist bewusst, weil dieser Schritt nur den
  * Look beurteilbar machen soll.
  */
-function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, wasser, reitet }: {
+function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet }: {
   feld: HoehenFeld;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
@@ -1137,7 +1164,6 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, wass
   kollision: Kollisionsfeld;
   /** Ausdauerzustand. Der Balken liest ihn, deshalb liegt er außerhalb. */
   ausdauer: React.RefObject<Ausdauerzustand>;
-  wasser: Wasserfeld;
   /** Sitzt der Spieler auf? Als Ref, damit ein Umschalten kein Neuaufsetzen auslöst. */
   reitet: React.RefObject<boolean>;
 }) {
@@ -1184,10 +1210,12 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, wass
     const steigung = (vorausBoden - bodenAlt) / TAST_WEITE;
     const stufe = vorausBoden - p.y;
 
-    // Waten: die Tiefe am Standort. Ein Reittier ist hoch genug, dass ein
-    // 85-cm-Bach es nicht bremst — im Sattel bleibt ein Bach ein Bach.
-    const tiefe = wasser.tiefeAn(p.x, p.z);
-    const watet = !reitet.current && tiefe >= WATEN_AB;
+    // Wasser am Standort. Ein Reittier ist hoch genug, dass ein 85-cm-Bach es
+    // nicht bremst — im Sattel bleibt ein Bach ein Bach. Tiefes Wasser wirft
+    // allerdings auch den Reiter ab: Ein Steinbock schwimmt nicht mit Last.
+    const tiefe = feld.wasserTiefe(p.x, p.z);
+    const schwimmt = tiefe >= SCHWIMMEN_AB;
+    const watet = !schwimmt && !reitet.current && tiefe >= WATEN_AB;
 
     const grenze = reitet.current ? REIT_STEIGUNG_MAX : STEIGUNG_MAX;
 
@@ -1198,11 +1226,14 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, wass
     // Im Sattel und im Wasser wird nicht geklettert: Beides sind Zustände, in
     // denen man keine Hand frei hat.
     const schwelle = klettert.current ? -0.25 : KLETTER_STUFE;
-    klettert.current = !reitet.current && !watet
+    klettert.current = !reitet.current && !watet && !schwimmt
       && laenge > 0.3 && e.vor > 0.3 && stufe > schwelle
       && steigung > STEIGUNG_MAX && reicht(ausdauer.current);
 
     const tempo = klettert.current ? KLETTERN_VOR
+      // Erschöpft treibt man nur noch, statt zu schwimmen — spürbar langsamer,
+      // aber nie null. Wer im Teich stehenbleibt, kommt sonst nie wieder heraus.
+      : schwimmt ? SCHWIMMEN_TEMPO * (reicht(ausdauer.current) ? 1 : 0.45)
       : watet ? WATEN_TEMPO
       : reitet.current ? (e.rennen ? REITEN_RENNEN : REITEN_GEHEN)
       : e.rennen ? RENNEN : GEHEN;
@@ -1234,7 +1265,18 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, wass
       }
     }
 
-    if (klettert.current) {
+    // Auftrieb: Im tiefen Wasser hängt die Figur am Spiegel statt an der Sohle.
+    // Der Spiegel ist Sohle + Tiefe (das Bett ist ja aus dem Gelände geschnitten),
+    // und der Tiefgang zieht sie so weit hinunter, dass nur Kopf und Schultern
+    // herausschauen. Weich nachgeführt, sonst schnellt sie am Ufer hoch.
+    const tiefeHier = feld.wasserTiefe(p.x, p.z);
+    const spiegel = boden + tiefeHier;
+
+    if (schwimmt) {
+      steigen.current = 0;
+      const ziel = spiegel - SCHWIMM_TIEFGANG;
+      p.y += (ziel - p.y) * Math.min(1, dt * 6);
+    } else if (klettert.current) {
       // Am Fels zieht die Schwerkraft nicht. Der Aufstieg endet, wenn die Ausdauer
       // leer ist — dann fällt man, und zwar aus der erreichten Höhe.
       steigen.current = 0;
@@ -1249,13 +1291,16 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, wass
       if (p.y <= boden) { p.y = boden; steigen.current = 0; }
     }
     // Nie unter das Gelände: Beim Klettern über eine Kante liegt der Boden am
-    // neuen Standort sonst über der Figur.
-    if (p.y < boden) p.y = boden;
+    // neuen Standort sonst über der Figur. Beim Schwimmen gilt das nicht — dort
+    // IST die Figur über der Sohle, nur eben im Wasser.
+    if (!schwimmt && p.y < boden) p.y = boden;
 
     // Waten zehrt nur, wenn man sich auch bewegt: Im Bach zu stehen ist keine
-    // Anstrengung, gegen die Strömung zu gehen schon.
+    // Anstrengung, gegen die Strömung zu gehen schon. Schwimmen zehrt immer —
+    // sich über Wasser zu halten ist Arbeit, auch ohne vorwärtszukommen.
     ausdauer.current = ausdauerSchritt(ausdauer.current, dt,
       klettert.current ? KLETTERN_JE_SEK
+      : schwimmt ? SCHWIMMEN_JE_SEK
       : watet && laenge > 0.1 ? WATEN_JE_SEK
       : 0);
 
@@ -1568,12 +1613,6 @@ export function RegionsSzene({
     [props, welt, feld],
   );
 
-  // Wasser exakt aus denselben OSM-Linien, aus denen `baueGewaesser` die Geometrie
-  // baut — sonst liegt die Wasserlinie im Bild woanders als die im Spiel.
-  const wasserfeld = useMemo(
-    () => baueWasserfeld(welt, feld.breiteMeter, feld.tiefeMeter),
-    [welt, feld],
-  );
 
   // Ohne Startposition steht der Spieler im Ursprung (y = 0) — im Œntal sind das
   // ~170 m unter der Geländeoberfläche, die Kamera schaut dann von innen durch den
@@ -1637,7 +1676,7 @@ export function RegionsSzene({
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}
-               wasser={wasserfeld} reitet={reitetRef} />
+               reitet={reitetRef} />
       {funde.length > 0 && (
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
       )}

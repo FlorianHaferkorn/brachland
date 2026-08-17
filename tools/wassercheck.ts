@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import { entpackeWelt } from '../src/world/osm.js';
 import { MASSSTAB } from '../src/world/terrain.js';
 import { baueWasserfeld } from '../src/world/wasserfeld.js';
+import { baueHoehenfeld, hoeheAufFlaeche } from '../src/world/lod.js';
 
 const roh = JSON.parse(readFileSync('public/world/oental.json', 'utf8'));
 const welt = entpackeWelt(roh.welt);
@@ -63,26 +64,83 @@ console.log(`  Wasserfläche              ${(flaeche / 1e4).toFixed(2)} ha`);
 console.log(`  Breitestes Gewässer       ${maxBreite.toFixed(1)} m`);
 console.log('');
 
+// ---- Stehende Gewässer -----------------------------------------------------
+//
+// **Der Teil, den der erste Anlauf komplett übersehen hat.** Gemessen wurden nur
+// `welt.linien`. Stehendes Wasser liegt in `welt.flaechen` als Polygon mit dem
+// Biom `wasser` — elf Stück, und der größte ist schwimmbar. Der daraus gezogene
+// Schluss „Schwimmen hat hier keinen Ort" war deshalb falsch.
+const METER_JE_GRAD2 = METER_JE_GRAD;
+const [s2, w2, n2, o2] = welt.bbox;
+const breiteReg = (o2 - w2) * METER_JE_GRAD2 * Math.cos(mittelLat * Math.PI / 180);
+const tiefeReg = (n2 - s2) * METER_JE_GRAD2;
+const zuWelt = (lat: number, lon: number): [number, number] => [
+  ((lon - w2) / (o2 - w2) - 0.5) * breiteReg,
+  ((n2 - lat) / (n2 - s2) - 0.5) * tiefeReg,
+];
+
+console.log('  Stehende Gewässer (natural=water), größte zuerst');
+const teiche = welt.flaechen.filter(f => f.biom === 'wasser').map(f => {
+  const p = f.punkte.map(q => zuWelt(q[0], q[1]));
+  let a = 0;
+  for (let i = 0; i < p.length; i++) {
+    const j = (i + 1) % p.length;
+    a += p[i][0] * p[j][1] - p[j][0] * p[i][1];
+  }
+  const xs = p.map(q => q[0]), zs = p.map(q => q[1]);
+  return {
+    ha: Math.abs(a) / 2 / 1e4,
+    b: Math.max(...xs) - Math.min(...xs),
+    t: Math.max(...zs) - Math.min(...zs),
+    mitte: [xs.reduce((x, y) => x + y, 0) / p.length, zs.reduce((x, y) => x + y, 0) / p.length] as [number, number],
+  };
+}).sort((a, b) => b.ha - a.ha);
+for (const t of teiche.slice(0, 5))
+  console.log(`    ${t.ha.toFixed(3).padStart(7)} ha   ${Math.round(t.b)} × ${Math.round(t.t)} m`);
+console.log(`    ${teiche.length} insgesamt, zusammen ${teiche.reduce((a, t) => a + t.ha, 0).toFixed(2)} ha`);
+console.log('');
+
 // ---- Urteil ---------------------------------------------------------------
 //
-// Der Vergleichsmaßstab ist die Figur: 1,8 m hoch, rund 0,6 m breit, Sprungweite
-// bei 4,2 m/s und 1,1 s Flugzeit rund 4,6 m. Schwimmen setzt Wasser voraus, das
-// man weder durchqueren noch überspringen kann.
+// Der Vergleichsmaßstab ist die Figur: 1,8 m hoch, Sprungweite bei 4,2 m/s und
+// 1,1 s Flugzeit rund 4,6 m. Schwimmen setzt Wasser voraus, das man weder
+// durchqueren noch überspringen kann — **und das tief genug ist**.
 const SPRUNGWEITE = 4.6;
-const SCHWIMMBAR = 8;
+const SCHWIMMEN_AB = 1.35;
 console.log('  Urteil');
-console.log(`    Sprungweite der Figur: ${SPRUNGWEITE} m. Schwimmenswert wäre Wasser ab ~${SCHWIMMBAR} m.`);
-if (maxBreite < SPRUNGWEITE) {
-  console.log(`    ✗ Das breiteste Gewässer der Region (${maxBreite.toFixed(1)} m) ist schmaler als ein Sprung.`);
-  console.log('      Schwimmen hätte hier NIRGENDS einen Ort — es gäbe keine einzige Stelle,');
-  console.log('      an der es auslöst. Das Œntal führt Bäche, keine Seen.');
-  console.log('    → Ehrliche Umsetzung: Waten. Langsamer, Ausdauer zehrt, kein Sprung');
-  console.log('      im Wasser. Schwimmen wartet auf eine Region mit einem See — und die');
-  console.log('      Kiemenbiber-Freischaltung aus der Traversal-Vorlage wartet mit.');
-} else if (maxBreite < SCHWIMMBAR) {
-  console.log(`    ⚠ ${maxBreite.toFixed(1)} m: überspringbar, aber knapp. Waten ist die bessere Antwort.`);
+console.log(`    Fließend: breitestes ${maxBreite.toFixed(1)} m gegen ${SPRUNGWEITE} m Sprungweite`);
+console.log(`      → watbar, nicht schwimmbar. Waten greift auf allen ${(gesamtM / 1000).toFixed(1)} km.`);
+const groesster = teiche[0];
+if (groesster && Math.min(groesster.b, groesster.t) > SPRUNGWEITE * 2) {
+  console.log(`    Stehend: größter Weiher ${Math.round(groesster.b)} × ${Math.round(groesster.t)} m`);
+  console.log(`      → **schwimmbar.** Hier lag der Fehler des ersten Anlaufs.`);
 } else {
-  console.log(`    ✓ ${maxBreite.toFixed(1)} m — breit genug, Schwimmen lohnt.`);
+  console.log('    Stehend: alle Weiher unter zwei Sprungweiten — auch hier nur Waten.');
+}
+
+// ---- Bett: sinkt man tatsächlich ein? --------------------------------------
+//
+// Die Frage, die den ganzen Umbau ausgelöst hat. Vorher lag das Wasserband 30 cm
+// ÜBER dem Gelände — es gab keine Mulde, also konnte man auch nicht einsinken.
+// Jetzt wird das Bett aus dem Höhenfeld geschnitten, und weil ALLES, was aufsitzt,
+// aus derselben Funktion liest (D20), sinkt die Figur von selbst.
+console.log('');
+console.log('  Bett im Gelände — Höhe auf der GEZEICHNETEN Fläche');
+const feld2 = baueHoehenfeld(welt);
+const zeig = (was: string, x: number, z: number) => {
+  const sohle = hoeheAufFlaeche(feld2, x, z);
+  const t = feld2.wasserTiefe(x, z);
+  console.log(`    ${was.padEnd(26)} Sohle ${sohle.toFixed(2)} m · Tiefe ${t.toFixed(2)} m `
+            + `· Spiegel ${(sohle + t).toFixed(2)} m` + (t >= SCHWIMMEN_AB ? '   ← schwimmbar' : ''));
+};
+// Bachmitte gegen 8 m daneben — der Unterschied IST das Bett.
+const bach = welt.linien.find(l => l.art === 'stream')!;
+const bp = zuWelt(...bach.punkte[Math.floor(bach.punkte.length / 2)]);
+zeig('Bachmitte', bp[0], bp[1]);
+zeig('8 m neben dem Bach', bp[0] + 8, bp[1]);
+if (groesster) {
+  zeig('Weihermitte', groesster.mitte[0], groesster.mitte[1]);
+  zeig('30 m neben dem Weiher', groesster.mitte[0] + 30, groesster.mitte[1]);
 }
 
 // ---- Löst das Wasserfeld auch aus? ----------------------------------------

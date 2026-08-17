@@ -30,6 +30,17 @@ import { MASSSTAB } from './terrain.js';
 const TIEFE: Record<string, number> = { river: 1.6, stream: 0.85, ditch: 0.45 };
 const TIEFE_STANDARD = 0.6;
 
+/**
+ * Tiefe stehender Gewässer in der Mitte.
+ *
+ * Ein Weiher von 60 m Durchmesser ist in dieser Landschaft ein Löschteich oder ein
+ * aufgestauter Bachabschnitt — zwei bis drei Meter. Tief genug zum Schwimmen, und
+ * das ist der Punkt: **Diese Flächen waren bisher gar kein Wasser.**
+ */
+const TIEFE_STEHEND = 2.4;
+/** Uferzone: Über diese Breite steigt die Tiefe von 0 auf voll. */
+const UFER = 7;
+
 /** Kantenlänge einer Bucket-Zelle. Deutlich größer als jede Gewässerbreite. */
 const BUCKET = 32;
 
@@ -47,6 +58,28 @@ export interface Wasserfeld {
   tiefeAn(x: number, z: number): number;
   /** Nur zur Kontrolle in Werkzeugen. */
   segmente: number;
+  /** Stehende Gewässer als Polygonzüge in Weltkoordinaten — für die Wasserfläche. */
+  teiche: { punkte: [number, number][]; tiefe: number }[];
+}
+
+/** Liegt ein Punkt in einem Polygon? Strahlverfahren, ungerade Zahl an Schnitten. */
+function imPolygon(px: number, pz: number, p: readonly [number, number][]): boolean {
+  let drin = false;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+    const [xi, zi] = p[i], [xj, zj] = p[j];
+    if ((zi > pz) !== (zj > pz) && px < ((xj - xi) * (pz - zi)) / (zj - zi) + xi) drin = !drin;
+  }
+  return drin;
+}
+
+/** Kürzester Abstand zum Rand eines Polygons. */
+function randAbstand(px: number, pz: number, p: readonly [number, number][]): number {
+  let best = Infinity;
+  for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+    const s: Segment = { ax: p[j][0], az: p[j][1], bx: p[i][0], bz: p[i][1], halbe: 0, tiefe: 0 };
+    best = Math.min(best, abstandQ(px, pz, s));
+  }
+  return Math.sqrt(best);
 }
 
 /** Abstand eines Punktes zu einer Strecke, im Quadrat (spart die Wurzel). */
@@ -70,6 +103,27 @@ export function baueWasserfeld(
   const eimer = new Map<number, Segment[]>();
   const schluessel = (cx: number, cz: number) => cx * 100_000 + cz;
   let anzahl = 0;
+
+  /**
+   * Stehende Gewässer.
+   *
+   * **Sie waren bisher gar nicht da.** `baueGewaesser` liest nur `welt.linien`, und
+   * die enthalten Bäche. Die elf `natural=water`-Flächen der Region — Weiher bis
+   * 62 × 71 m — standen im Biom-Raster, hatten aber keine Wasserfläche, keine
+   * Tiefe und keinen Effekt. Sie waren Wiese mit blauer Rastermarkierung.
+   *
+   * Das ist auch der Grund, warum die erste Aussage „Schwimmen hat hier keinen
+   * Ort" falsch war: Sie stützte sich auf eine Messung, die nur Linien kannte.
+   */
+  const teiche: { punkte: [number, number][]; tiefe: number }[] = [];
+  // `?? []` statt Pflichtfeld: Eine ältere Weltdatei ohne `flaechen` soll ohne
+  // Weiher laufen, nicht abstürzen — dieselbe Haltung wie beim Spielstand.
+  for (const f of welt.flaechen ?? []) {
+    if (f.biom !== 'wasser') continue;
+    const punkte = f.punkte.map(p => zuWelt(p[0], p[1]));
+    if (punkte.length < 4) continue;
+    teiche.push({ punkte, tiefe: TIEFE_STEHEND });
+  }
 
   for (const linie of welt.linien) {
     // Dieselbe halbe Breite wie in `baueGewaesser` — sonst liegt die Wasserlinie
@@ -96,9 +150,19 @@ export function baueWasserfeld(
 
   return {
     segmente: anzahl,
+    teiche,
     tiefeAn(x: number, z: number): number {
       const cx = Math.floor(x / BUCKET), cz = Math.floor(z / BUCKET);
       let beste = 0;
+
+      // Stehendes Wasser zuerst: elf Polygone sind billig genug, um sie ohne
+      // Raster durchzugehen, und ein Teich ist immer tiefer als der Bach, der
+      // hineinführt — der größere Wert gewinnt ohnehin.
+      for (const t of teiche) {
+        if (!imPolygon(x, z, t.punkte)) continue;
+        const rand = randAbstand(x, z, t.punkte);
+        beste = Math.max(beste, t.tiefe * Math.sqrt(Math.min(1, rand / UFER)));
+      }
       for (let a = -1; a <= 1; a++) {
         for (let b = -1; b <= 1; b++) {
           const liste = eimer.get(schluessel(cx + a, cz + b));

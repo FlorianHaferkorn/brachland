@@ -17,6 +17,7 @@
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { MASSSTAB, BIOM_FARBE } from './terrain.js';
+import { baueWasserfeld } from './wasserfeld.js';
 
 /** Kachelkantenlänge in Metern. */
 export const KACHEL = 64;
@@ -63,8 +64,28 @@ export function mikrorelief(x: number, z: number): number {
 // -------------------------------------------------- Höhe mit Zwischenwerten
 
 export interface HoehenFeld {
-  /** Höhe an beliebiger Weltposition, inkl. Interpolation und Mikrorelief. */
+  /**
+   * Höhe der **Geländeoberfläche** an beliebiger Weltposition, inkl. Interpolation,
+   * Mikrorelief und **ausgeschnittenem Gewässerbett**.
+   *
+   * Das Bett ist neu und war der eigentliche Grund, warum Wasser sich nicht wie
+   * Wasser anfühlte: Das Wasserband lag 30 cm **über** dem Gelände. Es gab keine
+   * Mulde, also konnte man auch nicht einsinken — man lief über eine blaue Platte.
+   *
+   * Weil alles, was aufsitzt, aus dieser einen Funktion liest (D20), sinkt die
+   * Figur jetzt von selbst ein: Sie folgt dem Boden, und der Boden geht hinunter.
+   */
   hoehe: (x: number, z: number) => number;
+  /**
+   * Wassertiefe an einer Position, 0 heißt trocken.
+   *
+   * Der Wasserspiegel ist `hoehe(x,z) + wasserTiefe(x,z)` — also die Höhe, die das
+   * Gelände ohne Bett hätte. Eine zweite gespeicherte Höhe wäre Drift; abgeleitet
+   * kann sie nicht auseinanderlaufen.
+   */
+  wasserTiefe: (x: number, z: number) => number;
+  /** Stehende Gewässer als Polygone in Weltkoordinaten — für die Wasserfläche. */
+  teiche: { punkte: [number, number][]; tiefe: number }[];
   biom: (x: number, z: number) => Biom;
   breiteMeter: number;
   tiefeMeter: number;
@@ -87,6 +108,11 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1): HoehenFeld 
     (H[Math.max(0, Math.min(n - 1, i))][Math.max(0, Math.min(n - 1, j))] - welt.hoeheMin)
     * MASSSTAB.ueberhoehung / MASSSTAB.stauchung;
 
+  // Wasser braucht die Ausdehnung, die hier gerade berechnet wurde — deshalb hier
+  // und nicht in der Szene. Ein zweites Wasserfeld an anderer Stelle wäre die Art
+  // von Doppelung, an der schon die Höhenquellen einmal auseinandergelaufen sind.
+  const wasser = baueWasserfeld(welt, breiteMeter, tiefeMeter);
+
   const hoehe = (x: number, z: number): number => {
     // Rasterkoordinate mit Nachkommaanteil
     const fj = (x / breiteMeter + 0.5) * (n - 1);
@@ -103,7 +129,10 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1): HoehenFeld 
     // wären Buckel unnatürlich, an einem Steilhang sind sie es nicht.
     const neigung = Math.min(1, (Math.abs(h10 - h00) + Math.abs(h01 - h00)) / 12);
     const staerke = mikroStaerke * (0.45 + 0.85 * neigung);
-    return basis + mikrorelief(x, z) * staerke;
+    // Das Bett wird abgezogen, nicht dazugerechnet: Der Wasserspiegel bleibt dort,
+    // wo das Gelände vorher war, und die Sohle geht darunter. Andersherum stünde
+    // das Wasser als Wall in der Landschaft.
+    return basis + mikrorelief(x, z) * staerke - wasser.tiefeAn(x, z);
   };
 
   const biom = (x: number, z: number): Biom => {
@@ -112,7 +141,10 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1): HoehenFeld 
     return welt.biome[i][j];
   };
 
-  return { hoehe, biom, breiteMeter, tiefeMeter };
+  return {
+    hoehe, biom, breiteMeter, tiefeMeter,
+    wasserTiefe: wasser.tiefeAn, teiche: wasser.teiche,
+  };
 }
 
 /**
