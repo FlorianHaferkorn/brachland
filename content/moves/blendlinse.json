@@ -5,8 +5,7 @@
   "band": "utility",
   "effekte": [
     {
-      "art": "statuswert",
-      "wert": "ang",
+      "art": "genauigkeit",
       "stufen": -2,
       "ziel": "gegner"
     }

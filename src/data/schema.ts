@@ -56,7 +56,19 @@ export const MoveEffekt = z.discriminatedUnion('art', [
   z.object({ art: z.literal('heilung'), anteil: z.number().min(0).max(1) }),
   z.object({ art: z.literal('reinigung') }),
   z.object({ art: z.literal('mehrfachtreffer'), treffer: z.number().int().min(2).max(5) }),
+  /**
+   * Genauigkeit — die echte Umsetzung, nicht mehr der Ersatz über `ang`.
+   *
+   * Ledger G-24: `blendlinse` („Der Gegner trifft schlechter") war als
+   * `statuswert ang -2` umgesetzt, weil die Engine keinen Trefferwurf hatte.
+   * Das ist nicht dasselbe: Weniger Angriff heißt gleichmäßig weniger Schaden,
+   * weniger Genauigkeit heißt **gelegentlich gar keiner**. Der Unterschied ist
+   * genau das, was eine Blendung ausmacht.
+   */
+  z.object({ art: z.literal('genauigkeit'), stufen: z.number().int().min(-3).max(3),
+             ziel: z.enum(['selbst','gegner']) }),
 ]);
+export type MoveEffekt = z.infer<typeof MoveEffekt>;
 
 export const Move = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
@@ -71,7 +83,44 @@ export type Move = z.infer<typeof Move>;
 // --------------------------------------------------------------- Kreaturen
 
 export const Ursprung = z.enum(['wildling', 'zuchtlinie', 'verwachsener']);
-export const Zustand  = z.enum(['rein', 'befallen', 'verhaertet']);
+
+/**
+ * Die vier Zustände der Creature Design Bible v1.1.
+ *
+ * `rueckgefuehrt` war bis hierher nicht im Enum — das Blatt kennt vier Zustände,
+ * der Code kannte drei. Der vierte ist der einzige, der etwas **behält**: Eine
+ * zurückgeführte Kreatur ist gereinigt (keine Zehrung, kein Befall-Bonus) und
+ * trägt dafür eine **Narbe**, die dauerhaft wirkt.
+ *
+ * Reihenfolge ist der Verlauf: rein → befallen → verhärtet ist die Sackgasse,
+ * rein → befallen → rückgeführt der Weg zurück.
+ */
+export const Zustand = z.enum(['rein', 'befallen', 'verhaertet', 'rueckgefuehrt']);
+
+/**
+ * Was eine Narbe tut — eine Wirkung je Herkunft.
+ *
+ * Das Blatt nennt „+15 % Krit-Chance", „+20 % Resistenz", „+30 % Verteidigung".
+ * Beim Nachrechnen fiel auf, dass Resistenz und Verteidigung auf denselben
+ * Engine-Wert (`ver`) gelaufen wären — drei Narben, mechanisch zwei Effekte.
+ * Deshalb sind sie hier **verschieden definiert**:
+ *
+ * - `krit`       hebt die Volltrefferchance (Wildlinge: das Tier lernt zielen)
+ * - `resistenz`  stumpft den **Elementnachteil** ab, nicht die Verteidigung
+ *                (Zuchtlinien: das Protokoll kompensiert die Schwäche)
+ * - `panzer`     hebt `ver` (Verwachsene: Infrastruktur als Rüstung)
+ *
+ * Damit sind es drei Effekte, die sich im Kampf unterschiedlich anfühlen — und
+ * die Zahlen des Blattes bleiben, wie sie dort stehen.
+ */
+export const NarbenArt = z.enum(['krit', 'resistenz', 'panzer']);
+export type NarbenArt = z.infer<typeof NarbenArt>;
+
+export const NARBE: Record<z.infer<typeof Ursprung>, { art: NarbenArt; wert: number }> = {
+  wildling:     { art: 'krit',      wert: 0.15 },
+  zuchtlinie:   { art: 'resistenz', wert: 0.20 },
+  verwachsener: { art: 'panzer',    wert: 0.30 },
+};
 
 export const Werte = z.object({
   kp:  z.number().int().min(1).max(400),

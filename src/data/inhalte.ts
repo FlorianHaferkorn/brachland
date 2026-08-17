@@ -9,7 +9,7 @@
  * Solange beides dasselbe ist, kostet die zweite Prüfung nur Millisekunden; sobald es
  * auseinanderläuft, fällt es beim Start auf statt mitten im Kampf.
  */
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag } from './schema.js';
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, NARBE } from './schema.js';
 import { erstelle, type Kaempfer, type MoveDef, type Band } from '../engine/battle.js';
 import { mutationBei, werteBei, STUFE_MAX } from '../spiel/fortschritt.js';
 
@@ -50,7 +50,9 @@ export const WILDLINGE = [...KREATUREN.values()].filter(k => k.ursprung === 'wil
 export function moveDef(id: string): MoveDef {
   const m = MOVES.get(id);
   if (!m) throw new Error(`Move '${id}' fehlt — npm run validate haette das gefunden`);
-  return { id: m.id, name: m.name, element: m.element, band: m.band as Band };
+  // `effekte` wurden hier bis eben verworfen — alle 49 Moves trugen sie im JSON,
+  // und die Engine hat sie nie gesehen. Jetzt reichen sie durch.
+  return { id: m.id, name: m.name, element: m.element, band: m.band as Band, effekte: m.effekte };
 }
 
 /**
@@ -83,6 +85,10 @@ export function baueKaempfer(
     name: s.name,
     elemente: [...k.elemente],
     zustand,
+    // Die Narbe folgt aus der Herkunft, nicht aus den Daten der Kreatur — jede
+    // Zuchtlinie trägt dieselbe Systemnarbe, jeder Wildling dieselbe Fellnarbe.
+    // `erstelle` verwirft sie bei jedem anderen Zustand als `rueckgefuehrt`.
+    narbe: NARBE[k.ursprung],
     maxKp: werte('kp'),
     ang: werte('ang'), ver: werte('ver'), ini: werte('ini'),
     moves: ids.map(moveDef),

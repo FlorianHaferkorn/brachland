@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-16
+last-reviewed: 2026-08-17
 shelf-life-days: 180
 owns: *.md
 ---
@@ -23,7 +23,8 @@ owns: *.md
 | Eine Kreatur anlegen | `BRACHLAND_Roster-Struktur_v1.md` → `BRACHLAND_Roster_Kapitel1.md` |
 | Wissen, was in Kapitel 1 vorkommt | `BRACHLAND_Roster_Kapitel1.md` |
 | Modelle beschaffen und aufbereiten | `BRACHLAND_Asset-Workflow_v1.md` → `../WORKFLOW.md` |
-| Ein Kreaturenmodell bauen oder beurteilen | `BRACHLAND_Stilreferenz_v1.md` |
+| Ein Kreaturenmodell bauen oder beurteilen | `BRACHLAND_Creature-Bible_v1.1.md` → für Wildlinge zusätzlich `BRACHLAND_Stilreferenz_v1.md` |
+| Wissen, was Zustände, Narben oder Herkünfte mechanisch tun | `BRACHLAND_Creature-Bible_v1.1.md` → `../../src/engine/battle.ts` |
 | Bewegung, Klettern, Reiten, Gleiten planen | `BRACHLAND_Traversal_v1.md` |
 | Aufträge, Fragmente oder Story-Aufbau planen | `BRACHLAND_Story-Struktur_v1.md` |
 
@@ -38,7 +39,8 @@ owns: *.md
 | `BRACHLAND_Roster-Struktur_v1.md` | ~200 Kreaturen über 5 Regionen, Entwicklungssystem, Art-Budget |
 | `BRACHLAND_Roster_Kapitel1.md` | Œntal: 16 Linien, 35 Kreaturen, 7 der 8 Elemente (Brand erst im Aschefeld) |
 | `BRACHLAND_Asset-Workflow_v1.md` | Ergebnis des Kreatur-Spikes: Kette und Kostenmessung |
-| `BRACHLAND_Stilreferenz_v1.md` | **Verbindlich seit 16.08.2026.** Ein erkennbares Alpentier, auf dem etwas wächst — Pilzfächer als Leitmerkmal, Signalfarbe nur als Punkt. Schließt ADR-0002 |
+| `BRACHLAND_Creature-Bible_v1.1.md` | **Oberste Kreatur-Referenz seit 17.08.2026.** Textfassung des Blattes: drei Herkünfte, drei Stufen, vier Zustände, drei Narben — mit den Stellen, an denen Blatt und Code auseinanderlagen, und wer jeweils gewonnen hat |
+| `BRACHLAND_Stilreferenz_v1.md` | **Verbindlich für Wildlinge seit 16.08.2026.** Ein erkennbares Alpentier, auf dem etwas wächst — Pilzfächer als Leitmerkmal, Signalfarbe nur als Punkt. Schließt ADR-0002. Der Bible untergeordnet |
 | `BRACHLAND_Traversal_v1.md` | Ausdauer, Springen, Klettern, Schwimmen, Reiten, Gleiten — Auswahl gegen Enshrouded, Reihenfolge, Freischaltung |
 | `BRACHLAND_Story-Struktur_v1.md` | Vier übliche Bauweisen, Auswahl für BRACHLAND (kritischer Pfad + Fragmente + Weltzustand, keine Nabe), Auftrags- und Fragmentschema |
 

@@ -10,7 +10,8 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { BAND } from '../data/schema.js';
 import {
-  REGELN, schaden, waehleMove, elementFaktor, rng,
+  REGELN, schaden, schlag, waehleMove, elementFaktor, rng,
+  fangbarImZustand, iniEff, wendeWirkungenAn,
   type Kaempfer, type Team, type MoveDef,
 } from '../engine/battle.js';
 import { Kampfbuehne, type KaempferBild, type Buehnenzug } from './Kampfbuehne.js';
@@ -119,6 +120,9 @@ export const FANG_BASIS = 0.20;
 export const FANG_SPANNE = 0.60;
 
 export function fangchance(gegner: Kaempfer): number {
+  // Verhärtet heißt: gar nicht. Das Endstadium lässt sich nicht mehr zurückführen
+  // (Creature Design Bible v1.1) — die Chance ist nicht klein, sie ist null.
+  if (!fangbarImZustand(gegner.zustand)) return 0;
   const anteil = Math.max(0, gegner.kp) / gegner.maxKp;
   const bonus = gegner.zustand === 'befallen' ? 0.1 : 0;
   return Math.min(0.95, FANG_BASIS + FANG_SPANNE * (1 - anteil) + bonus);
@@ -190,16 +194,23 @@ export function Kampfbildschirm({
       trefferSpieler.current = performance.now() / 1000;
       melde(`${ich.name} tritt ein und fängt ${d} Schaden ab (Schild).`);
     } else if (spielerMove) {
-      const zuerst = gegner.ini > ich.ini ? 'gegner' : 'ich';
+      const zuerst = iniEff(gegner) > iniEff(ich) ? 'gegner' : 'ich';
       const zug = (a: Kaempfer, d: Kaempfer, m: MoveDef | null) => {
         if (!m || a.kp <= 0 || d.kp <= 0) return;
         a.fokus -= BAND[m.band].fokus;
-        const s = schaden(a, d, m, zufall);
-        d.kp -= s;
+        // Wirkungen zuerst: Ein Move, der die Verteidigung senkt, soll das im
+        // eigenen Zug tun, nicht erst im nächsten.
+        const wirkungen = wendeWirkungenAn(a, d, m);
+        const t = schlag(a, d, m, zufall);
+        d.kp -= t.wert;
         const f = elementFaktor(m.element, d.elemente);
-        inszeniere(a !== gegner, m, f);
+        inszeniere(a !== gegner, m, t.kritisch ? Math.max(f, 2) : f);
         (d === gegner ? trefferGegner : trefferSpieler).current = performance.now() / 1000;
-        melde(`${a.name}: ${m.name} → ${s}${f > 1 ? ' (sehr effektiv)' : f < 1 ? ' (kaum wirksam)' : ''}`);
+        if (t.fehlschlag) melde(`${a.name}: ${m.name} — daneben.`);
+        else melde(`${a.name}: ${m.name} → ${t.wert}`
+          + (t.kritisch ? ' — Volltreffer!' : '')
+          + (f > 1 ? ' (sehr effektiv)' : f < 1 ? ' (kaum wirksam)' : ''));
+        for (const w of wirkungen) melde(w);
       };
       if (zuerst === 'ich') { zug(ich, gegner, spielerMove); zug(gegner, ich, waehleMove(gegner, ich)); }
       else { zug(gegner, ich, waehleMove(gegner, ich)); zug(ich, gegner, spielerMove); }

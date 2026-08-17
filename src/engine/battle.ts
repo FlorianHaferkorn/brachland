@@ -10,10 +10,13 @@
  *   - Elementbonus x1,5 bei Übereinstimmung Move/Kreatur
  *   - Fokus: Start 4, Regen +2, Max 8, Kosten 1/2/3
  *   - Wechsel kostet den Zug, Eintretender nimmt SHIELD_DR des Schadens
- *   - Zehrung 7 % nur beim aktiven Kämpfer
+ *   - Zehrung 12 % nur beim aktiven Kämpfer (die 7 % der Vor-Simulation waren zu
+ *     wenig, siehe Begründung an `REGELN.ZEHRUNG` — dieser Kommentar hat die
+ *     Korrektur monatelang nicht mitbekommen und stand auf 7 %)
+ *   - Trefferwurf und Volltreffer (Creature Design Bible v1.1)
  *   - Regenten wechseln das Element bei KP-Schwellen
  */
-import { Element, effektivitaet, BAND } from '../data/schema.js';
+import { Element, effektivitaet, BAND, type MoveEffekt, type NarbenArt } from '../data/schema.js';
 
 // ------------------------------------------------------------- Stellschrauben
 export const REGELN = {
@@ -28,6 +31,35 @@ export const REGELN = {
   BEFALL_ANG: 1.15,
   BEFALL_VER: 1.15,
   BEFALL_INI: 1.10,
+
+  /**
+   * Volltreffer.
+   *
+   * 6 % Grundchance, 1,6-facher Schaden. Bewusst niedrig: Ein Volltreffer soll
+   * eine Überraschung sein, kein Rechenposten. Bei 6 % fällt er in einem Kampf
+   * von 14 Runden etwa einmal — oft genug, dass man ihn erlebt, selten genug,
+   * dass keine Strategie darauf baut.
+   *
+   * Die Wildling-Narbe hebt ihn auf 21 %. Das ist der Punkt, ab dem er zur
+   * Strategie wird, und deshalb ist er dort auch etwas wert.
+   */
+  KRIT_BASIS: 0.06,
+  KRIT_SCHADEN: 1.6,
+
+  /**
+   * Trefferwurf.
+   *
+   * 95 % Grundgenauigkeit. Eine Stufe Genauigkeit sind 12,5 Prozentpunkte, also
+   * `blendlinse` mit -2 Stufen: 95 % → 70 %. Jeder dritte bis vierte Angriff geht
+   * daneben — spürbar, ohne den Kampf zum Würfelspiel zu machen.
+   *
+   * Untergrenze 45 %: Auch drei Blendungen dürfen einen Kämpfer nicht wehrlos
+   * machen. Ein Zustand, aus dem es keinen Ausweg gibt, ist keine Taktik.
+   */
+  TREFFER_BASIS: 0.95,
+  TREFFER_JE_STUFE: 0.125,
+  TREFFER_MIN: 0.45,
+
   MAX_RUNDEN: 60,
 };
 
@@ -45,9 +77,55 @@ export function rng(seed: number) {
 
 // ------------------------------------------------------------------ Typen
 export type Band = keyof typeof BAND;
-export type Zustand = 'rein' | 'befallen' | 'verhaertet';
+export type Zustand = 'rein' | 'befallen' | 'verhaertet' | 'rueckgefuehrt';
 
-export interface MoveDef { id: string; name: string; element: Element; band: Band; }
+/**
+ * Darf diese Kreatur gefangen werden?
+ *
+ * Die Regelbox des Blattes sagt: rein, befallen und rückgeführt ja, **verhärtet
+ * nein**. Verhärtet ist das Endstadium — Bossformen und Ruinenwächter. Etwas, das
+ * sich nicht mehr zurückführen lässt, nimmt man nicht mit.
+ *
+ * Steht hier und nicht in der Oberfläche, weil es eine Regel ist und keine Anzeige.
+ */
+export function fangbarImZustand(z: Zustand): boolean {
+  return z !== 'verhaertet';
+}
+
+export interface MoveDef {
+  id: string; name: string; element: Element; band: Band;
+  /**
+   * Wirkungen des Moves.
+   *
+   * **Bis hierher warf `moveDef()` sie weg.** Alle 49 Moves trugen ihre Effekte im
+   * JSON, und keiner davon wurde je angewendet — Statuswerte, Heilung, Befall,
+   * Mehrfachtreffer waren Dekoration. Ledger G-24 nannte drei fehlende Wirkungen;
+   * gefehlt haben alle sieben.
+   *
+   * Umgesetzt sind jetzt die beiden **stufenförmigen** Arten (`statuswert`,
+   * `genauigkeit`), weil sie dieselbe Rechnung teilen und 14 der 21
+   * Effektnutzungen abdecken. Die übrigen fünf Arten stehen als G-56 offen.
+   */
+  effekte?: readonly MoveEffekt[];
+}
+
+/**
+ * Multiplikator einer Statusstufe, -3 … +3.
+ *
+ * 20 % je Stufe, bei Abwertung als Kehrwert — damit kann kein Wert auf null
+ * fallen und keine Stufenkette einen Kämpfer wehrlos machen. Bewusst flacher als
+ * das übliche `(2+n)/2` aus Rundenkämpfen: Diese Engine schwingt über Element und
+ * STAB ohnehin um Faktor vier, und ein einziger Utility-Move darf nicht mehr
+ * entscheiden als ein Elementvorteil.
+ */
+export function stufenFaktor(n: number): number {
+  const s = Math.max(-3, Math.min(3, n));
+  return s >= 0 ? 1 + 0.2 * s : 1 / (1 + 0.2 * -s);
+}
+
+const angEff = (k: Kaempfer) => k.ang * stufenFaktor(k.stufenAng);
+const verEff = (k: Kaempfer) => k.ver * stufenFaktor(k.stufenVer);
+export const iniEff = (k: Kaempfer) => k.ini * stufenFaktor(k.stufenIni);
 
 export interface Kaempfer {
   id: string;
@@ -58,6 +136,19 @@ export interface Kaempfer {
   ang: number; ver: number; ini: number;
   moves: MoveDef[];
   fokus: number;
+  /** Volltrefferchance 0…1. Grundwert plus Wildling-Narbe. */
+  krit: number;
+  /** Genauigkeitsstufen, -3…3. Wird von `genauigkeit`-Effekten verschoben. */
+  genauigkeit: number;
+  /** Statusstufen, -3…3. Nicht in die Werte gerechnet, sondern beim Lesen — sonst driftet es. */
+  stufenAng: number; stufenVer: number; stufenIni: number;
+  /**
+   * Narbe eines Zurückgeführten. Fehlt bei allen anderen Zuständen.
+   *
+   * Sie steht am Kämpfer und nicht in den Werten, weil `resistenz` erst beim
+   * Schaden greift — sie ändert keine Zahl, sie ändert eine Rechnung.
+   */
+  narbe?: { art: NarbenArt; wert: number };
   /** Regenten: Element wechselt bei KP-Anteil. */
   phasen?: { elemente: Element[]; abKpAnteil: number }[];
 }
@@ -65,7 +156,8 @@ export interface Kaempfer {
 export interface Team { kaempfer: Kaempfer[]; aktiv: number; }
 
 export type Ereignis =
-  | { art: 'angriff'; von: string; auf: string; move: string; schaden: number; faktor: number }
+  | { art: 'angriff'; von: string; auf: string; move: string; schaden: number; faktor: number;
+      kritisch?: boolean; fehlschlag?: boolean }
   | { art: 'wechsel'; zu: string; freierTreffer: number }
   | { art: 'zehrung'; wen: string; schaden: number }
   | { art: 'phase'; wer: string; elemente: Element[] }
@@ -73,15 +165,26 @@ export type Ereignis =
   | { art: 'kein_fokus'; wer: string };
 
 // ------------------------------------------------------------- Grundrechnen
-export function erstelle(basis: Omit<Kaempfer, 'kp' | 'fokus'>): Kaempfer {
-  const m = basis.zustand === 'befallen' ? 1 : 0;
+type Abgeleitet = 'kp' | 'fokus' | 'krit' | 'genauigkeit' | 'stufenAng' | 'stufenVer' | 'stufenIni';
+
+export function erstelle(
+  basis: Omit<Kaempfer, Abgeleitet> & Partial<Pick<Kaempfer, Abgeleitet>>,
+): Kaempfer {
+  const befallen = basis.zustand === 'befallen';
+  const narbe = basis.zustand === 'rueckgefuehrt' ? basis.narbe : undefined;
+  // Panzer wirkt auf den Wert, Krit auf die Chance, Resistenz erst beim Schaden.
+  const panzer = narbe?.art === 'panzer' ? 1 + narbe.wert : 1;
   return {
     ...basis,
+    narbe,
     kp: basis.maxKp,
     fokus: REGELN.FOKUS_START,
-    ang: Math.round(basis.ang * (m ? REGELN.BEFALL_ANG : 1)),
-    ver: Math.round(basis.ver * (m ? REGELN.BEFALL_VER : 1)),
-    ini: Math.round(basis.ini * (m ? REGELN.BEFALL_INI : 1)),
+    krit: (basis.krit ?? REGELN.KRIT_BASIS) + (narbe?.art === 'krit' ? narbe.wert : 0),
+    genauigkeit: basis.genauigkeit ?? 0,
+    stufenAng: 0, stufenVer: 0, stufenIni: 0,
+    ang: Math.round(basis.ang * (befallen ? REGELN.BEFALL_ANG : 1)),
+    ver: Math.round(basis.ver * (befallen ? REGELN.BEFALL_VER : 1) * panzer),
+    ini: Math.round(basis.ini * (befallen ? REGELN.BEFALL_INI : 1)),
   };
 }
 
@@ -90,13 +193,96 @@ export function elementFaktor(angriff: Element, verteidiger: Element[]): number 
   return verteidiger.reduce((f, t) => f * effektivitaet(angriff, t), 1);
 }
 
-export function schaden(a: Kaempfer, d: Kaempfer, move: MoveDef, zufall: () => number): number {
-  const power = BAND[move.band].power;
-  if (power === 0) return 0;
-  const stab = a.elemente.includes(move.element) ? REGELN.STAB : 1;
+/**
+ * Elementfaktor aus Sicht des Verteidigers — mit Resistenz-Narbe.
+ *
+ * Die Narbe stumpft nur den **Nachteil** ab, nie den Vorteil: Aus dem doppelten
+ * Schaden werden bei 20 % Resistenz 1,8-facher. Einen Vorteil des Verteidigers
+ * (Faktor unter 1) lässt sie unangetastet — eine Narbe soll schützen, nicht
+ * ausgleichen.
+ */
+function faktorGegen(a: Kaempfer, d: Kaempfer, move: MoveDef): number {
   const el = elementFaktor(move.element, d.elemente);
-  const roh = (a.ang / d.ver) * power * 18 + 2;
-  return Math.max(1, Math.round(roh * stab * el * (0.9 + zufall() * 0.2)));
+  if (d.narbe?.art !== 'resistenz' || el <= 1) return el;
+  return 1 + (el - 1) * (1 - d.narbe.wert);
+}
+
+/** Trefferwahrscheinlichkeit 0…1 aus den Genauigkeitsstufen des Angreifers. */
+export function trefferchance(a: Kaempfer): number {
+  return Math.max(REGELN.TREFFER_MIN,
+    Math.min(1, REGELN.TREFFER_BASIS + a.genauigkeit * REGELN.TREFFER_JE_STUFE));
+}
+
+export interface Schlag {
+  wert: number;
+  /** Danebengegangen. Unterscheidet sich von „0 Schaden" — Utility trifft immer. */
+  fehlschlag: boolean;
+  kritisch: boolean;
+}
+
+/**
+ * Ein Angriff, vollständig: Trefferwurf, Schaden, Volltreffer.
+ *
+ * Die Reihenfolge der Würfe ist festgelegt und darf nicht getauscht werden —
+ * jeder Aufruf von `zufall()` verschiebt sonst alle folgenden, und dann ändern
+ * sich die 16 Simulationstests, ohne dass sich eine Regel geändert hat.
+ * Deshalb: erst Treffer, dann Streuung, dann Volltreffer.
+ */
+export function schlag(a: Kaempfer, d: Kaempfer, move: MoveDef, zufall: () => number): Schlag {
+  const power = BAND[move.band].power;
+  // Utility trifft immer — ein Effekt, der danebengehen kann, wäre eine zweite
+  // Zufallsquelle in einem Move, der ohnehin keinen Schaden macht.
+  if (power === 0) return { wert: 0, fehlschlag: false, kritisch: false };
+
+  if (zufall() > trefferchance(a)) return { wert: 0, fehlschlag: true, kritisch: false };
+
+  const stab = a.elemente.includes(move.element) ? REGELN.STAB : 1;
+  const el = faktorGegen(a, d, move);
+  const roh = (angEff(a) / verEff(d)) * power * 18 + 2;
+  const streuung = 0.9 + zufall() * 0.2;
+  const kritisch = zufall() < a.krit;
+  const kf = kritisch ? REGELN.KRIT_SCHADEN : 1;
+  return {
+    wert: Math.max(1, Math.round(roh * stab * el * streuung * kf)),
+    fehlschlag: false, kritisch,
+  };
+}
+
+/** Nur der Schadenswert — für Aufrufer, die Fehlschlag und Volltreffer nicht anzeigen. */
+export function schaden(a: Kaempfer, d: Kaempfer, move: MoveDef, zufall: () => number): number {
+  return schlag(a, d, move, zufall).wert;
+}
+
+/**
+ * Wendet die stufenförmigen Wirkungen eines Moves an.
+ *
+ * Verschoben werden **Stufen**, nicht Werte — deshalb kann eine Kette aus fünf
+ * Blendlinsen nicht tiefer als -3 gehen, und Rückrechnen ist nie nötig. Ein
+ * Statuswert, der direkt multipliziert wird, driftet über einen langen
+ * Regentenkampf bis zur Unbrauchbarkeit.
+ *
+ * Rückgabe sind die Namen der geänderten Werte — der Aufrufer entscheidet, ob er
+ * sie anzeigt. Die Engine kennt keine Texte.
+ */
+export function wendeWirkungenAn(a: Kaempfer, d: Kaempfer, move: MoveDef): string[] {
+  const gemeldet: string[] = [];
+  const setze = (k: Kaempfer, feld: 'stufenAng' | 'stufenVer' | 'stufenIni' | 'genauigkeit',
+                 stufen: number, name: string) => {
+    const vorher = k[feld];
+    k[feld] = Math.max(-3, Math.min(3, vorher + stufen));
+    if (k[feld] !== vorher) gemeldet.push(`${k.name}: ${name} ${stufen > 0 ? '+' : ''}${stufen}`);
+  };
+  for (const e of move.effekte ?? []) {
+    if (e.art === 'statuswert') {
+      const k = e.ziel === 'selbst' ? a : d;
+      const feld = e.wert === 'ang' ? 'stufenAng' : e.wert === 'ver' ? 'stufenVer' : 'stufenIni';
+      setze(k, feld, e.stufen, e.wert.toUpperCase());
+    } else if (e.art === 'genauigkeit') {
+      setze(e.ziel === 'selbst' ? a : d, 'genauigkeit', e.stufen, 'Genauigkeit');
+    }
+    // Die übrigen fünf Arten sind noch nicht umgesetzt — Ledger G-56.
+  }
+  return gemeldet;
 }
 
 /** Erwartungswert ohne Zufall — für die KI. */
@@ -105,7 +291,10 @@ function erwartet(a: Kaempfer, d: Kaempfer): number {
     .filter(m => BAND[m.band].power > 0 && BAND[m.band].fokus <= a.fokus)
     .map(m => {
       const stab = a.elemente.includes(m.element) ? REGELN.STAB : 1;
-      return ((a.ang / d.ver) * BAND[m.band].power * 18 + 2) * stab * elementFaktor(m.element, d.elemente);
+      // Mit Stufen und Trefferchance, sonst überschätzt die KI einen geblendeten
+      // Kämpfer und wechselt nicht, wenn sie es müsste.
+      return ((angEff(a) / verEff(d)) * BAND[m.band].power * 18 + 2)
+        * stab * elementFaktor(m.element, d.elemente) * trefferchance(a);
     });
   return beste.length ? Math.max(...beste) : 1;
 }
@@ -189,16 +378,20 @@ export function kampf(team: Team, boss: Kaempfer, seed = 1, log = false): Ergebn
       schild = 0;
     } else {
       const reihe: [Kaempfer, Kaempfer][] =
-        boss.ini > cur.ini ? [[boss, cur], [cur, boss]] : [[cur, boss], [boss, cur]];
+        iniEff(boss) > iniEff(cur) ? [[boss, cur], [cur, boss]] : [[cur, boss], [boss, cur]];
       for (const [a, d] of reihe) {
         if (a.kp <= 0 || d.kp <= 0) continue;
         const m = waehleMove(a, d);
         if (!m) { merke({ art: 'kein_fokus', wer: a.name }); a.fokus = Math.min(REGELN.FOKUS_MAX, a.fokus + REGELN.FOKUS_REGEN); continue; }
         a.fokus -= BAND[m.band].fokus;
-        let s = schaden(a, d, m, zufall);
+        wendeWirkungenAn(a, d, m);
+        const t = schlag(a, d, m, zufall);
+        let s = t.wert;
         if (d === cur && schild) s = Math.round(s * REGELN.SHIELD_DR);
         d.kp -= s;
-        merke({ art: 'angriff', von: a.name, auf: d.name, move: m.name, schaden: s, faktor: elementFaktor(m.element, d.elemente) });
+        merke({ art: 'angriff', von: a.name, auf: d.name, move: m.name, schaden: s,
+                faktor: elementFaktor(m.element, d.elemente),
+                kritisch: t.kritisch, fehlschlag: t.fehlschlag });
       }
       schild = 0;
       for (const k of [cur, boss]) k.fokus = Math.min(REGELN.FOKUS_MAX, k.fokus + REGELN.FOKUS_REGEN);

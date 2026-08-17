@@ -1,12 +1,23 @@
 ---
-last-reviewed: 2026-08-16
+last-reviewed: 2026-08-17
 shelf-life-days: 365
 ---
 # BRACHLAND — Stilreferenz Kreaturen v1
 
-> **Status: verbindlich.** Damit ist ADR-0002 erfüllt und Ledger G-2 geschlossen.
-> Jedes Kreaturenmodell wird gegen dieses Dokument geprüft. Abweichungen sind
-> möglich — aber als Änderung dieses Dokuments, nicht als Einzelfall.
+> **Status: verbindlich für WILDLINGE.** Damit ist ADR-0002 erfüllt und Ledger G-2
+> geschlossen. Jedes Wildling-Modell wird gegen dieses Dokument geprüft.
+> Abweichungen sind möglich — aber als Änderung dieses Dokuments, nicht als
+> Einzelfall.
+>
+> **Übergeordnet:** `BRACHLAND_Creature-Bible_v1.1.md` regelt alle drei Herkünfte,
+> die vier Zustände und die Narben. Dieses Dokument ist die feinere Auflösung für
+> die Wildlinge und wurde aus dem Referenzbild vom 16.08.2026 abgeleitet, das
+> ausschließlich Wildlinge zeigte.
+>
+> **Fidelity-Ziel: die Silhouette, nicht das Rendering.** Kreaturen stehen im Spiel
+> bei 4.000 Dreiecken (`zielTris`) im Nebel; Referenzbilder haben Rim Light und
+> Glow. Ein Modell ist richtig, wenn seine **Silhouette** und sein Farbwert
+> stimmen — nicht, wenn es dem Bild näher kommt.
 
 **Quelle:** Referenzbild von Flo, 16.08.2026. Vier Linien in je drei Mutationsstufen:
 Steinbock, Gämse, Alpenmurmel, Alpenschneehuhn.
@@ -34,6 +45,12 @@ Was wächst, ist organisch: Porlinge, Hutpilze, Moospolster, Flechtenkrusten,
 Schuppen. **Keine** Kabel, keine Platinen, keine Metallteile am Wildling. Alt-Tech
 ist ein *Element* und gehört zu Verwachsenen wie dem Trafomarder — nicht zur
 allgemeinen Kreaturenoptik.
+
+**Nachtrag zur Creature Bible v1.1:** Bei **Zuchtlinien** ist der Körper von Bauart
+technisch (symmetrisch, modular, VERIDIA-Fertigung). Diese Regel beschreibt dort
+nur den **Befall** — der bleibt auch am K7-Wolf Pilz und Biolicht, nicht ein
+zusätzliches Modul. Genau daran erkennt man, dass der Befall etwas ist, das dem
+Konstrukt *widerfährt*, und nicht Teil seiner Bauweise.
 
 ### 3. Der Fächer ist das Leitmerkmal
 

@@ -23,6 +23,7 @@ owns: *.test.ts
 | Klettern, Springen oder Zehrraten ändern | `ausdauer.test.ts` → `../src/spieler/ausdauer.ts` |
 | Auftragsziele oder Vorbedingungen ändern | `auftraege.test.ts` → `../src/spiel/auftraege.ts` |
 | Reiten oder Waten ändern | `reiten.test.ts` → `../src/spiel/reiten.ts`, `../src/world/wasserfeld.ts` |
+| Zustände, Narben, Volltreffer, Genauigkeit oder Move-Wirkungen ändern | `zustaende.test.ts` → `../docs/design/BRACHLAND_Creature-Bible_v1.1.md` |
 
 ## Register
 
@@ -33,7 +34,8 @@ owns: *.test.ts
 | `fortschritt.test.ts` | 20 Tests. Anlass: Die erste Kurve machte Kreaturen bei der Mutation **schwächer** (L13 = 184 KP, L14 = 162 KP). Hält jetzt Monotonie und die Zahl der Kämpfe je Mutation fest |
 | `ausdauer.test.ts` | 20 Tests. Hält die Kletterhöhe als **Rechnung** fest (16/s × 2,2 m/s = 13,8 m gegen 14 m Klippe) und die Hysterese am Nullpunkt |
 | `auftraege.test.ts` | 25 Tests. Der Fortschritt wird abgeleitet, nicht gezählt — geprüft wird unter anderem, dass `schneehuhn` nicht `schneehuhn-alt` mitzählt |
-| `reiten.test.ts` | 20 Tests für Reiten und Wasserfeld. Hält fest, dass die Watbreite die **Linienbreite** ist (4 m) und nicht die Rasterweite (15,6 m) — genau diese Verwechslung hat `../tools/wassercheck.ts` im ersten Anlauf ruiniert |
+| `zustaende.test.ts` | 38 Tests zur Creature Design Bible v1.1. Hält drei Befunde fest, die beim Zusammenführen von Blatt und Code herauskamen: **Resistenz und Verteidigung wären derselbe Effekt gewesen**, **Krit gab es nicht**, und **Move-Effekte wurden nie angewendet** — `moveDef()` warf sie weg |
+| `reiten.test.ts` | 26 Tests für Reiten und Wasserfeld. Hält fest, dass die Watbreite die **Linienbreite** ist (4 m) und nicht die Rasterweite (15,6 m) — genau diese Verwechslung hat `../tools/wassercheck.ts` im ersten Anlauf ruiniert |
 
 ## Warum kein Framework
 
