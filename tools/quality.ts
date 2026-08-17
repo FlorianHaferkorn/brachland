@@ -116,7 +116,21 @@ if (existsSync('assets/creatures')) {
   }
   if (gesamt / 1024 > BUDGET.paketMB)
     stop('Assets', `Gesamtpaket ${(gesamt / 1024).toFixed(1)} MB über ${BUDGET.paketMB} MB — Offline-Cache gefährdet`);
-} else warn('Assets', 'assets/creatures fehlt — Asset-Budget nicht prüfbar');
+} else console.log('  · [Assets] kein Kreaturenmodell — so gewollt, solange ADR-0002 gilt (G-23)');
+
+/**
+ * Archetyp-Rigs — dass sie da sind, nicht wie groß sie sind.
+ *
+ * Ein Rig ist keine Auslieferungsdatei: Es geht nie ins Bundle, sondern in
+ * `autorig.py`. Deshalb kein Byte-Budget, sondern die Frage, ob `npm run assets`
+ * für eine Bauform überhaupt laufen kann. Fehlt das Rig, überspringt `pipeline.sh`
+ * die Kreatur mit einer Zeile, die im Stapellauf leicht untergeht (Ledger B-10).
+ */
+const RIGS = ['quadruped', 'quadruped_small', 'biped_bird', 'serpent'];
+const vorhanden = RIGS.filter(r => existsSync(join('assets/rigs', `${r}.glb`)));
+const fehlend = RIGS.filter(r => !vorhanden.includes(r));
+console.log(`  · [Assets] Archetyp-Rigs ${vorhanden.length}/${RIGS.length}`
+  + (fehlend.length ? ` — es fehlen ${fehlend.join(', ')} (B-10)` : ''));
 
 // -------------------------------------------------- 4. System-Invarianten
 let matrixOk = true;

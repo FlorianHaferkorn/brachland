@@ -14,6 +14,7 @@ import { NARBE } from './data/schema.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
+import { gleiterFrei as gleiterOffen, GLEIT_VERHAELTNIS } from './spieler/gleiten.js';
 import { RIG_HOEHE } from './world/kreaturgestalt.js';
 import { erfahrungAusSieg, gutschrift, mutationBei } from './spiel/fortschritt.js';
 import { beute } from './spiel/gegenstaende.js';
@@ -395,6 +396,17 @@ function App() {
     regenten: stand?.regenten ?? [],
   }), [stand]);
 
+  /**
+   * Gleiter frei? Abgeleitet aus dem Weltzustand, nicht gespeichert (D56).
+   *
+   * Das Traversal-Dokument setzt Gleiten auf „Kapitel 2". Im Spielverlauf ist das
+   * derselbe Moment: Kapitel 1 endet mit dem Flussvater. Ein eigenes Feld
+   * `gleiterFrei` im Spielstand wäre eine zweite Wahrheit über denselben
+   * Sachverhalt — und die driftet, sobald irgendwo ein Haken fehlt.
+   */
+  const gleiterFrei = useMemo(() => gleiterOffen(taten.regenten), [taten.regenten]);
+  const [gleitet, setGleitet] = useState(false);
+
   const nimmAuftrag = useCallback((id: string) => {
     if (!stand) return;
     sichere({ auftraege: { ...stand.auftraege, [id]: 'angenommen' } }, team);
@@ -459,6 +471,8 @@ function App() {
         naehe={naehe}
         regent={regent}
         onRegentNah={setRegentNah}
+        gleiterFrei={gleiterFrei}
+        onGleiten={setGleitet}
         fundstellen={fundstellen}
         gelesen={gelesen}
         onFund={findeFragment}
@@ -534,6 +548,21 @@ function App() {
 
           <Witterung naehe={naehe} />
           <Ausdaueranzeige ausdauer={ausdauer} />
+
+          {/* Gleitflug. Nur sichtbar, solange er läuft — eine Anzeige, die immer
+              da ist, erklärt nichts über einen Zustand, den man ohnehin spürt.
+              Das Verhältnis steht dabei, weil es die einzige Zahl ist, aus der
+              sich abschätzen lässt, ob der nächste Grat noch zu erreichen ist. */}
+          {gleitet && (
+            <div style={{
+              position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)',
+              background: '#131c19cc', border: '1px solid #3fd9a0', borderRadius: 4,
+              color: '#3fd9a0', padding: '4px 12px', font: '12px/1.3 system-ui, sans-serif',
+              letterSpacing: '.06em', pointerEvents: 'none',
+            }}>
+              GLEITFLUG · {GLEIT_VERHAELTNIS}:1 · tippen zum Einklappen
+            </div>
+          )}
 
           {/* Auf- und Absitzen. Der Knopf steht nur da, wenn es ein Reittier gibt —
               ein dauerhaft grauer Knopf erklärt nichts, ein Hinweis beim Versuch

@@ -18,9 +18,11 @@ owns: *.ts, *.tsx
 | Team, Fangen oder Speichern ändern | `main.tsx` → `spiel/spielstand.ts` | ui/BattleScreen.tsx |
 | Fortschritt, Stufen oder Gegenstände ändern | `spiel/fortschritt.ts`, `spiel/gegenstaende.ts` | data/inhalte.ts, content/gegenstaende/ |
 | Bewegung, Kamera oder Blickneigung ändern | `spieler/steuerung.ts` → `scenes/RegionsSzene.tsx` | spieler/figur.ts |
-| Springen, Schwerkraft, Bodenkontakt ändern | `scenes/RegionsSzene.tsx` (`Spieler`, `SCHWERKRAFT`/`ABSPRUNG`) → `spieler/steuerung.ts` | world/, engine/ |
+| Springen, Schwerkraft, Bodenkontakt ändern | `spieler/tempo.ts` (die Zahlen) → `scenes/RegionsSzene.tsx` (`Spieler`) → `spieler/steuerung.ts` | world/, engine/ |
 | Klettern, Steigungsgrenze, Ausdauer ändern | `spieler/ausdauer.ts` → `scenes/RegionsSzene.tsx` (`STEIGUNG_MAX`, `KLETTERN_TEMPO`) | world/, engine/ |
 | Reiten: wer trägt, wie schnell, wie steil | `spiel/reiten.ts` → `scenes/RegionsSzene.tsx` (`REIT_STEIGUNG_MAX`) | world/, engine/ |
+| An Gehtempo, Renntempo, Schwerkraft oder Sprunghöhe drehen | `spieler/tempo.ts` — **nur dort**, sonst driftet es wieder (G-66) | — |
+| Gleiten: Verhältnis, Sinkrate, wann der Gleiter aufgeht | `spieler/gleiten.ts` → `npm run gleit` → `../tests/gleiten.test.ts` | world/, engine/ |
 | Waten, Wassertiefe, wo Wasser steht | `world/wasserfeld.ts` → `scenes/RegionsSzene.tsx` (`WATEN_AB`) | engine/, ui/ |
 | Aufträge, Zufluchten, NPCs ändern | `spiel/auftraege.ts` → `ui/Ortsfenster.tsx` → `main.tsx` | world/, engine/ |
 | Wald wirkt zu dunkel oder zu flach | `../tools/lichtcheck.ts` **erst messen**, dann `scenes/RegionsSzene.tsx` (`STIMMUNG`, `HEMI_BODEN`) | ui/, engine/ |
@@ -65,6 +67,8 @@ owns: *.ts, *.tsx
 | `spieler/peilung.ts` | Richtung zu einem Punkt relativ zum Blick. Rein und getestet — hier steckte ein Vorzeichenfehler |
 | `spieler/ausdauer.ts` | Ausdauer für Klettern und Springen. **Rennen zehrt bewusst nicht** — die Begründung steht in der Datei. Rein und getestet |
 | `spiel/reiten.ts` | Wer trägt (nur `quadruped` ab Mutation 2), Reittempo, Steigungsgrenze im Sattel, und ein Satz dazu, warum es noch nicht geht |
+| `spieler/tempo.ts` | Gehen, Rennen, Schwerkraft, Absprung — an **einer** Stelle. Vorher standen dieselben Zahlen in `scenes/RegionsSzene.tsx`, im Ledger D18 und in `tools/masstab.ts`, und alle drei waren verschieden (G-66). Rein, damit die Werkzeuge sie importieren können |
+| `spieler/gleiten.ts` | Gleiten: Verhältnis 3:1, Sinkrate 4,0 m/s, Öffnen ab 3 m Fallhöhe. Das Verhältnis ist **gemessen** (`npm run gleit`, D71), nicht gewählt. Freigeschaltet mit dem Regenten, abgeleitet statt gespeichert. Rein und getestet |
 | `world/wasserfeld.ts` | Wassertiefe an einem Punkt: 1.506 Bachsegmente in 32-m-Eimern **plus 11 Weiher als Polygone**. Grundlage von Waten, Schwimmen und dem aus dem Gelände geschnittenen Bett |
 | `spiel/auftraege.ts` | Auftragsfortschritt, **abgeleitet** aus besiegten/gefangenen Vorkommen und gelesenen Fragmenten. Kein eigener Zähler, deshalb keine zweite Wahrheit |
 | `ui/Ortsfenster.tsx` | Zuflucht und Bewohner in einem Fenster: rasten oder Aufträge annehmen und abschließen. Kein Dialogbaum |

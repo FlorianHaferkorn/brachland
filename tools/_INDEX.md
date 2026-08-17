@@ -29,6 +29,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Beurteilen, ob der Wald zu dunkel ist — **bevor** man an Lichtwerten dreht | `lichtcheck.ts` |
 | Prüfen, ob eine Bewegungsregel die Welt unbegehbar macht | `steigungcheck.ts` |
 | Prüfen, ob Silhouetten ins Budget passen — **und ob man ihnen die Herkunft ansieht** | `gestaltcheck.ts` |
+| Ein Gleitverhältnis wählen, ohne zu raten | `gleitcheck.ts` → `../src/spieler/gleiten.ts` |
 | Entscheiden, ob eine Fähigkeit in dieser Region überhaupt einen Ort hat | `wassercheck.ts` |
 
 ## Bauschritte
@@ -41,6 +42,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `nachbereiten.mjs` | `node nachbereiten.mjs <in.glb> [out.glb]` — **Schritt 3, nach dem Rigging.** Dünnt die von Blender gebackenen Animationskeys aus, quantisiert und wandelt die Textur. Muss hinter `autorig.py` laufen: Blender schreibt die Datei neu und macht alles rückgängig, was Schritt 1 an der Kodierung getan hat. Das war die Ursache von A-6 (163–167 → 100–103 KB), siehe G-63 |
 | `batch.mjs` | Stapelverarbeitung ganzer Ordner durch die Reduktion |
 | `autorig.py` | Automatisches Rigging über Blender anhand der Archetyp-Rigs |
+| `rigausbau.mjs` | `node rigausbau.mjs <in.glb> <out.glb> [koerpermesh]` — schneidet aus einem fertigen Modell das **Archetyp-Rig** heraus: behält Skelett, Haut und Animationen, wirft alle Meshes außer dem benannten Körper weg. Damit ist `assets/rigs/quadruped.glb` entstanden, aus den Dateien, die als Grathorn geführt wurden und ein three.js-Beispielfuchs waren (G-65) |
 | `pipeline.sh` | `npm run assets` — Roh-GLB → reduziert → geriggt, in einem Durchlauf |
 
 ## Tore (blocken den Merge)
@@ -67,6 +69,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `lichtcheck.ts` | `npm run licht` — Bildschirmhelligkeit je Material und Stimmung, den ganzen Weg über Lambert, ACES, sRGB und Nebel. Beantwortet „ist der Wald zu dunkel" mit einer Zahl statt mit einem Gefühl |
 | `steigungcheck.ts` | `npm run steigung` — was die 40°-Grenze an begehbarer Welt kostet: 108.568 Prüfpunkte, Anteil offener Standorte, Kessel ohne Ausweg, Gewinn durchs Klettern |
 | `gestaltcheck.ts` | `npm run gestalt` — Dreiecke je Silhouette und Mutationsstufe gegen die Grenze von 600, plus zwei Bedingungen, die kein Kommentar sichern kann: dass die drei **Herkünfte verschieden bauen** (Creature Design Bible §1) und dass derselbe Seed dieselbe Gestalt ergibt. Entstanden, weil der Dateikopf „unter 250 Dreiecken" versprach und bei 492 lag (G-61) |
+| `gleitcheck.ts` | `npm run gleit` — 9.600 simulierte Flüge über das echte Höhenfeld: Höhenvorrat, Absprungkanten (596/km²), erreichte Weiten je Gleitverhältnis und der Vergleich gegen den Fußweg. Hat das Verhältnis **3:1** entschieden (D71) und dabei aufgedeckt, dass Gehen und Rennen an drei Orten dreimal verschieden standen (G-66) |
 | `wassercheck.ts` | `npm run wasser` — Länge, Breite und Tiefe der Gewässer, und prüft, dass `baueWasserfeld` alle 190 Läufe trifft. Hat Schwimmen zuerst **verworfen** (breitestes Fließgewässer 4,0 m gegen 4,6 m Sprungweite) und dann selbst widerlegt: Der erste Lauf las nur `welt.linien` und übersah elf `natural=water`-Polygone (G-50). Waten trägt die Bäche, Schwimmen die Weiher |
 | `lodpreview.ts` | `npm run lodpreview` — Vorschau der LOD-Kachelung |
 

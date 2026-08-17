@@ -37,6 +37,8 @@ import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/v
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
 import { REITEN_GEHEN, REITEN_RENNEN, REIT_MAX_GRAD } from '../spiel/reiten.js';
+import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG } from '../spieler/tempo.js';
+import { GLEIT_TEMPO, bremse, gleitSchritt, neuerFall, type Fall } from '../spieler/gleiten.js';
 
 /**
  * Tageszeiten als Schlüsselbilder eines durchgehenden Laufs.
@@ -1021,40 +1023,21 @@ function Streuschicht({ feld, ziel, dichte }: {
 }
 
 /**
- * Gehen und Rennen in m/s.
+ * Tempo, Schwerkraft und Sprung stehen in `src/spieler/tempo.ts`.
  *
- * Bewusst **nicht** realistisch: 1,4 m/s ist echtes Gehtempo und fühlt sich im Spiel
- * zäh an — die Region ist 4 km breit. Der Maßstab bleibt 1:1 (begründete Entscheidung,
- * ADR-0001), das Tempo wird überhöht. Querung rennend ~9,5 min, gehend ~22 min.
- */
-/**
- * Gehen und Rennen in Metern je Sekunde.
+ * Sie standen hier — und dieselben Zahlen gleichzeitig in `tools/masstab.ts` (1,4
+ * und 5,0) und im Ledger D18 (3,0 und 7,0). Drei Orte, drei Werte; `npm run
+ * masstab` beschrieb dadurch einen Fußgänger, den es im Spiel nicht gibt. Ein
+ * reines Modul können die Werkzeuge importieren, eine `.tsx` mit React nicht.
  *
- * 4,2 und 11,0 sind schneller als der Mensch. Das ist eine bewusste Abweichung vom
- * 1:1-Maßstab an genau einer Stelle: Die Region ist 4 km breit, und bis es Traversal
- * gibt (Reitkreatur, Pfade, Schnellreise) ist der Weg sonst reine Wartezeit. Ledger
- * G-27 — die Zahl geht zurück, sobald Traversal da ist.
+ * 4,2 und 11,0 m/s sind schneller als der Mensch: eine bewusste Abweichung vom
+ * 1:1-Maßstab an genau einer Stelle (Ledger G-27, D18). 9,81 m/s² und 5,4 m/s
+ * Absprung ergeben knapp 1,5 m Sprunghöhe und 1,1 s in der Luft — genug für
+ * Geländestufen, zu wenig für Felswände. Genau so gemeint.
  */
-const GEHEN = 4.2;
-const RENNEN = 11.0;
 
 /** Eine halbe Schrittlänge in Metern — bestimmt die Frequenz der Laufanimation. */
 const SCHRITTLAENGE = 0.9;
-
-/**
- * Schwerkraft und Sprung.
- *
- * Bis hierher klebte die Figur am Boden: `p.y = hoeheAufFlaeche(...)` jedes Bild,
- * ohne Zwischenzustand. Das war für eine Größenreferenz genug und ist für ein Spiel
- * zu wenig — ohne Vertikalbewegung geht weder Springen noch Klettern, Schwimmen
- * oder Gleiten (`docs/design/BRACHLAND_Traversal_v1.md`).
- *
- * 9,81 m/s² und 5,4 m/s Absprung ergeben knapp 1,5 m Sprunghöhe und 1,1 s in der
- * Luft. Das reicht für Geländestufen und Felsbänder bis Hüfthöhe — mehr soll es
- * ohne Klettern auch nicht sein.
- */
-const SCHWERKRAFT = 9.81;
-const ABSPRUNG = 5.4;
 /**
  * Bis zu dieser Höhe über dem Boden gilt man noch als stehend.
  *
@@ -1154,7 +1137,8 @@ export const NEIGUNG_START = 0.32;
  * Gebäude sind derzeit durchlässig, das ist bewusst, weil dieser Schritt nur den
  * Look beurteilbar machen soll.
  */
-function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet }: {
+function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet,
+                   gleiterFrei, onGleiten }: {
   feld: HoehenFeld;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
@@ -1166,6 +1150,10 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   ausdauer: React.RefObject<Ausdauerzustand>;
   /** Sitzt der Spieler auf? Als Ref, damit ein Umschalten kein Neuaufsetzen auslöst. */
   reitet: React.RefObject<boolean>;
+  /** Ist der Gleiter frei? Abgeleitet aus dem Weltzustand, siehe `spieler/gleiten.ts`. */
+  gleiterFrei?: React.RefObject<boolean>;
+  /** Meldet, ob gerade geglitten wird — für die Anzeige. Nur bei Änderung. */
+  onGleiten?: (gleitet: boolean) => void;
 }) {
   const { gl } = useThree();
   const eingabe = benutzeSteuerung(gl.domElement);
@@ -1173,6 +1161,10 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   const steigen = useRef(0);
   /** Klettert der Spieler gerade? Nur für die Anzeige und die Zehrung. */
   const klettert = useRef(false);
+  /** Laufender Fall: Scheitel und ob der Gleiter von Hand eingeklappt wurde. */
+  const fall = useRef<Fall>(neuerFall(0));
+  /** Letzter gemeldeter Gleitzustand — damit nur Änderungen nach oben gehen. */
+  const gleitetVor = useRef(false);
 
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
@@ -1230,15 +1222,43 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       && laenge > 0.3 && e.vor > 0.3 && stufe > schwelle
       && steigung > STEIGUNG_MAX && reicht(ausdauer.current);
 
+    // ---- Gleiten -----------------------------------------------------------
+    // Muss VOR der waagerechten Bewegung stehen: Am Gleiter gilt ein eigenes
+    // Vorwärtstempo, und der Sprungwunsch dieses Bildes faltet ihn zusammen,
+    // statt einen Sprung auszulösen (in der Luft springt ohnehin niemand).
+    const g0 = gleitSchritt(fall.current, {
+      y: p.y,
+      steigen: steigen.current,
+      amBoden,
+      // Am Fels, im Wasser und im Sattel geht kein Gleiter auf. Beim Klettern
+      // hängt man an der Wand; wer aus dem Sattel fällt, fällt.
+      gesperrt: klettert.current || schwimmt || watet || reitet.current,
+      frei: gleiterFrei?.current ?? false,
+      falten: !amBoden && e.springen,
+    });
+    fall.current = g0.fall;
+    const gleitet = g0.gleitet;
+    if (gleitet) e.springen = false;   // in der Luft ist die Taste das Falten
+    if (gleitet !== gleitetVor.current) { gleitetVor.current = gleitet; onGleiten?.(gleitet); }
+
     const tempo = klettert.current ? KLETTERN_VOR
       // Erschöpft treibt man nur noch, statt zu schwimmen — spürbar langsamer,
       // aber nie null. Wer im Teich stehenbleibt, kommt sonst nie wieder heraus.
       : schwimmt ? SCHWIMMEN_TEMPO * (reicht(ausdauer.current) ? 1 : 0.45)
       : watet ? WATEN_TEMPO
+      // Am Gleiter zieht die Luft: Man fliegt in Blickrichtung, auch ohne zu
+      // drücken. Steuern heißt hier drehen, nicht schieben.
+      : gleitet ? GLEIT_TEMPO
       : reitet.current ? (e.rennen ? REITEN_RENNEN : REITEN_GEHEN)
       : e.rennen ? RENNEN : GEHEN;
-    const dx = (rohX / Math.max(1, laenge)) * tempo * dt;
-    const dz = (rohZ / Math.max(1, laenge)) * tempo * dt;
+    // Am Gleiter trägt es einen auch ohne Eingabe nach vorn — ein Gleiter, der
+    // stehenbleibt, wenn man den Finger hebt, ist ein Fallschirm. Gesteuert wird
+    // über den Blick; deshalb die Blickrichtung als Rückfall, nicht null.
+    const [fahrX, fahrZ] = gleitet && laenge < 0.05
+      ? [blickX, blickZ]
+      : [rohX / Math.max(1, laenge), rohZ / Math.max(1, laenge)];
+    const dx = fahrX * tempo * dt;
+    const dz = fahrZ * tempo * dt;
 
     // Zu steil heißt: der Schritt findet nicht statt. Nur bergauf und nur mit
     // Bodenkontakt — in der Luft steuert man frei, und bergab rutscht man eben.
@@ -1287,6 +1307,9 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       steigen.current = 0;
     } else {
       steigen.current -= SCHWERKRAFT * dt;
+      // Erst fallen lassen, dann bremsen — sonst frisst die Schwerkraft des
+      // nächsten Bildes die Bremsung wieder auf und die Sinkrate driftet nach oben.
+      if (gleitet) steigen.current = bremse(steigen.current);
       p.y += steigen.current * dt;
       if (p.y <= boden) { p.y = boden; steigen.current = 0; }
     }
@@ -1536,6 +1559,13 @@ export interface RegionsSzeneProps {
   regent?: { ort: [number, number]; gestalt: THREE.BufferGeometry };
   /** Wird gerufen, wenn der Spieler den Regentenort betritt oder verlässt. */
   onRegentNah?: (nah: boolean) => void;
+  /**
+   * Ist der Gleiter frei? Abgeleitet aus dem Weltzustand (Regent besiegt), nicht
+   * gespeichert — siehe `spieler/gleiten.ts`.
+   */
+  gleiterFrei?: boolean;
+  /** Meldet den Wechsel in den und aus dem Gleitflug. Für die Anzeige. */
+  onGleiten?: (gleitet: boolean) => void;
   /** Fundstellen in Weltkoordinaten (x, z) — die Szene kennt keine Texte. */
   fundstellen?: { id: string; ort: [number, number] }[];
   gelesen?: ReadonlySet<string>;
@@ -1573,7 +1603,7 @@ export interface RegionsSzeneProps {
 export function RegionsSzene({
   welt, tageszeit = 0.26, spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
-  regent, onRegentNah, fundstellen, gelesen, onFund, orte, onOrtNah,
+  regent, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, ausdauer, reittier = null, angehalten = false,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
@@ -1590,6 +1620,10 @@ export function RegionsSzene({
   // soll nicht durch den Callback-Baum von `Spieler` laufen.
   const reitetRef = useRef(false);
   reitetRef.current = reittier !== null;
+  // Der Gleiter als Ref und nicht als Prop im Frame: Ein Weltzustand, der sich
+  // einmal je Spielstand ändert, soll keine Bildschleife neu aufsetzen.
+  const gleiterRef = useRef(false);
+  gleiterRef.current = gleiterFrei ?? false;
 
   // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
   // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
@@ -1676,7 +1710,7 @@ export function RegionsSzene({
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}
-               reitet={reitetRef} />
+               reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten} />
       {funde.length > 0 && (
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
       )}

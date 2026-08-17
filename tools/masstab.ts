@@ -1,5 +1,14 @@
-/** Größenverhältnisse prüfen: Spieler, Kreatur, Baum, Haus, Region. */
+/**
+ * Größenverhältnisse prüfen: Spieler, Kreatur, Baum, Haus, Region.
+ *
+ * Die Querungszeiten unten standen einmal auf eigenen Zahlen (1,4 und 5,0 m/s) und
+ * meldeten deshalb „gehen 48 min" für ein Spiel, in dem man 16 min braucht — eine
+ * Messung, die einen Fußgänger beschrieb, den es nicht gibt. Sie kommen jetzt aus
+ * `src/spieler/tempo.ts`, derselben Datei, aus der die Bildschleife liest.
+ */
 import { MASSSTAB, GROESSE } from '../src/world/terrain.js';
+import { GEHEN, RENNEN, SPRUNGHOEHE } from '../src/spieler/tempo.js';
+import { GLEIT_VERHAELTNIS, reichweite, flugdauer, fallgeschwindigkeit } from '../src/spieler/gleiten.js';
 
 const REAL = {
   spieler: 1.8, grathorn: 1.1, flussvater: 6.0,
@@ -18,7 +27,19 @@ console.log(`  = real ${kam.hoehe * MASSSTAB.stauchung} m über, ${kam.abstand *
 console.log(`  Spieler wäre ${(REAL.spieler / MASSSTAB.stauchung).toFixed(2)} Einheiten hoch`);
 console.log(`  → Bildhöhe des Spielers bei FOV 55: ${(100 * (REAL.spieler / MASSSTAB.stauchung) / (2 * kam.abstand * Math.tan(55 * Math.PI / 360))).toFixed(1)} % des Bildes`);
 
-const gehen = 1.4, laufen = 5.0;
 console.log(`\nQuerung der Region (${REAL.region} m real):`);
-console.log(`  gehen  ${(REAL.region / gehen / 60).toFixed(0)} min`);
-console.log(`  laufen ${(REAL.region / laufen / 60).toFixed(0)} min`);
+console.log(`  gehen   ${GEHEN.toFixed(1)} m/s → ${(REAL.region / GEHEN / 60).toFixed(0)} min`);
+console.log(`  rennen  ${RENNEN.toFixed(1)} m/s → ${(REAL.region / RENNEN / 60).toFixed(0)} min`);
+console.log(`  (echter Mensch: 1,4 und 5,0 m/s → 48 und 13 min. Ledger D18, G-27)`);
+console.log(`  Sprunghöhe ${SPRUNGHOEHE.toFixed(2)} m`);
+
+console.log(`\nGleiten (${GLEIT_VERHAELTNIS}:1):`);
+console.log(`  ${'aus Höhe'.padStart(9)} ${'Weite'.padStart(8)} ${'Flugzeit'.padStart(9)}`
+  + ` ${'zu Fuß'.padStart(8)} ${'ohne Gleiter aufschlagen mit'.padStart(29)}`);
+for (const h of [10, 50, 100, 200, 400]) {
+  const w = reichweite(h);
+  console.log(`  ${(h + ' m').padStart(9)} ${(w.toFixed(0) + ' m').padStart(8)}`
+    + ` ${(flugdauer(h).toFixed(0) + ' s').padStart(9)}`
+    + ` ${((w * 1.4 / RENNEN).toFixed(0) + ' s').padStart(8)}`
+    + ` ${(fallgeschwindigkeit(h).toFixed(0) + ' m/s').padStart(29)}`);
+}

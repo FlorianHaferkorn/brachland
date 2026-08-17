@@ -201,8 +201,17 @@ export const Fragment = z.object({
   ort: z.tuple([z.number(), z.number()]),
   titel: z.string().max(60),
   text: z.string().max(400),
-  /** Woran es liegt — nur zur Einordnung beim Anlegen. */
-  fundstelle: z.enum(['ruine', 'bunker', 'steinbruch', 'grat', 'bach', 'hof']),
+  /**
+   * Woran es liegt — nur zur Einordnung beim Anlegen.
+   *
+   * `weiher` kam dazu, als der erste Fund **unter Wasser** lag. Er ist die einzige
+   * Fundstelle, die eine Fähigkeit voraussetzt: Der Marker steht auf der Sohle des
+   * größten Weihers (62 × 71 m, 2,40 m tief), rund 30 m vom Ufer. Der Auslöser
+   * misst waagerecht 9 m — von jedem Ufer aus ist das unerreichbar, ohne zu
+   * schwimmen. Damit hat Schwimmen zum ersten Mal einen Grund, der nicht
+   * „ein Bach liegt im Weg" heißt.
+   */
+  fundstelle: z.enum(['ruine', 'bunker', 'steinbruch', 'grat', 'bach', 'hof', 'weiher']),
 });
 export type Fragment = z.infer<typeof Fragment>;
 

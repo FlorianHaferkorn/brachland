@@ -1,48 +1,74 @@
 ---
-last-reviewed: 2026-08-16
+last-reviewed: 2026-08-17
 shelf-life-days: 90
 owns: *.glb
 ---
-# assets — Spielfertige Modelle (_INDEX)
+# assets — Quellen der Asset-Kette (_INDEX)
 
-> Hier liegt **nur, was durch die Kette gelaufen ist**: reduziert und geriggt.
-> Rohe KI-Exporte gehören nicht ins Repo — ein Tripo-Export hat 1,9 Mio Flächen.
-> Die Kette steht in `../tools/README.md` und `../docs/WORKFLOW.md`.
+> Hier liegt **nur, was durch die Kette gelaufen ist**: reduziert, geriggt,
+> nachbereitet. Rohe KI-Exporte gehören nicht ins Repo — ein Tripo-Export hat
+> 1,9 Mio Flächen. Die Kette steht in `../tools/README.md` und `../docs/WORKFLOW.md`.
 
 ## Register
 
 | Pfad | Inhalt |
 |---|---|
-| `creatures/Grathorn_S1_Angepasst.glb` | Grathorn Stufe 1 „Angepasst" — 163 KB (v1) |
-| `creatures/Grathorn_S2_Durchdrungen.glb` | Grathorn Stufe 2 „Durchdrungen" — 163 KB (v1) |
-| `creatures/Grathorn_S3_Vollzogen.glb` | Grathorn Stufe 3 „Vollzogen" — 164 KB (v1) |
-| `creatures/Grathorn_v2_S1.glb` | Grathorn v2, Stufe 1 — 163 KB |
-| `creatures/Grathorn_v2_S2.glb` | Grathorn v2, Stufe 2 — 164 KB |
-| `creatures/Grathorn_v2_S3.glb` | Grathorn v2, Stufe 3 — 167 KB |
-| `rigs/` | **Leer.** Archetyp-Rigs mit Animationen fehlen; `autorig.py` braucht sie (Ledger B-10) |
+| `rigs/quadruped.glb` | **Archetyp-Rig Vierbeiner** — 100 KB, ein Mesh, 24 Knochen, Animationen `Survey`/`Walk`/`Run`. Die Vorlage, von der `../tools/autorig.py` Skelett und Bewegung erbt |
+| `creatures/` | **Leer.** Es gibt derzeit kein Kreaturenmodell — und laut ADR-0002 soll es auch keines geben, bis die Stilreferenz steht. In der Welt stehen Silhouetten (`../src/world/kreaturgestalt.ts`, Ledger G-23) |
 
-> Welche Grathorn-Fassung gilt, ist **nicht entschieden** — v1 und v2 liegen beide vor,
-> `content/creatures/grathorn.json` referenziert keine Datei direkt. Vor der nächsten
-> Kreatur klären und die unterlegene löschen, sonst wächst die Doppelung mit. Ledger A-8.
+## Was hier gestanden hat — und was es wirklich war
 
-## Offener Blocker: Budget gerissen
+Bis 17.08.2026 lagen hier **sechs Dateien als „Grathorn"**, in zwei Fassungen. Welche
+gilt, war als Ledger A-8 offen; A-6 stritt darüber, dass sie mit 163–167 KB über dem
+120-KB-Budget lagen. Beim Rendern für diese Entscheidung kam heraus, dass beide
+Fassungen **einen Fuchs** zeigen. Der Grathorn ist ein Steinbock mit
+Chitinplatten-Gehörn (`../content/creatures/grathorn.json`).
 
-`npm run quality` meldet für **alle sechs** Dateien 163–167 KB gegen ein Budget von
-120 KB. Das ist kein Rundungsproblem: Bei ~200 Kreaturen × 3 Stufen entscheidet dieser
-Faktor darüber, ob die PWA offline installierbar bleibt. Bemerkenswert ist, dass v2
-**nicht kleiner** ist als v1 — die zweite Runde hat das Budgetproblem nicht angefasst.
-Ansatzpunkt ist `../tools/reduce.mjs`, nicht das Budget. Ledger A-6.
+Nachgesehen, was in den Dateien steht:
+
+```
+Meshes      : fox1, chitinhorn_b_Head_05, plattenkamm_b_Spine02_03, …
+Materialien : fox_material
+Animationen : Survey, Walk, Run
+Knochen     : _rootJoint, b_Root_00, b_Hip_01, b_Spine01_02, …
+```
+
+Das ist Zeile für Zeile das **three.js-Beispielmodell `Fox.glb`**. BRACHLAND-eigen
+waren nur die aufgesetzten Auswüchse, die über die drei Stufen wuchsen.
+
+Damit erklären sich zwei Zahlen, die vorher nicht zusammenpassten:
+
+- **582–672 Dreiecke gegen `zielTris: 3000`** — kein Überschuss der Reduktion,
+  sondern ein Beispielmodell, das von Haus aus so klein ist.
+- **„v2 ist nicht kleiner als v1"** (so stand es hier als Rätsel) — natürlich nicht,
+  es ist derselbe Fuchs mit einem anderen Aufsatz.
+
+Der Fuchs ist als Grathorn wertlos, als **Archetyp-Rig** aber genau das, was fehlte:
+`rigs/` war leer, und `autorig.py` braucht dort einen geriggten Vierbeiner mit
+Lauf-Animationen (Ledger B-10). `../tools/rigausbau.mjs` schneidet die Auswüchse ab
+und behält Skelett, Haut und Bewegung. Die sechs Kreaturdateien sind gelöscht;
+rückholbar über `git revert`. Ledger G-65.
+
+## Herkunft und Lizenz — wandert mit
+
+Modell **„Fox" von PixelMannen, CC0.** Animationen **von @tomkranis, CC-BY 4.0.**
+
+Die CC-BY-Pflicht wandert weiter: Jede Kreatur, die über `autorig.py` dieses Skelett
+und diese Bewegungen erbt, trägt sie mit. Wer `rigs/quadruped.glb` durch ein eigenes
+Rig ersetzt, wird diesen Absatz los — vorher nicht.
 
 ## Warum nicht unter public/
 
 `public/` wird vom Service Worker precacht (`**/*.glb`) — dort liegen die 23
-Prop-Modelle, die im Spiel gebraucht werden. Hier liegen die Quellen der Asset-Kette;
-was ins Spiel geht, wird bewusst kopiert. Die Trennung verhindert, dass ein
-Zwischenstand versehentlich im Offline-Cache landet und das 60-MB-Budget frisst.
+Prop-Modelle, die im Spiel gebraucht werden. Hier liegen die **Quellen** der
+Asset-Kette; was ins Spiel geht, wird bewusst kopiert. Die Trennung verhindert, dass
+ein Zwischenstand versehentlich im Offline-Cache landet und das 60-MB-Budget frisst.
 
 ## Definition of Done (neues Modell)
 
-- **Input:** Roh-GLB aus der Generierung
-- **Output:** `npm run assets` durchgelaufen, `npm run quality` ohne **neuen** Blocker
-- **Fehlerfall:** über Budget → weiter reduzieren, Budget bleibt
+- **Input:** Roh-GLB aus der Generierung, benannt `<linie>__<archetyp>.glb`
+- **Output:** `npm run assets` durchgelaufen (Reduktion → Rigging → **Nachbereitung**),
+  `npm run quality` ohne neuen Blocker
+- **Fehlerfall:** über Budget → **erst prüfen, ob die Nachbereitung gelaufen ist**
+  (Ledger G-63), dann weiter reduzieren. Das Budget bleibt
 - **Rollback:** Datei löschen; `content/` referenziert sie über die Kreatur-ID

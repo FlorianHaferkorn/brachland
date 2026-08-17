@@ -36,6 +36,7 @@ Felsgrate. Die Welt liefert die Orte umsonst; sie mussten nur belegt werden.
 | `silo-drei.json` | bunker | 47.73816, 12.09540 | **Silo drei** |
 | `silo-hof.json` | bunker | 47.73032, 12.08282 | **Am Hofsilo** |
 | `stauwehr.json` | bach | 47.72518, 12.09582 | **Am Stauwehr** |
+| `absetzbecken.json` | **weiher** | 47.74678, 12.08377 | **Auf dem Grund** — liegt auf der Sohle des größten Weihers (62 × 71 m, 2,40 m tief), rund 30 m vom Ufer. Der Auslöser misst waagerecht 9 m; erreichbar ist das nur schwimmend. Das erste Fundstück, das eine Fähigkeit voraussetzt |
 | `stollenmund.json` | ruine | 47.73038, 12.07810 | **Am Stollenmund** |
 
 ## Regeln
