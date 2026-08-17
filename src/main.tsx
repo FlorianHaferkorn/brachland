@@ -12,6 +12,8 @@ import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, WILDLING
          baueKaempfer, baueRegent, regentOrt, nachMetern, ausKaempferId } from './data/inhalte.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
+import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
+import { RIG_HOEHE } from './world/kreaturgestalt.js';
 import { erfahrungAusSieg, gutschrift, mutationBei } from './spiel/fortschritt.js';
 import { beute } from './spiel/gegenstaende.js';
 import { baueKreaturGeometrie } from './world/kreaturgestalt.js';
@@ -61,6 +63,8 @@ function App() {
   const [ortNah, setOrtNah] = useState<string | null>(null);
   /** Offenes Ortsfenster. Getrennt von `ortNah`: Nähe ist kein Grund, etwas aufzumachen. */
   const [ortOffen, setOrtOffen] = useState<string | null>(null);
+  /** Sitzt der Spieler auf? Nicht im Spielstand — beim Laden steht man wieder am Boden. */
+  const [imSattel, setImSattel] = useState(false);
   const [fragment, setFragment] = useState<string | null>(null);
   const [hinweis, setHinweis] = useState<string | null>(null);
   const spielerRef = useRef<THREE.Object3D>(null);
@@ -167,6 +171,40 @@ function App() {
       : []),
     [welt],
   );
+
+  /**
+   * Das Team als Reitkandidaten — Bauform und Mutation je Platz.
+   *
+   * `Kaempfer` kennt beides nicht: Er weiß seine ID und seine Werte. Bauform und
+   * Mutation stehen im Inhalt bzw. lassen sich aus der ID zurückrechnen.
+   */
+  const kandidaten = useMemo<Reitkandidat[]>(() => team.map((k, platz) => {
+    const a = ausKaempferId(k.id);
+    return {
+      platz, kreatur: a.kreatur, name: k.name,
+      basisRig: KREATUREN.get(a.kreatur)?.basisRig ?? '',
+      mutation: a.mutation,
+    };
+  }), [team]);
+
+  const reittierKandidat = useMemo(() => besteReittier(kandidaten), [kandidaten]);
+
+  /**
+   * Silhouette und Widerristhöhe des Reittiers.
+   *
+   * Die Höhe kommt aus `RIG_HOEHE` mal derselben Mutationsskalierung, die auch die
+   * Kreaturen in der Welt benutzen — sonst sitzt der Reiter in der Luft oder im Tier.
+   */
+  const reittier = useMemo(() => {
+    if (!imSattel || !reittierKandidat) return null;
+    const skala = 1 + reittierKandidat.mutation * 0.2;
+    const geo = gestalt(reittierKandidat.kreatur, reittierKandidat.mutation).clone();
+    geo.scale(skala, skala, skala);
+    return { geometrie: geo, hoehe: (RIG_HOEHE.quadruped ?? 1) * skala };
+  }, [imSattel, reittierKandidat, gestalt]);
+
+  // Wer sein Reittier verliert (Tausch, Niederlage), sitzt nicht weiter auf nichts.
+  useEffect(() => { if (!reittierKandidat) setImSattel(false); }, [reittierKandidat]);
 
   const gelesen = useMemo(() => new Set(stand?.fragmente ?? []), [stand]);
 
@@ -408,6 +446,7 @@ function App() {
         onOrtNah={setOrtNah}
         startPosition={stand.position}
         ausdauer={ausdauer}
+        reittier={reittier}
         angehalten={imKampf}
       />
 
@@ -474,6 +513,21 @@ function App() {
 
           <Witterung naehe={naehe} />
           <Ausdaueranzeige ausdauer={ausdauer} />
+
+          {/* Auf- und Absitzen. Der Knopf steht nur da, wenn es ein Reittier gibt —
+              ein dauerhaft grauer Knopf erklärt nichts, ein Hinweis beim Versuch
+              schon. Deshalb liegt die Erklärung (`warumNicht`) im Teamfenster,
+              nicht hier. */}
+          {reittierKandidat && (
+            <button onClick={() => setImSattel(v => !v)} style={{
+              position: 'fixed', right: 8, bottom: 'calc(env(safe-area-inset-bottom, 8px) + 34px)',
+              zIndex: 12, minHeight: 34, padding: '0 12px', borderRadius: 8, fontSize: 11,
+              background: '#131c19cc', border: `1px solid ${imSattel ? '#3fd9a0' : '#2a3632'}`,
+              color: imSattel ? '#3fd9a0' : '#9fb0a8',
+            }}>
+              {imSattel ? 'absitzen' : `${reittierKandidat.name} reiten`}
+            </button>
+          )}
 
           {/* Ein Fundstück. Keine Karte, kein Log-Eintrag, kein Haken — man liest es
               und geht weiter. Die Leseliste steht im Beutel, falls jemand zurückwill. */}
@@ -560,6 +614,15 @@ function App() {
                 {' '}{Math.max(0, k.kp)}/{k.maxKp}
               </div>
             ))}
+            {/* Warum kein Reittier? Ein Satz, und nur solange es einen gibt. Eine
+                Fähigkeit, die nicht auslöst und nicht sagt warum, liest sich als
+                Fehler — deshalb steht der Grund da, wo das Team steht. */}
+            {team.length > 0 && !reittierKandidat && warumNicht(kandidaten) && (
+              <div style={{
+                fontSize: 10, color: '#5c6b64', background: '#0d121099',
+                padding: '2px 6px', borderRadius: 5, maxWidth: 220,
+              }}>{warumNicht(kandidaten)}</div>
+            )}
             {/* Beutel draussen: Was drin ist, und ob es sich lohnt stehenzubleiben. */}
             {Object.entries(stand.beutel).filter(([, n]) => n > 0).length > 0 && (
               <div style={{

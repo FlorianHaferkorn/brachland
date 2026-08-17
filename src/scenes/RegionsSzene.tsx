@@ -36,6 +36,8 @@ import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, MITTEL_AB, PROP_NEUBEWERTUNG 
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
+import { baueWasserfeld, type Wasserfeld } from '../world/wasserfeld.js';
+import { REITEN_GEHEN, REITEN_RENNEN, REIT_MAX_GRAD } from '../spiel/reiten.js';
 
 /**
  * Tageszeiten als Schlüsselbilder eines durchgehenden Laufs.
@@ -1092,6 +1094,24 @@ const KLETTER_STUFE = 0.9;
  */
 const GEHEN_MAX_GRAD = 40;
 const STEIGUNG_MAX = Math.tan(GEHEN_MAX_GRAD * Math.PI / 180);
+const REIT_STEIGUNG_MAX = Math.tan(REIT_MAX_GRAD * Math.PI / 180);
+
+/**
+ * Waten.
+ *
+ * **Nicht Schwimmen** — und das ist eine gemessene Entscheidung, keine Auslassung.
+ * `npm run wasser` sagt: Das breiteste Gewässer des Œntals ist ein 4-m-Bach, die
+ * Sprungweite der Figur liegt bei 4,6 m. Schwimmen hätte in dieser Region keine
+ * einzige Stelle, an der es auslöst. Gebaute Funktion, die nie greift, ist teurer
+ * als keine Funktion.
+ *
+ * Waten dagegen greift auf 39,5 km Bachlauf. Was es kostet, ist genau das, was
+ * einen Bach zu einem Hindernis macht: Tempo, ein bisschen Ausdauer, und **kein
+ * Sprung**. Wer über den Bach will, sucht die schmale Stelle oder springt vorher ab.
+ */
+const WATEN_AB = 0.30;
+const WATEN_TEMPO = 1.9;
+const WATEN_JE_SEK = 7;
 
 /** Blickneigung: knapp unter die Waagerechte bis steil nach oben. */
 const NEIGUNG_MIN = -0.30;
@@ -1107,7 +1127,7 @@ export const NEIGUNG_START = 0.32;
  * Gebäude sind derzeit durchlässig, das ist bewusst, weil dieser Schritt nur den
  * Look beurteilbar machen soll.
  */
-function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer }: {
+function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, wasser, reitet }: {
   feld: HoehenFeld;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
@@ -1117,6 +1137,9 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer }: {
   kollision: Kollisionsfeld;
   /** Ausdauerzustand. Der Balken liest ihn, deshalb liegt er außerhalb. */
   ausdauer: React.RefObject<Ausdauerzustand>;
+  wasser: Wasserfeld;
+  /** Sitzt der Spieler auf? Als Ref, damit ein Umschalten kein Neuaufsetzen auslöst. */
+  reitet: React.RefObject<boolean>;
 }) {
   const { gl } = useThree();
   const eingabe = benutzeSteuerung(gl.domElement);
@@ -1161,20 +1184,34 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer }: {
     const steigung = (vorausBoden - bodenAlt) / TAST_WEITE;
     const stufe = vorausBoden - p.y;
 
+    // Waten: die Tiefe am Standort. Ein Reittier ist hoch genug, dass ein
+    // 85-cm-Bach es nicht bremst — im Sattel bleibt ein Bach ein Bach.
+    const tiefe = wasser.tiefeAn(p.x, p.z);
+    const watet = !reitet.current && tiefe >= WATEN_AB;
+
+    const grenze = reitet.current ? REIT_STEIGUNG_MAX : STEIGUNG_MAX;
+
     // Klettern: nach vorne drücken, eine Wand vor sich, Ausdauer übrig. Der
     // Schwellwert ist beim Weiterklettern niedriger als beim Ansetzen — sonst
     // bricht der Aufstieg an jedem Absatz ab und die Figur fällt zurück.
+    //
+    // Im Sattel und im Wasser wird nicht geklettert: Beides sind Zustände, in
+    // denen man keine Hand frei hat.
     const schwelle = klettert.current ? -0.25 : KLETTER_STUFE;
-    klettert.current = laenge > 0.3 && e.vor > 0.3 && stufe > schwelle
+    klettert.current = !reitet.current && !watet
+      && laenge > 0.3 && e.vor > 0.3 && stufe > schwelle
       && steigung > STEIGUNG_MAX && reicht(ausdauer.current);
 
-    const tempo = klettert.current ? KLETTERN_VOR : e.rennen ? RENNEN : GEHEN;
+    const tempo = klettert.current ? KLETTERN_VOR
+      : watet ? WATEN_TEMPO
+      : reitet.current ? (e.rennen ? REITEN_RENNEN : REITEN_GEHEN)
+      : e.rennen ? RENNEN : GEHEN;
     const dx = (rohX / Math.max(1, laenge)) * tempo * dt;
     const dz = (rohZ / Math.max(1, laenge)) * tempo * dt;
 
     // Zu steil heißt: der Schritt findet nicht statt. Nur bergauf und nur mit
     // Bodenkontakt — in der Luft steuert man frei, und bergab rutscht man eben.
-    const zuSteil = amBoden && !klettert.current && steigung > STEIGUNG_MAX;
+    const zuSteil = amBoden && !klettert.current && steigung > grenze;
 
     if ((dx !== 0 || dz !== 0) && !zuSteil) {
       const halbB = feld.breiteMeter / 2 - 8;
@@ -1189,7 +1226,9 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer }: {
 
     if (e.springen) {
       e.springen = false;
-      if (amBoden && reicht(ausdauer.current, SPRUNG_KOSTEN)) {
+      // Kein Sprung im Wasser. Das ist die eigentliche Wirkung des Watens: Ein
+      // Bach wird zum Hindernis, weil man nicht mittendrin abspringen kann.
+      if (amBoden && !watet && reicht(ausdauer.current, SPRUNG_KOSTEN)) {
         steigen.current = ABSPRUNG;
         ausdauer.current = verbrauche(ausdauer.current, SPRUNG_KOSTEN);
       }
@@ -1213,8 +1252,12 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer }: {
     // neuen Standort sonst über der Figur.
     if (p.y < boden) p.y = boden;
 
-    ausdauer.current = ausdauerSchritt(
-      ausdauer.current, dt, klettert.current ? KLETTERN_JE_SEK : 0);
+    // Waten zehrt nur, wenn man sich auch bewegt: Im Bach zu stehen ist keine
+    // Anstrengung, gegen die Strömung zu gehen schon.
+    ausdauer.current = ausdauerSchritt(ausdauer.current, dt,
+      klettert.current ? KLETTERN_JE_SEK
+      : watet && laenge > 0.1 ? WATEN_JE_SEK
+      : 0);
 
     // Schrittfrequenz aus der tatsächlichen Geschwindigkeit: Wer rennt, macht
     // schnellere Schritte, nicht dieselben Schritte schneller hintereinander.
@@ -1237,10 +1280,19 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer }: {
  * vier Rotationen und ein Versatz je Bild. Der Unterschied zum vorherigen Zustand
  * ist trotzdem der zwischen „gleitet über den Boden" und „läuft".
  */
-function SpielerFigur({ gier, schritt, rand }: {
+function SpielerFigur({ gier, schritt, rand, reittier }: {
   gier: React.RefObject<number>;
   schritt: React.RefObject<{ phase: number; tempo: number }>;
   rand: { farbe: string; staerke: number };
+  /**
+   * Silhouette und Widerristhöhe des Reittiers, oder null.
+   *
+   * Der Reiter wird um die Widerristhöhe angehoben und hört auf zu gehen — die
+   * Beine schwingen im Sattel nicht. Was sich stattdessen bewegt, ist das Tier,
+   * und zwar mit derselben Schrittphase: Ein Reittier mit eigener Frequenz sähe
+   * aus, als rutschte der Reiter darauf herum.
+   */
+  reittier?: { geometrie: THREE.BufferGeometry; hoehe: number } | null;
 }) {
   const teile = useMemo(() => baueSpielerTeile(), []);
   const { material, setzeRand } = useMemo(() => baueWindMaterial({
@@ -1256,23 +1308,46 @@ function SpielerFigur({ gier, schritt, rand }: {
   const armL = useRef<THREE.Mesh>(null);
   const armR = useRef<THREE.Mesh>(null);
 
+  const reiter = useRef<THREE.Group>(null);
+  const tier = useRef<THREE.Group>(null);
+
   useFrame(() => {
     if (gruppe.current) gruppe.current.rotation.y = gier.current;
     const { phase, tempo } = schritt.current;
     // Ausschlag wächst mit dem Tempo und läuft bei Stillstand aus, statt hart
     // einzurasten — sonst zuckt die Figur bei jedem Loslassen.
     const stark = Math.min(1, tempo / RENNEN);
-    const schwung = Math.sin(phase) * (0.35 + 0.45 * stark);
-    if (beinL.current) beinL.current.rotation.x = schwung;
-    if (beinR.current) beinR.current.rotation.x = -schwung;
-    if (armL.current) armL.current.rotation.x = -schwung * 0.7;
-    if (armR.current) armR.current.rotation.x = schwung * 0.7;
+    // Im Sattel schwingen die Beine nicht. Sie hängen, und der Reiter wippt.
+    const schwung = reittier ? 0 : Math.sin(phase) * (0.35 + 0.45 * stark);
+    if (beinL.current) beinL.current.rotation.x = reittier ? 0.9 : schwung;
+    if (beinR.current) beinR.current.rotation.x = reittier ? 0.9 : -schwung;
+    if (armL.current) armL.current.rotation.x = reittier ? 0.5 : -schwung * 0.7;
+    if (armR.current) armR.current.rotation.x = reittier ? 0.5 : schwung * 0.7;
     // Zweimal je Schritt auf und ab — einmal je Fuß.
     if (rumpf.current) rumpf.current.position.y = Math.abs(Math.cos(phase)) * 0.055 * stark;
+
+    if (reittier) {
+      // Reiter und Tier teilen sich die Phase. Der Reiter wippt in halber
+      // Frequenz und mit größerem Ausschlag — das ist der Unterschied zwischen
+      // „sitzt auf etwas" und „steht daneben".
+      if (reiter.current) reiter.current.position.y = reittier.hoehe + Math.sin(phase * 0.5) * 0.06 * stark;
+      if (tier.current) {
+        tier.current.position.y = Math.abs(Math.cos(phase)) * 0.05 * stark;
+        tier.current.rotation.z = Math.sin(phase) * 0.045 * stark;
+      }
+    } else if (reiter.current) {
+      reiter.current.position.y = 0;
+    }
   });
 
   return (
     <group ref={gruppe}>
+      {reittier && (
+        <group ref={tier}>
+          <mesh geometry={reittier.geometrie} material={material} castShadow receiveShadow />
+        </group>
+      )}
+      <group ref={reiter}>
       <group ref={rumpf}>
         <mesh geometry={teile.rumpf} material={material} castShadow receiveShadow />
         <mesh ref={armL} geometry={teile.arm} material={material}
@@ -1284,6 +1359,7 @@ function SpielerFigur({ gier, schritt, rand }: {
             position={[-0.11, HUEFTE, 0]} castShadow />
       <mesh ref={beinR} geometry={teile.bein} material={material}
             position={[0.11, HUEFTE, 0]} castShadow />
+      </group>
     </group>
   );
 }
@@ -1433,6 +1509,13 @@ export interface RegionsSzeneProps {
    */
   ausdauer?: React.RefObject<Ausdauerzustand>;
   /**
+   * Reittier: Silhouette und Widerristhöhe, oder nichts.
+   *
+   * Ob überhaupt geritten werden darf, entscheidet `spiel/reiten.ts` — die Szene
+   * bekommt nur das Ergebnis. Sie kennt keine Kreaturen und keine Mutationsstufen.
+   */
+  reittier?: { geometrie: THREE.BufferGeometry; hoehe: number } | null;
+  /**
    * Hält die Bildschleife an, ohne die Szene abzubauen.
    *
    * Während eines Kampfes ist die Welt unsichtbar, aber sie darf nicht neu gebaut
@@ -1446,7 +1529,7 @@ export function RegionsSzene({
   welt, tageszeit = 0.26, spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, onRegentNah, fundstellen, gelesen, onFund, orte, onOrtNah,
-  startPosition, ausdauer, angehalten = false,
+  startPosition, ausdauer, reittier = null, angehalten = false,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
@@ -1458,6 +1541,10 @@ export function RegionsSzene({
   const s = useMemo(() => stimmungBei(tageszeit), [tageszeit]);
   const neigung = useRef(NEIGUNG_START);
   const schritt = useRef({ phase: 0, tempo: 0 });
+  // Als Ref gespiegelt: Die Bewegungsschleife liest jedes Bild, und ein Prop-Wechsel
+  // soll nicht durch den Callback-Baum von `Spieler` laufen.
+  const reitetRef = useRef(false);
+  reitetRef.current = reittier !== null;
 
   // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
   // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
@@ -1479,6 +1566,13 @@ export function RegionsSzene({
   const kollision = useMemo(
     () => baueKollision(props, welt, feld.breiteMeter, feld.tiefeMeter),
     [props, welt, feld],
+  );
+
+  // Wasser exakt aus denselben OSM-Linien, aus denen `baueGewaesser` die Geometrie
+  // baut — sonst liegt die Wasserlinie im Bild woanders als die im Spiel.
+  const wasserfeld = useMemo(
+    () => baueWasserfeld(welt, feld.breiteMeter, feld.tiefeMeter),
+    [welt, feld],
   );
 
   // Ohne Startposition steht der Spieler im Ursprung (y = 0) — im Œntal sind das
@@ -1538,11 +1632,12 @@ export function RegionsSzene({
                props={props} dichte={qualitaet.gras}
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       <object3D ref={ref} position={start}>
-        <SpielerFigur gier={gier} schritt={schritt}
+        <SpielerFigur gier={gier} schritt={schritt} reittier={reittier}
                       rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
-               schritt={schritt} kollision={kollision} ausdauer={kraft} />
+               schritt={schritt} kollision={kollision} ausdauer={kraft}
+               wasser={wasserfeld} reitet={reitetRef} />
       {funde.length > 0 && (
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
       )}

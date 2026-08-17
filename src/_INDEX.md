@@ -20,6 +20,8 @@ owns: *.ts, *.tsx
 | Bewegung, Kamera oder Blickneigung ändern | `spieler/steuerung.ts` → `scenes/RegionsSzene.tsx` | spieler/figur.ts |
 | Springen, Schwerkraft, Bodenkontakt ändern | `scenes/RegionsSzene.tsx` (`Spieler`, `SCHWERKRAFT`/`ABSPRUNG`) → `spieler/steuerung.ts` | world/, engine/ |
 | Klettern, Steigungsgrenze, Ausdauer ändern | `spieler/ausdauer.ts` → `scenes/RegionsSzene.tsx` (`STEIGUNG_MAX`, `KLETTERN_TEMPO`) | world/, engine/ |
+| Reiten: wer trägt, wie schnell, wie steil | `spiel/reiten.ts` → `scenes/RegionsSzene.tsx` (`REIT_STEIGUNG_MAX`) | world/, engine/ |
+| Waten, Wassertiefe, wo Wasser steht | `world/wasserfeld.ts` → `scenes/RegionsSzene.tsx` (`WATEN_AB`) | engine/, ui/ |
 | Aufträge, Zufluchten, NPCs ändern | `spiel/auftraege.ts` → `ui/Ortsfenster.tsx` → `main.tsx` | world/, engine/ |
 | Wald wirkt zu dunkel oder zu flach | `../tools/lichtcheck.ts` **erst messen**, dann `scenes/RegionsSzene.tsx` (`STIMMUNG`, `HEMI_BODEN`) | ui/, engine/ |
 | Fundstücke platzieren oder ihre Wirkung ändern | `scenes/RegionsSzene.tsx` (`Fundstellen`) → `main.tsx` (`findeFragment`) | engine/, ui/ |
@@ -62,6 +64,8 @@ owns: *.ts, *.tsx
 | `ui/Witterung.tsx` | Richtung und Abstand zur nächsten Kreatur. Notwendig, weil eine Kreatur auf 62 m nur zwölf Pixel hoch ist |
 | `spieler/peilung.ts` | Richtung zu einem Punkt relativ zum Blick. Rein und getestet — hier steckte ein Vorzeichenfehler |
 | `spieler/ausdauer.ts` | Ausdauer für Klettern und Springen. **Rennen zehrt bewusst nicht** — die Begründung steht in der Datei. Rein und getestet |
+| `spiel/reiten.ts` | Wer trägt (nur `quadruped` ab Mutation 2), Reittempo, Steigungsgrenze im Sattel, und ein Satz dazu, warum es noch nicht geht |
+| `world/wasserfeld.ts` | Wassertiefe an einem Punkt, exakt aus den OSM-Linien statt aus dem Biom-Raster. Grundlage des Watens — 1.506 Segmente in 32-m-Eimern |
 | `spiel/auftraege.ts` | Auftragsfortschritt, **abgeleitet** aus besiegten/gefangenen Vorkommen und gelesenen Fragmenten. Kein eigener Zähler, deshalb keine zweite Wahrheit |
 | `ui/Ortsfenster.tsx` | Zuflucht und Bewohner in einem Fenster: rasten oder Aufträge annehmen und abschließen. Kein Dialogbaum |
 | `ui/Ausdaueranzeige.tsx` | Ausdauerbalken, der bei vollem Vorrat ausblendet. Rot heißt gesperrt, nicht wenig — das ist der Unterschied, der beim Klettern zählt |

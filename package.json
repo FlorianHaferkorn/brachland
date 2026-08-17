@@ -15,7 +15,7 @@
     "quality": "tsx tools/quality.ts",
     "last": "tsx tools/lastcheck.ts",
     "vorkommen": "tsx tools/vorkommencheck.ts",
-    "test": "tsx tests/battle.test.ts && tsx tests/peilung.test.ts && tsx tests/fortschritt.test.ts && tsx tests/ausdauer.test.ts && tsx tests/auftraege.test.ts",
+    "test": "tsx tests/battle.test.ts && tsx tests/peilung.test.ts && tsx tests/fortschritt.test.ts && tsx tests/ausdauer.test.ts && tsx tests/auftraege.test.ts && tsx tests/reiten.test.ts",
     "world": "tsx tools/buildworld.ts",
     "hoehen": "tsx tools/hoehenvergleich.ts",
     "typecheck": "tsc --noEmit",
@@ -25,7 +25,8 @@
     "terrain": "tsx tools/terraincheck.ts",
     "lodpreview": "tsx tools/lodpreview.ts",
     "licht": "tsx tools/lichtcheck.ts",
-    "steigung": "tsx tools/steigungcheck.ts"
+    "steigung": "tsx tools/steigungcheck.ts",
+    "wasser": "tsx tools/wassercheck.ts"
   },
   "dependencies": {
     "@dgreenheck/ez-tree": "^1.1.0",
