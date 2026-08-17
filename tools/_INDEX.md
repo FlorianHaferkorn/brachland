@@ -28,6 +28,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Größenverhältnisse prüfen | `masstab.ts` |
 | Beurteilen, ob der Wald zu dunkel ist — **bevor** man an Lichtwerten dreht | `lichtcheck.ts` |
 | Prüfen, ob eine Bewegungsregel die Welt unbegehbar macht | `steigungcheck.ts` |
+| Prüfen, ob Silhouetten ins Budget passen — **und ob man ihnen die Herkunft ansieht** | `gestaltcheck.ts` |
 | Entscheiden, ob eine Fähigkeit in dieser Region überhaupt einen Ort hat | `wassercheck.ts` |
 
 ## Bauschritte
@@ -64,6 +65,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `propcheck.ts` | `npm run props` — Dreiecke und Größe der Prop-Modelle |
 | `lichtcheck.ts` | `npm run licht` — Bildschirmhelligkeit je Material und Stimmung, den ganzen Weg über Lambert, ACES, sRGB und Nebel. Beantwortet „ist der Wald zu dunkel" mit einer Zahl statt mit einem Gefühl |
 | `steigungcheck.ts` | `npm run steigung` — was die 40°-Grenze an begehbarer Welt kostet: 108.568 Prüfpunkte, Anteil offener Standorte, Kessel ohne Ausweg, Gewinn durchs Klettern |
+| `gestaltcheck.ts` | `npm run gestalt` — Dreiecke je Silhouette und Mutationsstufe gegen die Grenze von 600, plus zwei Bedingungen, die kein Kommentar sichern kann: dass die drei **Herkünfte verschieden bauen** (Creature Design Bible §1) und dass derselbe Seed dieselbe Gestalt ergibt. Entstanden, weil der Dateikopf „unter 250 Dreiecken" versprach und bei 492 lag (G-61) |
 | `wassercheck.ts` | `npm run wasser` — Länge, Breite und Tiefe der Gewässer aus den OSM-Linien. Hat Schwimmen verworfen (breitestes Gewässer 4,0 m gegen 4,6 m Sprungweite) und prüft, dass `baueWasserfeld` alle 190 Läufe trifft |
 | `lodpreview.ts` | `npm run lodpreview` — Vorschau der LOD-Kachelung |
 

@@ -1,0 +1,12 @@
+{
+  "id": "sterilgang",
+  "name": "Sterilgang",
+  "element": "alt-tech",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "reinigung"
+    }
+  ],
+  "beschreibung": "Das Modul fährt einen Reinigungszyklus. Der Befall löst sich ab, die Naht bleibt."
+}

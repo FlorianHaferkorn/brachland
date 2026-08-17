@@ -19,7 +19,11 @@ const t = baueTerrain(welt);
 const kreaturen: KreaturSpawn[] = readdirSync('content/creatures')
   .filter(f => f.endsWith('.json'))
   .map(f => JSON.parse(readFileSync(join('content/creatures', f), 'utf8')))
-  .filter(k => k.ursprung === 'wildling');
+  // Nicht nach Herkunft filtern, sondern nach Häufigkeit: `fest` steht an einer
+  // Position und wird nicht verteilt, alles andere streift. Vorher stand hier
+  // `ursprung === 'wildling'` — dadurch fehlte die erste Zuchtlinie in dieser
+  // Zählung, und genau diese Zählung hätte sie finden müssen.
+  .filter(k => k.spawn.haeufigkeit !== 'fest');
 
 const v = verteileKreaturen(welt, kreaturen, t.rasterZuWelt, t.hoeheAn,
                             t.breiteMeter, t.tiefeMeter);

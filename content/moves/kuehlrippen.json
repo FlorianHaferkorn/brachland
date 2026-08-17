@@ -1,0 +1,15 @@
+{
+  "id": "kuehlrippen",
+  "name": "Kühlrippen",
+  "element": "frost",
+  "band": "utility",
+  "effekte": [
+    {
+      "art": "statuswert",
+      "wert": "ver",
+      "stufen": 2,
+      "ziel": "selbst"
+    }
+  ],
+  "beschreibung": "Das Rückenmodul fährt hoch. Die Rippen stellen sich auf und legen sich über den Nacken."
+}

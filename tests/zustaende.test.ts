@@ -12,11 +12,17 @@
  * 2. **Krit gab es nicht.** Die Wildling-Narbe hätte auf nichts gezeigt.
  * 3. **Move-Effekte wurden nie angewendet.** `moveDef` warf sie weg — alle 49 Moves
  *    trugen Wirkungen, die die Engine nie gesehen hat.
+ *
+ * Seit G-56 kommen die fünf restlichen Effektarten dazu — Zehrung, Wechselsperre,
+ * Heilung, Befall, Reinigung — und mit der Reinigung der einzige Weg zum vierten
+ * Zustand. `mehrfachtreffer` bleibt offen; auch das steht als Test hier, damit die
+ * Lücke auffällt, sobald ein Move sie nutzt.
  */
 import { NARBE } from '../src/data/schema.js';
 import {
-  REGELN, erstelle, fangbarImZustand, iniEff, rng, schlag, stufenFaktor,
-  trefferchance, wendeWirkungenAn, type Kaempfer, type MoveDef, type Zustand,
+  REGELN, darfWechseln, erstelle, fangbarImZustand, iniEff, reinige, rng, schlag,
+  stufenFaktor, tickeWirkungen, trefferchance, waehleWechsel, wendeWirkungenAn,
+  type Kaempfer, type MoveDef, type Zustand,
 } from '../src/engine/battle.js';
 
 let ok = 0, fehler = 0;
@@ -179,6 +185,222 @@ console.log('\nMove-Wirkungen — vorher wurden sie verworfen\n');
          `${iniVor.toFixed(0)} → ${iniEff(b).toFixed(0)}`);
   pruefe('Der Grundwert bleibt unangetastet', b.ini === c.ini,
          'Stufen werden beim Lesen angewandt, nicht eingerechnet');
+}
+
+// ---- Zehrung: die erste Wirkung mit Gedächtnis ----------------------------
+console.log('\nLaufende Wirkungen — G-56\n');
+{
+  const wunde: MoveDef = {
+    id: 'wundriss', name: 'Wundriss', element: 'holz', band: 'normal',
+    effekte: [{ art: 'schaden_ueber_zeit', proRunde: 0.06, runden: 3 }],
+  };
+  const a = kaempfer('rein'), d = kaempfer('rein');
+  wendeWirkungenAn(a, d, wunde);
+  pruefe('Zehrung landet beim GEGNER, nicht beim Anwender',
+         d.laufend.length === 1 && a.laufend.length === 0);
+
+  // 6 % von 200 KP = 12 je Runde. Der Wert steht am Kämpfer, nicht am Move —
+  // deshalb überlebt er einen Wechsel.
+  const vorher = d.kp;
+  const meldung = tickeWirkungen(d);
+  pruefe('Eine Runde zehrt 6 % der maximalen KP', vorher - d.kp === 12, `${vorher} → ${d.kp}`);
+  pruefe('Und meldet es', meldung.length === 1 && meldung[0].includes('Wunde'));
+  pruefe('Die Restlaufzeit sinkt', d.laufend[0].runden === 2);
+
+  tickeWirkungen(d); tickeWirkungen(d);
+  pruefe('Nach drei Runden ist die Wunde weg', d.laufend.length === 0, `${d.kp} KP`);
+  pruefe('Danach zehrt nichts mehr', tickeWirkungen(d).length === 0);
+
+  // Nicht stapeln: Zwei Aufgüsse verlängern, statt zu verdoppeln. Sonst wäre ein
+  // billiger Utility-Move der stärkste Angriff im Spiel.
+  const e = kaempfer('rein');
+  wendeWirkungenAn(a, e, wunde);
+  wendeWirkungenAn(a, e, wunde);
+  pruefe('Zwei Aufgüsse stapeln nicht', e.laufend.length === 1 && e.laufend[0].runden === 3);
+  const einRunde = e.kp; tickeWirkungen(e);
+  pruefe('Der Schaden bleibt einfach', einRunde - e.kp === 12);
+
+  // Eine schwächere zweite Wunde darf die stärkere nicht ersetzen.
+  const schwach: MoveDef = { ...wunde, effekte: [{ art: 'schaden_ueber_zeit', proRunde: 0.01, runden: 1 }] };
+  wendeWirkungenAn(a, e, schwach);
+  pruefe('Die stärkere Wunde gewinnt', e.laufend[0].proRunde === 0.06 && e.laufend[0].runden === 2);
+
+  // Ein sehr kleiner Anteil darf nicht auf 0 runden — sonst ist die Wunde folgenlos.
+  const winzig = kaempfer('rein');
+  wendeWirkungenAn(a, winzig, { ...wunde, effekte: [{ art: 'schaden_ueber_zeit', proRunde: 0.001, runden: 1 }] });
+  const kpVor = winzig.kp; tickeWirkungen(winzig);
+  pruefe('Mindestens 1 Schaden je Runde', kpVor - winzig.kp === 1);
+
+  // Ein Ausgefallener zehrt nicht weiter — sonst rutschten die KP ins Negative.
+  const tot = kaempfer('rein');
+  wendeWirkungenAn(a, tot, wunde);
+  tot.kp = 0;
+  pruefe('Ausgefallene zehren nicht weiter', tickeWirkungen(tot).length === 0 && tot.kp === 0);
+}
+
+// ---- Wechselsperre --------------------------------------------------------
+{
+  const halt: MoveDef = {
+    id: 'wurzelgriff', name: 'Wurzelgriff', element: 'holz', band: 'utility',
+    effekte: [{ art: 'wechselsperre', runden: 2 }],
+  };
+  const a = kaempfer('rein'), d = kaempfer('rein');
+  pruefe('Ohne Wirkung darf jeder wechseln', darfWechseln(d));
+  wendeWirkungenAn(a, d, halt);
+  pruefe('Der Wurzelgriff hält fest', !darfWechseln(d));
+  tickeWirkungen(d);
+  pruefe('Nach einer Runde noch gesperrt', !darfWechseln(d));
+  tickeWirkungen(d);
+  pruefe('Nach zwei Runden wieder frei', darfWechseln(d));
+  pruefe('Die Sperre macht keinen Schaden', d.kp === d.maxKp);
+
+  // Und sie bindet die KI genauso. Ohne diese Zeile wäre die Sperre eine Regel,
+  // die nur für den Spieler gilt.
+  const gefangen = kaempfer('rein', ['stein']);
+  const ersatz = kaempfer('rein', ['frost']);
+  const gegner = kaempfer('rein', ['holz']);   // Holz schlägt Stein: klarer Nachteil
+  gefangen.kp = 20;                             // und dazu sterbend
+  const team = { kaempfer: [gefangen, ersatz], aktiv: 0 };
+  pruefe('Ohne Sperre würde die KI wechseln', waehleWechsel(team, gegner) === 1);
+  wendeWirkungenAn(gegner, gefangen, halt);
+  pruefe('Mit Sperre bleibt die KI stehen', waehleWechsel(team, gegner) === null);
+}
+
+// ---- Heilung -------------------------------------------------------------
+{
+  const rast: MoveDef = {
+    id: 'moosbett', name: 'Moosbett', element: 'holz', band: 'utility',
+    effekte: [{ art: 'heilung', anteil: 0.25 }],
+  };
+  const a = kaempfer('rein'), d = kaempfer('rein');
+  a.kp = 100;
+  const m = wendeWirkungenAn(a, d, rast);
+  pruefe('Heilung heilt den ANWENDER', a.kp === 150 && d.kp === d.maxKp, `${a.kp} KP`);
+  pruefe('Und meldet den Betrag', m[0]?.includes('50 KP') === true, m[0] ?? '');
+
+  a.kp = 190;
+  wendeWirkungenAn(a, d, rast);
+  pruefe('Nie über die Höchst-KP', a.kp === 200);
+  pruefe('Bei voller Leiste keine Meldung', wendeWirkungenAn(a, d, rast).length === 0);
+
+  // Ein Ausgefallener heilt nicht — dafür gibt es die Wiederbelebung.
+  const tot = kaempfer('rein'); tot.kp = 0;
+  wendeWirkungenAn(tot, d, rast);
+  pruefe('Ausgefallene heilen sich nicht', tot.kp === 0);
+}
+
+// ---- Befall als Move-Wirkung ---------------------------------------------
+{
+  const sporen: MoveDef = {
+    id: 'sporenstoss', name: 'Sporenstoß', element: 'holz', band: 'normal',
+    effekte: [{ art: 'befall', chance: 0.3 }],
+  };
+  const a = kaempfer('rein');
+
+  const d = kaempfer('rein');
+  const rohAng = d.ang;
+  wendeWirkungenAn(a, d, sporen, () => 0.1);
+  pruefe('Wurf unter der Chance steckt an', d.zustand === 'befallen');
+  pruefe('Und hebt die Rohwerte wie beim Erstellen', d.ang === Math.round(rohAng * REGELN.BEFALL_ANG),
+         `${rohAng} → ${d.ang}`);
+
+  const e = kaempfer('rein');
+  wendeWirkungenAn(a, e, sporen, () => 0.9);
+  pruefe('Wurf über der Chance tut nichts', e.zustand === 'rein');
+
+  // Ohne Zufallsquelle bleibt der Befall aus — so kann die KI trocken rechnen,
+  // ohne den Kampfzufall zu verschieben.
+  const f = kaempfer('rein');
+  wendeWirkungenAn(a, f, sporen);
+  pruefe('Ohne Zufallsquelle kein Befall', f.zustand === 'rein');
+
+  // Die beiden Endzustände sind immun.
+  const hart = kaempfer('verhaertet');
+  wendeWirkungenAn(a, hart, sporen, () => 0.01);
+  pruefe('Verhärtet lässt sich nicht anstecken', hart.zustand === 'verhaertet');
+  const rueck = kaempfer('rueckgefuehrt', ['stein'], NARBE.wildling);
+  wendeWirkungenAn(a, rueck, sporen, () => 0.01);
+  pruefe('Zurückgeführt lässt sich nicht neu anstecken', rueck.zustand === 'rueckgefuehrt');
+  // Und ein zweiter Treffer verdoppelt den Bonus nicht.
+  const angNach = d.ang;
+  wendeWirkungenAn(a, d, sporen, () => 0.01);
+  pruefe('Befall stapelt nicht', d.ang === angNach);
+}
+
+// ---- Rückführung: der Weg zum vierten Zustand ----------------------------
+console.log('\nRückführung — reinigen ist eine Entscheidung, keine Reparatur\n');
+{
+  // Der Befund, der diese Funktion nötig gemacht hat: `rueckgefuehrt` stand im
+  // Enum, und kein Weg führte dorthin. Der Gegenstand setzte auf `rein` zurück.
+  const rein = kaempfer('rein');
+  pruefe('Wer nie befallen war, lässt sich nicht reinigen',
+         reinige(kaempfer('rein'), NARBE.wildling) === false);
+  pruefe('Verhärtet auch nicht', reinige(kaempfer('verhaertet'), NARBE.wildling) === false);
+  const schon = kaempfer('rueckgefuehrt', ['stein'], NARBE.wildling);
+  pruefe('Und zweimal geht nicht', reinige(schon, NARBE.zuchtlinie) === false);
+  pruefe('Die alte Narbe bleibt', schon.narbe?.art === 'krit');
+
+  // Wildling: Krit. Die Rohwerte kehren zurück, der Befall-Bonus fällt weg.
+  const wild = kaempfer('befallen');
+  const kritVor = wild.krit;
+  pruefe('Reinigen gelingt bei Befall', reinige(wild, NARBE.wildling));
+  pruefe('Der Zustand wechselt', wild.zustand === 'rueckgefuehrt');
+  pruefe('Der Befall-Bonus fällt weg', wild.ang === rein.ang && wild.ini === rein.ini,
+         `ANG ${wild.ang} = ${rein.ang}`);
+  pruefe('Die Krit-Narbe wirkt', Math.abs(wild.krit - (kritVor + 0.15)) < 1e-9,
+         `${(wild.krit * 100).toFixed(0)} %`);
+  pruefe('Ein Zurückgeführter bleibt fangbar', fangbarImZustand(wild.zustand));
+
+  // Zuchtlinie: Resistenz. Sie ändert keine Zahl, nur eine Rechnung — deshalb
+  // muss VER hier gleich bleiben und der Elementschaden sinken.
+  const zucht = kaempfer('befallen');
+  reinige(zucht, NARBE.zuchtlinie);
+  pruefe('Resistenz lässt VER in Ruhe', zucht.ver === rein.ver, `${zucht.ver} = ${rein.ver}`);
+  const holz = kaempfer('rein', ['holz']);
+  const zufall = () => 0.5;
+  pruefe('Aber sie senkt den Elementnachteil',
+         schlag(holz, zucht, HOLZ_HAU, zufall).wert < schlag(holz, rein, HOLZ_HAU, zufall).wert);
+
+  // Verwachsener: Panzer. Der hebt VER — und zwar auf die Rohwerte, nicht auf
+  // die befallenen. Sonst würde der Befall-Bonus durch die Hintertür bleiben.
+  const verw = kaempfer('befallen');
+  reinige(verw, NARBE.verwachsener);
+  pruefe('Panzer hebt VER um 30 % der ROHwerte', verw.ver === Math.round(rein.ver * 1.3),
+         `${verw.ver} = ${Math.round(rein.ver * 1.3)}`);
+  pruefe('Panzer lässt ANG unangetastet', verw.ang === rein.ang);
+
+  // Als Move-Wirkung: Der `reinigung`-Effekt reinigt den ANWENDER, und ohne
+  // übergebene Narbe passiert nichts — die Herkunft kennt die Engine nicht.
+  const rmove: MoveDef = {
+    // Heißt wie der Move im Bestand, nicht wie der gleichnamige Gegenstand:
+    // `reinkultur` ist ein Beutel-Gegenstand, `sterilgang` der Move des K7.
+    id: 'sterilgang', name: 'Sterilgang', element: 'alt-tech', band: 'utility',
+    effekte: [{ art: 'reinigung' }],
+  };
+  const ohneNarbe = kaempfer('befallen');
+  pruefe('Ohne Narbe reinigt der Move nicht',
+         wendeWirkungenAn(ohneNarbe, kaempfer('rein'), rmove).length === 0
+         && ohneNarbe.zustand === 'befallen');
+  const mitNarbe = kaempfer('befallen');
+  const gemeldet = wendeWirkungenAn(mitNarbe, kaempfer('rein'), rmove, undefined, NARBE.wildling);
+  pruefe('Mit Narbe schon', mitNarbe.zustand === 'rueckgefuehrt' && gemeldet.length === 1,
+         gemeldet[0] ?? '');
+}
+
+// ---- Mehrfachtreffer ist bewusst offen -----------------------------------
+{
+  // Kein Move im Bestand nutzt ihn (0 von 21 Effektnutzungen), und er greift in
+  // `schlag` ein statt daneben: Jeder Teiltreffer bräuchte eigene Würfe. Der Test
+  // hält fest, dass er *stillschweigend* nichts tut — nicht abstürzt, aber auch
+  // nicht heimlich wirkt. Sobald ein Move ihn nutzt, muss dieser Test brechen.
+  const mehr: MoveDef = {
+    id: 'hagel', name: 'Hagel', element: 'frost', band: 'normal',
+    effekte: [{ art: 'mehrfachtreffer', treffer: 3 }],
+  };
+  const a = kaempfer('rein'), d = kaempfer('rein');
+  const vorher = JSON.stringify([a.kp, d.kp, d.laufend, d.zustand]);
+  pruefe('Mehrfachtreffer meldet nichts', wendeWirkungenAn(a, d, mehr, () => 0.1).length === 0);
+  pruefe('Und ändert nichts', JSON.stringify([a.kp, d.kp, d.laufend, d.zustand]) === vorher);
 }
 
 // ---- Determinismus bleibt -------------------------------------------------

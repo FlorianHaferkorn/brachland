@@ -1,0 +1,13 @@
+{
+  "id": "haltebiss",
+  "name": "Haltebiss",
+  "element": "alt-tech",
+  "band": "normal",
+  "effekte": [
+    {
+      "art": "wechselsperre",
+      "runden": 1
+    }
+  ],
+  "beschreibung": "Zubeissen und halten, wie es im Protokoll steht. Eine Runde lang kommt niemand weg."
+}

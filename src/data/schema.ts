@@ -83,6 +83,7 @@ export type Move = z.infer<typeof Move>;
 // --------------------------------------------------------------- Kreaturen
 
 export const Ursprung = z.enum(['wildling', 'zuchtlinie', 'verwachsener']);
+export type Ursprung = z.infer<typeof Ursprung>;
 
 /**
  * Die vier Zustände der Creature Design Bible v1.1.

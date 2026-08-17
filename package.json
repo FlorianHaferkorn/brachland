@@ -26,7 +26,8 @@
     "lodpreview": "tsx tools/lodpreview.ts",
     "licht": "tsx tools/lichtcheck.ts",
     "steigung": "tsx tools/steigungcheck.ts",
-    "wasser": "tsx tools/wassercheck.ts"
+    "wasser": "tsx tools/wassercheck.ts",
+    "gestalt": "tsx tools/gestaltcheck.ts"
   },
   "dependencies": {
     "@dgreenheck/ez-tree": "^1.1.0",

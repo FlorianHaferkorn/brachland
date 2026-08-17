@@ -8,15 +8,16 @@ import { Witterung } from './ui/Witterung.js';
 import { Ausdaueranzeige } from './ui/Ausdaueranzeige.js';
 import { neueAusdauer, type Ausdauer } from './spieler/ausdauer.js';
 import type { Vorkommen } from './world/vorkommen.js';
-import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, WILDLINGE,
+import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNENDE,
          baueKaempfer, baueRegent, regentOrt, nachMetern, ausKaempferId } from './data/inhalte.js';
+import { NARBE } from './data/schema.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
 import { RIG_HOEHE } from './world/kreaturgestalt.js';
 import { erfahrungAusSieg, gutschrift, mutationBei } from './spiel/fortschritt.js';
 import { beute } from './spiel/gegenstaende.js';
-import { baueKreaturGeometrie } from './world/kreaturgestalt.js';
+import { baueKreaturGeometrie, saatAusId } from './world/kreaturgestalt.js';
 import { Kampfbildschirm, type KampfEnde } from './ui/BattleScreen.js';
 import type { KaempferBild } from './ui/Kampfbuehne.js';
 import type { Kaempfer, Team } from './engine/battle.js';
@@ -110,7 +111,8 @@ function App() {
     // daran soll man auf Entfernung sehen, wie weit eine Kreatur ist.
     for (const k of KREATUREN.values())
       for (let m = 0; m < k.stufen.length; m++)
-        karte.set(`${k.id}:${m}`, baueKreaturGeometrie(k.basisRig, k.elemente, m));
+        karte.set(`${k.id}:${m}`,
+          baueKreaturGeometrie(k.basisRig, k.elemente, m, k.ursprung, saatAusId(k.id)));
     return karte;
   }, []);
   const gestalt = useCallback((id: string, mutation = 0) =>
@@ -126,14 +128,31 @@ function App() {
    * ihr lässt sich die Kreatur zurückgewinnen — die Engine selbst kennt weder
    * Bauform noch Element-Optik und soll es auch nicht.
    */
+  /**
+   * Narbe je Kämpfer-ID.
+   *
+   * Sie hängt an der **Herkunft** (`NARBE` im Schema), und die kennt nur der Inhalt.
+   * Die Engine bekommt sie als Funktion herein, damit sie weiter nichts über
+   * Kreaturdaten wissen muss.
+   */
+  const narbeFuer = useCallback((kaempferId: string) => {
+    const a = ausKaempferId(kaempferId);
+    const k = KREATUREN.get(a.kreatur);
+    return k ? NARBE[k.ursprung] : undefined;
+  }, []);
+
   const bild = useCallback((kaempferId: string): KaempferBild | null => {
     const a = ausKaempferId(kaempferId);
     const k = KREATUREN.get(a.kreatur);
-    if (k) return { basisRig: k.basisRig, elemente: [...k.elemente], stufe: a.mutation };
+    if (k) return { basisRig: k.basisRig, elemente: [...k.elemente], stufe: a.mutation,
+                    ursprung: k.ursprung, kreaturId: k.id };
     const r = REGENTEN.get(a.kreatur);
     // Der Regent trägt seine Phasenelemente — im Kampfbild wechselt damit die Farbe,
     // wenn er die Phase wechselt. Das ist die einzige Warnung, die der Spieler bekommt.
-    return r ? { basisRig: 'serpent', elemente: [...r.phasen[0].elemente], stufe: 2 } : null;
+    // Herkunft `verwachsener`: Ein Regent ist ortsgebunden und massiv, das ist genau
+    // die Bauweise, die das Blatt für Verwachsene beschreibt.
+    return r ? { basisRig: 'serpent', elemente: [...r.phasen[0].elemente], stufe: 2,
+                 ursprung: 'verwachsener' as const, kreaturId: r.id } : null;
   }, []);
 
   /**
@@ -146,7 +165,8 @@ function App() {
     const r = REGENTEN.get(REGENT_ID);
     if (!ort || !r) return undefined;
     // Der Flussvater ist ein Riesenwels — die Schlangenform kommt dem am nächsten.
-    return { ort, gestalt: baueKreaturGeometrie('serpent', r.phasen[0].elemente, 2) };
+    return { ort, gestalt: baueKreaturGeometrie('serpent', r.phasen[0].elemente, 2,
+                                                'verwachsener', saatAusId(r.id)) };
   }, [welt]);
 
   /**
@@ -432,7 +452,7 @@ function App() {
         welt={welt} tageszeit={tageszeit} onMessung={setMessung}
         qualitaet={qualitaet}
         spielerRef={spielerRef}
-        kreaturen={WILDLINGE}
+        kreaturen={STREUNENDE}
         gestalt={gestalt}
         verbraucht={verbraucht}
         onBegegnung={beginneKampf}
@@ -477,6 +497,7 @@ function App() {
             bild={bild}
             beutel={stand.beutel}
             onVerbraucht={verbrauche}
+            narbeFuer={narbeFuer}
             seed={regentKampf ? 33 : begegnung!.v.id.length * 7919 + begegnung!.v.stufe}
             onEnde={regentKampf ? beendeRegent : beendeKampf}
           />

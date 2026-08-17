@@ -18,6 +18,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { baueKreaturGeometrie } from '../world/kreaturgestalt.js';
 import { ELEMENT_FARBE } from '../world/kreaturgestalt.js';
+import { saatAusId, type Ursprung } from '../world/kreaturgestalt.js';
 import type { Element } from '../data/schema.js';
 
 export interface KaempferBild {
@@ -25,6 +26,14 @@ export interface KaempferBild {
   elemente: Element[];
   /** Stufe 0-basiert — höhere Stufen sind sichtbar größer. */
   stufe: number;
+  /**
+   * Herkunft und Id — für die Bauweise (Creature Design Bible §1) und den festen
+   * Streu-Seed. Im Porträt zählt der Unterschied mehr als in der Welt: Hier steht
+   * die Kreatur formatfüllend still, und ob sie gewachsen oder gebaut ist, sieht
+   * man auf einen Blick.
+   */
+  ursprung: Ursprung;
+  kreaturId: string;
 }
 
 /** Wie lange ein Treffer nachwirkt, in Sekunden. */
@@ -47,6 +56,15 @@ export interface Buehnenzug {
   element?: Element;
   /** Elementfaktor: über 1 sehr effektiv, unter 1 kaum wirksam. */
   faktor?: number;
+  /**
+   * Volltreffer.
+   *
+   * Bei 6 % Grundchance fällt er in einem Kampf von 14 Runden etwa einmal. Etwas,
+   * das so selten passiert, muss man **sehen** — sonst ist es nur eine Zeile im
+   * Protokoll, die vorbeirutscht, und die Wildling-Narbe (21 % statt 6 %) fühlt
+   * sich nach nichts an.
+   */
+  kritisch?: boolean;
 }
 
 /**
@@ -89,9 +107,15 @@ function Einschlag({ zug }: { zug: React.RefObject<Buehnenzug> }) {
     m.visible = t > 0;
     if (t <= 0) return;
 
-    const stark = z?.faktor && z.faktor > 1 ? 1.5 : z?.faktor && z.faktor < 1 ? 0.6 : 1;
-    mat.color.set(ELEMENT_FARBE[z!.element ?? 'stein'] ?? '#c8b48a');
-    mat.opacity = t * t;
+    const stark = (z?.faktor && z.faktor > 1 ? 1.5 : z?.faktor && z.faktor < 1 ? 0.6 : 1)
+      * (z?.kritisch ? 1.6 : 1);
+    // Volltreffer blitzt weiß auf und läuft dann in die Elementfarbe zurück. Weiß,
+    // weil es die einzige Farbe ist, die kein Element belegt — ein Volltreffer ist
+    // keine Eigenschaft des Angriffs, sondern ein Ereignis.
+    const farbe = ELEMENT_FARBE[z!.element ?? 'stein'] ?? '#c8b48a';
+    if (z?.kritisch) mat.color.set(farbe).lerp(WEISS, t * t);
+    else mat.color.set(farbe);
+    mat.opacity = z?.kritisch ? Math.min(1, t * t * 1.6) : t * t;
     // Der Einschlag sitzt beim Getroffenen, also auf der Gegenseite des Angreifers.
     const ziel = -(z!.seite) * 0.62;
     const flug = (1 - t) * 0.9 * stark;
@@ -109,6 +133,9 @@ function Einschlag({ zug }: { zug: React.RefObject<Buehnenzug> }) {
 
   return <instancedMesh ref={ref} args={[geo, mat, SPLITTER]} frustumCulled={false} />;
 }
+
+/** Die Farbe des Volltreffers. Weiß ist die einzige, die kein Element belegt. */
+const WEISS = new THREE.Color('#ffffff');
 
 /** Wie weit ein Wert nach `t` Sekunden abgeklungen ist, 1 → 0. */
 function klingt(zeit: number, dauer: number): number {
@@ -128,8 +155,9 @@ function Gestalt({ bild, seite, treffer, zug }: {
   zug: React.RefObject<Buehnenzug>;
 }) {
   const geometrie = useMemo(
-    () => baueKreaturGeometrie(bild.basisRig, bild.elemente, bild.stufe),
-    [bild.basisRig, bild.elemente, bild.stufe],
+    () => baueKreaturGeometrie(bild.basisRig, bild.elemente, bild.stufe,
+                               bild.ursprung, saatAusId(bild.kreaturId)),
+    [bild.basisRig, bild.elemente, bild.stufe, bild.ursprung, bild.kreaturId],
   );
   const material = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0,

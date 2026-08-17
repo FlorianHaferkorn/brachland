@@ -8,8 +8,15 @@
  * Reine Funktion mit Rückmeldetext — dieselbe Stelle bedient Kampf und Beutel
  * außerhalb, damit ein Sud draußen nicht anders wirkt als drinnen.
  */
-import { REGELN, type Kaempfer } from '../engine/battle.js';
-import type { Gegenstand } from '../data/schema.js';
+import { REGELN, reinige, type Kaempfer } from '../engine/battle.js';
+import type { Gegenstand, NarbenArt } from '../data/schema.js';
+
+/** Was eine Narbe im Klartext bedeutet. Die Engine kennt keine Texte. */
+export const NARBEN_TEXT: Record<NarbenArt, string> = {
+  krit: 'trifft genauer ins Mark',
+  resistenz: 'nimmt Elementnachteile weniger übel',
+  panzer: 'hält mehr aus',
+};
 
 export interface Anwendung {
   /** Hat der Gegenstand etwas bewirkt? Wenn nein, wird er nicht verbraucht. */
@@ -19,7 +26,11 @@ export interface Anwendung {
   fangBonus?: number;
 }
 
-export function wendeAn(g: Gegenstand, ziel: Kaempfer): Anwendung {
+export function wendeAn(
+  g: Gegenstand, ziel: Kaempfer,
+  /** Narbe für die Reinigung. Hängt an der Herkunft, die der `Kaempfer` nicht kennt. */
+  narbe?: { art: NarbenArt; wert: number },
+): Anwendung {
   const w = g.wirkung;
   switch (w.art) {
     case 'heilung': {
@@ -37,8 +48,28 @@ export function wendeAn(g: Gegenstand, ziel: Kaempfer): Anwendung {
     }
     case 'reinigung': {
       if (ziel.zustand !== 'befallen') return { gewirkt: false, meldung: `${ziel.name} ist rein.` };
-      ziel.zustand = 'rein';
-      return { gewirkt: true, meldung: `Der Befall weicht von ${ziel.name}.` };
+      /**
+       * Reinigen führt **zurück**, es macht nicht rein.
+       *
+       * Vorher setzte das hier `zustand = 'rein'` — der Befall verschwand, und mit
+       * ihm jede Spur. Nach der Creature Design Bible ist der Zustand danach
+       * `rueckgefuehrt`: gereinigt, mit permanenter Narbe. Damit ist Reinigen keine
+       * Reparatur mehr, sondern eine Entscheidung, die etwas einbringt — und der
+       * einzige Weg zum vierten Zustand.
+       *
+       * Die Narbe hängt an der Herkunft, die ein `Kaempfer` nicht kennt. Ohne
+       * Angabe bleibt es beim alten Verhalten, damit ein Aufrufer ohne Inhaltszugriff
+       * nicht stillschweigend eine falsche Narbe verteilt.
+       */
+      if (!narbe) {
+        ziel.zustand = 'rein';
+        return { gewirkt: true, meldung: `Der Befall weicht von ${ziel.name}.` };
+      }
+      reinige(ziel, narbe);
+      return {
+        gewirkt: true,
+        meldung: `${ziel.name} ist zurückgeführt. Es bleibt eine Narbe: ${NARBEN_TEXT[narbe.art]}.`,
+      };
     }
     case 'fokus': {
       if (ziel.fokus >= REGELN.FOKUS_MAX) return { gewirkt: false, meldung: `${ziel.name} ist gesammelt.` };

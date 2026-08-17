@@ -1,0 +1,14 @@
+{
+  "id": "reifriss",
+  "name": "Reifriss",
+  "element": "frost",
+  "band": "normal",
+  "effekte": [
+    {
+      "art": "schaden_ueber_zeit",
+      "proRunde": 0.05,
+      "runden": 3
+    }
+  ],
+  "beschreibung": "Die Kühlrippen streifen im Vorbeigehen. Der Riss friert zu und geht wieder auf."
+}

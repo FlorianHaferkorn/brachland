@@ -38,25 +38,32 @@ owns: *.json
 | `creatures/spuerfuchs.json` | Spürfuchs (Fuchs, Alt-Tech, Sensor-Fell). 3 Stufen, `landuse=farmyard`, schnellste Kreatur des Kapitels |
 | `creatures/moderotter.json` | Moderotter (Kreuzotter, Fäulnis, Fäulnisdrüse). 2 Stufen, `waterway=ditch` — kommt im aktuellen Raster **nicht** vor, Ledger G-22 |
 | `creatures/firnhase.json` | Firnhase (Schneehase, Frost, Frostkristall-Fell). 2 Stufen, `natural=scree` ab 1000 m. Einziger Frost-Konter gegen Flussvater-Phase 2 |
-| `moves/` | 41 Moves mit eigenem Index — Aufbau, Bänder und Zuordnung zu den Linien stehen in `moves/_INDEX.md` |
+| `moves/` | 53 Moves mit eigenem Index — Aufbau, Bänder und Zuordnung zu den Linien stehen in `moves/_INDEX.md` |
 | `gegenstaende/` | 8 Gegenstände mit eigenem Index — Heilung, Wiederbelebung, Reinigung, Fanghilfen, Fokus. Siehe `gegenstaende/_INDEX.md` |
 | `fragmente/` | 12 Fundstücke an OSM-Orten mit eigenem Index — die Geschichte der Region, ohne Sprecher. Siehe `fragmente/_INDEX.md` |
 | `orte/` | 2 Zufluchten und 2 Bewohner auf freistehenden OSM-Gebäuden. Siehe `orte/_INDEX.md` |
 | `auftraege/` | 3 Aufträge — der kritische Pfad. Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
 | `creatures/alpenmurmel.json` | Alpenmurmel (Alpenmurmeltier, Stein, Erdpilz-Rückenpolster). 3 Stufen, `landuse=meadow` ab 700 m |
 | `creatures/schneehuhn.json` | Alpenschneehuhn (Frost, Frostfeder-Fächer). 3 Stufen, `natural=scree` ab 950 m — zweite Frost-Linie neben dem Firnhasen |
+| `creatures/k7-wolf.json` | **K7** (Wolf, alt-tech + frost, Klemmrippen-Rückenmodul) — die **erste Zuchtlinie**. 3 Baustände a/b/c statt Mutationen, `landuse=industrial`. Flache Werte ohne Ausreißer, angreifbar über das Element (Stein ×2), nicht über die Zahlen. Bringt die vier neuen Moves `haltebiss`, `kuehlrippen`, `reifriss`, `sterilgang` mit |
 
 ## Stand Œntal
 
-**11 von 35** geplanten Kreaturen: die 10 Wildling-Linien aus Kapitel 1 plus der
-Trafomarder. Es fehlen die Zuchtlinien und die Verhärteten. Damit sind **7 Elemente**
-vertreten (alle außer `brand`, das laut Roster erst im Aschefeld auftaucht), und jede
-Phase des Flussvaters hat einen Konter in der Region.
+**12 von 35** geplanten Kreaturen: die 10 Wildling-Linien aus Kapitel 1, der
+Trafomarder als einziger Verwachsener und die K7 als erste Zuchtlinie. Es fehlen
+weitere Zuchtlinien und die Verhärteten. Damit sind **7 Elemente** vertreten (alle
+außer `brand` — Ledger G-62), und jede Phase des Flussvaters hat einen Konter.
 
-Zwei Linien stehen zwar in den Daten, kommen aber im gebauten Weltraster praktisch
-nicht vor: `kiemenbiber` (1 Vorkommen) und `moderotter` (0). Ursache ist nicht der
-Inhalt, sondern die Auflösung — 96 × 96 Zellen über 4 km lösen Bäche und Gräben nicht
-auf, es bleiben 2 Wasserzellen. Ledger G-22, prüfbar mit `npm run vorkommen`.
+### Was `npm run vorkommen` dazu sagt
+
+Die K7 steht mit **3 Vorkommen** in der Region. Das ist kein Fehler, sondern der
+Zuschnitt ihrer Zone: `landuse=industrial` deckt 0,08 km² von 15,9 km² ab. Eine
+Wachlinie steht am Werk, nicht im Wald (D69). Offen bleibt, dass nichts im Spiel
+dorthin zeigt — ein Auftrag wäre der naheliegende Weg.
+
+Zwei Linien standen zwar in den Daten, kamen aber im gebauten Weltraster praktisch
+nicht vor: `kiemenbiber` und `moderotter`. Ursache war die Rasterung von Bächen,
+nicht die Auflösung; behoben, heute 33 und 17 Vorkommen. Ledger G-22.
 
 ## Definition of Done (neuer Inhalt)
 

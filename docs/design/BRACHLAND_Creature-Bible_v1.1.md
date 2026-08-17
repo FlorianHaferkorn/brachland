@@ -103,10 +103,32 @@ Datenlage.
 Moves trugen ihre Wirkungen im JSON, und die Engine hat keine davon gesehen.
 Ledger G-24 nannte *drei* fehlende Wirkungen; gefehlt haben **alle sieben**.
 
-Umgesetzt sind jetzt die beiden stufenförmigen Arten (`statuswert`, `genauigkeit`)
-— 14 der 21 Effektnutzungen. Die übrigen fünf Arten (`heilung`,
-`schaden_ueber_zeit`, `wechselsperre`, `reinigung`, `befall`) stehen als **G-56**
-offen.
+Umgesetzt sind inzwischen **alle Arten außer einer**. Die beiden stufenförmigen
+(`statuswert`, `genauigkeit`) waren reine Rechnung; die fünf übrigen brauchten
+**Gedächtnis am Kämpfer**: `laufend[]` trägt Zehrung und Wechselsperre über Runden
+und über den Wechsel hinweg, `tickeWirkungen()` zieht am Rundenende ab,
+`darfWechseln()` bindet auch die KI. `befall` trifft nur `rein`, `reinigung` nur
+`befallen`. G-56 ist damit geschlossen.
+
+Offen bleibt `mehrfachtreffer` (**G-60**), und zwar bewusst: Er greift in `schlag()`
+ein statt daneben — jeder Teiltreffer braucht eigene Würfe für Treffer und
+Volltreffer. Kein Move im Bestand nutzt ihn.
+
+## 5a. Herkunft ist eine Bauweise (§1 im Code)
+
+Die Optikspalte aus §1 stand bis hierher nur im Blatt. `kreaturgestalt.ts` baute
+jede Kreatur gleich — aus gespiegelten Boxen, also ausgerechnet nach dem Bauplan
+der **Zuchtlinien**. Alle zwölf Wildlinge sahen aus wie Fabrikware, und es fiel
+nicht auf, weil es keine Zuchtlinie gab, gegen die man sie hätte halten können.
+
+| Herkunft | Was der Code jetzt tut |
+|---|---|
+| Wildling | Streuung: Beine einzeln in Länge und Stand, Rumpf gekippt, ein Horn länger, Fächer auf **einer** Flanke. Seed aus der Kreatur-Id, also über Sitzungen fest |
+| Zuchtlinie | exakt gespiegelt, dazu ein Rückenmodul aus fünf gleichen Platten in gleichem Abstand — Wiederholung ist das Signal |
+| Verwachsener | breiter, tiefer, kürzere Beine, dazu ein Sockel bis auf den Boden |
+
+Geprüft wird das nicht durch Hinsehen, sondern von `npm run gestalt`: Kommt für
+zwei Herkünfte dieselbe Geometrie heraus, fällt das Werkzeug durch (G-61).
 
 ## 6. Optik — was gilt
 

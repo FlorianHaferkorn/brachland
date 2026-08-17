@@ -1,0 +1,56 @@
+{
+  "id": "k7-wolf",
+  "linie": "K7",
+  "basis": "Wolf",
+  "merkmal": "Klemmrippen-Rückenmodul",
+  "elemente": [
+    "alt-tech",
+    "frost"
+  ],
+  "ursprung": "zuchtlinie",
+  "basisRig": "quadruped",
+  "zielTris": 4000,
+  "spawn": {
+    "osmTag": "landuse=industrial",
+    "nurNachts": false,
+    "wetter": "beliebig",
+    "haeufigkeit": "haeufig"
+  },
+  "grundMoves": [
+    "haltebiss",
+    "kuehlrippen"
+  ],
+  "stufen": [
+    {
+      "name": "K7-a",
+      "werte": {
+        "kp": 124,
+        "ang": 60,
+        "ver": 58,
+        "ini": 54
+      }
+    },
+    {
+      "name": "K7-b",
+      "werte": {
+        "kp": 150,
+        "ang": 74,
+        "ver": 70,
+        "ini": 66
+      },
+      "signaturMove": "reifriss"
+    },
+    {
+      "name": "K7-c",
+      "werte": {
+        "kp": 176,
+        "ang": 88,
+        "ver": 84,
+        "ini": 78
+      },
+      "signaturMove": "sterilgang"
+    }
+  ],
+  "fangbar": true,
+  "beschreibung": "Wachlinie aus den VERIDIA-Hallen, in Serie gezogen und nie ausgemustert. Drei Stufen sind drei Baustände derselben Konstruktion, keine Mutationen: a, b, c. Kein Wert der Linie ist auffällig, keiner ist schwach — das ist die Absicht. Angreifbar bleibt sie über das Element, nicht über die Zahlen."
+}

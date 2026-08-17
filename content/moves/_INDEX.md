@@ -4,8 +4,8 @@ shelf-life-days: 90
 ---
 # content/moves — Attacken als Daten (_INDEX)
 
-> **Kein `owns:` in diesem Index — bewusst.** Der Ordner enthält 41 fast gleichförmige
-> Dateien; ein Register mit 41 Zeilen wäre kein Wegweiser, sondern ein zweites
+> **Kein `owns:` in diesem Index — bewusst.** Der Ordner enthält 53 fast gleichförmige
+> Dateien; ein Register mit 53 Zeilen wäre kein Wegweiser, sondern ein zweites
 > Verzeichnis. Vollständigkeit sichert hier ein Tor statt einer Tabelle:
 > `npm run validate` prüft jede Datei gegen das Schema **und** löst jeden Verweis aus
 > Kreaturen und Regenten auf. Ein Move, den niemand referenziert, oder ein Verweis
@@ -51,22 +51,27 @@ Deshalb tragen fast alle Moves das Element ihrer Linie — Fremdelement-Moves ko
 | Moderotter | `faeulnisbiss` normal · `moderhauch` leicht · `zersetzen` schwer |
 | Firnhase | `frostbiss` normal · `klirren` utility · `firnsprung` schwer |
 | Trafomarder | `lichtbogen` normal · `kriechstrom` leicht |
+| K7 (Zuchtlinie) | `haltebiss` normal · `kuehlrippen` utility · `reifriss` normal · `sterilgang` utility |
 | Flussvater (Regent) | `stauwelle` schwer · `schlickgriff` normal · `klaerstrom` schwer · `wehrschlag` normal |
 
 ## Abweichungen vom Move-System v1
 
-Drei Wirkungen aus dem Design-Dokument haben im Schema keine Entsprechung und sind
-mit der nächstliegenden umgesetzt. Das ist eine Anpassung, keine stille Änderung:
+Von drei Ersatzlösungen sind noch **zwei** übrig. Das ist eine Anpassung, keine
+stille Änderung:
 
 | Move | Gedacht | Umgesetzt |
 |---|---|---|
 | `steilflucht` | Wechsel ohne Zugverlust | INI +2 auf sich selbst |
-| `blendlinse` | senkt Genauigkeit | ANG −2 beim Gegner |
 | `faehrte` | erhöht die Fangchance | INI +1 auf sich selbst |
+| ~~`blendlinse`~~ | senkt Genauigkeit | **erledigt** — echter Trefferwurf (D64), nicht mehr `ANG −2` |
 
-Genauigkeit und zugfreier Wechsel existieren in der Engine nicht. Beides einzubauen
-ist eine Regeländerung mit Balance-Folgen — die gehört ins Kampfsystem-Dokument,
-nicht in eine Move-Datei. Ledger G-24.
+Zugfreier Wechsel und eine Fangchance aus dem Kampf heraus existieren in der Engine
+weiterhin nicht. Beides einzubauen ist eine Regeländerung mit Balance-Folgen — die
+gehört ins Kampfsystem-Dokument, nicht in eine Move-Datei. Ledger G-24.
+
+Alle sieben **Effektarten** des Schemas werden inzwischen angewendet, bis auf
+`mehrfachtreffer` — der greift in `schlag()` ein statt daneben und wird von keinem
+Move im Bestand benutzt. Ledger G-56 (geschlossen) und G-60.
 
 ## Definition of Done
 

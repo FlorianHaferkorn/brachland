@@ -44,8 +44,20 @@ export const FRAGMENTE = lade(fragmentRoh, Fragment, 'Fragment');
 export const ORTE = lade(ortRoh, Ort, 'Ort');
 export const AUFTRAEGE = [...lade(auftragRoh, Auftrag, 'Auftrag').values()];
 
-/** Nur die fangbaren Wildlinge — daraus werden Begegnungen gebaut. */
-export const WILDLINGE = [...KREATUREN.values()].filter(k => k.ursprung === 'wildling');
+/**
+ * Alles, was streift — daraus werden Begegnungen gebaut.
+ *
+ * Hier stand `ursprung === 'wildling'`, und das ging gut, solange 12 von 13 Linien
+ * Wildlinge waren. Mit der ersten **Zuchtlinie** (K7) fiel auf, dass die Bedingung
+ * die falsche Frage stellt: Herkunft sagt, *woher* eine Kreatur kommt, nicht *ob*
+ * sie durch die Landschaft läuft. Der K7 wäre Inhalt gewesen, den niemand je
+ * antrifft — `npm run vorkommen` hat ihn mit 0 Vorkommen geführt.
+ *
+ * Die richtige Frage ist die Häufigkeit: `fest` heißt „steht an einer Position"
+ * (Verwachsene, Uniques), alles andere streift. Für die zwölf Wildlinge ändert
+ * sich dadurch nichts, der Trafomarder bleibt draußen — er ist der einzige `fest`.
+ */
+export const STREUNENDE = [...KREATUREN.values()].filter(k => k.spawn.haeufigkeit !== 'fest');
 
 export function moveDef(id: string): MoveDef {
   const m = MOVES.get(id);

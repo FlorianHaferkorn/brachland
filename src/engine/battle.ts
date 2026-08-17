@@ -92,6 +92,39 @@ export function fangbarImZustand(z: Zustand): boolean {
   return z !== 'verhaertet';
 }
 
+/**
+ * Reinigung — der einzige Weg zum vierten Zustand.
+ *
+ * Bis hierher gab es `rueckgefuehrt` im Enum und keinen Weg dorthin: Der
+ * `reinigung`-Gegenstand setzte auf `rein` zurück, und der `reinigung`-Move
+ * existierte nur als Datensatz. Damit war die Narbe eine Regel ohne Anlass.
+ *
+ * Jetzt gilt: Wer **befallen** war und gereinigt wird, ist nicht wieder rein — er
+ * ist **zurückgeführt** und trägt die Narbe seiner Herkunft. Das ist die Aussage
+ * der Creature Design Bible: „gereinigt, mit permanentem Bonus". Reinigen ist damit
+ * keine Reparatur, sondern eine Entscheidung mit Ertrag.
+ *
+ * Wer nie befallen war, bleibt rein — eine Narbe ohne Wunde gibt es nicht.
+ */
+export function reinige(k: Kaempfer, narbe: { art: NarbenArt; wert: number }): boolean {
+  if (k.zustand !== 'befallen') return false;
+  k.zustand = 'rueckgefuehrt';
+  k.narbe = narbe;
+  // Der Befall-Bonus fällt weg, die Narbe kommt dazu. Beides muss sich in den
+  // Werten niederschlagen, sonst behielte ein Zurückgeführter seinen Befall-Bonus.
+  const roh = {
+    ang: Math.round(k.ang / REGELN.BEFALL_ANG),
+    ver: Math.round(k.ver / REGELN.BEFALL_VER),
+    ini: Math.round(k.ini / REGELN.BEFALL_INI),
+  };
+  k.ang = roh.ang;
+  k.ver = narbe.art === 'panzer' ? Math.round(roh.ver * (1 + narbe.wert)) : roh.ver;
+  k.ini = roh.ini;
+  if (narbe.art === 'krit') k.krit += narbe.wert;
+  // Zehrung endet — der Zustand ist der Auslöser, nicht eine laufende Wirkung.
+  return true;
+}
+
 export interface MoveDef {
   id: string; name: string; element: Element; band: Band;
   /**
@@ -143,6 +176,16 @@ export interface Kaempfer {
   /** Statusstufen, -3…3. Nicht in die Werte gerechnet, sondern beim Lesen — sonst driftet es. */
   stufenAng: number; stufenVer: number; stufenIni: number;
   /**
+   * Laufende Wirkungen über Runden hinweg.
+   *
+   * Der Grund, warum die fünf restlichen Effektarten (G-56) länger gebraucht haben
+   * als die stufenförmigen: Zustandsschaden und Wechselsperre sind keine Rechnung,
+   * sie sind **Gedächtnis**. Ein Kämpfer muss wissen, dass er noch drei Runden
+   * blutet — und das muss bei ihm stehen, nicht in der Kampfschleife, sonst geht es
+   * beim Wechseln verloren.
+   */
+  laufend: { art: 'schaden' | 'sperre'; runden: number; proRunde: number }[];
+  /**
    * Narbe eines Zurückgeführten. Fehlt bei allen anderen Zuständen.
    *
    * Sie steht am Kämpfer und nicht in den Werten, weil `resistenz` erst beim
@@ -159,13 +202,21 @@ export type Ereignis =
   | { art: 'angriff'; von: string; auf: string; move: string; schaden: number; faktor: number;
       kritisch?: boolean; fehlschlag?: boolean }
   | { art: 'wechsel'; zu: string; freierTreffer: number }
-  | { art: 'zehrung'; wen: string; schaden: number }
+  | { art: 'zehrung'; wen: string; schaden: number; notiz?: string }
   | { art: 'phase'; wer: string; elemente: Element[] }
   | { art: 'ko'; wen: string }
   | { art: 'kein_fokus'; wer: string };
 
 // ------------------------------------------------------------- Grundrechnen
-type Abgeleitet = 'kp' | 'fokus' | 'krit' | 'genauigkeit' | 'stufenAng' | 'stufenVer' | 'stufenIni';
+/**
+ * Felder, die `erstelle` selbst setzt.
+ *
+ * Alles hier ist Kampfzustand, nicht Kreatureigenschaft: Ein Aufrufer, der eine
+ * Kreatur aus Inhalten baut, soll nicht entscheiden können, dass sie mit drei
+ * Runden Zustandsschaden ins Feld geht.
+ */
+type Abgeleitet = 'kp' | 'fokus' | 'krit' | 'genauigkeit'
+  | 'stufenAng' | 'stufenVer' | 'stufenIni' | 'laufend';
 
 export function erstelle(
   basis: Omit<Kaempfer, Abgeleitet> & Partial<Pick<Kaempfer, Abgeleitet>>,
@@ -182,6 +233,7 @@ export function erstelle(
     krit: (basis.krit ?? REGELN.KRIT_BASIS) + (narbe?.art === 'krit' ? narbe.wert : 0),
     genauigkeit: basis.genauigkeit ?? 0,
     stufenAng: 0, stufenVer: 0, stufenIni: 0,
+    laufend: [],
     ang: Math.round(basis.ang * (befallen ? REGELN.BEFALL_ANG : 1)),
     ver: Math.round(basis.ver * (befallen ? REGELN.BEFALL_VER : 1) * panzer),
     ini: Math.round(basis.ini * (befallen ? REGELN.BEFALL_INI : 1)),
@@ -264,7 +316,17 @@ export function schaden(a: Kaempfer, d: Kaempfer, move: MoveDef, zufall: () => n
  * Rückgabe sind die Namen der geänderten Werte — der Aufrufer entscheidet, ob er
  * sie anzeigt. Die Engine kennt keine Texte.
  */
-export function wendeWirkungenAn(a: Kaempfer, d: Kaempfer, move: MoveDef): string[] {
+export function wendeWirkungenAn(
+  a: Kaempfer, d: Kaempfer, move: MoveDef,
+  /**
+   * Zufall für `befall`. Fehlt er, greift die Befallschance nicht — so kann ein
+   * Aufrufer, der keine Zufallsquelle hat (Vorschau, KI-Bewertung), die übrigen
+   * Wirkungen trocken durchrechnen, ohne den Kampfzufall zu verschieben.
+   */
+  zufall?: () => number,
+  /** Narbe für `reinigung` — sie hängt an der Herkunft, die die Engine nicht kennt. */
+  narbe?: { art: NarbenArt; wert: number },
+): string[] {
   const gemeldet: string[] = [];
   const setze = (k: Kaempfer, feld: 'stufenAng' | 'stufenVer' | 'stufenIni' | 'genauigkeit',
                  stufen: number, name: string) => {
@@ -272,17 +334,100 @@ export function wendeWirkungenAn(a: Kaempfer, d: Kaempfer, move: MoveDef): strin
     k[feld] = Math.max(-3, Math.min(3, vorher + stufen));
     if (k[feld] !== vorher) gemeldet.push(`${k.name}: ${name} ${stufen > 0 ? '+' : ''}${stufen}`);
   };
+
   for (const e of move.effekte ?? []) {
-    if (e.art === 'statuswert') {
-      const k = e.ziel === 'selbst' ? a : d;
-      const feld = e.wert === 'ang' ? 'stufenAng' : e.wert === 'ver' ? 'stufenVer' : 'stufenIni';
-      setze(k, feld, e.stufen, e.wert.toUpperCase());
-    } else if (e.art === 'genauigkeit') {
-      setze(e.ziel === 'selbst' ? a : d, 'genauigkeit', e.stufen, 'Genauigkeit');
+    switch (e.art) {
+      case 'statuswert': {
+        const k = e.ziel === 'selbst' ? a : d;
+        const feld = e.wert === 'ang' ? 'stufenAng' : e.wert === 'ver' ? 'stufenVer' : 'stufenIni';
+        setze(k, feld, e.stufen, e.wert.toUpperCase());
+        break;
+      }
+      case 'genauigkeit':
+        setze(e.ziel === 'selbst' ? a : d, 'genauigkeit', e.stufen, 'Genauigkeit');
+        break;
+
+      case 'heilung': {
+        // Heilt den Anwender. Ein Heilmove auf den Gegner wäre eine eigene
+        // Zielangabe wert — bisher braucht kein Move sie.
+        if (a.kp <= 0 || a.kp >= a.maxKp) break;
+        const vorher = a.kp;
+        a.kp = Math.min(a.maxKp, a.kp + Math.round(a.maxKp * e.anteil));
+        gemeldet.push(`${a.name} erholt sich um ${a.kp - vorher} KP`);
+        break;
+      }
+
+      case 'schaden_ueber_zeit':
+        // Nicht stapeln: Ein zweiter Aufguss verlängert, statt zu verdoppeln.
+        // Sonst multipliziert sich ein billiger Utility-Move zu Tode.
+        {
+          const da = d.laufend.find(l => l.art === 'schaden');
+          if (da) { da.runden = Math.max(da.runden, e.runden); da.proRunde = Math.max(da.proRunde, e.proRunde); }
+          else d.laufend.push({ art: 'schaden', runden: e.runden, proRunde: e.proRunde });
+          gemeldet.push(`${d.name} nimmt Schaden über ${e.runden} Runden`);
+        }
+        break;
+
+      case 'wechselsperre':
+        {
+          const s = d.laufend.find(l => l.art === 'sperre');
+          if (s) s.runden = Math.max(s.runden, e.runden);
+          else d.laufend.push({ art: 'sperre', runden: e.runden, proRunde: 0 });
+          gemeldet.push(`${d.name} kann ${e.runden} Runden nicht wechseln`);
+        }
+        break;
+
+      case 'befall':
+        // Nur rein → befallen. Verhärtet ist Endstadium, zurückgeführt ist
+        // gereinigt — beides lässt sich nicht neu anstecken.
+        if (zufall && d.zustand === 'rein' && zufall() < e.chance) {
+          d.zustand = 'befallen';
+          d.ang = Math.round(d.ang * REGELN.BEFALL_ANG);
+          d.ver = Math.round(d.ver * REGELN.BEFALL_VER);
+          d.ini = Math.round(d.ini * REGELN.BEFALL_INI);
+          gemeldet.push(`${d.name} ist befallen`);
+        }
+        break;
+
+      case 'reinigung':
+        // Reinigt den Anwender — ein Move gegen den eigenen Befall.
+        if (narbe && reinige(a, narbe)) gemeldet.push(`${a.name} ist zurückgeführt — Narbe: ${narbe.art}`);
+        break;
+
+      case 'mehrfachtreffer':
+        // Bewusst offen: Mehrfachtreffer greift in `schlag` ein, nicht daneben —
+        // jeder Teiltreffer braucht eigene Würfe für Treffer und Volltreffer.
+        // Kein Move im Bestand nutzt ihn (0 von 21 Nutzungen).
+        break;
     }
-    // Die übrigen fünf Arten sind noch nicht umgesetzt — Ledger G-56.
   }
   return gemeldet;
+}
+
+/**
+ * Laufende Wirkungen eine Runde weiterlaufen lassen.
+ *
+ * Wird am Rundenende gerufen, für jeden Kämpfer. Gibt die Meldungen zurück und
+ * zieht den Zustandsschaden ab — abgelaufene Wirkungen verschwinden von selbst.
+ */
+export function tickeWirkungen(k: Kaempfer): string[] {
+  if (!k.laufend.length || k.kp <= 0) return [];
+  const gemeldet: string[] = [];
+  for (const l of k.laufend) {
+    if (l.art === 'schaden') {
+      const s = Math.max(1, Math.round(k.maxKp * l.proRunde));
+      k.kp -= s;
+      gemeldet.push(`${k.name} nimmt ${s} Schaden aus der Wunde`);
+    }
+    l.runden -= 1;
+  }
+  k.laufend = k.laufend.filter(l => l.runden > 0);
+  return gemeldet;
+}
+
+/** Darf dieser Kämpfer gewechselt werden? `wechselsperre` sagt manchmal nein. */
+export function darfWechseln(k: Kaempfer): boolean {
+  return !k.laufend.some(l => l.art === 'sperre');
 }
 
 /** Erwartungswert ohne Zufall — für die KI. */
@@ -321,6 +466,9 @@ export function waehleMove(a: Kaempfer, d: Kaempfer): MoveDef | null {
  */
 export function waehleWechsel(team: Team, gegner: Kaempfer): number | null {
   const cur = team.kaempfer[team.aktiv];
+  // Gesperrt heißt gesperrt — auch für die KI. Sonst wäre die Wechselsperre eine
+  // Regel, die nur den Spieler bindet.
+  if (!darfWechseln(cur)) return null;
   const eingehend = erwartet(gegner, cur);
   const schlecht =
     elementFaktor(gegner.elemente[0], cur.elemente) >= 2 ||
@@ -384,7 +532,7 @@ export function kampf(team: Team, boss: Kaempfer, seed = 1, log = false): Ergebn
         const m = waehleMove(a, d);
         if (!m) { merke({ art: 'kein_fokus', wer: a.name }); a.fokus = Math.min(REGELN.FOKUS_MAX, a.fokus + REGELN.FOKUS_REGEN); continue; }
         a.fokus -= BAND[m.band].fokus;
-        wendeWirkungenAn(a, d, m);
+        wendeWirkungenAn(a, d, m, zufall);
         const t = schlag(a, d, m, zufall);
         let s = t.wert;
         if (d === cur && schild) s = Math.round(s * REGELN.SHIELD_DR);
@@ -395,6 +543,11 @@ export function kampf(team: Team, boss: Kaempfer, seed = 1, log = false): Ergebn
       }
       schild = 0;
       for (const k of [cur, boss]) k.fokus = Math.min(REGELN.FOKUS_MAX, k.fokus + REGELN.FOKUS_REGEN);
+    }
+
+    // Laufende Wirkungen: Zustandsschaden und ablaufende Sperren
+    for (const k of [cur, boss]) {
+      for (const m of tickeWirkungen(k)) merke({ art: 'zehrung', wen: k.name, schaden: 0, notiz: m });
     }
 
     // Zehrung nur beim aktiven Befallenen

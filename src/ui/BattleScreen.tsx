@@ -11,13 +11,13 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { BAND } from '../data/schema.js';
 import {
   REGELN, schaden, schlag, waehleMove, elementFaktor, rng,
-  fangbarImZustand, iniEff, wendeWirkungenAn,
+  fangbarImZustand, iniEff, wendeWirkungenAn, tickeWirkungen, darfWechseln,
   type Kaempfer, type Team, type MoveDef,
 } from '../engine/battle.js';
 import { Kampfbuehne, type KaempferBild, type Buehnenzug } from './Kampfbuehne.js';
 import { GEGENSTAENDE } from '../data/inhalte.js';
 import { wendeAn, wirktAuf } from '../spiel/gegenstaende.js';
-import type { Gegenstand } from '../data/schema.js';
+import type { Gegenstand, NarbenArt } from '../data/schema.js';
 
 const FARBE = {
   hintergrund: '#0d1210',
@@ -142,11 +142,18 @@ export interface KampfProps {
   beutel?: Record<string, number>;
   /** Wird gerufen, wenn ein Gegenstand verbraucht wurde. */
   onVerbraucht?: (id: string) => void;
+  /**
+   * Narbe je Kämpfer-ID — für die Reinigung.
+   *
+   * Die Engine kennt die Herkunft nicht, und der Kampfbildschirm soll sie nicht
+   * kennen müssen. `main` weiß sie aus den Inhalten und gibt sie als Funktion herein.
+   */
+  narbeFuer?: (kaempferId: string) => { art: NarbenArt; wert: number } | undefined;
   onEnde?: (ende: KampfEnde) => void;
 }
 
 export function Kampfbildschirm({
-  team, gegner, seed = 1, fangbar = true, bild, beutel, onVerbraucht, onEnde,
+  team, gegner, seed = 1, fangbar = true, bild, beutel, onVerbraucht, narbeFuer, onEnde,
 }: KampfProps) {
   const [, neuZeichnen] = useState(0);
   const [meldungen, setMeldungen] = useState<string[]>([`${gegner.name} stellt sich.`]);
@@ -168,12 +175,13 @@ export function Kampfbildschirm({
    * daran. Element und Faktor gehen mit, damit der Einschlag zeigt, **womit**
    * getroffen wurde — und ob es gesessen hat.
    */
-  const inszeniere = (angreiferIstSpieler: boolean, move?: MoveDef, faktor = 1) => {
+  const inszeniere = (angreiferIstSpieler: boolean, move?: MoveDef, faktor = 1, kritisch = false) => {
     zug.current = {
       zeit: performance.now() / 1000,
       seite: angreiferIstSpieler ? -1 : 1,
       element: move?.element,
       faktor,
+      kritisch,
     };
   };
 
@@ -200,11 +208,12 @@ export function Kampfbildschirm({
         a.fokus -= BAND[m.band].fokus;
         // Wirkungen zuerst: Ein Move, der die Verteidigung senkt, soll das im
         // eigenen Zug tun, nicht erst im nächsten.
-        const wirkungen = wendeWirkungenAn(a, d, m);
+        const wirkungen = wendeWirkungenAn(a, d, m, zufall, narbeFuer?.(a.id));
         const t = schlag(a, d, m, zufall);
         d.kp -= t.wert;
         const f = elementFaktor(m.element, d.elemente);
-        inszeniere(a !== gegner, m, t.kritisch ? Math.max(f, 2) : f);
+        // Fehlschlag zeigt keinen Einschlag — sonst sieht "daneben" aus wie ein Treffer.
+        if (!t.fehlschlag) inszeniere(a !== gegner, m, f, t.kritisch);
         (d === gegner ? trefferGegner : trefferSpieler).current = performance.now() / 1000;
         if (t.fehlschlag) melde(`${a.name}: ${m.name} — daneben.`);
         else melde(`${a.name}: ${m.name} → ${t.wert}`
@@ -217,6 +226,7 @@ export function Kampfbildschirm({
     }
 
     for (const k of [ich, gegner]) {
+      for (const m of tickeWirkungen(k)) melde(m);
       if (k.zustand === 'befallen' && k.kp > 0) {
         const z = Math.round(k.maxKp * REGELN.ZEHRUNG);
         k.kp -= z;
@@ -243,7 +253,7 @@ export function Kampfbildschirm({
    * Kampf ein Abnutzungsrennen, das man nur durch Vorratshaltung gewinnt.
    */
   const benutze = useCallback((g: Gegenstand, ziel: Kaempfer) => {
-    const w = wendeAn(g, ziel);
+    const w = wendeAn(g, ziel, narbeFuer?.(ziel.id));
     melde(w.meldung);
     if (!w.gewirkt) { neuZeichnen(x => x + 1); return; }
     onVerbraucht?.(g.id);
@@ -372,12 +382,19 @@ export function Kampfbildschirm({
               </button>
             );
           })}
-          <button onClick={() => setWechselOffen(true)} disabled={beschaeftigt}
+          {/* Wechselsperre: Der Knopf sagt, WARUM er nicht geht. Ein grauer Knopf
+              ohne Grund liest sich als Fehler. */}
+          <button onClick={() => setWechselOffen(true)}
+            disabled={beschaeftigt || !darfWechseln(aktiv)}
             style={{
               gridColumn: '1 / -1', minHeight: 48, borderRadius: 10,
-              background: 'transparent', border: `1px solid ${FARBE.rand}`, color: FARBE.gedaempft,
+              background: 'transparent',
+              border: `1px solid ${darfWechseln(aktiv) ? FARBE.rand : FARBE.gefahr}`,
+              color: darfWechseln(aktiv) ? FARBE.gedaempft : FARBE.gefahr,
             }}>
-            Wechseln — kostet den Zug, Schild {Math.round(REGELN.SHIELD_DR * 100)} %
+            {darfWechseln(aktiv)
+              ? `Wechseln — kostet den Zug, Schild ${Math.round(REGELN.SHIELD_DR * 100)} %`
+              : 'Wechseln gesperrt — festgehalten'}
           </button>
           <button onClick={fangen} disabled={beschaeftigt || !fangbar}
             style={{
