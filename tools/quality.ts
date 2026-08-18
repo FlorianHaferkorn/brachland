@@ -126,11 +126,27 @@ if (existsSync('assets/creatures')) {
  * für eine Bauform überhaupt laufen kann. Fehlt das Rig, überspringt `pipeline.sh`
  * die Kreatur mit einer Zeile, die im Stapellauf leicht untergeht (Ledger B-10).
  */
-const RIGS = ['quadruped', 'quadruped_small', 'biped_bird', 'serpent'];
-const vorhanden = RIGS.filter(r => existsSync(join('assets/rigs', `${r}.glb`)));
-const fehlend = RIGS.filter(r => !vorhanden.includes(r));
-console.log(`  · [Assets] Archetyp-Rigs ${vorhanden.length}/${RIGS.length}`
-  + (fehlend.length ? ` — es fehlen ${fehlend.join(', ')} (B-10)` : ''));
+/**
+ * `quadruped_small` hat bewusst KEINE eigene Datei und teilt sich das Rig mit
+ * `quadruped`: `autorig.py` skaliert das Skelett je Achse an die Bounding Box des
+ * Zielmeshes, und beide Bauformen haben dieselbe Topologie. Die Zuordnung steht in
+ * `pipeline.sh`; hier wird geprüft, dass die Datei existiert, auf die sie zeigt.
+ *
+ * Ohne diese Zeile meldete das Tor „3/4, es fehlt quadruped_small" — eine Lücke,
+ * die es nach eigener Entscheidung nicht gibt. Ein Tor, das Phantome zählt,
+ * verliert seinen Wert schneller als eines, das zu wenig prüft.
+ */
+const RIGDATEI: Record<string, string> = {
+  quadruped: 'quadruped', quadruped_small: 'quadruped',
+  biped_bird: 'biped_bird', serpent: 'serpent',
+};
+const bauformen = Object.keys(RIGDATEI);
+const gedeckt = bauformen.filter(b => existsSync(join('assets/rigs', `${RIGDATEI[b]}.glb`)));
+const offen = bauformen.filter(b => !gedeckt.includes(b));
+const dateien = new Set(Object.values(RIGDATEI));
+console.log(`  · [Assets] Archetyp-Rigs: ${gedeckt.length}/${bauformen.length} Bauformen gedeckt`
+  + ` aus ${dateien.size} Dateien`
+  + (offen.length ? ` — offen: ${offen.join(', ')} (B-10)` : ''));
 
 // -------------------------------------------------- 4. System-Invarianten
 let matrixOk = true;
