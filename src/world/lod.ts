@@ -17,6 +17,7 @@
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { MASSSTAB, BIOM_FARBE } from './terrain.js';
+import type { Aufsatzboden } from './terrain.js';
 import { baueWasserfeld } from './wasserfeld.js';
 
 /** Kachelkantenlänge in Metern. */
@@ -155,16 +156,64 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1): HoehenFeld 
  * und liegt auf Kuppen unter der Funktion. Wer eine Figur auf `feld.hoehe` setzt,
  * lässt sie dort schweben.
  *
- * Das Vertexraster liegt global auf Vielfachen des LOD0-Schritts, weil die Kacheln
- * bei -breiteMeter/2 beginnen und 64 m breit sind.
+ * Das Vertexraster beginnt bei `-breiteMeter/2` und läuft in Schritten von `schritt`
+ * — nicht bei 0. `breiteMeter` kommt aus der bbox und ist kein Vielfaches von 2,
+ * also war ein Raster auf `Math.floor(x/s)*s` gegenüber dem gezeichneten Netz
+ * verschoben. Kleiner Fehler, aber einer, der sich nicht wegmitteln lässt.
+ *
+ * `schritt` ist voreingestellt auf LOD0. Wer wissen will, wie die Fläche in der
+ * Ferne liegt, gibt den gröberen Schritt an — dort steht die Aufsatzgeometrie
+ * nämlich auf einem anderen Netz (`npm run aufsatz`).
  */
-export function hoeheAufFlaeche(feld: HoehenFeld, x: number, z: number): number {
-  const s = LOD_STUFEN[0].schritt;
-  const x0 = Math.floor(x / s) * s, z0 = Math.floor(z / s) * s;
+export function hoeheAufFlaeche(
+  feld: HoehenFeld, x: number, z: number, schritt: number = LOD_STUFEN[0].schritt,
+): number {
+  const s = schritt;
+  const ux = -feld.breiteMeter / 2, uz = -feld.tiefeMeter / 2;
+  const x0 = Math.floor((x - ux) / s) * s + ux, z0 = Math.floor((z - uz) / s) * s + uz;
   const fx = (x - x0) / s, fz = (z - z0) / s;
   const h00 = feld.hoehe(x0, z0), h10 = feld.hoehe(x0 + s, z0);
   const h01 = feld.hoehe(x0, z0 + s), h11 = feld.hoehe(x0 + s, z0 + s);
   return (h00 * (1 - fx) + h10 * fx) * (1 - fz) + (h01 * (1 - fx) + h11 * fx) * fz;
+}
+
+/**
+ * Die eine Höhenquelle für alles, was auf dem Gelände aufsitzt.
+ *
+ * Vorher hat sich jeder Aufrufer sein eigenes Objekt zusammengebaut — die Szene
+ * `{...terrain, hoeheAn: feld.hoehe}`, die Werkzeuge das rohe `terrain` mit dem
+ * groben Raster. Zwei Aufrufer, zwei Höhen, und die Messung prüfte die falsche.
+ * Wer jetzt ein Band bauen will, muss hier durch.
+ *
+ * `spiegel: true` liefert die Wasseroberfläche statt der Geländeoberfläche: Seit
+ * D63 ist `feld.hoehe` im Bach die **Sohle**, der Spiegel liegt eine Bettiefe
+ * darüber — genau dort, wo das Gelände ohne Bett läge.
+ */
+/**
+ * Bis zu welcher LOD-Stufe die Schürze das Wegfallen des Bodens auffängt.
+ *
+ * LOD4 bewusst nicht. Es gilt erst ab 900 m Kameraabstand, und dort ist ein Meter
+ * Lücke rund einen Pixel hoch — dafür würde die Schürze fast an **jedem** Segment
+ * gebaut, weil auf 32 m Vertexabstand irgendwo immer Gelände wegfällt. Gemessen:
+ * mit LOD4 wachsen die Wege von 93.000 auf 239.000 Dreiecke, und das Wegband ist
+ * ein einziges Mesh — es wird komplett gezeichnet, sobald ein Zipfel im Bild ist.
+ */
+const SCHUERZE_BIS_LOD = 3;
+
+export function aufsatzboden(feld: HoehenFeld, spiegel = false): Aufsatzboden {
+  return {
+    breiteMeter: feld.breiteMeter,
+    tiefeMeter: feld.tiefeMeter,
+    hoeheAn: spiegel
+      ? (x, z) => feld.hoehe(x, z) + feld.wasserTiefe(x, z)
+      : (x, z) => feld.hoehe(x, z),
+    tiefsteFlaeche: (x, z) => {
+      let tiefste = Infinity;
+      for (let i = 0; i <= SCHUERZE_BIS_LOD; i++)
+        tiefste = Math.min(tiefste, hoeheAufFlaeche(feld, x, z, LOD_STUFEN[i].schritt));
+      return tiefste;
+    },
+  };
 }
 
 // ------------------------------------------------------------- Kacheln

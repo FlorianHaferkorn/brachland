@@ -27,6 +27,7 @@
     "licht": "tsx tools/lichtcheck.ts",
     "steigung": "tsx tools/steigungcheck.ts",
     "wasser": "tsx tools/wassercheck.ts",
+    "aufsatz": "tsx tools/aufsatzcheck.ts",
     "gestalt": "tsx tools/gestaltcheck.ts",
     "gleit": "tsx tools/gleitcheck.ts",
     "rigs": "node tools/rigbau.mjs assets/rigs"

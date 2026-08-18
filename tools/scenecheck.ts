@@ -2,6 +2,7 @@
 import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { baueTerrain, baueGewaesser, baueGebaeude, baueWege } from '../src/world/terrain.js';
+import { baueHoehenfeld, aufsatzboden } from '../src/world/lod.js';
 import { verteileProps, propGeometrie, attrappeGeometrie, zaehleProps, chunkeProps, PROP_FARBE, type PropArt } from '../src/world/props.js';
 import { baueBaum } from '../src/world/baum.js';
 import { ATTRAPPE_AB } from '../src/scenes/sichtweiten.js';
@@ -14,13 +15,16 @@ const echteGeometrie = (art: PropArt) =>
 
 const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const t = baueTerrain(welt);
+// Dieselbe Hoehenquelle wie die Szene (G-73).
+const feld = baueHoehenfeld(welt);
+const boden = aufsatzboden(feld), wasser = aufsatzboden(feld, true);
 const tri = (g: any) => g ? g.getAttribute('position').count / 3 : 0;
 
 const teile = {
   Terrain:  tri(t.geometrie),
-  Wege:     tri(baueWege(welt, t)),
-  Gewässer: tri(baueGewaesser(welt, t)),
-  Gebäude:  tri(baueGebaeude(welt, t)),
+  Wege:     tri(baueWege(welt, boden)),
+  Gewässer: tri(baueGewaesser(welt, wasser, feld.teiche)),
+  Gebäude:  tri(baueGebaeude(welt, boden)),
 };
 
 const props = verteileProps(welt, t, 1);
@@ -74,8 +78,8 @@ console.log(`  die Instanz, nicht diese Datei.`);
 // Vorschau exportieren
 const dump: any = { teile: [], props: [] };
 const alle: [string, any][] = [
-  ['terrain', t.geometrie], ['wege', baueWege(welt, t)],
-  ['wasser', baueGewaesser(welt, t)], ['gebaeude', baueGebaeude(welt, t)],
+  ['terrain', t.geometrie], ['wege', baueWege(welt, boden)],
+  ['wasser', baueGewaesser(welt, wasser, feld.teiche)], ['gebaeude', baueGebaeude(welt, boden)],
 ];
 for (const [name, g] of alle) {
   if (!g) continue;

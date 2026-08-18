@@ -1,7 +1,8 @@
 /** Nahansicht mit LOD-Kacheln exportieren — zum Vergleich mit dem alten Raster. */
 import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie } from '../src/world/lod.js';
+import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
+         aufsatzboden } from '../src/world/lod.js';
 import { verteileProps } from '../src/world/props.js';
 import { baueTerrain, baueWege, baueGewaesser, baueGebaeude } from '../src/world/terrain.js';
 
@@ -28,9 +29,12 @@ for (const k of kacheln) {
   tris += p.count / 3;
 }
 
-// Wege, Wasser, Gebäude aus dem groben Terrain (Höhen weichen minimal ab, reicht für die Vorschau)
-const t = baueTerrain(welt);
-for (const [name, g] of [['wege', baueWege(welt, t)], ['wasser', baueGewaesser(welt, t)], ['gebaeude', baueGebaeude(welt, t)]] as any[]) {
+// Wege, Wasser, Gebäude aus derselben Höhenquelle wie im Spiel — eine Vorschau,
+// die anders aufsetzt als die Szene, zeigt genau den Fehler nicht, den man sucht.
+const boden = aufsatzboden(feld), wasser = aufsatzboden(feld, true);
+for (const [name, g] of [['wege', baueWege(welt, boden)],
+                         ['wasser', baueGewaesser(welt, wasser, feld.teiche)],
+                         ['gebaeude', baueGebaeude(welt, boden)]] as any[]) {
   if (!g) continue;
   const p = g.getAttribute('position');
   const pos: number[] = [];
@@ -38,7 +42,8 @@ for (const [name, g] of [['wege', baueWege(welt, t)], ['wasser', baueGewaesser(w
   dump.teile.push({ name, pos, col: null });
 }
 
-const props = verteileProps(welt, t as any, 1)
+// Props brauchen das Rasterobjekt, aber die feine Hoehe — wie in der Szene.
+const props = verteileProps(welt, { ...baueTerrain(welt), hoeheAn: feld.hoehe }, 1)
   .filter(p => Math.hypot(p.position[0] - SP[0], p.position[2] - SP[1]) < 260);
 for (const p of props) dump.props.push([p.art, p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2], p.drehung, p.skalierung]);
 dump.farben = { nadelbaum:'#20351f', laubbaum:'#3a4d2c', busch:'#3f4f33', findling:'#6e7276', totholz:'#4a4239', grasbuschel:'#5c6b45' };

@@ -16,7 +16,7 @@ import { baueTerrain, baueGewaesser, baueGebaeude, baueWege, baueWasserfaelle, G
 import { useGLTF } from '@react-three/drei';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
-         hoeheAufFlaeche, type HoehenFeld, type Kachel } from '../world/lod.js';
+         hoeheAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung } from '../spieler/steuerung.js';
 import { peilung } from '../spieler/peilung.js';
 import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
@@ -260,26 +260,17 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
   rand: { farbe: string; staerke: number };
 }) {
   /**
-   * Wege, Gewässer und Gebäude setzen auf dem Gelände auf — sie brauchen deshalb
-   * dieselbe Höhenfunktion, die den sichtbaren Boden zeichnet.
+   * Wege, Gewässer und Gebäude setzen auf dem Gelände auf — sie brauchen dieselbe
+   * Höhenfunktion, die den sichtbaren Boden zeichnet, und dazu die Auskunft, wie
+   * weit dieser Boden in der Ferne unter ihnen wegfallen kann.
    *
-   * `terrain.hoeheAn` tastet das 41,8-m-Raster stufig ab, `feld.hoehe` interpoliert
-   * und legt Mikrorelief darüber. Gemessen weichen die beiden im Mittel um 2,35 m
-   * ab, auf Steilhängen bis 24 m — genau die Flächen, die dann in der Luft hängen
-   * oder im Berg verschwinden.
+   * Beides liefert `aufsatzboden()`. Das handgebaute `{...terrain, hoeheAn: …}`,
+   * das hier stand, war korrekt — aber es war eine zweite Quelle neben der, die
+   * die Werkzeuge benutzten, und genau daran ist die erste Messung gescheitert
+   * (G-73).
    */
-  const aufBoden = useMemo(() => ({ ...terrain, hoeheAn: feld.hoehe }), [terrain, feld]);
-  /**
-   * Höhenquelle für die Wasserfläche: Sohle plus Tiefe.
-   *
-   * Seit das Bett aus dem Gelände geschnitten wird, ist `feld.hoehe` im Bach die
-   * **Sohle**. Ein Wasserband darauf läge unter der Oberfläche. Der Spiegel liegt
-   * genau dort, wo das Gelände ohne Bett läge — also Sohle + Tiefe.
-   */
-  const aufWasser = useMemo(() => ({
-    ...terrain,
-    hoeheAn: (x: number, z: number) => feld.hoehe(x, z) + feld.wasserTiefe(x, z),
-  }), [terrain, feld]);
+  const aufBoden = useMemo(() => aufsatzboden(feld), [feld]);
+  const aufWasser = useMemo(() => aufsatzboden(feld, true), [feld]);
   const wasserMaterial = useMemo(() => baueWasserMaterial(), []);
   const fallMaterial = useMemo(() => baueWasserMaterial(true), []);
   const wegMaterial = useMemo(() => baueWegMaterial(), []);

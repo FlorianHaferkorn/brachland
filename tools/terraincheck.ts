@@ -2,9 +2,14 @@
 import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { baueTerrain, baueGewaesser, baueGebaeude, MASSSTAB } from '../src/world/terrain.js';
+import { baueHoehenfeld, aufsatzboden } from '../src/world/lod.js';
 
 const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const t = baueTerrain(welt);
+// Aufsatzgeometrie liest dieselbe Quelle wie im Spiel — sonst zaehlt dieses
+// Werkzeug Dreiecke einer Szene, die so nie gezeichnet wird (G-73).
+const boden = aufsatzboden(baueHoehenfeld(welt));
+const wasser = aufsatzboden(baueHoehenfeld(welt), true);
 const pos = t.geometrie.getAttribute('position');
 const bb = t.geometrie.boundingBox!;
 
@@ -15,8 +20,8 @@ console.log(`  Höhe im Spiel ${bb.min.y.toFixed(1)} – ${bb.max.y.toFixed(1)} 
 console.log(`  Dreiecke      ${(pos.count / 3).toLocaleString('de')}`);
 console.log(`  Vertices      ${pos.count.toLocaleString('de')}`);
 
-const w = baueGewaesser(welt, t);
-const g = baueGebaeude(welt, t);
+const w = baueGewaesser(welt, wasser, baueHoehenfeld(welt).teiche);
+const g = baueGebaeude(welt, boden);
 console.log(`  Gewässer      ${w ? (w.getAttribute('position').count / 3).toLocaleString('de') : 0} Dreiecke`);
 console.log(`  Gebäude       ${g ? (g.getAttribute('position').count / 3).toLocaleString('de') : 0} Dreiecke`);
 

@@ -75,6 +75,60 @@ export interface TerrainErgebnis {
   rasterZuWelt: (i: number, j: number) => [number, number];
 }
 
+/**
+ * Höhenquelle für alles, was auf dem Gelände **aufsitzt** — Wasserbänder, Wege,
+ * Hauswände.
+ *
+ * Warum ein eigener Typ und nicht einfach `TerrainErgebnis`? Weil die Szene dort
+ * bisher ein zurechtgebasteltes `{...terrain, hoeheAn: feld.hoehe}` durchgereicht
+ * hat und die Werkzeuge das rohe `terrain`. Zwei Aufrufer, zwei Höhen, und die
+ * Messung prüfte die falsche davon (G-73). Ein Typ, den nur `aufsatzboden()`
+ * erfüllt, zwingt beide auf denselben Weg.
+ */
+export interface Aufsatzboden {
+  breiteMeter: number;
+  tiefeMeter: number;
+  /** Höhe der Oberkante — stetige Funktion, feinste Auflösung. */
+  hoeheAn: (x: number, z: number) => number;
+  /**
+   * Tiefste Höhe, die die **gezeichnete** Fläche hier über alle LOD-Stufen annehmen
+   * kann.
+   *
+   * Ein Band folgt der stetigen Funktion, das Gelände wird in der Ferne aber auf
+   * 32-m-Vertices ausgedünnt und schneidet dann durch jede Mulde. Gemessen hängt
+   * das Gewässerband ab 220 m im Mittel 0,8 m, ab 900 m 2,5 m in der Luft
+   * (`npm run aufsatz`). Die Differenz zu `hoeheAn` ist die Schürzentiefe — genau
+   * so viel Wand nach unten, wie das Gelände wegfallen kann, und keinen Zentimeter
+   * mehr.
+   */
+  tiefsteFlaeche: (x: number, z: number) => number;
+}
+
+/** Mehr Schürze als das ist in keiner Entfernung mehr zu sehen, kostet aber Fläche. */
+export const SCHUERZE_MAX = 2.5;
+
+/**
+ * Unter dieser Lücke lohnt die Schürze nicht.
+ *
+ * 30 cm sind auf 200 m Entfernung knapp zwei Pixel und werden vom weichen Rand des
+ * Bandes ohnehin verschluckt. Bei 15 cm bekam fast jedes Wegsegment eine Böschung
+ * und das Wegband wuchs auf das Zweieinhalbfache — Dreiecke für etwas, das man
+ * nicht sieht.
+ */
+const SCHUERZE_AB = 0.3;
+
+/**
+ * Wie tief die Schürze an dieser Stelle reicht, 0 heißt: keine bauen.
+ *
+ * Exportiert, damit `npm run aufsatz` dieselbe Zeile rechnet wie der Bauer. Eine
+ * nachgebaute Formel im Werkzeug wäre eine zweite Wahrheit — genau der Fehler,
+ * der die erste Messung dieses Themas wertlos gemacht hat (G-73).
+ */
+export function schuerze(boden: Aufsatzboden, x: number, z: number, y: number): number {
+  const luft = y - boden.tiefsteFlaeche(x, z);
+  return luft < SCHUERZE_AB ? 0 : Math.min(luft, SCHUERZE_MAX);
+}
+
 export function baueTerrain(welt: Weltdaten): TerrainErgebnis {
   const [sued, west, nord, ost] = welt.bbox;
   const n = welt.aufloesung;
@@ -153,7 +207,7 @@ export function baueTerrain(welt: Weltdaten): TerrainErgebnis {
 const WASSER_UEBER_GRUND = 0.06;
 
 export function baueGewaesser(
-  welt: Weltdaten, terrain: TerrainErgebnis,
+  welt: Weltdaten, terrain: Aufsatzboden,
   /** Stehende Gewässer in Weltkoordinaten. Kommen aus `feld.teiche`. */
   teiche: readonly { punkte: [number, number][] }[] = [],
 ): THREE.BufferGeometry | null {
@@ -197,10 +251,104 @@ export function baueGewaesser(
         );
         // u = quer, -1 am linken Ufer bis +1 am rechten. v = Meter flussabwärts.
         uvs.push(-1, v1,  1, v1,  -1, v2,   1, v1,  1, v2,  -1, v2);
+
+        /**
+         * Uferwand nach unten, wo das gezeichnete Gelände unter dem Band wegfallen
+         * kann.
+         *
+         * Nicht `u = ±1` für die Schürze: Bei ±1 setzt der Shader die Deckkraft auf
+         * null (`smoothstep(0, 0.28, 1 - |u|)`), die Wand wäre unsichtbar und der
+         * Aufwand umsonst. `±0.72` gibt ihr die Farbe des flachen Ufers — das ist
+         * auch inhaltlich richtig: Was man da sieht, ist die Böschung.
+         */
+        // Je Seite getrennt geprüft — und zwar an der Bandkante, nicht in der Mitte.
+        // Wo Gelände abfällt, tut es das meistens nur nach einer Richtung; die
+        // bergseitige Wand steckt ohnehin im Hang. Beide Seiten pauschal zu bauen
+        // kostete 40 % mehr Dreiecke für kein einziges Bild.
+        for (const seite of [-1, 1]) {
+          const ox = nx * seite, oz = nz * seite;
+          const px = x1 + ox, pz = z1 + oz, qx = x2 + ox, qz = z2 + oz;
+          const s1 = schuerze(terrain, px, pz, y1), s2 = schuerze(terrain, qx, qz, y2);
+          if (s1 <= 0 && s2 <= 0) continue;
+          const u = 0.72 * seite;
+          positionen.push(
+            px, y1, pz,  px, y1 - s1, pz,  qx, y2, qz,
+            px, y1 - s1, pz,  qx, y2 - s2, qz,  qx, y2, qz,
+          );
+          uvs.push(u, v1,  u, v1,  u, v2,   u, v1,  u, v2,  u, v2);
+        }
       }
       laengs += len;
     }
   }
+
+  /**
+   * Stehende Gewässer.
+   *
+   * Dieser Parameter kam mit den Weihern herein und wurde **nie gelesen**. Solange
+   * das Höhenfeld flach war, ist es niemandem aufgefallen. Seit D63 das Bett aus
+   * dem Gelände schneidet, ist jeder der elf Weiher eine 2,4 m tiefe Grube mit
+   * blauer Bodenfarbe und ohne einen Tropfen Wasser darin.
+   *
+   * Ein Teich ist **waagerecht** — das ist der Unterschied zum Bachband, das dem
+   * Gefälle folgt. Der Spiegel liegt auf dem tiefsten Punkt des Ufers: Höher würde
+   * er überlaufen, tiefer bliebe ein Rand aus trockener Grube stehen.
+   */
+  for (const teich of teiche) {
+    const p = teich.punkte;
+    if (p.length < 3) continue;
+    let spiegel = Infinity;
+    for (const [x, z] of p) spiegel = Math.min(spiegel, terrain.hoeheAn(x, z));
+    if (!Number.isFinite(spiegel)) continue;
+
+    // Abstand zum Ufer steuert die Farbe: In der Mitte tief und deckend, am Rand
+    // flach und durchsichtig — dieselbe Skala wie quer über den Bach.
+    const uferAbstand = (x: number, z: number): number => {
+      let best = Infinity;
+      for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+        const [x1, z1] = p[j], [x2, z2] = p[i];
+        const dx = x2 - x1, dz = z2 - z1;
+        const lq = dx * dx + dz * dz;
+        const t = lq > 0 ? Math.max(0, Math.min(1, ((x - x1) * dx + (z - z1) * dz) / lq)) : 0;
+        best = Math.min(best, Math.hypot(x1 + dx * t - x, z1 + dz * t - z));
+      }
+      return best;
+    };
+    const UFER = 7;
+    const uWert = (x: number, z: number) => 1 - Math.min(1, uferAbstand(x, z) / UFER);
+
+    /**
+     * Umlaufsinn umdrehen, sonst zeigt der Teich nach unten.
+     *
+     * `triangulateShape` normalisiert den Außenring auf gegen den Uhrzeigersinn in
+     * (x, z) — und das ergibt in three.js mit Y nach oben eine Normale nach
+     * **unten**. Gemessen: 44 von 44 Dreiecken nach unten. Von oben wäre der
+     * Weiher unsichtbar geblieben, von unten sichtbar; ein Fehler, den man beim
+     * Durchlaufen nie findet, weil man nie unter dem Wasserspiegel steht.
+     */
+    const punkte2d = p.map(([x, z]) => new THREE.Vector2(x, z));
+    for (const [a, b, c] of THREE.ShapeUtils.triangulateShape(punkte2d, [])) {
+      for (const idx of [c, b, a]) {
+        const v = punkte2d[idx];
+        positionen.push(v.x, spiegel, v.y);
+        uvs.push(uWert(v.x, v.y), 0);
+      }
+    }
+
+    // Uferwand, damit der Spiegel in der Ferne nicht über der ausgedünnten Fläche
+    // schwebt — gleiche Begründung wie beim Bach.
+    for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+      const [x1, z1] = p[j], [x2, z2] = p[i];
+      const s1 = schuerze(terrain, x1, z1, spiegel), s2 = schuerze(terrain, x2, z2, spiegel);
+      if (s1 <= 0 && s2 <= 0) continue;
+      positionen.push(
+        x1, spiegel, z1,  x1, spiegel - s1, z1,  x2, spiegel, z2,
+        x1, spiegel - s1, z1,  x2, spiegel - s2, z2,  x2, spiegel, z2,
+      );
+      for (let k = 0; k < 6; k++) uvs.push(0.72, 0);
+    }
+  }
+
   if (!positionen.length) return null;
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
@@ -227,7 +375,7 @@ export function baueGewaesser(
 const WASSERFALL_AB = 0.22;
 
 export function baueWasserfaelle(
-  welt: Weltdaten, terrain: TerrainErgebnis,
+  welt: Weltdaten, terrain: Aufsatzboden,
 ): THREE.BufferGeometry | null {
   const [sued, west, nord, ost] = welt.bbox;
   const positionen: number[] = [];
@@ -281,7 +429,7 @@ export function baueWasserfaelle(
  * Wege und Straßen als flache Bänder auf dem Terrain. Strukturieren die Landschaft
  * stark — ohne sie wirkt selbst gutes Gelände wie unbewohnte Wildnis.
  */
-export function baueWege(welt: Weltdaten, terrain: TerrainErgebnis): THREE.BufferGeometry | null {
+export function baueWege(welt: Weltdaten, terrain: Aufsatzboden): THREE.BufferGeometry | null {
   const [sued, west, nord, ost] = welt.bbox;
   const positionen: number[] = [];
   const zuWelt = (lat: number, lon: number): [number, number] => [
@@ -314,6 +462,24 @@ export function baueWege(welt: Weltdaten, terrain: TerrainErgebnis): THREE.Buffe
           x1 + nx, y1, z1 + nz,  x2 + nx, y2, z2 + nz,  x2 - nx, y2, z2 - nz,
         );
         uvs.push(-1, v1,  1, v1,  -1, v2,   1, v1,  1, v2,  -1, v2);
+
+        // Böschung, wo das gezeichnete Gelände unter dem Band wegfallen kann.
+        // 26 % aller Wegproben hängen auf der gröbsten Stufe über 0,5 m in der Luft
+        // (`npm run aufsatz`) — ein Feldweg am Hang hat dort in Wirklichkeit eine
+        // Anschüttung, also bauen wir genau die.
+        // Nur die talseitige Böschung, aus demselben Grund wie beim Gewässer.
+        for (const seite of [-1, 1]) {
+          const ox = nx * seite, oz = nz * seite;
+          const px = x1 + ox, pz = z1 + oz, qx = x2 + ox, qz = z2 + oz;
+          const s1 = schuerze(terrain, px, pz, y1), s2 = schuerze(terrain, qx, qz, y2);
+          if (s1 <= 0 && s2 <= 0) continue;
+          const u = 0.72 * seite;
+          positionen.push(
+            px, y1, pz,  px, y1 - s1, pz,  qx, y2, qz,
+            px, y1 - s1, pz,  qx, y2 - s2, qz,  qx, y2, qz,
+          );
+          uvs.push(u, v1,  u, v1,  u, v2,   u, v1,  u, v2,  u, v2);
+        }
       }
       laengs += len;
     }
@@ -330,7 +496,7 @@ export function baueWege(welt: Weltdaten, terrain: TerrainErgebnis): THREE.Buffe
  * Gebäude aus OSM-Grundrissen. Höhe aus `building:levels` (3 m je Ebene), plus
  * einfaches Satteldach — ohne Dach wirkt jede Siedlung wie ein Industriegebiet.
  */
-export function baueGebaeude(welt: Weltdaten, terrain: TerrainErgebnis): THREE.BufferGeometry | null {
+export function baueGebaeude(welt: Weltdaten, terrain: Aufsatzboden): THREE.BufferGeometry | null {
   const [sued, west, nord, ost] = welt.bbox;
   const positionen: number[] = [];
   const farben: number[] = [];
@@ -371,19 +537,77 @@ export function baueGebaeude(welt: Weltdaten, terrain: TerrainErgebnis): THREE.B
     const p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
     if (p.length < 3) continue;
     const h = (g.ebenen * METER_JE_EBENE) / MASSSTAB.stauchung;
-    const boden = Math.min(...p.map(([x, z]) => terrain.hoeheAn(x, z)));
 
-    const xs = p.map(q => q[0]), zs = p.map(q => q[1]);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minZ = Math.min(...zs), maxZ = Math.max(...zs);
-    const breite = maxX - minX, tiefe = maxZ - minZ;
+    /**
+     * Sockel auf den tiefsten Punkt der **Wandlinie**, nicht der Ecken.
+     *
+     * Der Unterschied ist keine Feinheit: Bei 301 von 2.009 Häusern liegt das
+     * Gelände zwischen zwei Ecken tiefer als an beiden Ecken, im Extrem 2,23 m
+     * (`npm run aufsatz`). Genau dort steht die Wand auf nichts, und man sieht
+     * unter dem Haus hindurch. Abgetastet wird alle 1,5 m — feiner als das
+     * Mikrorelief Wellen schlägt.
+     */
+    let boden = Infinity, unterkante = Infinity;
+    for (let k = 0; k < p.length - 1; k++) {
+      const [ax, az] = p[k], [bx, bz] = p[k + 1];
+      const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 1.5));
+      for (let i = 0; i <= n; i++) {
+        const x = ax + (bx - ax) * i / n, z = az + (bz - az) * i / n;
+        boden = Math.min(boden, terrain.hoeheAn(x, z));
+        unterkante = Math.min(unterkante, terrain.tiefsteFlaeche(x, z));
+      }
+    }
+    if (!Number.isFinite(boden)) continue;
+    // Fundament: so weit unter den Sockel, wie das gezeichnete Gelände in der
+    // Ferne wegfallen kann. Deckelt bei SCHUERZE_MAX — ein Haus braucht keinen
+    // 15 m tiefen Keller, den ohnehin niemand sieht.
+    const fuss = boden - Math.min(SCHUERZE_MAX, Math.max(0, boden - unterkante));
+
+    /**
+     * Orientierte Hülle statt achsparalleler.
+     *
+     * Bisher folgten die Wände dem Grundriss, Dach und Balkon aber der
+     * achsparallelen Bounding Box. Nur 9 % der Grundrisse liegen achsnah, die
+     * mittlere Drehung beträgt 27° — die Hülle ist im Median **1,9-fach** so groß
+     * wie das Haus, im Extremfall 4-fach. Dach und Haus waren buchstäblich zwei
+     * verschiedene Körper: Der Deckel stand über, der First zeigte in die falsche
+     * Richtung, und an den Ecken klaffte es.
+     *
+     * Die Achse kommt aus der längsten Kante. Bei einem rechteckigen Grundriss ist
+     * das exakt die Firstrichtung, bei einem verwinkelten die dominante — beides
+     * besser als Nord-Süd per Zufall.
+     */
+    let achse = 0, laengste = 0;
+    for (let k = 0; k < p.length - 1; k++) {
+      const dx = p[k + 1][0] - p[k][0], dz = p[k + 1][1] - p[k][1];
+      const l = Math.hypot(dx, dz);
+      if (l > laengste) { laengste = l; achse = Math.atan2(dz, dx); }
+    }
+    let cos = Math.cos(achse), sin = Math.sin(achse);
+    const lokal = (x: number, z: number): [number, number] => [x * cos + z * sin, -x * sin + z * cos];
+    let lok = p.map(([x, z]) => lokal(x, z));
+    let minU = Math.min(...lok.map(q => q[0])), maxU = Math.max(...lok.map(q => q[0]));
+    let minV = Math.min(...lok.map(q => q[1])), maxV = Math.max(...lok.map(q => q[1]));
+    // u soll die lange Achse sein — sonst läuft der First über die schmale Seite.
+    if (maxV - minV > maxU - minU) {
+      achse += Math.PI / 2;
+      cos = Math.cos(achse); sin = Math.sin(achse);
+      lok = p.map(([x, z]) => lokal(x, z));
+      minU = Math.min(...lok.map(q => q[0])); maxU = Math.max(...lok.map(q => q[0]));
+      minV = Math.min(...lok.map(q => q[1])); maxV = Math.max(...lok.map(q => q[1]));
+    }
+    /** Punkt im Hüllensystem zurück nach Welt, mit Höhe. */
+    const welt3 = (u: number, y: number, v: number): [number, number, number] =>
+      [u * cos - v * sin, y, u * sin + v * cos];
+
+    const breite = maxU - minU, tiefe = maxV - minV;
     const klein = Math.min(breite, tiefe);
     if (klein < 1.5) continue;
 
     // Wände
     for (let k = 0; k < p.length - 1; k++) {
       const [x1, z1] = p[k], [x2, z2] = p[k + 1];
-      quad([x1, boden, z1], [x2, boden, z2], [x2, boden + h, z2], [x1, boden + h, z1], WAND);
+      quad([x1, fuss, z1], [x2, fuss, z2], [x2, boden + h, z2], [x1, boden + h, z1], WAND);
 
       /**
        * Fenster als aufgesetzte Flächen, nicht als Löcher in der Wand.
@@ -425,26 +649,22 @@ export function baueGebaeude(welt: Weltdaten, terrain: TerrainErgebnis): THREE.B
      * anderthalb Meter weit, damit der Schnee vom Balkon bleibt. Ohne ihn sitzt das
      * Dach bündig auf dem Quader, und genau das sah aus wie ein Karton mit Deckel.
      */
-    const laengsX = breite >= tiefe;
     const ueber = Math.min(1.4, klein * 0.16);
     const traufe = boden + h;
     const firstH = traufe + klein * 0.42;
-    const aX0 = minX - ueber, aX1 = maxX + ueber;
-    const aZ0 = minZ - ueber, aZ1 = maxZ + ueber;
-    const mx = (minX + maxX) / 2, mz = (minZ + maxZ) / 2;
+    const aU0 = minU - ueber, aU1 = maxU + ueber;
+    const aV0 = minV - ueber, aV1 = maxV + ueber;
+    const mv = (minV + maxV) / 2;
 
-    if (laengsX) {
-      quad([aX0, traufe, aZ0], [aX1, traufe, aZ0], [aX1, firstH, mz], [aX0, firstH, mz], DACH);
-      quad([aX1, traufe, aZ1], [aX0, traufe, aZ1], [aX0, firstH, mz], [aX1, firstH, mz], DACH);
-      // Giebeldreiecke schließen die Stirnseiten — sonst schaut man ins Dach hinein.
-      tri([minX, traufe, minZ], [minX, traufe, maxZ], [minX, firstH, mz], WAND);
-      tri([maxX, traufe, maxZ], [maxX, traufe, minZ], [maxX, firstH, mz], WAND);
-    } else {
-      quad([aX0, traufe, aZ0], [mx, firstH, aZ0], [mx, firstH, aZ1], [aX0, traufe, aZ1], DACH);
-      quad([aX1, traufe, aZ1], [mx, firstH, aZ1], [mx, firstH, aZ0], [aX1, traufe, aZ0], DACH);
-      tri([minX, traufe, minZ], [maxX, traufe, minZ], [mx, firstH, minZ], WAND);
-      tri([maxX, traufe, maxZ], [minX, traufe, maxZ], [mx, firstH, maxZ], WAND);
-    }
+    // First läuft über u, die lange Achse. Die Fallunterscheidung von früher ist
+    // weg — die Drehung erledigt, was vorher zwei Zweige tun mussten.
+    quad(welt3(aU0, traufe, aV0), welt3(aU1, traufe, aV0),
+         welt3(aU1, firstH, mv), welt3(aU0, firstH, mv), DACH);
+    quad(welt3(aU1, traufe, aV1), welt3(aU0, traufe, aV1),
+         welt3(aU0, firstH, mv), welt3(aU1, firstH, mv), DACH);
+    // Giebeldreiecke schließen die Stirnseiten — sonst schaut man ins Dach hinein.
+    tri(welt3(minU, traufe, minV), welt3(minU, traufe, maxV), welt3(minU, firstH, mv), WAND);
+    tri(welt3(maxU, traufe, maxV), welt3(maxU, traufe, minV), welt3(maxU, firstH, mv), WAND);
 
     /**
      * Balkon unter der Traufe der Längsseite.
@@ -455,15 +675,11 @@ export function baueGebaeude(welt: Weltdaten, terrain: TerrainErgebnis): THREE.B
     if (g.ebenen >= 2 && Math.max(breite, tiefe) >= 6) {
       const y = boden + (g.ebenen - 1) * METER_JE_EBENE + 0.6;
       const tiefeB = 1.1;
-      if (laengsX) {
-        const z0 = maxZ, z1 = maxZ + tiefeB;
-        quad([minX, y, z0], [maxX, y, z0], [maxX, y, z1], [minX, y, z1], HOLZ);
-        quad([minX, y, z1], [maxX, y, z1], [maxX, y + 0.95, z1], [minX, y + 0.95, z1], HOLZ);
-      } else {
-        const x0 = maxX, x1 = maxX + tiefeB;
-        quad([x0, y, minZ], [x0, y, maxZ], [x1, y, maxZ], [x1, y, minZ], HOLZ);
-        quad([x1, y, minZ], [x1, y, maxZ], [x1, y + 0.95, maxZ], [x1, y + 0.95, minZ], HOLZ);
-      }
+      const v0 = maxV, v1 = maxV + tiefeB;
+      quad(welt3(minU, y, v0), welt3(maxU, y, v0),
+           welt3(maxU, y, v1), welt3(minU, y, v1), HOLZ);
+      quad(welt3(minU, y, v1), welt3(maxU, y, v1),
+           welt3(maxU, y + 0.95, v1), welt3(minU, y + 0.95, v1), HOLZ);
     }
   }
 
