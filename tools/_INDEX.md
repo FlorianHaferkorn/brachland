@@ -43,6 +43,8 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `batch.mjs` | Stapelverarbeitung ganzer Ordner durch die Reduktion |
 | `autorig.py` | Automatisches Rigging über Blender anhand der Archetyp-Rigs |
 | `rigausbau.mjs` | `node rigausbau.mjs <in.glb> <out.glb> [koerpermesh]` — schneidet aus einem fertigen Modell das **Archetyp-Rig** heraus: behält Skelett, Haut und Animationen, wirft alle Meshes außer dem benannten Körper weg. Damit ist `assets/rigs/quadruped.glb` entstanden, aus den Dateien, die als Grathorn geführt wurden und ein three.js-Beispielfuchs waren (G-65) |
+| `rigbau.mjs` | `npm run rigs` — erzeugt `serpent.glb` und `biped_bird.glb` **rechnerisch**: Knochenkette, Skin und drei Bewegungen aus Sinuskurven. Kein Fremdmodell, keine CC-BY-Pflicht. `quadruped_small` fehlt mit Absicht — `autorig.py` skaliert das Skelett ans Mesh, also teilt es sich das Rig mit `quadruped` |
+| `hoehenbild.mjs` | `node hoehenbild.mjs <a.json> <b.json> <raus.png> [ausschnitt]` — zwei Weltstände als Schummerung nebeneinander. Weil „mittlere Stufe 3,08 gegen 2,09 m" die richtige Zahl ist und trotzdem niemand ihr ansieht, ob ein Hang terrassiert wirkt |
 | `pipeline.sh` | `npm run assets` — Roh-GLB → reduziert → geriggt, in einem Durchlauf |
 
 ## Tore (blocken den Merge)

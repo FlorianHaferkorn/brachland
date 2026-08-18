@@ -14,6 +14,8 @@ owns: *.glb
 | Pfad | Inhalt |
 |---|---|
 | `rigs/quadruped.glb` | **Archetyp-Rig Vierbeiner** — 100 KB, ein Mesh, 24 Knochen, Animationen `Survey`/`Walk`/`Run`. Die Vorlage, von der `../tools/autorig.py` Skelett und Bewegung erbt |
+| `rigs/serpent.glb` | **Archetyp-Rig Schlange** — 23 KB, 10 Knochen in einer Kette, Animationen `Ruhe`/`Gehen`/`Rennen`. **Gerechnet, nicht geliehen** (`../tools/rigbau.mjs`): Schlangenbewegung ist eine Sinuswelle durch den Körper, und die schreibt man besser hin, als sie zu suchen |
+| `rigs/biped_bird.glb` | **Archetyp-Rig Vogel** — 26 KB, 15 Knochen, zwei Beine, zwei Flügel. Ebenfalls gerechnet. Beine im Gegentakt (31° Ausschlag beim Gehen, 54° beim Rennen), im Leerlauf atmen nur die Flügel (2,9°) |
 | `creatures/` | **Leer.** Es gibt derzeit kein Kreaturenmodell — und laut ADR-0002 soll es auch keines geben, bis die Stilreferenz steht. In der Welt stehen Silhouetten (`../src/world/kreaturgestalt.ts`, Ledger G-23) |
 
 ## Was hier gestanden hat — und was es wirklich war

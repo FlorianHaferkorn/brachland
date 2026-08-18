@@ -43,7 +43,10 @@ function kennzahlen(raster: number[][], meterJeZelle: number) {
 const BREITE_M = 3968;
 
 console.log('Höhenmodelle im Vergleich — Œntal\n');
-for (const aufl of [96, 192, 256]) {
+// 384 ist seit 18.08.2026 der gebaute Stand. Die Liste steht hier, damit der
+// Sprung sichtbar bleibt: Was das feinere Raster bringt, ist die mittlere Stufe
+// zwischen Nachbarpunkten — sie ist das, was man als Terrassierung sieht.
+for (const aufl of [96, 192, 256, 384]) {
   const e = await holeHoehenDgm1(bbox, aufl, () => {});
   const k = kennzahlen(e.raster, BREITE_M / (aufl - 1));
   console.log(`  DGM1 ${String(aufl).padStart(3)}x${aufl}  ` +

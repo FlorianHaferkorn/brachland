@@ -303,11 +303,35 @@ export function baueWelt(bbox: BBox, ways: OsmWay[], hoehen: number[][]): Weltda
 
   return {
     bbox, aufloesung, hoehen,
-    hoeheMin: Math.min(...flach), hoeheMax: Math.max(...flach),
+    hoeheMin: kleinster(flach), hoeheMax: groesster(flach),
     biome, flaechen, linien, gebaeude, wege, marker,
     attribution: '© OpenStreetMap-Mitwirkende (ODbL) · Höhendaten: Bayerische '
       + 'Vermessungsverwaltung – www.geodaten.bayern.de (DGM1, CC BY 4.0, bearbeitet)',
   };
+}
+
+/**
+ * Kleinster und größter Wert einer langen Liste — als Schleife, nicht als Spread.
+ *
+ * Hier stand `Math.min(...flach)`. Das hielt bei Raster 256 (65.536 Werte) gerade
+ * noch und ist bei **384 mit `RangeError: Maximum call stack size exceeded`
+ * gestorben**: Ein Spread legt jedes Element als eigenes Argument auf den Stack,
+ * und dessen Größe ist die Grenze, nicht der Speicher.
+ *
+ * Der Fehler saß seit dem ersten Weltbau da und war nur deshalb unsichtbar, weil
+ * niemand die Auflösung erhöht hat. Wer es tat, bekam keinen Hinweis auf die
+ * Ursache, sondern einen Stapelüberlauf in einer Zeile, die nach Statistik aussieht.
+ */
+function kleinster(werte: readonly number[]): number {
+  let m = Infinity;
+  for (const w of werte) if (w < m) m = w;
+  return m;
+}
+
+function groesster(werte: readonly number[]): number {
+  let m = -Infinity;
+  for (const w of werte) if (w > m) m = w;
+  return m;
 }
 
 /**

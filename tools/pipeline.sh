@@ -31,7 +31,23 @@ for f in "${files[@]}"; do
   # Archetyp aus dem Dateinamen: steinbock__quadruped.glb -> rigs/quadruped.glb
   arch="${name##*__}"
   [ "$arch" = "$name" ] && arch="quadruped"
-  rig="$RIGS/$arch.glb"
+
+  # `quadruped_small` teilt sich das Rig mit `quadruped`.
+  #
+  # Nicht aus Bequemlichkeit: `autorig.py` skaliert das SKELETT an die Bounding
+  # Box des Meshes, je Achse einzeln ("Nicht das Mesh ans Skelett anpassen,
+  # sondern das Skelett ans Mesh"). Ein Murmeltier bekommt damit dasselbe
+  # Skelett wie ein Steinbock, nur gestaucht — und das ist genau richtig, weil
+  # beide vier Beine, eine Wirbelsäule und einen Schwanz haben.
+  #
+  # Der Unterschied zwischen den beiden Bauformen ist die reale Widerristhöhe
+  # (`RIG_HOEHE` in src/world/kreaturgestalt.ts: 1,0 m gegen 0,4 m), also eine
+  # Angabe fuers Spiel — keine Aussage ueber die Knochen.
+  case "$arch" in
+    quadruped_small) rigdatei="quadruped" ;;
+    *)               rigdatei="$arch" ;;
+  esac
+  rig="$RIGS/$rigdatei.glb"
   if [ ! -f "$rig" ]; then
     echo "→ $name  ÜBERSPRUNGEN (Archetyp-Rig $rig fehlt)"; ((fail++)); continue
   fi

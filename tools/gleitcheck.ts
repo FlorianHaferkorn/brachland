@@ -124,7 +124,11 @@ for (let i = 0; i < RASTER; i++) {
   }
 }
 
-const hMin = Math.min(...hoehen), hMax = Math.max(...hoehen);
+// Als Schleife, nicht als Spread: `Math.min(...)` legt jedes Element als eigenes
+// Argument auf den Stack und stirbt bei sechsstelligen Listen mit RangeError.
+// Genau daran ist der Weltbau bei Raster 384 gescheitert (osm.ts, `kleinster`).
+let hMin = Infinity, hMax = -Infinity;
+for (const h of hoehen) { if (h < hMin) hMin = h; if (h > hMax) hMax = h; }
 const ueber = (g: number) => hoehen.filter(h => h - hMin > g).length;
 const proz = (k: number, n: number) => `${((100 * k) / n).toFixed(1)} %`;
 

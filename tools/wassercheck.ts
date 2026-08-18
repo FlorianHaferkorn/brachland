@@ -44,16 +44,44 @@ const laeufe: Lauf[] = welt.linien.map(l => {
   return { art: l.art, breite: l.breite / MASSSTAB.stauchung, meter: m };
 });
 
-const nachArt = new Map<string, { anzahl: number; meter: number; breite: number }>();
+/**
+ * Breiten **je Lauf** sammeln, nicht eine je Art.
+ *
+ * Hier stand `e.breite = l.breite` in der Schleife — der Wert des zuletzt
+ * gelesenen Laufs, ausgegeben als wäre er die Breite der ganzen Art. Damit hat
+ * das Werkzeug die Umstellung aus G-54 **verdeckt**: In der gebauten Welt tragen
+ * 50 von 190 Läufen inzwischen eine echte OSM-Breite (0,3 bis 3 m), gemeldet
+ * wurden unverändert 4,0 m — die Schätzung. Eine Kennzahl, die einen Fortschritt
+ * nicht zeigen kann, kann auch keinen Rückschritt zeigen.
+ *
+ * Die Schätzwerte stehen in `src/world/osm.ts`: stream 4, ditch 2, river 12.
+ * Alles, was exakt darauf liegt, ist mit hoher Wahrscheinlichkeit geschätzt und
+ * wird hier getrennt gezählt.
+ */
+const GESCHAETZT: Record<string, number> = { stream: 4, ditch: 2, river: 12 };
+
+const nachArt = new Map<string, { breiten: number[]; meter: number }>();
 for (const l of laeufe) {
-  const e = nachArt.get(l.art) ?? { anzahl: 0, meter: 0, breite: l.breite };
-  e.anzahl++; e.meter += l.meter; e.breite = l.breite;
+  const e = nachArt.get(l.art) ?? { breiten: [], meter: 0 };
+  e.breiten.push(l.breite); e.meter += l.meter;
   nachArt.set(l.art, e);
 }
+const median = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  return s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
+};
 
-console.log('  Art            Läufe      Länge      Breite');
-for (const [art, e] of [...nachArt].sort((a, b) => b[1].meter - a[1].meter))
-  console.log(`  ${art.padEnd(14)} ${String(e.anzahl).padStart(5)} ${(e.meter / 1000).toFixed(1).padStart(9)} km ${e.breite.toFixed(1).padStart(8)} m`);
+console.log('  Art            Läufe      Länge   Breite: min  Median     max   davon gemessen');
+for (const [art, e] of [...nachArt].sort((a, b) => b[1].meter - a[1].meter)) {
+  const gem = e.breiten.filter(b => Math.abs(b - (GESCHAETZT[art] ?? -1)) > 0.01).length;
+  console.log(`  ${art.padEnd(14)} ${String(e.breiten.length).padStart(5)} ${(e.meter / 1000).toFixed(1).padStart(9)} km`
+    + ` ${Math.min(...e.breiten).toFixed(1).padStart(9)} ${median(e.breiten).toFixed(1).padStart(7)}`
+    + ` ${Math.max(...e.breiten).toFixed(1).padStart(7)} m`
+    + ` ${(gem + ' von ' + e.breiten.length).padStart(16)}`);
+}
+const alleGemessen = laeufe.filter(l => Math.abs(l.breite - (GESCHAETZT[l.art] ?? -1)) > 0.01).length;
+console.log(`\n  ${alleGemessen} von ${laeufe.length} Läufen tragen eine Breite aus OSM (G-54),`
+  + ` die übrigen ${laeufe.length - alleGemessen} sind geschätzt.`);
 
 const gesamtM = laeufe.reduce((a, l) => a + l.meter, 0);
 const maxBreite = Math.max(...laeufe.map(l => l.breite));
