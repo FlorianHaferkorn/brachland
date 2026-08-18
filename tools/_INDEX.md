@@ -27,6 +27,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Prüfen, ob man beim Spielen überhaupt Kreaturen findet | `vorkommencheck.ts` |
 | Größenverhältnisse prüfen | `masstab.ts` |
 | Beurteilen, ob der Wald zu dunkel ist — **bevor** man an Lichtwerten dreht | `lichtcheck.ts` |
+| Vegetation aus dem Kenney-Kit nachziehen oder umfärben | `propbau.ts` → `../src/world/props.ts` |
 | Prüfen, ob eine Bewegungsregel die Welt unbegehbar macht | `steigungcheck.ts` |
 | Prüfen, ob Silhouetten ins Budget passen — **und ob man ihnen die Herkunft ansieht** | `gestaltcheck.ts` |
 | Ein Gleitverhältnis wählen, ohne zu raten | `gleitcheck.ts` → `../src/spieler/gleiten.ts` |
@@ -45,6 +46,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `autorig.py` | Automatisches Rigging über Blender anhand der Archetyp-Rigs |
 | `rigausbau.mjs` | `node rigausbau.mjs <in.glb> <out.glb> [koerpermesh]` — schneidet aus einem fertigen Modell das **Archetyp-Rig** heraus: behält Skelett, Haut und Animationen, wirft alle Meshes außer dem benannten Körper weg. Damit ist `assets/rigs/quadruped.glb` entstanden, aus den Dateien, die als Grathorn geführt wurden und ein three.js-Beispielfuchs waren (G-65) |
 | `rigbau.mjs` | `npm run rigs` — erzeugt `serpent.glb` und `biped_bird.glb` **rechnerisch**: Knochenkette, Skin und drei Bewegungen aus Sinuskurven. Kein Fremdmodell, keine CC-BY-Pflicht. `quadruped_small` fehlt mit Absicht — `autorig.py` skaliert das Skelett ans Mesh, also teilt es sich das Rig mit `quadruped` |
+| `propbau.ts` | `npm run props:bau` — baut die Prop-GLB aus dem Kenney Nature Kit (CC0): Kenneys Palette raus, Projektfarbe je Materialrolle als Vertexfarbe rein, alle Primitive zu einem verschmolzen, Höhe aus `VARIANTEN` in echte Meter gerechnet. Braucht das Kit unter `.cache/kenney/natur` und sagt sonst, wie man es holt |
 | `hoehenbild.mjs` | `node hoehenbild.mjs <a.json> <b.json> <raus.png> [ausschnitt]` — zwei Weltstände als Schummerung nebeneinander. Weil „mittlere Stufe 3,08 gegen 2,09 m" die richtige Zahl ist und trotzdem niemand ihr ansieht, ob ein Hang terrassiert wirkt |
 | `pipeline.sh` | `npm run assets` — Roh-GLB → reduziert → geriggt, in einem Durchlauf |
 

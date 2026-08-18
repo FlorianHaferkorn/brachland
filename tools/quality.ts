@@ -8,6 +8,7 @@
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { effektivitaet, ELEMENTE, BAND } from '../src/data/schema.js';
+import { VARIANTEN, propPfad } from '../src/world/props.js';
 
 type Befund = { schwere: 'stop' | 'warnung'; bereich: string; text: string };
 const befunde: Befund[] = [];
@@ -147,6 +148,38 @@ const dateien = new Set(Object.values(RIGDATEI));
 console.log(`  · [Assets] Archetyp-Rigs: ${gedeckt.length}/${bauformen.length} Bauformen gedeckt`
   + ` aus ${dateien.size} Dateien`
   + (offen.length ? ` — offen: ${offen.join(', ')} (B-10)` : ''));
+
+/**
+ * Props: Datei da, genau ein Primitiv, Vertexfarben drin.
+ *
+ * Alle drei Bedingungen waren einmal verletzt, und keine davon hat sich als
+ * Fehlermeldung gezeigt — sie zeigten sich als Bild. Ohne `COLOR_0` liefert WebGL
+ * für ein deklariertes Attribut den Vorgabewert (0,0,0), und das Modell wird
+ * **schwarz** gezeichnet statt gar nicht. Mit mehreren Primitiven nimmt die Szene
+ * das erste und lässt den Rest weg. Beides fällt beim Spielen auf und in keinem
+ * Test (G-76).
+ *
+ * Geprüft wird direkt in der GLB, ohne glTF-Bibliothek: Der JSON-Block steht am
+ * Anfang der Datei und nennt Meshes, Primitive und Attribute im Klartext.
+ */
+const propDateien = (Object.values(VARIANTEN) as { datei: string }[][]).flat();
+if (propDateien.length) {
+  let heil = 0;
+  for (const v of propDateien) {
+    const pfad = join('public', propPfad(v.datei));
+    if (!existsSync(pfad)) { stop('Props', `${v.datei}.glb fehlt — npm run props:bau`); continue; }
+    const roh = readFileSync(pfad);
+    const jsonLaenge = roh.readUInt32LE(12);
+    const kopf = JSON.parse(roh.subarray(20, 20 + jsonLaenge).toString('utf8'));
+    const prims = (kopf.meshes ?? []).flatMap((m: { primitives: unknown[] }) => m.primitives);
+    if (prims.length !== 1)
+      stop('Props', `${v.datei}.glb hat ${prims.length} Primitive — die Szene zeichnet nur das erste`);
+    else if (!prims[0].attributes?.COLOR_0)
+      stop('Props', `${v.datei}.glb ohne COLOR_0 — wird mit vertexColors gezeichnet und bliebe schwarz`);
+    else heil++;
+  }
+  console.log(`  · [Assets] Props: ${heil}/${propDateien.length} mit einem Primitiv und Vertexfarbe`);
+}
 
 // -------------------------------------------------- 4. System-Invarianten
 let matrixOk = true;

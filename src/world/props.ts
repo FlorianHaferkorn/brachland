@@ -13,7 +13,8 @@ import type { Weltdaten, Biom } from './osm.js';
 import type { TerrainErgebnis } from './terrain.js';
 import { MASSSTAB } from './terrain.js';
 
-export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbuschel' | 'totholz';
+export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbuschel' | 'totholz'
+                    | 'blume' | 'pilz';
 
 /**
  * Props je Hektar und Biom.
@@ -28,15 +29,15 @@ export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbus
  * Fernattrappen statt voller Modelle (Ledger G-15), nicht noch mehr Dichte.
  */
 const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
-  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30 },
-  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34 },
-  wiese:     { grasbuschel: 40, busch: 3, laubbaum: 1.2 },
-  acker:     { grasbuschel: 8 },
-  fels:      { findling: 18, busch: 4, nadelbaum: 1.6 },
+  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4 },
+  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9 },
+  wiese:     { grasbuschel: 40, busch: 3, laubbaum: 1.2, blume: 22 },
+  acker:     { grasbuschel: 8, blume: 2 },
+  fels:      { findling: 18, busch: 4, nadelbaum: 1.6, grasbuschel: 6 },
   wasser:    {},
-  siedlung:  { laubbaum: 6, busch: 7 },
-  industrie: { busch: 4, totholz: 3 },
-  ruine:     { busch: 9, totholz: 5, findling: 5 },
+  siedlung:  { laubbaum: 6, busch: 7, grasbuschel: 12, blume: 6 },
+  industrie: { busch: 4, totholz: 3, grasbuschel: 9 },
+  ruine:     { busch: 9, totholz: 5, findling: 5, grasbuschel: 14, blume: 3 },
   unbekannt: { grasbuschel: 10 },
 };
 
@@ -47,11 +48,15 @@ const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
 export const SICHTWEITE: Record<PropArt, number> = {
   nadelbaum: 420, laubbaum: 420, findling: 300,
   busch: 180, totholz: 160, grasbuschel: 90,
+  // Eine Blume ist 25 cm hoch und ein Pilz 15 — jenseits von 45 m sind sie
+  // weniger als ein Pixel und kosten trotzdem einen ganzen Draw Call je Chunk.
+  blume: 55, pilz: 45,
 };
 
 /** Ab dieser Neigung wächst nichts mehr — verhindert Bäume an Felswänden. */
 const MAX_NEIGUNG_GRAD: Partial<Record<PropArt, number>> = {
   nadelbaum: 38, laubbaum: 32, busch: 45, totholz: 35, grasbuschel: 40, findling: 60,
+  blume: 35, pilz: 30,
 };
 
 export interface PropInstanz {
@@ -109,7 +114,7 @@ export function verteileProps(
           const z = z0 + zufall() * zellTiefe;
           props.push({
             art,
-            variante: Math.floor(zufall() * VARIANTEN[art].length),
+            variante: Math.floor(zufall() * variantenZahl(art)),
             position: [x, terrain.hoeheAn(x, z), z],
             drehung: zufall() * Math.PI * 2,
             skalierung: 0.75 + zufall() * 0.6,
@@ -123,28 +128,145 @@ export function verteileProps(
 
 // ------------------------------------------------------ Modelle statt Primitive
 /**
- * Echte Modelle aus dem Kenney Nature Kit (CC0), reduziert über tools/reduce.mjs.
- * Je Art mehrere Varianten — ein einziges Baummodell 25.000-mal geklont fällt sofort
- * als Muster auf, vier Varianten reichen, damit der Wald wie ein Wald wirkt.
+ * Echte Modelle aus dem Kenney Nature Kit (CC0), umgefärbt über `npm run props:bau`.
  *
- * Kenney-Modelle sind in Blockeinheiten modelliert (Baum = 2 Einheiten hoch).
- * SKALIERUNG rechnet sie auf reale Meter um — im 1:1-Maßstab ist eine Fichte 22 m.
+ * **Die Höhe steht hier, nicht in einer Normierung.** Vorher zog die Szene jedes
+ * Modell auf eine feste Zielhöhe je Art — alle 44.968 Grasbüschel wurden damit auf
+ * exakt 0,35 m gestreckt, egal ob das Quellmodell ein Halm oder eine Staude war.
+ * Genau die Vielfalt, die im Kit steckt, hat die Normierung wieder herausgerechnet.
+ *
+ * Die Kenney-Palette wird **nicht** übernommen. Sie ist bewusst bunt (Gras
+ * `#73eddd` Minze, Rinde `#f2be9e` Pfirsich) und steht quer zu einer Art Direction
+ * aus gedämpften Alpentönen. `propbau.ts` ersetzt sie durch `KENNEY_FARBE` und
+ * backt das Ergebnis als Vertexfarbe ein — ein Material für alle Props.
  */
-export const VARIANTEN: Record<PropArt, string[]> = {
-  nadelbaum:   ['nadelbaum_0', 'nadelbaum_1', 'nadelbaum_2', 'nadelbaum_3'],
-  laubbaum:    ['laubbaum_0', 'laubbaum_1', 'laubbaum_2', 'laubbaum_3'],
-  busch:       ['busch_0', 'busch_1', 'busch_2', 'busch_3'],
-  findling:    ['findling_0', 'findling_1', 'findling_2', 'findling_3'],
-  totholz:     ['totholz_0', 'totholz_1', 'totholz_2'],
-  grasbuschel: ['grasbuschel_0', 'grasbuschel_1', 'grasbuschel_2', 'grasbuschel_3'],
+export interface Variante {
+  /** Dateiname unter `public/props`, ohne Endung. */
+  datei: string;
+  /** Quellmodell im Kenney Nature Kit. */
+  quelle: string;
+  /** Reale Höhe in Metern. */
+  hoehe: number;
+}
+
+export const VARIANTEN: Record<PropArt, Variante[]> = {
+  // Bäume sind prozedural (D40) — die Liste bleibt leer, damit nichts geladen wird,
+  // was danach weggeworfen wird. Vorher lagen acht ungenutzte Baum-GLB im
+  // Offline-Cache und wurden bei jedem Start vorgeladen. Ihre Vielfalt steht in
+  // PROZEDURALE_VARIANTEN, nicht hier.
+  nadelbaum: [],
+  laubbaum: [],
+  busch: [
+    { datei: 'busch_klein',    quelle: 'plant_bushSmall',          hoehe: 0.9 },
+    { datei: 'busch_dreieck',  quelle: 'plant_bushTriangle',       hoehe: 1.2 },
+    { datei: 'busch_mittel',   quelle: 'plant_bush',               hoehe: 1.5 },
+    { datei: 'busch_dicht',    quelle: 'plant_bushDetailed',       hoehe: 1.8 },
+    { datei: 'busch_breit',    quelle: 'plant_bushLargeTriangle',  hoehe: 2.1 },
+    { datei: 'busch_gross',    quelle: 'plant_bushLarge',          hoehe: 2.4 },
+  ],
+  grasbuschel: [
+    { datei: 'gras_matte',     quelle: 'plant_flatShort',   hoehe: 0.18 },
+    { datei: 'gras_kurz',      quelle: 'grass',             hoehe: 0.24 },
+    { datei: 'gras_halme',     quelle: 'grass_leafs',       hoehe: 0.34 },
+    { datei: 'gras_hoch',      quelle: 'grass_large',       hoehe: 0.48 },
+    { datei: 'gras_blatt',     quelle: 'grass_leafsLarge',  hoehe: 0.62 },
+    { datei: 'gras_staude',    quelle: 'plant_flatTall',    hoehe: 0.85 },
+  ],
+  findling: [
+    { datei: 'findling_flach', quelle: 'rock_smallFlatB',  hoehe: 0.45 },
+    { datei: 'findling_klein', quelle: 'rock_smallA',      hoehe: 0.7 },
+    { datei: 'findling_kant',  quelle: 'stone_smallD',     hoehe: 0.9 },
+    { datei: 'findling_hoch',  quelle: 'rock_tallC',       hoehe: 1.7 },
+    { datei: 'findling_block', quelle: 'stone_tallF',      hoehe: 2.2 },
+    { datei: 'findling_gross', quelle: 'rock_largeB',      hoehe: 3.0 },
+  ],
+  totholz: [
+    { datei: 'totholz_stamm',  quelle: 'log',                  hoehe: 0.5 },
+    { datei: 'totholz_dick',   quelle: 'log_large',            hoehe: 0.8 },
+    { datei: 'totholz_stapel', quelle: 'log_stack',            hoehe: 0.7 },
+    { datei: 'totholz_stumpf', quelle: 'stump_round',          hoehe: 0.6 },
+    { datei: 'totholz_wurzel', quelle: 'stump_old',            hoehe: 1.0 },
+    { datei: 'totholz_kante',  quelle: 'stump_squareDetailed', hoehe: 0.75 },
+  ],
+  blume: [
+    { datei: 'blume_gelb',     quelle: 'flower_yellowB', hoehe: 0.26 },
+    { datei: 'blume_gelb2',    quelle: 'flower_yellowC', hoehe: 0.3 },
+    { datei: 'blume_rot',      quelle: 'flower_redA',    hoehe: 0.24 },
+    { datei: 'blume_rot2',     quelle: 'flower_redC',    hoehe: 0.28 },
+    { datei: 'blume_violett',  quelle: 'flower_purpleA', hoehe: 0.22 },
+    { datei: 'blume_violett2', quelle: 'flower_purpleB', hoehe: 0.32 },
+  ],
+  pilz: [
+    { datei: 'pilz_rot',       quelle: 'mushroom_red',       hoehe: 0.16 },
+    { datei: 'pilz_rot_hoch',  quelle: 'mushroom_redTall',   hoehe: 0.26 },
+    { datei: 'pilz_rot_gruppe',quelle: 'mushroom_redGroup',  hoehe: 0.2 },
+    { datei: 'pilz_hell',      quelle: 'mushroom_tan',       hoehe: 0.15 },
+    { datei: 'pilz_hell_hoch', quelle: 'mushroom_tanTall',   hoehe: 0.24 },
+    { datei: 'pilz_hell_grupp',quelle: 'mushroom_tanGroup',  hoehe: 0.19 },
+  ],
 };
 
-/** Reale Zielhöhe je Art in Metern. Quelle für die Skalierung der Rohmodelle. */
+/**
+ * Kenney-Materialname → Farbe dieser Art Direction.
+ *
+ * Die Namen sind die Rollen, die Kenney im ganzen Kit durchhält (`grass` in 129
+ * Modellen, `dirt` in 98, `stone` in 89). Damit reicht eine Tabelle für alle 329
+ * Modelle, und ein neu hinzugenommenes Modell ist automatisch richtig gefärbt.
+ *
+ * Die Töne stammen aus `BIOM_FARBE` und `BAUM` — dieselbe Palette, aus der auch
+ * Gelände und Bäume kommen. Ein Busch, der aus einer zweiten Palette stammt, fällt
+ * sofort als Fremdkörper auf, und genau das war der Zustand vorher.
+ */
+export const KENNEY_FARBE: Record<string, string> = {
+  grass:        '#4a5940',
+  leafsGreen:   '#55703a',
+  leafsDark:    '#3c5439',
+  leafsFall:    '#7a6634',
+  woodBark:     '#4f4436',
+  woodBarkDark: '#40372c',
+  wood:         '#6b5c46',
+  woodDark:     '#4a4034',
+  woodBirch:    '#8a8375',
+  woodInner:    '#6d6250',
+  dirt:         '#6b6144',
+  dirtDark:     '#544c37',
+  stone:        '#6b6f72',
+  stoneDark:    '#565a5d',
+  water:        '#33555f',
+  corn:         '#9a8b4a',
+  colorRed:     '#8c4a42',
+  colorRedDark: '#6f3a34',
+  colorYellow:  '#b09a4e',
+  colorPurple:  '#6b5f7a',
+  colorWhite:   '#c9c6bd',
+  colorTan:     '#a8926a',
+  _defaultMat:  '#6b6659',
+};
+
+/**
+ * Wie viele Formen eine prozedurale Art kennt.
+ *
+ * `baueBaum` benutzt die Variantennummer als Seed für Höhe, Astwinkel und
+ * Laubdichte — ohne sie ist jede Fichte im Œntal dieselbe Fichte. Als die
+ * GLB-Liste für Bäume auf leer ging, fiel genau das still weg: Die Zahl der
+ * Prop-Chunks halbierte sich, was nach Ersparnis aussah und in Wahrheit ein
+ * geklonter Wald war.
+ */
+export const PROZEDURALE_VARIANTEN: Partial<Record<PropArt, number>> = {
+  nadelbaum: 4, laubbaum: 4,
+};
+
+/** Wie viele Varianten eine Art hat — Datei oder Rechenvorschrift. */
+export const variantenZahl = (art: PropArt): number =>
+  VARIANTEN[art].length || PROZEDURALE_VARIANTEN[art] || 1;
+
+/** Reale Zielhöhe je Art in Metern — nur noch für die Fernattrappe. */
 export const ZIELHOEHE: Record<PropArt, number> = {
-  nadelbaum: 22, laubbaum: 14, busch: 1.3, findling: 1.1, totholz: 0.9, grasbuschel: 0.35,
+  nadelbaum: 22, laubbaum: 14, busch: 1.6, findling: 1.1, totholz: 0.9,
+  grasbuschel: 0.35, blume: 0.26, pilz: 0.18,
 };
 
-export const propPfad = (variante: string) => `/props/${variante}.glb`;
+export const propPfad = (datei: string) => `/props/${datei}.glb`;
 
 /**
  * Fernattrappe: dasselbe Primitiv wie der Rückfall, aber auf die reale Zielhöhe
@@ -222,6 +344,16 @@ export function propGeometrie(art: PropArt): THREE.BufferGeometry {
       g.translate(0, 0.45, 0);
       return g;
     }
+    case 'blume': {
+      const g = new THREE.ConeGeometry(0.06, 0.26, 4);
+      g.translate(0, 0.13, 0);
+      return g;
+    }
+    case 'pilz': {
+      const g = new THREE.CylinderGeometry(0.09, 0.03, 0.16, 5);
+      g.translate(0, 0.08, 0);
+      return g;
+    }
   }
 }
 
@@ -234,6 +366,8 @@ export const PROP_FARBE: Record<PropArt, THREE.ColorRepresentation> = {
   findling:    '#6e7276',
   totholz:     '#4a4239',
   grasbuschel: '#5c6b45',
+  blume:       '#7d7a4e',
+  pilz:        '#6b5f52',
 };
 
 /**

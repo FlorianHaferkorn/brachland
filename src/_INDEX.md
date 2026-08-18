@@ -34,7 +34,8 @@ owns: *.ts, *.tsx
 | Terrain-Detail, LOD-Schwellen, Mikrorelief | `world/lod.ts` | scenes/, engine/ |
 | Terrain-, Gewässer-, Gebäude-, Wege-Geometrie | `world/terrain.ts` | engine/, ui/ |
 | Höhe für alles, was auf dem Gelände **aufsitzt** | `world/lod.ts` → `aufsatzboden()` | world/terrain.ts |
-| Wege, Bäche, Wasserfälle und Weiher | `world/baender.ts` | world/lod.ts, scenes/ |
+| Wege, Bäche, Wasserfälle und Weiher | `world/props.ts` | Verteilung, Varianten und Farben der Vegetation. `VARIANTEN` trägt Datei, Kenney-Quelle und **reale Höhe** je Variante — Gras reicht damit von 0,18 bis 0,85 m statt einer wegnormierten Einheitshöhe (G-77). `KENNEY_FARBE` bildet Kenneys Materialrollen auf die Projektpalette ab |
+| `world/baender.ts` | world/lod.ts, scenes/ |
 | OSM/DEM laden, Spawns, Weltdatentypen | `world/osm.ts` | scenes/, engine/ |
 | Kampflogik, Schaden, Fokus, Wechsel | `engine/battle.ts` → `data/schema.ts` | world/, scenes/ |
 | Kampf-UI, Buttons, Anzeige | `ui/BattleScreen.tsx` | world/ |
@@ -79,6 +80,7 @@ owns: *.ts, *.tsx
 | `scenes/sichtweiten.ts` | Entfernungsschwellen der Szene (Terrainsicht, Attrappen, Neubewertung). Eigenes Modul, damit `tools/lastcheck.ts` dieselben Zahlen nutzt, ohne React zu laden |
 | `world/osm.ts` | OSM- und EU-DEM-Abruf, Weltdatentypen (`Weltdaten`, `Biom`), Biom-Ableitung, Spawn-Zonen |
 | `world/terrain.ts` | Terrain-Mesh mit Vertex-Farben und **Gebäude** mit orientiertem Dach; `MASSSTAB`, `GROESSE`, `BIOM_FARBE`, `Aufsatzboden`. Wände reichen bis `FUNDAMENT_MAX` unter den Sockel, damit auch aus 800 m keine Lücke klafft (G-71). Wege und Gewässer sind seit D73 **nicht** mehr hier |
+| `world/props.ts` | Verteilung, Varianten und Farben der Vegetation. `VARIANTEN` trägt Datei, Kenney-Quelle und **reale Höhe** je Variante — Gras reicht damit von 0,18 bis 0,85 m statt einer wegnormierten Einheitshöhe (G-77). `KENNEY_FARBE` bildet Kenneys Materialrollen auf die Projektpalette ab |
 | `world/baender.ts` | Wege, Bäche, Wasserfälle und Weiher — **je Kachel** auf der LOD-Stufe, die dort gezeichnet wird. Gemessen 0,000 m Abweichung zur gezeichneten Fläche an vier Standorten, und 6.000–11.000 statt 227.000 Dreiecke im Bild (D73) |
 | `world/props.ts` | Vegetation: deterministische Verteilung per Seed, Dichten je Biom, 4 Varianten je Art, Normierung auf reale Zielhöhen, Chunking |
 | `world/lod.ts` | Terrain-Detail: 5 LOD-Stufen (2/4/8/16/32 m), hangabhängiges Mikrorelief in 4 Oktaven (<1,2 m), Schürzen gegen Kachelrisse. `hoeheAufFlaeche` und `spiegelAufFlaeche` geben die **gezeichnete** Fläche auf einer wählbaren Stufe — auf dem Dreieck, nicht bilinear (G-74). `aufsatzboden()` ist die einzige Höhenquelle für Gebäude; Szene und Werkzeuge hatten vorher je eine eigene (G-73) |

@@ -31,8 +31,8 @@ import { findeKlippen, baueKlippenGeometrie, type Klippe } from '../world/klippe
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
-import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, VARIANTEN, ZIELHOEHE,
-         PROP_FARBE, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
+import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, VARIANTEN,
+         type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, MITTEL_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
@@ -463,34 +463,39 @@ function Props({ props, wind }: { props: PropInstanz[]; wind: THREE.MeshStandard
  * Lädt das Modell der Variante und normiert es auf die reale Zielhöhe.
  * useGLTF cached pro Pfad — 23 Dateien werden einmal geladen, egal wie viele Chunks.
  */
+/**
+ * Ein Material für alle Props, die kein Laub sind.
+ *
+ * Seit `npm run props:bau` tragen die Modelle ihre Farbe als Vertexattribut. Vorher
+ * kam sie aus dem GLB-Material — und das war Kenneys Palette: Gras `#73eddd` Minze,
+ * Rinde `#f2be9e` Pfirsich. Dieselben Modelle in der Ferne benutzten `PROP_FARBE`
+ * (Grau, Oliv). Ein Findling wechselte beim Näherkommen die Farbe (G-76).
+ */
+const PROP_MATERIAL = new THREE.MeshStandardMaterial({
+  vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
+});
+const FERN_MATERIAL = new THREE.MeshStandardMaterial({
+  vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
+});
+
 function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe = 'nah') {
-  const pfad = propPfad(VARIANTEN[art][variante] ?? VARIANTEN[art][0]);
-  // Der Hook wird unbedingt aufgerufen, auch wenn das Ergebnis für Bäume verworfen
-  // wird: Hooks dürfen nicht bedingt laufen. Der Ladevorgang ist gecacht und kostet
-  // beim zweiten Mal nichts; die GLB verschwinden, sobald alle Arten prozedural sind.
+  const liste = VARIANTEN[art];
+  // Der Hook läuft unbedingt, auch für Bäume: Hooks dürfen nicht bedingt laufen.
+  // Bäume sind prozedural (D40) und haben deshalb keine Varianten — sie bekommen
+  // einen beliebigen, ohnehin geladenen Pfad, damit die Hook-Reihenfolge steht.
+  const pfad = propPfad((liste[variante] ?? liste[0])?.datei ?? VARIANTEN.busch[0].datei);
   const { scene } = useGLTF(pfad);
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   return useMemo(() => {
-    if (eigen) return { geo: baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel'), mat: null };
+    if (eigen) return { geo: baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel') };
     let geo: THREE.BufferGeometry | null = null;
-    let mat: THREE.Material | null = null;
     scene.traverse(o => {
-      if (!geo && (o as THREE.Mesh).isMesh) {
-        const m = o as THREE.Mesh;
-        geo = m.geometry.clone();
-        mat = Array.isArray(m.material) ? m.material[0] : m.material;
-      }
+      if (!geo && (o as THREE.Mesh).isMesh) geo = (o as THREE.Mesh).geometry.clone();
     });
-    if (!geo) return { geo: propGeometrie(art), mat: null };
-    const g = geo as THREE.BufferGeometry;
-    g.computeBoundingBox();
-    const bb = g.boundingBox!;
-    const hoehe = bb.max.y - bb.min.y || 1;
-    const faktor = ZIELHOEHE[art] / hoehe;
-    // auf den Boden setzen und auf reale Meter skalieren
-    g.translate(0, -bb.min.y, 0);
-    g.scale(faktor, faktor, faktor);
-    return { geo: g, mat: mat as THREE.Material | null };
+    // Keine Normierung mehr. Die Höhe steht in `VARIANTEN` und ist beim Bauen in
+    // die Datei eingerechnet — sie hier erneut auf eine Zielhöhe je Art zu ziehen,
+    // hätte alle sechs Grasvarianten wieder auf dieselben 0,35 m gestreckt.
+    return { geo: (geo ?? propGeometrie(art)) as THREE.BufferGeometry };
   }, [scene, art, eigen, variante, stufe]);
 }
 
@@ -503,11 +508,8 @@ function PropChunkMesh({ chunk, stufe, wind }: {
   chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial;
 }) {
   const fern = stufe === 'fern';
-  const { geo, mat } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
+  const { geo } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
   const fernGeo = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
-  const fernMaterial = useMemo(() => new THREE.MeshStandardMaterial({
-    vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
-  }), []);
   // Nur was sich biegen kann, bekommt das Windmaterial. Findlinge und Totholz
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
   // als bewegtes Laub aufbaut.
@@ -539,16 +541,13 @@ function PropChunkMesh({ chunk, stufe, wind }: {
   // Wichtig: Geometrie und Material laufen als Attribute, nicht über `args`. Eine
   // Änderung an `args` lässt R3F das InstancedMesh neu bauen — die Instanzmatrizen
   // wären weg und der Chunk stünde beim Attrappenwechsel als Klumpen im Nullpunkt.
-  const rueckfall = useMemo(() => new THREE.MeshStandardMaterial({
-    color: PROP_FARBE[chunk.art], flatShading: true, roughness: 0.95,
-  }), [chunk.art]);
   const grossesTeil = chunk.art === 'nadelbaum' || chunk.art === 'laubbaum' || chunk.art === 'findling';
 
   return (
     <instancedMesh
       ref={ref} args={[undefined, undefined, chunk.instanzen.length]}
       geometry={fern ? fernGeo : geo}
-      material={fern ? fernMaterial : (biegsam ? wind : (mat ?? rueckfall))}
+      material={fern ? FERN_MATERIAL : (biegsam ? wind : PROP_MATERIAL)}
       castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
     />
   );
@@ -1534,7 +1533,7 @@ function Kamera({ ziel, gier, neigung }: {
 
 // Alle Prop-Modelle vorladen — sonst poppen sie im ersten Bild nach.
 for (const varianten of Object.values(VARIANTEN))
-  for (const v of varianten) useGLTF.preload(propPfad(v));
+  for (const v of varianten) useGLTF.preload(propPfad(v.datei));
 
 /** Was die Szene je halbe Sekunde über sich meldet. */
 export interface Messwerte {
