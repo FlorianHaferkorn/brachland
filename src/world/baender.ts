@@ -215,6 +215,8 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
   for (const linie of welt.linien) zerlegen(linie.punkte, linie.breite, satz.baeche, satz.faelle);
   for (const weg of welt.wege) zerlegen(weg.punkte, weg.breite, satz.wege, null, belagFuer(weg.art));
 
+  // Nach den Wegen, weil die Gartenprüfung sie braucht: Ein Beet auf der
+  // Dorfstraße ist schlimmer als kein Beet.
   gebaeudeUndGaerten(welt, feld, zuWelt, satz);
 
   for (const teich of feld.teiche) {
@@ -239,8 +241,16 @@ const WOHNT: ReadonlySet<string> = new Set([
   'residential', 'bungalow', 'terrace',
 ]);
 
-/** Tiefe der Parzelle hinter dem Haus, in Metern. */
-const GARTEN_TIEFE = 7;
+/**
+ * Tiefen, die für die Parzelle nacheinander versucht werden.
+ *
+ * Mit nur 7 m bekam der Dorfkern fünf Gärten auf 63 Häuser: Dort steht das
+ * nächste Haus keine sieben Meter weiter, und die Parzelle fiel jedes Mal an der
+ * Nachbarbebauung durch — also genau dort, wo Gärten am dichtesten sind. Ein
+ * Reihenhausgarten ist eben schmal; die Staffelung bildet das ab, statt die
+ * Prüfung zu lockern.
+ */
+const GARTEN_TIEFEN = [7, 5, 3.5, 2.4];
 /** Breiter als das wird kein Garten, auch nicht hinter einem langen Hof. */
 const GARTEN_BREITE_MAX = 13;
 /** Über diesen Höhenunterschied auf der Parzelle steht kein Beet mehr. */
@@ -287,6 +297,27 @@ function gebaeudeUndGaerten(
     return false;
   };
 
+  /**
+   * Liegt die Parzelle auf einem Weg?
+   *
+   * Geprüft wird gegen die schon zerlegten Wegstücke der umliegenden Kacheln, mit
+   * der halben Bandbreite als Aufschlag. Grob genug, um konservativ zu sein: Im
+   * Zweifel fällt ein Garten weg, statt auf der Straße zu liegen.
+   */
+  const aufWeg = (minX: number, maxX: number, minZ: number, maxZ: number) => {
+    const [kx0, kz0] = kachelAn(feld, minX, minZ);
+    const [kx1, kz1] = kachelAn(feld, maxX, maxZ);
+    for (let cx = kx0 - 1; cx <= kx1 + 1; cx++)
+      for (let cz = kz0 - 1; cz <= kz1 + 1; cz++)
+        for (const st of satz.wege.get(schluessel(cx, cz)) ?? []) {
+          const halbe = Math.hypot(st.nx, st.nz) + 0.6;
+          if (Math.min(st.ax, st.bx) - halbe < maxX && Math.max(st.ax, st.bx) + halbe > minX
+           && Math.min(st.az, st.bz) - halbe < maxZ && Math.max(st.az, st.bz) + halbe > minZ)
+            return true;
+        }
+    return false;
+  };
+
   welt.gebaeude.forEach((g, i) => {
     const h = huellen[i];
     const mx = (h.minX + h.maxX) / 2, mz = (h.minZ + h.maxZ) / 2;
@@ -300,22 +331,28 @@ function gebaeudeUndGaerten(
 
     const mitte = (hu.minU + hu.maxU) / 2;
     const halb = Math.min(GARTEN_BREITE_MAX, hu.maxU - hu.minU) / 2;
-    const v0 = hu.minV - 1.2, v1 = v0 - GARTEN_TIEFE;
-    const ecken: [number, number][] = [
-      hu.welt(mitte - halb, v0), hu.welt(mitte + halb, v0),
-      hu.welt(mitte + halb, v1), hu.welt(mitte - halb, v1),
-    ];
-    const xs = ecken.map(e => e[0]), zs = ecken.map(e => e[1]);
-    if (stoerer(Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs), i)) return;
+    for (const tiefe of GARTEN_TIEFEN) {
+      const v0 = hu.minV - 1.0, v1 = v0 - tiefe;
+      const ecken: [number, number][] = [
+        hu.welt(mitte - halb, v0), hu.welt(mitte + halb, v0),
+        hu.welt(mitte + halb, v1), hu.welt(mitte - halb, v1),
+      ];
+      const xs = ecken.map(e => e[0]), zs = ecken.map(e => e[1]);
+      const bx0 = Math.min(...xs), bx1 = Math.max(...xs);
+      const bz0 = Math.min(...zs), bz1 = Math.max(...zs);
+      if (stoerer(bx0, bx1, bz0, bz1, i)) continue;
+      if (aufWeg(bx0, bx1, bz0, bz1)) continue;
 
-    let hoch = -Infinity, tief = Infinity;
-    for (const [x, z] of [...ecken, [(xs[0] + xs[2]) / 2, (zs[0] + zs[2]) / 2] as [number, number]]) {
-      const y = hoeheAufFlaeche(feld, x, z);
-      hoch = Math.max(hoch, y); tief = Math.min(tief, y);
+      let hoch = -Infinity, tief = Infinity;
+      for (const [x, z] of [...ecken, [(xs[0] + xs[2]) / 2, (zs[0] + zs[2]) / 2] as [number, number]]) {
+        const y = hoeheAufFlaeche(feld, x, z);
+        hoch = Math.max(hoch, y); tief = Math.min(tief, y);
+      }
+      if (hoch - tief > GARTEN_STEIGUNG) continue;
+
+      einsortieren(satz.gaerten, kx, kz, { ecken, achse: hu.achse });
+      return;
     }
-    if (hoch - tief > GARTEN_STEIGUNG) return;
-
-    einsortieren(satz.gaerten, kx, kz, { ecken, achse: hu.achse });
   });
 }
 
@@ -639,7 +676,10 @@ export function baueGartenKachel(
     const mx = (e[0][0] + e[2][0]) / 2, mz = (e[0][1] + e[2][1]) / 2;
     const laengs = Math.hypot(e[1][0] - e[0][0], e[1][1] - e[0][1]) / 2 - 0.9;
     const quer = Math.hypot(e[2][0] - e[1][0], e[2][1] - e[1][1]) / 2 - 0.9;
-    for (let b = -1; b <= 1; b++) {
+    // Bei einer schmalen Parzelle passt nur ein Beet — drei Streifen auf 2,4 m
+    // Tiefe wären übereinander gestapelte Kästen.
+    const streifen = quer > 2.2 ? [-1, 0, 1] : quer > 1.2 ? [-0.6, 0.6] : [0];
+    for (const b of streifen) {
       const dv = b * quer * 0.6;
       const cx = mx - dv * sin, cz = mz + dv * cos;
       const y = boden(cx, cz);
