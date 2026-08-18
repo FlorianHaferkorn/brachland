@@ -9,6 +9,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { effektivitaet, ELEMENTE, BAND } from '../src/data/schema.js';
 import { VARIANTEN, propPfad } from '../src/world/props.js';
+import { WEGBELAG } from '../src/world/baender.js';
 
 type Befund = { schwere: 'stop' | 'warnung'; bereich: string; text: string };
 const befunde: Befund[] = [];
@@ -179,6 +180,24 @@ if (propDateien.length) {
     else heil++;
   }
   console.log(`  · [Assets] Props: ${heil}/${propDateien.length} mit einem Primitiv und Vertexfarbe`);
+}
+
+/**
+ * Jede Wegklasse in den Weltdaten braucht einen Belag.
+ *
+ * Ohne Eintrag fällt `belagFuer` still auf einen neutralen Standard zurück — und
+ * eine neue Region mit `motorway` oder `steps` sähe wieder aus wie vorher: alles
+ * derselbe Weg. Ein stiller Rückfall ist kein Fehler, den man sieht, sondern
+ * einer, den man nicht sieht.
+ */
+for (const datei of readdirSync('public/world').filter(f => f.endsWith('.json'))) {
+  const welt = JSON.parse(readFileSync(join('public/world', datei), 'utf8')).welt;
+  const arten = new Set<string>((welt.wege ?? []).map((w: { art: string }) => w.art));
+  const offen = [...arten].filter(a => !WEGBELAG[a]);
+  if (offen.length)
+    warn('Welt', `${datei}: Wegklassen ohne Belag — ${offen.join(', ')} (src/world/baender.ts)`);
+  else
+    console.log(`  · [Welt] ${datei}: alle ${arten.size} Wegklassen haben einen Belag`);
 }
 
 // -------------------------------------------------- 4. System-Invarianten

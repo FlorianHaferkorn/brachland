@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { baueTerrain, baueGebaeude } from '../src/world/terrain.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, aufsatzboden } from '../src/world/lod.js';
 import { zerlegeBaender, baueBaenderStufe, baueWegKachel, baueWasserKachel,
-         baueFallKachel } from '../src/world/baender.js';
+         baueFallKachel, baueGartenKachel } from '../src/world/baender.js';
 import { TERRAIN_SICHT } from '../src/scenes/sichtweiten.js';
 import { verteileProps, propGeometrie, attrappeGeometrie, zaehleProps, chunkeProps, PROP_FARBE, type PropArt } from '../src/world/props.js';
 import { baueBaum } from '../src/world/baum.js';
@@ -34,6 +34,7 @@ const teile = {
   Wege:     ganz.wege.reduce((a, g) => a + tri(g), 0),
   Gewässer: [...ganz.wasser, ...ganz.faelle].reduce((a, g) => a + tri(g), 0),
   Gebäude:  tri(baueGebaeude(welt, boden)),
+  Gärten:   kacheln.reduce((a, k) => a + tri(baueGartenKachel(feld, satz, k, 0)), 0),
 };
 
 const props = verteileProps(welt, t, 1);
@@ -70,9 +71,12 @@ function baenderSichtbar(kx: number, kz: number): number {
     const d = Math.max(0, Math.hypot(k.mitte[0] - kx, k.mitte[1] - kz) - k.radius);
     if (d > TERRAIN_SICHT) continue;
     const lod = lodFuerAbstand(d);
+    const haeuser = satz.gebaeude.get(`${k.ix}:${k.iz}`) ?? [];
     summe += tri(baueWegKachel(feld, satz, k, lod))
            + tri(baueWasserKachel(feld, satz, k, lod))
-           + tri(baueFallKachel(feld, satz, k, lod));
+           + tri(baueFallKachel(feld, satz, k, lod))
+           + tri(baueGartenKachel(feld, satz, k, lod))
+           + (haeuser.length ? tri(baueGebaeude(welt, boden, haeuser.map(i => welt.gebaeude[i]))) : 0);
   }
   return summe;
 }
@@ -86,11 +90,13 @@ for (const [kx, kz] of [[0, 0], [300, -300], [-350, 350], [450, 100]] as [number
     const je = g.index ? g.index.count / 3 : g.getAttribute('position').count / 3;
     tris += je * c.instanzen.length; calls++;
   }
+  // Häuser und Gärten hängen seit D75 mit an den Kacheln — sie stecken in
+  // `baenderSichtbar` und dürfen nicht zusätzlich pauschal gezählt werden.
   const baender = baenderSichtbar(kx, kz);
-  const sichtbar = teile.Terrain + teile.Gebäude + baender + tris;
+  const sichtbar = teile.Terrain + baender + tris;
   besteSicht = Math.max(besteSicht, sichtbar);
   console.log(`  Kamera (${String(kx).padStart(4)},${String(kz).padStart(5)})  ${Math.round(sichtbar).toLocaleString('de').padStart(9)} Dreiecke · ${String(4 + calls).padStart(4)} Draw Calls`
-    + `   davon Bänder ${Math.round(baender).toLocaleString('de').padStart(7)}`);
+    + `   davon Aufsätze ${Math.round(baender).toLocaleString('de').padStart(7)}`);
 }
 console.log(`\n  Chunks gesamt ${chunks.length}`);
 console.log(`\n  Die Zahlen oben sind der **Rundum-Fall**: alles in Sichtweite, in alle`);

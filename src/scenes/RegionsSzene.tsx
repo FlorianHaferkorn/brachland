@@ -13,7 +13,7 @@ import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
 import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../world/terrain.js';
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
-         type Bandsatz } from '../world/baender.js';
+         baueGartenKachel, type Bandsatz } from '../world/baender.js';
 import { useGLTF } from '@react-three/drei';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
@@ -271,6 +271,11 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
    * (G-73).
    */
   const aufBoden = useMemo(() => aufsatzboden(feld), [feld]);
+  /* Wand, Holz, Fenster, Sockel, Gesims, Tür und Garten stecken als Vertexfarben
+     in der Geometrie. Ein Material für alles davon bleibt es trotzdem. */
+  const hausMaterial = useMemo(() => new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.88, flatShading: true,
+  }), []);
   const wasserMaterial = useMemo(() => baueWasserMaterial(), []);
   const fallMaterial = useMemo(() => baueWasserMaterial(true), []);
   const wegMaterial = useMemo(() => baueWegMaterial(), []);
@@ -298,7 +303,6 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
     }
     wind.setzeZeit(uhr.current);
   });
-  const gebaeude = useMemo(() => baueGebaeude(welt, aufBoden), [welt, aufBoden]);
   /**
    * Bänder einmal zerlegen, dann je Kachel bauen.
    *
@@ -312,19 +316,12 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
     <group>
       <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} />
 
-      <LodBaender feld={feld} satz={satz} kacheln={kacheln} ziel={ziel}
+      <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel}
+                  boden={aufBoden}
                   wegMaterial={wegMaterial} wasserMaterial={wasserMaterial}
-                  fallMaterial={fallMaterial} />
+                  fallMaterial={fallMaterial} hausMaterial={hausMaterial} />
 
       {klippen.length > 0 && <Klippen klippen={klippen} ziel={ziel} material={wind.material} />}
-
-      {gebaeude && (
-        <mesh geometry={gebaeude} castShadow receiveShadow>
-          {/* Wand, Holz und Fenster stecken jetzt als Vertex-Farben in der Geometrie.
-              Ein einziges Material für 2.033 Häuser bleibt es trotzdem. */}
-          <meshStandardMaterial vertexColors roughness={0.88} flatShading />
-        </mesh>
-      )}
 
       <Props props={props} wind={wind.material} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
@@ -333,7 +330,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
 }
 
 /**
- * Wege, Bäche und Wasserfälle je Kachel — dasselbe Verfahren wie beim Gelände.
+ * Wege, Bäche, Wasserfälle, Häuser und Gärten je Kachel — dasselbe Verfahren wie
+ * beim Gelände.
  *
  * Der Grund, warum das hier steht und nicht in einem `useMemo`: Ein Band muss auf
  * **derselben** LOD-Stufe gebaut werden wie die Kachel, auf der es liegt, und die
@@ -345,17 +343,35 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
  * auf einmal neu zu bauen kostet einen sichtbaren Ruckler, fehlende werden im
  * nächsten Bild nachgezogen.
  */
-function LodBaender({ feld, satz, kacheln, ziel, wegMaterial, wasserMaterial, fallMaterial }: {
-  feld: HoehenFeld; satz: Bandsatz; kacheln: Kachel[];
+function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
+                     wegMaterial, wasserMaterial, fallMaterial, hausMaterial }: {
+  welt: Weltdaten; feld: HoehenFeld; satz: Bandsatz; kacheln: Kachel[];
   ziel: React.RefObject<THREE.Object3D | null>;
-  wegMaterial: THREE.Material; wasserMaterial: THREE.Material; fallMaterial: THREE.Material;
+  boden: ReturnType<typeof aufsatzboden>;
+  wegMaterial: THREE.Material; wasserMaterial: THREE.Material;
+  fallMaterial: THREE.Material; hausMaterial: THREE.Material;
 }) {
   const cache = useRef(new Map<string, THREE.BufferGeometry | null>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
   const [teile, setTeile] = useState<{ weg: THREE.BufferGeometry[];
                                        wasser: THREE.BufferGeometry[];
-                                       fall: THREE.BufferGeometry[] }>(
-    { weg: [], wasser: [], fall: [] });
+                                       fall: THREE.BufferGeometry[];
+                                       haus: THREE.BufferGeometry[] }>(
+    { weg: [], wasser: [], fall: [], haus: [] });
+
+  /**
+   * Häuser einer Kachel. Sie hängen nicht an der LOD-Stufe — ein Haus ist ein
+   * Körper, kein Aufsatz — aber sie fallen mit der Entfernung weg, und genau
+   * darum geht es: 214.000 Dreiecke lagen vorher in einem Mesh, das gezeichnet
+   * wurde, sobald ein Zipfel der Region im Bild war.
+   */
+  const hausKachel = useMemo(() => (
+    _feld: HoehenFeld, s: Bandsatz, k: Kachel, _lod: number,
+  ) => {
+    const indizes = s.gebaeude.get(`${k.ix}:${k.iz}`);
+    if (!indizes?.length) return null;
+    return baueGebaeude(welt, boden, indizes.map(i => welt.gebaeude[i]));
+  }, [welt, boden]);
 
   useFrame(() => {
     const p = ziel.current?.position;
@@ -366,13 +382,15 @@ function LodBaender({ feld, satz, kacheln, ziel, wegMaterial, wasserMaterial, fa
     let budget = 12;
     const sammeln = { weg: [] as THREE.BufferGeometry[],
                       wasser: [] as THREE.BufferGeometry[],
-                      fall: [] as THREE.BufferGeometry[] };
+                      fall: [] as THREE.BufferGeometry[],
+                      haus: [] as THREE.BufferGeometry[] };
     for (const k of kacheln) {
       const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
       if (d > TERRAIN_SICHT) continue;
       const lod = lodFuerAbstand(d);
       for (const [art, bauen] of [
         ['weg', baueWegKachel], ['wasser', baueWasserKachel], ['fall', baueFallKachel],
+        ['haus', hausKachel], ['garten', baueGartenKachel],
       ] as const) {
         const schluessel = `${art}:${k.ix}:${k.iz}:${lod}`;
         let g = cache.current.get(schluessel);
@@ -384,16 +402,19 @@ function LodBaender({ feld, satz, kacheln, ziel, wegMaterial, wasserMaterial, fa
           g = bauen(feld, satz, k, lod);
           cache.current.set(schluessel, g);
         }
-        if (g) sammeln[art].push(g);
+        // Gärten teilen sich das Material mit den Häusern: beides Vertexfarbe,
+        // beides undurchsichtig, beides derselbe Draw Call je Kachelgruppe.
+        if (g) sammeln[art === 'garten' ? 'haus' : art].push(g);
       }
     }
 
     const fassen = (gs: THREE.BufferGeometry[]) =>
       gs.length ? [mergeGeometries(gs, false)].filter(Boolean) as THREE.BufferGeometry[] : [];
     const neu = { weg: fassen(sammeln.weg), wasser: fassen(sammeln.wasser),
-                  fall: fassen(sammeln.fall) };
+                  fall: fassen(sammeln.fall), haus: fassen(sammeln.haus) };
     setTeile(vorher => {
-      for (const liste of [vorher.weg, vorher.wasser, vorher.fall]) liste.forEach(g => g.dispose());
+      for (const liste of [vorher.weg, vorher.wasser, vorher.fall, vorher.haus])
+        liste.forEach(g => g.dispose());
       return neu;
     });
   });
@@ -402,6 +423,9 @@ function LodBaender({ feld, satz, kacheln, ziel, wegMaterial, wasserMaterial, fa
     {teile.weg.map((g, i) => <mesh key={`w${i}`} geometry={g} material={wegMaterial} receiveShadow />)}
     {teile.wasser.map((g, i) => <mesh key={`b${i}`} geometry={g} material={wasserMaterial} />)}
     {teile.fall.map((g, i) => <mesh key={`f${i}`} geometry={g} material={fallMaterial} />)}
+    {teile.haus.map((g, i) => (
+      <mesh key={`h${i}`} geometry={g} material={hausMaterial} castShadow receiveShadow />
+    ))}
   </>;
 }
 

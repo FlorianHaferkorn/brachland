@@ -21,7 +21,7 @@
  */
 import * as THREE from 'three';
 import type { Weltdaten } from './osm.js';
-import { MASSSTAB, WEG_TEILUNG } from './terrain.js';
+import { MASSSTAB, WEG_TEILUNG, orientierteHuelle } from './terrain.js';
 import { KACHEL, LOD_STUFEN, hoeheAufFlaeche, spiegelAufFlaeche,
          type HoehenFeld, type Kachel } from './lod.js';
 
@@ -54,6 +54,75 @@ export interface Bandstueck {
   v1: number; v2: number;
   /** Steht dieses Stück als Wasserfall? Einmal entschieden, nie neu. */
   fall: boolean;
+  /** Belag des Wegs — Farbe und Oberfläche. Bei Gewässern undefiniert. */
+  belag?: Wegbelag;
+}
+
+/**
+ * Wie ein Weg aussieht, je OSM-Klasse.
+ *
+ * In den Weltdaten stehen neun Klassen über 170,5 km — von `secondary` (8 m
+ * Asphalt) bis `path` (1,6 m Trampelpfad). Gezeichnet wurden sie bis jetzt alle
+ * mit **einer** Farbe und demselben Spurrinnenmuster; unterscheidbar waren sie nur
+ * an der Breite. Eine Landstraße, die aussieht wie ein Trampelpfad, kostet mehr
+ * Glaubwürdigkeit als jedes fehlende Modell.
+ *
+ * Alle drei Werte gehen als Vertexattribut ins Band, nicht als Material: Ein
+ * zweites Material wäre ein zweiter Draw Call je Kachel, und das Wegnetz ist der
+ * Teil der Szene mit den meisten Kacheln.
+ */
+export interface Wegbelag {
+  /** Grundfarbe in sRGB-Hex. */
+  farbe: string;
+  /** Stärke der Spurrinnen, 0 = keine. Nur ausgefahrene Wege haben welche. */
+  rinne: number;
+  /** Wie stark der Rand ausfranst. Asphalt hat eine Kante, ein Pfad nicht. */
+  franse: number;
+}
+
+export const WEGBELAG: Record<string, Wegbelag> = {
+  // Asphalt: dunkel, geschlossen, scharfe Kante. Keine Rinnen — die entstehen
+  // durch Räder auf losem Grund, nicht auf gebundener Decke.
+  secondary:    { farbe: '#3d3c3a', rinne: 0,    franse: 0.15 },
+  tertiary:     { farbe: '#3f3e3b', rinne: 0,    franse: 0.18 },
+  residential:  { farbe: '#44423e', rinne: 0,    franse: 0.25 },
+  unclassified: { farbe: '#46443f', rinne: 0.1,  franse: 0.35 },
+  cycleway:     { farbe: '#42403c', rinne: 0,    franse: 0.2 },
+  // Hofzufahrt: Beton oder verdichteter Schotter, heller, zwei schwache Spuren.
+  service:      { farbe: '#57534a', rinne: 0.25, franse: 0.5 },
+  // Feldweg: der Normalfall im Œntal, 71 km. Zwei ausgefahrene Spuren mit
+  // Grasstreifen dazwischen, Rand völlig unscharf.
+  track:        { farbe: '#6b6047', rinne: 0.55, franse: 1.0 },
+  // Trampelpfad: zu schmal für Spuren, dafür kaum ein Rand.
+  path:         { farbe: '#6e6247', rinne: 0,    franse: 1.2 },
+  footway:      { farbe: '#6b6149', rinne: 0,    franse: 1.1 },
+};
+
+/** Für eine Klasse, die in WEGBELAG fehlt — sichtbar neutral, nicht heimlich. */
+const BELAG_STANDARD: Wegbelag = { farbe: '#4a4740', rinne: 0.2, franse: 0.6 };
+
+/** Welche Klassen in den Weltdaten keinen Eintrag haben. Für Werkzeuge. */
+export const belagFehlt = new Set<string>();
+
+function belagFuer(art: string): Wegbelag {
+  const b = WEGBELAG[art];
+  if (b) return b;
+  belagFehlt.add(art);
+  return BELAG_STANDARD;
+}
+
+/**
+ * Ein Hausgarten: eine eingezäunte Parzelle mit Beeten an der Rückseite des Hauses.
+ *
+ * Warum überhaupt: Ein Dorf ohne Gärten ist eine Ansammlung von Häusern. Der
+ * Garten ist das, was einen Grundriss zu einem bewohnten Grundstück macht — und
+ * er kostet weniger als ein einziger Baum, weil er aus Kästen besteht.
+ */
+export interface Garten {
+  /** Vier Ecken der Parzelle in Weltkoordinaten, im Umlaufsinn. */
+  ecken: [number, number][];
+  /** Richtung der Beetreihen — dieselbe Achse wie der First des Hauses. */
+  achse: number;
 }
 
 /** Alles, was auf dem Gelände aufliegt, nach Kachel sortiert. */
@@ -62,6 +131,9 @@ export interface Bandsatz {
   baeche: Map<string, Bandstueck[]>;
   faelle: Map<string, Bandstueck[]>;
   teiche: Map<string, { punkte: [number, number][] }[]>;
+  /** Indizes in `welt.gebaeude` je Kachel — Häuser fallen mit der Entfernung weg. */
+  gebaeude: Map<string, number[]>;
+  gaerten: Map<string, Garten[]>;
 }
 
 const schluessel = (ix: number, iz: number) => `${ix}:${iz}`;
@@ -101,11 +173,13 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
   ];
   const satz: Bandsatz = {
     wege: new Map(), baeche: new Map(), faelle: new Map(), teiche: new Map(),
+    gebaeude: new Map(), gaerten: new Map(),
   };
 
   const zerlegen = (
     punkte: readonly [number, number][], breite: number,
     ziel: Map<string, Bandstueck[]>, fallZiel: Map<string, Bandstueck[]> | null,
+    belag?: Wegbelag,
   ) => {
     const halbe = breite / (2 * MASSSTAB.stauchung);
     const halbeFall = Math.max(0.8, halbe);
@@ -129,7 +203,7 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
         const stueck: Bandstueck = {
           ax: x1, az: z1, bx: x2, bz: z2,
           nx: (-dz / len) * b, nz: (dx / len) * b,
-          v1: laengs + len * t1, v2: laengs + len * t2, fall,
+          v1: laengs + len * t1, v2: laengs + len * t2, fall, belag,
         };
         const [ix, iz] = kachelAn(feld, (x1 + x2) / 2, (z1 + z2) / 2);
         einsortieren(fall ? fallZiel! : ziel, ix, iz, stueck);
@@ -139,7 +213,9 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
   };
 
   for (const linie of welt.linien) zerlegen(linie.punkte, linie.breite, satz.baeche, satz.faelle);
-  for (const weg of welt.wege) zerlegen(weg.punkte, weg.breite, satz.wege, null);
+  for (const weg of welt.wege) zerlegen(weg.punkte, weg.breite, satz.wege, null, belagFuer(weg.art));
+
+  gebaeudeUndGaerten(welt, feld, zuWelt, satz);
 
   for (const teich of feld.teiche) {
     if (teich.punkte.length < 3) continue;
@@ -149,6 +225,98 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
     einsortieren(satz.teiche, ix, iz, teich);
   }
   return satz;
+}
+
+/**
+ * Welche OSM-Gebäudearten bewohnt sind.
+ *
+ * `yes` ist mit 1.685 von 2.033 der Normalfall und muss dabei sein, sonst hätte
+ * das Œntal fünf Gärten. Garagen, Kirchen, Ställe und Hallen bekommen keinen —
+ * ein Gemüsebeet an einer Werkshalle wäre schlechter als gar keins.
+ */
+const WOHNT: ReadonlySet<string> = new Set([
+  'yes', 'house', 'detached', 'semidetached_house', 'apartments', 'farm', 'hut',
+  'residential', 'bungalow', 'terrace',
+]);
+
+/** Tiefe der Parzelle hinter dem Haus, in Metern. */
+const GARTEN_TIEFE = 7;
+/** Breiter als das wird kein Garten, auch nicht hinter einem langen Hof. */
+const GARTEN_BREITE_MAX = 13;
+/** Über diesen Höhenunterschied auf der Parzelle steht kein Beet mehr. */
+const GARTEN_STEIGUNG = 2.0;
+
+/**
+ * Gebäude den Kacheln zuordnen und dahinter Gärten setzen.
+ *
+ * Die Parzelle liegt auf der **Rückseite** — der Balkon sitzt auf `+v`, der Garten
+ * also auf `-v`. Verworfen wird sie, wenn sie in ein anderes Gebäude ragt oder auf
+ * zu steilem Gelände liegt; beides prüft ein Raster über die Grundriss-Hüllen,
+ * damit aus 2.033 × 2.033 Vergleichen ein Durchlauf wird.
+ */
+function gebaeudeUndGaerten(
+  welt: Weltdaten, feld: HoehenFeld,
+  zuWelt: (lat: number, lon: number) => [number, number], satz: Bandsatz,
+): void {
+  const huellen = welt.gebaeude.map(g => {
+    const p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
+    const xs = p.map(q => q[0]), zs = p.map(q => q[1]);
+    return { p, minX: Math.min(...xs), maxX: Math.max(...xs),
+             minZ: Math.min(...zs), maxZ: Math.max(...zs) };
+  });
+
+  // Raster über die Grundrisse: 32 m Zellen, damit die Überlappungsprüfung nicht
+  // quadratisch wird.
+  const RASTER = 32;
+  const eimer = new Map<string, number[]>();
+  huellen.forEach((h, i) => {
+    for (let cx = Math.floor(h.minX / RASTER); cx <= Math.floor(h.maxX / RASTER); cx++)
+      for (let cz = Math.floor(h.minZ / RASTER); cz <= Math.floor(h.maxZ / RASTER); cz++) {
+        const k = `${cx}:${cz}`;
+        const l = eimer.get(k); if (l) l.push(i); else eimer.set(k, [i]);
+      }
+  });
+  const stoerer = (minX: number, maxX: number, minZ: number, maxZ: number, selbst: number) => {
+    for (let cx = Math.floor(minX / RASTER); cx <= Math.floor(maxX / RASTER); cx++)
+      for (let cz = Math.floor(minZ / RASTER); cz <= Math.floor(maxZ / RASTER); cz++)
+        for (const i of eimer.get(`${cx}:${cz}`) ?? []) {
+          if (i === selbst) continue;
+          const h = huellen[i];
+          if (h.minX < maxX && h.maxX > minX && h.minZ < maxZ && h.maxZ > minZ) return true;
+        }
+    return false;
+  };
+
+  welt.gebaeude.forEach((g, i) => {
+    const h = huellen[i];
+    const mx = (h.minX + h.maxX) / 2, mz = (h.minZ + h.maxZ) / 2;
+    const [kx, kz] = kachelAn(feld, mx, mz);
+    einsortieren(satz.gebaeude, kx, kz, i);
+
+    if (!WOHNT.has(g.art) || g.ebenen > 2 || h.p.length < 4) return;
+    const hu = orientierteHuelle(h.p);
+    const flaeche = (hu.maxU - hu.minU) * (hu.maxV - hu.minV);
+    if (flaeche < 45) return;
+
+    const mitte = (hu.minU + hu.maxU) / 2;
+    const halb = Math.min(GARTEN_BREITE_MAX, hu.maxU - hu.minU) / 2;
+    const v0 = hu.minV - 1.2, v1 = v0 - GARTEN_TIEFE;
+    const ecken: [number, number][] = [
+      hu.welt(mitte - halb, v0), hu.welt(mitte + halb, v0),
+      hu.welt(mitte + halb, v1), hu.welt(mitte - halb, v1),
+    ];
+    const xs = ecken.map(e => e[0]), zs = ecken.map(e => e[1]);
+    if (stoerer(Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs), i)) return;
+
+    let hoch = -Infinity, tief = Infinity;
+    for (const [x, z] of [...ecken, [(xs[0] + xs[2]) / 2, (zs[0] + zs[2]) / 2] as [number, number]]) {
+      const y = hoeheAufFlaeche(feld, x, z);
+      hoch = Math.max(hoch, y); tief = Math.min(tief, y);
+    }
+    if (hoch - tief > GARTEN_STEIGUNG) return;
+
+    einsortieren(satz.gaerten, kx, kz, { ecken, achse: hu.achse });
+  });
 }
 
 /** Wie tief die Naht zur nächstgröberen Kachel fallen kann. */
@@ -172,6 +340,8 @@ function liegendesBand(
   /** true = quer waagerecht halten (Wasser), false = dem Hang folgen (Weg). */
   quer: boolean,
   positionen: number[], uvs: number[],
+  /** Nur für Wege: Farbe und Oberfläche je Vertex. */
+  farben?: number[], belaege?: number[],
 ): void {
   const s = LOD_STUFEN[Math.min(lod, LOD_STUFEN.length - 1)].schritt;
   for (const st of stuecke) {
@@ -204,6 +374,7 @@ function liegendesBand(
     );
     // u = quer, -1 am linken Rand bis +1 am rechten. v = Meter in Laufrichtung.
     uvs.push(-1, st.v1,  1, st.v1,  -1, st.v2,   1, st.v1,  1, st.v2,  -1, st.v2);
+    if (farben && belaege) belagSchreiben(st, 6, farben, belaege);
 
     // Schürze nur gegen die Naht zur nächstgröberen Kachel. Innerhalb der eigenen
     // Kachel gibt es nichts zu decken — dort ist die Abweichung null.
@@ -222,7 +393,30 @@ function liegendesBand(
         px, y1 - s1, pz,  qx, y2 - s2, qz,  qx, y2, qz,
       );
       uvs.push(u, st.v1,  u, st.v1,  u, st.v2,   u, st.v1,  u, st.v2,  u, st.v2);
+      if (farben && belaege) belagSchreiben(st, 6, farben, belaege);
     }
+  }
+}
+
+/** sRGB-Hex zu linear — three.js rechnet Vertexfarben im linearen Raum. */
+function linear(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  const k = (v: number) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return [k((n >> 16) & 255), k((n >> 8) & 255), k(n & 255)];
+}
+
+const FARBCACHE = new Map<string, [number, number, number]>();
+
+function belagSchreiben(st: Bandstueck, n: number, farben: number[], belaege: number[]): void {
+  const b = st.belag ?? BELAG_STANDARD;
+  let f = FARBCACHE.get(b.farbe);
+  if (!f) { f = linear(b.farbe); FARBCACHE.set(b.farbe, f); }
+  for (let i = 0; i < n; i++) {
+    farben.push(f[0], f[1], f[2]);
+    belaege.push(b.rinne, b.franse);
   }
 }
 
@@ -242,8 +436,14 @@ export function baueWegKachel(
   const stuecke = satz.wege.get(schluessel(kachel.ix, kachel.iz));
   if (!stuecke) return null;
   const positionen: number[] = [], uvs: number[] = [];
-  liegendesBand(feld, stuecke, lod, WEG_UEBER_GRUND, hoeheAufFlaeche, false, positionen, uvs);
-  return fertig(positionen, uvs);
+  const farben: number[] = [], belaege: number[] = [];
+  liegendesBand(feld, stuecke, lod, WEG_UEBER_GRUND, hoeheAufFlaeche, false,
+                positionen, uvs, farben, belaege);
+  const g = fertig(positionen, uvs);
+  if (!g) return null;
+  g.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
+  g.setAttribute('belag', new THREE.Float32BufferAttribute(belaege, 2));
+  return g;
 }
 
 export function baueWasserKachel(
@@ -356,4 +556,129 @@ export function baueBaenderStufe(
     const f = baueFallKachel(feld, satz, k, lod); if (f) faelle.push(f);
   }
   return { wege, wasser, faelle };
+}
+
+// ------------------------------------------------------------- Gärten
+
+/** Farben des Gartens — Zaun, Erde, Grün. Aus derselben Palette wie alles andere. */
+const ZAUN = [0x4f, 0x44, 0x36], ERDE = [0x54, 0x4c, 0x37], KRAUT = [0x55, 0x70, 0x3a];
+
+function linearAus(rgb: number[]): [number, number, number] {
+  const k = (v: number) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return [k(rgb[0]), k(rgb[1]), k(rgb[2])];
+}
+
+/**
+ * Ein Garten je Kachel: Zaun aus Pfosten und zwei Riegeln, dahinter drei Beete.
+ *
+ * Alles steht auf `hoeheAufFlaeche` **dieser** LOD-Stufe, aus demselben Grund wie
+ * die Bänder: Ein Zaunpfosten, der auf der feinen Fläche gesetzt wird, hängt in
+ * der Ferne über dem gröberen Netz.
+ *
+ * Kästen ohne Deckel und Boden — 8 Dreiecke je Pfosten statt 12. Von oben sieht
+ * man in einen 1,05 m hohen Zaunpfosten nicht hinein.
+ */
+export function baueGartenKachel(
+  feld: HoehenFeld, satz: Bandsatz, kachel: Kachel, lod: number,
+): THREE.BufferGeometry | null {
+  const gaerten = satz.gaerten.get(schluessel(kachel.ix, kachel.iz));
+  if (!gaerten) return null;
+  const s = LOD_STUFEN[Math.min(lod, LOD_STUFEN.length - 1)].schritt;
+  const positionen: number[] = [], farben: number[] = [];
+
+  const flaeche = (
+    a: [number, number, number], b: [number, number, number],
+    c: [number, number, number], d: [number, number, number], f: [number, number, number],
+  ) => {
+    positionen.push(...a, ...b, ...c, ...a, ...c, ...d);
+    for (let i = 0; i < 6; i++) farben.push(f[0], f[1], f[2]);
+  };
+  /** Kasten ohne Deckel und Boden, achsparallel zur Gartenachse. */
+  const kasten = (
+    x: number, z: number, y: number, bx: number, bz: number, hoch: number,
+    cos: number, sin: number, f: [number, number, number],
+  ) => {
+    const e = (du: number, dv: number): [number, number] =>
+      [x + du * cos - dv * sin, z + du * sin + dv * cos];
+    const p1 = e(-bx, -bz), p2 = e(bx, -bz), p3 = e(bx, bz), p4 = e(-bx, bz);
+    const ring = [p1, p2, p3, p4];
+    for (let i = 0; i < 4; i++) {
+      const a = ring[i], b = ring[(i + 1) % 4];
+      flaeche([a[0], y, a[1]], [b[0], y, b[1]],
+              [b[0], y + hoch, b[1]], [a[0], y + hoch, a[1]], f);
+    }
+  };
+
+  const zaunF = linearAus(ZAUN), erdeF = linearAus(ERDE), krautF = linearAus(KRAUT);
+
+  for (const garten of gaerten) {
+    const cos = Math.cos(garten.achse), sin = Math.sin(garten.achse);
+    const e = garten.ecken;
+    const boden = (x: number, z: number) => hoeheAufFlaeche(feld, x, z, s);
+
+    // Zaun: Pfosten alle 2,4 m, zwei Riegel dazwischen.
+    for (let i = 0; i < 4; i++) {
+      const [ax, az] = e[i], [bx, bz] = e[(i + 1) % 4];
+      const len = Math.hypot(bx - ax, bz - az);
+      const n = Math.max(2, Math.round(len / 3.0));
+      for (let k = 0; k <= n; k++) {
+        const x = ax + (bx - ax) * k / n, z = az + (bz - az) * k / n;
+        kasten(x, z, boden(x, z), 0.055, 0.055, 1.05, cos, sin, zaunF);
+      }
+      // Riegel als flache Bänder auf halber und voller Höhe.
+      for (const [hoehe, dick] of [[0.42, 0.05], [0.86, 0.05]] as [number, number][]) {
+        const y1 = boden(ax, az) + hoehe, y2 = boden(bx, bz) + hoehe;
+        flaeche([ax, y1, az], [bx, y2, bz], [bx, y2 + dick * 2, bz], [ax, y1 + dick * 2, az], zaunF);
+      }
+    }
+
+    // Beete: drei Streifen quer zur langen Achse, dazwischen Weg.
+    const mx = (e[0][0] + e[2][0]) / 2, mz = (e[0][1] + e[2][1]) / 2;
+    const laengs = Math.hypot(e[1][0] - e[0][0], e[1][1] - e[0][1]) / 2 - 0.9;
+    const quer = Math.hypot(e[2][0] - e[1][0], e[2][1] - e[1][1]) / 2 - 0.9;
+    for (let b = -1; b <= 1; b++) {
+      const dv = b * quer * 0.6;
+      const cx = mx - dv * sin, cz = mz + dv * cos;
+      const y = boden(cx, cz);
+      kasten(cx, cz, y, laengs, 0.62, 0.22, cos, sin, erdeF);
+      // Deckel des Beets, damit man von oben Erde sieht und nicht durch.
+      const deck = (du: number, dv2: number): [number, number] =>
+        [cx + du * cos - dv2 * sin, cz + du * sin + dv2 * cos];
+      const d1 = deck(-laengs, -0.62), d2 = deck(laengs, -0.62),
+            d3 = deck(laengs, 0.62), d4 = deck(-laengs, 0.62);
+      flaeche([d1[0], y + 0.22, d1[1]], [d4[0], y + 0.22, d4[1]],
+              [d3[0], y + 0.22, d3[1]], [d2[0], y + 0.22, d2[1]], erdeF);
+      /* Pflanzenreihe als Vierflächner, nicht als Kasten.
+       *
+       * Ein Kohlkopf braucht vier Dreiecke, kein Kästchen aus acht. Bei drei
+       * Beeten je Garten und rund 900 Gärten ist das der Unterschied zwischen
+       * 399.000 und 200.000 Dreiecken in der Region — sichtbar wird davon
+       * nichts, ein Beet sieht man aus zwei Metern Höhe von schräg oben. */
+      const stueck = Math.max(2, Math.round(laengs * 2 / 1.3));
+      for (let k = 0; k < stueck; k++) {
+        const du = -laengs + (k + 0.5) * (2 * laengs) / stueck;
+        const [px, pz] = deck(du, 0);
+        const r = 0.19, spitze: [number, number, number] = [px, y + 0.2 + 0.36, pz];
+        const ring: [number, number][] = [
+          deck(du - r, -r), deck(du + r, -r), deck(du + r, r), deck(du - r, r),
+        ];
+        for (let i = 0; i < 4; i++) {
+          const a = ring[i], b = ring[(i + 1) % 4];
+          positionen.push(a[0], y + 0.2, a[1], b[0], y + 0.2, b[1], ...spitze);
+          for (let n = 0; n < 3; n++) farben.push(krautF[0], krautF[1], krautF[2]);
+        }
+      }
+    }
+  }
+
+  if (!positionen.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+  return g;
 }

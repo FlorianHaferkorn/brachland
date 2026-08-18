@@ -117,36 +117,48 @@ export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial 
  * wirken, nicht gestreichelt.
  */
 export function baueWegMaterial(): THREE.MeshStandardMaterial {
+  // `vertexColors` statt einer festen Farbe: In den Weltdaten stehen neun
+  // OSM-Klassen über 170,5 km, von 8 m Asphalt bis 1,6 m Trampelpfad. Sie
+  // unterschieden sich bis jetzt nur in der Breite. Farbe, Spurrinne und
+  // Randschärfe kommen jetzt je Vertex aus `WEGBELAG` — ein Material, ein
+  // Draw Call, neun Beläge.
   const material = new THREE.MeshStandardMaterial({
-    color: '#4a4740', roughness: 1, metalness: 0, transparent: true,
+    color: '#ffffff', vertexColors: true, roughness: 1, metalness: 0, transparent: true,
   });
 
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec2 vBand;\nvarying vec3 vWeltPos;')
+      .replace('#include <common>',
+        '#include <common>\nattribute vec2 belag;\nvarying vec2 vBand;\nvarying vec2 vBelag;\nvarying vec3 vWeltPos;')
       .replace('#include <begin_vertex>',
-        '#include <begin_vertex>\n  vBand = uv;\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+        '#include <begin_vertex>\n  vBand = uv;\n  vBelag = belag;\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec2 vBand;\nvarying vec3 vWeltPos;\n' + HASH_GLSL)
+      .replace('#include <common>', '#include <common>\nvarying vec2 vBand;\nvarying vec2 vBelag;\nvarying vec3 vWeltPos;\n' + HASH_GLSL)
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float quer = abs(vBand.x);
   float rand = 1.0 - quer;
 
-  // Zwei Spurrinnen bei etwa halber Breite — heller, weil dort der Schotter liegt.
-  float rinne = exp(-pow((quer - 0.55) * 5.5, 2.0));
-  diffuseColor.rgb *= 1.0 + rinne * 0.22;
+  /* Spurrinnen nur dort, wo Raeder auf losem Grund fahren.
+   *
+   * vBelag.x ist die Staerke aus WEGBELAG: Asphalt 0, Feldweg 0,55. Vorher
+   * bekam jeder Weg dieselben zwei Rinnen — auch die Staatsstrasse. */
+  float rinne = exp(-pow((quer - 0.55) * 5.5, 2.0)) * vBelag.x;
+  diffuseColor.rgb *= 1.0 + rinne * 0.40;
 
   // Flecken aus der Weltposition, damit benachbarte Segmente zusammenpassen.
+  // Gebundene Decke fleckt weniger als Schotter.
   float fleck = bandRauschen(vWeltPos.xz * 0.85);
-  diffuseColor.rgb *= 0.86 + fleck * 0.30;
+  float unruhe = 0.10 + 0.26 * clamp(vBelag.y, 0.0, 1.2);
+  diffuseColor.rgb *= (1.0 - unruhe * 0.5) + fleck * unruhe;
 
-  // Ausgefranster Rand: Das Rauschen verschiebt die Kante, statt sie zu begradigen.
-  float franse = bandRauschen(vec2(vBand.y * 1.4, vBand.x * 2.0)) * 0.22;
-  diffuseColor.a *= smoothstep(0.0, 0.30 + franse, rand);
+  /* Ausgefranster Rand. vBelag.y entscheidet, wie weich die Kante ist:
+   * Asphalt hat eine gebaute Kante (0,15), ein Trampelpfad gar keine (1,2). */
+  float franse = bandRauschen(vec2(vBand.y * 1.4, vBand.x * 2.0)) * 0.22 * vBelag.y;
+  diffuseColor.a *= smoothstep(0.0, 0.12 + 0.28 * vBelag.y + franse, rand);
 `);
   };
 
-  material.customProgramCacheKey = () => 'brachland-weg-v1';
+  material.customProgramCacheKey = () => 'brachland-weg-v2';
   return material;
 }

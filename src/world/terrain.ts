@@ -201,10 +201,57 @@ export function baueTerrain(welt: Weltdaten): TerrainErgebnis {
 
 
 /**
+ * Die orientierte Hülle eines Grundrisses.
+ *
+ * Achse ist die **längste Kante**; ist der Grundriss quer dazu ausgedehnter, wird
+ * um 90° gedreht, damit `u` immer die lange Seite ist. Exportiert, weil Dach,
+ * Balkon und Garten dieselbe Achse brauchen — zwei Berechnungen davon wären zwei
+ * Häuser, die nicht zueinander passen.
+ */
+export interface Huelle {
+  achse: number; cos: number; sin: number;
+  minU: number; maxU: number; minV: number; maxV: number;
+  /** Punkt im Hüllensystem zurück nach Welt. */
+  welt: (u: number, v: number) => [number, number];
+}
+
+export function orientierteHuelle(p: readonly [number, number][]): Huelle {
+  let achse = 0, laengste = 0;
+  for (let k = 0; k < p.length - 1; k++) {
+    const dx = p[k + 1][0] - p[k][0], dz = p[k + 1][1] - p[k][1];
+    const l = Math.hypot(dx, dz);
+    if (l > laengste) { laengste = l; achse = Math.atan2(dz, dx); }
+  }
+  const messen = (a: number) => {
+    const c = Math.cos(a), si = Math.sin(a);
+    const us = p.map(([x, z]) => x * c + z * si);
+    const vs = p.map(([x, z]) => -x * si + z * c);
+    return { c, si, minU: Math.min(...us), maxU: Math.max(...us),
+             minV: Math.min(...vs), maxV: Math.max(...vs) };
+  };
+  let m = messen(achse);
+  if (m.maxV - m.minV > m.maxU - m.minU) { achse += Math.PI / 2; m = messen(achse); }
+  return {
+    achse, cos: m.c, sin: m.si,
+    minU: m.minU, maxU: m.maxU, minV: m.minV, maxV: m.maxV,
+    welt: (u, v) => [u * m.c - v * m.si, u * m.si + v * m.c],
+  };
+}
+
+/**
  * Gebäude aus OSM-Grundrissen. Höhe aus `building:levels` (3 m je Ebene), plus
  * einfaches Satteldach — ohne Dach wirkt jede Siedlung wie ein Industriegebiet.
  */
-export function baueGebaeude(welt: Weltdaten, terrain: Aufsatzboden): THREE.BufferGeometry | null {
+export function baueGebaeude(
+  welt: Weltdaten, terrain: Aufsatzboden,
+  /**
+   * Welche Gebäude gebaut werden. Ohne Angabe alle — die Szene reicht die einer
+   * Kachel durch, damit Häuser wie das Gelände nach Entfernung wegfallen. Vorher
+   * lagen 214.000 Dreiecke in einem Mesh, das gezeichnet wurde, sobald ein Zipfel
+   * der Region im Bild war.
+   */
+  auswahl: readonly Weltdaten['gebaeude'][number][] = welt.gebaeude,
+): THREE.BufferGeometry | null {
   const [sued, west, nord, ost] = welt.bbox;
   const positionen: number[] = [];
   const farben: number[] = [];
@@ -225,6 +272,10 @@ export function baueGebaeude(welt: Weltdaten, terrain: Aufsatzboden): THREE.Buff
   const HOLZ = new THREE.Color('#3b3229');
   const DACH = new THREE.Color('#4a4038');
   const FENSTER = new THREE.Color('#11171a');
+  /** Sockel: nasser Kalkputz oder Bruchstein, dunkler als die Wand darüber. */
+  const SOCKEL = new THREE.Color('#585349');
+  /** Gesims und Türblatt: dasselbe Holz wie Dach und Balkon. */
+  const TUER = new THREE.Color('#332b22');
 
   /** Ein Dreieck mit Farbe. */
   const tri = (
@@ -241,7 +292,7 @@ export function baueGebaeude(welt: Weltdaten, terrain: Aufsatzboden): THREE.Buff
     c: [number, number, number], d: [number, number, number], f: THREE.Color,
   ) => { tri(a, b, c, f); tri(a, c, d, f); };
 
-  for (const g of welt.gebaeude) {
+  for (const g of auswahl) {
     const p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
     if (p.length < 3) continue;
     const h = (g.ebenen * METER_JE_EBENE) / MASSSTAB.stauchung;
@@ -276,46 +327,100 @@ export function baueGebaeude(welt: Weltdaten, terrain: Aufsatzboden): THREE.Buff
      *
      * Bisher folgten die Wände dem Grundriss, Dach und Balkon aber der
      * achsparallelen Bounding Box. Nur 9 % der Grundrisse liegen achsnah, die
-     * mittlere Drehung beträgt 27° — die Hülle ist im Median **1,9-fach** so groß
+     * mittlere Drehung beträgt 27° — die Hülle war im Median **1,9-fach** so groß
      * wie das Haus, im Extremfall 4-fach. Dach und Haus waren buchstäblich zwei
      * verschiedene Körper: Der Deckel stand über, der First zeigte in die falsche
-     * Richtung, und an den Ecken klaffte es.
-     *
-     * Die Achse kommt aus der längsten Kante. Bei einem rechteckigen Grundriss ist
-     * das exakt die Firstrichtung, bei einem verwinkelten die dominante — beides
-     * besser als Nord-Süd per Zufall.
+     * Richtung, und an den Ecken klaffte es (G-71).
      */
-    let achse = 0, laengste = 0;
-    for (let k = 0; k < p.length - 1; k++) {
-      const dx = p[k + 1][0] - p[k][0], dz = p[k + 1][1] - p[k][1];
-      const l = Math.hypot(dx, dz);
-      if (l > laengste) { laengste = l; achse = Math.atan2(dz, dx); }
-    }
-    let cos = Math.cos(achse), sin = Math.sin(achse);
-    const lokal = (x: number, z: number): [number, number] => [x * cos + z * sin, -x * sin + z * cos];
-    let lok = p.map(([x, z]) => lokal(x, z));
-    let minU = Math.min(...lok.map(q => q[0])), maxU = Math.max(...lok.map(q => q[0]));
-    let minV = Math.min(...lok.map(q => q[1])), maxV = Math.max(...lok.map(q => q[1]));
-    // u soll die lange Achse sein — sonst läuft der First über die schmale Seite.
-    if (maxV - minV > maxU - minU) {
-      achse += Math.PI / 2;
-      cos = Math.cos(achse); sin = Math.sin(achse);
-      lok = p.map(([x, z]) => lokal(x, z));
-      minU = Math.min(...lok.map(q => q[0])); maxU = Math.max(...lok.map(q => q[0]));
-      minV = Math.min(...lok.map(q => q[1])); maxV = Math.max(...lok.map(q => q[1]));
-    }
+    const hu = orientierteHuelle(p);
+    const { minU, maxU, minV, maxV } = hu;
     /** Punkt im Hüllensystem zurück nach Welt, mit Höhe. */
-    const welt3 = (u: number, y: number, v: number): [number, number, number] =>
-      [u * cos - v * sin, y, u * sin + v * cos];
+    const welt3 = (u: number, y: number, v: number): [number, number, number] => {
+      const [x, z] = hu.welt(u, v);
+      return [x, y, z];
+    };
 
     const breite = maxU - minU, tiefe = maxV - minV;
     const klein = Math.min(breite, tiefe);
     if (klein < 1.5) continue;
 
+    /**
+     * Wo die Haustür sitzt: an der längsten Wand, mittig.
+     *
+     * Kein Zufall und keine Heuristik über den nächsten Weg — die längste Wand ist
+     * bei einem Alpenhaus die Traufseite, und dort liegt der Eingang. Eine Garage
+     * bekommt statt der Tür ein Tor: 2,6 m breit, weil ein 1,05 m breiter Eingang
+     * an einer Garage sofort als Fehler auffällt.
+     */
+    let tuerWand = 0, tuerLang = 0;
+    for (let k = 0; k < p.length - 1; k++) {
+      const l = Math.hypot(p[k + 1][0] - p[k][0], p[k + 1][1] - p[k][1]);
+      if (l > tuerLang) { tuerLang = l; tuerWand = k; }
+    }
+    const garage = g.art === 'garage' || g.art === 'carport';
+    const tuerBreite = garage ? 2.6 : 1.05;
+    const tuerHoehe = garage ? 2.3 : 2.1;
+
     // Wände
     for (let k = 0; k < p.length - 1; k++) {
       const [x1, z1] = p[k], [x2, z2] = p[k + 1];
       quad([x1, fuss, z1], [x2, fuss, z2], [x2, boden + h, z2], [x1, boden + h, z1], WAND);
+
+      const wandLaenge = Math.hypot(x2 - x1, z2 - z1);
+      if (wandLaenge < 0.5) continue;
+      const wx = (z2 - z1) / wandLaenge, wz = -(x2 - x1) / wandLaenge;   // Wandnormale
+
+      /**
+       * Sockel und Gesimse — die zwei waagerechten Linien, an denen man ein Haus
+       * als Haus liest.
+       *
+       * Ohne sie ist eine Wand eine Fläche von der Traufe bis zum Boden, und ein
+       * zweistöckiges Haus unterscheidet sich von einem einstöckigen nur durch die
+       * Zahl der Fensterreihen. 1.820 der 2.033 Gebäude haben zwei Ebenen — die
+       * Geschossteilung ist damit das häufigste Merkmal der Region und war das
+       * einzige, das gar nicht gezeigt wurde.
+       *
+       * Beides sind aufgesetzte Bänder wie die Fenster, keine Rücksprünge in der
+       * Wand: zwei Dreiecke statt einer Triangulierung mit Aussparung.
+       */
+      const band = (yUnten: number, hoch: number, vor: number, farbe: THREE.Color) => {
+        quad(
+          [x1 + wx * vor, yUnten, z1 + wz * vor],
+          [x2 + wx * vor, yUnten, z2 + wz * vor],
+          [x2 + wx * vor, yUnten + hoch, z2 + wz * vor],
+          [x1 + wx * vor, yUnten + hoch, z1 + wz * vor],
+          farbe,
+        );
+      };
+      if (wandLaenge >= 2.5) {
+        band(boden, 0.34, 0.05, SOCKEL);
+        for (let e = 1; e < g.ebenen; e++) band(boden + e * METER_JE_EBENE - 0.07, 0.14, 0.07, DACH);
+      }
+
+      // Haustür
+      if (k === tuerWand && wandLaenge >= tuerBreite + 0.6) {
+        const t = 0.5;
+        const cx = x1 + (x2 - x1) * t, cz = z1 + (z2 - z1) * t;
+        const ex = (x2 - x1) / wandLaenge * tuerBreite / 2;
+        const ez = (z2 - z1) / wandLaenge * tuerBreite / 2;
+        const o = 0.06, y0 = boden + 0.02, y1 = boden + Math.min(tuerHoehe, h - 0.3);
+        quad(
+          [cx - ex + wx * o, y0, cz - ez + wz * o],
+          [cx + ex + wx * o, y0, cz + ez + wz * o],
+          [cx + ex + wx * o, y1, cz + ez + wz * o],
+          [cx - ex + wx * o, y1, cz - ez + wz * o],
+          TUER,
+        );
+        // Türstock: ein schmaler heller Rahmen, damit die Tür nicht als Loch liest.
+        const r = 0.09;
+        quad(
+          [cx - ex - ex * 0.14 + wx * (o - 0.02), y0, cz - ez - ez * 0.14 + wz * (o - 0.02)],
+          [cx + ex + ex * 0.14 + wx * (o - 0.02), y0, cz + ez + ez * 0.14 + wz * (o - 0.02)],
+          [cx + ex + ex * 0.14 + wx * (o - 0.02), y1 + r, cz + ez + ez * 0.14 + wz * (o - 0.02)],
+          [cx - ex - ex * 0.14 + wx * (o - 0.02), y1 + r, cz - ez - ez * 0.14 + wz * (o - 0.02)],
+          SOCKEL,
+        );
+      }
 
       /**
        * Fenster als aufgesetzte Flächen, nicht als Löcher in der Wand.
@@ -326,9 +431,9 @@ export function baueGebaeude(welt: Weltdaten, terrain: Aufsatzboden): THREE.Buff
        * der Unterschied unsichtbar. Sie sind der Grund, warum ein Haus als Haus
        * gelesen wird und nicht als Quader.
        */
-      const laenge = Math.hypot(x2 - x1, z2 - z1);
+      const laenge = wandLaenge;
       if (laenge < 2.2) continue;
-      const nx = (z2 - z1) / laenge, nz = -(x2 - x1) / laenge;   // Wandnormale
+      const nx = wx, nz = wz;
       const anzahl = Math.max(1, Math.floor(laenge / 3.2));
       const breiteF = 0.9, hoeheF = 1.15;
       for (let ebene = 0; ebene < g.ebenen; ebene++) {
