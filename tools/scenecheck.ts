@@ -1,8 +1,11 @@
 /** Vollständige Szene headless bauen: Dreiecke, Props, Draw Calls, Budget. */
 import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { baueTerrain, baueGewaesser, baueGebaeude, baueWege } from '../src/world/terrain.js';
-import { baueHoehenfeld, aufsatzboden } from '../src/world/lod.js';
+import { baueTerrain, baueGebaeude } from '../src/world/terrain.js';
+import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, aufsatzboden } from '../src/world/lod.js';
+import { zerlegeBaender, baueBaenderStufe, baueWegKachel, baueWasserKachel,
+         baueFallKachel } from '../src/world/baender.js';
+import { TERRAIN_SICHT } from '../src/scenes/sichtweiten.js';
 import { verteileProps, propGeometrie, attrappeGeometrie, zaehleProps, chunkeProps, PROP_FARBE, type PropArt } from '../src/world/props.js';
 import { baueBaum } from '../src/world/baum.js';
 import { ATTRAPPE_AB } from '../src/scenes/sichtweiten.js';
@@ -17,13 +20,19 @@ const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'u
 const t = baueTerrain(welt);
 // Dieselbe Hoehenquelle wie die Szene (G-73).
 const feld = baueHoehenfeld(welt);
-const boden = aufsatzboden(feld), wasser = aufsatzboden(feld, true);
+const boden = aufsatzboden(feld);
+const satz = zerlegeBaender(welt, feld);
+const kacheln = baueKachelraster(feld);
 const tri = (g: any) => g ? g.getAttribute('position').count / 3 : 0;
 
+// Bänder liegen seit D73 je Kachel auf ihrer eigenen LOD-Stufe. Die Zahl hier ist
+// die Obergrenze: alles auf LOD0, als stünde man überall gleichzeitig. Was wirklich
+// gezeichnet wird, steht weiter unten je Kamerastandort — und nur das zählt.
+const ganz = baueBaenderStufe(feld, satz, kacheln, 0);
 const teile = {
   Terrain:  tri(t.geometrie),
-  Wege:     tri(baueWege(welt, boden)),
-  Gewässer: tri(baueGewaesser(welt, wasser, feld.teiche)),
+  Wege:     ganz.wege.reduce((a, g) => a + tri(g), 0),
+  Gewässer: [...ganz.wasser, ...ganz.faelle].reduce((a, g) => a + tri(g), 0),
   Gebäude:  tri(baueGebaeude(welt, boden)),
 };
 
@@ -54,6 +63,20 @@ console.log(`\n  Gesamt ohne Culling  ${Math.round(gesamt).toLocaleString('de').
 
 const chunks = chunkeProps(props);
 let besteSicht = 0;
+/** Bandbreiecke, die von diesem Standort aus wirklich gebaut würden. */
+function baenderSichtbar(kx: number, kz: number): number {
+  let summe = 0;
+  for (const k of kacheln) {
+    const d = Math.max(0, Math.hypot(k.mitte[0] - kx, k.mitte[1] - kz) - k.radius);
+    if (d > TERRAIN_SICHT) continue;
+    const lod = lodFuerAbstand(d);
+    summe += tri(baueWegKachel(feld, satz, k, lod))
+           + tri(baueWasserKachel(feld, satz, k, lod))
+           + tri(baueFallKachel(feld, satz, k, lod));
+  }
+  return summe;
+}
+
 for (const [kx, kz] of [[0, 0], [300, -300], [-350, 350], [450, 100]] as [number, number][]) {
   let tris = 0, calls = 0;
   for (const c of chunks) {
@@ -63,9 +86,11 @@ for (const [kx, kz] of [[0, 0], [300, -300], [-350, 350], [450, 100]] as [number
     const je = g.index ? g.index.count / 3 : g.getAttribute('position').count / 3;
     tris += je * c.instanzen.length; calls++;
   }
-  const sichtbar = Object.values(teile).reduce((a, b) => a + b, 0) + tris;
+  const baender = baenderSichtbar(kx, kz);
+  const sichtbar = teile.Terrain + teile.Gebäude + baender + tris;
   besteSicht = Math.max(besteSicht, sichtbar);
-  console.log(`  Kamera (${String(kx).padStart(4)},${String(kz).padStart(5)})  ${Math.round(sichtbar).toLocaleString('de').padStart(9)} Dreiecke · ${String(4 + calls).padStart(4)} Draw Calls`);
+  console.log(`  Kamera (${String(kx).padStart(4)},${String(kz).padStart(5)})  ${Math.round(sichtbar).toLocaleString('de').padStart(9)} Dreiecke · ${String(4 + calls).padStart(4)} Draw Calls`
+    + `   davon Bänder ${Math.round(baender).toLocaleString('de').padStart(7)}`);
 }
 console.log(`\n  Chunks gesamt ${chunks.length}`);
 console.log(`\n  Die Zahlen oben sind der **Rundum-Fall**: alles in Sichtweite, in alle`);
@@ -78,8 +103,9 @@ console.log(`  die Instanz, nicht diese Datei.`);
 // Vorschau exportieren
 const dump: any = { teile: [], props: [] };
 const alle: [string, any][] = [
-  ['terrain', t.geometrie], ['wege', baueWege(welt, boden)],
-  ['wasser', baueGewaesser(welt, wasser, feld.teiche)], ['gebaeude', baueGebaeude(welt, boden)],
+  ['terrain', t.geometrie], ['gebaeude', baueGebaeude(welt, boden)],
+  ...ganz.wege.map((g, i) => [`wege${i}`, g] as [string, any]),
+  ...[...ganz.wasser, ...ganz.faelle].map((g, i) => [`wasser${i}`, g] as [string, any]),
 ];
 for (const [name, g] of alle) {
   if (!g) continue;

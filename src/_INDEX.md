@@ -34,6 +34,7 @@ owns: *.ts, *.tsx
 | Terrain-Detail, LOD-Schwellen, Mikrorelief | `world/lod.ts` | scenes/, engine/ |
 | Terrain-, Gewässer-, Gebäude-, Wege-Geometrie | `world/terrain.ts` | engine/, ui/ |
 | Höhe für alles, was auf dem Gelände **aufsitzt** | `world/lod.ts` → `aufsatzboden()` | world/terrain.ts |
+| Wege, Bäche, Wasserfälle und Weiher | `world/baender.ts` | world/lod.ts, scenes/ |
 | OSM/DEM laden, Spawns, Weltdatentypen | `world/osm.ts` | scenes/, engine/ |
 | Kampflogik, Schaden, Fokus, Wechsel | `engine/battle.ts` → `data/schema.ts` | world/, scenes/ |
 | Kampf-UI, Buttons, Anzeige | `ui/BattleScreen.tsx` | world/ |
@@ -77,9 +78,10 @@ owns: *.ts, *.tsx
 | `scenes/RegionsSzene.tsx` | Art Direction als Code: 4 Stimmungen mit Nebel-, Sonnen- und Umgebungswerten; Props als `InstancedMesh`; Schwerkraft und Sprung des Spielers; `Fundstellen` als Marker der Fragmente |
 | `scenes/sichtweiten.ts` | Entfernungsschwellen der Szene (Terrainsicht, Attrappen, Neubewertung). Eigenes Modul, damit `tools/lastcheck.ts` dieselben Zahlen nutzt, ohne React zu laden |
 | `world/osm.ts` | OSM- und EU-DEM-Abruf, Weltdatentypen (`Weltdaten`, `Biom`), Biom-Ableitung, Spawn-Zonen |
-| `world/terrain.ts` | Terrain-Mesh mit Vertex-Farben, Gewässer (Bäche, Weiher, Wasserfälle), Gebäude mit orientiertem Dach, Wege; `MASSSTAB`, `GROESSE`, `BIOM_FARBE`, `Aufsatzboden`. Bänder und Wände bekommen eine **Böschung** nach unten, weil das gezeichnete Gelände in der Ferne unter ihnen wegfällt (D72) |
+| `world/terrain.ts` | Terrain-Mesh mit Vertex-Farben und **Gebäude** mit orientiertem Dach; `MASSSTAB`, `GROESSE`, `BIOM_FARBE`, `Aufsatzboden`. Wände reichen bis `FUNDAMENT_MAX` unter den Sockel, damit auch aus 800 m keine Lücke klafft (G-71). Wege und Gewässer sind seit D73 **nicht** mehr hier |
+| `world/baender.ts` | Wege, Bäche, Wasserfälle und Weiher — **je Kachel** auf der LOD-Stufe, die dort gezeichnet wird. Gemessen 0,000 m Abweichung zur gezeichneten Fläche an vier Standorten, und 6.000–11.000 statt 227.000 Dreiecke im Bild (D73) |
 | `world/props.ts` | Vegetation: deterministische Verteilung per Seed, Dichten je Biom, 4 Varianten je Art, Normierung auf reale Zielhöhen, Chunking |
-| `world/lod.ts` | Terrain-Detail: 5 LOD-Stufen (2/4/8/16/32 m), hangabhängiges Mikrorelief in 4 Oktaven (<1,2 m), Schürzen gegen Kachelrisse. `aufsatzboden()` ist die **einzige** Höhenquelle für aufgesetzte Geometrie — Szene und Werkzeuge hatten vorher je eine eigene (G-73) |
+| `world/lod.ts` | Terrain-Detail: 5 LOD-Stufen (2/4/8/16/32 m), hangabhängiges Mikrorelief in 4 Oktaven (<1,2 m), Schürzen gegen Kachelrisse. `hoeheAufFlaeche` und `spiegelAufFlaeche` geben die **gezeichnete** Fläche auf einer wählbaren Stufe — auf dem Dreieck, nicht bilinear (G-74). `aufsatzboden()` ist die einzige Höhenquelle für Gebäude; Szene und Werkzeuge hatten vorher je eine eigene (G-73) |
 | `world/bodenmaterial.ts` | Bodenmaterial mit prozeduraler Oberflächenvariation im Shader — zwei Oktaven Rauschen aus der Weltposition, null Bytes Textur |
 | `world/streuung.ts` | Nahfeld-Streuschicht: deterministische Bodendecker im 28-m-Umkreis, beim Gehen nachgezogen. Antwort auf „0 Props im 10-m-Umkreis" |
 | `spieler/steuerung.ts` | Eingabe für Bewegung, Blick und **Sprung** (Leertaste, Tippen unter 12 px auf der rechten Hälfte). Touch **und** Tastatur/Maus. Zustand im Ref statt im State — 60 Re-Renders je Sekunde wären sinnlos |

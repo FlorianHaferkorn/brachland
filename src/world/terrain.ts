@@ -94,40 +94,24 @@ export interface Aufsatzboden {
    * Tiefste Höhe, die die **gezeichnete** Fläche hier über alle LOD-Stufen annehmen
    * kann.
    *
-   * Ein Band folgt der stetigen Funktion, das Gelände wird in der Ferne aber auf
-   * 32-m-Vertices ausgedünnt und schneidet dann durch jede Mulde. Gemessen hängt
-   * das Gewässerband ab 220 m im Mittel 0,8 m, ab 900 m 2,5 m in der Luft
-   * (`npm run aufsatz`). Die Differenz zu `hoeheAn` ist die Schürzentiefe — genau
-   * so viel Wand nach unten, wie das Gelände wegfallen kann, und keinen Zentimeter
-   * mehr.
+   * Das Gelände wird in der Ferne auf 32-m-Vertices ausgedünnt und schneidet dann
+   * durch jede Mulde. Für Bänder ist das seit D73 kein Thema mehr — die werden je
+   * Kachel auf ihrer eigenen Stufe gebaut. Ein Haus dagegen ist ein Körper und
+   * wird einmal gebaut; die Differenz zu `hoeheAn` sagt ihm, wie tief sein
+   * Fundament reichen muss, damit unter der Wand auch aus 800 m keine Lücke
+   * klafft.
    */
   tiefsteFlaeche: (x: number, z: number) => number;
 }
 
-/** Mehr Schürze als das ist in keiner Entfernung mehr zu sehen, kostet aber Fläche. */
-export const SCHUERZE_MAX = 2.5;
-
 /**
- * Unter dieser Lücke lohnt die Schürze nicht.
+ * Wie tief ein Fundament höchstens unter den Sockel reicht.
  *
- * 30 cm sind auf 200 m Entfernung knapp zwei Pixel und werden vom weichen Rand des
- * Bandes ohnehin verschluckt. Bei 15 cm bekam fast jedes Wegsegment eine Böschung
- * und das Wegband wuchs auf das Zweieinhalbfache — Dreiecke für etwas, das man
- * nicht sieht.
+ * Ein Haus, dessen Wand 15 m in den Berg gebaut wird, kostet Dreiecke für einen
+ * Keller, den niemand sieht. Zwei Meter fünfzig decken jede Lücke, die auf einer
+ * Entfernung auffällt, an der man Häuser überhaupt einzeln wahrnimmt.
  */
-const SCHUERZE_AB = 0.3;
-
-/**
- * Wie tief die Schürze an dieser Stelle reicht, 0 heißt: keine bauen.
- *
- * Exportiert, damit `npm run aufsatz` dieselbe Zeile rechnet wie der Bauer. Eine
- * nachgebaute Formel im Werkzeug wäre eine zweite Wahrheit — genau der Fehler,
- * der die erste Messung dieses Themas wertlos gemacht hat (G-73).
- */
-export function schuerze(boden: Aufsatzboden, x: number, z: number, y: number): number {
-  const luft = y - boden.tiefsteFlaeche(x, z);
-  return luft < SCHUERZE_AB ? 0 : Math.min(luft, SCHUERZE_MAX);
-}
+export const FUNDAMENT_MAX = 2.5;
 
 export function baueTerrain(welt: Weltdaten): TerrainErgebnis {
   const [sued, west, nord, ost] = welt.bbox;
@@ -202,295 +186,19 @@ export function baueTerrain(welt: Weltdaten): TerrainErgebnis {
   return { geometrie, breiteMeter, tiefeMeter, hoeheAn, biomAn, weltZuRaster, rasterZuWelt };
 }
 
-/** Gewässer als eigene Ebenen — Flüsse und Bäche aus den OSM-Linien. */
-/** Wie hoch die Wasserfläche über dem Gelände liegt. */
-const WASSER_UEBER_GRUND = 0.06;
-
-export function baueGewaesser(
-  welt: Weltdaten, terrain: Aufsatzboden,
-  /** Stehende Gewässer in Weltkoordinaten. Kommen aus `feld.teiche`. */
-  teiche: readonly { punkte: [number, number][] }[] = [],
-): THREE.BufferGeometry | null {
-  const [sued, west, nord, ost] = welt.bbox;
-  const positionen: number[] = [];
-  const zuWelt = (lat: number, lon: number): [number, number] => [
-    ((lon - west) / (ost - west) - 0.5) * terrain.breiteMeter,
-    ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
-  ];
-
-  const uvs: number[] = [];
-
-  for (const linie of welt.linien) {
-    const halbe = linie.breite / (2 * MASSSTAB.stauchung);
-    let laengs = 0;
-    for (let k = 0; k < linie.punkte.length - 1; k++) {
-      const [ax, az] = zuWelt(...linie.punkte[k]);
-      const [bx, bz] = zuWelt(...linie.punkte[k + 1]);
-      const dx = bx - ax, dz = bz - az;
-      const len = Math.hypot(dx, dz) || 1;
-      const nx = (-dz / len) * halbe, nz = (dx / len) * halbe;
-
-      // In Teilstücke zerlegen und je Stück die Höhe neu abfragen.
-      //
-      // OSM-Stützpunkte liegen oft dutzende Meter auseinander. Ein Band, das nur an
-      // den Enden aufs Gelände gelegt wird, schneidet dazwischen durch Kuppen und
-      // schwebt über Senken — gemessen bis 3 m, obwohl beide Enden richtig sitzen.
-      const teile = Math.max(1, Math.ceil(len / WEG_TEILUNG));
-      for (let s = 0; s < teile; s++) {
-        const t1 = s / teile, t2 = (s + 1) / teile;
-        const x1 = ax + dx * t1, z1 = az + dz * t1;
-        const x2 = ax + dx * t2, z2 = az + dz * t2;
-        // Nur knapp über dem Gelände: Bei 30 cm stand das Band als Platte in der
-        // Landschaft. Die weichen Ränder macht jetzt das Material, nicht die Höhe.
-        const y1 = terrain.hoeheAn(x1, z1) + WASSER_UEBER_GRUND;
-        const y2 = terrain.hoeheAn(x2, z2) + WASSER_UEBER_GRUND;
-        const v1 = laengs + len * t1, v2 = laengs + len * t2;
-        positionen.push(
-          x1 - nx, y1, z1 - nz,  x1 + nx, y1, z1 + nz,  x2 - nx, y2, z2 - nz,
-          x1 + nx, y1, z1 + nz,  x2 + nx, y2, z2 + nz,  x2 - nx, y2, z2 - nz,
-        );
-        // u = quer, -1 am linken Ufer bis +1 am rechten. v = Meter flussabwärts.
-        uvs.push(-1, v1,  1, v1,  -1, v2,   1, v1,  1, v2,  -1, v2);
-
-        /**
-         * Uferwand nach unten, wo das gezeichnete Gelände unter dem Band wegfallen
-         * kann.
-         *
-         * Nicht `u = ±1` für die Schürze: Bei ±1 setzt der Shader die Deckkraft auf
-         * null (`smoothstep(0, 0.28, 1 - |u|)`), die Wand wäre unsichtbar und der
-         * Aufwand umsonst. `±0.72` gibt ihr die Farbe des flachen Ufers — das ist
-         * auch inhaltlich richtig: Was man da sieht, ist die Böschung.
-         */
-        // Je Seite getrennt geprüft — und zwar an der Bandkante, nicht in der Mitte.
-        // Wo Gelände abfällt, tut es das meistens nur nach einer Richtung; die
-        // bergseitige Wand steckt ohnehin im Hang. Beide Seiten pauschal zu bauen
-        // kostete 40 % mehr Dreiecke für kein einziges Bild.
-        for (const seite of [-1, 1]) {
-          const ox = nx * seite, oz = nz * seite;
-          const px = x1 + ox, pz = z1 + oz, qx = x2 + ox, qz = z2 + oz;
-          const s1 = schuerze(terrain, px, pz, y1), s2 = schuerze(terrain, qx, qz, y2);
-          if (s1 <= 0 && s2 <= 0) continue;
-          const u = 0.72 * seite;
-          positionen.push(
-            px, y1, pz,  px, y1 - s1, pz,  qx, y2, qz,
-            px, y1 - s1, pz,  qx, y2 - s2, qz,  qx, y2, qz,
-          );
-          uvs.push(u, v1,  u, v1,  u, v2,   u, v1,  u, v2,  u, v2);
-        }
-      }
-      laengs += len;
-    }
-  }
-
-  /**
-   * Stehende Gewässer.
-   *
-   * Dieser Parameter kam mit den Weihern herein und wurde **nie gelesen**. Solange
-   * das Höhenfeld flach war, ist es niemandem aufgefallen. Seit D63 das Bett aus
-   * dem Gelände schneidet, ist jeder der elf Weiher eine 2,4 m tiefe Grube mit
-   * blauer Bodenfarbe und ohne einen Tropfen Wasser darin.
-   *
-   * Ein Teich ist **waagerecht** — das ist der Unterschied zum Bachband, das dem
-   * Gefälle folgt. Der Spiegel liegt auf dem tiefsten Punkt des Ufers: Höher würde
-   * er überlaufen, tiefer bliebe ein Rand aus trockener Grube stehen.
-   */
-  for (const teich of teiche) {
-    const p = teich.punkte;
-    if (p.length < 3) continue;
-    let spiegel = Infinity;
-    for (const [x, z] of p) spiegel = Math.min(spiegel, terrain.hoeheAn(x, z));
-    if (!Number.isFinite(spiegel)) continue;
-
-    // Abstand zum Ufer steuert die Farbe: In der Mitte tief und deckend, am Rand
-    // flach und durchsichtig — dieselbe Skala wie quer über den Bach.
-    const uferAbstand = (x: number, z: number): number => {
-      let best = Infinity;
-      for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
-        const [x1, z1] = p[j], [x2, z2] = p[i];
-        const dx = x2 - x1, dz = z2 - z1;
-        const lq = dx * dx + dz * dz;
-        const t = lq > 0 ? Math.max(0, Math.min(1, ((x - x1) * dx + (z - z1) * dz) / lq)) : 0;
-        best = Math.min(best, Math.hypot(x1 + dx * t - x, z1 + dz * t - z));
-      }
-      return best;
-    };
-    const UFER = 7;
-    const uWert = (x: number, z: number) => 1 - Math.min(1, uferAbstand(x, z) / UFER);
-
-    /**
-     * Umlaufsinn umdrehen, sonst zeigt der Teich nach unten.
-     *
-     * `triangulateShape` normalisiert den Außenring auf gegen den Uhrzeigersinn in
-     * (x, z) — und das ergibt in three.js mit Y nach oben eine Normale nach
-     * **unten**. Gemessen: 44 von 44 Dreiecken nach unten. Von oben wäre der
-     * Weiher unsichtbar geblieben, von unten sichtbar; ein Fehler, den man beim
-     * Durchlaufen nie findet, weil man nie unter dem Wasserspiegel steht.
-     */
-    const punkte2d = p.map(([x, z]) => new THREE.Vector2(x, z));
-    for (const [a, b, c] of THREE.ShapeUtils.triangulateShape(punkte2d, [])) {
-      for (const idx of [c, b, a]) {
-        const v = punkte2d[idx];
-        positionen.push(v.x, spiegel, v.y);
-        uvs.push(uWert(v.x, v.y), 0);
-      }
-    }
-
-    // Uferwand, damit der Spiegel in der Ferne nicht über der ausgedünnten Fläche
-    // schwebt — gleiche Begründung wie beim Bach.
-    for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
-      const [x1, z1] = p[j], [x2, z2] = p[i];
-      const s1 = schuerze(terrain, x1, z1, spiegel), s2 = schuerze(terrain, x2, z2, spiegel);
-      if (s1 <= 0 && s2 <= 0) continue;
-      positionen.push(
-        x1, spiegel, z1,  x1, spiegel - s1, z1,  x2, spiegel, z2,
-        x1, spiegel - s1, z1,  x2, spiegel - s2, z2,  x2, spiegel, z2,
-      );
-      for (let k = 0; k < 6; k++) uvs.push(0.72, 0);
-    }
-  }
-
-  if (!positionen.length) return null;
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  g.computeVertexNormals();
-  return g;
-}
-
 /**
- * Wasserfälle dort, wo ein Bachlauf abbricht.
+ * Wege, Gewässer und Wasserfälle stehen **nicht mehr hier**.
  *
- * Ein Bach, der 40 Höhenmeter auf 60 Metern Lauflänge verliert, ist im echten Œntal
- * kein Bach mehr, sondern eine Kaskade. Das flache Band, das wir bisher überall
- * hingelegt haben, klebt an solchen Stellen als schräge Platte am Hang — genau das,
- * was beim Spielen als unnatürlich auffällt.
+ * Sie sind nach `baender.ts` gewandert und werden dort je Kachel gebaut, auf der
+ * LOD-Stufe, die an dieser Stelle auch gezeichnet wird. Ein Band für die ganze
+ * Region muss sich für eine Höhe entscheiden; das Gelände hat aber fünf. Die
+ * Böschung, die hier eine Woche lang stand, hat das zugedeckt statt behoben und
+ * 112.000 Dreiecke auf ungecullten Meshes gekostet (D73).
  *
- * Erkannt wird es am **Gefälle je Teilstück**: Über 22 % wird aus dem liegenden Band
- * eine stehende Fläche vom oberen zum unteren Punkt. Das ist keine Simulation, es ist
- * die Feststellung, dass Wasser dort fällt statt zu fließen.
- *
- * `uv.y` läuft an der Wand nach unten, damit derselbe Shader die Strömung senkrecht
- * laufen lässt — ein Wasserfall braucht kein eigenes Material.
+ * Gebäude bleiben hier: Sie sind Körper, keine Auflagen, und ihre Höhe hängt
+ * nicht davon ab, wie fein das Netz unter ihnen ist.
  */
-const WASSERFALL_AB = 0.22;
 
-export function baueWasserfaelle(
-  welt: Weltdaten, terrain: Aufsatzboden,
-): THREE.BufferGeometry | null {
-  const [sued, west, nord, ost] = welt.bbox;
-  const positionen: number[] = [];
-  const uvs: number[] = [];
-  const zuWelt = (lat: number, lon: number): [number, number] => [
-    ((lon - west) / (ost - west) - 0.5) * terrain.breiteMeter,
-    ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
-  ];
-
-  for (const linie of welt.linien) {
-    const halbe = Math.max(0.8, linie.breite / (2 * MASSSTAB.stauchung));
-    for (let k = 0; k < linie.punkte.length - 1; k++) {
-      const [ax, az] = zuWelt(...linie.punkte[k]);
-      const [bx, bz] = zuWelt(...linie.punkte[k + 1]);
-      const dx = bx - ax, dz = bz - az;
-      const len = Math.hypot(dx, dz) || 1;
-      const nx = (-dz / len) * halbe, nz = (dx / len) * halbe;
-
-      const teile = Math.max(1, Math.ceil(len / WEG_TEILUNG));
-      for (let t = 0; t < teile; t++) {
-        const t1 = t / teile, t2 = (t + 1) / teile;
-        const x1 = ax + dx * t1, z1 = az + dz * t1;
-        const x2 = ax + dx * t2, z2 = az + dz * t2;
-        const y1 = terrain.hoeheAn(x1, z1);
-        const y2 = terrain.hoeheAn(x2, z2);
-        const stueck = len / teile;
-        const fall = y1 - y2;
-        if (fall / Math.max(1, stueck) < WASSERFALL_AB) continue;
-
-        // Senkrechte Fläche vom oberen zum unteren Punkt. Oben leicht angehoben,
-        // damit sie an der Abrisskante nicht im Gelände verschwindet.
-        const oben = y1 + 0.15, unten = y2 - 0.1;
-        positionen.push(
-          x1 - nx, oben, z1 - nz,  x1 + nx, oben, z1 + nz,  x2 - nx, unten, z2 - nz,
-          x1 + nx, oben, z1 + nz,  x2 + nx, unten, z2 + nz,  x2 - nx, unten, z2 - nz,
-        );
-        const v1 = 0, v2 = fall;
-        uvs.push(-1, v1,  1, v1,  -1, v2,   1, v1,  1, v2,  -1, v2);
-      }
-    }
-  }
-  if (!positionen.length) return null;
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  g.computeVertexNormals();
-  return g;
-}
-
-/**
- * Wege und Straßen als flache Bänder auf dem Terrain. Strukturieren die Landschaft
- * stark — ohne sie wirkt selbst gutes Gelände wie unbewohnte Wildnis.
- */
-export function baueWege(welt: Weltdaten, terrain: Aufsatzboden): THREE.BufferGeometry | null {
-  const [sued, west, nord, ost] = welt.bbox;
-  const positionen: number[] = [];
-  const zuWelt = (lat: number, lon: number): [number, number] => [
-    ((lon - west) / (ost - west) - 0.5) * terrain.breiteMeter,
-    ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
-  ];
-  const uvs: number[] = [];
-
-  for (const weg of welt.wege) {
-    const halbe = weg.breite / (2 * MASSSTAB.stauchung);
-    let laengs = 0;
-    for (let k = 0; k < weg.punkte.length - 1; k++) {
-      const [ax, az] = zuWelt(...weg.punkte[k]);
-      const [bx, bz] = zuWelt(...weg.punkte[k + 1]);
-      const dx = bx - ax, dz = bz - az;
-      const len = Math.hypot(dx, dz) || 1;
-      const nx = (-dz / len) * halbe, nz = (dx / len) * halbe;
-
-      const teile = Math.max(1, Math.ceil(len / WEG_TEILUNG));
-      for (let t = 0; t < teile; t++) {
-        const t1 = t / teile, t2 = (t + 1) / teile;
-        const x1 = ax + dx * t1, z1 = az + dz * t1;
-        const x2 = ax + dx * t2, z2 = az + dz * t2;
-        // knapp über dem Boden, damit nichts durch das Terrain blitzt
-        const y1 = terrain.hoeheAn(x1, z1) + 0.12;
-        const y2 = terrain.hoeheAn(x2, z2) + 0.12;
-        const v1 = laengs + len * t1, v2 = laengs + len * t2;
-        positionen.push(
-          x1 - nx, y1, z1 - nz,  x1 + nx, y1, z1 + nz,  x2 - nx, y2, z2 - nz,
-          x1 + nx, y1, z1 + nz,  x2 + nx, y2, z2 + nz,  x2 - nx, y2, z2 - nz,
-        );
-        uvs.push(-1, v1,  1, v1,  -1, v2,   1, v1,  1, v2,  -1, v2);
-
-        // Böschung, wo das gezeichnete Gelände unter dem Band wegfallen kann.
-        // 26 % aller Wegproben hängen auf der gröbsten Stufe über 0,5 m in der Luft
-        // (`npm run aufsatz`) — ein Feldweg am Hang hat dort in Wirklichkeit eine
-        // Anschüttung, also bauen wir genau die.
-        // Nur die talseitige Böschung, aus demselben Grund wie beim Gewässer.
-        for (const seite of [-1, 1]) {
-          const ox = nx * seite, oz = nz * seite;
-          const px = x1 + ox, pz = z1 + oz, qx = x2 + ox, qz = z2 + oz;
-          const s1 = schuerze(terrain, px, pz, y1), s2 = schuerze(terrain, qx, qz, y2);
-          if (s1 <= 0 && s2 <= 0) continue;
-          const u = 0.72 * seite;
-          positionen.push(
-            px, y1, pz,  px, y1 - s1, pz,  qx, y2, qz,
-            px, y1 - s1, pz,  qx, y2 - s2, qz,  qx, y2, qz,
-          );
-          uvs.push(u, v1,  u, v1,  u, v2,   u, v1,  u, v2,  u, v2);
-        }
-      }
-      laengs += len;
-    }
-  }
-  if (!positionen.length) return null;
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  g.computeVertexNormals();
-  return g;
-}
 
 /**
  * Gebäude aus OSM-Grundrissen. Höhe aus `building:levels` (3 m je Ebene), plus
@@ -559,9 +267,9 @@ export function baueGebaeude(welt: Weltdaten, terrain: Aufsatzboden): THREE.Buff
     }
     if (!Number.isFinite(boden)) continue;
     // Fundament: so weit unter den Sockel, wie das gezeichnete Gelände in der
-    // Ferne wegfallen kann. Deckelt bei SCHUERZE_MAX — ein Haus braucht keinen
+    // Ferne wegfallen kann. Deckelt bei FUNDAMENT_MAX — ein Haus braucht keinen
     // 15 m tiefen Keller, den ohnehin niemand sieht.
-    const fuss = boden - Math.min(SCHUERZE_MAX, Math.max(0, boden - unterkante));
+    const fuss = boden - Math.min(FUNDAMENT_MAX, Math.max(0, boden - unterkante));
 
     /**
      * Orientierte Hülle statt achsparalleler.

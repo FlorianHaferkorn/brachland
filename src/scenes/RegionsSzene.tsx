@@ -11,8 +11,9 @@ import { useMemo, useRef, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
-import { baueTerrain, baueGewaesser, baueGebaeude, baueWege, baueWasserfaelle, GROESSE,
-         type TerrainErgebnis } from '../world/terrain.js';
+import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../world/terrain.js';
+import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
+         type Bandsatz } from '../world/baender.js';
 import { useGLTF } from '@react-three/drei';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
@@ -270,7 +271,6 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
    * (G-73).
    */
   const aufBoden = useMemo(() => aufsatzboden(feld), [feld]);
-  const aufWasser = useMemo(() => aufsatzboden(feld, true), [feld]);
   const wasserMaterial = useMemo(() => baueWasserMaterial(), []);
   const fallMaterial = useMemo(() => baueWasserMaterial(true), []);
   const wegMaterial = useMemo(() => baueWegMaterial(), []);
@@ -298,20 +298,23 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
     }
     wind.setzeZeit(uhr.current);
   });
-  const { gewaesser, gebaeude, wege, wasserfaelle } = useMemo(() => ({
-    gewaesser: baueGewaesser(welt, aufWasser, feld.teiche),
-    gebaeude: baueGebaeude(welt, aufBoden),
-    wege: baueWege(welt, aufBoden),
-    wasserfaelle: baueWasserfaelle(welt, aufWasser),
-  }), [welt, aufBoden, aufWasser, feld]);
+  const gebaeude = useMemo(() => baueGebaeude(welt, aufBoden), [welt, aufBoden]);
+  /**
+   * Bänder einmal zerlegen, dann je Kachel bauen.
+   *
+   * Die Zerlegung kostet einen Durchlauf über 42.000 Wegteile und 9.000 Bachteile
+   * und passiert genau einmal je Welt. Was danach je Kachel gebaut wird, ist ein
+   * Bruchteil davon — und es fällt weg, sobald die Kachel außer Sicht gerät.
+   */
+  const satz = useMemo(() => zerlegeBaender(welt, feld), [welt, feld]);
 
   return (
     <group>
       <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} />
 
-      {wege && <mesh geometry={wege} material={wegMaterial} receiveShadow />}
-      {gewaesser && <mesh geometry={gewaesser} material={wasserMaterial} />}
-      {wasserfaelle && <mesh geometry={wasserfaelle} material={fallMaterial} />}
+      <LodBaender feld={feld} satz={satz} kacheln={kacheln} ziel={ziel}
+                  wegMaterial={wegMaterial} wasserMaterial={wasserMaterial}
+                  fallMaterial={fallMaterial} />
 
       {klippen.length > 0 && <Klippen klippen={klippen} ziel={ziel} material={wind.material} />}
 
@@ -327,6 +330,79 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
     </group>
   );
+}
+
+/**
+ * Wege, Bäche und Wasserfälle je Kachel — dasselbe Verfahren wie beim Gelände.
+ *
+ * Der Grund, warum das hier steht und nicht in einem `useMemo`: Ein Band muss auf
+ * **derselben** LOD-Stufe gebaut werden wie die Kachel, auf der es liegt, und die
+ * hängt an der Kameraentfernung. Ein einmal gebautes Band für die ganze Region
+ * kann das nicht — es hing gemessen auf der gröbsten Stufe zu 26 % über einem
+ * halben Meter in der Luft (G-70).
+ *
+ * Cache und Budget sind von `LodTerrain` übernommen, samt Begründung: Alle Kacheln
+ * auf einmal neu zu bauen kostet einen sichtbaren Ruckler, fehlende werden im
+ * nächsten Bild nachgezogen.
+ */
+function LodBaender({ feld, satz, kacheln, ziel, wegMaterial, wasserMaterial, fallMaterial }: {
+  feld: HoehenFeld; satz: Bandsatz; kacheln: Kachel[];
+  ziel: React.RefObject<THREE.Object3D | null>;
+  wegMaterial: THREE.Material; wasserMaterial: THREE.Material; fallMaterial: THREE.Material;
+}) {
+  const cache = useRef(new Map<string, THREE.BufferGeometry | null>());
+  const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  const [teile, setTeile] = useState<{ weg: THREE.BufferGeometry[];
+                                       wasser: THREE.BufferGeometry[];
+                                       fall: THREE.BufferGeometry[] }>(
+    { weg: [], wasser: [], fall: [] });
+
+  useFrame(() => {
+    const p = ziel.current?.position;
+    if (!p) return;
+    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+    letzte.current.copy(p);
+
+    let budget = 12;
+    const sammeln = { weg: [] as THREE.BufferGeometry[],
+                      wasser: [] as THREE.BufferGeometry[],
+                      fall: [] as THREE.BufferGeometry[] };
+    for (const k of kacheln) {
+      const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
+      if (d > TERRAIN_SICHT) continue;
+      const lod = lodFuerAbstand(d);
+      for (const [art, bauen] of [
+        ['weg', baueWegKachel], ['wasser', baueWasserKachel], ['fall', baueFallKachel],
+      ] as const) {
+        const schluessel = `${art}:${k.ix}:${k.iz}:${lod}`;
+        let g = cache.current.get(schluessel);
+        if (g === undefined) {
+          // `null` heißt „hier liegt nichts" und wird genauso gemerkt wie eine
+          // Geometrie — sonst probiert jede Neubewertung die leeren Kacheln erneut,
+          // und das sind die meisten.
+          if (budget-- <= 0) { letzte.current.set(NaN, NaN, NaN); continue; }
+          g = bauen(feld, satz, k, lod);
+          cache.current.set(schluessel, g);
+        }
+        if (g) sammeln[art].push(g);
+      }
+    }
+
+    const fassen = (gs: THREE.BufferGeometry[]) =>
+      gs.length ? [mergeGeometries(gs, false)].filter(Boolean) as THREE.BufferGeometry[] : [];
+    const neu = { weg: fassen(sammeln.weg), wasser: fassen(sammeln.wasser),
+                  fall: fassen(sammeln.fall) };
+    setTeile(vorher => {
+      for (const liste of [vorher.weg, vorher.wasser, vorher.fall]) liste.forEach(g => g.dispose());
+      return neu;
+    });
+  });
+
+  return <>
+    {teile.weg.map((g, i) => <mesh key={`w${i}`} geometry={g} material={wegMaterial} receiveShadow />)}
+    {teile.wasser.map((g, i) => <mesh key={`b${i}`} geometry={g} material={wasserMaterial} />)}
+    {teile.fall.map((g, i) => <mesh key={`f${i}`} geometry={g} material={fallMaterial} />)}
+  </>;
 }
 
 /**

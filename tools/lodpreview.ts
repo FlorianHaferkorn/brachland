@@ -4,7 +4,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          aufsatzboden } from '../src/world/lod.js';
 import { verteileProps } from '../src/world/props.js';
-import { baueTerrain, baueWege, baueGewaesser, baueGebaeude } from '../src/world/terrain.js';
+import { baueTerrain, baueGebaeude } from '../src/world/terrain.js';
+import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel } from '../src/world/baender.js';
 
 const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const mikro = Number(process.argv[2] ?? 1.1);
@@ -29,12 +30,20 @@ for (const k of kacheln) {
   tris += p.count / 3;
 }
 
-// Wege, Wasser, Gebäude aus derselben Höhenquelle wie im Spiel — eine Vorschau,
+// Bänder je Kachel auf derselben Stufe wie das Gelände darunter — eine Vorschau,
 // die anders aufsetzt als die Szene, zeigt genau den Fehler nicht, den man sucht.
-const boden = aufsatzboden(feld), wasser = aufsatzboden(feld, true);
-for (const [name, g] of [['wege', baueWege(welt, boden)],
-                         ['wasser', baueGewaesser(welt, wasser, feld.teiche)],
-                         ['gebaeude', baueGebaeude(welt, boden)]] as any[]) {
+const boden = aufsatzboden(feld);
+const satz = zerlegeBaender(welt, feld);
+const bandteile: [string, any][] = [];
+for (const k of kacheln) {
+  const d = Math.max(0, Math.hypot(k.mitte[0] - SP[0], k.mitte[1] - SP[1]) - k.radius);
+  if (d > 400) continue;
+  const lod = lodFuerAbstand(d);
+  bandteile.push(['wege', baueWegKachel(feld, satz, k, lod)]);
+  bandteile.push(['wasser', baueWasserKachel(feld, satz, k, lod)]);
+  bandteile.push(['wasser', baueFallKachel(feld, satz, k, lod)]);
+}
+for (const [name, g] of [...bandteile, ['gebaeude', baueGebaeude(welt, boden)]] as any[]) {
   if (!g) continue;
   const p = g.getAttribute('position');
   const pos: number[] = [];

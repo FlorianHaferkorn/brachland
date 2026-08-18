@@ -168,13 +168,47 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1): HoehenFeld 
 export function hoeheAufFlaeche(
   feld: HoehenFeld, x: number, z: number, schritt: number = LOD_STUFEN[0].schritt,
 ): number {
-  const s = schritt;
+  return aufNetz(feld.hoehe, feld, x, z, schritt);
+}
+
+/**
+ * Der **Wasserspiegel** auf der gezeichneten Fläche.
+ *
+ * Nicht `hoeheAufFlaeche + wasserTiefe`. Das Bett ist 4 m breit; ein Netz mit 32 m
+ * Vertexabstand hat es schlicht nicht. Rechnete man die volle Bettiefe auf eine
+ * Fläche, in der gar keine Mulde steckt, stünde das Band in der Ferne 85 cm über
+ * dem Boden — der Fehler, den man vorher mit einer Böschung zudecken musste.
+ *
+ * Richtig ist, die **Fläche ohne Bett** auf demselben Netz abzutasten. Dann
+ * verschwindet die Tiefe von selbst, sobald das Netz sie nicht mehr auflöst.
+ */
+export function spiegelAufFlaeche(
+  feld: HoehenFeld, x: number, z: number, schritt: number = LOD_STUFEN[0].schritt,
+): number {
+  return aufNetz((px, pz) => feld.hoehe(px, pz) + feld.wasserTiefe(px, pz), feld, x, z, schritt);
+}
+
+/**
+ * Eine Höhenfunktion auf dem Vertexraster der Kacheln abtasten und **auf dem
+ * Dreieck** interpolieren.
+ *
+ * `baueKachelGeometrie` teilt jede Zelle entlang der Nebendiagonale p01–p10. Eine
+ * bilineare Fläche liegt dazwischen und weicht um bis zu |h00+h11-h01-h10|/4 ab —
+ * auf 32 m Zellweite ist das ein Meter. Gegen die wirklich gebaute Geometrie
+ * gemessen liegt diese Fassung bei 0,0000 m, die bilineare lag darüber.
+ */
+function aufNetz(
+  f: (x: number, z: number) => number,
+  feld: HoehenFeld, x: number, z: number, s: number,
+): number {
   const ux = -feld.breiteMeter / 2, uz = -feld.tiefeMeter / 2;
   const x0 = Math.floor((x - ux) / s) * s + ux, z0 = Math.floor((z - uz) / s) * s + uz;
   const fx = (x - x0) / s, fz = (z - z0) / s;
-  const h00 = feld.hoehe(x0, z0), h10 = feld.hoehe(x0 + s, z0);
-  const h01 = feld.hoehe(x0, z0 + s), h11 = feld.hoehe(x0 + s, z0 + s);
-  return (h00 * (1 - fx) + h10 * fx) * (1 - fz) + (h01 * (1 - fx) + h11 * fx) * fz;
+  return fx + fz <= 1
+    ? f(x0, z0) + (f(x0 + s, z0) - f(x0, z0)) * fx + (f(x0, z0 + s) - f(x0, z0)) * fz
+    : f(x0 + s, z0 + s)
+      + (f(x0, z0 + s) - f(x0 + s, z0 + s)) * (1 - fx)
+      + (f(x0 + s, z0) - f(x0 + s, z0 + s)) * (1 - fz);
 }
 
 /**
