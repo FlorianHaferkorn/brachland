@@ -78,6 +78,60 @@ export function mulberry(seed: number) {
   };
 }
 
+/**
+ * Steht dieser Punkt in einem Gebäude?
+ *
+ * Die Prop-Verteilung kannte Grundrisse nicht: Gemessen standen **2.416 von
+ * 172.220 Props in einem Haus** (1,4 %), darunter 96 Laubbäume und 28 Fichten.
+ * Ein Grasbüschel im Wohnzimmer sieht man nicht, einen Baum durch das Dach schon.
+ *
+ * Ein Raster über die Grundriss-Hüllen macht aus 172.000 × 2.033 Vergleichen einen
+ * Durchlauf; erst wenn die Hülle passt, wird das Polygon geprüft.
+ */
+function hausTest(
+  welt: Weltdaten, terrain: TerrainErgebnis,
+): (x: number, z: number) => boolean {
+  const [sued, west, nord, ost] = welt.bbox;
+  const zuWelt = (lat: number, lon: number): [number, number] => [
+    ((lon - west) / (ost - west) - 0.5) * terrain.breiteMeter,
+    ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
+  ];
+  /** Abstand zur Wand, den ein Prop mindestens hält. */
+  const RAND = 0.7;
+  const RASTER = 32;
+  const huellen = welt.gebaeude.map(g => {
+    const p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
+    const xs = p.map(q => q[0]), zs = p.map(q => q[1]);
+    return { p, minX: Math.min(...xs) - RAND, maxX: Math.max(...xs) + RAND,
+             minZ: Math.min(...zs) - RAND, maxZ: Math.max(...zs) + RAND };
+  });
+  const eimer = new Map<string, number[]>();
+  huellen.forEach((h, i) => {
+    for (let cx = Math.floor(h.minX / RASTER); cx <= Math.floor(h.maxX / RASTER); cx++)
+      for (let cz = Math.floor(h.minZ / RASTER); cz <= Math.floor(h.maxZ / RASTER); cz++) {
+        const k = `${cx}:${cz}`;
+        const l = eimer.get(k); if (l) l.push(i); else eimer.set(k, [i]);
+      }
+  });
+  return (x, z) => {
+    const kandidaten = eimer.get(`${Math.floor(x / RASTER)}:${Math.floor(z / RASTER)}`);
+    if (!kandidaten) return false;
+    for (const i of kandidaten) {
+      const h = huellen[i];
+      if (x < h.minX || x > h.maxX || z < h.minZ || z > h.maxZ) continue;
+      // Strahlverfahren gegen den Grundriss selbst — die Hülle ist nur der Filter.
+      let drin = false;
+      const p = h.p;
+      for (let a = 0, b = p.length - 1; a < p.length; b = a++) {
+        const [xa, za] = p[a], [xb, zb] = p[b];
+        if ((za > z) !== (zb > z) && x < ((xb - xa) * (z - za)) / (zb - za) + xa) drin = !drin;
+      }
+      if (drin) return true;
+    }
+    return false;
+  };
+}
+
 export function verteileProps(
   welt: Weltdaten, terrain: TerrainErgebnis, seed = 1,
 ): PropInstanz[] {
@@ -86,6 +140,7 @@ export function verteileProps(
   const zellBreite = terrain.breiteMeter / (n - 1);
   const zellTiefe = terrain.tiefeMeter / (n - 1);
   const hektarJeZelle = (zellBreite * zellTiefe * MASSSTAB.stauchung ** 2) / 10_000;
+  const imHaus = hausTest(welt, terrain);
 
   const props: PropInstanz[] = [];
 
@@ -112,6 +167,9 @@ export function verteileProps(
         for (let k = 0; k < anzahl; k++) {
           const x = x0 + zufall() * zellBreite;
           const z = z0 + zufall() * zellTiefe;
+          // Gemessen standen 2.416 Props in einem Grundriss, darunter 124 Bäume —
+          // die wuchsen durch die Hauswand. Die Verteilung kannte Gebäude nicht.
+          if (imHaus(x, z)) continue;
           props.push({
             art,
             variante: Math.floor(zufall() * variantenZahl(art)),

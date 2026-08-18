@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { effektivitaet, ELEMENTE, BAND } from '../src/data/schema.js';
 import { VARIANTEN, propPfad } from '../src/world/props.js';
 import { WEGBELAG } from '../src/world/baender.js';
+import { entpackeWelt } from '../src/world/osm.js';
 
 type Befund = { schwere: 'stop' | 'warnung'; bereich: string; text: string };
 const befunde: Befund[] = [];
@@ -183,6 +184,44 @@ if (propDateien.length) {
 }
 
 /**
+ * Stehen die Häuser einer Region auf Siedlung?
+ *
+ * Gemessen standen **1.608 von 2.033 im Biom `wiese`** (G-81): Bayerische Dörfer
+ * tragen in OSM oft kein `landuse=residential`. Sichtbar war das nur indirekt —
+ * an Wiesendichten im Dorf und daran, dass `landuse=farmyard`-Kreaturen 48 ha
+ * statt der bewohnten Fläche fanden.
+ *
+ * Geprüft wird die **gebaute Datei**, nicht die Regel: Die Regel testet
+ * `tests/siedlung.test.ts`. Hier geht es darum, dass niemand eine alte Weltdatei
+ * mitschleppt oder eine neue Region ohne den Schritt baut.
+ */
+for (const datei of readdirSync('public/world').filter(f => f.endsWith('.json'))) {
+  // Entpackt, nicht roh: Die Weltdatei ist gepackt, und `welt.biome` ist darin
+  // kein Raster. Roh gelesen lief die Prüfung ins Leere statt in einen Befund.
+  const welt = entpackeWelt(JSON.parse(readFileSync(join('public/world', datei), 'utf8')).welt);
+  const gebaeude = welt.gebaeude ?? [];
+  if (!gebaeude.length) continue;
+  const [s2, w2, n2, e2] = welt.bbox;
+  const N = welt.aufloesung;
+  let drauf = 0;
+  for (const g of gebaeude) {
+    const p: [number, number][] = g.punkte;
+    const lat = p.reduce((a, q) => a + q[0], 0) / p.length;
+    const lon = p.reduce((a, q) => a + q[1], 0) / p.length;
+    const i = Math.max(0, Math.min(N - 1, Math.round((n2 - lat) / (n2 - s2) * (N - 1))));
+    const j = Math.max(0, Math.min(N - 1, Math.round((lon - w2) / (e2 - w2) * (N - 1))));
+    const b = welt.biome[i][j];
+    if (b === 'siedlung' || b === 'industrie') drauf++;
+  }
+  const anteil = 100 * drauf / gebaeude.length;
+  if (anteil < 80)
+    stop('Welt', `${datei}: nur ${anteil.toFixed(0)} % der ${gebaeude.length} Gebäude stehen auf`
+      + ' Siedlung oder Industrie — Weltdatei veraltet? npm run world <region> 384 dgm1 (G-81)');
+  else
+    console.log(`  · [Welt] ${datei}: ${anteil.toFixed(0)} % der ${gebaeude.length} Gebäude stehen auf Siedlung oder Industrie`);
+}
+
+/**
  * Jede Wegklasse in den Weltdaten braucht einen Belag.
  *
  * Ohne Eintrag fällt `belagFuer` still auf einen neutralen Standard zurück — und
@@ -191,8 +230,8 @@ if (propDateien.length) {
  * einer, den man nicht sieht.
  */
 for (const datei of readdirSync('public/world').filter(f => f.endsWith('.json'))) {
-  const welt = JSON.parse(readFileSync(join('public/world', datei), 'utf8')).welt;
-  const arten = new Set<string>((welt.wege ?? []).map((w: { art: string }) => w.art));
+  const welt = entpackeWelt(JSON.parse(readFileSync(join('public/world', datei), 'utf8')).welt);
+  const arten = new Set<string>(welt.wege.map(w => w.art));
   const offen = [...arten].filter(a => !WEGBELAG[a]);
   if (offen.length)
     warn('Welt', `${datei}: Wegklassen ohne Belag — ${offen.join(', ')} (src/world/baender.ts)`);
