@@ -28,18 +28,66 @@ export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbus
  * und damit als Wald lesbar, aber weiter licht. Der nächste Hebel wären
  * Fernattrappen statt voller Modelle (Ledger G-15), nicht noch mehr Dichte.
  */
-const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
+export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
   wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4 },
   gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9 },
   wiese:     { grasbuschel: 40, busch: 3, laubbaum: 1.2, blume: 22 },
   acker:     { grasbuschel: 8, blume: 2 },
   fels:      { findling: 18, busch: 4, nadelbaum: 1.6, grasbuschel: 6 },
   wasser:    {},
-  siedlung:  { laubbaum: 6, busch: 7, grasbuschel: 12, blume: 6 },
+  // Siedlung: siehe den Block unter dieser Tabelle. Kurz — ein bayerisches Dorf ist
+  // nicht leerer als die Wiese daneben, sondern anders bewachsen: weniger Horstgras,
+  // deutlich mehr Holz.
+  siedlung:  { laubbaum: 22, nadelbaum: 3, busch: 34, grasbuschel: 20, blume: 14, totholz: 3 },
   industrie: { busch: 4, totholz: 3, grasbuschel: 9 },
   ruine:     { busch: 9, totholz: 5, findling: 5, grasbuschel: 14, blume: 3 },
   unbekannt: { grasbuschel: 10 },
 };
+
+/**
+ * Warum `siedlung` von 31 auf 96 je Hektar gegangen ist.
+ *
+ * Die alten Werte (`laubbaum: 6, busch: 7, grasbuschel: 12, blume: 6`) wurden
+ * gesetzt, als `siedlung` 48 ha gross war und aus `landuse=residential` kam. Seit
+ * die Siedlung aus den Gebäuden selbst gestempelt wird (D74), sind es 177,5 ha —
+ * grösstenteils vormalige Wiese. Gemessen (`npm run dichte`) ergab das:
+ *
+ *   - Siedlung trug **25 Props je Hektar**, Wiese 66, freie Flur 128. Das Dorf war
+ *     die kahlste Fläche der Karte ausser dem Acker.
+ *   - Im dichtesten Ortskern standen auf **einem Hektar mit 25 Gebäuden ganze 30
+ *     Props** — fünf Bäume, sechs Büsche, zwölf Grasbüschel, sieben Blumen.
+ *   - Der Stempel hatte dem Bewuchs unterm Strich **6.249 Props entzogen**: +852
+ *     Bäume und +710 Büsche gegen −4.971 Grasbüschel und −2.840 Blumen.
+ *
+ * Der Fehler war nicht die Regel, sondern die stehengebliebene Tabelle. Als
+ * Bezugsgrösse dienen jetzt gemessene Werte statt einer Setzung:
+ *
+ *   - **Bäume: 18 je Hektar Siedlungsfläche.** Abgeleitet aus 9,8 % Kronenanteil an
+ *     der Siedlungs- und Verkehrsfläche (BBSR/IÖR, „Wie grün sind deutsche Städte?",
+ *     2022, Datenstand 2018) bei 60 m² mittlerer Kronenfläche — dem Median der an
+ *     rund 2.000 bayerischen Stadtbäumen gemessenen Kronendurchmesser (ZSK/TUM,
+ *     2019). Kleinstädte liegen 10,6 % über dem Bundesmittel, also rund 18.
+ *     Tabellenwert 25 (22 Laub + 3 Nadel), weil Neigungs-, Haus- und Wegfilter
+ *     rund ein Viertel wieder wegnehmen.
+ *   - **Sträucher: 34.** Schwächste Zahl hier. Aus 40–80 lfm Hecke je Hektar
+ *     (ANL-Landschaftspflegekonzept „Hecken", 1997, Feldflurwert) × 2–3 m Breite ×
+ *     0,44 Pflanzen je m² (KULAP-Pflanzabstand) folgen 35–105 Sträucher je Hektar.
+ *     Zierstraucher in Hausgärten sind in keiner Quelle erfasst. Genommen wird das
+ *     untere Ende. ⚠️ UNKLAR: zwei unbelegte Übertragungen (Feldflur → Ortslage,
+ *     Heckenbreite), Unsicherheit Faktor 3.
+ *   - **Bodendeckung: 20 Grasbüschel und 14 Blumen** gegen 40 und 22 auf der Wiese.
+ *     Rund 51 % einer bayerischen Siedlungs-Hektare sind versiegelt (LfU Bayern,
+ *     Satellitenstudie 2015, ländlicher Raum: 51,2 %), grünbedeckt sind 35–39 %.
+ *     Der Rest ist gemähter Rasen, und Rasen trägt keine Horste — darum die Hälfte
+ *     der Wiese, nicht 37 % davon.
+ *   - **Totholz: 3.** Der Holzstoss an der Hauswand. `totholz_stapel` ist genau das
+ *     Modell dafür, und es stand bisher nur im Wald.
+ *
+ * Ungelöst bleibt die Struktur: Ortskern und Ortsrand tragen dieselbe Zahl, obwohl
+ * die Quellen 8–12 Bäume je Hektar für dichte Bebauung und 50–100 für den
+ * Streuobstgürtel am Ortsrand nennen. Das braucht ein eigenes Biom, keine Zahl
+ * (Ledger A-x).
+ */
 
 /**
  * Sichtweite je Art. Kleinzeug jenseits davon wird gar nicht erst gezeichnet —
@@ -132,6 +180,61 @@ function hausTest(
   };
 }
 
+/**
+ * Steht dieser Punkt auf einem Wegband?
+ *
+ * Die Verteilung kannte seit G-82 die Gebäude, aber nicht die Wege. Gemessen
+ * standen **4.975 von 166.773 Props auf dem Belag** (3,0 %), darunter 1.488
+ * Fichten und 577 Laubbäume — Bäume mitten auf der Straße. Bei 25 Props je Hektar
+ * im Dorf fiel das kaum auf; wer die Dorfdichte verdreifacht, vervielfacht zuerst
+ * das Gras auf dem Asphalt.
+ *
+ * Bewusst dieselbe Bauart wie `hausTest`: ein Raster über die Segmente, dann der
+ * genaue Abstand. `baender.ts` hat einen gleichnamigen Test für Gärten, der aber
+ * Rechteck gegen Rechteck prüft und die LOD-Kacheln braucht — zwei verschiedene
+ * Fragen, darum zwei Funktionen.
+ */
+function wegTest(
+  welt: Weltdaten, terrain: TerrainErgebnis,
+): (x: number, z: number) => boolean {
+  const [sued, west, nord, ost] = welt.bbox;
+  /** Abstand zur Wegkante, den ein Prop mindestens hält. */
+  const RAND = 0.6;
+  const RASTER = 32;
+  const segmente: { ax: number; az: number; bx: number; bz: number; halb: number }[] = [];
+  for (const w of welt.wege) {
+    const p = w.punkte.map(([lat, lon]) => [
+      ((lon - west) / (ost - west) - 0.5) * terrain.breiteMeter,
+      ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
+    ] as [number, number]);
+    for (let k = 0; k < p.length - 1; k++)
+      segmente.push({ ax: p[k][0], az: p[k][1], bx: p[k + 1][0], bz: p[k + 1][1],
+                      halb: w.breite / 2 + RAND });
+  }
+  const eimer = new Map<string, number[]>();
+  segmente.forEach((s, i) => {
+    const x0 = Math.floor((Math.min(s.ax, s.bx) - s.halb) / RASTER);
+    const x1 = Math.floor((Math.max(s.ax, s.bx) + s.halb) / RASTER);
+    const z0 = Math.floor((Math.min(s.az, s.bz) - s.halb) / RASTER);
+    const z1 = Math.floor((Math.max(s.az, s.bz) + s.halb) / RASTER);
+    for (let cx = x0; cx <= x1; cx++)
+      for (let cz = z0; cz <= z1; cz++) {
+        const k = `${cx}:${cz}`;
+        const l = eimer.get(k); if (l) l.push(i); else eimer.set(k, [i]);
+      }
+  });
+  return (x, z) => {
+    for (const i of eimer.get(`${Math.floor(x / RASTER)}:${Math.floor(z / RASTER)}`) ?? []) {
+      const s = segmente[i];
+      const dx = s.bx - s.ax, dz = s.bz - s.az;
+      const l2 = dx * dx + dz * dz;
+      const t = l2 ? Math.max(0, Math.min(1, ((x - s.ax) * dx + (z - s.az) * dz) / l2)) : 0;
+      if (Math.hypot(x - s.ax - t * dx, z - s.az - t * dz) < s.halb) return true;
+    }
+    return false;
+  };
+}
+
 export function verteileProps(
   welt: Weltdaten, terrain: TerrainErgebnis, seed = 1,
 ): PropInstanz[] {
@@ -141,6 +244,7 @@ export function verteileProps(
   const zellTiefe = terrain.tiefeMeter / (n - 1);
   const hektarJeZelle = (zellBreite * zellTiefe * MASSSTAB.stauchung ** 2) / 10_000;
   const imHaus = hausTest(welt, terrain);
+  const aufWeg = wegTest(welt, terrain);
 
   const props: PropInstanz[] = [];
 
@@ -170,6 +274,8 @@ export function verteileProps(
           // Gemessen standen 2.416 Props in einem Grundriss, darunter 124 Bäume —
           // die wuchsen durch die Hauswand. Die Verteilung kannte Gebäude nicht.
           if (imHaus(x, z)) continue;
+          // Und 4.975 standen auf dem Belag, darunter 1.488 Fichten (G-84).
+          if (aufWeg(x, z)) continue;
           props.push({
             art,
             variante: Math.floor(zufall() * variantenZahl(art)),

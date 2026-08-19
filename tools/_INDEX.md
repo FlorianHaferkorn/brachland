@@ -28,6 +28,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Größenverhältnisse prüfen | `masstab.ts` |
 | Beurteilen, ob der Wald zu dunkel ist — **bevor** man an Lichtwerten dreht | `lichtcheck.ts` |
 | Vegetation aus dem Kenney-Kit nachziehen oder umfärben | `propbau.ts` → `../src/world/props.ts` |
+| An `DICHTE` drehen oder wissen wollen, wie leer das Dorf ist | `dichtecheck.ts` → `../src/world/props.ts` |
 | Prüfen, ob eine Bewegungsregel die Welt unbegehbar macht | `steigungcheck.ts` |
 | Prüfen, ob Silhouetten ins Budget passen — **und ob man ihnen die Herkunft ansieht** | `gestaltcheck.ts` |
 | Ein Gleitverhältnis wählen, ohne zu raten | `gleitcheck.ts` → `../src/spieler/gleiten.ts` |
@@ -76,6 +77,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `gestaltcheck.ts` | `npm run gestalt` — Dreiecke je Silhouette und Mutationsstufe gegen die Grenze von 600, plus zwei Bedingungen, die kein Kommentar sichern kann: dass die drei **Herkünfte verschieden bauen** (Creature Design Bible §1) und dass derselbe Seed dieselbe Gestalt ergibt. Entstanden, weil der Dateikopf „unter 250 Dreiecken" versprach und bei 492 lag (G-61) |
 | `gleitcheck.ts` | `npm run gleit` — 9.600 simulierte Flüge über das echte Höhenfeld: Höhenvorrat, Absprungkanten (596/km²), erreichte Weiten je Gleitverhältnis und der Vergleich gegen den Fußweg. Hat das Verhältnis **3:1** entschieden (D71) und dabei aufgedeckt, dass Gehen und Rennen an drei Orten dreimal verschieden standen (G-66) |
 | `wassercheck.ts` | `npm run wasser` — Länge, Breite und Tiefe der Gewässer, und prüft, dass `baueWasserfeld` alle 190 Läufe trifft. Hat Schwimmen zuerst **verworfen** (breitestes Fließgewässer 4,0 m gegen 4,6 m Sprungweite) und dann selbst widerlegt: Der erste Lauf las nur `welt.linien` und übersah elf `natural=water`-Polygone (G-50). Waten trägt die Bäche, Schwimmen die Weiher |
+| `dichtecheck.ts` | `npm run dichte` — wie dicht steht der Bewuchs, je Biom **und** je Abstand zum nächsten Grundriss? Die zweite Staffelung ist die wichtigere: das Biom ist eine Rasterzelle, das Dorf ist das, was in 30 m Umkreis wächst. Fand, dass die Siedlung mit 25 Props je Hektar die kahlste Fläche der Karte war (Wiese 66, freie Flur 128) und dass 4.975 Props auf dem Wegbelag standen, darunter 1.488 Fichten (G-84). Rechnet außerdem vor, was der Siedlungsstempel am Bewuchs gekostet hat |
 | `aufsatzcheck.ts` | `npm run aufsatz` — sitzen Wasserbänder, Wege und Hauswände auf der Fläche, die gezeichnet wird? Misst **je LOD-Stufe**, weil der Fehler entfernungsabhängig ist, und **an der Bandkante**, weil dort die Böschung entschieden wird. Der erste Lauf maß gegen `terrain.hoeheAn` und damit gegen einen Pfad, den die Szene gar nicht benutzt (G-73) |
 | `lodpreview.ts` | `npm run lodpreview` — Vorschau der LOD-Kachelung |
 
