@@ -87,6 +87,31 @@ function verschmelzen(doc: Document): { positionen: number[]; farben: number[] }
   return { positionen, farben };
 }
 
+/**
+ * Helligkeit über die Höhe des Modells — Bodenkontakt und Verlauf in einem.
+ *
+ * Kenney-Modelle tragen je Materialrolle **eine** flache Farbe. Gemessen hatten
+ * 15 der 36 Modelle überhaupt keinen nennenswerten Helligkeitsunterschied in sich.
+ * Das ist der Grund, warum ein Busch aussieht, als wäre er auf die Wiese geklebt:
+ * Es fehlt der dunkle Fuß, den jeder Gegenstand hat, der auf etwas steht.
+ *
+ * Zwei Anteile, beide im Modell eingebacken und damit zur Laufzeit gratis:
+ *
+ *   - **Kontaktschatten** — die untersten 12 % der Höhe gehen auf 58 % Helligkeit
+ *     hinunter. Bei einem 2,4-m-Busch sind das 29 cm, bei einem Grasbüschel 2 cm.
+ *     Genau dort, wo in echt kein Licht hinkommt.
+ *   - **Verlauf** — von 0,88 am Fuß auf 1,06 an der Spitze. Blätter oben bekommen
+ *     mehr Himmel ab als Blätter unten, und ein Findling ist oben ausgebleicht.
+ *
+ * Preis: `weld()` zieht weniger Ecken zusammen, weil zwei Ecken mit gleicher
+ * Position, aber verschiedener Höhenfarbe getrennt bleiben müssen. Das steht in
+ * der KB-Spalte der Ausgabe.
+ */
+function schattierung(t: number): number {
+  const kontakt = 0.58 + 0.42 * Math.min(1, t / 0.12);
+  return (0.88 + 0.18 * t) * kontakt;
+}
+
 let gesamtKB = 0, gesamtTris = 0, gebaut = 0;
 console.log('Props aus dem Kenney Nature Kit (CC0)\n');
 
@@ -114,10 +139,15 @@ for (const [art, varianten] of Object.entries(VARIANTEN) as [PropArt, typeof VAR
     }
     const faktor = v.hoehe / Math.max(1e-6, maxY - minY);
     const mx = (minX + maxX) / 2, mz = (minZ + maxZ) / 2;
+    const spanne = Math.max(1e-6, maxY - minY);
     for (let i = 0; i < positionen.length; i += 3) {
+      // Der Höhenanteil **vor** der Verschiebung — danach ist minY null.
+      const t = (positionen[i + 1] - minY) / spanne;
       positionen[i]     = (positionen[i] - mx) * faktor;
       positionen[i + 1] = (positionen[i + 1] - minY) * faktor;
       positionen[i + 2] = (positionen[i + 2] - mz) * faktor;
+      const s = schattierung(t);
+      farben[i] *= s; farben[i + 1] *= s; farben[i + 2] *= s;
     }
 
     const raus = new Document();

@@ -74,21 +74,44 @@ function mulberry(seed: number) {
 }
 
 /**
- * Färbt ein Teil und legt fest, wie stark der Wind daran zieht.
+ * Helligkeit über die Baumhöhe.
+ *
+ * Ein Baum ist innen dunkel. Die unteren Äste stehen im Schatten der oberen, der
+ * Stammfuß im Schatten von allem, und die Spitze bekommt den vollen Himmel — das
+ * ist der stärkste Hinweis darauf, dass ein Baum ein Körper ist und keine grüne
+ * Fläche. `baueBaum` hat bis hierher jedes Teil in **einer** flachen Farbe
+ * eingefärbt: Eine Fichte war ein einfarbiger Kegel, und man sah es ihr an.
+ *
+ * Von 0,70 am Boden auf 1,12 an der Spitze. Deutlich mehr als der Verlauf an den
+ * Kleinprops (0,88 → 1,06), weil ein 22-m-Baum diese Spanne wirklich hat, während
+ * ein 30-cm-Grasbüschel sie nicht haben kann.
+ */
+const verlauf = (t: number) => 0.70 + 0.42 * Math.min(1, Math.max(0, t));
+
+/**
+ * Färbt ein Teil, legt fest, wie stark der Wind daran zieht, und dunkelt es nach
+ * unten ab.
  *
  * `wind` ist der Grund, warum ein Baum sich bewegen kann, ohne dass der Stamm
  * mitwackelt: 0 am Stamm, 1 in der Krone. Das Attribut wandert durch die
  * Verschmelzung hindurch bis in den Vertex-Shader.
+ *
+ * `hoehe` ist die Gesamthöhe des Baums. Sie muss übergeben werden, weil jedes Teil
+ * bereits an seinen Platz verschoben ist, wenn es hier ankommt — die y-Werte sind
+ * damit schon Baumkoordinaten und brauchen nur den Bezug. Ohne `hoehe` bleibt die
+ * Farbe flach, so dass ein Aufrufer, der keinen Verlauf will, keinen bekommt.
  */
 function faerbe(
-  g: THREE.BufferGeometry, farbe: THREE.Color, wind = 0,
+  g: THREE.BufferGeometry, farbe: THREE.Color, wind = 0, hoehe = 0,
 ): THREE.BufferGeometry {
   const roh = g.index ? g.toNonIndexed() : g;
-  const n = roh.getAttribute('position').count;
+  const pos = roh.getAttribute('position');
+  const n = pos.count;
   const col = new Float32Array(n * 3);
   const wnd = new Float32Array(n);
   for (let i = 0; i < n; i++) {
-    col[i * 3] = farbe.r; col[i * 3 + 1] = farbe.g; col[i * 3 + 2] = farbe.b;
+    const s = hoehe > 0 ? verlauf(pos.getY(i) / hoehe) : 1;
+    col[i * 3] = farbe.r * s; col[i * 3 + 1] = farbe.g * s; col[i * 3 + 2] = farbe.b * s;
     wnd[i] = wind;
   }
   roh.setAttribute('color', new THREE.BufferAttribute(col, 3));
@@ -152,7 +175,7 @@ export function baueBaum(
     const g = new THREE.CylinderGeometry(r1, r0, stammHoehe / abschnitte, grob ? 4 : 5, 1, true);
     g.translate(0, stammHoehe * (t0 + t1) / 2, 0);
     // Der Stamm bewegt sich nicht — oben minimal, damit die Spitze nicht abknickt.
-    teile.push(faerbe(g, stammFarbe, t1 * t1 * 0.12));
+    teile.push(faerbe(g, stammFarbe, t1 * t1 * 0.12, hoehe));
   }
 
   if (art === 'buche') {
@@ -161,7 +184,7 @@ export function baueBaum(
       const g = new THREE.CylinderGeometry(0.08, w.fussRadius * 0.4, hoehe * 0.3, 4, 1, true);
       g.rotateZ(seite * 0.42);
       g.translate(seite * hoehe * 0.06, stammHoehe + hoehe * 0.13, 0);
-      teile.push(faerbe(g, stammFarbe, 0.3));
+      teile.push(faerbe(g, stammFarbe, 0.3, hoehe));
     }
   }
 
@@ -192,31 +215,45 @@ export function baueBaum(
       ast.rotateY(-phi);
       ast.translate(0, y, 0);
       // Äste biegen sich mit, aber weniger als das Laub an ihrem Ende.
-      teile.push(faerbe(ast, stammFarbe, 0.45 + t * 0.3));
+      teile.push(faerbe(ast, stammFarbe, 0.45 + t * 0.3, hoehe));
 
       // Laub entlang des Astes. Flach gedrückt, damit die Silhouette waagerecht
       // liest — bei Nadelbäumen ist genau das die erkennbare Form.
-      // Ein Laubballen je Ast, nicht zwei oder drei.
       //
-      // Das ist keine Sparsamkeit um ihrer selbst willen: Gemessen kostete die
-      // dichtere Fassung 2.570 Dreiecke je Fichte. Bei 95 Fichten je Hektar stehen
-      // im Umkreis von 75 m rund 170 davon — 437.000 Dreiecke allein für die nahen
-      // Bäume, gegen ein Gesamtbudget von 400.000. Die Silhouette entscheidet der
-      // Kegel, nicht die Zahl der Ballen.
-      const ballen = art === 'fichte' ? 1 : 2;
+      // **Drei Ballen statt einem, aber nur in der Nahstufe.** Ein einzelner Ballen
+      // je Ast liest als Silhouette gut und aus drei Metern Entfernung wie ein
+      // Felsblock: Ein Ikosaeder mit 3 m Radius ist kein Zweig. Die alte Fassung
+      // hatte diese Sparsamkeit begründet — gemessen kostete die dichte Variante
+      // damals 2.570 Dreiecke je Fichte gegen ein Budget von 400.000, das selbst
+      // nie gemessen war (G-18). Inzwischen läuft die Szene stabil bei 60 B/s und
+      // liegt je Kamera zwischen 106.000 und 140.000 Dreiecken. Der Kopfraum gehört
+      // dorthin, wo man ihn sieht.
+      //
+      // Drei kleinere statt einem großen, nicht drei große: Der Ballen schrumpft auf
+      // 72 % und wandert über die Astlänge, mit seitlichem Versatz, damit keine
+      // Perlenkette entsteht. Das Volumen bleibt ähnlich, die Silhouette wird
+      // zerfranst statt glatt — genau der Unterschied zwischen Laub und Findling.
+      // Die Mittelstufe behält den einen Ballen: Ab 90 m ist die Zerfransung kleiner
+      // als ein Pixel und der Kegel entscheidet.
+      const ballen = grob ? (art === 'fichte' ? 1 : 2) : 3;
+      const quer = ballen > 1 ? laenge * 0.16 : 0;
       for (let b = 0; b < ballen; b++) {
-        const s = (ballen === 1 ? 0.62 : 0.45 + 0.55 * ((b + 1) / ballen)) * w.laub;
+        const s = (ballen === 1 ? 0.62 : 0.30 + 0.62 * (b / (ballen - 1))) * w.laub;
         const r = laenge * s;
-        const groesse = laenge * (art === 'fichte' ? 0.46 : 0.44) * (1 - b * 0.12);
+        const groesse = laenge * (art === 'fichte' ? 0.46 : 0.44)
+          * (ballen === 1 ? 1 : 0.72) * (1 - b * 0.14);
         const kugel = new THREE.IcosahedronGeometry(groesse, 0);
         kugel.scale(1, art === 'fichte' ? 0.55 : 0.8, 1);
+        // Versatz quer zum Ast — sonst liegen die drei Ballen auf einer Linie und
+        // die Krone bekommt Speichen statt Masse.
+        const v = (zufall() - 0.5) * quer;
         kugel.translate(
-          dx * r * Math.sin(nick),
+          dx * r * Math.sin(nick) - dz * v,
           y + Math.cos(nick) * r + (zufall() - 0.5) * 0.2,
-          dz * r * Math.sin(nick),
+          dz * r * Math.sin(nick) + dx * v,
         );
         // Volles Windattribut: Laub ist das, was sich sichtbar bewegt.
-        teile.push(faerbe(kugel, zufall() < 0.5 ? laubA : laubB, 0.85 + t * 0.15));
+        teile.push(faerbe(kugel, zufall() < 0.5 ? laubA : laubB, 0.85 + t * 0.15, hoehe));
       }
     }
   }
@@ -225,7 +262,7 @@ export function baueBaum(
     // Spitze — ohne sie sieht die Fichte oben abgeschnitten aus.
     const spitze = new THREE.ConeGeometry(hoehe * 0.045, hoehe * 0.13, 5);
     spitze.translate(0, hoehe * 0.955, 0);
-    teile.push(faerbe(spitze, laubA, 1));
+    teile.push(faerbe(spitze, laubA, 1, hoehe));
   }
 
   const g = mergeGeometries(teile, false);

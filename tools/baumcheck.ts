@@ -29,5 +29,5 @@ for (const art of ['nadelbaum', 'laubbaum'] as PropArt[]) {
   const g = propGeometrie(art);
   console.log(`  ${art.padEnd(10)} ${String(tri(g)).padStart(13)} Dreiecke`);
 }
-console.log('\n  Die Kenney-GLB liegen laut npm run props bei 1.400-4.600 Dreiecken.');
+console.log('\n  Die umgebauten Kenney-GLB liegen laut npm run props bei 16-154 Dreiecken.');
 console.log('  EZ-Tree gemessen: +4,0 MB Bundle, Precache 2,4 -> 6,3 MB.');

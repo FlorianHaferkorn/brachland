@@ -31,8 +31,8 @@ import { findeKlippen, baueKlippenGeometrie, type Klippe } from '../world/klippe
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
-import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, VARIANTEN,
-         type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
+import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
+         VARIANTEN, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, MITTEL_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
@@ -543,14 +543,21 @@ function PropChunkMesh({ chunk, stufe, wind }: {
   useEffect(() => {
     if (!ref.current) return;
     const m = new THREE.Object3D();
+    const ton = new THREE.Color();
     chunk.instanzen.forEach((p, i) => {
       m.position.set(...p.position);
       m.rotation.y = p.drehung;
       m.scale.setScalar(p.skalierung);
       m.updateMatrix();
       ref.current!.setMatrixAt(i, m.matrix);
+      // Farbe je Instanz (D79). `setRGB` ohne Farbraum schreibt direkt in den
+      // Arbeitsraum — die Werte sind Faktoren um 1,0, keine Farben, und dürfen
+      // deshalb nicht durch die sRGB-Umrechnung.
+      const [r, g, b] = propTon(p.art, p.variante, p.drehung);
+      ref.current!.setColorAt(i, ton.setRGB(r, g, b));
     });
     ref.current.instanceMatrix.needsUpdate = true;
+    if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
     ref.current.computeBoundingSphere();
   }, [chunk]);
 

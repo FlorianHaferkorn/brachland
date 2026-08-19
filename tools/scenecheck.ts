@@ -6,15 +6,68 @@ import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, aufsatzboden } from '
 import { zerlegeBaender, baueBaenderStufe, baueWegKachel, baueWasserKachel,
          baueFallKachel, baueGartenKachel } from '../src/world/baender.js';
 import { TERRAIN_SICHT } from '../src/scenes/sichtweiten.js';
-import { verteileProps, propGeometrie, attrappeGeometrie, zaehleProps, chunkeProps, PROP_FARBE, type PropArt } from '../src/world/props.js';
+import { verteileProps, propGeometrie, attrappeGeometrie, zaehleProps, chunkeProps,
+         PROP_FARBE, VARIANTEN, variantenZahl, type PropArt } from '../src/world/props.js';
+import * as THREE from 'three';
 import { baueBaum } from '../src/world/baum.js';
-import { ATTRAPPE_AB } from '../src/scenes/sichtweiten.js';
+import { ATTRAPPE_AB, MITTEL_AB } from '../src/scenes/sichtweiten.js';
+import { NodeIO } from '@gltf-transform/core';
+import { KHRONOS_EXTENSIONS } from '@gltf-transform/extensions';
 
-/** Dieselbe Zuordnung wie in der Szene: Baeume sind prozedural, der Rest kommt als GLB. */
-const echteGeometrie = (art: PropArt) =>
-  art === 'nadelbaum' ? baueBaum('fichte', 0)
-  : art === 'laubbaum' ? baueBaum('buche', 0)
-  : propGeometrie(art);
+/**
+ * Dreiecke einer Prop-Erscheinung — **so, wie die Szene sie zeichnet**.
+ *
+ * Zwei Fehler steckten hier vorher drin, und beide gingen in dieselbe Richtung wie
+ * G-73: gemessen wurde ein Pfad, den das Spiel nicht benutzt.
+ *
+ *   1. **`MITTEL_AB` fehlte.** Gezählt wurde nur nah gegen Attrappe, die Szene hat
+ *      aber drei Stufen: bis 45 m das volle Modell, bis 110 m die Mittelstufe, dann
+ *      das Primitiv. Bei der Fichte sind das 2.152 gegen 174 Dreiecke — jeder Baum
+ *      zwischen 45 und 110 m wurde zwölffach zu teuer berechnet.
+ *   2. **Nicht-Bäume kamen aus `propGeometrie`**, dem Rückfall-Primitiv, nicht aus
+ *      der GLB. Ein Busch stand mit 20 Dreiecken in der Rechnung; die sechs echten
+ *      Modelle haben 16 bis 104, je nach Variante — und die Variante stand im Chunk.
+ *
+ * Beide Fehler heben sich nicht auf: Der erste überschätzt Bäume grob, der zweite
+ * unterschätzt alles andere. Wer auf dieser Grundlage über Baumdetails entscheidet,
+ * entscheidet über eine Rechnung.
+ */
+const io = new NodeIO().registerExtensions(KHRONOS_EXTENSIONS);
+const glbTris = new Map<string, number>();
+for (const liste of Object.values(VARIANTEN))
+  for (const v of liste) {
+    const doc = await io.read(`public/props/${v.datei}.glb`);
+    let n = 0;
+    for (const m of doc.getRoot().listMeshes())
+      for (const p of m.listPrimitives()) {
+        const idx = p.getIndices();
+        n += (idx ? idx.getCount() : p.getAttribute('POSITION')!.getCount()) / 3;
+      }
+    glbTris.set(v.datei, n);
+  }
+
+const baumCache = new Map<string, number>();
+const zaehle = (g: THREE.BufferGeometry) =>
+  g.index ? g.index.count / 3 : g.getAttribute('position').count / 3;
+
+/** `nah` = volles Modell, `mittel` = vereinfachtes, `fern` = Primitiv. */
+function propTrisFuer(art: PropArt, variante: number, stufe: 'nah' | 'mittel' | 'fern'): number {
+  if (stufe === 'fern') return zaehle(attrappeGeometrie(art));
+  if (art === 'nadelbaum' || art === 'laubbaum') {
+    const eigen = art === 'nadelbaum' ? 'fichte' : 'buche';
+    const k = `${eigen}:${variante}:${stufe}`;
+    let n = baumCache.get(k);
+    if (n === undefined) {
+      n = zaehle(baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel'));
+      baumCache.set(k, n);
+    }
+    return n;
+  }
+  // GLB-Props haben keine Mittelstufe — `useNormiertesPropMesh` wertet `stufe` nur
+  // für Bäume aus. Zwischen 45 und 110 m steht also weiter das volle Modell.
+  const datei = (VARIANTEN[art][variante] ?? VARIANTEN[art][0])?.datei;
+  return datei ? glbTris.get(datei) ?? zaehle(propGeometrie(art)) : zaehle(propGeometrie(art));
+}
 
 const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const t = baueTerrain(welt);
@@ -42,10 +95,13 @@ const anzahl = zaehleProps(props);
 let propTris = 0;
 const propZeilen: string[] = [];
 for (const [art, n] of Object.entries(anzahl)) {
-  const g = echteGeometrie(art as PropArt);
-  const jeStueck = g.index ? g.index.count / 3 : g.getAttribute('position').count / 3;
+  // Mittel ueber die Varianten — die sechs Buschmodelle haben 16 bis 104 Dreiecke.
+  const zahl = variantenZahl(art as PropArt);
+  let summe = 0;
+  for (let v = 0; v < zahl; v++) summe += propTrisFuer(art as PropArt, v, 'nah');
+  const jeStueck = Math.round(summe / zahl);
   propTris += jeStueck * n;
-  propZeilen.push(`    ${art.padEnd(12)} ${String(n).padStart(6)} x ${String(jeStueck).padStart(3)} Tris = ${String(jeStueck * n).padStart(7)}`);
+  propZeilen.push(`    ${art.padEnd(12)} ${String(n).padStart(6)} x ${String(jeStueck).padStart(4)} Tris = ${String(jeStueck * n).padStart(8)}`);
 }
 
 console.log('Szene Œntal\n');
@@ -86,9 +142,8 @@ for (const [kx, kz] of [[0, 0], [300, -300], [-350, 350], [450, 100]] as [number
   for (const c of chunks) {
     const d = Math.hypot(c.mitte[0] - kx, c.mitte[1] - kz) - c.radius;
     if (d > c.sichtweite) continue;
-    const g = d > ATTRAPPE_AB ? attrappeGeometrie(c.art) : echteGeometrie(c.art);
-    const je = g.index ? g.index.count / 3 : g.getAttribute('position').count / 3;
-    tris += je * c.instanzen.length; calls++;
+    const stufe = d > ATTRAPPE_AB ? 'fern' : d > MITTEL_AB ? 'mittel' : 'nah';
+    tris += propTrisFuer(c.art, c.variante, stufe) * c.instanzen.length; calls++;
   }
   // Häuser und Gärten hängen seit D75 mit an den Kacheln — sie stecken in
   // `baenderSichtbar` und dürfen nicht zusätzlich pauschal gezählt werden.

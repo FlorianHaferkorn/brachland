@@ -64,14 +64,14 @@ owns: *.ts, *.mjs, *.py, *.sh
 |---|---|
 | `lodcheck.ts` | `npm run lod` — Dreiecke je LOD-Stufe, Detail vor dem Spieler, Wirkung des Mikroreliefs |
 | `masstab.ts` | `npm run masstab` — Kamera, Spielerhöhe, Bildanteil, Querungszeiten der Region |
-| `scenecheck.ts` | `npm run szene` — tatsächlich gezeichnete Dreiecke mit Culling gegen das 400k-Handybudget. Braucht einen Szenen-Cache unter .cache/ aus einem vorherigen Lauf |
+| `scenecheck.ts` | `npm run szene` — tatsächlich gezeichnete Dreiecke je Kamerastandort, über **alle drei** Prop-Stufen: bis 45 m das volle Modell, bis 110 m die Mittelstufe, dann das Primitiv. Die Stufe bei 45 m fehlte lange, und für Nicht-Bäume wurde das Rückfall-Primitiv statt der GLB gezählt — Bäume zwölffach zu teuer, alles andere zu billig (G-85). Ein Urteil gibt das Werkzeug nicht ab: Das 400k-Budget war ein Literal, kein Messwert (G-18) |
 | `terraincheck.ts` | `npm run terrain` — Terrain-Auflösung. Braucht einen Vorschau-Cache unter .cache/ |
 | `lastcheck.ts` | `npm run last` — Objekte im Szenengraph je Standort. Die Größe, die zählt, wenn kein Grafikschalter wirkt |
 | `vorkommencheck.ts` | `npm run vorkommen` — Kreaturen je Linie und je km², Weg bis zur nächsten Begegnung, Stufenverteilung |
 | `hoehenvergleich.ts` | `npm run hoehen` — Geländeauflösung im Vergleich: mittlere Stufe zwischen Nachbarpunkten je Raster |
 | `baumcheck.ts` | `npm run baum` — Dreiecke, Höhe und Bauzeit der prozeduralen Bäume |
 | `klippencheck.ts` | `npm run klippen` — Zahl, Höhe und Dreiecke der Felswände, und wie viele je Standort in Reichweite stehen |
-| `propcheck.ts` | `npm run props` — Dreiecke und Größe der Prop-Modelle |
+| `propcheck.ts` | `npm run props` — **wie viele Props sehen genau gleich aus?** Zählt je *Erscheinung* (Form × Farbe), nicht je Datei: Vorher trugen 53.815 Fichten vier Formen und eine Farbe je Form, die größte identische Gruppe umfasste 13.572 Stück, jetzt 60 (D79). Dazu Dreiecke, Größe und der Helligkeitsverlauf **im** Modell — 15 der 36 Modelle hatten gar keinen. Die erste Fassung las `assets/props`, einen Ordner, den es seit `propbau.ts` nicht mehr gibt, und lief ins Leere, ohne es zu sagen |
 | `lichtcheck.ts` | `npm run licht` — Bildschirmhelligkeit je Material und Stimmung, den ganzen Weg über Lambert, ACES, sRGB und Nebel. Beantwortet „ist der Wald zu dunkel" mit einer Zahl statt mit einem Gefühl |
 | `steigungcheck.ts` | `npm run steigung` — was die 40°-Grenze an begehbarer Welt kostet: 108.568 Prüfpunkte, Anteil offener Standorte, Kessel ohne Ausweg, Gewinn durchs Klettern |
 | `gestaltcheck.ts` | `npm run gestalt` — Dreiecke je Silhouette und Mutationsstufe gegen die Grenze von 600, plus zwei Bedingungen, die kein Kommentar sichern kann: dass die drei **Herkünfte verschieden bauen** (Creature Design Bible §1) und dass derselbe Seed dieselbe Gestalt ergibt. Entstanden, weil der Dateikopf „unter 250 Dreiecken" versprach und bei 492 lag (G-61) |

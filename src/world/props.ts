@@ -424,6 +424,66 @@ export const PROZEDURALE_VARIANTEN: Partial<Record<PropArt, number>> = {
 export const variantenZahl = (art: PropArt): number =>
   VARIANTEN[art].length || PROZEDURALE_VARIANTEN[art] || 1;
 
+// ------------------------------------------------- Farbe je Instanz statt je Datei
+/**
+ * Wie weit die Tönung je Art streuen darf, als volle Breite.
+ *
+ * `hell` ist die Helligkeit, `warm` die Achse gelb ↔ blaugrün — die beiden
+ * Richtungen, in denen echte Vegetation tatsächlich auseinanderläuft. Ein Busch
+ * neben dem anderen unterscheidet sich in der Belichtung und darin, wie weit er
+ * schon ins Gelbe geht, nicht in der Farbe selbst.
+ *
+ * Gemessen sah es vorher so aus: 25.467 Büsche, sechs Formen, **eine** Farbe je
+ * Form — die größte visuell identische Gruppe umfasste mehrere tausend Instanzen.
+ * Bäume und Gras streuen am weitesten, Pilze und Blumen am wenigsten: Ein
+ * Fliegenpilz ist rot, und ein olivgrüner Fliegenpilz ist kein Fliegenpilz mehr.
+ */
+const TON_STREUUNG: Record<PropArt, { hell: number; warm: number }> = {
+  nadelbaum:   { hell: 0.16, warm: 0.10 },
+  laubbaum:    { hell: 0.18, warm: 0.16 },
+  busch:       { hell: 0.20, warm: 0.18 },
+  grasbuschel: { hell: 0.22, warm: 0.20 },
+  findling:    { hell: 0.16, warm: 0.08 },
+  totholz:     { hell: 0.16, warm: 0.12 },
+  blume:       { hell: 0.14, warm: 0.06 },
+  pilz:        { hell: 0.12, warm: 0.05 },
+};
+
+/** Ein Schritt von `mulberry`, ohne Abschluss — 167.823 Aufrufe je Weltaufbau. */
+function streu(n: number): number {
+  let t = (n + 0x6D2B79F5) | 0;
+  t = Math.imul(t ^ (t >>> 15), 1 | t);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+
+/**
+ * Farbfaktor einer einzelnen Prop-Instanz, um 1,0 herum.
+ *
+ * Wird in der Szene als `instanceColor` gesetzt und im Shader mit der Vertexfarbe
+ * multipliziert — **drei Floats je Instanz, kein zusätzlicher Draw Call und kein
+ * einziges Dreieck.** Bei 60 B/s Kopffreiheit ist das der billigste Hebel, den es
+ * gibt, und der sichtbarste: Gleichfarbigkeit liest man als Billigware, lange bevor
+ * man Dreiecke zählt.
+ *
+ * Der Zufall kommt aus der **Drehung**, die ohnehin je Instanz gespeichert ist.
+ * Ein eigenes Feld hätte 167.823 zusätzliche Zahlen gekostet, für eine Information,
+ * die aus einer vorhandenen ableitbar ist. Damit bleibt die Tönung auch determi-
+ * nistisch: derselbe Seed, dieselbe Welt, dieselben Farben — und das Werkzeug
+ * `npm run props` rechnet dieselbe Zahl aus wie die Szene.
+ */
+export function propTon(
+  art: PropArt, variante: number, drehung: number,
+): [number, number, number] {
+  const s = TON_STREUUNG[art];
+  const saat = Math.round(drehung * 65536) + variante * 7919;
+  const hell = 1 + (streu(saat) - 0.5) * s.hell;
+  // Warm hebt Rot und senkt Blau; Grün geht nur ein Viertel mit, sonst kippt das
+  // Laub ins Graue statt ins Herbstliche.
+  const warm = (streu(saat + 104729) - 0.5) * s.warm;
+  return [hell * (1 + warm), hell * (1 + warm * 0.25), hell * (1 - warm)];
+}
+
 /** Reale Zielhöhe je Art in Metern — nur noch für die Fernattrappe. */
 export const ZIELHOEHE: Record<PropArt, number> = {
   nadelbaum: 22, laubbaum: 14, busch: 1.6, findling: 1.1, totholz: 0.9,
