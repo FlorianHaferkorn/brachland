@@ -12,7 +12,7 @@ import { NodeIO } from '@gltf-transform/core';
 // PNG, und der Lauf sah trotzdem grün aus.
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import {
-  dedup, prune, weld, simplify, resample, textureCompress,
+  dedup, prune, weld, simplify, resample,
   flatten, join, quantize
 } from '@gltf-transform/functions';
 import { MeshoptSimplifier } from 'meshoptimizer';
@@ -37,7 +37,79 @@ const stats = (d) => {
            anims: d.getRoot().listAnimations().length };
 };
 
+/**
+ * Geometrie und Textur **getrennt** ausweisen.
+ *
+ * Vorher stand hier nur die Dateigroesse, und die meldete am Fuchs
+ * „6.76 MB -> 6.58 MB (Faktor 1.0x)". Das liest sich, als sei nichts passiert.
+ * In Wahrheit war die Geometrie um den Faktor 56 geschrumpft und die Textur um
+ * den Faktor 8 gewachsen — zwei grosse, gegenlaeufige Bewegungen, die sich in
+ * der Summe fast aufhoben. Eine Kennzahl, die zwei Dinge addiert, kann nicht
+ * zeigen, dass eines davon kaputt ist.
+ */
+const gewicht = d => {
+  let geo = 0, tex = 0;
+  for (const m of d.getRoot().listMeshes())
+    for (const p of m.listPrimitives()) {
+      geo += p.getIndices()?.getArray().byteLength ?? 0;
+      for (const s of p.listSemantics()) geo += p.getAttribute(s).getArray().byteLength;
+    }
+  for (const t of d.getRoot().listTextures()) tex += t.getImage()?.byteLength ?? 0;
+  return { geo, tex };
+};
+
+/** Was die Texturpackung getan hat — wandert unten in die Ausgabe. */
+const texturNotiz = [];
+
+/**
+ * Textur packen — **gemessen statt gesetzt**.
+ *
+ * Hier stand `textureCompress({ lossless: true })`, wortgleich aus
+ * `nachbereiten.mjs` uebernommen. Dort ist es richtig und sauber belegt: Die
+ * Grathorn-Textur kommt aus Blender als PNG, traegt eine Handvoll Volltoene
+ * (Entropie 1,76), und verlustfreies WebP schlaegt jede verlustbehaftete
+ * Variante — 17,0 gegen 37,4 KB.
+ *
+ * Hier ist es falsch, und zwar teuer. `reduce.mjs` steht am **Anfang** der Kette
+ * und bekommt die KI-Ausgabe: Tripo liefert **JPEG**, fotografisch, hohe
+ * Entropie. Verlustfreies WebP muss dann jedes JPEG-Artefakt bitgenau
+ * mitnehmen. Gemessen am Fuchs: **0,79 MB → 6,45 MB**, eine einzelne Basisfarbe
+ * von 375 auf 2.764 KB. Die Datei landete bei 6.580 KB gegen 120 KB Budget, und
+ * die Ausgabe des Werkzeugs meldete dazu „Faktor 1.0x" — was sich liest, als
+ * waere nichts passiert, und in Wahrheit hiess: Geometrie 56x kleiner, Texturen
+ * 8x groesser.
+ *
+ * Der Fehler war nicht die Zahl, sondern dass eine an **einem** Eingabeformat
+ * gemessene Entscheidung unbesehen auf ein anderes uebertragen wurde. Deshalb
+ * raet dieser Schritt jetzt nicht mehr, sondern **rechnet beide Varianten und
+ * nimmt die kleinere**. Bei flaechigem Material gewinnt verlustfrei von selbst,
+ * bei fotografischem die verlustbehaftete — ohne dass irgendwo eine Annahme
+ * ueber die Herkunft der Datei steht.
+ *
+ * Verkleinert wird bewusst **nicht** automatisch: Bei der Grathorn-Textur machte
+ * 512 die Datei groesser statt kleiner, und ob eine Textur an Aufloesung
+ * verlieren darf, ist eine Frage der Art Direction und keine der Bytes.
+ */
+async function packeTexturen(d) {
+  for (const t of d.getRoot().listTextures()) {
+    const roh = t.getImage();
+    if (!roh) continue;
+    // `effort: 6` ist sharps eigene Skala (0…6). `textureCompress` skaliert von
+    // 0…100 herunter, weshalb dort 100 steht und hier 6 — dieselbe Einstellung.
+    const [frei, lossy] = await Promise.all([
+      sharp(roh).webp({ lossless: true, effort: 6 }).toBuffer(),
+      sharp(roh).webp({ quality: 90, effort: 6 }).toBuffer(),
+    ]);
+    const besser = frei.byteLength <= lossy.byteLength ? frei : lossy;
+    texturNotiz.push(`${t.getName() || 'Textur'}: ${(roh.byteLength/1024).toFixed(0)}`
+      + ` → ${(besser.byteLength/1024).toFixed(0)} KB`
+      + ` (${frei.byteLength <= lossy.byteLength ? 'verlustfrei' : 'q90'})`);
+    t.setImage(besser).setMimeType('image/webp');
+  }
+}
+
 const before = stats(doc);
+const vorher = gewicht(doc);
 await MeshoptSimplifier.ready;
 
 // Geriggte Modelle: flatten/join zerstoeren Skins -> nur bei statischen Meshes anwenden
@@ -58,15 +130,11 @@ await doc.transform(
   resample(),
   prune({ keepAttributes: isRigged,           // JOINTS/WEIGHTS nicht wegwerfen
           keepLeaves: isRigged }),            // Knochen-Nodes ohne Mesh erhalten
-  // Verlustfrei und in voller Aufloesung — beides gemessen, beides gegen die
-  // Intuition. `quality: 85` machte die Grathorn-Textur 43 % GROESSER als das
-  // PNG, Verkleinern auf 512 ebenfalls. Begruendung steht in nachbereiten.mjs.
-  // `effort: 100`, weil der Wert intern auf sharps 0…6 skaliert wird.
-  textureCompress({ encoder: sharp, targetFormat: 'webp',
-                    lossless: true, effort: 100 }),
   quantize({ quantizePosition: 14, quantizeNormal: 10, quantizeTexcoord: 12,
              quantizeWeight: 8, quantizeGeneric: 12 })
 );
+
+await packeTexturen(doc);
 
 await io.write(OUTPUT, doc);
 const after = stats(doc);
@@ -74,11 +142,18 @@ const skinsAfter = doc.getRoot().listSkins().length;
 
 const { statSync } = await import('node:fs');
 const mb = f => (statSync(f).size / 1024 / 1024);
+
+const nachher = gewicht(doc);
+const kb = b => (b / 1024).toFixed(0);
+
 console.log(`
   Flaechen    ${before.tris.toLocaleString('de')}  ->  ${after.tris.toLocaleString('de')}   (${(100*after.tris/before.tris).toFixed(1)} %)
   Vertices    ${before.verts.toLocaleString('de')}  ->  ${after.verts.toLocaleString('de')}
   Texturen    ${before.tex}  ->  ${after.tex}
   Animationen ${before.anims}  ->  ${after.anims}
-  Skins/Rigs  ${doc.getRoot().listSkins().length >= 0 ? '' : ''}${skinsAfter}  (erhalten: ${!isRigged || skinsAfter > 0 ? 'ja' : 'NEIN'})
-  Dateigroesse ${mb(INPUT).toFixed(2)} MB  ->  ${mb(OUTPUT).toFixed(2)} MB   (Faktor ${(mb(INPUT)/mb(OUTPUT)).toFixed(1)}x)
+  Skins/Rigs  ${skinsAfter}  (erhalten: ${!isRigged || skinsAfter > 0 ? 'ja' : 'NEIN'})
+
+  Geometrie   ${kb(vorher.geo).padStart(6)} KB  ->  ${kb(nachher.geo).padStart(6)} KB
+  Textur      ${kb(vorher.tex).padStart(6)} KB  ->  ${kb(nachher.tex).padStart(6)} KB${texturNotiz.length ? '\n' + texturNotiz.map(z => `                ${z}`).join('\n') : ''}
+  Datei        ${mb(INPUT).toFixed(2)} MB  ->  ${mb(OUTPUT).toFixed(2)} MB   (Faktor ${(mb(INPUT)/mb(OUTPUT)).toFixed(1)}x)
 `);

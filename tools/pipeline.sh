@@ -65,7 +65,23 @@ for f in "${files[@]}"; do
 
   if [ ! -f "$OUT/${name}.glb" ]; then echo "   Rigging fehlgeschlagen"; ((fail++)); continue; fi
 
-  # 3) Nachbereitung — MUSS nach dem Rigging laufen, nicht davor.
+  # 3) Entkleiden — Textur raus, Farbe als Vertexattribut rein.
+  #
+  # Auch das MUSS nach dem Rigging laufen, und aus demselben Grund wie Schritt 4:
+  # Blender schreibt die Datei neu. Ein COLOR_0, das davor entstuende, muesste
+  # Import und Export unbeschadet ueberstehen — das haengt an Materialknoten und
+  # Exporteinstellungen und ist genau die Art stiller Abhaengigkeit, die hier
+  # schon zweimal Stunden gekostet hat. Nach dem Rigging sind Textur und UV noch
+  # da, und danach braucht sie niemand mehr.
+  #
+  # Gemessen am Fuchs bei 4.464 Flaechen: 6.733 KB mit verlustfreier Textur,
+  # 900 KB mit q90, **90 KB** ohne Textur. Nur das Letzte haelt die 120 KB aus
+  # quality.ts — und es ist zugleich das Einzige, das dieselbe Sprache spricht
+  # wie die 36 Props seit D74.
+  node entkleiden.mjs "$OUT/${name}.glb" || {
+    echo "   Entkleiden fehlgeschlagen"; ((fail++)); continue; }
+
+  # 4) Nachbereitung — MUSS nach dem Rigging laufen, nicht davor.
   #
   # Blender schreibt die Datei in Schritt 2 komplett neu: Die Quantisierung aus
   # Schritt 1 ist danach weg, die Textur wieder PNG, und die Animationen, die

@@ -19,7 +19,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Weltdaten für eine Region erzeugen | `buildworld.ts` → `../src/world/osm.ts` |
 | Inhalte gegen das Schema prüfen | `validate.ts` → `../src/data/schema.ts` |
 | Budgets und Blocker verstehen | `quality.ts` → `../docs/QUALITY.md` |
-| KI-Modell spieltauglich machen | `README.md` → `reduce.mjs` → `autorig.py` |
+| KI-Modell spieltauglich machen | `README.md` → `pipeline.sh` → `reduce.mjs` → `autorig.py` → `entkleiden.mjs` → `nachbereiten.mjs` |
 | Ganze Ordner durch die Kette schicken | `batch.mjs`, `pipeline.sh` |
 | Prüfen, ob das Dreiecksbudget hält | `lodcheck.ts`, `scenecheck.ts` |
 | Gelände- oder Baumqualität beurteilen | `hoehenvergleich.ts`, `baumcheck.ts` |
@@ -41,8 +41,9 @@ owns: *.ts, *.mjs, *.py, *.sh
 |---|---|
 | `buildworld.ts` | `npm run world <region> <raster> [dgm1\|eudem]` — OSM und Höhen abrufen, Welt bauen, gepackt nach public/world schreiben |
 | `dgm1.ts` | Höhen aus dem 1-Meter-Geländemodell der Bayerischen Vermessungsverwaltung. Lädt Kilometerkacheln, interpoliert bilinear |
-| `reduce.mjs` | Flächenreduktion roher KI-Modelle auf die Zielzahl (gltf-transform + meshoptimizer). **Schritt 1** der Kette |
-| `nachbereiten.mjs` | `node nachbereiten.mjs <in.glb> [out.glb]` — **Schritt 3, nach dem Rigging.** Dünnt die von Blender gebackenen Animationskeys aus, quantisiert und wandelt die Textur. Muss hinter `autorig.py` laufen: Blender schreibt die Datei neu und macht alles rückgängig, was Schritt 1 an der Kodierung getan hat. Das war die Ursache von A-6 (163–167 → 100–103 KB), siehe G-63 |
+| `reduce.mjs` | Flächenreduktion roher KI-Modelle auf die Zielzahl (gltf-transform + meshoptimizer). **Schritt 1** der Kette. Die Texturpackung rät nicht mehr, sondern rechnet verlustfrei und q90 aus und nimmt die kleinere: Das übernommene `lossless: true` aus `nachbereiten.mjs` stimmt für Blenders flächige PNG und blies Tripos fotografische JPEG **von 0,79 auf 6,45 MB** auf (G-87). Die Ausgabe weist Geometrie und Textur seitdem getrennt aus — die alte Zeile „Faktor 1.0x" verbarg, dass zwei gegenläufige Bewegungen von 56x und 8x sich aufhoben |
+| `entkleiden.mjs` | `node entkleiden.mjs <in.glb> [out.glb]` — **Schritt 3, nach dem Rigging.** Tastet die Basisfarbtextur an jeder UV ab, legt sie als `COLOR_0` ab und wirft Texturen, UV und Normalen weg. Dieselbe Materialsprache wie die 36 Props seit D74 — und der einzige Weg ans 120-KB-Budget: gemessen am Fuchs 6.733 KB mit verlustfreier Textur, 900 KB mit q90, **90 KB** ohne. Nach dem Rigging aus demselben Grund wie Schritt 4 (D80) |
+| `nachbereiten.mjs` | `node nachbereiten.mjs <in.glb> [out.glb]` — **Schritt 4, nach dem Rigging.** Dünnt die von Blender gebackenen Animationskeys aus, quantisiert und wandelt die Textur. Muss hinter `autorig.py` laufen: Blender schreibt die Datei neu und macht alles rückgängig, was Schritt 1 an der Kodierung getan hat. Das war die Ursache von A-6 (163–167 → 100–103 KB), siehe G-63 |
 | `batch.mjs` | Stapelverarbeitung ganzer Ordner durch die Reduktion |
 | `autorig.py` | Automatisches Rigging über Blender anhand der Archetyp-Rigs |
 | `rigausbau.mjs` | `node rigausbau.mjs <in.glb> <out.glb> [koerpermesh]` — schneidet aus einem fertigen Modell das **Archetyp-Rig** heraus: behält Skelett, Haut und Animationen, wirft alle Meshes außer dem benannten Körper weg. Damit ist `assets/rigs/quadruped.glb` entstanden, aus den Dateien, die als Grathorn geführt wurden und ein three.js-Beispielfuchs waren (G-65) |
