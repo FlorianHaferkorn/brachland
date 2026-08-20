@@ -22,7 +22,36 @@ const BUDGET = {
   trisStandard: 4000,
   trisBoss: 8000,
   trisMax: 8000,
-  glbKB: 120,            // je Kreatur, nach Reduktion
+  /**
+   * Je Kreatur, nach Reduktion — **eine Sperrklinke, keine Ableitung.**
+   *
+   * Die 120 stammen aus A-6: Die sechs Grathorn-Dateien lagen bei 163–167 KB,
+   * nach der Reihenfolgekorrektur bei 100–103, und 120 war knapp darüber. Das
+   * beschreibt, was ein Asset einmal geschafft hat, nicht was das Paket verträgt.
+   *
+   * Nachgerechnet am 20.08.2026, zum ersten Mal:
+   *
+   *   Precache heute      2.721 KB   Code 1.304 · Weltdaten 1.324 · Props 92
+   *   14 × 120 KB         1.680 KB   →  4.401 KB gesamt
+   *   14 × 180 KB         2.520 KB   →  5.241 KB gesamt   (was error 0,01 liefert)
+   *   14 × 212 KB         2.968 KB   →  5.689 KB gesamt   (was error 0,005 lieferte)
+   *
+   * Gegen `paketMB: 60` ist alles davon belanglos — die beiden Zahlen stehen im
+   * Verhältnis **44:1** und wurden nie aufeinander bezogen. Die Grenze, die
+   * wirklich zählt, ist keine von beiden, sondern die **Erstladezeit auf dem
+   * Handy**, und die steht nirgends.
+   *
+   * Wer `glbKB` ändern will, entscheidet in Wahrheit über diese Gesamtgröße:
+   *
+   *   Ziel 4 MB  →   98 KB je Kreatur   (enger als heute)
+   *   Ziel 5 MB  →  171 KB
+   *   Ziel 6 MB  →  244 KB
+   *
+   * Und das skaliert je **Region**: Eine zweite Region bringt rund 1,3 MB
+   * Weltdaten plus ihre eigenen Kreaturen mit. Die Zahl bleibt bei 120, bis
+   * jemand die Erstladezeit setzt — dann folgt sie daraus, statt sie zu ersetzen.
+   */
+  glbKB: 120,
   paketMB: 60,           // Gesamtpaket im Service-Worker-Cache
   texturPx: 1024,
   beschreibungMin: 40,   // keine Platzhaltertexte

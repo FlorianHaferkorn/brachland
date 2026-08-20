@@ -123,8 +123,30 @@ await doc.transform(
   dedup(),                                    // doppelte Accessors/Meshes zusammenfassen
   ...(isRigged ? [] : [flatten(), join()]),   // nur bei statischen Meshes sicher
   weld({ tolerance: 0.0001 }),                // Vertices verschweissen (Pflicht vor simplify)
-  simplify({ simplifier: MeshoptSimplifier,   // Quadric Edge Collapse
-             ratio, error: 0.005, lockBorder: false }),
+  /**
+   * Quadric Edge Collapse. `error` ist die zulaessige Abweichung als Anteil der
+   * Modellausdehnung — bei einem 1 m langen Fuchs sind 0,01 also ein Zentimeter.
+   *
+   * Hier stand `0.005`, ohne Begruendung. Nachgemessen und **angesehen**, weil
+   * die Zahl allein in die Irre fuehrt: Die Untergrenze dieses Modells liegt bei
+   * 3.194 Flaechen und wird ab error 0,05 nicht mehr unterschritten, egal was man
+   * vorgibt (G-88). Der nutzbare Bereich ist also schmal.
+   *
+   *   0,005   4.464 Flaechen · 90 KB   Pfoten und Schnauze vollstaendig
+   *   0,01    3.434 Flaechen · 74 KB   unveraendert lesbar          ← genommen
+   *   0,02    3.218 Flaechen · 70 KB   der linke Vorderlauf laeuft spitz zu,
+   *                                     die Hinterpfoten verlieren die Sohle
+   *
+   * Bei 0,02 verschwinden genau die Stellen, an denen das Auge haengt: die
+   * Pfoten, dort wo das Tier den Boden beruehrt. 0,01 spart ein Fuenftel der
+   * Bytes und kostet nichts Sichtbares.
+   *
+   * Die drei Zahlen allein haetten zu 0,02 gefuehrt — dass es die Pfoten sind,
+   * die dabei verschwinden, stand in keiner davon. Wer an dieser Zeile dreht,
+   * rendert die drei Varianten nebeneinander, bevor er sich entscheidet.
+   */
+  simplify({ simplifier: MeshoptSimplifier,
+             ratio, error: 0.01, lockBorder: false }),
   // Greift hier nur, wenn das Rohmodell schon Animationen mitbringt. Die des
   // Spiels entstehen erst in autorig.py — die duennt `nachbereiten.mjs` aus.
   resample(),

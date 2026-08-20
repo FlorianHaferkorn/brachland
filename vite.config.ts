@@ -7,7 +7,14 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['world/*.json'],
+      // `includeAssets` ist hier überflüssig: `globPatterns` unten deckt `**/*.json`
+      // bereits ab, und oental.json stand deshalb **zweimal** im Precache-Manifest.
+      // Geladen wird es trotzdem nur einmal — beide Einträge tragen dieselbe
+      // Revision, also denselben Cache-Key, und Workbox fasst das zusammen. Es ist
+      // kein Datenleck, aber es hat eine Messung der Precache-Größe verdoppelt und
+      // wäre ein echter Fehler in dem Moment, in dem beide Wege verschiedene
+      // Revisionen erzeugen (dann wirft Workbox `add-to-cache-list-conflicting-entries`).
+      includeAssets: [],
       manifest: {
         name: 'BRACHLAND', short_name: 'Brachland',
         background_color: '#0d1210', theme_color: '#0d1210',
