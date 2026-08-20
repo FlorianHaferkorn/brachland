@@ -44,3 +44,10 @@ Thumbs.db
 
 # Laufzeit-Caches der Mess-Werkzeuge
 .cache/
+
+# ── Rohmodelle der Asset-Kette ───────────────────────────────────────────
+# raw/ ist die Eingabe von tools/pipeline.sh: KI-Ausgabe aus Tripo, Hunyuan3D
+# oder Meshy, roh und hochpoly. Drei Fuchsmodelle liegen dort bei 31 MB — das
+# Zehnfache des gesamten Offline-Precache und nichts, was in eine History
+# gehoert. Was ins Spiel kommt, ist das reduzierte Ergebnis unter assets/.
+raw/
