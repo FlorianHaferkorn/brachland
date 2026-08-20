@@ -23,35 +23,81 @@ const BUDGET = {
   trisBoss: 8000,
   trisMax: 8000,
   /**
-   * Je Kreatur, nach Reduktion — **eine Sperrklinke, keine Ableitung.**
+   * **Die Größe, aus der alles andere folgt: was beim ersten Besuch über die
+   * Leitung geht**, komprimiert, in KB.
    *
-   * Die 120 stammen aus A-6: Die sechs Grathorn-Dateien lagen bei 163–167 KB,
-   * nach der Reihenfolgekorrektur bei 100–103, und 120 war knapp darüber. Das
-   * beschreibt, was ein Asset einmal geschafft hat, nicht was das Paket verträgt.
+   * Nicht die Precache-Größe. Die steht bei 2.748 KB, aber Weltdaten sind JSON
+   * und komprimieren 2,9-fach; über die Leitung gehen davon 886 KB. Wer die
+   * unkomprimierte Zahl budgetiert, budgetiert etwas, das nie jemand überträgt.
    *
-   * Nachgerechnet am 20.08.2026, zum ersten Mal:
+   * Gemessen am 20.08.2026, serverseitig gezählt, gzip Stufe 6:
    *
-   *   Precache heute      2.721 KB   Code 1.304 · Weltdaten 1.324 · Props 92
-   *   14 × 120 KB         1.680 KB   →  4.401 KB gesamt
-   *   14 × 180 KB         2.520 KB   →  5.241 KB gesamt   (was error 0,01 liefert)
-   *   14 × 212 KB         2.968 KB   →  5.689 KB gesamt   (was error 0,005 lieferte)
+   *   Code + Bündel        373 KB   das Einzige, was das erste Bild aufhält
+   *   Weltdaten            456 KB
+   *   Weltdaten nochmal    456 KB   → siehe `wirdZweimalGeladen` unten
+   *   Prop-Modelle          48 KB
+   *   Rest                   8 KB
+   *   ausgeliefert       1.382 KB   in 82 Anfragen für 41 Dateien
    *
-   * Gegen `paketMB: 60` ist alles davon belanglos — die beiden Zahlen stehen im
-   * Verhältnis **44:1** und wurden nie aufeinander bezogen. Die Grenze, die
-   * wirklich zählt, ist keine von beiden, sondern die **Erstladezeit auf dem
-   * Handy**, und die steht nirgends.
+   * Und die Zeiten, gedrosselt im Browser gemessen — **das erste Bild** braucht
+   * nur das Bündel und ist von Kreaturmodellen völlig unberührt:
    *
-   * Wer `glbKB` ändern will, entscheidet in Wahrheit über diese Gesamtgröße:
+   *   langsames 3G   8,6 s      schnelles 3G   3,2 s      4G   0,6 s
    *
-   *   Ziel 4 MB  →   98 KB je Kreatur   (enger als heute)
-   *   Ziel 5 MB  →  171 KB
-   *   Ziel 6 MB  →  244 KB
+   * Der Offline-Cache steht später; das ist die Zahl, die hier budgetiert wird.
+   * Bei **2 MB** über die Leitung sind das rund 41 s auf langsamem 3G — und der
+   * erste Besuch findet fast immer im WLAN statt, danach nie wieder einer.
    *
-   * Und das skaliert je **Region**: Eine zweite Region bringt rund 1,3 MB
-   * Weltdaten plus ihre eigenen Kreaturen mit. Die Zahl bleibt bei 120, bis
-   * jemand die Erstladezeit setzt — dann folgt sie daraus, statt sie zu ersetzen.
+   * ⚠️ UNKLAR: `Network.emulateNetworkConditions` drosselt die Anfragen des
+   * Service Workers nicht mit. Die Zeiten fürs erste Bild sind gemessen, die
+   * für den vollständigen Cache aus Bytes durch Durchsatz gerechnet.
    */
-  glbKB: 120,
+  erstladungKB: 2048,
+
+  /**
+   * Je Kreatur, roh — **abgeleitet, nicht gesetzt.**
+   *
+   * Vorher stand hier 120. Das war eine Sperrklinke aus A-6: Die sechs
+   * Grathorn-Dateien landeten nach der Reihenfolgekorrektur bei 100–103 KB, und
+   * 120 war knapp darüber. Es beschrieb, was ein Asset einmal geschafft hat.
+   *
+   * Jetzt folgt die Zahl aus `erstladungKB`:
+   *
+   *   (2048 − 886 fest) / 14 Kreaturen        =  83 KB komprimiert
+   *   × 2,3 Kompression (an zwei GLB gemessen) = 191 KB roh
+   *
+   * Gerundet auf **190**. Die Kette liefert mit `error: 0,01` genau 180 KB
+   * (G-89) — das passt, ohne dass an der Zahl gedreht werden musste.
+   *
+   * Die Umkehrung, falls jemand die Erstladung anders setzen will:
+   *
+   *   1,5 MB → 107 KB je Kreatur   (31 s auf langsamem 3G)
+   *   2,0 MB → 191 KB              (41 s)  ← gesetzt
+   *   2,5 MB → 275 KB              (51 s)
+   *   3,0 MB → 359 KB              (61 s)
+   *
+   * Und es skaliert je **Region**: Eine zweite bringt rund 456 KB komprimierte
+   * Weltdaten plus ihre eigenen Kreaturen mit. Spätestens dann muss nicht mehr
+   * alles in den Precache, sondern die Startregion hinein und der Rest zur
+   * Laufzeit — die Zahl hier ändert daran nichts.
+   */
+  glbKB: 190,
+
+  /**
+   * `oental.json` geht beim ersten Besuch **zweimal** über die Leitung: einmal
+   * holt es die Anwendung, einmal der Precache. Workbox umgeht dafür bewusst den
+   * HTTP-Cache (`cache: 'reload'`), damit keine veraltete Fassung einzementiert
+   * wird — gemessen 82 Anfragen für 41 Dateien, auch mit `max-age=3600`.
+   *
+   * Kostet 456 KB von 1.382, also **ein Drittel der Erstladung**. Zu beheben
+   * wäre es, indem `world/*.json` aus dem Precache fällt und stattdessen eine
+   * Laufzeitregel (CacheFirst) bekommt: Dann füllt der Griff der Anwendung den
+   * Cache, und offline ist es ab dem ersten Start trotzdem da. Der Preis ist die
+   * Garantie — precached ist es nach der Installation sicher da, laufzeitgecacht
+   * erst, nachdem die Anwendung es einmal angefragt hat.
+   */
+  wirdZweimalGeladen: 456,
+
   paketMB: 60,           // Gesamtpaket im Service-Worker-Cache
   texturPx: 1024,
   beschreibungMin: 40,   // keine Platzhaltertexte
