@@ -43,6 +43,19 @@ export interface Spielstand {
   /** Gelesene Fragmente. Die Leseliste im Spiel besteht aus genau diesen. */
   fragmente: string[];
   /**
+   * Besuchte Orte — die Karte zeichnet **nur** diese ein.
+   *
+   * Ohne das Feld wäre die Karte entweder allwissend (verrät jede Zuflucht, bevor
+   * man sie gefunden hat) oder leer. Beides wäre falsch.
+   *
+   * **Ohne Versionssprung hinzugefügt**, und das ist Absicht: `ladeStand` verwirft
+   * bei abweichender Version den ganzen Stand (`roh.version !== SPIELSTAND_VERSION`),
+   * ergänzt aber fehlende Felder aus `LEERER_STAND`. Ein neues Feld mit sicherem
+   * Standardwert braucht also keinen Sprung — ein Sprung würde jedem Spieler
+   * sein Team kosten, damit die Kartenmarken stimmen.
+   */
+  orte: string[];
+  /**
    * Besiegte Regenten. Der einzige Weltzustand, den es gibt — und der einzige,
    * der nicht aus `besiegt` ableitbar ist, weil ein Regent kein Vorkommen ist.
    */
@@ -68,6 +81,7 @@ export const LEERER_STAND: Spielstand = {
   // verlorene Kampf eine Sackgasse, und der erste Fang reiner Zufall.
   beutel: { kraeutersud: 2, koeder: 1 },
   fragmente: [],
+  orte: [],
   regenten: [],
   auftraege: {},
 };
@@ -94,6 +108,7 @@ export async function ladeStand(): Promise<Spielstand | null> {
       ...LEERER_STAND, ...roh,
       beutel: roh.beutel ?? {},
       fragmente: roh.fragmente ?? [],
+      orte: roh.orte ?? [],
       regenten: roh.regenten ?? [],
       auftraege: roh.auftraege ?? {},
     } as Spielstand;

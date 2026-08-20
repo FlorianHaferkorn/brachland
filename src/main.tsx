@@ -14,6 +14,8 @@ import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNEN
 import { NARBE } from './data/schema.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
+import { Menue } from './ui/Menue.js';
+import { verschiebe } from './spiel/team.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
 import { gleiterFrei as gleiterOffen, GLEIT_VERHAELTNIS } from './spieler/gleiten.js';
 import { RIG_HOEHE } from './world/kreaturgestalt.js';
@@ -68,6 +70,8 @@ function App() {
   const [ortOffen, setOrtOffen] = useState<string | null>(null);
   /** Sitzt der Spieler auf? Nicht im Spielstand — beim Laden steht man wieder am Boden. */
   const [imSattel, setImSattel] = useState(false);
+  /** Menü offen? Nicht im Spielstand — ein Spiel startet nie im Menü. */
+  const [menueOffen, setMenueOffen] = useState(false);
   const [fragment, setFragment] = useState<string | null>(null);
   const [hinweis, setHinweis] = useState<string | null>(null);
   const spielerRef = useRef<THREE.Object3D>(null);
@@ -275,6 +279,51 @@ function App() {
     });
   }, []);
 
+  /**
+   * Ort aufmachen — und ihn dabei als besucht vermerken.
+   *
+   * Die Karte zeichnet nur besuchte Orte ein (`spielstand.orte`). Der Vermerk
+   * hängt am **Aufmachen** und nicht an der Nähe: Vorbeilaufen ist kein Besuch,
+   * und eine Karte, die sich beim Durchqueren von selbst füllt, nimmt dem Finden
+   * seinen Wert.
+   */
+  const oeffneOrt = useCallback((id: string) => {
+    setOrtOffen(id);
+    setStand(alt => {
+      if (!alt || alt.orte.includes(id)) return alt;
+      const neu = { ...alt, orte: [...alt.orte, id] };
+      void speichereStand(neu);
+      return neu;
+    });
+  }, []);
+
+  /**
+   * Verfolgtes Auftragsziel für die Karte und die Peilung.
+   *
+   * Genommen wird der **erste angenommene** Auftrag mit einem Ziel, das einen Ort
+   * in der Welt hat — heute sind das `finde` (Fundstück) und `regent`. `besiege`
+   * und `fange` bekommen keine Marke: Kreaturen stehen nicht still, und eine
+   * Marke, die ins Leere zeigt, ist schlimmer als keine.
+   */
+  const auftragsziel = useMemo(() => {
+    if (!stand || !welt) return undefined;
+    for (const a of AUFTRAEGE) {
+      if (stand.auftraege[a.id] !== 'angenommen') continue;
+      if (a.ziel.art === 'finde') {
+        const f = FRAGMENTE.get(a.ziel.fragment);
+        if (!f) continue;
+        const [x, z] = nachMetern(f.ort, welt.bbox);
+        return { x, z, name: a.titel };
+      }
+      if (a.ziel.art === 'regent') {
+        const o = regentOrt(a.ziel.regent, welt.bbox);
+        if (!o) continue;
+        return { x: o[0], z: o[1], name: a.titel };
+      }
+    }
+    return undefined;
+  }, [stand, welt]);
+
   const verbrauche = useCallback((id: string) => {
     setStand(alt => {
       if (!alt) return alt;
@@ -284,6 +333,30 @@ function App() {
       return neu;
     });
   }, []);
+
+  /**
+   * Teamreihenfolge ändern.
+   *
+   * **Beide** Listen müssen dieselbe Bewegung machen: das Team und `erfahrungRef`,
+   * das daneben liegt, weil die Engine keinen Fortschritt kennt. Getrennt bewegt,
+   * trüge nach dem Umsortieren die falsche Kreatur die falsche Erfahrung — und
+   * man sähe es erst beim nächsten Stufenaufstieg. Deshalb dieselbe Funktion für
+   * beide (`spiel/team.ts`).
+   */
+  const ordneTeam = useCallback((neu: Kaempfer[], [von, nach]: [number, number]) => {
+    erfahrungRef.current = verschiebe(erfahrungRef.current, von, nach);
+    setTeam(neu);
+    sichere({}, neu);
+  }, [sichere]);
+
+  /** Nach einer Gegenstandswirkung ausserhalb des Kampfes: KP festhalten. */
+  const sichereTeam = useCallback(() => {
+    setTeam(t => {
+      const kopie = [...t];
+      sichere({}, kopie);
+      return kopie;
+    });
+  }, [sichere]);
 
   const beginneKampf = useCallback((v: Vorkommen) => {
     setBegegnung({ v, gegner: baueKaempfer(v.kreatur, v.stufe) });
@@ -608,9 +681,50 @@ function App() {
             </div>
           )}
 
+          {/* Menüknopf. Oben links, gross (44 px) und mit Abstand zum Rand: Die
+              linke Bildhälfte ist der virtuelle Stick (`steuerung.ts`), und ein
+              Knopf, den man beim Loslaufen trifft, wäre schlimmer als keiner.
+              Oben wischt der Daumen nicht. */}
+          {!menueOffen && (
+            <button onClick={() => setMenueOffen(true)} aria-label="Menü" style={{
+              position: 'fixed', top: 'calc(env(safe-area-inset-top, 8px) + 4px)', left: 8,
+              zIndex: 20, width: 44, height: 44, borderRadius: 10,
+              display: 'grid', placeItems: 'center', gap: 0,
+              background: '#131c19cc', border: '1px solid #2a3632', color: '#9fb0a8',
+            }}>
+              <span style={{ display: 'block', lineHeight: 0 }}>
+                {[0, 1, 2].map(i => (
+                  <span key={i} style={{
+                    display: 'block', width: 17, height: 2, borderRadius: 1,
+                    background: '#9fb0a8', marginTop: i ? 4 : 0,
+                  }} />
+                ))}
+              </span>
+            </button>
+          )}
+
+          {menueOffen && (
+            <Menue
+              welt={welt}
+              team={team}
+              beutel={stand.beutel}
+              fragmente={stand.fragmente}
+              gesehen={stand.gesehen}
+              gefangen={stand.gefangen}
+              besuchteOrte={stand.orte}
+              spieler={[spielerRef.current?.position.x ?? 0, spielerRef.current?.position.z ?? 0]}
+              ziel={auftragsziel}
+              narbeFuer={narbeFuer}
+              onTeam={ordneTeam}
+              onVerbraucht={verbrauche}
+              onGeaendert={sichereTeam}
+              onSchliessen={() => setMenueOffen(false)}
+            />
+          )}
+
           {/* Ort in Reichweite. Ein Knopf, kein Automatismus — siehe `Orte` in der Szene. */}
           {ortNah && !ortOffen && ORTE.get(ortNah) && (
-            <button onClick={() => setOrtOffen(ortNah)} style={{
+            <button onClick={() => oeffneOrt(ortNah)} style={{
               position: 'fixed', left: '50%', transform: 'translateX(-50%)',
               bottom: 'calc(env(safe-area-inset-bottom, 8px) + 76px)', zIndex: 20,
               minHeight: 40, padding: '0 18px', borderRadius: 9, fontSize: 13,

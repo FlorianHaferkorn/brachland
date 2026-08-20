@@ -44,6 +44,7 @@ owns: *.ts, *.tsx
 | Kreatur-, Move-, Regionsformat ändern | `data/schema.ts` | world/, scenes/ |
 | Einstiegspunkt, Weltdaten laden | `main.tsx` → `world/weltladen.ts` | — |
 | Weltdatei holen, cachen, offline halten | `world/weltladen.ts` | `main.tsx`, `../vite.config.ts`, `../index.html` |
+| Menü, Karte, Beutel, Team, Verzeichnis | `ui/Menue.tsx` → `ui/karte.ts`, `spiel/team.ts` | `main.tsx`, `spiel/spielstand.ts` |
 | Steuerung anfassen (Tasten, Touch, Empfindlichkeit) | `spieler/steuerung.ts` | world/, engine/ |
 | Aussehen der Spielerfigur | `spieler/figur.ts` | world/ |
 | Wogegen man läuft | `spieler/kollision.ts` | scenes/ |
@@ -54,6 +55,9 @@ owns: *.ts, *.tsx
 |---|---|
 | `main.tsx` | Einstiegspunkt. Lädt die Weltdaten, montiert `RegionsSzene`, schaltet Stimmungen |
 | `world/weltladen.ts` | `holeWeltdaten(pfad)` — Weltdatei aus der Cache-API, sonst einmal aus dem Netz und dann hinein. Seit D82 liegen Weltdaten **nicht** mehr im Service-Worker-Precache: Sie gingen beim ersten Besuch zweimal über die Leitung (G-92, 456 von 1.382 KB). Eine CacheFirst-Laufzeitregel behebt das nicht — beim ersten Aufruf steht die Seite noch nicht unter Service-Worker-Kontrolle, ihr `fetch` geht daran vorbei, und die Weltdaten landen in **gar keinem** Cache (G-100). Der Cachename trägt einen Inhaltsstempel aus `vite.config.ts`, sonst wäre ein `npm run world` unsichtbar |
+| `ui/Menue.tsx` | Vier Reiter in **einer** Oberfläche: Karte, Beutel, Team, Verzeichnis. Bewusst zusammen und nicht einzeln — sie teilen Rahmen, Schliessgeste und Spielstandanbindung; getrennt gebaut entstünden vier Oberflächen, die nicht zueinander passen (G-101). Aufgemacht über einen 44-px-Knopf **oben links** und `Escape`: Die linke Bildhälfte ist der virtuelle Stick, unten wäre der Knopf im Weg. Kein Schnellreisen — bei 4 km Kantenlänge ist der Weg der Inhalt |
+| `ui/karte.ts` | Zeichnet die Region auf ein Canvas: Biomraster als Grund, Höhenlinien alle 100 m, Wege nach Klasse, Bäche, Gebäude als Punkthaufen. **Biome statt Schummerung**, weil eine Schummerung auf 300 px Handybreite ein grauer Fleck ist. Eingezeichnet wird nur, was der Spieler selbst gefunden hat — besuchte Orte (`spielstand.orte`), gelesene Fundstücke, das verfolgte Auftragsziel |
+| `spiel/team.ts` | `verschiebe(liste, von, nach)` — Teamreihenfolge. Eigene Datei für sechs Zeilen, weil die Reihenfolge an **zwei** Stellen steht (Team und `erfahrungRef`, weil die Engine keinen Fortschritt kennt) und beide dieselbe Bewegung machen müssen. Getrennt bewegt, trägt die falsche Kreatur die falsche Erfahrung, und man sieht es erst beim nächsten Stufenaufstieg |
 | `data/schema.ts` | Zod-Schemas für Kreatur, Move, Region **plus Elementmatrix** — der Drift-Schutz. `npm run validate` prüft alle Inhalte dagegen |
 | `data/inhalte.ts` | Lädt `content/` ins Spiel und macht aus Kreatur + Stufe einen `Kaempfer` der Engine. Prüft die Daten auch im Browser |
 | `spiel/spielstand.ts` | Spielstand über IndexedDB: Team, gefangene und besiegte Vorkommen, Position, Beutel, gelesene Fragmente. Nur Taten, keine Weltdaten |
