@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-17
+last-reviewed: 2026-08-20
 shelf-life-days: 365
 ---
 # BRACHLAND — Stilreferenz Kreaturen v1
@@ -120,7 +120,45 @@ steht auf allen Vieren bzw. Ständern. Kein Boden, keine Effekte, keine Pose.
 
 - **Input:** Linie aus `content/creatures/`, drei Stufen
 - **Output:** Art ohne Beschriftung bestimmbar · Fächer vorhanden und mit der Stufe
-  gewachsen · Signal nur als Punkt am Befall · unter `zielTris` und 120 KB
+  gewachsen · Signal nur als Punkt am Befall · unter `zielTris` und ~~120~~ **190 KB**
 - **Fehlerfall:** Tier nicht bestimmbar → Grundform überarbeiten, nicht den Befall
   reduzieren
 - **Rollback:** Modell entfernen, prozedurale Silhouette greift automatisch
+
+## Nachtrag 20.08.2026 — die Kette steht, drei Zahlen ändern sich
+
+Die Kette ist seit heute vollständig durchgetestet (ADR-0002, Nachtrag). Damit sind
+**beide** Vorbedingungen der verbindlichen Reihenfolge erfüllt — dieses Dokument
+schließt Schritt 1 seit dem 17.08.2026, der Kettentest schließt Schritt 2. Die
+Stapelproduktion ist nicht mehr blockiert.
+
+Drei Angaben oben sind überholt:
+
+- **Budget 120 → 190 KB je Modell.** Die 120 waren eine Sperrklinke aus einem alten
+  Asset. Die neue Zahl ist aus dem abgeleitet, was beim ersten Besuch über die
+  Leitung geht: 2 MB komprimiert, davon 886 KB fest, geteilt durch 14 Kreaturen
+  (G-91). Was hier steht, bleibt richtig: Die Referenz ändert das Aussehen, nicht
+  die Physik des Budgets — aber die Physik war falsch gerechnet.
+- **„4.000 Dreiecke im Nebel"** ist zu hoch gegriffen. `zielTris` steht bei den
+  Kreaturen auf 3.000, und mit Voxel-Remeshing sind **1.756** erreichbar, ohne dass
+  die Silhouette leidet (G-94). Für ein Dokument, dessen erster Satz „die Silhouette,
+  nicht das Rendering" lautet, ist das die bessere Zahl.
+- **Der Prompt fehlt weiterhin.** ADR-0002 verlangt ausdrücklich, den Prompt des
+  Referenzbildes festzuhalten. Dieses Dokument beschreibt das Ergebnis sehr genau,
+  aber ohne den Prompt lässt sich das Bild nicht reproduzieren, und genau das wäre
+  bei einem Werkzeugwechsel nötig. **Offen.**
+
+### Prüfung der drei Fuchsmodelle gegen dieses Dokument
+
+Sie fallen durch, und das ist die richtige Antwort:
+
+| Regel | fantasy fox | stylized fox | fantasy creature |
+|---|---|---|---|
+| 1 — Tier bleibt bestimmbar | grenzwertig | ✅ | ✗ (mehrere Ruten) |
+| 2 — Befall ist Pilz und Flechte | ✗ (geweihartige Auswüchse) | ✗ (kein Befall) | ✗ |
+| 3 — Fächer als Leitmerkmal | ✗ | ✗ | ✗ |
+| 4 — Signal nur als Punkt | ✗ (blaue Flächen an den Läufen) | ✗ (dito) | ✗ |
+
+Keines trägt einen Fächer, keines trägt Pilzbefall, und die blauen Partien an den
+Läufen sind Flächen statt Punkte. Sie waren ein **Kettentest**, kein Inhalt — und
+dass die Prüfung das ohne Diskussion zeigt, ist der Zweck dieses Dokuments.

@@ -100,10 +100,18 @@ an rein KI-generierter Ausgabe vermutlich ohnehin niemand Rechte (AG München,
 Klausel, kommerziell frei bis 1 Mio. USD Jahresumsatz, erzeugte Meshes sind
 ausdrücklich *Outputs* und keine *Derivative Works*, also ohne Namensnennungspflicht
 beim Ausliefern. Dazu zwei praktische Gründe: offizieller Apple-Silicon-Pfad (Metal,
-rund 10,5 GB, Sparmodus ~7 GB) und ein **eingebauter Quad-Remesher mit Zielzahl**.
-Der ist der interessantere Teil — er ersetzt die Topologie, statt sie zu dezimieren,
-und ist damit der einzige bekannte Weg an der Untergrenze von 3.194 Flächen vorbei
-(G-88). Ob er das bei Fell tatsächlich schafft, ist **ungeprüft**.
+rund 10,5 GB, Sparmodus ~7 GB) und ein eingebauter Remesher.
+
+**Korrektur noch am selben Tag (G-94):** Der zweite Grund trug nicht. Getestet wurde
+nicht SPAR3D, sondern der Mechanismus — mit dem Quadriflow, den Blender ohnehin
+mitbringt. Er **scheitert an dieser Geometrie stillschweigend**: 205.328 → 205.328
+Flächen bei jedem Ziel, ohne Fehlermeldung, weil er geschlossene Netze verlangt und
+die Quelle 583 getrennte Teile mit 30.216 offenen Kanten hat. Was die Untergrenze
+tatsächlich bricht, ist der **Voxel-Remesher**: 205.328 → 1.756 Dreiecke bei 3,5 cm,
+583 Teile → 2, und die Silhouette wird dabei sauberer als die dezimierte. Der steckt
+in Blender, das seit heute installiert ist.
+
+Für SPAR3D bleibt damit **nur** das Lizenzargument — das aber unverändert.
 
 Für später, falls die Qualität nicht reicht: TRELLIS.2-4B oder TripoSG, beide MIT,
 beide ohne Territoriumsklausel, aber CUDA-gebunden und damit nur auf gemieteter GPU.
@@ -124,13 +132,25 @@ durch `pipeline.sh`: 24 Knochen, 3 Animationen, **0 % Vertices ohne Gewicht**,
 offengelegt (G-87, G-88, G-89) und einen neuen Schritt bekommen (D80: entkleiden,
 Farbe je Vertex statt Textur).
 
-**Schritt 1 bleibt offen — und er ist der unwiderrufliche.** Diese ADR sagt es
-selbst: Ein Wechsel der Stil-Referenz nach 50 Kreaturen bedeutet deren
-Neuproduktion. Die drei Füchse sind ein Kettentest, keine Stil-Referenz; sie sind
-ohne festgehaltenen Prompt und mit einem Werkzeug entstanden, das nicht bleibt.
+~~**Schritt 1 bleibt offen — und er ist der unwiderrufliche.**~~ **Falsch, und zwar
+von mir.** Schritt 1 ist seit dem **17.08.2026** erledigt:
+`docs/design/BRACHLAND_Stilreferenz_v1.md` ist verbindlich, aus einem Referenzbild
+vom 16.08.2026 abgeleitet und schließt in seinem eigenen Kopf ausdrücklich diese
+ADR und Ledger G-2. Ich hatte das behauptet, ohne nachzusehen.
 
-Die Reihenfolge der ADR gilt also unverändert weiter, nur ist sie jetzt zur Hälfte
-abgearbeitet: Stil-Referenz (offen) → Kette (**erledigt**) → Stapel (gesperrt).
+Damit sind **beide** Vorbedingungen erfüllt und die Stapelproduktion ist frei:
+
+    Stil-Referenz (erledigt 17.08.) → Kette (erledigt 20.08.) → Stapel (frei)
+
+Offen bleibt an Schritt 1 nur eine Kleinigkeit, die diese ADR ausdrücklich
+verlangt: **der Prompt des Referenzbildes ist nirgends festgehalten.** Die
+Stilreferenz beschreibt das Ergebnis sehr genau, aber ohne den Prompt lässt sich
+das Bild nicht reproduzieren — und genau das wäre bei einem Werkzeugwechsel nötig.
+
+Die drei Füchse bleiben trotzdem ein Kettentest und kein Inhalt: Gegen die
+Stilreferenz geprüft fallen sie durch (kein Fächer, kein Pilzbefall, Signalfarbe
+als Fläche statt als Punkt, beim „fantasy creature" mehrere Ruten). Die Prüftabelle
+steht im Nachtrag der Stilreferenz.
 
 ### Was ausdrücklich **nicht** entschieden wurde
 
@@ -139,7 +159,8 @@ hat echte Kreaturmodelle immer vorgesehen — die Silhouetten sind der Platzhalt
 davor (G-23), nicht eine konkurrierende Entscheidung. Es gibt hier nichts zu kippen.
 Was gesperrt bleibt, ist der Teilausstieg: **drei Modelle neben elf Silhouetten
 sehen schlechter aus als vierzehn Silhouetten oder vierzehn Modelle.** Gebaut wird
-erst, wenn die Stil-Referenz steht und alle vierzehn in einem Zug entstehen können.
+erst, wenn alle vierzehn in einem Zug entstehen können — die Stil-Referenz steht
+dafür bereit.
 
 ## Grenze (bekannte Limitation)
 
