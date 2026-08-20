@@ -314,6 +314,52 @@ for (const datei of readdirSync('public/world').filter(f => f.endsWith('.json'))
     console.log(`  · [Welt] ${datei}: alle ${arten.size} Wegklassen haben einen Belag`);
 }
 
+// ------------------------------------- 3b. Inhalte innerhalb der Region?
+//
+// Ein Fundstück, das ausserhalb der bbox liegt, ist nicht schwer zu finden — es
+// ist **unerreichbar**: Die Bewegung klemmt den Spieler auf ±1976 m (X) und
+// ±1996 m (Z) (`RegionsSzene.tsx`), weil dahinter kein Gelände mehr steht.
+// Gefunden an `bruchkante` (lon 12,10967 gegen Ostkante 12,108 → x = 2.109 m):
+// Der Zähler „x von 13 Fundstücken" kann damit nie 13 erreichen, und nichts im
+// Repo hat es gemeldet. Das Schema prüft die Form der Koordinate, nicht ihre Lage.
+//
+// Warnung und nicht Blocker, weil die Behebung eine **inhaltliche** Entscheidung
+// ist (wohin verschiebt man den Stein?) und ein Blocker die Kette anhielte,
+// bevor jemand sie treffen kann. Wird Blocker, sobald die offenen Fälle behoben sind.
+type Verortet = { id: string; region?: string; ort?: [number, number] };
+const ausOrdner = (p: string): Verortet[] => existsSync(p)
+  ? readdirSync(p).filter(f => f.endsWith('.json'))
+      .map(f => JSON.parse(readFileSync(join(p, f), 'utf8')) as Verortet)
+  : [];
+const verortet: [string, Verortet[]][] = [
+  ['Fundstück', ausOrdner('content/fragmente')],
+  ['Ort', ausOrdner('content/orte')],
+];
+
+for (const rf of regionen) {
+  const region = JSON.parse(readFileSync(join('content/regions', rf), 'utf8'));
+  const [sued, west, nord, ost] = region.bbox as [number, number, number, number];
+  const drin = (o: [number, number]) =>
+    o[0] >= sued && o[0] <= nord && o[1] >= west && o[1] <= ost;
+  let geprueft = 0;
+  for (const [art, liste] of verortet) {
+    for (const e of liste) {
+      if (e.region !== region.id || !e.ort) continue;
+      geprueft++;
+      if (drin(e.ort)) continue;
+      // Randabstand mitliefern — „knapp daneben" und „400 m daneben" sind
+      // verschiedene Fehler.
+      const dLat = Math.max(sued - e.ort[0], e.ort[0] - nord, 0) * 111_320;
+      const dLon = Math.max(west - e.ort[1], e.ort[1] - ost, 0) * 111_320
+                   * Math.cos(e.ort[0] * Math.PI / 180);
+      warn('Welt', `${art} '${e.id}' liegt ausserhalb von ${region.id} `
+        + `(${Math.round(Math.max(dLat, dLon))} m jenseits der Kante) — unerreichbar, `
+        + `die Bewegung klemmt am Geländerand`);
+    }
+  }
+  console.log(`  · [Welt] ${region.id}: ${geprueft} verortete Inhalte gegen die bbox geprüft`);
+}
+
 // -------------------------------------------------- 4. System-Invarianten
 let matrixOk = true;
 for (const a of ELEMENTE) {

@@ -43,6 +43,7 @@ owns: *.md
 | `BRACHLAND_Stilreferenz_v1.md` | **Verbindlich für Wildlinge seit 16.08.2026.** Ein erkennbares Alpentier, auf dem etwas wächst — Pilzfächer als Leitmerkmal, Signalfarbe nur als Punkt. Schließt ADR-0002. Der Bible untergeordnet |
 | `BRACHLAND_Traversal_v1.md` | Ausdauer, Springen, Klettern, Schwimmen, Reiten, Gleiten — Auswahl gegen Enshrouded, Reihenfolge, Freischaltung |
 | `BRACHLAND_Story-Struktur_v1.md` | Vier übliche Bauweisen, Auswahl für BRACHLAND (kritischer Pfad + Fragmente + Weltzustand, keine Nabe), Auftrags- und Fragmentschema |
+| `BRACHLAND_Luecken_v1.md` | **Befund 20.08.2026, keine Entscheidung.** Systeminventar gegen Pokémon Legends: Menü, Karte, Beutel, Team, Index fehlen vollständig; der Kern (Kampf, Fangen, Fortschritt, Traversal) steht. Rechnet nach, warum der Regent unauffindbar ist (1381 m gegen 420 m Sicht, keine Peilung, kein Auftrag), was am Kartenrand passiert (unsichtbare Wand 8 m vor einer freischwebenden 0,9-m-Kante) und woraus ein Haus besteht (Median 94 Dreiecke, eine Dachform). Widerspricht zwei Vorgaben mit Zahlen: „alle Assets auf Fuchsniveau" sprengt das Gerätebudget um das Zehnfache, und von fünf Kategorien für generierte Assets tragen nur **Felsen und Haus-Module**. Schlägt drei Züge in fester Reihenfolge vor |
 
 ## Umsetzungsstand
 
