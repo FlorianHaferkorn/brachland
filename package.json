@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "validate": "tsx tools/validate.ts",
     "assets": "bash tools/pipeline.sh raw/ assets/creatures/ 2700",
+    "voxelgrenze": "blender --background --python tools/voxelgrenze.py",
     "lod": "tsx tools/lodcheck.ts",
     "masstab": "tsx tools/masstab.ts",
     "szene": "tsx tools/scenecheck.ts",

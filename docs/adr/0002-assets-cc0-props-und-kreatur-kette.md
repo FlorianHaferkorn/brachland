@@ -188,9 +188,25 @@ Die Sperre aus dem vorigen Nachtrag bleibt: Gebaut wird erst, wenn alle vierzehn
 Kreaturen in einem Zug entstehen können. Was jetzt anders ist, ist nur, dass die
 Kette es könnte — der Voxel-Weg ist **an einem** Modell (`stylized_fox`) einmal
 vollständig durchgelaufen: 24 Knochen, 3 Animationen, 0 % ungewichtete Vertices.
-Die drei Fuchsmodelle vom selben Tag liefen durch den **Dezimier**-Weg. ⚠️ UNKLAR:
-Ob der Voxel-Remesh auch an Vogel- und Schlangenrigs trägt, ist nicht gemessen —
-lange dünne Glieder sind genau das, was ein Distanzfeld verschluckt.
+Die drei Fuchsmodelle vom selben Tag liefen durch den **Dezimier**-Weg.
+
+~~⚠️ UNKLAR: Ob der Voxel-Remesh auch an Vogel- und Schlangenrigs trägt, ist nicht
+gemessen — lange dünne Glieder sind genau das, was ein Distanzfeld verschluckt.~~
+— **gemessen am selben Tag (G-99), und die Sorge war die falsche.** Ein Distanzfeld
+verschluckt nichts; es macht dünne Glieder **dicker**. Gemessen an einem Prüfkörper
+mit bekannten Dicken (`npm run voxelgrenze`):
+
+| Dicke des Glieds | was der Remesh daraus macht |
+|---|---|
+| ab 1,0 × Gitterweite | exakt, auf drei Nachkommastellen |
+| 0,4 – 0,8 × | quillt auf, bis zum Dreifachen |
+| unter 0,4 × | fransige Oberfläche, Spitze verliert bis 22 % Länge |
+| — | **verschwunden ist in keinem Lauf etwas** |
+
+Als Regel: **das dünnste Glied mindestens so dick wie die Gitterweite.** Bei 2.700
+Dreiecken sind das 2,7 % der längsten Achse — an einem 60-cm-Vogel also 1,6 cm
+Schwingendicke, an einem 1,5-m-Schlangenleib 4 cm am Schwanzende. Wo das nicht
+reicht, ist der Hebel `voxel:<zahl>` je Archetyp, und er kostet quadratisch.
 
 ## Grenze (bekannte Limitation)
 

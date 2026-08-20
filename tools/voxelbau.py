@@ -52,6 +52,21 @@ Die Zahl steht nicht in der Datei, weil sie schoen aussieht, sondern weil bei
 1.800 der Kopf kippt und bei 3.600 nur noch Bytes dazukommen. Wer daran dreht,
 rendert die drei Koepfe nebeneinander, bevor er sich entscheidet — die
 Dreieckszahlen allein haetten hier zu 1.800 gefuehrt.
+
+## Die Untergrenze fuer duenne Glieder
+
+Ein Distanzfeld verschluckt duenne Glieder nicht — es macht sie **dicker**.
+Gemessen mit `tools/voxelgrenze.py` an bekannten Dicken (G-99):
+
+    ab 1,0 x Gitterweite   exakt
+    0,4 bis 0,8 x          quillt auf, bis zum Dreifachen
+    unter 0,4 x            fransig, die Spitze verliert bis 22 % Laenge
+
+Als Regel: **das duennste Glied mindestens so dick wie die Gitterweite.** Bei
+2.700 Dreiecken liegt die bei rund 2,7 % der laengsten Achse — an einem 60-cm-
+Vogel also 1,6 cm Schwingendicke, an einem 1,5-m-Schlangenleib 4 cm am
+Schwanzende. Wo das nicht reicht, ist `voxel:<zahl>` der Hebel, und er kostet
+quadratisch: halbe Gitterweite, vierfache Dreieckszahl.
 """
 import bpy
 import sys
