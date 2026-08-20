@@ -148,17 +148,75 @@ Drei Angaben oben sind überholt:
   aber ohne den Prompt lässt sich das Bild nicht reproduzieren, und genau das wäre
   bei einem Werkzeugwechsel nötig. **Offen.**
 
-### Prüfung der drei Fuchsmodelle gegen dieses Dokument
+### Geltungsbereich — was hier steht, gilt nicht für jede Kreatur
 
-Sie fallen durch, und das ist die richtige Antwort:
+Diese Klarstellung fehlte und hat prompt zu einer falschen Prüfung geführt. Die
+**Creature Bible v1.1 §6** ist diesem Dokument übergeordnet und schneidet zu:
+
+> „Befall ist Pilz, Flechte und Biolicht — keine Technikaufkleber. Diese Regel aus
+> Stilreferenz v1 gilt **für Wildlinge**. Zuchtlinien und Verwachsene sind von
+> Bauart technisch; dort beschreibt die Regel den *Befall*, nicht den Körper."
+
+Technik ist also sehr wohl Teil der Erzählung — als **Herkunft**, nicht als Befall:
+
+| Herkunft | Körper | Befall | Beispiel im Bestand |
+|---|---|---|---|
+| Wildling | reales Tier, gestreut | Pilz, Flechte, Biolicht | 11 der 14 |
+| Zuchtlinie | VERIDIA-Fertigung: symmetrisch, modular, Rückenmodul aus fünf gleichen Platten | Pilz, Biolicht — nicht ein weiteres Modul | `k7-wolf` |
+| Verwachsener | Tier und Infrastruktur sind eins, Sockel bis auf den Boden | Pilz, Biolicht | `trafomarder` |
+
+Der Satz „keine Kabel, keine Platinen" in §2 meint also: **nicht am Befall und nicht
+am Wildlingskörper.** Er verbietet Technik nicht im Spiel — er hält sie dort, wo sie
+etwas bedeutet. Genau daran erkennt man, dass der Befall etwas ist, das einem
+Konstrukt *widerfährt*, statt Teil seiner Bauweise zu sein.
+
+### ⚠️ Offen: die zwei Alt-Tech-Wildlinge
+
+`spuerfuchs` (Merkmal **Sensor-Fell**) und `linsenuhu` (**Facetten-Linsenaugen**)
+sind beide `ursprung: wildling` mit `elemente: ['alt-tech']`. Damit ist ihr Körper
+laut Tabelle oben **nicht** technisch und ihr Befall Pilz — ihr Merkmal heißt aber
+Sensor beziehungsweise Linse. Wie ein Sensor an einem nicht-technischen Körper
+aussieht, sagt kein Dokument. Drei Auflösungen sind denkbar:
+
+1. **Biologisch lesen.** Das „Sensor-Fell" ist Fell, das wie ein Sensor *funktioniert*
+   — Tasthaare, Fühlerborsten, Wärmegruben. Kein Metall. Passt zur Regel, passt zum
+   Faulbrand als Biologie, und Alt-Tech bliebe reines Kampfelement.
+2. **Alt-Tech als Fundstück.** Das Tier trägt etwas Gefundenes am Körper, kein
+   Implantat — ein Splitter Leiterplatte im Fell verfilzt. Erzählerisch reizvoll,
+   verwischt aber genau die Grenze, die §2 zieht.
+3. **Herkunft ändern.** Wären beide `zuchtlinie`, wäre die Frage weg — sie kostet
+   aber zwei Wildlinge und widerspricht „Fuchs streunt um die Enklaven".
+
+**Empfehlung: (1).** Sie hält die Regel unangetastet, braucht keine Datenänderung
+und ist die einzige, die auch dann noch trägt, wenn irgendwann fünf Alt-Tech-Linien
+im Roster stehen. Zu entscheiden ist es trotzdem, nicht hier zu setzen.
+
+### ⚠️ Innerer Widerspruch: der Fächer
+
+§3 sagt: „Jede Linie hat genau **ein** Leitmerkmal … Der Fächer ist die gemeinsame
+Klammer, **nicht das Merkmal jeder einzelnen Linie**." Der Abschnitt „Was daraus
+folgt" sagt zwei Seiten später das Gegenteil: „Der Fächer gehört an **jede**
+Kreatur." Beides kann nicht stimmen. Im Bestand trägt genau eine Linie einen Fächer
+als Merkmal (`sporenhahn`, „Sporenfächer"), eine weitere einen verwandten
+(`schneehuhn`, „Frostfeder-Fächer"); die übrigen zwölf haben etwas anderes.
+
+Die Creature Bible §6 entscheidet es zugunsten von §3: „**Ein** Auswuchs je Kreatur,
+aus genau einer der sechs Funktionskategorien." Der Satz unter „Was daraus folgt"
+ist damit hinfällig. *(Die sechs Kategorien stehen allerdings nur auf dem Blatt und
+in keinem Text — auch das ist offen.)*
+
+### Prüfung der drei Fuchsmodelle — korrigiert
+
+Die erste Fassung dieser Tabelle war falsch: Sie forderte einen Fächer, den der
+Spürfuchs laut seinem eigenen `merkmal` gar nicht haben soll.
 
 | Regel | fantasy fox | stylized fox | fantasy creature |
 |---|---|---|---|
 | 1 — Tier bleibt bestimmbar | grenzwertig | ✅ | ✗ (mehrere Ruten) |
-| 2 — Befall ist Pilz und Flechte | ✗ (geweihartige Auswüchse) | ✗ (kein Befall) | ✗ |
-| 3 — Fächer als Leitmerkmal | ✗ | ✗ | ✗ |
+| 2 — Befall ist Pilz und Flechte *(gilt, weil Wildling)* | ✗ (geweihartige Auswüchse) | ✗ (gar kein Befall) | ✗ |
+| 3 — ~~Fächer~~ **das eigene Merkmal**, hier Sensor-Fell | ✗ | ✗ | ✗ |
 | 4 — Signal nur als Punkt | ✗ (blaue Flächen an den Läufen) | ✗ (dito) | ✗ |
 
-Keines trägt einen Fächer, keines trägt Pilzbefall, und die blauen Partien an den
-Läufen sind Flächen statt Punkte. Sie waren ein **Kettentest**, kein Inhalt — und
-dass die Prüfung das ohne Diskussion zeigt, ist der Zweck dieses Dokuments.
+Das Ergebnis bleibt: alle drei fallen durch. Der Grund ist ein anderer als zuerst
+notiert, und dass er ein anderer ist, hätte auffallen müssen, bevor die Tabelle
+geschrieben wurde. Sie waren ein **Kettentest**, kein Inhalt.

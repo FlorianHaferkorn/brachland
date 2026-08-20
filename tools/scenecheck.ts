@@ -1,6 +1,6 @@
 /** Vollständige Szene headless bauen: Dreiecke, Props, Draw Calls, Budget. */
 import { entpackeWelt } from '../src/world/osm.js';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import { baueTerrain, baueGebaeude } from '../src/world/terrain.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, aufsatzboden } from '../src/world/lod.js';
 import { zerlegeBaender, baueBaenderStufe, baueWegKachel, baueWasserKachel,
@@ -161,8 +161,28 @@ console.log(`  Ein Urteil gibt dieses Werkzeug deshalb nicht mehr ab: Das 400k-B
 console.log(`  nie gemessen, sondern ein Literal (Ledger G-18). Die Bildrate im Spiel ist`);
 console.log(`  die Instanz, nicht diese Datei.`);
 
-// Vorschau exportieren
+/**
+ * Vorschau exportieren — **nur auf Verlangen** (`npm run szene -- --dump`).
+ *
+ * Dieser Block lief bedingungslos und schrieb bei jedem Lauf **235 MB**:
+ * 216,9 MB `teile` und 17,6 MB `props`, beides Vertexkoordinaten als
+ * JSON-Fließkommatext in voller Genauigkeit (`-1984.116455078125` — achtzehn
+ * Stellen für einen Wert, der auf den Millimeter genau wäre, wenn drei davon
+ * blieben). `.cache/scene.json` war damit das größte Objekt im ganzen Repo,
+ * 26-mal so groß wie die Weltdatei, die es beschreibt.
+ *
+ * Gelesen hat es **niemand**: Ein `grep` über das gesamte Repo findet genau die
+ * Zeile, die es schreibt, und keine, die es öffnet. Es ist eine Vorschau für
+ * einen Betrachter, den es hier nicht gibt.
+ *
+ * Der Ausgang bleibt trotzdem stehen, weil die Fähigkeit gelegentlich gebraucht
+ * wird — sie kostet nur ab jetzt nichts mehr, wenn niemand danach fragt.
+ * Dasselbe Muster steckt in `lodpreview.ts` (`lodscene.json`) und
+ * `terraincheck.ts` (`preview.json`); beide sind kleiner und bleiben vorerst.
+ */
+const DUMP = process.argv.includes('--dump');
 const dump: any = { teile: [], props: [] };
+if (DUMP) {
 const alle: [string, any][] = [
   ['terrain', t.geometrie], ['gebaeude', baueGebaeude(welt, boden)],
   ...ganz.wege.map((g, i) => [`wege${i}`, g] as [string, any]),
@@ -182,4 +202,9 @@ for (const [name, g] of alle) {
 for (const p of props) dump.props.push([p.art, ...p.position, p.drehung, p.skalierung]);
 dump.farben = PROP_FARBE;
 writeFileSync('.cache/scene.json', JSON.stringify(dump));
-console.log('\n  .cache/scene.json geschrieben');
+const mb = statSync('.cache/scene.json').size / 1024 / 1024;
+console.log(`\n  .cache/scene.json geschrieben — ${mb.toFixed(0)} MB`);
+} else {
+  console.log('\n  Keine Vorschau geschrieben. Wer sie braucht: npm run szene -- --dump');
+  console.log('  (sie waere rund 235 MB gross und wird von nichts im Repo gelesen)');
+}
