@@ -2,6 +2,7 @@ import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'r
 import { createRoot } from 'react-dom/client';
 import * as THREE from 'three';
 import { entpackeWelt, type Weltdaten } from './world/osm.js';
+import { holeWeltdaten } from './world/weltladen.js';
 import { RegionsSzene, TAGESZEITEN, QUALITAET_STANDARD,
          type Messwerte, type Qualitaet, type Naehe } from './scenes/RegionsSzene.js';
 import { Witterung } from './ui/Witterung.js';
@@ -79,9 +80,13 @@ function App() {
   const erfahrungRef = useRef<number[]>([]);
 
   useEffect(() => {
-    fetch('/world/oental.json')
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-      .then(d => setWelt(entpackeWelt(d.welt)))
+    // Nicht `fetch`: `holeWeltdaten` legt die Datei selbst in die Cache-API und
+    // holt sie beim zweiten Mal von dort. Der Service-Worker-Precache trägt die
+    // Weltdaten seit D82 nicht mehr — sie gingen sonst beim ersten Besuch
+    // zweimal über die Leitung (G-92), und eine Laufzeitregel greift hier nicht,
+    // weil diese Zeile läuft, bevor ein Service Worker die Seite kontrolliert.
+    holeWeltdaten('/world/oental.json')
+      .then(d => setWelt(entpackeWelt((d as { welt: unknown }).welt as never)))
       .catch(e => setFehler(String(e)));
   }, []);
 

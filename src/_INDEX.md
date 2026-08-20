@@ -42,7 +42,8 @@ owns: *.ts, *.tsx
 | Kampflogik, Schaden, Fokus, Wechsel | `engine/battle.ts` → `data/schema.ts` | world/, scenes/ |
 | Kampf-UI, Buttons, Anzeige | `ui/BattleScreen.tsx` | world/ |
 | Kreatur-, Move-, Regionsformat ändern | `data/schema.ts` | world/, scenes/ |
-| Einstiegspunkt, Weltdaten laden | `main.tsx` | — |
+| Einstiegspunkt, Weltdaten laden | `main.tsx` → `world/weltladen.ts` | — |
+| Weltdatei holen, cachen, offline halten | `world/weltladen.ts` | `main.tsx`, `../vite.config.ts`, `../index.html` |
 | Steuerung anfassen (Tasten, Touch, Empfindlichkeit) | `spieler/steuerung.ts` | world/, engine/ |
 | Aussehen der Spielerfigur | `spieler/figur.ts` | world/ |
 | Wogegen man läuft | `spieler/kollision.ts` | scenes/ |
@@ -52,6 +53,7 @@ owns: *.ts, *.tsx
 | Datei | Zweck |
 |---|---|
 | `main.tsx` | Einstiegspunkt. Lädt die Weltdaten, montiert `RegionsSzene`, schaltet Stimmungen |
+| `world/weltladen.ts` | `holeWeltdaten(pfad)` — Weltdatei aus der Cache-API, sonst einmal aus dem Netz und dann hinein. Seit D82 liegen Weltdaten **nicht** mehr im Service-Worker-Precache: Sie gingen beim ersten Besuch zweimal über die Leitung (G-92, 456 von 1.382 KB). Eine CacheFirst-Laufzeitregel behebt das nicht — beim ersten Aufruf steht die Seite noch nicht unter Service-Worker-Kontrolle, ihr `fetch` geht daran vorbei, und die Weltdaten landen in **gar keinem** Cache (G-100). Der Cachename trägt einen Inhaltsstempel aus `vite.config.ts`, sonst wäre ein `npm run world` unsichtbar |
 | `data/schema.ts` | Zod-Schemas für Kreatur, Move, Region **plus Elementmatrix** — der Drift-Schutz. `npm run validate` prüft alle Inhalte dagegen |
 | `data/inhalte.ts` | Lädt `content/` ins Spiel und macht aus Kreatur + Stufe einen `Kaempfer` der Engine. Prüft die Daten auch im Browser |
 | `spiel/spielstand.ts` | Spielstand über IndexedDB: Team, gefangene und besiegte Vorkommen, Position, Beutel, gelesene Fragmente. Nur Taten, keine Weltdaten |
