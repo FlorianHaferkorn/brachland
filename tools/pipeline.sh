@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 # BRACHLAND — komplette Asset-Kette in einem Befehl
 #
-#   ./pipeline.sh raw/ final/ 4000
+#   ./pipeline.sh raw/ final/ 2700
 #
 # raw/    generierte GLB (Tripo, Hunyuan3D, Meshy) — beliebig hochpoly
 # final/  spielfertige, reduzierte, geriggte, animierte GLB
 #
 # Voraussetzungen: node + npm-Pakete (siehe README), Blender im PATH.
+#
+# VERFAHREN=voxel|dezimieren steuert Schritt 1. Vorgabe ist `voxel`, siehe dort.
 
 set -euo pipefail
 
 IN="${1:-raw}"
 OUT="${2:-final}"
-TARGET="${3:-4000}"
+TARGET="${3:-2700}"
+VERFAHREN="${VERFAHREN:-voxel}"
 RIGS="${RIGS:-rigs}"          # Ordner mit Archetyp-Rigs (quadruped.glb, bird.glb, ...)
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -54,9 +57,47 @@ for f in "${files[@]}"; do
 
   echo "→ $name  [Archetyp: $arch]"
 
-  # 1) Reduktion auf Spielgröße
-  node reduce.mjs "$f" "$TMP/$name.lp.glb" "$TARGET" >/dev/null 2>&1 || {
-    echo "   Reduktion fehlgeschlagen"; ((fail++)); continue; }
+  # 1) Auf Spielgröße bringen — per Voxel-Remesh, nicht per Dezimierung.
+  #
+  # KI-Modelle sind keine geschlossenen Körper. Der Fuchs kam mit **583
+  # getrennten Teilen und 30.216 offenen Kanten**; jede Fellsträhne ist eine
+  # eigene Schale. Deren Mindestflächen summieren sich zu einer Untergrenze von
+  # 3.194 Flächen, die `reduce.mjs` mit keiner Fehlertoleranz unterschreitet
+  # (G-88) — bei Vorgabe 1.800 lieferte es 3.416.
+  #
+  # Der Voxel-Remesh dezimiert nicht, er baut die Oberfläche aus einem
+  # Distanzfeld neu und trifft die Vorgabe. Am Fuchs, jeweils fertig geriggt
+  # mit drei Animationen, gegen 190 KB Budget:
+  #
+  #   Voxel 1.772  106 KB   Schnauze wird ein stumpfer Keil
+  #   Voxel 2.728  121 KB   Schnauze und Ohren lesbar, Netz ruhig   ← Vorgabe
+  #   Voxel 3.608  135 KB   minimal feiner, dafür unruhiger Rücken
+  #   dezimiert 3.301  189 KB   schärfste Ohrspitzen, aber Hals und Rücken
+  #                             voller Splitter — der Rest der Fellschalen
+  #
+  # Die dezimierte Fassung wirkt im Standbild schärfer und ist es an den
+  # Ohrspitzen auch. Überall sonst ist sie lauter, und sie kommt mit 189 gegen
+  # 190 KB ohne jede Luft an (G-97).
+  #
+  # `VERFAHREN=dezimieren` schaltet auf den alten Weg zurück. Der ist nicht
+  # tot: Er ist richtig für Quellen, die schon ein sauberer geschlossener
+  # Körper sind — dort wirft der Voxel-Remesh nur Kanten weg, die es zu
+  # erhalten gälte.
+  case "$VERFAHREN" in
+    voxel)
+      blender --background --python voxelbau.py -- \
+              "$f" "$TMP/$name.lp.glb" "$TARGET" 2>/dev/null \
+              | grep '\[voxelbau\] \(Voxel\|Mittl\|FEHLER\)' || true
+      [ -f "$TMP/$name.lp.glb" ] || {
+        echo "   Remesh fehlgeschlagen"; ((fail++)); continue; }
+      ;;
+    dezimieren)
+      node reduce.mjs "$f" "$TMP/$name.lp.glb" "$TARGET" >/dev/null 2>&1 || {
+        echo "   Reduktion fehlgeschlagen"; ((fail++)); continue; }
+      ;;
+    *)
+      echo "VERFAHREN muss 'voxel' oder 'dezimieren' sein, nicht '$VERFAHREN'."; exit 1 ;;
+  esac
 
   # 2) Rigging + Animationen erben
   blender --background --python autorig.py -- \
@@ -75,9 +116,15 @@ for f in "${files[@]}"; do
   # da, und danach braucht sie niemand mehr.
   #
   # Gemessen am Fuchs bei 4.464 Flaechen: 6.733 KB mit verlustfreier Textur,
-  # 900 KB mit q90, **90 KB** ohne Textur. Nur das Letzte haelt die 120 KB aus
+  # 900 KB mit q90, **90 KB** ohne Textur. Nur das Letzte haelt das Budget aus
   # quality.ts — und es ist zugleich das Einzige, das dieselbe Sprache spricht
   # wie die 36 Props seit D74.
+  #
+  # Im Voxel-Weg ist die Farbe schon uebertragen (dort **muss** sie das sein,
+  # weil der Remesh die UV nicht behaelt). Dann laesst dieser Schritt sie in
+  # Ruhe und wirft nur noch Normalen und Materialreste weg. Bis 20.08.2026 tat
+  # er das nicht: Er fand keine Textur, nahm den Grundfarbfaktor und faerbte
+  # den Fuchs glatt weiss (G-96).
   node entkleiden.mjs "$OUT/${name}.glb" || {
     echo "   Entkleiden fehlgeschlagen"; ((fail++)); continue; }
 

@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-19
+last-reviewed: 2026-08-20
 shelf-life-days: 90
 owns: *.ts, *.mjs, *.py, *.sh
 ---
@@ -19,7 +19,8 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Weltdaten für eine Region erzeugen | `buildworld.ts` → `../src/world/osm.ts` |
 | Inhalte gegen das Schema prüfen | `validate.ts` → `../src/data/schema.ts` |
 | Budgets und Blocker verstehen | `quality.ts` → `../docs/QUALITY.md` |
-| KI-Modell spieltauglich machen | `README.md` → `pipeline.sh` → `reduce.mjs` → `autorig.py` → `entkleiden.mjs` → `nachbereiten.mjs` |
+| KI-Modell spieltauglich machen | `README.md` → `pipeline.sh` → `voxelbau.py` → `autorig.py` → `entkleiden.mjs` → `nachbereiten.mjs` |
+| Wissen wollen, warum Schritt 1 nicht mehr dezimiert | `voxelbau.py` → `quadtest.py` → `reduce.mjs` |
 | Ganze Ordner durch die Kette schicken | `batch.mjs`, `pipeline.sh` |
 | Prüfen, ob das Dreiecksbudget hält | `lodcheck.ts`, `scenecheck.ts` |
 | Gelände- oder Baumqualität beurteilen | `hoehenvergleich.ts`, `baumcheck.ts` |
@@ -41,8 +42,9 @@ owns: *.ts, *.mjs, *.py, *.sh
 |---|---|
 | `buildworld.ts` | `npm run world <region> <raster> [dgm1\|eudem]` — OSM und Höhen abrufen, Welt bauen, gepackt nach public/world schreiben |
 | `dgm1.ts` | Höhen aus dem 1-Meter-Geländemodell der Bayerischen Vermessungsverwaltung. Lädt Kilometerkacheln, interpoliert bilinear |
-| `reduce.mjs` | Flächenreduktion roher KI-Modelle auf die Zielzahl (gltf-transform + meshoptimizer). **Schritt 1** der Kette. Die Texturpackung rät nicht mehr, sondern rechnet verlustfrei und q90 aus und nimmt die kleinere: Das übernommene `lossless: true` aus `nachbereiten.mjs` stimmt für Blenders flächige PNG und blies Tripos fotografische JPEG **von 0,79 auf 6,45 MB** auf (G-87). Die Ausgabe weist Geometrie und Textur seitdem getrennt aus — die alte Zeile „Faktor 1.0x" verbarg, dass zwei gegenläufige Bewegungen von 56x und 8x sich aufhoben |
-| `entkleiden.mjs` | `node entkleiden.mjs <in.glb> [out.glb]` — **Schritt 3, nach dem Rigging.** Tastet die Basisfarbtextur an jeder UV ab, legt sie als `COLOR_0` ab und wirft Texturen, UV und Normalen weg. Dieselbe Materialsprache wie die 36 Props seit D74 — und der einzige Weg ans 120-KB-Budget: gemessen am Fuchs 6.733 KB mit verlustfreier Textur, 900 KB mit q90, **90 KB** ohne. Nach dem Rigging aus demselben Grund wie Schritt 4 (D80) |
+| `voxelbau.py` | `blender --background --python voxelbau.py -- <ein.glb> <aus.glb> [2700\|voxel:0.027]` — **Schritt 1 der Kette seit D81.** Baut die Oberfläche per Voxel-Remesh aus einem Distanzfeld neu, statt sie zu dezimieren, und sucht die Voxelgröße zur Zieldreieckszahl per Bisektion. Grund: KI-Modelle sind keine Körper — der Fuchs hatte **583 getrennte Teile und 30.216 offene Kanten**, deren Mindestflächen `reduce.mjs` bei 3.194 festnageln (G-88). Der Remesh wirft dabei die UV weg, deshalb überträgt derselbe Schritt die Farbe vorher per Nächster-Punkt und baryzentrischer UV in ein `COLOR_0`. Am Fuchs ganze Kette: **2.728 Dreiecke, 121 KB** gegen dezimiert 3.301 Dreiecke, 189 KB bei 190 KB Budget (G-97) |
+| `reduce.mjs` | Flächenreduktion roher KI-Modelle auf die Zielzahl (gltf-transform + meshoptimizer). **Bis 20.08.2026 Schritt 1**, jetzt der Rückweg über `VERFAHREN=dezimieren` — richtig für Quellen, die schon ein sauberer geschlossener Körper sind, wo der Voxel-Remesh nur Kanten wegwürfe. Die Texturpackung rät nicht mehr, sondern rechnet verlustfrei und q90 aus und nimmt die kleinere: Das übernommene `lossless: true` aus `nachbereiten.mjs` stimmt für Blenders flächige PNG und blies Tripos fotografische JPEG **von 0,79 auf 6,45 MB** auf (G-87). Die Ausgabe weist Geometrie und Textur seitdem getrennt aus — die alte Zeile „Faktor 1.0x" verbarg, dass zwei gegenläufige Bewegungen von 56x und 8x sich aufhoben |
+| `entkleiden.mjs` | `node entkleiden.mjs <in.glb> [out.glb]` — **Schritt 3, nach dem Rigging.** Tastet die Basisfarbtextur an jeder UV ab, legt sie als `COLOR_0` ab und wirft Texturen, UV und Normalen weg. Dieselbe Materialsprache wie die 36 Props seit D74 — und der einzige Weg ans 120-KB-Budget: gemessen am Fuchs 6.733 KB mit verlustfreier Textur, 900 KB mit q90, **90 KB** ohne. Nach dem Rigging aus demselben Grund wie Schritt 4 (D80). Bringt das Primitiv seine Farbe schon mit — im Voxel-Weg der Normalfall —, lässt der Schritt sie stehen und wirft nur noch Normalen und Materialreste weg; bis 20.08.2026 überschrieb er sie mit dem Grundfarbfaktor und färbte den Fuchs glatt weiß (G-96) |
 | `nachbereiten.mjs` | `node nachbereiten.mjs <in.glb> [out.glb]` — **Schritt 4, nach dem Rigging.** Dünnt die von Blender gebackenen Animationskeys aus, quantisiert und wandelt die Textur. Muss hinter `autorig.py` laufen: Blender schreibt die Datei neu und macht alles rückgängig, was Schritt 1 an der Kodierung getan hat. Das war die Ursache von A-6 (163–167 → 100–103 KB), siehe G-63 |
 | `batch.mjs` | Stapelverarbeitung ganzer Ordner durch die Reduktion |
 | `autorig.py` | Automatisches Rigging über Blender anhand der Archetyp-Rigs |
@@ -50,7 +52,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `rigbau.mjs` | `npm run rigs` — erzeugt `serpent.glb` und `biped_bird.glb` **rechnerisch**: Knochenkette, Skin und drei Bewegungen aus Sinuskurven. Kein Fremdmodell, keine CC-BY-Pflicht. `quadruped_small` fehlt mit Absicht — `autorig.py` skaliert das Skelett ans Mesh, also teilt es sich das Rig mit `quadruped` |
 | `propbau.ts` | `npm run props:bau` — baut die Prop-GLB aus dem Kenney Nature Kit (CC0): Kenneys Palette raus, Projektfarbe je Materialrolle als Vertexfarbe rein, alle Primitive zu einem verschmolzen, Höhe aus `VARIANTEN` in echte Meter gerechnet. Braucht das Kit unter `.cache/kenney/natur` und sagt sonst, wie man es holt |
 | `hoehenbild.mjs` | `node hoehenbild.mjs <a.json> <b.json> <raus.png> [ausschnitt]` — zwei Weltstände als Schummerung nebeneinander. Weil „mittlere Stufe 3,08 gegen 2,09 m" die richtige Zahl ist und trotzdem niemand ihr ansieht, ob ein Hang terrassiert wirkt |
-| `pipeline.sh` | `npm run assets` — Roh-GLB → reduziert → geriggt, in einem Durchlauf |
+| `pipeline.sh` | `npm run assets` — Roh-GLB → remeshed → geriggt → entkleidet → nachbereitet, in einem Durchlauf. `VERFAHREN=voxel` (Vorgabe) oder `dezimieren` schaltet Schritt 1 um |
 
 ## Tore (blocken den Merge)
 

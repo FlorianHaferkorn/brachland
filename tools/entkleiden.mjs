@@ -98,7 +98,7 @@ function farbeAn(bild, u, v) {
   return [linear(r / n), linear(g / n), linear(b / n)];
 }
 
-let vertices = 0, ohneTextur = 0;
+let vertices = 0, ohneTextur = 0, uebernommen = 0;
 for (const mesh of wurzel.listMeshes()) {
   for (const prim of mesh.listPrimitives()) {
     const pos = prim.getAttribute('POSITION');
@@ -106,6 +106,16 @@ for (const mesh of wurzel.listMeshes()) {
     const mat = prim.getMaterial();
     const bild = await entpacke(mat?.getBaseColorTexture());
     const farben = new Float32Array(pos.getCount() * 3);
+
+    // Traegt das Primitiv schon eine Farbe, hat ein frueherer Schritt sie
+    // uebertragen, bevor die UV verlorenging. `voxelbau.py` muss das tun: Der
+    // Voxel-Remesh baut die Oberflaeche neu und behaelt die UV-Karte gar nicht
+    // erst. Hier ist dann nichts mehr abzutasten — und der Grundfarbfaktor im
+    // dritten Zweig wuerde die vorhandene Farbe ueberschreiben. Gemessen am
+    // Fuchs wurde dabei aus (0,212 0,162 0,148) ein glattes Weiss (G-96).
+    // Textur, UV und Normalen muessen trotzdem raus, deshalb kein `continue`.
+    const schonGefaerbt = prim.getAttribute('COLOR_0') !== null;
+    const neuFaerben = Boolean(bild && uv) || !schonGefaerbt;
 
     if (bild && uv) {
       const e = [0, 0];
@@ -116,6 +126,8 @@ for (const mesh of wurzel.listMeshes()) {
         const [r, g, b] = farbeAn(bild, e[0] - Math.floor(e[0]), e[1] - Math.floor(e[1]));
         farben[i * 3] = r; farben[i * 3 + 1] = g; farben[i * 3 + 2] = b;
       }
+    } else if (schonGefaerbt) {
+      uebernommen++;
     } else {
       // Ohne Textur bleibt der Grundfarbfaktor — besser als Schwarz. Ein
       // fehlendes COLOR_0 bei `vertexColors: true` liefert in WebGL (0,0,0),
@@ -128,7 +140,7 @@ for (const mesh of wurzel.listMeshes()) {
     }
     vertices += pos.getCount();
 
-    prim.setAttribute('COLOR_0', doc.createAccessor()
+    if (neuFaerben) prim.setAttribute('COLOR_0', doc.createAccessor()
       .setType('VEC3').setArray(farben).setBuffer(wurzel.listBuffers()[0]));
     // UV und Normalen fallen weg. Die Normalen, weil die Szene ueberall
     // `flatShading` benutzt und sie dann im Fragment-Shader aus der Ableitung
@@ -177,4 +189,5 @@ const kb = b => (b / 1024).toFixed(0);
 console.log(`  ${INPUT.split('/').pop().padEnd(32)} `
   + `${kb(vorherBytes).padStart(5)} → ${kb(nachherBytes).padStart(4)} KB`
   + `   ${texturen} Texturen (${kb(texturBytes)} KB) → Farbe an ${vertices.toLocaleString('de')} Vertices`
+  + (uebernommen ? `   ${uebernommen} Primitive brachten ihre Farbe schon mit` : '')
   + (ohneTextur ? `   ⚠️  ${ohneTextur} Primitive ohne Basisfarbtextur — Grundfarbfaktor genommen` : ''));

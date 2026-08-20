@@ -162,6 +162,36 @@ sehen schlechter aus als vierzehn Silhouetten oder vierzehn Modelle.** Gebaut wi
 erst, wenn alle vierzehn in einem Zug entstehen können — die Stil-Referenz steht
 dafür bereit.
 
+## Nachtrag 20.08.2026 — Schritt 1 der Kette dezimiert nicht mehr
+
+Die Kette hat einen neuen ersten Schritt: `tools/voxelbau.py` baut die Oberfläche
+per **Voxel-Remesh** aus einem Distanzfeld neu, statt sie mit `reduce.mjs` zu
+dezimieren (D81). Der Grund steht in G-88 und G-94: KI-Modelle sind keine
+geschlossenen Körper — der Fuchs kam mit 583 getrennten Teilen und 30.216 offenen
+Kanten, und deren Mindestflächen nageln jeden Dezimierer bei 3.194 fest.
+
+Am Ende der ganzen Kette gemessen, gegen 190 KB Budget je Kreatur:
+
+| Verfahren | Dreiecke | Datei | Luft |
+|---|---|---|---|
+| Voxel (Vorgabe 2.700) | 2.728 | **121 KB** | 36 % |
+| Dezimieren | 3.301 | 189 KB | 0,5 % |
+
+Für diese ADR ändert sich an der **Reihenfolge** nichts — Rigging, Entkleiden und
+Nachbereitung stehen weiter dort, wo sie standen. Was sich ändert, ist der Ort der
+Farbübertragung: Der Remesh wirft die UV-Karte weg, also muss die Basisfarbe schon
+in Schritt 1 als `COLOR_0` ans Netz, per nächstem Punkt auf dem Originalnetz und
+baryzentrischer UV. `entkleiden.mjs` lässt eine vorhandene Farbe seitdem stehen,
+statt sie mit dem Grundfarbfaktor zu überschreiben (G-96).
+
+Die Sperre aus dem vorigen Nachtrag bleibt: Gebaut wird erst, wenn alle vierzehn
+Kreaturen in einem Zug entstehen können. Was jetzt anders ist, ist nur, dass die
+Kette es könnte — der Voxel-Weg ist **an einem** Modell (`stylized_fox`) einmal
+vollständig durchgelaufen: 24 Knochen, 3 Animationen, 0 % ungewichtete Vertices.
+Die drei Fuchsmodelle vom selben Tag liefen durch den **Dezimier**-Weg. ⚠️ UNKLAR:
+Ob der Voxel-Remesh auch an Vogel- und Schlangenrigs trägt, ist nicht gemessen —
+lange dünne Glieder sind genau das, was ein Distanzfeld verschluckt.
+
 ## Grenze (bekannte Limitation)
 
 Deckt **nicht** ab: Animation über das Auto-Rigging hinaus (Kampfposen, Idle-Zyklen),
