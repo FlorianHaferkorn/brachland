@@ -304,7 +304,16 @@ function bauFaecher(mutation: number, h: number, ursprung: Ursprung): THREE.Buff
       // Enger am Rücken (0,30 statt 0,35): Der Fächer ist Bewuchs und soll dem
       // Körper folgen, nicht neben ihm stehen.
       h * 0.55 + Math.sin(winkel) * spanne * 0.30,
-      h * 0.35 + Math.cos(winkel) * spanne * 0.12,
+      /**
+       * An die **Hinterhand**, nicht auf die Mitte des Rückens.
+       *
+       * Die Stilreferenz sagt „ein Fächer aus Baumpilzen an der Hinterhand“; der
+       * Wert stand auf `h * 0.35` und ergab gemessen eine Fächermitte bei z =
+       * +0,21, während der Körper von −0,82 (Kopf) bis +0,87 (Rute) reicht — das
+       * ist Rückenmitte. Aufgefallen ist es erst beim Reiten: Der Reiter sitzt
+       * auf dem Rumpf, und der Fächer stand vor ihm statt hinter ihm.
+       */
+      h * 0.60 + Math.cos(winkel) * spanne * 0.12,
     );
     teile.push(teil(g, i % 2 ? PILZ_HELL : PILZ_DUNKEL, 0, 0, 0));
   }

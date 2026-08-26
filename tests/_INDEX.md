@@ -27,6 +27,7 @@ owns: *.test.ts
 | Am Gleitverhältnis, an Tempo oder Schwerkraft drehen | `gleiten.test.ts` → `../src/spieler/gleiten.ts`, `../src/spieler/tempo.ts`, `npm run gleit` |
 | Am Biomraster, an der Siedlungsregel oder der Prop-Verteilung drehen | `siedlung.test.ts` → `../src/world/osm.ts`, `../src/world/props.ts` |
 | An der Teamreihenfolge oder am Beutel ausserhalb des Kampfes drehen | `menue.test.ts` → `../src/spiel/team.ts`, `../src/spiel/gegenstaende.ts` |
+| `propauswahl.test.ts` | Die zwei Prop-Listen dürfen keinen Chunk verlieren. Seit die Attrappen gebündelt werden (G-111), wird die Nahliste alle 8 m neu bestimmt und das Bündel alle 60 m — wer die Grenze in beiden Fällen an der aktuellen Position festmacht, bekommt ein wanderndes Loch. Geprüft wird ein **Lauf** über 76 Schritte, nicht ein Zustand: nach jedem Schritt muss jeder Chunk in Reichweite in genau einer Liste stehen |
 
 ## Register
 

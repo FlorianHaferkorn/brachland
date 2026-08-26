@@ -42,3 +42,17 @@ export const MITTEL_AB = 45;
  * bedeutet häufigeres Montieren ohne sichtbaren Gewinn.
  */
 export const PROP_NEUBEWERTUNG = 8;
+
+/**
+ * Eigene Schwelle für die **Attrappenstufe**.
+ *
+ * Seit alle Attrappen einer Art in einem Aufruf liegen (G-111), kostet eine
+ * Neubewertung dort das Schreiben von 3.000 bis 7.500 Instanzmatrizen — gemessen
+ * über vier Standorte. Bei den 8 m der Nahstufe wäre das alle anderthalb
+ * Sekunden Lauf ein Ruckler.
+ *
+ * 60 m sind vertretbar, weil sich an einem Primitiv jenseits von 110 m über
+ * diese Strecke nichts ändert, was man sähe: Es bleibt derselbe Klotz, nur
+ * geringfügig anders gross im Bild.
+ */
+export const FERN_NEUBEWERTUNG = 60;

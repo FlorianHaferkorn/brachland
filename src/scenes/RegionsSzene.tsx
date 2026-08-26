@@ -35,7 +35,9 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 import { istAus } from './abschalter.js';
-import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, MITTEL_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
+import { TERRAIN_SICHT, NEUAUFBAU_AB, PROP_NEUBEWERTUNG,
+         FERN_NEUBEWERTUNG } from './sichtweiten.js';
+import { waehleProps, type PropStufe } from './propauswahl.js';
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
@@ -448,42 +450,124 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
 function Props({ props, wind }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
+  const [fern, setFern] = useState<{ art: PropArt; instanzen: PropInstanz[] }[]>([]);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  const letzteFern = useRef(new THREE.Vector3(NaN, NaN, NaN));
 
   useFrame(({ camera }) => {
     const p = camera.position;
-    if (letzte.current.distanceTo(p) < PROP_NEUBEWERTUNG) return;
-    letzte.current.copy(p);
+    /**
+     * `!(abstand < schwelle)` und **nicht** `abstand >= schwelle`.
+     *
+     * Beide Refs starten als `(NaN, NaN, NaN)`, damit der erste Durchlauf immer
+     * baut. `NaN >= 8` ist aber `false`, `NaN < 8` ebenfalls — die beiden Formen
+     * sind für NaN nicht gleichwertig. Mit `>=` blieb die Szene am 26.08.2026
+     * still ohne jeden Prop stehen: kein Fehler, keine Ausnahme, nur 19 statt
+     * 194 Draw Calls. Die alte Fassung schrieb `if (abstand < schwelle) return`
+     * und war deshalb richtig, ohne dass es jemandem auffiel.
+     */
+    const nahNeu = !(letzte.current.distanceTo(p) < PROP_NEUBEWERTUNG);
+    const fernNeu = !(letzteFern.current.distanceTo(p) < FERN_NEUBEWERTUNG);
+    if (!nahNeu && !fernNeu) return;
 
-    const liste: { c: PropChunk; stufe: PropStufe; id: string }[] = [];
-    for (const c of chunks) {
-      const mitte = Math.hypot(p.x - c.mitte[0], p.z - c.mitte[1]);
-      // Sichtbarkeit über den **nächsten Rand** des Chunks: Ein Chunk, von dem eine
-      // Ecke in Reichweite ragt, muss gezeichnet werden.
-      if (mitte - c.radius > c.sichtweite) continue;
-      /**
-       * Die Attrappen-Entscheidung dagegen über die **Mitte**.
-       *
-       * Vorher stand hier ebenfalls `mitte - radius`. Bei 120-m-Chunks sind das 90 m
-       * Radius, das Nahfeld reichte also bis 165 m statt bis 75 — und weil ein Chunk
-       * nur ganz oder gar nicht umschaltet, wurden rund tausend Fichten in voller
-       * Auflösung gezeichnet. Gemessen 537.000 Dreiecke, wo 200.000 erwartet waren.
-       *
-       * Über die Mitte gerechnet ist die Entscheidung im Mittel richtig: Der halbe
-       * Chunk liegt näher, der halbe ferner, und der Fehler hebt sich auf, statt
-       * sich immer zugunsten der teuren Variante zu entscheiden.
-       */
-      const stufe: PropStufe = mitte > ATTRAPPE_AB ? 'fern' : mitte > MITTEL_AB ? 'mittel' : 'nah';
-      liste.push({ c, stufe, id: `${c.art}:${c.variante}:${c.mitte[0]}:${c.mitte[1]}` });
+    // Der Anker ist der Punkt, an dem das Bündel zuletzt gebaut wurde. Warum die
+    // Zugehörigkeit daran hängt und nicht an der Kamera, steht in `propauswahl.ts`.
+    if (fernNeu || Number.isNaN(letzteFern.current.x)) letzteFern.current.copy(p);
+    const anker: [number, number] = [letzteFern.current.x, letzteFern.current.z];
+    const { nah, buendel } = waehleProps(chunks, [p.x, p.z], anker, fernNeu);
+
+    if (nahNeu) {
+      letzte.current.copy(p);
+      setSichtbar(nah.map(({ c, stufe }) => ({
+        c, stufe, id: `${c.art}:${c.variante}:${c.mitte[0]}:${c.mitte[1]}`,
+      })));
     }
-    setSichtbar(liste);
+    if (fernNeu) {
+      setFern([...buendel].map(([art, teile]) => ({
+        art, instanzen: teile.flatMap(c => c.instanzen),
+      })));
+    }
   });
 
   return (
     <>
       {sichtbar.map(({ c, stufe, id }) =>
         <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} />)}
+      {fern.map(({ art, instanzen }) =>
+        <PropFernMesh key={art} art={art} instanzen={instanzen} />)}
     </>
+  );
+}
+
+/**
+ * Alle Attrappen **einer Art** in einem einzigen Aufruf.
+ *
+ * ## Warum
+ *
+ * Am 26.08.2026 auf dem iPhone gemessen, gleicher Ort, gleicher Bau, nur die
+ * Bäume unterschiedlich: 175 Draw Calls kosten **2 ms**, die 50.000 Dreiecke im
+ * selben Bild kosten fast nichts — 11 µs je Aufruf gegen 40 ns je Dreieck, und
+ * die 40 ns sind für einen Kachel-Renderer um Größenordnungen zu viel (G-111).
+ * Der Engpass sind also die Aufrufe, und die kommen aus der Zerlegung in
+ * 70-m-Kacheln: Bei 420 m Sichtweite für Bäume liegen rund 900 Attrappen-Chunks
+ * in Reichweite, jeder ein eigenes `InstancedMesh`.
+ *
+ * Attrappen aller Chunks einer Art teilen sich **Geometrie und Material** — die
+ * Trennung nach Kachel und Variante bringt dort nichts als Aufrufe. Gebündelt
+ * sind es sechs statt neunhundert.
+ *
+ * ## Was es kostet
+ *
+ * Das Frustum-Culling je Kachel entfällt: Gezeichnet wird der ganze Ring, nicht
+ * nur der Ausschnitt im Blickfeld. Gemessen über vier Standorte sind das 32.000
+ * bis 89.000 Dreiecke statt rund einem Drittel davon — nach der Messung oben der
+ * gute Tausch.
+ *
+ * Zweiter Preis: Beim Neubündeln müssen 3.000 bis 7.500 Matrizen geschrieben
+ * werden. Deshalb hat die Attrappenstufe ihre **eigene** Neubewertungsschwelle
+ * (`FERN_NEUBEWERTUNG`), deutlich gröber als die 8 m der Nahstufe: Ein Primitiv
+ * jenseits von 110 m ändert sein Aussehen über 60 m Bewegung nicht.
+ *
+ * Die Kapazität wächst nur nach oben. Ein `args`-Wechsel baut das
+ * `InstancedMesh` neu auf, und das ist genau der Fall, den `PropChunkMesh` im
+ * Kommentar als teuer beschreibt.
+ */
+function PropFernMesh({ art, instanzen }: { art: PropArt; instanzen: PropInstanz[] }) {
+  const geo = useMemo(() => attrappeGeometrie(art), [art]);
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const [kapazitaet, setKapazitaet] = useState(() => Math.ceil(instanzen.length * 1.4) + 64);
+
+  useEffect(() => {
+    if (instanzen.length > kapazitaet) {
+      setKapazitaet(Math.ceil(instanzen.length * 1.4) + 64);
+      return;
+    }
+    const m = ref.current;
+    if (!m) return;
+    const hilfe = new THREE.Object3D();
+    const ton = new THREE.Color();
+    instanzen.forEach((p, i) => {
+      hilfe.position.set(...p.position);
+      hilfe.rotation.y = p.drehung;
+      hilfe.scale.setScalar(p.skalierung);
+      hilfe.updateMatrix();
+      m.setMatrixAt(i, hilfe.matrix);
+      const [r, g, b] = propTon(p.art, p.variante, p.drehung);
+      m.setColorAt(i, ton.setRGB(r, g, b));
+    });
+    m.count = instanzen.length;
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  }, [instanzen, kapazitaet]);
+
+  return (
+    <instancedMesh
+      ref={ref} args={[undefined, undefined, kapazitaet]}
+      geometry={geo} material={FERN_MATERIAL}
+      // Der Bündel umspannt den ganzen Sichtring; ein Frustum-Test daran wäre
+      // immer wahr und damit verlorene Zeit.
+      frustumCulled={false}
+    />
   );
 }
 
@@ -530,8 +614,6 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
 const LEER: ReadonlySet<string> = new Set();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-export type PropStufe = 'nah' | 'mittel' | 'fern';
-
 function PropChunkMesh({ chunk, stufe, wind }: {
   chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial;
 }) {
