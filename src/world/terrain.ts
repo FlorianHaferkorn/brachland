@@ -264,12 +264,24 @@ export function baueGebaeude(
   /**
    * Farben eines Alpenhauses.
    *
-   * Drei Rollen, nicht mehr: verputzte Wand, dunkles Holz für Dach und Balkon,
-   * fast schwarze Fenster. Alles daraus abgeleitet — das ist dasselbe enge
-   * Vokabular wie beim Himmel.
+   * Fünf Rollen: verputzte Wand, Bretterschalung, Dachhaut, Kanten und
+   * Zimmermannsholz, fast schwarze Fenster. Es waren vier — `HOLZ` (#3b3229) ist
+   * weggefallen, weil es in derselben Rolle wie `TUER` stand und für eine ganze
+   * Wandfläche zu dunkel war, siehe `SCHALUNG`.
    */
   const WAND = new THREE.Color('#6d675d');
-  const HOLZ = new THREE.Color('#3b3229');
+  /**
+   * Bretterschalung des Obergeschosses — **nicht** dasselbe Holz wie Dach und
+   * Balkon.
+   *
+   * Der erste Anlauf nahm dafür `HOLZ`. Nebeneinander gerendert sah das Haus
+   * dann verrußt aus: Ein ganzes Geschoss in `#3b3229` liest sich als schwarze
+   * Fläche, nicht als Holz, und es stand zu nah am Dachton (`#4a4038`) — Dach
+   * und Wand verschmolzen zu einem dunklen Klumpen. Verwitterte Lärchenschalung
+   * ist ein warmes Mittelbraun; sie muss heller sein als das Dach, sonst hat das
+   * Haus keine Waagerechte mehr.
+   */
+  const SCHALUNG = new THREE.Color('#7d6144');
   const DACH = new THREE.Color('#4a4038');
   const FENSTER = new THREE.Color('#11171a');
   /** Sockel: nasser Kalkputz oder Bruchstein, dunkler als die Wand darüber. */
@@ -361,10 +373,35 @@ export function baueGebaeude(
     const tuerBreite = garage ? 2.6 : 1.05;
     const tuerHoehe = garage ? 2.3 : 2.1;
 
+    /**
+     * Ab welcher Höhe die Wand **Holz** ist.
+     *
+     * Der oberbayerische Baubestand ist zweiteilig: gemauerter, verputzter Sockel
+     * und Wohngeschoss, darüber Bretterschalung und ein hölzerner Giebel. Bis
+     * heute war jede Wand von unten bis oben derselbe Putzton — und damit war
+     * jedes Haus ein Quader in einer Farbe, egal wie viele Bänder darauf lagen.
+     *
+     * Das kostet **null zusätzliche Dreiecke**: Die Wand wird ohnehin gezeichnet,
+     * sie wird nur an einer Kante geteilt. Von allen Änderungen an dieser Datei
+     * ist es die billigste und die sichtbarste (G-104).
+     *
+     * Nur ab zwei Ebenen und nicht an Garagen — ein Holzobergeschoss auf einem
+     * Flachbau ist kein Alpenhaus, sondern ein Fehler.
+     */
+    const holzAb = g.ebenen >= 2 && !garage
+      ? boden + (g.ebenen - 1) * METER_JE_EBENE
+      : Infinity;
+
     // Wände
     for (let k = 0; k < p.length - 1; k++) {
       const [x1, z1] = p[k], [x2, z2] = p[k + 1];
-      quad([x1, fuss, z1], [x2, fuss, z2], [x2, boden + h, z2], [x1, boden + h, z1], WAND);
+      const oben = boden + h;
+      if (holzAb < oben && holzAb > fuss) {
+        quad([x1, fuss, z1], [x2, fuss, z2], [x2, holzAb, z2], [x1, holzAb, z1], WAND);
+        quad([x1, holzAb, z1], [x2, holzAb, z2], [x2, oben, z2], [x1, oben, z1], SCHALUNG);
+      } else {
+        quad([x1, fuss, z1], [x2, fuss, z2], [x2, oben, z2], [x1, oben, z1], WAND);
+      }
 
       const wandLaenge = Math.hypot(x2 - x1, z2 - z1);
       if (wandLaenge < 0.5) continue;
@@ -444,6 +481,25 @@ export function baueGebaeude(
           const cx = x1 + (x2 - x1) * t, cz = z1 + (z2 - z1) * t;
           const ex = (x2 - x1) / laenge * breiteF / 2, ez = (z2 - z1) / laenge * breiteF / 2;
           const o = 0.04;
+          /**
+           * Laibung zuerst, Scheibe darüber.
+           *
+           * Ohne den hellen Rahmen ist ein Fenster ein schwarzer Fleck auf einer
+           * Wand — die Tür hatte ihren Stock seit G-80, die Fenster nicht. Zwei
+           * Dreiecke je Fenster, und ein Fenster ist das häufigste Bauteil am
+           * ganzen Haus: bei 8 bis 20 Stück kostet es 16 bis 40 Dreiecke und
+           * verändert die Wand vollständig.
+           */
+          const r = 0.11;
+          const rx = (x2 - x1) / laenge * (breiteF / 2 + r);
+          const rz = (z2 - z1) / laenge * (breiteF / 2 + r);
+          quad(
+            [cx - rx + nx * (o - 0.015), yUnten - r, cz - rz + nz * (o - 0.015)],
+            [cx + rx + nx * (o - 0.015), yUnten - r, cz + rz + nz * (o - 0.015)],
+            [cx + rx + nx * (o - 0.015), yUnten + hoeheF + r, cz + rz + nz * (o - 0.015)],
+            [cx - rx + nx * (o - 0.015), yUnten + hoeheF + r, cz - rz + nz * (o - 0.015)],
+            SOCKEL,
+          );
           quad(
             [cx - ex + nx * o, yUnten, cz - ez + nz * o],
             [cx + ex + nx * o, yUnten, cz + ez + nz * o],
@@ -469,30 +525,123 @@ export function baueGebaeude(
     const aV0 = minV - ueber, aV1 = maxV + ueber;
     const mv = (minV + maxV) / 2;
 
+    /**
+     * Das Dach ist ein **Körper**, keine Fläche.
+     *
+     * Bis heute waren es zwei Vierecke ohne Dicke: An der Traufe endete das Haus
+     * an einer Papierkante, von unten sah man auf die Rückseite eines Dreiecks,
+     * und der Ortgang — die Schrägkante über dem Giebel, an der man ein Alpendach
+     * von jedem anderen unterscheidet — existierte nicht. Sechs Dreiecke für die
+     * Oberseite, sechs für die Untersicht, acht für die Kanten: **20 Dreiecke**,
+     * und das Dach hört auf, ein Deckel zu sein.
+     *
+     * `dick` steht senkrecht, nicht rechtwinklig zur Dachfläche. Der Unterschied
+     * ist bei 30° Neigung 4 cm und niemandem sichtbar; rechtwinklig gerechnet
+     * bräuchte es die Dachnormale an vier Stellen.
+     */
+    const dick = 0.22;
+    const dachHaut = (versatz: number, farbe: THREE.Color) => {
+      quad(welt3(aU0, traufe + versatz, aV0), welt3(aU1, traufe + versatz, aV0),
+           welt3(aU1, firstH + versatz, mv), welt3(aU0, firstH + versatz, mv), farbe);
+      quad(welt3(aU1, traufe + versatz, aV1), welt3(aU0, traufe + versatz, aV1),
+           welt3(aU0, firstH + versatz, mv), welt3(aU1, firstH + versatz, mv), farbe);
+    };
     // First läuft über u, die lange Achse. Die Fallunterscheidung von früher ist
     // weg — die Drehung erledigt, was vorher zwei Zweige tun mussten.
+    dachHaut(dick, DACH);
+    // Untersicht: dieselbe Fläche tiefer, dunkler. Wer unter dem Überstand steht,
+    // sieht sonst durch das Dach hindurch.
+    dachHaut(0, TUER);
+    // Traufkanten — die beiden waagerechten Stirnflächen.
     quad(welt3(aU0, traufe, aV0), welt3(aU1, traufe, aV0),
-         welt3(aU1, firstH, mv), welt3(aU0, firstH, mv), DACH);
+         welt3(aU1, traufe + dick, aV0), welt3(aU0, traufe + dick, aV0), TUER);
     quad(welt3(aU1, traufe, aV1), welt3(aU0, traufe, aV1),
-         welt3(aU0, firstH, mv), welt3(aU1, firstH, mv), DACH);
+         welt3(aU0, traufe + dick, aV1), welt3(aU1, traufe + dick, aV1), TUER);
+    // Ortgang — die vier schrägen Kanten über den Giebeln.
+    for (const u of [aU0, aU1]) {
+      for (const v of [aV0, aV1]) {
+        quad(welt3(u, traufe, v), welt3(u, traufe + dick, v),
+             welt3(u, firstH + dick, mv), welt3(u, firstH, mv), TUER);
+      }
+    }
     // Giebeldreiecke schließen die Stirnseiten — sonst schaut man ins Dach hinein.
-    tri(welt3(minU, traufe, minV), welt3(minU, traufe, maxV), welt3(minU, firstH, mv), WAND);
-    tri(welt3(maxU, traufe, maxV), welt3(maxU, traufe, minV), welt3(maxU, firstH, mv), WAND);
+    // Holz, wenn das Haus ein Holzobergeschoss trägt: Der Giebel ist im Bestand
+    // fast immer verschalt, auch wenn das Geschoss darunter verputzt ist.
+    const giebel = Number.isFinite(holzAb) ? SCHALUNG : WAND;
+    tri(welt3(minU, traufe, minV), welt3(minU, traufe, maxV), welt3(minU, firstH, mv), giebel);
+    tri(welt3(maxU, traufe, maxV), welt3(maxU, traufe, minV), welt3(maxU, firstH, mv), giebel);
+
+    /**
+     * Schornstein.
+     *
+     * Zehn Dreiecke, und es ist nach dem Holzgiebel der zweitgrößte Gewinn: Ein
+     * Dach ohne Schornstein liest sich als Modell, eines mit als Haus. Er steht
+     * auf einem Drittel der Firstlänge, leicht neben dem First — mittig auf dem
+     * First sähe er nach Symmetrieübung aus.
+     *
+     * Nicht an Garagen und nicht an Bauten unter 4 m Breite: Ein Schornstein auf
+     * einem Carport ist schlimmer als keiner.
+     */
+    if (!garage && klein >= 4 && breite >= 5) {
+      const su = minU + breite * 0.32;
+      const sv = mv - klein * 0.10;
+      const sb = 0.42, st = 0.42;
+      // Höhe: bis über den First, sonst verschwindet er im Dach.
+      const fussY = traufe + (firstH - traufe) * (1 - Math.abs(sv - mv) / (klein / 2)) - 0.1;
+      const kopfY = firstH + 0.85;
+      const ecken: [number, number][] = [
+        [su - sb, sv - st], [su + sb, sv - st], [su + sb, sv + st], [su - sb, sv + st],
+      ];
+      for (let i = 0; i < 4; i++) {
+        const [u1, v1] = ecken[i], [u2, v2] = ecken[(i + 1) % 4];
+        quad(welt3(u1, fussY, v1), welt3(u2, fussY, v2),
+             welt3(u2, kopfY, v2), welt3(u1, kopfY, v1), SOCKEL);
+      }
+      quad(welt3(ecken[0][0], kopfY, ecken[0][1]), welt3(ecken[1][0], kopfY, ecken[1][1]),
+           welt3(ecken[2][0], kopfY, ecken[2][1]), welt3(ecken[3][0], kopfY, ecken[3][1]), TUER);
+    }
 
     /**
      * Balkon unter der Traufe der Längsseite.
      *
      * Nur für Häuser ab zwei Ebenen und ab 6 m Länge — ein Balkon an einer Garage
-     * wäre komischer als gar keiner. Zwei Flächen: Boden und Brüstung.
+     * wäre komischer als gar keiner.
+     *
+     * Bis heute zwei Flächen: Boden und eine geschlossene Brüstung. Damit war der
+     * Balkon ein Brett am Haus. Ein oberbayerischer Balkon ist ein **Brettbalkon**
+     * — senkrechte Bretter mit Lücke, oben ein vorstehender Handlauf, unten eine
+     * Fußleiste. Genau diese drei Teile machen ihn von weitem erkennbar, und
+     * genau sie fehlten.
+     *
+     * Die Bretter stehen alle 0,42 m und sind bei 16 gedeckelt: An einem 14-m-Haus
+     * wären es sonst 33, und ab etwa 20 sieht man den Unterschied nicht mehr.
      */
     if (g.ebenen >= 2 && Math.max(breite, tiefe) >= 6) {
       const y = boden + (g.ebenen - 1) * METER_JE_EBENE + 0.6;
-      const tiefeB = 1.1;
+      const tiefeB = 1.1, bruest = 0.95;
       const v0 = maxV, v1 = maxV + tiefeB;
+      // Boden
       quad(welt3(minU, y, v0), welt3(maxU, y, v0),
-           welt3(maxU, y, v1), welt3(minU, y, v1), HOLZ);
-      quad(welt3(minU, y, v1), welt3(maxU, y, v1),
-           welt3(maxU, y + 0.95, v1), welt3(minU, y + 0.95, v1), HOLZ);
+           welt3(maxU, y, v1), welt3(minU, y, v1), SCHALUNG);
+      // Fußleiste und Handlauf — die zwei Waagerechten.
+      quad(welt3(minU, y + 0.04, v1), welt3(maxU, y + 0.04, v1),
+           welt3(maxU, y + 0.22, v1), welt3(minU, y + 0.22, v1), SCHALUNG);
+      quad(welt3(minU, y + bruest - 0.13, v1 + 0.06), welt3(maxU, y + bruest - 0.13, v1 + 0.06),
+           welt3(maxU, y + bruest, v1 + 0.06), welt3(minU, y + bruest, v1 + 0.06), TUER);
+      // Bretter dazwischen.
+      const bretter = Math.min(16, Math.max(3, Math.round((maxU - minU) / 0.42)));
+      const bb = (maxU - minU) / bretter * 0.55;
+      for (let i = 0; i < bretter; i++) {
+        const cu = minU + (maxU - minU) * (i + 0.5) / bretter;
+        quad(welt3(cu - bb / 2, y + 0.2, v1 + 0.01), welt3(cu + bb / 2, y + 0.2, v1 + 0.01),
+             welt3(cu + bb / 2, y + bruest - 0.12, v1 + 0.01),
+             welt3(cu - bb / 2, y + bruest - 0.12, v1 + 0.01), SCHALUNG);
+      }
+      // Zwei Stützen tragen den Überstand — ohne sie schwebt der Balkon.
+      for (const u of [minU + 0.35, maxU - 0.35]) {
+        quad(welt3(u - 0.07, y - 2.2, v1 - 0.12), welt3(u + 0.07, y - 2.2, v1 - 0.12),
+             welt3(u + 0.07, y, v1 - 0.12), welt3(u - 0.07, y, v1 - 0.12), TUER);
+      }
     }
   }
 
