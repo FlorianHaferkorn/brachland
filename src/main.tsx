@@ -3,10 +3,14 @@ import { createRoot } from 'react-dom/client';
 import * as THREE from 'three';
 import { entpackeWelt, type Weltdaten } from './world/osm.js';
 import { holeWeltdaten } from './world/weltladen.js';
+import type { Fernland } from './world/fernland.js';
 import { RegionsSzene, TAGESZEITEN, QUALITAET_STANDARD,
          type Messwerte, type Qualitaet, type Naehe } from './scenes/RegionsSzene.js';
 import { Witterung } from './ui/Witterung.js';
 import { Ausdaueranzeige } from './ui/Ausdaueranzeige.js';
+import { Stockanzeige } from './ui/Stockanzeige.js';
+import { abgeschaltet } from './scenes/abschalter.js';
+import type { Stoecke } from './spieler/steuerung.js';
 import { neueAusdauer, type Ausdauer } from './spieler/ausdauer.js';
 import type { Vorkommen } from './world/vorkommen.js';
 import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNENDE,
@@ -18,7 +22,7 @@ import { Menue } from './ui/Menue.js';
 import { verschiebe } from './spiel/team.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
 import { gleiterFrei as gleiterOffen, GLEIT_VERHAELTNIS } from './spieler/gleiten.js';
-import { RIG_HOEHE } from './world/kreaturgestalt.js';
+import { reitsitz } from './world/kreaturgestalt.js';
 import { erfahrungAusSieg, gutschrift, mutationBei } from './spiel/fortschritt.js';
 import { beute } from './spiel/gegenstaende.js';
 import { baueKreaturGeometrie, saatAusId } from './world/kreaturgestalt.js';
@@ -42,6 +46,26 @@ const TEAM_MAX = 6;
 /** Regent der ersten Region. Später kommt der aus den Regionsdaten. */
 const REGENT_ID = 'flussvater';
 
+/**
+ * Absetzpunkt aus der Adresse: `?absetzen=x,z` in Weltmetern.
+ *
+ * Kein Cheat, sondern ein **Messwerkzeug**. Die Region ist 4 km breit, und in
+ * SwiftShader läuft die Szene mit 2–5 Bildern je Sekunde: 23 s Rennen im
+ * Messlauf ergaben 250 m. Alles, was nicht in der Startumgebung liegt — der
+ * Kartenrand, die Siedlung, der Regentenort —, war damit nicht anschaubar, und
+ * das ist die Ursache dafür, dass Fehler an diesen Stellen erst im Bild auf dem
+ * Gerät auffielen. Drei Zeilen hier ersetzen jede Sonderbaustelle daneben.
+ *
+ * Ungültige Eingaben ergeben `null`, also den normalen Spielstand.
+ */
+const ABSETZEN: { ort: [number, number]; blick: number } | null = (() => {
+  const roh = new URLSearchParams(location.search).get('absetzen');
+  if (!roh) return null;
+  const [x, z, grad] = roh.split(',').map(Number);
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return null;
+  return { ort: [x, z], blick: Number.isFinite(grad) ? (grad * Math.PI) / 180 : 0 };
+})();
+
 /** Mutation eines wilden Vorkommens — folgt aus seiner Stufe und der Länge der Linie. */
 function mutationVon(v: Vorkommen): number {
   const k = KREATUREN.get(v.kreatur);
@@ -50,6 +74,8 @@ function mutationVon(v: Vorkommen): number {
 
 function App() {
   const [welt, setWelt] = useState<Weltdaten | null>(null);
+  /** Kulisse jenseits der Region. `null` heisst „nicht da" und ist kein Fehler. */
+  const [fernland, setFernland] = useState<Fernland | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [tageszeit, setTageszeit] = useState(0.26);
   const [messung, setMessung] = useState<Messwerte | null>(null);
@@ -80,6 +106,8 @@ function App() {
   // zum Zehren, der Balken zum Anzeigen. Nicht im Spielstand — sie ist nach jeder
   // Pause wieder voll und wäre gespeichert nur eine Zahl, die immer 100 ist.
   const ausdauer = useRef<Ausdauer>(neueAusdauer());
+  /** Was gerade unter den Daumen liegt. Nur die Anzeige liest das. */
+  const stoecke = useRef<Stoecke>({ links: null, rechts: null });
   /** Erfahrung je Teamplatz. Parallel zum Team, weil `Kaempfer` sie nicht kennt. */
   const erfahrungRef = useRef<number[]>([]);
 
@@ -92,6 +120,32 @@ function App() {
     holeWeltdaten('/world/oental.json')
       .then(d => setWelt(entpackeWelt((d as { welt: unknown }).welt as never)))
       .catch(e => setFehler(String(e)));
+  }, []);
+
+  // Die Kulisse jenseits der Region. Eigener Ladevorgang und **ohne** `catch` in
+  // den Fehlerzustand: 39 KB Bergrelief sind schön, aber kein Spielinhalt. Fehlt
+  // die Datei, sieht der Rand aus wie vor D85, statt dass das Spiel nicht startet.
+  useEffect(() => {
+    holeWeltdaten('/world/oental-fern.json')
+      .then(d => setFernland(d as Fernland))
+      .catch(() => setFernland(null));
+  }, []);
+
+  /**
+   * Rückmeldung an der Regionsgrenze.
+   *
+   * Der Aufruf kommt aus der Bildschleife, also bis zu 60-mal je Sekunde, solange
+   * man gegen die Kante drückt. Ein `setHinweis` je Bild wäre ein Rerender je Bild.
+   * Entprellt wird nicht über ein festes Intervall, sondern über die **Lücke**:
+   * Liegt der letzte Anstoss mehr als zwei Sekunden zurück, ist man zwischendurch
+   * weggewesen — nur das ist eine neue Ankunft am Rand und nur das meldet.
+   */
+  const randZuletzt = useRef(0);
+  const meldeRand = useCallback(() => {
+    const jetzt = performance.now();
+    const neuAngekommen = jetzt - randZuletzt.current > 2000;
+    randZuletzt.current = jetzt;
+    if (neuAngekommen) setHinweis('Hier endet das Œntal. Weiter kommt ihr nicht.');
   }, []);
 
   // Spielstand laden, sonst neu anfangen. Beides ergibt am Ende ein Team.
@@ -230,7 +284,12 @@ function App() {
     const skala = 1 + reittierKandidat.mutation * 0.2;
     const geo = gestalt(reittierKandidat.kreatur, reittierKandidat.mutation).clone();
     geo.scale(skala, skala, skala);
-    return { geometrie: geo, hoehe: (RIG_HOEHE.quadruped ?? 1) * skala };
+    // Sitz aus der Geometrie lesen, nicht aus einer Konstanten: `RIG_HOEHE`
+    // stand auf 1, die Silhouette ist bei Mutation 2 gemessen 2,28 m hoch und
+    // liegt waagerecht versetzt. Der Reiter stand damit neben seinem Tier.
+    const sitz = reitsitz(geo);
+    geo.translate(sitz.versatzX, 0, sitz.versatzZ);
+    return { geometrie: geo, hoehe: sitz.hoehe };
   }, [imSattel, reittierKandidat, gestalt]);
 
   // Wer sein Reittier verliert (Tausch, Niederlage), sitzt nicht weiter auf nichts.
@@ -556,11 +615,16 @@ function App() {
         onFund={findeFragment}
         orte={ortsmarken}
         onOrtNah={setOrtNah}
-        startPosition={stand.position}
+        startPosition={ABSETZEN?.ort ?? stand.position}
+        startBlick={ABSETZEN?.blick}
         ausdauer={ausdauer}
         reittier={reittier}
         angehalten={imKampf}
+        fernland={fernland}
+        meldeRand={meldeRand}
+        stoecke={stoecke}
       />
+      {!imKampf && !menueOffen && <Stockanzeige stoecke={stoecke} />}
 
       {seite && (
         <div style={{
@@ -824,6 +888,12 @@ function App() {
               {Math.round(messung.dreiecke).toLocaleString('de')} Dreiecke<br />
               {messung.aufrufe} Aufrufe<br />
               {messung.objekte.toLocaleString('de')} Objekte
+              {/* Was fehlt, muss im Bildschirmfoto stehen: Safari zeigt nur den
+                  Hostnamen, nicht die Abfrage — eine Messung ohne die Angabe,
+                  was abgeschaltet war, ist keine Messung. */}
+              {abgeschaltet().length > 0 && (
+                <><br /><span style={{ color: '#d98b6b' }}>ohne {abgeschaltet().join(' ')}</span></>
+              )}
             </div>
           )}
 
@@ -856,7 +926,7 @@ function App() {
             textAlign: 'center', pointerEvents: 'none', zIndex: 10,
             color: '#5c6b64', fontSize: 11, letterSpacing: 0.2,
           }}>
-            links wischen = gehen · rechts wischen = umsehen · rechts tippen = springen · dem Pfeil folgen
+            links halten = gehen · rechts halten = umsehen · rechts tippen = springen · dem Pfeil folgen
           </div>
         </>
       )}

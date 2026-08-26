@@ -87,6 +87,16 @@ void main() {
   farbe += sonnenfarbe * pow(gegen, 8.0) * exp(-max(h, 0.0) * 6.0) * 0.10;
 
   gl_FragColor = vec4(farbe, 1.0);
+
+  // Diese beiden Zeilen sind der Grund, warum der obige Kommentar überhaupt
+  // stimmt. Ein roher ShaderMaterial schreibt direkt in den Bildspeicher: kein
+  // Tone Mapping, keine Farbraumwandlung. Das Gelände geht beide Schritte, und
+  // der Nebel des Geländes trägt dieselbe Farbe wie dunst hier — bis zum
+  // 26.08.2026 kamen sie deshalb nie zusammen. Gemessen an #1b2a2b: roh
+  // (3, 6, 6), nur Farbraum (27, 42, 43), beide Schritte **(25, 49, 51)** —
+  // und (25, 49, 51) ist genau das, was der Nebel auf dem Gelände ergibt (G-105).
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
 }
 `;
 

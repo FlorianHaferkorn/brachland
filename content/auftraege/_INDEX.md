@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-16
+last-reviewed: 2026-08-26
 shelf-life-days: 180
 owns: *.json
 ---
@@ -37,6 +37,8 @@ Auftrag nicht fertig wird.
 | `eine-fuer-den-hof.json` | hof-tremmel | 1 Alpenmurmel **fangen**, erst nach `streuner`. Zwingt zum Fangen statt zum Besiegen |
 | `was-am-stollen-steht.json` | steinbruch-wart | Fundstück `stollenmund` lesen. Verbindet den Pfad mit den Fragmenten, statt sie nebeneinander laufen zu lassen |
 | `die-runde.json` | werk-schichtbuch | 1 **K7 fangen**. Der Zeigefinger aufs Industriegelände: Die K7 hat nur 3 Vorkommen in der ganzen Region, weil ihre Zone 0,08 km² misst (D69) — ohne einen Auftrag, der den Weg dorthin nennt, findet sie niemand. Belohnung ist eine `reinkultur`, also genau das Mittel, mit dem sich eine gefangene K7 zurückführen lässt |
+| `das-stehende-wasser.json` | werk-schichtbuch | Fundstück `stauwehr` lesen. **Der erste Schritt zum Regenten** — und der einzige, der ihn überhaupt auffindbar macht: Das Fundstück liegt auf **denselben Koordinaten** wie der Flussvater (47,72518 / 12,09582), also führt das Auftragsziel auf der Karte genau dorthin |
+| `was-im-stau-liegt.json` | werk-schichtbuch | **Zielart `regent`**, erst nach `das-stehende-wasser`. Bis zum 26.08.2026 war diese Zielart im Schema implementiert und von **keiner** Auftragsdatei benutzt — der Regent lag 1.381 m vom Start, das Nebelende bei 420 m, die Peilung zeigt nur auf Kreaturen, und kein einziger Text nannte ihn (G-101). Ein Boss, den man nur durch Zufall findet, ist kein Höhepunkt |
 
 ## Die vier Zielarten
 

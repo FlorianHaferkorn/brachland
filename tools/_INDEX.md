@@ -41,6 +41,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Datei | Zweck |
 |---|---|
 | `buildworld.ts` | `npm run world <region> <raster> [dgm1\|eudem]` — OSM und Höhen abrufen, Welt bauen, gepackt nach public/world schreiben |
+| `fernland.ts` | `npm run fernland <region> [faktor] [raster]` — grobes Höhenraster über das **Umland** der Region, für die Kulisse am Kartenrand. Lauf vom 26.08.2026: `oental 3 96` → 11,9 × 12,0 km, 125 m Zellweite, 93 Anfragen, 449–1794 m ü. NN, 0 Lücken, 39 KB nach `public/world/oental-fern.json`. Getrennt von `buildworld.ts`, weil es ein anderer Maßstab und ein anderer Rhythmus ist: Die Region ändert sich mit OSM, das Umland nie |
 | `dgm1.ts` | Höhen aus dem 1-Meter-Geländemodell der Bayerischen Vermessungsverwaltung. Lädt Kilometerkacheln, interpoliert bilinear |
 | `voxelbau.py` | `blender --background --python voxelbau.py -- <ein.glb> <aus.glb> [2700\|voxel:0.027]` — **Schritt 1 der Kette seit D81.** Baut die Oberfläche per Voxel-Remesh aus einem Distanzfeld neu, statt sie zu dezimieren, und sucht die Voxelgröße zur Zieldreieckszahl per Bisektion. Grund: KI-Modelle sind keine Körper — der Fuchs hatte **583 getrennte Teile und 30.216 offene Kanten**, deren Mindestflächen `reduce.mjs` bei 3.194 festnageln (G-88). Der Remesh wirft dabei die UV weg, deshalb überträgt derselbe Schritt die Farbe vorher per Nächster-Punkt und baryzentrischer UV in ein `COLOR_0`. Am Fuchs ganze Kette: **2.728 Dreiecke, 121 KB** gegen dezimiert 3.301 Dreiecke, 189 KB bei 190 KB Budget (G-97) |
 | `reduce.mjs` | Flächenreduktion roher KI-Modelle auf die Zielzahl (gltf-transform + meshoptimizer). **Bis 20.08.2026 Schritt 1**, jetzt der Rückweg über `VERFAHREN=dezimieren` — richtig für Quellen, die schon ein sauberer geschlossener Körper sind, wo der Voxel-Remesh nur Kanten wegwürfe. Die Texturpackung rät nicht mehr, sondern rechnet verlustfrei und q90 aus und nimmt die kleinere: Das übernommene `lossless: true` aus `nachbereiten.mjs` stimmt für Blenders flächige PNG und blies Tripos fotografische JPEG **von 0,79 auf 6,45 MB** auf (G-87). Die Ausgabe weist Geometrie und Textur seitdem getrennt aus — die alte Zeile „Faktor 1.0x" verbarg, dass zwei gegenläufige Bewegungen von 56x und 8x sich aufhoben |
@@ -59,12 +60,13 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Datei | Zweck |
 |---|---|
 | `validate.ts` | `npm run validate` — alle Inhalte gegen die Zod-Schemas plus Elementmatrix-Selbsttest. Teil von `make check` |
-| `quality.ts` | `npm run quality` — Kreatur-, Regions-, Balance- und Asset-Budgets. **Seit 17.08.2026 Teil von `make check`**: A-6 und A-7 sind erledigt, das Tor steht auf 0 Blockern. Blockt außerdem eine Brand-Kreatur im Œntal (G-62) |
+| `quality.ts` | `npm run quality` — Kreatur-, Regions-, Balance- und Asset-Budgets. **Seit 17.08.2026 Teil von `make check`**: A-6 und A-7 sind erledigt, das Tor steht auf 0 Blockern. Blockt außerdem eine Brand-Kreatur im Œntal (G-62) . Prüft seit dem 26.08.2026 ausserdem, dass jeder Regent über eine erreichbare Auftragskette **auffindbar** ist (D88) — der Flussvater war es seit dem ersten Tag nicht (G-101) — und überspringt Fernlandraster in `public/world`, an denen das Tor zuvor abgestürzt ist|
 
 ## Messungen (geben Zahlen, keine Bedingungen)
 
 | Datei | Zweck |
 |---|---|
+| `zaehlen.mjs` | `npm run zaehlen -- "<x>,<z>" [läufe]` — **Dreiecke, Aufrufe und Objekte aus der gebauten App**, an einem Ort, mit und ohne einzelne Gruppen (`../src/scenes/abschalter.ts`). Das erste Werkzeug im Repo, das die Zahl liest, die auch auf dem Handy im HUD steht, statt sie nachzurechnen — `scenecheck.ts` rechnet Aufrufe als `4 + Chunks` und lag damit um Faktor 3–5 daneben (G-104). Geräteunabhängig sind nur die drei Zählwerte; für die Bildzeit gibt es keinen Ersatz für das Gerät. Braucht einen laufenden `npm run preview` und Playwright über `npx` — bewusst keine Abhängigkeit im Manifest |
 | `lodcheck.ts` | `npm run lod` — Dreiecke je LOD-Stufe, Detail vor dem Spieler, Wirkung des Mikroreliefs |
 | `masstab.ts` | `npm run masstab` — Kamera, Spielerhöhe, Bildanteil, Querungszeiten der Region |
 | `scenecheck.ts` | `npm run szene` — tatsächlich gezeichnete Dreiecke je Kamerastandort, über **alle drei** Prop-Stufen: bis 45 m das volle Modell, bis 110 m die Mittelstufe, dann das Primitiv. Die Stufe bei 45 m fehlte lange, und für Nicht-Bäume wurde das Rückfall-Primitiv statt der GLB gezählt — Bäume zwölffach zu teuer, alles andere zu billig (G-85). Ein Urteil gibt das Werkzeug nicht ab: Das 400k-Budget war ein Literal, kein Messwert (G-18) |

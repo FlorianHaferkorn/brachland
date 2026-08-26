@@ -520,7 +520,26 @@ export function baueGebaeude(
      */
     const ueber = Math.min(1.4, klein * 0.16);
     const traufe = boden + h;
-    const firstH = traufe + klein * 0.42;
+    /**
+     * Dachneigung nach Spannweite — nicht ein fester Faktor.
+     *
+     * `klein * 0.42` sind 40° Neigung. Für ein Bauernhaus mit 12 m Spannweite ist
+     * das genau richtig; für eine Werkshalle mit 54 m ergibt es **22,7 m First
+     * über 6 m Wand** — ein Dach, das dreimal so hoch ist wie das Gebäude
+     * darunter. Im Spiel war das ein schwarzer Keil in der Landschaft, und Flo
+     * hat am 26.08.2026 genau danach gefragt. Gemessen über die Region: 851 von
+     * 2.033 Gebäuden über 5 m First, 151 über 8 m, **30 über 12 m**.
+     *
+     * Echte Dächer machen es anders herum: Je größer die Spannweite, desto
+     * flacher die Neigung. Oberbayerischer Bestand — Bauernhaus 38–45° bei 12–18 m,
+     * Werkshalle 8–15° bei 30–60 m. Genau das steht hier: bis 14 m bleibt es bei
+     * 0,42 (40°), ab 34 m 0,11 (12°), dazwischen linear. Der Median der Region
+     * (4,6 m First bei 11 m Spannweite) ändert sich dadurch nicht.
+     */
+    const neigungsFaktor = klein <= 14 ? 0.42
+      : klein >= 34 ? 0.11
+      : 0.42 + (0.11 - 0.42) * (klein - 14) / 20;
+    const firstH = traufe + klein * neigungsFaktor;
     const aU0 = minU - ueber, aU1 = maxU + ueber;
     const aV0 = minV - ueber, aV1 = maxV + ueber;
     const mv = (minV + maxV) / 2;
@@ -564,12 +583,51 @@ export function baueGebaeude(
              welt3(u, firstH + dick, mv), welt3(u, firstH, mv), TUER);
       }
     }
-    // Giebeldreiecke schließen die Stirnseiten — sonst schaut man ins Dach hinein.
+    /**
+     * Giebelfelder — **je Grundrisskante eine**, nicht zwei feste an den Enden.
+     *
+     * ## Das Loch, das hier war
+     *
+     * Bis zum 26.08.2026 standen hier genau zwei Dreiecke, an `minU` und `maxU`.
+     * Das stimmt für ein Rechteck und für nichts sonst. Die Wände enden alle auf
+     * **Traufhöhe**; das Dach steigt von der Traufe zum First. Jede Kante, die
+     * weder auf einer Traufseite noch an einem Hüllenende liegt — also jede Kante
+     * eines L-, T- oder Winkelgrundrisses —, endete damit unter einem Dach, das
+     * dort schon höher war. Dazwischen war **nichts**. Von aussen sah man in den
+     * Dachraum, von innen durch das Haus. Bei 2.033 Gebäuden mit im Mittel mehr
+     * als vier Ecken ist das keine Ausnahme, sondern der Normalfall.
+     *
+     * ## Was jetzt passiert
+     *
+     * Über **jeder** Kante des Grundrisses steht ein Feld von der Traufe bis zur
+     * Dachunterseite an genau dieser Stelle. `dachY(v)` ist die Umkehrung
+     * derselben Formel, aus der `dachHaut` die Fläche baut — beide können also
+     * nicht auseinanderlaufen. An den Traufseiten wird das Feld von selbst
+     * flach (dort ist `dachY` gleich der Traufe) und kostet nichts; an den
+     * Hüllenenden ergibt es das Giebeldreieck, das vorher von Hand dastand.
+     *
+     * Kosten: zwei Dreiecke je Kante statt zwei je Haus. Bei sechs Ecken sind das
+     * 12 statt 2 — gegen 222 Dreiecke im Median (D84) ein Zuschlag von 4 %.
+     */
+    const dachY = (v: number) => {
+      const halb = mv - aV0;
+      if (halb <= 0) return traufe;
+      return firstH - (firstH - traufe) * Math.min(1, Math.abs(v - mv) / halb);
+    };
     // Holz, wenn das Haus ein Holzobergeschoss trägt: Der Giebel ist im Bestand
     // fast immer verschalt, auch wenn das Geschoss darunter verputzt ist.
     const giebel = Number.isFinite(holzAb) ? SCHALUNG : WAND;
-    tri(welt3(minU, traufe, minV), welt3(minU, traufe, maxV), welt3(minU, firstH, mv), giebel);
-    tri(welt3(maxU, traufe, maxV), welt3(maxU, traufe, minV), welt3(maxU, firstH, mv), giebel);
+    for (let k = 0; k < p.length - 1; k++) {
+      // `p` liegt bereits in Weltmetern — es wird oben einmal aus lat/lon gerechnet.
+      const [ax, az] = p[k];
+      const [bx, bz] = p[k + 1];
+      // In Hüllenkoordinaten, weil nur `v` über die Dachhöhe entscheidet.
+      const vA = -ax * hu.sin + az * hu.cos;
+      const vB = -bx * hu.sin + bz * hu.cos;
+      const yA = dachY(vA), yB = dachY(vB);
+      if (yA - traufe < 0.02 && yB - traufe < 0.02) continue;   // liegt an der Traufe
+      quad([ax, traufe, az], [bx, traufe, bz], [bx, yB, bz], [ax, yA, az], giebel);
+    }
 
     /**
      * Schornstein.
@@ -602,45 +660,98 @@ export function baueGebaeude(
     }
 
     /**
-     * Balkon unter der Traufe der Längsseite.
+     * Balkon unter der Traufe — an einer **echten Wand**, nicht an der Hülle.
      *
-     * Nur für Häuser ab zwei Ebenen und ab 6 m Länge — ein Balkon an einer Garage
+     * Nur für Häuser ab zwei Ebenen und ab 6 m Länge; ein Balkon an einer Garage
      * wäre komischer als gar keiner.
      *
-     * Bis heute zwei Flächen: Boden und eine geschlossene Brüstung. Damit war der
-     * Balkon ein Brett am Haus. Ein oberbayerischer Balkon ist ein **Brettbalkon**
-     * — senkrechte Bretter mit Lücke, oben ein vorstehender Handlauf, unten eine
-     * Fußleiste. Genau diese drei Teile machen ihn von weitem erkennbar, und
-     * genau sie fehlten.
+     * Ein oberbayerischer Balkon ist ein **Brettbalkon**: senkrechte Bretter mit
+     * Lücke, oben ein vorstehender Handlauf, unten eine Fußleiste. Diese drei
+     * Teile machen ihn von weitem erkennbar (D84).
      *
-     * Die Bretter stehen alle 0,42 m und sind bei 16 gedeckelt: An einem 14-m-Haus
-     * wären es sonst 33, und ab etwa 20 sieht man den Unterschied nicht mehr.
+     * ## Drei Fehler, die am 26.08.2026 herausgekommen sind
+     *
+     * Alle drei fielen erst auf, als echte Grundrisse gerendert wurden statt eines
+     * Rechtecks — und alle drei sind derselbe Denkfehler: mit der **Hülle**
+     * gerechnet, wo die **Wand** gemeint war.
+     *
+     * **1. Der Balkon spannte von `minU` bis `maxU` bei `v = maxV`.** Das ist die
+     * Kante der orientierten Hülle, nicht eine Wand. Bei jedem Grundriss, der kein
+     * Rechteck ist, hing er über weite Strecken **frei in der Luft**, ohne Haus
+     * dahinter. Jetzt wird die Wand gesucht, an die er gehört: die längste Kante,
+     * die annähernd längs der Firstachse läuft und deren Aussenseite nach +V zeigt
+     * — geprüft mit einem Punkt 0,4 m davor gegen den Grundriss, nicht geraten.
+     *
+     * **2. Die Stützen waren 2,2 m lang.** Eine feste Länge, unabhängig davon, wo
+     * der Boden liegt: An einem Haus mit drei Ebenen endeten sie 4 m über dem
+     * Gelände und hingen als Striche in der Luft. Jetzt gehen sie bis `boden`.
+     *
+     * **3. Er war tiefer als der Dachüberstand.** Der Überstand ist
+     * `min(1.4, klein * 0.16)`, an einem 7-m-Haus also 1,12 m; der Balkon maß
+     * 1,1 m plus 0,06 m Handlauf. Er stand damit im Regen, obwohl der Kommentar
+     * über dem Dach ausdrücklich sagt, der Überstand sei dafür da, den Schnee vom
+     * Balkon zu halten. Jetzt wird die Tiefe auf den Überstand begrenzt, und wo
+     * weniger als 0,5 m bleiben, gibt es keinen Balkon.
      */
     if (g.ebenen >= 2 && Math.max(breite, tiefe) >= 6) {
-      const y = boden + (g.ebenen - 1) * METER_JE_EBENE + 0.6;
-      const tiefeB = 1.1, bruest = 0.95;
-      const v0 = maxV, v1 = maxV + tiefeB;
-      // Boden
-      quad(welt3(minU, y, v0), welt3(maxU, y, v0),
-           welt3(maxU, y, v1), welt3(minU, y, v1), SCHALUNG);
-      // Fußleiste und Handlauf — die zwei Waagerechten.
-      quad(welt3(minU, y + 0.04, v1), welt3(maxU, y + 0.04, v1),
-           welt3(maxU, y + 0.22, v1), welt3(minU, y + 0.22, v1), SCHALUNG);
-      quad(welt3(minU, y + bruest - 0.13, v1 + 0.06), welt3(maxU, y + bruest - 0.13, v1 + 0.06),
-           welt3(maxU, y + bruest, v1 + 0.06), welt3(minU, y + bruest, v1 + 0.06), TUER);
-      // Bretter dazwischen.
-      const bretter = Math.min(16, Math.max(3, Math.round((maxU - minU) / 0.42)));
-      const bb = (maxU - minU) / bretter * 0.55;
-      for (let i = 0; i < bretter; i++) {
-        const cu = minU + (maxU - minU) * (i + 0.5) / bretter;
-        quad(welt3(cu - bb / 2, y + 0.2, v1 + 0.01), welt3(cu + bb / 2, y + 0.2, v1 + 0.01),
-             welt3(cu + bb / 2, y + bruest - 0.12, v1 + 0.01),
-             welt3(cu - bb / 2, y + bruest - 0.12, v1 + 0.01), SCHALUNG);
+      /** Liegt der Punkt im Grundriss? Der Ring ist geschlossen (letzter = erster). */
+      const imGrundriss = (x: number, z: number) => {
+        let drin = false;
+        for (let i = 0, j = p.length - 2; i < p.length - 1; j = i++) {
+          const [xi, zi] = p[i], [xj, zj] = p[j];
+          if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) drin = !drin;
+        }
+        return drin;
+      };
+
+      let bU0 = 0, bU1 = 0, bV = 0, beste = 0;
+      for (let k = 0; k < p.length - 1; k++) {
+        const [ax, az] = p[k], [bx, bz] = p[k + 1];
+        const uA = ax * hu.cos + az * hu.sin, vA = -ax * hu.sin + az * hu.cos;
+        const uB = bx * hu.cos + bz * hu.sin, vB = -bx * hu.sin + bz * hu.cos;
+        const laenge = Math.abs(uB - uA);
+        // Nur Kanten, die annähernd längs der Firstachse laufen — an einer
+        // Giebelwand hängt kein Brettbalkon.
+        if (laenge < 6 || Math.abs(vB - vA) > laenge * 0.3) continue;
+        // Zeigt +V hier nach aussen? Ein Punkt 0,4 m davor darf nicht im Haus liegen.
+        const mx = (ax + bx) / 2, mz = (az + bz) / 2;
+        if (imGrundriss(mx - 0.4 * hu.sin, mz + 0.4 * hu.cos)) continue;
+        if (laenge <= beste) continue;
+        beste = laenge;
+        bU0 = Math.min(uA, uB) + 0.3; bU1 = Math.max(uA, uB) - 0.3;
+        bV = (vA + vB) / 2;
       }
-      // Zwei Stützen tragen den Überstand — ohne sie schwebt der Balkon.
-      for (const u of [minU + 0.35, maxU - 0.35]) {
-        quad(welt3(u - 0.07, y - 2.2, v1 - 0.12), welt3(u + 0.07, y - 2.2, v1 - 0.12),
-             welt3(u + 0.07, y, v1 - 0.12), welt3(u - 0.07, y, v1 - 0.12), TUER);
+
+      const platz = maxV + ueber - 0.15 - bV;
+      const tiefeB = Math.min(1.1, platz);
+      if (beste > 0 && tiefeB >= 0.5) {
+        const y = boden + (g.ebenen - 1) * METER_JE_EBENE + 0.6;
+        const bruest = 0.95;
+        const v0 = bV, v1 = bV + tiefeB;
+        // Boden
+        quad(welt3(bU0, y, v0), welt3(bU1, y, v0),
+             welt3(bU1, y, v1), welt3(bU0, y, v1), SCHALUNG);
+        // Fußleiste und Handlauf — die zwei Waagerechten.
+        quad(welt3(bU0, y + 0.04, v1), welt3(bU1, y + 0.04, v1),
+             welt3(bU1, y + 0.22, v1), welt3(bU0, y + 0.22, v1), SCHALUNG);
+        quad(welt3(bU0, y + bruest - 0.13, v1 + 0.06), welt3(bU1, y + bruest - 0.13, v1 + 0.06),
+             welt3(bU1, y + bruest, v1 + 0.06), welt3(bU0, y + bruest, v1 + 0.06), TUER);
+        // Bretter dazwischen. Alle 0,42 m, gedeckelt bei 16: An einem 14-m-Haus
+        // wären es sonst 33, und ab etwa 20 sieht man den Unterschied nicht mehr.
+        const bretter = Math.min(16, Math.max(3, Math.round((bU1 - bU0) / 0.42)));
+        const bb = (bU1 - bU0) / bretter * 0.55;
+        for (let i = 0; i < bretter; i++) {
+          const cu = bU0 + (bU1 - bU0) * (i + 0.5) / bretter;
+          quad(welt3(cu - bb / 2, y + 0.2, v1 + 0.01), welt3(cu + bb / 2, y + 0.2, v1 + 0.01),
+               welt3(cu + bb / 2, y + bruest - 0.12, v1 + 0.01),
+               welt3(cu - bb / 2, y + bruest - 0.12, v1 + 0.01), SCHALUNG);
+        }
+        // Zwei Stützen bis zum Boden — ohne sie schwebt der Balkon, mit fester
+        // Länge hängen sie in der Luft.
+        for (const u of [bU0 + 0.35, bU1 - 0.35]) {
+          quad(welt3(u - 0.07, boden, v1 - 0.12), welt3(u + 0.07, boden, v1 - 0.12),
+               welt3(u + 0.07, y, v1 - 0.12), welt3(u - 0.07, y, v1 - 0.12), TUER);
+        }
       }
     }
   }

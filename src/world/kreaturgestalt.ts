@@ -262,8 +262,26 @@ function bauFaecher(mutation: number, h: number, ursprung: Ursprung): THREE.Buff
   const teile: THREE.BufferGeometry[] = [];
   const zufall = mulberry(4711 + mutation * 977);
 
-  // Größe und Dichte wachsen mit der Mutation: angedeutet, halbe Körperlänge, fast körpergroß.
-  const spanne = h * (0.55 + mutation * 0.42);
+  /**
+   * Größe und Dichte wachsen mit der Mutation: angedeutet, halbe Körperlänge,
+   * fast körpergroß.
+   *
+   * Die Werte waren `0.55 + mutation * 0.42`, also 1,39 × Rig-Höhe auf der
+   * höchsten Stufe. Gemessen über alle vier Rigs wuchs die Silhouette damit auf
+   * **1,66 × Rig-Höhe**, und die Breite des Vierbeiners von 0,60 auf 1,42 — der
+   * Körper wächst nicht mit, das ist alles Fächer. Die Stilreferenz sagt „fast so
+   * groß wie das Tier"; im Bild war er größer als das Tier, das ihn trägt, und
+   * beim Reiten saß der Reiter auf dem Fächer statt auf dem Rücken.
+   *
+   * Jetzt 0,46 + 0,34 je Stufe. Der erste Versuch (0,42 + 0,25) traf die Größe,
+   * kostete aber die **Staffelung**: Stufe 0 und 1 kamen beide auf 1,03 × Rig-Höhe,
+   * weil der Fächer den Körper noch nicht überragte — und genau daran soll man auf
+   * Entfernung sehen, wie weit eine Kreatur ist. Gemessen jetzt über alle Rigs:
+   * **1,03 → 1,09 → 1,31** in der Höhe, beim Vierbeiner 0,53 → 0,72 → 1,02 in der
+   * Breite. Das Leitmerkmal bleibt und wächst sichtbar — es ersetzt die Kreatur
+   * nur nicht mehr.
+   */
+  const spanne = h * (0.46 + mutation * 0.34);
   const lamellen = 5 + mutation * 3;
   // Der Fächer ist Befall, kein Bauteil: An einem Wildling wächst er auf **einer**
   // Flanke, an einer Zuchtlinie sitzt er mittig — dort ist der Körper das Raster,
@@ -276,12 +294,16 @@ function bauFaecher(mutation: number, h: number, ursprung: Ursprung): THREE.Buff
     // Halbkreis von schräg unten nach schräg oben, hinten am Körper.
     const winkel = -0.35 + t * 2.1;
     const r = spanne * (0.55 + 0.45 * Math.sin(t * Math.PI));
-    const g = new THREE.CylinderGeometry(r * 0.55, r * 0.08, h * 0.045, 3, 1, false, 0, Math.PI);
+    // Platten kleiner (0,48 statt 0,55): Bei acht überlappenden Lamellen auf der
+    // höchsten Stufe entscheidet die Zahl über die Dichte, nicht die Einzelgröße.
+    const g = new THREE.CylinderGeometry(r * 0.48, r * 0.08, h * 0.045, 3, 1, false, 0, Math.PI);
     g.rotateX(Math.PI / 2);
     g.rotateZ(winkel - Math.PI / 2);
     g.translate(
       flanke + (zufall() - 0.5) * h * 0.08,
-      h * 0.55 + Math.sin(winkel) * spanne * 0.35,
+      // Enger am Rücken (0,30 statt 0,35): Der Fächer ist Bewuchs und soll dem
+      // Körper folgen, nicht neben ihm stehen.
+      h * 0.55 + Math.sin(winkel) * spanne * 0.30,
       h * 0.35 + Math.cos(winkel) * spanne * 0.12,
     );
     teile.push(teil(g, i % 2 ? PILZ_HELL : PILZ_DUNKEL, 0, 0, 0));
@@ -354,4 +376,47 @@ export function baueKreaturGeometrie(
   g.computeVertexNormals();
   g.computeBoundingSphere();
   return g;
+}
+
+/**
+ * Wo ein Reiter auf dieser Silhouette sitzt — **aus der Geometrie gelesen**.
+ *
+ * ## Warum das nicht `RIG_HOEHE` sein kann
+ *
+ * `RIG_HOEHE.quadruped` ist eine 1. Die Silhouette eines Vierbeiners bei
+ * Mutation 2 ist gemessen **2,28 m** hoch und liegt ausserdem waagerecht
+ * versetzt (x −0,75 … 1,24 statt symmetrisch um null). Der Reiter landete damit
+ * 0,9 m zu tief und ein Viertelmeter neben dem Tier — im Bild steht er neben
+ * seinem Reittier statt darauf. Rückmeldung vom Gerät am 26.08.2026:
+ * „haus und reiten soll so aussehen?“
+ *
+ * Eine Konstante kann das auch gar nicht leisten: Die Gestalt wächst mit der
+ * Mutationsstufe, mit dem Element und mit der Saat aus der Kreatur-ID. Was
+ * gebraucht wird, ist eine Messung an genau der Geometrie, die gezeichnet wird.
+ *
+ * ## Wie gemessen wird
+ *
+ * Der Widerrist ist der höchste Punkt des **mittleren Fünftels** in beiden
+ * waagerechten Achsen. Kopf, Rute, Ohren und Pilzfächer liegen ausserhalb, der
+ * Rücken liegt darin. Der Versatz ist die Verschiebung, die den Rumpf über den
+ * Ursprung holt — ohne sie sitzt der Reiter dort, wo die Kreatur zufällig
+ * modelliert wurde, und nicht auf ihr.
+ */
+export function reitsitz(geo: THREE.BufferGeometry): {
+  hoehe: number; versatzX: number; versatzZ: number;
+} {
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox!;
+  const mx = (bb.min.x + bb.max.x) / 2, mz = (bb.min.z + bb.max.z) / 2;
+  const bx = Math.max(0.01, bb.max.x - bb.min.x), bz = Math.max(0.01, bb.max.z - bb.min.z);
+  const p = geo.getAttribute('position');
+  let hoehe = 0;
+  for (let i = 0; i < p.count; i++) {
+    if (Math.abs(p.getX(i) - mx) > bx * 0.2) continue;
+    if (Math.abs(p.getZ(i) - mz) > bz * 0.2) continue;
+    hoehe = Math.max(hoehe, p.getY(i));
+  }
+  // Rückfall, falls das mittlere Fünftel leer ist (sehr schmale Gestalten):
+  // 70 % der Gesamthöhe liegt bei jedem der vier Rigs im Rumpfbereich.
+  return { hoehe: hoehe > 0 ? hoehe : bb.max.y * 0.7, versatzX: -mx, versatzZ: -mz };
 }

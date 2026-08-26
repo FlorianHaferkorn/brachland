@@ -18,6 +18,8 @@
     "vorkommen": "tsx tools/vorkommencheck.ts",
     "test": "tsx tests/battle.test.ts && tsx tests/peilung.test.ts && tsx tests/fortschritt.test.ts && tsx tests/ausdauer.test.ts && tsx tests/auftraege.test.ts && tsx tests/reiten.test.ts && tsx tests/zustaende.test.ts && tsx tests/gleiten.test.ts && tsx tests/siedlung.test.ts && tsx tests/menue.test.ts",
     "world": "tsx tools/buildworld.ts",
+    "fernland": "tsx tools/fernland.ts",
+    "zaehlen": "node tools/zaehlen.mjs",
     "hoehen": "tsx tools/hoehenvergleich.ts",
     "typecheck": "tsc --noEmit",
     "props": "tsx tools/propcheck.ts",

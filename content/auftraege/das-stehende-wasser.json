@@ -1,0 +1,9 @@
+{
+  "id": "das-stehende-wasser",
+  "region": "oental",
+  "geber": "werk-schichtbuch",
+  "titel": "Das stehende Wasser",
+  "text": "Der Zulauf ist seit dem Frühjahr rückwärts. Ich habe die Pumpen zweimal getauscht und einmal die halbe Schicht damit verbracht, mir das erklären zu lassen. Gehen Sie zum Wehr und sehen Sie nach, was dort steht. Ich bezahle für eine Antwort, nicht für eine Vermutung.",
+  "ziel": { "art": "finde", "fragment": "stauwehr" },
+  "belohnung": { "quellwasser": 2, "kraeutersud": 2 }
+}

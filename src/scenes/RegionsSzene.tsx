@@ -18,7 +18,7 @@ import { useGLTF } from '@react-three/drei';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
-import { benutzeSteuerung } from '../spieler/steuerung.js';
+import { benutzeSteuerung, type Stoecke } from '../spieler/steuerung.js';
 import { peilung } from '../spieler/peilung.js';
 import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
@@ -26,13 +26,15 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
 import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
+import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
-import { findeKlippen, baueKlippenGeometrie, type Klippe } from '../world/klippen.js';
+import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
+import { istAus } from './abschalter.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB, ATTRAPPE_AB, MITTEL_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
@@ -321,7 +323,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
                   wegMaterial={wegMaterial} wasserMaterial={wasserMaterial}
                   fallMaterial={fallMaterial} hausMaterial={hausMaterial} />
 
-      {klippen.length > 0 && <Klippen klippen={klippen} ziel={ziel} material={wind.material} />}
+      {!istAus('fels') && klippen.length > 0 && (
+        <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
       <Props props={props} wind={wind.material} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
@@ -368,6 +371,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
   const hausKachel = useMemo(() => (
     _feld: HoehenFeld, s: Bandsatz, k: Kachel, _lod: number,
   ) => {
+    if (istAus('haeuser')) return null;
     const indizes = s.gebaeude.get(`${k.ix}:${k.iz}`);
     if (!indizes?.length) return null;
     return baueGebaeude(welt, boden, indizes.map(i => welt.gebaeude[i]));
@@ -875,7 +879,8 @@ function Klippen({ klippen, ziel, material }: {
   ziel: React.RefObject<THREE.Object3D | null>;
   material: THREE.MeshStandardMaterial;
 }) {
-  const geometrien = useMemo(() => [0, 1, 2].map(v => baueKlippenGeometrie(v)), []);
+  const geometrien = useMemo(
+    () => Array.from({ length: KLIPPEN_VARIANTEN }, (_, v) => baueKlippenGeometrie(v)), []);
   const gruppen = useMemo(
     () => geometrien.map((_, v) => klippen.filter(k => k.variante === v)),
     [klippen, geometrien],
@@ -1220,6 +1225,23 @@ const SCHWIMMEN_JE_SEK = 9;
 /** Wie tief der Kopf unter dem Wasserspiegel liegt. */
 const SCHWIMM_TIEFGANG = 1.15;
 
+/**
+ * Weite Ebene der Kamera. War 1500 — das reichte für die Region und für nichts sonst.
+ *
+ * Die Zahl ist **gemessen, nicht geschätzt**: Die entfernteste Ecke der
+ * Fernlandgeometrie liegt 8.460 m von der Regionsmitte (`.cache/fernzaehl.ts`),
+ * und der Spieler kann sich davon noch einmal bis zu 2.800 m entfernen — also
+ * 11,3 km im schlechtesten Fall. Mein erster Wert war 9.000 und hätte die
+ * Diagonale abgeschnitten; ein abgeschnittener Bergzug ist genau der Fehler,
+ * den diese Kulisse beheben soll.
+ *
+ * Der Preis ist Tiefenpufferauflösung: `far/near` steigt von 7.500 auf 60.000.
+ * Der Verlust trifft die Ferne, und dort steht ein einziges, überschneidungs-
+ * freies Blatt Geometrie. Wenn hier je Z-Fighting auftaucht, ist `near` der
+ * Hebel, nicht `far`.
+ */
+const KAMERA_FERN = 12000;
+
 /** Blickneigung: knapp unter die Waagerechte bis steil nach oben. */
 const NEIGUNG_MIN = -0.30;
 const NEIGUNG_MAX = 1.05;
@@ -1235,7 +1257,7 @@ export const NEIGUNG_START = 0.32;
  * Look beurteilbar machen soll.
  */
 function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet,
-                   gleiterFrei, onGleiten }: {
+                   gleiterFrei, onGleiten, meldeRand, stoecke }: {
   feld: HoehenFeld;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
@@ -1251,9 +1273,13 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   gleiterFrei?: React.RefObject<boolean>;
   /** Meldet, ob gerade geglitten wird — für die Anzeige. Nur bei Änderung. */
   onGleiten?: (gleitet: boolean) => void;
+  /** Wird in jedem Bild gerufen, in dem an der Regionsgrenze geklemmt wird. */
+  meldeRand?: () => void;
+  /** Zustand der beiden Daumenknüppel — die Anzeige liegt im DOM und liest ihn. */
+  stoecke?: React.RefObject<Stoecke>;
 }) {
   const { gl } = useThree();
-  const eingabe = benutzeSteuerung(gl.domElement);
+  const eingabe = benutzeSteuerung(gl.domElement, stoecke);
   /** Senkrechte Geschwindigkeit in m/s. Positiv heißt aufwärts. */
   const steigen = useRef(0);
   /** Klettert der Spieler gerade? Nur für die Anzeige und die Zehrung. */
@@ -1362,11 +1388,37 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
     const zuSteil = amBoden && !klettert.current && steigung > grenze;
 
     if ((dx !== 0 || dz !== 0) && !zuSteil) {
-      const halbB = feld.breiteMeter / 2 - 8;
-      const halbT = feld.tiefeMeter / 2 - 8;
+      /**
+       * Der Regionsrand.
+       *
+       * Bis 20.08.2026 stand hier eine unsichtbare Wand **8 m vor** der
+       * Geländekante, ohne jede Rückmeldung: Die Figur blieb mitten auf offener
+       * Wiese stehen, die Laufanimation lief weiter, und dahinter war leerer
+       * Dunst (G-101). Zwei Dinge sind jetzt anders.
+       *
+       * **Das Fernland** zeichnet echtes Gelände bis 6 km hinaus (D85). Damit
+       * liest sich das Anhalten nicht mehr als „die Welt hört auf", sondern als
+       * „weiter geht es nicht" — dasselbe, was eine Bergflanke im echten Inntal
+       * auch tut.
+       *
+       * **Der Rand liegt jetzt an der Kante**, nicht 8 m davor. Die 8 m stammten
+       * aus der Zeit, als das Gelände dort im Nichts endete und man nicht
+       * hinuntersehen sollte. `RAND` von 1,5 m bleibt, damit die Figur nicht
+       * halb über der Schürze steht.
+       *
+       * Gemeldet wird es einmal, nicht dauernd: `amRand` wird gesetzt, sobald
+       * die Klemmung wirklich greift, und die Szene reicht es nach oben. Eine
+       * Meldung bei jedem Bild wäre schlimmer als keine.
+       */
+      const RAND = 1.5;
+      const halbB = feld.breiteMeter / 2 - RAND;
+      const halbT = feld.tiefeMeter / 2 - RAND;
       const [kx, kz] = kollision.schiebeRaus(p.x + dx, p.z + dz);
-      p.x = Math.max(-halbB, Math.min(halbB, kx));
-      p.z = Math.max(-halbT, Math.min(halbT, kz));
+      const gx = Math.max(-halbB, Math.min(halbB, kx));
+      const gz = Math.max(-halbT, Math.min(halbT, kz));
+      if (gx !== kx || gz !== kz) meldeRand?.();
+      p.x = gx;
+      p.z = gz;
     }
     // Der Boden unter dem Spieler. Auf der GEZEICHNETEN Fläche, nicht auf der
     // stetigen Funktion — sonst schwebt die Figur auf Kuppen sichtbar darüber.
@@ -1495,7 +1547,17 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
       // Reiter und Tier teilen sich die Phase. Der Reiter wippt in halber
       // Frequenz und mit größerem Ausschlag — das ist der Unterschied zwischen
       // „sitzt auf etwas" und „steht daneben".
-      if (reiter.current) reiter.current.position.y = reittier.hoehe + Math.sin(phase * 0.5) * 0.06 * stark;
+      /**
+       * **Minus `HUEFTE`.** Der Ursprung der Spielerfigur sind ihre Füße; wer sie
+       * um die Widerristhöhe anhebt, stellt sie auf den Rücken des Tieres statt
+       * sie daraufzusetzen — eine ganze Hüfthöhe zu hoch, und im Bild schwebt der
+       * Reiter über seinem Reittier. Genau das war am 26.08.2026 zu sehen.
+       * Gesetzt wird die **Hüfte** auf den Widerrist; die Beine hängen von dort.
+       */
+      if (reiter.current) {
+        reiter.current.position.y =
+          reittier.hoehe - HUEFTE + Math.sin(phase * 0.5) * 0.06 * stark;
+      }
       if (tier.current) {
         tier.current.position.y = Math.abs(Math.cos(phase)) * 0.05 * stark;
         tier.current.rotation.z = Math.sin(phase) * 0.045 * stark;
@@ -1529,16 +1591,26 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
   );
 }
 
-/** Third-Person-Kamera, die dem Spieler folgt. */
-function Kamera({ ziel, gier, neigung }: {
+/** Näher als das kommt die Kamera nicht — darunter steckt sie in der Figur. */
+const KAMERA_MIN = 1.3;
+/** Wie viele Punkte auf der Sichtlinie geprüft werden. */
+const SICHT_PROBEN = 10;
+/** Abstand, den die Kamera vor einem Hindernis hält. */
+const SICHT_PUFFER = 0.35;
+
+function Kamera({ ziel, gier, neigung, feld, kollision }: {
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
   neigung: React.RefObject<number>;
+  feld: HoehenFeld;
+  kollision: Kollisionsfeld;
 }) {
   const { camera } = useThree();
   // Abstände in echten Metern — der Spieler ist 1,8 m hoch und soll auch so wirken.
   const geglaettet = useRef(new THREE.Vector3(0, GROESSE.kameraHoehe, GROESSE.kameraAbstand));
   const gesetzt = useRef(false);
+  /** Aktueller Kameraabstand. Ausdrücklich `number` — `GROESSE` ist `as const`. */
+  const abstand = useRef<number>(GROESSE.kameraAbstand);
   useFrame((_, dt) => {
     const p = ziel.current?.position ?? new THREE.Vector3();
     // Die Kamera kreist auf einer Kugel um den Blickpunkt auf Brusthöhe: `gier`
@@ -1546,18 +1618,65 @@ function Kamera({ ziel, gier, neigung }: {
     // hinter dem Spieler, bei NEIGUNG_MAX fast senkrecht darüber.
     const g = gier.current;
     const n = neigung.current;
-    const r = GROESSE.kameraAbstand;
-    const wunsch = new THREE.Vector3(
-      p.x + Math.sin(g) * Math.cos(n) * r,
-      p.y + GROESSE.kameraBlickHoehe + Math.sin(n) * r,
-      p.z + Math.cos(g) * Math.cos(n) * r,
-    );
+    const blickY = p.y + GROESSE.kameraBlickHoehe;
+    const rx = Math.sin(g) * Math.cos(n);
+    const ry = Math.sin(n);
+    const rz = Math.cos(g) * Math.cos(n);
+
+    /**
+     * Die Kamera zieht ein, wenn zwischen ihr und der Figur etwas steht.
+     *
+     * ## Warum das dazugekommen ist
+     *
+     * Rückmeldung vom Gerät: „mitten zwischen Bäumen sehe ich auch nichts“. Der
+     * Grund war nicht Nebel und nicht die Dunkelheit, sondern dass die Kamera
+     * **gar keine Kollision hatte**: Sie stand stur `kameraAbstand` hinter der
+     * Figur, und in einem Wald mit 72.153 Bäumen liegt dieser Punkt regelmäßig
+     * in einem Stamm oder in einem Laubballen. Von innen sieht man bei
+     * `side: FrontSide` durch die Rückseiten hindurch — also nichts als das, was
+     * zufällig noch dahinter liegt. Dasselbe passierte am Fuß eines Hangs, wo die
+     * Kamera im Gelände steckte.
+     *
+     * ## Wie geprüft wird
+     *
+     * Zehn Punkte auf der Sichtlinie, gegen **dasselbe** Kollisionsfeld, das auch
+     * die Figur benutzt (Stammradien 0,55–0,65 m, plus Gebäude), und gegen die
+     * gezeichnete Geländefläche. Kein Raycast gegen die Szene: Der wäre bei 155.000
+     * Props je Bild unbezahlbar, und das Rasterfeld beantwortet dieselbe Frage in
+     * konstanter Zeit.
+     *
+     * ## Warum Einziehen hart ist und Ausfahren weich
+     *
+     * Ein weiches Einziehen heißt, dass man einen Sekundenbruchteil lang durch den
+     * Stamm schaut — genau der Fehler, der behoben werden soll. Umgekehrt wäre ein
+     * hartes Ausfahren ein Sprung, sobald man an einem Baum vorbei ist. Also:
+     * sofort näher, langsam wieder weiter.
+     */
+    // Ausdrücklich `number`: `GROESSE` ist `as const`, sonst erbt `frei` den Literaltyp 6.
+    let frei: number = GROESSE.kameraAbstand;
+    for (let i = 1; i <= SICHT_PROBEN; i++) {
+      const d = (GROESSE.kameraAbstand * i) / SICHT_PROBEN;
+      const x = p.x + rx * d, y = blickY + ry * d, z = p.z + rz * d;
+      const [kx, kz] = kollision.schiebeRaus(x, z);
+      const versperrt = kx !== x || kz !== z
+        || y < hoeheAufFlaeche(feld, x, z) + 0.45;
+      if (versperrt) { frei = d - SICHT_PUFFER; break; }
+    }
+    const ziel_ = Math.max(KAMERA_MIN, Math.min(GROESSE.kameraAbstand, frei));
+    abstand.current = ziel_ < abstand.current
+      ? ziel_
+      : abstand.current + (ziel_ - abstand.current) * Math.min(1, dt * 2.5);
+
+    const r = abstand.current;
+    const wunsch = new THREE.Vector3(p.x + rx * r, blickY + ry * r, p.z + rz * r);
     // Erstes Bild hart setzen: sonst fliegt die Kamera aus dem Ursprung (y=0) zum
     // Startpunkt hoch — bei 170 m Geländehöhe eine sichtbare Sekunde durch den Berg.
     if (!gesetzt.current) { geglaettet.current.copy(wunsch); gesetzt.current = true; }
-    geglaettet.current.lerp(wunsch, Math.min(1, dt * 4));
+    // Der Glättungsfaktor folgt dem Einziehen: Wo die Sichtlinie frei ist, darf die
+    // Kamera weich nachlaufen; beim Einziehen muss sie sofort da sein.
+    geglaettet.current.lerp(wunsch, ziel_ < r - 0.01 ? 1 : Math.min(1, dt * 4));
     camera.position.copy(geglaettet.current);
-    camera.lookAt(p.x, p.y + GROESSE.kameraBlickHoehe, p.z);
+    camera.lookAt(p.x, blickY, p.z);
   });
   return null;
 }
@@ -1627,6 +1746,15 @@ export interface Qualitaet {
   gras: number;
 }
 
+/**
+ * Leere Prop-Liste für den Messlauf `?aus=baeume`.
+ *
+ * Als Konstante und nicht als `[]` an der Verwendungsstelle: Ein neues Array je
+ * Bild würde jede `useMemo`, die daran hängt, in jedem Bild neu auswerten — und
+ * damit genau das messen, was der Schalter ausschalten soll.
+ */
+const LEERE_PROPS: PropInstanz[] = [];
+
 export const QUALITAET_STANDARD: Qualitaet = { dpr: 2, schatten: true, gras: 1 };
 
 export interface RegionsSzeneProps {
@@ -1674,6 +1802,16 @@ export interface RegionsSzeneProps {
   /** Startposition; ohne Angabe die Regionsmitte. Der Spielstand setzt sie. */
   startPosition?: [number, number];
   /**
+   * Anfängliche Blickrichtung in Radiant. 0 heisst Norden, positiv dreht nach links.
+   *
+   * Nur für Messläufe gesetzt (`?absetzen=x,z,grad`). Der Grund ist derselbe wie
+   * beim Absetzpunkt: Der Simulationsschritt ist auf 0,1 s geklemmt, in
+   * SwiftShader läuft die Szene mit 2 Bildern je Sekunde, und eine Vierteldrehung
+   * dauert damit nicht 0,9 sondern 4,5 Sekunden Wanduhr. Eine Kamerarichtung
+   * „erdrücken" heisst raten; als Zahl ist sie reproduzierbar.
+   */
+  startBlick?: number;
+  /**
    * Ausdauer nach außen reichen — die Anzeige liegt im DOM, nicht in der Szene.
    *
    * Als Ref, nicht als Callback: Der Wert ändert sich jedes Bild, und ein
@@ -1695,19 +1833,45 @@ export interface RegionsSzeneProps {
    * mehrere Sekunden. `frameloop="never"` lässt alles stehen und zeichnet nichts.
    */
   angehalten?: boolean;
+  /**
+   * Grobes Gelände jenseits der Region — die Kulisse am Kartenrand.
+   *
+   * Optional, weil eine Region auch ohne auskommen muss: Die Datei entsteht aus
+   * einem eigenen Lauf (`npm run fernland`) und kostet 93 API-Aufrufe. Fehlt sie,
+   * sieht es aus wie bisher, statt dass die Szene nicht startet.
+   */
+  fernland?: Fernland | null;
+  /**
+   * Meldet, dass der Spieler an die Regionsgrenze gestossen ist.
+   *
+   * Die Grenze selbst bleibt eine harte Klemmung — nur so kann man nicht aus dem
+   * Höhenfeld laufen. Was fehlte, war die **Rückmeldung**: Bisher blieb man
+   * wortlos stehen und hielt es für einen Fehler. Der Aufruf kommt in jedem Bild,
+   * in dem geklemmt wird; das Entprellen macht die Anzeige.
+   */
+  meldeRand?: () => void;
+  /**
+   * Zustand der Daumenknüppel nach außen reichen — wie `ausdauer` als Ref.
+   *
+   * Die Szene zeichnet sie nicht: Ein Bedienelement gehört ins DOM, nicht in die
+   * 3D-Szene. Dort wäre es an die Bildrate der Szene gebunden, müsste in
+   * Weltkoordinaten umgerechnet werden und läge im Nebel.
+   */
+  stoecke?: React.RefObject<Stoecke>;
 }
 
 export function RegionsSzene({
   welt, tageszeit = 0.26, spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
-  startPosition, ausdauer, reittier = null, angehalten = false,
+  startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
+  fernland = null, meldeRand, stoecke,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   const ref = spielerRef ?? eigenerRef;
   const eigeneAusdauer = useRef<Ausdauerzustand>(neueAusdauer());
   const kraft = ausdauer ?? eigeneAusdauer;
-  const gier = useRef(0);
+  const gier = useRef(startBlick);
   // Einmal je Zeitpunkt mischen, nicht je Bild: Farbmischung ist billig, aber sie
   // hängt an einem Regler und nicht an der Bildrate.
   const s = useMemo(() => stimmungBei(tageszeit), [tageszeit]);
@@ -1789,17 +1953,42 @@ export function RegionsSzene({
     return [x, hoeheAufFlaeche(feld, x, z), z];
   }, [feld, startPosition]);
 
+  /**
+   * Die Kulisse wird je Stimmung **neu gebaut**, weil Dunst und Beleuchtung in
+   * ihren Farben stecken statt im Material (siehe `world/fernland.ts`).
+   *
+   * Der Preis ist ein Neubau, wenn `stimmungBei` einen neuen Wert liefert — also
+   * bei jeder Bewegung des Tageszeitreglers. Gemessen: 19.192 Dreiecke, das ist
+   * eine Grössenordnung unter dem, was `LodTerrain` je Bild an Kacheln baut.
+   * Ein Regler ist ausserdem ein Werkzeug, kein Spielzustand: Im Spiel steht die
+   * Zeit, und dann läuft das hier genau einmal.
+   */
+  const fernGeo = useMemo(
+    () => (fernland ? baueFernland(fernland, welt, {
+      dunst: s.horizont, sonne: s.sonne, sonneStaerke: s.sonneStaerke,
+      umgebung: s.umgebung, umgebungStaerke: s.umgebungStaerke,
+      sonnenstand: s.sonnenstand,
+    }) : null),
+    [fernland, welt, s],
+  );
+  const fernMaterial = useMemo(() => baueFernlandMaterial(), []);
+  useEffect(() => () => { fernGeo?.dispose(); }, [fernGeo]);
+
   return (
     <Canvas
       shadows={qualitaet.schatten}
       frameloop={angehalten ? 'never' : 'always'}
       dpr={[1, qualitaet.dpr]}
-      camera={{ fov: 55, near: 0.2, far: 1500, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}
+      camera={{ fov: 55, near: 0.2, far: KAMERA_FERN, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
       <Beleuchtung s={s} ziel={ref} />
+      {!istAus('kulisse') && fernGeo && (
+        <mesh geometry={fernGeo} material={fernMaterial} frustumCulled={false} renderOrder={-500} />
+      )}
       <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref}
-               props={props} dichte={qualitaet.gras}
+               props={istAus('baeume') ? LEERE_PROPS : props}
+               dichte={istAus('gras') ? 0 : qualitaet.gras}
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       <object3D ref={ref} position={start}>
         <SpielerFigur gier={gier} schritt={schritt} reittier={reittier}
@@ -1807,7 +1996,8 @@ export function RegionsSzene({
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}
-               reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten} />
+               reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten}
+               meldeRand={meldeRand} stoecke={stoecke} />
       {funde.length > 0 && (
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
       )}
@@ -1822,7 +2012,7 @@ export function RegionsSzene({
                    naehe={naehe} onBegegnung={onBegegnung} verbraucht={verbraucht}
                    rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       )}
-      <Kamera ziel={ref} gier={gier} neigung={neigung} />
+      <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} />
       <Messung melde={onMessung} />
     </Canvas>
   );

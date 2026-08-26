@@ -271,9 +271,14 @@ if (propDateien.length) {
  * mitschleppt oder eine neue Region ohne den Schritt baut.
  */
 for (const datei of readdirSync('public/world').filter(f => f.endsWith('.json'))) {
+  // Seit D85 liegen in `public/world` zwei Arten Datei: Regionen (`{ welt: … }`)
+  // und Fernlandraster (`{ bbox, aufloesung, hoehen }`). Wer alles als Region
+  // liest, stirbt am ersten Fernland — dieses Tor ist genau daran gescheitert.
+  const roh = JSON.parse(readFileSync(join('public/world', datei), 'utf8'));
+  if (!roh.welt) continue;
   // Entpackt, nicht roh: Die Weltdatei ist gepackt, und `welt.biome` ist darin
   // kein Raster. Roh gelesen lief die Prüfung ins Leere statt in einen Befund.
-  const welt = entpackeWelt(JSON.parse(readFileSync(join('public/world', datei), 'utf8')).welt);
+  const welt = entpackeWelt(roh.welt);
   const gebaeude = welt.gebaeude ?? [];
   if (!gebaeude.length) continue;
   const [s2, w2, n2, e2] = welt.bbox;
@@ -305,7 +310,10 @@ for (const datei of readdirSync('public/world').filter(f => f.endsWith('.json'))
  * einer, den man nicht sieht.
  */
 for (const datei of readdirSync('public/world').filter(f => f.endsWith('.json'))) {
-  const welt = entpackeWelt(JSON.parse(readFileSync(join('public/world', datei), 'utf8')).welt);
+  // Fernlandraster überspringen, siehe oben — sie tragen kein `welt`.
+  const roh = JSON.parse(readFileSync(join('public/world', datei), 'utf8'));
+  if (!roh.welt) continue;
+  const welt = entpackeWelt(roh.welt);
   const arten = new Set<string>(welt.wege.map(w => w.art));
   const offen = [...arten].filter(a => !WEGBELAG[a]);
   if (offen.length)
@@ -358,6 +366,62 @@ for (const rf of regionen) {
     }
   }
   console.log(`  · [Welt] ${region.id}: ${geprueft} verortete Inhalte gegen die bbox geprüft`);
+}
+
+
+// ------------------------------------- 3c. Führt irgendetwas zum Regenten?
+//
+// Der Flussvater stand seit dem ersten Tag im Œntal und ist **nie gefunden
+// worden** (G-101). Nicht, weil er versteckt war, sondern weil nichts hinführte:
+// 1.381 m vom Start, Nebelende bei 420 m, die Peilung zeigt nur auf Kreaturen,
+// 0 von 4 Aufträgen nannten ihn, 0 Texte erwähnten ihn — und die Zielart
+// `regent` war im Schema implementiert und von **keiner** Auftragsdatei benutzt.
+//
+// Ein Regent ohne Weg dorthin ist kein Geheimnis, sondern ein Inhalt, den es für
+// den Spieler nicht gibt. Deshalb **Blocker**, nicht Warnung: Die Behebung ist
+// eine Auftragsdatei, keine Grundsatzentscheidung, und die Kette anzuhalten ist
+// billiger als eine weitere Region mit demselben Loch auszuliefern.
+type Ziel = { art: string; regent?: string; fragment?: string };
+type AuftragDatei = { id: string; region?: string; ziel?: Ziel; vorher?: string };
+const auftraege = (existsSync('content/auftraege')
+  ? readdirSync('content/auftraege').filter(f => f.endsWith('.json'))
+      .map(f => JSON.parse(readFileSync(join('content/auftraege', f), 'utf8')) as AuftragDatei)
+  : []);
+const nachId = new Map(auftraege.map(a => [a.id, a]));
+
+/** Hängt der Auftrag an einer Kette, die irgendwo ohne `vorher` anfängt? */
+function erreichbar(a: AuftragDatei): boolean {
+  const gesehen = new Set<string>();
+  let lauf: AuftragDatei | undefined = a;
+  while (lauf) {
+    if (gesehen.has(lauf.id)) return false;   // Ringschluss
+    gesehen.add(lauf.id);
+    if (!lauf.vorher) return true;
+    lauf = nachId.get(lauf.vorher);
+  }
+  return false;                                // `vorher` zeigt ins Leere
+}
+
+for (const rf of regionen) {
+  const region = JSON.parse(readFileSync(join('content/regions', rf), 'utf8'));
+  const eigene = ausOrdner('content/regenten').filter(r => r.region === region.id);
+  for (const r of eigene) {
+    const wege = auftraege.filter(a => a.ziel?.art === 'regent' && a.ziel.regent === r.id);
+    if (!wege.length) {
+      stop('Inhalt', `Regent '${r.id}' in ${region.id}: kein Auftrag mit `
+        + `Zielart 'regent' zeigt auf ihn — er ist im Spiel nicht auffindbar (G-101)`);
+      continue;
+    }
+    const offen = wege.filter(erreichbar);
+    if (!offen.length) {
+      stop('Inhalt', `Regent '${r.id}' in ${region.id}: ${wege.length} Auftrag/Aufträge `
+        + `zeigen auf ihn, aber keiner ist über eine Kette erreichbar `
+        + `(fehlendes oder ringförmiges 'vorher')`);
+      continue;
+    }
+    console.log(`  · [Inhalt] Regent '${r.id}': ${offen.length} erreichbarer Weg `
+      + `(${offen.map(a => a.id).join(', ')})`);
+  }
 }
 
 // -------------------------------------------------- 4. System-Invarianten

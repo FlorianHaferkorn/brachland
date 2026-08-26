@@ -1,0 +1,10 @@
+{
+  "id": "was-im-stau-liegt",
+  "region": "oental",
+  "geber": "werk-schichtbuch",
+  "titel": "Was im Stau liegt",
+  "text": "Dann liegt also etwas darin. Ich habe die Zahlen von vor dem Frühjahr und die von jetzt, und dazwischen liegt kein Regen, sondern etwas mit einem Rücken. Holen Sie es heraus oder machen Sie es kleiner. Danach läuft der Zulauf wieder, oder ich habe mich geirrt.",
+  "ziel": { "art": "regent", "regent": "flussvater" },
+  "belohnung": { "herzfunke": 1, "reinkultur": 2, "quellwasser": 3 },
+  "vorher": "das-stehende-wasser"
+}

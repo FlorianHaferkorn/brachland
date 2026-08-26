@@ -55,9 +55,25 @@ export const BAUM: Record<BaumArt, BaumWerte> = {
     // beiden Tönen ist wichtiger als ihre Helligkeit: Sie macht aus der Fläche Volumen.
     stammFarbe: '#4f4436', laubFarbe: '#3c5439', laubFarbe2: '#527050',
   },
+  /**
+   * Buche — am 26.08.2026 neu gesetzt, weil sie im Spiel wie ein Mast aussah.
+   *
+   * Rückmeldung vom Gerät: „die Bäume sollen so aussehen?“, mit einem Bild von
+   * einem 17 m hohen Stab, an dessen Spitze ein paar Klumpen ein V bildeten.
+   * Zutreffend, und die Zahlen sagen warum: `astWinkel: 46` heißt gemessen von
+   * der Senkrechten, die Äste stiegen also steiler als sie ausladeten
+   * (sin 0,72 zu cos 0,69). Dazu Astlängen von 1,2 bis 2,3 m an einem 17-m-Baum
+   * — eine Krone von gut 2 m Radius auf einem 10 m hohen Schaft.
+   *
+   * Eine freistehende Rotbuche ist ungefähr **so breit wie hoch**. Jetzt:
+   * `astWinkel: 74` (die Äste laden aus, statt zu steigen), Beastung ab 48 %
+   * statt 55 %, und 6 Quirle zu 5 Ästen statt 4 zu 4. Kostet 1.102 → rund 2.000
+   * Dreiecke, also etwa so viel wie die Fichte mit 2.152 — und die stand nie zur
+   * Debatte, weil sie ihre Form hatte.
+   */
   buche: {
-    hoehe: 17, fussRadius: 0.42, beastungAb: 0.55, astWinkel: 46,
-    quirle: 4, jeQuirl: 4, laub: 0.95,
+    hoehe: 17, fussRadius: 0.42, beastungAb: 0.48, astWinkel: 74,
+    quirle: 6, jeQuirl: 5, laub: 0.95,
     stammFarbe: '#6b6659', laubFarbe: '#55703a', laubFarbe2: '#6d8a4a',
   },
 };
@@ -152,8 +168,14 @@ export function baueBaum(
   // Die Mittelstufe muss deutlich billiger sein, nicht nur etwas. Erster Versuch
   // (Quirle halbiert, ein Ast weniger) landete bei ~330 Dreiecken und war damit auf
   // dem Waldstandort der groesste Einzelposten. Jetzt drei Quirle zu zwei Aesten.
+  // Die Mittelstufe muss deutlich billiger sein — aber nicht so billig, dass sie
+  // die Form verliert. 3 Quirle zu 2 Ästen ergaben bei der Fichte **174 Dreiecke**,
+  // und das ist im Bild ein Stab mit sechs Klumpen, kein Kegel. Sie deckt 45 bis
+  // 110 m ab (`sichtweiten.ts`), und bei 45 m füllt eine 24-m-Fichte ein Drittel
+  // der Bildhöhe. 4 zu 3 mit größerem Laub kostet etwa doppelt so viel und behält
+  // die Silhouette, um die es in dieser Stufe allein geht.
   const w: BaumWerte = grob
-    ? { ...roh, quirle: 3, jeQuirl: 2, laub: roh.laub * 1.25 }
+    ? { ...roh, quirle: 4, jeQuirl: 3, laub: roh.laub * 1.35 }
     : roh;
   const zufall = mulberry(art.charCodeAt(0) * 7919 + variante * 104729);
   const teile: THREE.BufferGeometry[] = [];
@@ -181,9 +203,13 @@ export function baueBaum(
   if (art === 'buche') {
     // Zwei Starkäste als Gabelung — der Schirm der Buche beginnt oben am Schaft.
     for (const seite of [-1, 1]) {
-      const g = new THREE.CylinderGeometry(0.08, w.fussRadius * 0.4, hoehe * 0.3, 4, 1, true);
+      // 0,20 statt 0,30 der Baumhöhe und tiefer angesetzt: Mit den alten Werten
+      // reichten die beiden Starkäste bis auf 102 % der Baumhöhe und standen als
+      // zwei haardünne Striche über der Krone — im Bild die Antennen, die einen
+      // Baum wie einen Mast aussehen lassen. Jetzt enden sie bei 86 %, also innen.
+      const g = new THREE.CylinderGeometry(0.09, w.fussRadius * 0.4, hoehe * 0.20, 4, 1, true);
       g.rotateZ(seite * 0.42);
-      g.translate(seite * hoehe * 0.06, stammHoehe + hoehe * 0.13, 0);
+      g.translate(seite * hoehe * 0.05, stammHoehe + hoehe * 0.06, 0);
       teile.push(faerbe(g, stammFarbe, 0.3, hoehe));
     }
   }
@@ -197,9 +223,17 @@ export function baueBaum(
     const y = astBeginn + (astEnde - astBeginn) * t;
     // Fichte: Äste werden nach oben kürzer — das ergibt den Kegel.
     // Buche: Äste werden nach oben LÄNGER — das ergibt den Schirm.
+    // Fichte: nach oben kürzer — Kegel. Buche: nach oben länger — Schirm.
+    // Der Buchenfaktor war 0,16 und ergab an einem 17-m-Baum eine Krone von 2,3 m
+    // Radius. Eine freistehende Buche trägt eine Krone von rund einem Drittel
+    // ihrer Höhe je Seite; 0,34 trifft das, ohne dass die Äste sich kreuzen.
     const laenge = art === 'fichte'
       ? hoehe * 0.30 * (1 - t * 0.88) + 0.4
-      : hoehe * 0.16 * (0.45 + t * 0.9);
+      // Kuppel statt Trichter: Die Länge kulminiert bei etwa 55 % der Krone und
+      // fällt zur Spitze wieder ab. Eine monoton steigende Länge (erster Versuch,
+      // `0.5 + t * 0.75`) macht die Krone oben am breitesten — im Bild ein
+      // Trichter mit hohlem Kern, nicht die geschlossene Kuppel einer Buche.
+      : hoehe * 0.34 * (0.45 + 0.75 * Math.sin(Math.PI * (0.25 + t * 0.7)));
     const dreh = zufall() * Math.PI * 2;
 
     for (let a = 0; a < w.jeQuirl; a++) {
@@ -209,10 +243,29 @@ export function baueBaum(
 
       // Im groben Zustand tragen die Aeste kein eigenes Volumen mehr — nur das Laub
       // zaehlt auf Entfernung, und ein Ast ohne Laub ist ein Strich.
+      /**
+       * Der Ast zeigt dorthin, wo sein Laub liegt — mit **derselben** Rechnung.
+       *
+       * Bis zum 26.08.2026 standen hier zwei verschiedene Auslegungen desselben
+       * Winkels: Der Ast wurde um `π/2 − nick` gekippt, das Laub aber über
+       * `sin(nick)` waagerecht und `cos(nick)` senkrecht gesetzt. Das sind
+       * komplementäre Winkel — sie stimmen nur bei genau 45° überein. Bei der
+       * Fichte (108°) fiel es nicht auf, weil die flach gedrückten Laubballen die
+       * Äste verdecken; bei der Buche standen die Äste fast senkrecht aus einer
+       * waagerecht ausgebreiteten Krone heraus, als haardünne Antennen. Genau die
+       * hat Flo im Bild gesehen.
+       *
+       * Statt den Winkel ein zweites Mal auszulegen, wird die Richtung einmal
+       * gebildet und beides daraus abgeleitet. Zwei Auslegungen derselben Zahl
+       * sind zwei Wahrheiten, und die driften.
+       */
+      const richtung = new THREE.Vector3(
+        dx * Math.sin(nick), Math.cos(nick), dz * Math.sin(nick),
+      ).normalize();
       const ast = new THREE.CylinderGeometry(0.015, 0.05, laenge, 3, 1, true);
       ast.translate(0, laenge / 2, 0);
-      ast.rotateZ(-nick + Math.PI / 2);
-      ast.rotateY(-phi);
+      ast.applyQuaternion(
+        new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), richtung));
       ast.translate(0, y, 0);
       // Äste biegen sich mit, aber weniger als das Laub an ihrem Ende.
       teile.push(faerbe(ast, stammFarbe, 0.45 + t * 0.3, hoehe));
