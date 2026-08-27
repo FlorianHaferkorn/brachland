@@ -95,26 +95,39 @@ export const STIMMUNG: Record<string, Stimmung> = {
     // 0,000 — nicht dunkel, sondern aus. Nacht bleibt die dunkelste Stimmung, aber
     // mit Zeichnung statt mit Löchern.
     /**
-     * Am Hang ist trotzdem mehr als die Hälfte des Bildes ein Loch — und diese
-     * Werte hier lösen es **nicht** (G-116).
+     * Belichtung 1,40 → **2,60**: Bei 1,40 war am Hang fast die Hälfte des
+     * Bildes nicht dunkel, sondern **aus** (G-116).
      *
-     * Der Hinweis darüber stammt aus einem Test gegen eine ebene Fläche.
-     * Gemessen an einer echten Szene mit Hang — Felsflanke,
-     * `?absetzen=-1620,-1620,40` — liegen **57,6 % aller Pixel** unter einer
-     * Leuchtdichte von 0,02, der Median bei 0,007. Dieselbe Szene:
-     * `nebelmorgen` 9,6 %, `daemmerung` 18,2 %. Auf offenem Feld dagegen sind es
-     * nur 4,8 % — Nacht funktioniert dort, wo Himmel im Bild ist, und fällt aus,
-     * wo ein Hang ihn verdeckt.
+     * Der Hinweis darüber stammt aus einem Test gegen eine ebene Fläche und hat
+     * den Fall nie gesehen. Gemessen an vier echten Orten, Anteil der Pixel,
+     * deren höchster Kanal **exakt 0** ist:
      *
-     * Der Versuch, das über Umgebung (0,80 → 1,05) und Belichtung (1,40 → 1,75)
-     * zu heben, brachte 57,6 % → 54,3 % — bei einem Messrauschen von 0,3
-     * Punkten real, aber ohne Wirkung auf das Problem. Beide Werte stehen
-     * deshalb wieder da, wo G-7 sie gegen ein MacBook gesetzt hat. Was fehlt,
-     * ist kein Faktor, sondern ein anderer Mechanismus.
+     * | Ort | nacht | daemmerung | nebelmorgen | abendrot |
+     * |---|---|---|---|---|
+     * | Felsflanke | **42,7 %** | 2,8 % | 1,0 % | 0,1 % |
+     * | Waldrand | **47,2 %** | 5,5 % | 4,9 % | 4,6 % |
+     * | Talboden | 1,7 % | 0,0 % | 0,2 % | 1,4 % |
+     * | Dorf | 1,1 % | 1,5 % | 1,3 % | 0,3 % |
+     *
+     * Nur `nacht`, und nur wo kein Himmel im Bild steht. Ein Spitzenwert bei
+     * **genau 0** und nicht bei 1 oder 2 heisst: Es ist keine Fläche unbeleuchtet,
+     * das Ergebnis fällt unter die 8-Bit-Schwelle. Genau deshalb halfen Umgebung
+     * (0,80 → 1,05) und ein kleiner Belichtungsschritt (1,40 → 1,75) nichts.
+     *
+     * Die Reihe, die es entschieden hat — Anteil exakt schwarzer Pixel gegen
+     * Belichtung: 1,40 → 42,7 % · 2,00 → 17,2 % · **2,60 → 3,6 %** · 3,20 →
+     * 2,6 % · 4,00 → 2,0 %. Der Knick liegt bei 2,60; darüber kostet jeder
+     * weitere Schritt Dunkelheit ohne Gewinn.
+     *
+     * Nacht bleibt mit Abstand die dunkelste Stimmung: Median-Leuchtdichte
+     * **0,014** gegen 0,118 bei `daemmerung` und 0,156 bei `nebelmorgen`. Die
+     * Lichtwerte sind unangetastet — Belichtung ist seit D22 genau der Regler
+     * für „kommt die Szene auf einem Bildschirm an", getrennt von der
+     * Kunstrichtung.
      */
     sonne: '#8fa9c4', sonneStaerke: 0.45, umgebung: '#22323a', umgebungStaerke: 0.80,
     sonnenstand: [-80, 90, 60] as const,
-    belichtung: 1.40,
+    belichtung: 2.60,
     // Mond: harte kleine Scheibe, fast kein Hof.
     zenit: '#05080d', horizont: '#131c22', scheibe: 0.0009, hof: 900,
     // Nachts trägt der Umriss fast das ganze Bild — deshalb hier am stärksten.
