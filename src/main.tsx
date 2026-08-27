@@ -77,7 +77,19 @@ function App() {
   /** Kulisse jenseits der Region. `null` heisst „nicht da" und ist kein Fehler. */
   const [fernland, setFernland] = useState<Fernland | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
-  const [tageszeit, setTageszeit] = useState(0.26);
+  /**
+   * Tageszeit, per Adresse setzbar: `?zeit=0.52`.
+   *
+   * Dieselbe Begründung wie beim Absetzpunkt (D86) und beim Abschalter: Wer
+   * vier Stimmungen nebeneinander beurteilen will, braucht sie reproduzierbar
+   * und in derselben Sekunde — ein Regler, den man von Hand schiebt, gibt vier
+   * Bilder aus vier verschiedenen Zuständen. Ungültige Werte fallen still auf
+   * den Standard zurück; ein Tippfehler soll die Szene nicht anhalten.
+   */
+  const [tageszeit, setTageszeit] = useState(() => {
+    const roh = Number(new URLSearchParams(location.search).get('zeit'));
+    return Number.isFinite(roh) && roh >= 0 && roh < 1 ? roh : 0.26;
+  });
   const [messung, setMessung] = useState<Messwerte | null>(null);
   const [qualitaet, setQualitaet] = useState<Qualitaet>(QUALITAET_STANDARD);
   const [schalterOffen, setSchalterOffen] = useState(false);

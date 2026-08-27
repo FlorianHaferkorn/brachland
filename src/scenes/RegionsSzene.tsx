@@ -94,6 +94,24 @@ export const STIMMUNG: Record<string, Stimmung> = {
     // Umgebung von 0,35 auf 0,60: Bei 0,35 lag JEDE beschattete Fläche exakt bei
     // 0,000 — nicht dunkel, sondern aus. Nacht bleibt die dunkelste Stimmung, aber
     // mit Zeichnung statt mit Löchern.
+    /**
+     * Am Hang ist trotzdem mehr als die Hälfte des Bildes ein Loch — und diese
+     * Werte hier lösen es **nicht** (G-116).
+     *
+     * Der Hinweis darüber stammt aus einem Test gegen eine ebene Fläche.
+     * Gemessen an einer echten Szene mit Hang — Felsflanke,
+     * `?absetzen=-1620,-1620,40` — liegen **57,6 % aller Pixel** unter einer
+     * Leuchtdichte von 0,02, der Median bei 0,007. Dieselbe Szene:
+     * `nebelmorgen` 9,6 %, `daemmerung` 18,2 %. Auf offenem Feld dagegen sind es
+     * nur 4,8 % — Nacht funktioniert dort, wo Himmel im Bild ist, und fällt aus,
+     * wo ein Hang ihn verdeckt.
+     *
+     * Der Versuch, das über Umgebung (0,80 → 1,05) und Belichtung (1,40 → 1,75)
+     * zu heben, brachte 57,6 % → 54,3 % — bei einem Messrauschen von 0,3
+     * Punkten real, aber ohne Wirkung auf das Problem. Beide Werte stehen
+     * deshalb wieder da, wo G-7 sie gegen ein MacBook gesetzt hat. Was fehlt,
+     * ist kein Faktor, sondern ein anderer Mechanismus.
+     */
     sonne: '#8fa9c4', sonneStaerke: 0.45, umgebung: '#22323a', umgebungStaerke: 0.80,
     sonnenstand: [-80, 90, 60] as const,
     belichtung: 1.40,
@@ -125,7 +143,29 @@ export const STIMMUNG: Record<string, Stimmung> = {
     himmel: '#1a1614', nebel: '#2a221d', nebelNah: 50, nebelFern: 380,
     // Die Sonne steht bei 28 von 150 Einheiten Höhe — flacher Einfall, also kaum
     // Direktlicht auf waagerechtem Boden. Was das Bild trägt, ist hier die Umgebung.
-    sonne: '#d98b5b', sonneStaerke: 1.15, umgebung: '#4e433c', umgebungStaerke: 0.95,
+    /**
+     * Warme Sonne, **kaltes** Umgebungslicht — aus dem Grund, der übrig blieb.
+     *
+     * Bis zum 27.08.2026 stand hier `umgebung: '#4e433c'`, ein warmes Braun.
+     * Am Abend kommt das Direktlicht von der tiefstehenden Sonne und ist warm,
+     * das Licht in den Schatten kommt vom **Himmel** und ist blau — zwei warme
+     * Quellen sind physikalisch einfach falsch. Gemessen an der Felsflanke
+     * (`?absetzen=-1620,-1620,40`): Pixel unter Leuchtdichte 0,02 **29,8 % →
+     * 20,6 %**, also ein Drittel weniger Loch, bei einem Messrauschen von 0,3
+     * Punkten.
+     *
+     * **Wofür es NICHT gut war, und das gehört dazu (G-115):** Der Anlass war
+     * die Beobachtung, abendrot sei monochrom — gemessen als
+     * saettigungsgewichtete Bündelung des Farbwinkels **0,994**, wo dieselbe
+     * Szene in `daemmerung` 0,529 und in `nebelmorgen` 0,738 ergibt. Die
+     * Umstellung auf kaltes Umgebungslicht änderte daran **nichts** (0,994 →
+     * 0,990), und der Nebel als zweiter Verdächtiger genauso wenig (Nebel
+     * praktisch abgeschaltet: 0,990). Übrig bleibt die Sonnenfarbe selbst:
+     * `#d98b5b` hat Sättigung 0,58 gegen 0,31 bei `daemmerung`, und ein stark
+     * gesättigtes Licht zieht jede Fläche, die es trifft, auf seinen Ton. Das
+     * ist keine Fehlfunktion — das **ist** Abendrot.
+     */
+    sonne: '#d98b5b', sonneStaerke: 1.15, umgebung: '#454f5e', umgebungStaerke: 0.95,
     sonnenstand: [130, 28, 70] as const,
     belichtung: 2.0,
     zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
@@ -479,7 +519,11 @@ function Props({ props, wind }: { props: PropInstanz[]; wind: THREE.MeshStandard
     if (nahNeu) {
       letzte.current.copy(p);
       setSichtbar(nah.map(({ c, stufe }) => ({
-        c, stufe, id: `${c.art}:${c.variante}:${c.mitte[0]}:${c.mitte[1]}`,
+        // Die Stufe gehört in den Schlüssel: Seit die Mittelstufe ihre Varianten
+        // zusammenlegt (D100), tragen alle zusammengelegten Chunks `variante 0`,
+        // und ohne die Stufe könnte ein Nahchunk derselben Kachel mit Variante 0
+        // denselben Schlüssel bekommen.
+        c, stufe, id: `${c.art}:${c.variante}:${stufe}:${c.mitte[0]}:${c.mitte[1]}`,
       })));
     }
     if (fernNeu) {

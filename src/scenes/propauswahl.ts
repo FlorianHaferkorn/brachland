@@ -30,6 +30,30 @@ import { ATTRAPPE_AB, MITTEL_AB, FERN_NEUBEWERTUNG } from './sichtweiten.js';
 
 export type PropStufe = 'nah' | 'mittel' | 'fern';
 
+/**
+ * In der **Mittelstufe** fallen die Varianten zusammen.
+ *
+ * `chunkeProps` schlüsselt nach (Art, Variante, Kachel). Das ist in der Nahstufe
+ * richtig — eine Fichte neben der Figur, die aussieht wie die daneben, fällt
+ * sofort auf. Zwischen 45 und 110 m ist eine Fichte im Bild rund 15 px hoch, und
+ * dort kostet die Variante nur eines: einen eigenen Draw Call je Variante und
+ * Kachel.
+ *
+ * Gemessen an vier Orten (27.08.2026): Von den montierten Nahmeshes sind
+ * **86 % Mittelstufe** — 84 von 98, 123 von 123, 171 von 199, 75 von 91. Legt
+ * man sie je (Art, Kachel) zusammen, bleiben **30, 36, 48, 20**.
+ *
+ * Der Unterschied zu der bei D99 verworfenen Bündelung ist die **Kachel**: Sie
+ * bleibt erhalten. Die Hüllkugel behält ihre 52 m, das Frustum schneidet weiter
+ * wie bisher — es fällt nur die Variantenachse weg. Genau deshalb wirkt es hier
+ * und dort nicht.
+ *
+ * Was bleibt: Farbe (`propTon` je Instanz aus deren **eigener** Variante),
+ * Drehung und Größe. Was wegfällt: die Form. Ab 110 m ist es ohnehin dieselbe
+ * Attrappe für alle.
+ */
+const MITTEL_VARIANTE = 0;
+
 export interface Auswahl {
   /** Chunks mit eigenem Mesh, je nach Abstand in voller oder mittlerer Auflösung. */
   nah: { c: PropChunk; stufe: PropStufe }[];
@@ -78,5 +102,39 @@ export function waehleProps(
      */
     nah.push({ c, stufe: mitte > MITTEL_AB ? 'mittel' : 'nah' });
   }
-  return { nah, buendel };
+  return { nah: legeMittelZusammen(nah), buendel };
+}
+
+/**
+ * Mittelstufen-Chunks derselben Art und Kachel zu einem zusammenfassen.
+ *
+ * Die Nahstufe bleibt unangetastet. Warum überhaupt, steht bei
+ * `MITTEL_VARIANTE`.
+ *
+ * Zwei Dinge, auf die der Test achtet, weil sie im Bild nicht auffallen würden:
+ * Es darf keine Instanz verlorengehen und keine doppelt auftauchen. Ein
+ * verschwundener Grasbüschel unter 3.000 sieht aus wie nichts.
+ */
+function legeMittelZusammen(
+  eintraege: { c: PropChunk; stufe: PropStufe }[],
+): { c: PropChunk; stufe: PropStufe }[] {
+  const heraus: { c: PropChunk; stufe: PropStufe }[] = [];
+  const zusammen = new Map<string, PropChunk>();
+  for (const e of eintraege) {
+    if (e.stufe !== 'mittel') { heraus.push(e); continue; }
+    const c = e.c;
+    const schluessel = `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
+    const da = zusammen.get(schluessel);
+    if (da) {
+      // Neues Array, nicht `push` auf das des ersten Chunks — der liegt in der
+      // Liste, aus der bei jedem Schritt neu ausgewählt wird, und würde sonst
+      // von Bild zu Bild weiterwachsen.
+      da.instanzen = da.instanzen.concat(c.instanzen);
+      continue;
+    }
+    const neu: PropChunk = { ...c, variante: MITTEL_VARIANTE, instanzen: c.instanzen.slice() };
+    zusammen.set(schluessel, neu);
+    heraus.push({ c: neu, stufe: 'mittel' });
+  }
+  return heraus;
 }
