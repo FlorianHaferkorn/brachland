@@ -288,6 +288,16 @@ export function baueGebaeude(
   const SOCKEL = new THREE.Color('#585349');
   /** Gesims und Türblatt: dasselbe Holz wie Dach und Balkon. */
   const TUER = new THREE.Color('#332b22');
+  /**
+   * Kaminschaft: heller Kalkputz.
+   *
+   * Bis zum 27.08.2026 stand der Schornstein in `SOCKEL` (#585349), einen Hauch
+   * neben dem Dachton (#4a4038). Auf der Dachfläche war er dadurch unsichtbar
+   * und nur dort zu erkennen, wo er zufällig gegen den Himmel stand. Ein Kamin
+   * ist im Bestand fast immer verputzt und damit das **hellste** Teil des
+   * Daches — der Kontrast ist hier kein Effekt, sondern die Wirklichkeit.
+   */
+  const KAMIN = new THREE.Color('#9a9083');
 
   /** Ein Dreieck mit Farbe. */
   const tri = (
@@ -630,33 +640,77 @@ export function baueGebaeude(
     }
 
     /**
-     * Schornstein.
+     * Schornstein — ein Körper mit Kopf, kein Pfosten.
      *
-     * Zehn Dreiecke, und es ist nach dem Holzgiebel der zweitgrößte Gewinn: Ein
-     * Dach ohne Schornstein liest sich als Modell, eines mit als Haus. Er steht
-     * auf einem Drittel der Firstlänge, leicht neben dem First — mittig auf dem
-     * First sähe er nach Symmetrieübung aus.
+     * Ein Dach ohne Schornstein liest sich als Modell, eines mit als Haus. Er
+     * steht auf einem Drittel der Firstlänge, leicht neben dem First — mittig
+     * auf dem First sähe er nach Symmetrieübung aus.
+     *
+     * ## Was am 27.08.2026 daran falsch war
+     *
+     * Drei Sachen, und keine davon war die Höhe:
+     *
+     * 1. **Fester Querschnitt.** 0,84 x 0,84 m auf jedem Haus. Gemessen über
+     *    1.805 Gebäude: Schlankheit h/b im Median 1,67, an der Halle mit 21,6 m
+     *    Spannweite 2,13. Das ist für sich genommen keine Stange — aber neben
+     *    einem 22 m breiten Dach ist ein 84-cm-Klotz ein Streichholz, und neben
+     *    einem 6-m-Schuppen ein Turm. Echte Kamine wachsen mit dem Haus.
+     * 2. **Kein Kopf.** Ein Kamin ohne überstehende Abdeckplatte ist eine
+     *    Säule. Die Platte ist das eine Bauteil, an dem man ihn auf 60 m noch
+     *    als Kamin liest — sie bricht die senkrechte Silhouette.
+     * 3. **Farbe fast wie das Dach.** `SOCKEL` (#585349) neben `DACH` (#4a4038):
+     *    Der Schornstein verschwand in der Dachfläche und war nur dort zu
+     *    sehen, wo er gegen den Himmel stand. Verputzte Kamine sind hell.
+     *
+     * ## Und ein echtes Loch
+     *
+     * Der Fuß hing an `klein / 2`, die Dachfläche seit D94 an
+     * `tiefe / 2 + ueber`. Seit die Neigung von der Spannweite abhängt, laufen
+     * die beiden auseinander: Bei **405 von 1.805 Gebäuden** stand der Fuß bis
+     * zu 9 cm **über** der Dachunterseite, und unter dem Schornstein war ein
+     * Schlitz ins Dach. Der Fuß kommt jetzt aus `dachY` selbst — derselben
+     * Funktion, aus der die Haut gebaut wird —, genommen an der firstfernen
+     * Kante des Querschnitts, also der tiefsten Stelle unter dem Kamin.
+     *
+     * Kosten: 18 statt 10 Dreiecke, bei 222 im Median (D84) ein Zuschlag von
+     * 3,6 %.
      *
      * Nicht an Garagen und nicht an Bauten unter 4 m Breite: Ein Schornstein auf
      * einem Carport ist schlimmer als keiner.
      */
     if (!garage && klein >= 4 && breite >= 5) {
+      // Querschnitt nach Spannweite: 0,60 m am Schuppen, 1,10 m an der Halle.
+      // Oberbayerischer Bestand liegt zwischen 0,5 und 1,1 m.
+      const sb = Math.min(0.55, Math.max(0.30, klein * 0.035));
       const su = minU + breite * 0.32;
-      const sv = mv - klein * 0.10;
-      const sb = 0.42, st = 0.42;
-      // Höhe: bis über den First, sonst verschwindet er im Dach.
-      const fussY = traufe + (firstH - traufe) * (1 - Math.abs(sv - mv) / (klein / 2)) - 0.1;
-      const kopfY = firstH + 0.85;
-      const ecken: [number, number][] = [
-        [su - sb, sv - st], [su + sb, sv - st], [su + sb, sv + st], [su - sb, sv + st],
+      // Abstand vom First: ein Zehntel der Spannweite, aber nie so wenig, dass
+      // der Querschnitt über den First greift.
+      const sv = mv - Math.max(sb + 0.25, klein * 0.10);
+      // Fuß aus derselben Formel wie die Dachhaut, an der firstfernen Kante.
+      const fussY = dachY(sv - sb) - 0.15;
+      // Kopf: über den First, und der Überstand wächst mit dem Haus mit.
+      const kopfY = firstH + 0.55 + Math.min(0.9, klein * 0.030);
+      const schaft: [number, number][] = [
+        [su - sb, sv - sb], [su + sb, sv - sb], [su + sb, sv + sb], [su - sb, sv + sb],
       ];
       for (let i = 0; i < 4; i++) {
-        const [u1, v1] = ecken[i], [u2, v2] = ecken[(i + 1) % 4];
+        const [u1, v1] = schaft[i], [u2, v2] = schaft[(i + 1) % 4];
         quad(welt3(u1, fussY, v1), welt3(u2, fussY, v2),
-             welt3(u2, kopfY, v2), welt3(u1, kopfY, v1), SOCKEL);
+             welt3(u2, kopfY, v2), welt3(u1, kopfY, v1), KAMIN);
       }
-      quad(welt3(ecken[0][0], kopfY, ecken[0][1]), welt3(ecken[1][0], kopfY, ecken[1][1]),
-           welt3(ecken[2][0], kopfY, ecken[2][1]), welt3(ecken[3][0], kopfY, ecken[3][1]), TUER);
+      // Abdeckplatte: 11 cm Überstand, 12 cm dick, dunkel gegen den hellen
+      // Schaft. Vier Stirnflächen und ein Deckel.
+      const kb = sb + 0.11, deckelY = kopfY + 0.12;
+      const platte: [number, number][] = [
+        [su - kb, sv - kb], [su + kb, sv - kb], [su + kb, sv + kb], [su - kb, sv + kb],
+      ];
+      for (let i = 0; i < 4; i++) {
+        const [u1, v1] = platte[i], [u2, v2] = platte[(i + 1) % 4];
+        quad(welt3(u1, kopfY, v1), welt3(u2, kopfY, v2),
+             welt3(u2, deckelY, v2), welt3(u1, deckelY, v1), TUER);
+      }
+      quad(welt3(platte[0][0], deckelY, platte[0][1]), welt3(platte[1][0], deckelY, platte[1][1]),
+           welt3(platte[2][0], deckelY, platte[2][1]), welt3(platte[3][0], deckelY, platte[3][1]), TUER);
     }
 
     /**
