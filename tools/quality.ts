@@ -194,7 +194,8 @@ if (existsSync('assets/creatures')) {
   }
   if (gesamt / 1024 > BUDGET.paketMB)
     stop('Assets', `Gesamtpaket ${(gesamt / 1024).toFixed(1)} MB über ${BUDGET.paketMB} MB — Offline-Cache gefährdet`);
-} else console.log('  · [Assets] kein Kreaturenmodell — so gewollt, solange ADR-0002 gilt (G-23)');
+} else warn('Assets', 'kein Kreaturenmodell — offener Posten, nicht mehr Absicht: ADR-0002 ist seit dem '
+  + '16.08.2026 erfüllt und die Stilreferenz steht. Es fehlen Rohmodelle (G-119, G-120)');
 
 /**
  * Archetyp-Rigs — dass sie da sind, nicht wie groß sie sind.
