@@ -35,7 +35,8 @@
     "dichte": "tsx tools/dichtecheck.ts",
     "gestalt": "tsx tools/gestaltcheck.ts",
     "gleit": "tsx tools/gleitcheck.ts",
-    "rigs": "node tools/rigbau.mjs assets/rigs"
+    "rigs": "node tools/rigbau.mjs assets/rigs",
+    "bildtor": "node tools/bildtor.mjs"
   },
   "dependencies": {
     "@dgreenheck/ez-tree": "^1.1.0",
