@@ -791,6 +791,12 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
   // sieht nicht nach Wind aus, sondern nach kaputter Animation.
   const { material, setzeRand } = useMemo(() => baueWindMaterial({
     amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 1.4,
+    // Breiterer Saum als der Rest der Welt (3,0): Seit Kreaturen Modelle mit 2.000
+    // bis 3.000 Flaechen sind, steht fast jede Facette frontal zur Kamera, und ein
+    // schmaler Fresnel-Saum trifft davon nichts — dasselbe, was G-118 an der
+    // Fichtenkrone gemessen hat. Mehr Staerke hilft dort nicht, ein kleinerer
+    // Exponent schon.
+    randSchaerfe: 1.6,
   }), []);
   useEffect(() => {
     setzeRand(new THREE.Color(rand.farbe), rand.staerke * 1.4);

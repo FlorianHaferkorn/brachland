@@ -25,6 +25,22 @@ export interface WindMaterialWerte {
   randFarbe: THREE.Color;
   /** Stärke des Silhouettenlichts. 0 schaltet es ab. */
   randStaerke: number;
+  /**
+   * Exponent des Fresnel-Terms — **wie breit** der Rand ist, nicht wie hell.
+   *
+   * Bei 3,0 leuchten nur wenige Grad um die Silhouette. Auf einer Fichtenkrone
+   * aus tausenden frontalen Facetten ist das ein verschwindender Flaechenanteil,
+   * und mehr `randStaerke` aendert daran nichts: 0,30 bis 1,40 bewegten den
+   * Schwarzanteil um weniger als zwei Punkte (G-118).
+   *
+   * Fuer **Kreaturen** ist das der falsche Kompromiss. Sie sind das, wonach der
+   * Spieler sucht, und ein 3.000-Flaechen-Koerper hat dasselbe Problem wie eine
+   * Krone: viele kleine Facetten, fast alle frontal. Ein kleinerer Exponent
+   * verbreitert den Saum, statt ihn heller zu machen.
+   *
+   * Standard bleibt 3,0, damit Baeume, Buesche und Gras unveraendert aussehen.
+   */
+  randSchaerfe?: number;
 }
 
 /**
@@ -47,7 +63,7 @@ export interface WindMaterialWerte {
 const RAND_GLSL = /* glsl */ `
   // Fresnel: 0 dort, wo die Fläche zum Betrachter zeigt, 1 an der Silhouette.
   float randKante = 1.0 - abs(dot(geometryNormal, geometryViewDir));
-  reflectedLight.indirectSpecular += uRandFarbe * pow(randKante, 3.0) * uRandStaerke;
+  reflectedLight.indirectSpecular += uRandFarbe * pow(randKante, uRandSchaerfe) * uRandStaerke;
 `;
 
 /**
@@ -91,6 +107,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
   const zeit = { value: 0 };
   const randFarbe = { value: w.randFarbe.clone() };
   const randStaerke = { value: w.randStaerke };
+  const randSchaerfe = { value: w.randSchaerfe ?? 3.0 };
   const windAmp = { value: w.amplitude };
 
   const material = basis instanceof THREE.MeshStandardMaterial
@@ -103,6 +120,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
     shader.uniforms.uZeit = zeit;
     shader.uniforms.uRandFarbe = randFarbe;
     shader.uniforms.uRandStaerke = randStaerke;
+    shader.uniforms.uRandSchaerfe = randSchaerfe;
     shader.uniforms.uWindAmp = windAmp;
 
     shader.vertexShader = shader.vertexShader
@@ -115,10 +133,10 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>',
-        '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;')
+        '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;')
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v3';
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v4';
 
   return {
     material,

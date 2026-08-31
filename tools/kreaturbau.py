@@ -33,7 +33,12 @@ from mathutils import Vector, Matrix
 
 ARGS = sys.argv[sys.argv.index('--') + 1:]
 QUELLE = ARGS[0] if ARGS else '.cache/cc0'
-ZIEL = 'public/creatures'
+ZIEL = ARGS[1] if len(ARGS) > 1 else 'public/creatures'
+# Dateiname → Kreatur laesst sich ueberschreiben: `datei=kreatur,datei=kreatur`.
+# Dafuer gibt es einen Grund, der nichts mit Bequemlichkeit zu tun hat: Ein
+# Kandidat mit anderer Lizenz muss sich aufbereiten und ansehen lassen, **ohne**
+# dass er dabei in `public/` landet und damit ausgeliefert wird.
+EIGEN = dict(p.split('=') for p in ARGS[2].split(',')) if len(ARGS) > 2 else None
 
 # Quelldatei → Kreatur aus `content/creatures`. Die Zuordnung ist eine
 # **Naeherung**: Ein Hirschgeweih ist kein Steinbockgehoern. Das Chitinplatten-
@@ -47,8 +52,20 @@ ZUORDNUNG = [
     ('stier',  'wurzelkeiler'),
 ]
 
-# Aus `.cache/palette.ts`, gemessen ueber Haus-, Baum- und Propfarben.
-BAND_UNTEN, BAND_OBEN = 0.050, 0.190
+# Aus `.cache/palette.ts`, gemessen ueber die 21 Farben von Haeusern, Baeumen und
+# Props: Leuchtdichte p10 0,054 · Median 0,132 · p90 0,188 (linear).
+#
+# **Kreaturen liegen bewusst im oberen Teil davon.** Der erste Anlauf nahm das
+# ganze Band 0,05–0,19 — und der Grathorn stand danach im Bild **dunkler als das
+# Gras hinter ihm**. Er verschwand nicht, weil ihm ein Rand fehlte, sondern weil
+# er dunkler war als sein Hintergrund; ein breiterer Silhouettensaum brachte
+# gemessen nur 21,4 % → 19,9 % schwarze Pixel im Tierausschnitt.
+#
+# Eine Kreatur ist das, wonach der Spieler sucht (D91, G-23). Sie gehoert ueber
+# den Median der Welt, nicht ueber deren ganze Spanne — Dachziegel und
+# Fensterhoehlen sind der Grund fuer das untere Ende des Bandes, und in dieser
+# Gesellschaft hat ein Tier nichts zu suchen.
+BAND_UNTEN, BAND_OBEN = 0.115, 0.245
 
 # Muss `RIG_HOEHE` in `src/world/kreaturgestalt.ts` entsprechen. Die Zielhoehe
 # wird **beim Export** eingerechnet, nicht in der Szene: Dort steht dann fuer
@@ -118,7 +135,7 @@ def basisfarben(mesh):
 os.makedirs(ZIEL, exist_ok=True)
 register = {}
 
-for datei, kid in ZUORDNUNG:
+for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
     pfad = f'{QUELLE}/{datei}.glb'
     if not os.path.exists(pfad):
         print(f'{kid}: {pfad} fehlt'); continue
