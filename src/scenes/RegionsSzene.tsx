@@ -15,6 +15,7 @@ import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../wor
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
          baueGartenKachel, type Bandsatz } from '../world/baender.js';
 import { useGLTF } from '@react-three/drei';
+import { MIT_MODELL } from '../world/kreaturgestalt.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
@@ -850,13 +851,48 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
   return (
     <>
       {nah.map(v => (
-        <mesh key={v.id} geometry={gestalt(v.kreatur, v.mutation)} material={material}
-              position={v.position} rotation={[0, v.drehung, 0]}
-              // Stufe 2 ist 15–25 % groesser, Stufe 3 nochmal — aus der Stilreferenz.
-              scale={1 + v.mutation * 0.2}
-              castShadow receiveShadow />
+        MIT_MODELL.has(v.kreatur)
+          ? <KreaturModell key={v.id} kreatur={v.kreatur} material={material}
+                           position={v.position} drehung={v.drehung}
+                           // Stufe 2 ist 15–25 % groesser, Stufe 3 nochmal — aus der Stilreferenz.
+                           skalierung={1 + v.mutation * 0.2} />
+          : <mesh key={v.id} geometry={gestalt(v.kreatur, v.mutation)} material={material}
+                  position={v.position} rotation={[0, v.drehung, 0]}
+                  scale={1 + v.mutation * 0.2}
+                  castShadow receiveShadow />
       ))}
     </>
+  );
+}
+
+/**
+ * Eine Kreatur, für die ein Modell vorliegt.
+ *
+ * Geometrie statt Silhouette, aber **dasselbe Material** wie alle anderen: Der
+ * Silhouettenrand (`randStaerke`) ist das, was eine Kreatur vom Hang abhebt, und
+ * ein Modell braucht ihn genauso. Die Vertexfarbe kommt aus der Datei; das
+ * Material liest sie über `vertexColors`.
+ *
+ * Die Datei ist auf Widerristhöhe und Ursprung zwischen den Füßen genormt
+ * (`tools/kreaturbau.py`) — hier bleibt deshalb nur die Mutationsskalierung.
+ */
+function KreaturModell({ kreatur, material, position, drehung, skalierung }: {
+  kreatur: string;
+  material: THREE.Material;
+  position: [number, number, number];
+  drehung: number;
+  skalierung: number;
+}) {
+  const { scene } = useGLTF(`/creatures/${kreatur}.glb`);
+  const geo = useMemo(() => {
+    let g: THREE.BufferGeometry | null = null;
+    scene.traverse(o => { if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry; });
+    return g;
+  }, [scene]);
+  if (!geo) return null;
+  return (
+    <mesh geometry={geo} material={material} position={position}
+          rotation={[0, drehung, 0]} scale={skalierung} castShadow receiveShadow />
   );
 }
 

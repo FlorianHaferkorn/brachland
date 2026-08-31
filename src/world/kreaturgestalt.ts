@@ -96,6 +96,23 @@ export type BasisRig = 'quadruped' | 'quadruped_small' | 'biped_bird' | 'serpent
  * deutlich darunter, Auerhahn aufgerichtet ~0,85 m, Kreuzotter liegt flach.
  * Maßstabstreue ist der Grund, warum das Projekt überhaupt 3D ist.
  */
+/**
+ * Kreaturen, für die ein **Modell** in `public/creatures` liegt.
+ *
+ * Alles andere steht weiter als Silhouette in der Welt (G-23). Die Liste ist von
+ * Hand gepflegt und wird vom Qualitätstor gegen den Ordner geprüft — ein Eintrag
+ * ohne Datei wäre eine Kreatur, die im Spiel verschwindet, und das sieht man erst
+ * an der Stelle, an der sie stehen sollte.
+ *
+ * Die Modelle kommen aus einem CC0-Tierpack und laufen durch `tools/kreaturbau.py`
+ * (G-123): Materialfarbe an den Vertex, Helligkeit in die Palette der Welt,
+ * Dreiecke auf `zielTris`, Widerristhöhe aus `RIG_HOEHE` eingerechnet. Deshalb
+ * braucht die Szene für Modell und Silhouette denselben Skalierungsausdruck.
+ */
+export const MIT_MODELL: ReadonlySet<string> = new Set([
+  'grathorn', 'k7-wolf', 'nebelgams', 'spuerfuchs', 'wurzelkeiler',
+]);
+
 export const RIG_HOEHE: Record<BasisRig, number> = {
   quadruped: 1.0, quadruped_small: 0.4, biped_bird: 0.85, serpent: 0.22,
 };
