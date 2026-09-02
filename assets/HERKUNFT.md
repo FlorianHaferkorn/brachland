@@ -33,9 +33,16 @@ und der ist auf beiden Rechnern nicht lauffähig (G-119).
 
 Alle Dateien sind gegenüber dem Original verändert: Materialfarbe an den Vertex
 gebacken, Leuchtdichte in die Palette der Welt gezogen, Dreiecke auf `zielTris`
-reduziert, auf Widerristhöhe genormt (`tools/kreaturbau.py`). Bei CC BY ist das
-ausdrücklich erlaubt und muss als Bearbeitung kenntlich sein — diese Zeile ist
-die Kenntlichmachung.
+reduziert, auf Widerristhöhe genormt und um 180° gedreht (`tools/kreaturbau.py`).
+Bei CC BY ist das ausdrücklich erlaubt und muss als Bearbeitung kenntlich sein —
+diese Zeile ist die Kenntlichmachung.
+
+Zwei Eingriffe gehen darüber hinaus und stehen deshalb einzeln hier. Aus allen
+vier Quaternius-Dateien fällt eine mitgelieferte `Icosphere` heraus, die zu
+nichts gehört. Und beim **Grathorn** fällt das Hirschgeweih weg — es ist im
+Original ein eigenes Netz (`Stag_Horns`, 1.616 Flächen), und die Linie trägt laut
+`content/creatures/grathorn.json` ein Chitinplatten-Gehörn. Das kommt als Anbau
+aus `src/world/kreaturgestalt.ts` und ist BRACHLAND-eigen.
 
 ## Was im Spiel stehen muss
 

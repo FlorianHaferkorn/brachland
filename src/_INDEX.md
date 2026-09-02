@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-26
+last-reviewed: 2026-09-02
 shelf-life-days: 90
 owns: *.ts, *.tsx
 ---
@@ -27,7 +27,7 @@ owns: *.ts, *.tsx
 | Aufträge, Zufluchten, NPCs ändern | `spiel/auftraege.ts` → `ui/Ortsfenster.tsx` → `main.tsx` | world/, engine/ |
 | Wald wirkt zu dunkel oder zu flach | `../tools/lichtcheck.ts` **erst messen**, dann `scenes/RegionsSzene.tsx` (`STIMMUNG`, `HEMI_BODEN`) | ui/, engine/ |
 | Fundstücke platzieren oder ihre Wirkung ändern | `scenes/RegionsSzene.tsx` (`Fundstellen`) → `main.tsx` (`findeFragment`) | engine/, ui/ |
-| Aussehen der Kreaturen, Pilzfächer, Mutationsstufen | `world/kreaturgestalt.ts` | engine/, ui/ |
+| Aussehen der Kreaturen, Pilzfächer, Anbauten wie das Chitinplatten-Gehörn, Mutationsstufen | `world/kreaturgestalt.ts` | engine/, ui/ |
 | Vegetationsdichte, Varianten, Modellgrößen | `world/osm.ts` | OSM → Weltdaten: Höhen, Biomraster, Linien, Wege, Gebäude, Spawnzonen. Das Biomraster stempelt **Siedlung aus Gebäuden** (zwei in 20 m, D77) — ohne das standen 79 % der Häuser auf Wiese (G-81) |
 | `world/props.ts` | scenes/, engine/ |
 | Bodendecker direkt um den Spieler | `world/streuung.ts` | props.ts |
@@ -65,7 +65,7 @@ owns: *.ts, *.tsx
 | `spiel/fortschritt.ts` | Stufe (1–40), Erfahrung und Mutation. Kurve durchgerechnet, nicht geschätzt — `tests/fortschritt.test.ts` |
 | `spiel/gegenstaende.ts` | Wirkung von Gegenständen auf einen Kämpfer, plus Beuteverteilung nach einem Sieg |
 | `world/vorkommen.ts` | Kreaturen in der Welt: aus Spawn-Zonen deterministische Vorkommen, Stufe abhängig von der Entfernung zur Regionsmitte |
-| `world/kreaturgestalt.ts` | Silhouetten als Platzhalter, vier Bauformen nach `basisRig`, Farbe nach Element (ADR-0002 sperrt echte Modelle). Trägt den **Pilzfächer** der Stilreferenz, Deckung und Größe je Mutationsstufe. Enthält seit D93 `reitsitz()`: Widerrist und Rumpfversatz **aus der Geometrie gemessen** statt aus `RIG_HOEHE` — die feste 1 passte zu einer Silhouette, die bei Mutation 2 gemessen 2,28 m hoch ist |
+| `world/kreaturgestalt.ts` | Silhouetten als Platzhalter, vier Bauformen nach `basisRig`, Farbe nach Element (ADR-0002 sperrt echte Modelle). Trägt den **Pilzfächer** der Stilreferenz, Deckung und Größe je Mutationsstufe. Enthält seit D93 `reitsitz()`: Widerrist und Rumpfversatz **aus der Geometrie gemessen** statt aus `RIG_HOEHE` — die feste 1 passte zu einer Silhouette, die bei Mutation 2 gemessen 2,28 m hoch ist. Seit D109 ausserdem die **Anbauten**: `baueGehoern()` baut das Chitinplatten-Gehörn des Grathorn aus überlappenden Kegelstümpfen (0,13 · 0,55 · 0,97 Widerristhöhen je Mutationsstufe, 80 · 156 · 216 Dreiecke), `widerristPunkt()` misst den Ansatzpunkt an einem **Modell** — nicht dasselbe wie `reitsitz()`, das die Rückenmitte für den Reiter sucht. Welche Kreatur ein Gehörn trägt, steht als `MIT_GEHOERN` |
 | `engine/battle.ts` | Kampflogik ohne 3D: Schaden, Elementfaktor, Fokus-Ökonomie, Phasen, Zehrung, deterministischer RNG |
 | `ui/BattleScreen.tsx` | Kampfoberfläche: Moves, Wechsel, Fangen, Rückzug. An die Szene angebunden |
 | `ui/Kampfbuehne.tsx` | Kreaturen im Kampfbild — eine kleine Leinwand für beide Seiten, Leerlaufatmung und Trefferzucken |

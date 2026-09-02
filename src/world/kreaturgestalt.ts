@@ -446,3 +446,126 @@ export function reitsitz(geo: THREE.BufferGeometry): {
   // 70 % der Gesamthöhe liegt bei jedem der vier Rigs im Rumpfbereich.
   return { hoehe: hoehe > 0 ? hoehe : bb.max.y * 0.7, versatzX: -mx, versatzZ: -mz };
 }
+
+/**
+ * Chitinplatten-Gehörn — das Merkmal der Grathorn-Linie.
+ *
+ * Aus `docs/design/BRACHLAND_Stilreferenz_v1.md` und dem Bild
+ * `docs/bilder/mutationsstufen_v2.png`: **ein** gebogenes Horn, das aus dem
+ * Widerrist wächst, nach hinten geneigt ansetzt und sich zur Spitze aufrichtet.
+ * Auf der höchsten Stufe ist es so hoch wie das Tier — genau daran soll man auf
+ * Entfernung sehen, wie weit eine Kreatur ist.
+ *
+ * **Warum ein Anbau und kein neues Modell.** Der Grundkörper kommt aus einem
+ * CC0-Tierpack und ist ein Hirsch; sein Hirschgeweih fällt in `kreaturbau.py`
+ * weg (1.616 Flächen), und das Merkmal kommt von hier. Das kostet keine neue
+ * Datei, wächst mit der Mutationsstufe — was eine gebackene Datei nicht kann —
+ * und ist der Prüfstein für alle weiteren Merkmale: Wenn ein Anbau auf einem
+ * fremden Grundkörper sitzt, sitzt jeder.
+ *
+ * Gebaut als Reihe überlappender Kegelstümpfe entlang einer Kurve. Der Überlapp
+ * ist das Wesentliche: Jede Platte setzt breiter an, als die vorige aufhört, und
+ * genau diese Kante liest auf Entfernung als Platte statt als Rohr.
+ */
+const CHITIN_HELL = new THREE.Color('#9c8a68');
+const CHITIN_DUNKEL = new THREE.Color('#6f6350');
+
+export function baueGehoern(
+  /** Ansatzpunkt in Geometriekoordinaten — Widerrist, siehe `widerristPunkt`. */
+  anker: THREE.Vector3,
+  /** Widerristhöhe desselben Modells. Alle Maße sind Vielfache davon. */
+  h: number,
+  /** 0…2. Steuert Länge und Zahl der Platten. */
+  mutation: number,
+  ursprung: Ursprung = 'wildling',
+  saat = 0,
+): THREE.BufferGeometry {
+  const zufall = mulberry(9173 + saat * 31 + mutation * 977);
+  /**
+   * 0,16 · 0,61 · 1,06 der Widerristhöhe.
+   *
+   * Abgelesen an der Stilreferenz, nicht gewählt: Dort ist das Horn auf S1 ein
+   * Ansatz von rund einem Zehntel der Körperhöhe, auf S2 gut zwei Dritteln und
+   * auf S3 etwa körperhoch. Der Sprung von S1 auf S2 ist bewusst der größere —
+   * eine Mutation soll man sehen, und der erste Schritt ist der, an dem sich
+   * „angedeutet" und „durchgedrungen" unterscheiden.
+   */
+  const spanne = h * (0.16 + mutation * 0.45);
+  const platten = 4 + mutation * 3;
+  const teile: THREE.BufferGeometry[] = [];
+
+  // Kurve als Streckenzug: Neigung nach hinten (+Z, die Nase zeigt nach -Z),
+  // von 36 Grad am Ansatz auf 6 Grad an der Spitze. Ein Steinbockhorn steht
+  // hinten an und richtet sich auf; andersherum sähe es aus wie ein Nashorn.
+  let py = anker.y - h * 0.02, pz = anker.z;
+  for (let i = 0; i < platten; i++) {
+    const t = i / platten;
+    const winkel = 0.63 - t * 0.53;
+    const schritt = spanne / platten;
+    const ny = py + Math.cos(winkel) * schritt;
+    const nz = pz + Math.sin(winkel) * schritt;
+    // Unten breiter als die vorige Platte oben aufhört: der Überlapp, an dem
+    // das Ganze als Platten liest.
+    const rU = spanne * 0.155 * (1 - t * 0.80) * streuung(zufall, ursprung, 0.10);
+    const rO = spanne * 0.155 * (1 - (t + 1 / platten) * 0.80);
+    const g = new THREE.CylinderGeometry(Math.max(rO, spanne * 0.012), rU,
+                                         schritt * 1.30, 5, 1, false);
+    g.rotateX(winkel);
+    teile.push(teil(g, i % 2 ? CHITIN_HELL : CHITIN_DUNKEL,
+                    anker.x, (py + ny) / 2, (pz + nz) / 2));
+    py = ny; pz = nz;
+  }
+
+  // Zwei kleine Platten am Ansatz, ab der zweiten Stufe. Sie machen aus einem
+  // aufgesetzten Horn einen gewachsenen Kamm — in der Stilreferenz sitzen auf
+  // S3 dieselben Splitter an Schulter und Hinterhand.
+  if (mutation >= 1) {
+    for (const sx of [-1, 1]) {
+      const g = new THREE.ConeGeometry(spanne * 0.055, spanne * 0.22, 4);
+      g.rotateX(0.9);
+      teile.push(teil(g, CHITIN_DUNKEL,
+                      anker.x + sx * h * 0.075, anker.y + spanne * 0.06,
+                      anker.z + spanne * 0.10));
+    }
+  }
+  return mergeGeometries(teile, false)!;
+}
+
+/**
+ * Der Widerrist eines **Modells** — Ansatzpunkt für Anbauten.
+ *
+ * Nicht dasselbe wie `reitsitz`: Das misst den höchsten Punkt des mittleren
+ * Fünftels, also die Rückenmitte, auf die ein Reiter gehört. Ein Gehörn gehört
+ * an die Schulter. `tools/kreaturbau.py` normt jedes Modell so, dass der
+ * Widerrist auf y = 1 liegt und die Nase nach −Z zeigt; gesucht ist damit nur
+ * noch, **wo** entlang der Längsachse er sitzt. Gemessen am Grathorn liegt er
+ * bei 40 % der Länge hinter der Nase — Kopf und Hals davor, Rücken dahinter.
+ */
+export function widerristPunkt(geo: THREE.BufferGeometry): THREE.Vector3 {
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox!;
+  const p = geo.getAttribute('position');
+  const spanneZ = bb.max.z - bb.min.z, spanneX = bb.max.x - bb.min.x;
+  const mx = (bb.min.x + bb.max.x) / 2;
+  const a = bb.min.z + spanneZ * 0.30, b = bb.min.z + spanneZ * 0.52;
+  let besteY = -Infinity, besteZ = (a + b) / 2;
+  for (let i = 0; i < p.count; i++) {
+    const z = p.getZ(i);
+    if (z < a || z > b) continue;
+    if (Math.abs(p.getX(i) - mx) > spanneX * 0.18) continue;
+    const y = p.getY(i);
+    if (y > besteY) { besteY = y; besteZ = z; }
+  }
+  return new THREE.Vector3(mx, besteY > -Infinity ? besteY : bb.max.y * 0.9, besteZ);
+}
+
+/**
+ * Welche Kreatur trägt welches Merkmal als Anbau.
+ *
+ * Bewusst eine Liste und keine Auswertung von `merkmal` aus `content/creatures`:
+ * Dort steht Fließtext („Chitinplatten-Gehörn", „Rindenpanzer", „Linsenauge"),
+ * und jedes davon braucht eigene Geometrie. Was hier nicht steht, hat noch
+ * keine — und ein stiller Rückfall auf ein falsches Merkmal wäre schlimmer als
+ * gar keines.
+ */
+export const MIT_GEHOERN: ReadonlySet<string> = new Set(['grathorn']);

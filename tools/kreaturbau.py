@@ -52,6 +52,23 @@ ZUORDNUNG = [
     ('boar',   'wurzelkeiler'),
 ]
 
+# Netze, die eine Quelle mitbringt und die hier nicht hingehoeren. Der Hirsch
+# traegt sein Geweih als eigenes Netz `Stag_Horns` — 1.616 Flaechen, und der
+# Grathorn traegt laut `content/creatures/grathorn.json` kein Hirschgeweih,
+# sondern ein Chitinplatten-Gehoern. Es faellt weg, der Anbau ersetzt es.
+WEGLASSEN = {'hirsch': ('Stag_Horns',)}
+
+# **Alle fuenf Quellen blicken nach glTF +Z, die Szene will -Z.** Spielerfigur
+# und Silhouette schauen nach -Z (`baueKreaturGeometrie`), und die Modelle liefen
+# dadurch rueckwaerts durch die Welt. Nachgesehen und nicht geraten: Bei Hirsch,
+# Reh, Wolf und Fuchs liegen die Augen- und Nasenmaterialien am -y-Ende in
+# Blender, und Blender -y ist glTF +z; beim Boar (ein Material) zeigt der
+# Seitenriss dasselbe. Zwei naheliegende Automatiken habe ich gemessen und
+# verworfen — der Ueberhang ueber die Fuesse faellt bei Wolf und Fuchs auf die
+# lange Rute herein, die Randhoehe beim Boar auf den Ruecken. Deshalb eine
+# Drehung um die Hochachse fuer alle, geprueft am Reihenbild.
+DREHUNG_180 = True
+
 # Aus `.cache/palette.ts`, gemessen ueber die 21 Farben von Haeusern, Baeumen und
 # Props: Leuchtdichte p10 0,054 · Median 0,132 · p90 0,188 (linear).
 #
@@ -146,10 +163,24 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=pfad)
     netze = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+    # **Netze ohne Material fliegen raus.** Alle vier Quaternius-Modelle bringen
+    # eine `Icosphere` mit 80 Flaechen mit, die zu nichts gehoert und im Koerper
+    # steckt — unsichtbar, aber sie zaehlt gegen `zielTris` und verschweisst sich
+    # nirgends.
+    netze = [o for o in netze if o.data.materials]
+    # **Und je Quelle das, was durch einen Anbau ersetzt wird.** Das Geweih des
+    # Hirschs ist ein eigenes Netz mit 1.616 der 3.667 Flaechen — 44 % des Budgets
+    # fuer ein Hirschgeweih, waehrend der Grathorn laut `content/creatures` ein
+    # **Chitinplatten-Gehoern** traegt. Es faellt weg, und der Anbau kommt an
+    # seiner Stelle aus `src/world/kreaturgestalt.ts`.
+    for name in WEGLASSEN.get(datei, ()):
+        weg = [o for o in netze if o.name == name]
+        if not weg:
+            print(f'  ! {datei}: Netz {name!r} nicht gefunden — Quelle geaendert?')
+        netze = [o for o in netze if o.name != name]
     # Jede Weltmatrix in die eigenen Daten backen, **bevor** verbunden wird —
     # sonst verdreht der Join die Achsen (der glTF-Import haelt Y-oben in der
-    # Objektmatrix). Und **alle** Netze behalten: Beim Hirsch ist eines davon das
-    # Geweih, also genau das Teil, das ihn vom Reh unterscheidet.
+    # Objektmatrix).
     for o in netze:
         o.data.transform(o.matrix_world)
         o.matrix_world = Matrix()
@@ -250,14 +281,58 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
     for v in m.vertices:
         for i in range(3):
             lo3[i] = min(lo3[i], v.co[i]); hi3[i] = max(hi3[i], v.co[i])
-    s = hoehe / (hi3.z - lo3.z)
     laengs_y = (hi3.y - lo3.y) > (hi3.x - lo3.x)
+    lang = 1 if laengs_y else 0
+    # **Auf den Widerrist normen, nicht auf die Gesamthoehe.** `WIDERRIST` heisst
+    # so und der Kommentar sagte es auch — gerechnet wurde trotzdem mit
+    # `hi3.z - lo3.z`, also mit der Kruecke ueber alles. Bei einem Tier mit
+    # erhobenem Kopf ist das der Kopf, beim Hirsch war es das Geweih: Der Hirsch
+    # kam mit 0,84 m Rumpflaenge neben einem 2,07 m langen Wolf an und las sich
+    # als Kitz. Gemessen wird jetzt die **Rueckenlinie ueber dem Rumpf**: der
+    # Abschnitt zwischen den Vorder- und den Hinterhufen, Scheibe fuer Scheibe der
+    # hoechste Punkt. Ein Ruecken ist waagerecht; was aus dieser Linie deutlich
+    # herausragt, ist Hals oder Kopf und faellt heraus. Der Widerrist ist das
+    # hoechste, was bleibt.
+    #
+    # Drei einfachere Regeln habe ich vorher gemessen und verworfen, alle drei am
+    # selben Tier: Das Reh dieser Sammlung traegt den Hals **senkrecht ueber den
+    # Vorderbeinen**. Ein festes Fenster (25–75 % der Laenge) nimmt den
+    # Halsansatz mit — 1,03 m Laenge bei 1,00 m Widerrist, ein Reh so lang wie
+    # hoch. „Hoechster Punkt ueber den Vorderbeinen" trifft dort den Kopf. Und
+    # „nur breite Scheiben" trifft ihn auch, weil eine Scheibe am Kopfende dann
+    # die Vorderbeine mit enthaelt und damit breit ist — und die Breite der
+    # obersten Handbreit scheitert an den Ohren.
+    l0, l1 = lo3[lang], hi3[lang]
+    L, H = l1 - l0, hi3.z - lo3.z
+    hufe = [c[lang] for c in (v.co for v in m.vertices) if c[2] < lo3.z + H * 0.08]
+    t0, t1 = (min(hufe), max(hufe)) if hufe else (l0 + L * 0.2, l1 - L * 0.2)
+    SCHEIBEN = 24
+    linie = []
+    for i in range(SCHEIBEN):
+        a = t0 + (t1 - t0) * i / SCHEIBEN
+        b = t0 + (t1 - t0) * (i + 1) / SCHEIBEN
+        hoch = [v.co.z for v in m.vertices if a <= v.co[lang] < b]
+        if hoch:
+            linie.append(max(hoch))
+    linie.sort()
+    # **85. Perzentil, nicht das Maximum und nicht der Median plus Zuschlag.**
+    # Das Maximum trifft den Hals, wo er ueber dem Rumpf steht. „Median plus ein
+    # Achtel der Hoehe" hat dafuer den **Keiler** verloren: Sein Ruecken ist ein
+    # Buckel, der Buckel lag ueber der Schranke und fiel heraus — das Tier kam
+    # mit 2,59 m Laenge an, ein Drittel zu gross. Ein Perzentil zaehlt dagegen
+    # Scheiben: Ein Buckel belegt viele, ein Hals zwei bis drei.
+    ruecken = linie[min(len(linie) - 1, int(len(linie) * 0.85))] if linie else hi3.z
+    s = hoehe / max(1e-6, ruecken - lo3.z)
     mi = (lo3 + hi3) / 2
+    # **Um 180 Grad gedreht** (`DREHUNG_180`): beide waagerechten Achsen negiert,
+    # nicht nur eine. Eine einzelne Negierung waere eine Spiegelung — sie kehrt
+    # den Umlaufsinn der Dreiecke um, und das Modell waere von aussen weggeschnitten.
+    d = -1.0 if DREHUNG_180 else 1.0
     for v in m.vertices:
         px, py = (v.co.y, v.co.x) if laengs_y else (v.co.x, v.co.y)
         mx, my = (mi.y, mi.x) if laengs_y else (mi.x, mi.y)
         # glTF-Export dreht Z-oben zurueck nach Y-oben; hier bleibt Blender-Konvention.
-        v.co = Vector(((py - my) * s, (px - mx) * s, (v.co.z - lo3.z) * s))
+        v.co = Vector((d * (py - my) * s, d * (px - mx) * s, (v.co.z - lo3.z) * s))
 
     # Objekt-Transform restlos zuruecksetzen. `matrix_world = Matrix()` allein
     # reicht nicht, wenn ein **Delta**-Transform gesetzt ist: Der glTF-Import legt
@@ -286,8 +361,13 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
                               export_materials='EXPORT', export_yup=True)
     kb = os.path.getsize(aus) / 1024
     register[kid] = round(kb, 1)
+    lo4 = Vector((1e9,) * 3); hi4 = Vector((-1e9,) * 3)
+    for v in m.vertices:
+        for i in range(3):
+            lo4[i] = min(lo4[i], v.co[i]); hi4[i] = max(hi4[i], v.co[i])
     print(f'{kid:14} {datei:7} {vorher:5} → {len(m.polygons):5} Dreiecke · '
-          f'Farbe aus {quelle} · Widerrist {hoehe} m · {kb:.0f} KB')
+          f'Farbe aus {quelle} · Widerrist {hoehe} m, Scheitel {hi4.z:.2f} m · '
+          f'{hi4.y - lo4.y:.2f} m lang · {kb:.0f} KB')
 
 json.dump({'modelle': sorted(register)}, open(f'{ZIEL}/register.json', 'w'),
           ensure_ascii=False, indent=1)

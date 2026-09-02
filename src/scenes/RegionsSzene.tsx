@@ -15,7 +15,8 @@ import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../wor
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
          baueGartenKachel, type Bandsatz } from '../world/baender.js';
 import { useGLTF } from '@react-three/drei';
-import { MIT_MODELL } from '../world/kreaturgestalt.js';
+import { MIT_MODELL, MIT_GEHOERN, baueGehoern, widerristPunkt, saatAusId }
+  from '../world/kreaturgestalt.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
@@ -859,7 +860,7 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
       {nah.map(v => (
         MIT_MODELL.has(v.kreatur)
           ? <KreaturModell key={v.id} kreatur={v.kreatur} material={material}
-                           position={v.position} drehung={v.drehung}
+                           position={v.position} drehung={v.drehung} mutation={v.mutation}
                            // Stufe 2 ist 15–25 % groesser, Stufe 3 nochmal — aus der Stilreferenz.
                            skalierung={1 + v.mutation * 0.2} />
           : <mesh key={v.id} geometry={gestalt(v.kreatur, v.mutation)} material={material}
@@ -882,19 +883,40 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
  * Die Datei ist auf Widerristhöhe und Ursprung zwischen den Füßen genormt
  * (`tools/kreaturbau.py`) — hier bleibt deshalb nur die Mutationsskalierung.
  */
-function KreaturModell({ kreatur, material, position, drehung, skalierung }: {
+function KreaturModell({ kreatur, material, position, drehung, mutation, skalierung }: {
   kreatur: string;
   material: THREE.Material;
   position: [number, number, number];
   drehung: number;
+  mutation: number;
   skalierung: number;
 }) {
   const { scene } = useGLTF(`/creatures/${kreatur}.glb`);
+  /**
+   * Grundkörper und Anbau werden **zusammengelegt**, nicht nebeneinander
+   * gezeichnet.
+   *
+   * Ein zweites Mesh je Kreatur wäre ein zweiter Draw Call, und Draw Calls sind
+   * auf dem Zielgerät die teure Größe (11 µs je Aufruf, G-111) — Dreiecke fast
+   * gratis. Zusammengelegt bleibt es bei einem Aufruf je Tier, und der Cache
+   * greift über (Art, Mutationsstufe): fünf Modelle mal drei Stufen sind
+   * höchstens fünfzehn Geometrien für die ganze Welt.
+   */
   const geo = useMemo(() => {
     let g: THREE.BufferGeometry | null = null;
     scene.traverse(o => { if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry; });
-    return g;
-  }, [scene]);
+    if (!g || !MIT_GEHOERN.has(kreatur)) return g;
+    const koerper = g as THREE.BufferGeometry;
+    const anker = widerristPunkt(koerper);
+    const gehoern = baueGehoern(anker, anker.y, mutation, 'wildling', saatAusId(kreatur));
+    // `mergeGeometries` verlangt gleiche Attribute. Das Modell kommt ohne
+    // Normalen (D107), der Anbau bringt welche mit — also fliegen sie hier weg,
+    // statt sie am Modell zu erfinden.
+    gehoern.deleteAttribute('normal');
+    gehoern.deleteAttribute('uv');
+    const roh = koerper.index ? koerper.toNonIndexed() : koerper;
+    return mergeGeometries([roh, gehoern], false) ?? koerper;
+  }, [scene, kreatur, mutation]);
   if (!geo) return null;
   return (
     <mesh geometry={geo} material={material} position={position}
