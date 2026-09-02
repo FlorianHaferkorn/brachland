@@ -1,7 +1,7 @@
 ---
-last-reviewed: 2026-08-17
+last-reviewed: 2026-09-02
 shelf-life-days: 90
-owns: *.glb
+owns: *.glb, *.md
 ---
 # assets — Quellen der Asset-Kette (_INDEX)
 
@@ -16,7 +16,8 @@ owns: *.glb
 | `rigs/quadruped.glb` | **Archetyp-Rig Vierbeiner** — 100 KB, ein Mesh, 24 Knochen, Animationen `Survey`/`Walk`/`Run`. Die Vorlage, von der `../tools/autorig.py` Skelett und Bewegung erbt |
 | `rigs/serpent.glb` | **Archetyp-Rig Schlange** — 23 KB, 10 Knochen in einer Kette, Animationen `Ruhe`/`Gehen`/`Rennen`. **Gerechnet, nicht geliehen** (`../tools/rigbau.mjs`): Schlangenbewegung ist eine Sinuswelle durch den Körper, und die schreibt man besser hin, als sie zu suchen |
 | `rigs/biped_bird.glb` | **Archetyp-Rig Vogel** — 26 KB, 15 Knochen, zwei Beine, zwei Flügel. Ebenfalls gerechnet. Beine im Gegentakt (31° Ausschlag beim Gehen, 54° beim Rennen), im Leerlauf atmen nur die Flügel (2,9°) |
-| `creatures/` | **Leer.** Es gibt derzeit kein Kreaturenmodell — und laut ADR-0002 soll es auch keines geben, bis die Stilreferenz steht. In der Welt stehen Silhouetten (`../src/world/kreaturgestalt.ts`, Ledger G-23) |
+| `creatures/` | **Leer, und das ist kein Versehen.** Die Kette aus D105 (`../tools/kreaturbau.py`) schreibt direkt nach `../public/creatures` — ein CC0-Handmodell braucht keine Zwischenstufe, weil es weder Reduktion noch Rigging durchlaeuft. Der Ordner bleibt fuer den Weg ueber `npm run assets` stehen. **Das Budget wird an `public/creatures` gemessen**, nicht hier (D107); die Schleife zeigte zwoelf Tage lang auf diesen leeren Ordner und hat deshalb nie etwas gefunden |
+| `HERKUNFT.md` | **Autor und Lizenz je Modelldatei** in `../public/creatures`. Pflichtlektuere vor jedem neuen Modell: `wurzelkeiler.glb` steht unter **CC BY 3.0** und muss genannt werden, die vier anderen sind CC0. Das Qualitaetstor blockiert jede `.glb` in `public/creatures` ohne Zeile hier — eine Namensnennung, die man vergessen kann, ist keine |
 
 ## Was hier gestanden hat — und was es wirklich war
 
@@ -59,12 +60,23 @@ Die CC-BY-Pflicht wandert weiter: Jede Kreatur, die über `autorig.py` dieses Sk
 und diese Bewegungen erbt, trägt sie mit. Wer `rigs/quadruped.glb` durch ein eigenes
 Rig ersetzt, wird diesen Absatz los — vorher nicht.
 
+Für die **ausgelieferten** Kreaturmodelle steht dasselbe in `HERKUNFT.md`, Datei für
+Datei. Der Unterschied zu diesem Absatz: Dort prüft es das Qualitätstor.
+
 ## Warum nicht unter public/
 
 `public/` wird vom Service Worker precacht (`**/*.glb`) — dort liegen die 23
-Prop-Modelle, die im Spiel gebraucht werden. Hier liegen die **Quellen** der
-Asset-Kette; was ins Spiel geht, wird bewusst kopiert. Die Trennung verhindert, dass
-ein Zwischenstand versehentlich im Offline-Cache landet und das 60-MB-Budget frisst.
+Prop-Modelle und seit D105 die fünf Kreaturmodelle, die im Spiel gebraucht werden.
+Hier liegen die **Quellen** der Asset-Kette; was ins Spiel geht, wird bewusst kopiert.
+Die Trennung verhindert, dass ein Zwischenstand versehentlich im Offline-Cache landet
+und das 60-MB-Budget frisst.
+
+**Die Kreaturmodelle sind die Ausnahme, die die Regel bestätigt.** Sie haben hier
+keine Quelle, weil ihre Quelle ein fremdes CC0-Paket ist, das nicht ins Repo gehört
+(`.cache/cc0`, 5 MB Rohdateien für 540 KB Ergebnis). Was das Repo davon braucht,
+ist die Namensnennung — die steht in `HERKUNFT.md`, und `kreaturbau.py` lässt sich
+mit einem dritten Argument auf ein anderes Ziel umbiegen, damit ein Kandidat mit
+unklarer Lizenz sich ansehen lässt, **ohne** dabei in `public/` zu landen.
 
 ## Definition of Done (neues Modell)
 

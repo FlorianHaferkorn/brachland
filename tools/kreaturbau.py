@@ -49,7 +49,7 @@ ZUORDNUNG = [
     ('fuchs',  'spuerfuchs'),
     ('hirsch', 'grathorn'),
     ('reh',    'nebelgams'),
-    ('stier',  'wurzelkeiler'),
+    ('boar',   'wurzelkeiler'),
 ]
 
 # Aus `.cache/palette.ts`, gemessen ueber die 21 Farben von Haeusern, Baeumen und
@@ -204,7 +204,11 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
 
     while m.color_attributes:
         m.color_attributes.remove(m.color_attributes[0])
-    attr = m.color_attributes.new(name='Color', type='FLOAT_COLOR', domain='CORNER')
+    # **BYTE_COLOR, nicht FLOAT_COLOR.** Bei 3.000 Flaechen sind das 9.000 Loops;
+    # als 32-Bit-Float kostet die Farbe allein 144 KB, als Byte 36 KB. Das
+    # Qualitaetstor hat den Unterschied sofort gemeldet: 334 KB gegen ein Budget
+    # von 190 KB. Acht Bit reichen fuer flache Materialfarben ohne Verlauf.
+    attr = m.color_attributes.new(name='Color', type='BYTE_COLOR', domain='CORNER')
     k = 0
     for pol in m.polygons:
         pol.use_smooth = False
@@ -271,8 +275,14 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
     koerper.select_set(True)
     bpy.context.view_layer.objects.active = koerper
     aus = f'{ZIEL}/{kid}.glb'
+    # **Ohne Normalen.** Die Szene setzt fuer Kreaturen `flatShading: true`
+    # (`baueWindMaterial`), und three.js rechnet dann die Normale im Fragment aus
+    # den Bildschirmableitungen — das exportierte NORMAL-Attribut wird nie
+    # gelesen. Es kostete trotzdem ein Drittel der Datei: bei 8.968 Ecken sind
+    # das 105 KB je Modell.
     bpy.ops.export_scene.gltf(filepath=aus, export_format='GLB',
                               use_selection=True, export_apply=True,
+                              export_normals=False,
                               export_materials='EXPORT', export_yup=True)
     kb = os.path.getsize(aus) / 1024
     register[kid] = round(kb, 1)

@@ -185,10 +185,14 @@ for (const rf of regionen) {
 }
 
 // ------------------------------------------------------ 3. Asset-Budgets
-if (existsSync('assets/creatures')) {
+// **`public/creatures`, nicht `assets`.** Die Modelle gehen ins Bundle, also
+// zaehlt der Ordner, der ausgeliefert wird. Bis zum 31.08.2026 stand hier
+// `assets/creatures` — der Ordner war leer, und das Tor meldete deshalb „kein
+// Kreaturenmodell", waehrend fuenf davon im Spiel standen.
+if (existsSync('public/creatures')) {
   let gesamt = 0;
-  for (const f of readdirSync('assets/creatures').filter(f => f.endsWith('.glb'))) {
-    const kb = statSync(join('assets/creatures', f)).size / 1024;
+  for (const f of readdirSync('public/creatures').filter(f => f.endsWith('.glb'))) {
+    const kb = statSync(join('public/creatures', f)).size / 1024;
     gesamt += kb;
     if (kb > BUDGET.glbKB) stop('Assets', `${f}: ${kb.toFixed(0)} KB über Budget ${BUDGET.glbKB} KB`);
   }
@@ -196,6 +200,37 @@ if (existsSync('assets/creatures')) {
     stop('Assets', `Gesamtpaket ${(gesamt / 1024).toFixed(1)} MB über ${BUDGET.paketMB} MB — Offline-Cache gefährdet`);
 } else warn('Assets', 'kein Kreaturenmodell — offener Posten, nicht mehr Absicht: ADR-0002 ist seit dem '
   + '16.08.2026 erfüllt und die Stilreferenz steht. Es fehlen Rohmodelle (G-119, G-120)');
+
+/**
+ * Jedes Kreaturmodell braucht eine Herkunftszeile.
+ *
+ * Seit D107 stehen unter `public/creatures` auch **CC-BY**-Modelle, und CC-BY
+ * verlangt die Namensnennung. Ohne Eintrag in `assets/HERKUNFT.md` wäre die
+ * Lizenzbedingung nicht erfüllt — das ist kein Schönheitsfehler, sondern ein
+ * Rechtsmangel, und deshalb ein **Blocker**.
+ *
+ * Geprüft wird in beide Richtungen: Eine Datei ohne Zeile bliebe unbelegt, eine
+ * Zeile ohne Datei würde Herkunft für etwas behaupten, das es nicht gibt.
+ */
+if (existsSync('public/creatures')) {
+  const dateien = readdirSync('public/creatures').filter(f => f.endsWith('.glb'));
+  const herkunft = existsSync('assets/HERKUNFT.md')
+    ? readFileSync('assets/HERKUNFT.md', 'utf8') : '';
+  if (!herkunft) {
+    stop('Assets', `${dateien.length} Kreaturmodelle, aber keine assets/HERKUNFT.md`);
+  } else {
+    const ohne = dateien.filter(f => !herkunft.includes(f));
+    if (ohne.length)
+      stop('Assets', `ohne Herkunftsangabe: ${ohne.join(', ')} — CC-BY verlangt die Nennung`);
+    // Rückrichtung: Zeilen, die auf nichts zeigen.
+    const genannt = [...herkunft.matchAll(/`([a-z0-9-]+\.glb)`/g)].map(m => m[1]);
+    const tot = genannt.filter(n => !dateien.includes(n));
+    if (tot.length)
+      warn('Assets', `HERKUNFT.md nennt Dateien, die es nicht gibt: ${tot.join(', ')}`);
+    if (!ohne.length)
+      console.log(`  · [Assets] ${dateien.length} Kreaturmodelle, alle mit Herkunft belegt`);
+  }
+}
 
 /**
  * Archetyp-Rigs — dass sie da sind, nicht wie groß sie sind.
