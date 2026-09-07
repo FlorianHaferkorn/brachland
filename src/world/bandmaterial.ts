@@ -30,6 +30,40 @@ float bandRauschen(vec2 p) {
 `;
 
 /**
+ * Gischt am fallenden Wasser (Phase 3, D131).
+ *
+ * Ein Fall ist kein blaues Band, das schräg steht — was man von einem Fall sieht,
+ * ist **Weiß**: Luft im Wasser, in Strähnen, die mit dem Wasser nach unten laufen.
+ * Deshalb Strähnen aus demselben Rauschen wie die Wellen, quer schmal (`uv.x · 7`),
+ * längs gestreckt und mit `uTempo` abwärts laufend; über der Schwelle wird die
+ * Farbe zur Gischt gehoben und die Fläche deckender. Kein zweiter Pass, keine
+ * Partikel — auf dem Handy wäre beides die Füllrate, die der Fall nicht hat.
+ */
+const GISCHT_GLSL = /* glsl */ `
+  float straehne = bandRauschen(vec2(vBand.x * 7.0, vBand.y * 2.2 - zeit * uTempo * 0.9));
+  float straehne2 = bandRauschen(vec2(vBand.x * 13.0 + 3.7, vBand.y * 4.5 - zeit * uTempo * 1.3));
+  float gischt = smoothstep(0.50, 0.85, straehne * 0.65 + straehne2 * 0.35);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.83, 0.85), gischt * 0.9);
+  diffuseColor.a = max(diffuseColor.a, gischt * 0.95);
+`;
+
+/**
+ * Uferkante am laufenden und stehenden Wasser (D131).
+ *
+ * Dort, wo Wasser auf Land trifft, ist es weder Wasser noch Land: ein heller,
+ * unruhiger Saum aus Schaum und nassem Sand. Ohne ihn liegt das Band trotz weicher
+ * Deckkraft wie Folie auf der Wiese. Der Saum sitzt innerhalb der Deckkraftflanke
+ * (`ufer` 0,08…0,42, erster Versuch 0,04…0,30 lag in der Transparenz und war unsichtbar: Median 0,110 → 0,112), wird vom Rauschen zerrissen, damit er keine Linie ist, und
+ * wandert langsam mit der Strömung.
+ */
+const SAUM_GLSL = /* glsl */ `
+  float saumLage = smoothstep(0.08, 0.18, ufer) * (1.0 - smoothstep(0.26, 0.42, ufer));
+  float saumRiss = bandRauschen(vec2(vBand.y * 1.1 - zeit * uTempo * 0.25, vBand.x * 5.0));
+  float saum = saumLage * smoothstep(0.30, 0.60, saumRiss);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.76, 0.78, 0.74), saum * 0.85);
+`;
+
+/**
  * Fließendes Wasser.
  *
  * Drei Lagen übereinander, jede für sich billig:
@@ -48,11 +82,14 @@ export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial 
     // Fläche Albedo (diffus × (1 − metalness)) und gab ihr dafür einen harten
     // Sonnenfleck; das Ergebnis las sich als Graublau mit Blendung. Wasser in
     // der Stilreferenz ist eine Farbe mit weichem Glanz, kein Spiegel.
-    roughness: fallend ? 0.35 : 0.3,
+    // Fallend rauer (0,35 → 0,5) und weniger Glanz (0,5 → 0,3), D131: Der Fall
+    // in der Sonne war Grundfarbe + Glanz + Sonnenfleck = eine weiße Platte.
+    // Das Weiß kommt jetzt aus den Gischt-Strähnen (`GISCHT_GLSL`).
+    roughness: fallend ? 0.85 : 0.3,
     metalness: fallend ? 0.05 : 0.12,
     transparent: true, opacity: fallend ? 0.8 : 0.92,
     emissive: new THREE.Color(fallend ? PALETTE.wasser.fallendGlanz : PALETTE.wasser.stehendGlanz),
-    emissiveIntensity: fallend ? 0.5 : 0.3,
+    emissiveIntensity: fallend ? 0.2 : 0.3,
     // Fallendes Wasser wird von beiden Seiten gesehen — man steht auch mal darunter.
     /**
      * Beidseitig, seit es ein Gewässerbett gibt.
@@ -99,7 +136,7 @@ export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial 
   float deckung = mix(0.72, 0.97, tiefe);
   // Weiche Uferkante statt Plattenrand.
   diffuseColor.a = deckung * smoothstep(0.0, 0.28, ufer);
-`)
+` + (fallend ? GISCHT_GLSL : SAUM_GLSL))
       .replace('#include <normal_fragment_maps>', /* glsl */ `#include <normal_fragment_maps>
   // Zwei Wellenzüge unterschiedlicher Länge und Geschwindigkeit. Der zweite läuft
   // schräg, sonst entsteht ein sichtbares Streifenmuster.
@@ -110,7 +147,7 @@ export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial 
 `);
   };
 
-  material.customProgramCacheKey = () => `brachland-wasser-v2-${fallend ? 'fall' : 'lauf'}`;
+  material.customProgramCacheKey = () => `brachland-wasser-v3-${fallend ? 'fall' : 'lauf'}`;
   return material;
 }
 

@@ -85,6 +85,15 @@ WEGLASSEN = {'hirsch': ('Stag_Horns',)}
 # es als Fuesse.
 ABSCHNEIDEN = {'eule': [(0.30, 0.22), (0.06, 0.0)]}
 
+# **Unterteilen gemessen und verworfen (D129).** Die Blocks-Modelle (568–616
+# Flaechen) liegen unter dem Korridor aus D111; ein Catmull-Clark-Schritt sollte
+# das heilen. Gerendert: Die Quellen haben je Flaeche eigene, unverschweisste
+# Ecken, und die Unterteilung zieht jede Flaeche einzeln zusammen — der Biber
+# wurde ein Guerteltier aus schwebenden Schuppen (`.cache/bilder/unterteilen_ab.png`).
+# Verschweisst wuerde er rund, nicht detaillierter, und laege mit 3.408 Dreiecken
+# ueber dem Deckel. Die Facetten SIND der Stil; der Korridor bekommt eine
+# niedrigere Untergrenze, nicht das Modell mehr Dreiecke.
+
 # **Alle fuenf Quellen blicken nach glTF +Z, die Szene will -Z.** Spielerfigur
 # und Silhouette schauen nach -Z (`baueKreaturGeometrie`), und die Modelle liefen
 # dadurch rueckwaerts durch die Welt. Nachgesehen und nicht geraten: Bei Hirsch,
@@ -116,6 +125,71 @@ _m = _re.search(r'kreaturBand:\s*\{\s*unten:\s*([0-9.]+),\s*oben:\s*([0-9.]+)', 
 if not _m:
     raise SystemExit('kreaturBand nicht in src/world/palette.ts gefunden')
 BAND_UNTEN, BAND_OBEN = float(_m.group(1)), float(_m.group(2))
+
+
+def palette_farbe(gruppe, name):
+    """Eine Farbe aus `src/world/palette.ts`, linear — dieselbe Quelle wie die Szene (D117)."""
+    block = _re.search(r"\n  " + gruppe + r":\s*\{(.*?)\}", _pal, _re.S)
+    if not block:
+        raise SystemExit(f'Palette: Gruppe {gruppe} fehlt')
+    m = _re.search(r"['\"]?" + _re.escape(name) + r"['\"]?\s*:\s*'#([0-9a-fA-F]{6})'", block.group(1))
+    if not m:
+        raise SystemExit(f'Palette: {gruppe}.{name} fehlt')
+    h = m.group(1)
+    def lin(v):
+        c = int(v, 16) / 255
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    return (lin(h[0:2]), lin(h[2:4]), lin(h[4:6]))
+
+
+def hash01(*n):
+    h = 2166136261
+    for x in n:
+        h = ((h ^ (int(x) & 0xffffffff)) * 16777619) & 0xffffffff
+    return h / 4294967296
+
+
+# **Merkmale als Farbe, nicht als Bauteil (D130):** Fell, Hufe, Panzer und ein
+# Rueckenmodul, das flach auf dem Tier liegt, brauchen keinen Anbau — sie sind
+# ein Muster auf der Haut. Je Kreatur eine Regel ueber die relative Lage einer
+# Flaeche (Hoehe 0…1 von den Fuessen, Laenge 0…1 von der Nase, Seite −1…1):
+# gibt eine Farbe zurueck oder None.
+def merkmal_farbe(kid, hoehe, laenge, seite, oben, saat):
+    """Gibt (Farbe, Gewicht) oder None. hoehe 0…1 von den Fuessen, laenge 0…1
+    von der Nase, seite −1…1 von der Mitte, oben = z der Flaechennormale
+    (1 = Ruecken, 0 = Flanke, −1 = Bauch). Gewicht 1 ersetzt die Fellfarbe,
+    darunter wird gemischt."""
+    if kid == 'wurzelkeiler':
+        # Wurzelpanzer: ein Sattel ueber Ruecken und oberer Flanke, die Unterkante
+        # laengs gewellt; zwei Rindentoene, damit die Platte Straenge zeigt. Eine
+        # Welle je Flaeche (erster Versuch) traf bei 782 grossen Flaechen 40 —
+        # einzelne dunkle Dreiecke, kein Panzer.
+        kante = 0.56 + 0.10 * math.sin(laenge * 11 + seite * 3 + saat)
+        if oben > -0.2 and hoehe > kante:
+            strang = math.sin(laenge * 27 + seite * 7 + saat * 0.5) > 0.35
+            return palette_farbe('kenney', 'woodBarkDark' if strang else 'woodBark'), 1.0
+    elif kid == 'nebelgams':
+        # Silikat-Hufe: die untersten 14 % der Beine glasig-hell.
+        if hoehe < 0.14:
+            return palette_farbe('element', 'frost'), 1.0
+    elif kid == 'spuerfuchs':
+        # Sensor-Fell: wenige Alt-Tech-Sprenkel auf Ruecken und Oberflanke, zu
+        # 60 % ins Fell gemischt — ein Schimmer, kein Tarnmuster (14 % volle
+        # Dreiecke lasen sich als Camouflage).
+        # Dazu ein weicher Aalstrich laengs des Rueckens — die Sprenkel allein
+        # (21 Flaechen) verschwinden auf 4,5 m Begegnungsabstand.
+        if oben > 0.5 and abs(seite) < 0.35 and 0.25 < laenge < 0.72:
+            return palette_farbe('element', 'alt-tech'), 0.55
+        if hoehe > 0.5 and oben > 0.15 and hash01(round(laenge * 60), round(seite * 20), saat) < 0.07:
+            return palette_farbe('element', 'alt-tech'), 0.6
+    elif kid == 'k7-wolf':
+        # Klemmrippen-Rueckenmodul: Streifen laengs der Wirbelsaeule auf den nach
+        # oben zeigenden Flaechen, Rippen in Chitin alle 8 % der Laenge. Ueber
+        # die Hoehe allein (> 78 %) traf der Streifen nur die Schultern.
+        if oben > 0.35 and hoehe > 0.55 and abs(seite) < 0.5 and 0.30 < laenge < 0.85:
+            rippe = (laenge * 12.5) % 1.0 < 0.4
+            return (palette_farbe('chitin', 'hell') if rippe else palette_farbe('element', 'alt-tech')), 1.0
+    return None
 
 # Muss `RIG_HOEHE` in `src/world/kreaturgestalt.ts` entsprechen. Die Zielhoehe
 # wird **beim Export** eingerechnet, nicht in der Szene: Dort steht dann fuer
@@ -373,6 +447,35 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
             f = ziel_l / max(1e-4, l)
             attr.data[li].color = tuple(min(1.0, x * f) for x in c) + (1.0,)
             k += 1
+
+    # Merkmal als Farbe (D130), relativ zum Koerper: Hoehe von den Fuessen,
+    # Laenge von der Nase (die Quelle blickt nach +Z, also Blender -y bzw. -x),
+    # Seite von der Mitte. Vor der Normung gerechnet, in den Quellachsen.
+    lo_m = Vector((1e9,) * 3); hi_m = Vector((-1e9,) * 3)
+    for v in m.vertices:
+        for i in range(3):
+            lo_m[i] = min(lo_m[i], v.co[i]); hi_m[i] = max(hi_m[i], v.co[i])
+    laengs = 1 if (hi_m.y - lo_m.y) > (hi_m.x - lo_m.x) else 0
+    quer = 1 - laengs
+    saat_m = sum(ord(ch) for ch in kid)
+    getroffen = 0
+    for pol in m.polygons:
+        c = pol.center
+        hoehe_rel = (c.z - lo_m.z) / max(1e-6, hi_m.z - lo_m.z)
+        # Nase am -Ende der Laengsachse (Quelle blickt nach glTF +Z = Blender -y,
+        # siehe DREHUNG_180): 0 an der Nase, 1 an der Rute.
+        laenge_rel = (c[laengs] - lo_m[laengs]) / max(1e-6, hi_m[laengs] - lo_m[laengs])
+        seite_rel = (c[quer] - (lo_m[quer] + hi_m[quer]) / 2) / max(1e-6, (hi_m[quer] - lo_m[quer]) / 2)
+        treffer = merkmal_farbe(kid, hoehe_rel, laenge_rel, seite_rel, pol.normal.z, saat_m)
+        if treffer is None:
+            continue
+        farbe, w = treffer
+        getroffen += 1
+        for li in pol.loop_indices:
+            alt = attr.data[li].color
+            attr.data[li].color = tuple(alt[i] * (1 - w) + farbe[i] * w for i in range(3)) + (1.0,)
+    if getroffen:
+        print(f'  Merkmal als Farbe: {getroffen} von {len(m.polygons)} Flaechen')
 
     vorher = len(m.polygons)
     # --- Dreiecke aufs Budget ----------------------------------------------

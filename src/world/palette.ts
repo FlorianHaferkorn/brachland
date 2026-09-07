@@ -161,11 +161,16 @@ export const PALETTE = {
    * Wasser war bei D114 ausgenommen (Phase 3). Seit D123 ×2,2 auf dem
    * stehenden Wasser (Y 0,079 → 0,175, Sättigung 0,50 — die Referenz zeigt
    * Türkis, kein Graublau), Glanz ×1,8, fallendes Wasser ×1,3 Richtung Gischt.
+   * D131 nimmt das Fallende wieder zurück (Y 0,39 → 0,21): In der Sonne war der
+   * Fall eine weiße Platte (Ausschnitt Median 0,47, p90 0,80, Zeichnung null).
+   * Die Farbe allein hat das nicht behoben (0,47 → 0,39) — die Platte war der
+   * Sonnenfleck, Rauheit 0,35 → 0,85 in `bandmaterial.ts` (→ 0,27 / 0,46). Die
+   * Gischt kommt jetzt aus Strähnen im Shader, nicht aus der Grundfarbe.
    */
   wasser: {
     stehend:         '#457c8b',
     stehendGlanz:    '#1b414e',
-    fallend:         '#8dadb6',
+    fallend:         '#5f8590',
     fallendGlanz:    '#477079',
   },
 

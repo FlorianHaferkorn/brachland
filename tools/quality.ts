@@ -327,7 +327,10 @@ if (propDateien.length) {
 const KORRIDOR: Record<string, { min: number; max: number }> = {
   'Haus':            { min: 600, max: 1500 },
   'Prop':            { min: 150, max: 800 },
-  'Kreatur (Modell)': { min: 1200, max: 3000 },
+  // Untergrenze 1.200 → 500 (D129): Die neun Poly-by-Google-Modelle haben 568–1.200
+  // Dreiecke und sind so gebaut — facettiert, unverschweisst. Unterteilen hat sie
+  // zu Schuppentieren gemacht, nicht zu besseren; die Facetten sind der Stil.
+  'Kreatur (Modell)': { min: 500, max: 3000 },
 };
 {
   const median = (a: number[]) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)] ?? 0;

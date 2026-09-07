@@ -24,6 +24,7 @@ import { PALETTE } from './palette.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mulberry } from './props.js';
 import type { Element, Ursprung } from '../data/schema.js';
+import REGISTER from '../../public/creatures/register.json';
 
 /**
  * Herkunft als Bauweise — die Creature Design Bible v1.1, §1.
@@ -95,19 +96,20 @@ export type BasisRig = 'quadruped' | 'quadruped_small' | 'biped_bird' | 'serpent
 /**
  * Kreaturen, für die ein **Modell** in `public/creatures` liegt.
  *
- * Alles andere steht weiter als Silhouette in der Welt (G-23). Die Liste ist von
- * Hand gepflegt und wird vom Qualitätstor gegen den Ordner geprüft — ein Eintrag
- * ohne Datei wäre eine Kreatur, die im Spiel verschwindet, und das sieht man erst
- * an der Stelle, an der sie stehen sollte.
+ * Alles andere steht weiter als Silhouette in der Welt (G-23). **Seit G-129 aus
+ * dem Register**, das `tools/kreaturbau.py` schreibt — nicht mehr von Hand: Die
+ * Liste stand nach D124 bei fünf, während vierzehn Modelle im Ordner lagen, und
+ * der Sporenhahn stand im Spiel weiter als grüne Silhouette mit Fächer. Das Tor
+ * prüfte nur, dass jeder Eintrag eine Datei hat — nicht, dass jede Datei einen
+ * Eintrag hat. Ein Modell, das die Szene nicht kennt, ist ein Modell, das es
+ * nicht gibt.
  *
  * Die Modelle kommen aus einem CC0-Tierpack und laufen durch `tools/kreaturbau.py`
  * (G-123): Materialfarbe an den Vertex, Helligkeit in die Palette der Welt,
  * Dreiecke auf `zielTris`, Widerristhöhe aus `RIG_HOEHE` eingerechnet. Deshalb
  * braucht die Szene für Modell und Silhouette denselben Skalierungsausdruck.
  */
-export const MIT_MODELL: ReadonlySet<string> = new Set([
-  'grathorn', 'k7-wolf', 'nebelgams', 'spuerfuchs', 'wurzelkeiler',
-]);
+export const MIT_MODELL: ReadonlySet<string> = new Set(REGISTER.modelle);
 
 export const RIG_HOEHE: Record<BasisRig, number> = {
   quadruped: 1.0, quadruped_small: 0.4, biped_bird: 0.85, serpent: 0.22,
