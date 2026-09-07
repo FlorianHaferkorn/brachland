@@ -11,6 +11,8 @@ import { effektivitaet, ELEMENTE, BAND } from '../src/data/schema.js';
 import { VARIANTEN, propPfad } from '../src/world/props.js';
 import { WEGBELAG } from '../src/world/baender.js';
 import { entpackeWelt } from '../src/world/osm.js';
+import { baueGebaeude } from '../src/world/terrain.js';
+import { aufsatzboden, baueHoehenfeld } from '../src/world/lod.js';
 
 type Befund = { schwere: 'stop' | 'warnung'; bereich: string; text: string };
 const befunde: Befund[] = [];
@@ -292,6 +294,67 @@ if (propDateien.length) {
     else heil++;
   }
   console.log(`  · [Assets] Props: ${heil}/${propDateien.length} mit einem Primitiv und Vertexfarbe`);
+}
+
+/**
+ * Dreiecke je Objektklasse — Korridor, nicht nur Deckel.
+ *
+ * Bis zum 02.09.2026 gab es Budgets nur nach oben, und nur für Kreaturen. Die
+ * Klassen, die das Bild tragen, hatten keine Zahl: Ein Haus lag im Median bei
+ * **236** Dreiecken, ein Findling bei **37**, ein Busch bei 39 — während eine
+ * Kreatur 2.000 bekam. Dabei hat G-111 gemessen, dass Dreiecke auf dem
+ * Zielgerät fast nichts kosten (11 µs je Draw Call, die Geometrie daneben
+ * kaum messbar). Das Budget begrenzte die falsche Größe, und zwar von oben, wo
+ * das Problem unten lag.
+ *
+ * Deshalb je Klasse ein **Korridor** (D111): Unterschreitet der Median die
+ * Untergrenze, ist das eine Warnung — das Bild hat weniger, als es sich
+ * leisten kann. Überschreitet das Maximum den Deckel, ist es ein Blocker.
+ * Die Untergrenzen sind aus der Stilreferenz abgeleitet, die Deckel aus der
+ * Bildzeit (`npm run zaehlen`, 19 ms p95 am Gerät).
+ *
+ * Häuser werden **gesampelt** (jedes zehnte), sonst kostet das Tor 30 s mehr.
+ */
+const KORRIDOR: Record<string, { min: number; max: number }> = {
+  'Haus':            { min: 600, max: 1500 },
+  'Prop':            { min: 150, max: 800 },
+  'Kreatur (Modell)': { min: 1200, max: 3000 },
+};
+{
+  const median = (a: number[]) => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)] ?? 0;
+  const glbTris = (pfad: string): number => {
+    const buf = readFileSync(pfad);
+    const g = JSON.parse(buf.subarray(20, 20 + buf.readUInt32LE(12)).toString('utf8'));
+    let t = 0;
+    for (const m of g.meshes ?? []) for (const p of m.primitives ?? [])
+      t += g.accessors[p.indices ?? p.attributes.POSITION].count / 3;
+    return Math.round(t);
+  };
+  const klassen: Record<string, number[]> = {};
+  if (existsSync('public/props'))
+    klassen['Prop'] = readdirSync('public/props').filter(f => f.endsWith('.glb'))
+      .map(f => glbTris(join('public/props', f)));
+  if (existsSync('public/creatures'))
+    klassen['Kreatur (Modell)'] = readdirSync('public/creatures').filter(f => f.endsWith('.glb'))
+      .map(f => glbTris(join('public/creatures', f)));
+  const region = readdirSync('public/world').map(f => join('public/world', f))
+    .find(f => f.endsWith('.json') && JSON.parse(readFileSync(f, 'utf8')).welt);
+  if (region) {
+    const welt = entpackeWelt(JSON.parse(readFileSync(region, 'utf8')).welt);
+    const boden = aufsatzboden(baueHoehenfeld(welt));
+    klassen['Haus'] = welt.gebaeude.filter((_, i) => i % 10 === 0)
+      .map(g => baueGebaeude(welt, boden, [g]))
+      .filter((g): g is NonNullable<typeof g> => !!g)
+      .map(g => g.getAttribute('position').count / 3);
+  }
+  for (const [name, werte] of Object.entries(klassen)) {
+    if (!werte.length) continue;
+    const k = KORRIDOR[name]; const med = median(werte); const max = Math.max(...werte);
+    const lage = `${name}: Median ${med}, max ${max} Dreiecke (Korridor ${k.min}–${k.max}, n=${werte.length})`;
+    if (max > k.max) stop('Klassen', `${lage} — über dem Deckel`);
+    else if (med < k.min) warn('Klassen', `${lage} — unter der Untergrenze, das Bild hat weniger, als es sich leisten kann`);
+    else console.log(`  · [Klassen] ${lage}`);
+  }
 }
 
 /**

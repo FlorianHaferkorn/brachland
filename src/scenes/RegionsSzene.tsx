@@ -90,6 +90,21 @@ export interface Stimmung {
  */
 export const HEMI_BODEN = '#2a352e';
 
+/**
+ * `?belichtung=3.2` überschreibt die Belichtung der laufenden Stimmung.
+ *
+ * Nur für Messläufe, dieselbe Begründung wie `?absetzen=` (D86), `?aus=` und
+ * `?zeit=` (D101): Eine Belichtungsreihe über vier Orte braucht sechzehn
+ * reproduzierbare Bilder, und ein Regler von Hand liefert sechzehn Zustände,
+ * die niemand nachstellen kann. Ungültige Werte fallen still auf die Stimmung
+ * zurück.
+ */
+const BELICHTUNG_MESSLAUF: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const roh = Number(new URLSearchParams(location.search).get('belichtung'));
+  return Number.isFinite(roh) && roh > 0 && roh <= 20 ? roh : null;
+})();
+
 export const STIMMUNG: Record<string, Stimmung> = {
   nacht: {
     himmel: '#0a0f12', nebel: '#101a1c', nebelNah: 25, nebelFern: 260,
@@ -1219,7 +1234,7 @@ function Beleuchtung({ s, ziel }: {
    */
   useEffect(() => {
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = s.belichtung;
+    gl.toneMappingExposure = BELICHTUNG_MESSLAUF ?? s.belichtung;
   }, [gl, s]);
 
   /**
