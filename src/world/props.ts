@@ -293,7 +293,9 @@ export function verteileProps(
 
 // ------------------------------------------------------ Modelle statt Primitive
 /**
- * Echte Modelle aus dem Kenney Nature Kit (CC0), umgefärbt über `npm run props:bau`.
+ * Prozedurale Attrappen, gebaut über `npm run props:bau` (D120) — bis zum
+ * 07.09.2026 Modelle aus dem Kenney Nature Kit (CC0, D74). Der Bauplan je
+ * Datei steht in `tools/propbau.ts`; hier stehen nur Name und Höhe.
  *
  * **Die Höhe steht hier, nicht in einer Normierung.** Vorher zog die Szene jedes
  * Modell auf eine feste Zielhöhe je Art — alle 44.968 Grasbüschel wurden damit auf
@@ -308,8 +310,6 @@ export function verteileProps(
 export interface Variante {
   /** Dateiname unter `public/props`, ohne Endung. */
   datei: string;
-  /** Quellmodell im Kenney Nature Kit. */
-  quelle: string;
   /** Reale Höhe in Metern. */
   hoehe: number;
 }
@@ -322,52 +322,52 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
   nadelbaum: [],
   laubbaum: [],
   busch: [
-    { datei: 'busch_klein',    quelle: 'plant_bushSmall',          hoehe: 0.9 },
-    { datei: 'busch_dreieck',  quelle: 'plant_bushTriangle',       hoehe: 1.2 },
-    { datei: 'busch_mittel',   quelle: 'plant_bush',               hoehe: 1.5 },
-    { datei: 'busch_dicht',    quelle: 'plant_bushDetailed',       hoehe: 1.8 },
-    { datei: 'busch_breit',    quelle: 'plant_bushLargeTriangle',  hoehe: 2.1 },
-    { datei: 'busch_gross',    quelle: 'plant_bushLarge',          hoehe: 2.4 },
+    { datei: 'busch_klein',    hoehe: 0.9 },
+    { datei: 'busch_dreieck',  hoehe: 1.2 },
+    { datei: 'busch_mittel',   hoehe: 1.5 },
+    { datei: 'busch_dicht',    hoehe: 1.8 },
+    { datei: 'busch_breit',    hoehe: 2.1 },
+    { datei: 'busch_gross',    hoehe: 2.4 },
   ],
   grasbuschel: [
-    { datei: 'gras_matte',     quelle: 'plant_flatShort',   hoehe: 0.18 },
-    { datei: 'gras_kurz',      quelle: 'grass',             hoehe: 0.24 },
-    { datei: 'gras_halme',     quelle: 'grass_leafs',       hoehe: 0.34 },
-    { datei: 'gras_hoch',      quelle: 'grass_large',       hoehe: 0.48 },
-    { datei: 'gras_blatt',     quelle: 'grass_leafsLarge',  hoehe: 0.62 },
-    { datei: 'gras_staude',    quelle: 'plant_flatTall',    hoehe: 0.85 },
+    { datei: 'gras_matte',     hoehe: 0.18 },
+    { datei: 'gras_kurz',      hoehe: 0.24 },
+    { datei: 'gras_halme',     hoehe: 0.34 },
+    { datei: 'gras_hoch',      hoehe: 0.48 },
+    { datei: 'gras_blatt',     hoehe: 0.62 },
+    { datei: 'gras_staude',    hoehe: 0.85 },
   ],
   findling: [
-    { datei: 'findling_flach', quelle: 'rock_smallFlatB',  hoehe: 0.45 },
-    { datei: 'findling_klein', quelle: 'rock_smallA',      hoehe: 0.7 },
-    { datei: 'findling_kant',  quelle: 'stone_smallD',     hoehe: 0.9 },
-    { datei: 'findling_hoch',  quelle: 'rock_tallC',       hoehe: 1.7 },
-    { datei: 'findling_block', quelle: 'stone_tallF',      hoehe: 2.2 },
-    { datei: 'findling_gross', quelle: 'rock_largeB',      hoehe: 3.0 },
+    { datei: 'findling_flach', hoehe: 0.45 },
+    { datei: 'findling_klein', hoehe: 0.7 },
+    { datei: 'findling_kant',  hoehe: 0.9 },
+    { datei: 'findling_hoch',  hoehe: 1.7 },
+    { datei: 'findling_block', hoehe: 2.2 },
+    { datei: 'findling_gross', hoehe: 3.0 },
   ],
   totholz: [
-    { datei: 'totholz_stamm',  quelle: 'log',                  hoehe: 0.5 },
-    { datei: 'totholz_dick',   quelle: 'log_large',            hoehe: 0.8 },
-    { datei: 'totholz_stapel', quelle: 'log_stack',            hoehe: 0.7 },
-    { datei: 'totholz_stumpf', quelle: 'stump_round',          hoehe: 0.6 },
-    { datei: 'totholz_wurzel', quelle: 'stump_old',            hoehe: 1.0 },
-    { datei: 'totholz_kante',  quelle: 'stump_squareDetailed', hoehe: 0.75 },
+    { datei: 'totholz_stamm',  hoehe: 0.5 },
+    { datei: 'totholz_dick',   hoehe: 0.8 },
+    { datei: 'totholz_stapel', hoehe: 0.7 },
+    { datei: 'totholz_stumpf', hoehe: 0.6 },
+    { datei: 'totholz_wurzel', hoehe: 1.0 },
+    { datei: 'totholz_kante',  hoehe: 0.75 },
   ],
   blume: [
-    { datei: 'blume_gelb',     quelle: 'flower_yellowB', hoehe: 0.26 },
-    { datei: 'blume_gelb2',    quelle: 'flower_yellowC', hoehe: 0.3 },
-    { datei: 'blume_rot',      quelle: 'flower_redA',    hoehe: 0.24 },
-    { datei: 'blume_rot2',     quelle: 'flower_redC',    hoehe: 0.28 },
-    { datei: 'blume_violett',  quelle: 'flower_purpleA', hoehe: 0.22 },
-    { datei: 'blume_violett2', quelle: 'flower_purpleB', hoehe: 0.32 },
+    { datei: 'blume_gelb',     hoehe: 0.26 },
+    { datei: 'blume_gelb2',    hoehe: 0.3 },
+    { datei: 'blume_rot',      hoehe: 0.24 },
+    { datei: 'blume_rot2',     hoehe: 0.28 },
+    { datei: 'blume_violett',  hoehe: 0.22 },
+    { datei: 'blume_violett2', hoehe: 0.32 },
   ],
   pilz: [
-    { datei: 'pilz_rot',       quelle: 'mushroom_red',       hoehe: 0.16 },
-    { datei: 'pilz_rot_hoch',  quelle: 'mushroom_redTall',   hoehe: 0.26 },
-    { datei: 'pilz_rot_gruppe',quelle: 'mushroom_redGroup',  hoehe: 0.2 },
-    { datei: 'pilz_hell',      quelle: 'mushroom_tan',       hoehe: 0.15 },
-    { datei: 'pilz_hell_hoch', quelle: 'mushroom_tanTall',   hoehe: 0.24 },
-    { datei: 'pilz_hell_grupp',quelle: 'mushroom_tanGroup',  hoehe: 0.19 },
+    { datei: 'pilz_rot',       hoehe: 0.16 },
+    { datei: 'pilz_rot_hoch',  hoehe: 0.26 },
+    { datei: 'pilz_rot_gruppe',hoehe: 0.2 },
+    { datei: 'pilz_hell',      hoehe: 0.15 },
+    { datei: 'pilz_hell_hoch', hoehe: 0.24 },
+    { datei: 'pilz_hell_grupp',hoehe: 0.19 },
   ],
 };
 

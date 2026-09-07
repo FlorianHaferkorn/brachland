@@ -6,8 +6,8 @@
       "ort": "-1620,-1620,40",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 3.1,
-      "dunkel": 95.2,
+      "leer": 1.9,
+      "dunkel": 95.8,
       "median": 0.001
     },
     {
@@ -15,36 +15,36 @@
       "ort": "-1620,-1620,40",
       "zeit": 0.26,
       "stimmung": "daemmerung",
-      "leer": 2.8,
-      "dunkel": 54.5,
-      "median": 0.014
+      "leer": 0.1,
+      "dunkel": 9,
+      "median": 0.205
     },
     {
       "name": "Felsflanke",
       "ort": "-1620,-1620,40",
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
-      "leer": 1,
-      "dunkel": 41,
-      "median": 0.021
+      "leer": 0.1,
+      "dunkel": 9,
+      "median": 0.171
     },
     {
       "name": "Felsflanke",
       "ort": "-1620,-1620,40",
       "zeit": 0.78,
       "stimmung": "abendrot",
-      "leer": 0.1,
-      "dunkel": 64.9,
-      "median": 0.01
+      "leer": 0,
+      "dunkel": 3.1,
+      "median": 0.11
     },
     {
       "name": "Talboden",
       "ort": "900,-400,200",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 1.5,
-      "dunkel": 98.9,
-      "median": 0.007
+      "leer": 1.3,
+      "dunkel": 99.9,
+      "median": 0.011
     },
     {
       "name": "Talboden",
@@ -52,37 +52,36 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 82.4,
-      "median": 0.014
+      "dunkel": 2.5,
+      "median": 0.255
     },
     {
       "name": "Grashang",
       "ort": "0,0,0",
       "zeit": 0.26,
       "stimmung": "daemmerung",
-      "leer": 1.5,
-      "dunkel": 82.6,
+      "leer": 0.1,
+      "dunkel": 2.3,
       "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
-      "median": 0.003
+      "median": 0.188
     },
     {
       "name": "Grashang",
       "ort": "0,0,0",
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
-      "leer": 1.3,
-      "dunkel": 87.5,
+      "leer": 0.1,
+      "dunkel": 3.1,
       "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
-      "median": 0.012
+      "median": 0.156
     },
     {
       "name": "Felsmulde",
       "ort": "-800,600,90",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 46.1,
-      "dunkel": 93.1,
-      "offen": "G-117 — Nadellaub faellt nachts unter die 8-Bit-Schwelle",
+      "leer": 3.2,
+      "dunkel": 91,
       "median": 0
     },
     {
@@ -90,18 +89,18 @@
       "ort": "-800,600,90",
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
-      "leer": 3.3,
-      "dunkel": 95.5,
-      "median": 0.001
+      "leer": 0,
+      "dunkel": 8.5,
+      "median": 0.04
     },
     {
       "name": "Dorf",
       "ort": "1350,495,0",
       "zeit": 0.26,
       "stimmung": "daemmerung",
-      "leer": 4.2,
-      "dunkel": 96.3,
-      "median": 0,
+      "leer": 0.1,
+      "dunkel": 7.4,
+      "median": 0.1,
       "hinweis": "Das dichteste Dorf der Region (128 Gebaeude im 3x3-Fenster um 1350/450), Blick nach Norden auf den Ortskern. Seit G-126"
     },
     {
@@ -109,9 +108,9 @@
       "ort": "1110,871,90",
       "zeit": 0.26,
       "stimmung": "daemmerung",
-      "leer": 2.9,
-      "dunkel": 59.5,
-      "median": 0.016,
+      "leer": 0.1,
+      "dunkel": 7.7,
+      "median": 0.169,
       "hinweis": "Slice-Mitte (D113): 38 m bachabwaerts des Flussvaters, Blick nach Westen den Bach entlang — Wasser vorn, Klaeranlage rechts, Hang links. Der erste Standpunkt (40 m noerdlich, Blick Sued) stand in einem Gebaeude. Seit G-126"
     }
   ]

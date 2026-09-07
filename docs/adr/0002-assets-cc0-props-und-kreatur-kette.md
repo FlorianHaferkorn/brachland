@@ -17,7 +17,9 @@ sauber zwischen zwei Problemen, von denen nur eines schwer ist:
 
 ## Entscheidung
 
-**Props: CC0-Packs, erledigt.** 23 Modelle aus dem **Kenney Nature Kit 2.1 (CC0)** —
+**Nachtrag 07.09.2026 (D120):** Die Props sind seitdem **prozedural** (`tools/propbau.ts`), weil das Kit den Korridor aus D111 (150–800 Dreiecke) und den Tonwechsel innerhalb einer Fläche nicht liefern konnte. CC0 bleibt die Regel für alles, was von aussen kommt — Kreaturen, Referenzen, Fonts.
+
+**Props: CC0-Packs, erledigt (Stand 2026-08).** 23 Modelle aus dem **Kenney Nature Kit 2.1 (CC0)** —
 2.778 Dreiecke gesamt, 130 KB, +200 KB Precache für den kompletten Ersatz aller
 Platzhalter-Primitive. Zwei Details sind Teil der Entscheidung, nicht Beiwerk:
 

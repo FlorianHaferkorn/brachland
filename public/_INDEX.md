@@ -14,7 +14,7 @@ shelf-life-days: 90
 | Pfad | Inhalt |
 |---|---|
 | `world/oental.json` | Weltdaten für Œntal — 1,05 MB. Höhenraster, Biome, OSM-Geometrie, Spawn-Zonen. Erzeugt mit `npm run world oental 96` |
-| `props/*.glb` | 36 Vegetationsmodelle aus dem Kenney Nature Kit 2.1 (CC0), gebaut mit `npm run props:bau`: Busch, Grasbüschel, Findling, Totholz, Blume, Pilz je 6 Varianten. Zusammen **92 KB** — weniger als die 23 Modelle vorher, weil die acht Baum-GLB weg sind (Bäume sind prozedural, D40) und weil UV und Material aus den Dateien fliegen. Jedes Modell: **ein** Primitiv, Farbe als `COLOR_0` in der Projektpalette, Höhe in echten Metern. `npm run quality` blockt, wenn eines davon nicht stimmt (G-76) |
+| `props/*.glb` | 36 **prozedurale** Attrappen, gebaut mit `npm run props:bau` (D120, vorher Kenney Nature Kit 2.1 CC0, D74): Busch, Grasbüschel, Findling, Totholz, Blume, Pilz je 6 Varianten, Median 219 Dreiecke (Korridor D111), zusammen **328 KB** quantisiert. Bis zum 07.09.2026 **92 KB** aus Kenney — weniger als die 23 Modelle davor, weil die acht Baum-GLB weg sind (Bäume sind prozedural, D40) und weil UV und Material aus den Dateien fliegen. Jedes Modell: **ein** Primitiv, Farbe als `COLOR_0` in der Projektpalette, Höhe in echten Metern. `npm run quality` blockt, wenn eines davon nicht stimmt (G-76) |
 
 ## Aktueller Precache
 

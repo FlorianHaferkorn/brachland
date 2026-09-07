@@ -493,7 +493,10 @@ export function baueGebaeude(
      * Dreiecke. Gemessen: Das 28 × 18 m grosse Dreigeschossige hätte mit
      * Läden 1.514 Dreiecke, über dem Deckel (D111).
      */
-    const wohnhaus = !garage && !NUTZBAU.has(g.art) && klein <= 16 && breite <= 26;
+    // Und höchstens drei Ebenen: Ein Viergeschossiges mit Läden an 68 Fenstern
+    // kam auf 1.502 Dreiecke — zwei über dem Deckel — und ist im Bestand ein
+    // Wohnblock, kein Bauernhaus.
+    const wohnhaus = !garage && !NUTZBAU.has(g.art) && klein <= 16 && breite <= 26 && g.ebenen <= 3;
     /** Umfang des Grundrisses — die Brettbreite wächst damit, siehe `bretterwand`. */
     let umfang = 0;
     for (let k = 0; k < p.length - 1; k++) umfang += Math.hypot(p[k + 1][0] - p[k][0], p[k + 1][1] - p[k][1]);
@@ -905,11 +908,11 @@ export function baueGebaeude(
       const schritt = breite / zahl;
       for (let i = 0; i < zahl; i++) {
         const u = minU + schritt * (i + 0.5);
-        const sb = 0.07;
+        const sb = 0.08;
         // Traufseite aV0 und aV1: vom Dachrand bis 0,25 m unter die Wand.
-        kasten(u - sb, u + sb, aV0 + 0.02, minV + 0.25, (_u, v) => sparrenY(v) - 0.18, (_u, v) => sparrenY(v), SPARREN,
+        kasten(u - sb, u + sb, aV0 + 0.02, minV + 0.25, (_u, v) => sparrenY(v) - 0.22, (_u, v) => sparrenY(v), SPARREN,
                { unten: true, u0: true, u1: true, v0: true });
-        kasten(u - sb, u + sb, maxV - 0.25, aV1 - 0.02, (_u, v) => sparrenY(v) - 0.18, (_u, v) => sparrenY(v), SPARREN,
+        kasten(u - sb, u + sb, maxV - 0.25, aV1 - 0.02, (_u, v) => sparrenY(v) - 0.22, (_u, v) => sparrenY(v), SPARREN,
                { unten: true, u0: true, u1: true, v1: true });
       }
       const halb = mv - aV0;
@@ -1206,11 +1209,19 @@ export function baueGebaeude(
         const u0 = Math.min(u + s * 0.08, u + s * 0.58), u1 = Math.max(u + s * 0.08, u + s * 0.58);
         const [sx, sz] = hu.welt((u0 + u1) / 2, vm);
         const fussY = terrain.hoeheAn(sx, sz) - 0.08, kopfY = fussY + 1.2;
-        const lagen = 5, lh = (kopfY - fussY) / lagen;
+        // Die Stirn als Raster aus Scheitholz-Enden: fuenf Lagen, sieben Scheite,
+        // jedes Feld in einem der drei Toene, Nachbarn nie gleich. Fuenf
+        // durchgehende Lagen (erster Stand) lasen sich als heller Kasten (D119);
+        // erst das Raster macht aus dem Kasten einen Stapel. 70 statt 10 Dreiecke.
+        const lagen = 5, scheite = 7, lh = (kopfY - fussY) / lagen, sb = 2.0 / scheite;
         const aussenU = s > 0 ? 'u1' : 'u0';
+        let ton = 0;
         for (let l = 0; l < lagen; l++) {
-          kasten(u0, u1, vm - 1.0, vm + 1.0, fest(fussY + l * lh), fest(fussY + (l + 1) * lh),
-                 BRENNHOLZ_TOENE[(l + Math.floor(wuerfel() * 2)) % 3], { [aussenU]: true });
+          for (let c = 0; c < scheite; c++) {
+            ton = (ton + 1 + Math.floor(wuerfel() * 2)) % 3;
+            kasten(u0, u1, vm - 1.0 + c * sb, vm - 1.0 + (c + 1) * sb, fest(fussY + l * lh), fest(fussY + (l + 1) * lh),
+                   BRENNHOLZ_TOENE[ton], { [aussenU]: true });
+          }
         }
         kasten(u0, u1, vm - 1.0, vm + 1.0, fest(fussY), fest(kopfY), BRENNHOLZ_TOENE[0], { oben: true, v0: true, v1: true });
       }

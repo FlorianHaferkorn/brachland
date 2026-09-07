@@ -110,7 +110,9 @@ export const PALETTE = {
   },
 
   /**
-   * Kenney-Materialrollen → Projektfarbe (D74). Die Töne stammen aus `biom`
+   * Materialrollen der Attrappen — die Namen stammen aus dem Kenney-Kit (D74),
+   * seit D120 baut `propbau.ts` die Props selbst und greift auf dieselben Rollen
+   * zu (Stein, Rinde, Stirnholz, Laub, Blüten). Kenney-Materialrollen → Projektfarbe (D74). Die Töne stammen aus `biom`
    * und `baum`; ein Busch aus einer zweiten Palette fällt sofort als
    * Fremdkörper auf, und genau das war der Zustand vorher (G-76).
    */
@@ -168,10 +170,16 @@ export const PALETTE = {
     schutt: '#4f4c46',
   },
 
-  /** Gestreutes Gras und Steine (`streuung.ts`): Halm von Fuß bis Spitze. */
+  /**
+   * Gestreutes Gras und Steine (`streuung.ts`) und die Grasbüschel-Attrappen:
+   * Halm von Fuß bis Spitze. Spitze Y 0,63 → **0,32** (D120): Bei 0,63 stand
+   * jedes der 5.200 Büschel dreimal so hell wie die Wiese (0,21) und las sich
+   * von oben als weisser Seestern — die ganze Wiese war ein Sternenfeld. Jetzt
+   * anderthalbmal so hell wie der Boden, der Fuß bleibt dunkler als er.
+   */
   streu: {
     grasFuss:   '#5d6f40',
-    grasSpitze: '#c6d799',
+    grasSpitze: '#8fa069',
     stein:      '#6f716a',
   },
 
