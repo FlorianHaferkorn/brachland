@@ -32,6 +32,7 @@
     "wasser": "tsx tools/wassercheck.ts",
     "aufsatz": "tsx tools/aufsatzcheck.ts",
     "props:bau": "tsx tools/propbau.ts",
+    "herkunft": "tsx tools/herkunft.ts",
     "dichte": "tsx tools/dichtecheck.ts",
     "gestalt": "tsx tools/gestaltcheck.ts",
     "gleit": "tsx tools/gleitcheck.ts",

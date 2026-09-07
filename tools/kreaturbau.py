@@ -191,7 +191,11 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
         print(f'{kid}: {pfad} fehlt'); continue
     inhalt = json.load(open(f'content/creatures/{kid}.json'))
     ziel_tris = int(inhalt.get('zielTris') or 3000)
-    hoehe = WIDERRIST.get(inhalt.get('basisRig', 'quadruped'), 1.0)
+    # `widerrist` im Inhalt schlaegt die Rig-Hoehe (D125): Der Kiemenbiber kam
+    # mit `quadruped` (1,0 m) auf 2,96 m Laenge, der Myzelmolch mit
+    # `quadruped_small` (0,4 m) auf 2,48 m — ein langes flaches Tier wird durch
+    # eine Rig-Hoehe gross. Jetzt 0,5 m und 0,18 m, je Art gesetzt.
+    hoehe = float(inhalt.get('widerrist') or WIDERRIST.get(inhalt.get('basisRig', 'quadruped'), 1.0))
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=pfad)
@@ -527,6 +531,11 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
           f'Farbe aus {quelle} · Widerrist {hoehe} m, Scheitel {hi4.z:.2f} m · '
           f'{hi4.y - lo4.y:.2f} m lang · {kb:.0f} KB')
 
-json.dump({'modelle': sorted(register)}, open(f'{ZIEL}/register.json', 'w'),
+# Ein Teillauf (`datei=kreatur`) ergaenzt das Register, er ersetzt es nicht —
+# sonst kennt die Szene nach einem Lauf fuer zwei Tiere nur noch zwei.
+alle = set(register)
+if EIGEN and os.path.exists(f'{ZIEL}/register.json'):
+    alle |= set(json.load(open(f'{ZIEL}/register.json')).get('modelle', []))
+json.dump({'modelle': sorted(alle)}, open(f'{ZIEL}/register.json', 'w'),
           ensure_ascii=False, indent=1)
 print(f'\n{len(register)} Modelle · Register nach {ZIEL}/register.json')

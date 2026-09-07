@@ -12,6 +12,7 @@ import { VARIANTEN, propPfad } from '../src/world/props.js';
 import { WEGBELAG } from '../src/world/baender.js';
 import { entpackeWelt } from '../src/world/osm.js';
 import { baueGebaeude } from '../src/world/terrain.js';
+import { herkunftJson } from './herkunft.js';
 import { aufsatzboden, baueHoehenfeld } from '../src/world/lod.js';
 
 type Befund = { schwere: 'stop' | 'warnung'; bereich: string; text: string };
@@ -216,6 +217,14 @@ if (existsSync('public/creatures')) {
  */
 if (existsSync('public/creatures')) {
   const dateien = readdirSync('public/creatures').filter(f => f.endsWith('.glb'));
+  // `public/herkunft.json` muss die Tabelle sein (D127): Das Menü zeigt die
+  // Namensnennung aus dieser Datei, und eine veraltete Kopie waere eine falsche
+  // Nennung — schlimmer als keine.
+  if (existsSync('assets/HERKUNFT.md')) {
+    const soll = herkunftJson();
+    const ist = existsSync('public/herkunft.json') ? readFileSync('public/herkunft.json', 'utf8') : '';
+    if (soll !== ist) stop('Assets', 'public/herkunft.json ist nicht die Tabelle aus assets/HERKUNFT.md — npm run herkunft');
+  }
   const herkunft = existsSync('assets/HERKUNFT.md')
     ? readFileSync('assets/HERKUNFT.md', 'utf8') : '';
   if (!herkunft) {

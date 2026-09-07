@@ -8,6 +8,7 @@
   ],
   "ursprung": "wildling",
   "basisRig": "quadruped",
+  "widerrist": 0.5,
   "zielTris": 3500,
   "spawn": {
     "osmTag": "waterway=stream",

@@ -157,6 +157,13 @@ export const Kreatur = z.object({
   elemente: z.array(Element).min(1).max(2),
   ursprung: Ursprung,
   basisRig: z.string().describe('Archetyp-Rig, z.B. quadruped'),
+  /**
+   * Widerristhöhe des Modells in Metern, wenn die Rig-Höhe nicht passt (D125).
+   * Die Kette normt auf `RIG_HOEHE[basisRig]`; ein Biber mit `quadruped`
+   * käme so auf 2,96 m Länge, ein Salamander mit `quadruped_small` auf 2,48 m —
+   * lange, flache Tiere werden durch eine Rig-Höhe gross. Ohne Angabe gilt das Rig.
+   */
+  widerrist: z.number().min(0.1).max(2.5).optional(),
   zielTris: z.number().int().min(1000).max(10000).default(4000),
   spawn: Spawn,
   grundMoves: z.array(z.string()).length(2),

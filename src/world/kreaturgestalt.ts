@@ -565,3 +565,327 @@ export function widerristPunkt(geo: THREE.BufferGeometry): THREE.Vector3 {
  * gar keines.
  */
 export const MIT_GEHOERN: ReadonlySet<string> = new Set(['grathorn']);
+
+// ------------------------------------------------------------- Anbauten (D128)
+
+/**
+ * Ankerpunkte eines **Modells**, gemessen — nicht gesetzt.
+ *
+ * Jedes Modell aus `kreaturbau.py` steht mit dem Widerrist auf y ≈ h, der Nase
+ * nach −Z und den Füssen auf y = 0. Wo an dieser Gestalt Kopf, Hals, Kruppe und
+ * Schwanz sitzen, sagt niemand — man misst es: Scheibe für Scheibe entlang der
+ * Längsachse der höchste Punkt. Für **aufrechte** Tiere (der Alpenmurmel steht
+ * wie ein Wachposten, Höhe > 1,1 × Länge — der Schwanz zählt zur Länge) läuft dieselbe Messung entlang der
+ * Hochachse und nimmt je Scheibe den hintersten Punkt: Der Rücken eines
+ * stehenden Murmeltiers ist seine Rückseite, nicht seine Oberseite.
+ */
+export interface Anker {
+  /** Widerristhöhe — alle Anbaumaße sind Vielfache davon. */
+  h: number;
+  laenge: number;
+  breite: number;
+  aufrecht: boolean;
+  nase: THREE.Vector3;
+  kopf: THREE.Vector3;
+  hals: THREE.Vector3;
+  widerrist: THREE.Vector3;
+  kruppe: THREE.Vector3;
+  schwanz: THREE.Vector3;
+  /** Punkt auf der Rückenlinie, t = 0 an der Nase, 1 am Schwanzende. */
+  ruecken: (t: number) => THREE.Vector3;
+}
+
+export function messeAnker(geo: THREE.BufferGeometry): Anker {
+  geo.computeBoundingBox();
+  const bb = geo.boundingBox!;
+  const p = geo.getAttribute('position');
+  const laenge = bb.max.z - bb.min.z, hoehe = bb.max.y - bb.min.y;
+  const breite = bb.max.x - bb.min.x;
+  const mx = (bb.min.x + bb.max.x) / 2;
+  const aufrecht = hoehe > laenge * 1.1;
+  const widerrist = widerristPunkt(geo);
+  const h = widerrist.y;
+
+  /** Höchster Punkt in einer Scheibe entlang z (liegend) bzw. hinterster entlang y (aufrecht). */
+  const scheibe = (t: number): THREE.Vector3 => {
+    if (!aufrecht) {
+      const z0 = bb.min.z + laenge * (t - 0.03), z1 = bb.min.z + laenge * (t + 0.03);
+      let bestY = -Infinity, bestZ = (z0 + z1) / 2;
+      for (let i = 0; i < p.count; i++) {
+        const z = p.getZ(i); if (z < z0 || z > z1) continue;
+        if (Math.abs(p.getX(i) - mx) > breite * 0.25) continue;
+        const y = p.getY(i); if (y > bestY) { bestY = y; bestZ = z; }
+      }
+      return new THREE.Vector3(mx, bestY > -Infinity ? bestY : h, bestZ);
+    }
+    // Aufrecht: t läuft von oben (Kopf) nach unten (Fuss) über die Höhe.
+    const y0 = bb.max.y - hoehe * (t + 0.03), y1 = bb.max.y - hoehe * (t - 0.03);
+    let bestZ = -Infinity, bestY = (y0 + y1) / 2;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i); if (y < y0 || y > y1) continue;
+      if (Math.abs(p.getX(i) - mx) > breite * 0.25) continue;
+      const z = p.getZ(i); if (z > bestZ) { bestZ = z; bestY = y; }
+    }
+    return new THREE.Vector3(mx, bestY, bestZ > -Infinity ? bestZ : bb.max.z);
+  };
+
+  return {
+    h, laenge, breite, aufrecht,
+    nase: new THREE.Vector3(mx, aufrecht ? bb.max.y * 0.85 : h * 0.7, bb.min.z),
+    kopf: scheibe(aufrecht ? 0.08 : 0.10),
+    hals: scheibe(aufrecht ? 0.22 : 0.26),
+    widerrist,
+    kruppe: scheibe(aufrecht ? 0.55 : 0.72),
+    schwanz: scheibe(aufrecht ? 0.85 : 0.95),
+    ruecken: scheibe,
+  };
+}
+
+const SIGNALFARBE = new THREE.Color(PALETTE.befall.signal);
+const WEISS = new THREE.Color(PALETTE.kenney.colorWhite);
+const MOOS = new THREE.Color(PALETTE.attrappe.busch);
+const elementFarbe = (e: Element) => new THREE.Color(ELEMENT_FARBE[e] ?? PALETTE.element.hell);
+
+/** Flache Platte/Lamelle: ein flachgedrückter Kegel, Spitze nach +Y. */
+function lamelle(laenge: number, breite: number, dicke: number): THREE.BufferGeometry {
+  const g = new THREE.ConeGeometry(breite / 2, laenge, 3);
+  g.translate(0, laenge / 2, 0);
+  g.scale(1, 1, dicke / Math.max(1e-6, breite));
+  return g;
+}
+
+type AnbauBauer = (a: Anker, mutation: number, zufall: () => number) => THREE.BufferGeometry[];
+
+/**
+ * Filterkiemen-Kragen (Kiemenbiber): ein Kranz aus Lamellen um den Hals, nach
+ * hinten gelegt. 6 · 9 · 12 Lamellen, mit jeder Stufe länger — auf S3 steht der
+ * Kragen wie ein Halskrause um den Kopf.
+ */
+const kragen: AnbauBauer = (a, m, w) => {
+  const teile: THREE.BufferGeometry[] = [];
+  const n = 6 + 3 * m;
+  // Halsachse: unter dem Halsrücken um den halben Körperradius; die Lamellen
+  // setzen **auf** der Haut an (Radius 0,45 Breite) und zeigen radial weg.
+  const r = a.breite * 0.45;
+  const mitte = new THREE.Vector3(a.hals.x, a.hals.y - r * 0.9, a.hals.z);
+  const l = a.h * (0.16 + 0.11 * m);
+  const farbe = elementFarbe('wasser'), hell = CHITIN_HELL;
+  for (let i = 0; i < n; i++) {
+    const phi = (i + 0.5) / n * Math.PI * 2;
+    // Breite Lamelle (halb so breit wie lang), ein Kragen und keine Nadeln.
+    const g = lamelle(l * streuung(w, 'wildling', 0.12), l * 0.5, l * 0.06);
+    // Spitze radial nach aussen und 30° nach hinten (+Z; die Nase zeigt nach −Z).
+    g.rotateX(0.52);
+    g.rotateZ(-phi);
+    teile.push(teil(g, i % 2 ? farbe : hell,
+                    mitte.x + Math.sin(phi) * r, mitte.y + Math.cos(phi) * r, mitte.z));
+  }
+  return teile;
+};
+
+/**
+ * Facetten-Linsenaugen (Linsenuhu): zwei Linsen in der Signalfarbe, in einem
+ * dunklen Ring aus Alt-Tech. Sie wachsen von Augen zu Scheinwerfern.
+ */
+const linsenaugen: AnbauBauer = (a, m) => {
+  const teile: THREE.BufferGeometry[] = [];
+  const r = a.h * (0.055 + 0.03 * m);
+  const ring = elementFarbe('alt-tech');
+  for (const sx of [-1, 1]) {
+    const x = a.kopf.x + sx * a.breite * 0.22, y = a.kopf.y - a.h * 0.16, z = a.nase.z + a.laenge * 0.06;
+    const fassung = new THREE.CylinderGeometry(r * 1.25, r * 1.1, r * 0.5, 8);
+    fassung.rotateX(Math.PI / 2);
+    teile.push(teil(fassung, ring, x, y, z + r * 0.2));
+    const linse = new THREE.IcosahedronGeometry(r, 1);
+    linse.scale(1, 1, 0.55);
+    teile.push(teil(linse, SIGNALFARBE, x, y, z));
+  }
+  return teile;
+};
+
+/** Sporenfächer (Sporenhahn): der Pilzfächer der Silhouetten, an die Kruppe gesetzt. */
+const sporenfaecher: AnbauBauer = (a, m) => {
+  const teile = bauFaecher(m, a.h, 'wildling');
+  // `bauFaecher` baut für die Silhouette: Rückenhöhe 0,55 h, Hinterhand bei +0,60 h.
+  for (const g of teile) g.translate(0, a.kruppe.y - a.h * 0.72, a.kruppe.z - a.h * 0.60);
+  return teile;
+};
+
+/**
+ * Erdpilz-Rückenpolster (Alpenmurmel): flache Kuppen über den Rücken, Moos
+ * dazwischen. Der Murmel steht aufrecht — sein Rücken ist seine Rückseite.
+ */
+const rueckenpolster: AnbauBauer = (a, m, w) => {
+  const teile: THREE.BufferGeometry[] = [];
+  const n = 3 + 3 * m;
+  for (let i = 0; i < n; i++) {
+    const t = 0.30 + 0.55 * (i + 0.5) / n;
+    const pkt = a.ruecken(t);
+    const r = a.h * (0.09 + 0.05 * m) * streuung(w, 'wildling', 0.2);
+    const kuppe = new THREE.SphereGeometry(r, 7, 4, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    kuppe.scale(1, 0.6, 1);
+    if (a.aufrecht) kuppe.rotateX(Math.PI / 2);   // Kuppe zeigt nach hinten
+    const x = pkt.x + (w() - 0.5) * a.breite * 0.5;
+    teile.push(teil(kuppe, i % 3 === 2 ? MOOS : PILZ_DUNKEL, x, pkt.y, pkt.z));
+  }
+  return teile;
+};
+
+/**
+ * Frostkristall-Fell (Firnhase): Kristalle als Doppelkegel über Rücken und
+ * Ohren, mit jeder Stufe mehr und länger.
+ */
+const frostkristalle: AnbauBauer = (a, m, w) => {
+  const teile: THREE.BufferGeometry[] = [];
+  const n = 4 + 4 * m, frost = elementFarbe('frost');
+  for (let i = 0; i < n; i++) {
+    const t = 0.15 + 0.75 * (i + 0.3 * w()) / n;
+    const pkt = a.ruecken(t);
+    const l = a.h * (0.10 + 0.07 * m) * streuung(w, 'wildling', 0.25);
+    const g = new THREE.OctahedronGeometry(l * 0.35, 0);
+    g.scale(0.5, 1.6, 0.5);
+    g.rotateX((w() - 0.5) * 0.8); g.rotateZ((w() - 0.5) * 0.8);
+    teile.push(teil(g, i % 2 ? WEISS : frost, pkt.x + (w() - 0.5) * a.breite * 0.5, pkt.y + l * 0.3, pkt.z));
+  }
+  return teile;
+};
+
+/**
+ * Fäulnisdrüse (Moderotter): geschwollene Drüsen an den Flanken, jede mit
+ * einem Signalpunkt. Sie sind das Einzige an diesem Tier, das leuchtet.
+ */
+const faeulnisdruesen: AnbauBauer = (a, m, w) => {
+  const teile: THREE.BufferGeometry[] = [];
+  const n = 2 + 2 * m, dunkel = elementFarbe('faeulnis');
+  for (let i = 0; i < n; i++) {
+    const t = 0.25 + 0.6 * (i + 0.5) / n;
+    const pkt = a.ruecken(t);
+    const sx = i % 2 ? 1 : -1;
+    const r = a.h * (0.16 + 0.08 * m) * streuung(w, 'wildling', 0.2);
+    const g = new THREE.IcosahedronGeometry(r, 1);
+    g.scale(0.8, 0.7, 1);
+    const x = pkt.x + sx * a.breite * 0.42, y = pkt.y - a.h * 0.35;
+    teile.push(teil(g, dunkel, x, y, pkt.z));
+    teile.push(teil(new THREE.IcosahedronGeometry(r * 0.28, 0), SIGNALFARBE, x + sx * r * 0.7, y + r * 0.3, pkt.z));
+  }
+  return teile;
+};
+
+/**
+ * Leuchtmyzel-Adern (Myzelmolch): Stränge in der Signalfarbe, die dem Rücken
+ * folgen und sich mit jeder Stufe verzweigen.
+ */
+const leuchtadern: AnbauBauer = (a, m, w) => {
+  const teile: THREE.BufferGeometry[] = [];
+  const straenge = 1 + m, glieder = 7;
+  for (let s = 0; s < straenge; s++) {
+    const seite = (s % 2 ? 1 : -1) * (s === 0 ? 0 : 1);
+    for (let i = 0; i < glieder; i++) {
+      const t0 = 0.2 + 0.7 * i / glieder, t1 = 0.2 + 0.7 * (i + 1) / glieder;
+      const p0 = a.ruecken(t0), p1 = a.ruecken(t1);
+      const x0 = seite * a.breite * (0.18 + 0.15 * Math.sin(i * 1.7 + s));
+      const x1 = seite * a.breite * (0.18 + 0.15 * Math.sin((i + 1) * 1.7 + s));
+      const r = a.h * (0.035 + 0.012 * m) * streuung(w, 'wildling', 0.15);
+      const von = new THREE.Vector3(p0.x + x0, p0.y + r, p0.z), bis = new THREE.Vector3(p1.x + x1, p1.y + r, p1.z);
+      const l = von.distanceTo(bis);
+      const g = new THREE.CylinderGeometry(r, r, l * 1.15, 4);
+      // Zylinder steht auf +Y; auf die Strecke von→bis drehen.
+      const richtung = bis.clone().sub(von).normalize();
+      const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), richtung);
+      g.applyQuaternion(q);
+      const mitte = von.clone().add(bis).multiplyScalar(0.5);
+      teile.push(teil(g, i % 3 === 1 ? PILZ_HELL : SIGNALFARBE, mitte.x, mitte.y, mitte.z));
+    }
+  }
+  return teile;
+};
+
+/**
+ * Frostfeder-Fächer (Schneehuhn): ein Fächer aus Federn am Hinterkopf und am
+ * Stoss, weiss mit Frost — die Balz eines Tieres, das im Schnee unsichtbar
+ * sein will und es auf S3 nicht mehr ist.
+ */
+const federfaecher: AnbauBauer = (a, m, w) => {
+  const teile: THREE.BufferGeometry[] = [];
+  const n = 5 + 2 * m, frost = elementFarbe('frost');
+  for (const [anker, richtung, spanne] of [[a.kopf, -1, 0.9], [a.schwanz, 1, 1.2]] as const) {
+    for (let i = 0; i < n; i++) {
+      const t = (i + 0.5) / n;
+      const winkel = (t - 0.5) * spanne * 1.6;
+      const l = a.h * (0.14 + 0.08 * m) * streuung(w, 'wildling', 0.15);
+      const g = lamelle(l, l * 0.3, l * 0.05);
+      // Fächer öffnet sich quer (um die Längsachse), Federn leicht nach hinten/vorn.
+      g.rotateX(richtung * 0.9);
+      g.rotateZ(winkel);
+      teile.push(teil(g, i % 2 ? WEISS : frost, anker.x, anker.y, anker.z + richtung * a.h * 0.05));
+    }
+  }
+  return teile;
+};
+
+/**
+ * Trafostation-Verwachsung (Trafomarder): ein Gehäuse mit Kühlrippen auf dem
+ * Rücken und ein Isolator mit Signalspitze. Mit jeder Stufe eine Rippe mehr
+ * und ein grösseres Gehäuse — die Station wächst, das Tier nicht.
+ */
+const trafoverwachsung: AnbauBauer = (a, m) => {
+  const teile: THREE.BufferGeometry[] = [];
+  const f = 1 + 0.35 * m, tech = elementFarbe('alt-tech'), dunkel = CHITIN_DUNKEL;
+  const pkt = a.ruecken(0.5);
+  const b = a.h * 0.28 * f, hh = a.h * 0.22 * f, tiefe = a.h * 0.34 * f;
+  teile.push(teil(new THREE.BoxGeometry(b, hh, tiefe), tech, pkt.x, pkt.y + hh * 0.35, pkt.z));
+  const rippen = 3 + m;
+  for (let i = 0; i < rippen; i++) {
+    const z = pkt.z - tiefe * 0.4 + tiefe * 0.8 * (i + 0.5) / rippen;
+    teile.push(teil(new THREE.BoxGeometry(b * 1.25, hh * 0.7, tiefe * 0.06), dunkel, pkt.x, pkt.y + hh * 0.4, z));
+  }
+  // Isolator: Stab mit Ringen und Signalspitze, vorn auf dem Gehäuse.
+  const stab = a.h * (0.25 + 0.12 * m);
+  teile.push(teil(new THREE.CylinderGeometry(a.h * 0.02, a.h * 0.025, stab, 5), dunkel, pkt.x + b * 0.25, pkt.y + hh * 0.85 + stab / 2, pkt.z - tiefe * 0.25));
+  teile.push(teil(new THREE.CylinderGeometry(a.h * 0.05, a.h * 0.05, a.h * 0.03, 6), tech, pkt.x + b * 0.25, pkt.y + hh * 0.85 + stab * 0.6, pkt.z - tiefe * 0.25));
+  teile.push(teil(new THREE.IcosahedronGeometry(a.h * 0.035, 0), SIGNALFARBE, pkt.x + b * 0.25, pkt.y + hh * 0.85 + stab, pkt.z - tiefe * 0.25));
+  return teile;
+};
+
+/** Das Gehörn des Grathorn, in derselben Form wie die anderen Anbauten. */
+const gehoern: AnbauBauer = (a, m, w) => [baueGehoern(a.widerrist, a.h, m, 'wildling', Math.floor(w() * 1000))];
+
+/**
+ * Welche Kreatur trägt welches Merkmal als Anbau (D109, D128).
+ *
+ * Bewusst eine Liste und keine Auswertung von `merkmal` aus `content/creatures`:
+ * Dort steht Fließtext, und jedes Merkmal braucht eigene Geometrie. Was hier
+ * nicht steht, hat noch keine — ein stiller Rückfall auf ein falsches Merkmal
+ * wäre schlimmer als gar keines. Wolf, Fuchs, Gams und Keiler tragen ihr
+ * Merkmal (Fell, Witterung, Nebel, Wurzeln) nicht als Bauteil.
+ */
+const ANBAUTEN: Record<string, AnbauBauer> = {
+  grathorn: gehoern,
+  kiemenbiber: kragen,
+  linsenuhu: linsenaugen,
+  sporenhahn: sporenfaecher,
+  alpenmurmel: rueckenpolster,
+  firnhase: frostkristalle,
+  moderotter: faeulnisdruesen,
+  myzelmolch: leuchtadern,
+  schneehuhn: federfaecher,
+  trafomarder: trafoverwachsung,
+};
+export const MIT_ANBAU: ReadonlySet<string> = new Set(Object.keys(ANBAUTEN));
+
+/**
+ * Anbau für ein Modell, an dessen gemessenen Ankern, als eine Geometrie mit
+ * Position und Farbe — ohne Normalen und UV, damit `mergeGeometries` sie mit
+ * dem Modell (D107: keine Normalen) zusammenlegen kann.
+ */
+export function baueAnbau(kreatur: string, koerper: THREE.BufferGeometry, mutation: number, saat = 0): THREE.BufferGeometry | null {
+  const bauer = ANBAUTEN[kreatur];
+  if (!bauer) return null;
+  const anker = messeAnker(koerper);
+  const teile = bauer(anker, mutation, mulberry(9173 + saat * 31 + mutation * 977));
+  const g = mergeGeometries(teile, false);
+  if (!g) return null;
+  g.deleteAttribute('normal');
+  g.deleteAttribute('uv');
+  return g;
+}

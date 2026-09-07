@@ -217,7 +217,24 @@ export const PALETTE = {
   chitin: { hell: '#9c8a68', dunkel: '#6f6350' },
 
   /** Die Spielerfigur: dunkle Silhouette, drei Stufen. */
-  figur: { dunkel: '#1a2320', mittel: '#28332e', hell: '#39463f' },
+  /**
+   * Spielerfigur (D126). Bis dahin drei Grautöne unter Y 0,03 — die Figur stand
+   * als schwarzer Scherenschnitt im Bild, aus jeder Entfernung. Jetzt eine
+   * Wanderin im Band der Welt: Jacke und Hose gedämpft, Haut und Kapuze warm,
+   * **ein** Akzent (Halstuch im Geranienrot) — nicht die Signalfarbe, die bleibt
+   * dem Befall (ADR-0002).
+   */
+  figur: {
+    jacke:    '#66756d',
+    hose:     '#414c48',
+    stiefel:  '#2e2a26',
+    haut:     '#b39a7d',
+    kapuze:   '#6e5643',
+    halstuch: '#b5433d',
+    gepaeck:  '#8a7455',
+    rolle:    '#a89a86',
+    riemen:   '#3a332c',
+  },
 
   /**
    * Boden der Hemisphäre — was von unten auf Flächen fällt. War `#121a16`

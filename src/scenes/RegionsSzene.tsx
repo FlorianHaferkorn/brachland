@@ -15,7 +15,7 @@ import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../wor
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
          baueGartenKachel, type Bandsatz } from '../world/baender.js';
 import { useGLTF } from '@react-three/drei';
-import { MIT_MODELL, MIT_GEHOERN, baueGehoern, widerristPunkt, saatAusId }
+import { MIT_MODELL, MIT_ANBAU, baueAnbau, saatAusId }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn } from './Kontur.js';
 import { PALETTE } from '../world/palette.js';
@@ -971,17 +971,15 @@ function KreaturModell({ kreatur, material, position, drehung, mutation, skalier
   const geo = useMemo(() => {
     let g: THREE.BufferGeometry | null = null;
     scene.traverse(o => { if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry; });
-    if (!g || !MIT_GEHOERN.has(kreatur)) return g;
+    if (!g || !MIT_ANBAU.has(kreatur)) return g;
     const koerper = g as THREE.BufferGeometry;
-    const anker = widerristPunkt(koerper);
-    const gehoern = baueGehoern(anker, anker.y, mutation, 'wildling', saatAusId(kreatur));
-    // `mergeGeometries` verlangt gleiche Attribute. Das Modell kommt ohne
-    // Normalen (D107), der Anbau bringt welche mit — also fliegen sie hier weg,
-    // statt sie am Modell zu erfinden.
-    gehoern.deleteAttribute('normal');
-    gehoern.deleteAttribute('uv');
+    // Der Anbau kommt ohne Normalen und UV (D107: das Modell hat keine), sonst
+    // verweigert `mergeGeometries` — gleiche Attribute sind Pflicht. Seit D128
+    // für zehn Arten, gemessen an den Ankern des jeweiligen Modells.
+    const anbau = baueAnbau(kreatur, koerper, mutation, saatAusId(kreatur));
+    if (!anbau) return koerper;
     const roh = koerper.index ? koerper.toNonIndexed() : koerper;
-    return mergeGeometries([roh, gehoern], false) ?? koerper;
+    return mergeGeometries([roh, anbau], false) ?? koerper;
   }, [scene, kreatur, mutation]);
   if (!geo) return null;
   return (

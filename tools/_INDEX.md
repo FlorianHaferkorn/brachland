@@ -76,6 +76,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `lastcheck.ts` | `npm run last` — Objekte im Szenengraph je Standort. Die Größe, die zählt, wenn kein Grafikschalter wirkt |
 | `vorkommencheck.ts` | `npm run vorkommen` — Kreaturen je Linie und je km², Weg bis zur nächsten Begegnung, Stufenverteilung |
 | `hoehenvergleich.ts` | `npm run hoehen` — Geländeauflösung im Vergleich: mittlere Stufe zwischen Nachbarpunkten je Raster |
+| `herkunft.ts` | `npm run herkunft` — liest die Tabelle „Modelle" aus `../assets/HERKUNFT.md` und schreibt `../public/herkunft.json` fürs Menü (D127). `quality.ts` vergleicht beide; ein Modell ohne Zeile bleibt Blocker, eine veraltete Kopie auch |
 | `palettecheck.ts` | `npm run palette` — jede Farbe aus `../src/world/palette.ts` als lineare Leuchtdichte und Sättigung, dazu p10/Median/p90 des Bandes. Die Zahl, gegen die Dämpfer und Lichtentscheidungen gehalten werden; bis D117 lag das unter `.cache/` mit einer veralteten Kopie der Hausfarben |
 | `baumcheck.ts` | `npm run baum` — Dreiecke, Höhe und Bauzeit der prozeduralen Bäume |
 | `klippencheck.ts` | `npm run klippen` — Zahl, Höhe und Dreiecke der Felswände, und wie viele je Standort in Reichweite stehen |

@@ -25,6 +25,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Weltdaten } from '../world/osm.js';
 import type { Kaempfer } from '../engine/battle.js';
 import type { Gegenstand, NarbenArt } from '../data/schema.js';
+// Im Bündel, nicht per fetch: Die Nennung muss auch im Flugmodus da sein, und
+// `herkunft.json` liegt nicht im Precache (nur js/css/html/glb, D82).
+import HERKUNFT from '../../public/herkunft.json';
 import { KREATUREN, GEGENSTAENDE, FRAGMENTE, ORTE, ausKaempferId, nachMetern }
   from '../data/inhalte.js';
 import { wendeAn, wirktAuf } from '../spiel/gegenstaende.js';
@@ -423,6 +426,46 @@ function VerzeichnisReiter(p: MenueProps) {
           </div>
         );
       })}
+      <Herkunft />
+    </div>
+  );
+}
+
+/**
+ * Herkunft der Fremdmodelle — die Namensnennung, die CC BY verlangt (D127).
+ *
+ * Gebündelt aus `public/herkunft.json`, das `npm run herkunft` aus
+ * `assets/HERKUNFT.md` schreibt; das Qualitätstor hält beide gleich. Steht am
+ * Ende des Verzeichnisses, eingeklappt: Wer eine Kreatur nachschlägt, findet
+ * darunter, wessen Tier sie einmal war. Alles Übrige — Häuser, Attrappen,
+ * Bäume, Figur — ist prozedural und hat keine Herkunft ausser dieser.
+ */
+function Herkunft() {
+  const [offen, setOffen] = useState(false);
+  const liste: { rolle: string; autor: string; lizenz: string; quelle: string }[] = HERKUNFT;
+  return (
+    <div style={{ marginTop: 10, borderTop: `1px solid ${FARBE.rand}`, paddingTop: 8 }}>
+      <button onClick={() => setOffen(o => !o)} style={{
+        background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+        fontSize: 11, letterSpacing: 0.4, textTransform: 'uppercase', color: FARBE.aus,
+      }}>
+        {offen ? '▾' : '▸'} Herkunft der Modelle
+      </button>
+      {offen && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 6, fontSize: 11, color: FARBE.matt }}>
+          {liste.map(e => (
+            <div key={e.rolle}>
+              <span style={{ color: FARBE.text }}>{e.rolle}</span> — {e.autor}, {e.lizenz}
+              <span style={{ color: FARBE.aus }}> · {e.quelle.split(',')[0]}</span>
+            </div>
+          ))}
+          <div style={{ color: FARBE.aus, marginTop: 4 }}>
+            Alle Modelle bearbeitet: Farbe an den Vertex, Leuchtdichte in die Palette, gedreht und genormt.
+            Häuser, Pflanzen, Felsen und die Figur sind prozedural (BRACHLAND).
+            CC BY 3.0: creativecommons.org/licenses/by/3.0
+          </div>
+        </div>
+      )}
     </div>
   );
 }
