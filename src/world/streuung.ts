@@ -11,6 +11,7 @@
  * Fleck trägt bei jedem Besuch dieselben Büschel.
  */
 import * as THREE from 'three';
+import { PALETTE } from './palette.js';
 import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
 
@@ -62,8 +63,8 @@ function hash(x: number, y: number, k: number): number {
 export function baueBueschelGeometrie(): THREE.BufferGeometry {
   const pos: number[] = [];
   const col: number[] = [];
-  const fuss = new THREE.Color('#46552f');
-  const spitze = new THREE.Color('#a3b47a');
+  const fuss = new THREE.Color(PALETTE.streu.grasFuss);
+  const spitze = new THREE.Color(PALETTE.streu.grasSpitze);
 
   const HALME = 5;
   for (let i = 0; i < HALME; i++) {
@@ -113,7 +114,7 @@ export function baueBueschelGeometrie(): THREE.BufferGeometry {
  */
 export function baueKleinzeugGeometrie(): THREE.BufferGeometry {
   const g = new THREE.IcosahedronGeometry(0.5, 0).toNonIndexed();
-  const stein = new THREE.Color('#5d5f57');
+  const stein = new THREE.Color(PALETTE.streu.stein);
   const n = g.getAttribute('position').count;
   const col = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { col[i*3] = stein.r; col[i*3+1] = stein.g; col[i*3+2] = stein.b; }

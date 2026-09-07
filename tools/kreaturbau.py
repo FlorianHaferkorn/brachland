@@ -19,7 +19,7 @@ Dreiecke aufs Budget.
 Fremdmodelle sind naturalistisch gefaerbt: leuchtendes Fuchsrot, tiefschwarzer
 Stier, fast weisses Reh. Der erste Anlauf hat deshalb die **Saettigung** halbiert
 — und das war falsch. Gemessen ueber die 21 Farben, die BRACHLAND heute traegt
-(`.cache/palette.ts`), liegt die Saettigung im Median bei **0,52**; die Welt ist
+(heute `tools/palettecheck.ts`), liegt die Saettigung im Median bei **0,52**; die Welt ist
 nicht entsaettigt, sie ist erdig und **dunkel**. Eng ist sie in der Leuchtdichte:
 p10 0,054, Median 0,132, p90 0,188.
 
@@ -82,7 +82,13 @@ DREHUNG_180 = True
 # den Median der Welt, nicht ueber deren ganze Spanne — Dachziegel und
 # Fensterhoehlen sind der Grund fuer das untere Ende des Bandes, und in dieser
 # Gesellschaft hat ein Tier nichts zu suchen.
-BAND_UNTEN, BAND_OBEN = 0.17, 0.35
+# Aus `src/world/palette.ts` (D117) — die eine Farbquelle, auch fuer die Kette.
+import re as _re
+_pal = open('src/world/palette.ts').read()
+_m = _re.search(r'kreaturBand:\s*\{\s*unten:\s*([0-9.]+),\s*oben:\s*([0-9.]+)', _pal)
+if not _m:
+    raise SystemExit('kreaturBand nicht in src/world/palette.ts gefunden')
+BAND_UNTEN, BAND_OBEN = float(_m.group(1)), float(_m.group(2))
 
 # Muss `RIG_HOEHE` in `src/world/kreaturgestalt.ts` entsprechen. Die Zielhoehe
 # wird **beim Export** eingerechnet, nicht in der Szene: Dort steht dann fuer

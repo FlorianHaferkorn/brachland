@@ -18,6 +18,7 @@ import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, MIT_GEHOERN, baueGehoern, widerristPunkt, saatAusId }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn } from './Kontur.js';
+import { PALETTE } from '../world/palette.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
@@ -89,7 +90,7 @@ export interface Stimmung {
  *
  * Als Farbe exportiert, damit das Messwerkzeug dieselbe Zahl liest wie die Szene.
  */
-export const HEMI_BODEN = '#3a463c';
+export const HEMI_BODEN = PALETTE.licht.hemiBoden;
 
 /**
  * `?belichtung=3.2` überschreibt die Belichtung der laufenden Stimmung.
@@ -162,9 +163,12 @@ export const STIMMUNG: Record<string, Stimmung> = {
   },
   nebelmorgen: {
     himmel: '#20282a', nebel: '#2c3a39', nebelNah: 30, nebelFern: 240,
-    sonne: '#d8d2c0', sonneStaerke: 1.6, umgebung: '#5d7072', umgebungStaerke: 3.5,
+    // Sonne 1,6 → 1,3 und Belichtung 2,2 → 2,05 (D118): Bei 1,6 lag an der
+    // Felsflanke ein Viertel des Bildes über Leuchtdichte 0,30 — das Brennen kam
+    // aus der Sonne, nicht aus der Belichtung. Jetzt 0,169 Median, 0,4 % hell.
+    sonne: '#d8d2c0', sonneStaerke: 1.3, umgebung: '#5d7072', umgebungStaerke: 3.5,
     sonnenstand: [90, 90, -110] as const,
-    belichtung: 2.2,
+    belichtung: 2.05,
     // Im Dunst gibt es keine Scheibe, nur einen breiten hellen Fleck.
     zenit: '#26333a', horizont: '#3e4a48', scheibe: 0.0, hof: 42,
     // Im Dunst streut das Licht ohnehin um jede Kante — Rand dezent.
@@ -172,8 +176,10 @@ export const STIMMUNG: Record<string, Stimmung> = {
   },
   abendrot: {
     himmel: '#1a1614', nebel: '#2a221d', nebelNah: 50, nebelFern: 380,
-    // Die Sonne steht bei 28 von 150 Einheiten Höhe — flacher Einfall, also kaum
-    // Direktlicht auf waagerechtem Boden. Was das Bild trägt, ist hier die Umgebung.
+    // Die Sonne steht 20° über dem Horizont — flacher Einfall, also kaum
+    // Direktlicht auf waagerechtem Boden. Was das Bild trägt, ist hier die
+    // Umgebung: 3,0 → 4,5 und Belichtung 2,4 → 3,0 (D118) holen die Felsflanke
+    // von Median 0,058 auf 0,108, ohne dass die Sonne angefasst wird.
     /**
      * Warme Sonne, **kaltes** Umgebungslicht — aus dem Grund, der übrig blieb.
      *
@@ -196,9 +202,9 @@ export const STIMMUNG: Record<string, Stimmung> = {
      * gesättigtes Licht zieht jede Fläche, die es trifft, auf seinen Ton. Das
      * ist keine Fehlfunktion — das **ist** Abendrot.
      */
-    sonne: '#d98b5b', sonneStaerke: 1.8, umgebung: '#454f5e', umgebungStaerke: 3.0,
+    sonne: '#d98b5b', sonneStaerke: 1.8, umgebung: '#454f5e', umgebungStaerke: 4.5,
     sonnenstand: [130, 55, 70] as const,
-    belichtung: 2.4,
+    belichtung: 3.0,
     zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
     randFarbe: '#c07a4e', randStaerke: 0.26,
   },

@@ -1,0 +1,225 @@
+/**
+ * BRACHLAND — die eine Palette
+ *
+ * Jede Farbe, die in der Welt steht, steht hier. Nirgends sonst ein Hex-Literal
+ * für ein Material — Generatoren, Bänder, Kreaturen, Figur und die Kette für
+ * Fremdassets lesen alle aus dieser Datei.
+ *
+ * ## Warum eine Datei
+ *
+ * Bis D117 lagen die Farben in neun Dateien: Biome in `terrain.ts`, Haus-
+ * konstanten daneben, Kenney-Rollen und Attrappen in `props.ts`, Bäume in
+ * `baum.ts`, Wege in `baender.ts`, Fels in `klippen.ts`, Gras in
+ * `streuung.ts`, Elemente und Befall in `kreaturgestalt.ts`. Als das
+ * Albedoband um 1,5 angehoben werden musste (D114), brauchte es ein Skript,
+ * das vier Tabellen einzeln anfasst — und drei weitere (Wege, Fels, Gras)
+ * blieben liegen, ohne dass es jemand gemerkt hätte. Das Messwerkzeug
+ * (`.cache/palette.ts`) trug obendrein eine **Kopie** der Hausfarben, die
+ * seit zwei Wochen nicht mehr stimmte.
+ *
+ * Einheitlichkeit über Asset-Quellen kommt aus der Behandlung, nicht aus der
+ * Herkunft — und die erste Behandlung ist, dass alle aus demselben Topf
+ * schöpfen. Ein Fremdmodell, das seine Farben hierauf rastert, ist danach
+ * nicht mehr fremd.
+ *
+ * ## Konventionen
+ *
+ * - Hex ist sRGB, wie es im Quelltext steht; three.js wandelt beim Einlesen
+ *   nach linear. Leuchtdichte-Angaben in Kommentaren sind **linear**.
+ * - Das Band der Welt seit D114, gemessen über alle 101 Farben (`npm run
+ *   palette`): Leuchtdichte p10 0,070, Median 0,141, p90 0,345 — die dunklen
+ *   Werte sind Fensterhöhlen, Türen, Figur und Wasser. Kreaturen liegen
+ *   bewusst im oberen Teil (`kreaturBand`).
+ * - Sättigung bleibt bei ~0,5 im Median (G-124): Die Welt ist erdig und
+ *   kräftig, nicht flau. Wer eine Farbe ändert, ändert Leuchtdichte, nicht
+ *   Sättigung — `npm run palette` zeigt beides.
+ */
+
+export const PALETTE = {
+  /** Biome des Geländes — gedämpfte Naturtöne, siehe Art Direction. */
+  biom: {
+    fels:      '#81868a',
+    /**
+     * Waldboden war `#2c4232` und damit auf denselben Helligkeitswert wie die
+     * Fichtennadel gesetzt — gemessener Kontrast 1,00:1 in allen vier
+     * Stimmungen. Beschatteter Wald war deshalb nicht nur dunkel, sondern
+     * **eine einzige Fläche**. Nadelstreu ist in Wirklichkeit heller und wärmer
+     * als das Kronendach, weil sie das Chlorophyll nicht mehr hat.
+     */
+    wald:      '#67754d',
+    gebuesch:  '#5a6c4e',
+    wiese:     '#73865d',
+    acker:     '#918860',
+    /** Wasser bekommt in Phase 3 einen eigenen Shader — bis dahin unangehoben. */
+    wasser:    '#33555f',
+    siedlung:  '#706b61',
+    industrie: '#6d5a53',
+    ruine:     '#625d57',
+    unbekannt: '#5e6a61',
+  },
+
+  /** Häuser aus dem Generator. Zwei Grundtöne, Wand und Holz, plus Zubehör. */
+  haus: {
+    wand:     '#7d776b',
+    schalung: '#90704f',
+    dach:     '#564a41',
+    /** Fensterhöhle — bewusst das Dunkelste in der Welt, damit sie liest. */
+    fenster:  '#11171a',
+    sockel:   '#666055',
+    tuer:     '#332b22',
+    /**
+     * Kaminschaft: heller Kalkputz. Stand bis 27.08.2026 einen Hauch neben dem
+     * Dachton und war auf der Dachfläche unsichtbar. Ein Kamin ist im Bestand
+     * fast immer verputzt und damit das **hellste** Teil des Daches.
+     */
+    kamin:    '#b0a596',
+    /** Fensterläden — das eine gesättigte Signal am Alpenhaus. */
+    laden:    '#5a6f4e',
+    /** Fensterrahmen und Traufbrett, gekalktes Holz. */
+    rahmen:   '#c2b9a6',
+    /** Geranienkasten — Blüte und Kasten. */
+    geranie:  '#b5433d',
+    kasten:   '#4e4034',
+    /** Brennholz, Stirnseite: heller als die Schalung, weil frisch gespalten. */
+    holz:     '#a88c62',
+    /** Firstbalken und Sparrenköpfe: das gleiche Holz wie die Schalung, verwittert. */
+    sparren:  '#6e5a44',
+    /** Fallrohr, Zink. */
+    rinne:    '#8d9296',
+  },
+
+  /** Prozedurale Bäume, zwei Töne je Art — die Spreizung macht aus Fläche Volumen. */
+  baum: {
+    fichteStamm: '#605343', fichteLaub: '#4a6646', fichteLaub2: '#648761',
+    bucheStamm:  '#817b6c', bucheLaub:  '#678747', bucheLaub2:  '#84a65a',
+  },
+
+  /**
+   * Attrappen jenseits von 75 m. Müssen zu `baum` passen: Wenn die Attrappe
+   * dunkler ist als der Baum davor, sieht man die Umschaltung als Farbsprung.
+   */
+  attrappe: {
+    nadelbaum:   '#476245',
+    laubbaum:    '#708f5a',
+    busch:       '#4d603f',
+    findling:    '#858a8e',
+    totholz:     '#5a5146',
+    grasbuschel: '#708154',
+    blume:       '#97935f',
+    pilz:        '#817364',
+  },
+
+  /**
+   * Kenney-Materialrollen → Projektfarbe (D74). Die Töne stammen aus `biom`
+   * und `baum`; ein Busch aus einer zweiten Palette fällt sofort als
+   * Fremdkörper auf, und genau das war der Zustand vorher (G-76).
+   */
+  kenney: {
+    grass:        '#5a6c4e',
+    leafsGreen:   '#678747',
+    leafsDark:    '#4a6646',
+    leafsFall:    '#937b40',
+    woodBark:     '#605343',
+    woodBarkDark: '#4e4437',
+    wood:         '#817055',
+    woodDark:     '#5a4e40',
+    woodBirch:    '#a69e8d',
+    woodInner:    '#847761',
+    dirt:         '#817553',
+    dirtDark:     '#665d44',
+    stone:        '#81868a',
+    stoneDark:    '#686d71',
+    water:        '#33555f',
+    corn:         '#b9a75a',
+    colorRed:     '#a85a51',
+    colorRedDark: '#864740',
+    colorYellow:  '#bfa755',
+    colorPurple:  '#817393',
+    colorWhite:   '#dad7cd',
+    colorTan:     '#caaf80',
+    _defaultMat:  '#817b6c',
+  },
+
+  /** Wegbeläge nach OSM-Klasse (G-79). Asphalt dunkel, Feldweg braun. */
+  weg: {
+    secondary:    '#4c4b48',
+    tertiary:     '#4e4d4a',
+    residential:  '#55524d',
+    unclassified: '#57554f',
+    cycleway:     '#524f4b',
+    service:      '#6c675d',
+    track:        '#847759',
+    path:         '#887a59',
+    footway:      '#85795b',
+    standard:     '#5c5850',
+  },
+
+  /** Fließendes und stehendes Wasser (`bandmaterial.ts`). */
+  wasser: {
+    stehend:         '#2e5560',
+    stehendGlanz:    '#12303a',
+    fallend:         '#7d9aa2',
+    fallendGlanz:    '#3a5c64',
+  },
+
+  /** Felswände: drei Töne für die Facetten, ein Schutt. */
+  fels: {
+    a: '#5f6469', b: '#6b6f72', c: '#565b60',
+    schutt: '#4f4c46',
+  },
+
+  /** Gestreutes Gras und Steine (`streuung.ts`): Halm von Fuß bis Spitze. */
+  streu: {
+    grasFuss:   '#5d6f40',
+    grasSpitze: '#c6d799',
+    stein:      '#6f716a',
+  },
+
+  /** Elementfarben der Silhouetten — ein Ton je Element, gedämpft. */
+  element: {
+    holz:      '#4a5c33',
+    stein:     '#6e7276',
+    'alt-tech': '#5a6b74',
+    sporen:    '#6f9c6a',
+    wasser:    '#3f6672',
+    brand:     '#7a4a33',
+    frost:     '#8fa6ad',
+    faeulnis:  '#5c5238',
+    /** Rückfall, wenn ein Element keine Farbe hat. */
+    hell:      '#5a6058',
+    dunkel:    '#3a403a',
+  },
+
+  /**
+   * Befall aus der Stilreferenz: Pilz und Flechte in Ocker und Beige, die
+   * Signalfarbe nur als Punkt und nie am Tier selbst.
+   */
+  befall: {
+    pilzHell:   '#c9b389',
+    pilzDunkel: '#9a8560',
+    signal:     '#cfe9f2',
+  },
+
+  /** Chitinplatten-Gehörn (D109): zwei Töne, abwechselnd je Platte. */
+  chitin: { hell: '#9c8a68', dunkel: '#6f6350' },
+
+  /** Die Spielerfigur: dunkle Silhouette, drei Stufen. */
+  figur: { dunkel: '#1a2320', mittel: '#28332e', hell: '#39463f' },
+
+  /**
+   * Boden der Hemisphäre — was von unten auf Flächen fällt. War `#121a16`
+   * und damit praktisch schwarz: alles zur Sonne Abgewandte landete unter der
+   * Schwarzgrenze des Tone Mappings (G-7). Seit D114 heller, als Teil des
+   * Fülllichts.
+   */
+  licht: { hemiBoden: '#3a463c' },
+
+  /**
+   * Leuchtdichteband für Fremdmodelle (linear). `tools/kreaturbau.py` liest
+   * die beiden Zahlen aus dieser Datei — bewusst oben im Band der Welt, weil
+   * eine Kreatur das ist, wonach der Spieler sucht (D106).
+   */
+  kreaturBand: { unten: 0.17, oben: 0.35 },
+} as const;
+
+export type Palette = typeof PALETTE;

@@ -17,6 +17,7 @@
  * keines; es ist der Unterschied zwischen „gleitet" und „geht".
  */
 import * as THREE from 'three';
+import { PALETTE } from '../world/palette.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /** Gesamthöhe in Metern — muss zu `GROESSE.spieler` passen. */
@@ -27,9 +28,9 @@ export const HUEFTE = 0.85;
 /** Höhe des Schultergelenks. */
 export const SCHULTER = 1.42;
 
-const DUNKEL = new THREE.Color('#1a2320');
-const MITTEL = new THREE.Color('#28332e');
-const HELL = new THREE.Color('#39463f');
+const DUNKEL = new THREE.Color(PALETTE.figur.dunkel);
+const MITTEL = new THREE.Color(PALETTE.figur.mittel);
+const HELL = new THREE.Color(PALETTE.figur.hell);
 
 /** Färbt eine Geometrie flächig ein und schiebt sie an ihre Position. */
 function teil(

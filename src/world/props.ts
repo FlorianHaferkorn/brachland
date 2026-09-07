@@ -9,6 +9,7 @@
  * ~40.000 Props als JSON wären mehrere Megabyte, der Seed ist eine Zahl.
  */
 import * as THREE from 'three';
+import { PALETTE } from './palette.js';
 import type { Weltdaten, Biom } from './osm.js';
 import type { TerrainErgebnis } from './terrain.js';
 import { MASSSTAB } from './terrain.js';
@@ -381,31 +382,7 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
  * Gelände und Bäume kommen. Ein Busch, der aus einer zweiten Palette stammt, fällt
  * sofort als Fremdkörper auf, und genau das war der Zustand vorher.
  */
-export const KENNEY_FARBE: Record<string, string> = {
-  grass:        '#5a6c4e',
-  leafsGreen:   '#678747',
-  leafsDark:    '#4a6646',
-  leafsFall:    '#937b40',
-  woodBark:     '#605343',
-  woodBarkDark: '#4e4437',
-  wood:         '#817055',
-  woodDark:     '#5a4e40',
-  woodBirch:    '#a69e8d',
-  woodInner:    '#847761',
-  dirt:         '#817553',
-  dirtDark:     '#665d44',
-  stone:        '#81868a',
-  stoneDark:    '#686d71',
-  water:        '#33555f',
-  corn:         '#b9a75a',
-  colorRed:     '#a85a51',
-  colorRedDark: '#864740',
-  colorYellow:  '#bfa755',
-  colorPurple:  '#817393',
-  colorWhite:   '#dad7cd',
-  colorTan:     '#caaf80',
-  _defaultMat:  '#817b6c',
-};
+export const KENNEY_FARBE: Record<string, string> = PALETTE.kenney;
 
 /**
  * Wie viele Formen eine prozedurale Art kennt.
@@ -581,18 +558,7 @@ export function propGeometrie(art: PropArt): THREE.BufferGeometry {
   }
 }
 
-export const PROP_FARBE: Record<PropArt, THREE.ColorRepresentation> = {
-  // Muss zu `BAUM` in baum.ts passen: Die Attrappe uebernimmt ab 75 m, und wenn sie
-  // dunkler ist als der Baum davor, sieht man die Umschaltung als Farbsprung.
-  nadelbaum:   '#476245',
-  laubbaum:    '#708f5a',
-  busch:       '#4d603f',
-  findling:    '#858a8e',
-  totholz:     '#5a5146',
-  grasbuschel: '#708154',
-  blume:       '#97935f',
-  pilz:        '#817364',
-};
+export const PROP_FARBE: Record<PropArt, THREE.ColorRepresentation> = PALETTE.attrappe;
 
 /**
  * Props in ein Raster einteilen. InstancedMesh zeichnet immer ALLE Instanzen —

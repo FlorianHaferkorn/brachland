@@ -20,6 +20,7 @@
  * nach Entfernung ausgeblendet.
  */
 import * as THREE from 'three';
+import { PALETTE } from './palette.js';
 import type { Weltdaten } from './osm.js';
 import { MASSSTAB, WEG_TEILUNG, orientierteHuelle } from './terrain.js';
 import { KACHEL, LOD_STUFEN, hoeheAufFlaeche, spiegelAufFlaeche,
@@ -83,23 +84,23 @@ export interface Wegbelag {
 export const WEGBELAG: Record<string, Wegbelag> = {
   // Asphalt: dunkel, geschlossen, scharfe Kante. Keine Rinnen — die entstehen
   // durch Räder auf losem Grund, nicht auf gebundener Decke.
-  secondary:    { farbe: '#3d3c3a', rinne: 0,    franse: 0.15 },
-  tertiary:     { farbe: '#3f3e3b', rinne: 0,    franse: 0.18 },
-  residential:  { farbe: '#44423e', rinne: 0,    franse: 0.25 },
-  unclassified: { farbe: '#46443f', rinne: 0.1,  franse: 0.35 },
-  cycleway:     { farbe: '#42403c', rinne: 0,    franse: 0.2 },
+  secondary:    { farbe: PALETTE.weg.secondary, rinne: 0,    franse: 0.15 },
+  tertiary:     { farbe: PALETTE.weg.tertiary, rinne: 0,    franse: 0.18 },
+  residential:  { farbe: PALETTE.weg.residential, rinne: 0,    franse: 0.25 },
+  unclassified: { farbe: PALETTE.weg.unclassified, rinne: 0.1,  franse: 0.35 },
+  cycleway:     { farbe: PALETTE.weg.cycleway, rinne: 0,    franse: 0.2 },
   // Hofzufahrt: Beton oder verdichteter Schotter, heller, zwei schwache Spuren.
-  service:      { farbe: '#57534a', rinne: 0.25, franse: 0.5 },
+  service:      { farbe: PALETTE.weg.service, rinne: 0.25, franse: 0.5 },
   // Feldweg: der Normalfall im Œntal, 71 km. Zwei ausgefahrene Spuren mit
   // Grasstreifen dazwischen, Rand völlig unscharf.
-  track:        { farbe: '#6b6047', rinne: 0.55, franse: 1.0 },
+  track:        { farbe: PALETTE.weg.track, rinne: 0.55, franse: 1.0 },
   // Trampelpfad: zu schmal für Spuren, dafür kaum ein Rand.
-  path:         { farbe: '#6e6247', rinne: 0,    franse: 1.2 },
-  footway:      { farbe: '#6b6149', rinne: 0,    franse: 1.1 },
+  path:         { farbe: PALETTE.weg.path, rinne: 0,    franse: 1.2 },
+  footway:      { farbe: PALETTE.weg.footway, rinne: 0,    franse: 1.1 },
 };
 
 /** Für eine Klasse, die in WEGBELAG fehlt — sichtbar neutral, nicht heimlich. */
-const BELAG_STANDARD: Wegbelag = { farbe: '#4a4740', rinne: 0.2, franse: 0.6 };
+const BELAG_STANDARD: Wegbelag = { farbe: PALETTE.weg.standard, rinne: 0.2, franse: 0.6 };
 
 /** Welche Klassen in den Weltdaten keinen Eintrag haben. Für Werkzeuge. */
 export const belagFehlt = new Set<string>();

@@ -13,6 +13,7 @@
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
 import * as THREE from 'three';
+import { PALETTE } from './palette.js';
 
 const HASH_GLSL = /* glsl */ `
 float bandHash(vec2 p) {
@@ -42,11 +43,11 @@ float bandRauschen(vec2 p) {
  */
 export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({
-    color: fallend ? '#7d9aa2' : '#2e5560',
+    color: fallend ? PALETTE.wasser.fallend : PALETTE.wasser.stehend,
     roughness: fallend ? 0.35 : 0.18,
     metalness: fallend ? 0.05 : 0.28,
     transparent: true, opacity: fallend ? 0.8 : 0.92,
-    emissive: new THREE.Color(fallend ? '#3a5c64' : '#12303a'),
+    emissive: new THREE.Color(fallend ? PALETTE.wasser.fallendGlanz : PALETTE.wasser.stehendGlanz),
     emissiveIntensity: fallend ? 0.5 : 0.3,
     // Fallendes Wasser wird von beiden Seiten gesehen — man steht auch mal darunter.
     /**

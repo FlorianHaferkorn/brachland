@@ -13,6 +13,7 @@ owns: *.ts, *.tsx
 
 | Deine Aufgabe ist … | Lies | NICHT nötig |
 |---|---|---|
+| Eine Farbe ändern, egal wo sie steht | `world/palette.ts` | alles andere |
 | Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ |
 | Kontur, Kanten, Nachbearbeitung | `scenes/Kontur.tsx` | world/, engine/ |
 | Kreaturen in der Welt oder Begegnungen ändern | `world/vorkommen.ts` → `scenes/RegionsSzene.tsx` | data/inhalte.ts |
@@ -93,6 +94,7 @@ owns: *.ts, *.tsx
 | `scenes/Kontur.tsx` | **Kontur-Pass** (D115): eine dunkle Linie an jeder Tiefenkante, als Vollbildpass nach allen Materialien — der stärkste Vereinheitlicher über Asset-Quellen hinweg, weil er nach ihnen kommt. Szene in ein HalfFloat-Ziel mit Tiefentextur, dann ein Quad, das Tiefensprünge zum weiter entfernten Nachbarn (relativ zum Abstand, Schwelle 3 %) abdunkelt und Tone Mapping plus sRGB nachholt — three.js wendet beides nur beim Zeichnen auf den Bildschirm an. `?kontur=0` schaltet ab, für A/B am selben Ort. Kosten: ein Ziel-Render plus ein Quad; auf dem Zielgerät ⚠️ offen |
 | `scenes/sichtweiten.ts` | Entfernungsschwellen der Szene (Terrainsicht, Attrappen, Neubewertung). Eigenes Modul, damit `tools/lastcheck.ts` dieselben Zahlen nutzt, ohne React zu laden |
 | `world/osm.ts` | OSM- und EU-DEM-Abruf, Weltdatentypen (`Weltdaten`, `Biom`), Biom-Ableitung, Spawn-Zonen |
+| `world/palette.ts` | **Die eine Palette** (D117): jede Materialfarbe der Welt — Biome, Haus, Bäume, Attrappen, Kenney-Rollen, Wege, Wasser, Fels, Streu, Elemente, Befall, Chitin, Figur, Hemisphärenboden und das Kreaturband für Fremdmodelle. Alle Generatoren lesen daraus; kein Hex-Literal mehr in `terrain.ts`, `props.ts`, `baum.ts`, `baender.ts`, `klippen.ts`, `streuung.ts`, `kreaturgestalt.ts`, `figur.ts`. Zahlen dazu mit `npm run palette` (101 Farben, Leuchtdichte Median 0,141, Sättigung Median 0,50) |
 | `world/terrain.ts` | Terrain-Mesh mit Vertex-Farben und **Gebäude**: orientiertes Dach, Sockelband, Gesims je Geschoss, Haustür, Fenster, Balkon (G-71, G-80). `orientierteHuelle()` ist die eine Achse, aus der Dach, Balkon und Garten kommen. Wände reichen bis `FUNDAMENT_MAX` unter den Sockel (G-71). Wege und Gewässer sind seit D73 nicht mehr hier. **Seit D90 ein Giebelfeld je Grundrisskante** statt zwei fester an den Hüllenenden — jede Kante eines Winkelgrundrisses endete vorher unter einem höheren Dach, und dazwischen war nichts. Der Balkon sitzt an der gefundenen Wand statt an der Hüllenkante, seine Stützen reichen bis zum Boden, und seine Tiefe ist auf den Dachüberstand begrenzt |
 | `world/osm.ts` | OSM → Weltdaten: Höhen, Biomraster, Linien, Wege, Gebäude, Spawnzonen. Das Biomraster stempelt **Siedlung aus Gebäuden** (zwei in 20 m, D77) — ohne das standen 79 % der Häuser auf Wiese (G-81) |
 | `world/props.ts` | Verteilung, Varianten und Farben der Vegetation. `VARIANTEN` trägt Datei, Kenney-Quelle und **reale Höhe** je Variante — Gras reicht damit von 0,18 bis 0,85 m statt einer wegnormierten Einheitshöhe (G-77). `KENNEY_FARBE` bildet Kenneys Materialrollen auf die Projektpalette ab. `verteileProps` setzt nichts mehr in einen Grundriss (G-82) |

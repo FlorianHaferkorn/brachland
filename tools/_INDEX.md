@@ -76,6 +76,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `lastcheck.ts` | `npm run last` — Objekte im Szenengraph je Standort. Die Größe, die zählt, wenn kein Grafikschalter wirkt |
 | `vorkommencheck.ts` | `npm run vorkommen` — Kreaturen je Linie und je km², Weg bis zur nächsten Begegnung, Stufenverteilung |
 | `hoehenvergleich.ts` | `npm run hoehen` — Geländeauflösung im Vergleich: mittlere Stufe zwischen Nachbarpunkten je Raster |
+| `palettecheck.ts` | `npm run palette` — jede Farbe aus `../src/world/palette.ts` als lineare Leuchtdichte und Sättigung, dazu p10/Median/p90 des Bandes. Die Zahl, gegen die Dämpfer und Lichtentscheidungen gehalten werden; bis D117 lag das unter `.cache/` mit einer veralteten Kopie der Hausfarben |
 | `baumcheck.ts` | `npm run baum` — Dreiecke, Höhe und Bauzeit der prozeduralen Bäume |
 | `klippencheck.ts` | `npm run klippen` — Zahl, Höhe und Dreiecke der Felswände, und wie viele je Standort in Reichweite stehen |
 | `propcheck.ts` | `npm run props` — **wie viele Props sehen genau gleich aus?** Zählt je *Erscheinung* (Form × Farbe), nicht je Datei: Vorher trugen 53.815 Fichten vier Formen und eine Farbe je Form, die größte identische Gruppe umfasste 13.572 Stück, jetzt 60 (D79). Dazu Dreiecke, Größe und der Helligkeitsverlauf **im** Modell — 15 der 36 Modelle hatten gar keinen. Die erste Fassung las `assets/props`, einen Ordner, den es seit `propbau.ts` nicht mehr gibt, und lief ins Leere, ohne es zu sagen |

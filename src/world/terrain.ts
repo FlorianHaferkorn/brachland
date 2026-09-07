@@ -9,6 +9,7 @@
  */
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
+import { PALETTE } from './palette.js';
 
 /** Meter je Breitengrad; für Längengrad mit cos(lat) skaliert. */
 const METER_JE_GRAD = 111_320;
@@ -43,25 +44,8 @@ export const GROESSE = {
   kameraBlickHoehe: 1.5, // Blickpunkt etwa auf Brusthöhe
 } as const;
 
-/** Gedämpfte Naturtöne + eine Signalfarbe — siehe Art Direction. */
-export const BIOM_FARBE: Record<Biom, THREE.ColorRepresentation> = {
-  fels:      '#81868a',
-  // Waldboden war `#37513e` und damit auf denselben Helligkeitswert wie die
-  // Fichtennadel (`#3f5a3f`) gesetzt — gemessener Kontrast 1,00:1 in allen vier
-  // Stimmungen. Beschatteter Wald war deshalb nicht nur dunkel, sondern **eine
-  // einzige Fläche**: Boden und Krone ließen sich nicht trennen. Nadelstreu ist
-  // in Wirklichkeit heller und wärmer als das Kronendach, weil sie das
-  // Chlorophyll nicht mehr hat. `npm run licht`
-  wald:      '#67754d',
-  gebuesch:  '#5a6c4e',
-  wiese:     '#73865d',
-  acker:     '#918860',
-  wasser:    '#33555f',
-  siedlung:  '#706b61',
-  industrie: '#6d5a53',
-  ruine:     '#625d57',
-  unbekannt: '#5e6a61',
-};
+/** Biomfarben — die Werte stehen in `palette.ts`, mit ihren Gründen. */
+export const BIOM_FARBE: Record<Biom, THREE.ColorRepresentation> = PALETTE.biom;
 
 export interface TerrainErgebnis {
   geometrie: THREE.BufferGeometry;
@@ -269,7 +253,7 @@ export function baueGebaeude(
    * weggefallen, weil es in derselben Rolle wie `TUER` stand und für eine ganze
    * Wandfläche zu dunkel war, siehe `SCHALUNG`.
    */
-  const WAND = new THREE.Color('#7d776b');
+  const WAND = new THREE.Color(PALETTE.haus.wand);
   /**
    * Bretterschalung des Obergeschosses — **nicht** dasselbe Holz wie Dach und
    * Balkon.
@@ -281,13 +265,13 @@ export function baueGebaeude(
    * ist ein warmes Mittelbraun; sie muss heller sein als das Dach, sonst hat das
    * Haus keine Waagerechte mehr.
    */
-  const SCHALUNG = new THREE.Color('#90704f');
-  const DACH = new THREE.Color('#564a41');
-  const FENSTER = new THREE.Color('#11171a');
+  const SCHALUNG = new THREE.Color(PALETTE.haus.schalung);
+  const DACH = new THREE.Color(PALETTE.haus.dach);
+  const FENSTER = new THREE.Color(PALETTE.haus.fenster);
   /** Sockel: nasser Kalkputz oder Bruchstein, dunkler als die Wand darüber. */
-  const SOCKEL = new THREE.Color('#666055');
+  const SOCKEL = new THREE.Color(PALETTE.haus.sockel);
   /** Gesims und Türblatt: dasselbe Holz wie Dach und Balkon. */
-  const TUER = new THREE.Color('#332b22');
+  const TUER = new THREE.Color(PALETTE.haus.tuer);
   /**
    * Kaminschaft: heller Kalkputz.
    *
@@ -297,7 +281,7 @@ export function baueGebaeude(
    * ist im Bestand fast immer verputzt und damit das **hellste** Teil des
    * Daches — der Kontrast ist hier kein Effekt, sondern die Wirklichkeit.
    */
-  const KAMIN = new THREE.Color('#b0a596');
+  const KAMIN = new THREE.Color(PALETTE.haus.kamin);
 
   /**
    * Kontaktabdunklung je Ecke — das gebackene AO des Hausgenerators (Phase 1).

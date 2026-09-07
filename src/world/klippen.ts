@@ -16,6 +16,7 @@
  * brechen — und alles davon funktioniert gerade.
  */
 import * as THREE from 'three';
+import { PALETTE } from './palette.js';
 import type { HoehenFeld } from './lod.js';
 import { mulberry } from './props.js';
 
@@ -259,9 +260,9 @@ export function baueKlippenGeometrie(variante: number): THREE.BufferGeometry {
     const c = new THREE.Color(hex);
     return [c.r, c.g, c.b];
   };
-  const FELS = ['#5f6469', '#6b6f72', '#565b60'].map(zuRGB);
+  const FELS = [PALETTE.fels.a, PALETTE.fels.b, PALETTE.fels.c].map(zuRGB);
   /** Schutt ist schmutziger als die Wand — Abtrag trägt Erde und Flechte. */
-  const SCHUTT = zuRGB('#4f4c46');
+  const SCHUTT = zuRGB(PALETTE.fels.schutt);
 
   /**
    * Grundriss: sternförmig um die Mitte, eine Ecke als Kluft eingezogen.

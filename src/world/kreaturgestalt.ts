@@ -20,6 +20,7 @@
  * unberührt — das sind die 4.000 Dreiecke aus `zielTris`.
  */
 import * as THREE from 'three';
+import { PALETTE } from './palette.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mulberry } from './props.js';
 import type { Element, Ursprung } from '../data/schema.js';
@@ -77,14 +78,9 @@ export function saatAusId(id: string): number {
  * liegt bewusst daneben, nicht darauf.
  */
 export const ELEMENT_FARBE: Record<Element, string> = {
-  holz:      '#4a5c33',
-  stein:     '#6e7276',
-  'alt-tech': '#5a6b74',
-  sporen:    '#6f9c6a',
-  wasser:    '#3f6672',
-  brand:     '#7a4a33',
-  frost:     '#8fa6ad',
-  faeulnis:  '#5c5238',
+  holz: PALETTE.element.holz, stein: PALETTE.element.stein, 'alt-tech': PALETTE.element['alt-tech'],
+  sporen: PALETTE.element.sporen, wasser: PALETTE.element.wasser, brand: PALETTE.element.brand,
+  frost: PALETTE.element.frost, faeulnis: PALETTE.element.faeulnis,
 };
 
 export type BasisRig = 'quadruped' | 'quadruped_small' | 'biped_bird' | 'serpent';
@@ -259,9 +255,9 @@ function bauSchlange(hell: THREE.Color, dunkel: THREE.Color, h: number) {
  * für die Hüte, gedämpftes Graugrün für Moos. Die Signalfarbe erscheint **nur** als
  * Punkt und nie am Tier selbst.
  */
-const PILZ_HELL = new THREE.Color('#c9b389');
-const PILZ_DUNKEL = new THREE.Color('#9a8560');
-const SIGNAL = new THREE.Color('#cfe9f2');
+const PILZ_HELL = new THREE.Color(PALETTE.befall.pilzHell);
+const PILZ_DUNKEL = new THREE.Color(PALETTE.befall.pilzDunkel);
+const SIGNAL = new THREE.Color(PALETTE.befall.signal);
 
 /**
  * Der Pilzfächer — das Leitmerkmal.
@@ -386,9 +382,9 @@ export function baueKreaturGeometrie(
 ): THREE.BufferGeometry {
   const r = rig(basisRig);
   const h = RIG_HOEHE[r];
-  const hell = new THREE.Color(ELEMENT_FARBE[elemente[0]] ?? '#5a6058');
+  const hell = new THREE.Color(ELEMENT_FARBE[elemente[0]] ?? PALETTE.element.hell);
   // Zweites Element färbt die Akzente — Doppeltypen sind so auf Distanz erkennbar.
-  const dunkel = new THREE.Color(ELEMENT_FARBE[elemente[1] ?? elemente[0]] ?? '#3a403a')
+  const dunkel = new THREE.Color(ELEMENT_FARBE[elemente[1] ?? elemente[0]] ?? PALETTE.element.dunkel)
     .multiplyScalar(0.62);
   const zufall = mulberry(1009 + seed * 7919);
 
@@ -467,8 +463,8 @@ export function reitsitz(geo: THREE.BufferGeometry): {
  * ist das Wesentliche: Jede Platte setzt breiter an, als die vorige aufhört, und
  * genau diese Kante liest auf Entfernung als Platte statt als Rohr.
  */
-const CHITIN_HELL = new THREE.Color('#9c8a68');
-const CHITIN_DUNKEL = new THREE.Color('#6f6350');
+const CHITIN_HELL = new THREE.Color(PALETTE.chitin.hell);
+const CHITIN_DUNKEL = new THREE.Color(PALETTE.chitin.dunkel);
 
 export function baueGehoern(
   /** Ansatzpunkt in Geometriekoordinaten — Widerrist, siehe `widerristPunkt`. */
