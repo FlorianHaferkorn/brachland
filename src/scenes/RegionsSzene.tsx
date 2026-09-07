@@ -17,6 +17,7 @@ import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
 import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, MIT_GEHOERN, baueGehoern, widerristPunkt, saatAusId }
   from '../world/kreaturgestalt.js';
+import { Kontur, konturAn } from './Kontur.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
@@ -88,7 +89,7 @@ export interface Stimmung {
  *
  * Als Farbe exportiert, damit das Messwerkzeug dieselbe Zahl liest wie die Szene.
  */
-export const HEMI_BODEN = '#2a352e';
+export const HEMI_BODEN = '#3a463c';
 
 /**
  * `?belichtung=3.2` überschreibt die Belichtung der laufenden Stimmung.
@@ -152,18 +153,18 @@ export const STIMMUNG: Record<string, Stimmung> = {
   },
   daemmerung: {
     himmel: '#141d20', nebel: '#1b2a2b', nebelNah: 60, nebelFern: 420,
-    sonne: '#c8b48a', sonneStaerke: 1.25, umgebung: '#38494c', umgebungStaerke: 0.85,
-    sonnenstand: [-120, 55, -90] as const,
-    belichtung: 2.15,
+    sonne: '#c8b48a', sonneStaerke: 2.4, umgebung: '#4d5f64', umgebungStaerke: 4.0,
+    sonnenstand: [-120, 110, -90] as const,
+    belichtung: 2.7,
     // Tief stehende Sonne: kleine Scheibe, sehr weiter Hof. Der Hof IST die Stimmung.
-    zenit: '#0e1a24', horizont: '#3b3a34', scheibe: 0.0016, hof: 190,
+    zenit: '#1b3550', horizont: '#4a4238', scheibe: 0.0016, hof: 190,
     randFarbe: '#6e7f86', randStaerke: 0.22,
   },
   nebelmorgen: {
     himmel: '#20282a', nebel: '#2c3a39', nebelNah: 30, nebelFern: 240,
-    sonne: '#d8d2c0', sonneStaerke: 0.9, umgebung: '#47585a', umgebungStaerke: 1.05,
-    sonnenstand: [90, 40, -110] as const,
-    belichtung: 1.45,
+    sonne: '#d8d2c0', sonneStaerke: 1.6, umgebung: '#5d7072', umgebungStaerke: 3.5,
+    sonnenstand: [90, 90, -110] as const,
+    belichtung: 2.2,
     // Im Dunst gibt es keine Scheibe, nur einen breiten hellen Fleck.
     zenit: '#26333a', horizont: '#3e4a48', scheibe: 0.0, hof: 42,
     // Im Dunst streut das Licht ohnehin um jede Kante — Rand dezent.
@@ -195,9 +196,9 @@ export const STIMMUNG: Record<string, Stimmung> = {
      * gesättigtes Licht zieht jede Fläche, die es trifft, auf seinen Ton. Das
      * ist keine Fehlfunktion — das **ist** Abendrot.
      */
-    sonne: '#d98b5b', sonneStaerke: 1.15, umgebung: '#454f5e', umgebungStaerke: 0.95,
-    sonnenstand: [130, 28, 70] as const,
-    belichtung: 2.0,
+    sonne: '#d98b5b', sonneStaerke: 1.8, umgebung: '#454f5e', umgebungStaerke: 3.0,
+    sonnenstand: [130, 55, 70] as const,
+    belichtung: 2.4,
     zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
     randFarbe: '#c07a4e', randStaerke: 0.26,
   },
@@ -2231,6 +2232,7 @@ export function RegionsSzene({
                    rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} />
+      <Kontur an={konturAn(true)} />
       <Messung melde={onMessung} />
     </Canvas>
   );

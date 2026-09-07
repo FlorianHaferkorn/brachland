@@ -45,22 +45,22 @@ export const GROESSE = {
 
 /** Gedämpfte Naturtöne + eine Signalfarbe — siehe Art Direction. */
 export const BIOM_FARBE: Record<Biom, THREE.ColorRepresentation> = {
-  fels:      '#6b6f72',
-  // Waldboden war `#2c4232` und damit auf denselben Helligkeitswert wie die
-  // Fichtennadel (`#334a33`) gesetzt — gemessener Kontrast 1,00:1 in allen vier
+  fels:      '#81868a',
+  // Waldboden war `#37513e` und damit auf denselben Helligkeitswert wie die
+  // Fichtennadel (`#3f5a3f`) gesetzt — gemessener Kontrast 1,00:1 in allen vier
   // Stimmungen. Beschatteter Wald war deshalb nicht nur dunkel, sondern **eine
   // einzige Fläche**: Boden und Krone ließen sich nicht trennen. Nadelstreu ist
   // in Wirklichkeit heller und wärmer als das Kronendach, weil sie das
   // Chlorophyll nicht mehr hat. `npm run licht`
-  wald:      '#55613f',
-  gebuesch:  '#4a5940',
-  wiese:     '#5f6f4c',
-  acker:     '#78714f',
+  wald:      '#67754d',
+  gebuesch:  '#5a6c4e',
+  wiese:     '#73865d',
+  acker:     '#918860',
   wasser:    '#33555f',
-  siedlung:  '#5c5850',
-  industrie: '#5a4a44',
-  ruine:     '#514c47',
-  unbekannt: '#4d5750',
+  siedlung:  '#706b61',
+  industrie: '#6d5a53',
+  ruine:     '#625d57',
+  unbekannt: '#5e6a61',
 };
 
 export interface TerrainErgebnis {
@@ -269,7 +269,7 @@ export function baueGebaeude(
    * weggefallen, weil es in derselben Rolle wie `TUER` stand und für eine ganze
    * Wandfläche zu dunkel war, siehe `SCHALUNG`.
    */
-  const WAND = new THREE.Color('#6d675d');
+  const WAND = new THREE.Color('#7d776b');
   /**
    * Bretterschalung des Obergeschosses — **nicht** dasselbe Holz wie Dach und
    * Balkon.
@@ -281,11 +281,11 @@ export function baueGebaeude(
    * ist ein warmes Mittelbraun; sie muss heller sein als das Dach, sonst hat das
    * Haus keine Waagerechte mehr.
    */
-  const SCHALUNG = new THREE.Color('#7d6144');
-  const DACH = new THREE.Color('#4a4038');
+  const SCHALUNG = new THREE.Color('#90704f');
+  const DACH = new THREE.Color('#564a41');
   const FENSTER = new THREE.Color('#11171a');
   /** Sockel: nasser Kalkputz oder Bruchstein, dunkler als die Wand darüber. */
-  const SOCKEL = new THREE.Color('#585349');
+  const SOCKEL = new THREE.Color('#666055');
   /** Gesims und Türblatt: dasselbe Holz wie Dach und Balkon. */
   const TUER = new THREE.Color('#332b22');
   /**
@@ -297,7 +297,28 @@ export function baueGebaeude(
    * ist im Bestand fast immer verputzt und damit das **hellste** Teil des
    * Daches — der Kontrast ist hier kein Effekt, sondern die Wirklichkeit.
    */
-  const KAMIN = new THREE.Color('#9a9083');
+  const KAMIN = new THREE.Color('#b0a596');
+
+  /**
+   * Kontaktabdunklung je Ecke — das gebackene AO des Hausgenerators (Phase 1).
+   *
+   * Kein Strahlenwurf: Der Generator **weiss**, wo Kontakt ist. Zwei Baender,
+   * beide aus der Stilreferenz abgelesen (G-126): am **Boden** wird jede Wand
+   * ueber die unterste Handbreit dunkler — das ist der Schatten, der ein Haus
+   * auf dem Gelaende stehen laesst statt darauf zu schweben —, und **unter der
+   * Traufe** noch einmal, weil der Ueberstand die Wand beschattet. Beides sind
+   * Faktoren auf der Vertexfarbe, also null Laufzeitkosten und ein Draw Call
+   * wie bisher. `aoBoden`/`aoTraufe` setzt die Schleife je Gebaeude.
+   */
+  let aoBoden = -Infinity, aoTraufe = -Infinity;
+  const ao = (v: [number, number, number]): number => {
+    let f = 1;
+    const ueber = v[1] - aoBoden;
+    if (ueber < 0.9) f *= 0.68 + 0.32 * Math.max(0, ueber) / 0.9;
+    const unter = aoTraufe - v[1];
+    if (unter >= -0.02 && unter < 0.75) f *= 0.76 + 0.24 * unter / 0.75;
+    return f;
+  };
 
   /** Ein Dreieck mit Farbe. */
   const tri = (
@@ -305,7 +326,7 @@ export function baueGebaeude(
     f: THREE.Color,
   ) => {
     positionen.push(...a, ...b, ...c);
-    for (let i = 0; i < 3; i++) farben.push(f.r, f.g, f.b);
+    for (const v of [a, b, c]) { const k = ao(v); farben.push(f.r * k, f.g * k, f.b * k); }
   };
 
   /** Ein Viereck als zwei Dreiecke, gegen den Uhrzeigersinn. */
@@ -339,6 +360,8 @@ export function baueGebaeude(
       }
     }
     if (!Number.isFinite(boden)) continue;
+    // Vor der ersten Wand setzen — die Wände kommen vor dem Dach.
+    aoBoden = boden; aoTraufe = boden + h;
     // Fundament: so weit unter den Sockel, wie das gezeichnete Gelände in der
     // Ferne wegfallen kann. Deckelt bei FUNDAMENT_MAX — ein Haus braucht keinen
     // 15 m tiefen Keller, den ohnehin niemand sieht.

@@ -53,7 +53,7 @@ export const BAUM: Record<BaumArt, BaumWerte> = {
     // Heller als der erste Wurf. #1f3324 war im Nebel eine schwarze Wand — ein
     // Nadelwald ist dunkel, aber er hat Binnenzeichnung. Die Spreizung zwischen den
     // beiden Tönen ist wichtiger als ihre Helligkeit: Sie macht aus der Fläche Volumen.
-    stammFarbe: '#4f4436', laubFarbe: '#3c5439', laubFarbe2: '#527050',
+    stammFarbe: '#605343', laubFarbe: '#4a6646', laubFarbe2: '#648761',
   },
   /**
    * Buche — am 26.08.2026 neu gesetzt, weil sie im Spiel wie ein Mast aussah.
@@ -74,7 +74,7 @@ export const BAUM: Record<BaumArt, BaumWerte> = {
   buche: {
     hoehe: 17, fussRadius: 0.42, beastungAb: 0.48, astWinkel: 74,
     quirle: 6, jeQuirl: 5, laub: 0.95,
-    stammFarbe: '#6b6659', laubFarbe: '#55703a', laubFarbe2: '#6d8a4a',
+    stammFarbe: '#817b6c', laubFarbe: '#678747', laubFarbe2: '#84a65a',
   },
 };
 

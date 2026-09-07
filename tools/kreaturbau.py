@@ -82,7 +82,7 @@ DREHUNG_180 = True
 # den Median der Welt, nicht ueber deren ganze Spanne — Dachziegel und
 # Fensterhoehlen sind der Grund fuer das untere Ende des Bandes, und in dieser
 # Gesellschaft hat ein Tier nichts zu suchen.
-BAND_UNTEN, BAND_OBEN = 0.115, 0.245
+BAND_UNTEN, BAND_OBEN = 0.17, 0.35
 
 # Muss `RIG_HOEHE` in `src/world/kreaturgestalt.ts` entsprechen. Die Zielhoehe
 # wird **beim Export** eingerechnet, nicht in der Szene: Dort steht dann fuer
@@ -271,6 +271,45 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
     kn.layer_name = 'Color'
     mat.node_tree.links.new(kn.outputs['Color'], b.inputs['Base Color'])
     m.materials.append(mat)
+
+    # --- Umgebungsverdeckung in die Vertexfarbe backen (Phase 1, AO) ---------
+    #
+    # Der billigste Kontaktschatten, den es gibt: einmal in Cycles gerechnet,
+    # als Faktor auf die Farbe multipliziert, zur Laufzeit null Kosten. Zwischen
+    # den Beinen, unter dem Bauch, in der Halsfalte wird das Tier dunkler — das
+    # ist die Kantenabdunklung, die der Stilreferenz ihre Plastizitaet gibt
+    # (G-126) und die Flat Shading allein nie liefert.
+    ao_staerke = 0.7
+    try:
+        bpy.context.scene.render.engine = 'CYCLES'
+        bpy.context.scene.cycles.device = 'CPU'
+        bpy.context.scene.cycles.samples = 24
+        bpy.context.scene.render.bake.target = 'VERTEX_COLORS'
+        welt = bpy.context.scene.world or bpy.data.worlds.new('Welt')
+        bpy.context.scene.world = welt
+        # AO-Reichweite in Quelleinheiten: gut die halbe Tierhoehe, damit die
+        # Beine sich gegenseitig verschatten, der Ruecken aber frei bleibt.
+        hoehe_roh = max(v.co.z for v in m.vertices) - min(v.co.z for v in m.vertices)
+        welt.light_settings.distance = hoehe_roh * 0.55
+        ao_attr = m.color_attributes.new(name='AO', type='BYTE_COLOR', domain='CORNER')
+        m.color_attributes.active_color = ao_attr
+        bpy.ops.object.select_all(action='DESELECT')
+        koerper.select_set(True)
+        bpy.context.view_layer.objects.active = koerper
+        bpy.ops.object.bake(type='AO')
+        farbe = m.color_attributes['Color']
+        ao_mittel = 0.0
+        for li in range(len(m.loops)):
+            a = ao_attr.data[li].color[0]
+            ao_mittel += a
+            k = (1 - ao_staerke) + ao_staerke * a
+            c = farbe.data[li].color
+            farbe.data[li].color = (c[0] * k, c[1] * k, c[2] * k, 1.0)
+        m.color_attributes.remove(ao_attr)
+        m.color_attributes.active_color = m.color_attributes['Color']
+        print(f'  AO gebacken: Mittel {ao_mittel / max(1, len(m.loops)):.2f}')
+    except Exception as fehler:  # noqa: BLE001 — ein fehlgeschlagener Bake darf den Export nicht anhalten
+        print(f'  ! AO nicht gebacken: {fehler}')
 
     # --- Auf 1 m Widerristhoehe, Nase nach -Z, Fuesse auf y = 0 -------------
     #

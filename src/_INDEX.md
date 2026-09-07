@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-02
+last-reviewed: 2026-09-07
 shelf-life-days: 90
 owns: *.ts, *.tsx
 ---
@@ -14,6 +14,7 @@ owns: *.ts, *.tsx
 | Deine Aufgabe ist … | Lies | NICHT nötig |
 |---|---|---|
 | Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ |
+| Kontur, Kanten, Nachbearbeitung | `scenes/Kontur.tsx` | world/, engine/ |
 | Kreaturen in der Welt oder Begegnungen ändern | `world/vorkommen.ts` → `scenes/RegionsSzene.tsx` | data/inhalte.ts |
 | Team, Fangen oder Speichern ändern | `main.tsx` → `spiel/spielstand.ts` | ui/BattleScreen.tsx |
 | Fortschritt, Stufen oder Gegenstände ändern | `spiel/fortschritt.ts`, `spiel/gegenstaende.ts` | data/inhalte.ts, content/gegenstaende/ |
@@ -33,7 +34,7 @@ owns: *.ts, *.tsx
 | Bodendecker direkt um den Spieler | `world/streuung.ts` | props.ts |
 | Oberfläche des Bodens, Rauschen, Farbvariation | `world/bodenmaterial.ts` | lod.ts |
 | Terrain-Detail, LOD-Schwellen, Mikrorelief | `world/lod.ts` | scenes/, engine/ |
-| Terrain-, Gewässer-, Gebäude-, Wege-Geometrie | `world/terrain.ts` | engine/, ui/ |
+| Terrain-, Gewässer-, Gebäude-, Wege-Geometrie | `world/terrain.ts` | engine/, ui/. Seit D116 mit **Kontaktabdunklung** je Ecke: Sockelband (unterste 0,9 m, Faktor 0,68 → 1) und Traufband (0,75 m unter der Dachkante, 0,76 → 1) als Faktor auf der Vertexfarbe — das gebackene AO des Hausgenerators, null Laufzeitkosten |
 | Höhe für alles, was auf dem Gelände **aufsitzt** | `world/lod.ts` → `aufsatzboden()` | world/terrain.ts |
 | Wege, Bäche, Wasserfälle und Weiher | `world/osm.ts` | OSM → Weltdaten: Höhen, Biomraster, Linien, Wege, Gebäude, Spawnzonen. Das Biomraster stempelt **Siedlung aus Gebäuden** (zwei in 20 m, D77) — ohne das standen 79 % der Häuser auf Wiese (G-81) |
 | `world/props.ts` | Verteilung, Varianten und Farben der Vegetation. `VARIANTEN` trägt Datei, Kenney-Quelle und **reale Höhe** je Variante — Gras reicht damit von 0,18 bis 0,85 m statt einer wegnormierten Einheitshöhe (G-77). `KENNEY_FARBE` bildet Kenneys Materialrollen auf die Projektpalette ab. `verteileProps` setzt nichts mehr in einen Grundriss (G-82) |
@@ -89,6 +90,7 @@ owns: *.ts, *.tsx
 | `scenes/RegionsSzene.tsx` | Art Direction als Code: 4 Stimmungen mit Nebel-, Sonnen- und Umgebungswerten; Props als `InstancedMesh`; Schwerkraft und Sprung des Spielers; `Fundstellen` als Marker der Fragmente. Die Kamera **zieht ein** (D91): zehn Proben auf der Sichtlinie gegen dasselbe Kollisionsfeld wie die Figur plus die Geländefläche — ohne das steht sie im Wald regelmäßig im Stamm. Messparameter in der Adresse: `?absetzen=` (D86), `?aus=` (`abschalter.ts`), `?zeit=` (D101, in `main.tsx`) und seit G-126 **`?belichtung=`** — überschreibt die Belichtung der laufenden Stimmung, damit eine Belichtungsreihe reproduzierbar ist. Die Reihe hat gezeigt, dass der Regler nicht der Hebel für einen helleren Tag ist (D110) |
 | `scenes/propauswahl.ts` | Welcher Prop-Chunk in die Nahliste geht und welcher ins Attrappenbündel. Als reine Funktion ausgelagert, weil hier genau ein Fehler möglich ist, den kein Bildschirmfoto zeigt: ein Chunk in **keiner** der beiden Listen. Beide entscheiden über denselben Anker — den Punkt, an dem das Bündel zuletzt gebaut wurde |
 | `scenes/abschalter.ts` | `?aus=fels,gras,baeume,kulisse,haeuser` lässt Gruppen weg. Messwerkzeug: Die ersten Zahlen vom Zielgerät zeigten 177.780 Dreiecke bei 155 Aufrufen mit p95 21,0 ms gegen 224.818 bei 111 Aufrufen mit 18,0 ms — weniger Geometrie, schlechteres Bild. Drei Kandidaten (Dreiecke, Aufrufe, Füllrate) und zwei verschiedene Orte ergeben keine Antwort; vier Messungen am **selben** Punkt mit je einer fehlenden Gruppe schon |
+| `scenes/Kontur.tsx` | **Kontur-Pass** (D115): eine dunkle Linie an jeder Tiefenkante, als Vollbildpass nach allen Materialien — der stärkste Vereinheitlicher über Asset-Quellen hinweg, weil er nach ihnen kommt. Szene in ein HalfFloat-Ziel mit Tiefentextur, dann ein Quad, das Tiefensprünge zum weiter entfernten Nachbarn (relativ zum Abstand, Schwelle 3 %) abdunkelt und Tone Mapping plus sRGB nachholt — three.js wendet beides nur beim Zeichnen auf den Bildschirm an. `?kontur=0` schaltet ab, für A/B am selben Ort. Kosten: ein Ziel-Render plus ein Quad; auf dem Zielgerät ⚠️ offen |
 | `scenes/sichtweiten.ts` | Entfernungsschwellen der Szene (Terrainsicht, Attrappen, Neubewertung). Eigenes Modul, damit `tools/lastcheck.ts` dieselben Zahlen nutzt, ohne React zu laden |
 | `world/osm.ts` | OSM- und EU-DEM-Abruf, Weltdatentypen (`Weltdaten`, `Biom`), Biom-Ableitung, Spawn-Zonen |
 | `world/terrain.ts` | Terrain-Mesh mit Vertex-Farben und **Gebäude**: orientiertes Dach, Sockelband, Gesims je Geschoss, Haustür, Fenster, Balkon (G-71, G-80). `orientierteHuelle()` ist die eine Achse, aus der Dach, Balkon und Garten kommen. Wände reichen bis `FUNDAMENT_MAX` unter den Sockel (G-71). Wege und Gewässer sind seit D73 nicht mehr hier. **Seit D90 ein Giebelfeld je Grundrisskante** statt zwei fester an den Hüllenenden — jede Kante eines Winkelgrundrisses endete vorher unter einem höheren Dach, und dazwischen war nichts. Der Balkon sitzt an der gefundenen Wand statt an der Hüllenkante, seine Stützen reichen bis zum Boden, und seine Tiefe ist auf den Dachüberstand begrenzt |

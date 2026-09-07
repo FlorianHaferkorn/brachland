@@ -41,6 +41,13 @@ import { readFileSync, writeFileSync } from 'node:fs';
 
 const GRUND = 'tools/bildtor.json';
 const NEU = process.argv.includes('--neu');
+/**
+ * `--stimmung daemmerung` faehrt nur die Faelle einer Stimmung — die Messschleife
+ * fuer das Licht (D110) braucht fuenf Bilder, nicht zwoelf. Grundwerte werden
+ * dabei nie geschrieben; `--neu` gilt nur fuer den vollen Lauf.
+ */
+const NUR = process.argv.includes('--stimmung')
+  ? process.argv[process.argv.indexOf('--stimmung') + 1] : null;
 const BASIS = 'http://127.0.0.1:4173/';
 /** So lange stehenbleiben, bis Kacheln, Props und Kulisse gebaut sind. */
 const WARTEN = 15_000;
@@ -92,17 +99,19 @@ const messen = async (d) => {
     const c = v / 255;
     lin[v] = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   }
-  let leer = 0, dunkel = 0, n = 0;
+  let leer = 0, dunkel = 0, hell = 0, n = 0;
   const ys = new Float32Array(p.length / 4);
   for (let i = 0; i < p.length; i += 4) {
     const m = Math.max(p[i], p[i + 1], p[i + 2]);
     if (m === 0) leer++;
     const y = 0.2126 * lin[p[i]] + 0.7152 * lin[p[i + 1]] + 0.0722 * lin[p[i + 2]];
     if (y < 0.02) dunkel++;
+    if (y > 0.30) hell++;
     ys[n++] = y;
   }
   ys.sort();
-  return { leer: leer / n * 100, dunkel: dunkel / n * 100, median: ys[Math.floor(n / 2)] };
+  return { leer: leer / n * 100, dunkel: dunkel / n * 100, hell: hell / n * 100,
+           median: ys[Math.floor(n / 2)] };
 };
 
 const browser = await chromium.launch();
@@ -110,6 +119,7 @@ const zeilen = [];
 let blocker = 0, warnungen = 0;
 
 for (const f of grund.faelle) {
+  if (NUR && f.stimmung !== NUR) continue;
   const seite = await browser.newContext({ viewport: { width: 900, height: 560 } })
     .then(c => c.newPage());
   await seite.goto(`${BASIS}?absetzen=${f.ort}&zeit=${f.zeit}`, { waitUntil: 'domcontentloaded' });
@@ -131,16 +141,17 @@ for (const f of grund.faelle) {
 await browser.close();
 
 console.log('\nBildtor — Anteil Pixel mit hoechstem Kanal exakt 0\n');
-console.log('  Ort                Stimmung      leer      Grundwert   dunkel   Median');
+console.log('  Ort                Stimmung      leer      Grundwert   dunkel   Median    hell');
+console.log('  Referenz (Stilvorlage, G-126)                              0.2 %   0.270   47.0 %');
 for (const { f, w, aus } of zeilen) {
   const zeichen = aus ? (f.offen ? '!' : '✗') : '✓';
   console.log(`  ${zeichen} ${f.name.padEnd(16)} ${f.stimmung.padEnd(12)}`
     + `${w.leer.toFixed(1).padStart(6)} %  ${f.leer.toFixed(1).padStart(6)} %`
-    + `${w.dunkel.toFixed(1).padStart(9)} %  ${w.median.toFixed(3).padStart(6)}`
+    + `${w.dunkel.toFixed(1).padStart(9)} %  ${w.median.toFixed(3).padStart(6)}  ${w.hell.toFixed(1).padStart(5)} %`
     + (f.offen ? `   offen: ${f.offen}` : ''));
 }
 
-if (NEU) {
+if (NEU && !NUR) {
   writeFileSync(GRUND, JSON.stringify(grund, null, 2) + '\n');
   console.log(`\nGrundwerte neu geschrieben nach ${GRUND}`);
   process.exit(0);
