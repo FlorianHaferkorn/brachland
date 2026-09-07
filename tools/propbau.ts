@@ -564,6 +564,15 @@ for (const [art, varianten] of Object.entries(VARIANTEN) as [PropArt, typeof VAR
       .setAttribute('POSITION', raus.createAccessor().setType('VEC3').setArray(new Float32Array(pos)).setBuffer(puffer))
       .setAttribute('COLOR_0', raus.createAccessor().setType('VEC3').setArray(new Float32Array(farbe)).setBuffer(puffer))
       .setMaterial(raus.createMaterial('prop').setBaseColorFactor([1, 1, 1, 1]).setRoughnessFactor(1).setMetallicFactor(0));
+    // Gras bekommt Normalen senkrecht nach oben (D121), wie die Streuung: Ein
+    // Halm mit seiner Flächennormale steht halb im Eigenschatten und war im
+    // Bild dunkler als das gestreute Gras daneben — dieselbe Pflanze in zwei
+    // Helligkeiten. Die Szene zeichnet Gras deshalb glatt statt flach schattiert.
+    if (art === 'grasbuschel') {
+      const hoch = new Float32Array(pos.length);
+      for (let i = 1; i < hoch.length; i += 3) hoch[i] = 1;
+      prim.setAttribute('NORMAL', raus.createAccessor().setType('VEC3').setArray(hoch).setBuffer(puffer));
+    }
     const mesh = raus.createMesh(v.datei).addPrimitive(prim);
     raus.createScene().addChild(raus.createNode(v.datei).setMesh(mesh));
     // Quantisieren (KHR_mesh_quantization, three.js liest es nativ): Position

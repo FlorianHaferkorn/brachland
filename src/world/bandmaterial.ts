@@ -44,8 +44,12 @@ float bandRauschen(vec2 p) {
 export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({
     color: fallend ? PALETTE.wasser.fallend : PALETTE.wasser.stehend,
-    roughness: fallend ? 0.35 : 0.18,
-    metalness: fallend ? 0.05 : 0.28,
+    // Rauheit 0,18 → 0,3 und Metall 0,28 → 0,12 (D123): Metallanteil nimmt der
+    // Fläche Albedo (diffus × (1 − metalness)) und gab ihr dafür einen harten
+    // Sonnenfleck; das Ergebnis las sich als Graublau mit Blendung. Wasser in
+    // der Stilreferenz ist eine Farbe mit weichem Glanz, kein Spiegel.
+    roughness: fallend ? 0.35 : 0.3,
+    metalness: fallend ? 0.05 : 0.12,
     transparent: true, opacity: fallend ? 0.8 : 0.92,
     emissive: new THREE.Color(fallend ? PALETTE.wasser.fallendGlanz : PALETTE.wasser.stehendGlanz),
     emissiveIntensity: fallend ? 0.5 : 0.3,

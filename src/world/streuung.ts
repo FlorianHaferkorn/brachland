@@ -50,7 +50,8 @@ function hash(x: number, y: number, k: number): number {
 }
 
 /**
- * Ein Büschel aus fünf Halmen — 10 Dreiecke.
+ * Ein Büschel aus sechs gebogenen Halmen — 36 Dreiecke (D121; davor fünf
+ * flache Zacken mit 10).
  *
  * Feingliedriger als die erste Fassung (drei breite Klingen): schmalere Halme,
  * unterschiedlich hoch, leicht auseinanderfallend. Ein Büschel soll aus Halmen
@@ -66,27 +67,41 @@ export function baueBueschelGeometrie(): THREE.BufferGeometry {
   const fuss = new THREE.Color(PALETTE.streu.grasFuss);
   const spitze = new THREE.Color(PALETTE.streu.grasSpitze);
 
-  const HALME = 5;
+  /**
+   * Seit D121 **sechs gebogene Halme** statt fünf flacher Zacken: Jeder Halm ist
+   * ein Viereck bis zur halben Höhe und ein Dreieck bis zur Spitze, in der
+   * Mitte nach aussen geknickt. Der Knick ist der Unterschied — ein gerader
+   * Zacken liest sich von oben als Stern, ein geknickter Halm als Gras, weil
+   * seine Spitze über den Fuss hinausragt und der Umriss eine Kurve wird.
+   * Dieselbe Bauart wie die Grasbüschel-Attrappen (`propbau.ts`), damit die
+   * beiden Systeme eine Pflanze sind. 36 statt 10 Dreiecke je Büschel; bei
+   * 5.200 Büscheln im Nahring sind das +135.000 Dreiecke, nach G-111 unter der
+   * Messschwelle — die Aufrufe bleiben bei einem.
+   */
+  const mitte = fuss.clone().lerp(spitze, 0.45);
+  const HALME = 6;
+  const F = (c: THREE.Color) => [c.r, c.g, c.b];
   for (let i = 0; i < HALME; i++) {
-    const w = (i / HALME) * Math.PI * 2 + hash(i, 7, 3) * 0.5;
-    const breite = 0.035 + hash(i, 11, 5) * 0.02;
+    const w = (i / HALME) * Math.PI * 2 + hash(i, 7, 3) * 0.6;
+    const breite = 0.03 + hash(i, 11, 5) * 0.025;
     const dx = Math.cos(w) * breite, dz = Math.sin(w) * breite;
-    // Halme fallen nach außen und erreichen unterschiedliche Höhen.
     const hoehe = 0.55 + hash(i, 13, 9) * 0.45;
-    const neigeX = Math.cos(w) * 0.22, neigeZ = Math.sin(w) * 0.22;
-    // Fußpunkte leicht versetzt, damit das Büschel nicht aus einem Punkt wächst.
-    const fx = Math.cos(w) * 0.03, fz = Math.sin(w) * 0.03;
-
+    // Neigung: in der Mitte wenig, an der Spitze mehr — der Halm biegt sich.
+    const n1 = 0.06 + hash(i, 17, 2) * 0.06, n2 = 0.22 + hash(i, 19, 4) * 0.16;
+    const fx = Math.cos(w) * 0.035, fz = Math.sin(w) * 0.035;
     const a: [number, number, number] = [fx - dx, 0, fz - dz];
     const b: [number, number, number] = [fx + dx, 0, fz + dz];
-    const c: [number, number, number] = [fx + neigeX, hoehe, fz + neigeZ];
-
-    pos.push(...a, ...b, ...c);
-    col.push(fuss.r, fuss.g, fuss.b, fuss.r, fuss.g, fuss.b, spitze.r, spitze.g, spitze.b);
-    // Rückseite mit umgekehrter Wicklung — deshalb braucht das Material KEIN
-    // DoubleSide: Aus jeder Blickrichtung ist genau eine der beiden Kopien vorne.
-    pos.push(...b, ...a, ...c);
-    col.push(fuss.r, fuss.g, fuss.b, fuss.r, fuss.g, fuss.b, spitze.r, spitze.g, spitze.b);
+    const m1: [number, number, number] = [fx + Math.cos(w) * n1 - dx * 0.7, hoehe * 0.5, fz + Math.sin(w) * n1 - dz * 0.7];
+    const m2: [number, number, number] = [fx + Math.cos(w) * n1 + dx * 0.7, hoehe * 0.5, fz + Math.sin(w) * n1 + dz * 0.7];
+    const c: [number, number, number] = [fx + Math.cos(w) * n2, hoehe, fz + Math.sin(w) * n2];
+    // Vorder- und Rückseite mit umgekehrter Wicklung — deshalb braucht das
+    // Material KEIN DoubleSide: Aus jeder Blickrichtung ist genau eine vorne.
+    for (const seite of [1, -1]) {
+      const [p, q] = seite > 0 ? [a, b] : [b, a];
+      const [r, s] = seite > 0 ? [m1, m2] : [m2, m1];
+      pos.push(...p, ...q, ...s, ...p, ...s, ...r, ...r, ...s, ...c);
+      col.push(...F(fuss), ...F(fuss), ...F(mitte), ...F(fuss), ...F(mitte), ...F(mitte), ...F(mitte), ...F(mitte), ...F(spitze));
+    }
   }
 
   const g = new THREE.BufferGeometry();

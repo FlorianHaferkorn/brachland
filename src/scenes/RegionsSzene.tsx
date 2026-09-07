@@ -72,6 +72,8 @@ export interface Stimmung {
   sonne: string; sonneStaerke: number; umgebung: string; umgebungStaerke: number;
   sonnenstand: readonly [number, number, number];
   belichtung: number;
+  /** Schattenstärke der Sonne 0…1 (`shadow.intensity`); ohne Angabe 1. */
+  schatten?: number;
   zenit: string; horizont: string; scheibe: number; hof: number;
   /** Silhouettenlicht: Farbe des Himmels, der die Umrisse zeichnet. */
   randFarbe: string;
@@ -105,6 +107,23 @@ const BELICHTUNG_MESSLAUF: number | null = (() => {
   if (typeof location === 'undefined') return null;
   const roh = Number(new URLSearchParams(location.search).get('belichtung'));
   return Number.isFinite(roh) && roh > 0 && roh <= 20 ? roh : null;
+})();
+
+/**
+ * `?schatten=0.6` überschreibt die Schattenstärke der Sonne (`shadow.intensity`,
+ * 1 = voller Schlagschatten, 0 = keiner). Messparameter für G-127: Das Dorf
+ * liegt im Kammschatten, und die Frage ist, wie viel Schatten die Szene
+ * verträgt, bevor der Talboden blind wird.
+ */
+const SCHATTEN_MESSLAUF: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const text = new URLSearchParams(location.search).get('schatten');
+  // `Number(null)` ist 0 — und 0 ist hier ein gültiger Wert. Ohne diese Zeile
+  // stand jede Szene ohne Parameter ohne Schatten da (gemessen: Dorf 0,248
+  // statt 0,140, bevor es auffiel).
+  if (text === null) return null;
+  const roh = Number(text);
+  return Number.isFinite(roh) && roh >= 0 && roh <= 1 ? roh : null;
 })();
 
 export const STIMMUNG: Record<string, Stimmung> = {
@@ -147,6 +166,7 @@ export const STIMMUNG: Record<string, Stimmung> = {
     sonne: '#8fa9c4', sonneStaerke: 0.45, umgebung: '#22323a', umgebungStaerke: 0.80,
     sonnenstand: [-80, 90, 60] as const,
     belichtung: 2.60,
+    schatten: 0.7,
     // Mond: harte kleine Scheibe, fast kein Hof.
     zenit: '#05080d', horizont: '#131c22', scheibe: 0.0009, hof: 900,
     // Nachts trägt der Umriss fast das ganze Bild — deshalb hier am stärksten.
@@ -157,6 +177,14 @@ export const STIMMUNG: Record<string, Stimmung> = {
     sonne: '#c8b48a', sonneStaerke: 2.4, umgebung: '#4d5f64', umgebungStaerke: 4.0,
     sonnenstand: [-120, 110, -90] as const,
     belichtung: 2.7,
+    /**
+     * Schlagschatten auf 60 % (D122). Gemessen mit `?schatten=`: Bei 1,0 stand
+     * beschatteter Boden bei 28 % des beleuchteten — die Stilreferenz liegt bei
+     * etwa 60 %. 0,5 hob das Dorf von 0,102 auf 0,124, Felsflanke und
+     * Stauwehr um 0,01; 0,6 ist der Kompromiss, der den Schatten als Form
+     * behält.
+     */
+    schatten: 0.6,
     // Tief stehende Sonne: kleine Scheibe, sehr weiter Hof. Der Hof IST die Stimmung.
     zenit: '#1b3550', horizont: '#4a4238', scheibe: 0.0016, hof: 190,
     randFarbe: '#6e7f86', randStaerke: 0.22,
@@ -169,6 +197,7 @@ export const STIMMUNG: Record<string, Stimmung> = {
     sonne: '#d8d2c0', sonneStaerke: 1.3, umgebung: '#5d7072', umgebungStaerke: 3.5,
     sonnenstand: [90, 90, -110] as const,
     belichtung: 2.05,
+    schatten: 0.5,   // Dunst: weicher Schatten
     // Im Dunst gibt es keine Scheibe, nur einen breiten hellen Fleck.
     zenit: '#26333a', horizont: '#3e4a48', scheibe: 0.0, hof: 42,
     // Im Dunst streut das Licht ohnehin um jede Kante — Rand dezent.
@@ -205,6 +234,7 @@ export const STIMMUNG: Record<string, Stimmung> = {
     sonne: '#d98b5b', sonneStaerke: 1.8, umgebung: '#454f5e', umgebungStaerke: 4.5,
     sonnenstand: [130, 55, 70] as const,
     belichtung: 3.0,
+    schatten: 0.7,   // lange Abendschatten sind die Stimmung
     zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
     randFarbe: '#c07a4e', randStaerke: 0.26,
   },
@@ -259,6 +289,7 @@ export function stimmungBei(zeit: number): Stimmung {
       z(A.sonnenstand[2], B.sonnenstand[2]),
     ] as const,
     belichtung: z(A.belichtung, B.belichtung),
+    schatten: z(A.schatten ?? 1, B.schatten ?? 1),
     zenit: mischeFarbe(A.zenit, B.zenit, f),
     horizont: mischeFarbe(A.horizont, B.horizont, f),
     scheibe: z(A.scheibe, B.scheibe),
@@ -363,9 +394,20 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
   const wind = useMemo(() => baueWindMaterial({
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
   }), []);
+  /**
+   * Gras-Attrappen: derselbe Wind, aber **glatt** schattiert (D121). Die
+   * Grasbüschel tragen seit D121 Normalen senkrecht nach oben wie die Streuung
+   * — mit `flatShading` würde three.js sie ignorieren und die Flächennormale
+   * aus den Ableitungen nehmen, und ein Halm stünde wieder halb im
+   * Eigenschatten. Kleinere Amplitude: ein Büschel schwingt, es peitscht nicht.
+   */
+  const grasWind = useMemo(() => baueWindMaterial({
+    amplitude: 0.25, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5,
+  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 1, metalness: 0 })), []);
   useEffect(() => {
     wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);
-  }, [wind, rand]);
+    grasWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
+  }, [wind, grasWind, rand]);
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
@@ -383,6 +425,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
       if (z) z.value += dt;
     }
     wind.setzeZeit(uhr.current);
+    grasWind.setzeZeit(uhr.current);
   });
   /**
    * Bänder einmal zerlegen, dann je Kachel bauen.
@@ -405,7 +448,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} />
+      <Props props={props} wind={wind.material} grasWind={grasWind.material} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
     </group>
   );
@@ -524,7 +567,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
-function Props({ props, wind }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial }) {
+function Props({ props, wind, grasWind }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<{ art: PropArt; instanzen: PropInstanz[] }[]>([]);
@@ -573,7 +616,7 @@ function Props({ props, wind }: { props: PropInstanz[]; wind: THREE.MeshStandard
   return (
     <>
       {sichtbar.map(({ c, stufe, id }) =>
-        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} />)}
+        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} />)}
       {fern.map(({ art, instanzen }) =>
         <PropFernMesh key={art} art={art} instanzen={instanzen} />)}
     </>
@@ -695,8 +738,8 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
 const LEER: ReadonlySet<string> = new Set();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, wind }: {
-  chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial;
+function PropChunkMesh({ chunk, stufe, wind, grasWind }: {
+  chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
 }) {
   const fern = stufe === 'fern';
   const { geo } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
@@ -705,6 +748,7 @@ function PropChunkMesh({ chunk, stufe, wind }: {
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
   // als bewegtes Laub aufbaut.
   const biegsam = chunk.art === 'nadelbaum' || chunk.art === 'laubbaum' || chunk.art === 'busch';
+  const gras = chunk.art === 'grasbuschel';
   const ref = useRef<THREE.InstancedMesh>(null);
 
   useEffect(() => {
@@ -745,7 +789,7 @@ function PropChunkMesh({ chunk, stufe, wind }: {
     <instancedMesh
       ref={ref} args={[undefined, undefined, chunk.instanzen.length]}
       geometry={fern ? fernGeo : geo}
-      material={fern ? FERN_MATERIAL : (biegsam ? wind : PROP_MATERIAL)}
+      material={fern ? FERN_MATERIAL : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
     />
   );
@@ -1281,6 +1325,7 @@ function Beleuchtung({ s, ziel }: {
         shadow-camera-left={-250} shadow-camera-right={250}
         shadow-camera-top={250} shadow-camera-bottom={-250}
         shadow-camera-far={700} shadow-bias={-0.0008}
+        shadow-intensity={SCHATTEN_MESSLAUF ?? s.schatten ?? 1}
       />
     </>
   );

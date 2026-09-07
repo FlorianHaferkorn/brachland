@@ -50,6 +50,20 @@ ZUORDNUNG = [
     ('hirsch', 'grathorn'),
     ('reh',    'nebelgams'),
     ('boar',   'wurzelkeiler'),
+    # Seit D124 die restlichen neun, alle von poly.pizza (`.cache/cc0lade2.sh`):
+    # Poly-by-Google-Modelle (CC BY 3.0, siehe assets/HERKUNFT.md). Zuordnung
+    # nach Bauform: der Gopher steht aufrecht wie ein Murmeltier auf Wache, der
+    # Jackrabbit ist ein Hase mit Hasenohren, das Frettchen hat den Marderleib,
+    # die Wachtel den Schneehuhn-Rumpf.
+    ('gopher',     'alpenmurmel'),
+    ('jackrabbit', 'firnhase'),
+    ('beaver',     'kiemenbiber'),
+    ('eule',       'linsenuhu'),
+    ('otter',      'moderotter'),
+    ('salamander', 'myzelmolch'),
+    ('wachtel',    'schneehuhn'),
+    ('hahn',       'sporenhahn'),
+    ('frettchen',  'trafomarder'),
 ]
 
 # Netze, die eine Quelle mitbringt und die hier nicht hingehoeren. Der Hirsch
@@ -57,6 +71,19 @@ ZUORDNUNG = [
 # Grathorn traegt laut `content/creatures/grathorn.json` kein Hirschgeweih,
 # sondern ein Chitinplatten-Gehoern. Es faellt weg, der Anbau ersetzt es.
 WEGLASSEN = {'hirsch': ('Stag_Horns',)}
+
+# **Was unter dem Tier haengt, gehoert nicht zum Tier.** Der Uhu von Poly by
+# Google sitzt auf einem Ast, und der Ast ist Teil desselben Netzes — 10 Einheiten
+# breit unter einem 9 Einheiten hohen Vogel. Die Widerristmessung nimmt die
+# untersten 8 % als Fuesse, fand den Ast, und der Uhu kam 10,9 m hoch an (D124).
+# Je Quelle Regeln (hoehe, seitlich): Flaechen fallen weg, wenn alle ihre Ecken
+# unter `hoehe` (Anteil der Gesamthoehe) **und** weiter als `seitlich` (Anteil
+# der halben Breite) von der Mittelachse liegen. Beim Uhu: der Ast ragt
+# beidseits weit heraus, der Vogel steht in der Mitte — was unter 30 % Hoehe
+# ausserhalb von 22 % der Breite liegt, ist Ast. Das Aststueck unter den
+# Krallen bleibt als Sockel; es ist der tiefste Punkt, und die Messung nimmt
+# es als Fuesse.
+ABSCHNEIDEN = {'eule': [(0.30, 0.22), (0.06, 0.0)]}
 
 # **Alle fuenf Quellen blicken nach glTF +Z, die Szene will -Z.** Spielerfigur
 # und Silhouette schauen nach -Z (`baueKreaturGeometrie`), und die Modelle liefen
@@ -212,6 +239,25 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
             bpy.data.objects.remove(o, do_unlink=True)
     m = koerper.data
 
+    # Ast, Sockel, Grundplatte: alles unter der Schwelle weg, bevor gemessen wird.
+    if datei in ABSCHNEIDEN:
+        import bmesh
+        z0 = min(v.co.z for v in m.vertices); z1 = max(v.co.z for v in m.vertices)
+        xs = [v.co.x for v in m.vertices]; ys = [v.co.y for v in m.vertices]
+        breit = 0 if (max(xs) - min(xs)) >= (max(ys) - min(ys)) else 1
+        mitte = ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)[breit]
+        halb = ((max(xs) - min(xs)), (max(ys) - min(ys)))[breit] / 2
+        bm = bmesh.new(); bm.from_mesh(m)
+        weg = set()
+        for hoehe_anteil, seitlich in ABSCHNEIDEN[datei]:
+            schwelle = z0 + (z1 - z0) * hoehe_anteil
+            for f in bm.faces:
+                if all(v.co.z < schwelle and abs(v.co[breit] - mitte) > seitlich * halb for v in f.verts):
+                    weg.add(f)
+        bmesh.ops.delete(bm, geom=list(weg), context='FACES')
+        bm.to_mesh(m); bm.free()
+        print(f'  {len(weg)} Flaechen abgeschnitten (Ast/Sockel)')
+
     # --- Farbe an den Vertex, Helligkeit in die Palette ---------------------
     #
     # **Zwei Quellen, und die falsche zu nehmen faellt erst im Bild auf.** Vier der
@@ -219,6 +265,61 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
     # **Farbattribut** mit und hat nur Standardmaterialien. Wer stur die Materialien
     # liest, bekommt dort siebenmal dasselbe Grau (Leuchtdichte 0,800) — und das Tier
     # steht als weisse Flaeche im Bild.
+    # **Dritte Quelle seit D124: die Textur.** Die Poly-by-Google-Modelle tragen
+    # die Farbe weder im Material noch im Attribut, sondern in einer Base-Color-
+    # Textur (32 × 32 Palettenkacheln beim Blocks-Biber, 2048² beim Hahn). Wer
+    # nur Material und Attribut liest, bekommt Grau — alle neun kamen im ersten
+    # Lauf als Zinnfiguren an. Abgetastet wird je Loop an seiner UV, naechster
+    # Texel; eine Textur mit Verlaeufen wird dadurch zur Flaechenfarbe, was hier
+    # gewollt ist (ADR-0002: keine Texturen).
+    def texturfarben(m):
+        uv = m.uv_layers.active
+        if uv is None:
+            return None
+        bilder = []
+        for mat in m.materials:
+            img = None
+            if mat and mat.use_nodes:
+                for n in mat.node_tree.nodes:
+                    if n.type == 'BSDF_PRINCIPLED' and n.inputs['Base Color'].is_linked:
+                        von = n.inputs['Base Color'].links[0].from_node
+                        for _ in range(4):
+                            if von.type == 'TEX_IMAGE':
+                                img = von.image; break
+                            eing = [e for e in von.inputs if e.is_linked and e.type == 'RGBA']
+                            if not eing:
+                                break
+                            von = eing[0].links[0].from_node
+            bilder.append(img)
+        if not any(bilder):
+            return None
+        import numpy as np
+        puffer = {}
+        for img in {b for b in bilder if b}:
+            w, h = img.size
+            arr = np.empty(w * h * 4, dtype=np.float32)
+            img.pixels.foreach_get(arr)
+            puffer[img.name] = (w, h, arr)
+        roh = [NEUTRAL] * len(m.loops)
+        for pol in m.polygons:
+            img = bilder[min(pol.material_index, len(bilder) - 1)]
+            if img is None:
+                continue
+            w, h, arr = puffer[img.name]
+            # Flaechenmitte statt Ecke: Bei einem Palettenatlas (32 × 32 Kacheln)
+            # liegen die Ecken-UVs genau auf Kachelgrenzen, und `int()` faellt dann
+            # in die Nachbarkachel — der Keiler bekam so einen blauen Fleck aus der
+            # Augenkachel auf die Flanke. Die Mitte liegt immer in der eigenen.
+            us = [uv.data[li].uv[0] for li in pol.loop_indices]
+            vs = [uv.data[li].uv[1] for li in pol.loop_indices]
+            u, v = sum(us) / len(us), sum(vs) / len(vs)
+            x = int((u % 1.0) * w) % w; y = int((v % 1.0) * h) % h
+            i = (y * w + x) * 4
+            farbe = (float(arr[i]), float(arr[i + 1]), float(arr[i + 2]))
+            for li in pol.loop_indices:
+                roh[li] = farbe
+        return roh
+
     vorhanden = m.color_attributes[0] if m.color_attributes else None
     # Ein mitgeliefertes Attribut nur nehmen, wenn ueberhaupt Farbe drinsteht:
     # Das Reh bringt ein durchgehend weisses mit, das nichts traegt.
@@ -226,9 +327,14 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
         probe = [tuple(vorhanden.data[i].color[:3]) for i in range(0, len(m.loops), 97)]
         if all(min(c) > 0.97 for c in probe) or all(max(c) < 0.03 for c in probe):
             vorhanden = None
+    tex = None if vorhanden is not None else texturfarben(m)
     if vorhanden is not None:
         roh = [tuple(vorhanden.data[li].color[:3]) for li in range(len(m.loops))]
         quelle = 'Farbattribut'
+    elif tex is not None:
+        roh = tex
+        quelle = 'Farbattribut'   # je Loop indiziert wie ein Attribut
+        print('  Farbe aus der Textur abgetastet')
     else:
         farben = basisfarben(m)
         roh = [farben[min(pol.material_index, len(farben) - 1)]
@@ -252,6 +358,13 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
         for li in pol.loop_indices:
             c = roh[li] if quelle == 'Farbattribut' else roh[k]
             l = leuchtdichte(c)
+            # **Fast Schwarz traegt keinen Farbton.** Der Keiler hat Hufe und Maul
+            # in (0,03, 0,02, 0,08) — ein Nachtblau, das erst beim Anheben ins Band
+            # sichtbar wird: mal 6 ist das ein leuchtender blauer Fleck auf der
+            # Flanke (D124). Unter Leuchtdichte 0,06 wird die Farbe zu 70 % auf
+            # ihr Grau gezogen; Hufe bleiben dunkel-neutral statt blau.
+            if l < 0.06:
+                c = tuple(x * 0.3 + l * 0.7 for x in c)
             ziel_l = BAND_UNTEN + (l - lo) / spanne * (BAND_OBEN - BAND_UNTEN)
             f = ziel_l / max(1e-4, l)
             attr.data[li].color = tuple(min(1.0, x * f) for x in c) + (1.0,)

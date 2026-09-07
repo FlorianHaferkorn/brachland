@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-31
+last-reviewed: 2026-09-07
 owns: []
 ---
 
@@ -30,9 +30,19 @@ und der ist auf beiden Rechnern nicht lauffähig (G-119).
 | `grathorn.glb` | Grathorn | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Stag) |
 | `nebelgams.glb` | Nebelgams | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Deer) |
 | `wurzelkeiler.glb` | Wurzelkeiler | Poly by Google | **CC BY 3.0** | poly.pizza, „Boar" |
+| `alpenmurmel.glb` | Alpenmurmel | Poly by Google | **CC BY 3.0** | poly.pizza `2IatILCJa3X`, „Gopher" (aufrecht, Wachposten-Haltung) |
+| `firnhase.glb` | Firnhase | Poly by Google | **CC BY 3.0** | poly.pizza `biNOm96olTH`, „Jackrabbit" |
+| `kiemenbiber.glb` | Kiemenbiber | Poly by Google | **CC BY 3.0** | poly.pizza `fwtA7VLrXPr`, „Beaver" |
+| `linsenuhu.glb` | Linsenuhu | Poly by Google | **CC BY 3.0** | poly.pizza `fNkq9CwSG6d`, „Great horned owl" — der Ast unter dem Vogel ist bis auf ein Stück unter den Krallen abgeschnitten |
+| `moderotter.glb` | Moderotter | Poly by Google | **CC BY 3.0** | poly.pizza `dJW3JeUWXQ-`, „River otter" |
+| `myzelmolch.glb` | Myzelmolch | Poly by Google | **CC BY 3.0** | poly.pizza `eqjMAgmr-pM`, „Salamander" |
+| `schneehuhn.glb` | Schneehuhn | Poly by Google | **CC BY 3.0** | poly.pizza `4A0kLzM65Mg`, „Quail" |
+| `sporenhahn.glb` | Sporenhahn | Poly by Google | **CC BY 3.0** | poly.pizza `6NTegstc5Jy`, „Rooster" |
+| `trafomarder.glb` | Trafomarder | Poly by Google | **CC BY 3.0** | poly.pizza `4I1SBFHWuSo`, „Ferret" |
 
 Alle Dateien sind gegenüber dem Original verändert: Materialfarbe an den Vertex
-gebacken, Leuchtdichte in die Palette der Welt gezogen, Dreiecke auf `zielTris`
+gebacken (bei den Poly-by-Google-Modellen aus der Base-Color-Textur je Fläche
+abgetastet, D124), Leuchtdichte in die Palette der Welt gezogen, Dreiecke auf `zielTris`
 reduziert, auf Widerristhöhe genormt und um 180° gedreht (`tools/kreaturbau.py`).
 Bei CC BY ist das ausdrücklich erlaubt und muss als Bearbeitung kenntlich sein —
 diese Zeile ist die Kenntlichmachung.
@@ -55,3 +65,5 @@ Abschnitt „Herkunft" hat.
 | Modell | Autor | Lizenz | Warum nicht |
 |---|---|---|---|
 | `ibex` | Syl | CC BY 3.0 | Beine stehen in einer eingefrorenen Sprungpose schräg nach hinten weg — die Hörner stimmen, der Rest ist unbrauchbar (28.08.2026 gerendert und verworfen) |
+| `Rabbit` (`mKev485XTR`) | Quaternius | CC0 | Ein Cartoon-Hase in T-Pose mit Armen — eine Figur, kein Tier (07.09.2026 gerendert und verworfen; der CC-BY-Jackrabbit ist ein Hase) |
+| `Pheasant` (`1wqLCnNFCgv`) | Poly by Google | CC BY 3.0 | Geladen als Alternative zur Wachtel, nicht gebraucht |

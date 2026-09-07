@@ -52,7 +52,7 @@ export const PALETTE = {
     acker:     '#918860',
     /** Wasser bekommt in Phase 3 einen eigenen Shader — bis dahin unangehoben. */
     wasser:    '#33555f',
-    siedlung:  '#706b61',
+    siedlung:  '#837d72',   // ×1,4 (D122): das Dorf lag bei 0,10, weil sein Boden 0,15 hatte
     industrie: '#6d5a53',
     ruine:     '#625d57',
     unbekannt: '#5e6a61',
@@ -60,9 +60,9 @@ export const PALETTE = {
 
   /** Häuser aus dem Generator. Zwei Grundtöne, Wand und Holz, plus Zubehör. */
   haus: {
-    wand:     '#7d776b',
-    schalung: '#90704f',
-    dach:     '#564a41',
+    wand:     '#928b7d',   // ×1,4 (D122): Putz ist hell, Y 0,19 war Beton
+    schalung: '#a27f5a',   // ×1,3 (D122)
+    dach:     '#65574d',   // ×1,4 (D122)
     /** Fensterhöhle — bewusst das Dunkelste in der Welt, damit sie liest. */
     fenster:  '#11171a',
     sockel:   '#666055',
@@ -157,11 +157,16 @@ export const PALETTE = {
   },
 
   /** Fließendes und stehendes Wasser (`bandmaterial.ts`). */
+  /**
+   * Wasser war bei D114 ausgenommen (Phase 3). Seit D123 ×2,2 auf dem
+   * stehenden Wasser (Y 0,079 → 0,175, Sättigung 0,50 — die Referenz zeigt
+   * Türkis, kein Graublau), Glanz ×1,8, fallendes Wasser ×1,3 Richtung Gischt.
+   */
   wasser: {
-    stehend:         '#2e5560',
-    stehendGlanz:    '#12303a',
-    fallend:         '#7d9aa2',
-    fallendGlanz:    '#3a5c64',
+    stehend:         '#457c8b',
+    stehendGlanz:    '#1b414e',
+    fallend:         '#8dadb6',
+    fallendGlanz:    '#477079',
   },
 
   /** Felswände: drei Töne für die Facetten, ein Schutt. */
