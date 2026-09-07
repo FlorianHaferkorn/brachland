@@ -43,7 +43,7 @@
       "zeit": 0,
       "stimmung": "nacht",
       "leer": 0.2,
-      "dunkel": 99.7,
+      "dunkel": 99.6,
       "median": 0.011
     },
     {
@@ -52,7 +52,7 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 1,
+      "dunkel": 0.9,
       "median": 0.255
     },
     {
@@ -94,12 +94,22 @@
       "median": 0.082
     },
     {
+      "name": "Fenster",
+      "ort": "1068,850,-90",
+      "zeit": 0,
+      "stimmung": "nacht",
+      "leer": 0.2,
+      "dunkel": 87.3,
+      "median": 0.009,
+      "hinweis": "Zwei Haeuser am Wehr bei Nacht (D134): misst die Fensterglut — „hell“ ist hier das Mass, nicht der Median. Nicht der Dorf-Fall: Dessen Adresse (1350, 495) zeigt eine Wiese mit Baeumen, kein Haus im Bild (G-132). Grundwert vorlaeufig, bis der erste --neu-Lauf ihn schreibt"
+    },
+    {
       "name": "Dorf",
       "ort": "1350,495,0",
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 4.8,
+      "dunkel": 4.2,
       "median": 0.167,
       "hinweis": "Das dichteste Dorf der Region (128 Gebaeude im 3x3-Fenster um 1350/450), Blick nach Norden auf den Ortskern. Seit G-126"
     },
@@ -109,7 +119,7 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 4.5,
+      "dunkel": 4.4,
       "median": 0.199,
       "hinweis": "Slice-Mitte (D113): 38 m bachabwaerts des Flussvaters, Blick nach Westen den Bach entlang — Wasser vorn, Klaeranlage rechts, Hang links. Der erste Standpunkt (40 m noerdlich, Blick Sued) stand in einem Gebaeude. Seit G-126"
     },

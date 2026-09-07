@@ -346,9 +346,25 @@ const KORRIDOR: Record<string, { min: number; max: number }> = {
   if (existsSync('public/props'))
     klassen['Prop'] = readdirSync('public/props').filter(f => f.endsWith('.glb'))
       .map(f => glbTris(join('public/props', f)));
-  if (existsSync('public/creatures'))
-    klassen['Kreatur (Modell)'] = readdirSync('public/creatures').filter(f => f.endsWith('.glb'))
-      .map(f => glbTris(join('public/creatures', f)));
+  if (existsSync('public/creatures')) {
+    const dateien = readdirSync('public/creatures').filter(f => f.endsWith('.glb'));
+    klassen['Kreatur (Modell)'] = dateien.map(f => glbTris(join('public/creatures', f)));
+    /**
+     * Genau POSITION und COLOR_0, sonst nichts (G-131). Der Anbau (D128) wird mit
+     * dem Koerper zu einer Geometrie gefasst, und `mergeGeometries` verlangt
+     * gleiche Attribute: Ein TEXCOORD_0 am Koerper — neun Poly-Modelle brachten
+     * es mit — liess die Szene still auf den Koerper ohne Anbau zurueckfallen.
+     */
+    for (const f of dateien) {
+      const buf = readFileSync(join('public/creatures', f));
+      const g = JSON.parse(buf.subarray(20, 20 + buf.readUInt32LE(12)).toString('utf8'));
+      for (const m of g.meshes ?? []) for (const p of m.primitives ?? []) {
+        const attr = Object.keys(p.attributes ?? {}).sort().join('+');
+        if (attr !== 'COLOR_0+POSITION')
+          stop('Kreaturen', `${f} traegt ${attr} — erlaubt ist COLOR_0+POSITION, sonst verliert die Szene den Anbau (G-131)`);
+      }
+    }
+  }
   const region = readdirSync('public/world').map(f => join('public/world', f))
     .find(f => f.endsWith('.json') && JSON.parse(readFileSync(f, 'utf8')).welt);
   if (region) {

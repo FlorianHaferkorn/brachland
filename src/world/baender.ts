@@ -542,11 +542,44 @@ export function baueWasserKachel(
   return fertig(positionen, uvs);
 }
 
+/** Zwischenstützen des Fallstreifens auf dem Gelände, in Metern (D133). */
+const FALL_STUETZE = 1.5;
+/** Hub des Streifens über dem Spiegel: Abrisskante, Lauf, Fuß im Becken (D133). */
+const FALL_HUB = { kopf: 0.15, lauf: 0.04, fuss: -0.1 };
+
 /**
- * Wasserfälle: stehende Flächen vom oberen zum unteren Punkt.
+ * Welche Fallenden sind echte Köpfe und Füße — kein anderes Stück endet bzw.
+ * beginnt dort. Einmal je Bandsatz, über alle Kacheln, sonst bekäme ein Fall,
+ * der eine Kachelgrenze kreuzt, an der Grenze einen zweiten Kopf.
+ */
+const fallEnden = new WeakMap<Bandsatz, { anfaenge: Set<string>; enden: Set<string> }>();
+const endeKey = (x: number, z: number) => `${Math.round(x * 1000)}:${Math.round(z * 1000)}`;
+function fallEndenVon(satz: Bandsatz) {
+  let e = fallEnden.get(satz);
+  if (!e) {
+    e = { anfaenge: new Set(), enden: new Set() };
+    for (const liste of satz.faelle.values()) for (const st of liste) {
+      e.anfaenge.add(endeKey(st.ax, st.az)); e.enden.add(endeKey(st.bx, st.bz));
+    }
+    fallEnden.set(satz, e);
+  }
+  return e;
+}
+
+/**
+ * Wasserfälle: ein **verbundener Streifen** vom Kopf bis zum Fuß (D133).
  *
- * `uv.y` läuft an der Wand nach unten, damit derselbe Shader die Strömung
- * senkrecht laufen lässt — ein Wasserfall braucht kein eigenes Material.
+ * Vorher war jedes Stück ein eigenes Viereck, oben 0,15 m über dem Spiegel und
+ * unten 0,1 m darunter — an jeder Naht zwischen zwei Stücken also ein Absatz von
+ * 0,25 m, und die Strähnen des Shaders fingen an jeder Naht bei `uv.y = 0` neu an.
+ * In der Lupe an der Kaskade (907, 660) war das eine Treppe aus Platten. Jetzt
+ * werden aufeinanderfolgende Stücke zu einer Kette, die Kette bekommt alle
+ * `FALL_STUETZE` eine Stütze auf dem Gelände, an Knicken einen gemittelten
+ * Querschnitt, und der Hub gilt nur am echten Kopf und am echten Fuß.
+ *
+ * `uv.y` läuft kumuliert als Fallhöhe nach unten, damit derselbe Shader die
+ * Strömung senkrecht und ohne Sprung laufen lässt — ein Wasserfall braucht kein
+ * eigenes Material.
  */
 export function baueFallKachel(
   feld: HoehenFeld, satz: Bandsatz, kachel: Kachel, lod: number,
@@ -554,21 +587,54 @@ export function baueFallKachel(
   const stuecke = satz.faelle.get(schluessel(kachel.ix, kachel.iz));
   if (!stuecke) return null;
   const s = LOD_STUFEN[Math.min(lod, LOD_STUFEN.length - 1)].schritt;
+  const enden = fallEndenVon(satz);
   const positionen: number[] = [], uvs: number[] = [];
+
+  // Ketten: das Ende eines Stücks ist der Anfang des nächsten.
+  const ketten: Bandstueck[][] = [];
   for (const st of stuecke) {
-    // Oben leicht angehoben, damit die Fläche an der Abrisskante nicht im
-    // Gelände verschwindet.
-    const oben = spiegelAufFlaeche(feld, st.ax, st.az, s) + 0.15;
-    const unten = spiegelAufFlaeche(feld, st.bx, st.bz, s) - 0.1;
-    if (oben - unten < 0.3) continue;
-    positionen.push(
-      st.ax - st.nx, oben, st.az - st.nz,  st.ax + st.nx, oben, st.az + st.nz,
-      st.bx - st.nx, unten, st.bz - st.nz,
-      st.ax + st.nx, oben, st.az + st.nz,  st.bx + st.nx, unten, st.bz + st.nz,
-      st.bx - st.nx, unten, st.bz - st.nz,
-    );
-    const v2 = oben - unten;
-    uvs.push(-1, 0,  1, 0,  -1, v2,   1, 0,  1, v2,  -1, v2);
+    const k = ketten[ketten.length - 1];
+    const letztes = k?.[k.length - 1];
+    if (letztes && endeKey(letztes.bx, letztes.bz) === endeKey(st.ax, st.az)) k.push(st);
+    else ketten.push([st]);
+  }
+
+  for (const kette of ketten) {
+    const knoten: { x: number; z: number; nx: number; nz: number; y: number }[] = [];
+    for (let i = 0; i < kette.length; i++) {
+      const st = kette[i];
+      const naechstes = kette[i + 1];
+      const len = Math.hypot(st.bx - st.ax, st.bz - st.az);
+      const teile = Math.max(1, Math.ceil(len / FALL_STUETZE));
+      for (let t = i === 0 ? 0 : 1; t <= teile; t++) {
+        const f = t / teile;
+        const x = st.ax + (st.bx - st.ax) * f, z = st.az + (st.bz - st.az) * f;
+        let nx = st.nx, nz = st.nz;
+        if (t === teile && naechstes) {
+          // Gemittelter Querschnitt am Knick, auf die halbe Breite zurückgeführt.
+          const mx = st.nx + naechstes.nx, mz = st.nz + naechstes.nz;
+          const ml = Math.hypot(mx, mz) || 1, halbe = Math.hypot(st.nx, st.nz);
+          nx = (mx / ml) * halbe; nz = (mz / ml) * halbe;
+        }
+        const kopf = t === 0 && !enden.enden.has(endeKey(x, z));
+        const fuss = t === teile && !naechstes && !enden.anfaenge.has(endeKey(x, z));
+        const hub = kopf ? FALL_HUB.kopf : fuss ? FALL_HUB.fuss : FALL_HUB.lauf;
+        knoten.push({ x, z, nx, nz, y: spiegelAufFlaeche(feld, x, z, s) + hub });
+      }
+    }
+    if (knoten.length < 2 || knoten[0].y - knoten[knoten.length - 1].y < 0.3) continue;
+
+    let v = 0;
+    for (let i = 1; i < knoten.length; i++) {
+      const o = knoten[i - 1], u = knoten[i];
+      const vo = v;
+      v += Math.max(0.05, o.y - u.y);
+      positionen.push(
+        o.x - o.nx, o.y, o.z - o.nz,  o.x + o.nx, o.y, o.z + o.nz,  u.x - u.nx, u.y, u.z - u.nz,
+        o.x + o.nx, o.y, o.z + o.nz,  u.x + u.nx, u.y, u.z + u.nz,  u.x - u.nx, u.y, u.z - u.nz,
+      );
+      uvs.push(-1, vo,  1, vo,  -1, v,   1, vo,  1, v,  -1, v);
+    }
   }
   return fertig(positionen, uvs);
 }
@@ -719,6 +785,10 @@ export function baueGartenKachel(
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
+  // Gärten werden mit den Häusern zu einer Geometrie gefasst (`LodBaender`), und
+  // `mergeGeometries` verlangt dieselben Attribute: Ein Beet hat keine Fenster,
+  // also Glut 0 (D134). Ohne die Zeile fiel die ganze Hauskachel still aus dem Bild.
+  g.setAttribute('glut', new THREE.Float32BufferAttribute(new Float32Array(positionen.length / 3), 1));
   g.computeVertexNormals();
   g.computeBoundingSphere();
   return g;

@@ -620,9 +620,15 @@ for datei, kid in (list(EIGEN.items()) if EIGEN else ZUORDNUNG):
     # den Bildschirmableitungen — das exportierte NORMAL-Attribut wird nie
     # gelesen. Es kostete trotzdem ein Drittel der Datei: bei 8.968 Ecken sind
     # das 105 KB je Modell.
+    #
+    # **Und ohne UV** (G-131): Die neun Poly-Modelle kamen mit TEXCOORD_0 an —
+    # die Textur ist laengst abgetastet (D124), die Szene hat keine (D112). Das
+    # Attribut war nicht nur tot, es hat den Anbau gekostet: `mergeGeometries`
+    # verlangt gleiche Attribute, der Anbau hat kein UV, und `KreaturModell`
+    # fiel still auf den Koerper ohne Anbau zurueck — bei neun von zehn Arten.
     bpy.ops.export_scene.gltf(filepath=aus, export_format='GLB',
                               use_selection=True, export_apply=True,
-                              export_normals=False,
+                              export_normals=False, export_texcoords=False,
                               export_materials='EXPORT', export_yup=True)
     kb = os.path.getsize(aus) / 1024
     register[kid] = round(kb, 1)

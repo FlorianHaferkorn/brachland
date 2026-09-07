@@ -33,6 +33,7 @@ import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
+import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
@@ -74,6 +75,8 @@ export interface Stimmung {
   belichtung: number;
   /** Schattenstärke der Sonne 0…1 (`shadow.intensity`); ohne Angabe 1. */
   schatten?: number;
+  /** Fensterglut 0…1 (D134): wie hell hinter den Fenstern Licht brennt; ohne Angabe 0. */
+  fenster?: number;
   zenit: string; horizont: string; scheibe: number; hof: number;
   /** Silhouettenlicht: Farbe des Himmels, der die Umrisse zeichnet. */
   randFarbe: string;
@@ -167,6 +170,7 @@ export const STIMMUNG: Record<string, Stimmung> = {
     sonnenstand: [-80, 90, 60] as const,
     belichtung: 2.60,
     schatten: 0.7,
+    fenster: 1.0,    // nachts brennt Licht — das Dorf ist bewohnt (D134)
     // Mond: harte kleine Scheibe, fast kein Hof.
     zenit: '#05080d', horizont: '#131c22', scheibe: 0.0009, hof: 900,
     // Nachts trägt der Umriss fast das ganze Bild — deshalb hier am stärksten.
@@ -185,6 +189,7 @@ export const STIMMUNG: Record<string, Stimmung> = {
      * behält.
      */
     schatten: 0.6,
+    fenster: 0.15,   // erste Lampen in der Daemmerung
     // Tief stehende Sonne: kleine Scheibe, sehr weiter Hof. Der Hof IST die Stimmung.
     zenit: '#1b3550', horizont: '#4a4238', scheibe: 0.0016, hof: 190,
     randFarbe: '#6e7f86', randStaerke: 0.22,
@@ -235,6 +240,7 @@ export const STIMMUNG: Record<string, Stimmung> = {
     sonnenstand: [130, 55, 70] as const,
     belichtung: 3.0,
     schatten: 0.7,   // lange Abendschatten sind die Stimmung
+    fenster: 0.4,
     zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
     randFarbe: '#c07a4e', randStaerke: 0.26,
   },
@@ -290,6 +296,7 @@ export function stimmungBei(zeit: number): Stimmung {
     ] as const,
     belichtung: z(A.belichtung, B.belichtung),
     schatten: z(A.schatten ?? 1, B.schatten ?? 1),
+    fenster: z(A.fenster ?? 0, B.fenster ?? 0),
     zenit: mischeFarbe(A.zenit, B.zenit, f),
     horizont: mischeFarbe(A.horizont, B.horizont, f),
     scheibe: z(A.scheibe, B.scheibe),
@@ -365,12 +372,14 @@ function LodTerrain({ feld, kacheln, ziel }: {
   ))}</>;
 }
 
-function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
+function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fenster }: {
   welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
   kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
   props: PropInstanz[]; dichte: number;
   /** Silhouettenlicht — Farbe und Stärke kommen aus der Stimmung. */
   rand: { farbe: string; staerke: number };
+  /** Fensterglut 0…1 aus der Stimmung (D134). */
+  fenster: number;
 }) {
   /**
    * Wege, Gewässer und Gebäude setzen auf dem Gelände auf — sie brauchen dieselbe
@@ -385,9 +394,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand }: {
   const aufBoden = useMemo(() => aufsatzboden(feld), [feld]);
   /* Wand, Holz, Fenster, Sockel, Gesims, Tür und Garten stecken als Vertexfarben
      in der Geometrie. Ein Material für alles davon bleibt es trotzdem. */
-  const hausMaterial = useMemo(() => new THREE.MeshStandardMaterial({
-    vertexColors: true, roughness: 0.88, flatShading: true,
-  }), []);
+  const hausMaterial = useMemo(() => baueHausMaterial(), []);
+  useEffect(() => { (hausMaterial.userData.glut as { value: number }).value = fenster; }, [hausMaterial, fenster]);
   const wasserMaterial = useMemo(() => baueWasserMaterial(), []);
   const fallMaterial = useMemo(() => baueWasserMaterial(true), []);
   const wegMaterial = useMemo(() => baueWegMaterial(), []);
@@ -979,7 +987,16 @@ function KreaturModell({ kreatur, material, position, drehung, mutation, skalier
     const anbau = baueAnbau(kreatur, koerper, mutation, saatAusId(kreatur));
     if (!anbau) return koerper;
     const roh = koerper.index ? koerper.toNonIndexed() : koerper;
-    return mergeGeometries([roh, anbau], false) ?? koerper;
+    const zusammen = mergeGeometries([roh, anbau], false);
+    if (!zusammen) {
+      // **Laut, nicht still** (G-131): Der stille Rueckfall `?? koerper` hat
+      // neun von zehn Anbauten verschluckt — die Poly-Modelle trugen ein UV-
+      // Attribut, der Anbau nicht, und nichts hat es gemeldet.
+      console.error(`Anbau ${kreatur}: Attribute passen nicht — Koerper `
+        + `${Object.keys(roh.attributes).join('+')}, Anbau ${Object.keys(anbau.attributes).join('+')}`);
+      return koerper;
+    }
+    return zusammen;
   }, [scene, kreatur, mutation]);
   if (!geo) return null;
   return (
@@ -2257,7 +2274,8 @@ export function RegionsSzene({
       <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref}
                props={istAus('baeume') ? LEERE_PROPS : props}
                dichte={istAus('gras') ? 0 : qualitaet.gras}
-               rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
+               rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
+               fenster={s.fenster ?? 0} />
       <object3D ref={ref} position={start}>
         <SpielerFigur gier={gier} schritt={schritt} reittier={reittier}
                       rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />

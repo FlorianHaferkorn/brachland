@@ -245,6 +245,19 @@ export function baueGebaeude(
   const [sued, west, nord, ost] = welt.bbox;
   const positionen: number[] = [];
   const farben: number[] = [];
+  /**
+   * Glut je Ecke (D134): 1 an einer Fensterscheibe, hinter der Licht brennt,
+   * sonst 0. Das Hausmaterial hebt solche Ecken je Stimmung als Emissiv an —
+   * nachts brennen Fenster, ohne dass eine zweite Geometrie oder ein zweiter
+   * Draw Call entsteht. Welche Scheibe brennt, entscheidet ein Hash aus ihrer
+   * Lage, nicht der Hauswuerfel: Der wuerde jede Bretterfarbe danach verschieben.
+   */
+  const glut: number[] = [];
+  let glutWert = 0;
+  const glutHash = (x: number, y: number, z: number) => {
+    const v = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453;
+    return v - Math.floor(v);
+  };
   const zuWelt = (lat: number, lon: number): [number, number] => [
     ((lon - west) / (ost - west) - 0.5) * terrain.breiteMeter,
     ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
@@ -343,6 +356,7 @@ export function baueGebaeude(
   ) => {
     positionen.push(...a, ...b, ...c);
     for (const v of [a, b, c]) { const k = ao(v); farben.push(f.r * k, f.g * k, f.b * k); }
+    glut.push(glutWert, glutWert, glutWert);
   };
 
   /**
@@ -681,6 +695,9 @@ export function baueGebaeude(
             // die Wand, rahmt nichts — er war gegen den Fensterschwarz unsichtbar.
             wohnhaus ? RAHMEN : SOCKEL,
           );
+          // Hinter knapp der Haelfte der Wohnhausfenster brennt nachts Licht,
+          // in Staellen und Hallen hinter jedem achten (D134).
+          glutWert = glutHash(cx, yUnten, cz) < (wohnhaus ? 0.45 : 0.12) ? 1 : 0;
           quad(
             [cx - ex + nx * o, yUnten, cz - ez + nz * o],
             [cx + ex + nx * o, yUnten, cz + ez + nz * o],
@@ -688,6 +705,7 @@ export function baueGebaeude(
             [cx - ex + nx * o, yUnten + hoeheF, cz - ez + nz * o],
             FENSTER,
           );
+          glutWert = 0;
           if (!wohnhaus) continue;
 
           /**
@@ -1232,6 +1250,7 @@ export function baueGebaeude(
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
+  geo.setAttribute('glut', new THREE.Float32BufferAttribute(glut, 1));
   geo.computeVertexNormals();
   return geo;
 }

@@ -87,11 +87,34 @@ export function verteileKreaturen(
   const zellTiefe = tiefeMeter / (welt.aufloesung - 1);
 
   const zufall = mulberry(seed);
+  const festZufall = mulberry(seed + 1);
   const raus: Vorkommen[] = [];
 
   for (const zone of zonen) {
     const k = nachId.get(zone.kreatur);
     if (!k) continue;
+    /**
+     * Feste Kreaturen stehen an ihrem Ort (G-130). Vorher lief die Schleife
+     * unten ueber `zone.zellen`, und die ist bei `fest` leer — der Trafomarder
+     * hatte seit D124 ein Modell, seit D128 einen Anbau und stand nie in der
+     * Welt. Stufe und Mutation folgen wie sonst der Entfernung zur Mitte.
+     */
+    if (zone.haeufigkeit === 'fest') {
+      if (!zone.position) continue;
+      const [sued, west, nord, ost] = welt.bbox;
+      const [lat, lon] = zone.position;
+      const x = ((lon - west) / (ost - west) - 0.5) * breiteMeter;
+      const z = ((nord - lat) / (nord - sued) - 0.5) * tiefeMeter;
+      // Eigener Wuerfel: Der Hauptwuerfel darf sich nicht verschieben, sonst
+      // stuende jede Kreatur nach dieser Zone woanders als gestern.
+      const stufe = wildStufe(Math.hypot(x, z), festZufall());
+      raus.push({
+        id: `${zone.kreatur}:fest`, kreatur: zone.kreatur, stufe,
+        mutation: mutationBei(stufe, k.stufen.length),
+        position: [x, hoeheAn(x, z), z], drehung: festZufall() * Math.PI * 2,
+      });
+      continue;
+    }
     const zellFlaecheKm2 = (zellBreite * zellTiefe) / 1e6;
     const anteil = zone.haeufigkeit === 'fest'
       ? 1
