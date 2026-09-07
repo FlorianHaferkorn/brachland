@@ -342,10 +342,69 @@ const KORRIDOR: Record<string, { min: number; max: number }> = {
   if (region) {
     const welt = entpackeWelt(JSON.parse(readFileSync(region, 'utf8')).welt);
     const boden = aufsatzboden(baueHoehenfeld(welt));
-    klassen['Haus'] = welt.gebaeude.filter((_, i) => i % 10 === 0)
-      .map(g => baueGebaeude(welt, boden, [g]))
+    const stichprobe = welt.gebaeude.filter((_, i) => i % 10 === 0);
+    const geometrien = stichprobe.map(g => baueGebaeude(welt, boden, [g]));
+    klassen['Haus'] = geometrien
       .filter((g): g is NonNullable<typeof g> => !!g)
       .map(g => g.getAttribute('position').count / 3);
+
+    /**
+     * Umlaufsinn (G-128): Zeigen die Wände nach aussen?
+     *
+     * Bis zum 07.09.2026 zeigten 70 % der Wanddreiecke mit der Normale ins
+     * Haus und alle Dachflächen nach unten — bei einseitigem Material also
+     * weggeschnitten, und niemand hat es gemerkt, weil `flatShading` eine
+     * Innenseite wie eine Aussenseite beleuchtet. Geprüft wird hier, was sich
+     * ohne Bild prüfen lässt: Für jedes senkrechte Dreieck nahe der Wandlinie
+     * muss der Punkt 0,25 m in Normalenrichtung **ausserhalb** des Grundrisses
+     * liegen. Ein paar Prozent sind erlaubt — an einer einspringenden Ecke
+     * trifft der Prüfpunkt die Nachbarwand.
+     */
+    {
+      const [sued, west, nord, ost] = welt.bbox;
+      let aussen = 0, innen = 0;
+      stichprobe.forEach((g, i) => {
+        const geo = geometrien[i]; if (!geo) return;
+        const p = g.punkte.map(([lat, lon]) => [
+          ((lon - west) / (ost - west) - 0.5) * boden.breiteMeter,
+          ((nord - lat) / (nord - sued) - 0.5) * boden.tiefeMeter,
+        ] as [number, number]);
+        const drin = (x: number, z: number) => {
+          let d = false;
+          for (let a = 0, b = p.length - 2; a < p.length - 1; b = a++) {
+            const [xa, za] = p[a], [xb, zb] = p[b];
+            if ((za > z) !== (zb > z) && x < ((xb - xa) * (z - za)) / (zb - za) + xa) d = !d;
+          }
+          return d;
+        };
+        const nahe = (x: number, z: number) => {
+          for (let k = 0; k < p.length - 1; k++) {
+            const [x1, z1] = p[k], [x2, z2] = p[k + 1];
+            const l2 = (x2 - x1) ** 2 + (z2 - z1) ** 2; if (l2 < 1e-6) continue;
+            const t = Math.max(0, Math.min(1, ((x - x1) * (x2 - x1) + (z - z1) * (z2 - z1)) / l2));
+            if (Math.hypot(x - x1 - (x2 - x1) * t, z - z1 - (z2 - z1) * t) < 0.5) return true;
+          }
+          return false;
+        };
+        const P = geo.getAttribute('position').array as Float32Array;
+        for (let t = 0; t < P.length; t += 9) {
+          const ax = P[t], ay = P[t + 1], az = P[t + 2], bx = P[t + 3], by = P[t + 4], bz = P[t + 5];
+          const cx = P[t + 6], cy = P[t + 7], cz = P[t + 8];
+          const nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay);
+          const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az);
+          const nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+          const l = Math.hypot(nx, ny, nz); if (l < 1e-6 || Math.abs(ny / l) > 0.05) continue;
+          const mx = (ax + bx + cx) / 3, mz = (az + bz + cz) / 3;
+          if (!nahe(mx, mz)) continue;
+          if (drin(mx + nx / l * 0.25, mz + nz / l * 0.25)) innen++; else aussen++;
+        }
+      });
+      const anteil = innen / Math.max(1, innen + aussen) * 100;
+      const lage = `Umlauf: ${anteil.toFixed(2)} % der Wanddreiecke zeigen nach innen (${innen} von ${innen + aussen}, ${stichprobe.length} Häuser)`;
+      if (anteil > 5) stop('Klassen', `${lage} — Häuser rendern innen nach aussen (G-128)`);
+      else if (anteil > 1) warn('Klassen', lage);
+      else console.log(`  · [Klassen] ${lage}`);
+    }
   }
   for (const [name, werte] of Object.entries(klassen)) {
     if (!werte.length) continue;

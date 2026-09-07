@@ -222,6 +222,12 @@ export function orientierteHuelle(p: readonly [number, number][]): Huelle {
   };
 }
 
+/** OSM-`building`-Werte, die kein Wohnhaus sind — und deshalb keine Läden, Geranien, Vordächer bekommen. */
+const NUTZBAU = new Set([
+  'industrial', 'warehouse', 'commercial', 'retail', 'barn', 'farm_auxiliary', 'shed', 'hut',
+  'roof', 'service', 'greenhouse', 'garages', 'garage', 'carport', 'silo', 'transformer_tower',
+]);
+
 /**
  * Gebäude aus OSM-Grundrissen. Höhe aus `building:levels` (3 m je Ebene), plus
  * einfaches Satteldach — ohne Dach wirkt jede Siedlung wie ein Industriegebiet.
@@ -282,6 +288,32 @@ export function baueGebaeude(
    * Daches — der Kontrast ist hier kein Effekt, sondern die Wirklichkeit.
    */
   const KAMIN = new THREE.Color(PALETTE.haus.kamin);
+  /**
+   * Phase 2 (D119): Fensterläden, helle Rahmen und Bänke, Geranien mit
+   * Kasten, Sparren- und Pfettenköpfe, Rinne, Brennholz. Alles aus der
+   * Palette, keine Farbe entsteht hier — nur **Töne** derselben Farbe, für
+   * Bretter und Dachreihen, als Faktor auf der Palettenfarbe.
+   */
+  const LADEN = new THREE.Color(PALETTE.haus.laden);
+  const RAHMEN = new THREE.Color(PALETTE.haus.rahmen);
+  const GERANIE = new THREE.Color(PALETTE.haus.geranie);
+  const KASTEN = new THREE.Color(PALETTE.haus.kasten);
+  const BRENNHOLZ = new THREE.Color(PALETTE.haus.holz);
+  const SPARREN = new THREE.Color(PALETTE.haus.sparren);
+  const RINNE = new THREE.Color(PALETTE.haus.rinne);
+  /**
+   * Fünf Töne der Schalung, ±16 %. Ein Brett neben einem gleichfarbigen Brett
+   * ist keins — erst der Tonwechsel macht aus der Fläche eine Schalung. Die
+   * Spanne ist aus der Stilreferenz abgelesen: Dort liegen benachbarte
+   * Bretter etwa 10–20 % auseinander, nie mehr, sonst liest es sich als
+   * Streifenmuster.
+   */
+  const SCHALUNG_TOENE = [0.84, 0.92, 1, 1.08, 1.16].map(f => SCHALUNG.clone().multiplyScalar(f));
+  const BRENNHOLZ_TOENE = [0.5, 0.72, 1].map(f => BRENNHOLZ.clone().multiplyScalar(f));
+  /** Laub der Geranien zwischen den Blüten: Buschgrün der Attrappen, kein eigener Ton. */
+  const LAUB = new THREE.Color(PALETTE.attrappe.busch);
+  /** Ziegelreihen und First: dieselbe Dachfarbe, eine Kante heller. */
+  const DACH_KANTE = DACH.clone().multiplyScalar(1.3);
 
   /**
    * Kontaktabdunklung je Ecke — das gebackene AO des Hausgenerators (Phase 1).
@@ -313,15 +345,79 @@ export function baueGebaeude(
     for (const v of [a, b, c]) { const k = ao(v); farben.push(f.r * k, f.g * k, f.b * k); }
   };
 
-  /** Ein Viereck als zwei Dreiecke, gegen den Uhrzeigersinn. */
+  /**
+   * Ein Viereck als zwei Dreiecke. Die Punkte stehen **im Uhrzeigersinn, von
+   * aussen gesehen** — so sind alle Aufrufe in diesem Generator geschrieben.
+   *
+   * ## Warum das hier ausdrücklich steht (G-128)
+   *
+   * Bis zum 07.09.2026 hiess der Kommentar „gegen den Uhrzeigersinn", und
+   * `quad` hat die Punkte in dieser Reihenfolge an `tri` gereicht. Gemessen an
+   * 291 Gebäuden: **70 % der Wanddreiecke zeigten mit der Normale ins Haus,
+   * 100 % der Dachflächen nach unten.** Das Hausmaterial ist einseitig
+   * (`FrontSide`), also wurden genau die Flächen weggeschnitten, die man sehen
+   * soll — man sah die Innenseite der Rückwände, und Fenster, Sockel und Tür
+   * lagen dahinter. Aufgefallen ist es nie, weil `flatShading` die Normale aus
+   * den Bildschirmableitungen nimmt: Eine Innenseite ist genauso beleuchtet
+   * wie eine Aussenseite, nur steht sie am falschen Ort.
+   *
+   * Die Reihenfolge wird deshalb hier gedreht, an einer Stelle, und der
+   * Umlaufsinn des Grundrisses wird oben je Gebäude vereinheitlicht. Teile,
+   * deren Richtung nicht aus dem Grundriss folgt (Dachuntersicht, Ortgang,
+   * Balkon, alle Anbauten aus Phase 2), gehen über `quadNach`, das die Seite
+   * aus einer Richtung bestimmt statt aus einer Konvention.
+   */
   const quad = (
     a: [number, number, number], b: [number, number, number],
     c: [number, number, number], d: [number, number, number], f: THREE.Color,
-  ) => { tri(a, b, c, f); tri(a, c, d, f); };
+  ) => { tri(a, c, b, f); tri(a, d, c, f); };
+
+  /**
+   * Ein Viereck, das seine sichtbare Seite nach `aussen` richtet — die
+   * Punktreihenfolge ist egal, nur die Fläche zählt. Für alles, was nicht
+   * an einer Grundrisskante hängt.
+   */
+  const quadNach = (
+    a: [number, number, number], b: [number, number, number],
+    c: [number, number, number], d: [number, number, number], f: THREE.Color,
+    aussen: readonly [number, number, number],
+  ) => {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
+    const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const s = (uy * vz - uz * vy) * aussen[0] + (uz * vx - ux * vz) * aussen[1] + (ux * vy - uy * vx) * aussen[2];
+    if (s > 0) { tri(a, b, c, f); tri(a, c, d, f); } else { tri(a, c, b, f); tri(a, d, c, f); }
+  };
+
+  /**
+   * Ein deterministischer Würfel je Gebäude, gesät aus seiner ersten Ecke.
+   *
+   * Kein `Math.random`: Eine Kachel wird beim Näherkommen neu gebaut und muss
+   * dann genauso aussehen wie beim letzten Mal — sonst wechseln die Bretter
+   * eines Hauses den Ton, während man davorsteht.
+   */
+  const wuerfelAus = (x: number, z: number) => {
+    let s = (Math.imul(Math.round(x * 10), 0x9e3779b1) ^ Math.imul(Math.round(z * 10), 0x85ebca77)) >>> 0;
+    return () => {
+      s = (s + 0x6d2b79f5) >>> 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
 
   for (const g of auswahl) {
     const p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
     if (p.length < 3) continue;
+    /**
+     * Umlaufsinn vereinheitlichen (G-128). OSM schreibt Grundrisse in beiden
+     * Richtungen (1.545 gegen 488 in der Region); die Wandnormale `wx, wz`
+     * unten und damit die Seite, auf der Fenster, Tür und Bänder liegen,
+     * folgt aber dem Umlauf. Nach dem Drehen zeigt sie überall nach aussen.
+     */
+    let umlauf = 0;
+    for (let k = 0; k < p.length - 1; k++) umlauf += p[k][0] * p[k + 1][1] - p[k + 1][0] * p[k][1];
+    if (umlauf < 0) p.reverse();
+    const wuerfel = wuerfelAus(p[0][0], p[0][1]);
     const h = (g.ebenen * METER_JE_EBENE) / MASSSTAB.stauchung;
 
     /**
@@ -389,6 +485,42 @@ export function baueGebaeude(
     const garage = g.art === 'garage' || g.art === 'carport';
     const tuerBreite = garage ? 2.6 : 1.05;
     const tuerHoehe = garage ? 2.3 : 2.1;
+    /**
+     * Was ein **Wohnhaus** ist — und damit Läden, Geranien, Vordach und
+     * Holzstapel bekommt. Nicht die Halle, nicht der Stall, nicht die Garage,
+     * und nichts über 16 m Spannweite oder 26 m Länge: Fensterläden an einem
+     * 40-m-Werk sind kein Detail, sondern ein Fehler, und sie kosten dort 500
+     * Dreiecke. Gemessen: Das 28 × 18 m grosse Dreigeschossige hätte mit
+     * Läden 1.514 Dreiecke, über dem Deckel (D111).
+     */
+    const wohnhaus = !garage && !NUTZBAU.has(g.art) && klein <= 16 && breite <= 26;
+    /** Umfang des Grundrisses — die Brettbreite wächst damit, siehe `bretterwand`. */
+    let umfang = 0;
+    for (let k = 0; k < p.length - 1; k++) umfang += Math.hypot(p[k + 1][0] - p[k][0], p[k + 1][1] - p[k][1]);
+
+    /**
+     * Bretterschalung: senkrechte Bretter, 0,5 m breit, jedes in einem eigenen
+     * Ton — das Obergeschoss war bisher **eine** Fläche in `SCHALUNG`, und eine
+     * Fläche in einer Farbe ist genau das, was die Stilreferenz nie zeigt
+     * (D112). Nachbarbretter bekommen nie denselben Ton. **Budget je Haus,
+     * nicht je Wand:** Die Brettbreite ist 0,5 m, wächst aber so, dass ein
+     * Haus höchstens 60 Bretter trägt — ein 30-Ecken-Werk mit 270 m Umfang
+     * hätte sonst 540 Bretter und 2.188 Dreiecke, über dem Deckel (D111).
+     * Nur an Wohnhäusern; eine Halle ist im Bestand Blech, nicht Lärche.
+     */
+    const brettBreite = Math.max(0.5, umfang / 60);
+    const bretterwand = (x1: number, z1: number, x2: number, z2: number, y0: number, y1: number) => {
+      const l = Math.hypot(x2 - x1, z2 - z1);
+      const n = Math.max(1, Math.round(l / brettBreite));
+      let ton = Math.floor(wuerfel() * 5);
+      for (let i = 0; i < n; i++) {
+        const t0 = i / n, t1 = (i + 1) / n;
+        ton = (ton + 1 + Math.floor(wuerfel() * 4)) % 5;
+        quad([x1 + (x2 - x1) * t0, y0, z1 + (z2 - z1) * t0], [x1 + (x2 - x1) * t1, y0, z1 + (z2 - z1) * t1],
+             [x1 + (x2 - x1) * t1, y1, z1 + (z2 - z1) * t1], [x1 + (x2 - x1) * t0, y1, z1 + (z2 - z1) * t0],
+             SCHALUNG_TOENE[ton]);
+      }
+    };
 
     /**
      * Ab welcher Höhe die Wand **Holz** ist.
@@ -415,7 +547,8 @@ export function baueGebaeude(
       const oben = boden + h;
       if (holzAb < oben && holzAb > fuss) {
         quad([x1, fuss, z1], [x2, fuss, z2], [x2, holzAb, z2], [x1, holzAb, z1], WAND);
-        quad([x1, holzAb, z1], [x2, holzAb, z2], [x2, oben, z2], [x1, oben, z1], SCHALUNG);
+        if (wohnhaus) bretterwand(x1, z1, x2, z2, holzAb, oben);
+        else quad([x1, holzAb, z1], [x2, holzAb, z2], [x2, oben, z2], [x1, oben, z1], SCHALUNG);
       } else {
         quad([x1, fuss, z1], [x2, fuss, z2], [x2, oben, z2], [x1, oben, z1], WAND);
       }
@@ -474,6 +607,32 @@ export function baueGebaeude(
           [cx - ex - ex * 0.14 + wx * (o - 0.02), y1 + r, cz - ez - ez * 0.14 + wz * (o - 0.02)],
           SOCKEL,
         );
+        /**
+         * Vordach über der Haustür — ein kleines Pultdach auf zwei Kopfbändern.
+         *
+         * Es ist das Bauteil, das die Tür als Eingang liest und nicht als
+         * dunkles Rechteck: Ein Dach über einer Öffnung heisst, hier geht man
+         * hinein. 0,95 m vor die Wand, je 0,35 m breiter als die Tür. Oberseite
+         * in Dachfarbe, Untersicht und Stirn in Zimmermannsholz, die
+         * Kopfbänder heller — sie stehen im Licht, das die Untersicht nicht
+         * bekommt. Zehn Dreiecke.
+         */
+        if (wohnhaus) {
+          const dx = (x2 - x1) / wandLaenge, dz = (z2 - z1) / wandLaenge;
+          const P = (a: number, y: number, vor: number): [number, number, number] =>
+            [cx + dx * a + wx * vor, y, cz + dz * a + wz * vor];
+          const vb = tuerBreite / 2 + 0.35, vt = 0.95, yV0 = y1 + r + 0.22, yV1 = yV0 + 0.40;
+          const nachVorn: [number, number, number] = [wx, 0, wz];
+          quadNach(P(-vb, yV0, vt), P(vb, yV0, vt), P(vb, yV1, 0.02), P(-vb, yV1, 0.02), DACH, [wx, 1, wz]);
+          quadNach(P(-vb, yV0 - 0.08, vt), P(vb, yV0 - 0.08, vt), P(vb, yV1 - 0.08, 0.02), P(-vb, yV1 - 0.08, 0.02),
+                   TUER, [0, -1, 0]);
+          quadNach(P(-vb, yV0 - 0.08, vt), P(vb, yV0 - 0.08, vt), P(vb, yV0, vt), P(-vb, yV0, vt), TUER, nachVorn);
+          for (const s of [-1, 1]) {
+            const a = s * (vb - 0.15);
+            quadNach(P(a - 0.05, yV0 - 0.95, 0.02), P(a + 0.05, yV0 - 0.95, 0.02),
+                     P(a + 0.05, yV0 - 0.12, vt - 0.2), P(a - 0.05, yV0 - 0.12, vt - 0.2), SPARREN, nachVorn);
+          }
+        }
       }
 
       /**
@@ -515,7 +674,9 @@ export function baueGebaeude(
             [cx + rx + nx * (o - 0.015), yUnten - r, cz + rz + nz * (o - 0.015)],
             [cx + rx + nx * (o - 0.015), yUnten + hoeheF + r, cz + rz + nz * (o - 0.015)],
             [cx - rx + nx * (o - 0.015), yUnten + hoeheF + r, cz - rz + nz * (o - 0.015)],
-            SOCKEL,
+            // Helle Fasche statt Sockelton (D119): Ein Rahmen, der dunkler ist als
+            // die Wand, rahmt nichts — er war gegen den Fensterschwarz unsichtbar.
+            wohnhaus ? RAHMEN : SOCKEL,
           );
           quad(
             [cx - ex + nx * o, yUnten, cz - ez + nz * o],
@@ -524,6 +685,53 @@ export function baueGebaeude(
             [cx - ex + nx * o, yUnten + hoeheF, cz - ez + nz * o],
             FENSTER,
           );
+          if (!wohnhaus) continue;
+
+          /**
+           * Fensterbank, Läden, Geranien — die drei Dinge, an denen ein
+           * oberbayerisches Fenster von jedem anderen zu unterscheiden ist.
+           *
+           * Die **Bank** ist ein helles Brett 10 cm vor der Wand; sie gibt dem
+           * Fenster eine Unterkante, die Schatten wirft. Die **Läden** sind je
+           * ein Flügel links und rechts, 0,40 m breit, in Grün — im Bestand
+           * die häufigste Ladenfarbe, und gegen den Putz die eine gesättigte
+           * Fläche an der Wand. **Geranien** nur an der Traufseite mit der Tür
+           * und nur ab dem ersten Obergeschoss: Dort hängen sie im Bestand,
+           * und an allen Fenstern wären es an einem 12-m-Haus 40 Kästen. Sie
+           * sind der eine rote Fleck, den die Palette hat, und der trägt auf
+           * 60 m noch.
+           */
+          const dx = (x2 - x1) / laenge, dz = (z2 - z1) / laenge;
+          const bankY = yUnten - r - 0.07;
+          quad([cx - rx + nx * 0.10, bankY, cz - rz + nz * 0.10], [cx + rx + nx * 0.10, bankY, cz + rz + nz * 0.10],
+               [cx + rx + nx * 0.10, yUnten - r, cz + rz + nz * 0.10], [cx - rx + nx * 0.10, yUnten - r, cz - rz + nz * 0.10],
+               RAHMEN);
+          const lb = 0.40, o2 = o + 0.01;
+          for (const s of [-1, 1]) {
+            const a0 = s * (breiteF / 2 + r + 0.03), a1 = a0 + s * lb;
+            const lo = Math.min(a0, a1), hi = Math.max(a0, a1);
+            quad([cx + dx * lo + nx * o2, yUnten - 0.02, cz + dz * lo + nz * o2],
+                 [cx + dx * hi + nx * o2, yUnten - 0.02, cz + dz * hi + nz * o2],
+                 [cx + dx * hi + nx * o2, yUnten + hoeheF + 0.02, cz + dz * hi + nz * o2],
+                 [cx + dx * lo + nx * o2, yUnten + hoeheF + 0.02, cz + dz * lo + nz * o2], LADEN);
+          }
+          if (ebene >= 1 && k === tuerWand) {
+            const kv = o + 0.24, ky0 = bankY - 0.18, ky1 = bankY;
+            quad([cx - ex + nx * kv, ky0, cz - ez + nz * kv], [cx + ex + nx * kv, ky0, cz + ez + nz * kv],
+                 [cx + ex + nx * kv, ky1, cz + ez + nz * kv], [cx - ex + nx * kv, ky1, cz - ez + nz * kv], KASTEN);
+            const gv = kv + 0.03, gx = ex * 1.12, gz = ez * 1.12;
+            for (let t = 0; t < 3; t++) {
+              const f0 = -1 + t * 2 / 3, f1 = f0 + 2 / 3;
+              quad([cx + gx * f0 + nx * gv, ky1 - 0.03, cz + gz * f0 + nz * gv], [cx + gx * f1 + nx * gv, ky1 - 0.03, cz + gz * f1 + nz * gv],
+                   [cx + gx * f1 + nx * gv, ky1 + (t === 1 ? 0.14 : 0.22), cz + gz * f1 + nz * gv],
+                   [cx + gx * f0 + nx * gv, ky1 + (t === 1 ? 0.14 : 0.22), cz + gz * f0 + nz * gv],
+                   t === 1 ? LAUB : GERANIE);
+            }
+            quadNach([cx - gx + nx * (o + 0.06), ky1 + 0.12, cz - gz + nz * (o + 0.06)],
+                     [cx + gx + nx * (o + 0.06), ky1 + 0.12, cz + gz + nz * (o + 0.06)],
+                     [cx + gx + nx * gv, ky1 + 0.22, cz + gz + nz * gv],
+                     [cx - gx + nx * gv, ky1 + 0.22, cz - gz + nz * gv], GERANIE, [0, 1, 0]);
+          }
         }
       }
     }
@@ -576,28 +784,36 @@ export function baueGebaeude(
      * bräuchte es die Dachnormale an vier Stellen.
      */
     const dick = 0.22;
-    const dachHaut = (versatz: number, farbe: THREE.Color) => {
-      quad(welt3(aU0, traufe + versatz, aV0), welt3(aU1, traufe + versatz, aV0),
-           welt3(aU1, firstH + versatz, mv), welt3(aU0, firstH + versatz, mv), farbe);
-      quad(welt3(aU1, traufe + versatz, aV1), welt3(aU0, traufe + versatz, aV1),
-           welt3(aU0, firstH + versatz, mv), welt3(aU1, firstH + versatz, mv), farbe);
+    /** Weltrichtungen der Hüllenachsen, für `quadNach`. */
+    const [ux, uz] = hu.welt(1, 0), [vx, vz] = hu.welt(0, 1);
+    const richtU = (s: number): [number, number, number] => [s * ux, 0, s * uz];
+    const richtV = (s: number): [number, number, number] => [s * vx, 0, s * vz];
+    const OBEN: [number, number, number] = [0, 1, 0], UNTEN: [number, number, number] = [0, -1, 0];
+    const dachHaut = (versatz: number, farbe: THREE.Color, seite: [number, number, number]) => {
+      quadNach(welt3(aU0, traufe + versatz, aV0), welt3(aU1, traufe + versatz, aV0),
+               welt3(aU1, firstH + versatz, mv), welt3(aU0, firstH + versatz, mv), farbe, seite);
+      quadNach(welt3(aU1, traufe + versatz, aV1), welt3(aU0, traufe + versatz, aV1),
+               welt3(aU0, firstH + versatz, mv), welt3(aU1, firstH + versatz, mv), farbe, seite);
     };
     // First läuft über u, die lange Achse. Die Fallunterscheidung von früher ist
     // weg — die Drehung erledigt, was vorher zwei Zweige tun mussten.
-    dachHaut(dick, DACH);
-    // Untersicht: dieselbe Fläche tiefer, dunkler. Wer unter dem Überstand steht,
-    // sieht sonst durch das Dach hindurch.
-    dachHaut(0, TUER);
+    dachHaut(dick, DACH, OBEN);
+    // Untersicht: dieselbe Fläche tiefer. Wer unter dem Überstand steht, sieht
+    // sonst durch das Dach hindurch. Seit D119 in Schalungston statt in
+    // `TUER`: Die Sparren darunter sind dunkel, und dunkel vor dunkel ist
+    // nichts — im Bestand ist die Untersicht ohnehin verschalt, hell, und die
+    // Kontaktabdunklung unter der Traufe (D116) nimmt ihr das Grelle.
+    dachHaut(0, SCHALUNG_TOENE[1], UNTEN);
     // Traufkanten — die beiden waagerechten Stirnflächen.
-    quad(welt3(aU0, traufe, aV0), welt3(aU1, traufe, aV0),
-         welt3(aU1, traufe + dick, aV0), welt3(aU0, traufe + dick, aV0), TUER);
-    quad(welt3(aU1, traufe, aV1), welt3(aU0, traufe, aV1),
-         welt3(aU0, traufe + dick, aV1), welt3(aU1, traufe + dick, aV1), TUER);
+    quadNach(welt3(aU0, traufe, aV0), welt3(aU1, traufe, aV0),
+             welt3(aU1, traufe + dick, aV0), welt3(aU0, traufe + dick, aV0), TUER, richtV(-1));
+    quadNach(welt3(aU1, traufe, aV1), welt3(aU0, traufe, aV1),
+             welt3(aU0, traufe + dick, aV1), welt3(aU1, traufe + dick, aV1), TUER, richtV(1));
     // Ortgang — die vier schrägen Kanten über den Giebeln.
     for (const u of [aU0, aU1]) {
       for (const v of [aV0, aV1]) {
-        quad(welt3(u, traufe, v), welt3(u, traufe + dick, v),
-             welt3(u, firstH + dick, mv), welt3(u, firstH, mv), TUER);
+        quadNach(welt3(u, traufe, v), welt3(u, traufe + dick, v),
+                 welt3(u, firstH + dick, mv), welt3(u, firstH, mv), TUER, richtU(u === aU0 ? -1 : 1));
       }
     }
     /**
@@ -644,6 +860,122 @@ export function baueGebaeude(
       const yA = dachY(vA), yB = dachY(vB);
       if (yA - traufe < 0.02 && yB - traufe < 0.02) continue;   // liegt an der Traufe
       quad([ax, traufe, az], [bx, traufe, bz], [bx, yB, bz], [ax, yA, az], giebel);
+    }
+
+    /**
+     * Ein Kasten in Hüllenkoordinaten, mit Oberkante, die der Dachunterseite
+     * folgt — für Sparren- und Pfettenköpfe, Rinne, Fallrohr, Pfosten. Welche
+     * Seiten gezeichnet werden, sagt `seiten`; eine Fläche, die niemand sehen
+     * kann (die Oberseite eines Sparrens unter dem Dach), kostet nur.
+     */
+    const kasten = (
+      u0: number, u1: number, v0: number, v1: number,
+      yU: (u: number, v: number) => number, yO: (u: number, v: number) => number,
+      farbe: THREE.Color, seiten: { oben?: boolean; unten?: boolean; u0?: boolean; u1?: boolean; v0?: boolean; v1?: boolean },
+    ) => {
+      const E = (u: number, v: number, oben: boolean) => welt3(u, oben ? yO(u, v) : yU(u, v), v);
+      if (seiten.unten) quadNach(E(u0, v0, false), E(u1, v0, false), E(u1, v1, false), E(u0, v1, false), farbe, UNTEN);
+      if (seiten.oben) quadNach(E(u0, v0, true), E(u1, v0, true), E(u1, v1, true), E(u0, v1, true), farbe, OBEN);
+      if (seiten.u0) quadNach(E(u0, v0, false), E(u0, v1, false), E(u0, v1, true), E(u0, v0, true), farbe, richtU(-1));
+      if (seiten.u1) quadNach(E(u1, v0, false), E(u1, v1, false), E(u1, v1, true), E(u1, v0, true), farbe, richtU(1));
+      if (seiten.v0) quadNach(E(u0, v0, false), E(u1, v0, false), E(u1, v0, true), E(u0, v0, true), farbe, richtV(-1));
+      if (seiten.v1) quadNach(E(u0, v1, false), E(u1, v1, false), E(u1, v1, true), E(u0, v1, true), farbe, richtV(1));
+    };
+    const fest = (y: number) => () => y;
+
+    /**
+     * Sparrenköpfe unter dem Überstand und Pfettenköpfe am Giebel (D119).
+     *
+     * Der Überstand war bisher eine glatte Untersicht — und eine glatte
+     * Untersicht ist ein Karton mit Deckel, egal wie weit sie übersteht. Was
+     * ein Alpendach von unten ausmacht, sind die Hölzer, die ihn tragen:
+     * **Sparren** alle 1,1 m entlang der Traufe, von der Dachkante bis unter
+     * die Wand, und am Giebel die drei **Pfetten** (First und zwei Mittel-
+     * pfetten), die als Balkenköpfe aus der Giebelwand stossen. Beides folgt
+     * mit der Oberkante `dachY`, derselben Formel wie die Haut. Gedeckelt bei
+     * zehn Sparren je Seite am Wohnhaus, sechs an allem anderen: Bei einer
+     * 54-m-Halle wären es sonst 49, und ab zehn liest man den Rhythmus, nicht
+     * die Zahl. Sparren nur an Dächern mit
+     * mindestens 0,5 m Überstand — an einem Schuppen mit 0,3 m stünden sie
+     * als Punkte unter der Kante.
+     */
+    if (ueber >= 0.5 && !garage) {
+      const sparrenY = (v: number) => dachY(v) - 0.02;
+      const zahl = Math.min(wohnhaus ? 10 : 6, Math.max(2, Math.floor(breite / 1.1)));
+      const schritt = breite / zahl;
+      for (let i = 0; i < zahl; i++) {
+        const u = minU + schritt * (i + 0.5);
+        const sb = 0.07;
+        // Traufseite aV0 und aV1: vom Dachrand bis 0,25 m unter die Wand.
+        kasten(u - sb, u + sb, aV0 + 0.02, minV + 0.25, (_u, v) => sparrenY(v) - 0.18, (_u, v) => sparrenY(v), SPARREN,
+               { unten: true, u0: true, u1: true, v0: true });
+        kasten(u - sb, u + sb, maxV - 0.25, aV1 - 0.02, (_u, v) => sparrenY(v) - 0.18, (_u, v) => sparrenY(v), SPARREN,
+               { unten: true, u0: true, u1: true, v1: true });
+      }
+      const halb = mv - aV0;
+      // Pfetten nur am Wohnhaus: Eine Halle hat Binder, keine Balkenköpfe.
+      for (const v of wohnhaus ? [mv, mv - halb * 0.55, mv + halb * 0.55] : []) {
+        const pb = 0.11, yTop = dachY(v) - 0.02;
+        kasten(aU0 + 0.02, minU + 0.25, v - pb, v + pb, fest(yTop - 0.24), fest(yTop), SPARREN,
+               { unten: true, v0: true, v1: true, u0: true });
+        kasten(maxU - 0.25, aU1 - 0.02, v - pb, v + pb, fest(yTop - 0.24), fest(yTop), SPARREN,
+               { unten: true, v0: true, v1: true, u1: true });
+      }
+    }
+
+    /**
+     * Ziegelreihen und First (D119). Die Dachhaut war eine Fläche in einer
+     * Farbe — in der Stilreferenz hat jedes Dach Reihen, die als hellere Kante
+     * lesen, wo die Ziegelkante das Licht fängt. Hier als schmale Bänder 3 cm
+     * über der Haut, alle 1,15 m Dachtiefe, höchstens sechs je Seite; der
+     * First als zwei Bänder über dem Grat, ebenfalls hell. Ein Dach mit First
+     * ist ein Dach, eines ohne ein Keil.
+     */
+    {
+      const reihen = Math.min(6, Math.max(1, Math.floor((mv - aV0) / 1.15)));
+      const abstand = (mv - aV0) / (reihen + 0.35);
+      for (let i = 1; i <= reihen; i++) {
+        for (const s of [-1, 1]) {
+          const vA = mv + s * (mv - aV0 - i * abstand), vB = vA + s * 0.07;
+          quadNach(welt3(aU0, dachY(vA) + dick + 0.03, vA), welt3(aU1, dachY(vA) + dick + 0.03, vA),
+                   welt3(aU1, dachY(vB) + dick + 0.03, vB), welt3(aU0, dachY(vB) + dick + 0.03, vB), DACH_KANTE, OBEN);
+        }
+      }
+      for (const s of [-1, 1]) {
+        const vB = mv + s * 0.20;
+        quadNach(welt3(aU0, firstH + dick + 0.06, mv), welt3(aU1, firstH + dick + 0.06, mv),
+                 welt3(aU1, dachY(vB) + dick + 0.02, vB), welt3(aU0, dachY(vB) + dick + 0.02, vB), DACH_KANTE, OBEN);
+      }
+    }
+
+    /**
+     * Dachrinne und ein Fallrohr (D119). Die Rinne hängt als Kasten unter der
+     * Traufkante, an beiden Traufseiten; das Fallrohr steht an der Hüllenecke,
+     * an der der Grundriss tatsächlich eine Ecke hat — bei einem L-Grundriss
+     * ist eine Hüllenecke oft Luft, und ein Rohr in der Luft ist schlimmer
+     * als keins. Blechgrau, damit es sich vom Holz absetzt: Es ist das eine
+     * Bauteil am Haus, das nicht Holz und nicht Putz ist.
+     */
+    if (!garage && breite >= 5) {
+      const ry = traufe - 0.02;
+      kasten(aU0, aU1, aV0 - 0.05, aV0 + 0.08, fest(ry - 0.12), fest(ry), RINNE, { unten: true, v0: true, v1: true });
+      kasten(aU0, aU1, aV1 - 0.08, aV1 + 0.05, fest(ry - 0.12), fest(ry), RINNE, { unten: true, v0: true, v1: true });
+      const ecken: [number, number][] = [[minU, minV], [maxU, minV], [maxU, maxV], [minU, maxV]];
+      const wahl = Math.floor(wuerfel() * 4);
+      for (let e = 0; e < 4; e++) {
+        const [eu, ev] = ecken[(wahl + e) % 4];
+        let naechste = Infinity;
+        for (let k = 0; k < p.length - 1; k++) {
+          const uP = p[k][0] * hu.cos + p[k][1] * hu.sin, vP = -p[k][0] * hu.sin + p[k][1] * hu.cos;
+          naechste = Math.min(naechste, Math.hypot(uP - eu, vP - ev));
+        }
+        if (naechste > 0.6) continue;
+        const su = eu === minU ? 1 : -1, sv = ev === minV ? -1 : 1;
+        const u0 = eu + su * 0.25 - 0.06, v0 = ev + sv * 0.12 - 0.06;
+        kasten(u0, u0 + 0.12, v0, v0 + 0.12, fest(boden), fest(ry - 0.12), RINNE,
+               { u0: true, u1: true, v0: sv < 0, v1: sv > 0 });
+        break;
+      }
     }
 
     /**
@@ -789,30 +1121,98 @@ export function baueGebaeude(
         const y = boden + (g.ebenen - 1) * METER_JE_EBENE + 0.6;
         const bruest = 0.95;
         const v0 = bV, v1 = bV + tiefeB;
-        // Boden
-        quad(welt3(bU0, y, v0), welt3(bU1, y, v0),
-             welt3(bU1, y, v1), welt3(bU0, y, v1), SCHALUNG);
+        // Der Balkon liegt an einer Wand, deren Aussenseite nach +V zeigt —
+        // alles hier richtet sich also nach +V, nach oben oder nach unten.
+        const VOR = richtV(1);
+        // Boden: von oben (vom Hang aus) und von unten (von der Strasse aus)
+        // sichtbar, also beide Seiten.
+        quadNach(welt3(bU0, y, v0), welt3(bU1, y, v0), welt3(bU1, y, v1), welt3(bU0, y, v1), SCHALUNG, OBEN);
+        quadNach(welt3(bU0, y - 0.08, v0), welt3(bU1, y - 0.08, v0), welt3(bU1, y - 0.08, v1), welt3(bU0, y - 0.08, v1), TUER, UNTEN);
         // Fußleiste und Handlauf — die zwei Waagerechten.
-        quad(welt3(bU0, y + 0.04, v1), welt3(bU1, y + 0.04, v1),
-             welt3(bU1, y + 0.22, v1), welt3(bU0, y + 0.22, v1), SCHALUNG);
-        quad(welt3(bU0, y + bruest - 0.13, v1 + 0.06), welt3(bU1, y + bruest - 0.13, v1 + 0.06),
-             welt3(bU1, y + bruest, v1 + 0.06), welt3(bU0, y + bruest, v1 + 0.06), TUER);
+        quadNach(welt3(bU0, y + 0.04, v1), welt3(bU1, y + 0.04, v1),
+                 welt3(bU1, y + 0.22, v1), welt3(bU0, y + 0.22, v1), SCHALUNG, VOR);
+        quadNach(welt3(bU0, y + bruest - 0.13, v1 + 0.06), welt3(bU1, y + bruest - 0.13, v1 + 0.06),
+                 welt3(bU1, y + bruest, v1 + 0.06), welt3(bU0, y + bruest, v1 + 0.06), TUER, VOR);
         // Bretter dazwischen. Alle 0,42 m, gedeckelt bei 16: An einem 14-m-Haus
         // wären es sonst 33, und ab etwa 20 sieht man den Unterschied nicht mehr.
         const bretter = Math.min(16, Math.max(3, Math.round((bU1 - bU0) / 0.42)));
         const bb = (bU1 - bU0) / bretter * 0.55;
         for (let i = 0; i < bretter; i++) {
           const cu = bU0 + (bU1 - bU0) * (i + 0.5) / bretter;
-          quad(welt3(cu - bb / 2, y + 0.2, v1 + 0.01), welt3(cu + bb / 2, y + 0.2, v1 + 0.01),
-               welt3(cu + bb / 2, y + bruest - 0.12, v1 + 0.01),
-               welt3(cu - bb / 2, y + bruest - 0.12, v1 + 0.01), SCHALUNG);
+          quadNach(welt3(cu - bb / 2, y + 0.2, v1 + 0.01), welt3(cu + bb / 2, y + 0.2, v1 + 0.01),
+                   welt3(cu + bb / 2, y + bruest - 0.12, v1 + 0.01),
+                   welt3(cu - bb / 2, y + bruest - 0.12, v1 + 0.01), SCHALUNG_TOENE[(i * 2) % 5], VOR);
         }
         // Zwei Stützen bis zum Boden — ohne sie schwebt der Balkon, mit fester
         // Länge hängen sie in der Luft.
         for (const u of [bU0 + 0.35, bU1 - 0.35]) {
-          quad(welt3(u - 0.07, boden, v1 - 0.12), welt3(u + 0.07, boden, v1 - 0.12),
-               welt3(u + 0.07, y, v1 - 0.12), welt3(u - 0.07, y, v1 - 0.12), TUER);
+          kasten(u - 0.07, u + 0.07, v1 - 0.19, v1 - 0.05, fest(boden), fest(y), TUER,
+                 { u0: true, u1: true, v1: true });
         }
+        /**
+         * Eckpfosten und Geranienkasten (D119). Die Pfosten schliessen die
+         * Brüstung an den Enden — ohne sie endet das Brett in der Luft. Der
+         * Kasten hängt aussen am Handlauf über die ganze Länge; der Balkon ist
+         * im Bestand der Ort, an dem die Geranien hängen, nicht das Fenster.
+         */
+        for (const u of [bU0, bU1]) {
+          kasten(u - 0.06, u + 0.06, v1 - 0.06, v1 + 0.08, fest(y), fest(y + bruest + 0.06), TUER,
+                 { oben: true, u0: true, u1: true, v1: true });
+        }
+        if (wohnhaus) {
+          const ky = y + bruest - 0.42;
+          kasten(bU0 + 0.15, bU1 - 0.15, v1 + 0.08, v1 + 0.30, fest(ky), fest(ky + 0.22), KASTEN,
+                 { unten: true, u0: true, u1: true, v1: true });
+          // Blüten in Segmenten von 0,7 m, rot und Laub im Wechsel — ein
+          // durchgehender roter Balken war das Erste, was im Bild stand, und
+          // las sich als Markise, nicht als Blumen.
+          const gU0 = bU0 + 0.12, gU1 = bU1 - 0.12;
+          const seg = Math.max(2, Math.round((gU1 - gU0) / 0.7));
+          kasten(gU0, gU1, v1 + 0.06, v1 + 0.34, fest(ky + 0.18), fest(ky + 0.36), LAUB, { oben: true, u0: true, u1: true });
+          for (let i = 0; i < seg; i++) {
+            const a0 = gU0 + (gU1 - gU0) * i / seg, a1 = gU0 + (gU1 - gU0) * (i + 1) / seg;
+            const rot = wuerfel() < 0.6;
+            kasten(a0, a1, v1 + 0.06, v1 + 0.36, fest(ky + 0.18), fest(ky + (rot ? 0.42 : 0.34)),
+                   rot ? GERANIE : LAUB, { v1: true, oben: rot });
+          }
+        }
+      }
+    }
+
+    /**
+     * Holzstapel an der Giebelwand (D119) — an jedem zweiten Wohnhaus ab 7 m.
+     *
+     * Ein Haus, an dem etwas lehnt, ist bewohnt. Der Stapel steht an einer
+     * Giebelwand, die es wirklich gibt: gesucht wird eine Grundrisskante, die
+     * auf einem Hüllenende liegt (beide Enden innerhalb 0,3 m von `minU` oder
+     * `maxU`); ohne so eine Kante gibt es keinen Stapel. Zwei Meter lang,
+     * 0,5 m tief, 1,3 m hoch; die Stirn in fünf Lagen mit wechselndem Ton,
+     * denn ein Stapel in einer Farbe ist ein Klotz. Auf dem Gelände am Ort
+     * des Stapels, nicht auf `boden` — die Giebelseite kann einen halben
+     * Meter höher liegen als der tiefste Punkt der Wandlinie.
+     */
+    if (wohnhaus && breite >= 7 && wuerfel() < 0.5) {
+      let beste: { u: number; vm: number; s: number } | null = null;
+      for (let k = 0; k < p.length - 1; k++) {
+        const uA = p[k][0] * hu.cos + p[k][1] * hu.sin, vA = -p[k][0] * hu.sin + p[k][1] * hu.cos;
+        const uB = p[k + 1][0] * hu.cos + p[k + 1][1] * hu.sin, vB = -p[k + 1][0] * hu.sin + p[k + 1][1] * hu.cos;
+        if (Math.abs(vB - vA) < 2.6) continue;
+        for (const [ende, s] of [[minU, -1], [maxU, 1]] as const) {
+          if (Math.abs(uA - ende) < 0.3 && Math.abs(uB - ende) < 0.3) beste = { u: ende, vm: (vA + vB) / 2, s };
+        }
+      }
+      if (beste) {
+        const { u, vm, s } = beste;
+        const u0 = Math.min(u + s * 0.08, u + s * 0.58), u1 = Math.max(u + s * 0.08, u + s * 0.58);
+        const [sx, sz] = hu.welt((u0 + u1) / 2, vm);
+        const fussY = terrain.hoeheAn(sx, sz) - 0.08, kopfY = fussY + 1.2;
+        const lagen = 5, lh = (kopfY - fussY) / lagen;
+        const aussenU = s > 0 ? 'u1' : 'u0';
+        for (let l = 0; l < lagen; l++) {
+          kasten(u0, u1, vm - 1.0, vm + 1.0, fest(fussY + l * lh), fest(fussY + (l + 1) * lh),
+                 BRENNHOLZ_TOENE[(l + Math.floor(wuerfel() * 2)) % 3], { [aussenU]: true });
+        }
+        kasten(u0, u1, vm - 1.0, vm + 1.0, fest(fussY), fest(kopfY), BRENNHOLZ_TOENE[0], { oben: true, v0: true, v1: true });
       }
     }
   }
