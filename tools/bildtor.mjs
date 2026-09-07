@@ -82,14 +82,27 @@ const messen = async (d) => {
   // Signalfarben wuerde jede Messung verfaelschen.
   const y0 = Math.round(c.height * 0.14), y1 = Math.round(c.height * 0.78);
   const p = ctx.getImageData(0, y0, c.width, y1 - y0).data;
+  // **Linear, nicht sRGB.** Bis G-126 stand hier `(…)/255 < 0.02` auf den
+  // kodierten Werten — das ist unter 5 von 255, linear 0,0015, und meldete an
+  // der Felsflanke 17,9 %, wo linear 58,6 % sind. Die Stilreferenz ist linear
+  // gemessen; nur so ist die Zahl vergleichbar, und nur so taugt sie als
+  // Zielwert (D110: Median >= 0,15, unter 0,02 <= 10 %).
+  const lin = new Float32Array(256);
+  for (let v = 0; v < 256; v++) {
+    const c = v / 255;
+    lin[v] = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  }
   let leer = 0, dunkel = 0, n = 0;
+  const ys = new Float32Array(p.length / 4);
   for (let i = 0; i < p.length; i += 4) {
     const m = Math.max(p[i], p[i + 1], p[i + 2]);
     if (m === 0) leer++;
-    if ((0.2126 * p[i] + 0.7152 * p[i + 1] + 0.0722 * p[i + 2]) / 255 < 0.02) dunkel++;
-    n++;
+    const y = 0.2126 * lin[p[i]] + 0.7152 * lin[p[i + 1]] + 0.0722 * lin[p[i + 2]];
+    if (y < 0.02) dunkel++;
+    ys[n++] = y;
   }
-  return { leer: leer / n * 100, dunkel: dunkel / n * 100 };
+  ys.sort();
+  return { leer: leer / n * 100, dunkel: dunkel / n * 100, median: ys[Math.floor(n / 2)] };
 };
 
 const browser = await chromium.launch();
@@ -110,17 +123,20 @@ for (const f of grund.faelle) {
   const aus = w.leer > grenze;
   if (aus) { if (f.offen) warnungen++; else blocker++; }
   zeilen.push({ f, w, aus });
-  if (NEU) { f.leer = Number(w.leer.toFixed(1)); f.dunkel = Number(w.dunkel.toFixed(1)); }
+  if (NEU) {
+    f.leer = Number(w.leer.toFixed(1)); f.dunkel = Number(w.dunkel.toFixed(1));
+    f.median = Number(w.median.toFixed(3));
+  }
 }
 await browser.close();
 
 console.log('\nBildtor — Anteil Pixel mit hoechstem Kanal exakt 0\n');
-console.log('  Ort                Stimmung      leer      Grundwert   dunkel');
+console.log('  Ort                Stimmung      leer      Grundwert   dunkel   Median');
 for (const { f, w, aus } of zeilen) {
   const zeichen = aus ? (f.offen ? '!' : '✗') : '✓';
   console.log(`  ${zeichen} ${f.name.padEnd(16)} ${f.stimmung.padEnd(12)}`
     + `${w.leer.toFixed(1).padStart(6)} %  ${f.leer.toFixed(1).padStart(6)} %`
-    + `${w.dunkel.toFixed(1).padStart(9)} %`
+    + `${w.dunkel.toFixed(1).padStart(9)} %  ${w.median.toFixed(3).padStart(6)}`
     + (f.offen ? `   offen: ${f.offen}` : ''));
 }
 

@@ -1,15 +1,118 @@
 {
-  "hinweis": "Grundwerte des Bildtors. 'leer' ist der Anteil der Pixel mit hoechstem Kanal exakt 0, 'dunkel' der Anteil unter Leuchtdichte 0,02 — beide in Prozent, gemessen am 27.08.2026. Neu schreiben mit 'npm run bildtor -- --neu', aber nur, wenn die Aenderung gewollt ist. 'offen' nennt den Ledger-Befund, solange ein Fall bekannt schlecht ist: dann meldet das Tor eine Warnung statt eines Blockers.",
+  "hinweis": "Grundwerte des Bildtors. 'leer' ist der Anteil der Pixel mit hoechstem Kanal exakt 0 (das Tor prueft nur diesen Wert), 'dunkel' der Anteil unter Leuchtdichte 0,02 und 'median' die Median-Leuchtdichte — beide LINEAR seit G-126 (vorher sRGB-kodiert, dreimal zu mild), damit sie mit der Stilreferenz (0,270 / 0,2 %) und den Zielwerten aus D110 (Median >= 0,15, dunkel <= 10 %) vergleichbar sind. Neu schreiben mit 'npm run bildtor -- --neu', aber nur, wenn die Aenderung gewollt ist. 'offen' nennt den Ledger-Befund, solange ein Fall bekannt schlecht ist: dann meldet das Tor eine Warnung statt eines Blockers.",
   "faelle": [
-    { "name": "Felsflanke", "ort": "-1620,-1620,40", "zeit": 0, "stimmung": "nacht", "leer": 3.6, "dunkel": 51.5 },
-    { "name": "Felsflanke", "ort": "-1620,-1620,40", "zeit": 0.26, "stimmung": "daemmerung", "leer": 2.8, "dunkel": 17.9 },
-    { "name": "Felsflanke", "ort": "-1620,-1620,40", "zeit": 0.52, "stimmung": "nebelmorgen", "leer": 1.0, "dunkel": 9.4 },
-    { "name": "Felsflanke", "ort": "-1620,-1620,40", "zeit": 0.78, "stimmung": "abendrot", "leer": 0.1, "dunkel": 20.6 },
-    { "name": "Talboden", "ort": "900,-400,200", "zeit": 0, "stimmung": "nacht", "leer": 1.7, "dunkel": 2.6 },
-    { "name": "Talboden", "ort": "900,-400,200", "zeit": 0.26, "stimmung": "daemmerung", "leer": 0.0, "dunkel": 2.1 },
-    { "name": "Dorf", "ort": "0,0,0", "zeit": 0.26, "stimmung": "daemmerung", "leer": 1.5, "dunkel": 40.9 },
-    { "name": "Dorf", "ort": "0,0,0", "zeit": 0.52, "stimmung": "nebelmorgen", "leer": 1.3, "dunkel": 13.7 },
-    { "name": "Felsmulde", "ort": "-800,600,90", "zeit": 0, "stimmung": "nacht", "leer": 47.2, "dunkel": 75.3, "offen": "G-117 — Nadellaub faellt nachts unter die 8-Bit-Schwelle" },
-    { "name": "Felsmulde", "ort": "-800,600,90", "zeit": 0.52, "stimmung": "nebelmorgen", "leer": 3.1, "dunkel": 76.1 }
+    {
+      "name": "Felsflanke",
+      "ort": "-1620,-1620,40",
+      "zeit": 0,
+      "stimmung": "nacht",
+      "leer": 3.1,
+      "dunkel": 95.2,
+      "median": 0.001
+    },
+    {
+      "name": "Felsflanke",
+      "ort": "-1620,-1620,40",
+      "zeit": 0.26,
+      "stimmung": "daemmerung",
+      "leer": 2.8,
+      "dunkel": 54.5,
+      "median": 0.014
+    },
+    {
+      "name": "Felsflanke",
+      "ort": "-1620,-1620,40",
+      "zeit": 0.52,
+      "stimmung": "nebelmorgen",
+      "leer": 1,
+      "dunkel": 41,
+      "median": 0.021
+    },
+    {
+      "name": "Felsflanke",
+      "ort": "-1620,-1620,40",
+      "zeit": 0.78,
+      "stimmung": "abendrot",
+      "leer": 0.1,
+      "dunkel": 64.9,
+      "median": 0.01
+    },
+    {
+      "name": "Talboden",
+      "ort": "900,-400,200",
+      "zeit": 0,
+      "stimmung": "nacht",
+      "leer": 1.5,
+      "dunkel": 98.9,
+      "median": 0.007
+    },
+    {
+      "name": "Talboden",
+      "ort": "900,-400,200",
+      "zeit": 0.26,
+      "stimmung": "daemmerung",
+      "leer": 0,
+      "dunkel": 82.4,
+      "median": 0.014
+    },
+    {
+      "name": "Grashang",
+      "ort": "0,0,0",
+      "zeit": 0.26,
+      "stimmung": "daemmerung",
+      "leer": 1.5,
+      "dunkel": 82.6,
+      "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
+      "median": 0.003
+    },
+    {
+      "name": "Grashang",
+      "ort": "0,0,0",
+      "zeit": 0.52,
+      "stimmung": "nebelmorgen",
+      "leer": 1.3,
+      "dunkel": 87.5,
+      "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
+      "median": 0.012
+    },
+    {
+      "name": "Felsmulde",
+      "ort": "-800,600,90",
+      "zeit": 0,
+      "stimmung": "nacht",
+      "leer": 46.1,
+      "dunkel": 93.1,
+      "offen": "G-117 — Nadellaub faellt nachts unter die 8-Bit-Schwelle",
+      "median": 0
+    },
+    {
+      "name": "Felsmulde",
+      "ort": "-800,600,90",
+      "zeit": 0.52,
+      "stimmung": "nebelmorgen",
+      "leer": 3.3,
+      "dunkel": 95.5,
+      "median": 0.001
+    },
+    {
+      "name": "Dorf",
+      "ort": "1350,495,0",
+      "zeit": 0.26,
+      "stimmung": "daemmerung",
+      "leer": 4.2,
+      "dunkel": 96.3,
+      "median": 0,
+      "hinweis": "Das dichteste Dorf der Region (128 Gebaeude im 3x3-Fenster um 1350/450), Blick nach Norden auf den Ortskern. Seit G-126"
+    },
+    {
+      "name": "Stauwehr",
+      "ort": "1110,871,90",
+      "zeit": 0.26,
+      "stimmung": "daemmerung",
+      "leer": 2.9,
+      "dunkel": 59.5,
+      "median": 0.016,
+      "hinweis": "Slice-Mitte (D113): 38 m bachabwaerts des Flussvaters, Blick nach Westen den Bach entlang — Wasser vorn, Klaeranlage rechts, Hang links. Der erste Standpunkt (40 m noerdlich, Blick Sued) stand in einem Gebaeude. Seit G-126"
+    }
   ]
 }
