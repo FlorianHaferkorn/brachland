@@ -2093,34 +2093,60 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
 }
 
 /**
- * Sitzpose im Sattel (D145): drei Winkel je Bein, als Nachdrehung **hinter** dem
- * Mixer im lokalen Knochenraum (`quaternion.multiply`), gewichtet mit `anteil`.
+ * Sitzpose im Sattel (D145, neu in D147): **Zielrichtungen** je Knochen statt
+ * Winkel um lokale Achsen.
  *
- * Die Achsen sind die des Quaternius-Rigs, gemessen im Spiel mit `?spiegel=90`:
- * X beugt (positiv = nach vorn am Oberschenkel, nach hinten am Unterschenkel),
- * Z spreizt. Kein eigener Clip — das Paket hat keinen, und das Tier traegt die
- * Bewegung (D93).
+ * Der erste Bau drehte um die lokale X-Achse jedes Knochens (`quaternion.multiply`)
+ * — und die Achsen des Quaternius-Rigs haben je Knochen einen anderen Roll: Der
+ * Unterschenkel bog nicht nach hinten, sondern schräg durch den Bauch des Tiers
+ * und kam als dünner schwarzer Stab unter ihm wieder heraus (Bild
+ * `.cache/bilder/beine_45.png`). Jetzt bekommt jeder Knochen eine Richtung im
+ * Raum der Figur (nach −Z schaut sie), gemessen wird die tatsächliche Richtung
+ * des Knochens (+Y im Knochenraum, wie Blender exportiert) nach dem Mixer, und
+ * die Drehung dazwischen wird in den Elternraum zurückgerechnet. Roll bleibt
+ * von der Animation. Kein eigener Clip — das Paket hat keinen, das Tier trägt
+ * die Bewegung (D93).
  */
-// Gemessen (`.cache/mess/reiten.mjs`, seitlich): Knie 1,45 liess den Unterschenkel
-// 29° nach hinten haengen — Idle beugt das Knie schon etwas; 1,05 haengt senkrecht.
 /** Lage des Sitzes auf dem Tier: Anteil der Koerperlaenge von der Nase aus (D146). */
 const SITZ_LAGE = 0.6;
-const SITZ = { huefte: 1.35, spreiz: 0.30, knie: 1.05, fuss: 0.10, armVor: 0.7, armInnen: 0.35, ellbogen: 0.5 };
-const _q = new THREE.Quaternion();
-const _achseX = new THREE.Vector3(1, 0, 0), _achseZ = new THREE.Vector3(0, 0, 1);
+/** Zielrichtungen im Figurraum (x nach rechts der Figur, y hoch, −z nach vorn), je Seite gespiegelt. */
+const SITZ_RICHTUNG = {
+  oberschenkel: new THREE.Vector3(0.30, -0.55, -0.78),  // vorn-unten, leicht gespreizt
+  unterschenkel: new THREE.Vector3(0.05, -1.0, 0.18),  // hängt, Ferse hinter dem Knie
+  fuss: new THREE.Vector3(0.05, -0.25, -1.0),          // Zehen nach vorn, leicht gesenkt
+  oberarm: new THREE.Vector3(-0.15, -0.65, -0.75),     // zum Hals, nach innen
+  unterarm: new THREE.Vector3(-0.10, -0.25, -1.0),
+};
 type SitzKnochen = Record<'ol' | 'or' | 'ul' | 'ur' | 'fl' | 'fr' | 'al' | 'ar' | 'el' | 'er', THREE.Object3D | null>;
-function sitzpose(b: SitzKnochen, anteil: number) {
-  const dreh = (k: THREE.Object3D | null, achse: THREE.Vector3, winkel: number) => {
-    if (k) k.quaternion.multiply(_q.setFromAxisAngle(achse, winkel * anteil));
-  };
-  dreh(b.ol, _achseX, -SITZ.huefte); dreh(b.or, _achseX, -SITZ.huefte);
-  dreh(b.ol, _achseZ, SITZ.spreiz); dreh(b.or, _achseZ, -SITZ.spreiz);
-  dreh(b.ul, _achseX, SITZ.knie); dreh(b.ur, _achseX, SITZ.knie);
-  dreh(b.fl, _achseX, SITZ.fuss); dreh(b.fr, _achseX, SITZ.fuss);
-  // Arme nach vorn und innen zum Hals des Tiers, Ellbogen leicht gebeugt.
-  dreh(b.al, _achseX, -SITZ.armVor); dreh(b.ar, _achseX, -SITZ.armVor);
-  dreh(b.al, _achseZ, -SITZ.armInnen); dreh(b.ar, _achseZ, SITZ.armInnen);
-  dreh(b.el, _achseX, -SITZ.ellbogen); dreh(b.er, _achseX, -SITZ.ellbogen);
+const _q = new THREE.Quaternion(), _qe = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qs = new THREE.Quaternion();
+const _v = new THREE.Vector3(), _z = new THREE.Vector3(), _hoch = new THREE.Vector3(0, 1, 0);
+const _ident = new THREE.Quaternion();
+/**
+ * Richtet einen Knochen auf `ziel` (im Raum von `figur`) aus, um `anteil` interpoliert.
+ * Erwartet aktuelle Weltmatrizen (der Aufrufer ruft `updateMatrixWorld`).
+ */
+function richte(k: THREE.Object3D | null, figur: THREE.Object3D, ziel: THREE.Vector3, spiegel: boolean, anteil: number) {
+  if (!k || !k.parent) return;
+  _z.set(spiegel ? -ziel.x : ziel.x, ziel.y, ziel.z).normalize();
+  _z.applyQuaternion(figur.getWorldQuaternion(_q));           // Ziel in Weltrichtung
+  k.getWorldQuaternion(_q);
+  _v.copy(_hoch).applyQuaternion(_q);                          // Knochenrichtung heute
+  _qs.setFromUnitVectors(_v, _z);                              // Welt-Drehung dahin
+  _ident.identity(); _qs.slerpQuaternions(_ident, _qs, anteil);
+  k.parent.getWorldQuaternion(_qe); _qi.copy(_qe).invert();
+  // lokal' = P⁻¹ · r · P · lokal
+  k.quaternion.premultiply(_qe).premultiply(_qs).premultiply(_qi);
+  k.updateMatrixWorld(true);
+}
+function sitzpose(b: SitzKnochen, figur: THREE.Object3D, anteil: number) {
+  figur.updateMatrixWorld(true);
+  const R = SITZ_RICHTUNG;
+  // Richtungen gelten fuer die rechte Seite (+X ist rechts, wenn man nach −Z schaut); links gespiegelt.
+  richte(b.or, figur, R.oberschenkel, false, anteil); richte(b.ol, figur, R.oberschenkel, true, anteil);
+  richte(b.ur, figur, R.unterschenkel, false, anteil); richte(b.ul, figur, R.unterschenkel, true, anteil);
+  richte(b.fr, figur, R.fuss, false, anteil); richte(b.fl, figur, R.fuss, true, anteil);
+  richte(b.ar, figur, R.oberarm, false, anteil); richte(b.al, figur, R.oberarm, true, anteil);
+  richte(b.er, figur, R.unterarm, false, anteil); richte(b.el, figur, R.unterarm, true, anteil);
 }
 
 /**
@@ -2304,7 +2330,7 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
     // etwas nach aussen (der Reiter sitzt rittlings), Knie zurueck, Fuss gestreckt.
     // Kein eigener Clip — das Paket hat keinen, und drei Winkel reichen.
     sitz.current += ((reittier ? 1 : 0) - sitz.current) * Math.min(1, dt / 0.3);
-    if (sitz.current > 0.001) sitzpose(beine, sitz.current);
+    if (sitz.current > 0.001) sitzpose(beine, scene, sitz.current);
 
     if (reittier) {
       const hoehe = (mitModell ? sitzHoehe.current : null) ?? reittier.hoehe;
