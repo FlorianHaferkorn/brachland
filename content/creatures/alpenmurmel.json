@@ -8,6 +8,7 @@
   ],
   "ursprung": "wildling",
   "basisRig": "quadruped_small",
+  "widerrist": 0.5,
   "zielTris": 3000,
   "spawn": {
     "osmTag": "landuse=meadow",

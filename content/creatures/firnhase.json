@@ -8,6 +8,7 @@
   ],
   "ursprung": "wildling",
   "basisRig": "quadruped_small",
+  "widerrist": 0.5,
   "zielTris": 2500,
   "spawn": {
     "osmTag": "natural=scree",

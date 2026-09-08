@@ -80,7 +80,7 @@
       "ort": "-800,600,90",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 1.8,
+      "leer": 1.7,
       "dunkel": 95.5,
       "median": 0.002
     },
@@ -90,7 +90,7 @@
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
       "leer": 0,
-      "dunkel": 5.5,
+      "dunkel": 5.4,
       "median": 0.082
     },
     {
@@ -101,7 +101,7 @@
       "leer": 0.2,
       "dunkel": 87.3,
       "median": 0.009,
-      "hinweis": "Zwei Haeuser am Wehr bei Nacht (D134): misst die Fensterglut — „hell“ ist hier das Mass, nicht der Median. Nicht der Dorf-Fall: Dessen Adresse (1350, 495) zeigt eine Wiese mit Baeumen, kein Haus im Bild (G-132). Grundwert vorlaeufig, bis der erste --neu-Lauf ihn schreibt"
+      "hinweis": "Zwei Haeuser am Wehr bei Nacht (D134): misst die Fensterglut — „hell“ ist hier das Mass, nicht der Median. Am Wehr statt im Dorf, weil hier zwei Haeuser das Bild fuellen"
     },
     {
       "name": "Dorf",

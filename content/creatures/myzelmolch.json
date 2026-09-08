@@ -8,7 +8,7 @@
   ],
   "ursprung": "wildling",
   "basisRig": "quadruped_small",
-  "widerrist": 0.18,
+  "widerrist": 0.35,
   "zielTris": 2500,
   "spawn": {
     "osmTag": "natural=wood",

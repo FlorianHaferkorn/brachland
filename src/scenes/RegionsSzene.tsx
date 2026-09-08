@@ -864,8 +864,11 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
   // Kreaturen sind das, wonach der Spieler sucht — ihr Umriss muss vom Hang
   // wegstehen. Wind bekommen sie keinen (Amplitude 0): Ein schwingendes Tier
   // sieht nicht nach Wind aus, sondern nach kaputter Animation.
-  const { material, setzeRand } = useMemo(() => baueWindMaterial({
+  const { material, setzeRand, setzeZeit } = useMemo(() => baueWindMaterial({
     amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 1.4,
+    // Atmen und Kopfwenden statt Wind (D136) — die Bewegung, die ein Tier vom
+    // Prop unterscheidet, ohne Rig.
+    atmen: true,
     // Breiterer Saum als der Rest der Welt (3,0): Seit Kreaturen Modelle mit 2.000
     // bis 3.000 Flaechen sind, steht fast jede Facette frontal zur Kamera, und ein
     // schmaler Fresnel-Saum trifft davon nichts — dasselbe, was G-118 an der
@@ -877,7 +880,8 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
     setzeRand(new THREE.Color(rand.farbe), rand.staerke * 1.4);
   }, [setzeRand, rand]);
 
-  useFrame(() => {
+  useFrame((state) => {
+    setzeZeit(state.clock.elapsedTime);
     const p = ziel.current?.position;
     if (!p) return;
 

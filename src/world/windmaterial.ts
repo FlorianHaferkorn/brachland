@@ -41,6 +41,13 @@ export interface WindMaterialWerte {
    * Standard bleibt 3,0, damit Baeume, Buesche und Gras unveraendert aussehen.
    */
   randSchaerfe?: number;
+  /**
+   * Atmen und Kopfwenden (D136) — nur für Kreaturen. Rumpf quer ±1,5 % im
+   * Atemrhythmus, alles vor dem Hals dreht langsam um die Hochachse. Rechnet in
+   * den genormten Modellmetern der Kette (Widerrist 1 m, Nase nach −Z, Füße auf
+   * y = 0), Phase aus der Weltlage — kein Rig, keine zweite Geometrie.
+   */
+  atmen?: boolean;
 }
 
 /**
@@ -94,6 +101,36 @@ const WIND_GLSL = /* glsl */ `
 `;
 
 /**
+ * Leben ohne Rig (D136).
+ *
+ * Ein stehendes Tier liest als Attrappe; was es zum Tier macht, ist die kleine,
+ * unregelmäßige Bewegung, die ein Blick sofort als Atmen und Aufmerken erkennt.
+ * Beides kommt aus zwei Zeilen im Vertex-Shader, in den genormten Modellmetern:
+ * - **Atmen:** der Rumpf (y 0,3…1,0 über den Füßen, also nicht Beine, nicht Kopf)
+ *   wird quer um bis zu 1,5 % breiter und schmaler, 1,4 rad/s ≈ 13 Atemzüge je Minute.
+ * - **Kopfwenden:** alles vor dem Hals (z < −0,35 m, Nase zeigt nach −Z) dreht um
+ *   die Hochachse durch den Hals, bis ±8°, aus zwei langsamen Sinus mit
+ *   unterschiedlicher Phase — kein Metronom. Ein Tier, das kürzer als 0,35 m
+ *   nach vorn reicht (Alpenmurmel), wendet nichts; das ist richtig so.
+ * Die Phase kommt aus der Weltlage, damit keine zwei Tiere im Takt atmen.
+ */
+const ATMEN_GLSL = /* glsl */ `
+  if (uAtmen > 0.5) {
+    vec2 ort = modelMatrix[3].xz;
+    float ph = fract(sin(dot(ort, vec2(12.9898, 78.233))) * 43758.5453) * 6.2832;
+    float rumpf = smoothstep(0.30, 0.55, position.y) * (1.0 - smoothstep(0.95, 1.15, position.y));
+    transformed.x *= 1.0 + sin(uZeit * 1.4 + ph) * 0.015 * rumpf;
+    float kopf = smoothstep(-0.35, -0.85, position.z);
+    float dreh = kopf * 0.14 * (sin(uZeit * 0.37 + ph) * 0.6 + sin(uZeit * 0.9 + ph * 1.7) * 0.4);
+    float c = cos(dreh), s = sin(dreh);
+    float hals = -0.35;
+    float x = transformed.x, z = transformed.z - hals;
+    transformed.x = x * c - z * s;
+    transformed.z = hals + x * s + z * c;
+  }
+`;
+
+/**
  * Standardmaterial mit Silhouettenlicht und optionalem Wind.
  *
  * `aWind` wird als Attribut erwartet. Fehlt es in der Geometrie, liefert WebGL 0 —
@@ -109,6 +146,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
   const randStaerke = { value: w.randStaerke };
   const randSchaerfe = { value: w.randSchaerfe ?? 3.0 };
   const windAmp = { value: w.amplitude };
+  const atmen = { value: w.atmen ? 1 : 0 };
 
   const material = basis instanceof THREE.MeshStandardMaterial
     ? (basis.clone() as THREE.MeshStandardMaterial)
@@ -122,21 +160,22 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
     shader.uniforms.uRandStaerke = randStaerke;
     shader.uniforms.uRandSchaerfe = randSchaerfe;
     shader.uniforms.uWindAmp = windAmp;
+    shader.uniforms.uAtmen = atmen;
 
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',
         // aWind ebenfalls nur bei Instanzen deklarieren: Ein Attribut, das die
         // Geometrie nicht liefert, ist auf manchen Treibern ein harter Fehler.
-        '#include <common>\nuniform float uZeit;\nuniform float uWindAmp;\n'
+        '#include <common>\nuniform float uZeit;\nuniform float uWindAmp;\nuniform float uAtmen;\n'
         + '#ifdef USE_INSTANCING\nattribute float aWind;\n#endif')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>' + WIND_GLSL);
+      .replace('#include <begin_vertex>', '#include <begin_vertex>' + WIND_GLSL + ATMEN_GLSL);
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>',
         '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;')
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v4';
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v5';
 
   return {
     material,

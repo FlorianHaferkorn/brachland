@@ -8,6 +8,7 @@
   ],
   "ursprung": "wildling",
   "basisRig": "serpent",
+  "widerrist": 0.45,
   "zielTris": 2000,
   "spawn": {
     "osmTag": "waterway=ditch",
