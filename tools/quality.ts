@@ -9,11 +9,14 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { effektivitaet, ELEMENTE, BAND } from '../src/data/schema.js';
 import { VARIANTEN, propPfad } from '../src/world/props.js';
-import { WEGBELAG } from '../src/world/baender.js';
+import * as THREE from 'three';
+import { WEGBELAG, zerlegeBaender, baueGartenKachel } from '../src/world/baender.js';
 import { entpackeWelt } from '../src/world/osm.js';
 import { baueGebaeude } from '../src/world/terrain.js';
 import { herkunftJson } from './herkunft.js';
-import { aufsatzboden, baueHoehenfeld } from '../src/world/lod.js';
+import { aufsatzboden, baueHoehenfeld, baueKachelraster } from '../src/world/lod.js';
+import { MIT_ANBAU, baueAnbau, saatAusId } from '../src/world/kreaturgestalt.js';
+import { baueSpielerTeile } from '../src/spieler/figur.js';
 
 type Befund = { schwere: 'stop' | 'warnung'; bereich: string; text: string };
 const befunde: Befund[] = [];
@@ -441,6 +444,61 @@ const KORRIDOR: Record<string, { min: number; max: number }> = {
     if (max > k.max) stop('Klassen', `${lage} — über dem Deckel`);
     else if (med < k.min) warn('Klassen', `${lage} — unter der Untergrenze, das Bild hat weniger, als es sich leisten kann`);
     else console.log(`  · [Klassen] ${lage}`);
+  }
+}
+
+/**
+ * Gleiche Attribute, wo gefasst wird (D140).
+ *
+ * `mergeGeometries` verweigert still, wenn zwei Geometrien nicht dieselben
+ * Attribute tragen — und die Szene fasst an drei Stellen: Häuser mit Gärten je
+ * Kachelgruppe (`LodBaender`), Kreaturkörper mit Anbau (`KreaturModell`), die
+ * Teile der Spielerfigur (`figur.ts`). Dreimal ist genau das passiert, und
+ * jedes Mal fiel es erst im Bild oder in der Konsole auf: G-131 (Anbauten mit
+ * UV), D134 (Gärten ohne `glut` — alle Häuser weg), D139 (Primitive mit
+ * Normalen). Hier wird gebaut, was die Szene baut, und verglichen, was sie
+ * vergleicht. Ein Blocker, kein Hinweis: Was hier scheitert, verschwindet im
+ * Spiel ohne Fehlermeldung.
+ */
+{
+  const attribute = (g: { attributes: Record<string, unknown> } | null) =>
+    g ? Object.keys(g.attributes).sort().join('+') : '—';
+  // Häuser und Gärten
+  const region = readdirSync('public/world').map(f => join('public/world', f))
+    .find(f => f.endsWith('.json') && JSON.parse(readFileSync(f, 'utf8')).welt);
+  if (region) {
+    const welt = entpackeWelt(JSON.parse(readFileSync(region, 'utf8')).welt);
+    const feld = baueHoehenfeld(welt);
+    const boden = aufsatzboden(feld);
+    const satz = zerlegeBaender(welt, feld);
+    const kacheln = baueKachelraster(feld);
+    const haus = attribute(baueGebaeude(welt, boden, [welt.gebaeude[0]]));
+    const kachelMitGarten = kacheln.find(k => satz.gaerten.has(`${k.ix}:${k.iz}`));
+    const garten = kachelMitGarten ? attribute(baueGartenKachel(feld, satz, kachelMitGarten, 0)) : null;
+    if (garten && garten !== haus)
+      stop('Fassen', `Haus trägt ${haus}, Garten ${garten} — die Hauskachel fiele still aus dem Bild (D134)`);
+    else console.log(`  · [Fassen] Haus und Garten: ${haus}`);
+  }
+  // Kreaturkörper (Datei: COLOR_0+POSITION, oben geprüft) und Anbau
+  const koerper = new THREE.BoxGeometry(0.6, 1, 1.4).toNonIndexed();
+  koerper.deleteAttribute('normal'); koerper.deleteAttribute('uv');
+  koerper.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(koerper.getAttribute('position').count * 3), 3));
+  const soll = attribute(koerper);
+  let anbauten = 0;
+  for (const art of MIT_ANBAU) {
+    const anbau = baueAnbau(art, koerper, 1, saatAusId(art));
+    if (!anbau) continue;
+    anbauten++;
+    const ist = attribute(anbau);
+    if (ist !== soll) stop('Fassen', `Anbau ${art} trägt ${ist}, der Körper ${soll} — der Anbau ginge still verloren (G-131)`);
+  }
+  console.log(`  · [Fassen] ${anbauten} Anbauten mit ${soll}`);
+  // Spielerfigur: `fertig()` wirft, wenn Teile nicht zusammenpassen.
+  try {
+    const t = baueSpielerTeile();
+    console.log(`  · [Fassen] Spielerfigur: Rumpf ${t.rumpf.getAttribute('position').count / 3}, Bein ${t.bein.getAttribute('position').count / 3}, Arm ${t.arm.getAttribute('position').count / 3} Dreiecke`);
+  } catch (fehler) {
+    stop('Fassen', `Spielerfigur: ${(fehler as Error).message}`);
   }
 }
 

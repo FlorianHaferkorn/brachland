@@ -129,6 +129,17 @@ const SCHATTEN_MESSLAUF: number | null = (() => {
   return Number.isFinite(roh) && roh >= 0 && roh <= 1 ? roh : null;
 })();
 
+/**
+ * `?spiegel=1` stellt die Kamera **vor** die Figur statt hinter sie (D142).
+ *
+ * Nur für Messläufe, dieselbe Begründung wie `?absetzen=`: Die Spielerfigur wurde
+ * seit D126 nie von vorn gesehen — Gesicht, Halstuch, Kapuzenrand sind gebaut,
+ * aber ungeprüft, weil die Kamera im Spiel immer hinter ihr steht. Die Figur
+ * dreht sich nicht; die Kamera wandert um 180° auf der Kugel.
+ */
+const SPIEGEL_MESSLAUF: boolean = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('spiegel') === '1';
+
 export const STIMMUNG: Record<string, Stimmung> = {
   nacht: {
     himmel: '#0a0f12', nebel: '#101a1c', nebelNah: 25, nebelFern: 260,
@@ -871,13 +882,15 @@ function laufWuerfel(id: string): () => number {
   return () => { h = Math.imul(h ^ (h >>> 15), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
 }
 
-function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbraucht, rand, hoeheAn }: {
+function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbraucht, rand, hoeheAn, kollision }: {
   vorkommen: Vorkommen[];
   gestalt: (kreatur: string, mutation?: number) => THREE.BufferGeometry;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
   /** Hoehe der gezeichneten Flaeche — ein gehendes Tier bleibt auf dem Boden (D138). */
   hoeheAn: (x: number, z: number) => number;
+  /** Dasselbe Feld wie fuer Spieler und Kamera: Staemme und Grundrisse (D141). */
+  kollision: Kollisionsfeld;
   /** Wird jedes Bild beschrieben: nächste Kreatur, Abstand und Richtung relativ zum Blick. */
   naehe?: React.RefObject<Naehe>;
   onBegegnung?: (v: Vorkommen) => void;
@@ -894,7 +907,7 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
   // Sperre nach einer Begegnung: Nach einem Rückzug steht der Spieler noch neben der
   // Kreatur. Ohne Abstandssperre startet der Kampf im nächsten Bild erneut.
   const sperre = useRef<THREE.Vector3 | null>(null);
-  const naechste = useRef<{ x: number; z: number; kreatur: string } | null>(null);
+  const naechste = useRef<{ id: string; x: number; z: number; kreatur: string } | null>(null);
   const laeufe = useRef(new Map<string, Lauf>());
   const wuerfel = useRef(new Map<string, () => number>());
   const laufVon = (v: Vorkommen): Lauf => {
@@ -969,6 +982,11 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
       if (l.tempo > 0) {
         l.x += -Math.sin(l.kurs) * LAUF_TEMPO * schritt;
         l.z += -Math.cos(l.kurs) * LAUF_TEMPO * schritt;
+        // Kollision (D141): dasselbe Rasterfeld wie Spieler und Kamera. Wer an
+        // einen Stamm oder eine Hauswand stoesst, wird herausgeschoben, bleibt
+        // stehen und sucht sich beim naechsten Aufbruch ein anderes Ziel.
+        const [kx, kz] = kollision.schiebeRaus(l.x, l.z);
+        if (kx !== l.x || kz !== l.z) { l.x = kx; l.z = kz; l.tempo = 0; l.bis = t + 2 + w() * 3; }
         l.y = hoeheAn(l.x, l.z);
       }
       l.gang += (l.tempo - l.gang) * Math.min(1, schritt * 3);
@@ -986,13 +1004,17 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
       // Witterung soll auch dorthin zeigen, wo noch nichts gezeichnet wird — sonst
       // hilft sie genau dann nicht, wenn man sie braucht. 1.000 Abstände alle 12 m
       // sind billiger als 40 Abstände je Bild.
-      let beste = Infinity, bx = 0, bz = 0, art = '';
+      let beste = Infinity, bx = 0, bz = 0, art = '', id = '';
       for (const v of uebrig) {
-        const d = Math.hypot(v.position[0] - p.x, v.position[2] - p.z);
+        // Laufposition, wo es eine gibt (D141): Die Witterung zeigt auf das Tier,
+        // nicht auf die Stelle, an der es vor einer Minute stand.
+        const l = laeufe.current.get(v.id);
+        const vx = l ? l.x : v.position[0], vz = l ? l.z : v.position[2];
+        const d = Math.hypot(vx - p.x, vz - p.z);
         if (d >= beste) continue;
-        beste = d; bx = v.position[0]; bz = v.position[2]; art = v.kreatur;
+        beste = d; bx = vx; bz = vz; art = v.kreatur; id = v.id;
       }
-      naechste.current = beste < Infinity ? { x: bx, z: bz, kreatur: art } : null;
+      naechste.current = beste < Infinity ? { id, x: bx, z: bz, kreatur: art } : null;
     }
 
     // Abstand und Richtung dagegen jedes Bild: Der Pfeil muss sich beim Drehen
@@ -1002,9 +1024,11 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
       const z = naechste.current;
       if (!z) { n.abstand = Infinity; n.winkel = 0; n.kreatur = ''; }
       else {
-        n.abstand = Math.hypot(z.x - p.x, z.z - p.z);
+        const l = laeufe.current.get(z.id);
+        const zx = l ? l.x : z.x, zz = l ? l.z : z.z;
+        n.abstand = Math.hypot(zx - p.x, zz - p.z);
         n.kreatur = z.kreatur;
-        n.winkel = peilung(p.x, p.z, z.x, z.z, gier.current);
+        n.winkel = peilung(p.x, p.z, zx, zz, gier.current);
       }
     }
 
@@ -2024,7 +2048,7 @@ function Kamera({ ziel, gier, neigung, feld, kollision }: {
     // Die Kamera kreist auf einer Kugel um den Blickpunkt auf Brusthöhe: `gier`
     // dreht herum, `neigung` hebt und senkt. Bei Neigung 0 steht sie waagerecht
     // hinter dem Spieler, bei NEIGUNG_MAX fast senkrecht darüber.
-    const g = gier.current;
+    const g = gier.current + (SPIEGEL_MESSLAUF ? Math.PI : 0);
     const n = neigung.current;
     const blickY = p.y + GROESSE.kameraBlickHoehe;
     const rx = Math.sin(g) * Math.cos(n);
@@ -2420,7 +2444,7 @@ export function RegionsSzene({
         <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref} gier={gier}
                    naehe={naehe} onBegegnung={onBegegnung} verbraucht={verbraucht}
                    rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
-                   hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} />
+                   hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} kollision={kollision} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} />
       <Kontur an={konturAn(true)} />

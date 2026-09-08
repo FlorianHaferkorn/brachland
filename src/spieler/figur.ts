@@ -176,9 +176,17 @@ export function baueSpielerTeile(): SpielerTeile {
   r.push(teil(kopf, HAUT, 0, 1.665, -0.01, [0, 0, 0],
               (_x, y, z) => (0.86 + 0.14 * glatt(1.58, 1.66, y)) * (z > 0.03 ? 0.9 : 1)));
   // phi 0…π ist bei `SphereGeometry` die Hälfte mit z ≥ 0 — der Hinterkopf.
-  const kapuze = new THREE.SphereGeometry(0.135, 10, 7, 0, Math.PI, 0, Math.PI * 0.64);
+  // Seit D142 (zum ersten Mal von vorn gesehen: ein kahler Hautkopf) greift die
+  // Kapuze 0,6 rad über beide Seiten nach vorn und lässt nur das Gesicht frei —
+  // von vorn rahmt sie es, von hinten ist sie, was sie war.
+  const kapuze = new THREE.SphereGeometry(0.135, 12, 7, -0.6, Math.PI + 1.2, 0, Math.PI * 0.64);
   r.push(teil(kapuze, KAPUZE, 0, 1.675, 0.02, [0, 0, 0],
               (_x, y) => 0.82 + 0.18 * glatt(1.60, 1.74, y)));
+  // Augen: zwei dunkle Punkte, knapp in der Stirnfläche — ohne sie ist ein
+  // Gesicht ein Ei (D142).
+  for (const sx of [-1, 1]) {
+    r.push(teil(new THREE.IcosahedronGeometry(0.013, 0), RIEMEN, sx * 0.036, 1.685, -0.096));
+  }
 
   // --- Rucksack: Kasten mit gerundeter Rolle obenauf, zwei Riemen ---------------
   const packSchatten: Schatten = (_x, y) => 0.82 + 0.18 * glatt(1.04, 1.30, y);
