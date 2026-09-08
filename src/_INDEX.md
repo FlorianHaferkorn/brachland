@@ -14,7 +14,7 @@ owns: *.ts, *.tsx
 | Deine Aufgabe ist … | Lies | NICHT nötig |
 |---|---|---|
 | Eine Farbe ändern, egal wo sie steht | `world/palette.ts` | alles andere |
-| Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ Messparameter seit D142 auch `?spiegel=1` (Kamera vor der Figur). Kreaturen gehen seit D138 (`Lauf`, Zufallsgang um den Spawn, Aufmerken unter 9 m) und stossen seit D141 an Stämme und Grundrisse |
+| Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ Messparameter seit D142 auch `?spiegel=1` (Kamera vor der Figur). Spielerfigur seit D143 als SkinnedMesh mit `AnimationMixer` (Idle/Walk/Run nach Tempo), Bewohner mit `figur` als `Mensch` (Idle, Winken bei 8 m, D144). Kreaturen gehen seit D138 (`Lauf`, Zufallsgang um den Spawn, Aufmerken unter 9 m) und stossen seit D141 an Stämme und Grundrisse |
 | Kontur, Kanten, Nachbearbeitung | `scenes/Kontur.tsx` | world/, engine/ |
 | Kreaturen in der Welt oder Begegnungen ändern | `world/vorkommen.ts` → `scenes/RegionsSzene.tsx` | data/inhalte.ts |
 | Team, Fangen oder Speichern ändern | `main.tsx` → `spiel/spielstand.ts` | ui/BattleScreen.tsx |
@@ -48,7 +48,7 @@ owns: *.ts, *.tsx
 | Weltdatei holen, cachen, offline halten | `world/weltladen.ts` | `main.tsx`, `../vite.config.ts`, `../index.html` |
 | Menü, Karte, Beutel, Team, Verzeichnis | `ui/Menue.tsx` → `ui/karte.ts`, `spiel/team.ts` | `main.tsx`, `spiel/spielstand.ts` |
 | Steuerung anfassen (Tasten, Touch, Empfindlichkeit) | `spieler/steuerung.ts` | world/, engine/ |
-| Aussehen der Spielerfigur | `spieler/figur.ts` | Spielerfigur, 1,8 m: eine **Wanderin** mit Kapuze, Jacke, Halstuch (der eine Akzent), Rucksack mit Rolle, Hose und Stiefeln, acht Töne aus `PALETTE.figur` (D126). Seit D139 **geloftet** (`loft()` aus Querschnittsringen um die Hochachse, acht Ecken, Fläche nach vorn), 1.148 Dreiecke, mit eingebackener Verschattung je Ecke (Saum, Kragen, Pack, Stiefelrand). Teile Rumpf/Arm/Bein mit Drehpunkt im Ursprung, damit die Szene sie schwenkt — kein Rig. Umlauf mit `.cache/figurseite.ts` prüfen |
+| Aussehen der Spielerfigur | `spieler/figur.ts` | Spielerfigur, 1,8 m: eine **Wanderin** mit Kapuze, Jacke, Halstuch (der eine Akzent), Rucksack mit Rolle, Hose und Stiefeln, acht Töne aus `PALETTE.figur` (D126). Seit D139 **geloftet** (`loft()` aus Querschnittsringen um die Hochachse, acht Ecken, Fläche nach vorn), 1.148 Dreiecke, mit eingebackener Verschattung je Ecke (Saum, Kragen, Pack, Stiefelrand). Teile Rumpf/Arm/Bein mit Drehpunkt im Ursprung, damit die Szene sie schwenkt — kein Rig. Umlauf mit `.cache/figurseite.ts` prüfen **Seit D143 Rückfall:** Die Szene lädt `public/figuren/wanderin.glb` (Menschenkette, SkinnedMesh); `figur.ts` liefert HUEFTE und dient dem Tor als Fassen-Probe |
 | Wogegen man läuft | `spieler/kollision.ts` | scenes/ |
 
 ## Datei-Register (Drift-Gate erzwingt Vollständigkeit für `owns:`)

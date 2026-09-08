@@ -35,7 +35,7 @@ import { baueWindMaterial } from '../world/windmaterial.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
-import { baueSpielerTeile, HUEFTE, SCHULTER } from '../spieler/figur.js';
+import { HUEFTE } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
@@ -1223,14 +1223,82 @@ function Fundstellen({ orte, ziel, gelesen, onFund }: {
  */
 export const ORT_AB = 7;
 
-export type OrtsArt = 'zuflucht' | 'bewohner';
-export interface Ortsmarke { id: string; art: OrtsArt; position: [number, number, number] }
+/** Näher als das winkt ein Bewohner — einmal, dann steht er wieder. */
+const WINK_AB = 8;
 
-function Orte({ orte, ziel, onNah }: {
+/**
+ * Ein Bewohner mit Figur aus der Menschenkette (D143): SkinnedMesh, Idle im
+ * Stand, ein Winken, wenn der Spieler in `WINK_AB` kommt — einmal je
+ * Annäherung, nicht bei jedem Bild. Kein Gang: Ein Bewohner steht an seinem Ort,
+ * das ist der Ort. Dasselbe Wind-/Randmaterial wie Kreaturen und Spielerin,
+ * ein Material je Figur (eigene Uniforms), ein Draw Call.
+ */
+function Mensch({ figur, blick, ziel, rand }: {
+  figur: string; blick: number;
+  ziel: React.RefObject<THREE.Object3D | null>;
+  rand: { farbe: string; staerke: number };
+}) {
+  const { scene, animations } = useGLTF(`/figuren/${figur}.glb`);
+  const { material, setzeRand } = useMemo(() => baueWindMaterial({
+    amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
+  }), []);
+  useEffect(() => { setzeRand(new THREE.Color(rand.farbe), rand.staerke); }, [setzeRand, rand]);
+  useEffect(() => {
+    scene.traverse(o => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
+    });
+  }, [scene, material]);
+  const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
+  const clips = useMemo(() => {
+    const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
+    const idle = mixer.clipAction(finde('Idle')), wink = mixer.clipAction(finde('Wave'));
+    idle.play();
+    wink.setLoop(THREE.LoopOnce, 1); wink.clampWhenFinished = false;
+    return { idle, wink };
+  }, [mixer, animations]);
+  useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
+  const gruppe = useRef<THREE.Group>(null);
+  const gewinkt = useRef(false);
+  useFrame((_, dt) => {
+    const g = gruppe.current, p = ziel.current?.position;
+    if (g && p) {
+      const wp = g.getWorldPosition(new THREE.Vector3());
+      const d = Math.hypot(p.x - wp.x, p.z - wp.z);
+      if (d < WINK_AB && !gewinkt.current) {
+        gewinkt.current = true;
+        clips.wink.reset().play();
+        clips.idle.crossFadeTo(clips.wink, 0.2, false);
+        // Nach dem Winken zurueck ins Stehen — der Mixer meldet das Ende.
+        const zurueck = () => { clips.wink.crossFadeTo(clips.idle.reset().play(), 0.3, false); mixer.removeEventListener('finished', zurueck); };
+        mixer.addEventListener('finished', zurueck);
+      }
+      if (d > WINK_AB * 2) gewinkt.current = false;
+    }
+    mixer.update(Math.min(dt, 0.1));
+  });
+  return (
+    <group ref={gruppe} rotation={[0, THREE.MathUtils.degToRad(blick), 0]}>
+      <primitive object={scene} />
+    </group>
+  );
+}
+
+export type OrtsArt = 'zuflucht' | 'bewohner';
+export interface Ortsmarke {
+  id: string; art: OrtsArt; position: [number, number, number];
+  /** Figur aus der Menschenkette (D143) — Bewohner mit Modell statt Silhouette. */
+  figur?: string;
+  /** Blickrichtung in Grad wie `?absetzen=`. */
+  blick?: number;
+}
+
+function Orte({ orte, ziel, onNah, rand }: {
   orte: Ortsmarke[];
   ziel: React.RefObject<THREE.Object3D | null>;
   /** Der nächste Ort in Reichweite, oder null. Wird nur bei Wechsel gerufen. */
   onNah?: (id: string | null) => void;
+  rand: { farbe: string; staerke: number };
 }) {
   const pfahl = useMemo(() => {
     const g = new THREE.BoxGeometry(0.14, 2.2, 0.14);
@@ -1279,6 +1347,8 @@ function Orte({ orte, ziel, onNah }: {
               <mesh geometry={pfahl} material={holz} castShadow receiveShadow />
               <mesh geometry={balken} material={holz} castShadow />
             </>
+          ) : o.figur ? (
+            <Mensch figur={o.figur} blick={o.blick ?? 0} ziel={ziel} rand={rand} />
           ) : (
             <mesh geometry={figur} material={tuch} castShadow receiveShadow />
           )}
@@ -1916,12 +1986,20 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
 }
 
 /**
- * Sichtbare Figur am Spieleranker — die Größenreferenz für alles andere.
+ * Die Spielerfigur — seit D143 ein **SkinnedMesh** aus der Menschenkette
+ * (`tools/menschbau.py`, Quaternius CC0), nicht mehr die geloftete Figur aus
+ * Teilen (D139, `figur.ts` bleibt als Rueckfall und fuer die Masse HUEFTE/SCHULTER).
  *
- * Dreht sich mit `gier` und **geht**: Beine und Arme schwingen gegenläufig um Hüfte
- * und Schulter, der Rumpf hebt sich zweimal je Schritt. Kein Rig, kein Skinning —
- * vier Rotationen und ein Versatz je Bild. Der Unterschied zum vorherigen Zustand
- * ist trotzdem der zwischen „gleitet über den Boden" und „läuft".
+ * Ein Tier atmet und geht im Shader; ein Mensch braucht Huefte, Knie und
+ * Ellbogen, und die liefert das Rig des Pakets billiger als jede Formel: ein
+ * Draw Call, 24 Knochen, vier Clips (Idle, Idle_Neutral, Walk, Run). Der
+ * `AnimationMixer` blendet nach Tempo: steht → Idle, geht → Walk, rennt → Run;
+ * die Abspielgeschwindigkeit folgt dem Tempo, damit die Fuesse nicht rutschen.
+ * Das Material ist dasselbe Wind-/Randmaterial wie bei den Kreaturen —
+ * three.js setzt USE_SKINNING selbst, die Injektionen laufen vor dem Skinning.
+ *
+ * ⚠️ Reiten (D93): Im Sattel spielt die Figur Idle und wird um den Widerrist
+ * angehoben — eine Sitzpose ueber die Knochen ist noch nicht gebaut.
  */
 function SpielerFigur({ gier, schritt, rand, reittier }: {
   gier: React.RefObject<number>;
@@ -1930,65 +2008,59 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
   /**
    * Silhouette und Widerristhöhe des Reittiers, oder null.
    *
-   * Der Reiter wird um die Widerristhöhe angehoben und hört auf zu gehen — die
-   * Beine schwingen im Sattel nicht. Was sich stattdessen bewegt, ist das Tier,
-   * und zwar mit derselben Schrittphase: Ein Reittier mit eigener Frequenz sähe
-   * aus, als rutschte der Reiter darauf herum.
+   * Der Reiter wird um die Widerristhöhe angehoben; was sich bewegt, ist das
+   * Tier, mit derselben Schrittphase wie bisher.
    */
   reittier?: { geometrie: THREE.BufferGeometry; hoehe: number } | null;
 }) {
-  const teile = useMemo(() => baueSpielerTeile(), []);
+  const { scene, animations } = useGLTF('/figuren/wanderin.glb');
   const { material, setzeRand } = useMemo(() => baueWindMaterial({
     amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
   }), []);
   useEffect(() => {
     setzeRand(new THREE.Color(rand.farbe), rand.staerke);
   }, [setzeRand, rand]);
-  const gruppe = useRef<THREE.Group>(null);
-  const rumpf = useRef<THREE.Group>(null);
-  const beinL = useRef<THREE.Mesh>(null);
-  const beinR = useRef<THREE.Mesh>(null);
-  const armL = useRef<THREE.Mesh>(null);
-  const armR = useRef<THREE.Mesh>(null);
+  // Material tauschen und Schatten setzen — einmal je Szene.
+  useEffect(() => {
+    scene.traverse(o => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
+    });
+  }, [scene, material]);
+  const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
+  const clips = useMemo(() => {
+    const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
+    const clip = (n: string) => mixer.clipAction(finde(n));
+    const idle = clip('Idle'), walk = clip('Walk'), run = clip('Run');
+    for (const c of [idle, walk, run]) { c.enabled = true; c.setEffectiveWeight(0); c.play(); }
+    idle.setEffectiveWeight(1);
+    return { idle, walk, run, aktiv: idle as THREE.AnimationAction };
+  }, [mixer, animations]);
+  useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
 
+  const gruppe = useRef<THREE.Group>(null);
   const reiter = useRef<THREE.Group>(null);
   const tier = useRef<THREE.Group>(null);
 
-  useFrame((state) => {
+  useFrame((_, dt) => {
     if (gruppe.current) gruppe.current.rotation.y = gier.current;
     const { phase, tempo } = schritt.current;
-    // Ausschlag wächst mit dem Tempo und läuft bei Stillstand aus, statt hart
-    // einzurasten — sonst zuckt die Figur bei jedem Loslassen.
     const stark = Math.min(1, tempo / RENNEN);
-    // Im Sattel schwingen die Beine nicht. Sie hängen, und der Reiter wippt.
-    const schwung = reittier ? 0 : Math.sin(phase) * (0.35 + 0.45 * stark);
-    if (beinL.current) beinL.current.rotation.x = reittier ? 0.9 : schwung;
-    if (beinR.current) beinR.current.rotation.x = reittier ? 0.9 : -schwung;
-    if (armL.current) armL.current.rotation.x = reittier ? 0.5 : -schwung * 0.7;
-    if (armR.current) armR.current.rotation.x = reittier ? 0.5 : schwung * 0.7;
-    // Zweimal je Schritt auf und ab — einmal je Fuß.
-    if (rumpf.current) {
-      rumpf.current.position.y = Math.abs(Math.cos(phase)) * 0.055 * stark;
-      // Atmen im Stand (D139): der Rumpf wird quer 1,2 % breiter und schmaler,
-      // 1,4 rad/s wie die Tiere (D136). Beim Gehen läuft es aus — dort trägt
-      // der Schritt die Bewegung.
-      rumpf.current.scale.x = 1 + 0.012 * (1 - stark) * Math.sin(state.clock.elapsedTime * 1.4);
+    // Clip nach Tempo, weich ueberblendet; im Sattel immer Idle.
+    const ziel = reittier || tempo < 0.15 ? clips.idle : tempo < 5.5 ? clips.walk : clips.run;
+    if (ziel !== clips.aktiv) {
+      clips.aktiv.crossFadeTo(ziel, 0.25, false);
+      clips.aktiv = ziel;
     }
+    // Abspielgeschwindigkeit an das Tempo koppeln: Walk ist bei 1,0 etwa 1,5 m/s,
+    // Run etwa 6 m/s — darunter rutschen die Fuesse, darueber trippeln sie.
+    clips.walk.timeScale = Math.max(0.8, Math.min(2.4, tempo / 1.7));
+    clips.run.timeScale = Math.max(0.8, Math.min(1.8, tempo / 6.5));
+    mixer.update(Math.min(dt, 0.1));
 
     if (reittier) {
-      // Reiter und Tier teilen sich die Phase. Der Reiter wippt in halber
-      // Frequenz und mit größerem Ausschlag — das ist der Unterschied zwischen
-      // „sitzt auf etwas" und „steht daneben".
-      /**
-       * **Minus `HUEFTE`.** Der Ursprung der Spielerfigur sind ihre Füße; wer sie
-       * um die Widerristhöhe anhebt, stellt sie auf den Rücken des Tieres statt
-       * sie daraufzusetzen — eine ganze Hüfthöhe zu hoch, und im Bild schwebt der
-       * Reiter über seinem Reittier. Genau das war am 26.08.2026 zu sehen.
-       * Gesetzt wird die **Hüfte** auf den Widerrist; die Beine hängen von dort.
-       */
       if (reiter.current) {
-        reiter.current.position.y =
-          reittier.hoehe - HUEFTE + Math.sin(phase * 0.5) * 0.06 * stark;
+        reiter.current.position.y = reittier.hoehe - HUEFTE + Math.sin(phase * 0.5) * 0.06 * stark;
       }
       if (tier.current) {
         tier.current.position.y = Math.abs(Math.cos(phase)) * 0.05 * stark;
@@ -2007,21 +2079,12 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
         </group>
       )}
       <group ref={reiter}>
-      <group ref={rumpf}>
-        <mesh geometry={teile.rumpf} material={material} castShadow receiveShadow />
-        <mesh ref={armL} geometry={teile.arm} material={material}
-              position={[-0.28, SCHULTER, 0]} castShadow />
-        <mesh ref={armR} geometry={teile.arm} material={material}
-              position={[0.28, SCHULTER, 0]} castShadow />
-      </group>
-      <mesh ref={beinL} geometry={teile.bein} material={material}
-            position={[-0.11, HUEFTE, 0]} castShadow />
-      <mesh ref={beinR} geometry={teile.bein} material={material}
-            position={[0.11, HUEFTE, 0]} castShadow />
+        <primitive object={scene} />
       </group>
     </group>
   );
 }
+useGLTF.preload('/figuren/wanderin.glb');
 
 /** Näher als das kommt die Kamera nicht — darunter steckt sie in der Figur. */
 const KAMERA_MIN = 1.3;
@@ -2228,7 +2291,7 @@ export interface RegionsSzeneProps {
   gelesen?: ReadonlySet<string>;
   onFund?: (id: string) => void;
   /** Zufluchten und Bewohner in Weltkoordinaten (x, z). */
-  orte?: { id: string; art: OrtsArt; ort: [number, number] }[];
+  orte?: { id: string; art: OrtsArt; ort: [number, number]; figur?: string; blick?: number }[];
   /** ID des nächsten Ortes in Reichweite, oder null. Nur bei Wechsel gerufen. */
   onOrtNah?: (id: string | null) => void;
   /** Startposition; ohne Angabe die Regionsmitte. Der Spielstand setzt sie. */
@@ -2374,7 +2437,7 @@ export function RegionsSzene({
 
   const ortsmarken = useMemo<Ortsmarke[]>(
     () => (orte ?? []).map(o => ({
-      id: o.id, art: o.art,
+      id: o.id, art: o.art, figur: o.figur, blick: o.blick,
       position: [o.ort[0], hoeheAufFlaeche(feld, o.ort[0], o.ort[1]), o.ort[1]],
     })),
     [orte, feld],
@@ -2435,7 +2498,7 @@ export function RegionsSzene({
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
       )}
       {ortsmarken.length > 0 && (
-        <Orte orte={ortsmarken} ziel={ref} onNah={onOrtNah} />
+        <Orte orte={ortsmarken} ziel={ref} onNah={onOrtNah} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       )}
       {regent && regentOrt && (
         <Regentenort ort={regentOrt} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />

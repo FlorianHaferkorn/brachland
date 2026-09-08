@@ -15,6 +15,7 @@ shelf-life-days: 90
 |---|---|
 | `world/oental.json` | Weltdaten für Œntal — 1,05 MB. Höhenraster, Biome, OSM-Geometrie, Spawn-Zonen. Erzeugt mit `npm run world oental 96` |
 | `creatures/*.glb` + `creatures/register.json` | 14 Kreaturmodelle aus `tools/kreaturbau.py` (D104–D109, D124), das Register sagt der Szene, welche Art ein Modell hat; Herkunft je Datei in `../assets/HERKUNFT.md` |
+| `figuren/*.glb` + `figuren/register.json` | Menschen aus `tools/menschbau.py` (D143): `wanderin.glb` (Spielfigur) und die Bewohner `bauer`, `baeuerin`, `arbeiter`, `werkfrau`, `wanderer` — SkinnedMesh mit Skin, Animationen, COLOR_0; Quaternius CC0, Herkunft in `../assets/HERKUNFT.md` |
 | `herkunft.json` | Die Modelle-Tabelle aus `../assets/HERKUNFT.md` als JSON, geschrieben von `npm run herkunft` (D127) — ins Bündel importiert, damit die CC-BY-Nennung im Menü auch offline steht. `npm run quality` blockt, wenn JSON und Tabelle auseinanderliegen |
 | `props/*.glb` | 36 **prozedurale** Attrappen, gebaut mit `npm run props:bau` (D120, vorher Kenney Nature Kit 2.1 CC0, D74): Busch, Grasbüschel, Findling, Totholz, Blume, Pilz je 6 Varianten, Median 219 Dreiecke (Korridor D111), zusammen **328 KB** quantisiert. Bis zum 07.09.2026 **92 KB** aus Kenney — weniger als die 23 Modelle davor, weil die acht Baum-GLB weg sind (Bäume sind prozedural, D40) und weil UV und Material aus den Dateien fliegen. Jedes Modell: **ein** Primitiv, Farbe als `COLOR_0` in der Projektpalette, Höhe in echten Metern. `npm run quality` blockt, wenn eines davon nicht stimmt (G-76) |
 

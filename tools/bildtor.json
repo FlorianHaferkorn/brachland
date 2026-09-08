@@ -6,7 +6,7 @@
       "ort": "-1620,-1620,40",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 0.6,
+      "leer": 0.5,
       "dunkel": 95.4,
       "median": 0.003
     },
@@ -16,8 +16,8 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 7.6,
-      "median": 0.207
+      "dunkel": 7.8,
+      "median": 0.208
     },
     {
       "name": "Felsflanke",
@@ -26,7 +26,7 @@
       "stimmung": "nebelmorgen",
       "leer": 0,
       "dunkel": 7.5,
-      "median": 0.172
+      "median": 0.174
     },
     {
       "name": "Felsflanke",
@@ -34,7 +34,7 @@
       "zeit": 0.78,
       "stimmung": "abendrot",
       "leer": 0,
-      "dunkel": 1.3,
+      "dunkel": 1.2,
       "median": 0.117
     },
     {
@@ -42,8 +42,8 @@
       "ort": "900,-400,200",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 0.3,
-      "dunkel": 99.6,
+      "leer": 0.2,
+      "dunkel": 99.8,
       "median": 0.011
     },
     {
@@ -52,7 +52,7 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 1,
+      "dunkel": 0.5,
       "median": 0.255
     },
     {
@@ -61,7 +61,7 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 1.4,
+      "dunkel": 1.6,
       "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
       "median": 0.19
     },
@@ -71,7 +71,7 @@
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
       "leer": 0,
-      "dunkel": 2.4,
+      "dunkel": 2.5,
       "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
       "median": 0.156
     },
@@ -80,8 +80,8 @@
       "ort": "-800,600,90",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 1.7,
-      "dunkel": 95.5,
+      "leer": 0.8,
+      "dunkel": 94.9,
       "median": 0.002
     },
     {
@@ -90,17 +90,17 @@
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
       "leer": 0,
-      "dunkel": 5.4,
-      "median": 0.082
+      "dunkel": 5.5,
+      "median": 0.08
     },
     {
       "name": "Fenster",
       "ort": "1068,850,-90",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 0.2,
-      "dunkel": 87.3,
-      "median": 0.009,
+      "leer": 0,
+      "dunkel": 99.7,
+      "median": 0.004,
       "hinweis": "Zwei Haeuser am Wehr bei Nacht (D134): misst die Fensterglut — „hell“ ist hier das Mass, nicht der Median. Am Wehr statt im Dorf, weil hier zwei Haeuser das Bild fuellen"
     },
     {
@@ -109,8 +109,8 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 4.2,
-      "median": 0.166,
+      "dunkel": 3.1,
+      "median": 0.253,
       "hinweis": "Das dichteste Dorf der Region (128 Gebaeude im 3x3-Fenster um 1350/450), Blick nach Norden auf den Ortskern. Seit G-126"
     },
     {
@@ -119,8 +119,8 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 4.4,
-      "median": 0.198,
+      "dunkel": 3.2,
+      "median": 0.199,
       "hinweis": "Slice-Mitte (D113): 38 m bachabwaerts des Flussvaters, Blick nach Westen den Bach entlang — Wasser vorn, Klaeranlage rechts, Hang links. Der erste Standpunkt (40 m noerdlich, Blick Sued) stand in einem Gebaeude. Seit G-126"
     },
     {
@@ -129,8 +129,8 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 2.9,
-      "median": 0.214,
+      "dunkel": 2.8,
+      "median": 0.215,
       "hinweis": "Becken am Flussvater (D123): Blick nach Sueden ueber das Stauwehr-Becken, Wasser links und unten, Bach im Kammschatten. Grundwert vorlaeufig, bis der erste --neu-Lauf ihn schreibt"
     }
   ]

@@ -14,7 +14,7 @@ owns: *.json
 | Deine Aufgabe ist … | Lies |
 |---|---|
 | Eine Zuflucht anlegen | `unterstand-mitte.json` als Muster → `../../src/data/schema.ts` (`Ort`) |
-| Einen Bewohner anlegen | `hof-tremmel.json` → danach **mindestens einen Auftrag** in `../auftraege/` |
+| Einen Bewohner anlegen | `hof-tremmel.json` → danach **mindestens einen Auftrag** in `../auftraege/`. Mit `figur` (D144: `bauer`, `baeuerin`, `arbeiter`, `werkfrau`, `wanderer`) und `blick` (Grad wie `?absetzen=`) steht ein Mensch statt der Kapsel — der Ort muss **vor** dem Haus liegen, nicht im Grundriss |
 | Verstehen, was Rasten tut | `../../src/main.tsx` (`raste`) |
 | Marke und Radius ändern | `../../src/scenes/RegionsSzene.tsx` (`Orte`, `ORT_AB`) |
 

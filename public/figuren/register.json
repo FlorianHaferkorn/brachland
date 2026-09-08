@@ -1,0 +1,18 @@
+{
+ "figuren": [
+  "arbeiter",
+  "baeuerin",
+  "bauer",
+  "wanderer",
+  "wanderin",
+  "werkfrau"
+ ],
+ "kb": {
+  "wanderin": 193.7,
+  "bauer": 136.1,
+  "arbeiter": 124.5,
+  "baeuerin": 147.0,
+  "werkfrau": 153.5,
+  "wanderer": 138.5
+ }
+}

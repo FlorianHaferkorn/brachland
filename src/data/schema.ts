@@ -251,6 +251,13 @@ export const Ort = z.object({
   ort: z.tuple([z.number(), z.number()]),
   /** Ein Satz, der beim Ansprechen oben steht. Kein Dialog, eine Feststellung. */
   text: z.string().max(240),
+  /**
+   * Figur aus der Menschenkette (`public/figuren/<figur>.glb`, D143) — nur für
+   * `bewohner`. Ohne Angabe steht die karge Silhouette wie bisher.
+   */
+  figur: z.enum(['wanderin', 'bauer', 'baeuerin', 'arbeiter', 'werkfrau', 'wanderer']).optional(),
+  /** Blickrichtung in Grad, 0 = Nord, positiv nach links wie `?absetzen=`. */
+  blick: z.number().optional(),
 });
 export type Ort = z.infer<typeof Ort>;
 

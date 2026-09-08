@@ -263,7 +263,7 @@ function App() {
    */
   const ortsmarken = useMemo(
     () => (welt
-      ? [...ORTE.values()].map(o => ({ id: o.id, art: o.art, ort: nachMetern(o.ort, welt.bbox) }))
+      ? [...ORTE.values()].map(o => ({ id: o.id, art: o.art, ort: nachMetern(o.ort, welt.bbox), figur: o.figur, blick: o.blick }))
       : []),
     [welt],
   );

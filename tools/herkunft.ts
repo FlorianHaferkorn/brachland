@@ -4,7 +4,7 @@
  * CC BY verlangt die Namensnennung **dort, wo das Werk gezeigt wird** (D127).
  * Die Tabelle in `assets/HERKUNFT.md` ist die eine Quelle — das Tor prüft sie
  * gegen die Dateien —, aber `assets/` wird nicht ausgeliefert. Dieses Werkzeug
- * liest die Tabelle „## Modelle" und schreibt sie als JSON nach `public/`, wo
+ * liest die Tabellen „## Modelle" und „## Menschen" und schreibt sie als JSON nach `public/`, wo
  * das Verzeichnis im Menü sie unter „Herkunft" zeigt. Keine zweite Pflege:
  * Wer die Tabelle ändert, lässt `npm run herkunft` laufen; `npm run quality`
  * blockt, wenn JSON und Tabelle auseinanderliegen.
@@ -21,11 +21,15 @@ export interface Herkunft {
 
 export function leseHerkunft(pfad = 'assets/HERKUNFT.md'): Herkunft[] {
   const text = readFileSync(pfad, 'utf8');
-  const ab = text.indexOf('## Modelle');
-  const bis = text.indexOf('\n## ', ab + 1);
-  const block = text.slice(ab, bis < 0 ? undefined : bis);
+  // Beide Tabellen: Kreaturen (## Modelle) und Menschen (## Menschen, D143).
+  const bloecke = ['## Modelle', '## Menschen'].map(kopf => {
+    const ab = text.indexOf(kopf);
+    if (ab < 0) return '';
+    const bis = text.indexOf('\n## ', ab + 1);
+    return text.slice(ab, bis < 0 ? undefined : bis);
+  });
   const zeilen: Herkunft[] = [];
-  for (const zeile of block.split('\n')) {
+  for (const zeile of bloecke.join('\n').split('\n')) {
     if (!zeile.startsWith('| `')) continue;
     const felder = zeile.split('|').slice(1, -1).map(f => f.trim());
     if (felder.length < 5) continue;

@@ -239,6 +239,8 @@ export const PALETTE = {
     gepaeck:  '#8a7455',
     rolle:    '#a89a86',
     riemen:   '#3a332c',
+    /** Haar der Menschen aus der Menschenkette (D143) — dunkles Braun, Y 0,05. */
+    haar:     '#4a3a2e',
   },
 
   /**

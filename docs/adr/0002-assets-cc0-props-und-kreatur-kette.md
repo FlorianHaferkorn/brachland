@@ -239,3 +239,13 @@ Für diese Kette gilt deshalb ab heute:
 3. **Listen kommen aus dem Werkzeug**, das sie erzeugt (`register.json`), nie aus
    einer zweiten Abschrift im Code.
 4. **Ein Befund braucht ein Bild aus dem Bau, der geprüft wird** — nie aus dem davor.
+
+## Nachtrag 08.09.2026 — Menschen aus CC0-Paketen (D143)
+
+Spielfigur und Bewohner kommen aus den Quaternius-Paketen *Ultimate Modular
+Women/Men* — CC0, also **innerhalb dieses ADR**, keine Abweichung wie bei den
+CC-BY-Kreaturen (31.08.2026). Eigene Kette `tools/menschbau.py`, weil hier das
+Rig bleibt: Ein Mensch geht ueber Skin und Animation, nicht ueber den Shader.
+Genommen werden nur Figuren, die auf quaternius.com **und** poly.pizza als CC0
+stehen; fuenf Women-Figuren fuehrt poly.pizza als CC BY 3.0 und sie bleiben
+draussen, bis die Lizenz geklaert ist.

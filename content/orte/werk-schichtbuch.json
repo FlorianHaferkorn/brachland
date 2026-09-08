@@ -3,6 +3,11 @@
   "region": "oental",
   "art": "bewohner",
   "name": "Die Frau am Werkstor",
-  "ort": [47.72238, 12.09897],
-  "text": "Sie sitzt vor dem Tor, nicht dahinter. Drinnen laufen die Hunde, sagt sie, und sie laufen immer noch die Runde, die im Plan steht — links am Kesselhaus vorbei, dann die Halle entlang, dann zurück. Achtzehn Jahre, dieselbe Runde."
+  "ort": [
+    47.72238,
+    12.09897
+  ],
+  "text": "Sie sitzt vor dem Tor, nicht dahinter. Drinnen laufen die Hunde, sagt sie, und sie laufen immer noch die Runde, die im Plan steht — links am Kesselhaus vorbei, dann die Halle entlang, dann zurück. Achtzehn Jahre, dieselbe Runde.",
+  "figur": "werkfrau",
+  "blick": -60
 }

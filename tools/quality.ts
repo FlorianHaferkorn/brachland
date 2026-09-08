@@ -238,12 +238,45 @@ if (existsSync('public/creatures')) {
       stop('Assets', `ohne Herkunftsangabe: ${ohne.join(', ')} — CC-BY verlangt die Nennung`);
     // Rückrichtung: Zeilen, die auf nichts zeigen.
     const genannt = [...herkunft.matchAll(/`([a-z0-9-]+\.glb)`/g)].map(m => m[1]);
-    const tot = genannt.filter(n => !dateien.includes(n));
+    const figuren = existsSync('public/figuren') ? readdirSync('public/figuren') : [];
+    const tot = genannt.filter(n => !dateien.includes(n) && !figuren.includes(n));
     if (tot.length)
       warn('Assets', `HERKUNFT.md nennt Dateien, die es nicht gibt: ${tot.join(', ')}`);
     if (!ohne.length)
       console.log(`  · [Assets] ${dateien.length} Kreaturmodelle, alle mit Herkunft belegt`);
   }
+}
+
+/**
+ * Menschen (`public/figuren`, D143): Herkunft, Budget, Attribute.
+ *
+ * Dieselben drei Fragen wie bei den Kreaturen, mit anderen Antworten: Ein
+ * Mensch traegt ein Skin (`JOINTS_0+WEIGHTS_0`), also mehr Attribute, und mit
+ * Animationen mehr Bytes — 250 KB je Datei statt 190. Keine UV, keine
+ * Normalen (G-131); wer beides mitbringt, hat die Kette umgangen.
+ */
+if (existsSync('public/figuren')) {
+  const dateien = readdirSync('public/figuren').filter(f => f.endsWith('.glb'));
+  const herkunft = existsSync('assets/HERKUNFT.md') ? readFileSync('assets/HERKUNFT.md', 'utf8') : '';
+  const ohne = dateien.filter(f => !herkunft.includes(f));
+  if (ohne.length) stop('Menschen', `ohne Herkunftsangabe: ${ohne.join(', ')}`);
+  let gesamt = 0;
+  for (const f of dateien) {
+    const kb = statSync(join('public/figuren', f)).size / 1024;
+    gesamt += kb;
+    if (kb > 250) stop('Menschen', `${f}: ${kb.toFixed(0)} KB über Budget 250 KB — Animationen kuerzen (menschbau.py) oder packen (menschpack.ts)`);
+    const buf = readFileSync(join('public/figuren', f));
+    const g = JSON.parse(buf.subarray(20, 20 + buf.readUInt32LE(12)).toString('utf8'));
+    for (const m of g.meshes ?? []) for (const p of m.primitives ?? []) {
+      const attr = Object.keys(p.attributes ?? {}).sort().join('+');
+      if (attr !== 'COLOR_0+JOINTS_0+POSITION+WEIGHTS_0')
+        stop('Menschen', `${f} traegt ${attr} — erlaubt ist COLOR_0+JOINTS_0+POSITION+WEIGHTS_0`);
+    }
+    if (!(g.skins?.length) || !(g.animations?.length))
+      stop('Menschen', `${f} ohne Skin oder Animation — ein Mensch ohne Rig steht wie ein Pfahl`);
+  }
+  if (!ohne.length)
+    console.log(`  · [Menschen] ${dateien.length} Figuren mit Skin, Animation und Herkunft, zusammen ${gesamt.toFixed(0)} KB`);
 }
 
 /**
