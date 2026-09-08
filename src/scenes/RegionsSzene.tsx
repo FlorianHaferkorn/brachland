@@ -2152,6 +2152,8 @@ function richte(k: THREE.Object3D | null, figur: THREE.Object3D, ziel: THREE.Vec
 }
 /** Hueftgelenk-Abstand von der Mitte und Oberschenkellaenge der Wanderin (aus dem Rig gelesen). */
 const HUEFTE_HALB = 0.11, OBERSCHENKEL = 0.47;
+/** Schritt unter dem Hueftgelenk (Wanderin: 1,02 − 0,80 m). */
+const SCHRITT_UNTER_HUEFTE = 0.22;
 const _ober = new THREE.Vector3();
 /**
  * @param breite halbe Rumpfbreite des Tiers am Sitz — die Knie muessen aussen
@@ -2318,13 +2320,17 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
   }, [scene]);
   /**
    * Hoehe des Hueftgelenks in der Ruhepose, aus dem Modell gelesen (Wanderin:
-   * 1,02 m), nicht aus `HUEFTE` (0,85, die alte Figur): Der Sitz liegt eine
-   * Handbreit unter dem Gelenk — so weit wird die Figur im Sattel abgesenkt.
+   * 1,02 m), nicht aus `HUEFTE` (0,85, die alte Figur). Der Sitz ist der
+   * **Schritt**, und der liegt in der Datei 0,22 m unter dem Gelenk (tiefster
+   * Punkt der Mittellinie zwischen den Beinen: 0,80 m, gemessen mit
+   * gltf-transform) — so weit wird die Figur im Sattel abgesenkt. Bis D149
+   * waren es 0,10: Die Reiterin steckte bis zum Guertel im Tier, und die
+   * Oberschenkel begannen in seinem Rumpf.
    */
   const sitzTiefe = useMemo(() => {
     scene.updateMatrixWorld(true);
     const y = beine.ol ? beine.ol.getWorldPosition(new THREE.Vector3()).y - scene.getWorldPosition(new THREE.Vector3()).y : HUEFTE;
-    return y - 0.10;
+    return y - SCHRITT_UNTER_HUEFTE;
   }, [scene, beine]);
   /** 0 = steht, 1 = sitzt; wird in 0,3 s ueberblendet. */
   const sitz = useRef(0);
