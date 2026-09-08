@@ -218,3 +218,24 @@ ist 2026 uneinheitlich. ~~Hunyuan3D ist laut Anbieter kommerziell nutzbar, vor e
 Veröffentlichung ist das erneut zu prüfen.~~ — **Geprüft am 20.08.2026, siehe Nachtrag:
 Hunyuan3D schließt die EU ausdrücklich aus, Tripos Gratistarif räumt gar keine Rechte
 ein. Der Generierungsweg ist auf SPAR3D umgestellt.**
+
+## Nachtrag 08.09.2026 — Der Prüfstand ist die Szene (D137, zum 07.09.)
+
+Vier Befunde an einem Tag, alle mit demselben Kern: Ein Werkzeug hatte eine
+**Näherung** der Szene geprüft, und die Abweichung war der Fehler. Blender rendert
+doppelseitig — die Häuser standen innen nach aussen (G-128). Eine Liste im Code
+kannte fünf Modelle, das Register der Kette vierzehn (G-129). `anbaubild.ts` legte
+Körper und Anbau nebeneinander, die Szene fasst sie mit `mergeGeometries` — neun
+Anbauten gingen still verloren, weil die Poly-Modelle ein UV-Attribut trugen
+(G-131). Ein Befund kam aus dem Bau, in dem gerade alle Häuser fehlten (G-132).
+
+Für diese Kette gilt deshalb ab heute:
+
+1. **Jede Änderung an Kette, Attributen oder Material wird im Spiel angesehen** —
+   aus der Nähe, mit Konsole (`.cache/mess/konsole.mjs`). Ein Blender-Bild beweist
+   Geometrie, nicht Draw Calls.
+2. **Kein stiller Rückfall.** Was nicht zusammenpasst, meldet (`console.error`) oder
+   blockt im Tor. Kreaturmodelle tragen genau `COLOR_0+POSITION`, das Tor prüft es.
+3. **Listen kommen aus dem Werkzeug**, das sie erzeugt (`register.json`), nie aus
+   einer zweiten Abschrift im Code.
+4. **Ein Befund braucht ein Bild aus dem Bau, der geprüft wird** — nie aus dem davor.

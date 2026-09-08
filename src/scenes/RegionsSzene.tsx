@@ -838,11 +838,46 @@ export interface Naehe {
 /** So weit muss man sich nach einer Begegnung entfernen, bevor die nächste zählt. */
 const SPERRE_BIS = 14;
 
-function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbraucht, rand }: {
+/**
+ * Bewegung einer Kreatur im Raum (D138): ein langsamer Zufallsgang um den
+ * Spawn, mit Stehen dazwischen. Der Zustand lebt ausserhalb von React — er
+ * aendert sich jedes Bild, und ein Re-Render je Bild fuer 40 Tiere ist genau
+ * das, was `nah` als State vermeiden soll.
+ */
+interface Lauf {
+  x: number; y: number; z: number;
+  /** Blickrichtung um die Hochachse; das Modell schaut nach −Z. */
+  kurs: number;
+  /** 1 = geht, 0 = steht; `gang` blendet weich dazwischen. */
+  tempo: number;
+  gang: number;
+  /** Zeitpunkt (Uhr der Szene), an dem der aktuelle Zustand endet. */
+  bis: number;
+  /** Spawn — weiter als `LAUF_RADIUS` entfernt sich das Tier nicht. */
+  x0: number; z0: number;
+}
+/** Umkreis um den Spawn, in dem ein Tier umhergeht. */
+const LAUF_RADIUS = 10;
+/** Schrittgeschwindigkeit in m/s — ein Tier, das aest, nicht eines, das flieht. */
+const LAUF_TEMPO = 0.5;
+/** Naeher als das steht das Tier still und sieht her: Es hat den Spieler bemerkt. */
+const LAUF_AUFMERKEN = 9;
+/** Arten, die an ihrem Ort bleiben — der Biber im Bach. */
+const BLEIBT_STEHEN = new Set(['kiemenbiber']);
+/** Deterministischer Wuerfel je Kreatur, damit Laeufe reproduzierbar sind. */
+function laufWuerfel(id: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
+  return () => { h = Math.imul(h ^ (h >>> 15), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
+}
+
+function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbraucht, rand, hoeheAn }: {
   vorkommen: Vorkommen[];
   gestalt: (kreatur: string, mutation?: number) => THREE.BufferGeometry;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
+  /** Hoehe der gezeichneten Flaeche — ein gehendes Tier bleibt auf dem Boden (D138). */
+  hoeheAn: (x: number, z: number) => number;
   /** Wird jedes Bild beschrieben: nächste Kreatur, Abstand und Richtung relativ zum Blick. */
   naehe?: React.RefObject<Naehe>;
   onBegegnung?: (v: Vorkommen) => void;
@@ -860,6 +895,18 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
   // Kreatur. Ohne Abstandssperre startet der Kampf im nächsten Bild erneut.
   const sperre = useRef<THREE.Vector3 | null>(null);
   const naechste = useRef<{ x: number; z: number; kreatur: string } | null>(null);
+  const laeufe = useRef(new Map<string, Lauf>());
+  const wuerfel = useRef(new Map<string, () => number>());
+  const laufVon = (v: Vorkommen): Lauf => {
+    let l = laeufe.current.get(v.id);
+    if (!l) {
+      l = { x: v.position[0], y: v.position[1], z: v.position[2], kurs: v.drehung,
+            tempo: 0, gang: 0, bis: 0, x0: v.position[0], z0: v.position[2] };
+      laeufe.current.set(v.id, l);
+      wuerfel.current.set(v.id, laufWuerfel(v.id));
+    }
+    return l;
+  };
 
   // Kreaturen sind das, wonach der Spieler sucht — ihr Umriss muss vom Hang
   // wegstehen. Wind bekommen sie keinen (Amplitude 0): Ein schwingendes Tier
@@ -880,10 +927,52 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
     setzeRand(new THREE.Color(rand.farbe), rand.staerke * 1.4);
   }, [setzeRand, rand]);
 
-  useFrame((state) => {
+  useFrame((state, dt) => {
     setzeZeit(state.clock.elapsedTime);
     const p = ziel.current?.position;
     if (!p) return;
+
+    /**
+     * Gang (D138): Jedes nahe Tier mit Modell wechselt zwischen Gehen (2–6 s) und
+     * Stehen (3–9 s), Ziel ist ein Punkt im `LAUF_RADIUS` um den Spawn. Sieht es
+     * den Spieler naeher als `LAUF_AUFMERKEN`, bleibt es stehen und dreht sich
+     * ihm zu — das ist die Begegnung, die man sucht, nicht ein Tier, das einem
+     * in den Ruecken laeuft. Hoehe jedes Bild vom Boden; kein Kollisionstest
+     * gegen Baeume (offen).
+     */
+    const t = state.clock.elapsedTime;
+    const schritt = Math.min(dt, 0.1);
+    for (const v of nah) {
+      if (!MIT_MODELL.has(v.kreatur)) continue;
+      const l = laufVon(v);
+      const w = wuerfel.current.get(v.id)!;
+      const dSpieler = Math.hypot(p.x - l.x, p.z - l.z);
+      if (BLEIBT_STEHEN.has(v.kreatur)) { l.tempo = 0; }
+      else if (dSpieler < LAUF_AUFMERKEN) {
+        l.tempo = 0;
+        const zielKurs = Math.atan2(-(p.x - l.x), -(p.z - l.z));
+        let dk = zielKurs - l.kurs;
+        dk = Math.atan2(Math.sin(dk), Math.cos(dk));
+        l.kurs += dk * Math.min(1, schritt * 1.5);
+        l.bis = t + 2;
+      } else if (t >= l.bis) {
+        if (l.tempo > 0) { l.tempo = 0; l.bis = t + 3 + w() * 6; }
+        else {
+          const weit = Math.hypot(l.x - l.x0, l.z - l.z0);
+          const winkel = w() * Math.PI * 2, r = w() * LAUF_RADIUS;
+          const zx = weit > LAUF_RADIUS ? l.x0 : l.x0 + Math.cos(winkel) * r;
+          const zz = weit > LAUF_RADIUS ? l.z0 : l.z0 + Math.sin(winkel) * r;
+          l.kurs = Math.atan2(-(zx - l.x), -(zz - l.z));
+          l.tempo = 1; l.bis = t + 2 + w() * 4;
+        }
+      }
+      if (l.tempo > 0) {
+        l.x += -Math.sin(l.kurs) * LAUF_TEMPO * schritt;
+        l.z += -Math.cos(l.kurs) * LAUF_TEMPO * schritt;
+        l.y = hoeheAn(l.x, l.z);
+      }
+      l.gang += (l.tempo - l.gang) * Math.min(1, schritt * 3);
+    }
 
     // Bewusst als Ausschluss formuliert, nicht als Einschluss: Beim ersten Bild ist
     // `letzte` NaN, und `NaN >= x` ist false — die Liste waere nie gefuellt worden.
@@ -925,7 +1014,8 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
       sperre.current = null;
     }
     for (const v of nah) {
-      const d = Math.hypot(v.position[0] - p.x, v.position[2] - p.z);
+      const l = laeufe.current.get(v.id);
+      const d = l ? Math.hypot(l.x - p.x, l.z - p.z) : Math.hypot(v.position[0] - p.x, v.position[2] - p.z);
       if (d > BEGEGNUNG_AB) continue;
       sperre.current = p.clone();
       onBegegnung(v);
@@ -937,7 +1027,7 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
     <>
       {nah.map(v => (
         MIT_MODELL.has(v.kreatur)
-          ? <KreaturModell key={v.id} kreatur={v.kreatur} material={material}
+          ? <KreaturModell key={v.id} kreatur={v.kreatur} rand={rand} lauf={laufVon(v)}
                            position={v.position} drehung={v.drehung} mutation={v.mutation}
                            // Stufe 2 ist 15–25 % groesser, Stufe 3 nochmal — aus der Stilreferenz.
                            skalierung={1 + v.mutation * 0.2} />
@@ -961,15 +1051,38 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
  * Die Datei ist auf Widerristhöhe und Ursprung zwischen den Füßen genormt
  * (`tools/kreaturbau.py`) — hier bleibt deshalb nur die Mutationsskalierung.
  */
-function KreaturModell({ kreatur, material, position, drehung, mutation, skalierung }: {
+function KreaturModell({ kreatur, rand, lauf, position, drehung, mutation, skalierung }: {
   kreatur: string;
-  material: THREE.Material;
+  rand: { farbe: string; staerke: number };
+  /** Laufzustand (D138), jedes Bild von `Kreaturen` fortgeschrieben. */
+  lauf: Lauf;
   position: [number, number, number];
   drehung: number;
   mutation: number;
   skalierung: number;
 }) {
   const { scene } = useGLTF(`/creatures/${kreatur}.glb`);
+  /**
+   * Ein Material **je Tier**, nicht eines fuer alle (D138): Die Gangstaerke ist
+   * ein Uniform, und ein Uniform gilt je Material. Das Programm bleibt eines —
+   * derselbe `customProgramCacheKey` —, nur der Uniform-Satz ist je Tier.
+   * Atmen, Kopfwenden und Gang sitzen im selben Shader (`windmaterial.ts`).
+   */
+  const { material, setzeRand, setzeZeit, setzeGang } = useMemo(() => baueWindMaterial({
+    amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 1.4,
+    randSchaerfe: 1.6, atmen: true,
+  }), []);
+  useEffect(() => { setzeRand(new THREE.Color(rand.farbe), rand.staerke * 1.4); }, [setzeRand, rand]);
+  useEffect(() => () => { material.dispose(); }, [material]);
+  const mesh = useRef<THREE.Mesh>(null);
+  useFrame((state) => {
+    setzeZeit(state.clock.elapsedTime);
+    setzeGang(lauf.gang);
+    const m = mesh.current;
+    if (!m) return;
+    m.position.set(lauf.x, lauf.y, lauf.z);
+    m.rotation.y = lauf.kurs;
+  });
   /**
    * Grundkörper und Anbau werden **zusammengelegt**, nicht nebeneinander
    * gezeichnet.
@@ -1004,7 +1117,7 @@ function KreaturModell({ kreatur, material, position, drehung, mutation, skalier
   }, [scene, kreatur, mutation]);
   if (!geo) return null;
   return (
-    <mesh geometry={geo} material={material} position={position}
+    <mesh ref={mesh} geometry={geo} material={material} position={position}
           rotation={[0, drehung, 0]} scale={skalierung} castShadow receiveShadow />
   );
 }
@@ -1817,7 +1930,7 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
   const reiter = useRef<THREE.Group>(null);
   const tier = useRef<THREE.Group>(null);
 
-  useFrame(() => {
+  useFrame((state) => {
     if (gruppe.current) gruppe.current.rotation.y = gier.current;
     const { phase, tempo } = schritt.current;
     // Ausschlag wächst mit dem Tempo und läuft bei Stillstand aus, statt hart
@@ -1830,7 +1943,13 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
     if (armL.current) armL.current.rotation.x = reittier ? 0.5 : -schwung * 0.7;
     if (armR.current) armR.current.rotation.x = reittier ? 0.5 : schwung * 0.7;
     // Zweimal je Schritt auf und ab — einmal je Fuß.
-    if (rumpf.current) rumpf.current.position.y = Math.abs(Math.cos(phase)) * 0.055 * stark;
+    if (rumpf.current) {
+      rumpf.current.position.y = Math.abs(Math.cos(phase)) * 0.055 * stark;
+      // Atmen im Stand (D139): der Rumpf wird quer 1,2 % breiter und schmaler,
+      // 1,4 rad/s wie die Tiere (D136). Beim Gehen läuft es aus — dort trägt
+      // der Schritt die Bewegung.
+      rumpf.current.scale.x = 1 + 0.012 * (1 - stark) * Math.sin(state.clock.elapsedTime * 1.4);
+    }
 
     if (reittier) {
       // Reiter und Tier teilen sich die Phase. Der Reiter wippt in halber
@@ -2300,7 +2419,8 @@ export function RegionsSzene({
       {vorkommen.length > 0 && gestalt && (
         <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref} gier={gier}
                    naehe={naehe} onBegegnung={onBegegnung} verbraucht={verbraucht}
-                   rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
+                   rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
+                   hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} />
       <Kontur an={konturAn(true)} />

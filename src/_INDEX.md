@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-07
+last-reviewed: 2026-09-08
 shelf-life-days: 90
 owns: *.ts, *.tsx
 ---
@@ -48,7 +48,7 @@ owns: *.ts, *.tsx
 | Weltdatei holen, cachen, offline halten | `world/weltladen.ts` | `main.tsx`, `../vite.config.ts`, `../index.html` |
 | Menü, Karte, Beutel, Team, Verzeichnis | `ui/Menue.tsx` → `ui/karte.ts`, `spiel/team.ts` | `main.tsx`, `spiel/spielstand.ts` |
 | Steuerung anfassen (Tasten, Touch, Empfindlichkeit) | `spieler/steuerung.ts` | world/, engine/ |
-| Aussehen der Spielerfigur | `spieler/figur.ts` | world/ |
+| Aussehen der Spielerfigur | `spieler/figur.ts` | Spielerfigur, 1,8 m: eine **Wanderin** mit Kapuze, Jacke, Halstuch (der eine Akzent), Rucksack mit Rolle, Hose und Stiefeln, acht Töne aus `PALETTE.figur` (D126). Seit D139 **geloftet** (`loft()` aus Querschnittsringen um die Hochachse, acht Ecken, Fläche nach vorn), 1.148 Dreiecke, mit eingebackener Verschattung je Ecke (Saum, Kragen, Pack, Stiefelrand). Teile Rumpf/Arm/Bein mit Drehpunkt im Ursprung, damit die Szene sie schwenkt — kein Rig. Umlauf mit `.cache/figurseite.ts` prüfen |
 | Wogegen man läuft | `spieler/kollision.ts` | scenes/ |
 
 ## Datei-Register (Drift-Gate erzwingt Vollständigkeit für `owns:`)
@@ -75,7 +75,7 @@ owns: *.ts, *.tsx
 | `world/bandmaterial.ts` | Wasser und Wege: weiche Ränder statt Plattenkante, Strömung und Spurrinnen im Shader. Seit D131 **Gischt** am fallenden Wasser (Strähnen aus Rauschen, `GISCHT_GLSL`) und ein gerissener **Saum** am Ufer (`SAUM_GLSL`); der Fall ist rau (0,85), sonst ist er in der Sonne eine weiße Platte |
 | `world/baum.ts` | Fichte und Buche als Geometrie statt als Datei. 872 bzw. 782 Dreiecke, null Bytes Download — EZ-Tree hätte 4 MB gekostet. Seit D92 teilen sich Ast und Laub **eine** Richtung — vorher legten sie denselben Winkel komplementär aus, was bei der Buche haardünne Antennen aus der Krone stehen liess. Die Buche hat jetzt eine Kuppel statt eines V |
 | `world/himmel.ts` | Verlaufshimmel im Shader: Zenit zu Horizont, Dunstband in Nebelfarbe, Sonnenscheibe mit Hof, Gegenlicht. 320 Dreiecke, null Bytes |
-| `world/windmaterial.ts` | Silhouettenlicht (Fresnel gegen die Himmelsfarbe) und Wind für Prop-Instanzen. Was schwingen darf, steht als Attribut `aWind` in der Geometrie. Mit `atmen: true` (Kreaturen, D136) atmet der Rumpf und der Kopf wendet sich — im Vertex-Shader, in den genormten Modellmetern der Kette, ohne Rig |
+| `world/windmaterial.ts` | Silhouettenlicht (Fresnel gegen die Himmelsfarbe) und Wind für Prop-Instanzen. Was schwingen darf, steht als Attribut `aWind` in der Geometrie. Mit `atmen: true` (Kreaturen, D136) atmet der Rumpf und der Kopf wendet sich; `setzeGang()` (D138) schwingt die Beine diagonal gepaart und lässt den Rumpf wippen — im Vertex-Shader, in den genormten Modellmetern der Kette, ohne Rig |
 | `world/fernland.ts` | Die Berge jenseits der Region: grobes Gelände aus `public/world/oental-fern.json` (125 m Zellen, 11,9 × 12,0 km). Ein Draw Call, kein LOD, `fog: false` mit **eingebackenem** Dunst — unter dem Szenennebel (Ende bei 240–420 m) wäre alles eine einfarbige Fläche. Randpunkte werden auf die Regionskante geschoben und bekommen dort die Höhe aus dem feinen Höhenfeld, sonst läge ein 125 m breiter grober Streifen über dem Nahgelände (D85) |
 | `world/klippen.ts` | Felswände aus der Hangneigung. Ein Höhenraster kann per Bauart keine senkrechte Wand — deshalb aufgesetzt statt geschnitzt. Seit D87 verjüngte, gescherte und **verdrehte** Körper mit First, Kluft und Schutt statt gekippter Quader (36–48 → 110–150 Dreiecke, 5 Varianten), und die Auswahl läuft über die **Nachbarschaft** statt über einen Würfel: Ein Würfel je Zelle ergab ein Feld von Menhiren auf einer Wiese (G-108) |
 | `ui/Witterung.tsx` | Richtung und Abstand zur nächsten Kreatur. Notwendig, weil eine Kreatur auf 62 m nur zwölf Pixel hoch ist |

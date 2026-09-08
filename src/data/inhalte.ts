@@ -54,10 +54,16 @@ export const AUFTRAEGE = [...lade(auftragRoh, Auftrag, 'Auftrag').values()];
  * antrifft — `npm run vorkommen` hat ihn mit 0 Vorkommen geführt.
  *
  * Die richtige Frage ist die Häufigkeit: `fest` heißt „steht an einer Position"
- * (Verwachsene, Uniques), alles andere streift. Für die zwölf Wildlinge ändert
- * sich dadurch nichts, der Trafomarder bleibt draußen — er ist der einzige `fest`.
+ * (Verwachsene, Uniques), alles andere streift.
+ *
+ * **Seit G-130 gehen auch die Festen in die Welt.** Bis dahin filterte diese
+ * Liste `fest` heraus, und `verteileKreaturen` hätte mit der leeren Zellenliste
+ * ohnehin nichts gesetzt — der Trafomarder stand an keinem Ort, mit Modell,
+ * Anbau und Herkunftszeile. Jetzt setzt `verteileKreaturen` eine feste Art an
+ * ihre `position`; die Liste hier enthält deshalb alle Arten. Der Name bleibt,
+ * weil die Szene sie als „was in der Welt steht" liest.
  */
-export const STREUNENDE = [...KREATUREN.values()].filter(k => k.spawn.haeufigkeit !== 'fest');
+export const STREUNENDE = [...KREATUREN.values()];
 
 export function moveDef(id: string): MoveDef {
   const m = MOVES.get(id);

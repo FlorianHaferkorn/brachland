@@ -127,6 +127,17 @@ const ATMEN_GLSL = /* glsl */ `
     float x = transformed.x, z = transformed.z - hals;
     transformed.x = x * c - z * s;
     transformed.z = hals + x * s + z * c;
+    // Gang (D138): Beine schwingen laengs, diagonal gepaart — vorn links mit
+    // hinten rechts —, der Fuss hebt sich in der Vorschwingphase, der Rumpf wippt
+    // zweimal je Schritt. uGang 0…1 blendet in JS weich ein und aus. Vorderbeine
+    // liegen bei z < −0,15 (Nase −Z); ein Vogel hat beide Beine bei z ≈ 0 und
+    // wechselt damit nur nach Seite — richtig fuer zwei Beine.
+    float bein = smoothstep(0.55, 0.15, position.y);
+    float paar = (position.x < 0.0 ? -1.0 : 1.0) * (position.z < -0.15 ? -1.0 : 1.0);
+    float takt = uZeit * 7.5 + ph;
+    transformed.z += sin(takt) * paar * 0.11 * bein * uGang;
+    transformed.y += max(0.0, cos(takt) * paar) * 0.05 * bein * uGang;
+    transformed.y += sin(takt * 2.0) * 0.012 * uGang * (1.0 - bein);
   }
 `;
 
@@ -140,6 +151,8 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
   material: THREE.MeshStandardMaterial;
   setzeZeit(t: number): void;
   setzeRand(farbe: THREE.Color, staerke: number): void;
+  /** Gangstaerke 0…1 (D138) — nur mit `atmen`. */
+  setzeGang(g: number): void;
 } {
   const zeit = { value: 0 };
   const randFarbe = { value: w.randFarbe.clone() };
@@ -147,6 +160,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
   const randSchaerfe = { value: w.randSchaerfe ?? 3.0 };
   const windAmp = { value: w.amplitude };
   const atmen = { value: w.atmen ? 1 : 0 };
+  const gang = { value: 0 };
 
   const material = basis instanceof THREE.MeshStandardMaterial
     ? (basis.clone() as THREE.MeshStandardMaterial)
@@ -161,12 +175,13 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
     shader.uniforms.uRandSchaerfe = randSchaerfe;
     shader.uniforms.uWindAmp = windAmp;
     shader.uniforms.uAtmen = atmen;
+    shader.uniforms.uGang = gang;
 
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',
         // aWind ebenfalls nur bei Instanzen deklarieren: Ein Attribut, das die
         // Geometrie nicht liefert, ist auf manchen Treibern ein harter Fehler.
-        '#include <common>\nuniform float uZeit;\nuniform float uWindAmp;\nuniform float uAtmen;\n'
+        '#include <common>\nuniform float uZeit;\nuniform float uWindAmp;\nuniform float uAtmen;\nuniform float uGang;\n'
         + '#ifdef USE_INSTANCING\nattribute float aWind;\n#endif')
       .replace('#include <begin_vertex>', '#include <begin_vertex>' + WIND_GLSL + ATMEN_GLSL);
 
@@ -175,12 +190,13 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
         '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;')
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v5';
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v6';
 
   return {
     material,
     setzeZeit: (t) => { zeit.value = t; },
     setzeRand: (farbe, staerke) => { randFarbe.value.copy(farbe); randStaerke.value = staerke; },
+    setzeGang: (g) => { gang.value = g; },
   };
 }
 
