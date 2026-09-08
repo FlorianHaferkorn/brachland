@@ -1,4 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
 import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
@@ -128,6 +129,25 @@ for (const a of auftraege) {
 for (const o of orte.filter((x: any) => x.art === 'bewohner'))
   if (!auftraege.some((a: any) => a.geber === o.id))
     meldeA(o.id, 'Bewohner ohne einen einzigen Auftrag');
+
+/**
+ * Laufzeitfarben (D146) muessen im Kreaturband liegen — dieselbe Regel wie fuer
+ * jede Palettenfarbe an einer Figur (D112/D117): Was heller ist, brennt im
+ * Sonnenfleck weiss aus, was dunkler ist, faellt unter die Schwarzgrenze.
+ * Haut und Haar duerfen darunter (Haar 0,05 in der Palette).
+ */
+{
+  const lin = (v: number) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const { unten, oben } = PALETTE.kreaturBand;
+  for (const o of orte as any[]) {
+    for (const [slot, hex] of Object.entries(o.farben ?? {}) as [string, string][]) {
+      const y = 0.2126 * lin(parseInt(hex.slice(1, 3), 16)) + 0.7152 * lin(parseInt(hex.slice(3, 5), 16)) + 0.0722 * lin(parseInt(hex.slice(5, 7), 16));
+      const min = slot === 'haar' || slot === 'haut' || slot === 'stiefel' || slot === 'riemen' ? 0.02 : unten;
+      if (y < min || y > oben)
+        meldeA(o.id, `Farbe ${slot} ${hex} hat Leuchtdichte ${y.toFixed(3)} — erlaubt ${min}…${oben} (Kreaturband)`);
+    }
+  }
+}
 
 /**
  * Wie freistehend stehen die Orte wirklich?

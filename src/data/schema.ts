@@ -262,6 +262,20 @@ export const Ort = z.object({
     f => ({ message: `Figur „${f}“ steht nicht in public/figuren/register.json` })).optional(),
   /** Blickrichtung in Grad, 0 = Nord, positiv nach links wie `?absetzen=`. */
   blick: z.number().optional(),
+  /**
+   * Wegstück in Metern entlang `blick` (D146): der Bewohner geht vom Haus zur
+   * Strasse und zurück, mit Pausen. Ohne Angabe steht er.
+   */
+  gang: z.number().min(0).max(20).optional(),
+  /**
+   * Laufzeitfarben je Slot (D146) — dieselbe Datei, andere Haar-, Jacken-,
+   * Hosenfarbe. Die Slots stehen in `COLOR_0.a` der Figur (`tools/menschbau.py`).
+   * sRGB-Hex wie die Palette; das Tor prüft die Leuchtdichte gegen das Kreaturband.
+   */
+  farben: z.record(
+    z.enum(['haut', 'haar', 'oberteil', 'hose', 'stiefel', 'kopf', 'riemen', 'hemd']),
+    z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  ).optional(),
 });
 export type Ort = z.infer<typeof Ort>;
 

@@ -50,6 +50,31 @@ export interface WindMaterialWerte {
   atmen?: boolean;
 }
 
+/** Slots der Laufzeitfarben (D146) — dieselbe Reihenfolge wie `SLOT` in `tools/menschbau.py`. */
+export const ROLLEN_SLOTS = ['haut', 'haar', 'oberteil', 'hose', 'stiefel', 'kopf', 'riemen', 'hemd'] as const;
+export type RollenSlot = typeof ROLLEN_SLOTS[number];
+
+/**
+ * Laufzeitfarben (D146): Die Menschenkette schreibt je Materialrolle einen Slot
+ * 1…8 in `COLOR_0.a`. Ist `uRollenAn` gesetzt und der Slot in der Maske, ersetzt
+ * `uRollen[slot]` die gebackene Farbe — eine Datei je Silhouette, Haar, Jacke,
+ * Hose aus dem Inhalt (`Ort.farben`). Alpha wird danach auf 1 gesetzt, damit
+ * der Fragmentshader keine Transparenz aus dem Slot liest. Nur mit
+ * `USE_COLOR_ALPHA` (COLOR_0 mit vier Komponenten); Kreaturen haben drei.
+ */
+const ROLLEN_GLSL = /* glsl */ `
+  #ifdef USE_COLOR_ALPHA
+  {
+    float rolle = floor(vColor.a * 255.0 + 0.5);
+    if (uRollenAn > 0.5 && rolle >= 1.0 && rolle <= 8.0) {
+      int i = int(rolle) - 1;
+      if (uRollenMaske[i] > 0.5) vColor.rgb = uRollen[i];
+    }
+    vColor.a = 1.0;
+  }
+  #endif
+`;
+
 /**
  * Der Fresnel-Term wird auf `reflectedLight.indirectSpecular` addiert, **nicht** auf
  * `outgoingLight`.
@@ -153,6 +178,8 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
   setzeRand(farbe: THREE.Color, staerke: number): void;
   /** Gangstaerke 0…1 (D138) — nur mit `atmen`. */
   setzeGang(g: number): void;
+  /** Laufzeitfarben je Slot (D146); `null` schaltet ab. Nur fuer Netze mit COLOR_0.a. */
+  setzeRollen(farben: Partial<Record<RollenSlot, THREE.Color | string>> | null): void;
 } {
   const zeit = { value: 0 };
   const randFarbe = { value: w.randFarbe.clone() };
@@ -161,6 +188,9 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
   const windAmp = { value: w.amplitude };
   const atmen = { value: w.atmen ? 1 : 0 };
   const gang = { value: 0 };
+  const rollenAn = { value: 0 };
+  const rollen = { value: Array.from({ length: 8 }, () => new THREE.Color(0, 0, 0)) };
+  const rollenMaske = { value: new Float32Array(8) };
 
   const material = basis instanceof THREE.MeshStandardMaterial
     ? (basis.clone() as THREE.MeshStandardMaterial)
@@ -176,13 +206,18 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
     shader.uniforms.uWindAmp = windAmp;
     shader.uniforms.uAtmen = atmen;
     shader.uniforms.uGang = gang;
+    shader.uniforms.uRollenAn = rollenAn;
+    shader.uniforms.uRollen = rollen;
+    shader.uniforms.uRollenMaske = rollenMaske;
 
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',
         // aWind ebenfalls nur bei Instanzen deklarieren: Ein Attribut, das die
         // Geometrie nicht liefert, ist auf manchen Treibern ein harter Fehler.
         '#include <common>\nuniform float uZeit;\nuniform float uWindAmp;\nuniform float uAtmen;\nuniform float uGang;\n'
+        + 'uniform float uRollenAn;\nuniform vec3 uRollen[8];\nuniform float uRollenMaske[8];\n'
         + '#ifdef USE_INSTANCING\nattribute float aWind;\n#endif')
+      .replace('#include <color_vertex>', '#include <color_vertex>' + ROLLEN_GLSL)
       .replace('#include <begin_vertex>', '#include <begin_vertex>' + WIND_GLSL + ATMEN_GLSL);
 
     shader.fragmentShader = shader.fragmentShader
@@ -190,13 +225,24 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
         '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;')
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v6';
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v7';
 
   return {
     material,
     setzeZeit: (t) => { zeit.value = t; },
     setzeRand: (farbe, staerke) => { randFarbe.value.copy(farbe); randStaerke.value = staerke; },
     setzeGang: (g) => { gang.value = g; },
+    setzeRollen: (farben) => {
+      rollenMaske.value.fill(0);
+      if (!farben) { rollenAn.value = 0; return; }
+      let eine = false;
+      ROLLEN_SLOTS.forEach((slot, i) => {
+        const f = farben[slot];
+        if (f === undefined) return;
+        rollen.value[i].set(f); rollenMaske.value[i] = 1; eine = true;
+      });
+      rollenAn.value = eine ? 1 : 0;
+    },
   };
 }
 

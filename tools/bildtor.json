@@ -9,7 +9,7 @@
       "leer": 0.5,
       "dunkel": 95.4,
       "median": 0.003,
-      "dreiecke": 605333,
+      "dreiecke": 606731,
       "aufrufe": 101
     },
     {
@@ -18,9 +18,9 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 7.8,
-      "median": 0.207,
-      "dreiecke": 605357,
+      "dunkel": 7.9,
+      "median": 0.208,
+      "dreiecke": 606755,
       "aufrufe": 103
     },
     {
@@ -29,9 +29,9 @@
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
       "leer": 0,
-      "dunkel": 7.5,
-      "median": 0.172,
-      "dreiecke": 605357,
+      "dunkel": 7.6,
+      "median": 0.175,
+      "dreiecke": 606755,
       "aufrufe": 103
     },
     {
@@ -41,8 +41,8 @@
       "stimmung": "abendrot",
       "leer": 0,
       "dunkel": 1.2,
-      "median": 0.116,
-      "dreiecke": 605405,
+      "median": 0.117,
+      "dreiecke": 606627,
       "aufrufe": 100
     },
     {
@@ -53,8 +53,8 @@
       "leer": 0.2,
       "dunkel": 99.6,
       "median": 0.011,
-      "dreiecke": 1054578,
-      "aufrufe": 69
+      "dreiecke": 1189530,
+      "aufrufe": 73
     },
     {
       "name": "Talboden",
@@ -62,10 +62,10 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 0.8,
+      "dunkel": 1,
       "median": 0.255,
-      "dreiecke": 1062106,
-      "aufrufe": 69
+      "dreiecke": 1189530,
+      "aufrufe": 73
     },
     {
       "name": "Grashang",
@@ -73,10 +73,10 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 1.5,
+      "dunkel": 1.6,
       "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
       "median": 0.19,
-      "dreiecke": 511668,
+      "dreiecke": 542802,
       "aufrufe": 84
     },
     {
@@ -88,7 +88,7 @@
       "dunkel": 2.5,
       "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
       "median": 0.156,
-      "dreiecke": 511668,
+      "dreiecke": 542802,
       "aufrufe": 84
     },
     {
@@ -96,10 +96,10 @@
       "ort": "-800,600,90",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 2,
-      "dunkel": 90.6,
+      "leer": 1.5,
+      "dunkel": 95.3,
       "median": 0.002,
-      "dreiecke": 973635,
+      "dreiecke": 975709,
       "aufrufe": 118
     },
     {
@@ -108,9 +108,9 @@
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
       "leer": 0,
-      "dunkel": 5.3,
-      "median": 0.082,
-      "dreiecke": 973635,
+      "dunkel": 5.4,
+      "median": 0.08,
+      "dreiecke": 975709,
       "aufrufe": 118
     },
     {
@@ -122,7 +122,7 @@
       "dunkel": 87.4,
       "median": 0.009,
       "hinweis": "Zwei Haeuser am Wehr bei Nacht (D134): misst die Fensterglut — „hell“ ist hier das Mass, nicht der Median. Am Wehr statt im Dorf, weil hier zwei Haeuser das Bild fuellen",
-      "dreiecke": 783778,
+      "dreiecke": 830112,
       "aufrufe": 98
     },
     {
@@ -134,7 +134,7 @@
       "dunkel": 4.7,
       "median": 0.165,
       "hinweis": "Das dichteste Dorf der Region (128 Gebaeude im 3x3-Fenster um 1350/450), Blick nach Norden auf den Ortskern. Seit G-126",
-      "dreiecke": 935174,
+      "dreiecke": 1038844,
       "aufrufe": 84
     },
     {
@@ -143,10 +143,10 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 4.5,
-      "median": 0.199,
+      "dunkel": 4.7,
+      "median": 0.198,
       "hinweis": "Slice-Mitte (D113): 38 m bachabwaerts des Flussvaters, Blick nach Westen den Bach entlang — Wasser vorn, Klaeranlage rechts, Hang links. Der erste Standpunkt (40 m noerdlich, Blick Sued) stand in einem Gebaeude. Seit G-126",
-      "dreiecke": 891636,
+      "dreiecke": 959032,
       "aufrufe": 122
     },
     {
@@ -155,10 +155,10 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 2.8,
+      "dunkel": 3,
       "median": 0.215,
       "hinweis": "Becken am Flussvater (D123): Blick nach Sueden ueber das Stauwehr-Becken, Wasser links und unten, Bach im Kammschatten. Grundwert vorlaeufig, bis der erste --neu-Lauf ihn schreibt",
-      "dreiecke": 795975,
+      "dreiecke": 842677,
       "aufrufe": 108
     }
   ]

@@ -14,7 +14,7 @@ owns: *.json
 | Deine Aufgabe ist … | Lies |
 |---|---|
 | Eine Zuflucht anlegen | `unterstand-mitte.json` als Muster → `../../src/data/schema.ts` (`Ort`) |
-| Einen Bewohner anlegen | `hof-tremmel.json` → danach **mindestens einen Auftrag** in `../auftraege/`. Mit `figur` (D144; die Liste ist `public/figuren/register.json`: `bauer`, `baeuerin`, `arbeiter`, `werkfrau`, `wanderer`, `foerster`, `wirt`, `bursche`, `alte`, `magd`) und `blick` (Grad wie `?absetzen=`) steht ein Mensch statt der Kapsel — der Ort muss **vor** dem Haus liegen, nicht im Grundriss: `npx tsx .cache/bewohnerplatz.ts lat lon` (oder `welt x z`) prüft das und schlägt Stand, `blick` und Kamera vor (D145) |
+| Einen Bewohner anlegen | `hof-tremmel.json` → danach **mindestens einen Auftrag** in `../auftraege/`. Mit `figur` (D144; die Liste ist `public/figuren/register.json`: `bauer`, `baeuerin`, `arbeiter`, `werkfrau`, `wanderer`, `foerster`, `wirt`, `bursche`, `alte`, `magd`) und `blick` (Grad wie `?absetzen=`) steht ein Mensch statt der Kapsel — der Ort muss **vor** dem Haus liegen, nicht im Grundriss: `npx tsx .cache/bewohnerplatz.ts lat lon` (oder `welt x z`) prüft das und schlägt Stand, `blick` und Kamera vor (D145). Seit D146 `gang` (Meter entlang `blick`, der Bewohner geht hin und zurück) und `farben` (Slots `haut haar oberteil hose stiefel kopf riemen hemd`, sRGB-Hex im Kreaturband — `npm run validate` prüft) |
 | Verstehen, was Rasten tut | `../../src/main.tsx` (`raste`) |
 | Marke und Radius ändern | `../../src/scenes/RegionsSzene.tsx` (`Orte`, `ORT_AB`) |
 

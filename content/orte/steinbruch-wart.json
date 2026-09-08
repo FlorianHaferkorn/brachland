@@ -6,5 +6,7 @@
   "ort": [47.72815, 12.08373],
   "text": "Er nennt sich Wart, obwohl der Bruch seit achtzehn Jahren stillliegt. Bewacht wird nichts. Bezahlt wird er von niemandem. Er ist trotzdem jeden Morgen da.",
   "figur": "arbeiter",
-  "blick": -74
+  "blick": -74,
+  "gang": 4,
+  "farben": { "oberteil": "#737a84" }
 }

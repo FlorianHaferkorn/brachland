@@ -49,8 +49,14 @@ const NEU = process.argv.includes('--neu');
 const NUR = process.argv.includes('--stimmung')
   ? process.argv[process.argv.indexOf('--stimmung') + 1] : null;
 const BASIS = 'http://127.0.0.1:4173/';
-/** So lange stehenbleiben, bis Kacheln, Props und Kulisse gebaut sind. */
+/**
+ * Mindestens so lange stehenbleiben, bis Kacheln, Props und Kulisse gebaut sind —
+ * und seit D146 **bis das HUD die Ladezeit zeigt** (Gelaende und Baender
+ * vollstaendig), hoechstens `WARTEN_MAX`. Unter SwiftShader steht der Dorf-Fall
+ * erst nach 23 s; bei festen 15 s massen alle Grundwerte einen 90-%-Bau.
+ */
 const WARTEN = 15_000;
+const WARTEN_MAX = 60_000;
 /** Zuschlag auf den Grundwert, ab dem es ein Ausfall ist. */
 const SPIELRAUM = 4.0;
 /**
@@ -132,12 +138,19 @@ for (const f of grund.faelle) {
   await seite.goto(`${BASIS}?absetzen=${f.ort}&zeit=${f.zeit}`, { waitUntil: 'domcontentloaded' });
   await seite.waitForSelector('button[aria-label="Menü"]', { timeout: 240_000 });
   await seite.waitForTimeout(WARTEN);
+  try {
+    await seite.waitForFunction(() => /Ladezeit [\d.]+ s/.test(document.body.innerText), null, { timeout: WARTEN_MAX - WARTEN });
+    // Noch ein Moment, damit die letzten Kacheln auch gezeichnet sind.
+    await seite.waitForTimeout(1500);
+  } catch { /* laedt nach WARTEN_MAX noch — die Spalte zeigt es */ }
   const foto = await seite.screenshot();
   const w = await seite.evaluate(messen, foto.toString('base64'));
   // Dreiecke und Aufrufe aus dem HUD: sagt, ob die Szene fertig gebaut war (G-134).
   const hud = await seite.evaluate(() => document.body.innerText);
   w.dreiecke = Number((hud.match(/([\d.]+) Dreiecke/)?.[1] ?? '0').replace(/\./g, ''));
   w.aufrufe = Number(hud.match(/(\d+) Aufrufe/)?.[1] ?? '0');
+  // Ladezeit (D146): steht sie nicht im HUD, lud die Szene beim Foto noch.
+  w.ladezeit = hud.match(/Ladezeit ([\d.]+) s/)?.[1] ?? null;
   await seite.context().close();
 
   const grenze = f.leer + SPIELRAUM;
@@ -153,14 +166,14 @@ for (const f of grund.faelle) {
 await browser.close();
 
 console.log('\nBildtor — Anteil Pixel mit hoechstem Kanal exakt 0\n');
-console.log('  Ort                Stimmung      leer      Grundwert   dunkel   Median    hell   Dreiecke  Aufrufe');
+console.log('  Ort                Stimmung      leer      Grundwert   dunkel   Median    hell   Dreiecke  Aufrufe  Ladezeit');
 console.log('  Referenz (Stilvorlage, G-126)                              0.2 %   0.270   47.0 %');
 for (const { f, w, aus, abw, vorher } of zeilen) {
   const zeichen = aus ? (f.offen ? '!' : '✗') : '✓';
   const tri = `${(w.dreiecke / 1000).toFixed(0).padStart(6)}k` + (vorher.dreiecke ? ` (${abw > DREIECKE_SPIELRAUM ? '!' : ''}${(w.dreiecke / vorher.dreiecke * 100 - 100).toFixed(0).padStart(4)} %)` : '');
   console.log(`  ${zeichen} ${f.name.padEnd(16)} ${f.stimmung.padEnd(12)}`
     + `${w.leer.toFixed(1).padStart(6)} %  ${vorher.leer.toFixed(1).padStart(6)} %`
-    + `${w.dunkel.toFixed(1).padStart(9)} %  ${w.median.toFixed(3).padStart(6)}  ${w.hell.toFixed(1).padStart(5)} %  ${tri}  ${String(w.aufrufe).padStart(4)}`
+    + `${w.dunkel.toFixed(1).padStart(9)} %  ${w.median.toFixed(3).padStart(6)}  ${w.hell.toFixed(1).padStart(5)} %  ${tri}  ${String(w.aufrufe).padStart(4)}  ${w.ladezeit ? (w.ladezeit + ' s').padStart(7) : ' lädt!'}`
     + (f.offen ? `   offen: ${f.offen}` : ''));
   // Beim Neuschreiben den Sprung zeigen — ein Grundwert, der sich um die Haelfte
   // bewegt, ist ein Befund und kein neuer Grundwert (G-134).

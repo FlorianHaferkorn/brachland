@@ -6,5 +6,7 @@
   "ort": [47.72921, 12.07889],
   "text": "Sie schaut nicht auf, wenn man kommt. Sie schaut auf, wenn man wieder geht — und merkt sich, in welche Richtung.",
   "figur": "baeuerin",
-  "blick": -63
+  "blick": -63,
+  "gang": 3,
+  "farben": { "haar": "#8d867b" }
 }

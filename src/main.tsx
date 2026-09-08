@@ -263,7 +263,7 @@ function App() {
    */
   const ortsmarken = useMemo(
     () => (welt
-      ? [...ORTE.values()].map(o => ({ id: o.id, art: o.art, ort: nachMetern(o.ort, welt.bbox), figur: o.figur, blick: o.blick }))
+      ? [...ORTE.values()].map(o => ({ id: o.id, art: o.art, ort: nachMetern(o.ort, welt.bbox), figur: o.figur, blick: o.blick, gang: o.gang, farben: o.farben }))
       : []),
     [welt],
   );
@@ -901,7 +901,8 @@ function App() {
               {messung.bps.toFixed(0)} B/s<br />
               {Math.round(messung.dreiecke).toLocaleString('de')} Dreiecke<br />
               {messung.aufrufe} Aufrufe<br />
-              {messung.objekte.toLocaleString('de')} Objekte
+              {messung.objekte.toLocaleString('de')} Objekte<br />
+              {messung.ladezeit === null ? 'lädt …' : `Ladezeit ${messung.ladezeit.toFixed(1)} s`}
               {/* Was fehlt, muss im Bildschirmfoto stehen: Safari zeigt nur den
                   Hostnamen, nicht die Abfrage — eine Messung ohne die Angabe,
                   was abgeschaltet war, ist keine Messung. */}

@@ -6,5 +6,7 @@
   "ort": [47.72943, 12.09923],
   "text": "Sie zählt die Tiere, die nachts durchs Dorf gehen, und kommt jeden Morgen auf eine andere Zahl. Sie sagt, die Zahl stimme trotzdem.",
   "figur": "alte",
-  "blick": 76
+  "blick": 76,
+  "gang": 3,
+  "farben": { "oberteil": "#7c6f8c" }
 }

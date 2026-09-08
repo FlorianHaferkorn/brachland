@@ -271,6 +271,11 @@ if (existsSync('public/figuren')) {
       const attr = Object.keys(p.attributes ?? {}).sort().join('+');
       if (attr !== 'COLOR_0+JOINTS_0+POSITION+WEIGHTS_0')
         stop('Menschen', `${f} traegt ${attr} — erlaubt ist COLOR_0+JOINTS_0+POSITION+WEIGHTS_0`);
+      // Der Slot der Laufzeitfarben steht in COLOR_0.a (D146) — ohne vierte
+      // Komponente laufen `Ort.farben` still ins Leere.
+      const farbe = g.accessors?.[p.attributes?.COLOR_0];
+      if (farbe && farbe.type !== 'VEC4')
+        stop('Menschen', `${f}: COLOR_0 ist ${farbe.type}, nicht VEC4 — der Slot in Alpha fehlt (menschbau.py haengt Alpha an den Shader)`);
     }
     if (!(g.skins?.length) || !(g.animations?.length))
       stop('Menschen', `${f} ohne Skin oder Animation — ein Mensch ohne Rig steht wie ein Pfahl`);

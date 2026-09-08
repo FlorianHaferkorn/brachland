@@ -23,6 +23,10 @@ for (const pfad of process.argv.slice(2)) {
     dedup(),
     prune(),
   );
+  // Der Slot in COLOR_0.a (D146) zwingt den Blender-Exporter zu alphaMode BLEND —
+  // die Szene tauscht das Material ohnehin, aber die Datei soll nicht „durchsichtig“
+  // behaupten, was sie nicht ist.
+  for (const m of doc.getRoot().listMaterials()) m.setAlphaMode('OPAQUE');
   await io.write(pfad, doc);
   const nachher = statSync(pfad).size / 1024;
   const netz = doc.getRoot().listMeshes()[0]?.listPrimitives()[0];

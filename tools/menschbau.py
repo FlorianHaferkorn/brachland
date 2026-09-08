@@ -62,11 +62,35 @@ def leuchtdichte(c):
 # Jede Animation kostet rund 12 KB Daten plus 15 KB JSON (72 Kanaele) — was die
 # Szene nicht spielt, bleibt draussen.
 ANIM_SPIELER = ('Idle', 'Idle_Neutral', 'Walk', 'Run')
-ANIM_NPC = ('Idle', 'Idle_Neutral', 'Wave')
+# Seit D146 auch Walk: Bewohner gehen ein Wegstueck (`Ort.gang`).
+ANIM_NPC = ('Idle', 'Idle_Neutral', 'Wave', 'Walk')
 WEG = ('Sword', 'Icosphere')
 # Winkelgrenze der planaren Dezimierung in Grad — gemessen an der Wanderin.
 PLANAR_GRAD = float(os.environ.get('PLANAR_GRAD', '20'))
 FINGER = re.compile(r'^(Index|Middle|Ring|Pinky|Thumb)\d\.(L|R)$')
+
+# --- Slots fuer Laufzeitfarben (D146) ---------------------------------------
+# Jede Rolle bekommt einen Slot 1..8, der in COLOR_0.a steht. Der Shader kann
+# je Figur einen Slot umfaerben (`uRollen`), der Inhalt sagt `farben: {haar: …}`.
+# So bleibt eine Datei je Silhouette; Haar-, Jacken-, Hosenfarbe kommen aus dem
+# Content. Rollen-Strings duerfen den Slot erzwingen: 'figur.loden@kopf' (Hut).
+SLOT = {'haut': 1, 'haar': 2, 'oberteil': 3, 'hose': 4, 'stiefel': 5, 'kopf': 6, 'riemen': 7, 'hemd': 8}
+SLOT_VON_ROLLE = {
+    'figur.haut': 'haut', 'figur.haar': 'haar', 'figur.haarGrau': 'haar', 'figur.haarHell': 'haar',
+    'figur.jacke': 'oberteil', 'figur.loden': 'oberteil', 'figur.wolle': 'oberteil',
+    'kenney.colorRedDark': 'oberteil', 'kenney.leafsDark': 'oberteil', 'kenney.colorYellow': 'oberteil',
+    'figur.hose': 'hose', 'figur.kittel': 'hose', 'figur.stiefel': 'stiefel', 'figur.kapuze': 'kopf',
+    'figur.riemen': 'riemen', 'figur.rolle': 'hemd', 'figur.gepaeck': 'hemd', 'figur.halstuch': 'hemd',
+}
+
+
+def rolle_und_slot(rolle):
+    """'figur.loden@kopf' → ('figur.loden', 6); ohne @ aus der Tabelle, sonst 0."""
+    if '@' in rolle:
+        pfad, slot = rolle.split('@', 1)
+        return pfad, SLOT[slot]
+    return rolle, SLOT.get(SLOT_VON_ROLLE.get(rolle, ''), 0)
+
 
 # Quelle, Name, Hoehe in m, Ziel-Dreiecke, Animationen, Rolle je Paketmaterial, Rolle je Teil.
 # Materialien ohne Rolle behalten ihre Farbe, ins Kreaturband gehoben.
@@ -79,14 +103,14 @@ FIGUREN = [
         'Medieval_Head': {'Black': 'figur.riemen', 'Brown': 'figur.riemen'}}),
     ('m_farmer', 'bauer', 1.78, 1600, ANIM_NPC, {
         'Skin': 'figur.haut', 'Beige': 'figur.rolle', 'Red': 'figur.halstuch', 'Eyebrows': 'figur.riemen',
-        'Eye': 'figur.riemen', 'LightBlue': 'figur.hose', 'Brown': 'figur.gepaeck', 'Brown2': 'figur.stiefel',
-    }, {'Farmer_Feet': {'Brown': 'figur.stiefel'}}),
+        'Eye': 'figur.riemen', 'LightBlue': 'figur.hose', 'Brown': 'figur.gepaeck@oberteil', 'Brown2': 'figur.stiefel',
+    }, {'Farmer_Feet': {'Brown': 'figur.stiefel'}, 'Farmer_Head': {'Beige': 'figur.rolle@kopf'}}),
     ('m_worker', 'arbeiter', 1.78, 1600, ANIM_NPC, {
         'Skin': 'figur.haut', 'Worker_Yellow': 'kenney.colorYellow', 'Worker_Vest': 'kenney.colorRedDark',
         'Eyebrows': 'figur.riemen', 'Eye': 'figur.riemen', 'Moustache': 'figur.haar',
         'LightBrown': 'figur.rolle', 'Brown': 'figur.hose', 'Brown2': 'figur.hose',
         'Grey': 'figur.stiefel', 'Black': 'figur.stiefel',
-    }, {}),
+    }, {'Worker_Head': {'Worker_Yellow': 'kenney.colorYellow@kopf'}}),
     # Die Bewohner aus `content/orte`: Tremmel (Hofbesitzerin) und die Frau am
     # Werkstor sind Frauen — aus dem Women-Pack die zwei CC0-Figuren ohne Fantasy.
     ('w_animated_woman', 'baeuerin', 1.70, 1600, ANIM_NPC, {
@@ -109,7 +133,7 @@ FIGUREN = [
     # Foerster: Jacke des Casual in Loden, Muetze des Bauern, Hose und Stiefel des Arbeiters.
     # (Die Tunika von `m_adventurer` waere die bessere Jacke — der hat aber eine eigene Ruhepose.)
     ('m_casual_character', 'foerster', 1.80, 1800, ANIM_NPC, {
-        'Skin': 'figur.haut', 'Skin_Darker': 'figur.haut', 'LightBrown': 'figur.loden', 'Beige': 'figur.loden',
+        'Skin': 'figur.haut', 'Skin_Darker': 'figur.haut', 'LightBrown': 'figur.loden', 'Beige': 'figur.loden@kopf',
         'Red': 'figur.wolle', 'Eyebrows': 'figur.riemen', 'Eye': 'figur.riemen',
         'Brown2': 'figur.hose', 'Brown': 'figur.hose', 'Black': 'figur.stiefel', 'Grey': 'figur.stiefel',
     }, {}, {'Head': ('m_farmer', 'Farmer_Head'), 'Legs': ('m_worker', 'Worker_Legs'), 'Feet': ('m_worker', 'Worker_Feet')}),
@@ -128,7 +152,7 @@ FIGUREN = [
     # Hose, dazu der Kopf der zweiten Frau mit grauem Haar. (Die „Abenteurerin“ des
     # Packs traegt Shorts und Rucksack — als Alte unbrauchbar, im Bild gesehen.)
     ('w_animated_woman', 'alte', 1.64, 1600, ANIM_NPC, {
-        'Skin': 'figur.haut', 'LimeGreen': 'figur.kittel', 'Gold': 'figur.riemen',
+        'Skin': 'figur.haut', 'LimeGreen': 'figur.kittel@oberteil', 'Gold': 'figur.riemen',
         'Hair_Blond': 'figur.haarGrau', 'Hair_Brown': 'figur.haarGrau', 'Brown': 'figur.riemen',
     }, {'Formal_Feet': {'Red': 'figur.stiefel', 'Skin': 'figur.stiefel'}, 'Formal_Legs': {'Skin': 'figur.hose', 'LimeGreen': 'figur.hose'}},
      {'Head': ('w_animated_woman2', 'Casual_Head')}),
@@ -288,12 +312,15 @@ for eintrag in FIGUREN:
             m.color_attributes.remove(m.color_attributes[0])
         attr = m.color_attributes.new(name='Color', type='BYTE_COLOR', domain='CORNER')
         farben = []
+        slots = []
         for mat in m.materials:
             mn = re.sub(r'\.\d{3}$', '', mat.name) if mat else '?'
             rolle = je_objekt.get(o.name, {}).get(mn) or rollen.get(mn)
             if rolle:
-                farben.append(palette_farbe(rolle))
+                pfad, slot = rolle_und_slot(rolle)
+                farben.append(palette_farbe(pfad)); slots.append(slot)
             else:
+                slots.append(0)
                 ohne_rolle.add(f'{o.name}/{mn}')
                 c = basisfarbe(mat); l = leuchtdichte(c)
                 if l < 0.06: c = tuple(x * 0.3 + l * 0.7 for x in c)
@@ -301,9 +328,12 @@ for eintrag in FIGUREN:
                 farben.append(tuple(min(1.0, x * ziel / max(1e-4, l)) for x in c))
         for pol in m.polygons:
             pol.use_smooth = False
-            c = farben[min(pol.material_index, len(farben) - 1)] if farben else (0.5, 0.5, 0.5)
+            i = min(pol.material_index, len(farben) - 1)
+            c = farben[i] if farben else (0.5, 0.5, 0.5)
+            # Alpha traegt den Slot (D146): n/255, bleibt nach 8-Bit-Quantisierung exakt n.
+            a = (slots[i] if farben else 0) / 255.0
             for li in pol.loop_indices:
-                attr.data[li].color = c + (1.0,)
+                attr.data[li].color = c + (a,)
     if ohne_rolle:
         print(f'  ohne Rolle (ins Band gehoben): {sorted(ohne_rolle)}')
 
@@ -328,6 +358,9 @@ for eintrag in FIGUREN:
     b.inputs['Metallic'].default_value = 0.0
     kn = mat.node_tree.nodes.new('ShaderNodeVertexColor'); kn.layer_name = 'Color'
     mat.node_tree.links.new(kn.outputs['Color'], b.inputs['Base Color'])
+    # Alpha (der Slot, D146) kommt nur in die Datei, wenn das Material ihn benutzt —
+    # sonst schreibt der Exporter COLOR_0 als VEC3 (gemessen: 3 Komponenten, Alpha weg).
+    mat.node_tree.links.new(kn.outputs['Alpha'], b.inputs['Alpha'])
     m.materials.append(mat)
 
     # 6. Dezimieren — Decimate an den Anfang des Stapels, dann anwenden; die

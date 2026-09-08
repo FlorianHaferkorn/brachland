@@ -6,5 +6,7 @@
   "ort": [47.72892, 12.09877],
   "text": "Sie trägt Wasser, obwohl der Hof einen Anschluss hat. Der Brunnen, sagt sie, schmeckt noch nach vorher.",
   "figur": "magd",
-  "blick": -114
+  "blick": -114,
+  "gang": 5,
+  "farben": { "haar": "#3a2c24", "hose": "#6a7a6a" }
 }

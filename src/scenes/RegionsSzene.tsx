@@ -31,7 +31,7 @@ import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
-import { baueWindMaterial } from '../world/windmaterial.js';
+import { baueWindMaterial, type RollenSlot } from '../world/windmaterial.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
@@ -40,6 +40,7 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
 import { istAus } from './abschalter.js';
+import { meldeFertig, ladezeit } from './ladezeit.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB, PROP_NEUBEWERTUNG,
          FERN_NEUBEWERTUNG } from './sichtweiten.js';
 import { waehleProps, type PropStufe } from './propauswahl.js';
@@ -380,6 +381,9 @@ function LodTerrain({ feld, kacheln, ziel }: {
       if (liste) liste.push(g); else jeStufe.set(lod, [g]);
     }
 
+    // Budget nicht ausgeschöpft: alle Kacheln in Sicht stehen — Ladezeit (D146).
+    if (budget >= 0) meldeFertig('terrain');
+
     const zusammengefasst: THREE.BufferGeometry[] = [];
     for (const gs of jeStufe.values()) {
       const m = mergeGeometries(gs, false);
@@ -562,6 +566,8 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
         if (g) sammeln[art === 'garten' ? 'haus' : art].push(g);
       }
     }
+
+    if (budget >= 0) meldeFertig('baender');
 
     const fassen = (gs: THREE.BufferGeometry[]) =>
       gs.length ? [mergeGeometries(gs, false)].filter(Boolean) as THREE.BufferGeometry[] : [];
@@ -1242,24 +1248,43 @@ export const ORT_AB = 7;
 
 /** Näher als das winkt ein Bewohner — einmal, dann steht er wieder. */
 const WINK_AB = 8;
+/** Gehtempo eines Bewohners in m/s und die Abspielrate des Walk-Clips dafür. */
+const MENSCH_TEMPO = 1.0, MENSCH_WALK_RATE = 0.7;
+/** Pausen an den Enden des Wegstücks: gleichverteilt zwischen den beiden. */
+const MENSCH_PAUSE: [number, number] = [6, 14];
 
 /**
  * Ein Bewohner mit Figur aus der Menschenkette (D143): SkinnedMesh, Idle im
  * Stand, ein Winken, wenn der Spieler in `WINK_AB` kommt — einmal je
- * Annäherung, nicht bei jedem Bild. Kein Gang: Ein Bewohner steht an seinem Ort,
- * das ist der Ort. Dasselbe Wind-/Randmaterial wie Kreaturen und Spielerin,
- * ein Material je Figur (eigene Uniforms), ein Draw Call.
+ * Annäherung, nicht bei jedem Bild.
+ *
+ * Seit D146 mit **Leben im Stand**: Idle und Idle_Neutral wechseln sich ab, und
+ * wer ein `gang` hat, geht das Wegstück entlang `blick` (vom Haus zur Strasse)
+ * und zurück, mit Pausen an beiden Enden, auf der Bodenhöhe des Geländes. Das
+ * Winken unterbricht den Gang; danach geht es weiter. Und **Laufzeitfarben**
+ * (`farben`, Slots in `COLOR_0.a`) — dieselbe Datei, andere Haar-, Jacken-,
+ * Hosenfarbe aus dem Inhalt.
+ *
+ * Dasselbe Wind-/Randmaterial wie Kreaturen und Spielerin, ein Material je
+ * Figur (eigene Uniforms), ein Draw Call.
  */
-function Mensch({ figur, blick, ziel, rand }: {
+function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke }: {
   figur: string; blick: number;
+  /** Der Signalpunkt — wandert mit der Figur, nicht mit dem Ort. */
+  marke: { geometry: THREE.BufferGeometry; material: THREE.Material };
+  /** Länge des Wegstücks entlang `blick` in Metern; 0 = steht. */
+  gang?: number;
+  farben?: Partial<Record<RollenSlot, string>>;
   ziel: React.RefObject<THREE.Object3D | null>;
   rand: { farbe: string; staerke: number };
+  hoeheAn: (x: number, z: number) => number;
 }) {
   const { scene, animations } = useGLTF(`/figuren/${figur}.glb`);
-  const { material, setzeRand } = useMemo(() => baueWindMaterial({
+  const { material, setzeRand, setzeRollen } = useMemo(() => baueWindMaterial({
     amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
   }), []);
   useEffect(() => { setzeRand(new THREE.Color(rand.farbe), rand.staerke); }, [setzeRand, rand]);
+  useEffect(() => { setzeRollen(farben ?? null); }, [setzeRollen, farben]);
   useEffect(() => {
     scene.traverse(o => {
       const m = o as THREE.Mesh;
@@ -1269,34 +1294,88 @@ function Mensch({ figur, blick, ziel, rand }: {
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
   const clips = useMemo(() => {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
-    const idle = mixer.clipAction(finde('Idle')), wink = mixer.clipAction(finde('Wave'));
+    const idle = mixer.clipAction(finde('Idle')), ruhig = mixer.clipAction(finde('Idle_Neutral'));
+    const wink = mixer.clipAction(finde('Wave')), walk = mixer.clipAction(finde('Walk'));
     idle.play();
     wink.setLoop(THREE.LoopOnce, 1); wink.clampWhenFinished = false;
-    return { idle, wink };
+    walk.timeScale = MENSCH_WALK_RATE;
+    return { idle, ruhig, wink, walk, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
   useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
+  /** Weich zu einem Clip wechseln (G-133: einblenden mit Gewicht 1, nicht 0). */
+  const wechsle = (ziel: THREE.AnimationAction, dauer: number) => {
+    if (ziel === clips.aktiv) return;
+    ziel.reset().setEffectiveWeight(1).play();
+    clips.aktiv.crossFadeTo(ziel, dauer, false);
+    clips.aktiv = ziel;
+  };
   const gruppe = useRef<THREE.Group>(null);
   const gewinkt = useRef(false);
+  /**
+   * Zustand des Wegstücks: `t` ist die Lage auf dem Stück (0 = am Haus, `gang`
+   * = an der Strasse), `richtung` +1 hin, −1 zurück, `pause` die Restzeit im
+   * Stand. Beginnt am Haus mit einer Pause, damit nicht alle Bewohner der
+   * Region im selben Takt losgehen (Saat aus der Blickrichtung).
+   */
+  const weg = useRef({ t: 0, richtung: 1, pause: 4 + ((blick * 7919) % 100) / 100 * 8, winkt: false, ruhig: false });
+  const wurzelY = useRef<number | null>(null);
   useFrame((_, dt) => {
     const g = gruppe.current, p = ziel.current?.position;
+    const w = weg.current;
     if (g && p) {
       const wp = g.getWorldPosition(new THREE.Vector3());
       const d = Math.hypot(p.x - wp.x, p.z - wp.z);
       if (d < WINK_AB && !gewinkt.current) {
-        gewinkt.current = true;
+        gewinkt.current = true; w.winkt = true;
         clips.wink.reset().play();
-        clips.idle.crossFadeTo(clips.wink, 0.2, false);
+        clips.aktiv.crossFadeTo(clips.wink, 0.2, false);
+        clips.aktiv = clips.wink;
         // Nach dem Winken zurueck ins Stehen — der Mixer meldet das Ende.
-        const zurueck = () => { clips.wink.crossFadeTo(clips.idle.reset().play(), 0.3, false); mixer.removeEventListener('finished', zurueck); };
+        const zurueck = () => {
+          w.winkt = false; w.pause = Math.max(w.pause, 3);
+          clips.aktiv = clips.idle; clips.wink.crossFadeTo(clips.idle.reset().play(), 0.3, false);
+          mixer.removeEventListener('finished', zurueck);
+        };
         mixer.addEventListener('finished', zurueck);
       }
       if (d > WINK_AB * 2) gewinkt.current = false;
+
+      // Wegstück: stehen (Pause) → gehen → stehen, das Winken hält an.
+      if (!w.winkt) {
+        if (w.pause > 0) {
+          w.pause -= dt;
+          if (w.pause <= 0 && gang > 0) wechsle(clips.walk, 0.3);
+          else if (w.pause > 0 && clips.aktiv === clips.walk) wechsle(clips.idle, 0.3);
+        } else if (gang > 0) {
+          w.t += w.richtung * MENSCH_TEMPO * dt;
+          if (w.t >= gang || w.t <= 0) {
+            w.t = Math.max(0, Math.min(gang, w.t));
+            w.richtung = -w.richtung;
+            w.pause = MENSCH_PAUSE[0] + Math.random() * (MENSCH_PAUSE[1] - MENSCH_PAUSE[0]);
+            // Im Stand abwechselnd Idle und Idle_Neutral — zwei Haltungen statt einer.
+            w.ruhig = !w.ruhig;
+            wechsle(w.ruhig ? clips.ruhig : clips.idle, 0.4);
+          }
+        }
+      }
+      if (gang > 0) {
+        // Lage entlang `blick` (0° = Nord = −Z, positiv nach links), Bodenhöhe aus dem Gelände.
+        const b = THREE.MathUtils.degToRad(blick);
+        const dx = -Math.sin(b) * w.t, dz = -Math.cos(b) * w.t;
+        const eltern = g.parent!;
+        const ep = eltern.getWorldPosition(new THREE.Vector3());
+        if (wurzelY.current === null) wurzelY.current = ep.y;
+        g.position.set(dx, hoeheAn(ep.x + dx, ep.z + dz) - wurzelY.current, dz);
+        // Blick in Gehrichtung; im Stand zur Strasse (hin) bzw. zum Haus (zurück).
+        g.rotation.y = b + (w.richtung < 0 && clips.aktiv === clips.walk ? Math.PI : 0);
+      }
     }
     mixer.update(Math.min(dt, 0.1));
   });
   return (
     <group ref={gruppe} rotation={[0, THREE.MathUtils.degToRad(blick), 0]}>
       <primitive object={scene} />
+      <mesh geometry={marke.geometry} material={marke.material} position={[0, 1.85, 0]} />
     </group>
   );
 }
@@ -1308,14 +1387,19 @@ export interface Ortsmarke {
   figur?: string;
   /** Blickrichtung in Grad wie `?absetzen=`. */
   blick?: number;
+  /** Wegstück entlang `blick` in Metern (D146). */
+  gang?: number;
+  /** Laufzeitfarben je Slot (D146). */
+  farben?: Partial<Record<RollenSlot, string>>;
 }
 
-function Orte({ orte, ziel, onNah, rand }: {
+function Orte({ orte, ziel, onNah, rand, hoeheAn }: {
   orte: Ortsmarke[];
   ziel: React.RefObject<THREE.Object3D | null>;
   /** Der nächste Ort in Reichweite, oder null. Wird nur bei Wechsel gerufen. */
   onNah?: (id: string | null) => void;
   rand: { farbe: string; staerke: number };
+  hoeheAn: (x: number, z: number) => number;
 }) {
   const pfahl = useMemo(() => {
     const g = new THREE.BoxGeometry(0.14, 2.2, 0.14);
@@ -1366,13 +1450,17 @@ function Orte({ orte, ziel, onNah, rand }: {
             </>
           ) : o.figur && !istAus('menschen') ? (
             <Suspense fallback={null}>
-              <Mensch figur={o.figur} blick={o.blick ?? 0} ziel={ziel} rand={rand} />
+              <Mensch figur={o.figur} blick={o.blick ?? 0} gang={o.gang} farben={o.farben}
+                      ziel={ziel} rand={rand} hoeheAn={hoeheAn} marke={{ geometry: punkt, material: punktMat }} />
             </Suspense>
           ) : (
             <mesh geometry={figur} material={tuch} castShadow receiveShadow />
           )}
-          <mesh geometry={punkt} position={[0, o.art === 'zuflucht' ? 2.35 : 1.85, 0]}
-                material={punktMat} />
+          {/* Der Punkt eines gehenden Bewohners haengt an der Figur (in `Mensch`). */}
+          {!(o.figur && !istAus('menschen')) && (
+            <mesh geometry={punkt} position={[0, o.art === 'zuflucht' ? 2.35 : 1.85, 0]}
+                  material={punktMat} />
+          )}
         </group>
       ))}
     </>
@@ -2015,12 +2103,13 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
  */
 // Gemessen (`.cache/mess/reiten.mjs`, seitlich): Knie 1,45 liess den Unterschenkel
 // 29° nach hinten haengen — Idle beugt das Knie schon etwas; 1,05 haengt senkrecht.
-const SITZ = { huefte: 1.35, spreiz: 0.30, knie: 1.05, fuss: 0.10 };
+/** Lage des Sitzes auf dem Tier: Anteil der Koerperlaenge von der Nase aus (D146). */
+const SITZ_LAGE = 0.6;
+const SITZ = { huefte: 1.35, spreiz: 0.30, knie: 1.05, fuss: 0.10, armVor: 0.7, armInnen: 0.35, ellbogen: 0.5 };
 const _q = new THREE.Quaternion();
 const _achseX = new THREE.Vector3(1, 0, 0), _achseZ = new THREE.Vector3(0, 0, 1);
-function sitzpose(
-  b: Record<'ol' | 'or' | 'ul' | 'ur' | 'fl' | 'fr', THREE.Object3D | null>, anteil: number,
-) {
+type SitzKnochen = Record<'ol' | 'or' | 'ul' | 'ur' | 'fl' | 'fr' | 'al' | 'ar' | 'el' | 'er', THREE.Object3D | null>;
+function sitzpose(b: SitzKnochen, anteil: number) {
   const dreh = (k: THREE.Object3D | null, achse: THREE.Vector3, winkel: number) => {
     if (k) k.quaternion.multiply(_q.setFromAxisAngle(achse, winkel * anteil));
   };
@@ -2028,6 +2117,10 @@ function sitzpose(
   dreh(b.ol, _achseZ, SITZ.spreiz); dreh(b.or, _achseZ, -SITZ.spreiz);
   dreh(b.ul, _achseX, SITZ.knie); dreh(b.ur, _achseX, SITZ.knie);
   dreh(b.fl, _achseX, SITZ.fuss); dreh(b.fr, _achseX, SITZ.fuss);
+  // Arme nach vorn und innen zum Hals des Tiers, Ellbogen leicht gebeugt.
+  dreh(b.al, _achseX, -SITZ.armVor); dreh(b.ar, _achseX, -SITZ.armVor);
+  dreh(b.al, _achseZ, -SITZ.armInnen); dreh(b.ar, _achseZ, SITZ.armInnen);
+  dreh(b.el, _achseX, -SITZ.ellbogen); dreh(b.er, _achseX, -SITZ.ellbogen);
 }
 
 /**
@@ -2064,12 +2157,33 @@ function ReittierModell({ kreatur, mutation, rand, schritt, sitzHoehe }: {
   // mittleren Fuenftels), mal Mutationsskalierung. Mit Anbau gemessen sass die
   // Reiterin 0,5 m ueber dem Ruecken — das Gehoern des Grathorns waechst aus dem
   // Widerrist und war der hoechste Punkt.
-  useEffect(() => {
+  //
+  // Und **hinter dem Widerrist**, nicht darauf: Der Sitz liegt bei 60 % der
+  // Koerperlaenge von der Nase (Nase nach −Z), das Tier wird um diesen Betrag
+  // nach vorn geschoben, damit der Reiter am Ursprung sitzt. Auf dem Widerrist
+  // sass sie beim Grathorn der Stufe 3 **im Gehoern** — das waechst genau dort.
+  const sitz = useMemo(() => {
     let koerper: THREE.BufferGeometry | null = null;
     scene.traverse(o => { if (!koerper && (o as THREE.Mesh).isMesh) koerper = (o as THREE.Mesh).geometry; });
-    sitzHoehe.current = koerper ? reitsitz(koerper).hoehe * skala : null;
+    if (!koerper) return { hoehe: 1, z: 0 };
+    const g = koerper as THREE.BufferGeometry;
+    g.computeBoundingBox();
+    const bb = g.boundingBox!;
+    const laenge = bb.max.z - bb.min.z, breite = bb.max.x - bb.min.x;
+    const z = bb.min.z + laenge * SITZ_LAGE;
+    const pos = g.getAttribute('position');
+    let hoehe = 0;
+    for (let i = 0; i < pos.count; i++) {
+      if (Math.abs(pos.getX(i) - (bb.min.x + bb.max.x) / 2) > breite * 0.2) continue;
+      if (Math.abs(pos.getZ(i) - z) > laenge * 0.08) continue;
+      hoehe = Math.max(hoehe, pos.getY(i));
+    }
+    return { hoehe: hoehe > 0 ? hoehe : reitsitz(g).hoehe, z };
+  }, [scene]);
+  useEffect(() => {
+    sitzHoehe.current = sitz.hoehe * skala;
     return () => { sitzHoehe.current = null; };
-  }, [scene, skala, sitzHoehe]);
+  }, [sitz, skala, sitzHoehe]);
   const { material, setzeRand, setzeZeit, setzeGang } = useMemo(() => baueWindMaterial({
     amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 1.4,
     randSchaerfe: 1.6, atmen: true,
@@ -2081,7 +2195,7 @@ function ReittierModell({ kreatur, mutation, rand, schritt, sitzHoehe }: {
     setzeGang(Math.min(1, schritt.current.tempo / RENNEN));
   });
   if (!geo) return null;
-  return <mesh geometry={geo} material={material} scale={skala} castShadow receiveShadow />;
+  return <mesh geometry={geo} material={material} scale={skala} position={[0, 0, -sitz.z * skala]} castShadow receiveShadow />;
 }
 
 /**
@@ -2147,7 +2261,8 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
   // den Namen (`UpperLeg.L` → `UpperLegL`); beide Schreibweisen werden gesucht.
   const beine = useMemo(() => {
     const k = (n: string) => scene.getObjectByName(n.replace('.', '')) ?? scene.getObjectByName(n) ?? null;
-    return { ol: k('UpperLeg.L'), or: k('UpperLeg.R'), ul: k('LowerLeg.L'), ur: k('LowerLeg.R'), fl: k('Foot.L'), fr: k('Foot.R') };
+    return { ol: k('UpperLeg.L'), or: k('UpperLeg.R'), ul: k('LowerLeg.L'), ur: k('LowerLeg.R'), fl: k('Foot.L'), fr: k('Foot.R'),
+             al: k('UpperArm.L'), ar: k('UpperArm.R'), el: k('LowerArm.L'), er: k('LowerArm.R') } as SitzKnochen;
   }, [scene]);
   /**
    * Hoehe des Hueftgelenks in der Ruhepose, aus dem Modell gelesen (Wanderin:
@@ -2330,6 +2445,8 @@ export interface Messwerte {
   aufrufe: number;
   /** Objekte im Szenengraph — three.js läuft sie jedes Bild durch. */
   objekte: number;
+  /** Sekunden bis Gelände und Bänder erstmals vollständig standen (D146); null solange es lädt. */
+  ladezeit: number | null;
 }
 
 /**
@@ -2359,6 +2476,7 @@ function Messung({ melde }: { melde?: (m: Messwerte) => void }) {
       dreiecke: gl.info.render.triangles,
       aufrufe: gl.info.render.calls,
       objekte,
+      ladezeit: ladezeit(),
     });
     s.bilder = 0; s.zeit = 0;
   });
@@ -2431,7 +2549,8 @@ export interface RegionsSzeneProps {
   gelesen?: ReadonlySet<string>;
   onFund?: (id: string) => void;
   /** Zufluchten und Bewohner in Weltkoordinaten (x, z). */
-  orte?: { id: string; art: OrtsArt; ort: [number, number]; figur?: string; blick?: number }[];
+  orte?: { id: string; art: OrtsArt; ort: [number, number]; figur?: string; blick?: number;
+           gang?: number; farben?: Partial<Record<RollenSlot, string>> }[];
   /** ID des nächsten Ortes in Reichweite, oder null. Nur bei Wechsel gerufen. */
   onOrtNah?: (id: string | null) => void;
   /** Startposition; ohne Angabe die Regionsmitte. Der Spielstand setzt sie. */
@@ -2577,7 +2696,7 @@ export function RegionsSzene({
 
   const ortsmarken = useMemo<Ortsmarke[]>(
     () => (orte ?? []).map(o => ({
-      id: o.id, art: o.art, figur: o.figur, blick: o.blick,
+      id: o.id, art: o.art, figur: o.figur, blick: o.blick, gang: o.gang, farben: o.farben,
       position: [o.ort[0], hoeheAufFlaeche(feld, o.ort[0], o.ort[1]), o.ort[1]],
     })),
     [orte, feld],
@@ -2644,7 +2763,8 @@ export function RegionsSzene({
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
       )}
       {ortsmarken.length > 0 && (
-        <Orte orte={ortsmarken} ziel={ref} onNah={onOrtNah} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
+        <Orte orte={ortsmarken} ziel={ref} onNah={onOrtNah} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
+              hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} />
       )}
       {regent && regentOrt && (
         <Regentenort ort={regentOrt} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />
