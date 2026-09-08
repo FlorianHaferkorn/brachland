@@ -8,7 +8,9 @@
       "stimmung": "nacht",
       "leer": 0.5,
       "dunkel": 95.4,
-      "median": 0.003
+      "median": 0.003,
+      "dreiecke": 605333,
+      "aufrufe": 101
     },
     {
       "name": "Felsflanke",
@@ -17,7 +19,9 @@
       "stimmung": "daemmerung",
       "leer": 0,
       "dunkel": 7.8,
-      "median": 0.208
+      "median": 0.207,
+      "dreiecke": 605357,
+      "aufrufe": 103
     },
     {
       "name": "Felsflanke",
@@ -26,7 +30,9 @@
       "stimmung": "nebelmorgen",
       "leer": 0,
       "dunkel": 7.5,
-      "median": 0.174
+      "median": 0.172,
+      "dreiecke": 605357,
+      "aufrufe": 103
     },
     {
       "name": "Felsflanke",
@@ -35,7 +41,9 @@
       "stimmung": "abendrot",
       "leer": 0,
       "dunkel": 1.2,
-      "median": 0.117
+      "median": 0.116,
+      "dreiecke": 605405,
+      "aufrufe": 100
     },
     {
       "name": "Talboden",
@@ -43,8 +51,10 @@
       "zeit": 0,
       "stimmung": "nacht",
       "leer": 0.2,
-      "dunkel": 99.8,
-      "median": 0.011
+      "dunkel": 99.6,
+      "median": 0.011,
+      "dreiecke": 1054578,
+      "aufrufe": 69
     },
     {
       "name": "Talboden",
@@ -52,8 +62,10 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 0.5,
-      "median": 0.255
+      "dunkel": 0.8,
+      "median": 0.255,
+      "dreiecke": 1062106,
+      "aufrufe": 69
     },
     {
       "name": "Grashang",
@@ -61,9 +73,11 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 1.6,
+      "dunkel": 1.5,
       "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
-      "median": 0.19
+      "median": 0.19,
+      "dreiecke": 511668,
+      "aufrufe": 84
     },
     {
       "name": "Grashang",
@@ -73,16 +87,20 @@
       "leer": 0,
       "dunkel": 2.5,
       "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
-      "median": 0.156
+      "median": 0.156,
+      "dreiecke": 511668,
+      "aufrufe": 84
     },
     {
       "name": "Felsmulde",
       "ort": "-800,600,90",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 0.8,
-      "dunkel": 94.9,
-      "median": 0.002
+      "leer": 2,
+      "dunkel": 90.6,
+      "median": 0.002,
+      "dreiecke": 973635,
+      "aufrufe": 118
     },
     {
       "name": "Felsmulde",
@@ -90,18 +108,22 @@
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
       "leer": 0,
-      "dunkel": 5.5,
-      "median": 0.08
+      "dunkel": 5.3,
+      "median": 0.082,
+      "dreiecke": 973635,
+      "aufrufe": 118
     },
     {
       "name": "Fenster",
       "ort": "1068,850,-90",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 0,
-      "dunkel": 99.7,
-      "median": 0.004,
-      "hinweis": "Zwei Haeuser am Wehr bei Nacht (D134): misst die Fensterglut — „hell“ ist hier das Mass, nicht der Median. Am Wehr statt im Dorf, weil hier zwei Haeuser das Bild fuellen"
+      "leer": 0.2,
+      "dunkel": 87.4,
+      "median": 0.009,
+      "hinweis": "Zwei Haeuser am Wehr bei Nacht (D134): misst die Fensterglut — „hell“ ist hier das Mass, nicht der Median. Am Wehr statt im Dorf, weil hier zwei Haeuser das Bild fuellen",
+      "dreiecke": 783778,
+      "aufrufe": 98
     },
     {
       "name": "Dorf",
@@ -109,9 +131,11 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 3.1,
-      "median": 0.253,
-      "hinweis": "Das dichteste Dorf der Region (128 Gebaeude im 3x3-Fenster um 1350/450), Blick nach Norden auf den Ortskern. Seit G-126"
+      "dunkel": 4.7,
+      "median": 0.165,
+      "hinweis": "Das dichteste Dorf der Region (128 Gebaeude im 3x3-Fenster um 1350/450), Blick nach Norden auf den Ortskern. Seit G-126",
+      "dreiecke": 935174,
+      "aufrufe": 84
     },
     {
       "name": "Stauwehr",
@@ -119,9 +143,11 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 3.2,
+      "dunkel": 4.5,
       "median": 0.199,
-      "hinweis": "Slice-Mitte (D113): 38 m bachabwaerts des Flussvaters, Blick nach Westen den Bach entlang — Wasser vorn, Klaeranlage rechts, Hang links. Der erste Standpunkt (40 m noerdlich, Blick Sued) stand in einem Gebaeude. Seit G-126"
+      "hinweis": "Slice-Mitte (D113): 38 m bachabwaerts des Flussvaters, Blick nach Westen den Bach entlang — Wasser vorn, Klaeranlage rechts, Hang links. Der erste Standpunkt (40 m noerdlich, Blick Sued) stand in einem Gebaeude. Seit G-126",
+      "dreiecke": 891636,
+      "aufrufe": 122
     },
     {
       "name": "Wasser",
@@ -131,7 +157,9 @@
       "leer": 0,
       "dunkel": 2.8,
       "median": 0.215,
-      "hinweis": "Becken am Flussvater (D123): Blick nach Sueden ueber das Stauwehr-Becken, Wasser links und unten, Bach im Kammschatten. Grundwert vorlaeufig, bis der erste --neu-Lauf ihn schreibt"
+      "hinweis": "Becken am Flussvater (D123): Blick nach Sueden ueber das Stauwehr-Becken, Wasser links und unten, Bach im Kammschatten. Grundwert vorlaeufig, bis der erste --neu-Lauf ihn schreibt",
+      "dreiecke": 795975,
+      "aufrufe": 108
     }
   ]
 }

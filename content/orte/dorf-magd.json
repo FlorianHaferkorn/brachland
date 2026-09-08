@@ -1,0 +1,10 @@
+{
+  "id": "dorf-magd",
+  "region": "oental",
+  "art": "bewohner",
+  "name": "Die Magd vom Unterhof",
+  "ort": [47.72892, 12.09877],
+  "text": "Sie trägt Wasser, obwohl der Hof einen Anschluss hat. Der Brunnen, sagt sie, schmeckt noch nach vorher.",
+  "figur": "magd",
+  "blick": -114
+}

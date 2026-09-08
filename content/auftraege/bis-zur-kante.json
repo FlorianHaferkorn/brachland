@@ -1,0 +1,9 @@
+{
+  "id": "bis-zur-kante",
+  "region": "oental",
+  "geber": "dorf-foerster",
+  "titel": "Bis zur Kante",
+  "text": "Am Felsband oben hat jemand Zeichen in den Stein gesetzt. Nicht meine. Lesen Sie, was da steht, und sagen Sie mir nur, ob es eine Richtung angibt.",
+  "ziel": { "art": "finde", "fragment": "felsband" },
+  "belohnung": { "harzverband": 1, "zunder": 1 }
+}

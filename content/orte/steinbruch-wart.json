@@ -3,11 +3,8 @@
   "region": "oental",
   "art": "bewohner",
   "name": "Der Wart vom Bruch",
-  "ort": [
-    47.72812,
-    12.08363
-  ],
+  "ort": [47.72815, 12.08373],
   "text": "Er nennt sich Wart, obwohl der Bruch seit achtzehn Jahren stillliegt. Bewacht wird nichts. Bezahlt wird er von niemandem. Er ist trotzdem jeden Morgen da.",
   "figur": "arbeiter",
-  "blick": 90
+  "blick": -74
 }

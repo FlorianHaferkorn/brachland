@@ -1,0 +1,10 @@
+{
+  "id": "dorf-foerster",
+  "region": "oental",
+  "art": "bewohner",
+  "name": "Der Förster",
+  "ort": [47.72894, 12.0997],
+  "text": "Sein Revier reicht bis zur Kante, dann hört es auf, seines zu sein. Er sagt nicht, wessen es dahinter ist.",
+  "figur": "foerster",
+  "blick": -60
+}

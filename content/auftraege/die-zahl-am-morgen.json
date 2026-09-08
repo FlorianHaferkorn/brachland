@@ -1,0 +1,9 @@
+{
+  "id": "die-zahl-am-morgen",
+  "region": "oental",
+  "geber": "dorf-alte",
+  "titel": "Die Zahl am Morgen",
+  "text": "Zwei Firnhasen zu viel heute Nacht. Fangen Sie mir zwei, dann stimmt die Zahl wieder. Was Sie danach mit ihnen machen, ist Ihre Sache.",
+  "ziel": { "art": "fange", "kreatur": "firnhase", "anzahl": 2 },
+  "belohnung": { "koeder": 2 }
+}

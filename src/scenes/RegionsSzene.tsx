@@ -7,7 +7,7 @@
  * Props laufen als InstancedMesh — 40.000 Bäume als Einzelobjekte würden jedes
  * Handy erledigen, als Instanzen sind es eine Handvoll Draw Calls.
  */
-import { useMemo, useRef, useEffect, useState } from 'react';
+import { Suspense, useMemo, useRef, useEffect, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
@@ -15,7 +15,7 @@ import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../wor
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
          baueGartenKachel, type Bandsatz } from '../world/baender.js';
 import { useGLTF } from '@react-three/drei';
-import { MIT_MODELL, MIT_ANBAU, baueAnbau, saatAusId }
+import { MIT_MODELL, MIT_ANBAU, baueAnbau, saatAusId, reitsitz }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn } from './Kontur.js';
 import { PALETTE } from '../world/palette.js';
@@ -136,9 +136,19 @@ const SCHATTEN_MESSLAUF: number | null = (() => {
  * seit D126 nie von vorn gesehen — Gesicht, Halstuch, Kapuzenrand sind gebaut,
  * aber ungeprüft, weil die Kamera im Spiel immer hinter ihr steht. Die Figur
  * dreht sich nicht; die Kamera wandert um 180° auf der Kugel.
+ *
+ * Seit D145 auch als Winkel: `?spiegel=90` stellt die Kamera **seitlich** — die
+ * Sitzpose im Sattel (Knie, Hüfte) ist von vorn und hinten nicht zu beurteilen.
+ * `1` bleibt 180° (Messskripte).
  */
-const SPIEGEL_MESSLAUF: boolean = typeof location !== 'undefined'
-  && new URLSearchParams(location.search).get('spiegel') === '1';
+const SPIEGEL_GRAD: number = (() => {
+  if (typeof location === 'undefined') return 0;
+  const roh = new URLSearchParams(location.search).get('spiegel');
+  if (roh === null) return 0;
+  if (roh === '1') return 180;
+  const n = Number(roh);
+  return Number.isFinite(n) ? n : 0;
+})();
 
 export const STIMMUNG: Record<string, Stimmung> = {
   nacht: {
@@ -1051,10 +1061,14 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
     <>
       {nah.map(v => (
         MIT_MODELL.has(v.kreatur)
-          ? <KreaturModell key={v.id} kreatur={v.kreatur} rand={rand} lauf={laufVon(v)}
-                           position={v.position} drehung={v.drehung} mutation={v.mutation}
-                           // Stufe 2 ist 15–25 % groesser, Stufe 3 nochmal — aus der Stilreferenz.
-                           skalierung={1 + v.mutation * 0.2} />
+          // Eigene Suspense-Grenze je Tier (G-134): Bis die Datei da ist, steht
+          // nichts — aber die uebrige Szene laeuft weiter, statt neu aufzubauen.
+          ? <Suspense key={v.id} fallback={null}>
+              <KreaturModell kreatur={v.kreatur} rand={rand} lauf={laufVon(v)}
+                             position={v.position} drehung={v.drehung} mutation={v.mutation}
+                             // Stufe 2 ist 15–25 % groesser, Stufe 3 nochmal — aus der Stilreferenz.
+                             skalierung={1 + v.mutation * 0.2} />
+            </Suspense>
           : <mesh key={v.id} geometry={gestalt(v.kreatur, v.mutation)} material={material}
                   position={v.position} rotation={[0, v.drehung, 0]}
                   scale={1 + v.mutation * 0.2}
@@ -1117,33 +1131,36 @@ function KreaturModell({ kreatur, rand, lauf, position, drehung, mutation, skali
    * greift über (Art, Mutationsstufe): fünf Modelle mal drei Stufen sind
    * höchstens fünfzehn Geometrien für die ganze Welt.
    */
-  const geo = useMemo(() => {
-    let g: THREE.BufferGeometry | null = null;
-    scene.traverse(o => { if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry; });
-    if (!g || !MIT_ANBAU.has(kreatur)) return g;
-    const koerper = g as THREE.BufferGeometry;
-    // Der Anbau kommt ohne Normalen und UV (D107: das Modell hat keine), sonst
-    // verweigert `mergeGeometries` — gleiche Attribute sind Pflicht. Seit D128
-    // für zehn Arten, gemessen an den Ankern des jeweiligen Modells.
-    const anbau = baueAnbau(kreatur, koerper, mutation, saatAusId(kreatur));
-    if (!anbau) return koerper;
-    const roh = koerper.index ? koerper.toNonIndexed() : koerper;
-    const zusammen = mergeGeometries([roh, anbau], false);
-    if (!zusammen) {
-      // **Laut, nicht still** (G-131): Der stille Rueckfall `?? koerper` hat
-      // neun von zehn Anbauten verschluckt — die Poly-Modelle trugen ein UV-
-      // Attribut, der Anbau nicht, und nichts hat es gemeldet.
-      console.error(`Anbau ${kreatur}: Attribute passen nicht — Koerper `
-        + `${Object.keys(roh.attributes).join('+')}, Anbau ${Object.keys(anbau.attributes).join('+')}`);
-      return koerper;
-    }
-    return zusammen;
-  }, [scene, kreatur, mutation]);
+  const geo = useMemo(() => kreaturGeometrie(scene, kreatur, mutation), [scene, kreatur, mutation]);
   if (!geo) return null;
   return (
     <mesh ref={mesh} geometry={geo} material={material} position={position}
           rotation={[0, drehung, 0]} scale={skalierung} castShadow receiveShadow />
   );
+}
+
+/** Koerper plus Anbau aus der geladenen Datei — fuer die Welt und das Reittier (D145). */
+function kreaturGeometrie(scene: THREE.Object3D, kreatur: string, mutation: number): THREE.BufferGeometry | null {
+  let g: THREE.BufferGeometry | null = null;
+  scene.traverse(o => { if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry; });
+  if (!g || !MIT_ANBAU.has(kreatur)) return g;
+  const koerper = g as THREE.BufferGeometry;
+  // Der Anbau kommt ohne Normalen und UV (D107: das Modell hat keine), sonst
+  // verweigert `mergeGeometries` — gleiche Attribute sind Pflicht. Seit D128
+  // für zehn Arten, gemessen an den Ankern des jeweiligen Modells.
+  const anbau = baueAnbau(kreatur, koerper, mutation, saatAusId(kreatur));
+  if (!anbau) return koerper;
+  const roh = koerper.index ? koerper.toNonIndexed() : koerper;
+  const zusammen = mergeGeometries([roh, anbau], false);
+  if (!zusammen) {
+    // **Laut, nicht still** (G-131): Der stille Rueckfall `?? koerper` hat
+    // neun von zehn Anbauten verschluckt — die Poly-Modelle trugen ein UV-
+    // Attribut, der Anbau nicht, und nichts hat es gemeldet.
+    console.error(`Anbau ${kreatur}: Attribute passen nicht — Koerper `
+      + `${Object.keys(roh.attributes).join('+')}, Anbau ${Object.keys(anbau.attributes).join('+')}`);
+    return koerper;
+  }
+  return zusammen;
 }
 
 /**
@@ -1347,8 +1364,10 @@ function Orte({ orte, ziel, onNah, rand }: {
               <mesh geometry={pfahl} material={holz} castShadow receiveShadow />
               <mesh geometry={balken} material={holz} castShadow />
             </>
-          ) : o.figur ? (
-            <Mensch figur={o.figur} blick={o.blick ?? 0} ziel={ziel} rand={rand} />
+          ) : o.figur && !istAus('menschen') ? (
+            <Suspense fallback={null}>
+              <Mensch figur={o.figur} blick={o.blick ?? 0} ziel={ziel} rand={rand} />
+            </Suspense>
           ) : (
             <mesh geometry={figur} material={tuch} castShadow receiveShadow />
           )}
@@ -1986,6 +2005,86 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
 }
 
 /**
+ * Sitzpose im Sattel (D145): drei Winkel je Bein, als Nachdrehung **hinter** dem
+ * Mixer im lokalen Knochenraum (`quaternion.multiply`), gewichtet mit `anteil`.
+ *
+ * Die Achsen sind die des Quaternius-Rigs, gemessen im Spiel mit `?spiegel=90`:
+ * X beugt (positiv = nach vorn am Oberschenkel, nach hinten am Unterschenkel),
+ * Z spreizt. Kein eigener Clip — das Paket hat keinen, und das Tier traegt die
+ * Bewegung (D93).
+ */
+// Gemessen (`.cache/mess/reiten.mjs`, seitlich): Knie 1,45 liess den Unterschenkel
+// 29° nach hinten haengen — Idle beugt das Knie schon etwas; 1,05 haengt senkrecht.
+const SITZ = { huefte: 1.35, spreiz: 0.30, knie: 1.05, fuss: 0.10 };
+const _q = new THREE.Quaternion();
+const _achseX = new THREE.Vector3(1, 0, 0), _achseZ = new THREE.Vector3(0, 0, 1);
+function sitzpose(
+  b: Record<'ol' | 'or' | 'ul' | 'ur' | 'fl' | 'fr', THREE.Object3D | null>, anteil: number,
+) {
+  const dreh = (k: THREE.Object3D | null, achse: THREE.Vector3, winkel: number) => {
+    if (k) k.quaternion.multiply(_q.setFromAxisAngle(achse, winkel * anteil));
+  };
+  dreh(b.ol, _achseX, -SITZ.huefte); dreh(b.or, _achseX, -SITZ.huefte);
+  dreh(b.ol, _achseZ, SITZ.spreiz); dreh(b.or, _achseZ, -SITZ.spreiz);
+  dreh(b.ul, _achseX, SITZ.knie); dreh(b.ur, _achseX, SITZ.knie);
+  dreh(b.fl, _achseX, SITZ.fuss); dreh(b.fr, _achseX, SITZ.fuss);
+}
+
+/**
+ * Was die Szene ueber das Reittier wissen muss (D93, D145).
+ *
+ * `geometrie`/`hoehe` sind die Silhouette und ihre Sitzhoehe — der Rueckfall fuer
+ * Arten ohne Modell. Mit `kreatur` und `mutation` laedt `ReittierModell` dieselbe
+ * Datei wie die Welt und liest die Sitzhoehe aus dem Modell.
+ */
+export interface Reittier {
+  geometrie: THREE.BufferGeometry;
+  hoehe: number;
+  kreatur: string;
+  mutation: number;
+}
+
+/**
+ * Das Reittier als Modell (D145): dieselbe Datei und derselbe Shader wie
+ * `KreaturModell` in der Welt. Atmen und Gang laufen im Shader, der Gang mit dem
+ * Tempo des Spielers. Bis D144 ritt man auf der Silhouette aus `kreaturgestalt.ts`
+ * — die Tiere in der Welt hatten seit D124 Modelle, das Reittier nicht.
+ */
+function ReittierModell({ kreatur, mutation, rand, schritt, sitzHoehe }: {
+  kreatur: string;
+  mutation: number;
+  rand: { farbe: string; staerke: number };
+  schritt: React.RefObject<{ phase: number; tempo: number }>;
+  sitzHoehe: React.MutableRefObject<number | null>;
+}) {
+  const { scene } = useGLTF(`/creatures/${kreatur}.glb`);
+  const geo = useMemo(() => kreaturGeometrie(scene, kreatur, mutation), [scene, kreatur, mutation]);
+  const skala = 1 + mutation * 0.2;
+  // Sitzhoehe aus dem **Koerper ohne Anbau** (`reitsitz`: hoechster Punkt des
+  // mittleren Fuenftels), mal Mutationsskalierung. Mit Anbau gemessen sass die
+  // Reiterin 0,5 m ueber dem Ruecken — das Gehoern des Grathorns waechst aus dem
+  // Widerrist und war der hoechste Punkt.
+  useEffect(() => {
+    let koerper: THREE.BufferGeometry | null = null;
+    scene.traverse(o => { if (!koerper && (o as THREE.Mesh).isMesh) koerper = (o as THREE.Mesh).geometry; });
+    sitzHoehe.current = koerper ? reitsitz(koerper).hoehe * skala : null;
+    return () => { sitzHoehe.current = null; };
+  }, [scene, skala, sitzHoehe]);
+  const { material, setzeRand, setzeZeit, setzeGang } = useMemo(() => baueWindMaterial({
+    amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 1.4,
+    randSchaerfe: 1.6, atmen: true,
+  }), []);
+  useEffect(() => { setzeRand(new THREE.Color(rand.farbe), rand.staerke * 1.4); }, [setzeRand, rand]);
+  useEffect(() => () => { material.dispose(); }, [material]);
+  useFrame((state) => {
+    setzeZeit(state.clock.elapsedTime);
+    setzeGang(Math.min(1, schritt.current.tempo / RENNEN));
+  });
+  if (!geo) return null;
+  return <mesh geometry={geo} material={material} scale={skala} castShadow receiveShadow />;
+}
+
+/**
  * Die Spielerfigur — seit D143 ein **SkinnedMesh** aus der Menschenkette
  * (`tools/menschbau.py`, Quaternius CC0), nicht mehr die geloftete Figur aus
  * Teilen (D139, `figur.ts` bleibt als Rueckfall und fuer die Masse HUEFTE/SCHULTER).
@@ -1998,8 +2097,8 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
  * Das Material ist dasselbe Wind-/Randmaterial wie bei den Kreaturen —
  * three.js setzt USE_SKINNING selbst, die Injektionen laufen vor dem Skinning.
  *
- * ⚠️ Reiten (D93): Im Sattel spielt die Figur Idle und wird um den Widerrist
- * angehoben — eine Sitzpose ueber die Knochen ist noch nicht gebaut.
+ * Reiten (D93, D145): Im Sattel spielt die Figur Idle, wird um den Widerrist
+ * angehoben und bekommt die Sitzpose ueber drei Winkel je Bein (`sitzpose`).
  */
 function SpielerFigur({ gier, schritt, rand, reittier }: {
   gier: React.RefObject<number>;
@@ -2011,9 +2110,12 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
    * Der Reiter wird um die Widerristhöhe angehoben; was sich bewegt, ist das
    * Tier, mit derselben Schrittphase wie bisher.
    */
-  reittier?: { geometrie: THREE.BufferGeometry; hoehe: number } | null;
+  reittier?: Reittier | null;
 }) {
   const { scene, animations } = useGLTF('/figuren/wanderin.glb');
+  /** Sitzhoehe aus dem Modell (`ReittierModell` schreibt sie), sonst aus der Silhouette. */
+  const sitzHoehe = useRef<number | null>(null);
+  const mitModell = !!reittier && MIT_MODELL.has(reittier.kreatur);
   const { material, setzeRand } = useMemo(() => baueWindMaterial({
     amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
   }), []);
@@ -2032,11 +2134,33 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
     const clip = (n: string) => mixer.clipAction(finde(n));
     const idle = clip('Idle'), walk = clip('Walk'), run = clip('Run');
-    for (const c of [idle, walk, run]) { c.enabled = true; c.setEffectiveWeight(0); c.play(); }
-    idle.setEffectiveWeight(1);
+    // Nur Idle laeuft; Walk und Run werden beim Wechsel eingeblendet.
+    // **Nicht** mit `setEffectiveWeight(0)` vorhalten (G-133): Das Gewicht ist
+    // der Faktor, mit dem `fadeIn` multipliziert — 0 mal Einblendung bleibt 0,
+    // und die Figur lief bis D145 als T-Pose, weil Idle ausblendete und nichts
+    // einblendete. Gesehen wurde das erst, als der Gang im Lauf gemessen wurde.
+    idle.play();
     return { idle, walk, run, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
   useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
+  // Die Beinknochen fuer die Sitzpose (D145). GLTFLoader streicht den Punkt aus
+  // den Namen (`UpperLeg.L` → `UpperLegL`); beide Schreibweisen werden gesucht.
+  const beine = useMemo(() => {
+    const k = (n: string) => scene.getObjectByName(n.replace('.', '')) ?? scene.getObjectByName(n) ?? null;
+    return { ol: k('UpperLeg.L'), or: k('UpperLeg.R'), ul: k('LowerLeg.L'), ur: k('LowerLeg.R'), fl: k('Foot.L'), fr: k('Foot.R') };
+  }, [scene]);
+  /**
+   * Hoehe des Hueftgelenks in der Ruhepose, aus dem Modell gelesen (Wanderin:
+   * 1,02 m), nicht aus `HUEFTE` (0,85, die alte Figur): Der Sitz liegt eine
+   * Handbreit unter dem Gelenk — so weit wird die Figur im Sattel abgesenkt.
+   */
+  const sitzTiefe = useMemo(() => {
+    scene.updateMatrixWorld(true);
+    const y = beine.ol ? beine.ol.getWorldPosition(new THREE.Vector3()).y - scene.getWorldPosition(new THREE.Vector3()).y : HUEFTE;
+    return y - 0.10;
+  }, [scene, beine]);
+  /** 0 = steht, 1 = sitzt; wird in 0,3 s ueberblendet. */
+  const sitz = useRef(0);
 
   const gruppe = useRef<THREE.Group>(null);
   const reiter = useRef<THREE.Group>(null);
@@ -2049,6 +2173,9 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
     // Clip nach Tempo, weich ueberblendet; im Sattel immer Idle.
     const ziel = reittier || tempo < 0.15 ? clips.idle : tempo < 5.5 ? clips.walk : clips.run;
     if (ziel !== clips.aktiv) {
+      // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
+      // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
+      ziel.reset().setEffectiveWeight(1).play();
       clips.aktiv.crossFadeTo(ziel, 0.25, false);
       clips.aktiv = ziel;
     }
@@ -2058,11 +2185,19 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
     clips.run.timeScale = Math.max(0.8, Math.min(1.8, tempo / 6.5));
     mixer.update(Math.min(dt, 0.1));
 
+    // Sitzpose ueber die Knochen, nach dem Mixer: Oberschenkel nach vorn und
+    // etwas nach aussen (der Reiter sitzt rittlings), Knie zurueck, Fuss gestreckt.
+    // Kein eigener Clip — das Paket hat keinen, und drei Winkel reichen.
+    sitz.current += ((reittier ? 1 : 0) - sitz.current) * Math.min(1, dt / 0.3);
+    if (sitz.current > 0.001) sitzpose(beine, sitz.current);
+
     if (reittier) {
+      const hoehe = (mitModell ? sitzHoehe.current : null) ?? reittier.hoehe;
       if (reiter.current) {
-        reiter.current.position.y = reittier.hoehe - HUEFTE + Math.sin(phase * 0.5) * 0.06 * stark;
+        reiter.current.position.y = hoehe - sitzTiefe + Math.sin(phase * 0.5) * 0.06 * stark;
       }
-      if (tier.current) {
+      // Die Silhouette wippt als Ganzes; das Modell geht im Shader (D138).
+      if (tier.current && !mitModell) {
         tier.current.position.y = Math.abs(Math.cos(phase)) * 0.05 * stark;
         tier.current.rotation.z = Math.sin(phase) * 0.045 * stark;
       }
@@ -2075,7 +2210,12 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
     <group ref={gruppe}>
       {reittier && (
         <group ref={tier}>
-          <mesh geometry={reittier.geometrie} material={material} castShadow receiveShadow />
+          {mitModell
+            ? <Suspense fallback={<mesh geometry={reittier.geometrie} material={material} castShadow receiveShadow />}>
+                <ReittierModell kreatur={reittier.kreatur} mutation={reittier.mutation} rand={rand}
+                                schritt={schritt} sitzHoehe={sitzHoehe} />
+              </Suspense>
+            : <mesh geometry={reittier.geometrie} material={material} castShadow receiveShadow />}
         </group>
       )}
       <group ref={reiter}>
@@ -2111,7 +2251,7 @@ function Kamera({ ziel, gier, neigung, feld, kollision }: {
     // Die Kamera kreist auf einer Kugel um den Blickpunkt auf Brusthöhe: `gier`
     // dreht herum, `neigung` hebt und senkt. Bei Neigung 0 steht sie waagerecht
     // hinter dem Spieler, bei NEIGUNG_MAX fast senkrecht darüber.
-    const g = gier.current + (SPIEGEL_MESSLAUF ? Math.PI : 0);
+    const g = gier.current + SPIEGEL_GRAD * Math.PI / 180;
     const n = neigung.current;
     const blickY = p.y + GROESSE.kameraBlickHoehe;
     const rx = Math.sin(g) * Math.cos(n);
@@ -2319,7 +2459,7 @@ export interface RegionsSzeneProps {
    * Ob überhaupt geritten werden darf, entscheidet `spiel/reiten.ts` — die Szene
    * bekommt nur das Ergebnis. Sie kennt keine Kreaturen und keine Mutationsstufen.
    */
-  reittier?: { geometrie: THREE.BufferGeometry; hoehe: number } | null;
+  reittier?: Reittier | null;
   /**
    * Hält die Bildschleife an, ohne die Szene abzubauen.
    *
@@ -2487,8 +2627,14 @@ export function RegionsSzene({
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
                fenster={s.fenster ?? 0} />
       <object3D ref={ref} position={start}>
-        <SpielerFigur gier={gier} schritt={schritt} reittier={reittier}
-                      rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
+        {/* Eigene Suspense-Grenze (G-134): Ein ladendes GLB darf nicht die ganze Szene
+            aufhalten — ohne Grenze verwirft React beim ersten Aufbau den gesamten
+            Baum samt allen `useMemo` (Klippen, Baender, Kacheln) und rechnet ihn nach
+            jedem geladenen Modell neu. */}
+        <Suspense fallback={null}>
+          <SpielerFigur gier={gier} schritt={schritt} reittier={reittier}
+                        rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
+        </Suspense>
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}

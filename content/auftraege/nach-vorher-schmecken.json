@@ -1,0 +1,9 @@
+{
+  "id": "nach-vorher-schmecken",
+  "region": "oental",
+  "geber": "dorf-magd",
+  "titel": "Nach vorher schmecken",
+  "text": "Am Silo vom Hof steht etwas geschrieben, seit dem Frühjahr. Ich gehe nicht mehr hin. Lesen Sie es und bringen Sie mir das Wort zurück, das Sie nicht verstehen.",
+  "ziel": { "art": "finde", "fragment": "silo-hof" },
+  "belohnung": { "kraeutersud": 1, "reinkultur": 1 }
+}

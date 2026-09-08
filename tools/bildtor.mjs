@@ -53,6 +53,13 @@ const BASIS = 'http://127.0.0.1:4173/';
 const WARTEN = 15_000;
 /** Zuschlag auf den Grundwert, ab dem es ein Ausfall ist. */
 const SPIELRAUM = 4.0;
+/**
+ * Abweichung der Dreiecke vom Grundwert, ab der es ein Ausfall ist (G-134): Ein
+ * halb geladener Bau hat weniger Dreiecke, ein Bau ohne Haeuser auch — und beides
+ * kam bis D145 als „gruen“ durch, weil `leer` nur Schwarz misst. 30 % lassen
+ * Bewuchs-Streuung und LOD-Wahl durch, nicht aber 128 fehlende Haeuser (−47 %).
+ */
+const DREIECKE_SPIELRAUM = 0.30;
 
 const grund = JSON.parse(readFileSync(GRUND, 'utf8'));
 
@@ -127,28 +134,38 @@ for (const f of grund.faelle) {
   await seite.waitForTimeout(WARTEN);
   const foto = await seite.screenshot();
   const w = await seite.evaluate(messen, foto.toString('base64'));
+  // Dreiecke und Aufrufe aus dem HUD: sagt, ob die Szene fertig gebaut war (G-134).
+  const hud = await seite.evaluate(() => document.body.innerText);
+  w.dreiecke = Number((hud.match(/([\d.]+) Dreiecke/)?.[1] ?? '0').replace(/\./g, ''));
+  w.aufrufe = Number(hud.match(/(\d+) Aufrufe/)?.[1] ?? '0');
   await seite.context().close();
 
   const grenze = f.leer + SPIELRAUM;
-  const aus = w.leer > grenze;
+  const abw = f.dreiecke ? Math.abs(w.dreiecke - f.dreiecke) / f.dreiecke : 0;
+  const aus = w.leer > grenze || abw > DREIECKE_SPIELRAUM;
   if (aus) { if (f.offen) warnungen++; else blocker++; }
-  zeilen.push({ f, w, aus });
+  zeilen.push({ f, w, aus, abw, vorher: { leer: f.leer, median: f.median, dreiecke: f.dreiecke } });
   if (NEU) {
     f.leer = Number(w.leer.toFixed(1)); f.dunkel = Number(w.dunkel.toFixed(1));
-    f.median = Number(w.median.toFixed(3));
+    f.median = Number(w.median.toFixed(3)); f.dreiecke = w.dreiecke; f.aufrufe = w.aufrufe;
   }
 }
 await browser.close();
 
 console.log('\nBildtor — Anteil Pixel mit hoechstem Kanal exakt 0\n');
-console.log('  Ort                Stimmung      leer      Grundwert   dunkel   Median    hell');
+console.log('  Ort                Stimmung      leer      Grundwert   dunkel   Median    hell   Dreiecke  Aufrufe');
 console.log('  Referenz (Stilvorlage, G-126)                              0.2 %   0.270   47.0 %');
-for (const { f, w, aus } of zeilen) {
+for (const { f, w, aus, abw, vorher } of zeilen) {
   const zeichen = aus ? (f.offen ? '!' : '✗') : '✓';
+  const tri = `${(w.dreiecke / 1000).toFixed(0).padStart(6)}k` + (vorher.dreiecke ? ` (${abw > DREIECKE_SPIELRAUM ? '!' : ''}${(w.dreiecke / vorher.dreiecke * 100 - 100).toFixed(0).padStart(4)} %)` : '');
   console.log(`  ${zeichen} ${f.name.padEnd(16)} ${f.stimmung.padEnd(12)}`
-    + `${w.leer.toFixed(1).padStart(6)} %  ${f.leer.toFixed(1).padStart(6)} %`
-    + `${w.dunkel.toFixed(1).padStart(9)} %  ${w.median.toFixed(3).padStart(6)}  ${w.hell.toFixed(1).padStart(5)} %`
+    + `${w.leer.toFixed(1).padStart(6)} %  ${vorher.leer.toFixed(1).padStart(6)} %`
+    + `${w.dunkel.toFixed(1).padStart(9)} %  ${w.median.toFixed(3).padStart(6)}  ${w.hell.toFixed(1).padStart(5)} %  ${tri}  ${String(w.aufrufe).padStart(4)}`
     + (f.offen ? `   offen: ${f.offen}` : ''));
+  // Beim Neuschreiben den Sprung zeigen — ein Grundwert, der sich um die Haelfte
+  // bewegt, ist ein Befund und kein neuer Grundwert (G-134).
+  if (NEU && vorher.median && Math.abs(w.median - vorher.median) / vorher.median > 0.25)
+    console.log(`      ⚠️ Median ${vorher.median.toFixed(3)} → ${w.median.toFixed(3)}: erst erklaeren, dann als Grundwert nehmen`);
 }
 
 if (NEU && !NUR) {
@@ -159,8 +176,8 @@ if (NEU && !NUR) {
 
 console.log(`\n${blocker} Blocker, ${warnungen} Warnungen (Spielraum ${SPIELRAUM} Punkte)`);
 if (blocker) {
-  console.log('\nEin Bereich, der vorher Zeichnung hatte, ist jetzt leer. Das ist kein');
-  console.log('Geschmacksurteil: Bei hoechstem Kanal 0 steht dort nichts mehr, auch');
-  console.log('nichts Dunkles. Siehe G-116 und G-117.');
+  console.log('\nEin Bereich, der vorher Zeichnung hatte, ist jetzt leer (hoechster Kanal 0,');
+  console.log('G-116/G-117) — oder die Dreiecke weichen mehr als 30 % vom Grundwert ab:');
+  console.log('halb geladener Bau oder verschwundene Geometrie (G-134). Kein Geschmacksurteil.');
   process.exit(1);
 }

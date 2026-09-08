@@ -3,11 +3,8 @@
   "region": "oental",
   "art": "bewohner",
   "name": "Tremmel, Hofbesitzerin",
-  "ort": [
-    47.72915,
-    12.07892
-  ],
+  "ort": [47.72921, 12.07889],
   "text": "Sie schaut nicht auf, wenn man kommt. Sie schaut auf, wenn man wieder geht — und merkt sich, in welche Richtung.",
   "figur": "baeuerin",
-  "blick": 200
+  "blick": -63
 }

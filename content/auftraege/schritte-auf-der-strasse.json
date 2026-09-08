@@ -1,0 +1,9 @@
+{
+  "id": "schritte-auf-der-strasse",
+  "region": "oental",
+  "geber": "dorf-bursche",
+  "titel": "Schritte auf der Straße",
+  "text": "Vier Spürfüchse laufen nachts die Straße herauf und schnüffeln an jeder Tür. Wenn die weg sind, höre ich vielleicht wieder, wer wirklich kommt.",
+  "ziel": { "art": "besiege", "kreatur": "spuerfuchs", "anzahl": 4 },
+  "belohnung": { "quellwasser": 2 }
+}

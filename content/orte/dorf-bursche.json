@@ -1,0 +1,10 @@
+{
+  "id": "dorf-bursche",
+  "region": "oental",
+  "art": "bewohner",
+  "name": "Der Bursche",
+  "ort": [47.72874, 12.09983],
+  "text": "Er wartet auf jemanden, der vor drei Tagen zurück sein sollte. Er sagt es nicht, aber er schaut jedes Mal die Straße hinunter, wenn Schritte kommen.",
+  "figur": "bursche",
+  "blick": -57
+}

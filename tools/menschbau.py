@@ -102,6 +102,41 @@ FIGUREN = [
         'Eye': 'figur.riemen', 'LightBrown': 'figur.jacke', 'LightBlue': 'figur.hose',
         'Red_Dark': 'figur.stiefel', 'White': 'figur.stiefel',
     }, {}),
+    # --- Varianten aus Teilen (D145) ------------------------------------------
+    # Achtes Feld: Teile aus anderen Dateien je Slot (Head, Body, Legs, Feet,
+    # Backpack); `None` loescht den Slot. Gleiche Knochen ueberall, aber drei
+    # Ruheposen (siehe `teile_holen`): Maenner ohne m_adventurer, Frauen, m_adventurer.
+    # Foerster: Jacke des Casual in Loden, Muetze des Bauern, Hose und Stiefel des Arbeiters.
+    # (Die Tunika von `m_adventurer` waere die bessere Jacke — der hat aber eine eigene Ruhepose.)
+    ('m_casual_character', 'foerster', 1.80, 1800, ANIM_NPC, {
+        'Skin': 'figur.haut', 'Skin_Darker': 'figur.haut', 'LightBrown': 'figur.loden', 'Beige': 'figur.loden',
+        'Red': 'figur.wolle', 'Eyebrows': 'figur.riemen', 'Eye': 'figur.riemen',
+        'Brown2': 'figur.hose', 'Brown': 'figur.hose', 'Black': 'figur.stiefel', 'Grey': 'figur.stiefel',
+    }, {}, {'Head': ('m_farmer', 'Farmer_Head'), 'Legs': ('m_worker', 'Worker_Legs'), 'Feet': ('m_worker', 'Worker_Feet')}),
+    # Wirt: der Geschaeftsmann in brauner Wolle, graues Haar — Hemd und Krawatte bleiben.
+    ('m_business_man', 'wirt', 1.78, 1600, ANIM_NPC, {
+        'Skin': 'figur.haut', 'Suit': 'figur.wolle', 'White': 'figur.rolle', 'Tie': 'figur.riemen',
+        'Black': 'figur.stiefel', 'Hair': 'figur.haarGrau', 'Eyebrows': 'figur.riemen', 'Eye': 'figur.riemen',
+    }, {}),
+    # Bursche: Kapuzenpulli in Dunkelrot, Jeans des Casual, helles Haar.
+    ('m_hoodie_character', 'bursche', 1.76, 1600, ANIM_NPC, {
+        'Skin': 'figur.haut', 'Purple': 'kenney.colorRedDark', 'White': 'figur.rolle', 'LightBlue': 'figur.hose',
+        'Hair': 'figur.haarHell', 'Eyebrows': 'figur.riemen', 'Eye': 'figur.riemen',
+    }, {'Casual_Feet': {'Purple': 'figur.stiefel', 'White': 'figur.stiefel'}},
+     {'Legs': ('m_casual_character', 'Casual2_Legs')}),
+    # Alte: Rumpf und Beine der ersten Frau (wie die Baeuerin) in Kittel und dunkler
+    # Hose, dazu der Kopf der zweiten Frau mit grauem Haar. (Die „Abenteurerin“ des
+    # Packs traegt Shorts und Rucksack — als Alte unbrauchbar, im Bild gesehen.)
+    ('w_animated_woman', 'alte', 1.64, 1600, ANIM_NPC, {
+        'Skin': 'figur.haut', 'LimeGreen': 'figur.kittel', 'Gold': 'figur.riemen',
+        'Hair_Blond': 'figur.haarGrau', 'Hair_Brown': 'figur.haarGrau', 'Brown': 'figur.riemen',
+    }, {'Formal_Feet': {'Red': 'figur.stiefel', 'Skin': 'figur.stiefel'}, 'Formal_Legs': {'Skin': 'figur.hose', 'LimeGreen': 'figur.hose'}},
+     {'Head': ('w_animated_woman2', 'Casual_Head')}),
+    # Magd: Rumpf und Beine der zweiten Frau (Wolle, Kittel), Kopf der Abenteurerin mit hellem Haar.
+    ('w_animated_woman2', 'magd', 1.70, 1600, ANIM_NPC, {
+        'Skin': 'figur.haut', 'White': 'figur.wolle', 'Orange': 'figur.kittel', 'Grey': 'figur.stiefel',
+        'Hair_Brown': 'figur.haarHell', 'Brown': 'figur.riemen',
+    }, {'Casual_Feet': {'Skin': 'figur.stiefel'}}, {'Head': ('w_adventurer', 'Adventurer_Head')}),
 ]
 
 
@@ -112,8 +147,64 @@ def basisfarbe(mat):
     return (0.5, 0.5, 0.5)
 
 
+def slot_von(objname):
+    """Kopf, Rumpf, Beine, Fuesse aus dem Paketnamen (`Farmer_Pants` zaehlt als Legs)."""
+    s = re.sub(r'\.\d{3}$', '', objname).rsplit('_', 1)[-1]
+    return 'Legs' if s == 'Pants' else s
+
+
+def teile_holen(arm, teile):
+    """Teile aus anderen Paketdateien an die Armature der Basis haengen (D145).
+
+    Alle 21 Figuren beider Packs tragen dieselben 62 Knochen (Namen, gemessen mit
+    `.cache/menschteile.py`), deshalb passen die Vertexgruppen eines Kopfes aus
+    `m_farmer` auf die Armature von `m_hoodie_character`. **Aber die Ruhepose
+    ist nicht ueberall dieselbe** (`.cache/menschrest.py`): die zehn Maenner
+    ausser `m_adventurer` teilen eine, die fuenf Frauen eine zweite (Huefte
+    11 cm tiefer), `m_adventurer` eine dritte (Wurzel 5,3 m hoeher — sein Kopf
+    stand beim ersten Foerster in 7 m Hoehe). Ein Teil ist nur an seine eigene
+    Ruhepose gebunden; die Kette prueft deshalb die Huefte und bricht ab, statt
+    still zu verschieben.
+    """
+    geholt = []
+    huefte_basis = arm.data.bones['Hips'].head_local.copy()
+    for slot, teil_von in teile.items():
+        if teil_von is None:
+            continue  # Slot nur geloescht (z. B. Backpack)
+        quelle, objname = teil_von
+        vorher = set(bpy.data.objects)
+        bpy.ops.import_scene.gltf(filepath=os.path.join(QUELLE, quelle + '.glb'))
+        neu = [o for o in bpy.data.objects if o not in vorher]
+        teil = next((o for o in neu if o.type == 'MESH' and re.sub(r'\.\d{3}$', '', o.name) == objname), None)
+        if teil is None:
+            raise SystemExit(f'Teil {objname} fehlt in {quelle}: {[o.name for o in neu if o.type == "MESH"]}')
+        fremd = next(o for o in neu if o.type == 'ARMATURE')
+        abweichung = (fremd.data.bones['Hips'].head_local - huefte_basis).length * 100  # Meter
+        if abweichung > 0.01:
+            raise SystemExit(f'{objname} aus {quelle}: Ruhepose weicht {abweichung:.2f} m von der Basis ab — '
+                             'nur Teile derselben Ruhepose mischen (Maenner ohne m_adventurer, Frauen)')
+        # Umhaengen, bevor die alte Armature geloescht wird; Basis- und
+        # Parent-Inverse-Matrix bleiben, beide Armatures stehen identisch
+        # (RootNode, Skalierung 100).
+        basis, mpi = teil.matrix_basis.copy(), teil.matrix_parent_inverse.copy()
+        teil.parent = arm
+        teil.matrix_parent_inverse = mpi
+        teil.matrix_basis = basis
+        for o in neu:
+            if o is not teil:
+                bpy.data.objects.remove(o, do_unlink=True)
+        for m in teil.modifiers:
+            if m.type == 'ARMATURE':
+                m.object = arm
+        teil.name = objname
+        geholt.append(teil)
+    return geholt
+
+
 register = {}
-for quelle, name, hoehe, ziel_tris, BEHALTEN, rollen, je_objekt in FIGUREN:
+for eintrag in FIGUREN:
+    quelle, name, hoehe, ziel_tris, BEHALTEN, rollen, je_objekt = eintrag[:7]
+    teile = eintrag[7] if len(eintrag) > 7 else {}
     if NUR and name not in NUR:
         continue
     pfad = os.path.join(QUELLE, quelle + '.glb')
@@ -122,11 +213,22 @@ for quelle, name, hoehe, ziel_tris, BEHALTEN, rollen, je_objekt in FIGUREN:
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=pfad)
 
-    # 1. Beiwerk weg — und alles, was kein Skelett traegt.
+    # 1. Beiwerk weg — und alles, was kein Skelett traegt. Teile, die aus einer
+    #    anderen Datei kommen, verdraengen das Basisteil desselben Slots.
     for o in list(bpy.context.scene.objects):
-        if o.type == 'MESH' and (o.name in WEG or not any(m.type == 'ARMATURE' for m in o.modifiers)):
+        if o.type == 'MESH' and (o.name in WEG or not any(m.type == 'ARMATURE' for m in o.modifiers)
+                                 or slot_von(o.name) in teile):
             bpy.data.objects.remove(o, do_unlink=True)
     arm = next(o for o in bpy.context.scene.objects if o.type == 'ARMATURE')
+    if teile:
+        teile_holen(arm, teile)
+        # Kontrolle: jedes Teil muss im Stand der Basis liegen (z 0..1,8 m).
+        dg = bpy.context.evaluated_depsgraph_get()
+        for o in bpy.context.scene.objects:
+            if o.type != 'MESH': continue
+            ev = bpy.data.meshes.new_from_object(o.evaluated_get(dg)); ev.transform(o.matrix_world)
+            zs = [v.co.z for v in ev.vertices]; bpy.data.meshes.remove(ev)
+            print(f'  Teil {o.name:18} z {min(zs):.2f}..{max(zs):.2f} m')
     netze = [o for o in bpy.context.scene.objects if o.type == 'MESH']
 
     # 2. Animationen: nur die sechs, die die Szene spielt.

@@ -14,7 +14,7 @@ owns: *.ts, *.tsx
 | Deine Aufgabe ist … | Lies | NICHT nötig |
 |---|---|---|
 | Eine Farbe ändern, egal wo sie steht | `world/palette.ts` | alles andere |
-| Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ Messparameter seit D142 auch `?spiegel=1` (Kamera vor der Figur). Spielerfigur seit D143 als SkinnedMesh mit `AnimationMixer` (Idle/Walk/Run nach Tempo), Bewohner mit `figur` als `Mensch` (Idle, Winken bei 8 m, D144). Kreaturen gehen seit D138 (`Lauf`, Zufallsgang um den Spawn, Aufmerken unter 9 m) und stossen seit D141 an Stämme und Grundrisse |
+| Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ Messparameter seit D142 auch `?spiegel=1` (Kamera vor der Figur), seit D145 als Winkel (`?spiegel=90` seitlich). Spielerfigur seit D143 als SkinnedMesh mit `AnimationMixer` (Idle/Walk/Run nach Tempo — G-133: Walk/Run nicht mit Gewicht 0 vorhalten), im Sattel mit `sitzpose` über die Beinknochen und dem Reittier als `ReittierModell` (D145), Bewohner mit `figur` als `Mensch` (Idle, Winken bei 8 m, D144). Kreaturen gehen seit D138 (`Lauf`, Zufallsgang um den Spawn, Aufmerken unter 9 m) und stossen seit D141 an Stämme und Grundrisse |
 | Kontur, Kanten, Nachbearbeitung | `scenes/Kontur.tsx` | world/, engine/ |
 | Kreaturen in der Welt oder Begegnungen ändern | `world/vorkommen.ts` → `scenes/RegionsSzene.tsx` | data/inhalte.ts |
 | Team, Fangen oder Speichern ändern | `main.tsx` → `spiel/spielstand.ts` | ui/BattleScreen.tsx |

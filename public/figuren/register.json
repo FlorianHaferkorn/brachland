@@ -1,11 +1,16 @@
 {
  "figuren": [
+  "alte",
   "arbeiter",
   "baeuerin",
   "bauer",
+  "bursche",
+  "foerster",
+  "magd",
   "wanderer",
   "wanderin",
-  "werkfrau"
+  "werkfrau",
+  "wirt"
  ],
  "kb": {
   "wanderin": 193.7,
@@ -13,6 +18,11 @@
   "arbeiter": 124.5,
   "baeuerin": 147.0,
   "werkfrau": 153.5,
-  "wanderer": 138.5
+  "wanderer": 138.5,
+  "foerster": 120.4,
+  "wirt": 151.0,
+  "bursche": 146.1,
+  "alte": 146.5,
+  "magd": 125.5
  }
 }

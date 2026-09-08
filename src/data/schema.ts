@@ -6,6 +6,7 @@
  * geändert — unbemerktes Abdriften ist damit ausgeschlossen.
  */
 import { z } from 'zod';
+import FIGUREN_REGISTER from '../../public/figuren/register.json';
 
 // ---------------------------------------------------------------- Elemente
 
@@ -253,9 +254,12 @@ export const Ort = z.object({
   text: z.string().max(240),
   /**
    * Figur aus der Menschenkette (`public/figuren/<figur>.glb`, D143) — nur für
-   * `bewohner`. Ohne Angabe steht die karge Silhouette wie bisher.
+   * `bewohner`. Ohne Angabe steht die karge Silhouette wie bisher. Die Liste
+   * kommt aus dem Register der Kette, nicht von Hand (G-129): Was `menschbau.py`
+   * baut, darf ein Ort tragen — und nichts anderes.
    */
-  figur: z.enum(['wanderin', 'bauer', 'baeuerin', 'arbeiter', 'werkfrau', 'wanderer']).optional(),
+  figur: z.string().refine(f => (FIGUREN_REGISTER.figuren as string[]).includes(f),
+    f => ({ message: `Figur „${f}“ steht nicht in public/figuren/register.json` })).optional(),
   /** Blickrichtung in Grad, 0 = Nord, positiv nach links wie `?absetzen=`. */
   blick: z.number().optional(),
 });

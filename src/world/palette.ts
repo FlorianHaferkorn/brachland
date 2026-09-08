@@ -241,6 +241,12 @@ export const PALETTE = {
     riemen:   '#3a332c',
     /** Haar der Menschen aus der Menschenkette (D143) — dunkles Braun, Y 0,05. */
     haar:     '#4a3a2e',
+    /** Varianten der Bewohner (D145): graues und helles Haar, Loden, Wolle, Kittel. */
+    haarGrau: '#8d867b',
+    haarHell: '#9a8258',
+    loden:    '#4d5944',
+    wolle:    '#7a6652',
+    kittel:   '#5c4d5a',
   },
 
   /**

@@ -301,7 +301,9 @@ function App() {
     // liegt waagerecht versetzt. Der Reiter stand damit neben seinem Tier.
     const sitz = reitsitz(geo);
     geo.translate(sitz.versatzX, 0, sitz.versatzZ);
-    return { geometrie: geo, hoehe: sitz.hoehe };
+    // Art und Stufe dazu (D145): Die Szene laedt damit das Modell; Silhouette
+    // und Sitzhoehe bleiben der Rueckfall fuer Arten ohne Datei.
+    return { geometrie: geo, hoehe: sitz.hoehe, kreatur: reittierKandidat.kreatur, mutation: reittierKandidat.mutation };
   }, [imSattel, reittierKandidat, gestalt]);
 
   // Wer sein Reittier verliert (Tausch, Niederlage), sitzt nicht weiter auf nichts.

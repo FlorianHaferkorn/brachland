@@ -1,7 +1,7 @@
 /**
  * BRACHLAND — Gruppen abschalten, um zu messen
  *
- * `?aus=fels,gras,baeume,kulisse` lässt die genannten Gruppen weg.
+ * `?aus=fels,gras,baeume,kulisse,haeuser,menschen` lässt die genannten Gruppen weg.
  *
  * ## Wofür das da ist
  *
@@ -27,7 +27,7 @@
  */
 
 /** Gruppen, die sich abschalten lassen. */
-export type Gruppe = 'fels' | 'gras' | 'baeume' | 'kulisse' | 'haeuser';
+export type Gruppe = 'fels' | 'gras' | 'baeume' | 'kulisse' | 'haeuser' | 'menschen';
 
 const AUS: ReadonlySet<string> = new Set(
   (typeof location === 'undefined'

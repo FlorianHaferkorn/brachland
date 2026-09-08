@@ -1,0 +1,10 @@
+{
+  "id": "dorf-wirt",
+  "region": "oental",
+  "art": "bewohner",
+  "name": "Der Wirt",
+  "ort": [47.72839, 12.09938],
+  "text": "Er wischt den Tresen, an dem seit Wochen keiner sitzt. Wer fragt, was es gibt, bekommt die Antwort, dass es das nicht mehr gibt.",
+  "figur": "wirt",
+  "blick": 111
+}

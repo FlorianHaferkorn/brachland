@@ -44,8 +44,10 @@ und der ist auf beiden Rechnern nicht lauffähig (G-119).
 
 Spielerfigur und Bewohner kommen aus den Quaternius-Paketen **Ultimate Modular
 Women** und **Ultimate Modular Men** — CC0 auf quaternius.com wie auf poly.pizza
-(nur diese sechs; fünf Figuren des Women-Packs führt poly.pizza als CC BY 3.0 und
-bleiben deshalb draussen). Verarbeitet mit `tools/menschbau.py`: Schwert und
+(fünf Figuren des Women-Packs führt poly.pizza als CC BY 3.0, die bleiben draussen).
+Seit D145 auch **Varianten aus Teilen**: Kopf, Rumpf, Beine, Füße verschiedener
+Figuren an einer Armature — alle Figuren teilen die Knochen, aber nur innerhalb
+derselben Ruhepose (Männer ohne „Adventurer“, Frauen) lassen sie sich mischen. Verarbeitet mit `tools/menschbau.py`: Schwert und
 Icosphere weg, Finger-Knochen ans Handgelenk, vier Teile zu einem Netz, Farbe je
 Materialrolle aus `PALETTE.figur` an den Vertex, planar dezimiert, Rig und drei
 bis vier Animationen des Pakets behalten, `tools/menschpack.ts` packt Farbe und
@@ -59,6 +61,11 @@ Gewichte auf 8 Bit.
 | `wanderer.glb` | Bewohner (frei) | Quaternius | CC0 | poly.pizza `kZ3DmIoGip`, Ultimate Modular Men, „Casual Character" |
 | `baeuerin.glb` | Tremmel, Hofbesitzerin | Quaternius | CC0 | poly.pizza `nIItLV9nxS`, Ultimate Modular Women, „Animated Woman" |
 | `werkfrau.glb` | Die Frau am Werkstor | Quaternius | CC0 | poly.pizza `qJ2gsTUBHL`, Ultimate Modular Women, „Animated Woman" (zweite) |
+| `foerster.glb` | Der Förster | Quaternius | CC0 | Teile aus poly.pizza `kZ3DmIoGip` (Rumpf, „Casual Character“), `7pn3R6hPvE` (Kopf, „Farmer“), `Yg2bQZO6Hj` (Beine, Füße, „Worker“), Ultimate Modular Men |
+| `wirt.glb` | Der Wirt | Quaternius | CC0 | poly.pizza `JFrLIKqvCH`, Ultimate Modular Men, „Business Man“ |
+| `bursche.glb` | Der Bursche | Quaternius | CC0 | Teile aus poly.pizza `gKLBoRsyKe` (Rumpf, Kopf, Füße, „Hoodie Character“) und `kZ3DmIoGip` (Beine, „Casual Character“), Ultimate Modular Men |
+| `alte.glb` | Die Alte am Zaun | Quaternius | CC0 | Teile aus poly.pizza `nIItLV9nxS` (Rumpf, Beine, Füße, „Animated Woman“) und `qJ2gsTUBHL` (Kopf, zweite „Animated Woman“), Ultimate Modular Women |
+| `magd.glb` | Die Magd vom Unterhof | Quaternius | CC0 | Teile aus poly.pizza `qJ2gsTUBHL` (Rumpf, Beine, Füße) und `ZwF0K7WBmu` (Kopf, „Adventurer“), Ultimate Modular Women |
 
 Alle Dateien sind gegenüber dem Original verändert: Materialfarbe an den Vertex
 gebacken (bei den Poly-by-Google-Modellen aus der Base-Color-Textur je Fläche

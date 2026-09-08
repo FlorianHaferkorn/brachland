@@ -1,0 +1,9 @@
+{
+  "id": "was-der-tresen-weiss",
+  "region": "oental",
+  "geber": "dorf-wirt",
+  "titel": "Was der Tresen weiß",
+  "text": "Der letzte, der hier saß, hat vom Absetzbecken geredet und ist dann nicht mehr gekommen. Schauen Sie nach, was da steht. Ich schenke nichts aus, aber ich zahle in Tee.",
+  "ziel": { "art": "finde", "fragment": "absetzbecken" },
+  "belohnung": { "kraeutersud": 2 }
+}
