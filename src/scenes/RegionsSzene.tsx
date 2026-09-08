@@ -2150,11 +2150,23 @@ function richte(k: THREE.Object3D | null, figur: THREE.Object3D, ziel: THREE.Vec
   k.quaternion.premultiply(_qe).premultiply(_qs).premultiply(_qi);
   k.updateMatrixWorld(true);
 }
-function sitzpose(b: SitzKnochen, figur: THREE.Object3D, anteil: number) {
+/** Hueftgelenk-Abstand von der Mitte und Oberschenkellaenge der Wanderin (aus dem Rig gelesen). */
+const HUEFTE_HALB = 0.11, OBERSCHENKEL = 0.47;
+const _ober = new THREE.Vector3();
+/**
+ * @param breite halbe Rumpfbreite des Tiers am Sitz — die Knie muessen aussen
+ *   daran vorbei (D149: die Beine verschwanden im Tier, weil 11° Spreizung fuer
+ *   jedes Tier galten). Die Spreizung folgt daraus: Knie bei `breite` + 7 cm.
+ */
+function sitzpose(b: SitzKnochen, figur: THREE.Object3D, anteil: number, breite: number) {
   figur.updateMatrixWorld(true);
   const R = SITZ_RICHTUNG;
+  // Oberschenkel: Neigung aus der Reitlehre, Spreizung aus der Breite des Tiers.
+  const sx = Math.min(0.7, Math.max(0.15, (breite + 0.07 - HUEFTE_HALB) / OBERSCHENKEL));
+  const k = Math.sqrt(1 - sx * sx) / Math.hypot(R.oberschenkel.y, R.oberschenkel.z);
+  _ober.set(sx, R.oberschenkel.y * k, R.oberschenkel.z * k);
   // Richtungen gelten fuer die rechte Seite (+X ist rechts, wenn man nach −Z schaut); links gespiegelt.
-  richte(b.or, figur, R.oberschenkel, false, anteil); richte(b.ol, figur, R.oberschenkel, true, anteil);
+  richte(b.or, figur, _ober, false, anteil); richte(b.ol, figur, _ober, true, anteil);
   richte(b.ur, figur, R.unterschenkel, false, anteil); richte(b.ul, figur, R.unterschenkel, true, anteil);
   richte(b.fr, figur, R.fuss, false, anteil); richte(b.fl, figur, R.fuss, true, anteil);
   richte(b.ar, figur, R.oberarm, false, anteil); richte(b.al, figur, R.oberarm, true, anteil);
@@ -2186,7 +2198,7 @@ function ReittierModell({ kreatur, mutation, rand, schritt, sitzHoehe }: {
   mutation: number;
   rand: { farbe: string; staerke: number };
   schritt: React.RefObject<{ phase: number; tempo: number }>;
-  sitzHoehe: React.MutableRefObject<number | null>;
+  sitzHoehe: React.MutableRefObject<{ hoehe: number; breite: number } | null>;
 }) {
   const { scene } = useGLTF(`/creatures/${kreatur}.glb`);
   const geo = useMemo(() => kreaturGeometrie(scene, kreatur, mutation), [scene, kreatur, mutation]);
@@ -2203,23 +2215,25 @@ function ReittierModell({ kreatur, mutation, rand, schritt, sitzHoehe }: {
   const sitz = useMemo(() => {
     let koerper: THREE.BufferGeometry | null = null;
     scene.traverse(o => { if (!koerper && (o as THREE.Mesh).isMesh) koerper = (o as THREE.Mesh).geometry; });
-    if (!koerper) return { hoehe: 1, z: 0 };
+    if (!koerper) return { hoehe: 1, z: 0, breite: 0.2 };
     const g = koerper as THREE.BufferGeometry;
     g.computeBoundingBox();
     const bb = g.boundingBox!;
-    const laenge = bb.max.z - bb.min.z, breite = bb.max.x - bb.min.x;
+    const laenge = bb.max.z - bb.min.z, breite = bb.max.x - bb.min.x, mx = (bb.min.x + bb.max.x) / 2;
     const z = bb.min.z + laenge * SITZ_LAGE;
     const pos = g.getAttribute('position');
-    let hoehe = 0;
+    let hoehe = 0, halb = 0;
     for (let i = 0; i < pos.count; i++) {
-      if (Math.abs(pos.getX(i) - (bb.min.x + bb.max.x) / 2) > breite * 0.2) continue;
-      if (Math.abs(pos.getZ(i) - z) > laenge * 0.08) continue;
+      if (Math.abs(pos.getZ(i) - z) > laenge * 0.12) continue;
+      // Halbe Breite des Rumpfs am Sitz (D149): so weit muessen die Knie auseinander.
+      halb = Math.max(halb, Math.abs(pos.getX(i) - mx));
+      if (Math.abs(pos.getX(i) - mx) > breite * 0.2 || Math.abs(pos.getZ(i) - z) > laenge * 0.08) continue;
       hoehe = Math.max(hoehe, pos.getY(i));
     }
-    return { hoehe: hoehe > 0 ? hoehe : reitsitz(g).hoehe, z };
+    return { hoehe: hoehe > 0 ? hoehe : reitsitz(g).hoehe, z, breite: halb };
   }, [scene]);
   useEffect(() => {
-    sitzHoehe.current = sitz.hoehe * skala;
+    sitzHoehe.current = { hoehe: sitz.hoehe * skala, breite: sitz.breite * skala };
     return () => { sitzHoehe.current = null; };
   }, [sitz, skala, sitzHoehe]);
   const { material, setzeRand, setzeZeit, setzeGang } = useMemo(() => baueWindMaterial({
@@ -2266,7 +2280,7 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
 }) {
   const { scene, animations } = useGLTF('/figuren/wanderin.glb');
   /** Sitzhoehe aus dem Modell (`ReittierModell` schreibt sie), sonst aus der Silhouette. */
-  const sitzHoehe = useRef<number | null>(null);
+  const sitzHoehe = useRef<{ hoehe: number; breite: number } | null>(null);
   const mitModell = !!reittier && MIT_MODELL.has(reittier.kreatur);
   const { material, setzeRand } = useMemo(() => baueWindMaterial({
     amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
@@ -2342,10 +2356,19 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
     // etwas nach aussen (der Reiter sitzt rittlings), Knie zurueck, Fuss gestreckt.
     // Kein eigener Clip — das Paket hat keinen, und drei Winkel reichen.
     sitz.current += ((reittier ? 1 : 0) - sitz.current) * Math.min(1, dt / 0.3);
-    if (sitz.current > 0.001) sitzpose(beine, scene, sitz.current);
+    if (sitz.current > 0.001) {
+      // Halbe Rumpfbreite des Tiers: aus dem Modell, sonst aus der Silhouette.
+      let breite = mitModell ? sitzHoehe.current?.breite : undefined;
+      if (breite === undefined && reittier) {
+        reittier.geometrie.computeBoundingBox();
+        const bb = reittier.geometrie.boundingBox!;
+        breite = (bb.max.x - bb.min.x) / 2;
+      }
+      sitzpose(beine, scene, sitz.current, breite ?? 0.2);
+    }
 
     if (reittier) {
-      const hoehe = (mitModell ? sitzHoehe.current : null) ?? reittier.hoehe;
+      const hoehe = (mitModell ? sitzHoehe.current?.hoehe : null) ?? reittier.hoehe;
       if (reiter.current) {
         reiter.current.position.y = hoehe - sitzTiefe + Math.sin(phase * 0.5) * 0.06 * stark;
       }
