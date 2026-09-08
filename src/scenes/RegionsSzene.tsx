@@ -2109,13 +2109,25 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
  */
 /** Lage des Sitzes auf dem Tier: Anteil der Koerperlaenge von der Nase aus (D146). */
 const SITZ_LAGE = 0.6;
-/** Zielrichtungen im Figurraum (x nach rechts der Figur, y hoch, −z nach vorn), je Seite gespiegelt. */
+/**
+ * Zielrichtungen im Figurraum (x nach rechts der Figur, y hoch, −z nach vorn),
+ * je Seite gespiegelt — nach der Reitlehre (D148), nicht nach Gefühl:
+ * Ohr, Schulter, Hüfte und **Ferse auf einer Senkrechten**; Oberschenkel lang
+ * und flach am Tier (≈ 50° unter der Waagerechten), Unterschenkel dahinter
+ * zurück, damit die Ferse unter der Hüfte steht (Kniewinkel ≈ 105°, Sitz 100–120°,
+ * Springen 90°); **Fersen tief, Zehen hoch**, Fussspitzen nach vorn, höchstens
+ * 15° nach aussen; Oberarme hängen senkrecht mit dem Ellbogen knapp vor dem
+ * Körper, Unterarme bilden die Gerade zum Maul, Hände knapp über dem Widerrist;
+ * Oberkörper aufrecht (Springen 30° vor). Mit Oberschenkel 0,47 m und
+ * Unterschenkel 0,53 m der Wanderin: 0,47·cos 50° = 0,53·sin 35° — die Ferse
+ * steht unter der Hüfte.
+ */
 const SITZ_RICHTUNG = {
-  oberschenkel: new THREE.Vector3(0.30, -0.55, -0.78),  // vorn-unten, leicht gespreizt
-  unterschenkel: new THREE.Vector3(0.05, -1.0, 0.18),  // hängt, Ferse hinter dem Knie
-  fuss: new THREE.Vector3(0.05, -0.25, -1.0),          // Zehen nach vorn, leicht gesenkt
-  oberarm: new THREE.Vector3(-0.15, -0.65, -0.75),     // zum Hals, nach innen
-  unterarm: new THREE.Vector3(-0.10, -0.25, -1.0),
+  oberschenkel: new THREE.Vector3(0.20, -0.766, -0.643), // 50° unter der Waagerechten, 11° gespreizt
+  unterschenkel: new THREE.Vector3(0.03, -0.82, 0.57),   // 35° zurück: Ferse unter der Hüfte
+  fuss: new THREE.Vector3(0.25, 0.17, -0.95),            // Ferse tief, Zehen 10° hoch, 15° aussen
+  oberarm: new THREE.Vector3(0.0, -0.96, -0.26),         // hängt, Ellbogen knapp vor dem Körper
+  unterarm: new THREE.Vector3(-0.15, -0.30, -0.94),      // zur Hand über dem Widerrist
 };
 type SitzKnochen = Record<'ol' | 'or' | 'ul' | 'ur' | 'fl' | 'fr' | 'al' | 'ar' | 'el' | 'er', THREE.Object3D | null>;
 const _q = new THREE.Quaternion(), _qe = new THREE.Quaternion(), _qi = new THREE.Quaternion(), _qs = new THREE.Quaternion();
