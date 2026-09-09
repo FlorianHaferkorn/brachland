@@ -1,5 +1,23 @@
 # BRACHLAND — Qualitätsstandard und Tore
 
+> **Erweitert am 09.09.2026 durch `adr/0005-qualitaetsanspruch-die-welt-haelt-ueberall.md`.**
+> Dieses Dokument nennt die **Latten und Tore**; der ADR nennt den **Anspruch, die
+> Nachweisklauseln (N1–N6) und die Definition of Done**. Bei Widerspruch gilt der ADR.
+> Der Kern der Erweiterung: Die Latte gilt nicht nur je Element, sondern je **Ort in der
+> Welt** — und der Nachweis muss die Fläche abdecken, nicht die Stichprobe.
+
+## 0. Bekannte Drift (Stand 09.09.2026, je eigener Commit — §6)
+
+Drei Angaben unten widersprechen späteren Entscheidungen. Sie stehen hier als offener
+Punkt, **nicht** stillschweigend korrigiert, weil das Ändern einer Latte nach §6 ein
+eigener Commit mit Begründung ist:
+
+| Stelle | Steht da | Widerspruch |
+|---|---|---|
+| §2 Assets | „Texturen ≤ 1024 px" | D112: **keine Texturen**, Farbe als `COLOR_0`; das Tor blockt `TEXCOORD_0` |
+| §2 Assets / `BUDGET.trisMax` | „≤ 8.000 Tris" | D129: Modellkorridor **500–3.000**; ein Modell mit `zielTris` 8.000 fiele durch das eigene Tor |
+| §2 Performance | „Ladezeit < 5 s" | D146 gemessen: Dorf **7,1 s** auf dem M1 mit echter GPU (vorher 14,4 s). Die Latte ist entweder falsch oder gerissen — am Zielgerät nie geprüft (L1) |
+
 ---
 
 ## 1. Zuerst: „Premium" ist als Ziel unbrauchbar
