@@ -266,8 +266,59 @@ export const STIMMUNG: Record<string, Stimmung> = {
     zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
     randFarbe: '#c07a4e', randStaerke: 0.26,
   },
+  /**
+   * Probe D152: warmer Dunst. **Nicht im Tageslauf**, nur per `?stimmung=goldnebel`.
+   *
+   * Referenz sind acht Landschafts-Pressebilder eines aktuellen Titels (Summer
+   * Game Fest, 05.06.2026), gemessen mit demselben Mass wie das Bildtor
+   * (`.cache/mess/stil.mjs`). Was die Bilder gemeinsam haben, und zwar alle:
+   * - Licht **und** Schatten sind warm. Hellste 10 %: `#b7a995`…`#d7bca7`;
+   *   dunkelste 2–12 %: `#191410`…`#302521`. Kein blauer Schatten.
+   * - Der Dunst ist hell und traegt die Lichtfarbe: oberes Drittel `#7a756b`…
+   *   `#9b7873`, Leuchtdichte 0,19–0,24; unteres Drittel 0,03–0,08. Das Bild
+   *   faellt von oben nach unten um den Faktor 3–8.
+   * - Saettigung nimmt zum Vordergrund **zu**: oben 0,19–0,28, unten 0,30–0,40.
+   * - Median 0,06–0,14, dunkel 15–25 %, hell 8–17 %. Eine Blende dunkler als
+   *   die D110-Ziele (>= 0,15 / <= 10 %) — deshalb Probe, nicht Tageslauf.
+   * - Farbton: 80–95 % der Saettigung liegen in 0–60°, dazu eine Akzentfamilie.
+   *
+   * Uebernommen wird nur das: Lichtfarbe, Dunstfarbe, Wertestaffelung. Keine
+   * Assets, keine Motive (ADR-0004). Erste Werte geschaetzt, dann gemessen und
+   * nachgezogen — die Zahlen im Ledger D152.
+   */
+  goldnebel: {
+    // Drei Wuerfe, gemessen (.cache/stil152*.txt):
+    // 1. umgebung #6a5748/3,2, belichtung 2,4: Felsflanke traf die Referenz
+    //    (Licht #d7c2ae gegen #d7bca7, Dunst oben 0,226), aber Dorf 0,074 und
+    //    Grashang 0,099 bei Saettigung 0,53 — Schattenseiten Sepia statt Dunst.
+    // 2. Dunst #7d6f63, umgebung #7b6e63/4,2, belichtung 2,9: Dorf 0,185, aber
+    //    Felsflanke 0,362 mit 66 % hell — ausgebleicht. Der Dunst war zu hell.
+    // 3. Dunst und Himmel von 1, nur das Fuelllicht entsaettigt und angehoben.
+    himmel: '#5a4c43', nebel: '#5a4b40', nebelNah: 20, nebelFern: 230,
+    sonne: '#e2c6a6', sonneStaerke: 1.4, umgebung: '#7b6e63', umgebungStaerke: 4.0,
+    sonnenstand: [110, 38, -90] as const,
+    belichtung: 2.5,
+    schatten: 0.55,
+    fenster: 0.2,
+    zenit: '#4c4340', horizont: '#9c7f6c', scheibe: 0.0030, hof: 60,
+    randFarbe: '#e8cba8', randStaerke: 0.32,
+  },
 };
 export type StimmungsName = keyof typeof STIMMUNG;
+
+/**
+ * `?stimmung=goldnebel` setzt eine Stimmung **ausserhalb** des Tageslaufs (D152).
+ *
+ * Messparameter wie `?zeit=`: Eine Probe-Stimmung soll an denselben Adressen wie
+ * die vier Schluesselbilder gemessen werden koennen, ohne dass sie im Tageslauf
+ * liegt und damit die Art Direction still verschiebt. Unbekannte Namen fallen
+ * auf den Tageslauf zurueck.
+ */
+const STIMMUNG_MESSLAUF: Stimmung | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const name = new URLSearchParams(location.search).get('stimmung');
+  return name !== null && Object.prototype.hasOwnProperty.call(STIMMUNG, name) ? STIMMUNG[name] : null;
+})();
 
 /**
  * Schlüsselbilder auf der Zeitachse 0…1. Der Lauf ist zyklisch: 1 ist wieder 0.
@@ -2695,7 +2746,7 @@ export function RegionsSzene({
   const gier = useRef(startBlick);
   // Einmal je Zeitpunkt mischen, nicht je Bild: Farbmischung ist billig, aber sie
   // hängt an einem Regler und nicht an der Bildrate.
-  const s = useMemo(() => stimmungBei(tageszeit), [tageszeit]);
+  const s = useMemo(() => STIMMUNG_MESSLAUF ?? stimmungBei(tageszeit), [tageszeit]);
   const neigung = useRef(NEIGUNG_START);
   const schritt = useRef({ phase: 0, tempo: 0 });
   // Als Ref gespiegelt: Die Bewegungsschleife liest jedes Bild, und ein Prop-Wechsel
