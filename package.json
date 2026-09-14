@@ -38,6 +38,7 @@
     "gleit": "tsx tools/gleitcheck.ts",
     "rigs": "node tools/rigbau.mjs assets/rigs",
     "bildtor": "node tools/bildtor.mjs",
+    "geometrie": "tsx tools/geometrie.ts",
     "palette": "tsx tools/palettecheck.ts"
   },
   "dependencies": {
