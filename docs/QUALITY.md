@@ -6,7 +6,13 @@
 > Der Kern der Erweiterung: Die Latte gilt nicht nur je Element, sondern je **Ort in der
 > Welt** — und der Nachweis muss die Fläche abdecken, nicht die Stichprobe.
 
-## 0. Bekannte Drift (Stand 09.09.2026, je eigener Commit — §6)
+> **Geändert am 15.09.2026 durch `adr/0006-zielbild-vor-zielgeraet.md`:** Das Handy ist
+> nachrangig, der Look wird am Blender-Render festgelegt. Damit sind die Geräte-Latten
+> (D110-Zielwerte, D111-Korridor, D112-Texturverbot, Texturen ≤ 1024 px, ≤ 8.000 Tris,
+> Ladezeit < 5 s) **abgelöst** — sie bleiben als Messwerte, nicht als Tore. Neue Latten
+> kommen aus dem Render und werden nach §6 im eigenen Commit eingetragen.
+
+## 0. Bekannte Drift (Stand 09.09.2026, je eigener Commit — §6) — seit ADR-0006 gegenstandslos
 
 Drei Angaben unten widersprechen späteren Entscheidungen. Sie stehen hier als offener
 Punkt, **nicht** stillschweigend korrigiert, weil das Ändern einer Latte nach §6 ein

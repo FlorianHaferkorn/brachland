@@ -1,0 +1,734 @@
+"""
+BRACHLAND — Szenenbau (D153): ein Œntal-Ausschnitt als Blender-Szene im Zielstil.
+
+    blender --background --python tools/szenenbau.py -- <objdir> <out.blend> <out.png> [schnell|voll]
+
+Was hier steht, ist die **Zielreferenz** fuer Stufe 2 (Engine): dieselbe Stelle, dieselben
+Motive, dasselbe Licht — im Spiel gemessen gegen diesen Render (`.cache/mess/stil.mjs`).
+
+Motive sind eigene Gattungen, keine fremden Designs (ADR-0004): eine verfallene Mauer mit
+Bogen auf einer Terrasse, ein gepflasterter Hof mit Wasserbecken, Moosbloecke mit Wurzeln,
+hohe schlanke Staemme, Dunst im Tal, tiefe warme Sonne im Gegenlicht.
+
+Terrain kommt aus dem Spiel (`.cache/terrainexport.ts`, DGM1 + Biome als Vertexfarbe),
+alles andere entsteht prozedural hier — kein Download, keine fremden Texturen.
+"""
+import bpy, bmesh, math, random, sys, json, os
+from mathutils import Vector, noise
+
+ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
+OBJDIR = ARGS[0] if ARGS else '.cache/blender'
+OUT_BLEND = ARGS[1] if len(ARGS) > 1 else '.cache/blender/oental_probe.blend'
+OUT_PNG = ARGS[2] if len(ARGS) > 2 else '.cache/bilder/oental_probe.png'
+SCHNELL = (ARGS[3] if len(ARGS) > 3 else 'voll') == 'schnell'
+random.seed(7)
+
+# Farben (linear RGB) — der Korridor aus D152: warmes Licht, warmer Schatten, olivgruen, kein Blau.
+STEIN = (0.30, 0.27, 0.23); STEIN2 = (0.42, 0.38, 0.32); MOERTEL = (0.14, 0.12, 0.10)
+MOOS = (0.16, 0.22, 0.07); MOOS2 = (0.30, 0.36, 0.12)
+BODEN_WIESE = (0.24, 0.27, 0.10); BODEN_WALD = (0.16, 0.12, 0.07); BODEN_FELS = (0.36, 0.34, 0.30)
+LAUB = (0.26, 0.31, 0.10); LAUB_HELL = (0.48, 0.50, 0.18); NADEL = (0.10, 0.16, 0.07)
+RINDE = (0.14, 0.10, 0.07); RINDE2 = (0.28, 0.22, 0.16)
+
+def saeubern():
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    sc = bpy.context.scene
+    sc.unit_settings.system = 'METRIC'
+    return sc
+
+def importiere(name):
+    pfad = os.path.join(OBJDIR, name + '.obj')
+    if not os.path.exists(pfad) or os.path.getsize(pfad) == 0:
+        return None
+    vorher = set(bpy.data.objects)
+    bpy.ops.wm.obj_import(filepath=pfad, forward_axis='Y', up_axis='Z')
+    neu = [o for o in bpy.data.objects if o not in vorher]
+    if not neu:
+        return None
+    o = neu[0]; o.name = name
+    for p in o.data.polygons: p.use_smooth = True
+    return o
+
+def material(name):
+    m = bpy.data.materials.new(name); m.use_nodes = True
+    nt = m.node_tree
+    for n in list(nt.nodes): nt.nodes.remove(n)
+    out = nt.nodes.new('ShaderNodeOutputMaterial'); out.location = (600, 0)
+    return m, nt, out
+
+def prinzip(nt, farbe, rauheit=0.9):
+    b = nt.nodes.new('ShaderNodeBsdfPrincipled'); b.location = (300, 0)
+    b.inputs['Base Color'].default_value = (*farbe, 1)
+    b.inputs['Roughness'].default_value = rauheit
+    return b
+
+def neu(nt, typ, ort=(0, 0), **props):
+    n = nt.nodes.new(typ); n.location = ort
+    for k, v in props.items(): setattr(n, k, v)
+    return n
+
+def link(nt, a, ao, b, bi):
+    nt.links.new(a.outputs[ao], b.inputs[bi])
+
+def rampe(nt, ort, stops):
+    r = neu(nt, 'ShaderNodeValToRGB', ort)
+    el = r.color_ramp.elements
+    el[0].position, el[0].color = stops[0][0], (*stops[0][1], 1)
+    el[1].position, el[1].color = stops[-1][0], (*stops[-1][1], 1)
+    for p, c in stops[1:-1]:
+        e = el.new(p); e.color = (*c, 1)
+    return r
+
+# ----------------------------------------------------------------- Materialien
+def moosmischung(nt, bsdf, basis_out, basis_sock, ort, staerke=1.0, hoehe=None):
+    """Moos auf allem, was nach oben zeigt, in Ritzen und nahe am Boden. Gibt den Farbausgang zurueck."""
+    tex = neu(nt, 'ShaderNodeTexCoord', (ort[0] - 900, ort[1]))
+    geo = neu(nt, 'ShaderNodeNewGeometry', (ort[0] - 900, ort[1] - 300))
+    n1 = neu(nt, 'ShaderNodeTexNoise', (ort[0] - 700, ort[1] + 100)); n1.inputs['Scale'].default_value = 0.9; n1.inputs['Detail'].default_value = 9; n1.inputs['Roughness'].default_value = 0.7
+    link(nt, tex, 'Object', n1, 'Vector')
+    sepn = neu(nt, 'ShaderNodeSeparateXYZ', (ort[0] - 700, ort[1] - 300)); link(nt, geo, 'Normal', sepn, 'Vector')
+    oben = neu(nt, 'ShaderNodeMapRange', (ort[0] - 500, ort[1] - 300)); oben.inputs['From Min'].default_value = -0.2; oben.inputs['From Max'].default_value = 0.9
+    link(nt, sepn, 'Z', oben, 'Value')
+    m1 = neu(nt, 'ShaderNodeMath', (ort[0] - 300, ort[1]), operation='MULTIPLY'); link(nt, n1, 'Fac', m1, 0); link(nt, oben, 'Result', m1, 1)
+    if hoehe is not None:
+        sepp = neu(nt, 'ShaderNodeSeparateXYZ', (ort[0] - 700, ort[1] - 500)); link(nt, tex, 'Object', sepp, 'Vector')
+        tief = neu(nt, 'ShaderNodeMapRange', (ort[0] - 500, ort[1] - 500)); tief.inputs['From Min'].default_value = 0.0; tief.inputs['From Max'].default_value = hoehe
+        tief.inputs['To Min'].default_value = 1.6; tief.inputs['To Max'].default_value = 0.4
+        link(nt, sepp, 'Z', tief, 'Value')
+        m2 = neu(nt, 'ShaderNodeMath', (ort[0] - 150, ort[1] - 200), operation='MULTIPLY'); link(nt, m1, 0, m2, 0); link(nt, tief, 'Result', m2, 1); m1 = m2
+    kante = neu(nt, 'ShaderNodeMapRange', (ort[0], ort[1])); kante.inputs['From Min'].default_value = 0.38; kante.inputs['From Max'].default_value = 0.62 / max(0.2, staerke)
+    link(nt, m1, 'Value', kante, 'Value')
+    moos = rampe(nt, (ort[0] - 300, ort[1] + 350), [(0.3, MOOS), (0.8, MOOS2)])
+    n2 = neu(nt, 'ShaderNodeTexNoise', (ort[0] - 500, ort[1] + 350)); n2.inputs['Scale'].default_value = 14; link(nt, tex, 'Object', n2, 'Vector'); link(nt, n2, 'Fac', moos, 'Fac')
+    mix = neu(nt, 'ShaderNodeMix', (ort[0] + 150, ort[1] + 100), data_type='RGBA'); link(nt, kante, 'Result', mix, 'Factor')
+    link(nt, basis_out, basis_sock, mix, 6); link(nt, moos, 'Color', mix, 7)
+    link(nt, mix, 2, bsdf, 'Base Color')
+    rmix = neu(nt, 'ShaderNodeMath', (ort[0] + 150, ort[1] - 150), operation='MAXIMUM'); rmix.inputs[1].default_value = 0.85
+    link(nt, kante, 'Result', rmix, 0)
+    return mix
+
+def mat_stein(name='Stein', block=(1.0, 0.42), moos=1.0, hoehe=5.0, ebene='wand'):
+    """Mauerwerk. `ebene` 'wand': Fugen in (x+y, z) — passt fuer achsparallele Mauern; 'boden': (x, y)."""
+    m, nt, out = material(name); b = prinzip(nt, STEIN, 0.85); link(nt, b, 'BSDF', out, 'Surface')
+    tex = neu(nt, 'ShaderNodeTexCoord', (-1700, 0))
+    sep = neu(nt, 'ShaderNodeSeparateXYZ', (-1500, 100)); link(nt, tex, 'Object', sep, 'Vector')
+    komb = neu(nt, 'ShaderNodeCombineXYZ', (-1200, 100))
+    if ebene == 'wand':
+        add = neu(nt, 'ShaderNodeMath', (-1350, 200), operation='ADD'); link(nt, sep, 'X', add, 0); link(nt, sep, 'Y', add, 1)
+        link(nt, add, 'Value', komb, 'X'); link(nt, sep, 'Z', komb, 'Y')
+    else:
+        link(nt, sep, 'X', komb, 'X'); link(nt, sep, 'Y', komb, 'Y')
+    br = neu(nt, 'ShaderNodeTexBrick', (-1000, 0)); br.offset = 0.5; br.squash = 1.0
+    br.inputs['Scale'].default_value = 1.0; br.inputs['Mortar Size'].default_value = 0.025 if ebene == 'wand' else 0.07; br.inputs['Mortar Smooth'].default_value = 0.15
+    br.inputs['Brick Width'].default_value = block[0]; br.inputs['Row Height'].default_value = block[1]; br.inputs['Bias'].default_value = 0.0
+    br.inputs['Color1'].default_value = (*STEIN, 1); br.inputs['Color2'].default_value = (*STEIN2, 1); br.inputs['Mortar'].default_value = (*MOERTEL, 1)
+    link(nt, komb, 'Vector', br, 'Vector')
+    n = neu(nt, 'ShaderNodeTexNoise', (-1000, -350)); n.inputs['Scale'].default_value = 2.5; n.inputs['Detail'].default_value = 10; link(nt, tex, 'Object', n, 'Vector')
+    grime = rampe(nt, (-750, -350), [(0.35, (0.55, 0.5, 0.45)), (0.7, (1.0, 1.0, 1.0))]); link(nt, n, 'Fac', grime, 'Fac')
+    mul = neu(nt, 'ShaderNodeMix', (-500, 0), data_type='RGBA', blend_type='MULTIPLY'); mul.inputs[0].default_value = 1.0
+    link(nt, br, 'Color', mul, 6); link(nt, grime, 'Color', mul, 7)
+    bump = neu(nt, 'ShaderNodeBump', (0, -400)); bump.inputs['Strength'].default_value = 0.55; bump.inputs['Distance'].default_value = 0.08
+    link(nt, br, 'Fac', bump, 'Height')
+    n3 = neu(nt, 'ShaderNodeTexNoise', (-1000, -700)); n3.inputs['Scale'].default_value = 40; n3.inputs['Detail'].default_value = 6; link(nt, tex, 'Object', n3, 'Vector')
+    bump2 = neu(nt, 'ShaderNodeBump', (-300, -700)); bump2.inputs['Strength'].default_value = 0.25; bump2.inputs['Distance'].default_value = 0.02
+    link(nt, n3, 'Fac', bump2, 'Height'); link(nt, bump2, 'Normal', bump, 'Normal'); link(nt, bump, 'Normal', b, 'Normal')
+    inv = neu(nt, 'ShaderNodeMath', (-700, 250), operation='SUBTRACT'); inv.inputs[0].default_value = 1.0; link(nt, br, 'Fac', inv, 1)
+    moosmischung(nt, b, mul, 2, (-100, 300), staerke=moos, hoehe=hoehe)
+    return m
+
+def mat_pflaster(name='Pflaster', ebene='boden', skala=1.3, moos=0.9, hoehe=None):
+    """Bruchstein: Voronoi-Zellen statt Ziegelverband — unregelmaessig, Moos in den Fugen.
+    `ebene` 'boden': Zellen in (x, y); 'wand': in (x+y, z) fuer achsparallele Mauern."""
+    m, nt, out = material(name); b = prinzip(nt, STEIN, 0.9); link(nt, b, 'BSDF', out, 'Surface')
+    tex = neu(nt, 'ShaderNodeTexCoord', (-1600, 0))
+    sep = neu(nt, 'ShaderNodeSeparateXYZ', (-1400, 100)); link(nt, tex, 'Object', sep, 'Vector')
+    komb = neu(nt, 'ShaderNodeCombineXYZ', (-1200, 100))
+    if ebene == 'wand':
+        add = neu(nt, 'ShaderNodeMath', (-1300, 250), operation='ADD'); link(nt, sep, 'X', add, 0); link(nt, sep, 'Y', add, 1)
+        link(nt, add, 'Value', komb, 'X'); link(nt, sep, 'Z', komb, 'Y')
+    else:
+        link(nt, sep, 'X', komb, 'X'); link(nt, sep, 'Y', komb, 'Y')
+    # Zwei Zellgroessen: grosse Steine, dazwischen kleine Zwickel — eine Groesse allein liest sich als Muster
+    verz = neu(nt, 'ShaderNodeTexNoise', (-1200, -150)); verz.inputs['Scale'].default_value = 0.8; verz.inputs['Detail'].default_value = 3; link(nt, komb, 'Vector', verz, 'Vector')
+    vmix = neu(nt, 'ShaderNodeVectorMath', (-1100, 0), operation='ADD'); link(nt, komb, 'Vector', vmix, 0)
+    vsk = neu(nt, 'ShaderNodeVectorMath', (-1150, -80), operation='SCALE'); vsk.inputs['Scale'].default_value = 0.35; link(nt, verz, 'Color', vsk, 0); link(nt, vsk, 'Vector', vmix, 1)
+    vo = neu(nt, 'ShaderNodeTexVoronoi', (-1000, 0)); vo.feature = 'DISTANCE_TO_EDGE'; vo.inputs['Scale'].default_value = skala; vo.inputs['Randomness'].default_value = 1.0
+    link(nt, vmix, 'Vector', vo, 'Vector')
+    vo2 = neu(nt, 'ShaderNodeTexVoronoi', (-1000, 150)); vo2.feature = 'DISTANCE_TO_EDGE'; vo2.inputs['Scale'].default_value = skala * 2.7; vo2.inputs['Randomness'].default_value = 1.0
+    link(nt, vmix, 'Vector', vo2, 'Vector')
+    vc = neu(nt, 'ShaderNodeTexVoronoi', (-1000, -300)); vc.feature = 'F1'; vc.inputs['Scale'].default_value = skala; vc.inputs['Randomness'].default_value = 1.0
+    link(nt, vmix, 'Vector', vc, 'Vector')
+    # kleine Zellen nur dort, wo der grosse Stein „fehlt“ (Zellfarbe hell): Zwickel statt Muster
+    klein = neu(nt, 'ShaderNodeMath', (-850, 150), operation='GREATER_THAN'); klein.inputs[1].default_value = 0.72
+    scb = neu(nt, 'ShaderNodeSeparateColor', (-950, -420)); link(nt, vc, 'Color', scb, 'Color'); link(nt, scb, 'Green', klein, 0)
+    dmin = neu(nt, 'ShaderNodeMath', (-750, 120), operation='MINIMUM'); link(nt, vo, 'Distance', dmin, 0)
+    d2 = neu(nt, 'ShaderNodeMath', (-850, 60), operation='MULTIPLY_ADD'); link(nt, vo2, 'Distance', d2, 0); link(nt, klein, 'Value', d2, 1); d2.inputs[2].default_value = 0.0
+    d2b = neu(nt, 'ShaderNodeMath', (-800, 30), operation='ADD'); link(nt, d2, 'Value', d2b, 0)
+    d2c = neu(nt, 'ShaderNodeMath', (-800, -20), operation='MULTIPLY'); d2c.inputs[1].default_value = 1.0; link(nt, klein, 'Value', d2c, 0)
+    inv = neu(nt, 'ShaderNodeMath', (-800, -60), operation='SUBTRACT'); inv.inputs[0].default_value = 1.0; link(nt, klein, 'Value', inv, 1)
+    link(nt, inv, 'Value', d2b, 1)
+    link(nt, d2b, 'Value', dmin, 1)
+    fuge = neu(nt, 'ShaderNodeMapRange', (-650, 0)); fuge.inputs['From Min'].default_value = 0.012; fuge.inputs['From Max'].default_value = 0.04
+    link(nt, dmin, 'Value', fuge, 'Value')
+    stein = rampe(nt, (-750, -300), [(0.2, (0.30, 0.27, 0.23)), (0.5, STEIN), (0.8, STEIN2)])
+    sc = neu(nt, 'ShaderNodeSeparateColor', (-850, -450)); link(nt, vc, 'Color', sc, 'Color'); link(nt, sc, 'Red', stein, 'Fac')
+    n = neu(nt, 'ShaderNodeTexNoise', (-1000, -650)); n.inputs['Scale'].default_value = 4; n.inputs['Detail'].default_value = 8; link(nt, tex, 'Object', n, 'Vector')
+    grime = rampe(nt, (-750, -650), [(0.35, (0.5, 0.47, 0.42)), (0.7, (1.0, 1.0, 1.0))]); link(nt, n, 'Fac', grime, 'Fac')
+    mul = neu(nt, 'ShaderNodeMix', (-450, -300), data_type='RGBA', blend_type='MULTIPLY'); mul.inputs[0].default_value = 1.0
+    link(nt, stein, 'Color', mul, 6); link(nt, grime, 'Color', mul, 7)
+    moosf = rampe(nt, (-450, -600), [(0.3, MOOS), (0.8, MOOS2)]); link(nt, n, 'Fac', moosf, 'Fac')
+    mix = neu(nt, 'ShaderNodeMix', (-200, 0), data_type='RGBA'); link(nt, fuge, 'Result', mix, 'Factor'); link(nt, moosf, 'Color', mix, 6); link(nt, mul, 2, mix, 7)
+    bump = neu(nt, 'ShaderNodeBump', (0, -400)); bump.inputs['Strength'].default_value = 0.6; bump.inputs['Distance'].default_value = 0.06
+    link(nt, fuge, 'Result', bump, 'Height')
+    n3 = neu(nt, 'ShaderNodeTexNoise', (-450, -900)); n3.inputs['Scale'].default_value = 30; link(nt, tex, 'Object', n3, 'Vector')
+    bump2 = neu(nt, 'ShaderNodeBump', (-250, -900)); bump2.inputs['Strength'].default_value = 0.25; bump2.inputs['Distance'].default_value = 0.02; link(nt, n3, 'Fac', bump2, 'Height')
+    link(nt, bump2, 'Normal', bump, 'Normal'); link(nt, bump, 'Normal', b, 'Normal')
+    moosmischung(nt, b, mix, 2, (-100, 350), staerke=moos, hoehe=hoehe)
+    return m
+
+def mat_boden():
+    m, nt, out = material('Boden'); b = prinzip(nt, BODEN_WIESE, 0.95); link(nt, b, 'BSDF', out, 'Surface')
+    tex = neu(nt, 'ShaderNodeTexCoord', (-1600, 0))
+    attr = neu(nt, 'ShaderNodeAttribute', (-1600, 300)); attr.attribute_name = 'Color'
+    sep = neu(nt, 'ShaderNodeSeparateColor', (-1400, 300)); link(nt, attr, 'Color', sep, 'Color')
+    # Biomfarbe: wiese (0.2,0.6,0.2) gruen, wald (0.05,0.3,0.1), fels (0.5,0.5,0.5) — Kanal R trennt Fels, G die Wiese vom Wald
+    n = neu(nt, 'ShaderNodeTexNoise', (-1400, 0)); n.inputs['Scale'].default_value = 0.35; n.inputs['Detail'].default_value = 12; n.inputs['Roughness'].default_value = 0.75; link(nt, tex, 'Object', n, 'Vector')
+    wiese = rampe(nt, (-1100, 100), [(0.3, (0.17, 0.19, 0.06)), (0.55, BODEN_WIESE), (0.8, (0.45, 0.40, 0.16))]); link(nt, n, 'Fac', wiese, 'Fac')
+    wald = rampe(nt, (-1100, -200), [(0.3, (0.09, 0.07, 0.04)), (0.6, BODEN_WALD), (0.85, (0.30, 0.25, 0.14))]); link(nt, n, 'Fac', wald, 'Fac')
+    wf = neu(nt, 'ShaderNodeMapRange', (-1100, 400)); wf.inputs['From Min'].default_value = 0.35; wf.inputs['From Max'].default_value = 0.55; link(nt, sep, 'Green', wf, 'Value')
+    mix1 = neu(nt, 'ShaderNodeMix', (-800, 0), data_type='RGBA'); link(nt, wf, 'Result', mix1, 'Factor'); link(nt, wald, 'Color', mix1, 6); link(nt, wiese, 'Color', mix1, 7)
+    geo = neu(nt, 'ShaderNodeNewGeometry', (-1400, -500)); sepn = neu(nt, 'ShaderNodeSeparateXYZ', (-1200, -500)); link(nt, geo, 'Normal', sepn, 'Vector')
+    steil = neu(nt, 'ShaderNodeMapRange', (-1000, -500)); steil.inputs['From Min'].default_value = 0.80; steil.inputs['From Max'].default_value = 0.55; link(nt, sepn, 'Z', steil, 'Value')
+    ff = neu(nt, 'ShaderNodeMapRange', (-1000, -700)); ff.inputs['From Min'].default_value = 0.3; ff.inputs['From Max'].default_value = 0.5; link(nt, sep, 'Red', ff, 'Value')
+    felsf = neu(nt, 'ShaderNodeMath', (-800, -600), operation='MAXIMUM'); link(nt, steil, 'Result', felsf, 0); link(nt, ff, 'Result', felsf, 1)
+    fels = rampe(nt, (-1100, -900), [(0.3, (0.22, 0.20, 0.17)), (0.7, BODEN_FELS)]); n2 = neu(nt, 'ShaderNodeTexNoise', (-1400, -900)); n2.inputs['Scale'].default_value = 3; link(nt, tex, 'Object', n2, 'Vector'); link(nt, n2, 'Fac', fels, 'Fac')
+    mix2 = neu(nt, 'ShaderNodeMix', (-500, 0), data_type='RGBA'); link(nt, felsf, 'Value', mix2, 'Factor'); link(nt, mix1, 2, mix2, 6); link(nt, fels, 'Color', mix2, 7)
+    bump = neu(nt, 'ShaderNodeBump', (0, -400)); bump.inputs['Strength'].default_value = 0.3; bump.inputs['Distance'].default_value = 0.15
+    n3 = neu(nt, 'ShaderNodeTexNoise', (-400, -600)); n3.inputs['Scale'].default_value = 6; n3.inputs['Detail'].default_value = 8; link(nt, tex, 'Object', n3, 'Vector'); link(nt, n3, 'Fac', bump, 'Height'); link(nt, bump, 'Normal', b, 'Normal')
+    moosmischung(nt, b, mix2, 2, (-100, 350), staerke=0.6)
+    return m
+
+def mat_fels():
+    m, nt, out = material('Fels'); b = prinzip(nt, BODEN_FELS, 0.8); link(nt, b, 'BSDF', out, 'Surface')
+    tex = neu(nt, 'ShaderNodeTexCoord', (-1400, 0))
+    n = neu(nt, 'ShaderNodeTexNoise', (-1100, 0)); n.inputs['Scale'].default_value = 1.8; n.inputs['Detail'].default_value = 12; n.inputs['Roughness'].default_value = 0.65; link(nt, tex, 'Object', n, 'Vector')
+    r = rampe(nt, (-800, 0), [(0.3, (0.20, 0.18, 0.15)), (0.55, (0.36, 0.33, 0.28)), (0.8, (0.52, 0.49, 0.43))]); link(nt, n, 'Fac', r, 'Fac')
+    v = neu(nt, 'ShaderNodeTexVoronoi', (-1100, -400)); v.inputs['Scale'].default_value = 3.0; link(nt, tex, 'Object', v, 'Vector')
+    bump = neu(nt, 'ShaderNodeBump', (0, -400)); bump.inputs['Strength'].default_value = 0.5; bump.inputs['Distance'].default_value = 0.1; link(nt, v, 'Distance', bump, 'Height')
+    n2 = neu(nt, 'ShaderNodeTexNoise', (-1100, -700)); n2.inputs['Scale'].default_value = 30; n2.inputs['Detail'].default_value = 8; link(nt, tex, 'Object', n2, 'Vector')
+    bump2 = neu(nt, 'ShaderNodeBump', (-300, -700)); bump2.inputs['Strength'].default_value = 0.3; bump2.inputs['Distance'].default_value = 0.02; link(nt, n2, 'Fac', bump2, 'Height')
+    link(nt, bump2, 'Normal', bump, 'Normal'); link(nt, bump, 'Normal', b, 'Normal')
+    moosmischung(nt, b, r, 'Color', (-100, 350), staerke=1.3)
+    return m
+
+def mat_rinde():
+    m, nt, out = material('Rinde'); b = prinzip(nt, RINDE, 0.9); link(nt, b, 'BSDF', out, 'Surface')
+    tex = neu(nt, 'ShaderNodeTexCoord', (-1400, 0))
+    mp = neu(nt, 'ShaderNodeMapping', (-1200, 0)); mp.inputs['Scale'].default_value = (1.0, 1.0, 0.12); link(nt, tex, 'Object', mp, 'Vector')
+    n = neu(nt, 'ShaderNodeTexNoise', (-1000, 0)); n.inputs['Scale'].default_value = 6; n.inputs['Detail'].default_value = 10; link(nt, mp, 'Vector', n, 'Vector')
+    r = rampe(nt, (-700, 0), [(0.35, RINDE), (0.65, RINDE2)]); link(nt, n, 'Fac', r, 'Fac')
+    bump = neu(nt, 'ShaderNodeBump', (0, -400)); bump.inputs['Strength'].default_value = 0.6; bump.inputs['Distance'].default_value = 0.05; link(nt, n, 'Fac', bump, 'Height'); link(nt, bump, 'Normal', b, 'Normal')
+    moosmischung(nt, b, r, 'Color', (-100, 350), staerke=0.9, hoehe=3.0)
+    return m
+
+def mat_laub(name='Laub', farbe=LAUB, hell=LAUB_HELL, durchlass=0.55, loecher=0.42):
+    """Laub: diffus plus durchscheinend — im Gegenlicht leuchtet die Krone, das ist der halbe Look.
+    Rauschen schneidet Loecher in die Klumpen, damit die Silhouette nach Blattwerk aussieht und nicht nach Kugel."""
+    m, nt, out = material(name)
+    tex = neu(nt, 'ShaderNodeTexCoord', (-1200, 0))
+    n = neu(nt, 'ShaderNodeTexNoise', (-1000, 0)); n.inputs['Scale'].default_value = 2.5; n.inputs['Detail'].default_value = 6; link(nt, tex, 'Object', n, 'Vector')
+    r = rampe(nt, (-700, 0), [(0.3, farbe), (0.75, hell)]); link(nt, n, 'Fac', r, 'Fac')
+    d = neu(nt, 'ShaderNodeBsdfDiffuse', (-200, 100)); d.inputs['Roughness'].default_value = 0.8; link(nt, r, 'Color', d, 'Color')
+    t = neu(nt, 'ShaderNodeBsdfTranslucent', (-200, -100)); link(nt, r, 'Color', t, 'Color')
+    mix = neu(nt, 'ShaderNodeMixShader', (100, 0)); mix.inputs['Fac'].default_value = durchlass
+    link(nt, d, 'BSDF', mix, 1); link(nt, t, 'BSDF', mix, 2)
+    if loecher > 0:
+        n2 = neu(nt, 'ShaderNodeTexNoise', (-1000, -400)); n2.inputs['Scale'].default_value = 9.0; n2.inputs['Detail'].default_value = 5; n2.inputs['Roughness'].default_value = 0.8; link(nt, tex, 'Object', n2, 'Vector')
+        schwelle = neu(nt, 'ShaderNodeMath', (-700, -400), operation='GREATER_THAN'); schwelle.inputs[1].default_value = loecher; link(nt, n2, 'Fac', schwelle, 0)
+        tr = neu(nt, 'ShaderNodeBsdfTransparent', (100, -300))
+        mix2 = neu(nt, 'ShaderNodeMixShader', (350, 0)); link(nt, schwelle, 'Value', mix2, 'Fac'); link(nt, tr, 'BSDF', mix2, 1); link(nt, mix, 'Shader', mix2, 2)
+        link(nt, mix2, 'Shader', out, 'Surface')
+    else:
+        link(nt, mix, 'Shader', out, 'Surface')
+    return m
+
+def mat_wasser():
+    m, nt, out = material('Wasser'); b = prinzip(nt, (0.55, 0.62, 0.55), 0.03); link(nt, b, 'BSDF', out, 'Surface')
+    b.inputs['Transmission Weight'].default_value = 1.0; b.inputs['IOR'].default_value = 1.333
+    tex = neu(nt, 'ShaderNodeTexCoord', (-1000, 0))
+    n = neu(nt, 'ShaderNodeTexNoise', (-700, -300)); n.inputs['Scale'].default_value = 5; n.inputs['Detail'].default_value = 4; link(nt, tex, 'Object', n, 'Vector')
+    bump = neu(nt, 'ShaderNodeBump', (-300, -300)); bump.inputs['Strength'].default_value = 0.08; bump.inputs['Distance'].default_value = 0.05
+    link(nt, n, 'Fac', bump, 'Height'); link(nt, bump, 'Normal', b, 'Normal')
+    vol = neu(nt, 'ShaderNodeVolumeAbsorption', (300, -300)); vol.inputs['Color'].default_value = (0.35, 0.5, 0.4, 1); vol.inputs['Density'].default_value = 0.6
+    link(nt, vol, 'Volume', out, 'Volume')
+    return m
+
+# ----------------------------------------------------------------- Gelaende
+GELAENDE = {'obj': None}
+
+def bodenhoehe(x, y):
+    """Geländehöhe per Strahl von oben — misst das gebaute Netz, nicht die Absicht."""
+    o = GELAENDE['obj']
+    dg = bpy.context.evaluated_depsgraph_get()
+    hit, loc, nrm, idx, obj, mat = bpy.context.scene.ray_cast(dg, Vector((x, y, 500.0)), Vector((0, 0, -1)))
+    if hit and obj is not None and obj.name.startswith('terrain'):
+        return loc.z
+    # Rueckfall: naechster Vertex
+    best, bz = 1e9, 0.0
+    for v in o.data.vertices:
+        d = (v.co.x - x) ** 2 + (v.co.y - y) ** 2
+        if d < best: best, bz = d, v.co.z
+    return bz
+
+def terrasse(obj, mx, my, r_innen, r_aussen, z):
+    """Ebnet eine Scheibe im Gelaende auf Hoehe z, weich auslaufend bis r_aussen."""
+    for v in obj.data.vertices:
+        d = math.hypot(v.co.x - mx, v.co.y - my)
+        if d < r_aussen:
+            t = 0.0 if d < r_innen else (d - r_innen) / (r_aussen - r_innen)
+            t = t * t * (3 - 2 * t)
+            v.co.z = z * (1 - t) + v.co.z * t
+    obj.data.update()
+
+def loch_im_fernen(fern, halb):
+    bm = bmesh.new(); bm.from_mesh(fern.data)
+    weg = [f for f in bm.faces if abs(f.calc_center_median().x) < halb and abs(f.calc_center_median().y) < halb]
+    bmesh.ops.delete(bm, geom=weg, context='FACES')
+    bm.to_mesh(fern.data); bm.free()
+
+def setze(obj, mat):
+    obj.data.materials.clear(); obj.data.materials.append(mat)
+
+# ----------------------------------------------------------------- Bauten
+def kasten(name, groesse, ort, seg=0.5):
+    bm = bmesh.new()
+    sx, sy, sz = groesse
+    bmesh.ops.create_cube(bm, size=1.0)
+    for v in bm.verts: v.co = Vector((v.co.x * sx, v.co.y * sy, (v.co.z + 0.5) * sz))
+    # Unterteilen fuer Bruchkante und Displace
+    kanten = [e for e in bm.edges]
+    bmesh.ops.subdivide_edges(bm, edges=kanten, cuts=max(1, int(max(sx, sy, sz) / seg)), use_grid_fill=True)
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o); o.location = ort
+    return o
+
+def bruchkante(obj, hoehe_min, hoehe_max, saat=1, schutz=None):
+    """Oberkante unregelmaessig abtragen: jede Spalte der Mauer bekommt ihre eigene Hoehe.
+    `schutz` = (achse, mitte, halbbreite, mindesthoehe): ueber einem Bogen bleibt die Mauer stehen."""
+    rnd = random.Random(saat); off = Vector((saat * 13.1, saat * 7.7, 0))
+    for v in obj.data.vertices:
+        if v.co.z > 0.05:
+            p = Vector((v.co.x, v.co.y, 0))
+            f = 0.5 + 0.5 * noise.noise(p * 0.18 + off)          # lange Welle: wo die Mauer noch steht
+            f += 0.07 * noise.noise(p * 0.9 + off)                # Bruchsteine an der Kante
+            f = max(0.0, min(1.0, f))
+            h = hoehe_min + (hoehe_max - hoehe_min) * f
+            if schutz is not None:
+                achse, mitte, halb, minh = schutz
+                d = abs((v.co.x if achse == 'x' else v.co.y) - mitte)
+                if d < halb + 1.5: h = max(h, minh - max(0.0, d - halb) / 1.5 * (minh - hoehe_min))
+            v.co.z = min(v.co.z, h) + (rnd.random() - 0.5) * 0.10 * (v.co.z / max(0.1, h))
+    obj.data.update()
+
+def bogen(name, breite, hoehe, tiefe, ort, rot_z=0.0):
+    """Tueroeffnung als zwei geschlossene Koerper (Kasten + liegender Zylinder) — der exakte Boolean
+    will Volumen ohne offene Kanten; ein handgebautes Profil hat ihn zweimal die ganze Mauer gekostet."""
+    r = breite / 2
+    werkzeuge = []
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, 0)); k = bpy.context.active_object; k.name = name + '_Kasten'
+    k.scale = (breite, tiefe, hoehe - r + 0.3); k.location = Vector(ort) + Vector((0, 0, (hoehe - r - 0.3) / 2))
+    bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=r, depth=tiefe, location=(0, 0, 0), rotation=(math.pi / 2, 0, 0)); z = bpy.context.active_object; z.name = name + '_Rund'
+    z.location = Vector(ort) + Vector((0, 0, hoehe - r))
+    for o in (k, z):
+        o.rotation_euler = (o.rotation_euler[0], o.rotation_euler[1], o.rotation_euler[2] + rot_z)
+        # um den Oeffnungsmittelpunkt drehen, nicht um die Objektachse
+        d = o.location - Vector(ort); c, sn = math.cos(rot_z), math.sin(rot_z)
+        o.location = Vector(ort) + Vector((d.x * c - d.y * sn, d.x * sn + d.y * c, d.z))
+        werkzeuge.append(o)
+    return werkzeuge
+
+def abziehen(obj, werkzeuge):
+    if not isinstance(werkzeuge, (list, tuple)): werkzeuge = [werkzeuge]
+    for w in werkzeuge:
+        vorher = len(obj.data.polygons); sicher = obj.data.copy()
+        m = obj.modifiers.new('Bogen', 'BOOLEAN'); m.operation = 'DIFFERENCE'; m.object = w; m.solver = 'EXACT'
+        bpy.context.view_layer.objects.active = obj
+        bpy.ops.object.modifier_apply(modifier=m.name)
+        if len(obj.data.polygons) == 0:
+            print('WARNUNG: Boolean hat', obj.name, 'geleert — Oeffnung weggelassen'); obj.data = sicher
+        else:
+            print(obj.name, 'Boolean', vorher, '->', len(obj.data.polygons), 'Flaechen')
+        bpy.data.objects.remove(w)
+
+def verwittern(obj, staerke=0.04, skala=0.6):
+    tex = bpy.data.textures.new(obj.name + '_vw', 'CLOUDS'); tex.noise_scale = skala; tex.noise_depth = 4
+    d = obj.modifiers.new('Verwitterung', 'DISPLACE'); d.texture = tex; d.strength = staerke; d.mid_level = 0.5; d.texture_coords = 'GLOBAL'
+    b = obj.modifiers.new('Kante', 'BEVEL'); b.width = 0.03; b.segments = 2; b.limit_method = 'ANGLE'
+    for p in obj.data.polygons: p.use_smooth = False
+
+def block(name, ort, groesse, saat, rauheit=0.22, unterteilung=3):
+    """Felsblock: Kugel, verzerrt, mit Rauschen entlang der Normalen — jeder anders."""
+    rnd = random.Random(saat)
+    bm = bmesh.new()
+    bmesh.ops.create_icosphere(bm, subdivisions=unterteilung, radius=1.0)
+    off = Vector((rnd.random() * 50, rnd.random() * 50, rnd.random() * 50))
+    for v in bm.verts:
+        n = noise.noise(v.co * 1.6 + off) * rauheit + noise.noise(v.co * 5.0 + off) * rauheit * 0.35
+        v.co = v.co * (1.0 + n)
+        v.co = Vector((v.co.x * groesse[0], v.co.y * groesse[1], v.co.z * groesse[2]))
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    for p in me.polygons: p.use_smooth = True
+    o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
+    o.location = ort; o.rotation_euler = (rnd.random() * 0.4, rnd.random() * 0.4, rnd.random() * 6.28)
+    return o
+
+def geroell(mx, my, r, n, mat, saat=3):
+    rnd = random.Random(saat)
+    for i in range(n):
+        a = rnd.random() * 6.283; d = r * (0.3 + 0.7 * rnd.random())
+        x, y = mx + math.cos(a) * d, my + math.sin(a) * d
+        s = 0.15 + rnd.random() * 0.45
+        o = block('Geroell%d' % i, (x, y, bodenhoehe(x, y) + s * 0.35), (s, s * (0.7 + rnd.random() * 0.5), s * (0.5 + rnd.random() * 0.4)), saat * 100 + i, 0.3, 2)
+        setze(o, mat)
+
+def pflaster(name, ort, groesse, mat):
+    o = kasten(name, (groesse[0], groesse[1], 0.25), (ort[0], ort[1], ort[2] - 0.2), 0.5)
+    setze(o, mat); verwittern(o, 0.12, 0.7)
+    return o
+
+def becken(ort, aussen, innen, tiefe, mat_stein, mat_wasser):
+    """Rechteckiges Becken: Rand aus Stein, innen Wasser."""
+    rand = kasten('BeckenRand', (aussen[0], aussen[1], 0.5), (ort[0], ort[1], ort[2] - 0.05), 0.5)
+    loch = kasten('BeckenLoch', (innen[0], innen[1], 3.0), (ort[0], ort[1], ort[2] - tiefe), 3.0)
+    abziehen(rand, loch)
+    setze(rand, mat_stein); verwittern(rand, 0.03, 0.5)
+    boden = kasten('BeckenBoden', (innen[0] + 0.2, innen[1] + 0.2, 0.2), (ort[0], ort[1], ort[2] - tiefe - 0.2), 1.0); setze(boden, mat_stein)
+    bpy.ops.mesh.primitive_plane_add(size=1, location=(ort[0], ort[1], ort[2] + 0.5 - 0.18))
+    w = bpy.context.active_object; w.name = 'BeckenWasser'; w.scale = (innen[0] - 0.05, innen[1] - 0.05, 1); setze(w, mat_wasser)
+    return rand
+
+def wurzel(name, start, richtung, laenge, mat, saat=1, radius=0.28):
+    """Wurzel als Kurve: kriecht ueber den Boden, wird duenner, teilt sich einmal."""
+    rnd = random.Random(saat)
+    cu = bpy.data.curves.new(name, 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 1.0; cu.bevel_resolution = 5; cu.fill_mode = 'FULL'; cu.use_fill_caps = True
+    def strang(p, d, l, r0, n=9):
+        sp = cu.splines.new('NURBS'); sp.points.add(n - 1); sp.use_endpoint_u = True; sp.order_u = 3
+        x, y = p
+        for i in range(n):
+            t = i / (n - 1)
+            z = bodenhoehe(x, y) + r0 * (1 - t) * 0.9 + 0.06 + 0.25 * math.sin(t * 6.0 + rnd.random()) * (1 - t)
+            sp.points[i].co = (x, y, z, 1.0)
+            sp.points[i].radius = r0 * (1.0 - 0.85 * t) + 0.02
+            d = (d + (rnd.random() - 0.5) * 0.9) % 6.283
+            x += math.cos(d) * l / n; y += math.sin(d) * l / n
+    strang(start, richtung, laenge, radius)
+    strang(start, richtung + 0.9 + rnd.random() * 0.6, laenge * 0.6, radius * 0.7, 7)
+    o = bpy.data.objects.new(name, cu); bpy.context.collection.objects.link(o); o.data.materials.append(mat)
+    return o
+
+def laubbaum(name, x, y, hoehe, mat_rinde, mat_laub, saat, detail=2, kronen=6):
+    """Hoher schlanker Stamm, Krone erst im oberen Drittel — die Silhouette der Referenzbilder."""
+    rnd = random.Random(saat)
+    z0 = bodenhoehe(x, y)
+    cu = bpy.data.curves.new(name + '_Stamm', 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 1.0; cu.bevel_resolution = 6; cu.fill_mode = 'FULL'
+    n = 8; sp = cu.splines.new('NURBS'); sp.points.add(n - 1); sp.use_endpoint_u = True; sp.order_u = 3
+    lean = Vector((rnd.random() - 0.5, rnd.random() - 0.5, 0)) * 0.08
+    r0 = 0.10 + hoehe * 0.006
+    spitze = None
+    for i in range(n):
+        t = i / (n - 1)
+        p = Vector((x, y, z0 - 0.3)) + lean * (t * hoehe) + Vector((math.sin(t * 5 + saat) * 0.35 * t, math.cos(t * 4 + saat) * 0.35 * t, t * hoehe))
+        sp.points[i].co = (p.x, p.y, p.z, 1.0); sp.points[i].radius = r0 * (1.0 - 0.8 * t) + 0.04
+        spitze = p
+    o = bpy.data.objects.new(name + '_Stamm', cu); bpy.context.collection.objects.link(o); o.data.materials.append(mat_rinde)
+    aeste = []
+    for k in range(7 + rnd.randrange(6)):
+        t = 0.5 + rnd.random() * 0.45
+        basis = Vector((x, y, z0)) + lean * (t * hoehe) + Vector((math.sin(t * 5 + saat) * 0.35 * t, math.cos(t * 4 + saat) * 0.35 * t, t * hoehe))
+        a = rnd.random() * 6.283; l = 2.0 + rnd.random() * 3.5 * (1.2 - t)
+        ende = basis + Vector((math.cos(a) * l, math.sin(a) * l, l * (0.35 + rnd.random() * 0.5)))
+        ac = bpy.data.curves.new(name + '_Ast%d' % k, 'CURVE'); ac.dimensions = '3D'; ac.bevel_depth = 1.0; ac.bevel_resolution = 3; ac.fill_mode = 'FULL'
+        s2 = ac.splines.new('NURBS'); s2.points.add(2); s2.use_endpoint_u = True; s2.order_u = 3
+        mitte = (basis + ende) / 2 + Vector((0, 0, -0.4))
+        for i, p in enumerate((basis, mitte, ende)):
+            s2.points[i].co = (p.x, p.y, p.z, 1.0); s2.points[i].radius = (0.09, 0.05, 0.02)[i] * (0.5 + hoehe / 30)
+        ao = bpy.data.objects.new(ac.name, ac); bpy.context.collection.objects.link(ao); ao.data.materials.append(mat_rinde)
+        aeste.append(ende)
+    aeste.append(spitze)
+    je = 5 if kronen > 4 else 2
+    for k, e in enumerate(aeste):
+        for j in range(je):
+            s = (0.45 + rnd.random() * 0.7) * (0.7 + hoehe / 45)
+            c = block(name + '_Krone%d_%d' % (k, j), (e.x + (rnd.random() - 0.5) * 2.6, e.y + (rnd.random() - 0.5) * 2.6, e.z - 0.3 + rnd.random() * 1.6), (s * 1.3, s, s * 0.45), saat * 31 + k * 7 + j, 0.7, detail)
+            setze(c, mat_laub)
+
+def nadelbaum(name, x, y, hoehe, mat_rinde, mat_nadel, saat):
+    rnd = random.Random(saat)
+    z0 = bodenhoehe(x, y)
+    bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.12 + hoehe * 0.012, radius2=0.03, depth=hoehe, location=(x, y, z0 + hoehe / 2 - 0.3))
+    st = bpy.context.active_object; st.name = name + '_Stamm'; setze(st, mat_rinde)
+    stufen = 9 + int(hoehe / 4)
+    for i in range(stufen):
+        t = 0.3 + 0.7 * i / stufen
+        r = ((1.0 - t) * (1.2 + hoehe * 0.07) + 0.35) * (0.8 + rnd.random() * 0.4)
+        h = hoehe * 0.7 / stufen * 1.6
+        bpy.ops.mesh.primitive_cone_add(vertices=10, radius1=r, radius2=r * 0.25, depth=h, location=(x + (rnd.random() - 0.5) * 0.3, y + (rnd.random() - 0.5) * 0.3, z0 + hoehe * t))
+        k = bpy.context.active_object; k.name = name + '_Kranz%d' % i; k.rotation_euler = (0, 0, rnd.random() * 6.28)
+        setze(k, mat_nadel); verwittern(k, 0.6, 0.45)
+
+def wald(ter, mat_rinde, mat_laub, mat_nadel, min_r, max_r, abstand, saat=11, ausschluss=()):
+    """Baeume auf Waldzellen (Vertexfarbe G < 0.45, R < 0.3): zufaellig, Mindestabstand, hier ohne Terrasse."""
+    rnd = random.Random(saat)
+    farbe = ter.data.color_attributes.get('Color') if ter.data.color_attributes else None
+    kand = []
+    for v in ter.data.vertices:
+        d = math.hypot(v.co.x, v.co.y)
+        if d < min_r or d > max_r: continue
+        if farbe is not None:
+            c = farbe.data[v.index].color
+            if c[1] > 0.45 or c[0] > 0.3: continue   # Wiese (G hoch) oder Fels (R hoch)
+        if any(math.hypot(v.co.x - ax, v.co.y - ay) < ar for ax, ay, ar in ausschluss): continue
+        kand.append((v.co.x, v.co.y))
+    rnd.shuffle(kand)
+    gesetzt = []
+    for (x, y) in kand:
+        if any((x - gx) ** 2 + (y - gy) ** 2 < abstand ** 2 for gx, gy in gesetzt): continue
+        gesetzt.append((x, y))
+        d = math.hypot(x, y)
+        fein = d < 45
+        if rnd.random() < 0.55:
+            laubbaum('Wald%d' % len(gesetzt), x, y, 18 + rnd.random() * 14, mat_rinde, mat_laub, saat * 7 + len(gesetzt), 2 if fein else 1, 6 if fein else 3)
+        else:
+            nadelbaum('Wald%d' % len(gesetzt), x, y, 16 + rnd.random() * 14, mat_rinde, mat_nadel, saat * 7 + len(gesetzt))
+        if len(gesetzt) > (180 if not SCHNELL else 60): break
+    return gesetzt
+
+# ----------------------------------------------------------------- Gras, Dunst, Licht, Kamera
+def grashalm(mat):
+    bm = bmesh.new()
+    for k, (dx, dy) in enumerate(((1, 0), (0.3, 0.95))):
+        vs = []
+        for i in range(5):
+            t = i / 4; w = 0.02 * (1 - t * 0.85); bend = 0.12 * t * t
+            vs.append((bm.verts.new((-w * dx - bend * dy * 0.3, -w * dy + bend * dx * 0.3, t * 0.45)), bm.verts.new((w * dx - bend * dy * 0.3, w * dy + bend * dx * 0.3, t * 0.45))))
+        for i in range(4):
+            bm.faces.new((vs[i][0], vs[i][1], vs[i + 1][1], vs[i + 1][0]))
+    me = bpy.data.meshes.new('Halm'); bm.to_mesh(me); bm.free()
+    o = bpy.data.objects.new('Halm', me); bpy.context.collection.objects.link(o); o.location = (0, 0, -50); setze(o, mat)
+    return o
+
+def gras(ter, halm, ausschluss, dichte):
+    """Grasbueschel per Geometry Nodes: Dichte aus der Vertexgruppe (Biom, Abstand, Hof ausgespart)."""
+    vg = ter.vertex_groups.new(name='gras')
+    farbe = ter.data.color_attributes.get('Color') if ter.data.color_attributes else None
+    for v in ter.data.vertices:
+        d = math.hypot(v.co.x + 4, v.co.y)
+        w = max(0.0, 1.0 - max(0.0, d - 30) / 40)
+        if farbe is not None:
+            c = farbe.data[v.index].color
+            if c[0] > 0.3: w = 0.0            # Fels
+            elif c[1] < 0.45: w *= 0.6        # Waldboden: lichter
+        for ax, ay, ar in ausschluss:
+            if math.hypot(v.co.x - ax, v.co.y - ay) < ar: w = 0.0
+        if w > 0: vg.add([v.index], w, 'REPLACE')
+    ng = bpy.data.node_groups.new('GrasGN', 'GeometryNodeTree')
+    ng.interface.new_socket('Geometry', in_out='INPUT', socket_type='NodeSocketGeometry')
+    ng.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
+    ein = ng.nodes.new('NodeGroupInput'); aus = ng.nodes.new('NodeGroupOutput')
+    dist = ng.nodes.new('GeometryNodeDistributePointsOnFaces'); dist.distribute_method = 'RANDOM'
+    attr = ng.nodes.new('GeometryNodeInputNamedAttribute'); attr.data_type = 'FLOAT'; attr.inputs['Name'].default_value = 'gras'
+    mal = ng.nodes.new('ShaderNodeMath'); mal.operation = 'MULTIPLY'; mal.inputs[1].default_value = dichte
+    info = ng.nodes.new('GeometryNodeObjectInfo'); info.inputs['Object'].default_value = halm; info.transform_space = 'ORIGINAL'
+    inst = ng.nodes.new('GeometryNodeInstanceOnPoints')
+    zuf = ng.nodes.new('FunctionNodeRandomValue'); zuf.data_type = 'FLOAT_VECTOR'
+    zuf.inputs['Min'].default_value = (0.5, 0.5, 0.5); zuf.inputs['Max'].default_value = (1.3, 1.3, 1.4)
+    join = ng.nodes.new('GeometryNodeJoinGeometry')
+    L = ng.links.new
+    L(ein.outputs['Geometry'], dist.inputs['Mesh']); L(attr.outputs['Attribute'], mal.inputs[0]); L(mal.outputs['Value'], dist.inputs['Density'])
+    L(dist.outputs['Points'], inst.inputs['Points']); L(dist.outputs['Rotation'], inst.inputs['Rotation'])
+    L(info.outputs['Geometry'], inst.inputs['Instance']); L(zuf.outputs['Value'], inst.inputs['Scale'])
+    L(ein.outputs['Geometry'], join.inputs['Geometry']); L(inst.outputs['Instances'], join.inputs['Geometry'])
+    L(join.outputs['Geometry'], aus.inputs['Geometry'])
+    m = ter.modifiers.new('Gras', 'NODES'); m.node_group = ng
+    halm.hide_render = True; halm.hide_viewport = True
+
+def dunst(name, groesse, z0, z1, dichte, abfall, farbe=(0.9, 0.82, 0.72), aniso=0.55):
+    """Hoehenabhaengiger Dunst: dichte * exp(-(z - z0) / abfall), im Kasten."""
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, (z0 + z1) / 2))
+    o = bpy.context.active_object; o.name = name; o.scale = (groesse, groesse, z1 - z0); o.display_type = 'WIRE'
+    m, nt, out = material(name)
+    tex = neu(nt, 'ShaderNodeTexCoord', (-1200, 0)); sep = neu(nt, 'ShaderNodeSeparateXYZ', (-1000, 0)); link(nt, tex, 'Object', sep, 'Vector')
+    # Objektkoordinaten sind 0..1 im skalierten Kasten: z_obj = (z - z0) / (z1 - z0) - 0.5
+    m1 = neu(nt, 'ShaderNodeMath', (-800, 0), operation='ADD'); m1.inputs[1].default_value = 0.5; link(nt, sep, 'Z', m1, 0)
+    m2 = neu(nt, 'ShaderNodeMath', (-600, 0), operation='MULTIPLY'); m2.inputs[1].default_value = -(z1 - z0) / abfall; link(nt, m1, 'Value', m2, 0)
+    m3 = neu(nt, 'ShaderNodeMath', (-400, 0), operation='EXPONENT'); link(nt, m2, 'Value', m3, 0)
+    m4 = neu(nt, 'ShaderNodeMath', (-200, 0), operation='MULTIPLY'); m4.inputs[1].default_value = dichte; link(nt, m3, 'Value', m4, 0)
+    m5 = neu(nt, 'ShaderNodeMath', (0, 0), operation='MINIMUM'); m5.inputs[1].default_value = dichte * 6; link(nt, m4, 'Value', m5, 0)
+    vol = neu(nt, 'ShaderNodeVolumePrincipled', (300, 0)); vol.inputs['Color'].default_value = (*farbe, 1); vol.inputs['Anisotropy'].default_value = aniso
+    link(nt, m5, 'Value', vol, 'Density'); link(nt, vol, 'Volume', out, 'Volume')
+    o.data.materials.append(m)
+    return o
+
+def sonne(elev_grad, azimut_grad, farbe=(1.0, 0.80, 0.60), staerke=4.0):
+    el, az = math.radians(elev_grad), math.radians(azimut_grad)
+    d = Vector((math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)))   # Richtung zur Sonne
+    lampe = bpy.data.lights.new('Sonne', 'SUN'); lampe.color = farbe; lampe.energy = staerke; lampe.angle = math.radians(0.7)
+    o = bpy.data.objects.new('Sonne', lampe); bpy.context.collection.objects.link(o)
+    o.rotation_euler = (-d).to_track_quat('-Z', 'Y').to_euler(); o.location = (0, 0, 60)
+    return o, d
+
+def welt(elev_grad, azimut_grad, staerke=1.0):
+    """Himmel als gerichteter Verlauf, nicht als physikalischer Himmel.
+
+    Der Nishita-Himmel liefert ein blaues Zenit und blaue Schatten — die Referenz hat warme
+    Schatten (D152: `#191410`), weil der Dunst selbst das Licht traegt. Ein physikalischer
+    Dunst, der Flaechen aufhellt, braeuchte Volumen-Mehrfachstreuung (unbezahlbar). Also:
+    warmer Horizont, gedecktes warmgraues Zenit, Sonnenhof als Kosinus-Potenz — die Zahlen
+    so, dass Schatten etwa ein Sechstel des beleuchteten Bodens sind (Referenz)."""
+    w = bpy.data.worlds.new('Oental'); bpy.context.scene.world = w; w.use_nodes = True
+    nt = w.node_tree
+    for n in list(nt.nodes): nt.nodes.remove(n)
+    out = neu(nt, 'ShaderNodeOutputWorld', (900, 0)); bg = neu(nt, 'ShaderNodeBackground', (700, 0)); bg.inputs['Strength'].default_value = staerke
+    link(nt, bg, 'Background', out, 'Surface')
+    tex = neu(nt, 'ShaderNodeTexCoord', (-1200, 0))
+    norm = neu(nt, 'ShaderNodeVectorMath', (-1000, 0), operation='NORMALIZE'); link(nt, tex, 'Generated', norm, 0)
+    sep = neu(nt, 'ShaderNodeSeparateXYZ', (-800, 0)); link(nt, norm, 'Vector', sep, 'Vector')
+    hoehe = neu(nt, 'ShaderNodeMapRange', (-600, 0)); hoehe.inputs['From Min'].default_value = -0.05; hoehe.inputs['From Max'].default_value = 0.6
+    link(nt, sep, 'Z', hoehe, 'Value')
+    verlauf = rampe(nt, (-350, 0), [(0.0, (0.130, 0.100, 0.076)), (0.35, (0.095, 0.085, 0.074)), (1.0, (0.060, 0.062, 0.062))])
+    link(nt, hoehe, 'Result', verlauf, 'Fac')
+    el, az = math.radians(elev_grad), math.radians(azimut_grad)
+    d = (math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el))
+    punkt = neu(nt, 'ShaderNodeVectorMath', (-600, -300), operation='DOT_PRODUCT'); punkt.inputs[1].default_value = d; link(nt, norm, 'Vector', punkt, 0)
+    pos = neu(nt, 'ShaderNodeMath', (-400, -300), operation='MAXIMUM'); pos.inputs[1].default_value = 0.0; link(nt, punkt, 'Value', pos, 0)
+    hof = neu(nt, 'ShaderNodeMath', (-200, -300), operation='POWER'); hof.inputs[1].default_value = 14.0; link(nt, pos, 'Value', hof, 0)
+    hofw = neu(nt, 'ShaderNodeMath', (0, -300), operation='MULTIPLY'); hofw.inputs[1].default_value = 0.35; link(nt, hof, 'Value', hofw, 0)
+    hoffarbe = neu(nt, 'ShaderNodeMix', (200, -300), data_type='RGBA', blend_type='MULTIPLY'); hoffarbe.inputs[0].default_value = 1.0
+    hoffarbe.inputs[6].default_value = (1.0, 0.72, 0.42, 1); link(nt, hofw, 'Value', hoffarbe, 7)
+    summe = neu(nt, 'ShaderNodeMix', (450, 0), data_type='RGBA', blend_type='ADD'); summe.inputs[0].default_value = 1.0
+    link(nt, verlauf, 'Color', summe, 6); link(nt, hoffarbe, 2, summe, 7); link(nt, summe, 2, bg, 'Color')
+    return w
+
+def kamera(ort, ziel, brennweite=32):
+    cam = bpy.data.cameras.new('Kamera'); cam.lens = brennweite; cam.sensor_width = 36; cam.clip_end = 6000
+    o = bpy.data.objects.new('Kamera', cam); bpy.context.collection.objects.link(o)
+    o.location = ort; o.rotation_euler = (Vector(ziel) - Vector(ort)).to_track_quat('-Z', 'Y').to_euler()
+    bpy.context.scene.camera = o
+    return o
+
+def rendern(sc, breite, hoehe, samples, pfad):
+    sc.render.engine = 'CYCLES'
+    try:
+        prefs = bpy.context.preferences.addons['cycles'].preferences
+        prefs.compute_device_type = 'METAL'
+        prefs.get_devices()
+        for d in prefs.devices: d.use = True
+        sc.cycles.device = 'GPU'
+        print('Cycles: Metal', [d.name for d in prefs.devices])
+    except Exception as e:
+        print('Cycles: CPU —', e)
+    sc.cycles.samples = samples; sc.cycles.use_adaptive_sampling = True; sc.cycles.adaptive_threshold = 0.02
+    sc.cycles.use_denoising = True
+    sc.cycles.max_bounces = 6; sc.cycles.diffuse_bounces = 3; sc.cycles.glossy_bounces = 3; sc.cycles.transmission_bounces = 6; sc.cycles.volume_bounces = 0; sc.cycles.transparent_max_bounces = 8
+    sc.cycles.volume_step_rate = 3.0; sc.cycles.volume_max_steps = 128; sc.cycles.volume_preview_step_rate = 3.0
+    sc.render.resolution_x = breite; sc.render.resolution_y = hoehe; sc.render.resolution_percentage = 100
+    sc.render.film_transparent = False; sc.render.image_settings.file_format = 'PNG'; sc.render.image_settings.color_mode = 'RGB'
+    sc.view_settings.view_transform = 'AgX'
+    try: sc.view_settings.look = 'AgX - Medium High Contrast'
+    except Exception: pass
+    # +1,3 EV gemessen: bei 0 lag das Bild auf Median 0,006 gegen 0,06–0,14 der Referenz (oberes Drittel 0,08 gegen 0,2)
+    sc.view_settings.exposure = 1.3; sc.view_settings.gamma = 1.0
+    sc.render.filepath = os.path.abspath(pfad)
+    bpy.ops.render.render(write_still=True)
+
+
+def fernkulisse(mat, saat=5):
+    """Huegelzuege jenseits der Daten (Osten, 3–7 km): reine Silhouette im Dunst.
+    Ausserhalb der Region liegen keine DGM1-Daten — das hier ist Kulisse, kein Gelaende,
+    und heisst auch so."""
+    rnd = random.Random(saat)
+    for k, (dist, hmin, hmax) in enumerate(((3200.0, 60.0, 260.0), (5200.0, 260.0, 620.0), (7200.0, 500.0, 950.0))):
+        bm = bmesh.new(); unten = []; oben = []
+        n = 60
+        for i in range(n + 1):
+            t = i / n; y = (t - 0.5) * 9000.0
+            h = hmin + (hmax - hmin) * (0.5 + 0.5 * noise.noise(Vector((t * 7.0 + k * 3.1, k, 0)))) + 40 * noise.noise(Vector((t * 30 + k, 0, 0)))
+            x = dist + 300 * noise.noise(Vector((t * 4 + k * 5, 1, 0)))
+            unten.append(bm.verts.new((x, y, -700.0))); oben.append(bm.verts.new((x, y, h - 350.0)))
+        for i in range(n):
+            bm.faces.new((unten[i], unten[i + 1], oben[i + 1], oben[i]))
+        me = bpy.data.meshes.new('Fernkulisse%d' % k); bm.to_mesh(me); bm.free()
+        o = bpy.data.objects.new('Fernkulisse%d' % k, me); bpy.context.collection.objects.link(o); setze(o, mat)
+
+# ----------------------------------------------------------------- Aufbau
+def bauen():
+    sc = saeubern()
+    ter = importiere('terrain'); fern = importiere('fern_terrain')
+    was = importiere('wasser'); fw = importiere('fern_wasser'); hs = importiere('fern_haeuser')
+    GELAENDE['obj'] = ter
+    if fern: loch_im_fernen(fern, 159.5)
+    m_boden, m_stein, m_pflaster = mat_boden(), mat_pflaster('Stein', 'wand', 2.2, 0.8, 5.0), mat_pflaster('Pflaster', 'boden', 1.3, 0.9)
+    m_fels, m_rinde, m_laub, m_nadel, m_wasser = mat_fels(), mat_rinde(), mat_laub(), mat_laub('Nadel', NADEL, (0.22, 0.30, 0.10), 0.35), mat_wasser()
+    m_gras = mat_laub('Gras', (0.30, 0.34, 0.11), (0.55, 0.52, 0.20), 0.6, 0.0)
+    setze(ter, m_boden)
+    if fern: setze(fern, m_boden)
+    if was: setze(was, m_wasser)
+    if fw: setze(fw, m_wasser)
+    if hs: setze(hs, m_stein)
+    fernkulisse(m_boden)
+    bpy.context.view_layer.update()
+
+    # Terrasse: eine Bank im Hang. Die Mauer steht an ihrer Ostkante, der Hof liegt dahinter (westlich),
+    # die Kamera steht im Hof und schaut durch den Bogen ins Tal — der Hang faellt nach Osten 280 m ab.
+    zt = bodenhoehe(-2.0, -1.0)
+    terrasse(ter, -2.0, -1.0, 12.0, 22.0, zt)
+    bpy.context.view_layer.update()
+
+    # Erst die Oeffnung, dann die Bruchkante: der exakte Boolean scheitert an den entarteten Flaechen,
+    # die das Abtragen der Oberkante hinterlaesst (gemessen: zweimal die ganze Mauer weg).
+    a = kasten('MauerA', (1.0, 15.0, 7.5), (5.0, 0.0, zt - 0.4), 0.5)
+    abziehen(a, bogen('Tor', 3.2, 5.2, 3.0, (5.0, -1.5, zt), math.radians(90)))
+    bruchkante(a, 3.4, 7.3, 1, ('y', -1.5, 2.2, 6.4)); setze(a, m_stein); verwittern(a)
+    b = kasten('MauerB', (10.0, 1.0, 5.0), (0.0, 7.5, zt - 0.4), 0.5)
+    abziehen(b, bogen('Fenster', 0.8, 2.8, 3.0, (-2.0, 7.5, zt + 1.3), 0.0))
+    bruchkante(b, 1.8, 4.8, 2, ('x', -2.0, 0.9, 3.6)); setze(b, m_stein); verwittern(b)
+    c = kasten('MauerC', (5.0, 1.0, 3.0), (2.0, -8.0, zt - 0.4), 0.5); bruchkante(c, 0.6, 2.6, 6)
+    setze(c, m_stein); verwittern(c)
+    s = kasten('Stuetzmauer', (0.8, 26.0, 2.6), (12.5, -1.0, zt - 2.8), 0.5); bruchkante(s, 1.2, 2.4, 3)
+    setze(s, m_stein); verwittern(s)
+    geroell(5.0, 5.0, 2.6, 12, m_fels, 3); geroell(-3.0, 7.0, 2.2, 8, m_fels, 4); geroell(2.0, -7.5, 2.0, 7, m_fels, 5); geroell(5.0, -5.5, 1.8, 6, m_fels, 6)
+
+    pflaster('Hof', (-1.0, -0.5, zt), (12.0, 15.0), m_pflaster)
+    becken((-2.5, -3.0, zt), (3.8, 5.4), (2.9, 4.5), 0.8, m_stein, m_wasser)
+
+    bloecke = (((-7.5, 5.5), (2.2, 1.7, 1.3)), ((-6.5, -7.5), (1.7, 1.4, 1.0)), ((-13.5, 4.0), (2.8, 2.0, 1.5)), ((-3.0, 4.2), (1.1, 0.9, 0.7)))
+    for i, ((x, y), g) in enumerate(bloecke):
+        o = block('Moosblock%d' % i, (x, y, bodenhoehe(x, y) + g[2] * 0.5), g, 40 + i, 0.25, 4); setze(o, m_fels)
+    for i, (st, ri, l) in enumerate((((-9.0, 8.0), 5.0, 8.0), ((-9.0, 8.0), 4.2, 6.5), ((-8.5, 7.5), 5.8, 5.0), ((-9.5, -6.0), 1.0, 5.0))):
+        wurzel('Wurzel%d' % i, st, ri, l, m_rinde, 50 + i, 0.3 if i < 3 else 0.2)
+
+    for i, (x, y, h) in enumerate(((-9.0, 8.0, 32), (8.0, 10.0, 34), (7.0, -12.0, 30), (-7.0, -12.5, 27), (15.0, 4.0, 28), (-1.0, 11.0, 30))):
+        laubbaum('Held%d' % i, x, y, h, m_rinde, m_laub, 70 + i, 3, 8)
+    nadelbaum('HeldN0', -13.0, 11.0, 24, m_rinde, m_nadel, 80); nadelbaum('HeldN1', 19.0, -24.0, 22, m_rinde, m_nadel, 81)
+    wald(ter, m_rinde, m_laub, m_nadel, 22.0, 150.0, 5.5, 11, ((-2.0, -1.0, 21.0),))
+
+    halm = grashalm(m_gras)
+    gras(ter, halm, ((-1.0, -0.5, 8.5),), 3.0 if SCHNELL else 9.0)
+
+    dunst('Dunst', 3400.0, -420.0, 1400.0, 0.0008, 230.0)
+    dunst('Bodennebel', 700.0, -90.0, 14.0, 0.008, 30.0, (0.92, 0.86, 0.78), 0.4)
+
+    # Sonne tief im Nordosten, 55 Grad links der Blickachse: Gegenlicht am Dunst, Streiflicht an Mauer und Hof.
+    # Erster Lauf (Az 72, Welt 0,008): Median 0,003, 66 % dunkel — Silhouette ohne Zeichnung. Referenz: 0,06–0,14.
+    EL, AZ = 13.0, 42.0
+    # Der physikalische Himmel ist tausendfach heller als eine 4-W-Sonne: Weltstaerke klein halten.
+    sonne(EL, AZ, (1.0, 0.80, 0.60), 3.5)
+    welt(EL, AZ, 1.5)
+    kamera((-10.0, 0.5, zt + 1.7), (5.0, -1.2, zt + 2.6), 26)
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(OUT_BLEND))
+    print('gespeichert', OUT_BLEND)
+    if SCHNELL: rendern(sc, 960, 540, 24, OUT_PNG)
+    else: rendern(sc, 1920, 1080, 48, OUT_PNG)
+    print('gerendert', OUT_PNG)
+
+bauen()
