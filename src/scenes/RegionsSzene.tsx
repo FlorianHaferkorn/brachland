@@ -18,6 +18,7 @@ import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, MIT_ANBAU, baueAnbau, saatAusId, reitsitz }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn, aoStaerke } from './Kontur.js';
+import { WasserUmgebung, useWasserUmgebung } from './WasserUmgebung.js';
 import { PALETTE } from '../world/palette.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
@@ -44,7 +45,7 @@ import { istAus } from './abschalter.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB, PROP_NEUBEWERTUNG,
          FERN_NEUBEWERTUNG } from './sichtweiten.js';
-import { waehleProps, type PropStufe } from './propauswahl.js';
+import { buendleFernProps, waehleProps, type PropStufe } from './propauswahl.js';
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
@@ -488,7 +489,9 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
      in der Geometrie. Ein Material für alles davon bleibt es trotzdem. */
   const hausMaterial = useMemo(() => baueHausMaterial(), []);
   useEffect(() => { (hausMaterial.userData.glut as { value: number }).value = fenster; }, [hausMaterial, fenster]);
-  const wasserMaterial = useMemo(() => baueWasserMaterial(), []);
+  const wasserMaterial = useMemo(() => baueWasserMaterial(false,
+    typeof location !== 'undefined' && new URLSearchParams(location.search).get('wasser') === 'physikalisch'), []);
+  useWasserUmgebung(wasserMaterial);
   const fallMaterial = useMemo(() => baueWasserMaterial(true), []);
   const wegMaterial = useMemo(() => baueWegMaterial(), []);
   const wind = useMemo(() => baueWindMaterial({
@@ -536,6 +539,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
     }
     wind.setzeZeit(uhr.current);
     grasWind.setzeZeit(uhr.current);
+    baumWind.setzeZeit(uhr.current);
   });
   /**
    * Bänder einmal zerlegen, dann je Kachel bauen.
@@ -682,7 +686,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
 function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
-  const [fern, setFern] = useState<{ art: PropArt; instanzen: PropInstanz[] }[]>([]);
+  const [fern, setFern] = useState<{ art: PropArt; variante: number; instanzen: PropInstanz[] }[]>([]);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
   const letzteFern = useRef(new THREE.Vector3(NaN, NaN, NaN));
 
@@ -719,9 +723,7 @@ function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInst
       })));
     }
     if (fernNeu) {
-      setFern([...buendel].map(([art, teile]) => ({
-        art, instanzen: teile.flatMap(c => c.instanzen),
-      })));
+      setFern(buendleFernProps(buendel));
     }
   });
 
@@ -729,8 +731,8 @@ function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInst
     <>
       {sichtbar.map(({ c, stufe, id }) =>
         <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} baumWind={baumWind} baumTiefe={baumTiefe} />)}
-      {fern.map(({ art, instanzen }) =>
-        <PropFernMesh key={art} art={art} instanzen={instanzen} />)}
+      {fern.map(({ art, variante, instanzen }) =>
+        <PropFernMesh key={`${art}:${variante}`} art={art} variante={variante} instanzen={instanzen} baumWind={baumWind} />)}
     </>
   );
 }
@@ -768,16 +770,23 @@ function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInst
  * `InstancedMesh` neu auf, und das ist genau der Fall, den `PropChunkMesh` im
  * Kommentar als teuer beschreibt.
  */
-function PropFernMesh({ art, instanzen }: { art: PropArt; instanzen: PropInstanz[] }) {
-  // Blender-Baeume (D155): die Fernstufe aus der Datei (~110 Dreiecke) statt des Kegels — sonst
-  // steht neben einer Krone aus Blattmassen ein Kegel, und der Bruch ist im Bild (D154)
+function PropFernMesh({ art, variante, instanzen, baumWind }: { art: PropArt; variante: number; instanzen: PropInstanz[]; baumWind: THREE.MeshStandardMaterial }) {
+  // Dieselbe Baumvariante in allen Stufen; die Fernstufe reduziert nur Dreiecke.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
-  const blender = eigen ? blenderBaum(eigen, 0, 'fern') : null;
+  const blender = eigen ? blenderBaum(eigen, variante, 'fern') : null;
   const { scene } = useGLTF(propPfad(blender ? blender.datei : VARIANTEN.busch[0].datei));
   const geo = useMemo(() => {
     if (!blender) return attrappeGeometrie(art);
     let g: THREE.BufferGeometry | null = null;
-    scene.traverse(o => { if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry.clone(); });
+    scene.updateMatrixWorld(true);
+    scene.traverse(o => {
+      if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry.clone().applyMatrix4(o.matrixWorld);
+    });
+    if (g) {
+      const geometrie = g as THREE.BufferGeometry;
+      const gewicht = geometrie.getAttribute('_wind');
+      if (gewicht) geometrie.setAttribute('aWind', gewicht);
+    }
     return (g ?? attrappeGeometrie(art)) as THREE.BufferGeometry;
   }, [art, blender, scene]);
   const ref = useRef<THREE.InstancedMesh>(null);
@@ -809,7 +818,8 @@ function PropFernMesh({ art, instanzen }: { art: PropArt; instanzen: PropInstanz
   return (
     <instancedMesh
       ref={ref} args={[undefined, undefined, kapazitaet]}
-      geometry={geo} material={blender ? FERN_BAUM_MATERIAL : FERN_MATERIAL}
+      name={blender ? `baum:${art}:${variante}:fern` : `prop:${art}:fern`}
+      geometry={geo} material={blender ? baumWind : FERN_MATERIAL}
       // Der Bündel umspannt den ganzen Sichtring; ein Frustum-Test daran wäre
       // immer wahr und damit verlorene Zeit.
       frustumCulled={false}
@@ -835,20 +845,9 @@ const PROP_MATERIAL = new THREE.MeshStandardMaterial({
 const FERN_MATERIAL = new THREE.MeshStandardMaterial({
   vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
 });
-/**
- * Blender-Baeume in der Fernstufe: glatt statt facettiert. Mit `FERN_MATERIAL` standen die
- * Blattmassen als sonnenhelle Ikosaeder am Waldrand (Grashang, D155) — jede Facette eine eigene
- * Lichtstufe, die Nahstufe daneben rund und dunkel. Die Normalen kommen aus der Datei.
- */
-const FERN_BAUM_MATERIAL = new THREE.MeshStandardMaterial({
-  vertexColors: true, flatShading: false, roughness: 1, metalness: 0,
-});
-
 function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe = 'nah') {
   const liste = VARIANTEN[art];
-  // Der Hook läuft unbedingt, auch für Bäume: Hooks dürfen nicht bedingt laufen.
-  // Bäume sind prozedural (D40) und haben deshalb keine Varianten — sie bekommen
-  // einen beliebigen, ohnehin geladenen Pfad, damit die Hook-Reihenfolge steht.
+  // Auch der prozedurale Fallback braucht einen unbedingten Lade-Hook.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   // Blender-Baum (D155), wenn das Register einen hat — sonst der prozedurale (D40)
   const blender = eigen ? blenderBaum(eigen, variante, stufe) : null;
@@ -857,8 +856,11 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
   return useMemo(() => {
     if (eigen && !blender) return { geo: baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel'), blender: false };
     let geo: THREE.BufferGeometry | null = null;
+    // Der Blender-Ursprung kann am Kronenzentrum liegen. Beim Herausloesen
+    // muss die Knotenmatrix mit: sonst versinkt etwa Fichte 0 um 10,25 m.
+    scene.updateMatrixWorld(true);
     scene.traverse(o => {
-      if (!geo && (o as THREE.Mesh).isMesh) geo = (o as THREE.Mesh).geometry.clone();
+      if (!geo && (o as THREE.Mesh).isMesh) geo = (o as THREE.Mesh).geometry.clone().applyMatrix4(o.matrixWorld);
     });
     if (eigen && geo) {
       // Windgewicht aus der Datei (`_WIND` → `_wind`), sonst aus der Hoehe; Laubmaske steht in COLOR_0.a
@@ -927,8 +929,9 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, baumWind, baumTiefe }: {
   return (
     <instancedMesh
       ref={ref} args={[undefined, undefined, chunk.instanzen.length]}
+      name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={fern && !blender ? fernGeo : geo}
-      material={fern ? (blender ? FERN_BAUM_MATERIAL : FERN_MATERIAL) : gras ? grasWind : blender ? baumWind : (biegsam ? wind : PROP_MATERIAL)}
+      material={blender ? baumWind : fern ? FERN_MATERIAL : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
       castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
     />
@@ -3005,6 +3008,8 @@ export function RegionsSzene({
       camera={{ fov: 55, near: 0.2, far: KAMERA_FERN, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
+      <WasserUmgebung werte={{ zenit: s.zenit, horizont: s.horizont, dunst: s.nebel,
+        sonne: s.sonne, sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof }}>
       <Beleuchtung s={s} ziel={ref} />
       {!istAus('kulisse') && fernGeo && (
         <mesh geometry={fernGeo} material={fernMaterial} frustumCulled={false} renderOrder={-500} />
@@ -3050,6 +3055,7 @@ export function RegionsSzene({
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} />
       <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} />
       <Messung melde={onMessung} />
+      </WasserUmgebung>
     </Canvas>
   );
 }

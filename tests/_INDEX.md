@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-18
+last-reviewed: 2026-09-15
 shelf-life-days: 90
 owns: *.test.ts
 ---
@@ -17,6 +17,7 @@ owns: *.test.ts
 
 | Deine Aufgabe ist … | Lies |
 |---|---|
+| Geometriekompression oder Bauwerk-Export ändern | `bautenpack.test.ts` → `../tools/bautenpack.ts` |
 | Kampfregeln, Elemente, Fokus oder Phasen ändern | `battle.test.ts` → `../src/engine/battle.ts` |
 | Die Witterungsanzeige oder eine Richtung anfassen | `peilung.test.ts` → `../src/spieler/peilung.ts` |
 | An Erfahrungskurve, Stufen oder Mutation drehen | `fortschritt.test.ts` → `../src/spiel/fortschritt.ts` |
@@ -27,12 +28,13 @@ owns: *.test.ts
 | Am Gleitverhältnis, an Tempo oder Schwerkraft drehen | `gleiten.test.ts` → `../src/spieler/gleiten.ts`, `../src/spieler/tempo.ts`, `npm run gleit` |
 | Am Biomraster, an der Siedlungsregel oder der Prop-Verteilung drehen | `siedlung.test.ts` → `../src/world/osm.ts`, `../src/world/props.ts` |
 | An der Teamreihenfolge oder am Beutel ausserhalb des Kampfes drehen | `menue.test.ts` → `../src/spiel/team.ts`, `../src/spiel/gegenstaende.ts` |
-| `propauswahl.test.ts` | Die zwei Prop-Listen dürfen keinen Chunk verlieren. Seit die Attrappen gebündelt werden (G-111), wird die Nahliste alle 8 m neu bestimmt und das Bündel alle 60 m — wer die Grenze in beiden Fällen an der aktuellen Position festmacht, bekommt ein wanderndes Loch. Geprüft wird ein **Lauf** über 76 Schritte, nicht ein Zustand: nach jedem Schritt muss jeder Chunk in Reichweite in genau einer Liste stehen |
+| `propauswahl.test.ts` | Die zwei Prop-Listen dürfen keinen Chunk verlieren. Seit die Attrappen gebündelt werden (G-111), wird die Nahliste alle 8 m neu bestimmt und das Bündel alle 60 m — wer die Grenze in beiden Fällen an der aktuellen Position festmacht, bekommt ein wanderndes Loch. D157 prüft zusätzlich, dass Bäume ihre Formvariante in Mittel- und Fernstufe behalten. Geprüft wird ein **Lauf** über 76 Schritte, nicht ein Zustand: nach jedem Schritt muss jeder Chunk in Reichweite in genau einer Liste stehen |
 
 ## Register
 
 | Datei | Was festgehalten wird |
 |---|---|
+| `bautenpack.test.ts` | Tatsächlicher Runtime-Decoder: Attribute, Weltmatrizen, Materialwerte/-gruppen, Namen und orientierte Dreiecke bleiben beim verlustfreien Meshopt-Roundtrip erhalten; Quellschutz und Größenstabilität bei Wiederkompression. |
 | `battle.test.ts` | 16 Tests: Elementmatrix ausgewogen, Fokus-Ökonomie, Elementvorteil entscheidet, Phasen erzwingen Wechseln, Zehrung, Determinismus, Kampfdauer im Korridor |
 | `peilung.test.ts` | 11 Tests. Anlass war ein **Vorzeichenfehler**, der nur bei Blickrichtung 0 unauffällig war — der Pfeil zeigte beim Drehen in die falsche Richtung |
 | `fortschritt.test.ts` | 20 Tests. Anlass: Die erste Kurve machte Kreaturen bei der Mutation **schwächer** (L13 = 184 KP, L14 = 162 KP). Hält jetzt Monotonie und die Zahl der Kämpfe je Mutation fest |

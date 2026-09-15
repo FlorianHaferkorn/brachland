@@ -50,8 +50,8 @@ export const PALETTE = {
     gebuesch:  '#5a6c4e',
     wiese:     '#73865d',
     acker:     '#918860',
-    /** Wasser bekommt in Phase 3 einen eigenen Shader — bis dahin unangehoben. */
-    wasser:    '#33555f',
+    /** Gewässerbett: Schlamm aus `szenenbau.py:mat_boden`, linear (0,10/0,085/0,06). */
+    wasser:    '#595245',
     siedlung:  '#837d72',   // ×1,4 (D122): das Dorf lag bei 0,10, weil sein Boden 0,15 hatte
     industrie: '#6d5a53',
     ruine:     '#625d57',
@@ -172,6 +172,9 @@ export const PALETTE = {
     stehendGlanz:    '#1b414e',
     fallend:         '#5f8590',
     fallendGlanz:    '#477079',
+    /** `szenenbau.py:mat_wasser`: Grundfarbe und Volumenabsorption, hier in sRGB. */
+    durchsicht:      '#c4cec4',
+    absorption:      '#a0bcaa',
   },
 
   /** Felswände: drei Töne für die Facetten, ein Schutt. */

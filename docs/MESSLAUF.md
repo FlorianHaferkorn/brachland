@@ -4,7 +4,7 @@ shelf-life-days: 90
 ---
 # Messlauf — Blender-Zielbild und Engine vergleichen
 
-Arbeitsrezept für D156. Fachlicher Ausgangsstand: Ledger D155 in `_INDEX.md`;
+Arbeitsrezept ab D156, erweitert in D157. Fachlicher Ausgangsstand: Ledger in `_INDEX.md`;
 Qualitätsmaßstab: ADR-0006. Offene Befunde und Entscheidungen werden ausschließlich
 im Ledger gepflegt. Alle Befehle laufen aus dem Repo-Root.
 
@@ -63,7 +63,9 @@ Blender rendert voll mit 1920×1080. Trotz gleicher Kamera und vertikalem FOV si
 die horizontalen Bildausschnitte verschieden. Diese Zahlen reproduzieren D155,
 sind aber kein pixelgenauer Vergleich. Für eine neue visuelle Abnahme zuerst das
 Seitenverhältnis angleichen und dafür eine eigene Messreihe führen. `--voll`
-ändert nur die Auswertung, nicht den Viewport.
+ändert nur die Auswertung, nicht den Viewport. Seit D157 setzt `--format=16:9`
+den Viewport auf 960×540; für neue Referenzvergleiche dieses Format verwenden.
+Die historischen D155-Zahlen bleiben in ihrem ursprünglichen Format erhalten.
 
 ## Was die Werkzeuge messen
 
@@ -84,6 +86,27 @@ GPU-Optionen. Das Stilwerkzeug wartet auf Menü, Ladezeit und vier Sekunden stab
 HUD-Dreieckszahl (mit Zeitlimits). Sonde/Konsole warten nach dem Menü feste zwölf
 Sekunden. Bei unvollständigem Laden ist deren Ergebnis nicht belastbar. Keine
 Look-/Bewegungsabnahme allein aus einer Zahl oder einem Standbild ableiten.
+
+## LOD während Bewegung prüfen (D157)
+
+```bash
+node tools/mess/lodlauf.mjs neuer_waldlauf '0,0,310' 24
+node --import tsx tools/baumvergleich.ts .cache/d157-baseline/props public/props .cache/neuer-baumvergleich.json 512
+```
+
+Der Lauf hält vorwärts + Rennen, protokolliert echte Instanzwechsel und erzeugt
+Video/Bildfolge unter `.cache/mess/<name>`. Er scheitert bei Browserfehlern,
+doppelten Bauminstanzen oder wenn kein LOD-Wechsel beobachtet wurde. Das ist
+kein Beweis für unsichtbare Übergänge: Video/Bildfolge zusätzlich ansehen.
+Der CPU-Vergleich misst sechs Silhouettenrichtungen in einem gemeinsamen Rahmen;
+Shaderlöcher, Wind, Farbe und Bildrate bleiben ausdrücklich außerhalb dieser Messung.
+
+`?wasser=physikalisch` aktiviert den zusätzlichen Transmission-Pass für A/B-Läufe.
+Der Standard verwendet transparente Absorption. Gleiche Kamera, Bildgröße und
+fertig geladenen Stand vergleichen; beide Pfade haben unterschiedliche Kosten.
+Die Himmelsreflexion entsteht aus dem vorhandenen Spielhimmel bei Lichtwechsel;
+sie enthält keine Bäume oder Bauwerke. Transmission ersetzt diese fehlende
+Szenenreflexion nicht.
 
 ## Blender ↔ Welt
 
@@ -154,6 +177,18 @@ Registereintrag **und** die Log-Zeile `fertig <name>` prüfen. Nur den eigenen
 Exportprozess beenden, keine pauschalen `pkill`-Befehle. Auch nach einem Abbruch
 die gesicherte Metadatei wiederherstellen. Eine Zeitüberschreitung allein gilt
 nicht als erfolgreicher Export.
+
+Für bereits gepacktes Grün seit D157 verlustfrei in eine neue Datei schreiben:
+
+```bash
+npx tsx tools/bautenpack.ts --verlustfrei --aus .cache/neues-stauwehr-gruen.glb public/bauten/stauwehr-gruen.glb
+```
+
+Meshopt komprimiert vorhandene Attribute ohne neue Quantisierung. `--aus` lehnt
+bestehende Ziele ab. Die Dateiersparnis ist keine GPU-Ersparnis: Dreiecke und
+dekodierter Speicher bleiben gleich. HTTP-gzip/Brotli separat messen, weil der
+Codec deren Kompressionsverhältnis verändert. Der Roundtrip-Test in `make check`
+prüft Werte und Dreiecke mit dem tatsächlichen Decoder der Engine.
 
 ### 3. Bäume, Übernahme und Build
 

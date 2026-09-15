@@ -10,8 +10,9 @@ am Rand der Freihaltung ist im Bild (D154). Hier entstehen dieselben Baeume wie 
 Vertexfarbe gebacken, in `COLOR_0.a` die Laubmaske (1 = Blatt, 0 = Holz) fuer die Loecher im
 Shader, in `_WIND` die Windgewichtung (Stamm 0, Krone 1).
 
-Zwei Stufen je Baum, wie `baueBaum` sie hatte: `nah` (Blattmassen fein, viele Aeste) fuer unter
-45 m und `mittel` (wenige, grosse Blattmassen) fuer 45–110 m; die Fernattrappe bleibt der Engine.
+Drei Stufen desselben Baums: nah unter 45 m, mittel bis 110 m, danach fern.
+Alle entstehen aus einer gebackenen Quellgeometrie; nur deren Aufloesung nimmt ab.
+Astpositionen, Kronenmassen, Farbe und Variante bleiben erhalten (D157).
 Dreiecke werden gemessen und stehen im Register — nicht gedeckelt, aber gezaehlt (ADR-0006).
 """
 import bpy, bmesh, math, random, sys, os, json, importlib.util
@@ -48,8 +49,7 @@ def sammeln(praefix):
 
 def backe_und_maskiere(o, laub_material_namen, laub_faktor=1.0):
     """Farbe in Vertexfarben backen (Cycles, 16 spp), dann Alpha = Laubmaske, WIND = Hoehe der Krone.
-    `laub_faktor` dunkelt das Laub ab — die Fernstufe hat keine Loecher und keinen Eigenschatten mehr,
-    eine glatte Masse in voller Sonne stand als hellgruener Ballon neben den dunklen Nahkronen (Grashang, D155)."""
+    `laub_faktor` ist fuer alle Stufen gleich; ein stufenabhaengiger Farbwechsel waere selbst ein LOD-Sprung."""
     sc = bpy.context.scene; sc.render.engine = 'CYCLES'; sc.cycles.samples = 16
     try:
         prefs = bpy.context.preferences.addons['cycles'].preferences; prefs.compute_device_type = 'METAL'; prefs.get_devices()
@@ -81,29 +81,15 @@ def backe_und_maskiere(o, laub_material_namen, laub_faktor=1.0):
     vc = nt.nodes.new('ShaderNodeVertexColor'); vc.layer_name = 'Color'; nt.links.new(vc.outputs['Color'], b.inputs['Base Color']); nt.links.new(vc.outputs['Alpha'], b.inputs['Alpha'])
     me.materials.clear(); me.materials.append(m)
 
-def baum_fern(art, hoehe, saat, m_rinde, m_laub):
-    """Fernstufe (Buche ~340, Fichte ~120 Dreiecke): Stamm als Sechseck, Krone als vier, fuenf grobe Blattmassen
-    mit der Silhouette der Nahstufe — kein Kegel (D40), der neben Blattmassen als Bruch im Bild stand (D154).
-    Die Kronenmasse bleibt: ein eingedampfter Mittelbaum verlor sie (gemessen, erster Versuch)."""
-    rnd = random.Random(saat)
-    bpy.ops.mesh.primitive_cylinder_add(vertices=6, radius=0.12 + hoehe * 0.008, depth=hoehe * (0.75 if art == 'buche' else 0.95), location=(0, 0, hoehe * (0.375 if art == 'buche' else 0.475)))
-    st = bpy.context.active_object; st.name = 'Baum_Stamm'; sb.setze(st, m_rinde)
-    bm = bmesh.new()
-    # Erster Wurf (gemessen am Grashang): Radius 0,30·Hoehe gab 20 m breite Ikosaeder — doppelt so
-    # breit wie die Nahkrone (Aeste 2–5 m plus Blattmassen), kantig und sonnenhell. Jetzt: Kronenbreite
-    # der Nahstufe (~0,16·Hoehe); Laubmassen mit 80 statt 20 Dreiecken (bmesh zaehlt Unterteilung ab 1),
-    # damit die Silhouette rund liest — Nadelscheiben bleiben bei 20, flach faellt Kantigkeit nicht auf.
-    # Dritter Wurf (Sonde: 1.268 Fernbuchen im Bild am Grashang): Rauheit 0,35 auf 42 Ecken gab Kartoffeln mit
-    # Kanten, die neben den lockeren Nahkronen als volle Baelle standen — Rauheit 0,15, Massen kleiner (Krone ~8 m)
-    if art == 'buche':
-        for k, (dx, dy, t, s) in enumerate(((0.0, 0.0, 0.84, 0.13), (0.5, 0.2, 0.70, 0.10), (-0.45, -0.3, 0.74, 0.10), (0.1, -0.5, 0.62, 0.08))):
-            r = hoehe * s
-            sb.klumpen_bm(bm, (dx * hoehe * 0.16, dy * hoehe * 0.16, hoehe * t), (r * 1.15, r * 1.15, r * 0.7), saat * 3 + k, 0.15, 2)
-    else:
-        for k, t in enumerate((0.36, 0.50, 0.64, 0.78, 0.92)):
-            r = (1.0 - t) * hoehe * 0.10 + 0.4
-            sb.klumpen_bm(bm, (0.0, 0.0, hoehe * t), (r, r, hoehe * 0.07), saat * 3 + k, 0.3, 1, sb.Matrix.Identity(4))
-    sb.fertig('Baum_Krone', bm, (0, 0, 0), m_laub, True)
+def stufe_aus_quelle(quelle, anteil):
+    """Denselben Baum vereinfachen, statt seine Krone fuer jede Entfernung neu zu wuerfeln."""
+    o = quelle.copy(); o.data = quelle.data.copy(); bpy.context.collection.objects.link(o)
+    if anteil < 1.0:
+        bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+        mod = o.modifiers.new('LOD', 'DECIMATE'); mod.ratio = anteil
+        mod.use_collapse_triangulate = True
+        bpy.ops.object.modifier_apply(modifier=mod.name)
+    return o
 
 def exportiere(o, pfad):
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
@@ -114,32 +100,30 @@ os.makedirs(ZIEL, exist_ok=True)
 register = {'baeume': []}
 for art in ('buche', 'fichte'):
     for v in range(VARIANTEN):
-        for stufe in ('nah', 'mittel', 'fern'):
-            leer()
-            m_rinde = sb.mat_rinde(); m_laub = sb.mat_laub(); m_nadel = sb.mat_laub('Nadel', sb.NADEL, (0.22, 0.30, 0.10), 0.35, 0.40)
-            rnd = random.Random(1000 + v * 17 + (0 if art == 'buche' else 500))
-            # Dreiecke im Blick: nah ≈ 3.000, mittel ≈ 700 (gemessen wird nach dem Bau, siehe Register)
-            if art == 'buche':
-                hoehe = 20 + rnd.random() * 12
-                # Blattmassen mit 80 Dreiecken (fein=True) wie in der Szene: 20-Dreieck-Ikosaeder (zweiter Lauf) standen
-                # als facettierte Baelle am Waldrand, Silhouette und Vertexfarbe je Flaeche gestuft (Grashang, D155)
-                if stufe == 'nah': sb.laubbaum2('Baum', 0.0, 0.0, hoehe, m_rinde, m_laub, 700 + v, True, 11, 3, 1.0)
-                # mittel: 5 Aeste mit je einer 2,2-fachen Masse (erster Lauf) lasen als Lutscher mit Loechern; 7 Aeste, je 2, 1,7-fach
-                elif stufe == 'mittel': sb.laubbaum2('Baum', 0.0, 0.0, hoehe, m_rinde, m_laub, 700 + v, True, 7, 2, 1.7)
-                else: baum_fern('buche', hoehe, 700 + v, m_rinde, m_laub)
-            else:
-                hoehe = 18 + rnd.random() * 10
-                if stufe == 'nah': sb.fichte('Baum', 0.0, 0.0, hoehe, m_rinde, m_nadel, 800 + v, False, 10, 4, 1.0)
-                elif stufe == 'mittel': sb.fichte('Baum', 0.0, 0.0, hoehe, m_rinde, m_nadel, 800 + v, False, 5, 3, 1.6)
-                else: baum_fern('fichte', hoehe, 800 + v, m_rinde, m_nadel)
-            o = sammeln('Baum')
-            # Laub gestuft dunkler (nah 0,85, mittel 0,78, fern 0,62): der Render verdunkelt Kronen durch Eigenschatten
-            # und Verdeckung, die Engine beleuchtet jede Masse voll — Blattfarbe im Spiel blasser als im Render (D154, N3)
-            backe_und_maskiere(o, {'Laub', 'Nadel'}, 0.62 if stufe == 'fern' else 0.78 if stufe == 'mittel' else 0.85)
+        leer()
+        m_rinde = sb.mat_rinde()
+        # Ausschliesslich die Blattfarbe backen. Transparente Loecher gehoeren in den
+        # Runtime-Shader: im alten Bake wurden sie als schwarze Vertexfarben konserviert.
+        m_laub = sb.mat_laub(durchlass=0.0, loecher=0.0)
+        m_nadel = sb.mat_laub('Nadel', sb.NADEL, (0.22, 0.30, 0.10), 0.0, 0.0)
+        rnd = random.Random(1000 + v * 17 + (0 if art == 'buche' else 500))
+        hoehe = (20 + rnd.random() * 12) if art == 'buche' else (18 + rnd.random() * 10)
+        if art == 'buche':
+            sb.laubbaum2('Baum', 0.0, 0.0, hoehe, m_rinde, m_laub, 700 + v, True, 11, 3, 1.0)
+        else:
+            sb.fichte('Baum', 0.0, 0.0, hoehe, m_rinde, m_nadel, 800 + v, False, 10, 4, 1.0)
+        quelle = sammeln('Baum')
+        backe_und_maskiere(quelle, {'Laub', 'Nadel'}, 0.85)
+        # Fichtennadeln sind bereits duenne 20-Dreieck-Koerper. Vierteln loeschte
+        # bis zu 30 % ihrer Silhouette; Buchenmassen vertragen diese Reduktion.
+        stufen = (('nah', 1.0), ('mittel', 0.8), ('fern', 0.6)) if art == 'fichte' else (('nah', 1.0), ('mittel', 0.55), ('fern', 0.25))
+        for stufe, anteil in stufen:
+            o = stufe_aus_quelle(quelle, anteil)
             name = f'baum-{art}-{v}-{stufe}'
             exportiere(o, os.path.abspath(os.path.join(ZIEL, name + '.glb')))
             tris = sum(len(p.vertices) - 2 for p in o.data.polygons)
             register['baeume'].append({'art': art, 'variante': v, 'stufe': stufe, 'datei': name, 'hoehe': round(hoehe, 2), 'dreiecke': tris})
-            print('gebaut', name, round(hoehe, 1), 'm', tris, 'Dreiecke')
+            print('gebaut', name, round(hoehe, 1), 'm', tris, 'Dreiecke', flush=True)
+            bpy.data.objects.remove(o, do_unlink=True)
 json.dump(register, open(os.path.join(ZIEL, 'baeume.json'), 'w'), indent=1)
-print('fertig', len(register['baeume']), 'Dateien')
+print('fertig', len(register['baeume']), 'Dateien', flush=True)

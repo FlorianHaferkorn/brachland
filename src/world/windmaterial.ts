@@ -86,7 +86,7 @@ const ROLLEN_GLSL = /* glsl */ `
       int i = int(rolle) - 1;
       if (uRollenMaske[i] > 0.5) vColor.rgb = uRollen[i];
     }
-    vColor.a = 1.0;
+    if (uRollenAn > 0.5) vColor.a = 1.0;
   }
   #endif
 `;
@@ -162,7 +162,7 @@ const LOECHER_GLSL = /* glsl */ `
  */
 const DURCHLASS_GLSL = /* glsl */ `
   #if NUM_DIR_LIGHTS > 0
-  if (uDurchlass > 0.0) {
+  if (uDurchlass > 0.0 && laubmaske > 0.5) {
     float rueck = max(0.0, -dot(geometryNormal, directionalLights[0].direction));
     reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * directionalLights[0].color * rueck * uDurchlass;
   }
@@ -297,22 +297,25 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v10';
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v11';
 
   // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens
   let tiefe: THREE.MeshDepthMaterial | undefined;
   if ((w.loecher ?? 0) > 0) {
     tiefe = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
+    tiefe.vertexColors = true;
     tiefe.onBeforeCompile = (shader) => {
       shader.uniforms.uLoecher = loecher; shader.uniforms.uLoecherSkala = loecherSkala;
+      shader.uniforms.uZeit = zeit; shader.uniforms.uWindAmp = windAmp;
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vLoecherPos;')
+        .replace('#include <common>', '#include <common>\n#include <color_pars_vertex>\nvarying vec3 vLoecherPos;\nuniform float uZeit;\nuniform float uWindAmp;\n#ifdef USE_INSTANCING\nattribute float aWind;\n#endif')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\n#include <color_vertex>' + WIND_GLSL)
         .replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\nvLoecherPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#else\nvLoecherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform float uLoecher;\nuniform float uLoecherSkala;\nvarying vec3 vLoecherPos;')
+        .replace('#include <common>', '#include <common>\n#include <color_pars_fragment>\nuniform float uLoecher;\nuniform float uLoecherSkala;\nvarying vec3 vLoecherPos;')
         .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL);
     };
-    tiefe.customProgramCacheKey = () => 'brachland-tiefe-loecher-v1';
+    tiefe.customProgramCacheKey = () => 'brachland-tiefe-loecher-v2';
   }
 
   return {

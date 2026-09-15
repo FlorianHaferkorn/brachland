@@ -52,10 +52,11 @@ const MESSEN = async ([d, voll]) => {
 
 const VOLL = process.argv.includes('--voll');
 const GPU = process.argv.includes('--gpu');
-const args = process.argv.slice(2).filter(a => a !== '--voll' && a !== '--gpu');
+const BREIT = process.argv.includes('--format=16:9');
+const args = process.argv.slice(2).filter(a => a !== '--voll' && a !== '--gpu' && a !== '--format=16:9');
 // --gpu: echte GPU (Metal) statt SwiftShader — bei 1,5 M Dreiecken (Bauwerke) sonst 1 B/s und kein fertiges Bild
 const b = await chromium.launch(GPU ? { args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist'] } : {});
-const p = await b.newPage({ viewport: { width: 900, height: 620 } });
+const p = await b.newPage({ viewport: BREIT ? { width: 960, height: 540 } : { width: 900, height: 620 } });
 let dateien = args;
 if (!args[0].endsWith('.png')) {
   const [ort, name, extra] = [args[0], args[1], args[2] ?? ''];

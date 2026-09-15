@@ -2,8 +2,8 @@
  * BRACHLAND — welcher Prop-Chunk in welcher Liste landet
  *
  * Zwei Listen teilen sich alle sichtbaren Chunks: die **Nahliste** mit einem
- * `InstancedMesh` je Chunk, und das **Bündel**, in dem alle Attrappen einer Art
- * in einem einzigen Aufruf stecken (G-111 — 175 Draw Calls kosten auf dem
+ * `InstancedMesh` je Chunk, und das **Bündel**, in dem entfernte Props je Art
+ * stecken, Baeume seit D157 zusaetzlich je Formvariante (G-111 — 175 Draw Calls kosten auf dem
  * Zielgerät 2 ms, die 50.000 Dreiecke daneben fast nichts).
  *
  * ## Warum das eine eigene Datei ist
@@ -25,21 +25,19 @@
  * Rendering wäre das ein Baum, der für ein paar Schritte weg ist, und darauf
  * fällt niemand rechtzeitig herein.
  */
-import type { PropArt, PropChunk } from '../world/props.js';
+import type { PropArt, PropChunk, PropInstanz } from '../world/props.js';
 import { ATTRAPPE_AB, MITTEL_AB, FERN_NEUBEWERTUNG } from './sichtweiten.js';
 
 export type PropStufe = 'nah' | 'mittel' | 'fern';
 
 /**
- * In der **Mittelstufe** fallen die Varianten zusammen.
+ * In der **Mittelstufe** fallen die Varianten kleiner Props zusammen; Baeume behalten sie (D157).
  *
- * `chunkeProps` schlüsselt nach (Art, Variante, Kachel). Das ist in der Nahstufe
- * richtig — eine Fichte neben der Figur, die aussieht wie die daneben, fällt
- * sofort auf. Zwischen 45 und 110 m ist eine Fichte im Bild rund 15 px hoch, und
- * dort kostet die Variante nur eines: einen eigenen Draw Call je Variante und
- * Kachel.
+ * `chunkeProps` schlüsselt nach (Art, Variante, Kachel). Seit D157 bleiben Baeume
+ * ausgenommen: ihre Formvariante muss ueber die Stufen gleich bleiben. Kleine
+ * Props sparen weiterhin einen Draw Call je Variante und Kachel.
  *
- * Gemessen an vier Orten (27.08.2026): Von den montierten Nahmeshes sind
+ * Historische Messung vor der Baumausnahme an vier Orten (27.08.2026): Von den montierten Nahmeshes sind
  * **86 % Mittelstufe** — 84 von 98, 123 von 123, 171 von 199, 75 von 91. Legt
  * man sie je (Art, Kachel) zusammen, bleiben **30, 36, 48, 20**.
  *
@@ -50,7 +48,7 @@ export type PropStufe = 'nah' | 'mittel' | 'fern';
  *
  * Was bleibt: Farbe (`propTon` je Instanz aus deren **eigener** Variante),
  * Drehung und Größe. Was wegfällt: die Form. Ab 110 m ist es ohnehin dieselbe
- * Attrappe für alle.
+ * Attrappe für alle kleinen Props. Fuer Baeume gilt diese Formvereinfachung nicht.
  */
 const MITTEL_VARIANTE = 0;
 
@@ -121,7 +119,8 @@ function legeMittelZusammen(
   const heraus: { c: PropChunk; stufe: PropStufe }[] = [];
   const zusammen = new Map<string, PropChunk>();
   for (const e of eintraege) {
-    if (e.stufe !== 'mittel') { heraus.push(e); continue; }
+    // Baumvarianten behalten dieselbe Silhouette auf jeder Stufe (D157).
+    if (e.stufe !== 'mittel' || e.c.art === 'nadelbaum' || e.c.art === 'laubbaum') { heraus.push(e); continue; }
     const c = e.c;
     const schluessel = `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
     const da = zusammen.get(schluessel);
@@ -137,4 +136,22 @@ function legeMittelZusammen(
     heraus.push({ c: neu, stufe: 'mittel' });
   }
   return heraus;
+}
+
+/** Fernbaeume nach Variante buendeln: wenige Aufrufe, ohne beim LOD-Wechsel die Form zu tauschen. */
+export function buendleFernProps(chunks: ReadonlyMap<PropArt, PropChunk[]>): {
+  art: PropArt; variante: number; instanzen: PropInstanz[];
+}[] {
+  const gruppen = new Map<string, { art: PropArt; variante: number; instanzen: PropInstanz[] }>();
+  for (const [art, teile] of chunks) {
+    const baum = art === 'nadelbaum' || art === 'laubbaum';
+    for (const c of teile) for (const p of c.instanzen) {
+      const variante = baum ? p.variante : 0;
+      const id = `${art}:${variante}`;
+      let gruppe = gruppen.get(id);
+      if (!gruppe) { gruppe = { art, variante, instanzen: [] }; gruppen.set(id, gruppe); }
+      gruppe.instanzen.push(p);
+    }
+  }
+  return [...gruppen.values()];
 }

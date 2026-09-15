@@ -12,7 +12,7 @@
  * nach jedem Schritt muss jeder Chunk, der überhaupt in Reichweite ist, in genau
  * einer Liste stehen.
  */
-import { waehleProps } from '../src/scenes/propauswahl.js';
+import { buendleFernProps, waehleProps } from '../src/scenes/propauswahl.js';
 import { ATTRAPPE_AB, FERN_NEUBEWERTUNG } from '../src/scenes/sichtweiten.js';
 import type { PropArt, PropChunk } from '../src/world/props.js';
 
@@ -124,7 +124,7 @@ const kachel = (c: PropChunk) => `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
     for (let z = -280; z <= 280; z += 70)
       for (let v = 0; v < VARIANTEN_ZAHL; v++)
         mehrere.push({
-          art: 'nadelbaum', variante: v, mitte: [x, z], radius: 52.5, sichtweite: 420,
+          art: 'busch', variante: v, mitte: [x, z], radius: 52.5, sichtweite: 420,
           // Eine eindeutige Kennung je Instanz, damit sich Verlust und Doppelung
           // zählen lassen.
           instanzen: [{ kennung: `${x}|${z}|${v}` }] as never,
@@ -165,6 +165,22 @@ const kachel = (c: PropChunk) => `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
   const summe = (a: typeof nah) => a.reduce((s, n) => s + n.c.instanzen.length, 0);
   pruefe('zweiter Aufruf liefert dieselbe Zahl Instanzen',
     summe(zweite.nah) === summe(nah), `${summe(nah)} → ${summe(zweite.nah)}`);
+}
+
+// Baumformen duerfen bei keinem LOD-Wechsel auf Variante 0 springen (D157).
+for (const art of ['laubbaum', 'nadelbaum'] as const) {
+  const baeume: PropChunk[] = [0, 1, 2, 3].map(variante => ({
+    art, variante, mitte: [70, 0], radius: 10, sichtweite: 420,
+    instanzen: [{ art, variante, position: [70, 0, 0], drehung: 0, skalierung: 1 }],
+  }));
+  const mittel = waehleProps(baeume, [0, 0], [0, 0], true).nah;
+  pruefe(`${art}: Mittelstufe behaelt jede Form`, mittel.length === 4 && mittel.every(e =>
+    e.stufe === 'mittel' && e.c.instanzen.every(p => p.variante === e.c.variante)));
+  const fern = buendleFernProps(waehleProps(baeume, [-60, 0], [-60, 0], true).buendel);
+  pruefe(`${art}: Fernstufe behaelt jede Form`, fern.length === 4 && fern.every(e =>
+    e.instanzen.every(p => p.variante === e.variante)));
+  pruefe(`${art}: LOD-Wechsel erhaelt alle Instanzen genau einmal`,
+    fern.flatMap(e => e.instanzen).length === 4 && new Set(fern.flatMap(e => e.instanzen)).size === 4);
 }
 
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);

@@ -54,13 +54,37 @@ const VARIATION_GLSL = /* glsl */ `
   diffuseColor.rgb *= mix(feucht, trocken, grob);
 `;
 
+const RELIEF_GLSL = /* glsl */ `
+  // Blender mat_boden: Rauschen bei 6/m. Unser zweidimensionales Wertrauschen
+  // hat steilere Einzelhaenge: 8 mm statt .15 m * .3 verhindern ein Kornraster.
+  // Weltkoordinaten halten die Koernung beim Kachel-/LOD-Wechsel ortsfest.
+  vec2 kornOrt = vWeltPos.xz * 6.0;
+  float pixelBreite = max(length(dFdx(kornOrt)), length(dFdy(kornOrt)));
+  float feinSichtbar = 1.0 - smoothstep(0.25, 0.75, pixelBreite);
+  float korn = bodenRauschen(kornOrt);
+  vec2 detailOrt = mat2(0.8, -0.6, 0.6, 0.8) * kornOrt * 2.0;
+  float detail = bodenRauschen(detailOrt);
+  float detailSichtbar = 1.0 - smoothstep(0.125, 0.375, pixelBreite);
+  float hoehe = ((korn - 0.5) * 0.7 + (detail - 0.5) * 0.3 * detailSichtbar) * 0.008;
+
+  // Oberflaechengradient nach Mikkelsen (wie three.js bumpmap_pars_fragment).
+  // Unnormierte Ableitungen passen zur Hoehe in Metern; dadurch ist das Relief
+  // unabhaengig von Aufloesung und Blickabstand. Die Geometrienormale bleibt Basis.
+  vec3 dx = dFdx(-vViewPosition);
+  vec3 dy = dFdy(-vViewPosition);
+  vec3 querY = cross(dy, normal);
+  vec3 querX = cross(normal, dx);
+  float determinante = dot(dx, querY) * faceDirection;
+  vec3 gradient = sign(determinante) * (dFdx(hoehe) * querY + dFdy(hoehe) * querX);
+  vec3 reliefNormal = normalize(max(abs(determinante), 1e-8) * normal - gradient);
+  normal = normalize(mix(normal, reliefNormal, feinSichtbar));
+`;
+
 /**
  * Bodenmaterial für die LOD-Kacheln.
  *
- * `flatShading` bleibt an — die facettierte Optik ist Art Direction (ADR-0002).
- * Das Rauschen sitzt in der Farbe, nicht in der Normale: Eine Normalen-Störung
- * würde mit Flat Shading kämpfen und die Silhouetten aufweichen, auf denen der
- * Look beruht.
+ * Flat Shading traegt die Gelaendeform. Das kleinere Normalenrelief folgt
+ * ADR-0006 und der Blender-Quelle; es veraendert weder Silhouette noch Kollision.
  */
 export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({
@@ -77,12 +101,13 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + VARIATION_GLSL);
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + VARIATION_GLSL)
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL);
   };
 
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
-  material.customProgramCacheKey = () => 'brachland-boden-v1';
+  material.customProgramCacheKey = () => 'brachland-boden-v2';
 
   return material;
 }

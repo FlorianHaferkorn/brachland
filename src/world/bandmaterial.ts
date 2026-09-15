@@ -48,48 +48,27 @@ const GISCHT_GLSL = /* glsl */ `
 `;
 
 /**
- * Uferkante am laufenden und stehenden Wasser (D131).
+ * Wasser nach der Blender-Quelle `szenenbau.py:mat_wasser` (ADR-0006).
  *
- * Dort, wo Wasser auf Land trifft, ist es weder Wasser noch Land: ein heller,
- * unruhiger Saum aus Schaum und nassem Sand. Ohne ihn liegt das Band trotz weicher
- * Deckkraft wie Folie auf der Wiese. Der Saum sitzt innerhalb der Deckkraftflanke
- * (`ufer` 0,08…0,42, erster Versuch 0,04…0,30 lag in der Transparenz und war unsichtbar: Median 0,110 → 0,112), wird vom Rauschen zerrissen, damit er keine Linie ist, und
- * wandert langsam mit der Strömung.
+ * Der Standard naehert Absorption durch transparente Abdunklung an und zeigt
+ * direktes Glanzlicht mit IOR 1,333. WasserUmgebung liefert denselben Himmel wie
+ * im Spiel als Reflexionskarte. Der Standard hat keine Brechung.
+ * Der optionale physikalische Vergleichspfad nutzt Transmission: ein weiterer
+ * Szenenpass, auf three r169 in voller Aufloesung. Seine Dicke von 0,4 m ist
+ * eine Naeherung fuer das Band, kein gemessener Tiefenpuffer. Spiegelungen von
+ * Baeumen erfordern in beiden Faellen zusaetzlich eine Szenenreflexion.
+ *
+ * Fallendes Wasser behaelt seine Gischt. Die weiche Uferkante und das Zeit-Uniform
+ * bleiben fuer beide Pfade erhalten; glatte Normalen verhindern Bruchglas-Facetten.
  */
-const SAUM_GLSL = /* glsl */ `
-  float saumLage = smoothstep(0.08, 0.18, ufer) * (1.0 - smoothstep(0.26, 0.42, ufer));
-  float saumRiss = bandRauschen(vec2(vBand.y * 1.1 - zeit * uTempo * 0.25, vBand.x * 5.0));
-  float saum = saumLage * smoothstep(0.30, 0.60, saumRiss);
-  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.76, 0.78, 0.74), saum * 0.85);
-`;
-
-/**
- * Fließendes Wasser.
- *
- * Drei Lagen übereinander, jede für sich billig:
- * 1. **Ufer** — Deckkraft fällt zum Rand hin ab, statt an einer Kante zu enden.
- * 2. **Strömung** — zwei gegenläufige Wellenzüge in der Normale. Nicht in der Farbe:
- *    Wasser erkennt man am wandernden Glanzlicht, nicht an wandernden Flecken.
- * 3. **Tiefe** — zur Mitte hin dunkler und satter, am Ufer heller.
- *
- * `flatShading` ist hier bewusst **aus**. Die facettierte Optik ist Art Direction für
- * Fels und Boden; eine facettierte Wasseroberfläche sieht aus wie Bruchglas.
- */
-export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial {
-  const material = new THREE.MeshStandardMaterial({
-    color: fallend ? PALETTE.wasser.fallend : PALETTE.wasser.stehend,
-    // Rauheit 0,18 → 0,3 und Metall 0,28 → 0,12 (D123): Metallanteil nimmt der
-    // Fläche Albedo (diffus × (1 − metalness)) und gab ihr dafür einen harten
-    // Sonnenfleck; das Ergebnis las sich als Graublau mit Blendung. Wasser in
-    // der Stilreferenz ist eine Farbe mit weichem Glanz, kein Spiegel.
-    // Fallend rauer (0,35 → 0,5) und weniger Glanz (0,5 → 0,3), D131: Der Fall
-    // in der Sonne war Grundfarbe + Glanz + Sonnenfleck = eine weiße Platte.
-    // Das Weiß kommt jetzt aus den Gischt-Strähnen (`GISCHT_GLSL`).
-    roughness: fallend ? 0.85 : 0.3,
-    metalness: fallend ? 0.05 : 0.12,
-    transparent: true, opacity: fallend ? 0.8 : 0.92,
-    emissive: new THREE.Color(fallend ? PALETTE.wasser.fallendGlanz : PALETTE.wasser.stehendGlanz),
-    emissiveIntensity: fallend ? 0.2 : 0.3,
+export function baueWasserMaterial(fallend = false, physikalisch = false): THREE.MeshStandardMaterial {
+  const material = fallend ? new THREE.MeshStandardMaterial({
+    color: PALETTE.wasser.fallend,
+    // D131: Das Weiss kommt aus Gischt statt einem harten Sonnenfleck.
+    roughness: 0.85, metalness: 0.05,
+    transparent: true, opacity: 0.8,
+    emissive: new THREE.Color(PALETTE.wasser.fallendGlanz),
+    emissiveIntensity: 0.2,
     // Fallendes Wasser wird von beiden Seiten gesehen — man steht auch mal darunter.
     /**
      * Beidseitig, seit es ein Gewässerbett gibt.
@@ -100,6 +79,20 @@ export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial 
      * unten vollständig. Im Weiher sah das aus wie ein dunkles Loch ohne Wasser.
      */
     side: THREE.DoubleSide,
+  }) : new THREE.MeshPhysicalMaterial({
+    // ADR-0006: die Farbe entsteht aus dem durchscheinenden Bett. Emission und
+    // Metall hatten das Wasser selbst im Schatten tuerkis aufgehellt.
+    // Quelle: szenenbau.py:mat_wasser (IOR 1,333, Transmission 1, Rauheit 0,03).
+    // Ohne Transmission darf die durchsichtige Grundfarbe nicht als deckende
+    // Albedo leuchten. Absorption wird dann als neutrales Abdunkeln geblendet;
+    // der Farbton kommt vom sichtbaren Gewaesserbett, nicht von Selbstleuchten.
+    color: physikalisch ? new THREE.Color(PALETTE.wasser.durchsicht) : new THREE.Color(0, 0, 0),
+    roughness: 0.03, metalness: 0, transmission: physikalisch ? 1 : 0, ior: 1.333,
+    thickness: 0.4,
+    attenuationColor: PALETTE.wasser.absorption,
+    attenuationDistance: 1 / 0.6,
+    transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false,
+    forceSinglePass: true,
   });
 
   const zeit = { value: 0 };
@@ -115,7 +108,7 @@ export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial 
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\n' + HASH_GLSL)
-      .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
+      .replace('#include <color_fragment>', fallend ? /* glsl */ `#include <color_fragment>
   float ufer = 1.0 - abs(vBand.x);
 
   /* Tiefe.
@@ -136,18 +129,40 @@ export function baueWasserMaterial(fallend = false): THREE.MeshStandardMaterial 
   float deckung = mix(0.72, 0.97, tiefe);
   // Weiche Uferkante statt Plattenrand.
   diffuseColor.a = deckung * smoothstep(0.0, 0.28, ufer);
-` + (fallend ? GISCHT_GLSL : SAUM_GLSL))
+` + GISCHT_GLSL : /* glsl */ `#include <color_fragment>
+  float ufer = 1.0 - abs(vBand.x);
+  // Dichte .6 aus der Blender-Quelle; die Bandmitte ist nur eine Tiefennaeherung.
+  float dicke = mix(0.08, 0.8, smoothstep(0.0, 0.75, ufer));
+  diffuseColor.a *= smoothstep(0.0, 0.28, ufer);
+`)
       .replace('#include <normal_fragment_maps>', /* glsl */ `#include <normal_fragment_maps>
   // Zwei Wellenzüge unterschiedlicher Länge und Geschwindigkeit. Der zweite läuft
   // schräg, sonst entsteht ein sichtbares Streifenmuster.
   float w1 = sin(vBand.y * 2.3 - zeit * uTempo * 1.7 + vBand.x * 1.1);
   float w2 = sin(vBand.y * 5.9 - zeit * uTempo * 2.9 - vBand.x * 2.7);
   float kraus = bandRauschen(vec2(vBand.y * 1.7 - zeit * uTempo * 0.6, vBand.x * 3.0)) - 0.5;
-  normal = normalize(normal + vec3(w2 * 0.10 + kraus * 0.16, 0.0, w1 * 0.14));
+  // normal liegt im Sichtraum. Die Weltwelle muss mitgedreht werden, sonst
+  // aendert ein Kameraschwenk die Wasseroberflaeche selbst.
+  vec3 wellenNormale = vec3(w2 * 0.10 + kraus * 0.16, 0.0, w1 * 0.14);
+  normal = normalize(normal + mat3(viewMatrix) * wellenNormale * ${fallend ? '1.0' : '0.15'});
 `);
+    if (!fallend && !physikalisch) {
+      shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', /* glsl */ `
+  // Klarwasser hat keine diffuse Albedo: outgoingLight enthaelt nur Reflexion.
+  // Sie darf beim Alpha-Blenden nicht nochmals mit der Absorption skaliert werden.
+  // F0 folgt IOR 1,333; Fresnel und Absorption begrenzen den sichtbaren Grund.
+  float cosBlick = clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
+  float f0 = pow((1.333 - 1.0) / (1.333 + 1.0), 2.0);
+  float reflexion = f0 + (1.0 - f0) * pow(1.0 - cosBlick, 5.0);
+  float deckung = 1.0 - (1.0 - reflexion) * exp(-0.6 * dicke);
+  outgoingLight /= max(deckung, 0.0001);
+  diffuseColor.a *= deckung;
+  #include <opaque_fragment>
+`);
+    }
   };
 
-  material.customProgramCacheKey = () => `brachland-wasser-v3-${fallend ? 'fall' : 'lauf'}`;
+  material.customProgramCacheKey = () => `brachland-wasser-v6-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}`;
   return material;
 }
 
