@@ -57,6 +57,13 @@ export interface WindMaterialWerte {
   loecher?: number;
   /** Rauschmassstab der Loecher in 1/m; Szenenbau nimmt 9. */
   loecherSkala?: number;
+  /**
+   * Durchlass 0…1 (Stufe 2): Sonnenlicht, das von hinten durch ein Blatt faellt, als
+   * Lambert-Term auf die **abgewandte** Seite — `mat_laub` im Szenenbau mischt dafuer
+   * Diffus und Translucent 45/55. Ohne diesen Term liest eine Krone im Gegenlicht als
+   * dunkle Scheibe, mit ihm leuchtet sie. Nur die erste Richtungsquelle (die Sonne).
+   */
+  durchlass?: number;
 }
 
 /** Slots der Laufzeitfarben (D146) — dieselbe Reihenfolge wie `SLOT` in `tools/menschbau.py`. */
@@ -122,7 +129,12 @@ const RAND_GLSL = /* glsl */ `
  * lesen. Kein Perlin: Das hier muss nur unregelmaessig sein, nicht schoen.
  */
 const LOECHER_GLSL = /* glsl */ `
-  if (uLoecher > 0.0) {
+  #ifdef USE_COLOR_ALPHA
+  float laubmaske = vColor.a;      // Baumbau: 1 = Blatt, 0 = Holz — Loecher nur im Laub
+  #else
+  float laubmaske = 1.0;
+  #endif
+  if (uLoecher > 0.0 && laubmaske > 0.5) {
     vec3 q = vLoecherPos * uLoecherSkala;
     float n = 0.0, a = 0.5;
     for (int o = 0; o < 3; o++) {
@@ -140,6 +152,21 @@ const LOECHER_GLSL = /* glsl */ `
     }
     if (n > uLoecher) discard;
   }
+`;
+
+/**
+ * Durchlass: Licht der Sonne von der Rueckseite. `directionalLights[0].direction` zeigt zur
+ * Quelle (Sichtraum); ein Blatt, dessen Normale von der Sonne wegzeigt, bekommt den
+ * negativen Kosinus als diffusen Beitrag. Ohne Schattenmaske — die kennt nur die Vorderseite,
+ * und ein Rest Leuchten im Kronenschatten ist genau, was Laub tut.
+ */
+const DURCHLASS_GLSL = /* glsl */ `
+  #if NUM_DIR_LIGHTS > 0
+  if (uDurchlass > 0.0) {
+    float rueck = max(0.0, -dot(geometryNormal, directionalLights[0].direction));
+    reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * directionalLights[0].color * rueck * uDurchlass;
+  }
+  #endif
 `;
 
 const WIND_GLSL = /* glsl */ `
@@ -208,6 +235,8 @@ const ATMEN_GLSL = /* glsl */ `
  */
 export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): {
   material: THREE.MeshStandardMaterial;
+  /** Tiefenmaterial fuer Schatten mit denselben Loechern — nur mit `loecher`; als `customDepthMaterial` setzen. */
+  tiefe?: THREE.MeshDepthMaterial;
   setzeZeit(t: number): void;
   setzeRand(farbe: THREE.Color, staerke: number): void;
   /** Gangstaerke 0…1 (D138) — nur mit `atmen`. */
@@ -227,6 +256,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
   const rollenMaske = { value: new Float32Array(8) };
   const loecher = { value: w.loecher ?? 0 };
   const loecherSkala = { value: w.loecherSkala ?? 9 };
+  const durchlass = { value: w.durchlass ?? 0 };
 
   const material = basis instanceof THREE.MeshStandardMaterial
     ? (basis.clone() as THREE.MeshStandardMaterial)
@@ -247,6 +277,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
     shader.uniforms.uRollenMaske = rollenMaske;
     shader.uniforms.uLoecher = loecher;
     shader.uniforms.uLoecherSkala = loecherSkala;
+    shader.uniforms.uDurchlass = durchlass;
 
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',
@@ -258,18 +289,35 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
       .replace('#include <color_vertex>', '#include <color_vertex>' + ROLLEN_GLSL)
       .replace('#include <begin_vertex>', '#include <begin_vertex>' + WIND_GLSL + ATMEN_GLSL)
       // Weltposition fuer die Loecher: nach allen Verschiebungen, vor der Projektion
-      .replace('#include <project_vertex>', '#include <project_vertex>\nvLoecherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      .replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\nvLoecherPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#else\nvLoecherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif');
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>',
-        '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;\nuniform float uLoecher;\nuniform float uLoecherSkala;\nvarying vec3 vLoecherPos;')
+        '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;\nuniform float uLoecher;\nuniform float uLoecherSkala;\nuniform float uDurchlass;\nvarying vec3 vLoecherPos;')
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
-      .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL);
+      .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v8';
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v10';
+
+  // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens
+  let tiefe: THREE.MeshDepthMaterial | undefined;
+  if ((w.loecher ?? 0) > 0) {
+    tiefe = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
+    tiefe.onBeforeCompile = (shader) => {
+      shader.uniforms.uLoecher = loecher; shader.uniforms.uLoecherSkala = loecherSkala;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vLoecherPos;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\nvLoecherPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#else\nvLoecherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform float uLoecher;\nuniform float uLoecherSkala;\nvarying vec3 vLoecherPos;')
+        .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL);
+    };
+    tiefe.customProgramCacheKey = () => 'brachland-tiefe-loecher-v1';
+  }
 
   return {
     material,
+    tiefe,
     setzeZeit: (t) => { zeit.value = t; },
     setzeRand: (farbe, staerke) => { randFarbe.value.copy(farbe); randStaerke.value = staerke; },
     setzeGang: (g) => { gang.value = g; },

@@ -14,7 +14,7 @@ Achsen: glTF ist Y-oben; der Exporter dreht Blender-Z nach Y und Blender-Y nach 
 Abbildung von `.cache/terrainexport.ts` (X = x, Y = −z, Z = y). Ursprung der Szene = Weltpunkt (cx, cz)
 aus `.cache/blender/terrain.json`, Hoehe h0.
 """
-import bpy, math, sys, os, json, time
+import bpy, math, sys, os, json, time, re
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 ZIEL = ARGS[0] if ARGS else 'public/bauten'
@@ -25,13 +25,18 @@ sc = bpy.context.scene
 
 def ist_bau(o):
     n = o.name
-    return o.type in ('MESH', 'CURVE') and (n.startswith(('MauerA', 'MauerB', 'MauerC', 'Stuetzmauer', 'Hof', 'Becken', 'Moosblock', 'Geroell', 'Wurzel'))
-            or (n.startswith('Held') and ('_Stamm' in n or '_Ast' in n or '_Anlauf' in n))) and not n.endswith('_Wasser')
+    return o.type in ('MESH', 'CURVE') and (n.startswith(('MauerA', 'MauerB', 'MauerC', 'Stuetzmauer', 'Hof', 'Becken', 'Moosblock', 'Geroell', 'Wurzel', 'Steg', 'Wehr', 'Wasserblock', 'Sturzstamm'))
+            or (n.startswith(('Held', 'Weide')) and ('_Stamm' in n or '_Ast' in n or '_Anlauf' in n or '_Rute' in n))) and not n.endswith('_Wasser')
 
 def ist_gruen(o):
     n = o.name
-    return (o.type == 'MESH' and (n.startswith(('Farn', 'Efeu')) or (n.startswith(('Held', 'Wald')) and (n.endswith('_Krone') or n.endswith('_Nadeln'))))) \
-        or (o.type == 'CURVE' and n.startswith('Wald'))   # Waldstaemme: grob, Vertexfarbe — 180 Staemme backt niemand einzeln
+    return (o.type == 'MESH' and (n.startswith(('Farn', 'Efeu', 'Schilf')) or (n.startswith(('Held', 'Wald', 'Weide')) and (n.endswith('_Krone') or n.endswith('_Nadeln'))))) \
+        or (o.type == 'CURVE' and n.startswith('Wald')) \
+        or (o.type == 'MESH' and n.startswith('Wald') and n.endswith('_Stamm'))   # Fichtenstamm ist ein Kegelnetz, kein Kurvenobjekt — fehlte im ersten Export (Nadeln schwebten)
+
+def ist_waldholz(o):
+    """Waldstaemme: grob, Vertexfarbe, alle zu **einem** Netz — 180 Staemme backt niemand einzeln."""
+    return (o.type == 'CURVE' and o.name.startswith('Wald')) or (o.type == 'MESH' and o.name.startswith('Wald') and o.name.endswith('_Stamm'))
 
 def ist_wasser(o):
     return o.type == 'MESH' and o.name.endswith('_Wasser')
@@ -52,6 +57,9 @@ def cycles_gpu():
     except Exception as e:
         print('CPU:', e)
     sc.render.engine = 'CYCLES'; sc.cycles.samples = 16; sc.cycles.use_denoising = False
+    # AO-Reichweite fuer den Bake: 8 m — die Mauer soll den Hof verschatten, nicht nur die Fuge den Stein
+    try: sc.world.light_settings.distance = 8.0
+    except Exception as e: print('AO-Distanz', e)
     sc.render.bake.margin = 6; sc.render.bake.use_clear = True
 
 def uv(o):
@@ -70,6 +78,8 @@ def backe_bild(o, mat, art, groesse, dateiname):
         bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, margin=6, use_clear=True)
     elif art == 'ROUGHNESS':
         bpy.ops.object.bake(type='ROUGHNESS', margin=6, use_clear=True)
+    elif art == 'AO':
+        bpy.ops.object.bake(type='AO', margin=6, use_clear=True)
     else:
         bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', margin=6, use_clear=True)
     nt.nodes.remove(node)
@@ -93,12 +103,17 @@ def backe_vertexfarbe(o, mat):
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
     bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, use_clear=True)
     sc.render.bake.target = 'IMAGE_TEXTURES'
-    # danach ein schlichtes Material mit Vertexfarbe: der Export traegt COLOR_0, die Engine den Rest
-    m = bpy.data.materials.new(o.name + '_vc'); m.use_nodes = True; nt = m.node_tree
-    for n in list(nt.nodes): nt.nodes.remove(n)
-    out = nt.nodes.new('ShaderNodeOutputMaterial'); b = nt.nodes.new('ShaderNodeBsdfPrincipled'); nt.links.new(b.outputs['BSDF'], out.inputs['Surface'])
-    a = nt.nodes.new('ShaderNodeVertexColor'); a.layer_name = 'Color'; nt.links.new(a.outputs['Color'], b.inputs['Base Color'])
-    b.inputs['Roughness'].default_value = 0.9
+    # danach **ein** schlichtes Material mit Vertexfarbe fuer alles Gruen: der Export traegt COLOR_0,
+    # die Engine den Rest. Ein Material je Objekt (erster Export) machte aus den 105 vereinigten
+    # Waldkronen ein Netz mit 105 Primitiven und einem Material-Array — die Engine las das Array
+    # als leeres Material und zeichnete die Kronen weiss.
+    m = bpy.data.materials.get('Gruen_vc')
+    if m is None:
+        m = bpy.data.materials.new('Gruen_vc'); m.use_nodes = True; nt = m.node_tree
+        for n in list(nt.nodes): nt.nodes.remove(n)
+        out = nt.nodes.new('ShaderNodeOutputMaterial'); b = nt.nodes.new('ShaderNodeBsdfPrincipled'); nt.links.new(b.outputs['BSDF'], out.inputs['Surface'])
+        a = nt.nodes.new('ShaderNodeVertexColor'); a.layer_name = 'Color'; nt.links.new(a.outputs['Color'], b.inputs['Base Color'])
+        b.inputs['Roughness'].default_value = 0.9
     o.data.materials.clear(); o.data.materials.append(m)
 
 def exportiere(objekte, pfad):
@@ -116,8 +131,11 @@ t0 = time.time()
 def gruppe_von(name):
     """Kleinteile zu einem Objekt je Gruppe: ein Baum ist Stamm + Aeste + Anlauf, Geroell ist Geroell.
     Sonst backt der Export 130 Aeste einzeln (gemessen: 12 s je Objekt, 26 Minuten fuer nichts)."""
-    for praefix in ('Held0_', 'Held1_', 'Held2_', 'Held3_', 'Held4_', 'Held5_', 'HeldN0_', 'HeldN1_'):
-        if name.startswith(praefix) and ('_Stamm' in name or '_Ast' in name or '_Anlauf' in name): return praefix + 'Holz'
+    # Held0_…, HeldN1_…, Weide5_… — als Muster, nicht als Liste: die feste Liste bis Weide4_ liess die
+    # Rahmenweide der zweiten Szene (Weide5) mit 30 einzeln gebackenen Ruten durch (D155)
+    m = re.match(r'^(HeldN?\d+_|Weide\d+_)', name)
+    if m and ('_Stamm' in name or '_Ast' in name or '_Anlauf' in name or '_Rute' in name): return m.group(1) + 'Holz'
+    if name.startswith('Wasserblock'): return 'Wasserbloecke'
     if name.startswith('Geroell'): return 'Geroell'
     if name.startswith('Wurzel'): return 'Wurzeln'
     if name.startswith('Moosblock'): return 'Moosbloecke'
@@ -155,6 +173,19 @@ for o in zusammen:
     mat = o.data.materials[0].copy(); o.data.materials[0] = mat
     uv(o)
     f = backe_bild(o, mat, 'DIFFUSE', gr, o.name + '_farbe')
+    # AO in die Grundfarbe multiplizieren: die grosse Himmelsverdeckung (Mauer nimmt dem Hof den
+    # Himmel) kennt nur der Renderer; der SSAO-Pass der Engine reicht 1,4 m weit (D155)
+    ao = backe_bild(o, mat, 'AO', gr, o.name + '_ao')
+    try:
+        import numpy as np
+        pf = np.empty(len(f.pixels), dtype=np.float32); pa = np.empty(len(ao.pixels), dtype=np.float32)
+        f.pixels.foreach_get(pf); ao.pixels.foreach_get(pa)
+        # Weich und mit Boden: Exponent 1,2 ohne Boden machte die Schattenseite der Mauer im Spiel
+        # zu Schwarz (#000000 gemessen, D155) — Verdeckung soll zeichnen, nicht loeschen.
+        for k in range(3): pf[k::4] *= 0.35 + 0.65 * np.clip(pa[k::4], 0.0, 1.0) ** 0.7
+        f.pixels.foreach_set(pf); f.save()
+    except Exception as e:
+        print('AO-Multiplikation', o.name, e)
     r = backe_bild(o, mat, 'ROUGHNESS', gr // 2, o.name + '_rauheit')
     n = backe_bild(o, mat, 'NORMAL', gr, o.name + '_normale')
     o.data.materials.clear(); o.data.materials.append(textur_material(o.name + '_tex', f, r, n))
@@ -163,10 +194,10 @@ gruen = []
 roh_gruen = [o for o in list(sc.objects) if ist_gruen(o)]
 # Waldstaemme: Kurven grob aufloesen, zu Netzen, zu einem Objekt (gemessen: 180 feine Staemme = 1,2 M Ecken, Smart-UV haengt)
 staemme = []
-kurven = [o for o in roh_gruen if o.type == 'CURVE']
-roh_gruen = [o for o in roh_gruen if o.type == 'MESH']   # vor dem Wandeln trennen: `convert` aendert das Objekt in place
-for o in kurven:
-    o.data.resolution_u = 3; o.data.bevel_resolution = 2
+holz = [o for o in roh_gruen if ist_waldholz(o)]
+roh_gruen = [o for o in roh_gruen if not ist_waldholz(o)]   # vor dem Wandeln trennen: `convert` aendert das Objekt in place
+for o in holz:
+    if o.type == 'CURVE': o.data.resolution_u = 3; o.data.bevel_resolution = 2
     staemme.append(zu_mesh(o))
 if staemme:
     bpy.ops.object.select_all(action='DESELECT')
@@ -193,12 +224,14 @@ if bauten: exportiere(bauten, os.path.abspath(os.path.join(ZIEL, NAME + '-bauten
 if gruen: exportiere(gruen, os.path.abspath(os.path.join(ZIEL, NAME + '-gruen.glb')))
 if wasser: exportiere(wasser, os.path.abspath(os.path.join(ZIEL, NAME + '-wasser.glb')))
 reg = {'name': NAME, 'ursprung': {'x': meta['cx'], 'z': meta['cz']}, 'h0': meta['h0'],
-       'terrasse': {'x': meta['cx'] - 2.0, 'z': meta['cz'] + 1.0, 'rInnen': 12.0, 'rAussen': 22.0},
        # Freihaltung: die Engine setzt hier keine eigenen Baeume (Radius wie `wald(... ausschluss)` im Szenenbau)
        # und keine Streuschicht im Hof (Radius der Plattenflaeche) — sonst wachsen Fichten durch die Mauer.
-       'frei': {'x': meta['cx'] - 1.0, 'z': meta['cz'] + 0.5, 'props': 150.0, 'streu': 9.0},
+       # `haeuser`: dasselbe Loch wie `loch_im_fernen(hs, 160)` im Szenenbau — sonst steht ein OSM-Hof der Engine vor dem Steg
+       'frei': {'x': meta['cx'] - 1.0, 'z': meta['cz'] + 0.5, 'props': 150.0, 'streu': 9.0 if NAME == 'felsmulde' else 0.0, 'haeuser': 160.0},
        'dateien': [f for f, l in (('bauten', bauten), ('gruen', gruen), ('wasser', wasser)) if l],
        'objekte': {'bauten': [o.name for o in bauten], 'gruen': [o.name for o in gruen], 'wasser': [o.name for o in wasser]}}
+if NAME == 'felsmulde':   # nur diese Szene ebnet eine Terrasse (szene_felsmulde); die Engine muss dieselbe kennen
+    reg['terrasse'] = {'x': meta['cx'] - 2.0, 'z': meta['cz'] + 1.0, 'rInnen': 12.0, 'rAussen': 22.0}
 # Register: eine Datei fuer alle Bauwerke (Engine und Tore lesen dieselbe Liste — D137: Listen kommen aus dem Werkzeug)
 regpfad = os.path.join(ZIEL, 'register.json')
 register = json.load(open(regpfad)) if os.path.exists(regpfad) else {'bauwerke': []}

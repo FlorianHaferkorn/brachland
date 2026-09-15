@@ -27,8 +27,15 @@ export const Bauwerk = z.object({
   /** Gelaendehoehe am Ursprung **vor** der Terrasse (Weltmeter ueber `hoeheMin`), aus dem Terrainexport. */
   h0: z.number(),
   terrasse: Terrasse.optional(),
-  /** Freihaltung: keine Engine-Baeume im Radius `props`, keine Streuschicht im Radius `streu` um (x, z). */
-  frei: z.object({ x: z.number(), z: z.number(), props: z.number().nonnegative(), streu: z.number().nonnegative() }).optional(),
+  /**
+   * Freihaltung um (x, z): keine Engine-Baeume im Radius `props`, keine Streuschicht im Radius `streu`,
+   * keine OSM-Haeuser im Radius `haeuser` (D155: am Stauwehr stand ein Engine-Hof vor der Kamera, den die
+   * Szene mit `loch_im_fernen` laengst ausgeblendet hatte — Blender und Engine muessen dasselbe Loch sehen).
+   */
+  frei: z.object({
+    x: z.number(), z: z.number(),
+    props: z.number().nonnegative(), streu: z.number().nonnegative(), haeuser: z.number().nonnegative().default(0),
+  }).optional(),
   dateien: z.array(z.enum(['bauten', 'gruen', 'wasser'])),
   objekte: z.record(z.array(z.string())).optional(),
 });
@@ -43,10 +50,10 @@ export const TERRASSEN: Terrasse[] = BAUWERKE.flatMap(b => (b.terrasse ? [b.terr
  * Liegt (x, z) in einer Freihaltung? `props`: Baeume und Buesche der Engine, `streu`: Bodendecker.
  * Die Blender-Szene bringt ihre eigene Vegetation mit; zwei Waelder an einer Stelle sind einer zu viel.
  */
-export function gesperrt(x: number, z: number, art: 'props' | 'streu'): boolean {
+export function gesperrt(x: number, z: number, art: 'props' | 'streu' | 'haeuser'): boolean {
   for (const b of BAUWERKE) {
     const f = b.frei; if (!f) continue;
-    const r = art === 'props' ? f.props : f.streu;
+    const r = art === 'props' ? f.props : art === 'streu' ? f.streu : f.haeuser;
     if (r > 0 && (x - f.x) * (x - f.x) + (z - f.z) * (z - f.z) < r * r) return true;
   }
   return false;

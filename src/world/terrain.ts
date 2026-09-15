@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { PALETTE } from './palette.js';
+import { gesperrt } from './bauwerke.js';
 
 /** Meter je Breitengrad; für Längengrad mit cos(lat) skaliert. */
 const METER_JE_GRAD = 111_320;
@@ -422,6 +423,9 @@ export function baueGebaeude(
   for (const g of auswahl) {
     const p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
     if (p.length < 3) continue;
+    // Freihaltung eines Bauwerks (ADR-0006, D155): Die Blender-Szene blendet OSM-Haeuser im Nahbereich
+    // aus (`loch_im_fernen`); die Engine muss dasselbe Loch lassen, sonst steht ein Hof vor dem Steg.
+    if (gesperrt(p.reduce((s, q) => s + q[0], 0) / p.length, p.reduce((s, q) => s + q[1], 0) / p.length, 'haeuser')) continue;
     /**
      * Umlaufsinn vereinheitlichen (G-128). OSM schreibt Grundrisse in beiden
      * Richtungen (1.545 gegen 488 in der Region); die Wandnormale `wx, wz`

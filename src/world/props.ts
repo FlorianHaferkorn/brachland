@@ -10,6 +10,7 @@
  */
 import * as THREE from 'three';
 import { PALETTE } from './palette.js';
+import BAEUME_REGISTER from '../../public/props/baeume.json';
 import type { Weltdaten, Biom } from './osm.js';
 import type { TerrainErgebnis } from './terrain.js';
 import { MASSSTAB } from './terrain.js';
@@ -396,6 +397,20 @@ export const KENNEY_FARBE: Record<string, string> = PALETTE.kenney;
 export const PROZEDURALE_VARIANTEN: Partial<Record<PropArt, number>> = {
   nadelbaum: 4, laubbaum: 4,
 };
+
+/**
+ * Blender-Baeume (ADR-0006, D155): `tools/baumbau.py` schreibt je Art, Variante und Stufe eine
+ * Datei und das Register `public/props/baeume.json`. Steht ein Eintrag da, nimmt die Szene die
+ * Datei statt `baueBaum`; fehlt er, bleibt der prozedurale Baum (D40). Die Liste kommt aus dem
+ * Werkzeug, nicht von Hand (G-129).
+ */
+export interface BlenderBaum { art: 'buche' | 'fichte'; variante: number; stufe: 'nah' | 'mittel' | 'fern'; datei: string; hoehe: number; dreiecke: number }
+export const BLENDER_BAEUME: BlenderBaum[] = (BAEUME_REGISTER as { baeume: BlenderBaum[] }).baeume;
+export function blenderBaum(art: 'buche' | 'fichte', variante: number, stufe: 'nah' | 'mittel' | 'fern'): BlenderBaum | null {
+  const je = BLENDER_BAEUME.filter(b => b.art === art && b.stufe === stufe);
+  if (!je.length) return null;
+  return je[variante % je.length];
+}
 
 /** Wie viele Varianten eine Art hat — Datei oder Rechenvorschrift. */
 export const variantenZahl = (art: PropArt): number =>

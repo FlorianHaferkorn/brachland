@@ -11,6 +11,7 @@
  */
 import type { PropArt, PropInstanz } from '../world/props.js';
 import type { Weltdaten } from '../world/osm.js';
+import { gesperrt } from '../world/bauwerke.js';
 
 /** Stammradius je Art in Metern, wird mit der Instanzskalierung multipliziert. */
 const RADIUS: Partial<Record<PropArt, number>> = {
@@ -64,7 +65,8 @@ function baueGebaeudeRechtecke(
       x0 = Math.min(x0, x); x1 = Math.max(x1, x);
       z0 = Math.min(z0, z); z1 = Math.max(z1, z);
     }
-    if (Number.isFinite(x0)) aus.push({ x0, x1, z0, z1 });
+    // Ausgeblendete Haeuser (Freihaltung eines Bauwerks, `terrain.ts`) duerfen auch nicht unsichtbar im Weg stehen
+    if (Number.isFinite(x0) && !gesperrt((x0 + x1) / 2, (z0 + z1) / 2, 'haeuser')) aus.push({ x0, x1, z0, z1 });
   }
   return aus;
 }

@@ -368,6 +368,10 @@ if (propDateien.length) {
 const KORRIDOR: Record<string, { min: number; max: number }> = {
   'Haus':            { min: 600, max: 1500 },
   'Prop':            { min: 150, max: 800 },
+  // Untergrenze 100: die Fernstufe (`baum_fern`, 120–340). Deckel 4.500 → 6.000 (D155): Blattmassen mit
+  // 80 statt 20 Dreiecken, weil 20-Dreieck-Ikosaeder als facettierte Baelle am Waldrand standen; ein
+  // Nahbaum liegt damit bei ~5.000. ADR-0006: gemessen (60 B/s bei 1,4 M Dreiecken am M1), nicht gedeckelt.
+  'Baum (Blender)':  { min: 100, max: 6000 },
   // Untergrenze 1.200 → 500 (D129): Die neun Poly-by-Google-Modelle haben 568–1.200
   // Dreiecke und sind so gebaut — facettiert, unverschweisst. Unterteilen hat sie
   // zu Schuppentieren gemacht, nicht zu besseren; die Facetten sind der Stil.
@@ -384,9 +388,14 @@ const KORRIDOR: Record<string, { min: number; max: number }> = {
     return Math.round(t);
   };
   const klassen: Record<string, number[]> = {};
-  if (existsSync('public/props'))
-    klassen['Prop'] = readdirSync('public/props').filter(f => f.endsWith('.glb'))
-      .map(f => glbTris(join('public/props', f)));
+  if (existsSync('public/props')) {
+    const dateien = readdirSync('public/props').filter(f => f.endsWith('.glb'));
+    klassen['Prop'] = dateien.filter(f => !f.startsWith('baum-')).map(f => glbTris(join('public/props', f)));
+    // Blender-Baeume (ADR-0006, `tools/baumbau.py`): eigene Klasse, weil sie das Bild tragen und der
+    // Prop-Korridor (150–800) fuer Attrappen gedacht war. Der Deckel ist grosszuegig — gemessen, nicht gewuenscht.
+    const baeume = dateien.filter(f => f.startsWith('baum-'));
+    if (baeume.length) klassen['Baum (Blender)'] = baeume.map(f => glbTris(join('public/props', f)));
+  }
   if (existsSync('public/creatures')) {
     const dateien = readdirSync('public/creatures').filter(f => f.endsWith('.glb'));
     klassen['Kreatur (Modell)'] = dateien.map(f => glbTris(join('public/creatures', f)));

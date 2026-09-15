@@ -1,0 +1,196 @@
+{
+ "baeume": [
+  {
+   "art": "buche",
+   "variante": 0,
+   "stufe": "nah",
+   "datei": "baum-buche-0-nah",
+   "hoehe": 29.33,
+   "dreiecke": 4968
+  },
+  {
+   "art": "buche",
+   "variante": 0,
+   "stufe": "mittel",
+   "datei": "baum-buche-0-mittel",
+   "hoehe": 29.33,
+   "dreiecke": 3000
+  },
+  {
+   "art": "buche",
+   "variante": 0,
+   "stufe": "fern",
+   "datei": "baum-buche-0-fern",
+   "hoehe": 29.33,
+   "dreiecke": 340
+  },
+  {
+   "art": "buche",
+   "variante": 1,
+   "stufe": "nah",
+   "datei": "baum-buche-1-nah",
+   "hoehe": 25.78,
+   "dreiecke": 4784
+  },
+  {
+   "art": "buche",
+   "variante": 1,
+   "stufe": "mittel",
+   "datei": "baum-buche-1-mittel",
+   "hoehe": 25.78,
+   "dreiecke": 2816
+  },
+  {
+   "art": "buche",
+   "variante": 1,
+   "stufe": "fern",
+   "datei": "baum-buche-1-fern",
+   "hoehe": 25.78,
+   "dreiecke": 340
+  },
+  {
+   "art": "buche",
+   "variante": 2,
+   "stufe": "nah",
+   "datei": "baum-buche-2-nah",
+   "hoehe": 29.88,
+   "dreiecke": 4784
+  },
+  {
+   "art": "buche",
+   "variante": 2,
+   "stufe": "mittel",
+   "datei": "baum-buche-2-mittel",
+   "hoehe": 29.88,
+   "dreiecke": 2816
+  },
+  {
+   "art": "buche",
+   "variante": 2,
+   "stufe": "fern",
+   "datei": "baum-buche-2-fern",
+   "hoehe": 29.88,
+   "dreiecke": 340
+  },
+  {
+   "art": "buche",
+   "variante": 3,
+   "stufe": "nah",
+   "datei": "baum-buche-3-nah",
+   "hoehe": 20.56,
+   "dreiecke": 4968
+  },
+  {
+   "art": "buche",
+   "variante": 3,
+   "stufe": "mittel",
+   "datei": "baum-buche-3-mittel",
+   "hoehe": 20.56,
+   "dreiecke": 3000
+  },
+  {
+   "art": "buche",
+   "variante": 3,
+   "stufe": "fern",
+   "datei": "baum-buche-3-fern",
+   "hoehe": 20.56,
+   "dreiecke": 340
+  },
+  {
+   "art": "fichte",
+   "variante": 0,
+   "stufe": "nah",
+   "datei": "baum-fichte-0-nah",
+   "hoehe": 21.1,
+   "dreiecke": 848
+  },
+  {
+   "art": "fichte",
+   "variante": 0,
+   "stufe": "mittel",
+   "datei": "baum-fichte-0-mittel",
+   "hoehe": 21.1,
+   "dreiecke": 348
+  },
+  {
+   "art": "fichte",
+   "variante": 0,
+   "stufe": "fern",
+   "datei": "baum-fichte-0-fern",
+   "hoehe": 21.1,
+   "dreiecke": 120
+  },
+  {
+   "art": "fichte",
+   "variante": 1,
+   "stufe": "nah",
+   "datei": "baum-fichte-1-nah",
+   "hoehe": 21.97,
+   "dreiecke": 848
+  },
+  {
+   "art": "fichte",
+   "variante": 1,
+   "stufe": "mittel",
+   "datei": "baum-fichte-1-mittel",
+   "hoehe": 21.97,
+   "dreiecke": 348
+  },
+  {
+   "art": "fichte",
+   "variante": 1,
+   "stufe": "fern",
+   "datei": "baum-fichte-1-fern",
+   "hoehe": 21.97,
+   "dreiecke": 120
+  },
+  {
+   "art": "fichte",
+   "variante": 2,
+   "stufe": "nah",
+   "datei": "baum-fichte-2-nah",
+   "hoehe": 21.45,
+   "dreiecke": 848
+  },
+  {
+   "art": "fichte",
+   "variante": 2,
+   "stufe": "mittel",
+   "datei": "baum-fichte-2-mittel",
+   "hoehe": 21.45,
+   "dreiecke": 348
+  },
+  {
+   "art": "fichte",
+   "variante": 2,
+   "stufe": "fern",
+   "datei": "baum-fichte-2-fern",
+   "hoehe": 21.45,
+   "dreiecke": 120
+  },
+  {
+   "art": "fichte",
+   "variante": 3,
+   "stufe": "nah",
+   "datei": "baum-fichte-3-nah",
+   "hoehe": 25.69,
+   "dreiecke": 848
+  },
+  {
+   "art": "fichte",
+   "variante": 3,
+   "stufe": "mittel",
+   "datei": "baum-fichte-3-mittel",
+   "hoehe": 25.69,
+   "dreiecke": 348
+  },
+  {
+   "art": "fichte",
+   "variante": 3,
+   "stufe": "fern",
+   "datei": "baum-fichte-3-fern",
+   "hoehe": 25.69,
+   "dreiecke": 120
+  }
+ ]
+}

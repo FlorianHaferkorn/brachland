@@ -17,7 +17,7 @@ import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
 import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, MIT_ANBAU, baueAnbau, saatAusId, reitsitz }
   from '../world/kreaturgestalt.js';
-import { Kontur, konturAn } from './Kontur.js';
+import { Kontur, konturAn, aoStaerke } from './Kontur.js';
 import { PALETTE } from '../world/palette.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
@@ -31,7 +31,7 @@ import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
-import { baueWindMaterial, type RollenSlot } from '../world/windmaterial.js';
+import { baueWindMaterial, windAusHoehe, type RollenSlot } from '../world/windmaterial.js';
 import { BAUWERKE, bauwerkPfad, gesperrt, type Bauwerk } from '../world/bauwerke.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
@@ -39,7 +39,7 @@ import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
-         VARIANTEN, type PropArt, type PropChunk, type PropInstanz } from '../world/props.js';
+         VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
 import { istAus } from './abschalter.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB, PROP_NEUBEWERTUNG,
@@ -504,10 +504,20 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
   const grasWind = useMemo(() => baueWindMaterial({
     amplitude: 0.25, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5,
   }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 1, metalness: 0 })), []);
+  /**
+   * Blender-Baeume (D155): derselbe Wind, aber glatt schattiert (die Blattmassen tragen Normalen),
+   * Loecher im Laub (`COLOR_0.a` = Laubmaske) und Durchlass fuer das Gegenlicht — dasselbe Rezept
+   * wie die Bauwerke, nur als Instanz. Der Saum bleibt schwach: Klumpen mit Loechern sind lauter Kanten.
+   */
+  const baumWind = useMemo(() => baueWindMaterial({
+    amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.2,
+    loecher: 0.42, loecherSkala: 9, durchlass: 0.45,
+  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide })), []);
   useEffect(() => {
     wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);
     grasWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
-  }, [wind, grasWind, rand]);
+    baumWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
+  }, [wind, grasWind, baumWind, rand]);
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
@@ -548,7 +558,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} grasWind={grasWind.material} />
+      <Props props={props} wind={wind.material} grasWind={grasWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
     </group>
   );
@@ -669,7 +679,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
-function Props({ props, wind, grasWind }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial }) {
+function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<{ art: PropArt; instanzen: PropInstanz[] }[]>([]);
@@ -718,7 +728,7 @@ function Props({ props, wind, grasWind }: { props: PropInstanz[]; wind: THREE.Me
   return (
     <>
       {sichtbar.map(({ c, stufe, id }) =>
-        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} />)}
+        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} baumWind={baumWind} baumTiefe={baumTiefe} />)}
       {fern.map(({ art, instanzen }) =>
         <PropFernMesh key={art} art={art} instanzen={instanzen} />)}
     </>
@@ -759,7 +769,17 @@ function Props({ props, wind, grasWind }: { props: PropInstanz[]; wind: THREE.Me
  * Kommentar als teuer beschreibt.
  */
 function PropFernMesh({ art, instanzen }: { art: PropArt; instanzen: PropInstanz[] }) {
-  const geo = useMemo(() => attrappeGeometrie(art), [art]);
+  // Blender-Baeume (D155): die Fernstufe aus der Datei (~110 Dreiecke) statt des Kegels — sonst
+  // steht neben einer Krone aus Blattmassen ein Kegel, und der Bruch ist im Bild (D154)
+  const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
+  const blender = eigen ? blenderBaum(eigen, 0, 'fern') : null;
+  const { scene } = useGLTF(propPfad(blender ? blender.datei : VARIANTEN.busch[0].datei));
+  const geo = useMemo(() => {
+    if (!blender) return attrappeGeometrie(art);
+    let g: THREE.BufferGeometry | null = null;
+    scene.traverse(o => { if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry.clone(); });
+    return (g ?? attrappeGeometrie(art)) as THREE.BufferGeometry;
+  }, [art, blender, scene]);
   const ref = useRef<THREE.InstancedMesh>(null);
   const [kapazitaet, setKapazitaet] = useState(() => Math.ceil(instanzen.length * 1.4) + 64);
 
@@ -789,7 +809,7 @@ function PropFernMesh({ art, instanzen }: { art: PropArt; instanzen: PropInstanz
   return (
     <instancedMesh
       ref={ref} args={[undefined, undefined, kapazitaet]}
-      geometry={geo} material={FERN_MATERIAL}
+      geometry={geo} material={blender ? FERN_BAUM_MATERIAL : FERN_MATERIAL}
       // Der Bündel umspannt den ganzen Sichtring; ein Frustum-Test daran wäre
       // immer wahr und damit verlorene Zeit.
       frustumCulled={false}
@@ -815,36 +835,53 @@ const PROP_MATERIAL = new THREE.MeshStandardMaterial({
 const FERN_MATERIAL = new THREE.MeshStandardMaterial({
   vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
 });
+/**
+ * Blender-Baeume in der Fernstufe: glatt statt facettiert. Mit `FERN_MATERIAL` standen die
+ * Blattmassen als sonnenhelle Ikosaeder am Waldrand (Grashang, D155) — jede Facette eine eigene
+ * Lichtstufe, die Nahstufe daneben rund und dunkel. Die Normalen kommen aus der Datei.
+ */
+const FERN_BAUM_MATERIAL = new THREE.MeshStandardMaterial({
+  vertexColors: true, flatShading: false, roughness: 1, metalness: 0,
+});
 
 function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe = 'nah') {
   const liste = VARIANTEN[art];
   // Der Hook läuft unbedingt, auch für Bäume: Hooks dürfen nicht bedingt laufen.
   // Bäume sind prozedural (D40) und haben deshalb keine Varianten — sie bekommen
   // einen beliebigen, ohnehin geladenen Pfad, damit die Hook-Reihenfolge steht.
-  const pfad = propPfad((liste[variante] ?? liste[0])?.datei ?? VARIANTEN.busch[0].datei);
-  const { scene } = useGLTF(pfad);
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
+  // Blender-Baum (D155), wenn das Register einen hat — sonst der prozedurale (D40)
+  const blender = eigen ? blenderBaum(eigen, variante, stufe) : null;
+  const pfad = propPfad(blender ? blender.datei : ((liste[variante] ?? liste[0])?.datei ?? VARIANTEN.busch[0].datei));
+  const { scene } = useGLTF(pfad);
   return useMemo(() => {
-    if (eigen) return { geo: baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel') };
+    if (eigen && !blender) return { geo: baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel'), blender: false };
     let geo: THREE.BufferGeometry | null = null;
     scene.traverse(o => {
       if (!geo && (o as THREE.Mesh).isMesh) geo = (o as THREE.Mesh).geometry.clone();
     });
+    if (eigen && geo) {
+      // Windgewicht aus der Datei (`_WIND` → `_wind`), sonst aus der Hoehe; Laubmaske steht in COLOR_0.a
+      const g = geo as THREE.BufferGeometry;
+      const w = g.getAttribute('_wind');
+      if (w) g.setAttribute('aWind', w); else windAusHoehe(g, g.boundingBox?.max.y ?? 20);
+    }
     // Keine Normierung mehr. Die Höhe steht in `VARIANTEN` und ist beim Bauen in
     // die Datei eingerechnet — sie hier erneut auf eine Zielhöhe je Art zu ziehen,
     // hätte alle sechs Grasvarianten wieder auf dieselben 0,35 m gestreckt.
-    return { geo: (geo ?? propGeometrie(art)) as THREE.BufferGeometry };
-  }, [scene, art, eigen, variante, stufe]);
+    return { geo: (geo ?? propGeometrie(art)) as THREE.BufferGeometry, blender: !!(eigen && blender) };
+  }, [scene, art, eigen, blender, variante, stufe]);
 }
 
 const LEER: ReadonlySet<string> = new Set();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, wind, grasWind }: {
+function PropChunkMesh({ chunk, stufe, wind, grasWind, baumWind, baumTiefe }: {
   chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
+  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial;
 }) {
   const fern = stufe === 'fern';
-  const { geo } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
+  const { geo, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
   const fernGeo = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
   // Nur was sich biegen kann, bekommt das Windmaterial. Findlinge und Totholz
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
@@ -890,8 +927,9 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind }: {
   return (
     <instancedMesh
       ref={ref} args={[undefined, undefined, chunk.instanzen.length]}
-      geometry={fern ? fernGeo : geo}
-      material={fern ? FERN_MATERIAL : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
+      geometry={fern && !blender ? fernGeo : geo}
+      material={fern ? (blender ? FERN_BAUM_MATERIAL : FERN_MATERIAL) : gras ? grasWind : blender ? baumWind : (biegsam ? wind : PROP_MATERIAL)}
+      customDepthMaterial={blender && !fern ? baumTiefe : undefined}
       castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
     />
   );
@@ -1504,15 +1542,18 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
         o.material = new THREE.MeshStandardMaterial({ color: '#8a7c67', roughness: 0.08, metalness: 0, transparent: true, opacity: 0.8 });
         return;
       }
-      const basis = o.material as THREE.MeshStandardMaterial;
+      // Ein vereinigtes Netz kann mit einem Material-Array kommen (erster Stauwehr-Export: 105 Kronen,
+      // 105 Materialien). Alle Teile tragen dieselbe Vertexfarbe — das erste Material reicht als Basis,
+      // und ein einzelnes Material zeichnet das ganze Netz. Vorher war die Basis das Array selbst: weiss.
+      const basis = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial;
       // Loecher nur im Blattwerk — Waldstaemme kommen mit Vertexfarbe in derselben Datei
       const laub = teil === 'gruen' && /Krone|Nadeln|Farn|Efeu|Laub/.test(o.name);
       const w = baueWindMaterial(laub
         // Saum auf Blattmassen fast aus: Klumpen mit Loechern bestehen aus lauter Kanten, bei voller
         // Staerke lasen sie als weisse Wolken (gemessen am ersten Durchstich)
-        ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.15, loecher: 0.42, loecherSkala: 9 }
+        ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.15, loecher: 0.42, loecherSkala: 9, durchlass: 0.55 }
         : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.6 }, basis);
-      if (laub) w.material.side = THREE.DoubleSide;
+      if (laub) { w.material.side = THREE.DoubleSide; if (w.tiefe) o.customDepthMaterial = w.tiefe; }
       o.material = w.material; materialien.push(w);
     });
     return { objekt: klon, materialien };
@@ -2684,6 +2725,9 @@ export interface Messwerte {
 function Messung({ melde }: { melde?: (m: Messwerte) => void }) {
   const { gl, scene } = useThree();
   const stand = useRef({ bilder: 0, zeit: 0 });
+  // Messlauf-Sonde (D155): der Szenengraph fuer `.cache/mess/sonde.mjs` — welche Instanzbuendel zeichnen
+  // mit welcher Geometrie und welchem Material. Ohne das ist „welcher Baum ist das im Bild" Raten.
+  useEffect(() => { (window as unknown as { __szene?: THREE.Scene }).__szene = scene; }, [scene]);
   useFrame((_, dt) => {
     if (!melde) return;
     const s = stand.current;
@@ -3004,7 +3048,7 @@ export function RegionsSzene({
                    hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} kollision={kollision} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} />
-      <Kontur an={konturAn(true)} />
+      <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} />
       <Messung melde={onMessung} />
     </Canvas>
   );

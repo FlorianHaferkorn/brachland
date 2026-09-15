@@ -56,9 +56,21 @@ export default defineConfig({
         // Service-Worker-Kontrolle steht (G-100). Zuständig ist jetzt
         // `src/world/weltladen.ts`, das die Cache-API direkt bedient.
         globPatterns: ['**/*.{js,css,html,glb}'],
-        // 8 → 16 MiB (ADR-0006, Stufe 2): Ein Bauwerk aus der Blender-Szene mit gebackenen
-        // Texturen wiegt nach `tools/bautenpack.ts` 12 MB (WebP, 1024er Karten, 21 Netze).
-        // Das Handy ist nachrangig; der Wert wird gemessen, nicht gedeckelt.
+        // **Bauwerke (Blender-Szenen) stehen nicht im Precache** (D155): zwei Szenen wiegen
+        // schon 40 MB, und mit Stufe 3 werden es Dutzende. Sie werden geladen, wenn der
+        // Spieler in ihre Nähe kommt, und dann von der Laufzeitregel unten behalten —
+        // beim allerersten Besuch also nur online (G-100: diese Seite steht noch nicht unter
+        // Service-Worker-Kontrolle, was da geladen wird, landet in keinem Cache), ab dem
+        // zweiten Besuch aus dem Cache. Wer das Spiel einmal offline nehmen will, laeuft
+        // vorher einmal an den Bauwerken vorbei; ein eigener Vorlader ist Stufe-3-Arbeit.
+        globIgnores: ['**/bauten/*.glb'],
+        runtimeCaching: [{
+          urlPattern: ({ url }) => url.pathname.startsWith('/bauten/'),
+          handler: 'CacheFirst',
+          options: { cacheName: 'brachland-bauten', expiration: { maxEntries: 60 } },
+        }],
+        // 8 → 16 MiB (ADR-0006, Stufe 2): Ein Baum-Prop oder eine Kreatur bleibt weit darunter;
+        // die Grenze faengt nur ab, was versehentlich in den Precache rutscht.
         maximumFileSizeToCacheInBytes: 16 * 1024 * 1024,
       },
     }),

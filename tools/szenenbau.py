@@ -21,6 +21,7 @@ OBJDIR = ARGS[0] if ARGS else '.cache/blender'
 OUT_BLEND = ARGS[1] if len(ARGS) > 1 else '.cache/blender/oental_probe.blend'
 OUT_PNG = ARGS[2] if len(ARGS) > 2 else '.cache/bilder/oental_probe.png'
 SCHNELL = (ARGS[3] if len(ARGS) > 3 else 'voll') == 'schnell'
+SZENE = ARGS[4] if len(ARGS) > 4 else 'felsmulde'   # felsmulde | stauwehr (D155)
 random.seed(7)
 
 # Farben (linear RGB) — der Korridor aus D152: warmes Licht, warmer Schatten, olivgruen, kein Blau.
@@ -186,23 +187,33 @@ def mat_pflaster(name='Pflaster', ebene='boden', skala=1.3, moos=0.9, hoehe=None
     moosmischung(nt, b, mix, 2, (-100, 350), staerke=moos, hoehe=hoehe)
     return m
 
-def mat_boden():
-    m, nt, out = material('Boden'); b = prinzip(nt, BODEN_WIESE, 0.95); link(nt, b, 'BSDF', out, 'Surface')
+def mat_boden(wiese=None):
+    """Boden nach Biom (Vertexfarbe). `wiese` = (dunkel, mitte, hell) ersetzt die Wiesenrampe —
+    die Auwiese am Stauwehr ist nass und dunkler als der trockene Hang der Felsmulde."""
+    wiese = wiese or ((0.17, 0.19, 0.06), BODEN_WIESE, (0.45, 0.40, 0.16))
+    m, nt, out = material('Boden'); b = prinzip(nt, wiese[1], 0.95); link(nt, b, 'BSDF', out, 'Surface')
     tex = neu(nt, 'ShaderNodeTexCoord', (-1600, 0))
     attr = neu(nt, 'ShaderNodeAttribute', (-1600, 300)); attr.attribute_name = 'Color'
     sep = neu(nt, 'ShaderNodeSeparateColor', (-1400, 300)); link(nt, attr, 'Color', sep, 'Color')
     # Biomfarbe: wiese (0.2,0.6,0.2) gruen, wald (0.05,0.3,0.1), fels (0.5,0.5,0.5) — Kanal R trennt Fels, G die Wiese vom Wald
     n = neu(nt, 'ShaderNodeTexNoise', (-1400, 0)); n.inputs['Scale'].default_value = 0.35; n.inputs['Detail'].default_value = 12; n.inputs['Roughness'].default_value = 0.75; link(nt, tex, 'Object', n, 'Vector')
-    wiese = rampe(nt, (-1100, 100), [(0.3, (0.17, 0.19, 0.06)), (0.55, BODEN_WIESE), (0.8, (0.45, 0.40, 0.16))]); link(nt, n, 'Fac', wiese, 'Fac')
+    wiese = rampe(nt, (-1100, 100), [(0.3, wiese[0]), (0.55, wiese[1]), (0.8, wiese[2])]); link(nt, n, 'Fac', wiese, 'Fac')
     wald = rampe(nt, (-1100, -200), [(0.3, (0.09, 0.07, 0.04)), (0.6, BODEN_WALD), (0.85, (0.30, 0.25, 0.14))]); link(nt, n, 'Fac', wald, 'Fac')
     wf = neu(nt, 'ShaderNodeMapRange', (-1100, 400)); wf.inputs['From Min'].default_value = 0.35; wf.inputs['From Max'].default_value = 0.55; link(nt, sep, 'Green', wf, 'Value')
     mix1 = neu(nt, 'ShaderNodeMix', (-800, 0), data_type='RGBA'); link(nt, wf, 'Result', mix1, 'Factor'); link(nt, wald, 'Color', mix1, 6); link(nt, wiese, 'Color', mix1, 7)
     geo = neu(nt, 'ShaderNodeNewGeometry', (-1400, -500)); sepn = neu(nt, 'ShaderNodeSeparateXYZ', (-1200, -500)); link(nt, geo, 'Normal', sepn, 'Vector')
     steil = neu(nt, 'ShaderNodeMapRange', (-1000, -500)); steil.inputs['From Min'].default_value = 0.80; steil.inputs['From Max'].default_value = 0.55; link(nt, sepn, 'Z', steil, 'Value')
-    ff = neu(nt, 'ShaderNodeMapRange', (-1000, -700)); ff.inputs['From Min'].default_value = 0.3; ff.inputs['From Max'].default_value = 0.5; link(nt, sep, 'Red', ff, 'Value')
-    felsf = neu(nt, 'ShaderNodeMath', (-800, -600), operation='MAXIMUM'); link(nt, steil, 'Result', felsf, 0); link(nt, ff, 'Result', felsf, 1)
+    # Fels an Blau erkennen (0,5): Siedlung (0,8/0,3/0,2) hat zwar viel Rot, ist aber Hofboden, kein Fels
+    ff = neu(nt, 'ShaderNodeMapRange', (-1000, -700)); ff.inputs['From Min'].default_value = 0.38; ff.inputs['From Max'].default_value = 0.46; link(nt, sep, 'Blue', ff, 'Value')
+    ffo = neu(nt, 'ShaderNodeMapRange', (-1000, -850)); ffo.inputs['From Min'].default_value = 0.62; ffo.inputs['From Max'].default_value = 0.56; link(nt, sep, 'Blue', ffo, 'Value')
+    ffb = neu(nt, 'ShaderNodeMath', (-850, -750), operation='MULTIPLY'); link(nt, ff, 'Result', ffb, 0); link(nt, ffo, 'Result', ffb, 1)
+    felsf = neu(nt, 'ShaderNodeMath', (-800, -600), operation='MAXIMUM'); link(nt, steil, 'Result', felsf, 0); link(nt, ffb, 'Value', felsf, 1)
+    # Wasserzellen (Blau 0,8): Schlamm statt Wiese — das Bett unter dem Wasser ist dunkel
+    schlammf = neu(nt, 'ShaderNodeMapRange', (-1000, -1000)); schlammf.inputs['From Min'].default_value = 0.62; schlammf.inputs['From Max'].default_value = 0.75; link(nt, sep, 'Blue', schlammf, 'Value')
     fels = rampe(nt, (-1100, -900), [(0.3, (0.22, 0.20, 0.17)), (0.7, BODEN_FELS)]); n2 = neu(nt, 'ShaderNodeTexNoise', (-1400, -900)); n2.inputs['Scale'].default_value = 3; link(nt, tex, 'Object', n2, 'Vector'); link(nt, n2, 'Fac', fels, 'Fac')
     mix2 = neu(nt, 'ShaderNodeMix', (-500, 0), data_type='RGBA'); link(nt, felsf, 'Value', mix2, 'Factor'); link(nt, mix1, 2, mix2, 6); link(nt, fels, 'Color', mix2, 7)
+    mix3 = neu(nt, 'ShaderNodeMix', (-350, -150), data_type='RGBA'); link(nt, schlammf, 'Result', mix3, 'Factor'); link(nt, mix2, 2, mix3, 6); mix3.inputs[7].default_value = (0.10, 0.085, 0.06, 1)
+    mix2 = mix3
     bump = neu(nt, 'ShaderNodeBump', (0, -400)); bump.inputs['Strength'].default_value = 0.3; bump.inputs['Distance'].default_value = 0.15
     n3 = neu(nt, 'ShaderNodeTexNoise', (-400, -600)); n3.inputs['Scale'].default_value = 6; n3.inputs['Detail'].default_value = 8; link(nt, tex, 'Object', n3, 'Vector'); link(nt, n3, 'Fac', bump, 'Height'); link(nt, bump, 'Normal', b, 'Normal')
     moosmischung(nt, b, mix2, 2, (-100, 350), staerke=0.6)
@@ -289,6 +300,53 @@ def terrasse(obj, mx, my, r_innen, r_aussen, z):
             t = t * t * (3 - 2 * t)
             v.co.z = z * (1 - t) + v.co.z * t
     obj.data.update()
+
+def glaette_bett(ter, nass_praefix='wasser', rand=2.0, runden=3):
+    """Das Bachbett kommt aus dem Spiel als Treppe (1-m-Zellen, D151 W4). Hier: Vertices im und am Wasser
+    ueber die Nachbarn glaetten — der Renderer soll das Bett zeigen, das die Engine noch bekommt."""
+    was = next((o for o in bpy.context.scene.objects if o.name == nass_praefix), None)
+    if was is None: return
+    nass = set((round(v.co.x), round(v.co.y)) for v in was.data.vertices)
+    me = ter.data; n = int(round(math.sqrt(len(me.vertices))))
+    if n * n != len(me.vertices): return
+    x0 = me.vertices[0].co.x; y0 = me.vertices[0].co.y; schritt = me.vertices[1].co.x - x0
+    betroffen = []
+    for idx, v in enumerate(me.vertices):
+        rx, ry = round(v.co.x), round(v.co.y)
+        if any((rx + dx, ry + dy) in nass for dx in (-2, -1, 0, 1, 2) for dy in (-2, -1, 0, 1, 2)):
+            betroffen.append(idx)
+    # Der Wasserspiegel selbst kommt als Treppe (je Zelle ein Pegel): erst ihn glaetten, sonst reflektiert
+    # eine gestufte Glasflaeche den Himmel wie Betonstufen (gemessen s3/s4).
+    wme = was.data; wi = {(round(v.co.x), round(v.co.y)): v.index for v in wme.vertices}
+    for _ in range(10):
+        neu_w = {}
+        for (wx, wy), idx in wi.items():
+            s = 0.0; k = 0
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    j = wi.get((wx + dx, wy + dy))
+                    if j is not None: s += wme.vertices[j].co.z; k += 1
+            neu_w[idx] = s / k
+        for idx, z in neu_w.items(): wme.vertices[idx].co.z = z
+    wme.update()
+    nassz = {(round(v.co.x), round(v.co.y)): v.co.z for v in was.data.vertices}
+    for _ in range(runden):
+        neuz = {}
+        for idx in betroffen:
+            i, j = divmod(idx, n); s = 0.0; k = 0
+            for di in (-1, 0, 1):
+                for dj in (-1, 0, 1):
+                    ii, jj = i + di, j + dj
+                    if 0 <= ii < n and 0 <= jj < n: s += me.vertices[ii * n + jj].co.z; k += 1
+            neuz[idx] = s / k
+        for idx, z in neuz.items(): me.vertices[idx].co.z = z
+    # Das Bett bleibt unter dem Wasserspiegel: Glaetten mittelt mit dem Ufer und hob es sonst darueber
+    # (gemessen: kein Wasser im Bild, nur trockene Stufen)
+    for idx in betroffen:
+        v = me.vertices[idx]; wz = nassz.get((round(v.co.x), round(v.co.y)))
+        if wz is not None and v.co.z > wz - 0.15: v.co.z = wz - 0.4
+    me.update()
+    print('Bett geglaettet:', len(betroffen), 'Vertices')
 
 def loch_im_fernen(fern, halb):
     bm = bmesh.new(); bm.from_mesh(fern.data)
@@ -694,15 +752,19 @@ def klumpen_bm(ziel, ort, groesse, saat, rauheit=0.5, unterteilung=1, rot=None):
     bmesh.ops.transform(bm, matrix=m, verts=bm.verts[:])
     me = bpy.data.meshes.new('klumpen'); bm.to_mesh(me); bm.free(); ziel.from_mesh(me); bpy.data.meshes.remove(me)
 
+STAMM_RES = 12          # Kurvenaufloesung je Abschnitt; der Baumbau setzt 3 (Props)
+STAMM_BEVEL_MAX = 6     # Bevel-Aufloesung (Umfangssegmente = 4 + 2·n); der Baumbau setzt 2
+
 def stamm(name, punkte, radien, mat, aufloesung=6):
-    cu = bpy.data.curves.new(name, 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 1.0; cu.bevel_resolution = aufloesung; cu.fill_mode = 'FULL'; cu.use_fill_caps = True
+    cu = bpy.data.curves.new(name, 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 1.0; cu.bevel_resolution = min(aufloesung, STAMM_BEVEL_MAX); cu.fill_mode = 'FULL'; cu.use_fill_caps = True
+    cu.resolution_u = STAMM_RES
     sp = cu.splines.new('NURBS'); sp.points.add(len(punkte) - 1); sp.use_endpoint_u = True; sp.order_u = 3
     for i, (p, r) in enumerate(zip(punkte, radien)):
         sp.points[i].co = (p.x, p.y, p.z, 1.0); sp.points[i].radius = r
     o = bpy.data.objects.new(name, cu); bpy.context.collection.objects.link(o); o.data.materials.append(mat)
     return o
 
-def laubbaum2(name, x, y, hoehe, mat_rinde, mat_laub, saat, fein=True):
+def laubbaum2(name, x, y, hoehe, mat_rinde, mat_laub, saat, fein=True, aeste=None, je=None, groesse=1.0):
     """Hoher schlanker Laubbaum: gebogener Stamm mit Wurzelanlauf, Aeste erst oben, Krone aus vielen kleinen Blattmassen."""
     rnd = random.Random(saat)
     z0 = bodenhoehe(x, y)
@@ -721,7 +783,7 @@ def laubbaum2(name, x, y, hoehe, mat_rinde, mat_laub, saat, fein=True):
         p0 = Vector((x, y, z0 + 0.35)); p1 = p0 + Vector((math.cos(a) * l * 0.5, math.sin(a) * l * 0.5, -0.25)); p2 = p0 + Vector((math.cos(a) * l, math.sin(a) * l, -0.45))
         stamm(name + '_Anlauf%d' % k, [p0, p1, p2], [r0 * 0.9, r0 * 0.5, 0.05], mat_rinde, 3)
     krone = bmesh.new(); enden = []
-    for k in range(9 + rnd.randrange(7)):
+    for k in range(aeste if aeste is not None else 9 + rnd.randrange(7)):
         t = 0.48 + rnd.random() * 0.48
         i = t * (n - 1); i0 = int(i); basis = pts[min(n - 1, i0)].lerp(pts[min(n - 1, i0 + 1)], i - i0)
         a = rnd.random() * 6.283; l = (1.5 + rnd.random() * 3.5) * (1.3 - t) + 0.8
@@ -730,27 +792,29 @@ def laubbaum2(name, x, y, hoehe, mat_rinde, mat_laub, saat, fein=True):
         stamm(name + '_Ast%d' % k, [basis, mitte, ende], [rad[i0] * 0.55, rad[i0] * 0.3, 0.02], mat_rinde, 3)
         enden.append((ende, l))
     enden.append((pts[-1], 2.0))
+    # Krone: je Astende mehrere Blattmassen. Mit 6 flachen Scheiben je Ast (s6) las sich der Wald als
+    # Lutscher mit Loechern — dichter und etwas hoeher wird daraus eine geschlossene, dunkle Kronenmasse.
     for k, (e, l) in enumerate(enden):
-        for j in range(6 if fein else 3):
-            s = (0.35 + rnd.random() * 0.55) * (0.7 + hoehe / 50)
-            klumpen_bm(krone, (e.x + (rnd.random() - 0.5) * (1.2 + l * 0.5), e.y + (rnd.random() - 0.5) * (1.2 + l * 0.5), e.z - 0.4 + rnd.random() * 1.4), (s * 1.4, s, s * 0.4), saat * 31 + k * 9 + j, 0.7, 2 if fein else 1)
+        for j in range(je if je is not None else (9 if fein else 4)):
+            s = (0.45 + rnd.random() * 0.65) * (0.7 + hoehe / 50) * groesse
+            klumpen_bm(krone, (e.x + (rnd.random() - 0.5) * (1.2 + l * 0.5), e.y + (rnd.random() - 0.5) * (1.2 + l * 0.5), e.z - 0.4 + rnd.random() * 1.4), (s * 1.4, s, s * 0.5), saat * 31 + k * 9 + j, 0.7, 2 if fein else 1)
     fertig(name + '_Krone', krone, (0, 0, 0), mat_laub, True)
 
-def fichte(name, x, y, hoehe, mat_rinde, mat_nadel, saat, fein=True):
+def fichte(name, x, y, hoehe, mat_rinde, mat_nadel, saat, fein=True, quirle=None, je=None, groesse=1.0):
     """Fichte aus Astquirlen: je Quirl 5–7 Aeste, jeder Ast eine haengende Nadelmasse — keine Kegel."""
     rnd = random.Random(saat)
     z0 = bodenhoehe(x, y)
     bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.10 + hoehe * 0.011, radius2=0.02, depth=hoehe, location=(x, y, z0 + hoehe / 2 - 0.3))
     st = bpy.context.active_object; st.name = name + '_Stamm'; setze(st, mat_rinde)
     nadeln = bmesh.new(); k = 0
-    quirle = 9 + int(hoehe / 3.5)
+    quirle = quirle if quirle is not None else 9 + int(hoehe / 3.5)
     for i in range(quirle):
         t = 0.22 + 0.76 * i / (quirle - 1)
         L = ((1.0 - t) * (1.1 + hoehe * 0.055) + 0.35) * (0.85 + rnd.random() * 0.3)
-        for j in range(5 + rnd.randrange(3)):
+        for j in range(je if je is not None else 5 + rnd.randrange(3)):
             a = rnd.random() * 6.283
             haeng = -0.08 - rnd.random() * 0.28
-            Lj = L * (0.7 + rnd.random() * 0.6)
+            Lj = L * (0.7 + rnd.random() * 0.6) * groesse
             for s in ((0.5, 0.95) if fein and Lj > 1.2 else (0.7,)):
                 d = Lj * s
                 pos = Vector((x + math.cos(a) * d, y + math.sin(a) * d, z0 + hoehe * t + haeng * d))
@@ -813,7 +877,7 @@ def gras(ter, halm, ausschluss, dichte):
         w = max(0.0, 1.0 - max(0.0, d - 30) / 40)
         if farbe is not None:
             c = farbe.data[v.index].color
-            if c[0] > 0.3: w = 0.0            # Fels
+            if c[0] > 0.3 or c[2] > 0.6: w = 0.0   # Fels, Wasser
             elif c[1] < 0.45: w *= 0.6        # Waldboden: lichter
         for ax, ay, ar in ausschluss:
             if math.hypot(v.co.x - ax, v.co.y - ay) < ar: w = 0.0
@@ -948,18 +1012,246 @@ def fernkulisse(mat, saat=5):
         o = bpy.data.objects.new('Fernkulisse%d' % k, me); bpy.context.collection.objects.link(o); setze(o, mat)
 
 # ----------------------------------------------------------------- Aufbau
+def szene_felsmulde(M, ter, was):
+    """Szene 1 (D153/D154): Terrasse im Hang, Ruine mit Bogen, Hof, Becken — Blick durch den Bogen ins Tal."""
+    # Terrasse: eine Bank im Hang. Mauer an der Ostkante, Hof dahinter, Kamera im Hof, Blick durch den Bogen ins Tal.
+    zt = bodenhoehe(-2.0, -1.0)
+    terrasse(ter, -2.0, -1.0, 12.0, 22.0, zt)
+    bodenrauschen(ter, -2.0, -1.0, 16.0, 0.07)
+    bpy.context.view_layer.update()
+
+    # Mauern aus Steinen (D154): Kanten entstehen aus fehlenden Steinen, nicht aus Kastenkanten
+    mauer('MauerA', (5.0, 0.0, zt - 0.35), 15.0, 7.5, 1.0, 'y', 1, M['stein'], M['kern'], 3.4, oeffnung=(-1.5, 3.2, 5.2), schutz=(-1.5, 2.2, 6.6), lehne=math.radians(-1.5))
+    mauer('MauerB', (0.0, 7.5, zt - 0.35), 10.0, 5.0, 1.0, 'x', 2, M['stein'], M['kern'], 1.8, oeffnung=(-2.0, 0.8, 2.9), schutz=(-2.0, 0.9, 3.8))
+    mauer('MauerC', (2.0, -8.0, zt - 0.35), 5.0, 3.0, 1.0, 'x', 6, M['stein'], M['kern'], 0.6)
+    mauer('Stuetzmauer', (12.5, -1.0, zt - 2.7), 26.0, 2.6, 0.8, 'y', 3, M['stein'], M['kern'], 1.2)
+    erdwulst(ter, [((5.0, -7.5), (5.0, 7.5)), ((-5.0, 7.5), (5.0, 7.5)), ((-0.5, -8.0), (4.5, -8.0))], 1.4, 0.28)
+    bpy.context.view_layer.update()
+    geroell(5.0, 5.0, 2.6, 12, M['fels'], 3); geroell(-3.0, 7.0, 2.2, 8, M['fels'], 4); geroell(2.0, -7.5, 2.0, 7, M['fels'], 5); geroell(5.0, -5.5, 1.8, 6, M['fels'], 6)
+    geroell(4.6, -1.5, 1.2, 5, M['fels'], 8)
+
+    plattenhof('Hof', (-1.0, -0.5, zt), (12.0, 15.0), M['platte'], 9, loch=(-1.5, -2.5, 2.1, 2.9))
+    steinbecken('Becken', (-2.5, -3.0, zt), (3.8, 5.4), 0.8, M['stein'], M['wasser'], 4)
+
+    bloecke = (((-7.5, 5.5), (2.2, 1.7, 1.3)), ((-6.5, -7.5), (1.7, 1.4, 1.0)), ((-13.5, 4.0), (2.8, 2.0, 1.5)), ((-3.0, 4.2), (1.1, 0.9, 0.7)))
+    for i, ((x, y), g) in enumerate(bloecke):
+        o = block('Moosblock%d' % i, (x, y, bodenhoehe(x, y) + g[2] * 0.5), g, 40 + i, 0.25, 4); setze(o, M['fels'])
+    # Wurzeln vom Heldenbaum ueber die linke Hofhaelfte — die Natur holt sich das Pflaster
+    for i, (st, ri, l) in enumerate((((-7.0, 6.5), -0.55, 9.0), ((-7.0, 6.5), -1.15, 7.5), ((-7.0, 6.5), 0.25, 5.0), ((-9.5, -6.0), 0.9, 5.5))):
+        wurzel('Wurzel%d' % i, st, ri, l, M['rinde'], 50 + i, 0.32 if i < 3 else 0.2)
+
+    for i, (x, y, h) in enumerate(((-7.0, 6.5, 32), (8.0, 10.0, 34), (7.0, -12.0, 30), (-7.0, -12.5, 27), (15.0, 4.0, 28), (-1.0, 11.0, 30))):
+        laubbaum2('Held%d' % i, x, y, h, M['rinde'], M['laub'], 70 + i, True)
+    fichte('HeldN0', -13.0, 11.0, 24, M['rinde'], M['nadel'], 80, True); fichte('HeldN1', 19.0, -24.0, 22, M['rinde'], M['nadel'], 81, True)
+    wald(ter, M['rinde'], M['laub'], M['nadel'], 22.0, 150.0, 5.5, 11, ((-2.0, -1.0, 21.0),))
+
+    # Farn an Mauerfuessen, Bloecken und am Terrassenrand; Efeu an den Mauern
+    rnd = random.Random(77); k = 0
+    for (mx, my, r, n) in ((5.0, 6.5, 2.5, 6), (5.2, -6.5, 2.2, 5), (-3.0, 8.5, 2.0, 5), (-8.0, 5.0, 2.5, 6), (-7.5, -8.0, 2.5, 5), (-12.0, 2.0, 3.0, 5), (3.0, -9.5, 2.0, 4)):
+        for j in range(n if not SCHNELL else max(2, n // 2)):
+            a = rnd.random() * 6.283; d = r * math.sqrt(rnd.random())
+            x, y = mx + math.cos(a) * d, my + math.sin(a) * d
+            if abs(x + 1.0) < 6.2 and abs(y + 0.5) < 7.7 and not (abs(y - 7.5) < 1.0): continue
+            farn('Farn%d' % k, x, y, M['farn'], 300 + k, 0.8 + rnd.random() * 0.6); k += 1
+    zb = zt - 0.35
+    efeu('EfeuA', [(Vector((4.45, 3.5, zb + 2.2)), Vector((-1, 0, 0)), 1.1), (Vector((4.45, -5.2, zb + 1.5)), Vector((-1, 0, 0)), 0.9), (Vector((4.45, 5.8, zb + 3.2)), Vector((-1, 0, 0)), 0.7)], M['efeu'], 90)
+    efeu('EfeuB', [(Vector((-3.5, 6.95, zb + 1.7)), Vector((0, -1, 0)), 1.0), (Vector((2.4, 6.95, zb + 2.4)), Vector((0, -1, 0)), 0.8)], M['efeu'], 91)
+
+    return ((-10.0, 0.5, zt + 1.7), (5.0, -1.2, zt + 2.6), 26), ((-1.0, -0.5, 8.5),)
+
+# ----------------------------------------------------------------- Ufer (D155, Szene 2)
+def hoehe_von(x, y, praefix):
+    """Hoehe eines Objekts mit Namenspraefix an (x, y) per Strahl von oben; None, wenn nichts da ist."""
+    dg = bpy.context.evaluated_depsgraph_get()
+    for o in bpy.context.scene.objects:
+        if not o.name.startswith(praefix) or o.type != 'MESH': continue
+        hit, loc, nrm, idx = o.ray_cast(o.matrix_world.inverted() @ Vector((x, y, 500.0)), Vector((0, 0, -1)), depsgraph=dg)
+        if hit: return (o.matrix_world @ loc).z
+    return None
+
+def mat_holz():
+    """Verwittertes Holz: graubraun, Maserung als gestrecktes Rauschen, wenig Moos."""
+    m, nt, out = material('Holz'); b = prinzip(nt, (0.30, 0.23, 0.16), 0.85); link(nt, b, 'BSDF', out, 'Surface')
+    tex = neu(nt, 'ShaderNodeTexCoord', (-1400, 0))
+    mp = neu(nt, 'ShaderNodeMapping', (-1200, 0)); mp.inputs['Scale'].default_value = (0.15, 1.0, 1.0); link(nt, tex, 'Object', mp, 'Vector')
+    n = neu(nt, 'ShaderNodeTexNoise', (-1000, 0)); n.inputs['Scale'].default_value = 8; n.inputs['Detail'].default_value = 8; link(nt, mp, 'Vector', n, 'Vector')
+    r = rampe(nt, (-700, 0), [(0.3, (0.18, 0.14, 0.10)), (0.55, (0.32, 0.26, 0.19)), (0.8, (0.46, 0.40, 0.31))]); link(nt, n, 'Fac', r, 'Fac')
+    bump = neu(nt, 'ShaderNodeBump', (0, -400)); bump.inputs['Strength'].default_value = 0.35; bump.inputs['Distance'].default_value = 0.02; link(nt, n, 'Fac', bump, 'Height'); link(nt, bump, 'Normal', b, 'Normal')
+    moosmischung(nt, b, r, 'Color', (-100, 350), staerke=0.5)
+    return m
+
+def steg(name, x, y0, y1, mat_holz, saat=31, breite=1.4):
+    """Holzsteg auf Pfaehlen quer ueber das Wasser: Balken, Planken mit Luecken, Gelaender auf einer Seite."""
+    rnd = random.Random(saat); bm = bmesh.new(); k = 0
+    wasser = hoehe_von(x, (y0 + y1) / 2, 'wasser'); deck = (wasser if wasser is not None else bodenhoehe(x, (y0 + y1) / 2)) + 0.75
+    # Pfaehle alle 2,2 m, bis in den Grund
+    y = y0
+    while y <= y1 + 0.01:
+        for s in (-1, 1):
+            px, py = x + s * (breite / 2 - 0.12), y
+            grund = bodenhoehe(px, py) - 0.6
+            m = Matrix.Translation(Vector((px, py, (grund + deck + 0.2) / 2))) @ Euler((rnd.uniform(-0.02, 0.02), rnd.uniform(-0.02, 0.02), 0)).to_matrix().to_4x4()
+            stein_bm(bm, (0.22, 0.22, deck + 0.2 - grund), m, saat * 50 + k, 0.03, 0.15); k += 1
+        y += 2.2
+    # Laengsbalken
+    for s in (-1, 1):
+        m = Matrix.Translation(Vector((x + s * (breite / 2 - 0.12), (y0 + y1) / 2, deck - 0.12)))
+        stein_bm(bm, (0.18, y1 - y0 + 0.6, 0.16), m, saat * 50 + k, 0.02, 0.1); k += 1
+    # Planken quer, mit Luecken, leicht verkippt, hin und wieder eine fehlend
+    y = y0 - 0.2
+    while y < y1 + 0.2:
+        b = 0.20 + rnd.random() * 0.08
+        if rnd.random() > 0.06:
+            m = Matrix.Translation(Vector((x, y + b / 2, deck + rnd.uniform(-0.01, 0.02)))) @ Euler((rnd.uniform(-0.03, 0.03), rnd.uniform(-0.02, 0.02), rnd.uniform(-0.02, 0.02))).to_matrix().to_4x4()
+            stein_bm(bm, (breite + 0.1, b * 0.95, 0.05), m, saat * 50 + k, 0.02, 0.1); k += 1
+        y += b + 0.025
+    # Gelaender links (Seite -x): Pfosten und zwei Holme
+    y = y0
+    while y <= y1 + 0.01:
+        m = Matrix.Translation(Vector((x - breite / 2 - 0.02, y, deck + 0.55)))
+        stein_bm(bm, (0.09, 0.09, 1.1), m, saat * 50 + k, 0.02, 0.1); k += 1
+        y += 2.2
+    for hz in (deck + 0.55, deck + 1.02):
+        m = Matrix.Translation(Vector((x - breite / 2 - 0.02, (y0 + y1) / 2, hz)))
+        stein_bm(bm, (0.07, y1 - y0 + 0.3, 0.09), m, saat * 50 + k, 0.02, 0.1); k += 1
+    fertig(name, bm, (0, 0, 0), mat_holz)
+    return deck
+
+def weide(name, x, y, hoehe, mat_rinde, mat_laub, saat, richtung=None):
+    """Weide am Ufer: kurzer dicker Stamm, zum Wasser geneigt, Krone aus haengenden Ruten mit schmalen Blaettern."""
+    rnd = random.Random(saat); z0 = bodenhoehe(x, y)
+    lean = Vector((math.cos(richtung), math.sin(richtung), 0)) * 0.35 if richtung is not None else Vector((rnd.random() - 0.5, rnd.random() - 0.5, 0)) * 0.4
+    n = 7; pts = []; rad = []
+    for i in range(n):
+        t = i / (n - 1)
+        pts.append(Vector((x, y, z0 - 0.3)) + lean * (t * t * hoehe) + Vector((math.sin(t * 4 + saat) * 0.2, 0, t * hoehe)))
+        rad.append(0.32 * (1.0 - 0.7 * t) + 0.06)
+    stamm(name + '_Stamm', pts, rad, mat_rinde)
+    krone = bmesh.new(); k = 0
+    spitze = pts[-1]
+    for j in range(22 + rnd.randrange(10)):
+        a = rnd.random() * 6.283; aus = 1.5 + rnd.random() * 3.0; fall = hoehe * (0.55 + rnd.random() * 0.4)
+        p0 = spitze + Vector((math.cos(a) * 0.4, math.sin(a) * 0.4, -0.3 - rnd.random() * 1.5))
+        p1 = p0 + Vector((math.cos(a) * aus * 0.8, math.sin(a) * aus * 0.8, 0.6))
+        p2 = p0 + Vector((math.cos(a) * aus, math.sin(a) * aus, -fall * 0.5))
+        p3 = p0 + Vector((math.cos(a) * aus * 1.05, math.sin(a) * aus * 1.05, -fall))
+        stamm(name + '_Rute%d' % j, [p0, p1, p2, p3], [0.05, 0.035, 0.02, 0.01], mat_rinde, 2)
+        # Blaetter entlang der Rute: kubische Bezier-Naeherung ueber die vier Punkte
+        for s in range(4, 34):
+            t = s / 33.0
+            q = p0 * (1 - t) ** 3 + p1 * 3 * (1 - t) ** 2 * t + p2 * 3 * (1 - t) * t * t + p3 * t ** 3
+            rot = Matrix.Rotation(rnd.random() * 6.28, 4, 'Z') @ Matrix.Rotation(rnd.uniform(-0.7, 0.7), 4, 'X')
+            klumpen_bm(krone, q + Vector((rnd.uniform(-0.2, 0.2), rnd.uniform(-0.2, 0.2), 0)), (0.55, 0.22, 0.06), saat * 41 + k, 0.35, 1, rot); k += 1
+    fertig(name + '_Krone', krone, (0, 0, 0), mat_laub, True)
+
+def schilf_bm(bm, x, y, z0, saat, n=26, hoehe=1.9):
+    rnd = random.Random(saat)
+    for i in range(n):
+        a = rnd.random() * 6.283; d = rnd.random() * 0.5
+        bx, by = x + math.cos(a) * d, y + math.sin(a) * d
+        h = hoehe * (0.7 + rnd.random() * 0.5); w = 0.018
+        kipp = rnd.uniform(0.0, 0.25); ka = rnd.random() * 6.283
+        vs = []
+        for s in range(5):
+            t = s / 4.0
+            dx, dy = math.cos(ka) * math.sin(kipp) * t * t * h, math.sin(ka) * math.sin(kipp) * t * t * h
+            ww = w * (1.0 - t * 0.7)
+            vs.append((bm.verts.new((bx + dx - ww * math.sin(ka), by + dy + ww * math.cos(ka), z0 + t * h)),
+                       bm.verts.new((bx + dx + ww * math.sin(ka), by + dy - ww * math.cos(ka), z0 + t * h))))
+        for s in range(4):
+            bm.faces.new((vs[s][0], vs[s][1], vs[s + 1][1], vs[s + 1][0]))
+
+def uferpunkte(abstand=2.6, saat=5):
+    """Landzellen mit Wasser in Reichweite — entlang aller Ufer, in Schritten von `abstand`."""
+    rnd = random.Random(saat)
+    was = next((o for o in bpy.context.scene.objects if o.name == 'wasser'), None)
+    if was is None: return []
+    nass = set()
+    for v in was.data.vertices: nass.add((round(v.co.x), round(v.co.y)))
+    punkte = []; belegt = set()
+    for (wx, wy) in sorted(nass):
+        for dx, dy in ((2, 0), (-2, 0), (0, 2), (0, -2), (2, 2), (-2, -2), (2, -2), (-2, 2)):
+            px, py = wx + dx, wy + dy
+            if (px, py) in nass or (round(px + 1), round(py)) in nass and (round(px - 1), round(py)) in nass: continue
+            zelle = (int(px // abstand), int(py // abstand))
+            if zelle in belegt: continue
+            belegt.add(zelle)
+            if rnd.random() < 0.45: punkte.append((px + rnd.uniform(-0.6, 0.6), py + rnd.uniform(-0.6, 0.6)))
+    return punkte
+
+def szene_stauwehr(M, ter, was):
+    """Szene 2 (D155): Ufer am Stauwehr — Holzsteg ueber den Bach, Weiden, Schilf, Bloecke im Wasser,
+    gestuerzter Stamm, Wehrmauer. Kamera am Suedufer, Blick nach Nordost ueber das Wasser in die Sonne."""
+    m_holz = mat_holz()
+    m_weide = mat_laub('Weide', (0.24, 0.31, 0.13), (0.50, 0.55, 0.24), 0.6, 0.45)
+    m_schilf = mat_laub('Schilf', (0.36, 0.38, 0.13), (0.62, 0.58, 0.24), 0.5, 0.0)
+    glaette_bett(ter, runden=6)
+    # Uferlinie runden: das Wasser kommt in 1-m-Zellen, Catmull-Clark macht aus der Zackenkante eine Kurve
+    if was is not None: was.modifiers.new('Ufer', 'SUBSURF').levels = 2
+    bodenrauschen(ter, 0.0, 28.0, 60.0, 0.06)
+    bpy.context.view_layer.update()
+    # Steg quer ueber den Stau bei x = -5, vom Suedufer (y 20) zum Nordufer (y 38)
+    deck = steg('Steg', -5.0, 19.5, 38.5, m_holz, 31)
+    # Weiden an beiden Ufern, zum Wasser geneigt
+    for i, (x, y, h, r) in enumerate(((-18.0, 21.0, 8.5, math.radians(90)), (13.0, 20.5, 7.5, math.radians(80)), (26.0, 39.5, 8.0, math.radians(-95)), (-40.0, 38.0, 7.0, math.radians(-80)), (48.0, 21.0, 6.5, math.radians(100)))):
+        weide('Weide%d' % i, x, y, h, M['rinde'], m_weide, 200 + i, r)
+    # Bloecke im Wasser und am Ufer, gestuerzter Stamm
+    for i, (x, y, g) in enumerate(((4.0, 24.0, (1.6, 1.2, 0.9)), (9.0, 27.5, (1.1, 0.9, 0.7)), (-12.0, 30.0, (2.0, 1.5, 1.0)), (35.0, 23.0, (1.4, 1.0, 0.8)), (-26.0, 36.0, (1.3, 1.1, 0.8)))):
+        o = block('Wasserblock%d' % i, (x, y, bodenhoehe(x, y) + g[2] * 0.35), g, 60 + i, 0.25, 4); setze(o, M['fels'])
+    zs = bodenhoehe(40.0, 22.0)
+    stamm('Sturzstamm', [Vector((38.0, 19.0, zs + 0.6)), Vector((41.0, 25.0, zs + 0.1)), Vector((44.0, 31.0, zs - 0.4)), Vector((46.0, 36.0, zs - 0.5))], [0.38, 0.32, 0.24, 0.12], M['rinde'])
+    # Wehr: niedrige Steinmauer quer ueber den Stau am Ostende
+    wz = hoehe_von(75.0, 30.0, 'wasser'); wz = (wz if wz is not None else bodenhoehe(75.0, 30.0)) - 1.1
+    mauer('Wehr', (75.0, 30.0, wz), 18.0, 1.7, 1.3, 'y', 21, M['stein'], M['kern'], 1.2)
+    geroell(75.0, 22.0, 3.0, 8, M['fels'], 23); geroell(75.0, 38.0, 3.0, 8, M['fels'], 24)
+    # Schilf entlang der Ufer
+    bm = bmesh.new(); pts = uferpunkte(2.6 if not SCHNELL else 5.0)
+    for i, (px, py) in enumerate(pts[:400 if not SCHNELL else 120]):
+        schilf_bm(bm, px, py, bodenhoehe(px, py) - 0.05, 500 + i)
+    fertig('Schilf', bm, (0, 0, 0), m_schilf, False)
+    print('Schilf', len(pts), 'Horste')
+    # Wald nach Biom, ohne die Uferzone und die Kamera
+    wald(ter, M['rinde'], M['laub'], M['nadel'], 6.0, 150.0, 5.5, 13, ((-30.0, 8.0, 5.0), (-5.0, 29.0, 9.0)))
+    # Farn am Waldrand des Suedufers
+    rnd = random.Random(78)
+    for k in range(40 if not SCHNELL else 14):
+        x, y = rnd.uniform(-45, 25), rnd.uniform(8, 18)
+        farn('Farn%d' % k, x, y, M['farn'], 400 + k, 0.8 + rnd.random() * 0.6)
+    # Rahmen vor der Kamera (Messung s6: Drittel oben 0.35 statt 0.20, hell 24 % — der Himmel frisst das
+    # obere Drittel): links eine Weide, deren Ruten als Vorhang vor dem Sonnenhof haengen, rechts eine
+    # Fichte am Bildrand; die Kamera zielt auf den Steg statt ueber ihn hinweg.
+    # s7/s8: die Weide 9–11 m vor der Kamera fuellte ein Drittel der Bildbreite mit hellgruenen Ruten
+    # (Saettigung oben 0,50 statt 0,25, Median 0,035) — jetzt ganz am linken Rand, dazu ein hoher
+    # Buchenstamm als dunkle Senkrechte am Rand, Krone ausserhalb des Bildes
+    weide('Weide5', -41.3, 9.5, 8.5, M['rinde'], m_weide, 205, math.radians(90))
+    laubbaum2('Wald199', -36.2, 10.9, 24.0, M['rinde'], M['laub'], 209, True)
+    fichte('Wald0', -27.0, 4.5, 15.0, M['rinde'], M['nadel'], 207, True)
+    # Auwald am Nordufer: hinter dem Steg schliessen hohe Kronen den Horizont, statt dass Himmel und
+    # blasse Huegel das obere Drittel fuellen (s6: 0,35 statt 0,20)
+    rnd = random.Random(81); k = 200
+    for x in range(-72, 76, 7):
+        px, py = x + rnd.uniform(-2.5, 2.5), 41.0 + rnd.uniform(0.0, 12.0)
+        if rnd.random() < 0.7: laubbaum2('Wald%d' % k, px, py, 19 + rnd.random() * 9, M['rinde'], M['laub'], 900 + k, math.hypot(px, py) < 45)
+        else: fichte('Wald%d' % k, px, py, 17 + rnd.random() * 8, M['rinde'], M['nadel'], 900 + k, math.hypot(px, py) < 45)
+        k += 1
+    zk = bodenhoehe(-42.0, 4.0)
+    return ((-42.0, 4.0, zk + 4.5), (-5.0, 29.0, deck - 1.5), 26), ()
+
 def bauen():
     sc = saeubern()
     ter = importiere('terrain'); fern = importiere('fern_terrain')
     was = importiere('wasser'); fw = importiere('fern_wasser'); hs = importiere('fern_haeuser')
     GELAENDE['obj'] = ter
     if fern: loch_im_fernen(fern, 159.5)
-    m_boden = mat_boden()
+    if hs: loch_im_fernen(hs, 160.0)   # OSM-Haeuser im Nahbereich sind Kaesten — die Szene bringt ihre eigenen Bauten
+    # Auwiese am Stauwehr: nass, dunkler, gruener als der trockene Hang (s6/s7 lasen als Stroh)
+    AU = SZENE == 'stauwehr'
+    m_boden = mat_boden(((0.09, 0.12, 0.035), (0.15, 0.19, 0.06), (0.28, 0.27, 0.11)) if AU else None)
     m_fels, m_stein, m_platte = mat_fels('Fels', 1.3), mat_fels('Stein', 0.9, 5.0), mat_fels('Platte', 1.2)
     m_kern, nt, out = material('Kern'); bk = prinzip(nt, MOERTEL, 0.95); link(nt, bk, 'BSDF', out, 'Surface')
     m_rinde, m_laub, m_wasser = mat_rinde(), mat_laub(), mat_wasser()
     m_nadel = mat_laub('Nadel', NADEL, (0.22, 0.30, 0.10), 0.35, 0.40)
-    m_gras = mat_laub('Gras', (0.30, 0.34, 0.11), (0.55, 0.52, 0.20), 0.6, 0.0)
+    m_gras = mat_laub('Gras', (0.18, 0.24, 0.07), (0.34, 0.36, 0.12), 0.5, 0.0) if AU else mat_laub('Gras', (0.26, 0.30, 0.10), (0.46, 0.44, 0.17), 0.5, 0.0)
     m_farn = mat_laub('Farn', (0.16, 0.26, 0.07), (0.40, 0.50, 0.15), 0.6, 0.30)
     m_efeu = mat_laub('Efeu', (0.09, 0.17, 0.05), (0.28, 0.38, 0.11), 0.4, 0.28)
     setze(ter, m_boden)
@@ -970,64 +1262,30 @@ def bauen():
     fernkulisse(m_boden)
     bpy.context.view_layer.update()
 
-    # Terrasse: eine Bank im Hang. Mauer an der Ostkante, Hof dahinter, Kamera im Hof, Blick durch den Bogen ins Tal.
-    zt = bodenhoehe(-2.0, -1.0)
-    terrasse(ter, -2.0, -1.0, 12.0, 22.0, zt)
-    bodenrauschen(ter, -2.0, -1.0, 16.0, 0.07)
-    bpy.context.view_layer.update()
-
-    # Mauern aus Steinen (D154): Kanten entstehen aus fehlenden Steinen, nicht aus Kastenkanten
-    mauer('MauerA', (5.0, 0.0, zt - 0.35), 15.0, 7.5, 1.0, 'y', 1, m_stein, m_kern, 3.4, oeffnung=(-1.5, 3.2, 5.2), schutz=(-1.5, 2.2, 6.6), lehne=math.radians(-1.5))
-    mauer('MauerB', (0.0, 7.5, zt - 0.35), 10.0, 5.0, 1.0, 'x', 2, m_stein, m_kern, 1.8, oeffnung=(-2.0, 0.8, 2.9), schutz=(-2.0, 0.9, 3.8))
-    mauer('MauerC', (2.0, -8.0, zt - 0.35), 5.0, 3.0, 1.0, 'x', 6, m_stein, m_kern, 0.6)
-    mauer('Stuetzmauer', (12.5, -1.0, zt - 2.7), 26.0, 2.6, 0.8, 'y', 3, m_stein, m_kern, 1.2)
-    erdwulst(ter, [((5.0, -7.5), (5.0, 7.5)), ((-5.0, 7.5), (5.0, 7.5)), ((-0.5, -8.0), (4.5, -8.0))], 1.4, 0.28)
-    bpy.context.view_layer.update()
-    geroell(5.0, 5.0, 2.6, 12, m_fels, 3); geroell(-3.0, 7.0, 2.2, 8, m_fels, 4); geroell(2.0, -7.5, 2.0, 7, m_fels, 5); geroell(5.0, -5.5, 1.8, 6, m_fels, 6)
-    geroell(4.6, -1.5, 1.2, 5, m_fels, 8)
-
-    plattenhof('Hof', (-1.0, -0.5, zt), (12.0, 15.0), m_platte, 9, loch=(-1.5, -2.5, 2.1, 2.9))
-    steinbecken('Becken', (-2.5, -3.0, zt), (3.8, 5.4), 0.8, m_stein, m_wasser, 4)
-
-    bloecke = (((-7.5, 5.5), (2.2, 1.7, 1.3)), ((-6.5, -7.5), (1.7, 1.4, 1.0)), ((-13.5, 4.0), (2.8, 2.0, 1.5)), ((-3.0, 4.2), (1.1, 0.9, 0.7)))
-    for i, ((x, y), g) in enumerate(bloecke):
-        o = block('Moosblock%d' % i, (x, y, bodenhoehe(x, y) + g[2] * 0.5), g, 40 + i, 0.25, 4); setze(o, m_fels)
-    # Wurzeln vom Heldenbaum ueber die linke Hofhaelfte — die Natur holt sich das Pflaster
-    for i, (st, ri, l) in enumerate((((-7.0, 6.5), -0.55, 9.0), ((-7.0, 6.5), -1.15, 7.5), ((-7.0, 6.5), 0.25, 5.0), ((-9.5, -6.0), 0.9, 5.5))):
-        wurzel('Wurzel%d' % i, st, ri, l, m_rinde, 50 + i, 0.32 if i < 3 else 0.2)
-
-    for i, (x, y, h) in enumerate(((-7.0, 6.5, 32), (8.0, 10.0, 34), (7.0, -12.0, 30), (-7.0, -12.5, 27), (15.0, 4.0, 28), (-1.0, 11.0, 30))):
-        laubbaum2('Held%d' % i, x, y, h, m_rinde, m_laub, 70 + i, True)
-    fichte('HeldN0', -13.0, 11.0, 24, m_rinde, m_nadel, 80, True); fichte('HeldN1', 19.0, -24.0, 22, m_rinde, m_nadel, 81, True)
-    wald(ter, m_rinde, m_laub, m_nadel, 22.0, 150.0, 5.5, 11, ((-2.0, -1.0, 21.0),))
-
-    # Farn an Mauerfuessen, Bloecken und am Terrassenrand; Efeu an den Mauern
-    rnd = random.Random(77); k = 0
-    for (mx, my, r, n) in ((5.0, 6.5, 2.5, 6), (5.2, -6.5, 2.2, 5), (-3.0, 8.5, 2.0, 5), (-8.0, 5.0, 2.5, 6), (-7.5, -8.0, 2.5, 5), (-12.0, 2.0, 3.0, 5), (3.0, -9.5, 2.0, 4)):
-        for j in range(n if not SCHNELL else max(2, n // 2)):
-            a = rnd.random() * 6.283; d = r * math.sqrt(rnd.random())
-            x, y = mx + math.cos(a) * d, my + math.sin(a) * d
-            if abs(x + 1.0) < 6.2 and abs(y + 0.5) < 7.7 and not (abs(y - 7.5) < 1.0): continue
-            farn('Farn%d' % k, x, y, m_farn, 300 + k, 0.8 + rnd.random() * 0.6); k += 1
-    zb = zt - 0.35
-    efeu('EfeuA', [(Vector((4.45, 3.5, zb + 2.2)), Vector((-1, 0, 0)), 1.1), (Vector((4.45, -5.2, zb + 1.5)), Vector((-1, 0, 0)), 0.9), (Vector((4.45, 5.8, zb + 3.2)), Vector((-1, 0, 0)), 0.7)], m_efeu, 90)
-    efeu('EfeuB', [(Vector((-3.5, 6.95, zb + 1.7)), Vector((0, -1, 0)), 1.0), (Vector((2.4, 6.95, zb + 2.4)), Vector((0, -1, 0)), 0.8)], m_efeu, 91)
+    M = dict(boden=m_boden, fels=m_fels, stein=m_stein, platte=m_platte, kern=m_kern, rinde=m_rinde, laub=m_laub, wasser=m_wasser,
+             nadel=m_nadel, gras=m_gras, farn=m_farn, efeu=m_efeu)
+    kam, gras_aus = (szene_felsmulde if SZENE == 'felsmulde' else szene_stauwehr)(M, ter, was)
 
     halm = grashalm(m_gras)
-    gras(ter, halm, ((-1.0, -0.5, 8.5),), 3.0 if SCHNELL else 9.0)
+    gras(ter, halm, gras_aus, 3.0 if SCHNELL else 9.0)
 
     dunst('Dunst', 3400.0, -420.0, 1400.0, 0.0008, 230.0)
-    dunst('Bodennebel', 700.0, -90.0, 14.0, 0.008, 30.0, (0.92, 0.86, 0.78), 0.4)
+    # Bodennebel: am Stauwehr liegt die Kamera im Nebel (Talboden), nicht 450 m darueber wie in der Felsmulde —
+    # Flussnebel dichter und hoeher, er traegt die Mitteltoene, die der Referenz ihren Dunst geben
+    # (gemessen s9 voll: Median 0,026 und 41 % dunkel gegen 0,06–0,14 und 15–25 %)
+    if AU: dunst('Bodennebel', 700.0, -90.0, 22.0, 0.011, 30.0, (0.92, 0.86, 0.78), 0.4)
+    else: dunst('Bodennebel', 700.0, -90.0, 14.0, 0.008, 30.0, (0.92, 0.86, 0.78), 0.4)
 
-    # Sonne tief im Nordosten, 55 Grad links der Blickachse: Gegenlicht am Dunst, Streiflicht an Mauer und Hof.
+    # Sonne tief im Nordosten (ein Tageslauf fuer alle Szenen): Gegenlicht am Dunst, Streiflicht an Mauer und Hof.
     EL, AZ = 13.0, 42.0
     sonne(EL, AZ, (1.0, 0.80, 0.60), 3.5)
     welt(EL, AZ, 1.5)
-    kamera((-10.0, 0.5, zt + 1.7), (5.0, -1.2, zt + 2.6), 26)
+    kamera(*kam)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(OUT_BLEND))
     print('gespeichert', OUT_BLEND)
     if SCHNELL: rendern(sc, 960, 540, 24, OUT_PNG)
     else: rendern(sc, 1920, 1080, 48, OUT_PNG)
     print('gerendert', OUT_PNG)
 
-bauen()
+if __name__ == '__main__':
+    bauen()
