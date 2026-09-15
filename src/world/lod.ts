@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { MASSSTAB, BIOM_FARBE } from './terrain.js';
 import type { Aufsatzboden } from './terrain.js';
+import { TERRASSEN, terrassiere, type Terrasse } from './bauwerke.js';
 import { baueWasserfeld } from './wasserfeld.js';
 
 /** Kachelkantenlänge in Metern. */
@@ -94,7 +95,13 @@ export interface HoehenFeld {
 
 const METER_JE_GRAD = 111_320;
 
-export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1): HoehenFeld {
+/**
+ * Terrassen (ADR-0006, Stufe 2): Scheiben im Hang, die ein Bauwerk aus der Blender-Szene ebnet.
+ * Vorgabe ist das Register — jeder Aufrufer (Szene, Geometrie-Tor, Checks) bekommt denselben Boden,
+ * ohne die Liste zu kennen. Die Zielhoehe je Terrasse ist die Gelaendehoehe an ihrer Mitte **ohne**
+ * Terrasse, einmal gerechnet — so hat es auch der Szenenbau gemacht (`bodenhoehe` vor `terrasse`).
+ */
+export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: readonly Terrasse[] = TERRASSEN): HoehenFeld {
   const [sued, west, nord, ost] = welt.bbox;
   const n = welt.aufloesung;
   const mittelLat = (sued + nord) / 2;
@@ -114,7 +121,7 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1): HoehenFeld 
   // von Doppelung, an der schon die Höhenquellen einmal auseinandergelaufen sind.
   const wasser = baueWasserfeld(welt, breiteMeter, tiefeMeter);
 
-  const hoehe = (x: number, z: number): number => {
+  const rohHoehe = (x: number, z: number): number => {
     // Rasterkoordinate mit Nachkommaanteil
     const fj = (x / breiteMeter + 0.5) * (n - 1);
     const fi = (z / tiefeMeter + 0.5) * (n - 1);
@@ -134,6 +141,13 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1): HoehenFeld 
     // wo das Gelände vorher war, und die Sohle geht darunter. Andersherum stünde
     // das Wasser als Wall in der Landschaft.
     return basis + mikrorelief(x, z) * staerke - wasser.tiefeAn(x, z);
+  };
+  // Terrassen: erst hier, damit `roh` die Zielhoehe liefert, bevor sie selbst terrassiert wuerde.
+  const zielhoehen = terrassen.map(t => rohHoehe(t.x, t.z));
+  const hoehe = terrassen.length === 0 ? rohHoehe : (x: number, z: number): number => {
+    let h = rohHoehe(x, z);
+    for (let i = 0; i < terrassen.length; i++) h = terrassiere(h, x, z, terrassen[i], zielhoehen[i]);
+    return h;
   };
 
   const biom = (x: number, z: number): Biom => {

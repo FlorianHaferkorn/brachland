@@ -32,6 +32,7 @@ import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial, type RollenSlot } from '../world/windmaterial.js';
+import { BAUWERKE, bauwerkPfad, gesperrt, type Bauwerk } from '../world/bauwerke.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
@@ -305,6 +306,21 @@ export const STIMMUNG: Record<string, Stimmung> = {
   },
 };
 export type StimmungsName = keyof typeof STIMMUNG;
+/**
+ * `zielbild` (Stufe 2): das Licht der Blender-Szene aus `tools/szenenbau.py` — Sonne 13° hoch im
+ * Nordosten (Azimut 42°), warm; Dunst und Fuelllicht wie `goldnebel`. Nur per `?stimmung=zielbild`,
+ * fuer den Vergleich Spielbild gegen Render an derselben Kamera (`?kamera=`).
+ */
+STIMMUNG.zielbild = {
+  ...STIMMUNG.goldnebel,
+  sonne: '#f2dcc0', sonneStaerke: 1.6,
+  // Fuelllicht halbiert: Der Render hat den Hof im Schatten der Mauer bei 1/12 des Himmels, die Engine
+  // ohne Verdeckung bei 1/1,7 (gemessen Drittel 0,256/0,154/0,151 gegen 0,27/0,11/0,02). Ohne AO bleibt
+  // ein Rest — der gehoert in die Nachbearbeitung.
+  umgebungStaerke: 2.0,
+  // Azimut 42° von Nord im Uhrzeigersinn, Hoehe 13°: (sin·cos, sin, −cos·cos)
+  sonnenstand: [65.2, 22.5, -72.4] as const,
+};
 
 /**
  * `?stimmung=goldnebel` setzt eine Stimmung **ausserhalb** des Tageslaufs (D152).
@@ -1444,6 +1460,67 @@ export interface Ortsmarke {
   farben?: Partial<Record<RollenSlot, string>>;
 }
 
+/**
+ * Bauwerke aus der Blender-Szene (ADR-0006, Stufe 2).
+ *
+ * `tools/szenenexport.py` backt die prozeduralen Materialien und schreibt je Bauwerk bis zu
+ * drei Dateien: `bauten` (Stein und Holz mit Grundfarbe, Rauheit, Normale als Bild), `gruen`
+ * (Blattmassen mit Vertexfarbe; die Loecher rechnet der Shader mit demselben Rauschen wie
+ * Blender) und `wasser`. Die Gruppe steht am Ursprung der Szene auf der Gelaendehoehe **vor**
+ * der Terrasse (`h0`), weil der Export alle Hoehen darauf bezogen hat; die Terrasse selbst
+ * kennt das Hoehenfeld ueber das Register (`bauwerke.ts`).
+ *
+ * Silhouettenlicht wie alles andere; Wind nicht (die Dateien sind keine Instanzen, und das
+ * Windattribut fehlt). Jede Datei hat ihre eigene Suspense-Grenze (G-134).
+ */
+function Bauwerke({ rand }: { rand: { farbe: string; staerke: number } }) {
+  return (
+    <>
+      {BAUWERKE.map(b => (
+        <group key={b.name} position={[b.ursprung.x, b.h0, b.ursprung.z]}>
+          {b.dateien.map(teil => (
+            <Suspense key={teil} fallback={null}>
+              <Bauwerkteil bauwerk={b} teil={teil} rand={rand} />
+            </Suspense>
+          ))}
+        </group>
+      ))}
+    </>
+  );
+}
+
+function Bauwerkteil({ bauwerk, teil, rand }: {
+  bauwerk: Bauwerk; teil: 'bauten' | 'gruen' | 'wasser'; rand: { farbe: string; staerke: number };
+}) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, teil));
+  const { objekt, materialien } = useMemo(() => {
+    const klon = scene.clone(true);
+    const materialien: ReturnType<typeof baueWindMaterial>[] = [];
+    klon.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.castShadow = teil !== 'wasser'; o.receiveShadow = true;
+      if (teil === 'wasser') {
+        // Ohne Umgebungskarte spiegelt nichts: Wasser als halbdurchsichtige Himmelsfarbe, glatt
+        o.material = new THREE.MeshStandardMaterial({ color: '#8a7c67', roughness: 0.08, metalness: 0, transparent: true, opacity: 0.8 });
+        return;
+      }
+      const basis = o.material as THREE.MeshStandardMaterial;
+      // Loecher nur im Blattwerk — Waldstaemme kommen mit Vertexfarbe in derselben Datei
+      const laub = teil === 'gruen' && /Krone|Nadeln|Farn|Efeu|Laub/.test(o.name);
+      const w = baueWindMaterial(laub
+        // Saum auf Blattmassen fast aus: Klumpen mit Loechern bestehen aus lauter Kanten, bei voller
+        // Staerke lasen sie als weisse Wolken (gemessen am ersten Durchstich)
+        ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.15, loecher: 0.42, loecherSkala: 9 }
+        : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.6 }, basis);
+      if (laub) w.material.side = THREE.DoubleSide;
+      o.material = w.material; materialien.push(w);
+    });
+    return { objekt: klon, materialien };
+  }, [scene, teil, rand.farbe, rand.staerke]);
+  useEffect(() => { materialien.forEach(m => m.setzeRand(new THREE.Color(rand.farbe), rand.staerke)); }, [materialien, rand.farbe, rand.staerke]);
+  return <primitive object={objekt} />;
+}
+
 function Orte({ orte, ziel, onNah, rand, hoeheAn }: {
   orte: Ortsmarke[];
   ziel: React.RefObject<THREE.Object3D | null>;
@@ -2543,11 +2620,39 @@ function Kamera({ ziel, gier, neigung, feld, kollision }: {
     // Der Glättungsfaktor folgt dem Einziehen: Wo die Sichtlinie frei ist, darf die
     // Kamera weich nachlaufen; beim Einziehen muss sie sofort da sein.
     geglaettet.current.lerp(wunsch, ziel_ < r - 0.01 ? 1 : Math.min(1, dt * 4));
+    if (KAMERA_MESSLAUF) {
+      // Feste Kamera (Stufe 2): dieselbe Position und Brennweite wie die Blender-Szene, sonst
+      // vergleicht man zwei Bilder von zwei Standpunkten.
+      const k = KAMERA_MESSLAUF;
+      camera.position.set(k[0], k[1], k[2]); camera.lookAt(k[3], k[4], k[5]);
+      const pc = camera as THREE.PerspectiveCamera;
+      if (FOV_MESSLAUF && pc.fov !== FOV_MESSLAUF) { pc.fov = FOV_MESSLAUF; pc.updateProjectionMatrix(); }
+      return;
+    }
     camera.position.copy(geglaettet.current);
     camera.lookAt(p.x, blickY, p.z);
   });
   return null;
 }
+
+/**
+ * `?kamera=x,y,z,tx,ty,tz` stellt die Kamera fest (Weltmeter, y absolut) und `?fov=42.6`
+ * setzt das senkrechte Sichtfeld — Messparameter fuer den Vergleich Spielbild gegen
+ * Blender-Render (ADR-0006, Stufe 2). Die Figur steht weiter am `?absetzen=`-Punkt;
+ * die Kamera schaut nur nicht mehr auf sie.
+ */
+const KAMERA_MESSLAUF: number[] | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const roh = new URLSearchParams(location.search).get('kamera');
+  if (!roh) return null;
+  const n = roh.split(',').map(Number);
+  return n.length === 6 && n.every(Number.isFinite) ? n : null;
+})();
+const FOV_MESSLAUF: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const roh = Number(new URLSearchParams(location.search).get('fov'));
+  return Number.isFinite(roh) && roh > 5 && roh < 150 ? roh : null;
+})();
 
 // Alle Prop-Modelle vorladen — sonst poppen sie im ersten Bild nach.
 for (const varianten of Object.values(VARIANTEN))
@@ -2769,7 +2874,9 @@ export function RegionsSzene({
   // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben
   // Positionen. Zweimal verteilen hieße, gegen unsichtbare Bäume zu laufen.
   const props = useMemo(() => {
-    const roh = verteileProps(welt, { ...terrain, hoeheAn: feld.hoehe }, 1);
+    // Freihaltung der Bauwerke (ADR-0006): Die Blender-Szene bringt ihren eigenen Wald mit.
+    const roh = verteileProps(welt, { ...terrain, hoeheAn: feld.hoehe }, 1)
+      .filter(p => !gesperrt(p.position[0], p.position[2], 'props'));
     return roh.map(p => ({
       ...p,
       position: [p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2]],
@@ -2886,6 +2993,9 @@ export function RegionsSzene({
       )}
       {regent && regentOrt && (
         <Regentenort ort={regentOrt} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />
+      )}
+      {!istAus('bauwerke') && BAUWERKE.length > 0 && (
+        <Bauwerke rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       )}
       {vorkommen.length > 0 && gestalt && (
         <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref} gier={gier}

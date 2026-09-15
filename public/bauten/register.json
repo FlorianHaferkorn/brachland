@@ -1,0 +1,100 @@
+{
+ "bauwerke": [
+  {
+   "name": "felsmulde",
+   "ursprung": {
+    "x": -800,
+    "z": 600
+   },
+   "h0": 452.91191750150034,
+   "terrasse": {
+    "x": -802.0,
+    "z": 601.0,
+    "rInnen": 12.0,
+    "rAussen": 22.0
+   },
+   "frei": {
+    "x": -801.0,
+    "z": 600.5,
+    "props": 150.0,
+    "streu": 9.0
+   },
+   "dateien": [
+    "bauten",
+    "gruen",
+    "wasser"
+   ],
+   "objekte": {
+    "bauten": [
+     "MauerA",
+     "MauerA_Kern",
+     "MauerB",
+     "MauerB_Kern",
+     "MauerC",
+     "MauerC_Kern",
+     "Stuetzmauer",
+     "Stuetzmauer_Kern",
+     "Geroell",
+     "Hof",
+     "Becken",
+     "Moosbloecke",
+     "Wurzeln",
+     "Held0_Holz",
+     "Held1_Holz",
+     "Held2_Holz",
+     "Held3_Holz",
+     "Held4_Holz",
+     "Held5_Holz",
+     "HeldN0_Holz",
+     "HeldN1_Holz"
+    ],
+    "gruen": [
+     "Held0_Krone",
+     "Held1_Krone",
+     "Held2_Krone",
+     "Held3_Krone",
+     "Held4_Krone",
+     "Held5_Krone",
+     "HeldN0_Nadeln",
+     "HeldN1_Nadeln",
+     "Farn0",
+     "Farn1",
+     "Farn2",
+     "Farn3",
+     "Farn4",
+     "Farn5",
+     "Farn6",
+     "Farn7",
+     "Farn8",
+     "Farn9",
+     "Farn10",
+     "Farn11",
+     "Farn12",
+     "Farn13",
+     "Farn14",
+     "Farn15",
+     "Farn16",
+     "Farn17",
+     "Farn18",
+     "Farn19",
+     "Farn20",
+     "Farn21",
+     "Farn22",
+     "Farn23",
+     "Farn24",
+     "Farn25",
+     "Farn26",
+     "Farn27",
+     "EfeuA",
+     "EfeuB",
+     "WaldHolz",
+     "WaldLaub",
+     "WaldNadeln"
+    ],
+    "wasser": [
+     "Becken_Wasser"
+    ]
+   }
+  }
+ ]
+}

@@ -48,6 +48,15 @@ export interface WindMaterialWerte {
    * y = 0), Phase aus der Weltlage — kein Rig, keine zweite Geometrie.
    */
   atmen?: boolean;
+  /**
+   * Loecher im Laub (ADR-0006, Stufe 2): Schwelle 0…1, ab der ein Rauschen in Weltkoordinaten
+   * das Fragment verwirft. Dasselbe Rezept wie `mat_laub` im Szenenbau (Noise > Schwelle →
+   * transparent): Blattmassen aus der Blender-Szene kommen als geschlossene Klumpen, die Loecher
+   * macht der Shader — kein Alpha-Bild, keine Sortierung. 0 oder undefined schaltet ab.
+   */
+  loecher?: number;
+  /** Rauschmassstab der Loecher in 1/m; Szenenbau nimmt 9. */
+  loecherSkala?: number;
 }
 
 /** Slots der Laufzeitfarben (D146) — dieselbe Reihenfolge wie `SLOT` in `tools/menschbau.py`. */
@@ -108,6 +117,31 @@ const RAND_GLSL = /* glsl */ `
  * Zwei Materialien hieße zwei Programme, zwei Uniform-Sätze und zwei Stellen, an
  * denen man die Randfarbe nachziehen muss.
  */
+/**
+ * Wertrauschen in drei Oktaven auf der Weltposition — genug fuer Loecher, die wie Blattwerk
+ * lesen. Kein Perlin: Das hier muss nur unregelmaessig sein, nicht schoen.
+ */
+const LOECHER_GLSL = /* glsl */ `
+  if (uLoecher > 0.0) {
+    vec3 q = vLoecherPos * uLoecherSkala;
+    float n = 0.0, a = 0.5;
+    for (int o = 0; o < 3; o++) {
+      vec3 i = floor(q), f = fract(q); f = f * f * (3.0 - 2.0 * f);
+      float h000 = fract(sin(dot(i, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+      float h100 = fract(sin(dot(i + vec3(1,0,0), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+      float h010 = fract(sin(dot(i + vec3(0,1,0), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+      float h110 = fract(sin(dot(i + vec3(1,1,0), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+      float h001 = fract(sin(dot(i + vec3(0,0,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+      float h101 = fract(sin(dot(i + vec3(1,0,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+      float h011 = fract(sin(dot(i + vec3(0,1,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+      float h111 = fract(sin(dot(i + vec3(1,1,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+      float v = mix(mix(mix(h000, h100, f.x), mix(h010, h110, f.x), f.y), mix(mix(h001, h101, f.x), mix(h011, h111, f.x), f.y), f.z);
+      n += v * a; q *= 2.0; a *= 0.5;
+    }
+    if (n > uLoecher) discard;
+  }
+`;
+
 const WIND_GLSL = /* glsl */ `
   #ifdef USE_INSTANCING
   {
@@ -191,6 +225,8 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
   const rollenAn = { value: 0 };
   const rollen = { value: Array.from({ length: 8 }, () => new THREE.Color(0, 0, 0)) };
   const rollenMaske = { value: new Float32Array(8) };
+  const loecher = { value: w.loecher ?? 0 };
+  const loecherSkala = { value: w.loecherSkala ?? 9 };
 
   const material = basis instanceof THREE.MeshStandardMaterial
     ? (basis.clone() as THREE.MeshStandardMaterial)
@@ -209,23 +245,28 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
     shader.uniforms.uRollenAn = rollenAn;
     shader.uniforms.uRollen = rollen;
     shader.uniforms.uRollenMaske = rollenMaske;
+    shader.uniforms.uLoecher = loecher;
+    shader.uniforms.uLoecherSkala = loecherSkala;
 
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',
         // aWind ebenfalls nur bei Instanzen deklarieren: Ein Attribut, das die
         // Geometrie nicht liefert, ist auf manchen Treibern ein harter Fehler.
         '#include <common>\nuniform float uZeit;\nuniform float uWindAmp;\nuniform float uAtmen;\nuniform float uGang;\n'
-        + 'uniform float uRollenAn;\nuniform vec3 uRollen[8];\nuniform float uRollenMaske[8];\n'
+        + 'uniform float uRollenAn;\nuniform vec3 uRollen[8];\nuniform float uRollenMaske[8];\nvarying vec3 vLoecherPos;\n'
         + '#ifdef USE_INSTANCING\nattribute float aWind;\n#endif')
       .replace('#include <color_vertex>', '#include <color_vertex>' + ROLLEN_GLSL)
-      .replace('#include <begin_vertex>', '#include <begin_vertex>' + WIND_GLSL + ATMEN_GLSL);
+      .replace('#include <begin_vertex>', '#include <begin_vertex>' + WIND_GLSL + ATMEN_GLSL)
+      // Weltposition fuer die Loecher: nach allen Verschiebungen, vor der Projektion
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvLoecherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>',
-        '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;')
+        '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;\nuniform float uLoecher;\nuniform float uLoecherSkala;\nvarying vec3 vLoecherPos;')
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v7';
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v8';
 
   return {
     material,

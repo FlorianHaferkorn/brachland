@@ -14,7 +14,7 @@ Terrain kommt aus dem Spiel (`.cache/terrainexport.ts`, DGM1 + Biome als Vertexf
 alles andere entsteht prozedural hier — kein Download, keine fremden Texturen.
 """
 import bpy, bmesh, math, random, sys, json, os
-from mathutils import Vector, noise
+from mathutils import Vector, Matrix, Euler, noise
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OBJDIR = ARGS[0] if ARGS else '.cache/blender'
@@ -208,8 +208,8 @@ def mat_boden():
     moosmischung(nt, b, mix2, 2, (-100, 350), staerke=0.6)
     return m
 
-def mat_fels():
-    m, nt, out = material('Fels'); b = prinzip(nt, BODEN_FELS, 0.8); link(nt, b, 'BSDF', out, 'Surface')
+def mat_fels(name='Fels', moos=1.3, hoehe=None):
+    m, nt, out = material(name); b = prinzip(nt, BODEN_FELS, 0.8); link(nt, b, 'BSDF', out, 'Surface')
     tex = neu(nt, 'ShaderNodeTexCoord', (-1400, 0))
     n = neu(nt, 'ShaderNodeTexNoise', (-1100, 0)); n.inputs['Scale'].default_value = 1.8; n.inputs['Detail'].default_value = 12; n.inputs['Roughness'].default_value = 0.65; link(nt, tex, 'Object', n, 'Vector')
     r = rampe(nt, (-800, 0), [(0.3, (0.20, 0.18, 0.15)), (0.55, (0.36, 0.33, 0.28)), (0.8, (0.52, 0.49, 0.43))]); link(nt, n, 'Fac', r, 'Fac')
@@ -218,7 +218,7 @@ def mat_fels():
     n2 = neu(nt, 'ShaderNodeTexNoise', (-1100, -700)); n2.inputs['Scale'].default_value = 30; n2.inputs['Detail'].default_value = 8; link(nt, tex, 'Object', n2, 'Vector')
     bump2 = neu(nt, 'ShaderNodeBump', (-300, -700)); bump2.inputs['Strength'].default_value = 0.3; bump2.inputs['Distance'].default_value = 0.02; link(nt, n2, 'Fac', bump2, 'Height')
     link(nt, bump2, 'Normal', bump, 'Normal'); link(nt, bump, 'Normal', b, 'Normal')
-    moosmischung(nt, b, r, 'Color', (-100, 350), staerke=1.3)
+    moosmischung(nt, b, r, 'Color', (-100, 350), staerke=moos, hoehe=hoehe)
     return m
 
 def mat_rinde():
@@ -497,11 +497,298 @@ def wald(ter, mat_rinde, mat_laub, mat_nadel, min_r, max_r, abstand, saat=11, au
         d = math.hypot(x, y)
         fein = d < 45
         if rnd.random() < 0.55:
-            laubbaum('Wald%d' % len(gesetzt), x, y, 18 + rnd.random() * 14, mat_rinde, mat_laub, saat * 7 + len(gesetzt), 2 if fein else 1, 6 if fein else 3)
+            laubbaum2('Wald%d' % len(gesetzt), x, y, 18 + rnd.random() * 14, mat_rinde, mat_laub, saat * 7 + len(gesetzt), fein)
         else:
-            nadelbaum('Wald%d' % len(gesetzt), x, y, 16 + rnd.random() * 14, mat_rinde, mat_nadel, saat * 7 + len(gesetzt))
+            fichte('Wald%d' % len(gesetzt), x, y, 16 + rnd.random() * 14, mat_rinde, mat_nadel, saat * 7 + len(gesetzt), fein)
         if len(gesetzt) > (180 if not SCHNELL else 60): break
     return gesetzt
+
+
+# ----------------------------------------------------------------- Steinbau (D154)
+# Ein Kasten hat gerade Kanten, egal welche Textur er traegt. Deshalb werden Mauer, Hof und
+# Becken aus **einzelnen Steinen** gesetzt: jeder Stein ein verzerrter Wuerfel, Reihen versetzt,
+# Laengen zufaellig, oben und an den Enden fehlen Steine — die Kante ist dann keine Linie mehr.
+# Alle Steine eines Bauwerks landen in einem Mesh (bmesh), nicht in tausend Objekten.
+
+def stein_bm(ziel, groesse, matrix, saat, rauheit=0.06, rund=0.35):
+    """Haengt einen Stein (verzerrter Wuerfel, Ecken eingezogen) mit Transformation an `ziel`."""
+    rnd = random.Random(saat)
+    bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=2, use_grid_fill=True)
+    off = Vector((rnd.random() * 60, rnd.random() * 60, rnd.random() * 60))
+    for v in bm.verts:
+        p = v.co.copy()
+        # Ecken einziehen: je weiter von der Achse, desto staerker — macht aus dem Wuerfel einen Kiesel
+        ecke = (abs(p.x) + abs(p.y) + abs(p.z)) / 1.5
+        f = 1.0 - rund * max(0.0, ecke - 0.6)
+        n = noise.noise(p * 2.7 + off) * rauheit + noise.noise(p * 7.0 + off) * rauheit * 0.4
+        v.co = Vector((p.x * groesse[0], p.y * groesse[1], p.z * groesse[2])) * (f + n)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bmesh.ops.transform(bm, matrix=matrix, verts=bm.verts[:])
+    me = bpy.data.meshes.new('stein'); bm.to_mesh(me); bm.free()
+    ziel.from_mesh(me); bpy.data.meshes.remove(me)
+
+def fertig(name, bm, ort, mat, glatt=False, rot=(0.0, 0.0, 0.0)):
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    for p in me.polygons: p.use_smooth = glatt
+    o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o); o.location = ort; o.rotation_euler = rot
+    setze(o, mat)
+    return o
+
+def hoehenprofil(u, hmin, hmax, saat, schutz=None):
+    """Wie hoch die Mauer an Stelle u noch steht: lange Welle plus Bruchsteine, ueber dem Bogen geschuetzt."""
+    off = Vector((saat * 13.1, saat * 7.7, 0))
+    f = 0.5 + 0.5 * noise.noise(Vector((u, 0, 0)) * 0.18 + off) + 0.07 * noise.noise(Vector((u, 0, 0)) * 0.9 + off)
+    h = hmin + (hmax - hmin) * max(0.0, min(1.0, f))
+    if schutz is not None:
+        mitte, halb, minh = schutz
+        d = abs(u - mitte)
+        if d < halb + 1.5: h = max(h, minh - max(0.0, d - halb) / 1.5 * (minh - hmin))
+    return h
+
+def im_bogen(u, z, oeffnung, rand=0.0):
+    """Liegt (u, z) in der Oeffnung? oeffnung = (u0, breite, hoehe)."""
+    if oeffnung is None: return False
+    u0, b, h = oeffnung; r = b / 2 + rand
+    if abs(u - u0) > r: return False
+    zs = h - b / 2
+    return z < zs + rand or (u - u0) ** 2 + (z - zs) ** 2 < r * r
+
+def mauer(name, ort, laenge, hoehe, dicke, achse, saat, mat, mat_kern, hmin, oeffnung=None, schutz=None, lehne=0.0):
+    """Trockenmauer aus Steinen. `achse` 'x' oder 'y' (Laufrichtung). Oeffnung (u0, breite, hoehe) mit Keilsteinbogen.
+    Dahinter ein dunkler Kern, damit Luecken nicht durchsichtig sind."""
+    rnd = random.Random(saat)
+    bm = bmesh.new()
+    dreh = Matrix.Rotation(math.pi / 2, 4, 'Z') if achse == 'y' else Matrix.Identity(4)
+    z = 0.0; reihe = 0; anzahl = 0
+    while z < hoehe:
+        rh = 0.24 + rnd.random() * 0.16
+        u = -laenge / 2 + (rnd.random() * 0.35 if reihe % 2 else rnd.random() * 0.1)
+        while u < laenge / 2 - 0.15:
+            sl = min(0.35 + rnd.random() * 0.55, laenge / 2 - u)
+            uc, zc = u + sl / 2, z + rh / 2
+            hmax = hoehenprofil(uc, hmin, hoehe, saat, schutz)
+            halten = zc < hmax
+            if halten and hmax - zc < 0.7 and rnd.random() < 0.4: halten = False       # ausgefranste Oberkante
+            ende = laenge / 2 - abs(uc)
+            if halten and ende < 0.7 and rnd.random() < 0.25 + 0.5 * zc / hoehe: halten = False   # ausgefranste Enden
+            if halten and oeffnung is not None:
+                for du, dz in ((-sl / 2, -rh / 2), (sl / 2, -rh / 2), (-sl / 2, rh / 2), (sl / 2, rh / 2)):
+                    if im_bogen(uc + du, zc + dz, oeffnung, 0.34): halten = False
+            if halten:
+                tiefe = dicke * (1.0 + rnd.random() * 0.22)   # nie duenner als der Kern, sonst verschwindet der Stein darin
+                kipp = Euler((rnd.uniform(-0.04, 0.04), rnd.uniform(-0.04, 0.04), rnd.uniform(-0.03, 0.03))).to_matrix().to_4x4()
+                m = dreh @ Matrix.Translation(Vector((uc, (rnd.random() - 0.5) * 0.08, zc))) @ kipp
+                stein_bm(bm, (sl * 0.95, tiefe, rh * 0.93), m, saat * 100000 + reihe * 1000 + int((uc + 50) * 10), 0.06)
+                anzahl += 1
+            u += sl + 0.02 + rnd.random() * 0.03
+        z += rh + 0.025; reihe += 1
+    # Keilsteinbogen und Gewaende
+    if oeffnung is not None:
+        u0, b, h = oeffnung; R = b / 2 + 0.18; zs = h - b / 2
+        n = max(9, int(math.pi * R / 0.32))
+        for i in range(n + 1):
+            a = math.pi * i / n
+            m = dreh @ Matrix.Translation(Vector((u0 + R * math.cos(a), 0, zs + R * math.sin(a)))) @ Matrix.Rotation(a - math.pi / 2, 4, 'Y')
+            stein_bm(bm, (0.30, dicke * 1.02, 0.36), m, saat * 7 + i, 0.05, 0.25)
+        zz = 0.15
+        while zz < zs - 0.1:
+            for s in (-1, 1):
+                m = dreh @ Matrix.Translation(Vector((u0 + s * R, 0, zz)))
+                stein_bm(bm, (0.36, dicke * 1.02, 0.30), m, saat * 11 + int(zz * 10) + s, 0.05, 0.25)
+            zz += 0.32
+    print(name, anzahl, 'Steine')
+    o = fertig(name, bm, ort, mat, False, (lehne if achse == 'x' else 0.0, lehne if achse == 'y' else 0.0, 0.0))
+    # Kern: dunkel, etwas schmaler, mit derselben Bruchkante — fuellt die Luecken zwischen den Steinen
+    kern = kasten(name + '_Kern', (dicke - 0.28, laenge - 0.3, hoehe) if achse == 'y' else (laenge - 0.3, dicke - 0.28, hoehe), (ort[0], ort[1], ort[2] + 0.02), 0.5)
+    if oeffnung is not None:
+        u0, b, h = oeffnung
+        wo = Vector(ort) + (Vector((0, u0, 0)) if achse == 'y' else Vector((u0, 0, 0)))
+        abziehen(kern, bogen(name + '_Tor', b + 0.36, h + 0.18, dicke + 1.0, wo, math.radians(90) if achse == 'y' else 0.0))
+    # Der Kern folgt demselben Hoehenprofil wie die Steine, nur 0,35 m tiefer — sonst schaut er oben heraus
+    # (erster Lauf: die Bruchkante des Kastens nahm das Rauschen auf der anderen Achse, der Kern stand als Buckel ueber den Steinen).
+    for v in kern.data.vertices:
+        if v.co.z > 0.05:
+            u = v.co.y if achse == 'y' else v.co.x
+            v.co.z = min(v.co.z, hoehenprofil(u, hmin, hoehe, saat, schutz) - 0.35)
+    kern.data.update()
+    setze(kern, mat_kern); kern.rotation_euler = o.rotation_euler
+    return o
+
+def plattenhof(name, ort, groesse, mat, saat, loch=None):
+    """Hof aus einzelnen Platten: verkippt, versunken, am Rand fehlen sie. `loch` = (x, y, halbx, halby) freilassen."""
+    rnd = random.Random(saat); bm = bmesh.new(); n = 0
+    y = -groesse[1] / 2
+    while y < groesse[1] / 2:
+        sy = 0.6 + rnd.random() * 0.5
+        x = -groesse[0] / 2 + rnd.random() * 0.4
+        while x < groesse[0] / 2:
+            sx = 0.6 + rnd.random() * 0.6
+            xc, yc = x + sx / 2, y + sy / 2
+            rand = min(groesse[0] / 2 - abs(xc), groesse[1] / 2 - abs(yc))
+            p = 0.06 + (0.75 * max(0.0, 1.0 - rand / 1.6))
+            if loch is not None and abs(xc - loch[0]) < loch[2] and abs(yc - loch[1]) < loch[3]: p = 1.0
+            if rnd.random() > p:
+                kipp = Euler((rnd.uniform(-0.05, 0.05), rnd.uniform(-0.05, 0.05), rnd.uniform(-0.08, 0.08))).to_matrix().to_4x4()
+                m = Matrix.Translation(Vector((xc, yc, -0.06 + rnd.uniform(-0.05, 0.02)))) @ kipp
+                stein_bm(bm, (sx * 0.93, sy * 0.93, 0.14), m, saat * 1000 + n, 0.05, 0.3); n += 1
+            x += sx + 0.04
+        y += sy + 0.04
+    print(name, n, 'Platten')
+    return fertig(name, bm, ort, mat)
+
+def steinbecken(name, ort, aussen, tiefe, mat, mat_wasser, saat):
+    """Becken: Rand aus zwei Reihen Steinen, Sohle, Wasser."""
+    rnd = random.Random(saat); bm = bmesh.new(); k = 0
+    ax, ay = aussen
+    for reihe, z in enumerate((0.15, 0.42)):
+        for seite in range(4):
+            L = ax if seite % 2 == 0 else ay
+            u = -L / 2 + (0.2 if reihe else 0.0)
+            while u < L / 2 - 0.1:
+                sl = min(0.35 + rnd.random() * 0.3, L / 2 - u)
+                if seite == 0: pos, rot = Vector((u + sl / 2, -ay / 2 + 0.17, z)), 0.0
+                elif seite == 2: pos, rot = Vector((u + sl / 2, ay / 2 - 0.17, z)), 0.0
+                elif seite == 1: pos, rot = Vector((ax / 2 - 0.17, u + sl / 2, z)), math.pi / 2
+                else: pos, rot = Vector((-ax / 2 + 0.17, u + sl / 2, z)), math.pi / 2
+                if not (reihe == 1 and rnd.random() < 0.18):   # oben fehlt hier und da ein Stein
+                    m = Matrix.Translation(pos) @ Matrix.Rotation(rot, 4, 'Z') @ Euler((rnd.uniform(-0.03, 0.03), rnd.uniform(-0.03, 0.03), rnd.uniform(-0.04, 0.04))).to_matrix().to_4x4()
+                    stein_bm(bm, (sl * 0.94, 0.34, 0.27), m, saat * 100 + k, 0.05); k += 1
+                u += sl + 0.03
+    rand = fertig(name, bm, ort, mat)
+    sohle = kasten(name + '_Sohle', (ax - 0.5, ay - 0.5, 0.2), (ort[0], ort[1], ort[2] - tiefe - 0.2), 1.0); setze(sohle, mat)
+    bpy.ops.mesh.primitive_plane_add(size=1, location=(ort[0], ort[1], ort[2] + 0.30))
+    w = bpy.context.active_object; w.name = name + '_Wasser'; w.scale = (ax - 0.6, ay - 0.6, 1); setze(w, mat_wasser)
+    return rand
+
+def erdwulst(ter, linien, breite=1.6, hoehe=0.35):
+    """Boden schmiegt sich an den Mauerfuss: Vertices nahe der Mauerlinie anheben."""
+    for v in ter.data.vertices:
+        p = Vector((v.co.x, v.co.y))
+        best = 1e9
+        for a, b in linien:
+            a, b = Vector(a), Vector(b); ab = b - a; t = max(0.0, min(1.0, (p - a).dot(ab) / max(1e-6, ab.length_squared)))
+            best = min(best, (p - (a + ab * t)).length)
+        if best < breite:
+            t = 1.0 - best / breite
+            v.co.z += hoehe * t * t + 0.04 * noise.noise(Vector((v.co.x * 2.1, v.co.y * 2.1, 0)))
+    ter.data.update()
+
+def bodenrauschen(ter, mx, my, r, staerke=0.08):
+    for v in ter.data.vertices:
+        d = math.hypot(v.co.x - mx, v.co.y - my)
+        if d < r:
+            v.co.z += staerke * noise.noise(Vector((v.co.x * 0.7, v.co.y * 0.7, 3.3))) * (1.0 - d / r)
+    ter.data.update()
+
+# ----------------------------------------------------------------- Vegetation (D154)
+def klumpen_bm(ziel, ort, groesse, saat, rauheit=0.5, unterteilung=1, rot=None):
+    """Blattmasse: verzerrte Ikosphaere, transformiert, an `ziel` gehaengt."""
+    rnd = random.Random(saat)
+    bm = bmesh.new(); bmesh.ops.create_icosphere(bm, subdivisions=unterteilung, radius=1.0)
+    off = Vector((rnd.random() * 50, rnd.random() * 50, rnd.random() * 50))
+    for v in bm.verts:
+        n = noise.noise(v.co * 1.8 + off) * rauheit + noise.noise(v.co * 5.0 + off) * rauheit * 0.4
+        v.co = Vector((v.co.x * groesse[0], v.co.y * groesse[1], v.co.z * groesse[2])) * (1.0 + n)
+    m = Matrix.Translation(Vector(ort)) @ (rot if rot is not None else Euler((rnd.random() * 0.5, rnd.random() * 0.5, rnd.random() * 6.28)).to_matrix().to_4x4())
+    bmesh.ops.transform(bm, matrix=m, verts=bm.verts[:])
+    me = bpy.data.meshes.new('klumpen'); bm.to_mesh(me); bm.free(); ziel.from_mesh(me); bpy.data.meshes.remove(me)
+
+def stamm(name, punkte, radien, mat, aufloesung=6):
+    cu = bpy.data.curves.new(name, 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 1.0; cu.bevel_resolution = aufloesung; cu.fill_mode = 'FULL'; cu.use_fill_caps = True
+    sp = cu.splines.new('NURBS'); sp.points.add(len(punkte) - 1); sp.use_endpoint_u = True; sp.order_u = 3
+    for i, (p, r) in enumerate(zip(punkte, radien)):
+        sp.points[i].co = (p.x, p.y, p.z, 1.0); sp.points[i].radius = r
+    o = bpy.data.objects.new(name, cu); bpy.context.collection.objects.link(o); o.data.materials.append(mat)
+    return o
+
+def laubbaum2(name, x, y, hoehe, mat_rinde, mat_laub, saat, fein=True):
+    """Hoher schlanker Laubbaum: gebogener Stamm mit Wurzelanlauf, Aeste erst oben, Krone aus vielen kleinen Blattmassen."""
+    rnd = random.Random(saat)
+    z0 = bodenhoehe(x, y)
+    lean = Vector((rnd.random() - 0.5, rnd.random() - 0.5, 0)) * 0.10
+    r0 = 0.11 + hoehe * 0.007
+    n = 12; pts = []; rad = []
+    for i in range(n):
+        t = i / (n - 1)
+        wob = Vector((math.sin(t * 6.0 + saat) * 0.5, math.cos(t * 5.0 + saat * 0.7) * 0.5, 0)) * t
+        pts.append(Vector((x, y, z0 - 0.4)) + lean * (t * hoehe) + wob + Vector((0, 0, t * hoehe)))
+        rad.append(r0 * (1.0 - 0.82 * t) + 0.035)
+    stamm(name + '_Stamm', pts, rad, mat_rinde)
+    # Wurzelanlauf: kurze Strahlen am Fuss
+    for k in range(4 + rnd.randrange(3)):
+        a = rnd.random() * 6.283; l = 0.8 + rnd.random() * 1.2
+        p0 = Vector((x, y, z0 + 0.35)); p1 = p0 + Vector((math.cos(a) * l * 0.5, math.sin(a) * l * 0.5, -0.25)); p2 = p0 + Vector((math.cos(a) * l, math.sin(a) * l, -0.45))
+        stamm(name + '_Anlauf%d' % k, [p0, p1, p2], [r0 * 0.9, r0 * 0.5, 0.05], mat_rinde, 3)
+    krone = bmesh.new(); enden = []
+    for k in range(9 + rnd.randrange(7)):
+        t = 0.48 + rnd.random() * 0.48
+        i = t * (n - 1); i0 = int(i); basis = pts[min(n - 1, i0)].lerp(pts[min(n - 1, i0 + 1)], i - i0)
+        a = rnd.random() * 6.283; l = (1.5 + rnd.random() * 3.5) * (1.3 - t) + 0.8
+        mitte = basis + Vector((math.cos(a) * l * 0.5, math.sin(a) * l * 0.5, l * 0.15))
+        ende = basis + Vector((math.cos(a) * l, math.sin(a) * l, l * (0.25 + rnd.random() * 0.45)))
+        stamm(name + '_Ast%d' % k, [basis, mitte, ende], [rad[i0] * 0.55, rad[i0] * 0.3, 0.02], mat_rinde, 3)
+        enden.append((ende, l))
+    enden.append((pts[-1], 2.0))
+    for k, (e, l) in enumerate(enden):
+        for j in range(6 if fein else 3):
+            s = (0.35 + rnd.random() * 0.55) * (0.7 + hoehe / 50)
+            klumpen_bm(krone, (e.x + (rnd.random() - 0.5) * (1.2 + l * 0.5), e.y + (rnd.random() - 0.5) * (1.2 + l * 0.5), e.z - 0.4 + rnd.random() * 1.4), (s * 1.4, s, s * 0.4), saat * 31 + k * 9 + j, 0.7, 2 if fein else 1)
+    fertig(name + '_Krone', krone, (0, 0, 0), mat_laub, True)
+
+def fichte(name, x, y, hoehe, mat_rinde, mat_nadel, saat, fein=True):
+    """Fichte aus Astquirlen: je Quirl 5–7 Aeste, jeder Ast eine haengende Nadelmasse — keine Kegel."""
+    rnd = random.Random(saat)
+    z0 = bodenhoehe(x, y)
+    bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.10 + hoehe * 0.011, radius2=0.02, depth=hoehe, location=(x, y, z0 + hoehe / 2 - 0.3))
+    st = bpy.context.active_object; st.name = name + '_Stamm'; setze(st, mat_rinde)
+    nadeln = bmesh.new(); k = 0
+    quirle = 9 + int(hoehe / 3.5)
+    for i in range(quirle):
+        t = 0.22 + 0.76 * i / (quirle - 1)
+        L = ((1.0 - t) * (1.1 + hoehe * 0.055) + 0.35) * (0.85 + rnd.random() * 0.3)
+        for j in range(5 + rnd.randrange(3)):
+            a = rnd.random() * 6.283
+            haeng = -0.08 - rnd.random() * 0.28
+            Lj = L * (0.7 + rnd.random() * 0.6)
+            for s in ((0.5, 0.95) if fein and Lj > 1.2 else (0.7,)):
+                d = Lj * s
+                pos = Vector((x + math.cos(a) * d, y + math.sin(a) * d, z0 + hoehe * t + haeng * d))
+                rot = (Matrix.Rotation(a, 4, 'Z') @ Matrix.Rotation(-haeng, 4, 'Y'))
+                klumpen_bm(nadeln, pos, (Lj * (0.30 if s < 0.9 else 0.24), 0.30 + Lj * 0.10, 0.10 + Lj * 0.05), saat * 53 + k, 0.55, 1, rot); k += 1
+        if i == quirle - 1:
+            klumpen_bm(nadeln, Vector((x, y, z0 + hoehe * 0.985)), (0.3, 0.3, 0.6), saat * 53 + k + 1, 0.4, 1, Matrix.Identity(4))
+    fertig(name + '_Nadeln', nadeln, (0, 0, 0), mat_nadel, True)
+
+def farn(name, x, y, mat, saat, groesse=1.0):
+    """Farnhorst: 6–9 Wedel als flache, nach oben gekippte Blattmassen."""
+    rnd = random.Random(saat); z0 = bodenhoehe(x, y); bm = bmesh.new()
+    for j in range(6 + rnd.randrange(4)):
+        a = rnd.random() * 6.283; l = (0.45 + rnd.random() * 0.35) * groesse; kipp = 0.45 + rnd.random() * 0.45
+        pos = Vector((x + math.cos(a) * l * 0.55, y + math.sin(a) * l * 0.55, z0 + 0.05 + math.sin(kipp) * l * 0.5))
+        rot = Matrix.Rotation(a, 4, 'Z') @ Matrix.Rotation(-kipp, 4, 'Y')
+        klumpen_bm(bm, pos, (l * 0.55, l * 0.16, 0.025), saat * 17 + j, 0.35, 1, rot)
+    fertig(name, bm, (0, 0, 0), mat, True)
+
+def efeu(name, flecken, mat, saat):
+    """Efeu an einer Mauerflaeche: `flecken` = Liste (Mitte Vector, Normale Vector, Radius). Kleine Blattmassen, dicht am Stein."""
+    rnd = random.Random(saat); bm = bmesh.new(); k = 0
+    for mitte, normale, r in flecken:
+        n = normale.normalized(); u = n.cross(Vector((0, 0, 1))).normalized(); w = Vector((0, 0, 1))
+        for j in range(int(r * r * 26)):
+            a = rnd.random() * 6.283; d = r * math.sqrt(rnd.random())
+            p = mitte + u * (math.cos(a) * d * 1.2) + w * (math.sin(a) * d) + n * (0.06 + rnd.random() * 0.08)
+            rot = n.to_track_quat('Z', 'Y').to_matrix().to_4x4() @ Matrix.Rotation(rnd.random() * 6.28, 4, 'Z')
+            s = 0.10 + rnd.random() * 0.12
+            klumpen_bm(bm, p, (s * 1.5, s, s * 0.35), saat * 19 + k, 0.5, 1, rot); k += 1
+        # Ranken nach unten
+        for j in range(3):
+            a = (rnd.random() - 0.5) * 1.2
+            for t in range(6):
+                p = mitte + u * (a * r + t * 0.05) + w * (-r * 0.6 - t * 0.28) + n * 0.07
+                if p.z < mitte.z - r * 2.2: break
+                klumpen_bm(bm, p, (0.12, 0.09, 0.03), saat * 23 + k, 0.4, 1, n.to_track_quat('Z', 'Y').to_matrix().to_4x4()); k += 1
+    fertig(name, bm, (0, 0, 0), mat, True)
 
 # ----------------------------------------------------------------- Gras, Dunst, Licht, Kamera
 def grashalm(mat):
@@ -667,9 +954,14 @@ def bauen():
     was = importiere('wasser'); fw = importiere('fern_wasser'); hs = importiere('fern_haeuser')
     GELAENDE['obj'] = ter
     if fern: loch_im_fernen(fern, 159.5)
-    m_boden, m_stein, m_pflaster = mat_boden(), mat_pflaster('Stein', 'wand', 2.2, 0.8, 5.0), mat_pflaster('Pflaster', 'boden', 1.3, 0.9)
-    m_fels, m_rinde, m_laub, m_nadel, m_wasser = mat_fels(), mat_rinde(), mat_laub(), mat_laub('Nadel', NADEL, (0.22, 0.30, 0.10), 0.35), mat_wasser()
+    m_boden = mat_boden()
+    m_fels, m_stein, m_platte = mat_fels('Fels', 1.3), mat_fels('Stein', 0.9, 5.0), mat_fels('Platte', 1.2)
+    m_kern, nt, out = material('Kern'); bk = prinzip(nt, MOERTEL, 0.95); link(nt, bk, 'BSDF', out, 'Surface')
+    m_rinde, m_laub, m_wasser = mat_rinde(), mat_laub(), mat_wasser()
+    m_nadel = mat_laub('Nadel', NADEL, (0.22, 0.30, 0.10), 0.35, 0.40)
     m_gras = mat_laub('Gras', (0.30, 0.34, 0.11), (0.55, 0.52, 0.20), 0.6, 0.0)
+    m_farn = mat_laub('Farn', (0.16, 0.26, 0.07), (0.40, 0.50, 0.15), 0.6, 0.30)
+    m_efeu = mat_laub('Efeu', (0.09, 0.17, 0.05), (0.28, 0.38, 0.11), 0.4, 0.28)
     setze(ter, m_boden)
     if fern: setze(fern, m_boden)
     if was: setze(was, m_wasser)
@@ -678,39 +970,48 @@ def bauen():
     fernkulisse(m_boden)
     bpy.context.view_layer.update()
 
-    # Terrasse: eine Bank im Hang. Die Mauer steht an ihrer Ostkante, der Hof liegt dahinter (westlich),
-    # die Kamera steht im Hof und schaut durch den Bogen ins Tal — der Hang faellt nach Osten 280 m ab.
+    # Terrasse: eine Bank im Hang. Mauer an der Ostkante, Hof dahinter, Kamera im Hof, Blick durch den Bogen ins Tal.
     zt = bodenhoehe(-2.0, -1.0)
     terrasse(ter, -2.0, -1.0, 12.0, 22.0, zt)
+    bodenrauschen(ter, -2.0, -1.0, 16.0, 0.07)
     bpy.context.view_layer.update()
 
-    # Erst die Oeffnung, dann die Bruchkante: der exakte Boolean scheitert an den entarteten Flaechen,
-    # die das Abtragen der Oberkante hinterlaesst (gemessen: zweimal die ganze Mauer weg).
-    a = kasten('MauerA', (1.0, 15.0, 7.5), (5.0, 0.0, zt - 0.4), 0.5)
-    abziehen(a, bogen('Tor', 3.2, 5.2, 3.0, (5.0, -1.5, zt), math.radians(90)))
-    bruchkante(a, 3.4, 7.3, 1, ('y', -1.5, 2.2, 6.4)); setze(a, m_stein); verwittern(a)
-    b = kasten('MauerB', (10.0, 1.0, 5.0), (0.0, 7.5, zt - 0.4), 0.5)
-    abziehen(b, bogen('Fenster', 0.8, 2.8, 3.0, (-2.0, 7.5, zt + 1.3), 0.0))
-    bruchkante(b, 1.8, 4.8, 2, ('x', -2.0, 0.9, 3.6)); setze(b, m_stein); verwittern(b)
-    c = kasten('MauerC', (5.0, 1.0, 3.0), (2.0, -8.0, zt - 0.4), 0.5); bruchkante(c, 0.6, 2.6, 6)
-    setze(c, m_stein); verwittern(c)
-    s = kasten('Stuetzmauer', (0.8, 26.0, 2.6), (12.5, -1.0, zt - 2.8), 0.5); bruchkante(s, 1.2, 2.4, 3)
-    setze(s, m_stein); verwittern(s)
+    # Mauern aus Steinen (D154): Kanten entstehen aus fehlenden Steinen, nicht aus Kastenkanten
+    mauer('MauerA', (5.0, 0.0, zt - 0.35), 15.0, 7.5, 1.0, 'y', 1, m_stein, m_kern, 3.4, oeffnung=(-1.5, 3.2, 5.2), schutz=(-1.5, 2.2, 6.6), lehne=math.radians(-1.5))
+    mauer('MauerB', (0.0, 7.5, zt - 0.35), 10.0, 5.0, 1.0, 'x', 2, m_stein, m_kern, 1.8, oeffnung=(-2.0, 0.8, 2.9), schutz=(-2.0, 0.9, 3.8))
+    mauer('MauerC', (2.0, -8.0, zt - 0.35), 5.0, 3.0, 1.0, 'x', 6, m_stein, m_kern, 0.6)
+    mauer('Stuetzmauer', (12.5, -1.0, zt - 2.7), 26.0, 2.6, 0.8, 'y', 3, m_stein, m_kern, 1.2)
+    erdwulst(ter, [((5.0, -7.5), (5.0, 7.5)), ((-5.0, 7.5), (5.0, 7.5)), ((-0.5, -8.0), (4.5, -8.0))], 1.4, 0.28)
+    bpy.context.view_layer.update()
     geroell(5.0, 5.0, 2.6, 12, m_fels, 3); geroell(-3.0, 7.0, 2.2, 8, m_fels, 4); geroell(2.0, -7.5, 2.0, 7, m_fels, 5); geroell(5.0, -5.5, 1.8, 6, m_fels, 6)
+    geroell(4.6, -1.5, 1.2, 5, m_fels, 8)
 
-    pflaster('Hof', (-1.0, -0.5, zt), (12.0, 15.0), m_pflaster)
-    becken((-2.5, -3.0, zt), (3.8, 5.4), (2.9, 4.5), 0.8, m_stein, m_wasser)
+    plattenhof('Hof', (-1.0, -0.5, zt), (12.0, 15.0), m_platte, 9, loch=(-1.5, -2.5, 2.1, 2.9))
+    steinbecken('Becken', (-2.5, -3.0, zt), (3.8, 5.4), 0.8, m_stein, m_wasser, 4)
 
     bloecke = (((-7.5, 5.5), (2.2, 1.7, 1.3)), ((-6.5, -7.5), (1.7, 1.4, 1.0)), ((-13.5, 4.0), (2.8, 2.0, 1.5)), ((-3.0, 4.2), (1.1, 0.9, 0.7)))
     for i, ((x, y), g) in enumerate(bloecke):
         o = block('Moosblock%d' % i, (x, y, bodenhoehe(x, y) + g[2] * 0.5), g, 40 + i, 0.25, 4); setze(o, m_fels)
-    for i, (st, ri, l) in enumerate((((-9.0, 8.0), 5.0, 8.0), ((-9.0, 8.0), 4.2, 6.5), ((-8.5, 7.5), 5.8, 5.0), ((-9.5, -6.0), 1.0, 5.0))):
-        wurzel('Wurzel%d' % i, st, ri, l, m_rinde, 50 + i, 0.3 if i < 3 else 0.2)
+    # Wurzeln vom Heldenbaum ueber die linke Hofhaelfte — die Natur holt sich das Pflaster
+    for i, (st, ri, l) in enumerate((((-7.0, 6.5), -0.55, 9.0), ((-7.0, 6.5), -1.15, 7.5), ((-7.0, 6.5), 0.25, 5.0), ((-9.5, -6.0), 0.9, 5.5))):
+        wurzel('Wurzel%d' % i, st, ri, l, m_rinde, 50 + i, 0.32 if i < 3 else 0.2)
 
-    for i, (x, y, h) in enumerate(((-9.0, 8.0, 32), (8.0, 10.0, 34), (7.0, -12.0, 30), (-7.0, -12.5, 27), (15.0, 4.0, 28), (-1.0, 11.0, 30))):
-        laubbaum('Held%d' % i, x, y, h, m_rinde, m_laub, 70 + i, 3, 8)
-    nadelbaum('HeldN0', -13.0, 11.0, 24, m_rinde, m_nadel, 80); nadelbaum('HeldN1', 19.0, -24.0, 22, m_rinde, m_nadel, 81)
+    for i, (x, y, h) in enumerate(((-7.0, 6.5, 32), (8.0, 10.0, 34), (7.0, -12.0, 30), (-7.0, -12.5, 27), (15.0, 4.0, 28), (-1.0, 11.0, 30))):
+        laubbaum2('Held%d' % i, x, y, h, m_rinde, m_laub, 70 + i, True)
+    fichte('HeldN0', -13.0, 11.0, 24, m_rinde, m_nadel, 80, True); fichte('HeldN1', 19.0, -24.0, 22, m_rinde, m_nadel, 81, True)
     wald(ter, m_rinde, m_laub, m_nadel, 22.0, 150.0, 5.5, 11, ((-2.0, -1.0, 21.0),))
+
+    # Farn an Mauerfuessen, Bloecken und am Terrassenrand; Efeu an den Mauern
+    rnd = random.Random(77); k = 0
+    for (mx, my, r, n) in ((5.0, 6.5, 2.5, 6), (5.2, -6.5, 2.2, 5), (-3.0, 8.5, 2.0, 5), (-8.0, 5.0, 2.5, 6), (-7.5, -8.0, 2.5, 5), (-12.0, 2.0, 3.0, 5), (3.0, -9.5, 2.0, 4)):
+        for j in range(n if not SCHNELL else max(2, n // 2)):
+            a = rnd.random() * 6.283; d = r * math.sqrt(rnd.random())
+            x, y = mx + math.cos(a) * d, my + math.sin(a) * d
+            if abs(x + 1.0) < 6.2 and abs(y + 0.5) < 7.7 and not (abs(y - 7.5) < 1.0): continue
+            farn('Farn%d' % k, x, y, m_farn, 300 + k, 0.8 + rnd.random() * 0.6); k += 1
+    zb = zt - 0.35
+    efeu('EfeuA', [(Vector((4.45, 3.5, zb + 2.2)), Vector((-1, 0, 0)), 1.1), (Vector((4.45, -5.2, zb + 1.5)), Vector((-1, 0, 0)), 0.9), (Vector((4.45, 5.8, zb + 3.2)), Vector((-1, 0, 0)), 0.7)], m_efeu, 90)
+    efeu('EfeuB', [(Vector((-3.5, 6.95, zb + 1.7)), Vector((0, -1, 0)), 1.0), (Vector((2.4, 6.95, zb + 2.4)), Vector((0, -1, 0)), 0.8)], m_efeu, 91)
 
     halm = grashalm(m_gras)
     gras(ter, halm, ((-1.0, -0.5, 8.5),), 3.0 if SCHNELL else 9.0)
@@ -719,9 +1020,7 @@ def bauen():
     dunst('Bodennebel', 700.0, -90.0, 14.0, 0.008, 30.0, (0.92, 0.86, 0.78), 0.4)
 
     # Sonne tief im Nordosten, 55 Grad links der Blickachse: Gegenlicht am Dunst, Streiflicht an Mauer und Hof.
-    # Erster Lauf (Az 72, Welt 0,008): Median 0,003, 66 % dunkel — Silhouette ohne Zeichnung. Referenz: 0,06–0,14.
     EL, AZ = 13.0, 42.0
-    # Der physikalische Himmel ist tausendfach heller als eine 4-W-Sonne: Weltstaerke klein halten.
     sonne(EL, AZ, (1.0, 0.80, 0.60), 3.5)
     welt(EL, AZ, 1.5)
     kamera((-10.0, 0.5, zt + 1.7), (5.0, -1.2, zt + 2.6), 26)

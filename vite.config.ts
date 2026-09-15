@@ -56,7 +56,10 @@ export default defineConfig({
         // Service-Worker-Kontrolle steht (G-100). Zuständig ist jetzt
         // `src/world/weltladen.ts`, das die Cache-API direkt bedient.
         globPatterns: ['**/*.{js,css,html,glb}'],
-        maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        // 8 → 16 MiB (ADR-0006, Stufe 2): Ein Bauwerk aus der Blender-Szene mit gebackenen
+        // Texturen wiegt nach `tools/bautenpack.ts` 12 MB (WebP, 1024er Karten, 21 Netze).
+        // Das Handy ist nachrangig; der Wert wird gemessen, nicht gedeckelt.
+        maximumFileSizeToCacheInBytes: 16 * 1024 * 1024,
       },
     }),
   ],

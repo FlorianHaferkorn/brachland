@@ -11,6 +11,7 @@
  * Fleck trägt bei jedem Besuch dieselben Büschel.
  */
 import * as THREE from 'three';
+import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
 import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
@@ -243,6 +244,7 @@ function streue(
         const z = zz + hash(ix, iz, b + 2) * ZELLE;
         const d = Math.hypot(x - mx, z - mz);
         if (d > r) continue;
+        if (gesperrt(x, z, 'streu')) continue;   // Hof eines Bauwerks (ADR-0006)
         // Am Rand ausdünnen, damit die Schicht nicht als Kreis endet.
         if (d > r * 0.75 && hash(ix, iz, b + 3) < (d - r * 0.75) / (r * 0.25)) continue;
 
