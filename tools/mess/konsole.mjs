@@ -1,0 +1,11 @@
+import { playwright } from './pw.mjs';
+const { chromium } = await playwright();
+const [ort, extra] = [process.argv[2], process.argv[3] ?? ''];
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 900, height: 620 } });
+p.on('console', m => { const t = m.text(); if (/error|THREE|glut|shader/i.test(t)) console.log('[konsole]', t.slice(0, 1500)); });
+p.on('pageerror', e => console.log('[pageerror]', String(e).slice(0, 800)));
+await p.goto(`http://127.0.0.1:4173/?absetzen=${ort}${extra}`, { waitUntil: 'domcontentloaded' });
+await p.waitForSelector('button[aria-label="Menü"]', { timeout: 240000 });
+await p.waitForTimeout(12000);
+await b.close();

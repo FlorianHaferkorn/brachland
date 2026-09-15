@@ -11,7 +11,7 @@ Was passiert:
   die Loecher im Laub rechnet die Engine mit demselben Rauschen im Shader nach.
 - Wasserflaechen kommen als eigenes Objekt ohne Backen (Engine-Wasser).
 Achsen: glTF ist Y-oben; der Exporter dreht Blender-Z nach Y und Blender-Y nach −Z — genau die
-Abbildung von `.cache/terrainexport.ts` (X = x, Y = −z, Z = y). Ursprung der Szene = Weltpunkt (cx, cz)
+Abbildung von `tools/terrainexport.ts` (X = x, Y = −z, Z = y). Ursprung der Szene = Weltpunkt (cx, cz)
 aus `.cache/blender/terrain.json`, Hoehe h0.
 """
 import bpy, math, sys, os, json, time, re

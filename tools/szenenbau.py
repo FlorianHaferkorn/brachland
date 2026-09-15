@@ -4,13 +4,13 @@ BRACHLAND — Szenenbau (D153): ein Œntal-Ausschnitt als Blender-Szene im Ziels
     blender --background --python tools/szenenbau.py -- <objdir> <out.blend> <out.png> [schnell|voll]
 
 Was hier steht, ist die **Zielreferenz** fuer Stufe 2 (Engine): dieselbe Stelle, dieselben
-Motive, dasselbe Licht — im Spiel gemessen gegen diesen Render (`.cache/mess/stil.mjs`).
+Motive, dasselbe Licht — im Spiel gemessen gegen diesen Render (`tools/mess/stil.mjs`).
 
 Motive sind eigene Gattungen, keine fremden Designs (ADR-0004): eine verfallene Mauer mit
 Bogen auf einer Terrasse, ein gepflasterter Hof mit Wasserbecken, Moosbloecke mit Wurzeln,
 hohe schlanke Staemme, Dunst im Tal, tiefe warme Sonne im Gegenlicht.
 
-Terrain kommt aus dem Spiel (`.cache/terrainexport.ts`, DGM1 + Biome als Vertexfarbe),
+Terrain kommt aus dem Spiel (`tools/terrainexport.ts`, DGM1 + Biome als Vertexfarbe),
 alles andere entsteht prozedural hier — kein Download, keine fremden Texturen.
 """
 import bpy, bmesh, math, random, sys, json, os
