@@ -43,6 +43,21 @@ export type Bauwerk = z.infer<typeof Bauwerk>;
 
 export const BAUWERKE: Bauwerk[] = z.object({ bauwerke: z.array(Bauwerk) }).parse(REGISTER).bauwerke;
 
+/**
+ * Der Nebel endet je Stimmung spaetestens bei rund 420 m. Mit 650 m wird eine
+ * bis zu 150 m breite Blender-Szene geladen, bevor ihr naher Rand sichtbar wird.
+ */
+export const BAUWERK_LADE_RADIUS = 650;
+
+/** Nur Szenen im sichtbaren Umkreis montieren; entscheidend ist der Spieler, nicht die Kamera. */
+export function sichtbareBauwerke(x: number, z: number, radius = BAUWERK_LADE_RADIUS): Bauwerk[] {
+  const quadrat = radius * radius;
+  return BAUWERKE.filter(b => {
+    const dx = x - b.ursprung.x, dz = z - b.ursprung.z;
+    return dx * dx + dz * dz <= quadrat;
+  });
+}
+
 /** Alle Terrassen der Region — Vorgabe fuer `baueHoehenfeld`. */
 export const TERRASSEN: Terrasse[] = BAUWERKE.flatMap(b => (b.terrasse ? [b.terrasse] : []));
 

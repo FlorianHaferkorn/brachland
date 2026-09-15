@@ -11,10 +11,10 @@
  * Kamera (D154) ergab: Himmel, Licht und Dunst decken sich, aber der Hof ist im Spiel 6× heller,
  * weil die Engine keine Verdeckung kennt — im Render nimmt die Mauer dem Hof den Himmel. Deshalb
  * ein Verdeckungspass aus der Tiefe: Sichtraumposition aus Tiefe und Sichtfeld rekonstruiert,
- * Normale aus den Ableitungen, 12 Proben in der Halbkugel (Radius 1,4 m, je Pixel gedreht),
+ * Normale aus den Ableitungen, 12 Proben in der Halbkugel (Radius 8 m, je Pixel gedreht),
  * Abstandspruefung gegen Halos, danach ein 4-Punkte-Weichzeichner im Kompositpass. Das ist
  * Nahfeld-Verdeckung (Fugen, Mauerfuss, Blockschatten); die grosse Himmelsverdeckung des Hofs
- * kommt aus dem **gebackenen** AO der Bauwerke (`tools/szenenexport.py`).
+ * kommt weiterhin aus dem **gebackenen** AO der Bauwerke (`tools/szenenexport.py`).
  *
  * ## Warum ein Vollbildpass und keine Rueckseitenhuelle
  *
@@ -27,7 +27,7 @@
  * ## Wie gemessen wird
  *
  * `?kontur=0` schaltet die Linie ab, `?kontur=1` an; `?ao=0` schaltet die Verdeckung ab,
- * `?ao=1.5` setzt ihre Staerke — unabhaengig von der Vorgabe, damit Bildtor und Vergleich
+ * `?ao=1.5` setzt ihre Staerke, `?aoRadius=4` die Reichweite in Metern — unabhängig von der Vorgabe, damit Bildtor und Vergleich
  * beide Zustaende an demselben Ort sehen. Der Pass selbst laeuft, sobald eines von beiden an
  * ist: Szene in ein Ziel mit Tiefe, AO in ein halb so grosses Ziel, ein Vollbild-Quad.
  *
@@ -59,6 +59,15 @@ const AO_ADRESSE: number | null = (() => {
   return Number.isFinite(n) && n >= 0 ? n : null;
 })();
 
+/** `?aoRadius=8` Reichweite in Metern; ohne Angabe die Vorgabe. */
+const AO_RADIUS_ADRESSE: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const roh = new URLSearchParams(location.search).get('aoRadius');
+  if (roh === null) return null;
+  const n = Number(roh);
+  return Number.isFinite(n) && n > 0 && n <= 32 ? n : null;
+})();
+
 /** Ist die Kontur an? Adresse schlaegt Vorgabe. */
 export function konturAn(vorgabe: boolean): boolean {
   return KONTUR_ADRESSE ?? vorgabe;
@@ -67,6 +76,11 @@ export function konturAn(vorgabe: boolean): boolean {
 /** Staerke der Verdeckung; 0 = aus. Adresse schlaegt Vorgabe. */
 export function aoStaerke(vorgabe: number): number {
   return AO_ADRESSE ?? vorgabe;
+}
+
+/** Reichweite der Verdeckung in Metern; Adresse schlaegt Vorgabe. */
+export function aoReichweite(vorgabe: number): number {
+  return AO_RADIUS_ADRESSE ?? vorgabe;
 }
 
 const SCHEITEL = /* glsl */`
@@ -172,7 +186,7 @@ const FRAGMENT = /* glsl */`
   }
 `;
 
-export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius = 1.4 }: {
+export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius = 8 }: {
   an: boolean; staerke?: number; schwelle?: number;
   /** Verdeckungsstaerke als Exponent; 0 = aus. */
   ao?: number; aoRadius?: number;

@@ -163,6 +163,11 @@ const LOECHER_GLSL = /* glsl */ `
 const DURCHLASS_GLSL = /* glsl */ `
   #if NUM_DIR_LIGHTS > 0
   if (uDurchlass > 0.0 && laubmaske > 0.5) {
+    // Blender mischt Diffus und Translucent. Der alte Shader liess den vollen
+    // Diffusanteil stehen und addierte Durchlass darauf: Laub bekam mehr als
+    // 100 % Licht und wurde blass. Beide Anteile teilen sich nun dieselbe Energie.
+    reflectedLight.directDiffuse *= 1.0 - uDurchlass;
+    reflectedLight.indirectDiffuse *= 1.0 - uDurchlass;
     float rueck = max(0.0, -dot(geometryNormal, directionalLights[0].direction));
     reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * directionalLights[0].color * rueck * uDurchlass;
   }
@@ -297,7 +302,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v11';
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v12';
 
   // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens
   let tiefe: THREE.MeshDepthMaterial | undefined;

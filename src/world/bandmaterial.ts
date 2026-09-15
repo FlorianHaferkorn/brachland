@@ -61,7 +61,11 @@ const GISCHT_GLSL = /* glsl */ `
  * Fallendes Wasser behaelt seine Gischt. Die weiche Uferkante und das Zeit-Uniform
  * bleiben fuer beide Pfade erhalten; glatte Normalen verhindern Bruchglas-Facetten.
  */
-export function baueWasserMaterial(fallend = false, physikalisch = false): THREE.MeshStandardMaterial {
+export function baueWasserMaterial(
+  fallend = false,
+  physikalisch = false,
+  form: 'band' | 'becken' = 'band',
+): THREE.MeshStandardMaterial {
   const material = fallend ? new THREE.MeshStandardMaterial({
     color: PALETTE.wasser.fallend,
     // D131: Das Weiss kommt aus Gischt statt einem harten Sonnenfleck.
@@ -91,6 +95,9 @@ export function baueWasserMaterial(fallend = false, physikalisch = false): THREE
     thickness: 0.4,
     attenuationColor: PALETTE.wasser.absorption,
     attenuationDistance: 1 / 0.6,
+    // Der Himmel ist die einzige Umgebung in der Karte. Ohne die verdeckenden
+    // Baeume des Blender-Renders darf er das Wasser nicht vollstaendig aufhellen.
+    envMapIntensity: form === 'becken' ? 0.15 : 0.35,
     transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false,
     forceSinglePass: true,
   });
@@ -109,7 +116,7 @@ export function baueWasserMaterial(fallend = false, physikalisch = false): THREE
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\n' + HASH_GLSL)
       .replace('#include <color_fragment>', fallend ? /* glsl */ `#include <color_fragment>
-  float ufer = 1.0 - abs(vBand.x);
+  float ufer = ${form === 'becken' ? '2.0 * min(min(vBand.x, 1.0 - vBand.x), min(vBand.y, 1.0 - vBand.y))' : '1.0 - abs(vBand.x)'};
 
   /* Tiefe.
    *
@@ -130,7 +137,7 @@ export function baueWasserMaterial(fallend = false, physikalisch = false): THREE
   // Weiche Uferkante statt Plattenrand.
   diffuseColor.a = deckung * smoothstep(0.0, 0.28, ufer);
 ` + GISCHT_GLSL : /* glsl */ `#include <color_fragment>
-  float ufer = 1.0 - abs(vBand.x);
+  float ufer = ${form === 'becken' ? '2.0 * min(min(vBand.x, 1.0 - vBand.x), min(vBand.y, 1.0 - vBand.y))' : '1.0 - abs(vBand.x)'};
   // Dichte .6 aus der Blender-Quelle; die Bandmitte ist nur eine Tiefennaeherung.
   float dicke = mix(0.08, 0.8, smoothstep(0.0, 0.75, ufer));
   diffuseColor.a *= smoothstep(0.0, 0.28, ufer);
@@ -162,7 +169,7 @@ export function baueWasserMaterial(fallend = false, physikalisch = false): THREE
     }
   };
 
-  material.customProgramCacheKey = () => `brachland-wasser-v6-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}`;
+  material.customProgramCacheKey = () => `brachland-wasser-v7-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}`;
   return material;
 }
 

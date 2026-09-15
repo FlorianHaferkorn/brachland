@@ -26,7 +26,7 @@
  * fällt niemand rechtzeitig herein.
  */
 import type { PropArt, PropChunk, PropInstanz } from '../world/props.js';
-import { ATTRAPPE_AB, MITTEL_AB, FERN_NEUBEWERTUNG } from './sichtweiten.js';
+import { ATTRAPPE_AB, MITTEL_AB, FERN_NEUBEWERTUNG, PROP_NEUBEWERTUNG } from './sichtweiten.js';
 
 export type PropStufe = 'nah' | 'mittel' | 'fern';
 
@@ -57,6 +57,16 @@ export interface Auswahl {
   nah: { c: PropChunk; stufe: PropStufe }[];
   /** Attrappen, nach Art gebündelt. Nur befüllt, wenn `bauBuendel` gesetzt ist. */
   buendel: Map<PropArt, PropChunk[]>;
+}
+
+/**
+ * Welche der zwei verschieden getakteten Listen neu gebaut werden muss.
+ * Ein neuer Fernanker erzwingt die Nahliste mit: Er verschiebt ihre gemeinsame
+ * Grenze, auch wenn die letzte Nahbewertung weniger als 8 m zurueckliegt.
+ */
+export function propListenNeu(nahAbstand: number, fernAbstand: number): { nah: boolean; fern: boolean } {
+  const fern = !(fernAbstand < FERN_NEUBEWERTUNG);
+  return { nah: fern || !(nahAbstand < PROP_NEUBEWERTUNG), fern };
 }
 
 /**

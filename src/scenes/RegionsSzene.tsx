@@ -17,7 +17,7 @@ import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
 import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, MIT_ANBAU, baueAnbau, saatAusId, reitsitz }
   from '../world/kreaturgestalt.js';
-import { Kontur, konturAn, aoStaerke } from './Kontur.js';
+import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
 import { WasserUmgebung, useWasserUmgebung } from './WasserUmgebung.js';
 import { PALETTE } from '../world/palette.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -33,7 +33,7 @@ import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial, windAusHoehe, type RollenSlot } from '../world/windmaterial.js';
-import { BAUWERKE, bauwerkPfad, gesperrt, type Bauwerk } from '../world/bauwerke.js';
+import { BAUWERKE, bauwerkPfad, gesperrt, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
@@ -43,9 +43,8 @@ import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
 import { istAus } from './abschalter.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
-import { TERRAIN_SICHT, NEUAUFBAU_AB, PROP_NEUBEWERTUNG,
-         FERN_NEUBEWERTUNG } from './sichtweiten.js';
-import { buendleFernProps, waehleProps, type PropStufe } from './propauswahl.js';
+import { TERRAIN_SICHT, NEUAUFBAU_AB } from './sichtweiten.js';
+import { buendleFernProps, propListenNeu, waehleProps, type PropStufe } from './propauswahl.js';
 import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
@@ -702,8 +701,8 @@ function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInst
      * 194 Draw Calls. Die alte Fassung schrieb `if (abstand < schwelle) return`
      * und war deshalb richtig, ohne dass es jemandem auffiel.
      */
-    const nahNeu = !(letzte.current.distanceTo(p) < PROP_NEUBEWERTUNG);
-    const fernNeu = !(letzteFern.current.distanceTo(p) < FERN_NEUBEWERTUNG);
+    const { nah: nahNeu, fern: fernNeu } = propListenNeu(
+      letzte.current.distanceTo(p), letzteFern.current.distanceTo(p));
     if (!nahNeu && !fernNeu) return;
 
     // Der Anker ist der Punkt, an dem das Bündel zuletzt gebaut wurde. Warum die
@@ -712,7 +711,10 @@ function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInst
     const anker: [number, number] = [letzteFern.current.x, letzteFern.current.z];
     const { nah, buendel } = waehleProps(chunks, [p.x, p.z], anker, fernNeu);
 
-    if (nahNeu) {
+    // Ein neuer Fernanker verschiebt auch die Grenze zwischen Chunk und Bündel.
+    // Deshalb beide Listen gemeinsam ersetzen, selbst wenn die letzte 8-m-
+    // Nahbewertung erst ein Bild zuvor lief; sonst steht ein Randchunk kurz doppelt.
+    if (nahNeu || fernNeu) {
       letzte.current.copy(p);
       setSichtbar(nah.map(({ c, stufe }) => ({
         // Die Stufe gehört in den Schlüssel: Seit die Mittelstufe ihre Varianten
@@ -1514,14 +1516,29 @@ export interface Ortsmarke {
  * Silhouettenlicht wie alles andere; Wind nicht (die Dateien sind keine Instanzen, und das
  * Windattribut fehlt). Jede Datei hat ihre eigene Suspense-Grenze (G-134).
  */
-function Bauwerke({ rand }: { rand: { farbe: string; staerke: number } }) {
+const BAUWERK_NEUBEWERTUNG = 100;
+
+function Bauwerke({ rand, ziel }: {
+  rand: { farbe: string; staerke: number };
+  ziel: React.RefObject<THREE.Object3D | null>;
+}) {
+  const [sichtbar, setzeSichtbar] = useState<Bauwerk[]>([]);
+  const letzte = useRef(new THREE.Vector2(NaN, NaN));
+  useFrame(() => {
+    const p = ziel.current?.position;
+    if (!p || Math.hypot(letzte.current.x - p.x, letzte.current.y - p.z) < BAUWERK_NEUBEWERTUNG) return;
+    letzte.current.set(p.x, p.z);
+    setzeSichtbar(sichtbareBauwerke(p.x, p.z));
+  });
   return (
     <>
-      {BAUWERKE.map(b => (
+      {sichtbar.map(b => (
         <group key={b.name} position={[b.ursprung.x, b.h0, b.ursprung.z]}>
           {b.dateien.map(teil => (
             <Suspense key={teil} fallback={null}>
-              <Bauwerkteil bauwerk={b} teil={teil} rand={rand} />
+              {teil === 'wasser'
+                ? <BauwerkWasser bauwerk={b} />
+                : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} />}
             </Suspense>
           ))}
         </group>
@@ -1531,7 +1548,7 @@ function Bauwerke({ rand }: { rand: { farbe: string; staerke: number } }) {
 }
 
 function Bauwerkteil({ bauwerk, teil, rand }: {
-  bauwerk: Bauwerk; teil: 'bauten' | 'gruen' | 'wasser'; rand: { farbe: string; staerke: number };
+  bauwerk: Bauwerk; teil: 'bauten' | 'gruen'; rand: { farbe: string; staerke: number };
 }) {
   const { scene } = useGLTF(bauwerkPfad(bauwerk, teil));
   const { objekt, materialien } = useMemo(() => {
@@ -1539,12 +1556,7 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
     const materialien: ReturnType<typeof baueWindMaterial>[] = [];
     klon.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return;
-      o.castShadow = teil !== 'wasser'; o.receiveShadow = true;
-      if (teil === 'wasser') {
-        // Ohne Umgebungskarte spiegelt nichts: Wasser als halbdurchsichtige Himmelsfarbe, glatt
-        o.material = new THREE.MeshStandardMaterial({ color: '#8a7c67', roughness: 0.08, metalness: 0, transparent: true, opacity: 0.8 });
-        return;
-      }
+      o.castShadow = true; o.receiveShadow = true;
       // Ein vereinigtes Netz kann mit einem Material-Array kommen (erster Stauwehr-Export: 105 Kronen,
       // 105 Materialien). Alle Teile tragen dieselbe Vertexfarbe — das erste Material reicht als Basis,
       // und ein einzelnes Material zeichnet das ganze Netz. Vorher war die Basis das Array selbst: weiss.
@@ -1562,6 +1574,32 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
     return { objekt: klon, materialien };
   }, [scene, teil, rand.farbe, rand.staerke]);
   useEffect(() => { materialien.forEach(m => m.setzeRand(new THREE.Color(rand.farbe), rand.staerke)); }, [materialien, rand.farbe, rand.staerke]);
+  useEffect(() => () => {
+    materialien.forEach(m => { m.material.dispose(); m.tiefe?.dispose(); });
+  }, [materialien]);
+  return <primitive object={objekt} />;
+}
+
+/** Exportierte Becken benutzen dieselbe Wasserphysik und denselben Himmel wie Flussbaender. */
+function BauwerkWasser({ bauwerk }: { bauwerk: Bauwerk }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'wasser'));
+  const material = useMemo(() => baueWasserMaterial(false,
+    typeof location !== 'undefined' && new URLSearchParams(location.search).get('wasser') === 'physikalisch',
+    'becken'), []);
+  useWasserUmgebung(material);
+  useEffect(() => () => material.dispose(), [material]);
+  useFrame((_, dt) => {
+    const zeit = material.userData.zeit as { value: number } | undefined;
+    if (zeit) zeit.value += dt;
+  });
+  const objekt = useMemo(() => {
+    const klon = scene.clone(true);
+    klon.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.castShadow = false; o.receiveShadow = true; o.material = material;
+    });
+    return klon;
+  }, [scene, material]);
   return <primitive object={objekt} />;
 }
 
@@ -3044,7 +3082,7 @@ export function RegionsSzene({
         <Regentenort ort={regentOrt} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />
       )}
       {!istAus('bauwerke') && BAUWERKE.length > 0 && (
-        <Bauwerke rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
+        <Bauwerke ziel={ref} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
       )}
       {vorkommen.length > 0 && gestalt && (
         <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref} gier={gier}
@@ -3053,7 +3091,7 @@ export function RegionsSzene({
                    hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} kollision={kollision} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} />
-      <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} />
+      <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)} />
       <Messung melde={onMessung} />
       </WasserUmgebung>
     </Canvas>

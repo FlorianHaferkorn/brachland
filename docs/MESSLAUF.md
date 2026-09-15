@@ -108,6 +108,11 @@ Die Himmelsreflexion entsteht aus dem vorhandenen Spielhimmel bei Lichtwechsel;
 sie enthält keine Bäume oder Bauwerke. Transmission ersetzt diese fehlende
 Szenenreflexion nicht.
 
+`?aoRadius=<Meter>` überschreibt die Reichweite der Tiefenverdeckung (Standard
+seit D158: 8 m wie der AO-Bake der Bauwerke, zulässig bis 32 m). Ein größerer
+Radius ersetzt keine gebackene Himmelsverdeckung; A/B-Bilder zusätzlich auf Halos
+und ferne Streifen prüfen.
+
 ## Blender ↔ Welt
 
 `tools/terrainexport.ts` exportiert relativ zu Mittelpunkt `(cx,cz)` und Höhe `h0`:

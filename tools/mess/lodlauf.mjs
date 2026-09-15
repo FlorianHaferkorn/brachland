@@ -42,8 +42,11 @@ try {
       });
       return { instanzen, hud: document.body.textContent };
     });
+    const haeufigkeit = new Map();
+    for (const [id] of probe.instanzen) haeufigkeit.set(id, (haeufigkeit.get(id) ?? 0) + 1);
+    const doppelte = [...haeufigkeit].filter(([, anzahl]) => anzahl > 1);
     const jetzt = new Map(probe.instanzen);
-    doppelt += probe.instanzen.length - jetzt.size;
+    doppelt += doppelte.reduce((summe, [, anzahl]) => summe + anzahl - 1, 0);
     const stufen = {};
     for (const [id, stufe] of jetzt) {
       stufen[stufe] = (stufen[stufe] ?? 0) + 1;
@@ -51,7 +54,7 @@ try {
       if (alte && alte !== stufe) wechsel[`${alte}→${stufe}`] = (wechsel[`${alte}→${stufe}`] ?? 0) + 1;
     }
     vorher = jetzt;
-    proben.push({ sekunden: n * 2, stufen, hud: probe.hud });
+    proben.push({ sekunden: n * 2, stufen, doppelte, hud: probe.hud });
     await seite.screenshot({ path: `${ziel}/bild-${String(n).padStart(2, '0')}.png` });
     if (n === Math.ceil(sekunden / 2)) break;
     await seite.keyboard.down('Shift');

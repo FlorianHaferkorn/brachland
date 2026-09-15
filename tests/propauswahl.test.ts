@@ -12,8 +12,8 @@
  * nach jedem Schritt muss jeder Chunk, der überhaupt in Reichweite ist, in genau
  * einer Liste stehen.
  */
-import { buendleFernProps, waehleProps } from '../src/scenes/propauswahl.js';
-import { ATTRAPPE_AB, FERN_NEUBEWERTUNG } from '../src/scenes/sichtweiten.js';
+import { buendleFernProps, propListenNeu, waehleProps } from '../src/scenes/propauswahl.js';
+import { ATTRAPPE_AB, FERN_NEUBEWERTUNG, PROP_NEUBEWERTUNG } from '../src/scenes/sichtweiten.js';
 import type { PropArt, PropChunk } from '../src/world/props.js';
 
 let bestanden = 0, gefallen = 0;
@@ -33,6 +33,17 @@ function raster(art: PropArt, sichtweite: number, halb = 700): PropChunk[] {
 }
 
 const chunks = raster('nadelbaum', 420);
+
+// Der Fernanker kann die 60-m-Grenze kurz nach einer 8-m-Nahbewertung kreuzen.
+// Dann muessen beide Listen atomar folgen, sonst steht ein Randchunk kurz doppelt.
+{
+  const ruhig = propListenNeu(PROP_NEUBEWERTUNG - 0.1, FERN_NEUBEWERTUNG - 0.1);
+  pruefe('unter beiden Schwellen bleibt die Auswahl stehen', !ruhig.nah && !ruhig.fern);
+  const anker = propListenNeu(0.1, FERN_NEUBEWERTUNG);
+  pruefe('neuer Fernanker erzwingt auch die Nahliste', anker.nah && anker.fern);
+  const zuerst = propListenNeu(Number.NaN, Number.NaN);
+  pruefe('NaN startet beide Listen', zuerst.nah && zuerst.fern);
+}
 
 /**
  * Zugehörigkeit über die **Kachel**, nicht über die Objektidentität.
