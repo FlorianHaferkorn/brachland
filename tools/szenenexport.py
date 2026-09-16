@@ -20,6 +20,7 @@ ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 ZIEL = ARGS[0] if ARGS else 'public/bauten'
 NAME = ARGS[1] if len(ARGS) > 1 else 'felsmulde'
 GROESSE = int(ARGS[2]) if len(ARGS) > 2 else 512
+MARGIN = 24        # Pixel Bleed je UV-Insel (D159); 6 war zu wenig, das Schwarz dazwischen blutete ein
 os.makedirs(ZIEL, exist_ok=True)
 sc = bpy.context.scene
 
@@ -57,15 +58,23 @@ def cycles_gpu():
     except Exception as e:
         print('CPU:', e)
     sc.render.engine = 'CYCLES'; sc.cycles.samples = 16; sc.cycles.use_denoising = False
-    # AO-Reichweite fuer den Bake: 8 m — die Mauer soll den Hof verschatten, nicht nur die Fuge den Stein
-    try: sc.world.light_settings.distance = 8.0
+    # AO-Reichweite fuer den Bake: 0,35 m — **Mikroverdeckung**, nicht die grosse (D159).
+    # Mit 8 m sah ein Stein in einer Mauer fast nur Mauer: ao ~ 0 ueber die ganze Flaeche, Faktor 0,35,
+    # und die gebackene Farbe war #3a3a32 statt #8a7a68 — im Spiel eine schwarze Wand mit hellem Saum,
+    # auch mit `?ao=0` (gemessen). Die **grosse** Verdeckung (Mauer verschattet Hof) macht seit D158 der
+    # SSAO-Pass der Engine mit 8 m Radius; sie hier nochmals zu backen war doppelt.
+    try: sc.world.light_settings.distance = 0.35
     except Exception as e: print('AO-Distanz', e)
-    sc.render.bake.margin = 6; sc.render.bake.use_clear = True
+    # Margin 6 -> 24 px mit ADJACENT_FACES: eine Mauer hat ~200 UV-Inseln auf 1024 px, und das Schwarz
+    # zwischen ihnen blutete beim Mipmapping in die Steine (sichtbar ab ~30 m Kameraabstand).
+    sc.render.bake.margin = MARGIN; sc.render.bake.use_clear = True
+    try: sc.render.bake.margin_type = 'ADJACENT_FACES'
+    except Exception as e: print('Margin-Art', e)
 
 def uv(o):
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
     bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
-    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.004)
+    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.012)
     bpy.ops.object.mode_set(mode='OBJECT')
 
 def backe_bild(o, mat, art, groesse, dateiname):
@@ -75,13 +84,13 @@ def backe_bild(o, mat, art, groesse, dateiname):
     node = nt.nodes.new('ShaderNodeTexImage'); node.image = img; nt.nodes.active = node
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
     if art == 'DIFFUSE':
-        bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, margin=6, use_clear=True)
+        bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, margin=MARGIN, use_clear=True)
     elif art == 'ROUGHNESS':
-        bpy.ops.object.bake(type='ROUGHNESS', margin=6, use_clear=True)
+        bpy.ops.object.bake(type='ROUGHNESS', margin=MARGIN, use_clear=True)
     elif art == 'AO':
-        bpy.ops.object.bake(type='AO', margin=6, use_clear=True)
+        bpy.ops.object.bake(type='AO', margin=MARGIN, use_clear=True)
     else:
-        bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', margin=6, use_clear=True)
+        bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', margin=MARGIN, use_clear=True)
     nt.nodes.remove(node)
     img.filepath_raw = os.path.abspath(os.path.join('.cache/blender/bake', dateiname + '.png')); img.file_format = 'PNG'; img.save()
     return img
@@ -173,8 +182,8 @@ for o in zusammen:
     mat = o.data.materials[0].copy(); o.data.materials[0] = mat
     uv(o)
     f = backe_bild(o, mat, 'DIFFUSE', gr, o.name + '_farbe')
-    # AO in die Grundfarbe multiplizieren: die grosse Himmelsverdeckung (Mauer nimmt dem Hof den
-    # Himmel) kennt nur der Renderer; der SSAO-Pass der Engine reicht 1,4 m weit (D155)
+    # AO in die Grundfarbe multiplizieren: die Mikroverdeckung in Fugen und Kerben, die der
+    # SSAO-Pass bei einem Pixel Breite nicht mehr aufloest (Reichweite oben, D159)
     ao = backe_bild(o, mat, 'AO', gr, o.name + '_ao')
     try:
         import numpy as np
@@ -182,7 +191,9 @@ for o in zusammen:
         f.pixels.foreach_get(pf); ao.pixels.foreach_get(pa)
         # Weich und mit Boden: Exponent 1,2 ohne Boden machte die Schattenseite der Mauer im Spiel
         # zu Schwarz (#000000 gemessen, D155) — Verdeckung soll zeichnen, nicht loeschen.
-        for k in range(3): pf[k::4] *= 0.35 + 0.65 * np.clip(pa[k::4], 0.0, 1.0) ** 0.7
+        # Boden 0,35 -> 0,55 (D159): Das AO misst jetzt nur noch die Fuge (0,35 m statt 8 m), die grosse
+        # Verdeckung kommt aus dem SSAO-Pass. Zwei schwache Faktoren uebereinander statt einem starken.
+        for k in range(3): pf[k::4] *= 0.55 + 0.45 * np.clip(pa[k::4], 0.0, 1.0) ** 0.7
         f.pixels.foreach_set(pf); f.save()
     except Exception as e:
         print('AO-Multiplikation', o.name, e)

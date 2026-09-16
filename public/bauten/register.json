@@ -1,94 +1,6 @@
 {
  "bauwerke": [
   {
-   "name": "stauwehr",
-   "ursprung": {
-    "x": 1110,
-    "z": 871
-   },
-   "h0": 46.74701445112107,
-   "frei": {
-    "x": 1109.0,
-    "z": 871.5,
-    "props": 150.0,
-    "streu": 0.0,
-    "haeuser": 160.0
-   },
-   "dateien": [
-    "bauten",
-    "gruen"
-   ],
-   "objekte": {
-    "bauten": [
-     "Steg",
-     "Weide0_Holz",
-     "Weide1_Holz",
-     "Weide2_Holz",
-     "Weide3_Holz",
-     "Weide4_Holz",
-     "Wasserbloecke",
-     "Sturzstamm",
-     "Wehr",
-     "Wehr_Kern",
-     "Geroell",
-     "Weide5_Holz"
-    ],
-    "gruen": [
-     "Weide0_Krone",
-     "Weide1_Krone",
-     "Weide2_Krone",
-     "Weide3_Krone",
-     "Weide4_Krone",
-     "Schilf",
-     "Farn0",
-     "Farn1",
-     "Farn2",
-     "Farn3",
-     "Farn4",
-     "Farn5",
-     "Farn6",
-     "Farn7",
-     "Farn8",
-     "Farn9",
-     "Farn10",
-     "Farn11",
-     "Farn12",
-     "Farn13",
-     "Farn14",
-     "Farn15",
-     "Farn16",
-     "Farn17",
-     "Farn18",
-     "Farn19",
-     "Farn20",
-     "Farn21",
-     "Farn22",
-     "Farn23",
-     "Farn24",
-     "Farn25",
-     "Farn26",
-     "Farn27",
-     "Farn28",
-     "Farn29",
-     "Farn30",
-     "Farn31",
-     "Farn32",
-     "Farn33",
-     "Farn34",
-     "Farn35",
-     "Farn36",
-     "Farn37",
-     "Farn38",
-     "Farn39",
-     "Weide5_Krone",
-     "WaldHolz",
-     "WaldLaub",
-     "WaldNadeln"
-    ],
-    "wasser": []
-   }
-  },
-  {
    "name": "felsmulde",
    "ursprung": {
     "x": -800,
@@ -183,6 +95,94 @@
     "z": 601.0,
     "rInnen": 12.0,
     "rAussen": 22.0
+   }
+  },
+  {
+   "name": "stauwehr",
+   "ursprung": {
+    "x": 1110,
+    "z": 871
+   },
+   "h0": 46.74701445112107,
+   "frei": {
+    "x": 1109.0,
+    "z": 871.5,
+    "props": 150.0,
+    "streu": 0.0,
+    "haeuser": 160.0
+   },
+   "dateien": [
+    "bauten",
+    "gruen"
+   ],
+   "objekte": {
+    "bauten": [
+     "Steg",
+     "Weide0_Holz",
+     "Weide1_Holz",
+     "Weide2_Holz",
+     "Weide3_Holz",
+     "Weide4_Holz",
+     "Wasserbloecke",
+     "Sturzstamm",
+     "Wehr",
+     "Wehr_Kern",
+     "Geroell",
+     "Weide5_Holz"
+    ],
+    "gruen": [
+     "Weide0_Krone",
+     "Weide1_Krone",
+     "Weide2_Krone",
+     "Weide3_Krone",
+     "Weide4_Krone",
+     "Schilf",
+     "Farn0",
+     "Farn1",
+     "Farn2",
+     "Farn3",
+     "Farn4",
+     "Farn5",
+     "Farn6",
+     "Farn7",
+     "Farn8",
+     "Farn9",
+     "Farn10",
+     "Farn11",
+     "Farn12",
+     "Farn13",
+     "Farn14",
+     "Farn15",
+     "Farn16",
+     "Farn17",
+     "Farn18",
+     "Farn19",
+     "Farn20",
+     "Farn21",
+     "Farn22",
+     "Farn23",
+     "Farn24",
+     "Farn25",
+     "Farn26",
+     "Farn27",
+     "Farn28",
+     "Farn29",
+     "Farn30",
+     "Farn31",
+     "Farn32",
+     "Farn33",
+     "Farn34",
+     "Farn35",
+     "Farn36",
+     "Farn37",
+     "Farn38",
+     "Farn39",
+     "Weide5_Krone",
+     "WaldHolz",
+     "WaldLaub",
+     "WaldNadeln"
+    ],
+    "wasser": []
    }
   }
  ]

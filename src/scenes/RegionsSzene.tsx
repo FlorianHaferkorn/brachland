@@ -115,6 +115,26 @@ const BELICHTUNG_MESSLAUF: number | null = (() => {
 })();
 
 /**
+ * `?umgebung=4` überschreibt die Stärke des Fülllichts (`hemisphereLight`).
+ *
+ * Messparameter wie `?belichtung=` (D159): Die sonnenabgewandte Mauerfläche lebt allein vom
+ * Fülllicht — im Render füllt sie der Himmelsverlauf, in der Engine ein Hemisphärenlicht, das
+ * eine senkrechte Fläche mit dem Mittel aus Himmel und Boden beleuchtet. D154 hatte den Wert
+ * für `zielbild` von 4,0 auf 2,0 halbiert, weil der Hof ohne Verdeckung zu hell war; seit die
+ * Verdeckung gebacken **und** als SSAO da ist, ist das eine Notlösung ohne Not.
+ */
+const UMGEBUNG_MESSLAUF: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  // Erst auf `null` pruefen, dann rechnen: `Number(null)` ist 0, und 0 ist hier ein gueltiger Wert
+  // (Fuelllicht aus). Dieselbe Falle wie bei `?schatten=` unten — hier im ersten Lauf hineingetappt:
+  // jede Szene ohne Parameter stand ohne Fuelllicht da, Schatten #000000, Grashang 0,134 -> 0,064.
+  const text = new URLSearchParams(location.search).get('umgebung');
+  if (text === null) return null;
+  const roh = Number(text);
+  return Number.isFinite(roh) && roh >= 0 && roh <= 20 ? roh : null;
+})();
+
+/**
  * `?schatten=0.6` überschreibt die Schattenstärke der Sonne (`shadow.intensity`,
  * 1 = voller Schlagschatten, 0 = keiner). Messparameter für G-127: Das Dorf
  * liegt im Kammschatten, und die Frage ist, wie viel Schatten die Szene
@@ -314,10 +334,11 @@ export type StimmungsName = keyof typeof STIMMUNG;
 STIMMUNG.zielbild = {
   ...STIMMUNG.goldnebel,
   sonne: '#f2dcc0', sonneStaerke: 1.6,
-  // Fuelllicht halbiert: Der Render hat den Hof im Schatten der Mauer bei 1/12 des Himmels, die Engine
-  // ohne Verdeckung bei 1/1,7 (gemessen Drittel 0,256/0,154/0,151 gegen 0,27/0,11/0,02). Ohne AO bleibt
-  // ein Rest — der gehoert in die Nachbearbeitung.
-  umgebungStaerke: 2.0,
+  // 4,0 wie `goldnebel` (D159). D154 hatte hier halbiert, weil der Hof ohne Verdeckung 6x zu hell war —
+  // das traf aber auch die **sonnenabgewandte Mauerfläche**, die allein vom Fülllicht lebt, und machte
+  // sie schwarz. Seit die Verdeckung gebacken (Fuge) und als SSAO (8 m) vorliegt, darf das Licht zurück.
+  // Gemessen an der Bogenkamera: Median 0,046 -> 0,099, dunkel 31,6 -> 16,2 % (Korridor 0,06–0,14 / 15–25 %).
+  umgebungStaerke: 4.0,
   // Azimut 42° von Nord im Uhrzeigersinn, Hoehe 13°: (sin·cos, sin, −cos·cos)
   sonnenstand: [65.2, 22.5, -72.4] as const,
 };
@@ -1859,7 +1880,7 @@ function Beleuchtung({ s, ziel }: {
       {/* Der Himmel hängt an der Kamera: keine Ausdehnung im Spielraum, kein Nebel,
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       <primitive object={himmel} />
-      <hemisphereLight args={[s.umgebung, HEMI_BODEN, s.umgebungStaerke]} />
+      <hemisphereLight args={[s.umgebung, HEMI_BODEN, UMGEBUNG_MESSLAUF ?? s.umgebungStaerke]} />
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}

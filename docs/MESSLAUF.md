@@ -216,6 +216,57 @@ Danach Preview und Messungen wie oben, zusätzlich freie Bewegung durch die
 LOD-Übergänge. `/bauten/` wird laut D155 erst zur Laufzeit gecacht: Ein bisher
 unbesuchtes Bauwerk ist offline nicht automatisch vorhanden.
 
+## Was das Bake darf — und was die Engine macht (D159)
+
+Die Bauwerke tragen ihr AO **in der Grundfarbe**. Die Reichweite entscheidet, was gebacken wird:
+
+| Reichweite | misst | gehört | 
+|---|---|---|
+| ~0,35 m | Fuge, Kerbe, Kontaktschatten | ins Bake (ein Pixel breit, SSAO löst das nicht auf) |
+| ~8 m | Mauer verschattet Hof | in den **SSAO-Pass** der Engine (`?aoRadius=`, Vorgabe 8) |
+
+Beides zu backen heißt, die grosse Verdeckung doppelt zu rechnen. Mit `light_settings.distance = 8.0`
+sah ein Stein in einer Mauer fast nur Mauer: `ao ≈ 0` über die ganze Fläche, gebackene Farbe `#3a3a32`
+statt `#8a7a68`, im Spiel eine schwarze Wand. **Das war an den Bildwerten nicht zu sehen** — Median und
+Drittel lagen im Rahmen, weil heller Himmel und schwarze Wand sich im Mittel aufheben.
+
+**Deshalb: nach jedem Export eine Textur ansehen, nicht nur messen.**
+
+```bash
+node -e "const fs=require('fs');const b=fs.readFileSync('public/bauten/felsmulde-bauten.glb');
+const jl=b.readUInt32LE(12),j=JSON.parse(b.slice(20,20+jl).toString()),bin=20+jl+8;
+const m=j.meshes.find(m=>/MauerA\$/.test(m.name)),mat=j.materials[m.primitives[0].material];
+const t=j.textures[mat.pbrMetallicRoughness.baseColorTexture.index];
+const img=j.images[t.source??t.extensions?.EXT_texture_webp?.source],bv=j.bufferViews[img.bufferView];
+fs.writeFileSync('.cache/mauer.webp',b.slice(bin+(bv.byteOffset||0),bin+(bv.byteOffset||0)+bv.byteLength));"
+sips -s format png .cache/mauer.webp --out .cache/mauer.png
+```
+
+Gut ist: helle Steinflächen, sichtbares Moos, **kein Schwarz zwischen den UV-Inseln**. Das Schwarz kommt
+von zu kleiner `MARGIN` (jetzt 24 px mit `ADJACENT_FACES`, `island_margin` 0,012) und blutet beim
+Mipmapping in die Steine — sichtbar erst ab etwa 30 m Kameraabstand.
+
+**Fülllicht.** Eine sonnenabgewandte senkrechte Fläche lebt in der Engine allein vom
+`hemisphereLight`, das sie mit dem Mittel aus Himmel- und Bodenfarbe beleuchtet; im Render füllt sie der
+Himmelsverlauf **und** indirektes Licht. `?umgebung=4` ist der Regler dafür. Was die Engine prinzipiell
+nicht hat, sind Bounces: Fuge und Hof bleiben deshalb dunkler als im Render, und das ist keine
+Reglerfrage — dort hilft nur Geometrie (flacherer Mörtelkern) oder gebackenes indirektes Licht.
+
+## Bauwerke packen — Reihenfolge zählt (D159)
+
+Ein Szenenexport schreibt **alle** Dateien der Szene neu, auch das Grün, und zwar unkomprimiert.
+Nach jedem Export deshalb beide Schritte, in dieser Reihenfolge:
+
+```bash
+npx tsx tools/bautenpack.ts public/bauten/<szene>-bauten.glb public/bauten/<szene>-gruen.glb
+npx tsx tools/bautenpack.ts --verlustfrei public/bauten/<szene>-gruen.glb   # Kontrolle: darf nichts mehr ändern
+```
+
+`--verlustfrei` allein auf eine frisch exportierte Datei bringt nur die Hälfte (Stauwehr-Grün 59 → 31,7 MB
+statt 12,9 MB): Meshopt komprimiert quantisierte Attribute deutlich besser, und quantisiert wird im ersten
+Lauf. Prüfen mit `ls -la public/bauten/` — Grün gehört bei 8–13 MB, nicht bei 39–59 MB; die Dreieckszahl
+muss dabei gleich bleiben (Felsmulde 542.676, Stauwehr 840.104).
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.
