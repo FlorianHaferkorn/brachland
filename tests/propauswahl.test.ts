@@ -13,7 +13,7 @@
  * einer Liste stehen.
  */
 import { buendleFernProps, propListenNeu, waehleProps } from '../src/scenes/propauswahl.js';
-import { ATTRAPPE_AB, FERN_NEUBEWERTUNG, PROP_NEUBEWERTUNG } from '../src/scenes/sichtweiten.js';
+import { ATTRAPPE_AB, FERN_NEUBEWERTUNG, MITTEL_AB, PROP_NEUBEWERTUNG } from '../src/scenes/sichtweiten.js';
 import type { PropArt, PropChunk } from '../src/world/props.js';
 
 let bestanden = 0, gefallen = 0;
@@ -137,8 +137,10 @@ const kachel = (c: PropChunk) => `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
         mehrere.push({
           art: 'busch', variante: v, mitte: [x, z], radius: 52.5, sichtweite: 420,
           // Eine eindeutige Kennung je Instanz, damit sich Verlust und Doppelung
-          // zählen lassen.
-          instanzen: [{ kennung: `${x}|${z}|${v}` }] as never,
+          // zählen lassen. Die Lage sitzt auf der Chunkmitte: Seit D162 entscheidet
+          // `waehleProps` auf der Schwelle je Instanz, und dieser Fall soll genau
+          // das alte Verhalten prüfen, nicht die neue Teilung.
+          instanzen: [{ kennung: `${x}|${z}|${v}`, position: [x, 0, z] }] as never,
         });
 
   const { nah } = waehleProps(mehrere, [0, 0], [0, 0], false);
@@ -192,6 +194,49 @@ for (const art of ['laubbaum', 'nadelbaum'] as const) {
     e.instanzen.every(p => p.variante === e.variante)));
   pruefe(`${art}: LOD-Wechsel erhaelt alle Instanzen genau einmal`,
     fern.flatMap(e => e.instanzen).length === 4 && new Set(fern.flatMap(e => e.instanzen)).size === 4);
+}
+
+// ---------------------------------------------------- Chunk auf der Schwelle (D162)
+//
+// Ein Chunk ist 70 m breit. Kippt er geschlossen von `nah` auf `mittel`, wechseln
+// auch die Bäume an seinem vorderen Rand die Silhouette — und die stehen dann
+// wenige Meter vor der Kamera. Gemessen trugen 5,7 bis 9,6 % der Bäume die falsche
+// Stufe, der nächste zu grob gezeichnete bei 16,9 m. Der Chunk, durch den die
+// Schwelle läuft, wird deshalb je Instanz entschieden.
+//
+// Geprüft wird beides, was dabei schiefgehen kann: dass wirklich nach Abstand
+// getrennt wird, und dass dabei keine Instanz verlorengeht oder doppelt auftaucht.
+{
+  const ORT: [number, number] = [0, 0];
+  // Mitte bei 50 m, Radius 52,5 — die 45-m-Schwelle läuft mitten hindurch.
+  const baeume = [10, 30, 44, 46, 70, 95].map((d, k) => ({
+    art: 'nadelbaum' as PropArt, variante: 0,
+    position: [d, 0, 0] as [number, number, number], drehung: 0, skalierung: 1, kennung: k,
+  }));
+  const chunk: PropChunk = {
+    art: 'nadelbaum', variante: 0, mitte: [50, 0], radius: 52.5, sichtweite: 420,
+    instanzen: baeume as never,
+  };
+  const { nah } = waehleProps([chunk], ORT, ORT, false);
+  const nahe = nah.filter(e => e.stufe === 'nah').flatMap(e => e.c.instanzen);
+  const mittlere = nah.filter(e => e.stufe === 'mittel').flatMap(e => e.c.instanzen);
+  pruefe('Schwellenchunk: nur die nahen Bäume stehen auf der Nahstufe',
+    nahe.length === 3 && nahe.every(p => p.position[0] <= MITTEL_AB),
+    `${nahe.length} nah: ${nahe.map(p => p.position[0]).join(',')}`);
+  pruefe('Schwellenchunk: die entfernten stehen auf der Mittelstufe',
+    mittlere.length === 3 && mittlere.every(p => p.position[0] > MITTEL_AB),
+    `${mittlere.length} mittel: ${mittlere.map(p => p.position[0]).join(',')}`);
+  const alle = [...nahe, ...mittlere];
+  pruefe('Schwellenchunk: keine Instanz verloren, keine doppelt',
+    alle.length === baeume.length && new Set(alle).size === baeume.length,
+    `${alle.length} von ${baeume.length}, ${new Set(alle).size} verschieden`);
+  // Gegenprobe: ein Chunk, durch den die Schwelle NICHT läuft (|100 − 45| > 52,5),
+  // bleibt ein Eintrag. Weiter als ATTRAPPE_AB darf er nicht liegen, sonst prüft
+  // der Fall das Bündel statt die Teilung.
+  const abseits: PropChunk = { ...chunk, mitte: [100, 0] };
+  const einer = waehleProps([abseits], ORT, ORT, false).nah;
+  pruefe('Chunk abseits der Schwelle bleibt ein einziger Eintrag', einer.length === 1,
+    `${einer.length} Einträge`);
 }
 
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);

@@ -52,6 +52,15 @@ export type PropStufe = 'nah' | 'mittel' | 'fern';
  */
 const MITTEL_VARIANTE = 0;
 
+/**
+ * Arten, deren Stufenwechsel man sieht. Ein Grasbüschel, das 30 m entfernt von
+ * der Nah- auf die Mittelstufe springt, fällt niemandem auf; eine 18 m hohe
+ * Fichte schon. Die Liste entscheidet, wo die Teilung auf der Schwelle ihren
+ * Aufruf wert ist (D162) — dieselben zwei Arten, die auch `legeMittelZusammen`
+ * seit D157 von der Variantenzusammenlegung ausnimmt.
+ */
+const BAUM: ReadonlySet<PropArt> = new Set<PropArt>(['nadelbaum', 'laubbaum']);
+
 export interface Auswahl {
   /** Chunks mit eigenem Mesh, je nach Abstand in voller oder mittlerer Auflösung. */
   nah: { c: PropChunk; stufe: PropStufe }[];
@@ -108,6 +117,58 @@ export function waehleProps(
      * Auflösung gezeichnet: gemessen 537.000 Dreiecke, wo 200.000 erwartet
      * waren. Über die Mitte gerechnet hebt der Fehler sich auf.
      */
+    /**
+     * **Nur der Chunk auf der Schwelle wird je Baum entschieden** (D162).
+     *
+     * Die Entscheidung über die Mitte ist im Mittel richtig und am Rand falsch:
+     * Ein Chunk ist 70 m breit, sein Radius also 52,5 m. Kippt er bei 46 m
+     * Mittenabstand geschlossen auf `mittel`, wechseln damit auch die Bäume an
+     * seinem vorderen Rand die Silhouette — und die stehen dann keine 46 m
+     * entfernt, sondern wenige Meter vor der Kamera. Gemessen an vier
+     * Waldstandorten trugen **5,7 bis 9,6 %** der Bäume innerhalb von 260 m die
+     * falsche Stufe, und der nächste zu grob gezeichnete stand bei **16,9 m**.
+     * Genau das sieht man als Sprung, wenn der Chunk beim Weitergehen umklappt.
+     *
+     * **Der Ausweg ist nicht, überall je Instanz zu entscheiden.** Das kostet
+     * einen Draw Call je Stufe und Chunk statt einen je Chunk, und gemessen war
+     * das zu teuer: für **alle** Arten geteilt kamen an fünf Standorten 6, 31,
+     * 26, 25 und 9 zusätzliche Einträge dazu — am Stauwehr 80 → 111, also +39 %.
+     * Nach D100, wo um jeden Aufruf gerungen wurde, ist das der falsche Handel.
+     *
+     * Deshalb zwei Verengungen, beide gemessen:
+     * - **Nur Bäume.** Gras, Büsche, Blumen, Totholz und Findlinge stellen die
+     *   Masse der Chunks, und an ihnen sieht man den Stufenwechsel nicht. Damit
+     *   fallen die Zusatzaufrufe auf 0, 18, 15, 16 und 2.
+     * - **Nur der Ring, durch den die Schwelle wirklich läuft**
+     *   (`|mitte − MITTEL_AB| < radius`) **und nur, wenn beide Seiten besetzt
+     *   sind.** Alles andere behält seine eine Entscheidung und seinen einen
+     *   Aufruf.
+     *
+     * Was damit **nicht** behoben ist und offen bleibt: Gras und Büsche tragen
+     * weiter die Chunkstufe (der nächste zu grob gezeichnete Busch stand bei
+     * 17 m), und dieselbe Bauart gilt an der Attrappengrenze, die zusätzlich
+     * über den **Anker** entscheidet und damit noch gröber ist.
+     */
+    if (BAUM.has(c.art) && Math.abs(mitte - MITTEL_AB) < c.radius && c.instanzen.length > 0) {
+      const nahe: PropInstanz[] = [], mittlere: PropInstanz[] = [];
+      for (const i of c.instanzen) {
+        const d = Math.hypot(p[0] - i.position[0], p[1] - i.position[2]);
+        (d > MITTEL_AB ? mittlere : nahe).push(i);
+      }
+      // **Nur teilen, wenn wirklich beide Seiten besetzt sind.** Liegt alles auf
+      // einer Seite — der häufigere Fall, auch im Schwellenring —, bleibt es bei
+      // einem Eintrag und damit bei einem Aufruf, und das Chunk-Objekt wird nicht
+      // einmal kopiert. Ein Eintrag mit leerer Instanzliste wäre ein Aufruf für
+      // nichts, und ein Chunk, der dabei aus **beiden** Listen fällt, wäre der
+      // Fehler, den der Lauf-Test oben seit G-111 sucht.
+      if (nahe.length > 0 && mittlere.length > 0) {
+        nah.push({ c: { ...c, instanzen: nahe }, stufe: 'nah' });
+        nah.push({ c: { ...c, instanzen: mittlere }, stufe: 'mittel' });
+      } else {
+        nah.push({ c, stufe: mittlere.length > 0 ? 'mittel' : 'nah' });
+      }
+      continue;
+    }
     nah.push({ c, stufe: mitte > MITTEL_AB ? 'mittel' : 'nah' });
   }
   return { nah: legeMittelZusammen(nah), buendel };
