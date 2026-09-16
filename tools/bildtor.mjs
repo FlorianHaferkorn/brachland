@@ -53,6 +53,20 @@ const NUR = process.argv.includes('--stimmung')
   ? process.argv[process.argv.indexOf('--stimmung') + 1] : null;
 const BASIS = 'http://127.0.0.1:4173/';
 /**
+ * `--extra '&kurve=agxlook'` haengt Adressparameter an **alle** Faelle (D161).
+ *
+ * Damit laesst sich eine Aenderung, die noch nicht Vorgabe ist, gegen die Grundwerte pruefen —
+ * ohne sie vorher einzubauen. Ein Look, der die Schatten anhebt oder absenkt, kann Zeichnung
+ * kosten, und genau das misst dieses Tor. Mit `--extra` **nie** `--neu`: Grundwerte gehoeren
+ * zum Auslieferungsstand, nicht zu einem Probelauf.
+ */
+const EXTRA = process.argv.includes('--extra')
+  ? process.argv[process.argv.indexOf('--extra') + 1] : '';
+if (EXTRA && NEU) {
+  console.error('--extra und --neu zusammen ergeben Grundwerte fuer einen Zustand, der nicht ausgeliefert wird.');
+  process.exit(2);
+}
+/**
  * Mindestens so lange stehenbleiben, bis Kacheln, Props und Kulisse gebaut sind —
  * und seit D146 **bis das HUD die Ladezeit zeigt** (Gelaende und Baender
  * vollstaendig), hoechstens `WARTEN_MAX`. Unter SwiftShader steht der Dorf-Fall
@@ -147,7 +161,7 @@ for (const f of grund.faelle) {
   if (NUR && f.stimmung !== NUR) continue;
   const seite = await browser.newContext({ viewport: { width: 900, height: 560 } })
     .then(c => c.newPage());
-  await seite.goto(`${BASIS}?absetzen=${f.ort}&zeit=${f.zeit}`, { waitUntil: 'domcontentloaded' });
+  await seite.goto(`${BASIS}?absetzen=${f.ort}&zeit=${f.zeit}${EXTRA}`, { waitUntil: 'domcontentloaded' });
   await seite.waitForSelector('button[aria-label="Menü"]', { timeout: 240_000 });
   await seite.waitForTimeout(WARTEN);
   try {

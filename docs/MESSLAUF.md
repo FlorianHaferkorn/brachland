@@ -285,6 +285,36 @@ Nachtfaelle sind im Rohbild kaum lesbar — zum Pruefen aufhellen (Faktor 6–7)
 Haeuser, Wasser oder Wald da sind, wo sie sein sollen. Erst danach `npm run bildtor -- --neu`, und jede
 Median-Warnung im Ledger begruenden.
 
+## Tonwertkurve: der Render ist AgX, die Engine war ACES (D161)
+
+`tools/szenenbau.py` setzt `view_transform = 'AgX'` und den Look `AgX - Medium High Contrast`;
+die Engine rechnete mit `ACESFilmicToneMapping`. **Jeder Vergleich Spiel gegen Render hat bis D161
+auch den Kurvenunterschied gemessen.** `?kurve=agxlook|agx|aces|neutral|linear` macht ihn sichtbar,
+`src/scenes/tonwert.ts` bildet den Look nach.
+
+Die Kurve ist **gemessen, nicht umgerechnet** — Blenders Look sitzt im AgX-Log-Raum, dessen
+Normierung sich nicht verlaesslich auf three.js uebertragen laesst:
+
+```bash
+blender --background --python .cache/rampe.py      # Rampe durch Blender, mit und ohne Look
+node .cache/rampe_lesen.mjs 1 2.462                # dieselbe Rampe durch die echte Engine
+```
+
+`dist/rampe/` (gitignored) haelt dafuer eine Seite mit `preserveDrawingBuffer` — ohne das liest
+`readPixels` nach dem Compositing nur Nullen. Ergebnis der Messung: Engine-AgX und Blender-AgX
+weichen bei Belichtung 2,462 (= 2^1,3, Blenders Exposure) nur um **0,067** voneinander ab; der
+Look ist der eigentliche Unterschied.
+
+**Eine Kurve fuer den Look muss 0 auf 0 halten.** Der naheliegende Kontrast um einen Pivot
+(c = 1,19, p = 0,75) traf tagsueber am besten, riss aber im Bildtor alle vier Nachtfaelle auf
+(53 bis 67 % leere Flaeche): Nachts liegt das ganze Bild unter dem Pivot und wird auf null
+geclampt. Blender umgeht das, weil sein Look im Log-Raum sitzt. Genommen ist deshalb
+`w = x^1,12` gefolgt von `w + 0,70·w·(1−w)·(2w−1)` — Fehler 0,029, streng monoton, haelt 0 und 1.
+
+Vor dem Umstellen einer Kurve **immer** `npm run bildtor -- --extra '&kurve=…'` laufen lassen.
+`--extra` haengt Parameter an alle Faelle an und ist mit `--neu` gesperrt: Grundwerte gehoeren
+zum Auslieferungsstand, nicht zu einem Probelauf.
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.

@@ -34,6 +34,7 @@ import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial, windAusHoehe, type RollenSlot } from '../world/windmaterial.js';
 import { BAUWERKE, bauwerkPfad, gesperrt, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
+import { haengeAgxLookEin } from './tonwert.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
@@ -135,7 +136,7 @@ const UMGEBUNG_MESSLAUF: number | null = (() => {
 })();
 
 /**
- * `?kurve=agx|aces|neutral|linear` wechselt die Tonwertkurve — **Messparameter** (D161).
+ * `?kurve=agxlook|agx|aces|neutral|linear` wechselt die Tonwertkurve — **Messparameter** (D161).
  *
  * Der Blender-Render legt den Look über `view_transform = 'AgX'` mit dem Look „Medium High Contrast"
  * fest (`tools/szenenbau.py`), die Engine rechnete seit jeher mit `ACESFilmic`. Das sind zwei
@@ -153,6 +154,9 @@ const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
   const tabelle: Record<string, THREE.ToneMapping> = {
     agx: THREE.AgXToneMapping, aces: THREE.ACESFilmicToneMapping,
     neutral: THREE.NeutralToneMapping, linear: THREE.LinearToneMapping,
+    // `agxlook` ist AgX **plus** dem gemessenen Look des Renders (`tonwert.ts`). Der Shader-Baustein
+    // muss ersetzt sein, bevor das erste Material uebersetzt wird — deshalb schon beim Lesen der Adresse.
+    agxlook: (haengeAgxLookEin(), THREE.CustomToneMapping),
   };
   return tabelle[name.toLowerCase()] ?? null;
 })();
