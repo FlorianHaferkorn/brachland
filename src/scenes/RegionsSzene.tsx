@@ -135,6 +135,29 @@ const UMGEBUNG_MESSLAUF: number | null = (() => {
 })();
 
 /**
+ * `?kurve=agx|aces|neutral|linear` wechselt die Tonwertkurve — **Messparameter** (D161).
+ *
+ * Der Blender-Render legt den Look über `view_transform = 'AgX'` mit dem Look „Medium High Contrast"
+ * fest (`tools/szenenbau.py`), die Engine rechnete seit jeher mit `ACESFilmic`. Das sind zwei
+ * verschiedene Kurven: AgX rollt Lichter flacher ab und entsättigt sie, ACES verdichtet und sättigt.
+ * Dieselbe Szene mit demselben Licht kann damit nicht dasselbe Bild ergeben — der Vergleich
+ * Spiel gegen Render misst bis hierher **auch** den Unterschied der beiden Kurven.
+ *
+ * Umschalten ist kein Messlauf, sondern Art Direction: Alle `belichtung`-Werte der Stimmungen sind
+ * gegen ACES gesetzt. Deshalb erst der Regler, dann die Entscheidung.
+ */
+const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const name = new URLSearchParams(location.search).get('kurve');
+  if (name === null) return null;
+  const tabelle: Record<string, THREE.ToneMapping> = {
+    agx: THREE.AgXToneMapping, aces: THREE.ACESFilmicToneMapping,
+    neutral: THREE.NeutralToneMapping, linear: THREE.LinearToneMapping,
+  };
+  return tabelle[name.toLowerCase()] ?? null;
+})();
+
+/**
  * `?schatten=0.6` überschreibt die Schattenstärke der Sonne (`shadow.intensity`,
  * 1 = voller Schlagschatten, 0 = keiner). Messparameter für G-127: Das Dorf
  * liegt im Kammschatten, und die Frage ist, wie viel Schatten die Szene
@@ -1853,7 +1876,7 @@ function Beleuchtung({ s, ziel }: {
    * Die Werte sind gegen ein MacBook-Display gesetzt und ausdrücklich vorläufig.
    */
   useEffect(() => {
-    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMapping = KURVE_MESSLAUF ?? THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = BELICHTUNG_MESSLAUF ?? s.belichtung;
   }, [gl, s]);
 
