@@ -315,6 +315,40 @@ Vor dem Umstellen einer Kurve **immer** `npm run bildtor -- --extra '&kurve=…'
 `--extra` haengt Parameter an alle Faelle an und ist mit `--neu` gesperrt: Grundwerte gehoeren
 zum Auslieferungsstand, nicht zu einem Probelauf.
 
+## Wenn das Gelände sich bewegt (D162)
+
+`rohHoehe` interpoliert seit D162 **bilinear**; bis dahin liefen die Gewichte durch
+`glaetten`, und Smoothstep hat an beiden Enden Steigung null — an jeder
+DEM-Rasterlinie lag eine waagerechte Terrasse, das Gefälle steckte in der
+Zellmitte. Das Karo auf den Hängen kam daher, nicht von Gras, AO, Flat Shading,
+Biomfarben oder Mikrorelief; alle fünf wurden einzeln abgeschaltet und einzeln
+fotografiert, bevor die Ursache feststand.
+
+**Merksatz für den nächsten Fall dieser Art:** Wenn vier Verdächtige ausscheiden,
+ist der fünfte nicht der nächste Verdächtige, sondern die Frage, ob der
+Gegenstand selbst die falsche Form hat. Das Karo war Geometrie, nicht Farbe.
+
+Eine Änderung an `rohHoehe` ist **kein lokaler Eingriff**. Gemessen für den
+Wechsel smoothstep → bilinear:
+
+```
+Höhe über die Region   Mittel 0,22 m · max 4,79 m
+Ursprung Felsmulde     452,904 → 452,675  (−0,229)
+Ursprung Stauwehr       46,796 →  46,504  (−0,291)
+im Exportradius 160 m  Felsmulde max 2,90 m · Stauwehr max 1,67 m
+```
+
+Die 2,9 m im Exportradius sind der Grund, warum ein Anpassen von `h0` im
+Bauwerkregister **nicht** reicht: Die Blender-Szene enthält das exportierte
+Terrain, und das passt danach nicht mehr. Wer `rohHoehe` ändert, fährt das
+Kettenrezept oben komplett und legt das Bildtor neu.
+
+Messparameter für einen solchen Vergleich (nur solange die Entscheidung offen
+ist, danach entfernen): ein Schalter in `lod.ts`, der zwischen den Verfahren
+umstellt, plus `?mikro=` für das Mikrorelief. Laufzeit der drei Verfahren, 2 Mio
+Abfragen: smoothstep 32 ns · bilinear 38 ns · Catmull-Rom mit Begrenzer 454 ns;
+end-to-end Ladezeit im Browser 4,1 / 4,1 / 4,6 s.
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.

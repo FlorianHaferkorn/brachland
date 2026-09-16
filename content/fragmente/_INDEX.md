@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-16
+last-reviewed: 2026-09-16
 shelf-life-days: 180
 owns: *.json
 ---
@@ -26,13 +26,13 @@ Felsgrate. Die Welt liefert die Orte umsonst; sie mussten nur belegt werden.
 | Datei | Fundstelle | lat, lon | Titel |
 |---|---|---|---|
 | `altes-gehoeft.json` | hof | 47.72695, 12.10626 | **Altes Gehöft** |
-| `bruchkante.json` | steinbruch | 47.72805, 12.10967 | **An der Bruchkante** |
+| `bruchkante.json` | steinbruch | 47.72790, 12.10688 | **An der Bruchkante** |
 | `bruchsohle.json` | steinbruch | 47.72960, 12.10727 | **Auf der Bruchsohle** |
 | `felsband.json` | grat | 47.72874, 12.07103 | **Unter dem Felsband** |
 | `grat-hoch.json` | grat | 47.73297, 12.06503 | **Über der Waldgrenze** |
 | `grat-nord.json` | grat | 47.73377, 12.07900 | **Nordgrat** |
 | `grat-ost.json` | grat | 47.73261, 12.10288 | **Ostwand** |
-| `kalkbruch.json` | steinbruch | 47.72689, 12.10799 | **Im Kalkbruch** |
+| `kalkbruch.json` | steinbruch | 47.72712, 12.10734 | **Im Kalkbruch** |
 | `silo-drei.json` | bunker | 47.73816, 12.09540 | **Silo drei** |
 | `silo-hof.json` | bunker | 47.73032, 12.08282 | **Am Hofsilo** |
 | `stauwehr.json` | bach | 47.72518, 12.09582 | **Am Stauwehr** |

@@ -206,7 +206,30 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
           nx: (-dz / len) * b, nz: (dx / len) * b,
           v1: laengs + len * t1, v2: laengs + len * t2, fall, belag,
         };
-        const [ix, iz] = kachelAn(feld, (x1 + x2) / 2, (z1 + z2) / 2);
+        const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2;
+        /**
+         * **Was ausserhalb der Region liegt, wird nicht gebaut** (D162).
+         *
+         * `kachelAn` **klemmt** den Index auf `[0, n-1]`, statt zu verwerfen —
+         * ein Stück 500 m östlich der Region landete damit in der Randkachel.
+         * 224 von 1.696 OSM-Stützpunkten (13,2 %) liegen ausserhalb der bbox,
+         * und das Ergebnis war entsprechend: **1.373 von 7.743 Bachstücken
+         * (17,7 %)** und **4.211 von 46.713 Wegstücken** ragten hinaus, Wege bis
+         * **962 m**. Drei Schäden auf einmal — die Hüllkugel der Randkacheln
+         * wuchs mit (sie wurden gezeichnet, sobald die Region im Bild war), die
+         * Geometrie stand auf **extrapoliertem** Gelände (`lod.ts` klemmt `i,j`
+         * ebenfalls, ausserhalb ist alles eine Extrusion der Randspalte, quer
+         * bis 220 % Neigung), und das Geometrie-Tor mass dort gegen diese
+         * Fiktion: 479 der gemeldeten „schwebenden" Wasservertices, darunter
+         * das Maximum von 4,89 m.
+         *
+         * Geprüft wird die **Mitte**, wie bei der Kachelzuordnung zwei Zeilen
+         * weiter: Ein Stück ragt damit höchstens eine halbe Teilung plus die
+         * halbe Bandbreite über die Kante, also wenige Meter — und die Kante
+         * ist ohnehin die Wand, an der die Figur stehenbleibt.
+         */
+        if (Math.abs(mx) > feld.breiteMeter / 2 || Math.abs(mz) > feld.tiefeMeter / 2) continue;
+        const [ix, iz] = kachelAn(feld, mx, mz);
         einsortieren(fall ? fallZiel! : ziel, ix, iz, stueck);
       }
       laengs += len;
@@ -619,7 +642,25 @@ export function baueFallKachel(
         const kopf = t === 0 && !enden.enden.has(endeKey(x, z));
         const fuss = t === teile && !naechstes && !enden.anfaenge.has(endeKey(x, z));
         const hub = kopf ? FALL_HUB.kopf : fuss ? FALL_HUB.fuss : FALL_HUB.lauf;
-        knoten.push({ x, z, nx, nz, y: spiegelAufFlaeche(feld, x, z, s) + hub });
+        /**
+         * Spiegel an **beiden Streifenkanten**, nicht auf der Mittellinie (D162).
+         *
+         * Derselbe Fehler, den `liegendesBand` oben längst behandelt, und er war
+         * hier nie behoben: Der Fallstreifen ist konstant 4 m breit (`halbeFall`
+         * gibt überall 2,0 m), und ein Wasserfall steht per Definition im Hang —
+         * ab `WASSERFALL_AB` = 22 % Gefälle. Quer dazu liegt das Gelände
+         * genauso schief, die Platte aber waagerecht: eine Kante steckte im
+         * Berg, die andere hing in der Luft. Gemessen waren das **2.895 von
+         * 3.680** Vertices, die das Geometrie-Tor als „schwebendes Wasser"
+         * meldete — p50 0,63 m, max 4,27 m über Grund, während die Mittellinie
+         * bei 99 % davon sauber unter einem Meter lag.
+         *
+         * Auf die **tiefere** Seite, aus demselben Grund wie beim Bach: Wasser
+         * ist quer waagerecht, und die höhere Böschung darf im Hang stecken.
+         */
+        const yl = spiegelAufFlaeche(feld, x - nx, z - nz, s);
+        const yr = spiegelAufFlaeche(feld, x + nx, z + nz, s);
+        knoten.push({ x, z, nx, nz, y: Math.min(yl, yr) + hub });
       }
     }
     if (knoten.length < 2 || knoten[0].y - knoten[knoten.length - 1].y < 0.3) continue;

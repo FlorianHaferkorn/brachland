@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-08
+last-reviewed: 2026-09-16
 shelf-life-days: 90
 ---
 # public — Was der Service Worker ausliefert (_INDEX)

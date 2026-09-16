@@ -179,6 +179,27 @@ const SCHATTEN_MESSLAUF: number | null = (() => {
 })();
 
 /**
+ * `?mikro=` setzt die Stärke des Mikroreliefs (Vorgabe 1,1) — Messparameter (D162).
+ *
+ * Gebaut, um eine Ursache auszuschliessen, nicht um am Gelände zu drehen: Das
+ * Karo auf den Hängen liess sich weder dem Gras noch der AO noch dem Flat Shading
+ * noch den Biomfarben zuordnen (alle vier einzeln abgeschaltet, Bild unverändert).
+ * Übrig bleibt die Form selbst — `mikrorelief` ist Wertrauschen auf einem
+ * **quadratischen Gitter**, und Wertrauschen hat an seinen Gitterpunkten
+ * verschwindende Steigung. Mit `?mikro=0` steht das Gelände ohne dieses Rauschen
+ * da; bleibt das Karo, liegt es nicht daran.
+ */
+const MIKRO_MESSLAUF: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  // Erst auf `null` prüfen, dann rechnen — `Number(null)` ist 0, und 0 ist hier
+  // ein gültiger Wert. Dieselbe Falle wie bei `?schatten=` und `?umgebung=`.
+  const text = new URLSearchParams(location.search).get('mikro');
+  if (text === null) return null;
+  const roh = Number(text);
+  return Number.isFinite(roh) && roh >= 0 && roh <= 4 ? roh : null;
+})();
+
+/**
  * `?spiegel=1` stellt die Kamera **vor** die Figur statt hinter sie (D142).
  *
  * Nur für Messläufe, dieselbe Begründung wie `?absetzen=`: Die Spielerfigur wurde
@@ -3006,7 +3027,7 @@ export function RegionsSzene({
   const terrain = useMemo(() => baueTerrain(welt), [welt]);
 
   // Höhenfeld mit Mikrorelief — die gemeinsame Wahrheit für Boden, Props und Spawn.
-  const feld = useMemo(() => baueHoehenfeld(welt), [welt]);
+  const feld = useMemo(() => baueHoehenfeld(welt, MIKRO_MESSLAUF ?? undefined), [welt]);
   const kacheln = useMemo(() => baueKachelraster(feld), [feld]);
 
   // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben

@@ -447,7 +447,7 @@ export function baueGebaeude(
      * unter dem Haus hindurch. Abgetastet wird alle 1,5 m — feiner als das
      * Mikrorelief Wellen schlägt.
      */
-    let boden = Infinity, unterkante = Infinity;
+    let boden = Infinity, unterkante = Infinity, bergseits = -Infinity;
     for (let k = 0; k < p.length - 1; k++) {
       const [ax, az] = p[k], [bx, bz] = p[k + 1];
       const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az) / 1.5));
@@ -455,15 +455,35 @@ export function baueGebaeude(
         const x = ax + (bx - ax) * i / n, z = az + (bz - az) * i / n;
         boden = Math.min(boden, terrain.hoeheAn(x, z));
         unterkante = Math.min(unterkante, terrain.tiefsteFlaeche(x, z));
+        bergseits = Math.max(bergseits, terrain.tiefsteFlaeche(x, z));
       }
     }
     if (!Number.isFinite(boden)) continue;
+    /**
+     * **Ein Haus am Steilhang wird angehoben, bis die Traufe den Berg erreicht** (D162).
+     *
+     * Der Sockel sitzt auf dem **tiefsten** Punkt der Wandlinie. Das ist auf
+     * ebenem Grund richtig und am Steilhang zu wenig: Steigt das Gelände über
+     * die Grundrisslänge stärker als das Haus hoch ist, verschwindet es im Berg.
+     * Gemessen über die Region ist das ein einziger Fall — ein 9 × 9 m grosses
+     * Haus auf 75 % Neigung bei 1841,676, dessen First 1,12 m statt der
+     * geforderten 1,5 m über dem bergseitigen Gelände stand. Ein Fall ist kein
+     * Grund für eine Ausnahme, aber einer für eine Regel: Die Traufe erreicht
+     * bergseits mindestens das Gelände, das Dach steht dann von selbst darüber.
+     *
+     * Talseitig trägt das eine Stützmauer — `fuss` bekommt die Hebung dazu,
+     * sonst schwebt das Haus auf der Talseite genau um diesen Betrag (und W1b
+     * meldete es sofort). Im Bestand ist das nichts Erfundenes: Ein Hanghaus
+     * steht auf einem gemauerten Sockel, der talseitig aus dem Boden wächst.
+     */
+    const hebung = Math.max(0, bergseits - (boden + h));
+    boden += hebung;
     // Vor der ersten Wand setzen — die Wände kommen vor dem Dach.
     aoBoden = boden; aoTraufe = boden + h;
     // Fundament: so weit unter den Sockel, wie das gezeichnete Gelände in der
     // Ferne wegfallen kann. Deckelt bei FUNDAMENT_MAX — ein Haus braucht keinen
-    // 15 m tiefen Keller, den ohnehin niemand sieht.
-    const fuss = boden - Math.min(FUNDAMENT_MAX, Math.max(0, boden - unterkante));
+    // 15 m tiefen Keller, den ohnehin niemand sieht. Plus die Hebung, siehe oben.
+    const fuss = boden - Math.min(FUNDAMENT_MAX + hebung, Math.max(0, boden - unterkante));
 
     /**
      * Orientierte Hülle statt achsparalleler.
@@ -882,9 +902,35 @@ export function baueGebaeude(
       // In Hüllenkoordinaten, weil nur `v` über die Dachhöhe entscheidet.
       const vA = -ax * hu.sin + az * hu.cos;
       const vB = -bx * hu.sin + bz * hu.cos;
-      const yA = dachY(vA), yB = dachY(vB);
-      if (yA - traufe < 0.02 && yB - traufe < 0.02) continue;   // liegt an der Traufe
-      quad([ax, traufe, az], [bx, traufe, bz], [bx, yB, bz], [ax, yA, az], giebel);
+      /**
+       * **An der Firstlinie teilen** (D162).
+       *
+       * `dachY` ist über `v` ein **Zelt mit Knick bei `mv`**, keine Ebene. Ein
+       * einziges Viereck über die ganze Kante zieht dort eine **Sehne unter dem
+       * Zelt** — und was zwischen Sehne und Dachunterseite liegt, fehlt.
+       *
+       * Bei einem rechteckigen Grundriss ist das **der ganze Giebel**: Die
+       * Giebelkante läuft von `minV` nach `maxV`, `dachY` steht an beiden Enden
+       * knapp über der Traufe (nur der Dachüberstand `ueber` hebt sie an), die
+       * Sehne ist also ein flacher Streifen von 40 cm statt eines Dreiecks von
+       * 5 m. Gemessen: **2.020 von 2.020 Gebäuden** betroffen, Klaffmass p50
+       * 3,23 m, max 5,78 m — von aussen sah man unter dem Dach durch das Haus
+       * hindurch, und zwar seit dem 26.08.2026 in jedem Bild.
+       *
+       * Der Kommentar oben („an den Hüllenenden ergibt es das Giebeldreieck")
+       * beschrieb die Absicht; erst die Teilung liefert sie. Kosten: zwei
+       * Dreiecke je kreuzender Kante, beim Rechteck vier je Haus.
+       */
+      const teiler = (vA - mv) * (vB - mv) < 0 ? [0, (mv - vA) / (vB - vA), 1] : [0, 1];
+      for (let s = 0; s + 1 < teiler.length; s++) {
+        const t0 = teiler[s], t1 = teiler[s + 1];
+        const x0 = ax + (bx - ax) * t0, z0 = az + (bz - az) * t0;
+        const x1 = ax + (bx - ax) * t1, z1 = az + (bz - az) * t1;
+        const y0 = dachY(vA + (vB - vA) * t0), y1 = dachY(vA + (vB - vA) * t1);
+        // Liegt das Teilstück an der Traufe, gibt es dort keinen Giebel.
+        if (y0 - traufe < 0.02 && y1 - traufe < 0.02) continue;
+        quad([x0, traufe, z0], [x1, traufe, z1], [x1, y1, z1], [x0, y0, z0], giebel);
+      }
     }
 
     /**

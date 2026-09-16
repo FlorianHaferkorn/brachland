@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-02
+last-reviewed: 2026-09-16
 shelf-life-days: 90
 owns: *.glb, *.md
 ---

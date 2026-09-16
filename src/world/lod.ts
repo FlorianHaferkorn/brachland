@@ -89,9 +89,35 @@ export interface HoehenFeld {
   /** Stehende Gewässer als Polygone in Weltkoordinaten — für die Wasserfläche. */
   teiche: { punkte: [number, number][]; tiefe: number }[];
   biom: (x: number, z: number) => Biom;
+  /**
+   * Bodenfarbe an beliebiger Stelle — die vier Nachbarzellen des Biomrasters
+   * **weich gemischt**, nicht die nächstgelegene genommen (D162).
+   *
+   * `biom()` rundet auf die nächste Rasterzelle. Das reicht, um zu wissen, was
+   * dort wächst; als Farbquelle erzeugt es ein Schachbrett: Das Biomraster ist
+   * 10,4 m grob, die Geländekachel tastet es je Zelle **einmal in der Mitte** ab,
+   * und die Kachelzelle ist je nach LOD 2 bis 32 m gross — die Biomkante wird
+   * also zweimal auf ein Raster gequantelt und liegt am Ende als Treppe auf dem
+   * Hang. Gemessen: der Farbsprung an einer Kante **mit** Biomwechsel ist mit
+   * 0,067 in Leuchtdichte **zehnmal** so gross wie ohne (0,0065), und solche
+   * Kanten machen je nach Stufe 2 bis 20 % aus.
+   *
+   * Die Gewichte laufen durch `glaetten`: innen bleibt das Biom rein, der
+   * Übergang liegt in der Mitte zwischen zwei Zellen. Eine Wiese sieht damit
+   * weiter wie eine Wiese aus, nur ihr Rand ist ein Saum statt einer Treppe.
+   */
+  bodenfarbe: (x: number, z: number, ziel: THREE.Color) => THREE.Color;
   breiteMeter: number;
   tiefeMeter: number;
 }
+
+/**
+ * Biompalette einmal als `THREE.Color`. `farbe.set('#73865d')` parst bei jedem
+ * Aufruf eine Zeichenkette — pro Kachel sind das seit D162 tausende Aufrufe.
+ */
+const BIOM_TON: Record<Biom, THREE.Color> = Object.fromEntries(
+  Object.entries(BIOM_FARBE).map(([b, f]) => [b, new THREE.Color(f)]),
+) as Record<Biom, THREE.Color>;
 
 const METER_JE_GRAD = 111_320;
 
@@ -126,9 +152,38 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
     const fj = (x / breiteMeter + 0.5) * (n - 1);
     const fi = (z / tiefeMeter + 0.5) * (n - 1);
     const j0 = Math.floor(fj), i0 = Math.floor(fi);
-    const tx = glaetten(fj - j0), tz = glaetten(fi - i0);
-
-    // Bilineare Interpolation zwischen den DEM-Stützpunkten
+    /**
+     * **Bilinear, und zwar wirklich** — die Gewichte liefen bis D162 durch
+     * `glaetten`.
+     *
+     * Smoothstep hat an beiden Enden **Steigung null**. Auf einem gleichmässigen
+     * Hang heisst das: An jeder DEM-Rasterlinie liegt eine waagerechte Terrasse,
+     * das ganze Gefälle steckt in der Zellmitte. Gemessen auf 100 m Querschnitt
+     * bei z = 268, ohne Mikrorelief: Die Steigung schwankte zwischen **0,003 an
+     * der Rasterlinie und 0,54 dazwischen** — Faktor 180 auf einem Hang, der
+     * gleichmässig ist. Das war das Karo, das auf jedem Hang der Region lag; der
+     * Kommentar an dieser Stelle sagte die ganze Zeit „bilinear", und genau das
+     * war es wegen `glaetten` eben nicht.
+     *
+     * Vier Ursachen wurden vorher einzeln ausgeschlossen, jede mit eigenem Bild:
+     * Streuschicht (`?aus=gras`), Umgebungsverdeckung (`?ao=0`), Flat Shading
+     * (`?bodenglatt=1`) und die Biomfarben. Keine war es. Auch das Mikrorelief
+     * nicht (`?mikro=0`) — die Form kam aus der Interpolation selbst.
+     *
+     * **Catmull-Rom geprüft und verworfen.** Bikubisch mit Begrenzer entfernt das
+     * Karo genauso, kostet aber 454 ns statt 38 ns je Abfrage (14-fach) und im
+     * Browser 4,6 s statt 4,1 s Ladezeit. Der Grund, den es hätte — Facetten an
+     * den Zellkanten — ist im Bild nicht auffindbar: Mikrorelief und das
+     * Pixelrauschen in `bodenmaterial.ts` decken sie. 0,5 s für einen
+     * Unterschied, den man nicht sieht, bei 5 s Ladezeitbudget.
+     *
+     * **Preis:** Die Welt ist eine andere — Höhe im Mittel 0,22 m, im Extrem
+     * 4,79 m verschoben, an den Referenzorten 0,23 m (Felsmulde) und 0,29 m
+     * (Stauwehr). Deshalb gehören Szenenexport und Bildtor-Grundlegung in
+     * denselben Commit; die Blender-Referenzen von ADR-0006 stehen sonst auf
+     * einem Gelände, das es nicht mehr gibt.
+     */
+    const tx = fj - j0, tz = fi - i0;
     const h00 = roh(i0, j0), h10 = roh(i0, j0 + 1);
     const h01 = roh(i0 + 1, j0), h11 = roh(i0 + 1, j0 + 1);
     const basis = (h00 * (1 - tx) + h10 * tx) * (1 - tz) + (h01 * (1 - tx) + h11 * tx) * tz;
@@ -156,8 +211,27 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
     return welt.biome[i][j];
   };
 
+  // Siehe `HoehenFeld.bodenfarbe` — dieselbe Rasterkoordinate wie `rohHoehe`,
+  // nur dass hier vier Farben gemischt werden statt vier Höhen.
+  const klemm = (v: number) => Math.max(0, Math.min(n - 1, v));
+  const bodenfarbe = (x: number, z: number, ziel: THREE.Color): THREE.Color => {
+    const fj = klemm((x / breiteMeter + 0.5) * (n - 1));
+    const fi = klemm((z / tiefeMeter + 0.5) * (n - 1));
+    const j0 = Math.floor(fj), i0 = Math.floor(fi);
+    const j1 = Math.min(n - 1, j0 + 1), i1 = Math.min(n - 1, i0 + 1);
+    const tx = glaetten(fj - j0), tz = glaetten(fi - i0);
+    const a = BIOM_TON[welt.biome[i0][j0]], b = BIOM_TON[welt.biome[i0][j1]];
+    const c = BIOM_TON[welt.biome[i1][j0]], d = BIOM_TON[welt.biome[i1][j1]];
+    return ziel.setRGB(
+      (a.r * (1 - tx) + b.r * tx) * (1 - tz) + (c.r * (1 - tx) + d.r * tx) * tz,
+      (a.g * (1 - tx) + b.g * tx) * (1 - tz) + (c.g * (1 - tx) + d.g * tx) * tz,
+      (a.b * (1 - tx) + b.b * tx) * (1 - tz) + (c.b * (1 - tx) + d.b * tx) * tz,
+      THREE.LinearSRGBColorSpace,
+    );
+  };
+
   return {
-    hoehe, biom, breiteMeter, tiefeMeter,
+    hoehe, biom, bodenfarbe, breiteMeter, tiefeMeter,
     wasserTiefe: wasser.tiefeAn, teiche: wasser.teiche,
   };
 }
@@ -341,20 +415,34 @@ export function baueKachelGeometrie(
     return [x, feld.hoehe(x, z), z];
   };
 
-  const dreieck = (p: [number, number, number][], biomQuelle: [number, number]) => {
-    for (const [x, y, z] of p) positionen.push(x, y, z);
-    farbe.set(BIOM_FARBE[feld.biom(biomQuelle[0], biomQuelle[1])]);
-    const jitter = 0.93 + hash2(Math.round(biomQuelle[0]), Math.round(biomQuelle[1])) * 0.14;
-    for (let k = 0; k < 3; k++) farben.push(farbe.r * jitter, farbe.g * jitter, farbe.b * jitter);
+  /**
+   * **Farbe je Vertex aus der Weltlage** — nicht je Zelle aus deren Mitte (D162).
+   *
+   * Vorher bekam ein Dreieck **eine** Farbe, geholt an der Zellmitte, und darauf
+   * lag ein Jitter `0,93 + hash2(round(x), round(z)) · 0,14`. Beides hing am
+   * Zellraster, und das Zellraster hängt an der LOD-Stufe — dieselbe Wiese trug
+   * bei 2 m Zellweite ein feines und bei 32 m ein grobes Karo. Das war das
+   * Schachbrett auf dem Hang.
+   *
+   * Der Jitter **fällt ersatzlos weg**. `bodenmaterial.ts` variiert die Helligkeit
+   * ohnehin schon zweimal je Pixel (±13 % bei 1,4 m, ±10 % bei 8,7 m) und tut das
+   * in **Weltkoordinaten**, also ortsfest über alle Stufen. Der Vertex-Jitter war
+   * das dritte Rauschen an derselben Fläche und das einzige, das das Raster trug.
+   */
+  const dreieck = (p: [number, number, number][]) => {
+    for (const [x, y, z] of p) {
+      positionen.push(x, y, z);
+      feld.bodenfarbe(x, z, farbe);
+      farben.push(farbe.r, farbe.g, farbe.b);
+    }
   };
 
   for (let b = 0; b < teile; b++) {
     for (let a = 0; a < teile; a++) {
       const p00 = punkt(a, b), p10 = punkt(a + 1, b);
       const p01 = punkt(a, b + 1), p11 = punkt(a + 1, b + 1);
-      const mitte: [number, number] = [(p00[0] + p11[0]) / 2, (p00[2] + p11[2]) / 2];
-      dreieck([p00, p01, p10], mitte);
-      dreieck([p10, p01, p11], mitte);
+      dreieck([p00, p01, p10]);
+      dreieck([p10, p01, p11]);
     }
   }
 
@@ -369,9 +457,8 @@ export function baueKachelGeometrie(
     const p2 = punkt(...rand[(k + 1) % rand.length]);
     const u1: [number, number, number] = [p1[0], p1[1] - schuerzeTiefe, p1[2]];
     const u2: [number, number, number] = [p2[0], p2[1] - schuerzeTiefe, p2[2]];
-    const mitte: [number, number] = [(p1[0] + p2[0]) / 2, (p1[2] + p2[2]) / 2];
-    dreieck([p1, u1, p2], mitte);
-    dreieck([p2, u1, u2], mitte);
+    dreieck([p1, u1, p2]);
+    dreieck([p2, u1, u2]);
   }
 
   const g = new THREE.BufferGeometry();
