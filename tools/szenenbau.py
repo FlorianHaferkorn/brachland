@@ -657,8 +657,13 @@ def mauer(name, ort, laenge, hoehe, dicke, achse, saat, mat, mat_kern, hmin, oef
             zz += 0.32
     print(name, anzahl, 'Steine')
     o = fertig(name, bm, ort, mat, False, (lehne if achse == 'x' else 0.0, lehne if achse == 'y' else 0.0, 0.0))
-    # Kern: dunkel, etwas schmaler, mit derselben Bruchkante — fuellt die Luecken zwischen den Steinen
-    kern = kasten(name + '_Kern', (dicke - 0.28, laenge - 0.3, hoehe) if achse == 'y' else (laenge - 0.3, dicke - 0.28, hoehe), (ort[0], ort[1], ort[2] + 0.02), 0.5)
+    # Kern: dunkel, etwas schmaler, mit derselben Bruchkante — fuellt die Luecken zwischen den Steinen.
+    # Rücksprung 0,14 -> 0,08 m je Seite (D160): Cycles füllt eine 14-cm-Fuge mit indirektem Licht,
+    # three.js hat keine Bounces und zeichnet sie schwarz — die Mauer las im Spiel als Raster statt als
+    # Fläche. Flacher heisst: Der Kern bekommt Streiflicht, die Fuge bleibt als Linie erkennbar.
+    # Geometrie statt Farbe, weil dieselbe Szene den Render **und** das Spiel speist.
+    RUECK = 0.16
+    kern = kasten(name + '_Kern', (dicke - RUECK, laenge - 0.3, hoehe) if achse == 'y' else (laenge - 0.3, dicke - RUECK, hoehe), (ort[0], ort[1], ort[2] + 0.02), 0.5)
     if oeffnung is not None:
         u0, b, h = oeffnung
         wo = Vector(ort) + (Vector((0, u0, 0)) if achse == 'y' else Vector((u0, 0, 0)))

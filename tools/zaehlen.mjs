@@ -23,7 +23,10 @@
  * Bewusst keine Abhängigkeit im Manifest — ein Messwerkzeug, das jeder Clone
  * mitschleppt, ist 300 MB für etwas, das man dreimal im Monat braucht.
  */
-import { chromium } from 'playwright';
+// Playwright ueber `mess/pw.mjs` (D160): bewusst keine Abhaengigkeit im Manifest, und der frueher
+// noetige Symlink nach `.cache/mess/node_modules` war irgendwann weg — das Tor lief dann gar nicht.
+import { playwright } from './mess/pw.mjs';
+const { chromium } = await playwright();
 
 const ORT = process.argv[2] ?? '-1620,-1620';
 const LAEUFE = (process.argv[3] ?? ',gras,fels,baeume,gras+fels+baeume').split(',');

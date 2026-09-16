@@ -534,6 +534,11 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
    */
   const baumWind = useMemo(() => baueWindMaterial({
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.2,
+    // Schaerfe 3 -> 10 (D160): Auf Blattmassen aus kleinen Kugeln ist `1 - |N·V|` fast ueberall hoch,
+    // der Saum lag deshalb als heller Flaum ueber der ganzen Krone statt als Kante — gemessen am
+    // Stauwehr 30 % der Bildhelligkeit (Median 0,100 -> 0,069 ohne Saum). Kreaturen und Figur behalten
+    // ihre weichen 1,6: dort ist die Flaeche gross und die Silhouette wirklich ein Rand.
+    randSchaerfe: 10,
     loecher: 0.42, loecherSkala: 9, durchlass: 0.45,
   }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide })), []);
   useEffect(() => {
@@ -1587,7 +1592,7 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
       const w = baueWindMaterial(laub
         // Saum auf Blattmassen fast aus: Klumpen mit Loechern bestehen aus lauter Kanten, bei voller
         // Staerke lasen sie als weisse Wolken (gemessen am ersten Durchstich)
-        ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.15, loecher: 0.42, loecherSkala: 9, durchlass: 0.55 }
+        ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.15, randSchaerfe: 10, loecher: 0.42, loecherSkala: 9, durchlass: 0.55 }
         : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.6 }, basis);
       if (laub) { w.material.side = THREE.DoubleSide; if (w.tiefe) o.customDepthMaterial = w.tiefe; }
       o.material = w.material; materialien.push(w);

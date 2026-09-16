@@ -267,6 +267,24 @@ statt 12,9 MB): Meshopt komprimiert quantisierte Attribute deutlich besser, und 
 Lauf. Prüfen mit `ls -la public/bauten/` — Grün gehört bei 8–13 MB, nicht bei 39–59 MB; die Dreieckszahl
 muss dabei gleich bleiben (Felsmulde 542.676, Stauwehr 840.104).
 
+## Bildtor grunden — mit Blick ins Bild (D160)
+
+`npm run bildtor` laeuft seit D160 mit echter GPU (Metal); SwiftShader stirbt an den 6 M Dreiecken der
+Felsmulde. Playwright kommt ueber `tools/mess/pw.mjs`, kein Symlink noetig. Preview muss laufen.
+
+**Vor `--neu` jeden Fall ansehen, dessen Zahlen sich stark bewegt haben.** Das Tor misst „ist das Dunkle
+leer?" — es merkt nicht, ob der **Gegenstand** des Falls noch im Bild ist. Zweimal ist genau das passiert:
+G-134 (Dorf ohne Haeuser) und D160 (der Fall „Fenster" stand am Wehr, wo die 160-m-Freihaltung des
+Bauwerks seit D155 die Haeuser ausblendet — er mass fuenf Ledger-Zeilen lang nichts).
+
+```bash
+node tools/mess/stil.mjs --gpu '1350,495,0' probe '&zeit=0'     # denselben Ort einzeln aufnehmen
+```
+
+Nachtfaelle sind im Rohbild kaum lesbar — zum Pruefen aufhellen (Faktor 6–7), dann sieht man sofort, ob
+Haeuser, Wasser oder Wald da sind, wo sie sein sollen. Erst danach `npm run bildtor -- --neu`, und jede
+Median-Warnung im Ledger begruenden.
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.

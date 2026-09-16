@@ -108,6 +108,24 @@ const ROLLEN_GLSL = /* glsl */ `
  * mit der Grundfarbe eingefärbt werden. Ein Umriss gegen den Himmel hat die Farbe
  * des Himmels, nicht die des Fells.
  */
+/**
+ * `?saum=0.5` skaliert das Silhouettenlicht **aller** Materialien, `?saumSchaerfe=8` setzt den Exponenten.
+ *
+ * Messparameter (D160), hier statt in der Szene, weil auch Kreaturen, Figur und Bauwerke dieses Material
+ * benutzen. Auf einer Blattmasse aus kleinen Kugeln ist `1 - |N·V|` fast ueberall hoch — „Silhouette" ist
+ * dort kein Rand, sondern die halbe Flaeche, und der Saum legt sich als heller Flaum ueber die Krone.
+ * Ob Staerke oder Schaerfe der Hebel ist, entscheidet die Messung, nicht die Vermutung.
+ */
+const zahlAusAdresse = (name: string, max: number, minimum = 0): number | null => {
+  if (typeof location === 'undefined') return null;
+  const text = new URLSearchParams(location.search).get(name);
+  if (text === null) return null;   // `Number(null)` ist 0, und 0 ist gueltig (Saum aus) — D159
+  const roh = Number(text);
+  return Number.isFinite(roh) && roh >= minimum && roh <= max ? roh : null;
+};
+const SAUM_FAKTOR: number = zahlAusAdresse('saum', 10) ?? 1;
+const SAUM_SCHAERFE: number | null = zahlAusAdresse('saumSchaerfe', 32, 0.01);
+
 const RAND_GLSL = /* glsl */ `
   // Fresnel: 0 dort, wo die Fläche zum Betrachter zeigt, 1 an der Silhouette.
   float randKante = 1.0 - abs(dot(geometryNormal, geometryViewDir));
@@ -251,8 +269,8 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
 } {
   const zeit = { value: 0 };
   const randFarbe = { value: w.randFarbe.clone() };
-  const randStaerke = { value: w.randStaerke };
-  const randSchaerfe = { value: w.randSchaerfe ?? 3.0 };
+  const randStaerke = { value: w.randStaerke * SAUM_FAKTOR };
+  const randSchaerfe = { value: SAUM_SCHAERFE ?? w.randSchaerfe ?? 3.0 };
   const windAmp = { value: w.amplitude };
   const atmen = { value: w.atmen ? 1 : 0 };
   const gang = { value: 0 };
@@ -327,7 +345,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
     material,
     tiefe,
     setzeZeit: (t) => { zeit.value = t; },
-    setzeRand: (farbe, staerke) => { randFarbe.value.copy(farbe); randStaerke.value = staerke; },
+    setzeRand: (farbe, staerke) => { randFarbe.value.copy(farbe); randStaerke.value = staerke * SAUM_FAKTOR; },
     setzeGang: (g) => { gang.value = g; },
     setzeRollen: (farben) => {
       rollenMaske.value.fill(0);

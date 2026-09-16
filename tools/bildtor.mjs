@@ -36,7 +36,10 @@
  * bekommt dort `offen: true` samt Ledger-Nummer — dann meldet das Tor ihn als
  * Warnung statt als Blocker, und ein **neuer** Ausfall faellt trotzdem auf.
  */
-import { chromium } from 'playwright';
+// Playwright ueber `mess/pw.mjs` (D160): bewusst keine Abhaengigkeit im Manifest, und der frueher
+// noetige Symlink nach `.cache/mess/node_modules` war irgendwann weg — das Tor lief dann gar nicht.
+import { playwright } from './mess/pw.mjs';
+const { chromium } = await playwright();
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const GRUND = 'tools/bildtor.json';
@@ -127,7 +130,16 @@ const messen = async (d) => {
            median: ys[Math.floor(n / 2)] };
 };
 
-const browser = await chromium.launch();
+/**
+ * **Echte GPU statt SwiftShader** (D160). Der Software-Rasterizer war die deterministischere Wahl, aber
+ * seit die Blender-Bauwerke in der Szene stehen, sind es an der Felsmulde 6 M Dreiecke — dort stirbt der
+ * Kontext mitten im Lauf („Target page, context or browser has been closed"), und das Tor lief seit D155
+ * überhaupt nicht mehr. Ein Tor, das nicht läuft, prüft nichts. Die Grundwerte sind damit an dieses Gerät
+ * gebunden (M1, Metal) — `dreiecke` und `ladezeit` waren es ohnehin schon (G-134).
+ */
+const browser = await chromium.launch({
+  args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist'],
+});
 const zeilen = [];
 let blocker = 0, warnungen = 0;
 

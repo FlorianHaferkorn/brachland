@@ -86,9 +86,25 @@ const RELIEF_GLSL = /* glsl */ `
  * Flat Shading traegt die Gelaendeform. Das kleinere Normalenrelief folgt
  * ADR-0006 und der Blender-Quelle; es veraendert weder Silhouette noch Kollision.
  */
+/**
+ * `?bodenglatt=1` schaltet das Flat Shading des Bodens ab — **Messparameter, keine Umstellung** (D160).
+ *
+ * Gebaut, um dem Schachbrettmuster nachzugehen, das am Stauwehr über dem Boden liegt. **Ergebnis: Flat
+ * Shading ist nicht die Ursache** — mit und ohne sind Bild und Messwerte gleich (Drittel 0,236/0,119/0,075
+ * gegen 0,236/0,119/0,074). Das Muster steht auch auf dem nackten Terrain (`?aus=gras,baeume,bauwerke,
+ * haeuser,menschen`) und ist damit **Farbe, nicht Beleuchtung**: die zellenweisen Biomfarben des
+ * Höhenrasters, die mit der entsättigten Palette als Raster lesen. Gehört zu Stufe 3 (Karte).
+ *
+ * Der Regler bleibt, weil er diesen Ausschluss reproduzierbar macht — nicht als halbe Umstellung.
+ */
+const BODEN_GLATT: boolean = (() => {
+  if (typeof location === 'undefined') return false;
+  return new URLSearchParams(location.search).get('bodenglatt') === '1';
+})();
+
 export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({
-    vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0,
+    vertexColors: true, flatShading: !BODEN_GLATT, roughness: 0.95, metalness: 0,
   });
 
   material.onBeforeCompile = (shader) => {
