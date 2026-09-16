@@ -349,6 +349,41 @@ umstellt, plus `?mikro=` für das Mikrorelief. Laufzeit der drei Verfahren, 2 Mi
 Abfragen: smoothstep 32 ns · bilinear 38 ns · Catmull-Rom mit Begrenzer 454 ns;
 end-to-end Ladezeit im Browser 4,1 / 4,1 / 4,6 s.
 
+## Die Kette einmal gefahren — D162
+
+Anlass war die Korrektur an `rohHoehe` (Abschnitt darüber). Gefahren wurde das
+Kettenrezept in `.cache/d162-neubau/`, seriell, mit Sicherung und Rückgabe von
+`.cache/blender/terrain.json`.
+
+**Was sich geändert hat:**
+
+```
+h0 Felsmulde   452,9119 → 453,1171   (+0,205)
+h0 Stauwehr     46,7470 →  46,4557   (−0,291)
+Szenenexport   felsmulde 21 Bauten · 41 Gruen · 1 Wasser · 1002 s
+               stauwehr  12 Bauten · 50 Gruen · 0 Wasser ·  968 s
+Packen         felsmulde-bauten 34,79 → 4,48 MiB · 240.688 Dreiecke
+               felsmulde-gruen  43,28 → 9,67 MiB · 608.916 Dreiecke
+               stauwehr-bauten  18,87 → 2,56 MiB · 146.292 Dreiecke
+               stauwehr-gruen   59,02 → 12,90 MiB · 840.104 Dreiecke
+```
+
+Die Dreieckszahlen von `stauwehr-gruen` treffen D157 auf den Dreier genau, die
+Dateigrössen den vorherigen Stand auf wenige KiB — das Packen ist reproduzierbar.
+
+**Was sich nicht geändert hat, und das ist der eigentliche Befund:**
+
+Die Stilwerte der neuen Zielbilder sind mit den alten praktisch deckungsgleich —
+Felsmulde Median 0,018 → 0,018, Drittel 0,220/0,122/0,047 → 0,222/0,123/0,046;
+Stauwehr 0,028 → 0,029, Drittel 0,180/0,084/0,045 → 0,174/0,091/0,052. Die
+Geländekorrektur hat die **Geometrie** verschoben, nicht den **Look**.
+
+Und das Bildtor lief gegen die **bestehenden** Grundwerte durch: 14 Fälle, 0
+Blocker, 0 Warnungen, Dreieckszahlen innerhalb von 1 %. Eine Neugrundlegung war
+danach kein Muss, sondern wäre Informationsverlust gewesen — ein Grundwert, den
+man neu setzt, obwohl der alte hält, hat nie etwas geprüft. **`--neu` nur, wenn
+das Tor etwas meldet und das Bild den neuen Zustand rechtfertigt** (G-134, D160).
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.
