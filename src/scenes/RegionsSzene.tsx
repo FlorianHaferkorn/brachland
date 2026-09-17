@@ -791,6 +791,8 @@ function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInst
   const [fern, setFern] = useState<{ art: PropArt; variante: number; instanzen: PropInstanz[] }[]>([]);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
   const letzteFern = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  /** Kacheln, die im vorigen Durchlauf Attrappen waren — siehe `waehleProps` (D164). */
+  const vorigeAttrappen = useRef<ReadonlySet<string> | undefined>(undefined);
 
   useFrame(({ camera }) => {
     const p = camera.position;
@@ -812,7 +814,12 @@ function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInst
     // Zugehörigkeit daran hängt und nicht an der Kamera, steht in `propauswahl.ts`.
     if (fernNeu || Number.isNaN(letzteFern.current.x)) letzteFern.current.copy(p);
     const anker: [number, number] = [letzteFern.current.x, letzteFern.current.z];
-    const { nah, buendel } = waehleProps(chunks, [p.x, p.z], anker, fernNeu);
+    // `vorigeAttrappen` sind die Kacheln, die beim **letzten** Durchlauf Attrappen waren.
+    // Sie zwingen die Kette über die Mittelstufe, statt vom Kegel aufs volle Modell zu
+    // springen — gemessen 6 solcher Sprünge in 24 s Lauf (D164, `propauswahl.ts`).
+    const { nah, buendel, buendelKacheln } = waehleProps(
+      chunks, [p.x, p.z], anker, fernNeu, vorigeAttrappen.current);
+    vorigeAttrappen.current = buendelKacheln;
 
     // Ein neuer Fernanker verschiebt auch die Grenze zwischen Chunk und Bündel.
     // Deshalb beide Listen gemeinsam ersetzen, selbst wenn die letzte 8-m-

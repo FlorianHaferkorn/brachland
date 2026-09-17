@@ -66,6 +66,13 @@ export interface Auswahl {
   nah: { c: PropChunk; stufe: PropStufe }[];
   /** Attrappen, nach Art gebündelt. Nur befüllt, wenn `bauBuendel` gesetzt ist. */
   buendel: Map<PropArt, PropChunk[]>;
+  /**
+   * Kacheln, die in **diesem** Durchlauf Attrappen sind — unabhängig davon, ob das Bündel
+   * neu gebaut wurde. Der Aufrufer reicht sie beim nächsten Mal als `warGebuendelt` zurück,
+   * damit die Kette keine Stufe überspringt (D164). Der Schlüssel ist derselbe wie in
+   * `legeMittelZusammen`: Art und Kachelmitte.
+   */
+  buendelKacheln: Set<string>;
 }
 
 /**
@@ -84,17 +91,21 @@ export function propListenNeu(nahAbstand: number, fernAbstand: number): { nah: b
  * @param p       aktuelle Kameraposition (x, z)
  * @param anker   Position, an der das Bündel zuletzt gebaut wurde (x, z)
  * @param bauBuendel  ob das Bündel in diesem Durchlauf neu befüllt wird
+ * @param warGebuendelt  Kacheln, die im **vorigen** Durchlauf Attrappen waren — siehe unten
  */
 export function waehleProps(
   chunks: readonly PropChunk[], p: readonly [number, number],
   anker: readonly [number, number], bauBuendel: boolean,
+  warGebuendelt?: ReadonlySet<string>,
 ): Auswahl {
   const nah: { c: PropChunk; stufe: PropStufe }[] = [];
   const buendel = new Map<PropArt, PropChunk[]>();
+  const buendelKacheln = new Set<string>();
 
   for (const c of chunks) {
     const vomAnker = Math.hypot(anker[0] - c.mitte[0], anker[1] - c.mitte[1]);
     if (vomAnker > ATTRAPPE_AB) {
+      buendelKacheln.add(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`);
       // Sichtweite um die Ankerstrecke erweitert: Was in den nächsten 60 m in
       // Reichweite gerät, ist schon drin, statt später hineinzupoppen.
       if (bauBuendel && vomAnker - c.radius <= c.sichtweite + FERN_NEUBEWERTUNG) {
@@ -149,6 +160,35 @@ export function waehleProps(
      * 17 m), und dieselbe Bauart gilt an der Attrappengrenze, die zusätzlich
      * über den **Anker** entscheidet und damit noch gröber ist.
      */
+    /**
+     * **Die Kette überspringt keine Stufe** (D164).
+     *
+     * Gemessen mit `tools/mess/lodlauf.mjs` über 24 s Lauf in den Wald bei der Felsmulde:
+     * 76 Stufenwechsel, davon **6 × `fern→nah`** — ein Baum sprang vom 12-Dreieck-Kegel
+     * direkt auf das volle Modell, ohne die Mittelstufe je zu berühren. Genau das sieht
+     * man als Ploppen.
+     *
+     * Die Ursache ist die **Ankerstrecke**: Ob ein Chunk Attrappe ist, entscheidet
+     * `vomAnker`, und der Anker zieht erst alle `FERN_NEUBEWERTUNG` = 60 m nach. Läuft
+     * die Figur in dieser Zeit auf einen gebündelten Chunk zu, steht er beim Nachziehen
+     * unter Umständen schon innerhalb der 45 m der Nahstufe. Gemessen kam der nächste so
+     * gezeichnete Baum auf **28,6 m** heran.
+     *
+     * Was hier **nicht** hilft und gemessen wurde: den Anker früher nachziehen (31 statt
+     * 4 Bündelneubauten je 232 m, Fehler nur 28,6 → 69 m) oder Hysterese je Chunk
+     * (10–17 Neubauten, 46–63 m). Beides kauft wenig für viel, weil der Rest gar nicht
+     * vom Anker kommt: Die Entscheidung fällt über die **Chunkmitte**, und bei 52,5 m
+     * Radius liegt der nächste Baum eines gerade noch gebündelten Chunks rechnerisch bei
+     * 110 − 52,5 = **57,5 m**. Tiefer kommt keine Schwellenregel.
+     *
+     * Also nicht an der Schwelle drehen, sondern den **Übergang** erzwingen: Ein Chunk,
+     * der im vorigen Durchlauf Attrappe war, bekommt höchstens die Mittelstufe. Die
+     * Nahliste wird alle 8 m neu bestimmt, die Zwischenstufe steht also höchstens einen
+     * Schritt lang — und ein Baum auf Mittelstufe statt Nahstufe für 8 m Weg ist
+     * unsichtbar gegen einen Kegel, der zum Baum wird.
+     */
+    const kamAusDemBuendel = warGebuendelt?.has(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`) ?? false;
+    if (kamAusDemBuendel) { nah.push({ c, stufe: 'mittel' }); continue; }
     if (BAUM.has(c.art) && Math.abs(mitte - MITTEL_AB) < c.radius && c.instanzen.length > 0) {
       const nahe: PropInstanz[] = [], mittlere: PropInstanz[] = [];
       for (const i of c.instanzen) {
@@ -171,7 +211,7 @@ export function waehleProps(
     }
     nah.push({ c, stufe: mitte > MITTEL_AB ? 'mittel' : 'nah' });
   }
-  return { nah: legeMittelZusammen(nah), buendel };
+  return { nah: legeMittelZusammen(nah), buendel, buendelKacheln };
 }
 
 /**

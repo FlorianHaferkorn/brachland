@@ -239,5 +239,38 @@ for (const art of ['laubbaum', 'nadelbaum'] as const) {
     `${einer.length} Einträge`);
 }
 
+// ---------------------------------------------------- Die Kette ueberspringt keine Stufe (D164)
+//
+// Gemessen mit `lodlauf.mjs`: 6 von 76 Stufenwechseln waren `fern→nah` — vom 12-Dreieck-Kegel
+// direkt aufs volle Modell. Ursache ist die Ankerstrecke: Ob ein Chunk Attrappe ist, entscheidet
+// `vomAnker`, und der Anker zieht erst alle 60 m nach. Ein Chunk, der im vorigen Durchlauf im
+// Buendel war, bekommt deshalb hoechstens die Mittelstufe.
+{
+  const c: PropChunk = {
+    art: 'nadelbaum', variante: 0, mitte: [20, 0], radius: 52.5, sichtweite: 420,
+    instanzen: [{ art: 'nadelbaum' as PropArt, variante: 0, position: [20, 0, 0], drehung: 0, skalierung: 1 }],
+  };
+  const ORT: [number, number] = [0, 0];
+  // Ohne Vorgeschichte: 20 m ist Nahstufe.
+  const frisch = waehleProps([c], ORT, ORT, false);
+  pruefe('ohne Vorgeschichte steht der nahe Chunk auf der Nahstufe',
+    frisch.nah.length === 1 && frisch.nah[0].stufe === 'nah', frisch.nah[0]?.stufe);
+  // Mit Vorgeschichte „war Attrappe": erst Mittelstufe, kein Sprung.
+  const key = `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
+  const nachBuendel = waehleProps([c], ORT, ORT, false, new Set([key]));
+  pruefe('aus dem Buendel kommend zuerst die Mittelstufe',
+    nachBuendel.nah.length === 1 && nachBuendel.nah[0].stufe === 'mittel', nachBuendel.nah[0]?.stufe);
+  // Und der naechste Durchlauf darf wieder nah sein — die Zwischenstufe haelt genau einen Schritt.
+  const danach = waehleProps([c], ORT, ORT, false, nachBuendel.buendelKacheln);
+  pruefe('die Zwischenstufe haelt genau einen Durchlauf',
+    danach.nah.length === 1 && danach.nah[0].stufe === 'nah', danach.nah[0]?.stufe);
+  // Der Schluesselsatz muss melden, was gerade Attrappe ist.
+  const weit: PropChunk = { ...c, mitte: [400, 0] };
+  const w = waehleProps([weit], ORT, ORT, true);
+  pruefe('buendelKacheln nennt die Attrappenkachel',
+    w.buendelKacheln.has(`${weit.art}|400|0`), [...w.buendelKacheln].join(','));
+  pruefe('buendelKacheln nennt keine Nahkachel', !frisch.buendelKacheln.has(key));
+}
+
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);
