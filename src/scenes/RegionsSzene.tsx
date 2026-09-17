@@ -144,8 +144,24 @@ const UMGEBUNG_MESSLAUF: number | null = (() => {
  * Dieselbe Szene mit demselben Licht kann damit nicht dasselbe Bild ergeben — der Vergleich
  * Spiel gegen Render misst bis hierher **auch** den Unterschied der beiden Kurven.
  *
- * Umschalten ist kein Messlauf, sondern Art Direction: Alle `belichtung`-Werte der Stimmungen sind
- * gegen ACES gesetzt. Deshalb erst der Regler, dann die Entscheidung.
+ * **Seit D164 ist `agxlook` die Vorgabe**, ACES nur noch per `?kurve=aces` für den Rückvergleich.
+ * Die Entscheidung stand auf zwei Messungen an der Bogenkamera der Felsmulde (16:9, `zielbild`),
+ * gegen den Render aus D162:
+ *
+ * ```
+ *                  Median   Drittel o/m/u        dunkel   sat
+ *   Render          0,018   0,222/0,123/0,046    53,1 %   0,39
+ *   ACES  (vorher)  0,090   0,280/0,192/0,111    15,1 %   0,33
+ *   AgX+Look        0,070   0,219/0,155/0,086    20,9 %   0,37
+ * ```
+ *
+ * Jeder Wert geht in dieselbe Richtung, und das **obere Drittel trifft**: 0,219 gegen 0,222, wo
+ * ACES mit 0,280 um ein Viertel danebenlag. Am Stauwehr dasselbe Bild — obere Leuchtdichte 0,219
+ * → 0,174 bei einem Render von 0,174, Gesamtsättigung 0,43 → 0,48 bei 0,47.
+ *
+ * Die `belichtung`-Werte der Stimmungen sind weiter gegen ACES gesetzt und **nicht** nachgezogen:
+ * AgX macht das Bild durchgehend dunkler, und das ist die Richtung zum Render. Wer sie nachzieht,
+ * muss es messen, nicht schätzen.
  */
 const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
   if (typeof location === 'undefined') return null;
@@ -154,12 +170,25 @@ const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
   const tabelle: Record<string, THREE.ToneMapping> = {
     agx: THREE.AgXToneMapping, aces: THREE.ACESFilmicToneMapping,
     neutral: THREE.NeutralToneMapping, linear: THREE.LinearToneMapping,
-    // `agxlook` ist AgX **plus** dem gemessenen Look des Renders (`tonwert.ts`). Der Shader-Baustein
-    // muss ersetzt sein, bevor das erste Material uebersetzt wird — deshalb schon beim Lesen der Adresse.
-    agxlook: (haengeAgxLookEin(), THREE.CustomToneMapping),
+    // `agxlook` ist AgX **plus** dem gemessenen Look des Renders (`tonwert.ts`).
+    agxlook: THREE.CustomToneMapping,
   };
   return tabelle[name.toLowerCase()] ?? null;
 })();
+
+/**
+ * Der Look-Baustein wird **immer** eingehängt, nicht nur wenn die Adresse ihn anfordert.
+ *
+ * `haengeAgxLookEin()` ersetzt einen Shader-Baustein von three.js. Das muss geschehen, **bevor das
+ * erste Material übersetzt wird** — bis D161 stand der Aufruf deshalb im Auswerten der Adresse, wo
+ * er als Nebenwirkung eines Tabelleneintrags mitlief. Als Vorgabe geht das nicht mehr: Ohne
+ * `?kurve=` würde die Tabelle nie ausgewertet und der Baustein nie ersetzt, das Bild liefe auf
+ * `CustomToneMapping` ohne Kurve — also stockdunkel.
+ */
+haengeAgxLookEin();
+
+/** Kurve ohne Adresse: der Look des Renders (D164). */
+const KURVE_VORGABE: THREE.ToneMapping = THREE.CustomToneMapping;
 
 /**
  * `?schatten=0.6` überschreibt die Schattenstärke der Sonne (`shadow.intensity`,
@@ -1901,7 +1930,7 @@ function Beleuchtung({ s, ziel }: {
    * Die Werte sind gegen ein MacBook-Display gesetzt und ausdrücklich vorläufig.
    */
   useEffect(() => {
-    gl.toneMapping = KURVE_MESSLAUF ?? THREE.ACESFilmicToneMapping;
+    gl.toneMapping = KURVE_MESSLAUF ?? KURVE_VORGABE;
     gl.toneMappingExposure = BELICHTUNG_MESSLAUF ?? s.belichtung;
   }, [gl, s]);
 

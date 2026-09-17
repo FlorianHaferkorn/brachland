@@ -40,8 +40,15 @@ nach Gelände-/Kameraänderungen aus der neuen Blender-Szene neu ableiten.
 
 | Szene | Spieler: `absetzen=x,z,grad` | Kamera: `kamera=x,y,z,tx,ty,tz` |
 |---|---|---|
-| Felsmulde | `-810,599.5,263` | `-810,454.99,599.5,-795,455.89,601.2` |
-| Stauwehr | `1045,885,304` | `1068,48.25,867,1105,44.19,842` |
+| Felsmulde | `-810,599.5,263` | `-810,455.195,599.5,-795,456.095,601.2` |
+| Stauwehr | `1045,885,304` | `1068,47.959,867,1105,43.899,842` |
+
+**Die y-Werte sind seit D164 nachgezogen** (vorher 454.99 / 455.89 und 48.25 / 44.19). Sie sind
+`h0 + Blender-Z`, und `h0` hat sich mit der Geländekorrektur aus D162 verschoben: Felsmulde
+452,9119 → 453,1171, Stauwehr 46,7470 → 46,4557. Gemessen an der Bogenkamera der Felsmulde
+über Kantenbilder halbiert das den senkrechten Versatz zwischen Spiel und Render von 8 auf
+4 Pixel. Der Rest ist nicht die Adresse: Der Restfehler der Überlagerung **steigt** dabei
+(29,2 → 33,6), also dominiert die Helligkeit, nicht die Deckung. Weiter feilen lohnt nicht.
 
 Beide verwenden `stimmung=zielbild&fov=42.6&kontur=0`. `fov` ist das **senkrechte**
 Sichtfeld; `kamera` fixiert Blickpunkt und Ziel, `absetzen` setzt weiterhin die
@@ -383,6 +390,43 @@ Blocker, 0 Warnungen, Dreieckszahlen innerhalb von 1 %. Eine Neugrundlegung war
 danach kein Muss, sondern wäre Informationsverlust gewesen — ein Grundwert, den
 man neu setzt, obwohl der alte hält, hat nie etwas geprüft. **`--neu` nur, wenn
 das Tor etwas meldet und das Bild den neuen Zustand rechtfertigt** (G-134, D160).
+
+## Die Kurve ist entschieden — D164
+
+`agxlook` ist seit D164 die **Vorgabe**, ACES nur noch per `?kurve=aces`. Gemessen an der
+Bogenkamera der Felsmulde (16:9, `zielbild`) gegen den Render aus D162:
+
+```
+                 Median   Drittel o/m/u        dunkel   sat
+  Render          0,018   0,222/0,123/0,046    53,1 %   0,39
+  ACES  (vorher)  0,090   0,280/0,192/0,111    15,1 %   0,33
+  AgX+Look        0,070   0,219/0,155/0,086    20,9 %   0,37
+```
+
+Das obere Drittel **trifft** (0,219 gegen 0,222), wo ACES um ein Viertel danebenlag.
+
+**Und das Fülllicht bleibt bei 4,0** — D159 hält. Die Zahlen sagten etwas anderes: Jede Stufe
+weniger Fülllicht bringt den Median näher an den Render (u4 0,070 · u3 0,052 · u2 0,035 · u1
+0,023 gegen 0,018 beim Render) und die dunklen Pixel dazu (20,9 · 27,8 · 39,1 · 48,6 % gegen
+53,1 %). **Im Bild ist es falsch:** Bei u2 verliert die sonnenabgewandte Mauerfläche ihre
+Steinzeichnung, bei u1 ist sie schwarz — während dieselbe Fläche im Render hell und lesbar ist.
+Der Render ist also **insgesamt** dunkler und **an der Mauer** heller als das Spiel. Was fehlt,
+ist folglich nicht weniger Fülllicht, sondern der fehlende Bounce am Boden.
+
+Das ist der Fall, für den N3 geschrieben ist: Der Median liess sich durch Zudrehen des Fülllichts
+auf den Render bringen, und das Ergebnis wäre eine schwarze Wand gewesen.
+
+**Nebenbefund, noch offen:** Die Begründung für `HEMI_BODEN` (`palette.ts` `licht.hemiBoden`) ist
+**ACES-spezifisch** — der Wert wurde angehoben, weil unterhalb einer linearen Strahldichte von rund
+0,002/Belichtung der Zähler des ACES-RRT-Fits negativ wird und auf 0 klemmt. AgX hat diese
+Schwarzgrenze nicht. Der Wert gehört unter der neuen Kurve neu hergeleitet (`npm run licht`),
+bevor jemand ihn als gesetzt liest.
+
+**Zweiter offener Posten:** Die `belichtung`-Werte aller Stimmungen sind gegen ACES gesetzt und
+wurden **nicht** nachgezogen. AgX macht das Bild durchgehend dunkler (Bildtor-Mediane 0,230 →
+0,176, 0,158 → 0,119, 0,148 → 0,114) und die hellen Pixel fast überall auf 0 %. Für den Vergleich
+mit dem Render ist das die richtige Richtung; ob es auf einem normalen Bildschirm noch stimmt, ist
+eine eigene Messreihe.
 
 ## Prüfung und Rückweg
 

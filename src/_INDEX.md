@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-16
+last-reviewed: 2026-09-17
 shelf-life-days: 90
 owns: *.ts, *.tsx
 ---
@@ -14,7 +14,7 @@ owns: *.ts, *.tsx
 | Deine Aufgabe ist … | Lies | NICHT nötig |
 |---|---|---|
 | Eine Farbe ändern, egal wo sie steht | `world/palette.ts` | alles andere |
-| Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ Messparameter seit D142 auch `?spiegel=1` (Kamera vor der Figur), seit D145 als Winkel (`?spiegel=90` seitlich). Spielerfigur seit D143 als SkinnedMesh mit `AnimationMixer` (Idle/Walk/Run nach Tempo — G-133: Walk/Run nicht mit Gewicht 0 vorhalten), im Sattel mit `sitzpose` über die Beinknochen und dem Reittier als `ReittierModell` (D145), Bewohner mit `figur` als `Mensch` (Idle, Winken bei 8 m, D144; seit D146 Idle-Wechsel, Wegstück `gang`, Laufzeitfarben `farben` über `uRollen` in `world/windmaterial.ts`). `scenes/ladezeit.ts`: Sekunden bis Gelände und Bänder standen, im HUD (D146). Kreaturen gehen seit D138 (`Lauf`, Zufallsgang um den Spawn, Aufmerken unter 9 m) und stossen seit D141 an Stämme und Grundrisse |
+| Licht, Nebel, Stimmung, Kamera ändern | `scenes/RegionsSzene.tsx` | world/, engine/ Messparameter seit D142 auch `?spiegel=1` (Kamera vor der Figur), seit D145 als Winkel (`?spiegel=90` seitlich). Spielerfigur seit D143 als SkinnedMesh mit `AnimationMixer` (Idle/Walk/Run nach Tempo — G-133: Walk/Run nicht mit Gewicht 0 vorhalten), im Sattel mit `sitzpose` über die Beinknochen und dem Reittier als `ReittierModell` (D145), Bewohner mit `figur` als `Mensch` (Idle, Winken bei 8 m, D144; seit D146 Idle-Wechsel, Wegstück `gang`, Laufzeitfarben `farben` über `uRollen` in `world/windmaterial.ts`). `scenes/ladezeit.ts`: Sekunden bis Gelände und Bänder standen, im HUD (D146). Kreaturen gehen seit D138 (`Lauf`, Zufallsgang um den Spawn, Aufmerken unter 9 m) und stossen seit D141 an Stämme und Grundrisse **Seit D164 ist `agxlook` die Vorgabe-Tonwertkurve**, ACES nur noch per `?kurve=aces`; `haengeAgxLookEin()` läuft deshalb beim Laden des Moduls, nicht mehr als Nebenwirkung des Adressparsens. Das Fülllicht bleibt bei 4,0 — weniger bringt zwar jeden Messwert näher an den Render, macht aber die sonnenabgewandte Mauerfläche schwarz (D159 hält). |
 | Kontur, Kanten, Verdeckung (AO), Nachbearbeitung | `scenes/Kontur.tsx` (`?kontur=`, `?ao=`) | world/, engine/ |
 | Kreaturen in der Welt oder Begegnungen ändern | `world/vorkommen.ts` → `scenes/RegionsSzene.tsx` | data/inhalte.ts |
 | Team, Fangen oder Speichern ändern | `main.tsx` → `spiel/spielstand.ts` | ui/BattleScreen.tsx |

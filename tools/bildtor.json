@@ -6,11 +6,11 @@
       "ort": "-1620,-1620,40",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 1.5,
-      "dunkel": 98.1,
-      "median": 0.003,
-      "dreiecke": 2604553,
-      "aufrufe": 126
+      "leer": 2.1,
+      "dunkel": 98.2,
+      "median": 0.002,
+      "dreiecke": 2561631,
+      "aufrufe": 129
     },
     {
       "name": "Felsflanke",
@@ -18,10 +18,10 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 7.9,
-      "median": 0.22,
-      "dreiecke": 2604577,
-      "aufrufe": 128
+      "dunkel": 7.7,
+      "median": 0.176,
+      "dreiecke": 2561655,
+      "aufrufe": 131
     },
     {
       "name": "Felsflanke",
@@ -29,10 +29,10 @@
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
       "leer": 0,
-      "dunkel": 8.6,
-      "median": 0.189,
-      "dreiecke": 2604577,
-      "aufrufe": 128
+      "dunkel": 8.3,
+      "median": 0.14,
+      "dreiecke": 2561655,
+      "aufrufe": 131
     },
     {
       "name": "Felsflanke",
@@ -40,20 +40,20 @@
       "zeit": 0.78,
       "stimmung": "abendrot",
       "leer": 0,
-      "dunkel": 4.5,
-      "median": 0.118,
-      "dreiecke": 2604449,
-      "aufrufe": 125
+      "dunkel": 4.6,
+      "median": 0.084,
+      "dreiecke": 2561523,
+      "aufrufe": 128
     },
     {
       "name": "Talboden",
       "ort": "900,-400,200",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 0.4,
+      "leer": 0.5,
       "dunkel": 99.7,
-      "median": 0.009,
-      "dreiecke": 2383499,
+      "median": 0.006,
+      "dreiecke": 2383847,
       "aufrufe": 79
     },
     {
@@ -62,9 +62,9 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 2.4,
-      "median": 0.214,
-      "dreiecke": 2383499,
+      "dunkel": 3.1,
+      "median": 0.16,
+      "dreiecke": 2383847,
       "aufrufe": 79
     },
     {
@@ -73,11 +73,11 @@
       "zeit": 0.26,
       "stimmung": "daemmerung",
       "leer": 0,
-      "dunkel": 1.6,
+      "dunkel": 2.3,
       "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
-      "median": 0.148,
-      "dreiecke": 3917340,
-      "aufrufe": 112
+      "median": 0.119,
+      "dreiecke": 3920182,
+      "aufrufe": 110
     },
     {
       "name": "Grashang",
@@ -85,21 +85,21 @@
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
       "leer": 0,
-      "dunkel": 2.4,
+      "dunkel": 3.4,
       "hinweis": "Hiess bis G-126 „Dorf\" und zeigt keines — der Fall misst Bewuchs am Hang, und das ist als Fall richtig, nur der Name war es nicht",
-      "median": 0.123,
-      "dreiecke": 3917340,
-      "aufrufe": 112
+      "median": 0.099,
+      "dreiecke": 3920182,
+      "aufrufe": 110
     },
     {
       "name": "Felsmulde",
       "ort": "-800,600,90",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 1.5,
-      "dunkel": 81.4,
-      "median": 0.002,
-      "dreiecke": 6188214,
+      "leer": 2.5,
+      "dunkel": 82.3,
+      "median": 0.001,
+      "dreiecke": 6170158,
       "aufrufe": 168
     },
     {
@@ -108,9 +108,9 @@
       "zeit": 0.52,
       "stimmung": "nebelmorgen",
       "leer": 0,
-      "dunkel": 3.4,
-      "median": 0.097,
-      "dreiecke": 6188214,
+      "dunkel": 5.2,
+      "median": 0.076,
+      "dreiecke": 6170158,
       "aufrufe": 168
     },
     {
@@ -118,47 +118,47 @@
       "ort": "1350,495,0",
       "zeit": 0,
       "stimmung": "nacht",
-      "leer": 2.4,
+      "leer": 3.6,
       "dunkel": 98.7,
-      "median": 0.003,
+      "median": 0.002,
       "hinweis": "Fensterglut bei Nacht (D134): misst \"hell\", nicht den Median. Seit D160 im **Dorf** (1350, 495) statt am Wehr — die 160-m-Freihaltung des Stauwehr-Bauwerks (D155) blendet dort die OSM-Haeuser aus, und der Fall mass seinen Gegenstand nicht mehr (G-134 zum Zweiten).",
-      "dreiecke": 2246221,
-      "aufrufe": 108
+      "dreiecke": 2234927,
+      "aufrufe": 114
     },
     {
       "name": "Dorf",
       "ort": "1350,495,0",
       "zeit": 0.26,
       "stimmung": "daemmerung",
-      "leer": 0.6,
-      "dunkel": 9.2,
-      "median": 0.146,
+      "leer": 0.8,
+      "dunkel": 11.3,
+      "median": 0.114,
       "hinweis": "Das dichteste Dorf der Region (128 Gebaeude im 3x3-Fenster um 1350/450), Blick nach Norden auf den Ortskern. Seit G-126",
-      "dreiecke": 2652101,
-      "aufrufe": 110
+      "dreiecke": 2640807,
+      "aufrufe": 116
     },
     {
       "name": "Stauwehr",
       "ort": "1110,871,90",
       "zeit": 0.26,
       "stimmung": "daemmerung",
-      "leer": 0,
-      "dunkel": 11.3,
-      "median": 0.114,
+      "leer": 0.1,
+      "dunkel": 15,
+      "median": 0.092,
       "hinweis": "Slice-Mitte (D113): 38 m bachabwaerts des Flussvaters, Blick nach Westen den Bach entlang — Wasser vorn, Klaeranlage rechts, Hang links. Der erste Standpunkt (40 m noerdlich, Blick Sued) stand in einem Gebaeude. Seit G-126",
-      "dreiecke": 3925796,
-      "aufrufe": 174
+      "dreiecke": 3924028,
+      "aufrufe": 171
     },
     {
       "name": "Wasser",
       "ort": "1072,850,180",
       "zeit": 0.26,
       "stimmung": "daemmerung",
-      "leer": 0.1,
-      "dunkel": 11.3,
-      "median": 0.114,
+      "leer": 0.2,
+      "dunkel": 14,
+      "median": 0.083,
       "hinweis": "Becken am Flussvater (D123): Blick nach Sueden ueber das Stauwehr-Becken, Wasser links und unten, Bach im Kammschatten. Grundwert vorlaeufig, bis der erste --neu-Lauf ihn schreibt",
-      "dreiecke": 3888142,
+      "dreiecke": 3888090,
       "aufrufe": 155
     }
   ]
