@@ -428,6 +428,51 @@ wurden **nicht** nachgezogen. AgX macht das Bild durchgehend dunkler (Bildtor-Me
 mit dem Render ist das die richtige Richtung; ob es auf einem normalen Bildschirm noch stimmt, ist
 eine eigene Messreihe.
 
+## Lightmap geprüft — und der Befund zeigt woanders hin (D164)
+
+Die Frage war, ob eine gebackene Lightmap für die statischen Set-Pieces den Rest zum Render
+schliesst. Der Bestand spricht dafür: `tools/szenenexport.py` backt ohnehin schon Farbe,
+Rauheit, AO und Normalen auf eine eigene UV-Insel je Objekt, und die GLB tragen genau
+`TEXCOORD_0` — eine Lightmap bräuchte keine zweite UV, nur eine Textur mehr.
+
+**Gemessen wurde trotzdem zuerst, wie gross der Posten überhaupt ist.** Ausschnitt: die
+sonnenabgewandte Mauerfläche links der Bogenkamera, lineare Leuchtdichte, Spiel gegen den Render
+aus D162 (um die gemessenen 4 px Versatz bereinigt):
+
+```
+             Median   Mittel     p90     p99   Anteil > 0,15
+  AgX u4     0,0278   0,0457  0,0922  0,3530      5,0 %
+  AgX u2     0,0096   0,0269  0,0499  0,3232      4,4 %
+  AgX u1     0,0034   0,0200  0,0371  0,3075      4,1 %
+  Render     0,0069   0,0084  0,0177  0,0252      0,0 %
+```
+
+**Das p99 ist der Befund.** Der Render kommt auf der ganzen Fläche nicht über 0,0252; das Spiel
+steht bei 0,35 — **vierzehnfach** — und bleibt dort, egal wie weit das Fülllicht fällt (0,353 bei
+u4, 0,308 bei u1). Fünf Prozent der Mauerpixel sind im Spiel heller als 0,15, im Render **null**.
+
+Daraus folgt dreierlei:
+
+1. **Das Fülllicht ist an dieser Fläche nicht der Hebel.** Es drückt den Median von 0,0278 auf
+   0,0034 — also auf ein Achtel des Renderwerts — und rührt die hellen Pixel nicht an. Die
+   Entscheidung aus D164, es bei 4,0 zu lassen, steht damit fester, als sie begründet war.
+2. **Eine Lightmap ist es auch nicht.** Indirektes Licht macht Flächen heller und weicher; hier
+   ist das Spiel zu hell und zu **hart**. Eine Lightmap addiert zu einem Problem, das ein Zuviel ist.
+3. **Der Rest ist ein Saum aus hellen Kanten**, den es im Render nicht gibt und der nicht am
+   Fülllicht hängt — also Sonne oder Glanz auf einer Fläche, die von der Sonne abgewandt ist.
+
+**Verdacht, noch nicht bewiesen:** die gebackene **Tangentenraum-Normalmap**. Im Render ist die
+Steinkante echte Geometrie und wirft Schatten; gebacken wird sie zu einer Normalen, und bei
+streifendem Licht hebt eine Normalmap Facetten an, die die Geometrie verdeckt hätte. Das Muster —
+weisse Ränder auf jedem Stein, während der Steinkörper korrekt dunkel ist — passt dazu.
+**Nächste Messung:** dieselbe Fläche einmal ohne `normalTexture` und einmal mit halber Stärke;
+bleibt das p99 bei 0,35, ist es der Glanz, fällt es auf 0,03, ist es die Normalmap.
+
+**Also: keine Lightmap bauen, bevor das geklärt ist.** Sie kostet je Bauwerk eine Textur mehr
+(heute 56 Texturen auf 21 Materialien, rund +37 %), einen längeren Bake, und sie bindet das Licht
+an eine Tageszeit — das Spiel hat einen Tageslauf mit vier Schlüsselstimmungen. Für einen Posten,
+der nach dieser Messung gar nicht der Posten ist, ist das der falsche Preis.
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.
