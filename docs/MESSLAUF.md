@@ -531,6 +531,34 @@ eine lesbare, nicht schwarze Wand stehen soll. Soll der Tag dunkler werden, dann
 Stimmung** — die Hemisphäre ist heute die einzige Lichtgrösse, die nicht mit der Stimmung
 wandert.
 
+## Hemisphärenboden je Stimmung (D167)
+
+D166 hat `#3a463c` global behalten, weil die Nacht den hellen Boden braucht. Jetzt trägt jede
+Stimmung ihren eigenen (`Stimmung.hemiBoden`, im Tageslauf gemischt wie jede Farbe). Gemessen an
+der Bogenkamera der Felsmulde (`zielbild`, lineare Leuchtdichte, 4 px Versatz bereinigt):
+
+```
+                 Wand-Median   Wand-p99   Hof-Median   Bild-Median   dunkel
+  #3a463c          0,0213       0,097       0,0732       0,057       27,2 %
+  #242c26          0,0155       0,090       0,0728       0,048       32,1 %
+  #1a201c          0,0139       0,088       0,0728       0,046       33,6 %
+  #121a16          0,0133       0,087       0,0728       0,045       34,3 %
+  Render           0,0071       0,024       0,0185       0,022         —
+```
+
+**`#242c26` holt fast alles, was der Hebel hergibt.** Dunkler bringt an der Wand noch 0,002.
+**Der Hof rührt sich nicht** — eine waagerechte Fläche schaut nach oben und sieht den Boden der
+Hemisphäre nicht. Die viermal zu helle Hoffläche hängt also an Himmel und Sonne, nicht hier.
+
+Global angewandt (`npm run bildtor -- --extra '&hemiboden=242c26'`) wird **Felsmulde nachts zum
+Blocker** (leer 4,8 → 8,3 %), Fenster 3,6 → 5,7 %. Die Tagesfälle bewegen sich kaum (Felsmulde
+`nebelmorgen` dunkel 6,2 → 8,0 %, Median 0,071 → 0,064; Felsflanke 0,142 → 0,140).
+
+**Entscheidung:** `nebelmorgen`, `goldnebel` und `zielbild` bekommen `#242c26`
+(`PALETTE.licht.hemiBodenTag`); `nacht`, `daemmerung` und `abendrot` behalten `#3a463c` — in
+Dämmerung und Abendrot trägt das Umgebungslicht das Bild (D118), und die Nacht braucht den Boden.
+Zwischen Dämmerung und Nebelmorgen läuft die Farbe mit der Uhr.
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.

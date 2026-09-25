@@ -267,7 +267,15 @@ export const PALETTE = {
    * Grund, die Nacht zuzuschütten. Wenn der Tag dunkler werden soll, dann je
    * Stimmung, nicht hier global. Messlauf: `?hemiboden=<hex6>`.
    */
-  licht: { hemiBoden: '#3a463c' },
+  licht: {
+    hemiBoden: '#3a463c',
+    /**
+     * D167: am Tag dunkler. Felsmulde (`zielbild`, Bogenkamera) Wand-Median 0,0213 → 0,0155
+     * (Render 0,0069); dunkler bringt kaum mehr (`#1a201c` 0,0139, `#121a16` 0,0133). Der Hof
+     * bleibt bei 0,073 — waagerechte Flächen sehen den Boden der Hemisphäre nicht.
+     */
+    hemiBodenTag: '#242c26',
+  },
 
   /**
    * Leuchtdichteband für Fremdmodelle (linear). `tools/kreaturbau.py` liest

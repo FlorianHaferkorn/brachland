@@ -43,7 +43,7 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
 import { istAus } from './abschalter.js';
-import { Kampfplatz } from '../kampf/Kampfplatz.js';
+import { Kampfplatz, type KampfFigur } from '../kampf/Kampfplatz.js';
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB } from './sichtweiten.js';
@@ -86,6 +86,11 @@ export interface Stimmung {
   /** Silhouettenlicht: Farbe des Himmels, der die Umrisse zeichnet. */
   randFarbe: string;
   randStaerke: number;
+  /**
+   * Bodenfarbe der Hemisphäre je Stimmung (D167); ohne Angabe `HEMI_BODEN`. Die Nacht braucht den
+   * hellen Boden gegen reines Schwarz, der Tag nicht — eine globale Zahl musste beides können.
+   */
+  hemiBoden?: string;
 }
 
 /**
@@ -101,6 +106,13 @@ export interface Stimmung {
  * Als Farbe exportiert, damit das Messwerkzeug dieselbe Zahl liest wie die Szene.
  */
 export const HEMI_BODEN = PALETTE.licht.hemiBoden;
+/**
+ * Hemisphärenboden der Tagesstimmungen (D167): `nebelmorgen`, `goldnebel`, `zielbild`. Nacht,
+ * Dämmerung und Abendrot behalten `HEMI_BODEN` — dort trägt das Umgebungslicht das Bild, und die
+ * Nacht verlöre mit dem dunklen Boden fast doppelt so viele Pixel an reines Schwarz (Fenster
+ * 2,7 → 4,8 %, Felsmulde nachts wird zum Bildtor-Blocker). Gemessen in `docs/MESSLAUF.md`.
+ */
+export const HEMI_BODEN_TAG = PALETTE.licht.hemiBodenTag;
 
 /**
  * `?belichtung=3.2` überschreibt die Belichtung der laufenden Stimmung.
@@ -360,6 +372,9 @@ export const STIMMUNG: Record<string, Stimmung> = {
     zenit: '#26333a', horizont: '#3e4a48', scheibe: 0.0, hof: 42,
     // Im Dunst streut das Licht ohnehin um jede Kante — Rand dezent.
     randFarbe: '#8a9a9c', randStaerke: 0.14,
+    // Tag: dunklerer Hemisphärenboden (D167). Der Tag trägt sich über die Sonne; der helle Boden
+    // war gegen die ACES-Schwarzgrenze gesetzt und hob hier nur die Unterseiten an.
+    hemiBoden: HEMI_BODEN_TAG,
   },
   abendrot: {
     himmel: '#1a1614', nebel: '#2a221d', nebelNah: 50, nebelFern: 380,
@@ -433,6 +448,7 @@ export const STIMMUNG: Record<string, Stimmung> = {
     fenster: 0.2,
     zenit: '#4c4340', horizont: '#9c7f6c', scheibe: 0.0030, hof: 60,
     randFarbe: '#e8cba8', randStaerke: 0.32,
+    hemiBoden: HEMI_BODEN_TAG,   // erbt `zielbild`
   },
 };
 export type StimmungsName = keyof typeof STIMMUNG;
@@ -523,6 +539,7 @@ export function stimmungBei(zeit: number): Stimmung {
     hof: z(A.hof, B.hof),
     randFarbe: mischeFarbe(A.randFarbe, B.randFarbe, f),
     randStaerke: z(A.randStaerke, B.randStaerke),
+    hemiBoden: mischeFarbe(A.hemiBoden ?? HEMI_BODEN, B.hemiBoden ?? HEMI_BODEN, f),
   };
 }
 
@@ -2026,7 +2043,7 @@ function Beleuchtung({ s, ziel }: {
       {/* Der Himmel hängt an der Kamera: keine Ausdehnung im Spielraum, kein Nebel,
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       <primitive object={himmel} />
-      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? HEMI_BODEN, UMGEBUNG_MESSLAUF ?? s.umgebungStaerke]} />
+      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, UMGEBUNG_MESSLAUF ?? s.umgebungStaerke]} />
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
@@ -2645,7 +2662,8 @@ function ReittierModell({ kreatur, mutation, rand, schritt, sitzHoehe }: {
  *
  * Ein Tier atmet und geht im Shader; ein Mensch braucht Huefte, Knie und
  * Ellbogen, und die liefert das Rig des Pakets billiger als jede Formel: ein
- * Draw Call, 24 Knochen, vier Clips (Idle, Idle_Neutral, Walk, Run). Der
+ * Draw Call, 24 Knochen, acht Clips (Idle, Idle_Neutral, Walk, Run; seit D167 dazu Sword_Slash,
+ * Roll, HitRecieve, Death für den Kampf, gestreckt auf die Dauer der Regel). Der
  * `AnimationMixer` blendet nach Tempo: steht → Idle, geht → Walk, rennt → Run;
  * die Abspielgeschwindigkeit folgt dem Tempo, damit die Fuesse nicht rutschen.
  * Das Material ist dasselbe Wind-/Randmaterial wie bei den Kreaturen —
@@ -2654,8 +2672,10 @@ function ReittierModell({ kreatur, mutation, rand, schritt, sitzHoehe }: {
  * Reiten (D93, D145): Im Sattel spielt die Figur Idle, wird um den Widerrist
  * angehoben und bekommt die Sitzpose ueber drei Winkel je Bein (`sitzpose`).
  */
-function SpielerFigur({ gier, schritt, rand, reittier }: {
+function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
   gier: React.RefObject<number>;
+  /** Kampfzustand (D167): Schlag, Rolle, Treffer, Fall als Clip. Ohne Kampf null. */
+  kampf?: React.RefObject<KampfFigur | null>;
   schritt: React.RefObject<{ phase: number; tempo: number }>;
   rand: { farbe: string; staerke: number };
   /**
@@ -2688,14 +2708,26 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
     const clip = (n: string) => mixer.clipAction(finde(n));
     const idle = clip('Idle'), walk = clip('Walk'), run = clip('Run');
+    // Kampfclips (D167) — einmal gespielt. Fehlen sie in der Datei, fällt `finde` auf den ersten
+    // Clip zurück; dann steht die Figur im Kampf eben still statt in T-Pose.
+    const einmal = (n: string, halten = false) => {
+      const a = clip(n);
+      a.setLoop(THREE.LoopOnce, 1);
+      a.clampWhenFinished = halten;
+      return a;
+    };
+    const schlag = einmal('Sword_Slash'), rolle = einmal('Roll');
+    const treffer = einmal('HitRecieve'), tod = einmal('Death', true);
     // Nur Idle laeuft; Walk und Run werden beim Wechsel eingeblendet.
     // **Nicht** mit `setEffectiveWeight(0)` vorhalten (G-133): Das Gewicht ist
     // der Faktor, mit dem `fadeIn` multipliziert — 0 mal Einblendung bleibt 0,
     // und die Figur lief bis D145 als T-Pose, weil Idle ausblendete und nichts
     // einblendete. Gesehen wurde das erst, als der Gang im Lauf gemessen wurde.
     idle.play();
-    return { idle, walk, run, aktiv: idle as THREE.AnimationAction };
+    return { idle, walk, run, schlag, rolle, treffer, tod, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
+  /** Was zuletzt aus dem Kampf gesehen wurde — ein neuer Zählerstand startet den Clip neu. */
+  const kampfVor = useRef({ schwung: -1, rollen: -1, getroffen: -1, trefferBis: 0, uhr: 0 });
   useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
   // Die Beinknochen fuer die Sitzpose (D145). GLTFLoader streicht den Punkt aus
   // den Namen (`UpperLeg.L` → `UpperLegL`); beide Schreibweisen werden gesucht.
@@ -2726,16 +2758,49 @@ function SpielerFigur({ gier, schritt, rand, reittier }: {
   const tier = useRef<THREE.Group>(null);
 
   useFrame((_, dt) => {
-    if (gruppe.current) gruppe.current.rotation.y = gier.current;
+    const k = reittier ? null : kampf?.current ?? null;
+    // In der Rolle schaut die Figur dorthin, wohin sie rollt — rückwärts ausweichen heisst
+    // umdrehen und vorwärts rollen, nicht rückwärts purzeln.
+    if (gruppe.current) {
+      gruppe.current.rotation.y = k?.phase === 'rolle' && k.rolleBlick !== null ? k.rolleBlick : gier.current;
+    }
     const { phase, tempo } = schritt.current;
     const stark = Math.min(1, tempo / RENNEN);
     // Clip nach Tempo, weich ueberblendet; im Sattel immer Idle.
-    const ziel = reittier || tempo < 0.15 ? clips.idle : tempo < 5.5 ? clips.walk : clips.run;
-    if (ziel !== clips.aktiv) {
+    let ziel = reittier || tempo < 0.15 ? clips.idle : tempo < 5.5 ? clips.walk : clips.run;
+    // ---- Kampf (D167): Clip nach Phase, gestreckt auf die Dauer der Regel. Die Regel ist die
+    // Wahrheit (`echtzeit.ts`, Kampftor); der Clip folgt ihr, nie umgekehrt.
+    let neu = false, blende = 0.25;
+    const kv = kampfVor.current;
+    kv.uhr += dt;
+    if (k) {
+      if (k.getroffen !== kv.getroffen) {
+        if (kv.getroffen >= 0 && k.getroffen > kv.getroffen) kv.trefferBis = kv.uhr + 0.35;
+        kv.getroffen = k.getroffen;
+      }
+      if (k.phase === 'gefallen') {
+        ziel = clips.tod; blende = 0.15;
+      } else if (k.phase === 'rolle') {
+        ziel = clips.rolle; blende = 0.06;
+        neu = k.rollen !== kv.rollen;
+        // Der Clip ist 1,67 s lang, die Rolle 0,55 s. Voll gestreckt wäre das ein Wischer; also
+        // läuft er 0,2 s über die Rolle hinaus aus und wird dabei in die Fortbewegung überblendet.
+        clips.rolle.timeScale = clips.rolle.getClip().duration / (k.rolleDauer + 0.2);
+      } else if (k.phase === 'vorlauf' || k.phase === 'aktiv' || k.phase === 'erholung') {
+        ziel = clips.schlag; blende = 0.06;
+        neu = k.schwung !== kv.schwung;
+        clips.schlag.timeScale = clips.schlag.getClip().duration / k.schlagDauer;
+      } else if (k.phase === 'betaeubt' || kv.uhr < kv.trefferBis) {
+        ziel = clips.treffer; blende = 0.08;
+        neu = clips.aktiv !== clips.treffer;
+      }
+      kv.schwung = k.schwung; kv.rollen = k.rollen;
+    }
+    if (ziel !== clips.aktiv || neu) {
       // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
       // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
       ziel.reset().setEffectiveWeight(1).play();
-      clips.aktiv.crossFadeTo(ziel, 0.25, false);
+      if (clips.aktiv !== ziel) clips.aktiv.crossFadeTo(ziel, blende, false);
       clips.aktiv = ziel;
     }
     // Abspielgeschwindigkeit an das Tempo koppeln: Walk ist bei 1,0 etwa 1,5 m/s,
@@ -2801,7 +2866,19 @@ const SICHT_PROBEN = 10;
 /** Abstand, den die Kamera vor einem Hindernis hält. */
 const SICHT_PUFFER = 0.35;
 
-function Kamera({ ziel, gier, neigung, feld, kollision }: {
+/**
+ * Kamera bei Zielaufschaltung (D167): über die rechte Schulter statt genau dahinter.
+ *
+ * Die Aufschaltung dreht `gier` aufs Ziel — die Kamera hinter der Figur schaut dann genau durch
+ * die Figur hindurch aufs Ziel, und im Bild (D166) stand der Gegner hinter dem eigenen Rücken.
+ * Seitlich versetzt und mit dem Blickpunkt ein Stück Richtung Ziel sind beide zu sehen, und der
+ * Bodenfächer des Gegners liegt frei. Eingeblendet über 0,35 s, damit L kein Schnitt ist.
+ */
+const SCHULTER = { seite: 0.85, hoch: 0.25, zumZiel: 0.4, blende: 0.35 };
+
+function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
+  /** Kampfzustand; `fokus` ist das aufgeschaltete Ziel (D167). */
+  kampf?: React.RefObject<KampfFigur | null>;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
   neigung: React.RefObject<number>;
@@ -2814,8 +2891,14 @@ function Kamera({ ziel, gier, neigung, feld, kollision }: {
   const gesetzt = useRef(false);
   /** Aktueller Kameraabstand. Ausdrücklich `number` — `GROESSE` ist `as const`. */
   const abstand = useRef<number>(GROESSE.kameraAbstand);
+  /** 0 = frei, 1 = über der Schulter aufs Ziel. */
+  const schulter = useRef(0);
+  const blickZiel = useRef(new THREE.Vector3());
   useFrame((_, dt) => {
     const p = ziel.current?.position ?? new THREE.Vector3();
+    const fokus = kampf?.current?.fokus ?? null;
+    schulter.current += ((fokus ? 1 : 0) - schulter.current) * Math.min(1, dt / SCHULTER.blende);
+    if (fokus) blickZiel.current.set(fokus.x, fokus.y, fokus.z);
     // Die Kamera kreist auf einer Kugel um den Blickpunkt auf Brusthöhe: `gier`
     // dreht herum, `neigung` hebt und senkt. Bei Neigung 0 steht sie waagerecht
     // hinter dem Spieler, bei NEIGUNG_MAX fast senkrecht darüber.
@@ -2888,7 +2971,17 @@ function Kamera({ ziel, gier, neigung, feld, kollision }: {
       return;
     }
     camera.position.copy(geglaettet.current);
-    camera.lookAt(p.x, blickY, p.z);
+    const m = schulter.current;
+    if (m < 0.001) { camera.lookAt(p.x, blickY, p.z); return; }
+    // Rechts der Blickrichtung (−sin g, −cos g) ist (cos g, −sin g) — dieselbe Achse wie `seit`.
+    const sx = Math.cos(g) * SCHULTER.seite * m, sz = -Math.sin(g) * SCHULTER.seite * m;
+    camera.position.x += sx; camera.position.z += sz; camera.position.y += SCHULTER.hoch * m;
+    const f = blickZiel.current, a = SCHULTER.zumZiel * m;
+    camera.lookAt(
+      p.x + sx * 0.5 + (f.x - p.x) * a,
+      blickY + (f.y - blickY) * a,
+      p.z + sz * 0.5 + (f.z - p.z) * a,
+    );
   });
   return null;
 }
@@ -3115,6 +3208,8 @@ export function RegionsSzene({
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
   const kampfSperre = useRef(false);
+  /** Kampfzustand für Figur und Kamera (D167). `Kampfplatz` schreibt, beide lesen. */
+  const kampfFigur = useRef<KampfFigur | null>(null);
   const ref = spielerRef ?? eigenerRef;
   const eigeneAusdauer = useRef<Ausdauerzustand>(neueAusdauer());
   const kraft = ausdauer ?? eigeneAusdauer;
@@ -3248,7 +3343,7 @@ export function RegionsSzene({
             Baum samt allen `useMemo` (Klippen, Baender, Kacheln) und rechnet ihn nach
             jedem geladenen Modell neu. */}
         <Suspense fallback={null}>
-          <SpielerFigur gier={gier} schritt={schritt} reittier={reittier}
+          <SpielerFigur gier={gier} schritt={schritt} reittier={reittier} kampf={kampfFigur}
                         rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
         </Suspense>
       </object3D>
@@ -3258,7 +3353,7 @@ export function RegionsSzene({
                meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} />
       {kampfplatz && (
         <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
-                    ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} />
+                    ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur} />
       )}
       {funde.length > 0 && (
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
@@ -3279,7 +3374,7 @@ export function RegionsSzene({
                    rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
                    hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} kollision={kollision} />
       )}
-      <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} />
+      <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
       <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)} />
       <Messung melde={onMessung} />
       </WasserUmgebung>

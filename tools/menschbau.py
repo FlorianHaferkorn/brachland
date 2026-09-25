@@ -61,7 +61,9 @@ def leuchtdichte(c):
 # Animationen je Figur: die Wanderin geht und rennt, ein NPC steht und winkt.
 # Jede Animation kostet rund 12 KB Daten plus 15 KB JSON (72 Kanaele) — was die
 # Szene nicht spielt, bleibt draussen.
-ANIM_SPIELER = ('Idle', 'Idle_Neutral', 'Walk', 'Run')
+# Seit D167 dazu die vier Kampfclips (ADR-0007): Schlag, Rolle, Treffer, Fall. Rund
+# +110 KB fuer die Wanderin — die Figur, die der Spieler die ganze Zeit ansieht.
+ANIM_SPIELER = ('Idle', 'Idle_Neutral', 'Walk', 'Run', 'Sword_Slash', 'Roll', 'HitRecieve', 'Death')
 # Seit D146 auch Walk: Bewohner gehen ein Wegstueck (`Ort.gang`).
 ANIM_NPC = ('Idle', 'Idle_Neutral', 'Wave', 'Walk')
 WEG = ('Sword', 'Icosphere')

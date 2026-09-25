@@ -37,6 +37,26 @@ import type { Kollisionsfeld } from '../spieler/kollision.js';
 import { hoeheAufFlaeche, type HoehenFeld } from '../world/lod.js';
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 
+/**
+ * Was Figur und Kamera vom Kampf wissen müssen (D167). `Kampfplatz` schreibt es je Bild, die
+ * Spielerfigur wählt daraus den Clip, die Kamera den Blick. Als Ref, wie `ausdauer`.
+ */
+export interface KampfFigur {
+  phase: Kaempfer['phase'];
+  /** Zählt Schläge und Rollen — ein neuer Wert heisst: Clip von vorn, auch mitten im alten. */
+  schwung: number;
+  rollen: number;
+  /** Zählt erlittene Treffer (nicht ausgewichene). */
+  getroffen: number;
+  /** Gesamtdauer von Schlag und Rolle in Sekunden — daran wird der Clip gestreckt. */
+  schlagDauer: number;
+  rolleDauer: number;
+  /** Blickrichtung der laufenden Rolle, oder null für eine Rolle auf der Stelle. */
+  rolleBlick: number | null;
+  /** Das aufgeschaltete Ziel (Brusthöhe), oder null. Die Kamera rahmt danach. */
+  fokus: { x: number; y: number; z: number } | null;
+}
+
 /** Nach so vielen Sekunden steht der Übungsplatz wieder — nach einem Sieg wie nach einer Niederlage. */
 const NEUSTART = 3.5;
 
@@ -83,7 +103,7 @@ function baueWelt(x: number, z: number, blick: number): Kampfwelt {
   };
 }
 
-export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand }: {
+export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur }: {
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
   feld: HoehenFeld;
@@ -93,8 +113,12 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
   gesperrt: React.RefObject<boolean>;
   /** Für die Anzeige im DOM. */
   stand?: React.RefObject<KampfStand | null>;
+  /** Für Spielerfigur und Kamera. */
+  figur?: React.RefObject<KampfFigur | null>;
 }) {
   const welt = useRef<Kampfwelt | null>(null);
+  const zaehler = useRef({ rollen: 0, getroffen: 0, phase: 'bereit' as Kaempfer['phase'] });
+  useEffect(() => () => { if (figur) figur.current = null; }, [figur]);
   const ende = useRef<number | null>(null);
   const absicht = useRef({ schlag: false, rolle: false, zielen: false });
   const tasten = useRef(new Set<string>());
@@ -236,6 +260,7 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
 
     for (const e of ereignisse) {
       if (e.auf === 'spielerin') {
+        if (!e.ausgewichen && e.schaden > 0) zaehler.current.getroffen++;
         if (e.ausgewichen) melde('ausgewichen');
         else if (e.toedlich) melde('gefallen');
         else if (e.gebrochen) melde('Haltung gebrochen');
@@ -270,6 +295,21 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
       mk.rotation.y += dt * 2.5;
     }
 
+    if (figur) {
+      const z = zaehler.current;
+      if (s.phase === 'rolle' && z.phase !== 'rolle') z.rollen++;
+      z.phase = s.phase;
+      const sw = s.werte;
+      figur.current = {
+        phase: s.phase, schwung: s.schwung, rollen: z.rollen, getroffen: z.getroffen,
+        schlagDauer: sw.schlag.vorlauf + sw.schlag.aktiv + sw.schlag.erholung,
+        rolleDauer: sw.rolle.dauer,
+        rolleBlick: s.rolleX !== 0 || s.rolleZ !== 0 ? Math.atan2(-s.rolleX, -s.rolleZ) : null,
+        // Gefallen gibt es nichts mehr zu rahmen — die Kamera geht zurück hinter die Figur.
+        fokus: zk && s.phase !== 'gefallen' ? { x: zk.x, y: zk.y + zk.werte.hoehe * 0.7, z: zk.z } : null,
+      };
+    }
+
     if (stand) {
       stand.current = {
         leben: s.leben, lebenMax: s.werte.lebenMax, phase: s.phase,
@@ -279,7 +319,7 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
         } : null,
         gegnerUebrig: w.gegner.filter(g => g.phase !== 'gefallen').length,
         gegnerGesamt: w.gegner.length,
-        protokoll: w.gegner.map(g => `${g.phase}@${Math.hypot(g.x - s.x, g.z - s.z).toFixed(1)}`).join(' '),
+        protokoll: w.gegner.map(g => `${g.id === w.recht ? '*' : ''}${g.phase}@${Math.hypot(g.x - s.x, g.z - s.z).toFixed(1)}`).join(' '),
         meldung: meldung.current.text, meldungSeit: meldung.current.seit,
       };
     }

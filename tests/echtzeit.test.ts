@@ -194,6 +194,7 @@ let schlaegeAusVoll = 0, rollenAusVoll = 0;
 
 // ---------------------------------------------------- 10. Der Übungsgegner kommt und schlägt
 let ankunft = NaN;
+let schlaegeZuZweit = 0;
 {
   const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
   const g = neuerKaempfer('g', UEBUNGSGEGNER, 0, -8, 0);
@@ -230,6 +231,39 @@ let ankunft = NaN;
     schlug === richtungen, `${schlug}/${richtungen}`);
 }
 
+// ---------------------------------------------------- 10c. Nur einer greift an (D167)
+// Zwei Gegner gegen eine stehende Spielerin, die nicht fällt. Im Bild vor D167 holten beide im
+// selben Takt aus. Jetzt: nie zwei zugleich in Vorlauf/aktiv/Erholung, beide kommen dran, im
+// Wechsel, und wer wartet, steht ausser Reichweite.
+{
+  const zaeh = { ...SPIELERIN, lebenMax: 10_000 };
+  const s = neuerKaempfer('s', zaeh, 0, 0, 0);
+  const a = neuerKaempfer('g1', UEBUNGSGEGNER, -1.5, -8, 0);
+  const b = neuerKaempfer('g2', UEBUNGSGEGNER, 2, -9, 0);
+  const w: Kampfwelt = { spielerin: s, gegner: [a, b], ziel: null };
+  const holt = (g: typeof a) => g.phase === 'vorlauf' || g.phase === 'aktiv' || g.phase === 'erholung';
+  let zugleich = 0, warteZuNah = 0, trefferVonWartendem = 0;
+  for (let t = 0; t < 15; t += 1 / 60) {
+    for (const e of simuliere(w, 1 / 60)) {
+      if (e.auf === 's' && e.schaden > 0 && w.recht !== null && e.von !== w.recht) trefferVonWartendem++;
+    }
+    if (holt(a) && holt(b)) zugleich++;
+    // Solange der andere ausholt oder trifft, steht der Wartende ausser Reichweite.
+    for (const [g, anderer] of [[a, b], [b, a]] as const) {
+      if (anderer.phase !== 'vorlauf' && anderer.phase !== 'aktiv') continue;
+      const rand = Math.hypot(g.x - s.x, g.z - s.z) - s.werte.radius;
+      if (rand < UEBUNGSGEGNER.schlag.reichweite) warteZuNah++;
+    }
+  }
+  pruefe('nie zwei Gegner zugleich im Schlag', zugleich === 0, `${zugleich} Teilschritte`);
+  pruefe('beide Gegner kommen dran', a.schwung >= 2 && b.schwung >= 2, `${a.schwung}/${b.schwung}`);
+  pruefe('sie wechseln sich ab (Schlagzahl höchstens 1 auseinander)', Math.abs(a.schwung - b.schwung) <= 1,
+    `${a.schwung}/${b.schwung}`);
+  pruefe('wer wartet, steht ausser Reichweite', warteZuNah === 0, `${warteZuNah} Teilschritte`);
+  pruefe('kein Treffer vom Wartenden', trefferVonWartendem === 0, `${trefferVonWartendem}`);
+  schlaegeZuZweit = a.schwung + b.schwung;
+}
+
 // ---------------------------------------------------- 11. Unabhängig von der Bildrate
 {
   const probe = (bild: number) => {
@@ -256,5 +290,6 @@ console.log(`  Schläge bis der Gegner fällt         ${Math.ceil(g0.lebenMax / 
   + ` · bis er taumelt ${Math.ceil(g0.haltungMax / s0.schlag.haltungsschaden)}`);
 console.log(`  Treffer bis die Spielerin fällt      ${Math.ceil(s0.lebenMax / g0.schlag.schaden)}`);
 console.log(`  Erster Treffer des Gegners aus 8 m   ${f3(ankunft)} s`);
+console.log(`  Schläge zweier Gegner in 15 s        ${schlaegeZuZweit} (im Wechsel, nie zugleich)`);
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);

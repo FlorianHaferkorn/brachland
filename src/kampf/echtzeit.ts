@@ -115,7 +115,16 @@ export const UEBUNGSGEGNER: KampfWerte = {
 export const ZIELEN = { reichweite: 18, halbwinkel: 70 * GRAD, drehrate: 7 };
 
 /** Gegnerverhalten des Platzhalters. `abstand` ist der Anteil der Reichweite, auf den er aufrückt. */
-export const GEGNER_KI = { wachAb: 11, tempo: 2.4, drehrate: 3.5, abstand: 0.9, zielt: 20 * GRAD };
+export const GEGNER_KI = {
+  wachAb: 11, tempo: 2.4, drehrate: 3.5, abstand: 0.9, zielt: 20 * GRAD,
+  /**
+   * Wer kein Angriffsrecht hat, wartet so viel weiter draussen als die Haltelinie (D167) — ausser
+   * Reichweite, aber nah genug, um nach dem Wechsel in unter einer Sekunde dran zu sein.
+   */
+  warteAbstand: 1.4,
+  /** Tempo beim Umkreisen, als Anteil von `tempo`. */
+  kreisen: 0.45,
+};
 
 /** Die feste Teilschrittweite der Simulation. */
 export const SCHRITT = 1 / 120;
@@ -139,6 +148,8 @@ export interface Kaempfer {
   erreicht: Set<string>;
   /** Richtung der laufenden Rolle, Einheitsvektor oder (0, 0) für eine Rolle auf der Stelle. */
   rolleX: number; rolleZ: number;
+  /** Sekunden seit dem letzten Schlagbeginn — wer am längsten nicht dran war, bekommt das Angriffsrecht. */
+  seitSchlag: number;
 }
 
 export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: number, blick = 0, y = 0): Kaempfer {
@@ -146,7 +157,7 @@ export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: numbe
     id, werte, x, y, z, blick,
     leben: werte.lebenMax, haltung: werte.haltungMax, seitTreffer: 99,
     ausdauer: neueAusdauer(), phase: 'bereit', zeit: 0, schwung: 0, erreicht: new Set(),
-    rolleX: 0, rolleZ: 0,
+    rolleX: 0, rolleZ: 0, seitSchlag: 99,
   };
 }
 
@@ -184,7 +195,7 @@ export function kannSchlagen(k: Kaempfer): boolean {
 export function setzeSchlagAn(k: Kaempfer): boolean {
   if (!kannSchlagen(k)) return false;
   if (k.werte.schlag.kosten > 0) k.ausdauer = verbrauche(k.ausdauer, k.werte.schlag.kosten);
-  k.phase = 'vorlauf'; k.zeit = 0; k.schwung++; k.erreicht = new Set();
+  k.phase = 'vorlauf'; k.zeit = 0; k.schwung++; k.erreicht = new Set(); k.seitSchlag = 0;
   return true;
 }
 
@@ -306,6 +317,7 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
   if (dt <= 0) return;
   const w = k.werte;
   k.seitTreffer += dt;
+  k.seitSchlag += dt;
   k.ausdauer = ausdauerSchritt(k.ausdauer, dt, 0);
   if (k.seitTreffer >= w.haltungRuhe) k.haltung = Math.min(w.haltungMax, k.haltung + w.haltungErholung * dt);
   if (k.phase === 'gefallen') { k.zeit += dt; return; }
@@ -339,7 +351,7 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
  * einigermassen gerade steht. Im Vorlauf dreht er sich nur mit `schlag.nachdrehen` nach — das ist
  * die Lücke, in die eine Seitwärtsrolle fällt.
  */
-export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schieber): void {
+export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schieber, darf = true): void {
   if (g.phase === 'gefallen' || s.phase === 'gefallen') return;
   const dx = s.x - g.x, dz = s.z - g.z;
   const d = Math.hypot(dx, dz);
@@ -349,6 +361,7 @@ export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schi
   if (g.phase !== 'bereit') return;
   drehe(g, ziel, GEGNER_KI.drehrate, dt);
   const halt = g.werte.schlag.reichweite * GEGNER_KI.abstand;
+  if (!darf) { warte(g, s, dx, dz, d, halt, dt, schiebe); return; }
   // Mit Spiel von 1 cm: Ohne sie rückte der Gegner im Spiel unendlich weiter um 1e-16 m
   // an und schlug nie zu — der letzte Schritt landet nur bei achsparallelen Zahlen exakt auf
   // `halt`. Das Tor hatte nur achsparallel geprüft; gefunden erst im Bild (D166).
@@ -360,6 +373,64 @@ export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schi
   } else if (Math.abs(winkelDiff(g.blick, ziel)) < GEGNER_KI.zielt) {
     setzeSchlagAn(g);
   }
+}
+
+/** Ein Schritt in der Ebene, durch Kollision und Gelände geschoben. */
+function geheUm(g: Kaempfer, vx: number, vz: number, schiebe?: Schieber): void {
+  let nx = g.x + vx, nz = g.z + vz;
+  if (schiebe) [nx, nz] = schiebe(nx, nz);
+  g.x = nx; g.z = nz;
+}
+
+/**
+ * Warten ohne Angriffsrecht: auf den Ring `halt + warteAbstand` und dort seitwärts kreisen.
+ *
+ * Kreisen statt Stehen, weil ein stehender zweiter Gegner wie ein Fehler aussieht und weil er
+ * so die Spielerin nicht zustellt. Die Richtung hängt an der Id — zwei Wartende kreisen nicht
+ * zwangsläufig gleich herum, aber jeder bleibt bei seiner.
+ */
+function warte(g: Kaempfer, s: Kaempfer, dx: number, dz: number, d: number, halt: number,
+               dt: number, schiebe?: Schieber): void {
+  if (d < 1e-6) return;
+  const ring = halt + GEGNER_KI.warteAbstand;
+  const rand = d - s.werte.radius;
+  const ux = dx / d, uz = dz / d;
+  if (rand > ring + 0.3) {
+    const w = Math.min(GEGNER_KI.tempo * dt, rand - ring);
+    geheUm(g, ux * w, uz * w, schiebe);
+  } else if (rand < ring - 0.3) {
+    const w = Math.min(GEGNER_KI.tempo * 0.6 * dt, ring - rand);
+    geheUm(g, -ux * w, -uz * w, schiebe);
+  } else {
+    const seite = g.id.charCodeAt(g.id.length - 1) % 2 === 0 ? 1 : -1;
+    const w = GEGNER_KI.tempo * GEGNER_KI.kreisen * dt * seite;
+    geheUm(g, -uz * w, ux * w, schiebe);
+  }
+}
+
+/**
+ * Wer darf angreifen? Höchstens **ein** Gegner zugleich (D167).
+ *
+ * Wer gerade ausholt, schlägt oder sich erholt, behält das Recht. Sonst bekommt es der Wache, der
+ * am längsten nicht geschlagen hat — so wechseln sich zwei ab, statt dass der nähere ewig dran
+ * ist. Ohne diese Regel schlugen im Bild zwei Übungsgegner im selben Takt, und eine stehende
+ * Spielerin fiel in 2,5 s; das ist kein Kampf, sondern ein Zufall der Aufstellung.
+ */
+export function angriffsrecht(w: Kampfwelt): string | null {
+  const s = w.spielerin;
+  const dran = w.gegner.find(g => g.phase === 'vorlauf' || g.phase === 'aktiv' || g.phase === 'erholung');
+  if (dran) return dran.id;
+  let beste: Kaempfer | null = null;
+  for (const g of w.gegner) {
+    if (g.phase !== 'bereit') continue;
+    const d = Math.hypot(g.x - s.x, g.z - s.z);
+    if (d > GEGNER_KI.wachAb) continue;
+    if (!beste || g.seitSchlag > beste.seitSchlag + 1e-9
+        || (Math.abs(g.seitSchlag - beste.seitSchlag) <= 1e-9 && d < Math.hypot(beste.x - s.x, beste.z - s.z))) {
+      beste = g;
+    }
+  }
+  return beste?.id ?? null;
 }
 
 /**
@@ -387,6 +458,8 @@ export interface Kampfwelt {
   ziel: string | null;
   /** Noch nicht gerechnete Zeit unter einem Teilschritt — siehe `simuliere`. */
   uebrig?: number;
+  /** Wer im letzten Teilschritt angreifen durfte — nur zum Ansehen (`kampf.mjs`). */
+  recht?: string | null;
 }
 
 /**
@@ -407,7 +480,8 @@ export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer
   while (w.uebrig >= SCHRITT - 1e-12) {
     const h = SCHRITT;
     w.uebrig -= h;
-    for (const g of w.gegner) denkeGegner(g, w.spielerin, h, schiebe);
+    w.recht = angriffsrecht(w);
+    for (const g of w.gegner) denkeGegner(g, w.spielerin, h, schiebe, w.recht === null || w.recht === g.id);
     schrittKaempfer(w.spielerin, h, schiebe);
     for (const g of w.gegner) schrittKaempfer(g, h, schiebe);
     ereignisse.push(...loeseTreffer(w.spielerin, w.gegner));
