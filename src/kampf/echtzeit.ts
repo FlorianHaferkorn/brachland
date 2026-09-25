@@ -93,6 +93,36 @@ export const SPIELERIN: KampfWerte = {
 };
 
 /**
+ * Das Waffenwerk (ADR-0008): zwei Klassen, jede mit **eigenem Fenster**.
+ *
+ * Die Klinge ist der Schlag der Spielerin von D166, unverändert. Die Axt tauscht Tempo gegen
+ * Reichweite und Haltung: langer Vorlauf (0,42 s), dafür 2,9 m und ein Haltungsschaden, der den
+ * Übungsgegner (Haltung 50) mit **einem** Treffer bricht. Damit sind die Klassen Werkzeuge für
+ * verschiedene Lagen, keine Stufen: Die Klinge macht mehr Schaden je Sekunde, die Axt öffnet die
+ * Deckung. Das Tor prüft beides, auch dass die Axt je Sekunde **nicht** mehr Schaden macht.
+ */
+export type WaffenArt = 'klinge' | 'axt';
+export const WAFFEN: Record<WaffenArt, { name: string; schlag: Schlag }> = {
+  klinge: { name: 'Klinge', schlag: SPIELERIN.schlag },
+  axt: {
+    name: 'Axt',
+    schlag: {
+      vorlauf: 0.42, aktiv: 0.16, erholung: 0.55,
+      reichweite: 2.9, halbwinkel: 40 * GRAD,
+      schaden: 38, haltungsschaden: 52, kosten: 30, nachdrehen: 3,
+    },
+  },
+};
+
+/** Waffe wechseln — nur aus dem Stand, nie mitten im Schlag oder in der Rolle. */
+export function ruesteAus(k: Kaempfer, art: WaffenArt): boolean {
+  if (k.phase !== 'bereit') return false;
+  k.werte = { ...k.werte, schlag: WAFFEN[art].schlag };
+  k.waffe = art;
+  return true;
+}
+
+/**
  * Der Übungsgegner — ein Platzhalter ohne Asset (ADR-0007 Stufe 1).
  *
  * Der Vorlauf von **0,75 s** ist das Telegraf. Wer auf das erste Zucken hin sofort rollt, ist zu
@@ -112,7 +142,11 @@ export const UEBUNGSGEGNER: KampfWerte = {
 };
 
 /** Wie weit und in welchem Kegel die Zielaufschaltung greift, und wie schnell sie den Blick zieht. */
-export const ZIELEN = { reichweite: 18, halbwinkel: 70 * GRAD, drehrate: 7 };
+export const ZIELEN = {
+  reichweite: 18, halbwinkel: 70 * GRAD, drehrate: 7,
+  /** Bis zu welchem Winkel der Angreifer beim Aufschalten vorgeht (D168). */
+  angreiferWinkel: 110 * GRAD,
+};
 
 /** Gegnerverhalten des Platzhalters. `abstand` ist der Anteil der Reichweite, auf den er aufrückt. */
 export const GEGNER_KI = {
@@ -150,6 +184,8 @@ export interface Kaempfer {
   rolleX: number; rolleZ: number;
   /** Sekunden seit dem letzten Schlagbeginn — wer am längsten nicht dran war, bekommt das Angriffsrecht. */
   seitSchlag: number;
+  /** Geführte Waffe (ADR-0008); Gegner führen keine. */
+  waffe?: WaffenArt;
 }
 
 export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: number, blick = 0, y = 0): Kaempfer {
@@ -439,7 +475,14 @@ export function angriffsrecht(w: Kampfwelt): string | null {
  * Nächstes, nicht mittigstes — im Getümmel will man den, der gleich zuschlägt, und das ist der,
  * der am nächsten steht.
  */
-export function waehleZiel(von: Kaempfer, kandidaten: readonly Kaempfer[]): Kaempfer | null {
+export function waehleZiel(von: Kaempfer, kandidaten: readonly Kaempfer[], angreifer: string | null = null): Kaempfer | null {
+  // Wer gerade das Angriffsrecht hat, geht vor — auch etwas ausserhalb des Kegels (D168). Im Bild
+  // (D167) war der aufgeschaltete Gegner oft der wartende, und der Angreifer stand am Bildrand.
+  const a = angreifer ? kandidaten.find(k => k.id === angreifer && k.phase !== 'gefallen') : undefined;
+  if (a && Math.hypot(a.x - von.x, a.z - von.z) <= ZIELEN.reichweite
+      && Math.abs(winkelDiff(von.blick, blickAuf(von.x, von.z, a.x, a.z))) <= ZIELEN.angreiferWinkel) {
+    return a;
+  }
   let beste: Kaempfer | null = null, besteD = Infinity;
   for (const k of kandidaten) {
     if (k.phase === 'gefallen') continue;
@@ -449,6 +492,29 @@ export function waehleZiel(von: Kaempfer, kandidaten: readonly Kaempfer[]): Kaem
     beste = k; besteD = d;
   }
   return beste;
+}
+
+/**
+ * Ziel wechseln (D168): der nächste lebende Gegner **seitlich** vom aktuellen, in Reichweite.
+ *
+ * `richtung` +1 heisst rechts, −1 links — vom Blick der Spielerin aus. Gemessen wird der Winkel
+ * gegen die Blickrichtung; gewählt wird der kleinste Schritt über den Winkel des aktuellen Ziels
+ * hinaus. Kein Umlauf: Wer ganz rechts ist, bleibt, statt nach links zu springen — ein Sprung
+ * über die ganze Szene wäre im Getümmel die falsche Überraschung.
+ */
+export function wechsleZiel(von: Kaempfer, kandidaten: readonly Kaempfer[], aktuell: string | null,
+                            richtung: 1 | -1): Kaempfer | null {
+  const rechts = (k: Kaempfer) => -winkelDiff(von.blick, blickAuf(von.x, von.z, k.x, k.z));
+  const jetzt = kandidaten.find(k => k.id === aktuell);
+  const basis = jetzt ? rechts(jetzt) : 0;
+  let beste: Kaempfer | null = null, besterSchritt = Infinity;
+  for (const k of kandidaten) {
+    if (k.id === aktuell || k.phase === 'gefallen') continue;
+    if (Math.hypot(k.x - von.x, k.z - von.z) > ZIELEN.reichweite) continue;
+    const schritt = (rechts(k) - basis) * richtung;
+    if (schritt > 1e-6 && schritt < besterSchritt) { beste = k; besterSchritt = schritt; }
+  }
+  return beste ?? jetzt ?? null;
 }
 
 export interface Kampfwelt {

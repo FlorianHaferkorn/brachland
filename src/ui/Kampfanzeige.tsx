@@ -24,6 +24,10 @@ export interface KampfStand {
   meldung: string;
   /** Zeitpunkt der Meldung in Sekunden (Uhr des Canvas). */
   meldungSeit: number;
+  /** Name der geführten Waffe (ADR-0008). */
+  waffe: string;
+  /** Wartet der Platz noch auf die erste Eingabe? Dann steht die Meldung ohne Ausblenden. */
+  ruhig: boolean;
 }
 
 const MELDUNG_DAUER = 1.6;
@@ -68,14 +72,14 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
           wurzel.current.dataset.ich = `${s.phase} ${Math.round(s.leben)}`;
           wurzel.current.dataset.gegner = s.protokoll;
         }
-        if (zaehler.current) zaehler.current.textContent = `${s.gegnerUebrig}/${s.gegnerGesamt}`;
+        if (zaehler.current) zaehler.current.textContent = `${s.gegnerUebrig}/${s.gegnerGesamt} · ${s.waffe}`;
         // Meldungszeit kommt aus der Canvas-Uhr, die Anzeige hat ihre eigene —
         // deshalb auf den Wechsel reagieren statt die Zeiten zu vergleichen.
         if (s.meldungSeit !== letzteMeldung) { letzteMeldung = s.meldungSeit; meldungAb = t; }
         if (meldung.current) {
           const alter = t - meldungAb;
           meldung.current.textContent = s.meldung;
-          meldung.current.style.opacity = s.meldung && alter < MELDUNG_DAUER
+          meldung.current.style.opacity = s.ruhig ? '1' : s.meldung && alter < MELDUNG_DAUER
             ? String(Math.min(1, (MELDUNG_DAUER - alter) / 0.4)) : '0';
         }
       }
@@ -114,7 +118,7 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
       }}>
         <div style={balken(132, 5)}><div ref={eigen} style={{ ...fuellung, background: '#9c7d62' }} /></div>
         <div style={{ ...text, opacity: 0.7 }}>
-          J Schlag · K Rolle · L Ziel · Gegner <span ref={zaehler} />
+          J Schlag · K Rolle · L Ziel · Q/E wechseln · 1/2 Waffe · Gegner <span ref={zaehler} />
         </div>
       </div>
     </div>

@@ -468,6 +468,11 @@ STIMMUNG.zielbild = {
   // Azimut 42° von Nord im Uhrzeigersinn, Hoehe 13°: (sin·cos, sin, −cos·cos)
   sonnenstand: [65.2, 22.5, -72.4] as const,
 };
+/**
+ * `tag` (D168) ist `zielbild` im Tageslauf — dasselbe Objekt, damit die Messadresse
+ * `?stimmung=zielbild` und der Schlüssel bei 0,39 nie auseinanderlaufen.
+ */
+STIMMUNG.tag = STIMMUNG.zielbild;
 
 /**
  * `?stimmung=goldnebel` setzt eine Stimmung **ausserhalb** des Tageslaufs (D152).
@@ -489,6 +494,9 @@ const STIMMUNG_MESSLAUF: Stimmung | null = (() => {
 const TAGESLAUF: { zeit: number; name: string }[] = [
   { zeit: 0.00, name: 'nacht' },
   { zeit: 0.26, name: 'daemmerung' },
+  // D168: das Licht des Renders als eigener Schlüssel im Tageslauf (ADR-0006 Stufe 3). Sonne
+  // 13° hoch im Nordosten — ein Vormittag, deshalb zwischen Dämmerung und Nebelmorgen.
+  { zeit: 0.39, name: 'tag' },
   { zeit: 0.52, name: 'nebelmorgen' },
   { zeit: 0.78, name: 'abendrot' },
 ];
@@ -2254,7 +2262,7 @@ export const NEIGUNG_START = 0.32;
  * Look beurteilbar machen soll.
  */
 function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet,
-                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre }: {
+                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt }: {
   feld: HoehenFeld;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
@@ -2276,6 +2284,8 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   stoecke?: React.RefObject<Stoecke>;
   /** Hält die Laufeingabe an, solange der Kampf die Figur führt (Schlag, Rolle). */
   kampfSperre?: React.RefObject<boolean>;
+  /** Ein Ziel ist aufgeschaltet: Der Blick gehört dem Ziel, Q/E und Ziehen drehen nicht (D168). */
+  kampfZielt?: React.RefObject<boolean>;
 }) {
   const { gl } = useThree();
   const eingabe = benutzeSteuerung(gl.domElement, stoecke);
@@ -2299,8 +2309,10 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
     // berechnet, ein genulltes Feld bliebe nach der Rolle stehen.
     const e0 = eingabe.current;
     const sperre = kampfSperre?.current ?? false;
-    const e = sperre ? { ...e0, vor: 0, seit: 0, springen: false, rennen: false } : e0;
+    const zielt = kampfZielt?.current ?? false;
+    let e = sperre ? { ...e0, vor: 0, seit: 0, springen: false, rennen: false } : e0;
     if (sperre) { e0.springen = false; e0.drehDelta = 0; e0.neigDelta = 0; }
+    if (zielt) { e = { ...e, drehRate: 0, drehDelta: 0 }; e0.drehDelta = 0; }
 
     gier.current += e.drehRate * dt + e.drehDelta;
     e.drehDelta = 0;
@@ -2656,6 +2668,53 @@ function ReittierModell({ kreatur, mutation, rand, schritt, sitzHoehe }: {
 }
 
 /**
+ * Wo `Sword_Slash` ausholt und durchzieht, als Anteil der Cliplänge (1,29 s) — gemessen an der
+ * Winkelgeschwindigkeit von Oberarm, Unterarm, Handgelenk, Rumpf (`.cache/hiebzeit.mjs`, D168):
+ * erster Buckel bis 0,23 (Ausholen), Ruhe am Scheitel 0,23–0,29, Durchzug 0,29–0,52 mit Spitze bei
+ * 0,37, dann Auslaufen. Die drei Phasen der Regel werden **einzeln** auf diese Abschnitte gelegt —
+ * die Axt holt dadurch sichtbar lange aus und zieht schnell durch, die Klinge ist durchweg schnell.
+ */
+const HIEB = { scheitel: 0.29, durchzug: 0.52 };
+
+/**
+ * Waffen als Geometrie an der rechten Hand (ADR-0008). Kein Asset: ein paar Kästen und Zylinder,
+ * in Metern, Klinge entlang −Y wie das Schwert im Quaternius-Paket. Lage aus derselben Datei:
+ * `Sword` hängt an `Middle1.R` (0, 0,00091, −0,00025) mit −90° um Z, `Middle1.R` an `Wrist.R`
+ * (0, 0,00027, 0). Die Finger sind in der Wanderin entfernt, also direkt an `Wrist.R`.
+ */
+const WAFFE_AN_HAND = {
+  position: new THREE.Vector3(0, 0.00118, -0.00025),
+  drehung: new THREE.Quaternion(-0.0116, 0.0118, -0.0165, 0.9997)
+    .multiply(new THREE.Quaternion(0.000648, 0, -0.712020, 0.702159)).normalize(),
+  // Knocheneinheiten: Die Armatur ist 100fach skaliert, Geometrie in Metern braucht 0,01.
+  massstab: 0.01,
+};
+
+function baueWaffen(): Record<'klinge' | 'axt', THREE.Group> {
+  const metall = new THREE.MeshStandardMaterial({ color: '#77736b', roughness: 0.45, metalness: 0.6 });
+  const holz = new THREE.MeshStandardMaterial({ color: '#5a4431', roughness: 0.8 });
+  const teil = (geo: THREE.BufferGeometry, mat: THREE.Material, y: number, x = 0) => {
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, 0); m.castShadow = true; return m;
+  };
+  const klinge = new THREE.Group();
+  klinge.add(teil(new THREE.CylinderGeometry(0.018, 0.02, 0.2, 8), holz, 0));
+  klinge.add(teil(new THREE.BoxGeometry(0.17, 0.03, 0.045), metall, -0.11));
+  klinge.add(teil(new THREE.BoxGeometry(0.045, 0.6, 0.012), metall, -0.42));
+  // Die Axt: langer Stiel, der Kopf am Ende, Schneide quer zum Stiel.
+  const axt = new THREE.Group();
+  axt.add(teil(new THREE.CylinderGeometry(0.02, 0.024, 0.95, 8), holz, -0.36));
+  axt.add(teil(new THREE.BoxGeometry(0.2, 0.12, 0.045), metall, -0.76, 0.05));
+  axt.add(teil(new THREE.BoxGeometry(0.03, 0.2, 0.05), metall, -0.76, 0.16));
+  for (const g of [klinge, axt]) {
+    g.position.copy(WAFFE_AN_HAND.position);
+    g.quaternion.copy(WAFFE_AN_HAND.drehung);
+    g.scale.setScalar(WAFFE_AN_HAND.massstab);
+    g.visible = false;
+  }
+  return { klinge, axt };
+}
+
+/**
  * Die Spielerfigur — seit D143 ein **SkinnedMesh** aus der Menschenkette
  * (`tools/menschbau.py`, Quaternius CC0), nicht mehr die geloftete Figur aus
  * Teilen (D139, `figur.ts` bleibt als Rueckfall und fuer die Masse HUEFTE/SCHULTER).
@@ -2728,6 +2787,19 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
   }, [mixer, animations]);
   /** Was zuletzt aus dem Kampf gesehen wurde — ein neuer Zählerstand startet den Clip neu. */
   const kampfVor = useRef({ schwung: -1, rollen: -1, getroffen: -1, trefferBis: 0, uhr: 0 });
+  /** Klinge und Axt an `Wrist.R`; sichtbar nur mit Kampf (D168). */
+  const waffen = useMemo(() => {
+    const w = baueWaffen();
+    const hand = scene.getObjectByName('WristR') ?? scene.getObjectByName('Wrist.R');
+    if (hand) { hand.add(w.klinge); hand.add(w.axt); }
+    return w;
+  }, [scene]);
+  useEffect(() => () => {
+    for (const g of [waffen.klinge, waffen.axt]) {
+      g.removeFromParent();
+      g.traverse(o => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); } });
+    }
+  }, [waffen]);
   useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
   // Die Beinknochen fuer die Sitzpose (D145). GLTFLoader streicht den Punkt aus
   // den Namen (`UpperLeg.L` → `UpperLegL`); beide Schreibweisen werden gesucht.
@@ -2764,6 +2836,8 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
     if (gruppe.current) {
       gruppe.current.rotation.y = k?.phase === 'rolle' && k.rolleBlick !== null ? k.rolleBlick : gier.current;
     }
+    waffen.klinge.visible = !!k && k.waffe === 'klinge';
+    waffen.axt.visible = !!k && k.waffe === 'axt';
     const { phase, tempo } = schritt.current;
     const stark = Math.min(1, tempo / RENNEN);
     // Clip nach Tempo, weich ueberblendet; im Sattel immer Idle.
@@ -2789,17 +2863,25 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
       } else if (k.phase === 'vorlauf' || k.phase === 'aktiv' || k.phase === 'erholung') {
         ziel = clips.schlag; blende = 0.06;
         neu = k.schwung !== kv.schwung;
-        clips.schlag.timeScale = clips.schlag.getClip().duration / k.schlagDauer;
+        // Die Clipzeit wird je Bild gesetzt, nicht abgespielt: Jede Phase der Regel liegt auf
+        // ihrem eigenen Abschnitt des Clips (siehe HIEB).
+        const u = k.phase === 'vorlauf' ? HIEB.scheitel * Math.min(1, k.zeit / k.vorlauf)
+          : k.phase === 'aktiv' ? HIEB.scheitel + (HIEB.durchzug - HIEB.scheitel) * Math.min(1, k.zeit / k.aktiv)
+          : HIEB.durchzug + (1 - HIEB.durchzug) * Math.min(1, k.zeit / k.erholung);
+        clips.schlag.timeScale = 0;
+        clips.schlag.time = u * clips.schlag.getClip().duration * 0.999;
       } else if (k.phase === 'betaeubt' || kv.uhr < kv.trefferBis) {
         ziel = clips.treffer; blende = 0.08;
         neu = clips.aktiv !== clips.treffer;
       }
       kv.schwung = k.schwung; kv.rollen = k.rollen;
     }
+    const schlagZeit = clips.schlag.time;
     if (ziel !== clips.aktiv || neu) {
       // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
       // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
       ziel.reset().setEffectiveWeight(1).play();
+      if (ziel === clips.schlag) { clips.schlag.time = schlagZeit; clips.schlag.timeScale = 0; }
       if (clips.aktiv !== ziel) clips.aktiv.crossFadeTo(ziel, blende, false);
       clips.aktiv = ziel;
     }
@@ -3210,6 +3292,8 @@ export function RegionsSzene({
   const kampfSperre = useRef(false);
   /** Kampfzustand für Figur und Kamera (D167). `Kampfplatz` schreibt, beide lesen. */
   const kampfFigur = useRef<KampfFigur | null>(null);
+  /** Ist ein Ziel aufgeschaltet? Dann dreht `Spieler` nicht (D168). */
+  const kampfZielt = useRef(false);
   const ref = spielerRef ?? eigenerRef;
   const eigeneAusdauer = useRef<Ausdauerzustand>(neueAusdauer());
   const kraft = ausdauer ?? eigeneAusdauer;
@@ -3350,10 +3434,11 @@ export function RegionsSzene({
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}
                reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten}
-               meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} />
+               meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} kampfZielt={kampfZielt} />
       {kampfplatz && (
         <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
-                    ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur} />
+                    ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
+                    zielt={kampfZielt} />
       )}
       {funde.length > 0 && (
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />

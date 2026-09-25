@@ -15,6 +15,7 @@ import {
   SPIELERIN, UEBUNGSGEGNER, SCHRITT, ZIELEN,
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, kannSchlagen, kannRollen,
   imBogen, loeseTreffer, schrittKaempfer, simuliere, waehleZiel, blickAuf, vorwaerts,
+  WAFFEN, ruesteAus, wechsleZiel,
   type Kaempfer, type Kampfwelt, type Treffer,
 } from '../src/kampf/echtzeit.js';
 
@@ -195,6 +196,7 @@ let schlaegeAusVoll = 0, rollenAusVoll = 0;
 // ---------------------------------------------------- 10. Der Übungsgegner kommt und schlägt
 let ankunft = NaN;
 let schlaegeZuZweit = 0;
+let axtTreffer = NaN;
 {
   const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
   const g = neuerKaempfer('g', UEBUNGSGEGNER, 0, -8, 0);
@@ -264,6 +266,72 @@ let schlaegeZuZweit = 0;
   schlaegeZuZweit = a.schwung + b.schwung;
 }
 
+// ---------------------------------------------------- 12. Waffenwerk: zwei Klassen (ADR-0008)
+{
+  const k = WAFFEN.klinge.schlag, a = WAFFEN.axt.schlag;
+  const dauer = (s: typeof k) => s.vorlauf + s.aktiv + s.erholung;
+  pruefe('die Klinge ist der Schlag von D166, unverändert', k === SPIELERIN.schlag);
+  pruefe('die Axt reicht weiter', a.reichweite > k.reichweite, `${a.reichweite} gegen ${k.reichweite} m`);
+  pruefe('die Axt holt länger aus', a.vorlauf > k.vorlauf * 2, `${a.vorlauf} gegen ${k.vorlauf} s`);
+  pruefe('die Axt macht je Sekunde NICHT mehr Schaden als die Klinge',
+    a.schaden / dauer(a) <= k.schaden / dauer(k), `${f3(a.schaden / dauer(a))} gegen ${f3(k.schaden / dauer(k))}`);
+  const jeAusdauer = (s: typeof k) => s.schaden / s.kosten;
+  pruefe('Schaden je Ausdauer liegt höchstens 20 % auseinander',
+    Math.abs(jeAusdauer(a) / jeAusdauer(k) - 1) <= 0.2, `${f3(jeAusdauer(a))} gegen ${f3(jeAusdauer(k))}`);
+
+  // Haltung: die Axt bricht den Übungsgegner mit einem Treffer, die Klinge braucht zwei.
+  const brecheMit = (art: 'klinge' | 'axt') => {
+    const { s, g } = paar(2.2);
+    ruesteAus(s, art);
+    const w: Kampfwelt = { spielerin: s, gegner: [g], ziel: null };
+    let treffer = 0, erster = NaN;
+    for (let n = 0; n < 3 && g.phase !== 'betaeubt'; n++) {
+      setzeSchlagAn(s);
+      for (let t = 0; t < 1.5; t += SCHRITT) {
+        for (const e of simuliere(w, SCHRITT)) {
+          if (e.von === 's' && e.schaden > 0) { treffer++; if (Number.isNaN(erster)) erster = t; }
+        }
+        if (s.phase === 'bereit') break;
+      }
+      g.x = 0; g.z = -2.2;   // der Gegner darf nicht ausweichen, er ist hier Ziel
+    }
+    return { treffer, erster, gebrochen: g.phase === 'betaeubt' };
+  };
+  const ax = brecheMit('axt'), kl = brecheMit('klinge');
+  pruefe('die Axt bricht die Haltung des Übungsgegners mit einem Treffer', ax.gebrochen && ax.treffer === 1, `${ax.treffer}`);
+  pruefe('die Klinge braucht zwei', kl.gebrochen && kl.treffer === 2, `${kl.treffer}`);
+  axtTreffer = ax.erster;
+
+  const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+  ruesteAus(s, 'axt');
+  let schlaege = 0;
+  while (setzeSchlagAn(s)) { schlaege++; s.phase = 'bereit'; }
+  pruefe('aus vollem Vorrat 3 Axthiebe', schlaege === 3, `${schlaege}`);
+  const t = neuerKaempfer('t', SPIELERIN, 0, 0, 0);
+  setzeSchlagAn(t);
+  pruefe('kein Waffenwechsel mitten im Schlag', !ruesteAus(t, 'axt') && t.werte.schlag === SPIELERIN.schlag);
+}
+
+// ---------------------------------------------------- 13. Zielwahl und Zielwechsel (D168)
+{
+  const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+  const links = neuerKaempfer('links', UEBUNGSGEGNER, -4, -6, 0);
+  const mitte = neuerKaempfer('mitte', UEBUNGSGEGNER, 0, -4, 0);
+  const rechts = neuerKaempfer('rechts', UEBUNGSGEGNER, 4, -6, 0);
+  const seite = neuerKaempfer('seite', UEBUNGSGEGNER, 5, 1, 0);   // 101° rechts, ausserhalb des Kegels
+  const alle = [links, mitte, rechts, seite];
+  pruefe('ohne Angreifer: der nächste im Kegel', waehleZiel(s, alle)?.id === 'mitte');
+  pruefe('der Angreifer geht vor, auch ausserhalb des Kegels', waehleZiel(s, alle, 'seite')?.id === 'seite');
+  const hinten = neuerKaempfer('hinten', UEBUNGSGEGNER, 0, 6, 0);
+  pruefe('aber nicht in den Rücken', waehleZiel(s, [...alle, hinten], 'hinten')?.id === 'mitte');
+  pruefe('rechts von der Mitte: rechts', wechsleZiel(s, alle, 'mitte', 1)?.id === 'rechts');
+  pruefe('links von der Mitte: links', wechsleZiel(s, alle, 'mitte', -1)?.id === 'links');
+  pruefe('rechts von rechts: seite', wechsleZiel(s, alle, 'rechts', 1)?.id === 'seite');
+  pruefe('ganz rechts bleibt ganz rechts', wechsleZiel(s, alle, 'seite', 1)?.id === 'seite');
+  mitte.phase = 'gefallen';
+  pruefe('Gefallene werden übersprungen', wechsleZiel(s, alle, 'links', 1)?.id === 'rechts');
+}
+
 // ---------------------------------------------------- 11. Unabhängig von der Bildrate
 {
   const probe = (bild: number) => {
@@ -291,5 +359,15 @@ console.log(`  Schläge bis der Gegner fällt         ${Math.ceil(g0.lebenMax / 
 console.log(`  Treffer bis die Spielerin fällt      ${Math.ceil(s0.lebenMax / g0.schlag.schaden)}`);
 console.log(`  Erster Treffer des Gegners aus 8 m   ${f3(ankunft)} s`);
 console.log(`  Schläge zweier Gegner in 15 s        ${schlaegeZuZweit} (im Wechsel, nie zugleich)`);
+{
+  const d = (s: typeof SPIELERIN.schlag) => s.vorlauf + s.aktiv + s.erholung;
+  for (const [art, w] of Object.entries(WAFFEN)) {
+    const s = w.schlag;
+    console.log(`  ${w.name.padEnd(7)} ${String(Math.round(d(s) * 1000)).padStart(4)} ms je Hieb · ${s.reichweite} m`
+      + ` · ${f3(s.schaden / d(s))} Schaden/s · ${f3(s.schaden / s.kosten)} Schaden/Ausdauer · Haltung ${s.haltungsschaden}`);
+    void art;
+  }
+  console.log(`  Axt trifft                           ${f3(axtTreffer)} s nach Tastendruck`);
+}
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);

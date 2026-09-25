@@ -114,6 +114,18 @@
       "aufrufe": 168
     },
     {
+      "name": "Felsmulde",
+      "ort": "-800,600,90",
+      "zeit": 0.39,
+      "stimmung": "tag",
+      "leer": 0,
+      "dunkel": 4.5,
+      "median": 0.103,
+      "dreiecke": 6170138,
+      "aufrufe": 167,
+      "hinweis": "D168: das Licht des Renders im Tageslauf (Schluessel `tag` bei 0,39 = `zielbild`). Grundwert nach Blick ins Bild gesetzt (.cache/bilder/d168_tor_*_tag.png), nicht per --neu."
+    },
+    {
       "name": "Fenster",
       "ort": "1350,495,0",
       "zeit": 0,
@@ -148,6 +160,18 @@
       "hinweis": "Slice-Mitte (D113): 38 m bachabwaerts des Flussvaters, Blick nach Westen den Bach entlang — Wasser vorn, Klaeranlage rechts, Hang links. Der erste Standpunkt (40 m noerdlich, Blick Sued) stand in einem Gebaeude. Seit G-126",
       "dreiecke": 3924028,
       "aufrufe": 171
+    },
+    {
+      "name": "Stauwehr",
+      "ort": "1110,871,90",
+      "zeit": 0.39,
+      "stimmung": "tag",
+      "leer": 0,
+      "dunkel": 13.6,
+      "median": 0.065,
+      "dreiecke": 3923836,
+      "aufrufe": 171,
+      "hinweis": "D168: das Licht des Renders im Tageslauf (Schluessel `tag` bei 0,39 = `zielbild`). Grundwert nach Blick ins Bild gesetzt (.cache/bilder/d168_tor_*_tag.png), nicht per --neu."
     },
     {
       "name": "Wasser",

@@ -30,6 +30,7 @@ import * as THREE from 'three';
 import {
   SPIELERIN, UEBUNGSGEGNER, ZIELEN,
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, simuliere, waehleZiel, drehe, blickAuf, frei,
+  WAFFEN, ruesteAus, wechsleZiel, type WaffenArt,
   type Kampfwelt, type Kaempfer, type Treffer,
 } from './echtzeit.js';
 import type { Ausdauer } from '../spieler/ausdauer.js';
@@ -55,6 +56,10 @@ export interface KampfFigur {
   rolleBlick: number | null;
   /** Das aufgeschaltete Ziel (Brusthöhe), oder null. Die Kamera rahmt danach. */
   fokus: { x: number; y: number; z: number } | null;
+  /** Sekunden in der aktuellen Phase und die Phasen des laufenden Schlags — die Figur legt den Clip darauf (D168). */
+  zeit: number;
+  vorlauf: number; aktiv: number; erholung: number;
+  waffe: WaffenArt;
 }
 
 /** Nach so vielen Sekunden steht der Übungsplatz wieder — nach einem Sieg wie nach einer Niederlage. */
@@ -103,7 +108,7 @@ function baueWelt(x: number, z: number, blick: number): Kampfwelt {
   };
 }
 
-export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur }: {
+export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt }: {
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
   feld: HoehenFeld;
@@ -115,12 +120,23 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
   stand?: React.RefObject<KampfStand | null>;
   /** Für Spielerfigur und Kamera. */
   figur?: React.RefObject<KampfFigur | null>;
+  /** Ist ein Ziel aufgeschaltet? Dann dreht `Spieler` nicht selbst — Q/E wechseln das Ziel (D168). */
+  zielt?: React.RefObject<boolean>;
 }) {
   const welt = useRef<Kampfwelt | null>(null);
   const zaehler = useRef({ rollen: 0, getroffen: 0, phase: 'bereit' as Kaempfer['phase'] });
   useEffect(() => () => { if (figur) figur.current = null; }, [figur]);
   const ende = useRef<number | null>(null);
-  const absicht = useRef({ schlag: false, rolle: false, zielen: false });
+  const absicht = useRef({ schlag: false, rolle: false, zielen: false, wechsel: 0 as -1 | 0 | 1,
+                           waffe: null as WaffenArt | 'tausch' | null });
+  /**
+   * Der Übungsplatz wartet auf die erste Eingabe (D168). Vorher lief er schon während des Ladens,
+   * und man stand mit halbem Leben auf — die Gegner stehen jetzt da, aber still.
+   */
+  const los = useRef(false);
+  /** Die gewählte Waffe überlebt die neue Runde. */
+  const waffeWahl = useRef<WaffenArt>('klinge');
+  useEffect(() => () => { if (zielt) zielt.current = false; }, [zielt]);
   const tasten = useRef(new Set<string>());
   const meldung = useRef({ text: '', seit: 0 });
 
@@ -131,16 +147,26 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
       }
       tasten.current.add(ev.code);
       if (ev.repeat) return;
-      if (ev.code === 'KeyJ') absicht.current.schlag = true;
-      if (ev.code === 'KeyK') absicht.current.rolle = true;
-      if (ev.code === 'KeyL') absicht.current.zielen = true;
+      los.current = true;
+      const a = absicht.current;
+      if (ev.code === 'KeyJ') a.schlag = true;
+      if (ev.code === 'KeyK') a.rolle = true;
+      if (ev.code === 'KeyL') a.zielen = true;
+      if (ev.code === 'KeyQ') a.wechsel = -1;
+      if (ev.code === 'KeyE') a.wechsel = 1;
+      if (ev.code === 'Digit1') a.waffe = 'klinge';
+      if (ev.code === 'Digit2') a.waffe = 'axt';
+      if (ev.code === 'Tab') { a.waffe = 'tausch'; ev.preventDefault(); }
     };
+    const beruehrt = () => { los.current = true; };
     const hoch = (ev: KeyboardEvent) => { tasten.current.delete(ev.code); };
     const weg = () => tasten.current.clear();
     window.addEventListener('keydown', runter);
     window.addEventListener('keyup', hoch);
     window.addEventListener('blur', weg);
+    window.addEventListener('pointerdown', beruehrt);
     return () => {
+      window.removeEventListener('pointerdown', beruehrt);
       window.removeEventListener('keydown', runter);
       window.removeEventListener('keyup', hoch);
       window.removeEventListener('blur', weg);
@@ -200,6 +226,8 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
     const dt = Math.min(rohDt, 0.1);
     const jetzt = performance.now();
     if (!welt.current) welt.current = baueWelt(p.x, p.z, gier.current);
+    // Bis zur ersten Eingabe steht der Platz still — die Gegner folgen dem Absetzpunkt nicht,
+    // sie stehen dort, wo sie zuerst hingestellt wurden.
     const w = welt.current;
     const s = w.spielerin;
 
@@ -214,9 +242,22 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
     const a = absicht.current;
     if (a.zielen) {
       a.zielen = false;
-      w.ziel = w.ziel ? null : (waehleZiel(s, w.gegner)?.id ?? null);
+      w.ziel = w.ziel ? null : (waehleZiel(s, w.gegner, w.recht ?? null)?.id ?? null);
       if (!w.ziel) melde('kein Ziel');
     }
+    if (a.wechsel !== 0) {
+      if (w.ziel) w.ziel = wechsleZiel(s, w.gegner, w.ziel, a.wechsel)?.id ?? w.ziel;
+      a.wechsel = 0;
+    }
+    if (a.waffe) {
+      const art: WaffenArt = a.waffe === 'tausch' ? (s.waffe === 'axt' ? 'klinge' : 'axt') : a.waffe;
+      a.waffe = null;
+      if (art !== (s.waffe ?? 'klinge')) {
+        if (ruesteAus(s, art)) { waffeWahl.current = art; melde(WAFFEN[art].name); }
+        else melde('erst ausschwingen');
+      }
+    }
+    if (zielt) zielt.current = w.ziel !== null;
     if (a.schlag) {
       a.schlag = false;
       if (!setzeSchlagAn(s) && frei(s)) melde('zu erschöpft');
@@ -252,7 +293,7 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
       return [Math.max(-halbB, Math.min(halbB, kx)), Math.max(-halbT, Math.min(halbT, kz))];
     };
     const ausdauerVorher = ausdauer.current;
-    const ereignisse: Treffer[] = simuliere(w, dt, schiebe);
+    const ereignisse: Treffer[] = los.current ? simuliere(w, dt, schiebe) : [];
     // Die Simulation erholt die Ausdauer mit — verworfen, siehe Kopfkommentar.
     s.ausdauer = ausdauerVorher;
     p.x = s.x; p.z = s.z;
@@ -277,6 +318,7 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
     if (vorbei && ende.current === null) ende.current = jetzt;
     if (ende.current !== null && jetzt - ende.current > NEUSTART * 1000) {
       welt.current = baueWelt(p.x, p.z, gier.current);
+      ruesteAus(welt.current.spielerin, waffeWahl.current);
       ende.current = null;
       melde('neue Runde');
     }
@@ -307,6 +349,9 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
         rolleBlick: s.rolleX !== 0 || s.rolleZ !== 0 ? Math.atan2(-s.rolleX, -s.rolleZ) : null,
         // Gefallen gibt es nichts mehr zu rahmen — die Kamera geht zurück hinter die Figur.
         fokus: zk && s.phase !== 'gefallen' ? { x: zk.x, y: zk.y + zk.werte.hoehe * 0.7, z: zk.z } : null,
+        zeit: s.zeit,
+        vorlauf: sw.schlag.vorlauf, aktiv: sw.schlag.aktiv, erholung: sw.schlag.erholung,
+        waffe: s.waffe ?? 'klinge',
       };
     }
 
@@ -320,7 +365,10 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
         gegnerUebrig: w.gegner.filter(g => g.phase !== 'gefallen').length,
         gegnerGesamt: w.gegner.length,
         protokoll: w.gegner.map(g => `${g.id === w.recht ? '*' : ''}${g.phase}@${Math.hypot(g.x - s.x, g.z - s.z).toFixed(1)}`).join(' '),
-        meldung: meldung.current.text, meldungSeit: meldung.current.seit,
+        meldung: los.current ? meldung.current.text : 'eine Taste — die Übung beginnt',
+        meldungSeit: los.current ? meldung.current.seit : 0,
+        waffe: WAFFEN[s.waffe ?? 'klinge'].name,
+        ruhig: !los.current,
       };
     }
   });

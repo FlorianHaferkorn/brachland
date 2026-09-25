@@ -559,6 +559,25 @@ Blocker** (leer 4,8 → 8,3 %), Fenster 3,6 → 5,7 %. Die Tagesfälle bewegen s
 Dämmerung und Abendrot trägt das Umgebungslicht das Bild (D118), und die Nacht braucht den Boden.
 Zwischen Dämmerung und Nebelmorgen läuft die Farbe mit der Uhr.
 
+## Das Licht des Renders im Tageslauf (D168)
+
+`zielbild` lag seit D154 **ausserhalb** des Tageslaufs — nur per `?stimmung=zielbild` erreichbar,
+im Spiel nie zu sehen. Jetzt ist es der Schlüssel `tag` bei 0,39, zwischen Dämmerung (0,26) und
+Nebelmorgen (0,52). `STIMMUNG.tag` **ist** `STIMMUNG.zielbild` (dasselbe Objekt), damit
+Messadresse und Tageslauf nie auseinanderlaufen. Die Sonne wandert dabei von Südwest-hoch über
+Nordost-tief (13°) nach Ost — Vormittag, deshalb vor dem Nebelmorgen.
+
+Zwei neue Bildtor-Fälle an den bestehenden Adressen:
+
+```
+  Felsmulde  tag   leer 0,0 %   dunkel 4,5 %   Median 0,103
+  Stauwehr   tag   leer 0,0 %   dunkel 13,6 %  Median 0,065
+```
+
+Grundwert **von Hand** gesetzt, nachdem die Bilder angesehen waren (`.cache/bilder/d168_tor_*_tag.png`:
+Szene geladen, Gebäude und Kanten da) — nicht per `--neu`, weil das die übrigen 14 Grundwerte
+mitgeschrieben hätte, ohne dass sie sich geändert haben (G-134).
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.
