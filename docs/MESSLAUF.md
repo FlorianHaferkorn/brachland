@@ -473,6 +473,64 @@ bleibt das p99 bei 0,35, ist es der Glanz, fällt es auf 0,03, ist es die Normal
 an eine Tageszeit — das Spiel hat einen Tageslauf mit vier Schlüsselstimmungen. Für einen Posten,
 der nach dieser Messung gar nicht der Posten ist, ist das der falsche Preis.
 
+## Der Verdacht war falsch — es war der Saum, und ein Fehler verstärkte ihn (D166)
+
+Die Messung, die D164 als nächste benannt hatte, ist gefahren: dieselbe Mauerfläche der
+Felsmulde (Ausschnitt 150/250–330/430, lineare Leuchtdichte, 4 px Versatz bereinigt), einmal
+ohne Normalmap (`?normalmap=0`), einmal mit halber Stärke, einmal ohne Saum (`?saum=0`).
+
+```
+                     Median     p99   Anteil > 0,15
+  vorher             0,0273   0,276       3,8 %
+  Normalmap 0        0,0272   0,278       3,8 %
+  Saum 0             0,0225   0,097       0,0 %
+  neu (Fix, s. u.)   0,0213   0,097       0,0 %
+  Render             0,0069   0,0252      0,0 %
+```
+
+**Die Normalmap ist es nicht** — ohne sie ändert sich das p99 um 0,002. **Der Saum ist es**:
+das Randlicht aus `windmaterial.ts`, das an Laub die Silhouette gegen den Himmel absetzt und an
+Stein nichts zu suchen hat. D164 hatte hier falsch vermutet; die Vermutung steht oben
+unverändert, damit der Weg nachvollziehbar bleibt.
+
+**Warum der Saum an Stein überhaupt so stark war:** `Bauwerkteil` baute seine Materialien mit
+einem Faktor je Art (Stein/Holz schwach, Laub voll) — und ein `useEffect` rief danach
+`setzeRand(farbe, rand.staerke)` auf allen Materialien, **ohne** den Faktor. `setzeRand` setzt
+absolut, also überschrieb der Effekt die Bauweise im ersten Bild. Jede Mauer bekam den vollen
+Laubsaum. Behoben: die Materialien tragen ihren Anteil (Stein/Holz 0, Laub 0,15), Effekt und
+Aufbau benutzen denselben. Die übrigen `setzeRand`-Aufrufer sind geprüft und konsistent.
+
+**Nebenwirkung, angesehen:** Das Laub an Bauwerken fällt damit von effektiv 1,0 auf 0,15. Am
+Stauwehr wird die Laube dichter und weniger milchig (Median 0,066 → 0,056, oberes Drittel
+0,174 → 0,161); Vorher/Nachher `d166_sw_vorher`/`d166_sw_neu`. Das ist die Richtung, in die das
+Bild ohnehin sollte.
+
+**Was bleibt:** Die Mauer ist im Median noch dreimal so hell wie im Render (0,0213 gegen
+0,0069). Das Fülllicht war an dieser Fläche nie der Hebel (D164), der Saum ist jetzt weg. Eine
+Lightmap bleibt der falsche Preis, solange nicht gemessen ist, woher das restliche Grundlicht
+kommt — Kandidaten sind Umgebungsstärke und `HEMI_BODEN`.
+
+## HEMI_BODEN neu hergeleitet (D166)
+
+`#3a463c` war in G-7/D114 gegen die Schwarzgrenze von **ACES** gesetzt (~0,0035). AgX schneidet
+erst bei ~0,00018 ab — die Begründung fiel mit D164 weg. Gemessen mit `?hemiboden=`:
+
+```
+                    Wand-Median Tag   Fenster exakt schwarz   Dorf exakt schwarz
+  #3a463c (heute)        0,0213              2,7 %                 0,47 %
+  #242c26                0,0155              4,8 %                 0,53 %
+  #121a16 (alt)          0,0179*             6,7 %                 0,57 %
+  Render                 0,0069                —                     —
+  * vor dem Saum-Fix gemessen, nur als Richtung
+```
+
+**Entscheidung: bleibt `#3a463c`, mit neuer Begründung.** Der Tag würde mit `#242c26` knapp ein
+Drittel der Lücke zum Render schliessen; die Nacht verlöre dafür fast doppelt so viele Pixel an
+reines Schwarz. Das Tor „Fenster" ist genau die Szene, in der ein erleuchtetes Fenster gegen
+eine lesbare, nicht schwarze Wand stehen soll. Soll der Tag dunkler werden, dann **je
+Stimmung** — die Hemisphäre ist heute die einzige Lichtgrösse, die nicht mit der Stimmung
+wandert.
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.

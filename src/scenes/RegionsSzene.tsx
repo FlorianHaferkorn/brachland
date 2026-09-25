@@ -43,6 +43,8 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
 import { istAus } from './abschalter.js';
+import { Kampfplatz } from '../kampf/Kampfplatz.js';
+import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB } from './sichtweiten.js';
 import { buendleFernProps, propListenNeu, waehleProps, type PropStufe } from './propauswahl.js';
@@ -205,6 +207,37 @@ const SCHATTEN_MESSLAUF: number | null = (() => {
   if (text === null) return null;
   const roh = Number(text);
   return Number.isFinite(roh) && roh >= 0 && roh <= 1 ? roh : null;
+})();
+
+/**
+ * `?normalmap=0|0.5|1` skaliert `normalScale` der gebackenen Bauwerksmaterialien — Messparameter (D166).
+ *
+ * Gebaut für eine Frage aus D164: Die sonnenabgewandte Mauer der Felsmulde hat im Spiel ein p99 von
+ * 0,35, im Render 0,025 — ein Saum heller Steinkanten, den es dort nicht gibt. Zwei Verdächtige: die
+ * gebackene Tangentenraum-Normalmap (bei streifendem Licht hebt sie Facetten an, die im Render echte
+ * Geometrie mit echtem Schatten sind) und das Silhouettenlicht aus `windmaterial.ts` (`?saum=`), das
+ * `Bauwerkteil` mit 0,6 auf jede Mauerfläche legt. Mit beiden Schaltern lassen sie sich trennen.
+ */
+const NORMAL_MESSLAUF: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const text = new URLSearchParams(location.search).get('normalmap');
+  if (text === null) return null;
+  const roh = Number(text);
+  return Number.isFinite(roh) && roh >= 0 && roh <= 2 ? roh : null;
+})();
+
+/**
+ * `?hemiboden=3a463c` setzt die Bodenfarbe des Hemisphärenlichts — Messparameter (D166).
+ *
+ * `HEMI_BODEN` wurde (G-7, D114) von `#121a16` auf `#3a463c` angehoben, weil unter **ACES** alles
+ * unterhalb einer linearen Strahldichte von rund 0,0035 auf exakt 0 klemmte. Seit D164 läuft die
+ * Engine auf AgX, das erst bei 2^−12,5 ≈ 0,00018 abschneidet — zwanzigmal tiefer. Ob der Wert noch
+ * gebraucht wird, sagt dieser Regler, nicht die Rechnung.
+ */
+const HEMIBODEN_MESSLAUF: string | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const text = new URLSearchParams(location.search).get('hemiboden');
+  return text !== null && /^[0-9a-f]{6}$/i.test(text) ? `#${text}` : null;
 })();
 
 /**
@@ -1663,7 +1696,16 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
   const { scene } = useGLTF(bauwerkPfad(bauwerk, teil));
   const { objekt, materialien } = useMemo(() => {
     const klon = scene.clone(true);
-    const materialien: ReturnType<typeof baueWindMaterial>[] = [];
+    /**
+     * Jedes Material mit **seinem** Saumanteil (D166).
+     *
+     * Bis hierher lag nur das Material in der Liste, und der Effekt unten rief `setzeRand` mit dem
+     * vollen `rand.staerke` für alle — gleich nach dem Einhängen, denn ein `useEffect` läuft auch
+     * beim ersten Mal. `setzeRand` setzt die Stärke absolut. Die Anteile, die hier beim Bau
+     * vergeben wurden (Stein 0,6, Laub 0,15 „gegen weisse Wolken"), lebten also genau ein Bild
+     * lang; gezeichnet wurde überall der volle Saum.
+     */
+    const materialien: { w: ReturnType<typeof baueWindMaterial>; anteil: number }[] = [];
     klon.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return;
       o.castShadow = true; o.receiveShadow = true;
@@ -1673,19 +1715,34 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
       const basis = (Array.isArray(o.material) ? o.material[0] : o.material) as THREE.MeshStandardMaterial;
       // Loecher nur im Blattwerk — Waldstaemme kommen mit Vertexfarbe in derselben Datei
       const laub = teil === 'gruen' && /Krone|Nadeln|Farn|Efeu|Laub/.test(o.name);
+      /**
+       * Saumanteil: Laub 0,15, **Stein und Holz 0** (D166).
+       *
+       * Laub: Klumpen mit Löchern bestehen aus lauter Kanten, bei voller Stärke lasen sie als weisse
+       * Wolken (gemessen am ersten Durchstich).
+       *
+       * Stein: Dasselbe gilt für eine Bruchsteinmauer, nur war es dort nicht aufgefallen. Jeder Stein
+       * ist eine Silhouette, also bekam jeder Stein einen hellen Rand. An der sonnenabgewandten Mauer
+       * der Felsmulde war das der Befund aus D164 — p99 0,35 gegen 0,025 im Render, 5 % der Pixel über
+       * 0,15, im Render keiner. Getrennt gemessen mit `?saum=0` und `?normalmap=0`: Die Normalmap
+       * ändert nichts (p99 0,276 → 0,278), der Saum alles (0,276 → 0,097, über 0,15: 3,8 → 0 %).
+       * Der Render hat an Mauern keinen Saum; die Engine jetzt auch nicht.
+       */
+      const anteil = laub ? 0.15 : 0;
       const w = baueWindMaterial(laub
-        // Saum auf Blattmassen fast aus: Klumpen mit Loechern bestehen aus lauter Kanten, bei voller
-        // Staerke lasen sie als weisse Wolken (gemessen am ersten Durchstich)
-        ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.15, randSchaerfe: 10, loecher: 0.42, loecherSkala: 9, durchlass: 0.55 }
-        : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.6 }, basis);
+        ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, randSchaerfe: 10, loecher: 0.42, loecherSkala: 9, durchlass: 0.55 }
+        : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil }, basis);
       if (laub) { w.material.side = THREE.DoubleSide; if (w.tiefe) o.customDepthMaterial = w.tiefe; }
-      o.material = w.material; materialien.push(w);
+      if (NORMAL_MESSLAUF !== null && w.material.normalMap) w.material.normalScale.setScalar(NORMAL_MESSLAUF);
+      o.material = w.material; materialien.push({ w, anteil });
     });
     return { objekt: klon, materialien };
   }, [scene, teil, rand.farbe, rand.staerke]);
-  useEffect(() => { materialien.forEach(m => m.setzeRand(new THREE.Color(rand.farbe), rand.staerke)); }, [materialien, rand.farbe, rand.staerke]);
+  useEffect(() => {
+    materialien.forEach(({ w, anteil }) => w.setzeRand(new THREE.Color(rand.farbe), rand.staerke * anteil));
+  }, [materialien, rand.farbe, rand.staerke]);
   useEffect(() => () => {
-    materialien.forEach(m => { m.material.dispose(); m.tiefe?.dispose(); });
+    materialien.forEach(({ w }) => { w.material.dispose(); w.tiefe?.dispose(); });
   }, [materialien]);
   return <primitive object={objekt} />;
 }
@@ -1969,7 +2026,7 @@ function Beleuchtung({ s, ziel }: {
       {/* Der Himmel hängt an der Kamera: keine Ausdehnung im Spielraum, kein Nebel,
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       <primitive object={himmel} />
-      <hemisphereLight args={[s.umgebung, HEMI_BODEN, UMGEBUNG_MESSLAUF ?? s.umgebungStaerke]} />
+      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? HEMI_BODEN, UMGEBUNG_MESSLAUF ?? s.umgebungStaerke]} />
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
@@ -2180,7 +2237,7 @@ export const NEIGUNG_START = 0.32;
  * Look beurteilbar machen soll.
  */
 function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet,
-                   gleiterFrei, onGleiten, meldeRand, stoecke }: {
+                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre }: {
   feld: HoehenFeld;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
@@ -2200,6 +2257,8 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   meldeRand?: () => void;
   /** Zustand der beiden Daumenknüppel — die Anzeige liegt im DOM und liest ihn. */
   stoecke?: React.RefObject<Stoecke>;
+  /** Hält die Laufeingabe an, solange der Kampf die Figur führt (Schlag, Rolle). */
+  kampfSperre?: React.RefObject<boolean>;
 }) {
   const { gl } = useThree();
   const eingabe = benutzeSteuerung(gl.domElement, stoecke);
@@ -2217,7 +2276,14 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
     if (!p) return;
     // Nach einem Tab-Wechsel kommt ein riesiges dt — sonst teleportiert man.
     const dt = Math.min(rohDt, 0.1);
-    const e = eingabe.current;
+    // Im Kampf gehört die Figur während Schlag und Rolle dem Kampf (ADR-0007):
+    // keine Laufeingabe, kein Sprung. Eine Kopie statt die Eingabe zu
+    // überschreiben — `vor`/`seit` werden nur bei Tastenereignissen neu
+    // berechnet, ein genulltes Feld bliebe nach der Rolle stehen.
+    const e0 = eingabe.current;
+    const sperre = kampfSperre?.current ?? false;
+    const e = sperre ? { ...e0, vor: 0, seit: 0, springen: false, rennen: false } : e0;
+    if (sperre) { e0.springen = false; e0.drehDelta = 0; e0.neigDelta = 0; }
 
     gier.current += e.drehRate * dt + e.drehDelta;
     e.drehDelta = 0;
@@ -3030,6 +3096,13 @@ export interface RegionsSzeneProps {
    * Weltkoordinaten umgerechnet werden und läge im Nebel.
    */
   stoecke?: React.RefObject<Stoecke>;
+  /**
+   * Kampf Stufe 1 (ADR-0007): zwei Übungsgegner vor dem Startpunkt. Nur hinter
+   * `?kampf=1` — Platzhalter ohne Asset, bis die Fassade steht.
+   */
+  kampfplatz?: boolean;
+  /** Stand für die Kampfanzeige im DOM, wie `ausdauer` als Ref. */
+  kampfStand?: React.RefObject<KampfStand | null>;
 }
 
 export function RegionsSzene({
@@ -3037,9 +3110,11 @@ export function RegionsSzene({
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfStand,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
+  /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
+  const kampfSperre = useRef(false);
   const ref = spielerRef ?? eigenerRef;
   const eigeneAusdauer = useRef<Ausdauerzustand>(neueAusdauer());
   const kraft = ausdauer ?? eigeneAusdauer;
@@ -3180,7 +3255,11 @@ export function RegionsSzene({
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}
                reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten}
-               meldeRand={meldeRand} stoecke={stoecke} />
+               meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} />
+      {kampfplatz && (
+        <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
+                    ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} />
+      )}
       {funde.length > 0 && (
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
       )}

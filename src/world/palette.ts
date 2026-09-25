@@ -257,6 +257,15 @@ export const PALETTE = {
    * und damit praktisch schwarz: alles zur Sonne Abgewandte landete unter der
    * Schwarzgrenze des Tone Mappings (G-7). Seit D114 heller, als Teil des
    * Fülllichts.
+   *
+   * D166 neu hergeleitet, weil die alte Begründung mit ACES wegfiel (AgX
+   * schneidet erst bei ~0,00018 statt ~0,0035 ab). Der Wert bleibt, der Grund
+   * ist jetzt die Nacht: Bei `#242c26` steigt der Anteil exakt schwarzer
+   * Pixel im Tor „Fenster" von 2,7 auf 4,8 %, bei `#121a16` auf 6,7 %. Am Tag
+   * brächte `#242c26` die Felsmulden-Wand näher ans Render (Median 0,0213 →
+   * 0,0155, Render 0,0069) — das ist knapp ein Drittel der Lücke und kein
+   * Grund, die Nacht zuzuschütten. Wenn der Tag dunkler werden soll, dann je
+   * Stimmung, nicht hier global. Messlauf: `?hemiboden=<hex6>`.
    */
   licht: { hemiBoden: '#3a463c' },
 

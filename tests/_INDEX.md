@@ -19,6 +19,7 @@ owns: *.test.ts
 |---|---|
 | Geometriekompression oder Bauwerk-Export ändern | `bautenpack.test.ts` → `../tools/bautenpack.ts` |
 | Kampfregeln, Elemente, Fokus oder Phasen ändern | `battle.test.ts` → `../src/engine/battle.ts` |
+| Echtzeitkampf: Fenster, Reichweiten, Kosten, KI ändern | `echtzeit.test.ts` → `../src/kampf/echtzeit.ts` |
 | Die Witterungsanzeige oder eine Richtung anfassen | `peilung.test.ts` → `../src/spieler/peilung.ts` |
 | An Erfahrungskurve, Stufen oder Mutation drehen | `fortschritt.test.ts` → `../src/spiel/fortschritt.ts` |
 | Klettern, Springen oder Zehrraten ändern | `ausdauer.test.ts` → `../src/spieler/ausdauer.ts` |
@@ -35,6 +36,7 @@ owns: *.test.ts
 | Datei | Was festgehalten wird |
 |---|---|
 | `bautenpack.test.ts` | Tatsächlicher Runtime-Decoder: Attribute, Weltmatrizen, Materialwerte/-gruppen, Namen und orientierte Dreiecke bleiben beim verlustfreien Meshopt-Roundtrip erhalten; Quellschutz und Größenstabilität bei Wiederkompression. |
+| `echtzeit.test.ts` | 33 Prüfungen, das Kampftor (D166): Reichweite ±5 cm, Winkel, ein Treffer je Schwung, Rollenfenster in 5-ms-Schritten (≥ 200 ms, nach Reaktionszeit erreichbar), Ausdauer 5 Schläge/4 Rollen, Haltung bricht beim 2. Treffer, Zielwahl, KI aus 12 Anlaufrichtungen, gleiches Ergebnis bei 10/30/144 B/s. Druckt die Messtabelle |
 | `battle.test.ts` | 16 Tests: Elementmatrix ausgewogen, Fokus-Ökonomie, Elementvorteil entscheidet, Phasen erzwingen Wechseln, Zehrung, Determinismus, Kampfdauer im Korridor |
 | `peilung.test.ts` | 11 Tests. Anlass war ein **Vorzeichenfehler**, der nur bei Blickrichtung 0 unauffällig war — der Pfeil zeigte beim Drehen in die falsche Richtung |
 | `fortschritt.test.ts` | 20 Tests. Anlass: Die erste Kurve machte Kreaturen bei der Mutation **schwächer** (L13 = 184 KP, L14 = 162 KP). Hält jetzt Monotonie und die Zahl der Kämpfe je Mutation fest |

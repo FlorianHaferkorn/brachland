@@ -8,6 +8,7 @@ import { RegionsSzene, TAGESZEITEN, QUALITAET_STANDARD,
          type Messwerte, type Qualitaet, type Naehe } from './scenes/RegionsSzene.js';
 import { Witterung } from './ui/Witterung.js';
 import { Ausdaueranzeige } from './ui/Ausdaueranzeige.js';
+import { Kampfanzeige, type KampfStand } from './ui/Kampfanzeige.js';
 import { Stockanzeige } from './ui/Stockanzeige.js';
 import { abgeschaltet } from './scenes/abschalter.js';
 import type { Stoecke } from './spieler/steuerung.js';
@@ -45,6 +46,11 @@ const START_KREATUR = 'grathorn';
 const TEAM_MAX = 6;
 /** Regent der ersten Region. Später kommt der aus den Regionsdaten. */
 const REGENT_ID = 'flussvater';
+/**
+ * Kampf Stufe 1 (ADR-0007): `?kampf=1` stellt zwei Übungsgegner vor den
+ * Startpunkt. Hinter einem Schalter, bis Fassade und Gegnerbestand stehen.
+ */
+const KAMPFPLATZ = new URLSearchParams(location.search).get('kampf') === '1';
 
 /**
  * Absetzpunkt aus der Adresse: `?absetzen=x,z` in Weltmetern.
@@ -120,6 +126,8 @@ function App() {
   const ausdauer = useRef<Ausdauer>(neueAusdauer());
   /** Was gerade unter den Daumen liegt. Nur die Anzeige liest das. */
   const stoecke = useRef<Stoecke>({ links: null, rechts: null });
+  /** Stand des Echtzeitkampfs für die Anzeige. Nur mit `?kampf=1` belegt. */
+  const kampfStand = useRef<KampfStand | null>(null);
   /** Erfahrung je Teamplatz. Parallel zum Team, weil `Kaempfer` sie nicht kennt. */
   const erfahrungRef = useRef<number[]>([]);
 
@@ -637,6 +645,8 @@ function App() {
         fernland={fernland}
         meldeRand={meldeRand}
         stoecke={stoecke}
+        kampfplatz={KAMPFPLATZ}
+        kampfStand={kampfStand}
       />
       {!imKampf && !menueOffen && <Stockanzeige stoecke={stoecke} />}
 
@@ -704,6 +714,7 @@ function App() {
 
           <Witterung naehe={naehe} />
           <Ausdaueranzeige ausdauer={ausdauer} />
+          {KAMPFPLATZ && <Kampfanzeige stand={kampfStand} />}
 
           {/* Gleitflug. Nur sichtbar, solange er läuft — eine Anzeige, die immer
               da ist, erklärt nichts über einen Zustand, den man ohnehin spürt.
