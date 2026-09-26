@@ -46,7 +46,11 @@ import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
-import { WAFFE_AN_HAND } from '../kampf/waffenhand.js';
+import { WAFFE_AN_HAND, legeAnHeldHand } from '../kampf/waffenhand.js';
+import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn } from '../spieler/held.js';
+/** `?figur=alt`: die alte Wanderin statt der Figur aus dem Editor (Vergleich, D175). */
+const ALTE_FIGUR = new URLSearchParams(location.search).get('figur') === 'alt';
+const KEINE_CLIPS: THREE.AnimationClip[] = [];
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB } from './sichtweiten.js';
@@ -2794,8 +2798,15 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
    */
   reittier?: Reittier | null;
 }) {
-  const { scene, animations } = useGLTF('/figuren/wanderin.glb');
-  const waffenClips = useWaffenClips();
+  // D175: die Hauptfigur aus dem Charakter-Editor (Universal Base Characters, `tools/heldbau.py`).
+  // `?figur=alt` zeigt die alte Wanderin zum Vergleich.
+  const wahl = useHeldWahl();
+  const held = !!wahl && !ALTE_FIGUR;
+  const { scene, animations: eigeneClips } = useGLTF(held ? gestaltPfad(wahl!) : '/figuren/wanderin.glb');
+  const heldClips = useGLTF(held ? HELD_CLIPS : '/figuren/wanderin.glb').animations;
+  const animations = held ? heldClips : eigeneClips;
+  const alteWaffenClips = useWaffenClips();
+  const waffenClips = held ? KEINE_CLIPS : alteWaffenClips;
   /** Sitzhoehe aus dem Modell (`ReittierModell` schreibt sie), sonst aus der Silhouette. */
   const sitzHoehe = useRef<{ hoehe: number; breite: number } | null>(null);
   const mitModell = !!reittier && MIT_MODELL.has(reittier.kreatur);
@@ -2805,13 +2816,15 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
   useEffect(() => {
     setzeRand(new THREE.Color(rand.farbe), rand.staerke);
   }, [setzeRand, rand]);
-  // Material tauschen und Schatten setzen — einmal je Szene.
+  // Material tauschen und Schatten setzen — einmal je Szene. Die neue Figur behält ihre Texturen
+  // und bekommt die Wahl aus dem Editor (Frisur, Haut, Haar).
   useEffect(() => {
+    if (held) { legeWahlAn(scene, wahl!); return; }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
     });
-  }, [scene, material]);
+  }, [scene, material, held, wahl]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
   const clips = useMemo(() => {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
@@ -2864,6 +2877,11 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
     const w = baueWaffen();
     const hand = scene.getObjectByName('WristR') ?? scene.getObjectByName('Wrist.R');
     if (hand) { hand.add(w.klinge); hand.add(w.axt); }
+    else {
+      // D175: neues Skelett — `hand_r` mit eigener Lage (`waffenhand.ts`).
+      const h = scene.getObjectByName(HELD_KNOCHEN.hand);
+      if (h) for (const g of [w.klinge, w.axt]) { h.add(g); legeAnHeldHand(g); }
+    }
     return w;
   }, [scene]);
   // D173: die Modelle aus dem Medieval Weapons Pack (CC0, `tools/waffenbau.py`) ersetzen die Kästen,
@@ -2895,6 +2913,11 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
   // den Namen (`UpperLeg.L` → `UpperLegL`); beide Schreibweisen werden gesucht.
   const beine = useMemo(() => {
     const k = (n: string) => scene.getObjectByName(n.replace('.', '')) ?? scene.getObjectByName(n) ?? null;
+    if (scene.getObjectByName('pelvis')) {
+      const h = (n: keyof typeof HELD_KNOCHEN) => scene.getObjectByName(HELD_KNOCHEN[n]) ?? null;
+      return { ol: h('ol'), or: h('or'), ul: h('ul'), ur: h('ur'), fl: h('fl'), fr: h('fr'),
+               al: h('al'), ar: h('ar'), el: h('el'), er: h('er') } as SitzKnochen;
+    }
     return { ol: k('UpperLeg.L'), or: k('UpperLeg.R'), ul: k('LowerLeg.L'), ur: k('LowerLeg.R'), fl: k('Foot.L'), fr: k('Foot.R'),
              al: k('UpperArm.L'), ar: k('UpperArm.R'), el: k('LowerArm.L'), er: k('LowerArm.R') } as SitzKnochen;
   }, [scene]);
@@ -3412,6 +3435,8 @@ export interface RegionsSzeneProps {
   kampfplatz?: boolean;
   /** Wer auf dem Platz steht (D169/D170): zwei Arten, je Platz eine. */
   kampfAufstellung?: readonly GegnerArt[];
+  /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen. */
+  kampfEnde?: (sieg: boolean) => void;
   /** Stand für die Kampfanzeige im DOM, wie `ausdauer` als Ref. */
   kampfStand?: React.RefObject<KampfStand | null>;
 }
@@ -3421,7 +3446,7 @@ export function RegionsSzene({
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfStand,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, kampfStand,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -3576,7 +3601,8 @@ export function RegionsSzene({
         <Suspense fallback={null}>
           <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
                       ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                      zielt={kampfZielt} aufstellung={kampfAufstellung} />
+                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde}
+                      key={kampfEnde ? `welt-${kampfAufstellung?.join(',')}` : 'platz'} />
         </Suspense>
       )}
       {funde.length > 0 && (

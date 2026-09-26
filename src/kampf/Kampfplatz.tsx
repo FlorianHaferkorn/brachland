@@ -45,6 +45,12 @@ import { kreaturGeometrie, baueAnbau, saatAusId } from '../world/kreaturgestalt.
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
 import { haengeAnHand } from './waffenhand.js';
+import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
+/** Aussehen des Wegelagerers (D175). */
+const WEGELAGERER_WAHL: HeldWahl = {
+  name: 'Wegelagerer', geschlecht: 'm', koerper: 'm', kleid: 'waldlaeufer', haar: 'Buzzed', bart: true,
+  haut: 0.55, haarfarbe: '#2a1d15',
+};
 
 /**
  * Wer auf dem Platz steht (D169). `keiler` ist Stufe 2: der Wurzelkeiler aus der Welt, mit
@@ -86,6 +92,8 @@ interface RigVorlage {
   scene: THREE.Object3D; clips: THREE.AnimationClip[];
   /** Mensch (D174): eigenes Material behalten, diese Waffe an die Hand. */
   waffe?: THREE.Object3D;
+  /** Aussehen der Gestalt (D175). */
+  wahl?: HeldWahl;
 }
 interface Rig {
   mixer: THREE.AnimationMixer;
@@ -139,6 +147,8 @@ const NEUSTART = 3.5;
 const FARBE = {
   koerper: new THREE.Color('#5d5145'),
   telegraf: new THREE.Color('#e0762c'),
+  /** Undurchdringlich (ADR-0009 Stufe 3, D175): Blocken hilft nicht — tiefrot statt orange. */
+  durch: new THREE.Color('#c01818'),
   taumeln: new THREE.Color('#6d8fb0'),
   treffer: new THREE.Color('#f2ece0'),
   faecher: new THREE.Color('#d9d2c2'),
@@ -218,6 +228,11 @@ type PlatzProps = {
   zielt?: React.RefObject<boolean>;
   /** Wer auf dem Platz steht, zwei oder drei Plätze (D169–D172). Vorgabe: ein Keiler, ein Grathorn. */
   aufstellung?: readonly GegnerArt[];
+  /**
+   * Begegnung in der Welt (D175): kein Übungsplatz — es beginnt sofort (ohne erste Taste) und endet
+   * einmal. Statt neu aufzustellen, meldet der Platz den Ausgang.
+   */
+  onEnde?: (sieg: boolean) => void;
 };
 
 const VORGABE: readonly GegnerArt[] = ['keiler', 'grathorn'];
@@ -253,9 +268,10 @@ function KampfplatzMitModellen(props: PlatzProps) {
   const grathornRig = useGLTF('/creatures/kampf/grathorn.glb');
   const fuchs = useGLTF('/creatures/spuerfuchs.glb').scene, gams = useGLTF('/creatures/nebelgams.glb').scene;
   const fuchsRig = useGLTF('/creatures/kampf/spuerfuchs.glb'), gamsRig = useGLTF('/creatures/kampf/nebelgams.glb');
-  // D174: der Wegelagerer — Figur, Klingenclips der Wanderin, Schwert aus dem Weapons Pack.
-  const wanderer = useGLTF('/figuren/wanderer.glb');
-  const waffenClips = useGLTF('/figuren/kampf/wanderin-waffen.glb');
+  // D174: der Wegelagerer; seit D175 eine Gestalt aus `heldbau.py` (Waldläufer, Bart) mit den
+  // Clips der Hauptfigur — gleiches Skelett, keine Übertragung zur Laufzeit.
+  const wanderer = useGLTF(gestaltPfad(WEGELAGERER_WAHL));
+  const waffenClips = useGLTF(HELD_CLIPS);
   const waffenModelle = useGLTF('/figuren/kampf/waffen.glb');
   const leiber = useMemo<Partial<Record<GegnerArt, Leib | null>>>(() => ({
     keiler: leibAus(keiler, 'wurzelkeiler'), grathorn: leibAus(grathorn, 'grathorn'), wolf: leibAus(wolf, 'k7-wolf'),
@@ -266,8 +282,8 @@ function KampfplatzMitModellen(props: PlatzProps) {
     grathorn: { scene: grathornRig.scene, clips: grathornRig.animations },
     fuchs: { scene: fuchsRig.scene, clips: fuchsRig.animations },
     gams: { scene: gamsRig.scene, clips: gamsRig.animations },
-    wegelagerer: { scene: wanderer.scene, clips: [...wanderer.animations, ...waffenClips.animations],
-                   waffe: waffenModelle.scene.getObjectByName('Klinge') ?? undefined },
+    wegelagerer: { scene: wanderer.scene, clips: waffenClips.animations,
+                   waffe: waffenModelle.scene.getObjectByName('Klinge') ?? undefined, wahl: WEGELAGERER_WAHL },
   }), [wolfRig, grathornRig, fuchsRig, gamsRig, wanderer, waffenClips, waffenModelle]);
   return <KampfplatzKern {...props} leiber={leiber} rigs={rigs} />;
 }
@@ -280,13 +296,17 @@ function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeome
   const obj = klonSkelett(v.scene);
   if (v.waffe) {
     // Mensch (D174): Farben der Figur (Vertexfarben) behalten — ein Material je Puppe fürs Aufblitzen.
-    let material: THREE.MeshStandardMaterial | null = null, koerper: THREE.SkinnedMesh | null = null;
+    // D175: Texturierte Gestalt — jedes Netz behält sein Material (`legeWahlAn` klont sie); fürs
+    // Aufblitzen nimmt die Puppe das Material des grössten Netzes (Kleidung).
+    if (v.wahl) legeWahlAn(obj, v.wahl);
+    let material: THREE.MeshStandardMaterial | null = null, koerper: THREE.SkinnedMesh | null = null, groesse = 0;
     obj.traverse(o => {
       const m = o as THREE.SkinnedMesh;
-      if (!m.isSkinnedMesh) return;
-      material ??= (m.material as THREE.MeshStandardMaterial).clone();
-      m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
-      koerper ??= m;
+      if (!m.isSkinnedMesh || !m.visible) return;
+      if (!v.wahl) { material ??= (m.material as THREE.MeshStandardMaterial).clone(); m.material = material; }
+      m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
+      const n = m.geometry.attributes.position.count;
+      if (n > groesse) { groesse = n; koerper = m; if (v.wahl) material = (Array.isArray(m.material) ? m.material[0] : m.material) as THREE.MeshStandardMaterial; }
     });
     haengeAnHand(obj, v.waffe.clone());
     const mixer = new THREE.AnimationMixer(obj);
@@ -342,7 +362,7 @@ function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeome
   return { obj, koerper: koerper as THREE.SkinnedMesh | null, material, rig, setzeZeit: w.setzeZeit };
 }
 
-function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber, rigs }:
+function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber, rigs, onEnde }:
   PlatzProps & { leiber: Partial<Record<GegnerArt, Leib | null>>; rigs: Partial<Record<GegnerArt, RigVorlage>> }) {
   const aufKey = aufstellung.join(',');
   const welt = useRef<Kampfwelt | null>(null);
@@ -355,12 +375,16 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
    * Der Übungsplatz wartet auf die erste Eingabe (D168). Vorher lief er schon während des Ladens,
    * und man stand mit halbem Leben auf — die Gegner stehen jetzt da, aber still.
    */
-  const los = useRef(false);
+  // Eine Begegnung in der Welt wartet nicht auf die erste Taste (D175).
+  const los = useRef(!!onEnde);
+  const gemeldet = useRef(false);
   /** Die gewählte Waffe überlebt die neue Runde. */
   const waffeWahl = useRef<WaffenArt>('klinge');
   useEffect(() => () => { if (zielt) zielt.current = false; }, [zielt]);
   const tasten = useRef(new Set<string>());
   const meldung = useRef({ text: '', seit: 0 });
+  /** Ist ein Ziel aufgeschaltet? Die Maus wählt dann die Linie (D175). */
+  const aufgeschaltet = useRef(false);
 
   useEffect(() => {
     const runter = (ev: KeyboardEvent) => {
@@ -390,6 +414,17 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       if (ev.button === 2) tasten.current.add('Maus2');
     };
     const losgelassen = (ev: PointerEvent) => { if (ev.button === 2) tasten.current.delete('Maus2'); };
+    // D175 (ADR-0009, Frage 1): Mit aufgeschaltetem Ziel wählt die Maus die Linie — ein Zug von
+    // 40 px in eine Richtung, die stärkere Achse gewinnt. Die Kamera rahmt dann ohnehin das Ziel.
+    const zug = { x: 0, y: 0 };
+    const bewegt = (ev: PointerEvent) => {
+      if (ev.pointerType !== 'mouse' || !aufgeschaltet.current) { zug.x = zug.y = 0; return; }
+      zug.x += ev.movementX; zug.y += ev.movementY;
+      if (Math.hypot(zug.x, zug.y) < 40) return;
+      absicht.current.linie = Math.abs(zug.x) > Math.abs(zug.y) ? (zug.x > 0 ? 'rechts' : 'links') : (zug.y > 0 ? 'unten' : 'oben');
+      zug.x = zug.y = 0;
+    };
+    window.addEventListener('pointermove', bewegt);
     const keinMenue = (ev: MouseEvent) => ev.preventDefault();
     const hoch = (ev: KeyboardEvent) => { tasten.current.delete(ev.code); };
     const weg = () => tasten.current.clear();
@@ -401,6 +436,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     window.addEventListener('contextmenu', keinMenue);
     return () => {
       window.removeEventListener('pointerup', losgelassen);
+      window.removeEventListener('pointermove', bewegt);
       window.removeEventListener('contextmenu', keinMenue);
       window.removeEventListener('pointerdown', beruehrt);
       window.removeEventListener('keydown', runter);
@@ -535,6 +571,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       }
     }
     if (zielt) zielt.current = w.ziel !== null;
+    aufgeschaltet.current = w.ziel !== null;
     const t = tasten.current;
     const vor = (t.has('KeyW') ? 1 : 0) - (t.has('KeyS') ? 1 : 0);
     const seit = (t.has('KeyD') ? 1 : 0) - (t.has('KeyA') ? 1 : 0);
@@ -609,7 +646,11 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     // ---- Übungsplatz neu aufstellen
     const vorbei = s.phase === 'gefallen' || w.gegner.every(g => g.phase === 'gefallen');
     if (vorbei && ende.current === null) ende.current = jetzt;
-    if (ende.current !== null && jetzt - ende.current > NEUSTART * 1000) {
+    if (onEnde && ende.current !== null && jetzt - ende.current > 1500 && !gemeldet.current) {
+      gemeldet.current = true;
+      onEnde(s.phase !== 'gefallen');
+    }
+    if (!onEnde && ende.current !== null && jetzt - ende.current > NEUSTART * 1000) {
       welt.current = baueWelt(p.x, p.z, gier.current, aufstellung);
       welt.current.spielerin.ausdauerFremd = true;
       ruesteAus(welt.current.spielerin, waffeWahl.current);
@@ -669,7 +710,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         ruhig: !los.current,
         getroffen: zaehler.current.getroffen,
         schlag: s.phase === 'vorlauf' || s.phase === 'aktiv' || s.phase === 'erholung' ? s.schlag.name ?? '' : '',
-        linien: zk?.werte.mensch ? {
+        linien: zk?.werte.mensch || zk?.werte.linien ? {
           eigen: s.linie, deckung: zk.deckung,
           kommt: zk.phase === 'vorlauf' || zk.phase === 'aktiv' ? zk.schlagLinie : undefined,
           parade: zk.phase === 'vorlauf' && zk.schlag.vorlauf - zk.zeit <= PARADE,
@@ -711,8 +752,11 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
     // Das Telegraf: Der Bogen am Boden füllt sich, der Körper glüht auf. Beides wächst mit dem
     // Vorlauf — wer das Aufglühen sieht, weiss, wie viel Zeit bleibt.
     const t = Math.min(1, g.zeit / s.vorlauf);
-    pu.bogen.material.opacity = 0.08 + 0.32 * t;
-    m.emissive.copy(FARBE.telegraf).multiplyScalar(0.15 + 0.6 * t * t);
+    const farbe = s.durch ? FARBE.durch : FARBE.telegraf;
+    pu.bogen.material.color.copy(farbe);
+    // Undurchdringlich blinkt der Bogen — man soll es aus dem Augenwinkel sehen, nicht erst lesen.
+    pu.bogen.material.opacity = (0.08 + 0.32 * t) * (s.durch ? 0.7 + 0.3 * Math.sin(g.zeit * 30) : 1);
+    m.emissive.copy(farbe).multiplyScalar(0.15 + 0.6 * t * t);
     if (keiler) {
       // Kopf runter, Gewicht nach hinten, scharren: der Körper sagt es, bevor die Farbe es sagt.
       l.position.z = 0.3 * t;
@@ -737,7 +781,7 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
     }
   } else if (g.phase === 'aktiv') {
     pu.bogen.material.opacity = 0.65;
-    m.emissive.copy(FARBE.telegraf).multiplyScalar(1.0);
+    m.emissive.copy(s.durch ? FARBE.durch : FARBE.telegraf).multiplyScalar(1.0);
     if (keiler) {
       // Der Stoss: nach vorn werfen, Kopf hoch — die Hauer von unten nach oben.
       const u = Math.min(1, g.zeit / s.aktiv);

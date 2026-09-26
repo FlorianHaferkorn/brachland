@@ -63,11 +63,16 @@ export default defineConfig({
         // Service-Worker-Kontrolle, was da geladen wird, landet in keinem Cache), ab dem
         // zweiten Besuch aus dem Cache. Wer das Spiel einmal offline nehmen will, laeuft
         // vorher einmal an den Bauwerken vorbei; ein eigener Vorlader ist Stufe-3-Arbeit.
-        globIgnores: ['**/bauten/*.glb'],
+        // D175: Die Gestalten der Hauptfigur (je ~1 MB) auch nicht — gebraucht wird nur die gewählte.
+        globIgnores: ['**/bauten/*.glb', '**/figuren/held/*.glb'],
         runtimeCaching: [{
           urlPattern: ({ url }) => url.pathname.startsWith('/bauten/'),
           handler: 'CacheFirst',
           options: { cacheName: 'brachland-bauten', expiration: { maxEntries: 60 } },
+        }, {
+          urlPattern: ({ url }) => url.pathname.startsWith('/figuren/held/'),
+          handler: 'CacheFirst',
+          options: { cacheName: 'brachland-held', expiration: { maxEntries: 8 } },
         }],
         // 8 → 16 MiB (ADR-0006, Stufe 2): Ein Baum-Prop oder eine Kreatur bleibt weit darunter;
         // die Grenze faengt nur ab, was versehentlich in den Precache rutscht.

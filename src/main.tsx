@@ -30,6 +30,9 @@ import { baueKreaturGeometrie, saatAusId } from './world/kreaturgestalt.js';
 import { Kampfbildschirm, type KampfEnde } from './ui/BattleScreen.js';
 import type { KaempferBild } from './ui/Kampfbuehne.js';
 import type { Kaempfer, Team } from './engine/battle.js';
+import { HeldEditor } from './ui/HeldEditor.js';
+import type { GegnerArt } from './kampf/Kampfplatz.js';
+import { setzeHeldWahl, STANDARD_HELD } from './spieler/held.js';
 import { ladeStand, speichereStand, LEERER_STAND,
          type Spielstand, type TeamEintrag } from './spiel/spielstand.js';
 import { benutzeBildrate } from './spiel/bildrate.js';
@@ -92,6 +95,21 @@ function mutationVon(v: Vorkommen): number {
   return k ? mutationBei(v.stufe, k.stufen.length) : 0;
 }
 
+/**
+ * Adressen der Messwerkzeuge (Bildtor, Kampfblick …): dort startet das Spiel ohne Editor mit der
+ * Vorgabefigur. `?held=editor` erzwingt den Editor (D175).
+ */
+const MESSADRESSE = ['absetzen', 'kampf', 'stimmung', 'kamera', 'zeit', 'ansicht'].some(k => new URLSearchParams(location.search).has(k));
+/** `?lager=1`: Wegelager auch bei Messadressen (Probe, D175). */
+const LAGER_PROBE = new URLSearchParams(location.search).has('lager');
+const HELD_EDITOR = new URLSearchParams(location.search).get('held') === 'editor';
+
+/** Wegelager in der Welt (D175): an einem Ort festgemacht, Versatz in Metern (x, z). */
+const WEGELAGER: { id: string; bei: string; versatz: [number, number]; aufstellung: readonly GegnerArt[]; meldung: string }[] = [
+  { id: 'lager-bruchweg', bei: 'steinbruch-wart', versatz: [55, 40], aufstellung: ['wegelagerer', 'wolf'],
+    meldung: 'Ein Mann mit Klinge tritt auf den Weg. Sein Hund knurrt.' },
+];
+
 function App() {
   const [welt, setWelt] = useState<Weltdaten | null>(null);
   /** Kulisse jenseits der Region. `null` heisst „nicht da" und ist kein Fehler. */
@@ -130,6 +148,8 @@ function App() {
   const [imSattel, setImSattel] = useState(false);
   /** Menü offen? Nicht im Spielstand — ein Spiel startet nie im Menü. */
   const [menueOffen, setMenueOffen] = useState(false);
+  /** Charakter-Editor aus dem Menü heraus geöffnet (D175). */
+  const [editorOffen, setEditorOffen] = useState(false);
   const [fragment, setFragment] = useState<string | null>(null);
   const [hinweis, setHinweis] = useState<string | null>(null);
   const spielerRef = useRef<THREE.Object3D>(null);
@@ -192,6 +212,9 @@ function App() {
         team: [{ kreatur: START_KREATUR, stufe: 3, erfahrung: 0, kp: 0 }],
       };
       setStand(s);
+      // D175: Figur aus dem Stand; bei Messadressen die Vorgabe, damit kein Editor den Lauf anhält.
+      if (s.held) setzeHeldWahl(s.held);
+      else if (MESSADRESSE) setzeHeldWahl(STANDARD_HELD);
       erfahrungRef.current = s.team.map(e => e.erfahrung ?? 0);
       setTeam(s.team.map(e => {
         const k = baueKaempfer(e.kreatur, e.stufe);
@@ -289,6 +312,45 @@ function App() {
       : []),
     [welt],
   );
+
+  /**
+   * Wegelager (D175): Echtzeitkämpfe in der Welt, nicht nur auf dem Übungsplatz. Wer näher als
+   * 22 m kommt, wird gestellt; ein Sieg steht im Stand (`besiegt`), das Lager bleibt dann leer.
+   * Eine Niederlage kostet nichts ausser dem Weg zurück — der Echtzeitkampf hat noch keine Folgen.
+   */
+  const lager = useMemo(() => (welt ? WEGELAGER.flatMap(l => {
+    const o = ORTE.get(l.bei);
+    if (!o) return [];
+    const [x, z] = nachMetern(o.ort, welt.bbox);
+    return [{ ...l, x: x + l.versatz[0], z: z + l.versatz[1] }];
+  }) : []), [welt]);
+  const [weltKampf, setWeltKampf] = useState<{ id: string; aufstellung: readonly GegnerArt[] } | null>(null);
+  useEffect(() => {
+    if (KAMPFPLATZ || (MESSADRESSE && !LAGER_PROBE) || !stand) return;
+    const id = setInterval(() => {
+      const p = spielerRef.current?.position;
+      if (!p || weltKampf) return;
+      for (const l of lager) {
+        const d = Math.hypot(p.x - l.x, p.z - l.z);
+        // Nach einer Niederlage erst wieder, wenn man weg war (40 m) — sonst ginge es endlos weiter.
+        if (lagerRuhe.current.has(l.id)) { if (d > 40) lagerRuhe.current.delete(l.id); continue; }
+        if (stand.besiegt.includes(l.id) || d > 22) continue;
+        setWeltKampf({ id: l.id, aufstellung: l.aufstellung });
+        setHinweis(l.meldung);
+        break;
+      }
+    }, 500);
+    return () => clearInterval(id);
+  }, [lager, stand, weltKampf]);
+  const lagerRuhe = useRef(new Set<string>());
+  const kampfVorbei = useCallback((sieg: boolean) => {
+    setWeltKampf(alt => {
+      if (alt && !sieg) lagerRuhe.current.add(alt.id);
+      if (alt && sieg) setStand(st => { if (!st) return st; const neu = { ...st, besiegt: [...st.besiegt, alt.id] }; void speichereStand(neu); return neu; });
+      return null;
+    });
+    setHinweis(sieg ? 'Das Lager ist still.' : 'Zurückgeschlagen — sie warten noch.');
+  }, []);
 
   /**
    * Das Team als Reitkandidaten — Bauform und Mutation je Platz.
@@ -659,9 +721,10 @@ function App() {
         fernland={fernland}
         meldeRand={meldeRand}
         stoecke={stoecke}
-        kampfplatz={KAMPFPLATZ}
-        kampfAufstellung={KAMPF_AUFSTELLUNG}
+        kampfplatz={KAMPFPLATZ || !!weltKampf}
+        kampfAufstellung={weltKampf?.aufstellung ?? KAMPF_AUFSTELLUNG}
         kampfStand={kampfStand}
+        kampfEnde={weltKampf ? kampfVorbei : undefined}
       />
       {!imKampf && !menueOffen && <Stockanzeige stoecke={stoecke} />}
 
@@ -729,7 +792,7 @@ function App() {
 
           <Witterung naehe={naehe} />
           <Ausdaueranzeige ausdauer={ausdauer} />
-          {KAMPFPLATZ && <Kampfanzeige stand={kampfStand} />}
+          {(KAMPFPLATZ || weltKampf) && <Kampfanzeige stand={kampfStand} />}
 
           {/* Gleitflug. Nur sichtbar, solange er läuft — eine Anzeige, die immer
               da ist, erklärt nichts über einen Zustand, den man ohnehin spürt.
@@ -807,8 +870,17 @@ function App() {
             </button>
           )}
 
+          {stand && (editorOffen || (!stand.held && !MESSADRESSE) || HELD_EDITOR) && (
+            <HeldEditor start={stand.held} onFertig={w => {
+              setzeHeldWahl(w);
+              setEditorOffen(false);
+              setStand(alt => { if (!alt) return alt; const neu = { ...alt, held: w }; void speichereStand(neu); return neu; });
+            }} />
+          )}
+
           {menueOffen && (
             <Menue
+              onFigur={() => { setMenueOffen(false); setEditorOffen(true); }}
               welt={welt}
               team={team}
               beutel={stand.beutel}

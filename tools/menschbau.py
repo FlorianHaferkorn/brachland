@@ -455,6 +455,10 @@ for eintrag in FIGUREN:
         bpy.ops.export_scene.gltf(**opts)
     kb = os.path.getsize(aus) / 1024
     register[name] = round(kb, 1)
+    # D175: Die Szene der Wanderin mit allen Clips als .blend — Quelle für `tools/heldbau.py`,
+    # der die Clips auf das neue Skelett (UE-Mannequin) überträgt.
+    if os.environ.get('SICHERN') and name == 'wanderin':
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.environ['SICHERN']), copy=True)
     print(f'{name:10} {quelle:22} {vorher:5} → {len(m.polygons):5} Dreiecke · {knochen} Knochen · '
           f'{len(bpy.data.actions)} Animationen ({", ".join(sorted(a.name for a in bpy.data.actions))}) · '
           f'{hi.z - lo.z:.2f} m roh → {hoehe} m · {kb:.0f} KB')

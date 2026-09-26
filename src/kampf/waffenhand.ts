@@ -16,10 +16,31 @@ export const WAFFE_AN_HAND = {
 /** Hängt `waffe` (Meter, Griff im Ursprung) an die rechte Hand eines Menschen. `false`, wenn es keine gibt. */
 export function haengeAnHand(figur: THREE.Object3D, waffe: THREE.Object3D): boolean {
   const hand = figur.getObjectByName('WristR') ?? figur.getObjectByName('Wrist.R');
-  if (!hand) return false;
+  if (!hand) {
+    const h = figur.getObjectByName('hand_r');
+    if (!h) return false;
+    legeAnHeldHand(waffe); h.add(waffe);
+    return true;
+  }
   waffe.position.copy(WAFFE_AN_HAND.position);
   waffe.quaternion.copy(WAFFE_AN_HAND.drehung);
   waffe.scale.setScalar(WAFFE_AN_HAND.massstab);
   hand.add(waffe);
   return true;
+}
+
+/**
+ * Dieselbe Waffe an `hand_r` des neuen Skeletts (D175, UE-Mannequin): so gelegt, dass sie in der
+ * Ruhe genauso im Raum liegt wie an `Wrist.R` der alten Wanderin — gerechnet mit
+ * `.cache/handlage.mjs` aus beiden Dateien.
+ */
+export const WAFFE_AN_HELD_HAND = {
+  position: new THREE.Vector3(-0.02204, 0.11643, 0.00679),
+  drehung: new THREE.Quaternion(-0.49601, 0.50396, -0.49602, 0.50394).normalize(),
+  massstab: 0.98399,
+};
+export function legeAnHeldHand(waffe: THREE.Object3D): void {
+  waffe.position.copy(WAFFE_AN_HELD_HAND.position);
+  waffe.quaternion.copy(WAFFE_AN_HELD_HAND.drehung);
+  waffe.scale.setScalar(WAFFE_AN_HELD_HAND.massstab);
 }

@@ -1,0 +1,58 @@
+{
+ "w-bauer": {
+  "kb": 50193.2,
+  "dreiecke": 14210,
+  "koerper": "Superhero_Female_FullBody",
+  "kleid": "Female_Peasant",
+  "haare": [
+   "Haar_Buzzed",
+   "Haar_BuzzedFemale",
+   "Haar_SimpleParted",
+   "Haar_Long",
+   "Haar_Buns",
+   "Haar_Beard"
+  ]
+ },
+ "m-waldlaeufer": {
+  "kb": 60058.4,
+  "dreiecke": 13566,
+  "koerper": "Superhero_Male_FullBody",
+  "kleid": "Male_Ranger",
+  "haare": [
+   "Haar_Buzzed",
+   "Haar_BuzzedFemale",
+   "Haar_SimpleParted",
+   "Haar_Long",
+   "Haar_Buns",
+   "Haar_Beard"
+  ]
+ },
+ "m-bauer": {
+  "kb": 58724.7,
+  "dreiecke": 13535,
+  "koerper": "Superhero_Male_FullBody",
+  "kleid": "Male_Peasant",
+  "haare": [
+   "Haar_Buzzed",
+   "Haar_BuzzedFemale",
+   "Haar_SimpleParted",
+   "Haar_Long",
+   "Haar_Buns",
+   "Haar_Beard"
+  ]
+ },
+ "w-waldlaeufer": {
+  "kb": 60009.9,
+  "dreiecke": 14234,
+  "koerper": "Superhero_Female_FullBody",
+  "kleid": "Female_Ranger",
+  "haare": [
+   "Haar_Buzzed",
+   "Haar_BuzzedFemale",
+   "Haar_SimpleParted",
+   "Haar_Long",
+   "Haar_Buns",
+   "Haar_Beard"
+  ]
+ }
+}

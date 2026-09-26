@@ -120,6 +120,11 @@ export interface KampfWerte {
    * die Spielerin — dreimal dieselbe Linie getroffen, dann deckt er sie.
    */
   mensch?: { linienFolge: readonly Linie[]; deckung: Linie };
+  /**
+   * Linien eines Tiers (ADR-0009 Stufe 3, D175) — aus dem Körperbau, reihum nach Schwung: Keiler und
+   * Fuchs von unten, Grathorn und Gams von oben, der Wolf dreht den Kopf (links, dann rechts).
+   */
+  linien?: readonly Linie[];
 }
 
 const GRAD = Math.PI / 180;
@@ -291,6 +296,7 @@ export const KEILER: KampfWerte = {
     // D173: Der Rammstoss geht durch jeden Block.
     durch: true,
   },
+  linien: ['unten'],
   rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
   lebenMax: 140, haltungMax: 70, haltungErholung: 18, haltungRuhe: 1.6, betaeubt: 1.0,
   // D170: Pille statt runder Kapsel — halbe Breite 0,31 m, Körper 1,8 m lang.
@@ -310,6 +316,7 @@ export const GRATHORN: KampfWerte = {
     reichweite: 2.2, halbwinkel: 30 * GRAD,
     schaden: 24, haltungsschaden: 44, kosten: 0, nachdrehen: 2.0,
   },
+  linien: ['oben'],
   rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
   lebenMax: 120, haltungMax: 60, haltungErholung: 22, haltungRuhe: 1.4, betaeubt: 0.9,
   radius: 0.3, hoehe: 1.3, halbLaenge: 0.45,
@@ -336,6 +343,7 @@ export const WOLF: KampfWerte = {
     schaden: 16, haltungsschaden: 22, kosten: 0, nachdrehen: 4.0, schritt: 0.5,
   }],
   tempo: 4.0,
+  linien: ['links', 'rechts'],
   rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
   lebenMax: 90, haltungMax: 55, haltungErholung: 25, haltungRuhe: 1.2, betaeubt: 0.8,
   radius: 0.28, hoehe: 0.9, halbLaenge: 0.45,
@@ -353,6 +361,7 @@ export const FUCHS: KampfWerte = {
     schaden: 10, haltungsschaden: 14, kosten: 0, nachdrehen: 4.0, schritt: 0.4,
   },
   tempo: 4.5,
+  linien: ['unten'],
   rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
   lebenMax: 60, haltungMax: 40, haltungErholung: 25, haltungRuhe: 1.0, betaeubt: 0.8,
   radius: 0.22, hoehe: 0.6, halbLaenge: 0.3,
@@ -370,6 +379,7 @@ export const GAMS: KampfWerte = {
     schaden: 18, haltungsschaden: 36, kosten: 0, nachdrehen: 2.5, schritt: 0.3, rueckstoss: 0.9,
   },
   tempo: 3.5,
+  linien: ['oben'],
   rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
   lebenMax: 100, haltungMax: 55, haltungErholung: 22, haltungRuhe: 1.3, betaeubt: 0.9,
   radius: 0.26, hoehe: 1.1, halbLaenge: 0.4,
@@ -536,6 +546,8 @@ export function setzeSchlagAn(k: Kaempfer, s: Schlag = k.werte.schlag): boolean 
 function linieFuer(k: Kaempfer, s: Schlag): Linie | undefined {
   const m = k.werte.mensch;
   if (m) return m.linienFolge[k.schwung % m.linienFolge.length];
+  const t = k.werte.linien;
+  if (t?.length) return t[k.schwung % t.length];
   return k.linie ?? s.linie;
 }
 
@@ -857,8 +869,9 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
       // Kette (D171): der nächste Schlag ohne Pause, ohne neue Kosten.
       const rest = k.zeit;
       const s = k.folge.shift()!;
-      k.schlag = s; k.phase = 'vorlauf'; k.zeit = rest; k.schwung++; k.erreicht = new Set();
+      // Linie vor dem Zählen, wie in `beginneSchlag` — sonst schlüge die Kette aus derselben Linie.
       k.schlagLinie = linieFuer(k, s);
+      k.schlag = s; k.phase = 'vorlauf'; k.zeit = rest; k.schwung++; k.erreicht = new Set();
       continue;
     }
     if (k.phase === 'erholung') k.komboOffen = KOMBO_FENSTER;

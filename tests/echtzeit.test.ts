@@ -822,7 +822,21 @@ console.log(`  Leichte Kette (mit Abbruch)          ${kettenWerte}`);
   pruefe('Linie: Parade nur in der richtigen Linie', !!par.tr?.pariert && !linienLauf('unten', 0.1).tr?.pariert);
   const tier = neuerKaempfer('w', WOLF, 0, 0);
   setzeSchlagAn(tier);
-  pruefe('Tiere schlagen ohne Linie (Stufe 3 offen)', tier.schlagLinie === undefined);
+  // Stufe 3 (D175): Tiere schlagen aus ihrem Körperbau — der Wolf wechselt die Seite.
+  pruefe('Wolf: erster Biss von links', tier.schlagLinie === 'links', String(tier.schlagLinie));
+  for (let t = 0; t < 1.5 && tier.schwung < 2; t += SCHRITT) schrittKaempfer(tier, SCHRITT);
+  pruefe('Wolf: Nachbiss von rechts', tier.schlagLinie === 'rechts', `${tier.schwung} ${tier.schlagLinie}`);
+  const lin = (w: typeof WOLF) => { const k = neuerKaempfer('t', w, 0, 0); setzeSchlagAn(k); return k.schlagLinie; };
+  pruefe('Keiler von unten, Grathorn von oben', lin(KEILER) === 'unten' && lin(GRATHORN) === 'oben');
+  {
+    // Block gegen den Grathorn in der falschen Linie: halber Schaden.
+    const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0); s.linie = 'unten';
+    const g = neuerKaempfer('g', GRATHORN, 0, -1.6, blickAuf(0, -1.6, 0, 0));
+    setzeSchlagAn(g); setzeBlockAn(s);
+    let tr: Treffer[] = [];
+    for (let t = 0; t < 1.5 && !tr.length; t += SCHRITT) { schrittKaempfer(s, SCHRITT); schrittKaempfer(g, SCHRITT); tr = loeseTreffer(g, [s]); }
+    pruefe('Grathorn: Block unten gegen Stoss von oben — halber Schaden', !!tr[0]?.falscheLinie, JSON.stringify(tr[0]));
+  }
 
   // Deckung: die Spielerin schlägt in die gedeckte Linie
   const g = neuerKaempfer('g', WEGELAGERER, 0, -1.6, blickAuf(0, -1.6, 0, 0));

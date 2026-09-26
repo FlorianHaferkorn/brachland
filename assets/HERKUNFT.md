@@ -32,6 +32,8 @@ und der ist auf beiden Rechnern nicht lauffähig (G-119).
 | `kampf/spuerfuchs.glb` | Spürfuchs mit Rig für den Kampf (D173) | Quaternius | CC0 | dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Fox“: Idle, Walk, Gallop, Attack, HitReact links/rechts, Death), `tools/kampftierbau.py` |
 | `kampf/nebelgams.glb` | Nebelgams mit Rig für den Kampf (D173) | Quaternius | CC0 | dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Deer“: Idle, Walk, Gallop, Attack_Headbutt, HitReact links/rechts, Death) |
 | `kampf/waffen.glb` | Schwert und Axt der Wanderin (D173) | Quaternius | CC0 | Medieval Weapons Pack („Sword“, „Axe“, OBJ), gedreht, skaliert und im Griff zentriert mit `tools/waffenbau.py` |
+| `held/m-waldlaeufer.glb`, `held/m-bauer.glb`, `held/w-waldlaeufer.glb`, `held/w-bauer.glb` | Hauptfigur-Gestalten (D175) | Quaternius | CC0 | Universal Base Characters (Standard: Kopf/Augen/Brauen der Superhero-Körper, Frisuren „Rigged to Head Bone") + Modular Character Outfits – Fantasy (Standard: Ranger, Peasant), zusammengesetzt mit `tools/heldbau.py`, gepackt mit `tools/heldpack.ts` |
+| `held/held-clips.glb` | Clips der Hauptfigur (D175, nur Knochen) | Quaternius | CC0 | Universal Animation Library 2 (Schwertkombos, Block, Rückstoss, Taumeln) und die Clips der alten Wanderin (Quaternius-Rig, eigene Waffenclips), übertragen mit `tools/heldbau.py` |
 | `grathorn.glb` | Grathorn | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Stag) |
 | `nebelgams.glb` | Nebelgams | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Deer) |
 | `wurzelkeiler.glb` | Wurzelkeiler | Poly by Google | **CC BY 3.0** | poly.pizza, „Boar" |

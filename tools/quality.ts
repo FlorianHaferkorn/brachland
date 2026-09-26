@@ -335,6 +335,21 @@ if (existsSync('public/figuren/kampf')) {
 }
 
 /**
+ * Hauptfigur (D175, `tools/heldbau.py`): eine Datei je Gestalt, texturiert, plus gemeinsame Clips.
+ * Budget 1,3 MB je Gestalt (lädt einmal, nur die gewählte) und 600 KB für die Clips.
+ */
+if (existsSync('public/figuren/held')) {
+  const herkunft = readFileSync('assets/HERKUNFT.md', 'utf8');
+  for (const f of readdirSync('public/figuren/held').filter(f => f.endsWith('.glb'))) {
+    const kb = statSync(join('public/figuren/held', f)).size / 1024;
+    if (!herkunft.includes(f)) stop('Held', `${f} ohne Herkunftsangabe`);
+    const grenze = f === 'held-clips.glb' ? 600 : 1300;
+    if (kb > grenze) stop('Held', `${f}: ${kb.toFixed(0)} KB über Budget ${grenze} KB`);
+    console.log(`  · [Held] ${f}: ${kb.toFixed(0)} KB`);
+  }
+}
+
+/**
  * Archetyp-Rigs — dass sie da sind, nicht wie groß sie sind.
  *
  * Ein Rig ist keine Auslieferungsdatei: Es geht nie ins Bundle, sondern in

@@ -57,6 +57,8 @@ export interface MenueProps {
   /** Nach einer Gegenstandswirkung — der Aufrufer muss die KP sichern. */
   onGeaendert: () => void;
   onSchliessen: () => void;
+  /** Charakter-Editor öffnen (D175). */
+  onFigur?: () => void;
 }
 
 const FARBE = {
@@ -128,8 +130,12 @@ export function Menue(p: MenueProps) {
               color: reiter === id ? FARBE.akzent : FARBE.matt,
             }}>{text}</button>
         ))}
+        {p.onFigur && <button onClick={p.onFigur} style={{
+          minHeight: 34, padding: '4px 11px', borderRadius: 7, fontSize: 12, marginLeft: 'auto',
+          background: 'transparent', border: '1px solid transparent', color: FARBE.matt,
+        }}>Figur</button>}
         <button onClick={p.onSchliessen} style={{
-          marginLeft: 'auto', minHeight: 34, minWidth: 44, borderRadius: 7,
+          marginLeft: p.onFigur ? 0 : 'auto', minHeight: 34, minWidth: 44, borderRadius: 7,
           background: 'transparent', border: `1px solid ${FARBE.rand}`,
           color: FARBE.text, fontSize: 15,
         }}>✕</button>

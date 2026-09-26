@@ -49,6 +49,20 @@
   "quelle": "Medieval Weapons Pack („Sword“, „Axe“, OBJ), gedreht, skaliert und im Griff zentriert mit tools/waffenbau.py"
  },
  {
+  "datei": "held/m-waldlaeufer.glb, held/m-bauer.glb, held/w-waldlaeufer.glb, held/w-bauer.glb",
+  "rolle": "Hauptfigur-Gestalten (D175)",
+  "autor": "Quaternius",
+  "lizenz": "CC0",
+  "quelle": "Universal Base Characters (Standard: Kopf/Augen/Brauen der Superhero-Körper, Frisuren „Rigged to Head Bone\") + Modular Character Outfits – Fantasy (Standard: Ranger, Peasant), zusammengesetzt mit tools/heldbau.py, gepackt mit tools/heldpack.ts"
+ },
+ {
+  "datei": "held/held-clips.glb",
+  "rolle": "Clips der Hauptfigur (D175, nur Knochen)",
+  "autor": "Quaternius",
+  "lizenz": "CC0",
+  "quelle": "Universal Animation Library 2 (Schwertkombos, Block, Rückstoss, Taumeln) und die Clips der alten Wanderin (Quaternius-Rig, eigene Waffenclips), übertragen mit tools/heldbau.py"
+ },
+ {
   "datei": "grathorn.glb",
   "rolle": "Grathorn",
   "autor": "Quaternius",

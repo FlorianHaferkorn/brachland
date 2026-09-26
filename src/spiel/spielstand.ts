@@ -12,6 +12,8 @@
  */
 import { openDB, type IDBPDatabase } from 'idb';
 
+import type { HeldWahl } from '../spieler/held.js';
+
 export const SPIELSTAND_VERSION = 1;
 
 export interface TeamEintrag {
@@ -68,10 +70,16 @@ export interface Spielstand {
    * nicht ableitbar ist — sonst gäbe es zwei Wahrheiten über dieselbe Sache.
    */
   auftraege: Record<string, 'angenommen' | 'abgeholt'>;
+  /**
+   * Die Hauptfigur aus dem Charakter-Editor (D175). `null` heisst: noch nicht gewählt — dann zeigt
+   * das Spiel den Editor vor dem ersten Schritt. Ohne Versionssprung (siehe `orte`).
+   */
+  held: HeldWahl | null;
 }
 
 export const LEERER_STAND: Spielstand = {
   version: SPIELSTAND_VERSION,
+  held: null,
   team: [],
   gefangen: [],
   besiegt: [],

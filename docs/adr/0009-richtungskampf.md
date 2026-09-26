@@ -4,7 +4,7 @@ shelf-life-days: 180
 ---
 # ADR-0009 — Richtungskampf: vier Linien, Block und Parade
 
-**Status:** Proposed · 2026-09-26 · Stufe 1 (Block/Parade) D173, Stufe 2 (Linien gegen Menschen) D174, Stufe 3 offen · baut auf ADR-0007 (Echtzeitkampf) und ADR-0008 (Waffenwerk) auf · ADR-0004 gilt: Regeln werden übernommen, Figuren, Namen und Oberfläche nicht
+**Status:** Proposed · 2026-09-26 · Stufe 1 (Block/Parade) D173, Stufe 2 (Linien gegen Menschen) D174, Stufe 3 (Linien der Tiere) D175 · baut auf ADR-0007 (Echtzeitkampf) und ADR-0008 (Waffenwerk) auf · ADR-0004 gilt: Regeln werden übernommen, Figuren, Namen und Oberfläche nicht
 
 ## Kontext
 
@@ -115,3 +115,10 @@ als Überlagerung des vorhandenen `Attack`-Clips.
 - **Wegelagerer** (`WEGELAGERER`, `?kampf=wegelagerer`): Figur `wanderer` mit den Klingenclips der Wanderin und dem Schwert aus dem Pack; Hieb + Nachhieb aus wechselnden Linien (`linienFolge`), deckt eine Linie (Schlag hinein: kein Schaden, Angreifer zahlt Schaden × 0,5 Ausdauer), wechselt die Deckung nach eigenem Angriff und nach jedem Treffer, deckt nach dreimal derselben Linie genau diese.
 - **Anzeige:** Linienraute unter den Zielbalken — grau gedeckt, rot die kommende Linie (gelb im Paradefenster), weisser Rand die eigene.
 - **Kampfbot:** Wegelagerer einzeln aufmerksam 100 %, müde 65 %, parierend 98 %; mit Wolf aufmerksam 100 %, müde 42 %. Erster Wurf (Nachhieb-Erholung 0,8 s, 110 Leben) war mit der Axt 0 % — Erholung 1,1 s und 95 Leben geben das Fenster.
+
+## Nachtrag D175 — Stufe 3 und Maus
+
+- **Maus:** Mit aufgeschaltetem Ziel wählt ein Mauszug von 40 px die Linie (stärkere Achse). Pfeiltasten bleiben.
+- **Tiere** (`KampfWerte.linien`, reihum nach Schwung): Keiler und Fuchs unten, Grathorn und Gams oben, Wolf links/rechts (der Nachbiss kommt von der anderen Seite). Block in der falschen Linie: halber Schaden, wie gegen Menschen. Die Linienraute zeigt jetzt auch Tiere.
+- **Undurchdringlich** hat ein Zeichen: Bogen und Aufglühen tiefrot und blinkend statt orange (Keiler-Rammstoss).
+- Kampfbot unverändert im Band (122/122) — er liest die Linie wie bei Menschen.
