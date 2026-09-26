@@ -28,6 +28,7 @@ owns: *.json
 | `steinbruch-wart.json` | bewohner | Wart eines stillgelegten Bruchs. Gibt `was-am-stollen-steht` |
 | `werk-schichtbuch.json` | bewohner | Frau am Tor des Industriegeländes. Gibt `die-runde` — der einzige Hinweis im Spiel, dass es die K7 gibt und wo sie steht |
 | `dorf-wirt.json` · `dorf-alte.json` · `dorf-foerster.json` · `dorf-bursche.json` · `dorf-magd.json` | bewohner | Fünf Bewohner im dichtesten Dorf der Region (D145, um 1350/450), je vor einem Haus an der Strasse, je ein Auftrag (`was-der-tresen-weiss`, `die-zahl-am-morgen`, `bis-zur-kante`, `schritte-auf-der-strasse`, `nach-vorher-schmecken`). Bewusst **nicht** freistehend: Ein Dorf mit Menschen ist der Grund für die Figuren; die Marke findet man an der Figur, nicht am Haus |
+| `dorf-schmied.json` | bewohner | Die Schmiedin (D177): `schmied: true` — ihr Fenster tauscht Beute gegen Waffenstufen (`src/spiel/schmiede.ts`). Kein Auftrag; Figur `werkfrau` (neue Gestalt), Platz mit `.cache/bewohnerplatz.ts` |
 
 ## Warum die Positionen stimmen
 

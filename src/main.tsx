@@ -31,6 +31,7 @@ import { Kampfbildschirm, type KampfEnde } from './ui/BattleScreen.js';
 import type { KaempferBild } from './ui/Kampfbuehne.js';
 import type { Kaempfer, Team } from './engine/battle.js';
 import { HeldEditor } from './ui/HeldEditor.js';
+import { angebot, bezahlbar, bezahle, KEINE_STUFEN } from './spiel/schmiede.js';
 import type { GegnerArt } from './kampf/Kampfplatz.js';
 import { setzeHeldWahl, STANDARD_HELD } from './spieler/held.js';
 import { ladeStand, speichereStand, LEERER_STAND,
@@ -109,13 +110,15 @@ const WEGELAGER: {
   id: string; bei: string; versatz: [number, number]; aufstellung: readonly GegnerArt[]; meldung: string;
   /** Beute beim Sieg (D176): Gegenstand → Anzahl, landet im Beutel. */
   beute: Record<string, number>;
+  /** Stärke des Lagers für die Erfahrung (D177), wie die Stufe eines Wildvorkommens. */
+  stufe: number;
 }[] = [
   { id: 'lager-bruchweg', bei: 'steinbruch-wart', versatz: [55, 40], aufstellung: ['wegelagerer', 'wolf'],
-    meldung: 'Ein Mann mit Klinge tritt auf den Weg. Sein Hund knurrt.', beute: { kraeutersud: 1, harzverband: 1 } },
+    meldung: 'Ein Mann mit Klinge tritt auf den Weg. Sein Hund knurrt.', beute: { kraeutersud: 1, harzverband: 1 }, stufe: 8 },
   { id: 'lager-hofgraben', bei: 'hof-tremmel', versatz: [-60, 35], aufstellung: ['wegelagerer', 'fuchs'],
-    meldung: 'Hinter der Hecke steht einer, der auf jemanden wie dich gewartet hat.', beute: { koeder: 2, netzschlinge: 1 } },
+    meldung: 'Hinter der Hecke steht einer, der auf jemanden wie dich gewartet hat.', beute: { koeder: 2, netzschlinge: 1 }, stufe: 10 },
   { id: 'lager-almsteig', bei: 'almhuette', versatz: [45, -50], aufstellung: ['wegelagerer', 'wegelagerer', 'wolf'],
-    meldung: 'Zwei Klingen am Steig, und ein Wolf dazwischen. Das ist kein Zufall.', beute: { kraeutersud: 2, herzfunke: 1 } },
+    meldung: 'Zwei Klingen am Steig, und ein Wolf dazwischen. Das ist kein Zufall.', beute: { kraeutersud: 2, herzfunke: 1 }, stufe: 16 },
 ];
 
 function App() {
@@ -332,7 +335,7 @@ function App() {
     const [x, z] = nachMetern(o.ort, welt.bbox);
     return [{ ...l, x: x + l.versatz[0], z: z + l.versatz[1] }];
   }) : []), [welt]);
-  const [weltKampf, setWeltKampf] = useState<{ id: string; aufstellung: readonly GegnerArt[]; beute: Record<string, number> } | null>(null);
+  const [weltKampf, setWeltKampf] = useState<{ id: string; aufstellung: readonly GegnerArt[]; beute: Record<string, number>; stufe: number } | null>(null);
   useEffect(() => {
     if (KAMPFPLATZ || (MESSADRESSE && !LAGER_PROBE) || !stand) return;
     const id = setInterval(() => {
@@ -343,7 +346,7 @@ function App() {
         // Nach einer Niederlage erst wieder, wenn man weg war (40 m) — sonst ginge es endlos weiter.
         if (lagerRuhe.current.has(l.id)) { if (d > 40) lagerRuhe.current.delete(l.id); continue; }
         if (stand.besiegt.includes(l.id) || d > 22) continue;
-        setWeltKampf({ id: l.id, aufstellung: l.aufstellung, beute: l.beute });
+        setWeltKampf({ id: l.id, aufstellung: l.aufstellung, beute: l.beute, stufe: l.stufe });
         setHinweis(l.meldung);
         break;
       }
@@ -351,6 +354,9 @@ function App() {
     return () => clearInterval(id);
   }, [lager, stand, weltKampf]);
   const lagerRuhe = useRef(new Set<string>());
+  const standRef = useRef(stand); standRef.current = stand;
+  const teamRef = useRef(team); teamRef.current = team;
+  const sichereRef = useRef<((a: Partial<Spielstand>, t: Kaempfer[]) => void) | null>(null);
   const weltKampfRef = useRef(weltKampf);
   weltKampfRef.current = weltKampf;
   const kampfVorbei = useCallback((sieg: boolean) => {
@@ -360,16 +366,32 @@ function App() {
     setWeltKampf(null);
     if (!alt) return;
     if (!sieg) { lagerRuhe.current.add(alt.id); setHinweis('Zurückgeschlagen — sie warten noch.'); return; }
-    setStand(st => {
-      if (!st || st.besiegt.includes(alt.id)) return st;
-      const beutel = { ...st.beutel };
-      for (const [g, n] of Object.entries(alt.beute)) beutel[g] = (beutel[g] ?? 0) + n;
-      const neu = { ...st, besiegt: [...st.besiegt, alt.id], beutel };
-      void speichereStand(neu);
-      return neu;
-    });
+    const st = standRef.current;
+    if (!st || st.besiegt.includes(alt.id)) return;
+    const beutel = { ...st.beutel };
+    for (const [g, n] of Object.entries(alt.beute)) beutel[g] = (beutel[g] ?? 0) + n;
+    // D177: Erfahrung wie nach einem Kampf in der Welt — für den ersten stehenden Kämpfer im Team
+    // (dieselbe Regel wie `belohne`: Wechseln hat seinen Preis). Wer mitgekommen ist, lernt zuzusehen.
+    const tm = teamRef.current;
+    const i = Math.max(0, tm.findIndex(k => k.kp > 0));
+    const k = tm[i];
+    let stufenText = '';
+    let teamNeu = tm;
+    if (k) {
+      const a = ausKaempferId(k.id);
+      const kr = KREATUREN.get(a.kreatur);
+      const auf = gutschrift(a.stufe, erfahrungRef.current[i] ?? 0, erfahrungAusSieg(alt.stufe, 0), kr?.stufen.length ?? 1);
+      erfahrungRef.current[i] = auf.erfahrung;
+      if (auf.gestiegen > 0) {
+        const neu = baueKaempfer(a.kreatur, auf.stufe);
+        neu.kp = Math.max(1, Math.round(neu.maxKp * (k.maxKp > 0 ? k.kp / k.maxKp : 1)));
+        teamNeu = [...tm]; teamNeu[i] = neu; setTeam(teamNeu);
+        stufenText = auf.mutiert ? ` ${k.name} wird zu ${neu.name}.` : ` ${neu.name} erreicht Stufe ${auf.stufe}.`;
+      }
+    }
+    sichereRef.current?.({ besiegt: [...st.besiegt, alt.id], beutel }, teamNeu);
     const liste = Object.entries(alt.beute).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n}`).join(', ');
-    setHinweis(`Das Lager ist still. Du nimmst: ${liste}.`);
+    setHinweis(`Das Lager ist still. Du nimmst: ${liste}.${stufenText}`);
   }, []);
 
   /**
@@ -455,6 +477,18 @@ function App() {
       return neu;
     });
   }, []);
+  sichereRef.current = sichere;
+
+  /** Schmiede (D177): Beute aus dem Beutel gegen die nächste Waffenstufe. */
+  const schmiede = useCallback((waffe: 'klinge' | 'axt') => {
+    const st = standRef.current;
+    if (!st) return;
+    const stufen = st.waffenStufen ?? KEINE_STUFEN;
+    const a = angebot(waffe, stufen[waffe]);
+    if (!a || !bezahlbar(a, st.beutel)) return;
+    sichere({ beutel: bezahle(a, st.beutel), waffenStufen: { ...stufen, [waffe]: a.stufe } }, teamRef.current);
+    setHinweis(`${a.name} — sie trifft jetzt härter.`);
+  }, [sichere]);
 
   /**
    * Ort aufmachen — und ihn dabei als besucht vermerken.
@@ -745,6 +779,7 @@ function App() {
         kampfAufstellung={weltKampf?.aufstellung ?? KAMPF_AUFSTELLUNG}
         kampfStand={kampfStand}
         kampfEnde={weltKampf ? kampfVorbei : undefined}
+        waffenStufen={stand?.waffenStufen}
       />
       {!imKampf && !menueOffen && <Stockanzeige stoecke={stoecke} />}
 
@@ -937,6 +972,9 @@ function App() {
               onRasten={raste}
               onAnnehmen={nimmAuftrag}
               onAbholen={holeAuftrag}
+              beutel={stand.beutel}
+              waffenStufen={stand.waffenStufen ?? KEINE_STUFEN}
+              onSchmiede={schmiede}
               onSchliessen={() => setOrtOffen(null)}
             />
           )}

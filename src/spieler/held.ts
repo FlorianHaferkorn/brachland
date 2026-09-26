@@ -29,6 +29,8 @@ export interface HeldWahl {
   haut: number;
   /** Haarfarbe als CSS-Farbe. */
   haarfarbe: string;
+  /** Tönung der Kleidung (D177, Bewohner aus `farben.oberteil`); ohne Angabe die Textur. */
+  kleidfarbe?: string;
 }
 
 export const HAARNAMEN: Record<Haar, string> = {
@@ -110,6 +112,7 @@ export function legeWahlAn(obj: THREE.Object3D, w: HeldWahl): void {
       const mn = mat.name;
       if (/Superhero|Regular/.test(mn)) hautShader(mat, haut);
       else if (/Hair/.test(mn)) mat.color.copy(haar);
+      else if (/Peasant|Ranger/.test(mn)) mat.color.set(1, 1, 1).lerp(new THREE.Color(w.kleidfarbe ?? '#ffffff'), w.kleidfarbe ? 0.45 : 0).multiplyScalar(w.kleidfarbe ? 1.25 : 1);
     }
   });
 }

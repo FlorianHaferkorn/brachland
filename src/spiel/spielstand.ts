@@ -13,6 +13,7 @@
 import { openDB, type IDBPDatabase } from 'idb';
 
 import type { HeldWahl } from '../spieler/held.js';
+import type { WaffenStufen } from './schmiede.js';
 
 export const SPIELSTAND_VERSION = 1;
 
@@ -75,11 +76,14 @@ export interface Spielstand {
    * das Spiel den Editor vor dem ersten Schritt. Ohne Versionssprung (siehe `orte`).
    */
   held: HeldWahl | null;
+  /** Stufen aus der Schmiede (D177), je Waffe 0…3. Ohne Versionssprung. */
+  waffenStufen: WaffenStufen;
 }
 
 export const LEERER_STAND: Spielstand = {
   version: SPIELSTAND_VERSION,
   held: null,
+  waffenStufen: { klinge: 0, axt: 0 },
   team: [],
   gefangen: [],
   besiegt: [],

@@ -1,0 +1,14 @@
+{
+  "id": "dorf-schmied",
+  "region": "oental",
+  "art": "bewohner",
+  "name": "Die Schmiedin",
+  "ort": [
+    47.7285,
+    12.09892
+  ],
+  "text": "Die Esse ist kalt, der Amboss nicht. Wer Harz und Funken bringt, bekommt eine Schneide, die hält.",
+  "figur": "werkfrau",
+  "blick": -33,
+  "schmied": true
+}

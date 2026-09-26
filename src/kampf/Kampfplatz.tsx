@@ -45,6 +45,7 @@ import { kreaturGeometrie, baueAnbau, saatAusId } from '../world/kreaturgestalt.
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
 import { haengeAnHand } from './waffenhand.js';
+import { schadenFaktor } from '../spiel/schmiede.js';
 import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
 /** Aussehen des Wegelagerers (D175). */
 const WEGELAGERER_WAHL: HeldWahl = {
@@ -233,6 +234,8 @@ type PlatzProps = {
    * einmal. Statt neu aufzustellen, meldet der Platz den Ausgang.
    */
   onEnde?: (sieg: boolean) => void;
+  /** Stufen aus der Schmiede (D177). */
+  waffenStufen?: { klinge: number; axt: number };
 };
 
 const VORGABE: readonly GegnerArt[] = ['keiler', 'grathorn'];
@@ -362,7 +365,7 @@ function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeome
   return { obj, koerper: koerper as THREE.SkinnedMesh | null, material, rig, setzeZeit: w.setzeZeit };
 }
 
-function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber, rigs, onEnde }:
+function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber, rigs, onEnde, waffenStufen }:
   PlatzProps & { leiber: Partial<Record<GegnerArt, Leib | null>>; rigs: Partial<Record<GegnerArt, RigVorlage>> }) {
   const aufKey = aufstellung.join(',');
   const welt = useRef<Kampfwelt | null>(null);
@@ -579,6 +582,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     s.rennt = (t.has('ShiftLeft') || t.has('ShiftRight')) && (vor !== 0 || seit !== 0);
     // Gepuffert (D171): ausgeführt im nächsten Teilschritt, in dem es geht — auch aus der Erholung.
     if (a.linie) { s.linie = a.linie; a.linie = null; }
+    s.schadenFaktor = schadenFaktor(waffenStufen?.[s.waffe ?? 'klinge'] ?? 0);
     if (a.schlag) { puffere(s, a.schlag); a.schlag = null; }
     // Block (ADR-0009 Stufe 1, D173): U halten. Heben im ersten Moment vor dem Treffer pariert.
     if (t.has('KeyU') || t.has('Maus2')) { if (s.phase !== 'block') setzeBlockAn(s); } else loeseBlock(s);

@@ -276,6 +276,11 @@ export const Ort = z.object({
     z.enum(['haut', 'haar', 'oberteil', 'hose', 'stiefel', 'kopf', 'riemen', 'hemd']),
     z.string().regex(/^#[0-9a-fA-F]{6}$/),
   ).optional(),
+  /**
+   * Schmiede (D177): Das Fenster zeigt die Angebote aus `spiel/schmiede.ts` — Beute gegen eine
+   * schärfere Waffe. Kein Handelssystem mit Preisen, eine Werkbank.
+   */
+  schmied: z.boolean().optional(),
 });
 export type Ort = z.infer<typeof Ort>;
 

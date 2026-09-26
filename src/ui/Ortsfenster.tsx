@@ -13,6 +13,8 @@
  * Mitte, neu unten. Wer vor jemandem steht, will zuerst wissen, was fertig ist.
  */
 import type { Ort, Auftrag } from '../data/schema.js';
+import { angebot, bezahlbar, type WaffenStufen } from '../spiel/schmiede.js';
+import { GEGENSTAENDE } from '../data/inhalte.js';
 import { zielText, type Fortschritt, type Lage } from '../spiel/auftraege.js';
 
 export interface Auftragszeile {
@@ -24,8 +26,12 @@ export interface Auftragszeile {
 const RAHMEN = '#2a3632';
 const GRUEN = '#3fd9a0';
 
-export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, onSchliessen }: {
+export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, onSchliessen, beutel, waffenStufen, onSchmiede }: {
   ort: Ort;
+  /** Schmiede (D177). */
+  beutel?: Record<string, number>;
+  waffenStufen?: WaffenStufen;
+  onSchmiede?: (waffe: 'klinge' | 'axt') => void;
   auftraege: Auftragszeile[];
   onRasten: () => void;
   onAnnehmen: (id: string) => void;
@@ -47,6 +53,26 @@ export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, o
         <div style={{ color: '#8b9a93', fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>
           {ort.text}
         </div>
+
+        {ort.schmied && beutel && waffenStufen && onSchmiede && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+            {(['klinge', 'axt'] as const).map(w => {
+              const a = angebot(w, waffenStufen[w]);
+              const kann = !!a && bezahlbar(a, beutel);
+              const preis = a ? Object.entries(a.preis).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n} (${beutel[g] ?? 0})`).join(', ') : '';
+              return (
+                <button key={w} disabled={!kann} onClick={() => onSchmiede(w)} style={{
+                  textAlign: 'left', minHeight: 44, borderRadius: 9, padding: '8px 12px', fontSize: 13,
+                  background: 'transparent', border: `1px solid ${kann ? GRUEN : RAHMEN}`,
+                  color: kann ? GRUEN : '#5c6b64', cursor: kann ? 'pointer' : 'default',
+                }}>
+                  {a ? <>{a.name}<div style={{ fontSize: 11, opacity: 0.8 }}>{preis}</div></>
+                     : `${w === 'klinge' ? 'Klinge' : 'Axt'}: meisterlich — mehr geht nicht`}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {ort.art === 'zuflucht' && (
           <button onClick={onRasten} style={{

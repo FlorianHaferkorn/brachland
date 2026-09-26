@@ -51,6 +51,8 @@ import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, HAARFAR
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 /** `?figur=alt`: die alte Wanderin statt der Figur aus dem Editor (Vergleich, D175). */
 const ALTE_FIGUR = new URLSearchParams(location.search).get('figur') === 'alt';
+/** `?eile=20`: Tagesroutine im Zeitraffer (Messlauf, D177). */
+const EILE = Number(new URLSearchParams(location.search).get('eile') ?? 1) || 1;
 /** `?bewohner=alt`: die Bewohner wie bis D175 (D176). */
 const BEWOHNER_ALT = new URLSearchParams(location.search).get('bewohner') === 'alt';
 /**
@@ -74,6 +76,8 @@ function bewohnerWahl(figur: string, blick: number, farben?: Partial<Record<Roll
     name: figur, geschlecht: g.koerper, koerper: g.koerper, kleid: g.kleid,
     haar: haare[saat % haare.length], bart: g.koerper === 'm' && saat % 3 === 0,
     haut: ((saat >> 3) % 10) / 12, haarfarbe: g.alt ? '#8a8580' : farben?.haar ?? HAARFARBEN[(saat >> 5) % 5],
+    // D177: die Jackenfarbe aus dem Inhalt tönt die Kleidung — jeder Bewohner bleibt erkennbar.
+    kleidfarbe: farben?.oberteil,
   };
 }
 const KEINE_CLIPS: THREE.AnimationClip[] = [];
@@ -1597,8 +1601,11 @@ const MENSCH_PAUSE: [number, number] = [6, 14];
  * Dasselbe Wind-/Randmaterial wie Kreaturen und Spielerin, ein Material je
  * Figur (eigene Uniforms), ein Draw Call.
  */
-function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke }: {
+function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, ausflug, unterwegs = false }: {
   figur: string; blick: number;
+  /** Tagesroutine (D177): Weltpunkt, zu dem der Bewohner geht, solange `unterwegs`. */
+  ausflug?: [number, number];
+  unterwegs?: boolean;
   /** Der Signalpunkt — wandert mit der Figur, nicht mit dem Ort. */
   marke: { geometry: THREE.BufferGeometry; material: THREE.Material };
   /** Länge des Wegstücks entlang `blick` in Metern; 0 = steht. */
@@ -1656,6 +1663,7 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke }: 
    */
   const weg = useRef({ t: 0, richtung: 1, pause: 4 + ((blick * 7919) % 100) / 100 * 8, winkt: false, ruhig: false });
   const wurzelY = useRef<number | null>(null);
+  const ausflugRef = useRef({ t: 0 });
   useFrame((_, dt) => {
     const g = gruppe.current, p = ziel.current?.position;
     const w = weg.current;
@@ -1677,8 +1685,31 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke }: 
       }
       if (d > WINK_AB * 2) gewinkt.current = false;
 
+      // Tagesroutine (D177): Anteil des Weges zum Ausflugsziel, 0 = zu Hause, 1 = dort.
+      const aus = ausflugRef.current;
+      if (ausflug && g.parent) {
+        const heim = g.parent.getWorldPosition(new THREE.Vector3());
+        const dx = ausflug[0] - heim.x, dz = ausflug[1] - heim.z, weite = Math.hypot(dx, dz) || 1;
+        const soll = unterwegs ? 1 : 0;
+        if (aus.t !== soll) {
+          const alt = aus.t;
+          aus.t += Math.sign(soll - aus.t) * Math.min(Math.abs(soll - aus.t), MENSCH_TEMPO * EILE * dt / weite);
+          if (!w.winkt && clips.aktiv !== clips.walk) wechsle(clips.walk, 0.3);
+          if (wurzelY.current === null) wurzelY.current = heim.y;
+          const x = dx * aus.t, z = dz * aus.t;
+          g.position.set(x, hoeheAn(heim.x + x, heim.z + z) - wurzelY.current, z);
+          g.rotation.y = Math.atan2(-(dx * Math.sign(aus.t - alt)), -(dz * Math.sign(aus.t - alt)));
+          if (aus.t === soll && !w.winkt) {
+            wechsle(clips.idle, 0.4);
+            if (soll === 0) g.rotation.y = THREE.MathUtils.degToRad(blick);
+          }
+        } else if (aus.t === 1 && !w.winkt) {
+          // Dort angekommen: zum Wirt gedreht, ruhig stehen.
+          if (clips.aktiv === clips.walk) wechsle(clips.ruhig, 0.4);
+        }
+      }
       // Wegstück: stehen (Pause) → gehen → stehen, das Winken hält an.
-      if (!w.winkt) {
+      if (!w.winkt && aus.t === 0) {
         if (w.pause > 0) {
           w.pause -= dt;
           if (w.pause <= 0 && gang > 0) wechsle(clips.walk, 0.3);
@@ -1695,7 +1726,7 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke }: 
           }
         }
       }
-      if (gang > 0) {
+      if (gang > 0 && aus.t === 0) {
         // Lage entlang `blick` (0° = Nord = −Z, positiv nach links), Bodenhöhe aus dem Gelände.
         const b = THREE.MathUtils.degToRad(blick);
         const dx = -Math.sin(b) * w.t, dz = -Math.cos(b) * w.t;
@@ -1856,8 +1887,10 @@ function BauwerkWasser({ bauwerk }: { bauwerk: Bauwerk }) {
   return <primitive object={objekt} />;
 }
 
-function Orte({ orte, ziel, onNah, rand, hoeheAn }: {
+function Orte({ orte, ziel, onNah, rand, hoeheAn, tageszeit = 0.39 }: {
   orte: Ortsmarke[];
+  /** Für die Tagesroutine der Dorfbewohner (D177). */
+  tageszeit?: number;
   ziel: React.RefObject<THREE.Object3D | null>;
   /** Der nächste Ort in Reichweite, oder null. Wird nur bei Wechsel gerufen. */
   onNah?: (id: string | null) => void;
@@ -1889,6 +1922,20 @@ function Orte({ orte, ziel, onNah, rand, hoeheAn }: {
   const punktMat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#cfe9f2' }), []);
 
   const gemeldet = useRef<string | null>(null);
+  // D177, Tagesroutine: Abends (Abendrot bis vor der Dämmerung) gehen die Dorfbewohner ins Wirtshaus
+  // und stehen im Halbkreis vor dem Tresen; morgens gehen sie zurück. Der Wirt und die Schmiedin
+  // bleiben, wo sie arbeiten.
+  const abends = tageszeit >= 0.74 || tageszeit < 0.2;
+  const wirt = orte.find(o => o.id === 'dorf-wirt');
+  const gaeste = orte.filter(o => o.id.startsWith('dorf-') && o.id !== 'dorf-wirt' && o.id !== 'dorf-schmied' && o.figur);
+  const abendZiel = (o: Ortsmarke): [number, number] | undefined => {
+    if (!wirt) return undefined;
+    const i = gaeste.indexOf(o);
+    if (i < 0) return undefined;
+    const w = THREE.MathUtils.degToRad(wirt.blick ?? 0) + (i - (gaeste.length - 1) / 2) * 0.55;
+    // Vor dem Wirt, 3 m in seiner Blickrichtung, im Bogen verteilt.
+    return [wirt.position[0] - Math.sin(w) * 3.2, wirt.position[2] - Math.cos(w) * 3.2];
+  };
 
   useFrame(() => {
     const p = ziel.current?.position;
@@ -1914,7 +1961,8 @@ function Orte({ orte, ziel, onNah, rand, hoeheAn }: {
           ) : o.figur && !istAus('menschen') ? (
             <Suspense fallback={null}>
               <Mensch figur={o.figur} blick={o.blick ?? 0} gang={o.gang} farben={o.farben}
-                      ziel={ziel} rand={rand} hoeheAn={hoeheAn} marke={{ geometry: punkt, material: punktMat }} />
+                      ziel={ziel} rand={rand} hoeheAn={hoeheAn} marke={{ geometry: punkt, material: punktMat }}
+                      ausflug={abendZiel(o)} unterwegs={abends} />
             </Suspense>
           ) : (
             <mesh geometry={figur} material={tuch} castShadow receiveShadow />
@@ -3471,6 +3519,8 @@ export interface RegionsSzeneProps {
   kampfAufstellung?: readonly GegnerArt[];
   /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen. */
   kampfEnde?: (sieg: boolean) => void;
+  /** Schmiedestufen der Waffen (D177). */
+  waffenStufen?: { klinge: number; axt: number };
   /** Stand für die Kampfanzeige im DOM, wie `ausdauer` als Ref. */
   kampfStand?: React.RefObject<KampfStand | null>;
 }
@@ -3480,7 +3530,7 @@ export function RegionsSzene({
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, kampfStand,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfStand,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -3635,7 +3685,7 @@ export function RegionsSzene({
         <Suspense fallback={null}>
           <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
                       ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde}
+                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} waffenStufen={waffenStufen}
                       key={kampfEnde ? `welt-${kampfAufstellung?.join(',')}` : 'platz'} />
         </Suspense>
       )}
@@ -3644,6 +3694,7 @@ export function RegionsSzene({
       )}
       {ortsmarken.length > 0 && (
         <Orte orte={ortsmarken} ziel={ref} onNah={onOrtNah} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
+              tageszeit={tageszeit}
               hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} />
       )}
       {regent && regentOrt && (

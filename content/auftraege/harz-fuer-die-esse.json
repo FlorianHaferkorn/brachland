@@ -1,0 +1,15 @@
+{
+  "id": "harz-fuer-die-esse",
+  "region": "oental",
+  "geber": "dorf-schmied",
+  "titel": "Harz für die Esse",
+  "text": "Die Esse will Harz, und das Harz sitzt an den Kiefern, die die Trafomarder bewachen. Zwei weniger, und ich komme ran. Dann schärfe ich Ihnen die erste Stufe umsonst an — fast.",
+  "ziel": {
+    "art": "besiege",
+    "kreatur": "trafomarder",
+    "anzahl": 2
+  },
+  "belohnung": {
+    "harzverband": 2
+  }
+}

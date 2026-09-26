@@ -488,6 +488,8 @@ export interface Kaempfer {
   deckung?: Linie;
   /** Die letzten Linien, in die er getroffen wurde — fürs Lesen. */
   gelesen?: Linie[];
+  /** Schadensfaktor der geschmiedeten Waffe (D177, `spiel/schmiede.ts`); ohne Angabe 1. */
+  schadenFaktor?: number;
   /** Dauer der laufenden Betäubung, wenn sie nicht `werte.betaeubt` ist (Parade, D173). */
   betaeubtFuer?: number;
 }
@@ -756,7 +758,7 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: !haelt, toedlich: false, ausgewichen: false, geblockt: true, linie });
       continue;
     }
-    const f = linieFalsch && blocktFrontal(z, a) && !s.durch ? 0.5 : 1;
+    const f = (linieFalsch && blocktFrontal(z, a) && !s.durch ? 0.5 : 1) * (a.schadenFaktor ?? 1);
     const schaden = s.schaden * f;
     z.leben = Math.max(0, z.leben - schaden);
     z.haltung -= s.haltungsschaden * f;
