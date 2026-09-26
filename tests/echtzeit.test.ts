@@ -16,7 +16,7 @@ import {
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, kannSchlagen, kannRollen,
   imBogen, loeseTreffer, schrittKaempfer, simuliere, waehleZiel, blickAuf, vorwaerts,
   WAFFEN, ruesteAus, wechsleZiel, KEILER, GRATHORN, WOLF,
-  puffere, naechsterSchlag, setzeBlockAn, loeseBlock, kannBlocken, PARADE, PARADE_BETAEUBT, BLOCK, PUFFER, KOMBO_AB, KOMBO_FENSTER, TREFFERSTOPP, STOSS_DAUER, type Schlag,
+  puffere, naechsterSchlag, setzeBlockAn, loeseBlock, kannBlocken, WEGELAGERER, DECKUNG_KOSTEN, type Linie, PARADE, PARADE_BETAEUBT, BLOCK, PUFFER, KOMBO_AB, KOMBO_FENSTER, TREFFERSTOPP, STOSS_DAUER, type Schlag,
   type Kaempfer, type Kampfwelt, type Treffer,
 } from '../src/kampf/echtzeit.js';
 
@@ -793,6 +793,66 @@ console.log(`  Leichte Kette (mit Abbruch)          ${kettenWerte}`);
   pruefe('Block loslassen: bereit', b.phase === 'bereit');
   pruefe('Gegner blocken nicht (Stufe 1)', !kannBlocken(neuerKaempfer('g', WOLF, 0, 0)));
   console.log(`  Parade: Fenster ${Math.round(PARADE * 1000)} ms, Angreifer ${PARADE_BETAEUBT} s betäubt · Block frontal ±${Math.round(BLOCK.halbwinkel / GRAD)}°`);
+}
+
+// ---------------------------------------------------- Linien gegen Menschen (ADR-0009 Stufe 2, D174)
+{
+  /** Wegelagerer schlägt; die Spielerin hält den Block in `linie` ab `vor` s vor dem Aktiven. */
+  function linienLauf(linie: Linie | undefined, vor = 0.4) {
+    const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+    s.linie = linie;
+    const g = neuerKaempfer('g', WEGELAGERER, 0, -1.6, blickAuf(0, -1.6, 0, 0));
+    setzeSchlagAn(g);
+    let t = 0, tr: Treffer[] = [];
+    while (t < 1.5 && !tr.length) {
+      if (s.phase === 'bereit' && t >= WEGELAGERER.schlag.vorlauf - vor) setzeBlockAn(s);
+      schrittKaempfer(s, SCHRITT); schrittKaempfer(g, SCHRITT);
+      tr = loeseTreffer(g, [s]); t += SCHRITT;
+    }
+    return { s, g, tr: tr[0] };
+  }
+  const erste = WEGELAGERER.mensch!.linienFolge[0];
+  const recht = linienLauf(erste);
+  pruefe('Linie: Block in derselben Linie hält', !!recht.tr?.geblockt && recht.tr.linie === erste && recht.s.leben === SPIELERIN.lebenMax,
+    JSON.stringify(recht.tr));
+  const falsch = linienLauf(erste === 'oben' ? 'unten' : 'oben');
+  pruefe('Linie: Block in der falschen Linie — halber Schaden', !!falsch.tr?.falscheLinie
+    && Math.abs(falsch.s.leben - (SPIELERIN.lebenMax - WEGELAGERER.schlag.schaden / 2)) < 1e-6, JSON.stringify(falsch.tr));
+  const par = linienLauf(erste, 0.1);
+  pruefe('Linie: Parade nur in der richtigen Linie', !!par.tr?.pariert && !linienLauf('unten', 0.1).tr?.pariert);
+  const tier = neuerKaempfer('w', WOLF, 0, 0);
+  setzeSchlagAn(tier);
+  pruefe('Tiere schlagen ohne Linie (Stufe 3 offen)', tier.schlagLinie === undefined);
+
+  // Deckung: die Spielerin schlägt in die gedeckte Linie
+  const g = neuerKaempfer('g', WEGELAGERER, 0, -1.6, blickAuf(0, -1.6, 0, 0));
+  function schlageIn(linie: Linie) {
+    const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+    s.linie = linie;
+    setzeSchlagAn(s);
+    let tr: Treffer[] = [];
+    for (let t = 0; t < 1 && !tr.length; t += SCHRITT) { schrittKaempfer(s, SCHRITT); tr = loeseTreffer(s, [g]); }
+    return { s, tr: tr[0] };
+  }
+  const gedeckt = g.deckung!;
+  const l0 = g.leben;
+  const d = schlageIn(gedeckt);
+  pruefe('Deckung: kein Schaden, Angreifer zahlt Ausdauer', !!d.tr?.gedeckt && g.leben === l0
+    && d.s.ausdauer.wert <= 100 - SPIELERIN.schlag.kosten - SPIELERIN.schlag.schaden * DECKUNG_KOSTEN + 1e-6, `${d.s.ausdauer.wert}`);
+  const frei: Linie = gedeckt === 'rechts' ? 'links' : 'rechts';
+  const h = schlageIn(frei);
+  pruefe('Freie Linie trifft', !h.tr?.gedeckt && g.leben < l0);
+  pruefe('Nach dem Treffer wechselt er die Deckung, nicht auf die getroffene Linie', g.deckung !== gedeckt || g.deckung !== frei);
+  schlageIn(frei === 'rechts' ? 'unten' : 'rechts');
+  g.gelesen = [];
+  for (let i = 0; i < 3; i++) { if (g.deckung === 'links') g.deckung = 'oben'; schlageIn('links'); }
+  pruefe('Lesen: dreimal dieselbe Linie — er deckt sie', g.deckung === 'links', String(g.deckung));
+  const w = neuerKaempfer('g', WEGELAGERER, 0, 0);
+  const vorher = w.deckung;
+  setzeSchlagAn(w);
+  for (let t = 0; t < 3 && w.phase !== 'bereit'; t += SCHRITT) schrittKaempfer(w, SCHRITT);
+  pruefe('Nach eigenem Angriff wechselt er die Deckung', w.deckung !== vorher, `${vorher} → ${w.deckung}`);
+  console.log(`  Wegelagerer: Linien ${WEGELAGERER.mensch!.linienFolge.join('/')} · Deckung kostet ${DECKUNG_KOSTEN} × Schaden an Ausdauer`);
 }
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);

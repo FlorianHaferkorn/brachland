@@ -32,6 +32,11 @@ export interface KampfStand {
   getroffen: number;
   /** Name des laufenden eigenen Schlags oder leer — für `tools/mess/kampf.mjs`. */
   schlag: string;
+  /**
+   * Linienraute (ADR-0009 Stufe 2, D174): eigene gewählte Linie, gedeckte Linie des Ziels, die
+   * kommende Linie seines Schlags und ob gerade das Paradefenster offen ist. `null` ohne Menschenziel.
+   */
+  linien?: { eigen?: string; deckung?: string; kommt?: string; parade: boolean } | null;
 }
 
 /** So lange glüht der rote Rand nach einem Treffer nach (D171). */
@@ -54,6 +59,7 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
   const zaehler = useRef<HTMLSpanElement>(null);
   const wurzel = useRef<HTMLDivElement>(null);
   const rand = useRef<HTMLDivElement>(null);
+  const raute = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let laeuft = true;
@@ -86,6 +92,16 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
         if (wurzel.current) {
           wurzel.current.dataset.ich = `${s.phase}${s.schlag ? `:${s.schlag}` : ''} ${Math.round(s.leben)}`;
           wurzel.current.dataset.gegner = s.protokoll;
+        }
+        if (raute.current) {
+          const l = s.linien;
+          raute.current.style.opacity = l ? '1' : '0';
+          for (const feld of Array.from(raute.current.children) as HTMLElement[]) {
+            const n = feld.dataset.linie;
+            feld.style.background = l && l.kommt === n ? (l.parade ? '#e0b050' : '#a0452f')
+              : l?.deckung === n ? '#5d6a66' : '#0d1210aa';
+            feld.style.borderColor = l?.eigen === n ? '#f3f0e6' : '#2a3632';
+          }
         }
         if (zaehler.current) zaehler.current.textContent = `${s.gegnerUebrig}/${s.gegnerGesamt} · ${s.waffe}`;
         // Meldungszeit kommt aus der Canvas-Uhr, die Anzeige hat ihre eigene —
@@ -123,6 +139,15 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
       }}>
         <div style={balken(220, 6)}><div ref={zielLeben} style={{ ...fuellung, background: '#a0654f' }} /></div>
         <div style={balken(220, 3)}><div ref={zielHaltung} style={{ ...fuellung, background: '#b89a5a' }} /></div>
+        {/* Linienraute (D174): grau gedeckt, rot kommt (gelb im Paradefenster), weisser Rand eigene Linie */}
+        <div ref={raute} style={{ position: 'relative', width: 46, height: 46, marginTop: 4, opacity: 0 }}>
+          {([['oben', 16, 0], ['rechts', 32, 16], ['unten', 16, 32], ['links', 0, 16]] as const).map(([n, x, y]) => (
+            <div key={n} data-linie={n} style={{
+              position: 'absolute', left: x, top: y, width: 12, height: 12, transform: 'rotate(45deg)',
+              border: '2px solid #2a3632', background: '#0d1210aa',
+            }} />
+          ))}
+        </div>
       </div>
       {/* Meldung */}
       <div ref={meldung} style={{
@@ -137,7 +162,7 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
       }}>
         <div style={balken(132, 5)}><div ref={eigen} style={{ ...fuellung, background: '#9c7d62' }} /></div>
         <div style={{ ...text, opacity: 0.7 }}>
-          J leicht · I schwer · Shift+J im Lauf · K Rolle · U Block · L Ziel · Q/E · 1/2 Waffe · <span ref={zaehler} />
+          J leicht · I schwer · Shift+J im Lauf · K Rolle · U/RMT Block · Pfeile Linie · L Ziel · Q/E · 1/2 Waffe · <span ref={zaehler} />
         </div>
       </div>
     </div>

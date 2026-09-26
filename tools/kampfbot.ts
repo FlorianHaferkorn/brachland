@@ -16,7 +16,7 @@
  *   npx tsx tools/kampfbot.ts [kämpfe=200]
  */
 import {
-  SPIELERIN, KEILER, GRATHORN, WOLF, FUCHS, GAMS, UEBUNGSGEGNER, SCHRITT, WAFFEN,
+  SPIELERIN, KEILER, GRATHORN, WOLF, FUCHS, GAMS, WEGELAGERER, andereLinie, UEBUNGSGEGNER, SCHRITT, WAFFEN,
   neuerKaempfer, blickAuf, puffere, setzeBlockAn, loeseBlock, ruesteAus, simuliere, frei, naechsterSchlag,
   type KampfWerte, type Kampfwelt, type WaffenArt,
 } from '../src/kampf/echtzeit.js';
@@ -26,12 +26,12 @@ export interface Profil { name: string; reaktion: number; streuung: number; patz
 export const PROFILE: Profil[] = [
   { name: 'aufmerksam', reaktion: 0.25, streuung: 0.05, patzer: 0.1 },
   { name: 'müde', reaktion: 0.4, streuung: 0.08, patzer: 0.25 },
-  { name: 'parierend', reaktion: 0.25, streuung: 0.05, patzer: 0.1, parade: true },
+  { name: 'parierend', reaktion: 0.25, streuung: 0.08, patzer: 0.1, parade: true },
 ];
 /** Aufstellungen: einzeln und zu zweit (wie `?kampf=1` bzw. `?kampf=wolf`). */
 export const GEGNER: Record<string, KampfWerte[]> = {
   kapsel: [UEBUNGSGEGNER], keiler: [KEILER], grathorn: [GRATHORN], wolf: [WOLF], fuchs: [FUCHS], gams: [GAMS],
-  'keiler+grathorn': [KEILER, GRATHORN], 'wolf+wolf': [WOLF, WOLF], 'wolf+fuchs': [WOLF, FUCHS], 'gams+gams': [GAMS, GAMS], 'wolf+wolf+wolf': [WOLF, WOLF, WOLF],
+  'keiler+grathorn': [KEILER, GRATHORN], 'wolf+wolf': [WOLF, WOLF], 'wolf+fuchs': [WOLF, FUCHS], 'gams+gams': [GAMS, GAMS], wegelagerer: [WEGELAGERER], 'wegelagerer+wolf': [WEGELAGERER, WOLF], 'wolf+wolf+wolf': [WOLF, WOLF, WOLF],
 };
 
 /** Kleiner deterministischer Zufall (mulberry32) — dieselbe Saat, dieselben Kämpfe. */
@@ -66,7 +66,8 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     // Wahrnehmen: ein neuer Angriff (erster Schlag, nicht die Kette) → Rolle nach der Reaktionszeit.
     alle.forEach((g, i) => {
       if (g.schwung === gesehen[i]) return;
-      if (g.phase === 'vorlauf' && g.schlag === g.werte.schlag) {
+      // D174: Gegen Menschen pariert der Bot auch den Nachhieb — er kommt aus einer anderen Linie.
+      if (g.phase === 'vorlauf' && (g.schlag === g.werte.schlag || (p.parade && g.werte.mensch))) {
         const patzt = z.r() < p.patzer;
         if (p.parade && !g.schlag.durch) {
           // Parieren heisst: das Ende des Vorlaufs treffen, nicht nur reagieren. Fehler ± Streuung.
@@ -93,6 +94,8 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     const a = alle.find(k => k.id === angreifer) ?? g;
     const ax = a.x - s.x, az = a.z - s.z, ad = Math.hypot(ax, az) || 1;
     if (t >= blockUm) {
+      // Linie lesen (D174): Der Bot deckt die Linie, aus der der Mensch kommt.
+      if (a.schlagLinie) s.linie = a.schlagLinie;
       if (s.phase !== 'block') setzeBlockAn(s);
       // Halten, bis der Schlag vorbei ist (oder pariert — dann steht der Angreifer betäubt).
       if (a.phase !== 'vorlauf' && a.phase !== 'aktiv') { loeseBlock(s); blockUm = Infinity; }
@@ -129,6 +132,8 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
       // (D172: die Klinge verlor zu zweit, weil der Bot ihre Kette bis zur Neige schlug).
       const reserve = s.ausdauer.wert - naechster.kosten >= s.werte.rolle.kosten;
       const reicht = reserve && rest > weg + naechster.vorlauf;
+      // D174: In die freie Linie schlagen; müde trifft öfter die gedeckte.
+      if (g.deckung) s.linie = z.r() < (p.name === 'müde' ? 0.3 : 0.05) ? g.deckung : andereLinie(g.deckung);
       if (offen && reicht && rand <= reich) puffere(s, art);
       else if (!frei(s)) { /* in der Erholung: nicht nachsetzen, sie läuft aus */ }
       // Nachsetzen, wenn er offen steht; sonst stehen und auf das Telegraf warten. (Zurückweichen

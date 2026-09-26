@@ -15,7 +15,7 @@
  *
  * ## Tasten
  *
- * U halten Block/Parade (D173) · J leicht (Kette je Waffe; im Lauf mit Shift der Laufangriff) · I schwer · K Rolle (Richtung aus
+ * U oder rechte Maustaste halten: Block/Parade (D173/D174) · J leicht (Kette je Waffe; im Lauf mit Shift der Laufangriff) · I schwer · K Rolle (Richtung aus
  * WASD, ohne Taste rückwärts) · L Ziel auf/ab. Alle drei werden **gepuffert** (D171): Wer im
  * Schwung schon den nächsten drückt, wird bedient, sobald es geht. Die Maus bleibt
  * beim Blick: Ziehen dreht die Kamera, und ein Klick, der vielleicht ein Ziehen werden sollte, darf
@@ -32,7 +32,7 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import {
-  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, FUCHS, GAMS, ZIELEN, vorwaerts, type KampfWerte, type Schlag,
+  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, FUCHS, GAMS, WEGELAGERER, PARADE, ZIELEN, vorwaerts, type Linie, type KampfWerte, type Schlag,
   neuerKaempfer, puffere, setzeBlockAn, loeseBlock, naechsterSchlag, simuliere, waehleZiel, drehe, blickAuf, frei,
   WAFFEN, ruesteAus, wechsleZiel, type WaffenArt,
   type Kampfwelt, type Kaempfer, type Treffer,
@@ -44,15 +44,16 @@ import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { kreaturGeometrie, baueAnbau, saatAusId } from '../world/kreaturgestalt.js';
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
+import { haengeAnHand } from './waffenhand.js';
 
 /**
  * Wer auf dem Platz steht (D169). `keiler` ist Stufe 2: der Wurzelkeiler aus der Welt, mit
  * seinem Modell und dem Gang aus dem Shader (D138); `kapsel` der Platzhalter aus Stufe 1,
  * bleibt als Vergleich (`?kampf=kapsel`).
  */
-export type GegnerArt = 'keiler' | 'grathorn' | 'wolf' | 'fuchs' | 'gams' | 'kapsel';
-export const GEGNER_ARTEN: readonly GegnerArt[] = ['keiler', 'grathorn', 'wolf', 'fuchs', 'gams', 'kapsel'];
-const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, wolf: WOLF, fuchs: FUCHS, gams: GAMS, kapsel: UEBUNGSGEGNER };
+export type GegnerArt = 'keiler' | 'grathorn' | 'wolf' | 'fuchs' | 'gams' | 'wegelagerer' | 'kapsel';
+export const GEGNER_ARTEN: readonly GegnerArt[] = ['keiler', 'grathorn', 'wolf', 'fuchs', 'gams', 'wegelagerer', 'kapsel'];
+const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, wolf: WOLF, fuchs: FUCHS, gams: GAMS, wegelagerer: WEGELAGERER, kapsel: UEBUNGSGEGNER };
 /** Modell je Art (D170). Die Kapsel hat keins. */
 const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', grathorn: 'grathorn', wolf: 'k7-wolf', fuchs: 'spuerfuchs', gams: 'nebelgams' };
 
@@ -62,14 +63,30 @@ const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', gra
  * gemessen am Weg des Kopfknochens (`.cache/tierclip.py`): Der Wolf holt bis Bild 6 aus und ist bei
  * Bild 10 vorn, der Hirsch senkt den Kopf ab Bild 2 und stösst bis Bild 6.
  */
-const RIG: Partial<Record<GegnerArt, { datei: string; angriff: string; scheitel: number; durchzug: number }>> = {
+interface RigCfg {
+  datei: string; angriff: string; scheitel: number; durchzug: number;
+  /** Mensch (D174): Clip je Linie, Scheitel/Durchzug in Clipsekunden, wie bei der Spielerin. */
+  linien?: Record<Linie, { clip: string; scheitel: number; durchzug: number }>;
+}
+const RIG: Partial<Record<GegnerArt, RigCfg>> = {
+  // D174: der Wegelagerer — Figur `wanderer`, die Klingenclips der Wanderin (gleiches Rig).
+  wegelagerer: { datei: 'wanderer', angriff: 'Klinge_U_A', scheitel: 6 / 24, durchzug: 9 / 24, linien: {
+    rechts: { clip: 'Klinge_U_A', scheitel: 6 / 24, durchzug: 9 / 24 },
+    links: { clip: 'Klinge_U_B', scheitel: 6 / 24, durchzug: 9 / 24 },
+    oben: { clip: 'Klinge_U_C', scheitel: 14 / 24, durchzug: 18 / 24 },
+    unten: { clip: 'Klinge_Stich', scheitel: 9 / 24, durchzug: 13 / 24 },
+  } },
   wolf: { datei: 'k7-wolf', angriff: 'Attack', scheitel: 6 / 24, durchzug: 10 / 24 },
   grathorn: { datei: 'grathorn', angriff: 'Attack_Headbutt', scheitel: 2 / 24, durchzug: 6 / 24 },
   // D173: Fuchs zieht den Kopf bis Bild 4 zurück und ist bei 8 vorn; das Reh stösst von 1 bis 4.
   fuchs: { datei: 'spuerfuchs', angriff: 'Attack', scheitel: 4 / 24, durchzug: 8 / 24 },
   gams: { datei: 'nebelgams', angriff: 'Attack_Headbutt', scheitel: 1 / 24, durchzug: 4 / 24 },
 };
-interface RigVorlage { scene: THREE.Object3D; clips: THREE.AnimationClip[] }
+interface RigVorlage {
+  scene: THREE.Object3D; clips: THREE.AnimationClip[];
+  /** Mensch (D174): eigenes Material behalten, diese Waffe an die Hand. */
+  waffe?: THREE.Object3D;
+}
 interface Rig {
   mixer: THREE.AnimationMixer;
   aktion(name: string): THREE.AnimationAction | null;
@@ -208,7 +225,7 @@ const VORGABE: readonly GegnerArt[] = ['keiler', 'grathorn'];
 /** Der Platz. Mit Tieren lädt er die Modelle — deshalb unter `Suspense` einhängen. */
 export function Kampfplatz(props: PlatzProps) {
   const auf = props.aufstellung ?? VORGABE;
-  return auf.some(a => MODELL[a]) ? <KampfplatzMitModellen {...props} aufstellung={auf} />
+  return auf.some(a => MODELL[a] || RIG[a]) ? <KampfplatzMitModellen {...props} aufstellung={auf} />
     : <KampfplatzKern {...props} aufstellung={auf} leiber={{}} rigs={{}} />;
 }
 
@@ -236,6 +253,10 @@ function KampfplatzMitModellen(props: PlatzProps) {
   const grathornRig = useGLTF('/creatures/kampf/grathorn.glb');
   const fuchs = useGLTF('/creatures/spuerfuchs.glb').scene, gams = useGLTF('/creatures/nebelgams.glb').scene;
   const fuchsRig = useGLTF('/creatures/kampf/spuerfuchs.glb'), gamsRig = useGLTF('/creatures/kampf/nebelgams.glb');
+  // D174: der Wegelagerer — Figur, Klingenclips der Wanderin, Schwert aus dem Weapons Pack.
+  const wanderer = useGLTF('/figuren/wanderer.glb');
+  const waffenClips = useGLTF('/figuren/kampf/wanderin-waffen.glb');
+  const waffenModelle = useGLTF('/figuren/kampf/waffen.glb');
   const leiber = useMemo<Partial<Record<GegnerArt, Leib | null>>>(() => ({
     keiler: leibAus(keiler, 'wurzelkeiler'), grathorn: leibAus(grathorn, 'grathorn'), wolf: leibAus(wolf, 'k7-wolf'),
     fuchs: leibAus(fuchs, 'spuerfuchs'), gams: leibAus(gams, 'nebelgams'),
@@ -245,7 +266,9 @@ function KampfplatzMitModellen(props: PlatzProps) {
     grathorn: { scene: grathornRig.scene, clips: grathornRig.animations },
     fuchs: { scene: fuchsRig.scene, clips: fuchsRig.animations },
     gams: { scene: gamsRig.scene, clips: gamsRig.animations },
-  }), [wolfRig, grathornRig, fuchsRig, gamsRig]);
+    wegelagerer: { scene: wanderer.scene, clips: [...wanderer.animations, ...waffenClips.animations],
+                   waffe: waffenModelle.scene.getObjectByName('Klinge') ?? undefined },
+  }), [wolfRig, grathornRig, fuchsRig, gamsRig, wanderer, waffenClips, waffenModelle]);
   return <KampfplatzKern {...props} leiber={leiber} rigs={rigs} />;
 }
 
@@ -255,6 +278,25 @@ const RIG_AUS = typeof location !== 'undefined' && new URLSearchParams(location.
 /** Ein Tier mit Rig bauen: Skelett geklont, Material je Tier, Anbau am nächsten Knochen. */
 function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeometry | undefined) {
   const obj = klonSkelett(v.scene);
+  if (v.waffe) {
+    // Mensch (D174): Farben der Figur (Vertexfarben) behalten — ein Material je Puppe fürs Aufblitzen.
+    let material: THREE.MeshStandardMaterial | null = null, koerper: THREE.SkinnedMesh | null = null;
+    obj.traverse(o => {
+      const m = o as THREE.SkinnedMesh;
+      if (!m.isSkinnedMesh) return;
+      material ??= (m.material as THREE.MeshStandardMaterial).clone();
+      m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
+      koerper ??= m;
+    });
+    haengeAnHand(obj, v.waffe.clone());
+    const mixer = new THREE.AnimationMixer(obj);
+    const cache = new Map<string, THREE.AnimationAction | null>();
+    const rig: Rig = { mixer, aktiv: null, schwung: -1, treffer: -1, aktion(name) {
+      if (!cache.has(name)) { const c = v.clips.find(x => x.name === name); cache.set(name, c ? mixer.clipAction(c) : null); }
+      return cache.get(name)!;
+    } };
+    return { obj, koerper: koerper as THREE.SkinnedMesh | null, material: material!, rig, setzeZeit: (_t: number) => {} };
+  }
   const w = baueWindMaterial({ amplitude: 0, randFarbe: new THREE.Color('#8a9a9c'), randStaerke: 0.2, randSchaerfe: 1.6 });
   const material = w.material as THREE.MeshStandardMaterial;
   let koerper: THREE.SkinnedMesh | null = null;
@@ -308,7 +350,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
   useEffect(() => () => { if (figur) figur.current = null; }, [figur]);
   const ende = useRef<number | null>(null);
   const absicht = useRef({ schlag: null as 'leicht' | 'schwer' | null, rolle: false, zielen: false, wechsel: 0 as -1 | 0 | 1,
-                           waffe: null as WaffenArt | 'tausch' | null });
+                           waffe: null as WaffenArt | 'tausch' | null, linie: null as Linie | null });
   /**
    * Der Übungsplatz wartet auf die erste Eingabe (D168). Vorher lief er schon während des Ladens,
    * und man stand mit halbem Leben auf — die Gegner stehen jetzt da, aber still.
@@ -333,20 +375,33 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       if (ev.code === 'KeyI') a.schlag = 'schwer';
       if (ev.code === 'KeyK') a.rolle = true;
       if (ev.code === 'KeyL') a.zielen = true;
+      // D174: Pfeiltasten wählen die Linie für Angriff und Block (ADR-0009 Stufe 2).
+      const linie = ({ ArrowUp: 'oben', ArrowDown: 'unten', ArrowLeft: 'links', ArrowRight: 'rechts' } as const)[ev.code as 'ArrowUp'];
+      if (linie) { a.linie = linie; ev.preventDefault(); }
       if (ev.code === 'KeyQ') a.wechsel = -1;
       if (ev.code === 'KeyE') a.wechsel = 1;
       if (ev.code === 'Digit1') a.waffe = 'klinge';
       if (ev.code === 'Digit2') a.waffe = 'axt';
       if (ev.code === 'Tab') { a.waffe = 'tausch'; ev.preventDefault(); }
     };
-    const beruehrt = () => { los.current = true; };
+    const beruehrt = (ev: PointerEvent) => {
+      los.current = true;
+      // D174: rechte Maustaste halten = Block, wie U (ADR-0009, offene Frage 1: beides).
+      if (ev.button === 2) tasten.current.add('Maus2');
+    };
+    const losgelassen = (ev: PointerEvent) => { if (ev.button === 2) tasten.current.delete('Maus2'); };
+    const keinMenue = (ev: MouseEvent) => ev.preventDefault();
     const hoch = (ev: KeyboardEvent) => { tasten.current.delete(ev.code); };
     const weg = () => tasten.current.clear();
     window.addEventListener('keydown', runter);
     window.addEventListener('keyup', hoch);
     window.addEventListener('blur', weg);
     window.addEventListener('pointerdown', beruehrt);
+    window.addEventListener('pointerup', losgelassen);
+    window.addEventListener('contextmenu', keinMenue);
     return () => {
+      window.removeEventListener('pointerup', losgelassen);
+      window.removeEventListener('contextmenu', keinMenue);
       window.removeEventListener('pointerdown', beruehrt);
       window.removeEventListener('keydown', runter);
       window.removeEventListener('keyup', hoch);
@@ -486,9 +541,10 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     // Rennen wie in `steuerung.ts`: Shift und eine Richtung. Dann wird J zum Laufangriff.
     s.rennt = (t.has('ShiftLeft') || t.has('ShiftRight')) && (vor !== 0 || seit !== 0);
     // Gepuffert (D171): ausgeführt im nächsten Teilschritt, in dem es geht — auch aus der Erholung.
+    if (a.linie) { s.linie = a.linie; a.linie = null; }
     if (a.schlag) { puffere(s, a.schlag); a.schlag = null; }
     // Block (ADR-0009 Stufe 1, D173): U halten. Heben im ersten Moment vor dem Treffer pariert.
-    if (t.has('KeyU')) { if (s.phase !== 'block') setzeBlockAn(s); } else loeseBlock(s);
+    if (t.has('KeyU') || t.has('Maus2')) { if (s.phase !== 'block') setzeBlockAn(s); } else loeseBlock(s);
     if (a.rolle) {
       a.rolle = false;
       const g = s.blick;
@@ -531,6 +587,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         if (!e.ausgewichen && e.schaden > 0) zaehler.current.getroffen++;
         if (e.ausgewichen) melde('ausgewichen');
         else if (e.pariert) melde('pariert');
+        else if (e.falscheLinie) melde('falsche Linie');
         else if (e.geblockt) melde(e.gebrochen ? 'Block gebrochen' : 'geblockt');
         else if (e.toedlich) melde('gefallen');
         else if (e.gebrochen) melde('Haltung gebrochen');
@@ -543,6 +600,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
           zeichnung.puppen[i].seite = (s.x - g.x) * -fz + (s.z - g.z) * fx > 0 ? 'Right' : 'Left';
         }
         if (e.von === 'spielerin' && e.schaden > 0) zaehler.current.gesetzt++;
+        if (e.von === 'spielerin' && e.gedeckt) melde('gedeckt');
         if (e.toedlich) melde('besiegt');
         else if (e.gebrochen) melde('er taumelt');
       }
@@ -611,6 +669,11 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         ruhig: !los.current,
         getroffen: zaehler.current.getroffen,
         schlag: s.phase === 'vorlauf' || s.phase === 'aktiv' || s.phase === 'erholung' ? s.schlag.name ?? '' : '',
+        linien: zk?.werte.mensch ? {
+          eigen: s.linie, deckung: zk.deckung,
+          kommt: zk.phase === 'vorlauf' || zk.phase === 'aktiv' ? zk.schlagLinie : undefined,
+          parade: zk.phase === 'vorlauf' && zk.schlag.vorlauf - zk.zeit <= PARADE,
+        } : null,
       };
     }
   });
@@ -740,27 +803,31 @@ function spieleRig(pu: Puppe, g: Kaempfer, v: number, jetzt: number, dt: number)
   const s = g.schlag;
   let ziel: THREE.AnimationAction | null = null, blende = 0.2, neu = false, zeit: number | null = null;
   if (g.phase === 'gefallen') {
-    ziel = r.aktion('Death'); blende = 0.12;
+    ziel = r.aktion('Death') ?? r.aktion('Kampf_Taumeln'); blende = 0.12;
     if (ziel) { ziel.setLoop(THREE.LoopOnce, 1); ziel.clampWhenFinished = true; }
   } else if (g.phase === 'vorlauf' || g.phase === 'aktiv' || g.phase === 'erholung') {
-    ziel = r.aktion(cfg.angriff); blende = 0.1;
+    // Mensch (D174): der Clip der Linie, aus der er schlägt.
+    const c = (g.schlagLinie && cfg.linien?.[g.schlagLinie]) || { clip: cfg.angriff, scheitel: cfg.scheitel, durchzug: cfg.durchzug };
+    ziel = r.aktion(c.clip); blende = 0.1;
     if (ziel) {
+      ziel.setLoop(THREE.LoopOnce, 1); ziel.clampWhenFinished = true;
       const d = ziel.getClip().duration;
-      const start = s !== g.werte.schlag ? cfg.scheitel * 0.5 : 0;
-      const u = g.phase === 'vorlauf' ? start + (cfg.scheitel - start) * Math.min(1, g.zeit / s.vorlauf)
-        : g.phase === 'aktiv' ? cfg.scheitel + (cfg.durchzug - cfg.scheitel) * Math.min(1, g.zeit / s.aktiv)
-        : cfg.durchzug + (d - cfg.durchzug) * Math.min(1, g.zeit / s.erholung);
+      const start = s !== g.werte.schlag && !cfg.linien ? c.scheitel * 0.5 : 0;
+      const u = g.phase === 'vorlauf' ? start + (c.scheitel - start) * Math.min(1, g.zeit / s.vorlauf)
+        : g.phase === 'aktiv' ? c.scheitel + (c.durchzug - c.scheitel) * Math.min(1, g.zeit / s.aktiv)
+        : c.durchzug + (d - c.durchzug) * Math.min(1, g.zeit / s.erholung);
       zeit = Math.min(u, d * 0.999);
       if (g.schwung !== r.schwung) { r.schwung = g.schwung; neu = true; }
     }
   } else if (g.phase === 'betaeubt') {
-    ziel = r.aktion(`Idle_HitReact_${pu.seite}`);
+    ziel = r.aktion(`Idle_HitReact_${pu.seite}`) ?? r.aktion('Kampf_Taumeln');
     if (ziel) ziel.timeScale = 0.55;
   } else if (jetzt - pu.blitz < 450) {
-    ziel = r.aktion(`Idle_HitReact_${pu.seite}`); blende = 0.08;
+    ziel = r.aktion(`Idle_HitReact_${pu.seite}`) ?? r.aktion('Kampf_Rueckstoss'); blende = 0.08;
     if (ziel && pu.blitz !== r.treffer) { r.treffer = pu.blitz; neu = true; ziel.setLoop(THREE.LoopOnce, 1); }
   } else {
-    ziel = v < 0.15 ? r.aktion('Idle') : v < 2.6 ? r.aktion('Walk') : r.aktion('Gallop');
+    const stand = cfg.linien ? r.aktion('Klinge_Stand') ?? r.aktion('Idle') : r.aktion('Idle');
+    ziel = v < 0.15 ? stand : v < 2.6 ? r.aktion('Walk') : r.aktion('Gallop') ?? r.aktion('Walk');
     if (ziel && ziel === r.aktion('Walk')) ziel.timeScale = Math.max(0.6, Math.min(2, v / 1.1));
     if (ziel && ziel === r.aktion('Gallop')) ziel.timeScale = Math.max(0.7, Math.min(1.6, v / 4));
   }

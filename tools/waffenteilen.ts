@@ -45,8 +45,8 @@ await io.write(QUELLE, figur);
 // 2. Nur Knochen und Waffenclips. Ohne Netz und Skin sind die Knochen leere Blätter — `prune`
 //    darf sie nicht wegräumen, sonst zeigen die Kanäle ins Leere.
 const r = clips.getRoot();
-// D173: von UAL2-Clips abgelöst — gebaut werden sie weiter (Tests), ausgeliefert nicht mehr (Budget).
-const ABGELOEST = new Set(['Klinge_Rueckhand', 'Klinge_Schwer', 'Klinge_Lauf']);
+// D173 abgelöste Clips werden seit D174 gar nicht mehr gebaut; die Liste bleibt als Riegel.
+const ABGELOEST = new Set<string>();
 for (const a of r.listAnimations()) if (!WAFFENCLIP.test(a.getName()) || ABGELOEST.has(a.getName())) a.dispose();
 for (const n of r.listNodes()) { n.setMesh(null); n.setSkin(null); }
 for (const m of r.listMeshes()) m.dispose();

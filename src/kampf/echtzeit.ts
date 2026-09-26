@@ -28,6 +28,13 @@ import { neueAusdauer, reicht, schritt as ausdauerSchritt, verbrauche, type Ausd
 
 export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen';
 
+/**
+ * Linien (ADR-0009 Stufe 2, D174): woher ein Schlag kommt. Block und Deckung gelten je Linie — gegen
+ * Menschen. Tiere schlagen ohne Linie (Stufe 3); gegen sie hält jeder Block wie in Stufe 1.
+ */
+export type Linie = 'oben' | 'unten' | 'links' | 'rechts';
+export const LINIEN: readonly Linie[] = ['oben', 'rechts', 'unten', 'links'];
+
 /** Ein Schlag: drei Phasen, Bogen, Wirkung. Zeiten in Sekunden, Strecken in Metern. */
 export interface Schlag {
   vorlauf: number;
@@ -60,6 +67,8 @@ export interface Schlag {
   schritt?: number;
   /** Wie weit der Treffer das Ziel zurückstösst, Meter (D171). Ohne Angabe 0,2. */
   rueckstoss?: number;
+  /** Grundlinie des Schlags (D174); die Spielerin kann sie mit den Pfeiltasten überschreiben. */
+  linie?: Linie;
   /** Geht durch jeden Block (ADR-0009 Stufe 1, D173) — der Rammstoss des Keilers. Nur ausweichen hilft. */
   durch?: boolean;
 }
@@ -106,6 +115,11 @@ export interface KampfWerte {
    * kostet sie den eigenen Schlag.
    */
   zucken?: number;
+  /**
+   * Mensch (D174): schlägt in Linien (`linienFolge`, reihum nach Schwung), deckt eine Linie und liest
+   * die Spielerin — dreimal dieselbe Linie getroffen, dann deckt er sie.
+   */
+  mensch?: { linienFolge: readonly Linie[]; deckung: Linie };
 }
 
 const GRAD = Math.PI / 180;
@@ -152,10 +166,10 @@ export interface Waffe {
   haltung: string;
 }
 
-const KLINGE_1: Schlag = { ...SPIELERIN.schlag, name: 'Hieb', clip: 'Klinge_U_A',
+const KLINGE_1: Schlag = { ...SPIELERIN.schlag, name: 'Hieb', linie: 'rechts', clip: 'Klinge_U_A',
   hieb: { scheitel: 6 / 24, durchzug: 9 / 24 }, schritt: 0.3 };
 const AXT_1: Schlag = {
-  name: 'Axthieb', vorlauf: 0.42, aktiv: 0.16, erholung: 0.55,
+  name: 'Axthieb', linie: 'oben', vorlauf: 0.42, aktiv: 0.16, erholung: 0.55,
   reichweite: 2.9, halbwinkel: 40 * GRAD,
   schaden: 38, haltungsschaden: 52, kosten: 30, nachdrehen: 3,
   clip: 'Axe_Overhead', hieb: { scheitel: 12 / 24, durchzug: 16 / 24 }, schritt: 0.25, rueckstoss: 0.3,
@@ -173,17 +187,17 @@ export const WAFFEN: Record<WaffenArt, Waffe> = {
     name: 'Klinge', schlag: KLINGE_1, haltung: 'Klinge_Stand',
     leicht: [
       KLINGE_1,
-      { name: 'Rückhand', vorlauf: 0.16, aktiv: 0.12, erholung: 0.34, reichweite: 2.4, halbwinkel: 60 * GRAD,
+      { name: 'Rückhand', linie: 'links', vorlauf: 0.16, aktiv: 0.12, erholung: 0.34, reichweite: 2.4, halbwinkel: 60 * GRAD,
         schaden: 26, haltungsschaden: 30, kosten: 16, nachdrehen: 6,
         clip: 'Klinge_U_B', hieb: { scheitel: 6 / 24, durchzug: 9 / 24 }, schritt: 0.35 },
-      { name: 'Stich', vorlauf: 0.22, aktiv: 0.1, erholung: 0.45, reichweite: 2.8, halbwinkel: 20 * GRAD,
+      { name: 'Stich', linie: 'unten', vorlauf: 0.22, aktiv: 0.1, erholung: 0.45, reichweite: 2.8, halbwinkel: 20 * GRAD,
         schaden: 34, haltungsschaden: 40, kosten: 20, nachdrehen: 5,
         clip: 'Klinge_Stich', hieb: { scheitel: 9 / 24, durchzug: 13 / 24 }, schritt: 0.6, rueckstoss: 0.35 },
     ],
-    schwer: { name: 'Zweihandhieb', vorlauf: 0.5, aktiv: 0.14, erholung: 0.5, reichweite: 2.6, halbwinkel: 45 * GRAD,
+    schwer: { name: 'Zweihandhieb', linie: 'oben', vorlauf: 0.5, aktiv: 0.14, erholung: 0.5, reichweite: 2.6, halbwinkel: 45 * GRAD,
       schaden: 48, haltungsschaden: 60, kosten: 30, nachdrehen: 4,
       clip: 'Klinge_U_C', hieb: { scheitel: 14 / 24, durchzug: 18 / 24 }, schritt: 0.4, rueckstoss: 0.45 },
-    lauf: { name: 'Laufstich', vorlauf: 0.15, aktiv: 0.14, erholung: 0.5, reichweite: 2.8, halbwinkel: 35 * GRAD,
+    lauf: { name: 'Laufstich', linie: 'unten', vorlauf: 0.15, aktiv: 0.14, erholung: 0.5, reichweite: 2.8, halbwinkel: 35 * GRAD,
       schaden: 30, haltungsschaden: 40, kosten: 22, nachdrehen: 3,
       clip: 'Klinge_U_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.4, rueckstoss: 0.4 },
   },
@@ -191,14 +205,14 @@ export const WAFFEN: Record<WaffenArt, Waffe> = {
     name: 'Axt', schlag: AXT_1, haltung: 'Axt_Stand',
     leicht: [
       AXT_1,
-      { name: 'Querhieb', vorlauf: 0.36, aktiv: 0.18, erholung: 0.6, reichweite: 2.8, halbwinkel: 70 * GRAD,
+      { name: 'Querhieb', linie: 'rechts', vorlauf: 0.36, aktiv: 0.18, erholung: 0.6, reichweite: 2.8, halbwinkel: 70 * GRAD,
         schaden: 34, haltungsschaden: 46, kosten: 28, nachdrehen: 3,
         clip: 'Axt_Quer', hieb: { scheitel: 10 / 24, durchzug: 15 / 24 }, schritt: 0.3, rueckstoss: 0.3 },
     ],
-    schwer: { name: 'Spalthieb', vorlauf: 0.9, aktiv: 0.18, erholung: 0.7, reichweite: 3.0, halbwinkel: 40 * GRAD,
+    schwer: { name: 'Spalthieb', linie: 'oben', vorlauf: 0.9, aktiv: 0.18, erholung: 0.7, reichweite: 3.0, halbwinkel: 40 * GRAD,
       schaden: 60, haltungsschaden: 80, kosten: 42, nachdrehen: 2,
       clip: 'Axt_Schwer', hieb: { scheitel: 20 / 24, durchzug: 25 / 24 }, schritt: 0.5, rueckstoss: 0.6 },
-    lauf: { name: 'Laufhieb', vorlauf: 0.2, aktiv: 0.16, erholung: 0.6, reichweite: 3.0, halbwinkel: 55 * GRAD,
+    lauf: { name: 'Laufhieb', linie: 'rechts', vorlauf: 0.2, aktiv: 0.16, erholung: 0.6, reichweite: 3.0, halbwinkel: 55 * GRAD,
       schaden: 40, haltungsschaden: 55, kosten: 30, nachdrehen: 2,
       clip: 'Axt_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.6, rueckstoss: 0.5 },
   },
@@ -224,8 +238,10 @@ export const STOSS_DAUER = 0.15;
  * Haltungsschaden); reicht sie nicht, bricht er — betäubt und erschöpft.
  */
 export const BLOCK = { halbwinkel: 70 * GRAD, kosten: 0.5, rueckstoss: 0.5 };
-export const PARADE = 0.18;
-export const PARADE_BETAEUBT = 0.6;
+export const PARADE = 0.15;
+/** Schlag in die gedeckte Linie eines Menschen: Ausdauer des Angreifers = Schaden × das (D174). */
+export const DECKUNG_KOSTEN = 0.5;
+export const PARADE_BETAEUBT = 0.45;
 
 /** Waffe wechseln — nur aus dem Stand, nie mitten im Schlag oder in der Rolle. */
 export function ruesteAus(k: Kaempfer, art: WaffenArt): boolean {
@@ -359,6 +375,30 @@ export const GAMS: KampfWerte = {
   radius: 0.26, hoehe: 1.1, halbLaenge: 0.4,
 };
 
+/**
+ * Der Wegelagerer (D174, ADR-0009 Stufe 2) — der erste Mensch als Gegner, mit Klinge. Er schlägt in
+ * Linien (reihum nach `linienFolge`, der zweite Schlag der Kette aus einer anderen), deckt eine Linie
+ * und wechselt sie nach eigenem Angriff und nach jedem Treffer; wer ihn dreimal aus derselben Linie
+ * trifft, wird gelesen. Tempo und Schaden wie ein Mensch: langsamer als der Wolf, härter.
+ */
+export const WEGELAGERER: KampfWerte = {
+  schlag: {
+    name: 'Hieb', vorlauf: 0.5, aktiv: 0.12, erholung: 0.35,
+    reichweite: 2.3, halbwinkel: 45 * GRAD,
+    schaden: 18, haltungsschaden: 30, kosten: 0, nachdrehen: 3.0, schritt: 0.3, rueckstoss: 0.3,
+  },
+  kette: [{
+    name: 'Nachhieb', vorlauf: 0.3, aktiv: 0.12, erholung: 1.1,
+    reichweite: 2.3, halbwinkel: 45 * GRAD,
+    schaden: 16, haltungsschaden: 26, kosten: 0, nachdrehen: 3.0, schritt: 0.3, rueckstoss: 0.3,
+  }],
+  tempo: 3.0,
+  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
+  lebenMax: 95, haltungMax: 60, haltungErholung: 22, haltungRuhe: 1.3, betaeubt: 0.9,
+  radius: 0.3, hoehe: 1.8, halbLaenge: 0,
+  mensch: { linienFolge: ['rechts', 'links', 'oben', 'rechts', 'unten', 'links', 'oben'], deckung: 'oben' },
+};
+
 /** Wie weit und in welchem Kegel die Zielaufschaltung greift, und wie schnell sie den Blick zieht. */
 export const ZIELEN = {
   reichweite: 18, halbwinkel: 70 * GRAD, drehrate: 7,
@@ -430,6 +470,14 @@ export interface Kaempfer {
   ausdauerFremd?: boolean;
   /** Laufender Rückstoss (D171): Rest in Metern je Achse und Restzeit. */
   stoss?: { x: number; z: number; rest: number } | null;
+  /** Gewählte Linie (D174): Pfeiltasten der Spielerin — für Angriff und Block. */
+  linie?: Linie;
+  /** Linie des laufenden Schlags, beim Ansetzen festgelegt. */
+  schlagLinie?: Linie;
+  /** Gedeckte Linie eines Menschen (D174). */
+  deckung?: Linie;
+  /** Die letzten Linien, in die er getroffen wurde — fürs Lesen. */
+  gelesen?: Linie[];
   /** Dauer der laufenden Betäubung, wenn sie nicht `werte.betaeubt` ist (Parade, D173). */
   betaeubtFuer?: number;
 }
@@ -441,6 +489,7 @@ export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: numbe
     ausdauer: neueAusdauer(), phase: 'bereit', zeit: 0, schwung: 0, erreicht: new Set(),
     rolleX: 0, rolleZ: 0, seitSchlag: 99,
     schlag: werte.schlag, folge: [], kombo: 0, komboOffen: 0, puffer: null,
+    deckung: werte.mensch?.deckung,
   };
 }
 
@@ -483,8 +532,22 @@ export function setzeSchlagAn(k: Kaempfer, s: Schlag = k.werte.schlag): boolean 
   return true;
 }
 
+/** Die Linie, aus der `k` den Schlag `s` jetzt führt (D174). */
+function linieFuer(k: Kaempfer, s: Schlag): Linie | undefined {
+  const m = k.werte.mensch;
+  if (m) return m.linienFolge[k.schwung % m.linienFolge.length];
+  return k.linie ?? s.linie;
+}
+
+/** Nächste Linie reihum, die nicht `nicht` ist. */
+export function andereLinie(l: Linie | undefined, nicht?: Linie): Linie {
+  let i = l ? LINIEN.indexOf(l) : -1;
+  for (;;) { i = (i + 1) % LINIEN.length; if (LINIEN[i] !== nicht) return LINIEN[i]; }
+}
+
 function beginneSchlag(k: Kaempfer, s: Schlag): void {
   if (s.kosten > 0) k.ausdauer = verbrauche(k.ausdauer, s.kosten);
+  k.schlagLinie = linieFuer(k, s);
   k.schlag = s;
   k.phase = 'vorlauf'; k.zeit = 0; k.schwung++; k.erreicht = new Set(); k.seitSchlag = 0;
 }
@@ -627,6 +690,12 @@ export interface Treffer {
   geblockt?: boolean;
   /** Parade (D173): gefangen im ersten Moment des Blocks, der Angreifer ist betäubt. */
   pariert?: boolean;
+  /** In die gedeckte Linie eines Menschen geschlagen (D174): kein Schaden, der Angreifer zahlt Ausdauer. */
+  gedeckt?: boolean;
+  /** Block in der falschen Linie (D174): halber Schaden. */
+  falscheLinie?: boolean;
+  /** Linie des Schlags. */
+  linie?: Linie;
 }
 
 /**
@@ -648,12 +717,23 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       continue;
     }
     const s = a.schlag;
-    if (z.phase === 'block' && !s.durch && blocktFrontal(z, a)) {
+    const linie = a.schlagLinie;
+    // D174: Gegen einen Linienschlag hält der Block nur in derselben Linie; sonst fängt die Waffe halb.
+    const linieFalsch = !!linie && z.phase === 'block' && z.linie !== linie;
+    // Deckung eines Menschen: in die gedeckte Linie geschlagen kostet den Angreifer Ausdauer.
+    if (z.deckung && linie === z.deckung && !s.durch && z.phase !== 'betaeubt' && blocktFrontal(z, a)) {
+      const kosten = s.schaden * DECKUNG_KOSTEN;
+      a.ausdauer = reicht(a.ausdauer, kosten) ? verbrauche(a.ausdauer, kosten) : { wert: 0, seitZehrung: 0, erschoepft: true };
+      raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: false, toedlich: false, ausgewichen: false,
+        geblockt: true, gedeckt: true, linie });
+      continue;
+    }
+    if (z.phase === 'block' && !s.durch && !linieFalsch && blocktFrontal(z, a)) {
       const dx = z.x - a.x, dz = z.z - a.z, d = Math.hypot(dx, dz) || 1;
       if (z.zeit <= PARADE) {
         betaeube(a, PARADE_BETAEUBT);
         raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: false, toedlich: false, ausgewichen: false,
-          geblockt: true, pariert: true });
+          geblockt: true, pariert: true, linie });
         continue;
       }
       const kosten = s.haltungsschaden * BLOCK.kosten;
@@ -661,11 +741,18 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       z.ausdauer = haelt ? verbrauche(z.ausdauer, kosten) : { wert: 0, seitZehrung: 0, erschoepft: true };
       if (!haelt) betaeube(z);
       z.stoss = { x: dx / d * (s.rueckstoss ?? 0.2) * BLOCK.rueckstoss, z: dz / d * (s.rueckstoss ?? 0.2) * BLOCK.rueckstoss, rest: STOSS_DAUER };
-      raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: !haelt, toedlich: false, ausgewichen: false, geblockt: true });
+      raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: !haelt, toedlich: false, ausgewichen: false, geblockt: true, linie });
       continue;
     }
-    z.leben = Math.max(0, z.leben - s.schaden);
-    z.haltung -= s.haltungsschaden;
+    const f = linieFalsch && blocktFrontal(z, a) && !s.durch ? 0.5 : 1;
+    const schaden = s.schaden * f;
+    z.leben = Math.max(0, z.leben - schaden);
+    z.haltung -= s.haltungsschaden * f;
+    // D174: Ein Mensch liest — dreimal dieselbe Linie, dann deckt er sie; sonst wechselt er weg.
+    if (z.werte.mensch && linie) {
+      z.gelesen = [...(z.gelesen ?? []), linie].slice(-3);
+      z.deckung = z.gelesen.length === 3 && z.gelesen.every(l => l === linie) ? linie : andereLinie(z.deckung, linie);
+    }
     z.seitTreffer = 0;
     let gebrochen = false;
     const toedlich = z.leben <= 0;
@@ -682,7 +769,8 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       const r = s.rueckstoss ?? 0.2;
       z.stoss = { x: dx / d * r, z: dz / d * r, rest: STOSS_DAUER };
     }
-    raus.push({ von: a.id, auf: z.id, schaden: s.schaden, gebrochen, toedlich, ausgewichen: false });
+    raus.push({ von: a.id, auf: z.id, schaden, gebrochen, toedlich, ausgewichen: false,
+      ...(f < 1 ? { falscheLinie: true } : {}), linie });
   }
   return raus;
 }
@@ -770,9 +858,12 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
       const rest = k.zeit;
       const s = k.folge.shift()!;
       k.schlag = s; k.phase = 'vorlauf'; k.zeit = rest; k.schwung++; k.erreicht = new Set();
+      k.schlagLinie = linieFuer(k, s);
       continue;
     }
     if (k.phase === 'erholung') k.komboOffen = KOMBO_FENSTER;
+    // D174: Ein Mensch wechselt nach dem eigenen Angriff die Deckung.
+    if (k.phase === 'erholung' && k.werte.mensch) k.deckung = andereLinie(k.deckung);
     k.phase = naechste;
     if (naechste === 'bereit') { k.zeit = 0; break; }
   }

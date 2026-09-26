@@ -28,7 +28,7 @@ for (const z of py.split('\n')) {
   if (bild && jetzt) clips.get(jetzt)!.bilder.push(Number(bild[1]));
   if (/^\}/.test(z)) jetzt = null;
 }
-pruefe('waffenclips.py: Clips gefunden', clips.size >= 8, `${clips.size}`);
+pruefe('waffenclips.py: Clips gefunden', clips.size >= 7, `${clips.size}`);
 
 // ---- menschbau.py baut genau diese Clips mit
 const mb = readFileSync('tools/menschbau.py', 'utf8').match(/ANIM_WAFFEN = \(([^)]*)\)/);

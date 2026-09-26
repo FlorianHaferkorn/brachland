@@ -49,16 +49,6 @@ CLIPS = {
         (25, dict(hand=(0.22, 0.25, 1.0), richt=(0.12, 0.33, 0.94), zwei='axt', koerper=(0, -0.045), rumpf=(-9, 5))),
         (49, dict(hand=(0.22, 0.24, 1.02), richt=(0.12, 0.3, 0.95), zwei='axt', koerper=(0, -0.03), rumpf=(-8, 3))),
     ]),
-    # Rückhand: von links über vorn nach rechts, die Brust dreht mit.
-    'Klinge_Rueckhand': (KLINGE_BASIS, 'einmal', [
-        (1, 'stand'),
-        (5, dict(hand=(-0.2, 0.28, 1.25), richt=(-0.6, -0.45, 0.35), rumpf=(32, 5), pol=(0.2, -0.3, -1))),
-        (8, dict(hand=(-0.28, 0.18, 1.28), richt=(-0.55, -0.7, 0.3), rumpf=(42, 5), koerper=(-0.03, -0.02), pol=(0.2, -0.4, -1))),
-        (10, dict(hand=(0.02, 0.55, 1.25), richt=(-0.05, 1, 0.05), rumpf=(5, 10), koerper=(0.05, -0.04))),
-        (13, dict(hand=(0.45, 0.25, 1.2), richt=(0.85, -0.2, 0.0), rumpf=(-38, 12), koerper=(0.08, -0.05), fuss_r=(0.1, 0.05))),
-        (18, dict(hand=(0.4, -0.02, 1.1), richt=(0.6, -0.6, -0.3), rumpf=(-45, 8), koerper=(0.06, -0.04), fuss_r=(0.1, 0.05))),
-        (28, 'stand'),
-    ]),
     # Stich: zurückziehen an die Hüfte, dann Ausfall mit dem rechten Fuss.
     'Klinge_Stich': (KLINGE_BASIS, 'einmal', [
         (1, 'stand'),
@@ -70,25 +60,14 @@ CLIPS = {
         (20, dict(hand=(0.12, 0.5, 1.2), richt=(0.02, 1, 0.05), rumpf=(12, 12), koerper=(0.16, -0.07), fuss_r=(0.3, 0))),
         (30, 'stand'),
     ]),
-    # Zweihandhieb von oben: Heben, weit hinter den Kopf, über oben nach vorn unten.
-    'Klinge_Schwer': (KLINGE_BASIS, 'einmal', [
+    # D173: Axtblock — der Stiel quer vor dem Gesicht, beide Hände, Gewicht tief. Gehalten wird das
+    # letzte Bild (die Szene klemmt den Clip), deshalb endet er nicht im Stand.
+    'Axt_Block': ('Axt_Stand', 'einmal', [
         (1, 'stand'),
-        (6, dict(hand=(0.08, 0.28, 1.5), richt=(0, 0.3, 0.95), zwei='klinge', rumpf=(-10, -3))),
-        (11, dict(hand=(0.1, 0.02, 1.82), richt=(0, -0.7, 0.7), zwei='klinge', rumpf=(-8, -10), koerper=(-0.03, 0.01), pol=(0.7, 0.3, -0.3))),
-        (14, dict(hand=(0.08, -0.1, 1.82), richt=(0, -1, 0.15), zwei='klinge', rumpf=(-8, -14), koerper=(-0.05, 0), pol=(0.7, 0.2, -0.3))),
-        (16, dict(hand=(0.05, 0.32, 1.8), richt=(0, 0.45, 0.9), zwei='klinge', rumpf=(0, 0), koerper=(0.05, -0.04), pol=(0.7, 0.2, -0.3))),
-        (18, dict(hand=(-0.03, 0.58, 1.05), richt=(-0.08, 0.8, -0.6), zwei='klinge', rumpf=(10, 26), koerper=(0.16, -0.13), fuss_r=(0.3, 0))),
-        (24, dict(hand=(-0.12, 0.45, 0.82), richt=(-0.15, 0.4, -0.9), zwei='klinge', rumpf=(14, 30), koerper=(0.16, -0.15), fuss_r=(0.3, 0))),
-        (34, 'stand'),
-    ]),
-    # Laufstich: aus dem Lauf tief nach vorn, weiter Ausfall, linker Arm zurück.
-    'Klinge_Lauf': (KLINGE_BASIS, 'einmal', [
-        (1, dict(hand=(0.24, 0.0, 1.15), richt=(0.05, 1, 0.1), rumpf=(-25, 15), koerper=(0, -0.05), links=(-0.15, 0.3, 1.2))),
-        (6, dict(hand=(0.22, 0.02, 1.1), richt=(0.03, 1, 0.08), rumpf=(-32, 20), koerper=(0.02, -0.08), fuss_r=(-0.2, 0), links=(-0.15, 0.32, 1.2))),
-        (8, dict(hand=(0.1, 0.55, 1.2), richt=(0, 1, 0.02), rumpf=(8, 25), koerper=(0.2, -0.12), fuss_r=(0.35, 0), links=(-0.25, 0.0, 1.1))),
-        (10, dict(hand=(0.02, 0.85, 1.2), richt=(0, 1, 0), rumpf=(28, 30), koerper=(0.35, -0.15), fuss_r=(0.55, 0), links=(-0.32, -0.3, 1.0))),
-        (15, dict(hand=(0.06, 0.7, 1.18), richt=(0.02, 1, 0.02), rumpf=(22, 26), koerper=(0.3, -0.13), fuss_r=(0.5, 0), links=(-0.3, -0.2, 1.02))),
-        (24, 'stand'),
+        (4, dict(hand=(0.26, 0.3, 1.38), richt=(-0.95, 0.1, 0.3), zwei='axt', rumpf=(-6, 4), koerper=(-0.03, -0.06),
+                 fuss_r=(0.08, 0.05), fuss_l=(-0.12, -0.03), pol=(0.6, -0.3, -0.6))),
+        (8, dict(hand=(0.28, 0.32, 1.42), richt=(-0.97, 0.1, 0.22), zwei='axt', rumpf=(-6, 6), koerper=(-0.04, -0.08),
+                 fuss_r=(0.08, 0.05), fuss_l=(-0.12, -0.03), pol=(0.6, -0.3, -0.6))),
     ]),
     # Querhieb mit der Axt: von rechts hinten über vorn nach links, beide Hände, volle Drehung.
     'Axt_Quer': ('Axt_Stand', 'einmal', [
@@ -125,8 +104,8 @@ CLIPS = {
     ]),
 }
 NAMEN = tuple(CLIPS)
-ACHSE = {'Klinge_Stand': 'klinge', 'Klinge_Rueckhand': 'klinge', 'Klinge_Stich': 'klinge', 'Klinge_Schwer': 'klinge', 'Klinge_Lauf': 'klinge',
-         'Axt_Stand': 'axt', 'Axt_Quer': 'axt', 'Axt_Schwer': 'axt', 'Axt_Lauf': 'axt'}
+ACHSE = {'Klinge_Stand': 'klinge', 'Klinge_Stich': 'klinge',
+         'Axt_Stand': 'axt', 'Axt_Block': 'axt', 'Axt_Quer': 'axt', 'Axt_Schwer': 'axt', 'Axt_Lauf': 'axt'}
 
 
 class Rig:

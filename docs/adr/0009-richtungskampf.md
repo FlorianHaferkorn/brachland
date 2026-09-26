@@ -4,7 +4,7 @@ shelf-life-days: 180
 ---
 # ADR-0009 — Richtungskampf: vier Linien, Block und Parade
 
-**Status:** Proposed · 2026-09-26 · Stufe 1 (Block/Parade) gebaut in D173, Stufen 2–3 offen · baut auf ADR-0007 (Echtzeitkampf) und ADR-0008 (Waffenwerk) auf · ADR-0004 gilt: Regeln werden übernommen, Figuren, Namen und Oberfläche nicht
+**Status:** Proposed · 2026-09-26 · Stufe 1 (Block/Parade) D173, Stufe 2 (Linien gegen Menschen) D174, Stufe 3 offen · baut auf ADR-0007 (Echtzeitkampf) und ADR-0008 (Waffenwerk) auf · ADR-0004 gilt: Regeln werden übernommen, Figuren, Namen und Oberfläche nicht
 
 ## Kontext
 
@@ -106,3 +106,12 @@ als Überlagerung des vorhandenen `Attack`-Clips.
 - Taste: **U halten** (UNKLAR — Flo bestätigt oder wählt Maus rechts; offene Frage 1 bleibt damit offen).
 - Gegner blocken nicht (Stufe 2).
 - Kampfbot, Profil `parierend`: Klinge einzeln 100 %, schneller als Rollen (Wolf 3,5 s gegen 16 s); gegen das Rudel schlechter als Rollen (Klinge 42 % gegen 97 %); die Axt pariert schlecht (lange Erholung, Gegenschlag kommt nicht in 0,6 s an). Parade ist mit der Klinge vermutlich zu stark — Bot-Timing σ 50 ms ist besser als ein Mensch; Spieltest nötig.
+
+## Nachtrag D174 — Stufe 1 abgestimmt, Stufe 2 gebaut
+
+- **Eingabe:** Block mit U **oder** rechter Maustaste halten (Frage 1 teilweise beantwortet: beides). Linie mit den **Pfeiltasten** — gilt für Angriff und Block, bleibt stehen, bis eine andere gewählt wird. Maus als Linienwahl bei Aufschaltung: noch nicht (UNKLAR, braucht Spieltest mit Kamera).
+- **Parade abgestimmt:** Fenster 0,18 → 0,15 s, Betäubung 0,6 → 0,45 s — der schwere Klingenhieb (Vorlauf 0,5 s) passt nicht mehr hinein, nur der leichte. Bot-Streuung 0,05 → 0,08 s (menschlicher). Wolf mit Klinge: parierend 5,8 s statt 3,6 s; Rudel parierend 60 % gegen rollend 98 %.
+- **Linien:** `Linie` = oben/unten/links/rechts; jeder Schlag der Spielerin hat eine Grundlinie (Hieb rechts, Rückhand links, Stich/Laufstich unten, Zweihand/Axthieb/Spalthieb oben, Quer-/Laufhieb rechts), die Pfeiltasten überschreiben sie. Block in falscher Linie: halber Schaden und halbe Haltung; Parade nur in der richtigen. Tiere schlagen ohne Linie — gegen sie hält jeder Block (Stufe 3 offen).
+- **Wegelagerer** (`WEGELAGERER`, `?kampf=wegelagerer`): Figur `wanderer` mit den Klingenclips der Wanderin und dem Schwert aus dem Pack; Hieb + Nachhieb aus wechselnden Linien (`linienFolge`), deckt eine Linie (Schlag hinein: kein Schaden, Angreifer zahlt Schaden × 0,5 Ausdauer), wechselt die Deckung nach eigenem Angriff und nach jedem Treffer, deckt nach dreimal derselben Linie genau diese.
+- **Anzeige:** Linienraute unter den Zielbalken — grau gedeckt, rot die kommende Linie (gelb im Paradefenster), weisser Rand die eigene.
+- **Kampfbot:** Wegelagerer einzeln aufmerksam 100 %, müde 65 %, parierend 98 %; mit Wolf aufmerksam 100 %, müde 42 %. Erster Wurf (Nachhieb-Erholung 0,8 s, 110 Leben) war mit der Axt 0 % — Erholung 1,1 s und 95 Leben geben das Fenster.

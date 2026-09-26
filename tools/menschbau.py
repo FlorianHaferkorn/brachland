@@ -67,8 +67,8 @@ def leuchtdichte(c):
 # es kostete 17 KB und hielt die Wanderin über dem Budget von 250 KB.
 # D171: das Moveset je Waffe (`tools/waffenclips.py`). Es wird mitgebaut und danach von
 # `tools/waffenteilen.ts` in eine eigene Datei ohne Netz verschoben — die Wanderin bleibt im Budget.
-ANIM_WAFFEN = ('Klinge_Stand', 'Klinge_Rueckhand', 'Klinge_Stich', 'Klinge_Schwer', 'Klinge_Lauf',
-               'Axt_Stand', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf')
+ANIM_WAFFEN = ('Klinge_Stand', 'Klinge_Stich',
+               'Axt_Stand', 'Axt_Block', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf')
 # D173: Schwertkombos, Block und Treffer aus der UAL2 (CC0), per `tools/ual2uebertrag.py` übertragen.
 ANIM_UAL2 = ('Klinge_U_A', 'Klinge_U_B', 'Klinge_U_C', 'Klinge_U_Lauf', 'Klinge_U_Block',
              'Kampf_Rueckstoss', 'Kampf_Taumeln')
