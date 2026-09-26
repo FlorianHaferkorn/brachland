@@ -713,3 +713,17 @@ Neue Messparameter: `?sonne=` (Sonnenstärke), `?schattenkarte=Auflösung,halbe 
   Ladezustand → Lauf nicht als Vergleich werten, Ursache beheben.
 - **Rollback:** neue Zwischenprodukte separat belassen; ausschließlich die eigenen
   Code-/Asset-Änderungen rückgängig machen, Referenzen und fremde Änderungen erhalten.
+
+
+## Kampf D173: Parade und neue Tiere
+
+Kampfbot 60 Kämpfe je Zeile, Profil `parierend` (Block 0,09 s vor dem Aktiven, σ 0,05 s):
+
+| Gegner | Klinge aufmerksam | Klinge parierend | Axt aufmerksam | Axt parierend |
+|---|---|---|---|---|
+| Wolf | 100 % / 16,1 s | 100 % / 3,5 s | 100 % / 12,5 s | 100 % / 17,8 s |
+| Rudel (3 Wölfe) | 97 % | 42 % | 95 % | 0 % |
+| Fuchs | 100 % / 12,2 s | 100 % / 3,2 s | 100 % / 10,4 s | 100 % / 11,2 s |
+| Gams | 100 % / 40,0 s | 100 % / 5,5 s | 97 % / 54,1 s | 100 % / 20,7 s |
+
+Nebelmorgen nach D173 (Bildtor): Felsflanke Median 0,146 (vorher 0,140), Grashang 0,102 (0,099), Felsmulde 0,059 mit 22,2 % dunkel (18,0 %).

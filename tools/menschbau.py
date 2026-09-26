@@ -69,6 +69,10 @@ def leuchtdichte(c):
 # `tools/waffenteilen.ts` in eine eigene Datei ohne Netz verschoben — die Wanderin bleibt im Budget.
 ANIM_WAFFEN = ('Klinge_Stand', 'Klinge_Rueckhand', 'Klinge_Stich', 'Klinge_Schwer', 'Klinge_Lauf',
                'Axt_Stand', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf')
+# D173: Schwertkombos, Block und Treffer aus der UAL2 (CC0), per `tools/ual2uebertrag.py` übertragen.
+ANIM_UAL2 = ('Klinge_U_A', 'Klinge_U_B', 'Klinge_U_C', 'Klinge_U_Lauf', 'Klinge_U_Block',
+             'Kampf_Rueckstoss', 'Kampf_Taumeln')
+ANIM_WAFFEN = ANIM_WAFFEN + ANIM_UAL2
 ANIM_SPIELER = ('Idle', 'Walk', 'Run', 'Sword_Slash', 'Roll', 'HitRecieve', 'Death',
                 # D169: selbst gebaut (`tools/axthieb.py`), das Paket hat keinen Hieb von oben.
                 'Axe_Overhead') + ANIM_WAFFEN
@@ -274,9 +278,16 @@ for eintrag in FIGUREN:
     if any(n in BEHALTEN for n in ANIM_WAFFEN):
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from waffenclips import baue_waffenclips, NAMEN
-        if set(NAMEN) != set(ANIM_WAFFEN):
-            raise SystemExit(f'ANIM_WAFFEN und waffenclips.NAMEN weichen ab: {sorted(set(NAMEN) ^ set(ANIM_WAFFEN))}')
+        eigene = tuple(n for n in ANIM_WAFFEN if n not in ANIM_UAL2)
+        if set(NAMEN) != set(eigene):
+            raise SystemExit(f'ANIM_WAFFEN und waffenclips.NAMEN weichen ab: {sorted(set(NAMEN) ^ set(eigene))}')
         baue_waffenclips(arm)
+        from ual2uebertrag import uebertrage, QUELLE, CLIPS
+        if set(CLIPS) != set(ANIM_UAL2):
+            raise SystemExit(f'ANIM_UAL2 und ual2uebertrag.CLIPS weichen ab: {sorted(set(CLIPS) ^ set(ANIM_UAL2))}')
+        if not os.path.exists(QUELLE):
+            raise SystemExit(f'UAL2 fehlt unter {QUELLE} (siehe assets/HERKUNFT.md)')
+        uebertrage(arm)
     for ad_obj in [arm] + netze:
         ad = ad_obj.animation_data
         if not ad: continue

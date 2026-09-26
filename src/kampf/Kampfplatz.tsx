@@ -15,7 +15,7 @@
  *
  * ## Tasten
  *
- * J leicht (Kette je Waffe; im Lauf mit Shift der Laufangriff) · I schwer · K Rolle (Richtung aus
+ * U halten Block/Parade (D173) · J leicht (Kette je Waffe; im Lauf mit Shift der Laufangriff) · I schwer · K Rolle (Richtung aus
  * WASD, ohne Taste rückwärts) · L Ziel auf/ab. Alle drei werden **gepuffert** (D171): Wer im
  * Schwung schon den nächsten drückt, wird bedient, sobald es geht. Die Maus bleibt
  * beim Blick: Ziehen dreht die Kamera, und ein Klick, der vielleicht ein Ziehen werden sollte, darf
@@ -32,8 +32,8 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import {
-  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, ZIELEN, type KampfWerte, type Schlag,
-  neuerKaempfer, puffere, naechsterSchlag, simuliere, waehleZiel, drehe, blickAuf, frei,
+  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, FUCHS, GAMS, ZIELEN, vorwaerts, type KampfWerte, type Schlag,
+  neuerKaempfer, puffere, setzeBlockAn, loeseBlock, naechsterSchlag, simuliere, waehleZiel, drehe, blickAuf, frei,
   WAFFEN, ruesteAus, wechsleZiel, type WaffenArt,
   type Kampfwelt, type Kaempfer, type Treffer,
 } from './echtzeit.js';
@@ -50,11 +50,11 @@ import { baueWindMaterial } from '../world/windmaterial.js';
  * seinem Modell und dem Gang aus dem Shader (D138); `kapsel` der Platzhalter aus Stufe 1,
  * bleibt als Vergleich (`?kampf=kapsel`).
  */
-export type GegnerArt = 'keiler' | 'grathorn' | 'wolf' | 'kapsel';
-export const GEGNER_ARTEN: readonly GegnerArt[] = ['keiler', 'grathorn', 'wolf', 'kapsel'];
-const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, wolf: WOLF, kapsel: UEBUNGSGEGNER };
+export type GegnerArt = 'keiler' | 'grathorn' | 'wolf' | 'fuchs' | 'gams' | 'kapsel';
+export const GEGNER_ARTEN: readonly GegnerArt[] = ['keiler', 'grathorn', 'wolf', 'fuchs', 'gams', 'kapsel'];
+const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, wolf: WOLF, fuchs: FUCHS, gams: GAMS, kapsel: UEBUNGSGEGNER };
 /** Modell je Art (D170). Die Kapsel hat keins. */
-const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', grathorn: 'grathorn', wolf: 'k7-wolf' };
+const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', grathorn: 'grathorn', wolf: 'k7-wolf', fuchs: 'spuerfuchs', gams: 'nebelgams' };
 
 /**
  * Tiere mit Rig (D172, `tools/kampftierbau.py`): dasselbe Modell wie in der Welt, an das Skelett
@@ -65,6 +65,9 @@ const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', gra
 const RIG: Partial<Record<GegnerArt, { datei: string; angriff: string; scheitel: number; durchzug: number }>> = {
   wolf: { datei: 'k7-wolf', angriff: 'Attack', scheitel: 6 / 24, durchzug: 10 / 24 },
   grathorn: { datei: 'grathorn', angriff: 'Attack_Headbutt', scheitel: 2 / 24, durchzug: 6 / 24 },
+  // D173: Fuchs zieht den Kopf bis Bild 4 zurück und ist bei 8 vorn; das Reh stösst von 1 bis 4.
+  fuchs: { datei: 'spuerfuchs', angriff: 'Attack', scheitel: 4 / 24, durchzug: 8 / 24 },
+  gams: { datei: 'nebelgams', angriff: 'Attack_Headbutt', scheitel: 1 / 24, durchzug: 4 / 24 },
 };
 interface RigVorlage { scene: THREE.Object3D; clips: THREE.AnimationClip[] }
 interface Rig {
@@ -153,6 +156,8 @@ interface Puppe {
   kranz: THREE.Group;
   /** Wann zuletzt getroffen — für das Aufblitzen. */
   blitz: number;
+  /** Von welcher Seite der letzte Treffer kam (D173) — wählt `Idle_HitReact_Left`/`_Right`. */
+  seite: 'Left' | 'Right';
   art: GegnerArt;
   rig?: Rig;
   gang?: (g: number) => void;
@@ -229,13 +234,18 @@ function KampfplatzMitModellen(props: PlatzProps) {
   // Die Kampfvarianten mit Rig (D172). Die statischen bleiben geladen: Sie tragen den Anbau.
   const wolfRig = useGLTF('/creatures/kampf/k7-wolf.glb');
   const grathornRig = useGLTF('/creatures/kampf/grathorn.glb');
+  const fuchs = useGLTF('/creatures/spuerfuchs.glb').scene, gams = useGLTF('/creatures/nebelgams.glb').scene;
+  const fuchsRig = useGLTF('/creatures/kampf/spuerfuchs.glb'), gamsRig = useGLTF('/creatures/kampf/nebelgams.glb');
   const leiber = useMemo<Partial<Record<GegnerArt, Leib | null>>>(() => ({
     keiler: leibAus(keiler, 'wurzelkeiler'), grathorn: leibAus(grathorn, 'grathorn'), wolf: leibAus(wolf, 'k7-wolf'),
-  }), [keiler, grathorn, wolf]);
+    fuchs: leibAus(fuchs, 'spuerfuchs'), gams: leibAus(gams, 'nebelgams'),
+  }), [keiler, grathorn, wolf, fuchs, gams]);
   const rigs = useMemo<Partial<Record<GegnerArt, RigVorlage>>>(() => (RIG_AUS ? {} : {
     wolf: { scene: wolfRig.scene, clips: wolfRig.animations },
     grathorn: { scene: grathornRig.scene, clips: grathornRig.animations },
-  }), [wolfRig, grathornRig]);
+    fuchs: { scene: fuchsRig.scene, clips: fuchsRig.animations },
+    gams: { scene: gamsRig.scene, clips: gamsRig.animations },
+  }), [wolfRig, grathornRig, fuchsRig, gamsRig]);
   return <KampfplatzKern {...props} leiber={leiber} rigs={rigs} />;
 }
 
@@ -401,7 +411,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       kranz.visible = false;
       gruppe.add(leibGruppe, bogen, kranz);
       wurzel.add(gruppe);
-      puppen.push({ gruppe, leib: leibGruppe, koerper, bogen, kranz, blitz: -1, art, rig, gang, zeit, vorher: { x: NaN, z: NaN } });
+      puppen.push({ gruppe, leib: leibGruppe, koerper, bogen, kranz, blitz: -1, seite: 'Right', art, rig, gang, zeit, vorher: { x: NaN, z: NaN } });
     }
     // Der Fächer der Spielerin: sichtbar im Vorlauf blass, im Aktiven hell.
     const schwung = new THREE.Mesh(
@@ -477,6 +487,8 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     s.rennt = (t.has('ShiftLeft') || t.has('ShiftRight')) && (vor !== 0 || seit !== 0);
     // Gepuffert (D171): ausgeführt im nächsten Teilschritt, in dem es geht — auch aus der Erholung.
     if (a.schlag) { puffere(s, a.schlag); a.schlag = null; }
+    // Block (ADR-0009 Stufe 1, D173): U halten. Heben im ersten Moment vor dem Treffer pariert.
+    if (t.has('KeyU')) { if (s.phase !== 'block') setzeBlockAn(s); } else loeseBlock(s);
     if (a.rolle) {
       a.rolle = false;
       const g = s.blick;
@@ -518,11 +530,18 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       if (e.auf === 'spielerin') {
         if (!e.ausgewichen && e.schaden > 0) zaehler.current.getroffen++;
         if (e.ausgewichen) melde('ausgewichen');
+        else if (e.pariert) melde('pariert');
+        else if (e.geblockt) melde(e.gebrochen ? 'Block gebrochen' : 'geblockt');
         else if (e.toedlich) melde('gefallen');
         else if (e.gebrochen) melde('Haltung gebrochen');
       } else {
         const i = w.gegner.findIndex(g => g.id === e.auf);
-        if (i >= 0 && !e.ausgewichen) zeichnung.puppen[i].blitz = jetzt;
+        if (i >= 0 && !e.ausgewichen) {
+          zeichnung.puppen[i].blitz = jetzt;
+          // Seite des Angreifers im Blick des Getroffenen: rechts ist (−vz, vx) zur Vorwärtsrichtung.
+          const g = w.gegner[i], [fx, fz] = vorwaerts(g.blick);
+          zeichnung.puppen[i].seite = (s.x - g.x) * -fz + (s.z - g.z) * fx > 0 ? 'Right' : 'Left';
+        }
         if (e.von === 'spielerin' && e.schaden > 0) zaehler.current.gesetzt++;
         if (e.toedlich) melde('besiegt');
         else if (e.gebrochen) melde('er taumelt');
@@ -735,10 +754,10 @@ function spieleRig(pu: Puppe, g: Kaempfer, v: number, jetzt: number, dt: number)
       if (g.schwung !== r.schwung) { r.schwung = g.schwung; neu = true; }
     }
   } else if (g.phase === 'betaeubt') {
-    ziel = r.aktion('Idle_HitReact_Left');
+    ziel = r.aktion(`Idle_HitReact_${pu.seite}`);
     if (ziel) ziel.timeScale = 0.55;
   } else if (jetzt - pu.blitz < 450) {
-    ziel = r.aktion('Idle_HitReact_Right'); blende = 0.08;
+    ziel = r.aktion(`Idle_HitReact_${pu.seite}`); blende = 0.08;
     if (ziel && pu.blitz !== r.treffer) { r.treffer = pu.blitz; neu = true; ziel.setLoop(THREE.LoopOnce, 1); }
   } else {
     ziel = v < 0.15 ? r.aktion('Idle') : v < 2.6 ? r.aktion('Walk') : r.aktion('Gallop');

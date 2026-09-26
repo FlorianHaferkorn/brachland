@@ -28,6 +28,27 @@
   "quelle": "dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Stag“: Idle, Walk, Gallop, Attack_Headbutt, HitReact, Death)"
  },
  {
+  "datei": "kampf/spuerfuchs.glb",
+  "rolle": "Spürfuchs mit Rig für den Kampf (D173)",
+  "autor": "Quaternius",
+  "lizenz": "CC0",
+  "quelle": "dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Fox“: Idle, Walk, Gallop, Attack, HitReact links/rechts, Death), tools/kampftierbau.py"
+ },
+ {
+  "datei": "kampf/nebelgams.glb",
+  "rolle": "Nebelgams mit Rig für den Kampf (D173)",
+  "autor": "Quaternius",
+  "lizenz": "CC0",
+  "quelle": "dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Deer“: Idle, Walk, Gallop, Attack_Headbutt, HitReact links/rechts, Death)"
+ },
+ {
+  "datei": "kampf/waffen.glb",
+  "rolle": "Schwert und Axt der Wanderin (D173)",
+  "autor": "Quaternius",
+  "lizenz": "CC0",
+  "quelle": "Medieval Weapons Pack („Sword“, „Axe“, OBJ), gedreht, skaliert und im Griff zentriert mit tools/waffenbau.py"
+ },
+ {
   "datei": "grathorn.glb",
   "rolle": "Grathorn",
   "autor": "Quaternius",
@@ -123,7 +144,7 @@
   "rolle": "Kampfclips der Spielerin (nur Knochen und Animation, figuren/kampf/)",
   "autor": "Quaternius (Rig), Clips selbst gebaut",
   "lizenz": "CC0",
-  "quelle": "Rig aus poly.pizza y9KWOVG21R; die neun Clips (Klinge/Axt: Haltung, Kette, schwer, Lauf) aus tools/waffenclips.py, abgetrennt mit tools/waffenteilen.ts (D171)"
+  "quelle": "Rig aus poly.pizza y9KWOVG21R; die neun Clips (Klinge/Axt: Haltung, Kette, schwer, Lauf) aus tools/waffenclips.py, abgetrennt mit tools/waffenteilen.ts (D171); seit D173 dazu sieben Clips aus der Universal Animation Library 2 (Quaternius, CC0: Sword_Regular_A/B/C, Sword_Dash, Sword_Block, Hit_Knockback, Idle_Shield_Break), übertragen mit tools/ual2uebertrag.py"
  },
  {
   "datei": "bauer.glb",

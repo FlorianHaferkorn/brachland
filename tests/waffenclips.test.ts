@@ -38,6 +38,19 @@ pruefe('menschbau.ANIM_WAFFEN = waffenclips.CLIPS', mbNamen.join(',') === [...cl
 
 // ---- Jede Waffe: Haltung als Schleife, jeder Schlag mit Scheitel und Durchzug auf Schlüsselbildern
 const AUS_DEM_PAKET = new Set(['Sword_Slash', 'Axe_Overhead']);
+// D173: Clips aus der UAL2 — Länge aus den Bildbereichen in `tools/ual2uebertrag.py`.
+const ual2 = new Map<string, number>();
+{
+  const q = readFileSync('tools/ual2uebertrag.py', 'utf8');
+  for (const m of q.matchAll(/'(\w+)':\s*\[([^\]]*)\]/g)) {
+    const teile = [...m[2].matchAll(/\('\w+',\s*(\d+),\s*(\d+)\)/g)];
+    if (teile.length) ual2.set(m[1], teile.reduce((n, t) => n + (+t[2] - +t[1]), 0));
+  }
+}
+pruefe('ual2uebertrag.py: 7 Clips gefunden', ual2.size === 7, [...ual2.keys()].join(','));
+const mu = readFileSync('tools/menschbau.py', 'utf8').match(/ANIM_UAL2 = \(([^)]*)\)/);
+pruefe('menschbau.ANIM_UAL2 = ual2uebertrag.CLIPS',
+  (mu ? [...mu[1].matchAll(/'(\w+)'/g)].map(m => m[1]).sort().join(',') : '') === [...ual2.keys()].sort().join(','));
 const gebraucht: string[] = [];
 for (const [art, w] of Object.entries(WAFFEN)) {
   const h = clips.get(w.haltung);
@@ -47,6 +60,13 @@ for (const [art, w] of Object.entries(WAFFEN)) {
   gebraucht.push(w.haltung);
   for (const s of [...w.leicht, w.schwer, w.lauf]) {
     if (!s.clip || AUS_DEM_PAKET.has(s.clip)) continue;
+    if (ual2.has(s.clip)) {
+      gebraucht.push(s.clip);
+      const ende = ual2.get(s.clip)!;
+      pruefe(`${art}/${s.name}: UAL2-Clip ${s.clip} trägt Scheitel < Durchzug im Clip, danach ≥ 8 Bilder Erholung`,
+        !!s.hieb && s.hieb.scheitel < s.hieb.durchzug && ende - s.hieb.durchzug * 24 >= 8, `${ende}`);
+      continue;
+    }
     gebraucht.push(s.clip);
     const c = clips.get(s.clip);
     pruefe(`${art}/${s.name}: Clip ${s.clip} gebaut`, !!c);
@@ -75,7 +95,7 @@ if (existsSync(WAFFENDATEI)) {
   pruefe('jeder gebrauchte Clip steckt in der Waffendatei', fehlt.length === 0, fehlt.join(', '));
 }
 const figur = animationen('public/figuren/wanderin.glb');
-pruefe('die Wanderin trägt keine Waffenclips (Budget)', !figur.some(n => /^(Klinge|Axt)_/.test(n)), figur.join(', '));
+pruefe('die Wanderin trägt keine Waffenclips (Budget)', !figur.some(n => /^(Klinge|Axt|Kampf)_/.test(n)), figur.join(', '));
 pruefe('die Wanderin trägt die Rückfälle Sword_Slash und Axe_Overhead',
   figur.includes('Sword_Slash') && figur.includes('Axe_Overhead'));
 

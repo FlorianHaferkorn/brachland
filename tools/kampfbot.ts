@@ -16,20 +16,22 @@
  *   npx tsx tools/kampfbot.ts [kämpfe=200]
  */
 import {
-  SPIELERIN, KEILER, GRATHORN, WOLF, UEBUNGSGEGNER, SCHRITT, WAFFEN,
-  neuerKaempfer, blickAuf, puffere, ruesteAus, simuliere, frei, naechsterSchlag,
+  SPIELERIN, KEILER, GRATHORN, WOLF, FUCHS, GAMS, UEBUNGSGEGNER, SCHRITT, WAFFEN,
+  neuerKaempfer, blickAuf, puffere, setzeBlockAn, loeseBlock, ruesteAus, simuliere, frei, naechsterSchlag,
   type KampfWerte, type Kampfwelt, type WaffenArt,
 } from '../src/kampf/echtzeit.js';
 
-export interface Profil { name: string; reaktion: number; streuung: number; patzer: number }
+/** `parade` (D173): pariert statt zu rollen — hebt den Block kurz vor dem Aktiven; nur der Rammstoss wird gerollt. */
+export interface Profil { name: string; reaktion: number; streuung: number; patzer: number; parade?: boolean }
 export const PROFILE: Profil[] = [
   { name: 'aufmerksam', reaktion: 0.25, streuung: 0.05, patzer: 0.1 },
   { name: 'müde', reaktion: 0.4, streuung: 0.08, patzer: 0.25 },
+  { name: 'parierend', reaktion: 0.25, streuung: 0.05, patzer: 0.1, parade: true },
 ];
 /** Aufstellungen: einzeln und zu zweit (wie `?kampf=1` bzw. `?kampf=wolf`). */
 export const GEGNER: Record<string, KampfWerte[]> = {
-  kapsel: [UEBUNGSGEGNER], keiler: [KEILER], grathorn: [GRATHORN], wolf: [WOLF],
-  'keiler+grathorn': [KEILER, GRATHORN], 'wolf+wolf': [WOLF, WOLF], 'wolf+wolf+wolf': [WOLF, WOLF, WOLF],
+  kapsel: [UEBUNGSGEGNER], keiler: [KEILER], grathorn: [GRATHORN], wolf: [WOLF], fuchs: [FUCHS], gams: [GAMS],
+  'keiler+grathorn': [KEILER, GRATHORN], 'wolf+wolf': [WOLF, WOLF], 'wolf+fuchs': [WOLF, FUCHS], 'gams+gams': [GAMS, GAMS], 'wolf+wolf+wolf': [WOLF, WOLF, WOLF],
 };
 
 /** Kleiner deterministischer Zufall (mulberry32) — dieselbe Saat, dieselben Kämpfe. */
@@ -41,7 +43,7 @@ function zufall(saat: number) {
   return { r, normal };
 }
 
-export interface Ergebnis { sieg: boolean; zeit: number; erlitten: number; treffer: number }
+export interface Ergebnis { sieg: boolean; zeit: number; erlitten: number; treffer: number; paraden: number; blocks: number }
 
 /** Wer traf die Spielerin, in welcher ihrer Phasen, mit welchem Schlag — für die Diagnose. */
 export interface Einschlag { von: string; phase: string; schlag: string; rand: number }
@@ -58,7 +60,7 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     return k;
   });
   const w: Kampfwelt = { spielerin: s, gegner: alle, ziel: null };
-  let t = 0, rolleUm = Infinity, treffer = 0, kette = false, angreifer = '', zweite = false, seite = 1;
+  let t = 0, rolleUm = Infinity, blockUm = Infinity, paraden = 0, blocks = 0, treffer = 0, kette = false, angreifer = '', zweite = false, seite = 1;
   const gesehen = alle.map(g => g.schwung);
   while (t < 120 && s.phase !== 'gefallen' && alle.some(g => g.phase !== 'gefallen')) {
     // Wahrnehmen: ein neuer Angriff (erster Schlag, nicht die Kette) → Rolle nach der Reaktionszeit.
@@ -66,6 +68,12 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
       if (g.schwung === gesehen[i]) return;
       if (g.phase === 'vorlauf' && g.schlag === g.werte.schlag) {
         const patzt = z.r() < p.patzer;
+        if (p.parade && !g.schlag.durch) {
+          // Parieren heisst: das Ende des Vorlaufs treffen, nicht nur reagieren. Fehler ± Streuung.
+          blockUm = t + Math.max(0.12, g.schlag.vorlauf - 0.09 + z.normal(0, p.streuung) + (patzt ? 0.2 : 0));
+          kette = false; angreifer = g.id; gesehen[i] = g.schwung;
+          return;
+        }
         rolleUm = patzt && z.r() < 0.5 ? Infinity : t + Math.max(0.12, z.normal(p.reaktion, p.streuung)) + (patzt ? 0.2 : 0);
         kette = !!g.werte.kette?.length;
         angreifer = g.id;
@@ -84,7 +92,11 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     const rand = d - g.werte.radius - (g.werte.halbLaenge ?? 0) * 0.5;
     const a = alle.find(k => k.id === angreifer) ?? g;
     const ax = a.x - s.x, az = a.z - s.z, ad = Math.hypot(ax, az) || 1;
-    if (t >= rolleUm) {
+    if (t >= blockUm) {
+      if (s.phase !== 'block') setzeBlockAn(s);
+      // Halten, bis der Schlag vorbei ist (oder pariert — dann steht der Angreifer betäubt).
+      if (a.phase !== 'vorlauf' && a.phase !== 'aktiv') { loeseBlock(s); blockUm = Infinity; }
+    } else if (t >= rolleUm) {
       // Zur Seite aus dem Bogen des **Angreifers** (nicht des Ziels — im Rudel sind das zwei) —
       // dann steht man nach der Rolle nah genug, um in seine Erholung zu schlagen. Gegen eine Kette
       // zweimal (D171: die Doppelrolle schützt vor beiden Bissen). Erste Fassung rollte gerade weg
@@ -108,7 +120,7 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
       const offen = g.phase === 'erholung' && g.folge.length === 0 || g.phase === 'betaeubt' || (lauert && g.phase === 'bereit');
       // Wie lange er noch offen steht — ein Mensch schlägt nur, wenn der Schlag vorher ankommt.
       const rest = !offen ? 0 : g.phase === 'erholung' ? g.schlag.erholung - g.zeit
-        : g.phase === 'betaeubt' ? g.werte.betaeubt - g.zeit : (w.atem ?? 0);
+        : g.phase === 'betaeubt' ? (g.betaeubtFuer ?? g.werte.betaeubt) - g.zeit : (w.atem ?? 0);
       const art = g.phase === 'betaeubt' ? 'schwer' : 'leicht';
       const naechster = naechsterSchlag(s, art).schlag;
       const reich = naechster.reichweite * 0.9;
@@ -126,6 +138,8 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     const phaseVorher = s.phase;
     for (const e of simuliere(w, SCHRITT)) {
       if (e.von === 's' && e.schaden > 0) treffer++;
+      if (e.auf === 's' && e.pariert) paraden++;
+      else if (e.auf === 's' && e.geblockt) blocks++;
       if (e.auf === 's' && e.schaden > 0 && beobachte) {
         const a = alle.find(k => k.id === e.von)!;
         beobachte({ von: a.werte === aufstellung[0] ? 'erster' : 'zweiter', phase: phaseVorher, schlag: s.schlag.name ?? '',
@@ -134,22 +148,23 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     }
     t += SCHRITT;
   }
-  return { sieg: alle.every(g => g.phase === 'gefallen'), zeit: t, erlitten: s.werte.lebenMax - s.leben, treffer };
+  return { sieg: alle.every(g => g.phase === 'gefallen'), zeit: t, erlitten: s.werte.lebenMax - s.leben, treffer, paraden, blocks };
 }
 
-export interface Zeile { gegner: string; waffe: WaffenArt; profil: string; siege: number; zeit: number; erlitten: number }
+export interface Zeile { gegner: string; waffe: WaffenArt; profil: string; siege: number; zeit: number; erlitten: number; paraden: number; blocks: number }
 
 export function messe(kaempfe = 200): Zeile[] {
   const zeilen: Zeile[] = [];
   for (const [name, werte] of Object.entries(GEGNER)) for (const waffe of Object.keys(WAFFEN) as WaffenArt[]) {
     for (const p of PROFILE) {
-      let siege = 0, zeit = 0, erlitten = 0;
+      let siege = 0, zeit = 0, erlitten = 0, paraden = 0, blocks = 0;
       for (let i = 0; i < kaempfe; i++) {
         const e = kampf(werte, waffe, p, 1000 + i);
         if (e.sieg) { siege++; zeit += e.zeit; }
-        erlitten += e.erlitten;
+        erlitten += e.erlitten; paraden += e.paraden; blocks += e.blocks;
       }
-      zeilen.push({ gegner: name, waffe, profil: p.name, siege: siege / kaempfe, zeit: siege ? zeit / siege : NaN, erlitten: erlitten / kaempfe });
+      zeilen.push({ gegner: name, waffe, profil: p.name, siege: siege / kaempfe, zeit: siege ? zeit / siege : NaN, erlitten: erlitten / kaempfe,
+        paraden: paraden / kaempfe, blocks: blocks / kaempfe });
     }
   }
   return zeilen;

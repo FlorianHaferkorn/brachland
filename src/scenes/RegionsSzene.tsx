@@ -394,10 +394,12 @@ export const STIMMUNG: Record<string, Stimmung> = {
     // Sonne 1,6 → 1,3 und Belichtung 2,2 → 2,05 (D118): Bei 1,6 lag an der
     // Felsflanke ein Viertel des Bildes über Leuchtdichte 0,30 — das Brennen kam
     // aus der Sonne, nicht aus der Belichtung. Jetzt 0,169 Median, 0,4 % hell.
-    sonne: '#d8d2c0', sonneStaerke: 1.3, umgebung: '#5d7072', umgebungStaerke: 3.5,
+    // D173: Sonne 1,3 → 1,5, Fülllicht 3,5 → 3,2, Schatten 0,5 → 0,65. Verhältnis Sonne·sin(Höhe) zu
+    // Fülllicht 0,20 → 0,25 — Richtung `tag` (0,29), aber darunter: Dunst streut, das bleibt weicher.
+    sonne: '#d8d2c0', sonneStaerke: 1.5, umgebung: '#5d7072', umgebungStaerke: 3.2,
     sonnenstand: [90, 90, -110] as const,
     belichtung: 2.05,
-    schatten: 0.5,   // Dunst: weicher Schatten
+    schatten: 0.65,   // Dunst: weicher Schatten
     // Im Dunst gibt es keine Scheibe, nur einen breiten hellen Fleck.
     zenit: '#26333a', horizont: '#3e4a48', scheibe: 0.0, hof: 42,
     // Im Dunst streut das Licht ohnehin um jede Kante — Rand dezent.
@@ -2712,6 +2714,7 @@ const HIEB_AXT_S = { scheitel: 12 / 24, durchzug: 16 / 24 };
  * Geladen ohne Suspense: Fehlt die Datei, spielt die Figur weiter `Sword_Slash`/`Axe_Overhead`.
  */
 const WAFFENCLIPS = '/figuren/kampf/wanderin-waffen.glb';
+const WAFFENMODELLE = '/figuren/kampf/waffen.glb';
 function useWaffenClips(): THREE.AnimationClip[] {
   const [clips, setzeClips] = useState<THREE.AnimationClip[]>([]);
   useEffect(() => {
@@ -2868,6 +2871,24 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
     if (hand) { hand.add(w.klinge); hand.add(w.axt); }
     return w;
   }, [scene]);
+  // D173: die Modelle aus dem Medieval Weapons Pack (CC0, `tools/waffenbau.py`) ersetzen die Kästen,
+  // sobald die Datei geladen ist. Ohne Datei bleiben die Kästen.
+  useEffect(() => {
+    let lebt = true;
+    new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(WAFFENMODELLE).then(g => {
+      if (!lebt) return;
+      for (const [name, gruppe] of [['Klinge', waffen.klinge], ['Axt', waffen.axt]] as const) {
+        const m = g.scene.getObjectByName(name);
+        if (!m) continue;
+        gruppe.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
+        gruppe.clear();
+        m.position.set(0, 0, 0);
+        m.traverse(o => { if (o instanceof THREE.Mesh) o.castShadow = true; });
+        gruppe.add(m);
+      }
+    }).catch(() => { /* Rückfall: Kästen */ });
+    return () => { lebt = false; };
+  }, [waffen]);
   useEffect(() => () => {
     for (const g of [waffen.klinge, waffen.axt]) {
       g.removeFromParent();
@@ -2930,6 +2951,11 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
       }
       if (k.phase === 'gefallen') {
         ziel = clips.tod; blende = 0.15;
+      } else if (k.phase === 'block' && aktionen('Klinge_U_Block', true)) {
+        // D173: Deckung heben und halten — der Clip bleibt auf seinem letzten Bild stehen.
+        const b = aktionen('Klinge_U_Block', true)!;
+        b.clampWhenFinished = true; b.timeScale = 2;
+        ziel = b; blende = 0.06;
       } else if (k.phase === 'rolle') {
         ziel = clips.rolle; blende = 0.06;
         neu = k.rollen !== kv.rollen;
@@ -2961,8 +2987,10 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
         hieb.timeScale = 0;
         hieb.time = Math.min(sek, dauer * 0.999);
       } else if (k.phase === 'betaeubt' || k.phase === 'zucken' || kv.uhr < kv.trefferBis) {
-        ziel = clips.treffer; blende = 0.08;
-        neu = clips.aktiv !== clips.treffer;
+        // D173: betäubt taumelt (UAL2 `Kampf_Taumeln`), sonst der Rückstoß; ohne Waffendatei HitRecieve.
+        const t = (k.phase === 'betaeubt' ? aktionen('Kampf_Taumeln') : aktionen('Kampf_Rueckstoss')) ?? clips.treffer;
+        ziel = t; blende = 0.08;
+        neu = clips.aktiv !== t;
       }
       kv.schwung = k.schwung; kv.rollen = k.rollen;
     }

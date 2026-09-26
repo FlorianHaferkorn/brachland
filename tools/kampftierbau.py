@@ -36,6 +36,9 @@ ZIEL = ARGS[1] if len(ARGS) > 1 else 'public/creatures/kampf'
 TIERE = {
     'k7-wolf': ('wolf', ('Idle', 'Walk', 'Gallop', 'Attack', 'Idle_HitReact_Left', 'Idle_HitReact_Right', 'Death')),
     'grathorn': ('hirsch', ('Idle', 'Walk', 'Gallop', 'Attack_Headbutt', 'Idle_HitReact_Left', 'Idle_HitReact_Right', 'Death')),
+    # D173: Spürfuchs (Fuchs) und Nebelgams (Reh, Stoss mit dem Kopf).
+    'spuerfuchs': ('fuchs', ('Idle', 'Walk', 'Gallop', 'Attack', 'Idle_HitReact_Left', 'Idle_HitReact_Right', 'Death')),
+    'nebelgams': ('reh', ('Idle', 'Walk', 'Gallop', 'Attack_Headbutt', 'Idle_HitReact_Left', 'Idle_HitReact_Right', 'Death')),
 }
 NUR = set(ARGS[2].split(',')) if len(ARGS) > 2 else None
 
@@ -81,7 +84,9 @@ def lage_finden(quelle_pts, ziel_pts):
     return beste
 
 
-register = {}
+# Mit NUR bleiben die übrigen Einträge stehen (D173: vorher überschrieb ein Teilbau das Register).
+_reg = f'{ZIEL}/register.json'
+register = json.load(open(_reg)) if NUR and os.path.exists(_reg) else {}
 os.makedirs(ZIEL, exist_ok=True)
 for art, (datei, clips) in TIERE.items():
     if NUR and art not in NUR:

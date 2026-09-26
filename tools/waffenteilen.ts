@@ -20,7 +20,7 @@ import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
 import { mkdirSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-const WAFFENCLIP = /^(Klinge|Axt)_/;
+const WAFFENCLIP = /^(Klinge|Axt|Kampf)_/;
 const QUELLE = 'public/figuren/wanderin.glb';
 const ZIEL = 'public/figuren/kampf/wanderin-waffen.glb';
 
@@ -45,7 +45,9 @@ await io.write(QUELLE, figur);
 // 2. Nur Knochen und Waffenclips. Ohne Netz und Skin sind die Knochen leere Blätter — `prune`
 //    darf sie nicht wegräumen, sonst zeigen die Kanäle ins Leere.
 const r = clips.getRoot();
-for (const a of r.listAnimations()) if (!WAFFENCLIP.test(a.getName())) a.dispose();
+// D173: von UAL2-Clips abgelöst — gebaut werden sie weiter (Tests), ausgeliefert nicht mehr (Budget).
+const ABGELOEST = new Set(['Klinge_Rueckhand', 'Klinge_Schwer', 'Klinge_Lauf']);
+for (const a of r.listAnimations()) if (!WAFFENCLIP.test(a.getName()) || ABGELOEST.has(a.getName())) a.dispose();
 for (const n of r.listNodes()) { n.setMesh(null); n.setSkin(null); }
 for (const m of r.listMeshes()) m.dispose();
 for (const s of r.listSkins()) s.dispose();
@@ -59,10 +61,11 @@ for (const a of r.listAnimations()) for (const c of a.listChannels()) {
   if (out && [...out].every(v => Math.abs(v - 1) < 1e-4)) { c.getSampler()?.dispose(); c.dispose(); ohneSkala++; }
 }
 // Meshopt quantisiert und packt auch die Animationskanäle — die Szene lädt mit dem Decoder.
-await clips.transform(resample(), dedup(), prune({ keepLeaves: true }), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
+await clips.transform(resample({ tolerance: 5e-4 }), dedup(), prune({ keepLeaves: true }), meshopt({ encoder: MeshoptEncoder, level: 'high' }));
 mkdirSync(dirname(ZIEL), { recursive: true });
 await io.write(ZIEL, clips);
 
 const kb = (p: string) => (statSync(p).size / 1024).toFixed(0);
 console.log(`${QUELLE}: ${namen.length - waffen.length} Clips, ${kb(QUELLE)} KB`);
-console.log(`${ZIEL}: ${waffen.length} Clips (${waffen.join(', ')}), ${ohneSkala} Skalenkanäle weg, ${kb(ZIEL)} KB`);
+const drin = waffen.filter(n => !ABGELOEST.has(n));
+console.log(`${ZIEL}: ${drin.length} Clips (${drin.join(', ')}), ${ohneSkala} Skalenkanäle weg, ${kb(ZIEL)} KB`);

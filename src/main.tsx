@@ -56,7 +56,7 @@ const KAMPF_PARAM = new URLSearchParams(location.search).get('kampf');
  * zwei Telegrafe. `?kampf=keiler|grathorn|wolf|kapsel` stellt zwei derselben Art auf,
  * `?kampf=wolf,keiler` zwei verschiedene.
  */
-const KAMPF_ARTEN = ['keiler', 'grathorn', 'wolf', 'kapsel'] as const;
+const KAMPF_ARTEN = ['keiler', 'grathorn', 'wolf', 'fuchs', 'gams', 'kapsel'] as const;
 type KampfArt = typeof KAMPF_ARTEN[number];
 const KAMPF_LISTE = (KAMPF_PARAM ?? '').split(',').filter((a): a is KampfArt => (KAMPF_ARTEN as readonly string[]).includes(a));
 // `?kampf=rudel` (D172): drei Wölfe — sie stellen die Spielerin von mehreren Seiten.

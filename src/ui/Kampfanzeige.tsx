@@ -137,7 +137,7 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
       }}>
         <div style={balken(132, 5)}><div ref={eigen} style={{ ...fuellung, background: '#9c7d62' }} /></div>
         <div style={{ ...text, opacity: 0.7 }}>
-          J leicht · I schwer · Shift+J im Lauf · K Rolle · L Ziel · Q/E · 1/2 Waffe · <span ref={zaehler} />
+          J leicht · I schwer · Shift+J im Lauf · K Rolle · U Block · L Ziel · Q/E · 1/2 Waffe · <span ref={zaehler} />
         </div>
       </div>
     </div>

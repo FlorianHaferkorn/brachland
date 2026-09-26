@@ -26,5 +26,33 @@
   ],
   "quelle": "hirsch",
   "abstand_cm": 0.0
+ },
+ "spuerfuchs": {
+  "kb": 538.5,
+  "clips": [
+   "Attack",
+   "Death",
+   "Gallop",
+   "Idle",
+   "Idle_HitReact_Left",
+   "Idle_HitReact_Right",
+   "Walk"
+  ],
+  "quelle": "fuchs",
+  "abstand_cm": 0.0
+ },
+ "nebelgams": {
+  "kb": 536.8,
+  "clips": [
+   "Attack_Headbutt",
+   "Death",
+   "Gallop",
+   "Idle",
+   "Idle_HitReact_Left",
+   "Idle_HitReact_Right",
+   "Walk"
+  ],
+  "quelle": "reh",
+  "abstand_cm": 0.0
  }
 }

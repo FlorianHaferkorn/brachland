@@ -26,7 +26,7 @@
  */
 import { neueAusdauer, reicht, schritt as ausdauerSchritt, verbrauche, type Ausdauer } from '../spieler/ausdauer.js';
 
-export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'betaeubt' | 'zucken' | 'gefallen';
+export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen';
 
 /** Ein Schlag: drei Phasen, Bogen, Wirkung. Zeiten in Sekunden, Strecken in Metern. */
 export interface Schlag {
@@ -60,6 +60,8 @@ export interface Schlag {
   schritt?: number;
   /** Wie weit der Treffer das Ziel zurückstösst, Meter (D171). Ohne Angabe 0,2. */
   rueckstoss?: number;
+  /** Geht durch jeden Block (ADR-0009 Stufe 1, D173) — der Rammstoss des Keilers. Nur ausweichen hilft. */
+  durch?: boolean;
 }
 
 /** Die Ausweichrolle. */
@@ -150,8 +152,8 @@ export interface Waffe {
   haltung: string;
 }
 
-const KLINGE_1: Schlag = { ...SPIELERIN.schlag, name: 'Hieb', clip: 'Sword_Slash',
-  hieb: { scheitel: 0.375, durchzug: 0.67 }, schritt: 0.3 };
+const KLINGE_1: Schlag = { ...SPIELERIN.schlag, name: 'Hieb', clip: 'Klinge_U_A',
+  hieb: { scheitel: 6 / 24, durchzug: 9 / 24 }, schritt: 0.3 };
 const AXT_1: Schlag = {
   name: 'Axthieb', vorlauf: 0.42, aktiv: 0.16, erholung: 0.55,
   reichweite: 2.9, halbwinkel: 40 * GRAD,
@@ -163,7 +165,8 @@ const AXT_1: Schlag = {
  * Die Klinge: drei leichte (Hieb, Rückhand, Stich — der Stich reicht weiter und schmaler), ein
  * schwerer Zweihandhieb von oben, ein Laufstich mit langem Ausfall. Die Axt: zwei leichte (von oben,
  * dann quer mit breitem Bogen), ein schwerer Hieb mit weitem Ausholen, ein Laufhieb schräg.
- * Die Clips (ausser `Sword_Slash`) baut `tools/waffenclips.py`; die Zeiten `hieb` stehen dort.
+ * Klinge: Hieb, Rückhand, Zweihand und Laufstich aus der UAL2 (`tools/ual2uebertrag.py`, D173,
+ * `hieb` gemessen an der Klingenspitze); Stich und alle Axtclips baut `tools/waffenclips.py`.
  */
 export const WAFFEN: Record<WaffenArt, Waffe> = {
   klinge: {
@@ -172,17 +175,17 @@ export const WAFFEN: Record<WaffenArt, Waffe> = {
       KLINGE_1,
       { name: 'Rückhand', vorlauf: 0.16, aktiv: 0.12, erholung: 0.34, reichweite: 2.4, halbwinkel: 60 * GRAD,
         schaden: 26, haltungsschaden: 30, kosten: 16, nachdrehen: 6,
-        clip: 'Klinge_Rueckhand', hieb: { scheitel: 8 / 24, durchzug: 13 / 24 }, schritt: 0.35 },
+        clip: 'Klinge_U_B', hieb: { scheitel: 6 / 24, durchzug: 9 / 24 }, schritt: 0.35 },
       { name: 'Stich', vorlauf: 0.22, aktiv: 0.1, erholung: 0.45, reichweite: 2.8, halbwinkel: 20 * GRAD,
         schaden: 34, haltungsschaden: 40, kosten: 20, nachdrehen: 5,
         clip: 'Klinge_Stich', hieb: { scheitel: 9 / 24, durchzug: 13 / 24 }, schritt: 0.6, rueckstoss: 0.35 },
     ],
     schwer: { name: 'Zweihandhieb', vorlauf: 0.5, aktiv: 0.14, erholung: 0.5, reichweite: 2.6, halbwinkel: 45 * GRAD,
       schaden: 48, haltungsschaden: 60, kosten: 30, nachdrehen: 4,
-      clip: 'Klinge_Schwer', hieb: { scheitel: 14 / 24, durchzug: 18 / 24 }, schritt: 0.4, rueckstoss: 0.45 },
+      clip: 'Klinge_U_C', hieb: { scheitel: 14 / 24, durchzug: 18 / 24 }, schritt: 0.4, rueckstoss: 0.45 },
     lauf: { name: 'Laufstich', vorlauf: 0.15, aktiv: 0.14, erholung: 0.5, reichweite: 2.8, halbwinkel: 35 * GRAD,
       schaden: 30, haltungsschaden: 40, kosten: 22, nachdrehen: 3,
-      clip: 'Klinge_Lauf', hieb: { scheitel: 6 / 24, durchzug: 10 / 24 }, schritt: 1.4, rueckstoss: 0.4 },
+      clip: 'Klinge_U_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.4, rueckstoss: 0.4 },
   },
   axt: {
     name: 'Axt', schlag: AXT_1, haltung: 'Axt_Stand',
@@ -214,6 +217,15 @@ export const KOMBO_FENSTER = 0.45;
 export const TREFFERSTOPP = 0.06;
 /** Über so viele Sekunden läuft ein Rückstoss aus (D171) — ein Ruck statt eines Sprungs. */
 export const STOSS_DAUER = 0.15;
+/**
+ * Block und Parade (ADR-0009 Stufe 1, D173). Geblockt wird frontal (±70° um den Blick). Wer den
+ * Block höchstens `PARADE` s vor dem Treffer hob, pariert: kein Schaden, keine Ausdauer, der
+ * Angreifer ist `PARADE_BETAEUBT` s betäubt. Sonst kostet der Block Ausdauer (halber
+ * Haltungsschaden); reicht sie nicht, bricht er — betäubt und erschöpft.
+ */
+export const BLOCK = { halbwinkel: 70 * GRAD, kosten: 0.5, rueckstoss: 0.5 };
+export const PARADE = 0.18;
+export const PARADE_BETAEUBT = 0.6;
 
 /** Waffe wechseln — nur aus dem Stand, nie mitten im Schlag oder in der Rolle. */
 export function ruesteAus(k: Kaempfer, art: WaffenArt): boolean {
@@ -260,6 +272,8 @@ export const KEILER: KampfWerte = {
     vorlauf: 0.85, aktiv: 0.18, erholung: 1.0,
     reichweite: 2.6, halbwinkel: 35 * GRAD,
     schaden: 28, haltungsschaden: 36, kosten: 0, nachdrehen: 1.2,
+    // D173: Der Rammstoss geht durch jeden Block.
+    durch: true,
   },
   rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
   lebenMax: 140, haltungMax: 70, haltungErholung: 18, haltungRuhe: 1.6, betaeubt: 1.0,
@@ -309,6 +323,40 @@ export const WOLF: KampfWerte = {
   rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
   lebenMax: 90, haltungMax: 55, haltungErholung: 25, haltungRuhe: 1.2, betaeubt: 0.8,
   radius: 0.28, hoehe: 0.9, halbLaenge: 0.45,
+};
+
+/**
+ * Der Spürfuchs als Gegner (D173) — klein, schnell, schwach. Er schnappt nach kurzem Ducken
+ * (0,4 s): zu schnell, um erst beim Ausholen zu reagieren — wer ihn parieren will, muss seinen
+ * Rhythmus lesen. Wenig Leben, geringer Schaden; im Rudel mit dem Wolf ist er der Störer.
+ */
+export const FUCHS: KampfWerte = {
+  schlag: {
+    name: 'Schnappen', vorlauf: 0.4, aktiv: 0.1, erholung: 0.95,
+    reichweite: 1.8, halbwinkel: 40 * GRAD,
+    schaden: 10, haltungsschaden: 14, kosten: 0, nachdrehen: 4.0, schritt: 0.4,
+  },
+  tempo: 4.5,
+  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
+  lebenMax: 60, haltungMax: 40, haltungErholung: 25, haltungRuhe: 1.0, betaeubt: 0.8,
+  radius: 0.22, hoehe: 0.6, halbLaenge: 0.3,
+};
+
+/**
+ * Die Nebelgams als Gegner (D173) — Huftier wie der Grathorn, aber leicht: ein kurzer Kopfstoss
+ * (0,45 s) mit weitem Rückstoss. Sie trifft selten hart, wirft aber aus der Stellung — wer am Rand
+ * steht oder zwischen zwei Gegnern, merkt das.
+ */
+export const GAMS: KampfWerte = {
+  schlag: {
+    name: 'Kopfstoss', vorlauf: 0.45, aktiv: 0.12, erholung: 0.7,
+    reichweite: 2.0, halbwinkel: 30 * GRAD,
+    schaden: 18, haltungsschaden: 36, kosten: 0, nachdrehen: 2.5, schritt: 0.3, rueckstoss: 0.9,
+  },
+  tempo: 3.5,
+  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
+  lebenMax: 100, haltungMax: 55, haltungErholung: 22, haltungRuhe: 1.3, betaeubt: 0.9,
+  radius: 0.26, hoehe: 1.1, halbLaenge: 0.4,
 };
 
 /** Wie weit und in welchem Kegel die Zielaufschaltung greift, und wie schnell sie den Blick zieht. */
@@ -382,6 +430,8 @@ export interface Kaempfer {
   ausdauerFremd?: boolean;
   /** Laufender Rückstoss (D171): Rest in Metern je Achse und Restzeit. */
   stoss?: { x: number; z: number; rest: number } | null;
+  /** Dauer der laufenden Betäubung, wenn sie nicht `werte.betaeubt` ist (Parade, D173). */
+  betaeubtFuer?: number;
 }
 
 export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: number, blick = 0, y = 0): Kaempfer {
@@ -499,6 +549,29 @@ export function setzeRolleAn(k: Kaempfer, richtX: number, richtZ: number): boole
   return true;
 }
 
+/** Block heben (D173): aus dem Stand oder der abbrechbaren Erholung, mit etwas Ausdauer. */
+export function kannBlocken(k: Kaempfer): boolean {
+  if (k.werte.rolle.dauer <= 0) return false; // Gegner blocken nicht — wer nicht rollt, blockt nicht.
+  const abbrechbar = k.phase === 'erholung' && k.zeit >= k.schlag.erholung * KOMBO_AB;
+  return (k.phase === 'bereit' || abbrechbar) && reicht(k.ausdauer, 0);
+}
+export function setzeBlockAn(k: Kaempfer): boolean {
+  if (!kannBlocken(k)) return false;
+  k.phase = 'block'; k.zeit = 0; k.puffer = null; k.kombo = 0; k.komboOffen = 0;
+  return true;
+}
+export function loeseBlock(k: Kaempfer): void {
+  if (k.phase === 'block') { k.phase = 'bereit'; k.zeit = 0; }
+}
+/** Steht der Angreifer vor dem Blockenden? */
+export function blocktFrontal(z: Kaempfer, a: Kaempfer): boolean {
+  return Math.abs(winkelDiff(z.blick, blickAuf(z.x, z.z, a.x, a.z))) <= BLOCK.halbwinkel;
+}
+
+function betaeube(k: Kaempfer, dauer?: number): void {
+  k.phase = 'betaeubt'; k.zeit = 0; k.folge = []; k.puffer = null; k.betaeubtFuer = dauer;
+}
+
 export function unverwundbar(k: Kaempfer): boolean {
   return k.phase === 'rolle'
     && k.zeit >= k.werte.rolle.unverwundbarVon && k.zeit < k.werte.rolle.unverwundbarBis;
@@ -550,6 +623,10 @@ export interface Treffer {
   toedlich: boolean;
   /** Die Rolle hat den Schlag geschluckt. */
   ausgewichen: boolean;
+  /** Der Block hat ihn gefangen (D173) — kein Schaden, Ausdauer weg. */
+  geblockt?: boolean;
+  /** Parade (D173): gefangen im ersten Moment des Blocks, der Angreifer ist betäubt. */
+  pariert?: boolean;
 }
 
 /**
@@ -571,6 +648,22 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       continue;
     }
     const s = a.schlag;
+    if (z.phase === 'block' && !s.durch && blocktFrontal(z, a)) {
+      const dx = z.x - a.x, dz = z.z - a.z, d = Math.hypot(dx, dz) || 1;
+      if (z.zeit <= PARADE) {
+        betaeube(a, PARADE_BETAEUBT);
+        raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: false, toedlich: false, ausgewichen: false,
+          geblockt: true, pariert: true });
+        continue;
+      }
+      const kosten = s.haltungsschaden * BLOCK.kosten;
+      const haelt = reicht(z.ausdauer, kosten);
+      z.ausdauer = haelt ? verbrauche(z.ausdauer, kosten) : { wert: 0, seitZehrung: 0, erschoepft: true };
+      if (!haelt) betaeube(z);
+      z.stoss = { x: dx / d * (s.rueckstoss ?? 0.2) * BLOCK.rueckstoss, z: dz / d * (s.rueckstoss ?? 0.2) * BLOCK.rueckstoss, rest: STOSS_DAUER };
+      raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: !haelt, toedlich: false, ausgewichen: false, geblockt: true });
+      continue;
+    }
     z.leben = Math.max(0, z.leben - s.schaden);
     z.haltung -= s.haltungsschaden;
     z.seitTreffer = 0;
@@ -578,7 +671,7 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     const toedlich = z.leben <= 0;
     if (toedlich) { z.phase = 'gefallen'; z.zeit = 0; }
     else if (z.haltung <= 0) {
-      z.phase = 'betaeubt'; z.zeit = 0; z.haltung = z.werte.haltungMax; gebrochen = true;
+      betaeube(z); z.haltung = z.werte.haltungMax; gebrochen = true;
     } else if ((z.werte.zucken ?? 0) > 0) {
       // D170: Der Treffer reisst aus der Handlung — ein Schlag im Vorlauf ist verloren.
       z.phase = 'zucken'; z.zeit = 0; z.folge = []; z.puffer = null;
@@ -601,7 +694,7 @@ function phasenDauer(k: Kaempfer): number {
     case 'aktiv': return k.schlag.aktiv;
     case 'erholung': return k.schlag.erholung;
     case 'rolle': return w.rolle.dauer;
-    case 'betaeubt': return w.betaeubt;
+    case 'betaeubt': return k.betaeubtFuer ?? w.betaeubt;
     case 'zucken': return w.zucken ?? 0;
     default: return Infinity;
   }

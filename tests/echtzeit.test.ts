@@ -16,7 +16,7 @@ import {
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, kannSchlagen, kannRollen,
   imBogen, loeseTreffer, schrittKaempfer, simuliere, waehleZiel, blickAuf, vorwaerts,
   WAFFEN, ruesteAus, wechsleZiel, KEILER, GRATHORN, WOLF,
-  puffere, naechsterSchlag, PUFFER, KOMBO_AB, KOMBO_FENSTER, TREFFERSTOPP, STOSS_DAUER, type Schlag,
+  puffere, naechsterSchlag, setzeBlockAn, loeseBlock, kannBlocken, PARADE, PARADE_BETAEUBT, BLOCK, PUFFER, KOMBO_AB, KOMBO_FENSTER, TREFFERSTOPP, STOSS_DAUER, type Schlag,
   type Kaempfer, type Kampfwelt, type Treffer,
 } from '../src/kampf/echtzeit.js';
 
@@ -747,5 +747,52 @@ console.log(`  Schläge zweier Gegner in 15 s        ${schlaegeZuZweit} (im Wech
   console.log(`  Grathorn: Schutzfenster              ${f3(grathornVon)} … ${f3(grathornBis)} s (Telegraf ${GRATHORN.schlag.vorlauf} s)`);
 }
 console.log(`  Leichte Kette (mit Abbruch)          ${kettenWerte}`);
+
+// ---------------------------------------------------- Block und Parade (ADR-0009 Stufe 1, D173)
+{
+  /** Der Angreifer holt aus; die Spielerin hebt `vorTreffer` s vor dem Aktiven den Block. */
+  function blockLauf(vorTreffer: number, opt: { werte?: typeof UEBUNGSGEGNER; wegDrehen?: boolean; ausdauer?: number } = {}) {
+    const s = neuerKaempfer('s', SPIELERIN, 0, 0, opt.wegDrehen ? Math.PI : 0);
+    const w = opt.werte ?? UEBUNGSGEGNER;
+    const g = neuerKaempfer('g', w, 0, -1.6, blickAuf(0, -1.6, 0, 0));
+    if (opt.ausdauer !== undefined) s.ausdauer = { wert: opt.ausdauer, seitZehrung: 0, erschoepft: false };
+    setzeSchlagAn(g);
+    const blockAb = w.schlag.vorlauf - vorTreffer;
+    let t = 0, tr: Treffer[] = [];
+    while (t < w.schlag.vorlauf + w.schlag.aktiv && !tr.length) {
+      if (s.phase === 'bereit' && t >= blockAb - 1e-9) setzeBlockAn(s);
+      schrittKaempfer(s, SCHRITT); schrittKaempfer(g, SCHRITT);
+      tr = loeseTreffer(g, [s]); t += SCHRITT;
+    }
+    return { s, g, tr: tr[0] };
+  }
+  const frueh = blockLauf(0.1);
+  pruefe('Parade: Block 0,1 s vor dem Treffer pariert', !!frueh.tr?.pariert, JSON.stringify(frueh.tr));
+  pruefe('Parade: kein Schaden, keine Ausdauer', frueh.s.leben === SPIELERIN.lebenMax && frueh.s.ausdauer.wert >= 99.9,
+    `${frueh.s.leben} / ${frueh.s.ausdauer.wert}`);
+  pruefe('Parade: der Angreifer ist betäubt', frueh.g.phase === 'betaeubt', frueh.g.phase);
+  { const g = frueh.g; let t = 0; while (g.phase === 'betaeubt' && t < 3) { schrittKaempfer(g, SCHRITT); t += SCHRITT; }
+    pruefe(`Parade betäubt ${PARADE_BETAEUBT} s`, Math.abs(t - PARADE_BETAEUBT) < 2 * SCHRITT, f3(t)); }
+  const spaet = blockLauf(0.5);
+  pruefe('Block 0,5 s vorher: geblockt, nicht pariert', !!spaet.tr?.geblockt && !spaet.tr.pariert, JSON.stringify(spaet.tr));
+  pruefe('Block kostet halben Haltungsschaden an Ausdauer, kein Leben',
+    spaet.s.leben === SPIELERIN.lebenMax && spaet.s.ausdauer.wert <= 100 - UEBUNGSGEGNER.schlag.haltungsschaden * BLOCK.kosten + 1e-6,
+    `${spaet.s.leben} / ${spaet.s.ausdauer.wert}`);
+  pruefe('Block hält die Spielerin im Block', spaet.s.phase === 'block', spaet.s.phase);
+  const ruecken = blockLauf(0.5, { wegDrehen: true });
+  pruefe('Block von hinten hilft nicht', !!ruecken.tr && !ruecken.tr.geblockt && ruecken.s.leben < SPIELERIN.lebenMax);
+  const leer = blockLauf(0.5, { ausdauer: 5 });
+  pruefe('Block ohne Ausdauer bricht: betäubt, erschöpft', !!leer.tr?.gebrochen && leer.s.phase === 'betaeubt' && leer.s.ausdauer.erschoepft,
+    `${leer.s.phase}`);
+  const keiler = blockLauf(0.5, { werte: KEILER });
+  pruefe('Der Rammstoss des Keilers geht durch den Block', !!keiler.tr && !keiler.tr.geblockt && keiler.s.leben < SPIELERIN.lebenMax);
+  const k = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+  setzeSchlagAn(k, WAFFEN.klinge.schwer);
+  pruefe('kein Block aus dem Vorlauf', !kannBlocken(k));
+  const b = neuerKaempfer('s', SPIELERIN, 0, 0, 0); setzeBlockAn(b); loeseBlock(b);
+  pruefe('Block loslassen: bereit', b.phase === 'bereit');
+  pruefe('Gegner blocken nicht (Stufe 1)', !kannBlocken(neuerKaempfer('g', WOLF, 0, 0)));
+  console.log(`  Parade: Fenster ${Math.round(PARADE * 1000)} ms, Angreifer ${PARADE_BETAEUBT} s betäubt · Block frontal ±${Math.round(BLOCK.halbwinkel / GRAD)}°`);
+}
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);

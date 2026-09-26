@@ -29,6 +29,9 @@ und der ist auf beiden Rechnern nicht lauffähig (G-119).
 | `k7-wolf.glb` | K7-Wolf | Quaternius | CC0 | poly.pizza, Animated Animal Pack |
 | `kampf/k7-wolf.glb` | K7-Wolf mit Rig für den Kampf (D172) | Quaternius | CC0 | dasselbe Modell, gebunden an Skelett und Clips der Quelle (Animated Animal Pack, „Wolf“: Idle, Walk, Gallop, Attack, HitReact, Death) mit `tools/kampftierbau.py` |
 | `kampf/grathorn.glb` | Grathorn mit Rig für den Kampf (D172) | Quaternius | CC0 | dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Stag“: Idle, Walk, Gallop, Attack_Headbutt, HitReact, Death) |
+| `kampf/spuerfuchs.glb` | Spürfuchs mit Rig für den Kampf (D173) | Quaternius | CC0 | dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Fox“: Idle, Walk, Gallop, Attack, HitReact links/rechts, Death), `tools/kampftierbau.py` |
+| `kampf/nebelgams.glb` | Nebelgams mit Rig für den Kampf (D173) | Quaternius | CC0 | dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Deer“: Idle, Walk, Gallop, Attack_Headbutt, HitReact links/rechts, Death) |
+| `kampf/waffen.glb` | Schwert und Axt der Wanderin (D173) | Quaternius | CC0 | Medieval Weapons Pack („Sword“, „Axe“, OBJ), gedreht, skaliert und im Griff zentriert mit `tools/waffenbau.py` |
 | `grathorn.glb` | Grathorn | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Stag) |
 | `nebelgams.glb` | Nebelgams | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Deer) |
 | `wurzelkeiler.glb` | Wurzelkeiler | Poly by Google | **CC BY 3.0** | poly.pizza, „Boar" |
@@ -58,7 +61,7 @@ Gewichte auf 8 Bit.
 | Datei | Rolle | Autor | Lizenz | Quelle |
 |---|---|---|---|---|
 | `wanderin.glb` | Spielerfigur | Quaternius | CC0 | poly.pizza `y9KWOVG21R`, Ultimate Modular Women, „Hooded Adventurer" |
-| `wanderin-waffen.glb` | Kampfclips der Spielerin (nur Knochen und Animation, `figuren/kampf/`) | Quaternius (Rig), Clips selbst gebaut | CC0 | Rig aus poly.pizza `y9KWOVG21R`; die neun Clips (Klinge/Axt: Haltung, Kette, schwer, Lauf) aus `tools/waffenclips.py`, abgetrennt mit `tools/waffenteilen.ts` (D171) |
+| `wanderin-waffen.glb` | Kampfclips der Spielerin (nur Knochen und Animation, `figuren/kampf/`) | Quaternius (Rig), Clips selbst gebaut | CC0 | Rig aus poly.pizza `y9KWOVG21R`; die neun Clips (Klinge/Axt: Haltung, Kette, schwer, Lauf) aus `tools/waffenclips.py`, abgetrennt mit `tools/waffenteilen.ts` (D171); seit D173 dazu sieben Clips aus der Universal Animation Library 2 (Quaternius, CC0: Sword_Regular_A/B/C, Sword_Dash, Sword_Block, Hit_Knockback, Idle_Shield_Break), übertragen mit `tools/ual2uebertrag.py` |
 | `bauer.glb` | Bewohner (frei) | Quaternius | CC0 | poly.pizza `7pn3R6hPvE`, Ultimate Modular Men, „Farmer" |
 | `arbeiter.glb` | Der Wart vom Bruch | Quaternius | CC0 | poly.pizza `Yg2bQZO6Hj`, Ultimate Modular Men, „Worker" |
 | `wanderer.glb` | Bewohner (frei) | Quaternius | CC0 | poly.pizza `kZ3DmIoGip`, Ultimate Modular Men, „Casual Character" |

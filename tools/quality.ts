@@ -317,7 +317,15 @@ if (existsSync('public/figuren/kampf')) {
     const pfad = join('public/figuren/kampf', f);
     const kb = statSync(pfad).size / 1024;
     if (!herkunft.includes(f)) stop('Kampfclips', `${f} ohne Herkunftsangabe`);
-    if (kb > 250) stop('Kampfclips', `${f}: ${kb.toFixed(0)} KB über Budget 250 KB`);
+    // D173: Die Waffenmodelle sind Netze ohne Animation — eigenes, kleines Budget.
+    if (f === 'waffen.glb') {
+      if (kb > 60) stop('Waffenmodelle', `${f}: ${kb.toFixed(0)} KB über Budget 60 KB`);
+      console.log(`  · [Waffenmodelle] ${f}: ${kb.toFixed(0)} KB`);
+      continue;
+    }
+    // D173: 300 KB statt 250 — die UAL2-Clips (Kombos, Block, Treffer) sind je Bild geschlüsselt,
+    // und die Datei lädt nur mit Kampf, nicht beim Start.
+    if (kb > 300) stop('Kampfclips', `${f}: ${kb.toFixed(0)} KB über Budget 300 KB`);
     const buf = readFileSync(pfad);
     const g = JSON.parse(buf.subarray(20, 20 + buf.readUInt32LE(12)).toString('utf8'));
     if (g.meshes?.length) stop('Kampfclips', `${f} trägt ${g.meshes.length} Netze — erlaubt sind nur Knochen und Animation`);

@@ -4,7 +4,7 @@ shelf-life-days: 180
 ---
 # ADR-0009 — Richtungskampf: vier Linien, Block und Parade
 
-**Status:** Proposed · 2026-09-26 · Konzept, nichts gebaut · baut auf ADR-0007 (Echtzeitkampf) und ADR-0008 (Waffenwerk) auf · ADR-0004 gilt: Regeln werden übernommen, Figuren, Namen und Oberfläche nicht
+**Status:** Proposed · 2026-09-26 · Stufe 1 (Block/Parade) gebaut in D173, Stufen 2–3 offen · baut auf ADR-0007 (Echtzeitkampf) und ADR-0008 (Waffenwerk) auf · ADR-0004 gilt: Regeln werden übernommen, Figuren, Namen und Oberfläche nicht
 
 ## Kontext
 
@@ -98,3 +98,11 @@ als Überlagerung des vorhandenen `Attack`-Clips.
 
 - Method.gg: „The Blood of Dawnwalker Combat Explained" (Richtungen, Block, Parade, Undurchdringliches)
 - timesaver.gg und thebloodofdawnwalkerwiki.com (Parade kostet nichts, Gegnerdeckung, Lesen, Schwierigkeitsstufen)
+
+
+## Nachtrag D173 — Stufe 1 gebaut
+
+- `echtzeit.ts`: Phase `block`, `setzeBlockAn`/`loeseBlock`/`kannBlocken`, `BLOCK` (frontal ±70°, Kosten = halber Haltungsschaden, Rückstoss halb), `PARADE` 0,18 s, `PARADE_BETAEUBT` 0,6 s, `Schlag.durch` (Keiler-Rammstoss). Treffer tragen `geblockt`/`pariert`.
+- Taste: **U halten** (UNKLAR — Flo bestätigt oder wählt Maus rechts; offene Frage 1 bleibt damit offen).
+- Gegner blocken nicht (Stufe 2).
+- Kampfbot, Profil `parierend`: Klinge einzeln 100 %, schneller als Rollen (Wolf 3,5 s gegen 16 s); gegen das Rudel schlechter als Rollen (Klinge 42 % gegen 97 %); die Axt pariert schlecht (lange Erholung, Gegenschlag kommt nicht in 0,6 s an). Parade ist mit der Klinge vermutlich zu stark — Bot-Timing σ 50 ms ist besser als ein Mensch; Spieltest nötig.
