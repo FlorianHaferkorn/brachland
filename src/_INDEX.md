@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-17
+last-reviewed: 2026-09-26
 shelf-life-days: 90
 owns: *.ts, *.tsx
 ---
@@ -82,7 +82,7 @@ owns: *.ts, *.tsx
 | `world/klippen.ts` | Felswände aus der Hangneigung. Ein Höhenraster kann per Bauart keine senkrechte Wand — deshalb aufgesetzt statt geschnitzt. Seit D87 verjüngte, gescherte und **verdrehte** Körper mit First, Kluft und Schutt statt gekippter Quader (36–48 → 110–150 Dreiecke, 5 Varianten), und die Auswahl läuft über die **Nachbarschaft** statt über einen Würfel: Ein Würfel je Zelle ergab ein Feld von Menhiren auf einer Wiese (G-108) |
 | `ui/Witterung.tsx` | Richtung und Abstand zur nächsten Kreatur. Notwendig, weil eine Kreatur auf 62 m nur zwölf Pixel hoch ist |
 | `spieler/peilung.ts` | Richtung zu einem Punkt relativ zum Blick. Rein und getestet — hier steckte ein Vorzeichenfehler |
-| `kampf/echtzeit.ts` | Echtzeitkampf ohne 3D (D166): feste Unterschritte 1/120 s, Phasen Vorlauf/aktiv/Erholung, Rolle mit Unverwundbarkeitsfenster, Haltung, Waffenbogen gegen Kapsel, Zielwahl, Waffenklassen `WAFFEN` (ADR-0008), Gegnerwerte `KEILER`/`GRATHORN` (Stufe 2, D169/D170), Zucken und Tiere als Pille (D170), Zielwechsel, Übungsgegner-KI mit **Angriffsrecht** (höchstens einer schlägt, die anderen kreisen ausser Reichweite, D167). Zehrt aus derselben Ausdauer wie Klettern. Rein und getestet |
+| `kampf/echtzeit.ts` | Echtzeitkampf ohne 3D (D166): feste Unterschritte 1/120 s, Phasen Vorlauf/aktiv/Erholung, Rolle mit Unverwundbarkeitsfenster, Haltung, Waffenbogen gegen Kapsel, Zielwahl, Waffenklassen `WAFFEN` mit Moveset je Waffe (leichte Kette, schwer, Lauf; Puffer, Vorschritt, Rückstoss, Trefferstopp, D171), Gegnerwerte `KEILER`/`GRATHORN`/`WOLF` (Stufe 2, D169–D171, der Wolf mit Doppelbiss als `kette`), Zucken und Tiere als Pille (D170), Zielwechsel, Übungsgegner-KI mit **Angriffsrecht** (höchstens einer schlägt, die anderen kreisen ausser Reichweite, D167). Zehrt aus derselben Ausdauer wie Klettern. Rein und getestet |
 | `kampf/Kampfplatz.tsx` | Stufe 1 im Spiel hinter `?kampf=1`: zwei Kapsel-Übungsgegner, Telegraf als Bodenfächer, Tasten J/K/L, Q/E Zielwechsel, 1/2/Tab Waffe; wartet auf die erste Eingabe. Seit D170 ein Keiler und ein Grathorn (`?kampf=keiler|grathorn|kapsel` für zwei gleiche); seit D169 stehen dort Tiere (Modell aus der Welt, Ausfall und Scharren als Körperbewegung, Taumeln mit Rautenkranz); `?kampf=kapsel` für die Platzhalter. Sperrt `Spieler` über `kampfSperre`, solange Schlag oder Rolle laufen. Schreibt `KampfFigur` (D167): daraus spielt `SpielerFigur` Schlag/Rolle/Treffer/Fall und rahmt `Kamera` das Ziel über die Schulter |
 | `spieler/ausdauer.ts` | Ausdauer für Klettern und Springen. **Rennen zehrt bewusst nicht** — die Begründung steht in der Datei. Rein und getestet |
 | `spiel/reiten.ts` | Wer trägt (nur `quadruped` ab Mutation 2), Reittempo, Steigungsgrenze im Sattel, und ein Satz dazu, warum es noch nicht geht |

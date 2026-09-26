@@ -44,6 +44,22 @@ export interface Schlag {
   kosten: number;
   /** Wie schnell der Angreifer sich im Vorlauf noch nachdreht, rad/s. Im Aktiven dreht niemand. */
   nachdrehen: number;
+  /** Name für Anzeige und Protokoll (D171). */
+  name?: string;
+  /**
+   * Der Clip dazu und wo in ihm Scheitel und Durchzug liegen, in Clipsekunden (D171). Die Figur
+   * legt Vorlauf auf 0…Scheitel, Aktiv auf Scheitel…Durchzug, Erholung auf den Rest.
+   */
+  clip?: string;
+  hieb?: { scheitel: number; durchzug: number };
+  /**
+   * Vorschritt in Metern (D171): Der Körper geht mit dem Schlag mit — verteilt über das letzte
+   * Drittel des Vorlaufs und das Aktive. Ein Schwert, das aus dem Stand trifft, sieht aus wie ein
+   * Wedeln; ein Schritt in den Hieb ist das, was ihn schwer macht.
+   */
+  schritt?: number;
+  /** Wie weit der Treffer das Ziel zurückstösst, Meter (D171). Ohne Angabe 0,2. */
+  rueckstoss?: number;
 }
 
 /** Die Ausweichrolle. */
@@ -59,6 +75,13 @@ export interface Rolle {
 
 export interface KampfWerte {
   schlag: Schlag;
+  /**
+   * Was nach `schlag` ohne Pause folgt (D171) — der Doppelbiss des Wolfs. Der nächste Schlag beginnt,
+   * sobald die Erholung des vorigen um ist; das Angriffsrecht bleibt dabei.
+   */
+  kette?: Schlag[];
+  /** Lauftempo der KI in m/s; ohne Angabe `GEGNER_KI.tempo`. */
+  tempo?: number;
   rolle: Rolle;
   lebenMax: number;
   haltungMax: number;
@@ -113,22 +136,91 @@ export const SPIELERIN: KampfWerte = {
  * Deckung. Das Tor prüft beides, auch dass die Axt je Sekunde **nicht** mehr Schaden macht.
  */
 export type WaffenArt = 'klinge' | 'axt';
-export const WAFFEN: Record<WaffenArt, { name: string; schlag: Schlag }> = {
-  klinge: { name: 'Klinge', schlag: SPIELERIN.schlag },
+/**
+ * Ein Moveset je Waffe (D171) — wie in der Gattung: leichte Kette, schwerer Schlag, Laufangriff.
+ * `schlag` ist der erste der leichten Kette und bleibt, was die älteren Prüfungen meinen.
+ */
+export interface Waffe {
+  name: string;
+  schlag: Schlag;
+  leicht: Schlag[];
+  schwer: Schlag;
+  lauf: Schlag;
+  /** Kampfhaltung im Stand (Clip). */
+  haltung: string;
+}
+
+const KLINGE_1: Schlag = { ...SPIELERIN.schlag, name: 'Hieb', clip: 'Sword_Slash',
+  hieb: { scheitel: 0.375, durchzug: 0.67 }, schritt: 0.3 };
+const AXT_1: Schlag = {
+  name: 'Axthieb', vorlauf: 0.42, aktiv: 0.16, erholung: 0.55,
+  reichweite: 2.9, halbwinkel: 40 * GRAD,
+  schaden: 38, haltungsschaden: 52, kosten: 30, nachdrehen: 3,
+  clip: 'Axe_Overhead', hieb: { scheitel: 12 / 24, durchzug: 16 / 24 }, schritt: 0.25, rueckstoss: 0.3,
+};
+
+/**
+ * Die Klinge: drei leichte (Hieb, Rückhand, Stich — der Stich reicht weiter und schmaler), ein
+ * schwerer Zweihandhieb von oben, ein Laufstich mit langem Ausfall. Die Axt: zwei leichte (von oben,
+ * dann quer mit breitem Bogen), ein schwerer Hieb mit weitem Ausholen, ein Laufhieb schräg.
+ * Die Clips (ausser `Sword_Slash`) baut `tools/waffenclips.py`; die Zeiten `hieb` stehen dort.
+ */
+export const WAFFEN: Record<WaffenArt, Waffe> = {
+  klinge: {
+    name: 'Klinge', schlag: KLINGE_1, haltung: 'Klinge_Stand',
+    leicht: [
+      KLINGE_1,
+      { name: 'Rückhand', vorlauf: 0.16, aktiv: 0.12, erholung: 0.34, reichweite: 2.4, halbwinkel: 60 * GRAD,
+        schaden: 26, haltungsschaden: 30, kosten: 16, nachdrehen: 6,
+        clip: 'Klinge_Rueckhand', hieb: { scheitel: 8 / 24, durchzug: 13 / 24 }, schritt: 0.35 },
+      { name: 'Stich', vorlauf: 0.22, aktiv: 0.1, erholung: 0.45, reichweite: 2.8, halbwinkel: 20 * GRAD,
+        schaden: 34, haltungsschaden: 40, kosten: 20, nachdrehen: 5,
+        clip: 'Klinge_Stich', hieb: { scheitel: 9 / 24, durchzug: 13 / 24 }, schritt: 0.6, rueckstoss: 0.35 },
+    ],
+    schwer: { name: 'Zweihandhieb', vorlauf: 0.5, aktiv: 0.14, erholung: 0.5, reichweite: 2.6, halbwinkel: 45 * GRAD,
+      schaden: 48, haltungsschaden: 60, kosten: 30, nachdrehen: 4,
+      clip: 'Klinge_Schwer', hieb: { scheitel: 14 / 24, durchzug: 18 / 24 }, schritt: 0.4, rueckstoss: 0.45 },
+    lauf: { name: 'Laufstich', vorlauf: 0.15, aktiv: 0.14, erholung: 0.5, reichweite: 2.8, halbwinkel: 35 * GRAD,
+      schaden: 30, haltungsschaden: 40, kosten: 22, nachdrehen: 3,
+      clip: 'Klinge_Lauf', hieb: { scheitel: 6 / 24, durchzug: 10 / 24 }, schritt: 1.4, rueckstoss: 0.4 },
+  },
   axt: {
-    name: 'Axt',
-    schlag: {
-      vorlauf: 0.42, aktiv: 0.16, erholung: 0.55,
-      reichweite: 2.9, halbwinkel: 40 * GRAD,
-      schaden: 38, haltungsschaden: 52, kosten: 30, nachdrehen: 3,
-    },
+    name: 'Axt', schlag: AXT_1, haltung: 'Axt_Stand',
+    leicht: [
+      AXT_1,
+      { name: 'Querhieb', vorlauf: 0.36, aktiv: 0.18, erholung: 0.6, reichweite: 2.8, halbwinkel: 70 * GRAD,
+        schaden: 34, haltungsschaden: 46, kosten: 28, nachdrehen: 3,
+        clip: 'Axt_Quer', hieb: { scheitel: 10 / 24, durchzug: 15 / 24 }, schritt: 0.3, rueckstoss: 0.3 },
+    ],
+    schwer: { name: 'Spalthieb', vorlauf: 0.9, aktiv: 0.18, erholung: 0.7, reichweite: 3.0, halbwinkel: 40 * GRAD,
+      schaden: 60, haltungsschaden: 80, kosten: 42, nachdrehen: 2,
+      clip: 'Axt_Schwer', hieb: { scheitel: 20 / 24, durchzug: 25 / 24 }, schritt: 0.5, rueckstoss: 0.6 },
+    lauf: { name: 'Laufhieb', vorlauf: 0.2, aktiv: 0.16, erholung: 0.6, reichweite: 3.0, halbwinkel: 55 * GRAD,
+      schaden: 40, haltungsschaden: 55, kosten: 30, nachdrehen: 2,
+      clip: 'Axt_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.6, rueckstoss: 0.5 },
   },
 };
+
+/**
+ * Eingaben bleiben so lange gültig (D171) — wer im Schlag schon den nächsten drückt, wird bedient.
+ * Im Aktiven und in der Erholung vor `KOMBO_AB` läuft die Uhr nicht (siehe `schrittKaempfer`).
+ */
+export const PUFFER = 0.3;
+/** Ab diesem Anteil der Erholung darf der nächste leichte Schlag die Erholung abbrechen (D171). */
+export const KOMBO_AB = 0.35;
+/** So lange nach dem Ende eines Schlags setzt der nächste leichte die Kette fort (D171). */
+export const KOMBO_FENSTER = 0.45;
+/** Trefferstopp (D171): Nach einem Treffer steht die Welt so lange still. */
+export const TREFFERSTOPP = 0.06;
+/** Über so viele Sekunden läuft ein Rückstoss aus (D171) — ein Ruck statt eines Sprungs. */
+export const STOSS_DAUER = 0.15;
 
 /** Waffe wechseln — nur aus dem Stand, nie mitten im Schlag oder in der Rolle. */
 export function ruesteAus(k: Kaempfer, art: WaffenArt): boolean {
   if (k.phase !== 'bereit') return false;
   k.werte = { ...k.werte, schlag: WAFFEN[art].schlag };
+  k.schlag = WAFFEN[art].schlag;
+  k.kombo = 0; k.komboOffen = 0;
   k.waffe = art;
   return true;
 }
@@ -193,6 +285,32 @@ export const GRATHORN: KampfWerte = {
   radius: 0.3, hoehe: 1.3, halbLaenge: 0.45,
 };
 
+/**
+ * Der K7-Wolf als Gegner (D171) — dritter Körperbauplan (Raubtier), der erste mit einer **Kette**.
+ *
+ * Er beisst zweimal: Der erste Biss kommt nach kurzem Ducken (0,5 s), der zweite ohne neues
+ * Telegraf 0,32 s nach dem Ende des ersten, mit einem Satz nach vorn. Wer auf der Stelle unter den
+ * ersten rollt, steht beim zweiten wieder da und wird gebissen — sicher ist die Rolle **weg** oder
+ * eine zweite Rolle gleich hinterher. Das ist die erste Lektion, die nicht „wann", sondern „wohin"
+ * heisst. Dafür wenig Leben und Haltung: Die Klinge bricht ihn mit dem zweiten Treffer.
+ */
+export const WOLF: KampfWerte = {
+  schlag: {
+    name: 'Biss', vorlauf: 0.5, aktiv: 0.1, erholung: 0.22,
+    reichweite: 2.0, halbwinkel: 40 * GRAD,
+    schaden: 14, haltungsschaden: 18, kosten: 0, nachdrehen: 3.0, schritt: 0.3,
+  },
+  kette: [{
+    name: 'Nachbiss', vorlauf: 0.1, aktiv: 0.1, erholung: 0.9,
+    reichweite: 2.2, halbwinkel: 40 * GRAD,
+    schaden: 16, haltungsschaden: 22, kosten: 0, nachdrehen: 4.0, schritt: 0.5,
+  }],
+  tempo: 4.0,
+  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
+  lebenMax: 90, haltungMax: 55, haltungErholung: 25, haltungRuhe: 1.2, betaeubt: 0.8,
+  radius: 0.28, hoehe: 0.9, halbLaenge: 0.45,
+};
+
 /** Wie weit und in welchem Kegel die Zielaufschaltung greift, und wie schnell sie den Blick zieht. */
 export const ZIELEN = {
   reichweite: 18, halbwinkel: 70 * GRAD, drehrate: 7,
@@ -238,6 +356,24 @@ export interface Kaempfer {
   seitSchlag: number;
   /** Geführte Waffe (ADR-0008); Gegner führen keine. */
   waffe?: WaffenArt;
+  /** Der Schlag, der gerade läuft oder zuletzt lief (D171) — nicht immer `werte.schlag`. */
+  schlag: Schlag;
+  /** Was nach diesem Schlag ohne Pause folgt (Kette, D171). */
+  folge: Schlag[];
+  /** Stelle in der leichten Kette der Waffe, und wie lange sie nach dem letzten Schlag noch offen ist. */
+  kombo: number;
+  komboOffen: number;
+  /** Gepufferte Eingabe (D171) mit Restzeit. */
+  puffer: { art: 'leicht' | 'schwer' | 'rolle'; rest: number; rx: number; rz: number } | null;
+  /** Rennt die Spielerin gerade? Dann wird aus dem leichten Schlag der Laufangriff. Setzt die Szene. */
+  rennt?: boolean;
+  /**
+   * Die Ausdauer erholt jemand anderes (D171): In der Szene tut das `Spieler` — die Simulation
+   * zieht nur ab. Ohne das erholte sie sich doppelt, sobald ein Gegner in der Nähe steht.
+   */
+  ausdauerFremd?: boolean;
+  /** Laufender Rückstoss (D171): Rest in Metern je Achse und Restzeit. */
+  stoss?: { x: number; z: number; rest: number } | null;
 }
 
 export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: number, blick = 0, y = 0): Kaempfer {
@@ -246,6 +382,7 @@ export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: numbe
     leben: werte.lebenMax, haltung: werte.haltungMax, seitTreffer: 99,
     ausdauer: neueAusdauer(), phase: 'bereit', zeit: 0, schwung: 0, erreicht: new Set(),
     rolleX: 0, rolleZ: 0, seitSchlag: 99,
+    schlag: werte.schlag, folge: [], kombo: 0, komboOffen: 0, puffer: null,
   };
 }
 
@@ -275,15 +412,61 @@ export function drehe(k: Kaempfer, ziel: number, rate: number, dt: number): void
 }
 
 /** Darf ein Schlag beginnen? Nur aus dem Stand, und nur mit Ausdauer. */
-export function kannSchlagen(k: Kaempfer): boolean {
+export function kannSchlagen(k: Kaempfer, s: Schlag = k.werte.schlag): boolean {
   if (k.phase !== 'bereit') return false;
-  return k.werte.schlag.kosten <= 0 || reicht(k.ausdauer, k.werte.schlag.kosten);
+  return s.kosten <= 0 || reicht(k.ausdauer, s.kosten);
 }
 
-export function setzeSchlagAn(k: Kaempfer): boolean {
-  if (!kannSchlagen(k)) return false;
-  if (k.werte.schlag.kosten > 0) k.ausdauer = verbrauche(k.ausdauer, k.werte.schlag.kosten);
+export function setzeSchlagAn(k: Kaempfer, s: Schlag = k.werte.schlag): boolean {
+  if (!kannSchlagen(k, s)) return false;
+  beginneSchlag(k, s);
+  // Die Kette eines Gegners (D171) hängt am ersten Schlag seines Angriffs.
+  k.folge = s === k.werte.schlag && k.werte.kette ? [...k.werte.kette] : [];
+  return true;
+}
+
+function beginneSchlag(k: Kaempfer, s: Schlag): void {
+  if (s.kosten > 0) k.ausdauer = verbrauche(k.ausdauer, s.kosten);
+  k.schlag = s;
   k.phase = 'vorlauf'; k.zeit = 0; k.schwung++; k.erreicht = new Set(); k.seitSchlag = 0;
+}
+
+/**
+ * Eine Eingabe der Spielerin puffern (D171). Ausgeführt wird sie im nächsten Teilschritt, in dem es
+ * geht — in der Erholung also schon ab `KOMBO_AB`, statt verloren zu gehen, weil sie 80 ms zu früh
+ * kam. Das ist der Unterschied zwischen „reagiert nicht" und „flüssig".
+ */
+export function puffere(k: Kaempfer, art: 'leicht' | 'schwer' | 'rolle', rx = 0, rz = 0): void {
+  k.puffer = { art, rest: PUFFER, rx, rz };
+}
+
+/** Welcher Schlag käme jetzt bei `art`? Kette, Laufangriff, schwer — aus der Waffe. */
+export function naechsterSchlag(k: Kaempfer, art: 'leicht' | 'schwer'): { schlag: Schlag; kombo: number } {
+  const waffe = WAFFEN[k.waffe ?? 'klinge'];
+  if (art === 'schwer') return { schlag: waffe.schwer, kombo: 0 };
+  const inKette = k.phase === 'erholung' || k.komboOffen > 0;
+  if (!inKette && k.rennt) return { schlag: waffe.lauf, kombo: 0 };
+  const i = inKette ? (k.kombo + 1) % waffe.leicht.length : 0;
+  return { schlag: waffe.leicht[i], kombo: i };
+}
+
+/** Die gepufferte Eingabe ausführen, wenn es geht. `true`, wenn etwas begann. */
+export function verarbeitePuffer(k: Kaempfer): boolean {
+  const p = k.puffer;
+  if (!p || p.rest <= 0) { k.puffer = null; return false; }
+  if (p.art === 'rolle') {
+    if (!setzeRolleAn(k, p.rx, p.rz)) return false;
+    k.puffer = null; k.kombo = 0; k.komboOffen = 0;
+    return true;
+  }
+  const abbrechbar = k.phase === 'erholung' && k.zeit >= k.schlag.erholung * KOMBO_AB;
+  if (k.phase !== 'bereit' && !abbrechbar) return false;
+  const { schlag, kombo } = naechsterSchlag(k, p.art);
+  if (schlag.kosten > 0 && !reicht(k.ausdauer, schlag.kosten)) return false;
+  beginneSchlag(k, schlag);
+  k.folge = [];
+  k.kombo = kombo; k.komboOffen = 0;
+  k.puffer = null;
   return true;
 }
 
@@ -326,7 +509,7 @@ export function frei(k: Kaempfer): boolean {
  * seine Mitte knapp daneben liegt. Anders fühlt sich ein Nahkampf an wie Zielschiessen.
  */
 export function imBogen(a: Kaempfer, z: Kaempfer): boolean {
-  const s = a.werte.schlag;
+  const s = a.schlag;
   if (Math.abs(z.y - a.y) > Math.max(a.werte.hoehe, z.werte.hoehe)) return false;
   const r = z.werte.radius;
   const [fx, fz] = vorwaerts(a.blick);
@@ -379,7 +562,7 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: false, toedlich: false, ausgewichen: true });
       continue;
     }
-    const s = a.werte.schlag;
+    const s = a.schlag;
     z.leben = Math.max(0, z.leben - s.schaden);
     z.haltung -= s.haltungsschaden;
     z.seitTreffer = 0;
@@ -390,7 +573,13 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       z.phase = 'betaeubt'; z.zeit = 0; z.haltung = z.werte.haltungMax; gebrochen = true;
     } else if ((z.werte.zucken ?? 0) > 0) {
       // D170: Der Treffer reisst aus der Handlung — ein Schlag im Vorlauf ist verloren.
-      z.phase = 'zucken'; z.zeit = 0;
+      z.phase = 'zucken'; z.zeit = 0; z.folge = []; z.puffer = null;
+    }
+    if (!toedlich) {
+      // Rückstoss (D171): weg vom Angreifer. Ein Treffer, der nichts bewegt, sieht aus wie Durchfassen.
+      const dx = z.x - a.x, dz = z.z - a.z, d = Math.hypot(dx, dz) || 1;
+      const r = s.rueckstoss ?? 0.2;
+      z.stoss = { x: dx / d * r, z: dz / d * r, rest: STOSS_DAUER };
     }
     raus.push({ von: a.id, auf: z.id, schaden: s.schaden, gebrochen, toedlich, ausgewichen: false });
   }
@@ -400,9 +589,9 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
 function phasenDauer(k: Kaempfer): number {
   const w = k.werte;
   switch (k.phase) {
-    case 'vorlauf': return w.schlag.vorlauf;
-    case 'aktiv': return w.schlag.aktiv;
-    case 'erholung': return w.schlag.erholung;
+    case 'vorlauf': return k.schlag.vorlauf;
+    case 'aktiv': return k.schlag.aktiv;
+    case 'erholung': return k.schlag.erholung;
     case 'rolle': return w.rolle.dauer;
     case 'betaeubt': return w.betaeubt;
     case 'zucken': return w.zucken ?? 0;
@@ -424,7 +613,22 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
   const w = k.werte;
   k.seitTreffer += dt;
   k.seitSchlag += dt;
-  k.ausdauer = ausdauerSchritt(k.ausdauer, dt, 0);
+  // Die Uhr des Puffers steht, solange der eigene Schwung läuft und noch nicht abbrechbar ist (D171,
+  // im Bild gefunden): Bei der Axt lagen 0,77 s zwischen Druck und Abbruchpunkt — ein Druck im
+  // Durchzug verfiel, bevor er dran war. Wer beim Ausholen hämmert, verliert ihn weiter.
+  const haelt = k.phase === 'aktiv' || (k.phase === 'erholung' && k.zeit < k.schlag.erholung * KOMBO_AB);
+  if (k.puffer && !haelt) { k.puffer.rest -= dt; if (k.puffer.rest <= 0) k.puffer = null; }
+  if (k.komboOffen > 0) k.komboOffen = Math.max(0, k.komboOffen - dt);
+  if (!k.ausdauerFremd) k.ausdauer = ausdauerSchritt(k.ausdauer, dt, 0);
+  // Rückstoss: der Rest gleichmässig über die Restzeit, durch Kollision und Gelände.
+  if (k.stoss && k.stoss.rest > 0) {
+    const t = Math.min(dt, k.stoss.rest), f = t / k.stoss.rest;
+    const mx = k.stoss.x * f, mz = k.stoss.z * f;
+    let nx = k.x + mx, nz = k.z + mz;
+    if (schiebe) [nx, nz] = schiebe(nx, nz);
+    k.x = nx; k.z = nz;
+    k.stoss = k.stoss.rest - t > 1e-9 ? { x: k.stoss.x - mx, z: k.stoss.z - mz, rest: k.stoss.rest - t } : null;
+  }
   if (k.seitTreffer >= w.haltungRuhe) k.haltung = Math.min(w.haltungMax, k.haltung + w.haltungErholung * dt);
   if (k.phase === 'gefallen') { k.zeit += dt; return; }
 
@@ -438,6 +642,21 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
     }
   }
 
+  // Vorschritt (D171): im letzten Drittel des Vorlaufs und im Aktiven, in Blickrichtung.
+  const sw = k.schlag.schritt ?? 0;
+  if (sw > 0 && (k.phase === 'vorlauf' || k.phase === 'aktiv')) {
+    const ab = k.schlag.vorlauf * (2 / 3);
+    const spanne = k.schlag.vorlauf - ab + k.schlag.aktiv;
+    const t0 = k.phase === 'vorlauf' ? k.zeit : k.schlag.vorlauf + k.zeit;
+    const anteil = Math.max(0, Math.min(t0 + dt, ab + spanne) - Math.max(t0, ab));
+    if (anteil > 0) {
+      const [fx, fz] = vorwaerts(k.blick);
+      let nx = k.x + fx * sw * anteil / spanne, nz = k.z + fz * sw * anteil / spanne;
+      if (schiebe) [nx, nz] = schiebe(nx, nz);
+      k.x = nx; k.z = nz;
+    }
+  }
+
   k.zeit += dt;
   for (;;) {
     const dauer = phasenDauer(k);
@@ -445,6 +664,14 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
     const naechste: Phase | undefined = NAECHSTE[k.phase];
     if (!naechste) break;
     k.zeit -= dauer;
+    if (k.phase === 'erholung' && k.folge.length > 0) {
+      // Kette (D171): der nächste Schlag ohne Pause, ohne neue Kosten.
+      const rest = k.zeit;
+      const s = k.folge.shift()!;
+      k.schlag = s; k.phase = 'vorlauf'; k.zeit = rest; k.schwung++; k.erreicht = new Set();
+      continue;
+    }
+    if (k.phase === 'erholung') k.komboOffen = KOMBO_FENSTER;
     k.phase = naechste;
     if (naechste === 'bereit') { k.zeit = 0; break; }
   }
@@ -463,7 +690,7 @@ export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schi
   const d = Math.hypot(dx, dz);
   if (d > GEGNER_KI.wachAb) return;
   const ziel = blickAuf(g.x, g.z, s.x, s.z);
-  if (g.phase === 'vorlauf') { drehe(g, ziel, g.werte.schlag.nachdrehen, dt); return; }
+  if (g.phase === 'vorlauf') { drehe(g, ziel, g.schlag.nachdrehen, dt); return; }
   if (g.phase !== 'bereit') return;
   drehe(g, ziel, GEGNER_KI.drehrate, dt);
   const halt = g.werte.schlag.reichweite * GEGNER_KI.abstand;
@@ -472,7 +699,7 @@ export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schi
   // an und schlug nie zu — der letzte Schritt landet nur bei achsparallelen Zahlen exakt auf
   // `halt`. Das Tor hatte nur achsparallel geprüft; gefunden erst im Bild (D166).
   if (d - s.werte.radius > halt + 0.01) {
-    const schrittweite = Math.min(GEGNER_KI.tempo * dt, d - s.werte.radius - halt);
+    const schrittweite = Math.min((g.werte.tempo ?? GEGNER_KI.tempo) * dt, d - s.werte.radius - halt);
     let nx = g.x + (dx / d) * schrittweite, nz = g.z + (dz / d) * schrittweite;
     if (schiebe) [nx, nz] = schiebe(nx, nz);
     g.x = nx; g.z = nz;
@@ -596,6 +823,8 @@ export interface Kampfwelt {
   uebrig?: number;
   /** Wer im letzten Teilschritt angreifen durfte — nur zum Ansehen (`kampf.mjs`). */
   recht?: string | null;
+  /** Restzeit des Trefferstopps (D171). */
+  stopp?: number;
 }
 
 /**
@@ -616,12 +845,17 @@ export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer
   while (w.uebrig >= SCHRITT - 1e-12) {
     const h = SCHRITT;
     w.uebrig -= h;
+    // Trefferstopp (D171): Die Welt hält kurz an — der Treffer hat Gewicht, bevor es weitergeht.
+    if ((w.stopp ?? 0) > 1e-9) { w.stopp = Math.max(0, (w.stopp ?? 0) - h); continue; }
+    verarbeitePuffer(w.spielerin);
     w.recht = angriffsrecht(w);
     for (const g of w.gegner) denkeGegner(g, w.spielerin, h, schiebe, w.recht === null || w.recht === g.id);
     schrittKaempfer(w.spielerin, h, schiebe);
     for (const g of w.gegner) schrittKaempfer(g, h, schiebe);
-    ereignisse.push(...loeseTreffer(w.spielerin, w.gegner));
-    for (const g of w.gegner) ereignisse.push(...loeseTreffer(g, [w.spielerin]));
+    const neu = loeseTreffer(w.spielerin, w.gegner);
+    for (const g of w.gegner) neu.push(...loeseTreffer(g, [w.spielerin]));
+    if (neu.some(e => e.schaden > 0)) w.stopp = TREFFERSTOPP;
+    ereignisse.push(...neu);
     if (w.ziel && w.gegner.find(g => g.id === w.ziel)?.phase === 'gefallen') w.ziel = null;
   }
   return ereignisse;

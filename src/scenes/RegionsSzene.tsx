@@ -21,6 +21,8 @@ import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
 import { WasserUmgebung, useWasserUmgebung } from './WasserUmgebung.js';
 import { PALETTE } from '../world/palette.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung, type Stoecke } from '../spieler/steuerung.js';
@@ -28,7 +30,7 @@ import { peilung } from '../spieler/peilung.js';
 import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
-import { baueBodenMaterial } from '../world/bodenmaterial.js';
+import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
@@ -590,6 +592,10 @@ function LodTerrain({ feld, kacheln, ziel }: {
   useFrame(() => {
     const p = ziel.current?.position;
     if (!p) return;
+    // Himmelsanteil des Bodens (D171): das Raster des nächsten Set-Pieces im Ladekreis.
+    const nah = sichtbareBauwerke(p.x, p.z)
+      .sort((a, b) => Math.hypot(a.ursprung.x - p.x, a.ursprung.z - p.z) - Math.hypot(b.ursprung.x - p.x, b.ursprung.z - p.z))[0];
+    setzeBodenHimmel(nah?.name ?? null);
     // Beim ersten Bild ist der Abstand NaN — der Vergleich schlägt fehl, also wird gebaut.
     if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
     letzte.current.copy(p);
@@ -2673,6 +2679,26 @@ const HIEB = { scheitel: 0.29, durchzug: 0.52 };
 const HIEB_AXT_S = { scheitel: 12 / 24, durchzug: 16 / 24 };
 
 /**
+ * Die Waffenclips (D171, `tools/waffenclips.py`) liegen in einer eigenen Datei ohne Netz: nur die
+ * Knochen und ihre Animationen. Die Wanderin trüge sie über ihr Budget (250 KB), und gebraucht
+ * werden sie nur im Kampf. Gebunden wird über die Knotennamen — dieselben in beiden Dateien.
+ *
+ * Geladen ohne Suspense: Fehlt die Datei, spielt die Figur weiter `Sword_Slash`/`Axe_Overhead`.
+ */
+const WAFFENCLIPS = '/figuren/kampf/wanderin-waffen.glb';
+function useWaffenClips(): THREE.AnimationClip[] {
+  const [clips, setzeClips] = useState<THREE.AnimationClip[]>([]);
+  useEffect(() => {
+    let lebt = true;
+    new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(WAFFENCLIPS)
+      .then(g => { if (lebt) setzeClips(g.animations); })
+      .catch(() => { /* ohne Datei: Rückfall auf die zwei Hiebe der Figur */ });
+    return () => { lebt = false; };
+  }, []);
+  return clips;
+}
+
+/**
  * Waffen als Geometrie an der rechten Hand (ADR-0008). Kein Asset: ein paar Kästen und Zylinder,
  * in Metern, Klinge entlang −Y wie das Schwert im Quaternius-Paket. Lage aus derselben Datei:
  * `Sword` hängt an `Middle1.R` (0, 0,00091, −0,00025) mit −90° um Z, `Middle1.R` an `Wrist.R`
@@ -2696,11 +2722,14 @@ function baueWaffen(): Record<'klinge' | 'axt', THREE.Group> {
   klinge.add(teil(new THREE.CylinderGeometry(0.018, 0.02, 0.2, 8), holz, 0));
   klinge.add(teil(new THREE.BoxGeometry(0.17, 0.03, 0.045), metall, -0.11));
   klinge.add(teil(new THREE.BoxGeometry(0.045, 0.6, 0.012), metall, -0.42));
-  // Die Axt: langer Stiel, der Kopf am Ende, Schneide quer zum Stiel.
+  // Die Axt: langer Stiel, der Kopf am Ende, Schneide quer zum Stiel. Die Schneide liegt auf −X der
+  // Gruppe, das ist +Y des Handgelenks — dieselbe Richtung wie die Finger (D171). Bis D170 lag sie
+  // auf +X und schlug mit dem Rücken zu; gesehen erst, als `waffenclips.py` die Schneide in
+  // Bewegungsrichtung legte.
   const axt = new THREE.Group();
   axt.add(teil(new THREE.CylinderGeometry(0.02, 0.024, 0.95, 8), holz, -0.36));
-  axt.add(teil(new THREE.BoxGeometry(0.2, 0.12, 0.045), metall, -0.76, 0.05));
-  axt.add(teil(new THREE.BoxGeometry(0.03, 0.2, 0.05), metall, -0.76, 0.16));
+  axt.add(teil(new THREE.BoxGeometry(0.2, 0.12, 0.045), metall, -0.76, -0.05));
+  axt.add(teil(new THREE.BoxGeometry(0.03, 0.2, 0.05), metall, -0.76, -0.16));
   for (const g of [klinge, axt]) {
     g.position.copy(WAFFE_AN_HAND.position);
     g.quaternion.copy(WAFFE_AN_HAND.drehung);
@@ -2742,6 +2771,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
   reittier?: Reittier | null;
 }) {
   const { scene, animations } = useGLTF('/figuren/wanderin.glb');
+  const waffenClips = useWaffenClips();
   /** Sitzhoehe aus dem Modell (`ReittierModell` schreibt sie), sonst aus der Silhouette. */
   const sitzHoehe = useRef<{ hoehe: number; breite: number } | null>(null);
   const mitModell = !!reittier && MIT_MODELL.has(reittier.kreatur);
@@ -2783,6 +2813,26 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
     idle.play();
     return { idle, walk, run, schlag, axt, rolle, treffer, tod, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
+  /**
+   * Clip je Name, aus der Figur oder aus den Waffenclips (D171), einmal angelegt. `null`, wenn es
+   * ihn nicht gibt — dann entscheidet der Aufrufer über den Rückfall.
+   */
+  const aktionen = useMemo(() => {
+    const cache = new Map<string, THREE.AnimationAction | null>();
+    return (name: string, einmal = true): THREE.AnimationAction | null => {
+      if (cache.has(name)) return cache.get(name)!;
+      const c = waffenClips.find(x => x.name === name) ?? animations.find(x => x.name === name);
+      let a: THREE.AnimationAction | null = null;
+      if (c) {
+        a = mixer.clipAction(c);
+        if (einmal) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; }
+      }
+      cache.set(name, a);
+      return a;
+    };
+  }, [mixer, animations, waffenClips]);
+  /** Welche Aktionen Hiebe sind — deren Zeit wird gesetzt, nicht abgespielt. */
+  const hiebe = useRef(new Set<THREE.AnimationAction>());
   /** Was zuletzt aus dem Kampf gesehen wurde — ein neuer Zählerstand startet den Clip neu. */
   const kampfVor = useRef({ schwung: -1, rollen: -1, getroffen: -1, trefferBis: 0, uhr: 0 });
   /** Klinge und Axt an `Wrist.R`; sichtbar nur mit Kampf (D168). */
@@ -2840,6 +2890,8 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
     const stark = Math.min(1, tempo / RENNEN);
     // Clip nach Tempo, weich ueberblendet; im Sattel immer Idle.
     let ziel = reittier || tempo < 0.15 ? clips.idle : tempo < 5.5 ? clips.walk : clips.run;
+    // Im Kampf steht sie in der Haltung ihrer Waffe (D171), nicht in der Ruhe des Wanderns.
+    if (k && k.phase === 'bereit' && ziel === clips.idle) ziel = aktionen(k.haltung, false) ?? clips.idle;
     // ---- Kampf (D167): Clip nach Phase, gestreckt auf die Dauer der Regel. Die Regel ist die
     // Wahrheit (`echtzeit.ts`, Kampftor); der Clip folgt ihr, nie umgekehrt.
     let neu = false, blende = 0.25;
@@ -2859,19 +2911,29 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
         // läuft er 0,2 s über die Rolle hinaus aus und wird dabei in die Fortbewegung überblendet.
         clips.rolle.timeScale = clips.rolle.getClip().duration / (k.rolleDauer + 0.2);
       } else if (k.phase === 'vorlauf' || k.phase === 'aktiv' || k.phase === 'erholung') {
-        const hieb = k.waffe === 'axt' ? clips.axt : clips.schlag;
-        ziel = hieb; blende = 0.06;
+        // Der Clip des Schlags (D171), sonst der Hieb der Waffe aus der Figur.
+        let hieb = aktionen(k.clip);
+        let h = hieb ? k.hieb : null;
+        if (!hieb || !h) {
+          hieb = k.waffe === 'axt' ? clips.axt : clips.schlag;
+          const d = hieb.getClip().duration;
+          h = hieb === clips.axt && clips.axt !== clips.schlag ? HIEB_AXT_S
+            : { scheitel: HIEB.scheitel * d, durchzug: HIEB.durchzug * d };
+        }
+        hiebe.current.add(hieb);
+        // Aus einem Hieb in den nächsten (Kette) weicher als aus dem Stand: Die Arme kommen aus
+        // dem Durchzug des vorigen, nicht aus der Ruhe.
+        blende = hiebe.current.has(clips.aktiv) && clips.aktiv !== hieb ? 0.12 : 0.06;
+        ziel = hieb;
         neu = k.schwung !== kv.schwung;
         // Die Clipzeit wird je Bild gesetzt, nicht abgespielt: Jede Phase der Regel liegt auf
-        // ihrem eigenen Abschnitt des Clips (siehe HIEB, HIEB_AXT_S).
+        // ihrem eigenen Abschnitt des Clips (Scheitel, Durchzug in Clipsekunden).
         const dauer = hieb.getClip().duration;
-        const h = hieb === clips.axt && clips.axt !== clips.schlag
-          ? { scheitel: HIEB_AXT_S.scheitel / dauer, durchzug: HIEB_AXT_S.durchzug / dauer } : HIEB;
-        const u = k.phase === 'vorlauf' ? h.scheitel * Math.min(1, k.zeit / k.vorlauf)
+        const sek = k.phase === 'vorlauf' ? h.scheitel * Math.min(1, k.zeit / k.vorlauf)
           : k.phase === 'aktiv' ? h.scheitel + (h.durchzug - h.scheitel) * Math.min(1, k.zeit / k.aktiv)
-          : h.durchzug + (1 - h.durchzug) * Math.min(1, k.zeit / k.erholung);
+          : h.durchzug + (dauer - h.durchzug) * Math.min(1, k.zeit / k.erholung);
         hieb.timeScale = 0;
-        hieb.time = u * dauer * 0.999;
+        hieb.time = Math.min(sek, dauer * 0.999);
       } else if (k.phase === 'betaeubt' || k.phase === 'zucken' || kv.uhr < kv.trefferBis) {
         ziel = clips.treffer; blende = 0.08;
         neu = clips.aktiv !== clips.treffer;
@@ -2883,7 +2945,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
       // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
       // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
       ziel.reset().setEffectiveWeight(1).play();
-      if (ziel === clips.schlag || ziel === clips.axt) { ziel.time = hiebZeit; ziel.timeScale = 0; }
+      if (hiebe.current.has(ziel)) { ziel.time = hiebZeit; ziel.timeScale = 0; }
       if (clips.aktiv !== ziel) clips.aktiv.crossFadeTo(ziel, blende, false);
       clips.aktiv = ziel;
     }
@@ -2978,9 +3040,28 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   /** 0 = frei, 1 = über der Schulter aufs Ziel. */
   const schulter = useRef(0);
   const blickZiel = useRef(new THREE.Vector3());
+  /** Ruck bei Treffern (D171): Stärke in Metern, klingt in ~0,12 s ab. */
+  const ruck = useRef({ getroffen: -1, gesetzt: -1, staerke: 0, uhr: 0 });
   useFrame((_, dt) => {
     const p = ziel.current?.position ?? new THREE.Vector3();
     const fokus = kampf?.current?.fokus ?? null;
+    const kf = kampf?.current ?? null, rk = ruck.current;
+    rk.uhr += dt;
+    if (kf) {
+      // Eingesteckt ruckt es stärker als ausgeteilt — der eigene Treffer soll Gewicht haben, der
+      // fremde soll wehtun.
+      if (rk.getroffen >= 0 && kf.getroffen > rk.getroffen) rk.staerke = Math.max(rk.staerke, 0.09);
+      if (rk.gesetzt >= 0 && kf.gesetzt > rk.gesetzt) rk.staerke = Math.max(rk.staerke, 0.035);
+      rk.getroffen = kf.getroffen; rk.gesetzt = kf.gesetzt;
+    }
+    rk.staerke *= Math.exp(-dt / 0.12);
+    const wackle = () => {
+      if (rk.staerke < 0.002) return;
+      const u = rk.uhr;
+      camera.position.x += rk.staerke * Math.sin(u * 71);
+      camera.position.y += rk.staerke * Math.sin(u * 83 + 1.3);
+      camera.position.z += rk.staerke * Math.sin(u * 59 + 2.1);
+    };
     schulter.current += ((fokus ? 1 : 0) - schulter.current) * Math.min(1, dt / SCHULTER.blende);
     if (fokus) blickZiel.current.set(fokus.x, fokus.y, fokus.z);
     // Die Kamera kreist auf einer Kugel um den Blickpunkt auf Brusthöhe: `gier`
@@ -3056,7 +3137,7 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     }
     camera.position.copy(geglaettet.current);
     const m = schulter.current;
-    if (m < 0.001) { camera.lookAt(p.x, blickY, p.z); return; }
+    if (m < 0.001) { camera.lookAt(p.x, blickY, p.z); wackle(); return; }
     // Rechts der Blickrichtung (−sin g, −cos g) ist (cos g, −sin g) — dieselbe Achse wie `seit`.
     const sx = Math.cos(g) * SCHULTER.seite * m, sz = -Math.sin(g) * SCHULTER.seite * m;
     camera.position.x += sx; camera.position.z += sz; camera.position.y += SCHULTER.hoch * m;
@@ -3066,6 +3147,7 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
       blickY + (f.y - blickY) * a,
       p.z + sz * 0.5 + (f.z - p.z) * a,
     );
+    wackle();
   });
   return null;
 }

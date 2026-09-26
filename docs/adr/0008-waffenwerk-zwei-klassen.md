@@ -57,3 +57,33 @@ nicht.
   eingeführt, wenn die zwei im Spiel getragen haben.
 - Fortschritt über Ausrüstung (bessere Klinge, schwerere Axt) ist damit möglich und hängt an der
   offenen Frage aus ADR-0007, welche Währung Fangen und Mutationsstufen ersetzt.
+
+## Nachtrag D171: ein Moveset je Waffe
+
+Gewünscht (Flo, 26.09.2026): „wie bei Elden Ring oder Soulframe je Waffe unterschiedliche Attacken
+und Bewegungen". Die zwei Klassen bleiben; jede bekommt statt eines Schlags ein **Moveset**
+(`Waffe` in `src/kampf/echtzeit.ts`):
+
+| | leicht (Kette) | schwer (I) | Lauf (Shift+J) | Haltung |
+|---|---|---|---|---|
+| Klinge | Hieb → Rückhand → Stich | Zweihandhieb von oben | Laufstich, 1,4 m Ausfall | `Klinge_Stand` |
+| Axt | Axthieb → Querhieb (±70°) | Spalthieb, 0,9 s Ausholen | Laufhieb schräg | `Axt_Stand` |
+
+- **Kette statt Wiederholung.** Der nächste leichte Schlag darf die Erholung ab 35 % abbrechen
+  (`KOMBO_AB`) und hält die Kette 0,45 s nach dem Stand offen (`KOMBO_FENSTER`).
+- **Puffer.** J, I und K werden gepuffert (0,3 s). Die Uhr steht, solange der eigene Schwung läuft
+  und noch nicht abbrechbar ist — gefunden an der Axt, wo ein Druck im Durchzug sonst verfiel.
+- **Gewicht.** Vorschritt je Schlag (0,25–1,6 m), Rückstoss am Ziel (0,2–0,6 m über 0,15 s),
+  Trefferstopp 60 ms, Kameraruck bei gesetzten und stärker bei erlittenen Treffern.
+- **Clips** baut `tools/waffenclips.py` (Hand, Waffenrichtung, Rumpf, Füsse; Zwei-Knochen-IK) und
+  legt `tools/waffenteilen.ts` in eine eigene Datei ohne Netz (`public/figuren/kampf/`, 244 KB) —
+  die Wanderin bleibt bei 237 KB. `tests/waffenclips.test.ts` hält Regelzeiten und Schlüsselbilder
+  zusammen.
+- **Die Axt-Schneide** lag bis D170 auf der falschen Seite (Handgelenk −Y, zum Handballen) und
+  schlug mit dem Rücken zu. Jetzt +Y, in Fingerrichtung — die Clips legen sie in Bewegungsrichtung.
+
+**Offen (Balance, UNKLAR):** Der Kampfbot (`tools/kampfbot.ts`) sieht die Axt gegen Keiler +
+Grathorn bei 100 % gegen 78 % für die Klinge — ihr Haltungsschaden öffnet den schweren Treffer zu
+oft. Gegen zwei Wölfe liegen beide gleich (100 %). Einzeln gewinnt jede Waffe gegen jeden Gegner.
+„Werkzeuge statt Stufen" hält damit nur gegen schnelle Rudel; ob die Axt schwächer werden soll
+oder die Huftiere schneller, ist eine Entscheidung, keine Messung.

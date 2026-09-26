@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-17
+last-reviewed: 2026-09-26
 shelf-life-days: 90
 owns: *.test.ts
 ---
@@ -20,6 +20,8 @@ owns: *.test.ts
 | Geometriekompression oder Bauwerk-Export ändern | `bautenpack.test.ts` → `../tools/bautenpack.ts` |
 | Kampfregeln, Elemente, Fokus oder Phasen ändern | `battle.test.ts` → `../src/engine/battle.ts` |
 | Echtzeitkampf: Fenster, Reichweiten, Kosten, KI ändern | `echtzeit.test.ts` → `../src/kampf/echtzeit.ts` |
+| Waffenclips oder ihre Regelzeiten ändern | `waffenclips.test.ts` → `../tools/waffenclips.py`, `../src/kampf/echtzeit.ts` |
+| Schwierigkeit prüfen (ganze Kämpfe mit Reaktionszeit) | `kampfbot.test.ts` → `../tools/kampfbot.ts` |
 | Die Witterungsanzeige oder eine Richtung anfassen | `peilung.test.ts` → `../src/spieler/peilung.ts` |
 | An Erfahrungskurve, Stufen oder Mutation drehen | `fortschritt.test.ts` → `../src/spiel/fortschritt.ts` |
 | Klettern, Springen oder Zehrraten ändern | `ausdauer.test.ts` → `../src/spieler/ausdauer.ts` |
@@ -36,7 +38,9 @@ owns: *.test.ts
 | Datei | Was festgehalten wird |
 |---|---|
 | `bautenpack.test.ts` | Tatsächlicher Runtime-Decoder: Attribute, Weltmatrizen, Materialwerte/-gruppen, Namen und orientierte Dreiecke bleiben beim verlustfreien Meshopt-Roundtrip erhalten; Quellschutz und Größenstabilität bei Wiederkompression. |
-| `echtzeit.test.ts` | 79 Prüfungen, das Kampftor (D166–D170): Reichweite ±5 cm, Winkel, ein Treffer je Schwung, Rollenfenster in 5-ms-Schritten (≥ 200 ms, nach Reaktionszeit erreichbar), Ausdauer 5 Schläge/4 Rollen, Haltung bricht beim 2. Treffer, Zielwahl, KI aus 12 Anlaufrichtungen, Angriffsrecht: zwei Gegner nie zugleich im Schlag, im Wechsel, der Wartende ausser Reichweite (D167), Waffenklassen als Werkzeuge statt Stufen und Zielwahl/Zielwechsel (D168), der Keiler als erster echter Gegner (D169), Zucken, Pille statt Kreis und der Grathorn (D170), gleiches Ergebnis bei 10/30/144 B/s. Druckt die Messtabelle |
+| `echtzeit.test.ts` | 79 Prüfungen, das Kampftor (D166–D170): Reichweite ±5 cm, Winkel, ein Treffer je Schwung, Rollenfenster in 5-ms-Schritten (≥ 200 ms, nach Reaktionszeit erreichbar), Ausdauer 5 Schläge/4 Rollen, Haltung bricht beim 2. Treffer, Zielwahl, KI aus 12 Anlaufrichtungen, Angriffsrecht: zwei Gegner nie zugleich im Schlag, im Wechsel, der Wartende ausser Reichweite (D167), Waffenklassen als Werkzeuge statt Stufen und Zielwahl/Zielwechsel (D168), der Keiler als erster echter Gegner (D169), Zucken, Pille statt Kreis und der Grathorn (D170), Moveset/Puffer/Kette/Vorschritt/Rückstoss/Trefferstopp und der Wolf mit Doppelbiss (D171, 127 Prüfungen), gleiches Ergebnis bei 10/30/144 B/s. Druckt die Messtabelle |
+| `waffenclips.test.ts` | D171: Scheitel und Durchzug jedes Schlags (`hieb`, Clipsekunden) liegen auf Schlüsselbildern von `tools/waffenclips.py`, Haltungen sind Schleifen, `menschbau.ANIM_WAFFEN` = `waffenclips.CLIPS`, die Waffendatei trägt jeden gebrauchten Clip, die Wanderin keinen |
+| `kampfbot.test.ts` | D171: Band statt Punkt — einzeln gewinnt ein aufmerksamer Bot ≥ 90 %, zu zweit ≥ 60 %, ein müder verliert zu zweit manchmal, kein Kampf läuft in die Zeitgrenze (24 Zeilen à 60 Kämpfe, ~3 s) |
 | `battle.test.ts` | 16 Tests: Elementmatrix ausgewogen, Fokus-Ökonomie, Elementvorteil entscheidet, Phasen erzwingen Wechseln, Zehrung, Determinismus, Kampfdauer im Korridor |
 | `peilung.test.ts` | 11 Tests. Anlass war ein **Vorzeichenfehler**, der nur bei Blickrichtung 0 unauffällig war — der Pfeil zeigte beim Drehen in die falsche Richtung |
 | `fortschritt.test.ts` | 20 Tests. Anlass: Die erste Kurve machte Kreaturen bei der Mutation **schwächer** (L13 = 184 KP, L14 = 162 KP). Hält jetzt Monotonie und die Zahl der Kämpfe je Mutation fest |

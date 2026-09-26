@@ -39,5 +39,5 @@ for (let i = 0; i <= 40; i++) {
   console.log(String(n++).padStart(2, '0'), (taste ?? ' ').padEnd(2), d);
   await p.waitForTimeout(120);
 }
-console.log(`${n} Bilder`, await p.evaluate(() => document.body.innerText.match(/J Schlag[^\n]*/)?.[0] ?? 'keine Kampfanzeige'));
+console.log(`${n} Bilder`, await p.evaluate(() => document.body.innerText.match(/J leicht[^\n]*/)?.[0] ?? 'keine Kampfanzeige'));
 await b.close();

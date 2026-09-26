@@ -28,7 +28,14 @@ export interface KampfStand {
   waffe: string;
   /** Wartet der Platz noch auf die erste Eingabe? Dann steht die Meldung ohne Ausblenden. */
   ruhig: boolean;
+  /** Zählt erlittene Treffer — ein neuer Wert lässt den Rand rot aufblitzen (D171). */
+  getroffen: number;
+  /** Name des laufenden eigenen Schlags oder leer — für `tools/mess/kampf.mjs`. */
+  schlag: string;
 }
+
+/** So lange glüht der rote Rand nach einem Treffer nach (D171). */
+const RAND_DAUER = 0.45;
 
 const MELDUNG_DAUER = 1.6;
 
@@ -46,11 +53,13 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
   const meldung = useRef<HTMLDivElement>(null);
   const zaehler = useRef<HTMLSpanElement>(null);
   const wurzel = useRef<HTMLDivElement>(null);
+  const rand = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let laeuft = true;
     let letzteMeldung = -1;
     let meldungAb = 0;
+    let getroffen = -1, randAb = -99;
     const schritt = (ms: number) => {
       if (!laeuft) return;
       const s = stand.current;
@@ -68,8 +77,14 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
           zielHaltung.current.style.width = `${(h * 100).toFixed(1)}%`;
           zielHaltung.current.style.background = s.ziel.phase === 'betaeubt' ? '#6f8fb0' : '#b89a5a';
         }
+        // Roter Rand beim Treffer (D171): Man merkt den Treffer, bevor man auf den Balken schaut.
+        if (s.getroffen !== getroffen) { if (getroffen >= 0 && s.getroffen > getroffen) randAb = t; getroffen = s.getroffen; }
+        if (rand.current) {
+          const alter = t - randAb;
+          rand.current.style.opacity = alter < RAND_DAUER ? String((1 - alter / RAND_DAUER) * 0.85) : '0';
+        }
         if (wurzel.current) {
-          wurzel.current.dataset.ich = `${s.phase} ${Math.round(s.leben)}`;
+          wurzel.current.dataset.ich = `${s.phase}${s.schlag ? `:${s.schlag}` : ''} ${Math.round(s.leben)}`;
           wurzel.current.dataset.gegner = s.protokoll;
         }
         if (zaehler.current) zaehler.current.textContent = `${s.gegnerUebrig}/${s.gegnerGesamt} · ${s.waffe}`;
@@ -96,6 +111,10 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
 
   return (
     <div ref={wurzel} data-kampf="" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 11 }}>
+      <div ref={rand} style={{
+        position: 'absolute', inset: 0, opacity: 0,
+        background: 'radial-gradient(ellipse at center, transparent 55%, #7a1a12aa 100%)',
+      }} />
       {/* Ziel oben mittig */}
       <div ref={zielHuelle} style={{
         position: 'absolute', top: 'calc(env(safe-area-inset-top, 8px) + 54px)', left: '50%',
@@ -118,7 +137,7 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
       }}>
         <div style={balken(132, 5)}><div ref={eigen} style={{ ...fuellung, background: '#9c7d62' }} /></div>
         <div style={{ ...text, opacity: 0.7 }}>
-          J Schlag · K Rolle · L Ziel · Q/E wechseln · 1/2 Waffe · Gegner <span ref={zaehler} />
+          J leicht · I schwer · Shift+J im Lauf · K Rolle · L Ziel · Q/E · 1/2 Waffe · <span ref={zaehler} />
         </div>
       </div>
     </div>

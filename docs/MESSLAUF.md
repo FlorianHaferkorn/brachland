@@ -656,6 +656,29 @@ Gelände, deshalb bewegt es sich dort kaum (16 → 20 %). Der nächste Schritt i
 über dem Gelände in den Set-Piece-Zonen (Strahlen gegen Kronen und Mauern, 0,5 m Raster), das
 der Bodenshader über die Weltlage liest.
 
+## Himmelsanteil im Gelände (D171)
+
+`tools/himmelboden.ts` legt um jedes Set-Piece ein Raster von 0,5 m (höchstens 200 × 200 m,
+156 KB) und rechnet je Zelle 16 Strahlen vom Gelände nach oben gegen Mauern und Kronen (Laub halb).
+Der Bodenshader liest es über die Weltlage und dämpft damit das Fülllicht wie `_HIMMEL` an den
+Set-Pieces (gleiche Stärke `uHimmel`); zum Rahmenrand hin läuft es auf 1 aus.
+
+```
+                           Median  dunkel  Drittel oben/mitte/unten
+  Stauwehr  D170 (0,7)      —      19,6 %   —
+  Stauwehr  D171 (0,7)     0,049   21,0 %  0,154 / 0,074 / 0,045
+  Stauwehr  D171 (1,0)     0,047   23,1 %  0,152 / 0,072 / 0,044
+  Stauwehr  Render         0,025   43,6 %  0,175 / 0,090 / 0,050
+  Felsmulde D171 (0,7)     0,033   41,4 %  0,217 / 0,134 / 0,056
+```
+
+**Befund:** Das Raster wirkt (+1,4 Punkte dunkel bei 0,7, +2 Punkte gegenüber D170 bei 1,0), ist
+aber **nicht** der Hebel am Stauwehr. Das untere Drittel liegt schon auf dem Render (0,045 gegen
+0,050); die Lücke ist die **Verteilung** — der Render hat tiefere Schatten *und* hellere Flecken
+(mittleres Drittel 0,074 gegen 0,090). Im Mittel über den Blick ist der Waldboden offen (0,78):
+105 Kronen auf 200 m decken wenig. Der nächste Hebel ist das Sonnenlicht durch die Kronen
+(Schattenkarte/Sprenkel), nicht das Fülllicht.
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.

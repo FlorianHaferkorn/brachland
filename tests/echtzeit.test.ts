@@ -15,7 +15,8 @@ import {
   SPIELERIN, UEBUNGSGEGNER, SCHRITT, ZIELEN,
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, kannSchlagen, kannRollen,
   imBogen, loeseTreffer, schrittKaempfer, simuliere, waehleZiel, blickAuf, vorwaerts,
-  WAFFEN, ruesteAus, wechsleZiel, KEILER, GRATHORN,
+  WAFFEN, ruesteAus, wechsleZiel, KEILER, GRATHORN, WOLF,
+  puffere, naechsterSchlag, PUFFER, KOMBO_AB, KOMBO_FENSTER, TREFFERSTOPP, STOSS_DAUER, type Schlag,
   type Kaempfer, type Kampfwelt, type Treffer,
 } from '../src/kampf/echtzeit.js';
 
@@ -270,7 +271,9 @@ let axtTreffer = NaN;
 {
   const k = WAFFEN.klinge.schlag, a = WAFFEN.axt.schlag;
   const dauer = (s: typeof k) => s.vorlauf + s.aktiv + s.erholung;
-  pruefe('die Klinge ist der Schlag von D166, unverändert', k === SPIELERIN.schlag);
+  pruefe('die Klinge hat die Zeiten und Wirkung von D166, unverändert',
+    (['vorlauf', 'aktiv', 'erholung', 'reichweite', 'halbwinkel', 'schaden', 'haltungsschaden', 'kosten'] as const)
+      .every(f => k[f] === SPIELERIN.schlag[f]));
   pruefe('die Axt reicht weiter', a.reichweite > k.reichweite, `${a.reichweite} gegen ${k.reichweite} m`);
   pruefe('die Axt holt länger aus', a.vorlauf > k.vorlauf * 2, `${a.vorlauf} gegen ${k.vorlauf} s`);
   pruefe('die Axt macht je Sekunde NICHT mehr Schaden als die Klinge',
@@ -376,7 +379,7 @@ let keilerVon = NaN, keilerBis = NaN;
   schrittKaempfer(z, SPIELERIN.zucken! + SCHRITT);
   pruefe(`nach ${SPIELERIN.zucken} s bereit`, (z.phase as string) === 'bereit', z.phase);
   pruefe('Gegner zucken nicht (sie brechen nur über die Haltung)',
-    !UEBUNGSGEGNER.zucken && !KEILER.zucken && !GRATHORN.zucken);
+    !UEBUNGSGEGNER.zucken && !KEILER.zucken && !GRATHORN.zucken && !WOLF.zucken);
 }
 
 // ---------------------------------------------------- 16. Pille statt Kreis (D170)
@@ -420,6 +423,59 @@ let grathornVon = NaN, grathornBis = NaN;
   pruefe('Grathorn: schmaler Bogen', GRATHORN.schlag.halbwinkel < KEILER.schlag.halbwinkel);
 }
 
+
+// ---------------------------------------------------- 19. Der Wolf: Doppelbiss (D171)
+let wolfVon = NaN, wolfBis = NaN, wolfDoppelBis = NaN;
+{
+  /** Rollt bei t0 (Richtung rx/rz), optional sofort ein zweites Mal; gibt den erlittenen Schaden. */
+  const probe = (t0: number, rz = 0, zweimal = false): { schaden: number; bisse: number } => {
+    const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+    const g = neuerKaempfer('g', WOLF, 0, -1.8, blickAuf(0, -1.8, 0, 0));
+    setzeSchlagAn(g);
+    let t = 0, rollen = 0, bisse = 0;
+    for (let i = 0; i < 300; i++) {
+      if (rollen === 0 && t >= t0 - 1e-9 && setzeRolleAn(s, 0, rz)) rollen = 1;
+      else if (zweimal && rollen === 1 && s.phase === 'bereit' && setzeRolleAn(s, 0, rz)) rollen = 2;
+      const vorher = g.schwung;
+      schrittKaempfer(s, SCHRITT); schrittKaempfer(g, SCHRITT); t += SCHRITT;
+      if (g.schwung !== vorher) bisse++;
+      loeseTreffer(g, [s]);
+    }
+    return { schaden: s.werte.lebenMax - s.leben, bisse: bisse + 1 };
+  };
+  pruefe('Wolf: ohne Ausweichen beissen beide', probe(99).schaden === WOLF.schlag.schaden + WOLF.kette![0].schaden,
+    `${probe(99).schaden}`);
+  pruefe('Wolf: zwei Bisse aus einem Ansatz', probe(99).bisse === 2);
+  for (let t0 = 0; t0 <= 1.0 + 1e-9; t0 += 0.005) {
+    const r = probe(t0);
+    if (r.schaden === WOLF.kette![0].schaden) { if (Number.isNaN(wolfVon)) wolfVon = t0; wolfBis = t0; }
+    if (probe(t0, 0, true).schaden === 0) wolfDoppelBis = t0;
+  }
+  pruefe('Wolf: den ersten Biss kann man auf der Stelle ausrollen', !Number.isNaN(wolfVon));
+  pruefe('Wolf: aber dann beisst der zweite — eine Rolle auf der Stelle schützt nie vor beiden',
+    [0.2, 0.3, 0.4].every(t0 => probe(t0).schaden > 0));
+  pruefe('Wolf: Schutzfenster erster Biss mindestens 200 ms', wolfBis - wolfVon >= 0.2 - 1e-9, `${f3(wolfVon)} … ${f3(wolfBis)}`);
+  pruefe('Wolf: Fenster endet nach Reaktionszeit + 150 ms', wolfBis >= REAKTION + 0.15, f3(wolfBis));
+  pruefe('Wolf: zwei Rollen hintereinander schützen, wenn die erste nach Reaktionszeit kommt',
+    wolfDoppelBis >= REAKTION, f3(wolfDoppelBis));
+  pruefe('Wolf: eine Rolle zurück schützt vor beiden', probe(REAKTION, 1).schaden === 0, `${probe(REAKTION, 1).schaden}`);
+  pruefe('Wolf: Klinge bricht die Haltung mit dem 2. Treffer',
+    Math.ceil(WOLF.haltungMax / WAFFEN.klinge.schlag.haltungsschaden) === 2);
+  pruefe('Wolf: schneller als die Huftiere', (WOLF.tempo ?? 0) > 2.4 && WOLF.schlag.vorlauf < GRATHORN.schlag.vorlauf);
+  pruefe('Wolf: zuckt nicht', !WOLF.zucken);
+  // Im Spiel: Die Kette behält das Angriffsrecht — kein zweiter Gegner schiebt sich zwischen die Bisse.
+  const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+  const a = neuerKaempfer('a', WOLF, 0, -1.9, blickAuf(0, -1.9, 0, 0));
+  const b = neuerKaempfer('b', WOLF, 3, -3, blickAuf(3, -3, 0, 0));
+  const w: Kampfwelt = { spielerin: s, gegner: [a, b], ziel: null };
+  let zwischen = 0;
+  for (let t = 0; t < 1.5; t += SCHRITT) {
+    simuliere(w, SCHRITT);
+    if (a.schwung === 1 && a.phase === 'erholung' && b.phase === 'vorlauf') zwischen++;
+  }
+  pruefe('Wolf: zwischen den Bissen greift kein anderer an', zwischen === 0 && a.schwung >= 2, `${zwischen}, ${a.schwung}`);
+}
+
 // ---------------------------------------------------- 13. Zielwahl und Zielwechsel (D168)
 {
   const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
@@ -454,6 +510,186 @@ let grathornVon = NaN, grathornBis = NaN;
   pruefe('dasselbe Ergebnis bei 30, 144 und 10 Bildern je Sekunde', a === b && b === c, `${a} · ${b} · ${c}`);
 }
 
+
+let kettenWerte = '';
+// ---------------------------------------------------- 18. Moveset, Puffer, Kette (D171)
+{
+  /** Eine Spielerin allein auf dem Platz (der Gegner schläft 30 m weg), Klinge oder Axt. */
+  const allein = (art: 'klinge' | 'axt' = 'klinge') => {
+    const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+    ruesteAus(s, art);
+    const g = neuerKaempfer('g', UEBUNGSGEGNER, 0, -30, 0);
+    const w: Kampfwelt = { spielerin: s, gegner: [g], ziel: null };
+    return { s, w };
+  };
+  /** Laufen lassen und jeden Schlagbeginn mitschreiben; `druck(t)` darf Eingaben puffern. */
+  const lauf = (w: Kampfwelt, dauer: number, druck: (t: number, s: Kaempfer) => void, bild = SCHRITT) => {
+    const s = w.spielerin;
+    const namen: string[] = []; let warBereit = false, bereitZwischen = 0, letzter = s.schwung;
+    for (let t = 0; t < dauer; t += bild) {
+      druck(t, s);
+      simuliere(w, bild);
+      if (s.phase === 'bereit') warBereit = true;
+      if (s.schwung !== letzter) {
+        letzter = s.schwung; namen.push(s.schlag.name ?? '?');
+        if (namen.length > 1 && warBereit) bereitZwischen++;
+        warBereit = false;
+      }
+    }
+    return { namen, bereitZwischen };
+  };
+
+  // Hämmern: J alle 100 ms. Die Kette läuft Hieb → Rückhand → Stich, ohne Stand dazwischen.
+  {
+    const { w } = allein();
+    const r = lauf(w, 1.3, (t, s) => { if (Math.abs(t / 0.1 - Math.round(t / 0.1)) < 1e-6) puffere(s, 'leicht'); });
+    pruefe('Klinge: J J J ergibt Hieb, Rückhand, Stich', r.namen.slice(0, 3).join(',') === 'Hieb,Rückhand,Stich',
+      r.namen.join(','));
+    pruefe('die Kette bricht die Erholung ab, statt auf den Stand zu warten', r.bereitZwischen === 0,
+      `${r.bereitZwischen}× Stand dazwischen`);
+  }
+  // Die Axt hat zwei leichte, dann beginnt sie von vorn.
+  {
+    const { w } = allein('axt');
+    const r = lauf(w, 3, (t, s) => { if (Math.abs(t / 0.1 - Math.round(t / 0.1)) < 1e-6) puffere(s, 'leicht'); });
+    pruefe('Axt: die Kette ist Axthieb, Querhieb, Axthieb', r.namen.slice(0, 3).join(',') === 'Axthieb,Querhieb,Axthieb',
+      r.namen.join(','));
+  }
+  // Der Puffer verfällt: früh im langen Zweihandhieb gedrückt, kommt nichts nach.
+  {
+    const { s, w } = allein();
+    puffere(s, 'schwer');
+    const r = lauf(w, 1.6, (t, k) => { if (Math.abs(t - 0.05) < SCHRITT / 2) puffere(k, 'leicht'); });
+    pruefe(`ein Druck verfällt nach ${PUFFER} s`, r.namen.join(',') === 'Zweihandhieb', r.namen.join(','));
+  }
+  // Die Axt ist langsam: Ein Druck im Durchzug muss bis zum Abbruchpunkt halten (im Bild gefunden).
+  {
+    const { s, w } = allein('axt');
+    puffere(s, 'leicht');
+    let gedrueckt = false;
+    const r = lauf(w, 2.5, (_, k) => { if (!gedrueckt && k.phase === 'aktiv') { puffere(k, 'leicht'); gedrueckt = true; } });
+    pruefe('Axt: J im Durchzug gedrückt, kommt der Querhieb', r.namen.slice(0, 2).join(',') === 'Axthieb,Querhieb', r.namen.join(','));
+  }
+  // Die Kette hält KOMBO_FENSTER nach dem Stand, danach beginnt sie neu.
+  {
+    const nachStand = (warte: number) => {
+      const { s, w } = allein();
+      puffere(s, 'leicht');
+      let stand = -1;
+      const r = lauf(w, 2, (t, k) => {
+        if (stand < 0 && k.schwung === 1 && k.phase === 'bereit') stand = t;
+        if (stand >= 0 && Math.abs(t - stand - warte) < SCHRITT / 2) puffere(k, 'leicht');
+      });
+      return r.namen[1];
+    };
+    pruefe('kurz nach dem Stand: die Kette geht weiter', nachStand(KOMBO_FENSTER * 0.5) === 'Rückhand');
+    pruefe('nach dem Fenster: wieder der erste Hieb', nachStand(KOMBO_FENSTER + 0.1) === 'Hieb');
+  }
+  // Abbrechen erst ab KOMBO_AB der Erholung: früher gedrückt heisst warten, nicht verloren.
+  {
+    const { s, w } = allein();
+    setzeSchlagAn(s, WAFFEN.klinge.leicht[0]);
+    const h = WAFFEN.klinge.leicht[0];
+    let beginn = NaN;
+    for (let t = 0; t < 1; t += SCHRITT) {
+      if (s.phase === 'erholung' && s.zeit < SCHRITT) puffere(s, 'leicht');
+      const vorher = s.schwung;
+      simuliere(w, SCHRITT);
+      if (s.schwung !== vorher && Number.isNaN(beginn)) beginn = t + SCHRITT;
+    }
+    const soll = h.vorlauf + h.aktiv + h.erholung * KOMBO_AB;
+    pruefe('der nächste Hieb beginnt genau bei KOMBO_AB der Erholung', Math.abs(beginn - soll) < 2 * SCHRITT,
+      `${f3(beginn)} gegen ${f3(soll)} s`);
+  }
+  // Laufangriff nur im Lauf.
+  {
+    const a = allein(), b = allein();
+    b.s.rennt = true;
+    pruefe('im Stand: J ist der Hieb', naechsterSchlag(a.s, 'leicht').schlag.name === 'Hieb');
+    pruefe('im Lauf: J ist der Laufstich', naechsterSchlag(b.s, 'leicht').schlag.name === 'Laufstich');
+    pruefe('schwer ist schwer, auch im Lauf', naechsterSchlag(b.s, 'schwer').schlag.name === 'Zweihandhieb');
+  }
+  // Vorschritt: Der Stich trägt die Spielerin um `schritt` nach vorn, sonst nichts.
+  for (const sl of [WAFFEN.klinge.leicht[2], WAFFEN.klinge.lauf, WAFFEN.axt.schwer]) {
+    const { s } = allein();
+    setzeSchlagAn(s, sl);
+    for (let t = 0; t < 2; t += SCHRITT) schrittKaempfer(s, SCHRITT);
+    const weg = Math.hypot(s.x, s.z);
+    pruefe(`${sl.name}: Vorschritt ${sl.schritt} m, nach vorn`, Math.abs(weg - (sl.schritt ?? 0)) < 0.01 && s.z < 0,
+      `${f3(weg)} m`);
+  }
+  // Rückstoss: weg vom Angreifer.
+  {
+    const { s, g } = paar(2);
+    s.schlag = WAFFEN.klinge.schwer; s.phase = 'aktiv'; s.zeit = 0;
+    loeseTreffer(s, [g]);
+    pruefe('der Rückstoss ist kein Sprung — im Treffer bewegt sich noch nichts', g.z === -2);
+    schrittKaempfer(g, STOSS_DAUER / 2);
+    pruefe('nach der halben Stossdauer: die halbe Strecke', Math.abs(-g.z - 2 - 0.225) < 1e-6, `${f3(-g.z - 2)} m`);
+    for (let t = 0; t < 0.3; t += SCHRITT) schrittKaempfer(g, SCHRITT);
+    pruefe('der Zweihandhieb stösst 0,45 m zurück', Math.abs(-g.z - 2 - 0.45) < 1e-6, `${f3(-g.z - 2)} m`);
+  }
+  // Trefferstopp: die Welt hält 60 ms an, danach läuft sie weiter.
+  {
+    const { s, g } = paar(2.2);
+    const w: Kampfwelt = { spielerin: s, gegner: [g], ziel: null };
+    setzeSchlagAn(s);
+    let t = 0;
+    while (t < 1 && !simuliere(w, SCHRITT).some(e => e.schaden > 0)) t += SCHRITT;
+    const z0 = s.zeit, gz = g.zeit;
+    simuliere(w, TREFFERSTOPP * 0.8);
+    pruefe('im Trefferstopp steht die Uhr', s.zeit === z0 && g.zeit === gz);
+    simuliere(w, TREFFERSTOPP);
+    pruefe('danach läuft sie weiter', s.zeit > z0);
+  }
+  // Die Kette hängt nicht an der Bildrate.
+  {
+    const probe = (bild: number) => {
+      const { w } = allein();
+      let n = 0;
+      const r = lauf(w, 2, (t, s) => { if (t >= n * 0.1 - 1e-9) { n++; puffere(s, 'leicht'); } }, bild);
+      return r.namen.join(',');
+    };
+    const a = probe(1 / 30), b = probe(1 / 144);
+    pruefe('die Kette ist bei 30 und 144 Bildern dieselbe', a === b, `${a} · ${b}`);
+  }
+  // Rollen aus der Kette heraus, gepuffert.
+  {
+    const { s, w } = allein();
+    puffere(s, 'leicht');
+    let gerollt = false;
+    for (let t = 0; t < 1; t += SCHRITT) {
+      if (s.phase === 'aktiv') puffere(s, 'rolle', 1, 0);
+      simuliere(w, SCHRITT);
+      if (s.phase === 'rolle') { gerollt = true; break; }
+    }
+    pruefe('eine Rolle im Schwung gedrückt kommt in der Erholung', gerollt);
+  }
+  // Waagen: die Klinge bleibt die schnellere, die Axt die, die Haltung bricht — auch in der Kette.
+  {
+    const kette = (ss: Schlag[]) => {
+      const dauer = ss.reduce((a, x) => a + x.vorlauf + x.aktiv + x.erholung * KOMBO_AB, 0);
+      return { dps: ss.reduce((a, x) => a + x.schaden, 0) / dauer, hps: ss.reduce((a, x) => a + x.haltungsschaden, 0) / dauer };
+    };
+    const k = kette(WAFFEN.klinge.leicht), a = kette(WAFFEN.axt.leicht);
+    pruefe('in der Kette macht die Klinge mehr Schaden je Sekunde', k.dps > a.dps, `${f3(k.dps)} gegen ${f3(a.dps)}`);
+    for (const [art, wf] of Object.entries(WAFFEN)) {
+      const l = wf.leicht[0], sw = wf.schwer;
+      pruefe(`${art}: schwer bricht Haltung je Treffer mindestens 1,5× so stark`,
+        sw.haltungsschaden >= 1.5 * l.haltungsschaden, `${sw.haltungsschaden} gegen ${l.haltungsschaden}`);
+      pruefe(`${art}: schwer holt sichtbar länger aus (≥ 0,4 s)`, sw.vorlauf >= 0.4);
+      for (const x of [...wf.leicht, wf.schwer, wf.lauf]) {
+        pruefe(`${art}/${x.name}: Clip und Scheitel vor Durchzug`,
+          !!x.clip && !!x.hieb && x.hieb.scheitel > 0 && x.hieb.scheitel < x.hieb.durchzug);
+      }
+    }
+    const kl = WAFFEN.klinge.leicht, ax = WAFFEN.axt.leicht;
+    pruefe('jeder leichte Axtschlag holt länger aus als sein Klingen-Gegenstück',
+      ax.every((x, i) => x.vorlauf > kl[i].vorlauf));
+    kettenWerte = `Klinge ${f3(k.dps)} Schaden/s, ${f3(k.hps)} Haltung/s · Axt ${f3(a.dps)} / ${f3(a.hps)}`;
+  }
+}
+
 // ---------------------------------------------------- Die gemessenen Werte
 const s0 = SPIELERIN, g0 = UEBUNGSGEGNER;
 console.log('\nKampftor — gemessen an SPIELERIN gegen UEBUNGSGEGNER');
@@ -477,7 +713,9 @@ console.log(`  Schläge zweier Gegner in 15 s        ${schlaegeZuZweit} (im Wech
   }
   console.log(`  Axt trifft                           ${f3(axtTreffer)} s nach Tastendruck`);
   console.log(`  Keiler: Schutzfenster                ${f3(keilerVon)} … ${f3(keilerBis)} s (Telegraf ${KEILER.schlag.vorlauf} s)`);
+  console.log(`  Wolf: Schutzfenster 1. Biss          ${f3(wolfVon)} … ${f3(wolfBis)} s, Doppelrolle bis ${f3(wolfDoppelBis)} s`);
   console.log(`  Grathorn: Schutzfenster              ${f3(grathornVon)} … ${f3(grathornBis)} s (Telegraf ${GRATHORN.schlag.vorlauf} s)`);
 }
+console.log(`  Leichte Kette (mit Abbruch)          ${kettenWerte}`);
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);

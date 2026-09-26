@@ -15,27 +15,29 @@
  *
  * ## Tasten
  *
- * J Schlag · K Rolle (Richtung aus WASD, ohne Taste rückwärts) · L Ziel auf/ab. Die Maus bleibt
+ * J leicht (Kette je Waffe; im Lauf mit Shift der Laufangriff) · I schwer · K Rolle (Richtung aus
+ * WASD, ohne Taste rückwärts) · L Ziel auf/ab. Alle drei werden **gepuffert** (D171): Wer im
+ * Schwung schon den nächsten drückt, wird bedient, sobald es geht. Die Maus bleibt
  * beim Blick: Ziehen dreht die Kamera, und ein Klick, der vielleicht ein Ziehen werden sollte, darf
  * keinen Schlag auslösen. Touch folgt mit Stufe 2 (ADR-0006: das Handy ist nachrangig).
  *
  * ## Ausdauer
  *
  * Eine Kasse für Klettern, Springen und Kampf — der Ref aus `main.tsx`. Der Kampf **verbraucht**
- * daraus, erholen lässt ihn nur `Spieler`. Würde die Kampfsimulation ihre Erholung zurückschreiben,
- * erholte sich die Ausdauer doppelt so schnell, sobald ein Gegner in der Nähe steht.
+ * daraus, erholen lässt ihn nur `Spieler` (`ausdauerFremd`). Würde die Kampfsimulation ihre Erholung
+ * zurückschreiben, erholte sich die Ausdauer doppelt so schnell, sobald ein Gegner in der Nähe steht.
  */
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import {
-  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, ZIELEN, type KampfWerte,
-  neuerKaempfer, setzeSchlagAn, setzeRolleAn, simuliere, waehleZiel, drehe, blickAuf, frei,
+  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, ZIELEN, type KampfWerte, type Schlag,
+  neuerKaempfer, puffere, naechsterSchlag, simuliere, waehleZiel, drehe, blickAuf, frei,
   WAFFEN, ruesteAus, wechsleZiel, type WaffenArt,
   type Kampfwelt, type Kaempfer, type Treffer,
 } from './echtzeit.js';
-import type { Ausdauer } from '../spieler/ausdauer.js';
+import { reicht, type Ausdauer } from '../spieler/ausdauer.js';
 import type { Kollisionsfeld } from '../spieler/kollision.js';
 import { hoeheAufFlaeche, type HoehenFeld } from '../world/lod.js';
 import type { KampfStand } from '../ui/Kampfanzeige.js';
@@ -47,10 +49,11 @@ import { baueWindMaterial } from '../world/windmaterial.js';
  * seinem Modell und dem Gang aus dem Shader (D138); `kapsel` der Platzhalter aus Stufe 1,
  * bleibt als Vergleich (`?kampf=kapsel`).
  */
-export type GegnerArt = 'keiler' | 'grathorn' | 'kapsel';
-const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, kapsel: UEBUNGSGEGNER };
+export type GegnerArt = 'keiler' | 'grathorn' | 'wolf' | 'kapsel';
+export const GEGNER_ARTEN: readonly GegnerArt[] = ['keiler', 'grathorn', 'wolf', 'kapsel'];
+const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, wolf: WOLF, kapsel: UEBUNGSGEGNER };
 /** Modell je Art (D170). Die Kapsel hat keins. */
-const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', grathorn: 'grathorn' };
+const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', grathorn: 'grathorn', wolf: 'k7-wolf' };
 
 /** Ein Körper aus der Welt: Geometrie plus ein Material je Tier (der Gang ist ein Uniform). */
 interface Leib {
@@ -80,6 +83,13 @@ export interface KampfFigur {
   zeit: number;
   vorlauf: number; aktiv: number; erholung: number;
   waffe: WaffenArt;
+  /** Clip des laufenden Schlags und wo darin Scheitel und Durchzug liegen, Clipsekunden (D171). */
+  clip: string;
+  hieb: { scheitel: number; durchzug: number } | null;
+  /** Kampfhaltung im Stand (Clip der Waffe). */
+  haltung: string;
+  /** Zählt Treffer, die die Spielerin gesetzt hat — die Kamera ruckt mit (D171). */
+  gesetzt: number;
 }
 
 /** Nach so vielen Sekunden steht der Übungsplatz wieder — nach einem Sieg wie nach einer Niederlage. */
@@ -97,6 +107,17 @@ const FARBE = {
 function faecher(radius: number, halbwinkel: number): THREE.BufferGeometry {
   const g = new THREE.CircleGeometry(radius, 28, Math.PI / 2 - halbwinkel, 2 * halbwinkel);
   g.rotateX(-Math.PI / 2);
+  return g;
+}
+
+/**
+ * Der Fächer eines bestimmten Schlags (D171): Stich schmal und lang, Querhieb breit. Je Schlag
+ * einmal gebaut; bis zum Kapselrand eines Menschen gezeichnet, wie das Tor misst.
+ */
+const FAECHER = new WeakMap<Schlag, THREE.BufferGeometry>();
+function faecherFuer(s: Schlag): THREE.BufferGeometry {
+  let g = FAECHER.get(s);
+  if (!g) { g = faecher(s.reichweite + SPIELERIN.radius, s.halbwinkel); FAECHER.set(s, g); }
   return g;
 }
 
@@ -177,13 +198,14 @@ function leibAus(scene: THREE.Object3D, kreatur: string): Leib | null {
   };
 }
 
-/** Beide Modelle werden immer geladen — Hooks dürfen nicht von der Aufstellung abhängen. */
+/** Alle Modelle werden immer geladen — Hooks dürfen nicht von der Aufstellung abhängen. */
 function KampfplatzMitModellen(props: PlatzProps) {
   const keiler = useGLTF('/creatures/wurzelkeiler.glb').scene;
   const grathorn = useGLTF('/creatures/grathorn.glb').scene;
+  const wolf = useGLTF('/creatures/k7-wolf.glb').scene;
   const leiber = useMemo<Partial<Record<GegnerArt, Leib | null>>>(() => ({
-    keiler: leibAus(keiler, 'wurzelkeiler'), grathorn: leibAus(grathorn, 'grathorn'),
-  }), [keiler, grathorn]);
+    keiler: leibAus(keiler, 'wurzelkeiler'), grathorn: leibAus(grathorn, 'grathorn'), wolf: leibAus(wolf, 'k7-wolf'),
+  }), [keiler, grathorn, wolf]);
   return <KampfplatzKern {...props} leiber={leiber} />;
 }
 
@@ -191,10 +213,10 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
   PlatzProps & { leiber: Partial<Record<GegnerArt, Leib | null>> }) {
   const aufKey = aufstellung.join(',');
   const welt = useRef<Kampfwelt | null>(null);
-  const zaehler = useRef({ rollen: 0, getroffen: 0, phase: 'bereit' as Kaempfer['phase'] });
+  const zaehler = useRef({ rollen: 0, getroffen: 0, gesetzt: 0, phase: 'bereit' as Kaempfer['phase'] });
   useEffect(() => () => { if (figur) figur.current = null; }, [figur]);
   const ende = useRef<number | null>(null);
-  const absicht = useRef({ schlag: false, rolle: false, zielen: false, wechsel: 0 as -1 | 0 | 1,
+  const absicht = useRef({ schlag: null as 'leicht' | 'schwer' | null, rolle: false, zielen: false, wechsel: 0 as -1 | 0 | 1,
                            waffe: null as WaffenArt | 'tausch' | null });
   /**
    * Der Übungsplatz wartet auf die erste Eingabe (D168). Vorher lief er schon während des Ladens,
@@ -216,7 +238,8 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       if (ev.repeat) return;
       los.current = true;
       const a = absicht.current;
-      if (ev.code === 'KeyJ') a.schlag = true;
+      if (ev.code === 'KeyJ') a.schlag = 'leicht';
+      if (ev.code === 'KeyI') a.schlag = 'schwer';
       if (ev.code === 'KeyK') a.rolle = true;
       if (ev.code === 'KeyL') a.zielen = true;
       if (ev.code === 'KeyQ') a.wechsel = -1;
@@ -254,7 +277,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       const art = aufstellung[i] ?? 'kapsel';
       const werte = WERTE[art];
       const leib = leiber[art] ?? null;
-      const bogenGeo = faecher(werte.schlag.reichweite + SPIELERIN.radius, werte.schlag.halbwinkel);
+      const bogenGeo = faecherFuer(werte.schlag);
       const gruppe = new THREE.Group();
       const leibGruppe = new THREE.Group();
       let koerper: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
@@ -294,7 +317,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     }
     // Der Fächer der Spielerin: sichtbar im Vorlauf blass, im Aktiven hell.
     const schwung = new THREE.Mesh(
-      faecher(SPIELERIN.schlag.reichweite + 0.4, SPIELERIN.schlag.halbwinkel),
+      faecherFuer(WAFFEN.klinge.schlag),
       new THREE.MeshBasicMaterial({ color: FARBE.faecher, transparent: true, opacity: 0, depthWrite: false }),
     );
     schwung.renderOrder = 2;
@@ -312,6 +335,8 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     // Die Geometrie des Keilers gehört dem Modell-Cache (useGLTF), nicht dem Platz.
     zeichnung.wurzel.traverse(o => {
       if (o instanceof THREE.Mesh) {
+        // Fächer sind je Schlag geteilt (D171) — `dispose` gibt nur den GPU-Speicher frei, beim
+        // nächsten Zeichnen lädt three.js sie neu.
         if (!Object.values(leiber).some(l => l?.geometrie === o.geometry)) o.geometry.dispose();
         (o.material as THREE.Material).dispose();
       }
@@ -323,7 +348,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     if (!p) return;
     const dt = Math.min(rohDt, 0.1);
     const jetzt = performance.now();
-    if (!welt.current) welt.current = baueWelt(p.x, p.z, gier.current, aufstellung);
+    if (!welt.current) { welt.current = baueWelt(p.x, p.z, gier.current, aufstellung); welt.current.spielerin.ausdauerFremd = true; }
     // Bis zur ersten Eingabe steht der Platz still — die Gegner folgen dem Absetzpunkt nicht,
     // sie stehen dort, wo sie zuerst hingestellt wurden.
     const w = welt.current;
@@ -356,24 +381,22 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       }
     }
     if (zielt) zielt.current = w.ziel !== null;
-    if (a.schlag) {
-      a.schlag = false;
-      if (!setzeSchlagAn(s) && frei(s)) melde('zu erschöpft');
-    }
+    const t = tasten.current;
+    const vor = (t.has('KeyW') ? 1 : 0) - (t.has('KeyS') ? 1 : 0);
+    const seit = (t.has('KeyD') ? 1 : 0) - (t.has('KeyA') ? 1 : 0);
+    // Rennen wie in `steuerung.ts`: Shift und eine Richtung. Dann wird J zum Laufangriff.
+    s.rennt = (t.has('ShiftLeft') || t.has('ShiftRight')) && (vor !== 0 || seit !== 0);
+    // Gepuffert (D171): ausgeführt im nächsten Teilschritt, in dem es geht — auch aus der Erholung.
+    if (a.schlag) { puffere(s, a.schlag); a.schlag = null; }
     if (a.rolle) {
       a.rolle = false;
-      const t = tasten.current;
-      const vor = (t.has('KeyW') ? 1 : 0) - (t.has('KeyS') ? 1 : 0);
-      const seit = (t.has('KeyD') ? 1 : 0) - (t.has('KeyA') ? 1 : 0);
       const g = s.blick;
       // Ohne Richtung rückwärts — der Schritt aus der Gefahr, nicht in sie hinein.
       const [v, sv] = vor === 0 && seit === 0 ? [-1, 0] : [vor, seit];
       const rx = -Math.sin(g) * v + Math.cos(g) * sv;
       const rz = -Math.cos(g) * v - Math.sin(g) * sv;
-      if (!setzeRolleAn(s, rx, rz) && (s.phase === 'bereit' || s.phase === 'erholung')) melde('zu erschöpft');
+      puffere(s, 'rolle', rx, rz);
     }
-    // Was die Absichten gekostet haben, geht in die gemeinsame Kasse. Nur das.
-    ausdauer.current = s.ausdauer;
 
     // ---- Zielaufschaltung zieht den Blick
     const zielK = w.ziel ? w.gegner.find(g => g.id === w.ziel) : undefined;
@@ -390,10 +413,15 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       const [kx, kz] = kollision.schiebeRaus(x, z);
       return [Math.max(-halbB, Math.min(halbB, kx)), Math.max(-halbT, Math.min(halbT, kz))];
     };
-    const ausdauerVorher = ausdauer.current;
     const ereignisse: Treffer[] = los.current ? simuliere(w, dt, schiebe) : [];
-    // Die Simulation erholt die Ausdauer mit — verworfen, siehe Kopfkommentar.
-    s.ausdauer = ausdauerVorher;
+    // Was die Schläge und Rollen gekostet haben, geht in die gemeinsame Kasse. Nur das — erholen
+    // lässt sie `Spieler` (`ausdauerFremd`).
+    ausdauer.current = s.ausdauer;
+    // Eine Eingabe, die im Stand nicht ausgeführt wurde, scheitert an der Ausdauer.
+    if (s.puffer && s.phase === 'bereit') {
+      const kosten = s.puffer.art === 'rolle' ? s.werte.rolle.kosten : naechsterSchlag(s, s.puffer.art).schlag.kosten;
+      if (!reicht(s.ausdauer, kosten)) { melde('zu erschöpft'); s.puffer = null; }
+    }
     p.x = s.x; p.z = s.z;
     gesperrt.current = !frei(s) || s.phase === 'gefallen';
 
@@ -406,6 +434,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       } else {
         const i = w.gegner.findIndex(g => g.id === e.auf);
         if (i >= 0 && !e.ausgewichen) zeichnung.puppen[i].blitz = jetzt;
+        if (e.von === 'spielerin' && e.schaden > 0) zaehler.current.gesetzt++;
         if (e.toedlich) melde('besiegt');
         else if (e.gebrochen) melde('er taumelt');
       }
@@ -416,6 +445,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     if (vorbei && ende.current === null) ende.current = jetzt;
     if (ende.current !== null && jetzt - ende.current > NEUSTART * 1000) {
       welt.current = baueWelt(p.x, p.z, gier.current, aufstellung);
+      welt.current.spielerin.ausdauerFremd = true;
       ruesteAus(welt.current.spielerin, waffeWahl.current);
       ende.current = null;
       melde('neue Runde');
@@ -426,6 +456,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     const sw = zeichnung.schwung;
     sw.position.set(s.x, hoeheAufFlaeche(feld, s.x, s.z) + 0.05, s.z);
     sw.rotation.y = s.blick;
+    if (sw.geometry !== faecherFuer(s.schlag)) sw.geometry = faecherFuer(s.schlag);
     sw.material.opacity = s.phase === 'aktiv' ? 0.3 : s.phase === 'vorlauf' ? 0.12 : 0;
     const mk = zeichnung.marke;
     const zk = w.ziel ? w.gegner.find(g => g.id === w.ziel) : undefined;
@@ -439,17 +470,18 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       const z = zaehler.current;
       if (s.phase === 'rolle' && z.phase !== 'rolle') z.rollen++;
       z.phase = s.phase;
-      const sw = s.werte;
+      const sw = s.werte, sl = s.schlag, waffe = WAFFEN[s.waffe ?? 'klinge'];
       figur.current = {
         phase: s.phase, schwung: s.schwung, rollen: z.rollen, getroffen: z.getroffen,
-        schlagDauer: sw.schlag.vorlauf + sw.schlag.aktiv + sw.schlag.erholung,
+        schlagDauer: sl.vorlauf + sl.aktiv + sl.erholung,
         rolleDauer: sw.rolle.dauer,
         rolleBlick: s.rolleX !== 0 || s.rolleZ !== 0 ? Math.atan2(-s.rolleX, -s.rolleZ) : null,
         // Gefallen gibt es nichts mehr zu rahmen — die Kamera geht zurück hinter die Figur.
         fokus: zk && s.phase !== 'gefallen' ? { x: zk.x, y: zk.y + zk.werte.hoehe * 0.7, z: zk.z } : null,
         zeit: s.zeit,
-        vorlauf: sw.schlag.vorlauf, aktiv: sw.schlag.aktiv, erholung: sw.schlag.erholung,
+        vorlauf: sl.vorlauf, aktiv: sl.aktiv, erholung: sl.erholung,
         waffe: s.waffe ?? 'klinge',
+        clip: sl.clip ?? 'Sword_Slash', hieb: sl.hieb ?? null, haltung: waffe.haltung, gesetzt: z.gesetzt,
       };
     }
 
@@ -462,11 +494,15 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         } : null,
         gegnerUebrig: w.gegner.filter(g => g.phase !== 'gefallen').length,
         gegnerGesamt: w.gegner.length,
-        protokoll: w.gegner.map(g => `${g.id === w.recht ? '*' : ''}${g.phase}@${Math.hypot(g.x - s.x, g.z - s.z).toFixed(1)}`).join(' '),
+        protokoll: w.gegner.map(g => `${g.id === w.recht ? '*' : ''}${g.phase}`
+          + `${g.phase === 'vorlauf' || g.phase === 'aktiv' ? `:${g.schlag.name ?? ''}` : ''}`
+          + `@${Math.hypot(g.x - s.x, g.z - s.z).toFixed(1)}`).join(' '),
         meldung: los.current ? meldung.current.text : 'eine Taste — die Übung beginnt',
         meldungSeit: los.current ? meldung.current.seit : 0,
         waffe: WAFFEN[s.waffe ?? 'klinge'].name,
         ruhig: !los.current,
+        getroffen: zaehler.current.getroffen,
+        schlag: s.phase === 'vorlauf' || s.phase === 'aktiv' || s.phase === 'erholung' ? s.schlag.name ?? '' : '',
       };
     }
   });
@@ -479,7 +515,8 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
   pu.gruppe.position.set(g.x, g.y, g.z);
   pu.gruppe.rotation.y = g.blick;
   const m = pu.koerper.material;
-  const s = g.werte.schlag;
+  const s = g.schlag;
+  if (pu.bogen.geometry !== faecherFuer(s)) pu.bogen.geometry = faecherFuer(s);
   m.emissive.setRGB(0, 0, 0);
   pu.bogen.material.opacity = 0;
   const l = pu.leib;
@@ -494,7 +531,10 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
   pu.gang?.(g.phase === 'bereit' ? Math.min(1, v / 1.6) : 0);
   const keiler = pu.art === 'keiler';
   const horn = pu.art === 'grathorn';
-  const tier = keiler || horn;
+  const wolf = pu.art === 'wolf';
+  const tier = keiler || horn || wolf;
+  /** Der zweite Biss einer Kette: kürzer, flacher, aus der Bewegung (D171). */
+  const nachbiss = wolf && g.folge.length === 0 && s !== g.werte.schlag;
 
   if (g.phase === 'vorlauf') {
     // Das Telegraf: Der Bogen am Boden füllt sich, der Körper glüht auf. Beides wächst mit dem
@@ -513,6 +553,16 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
       l.rotation.x = 0.32 * t;
       l.position.y = 0.12 * t;
       l.position.z = 0.25 * t;
+    } else if (wolf) {
+      // Der Wolf duckt sich: tief, Gewicht auf den Hinterläufen, Kopf vor. Beim Nachbiss kein
+      // Ducken — er kommt aus dem ersten Satz heraus, nur der Kopf zieht zurück.
+      if (nachbiss) { l.position.z = -0.35 + 0.1 * t; l.rotation.x = 0.06 * t; }
+      else {
+        l.position.y = -0.1 * t;
+        l.position.z = 0.22 * t;
+        l.rotation.x = -0.1 * t;
+        l.rotation.z = Math.sin(g.zeit * 22) * 0.02 * t;
+      }
     }
   } else if (g.phase === 'aktiv') {
     pu.bogen.material.opacity = 0.65;
@@ -528,12 +578,21 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
       l.rotation.x = 0.32 - 0.62 * u;
       l.position.y = 0.12 * (1 - u);
       l.position.z = 0.25 - 0.95 * u;
+    } else if (wolf) {
+      // Der Satz: flach nach vorn, Kopf hoch zum Zuschnappen. Der Nachbiss springt weiter.
+      const u = Math.min(1, g.zeit / s.aktiv);
+      const von = nachbiss ? -0.25 : 0.22;
+      l.position.z = von - (nachbiss ? 0.6 : 0.8) * u;
+      l.position.y = (nachbiss ? 0.1 : 0.14) * Math.sin(u * Math.PI);
+      l.rotation.x = (nachbiss ? 0.06 : -0.1) + 0.22 * u;
     }
   } else if (g.phase === 'erholung' && tier) {
     const u = Math.min(1, g.zeit / s.erholung);
     const r = 1 - (1 - u) * (1 - u);
-    l.position.z = (keiler ? -0.9 : -0.7) * (1 - r);
-    l.rotation.x = (keiler ? 0.14 : -0.3) * (1 - r);
+    // Der Wolf zwischen den Bissen: bleibt vorn, der Kopf kommt zurück — kein Zurückweichen.
+    const zurueck = wolf ? (g.folge.length > 0 ? -0.58 : nachbiss ? -0.85 : -0.6) : keiler ? -0.9 : -0.7;
+    l.position.z = wolf && g.folge.length > 0 ? zurueck + 0.23 * r : zurueck * (1 - r);
+    l.rotation.x = (keiler ? 0.14 : wolf ? 0.12 : -0.3) * (1 - r);
   } else if (g.phase === 'betaeubt') {
     // Taumeln (D169): Blau allein ging bei Tag unter. Jetzt schwankt der Körper sichtbar, und drei
     // Rauten kreisen über dem Kopf — das liest man auf jedem Untergrund und in jeder Stimmung.

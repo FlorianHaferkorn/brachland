@@ -51,13 +51,17 @@ const REGENT_ID = 'flussvater';
  * Startpunkt. Hinter einem Schalter, bis Fassade und Gegnerbestand stehen.
  */
 const KAMPF_PARAM = new URLSearchParams(location.search).get('kampf');
-const KAMPFPLATZ = KAMPF_PARAM === '1' || KAMPF_PARAM === 'keiler' || KAMPF_PARAM === 'grathorn' || KAMPF_PARAM === 'kapsel';
 /**
- * Stufe 2 (D169/D170): `?kampf=1` stellt einen Keiler und einen Grathorn auf — zwei Baupläne,
- * zwei Telegrafe. `?kampf=keiler|grathorn|kapsel` stellt zwei derselben Art auf.
+ * Stufe 2 (D169–D171): `?kampf=1` stellt einen Keiler und einen Grathorn auf — zwei Baupläne,
+ * zwei Telegrafe. `?kampf=keiler|grathorn|wolf|kapsel` stellt zwei derselben Art auf,
+ * `?kampf=wolf,keiler` zwei verschiedene.
  */
-const KAMPF_AUFSTELLUNG = KAMPF_PARAM === 'keiler' || KAMPF_PARAM === 'grathorn' || KAMPF_PARAM === 'kapsel'
-  ? [KAMPF_PARAM, KAMPF_PARAM] as const : ['keiler', 'grathorn'] as const;
+const KAMPF_ARTEN = ['keiler', 'grathorn', 'wolf', 'kapsel'] as const;
+type KampfArt = typeof KAMPF_ARTEN[number];
+const KAMPF_LISTE = (KAMPF_PARAM ?? '').split(',').filter((a): a is KampfArt => (KAMPF_ARTEN as readonly string[]).includes(a));
+const KAMPFPLATZ = KAMPF_PARAM === '1' || KAMPF_LISTE.length > 0;
+const KAMPF_AUFSTELLUNG: readonly KampfArt[] = KAMPF_LISTE.length === 1 ? [KAMPF_LISTE[0], KAMPF_LISTE[0]]
+  : KAMPF_LISTE.length > 1 ? KAMPF_LISTE.slice(0, 2) : ['keiler', 'grathorn'];
 
 /**
  * Absetzpunkt aus der Adresse: `?absetzen=x,z` in Weltmetern.

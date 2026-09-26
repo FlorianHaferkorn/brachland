@@ -91,7 +91,8 @@ const HIMMEL_MESSLAUF: number | null = (() => {
  * Ein Uniform für alle Materialien mit Himmelsanteil — die Stärke hängt an der Stimmung (die Nacht
  * lebt vom Fülllicht und bekommt 0, siehe `Stimmung.himmel`), gesetzt von der Szene.
  */
-const HIMMEL_UNIFORM = { value: HIMMEL_MESSLAUF ?? 0.7 };
+/** Geteilt mit `bodenmaterial.ts` (D171): Boden und Set-Piece dämpfen gleich stark. */
+export const HIMMEL_UNIFORM = { value: HIMMEL_MESSLAUF ?? 0.7 };
 /** Stärke des Himmelsanteils setzen (Szene, je Stimmung). `?himmel=` hat Vorrang. */
 export function setzeHimmelStaerke(s: number): void {
   HIMMEL_UNIFORM.value = HIMMEL_MESSLAUF ?? s;

@@ -105,6 +105,13 @@
   "quelle": "poly.pizza y9KWOVG21R, Ultimate Modular Women, „Hooded Adventurer\""
  },
  {
+  "datei": "wanderin-waffen.glb",
+  "rolle": "Kampfclips der Spielerin (nur Knochen und Animation, figuren/kampf/)",
+  "autor": "Quaternius (Rig), Clips selbst gebaut",
+  "lizenz": "CC0",
+  "quelle": "Rig aus poly.pizza y9KWOVG21R; die neun Clips (Klinge/Axt: Haltung, Kette, schwer, Lauf) aus tools/waffenclips.py, abgetrennt mit tools/waffenteilen.ts (D171)"
+ },
+ {
   "datei": "bauer.glb",
   "rolle": "Bewohner (frei)",
   "autor": "Quaternius",

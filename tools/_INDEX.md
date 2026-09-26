@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-17
+last-reviewed: 2026-09-26
 shelf-life-days: 90
 owns: *.ts, *.mjs, *.py, *.sh
 ---
@@ -71,6 +71,10 @@ owns: *.ts, *.mjs, *.py, *.sh
 |---|---|
 | `mess/stil.mjs` | D152/D155-Stilmaß für PNG oder Spielkamera; Zahlen und Screenshot. `--gpu` für Metal, `--voll` für das ganze Bild, `--format=16:9` für 960×540. Aufruf und Vergleichsgrenzen in `../docs/MESSLAUF.md`. |
 | `axthieb.py` | D169: baut den Axthieb über Kopf (`Axe_Overhead`) auf dem Rig der Wanderin aus Weltrichtungen je Knochen; wird von `menschbau.py` geladen. Schlüsselbilder stehen im Kopf der Datei und in `HIEB_AXT_S` (RegionsSzene) |
+| `waffenclips.py` | D171: das Moveset der Wanderin (Klinge/Axt: Haltung, Kette, schwer, Lauf) aus Posen in Weltmetern — Hand, Waffenrichtung, Rumpfdrehung, Füsse — über Zwei-Knochen-IK; misst jede Hand im ausgewerteten Clip nach. Wird von `menschbau.py` geladen |
+| `waffenteilen.ts` | D171: trennt die `Klinge_*`/`Axt_*`-Clips aus `wanderin.glb` in `public/figuren/kampf/wanderin-waffen.glb` (nur Knochen, Meshopt). Kette: `menschbau.py … wanderin` → `waffenteilen.ts` → `menschpack.ts public/figuren/wanderin.glb` |
+| `kampfbot.ts` | D171: spielt ganze Kämpfe gegen jede Aufstellung und Waffe mit Reaktionszeit (aufmerksam 0,25 s, müde 0,40 s, Patzer) und druckt Siege, Zeit, erlittenen Schaden. `npx tsx tools/kampfbot.ts 200` |
+| `himmelboden.ts` | D171: Himmelsanteil des Geländes um die Set-Pieces (0,5-m-Raster, 16 Strahlen vom Gelände gegen Mauern und Kronen) als `public/bauten/<name>-himmel.bin/.json`; der Bodenshader liest es. `npx tsx tools/himmelboden.ts felsmulde stauwehr` (~6 s) |
 | `himmel.ts` | D170: Himmelsanteil je Ecke der Set-Pieces (BVH-Strahlen, Laub halb) als `_HIMMEL` in `public/bauten/<name>-bauten/-gruen.glb`; die Szene dämpft damit nur das Fülllicht. Nach jedem Szenenexport neu laufen lassen: `npx tsx tools/himmel.ts felsmulde stauwehr` (~4 min) |
 | `mess/kampf.mjs` | D166: lädt `?kampf=1`, schaltet auf, schlägt, rollt (eigene Tastenfolge als 4. Argument `"3:l,5:2,8:j"`, D168); Bildfolge `.cache/bilder/<name>_NN.png` plus Protokoll je Bild (eigene Phase/Leben, Gegner Phase@Abstand). Zum Hinsehen, kein Gate — die Regeln prüft `tests/echtzeit.test.ts`. |
 | `mess/sonde.mjs` | InstancedMesh-Sonde über `window.__szene`: Instanzzahl, Geometrie, Material und Attribute als JSON. |

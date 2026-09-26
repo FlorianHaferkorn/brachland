@@ -238,7 +238,10 @@ if (existsSync('public/creatures')) {
       stop('Assets', `ohne Herkunftsangabe: ${ohne.join(', ')} — CC-BY verlangt die Nennung`);
     // Rückrichtung: Zeilen, die auf nichts zeigen.
     const genannt = [...herkunft.matchAll(/`([a-z0-9-]+\.glb)`/g)].map(m => m[1]);
-    const figuren = existsSync('public/figuren') ? readdirSync('public/figuren') : [];
+    const figuren = [
+      ...(existsSync('public/figuren') ? readdirSync('public/figuren') : []),
+      ...(existsSync('public/figuren/kampf') ? readdirSync('public/figuren/kampf') : []),
+    ];
     const tot = genannt.filter(n => !dateien.includes(n) && !figuren.includes(n));
     if (tot.length)
       warn('Assets', `HERKUNFT.md nennt Dateien, die es nicht gibt: ${tot.join(', ')}`);
@@ -282,6 +285,26 @@ if (existsSync('public/figuren')) {
   }
   if (!ohne.length)
     console.log(`  · [Menschen] ${dateien.length} Figuren mit Skin, Animation und Herkunft, zusammen ${gesamt.toFixed(0)} KB`);
+}
+
+/**
+ * Kampfclips (`public/figuren/kampf`, D171): nur Knochen und Animation, kein Netz. Eigene Datei,
+ * weil die Wanderin mit ihnen über 250 KB läge — geladen wird sie nur mit Kampfplatz. Dasselbe
+ * Budget, dieselbe Herkunftspflicht, und kein Netz: Wer hier eins mitbringt, lädt die Figur zweimal.
+ */
+if (existsSync('public/figuren/kampf')) {
+  const herkunft = existsSync('assets/HERKUNFT.md') ? readFileSync('assets/HERKUNFT.md', 'utf8') : '';
+  for (const f of readdirSync('public/figuren/kampf').filter(f => f.endsWith('.glb'))) {
+    const pfad = join('public/figuren/kampf', f);
+    const kb = statSync(pfad).size / 1024;
+    if (!herkunft.includes(f)) stop('Kampfclips', `${f} ohne Herkunftsangabe`);
+    if (kb > 250) stop('Kampfclips', `${f}: ${kb.toFixed(0)} KB über Budget 250 KB`);
+    const buf = readFileSync(pfad);
+    const g = JSON.parse(buf.subarray(20, 20 + buf.readUInt32LE(12)).toString('utf8'));
+    if (g.meshes?.length) stop('Kampfclips', `${f} trägt ${g.meshes.length} Netze — erlaubt sind nur Knochen und Animation`);
+    if (!g.animations?.length) stop('Kampfclips', `${f} ohne Animation`);
+    console.log(`  · [Kampfclips] ${f}: ${g.animations?.length ?? 0} Clips, ${kb.toFixed(0)} KB`);
+  }
 }
 
 /**

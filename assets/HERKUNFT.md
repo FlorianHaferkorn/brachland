@@ -56,6 +56,7 @@ Gewichte auf 8 Bit.
 | Datei | Rolle | Autor | Lizenz | Quelle |
 |---|---|---|---|---|
 | `wanderin.glb` | Spielerfigur | Quaternius | CC0 | poly.pizza `y9KWOVG21R`, Ultimate Modular Women, „Hooded Adventurer" |
+| `wanderin-waffen.glb` | Kampfclips der Spielerin (nur Knochen und Animation, `figuren/kampf/`) | Quaternius (Rig), Clips selbst gebaut | CC0 | Rig aus poly.pizza `y9KWOVG21R`; die neun Clips (Klinge/Axt: Haltung, Kette, schwer, Lauf) aus `tools/waffenclips.py`, abgetrennt mit `tools/waffenteilen.ts` (D171) |
 | `bauer.glb` | Bewohner (frei) | Quaternius | CC0 | poly.pizza `7pn3R6hPvE`, Ultimate Modular Men, „Farmer" |
 | `arbeiter.glb` | Der Wart vom Bruch | Quaternius | CC0 | poly.pizza `Yg2bQZO6Hj`, Ultimate Modular Men, „Worker" |
 | `wanderer.glb` | Bewohner (frei) | Quaternius | CC0 | poly.pizza `kZ3DmIoGip`, Ultimate Modular Men, „Casual Character" |

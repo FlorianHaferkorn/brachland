@@ -65,9 +65,13 @@ def leuchtdichte(c):
 # +110 KB fuer die Wanderin — die Figur, die der Spieler die ganze Zeit ansieht.
 # D169: ohne Idle_Neutral — die Szene spielt es nur bei Bewohnern (`Bewohner`), nie bei der Spielerin;
 # es kostete 17 KB und hielt die Wanderin über dem Budget von 250 KB.
+# D171: das Moveset je Waffe (`tools/waffenclips.py`). Es wird mitgebaut und danach von
+# `tools/waffenteilen.ts` in eine eigene Datei ohne Netz verschoben — die Wanderin bleibt im Budget.
+ANIM_WAFFEN = ('Klinge_Stand', 'Klinge_Rueckhand', 'Klinge_Stich', 'Klinge_Schwer', 'Klinge_Lauf',
+               'Axt_Stand', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf')
 ANIM_SPIELER = ('Idle', 'Walk', 'Run', 'Sword_Slash', 'Roll', 'HitRecieve', 'Death',
                 # D169: selbst gebaut (`tools/axthieb.py`), das Paket hat keinen Hieb von oben.
-                'Axe_Overhead')
+                'Axe_Overhead') + ANIM_WAFFEN
 # Seit D146 auch Walk: Bewohner gehen ein Wegstueck (`Ort.gang`).
 ANIM_NPC = ('Idle', 'Idle_Neutral', 'Wave', 'Walk')
 WEG = ('Sword', 'Icosphere')
@@ -267,6 +271,12 @@ for eintrag in FIGUREN:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from axthieb import baue_axthieb
         baue_axthieb(arm)
+    if any(n in BEHALTEN for n in ANIM_WAFFEN):
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from waffenclips import baue_waffenclips, NAMEN
+        if set(NAMEN) != set(ANIM_WAFFEN):
+            raise SystemExit(f'ANIM_WAFFEN und waffenclips.NAMEN weichen ab: {sorted(set(NAMEN) ^ set(ANIM_WAFFEN))}')
+        baue_waffenclips(arm)
     for ad_obj in [arm] + netze:
         ad = ad_obj.animation_data
         if not ad: continue

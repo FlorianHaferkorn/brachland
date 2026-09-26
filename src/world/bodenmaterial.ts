@@ -17,6 +17,56 @@
  *   Kachelgrenzen optisch übertönen
  */
 import * as THREE from 'three';
+import { HIMMEL_UNIFORM } from './windmaterial.js';
+
+/**
+ * Himmelsanteil des Geländes um ein Set-Piece (D171, `tools/himmelboden.ts`): ein Raster von
+ * 0,5 m, als Datentextur. Ein Slot — die Set-Pieces liegen über 1,5 km auseinander, sichtbar ist
+ * immer höchstens eins. Ausserhalb des Rahmens (und ohne Raster) ist der Faktor 1.
+ */
+const LEER = new THREE.DataTexture(new Uint8Array([255]), 1, 1, THREE.RedFormat, THREE.UnsignedByteType);
+LEER.needsUpdate = true;
+const BODEN_HIMMEL = {
+  karte: { value: LEER as THREE.Texture },
+  /** x0, z0, 1/Breite, 1/Tiefe in Weltmetern; Breite 0 heisst: aus. */
+  rahmen: { value: new THREE.Vector4(0, 0, 0, 0) },
+};
+let bodenHimmelName: string | null = null;
+
+/** Raster des Set-Pieces `name` laden (oder mit `null` abschalten). Mehrfachaufruf ist billig. */
+export function setzeBodenHimmel(name: string | null): void {
+  if (name === bodenHimmelName) return;
+  bodenHimmelName = name;
+  if (!name) { BODEN_HIMMEL.rahmen.value.set(0, 0, 0, 0); return; }
+  Promise.all([
+    fetch(`/bauten/${name}-himmel.json`).then(r => (r.ok ? r.json() : Promise.reject(r.status))),
+    fetch(`/bauten/${name}-himmel.bin`).then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status))),
+  ]).then(([m, bin]: [{ x0: number; z0: number; schritt: number; breite: number; tiefe: number }, ArrayBuffer]) => {
+    if (bodenHimmelName !== name) return;
+    const t = new THREE.DataTexture(new Uint8Array(bin), m.breite, m.tiefe, THREE.RedFormat, THREE.UnsignedByteType);
+    t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearFilter;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    t.unpackAlignment = 1;
+    t.needsUpdate = true;
+    const alt = BODEN_HIMMEL.karte.value;
+    BODEN_HIMMEL.karte.value = t;
+    if (alt !== LEER) alt.dispose();
+    BODEN_HIMMEL.rahmen.value.set(m.x0, m.z0, 1 / (m.breite * m.schritt), 1 / (m.tiefe * m.schritt));
+  }).catch(() => { /* kein Raster: Faktor 1 */ });
+}
+
+const HIMMEL_GLSL = /* glsl */ `
+  // D171: Fülllicht dämpfen, wo Mauern und Kronen den Himmel verdecken. Zum Rand hin auf 1,
+  // damit der Rahmen im Bild keine Kante zeichnet.
+  if (uBodenRahmen.z > 0.0) {
+    vec2 uvH = (vWeltPos.xz - uBodenRahmen.xy) * uBodenRahmen.zw;
+    if (uvH.x > 0.0 && uvH.x < 1.0 && uvH.y > 0.0 && uvH.y < 1.0) {
+      float kante = smoothstep(0.0, 0.03, min(min(uvH.x, 1.0 - uvH.x), min(uvH.y, 1.0 - uvH.y)));
+      float sicht = mix(1.0, texture2D(uBodenHimmel, uvH).r, kante);
+      reflectedLight.indirectDiffuse *= mix(1.0, sicht, uHimmel);
+    }
+  }
+`;
 
 const RAUSCH_GLSL = /* glsl */ `
 varying vec3 vWeltPos;
@@ -118,12 +168,17 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + VARIATION_GLSL)
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL);
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL)
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
+      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL);
+    shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
+    shader.uniforms.uBodenRahmen = BODEN_HIMMEL.rahmen;
+    shader.uniforms.uHimmel = HIMMEL_UNIFORM;
   };
 
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
-  material.customProgramCacheKey = () => 'brachland-boden-v2';
+  material.customProgramCacheKey = () => 'brachland-boden-v3';
 
   return material;
 }
