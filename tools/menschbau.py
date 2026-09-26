@@ -63,7 +63,11 @@ def leuchtdichte(c):
 # Szene nicht spielt, bleibt draussen.
 # Seit D167 dazu die vier Kampfclips (ADR-0007): Schlag, Rolle, Treffer, Fall. Rund
 # +110 KB fuer die Wanderin — die Figur, die der Spieler die ganze Zeit ansieht.
-ANIM_SPIELER = ('Idle', 'Idle_Neutral', 'Walk', 'Run', 'Sword_Slash', 'Roll', 'HitRecieve', 'Death')
+# D169: ohne Idle_Neutral — die Szene spielt es nur bei Bewohnern (`Bewohner`), nie bei der Spielerin;
+# es kostete 17 KB und hielt die Wanderin über dem Budget von 250 KB.
+ANIM_SPIELER = ('Idle', 'Walk', 'Run', 'Sword_Slash', 'Roll', 'HitRecieve', 'Death',
+                # D169: selbst gebaut (`tools/axthieb.py`), das Paket hat keinen Hieb von oben.
+                'Axe_Overhead')
 # Seit D146 auch Walk: Bewohner gehen ein Wegstueck (`Ort.gang`).
 ANIM_NPC = ('Idle', 'Idle_Neutral', 'Wave', 'Walk')
 WEG = ('Sword', 'Icosphere')
@@ -257,8 +261,12 @@ for eintrag in FIGUREN:
             print(f'  Teil {o.name:18} z {min(zs):.2f}..{max(zs):.2f} m')
     netze = [o for o in bpy.context.scene.objects if o.type == 'MESH']
 
-    # 2. Animationen: nur die sechs, die die Szene spielt.
+    # 2. Animationen: nur die, die die Szene spielt. Der Axthieb wird vorher gebaut (D169).
     def kurz(n): return n.split('|')[-1]
+    if 'Axe_Overhead' in BEHALTEN:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from axthieb import baue_axthieb
+        baue_axthieb(arm)
     for ad_obj in [arm] + netze:
         ad = ad_obj.animation_data
         if not ad: continue

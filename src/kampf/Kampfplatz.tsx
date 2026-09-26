@@ -1,7 +1,8 @@
 /**
- * BRACHLAND — Übungsplatz: der Echtzeitkampf in der Welt (ADR-0007, Stufe 1)
+ * BRACHLAND — Übungsplatz: der Echtzeitkampf in der Welt (ADR-0007, Stufe 1 und 2)
  *
- * `?kampf=1` stellt zwei Übungsgegner vor die Spielerin. Sonst ändert sich nichts: Das Rundensystem
+ * `?kampf=1` stellt zwei Wurzelkeiler vor die Spielerin (Stufe 2, D169), `?kampf=kapsel` die
+ * Kapseln aus Stufe 1. Sonst ändert sich nichts: Das Rundensystem
  * läuft daneben weiter, die Kreaturen lösen weiter ihre Begegnungen aus (ADR-0007 §4 — Fassade
  * zuerst, Schnitt zuletzt).
  *
@@ -26,9 +27,10 @@
  */
 import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import {
-  SPIELERIN, UEBUNGSGEGNER, ZIELEN,
+  SPIELERIN, UEBUNGSGEGNER, KEILER, ZIELEN, type KampfWerte,
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, simuliere, waehleZiel, drehe, blickAuf, frei,
   WAFFEN, ruesteAus, wechsleZiel, type WaffenArt,
   type Kampfwelt, type Kaempfer, type Treffer,
@@ -37,6 +39,22 @@ import type { Ausdauer } from '../spieler/ausdauer.js';
 import type { Kollisionsfeld } from '../spieler/kollision.js';
 import { hoeheAufFlaeche, type HoehenFeld } from '../world/lod.js';
 import type { KampfStand } from '../ui/Kampfanzeige.js';
+import { kreaturGeometrie } from '../world/kreaturgestalt.js';
+import { baueWindMaterial } from '../world/windmaterial.js';
+
+/**
+ * Wer auf dem Platz steht (D169). `keiler` ist Stufe 2: der Wurzelkeiler aus der Welt, mit
+ * seinem Modell und dem Gang aus dem Shader (D138); `kapsel` der Platzhalter aus Stufe 1,
+ * bleibt als Vergleich (`?kampf=kapsel`).
+ */
+export type GegnerArt = 'keiler' | 'kapsel';
+const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, kapsel: UEBUNGSGEGNER };
+
+/** Ein Körper aus der Welt: Geometrie plus ein Material je Tier (der Gang ist ein Uniform). */
+interface Leib {
+  geometrie: THREE.BufferGeometry;
+  baue(): { material: THREE.MeshStandardMaterial; setzeZeit(t: number): void; setzeGang(g: number): void };
+}
 
 /**
  * Was Figur und Kamera vom Kampf wissen müssen (D167). `Kampfplatz` schreibt es je Bild, die
@@ -83,13 +101,21 @@ function faecher(radius: number, halbwinkel: number): THREE.BufferGeometry {
 /** Was je Gegner gezeichnet wird. */
 interface Puppe {
   gruppe: THREE.Group;
+  /** Der Körper unter `gruppe`: Ausfall, Neigen und Taumeln bewegen nur ihn, Bogen und Kranz bleiben stehen. */
+  leib: THREE.Group;
   koerper: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
   bogen: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>;
+  /** Drei Rauten über dem Kopf, solange er taumelt — lesbar auch bei Tag, wo Blau untergeht (D169). */
+  kranz: THREE.Group;
   /** Wann zuletzt getroffen — für das Aufblitzen. */
   blitz: number;
+  art: GegnerArt;
+  gang?: (g: number) => void;
+  zeit?: (t: number) => void;
+  vorher: { x: number; z: number };
 }
 
-function baueWelt(x: number, z: number, blick: number): Kampfwelt {
+function baueWelt(x: number, z: number, blick: number, art: GegnerArt): Kampfwelt {
   const spielerin = neuerKaempfer('spielerin', SPIELERIN, x, z, blick);
   // Zwei Gegner vor der Spielerin, versetzt — der zweite kommt etwas später an, damit man den
   // ersten Telegraf allein lesen kann, bevor es eng wird.
@@ -101,14 +127,14 @@ function baueWelt(x: number, z: number, blick: number): Kampfwelt {
   return {
     spielerin,
     gegner: [
-      neuerKaempfer('uebung-1', UEBUNGSGEGNER, ax, az, blickAuf(ax, az, x, z)),
-      neuerKaempfer('uebung-2', UEBUNGSGEGNER, bx, bz, blickAuf(bx, bz, x, z)),
+      neuerKaempfer(`${art}-1`, WERTE[art], ax, az, blickAuf(ax, az, x, z)),
+      neuerKaempfer(`${art}-2`, WERTE[art], bx, bz, blickAuf(bx, bz, x, z)),
     ],
     ziel: null,
   };
 }
 
-export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt }: {
+type PlatzProps = {
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
   feld: HoehenFeld;
@@ -122,7 +148,36 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
   figur?: React.RefObject<KampfFigur | null>;
   /** Ist ein Ziel aufgeschaltet? Dann dreht `Spieler` nicht selbst — Q/E wechseln das Ziel (D168). */
   zielt?: React.RefObject<boolean>;
-}) {
+  /** Wer auf dem Platz steht (D169). */
+  art?: GegnerArt;
+};
+
+/** Der Platz. Mit Keiler lädt er das Modell — deshalb unter `Suspense` einhängen. */
+export function Kampfplatz(props: PlatzProps) {
+  return (props.art ?? 'keiler') === 'keiler' ? <KampfplatzMitKeiler {...props} /> : <KampfplatzKern {...props} leib={null} />;
+}
+
+function KampfplatzMitKeiler(props: PlatzProps) {
+  const { scene } = useGLTF('/creatures/wurzelkeiler.glb');
+  const leib = useMemo<Leib | null>(() => {
+    const geometrie = kreaturGeometrie(scene, 'wurzelkeiler', 1);
+    if (!geometrie) return null;
+    return {
+      geometrie,
+      baue: () => {
+        const w = baueWindMaterial({
+          amplitude: 0, randFarbe: new THREE.Color('#8a9a9c'), randStaerke: 0.2, randSchaerfe: 1.6, atmen: true,
+        });
+        return { material: w.material as THREE.MeshStandardMaterial, setzeZeit: w.setzeZeit, setzeGang: w.setzeGang };
+      },
+    };
+  }, [scene]);
+  return <KampfplatzKern {...props} leib={leib} />;
+}
+
+function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, art = 'keiler', leib }:
+  PlatzProps & { leib: Leib | null }) {
+  const werte = WERTE[art];
   const welt = useRef<Kampfwelt | null>(null);
   const zaehler = useRef({ rollen: 0, getroffen: 0, phase: 'bereit' as Kaempfer['phase'] });
   useEffect(() => () => { if (figur) figur.current = null; }, [figur]);
@@ -181,27 +236,50 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
     koerperGeo.translate(0, UEBUNGSGEGNER.hoehe / 2, 0);
     const naseGeo = new THREE.BoxGeometry(0.22, 0.12, 0.3);
     naseGeo.translate(0, UEBUNGSGEGNER.hoehe * 0.8, -UEBUNGSGEGNER.radius - 0.08);
-    const bogenGeo = faecher(UEBUNGSGEGNER.schlag.reichweite + SPIELERIN.radius, UEBUNGSGEGNER.schlag.halbwinkel);
+    const bogenGeo = faecher(werte.schlag.reichweite + SPIELERIN.radius, werte.schlag.halbwinkel);
+    // 0,1 m: kleiner gingen sie neben der Zielmarke unter (im Bild geprüft, D169).
+    const rauteGeo = new THREE.OctahedronGeometry(0.1, 0);
     for (let i = 0; i < 2; i++) {
       const gruppe = new THREE.Group();
-      const koerper = new THREE.Mesh(koerperGeo, new THREE.MeshStandardMaterial({
-        color: FARBE.koerper, roughness: 0.85, emissive: new THREE.Color(0, 0, 0),
-      }));
+      const leibGruppe = new THREE.Group();
+      let koerper: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+      let gang: ((g: number) => void) | undefined, zeit: ((t: number) => void) | undefined;
+      if (leib) {
+        const m = leib.baue();
+        koerper = new THREE.Mesh(leib.geometrie, m.material);
+        gang = m.setzeGang; zeit = m.setzeZeit;
+      } else {
+        koerper = new THREE.Mesh(koerperGeo, new THREE.MeshStandardMaterial({
+          color: FARBE.koerper, roughness: 0.85, emissive: new THREE.Color(0, 0, 0),
+        }));
+        const nase = new THREE.Mesh(naseGeo, koerper.material);
+        nase.castShadow = true;
+        leibGruppe.add(nase);
+      }
       koerper.castShadow = true; koerper.receiveShadow = true;
-      const nase = new THREE.Mesh(naseGeo, koerper.material);
-      nase.castShadow = true;
+      leibGruppe.add(koerper);
       const bogen = new THREE.Mesh(bogenGeo, new THREE.MeshBasicMaterial({
         color: FARBE.telegraf, transparent: true, opacity: 0, depthWrite: false,
       }));
       bogen.position.y = 0.06;
       bogen.renderOrder = 2;
-      gruppe.add(koerper, nase, bogen);
+      const kranz = new THREE.Group();
+      const rauteMat = new THREE.MeshBasicMaterial({ color: '#f3f0e6' });
+      for (let k = 0; k < 3; k++) {
+        const r = new THREE.Mesh(rauteGeo, rauteMat);
+        const a = (k / 3) * Math.PI * 2;
+        r.position.set(Math.cos(a) * 0.38, 0, Math.sin(a) * 0.38);
+        kranz.add(r);
+      }
+      kranz.position.y = werte.hoehe + 0.3;
+      kranz.visible = false;
+      gruppe.add(leibGruppe, bogen, kranz);
       wurzel.add(gruppe);
-      puppen.push({ gruppe, koerper, bogen, blitz: -1 });
+      puppen.push({ gruppe, leib: leibGruppe, koerper, bogen, kranz, blitz: -1, art, gang, zeit, vorher: { x: NaN, z: NaN } });
     }
     // Der Fächer der Spielerin: sichtbar im Vorlauf blass, im Aktiven hell.
     const schwung = new THREE.Mesh(
-      faecher(SPIELERIN.schlag.reichweite + UEBUNGSGEGNER.radius, SPIELERIN.schlag.halbwinkel),
+      faecher(SPIELERIN.schlag.reichweite + werte.radius, SPIELERIN.schlag.halbwinkel),
       new THREE.MeshBasicMaterial({ color: FARBE.faecher, transparent: true, opacity: 0, depthWrite: false }),
     );
     schwung.renderOrder = 2;
@@ -212,20 +290,24 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
     marke.visible = false;
     wurzel.add(marke);
     return { wurzel, puppen, schwung, marke };
-  }, []);
+  }, [leib, werte, art]);
 
   useEffect(() => () => {
+    // Die Geometrie des Keilers gehört dem Modell-Cache (useGLTF), nicht dem Platz.
     zeichnung.wurzel.traverse(o => {
-      if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); }
+      if (o instanceof THREE.Mesh) {
+        if (o.geometry !== leib?.geometrie) o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      }
     });
-  }, [zeichnung]);
+  }, [zeichnung, leib]);
 
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
     if (!p) return;
     const dt = Math.min(rohDt, 0.1);
     const jetzt = performance.now();
-    if (!welt.current) welt.current = baueWelt(p.x, p.z, gier.current);
+    if (!welt.current) welt.current = baueWelt(p.x, p.z, gier.current, art);
     // Bis zur ersten Eingabe steht der Platz still — die Gegner folgen dem Absetzpunkt nicht,
     // sie stehen dort, wo sie zuerst hingestellt wurden.
     const w = welt.current;
@@ -317,14 +399,14 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
     const vorbei = s.phase === 'gefallen' || w.gegner.every(g => g.phase === 'gefallen');
     if (vorbei && ende.current === null) ende.current = jetzt;
     if (ende.current !== null && jetzt - ende.current > NEUSTART * 1000) {
-      welt.current = baueWelt(p.x, p.z, gier.current);
+      welt.current = baueWelt(p.x, p.z, gier.current, art);
       ruesteAus(welt.current.spielerin, waffeWahl.current);
       ende.current = null;
       melde('neue Runde');
     }
 
     // ---- Zeichnen
-    w.gegner.forEach((g, i) => zeichnePuppe(zeichnung.puppen[i], g, feld, jetzt));
+    w.gegner.forEach((g, i) => zeichnePuppe(zeichnung.puppen[i], g, feld, jetzt, dt));
     const sw = zeichnung.schwung;
     sw.position.set(s.x, hoeheAufFlaeche(feld, s.x, s.z) + 0.05, s.z);
     sw.rotation.y = s.blick;
@@ -376,7 +458,7 @@ export function Kampfplatz({ ziel, gier, feld, kollision, ausdauer, gesperrt, st
   return <primitive object={zeichnung.wurzel} />;
 }
 
-function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number): void {
+function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, dt: number): void {
   g.y = hoeheAufFlaeche(feld, g.x, g.z);
   pu.gruppe.position.set(g.x, g.y, g.z);
   pu.gruppe.rotation.y = g.blick;
@@ -384,8 +466,17 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number): 
   const s = g.werte.schlag;
   m.emissive.setRGB(0, 0, 0);
   pu.bogen.material.opacity = 0;
-  pu.gruppe.rotation.x = 0;
+  const l = pu.leib;
+  l.position.set(0, 0, 0); l.rotation.set(0, 0, 0);
   pu.gruppe.visible = true;
+  pu.kranz.visible = false;
+  const uhr = jetzt / 1000;
+  pu.zeit?.(uhr);
+  // Gang aus der tatsächlichen Bewegung — der Shader-Gang (D138) läuft, solange er läuft.
+  const v = Number.isNaN(pu.vorher.x) || dt <= 0 ? 0 : Math.hypot(g.x - pu.vorher.x, g.z - pu.vorher.z) / dt;
+  pu.vorher.x = g.x; pu.vorher.z = g.z;
+  pu.gang?.(g.phase === 'bereit' ? Math.min(1, v / 1.6) : 0);
+  const keiler = pu.art === 'keiler';
 
   if (g.phase === 'vorlauf') {
     // Das Telegraf: Der Bogen am Boden füllt sich, der Körper glüht auf. Beides wächst mit dem
@@ -393,16 +484,48 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number): 
     const t = Math.min(1, g.zeit / s.vorlauf);
     pu.bogen.material.opacity = 0.08 + 0.32 * t;
     m.emissive.copy(FARBE.telegraf).multiplyScalar(0.15 + 0.6 * t * t);
+    if (keiler) {
+      // Kopf runter, Gewicht nach hinten, scharren: der Körper sagt es, bevor die Farbe es sagt.
+      l.position.z = 0.3 * t;
+      l.rotation.x = -0.16 * t;
+      l.position.y = Math.abs(Math.sin(g.zeit * 16)) * 0.035 * t;
+    }
   } else if (g.phase === 'aktiv') {
     pu.bogen.material.opacity = 0.65;
     m.emissive.copy(FARBE.telegraf).multiplyScalar(1.0);
+    if (keiler) {
+      // Der Stoss: nach vorn werfen, Kopf hoch — die Hauer von unten nach oben.
+      const u = Math.min(1, g.zeit / s.aktiv);
+      l.position.z = 0.3 - 1.2 * u;
+      l.rotation.x = -0.16 + 0.3 * u;
+    }
+  } else if (g.phase === 'erholung' && keiler) {
+    const u = Math.min(1, g.zeit / s.erholung);
+    const r = 1 - (1 - u) * (1 - u);
+    l.position.z = -0.9 * (1 - r);
+    l.rotation.x = 0.14 * (1 - r);
   } else if (g.phase === 'betaeubt') {
-    m.emissive.copy(FARBE.taumeln).multiplyScalar(0.5);
-    pu.gruppe.rotation.x = 0.18;
+    // Taumeln (D169): Blau allein ging bei Tag unter. Jetzt schwankt der Körper sichtbar, und drei
+    // Rauten kreisen über dem Kopf — das liest man auf jedem Untergrund und in jeder Stimmung.
+    const t = g.zeit;
+    const abkling = Math.max(0.35, 1 - t / Math.max(0.01, g.werte.betaeubt));
+    m.emissive.copy(FARBE.taumeln).multiplyScalar(0.35);
+    l.rotation.z = Math.sin(t * 9) * 0.22 * abkling;
+    l.rotation.x = keiler ? 0.1 : 0.18;
+    l.position.y = keiler ? -0.06 : 0;
+    pu.kranz.visible = true;
+    pu.kranz.rotation.y = uhr * 4;
+    pu.kranz.position.y = g.werte.hoehe + 0.3 + Math.sin(uhr * 6) * 0.04;
   } else if (g.phase === 'gefallen') {
     const t = Math.min(1, g.zeit / 0.6);
-    pu.gruppe.rotation.x = t * Math.PI / 2;
-    pu.gruppe.position.y = g.y - t * 0.35;
+    if (keiler) {
+      l.rotation.z = t * Math.PI / 2;
+      l.position.y = -t * 0.1;
+      l.position.x = t * 0.35;
+    } else {
+      l.rotation.x = t * Math.PI / 2;
+      l.position.y = -t * 0.35;
+    }
   }
   // Aufblitzen beim Treffer — 120 ms, über allem anderen.
   if (jetzt - pu.blitz < 120) m.emissive.copy(FARBE.treffer).multiplyScalar(0.9);

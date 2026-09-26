@@ -70,6 +70,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Datei | Zweck |
 |---|---|
 | `mess/stil.mjs` | D152/D155-Stilmaß für PNG oder Spielkamera; Zahlen und Screenshot. `--gpu` für Metal, `--voll` für das ganze Bild, `--format=16:9` für 960×540. Aufruf und Vergleichsgrenzen in `../docs/MESSLAUF.md`. |
+| `axthieb.py` | D169: baut den Axthieb über Kopf (`Axe_Overhead`) auf dem Rig der Wanderin aus Weltrichtungen je Knochen; wird von `menschbau.py` geladen. Schlüsselbilder stehen im Kopf der Datei und in `HIEB_AXT_S` (RegionsSzene) |
 | `mess/kampf.mjs` | D166: lädt `?kampf=1`, schaltet auf, schlägt, rollt (eigene Tastenfolge als 4. Argument `"3:l,5:2,8:j"`, D168); Bildfolge `.cache/bilder/<name>_NN.png` plus Protokoll je Bild (eigene Phase/Leben, Gegner Phase@Abstand). Zum Hinsehen, kein Gate — die Regeln prüft `tests/echtzeit.test.ts`. |
 | `mess/sonde.mjs` | InstancedMesh-Sonde über `window.__szene`: Instanzzahl, Geometrie, Material und Attribute als JSON. |
 | `mess/konsole.mjs` | Gefilterte Browser-Konsole und Laufzeitfehler einer Spielkamera; manuell bewerten, kein automatisches Gate. |

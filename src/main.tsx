@@ -50,7 +50,10 @@ const REGENT_ID = 'flussvater';
  * Kampf Stufe 1 (ADR-0007): `?kampf=1` stellt zwei Übungsgegner vor den
  * Startpunkt. Hinter einem Schalter, bis Fassade und Gegnerbestand stehen.
  */
-const KAMPFPLATZ = new URLSearchParams(location.search).get('kampf') === '1';
+const KAMPF_PARAM = new URLSearchParams(location.search).get('kampf');
+const KAMPFPLATZ = KAMPF_PARAM === '1' || KAMPF_PARAM === 'keiler' || KAMPF_PARAM === 'kapsel';
+/** Stufe 2 (D169): `?kampf=1` stellt Keiler auf, `?kampf=kapsel` die Platzhalter aus Stufe 1. */
+const KAMPF_ART = KAMPF_PARAM === 'kapsel' ? 'kapsel' as const : 'keiler' as const;
 
 /**
  * Absetzpunkt aus der Adresse: `?absetzen=x,z` in Weltmetern.
@@ -646,6 +649,7 @@ function App() {
         meldeRand={meldeRand}
         stoecke={stoecke}
         kampfplatz={KAMPFPLATZ}
+        kampfArt={KAMPF_ART}
         kampfStand={kampfStand}
       />
       {!imKampf && !menueOffen && <Stockanzeige stoecke={stoecke} />}

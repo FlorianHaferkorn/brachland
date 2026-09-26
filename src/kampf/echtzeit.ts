@@ -141,6 +141,28 @@ export const UEBUNGSGEGNER: KampfWerte = {
   radius: 0.45, hoehe: 1.8,
 };
 
+/**
+ * Der Wurzelkeiler als Gegner (D169, ADR-0007 Stufe 2) — der erste aus einem Körperbauplan
+ * (Huftier/Vierbeiner), mit dem Modell aus der Welt statt einer Kapsel.
+ *
+ * Ein Keiler rammt: langer Vorlauf (0,85 s — er senkt den Kopf und scharrt), kurzer, weiter Stoss
+ * (2,6 m, weil er sich dabei nach vorn wirft), schmaler Bogen (±35° — was neben ihm steht, trifft
+ * er nicht), lange Erholung (1,0 s), in der er offen steht. Mehr Leben und Haltung als der
+ * Übungsgegner: Die Klinge braucht drei Treffer für die Haltung, die Axt zwei. Die Kapsel in der
+ * Ebene ist grob (0,55 m bei 1,8 m Länge) — gut genug für Stufe 2, eine Pille entlang des Körpers
+ * kommt, wenn längere Tiere dazukommen.
+ */
+export const KEILER: KampfWerte = {
+  schlag: {
+    vorlauf: 0.85, aktiv: 0.18, erholung: 1.0,
+    reichweite: 2.6, halbwinkel: 35 * GRAD,
+    schaden: 28, haltungsschaden: 36, kosten: 0, nachdrehen: 1.2,
+  },
+  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
+  lebenMax: 140, haltungMax: 70, haltungErholung: 18, haltungRuhe: 1.6, betaeubt: 1.0,
+  radius: 0.55, hoehe: 1.05,
+};
+
 /** Wie weit und in welchem Kegel die Zielaufschaltung greift, und wie schnell sie den Blick zieht. */
 export const ZIELEN = {
   reichweite: 18, halbwinkel: 70 * GRAD, drehrate: 7,

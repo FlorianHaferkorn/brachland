@@ -15,7 +15,7 @@ import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../wor
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
          baueGartenKachel, type Bandsatz } from '../world/baender.js';
 import { useGLTF } from '@react-three/drei';
-import { MIT_MODELL, MIT_ANBAU, baueAnbau, saatAusId, reitsitz }
+import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
 import { WasserUmgebung, useWasserUmgebung } from './WasserUmgebung.js';
@@ -43,7 +43,7 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
 import { istAus } from './abschalter.js';
-import { Kampfplatz, type KampfFigur } from '../kampf/Kampfplatz.js';
+import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB } from './sichtweiten.js';
@@ -1423,30 +1423,6 @@ function KreaturModell({ kreatur, rand, lauf, position, drehung, mutation, skali
   );
 }
 
-/** Koerper plus Anbau aus der geladenen Datei — fuer die Welt und das Reittier (D145). */
-function kreaturGeometrie(scene: THREE.Object3D, kreatur: string, mutation: number): THREE.BufferGeometry | null {
-  let g: THREE.BufferGeometry | null = null;
-  scene.traverse(o => { if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry; });
-  if (!g || !MIT_ANBAU.has(kreatur)) return g;
-  const koerper = g as THREE.BufferGeometry;
-  // Der Anbau kommt ohne Normalen und UV (D107: das Modell hat keine), sonst
-  // verweigert `mergeGeometries` — gleiche Attribute sind Pflicht. Seit D128
-  // für zehn Arten, gemessen an den Ankern des jeweiligen Modells.
-  const anbau = baueAnbau(kreatur, koerper, mutation, saatAusId(kreatur));
-  if (!anbau) return koerper;
-  const roh = koerper.index ? koerper.toNonIndexed() : koerper;
-  const zusammen = mergeGeometries([roh, anbau], false);
-  if (!zusammen) {
-    // **Laut, nicht still** (G-131): Der stille Rueckfall `?? koerper` hat
-    // neun von zehn Anbauten verschluckt — die Poly-Modelle trugen ein UV-
-    // Attribut, der Anbau nicht, und nichts hat es gemeldet.
-    console.error(`Anbau ${kreatur}: Attribute passen nicht — Koerper `
-      + `${Object.keys(roh.attributes).join('+')}, Anbau ${Object.keys(anbau.attributes).join('+')}`);
-    return koerper;
-  }
-  return zusammen;
-}
-
 /**
  * Fundstellen in der Welt.
  *
@@ -2675,6 +2651,12 @@ function ReittierModell({ kreatur, mutation, rand, schritt, sitzHoehe }: {
  * die Axt holt dadurch sichtbar lange aus und zieht schnell durch, die Klinge ist durchweg schnell.
  */
 const HIEB = { scheitel: 0.29, durchzug: 0.52 };
+/**
+ * Der Axthieb (D169, `tools/axthieb.py`) als Zeiten in Sekunden: Scheitel Bild 12, Durchzug bis
+ * Bild 16, bei 24 Bildern je Sekunde — Clipzeit ist Bild/24 (gemessen: Bild 34 endet bei 1,417 s).
+ * Als Zeit statt Anteil; der Anteil wird zur Laufzeit aus der echten Länge gerechnet.
+ */
+const HIEB_AXT_S = { scheitel: 12 / 24, durchzug: 16 / 24 };
 
 /**
  * Waffen als Geometrie an der rechten Hand (ADR-0008). Kein Asset: ein paar Kästen und Zylinder,
@@ -2721,7 +2703,7 @@ function baueWaffen(): Record<'klinge' | 'axt', THREE.Group> {
  *
  * Ein Tier atmet und geht im Shader; ein Mensch braucht Huefte, Knie und
  * Ellbogen, und die liefert das Rig des Pakets billiger als jede Formel: ein
- * Draw Call, 24 Knochen, acht Clips (Idle, Idle_Neutral, Walk, Run; seit D167 dazu Sword_Slash,
+ * Draw Call, 24 Knochen, acht Clips (Idle, Walk, Run; seit D167 dazu Sword_Slash, seit D169 Axe_Overhead,
  * Roll, HitRecieve, Death für den Kampf, gestreckt auf die Dauer der Regel). Der
  * `AnimationMixer` blendet nach Tempo: steht → Idle, geht → Walk, rennt → Run;
  * die Abspielgeschwindigkeit folgt dem Tempo, damit die Fuesse nicht rutschen.
@@ -2776,6 +2758,8 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
       return a;
     };
     const schlag = einmal('Sword_Slash'), rolle = einmal('Roll');
+    // Fehlt der Axthieb in der Datei (alter Stand), schlägt die Axt mit dem Schwerthieb.
+    const axt = animations.some(c => c.name === 'Axe_Overhead') ? einmal('Axe_Overhead') : schlag;
     const treffer = einmal('HitRecieve'), tod = einmal('Death', true);
     // Nur Idle laeuft; Walk und Run werden beim Wechsel eingeblendet.
     // **Nicht** mit `setEffectiveWeight(0)` vorhalten (G-133): Das Gewicht ist
@@ -2783,7 +2767,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
     // und die Figur lief bis D145 als T-Pose, weil Idle ausblendete und nichts
     // einblendete. Gesehen wurde das erst, als der Gang im Lauf gemessen wurde.
     idle.play();
-    return { idle, walk, run, schlag, rolle, treffer, tod, aktiv: idle as THREE.AnimationAction };
+    return { idle, walk, run, schlag, axt, rolle, treffer, tod, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
   /** Was zuletzt aus dem Kampf gesehen wurde — ein neuer Zählerstand startet den Clip neu. */
   const kampfVor = useRef({ schwung: -1, rollen: -1, getroffen: -1, trefferBis: 0, uhr: 0 });
@@ -2861,27 +2845,31 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
         // läuft er 0,2 s über die Rolle hinaus aus und wird dabei in die Fortbewegung überblendet.
         clips.rolle.timeScale = clips.rolle.getClip().duration / (k.rolleDauer + 0.2);
       } else if (k.phase === 'vorlauf' || k.phase === 'aktiv' || k.phase === 'erholung') {
-        ziel = clips.schlag; blende = 0.06;
+        const hieb = k.waffe === 'axt' ? clips.axt : clips.schlag;
+        ziel = hieb; blende = 0.06;
         neu = k.schwung !== kv.schwung;
         // Die Clipzeit wird je Bild gesetzt, nicht abgespielt: Jede Phase der Regel liegt auf
-        // ihrem eigenen Abschnitt des Clips (siehe HIEB).
-        const u = k.phase === 'vorlauf' ? HIEB.scheitel * Math.min(1, k.zeit / k.vorlauf)
-          : k.phase === 'aktiv' ? HIEB.scheitel + (HIEB.durchzug - HIEB.scheitel) * Math.min(1, k.zeit / k.aktiv)
-          : HIEB.durchzug + (1 - HIEB.durchzug) * Math.min(1, k.zeit / k.erholung);
-        clips.schlag.timeScale = 0;
-        clips.schlag.time = u * clips.schlag.getClip().duration * 0.999;
+        // ihrem eigenen Abschnitt des Clips (siehe HIEB, HIEB_AXT_S).
+        const dauer = hieb.getClip().duration;
+        const h = hieb === clips.axt && clips.axt !== clips.schlag
+          ? { scheitel: HIEB_AXT_S.scheitel / dauer, durchzug: HIEB_AXT_S.durchzug / dauer } : HIEB;
+        const u = k.phase === 'vorlauf' ? h.scheitel * Math.min(1, k.zeit / k.vorlauf)
+          : k.phase === 'aktiv' ? h.scheitel + (h.durchzug - h.scheitel) * Math.min(1, k.zeit / k.aktiv)
+          : h.durchzug + (1 - h.durchzug) * Math.min(1, k.zeit / k.erholung);
+        hieb.timeScale = 0;
+        hieb.time = u * dauer * 0.999;
       } else if (k.phase === 'betaeubt' || kv.uhr < kv.trefferBis) {
         ziel = clips.treffer; blende = 0.08;
         neu = clips.aktiv !== clips.treffer;
       }
       kv.schwung = k.schwung; kv.rollen = k.rollen;
     }
-    const schlagZeit = clips.schlag.time;
+    const hiebZeit = ziel.time;
     if (ziel !== clips.aktiv || neu) {
       // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
       // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
       ziel.reset().setEffectiveWeight(1).play();
-      if (ziel === clips.schlag) { clips.schlag.time = schlagZeit; clips.schlag.timeScale = 0; }
+      if (ziel === clips.schlag || ziel === clips.axt) { ziel.time = hiebZeit; ziel.timeScale = 0; }
       if (clips.aktiv !== ziel) clips.aktiv.crossFadeTo(ziel, blende, false);
       clips.aktiv = ziel;
     }
@@ -3276,6 +3264,8 @@ export interface RegionsSzeneProps {
    * `?kampf=1` — Platzhalter ohne Asset, bis die Fassade steht.
    */
   kampfplatz?: boolean;
+  /** Wer auf dem Platz steht (D169): Keiler (Stufe 2) oder Kapsel (Stufe 1). */
+  kampfArt?: GegnerArt;
   /** Stand für die Kampfanzeige im DOM, wie `ausdauer` als Ref. */
   kampfStand?: React.RefObject<KampfStand | null>;
 }
@@ -3285,7 +3275,7 @@ export function RegionsSzene({
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfStand,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfArt = 'keiler', kampfStand,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -3436,9 +3426,12 @@ export function RegionsSzene({
                reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten}
                meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} kampfZielt={kampfZielt} />
       {kampfplatz && (
-        <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
-                    ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                    zielt={kampfZielt} />
+        // Unter `Suspense`: Der Keiler lädt sein Modell. Ohne Grenze hielte das die ganze Szene an.
+        <Suspense fallback={null}>
+          <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
+                      ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
+                      zielt={kampfZielt} art={kampfArt} />
+        </Suspense>
       )}
       {funde.length > 0 && (
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />

@@ -36,7 +36,10 @@ nicht.
 
 3. **Wechsel nur aus dem Stand** (1/2 oder Tab). Nie mitten im Schlag oder in der Rolle.
 
-4. **Ein Clip, drei Abschnitte — vorerst.** Beide Klassen spielen `Sword_Slash`, aber jede Phase
+4. **Ein Clip je Klasse, drei Abschnitte.** *Nachtrag D169:* Die Axt hat jetzt ihren eigenen
+   Hieb über Kopf (`Axe_Overhead`, gebaut in `tools/axthieb.py` auf dem Rig der Wanderin, CC0
+   bleibt gewahrt); die Phasen liegen auf Bild 12 (Scheitel) und 16 (Durchzug). Ursprünglich:
+   **Ein Clip, drei Abschnitte — vorerst.** Beide Klassen spielen `Sword_Slash`, aber jede Phase
    der Regel liegt auf ihrem eigenen Abschnitt des Clips (Ausholen bis 0,29, Durchzug bis 0,52 der
    Cliplänge, gemessen an der Winkelgeschwindigkeit der Armknochen). Die Axt holt dadurch sichtbar
    lange aus und zieht schnell durch. **Das ist ein Platzhalter.** Die Axt braucht einen eigenen

@@ -891,3 +891,27 @@ export function baueAnbau(kreatur: string, koerper: THREE.BufferGeometry, mutati
   g.deleteAttribute('uv');
   return g;
 }
+
+/** Koerper plus Anbau aus der geladenen Datei — fuer Welt, Reittier (D145) und Kampf (D169). */
+export function kreaturGeometrie(scene: THREE.Object3D, kreatur: string, mutation: number): THREE.BufferGeometry | null {
+  let g: THREE.BufferGeometry | null = null;
+  scene.traverse(o => { if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry; });
+  if (!g || !MIT_ANBAU.has(kreatur)) return g;
+  const koerper = g as THREE.BufferGeometry;
+  // Der Anbau kommt ohne Normalen und UV (D107: das Modell hat keine), sonst
+  // verweigert `mergeGeometries` — gleiche Attribute sind Pflicht. Seit D128
+  // für zehn Arten, gemessen an den Ankern des jeweiligen Modells.
+  const anbau = baueAnbau(kreatur, koerper, mutation, saatAusId(kreatur));
+  if (!anbau) return koerper;
+  const roh = koerper.index ? koerper.toNonIndexed() : koerper;
+  const zusammen = mergeGeometries([roh, anbau], false);
+  if (!zusammen) {
+    // **Laut, nicht still** (G-131): Der stille Rueckfall `?? koerper` hat
+    // neun von zehn Anbauten verschluckt — die Poly-Modelle trugen ein UV-
+    // Attribut, der Anbau nicht, und nichts hat es gemeldet.
+    console.error(`Anbau ${kreatur}: Attribute passen nicht — Koerper `
+      + `${Object.keys(roh.attributes).join('+')}, Anbau ${Object.keys(anbau.attributes).join('+')}`);
+    return koerper;
+  }
+  return zusammen;
+}

@@ -15,7 +15,7 @@ import {
   SPIELERIN, UEBUNGSGEGNER, SCHRITT, ZIELEN,
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, kannSchlagen, kannRollen,
   imBogen, loeseTreffer, schrittKaempfer, simuliere, waehleZiel, blickAuf, vorwaerts,
-  WAFFEN, ruesteAus, wechsleZiel,
+  WAFFEN, ruesteAus, wechsleZiel, KEILER,
   type Kaempfer, type Kampfwelt, type Treffer,
 } from '../src/kampf/echtzeit.js';
 
@@ -312,6 +312,42 @@ let axtTreffer = NaN;
   pruefe('kein Waffenwechsel mitten im Schlag', !ruesteAus(t, 'axt') && t.werte.schlag === SPIELERIN.schlag);
 }
 
+// ---------------------------------------------------- 14. Der Keiler (D169, Stufe 2)
+// Dieselben Latten wie für den Übungsgegner: ein erreichbares Schutzfenster, das nicht beim ersten
+// Zucken beginnt — sonst ist der erste echte Gegner unfair oder trivial.
+let keilerVon = NaN, keilerBis = NaN;
+{
+  const geschuetzt = (t0: number): boolean => {
+    const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+    const g = neuerKaempfer('g', KEILER, 0, -2.2, blickAuf(0, -2.2, 0, 0));
+    setzeSchlagAn(g);
+    let t = 0, gerollt = false;
+    for (let i = 0; i < 260; i++) {
+      if (!gerollt && t >= t0 - 1e-9) { gerollt = setzeRolleAn(s, 0, 0); }
+      schrittKaempfer(s, SCHRITT); schrittKaempfer(g, SCHRITT); t += SCHRITT;
+      loeseTreffer(g, [s]);
+    }
+    return s.leben === s.werte.lebenMax;
+  };
+  for (let t0 = 0; t0 <= 1.2 + 1e-9; t0 += 0.005) {
+    if (geschuetzt(t0)) { if (Number.isNaN(keilerVon)) keilerVon = t0; keilerBis = t0; }
+  }
+  pruefe('Keiler: Schutzfenster mindestens 200 ms', keilerBis - keilerVon >= 0.2 - 1e-9, `${f3(keilerBis - keilerVon)} s`);
+  pruefe('Keiler: Fenster endet nach Reaktionszeit + 150 ms', keilerBis >= REAKTION + 0.15, f3(keilerBis));
+  pruefe('Keiler: Panikrolle beim ersten Zucken schützt nicht', !geschuetzt(0));
+  pruefe('Keiler: Telegraf länger als beim Übungsgegner', KEILER.schlag.vorlauf > UEBUNGSGEGNER.schlag.vorlauf);
+  pruefe('Keiler: Klinge bricht die Haltung erst mit dem 3. Treffer',
+    Math.ceil(KEILER.haltungMax / WAFFEN.klinge.schlag.haltungsschaden) === 3);
+  pruefe('Keiler: Axt mit dem 2.', Math.ceil(KEILER.haltungMax / WAFFEN.axt.schlag.haltungsschaden) === 2);
+  // Seitlich neben dem Keiler ist man sicher, vor ihm nicht.
+  const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+  const vorn = neuerKaempfer('g', KEILER, 0, -2.4, blickAuf(0, -2.4, 0, 0));
+  // Der zweite schaut an der Spielerin vorbei nach +Z; sie steht 69° seitlich von seinem Blick.
+  const seitlich = neuerKaempfer('h', KEILER, -1.6, -0.6, blickAuf(-1.6, -0.6, -1.6, 5));
+  pruefe('Keiler: trifft, was vor ihm steht', imBogen(vorn, s));
+  pruefe('Keiler: trifft nicht, was neben ihm steht', !imBogen(seitlich, s));
+}
+
 // ---------------------------------------------------- 13. Zielwahl und Zielwechsel (D168)
 {
   const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
@@ -368,6 +404,7 @@ console.log(`  Schläge zweier Gegner in 15 s        ${schlaegeZuZweit} (im Wech
     void art;
   }
   console.log(`  Axt trifft                           ${f3(axtTreffer)} s nach Tastendruck`);
+  console.log(`  Keiler: Schutzfenster                ${f3(keilerVon)} … ${f3(keilerBis)} s (Telegraf ${KEILER.schlag.vorlauf} s)`);
 }
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);

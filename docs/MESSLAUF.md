@@ -578,6 +578,40 @@ Grundwert **von Hand** gesetzt, nachdem die Bilder angesehen waren (`.cache/bild
 Szene geladen, Gebäude und Kanten da) — nicht per `--neu`, weil das die übrigen 14 Grundwerte
 mitgeschrieben hätte, ohne dass sie sich geändert haben (G-134).
 
+## Tag gegen Render — und warum der Schlagschatten nicht der Hebel ist (D169)
+
+Seit D168 liegt das Licht des Renders im Tageslauf (`tag`, 0,39). Gemessen an beiden
+Kamerastandpunkten, einmal über den Tageslauf, einmal über `?stimmung=zielbild`:
+
+```
+                     Median  dunkel  hell   Drittel oben/mitte/unten  sat oben/unten  Licht     Schatten
+  Felsmulde  tag      0,048   32,1 %  31 %   0,220 / 0,141 / 0,064     0,34 / 0,50     #bda693   #120d08
+  Felsmulde  zielbild 0,048   32,1 %  31 %   (identisch)
+  Felsmulde  Render   0,015   58,0 %  29 %   0,225 / 0,123 / 0,044     0,42 / 0,74     #c0b5a8   #060300
+  Stauwehr   tag      0,053   15,8 %   6 %   0,157 / 0,078 / 0,048     0,45 / 0,56     #b4a08d   #291d0f
+  Stauwehr   Render   0,025   43,6 %  12 %   0,175 / 0,090 / 0,050     0,58 / 0,63     #d1c5b7   #0a0700
+```
+
+`tag` und `zielbild` sind bis auf die letzte Stelle gleich — der Schlüssel liegt exakt. Oben stimmt
+das Bild (Drittel, Lichtfarbe an der Felsmulde). **Die Lücke ist der Schatten:** dreimal so viel
+Dunkles im Render, und die Schattenfarbe dort ist fast schwarz.
+
+Naheliegend war der Schlagschatten, denn `zielbild` erbt von `goldnebel` `schatten: 0,55`:
+
+```
+                     dunkel   unteres Drittel
+  Felsmulde  0,55    32,1 %   0,064
+             0,85    33,3 %   0,062
+             1,0     34,2 %   0,061
+  Stauwehr   0,55    15,8 %   0,048
+             1,0     19,9 %   0,043      (Render 0,050)
+```
+
+Volle Schatten bringen zwei bis vier Punkte, nicht zwanzig. Die Schatten **sind** da; was sie
+aufhellt, ist das Fülllicht (Umgebung 4,0, D159) — dasselbe, das die sonnenabgewandte Mauer vor
+dem Schwarz bewahrt. Der nächste Hebel ist also Verdeckung **im** Fülllicht (Himmelsanteil je
+Fläche), nicht die Sonne. Nichts geändert.
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.

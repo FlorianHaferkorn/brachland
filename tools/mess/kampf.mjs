@@ -11,7 +11,9 @@ const { chromium } = await playwright();
 const [ort = '1045,885,304', name = 'kampf', extra = '&zeit=0.4', folgeText = ''] = process.argv.slice(2).filter(a => !a.startsWith('--'));
 const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist'] });
 const p = await b.newPage({ viewport: { width: 960, height: 540 } });
-await p.goto(`http://127.0.0.1:4173/?absetzen=${ort}&kampf=1${extra}`, { waitUntil: 'domcontentloaded' });
+// `&kampf=kapsel` im Extra ersetzt die Vorgabe (D169) — `get` nimmt den ersten Wert.
+const kampf = extra.includes('kampf=') ? '' : '&kampf=1';
+await p.goto(`http://127.0.0.1:4173/?absetzen=${ort}${kampf}${extra}`, { waitUntil: 'domcontentloaded' });
 await p.waitForSelector('button[aria-label="Menü"]', { timeout: 240000 });
 const t0 = Date.now();
 while (Date.now() - t0 < 60000) { if ((await p.textContent('body')).includes('Ladezeit')) break; await p.waitForTimeout(500); }
