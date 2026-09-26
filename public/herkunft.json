@@ -14,6 +14,20 @@
   "quelle": "poly.pizza, Animated Animal Pack"
  },
  {
+  "datei": "kampf/k7-wolf.glb",
+  "rolle": "K7-Wolf mit Rig für den Kampf (D172)",
+  "autor": "Quaternius",
+  "lizenz": "CC0",
+  "quelle": "dasselbe Modell, gebunden an Skelett und Clips der Quelle (Animated Animal Pack, „Wolf“: Idle, Walk, Gallop, Attack, HitReact, Death) mit tools/kampftierbau.py"
+ },
+ {
+  "datei": "kampf/grathorn.glb",
+  "rolle": "Grathorn mit Rig für den Kampf (D172)",
+  "autor": "Quaternius",
+  "lizenz": "CC0",
+  "quelle": "dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Stag“: Idle, Walk, Gallop, Attack_Headbutt, HitReact, Death)"
+ },
+ {
   "datei": "grathorn.glb",
   "rolle": "Grathorn",
   "autor": "Quaternius",

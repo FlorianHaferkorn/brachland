@@ -157,6 +157,15 @@ const UMGEBUNG_MESSLAUF: number | null = (() => {
   return Number.isFinite(roh) && roh >= 0 && roh <= 20 ? roh : null;
 })();
 
+/** `?sonne=3.2` überschreibt die Sonnenstärke (D172, Messparameter) — für das Verhältnis Sonne zu Fülllicht. */
+const SONNE_MESSLAUF: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const text = new URLSearchParams(location.search).get('sonne');
+  if (text === null) return null;
+  const roh = Number(text);
+  return Number.isFinite(roh) && roh >= 0 && roh <= 20 ? roh : null;
+})();
+
 /**
  * `?kurve=agxlook|agx|aces|neutral|linear` wechselt die Tonwertkurve — **Messparameter** (D161).
  *
@@ -211,6 +220,17 @@ haengeAgxLookEin();
 
 /** Kurve ohne Adresse: der Look des Renders (D164). */
 const KURVE_VORGABE: THREE.ToneMapping = THREE.CustomToneMapping;
+
+/**
+ * Schattenkarte (D172, Messparameter): `?schattenkarte=4096,120` setzt Auflösung und halbe Kantenlänge
+ * in Metern. Vorgabe 2048 über ±250 m = 24 cm je Texel — ein Blattloch der Kronen ist kleiner, die
+ * Sprenkel des Renders verschwimmen darin.
+ */
+const SCHATTENKARTE = (() => {
+  const roh = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('schattenkarte');
+  const [a, h] = (roh ?? '').split(',').map(Number);
+  return { aufloesung: Number.isFinite(a) && a >= 512 ? a : 2048, halb: Number.isFinite(h) && h >= 20 ? h : 250 };
+})();
 
 /**
  * `?schatten=0.6` überschreibt die Schattenstärke der Sonne (`shadow.intensity`,
@@ -470,12 +490,18 @@ export type StimmungsName = keyof typeof STIMMUNG;
  */
 STIMMUNG.zielbild = {
   ...STIMMUNG.goldnebel,
-  sonne: '#f2dcc0', sonneStaerke: 1.6,
-  // 4,0 wie `goldnebel` (D159). D154 hatte hier halbiert, weil der Hof ohne Verdeckung 6x zu hell war —
-  // das traf aber auch die **sonnenabgewandte Mauerfläche**, die allein vom Fülllicht lebt, und machte
-  // sie schwarz. Seit die Verdeckung gebacken (Fuge) und als SSAO (8 m) vorliegt, darf das Licht zurück.
-  // Gemessen an der Bogenkamera: Median 0,046 -> 0,099, dunkel 31,6 -> 16,2 % (Korridor 0,06–0,14 / 15–25 %).
-  umgebungStaerke: 4.0,
+  // D172: **Sonne 1,6 → 3,2, Fülllicht 4,0 → 2,5, Schlagschatten 0,6 → 1,0.** Das Verhältnis Sonne zu
+  // Himmel war der Hebel, nicht Schattenkarte (4096 bei ±120 m: dunkel 21,0 → 21,2 %) und nicht der
+  // Himmelsanteil im Gelände (+1,4 Punkte). Bei 13° Sonnenhöhe trifft die Sonne flachen Boden mit
+  // sin 13° = 0,22 — mit 1,6 lag der beschienene Waldboden kaum über dem Schatten, im Bild fehlten die
+  // Stammschatten des Renders ganz. Gemessen (Bogenkamera, 16:9):
+  //   Stauwehr  Drittel 0,154/0,074/0,045 → 0,176/0,093/0,052  (Render 0,175/0,090/0,050), dunkel 21 → 29 % (44)
+  //   Felsmulde Median 0,033 → 0,017 (Render 0,015), dunkel 41 → 52 % (58), Drittel 0,216/0,133/0,054 (0,225/0,123/0,044)
+  // Das Fülllicht bleibt über dem Wert, an dem die sonnenabgewandte Mauer schwarz wurde (D159: 2,0) —
+  // seit D170 dämpft der Himmelsanteil es dort, wo es nichts zu suchen hat, deshalb reichen 2,5.
+  sonne: '#f2dcc0', sonneStaerke: 3.2,
+  umgebungStaerke: 2.5,
+  schatten: 1.0,
   // Azimut 42° von Nord im Uhrzeigersinn, Hoehe 13°: (sin·cos, sin, −cos·cos)
   sonnenstand: [65.2, 22.5, -72.4] as const,
 };
@@ -2051,10 +2077,10 @@ function Beleuchtung({ s, ziel }: {
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
-        color={s.sonne} intensity={s.sonneStaerke}
-        castShadow shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-250} shadow-camera-right={250}
-        shadow-camera-top={250} shadow-camera-bottom={-250}
+        color={s.sonne} intensity={SONNE_MESSLAUF ?? s.sonneStaerke}
+        castShadow shadow-mapSize={[SCHATTENKARTE.aufloesung, SCHATTENKARTE.aufloesung]}
+        shadow-camera-left={-SCHATTENKARTE.halb} shadow-camera-right={SCHATTENKARTE.halb}
+        shadow-camera-top={SCHATTENKARTE.halb} shadow-camera-bottom={-SCHATTENKARTE.halb}
         shadow-camera-far={700} shadow-bias={-0.0008}
         shadow-intensity={SCHATTEN_MESSLAUF ?? s.schatten ?? 1}
       />

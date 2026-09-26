@@ -476,6 +476,35 @@ let wolfVon = NaN, wolfBis = NaN, wolfDoppelBis = NaN;
   pruefe('Wolf: zwischen den Bissen greift kein anderer an', zwischen === 0 && a.schwung >= 2, `${zwischen}, ${a.schwung}`);
 }
 
+let rudelWinkel = NaN;
+// ---------------------------------------------------- 20. Das Rudel umzingelt (D172)
+{
+  const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+  const rudel = [[-2, -9], [3, -9.5], [0, -10.5]].map(([x, z], i) => {
+    const g = neuerKaempfer(`w${i}`, WOLF, x, z, 0); g.blick = blickAuf(x, z, 0, 0); return g;
+  });
+  const w: Kampfwelt = { spielerin: s, gegner: rudel, ziel: null };
+  let zugleich = 0, proben = 0, streuung = 0;
+  const angegriffen = new Set<string>();
+  for (let t = 0; t < 25; t += SCHRITT) {
+    s.leben = s.werte.lebenMax; s.phase = s.phase === 'gefallen' ? 'bereit' : s.phase;
+    simuliere(w, SCHRITT);
+    const dran = rudel.filter(g => g.phase === 'vorlauf' || g.phase === 'aktiv');
+    if (dran.length > 1) zugleich++;
+    for (const g of dran) angegriffen.add(g.id);
+    if (t > 5 && Math.round(t * 120) % 30 === 0) {
+      const wi = rudel.map(g => Math.atan2(g.x - s.x, g.z - s.z)).sort((a, b) => a - b);
+      const luecken = wi.map((a, i) => (i + 1 < wi.length ? wi[i + 1] - a : wi[0] + 2 * Math.PI - a));
+      streuung += Math.min(...luecken); proben++;
+    }
+  }
+  const mittel = streuung / Math.max(1, proben) / GRAD;
+  pruefe('Rudel: nie zwei Wölfe zugleich im Angriff', zugleich === 0, `${zugleich} Teilschritte`);
+  pruefe('Rudel: alle drei kommen dran', angegriffen.size === 3, [...angegriffen].join(','));
+  pruefe('Rudel: sie stellen die Spielerin von mehreren Seiten (engster Abstand im Mittel ≥ 70°)', mittel >= 70, `${mittel.toFixed(0)}°`);
+  rudelWinkel = mittel;
+}
+
 // ---------------------------------------------------- 13. Zielwahl und Zielwechsel (D168)
 {
   const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
@@ -714,6 +743,7 @@ console.log(`  Schläge zweier Gegner in 15 s        ${schlaegeZuZweit} (im Wech
   console.log(`  Axt trifft                           ${f3(axtTreffer)} s nach Tastendruck`);
   console.log(`  Keiler: Schutzfenster                ${f3(keilerVon)} … ${f3(keilerBis)} s (Telegraf ${KEILER.schlag.vorlauf} s)`);
   console.log(`  Wolf: Schutzfenster 1. Biss          ${f3(wolfVon)} … ${f3(wolfBis)} s, Doppelrolle bis ${f3(wolfDoppelBis)} s`);
+  console.log(`  Rudel: engster Winkelabstand          ${rudelWinkel.toFixed(0)}° im Mittel (drei Wölfe)`);
   console.log(`  Grathorn: Schutzfenster              ${f3(grathornVon)} … ${f3(grathornBis)} s (Telegraf ${GRATHORN.schlag.vorlauf} s)`);
 }
 console.log(`  Leichte Kette (mit Abbruch)          ${kettenWerte}`);

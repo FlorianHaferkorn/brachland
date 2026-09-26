@@ -29,7 +29,7 @@ export const PROFILE: Profil[] = [
 /** Aufstellungen: einzeln und zu zweit (wie `?kampf=1` bzw. `?kampf=wolf`). */
 export const GEGNER: Record<string, KampfWerte[]> = {
   kapsel: [UEBUNGSGEGNER], keiler: [KEILER], grathorn: [GRATHORN], wolf: [WOLF],
-  'keiler+grathorn': [KEILER, GRATHORN], 'wolf+wolf': [WOLF, WOLF],
+  'keiler+grathorn': [KEILER, GRATHORN], 'wolf+wolf': [WOLF, WOLF], 'wolf+wolf+wolf': [WOLF, WOLF, WOLF],
 };
 
 /** Kleiner deterministischer Zufall (mulberry32) — dieselbe Saat, dieselben Kämpfe. */
@@ -43,7 +43,11 @@ function zufall(saat: number) {
 
 export interface Ergebnis { sieg: boolean; zeit: number; erlitten: number; treffer: number }
 
-export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, saat: number): Ergebnis {
+/** Wer traf die Spielerin, in welcher ihrer Phasen, mit welchem Schlag — für die Diagnose. */
+export interface Einschlag { von: string; phase: string; schlag: string; rand: number }
+
+export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, saat: number,
+                      beobachte?: (e: Einschlag) => void): Ergebnis {
   const z = zufall(saat);
   const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
   ruesteAus(s, waffe);
@@ -54,7 +58,7 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     return k;
   });
   const w: Kampfwelt = { spielerin: s, gegner: alle, ziel: null };
-  let t = 0, rolleUm = Infinity, treffer = 0, kette = false;
+  let t = 0, rolleUm = Infinity, treffer = 0, kette = false, angreifer = '', zweite = false, seite = 1;
   const gesehen = alle.map(g => g.schwung);
   while (t < 120 && s.phase !== 'gefallen' && alle.some(g => g.phase !== 'gefallen')) {
     // Wahrnehmen: ein neuer Angriff (erster Schlag, nicht die Kette) → Rolle nach der Reaktionszeit.
@@ -64,39 +68,70 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
         const patzt = z.r() < p.patzer;
         rolleUm = patzt && z.r() < 0.5 ? Infinity : t + Math.max(0.12, z.normal(p.reaktion, p.streuung)) + (patzt ? 0.2 : 0);
         kette = !!g.werte.kette?.length;
+        angreifer = g.id;
       }
       gesehen[i] = g.schwung;
     });
     // Ziel: wer gerade angreift, sonst der nächste Lebende.
     const lebend = alle.filter(g => g.phase !== 'gefallen');
-    const g = lebend.find(k => k.id === w.recht) ?? lebend.reduce((a, b) =>
+    const naechster = lebend.reduce((a, b) =>
       Math.hypot(a.x - s.x, a.z - s.z) <= Math.hypot(b.x - s.x, b.z - s.z) ? a : b);
+    // In der Atempause (D172) den Nächsten nehmen — wer lauert, steht offen.
+    const lauert = (w.atem ?? 0) > 0.2;
+    const g = lauert ? naechster : (lebend.find(k => k.id === w.recht) ?? naechster);
     w.ziel = g.id;
     const dx = g.x - s.x, dz = g.z - s.z, d = Math.hypot(dx, dz);
     const rand = d - g.werte.radius - (g.werte.halbLaenge ?? 0) * 0.5;
+    const a = alle.find(k => k.id === angreifer) ?? g;
+    const ax = a.x - s.x, az = a.z - s.z, ad = Math.hypot(ax, az) || 1;
     if (t >= rolleUm) {
-      // Bei einer Kette gerade weg; sonst zur Seite aus dem Bogen — dann steht man nach der Rolle
-      // noch nah genug, um in seine Erholung zu schlagen.
-      if (kette) puffere(s, 'rolle', -dx / d, -dz / d);
-      else puffere(s, 'rolle', -dz / d, dx / d);
+      // Zur Seite aus dem Bogen des **Angreifers** (nicht des Ziels — im Rudel sind das zwei) —
+      // dann steht man nach der Rolle nah genug, um in seine Erholung zu schlagen. Gegen eine Kette
+      // zweimal (D171: die Doppelrolle schützt vor beiden Bissen). Erste Fassung rollte gerade weg
+      // und stand nach dem Nachbiss 5 m entfernt: im Rudel nie ein Treffer, 53 von 60 Kämpfen in
+      // die Zeitgrenze.
+      seite = -seite;
+      if (kette && lebend.length === 1) {
+        // Allein gegen eine Kette: gerade zurück, dann ist man aus beiden Bissen und kommt wieder rein.
+        puffere(s, 'rolle', -ax / ad, -az / ad);
+        zweite = false;
+      } else {
+        puffere(s, 'rolle', (-az / ad) * seite, (ax / ad) * seite);
+        zweite = kette;
+      }
       rolleUm = Infinity;
+    } else if (zweite && s.phase === 'rolle' && s.zeit > s.werte.rolle.dauer - 0.1) {
+      puffere(s, 'rolle', (-az / ad) * seite, (ax / ad) * seite);
+      zweite = false;
     } else if (frei(s) || s.phase === 'erholung') {
       if (frei(s)) s.blick = blickAuf(s.x, s.z, g.x, g.z);
-      const offen = g.phase === 'erholung' && g.folge.length === 0 || g.phase === 'betaeubt';
+      const offen = g.phase === 'erholung' && g.folge.length === 0 || g.phase === 'betaeubt' || (lauert && g.phase === 'bereit');
       // Wie lange er noch offen steht — ein Mensch schlägt nur, wenn der Schlag vorher ankommt.
-      const rest = offen ? (g.phase === 'erholung' ? g.schlag.erholung : g.werte.betaeubt) - g.zeit : 0;
+      const rest = !offen ? 0 : g.phase === 'erholung' ? g.schlag.erholung - g.zeit
+        : g.phase === 'betaeubt' ? g.werte.betaeubt - g.zeit : (w.atem ?? 0);
       const art = g.phase === 'betaeubt' ? 'schwer' : 'leicht';
       const naechster = naechsterSchlag(s, art).schlag;
       const reich = naechster.reichweite * 0.9;
       const weg = Math.max(0, rand - reich) / 4.5;
-      const reicht = rest > weg + naechster.vorlauf;
+      // Ausdauer für eine Rolle bleibt übrig — wer sie verschlägt, steht beim nächsten Angriff blank
+      // (D172: die Klinge verlor zu zweit, weil der Bot ihre Kette bis zur Neige schlug).
+      const reserve = s.ausdauer.wert - naechster.kosten >= s.werte.rolle.kosten;
+      const reicht = reserve && rest > weg + naechster.vorlauf;
       if (offen && reicht && rand <= reich) puffere(s, art);
       else if (!frei(s)) { /* in der Erholung: nicht nachsetzen, sie läuft aus */ }
       // Nachsetzen, wenn er offen steht; sonst stehen und auf das Telegraf warten. (Zurückweichen
       // gab es in der ersten Fassung — der Gegner rückte nach, schlug nie, 90 s Patt.)
       else if (offen && reicht && frei(s)) { const v = 4.5 * SCHRITT; s.x += dx / d * v; s.z += dz / d * v; }
     }
-    for (const e of simuliere(w, SCHRITT)) if (e.von === 's' && e.schaden > 0) treffer++;
+    const phaseVorher = s.phase;
+    for (const e of simuliere(w, SCHRITT)) {
+      if (e.von === 's' && e.schaden > 0) treffer++;
+      if (e.auf === 's' && e.schaden > 0 && beobachte) {
+        const a = alle.find(k => k.id === e.von)!;
+        beobachte({ von: a.werte === aufstellung[0] ? 'erster' : 'zweiter', phase: phaseVorher, schlag: s.schlag.name ?? '',
+          rand: Math.hypot(a.x - s.x, a.z - s.z) });
+      }
+    }
     t += SCHRITT;
   }
   return { sieg: alle.every(g => g.phase === 'gefallen'), zeit: t, erlitten: s.werte.lebenMax - s.leben, treffer };

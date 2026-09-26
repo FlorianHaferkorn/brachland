@@ -41,7 +41,8 @@ import { reicht, type Ausdauer } from '../spieler/ausdauer.js';
 import type { Kollisionsfeld } from '../spieler/kollision.js';
 import { hoeheAufFlaeche, type HoehenFeld } from '../world/lod.js';
 import type { KampfStand } from '../ui/Kampfanzeige.js';
-import { kreaturGeometrie } from '../world/kreaturgestalt.js';
+import { kreaturGeometrie, baueAnbau, saatAusId } from '../world/kreaturgestalt.js';
+import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
 
 /**
@@ -54,6 +55,26 @@ export const GEGNER_ARTEN: readonly GegnerArt[] = ['keiler', 'grathorn', 'wolf',
 const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, wolf: WOLF, kapsel: UEBUNGSGEGNER };
 /** Modell je Art (D170). Die Kapsel hat keins. */
 const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', grathorn: 'grathorn', wolf: 'k7-wolf' };
+
+/**
+ * Tiere mit Rig (D172, `tools/kampftierbau.py`): dasselbe Modell wie in der Welt, an das Skelett
+ * seiner Quelle gebunden, mit deren Clips. Scheitel und Durchzug des Angriffs in Clipsekunden —
+ * gemessen am Weg des Kopfknochens (`.cache/tierclip.py`): Der Wolf holt bis Bild 6 aus und ist bei
+ * Bild 10 vorn, der Hirsch senkt den Kopf ab Bild 2 und stösst bis Bild 6.
+ */
+const RIG: Partial<Record<GegnerArt, { datei: string; angriff: string; scheitel: number; durchzug: number }>> = {
+  wolf: { datei: 'k7-wolf', angriff: 'Attack', scheitel: 6 / 24, durchzug: 10 / 24 },
+  grathorn: { datei: 'grathorn', angriff: 'Attack_Headbutt', scheitel: 2 / 24, durchzug: 6 / 24 },
+};
+interface RigVorlage { scene: THREE.Object3D; clips: THREE.AnimationClip[] }
+interface Rig {
+  mixer: THREE.AnimationMixer;
+  aktion(name: string): THREE.AnimationAction | null;
+  aktiv: THREE.AnimationAction | null;
+  /** Zuletzt gesehener Schwung — ein neuer startet den Angriff von vorn. */
+  schwung: number;
+  treffer: number;
+}
 
 /** Ein Körper aus der Welt: Geometrie plus ein Material je Tier (der Gang ist ein Uniform). */
 interface Leib {
@@ -133,6 +154,7 @@ interface Puppe {
   /** Wann zuletzt getroffen — für das Aufblitzen. */
   blitz: number;
   art: GegnerArt;
+  rig?: Rig;
   gang?: (g: number) => void;
   zeit?: (t: number) => void;
   vorher: { x: number; z: number };
@@ -146,13 +168,14 @@ function baueWelt(x: number, z: number, blick: number, aufstellung: readonly Geg
     x - Math.sin(blick) * weite + Math.cos(blick) * seite,
     z - Math.cos(blick) * weite - Math.sin(blick) * seite,
   ];
-  const [ax, az] = vor(9, -2.5), [bx, bz] = vor(10.5, 3);
+  // Bis zu drei Plätze (D172: das Rudel). Alle unter 11 m — weiter weg wacht keiner auf.
+  const plaetze: [number, number][] = [[9, -2.5], [10.5, 3], [10, 0.5]];
   return {
     spielerin,
-    gegner: [
-      neuerKaempfer(`${aufstellung[0]}-1`, WERTE[aufstellung[0]], ax, az, blickAuf(ax, az, x, z)),
-      neuerKaempfer(`${aufstellung[1]}-2`, WERTE[aufstellung[1]], bx, bz, blickAuf(bx, bz, x, z)),
-    ],
+    gegner: aufstellung.slice(0, 3).map((art, i) => {
+      const [gx, gz] = vor(...plaetze[i]);
+      return neuerKaempfer(`${art}-${i + 1}`, WERTE[art], gx, gz, blickAuf(gx, gz, x, z));
+    }),
     ziel: null,
   };
 }
@@ -171,7 +194,7 @@ type PlatzProps = {
   figur?: React.RefObject<KampfFigur | null>;
   /** Ist ein Ziel aufgeschaltet? Dann dreht `Spieler` nicht selbst — Q/E wechseln das Ziel (D168). */
   zielt?: React.RefObject<boolean>;
-  /** Wer auf dem Platz steht, zwei Plätze (D169/D170). Vorgabe: ein Keiler, ein Grathorn. */
+  /** Wer auf dem Platz steht, zwei oder drei Plätze (D169–D172). Vorgabe: ein Keiler, ein Grathorn. */
   aufstellung?: readonly GegnerArt[];
 };
 
@@ -181,7 +204,7 @@ const VORGABE: readonly GegnerArt[] = ['keiler', 'grathorn'];
 export function Kampfplatz(props: PlatzProps) {
   const auf = props.aufstellung ?? VORGABE;
   return auf.some(a => MODELL[a]) ? <KampfplatzMitModellen {...props} aufstellung={auf} />
-    : <KampfplatzKern {...props} aufstellung={auf} leiber={{}} />;
+    : <KampfplatzKern {...props} aufstellung={auf} leiber={{}} rigs={{}} />;
 }
 
 function leibAus(scene: THREE.Object3D, kreatur: string): Leib | null {
@@ -203,14 +226,72 @@ function KampfplatzMitModellen(props: PlatzProps) {
   const keiler = useGLTF('/creatures/wurzelkeiler.glb').scene;
   const grathorn = useGLTF('/creatures/grathorn.glb').scene;
   const wolf = useGLTF('/creatures/k7-wolf.glb').scene;
+  // Die Kampfvarianten mit Rig (D172). Die statischen bleiben geladen: Sie tragen den Anbau.
+  const wolfRig = useGLTF('/creatures/kampf/k7-wolf.glb');
+  const grathornRig = useGLTF('/creatures/kampf/grathorn.glb');
   const leiber = useMemo<Partial<Record<GegnerArt, Leib | null>>>(() => ({
     keiler: leibAus(keiler, 'wurzelkeiler'), grathorn: leibAus(grathorn, 'grathorn'), wolf: leibAus(wolf, 'k7-wolf'),
   }), [keiler, grathorn, wolf]);
-  return <KampfplatzKern {...props} leiber={leiber} />;
+  const rigs = useMemo<Partial<Record<GegnerArt, RigVorlage>>>(() => (RIG_AUS ? {} : {
+    wolf: { scene: wolfRig.scene, clips: wolfRig.animations },
+    grathorn: { scene: grathornRig.scene, clips: grathornRig.animations },
+  }), [wolfRig, grathornRig]);
+  return <KampfplatzKern {...props} leiber={leiber} rigs={rigs} />;
 }
 
-function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber }:
-  PlatzProps & { leiber: Partial<Record<GegnerArt, Leib | null>> }) {
+/** `?rig=0`: Tiere wie bis D171 als bewegte Körper — zum Vergleich. */
+const RIG_AUS = typeof location !== 'undefined' && new URLSearchParams(location.search).get('rig') === '0';
+
+/** Ein Tier mit Rig bauen: Skelett geklont, Material je Tier, Anbau am nächsten Knochen. */
+function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeometry | undefined) {
+  const obj = klonSkelett(v.scene);
+  const w = baueWindMaterial({ amplitude: 0, randFarbe: new THREE.Color('#8a9a9c'), randStaerke: 0.2, randSchaerfe: 1.6 });
+  const material = w.material as THREE.MeshStandardMaterial;
+  let koerper: THREE.SkinnedMesh | null = null;
+  obj.traverse(o => {
+    if ((o as THREE.SkinnedMesh).isSkinnedMesh) {
+      const m = o as THREE.SkinnedMesh;
+      m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false;
+      koerper ??= m;
+    }
+  });
+  // Anbau (Rückenmodul, Gehörn …): dieselbe Geometrie wie in der Welt, an den Knochen gehängt,
+  // dessen Kopf ihm am nächsten liegt — in der Ruhelage, bevor der Mixer läuft.
+  const anbau = statisch ? baueAnbau(kreatur, statisch, 1, saatAusId(kreatur)) : null;
+  if (anbau && koerper) {
+    obj.updateMatrixWorld(true);
+    anbau.computeBoundingBox();
+    const mitte = anbau.boundingBox!.getCenter(new THREE.Vector3());
+    let beste: THREE.Bone | null = null, besteD = Infinity;
+    const p = new THREE.Vector3();
+    for (const b of (koerper as THREE.SkinnedMesh).skeleton.bones) {
+      const d = b.getWorldPosition(p).distanceTo(mitte);
+      if (d < besteD) { besteD = d; beste = b; }
+    }
+    if (beste) {
+      const m = new THREE.Mesh(anbau, material);
+      m.castShadow = true;
+      m.applyMatrix4(beste.matrixWorld.clone().invert().multiply(obj.matrixWorld));
+      beste.add(m);
+    }
+  }
+  const mixer = new THREE.AnimationMixer(obj);
+  const cache = new Map<string, THREE.AnimationAction | null>();
+  const rig: Rig = {
+    mixer, aktiv: null, schwung: -1, treffer: -1,
+    aktion(name) {
+      if (!cache.has(name)) {
+        const c = v.clips.find(x => x.name === name);
+        cache.set(name, c ? mixer.clipAction(c) : null);
+      }
+      return cache.get(name)!;
+    },
+  };
+  return { obj, koerper: koerper as THREE.SkinnedMesh | null, material, rig, setzeZeit: w.setzeZeit };
+}
+
+function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber, rigs }:
+  PlatzProps & { leiber: Partial<Record<GegnerArt, Leib | null>>; rigs: Partial<Record<GegnerArt, RigVorlage>> }) {
   const aufKey = aufstellung.join(',');
   const welt = useRef<Kampfwelt | null>(null);
   const zaehler = useRef({ rollen: 0, getroffen: 0, gesetzt: 0, phase: 'bereit' as Kaempfer['phase'] });
@@ -273,16 +354,23 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     naseGeo.translate(0, UEBUNGSGEGNER.hoehe * 0.8, -UEBUNGSGEGNER.radius - 0.08);
     // 0,1 m: kleiner gingen sie neben der Zielmarke unter (im Bild geprüft, D169).
     const rauteGeo = new THREE.OctahedronGeometry(0.1, 0);
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < Math.min(3, aufstellung.length); i++) {
       const art = aufstellung[i] ?? 'kapsel';
       const werte = WERTE[art];
       const leib = leiber[art] ?? null;
+      const vorlage = rigs[art];
       const bogenGeo = faecherFuer(werte.schlag);
       const gruppe = new THREE.Group();
       const leibGruppe = new THREE.Group();
       let koerper: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
       let gang: ((g: number) => void) | undefined, zeit: ((t: number) => void) | undefined;
-      if (leib) {
+      let rig: Rig | undefined;
+      const rl = vorlage && RIG[art] ? baueRigLeib(vorlage, RIG[art]!.datei, leib?.geometrie) : null;
+      if (rl && rl.koerper) {
+        koerper = rl.koerper as unknown as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
+        leibGruppe.add(rl.obj);
+        rig = rl.rig; zeit = rl.setzeZeit;
+      } else if (leib) {
         const m = leib.baue();
         koerper = new THREE.Mesh(leib.geometrie, m.material);
         gang = m.setzeGang; zeit = m.setzeZeit;
@@ -295,7 +383,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         leibGruppe.add(nase);
       }
       koerper.castShadow = true; koerper.receiveShadow = true;
-      leibGruppe.add(koerper);
+      if (!rig) leibGruppe.add(koerper);
       const bogen = new THREE.Mesh(bogenGeo, new THREE.MeshBasicMaterial({
         color: FARBE.telegraf, transparent: true, opacity: 0, depthWrite: false,
       }));
@@ -313,7 +401,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       kranz.visible = false;
       gruppe.add(leibGruppe, bogen, kranz);
       wurzel.add(gruppe);
-      puppen.push({ gruppe, leib: leibGruppe, koerper, bogen, kranz, blitz: -1, art, gang, zeit, vorher: { x: NaN, z: NaN } });
+      puppen.push({ gruppe, leib: leibGruppe, koerper, bogen, kranz, blitz: -1, art, rig, gang, zeit, vorher: { x: NaN, z: NaN } });
     }
     // Der Fächer der Spielerin: sichtbar im Vorlauf blass, im Aktiven hell.
     const schwung = new THREE.Mesh(
@@ -329,7 +417,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     wurzel.add(marke);
     return { wurzel, puppen, schwung, marke };
     // `aufKey` statt `aufstellung`: Ein neues Feld mit demselben Inhalt soll den Platz nicht neu bauen.
-  }, [leiber, aufKey]);
+  }, [leiber, rigs, aufKey]);
 
   useEffect(() => () => {
     // Die Geometrie des Keilers gehört dem Modell-Cache (useGLTF), nicht dem Platz.
@@ -337,7 +425,8 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       if (o instanceof THREE.Mesh) {
         // Fächer sind je Schlag geteilt (D171) — `dispose` gibt nur den GPU-Speicher frei, beim
         // nächsten Zeichnen lädt three.js sie neu.
-        if (!Object.values(leiber).some(l => l?.geometrie === o.geometry)) o.geometry.dispose();
+        const geteilt = Object.values(leiber).some(l => l?.geometrie === o.geometry) || (o as THREE.SkinnedMesh).isSkinnedMesh;
+        if (!geteilt) o.geometry.dispose();
         (o.material as THREE.Material).dispose();
       }
     });
@@ -618,4 +707,50 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
   }
   // Aufblitzen beim Treffer — 120 ms, über allem anderen.
   if (jetzt - pu.blitz < 120) m.emissive.copy(FARBE.treffer).multiplyScalar(0.9);
+  if (pu.rig) spieleRig(pu, g, v, jetzt, dt);
+}
+
+/**
+ * Clip nach Phase (D172), wie bei der Spielerin: Der Angriff wird nicht abgespielt, sondern seine
+ * Zeit je Bild gesetzt — Vorlauf auf 0…Scheitel, Aktiv auf Scheitel…Durchzug, Erholung auf den Rest.
+ * Die Regel ist die Wahrheit, der Clip folgt ihr. Der Nachbiss (Kette) beginnt halb im Ausholen:
+ * Er hat nur 0,1 s Vorlauf und kommt aus der Bewegung.
+ */
+function spieleRig(pu: Puppe, g: Kaempfer, v: number, jetzt: number, dt: number): void {
+  const r = pu.rig!, cfg = RIG[pu.art]!;
+  const s = g.schlag;
+  let ziel: THREE.AnimationAction | null = null, blende = 0.2, neu = false, zeit: number | null = null;
+  if (g.phase === 'gefallen') {
+    ziel = r.aktion('Death'); blende = 0.12;
+    if (ziel) { ziel.setLoop(THREE.LoopOnce, 1); ziel.clampWhenFinished = true; }
+  } else if (g.phase === 'vorlauf' || g.phase === 'aktiv' || g.phase === 'erholung') {
+    ziel = r.aktion(cfg.angriff); blende = 0.1;
+    if (ziel) {
+      const d = ziel.getClip().duration;
+      const start = s !== g.werte.schlag ? cfg.scheitel * 0.5 : 0;
+      const u = g.phase === 'vorlauf' ? start + (cfg.scheitel - start) * Math.min(1, g.zeit / s.vorlauf)
+        : g.phase === 'aktiv' ? cfg.scheitel + (cfg.durchzug - cfg.scheitel) * Math.min(1, g.zeit / s.aktiv)
+        : cfg.durchzug + (d - cfg.durchzug) * Math.min(1, g.zeit / s.erholung);
+      zeit = Math.min(u, d * 0.999);
+      if (g.schwung !== r.schwung) { r.schwung = g.schwung; neu = true; }
+    }
+  } else if (g.phase === 'betaeubt') {
+    ziel = r.aktion('Idle_HitReact_Left');
+    if (ziel) ziel.timeScale = 0.55;
+  } else if (jetzt - pu.blitz < 450) {
+    ziel = r.aktion('Idle_HitReact_Right'); blende = 0.08;
+    if (ziel && pu.blitz !== r.treffer) { r.treffer = pu.blitz; neu = true; ziel.setLoop(THREE.LoopOnce, 1); }
+  } else {
+    ziel = v < 0.15 ? r.aktion('Idle') : v < 2.6 ? r.aktion('Walk') : r.aktion('Gallop');
+    if (ziel && ziel === r.aktion('Walk')) ziel.timeScale = Math.max(0.6, Math.min(2, v / 1.1));
+    if (ziel && ziel === r.aktion('Gallop')) ziel.timeScale = Math.max(0.7, Math.min(1.6, v / 4));
+  }
+  if (!ziel) return;
+  if (ziel !== r.aktiv || neu) {
+    ziel.reset().setEffectiveWeight(1).play();
+    if (r.aktiv && r.aktiv !== ziel) r.aktiv.crossFadeTo(ziel, blende, false);
+    r.aktiv = ziel;
+  }
+  if (zeit !== null) { ziel.timeScale = 0; ziel.time = zeit; }
+  r.mixer.update(Math.min(dt, 0.1));
 }

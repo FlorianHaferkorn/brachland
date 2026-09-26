@@ -82,8 +82,10 @@ und Bewegungen". Die zwei Klassen bleiben; jede bekommt statt eines Schlags ein 
 - **Die Axt-Schneide** lag bis D170 auf der falschen Seite (Handgelenk −Y, zum Handballen) und
   schlug mit dem Rücken zu. Jetzt +Y, in Fingerrichtung — die Clips legen sie in Bewegungsrichtung.
 
-**Offen (Balance, UNKLAR):** Der Kampfbot (`tools/kampfbot.ts`) sieht die Axt gegen Keiler +
-Grathorn bei 100 % gegen 78 % für die Klinge — ihr Haltungsschaden öffnet den schweren Treffer zu
-oft. Gegen zwei Wölfe liegen beide gleich (100 %). Einzeln gewinnt jede Waffe gegen jeden Gegner.
-„Werkzeuge statt Stufen" hält damit nur gegen schnelle Rudel; ob die Axt schwächer werden soll
-oder die Huftiere schneller, ist eine Entscheidung, keine Messung.
+**Balance (D172 geklärt, ohne Änderung an der Axt):** D171 sah die Axt gegen Keiler + Grathorn bei
+100 % gegen 78 %. Die Ursache war der **Bot**, nicht die Waffe: Er schlug die Kette der Klinge bis
+zur Neige (54 Ausdauer für drei Schläge) und stand beim nächsten Angriff ohne Rolle da — 234
+Treffer im Stand gegen 56 mit der Axt. Mit einer Ausdauerreserve für eine Rolle (wie ein Mensch
+spielt) liegen beide gleich: Klinge 100/97 %, Axt 100/95 % (aufmerksam/müde), gegen zwei Wölfe
+99/55 % gegen 100/53 %. Schadensänderungen an der Axt (−25 %) hatten die Quote vorher nicht bewegt.
+Die Lehre für das Spiel: Die Kette der Klinge verlangt Ausdauerdisziplin — das ist gewollt.

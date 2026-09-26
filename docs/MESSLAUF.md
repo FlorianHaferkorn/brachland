@@ -679,6 +679,31 @@ aber **nicht** der Hebel am Stauwehr. Das untere Drittel liegt schon auf dem Ren
 105 Kronen auf 200 m decken wenig. Der nächste Hebel ist das Sonnenlicht durch die Kronen
 (Schattenkarte/Sprenkel), nicht das Fülllicht.
 
+## Sonne gegen Fülllicht (D172)
+
+Drei Hebel am Stauwehr gegen den Render (dunkel 43,6 %, Drittel 0,175/0,090/0,050), Bogenkamera, `tag`:
+
+```
+                                          dunkel   Drittel oben/mitte/unten   Median
+  D171 (Sonne 1,6, Fülllicht 4,0, 0,6)     21,0 %  0,154 / 0,074 / 0,045      0,049
+  Schattenkarte 4096 über ±120 m           21,2 %  0,154 / 0,074 / 0,045      0,049   kein Hebel
+  + Schlagschatten 1,0                     27,4 %  0,152 / 0,070 / 0,039      0,044   dunkler, nicht kontrastreicher
+  Fülllicht 2,5 + Schatten 1,0             38,6 %  0,146 / 0,060 / 0,029      0,032   alles dunkler
+  Sonne 3,2 + Fülllicht 2,5 + Schatten 1   29,2 %  0,176 / 0,093 / 0,052      0,059   Drittel treffen den Render
+  Sonne 4,8 + Fülllicht 2,0 + Schatten 1   27,6 %  0,202 / 0,119 / 0,071      0,081   zu hell
+  Felsmulde mit 3,2 / 2,5 / 1,0            51,6 %  0,216 / 0,133 / 0,054      0,017   (Render 58 %, 0,225/0,123/0,044, 0,015)
+```
+
+**Befund:** Bei 13° Sonnenhöhe trifft die Sonne flachen Boden mit sin 13° = 0,22. Mit Stärke 1,6 lag
+der beschienene Waldboden kaum über dem Schatten, die Stammschatten des Renders fehlten im Bild ganz
+(Gegenüberstellung angesehen, nicht nur gemessen). Nicht die Schatten waren zu schwach, sondern das
+Licht dazwischen. `tag`/`zielbild` jetzt Sonne 3,2, Fülllicht 2,5, Schlagschatten 1,0; das Fülllicht
+bleibt über den 2,0, an denen D159 die sonnenabgewandte Mauer schwarz sah — seit D170 dämpft der
+Himmelsanteil es dort, wo Mauern und Kronen den Himmel verdecken. Bildtor 16 Fälle, 0 Blocker:
+Stauwehr `tag` dunkel 43,2 % (Render 43,6), Felsmulde `tag` 40,3 %.
+
+Neue Messparameter: `?sonne=` (Sonnenstärke), `?schattenkarte=Auflösung,halbe Kante`.
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.

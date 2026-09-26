@@ -27,6 +27,8 @@ und der ist auf beiden Rechnern nicht lauffähig (G-119).
 |---|---|---|---|---|
 | `spuerfuchs.glb` | Spürfuchs | Quaternius | CC0 | poly.pizza, Animated Animal Pack |
 | `k7-wolf.glb` | K7-Wolf | Quaternius | CC0 | poly.pizza, Animated Animal Pack |
+| `kampf/k7-wolf.glb` | K7-Wolf mit Rig für den Kampf (D172) | Quaternius | CC0 | dasselbe Modell, gebunden an Skelett und Clips der Quelle (Animated Animal Pack, „Wolf“: Idle, Walk, Gallop, Attack, HitReact, Death) mit `tools/kampftierbau.py` |
+| `kampf/grathorn.glb` | Grathorn mit Rig für den Kampf (D172) | Quaternius | CC0 | dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Stag“: Idle, Walk, Gallop, Attack_Headbutt, HitReact, Death) |
 | `grathorn.glb` | Grathorn | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Stag) |
 | `nebelgams.glb` | Nebelgams | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Deer) |
 | `wurzelkeiler.glb` | Wurzelkeiler | Poly by Google | **CC BY 3.0** | poly.pizza, „Boar" |

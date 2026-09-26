@@ -59,9 +59,12 @@ const KAMPF_PARAM = new URLSearchParams(location.search).get('kampf');
 const KAMPF_ARTEN = ['keiler', 'grathorn', 'wolf', 'kapsel'] as const;
 type KampfArt = typeof KAMPF_ARTEN[number];
 const KAMPF_LISTE = (KAMPF_PARAM ?? '').split(',').filter((a): a is KampfArt => (KAMPF_ARTEN as readonly string[]).includes(a));
-const KAMPFPLATZ = KAMPF_PARAM === '1' || KAMPF_LISTE.length > 0;
-const KAMPF_AUFSTELLUNG: readonly KampfArt[] = KAMPF_LISTE.length === 1 ? [KAMPF_LISTE[0], KAMPF_LISTE[0]]
-  : KAMPF_LISTE.length > 1 ? KAMPF_LISTE.slice(0, 2) : ['keiler', 'grathorn'];
+// `?kampf=rudel` (D172): drei Wölfe — sie stellen die Spielerin von mehreren Seiten.
+const RUDEL = KAMPF_PARAM === 'rudel';
+const KAMPFPLATZ = KAMPF_PARAM === '1' || RUDEL || KAMPF_LISTE.length > 0;
+const KAMPF_AUFSTELLUNG: readonly KampfArt[] = RUDEL ? ['wolf', 'wolf', 'wolf']
+  : KAMPF_LISTE.length === 1 ? [KAMPF_LISTE[0], KAMPF_LISTE[0]]
+  : KAMPF_LISTE.length > 1 ? KAMPF_LISTE.slice(0, 3) : ['keiler', 'grathorn'];
 
 /**
  * Absetzpunkt aus der Adresse: `?absetzen=x,z` in Weltmetern.

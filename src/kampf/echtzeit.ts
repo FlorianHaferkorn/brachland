@@ -326,6 +326,14 @@ export const GEGNER_KI = {
    * Reichweite, aber nah genug, um nach dem Wechsel in unter einer Sekunde dran zu sein.
    */
   warteAbstand: 1.4,
+  /**
+   * Atempause (D172): Nach einem Angriff greift so lange niemand an, sobald mehr als einer steht.
+   * Ohne sie kam im Rudel der nächste Biss, während die Spielerin noch aus dem letzten rollte — der
+   * Kampfbot gewann gegen drei Wölfe 9 %, und das nicht durch Sterben, sondern weil er nie zuschlagen
+   * konnte. Die Gattung macht es so: Wer wartet, lauert; der Druck kommt aus der Zahl, nicht aus
+   * einer Kette ohne Lücke.
+   */
+  atempause: 1.0,
   /** Tempo beim Umkreisen, als Anteil von `tempo`. */
   kreisen: 0.45,
 };
@@ -684,7 +692,7 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
  * einigermassen gerade steht. Im Vorlauf dreht er sich nur mit `schlag.nachdrehen` nach — das ist
  * die Lücke, in die eine Seitwärtsrolle fällt.
  */
-export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schieber, darf = true): void {
+export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schieber, darf = true, platz?: number): void {
   if (g.phase === 'gefallen' || s.phase === 'gefallen') return;
   const dx = s.x - g.x, dz = s.z - g.z;
   const d = Math.hypot(dx, dz);
@@ -694,7 +702,7 @@ export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schi
   if (g.phase !== 'bereit') return;
   drehe(g, ziel, GEGNER_KI.drehrate, dt);
   const halt = g.werte.schlag.reichweite * GEGNER_KI.abstand;
-  if (!darf) { warte(g, s, dx, dz, d, halt, dt, schiebe); return; }
+  if (!darf) { warte(g, s, dx, dz, d, halt, dt, schiebe, platz); return; }
   // Mit Spiel von 1 cm: Ohne sie rückte der Gegner im Spiel unendlich weiter um 1e-16 m
   // an und schlug nie zu — der letzte Schritt landet nur bei achsparallelen Zahlen exakt auf
   // `halt`. Das Tor hatte nur achsparallel geprüft; gefunden erst im Bild (D166).
@@ -723,22 +731,61 @@ function geheUm(g: Kaempfer, vx: number, vz: number, schiebe?: Schieber): void {
  * zwangsläufig gleich herum, aber jeder bleibt bei seiner.
  */
 function warte(g: Kaempfer, s: Kaempfer, dx: number, dz: number, d: number, halt: number,
-               dt: number, schiebe?: Schieber): void {
+               dt: number, schiebe?: Schieber, platz?: number): void {
   if (d < 1e-6) return;
   const ring = halt + GEGNER_KI.warteAbstand;
   const rand = d - s.werte.radius;
   const ux = dx / d, uz = dz / d;
+  const tempo = g.werte.tempo ?? GEGNER_KI.tempo;
   if (rand > ring + 0.3) {
-    const w = Math.min(GEGNER_KI.tempo * dt, rand - ring);
+    const w = Math.min(tempo * dt, rand - ring);
     geheUm(g, ux * w, uz * w, schiebe);
   } else if (rand < ring - 0.3) {
-    const w = Math.min(GEGNER_KI.tempo * 0.6 * dt, ring - rand);
+    const w = Math.min(tempo * 0.6 * dt, ring - rand);
     geheUm(g, -ux * w, -uz * w, schiebe);
+  } else if (platz !== undefined) {
+    // Umzingeln (D172): zum zugewiesenen Platz auf dem Ring, dort stehen bleiben und lauern.
+    const jetzt = Math.atan2(-dx, -dz);                     // Richtung Spielerin → Gegner
+    const diff = winkelDiff(jetzt, platz);
+    if (Math.abs(diff) > 0.08) {
+      const seite = Math.sign(diff);
+      const w = Math.min(tempo * GEGNER_KI.kreisen * dt, Math.abs(diff) * d) * seite;
+      // Tangente in Richtung wachsenden Winkels um die Spielerin.
+      geheUm(g, -uz * w, ux * w, schiebe);
+    }
   } else {
     const seite = g.id.charCodeAt(g.id.length - 1) % 2 === 0 ? 1 : -1;
     const w = GEGNER_KI.tempo * GEGNER_KI.kreisen * dt * seite;
     geheUm(g, -uz * w, ux * w, schiebe);
   }
+}
+
+/**
+ * Plätze der Wartenden (D172): Wer nicht angreifen darf, verteilt sich um die Spielerin — bei zwei
+ * Wartenden je 110° links und rechts vom Angreifer, bei dreien dazu einer im Rücken. Ein Rudel
+ * kreist nicht, es stellt. Ohne Angreifer: um den ersten Wartenden herum.
+ */
+export function wartePlaetze(w: Kampfwelt): Map<string, number> {
+  const s = w.spielerin;
+  const winkel = (g: Kaempfer) => Math.atan2(g.x - s.x, g.z - s.z);
+  const lebend = w.gegner.filter(g => g.phase !== 'gefallen');
+  const angreifer = lebend.find(g => g.id === w.recht);
+  const wartend = lebend.filter(g => g !== angreifer);
+  const plaetze = new Map<string, number>();
+  if (wartend.length < 2 && !angreifer) return plaetze;
+  const basis = angreifer ? winkel(angreifer) : winkel(wartend[0]);
+  const versatz = [110 * GRAD, -110 * GRAD, Math.PI, 55 * GRAD, -55 * GRAD];
+  // Jeder nimmt den nächstgelegenen freien Platz — sonst laufen zwei aneinander vorbei.
+  const frei = versatz.slice(0, wartend.length).map(v => basis + v);
+  for (const g of [...wartend].sort((a, b) => a.id.localeCompare(b.id))) {
+    let beste = 0;
+    for (let i = 1; i < frei.length; i++) {
+      if (Math.abs(winkelDiff(winkel(g), frei[i])) < Math.abs(winkelDiff(winkel(g), frei[beste]))) beste = i;
+    }
+    plaetze.set(g.id, frei[beste]);   // dieselbe Konvention wie `warte`: atan2(x, z) von der Spielerin aus
+    frei.splice(beste, 1);
+  }
+  return plaetze;
 }
 
 /**
@@ -825,6 +872,9 @@ export interface Kampfwelt {
   recht?: string | null;
   /** Restzeit des Trefferstopps (D171). */
   stopp?: number;
+  /** Restzeit der Atempause und ob im letzten Teilschritt jemand angriff (D172). */
+  atem?: number;
+  warDran?: boolean;
 }
 
 /**
@@ -848,8 +898,17 @@ export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer
     // Trefferstopp (D171): Die Welt hält kurz an — der Treffer hat Gewicht, bevor es weitergeht.
     if ((w.stopp ?? 0) > 1e-9) { w.stopp = Math.max(0, (w.stopp ?? 0) - h); continue; }
     verarbeitePuffer(w.spielerin);
+    const dran = w.gegner.some(g => g.phase === 'vorlauf' || g.phase === 'aktiv' || g.phase === 'erholung');
+    if (w.warDran && !dran && w.gegner.filter(g => g.phase !== 'gefallen').length > 1) w.atem = GEGNER_KI.atempause;
+    w.warDran = dran;
+    const atmet = (w.atem ?? 0) > 1e-9;
+    if (atmet) w.atem = Math.max(0, (w.atem ?? 0) - h);
     w.recht = angriffsrecht(w);
-    for (const g of w.gegner) denkeGegner(g, w.spielerin, h, schiebe, w.recht === null || w.recht === g.id);
+    const plaetze = w.gegner.length > 2 ? wartePlaetze(w) : undefined;
+    for (const g of w.gegner) {
+      const darf = !atmet && (w.recht === null || w.recht === g.id);
+      denkeGegner(g, w.spielerin, h, schiebe, darf, plaetze?.get(g.id));
+    }
     schrittKaempfer(w.spielerin, h, schiebe);
     for (const g of w.gegner) schrittKaempfer(g, h, schiebe);
     const neu = loeseTreffer(w.spielerin, w.gegner);

@@ -6,6 +6,7 @@
  * Tor prüft deshalb nur ein breites Band, das jede Regeländerung halten soll:
  *   * Einzeln ist jeder Gegner für einen aufmerksamen Spieler schlagbar (≥ 90 %).
  *   * Zu zweit ist es ein Kampf: aufmerksam meist gewonnen (≥ 60 %), müde nicht immer (< 95 %).
+ *   * Das Rudel (drei Wölfe, D172) ist der harte Kampf: aufmerksam ≥ 40 %, müde meist verloren.
  *   * Kein Kampf läuft in die Zeitgrenze — sonst schlägt jemand nie zu.
  */
 import { messe } from '../tools/kampfbot.js';
@@ -20,13 +21,19 @@ function pruefe(name: string, ok: boolean, hinweis = '') {
 const zeilen = messe(60);
 const pct = (x: number) => `${Math.round(x * 100)} %`;
 for (const z of zeilen) {
-  const paar = z.gegner.includes('+');
+  const zahl = z.gegner.split('+').length;
+  // Einzeln fast sicher, zu zweit meist, das Rudel (drei Wölfe, D172) ist der harte Kampf.
+  const latte = zahl === 1 ? 0.9 : zahl === 2 ? 0.6 : 0.4;
   if (z.profil === 'aufmerksam') {
-    pruefe(`${z.gegner}/${z.waffe}: aufmerksam ${paar ? '≥ 60 %' : '≥ 90 %'}`, z.siege >= (paar ? 0.6 : 0.9), pct(z.siege));
+    pruefe(`${z.gegner}/${z.waffe}: aufmerksam ≥ ${latte * 100} %`, z.siege >= latte, pct(z.siege));
   }
-  pruefe(`${z.gegner}/${z.waffe}/${z.profil}: Sieg im Mittel unter 60 s`, !(z.zeit > 60), `${z.zeit.toFixed(1)} s`);
+  const grenze = zahl >= 3 ? 90 : 60;
+  pruefe(`${z.gegner}/${z.waffe}/${z.profil}: Sieg im Mittel unter ${grenze} s`, !(z.zeit > grenze), `${z.zeit.toFixed(1)} s`);
 }
 const muedePaare = zeilen.filter(z => z.gegner.includes('+') && z.profil === 'müde');
+const rudelMuede = zeilen.filter(z => z.gegner.split('+').length === 3 && z.profil === 'müde');
+pruefe('das Rudel schlägt einen müden Spieler meistens', rudelMuede.every(z => z.siege < 0.5),
+  rudelMuede.map(z => `${z.waffe} ${pct(z.siege)}`).join(', '));
 pruefe('zu zweit verliert ein müder Spieler manchmal', muedePaare.some(z => z.siege < 0.95),
   muedePaare.map(z => `${z.gegner}/${z.waffe} ${pct(z.siege)}`).join(', '));
 

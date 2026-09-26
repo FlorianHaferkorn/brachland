@@ -1,0 +1,30 @@
+{
+ "k7-wolf": {
+  "kb": 553.2,
+  "clips": [
+   "Attack",
+   "Death",
+   "Gallop",
+   "Idle",
+   "Idle_HitReact_Left",
+   "Idle_HitReact_Right",
+   "Walk"
+  ],
+  "quelle": "wolf",
+  "abstand_cm": 0.0
+ },
+ "grathorn": {
+  "kb": 491.0,
+  "clips": [
+   "Attack_Headbutt",
+   "Death",
+   "Gallop",
+   "Idle",
+   "Idle_HitReact_Left",
+   "Idle_HitReact_Right",
+   "Walk"
+  ],
+  "quelle": "hirsch",
+  "abstand_cm": 0.0
+ }
+}

@@ -241,6 +241,7 @@ if (existsSync('public/creatures')) {
     const figuren = [
       ...(existsSync('public/figuren') ? readdirSync('public/figuren') : []),
       ...(existsSync('public/figuren/kampf') ? readdirSync('public/figuren/kampf') : []),
+      ...(existsSync('public/creatures/kampf') ? readdirSync('public/creatures/kampf').map(f => `kampf/${f}`) : []),
     ];
     const tot = genannt.filter(n => !dateien.includes(n) && !figuren.includes(n));
     if (tot.length)
@@ -292,6 +293,24 @@ if (existsSync('public/figuren')) {
  * weil die Wanderin mit ihnen über 250 KB läge — geladen wird sie nur mit Kampfplatz. Dasselbe
  * Budget, dieselbe Herkunftspflicht, und kein Netz: Wer hier eins mitbringt, lädt die Figur zweimal.
  */
+/**
+ * Kampftiere (`public/creatures/kampf`, D172): das Weltmodell mit Skin und Clips. Budget 300 KB —
+ * ein Tierskelett hat 38–51 Knochen, jeder Clip ist JSON je Kanal; geladen nur mit Kampfplatz.
+ */
+if (existsSync('public/creatures/kampf')) {
+  const herkunft = existsSync('assets/HERKUNFT.md') ? readFileSync('assets/HERKUNFT.md', 'utf8') : '';
+  for (const f of readdirSync('public/creatures/kampf').filter(f => f.endsWith('.glb'))) {
+    const pfad = join('public/creatures/kampf', f);
+    const kb = statSync(pfad).size / 1024;
+    if (!herkunft.includes(`kampf/${f}`)) stop('Kampftiere', `${f} ohne Herkunftsangabe`);
+    if (kb > 300) stop('Kampftiere', `${f}: ${kb.toFixed(0)} KB über Budget 300 KB`);
+    const buf = readFileSync(pfad);
+    const g = JSON.parse(buf.subarray(20, 20 + buf.readUInt32LE(12)).toString('utf8'));
+    if (!g.skins?.length || !g.animations?.length) stop('Kampftiere', `${f} ohne Skin oder Clips`);
+    console.log(`  · [Kampftiere] ${f}: ${g.animations?.length ?? 0} Clips, ${kb.toFixed(0)} KB`);
+  }
+}
+
 if (existsSync('public/figuren/kampf')) {
   const herkunft = existsSync('assets/HERKUNFT.md') ? readFileSync('assets/HERKUNFT.md', 'utf8') : '';
   for (const f of readdirSync('public/figuren/kampf').filter(f => f.endsWith('.glb'))) {
