@@ -612,6 +612,50 @@ aufhellt, ist das Fülllicht (Umgebung 4,0, D159) — dasselbe, das die sonnenab
 dem Schwarz bewahrt. Der nächste Hebel ist also Verdeckung **im** Fülllicht (Himmelsanteil je
 Fläche), nicht die Sonne. Nichts geändert.
 
+## Himmelsanteil im Fülllicht (D170)
+
+D169 hatte gezeigt, dass der Schlagschatten nicht der Hebel ist. Die Gegenprobe ohne Fülllicht
+(`?umgebung=0`, Stimmung `tag`, Bogenkamera):
+
+```
+                     Median  dunkel  Drittel oben/mitte/unten
+  Felsmulde  Spiel    0,048   32,1 %  0,220 / 0,141 / 0,064
+  Felsmulde  ohne     0,003   58,0 %  0,208 / 0,124 / 0,043
+  Felsmulde  Render   0,015   58,0 %  0,225 / 0,123 / 0,044
+  Stauwehr   ohne     0,022   47,9 %  0,139 / 0,049 / 0,019
+  Stauwehr   Render   0,025   43,6 %  0,175 / 0,090 / 0,050
+```
+
+Ohne Fülllicht liegt die Felsmulde in Dunkelanteil und Dritteln fast auf dem Render — die Schatten
+sind also da. Nur: Das Fülllicht war überall gleich stark, im Hof zwischen drei Mauern wie auf der
+freien Krone. Cycles unterscheidet das über die Sichtbarkeit des Himmels.
+
+`tools/himmel.ts` rechnet diese Sichtbarkeit je Ecke vorab (Strahlen gegen alle Set-Piece-Dreiecke,
+Laub verdeckt halb) und legt sie als `_HIMMEL` in die Datei. `windmaterial.ts` dämpft damit nur
+`indirectDiffuse` — das ist bei uns allein die Hemisphäre. Die Sonne bleibt unberührt.
+
+```
+  ?himmel=     Mauer (Median, linear)   Felsmulde dunkel   Stauwehr dunkel
+  0 (vorher)        0,0155                  32,1 %             15,8 %
+  0,5               0,0091                  38,4 %             18,4 %
+  0,7               0,0069                  40,9 %             19,6 %
+  1                 0,0042                  44,5 %             21,1 %
+  Render            0,0071                  58,0 %             43,6 %
+```
+
+**Je Stimmung** (`Stimmung.himmelAnteil`): Tag, Nebelmorgen, Goldnebel 0,7 · Dämmerung, Abendrot 0,35 ·
+**Nacht 0**. Mit 0,7 auch nachts wurde die Felsmulde zum Bildtor-Blocker (leer 8,1 %, Grenze 6,5) —
+nachts ist das Fülllicht das einzige Licht; dieselbe Lage wie beim Hemisphärenboden (D167).
+
+**0,7 ist die Vorgabe am Tag.** Voll wäre die Mauer dunkler als im Render, weil Cycles einen Teil des
+fehlenden Himmelslichts über Bounces vom Boden zurückholt. Die Wahl trifft **eine** Fläche an
+**einer** Kamera — sie ist gemessen, nicht allgemein bewiesen.
+
+**Offen:** Das Gelände hat keinen Himmelsanteil. Am Stauwehr ist der dunkle Waldboden des Renders
+Gelände, deshalb bewegt es sich dort kaum (16 → 20 %). Der nächste Schritt ist ein Himmelsraster
+über dem Gelände in den Set-Piece-Zonen (Strahlen gegen Kronen und Mauern, 0,5 m Raster), das
+der Bodenshader über die Weltlage liest.
+
 ## Prüfung und Rückweg
 
 - **Input:** benannte Szene, Kamera, Parameter und unveränderte Referenz.

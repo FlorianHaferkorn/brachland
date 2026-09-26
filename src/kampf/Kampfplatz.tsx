@@ -30,7 +30,7 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import {
-  SPIELERIN, UEBUNGSGEGNER, KEILER, ZIELEN, type KampfWerte,
+  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, ZIELEN, type KampfWerte,
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, simuliere, waehleZiel, drehe, blickAuf, frei,
   WAFFEN, ruesteAus, wechsleZiel, type WaffenArt,
   type Kampfwelt, type Kaempfer, type Treffer,
@@ -47,8 +47,10 @@ import { baueWindMaterial } from '../world/windmaterial.js';
  * seinem Modell und dem Gang aus dem Shader (D138); `kapsel` der Platzhalter aus Stufe 1,
  * bleibt als Vergleich (`?kampf=kapsel`).
  */
-export type GegnerArt = 'keiler' | 'kapsel';
-const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, kapsel: UEBUNGSGEGNER };
+export type GegnerArt = 'keiler' | 'grathorn' | 'kapsel';
+const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, kapsel: UEBUNGSGEGNER };
+/** Modell je Art (D170). Die Kapsel hat keins. */
+const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', grathorn: 'grathorn' };
 
 /** Ein Körper aus der Welt: Geometrie plus ein Material je Tier (der Gang ist ein Uniform). */
 interface Leib {
@@ -115,7 +117,7 @@ interface Puppe {
   vorher: { x: number; z: number };
 }
 
-function baueWelt(x: number, z: number, blick: number, art: GegnerArt): Kampfwelt {
+function baueWelt(x: number, z: number, blick: number, aufstellung: readonly GegnerArt[]): Kampfwelt {
   const spielerin = neuerKaempfer('spielerin', SPIELERIN, x, z, blick);
   // Zwei Gegner vor der Spielerin, versetzt — der zweite kommt etwas später an, damit man den
   // ersten Telegraf allein lesen kann, bevor es eng wird.
@@ -127,8 +129,8 @@ function baueWelt(x: number, z: number, blick: number, art: GegnerArt): Kampfwel
   return {
     spielerin,
     gegner: [
-      neuerKaempfer(`${art}-1`, WERTE[art], ax, az, blickAuf(ax, az, x, z)),
-      neuerKaempfer(`${art}-2`, WERTE[art], bx, bz, blickAuf(bx, bz, x, z)),
+      neuerKaempfer(`${aufstellung[0]}-1`, WERTE[aufstellung[0]], ax, az, blickAuf(ax, az, x, z)),
+      neuerKaempfer(`${aufstellung[1]}-2`, WERTE[aufstellung[1]], bx, bz, blickAuf(bx, bz, x, z)),
     ],
     ziel: null,
   };
@@ -148,36 +150,46 @@ type PlatzProps = {
   figur?: React.RefObject<KampfFigur | null>;
   /** Ist ein Ziel aufgeschaltet? Dann dreht `Spieler` nicht selbst — Q/E wechseln das Ziel (D168). */
   zielt?: React.RefObject<boolean>;
-  /** Wer auf dem Platz steht (D169). */
-  art?: GegnerArt;
+  /** Wer auf dem Platz steht, zwei Plätze (D169/D170). Vorgabe: ein Keiler, ein Grathorn. */
+  aufstellung?: readonly GegnerArt[];
 };
 
-/** Der Platz. Mit Keiler lädt er das Modell — deshalb unter `Suspense` einhängen. */
+const VORGABE: readonly GegnerArt[] = ['keiler', 'grathorn'];
+
+/** Der Platz. Mit Tieren lädt er die Modelle — deshalb unter `Suspense` einhängen. */
 export function Kampfplatz(props: PlatzProps) {
-  return (props.art ?? 'keiler') === 'keiler' ? <KampfplatzMitKeiler {...props} /> : <KampfplatzKern {...props} leib={null} />;
+  const auf = props.aufstellung ?? VORGABE;
+  return auf.some(a => MODELL[a]) ? <KampfplatzMitModellen {...props} aufstellung={auf} />
+    : <KampfplatzKern {...props} aufstellung={auf} leiber={{}} />;
 }
 
-function KampfplatzMitKeiler(props: PlatzProps) {
-  const { scene } = useGLTF('/creatures/wurzelkeiler.glb');
-  const leib = useMemo<Leib | null>(() => {
-    const geometrie = kreaturGeometrie(scene, 'wurzelkeiler', 1);
-    if (!geometrie) return null;
-    return {
-      geometrie,
-      baue: () => {
-        const w = baueWindMaterial({
-          amplitude: 0, randFarbe: new THREE.Color('#8a9a9c'), randStaerke: 0.2, randSchaerfe: 1.6, atmen: true,
-        });
-        return { material: w.material as THREE.MeshStandardMaterial, setzeZeit: w.setzeZeit, setzeGang: w.setzeGang };
-      },
-    };
-  }, [scene]);
-  return <KampfplatzKern {...props} leib={leib} />;
+function leibAus(scene: THREE.Object3D, kreatur: string): Leib | null {
+  const geometrie = kreaturGeometrie(scene, kreatur, 1);
+  if (!geometrie) return null;
+  return {
+    geometrie,
+    baue: () => {
+      const w = baueWindMaterial({
+        amplitude: 0, randFarbe: new THREE.Color('#8a9a9c'), randStaerke: 0.2, randSchaerfe: 1.6, atmen: true,
+      });
+      return { material: w.material as THREE.MeshStandardMaterial, setzeZeit: w.setzeZeit, setzeGang: w.setzeGang };
+    },
+  };
 }
 
-function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, art = 'keiler', leib }:
-  PlatzProps & { leib: Leib | null }) {
-  const werte = WERTE[art];
+/** Beide Modelle werden immer geladen — Hooks dürfen nicht von der Aufstellung abhängen. */
+function KampfplatzMitModellen(props: PlatzProps) {
+  const keiler = useGLTF('/creatures/wurzelkeiler.glb').scene;
+  const grathorn = useGLTF('/creatures/grathorn.glb').scene;
+  const leiber = useMemo<Partial<Record<GegnerArt, Leib | null>>>(() => ({
+    keiler: leibAus(keiler, 'wurzelkeiler'), grathorn: leibAus(grathorn, 'grathorn'),
+  }), [keiler, grathorn]);
+  return <KampfplatzKern {...props} leiber={leiber} />;
+}
+
+function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber }:
+  PlatzProps & { leiber: Partial<Record<GegnerArt, Leib | null>> }) {
+  const aufKey = aufstellung.join(',');
   const welt = useRef<Kampfwelt | null>(null);
   const zaehler = useRef({ rollen: 0, getroffen: 0, phase: 'bereit' as Kaempfer['phase'] });
   useEffect(() => () => { if (figur) figur.current = null; }, [figur]);
@@ -236,10 +248,13 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     koerperGeo.translate(0, UEBUNGSGEGNER.hoehe / 2, 0);
     const naseGeo = new THREE.BoxGeometry(0.22, 0.12, 0.3);
     naseGeo.translate(0, UEBUNGSGEGNER.hoehe * 0.8, -UEBUNGSGEGNER.radius - 0.08);
-    const bogenGeo = faecher(werte.schlag.reichweite + SPIELERIN.radius, werte.schlag.halbwinkel);
     // 0,1 m: kleiner gingen sie neben der Zielmarke unter (im Bild geprüft, D169).
     const rauteGeo = new THREE.OctahedronGeometry(0.1, 0);
     for (let i = 0; i < 2; i++) {
+      const art = aufstellung[i] ?? 'kapsel';
+      const werte = WERTE[art];
+      const leib = leiber[art] ?? null;
+      const bogenGeo = faecher(werte.schlag.reichweite + SPIELERIN.radius, werte.schlag.halbwinkel);
       const gruppe = new THREE.Group();
       const leibGruppe = new THREE.Group();
       let koerper: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
@@ -279,7 +294,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     }
     // Der Fächer der Spielerin: sichtbar im Vorlauf blass, im Aktiven hell.
     const schwung = new THREE.Mesh(
-      faecher(SPIELERIN.schlag.reichweite + werte.radius, SPIELERIN.schlag.halbwinkel),
+      faecher(SPIELERIN.schlag.reichweite + 0.4, SPIELERIN.schlag.halbwinkel),
       new THREE.MeshBasicMaterial({ color: FARBE.faecher, transparent: true, opacity: 0, depthWrite: false }),
     );
     schwung.renderOrder = 2;
@@ -290,24 +305,25 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     marke.visible = false;
     wurzel.add(marke);
     return { wurzel, puppen, schwung, marke };
-  }, [leib, werte, art]);
+    // `aufKey` statt `aufstellung`: Ein neues Feld mit demselben Inhalt soll den Platz nicht neu bauen.
+  }, [leiber, aufKey]);
 
   useEffect(() => () => {
     // Die Geometrie des Keilers gehört dem Modell-Cache (useGLTF), nicht dem Platz.
     zeichnung.wurzel.traverse(o => {
       if (o instanceof THREE.Mesh) {
-        if (o.geometry !== leib?.geometrie) o.geometry.dispose();
+        if (!Object.values(leiber).some(l => l?.geometrie === o.geometry)) o.geometry.dispose();
         (o.material as THREE.Material).dispose();
       }
     });
-  }, [zeichnung, leib]);
+  }, [zeichnung, leiber]);
 
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
     if (!p) return;
     const dt = Math.min(rohDt, 0.1);
     const jetzt = performance.now();
-    if (!welt.current) welt.current = baueWelt(p.x, p.z, gier.current, art);
+    if (!welt.current) welt.current = baueWelt(p.x, p.z, gier.current, aufstellung);
     // Bis zur ersten Eingabe steht der Platz still — die Gegner folgen dem Absetzpunkt nicht,
     // sie stehen dort, wo sie zuerst hingestellt wurden.
     const w = welt.current;
@@ -399,7 +415,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     const vorbei = s.phase === 'gefallen' || w.gegner.every(g => g.phase === 'gefallen');
     if (vorbei && ende.current === null) ende.current = jetzt;
     if (ende.current !== null && jetzt - ende.current > NEUSTART * 1000) {
-      welt.current = baueWelt(p.x, p.z, gier.current, art);
+      welt.current = baueWelt(p.x, p.z, gier.current, aufstellung);
       ruesteAus(welt.current.spielerin, waffeWahl.current);
       ende.current = null;
       melde('neue Runde');
@@ -477,6 +493,8 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
   pu.vorher.x = g.x; pu.vorher.z = g.z;
   pu.gang?.(g.phase === 'bereit' ? Math.min(1, v / 1.6) : 0);
   const keiler = pu.art === 'keiler';
+  const horn = pu.art === 'grathorn';
+  const tier = keiler || horn;
 
   if (g.phase === 'vorlauf') {
     // Das Telegraf: Der Bogen am Boden füllt sich, der Körper glüht auf. Beides wächst mit dem
@@ -489,6 +507,12 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
       l.position.z = 0.3 * t;
       l.rotation.x = -0.16 * t;
       l.position.y = Math.abs(Math.sin(g.zeit * 16)) * 0.035 * t;
+    } else if (horn) {
+      // Der Grathorn steigt: Vorderteil hoch, Kopf zurück — das Gegenteil des Keilers. Wer beide
+      // kennt, liest am Kopf, wer gleich kommt (D170).
+      l.rotation.x = 0.32 * t;
+      l.position.y = 0.12 * t;
+      l.position.z = 0.25 * t;
     }
   } else if (g.phase === 'aktiv') {
     pu.bogen.material.opacity = 0.65;
@@ -498,12 +522,18 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
       const u = Math.min(1, g.zeit / s.aktiv);
       l.position.z = 0.3 - 1.2 * u;
       l.rotation.x = -0.16 + 0.3 * u;
+    } else if (horn) {
+      // Herunterkrachen: aus dem Steigen schräg nach vorn unten, Gehörn voran.
+      const u = Math.min(1, g.zeit / s.aktiv);
+      l.rotation.x = 0.32 - 0.62 * u;
+      l.position.y = 0.12 * (1 - u);
+      l.position.z = 0.25 - 0.95 * u;
     }
-  } else if (g.phase === 'erholung' && keiler) {
+  } else if (g.phase === 'erholung' && tier) {
     const u = Math.min(1, g.zeit / s.erholung);
     const r = 1 - (1 - u) * (1 - u);
-    l.position.z = -0.9 * (1 - r);
-    l.rotation.x = 0.14 * (1 - r);
+    l.position.z = (keiler ? -0.9 : -0.7) * (1 - r);
+    l.rotation.x = (keiler ? 0.14 : -0.3) * (1 - r);
   } else if (g.phase === 'betaeubt') {
     // Taumeln (D169): Blau allein ging bei Tag unter. Jetzt schwankt der Körper sichtbar, und drei
     // Rauten kreisen über dem Kopf — das liest man auf jedem Untergrund und in jeder Stimmung.
@@ -511,14 +541,14 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
     const abkling = Math.max(0.35, 1 - t / Math.max(0.01, g.werte.betaeubt));
     m.emissive.copy(FARBE.taumeln).multiplyScalar(0.35);
     l.rotation.z = Math.sin(t * 9) * 0.22 * abkling;
-    l.rotation.x = keiler ? 0.1 : 0.18;
-    l.position.y = keiler ? -0.06 : 0;
+    l.rotation.x = tier ? 0.1 : 0.18;
+    l.position.y = tier ? -0.06 : 0;
     pu.kranz.visible = true;
     pu.kranz.rotation.y = uhr * 4;
     pu.kranz.position.y = g.werte.hoehe + 0.3 + Math.sin(uhr * 6) * 0.04;
   } else if (g.phase === 'gefallen') {
     const t = Math.min(1, g.zeit / 0.6);
-    if (keiler) {
+    if (tier) {
       l.rotation.z = t * Math.PI / 2;
       l.position.y = -t * 0.1;
       l.position.x = t * 0.35;

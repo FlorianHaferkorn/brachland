@@ -15,7 +15,7 @@ import {
   SPIELERIN, UEBUNGSGEGNER, SCHRITT, ZIELEN,
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, kannSchlagen, kannRollen,
   imBogen, loeseTreffer, schrittKaempfer, simuliere, waehleZiel, blickAuf, vorwaerts,
-  WAFFEN, ruesteAus, wechsleZiel, KEILER,
+  WAFFEN, ruesteAus, wechsleZiel, KEILER, GRATHORN,
   type Kaempfer, type Kampfwelt, type Treffer,
 } from '../src/kampf/echtzeit.js';
 
@@ -348,6 +348,78 @@ let keilerVon = NaN, keilerBis = NaN;
   pruefe('Keiler: trifft nicht, was neben ihm steht', !imBogen(seitlich, s));
 }
 
+// ---------------------------------------------------- 15. Zucken: ein Treffer kostet den eigenen Schlag (D170)
+{
+  const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+  const g = neuerKaempfer('g', UEBUNGSGEGNER, 0, -2.2, blickAuf(0, -2.2, 0, 0));
+  // Der Gegner holt zuerst aus; die Spielerin setzt so spät an, dass sein Treffer in ihren Vorlauf fällt.
+  setzeSchlagAn(g);
+  const w: Kampfwelt = { spielerin: s, gegner: [g], ziel: null };
+  let t = 0, getroffenIn = '', zuckenBis = NaN;
+  let ihrSchaden = 0;
+  for (; t < 2; t += SCHRITT) {
+    if (Math.abs(t - (UEBUNGSGEGNER.schlag.vorlauf - 0.08)) < SCHRITT / 2) setzeSchlagAn(s);
+    const phaseVor = s.phase;
+    for (const e of simuliere(w, SCHRITT)) {
+      if (e.auf === 's' && e.schaden > 0) getroffenIn = phaseVor;
+      if (e.von === 's' && e.schaden > 0) ihrSchaden += e.schaden;
+    }
+    if (s.phase === 'zucken') zuckenBis = t;
+  }
+  pruefe('Treffer im eigenen Vorlauf: sie zuckt', getroffenIn === 'vorlauf' && !Number.isNaN(zuckenBis), getroffenIn);
+  pruefe('ihr Schlag geht verloren — kein Schaden am Gegner', ihrSchaden === 0, `${ihrSchaden}`);
+  pruefe('danach wieder handlungsfähig', s.phase === 'bereit' || s.phase === 'vorlauf' || s.phase === 'erholung', s.phase);
+  const z = neuerKaempfer('z', SPIELERIN, 0, 0, 0);
+  z.phase = 'zucken'; z.zeit = 0;
+  pruefe('im Zucken keine Rolle', !kannRollen(z));
+  pruefe('im Zucken kein Schlag', !kannSchlagen(z));
+  schrittKaempfer(z, SPIELERIN.zucken! + SCHRITT);
+  pruefe(`nach ${SPIELERIN.zucken} s bereit`, (z.phase as string) === 'bereit', z.phase);
+  pruefe('Gegner zucken nicht (sie brechen nur über die Haltung)',
+    !UEBUNGSGEGNER.zucken && !KEILER.zucken && !GRATHORN.zucken);
+}
+
+// ---------------------------------------------------- 16. Pille statt Kreis (D170)
+// Ein Keiler ist 1,8 m lang und 0,6 m breit. Als runde Kapsel (r 0,55) traf man ihn von der Seite
+// zu leicht und von vorn zu schwer.
+{
+  const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);    // Blick −Z, Reichweite 2,4 m bis zum Rand
+  const quer = neuerKaempfer('q', KEILER, 0, -2.8, Math.PI / 2);   // steht quer, Flanke zur Spielerin
+  const laengs = neuerKaempfer('l', KEILER, 0, -3.2, 0);          // Hinterteil zur Spielerin, Körper längs
+  pruefe('Flanke 2,8 m entfernt: kein Treffer (als Kreis r 0,55 wäre es einer)', !imBogen(s, quer));
+  pruefe('Hinterteil 3,2 m bis zur Mitte: Treffer (als Kreis wäre es keiner)', imBogen(s, laengs));
+  const naeher = neuerKaempfer('n', KEILER, 0, -2.6, Math.PI / 2);
+  pruefe('Flanke 2,6 m: Treffer', imBogen(s, naeher));
+  // Der Kopf ragt in den Bogen, auch wenn die Mitte daneben liegt.
+  const schraeg = neuerKaempfer('k', KEILER, 1.8, -2.2, blickAuf(1.8, -2.2, 0, 0));
+  pruefe('Kopf im Bogen, Mitte ausserhalb: Treffer', imBogen(s, schraeg));
+}
+
+// ---------------------------------------------------- 17. Der Grathorn (D170)
+let grathornVon = NaN, grathornBis = NaN;
+{
+  const geschuetzt = (t0: number): boolean => {
+    const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+    const g = neuerKaempfer('g', GRATHORN, 0, -2.0, blickAuf(0, -2.0, 0, 0));
+    setzeSchlagAn(g);
+    let t = 0, gerollt = false;
+    for (let i = 0; i < 220; i++) {
+      if (!gerollt && t >= t0 - 1e-9) { gerollt = setzeRolleAn(s, 0, 0); }
+      schrittKaempfer(s, SCHRITT); schrittKaempfer(g, SCHRITT); t += SCHRITT;
+      loeseTreffer(g, [s]);
+    }
+    return s.leben === s.werte.lebenMax;
+  };
+  for (let t0 = 0; t0 <= 1.0 + 1e-9; t0 += 0.005) {
+    if (geschuetzt(t0)) { if (Number.isNaN(grathornVon)) grathornVon = t0; grathornBis = t0; }
+  }
+  pruefe('Grathorn: Schutzfenster mindestens 200 ms', grathornBis - grathornVon >= 0.2 - 1e-9, f3(grathornBis - grathornVon));
+  pruefe('Grathorn: Fenster endet nach Reaktionszeit + 150 ms', grathornBis >= REAKTION + 0.15, f3(grathornBis));
+  pruefe('Grathorn: Panikrolle schützt nicht', !geschuetzt(0));
+  pruefe('Grathorn: früher als der Keiler — man muss früher rollen', grathornBis < keilerBis, `${f3(grathornBis)} gegen ${f3(keilerBis)}`);
+  pruefe('Grathorn: schmaler Bogen', GRATHORN.schlag.halbwinkel < KEILER.schlag.halbwinkel);
+}
+
 // ---------------------------------------------------- 13. Zielwahl und Zielwechsel (D168)
 {
   const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
@@ -405,6 +477,7 @@ console.log(`  Schläge zweier Gegner in 15 s        ${schlaegeZuZweit} (im Wech
   }
   console.log(`  Axt trifft                           ${f3(axtTreffer)} s nach Tastendruck`);
   console.log(`  Keiler: Schutzfenster                ${f3(keilerVon)} … ${f3(keilerBis)} s (Telegraf ${KEILER.schlag.vorlauf} s)`);
+  console.log(`  Grathorn: Schutzfenster              ${f3(grathornVon)} … ${f3(grathornBis)} s (Telegraf ${GRATHORN.schlag.vorlauf} s)`);
 }
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);

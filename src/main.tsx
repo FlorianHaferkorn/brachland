@@ -51,9 +51,13 @@ const REGENT_ID = 'flussvater';
  * Startpunkt. Hinter einem Schalter, bis Fassade und Gegnerbestand stehen.
  */
 const KAMPF_PARAM = new URLSearchParams(location.search).get('kampf');
-const KAMPFPLATZ = KAMPF_PARAM === '1' || KAMPF_PARAM === 'keiler' || KAMPF_PARAM === 'kapsel';
-/** Stufe 2 (D169): `?kampf=1` stellt Keiler auf, `?kampf=kapsel` die Platzhalter aus Stufe 1. */
-const KAMPF_ART = KAMPF_PARAM === 'kapsel' ? 'kapsel' as const : 'keiler' as const;
+const KAMPFPLATZ = KAMPF_PARAM === '1' || KAMPF_PARAM === 'keiler' || KAMPF_PARAM === 'grathorn' || KAMPF_PARAM === 'kapsel';
+/**
+ * Stufe 2 (D169/D170): `?kampf=1` stellt einen Keiler und einen Grathorn auf — zwei Baupläne,
+ * zwei Telegrafe. `?kampf=keiler|grathorn|kapsel` stellt zwei derselben Art auf.
+ */
+const KAMPF_AUFSTELLUNG = KAMPF_PARAM === 'keiler' || KAMPF_PARAM === 'grathorn' || KAMPF_PARAM === 'kapsel'
+  ? [KAMPF_PARAM, KAMPF_PARAM] as const : ['keiler', 'grathorn'] as const;
 
 /**
  * Absetzpunkt aus der Adresse: `?absetzen=x,z` in Weltmetern.
@@ -649,7 +653,7 @@ function App() {
         meldeRand={meldeRand}
         stoecke={stoecke}
         kampfplatz={KAMPFPLATZ}
-        kampfArt={KAMPF_ART}
+        kampfAufstellung={KAMPF_AUFSTELLUNG}
         kampfStand={kampfStand}
       />
       {!imKampf && !menueOffen && <Stockanzeige stoecke={stoecke} />}

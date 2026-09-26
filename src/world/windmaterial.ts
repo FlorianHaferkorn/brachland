@@ -64,6 +64,37 @@ export interface WindMaterialWerte {
    * dunkle Scheibe, mit ihm leuchtet sie. Nur die erste Richtungsquelle (die Sonne).
    */
   durchlass?: number;
+  /**
+   * Himmelsanteil (D170): Die Geometrie trägt ein Attribut `_himmel` (0…1, `tools/himmel.ts`),
+   * und das **Fülllicht** — nur das indirekte Diffuslicht, also die Hemisphäre — wird damit
+   * gedämpft. Die Sonne bleibt unberührt. Nur setzen, wenn das Attribut da ist: Fehlt es, liefert
+   * WebGL 0, und die Fläche verlöre ihr ganzes Fülllicht.
+   */
+  himmel?: boolean;
+}
+
+/**
+ * Stärke des Himmelsanteils (D170): 0,7. `?himmel=0…1` überschreibt (0 = wie vor D170).
+ *
+ * Gemessen an der sonnenabgewandten Mauer der Felsmulde (Median, linear; Render 0,0071):
+ * 0 → 0,0155 · 0,5 → 0,0091 · **0,7 → 0,0069** · 1 → 0,0042. Voll wäre zu dunkel, weil Cycles
+ * das Licht, das der Himmel nicht mehr bringt, zum Teil über Bounces vom Boden zurückholt —
+ * die fehlen hier. 0,7 ist diese Lücke, gemessen, nicht geschätzt; sie gilt für eine Kamera.
+ */
+const HIMMEL_MESSLAUF: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const roh = new URLSearchParams(location.search).get('himmel');
+  const n = roh === null ? NaN : Number(roh);
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : null;
+})();
+/**
+ * Ein Uniform für alle Materialien mit Himmelsanteil — die Stärke hängt an der Stimmung (die Nacht
+ * lebt vom Fülllicht und bekommt 0, siehe `Stimmung.himmel`), gesetzt von der Szene.
+ */
+const HIMMEL_UNIFORM = { value: HIMMEL_MESSLAUF ?? 0.7 };
+/** Stärke des Himmelsanteils setzen (Szene, je Stimmung). `?himmel=` hat Vorrang. */
+export function setzeHimmelStaerke(s: number): void {
+  HIMMEL_UNIFORM.value = HIMMEL_MESSLAUF ?? s;
 }
 
 /** Slots der Laufzeitfarben (D146) — dieselbe Reihenfolge wie `SLOT` in `tools/menschbau.py`. */
@@ -301,6 +332,17 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
     shader.uniforms.uLoecher = loecher;
     shader.uniforms.uLoecherSkala = loecherSkala;
     shader.uniforms.uDurchlass = durchlass;
+    if (w.himmel) {
+      shader.uniforms.uHimmel = HIMMEL_UNIFORM;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float _himmel;\nvarying float vHimmel;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvHimmel = _himmel;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vHimmel;\nuniform float uHimmel;')
+        // Nach der AO-Karte: `indirectDiffuse` ist hier allein das Fülllicht (Hemisphäre); die Sonne
+        // steckt in `directDiffuse` und bleibt, wie sie ist.
+        .replace('#include <aomap_fragment>', '#include <aomap_fragment>\nreflectedLight.indirectDiffuse *= mix(1.0, vHimmel, uHimmel);');
+    }
 
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',
@@ -320,7 +362,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v12';
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v12' + (w.himmel ? '-himmel' : '');
 
   // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens
   let tiefe: THREE.MeshDepthMaterial | undefined;

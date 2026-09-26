@@ -32,7 +32,7 @@ import { baueBodenMaterial } from '../world/bodenmaterial.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
-import { baueWindMaterial, windAusHoehe, type RollenSlot } from '../world/windmaterial.js';
+import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { BAUWERKE, bauwerkPfad, gesperrt, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { haengeAgxLookEin } from './tonwert.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
@@ -86,6 +86,12 @@ export interface Stimmung {
   /** Silhouettenlicht: Farbe des Himmels, der die Umrisse zeichnet. */
   randFarbe: string;
   randStaerke: number;
+  /**
+   * Stärke des Himmelsanteils im Fülllicht (D170, `windmaterial.ts`); ohne Angabe 0,7. Die Nacht
+   * bekommt 0: Dort ist das Fülllicht das einzige Licht, und im Hof der Felsmulde wurden mit 0,7
+   * 8,1 % der Pixel reines Schwarz (Bildtor-Blocker, Grenze 6,5). (`himmel` ist die Himmelsfarbe.)
+   */
+  himmelAnteil?: number;
   /**
    * Bodenfarbe der Hemisphäre je Stimmung (D167); ohne Angabe `HEMI_BODEN`. Die Nacht braucht den
    * hellen Boden gegen reines Schwarz, der Tag nicht — eine globale Zahl musste beides können.
@@ -340,6 +346,7 @@ export const STIMMUNG: Record<string, Stimmung> = {
     zenit: '#05080d', horizont: '#131c22', scheibe: 0.0009, hof: 900,
     // Nachts trägt der Umriss fast das ganze Bild — deshalb hier am stärksten.
     randFarbe: '#4d6b82', randStaerke: 0.30,
+    himmelAnteil: 0,
   },
   daemmerung: {
     himmel: '#141d20', nebel: '#1b2a2b', nebelNah: 60, nebelFern: 420,
@@ -358,6 +365,7 @@ export const STIMMUNG: Record<string, Stimmung> = {
     // Tief stehende Sonne: kleine Scheibe, sehr weiter Hof. Der Hof IST die Stimmung.
     zenit: '#1b3550', horizont: '#4a4238', scheibe: 0.0016, hof: 190,
     randFarbe: '#6e7f86', randStaerke: 0.22,
+    himmelAnteil: 0.35,   // Dämmerung trägt sich über die Umgebung (D118) — halb
   },
   nebelmorgen: {
     himmel: '#20282a', nebel: '#2c3a39', nebelNah: 30, nebelFern: 240,
@@ -411,6 +419,7 @@ export const STIMMUNG: Record<string, Stimmung> = {
     fenster: 0.4,
     zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
     randFarbe: '#c07a4e', randStaerke: 0.26,
+    himmelAnteil: 0.35,
   },
   /**
    * Probe D152: warmer Dunst. **Nicht im Tageslauf**, nur per `?stimmung=goldnebel`.
@@ -548,6 +557,7 @@ export function stimmungBei(zeit: number): Stimmung {
     randFarbe: mischeFarbe(A.randFarbe, B.randFarbe, f),
     randStaerke: z(A.randStaerke, B.randStaerke),
     hemiBoden: mischeFarbe(A.hemiBoden ?? HEMI_BODEN, B.hemiBoden ?? HEMI_BODEN, f),
+    himmelAnteil: z(A.himmelAnteil ?? 0.7, B.himmelAnteil ?? 0.7),
   };
 }
 
@@ -1730,9 +1740,11 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
        * Der Render hat an Mauern keinen Saum; die Engine jetzt auch nicht.
        */
       const anteil = laub ? 0.15 : 0;
+      // Himmelsanteil (D170, `tools/himmel.ts`): nur, wo die Datei ihn mitbringt.
+      const himmel = !!(o.geometry as THREE.BufferGeometry).getAttribute('_himmel');
       const w = baueWindMaterial(laub
-        ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, randSchaerfe: 10, loecher: 0.42, loecherSkala: 9, durchlass: 0.55 }
-        : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil }, basis);
+        ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, randSchaerfe: 10, loecher: 0.42, loecherSkala: 9, durchlass: 0.55, himmel }
+        : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, himmel }, basis);
       if (laub) { w.material.side = THREE.DoubleSide; if (w.tiefe) o.customDepthMaterial = w.tiefe; }
       if (NORMAL_MESSLAUF !== null && w.material.normalMap) w.material.normalScale.setScalar(NORMAL_MESSLAUF);
       o.material = w.material; materialien.push({ w, anteil });
@@ -1998,6 +2010,8 @@ function Beleuchtung({ s, ziel }: {
     gl.toneMapping = KURVE_MESSLAUF ?? KURVE_VORGABE;
     gl.toneMappingExposure = BELICHTUNG_MESSLAUF ?? s.belichtung;
   }, [gl, s]);
+  // Himmelsanteil im Fülllicht je Stimmung (D170) — ein Uniform für alle Set-Pieces.
+  useEffect(() => { setzeHimmelStaerke(s.himmelAnteil ?? 0.7); }, [s.himmelAnteil]);
 
   /**
    * Die Sonne wandert mit dem Spieler.
@@ -2858,7 +2872,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
           : h.durchzug + (1 - h.durchzug) * Math.min(1, k.zeit / k.erholung);
         hieb.timeScale = 0;
         hieb.time = u * dauer * 0.999;
-      } else if (k.phase === 'betaeubt' || kv.uhr < kv.trefferBis) {
+      } else if (k.phase === 'betaeubt' || k.phase === 'zucken' || kv.uhr < kv.trefferBis) {
         ziel = clips.treffer; blende = 0.08;
         neu = clips.aktiv !== clips.treffer;
       }
@@ -3264,8 +3278,8 @@ export interface RegionsSzeneProps {
    * `?kampf=1` — Platzhalter ohne Asset, bis die Fassade steht.
    */
   kampfplatz?: boolean;
-  /** Wer auf dem Platz steht (D169): Keiler (Stufe 2) oder Kapsel (Stufe 1). */
-  kampfArt?: GegnerArt;
+  /** Wer auf dem Platz steht (D169/D170): zwei Arten, je Platz eine. */
+  kampfAufstellung?: readonly GegnerArt[];
   /** Stand für die Kampfanzeige im DOM, wie `ausdauer` als Ref. */
   kampfStand?: React.RefObject<KampfStand | null>;
 }
@@ -3275,7 +3289,7 @@ export function RegionsSzene({
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfArt = 'keiler', kampfStand,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfStand,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -3430,7 +3444,7 @@ export function RegionsSzene({
         <Suspense fallback={null}>
           <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
                       ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                      zielt={kampfZielt} art={kampfArt} />
+                      zielt={kampfZielt} aufstellung={kampfAufstellung} />
         </Suspense>
       )}
       {funde.length > 0 && (

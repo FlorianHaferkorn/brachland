@@ -26,7 +26,7 @@
  */
 import { neueAusdauer, reicht, schritt as ausdauerSchritt, verbrauche, type Ausdauer } from '../spieler/ausdauer.js';
 
-export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'betaeubt' | 'gefallen';
+export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'betaeubt' | 'zucken' | 'gefallen';
 
 /** Ein Schlag: drei Phasen, Bogen, Wirkung. Zeiten in Sekunden, Strecken in Metern. */
 export interface Schlag {
@@ -70,6 +70,17 @@ export interface KampfWerte {
   /** Kapsel: Radius in der Ebene und Höhe. */
   radius: number;
   hoehe: number;
+  /**
+   * Halbe Länge des Körpers entlang des Blicks (D170). 0 = runde Kapsel (Mensch). Ein Vierbeiner
+   * ist eine Pille: Kopf und Hinterteil reichen weiter als die Flanke.
+   */
+  halbLaenge?: number;
+  /**
+   * Wie lange ein Treffer den Kämpfer aus seiner Handlung reisst (D170). 0 heisst: Er schlägt
+   * durch — Gegner brechen nur über die Haltung. Die Spielerin zuckt, und ein Treffer im Vorlauf
+   * kostet sie den eigenen Schlag.
+   */
+  zucken?: number;
 }
 
 const GRAD = Math.PI / 180;
@@ -89,7 +100,7 @@ export const SPIELERIN: KampfWerte = {
   },
   rolle: { dauer: 0.55, unverwundbarVon: 0.05, unverwundbarBis: 0.35, strecke: 3.8, kosten: 24 },
   lebenMax: 100, haltungMax: 60, haltungErholung: 30, haltungRuhe: 1.2, betaeubt: 0.45,
-  radius: 0.4, hoehe: 1.7,
+  radius: 0.4, hoehe: 1.7, zucken: 0.3,
 };
 
 /**
@@ -148,9 +159,9 @@ export const UEBUNGSGEGNER: KampfWerte = {
  * Ein Keiler rammt: langer Vorlauf (0,85 s — er senkt den Kopf und scharrt), kurzer, weiter Stoss
  * (2,6 m, weil er sich dabei nach vorn wirft), schmaler Bogen (±35° — was neben ihm steht, trifft
  * er nicht), lange Erholung (1,0 s), in der er offen steht. Mehr Leben und Haltung als der
- * Übungsgegner: Die Klinge braucht drei Treffer für die Haltung, die Axt zwei. Die Kapsel in der
- * Ebene ist grob (0,55 m bei 1,8 m Länge) — gut genug für Stufe 2, eine Pille entlang des Körpers
- * kommt, wenn längere Tiere dazukommen.
+ * Übungsgegner: Die Klinge braucht drei Treffer für die Haltung, die Axt zwei. Seit D170 eine
+ * Pille entlang des Körpers statt einer runden Kapsel (vorher r 0,55 m bei 1,8 m Länge — von der
+ * Seite zu leicht, von vorn zu schwer zu treffen).
  */
 export const KEILER: KampfWerte = {
   schlag: {
@@ -160,7 +171,26 @@ export const KEILER: KampfWerte = {
   },
   rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
   lebenMax: 140, haltungMax: 70, haltungErholung: 18, haltungRuhe: 1.6, betaeubt: 1.0,
-  radius: 0.55, hoehe: 1.05,
+  // D170: Pille statt runder Kapsel — halbe Breite 0,31 m, Körper 1,8 m lang.
+  radius: 0.35, hoehe: 1.05, halbLaenge: 0.55,
+};
+
+/**
+ * Der Grathorn als Gegner (D170) — zweiter Körperbauplan (Huftier mit Gehörn, Steinbock).
+ *
+ * Er stösst mit dem Gehörn: steigt kurz auf (0,6 s — der Kopf geht **hoch**, nicht runter wie beim
+ * Keiler), dann kracht er schräg nach unten nach vorn. Schneller als der Keiler, kürzer (2,2 m),
+ * noch schmaler (±30°) und leichter: Wer den Keiler gelernt hat, muss hier früher rollen.
+ */
+export const GRATHORN: KampfWerte = {
+  schlag: {
+    vorlauf: 0.6, aktiv: 0.14, erholung: 0.8,
+    reichweite: 2.2, halbwinkel: 30 * GRAD,
+    schaden: 24, haltungsschaden: 44, kosten: 0, nachdrehen: 2.0,
+  },
+  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
+  lebenMax: 120, haltungMax: 60, haltungErholung: 22, haltungRuhe: 1.4, betaeubt: 0.9,
+  radius: 0.3, hoehe: 1.3, halbLaenge: 0.45,
 };
 
 /** Wie weit und in welchem Kegel die Zielaufschaltung greift, und wie schnell sie den Blick zieht. */
@@ -298,13 +328,26 @@ export function frei(k: Kaempfer): boolean {
 export function imBogen(a: Kaempfer, z: Kaempfer): boolean {
   const s = a.werte.schlag;
   if (Math.abs(z.y - a.y) > Math.max(a.werte.hoehe, z.werte.hoehe)) return false;
-  const dx = z.x - a.x, dz = z.z - a.z;
-  const d = Math.hypot(dx, dz);
-  if (d - z.werte.radius > s.reichweite) return false;
-  if (d <= z.werte.radius) return true;
+  const r = z.werte.radius;
   const [fx, fz] = vorwaerts(a.blick);
-  const winkel = Math.acos(Math.max(-1, Math.min(1, (fx * dx + fz * dz) / d)));
-  return winkel <= s.halbwinkel + Math.asin(Math.min(1, z.werte.radius / d));
+  // D170: Das Ziel ist eine Pille entlang seines Blicks. Geprüft werden der nächste Punkt der
+  // Mittellinie und ihre beiden Enden — liegt einer davon mit seinem Kreis im Bogen, trifft es.
+  const h = z.werte.halbLaenge ?? 0;
+  const [bx, bz] = vorwaerts(z.blick);
+  const punkte: [number, number][] = [[z.x, z.z]];
+  if (h > 0) {
+    const t = Math.max(-h, Math.min(h, (a.x - z.x) * bx + (a.z - z.z) * bz));
+    punkte.push([z.x + bx * t, z.z + bz * t], [z.x + bx * h, z.z + bz * h], [z.x - bx * h, z.z - bz * h]);
+  }
+  for (const [px, pz] of punkte) {
+    const dx = px - a.x, dz = pz - a.z;
+    const d = Math.hypot(dx, dz);
+    if (d - r > s.reichweite) continue;
+    if (d <= r) return true;
+    const winkel = Math.acos(Math.max(-1, Math.min(1, (fx * dx + fz * dz) / d)));
+    if (winkel <= s.halbwinkel + Math.asin(Math.min(1, r / d))) return true;
+  }
+  return false;
 }
 
 export interface Treffer {
@@ -345,6 +388,9 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     if (toedlich) { z.phase = 'gefallen'; z.zeit = 0; }
     else if (z.haltung <= 0) {
       z.phase = 'betaeubt'; z.zeit = 0; z.haltung = z.werte.haltungMax; gebrochen = true;
+    } else if ((z.werte.zucken ?? 0) > 0) {
+      // D170: Der Treffer reisst aus der Handlung — ein Schlag im Vorlauf ist verloren.
+      z.phase = 'zucken'; z.zeit = 0;
     }
     raus.push({ von: a.id, auf: z.id, schaden: s.schaden, gebrochen, toedlich, ausgewichen: false });
   }
@@ -359,12 +405,14 @@ function phasenDauer(k: Kaempfer): number {
     case 'erholung': return w.schlag.erholung;
     case 'rolle': return w.rolle.dauer;
     case 'betaeubt': return w.betaeubt;
+    case 'zucken': return w.zucken ?? 0;
     default: return Infinity;
   }
 }
 
 const NAECHSTE: Partial<Record<Phase, Phase>> = {
   vorlauf: 'aktiv', aktiv: 'erholung', erholung: 'bereit', rolle: 'bereit', betaeubt: 'bereit',
+  zucken: 'bereit',
 };
 
 /** Weiterschieben einer Position durch Kollision und Gelände — die Szene reicht ihre ein. */
