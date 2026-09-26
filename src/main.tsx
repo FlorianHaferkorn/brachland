@@ -105,9 +105,17 @@ const LAGER_PROBE = new URLSearchParams(location.search).has('lager');
 const HELD_EDITOR = new URLSearchParams(location.search).get('held') === 'editor';
 
 /** Wegelager in der Welt (D175): an einem Ort festgemacht, Versatz in Metern (x, z). */
-const WEGELAGER: { id: string; bei: string; versatz: [number, number]; aufstellung: readonly GegnerArt[]; meldung: string }[] = [
+const WEGELAGER: {
+  id: string; bei: string; versatz: [number, number]; aufstellung: readonly GegnerArt[]; meldung: string;
+  /** Beute beim Sieg (D176): Gegenstand → Anzahl, landet im Beutel. */
+  beute: Record<string, number>;
+}[] = [
   { id: 'lager-bruchweg', bei: 'steinbruch-wart', versatz: [55, 40], aufstellung: ['wegelagerer', 'wolf'],
-    meldung: 'Ein Mann mit Klinge tritt auf den Weg. Sein Hund knurrt.' },
+    meldung: 'Ein Mann mit Klinge tritt auf den Weg. Sein Hund knurrt.', beute: { kraeutersud: 1, harzverband: 1 } },
+  { id: 'lager-hofgraben', bei: 'hof-tremmel', versatz: [-60, 35], aufstellung: ['wegelagerer', 'fuchs'],
+    meldung: 'Hinter der Hecke steht einer, der auf jemanden wie dich gewartet hat.', beute: { koeder: 2, netzschlinge: 1 } },
+  { id: 'lager-almsteig', bei: 'almhuette', versatz: [45, -50], aufstellung: ['wegelagerer', 'wegelagerer', 'wolf'],
+    meldung: 'Zwei Klingen am Steig, und ein Wolf dazwischen. Das ist kein Zufall.', beute: { kraeutersud: 2, herzfunke: 1 } },
 ];
 
 function App() {
@@ -324,7 +332,7 @@ function App() {
     const [x, z] = nachMetern(o.ort, welt.bbox);
     return [{ ...l, x: x + l.versatz[0], z: z + l.versatz[1] }];
   }) : []), [welt]);
-  const [weltKampf, setWeltKampf] = useState<{ id: string; aufstellung: readonly GegnerArt[] } | null>(null);
+  const [weltKampf, setWeltKampf] = useState<{ id: string; aufstellung: readonly GegnerArt[]; beute: Record<string, number> } | null>(null);
   useEffect(() => {
     if (KAMPFPLATZ || (MESSADRESSE && !LAGER_PROBE) || !stand) return;
     const id = setInterval(() => {
@@ -335,7 +343,7 @@ function App() {
         // Nach einer Niederlage erst wieder, wenn man weg war (40 m) — sonst ginge es endlos weiter.
         if (lagerRuhe.current.has(l.id)) { if (d > 40) lagerRuhe.current.delete(l.id); continue; }
         if (stand.besiegt.includes(l.id) || d > 22) continue;
-        setWeltKampf({ id: l.id, aufstellung: l.aufstellung });
+        setWeltKampf({ id: l.id, aufstellung: l.aufstellung, beute: l.beute });
         setHinweis(l.meldung);
         break;
       }
@@ -343,13 +351,25 @@ function App() {
     return () => clearInterval(id);
   }, [lager, stand, weltKampf]);
   const lagerRuhe = useRef(new Set<string>());
+  const weltKampfRef = useRef(weltKampf);
+  weltKampfRef.current = weltKampf;
   const kampfVorbei = useCallback((sieg: boolean) => {
-    setWeltKampf(alt => {
-      if (alt && !sieg) lagerRuhe.current.add(alt.id);
-      if (alt && sieg) setStand(st => { if (!st) return st; const neu = { ...st, besiegt: [...st.besiegt, alt.id] }; void speichereStand(neu); return neu; });
-      return null;
+    // Aus einer Ref gelesen, nicht im Updater: StrictMode ruft Updater doppelt — Beute und
+    // `besiegt` kämen sonst zweimal in den Stand.
+    const alt = weltKampfRef.current;
+    setWeltKampf(null);
+    if (!alt) return;
+    if (!sieg) { lagerRuhe.current.add(alt.id); setHinweis('Zurückgeschlagen — sie warten noch.'); return; }
+    setStand(st => {
+      if (!st || st.besiegt.includes(alt.id)) return st;
+      const beutel = { ...st.beutel };
+      for (const [g, n] of Object.entries(alt.beute)) beutel[g] = (beutel[g] ?? 0) + n;
+      const neu = { ...st, besiegt: [...st.besiegt, alt.id], beutel };
+      void speichereStand(neu);
+      return neu;
     });
-    setHinweis(sieg ? 'Das Lager ist still.' : 'Zurückgeschlagen — sie warten noch.');
+    const liste = Object.entries(alt.beute).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n}`).join(', ');
+    setHinweis(`Das Lager ist still. Du nimmst: ${liste}.`);
   }, []);
 
   /**

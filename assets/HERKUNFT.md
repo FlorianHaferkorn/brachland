@@ -34,6 +34,7 @@ und der ist auf beiden Rechnern nicht lauffähig (G-119).
 | `kampf/waffen.glb` | Schwert und Axt der Wanderin (D173) | Quaternius | CC0 | Medieval Weapons Pack („Sword“, „Axe“, OBJ), gedreht, skaliert und im Griff zentriert mit `tools/waffenbau.py` |
 | `held/m-waldlaeufer.glb`, `held/m-bauer.glb`, `held/w-waldlaeufer.glb`, `held/w-bauer.glb` | Hauptfigur-Gestalten (D175) | Quaternius | CC0 | Universal Base Characters (Standard: Kopf/Augen/Brauen der Superhero-Körper, Frisuren „Rigged to Head Bone") + Modular Character Outfits – Fantasy (Standard: Ranger, Peasant), zusammengesetzt mit `tools/heldbau.py`, gepackt mit `tools/heldpack.ts` |
 | `held/held-clips.glb` | Clips der Hauptfigur (D175, nur Knochen) | Quaternius | CC0 | Universal Animation Library 2 (Schwertkombos, Block, Rückstoss, Taumeln) und die Clips der alten Wanderin (Quaternius-Rig, eigene Waffenclips), übertragen mit `tools/heldbau.py` |
+| `held/m-waldlaeufer-leicht.glb`, `held/m-bauer-leicht.glb`, `held/w-waldlaeufer-leicht.glb`, `held/w-bauer-leicht.glb` | Leichte Gestalten für Bewohner (D176) | Quaternius | CC0 | wie die Hauptfigur-Gestalten, Kleidung 3 500 / Kopf 1 800 Dreiecke, Haare halbiert, Texturen 512 |
 | `grathorn.glb` | Grathorn | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Stag) |
 | `nebelgams.glb` | Nebelgams | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Deer) |
 | `wurzelkeiler.glb` | Wurzelkeiler | Poly by Google | **CC BY 3.0** | poly.pizza, „Boar" |

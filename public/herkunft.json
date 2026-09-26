@@ -63,6 +63,13 @@
   "quelle": "Universal Animation Library 2 (Schwertkombos, Block, Rückstoss, Taumeln) und die Clips der alten Wanderin (Quaternius-Rig, eigene Waffenclips), übertragen mit tools/heldbau.py"
  },
  {
+  "datei": "held/m-waldlaeufer-leicht.glb, held/m-bauer-leicht.glb, held/w-waldlaeufer-leicht.glb, held/w-bauer-leicht.glb",
+  "rolle": "Leichte Gestalten für Bewohner (D176)",
+  "autor": "Quaternius",
+  "lizenz": "CC0",
+  "quelle": "wie die Hauptfigur-Gestalten, Kleidung 3 500 / Kopf 1 800 Dreiecke, Haare halbiert, Texturen 512"
+ },
+ {
   "datei": "grathorn.glb",
   "rolle": "Grathorn",
   "autor": "Quaternius",

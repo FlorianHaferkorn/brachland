@@ -41,3 +41,9 @@ Soulframe-Figuren sind handgebaute AAA-Modelle — frei (CC0) gibt es das nicht.
 - Hautton ist eine Tönung der mittleren Textur; sehr helle Töne werden flau. Die „Source"-Fassung hätte
   Shader für Haut und Augen (kostenpflichtig) — nicht nötig für Stufe 1.
 - Reitsitz, Waffenlage (`WAFFE_AN_HELD_HAND`) und Sitzknochen laufen über die neuen Knochennamen.
+
+## Nachtrag D176
+
+- **Bewohner** tragen jetzt leichte Gestalten (`*-leicht.glb`, ~7 000 Dreiecke, ~0,5 MB, Texturen 512), geklont je Bewohner; Zuordnung alter Figurnamen → Gestalt in `RegionsSzene.tsx` (`BEWOHNER_GESTALT`), Frisur/Bart/Haut aus einer Saat, Haarfarbe aus dem Inhalt. Gruss = UAL2 `Yes`, ruhiges Stehen = `Idle_FoldArms_Loop`. `?bewohner=alt` zeigt die alten Figuren.
+- **Hautton im Shader** statt Tönung: Helligkeit der Textur bleibt als Zeichnung (geteilt durch 0,22), der Farbton kommt aus `hautFarbe` (#e8bda0 … #4e3224). Helle Töne sind jetzt möglich.
+- **Posenblick:** `?held=editor&clip=…&t=…` hält einen Clip an; die Schwertkombos der UAL2 gehen tief (Becken 0,92 → 0,57 m) — das ist die Quelle, kein Übertragungsfehler (in der UAL2 nachgemessen).

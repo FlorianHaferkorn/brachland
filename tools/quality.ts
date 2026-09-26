@@ -343,7 +343,7 @@ if (existsSync('public/figuren/held')) {
   for (const f of readdirSync('public/figuren/held').filter(f => f.endsWith('.glb'))) {
     const kb = statSync(join('public/figuren/held', f)).size / 1024;
     if (!herkunft.includes(f)) stop('Held', `${f} ohne Herkunftsangabe`);
-    const grenze = f === 'held-clips.glb' ? 600 : 1300;
+    const grenze = f === 'held-clips.glb' ? 600 : f.includes('-leicht') ? 650 : 1300;
     if (kb > grenze) stop('Held', `${f}: ${kb.toFixed(0)} KB über Budget ${grenze} KB`);
     console.log(`  · [Held] ${f}: ${kb.toFixed(0)} KB`);
   }

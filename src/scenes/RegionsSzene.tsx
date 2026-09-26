@@ -47,9 +47,35 @@ import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad,
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import { WAFFE_AN_HAND, legeAnHeldHand } from '../kampf/waffenhand.js';
-import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn } from '../spieler/held.js';
+import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, HAARFARBEN, type HeldWahl, type Haar } from '../spieler/held.js';
+import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 /** `?figur=alt`: die alte Wanderin statt der Figur aus dem Editor (Vergleich, D175). */
 const ALTE_FIGUR = new URLSearchParams(location.search).get('figur') === 'alt';
+/** `?bewohner=alt`: die Bewohner wie bis D175 (D176). */
+const BEWOHNER_ALT = new URLSearchParams(location.search).get('bewohner') === 'alt';
+/**
+ * Bewohner → Gestalt der neuen Figuren (D176). Die alten Figurnamen stehen in den Inhalten; die
+ * Zuordnung folgt ihrer Rolle (Arbeit → Landvolk, draussen → Waldläufer). Frisur und Haar aus der
+ * Blickrichtung als Saat, Haarfarbe aus `farben.haar`, wenn der Inhalt eine setzt.
+ */
+const BEWOHNER_GESTALT: Record<string, { koerper: 'm' | 'w'; kleid: 'waldlaeufer' | 'bauer'; alt?: boolean }> = {
+  alte: { koerper: 'w', kleid: 'bauer', alt: true }, arbeiter: { koerper: 'm', kleid: 'bauer' },
+  baeuerin: { koerper: 'w', kleid: 'bauer' }, bauer: { koerper: 'm', kleid: 'bauer' },
+  bursche: { koerper: 'm', kleid: 'waldlaeufer' }, foerster: { koerper: 'm', kleid: 'waldlaeufer' },
+  magd: { koerper: 'w', kleid: 'bauer' }, wanderer: { koerper: 'm', kleid: 'waldlaeufer' },
+  werkfrau: { koerper: 'w', kleid: 'waldlaeufer' }, wirt: { koerper: 'm', kleid: 'bauer' },
+};
+function bewohnerWahl(figur: string, blick: number, farben?: Partial<Record<RollenSlot, string>>): HeldWahl | null {
+  const g = BEWOHNER_GESTALT[figur];
+  if (!g) return null;
+  const saat = Math.abs(Math.round(blick * 7919 + figur.length * 104729));
+  const haare: Haar[] = g.koerper === 'm' ? ['Buzzed', 'SimpleParted', 'Kahl', 'Long'] : ['Long', 'Buns', 'BuzzedFemale', 'SimpleParted'];
+  return {
+    name: figur, geschlecht: g.koerper, koerper: g.koerper, kleid: g.kleid,
+    haar: haare[saat % haare.length], bart: g.koerper === 'm' && saat % 3 === 0,
+    haut: ((saat >> 3) % 10) / 12, haarfarbe: g.alt ? '#8a8580' : farben?.haar ?? HAARFARBEN[(saat >> 5) % 5],
+  };
+}
 const KEINE_CLIPS: THREE.AnimationClip[] = [];
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
@@ -1582,13 +1608,20 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke }: 
   rand: { farbe: string; staerke: number };
   hoeheAn: (x: number, z: number) => number;
 }) {
-  const { scene, animations } = useGLTF(`/figuren/${figur}.glb`);
+  // D176: Bewohner als leichte Gestalten der neuen Figuren (`*-leicht.glb`), geklont — mehrere
+  // Bewohner teilen eine Datei. `?bewohner=alt` zeigt die alten Figuren.
+  const hg = BEWOHNER_ALT ? null : bewohnerWahl(figur, blick, farben);
+  const g1 = useGLTF(hg ? `/figuren/held/${hg.koerper}-${hg.kleid}-leicht.glb` : `/figuren/${figur}.glb`);
+  const g2 = useGLTF(hg ? HELD_CLIPS : `/figuren/${figur}.glb`);
+  const scene = useMemo(() => (hg ? klonSkelett(g1.scene) : g1.scene), [g1.scene, !!hg]);
+  const animations = hg ? g2.animations : g1.animations;
   const { material, setzeRand, setzeRollen } = useMemo(() => baueWindMaterial({
     amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
   }), []);
   useEffect(() => { setzeRand(new THREE.Color(rand.farbe), rand.staerke); }, [setzeRand, rand]);
   useEffect(() => { setzeRollen(farben ?? null); }, [setzeRollen, farben]);
   useEffect(() => {
+    if (hg) { legeWahlAn(scene, hg); return; }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
@@ -1597,8 +1630,9 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke }: 
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
   const clips = useMemo(() => {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
-    const idle = mixer.clipAction(finde('Idle')), ruhig = mixer.clipAction(finde('Idle_Neutral'));
-    const wink = mixer.clipAction(finde('Wave')), walk = mixer.clipAction(finde('Walk'));
+    // Neue Figuren: Arme verschränkt statt Idle_Neutral, ein Nicken statt Winken (UAL2).
+    const idle = mixer.clipAction(finde('Idle')), ruhig = mixer.clipAction(finde(hg ? 'Idle_Ruhig' : 'Idle_Neutral'));
+    const wink = mixer.clipAction(finde(hg ? 'Gruss' : 'Wave')), walk = mixer.clipAction(finde('Walk'));
     idle.play();
     wink.setLoop(THREE.LoopOnce, 1); wink.clampWhenFinished = false;
     walk.timeScale = MENSCH_WALK_RATE;

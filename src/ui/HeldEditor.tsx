@@ -21,8 +21,15 @@ function Vorschau({ wahl, dreh }: { wahl: HeldWahl; dreh: React.RefObject<number
   const figur = useMemo(() => klonSkelett(scene), [scene]);
   const mixer = useMemo(() => new THREE.AnimationMixer(figur), [figur]);
   useEffect(() => {
-    const idle = animations.find(a => a.name === 'Idle');
-    if (idle) mixer.clipAction(idle).play();
+    // D176, Posenblick: `?held=editor&clip=Klinge_U_A&t=0.25` hält einen Clip an einer Stelle an —
+    // so lassen sich Kampfposen aus der Nähe prüfen (`tools/mess/held.mjs`).
+    const q = new URLSearchParams(location.search);
+    const name = q.get('clip');
+    const c = animations.find(a => a.name === (name ?? 'Idle'));
+    if (c) {
+      const a = mixer.clipAction(c).play();
+      if (name) { a.paused = true; a.time = Math.min(c.duration * 0.999, Number(q.get('t') ?? 0)); mixer.update(0); }
+    }
     return () => { mixer.stopAllAction(); };
   }, [mixer, animations]);
   useEffect(() => { legeWahlAn(figur, wahl); }, [figur, wahl]);
@@ -42,7 +49,12 @@ const zeile: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 6, 
 const titel: React.CSSProperties = { font: '11px system-ui, sans-serif', letterSpacing: 1, color: '#9b937f', textTransform: 'uppercase', marginTop: 10 };
 
 export function HeldEditor({ start, onFertig }: { start?: HeldWahl | null; onFertig: (w: HeldWahl) => void }) {
-  const [w, setW] = useState<HeldWahl>(start ?? STANDARD_HELD);
+  // `&haut=0.1` setzt den Hautton vor (Messlauf, D176).
+  const [w, setW] = useState<HeldWahl>(() => {
+    const h = new URLSearchParams(location.search).get('haut');
+    const basis = start ?? STANDARD_HELD;
+    return h !== null && Number.isFinite(Number(h)) ? { ...basis, haut: Number(h) } : basis;
+  });
   // Die Figur schaut nach −Z, die Kamera steht auf +Z: halbe Drehung, damit man ins Gesicht sieht.
   const dreh = useRef(Math.PI);
   const ziehen = useRef<number | null>(null);

@@ -245,7 +245,11 @@ os.makedirs(ZIEL, exist_ok=True)
 register = {}
 
 # ---- Gestalten
-for gname, (koerper, kleid) in GESTALTEN.items():
+# D176: je Gestalt auch eine leichte Fassung für Bewohner (`<gestalt>-leicht.glb`): Kleidung 3 500,
+# Kopf 1 800, Haare halbiert; `heldpack.ts` legt ihre Texturen auf 512.
+LEICHT = {'kleid': 3500, 'kopf': 1800, 'haar': 0.5}
+FASSUNGEN = [(g, k, c, False) for g, (k, c) in GESTALTEN.items()] + [(g + '-leicht', k, c, True) for g, (k, c) in GESTALTEN.items()]
+for gname, koerper, kleid, leicht in FASSUNGEN:
     if NUR and gname not in NUR: continue
     print('GESTALT', gname)
     bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -253,15 +257,20 @@ for gname, (koerper, kleid) in GESTALTEN.items():
     arm = arm_von(k)
     arm.name = 'Held'
     nur_kopf(k)
+    if leicht:
+        duenne([o for o in k if o.type == 'MESH' and o.name == 'Kopf'], LEICHT['kopf'])
     c = importiere(f'{OUT}/Outfits/{kleid}.gltf')
     kleidnetze = [o for o in c if o.type == 'MESH']
     binde(c, arm)
-    duenne(kleidnetze, KLEID_DREIECKE)
+    duenne(kleidnetze, LEICHT['kleid'] if leicht else KLEID_DREIECKE)
     for h in HAARE:
         n = importiere(f'{UBC}/Hairstyles/Rigged to Head Bone/glTF (Godot -Unreal)/{h}.gltf')
         for o in n:
             if o.type == 'MESH': o.name = 'Haar_' + h.replace('Hair_', '')
         binde(n, arm)
+        if leicht:
+            netz = [o for o in bpy.data.objects if o.type == 'MESH' and o.name == 'Haar_' + h.replace('Hair_', '')]
+            duenne(netz, int(sum(len(p.polygons) for p in [o.data for o in netz]) * LEICHT['haar']))
     aufraeumen()
     blick_minus_z(arm)
     dreiecke = sum(len(p.vertices) - 2 for o in bpy.data.objects if o.type == 'MESH' and not o.name.startswith('Haar_')
@@ -287,7 +296,9 @@ if not NUR or 'clips' in NUR:
     q.animation_data.action = None
     for tr in q.animation_data.nla_tracks: tr.mute = True
     gemeinsam = [(b.name, b.name) for b in ziel.data.bones if b.name in q.data.bones and b.name != 'root']
-    uebertrage(q, ziel, UAL2_CLIPS, gemeinsam, ('pelvis', 'pelvis'), seiten=('upperarm_l', 'upperarm_r', 'upperarm_l', 'upperarm_r', 'pelvis', 'Head', 'pelvis', 'Head'))
+    # D176: Gruss (Nicken) und ruhiges Stehen (Arme verschränkt) für die Bewohner.
+    extra = {'Gruss': [('Yes', 0, None)], 'Idle_Ruhig': [('Idle_FoldArms_Loop', 0, None)]}
+    uebertrage(q, ziel, {**UAL2_CLIPS, **extra}, gemeinsam, ('pelvis', 'pelvis'), seiten=('upperarm_l', 'upperarm_r', 'upperarm_l', 'upperarm_r', 'pelvis', 'Head', 'pelvis', 'Head'))
     # Griff: Finger der rechten und linken Hand aus Sword_Block, Bild 10.
     acts = {a.name.split('|')[-1]: a for a in bpy.data.actions}
     q.animation_data.action = acts['Sword_Block']

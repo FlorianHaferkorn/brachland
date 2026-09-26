@@ -60,10 +60,31 @@ export const HELD_KNOCHEN = {
   al: 'upperarm_l', ar: 'upperarm_r', el: 'lowerarm_l', er: 'lowerarm_r',
 } as const;
 
-/** Hautton: Die Texturen des Pakets sind der mittlere Ton; hell hebt über 1, dunkel senkt. */
+/**
+ * Hautton (D176): nicht mehr als Tönung (die mittlere Textur liess sich nur abdunkeln — helle Töne
+ * wurden flau), sondern im Shader: Die Helligkeit der Textur bleibt als Zeichnung, der Farbton kommt
+ * von hier. Farben linear, von hell (#e8bda0) bis dunkel (#4e3224).
+ */
 export function hautFarbe(haut: number): THREE.Color {
-  const hell = new THREE.Color(1.28, 1.18, 1.1), dunkel = new THREE.Color(0.52, 0.42, 0.36);
+  const hell = new THREE.Color('#e8bda0'), dunkel = new THREE.Color('#4e3224');
   return hell.lerp(dunkel, Math.max(0, Math.min(1, haut)));
+}
+/** Mittlere Leuchtdichte der Hauttexturen (linear), gemessen im Editorbild — die Zeichnung um 1. */
+const HAUT_MITTEL = 0.22;
+
+function hautShader(mat: THREE.MeshStandardMaterial, ton: THREE.Color): void {
+  const u = (mat.userData.haut ??= { value: ton.clone() }) as { value: THREE.Color };
+  u.value.copy(ton);
+  mat.color.set(1, 1, 1);
+  if (mat.userData.hautShader) return;
+  mat.userData.hautShader = true;
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.hautTon = u;
+    sh.fragmentShader = 'uniform vec3 hautTon;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+      float hautL = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+      diffuseColor.rgb = hautTon * clamp(hautL / ${HAUT_MITTEL.toFixed(3)}, 0.35, 1.8);`);
+  };
+  mat.needsUpdate = true;
 }
 
 /**
@@ -87,7 +108,7 @@ export function legeWahlAn(obj: THREE.Object3D, w: HeldWahl): void {
     }
     for (const mat of (Array.isArray(m.material) ? m.material : [m.material]) as THREE.MeshStandardMaterial[]) {
       const mn = mat.name;
-      if (/Superhero|Regular/.test(mn)) mat.color.copy(haut);
+      if (/Superhero|Regular/.test(mn)) hautShader(mat, haut);
       else if (/Hair/.test(mn)) mat.color.copy(haar);
     }
   });

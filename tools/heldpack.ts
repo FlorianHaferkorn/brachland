@@ -38,7 +38,7 @@ for (const pfad of process.argv.slice(2)) {
   }
   await doc.transform(
     weld(), resample({ tolerance: 5e-4 }),
-    textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 82, resize: [1024, 1024] }),
+    textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 82, resize: pfad.includes('-leicht') ? [512, 512] : [1024, 1024] }),
     quantize({ pattern: /^(WEIGHTS_|JOINTS_|TEXCOORD_|NORMAL|POSITION)/, quantizeWeight: 8 }),
     dedup(), prune({ keepLeaves: true }), meshopt({ encoder: MeshoptEncoder, level: 'medium' }),
   );
