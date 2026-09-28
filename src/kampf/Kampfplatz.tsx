@@ -32,7 +32,7 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import {
-  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, FUCHS, GAMS, WEGELAGERER, PARADE, ZIELEN, vorwaerts, type Linie, type KampfWerte, type Schlag,
+  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, FUCHS, GAMS, WEGELAGERER, PARADE, naechtlich, ZIELEN, vorwaerts, type Linie, type KampfWerte, type Schlag,
   neuerKaempfer, puffere, setzeBlockAn, loeseBlock, naechsterSchlag, simuliere, waehleZiel, drehe, blickAuf, frei,
   WAFFEN, ruesteAus, wechsleZiel, type WaffenArt,
   type Kampfwelt, type Kaempfer, type Treffer,
@@ -193,7 +193,7 @@ interface Puppe {
   vorher: { x: number; z: number };
 }
 
-function baueWelt(x: number, z: number, blick: number, aufstellung: readonly GegnerArt[]): Kampfwelt {
+function baueWelt(x: number, z: number, blick: number, aufstellung: readonly GegnerArt[], nacht = false): Kampfwelt {
   const spielerin = neuerKaempfer('spielerin', SPIELERIN, x, z, blick);
   // Zwei Gegner vor der Spielerin, versetzt — der zweite kommt etwas später an, damit man den
   // ersten Telegraf allein lesen kann, bevor es eng wird.
@@ -207,7 +207,7 @@ function baueWelt(x: number, z: number, blick: number, aufstellung: readonly Geg
     spielerin,
     gegner: aufstellung.slice(0, 3).map((art, i) => {
       const [gx, gz] = vor(...plaetze[i]);
-      return neuerKaempfer(`${art}-${i + 1}`, WERTE[art], gx, gz, blickAuf(gx, gz, x, z));
+      return neuerKaempfer(`${art}-${i + 1}`, nacht ? naechtlich(WERTE[art]) : WERTE[art], gx, gz, blickAuf(gx, gz, x, z));
     }),
     ziel: null,
   };
@@ -236,6 +236,8 @@ type PlatzProps = {
   onEnde?: (sieg: boolean) => void;
   /** Stufen aus der Schmiede (D177). */
   waffenStufen?: { klinge: number; axt: number };
+  /** Nachts stärker (D179, `naechtlich`). */
+  nacht?: boolean;
 };
 
 const VORGABE: readonly GegnerArt[] = ['keiler', 'grathorn'];
@@ -365,7 +367,7 @@ function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeome
   return { obj, koerper: koerper as THREE.SkinnedMesh | null, material, rig, setzeZeit: w.setzeZeit };
 }
 
-function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber, rigs, onEnde, waffenStufen }:
+function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber, rigs, onEnde, waffenStufen, nacht }:
   PlatzProps & { leiber: Partial<Record<GegnerArt, Leib | null>>; rigs: Partial<Record<GegnerArt, RigVorlage>> }) {
   const aufKey = aufstellung.join(',');
   const welt = useRef<Kampfwelt | null>(null);
@@ -541,7 +543,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     if (!p) return;
     const dt = Math.min(rohDt, 0.1);
     const jetzt = performance.now();
-    if (!welt.current) { welt.current = baueWelt(p.x, p.z, gier.current, aufstellung); welt.current.spielerin.ausdauerFremd = true; }
+    if (!welt.current) { welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht); welt.current.spielerin.ausdauerFremd = true; }
     // Bis zur ersten Eingabe steht der Platz still — die Gegner folgen dem Absetzpunkt nicht,
     // sie stehen dort, wo sie zuerst hingestellt wurden.
     const w = welt.current;
@@ -655,7 +657,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       onEnde(s.phase !== 'gefallen');
     }
     if (!onEnde && ende.current !== null && jetzt - ende.current > NEUSTART * 1000) {
-      welt.current = baueWelt(p.x, p.z, gier.current, aufstellung);
+      welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht);
       welt.current.spielerin.ausdauerFremd = true;
       ruesteAus(welt.current.spielerin, waffeWahl.current);
       ende.current = null;

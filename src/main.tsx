@@ -109,6 +109,8 @@ const TAG_SEKUNDEN = 24 * 60;
  * Ist am Lager jemand? Bis D177 stand ein Sieg in `besiegt` und galt für immer; seit D178 zählt die
  * Zeit in `lagerSieg`. Ein alter Eintrag in `besiegt` ohne Zeit gilt als lange her.
  */
+/** Nacht im Sinn der Wegelager (D179): nach dem Abendrot bis zur Dämmerung. */
+function istNacht(t: number): boolean { return t >= 0.86 || t < 0.2; }
 function lagerOffen(st: Spielstand, id: string): boolean {
   const t = st.lagerSieg?.[id];
   return t === undefined || Date.now() - t > LAGER_RUHE_MS;
@@ -361,7 +363,7 @@ function App() {
     const [x, z] = nachMetern(o.ort, welt.bbox);
     return [{ ...l, x: x + l.versatz[0], z: z + l.versatz[1] }];
   }) : []), [welt]);
-  const [weltKampf, setWeltKampf] = useState<{ id: string; aufstellung: readonly GegnerArt[]; beute: Record<string, number>; stufe: number } | null>(null);
+  const [weltKampf, setWeltKampf] = useState<{ id: string; aufstellung: readonly GegnerArt[]; beute: Record<string, number>; stufe: number; nacht: boolean } | null>(null);
   useEffect(() => {
     if (KAMPFPLATZ || (MESSADRESSE && !LAGER_PROBE) || !stand) return;
     const id = setInterval(() => {
@@ -372,8 +374,10 @@ function App() {
         // Nach einer Niederlage erst wieder, wenn man weg war (40 m) — sonst ginge es endlos weiter.
         if (lagerRuhe.current.has(l.id)) { if (d > 40) lagerRuhe.current.delete(l.id); continue; }
         if (!lagerOffen(stand, l.id) || d > 22) continue;
-        setWeltKampf({ id: l.id, aufstellung: l.aufstellung, beute: l.beute, stufe: l.stufe });
-        setHinweis(l.meldung);
+        // D179: Nachts sind sie stärker (mehr Leben, härtere Schläge) — und tragen doppelte Beute.
+        const nacht = istNacht(tageszeitRef.current);
+        setWeltKampf({ id: l.id, aufstellung: l.aufstellung, beute: l.beute, stufe: l.stufe + (nacht ? 4 : 0), nacht });
+        setHinweis(nacht ? `${l.meldung} Im Dunkeln sind sie mutiger.` : l.meldung);
         break;
       }
     }, 500);
@@ -381,6 +385,10 @@ function App() {
   }, [lager, stand, weltKampf]);
   const lagerRuhe = useRef(new Set<string>());
   const standRef = useRef(stand); standRef.current = stand;
+  const weltRef = useRef(welt); weltRef.current = welt;
+  /** Versetzen des Spielers (D179) — `Spieler` liest und leert es. */
+  const spielerSprung = useRef<[number, number] | null>(null);
+  const tageszeitRef = useRef(tageszeit); tageszeitRef.current = tageszeit;
   const teamRef = useRef(team); teamRef.current = team;
   const sichereRef = useRef<((a: Partial<Spielstand>, t: Kaempfer[]) => void) | null>(null);
   const weltKampfRef = useRef(weltKampf);
@@ -391,11 +399,23 @@ function App() {
     const alt = weltKampfRef.current;
     setWeltKampf(null);
     if (!alt) return;
-    if (!sieg) { lagerRuhe.current.add(alt.id); setHinweis('Zurückgeschlagen — sie warten noch.'); return; }
+    if (!sieg) {
+      lagerRuhe.current.add(alt.id);
+      // D179: Niederlage heisst Aufwachen in der letzten Zuflucht — mit vollem Leben, ohne Beute.
+      const z = standRef.current?.letzteZuflucht ? ORTE.get(standRef.current.letzteZuflucht) : undefined;
+      const wd = weltRef.current;
+      if (z && wd) {
+        const [x, zz] = nachMetern(z.ort, wd.bbox);
+        spielerSprung.current = [x + 2, zz + 2];
+        setHinweis(`Du wachst in ${z.name} auf. Irgendwer hat dich hergebracht.`);
+      } else setHinweis('Zurückgeschlagen — sie warten noch.');
+      return;
+    }
     const st = standRef.current;
     if (!st || !lagerOffen(st, alt.id)) return;
     const beutel = { ...st.beutel };
-    for (const [g, n] of Object.entries(alt.beute)) beutel[g] = (beutel[g] ?? 0) + n;
+    const mal = alt.nacht ? 2 : 1;
+    for (const [g, n] of Object.entries(alt.beute)) beutel[g] = (beutel[g] ?? 0) + n * mal;
     // D177: Erfahrung wie nach einem Kampf in der Welt — für den ersten stehenden Kämpfer im Team
     // (dieselbe Regel wie `belohne`: Wechseln hat seinen Preis). Wer mitgekommen ist, lernt zuzusehen.
     const tm = teamRef.current;
@@ -416,7 +436,7 @@ function App() {
       }
     }
     sichereRef.current?.({ lagerSieg: { ...(st.lagerSieg ?? {}), [alt.id]: Date.now() }, beutel }, teamNeu);
-    const liste = Object.entries(alt.beute).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n}`).join(', ');
+    const liste = Object.entries(alt.beute).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n * mal}`).join(', ');
     setHinweis(`Das Lager ist still. Du nimmst: ${liste}.${stufenText}`);
   }, []);
 
@@ -699,9 +719,11 @@ function App() {
     const voll = team.map(k => { k.kp = k.maxKp; return k; });
     setTeam([...voll]);
     setHinweis(voll.length ? 'Ausgeruht. Das Team ist wieder bei Kräften.' : 'Ausgeruht.');
+    // D179: Hier wacht man auf, wenn ein Wegelager einen schlägt.
+    const hier = ortOffen;
     setOrtOffen(null);
-    sichere({}, voll);
-  }, [stand, team, sichere]);
+    sichere(hier ? { letzteZuflucht: hier } : {}, voll);
+  }, [stand, team, sichere, ortOffen]);
 
   /** Was der Spieler getan hat — die einzige Quelle für den Auftragsfortschritt. */
   const taten = useMemo<Taten>(() => ({
@@ -805,6 +827,8 @@ function App() {
         kampfAufstellung={weltKampf?.aufstellung ?? KAMPF_AUFSTELLUNG}
         kampfStand={kampfStand}
         kampfEnde={weltKampf ? kampfVorbei : undefined}
+        kampfNacht={weltKampf?.nacht}
+        spielerSprung={spielerSprung}
         waffenStufen={WAFFENSTUFE_PROBE ?? stand?.waffenStufen}
       />
       {!imKampf && !menueOffen && <Stockanzeige stoecke={stoecke} />}

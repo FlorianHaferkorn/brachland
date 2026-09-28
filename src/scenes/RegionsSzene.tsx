@@ -2381,8 +2381,10 @@ export const NEIGUNG_START = 0.32;
  * Look beurteilbar machen soll.
  */
 function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet,
-                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt }: {
+                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt, sprung }: {
   feld: HoehenFeld;
+  /** Versetzen (D179): Liegt hier ein Punkt, steht die Figur im nächsten Bild dort, auf dem Boden. */
+  sprung?: React.RefObject<[number, number] | null>;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
   neigung: React.RefObject<number>;
@@ -2420,6 +2422,12 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
     if (!p) return;
+    if (sprung?.current) {
+      const [sx, sz] = sprung.current;
+      sprung.current = null;
+      p.set(sx, hoeheAufFlaeche(feld, sx, sz), sz);
+      steigen.current = 0; fall.current = neuerFall(p.y);
+    }
     // Nach einem Tab-Wechsel kommt ein riesiges dt — sonst teleportiert man.
     const dt = Math.min(rohDt, 0.1);
     // Im Kampf gehört die Figur während Schlag und Rolle dem Kampf (ADR-0007):
@@ -3235,6 +3243,24 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   const blickZiel = useRef(new THREE.Vector3());
   /** Ruck bei Treffern (D171): Stärke in Metern, klingt in ~0,12 s ab. */
   const ruck = useRef({ getroffen: -1, gesetzt: -1, staerke: 0, uhr: 0 });
+  /**
+   * Nahkamera (D179): V schaltet durch drei Abstände (voll, 60 %, 40 %), das Mausrad stellt stufenlos
+   * zwischen 35 % und 100 %. Im Kampf liest man so Waffe, Pose und Linie; beim Wandern bleibt es aus.
+   */
+  const zoom = useRef(1);
+  const zoomZiel = useRef(Number(new URLSearchParams(location.search).get('zoom') ?? 1) || 1);
+  useEffect(() => {
+    const taste = (e: KeyboardEvent) => {
+      if (e.code !== 'KeyV' || e.repeat || e.target instanceof HTMLInputElement) return;
+      zoomZiel.current = zoomZiel.current > 0.8 ? 0.6 : zoomZiel.current > 0.5 ? 0.4 : 1;
+    };
+    const rad = (e: WheelEvent) => {
+      zoomZiel.current = Math.max(0.35, Math.min(1, zoomZiel.current * (e.deltaY > 0 ? 1.08 : 1 / 1.08)));
+    };
+    window.addEventListener('keydown', taste);
+    window.addEventListener('wheel', rad, { passive: true });
+    return () => { window.removeEventListener('keydown', taste); window.removeEventListener('wheel', rad); };
+  }, []);
   useFrame((_, dt) => {
     const p = ziel.current?.position ?? new THREE.Vector3();
     const fokus = kampf?.current?.fokus ?? null;
@@ -3296,17 +3322,19 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
      * hartes Ausfahren ein Sprung, sobald man an einem Baum vorbei ist. Also:
      * sofort näher, langsam wieder weiter.
      */
+    zoom.current += (zoomZiel.current - zoom.current) * Math.min(1, dt * 5);
+    const weit = GROESSE.kameraAbstand * zoom.current;
     // Ausdrücklich `number`: `GROESSE` ist `as const`, sonst erbt `frei` den Literaltyp 6.
-    let frei: number = GROESSE.kameraAbstand;
+    let frei: number = weit;
     for (let i = 1; i <= SICHT_PROBEN; i++) {
-      const d = (GROESSE.kameraAbstand * i) / SICHT_PROBEN;
+      const d = (weit * i) / SICHT_PROBEN;
       const x = p.x + rx * d, y = blickY + ry * d, z = p.z + rz * d;
       const [kx, kz] = kollision.schiebeRaus(x, z);
       const versperrt = kx !== x || kz !== z
         || y < hoeheAufFlaeche(feld, x, z) + 0.45;
       if (versperrt) { frei = d - SICHT_PUFFER; break; }
     }
-    const ziel_ = Math.max(KAMERA_MIN, Math.min(GROESSE.kameraAbstand, frei));
+    const ziel_ = Math.max(KAMERA_MIN, Math.min(weit, frei));
     abstand.current = ziel_ < abstand.current
       ? ziel_
       : abstand.current + (ziel_ - abstand.current) * Math.min(1, dt * 2.5);
@@ -3559,6 +3587,10 @@ export interface RegionsSzeneProps {
   kampfEnde?: (sieg: boolean) => void;
   /** Schmiedestufen der Waffen (D177). */
   waffenStufen?: { klinge: number; axt: number };
+  /** Begegnung bei Nacht (D179). */
+  kampfNacht?: boolean;
+  /** Spieler versetzen (D179, Aufwachen in der Zuflucht). */
+  spielerSprung?: React.RefObject<[number, number] | null>;
   /** Stand für die Kampfanzeige im DOM, wie `ausdauer` als Ref. */
   kampfStand?: React.RefObject<KampfStand | null>;
 }
@@ -3568,7 +3600,7 @@ export function RegionsSzene({
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfStand,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, spielerSprung, kampfStand,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -3717,13 +3749,14 @@ export function RegionsSzene({
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}
                reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten}
-               meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} kampfZielt={kampfZielt} />
+               meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} kampfZielt={kampfZielt}
+               sprung={spielerSprung} />
       {kampfplatz && (
         // Unter `Suspense`: Der Keiler lädt sein Modell. Ohne Grenze hielte das die ganze Szene an.
         <Suspense fallback={null}>
           <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
                       ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} waffenStufen={waffenStufen}
+                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} waffenStufen={waffenStufen} nacht={kampfNacht}
                       key={kampfEnde ? `welt-${kampfAufstellung?.join(',')}` : 'platz'} />
         </Suspense>
       )}

@@ -409,6 +409,18 @@ export const WEGELAGERER: KampfWerte = {
   mensch: { linienFolge: ['rechts', 'links', 'oben', 'rechts', 'unten', 'links', 'oben'], deckung: 'oben' },
 };
 
+/**
+ * Gegnerwerte für die Nacht (D179): mehr Leben und Haltung, härtere Schläge, gleiche Fenster.
+ * Die Fenster bleiben, weil sie das Lesbare sind — nachts ist es gefährlicher, nicht unfair.
+ */
+export function naechtlich(w: KampfWerte, f = { leben: 1.3, schaden: 1.2 }): KampfWerte {
+  const s = (x: Schlag): Schlag => ({ ...x, schaden: x.schaden * f.schaden, haltungsschaden: x.haltungsschaden * f.schaden });
+  return {
+    ...w, schlag: s(w.schlag), kette: w.kette?.map(s),
+    lebenMax: w.lebenMax * f.leben, haltungMax: w.haltungMax * f.leben,
+  };
+}
+
 /** Wie weit und in welchem Kegel die Zielaufschaltung greift, und wie schnell sie den Blick zieht. */
 export const ZIELEN = {
   reichweite: 18, halbwinkel: 70 * GRAD, drehrate: 7,

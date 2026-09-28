@@ -49,10 +49,11 @@ export interface Ergebnis { sieg: boolean; zeit: number; erlitten: number; treff
 export interface Einschlag { von: string; phase: string; schlag: string; rand: number }
 
 export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, saat: number,
-                      beobachte?: (e: Einschlag) => void): Ergebnis {
+                      beobachte?: (e: Einschlag) => void, schadenFaktor = 1): Ergebnis {
   const z = zufall(saat);
   const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
   ruesteAus(s, waffe);
+  s.schadenFaktor = schadenFaktor;
   const alle = aufstellung.map((werte, i) => {
     const winkel = (z.r() - 0.5) * 1.2 + (i ? 0.9 : 0);
     const k = neuerKaempfer(`g${i}`, werte, -Math.sin(winkel) * (8 + 2 * i), -Math.cos(winkel) * (8 + 2 * i), 0);

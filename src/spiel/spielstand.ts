@@ -83,6 +83,8 @@ export interface Spielstand {
    * dort wieder jemand — das Kopfgeld-Brett beim Wirt zeigt, wo. Ohne Versionssprung.
    */
   lagerSieg: Record<string, number>;
+  /** Zuletzt benutzte Zuflucht (D179): Dort wacht man nach einer Niederlage auf. */
+  letzteZuflucht?: string;
 }
 
 export const LEERER_STAND: Spielstand = {
