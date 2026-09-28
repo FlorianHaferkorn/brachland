@@ -363,6 +363,7 @@ function App() {
     const [x, z] = nachMetern(o.ort, welt.bbox);
     return [{ ...l, x: x + l.versatz[0], z: z + l.versatz[1] }];
   }) : []), [welt]);
+  const lagerstellenOffen = useMemo(() => (stand ? lager.filter(l => lagerOffen(stand, l.id)) : []), [lager, stand]);
   const [weltKampf, setWeltKampf] = useState<{ id: string; aufstellung: readonly GegnerArt[]; beute: Record<string, number>; stufe: number; nacht: boolean } | null>(null);
   useEffect(() => {
     if (KAMPFPLATZ || (MESSADRESSE && !LAGER_PROBE) || !stand) return;
@@ -799,6 +800,7 @@ function App() {
     <>
       <RegionsSzene
         welt={welt} tageszeit={tageszeit} onMessung={setMessung}
+        lagerstellen={lagerstellenOffen}
         qualitaet={qualitaet}
         spielerRef={spielerRef}
         kreaturen={STREUNENDE}

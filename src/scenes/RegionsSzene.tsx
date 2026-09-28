@@ -3478,6 +3478,8 @@ export interface RegionsSzeneProps {
   welt: Weltdaten;
   /** Tageszeit 0…1, zyklisch. Ersetzt die frühere Auswahl aus drei festen Stimmungen. */
   tageszeit?: number;
+  /** D180: besetzte Wegelager (x, z) — Feuerstelle immer, nachts Glut, Licht und zwei Fackeln. */
+  lagerstellen?: readonly { x: number; z: number }[];
   spielerRef?: React.RefObject<THREE.Object3D | null>;
   /** Wird je halbe Sekunde mit den echten Renderzahlen aufgerufen. */
   onMessung?: (m: Messwerte) => void;
@@ -3600,7 +3602,7 @@ export function RegionsSzene({
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, spielerSprung, kampfStand,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, spielerSprung, kampfStand, lagerstellen,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -3768,6 +3770,10 @@ export function RegionsSzene({
               tageszeit={tageszeit}
               hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} />
       )}
+      {lagerstellen && lagerstellen.length > 0 && (
+        <Lagerstellen stellen={lagerstellen} nacht={tageszeit >= 0.86 || tageszeit < 0.2}
+                      hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} />
+      )}
       {regent && regentOrt && (
         <Regentenort ort={regentOrt} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />
       )}
@@ -3785,5 +3791,56 @@ export function RegionsSzene({
       <Messung melde={onMessung} />
       </WasserUmgebung>
     </Canvas>
+  );
+}
+
+/**
+ * D180: Wegelager sichtbar machen. Tags eine kalte Feuerstelle (Steinkreis, Scheite), nachts
+ * Flamme, flackerndes Punktlicht und zwei Fackeln — die Gefahr ist von Weitem lesbar, bevor
+ * die 22-m-Grenze greift. Nur Primitive, keine Assets.
+ */
+function Lagerstellen({ stellen, nacht, hoeheAn }: {
+  stellen: readonly { x: number; z: number }[]; nacht: boolean; hoeheAn: (x: number, z: number) => number;
+}) {
+  const lichter = useRef<(THREE.PointLight | null)[]>([]);
+  const flammen = useRef<(THREE.Mesh | null)[]>([]);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    lichter.current.forEach((l, i) => { if (l) l.intensity = 14 + 5 * Math.sin(t * 9 + i) + 3 * Math.sin(t * 23 + i * 2); });
+    flammen.current.forEach((f, i) => { if (f) f.scale.y = 1 + 0.18 * Math.sin(t * 11 + i * 3); });
+  });
+  return (
+    <group>
+      {stellen.map((l, i) => {
+        const y = hoeheAn(l.x, l.z);
+        return (
+          <group key={i} position={[l.x, y, l.z]}>
+            {Array.from({ length: 8 }, (_, k) => {
+              const a = (k / 8) * Math.PI * 2;
+              return <mesh key={k} position={[Math.cos(a) * 0.7, 0.1, Math.sin(a) * 0.7]} castShadow>
+                <dodecahedronGeometry args={[0.18, 0]} /><meshStandardMaterial color="#6b675f" flatShading />
+              </mesh>;
+            })}
+            {[0, 1, 2].map(k => (
+              <mesh key={k} position={[0, 0.12, 0]} rotation={[0, (k / 3) * Math.PI, Math.PI / 2 - 0.25]}>
+                <cylinderGeometry args={[0.06, 0.07, 1.0, 5]} /><meshStandardMaterial color={nacht ? '#3a2616' : '#4a3422'} flatShading />
+              </mesh>
+            ))}
+            {nacht && <>
+              <mesh ref={m => { flammen.current[i] = m; }} position={[0, 0.45, 0]}>
+                <coneGeometry args={[0.3, 0.8, 6]} /><meshBasicMaterial color="#ffa640" toneMapped={false} />
+              </mesh>
+              <pointLight ref={p => { lichter.current[i] = p; }} position={[0, 1.2, 0]} color="#ff9a44" distance={22} decay={1.6} />
+              {[[-3, 2], [3, -2]].map(([fx, fz], k) => (
+                <group key={k} position={[fx, hoeheAn(l.x + fx, l.z + fz) - y, fz]}>
+                  <mesh position={[0, 0.9, 0]}><cylinderGeometry args={[0.04, 0.05, 1.8, 5]} /><meshStandardMaterial color="#3a2a1a" /></mesh>
+                  <mesh position={[0, 1.9, 0]}><sphereGeometry args={[0.12, 6, 5]} /><meshBasicMaterial color="#ffb050" toneMapped={false} /></mesh>
+                </group>
+              ))}
+            </>}
+          </group>
+        );
+      })}
+    </group>
   );
 }

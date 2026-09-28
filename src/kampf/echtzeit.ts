@@ -174,9 +174,11 @@ export interface Waffe {
 const KLINGE_1: Schlag = { ...SPIELERIN.schlag, name: 'Hieb', linie: 'rechts', clip: 'Klinge_U_A',
   hieb: { scheitel: 6 / 24, durchzug: 9 / 24 }, schritt: 0.3 };
 const AXT_1: Schlag = {
-  name: 'Axthieb', linie: 'oben', vorlauf: 0.42, aktiv: 0.16, erholung: 0.55,
+  // D180: Vorlauf 0,42 → 0,37 s (Test: > 2 × Klinge), Schaden 38 → 36 (Schaden/s bleibt unter der Klinge). Mit 0,42 s passte
+  // der Hieb in kaum ein Strafenfenster der Wegelagerer — Almsteig mit Axt 7–37 % (tools/durchlauf.ts).
+  name: 'Axthieb', linie: 'oben', vorlauf: 0.37, aktiv: 0.16, erholung: 0.55,
   reichweite: 2.9, halbwinkel: 40 * GRAD,
-  schaden: 38, haltungsschaden: 52, kosten: 30, nachdrehen: 3,
+  schaden: 36, haltungsschaden: 52, kosten: 30, nachdrehen: 3,
   clip: 'Axe_Overhead', hieb: { scheitel: 12 / 24, durchzug: 16 / 24 }, schritt: 0.25, rueckstoss: 0.3,
 };
 
@@ -210,7 +212,7 @@ export const WAFFEN: Record<WaffenArt, Waffe> = {
     name: 'Axt', schlag: AXT_1, haltung: 'Axt_Stand',
     leicht: [
       AXT_1,
-      { name: 'Querhieb', linie: 'rechts', vorlauf: 0.36, aktiv: 0.18, erholung: 0.6, reichweite: 2.8, halbwinkel: 70 * GRAD,
+      { name: 'Querhieb', linie: 'rechts', vorlauf: 0.3, aktiv: 0.2, erholung: 0.42, reichweite: 2.9, halbwinkel: 95 * GRAD,
         schaden: 34, haltungsschaden: 46, kosten: 28, nachdrehen: 3,
         clip: 'Axt_Quer', hieb: { scheitel: 10 / 24, durchzug: 15 / 24 }, schritt: 0.3, rueckstoss: 0.3 },
     ],
