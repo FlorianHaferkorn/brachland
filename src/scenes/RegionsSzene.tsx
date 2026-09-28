@@ -2385,7 +2385,8 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
                    gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt, sprung }: {
   feld: HoehenFeld;
   /** Versetzen (D179): Liegt hier ein Punkt, steht die Figur im nächsten Bild dort, auf dem Boden. */
-  sprung?: React.RefObject<[number, number] | null>;
+  /** Versetzen (D179), optional mit Blick (D183: Aufwachen schaut zur Zuflucht). */
+  sprung?: React.RefObject<[number, number, number?] | null>;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
   neigung: React.RefObject<number>;
@@ -2424,8 +2425,9 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
     const p = ziel.current?.position;
     if (!p) return;
     if (sprung?.current) {
-      const [sx, sz] = sprung.current;
+      const [sx, sz, sb] = sprung.current;
       sprung.current = null;
+      if (sb !== undefined) gier.current = sb;
       p.set(sx, hoeheAufFlaeche(feld, sx, sz), sz);
       steigen.current = 0; fall.current = neuerFall(p.y);
     }
@@ -2839,7 +2841,7 @@ function useWaffenClips(): THREE.AnimationClip[] {
  */
 // D174: `WAFFE_AN_HAND` liegt in `src/kampf/waffenhand.ts` — der Wegelagerer trägt dieselbe Klinge.
 
-function baueWaffen(): Record<'klinge' | 'axt', THREE.Group> {
+function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
   const metall = new THREE.MeshStandardMaterial({ color: '#77736b', roughness: 0.45, metalness: 0.6 });
   const holz = new THREE.MeshStandardMaterial({ color: '#5a4431', roughness: 0.8 });
   const teil = (geo: THREE.BufferGeometry, mat: THREE.Material, y: number, x = 0) => {
@@ -2857,13 +2859,18 @@ function baueWaffen(): Record<'klinge' | 'axt', THREE.Group> {
   axt.add(teil(new THREE.CylinderGeometry(0.02, 0.024, 0.95, 8), holz, -0.36));
   axt.add(teil(new THREE.BoxGeometry(0.2, 0.12, 0.045), metall, -0.76, -0.05));
   axt.add(teil(new THREE.BoxGeometry(0.03, 0.2, 0.05), metall, -0.76, -0.16));
-  for (const g of [klinge, axt]) {
+  // D183: Der Speer — Eschenschaft 2 m, die Hand sitzt im hinteren Drittel, Spitze auf −Y wie die Klinge.
+  const speer = new THREE.Group();
+  speer.add(teil(new THREE.CylinderGeometry(0.018, 0.022, 2.0, 8), holz, -0.55));
+  const spitze = teil(new THREE.ConeGeometry(0.04, 0.26, 6), metall, -1.68);
+  spitze.rotation.x = Math.PI; speer.add(spitze);
+  for (const g of [klinge, axt, speer]) {
     g.position.copy(WAFFE_AN_HAND.position);
     g.quaternion.copy(WAFFE_AN_HAND.drehung);
     g.scale.setScalar(WAFFE_AN_HAND.massstab);
     g.visible = false;
   }
-  return { klinge, axt };
+  return { klinge, axt, speer };
 }
 
 /**
@@ -2886,7 +2893,7 @@ function baueWaffen(): Record<'klinge' | 'axt', THREE.Group> {
 function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
   gier: React.RefObject<number>;
   /** Schmiedestufen (D178): Stufe 1–2 heller geschliffen, Stufe 3 ein anderes Modell. */
-  waffenStufen?: { klinge: number; axt: number };
+  waffenStufen?: { klinge: number; axt: number; speer?: number };
   /** Kampfzustand (D167): Schlag, Rolle, Treffer, Fall als Clip. Ohne Kampf null. */
   kampf?: React.RefObject<KampfFigur | null>;
   schritt: React.RefObject<{ phase: number; tempo: number }>;
@@ -2977,11 +2984,11 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
   const waffen = useMemo(() => {
     const w = baueWaffen();
     const hand = scene.getObjectByName('WristR') ?? scene.getObjectByName('Wrist.R');
-    if (hand) { hand.add(w.klinge); hand.add(w.axt); }
+    if (hand) { hand.add(w.klinge); hand.add(w.axt); hand.add(w.speer); }
     else {
       // D175: neues Skelett — `hand_r` mit eigener Lage (`waffenhand.ts`).
       const h = scene.getObjectByName(HELD_KNOCHEN.hand);
-      if (h) for (const g of [w.klinge, w.axt]) { h.add(g); legeAnHeldHand(g); }
+      if (h) for (const g of [w.klinge, w.axt, w.speer]) { h.add(g); legeAnHeldHand(g); }
     }
     return w;
   }, [scene]);
@@ -3032,7 +3039,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
     }
   }, [waffen, waffenStufen, waffenGeladen]);
   useEffect(() => () => {
-    for (const g of [waffen.klinge, waffen.axt]) {
+    for (const g of [waffen.klinge, waffen.axt, waffen.speer]) {
       g.removeFromParent();
       g.traverse(o => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); } });
     }
@@ -3080,6 +3087,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
     }
     waffen.klinge.visible = !!k && k.waffe === 'klinge';
     waffen.axt.visible = !!k && k.waffe === 'axt';
+    waffen.speer.visible = !!k && k.waffe === 'speer';
     const { phase, tempo } = schritt.current;
     const stark = Math.min(1, tempo / RENNEN);
     // Clip nach Tempo, weich ueberblendet; im Sattel immer Idle.
@@ -3589,11 +3597,11 @@ export interface RegionsSzeneProps {
   /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen. */
   kampfEnde?: (sieg: boolean) => void;
   /** Schmiedestufen der Waffen (D177). */
-  waffenStufen?: { klinge: number; axt: number };
+  waffenStufen?: { klinge: number; axt: number; speer?: number };
   /** Begegnung bei Nacht (D179). */
   kampfNacht?: boolean;
   /** Spieler versetzen (D179, Aufwachen in der Zuflucht). */
-  spielerSprung?: React.RefObject<[number, number] | null>;
+  spielerSprung?: React.RefObject<[number, number, number?] | null>;
   /** Stand für die Kampfanzeige im DOM, wie `ausdauer` als Ref. */
   kampfStand?: React.RefObject<KampfStand | null>;
 }

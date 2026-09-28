@@ -102,7 +102,7 @@ function mutationVon(v: Vorkommen): number {
  */
 const MESSADRESSE = ['absetzen', 'kampf', 'stimmung', 'kamera', 'zeit', 'ansicht'].some(k => new URLSearchParams(location.search).has(k));
 /** `?waffenstufe=3`: beide Waffen auf dieser Stufe (Messlauf, D178). */
-const WAFFENSTUFE_PROBE = (() => { const w = new URLSearchParams(location.search).get('waffenstufe'); return w === null ? undefined : { klinge: Number(w), axt: Number(w) }; })();
+const WAFFENSTUFE_PROBE = (() => { const w = new URLSearchParams(location.search).get('waffenstufe'); return w === null ? undefined : { klinge: Number(w), axt: Number(w), speer: Number(w) }; })();
 /** Länge eines Spieltags in Sekunden (D178): 24 Minuten, ein Abend dauert damit gut 5. */
 const TAG_SEKUNDEN = 24 * 60;
 /**
@@ -390,7 +390,7 @@ function App() {
   const standRef = useRef(stand); standRef.current = stand;
   const weltRef = useRef(welt); weltRef.current = welt;
   /** Versetzen des Spielers (D179) — `Spieler` liest und leert es. */
-  const spielerSprung = useRef<[number, number] | null>(null);
+  const spielerSprung = useRef<[number, number, number?] | null>(null);
   const tageszeitRef = useRef(tageszeit); tageszeitRef.current = tageszeit;
   const teamRef = useRef(team); teamRef.current = team;
   const sichereRef = useRef<((a: Partial<Spielstand>, t: Kaempfer[]) => void) | null>(null);
@@ -411,7 +411,8 @@ function App() {
       if (z && wd) {
         const [x, zz] = nachMetern(z.ort, wd.bbox);
         const [ax, az] = z.aufwachen ?? [2, 2];
-        spielerSprung.current = [x + ax, zz + az];
+        // D183: Blick zur Hütte — wer aufwacht, sieht zuerst, wo er ist (0 = −Z, positiv nach links).
+        spielerSprung.current = [x + ax, zz + az, Math.atan2(ax, az)];
         setHinweis(`Du wachst in ${z.name} auf. Irgendwer hat dich hergebracht.`);
       } else setHinweis('Zurückgeschlagen — sie warten noch.');
       return;
@@ -531,7 +532,7 @@ function App() {
   sichereRef.current = sichere;
 
   /** Schmiede (D177): Beute aus dem Beutel gegen die nächste Waffenstufe. */
-  const schmiede = useCallback((waffe: 'klinge' | 'axt') => {
+  const schmiede = useCallback((waffe: 'klinge' | 'axt' | 'speer') => {
     const st = standRef.current;
     if (!st) return;
     const stufen = st.waffenStufen ?? KEINE_STUFEN;

@@ -13,7 +13,7 @@
  * Mitte, neu unten. Wer vor jemandem steht, will zuerst wissen, was fertig ist.
  */
 import type { Ort, Auftrag } from '../data/schema.js';
-import { angebot, bezahlbar, type WaffenStufen } from '../spiel/schmiede.js';
+import { angebot, bezahlbar, type WaffenStufen , WAFFENNAME } from '../spiel/schmiede.js';
 import { GEGENSTAENDE } from '../data/inhalte.js';
 import { zielText, type Fortschritt, type Lage } from '../spiel/auftraege.js';
 
@@ -35,7 +35,7 @@ export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, o
   /** Schmiede (D177). */
   beutel?: Record<string, number>;
   waffenStufen?: WaffenStufen;
-  onSchmiede?: (waffe: 'klinge' | 'axt') => void;
+  onSchmiede?: (waffe: 'klinge' | 'axt' | 'speer') => void;
   auftraege: Auftragszeile[];
   onRasten: () => void;
   onAnnehmen: (id: string) => void;
@@ -71,8 +71,8 @@ export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, o
 
         {ort.schmied && beutel && waffenStufen && onSchmiede && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-            {(['klinge', 'axt'] as const).map(w => {
-              const a = angebot(w, waffenStufen[w]);
+            {(['klinge', 'axt', 'speer'] as const).map(w => {
+              const a = angebot(w, waffenStufen[w] ?? 0);
               const kann = !!a && bezahlbar(a, beutel);
               const preis = a ? Object.entries(a.preis).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n} (${beutel[g] ?? 0})`).join(', ') : '';
               return (
@@ -82,7 +82,7 @@ export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, o
                   color: kann ? GRUEN : '#5c6b64', cursor: kann ? 'pointer' : 'default',
                 }}>
                   {a ? <>{a.name}<div style={{ fontSize: 11, opacity: 0.8 }}>{preis}</div></>
-                     : `${w === 'klinge' ? 'Klinge' : 'Axt'}: meisterlich — mehr geht nicht`}
+                     : `${WAFFENNAME[w]}: meisterlich — mehr geht nicht`}
                 </button>
               );
             })}

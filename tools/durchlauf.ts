@@ -17,7 +17,7 @@ const LAGER: { name: string; auf: KampfWerte[]; beute: Record<string, number> }[
 ];
 console.log(`Durchlauf — ${N} Kämpfe je Zeile`);
 console.log('Lager       Zeit   Waffe   Stufe Profil        Siege  Zeit    erlitten');
-for (const l of LAGER) for (const nacht of [false, true]) for (const waffe of ['klinge', 'axt'] as const)
+for (const l of LAGER) for (const nacht of [false, true]) for (const waffe of ['klinge', 'axt', 'speer'] as const)
   for (const stufe of [0, 1, 3]) for (const p of PROFILE.filter(x => x.name !== 'parierend')) {
     const auf = nacht ? l.auf.map(w => naechtlich(w)) : l.auf;
     let siege = 0, zeit = 0, erlitten = 0;

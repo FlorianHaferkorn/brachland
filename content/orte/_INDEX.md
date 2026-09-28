@@ -23,6 +23,7 @@ owns: *.json
 | Datei | Art | Wozu |
 |---|---|---|
 | `unterstand-mitte.json` | zuflucht | Geräteschuppen 88 m von der Regionsmitte. Die erste Rast, die man findet, ohne sie zu suchen |
+| `heustadel-graben.json` | zuflucht | Heustadel zwischen Bruchweg (≈ 170 m) und Hofgraben (≈ 360 m), D183 — kurzer Rückweg nach einer Niederlage an den unteren Lagern |
 | `almhuette.json` | zuflucht | Hütte 2 km draußen auf 1000 m. Die Rast für den zweiten Teil der Region — der Weg dorthin ist ihr Preis |
 | `hof-tremmel.json` | bewohner | Hofbesitzerin. Gibt `streuner` und danach `eine-fuer-den-hof` |
 | `steinbruch-wart.json` | bewohner | Wart eines stillgelegten Bruchs. Gibt `was-am-stollen-steht` |

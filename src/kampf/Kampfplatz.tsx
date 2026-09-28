@@ -235,7 +235,7 @@ type PlatzProps = {
    */
   onEnde?: (sieg: boolean) => void;
   /** Stufen aus der Schmiede (D177). */
-  waffenStufen?: { klinge: number; axt: number };
+  waffenStufen?: { klinge: number; axt: number; speer?: number };
   /** Nachts stärker (D179, `naechtlich`). */
   nacht?: boolean;
 };
@@ -411,6 +411,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       if (ev.code === 'KeyE') a.wechsel = 1;
       if (ev.code === 'Digit1') a.waffe = 'klinge';
       if (ev.code === 'Digit2') a.waffe = 'axt';
+      if (ev.code === 'Digit3') a.waffe = 'speer';
       if (ev.code === 'Tab') { a.waffe = 'tausch'; ev.preventDefault(); }
     };
     const beruehrt = (ev: PointerEvent) => {
@@ -568,7 +569,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       a.wechsel = 0;
     }
     if (a.waffe) {
-      const art: WaffenArt = a.waffe === 'tausch' ? (s.waffe === 'axt' ? 'klinge' : 'axt') : a.waffe;
+      const art: WaffenArt = a.waffe === 'tausch' ? (({ klinge: 'axt', axt: 'speer', speer: 'klinge' } as const)[s.waffe ?? 'klinge']) : a.waffe;
       a.waffe = null;
       if (art !== (s.waffe ?? 'klinge')) {
         if (ruesteAus(s, art)) { waffeWahl.current = art; melde(WAFFEN[art].name); }

@@ -90,7 +90,7 @@ export interface Spielstand {
 export const LEERER_STAND: Spielstand = {
   version: SPIELSTAND_VERSION,
   held: null,
-  waffenStufen: { klinge: 0, axt: 0 },
+  waffenStufen: { klinge: 0, axt: 0, speer: 0 },
   lagerSieg: {},
   team: [],
   gefangen: [],

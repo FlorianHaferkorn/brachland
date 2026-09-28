@@ -163,7 +163,7 @@ export const SPIELERIN: KampfWerte = {
  * verschiedene Lagen, keine Stufen: Die Klinge macht mehr Schaden je Sekunde, die Axt öffnet die
  * Deckung. Das Tor prüft beides, auch dass die Axt je Sekunde **nicht** mehr Schaden macht.
  */
-export type WaffenArt = 'klinge' | 'axt';
+export type WaffenArt = 'klinge' | 'axt' | 'speer';
 /**
  * Ein Moveset je Waffe (D171) — wie in der Gattung: leichte Kette, schwerer Schlag, Laufangriff.
  * `schlag` ist der erste der leichten Kette und bleibt, was die älteren Prüfungen meinen.
@@ -230,7 +230,28 @@ export const WAFFEN: Record<WaffenArt, Waffe> = {
       schaden: 40, haltungsschaden: 55, kosten: 30, nachdrehen: 2,
       clip: 'Axt_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.6, rueckstoss: 0.5 },
   },
+  /**
+   * D183: Der Speer — Abstand statt Wucht. Reicht am weitesten (3,1–4,0 m), sticht schmal (±12–20°)
+   * und stösst den Getroffenen weit zurück; wenig Haltungsschaden, weniger Schaden je Sekunde als
+   * die Klinge. Gegen Tiere, die anspringen, hält er sie draussen; gegen drei Menschen fehlt ihm
+   * der Bogen. Clips vorerst die Stiche der Klinge (eigene Speerclips folgen, UNKLAR im Index).
+   */
+  speer: {
+    name: 'Speer', haltung: 'Klinge_Stand',
+    schlag: { name: 'Stoss', linie: 'unten', vorlauf: 0.26, aktiv: 0.12, erholung: 0.45, reichweite: 3.1, halbwinkel: 15 * GRAD,
+      schaden: 20, haltungsschaden: 20, kosten: 16, nachdrehen: 4,
+      clip: 'Klinge_Stich', hieb: { scheitel: 9 / 24, durchzug: 13 / 24 }, schritt: 0.3, rueckstoss: 0.9 },
+    leicht: [],
+    schwer: { name: 'Weitstoss', linie: 'unten', vorlauf: 0.55, aktiv: 0.14, erholung: 0.55, reichweite: 4.0, halbwinkel: 12 * GRAD,
+      schaden: 44, haltungsschaden: 50, kosten: 30, nachdrehen: 3,
+      clip: 'Klinge_Stich', hieb: { scheitel: 9 / 24, durchzug: 13 / 24 }, schritt: 0.5, rueckstoss: 1.4 },
+    lauf: { name: 'Anlauf', linie: 'unten', vorlauf: 0.15, aktiv: 0.14, erholung: 0.5, reichweite: 3.8, halbwinkel: 20 * GRAD,
+      schaden: 32, haltungsschaden: 36, kosten: 22, nachdrehen: 3,
+      clip: 'Klinge_U_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.6, rueckstoss: 1.0 },
+  },
 };
+WAFFEN.speer.leicht = [WAFFEN.speer.schlag,
+  { ...WAFFEN.speer.schlag, name: 'Nachstoss', vorlauf: 0.22, schaden: 18, haltungsschaden: 18, rueckstoss: 0.6 }];
 
 /**
  * Eingaben bleiben so lange gültig (D171) — wer im Schlag schon den nächsten drückt, wird bedient.

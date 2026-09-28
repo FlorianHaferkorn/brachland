@@ -6,19 +6,22 @@
  * steigen, und der Herzfunke (selten) steckt ab Stufe 2 drin: Wer die Axt auf 3 will, muss am
  * Almsteig gewesen sein.
  */
-export type WaffenStufen = { klinge: number; axt: number };
-export const KEINE_STUFEN: WaffenStufen = { klinge: 0, axt: 0 };
+/** `speer` seit D183 — ältere Stände haben ihn nicht, darum überall `?? 0`. */
+export type WaffenStufen = { klinge: number; axt: number; speer?: number };
+export const KEINE_STUFEN: WaffenStufen = { klinge: 0, axt: 0, speer: 0 };
+export type Schmiedewaffe = 'klinge' | 'axt' | 'speer';
+export const WAFFENNAME: Record<Schmiedewaffe, string> = { klinge: 'Klinge', axt: 'Axt', speer: 'Speer' };
 export const MAX_STUFE = 3;
 export const JE_STUFE = 0.12;
 
-export interface Angebot { waffe: 'klinge' | 'axt'; stufe: number; preis: Record<string, number>; name: string }
+export interface Angebot { waffe: Schmiedewaffe; stufe: number; preis: Record<string, number>; name: string }
 
-export function angebot(waffe: 'klinge' | 'axt', jetzt: number): Angebot | null {
+export function angebot(waffe: Schmiedewaffe, jetzt = 0): Angebot | null {
   if (jetzt >= MAX_STUFE) return null;
   const stufe = jetzt + 1;
   const preis: Record<string, number> = stufe === 1 ? { harzverband: 1 }
     : stufe === 2 ? { harzverband: 2, herzfunke: 1 } : { harzverband: 3, herzfunke: 2 };
-  const name = `${waffe === 'klinge' ? 'Klinge' : 'Axt'} ${['geschärft', 'gehärtet', 'meisterlich'][stufe - 1]}`;
+  const name = `${WAFFENNAME[waffe]} ${['geschärft', 'gehärtet', 'meisterlich'][stufe - 1]}`;
   return { waffe, stufe, preis, name };
 }
 
