@@ -237,6 +237,12 @@ export const WAFFEN: Record<WaffenArt, Waffe> = {
  * Im Aktiven und in der Erholung vor `KOMBO_AB` läuft die Uhr nicht (siehe `schrittKaempfer`).
  */
 export const PUFFER = 0.3;
+
+/**
+ * D182: Nach einem Wurf ist der Getroffene so lange (s) gegen den nächsten gefeit. Länger als
+ * eine Axtkette (Axthieb + Querhieb ≈ 1,6 s), damit die zweite Hälfte ihn nicht erneut festnagelt.
+ */
+export const WURF_SPERRE = 2.0;
 /** Ab diesem Anteil der Erholung darf der nächste leichte Schlag die Erholung abbrechen (D171). */
 export const KOMBO_AB = 0.35;
 /** So lange nach dem Ende eines Schlags setzt der nächste leichte die Kette fort (D171). */
@@ -513,6 +519,8 @@ export interface Kaempfer {
   schadenFaktor?: number;
   /** Dauer der laufenden Betäubung, wenn sie nicht `werte.betaeubt` ist (Parade, D173). */
   betaeubtFuer?: number;
+  /** D182: Sekunden seit dem letzten Wurf (`wirft`) — darunter `WURF_SPERRE` wirft ihn nichts. */
+  seitWurf?: number;
 }
 
 export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: number, blick = 0, y = 0): Kaempfer {
@@ -794,9 +802,10 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     if (toedlich) { z.phase = 'gefallen'; z.zeit = 0; }
     else if (z.haltung <= 0) {
       betaeube(z); z.haltung = z.werte.haltungMax; gebrochen = true;
-    } else if (s.wirft) {
+    } else if (s.wirft && (z.seitWurf ?? Infinity) >= WURF_SPERRE) {
       // D181: Ein wuchtiger Treffer wirft aus der Handlung — auch Gegner, die sonst nicht zucken.
-      betaeube(z, s.wirft);
+      // D182: aber nicht zweimal kurz hintereinander, sonst hält die Axt einen Einzelnen fest.
+      betaeube(z, s.wirft); z.seitWurf = 0;
     } else if ((z.werte.zucken ?? 0) > 0 && !((z.phase === 'vorlauf' || z.phase === 'aktiv') && z.schlag.standfest)) {
       // D170: Der Treffer reisst aus der Handlung — ein Schlag im Vorlauf ist verloren.
       z.phase = 'zucken'; z.zeit = 0; z.folge = []; z.puffer = null;
@@ -839,6 +848,7 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
   if (dt <= 0) return;
   const w = k.werte;
   k.seitTreffer += dt;
+  if (k.seitWurf !== undefined) k.seitWurf += dt;
   k.seitSchlag += dt;
   // Die Uhr des Puffers steht, solange der eigene Schwung läuft und noch nicht abbrechbar ist (D171,
   // im Bild gefunden): Bei der Axt lagen 0,77 s zwischen Druck und Abbruchpunkt — ein Druck im

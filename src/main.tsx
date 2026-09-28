@@ -410,7 +410,8 @@ function App() {
       const wd = weltRef.current;
       if (z && wd) {
         const [x, zz] = nachMetern(z.ort, wd.bbox);
-        spielerSprung.current = [x + 2, zz + 2];
+        const [ax, az] = z.aufwachen ?? [2, 2];
+        spielerSprung.current = [x + ax, zz + az];
         setHinweis(`Du wachst in ${z.name} auf. Irgendwer hat dich hergebracht.`);
       } else setHinweis('Zurückgeschlagen — sie warten noch.');
       return;

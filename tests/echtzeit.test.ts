@@ -16,7 +16,7 @@ import {
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, kannSchlagen, kannRollen,
   imBogen, loeseTreffer, schrittKaempfer, simuliere, waehleZiel, blickAuf, vorwaerts,
   WAFFEN, ruesteAus, wechsleZiel, KEILER, GRATHORN, WOLF,
-  puffere, naechsterSchlag, setzeBlockAn, loeseBlock, kannBlocken, WEGELAGERER, DECKUNG_KOSTEN, type Linie, PARADE, PARADE_BETAEUBT, BLOCK, PUFFER, KOMBO_AB, KOMBO_FENSTER, TREFFERSTOPP, STOSS_DAUER, type Schlag,
+  puffere, naechsterSchlag, setzeBlockAn, loeseBlock, kannBlocken, WEGELAGERER, DECKUNG_KOSTEN, type Linie, PARADE, PARADE_BETAEUBT, BLOCK, PUFFER, KOMBO_AB, KOMBO_FENSTER, WURF_SPERRE, TREFFERSTOPP, STOSS_DAUER, type Schlag,
   type Kaempfer, type Kampfwelt, type Treffer,
 } from '../src/kampf/echtzeit.js';
 
@@ -164,6 +164,27 @@ let schlaegeAusVoll = 0, rollenAusVoll = 0;
   pruefe('im Vorlauf keine Rolle — wer ausholt, hat sich festgelegt', !kannRollen(e));
   e.phase = 'erholung';
   pruefe('aus der Erholung darf gerollt werden', kannRollen(e));
+}
+
+// ---------------------------------------------------- D182: Wurfsperre — die Axt nagelt keinen fest
+{
+  const { s, g } = paar(2);
+  const quer = WAFFEN.axt.leicht[1];
+  const wurf = () => {
+    g.haltung = g.werte.haltungMax; s.phase = 'aktiv'; s.schlag = quer; s.erreicht = new Set();
+    if (g.phase !== 'vorlauf') { g.phase = 'bereit'; setzeSchlagAn(g); }
+    return loeseTreffer(s, [g]);
+  };
+  const warte = (sek: number) => { for (let t = 0; t < sek; t += SCHRITT) schrittKaempfer(g, SCHRITT); };
+  pruefe('der Querhieb wirft', !!quer.wirft && !!quer.standfest);
+  wurf();
+  pruefe('erster Wurf: der Gegner ist betäubt, sein Vorlauf verloren', g.phase === 'betaeubt' && g.betaeubtFuer === quer.wirft, g.phase);
+  warte(0.6);
+  wurf();
+  pruefe(`zweiter Wurf nach 0,6 s wirft NICHT (Sperre ${WURF_SPERRE} s)`, g.phase !== 'betaeubt', g.phase);
+  warte(WURF_SPERRE);
+  wurf();
+  pruefe('nach der Sperre wirft er wieder', g.phase === 'betaeubt', g.phase);
 }
 
 // ---------------------------------------------------- 8. Haltung bricht beim zweiten Treffer, nicht beim ersten

@@ -174,6 +174,32 @@ if (existsSync('public/world/oental.json')) {
       Math.hypot((la - o.ort[0]) * M, (lo - o.ort[1]) * MO));
     return { id: o.id, n: d.filter((x: number) => x > 1 && x < 70).length };
   });
+  // D182: Jede Zuflucht braucht einen Aufwachpunkt ausserhalb jedes Grundrisses, 2 m von der Wand.
+  const innen = (p: number[], P: number[][]) => {
+    let c = false;
+    for (let i = 0; i < P.length - 1; i++) {
+      const [x1, y1] = P[i], [x2, y2] = P[i + 1];
+      if ((y1 > p[1]) !== (y2 > p[1]) && p[0] < (x2 - x1) * (p[1] - y1) / (y2 - y1) + x1) c = !c;
+    }
+    return c;
+  };
+  const kante = (p: number[], a: number[], b: number[]) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L));
+    return Math.hypot(a[0] + t * dx - p[0], a[1] + t * dy - p[1]);
+  };
+  for (const o of orte.filter((x: any) => x.art === 'zuflucht')) {
+    if (!o.aufwachen) { console.log(`  ✗ ${o.id}: Zuflucht ohne Aufwachpunkt`); auftragsfehler++; continue; }
+    const p = o.aufwachen;
+    const naehe = welt.gebaeude.map((g: any) => g.punkte.map(([la, lo]: number[]) => [(lo - o.ort[1]) * MO, -(la - o.ort[0]) * M]))
+      .filter((P: number[][]) => P.some(q => Math.hypot(q[0], q[1]) < 60));
+    const drin = naehe.some((P: number[][]) => innen(p, P));
+    const abstand = Math.min(99, ...naehe.flatMap((P: number[][]) => P.slice(1).map((q, i) => kante(p, P[i], q))));
+    if (drin || abstand < 2) {
+      console.log(`  ✗ ${o.id}: Aufwachpunkt ${drin ? 'im Grundriss' : `nur ${abstand.toFixed(1)} m von der Wand`}`);
+      auftragsfehler++;
+    } else console.log(`  ✓ ${o.id}: Aufwachpunkt draussen, ${abstand.toFixed(1)} m von der Wand`);
+  }
   const schlimmster = nachbarn.reduce((a, b) => (b.n > a.n ? b : a));
   console.log(`  ✓ ${orte.length} Orte freistehend: höchstens ${schlimmster.n} Nachbargebäude `
     + `im 70-m-Umkreis (${schlimmster.id}), ${nachbarn.filter(x => x.n === 0).length} ganz allein`);

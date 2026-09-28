@@ -260,6 +260,12 @@ export const Ort = z.object({
    */
   figur: z.string().refine(f => (FIGUREN_REGISTER.figuren as string[]).includes(f),
     f => ({ message: `Figur „${f}“ steht nicht in public/figuren/register.json` })).optional(),
+  /**
+   * Aufwachpunkt einer Zuflucht (D182): Versatz in Metern zu `ort`, x nach Ost, z nach Süd.
+   * Dort steht man nach einer Niederlage. `ort` liegt meist im Grundriss — `tools/validate.ts`
+   * prüft, dass der Punkt draussen liegt und 2 m Abstand zu jeder Wand hält.
+   */
+  aufwachen: z.tuple([z.number(), z.number()]).optional(),
   /** Blickrichtung in Grad, 0 = Nord, positiv nach links wie `?absetzen=`. */
   blick: z.number().optional(),
   /**
