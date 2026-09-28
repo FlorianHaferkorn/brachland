@@ -80,6 +80,50 @@ def setze(arm, pb, dreh_welt, kopf_welt=None):
     bpy.context.view_layer.update()
 
 
+# D187: Zweihändige Clips — die linke Hand gehört an den Stiel. Die Weltformel überträgt Drehungen;
+# bei anderen Armlängen landet die linke Hand dann neben dem Schaft (gemessen bis ~9 cm). Also nach
+# jedem Bild: linke Hand per Zwei-Knochen-IK auf den Punkt, den sie in der Quelle relativ zur rechten
+# hatte (skaliert mit der Körpergrösse), Ellbogenebene und Handdrehung bleiben.
+ZWEIHAND = ('Axt_', 'Speer_')
+GREIF_FEHLER = []
+
+
+def greife_links(quelle, ziel, s):
+    bpy.context.view_layer.update()
+    zw, qw = ziel.matrix_world, quelle.matrix_world
+    zpb, qpb = ziel.pose.bones, quelle.pose.bones
+    soll = zw @ zpb['hand_r'].head + (qw @ qpb['Wrist.L'].head - qw @ qpb['Wrist.R'].head) * s
+    ua, la, ha = zpb['upperarm_l'], zpb['lowerarm_l'], zpb['hand_l']
+    vorher = (zw @ ha.head - soll).length
+    hand_rot = (zw @ ha.matrix).to_3x3().normalized()
+    rot_w = zw.to_3x3().normalized()
+
+    def drehe(pb, von, nach):
+        q = von.rotation_difference(nach)
+        r_a = rot_w.inverted() @ q.to_matrix() @ rot_w
+        kopf = pb.matrix.to_translation()
+        pb.matrix = Matrix.Translation(kopf) @ r_a.to_4x4() @ Matrix.Translation(-kopf) @ pb.matrix
+        bpy.context.view_layer.update()
+
+    S, E, H = zw @ ua.head, zw @ la.head, zw @ ha.head
+    a, b = (E - S).length, (H - E).length
+    ziel_d = soll - S
+    d = min(ziel_d.length, a + b - 1e-4)
+    rich = ziel_d.normalized()
+    pol = (E - S) - rich * (E - S).dot(rich)
+    pol = pol.normalized() if pol.length > 1e-6 else Vector((0, 0, -1))
+    x = (a * a - b * b + d * d) / (2 * d)
+    E2 = S + rich * x + pol * math.sqrt(max(0.0, a * a - x * x))
+    drehe(ua, E - S, E2 - S)
+    E, H = zw @ la.head, zw @ ha.head
+    drehe(la, H - E, soll - E)
+    # Die Hand behält ihre Weltdrehung — sie greift, wie sie in der Quelle griff.
+    kopf = ha.matrix.to_translation()
+    ha.matrix = Matrix.Translation(kopf) @ (rot_w.inverted() @ hand_rot).to_4x4()
+    bpy.context.view_layer.update()
+    GREIF_FEHLER.append((vorher, (zw @ ha.head - soll).length))
+
+
 def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None):
     """Weltformel wie in ual2uebertrag.py, allgemein: `clips` = {Name: [(Action, f0, f1)]},
     `karte` = [(Quellknochen, Zielknochen)] Eltern zuerst, `becken` = (Quelle, Ziel) für die
@@ -149,6 +193,8 @@ def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None):
                 if griff:
                     for k, qq in griff.items():
                         zpb[k].rotation_mode = 'QUATERNION'; zpb[k].rotation_quaternion = qq
+                if name.startswith(ZWEIHAND) and 'Wrist.L' in qpb:
+                    greife_links(quelle, ziel, s)
                 for kn in zpb:
                     if kn.rotation_mode != 'QUATERNION': kn.rotation_mode = 'QUATERNION'
                     qq = kn.rotation_quaternion.copy()
@@ -163,6 +209,10 @@ def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None):
         st = tr.strips.new(name, 1, akt)
         if hasattr(st, 'action_slot') and akt.slots: st.action_slot = akt.slots[0]
         gebaut[name] = akt
+        if name.startswith(ZWEIHAND) and GREIF_FEHLER:
+            v = max(e[0] for e in GREIF_FEHLER); n = max(e[1] for e in GREIF_FEHLER)
+            print(f'    Griff links: vorher bis {v * 100:.1f} cm neben dem Stiel, nachher bis {n * 100:.1f} cm')
+            GREIF_FEHLER.clear()
         print(f'  CLIP {name}: {bild - 1} Bilder')
     for b in zpb: b.matrix_basis = Matrix()
     ziel.matrix_world = ziel_vorher

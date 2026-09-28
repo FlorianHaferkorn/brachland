@@ -48,7 +48,9 @@ const knopf = (an: boolean): React.CSSProperties => ({
 const zeile: React.CSSProperties = { display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' };
 const titel: React.CSSProperties = { font: '11px system-ui, sans-serif', letterSpacing: 1, color: '#9b937f', textTransform: 'uppercase', marginTop: 10 };
 
-export function HeldEditor({ start, onFertig }: { start?: HeldWahl | null; onFertig: (w: HeldWahl) => void }) {
+export function HeldEditor({ start, onFertig, onGalerie }: { start?: HeldWahl | null; onFertig: (w: HeldWahl) => void;
+  /** D187: Figur und Waffen in der Galerie ansehen — Waffen, Angriffe, alle vier Kameras. */
+  onGalerie?: (w: HeldWahl) => void }) {
   // `&haut=0.1` setzt den Hautton vor (Messlauf, D176).
   const [w, setW] = useState<HeldWahl>(() => {
     const h = new URLSearchParams(location.search).get('haut');
@@ -134,6 +136,11 @@ export function HeldEditor({ start, onFertig }: { start?: HeldWahl | null; onFer
           ...knopf(true), marginTop: 22, width: '100%', padding: '12px', font: '600 15px system-ui',
           background: '#5a4a2c',
         }}>Aufbrechen</button>
+        {onGalerie && (
+          <button onClick={() => onGalerie({ ...w, name: w.name.trim() || STANDARD_HELD.name })} style={{
+            ...knopf(false), marginTop: 8, width: '100%', padding: '10px', font: '500 14px system-ui',
+          }}>Galerie: Figur mit Waffen ansehen</button>
+        )}
       </div>
     </div>
   );

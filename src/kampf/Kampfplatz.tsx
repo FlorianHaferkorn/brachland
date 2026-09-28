@@ -49,13 +49,16 @@ import { schadenFaktor } from '../spiel/schmiede.js';
 import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
 /** Aussehen des Wegelagerers (D175). */
 const WEGELAGERER_WAHL: HeldWahl = {
-  name: 'Wegelagerer', geschlecht: 'm', koerper: 'm', kleid: 'waldlaeufer', haar: 'Buzzed', bart: true,
+  name: 'Wegelagerer', geschlecht: 'm', koerper: 'm', kleid: 'bauer', haar: 'Buzzed', bart: true,
   haut: 0.55, haarfarbe: '#2a1d15',
+  // D187: Bauernkleidung, rostrot getönt — als Waldläufer trug er dasselbe wie die Spielerin und war im
+  // Getümmel nicht von ihr zu unterscheiden (im Bild gefunden, D186; die Tönung allein reichte nicht).
+  kleidfarbe: '#a8452a',
 };
 /** D184: Speerfrau und Axtmann — andere Gestalt, damit die Waffe schon von Weitem zu lesen ist. */
 const SPEERMANN_WAHL: HeldWahl = {
   name: 'Speerfrau', geschlecht: 'w', koerper: 'w', kleid: 'bauer', haar: 'Buns', bart: false,
-  haut: 0.3, haarfarbe: '#6b4a2a',
+  haut: 0.3, haarfarbe: '#6b4a2a', kleidfarbe: '#4a6a8f',
 };
 const AXTMANN_WAHL: HeldWahl = {
   name: 'Axtmann', geschlecht: 'm', koerper: 'm', kleid: 'bauer', haar: 'Kahl', bart: true,
@@ -322,6 +325,21 @@ function KampfplatzMitModellen(props: PlatzProps) {
   return <KampfplatzKern {...props} leiber={leiber} rigs={rigs} />;
 }
 
+/**
+ * D187: Galerie (`?galerie=1`, aus dem Figureneditor): Übungsplatz, auf dem die Gegner nur stehen und
+ * nicht fallen. Die Figur führt sich selbst vor — je Waffe Kette, schwerer Schlag, Block, dann die
+ * vier Kameras (C). Jede Taste des Spielers funktioniert weiter; die Vorführung läuft nebenher.
+ */
+const GALERIE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('galerie');
+const GALERIE_ABLAUF: [string, number, number?][] = [
+  // [Taste, Wartezeit danach in ms, gehalten in ms]
+  ['KeyX', 1000], ['KeyL', 800],
+  ...(['Digit1', 'Digit2', 'Digit3'] as const).flatMap(d => [
+    [d, 1300], ['KeyJ', 1300], ['KeyJ', 1500], ['KeyI', 2300], ['KeyU', 600, 900],
+    ['KeyC', 2400], ['KeyC', 2200], ['KeyC', 2800], ['KeyC', 900],
+  ] as [string, number, number?][]),
+];
+
 const WAFFE_START: WaffenArt = (() => {
   const w = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('waffe') : null;
   return w === 'axt' || w === 'speer' ? w : 'klinge';
@@ -426,6 +444,28 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
   /** Ist ein Ziel aufgeschaltet? Die Maus wählt dann die Linie (D175). */
   const aufgeschaltet = useRef(false);
 
+  // D187: Galerie-Vorführung — dieselben Tasten, die ein Mensch drückt (synthetische Ereignisse).
+  useEffect(() => {
+    if (!GALERIE) return;
+    let lebt = true;
+    const warte = (ms: number) => new Promise(r => setTimeout(r, ms));
+    const druecke = (code: string, dauer = 70) => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
+      setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true })), dauer);
+    };
+    void (async () => {
+      await warte(2500);
+      for (let runde = 0; lebt; runde++) {
+        for (const [taste, pause, halten] of GALERIE_ABLAUF) {
+          if (!lebt) return;
+          if (runde > 0 && taste === 'KeyX') continue;
+          druecke(taste, halten);
+          await warte((halten ?? 0) + pause);
+        }
+      }
+    })();
+    return () => { lebt = false; };
+  }, []);
   useEffect(() => {
     const runter = (ev: KeyboardEvent) => {
       if (ev.target instanceof HTMLInputElement || ev.repeat) {
@@ -581,6 +621,16 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     const jetzt = performance.now();
     if (!welt.current) {
       welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht); welt.current.spielerin.ausdauerFremd = true;
+      welt.current.friedlich = GALERIE;
+      if (GALERIE) {
+        // Die Gegner nah heran (3,5 m vor die Figur, nebeneinander), damit Gegneransicht und Treffer zu sehen sind.
+        const sp = welt.current.spielerin, [fx, fz] = vorwaerts(sp.blick);
+        welt.current.gegner.forEach((g, i) => {
+          const q = (i - (welt.current!.gegner.length - 1) / 2) * 2.4;
+          g.x = sp.x + fx * 3.5 - fz * q; g.z = sp.z + fz * 3.5 + fx * q;
+          g.blick = blickAuf(g.x, g.z, sp.x, sp.z);
+        });
+      }
       if (waffeWahl.current !== 'klinge') ruesteAus(welt.current.spielerin, waffeWahl.current);
     }
     // Bis zur ersten Eingabe steht der Platz still — die Gegner folgen dem Absetzpunkt nicht,
@@ -689,6 +739,8 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     }
 
     // ---- Übungsplatz neu aufstellen
+    // D187: In der Galerie fällt niemand — Leben zurück, bevor das Ende zählt.
+    if (GALERIE) { s.leben = s.werte.lebenMax; for (const g of w.gegner) g.leben = g.werte.lebenMax; }
     const vorbei = s.phase === 'gefallen' || w.gegner.every(g => g.phase === 'gefallen');
     if (vorbei && ende.current === null) ende.current = jetzt;
     if (onEnde && ende.current !== null && jetzt - ende.current > 1500 && !gemeldet.current) {

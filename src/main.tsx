@@ -993,6 +993,10 @@ function App() {
               setzeHeldWahl(w);
               setEditorOffen(false);
               setStand(alt => { if (!alt) return alt; const neu = { ...alt, held: w }; void speichereStand(neu); return neu; });
+            }} onGalerie={w => {
+              // D187: Wahl sichern, dann in die Galerie (Übungsplatz, friedlich, führt sich selbst vor).
+              setzeHeldWahl(w);
+              void speichereStand({ ...stand, held: w }).then(() => { location.search = '?kampf=wegelagerer&galerie=1&zoom=0.55&zeit=0.42'; });
             }} />
           )}
 

@@ -1150,6 +1150,8 @@ export interface Kampfwelt {
   ziel: string | null;
   /** Noch nicht gerechnete Zeit unter einem Teilschritt — siehe `simuliere`. */
   uebrig?: number;
+  /** D187: Galerie — die Gegner stehen nur da, denken nicht, greifen nicht an. */
+  friedlich?: boolean;
   /** Wer im letzten Teilschritt angreifen durfte — nur zum Ansehen (`kampf.mjs`). */
   recht?: string | null;
   /** Restzeit des Trefferstopps (D171). */
@@ -1189,7 +1191,7 @@ export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer
     const plaetze = w.gegner.length > 2 ? wartePlaetze(w) : undefined;
     for (const g of w.gegner) {
       const darf = !atmet && (w.recht === null || w.recht === g.id);
-      denkeGegner(g, w.spielerin, h, schiebe, darf, plaetze?.get(g.id));
+      if (!w.friedlich) denkeGegner(g, w.spielerin, h, schiebe, darf, plaetze?.get(g.id));
     }
     schrittKaempfer(w.spielerin, h, schiebe);
     for (const g of w.gegner) schrittKaempfer(g, h, schiebe);
