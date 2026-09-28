@@ -9,7 +9,7 @@
 /** `speer` seit D183 — ältere Stände haben ihn nicht, darum überall `?? 0`. */
 export type WaffenStufen = { klinge: number; axt: number; speer?: number;
   /** D188: eingesetzter Kernfunke — gilt für jede Waffe (die Marke trägt ihn, nicht der Stahl). */
-  funke?: 'wasser' };
+  funke?: 'wasser' | 'stein' };
 export const KEINE_STUFEN: WaffenStufen = { klinge: 0, axt: 0, speer: 0 };
 export type Schmiedewaffe = 'klinge' | 'axt' | 'speer';
 export const WAFFENNAME: Record<Schmiedewaffe, string> = { klinge: 'Klinge', axt: 'Axt', speer: 'Speer' };

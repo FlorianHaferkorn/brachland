@@ -46,6 +46,7 @@ import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { baueWindMaterial } from '../world/windmaterial.js';
 import { haengeAnHand, baueSpeer } from './waffenhand.js';
 import { kameraZustand } from './kamerazustand.js';
+import { baueSpritzer, SPRITZER_FARBE } from './spritzer.js';
 import { schadenFaktor } from '../spiel/schmiede.js';
 import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
 /** Aussehen des Wegelagerers (D175). */
@@ -146,7 +147,7 @@ interface Leib {
 export interface KampfFigur {
   phase: Kaempfer['phase'];
   /** D188: Kernfunke und Ladung 0…1 (Anzeige, Leuchten der Waffe). */
-  element?: 'wasser';
+  element?: 'wasser' | 'stein';
   ladung?: number;
   /** Zählt Schläge und Rollen — ein neuer Wert heisst: Clip von vorn, auch mitten im alten. */
   schwung: number;
@@ -266,7 +267,7 @@ type PlatzProps = {
    */
   onEnde?: (sieg: boolean) => void;
   /** Stufen aus der Schmiede (D177). */
-  waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' };
+  waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Nachts stärker (D179, `naechtlich`). */
   nacht?: boolean;
 };
@@ -347,7 +348,7 @@ const GALERIE_ABLAUF: [string, number, number?][] = [
 ];
 
 /** D188: `?funke=wasser` — mit Kernfunke in den Kampf (Prüfung). */
-const FUNKE_PROBE: 'wasser' | undefined = typeof location !== 'undefined' && new URLSearchParams(location.search).get('funke') === 'wasser' ? 'wasser' : undefined;
+const FUNKE_PROBE: 'wasser' | 'stein' | undefined = (() => { const f = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('funke') : null; return f === 'wasser' || f === 'stein' ? f : undefined; })();
 
 const WAFFE_START: WaffenArt = (() => {
   const w = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('waffe') : null;
@@ -607,7 +608,10 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       new THREE.MeshBasicMaterial({ color: '#cfe9f2' }));
     marke.visible = false;
     wurzel.add(marke);
-    return { wurzel, puppen, schwung, marke };
+    // D190: Elementwirkung sichtbar (Tropfen / Staub, Ring am Boden).
+    const spritzer = baueSpritzer();
+    wurzel.add(spritzer.gruppe);
+    return { wurzel, puppen, schwung, marke, spritzer };
     // `aufKey` statt `aufstellung`: Ein neues Feld mit demselben Inhalt soll den Platz nicht neu bauen.
   }, [leiber, rigs, aufKey]);
 
@@ -633,11 +637,11 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht); welt.current.spielerin.ausdauerFremd = true;
       welt.current.friedlich = GALERIE;
       if (GALERIE) {
-        // Die Gegner nah heran (3,5 m vor die Figur, nebeneinander), damit Gegneransicht und Treffer zu sehen sind.
+        // Die Gegner nah heran (2,4 m vor die Figur — in Reichweite jedes Schlags, D190, nebeneinander), damit Gegneransicht und Treffer zu sehen sind.
         const sp = welt.current.spielerin, [fx, fz] = vorwaerts(sp.blick);
         welt.current.gegner.forEach((g, i) => {
-          const q = (i - (welt.current!.gegner.length - 1) / 2) * 2.4;
-          g.x = sp.x + fx * 3.5 - fz * q; g.z = sp.z + fz * 3.5 + fx * q;
+          const q = (i - (welt.current!.gegner.length - 1) / 2) * 1.3;
+          g.x = sp.x + fx * 2.4 - fz * q; g.z = sp.z + fz * 2.4 + fx * q;
           g.blick = blickAuf(g.x, g.z, sp.x, sp.z);
         });
       }
@@ -713,6 +717,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       const [kx, kz] = kollision.schiebeRaus(x, z);
       return [Math.max(-halbB, Math.min(halbB, kx)), Math.max(-halbT, Math.min(halbT, kz))];
     };
+    zeichnung.spritzer.schritt(dt);
     const ereignisse: Treffer[] = los.current ? simuliere(w, dt, schiebe) : [];
     // Was die Schläge und Rollen gekostet haben, geht in die gemeinsame Kasse. Nur das — erholen
     // lässt sie `Spieler` (`ausdauerFremd`).
@@ -736,7 +741,15 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         else if (e.gebrochen) melde('Haltung gebrochen');
       } else {
         const i = w.gegner.findIndex(g => g.id === e.auf);
-        if (e.element) melde(e.wirkung === 'stark' ? 'Flutstoss — sehr wirksam' : e.wirkung === 'schwach' ? 'Flutstoss — kaum wirksam' : 'Flutstoss');
+        if (e.element) {
+          const name = e.element === 'stein' ? 'Bruchschlag' : 'Flutstoss';
+          melde(e.wirkung === 'stark' ? `${name} — sehr wirksam` : e.wirkung === 'schwach' ? `${name} — kaum wirksam` : name);
+          const g = w.gegner.find(x => x.id === e.auf);
+          if (g) {
+            const dx = g.x - s.x, dz = g.z - s.z, d = Math.hypot(dx, dz) || 1;
+            zeichnung.spritzer.ausloesen(g.x, g.y + 1.0, g.z, dx / d, dz / d, SPRITZER_FARBE[e.element]);
+          }
+        }
         if (i >= 0 && !e.ausgewichen) {
           zeichnung.puppen[i].blitz = jetzt;
           // Seite des Angreifers im Blick des Getroffenen: rechts ist (−vz, vx) zur Vorwärtsrichtung.

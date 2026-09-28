@@ -2942,7 +2942,7 @@ function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
 function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
   gier: React.RefObject<number>;
   /** Schmiedestufen (D178): Stufe 1–2 heller geschliffen, Stufe 3 ein anderes Modell. */
-  waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' };
+  waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Kampfzustand (D167): Schlag, Rolle, Treffer, Fall als Clip. Ohne Kampf null. */
   kampf?: React.RefObject<KampfFigur | null>;
   schritt: React.RefObject<{ phase: number; tempo: number }>;
@@ -3170,7 +3170,8 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
       waffen[k.waffe].traverse(o => {
         const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
         if (!m || !('emissive' in m)) return;
-        m.emissive.setRGB(0.15, 0.55, 1.0); m.emissiveIntensity = staerke;
+        if (k.element === 'stein') m.emissive.setRGB(0.85, 0.6, 0.3); else m.emissive.setRGB(0.15, 0.55, 1.0);
+        m.emissiveIntensity = staerke;
       });
     }
     // D184: Was nicht in der Hand ist, hängt am Körper — Speer und Axt über Kreuz am Rücken, Klinge am Gürtel.
@@ -3726,7 +3727,7 @@ export interface RegionsSzeneProps {
   /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen. */
   kampfEnde?: (sieg: boolean) => void;
   /** Schmiedestufen der Waffen (D177). */
-  waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' };
+  waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Begegnung bei Nacht (D179). */
   kampfNacht?: boolean;
   /** Spieler versetzen (D179, Aufwachen in der Zuflucht). */

@@ -33,9 +33,20 @@ Konsequenzen für die Erzählung:
 | Regent/Element | Wirkung | Rolle |
 |---|---|---|
 | Holz | Wurzeln halten 1 s fest | gegen Flinke (Wolf, Fuchs) |
-| Stein | Haltung ×2 | Deckung brechen (Axtmann) |
+| Stein (**umgesetzt D190**) | „Bruchschlag“: Haltung ×2,5, Schaden ×1,1, Menschen verlieren ihre Deckungslinie; Staub und Ring | Deckung brechen (Axtmann, Speerfrau) — erhältlich erst mit dem Stein-Regenten, bis dahin `?funke=stein` |
 | Alt-Tech | Schlag springt auf den nächsten Gegner | Gruppen |
 | Sporen | Zehrung über Zeit, steckt an | lange Kämpfe |
 
 Matrix: Der Funke folgt der Elementmatrix der Kreaturenkämpfe (Wasser gegen Brand stark usw.) — noch
 nicht an Tiere angebunden (Tiere im Echtzeitkampf haben bisher kein Element).
+
+## Stein-Regent (Entwurf, Kapitel 2)
+
+**Die Bruchwächterin** — Steinbock × Brecheranlage, Region „Kalkgrat“ (der aufgelassene Kalkbruch über
+dem Œntal). VERIDIA setzte sie ein, um den Hang nach dem Abbau zu sichern; im Notfallprotokoll „sichert“
+sie jetzt alles: Sie schüttet Pässe zu, bricht Wege ab, mauert Quellen ein. Phasen: Stein (Geröllwurf,
+Rammstoss) → Alt-Tech (Brecherwalzen im Leib) → Stein+Frost (vereister Grat). Ihr Kern ist schwer und
+kalt; die Schmiedin fasst ihn nicht in Harz, sondern in Eisen („Der hält nicht im Harz, der zerdrückt es“).
+
+Auftrag (Entwurf): „Was der Berg zurückhält“ — der Steinbruch-Wart (Ort `steinbruch-wart`) erzählt von
+Nächten, in denen der Grat „nachrückt“.

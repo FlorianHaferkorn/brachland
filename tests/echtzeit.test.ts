@@ -201,6 +201,22 @@ let schlaegeAusVoll = 0, rollenAusVoll = 0;
   pruefe('Wasser gegen Frost: stark, gedämpft', Math.abs(funkenFaktor('wasser', { ...WOLF, elemente: ['frost'] }) - Math.SQRT2) < 1e-9);
 }
 
+// ---------------------------------------------------- D190: Steinfunke — Bruchschlag
+{
+  const { s, g } = paar(2);
+  s.element = 'stein'; s.ladung = 1;
+  g.haltung = g.werte.haltungMax; g.phase = 'bereit';
+  s.phase = 'aktiv'; s.schlag = WAFFEN.klinge.schwer; s.schwung++; s.erreicht = new Set();
+  const t = loeseTreffer(s, [g])[0];
+  pruefe('Bruchschlag entlädt Stein', t.element === 'stein' && (s.ladung ?? 1) === 0);
+  pruefe('Bruchschlag bricht die Haltung', t.gebrochen, `${g.haltung}`);
+  const m = neuerKaempfer('m', WEGELAGERER, 0, -2, 0); m.deckung = 'oben';
+  s.ladung = 1; s.phase = 'aktiv'; s.schwung++; s.erreicht = new Set(); s.blick = blickAuf(s.x, s.z, m.x, m.z);
+  s.linie = 'rechts';
+  loeseTreffer(s, [m]);
+  pruefe('Bruchschlag nimmt dem Menschen die Deckung', m.deckung === undefined, String(m.deckung));
+}
+
 // ---------------------------------------------------- D182: Wurfsperre — die Axt nagelt keinen fest
 {
   const { s, g } = paar(2);

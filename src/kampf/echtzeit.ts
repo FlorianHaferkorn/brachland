@@ -172,9 +172,15 @@ export type WaffenArt = 'klinge' | 'axt' | 'speer';
  * Wirkung „Flutstoss“: der schwere Schlag mit voller Ladung wirft weit zurück, betäubt, +25 % Schaden;
  * gegen Menschen halb so lange betäubt — sie stemmen sich dagegen, Tiere werden weggespült.
  */
-export type Element = 'wasser';
+export type Element = 'wasser' | 'stein';
 export const LADUNG = { treffer: 0.2, parade: 0.35 };
 export const FLUT = { schaden: 1.25, stoss: 3, betaeubt: 0.7, betaeubtMensch: 0.35 };
+/**
+ * D190: Steinfunke „Bruchschlag“ — kein Wegspülen, sondern Wucht: Haltungsschaden ×2,5 (bricht fast
+ * jede Deckung), +10 % Schaden, und ein Mensch verliert seine gedeckte Linie (liest neu).
+ * Die Antwort auf den Axtmann und die Speerfrau, die sich hinter ihrer Linie verschanzen.
+ */
+export const BRUCH = { schaden: 1.1, haltung: 2.5 };
 /**
  * D189: Die Elementmatrix der Kreaturenkämpfe gilt auch für den Funken — gedämpft (Wurzel), weil ein
  * Echtzeittreffer sonst mit ×4 einen Wolf auf einen Schlag nimmt: 4 → 2, 2 → 1,41, 0,5 → 0,71, 0,25 → 0,5.
@@ -185,7 +191,8 @@ export function funkenFaktor(element: Element, ziel: KampfWerte): number {
 }
 /** Der schwere Schlag jeder Waffe — nur er entlädt den Funken. */
 export function istSchwer(s: Schlag): boolean {
-  return s === WAFFEN.klinge.schwer || s === WAFFEN.axt.schwer || s === WAFFEN.speer.schwer;
+  // Nach Namen, nicht nach Objekt: Der Puffer legt Kopien an (D190 im Bild gefunden — keine Entladung).
+  return s.name === WAFFEN.klinge.schwer.name || s.name === WAFFEN.axt.schwer.name || s.name === WAFFEN.speer.schwer.name;
 }
 /**
  * Ein Moveset je Waffe (D171) — wie in der Gattung: leichte Kette, schwerer Schlag, Laufangriff.
@@ -483,7 +490,8 @@ export const SPEERMANN: KampfWerte = {
     schaden: 15, haltungsschaden: 22, kosten: 0, nachdrehen: 2.5, schritt: 0.3, rueckstoss: 0.8 },
   kette: [{ name: 'Nachstoss', vorlauf: 0.3, aktiv: 0.12, erholung: 1.0, reichweite: 3.0, halbwinkel: 18 * GRAD,
     schaden: 13, haltungsschaden: 18, kosten: 0, nachdrehen: 2.5, schritt: 0.3, rueckstoss: 0.6 }],
-  lebenMax: 75, haltungMax: 50,
+  // D190: Leben 75 → 65 — die Axt verlor nachts 77 % gegen sie; Schere ja, Sackgasse nein.
+  lebenMax: 65, haltungMax: 50,
   mensch: { linienFolge: ['unten', 'unten', 'oben', 'unten', 'oben'], deckung: 'unten' },
 };
 
@@ -850,8 +858,12 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     const linie = a.schlagLinie;
     // D174: Gegen einen Linienschlag hält der Block nur in derselben Linie; sonst fängt die Waffe halb.
     const linieFalsch = !!linie && z.phase === 'block' && z.linie !== linie;
-    // Deckung eines Menschen: in die gedeckte Linie geschlagen kostet den Angreifer Ausdauer.
-    if (z.deckung && linie === z.deckung && !s.durch && z.phase !== 'betaeubt' && blocktFrontal(z, a)) {
+    // D188/D190: vor Deckung und Block entschieden — Entladung — der schwere Schlag mit voller Ladung trägt das Element (ein Schwung, alle Ziele).
+    if (a.element && (a.ladung ?? 0) >= 1 && istSchwer(s) && a.entladung !== a.schwung) { a.entladung = a.schwung; a.ladung = 0; }
+    const flut = !!a.element && a.entladung === a.schwung;
+    // Deckung eines Menschen: in die gedeckte Linie geschlagen kostet den Angreifer Ausdauer. Ein
+    // entladener Funke geht durch die gedeckte Linie (D190: sonst entlud er nie gegen Menschen).
+    if (!flut && z.deckung && linie === z.deckung && !s.durch && z.phase !== 'betaeubt' && blocktFrontal(z, a)) {
       const kosten = s.schaden * DECKUNG_KOSTEN;
       a.ausdauer = reicht(a.ausdauer, kosten) ? verbrauche(a.ausdauer, kosten) : { wert: 0, seitZehrung: 0, erschoepft: true };
       raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: false, toedlich: false, ausgewichen: false,
@@ -875,14 +887,14 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: !haelt, toedlich: false, ausgewichen: false, geblockt: true, linie });
       continue;
     }
-    // D188: Entladung — der schwere Schlag mit voller Ladung trägt das Element (ein Schwung, alle Ziele).
-    if (a.element && (a.ladung ?? 0) >= 1 && istSchwer(s) && a.entladung !== a.schwung) { a.entladung = a.schwung; a.ladung = 0; }
-    const flut = !!a.element && a.entladung === a.schwung;
     const ef = flut && a.element ? funkenFaktor(a.element, z.werte) : 1;
-    const f = (linieFalsch && blocktFrontal(z, a) && !s.durch ? 0.5 : 1) * (a.schadenFaktor ?? 1) * (flut ? FLUT.schaden * ef : 1);
+    const stein = flut && a.element === 'stein', wasser = flut && a.element === 'wasser';
+    const f = (linieFalsch && blocktFrontal(z, a) && !s.durch ? 0.5 : 1) * (a.schadenFaktor ?? 1)
+      * (wasser ? FLUT.schaden * ef : stein ? BRUCH.schaden * ef : 1);
     const schaden = s.schaden * f;
     z.leben = Math.max(0, z.leben - schaden);
-    z.haltung -= s.haltungsschaden * f;
+    z.haltung -= s.haltungsschaden * f * (stein ? BRUCH.haltung : 1);
+    if (stein && z.werte.mensch) { z.deckung = undefined; z.gelesen = []; }
     // D174: Ein Mensch liest — dreimal dieselbe Linie, dann deckt er sie; sonst wechselt er weg.
     if (z.werte.mensch && linie) {
       z.gelesen = [...(z.gelesen ?? []), linie].slice(-3);
@@ -906,9 +918,9 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     if (!toedlich) {
       // Rückstoss (D171): weg vom Angreifer. Ein Treffer, der nichts bewegt, sieht aus wie Durchfassen.
       const dx = z.x - a.x, dz = z.z - a.z, d = Math.hypot(dx, dz) || 1;
-      const r = (s.rueckstoss ?? 0.2) * (flut ? FLUT.stoss : 1);
+      const r = (s.rueckstoss ?? 0.2) * (wasser ? FLUT.stoss : 1);
       z.stoss = { x: dx / d * r, z: dz / d * r, rest: STOSS_DAUER };
-      if (flut && !gebrochen) betaeube(z, (z.werte.mensch ? FLUT.betaeubtMensch : FLUT.betaeubt) * ef);
+      if (wasser && !gebrochen) betaeube(z, (z.werte.mensch ? FLUT.betaeubtMensch : FLUT.betaeubt) * ef);
     }
     raus.push({ von: a.id, auf: z.id, schaden, gebrochen, toedlich, ausgewichen: false,
       ...(f < 1 ? { falscheLinie: true } : {}), ...(flut ? { element: a.element, wirkung: ef > 1.05 ? 'stark' as const : ef < 0.95 ? 'schwach' as const : undefined } : {}), linie });
