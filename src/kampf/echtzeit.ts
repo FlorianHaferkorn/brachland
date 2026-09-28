@@ -67,6 +67,13 @@ export interface Schlag {
   schritt?: number;
   /** Wie weit der Treffer das Ziel zurückstösst, Meter (D171). Ohne Angabe 0,2. */
   rueckstoss?: number;
+  /**
+   * D181: Standfest — wer so ausholt, zuckt bei einem Treffer im Vorlauf/Aktiven nicht, der Schlag
+   * geht durch (Schaden nimmt er trotzdem). Die Rolle der Axt gegen Überzahl.
+   */
+  standfest?: boolean;
+  /** D181: Wirft den Getroffenen aus der Handlung — so lange (s) betäubt, sein Vorlauf ist verloren. */
+  wirft?: number;
   /** Grundlinie des Schlags (D174); die Spielerin kann sie mit den Pfeiltasten überschreiben. */
   linie?: Linie;
   /** Geht durch jeden Block (ADR-0009 Stufe 1, D173) — der Rammstoss des Keilers. Nur ausweichen hilft. */
@@ -178,7 +185,7 @@ const AXT_1: Schlag = {
   // der Hieb in kaum ein Strafenfenster der Wegelagerer — Almsteig mit Axt 7–37 % (tools/durchlauf.ts).
   name: 'Axthieb', linie: 'oben', vorlauf: 0.37, aktiv: 0.16, erholung: 0.55,
   reichweite: 2.9, halbwinkel: 40 * GRAD,
-  schaden: 36, haltungsschaden: 52, kosten: 30, nachdrehen: 3,
+  schaden: 36, haltungsschaden: 52, kosten: 30, nachdrehen: 3, standfest: true, wirft: 0.4,
   clip: 'Axe_Overhead', hieb: { scheitel: 12 / 24, durchzug: 16 / 24 }, schritt: 0.25, rueckstoss: 0.3,
 };
 
@@ -213,11 +220,11 @@ export const WAFFEN: Record<WaffenArt, Waffe> = {
     leicht: [
       AXT_1,
       { name: 'Querhieb', linie: 'rechts', vorlauf: 0.3, aktiv: 0.2, erholung: 0.42, reichweite: 2.9, halbwinkel: 95 * GRAD,
-        schaden: 34, haltungsschaden: 46, kosten: 28, nachdrehen: 3,
+        schaden: 34, haltungsschaden: 46, kosten: 28, nachdrehen: 3, standfest: true, wirft: 0.4,
         clip: 'Axt_Quer', hieb: { scheitel: 10 / 24, durchzug: 15 / 24 }, schritt: 0.3, rueckstoss: 0.3 },
     ],
     schwer: { name: 'Spalthieb', linie: 'oben', vorlauf: 0.9, aktiv: 0.18, erholung: 0.7, reichweite: 3.0, halbwinkel: 40 * GRAD,
-      schaden: 60, haltungsschaden: 80, kosten: 42, nachdrehen: 2,
+      schaden: 60, haltungsschaden: 80, kosten: 42, nachdrehen: 2, standfest: true,
       clip: 'Axt_Schwer', hieb: { scheitel: 20 / 24, durchzug: 25 / 24 }, schritt: 0.5, rueckstoss: 0.6 },
     lauf: { name: 'Laufhieb', linie: 'rechts', vorlauf: 0.2, aktiv: 0.16, erholung: 0.6, reichweite: 3.0, halbwinkel: 55 * GRAD,
       schaden: 40, haltungsschaden: 55, kosten: 30, nachdrehen: 2,
@@ -787,7 +794,10 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     if (toedlich) { z.phase = 'gefallen'; z.zeit = 0; }
     else if (z.haltung <= 0) {
       betaeube(z); z.haltung = z.werte.haltungMax; gebrochen = true;
-    } else if ((z.werte.zucken ?? 0) > 0) {
+    } else if (s.wirft) {
+      // D181: Ein wuchtiger Treffer wirft aus der Handlung — auch Gegner, die sonst nicht zucken.
+      betaeube(z, s.wirft);
+    } else if ((z.werte.zucken ?? 0) > 0 && !((z.phase === 'vorlauf' || z.phase === 'aktiv') && z.schlag.standfest)) {
       // D170: Der Treffer reisst aus der Handlung — ein Schlag im Vorlauf ist verloren.
       z.phase = 'zucken'; z.zeit = 0; z.folge = []; z.puffer = null;
     }

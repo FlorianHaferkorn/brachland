@@ -41,6 +41,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { HUEFTE } from '../spieler/figur.js';
+import { lagerTon } from '../ton/lagerton.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
@@ -3771,7 +3772,7 @@ export function RegionsSzene({
               hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} />
       )}
       {lagerstellen && lagerstellen.length > 0 && (
-        <Lagerstellen stellen={lagerstellen} nacht={tageszeit >= 0.86 || tageszeit < 0.2}
+        <Lagerstellen stellen={lagerstellen} nacht={tageszeit >= 0.86 || tageszeit < 0.2} ziel={ref}
                       hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} />
       )}
       {regent && regentOrt && (
@@ -3799,13 +3800,17 @@ export function RegionsSzene({
  * Flamme, flackerndes Punktlicht und zwei Fackeln — die Gefahr ist von Weitem lesbar, bevor
  * die 22-m-Grenze greift. Nur Primitive, keine Assets.
  */
-function Lagerstellen({ stellen, nacht, hoeheAn }: {
+function Lagerstellen({ stellen, nacht, hoeheAn, ziel }: {
   stellen: readonly { x: number; z: number }[]; nacht: boolean; hoeheAn: (x: number, z: number) => number;
+  ziel: React.RefObject<THREE.Object3D | null>;
 }) {
+  useEffect(() => () => lagerTon(Infinity, false), []);
   const lichter = useRef<(THREE.PointLight | null)[]>([]);
   const flammen = useRef<(THREE.Mesh | null)[]>([]);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
+    const p = ziel.current?.position;
+    lagerTon(p ? Math.min(...stellen.map(l => Math.hypot(l.x - p.x, l.z - p.z))) : Infinity, nacht);
     lichter.current.forEach((l, i) => { if (l) l.intensity = 14 + 5 * Math.sin(t * 9 + i) + 3 * Math.sin(t * 23 + i * 2); });
     flammen.current.forEach((f, i) => { if (f) f.scale.y = 1 + 0.18 * Math.sin(t * 11 + i * 3); });
   });

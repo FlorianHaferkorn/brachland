@@ -122,9 +122,14 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     } else if (frei(s) || s.phase === 'erholung') {
       if (frei(s)) s.blick = blickAuf(s.x, s.z, g.x, g.z);
       const offen = g.phase === 'erholung' && g.folge.length === 0 || g.phase === 'betaeubt' || (lauert && g.phase === 'bereit');
+      // D181: Mit einem standfesten Schlag (Axt) greift er auch an, wenn der Gegner gerade ausholt und
+      // der eigene Hieb vorher ankommt — der Treffer wirft ihn aus dem Vorlauf.
+      const vorher = naechsterSchlag(s, 'leicht').schlag;
+      const durch = !!vorher.standfest && !!vorher.wirft && g.phase === 'vorlauf' && g.schlag.vorlauf - g.zeit > vorher.vorlauf + 0.05;
       // Wie lange er noch offen steht — ein Mensch schlägt nur, wenn der Schlag vorher ankommt.
       const rest = !offen ? 0 : g.phase === 'erholung' ? g.schlag.erholung - g.zeit
         : g.phase === 'betaeubt' ? (g.betaeubtFuer ?? g.werte.betaeubt) - g.zeit : (w.atem ?? 0);
+      const restD = durch ? g.schlag.vorlauf - g.zeit : rest;
       const art = g.phase === 'betaeubt' ? 'schwer' : 'leicht';
       const naechster = naechsterSchlag(s, art).schlag;
       const reich = naechster.reichweite * 0.9;
@@ -132,10 +137,10 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
       // Ausdauer für eine Rolle bleibt übrig — wer sie verschlägt, steht beim nächsten Angriff blank
       // (D172: die Klinge verlor zu zweit, weil der Bot ihre Kette bis zur Neige schlug).
       const reserve = s.ausdauer.wert - naechster.kosten >= s.werte.rolle.kosten;
-      const reicht = reserve && rest > weg + naechster.vorlauf;
+      const reicht = reserve && (durch ? restD > naechster.vorlauf : rest > weg + naechster.vorlauf);
       // D174: In die freie Linie schlagen; müde trifft öfter die gedeckte.
       if (g.deckung) s.linie = z.r() < (p.name === 'müde' ? 0.3 : 0.05) ? g.deckung : andereLinie(g.deckung);
-      if (offen && reicht && rand <= reich) puffere(s, art);
+      if ((offen || durch) && reicht && rand <= reich) puffere(s, art);
       else if (!frei(s)) { /* in der Erholung: nicht nachsetzen, sie läuft aus */ }
       // Nachsetzen, wenn er offen steht; sonst stehen und auf das Telegraf warten. (Zurückweichen
       // gab es in der ersten Fassung — der Gegner rückte nach, schlug nie, 90 s Patt.)

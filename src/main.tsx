@@ -117,6 +117,8 @@ function lagerOffen(st: Spielstand, id: string): boolean {
 }
 /** `?lager=1`: Wegelager auch bei Messadressen (Probe, D175). */
 const LAGER_PROBE = new URLSearchParams(location.search).has('lager');
+/** D181: Messadresse `?zuflucht=<ort>` — gilt als letzte Zuflucht, damit das Aufwachen prüfbar ist. */
+const ZUFLUCHT_PROBE = LAGER_PROBE ? new URLSearchParams(location.search).get('zuflucht') : null;
 const HELD_EDITOR = new URLSearchParams(location.search).get('held') === 'editor';
 
 /** Wegelager in der Welt (D175): an einem Ort festgemacht, Versatz in Metern (x, z). */
@@ -403,7 +405,8 @@ function App() {
     if (!sieg) {
       lagerRuhe.current.add(alt.id);
       // D179: Niederlage heisst Aufwachen in der letzten Zuflucht — mit vollem Leben, ohne Beute.
-      const z = standRef.current?.letzteZuflucht ? ORTE.get(standRef.current.letzteZuflucht) : undefined;
+      const zid = standRef.current?.letzteZuflucht ?? ZUFLUCHT_PROBE;
+      const z = zid ? ORTE.get(zid) : undefined;
       const wd = weltRef.current;
       if (z && wd) {
         const [x, zz] = nachMetern(z.ort, wd.bbox);
