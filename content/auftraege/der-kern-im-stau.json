@@ -1,0 +1,10 @@
+{
+  "id": "der-kern-im-stau",
+  "region": "oental",
+  "geber": "dorf-schmied",
+  "titel": "Der Kern im Stau",
+  "text": "Das Ding im Stauwehr hat ein Herz aus Glas und Draht. Mein Vater hat so eins gesehen, bei einem, der das Zeichen am Arm trug wie Sie. Wenn es liegt, bringen Sie mir, was in ihm leuchtet. Ich fasse es in Harz, und Ihr Arm tut den Rest. Fragen Sie mich nicht, wie. Ich will es gar nicht wissen.",
+  "ziel": { "art": "regent", "regent": "flussvater" },
+  "belohnung": { "harzverband": 2 },
+  "vorher": "harz-fuer-die-esse"
+}

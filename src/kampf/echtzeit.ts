@@ -165,6 +165,18 @@ export const SPIELERIN: KampfWerte = {
  */
 export type WaffenArt = 'klinge' | 'axt' | 'speer';
 /**
+ * D188: Kernfunken (Story-Bibel §5: die Direktivkerne der Regenten). Bisher nur Wasser (Flussvater).
+ * Wirkung „Flutstoss“: der schwere Schlag mit voller Ladung wirft weit zurück, betäubt, +25 % Schaden;
+ * gegen Menschen halb so lange betäubt — sie stemmen sich dagegen, Tiere werden weggespült.
+ */
+export type Element = 'wasser';
+export const LADUNG = { treffer: 0.2, parade: 0.35 };
+export const FLUT = { schaden: 1.25, stoss: 3, betaeubt: 0.7, betaeubtMensch: 0.35 };
+/** Der schwere Schlag jeder Waffe — nur er entlädt den Funken. */
+export function istSchwer(s: Schlag): boolean {
+  return s === WAFFEN.klinge.schwer || s === WAFFEN.axt.schwer || s === WAFFEN.speer.schwer;
+}
+/**
  * Ein Moveset je Waffe (D171) — wie in der Gattung: leichte Kette, schwerer Schlag, Laufangriff.
  * `schlag` ist der erste der leichten Kette und bleibt, was die älteren Prüfungen meinen.
  */
@@ -538,6 +550,12 @@ export interface Kaempfer {
   seitSchlag: number;
   /** Geführte Waffe (ADR-0008); Gegner führen keine. */
   waffe?: WaffenArt;
+  /** D188: Kernfunke in der Waffe (Element des besiegten Regenten). */
+  element?: Element;
+  /** 0…1 — füllt sich mit Treffern und Paraden; voll entlädt der nächste schwere Schlag das Element. */
+  ladung?: number;
+  /** Schwung, in dem das Element entladen wird (trifft jedes Ziel dieses Schwungs). */
+  entladung?: number;
   /** Der Schlag, der gerade läuft oder zuletzt lief (D171) — nicht immer `werte.schlag`. */
   schlag: Schlag;
   /** Was nach diesem Schlag ohne Pause folgt (Kette, D171). */
@@ -782,6 +800,8 @@ export interface Treffer {
   geblockt?: boolean;
   /** Parade (D173): gefangen im ersten Moment des Blocks, der Angreifer ist betäubt. */
   pariert?: boolean;
+  /** D188: Das Element wurde mit diesem Treffer entladen. */
+  element?: Element;
   /** In die gedeckte Linie eines Menschen geschlagen (D174): kein Schaden, der Angreifer zahlt Ausdauer. */
   gedeckt?: boolean;
   /** Block in der falschen Linie (D174): halber Schaden. */
@@ -824,6 +844,7 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       const dx = z.x - a.x, dz = z.z - a.z, d = Math.hypot(dx, dz) || 1;
       if (z.zeit <= PARADE) {
         betaeube(a, PARADE_BETAEUBT);
+        if (z.element) z.ladung = Math.min(1, (z.ladung ?? 0) + LADUNG.parade);
         raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: false, toedlich: false, ausgewichen: false,
           geblockt: true, pariert: true, linie });
         continue;
@@ -836,7 +857,10 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       raus.push({ von: a.id, auf: z.id, schaden: 0, gebrochen: !haelt, toedlich: false, ausgewichen: false, geblockt: true, linie });
       continue;
     }
-    const f = (linieFalsch && blocktFrontal(z, a) && !s.durch ? 0.5 : 1) * (a.schadenFaktor ?? 1);
+    // D188: Entladung — der schwere Schlag mit voller Ladung trägt das Element (ein Schwung, alle Ziele).
+    if (a.element && (a.ladung ?? 0) >= 1 && istSchwer(s) && a.entladung !== a.schwung) { a.entladung = a.schwung; a.ladung = 0; }
+    const flut = !!a.element && a.entladung === a.schwung;
+    const f = (linieFalsch && blocktFrontal(z, a) && !s.durch ? 0.5 : 1) * (a.schadenFaktor ?? 1) * (flut ? FLUT.schaden : 1);
     const schaden = s.schaden * f;
     z.leben = Math.max(0, z.leben - schaden);
     z.haltung -= s.haltungsschaden * f;
@@ -848,6 +872,7 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     z.seitTreffer = 0;
     let gebrochen = false;
     const toedlich = z.leben <= 0;
+    if (a.element && !flut) a.ladung = Math.min(1, (a.ladung ?? 0) + LADUNG.treffer);
     if (toedlich) { z.phase = 'gefallen'; z.zeit = 0; }
     else if (z.haltung <= 0) {
       betaeube(z); z.haltung = z.werte.haltungMax; gebrochen = true;
@@ -862,11 +887,12 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     if (!toedlich) {
       // Rückstoss (D171): weg vom Angreifer. Ein Treffer, der nichts bewegt, sieht aus wie Durchfassen.
       const dx = z.x - a.x, dz = z.z - a.z, d = Math.hypot(dx, dz) || 1;
-      const r = s.rueckstoss ?? 0.2;
+      const r = (s.rueckstoss ?? 0.2) * (flut ? FLUT.stoss : 1);
       z.stoss = { x: dx / d * r, z: dz / d * r, rest: STOSS_DAUER };
+      if (flut && !gebrochen) betaeube(z, z.werte.mensch ? FLUT.betaeubtMensch : FLUT.betaeubt);
     }
     raus.push({ von: a.id, auf: z.id, schaden, gebrochen, toedlich, ausgewichen: false,
-      ...(f < 1 ? { falscheLinie: true } : {}), linie });
+      ...(f < 1 ? { falscheLinie: true } : {}), ...(flut ? { element: a.element } : {}), linie });
   }
   return raus;
 }

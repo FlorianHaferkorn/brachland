@@ -26,6 +26,8 @@ export interface KampfStand {
   meldungSeit: number;
   /** Name der geführten Waffe (ADR-0008). */
   waffe: string;
+  /** D188: Ladung des Kernfunkens 0…1, `null` ohne Funken. */
+  ladung?: number | null;
   /** Wartet der Platz noch auf die erste Eingabe? Dann steht die Meldung ohne Ausblenden. */
   ruhig: boolean;
   /** Zählt erlittene Treffer — ein neuer Wert lässt den Rand rot aufblitzen (D171). */
@@ -52,6 +54,8 @@ const fuellung: React.CSSProperties = { height: '100%', width: '100%' };
 
 export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | null> }) {
   const eigen = useRef<HTMLDivElement>(null);
+  const funke = useRef<HTMLDivElement>(null);
+  const funkeRahmen = useRef<HTMLDivElement>(null);
   const zielHuelle = useRef<HTMLDivElement>(null);
   const zielLeben = useRef<HTMLDivElement>(null);
   const zielHaltung = useRef<HTMLDivElement>(null);
@@ -101,6 +105,15 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
             feld.style.background = l && l.kommt === n ? (l.parade ? '#e0b050' : '#a0452f')
               : l?.deckung === n ? '#5d6a66' : '#0d1210aa';
             feld.style.borderColor = l?.eigen === n ? '#f3f0e6' : '#2a3632';
+          }
+        }
+        if (funke.current && funkeRahmen.current) {
+          const l = s.ladung;
+          funkeRahmen.current.style.display = l == null ? 'none' : 'block';
+          if (l != null) {
+            funke.current.style.width = `${(Math.min(1, l) * 100).toFixed(1)}%`;
+            funke.current.style.background = l >= 1 ? '#7fd4ff' : '#3f86b8';
+            funkeRahmen.current.style.boxShadow = l >= 1 ? '0 0 8px #7fd4ff' : 'none';
           }
         }
         if (zaehler.current) zaehler.current.textContent = `${s.gegnerUebrig}/${s.gegnerGesamt} · ${s.waffe}`;
@@ -161,6 +174,8 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
       }}>
         <div style={balken(132, 5)}><div ref={eigen} style={{ ...fuellung, background: '#9c7d62' }} /></div>
+        {/* D188: Kernfunke — voll heisst: der nächste schwere Schlag (I) entlädt ihn */}
+        <div ref={funkeRahmen} title="Wasserfunke — voll: I entlädt ihn" style={{ ...balken(132, 4), display: 'none' }}><div ref={funke} style={{ ...fuellung, background: '#3f86b8' }} /></div>
         <div style={{ ...text, opacity: 0.7 }}>
           J leicht · I schwer · Shift+J im Lauf · K Rolle · U/RMT Block · Pfeile/Maus Linie · L Ziel · V nah · C Ansicht · Q/E · 1/2/3 Waffe · <span ref={zaehler} />
         </div>

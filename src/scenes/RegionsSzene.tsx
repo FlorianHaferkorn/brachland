@@ -2880,6 +2880,15 @@ function trageAmKoerper(scene: THREE.Object3D, w: Record<'klinge' | 'axt' | 'spe
   return aus;
 }
 
+/** D188: `?pose=Clip,Anteil,Waffe` friert die Figur in einem Clip ein (Bildprüfung von Griff und Klinge). */
+const POSE_PROBE: [string, number, 'klinge' | 'axt' | 'speer'] | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const r = new URLSearchParams(location.search).get('pose');
+  if (!r) return null;
+  const [c, t, w] = r.split(',');
+  return [c, Math.min(0.999, Math.max(0, Number(t) || 0)), (w === 'axt' || w === 'speer' ? w : 'klinge')];
+})();
+
 /** Block-Clip je Waffe (D173/D174/D184). */
 const BLOCKCLIP = { klinge: 'Klinge_U_Block', axt: 'Axt_Block', speer: 'Speer_Block' } as const;
 
@@ -2932,7 +2941,7 @@ function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
 function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
   gier: React.RefObject<number>;
   /** Schmiedestufen (D178): Stufe 1–2 heller geschliffen, Stufe 3 ein anderes Modell. */
-  waffenStufen?: { klinge: number; axt: number; speer?: number };
+  waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' };
   /** Kampfzustand (D167): Schlag, Rolle, Treffer, Fall als Clip. Ohne Kampf null. */
   kampf?: React.RefObject<KampfFigur | null>;
   schritt: React.RefObject<{ phase: number; tempo: number }>;
@@ -3045,7 +3054,9 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
         // D178: Stufe 3 („meisterlich“) ist ein eigenes Modell — beide hängen in der Gruppe, eins sichtbar.
         for (const teil of [m, g.scene.getObjectByName(name + '3')]) {
           if (!teil) continue;
-          teil.position.set(0, 0, 0);
+          // D188: Die Lage aus der Datei bleibt — `waffenbau.py` legt den Griff in den Ursprung (Klinge −0,315,
+          // Axt −0,42). Das frühere Nullsetzen schob die Modelle um diese Strecke: Die Hand hielt die Klinge
+          // mitten auf dem Blatt und die Axt am Kopf (im Standbild `?pose=` gefunden).
           teil.traverse(o => {
             if (!(o instanceof THREE.Mesh)) return;
             o.castShadow = true;
@@ -3128,6 +3139,20 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
   const tier = useRef<THREE.Group>(null);
 
   useFrame((_, dt) => {
+    if (POSE_PROBE) {
+      // D188: Standbild eines Clips mit Waffe — zum Prüfen von Griff und Klingenlage.
+      const [clip, anteil, waffe] = POSE_PROBE;
+      const a = aktionen(clip, false);
+      waffen.klinge.visible = waffe === 'klinge'; waffen.axt.visible = waffe === 'axt'; waffen.speer.visible = waffe === 'speer';
+      for (const art of ['klinge', 'axt', 'speer'] as const) { const r = waffen.ruecken[art]; if (r) r.visible = false; }
+      if (a) {
+        if (!a.isRunning()) { mixer.stopAllAction(); a.play(); }
+        a.paused = false; a.time = a.getClip().duration * anteil; a.timeScale = 0; a.weight = 1;
+        mixer.update(0);
+      }
+      if (gruppe.current) gruppe.current.rotation.y = gier.current;
+      return;
+    }
     const k = reittier ? null : kampf?.current ?? null;
     // In der Rolle schaut die Figur dorthin, wohin sie rollt — rückwärts ausweichen heisst
     // umdrehen und vorwärts rollen, nicht rückwärts purzeln.
@@ -3137,6 +3162,16 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
     waffen.klinge.visible = !!k && k.waffe === 'klinge';
     waffen.axt.visible = !!k && k.waffe === 'axt';
     waffen.speer.visible = !!k && k.waffe === 'speer';
+    // D188: Kernfunke — die Waffe in der Hand schimmert mit der Ladung, voll pulsiert sie wasserblau.
+    if (k?.waffe) {
+      const l = k.element ? k.ladung ?? 0 : 0;
+      const staerke = l >= 1 ? 0.55 + 0.35 * Math.sin(performance.now() / 140) : l * 0.25;
+      waffen[k.waffe].traverse(o => {
+        const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
+        if (!m || !('emissive' in m)) return;
+        m.emissive.setRGB(0.15, 0.55, 1.0); m.emissiveIntensity = staerke;
+      });
+    }
     // D184: Was nicht in der Hand ist, hängt am Körper — Speer und Axt über Kreuz am Rücken, Klinge am Gürtel.
     for (const art of ['klinge', 'axt', 'speer'] as const) {
       const r = waffen.ruecken[art];
@@ -3689,7 +3724,7 @@ export interface RegionsSzeneProps {
   /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen. */
   kampfEnde?: (sieg: boolean) => void;
   /** Schmiedestufen der Waffen (D177). */
-  waffenStufen?: { klinge: number; axt: number; speer?: number };
+  waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' };
   /** Begegnung bei Nacht (D179). */
   kampfNacht?: boolean;
   /** Spieler versetzen (D179, Aufwachen in der Zuflucht). */

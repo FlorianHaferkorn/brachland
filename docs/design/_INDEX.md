@@ -17,7 +17,8 @@ owns: *.md
 
 | Deine Aufgabe ist … | Lies |
 |---|---|
-| Welt, Ton, Fraktionen, Erzählung verstehen | `BRACHLAND_Story-Bibel_v1.md` |
+| Welt, Ton, Fraktionen, Erzählung verstehen | `BRACHLAND_Kernfunken_v1.md` | D188: Elementarangriffe im Echtzeitkampf — Direktivkerne der Regenten, Laden/Entladen, Wasserfunke umgesetzt, weitere als Entwurf |
+| `BRACHLAND_Story-Bibel_v1.md` |
 | Kampflogik ändern oder Werte balancieren | `BRACHLAND_Kampfsystem_v2.md` |
 | Einen Move anlegen oder ändern | `BRACHLAND_Move-System_v1.md` |
 | Eine Kreatur anlegen | `BRACHLAND_Roster-Struktur_v1.md` → `BRACHLAND_Roster_Kapitel1.md` |

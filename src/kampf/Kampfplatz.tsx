@@ -144,6 +144,9 @@ interface Leib {
  */
 export interface KampfFigur {
   phase: Kaempfer['phase'];
+  /** D188: Kernfunke und Ladung 0…1 (Anzeige, Leuchten der Waffe). */
+  element?: 'wasser';
+  ladung?: number;
   /** Zählt Schläge und Rollen — ein neuer Wert heisst: Clip von vorn, auch mitten im alten. */
   schwung: number;
   rollen: number;
@@ -262,7 +265,7 @@ type PlatzProps = {
    */
   onEnde?: (sieg: boolean) => void;
   /** Stufen aus der Schmiede (D177). */
-  waffenStufen?: { klinge: number; axt: number; speer?: number };
+  waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' };
   /** Nachts stärker (D179, `naechtlich`). */
   nacht?: boolean;
 };
@@ -330,7 +333,9 @@ function KampfplatzMitModellen(props: PlatzProps) {
  * nicht fallen. Die Figur führt sich selbst vor — je Waffe Kette, schwerer Schlag, Block, dann die
  * vier Kameras (C). Jede Taste des Spielers funktioniert weiter; die Vorführung läuft nebenher.
  */
-const GALERIE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('galerie');
+/** D188: Vorführung an/aus — die Galerie-Leiste schaltet sie. */
+export const galerieAuto = { an: true };
+export const GALERIE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('galerie');
 const GALERIE_ABLAUF: [string, number, number?][] = [
   // [Taste, Wartezeit danach in ms, gehalten in ms]
   ['KeyX', 1000], ['KeyL', 800],
@@ -339,6 +344,9 @@ const GALERIE_ABLAUF: [string, number, number?][] = [
     ['KeyC', 2400], ['KeyC', 2200], ['KeyC', 2800], ['KeyC', 900],
   ] as [string, number, number?][]),
 ];
+
+/** D188: `?funke=wasser` — mit Kernfunke in den Kampf (Prüfung). */
+const FUNKE_PROBE: 'wasser' | undefined = typeof location !== 'undefined' && new URLSearchParams(location.search).get('funke') === 'wasser' ? 'wasser' : undefined;
 
 const WAFFE_START: WaffenArt = (() => {
   const w = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('waffe') : null;
@@ -458,6 +466,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       for (let runde = 0; lebt; runde++) {
         for (const [taste, pause, halten] of GALERIE_ABLAUF) {
           if (!lebt) return;
+          while (lebt && !galerieAuto.an) await warte(300);
           if (runde > 0 && taste === 'KeyX') continue;
           druecke(taste, halten);
           await warte((halten ?? 0) + pause);
@@ -674,6 +683,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     // Gepuffert (D171): ausgeführt im nächsten Teilschritt, in dem es geht — auch aus der Erholung.
     if (a.linie) { s.linie = a.linie; a.linie = null; }
     s.schadenFaktor = schadenFaktor(waffenStufen?.[s.waffe ?? 'klinge'] ?? 0);
+    s.element = waffenStufen?.funke ?? FUNKE_PROBE;
     if (a.schlag) { puffere(s, a.schlag); a.schlag = null; }
     // Block (ADR-0009 Stufe 1, D173): U halten. Heben im ersten Moment vor dem Treffer pariert.
     if (t.has('KeyU') || t.has('Maus2')) { if (s.phase !== 'block') setzeBlockAn(s); } else loeseBlock(s);
@@ -725,6 +735,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         else if (e.gebrochen) melde('Haltung gebrochen');
       } else {
         const i = w.gegner.findIndex(g => g.id === e.auf);
+        if (e.element) melde('Flutstoss');
         if (i >= 0 && !e.ausgewichen) {
           zeichnung.puppen[i].blitz = jetzt;
           // Seite des Angreifers im Blick des Getroffenen: rechts ist (−vz, vx) zur Vorwärtsrichtung.
@@ -777,6 +788,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       const sw = s.werte, sl = s.schlag, waffe = WAFFEN[s.waffe ?? 'klinge'];
       figur.current = {
         phase: s.phase, schwung: s.schwung, rollen: z.rollen, getroffen: z.getroffen,
+        element: s.element, ladung: s.ladung ?? 0,
         schlagDauer: sl.vorlauf + sl.aktiv + sl.erholung,
         rolleDauer: sw.rolle.dauer,
         rolleBlick: s.rolleX !== 0 || s.rolleZ !== 0 ? Math.atan2(-s.rolleX, -s.rolleZ) : null,
@@ -803,7 +815,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
           + `@${Math.hypot(g.x - s.x, g.z - s.z).toFixed(1)}`).join(' '),
         meldung: los.current ? meldung.current.text : 'eine Taste — die Übung beginnt',
         meldungSeit: los.current ? meldung.current.seit : 0,
-        waffe: WAFFEN[s.waffe ?? 'klinge'].name,
+        waffe: WAFFEN[s.waffe ?? 'klinge'].name, ladung: s.element ? s.ladung ?? 0 : null,
         ruhig: !los.current,
         getroffen: zaehler.current.getroffen,
         schlag: s.phase === 'vorlauf' || s.phase === 'aktiv' || s.phase === 'erholung' ? s.schlag.name ?? '' : '',

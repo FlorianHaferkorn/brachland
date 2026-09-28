@@ -16,7 +16,7 @@ import {
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, kannSchlagen, kannRollen,
   imBogen, loeseTreffer, schrittKaempfer, simuliere, waehleZiel, blickAuf, vorwaerts,
   WAFFEN, ruesteAus, wechsleZiel, KEILER, GRATHORN, WOLF,
-  puffere, naechsterSchlag, setzeBlockAn, loeseBlock, kannBlocken, WEGELAGERER, DECKUNG_KOSTEN, type Linie, PARADE, PARADE_BETAEUBT, BLOCK, PUFFER, KOMBO_AB, KOMBO_FENSTER, WURF_SPERRE, TREFFERSTOPP, STOSS_DAUER, type Schlag,
+  puffere, naechsterSchlag, setzeBlockAn, loeseBlock, kannBlocken, WEGELAGERER, DECKUNG_KOSTEN, type Linie, PARADE, PARADE_BETAEUBT, BLOCK, PUFFER, KOMBO_AB, KOMBO_FENSTER, WURF_SPERRE, LADUNG, FLUT, TREFFERSTOPP, STOSS_DAUER, type Schlag,
   type Kaempfer, type Kampfwelt, type Treffer,
 } from '../src/kampf/echtzeit.js';
 
@@ -164,6 +164,30 @@ let schlaegeAusVoll = 0, rollenAusVoll = 0;
   pruefe('im Vorlauf keine Rolle — wer ausholt, hat sich festgelegt', !kannRollen(e));
   e.phase = 'erholung';
   pruefe('aus der Erholung darf gerollt werden', kannRollen(e));
+}
+
+// ---------------------------------------------------- D188: Wasserfunke — laden, entladen, Flutstoss
+{
+  const { s, g } = paar(2);
+  s.element = 'wasser'; s.ladung = 0;
+  const hau = (schlag = WAFFEN.klinge.schlag) => {
+    g.haltung = g.werte.haltungMax; g.phase = 'bereit'; g.leben = g.werte.lebenMax;
+    s.phase = 'aktiv'; s.schlag = schlag; s.schwung++; s.erreicht = new Set();
+    return loeseTreffer(s, [g]);
+  };
+  hau();
+  pruefe('ein Treffer lädt', Math.abs((s.ladung ?? 0) - LADUNG.treffer) < 1e-9, String(s.ladung));
+  const l0 = g.werte.lebenMax;
+  const normal = hau(WAFFEN.klinge.schwer)[0].schaden;
+  pruefe('schwerer Schlag ohne volle Ladung entlädt nicht', !hau(WAFFEN.klinge.schwer)[0].element);
+  s.ladung = 1;
+  const t = hau(WAFFEN.klinge.schwer)[0];
+  pruefe('volle Ladung + schwer = Flutstoss', t.element === 'wasser' && (s.ladung ?? 1) === 0);
+  pruefe(`Flutstoss macht ${FLUT.schaden}× Schaden`, Math.abs(t.schaden - normal * FLUT.schaden) < 1e-6, `${t.schaden} gegen ${normal}`);
+  pruefe('Flutstoss betäubt', g.phase === 'betaeubt' || t.gebrochen, g.phase);
+  s.ladung = 1;
+  pruefe('leichter Schlag entlädt nie', !hau()[0].element && (s.ladung ?? 0) === 1);
+  pruefe('Leben bleibt ohne Funken unberührt vom Element', l0 > 0);
 }
 
 // ---------------------------------------------------- D182: Wurfsperre — die Axt nagelt keinen fest

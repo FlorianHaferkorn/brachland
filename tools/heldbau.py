@@ -85,6 +85,7 @@ def setze(arm, pb, dreh_welt, kopf_welt=None):
 # jedem Bild: linke Hand per Zwei-Knochen-IK auf den Punkt, den sie in der Quelle relativ zur rechten
 # hatte (skaliert mit der Körpergrösse), Ellbogenebene und Handdrehung bleiben.
 ZWEIHAND = ('Axt_', 'Speer_')
+GRIFF_ZWEI = {}
 GREIF_FEHLER = []
 
 
@@ -107,6 +108,19 @@ def greife_links(quelle, ziel, s):
 
     S, E, H = zw @ ua.head, zw @ la.head, zw @ ha.head
     a, b = (E - S).length, (H - E).length
+    # D188: Reicht der Arm nicht, rutscht die Hand am Stiel entlang (Linie durch die rechte Hand in
+    # Richtung der linken) bis in Reichweite — sie bleibt am Stiel statt daneben in der Luft.
+    R = zw @ zpb['hand_r'].head
+    u = soll - R; t0 = u.length; u = u.normalized() if t0 > 1e-6 else u
+    L = a + b - 0.005
+    if (soll - S).length > L and t0 > 1e-6:
+        w = R - S
+        pb_, pc = w.dot(u), w.dot(w) - L * L
+        disk = pb_ * pb_ - pc
+        if disk >= 0:
+            wurzeln = [-pb_ - math.sqrt(disk), -pb_ + math.sqrt(disk)]
+            t = min((x for x in wurzeln if x > 0.05), key=lambda x: abs(x - t0), default=None)
+            if t is not None: soll = R + u * t
     ziel_d = soll - S
     d = min(ziel_d.length, a + b - 1e-4)
     rich = ziel_d.normalized()
@@ -121,7 +135,9 @@ def greife_links(quelle, ziel, s):
     kopf = ha.matrix.to_translation()
     ha.matrix = Matrix.Translation(kopf) @ (rot_w.inverted() @ hand_rot).to_4x4()
     bpy.context.view_layer.update()
-    GREIF_FEHLER.append((vorher, (zw @ ha.head - soll).length))
+    # Gemessen wird der Abstand zum Stiel (Linie), nicht zum ursprünglichen Griffpunkt.
+    p_ = zw @ ha.head - R
+    GREIF_FEHLER.append((vorher, (p_ - u * p_.dot(u)).length if t0 > 1e-6 else (zw @ ha.head - soll).length))
 
 
 def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None):
@@ -192,6 +208,9 @@ def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None):
                     print('    ZIEL', [round(x, 3) for x in zpb['thigh_l'].rotation_quaternion], zpb['thigh_l'].rotation_mode, len(zad.nla_tracks))
                 if griff:
                     for k, qq in griff.items():
+                        zpb[k].rotation_mode = 'QUATERNION'; zpb[k].rotation_quaternion = qq
+                if name.startswith(ZWEIHAND) and GRIFF_ZWEI:
+                    for k, qq in GRIFF_ZWEI.items():
                         zpb[k].rotation_mode = 'QUATERNION'; zpb[k].rotation_quaternion = qq
                 if name.startswith(ZWEIHAND) and 'Wrist.L' in qpb:
                     greife_links(quelle, ziel, s)
@@ -356,6 +375,12 @@ if not NUR or 'clips' in NUR:
     if hasattr(q.animation_data, 'action_slot') and acts['Sword_Block'].slots: q.animation_data.action_slot = acts['Sword_Block'].slots[0]
     bpy.context.scene.frame_set(10)
     griff = {f: q.pose.bones[f].matrix_basis.to_quaternion() for f in FINGER if f in q.pose.bones and f in ziel.pose.bones}
+    # D188: Die linke Hand greift bei zweihändigen Waffen zu — Finger aus TreeChopping_Loop (Axt mit
+    # beiden Händen), sonst stand sie bei Axt und Speer offen am Stiel.
+    q.animation_data.action = acts['TreeChopping_Loop']
+    if hasattr(q.animation_data, 'action_slot') and acts['TreeChopping_Loop'].slots: q.animation_data.action_slot = acts['TreeChopping_Loop'].slots[0]
+    bpy.context.scene.frame_set(8)
+    griff_zwei = {f: q.pose.bones[f].matrix_basis.to_quaternion() for f in FINGER if f.endswith('_l') and f in q.pose.bones and f in ziel.pose.bones}
     q.animation_data.action = None
     for o in [q] + list(q.children_recursive):
         bpy.data.objects.remove(o, do_unlink=True)
@@ -371,6 +396,7 @@ if not NUR or 'clips' in NUR:
     for tr in list(alt.animation_data.nla_tracks): alt.animation_data.nla_tracks.remove(tr)
     # Die alte Armatur hing unter einem Wurzelknoten mit Massstab — die Weltmatrix zählt, nicht die Eltern.
     alt.matrix_world = alt.matrix_world  # ohne Eltern verlinkt: Weltmatrix = eigene
+    GRIFF_ZWEI.update(griff_zwei)
     uebertrage(alt, ziel, {n: [(n, 1, None)] for n in ALT_CLIPS}, ALT_KARTE, ('Body', 'pelvis'), griff,
                seiten=('UpperArm.L', 'UpperArm.R', 'upperarm_l', 'upperarm_r', 'Body', 'Head', 'pelvis', 'Head'))
     bpy.data.objects.remove(alt, do_unlink=True)

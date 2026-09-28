@@ -31,7 +31,8 @@ import { Kampfbildschirm, type KampfEnde } from './ui/BattleScreen.js';
 import type { KaempferBild } from './ui/Kampfbuehne.js';
 import type { Kaempfer, Team } from './engine/battle.js';
 import { HeldEditor } from './ui/HeldEditor.js';
-import { angebot, bezahlbar, bezahle, KEINE_STUFEN } from './spiel/schmiede.js';
+import { GALERIE, galerieAuto } from './kampf/Kampfplatz.js';
+import { angebot, bezahlbar, bezahle, KEINE_STUFEN, FUNKE_PREIS, FUNKE_REGENT } from './spiel/schmiede.js';
 import type { GegnerArt } from './kampf/Kampfplatz.js';
 import { setzeHeldWahl, STANDARD_HELD } from './spieler/held.js';
 import { ladeStand, speichereStand, LEERER_STAND,
@@ -541,6 +542,15 @@ function App() {
     sichere({ beutel: bezahle(a, st.beutel), waffenStufen: { ...stufen, [waffe]: a.stufe } }, teamRef.current);
     setHinweis(`${a.name} — sie trifft jetzt härter.`);
   }, [sichere]);
+  // D188: Kernfunke einsetzen (Schmiedin). Gilt für alle Waffen — die Marke trägt ihn.
+  const funkeEinsetzen = useCallback(() => {
+    const st = standRef.current;
+    if (!st || !bezahlbar({ waffe: 'klinge', stufe: 0, name: '', preis: FUNKE_PREIS }, st.beutel)) return;
+    const beutel = { ...st.beutel };
+    for (const [g, n] of Object.entries(FUNKE_PREIS)) beutel[g] = (beutel[g] ?? 0) - n;
+    sichere({ beutel, waffenStufen: { ...(st.waffenStufen ?? KEINE_STUFEN), funke: 'wasser' } }, teamRef.current);
+    setHinweis('Der Kern sitzt. Die Marke am Unterarm wird kalt, wenn du zuschlägst — Wasserfunke (schwerer Schlag, wenn er voll ist).');
+  }, [sichere]);
 
   /**
    * Ort aufmachen — und ihn dabei als besucht vermerken.
@@ -988,6 +998,7 @@ function App() {
             </button>
           )}
 
+          {GALERIE && <GalerieLeiste />}
           {stand && (editorOffen || (!stand.held && !MESSADRESSE) || HELD_EDITOR) && (
             <HeldEditor start={stand.held} onFertig={w => {
               setzeHeldWahl(w);
@@ -1042,6 +1053,8 @@ function App() {
               beutel={stand.beutel}
               waffenStufen={stand.waffenStufen ?? KEINE_STUFEN}
               onSchmiede={schmiede}
+              onFunke={funkeEinsetzen}
+              funkeFrei={stand.regenten.includes(FUNKE_REGENT.wasser) && !stand.waffenStufen?.funke}
               abends={tageszeit >= 0.74 || tageszeit < 0.2}
               kopfgeld={ortOffen === 'dorf-wirt' ? lager.map(l => {
                 const p = spielerRef.current?.position;
@@ -1191,3 +1204,32 @@ const Hinweis = ({ text }: { text: string }) => (
 );
 
 createRoot(document.getElementById('app')!).render(<StrictMode><App /></StrictMode>);
+
+/**
+ * D188: Leiste der Galerie — Waffe wählen, Ansicht schalten, Vorführung an/aus, zurück ins Spiel.
+ * Die Knöpfe drücken dieselben Tasten wie die Tastatur (ein Weg, keine Sonderlogik im Kampf).
+ */
+function GalerieLeiste() {
+  const [auto, setAuto] = useState(galerieAuto.an);
+  const taste = (code: string) => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }));
+    setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { code, bubbles: true })), 70);
+  };
+  const k = (aktiv = false): React.CSSProperties => ({
+    minHeight: 40, padding: '6px 12px', borderRadius: 8, font: '500 13px system-ui', cursor: 'pointer',
+    background: aktiv ? '#5a4a2c' : 'rgba(20,24,22,0.8)', color: '#e8e2d2', border: '1px solid #6d6552',
+  });
+  return (
+    <div style={{ position: 'fixed', right: 12, top: 70, zIndex: 30, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ color: '#e8e2d2', font: '600 13px system-ui', textShadow: '0 1px 2px #000' }}>Galerie</div>
+      {([['Digit1', 'Klinge'], ['Digit2', 'Axt'], ['Digit3', 'Speer']] as const).map(([c, t]) => (
+        <button key={c} style={k()} onClick={() => { galerieAuto.an = false; setAuto(false); taste(c); }}>{t}</button>))}
+      <button style={k()} onClick={() => taste('KeyJ')}>Leichter Schlag</button>
+      <button style={k()} onClick={() => taste('KeyI')}>Schwerer Schlag</button>
+      <button style={k()} onClick={() => taste('KeyC')}>Ansicht wechseln</button>
+      <button style={k(auto)} onClick={() => { galerieAuto.an = !galerieAuto.an; setAuto(galerieAuto.an); }}>
+        Vorführung {auto ? 'an' : 'aus'}</button>
+      <button style={k()} onClick={() => { location.search = ''; }}>Zurück ins Spiel</button>
+    </div>
+  );
+}

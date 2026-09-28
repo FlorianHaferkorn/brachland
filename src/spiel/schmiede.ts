@@ -7,7 +7,9 @@
  * Almsteig gewesen sein.
  */
 /** `speer` seit D183 — ältere Stände haben ihn nicht, darum überall `?? 0`. */
-export type WaffenStufen = { klinge: number; axt: number; speer?: number };
+export type WaffenStufen = { klinge: number; axt: number; speer?: number;
+  /** D188: eingesetzter Kernfunke — gilt für jede Waffe (die Marke trägt ihn, nicht der Stahl). */
+  funke?: 'wasser' };
 export const KEINE_STUFEN: WaffenStufen = { klinge: 0, axt: 0, speer: 0 };
 export type Schmiedewaffe = 'klinge' | 'axt' | 'speer';
 export const WAFFENNAME: Record<Schmiedewaffe, string> = { klinge: 'Klinge', axt: 'Axt', speer: 'Speer' };
@@ -24,6 +26,10 @@ export function angebot(waffe: Schmiedewaffe, jetzt = 0): Angebot | null {
   const name = `${WAFFENNAME[waffe]} ${['geschärft', 'gehärtet', 'meisterlich'][stufe - 1]}`;
   return { waffe, stufe, preis, name };
 }
+
+/** D188: Kernfunke einsetzen — erst, wenn der Regent besiegt ist; kostet Harz für die Fassung. */
+export const FUNKE_PREIS: Record<string, number> = { harzverband: 2 };
+export const FUNKE_REGENT = { wasser: 'flussvater' } as const;
 
 export function bezahlbar(a: Angebot, beutel: Record<string, number>): boolean {
   return Object.entries(a.preis).every(([g, n]) => (beutel[g] ?? 0) >= n);
