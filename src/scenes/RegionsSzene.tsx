@@ -3053,6 +3053,10 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
           });
           gruppe.add(teil);
         }
+        // D185: Die Kopie am Körper bekommt dasselbe Modell (Materialien geteilt — die Schmiedestufe
+        // färbt beide), statt der Kästen.
+        const koerper = waffen.ruecken[name === 'Klinge' ? 'klinge' : 'axt'];
+        if (koerper) { koerper.clear(); for (const c of gruppe.children) koerper.add(c.clone()); }
       }
       setWaffenGeladen(true);
     }).catch(() => { /* Rückfall: Kästen */ });
@@ -3062,10 +3066,13 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
   // Stufe 3: das meisterliche Modell statt des einfachen.
   const [waffenGeladen, setWaffenGeladen] = useState(false);
   useEffect(() => {
-    for (const [art, gruppe] of [['klinge', waffen.klinge], ['axt', waffen.axt]] as const) {
+    for (const [art, gruppe] of [['klinge', waffen.klinge], ['axt', waffen.axt], ['speer', waffen.speer]] as const) {
       const stufe = waffenStufen?.[art] ?? 0;
-      const [einfach, meister] = gruppe.children;
+      // Der Speer hat kein Meistermodell (D185): nur der Stahl der Spitze wird heller.
+      const [einfach, meister] = art === 'speer' ? [gruppe] : gruppe.children;
       if (meister) { einfach.visible = stufe < 3; meister.visible = stufe >= 3; }
+      const [ke, km] = art === 'speer' ? [] : waffen.ruecken[art]?.children ?? [];
+      if (km) { ke.visible = stufe < 3; km.visible = stufe >= 3; }
       einfach?.traverse(o => {
         if (!(o instanceof THREE.Mesh)) return;
         const mat = o.material as THREE.MeshStandardMaterial;
@@ -3304,10 +3311,23 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
    * zwischen 35 % und 100 %. Im Kampf liest man so Waffe, Pose und Linie; beim Wandern bleibt es aus.
    */
   const zoom = useRef(1);
+  /**
+   * Umschau (D185): C schaltet die Kamera um die Figur — hinten, von vorn, von der Seite. Nur der
+   * Blick dreht; die Steuerung bleibt an der Figur. `?umschau=180` für die Bildprüfung (Grad).
+   */
+  const umschau = useRef(0);
+  const umschauZiel = useRef((Number(new URLSearchParams(location.search).get('umschau')) || 0) * Math.PI / 180);
   const zoomZiel = useRef(Number(new URLSearchParams(location.search).get('zoom') ?? 1) || 1);
   useEffect(() => {
     const taste = (e: KeyboardEvent) => {
-      if (e.code !== 'KeyV' || e.repeat || e.target instanceof HTMLInputElement) return;
+      if (e.repeat || e.target instanceof HTMLInputElement) return;
+      if (e.code === 'KeyC') {
+        const stufen = [0, Math.PI, Math.PI / 2];
+        const i = stufen.findIndex(x => Math.abs(x - umschauZiel.current) < 0.01);
+        umschauZiel.current = stufen[(i + 1) % stufen.length];
+        return;
+      }
+      if (e.code !== 'KeyV') return;
       zoomZiel.current = zoomZiel.current > 0.8 ? 0.6 : zoomZiel.current > 0.5 ? 0.4 : 1;
     };
     const rad = (e: WheelEvent) => {
@@ -3342,7 +3362,8 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     // Die Kamera kreist auf einer Kugel um den Blickpunkt auf Brusthöhe: `gier`
     // dreht herum, `neigung` hebt und senkt. Bei Neigung 0 steht sie waagerecht
     // hinter dem Spieler, bei NEIGUNG_MAX fast senkrecht darüber.
-    const g = gier.current + SPIEGEL_GRAD * Math.PI / 180;
+    umschau.current += (umschauZiel.current - umschau.current) * Math.min(1, dt * 4);
+    const g = gier.current + SPIEGEL_GRAD * Math.PI / 180 + umschau.current;
     const n = neigung.current;
     const blickY = p.y + GROESSE.kameraBlickHoehe;
     const rx = Math.sin(g) * Math.cos(n);
