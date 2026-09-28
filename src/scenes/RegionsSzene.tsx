@@ -3068,10 +3068,10 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
   useEffect(() => {
     for (const [art, gruppe] of [['klinge', waffen.klinge], ['axt', waffen.axt], ['speer', waffen.speer]] as const) {
       const stufe = waffenStufen?.[art] ?? 0;
-      // Der Speer hat kein Meistermodell (D185): nur der Stahl der Spitze wird heller.
-      const [einfach, meister] = art === 'speer' ? [gruppe] : gruppe.children;
+      // D186: auch der Speer hat ein Meistermodell (`baueSpeer`).
+      const [einfach, meister] = gruppe.children;
       if (meister) { einfach.visible = stufe < 3; meister.visible = stufe >= 3; }
-      const [ke, km] = art === 'speer' ? [] : waffen.ruecken[art]?.children ?? [];
+      const [ke, km] = waffen.ruecken[art]?.children ?? [];
       if (km) { ke.visible = stufe < 3; km.visible = stufe >= 3; }
       einfach?.traverse(o => {
         if (!(o instanceof THREE.Mesh)) return;
@@ -3316,14 +3316,25 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
    * Blick dreht; die Steuerung bleibt an der Figur. `?umschau=180` für die Bildprüfung (Grad).
    */
   const umschau = useRef(0);
-  const umschauZiel = useRef((Number(new URLSearchParams(location.search).get('umschau')) || 0) * Math.PI / 180);
+  const umschauRoh = new URLSearchParams(location.search).get('umschau');
+  const umschauZiel = useRef((Number(umschauRoh) || 0) * Math.PI / 180);
+  /**
+   * Gegneransicht (D186): vierte Stufe von C, nur im Kampf mit Ziel. Die Kamera steht 3,2 m vor dem
+   * Gegner auf der Seite der Spielerin, leicht seitlich, und schaut ihm ins Gesicht — Waffe, Haltung
+   * und Ausholen von vorn. `?umschau=gegner` für die Bildprüfung.
+   */
+  const gegnerSicht = useRef(umschauRoh === 'gegner');
+  const gegnerKamera = useRef(new THREE.Vector3());
   const zoomZiel = useRef(Number(new URLSearchParams(location.search).get('zoom') ?? 1) || 1);
   useEffect(() => {
     const taste = (e: KeyboardEvent) => {
       if (e.repeat || e.target instanceof HTMLInputElement) return;
       if (e.code === 'KeyC') {
+        if (gegnerSicht.current) { gegnerSicht.current = false; umschauZiel.current = 0; return; }
         const stufen = [0, Math.PI, Math.PI / 2];
         const i = stufen.findIndex(x => Math.abs(x - umschauZiel.current) < 0.01);
+        // Nach der Seite kommt der Gegner, wenn es einen gibt; sonst wieder hinten.
+        if (i === 2 && kampf?.current?.fokus) { gegnerSicht.current = true; return; }
         umschauZiel.current = stufen[(i + 1) % stufen.length];
         return;
       }
@@ -3433,6 +3444,19 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
       if (FOV_MESSLAUF && pc.fov !== FOV_MESSLAUF) { pc.fov = FOV_MESSLAUF; pc.updateProjectionMatrix(); }
       return;
     }
+    const gf = gegnerSicht.current ? kf?.fokus : null;
+    if (gf) {
+      // Vom Gegner zur Spielerin, 3,2 m weit, 25° zur Seite gedreht, auf Augenhöhe des Gegners.
+      const dx = p.x - gf.x, dz = p.z - gf.z, d = Math.hypot(dx, dz) || 1;
+      const w = Math.atan2(dx / d, dz / d) + 0.45;
+      const soll = new THREE.Vector3(gf.x + Math.sin(w) * 3.2, gf.y + 0.35, gf.z + Math.cos(w) * 3.2);
+      gegnerKamera.current.lerp(soll, gegnerKamera.current.lengthSq() === 0 ? 1 : Math.min(1, dt * 5));
+      camera.position.copy(gegnerKamera.current);
+      camera.lookAt(gf.x, gf.y - 0.1, gf.z);
+      wackle();
+      return;
+    }
+    gegnerKamera.current.set(0, 0, 0);
     camera.position.copy(geglaettet.current);
     const m = schulter.current;
     if (m < 0.001) { camera.lookAt(p.x, blickY, p.z); wackle(); return; }
