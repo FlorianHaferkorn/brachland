@@ -13,10 +13,13 @@ from mathutils import Matrix, Vector
 arg = sys.argv[sys.argv.index('--') + 1:]
 PAKET, ZIEL = arg[0], arg[1]
 # name im Spiel: (Datei, Griffmitte z im Paket, Länge in m)
-WAFFEN = {'Klinge': ('Sword', 0.0, 0.9), 'Axt': ('Axe', -1.3, 1.0)}
+# D178: meisterliche Stufe (Schmiede Stufe 3) — goldene Klinge, Doppelaxt. Der Stiel der Doppelaxt
+# liegt im Paket bei x = 0,6, daher der vierte Wert (Griff x).
+WAFFEN = {'Klinge': ('Sword', 0.0, 0.9, 0.0), 'Axt': ('Axe', -1.3, 1.0, 0.0),
+          'Klinge3': ('Sword_Golden', 0.0, 0.95, 0.0), 'Axt3': ('Axe_Double', -2.5, 1.05, 0.6)}
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
-for name, (datei, griff, laenge) in WAFFEN.items():
+for name, (datei, griff, laenge, griff_x) in WAFFEN.items():
     bpy.ops.wm.obj_import(filepath=f'{PAKET}/OBJ/{datei}.obj')
     teile = list(bpy.context.selected_objects)
     bpy.context.view_layer.objects.active = teile[0]
@@ -26,7 +29,7 @@ for name, (datei, griff, laenge) in WAFFEN.items():
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     zs = [v.co.z for v in o.data.vertices]
     s = laenge / (max(zs) - min(zs))
-    m = Matrix.Rotation(math.pi, 4, 'Y') @ Matrix.Scale(s, 4) @ Matrix.Translation((0, 0, -griff))
+    m = Matrix.Rotation(math.pi, 4, 'Y') @ Matrix.Scale(s, 4) @ Matrix.Translation((-griff_x, 0, -griff))
     o.data.transform(m)
     o.matrix_world = Matrix.Identity(4)
     for p in o.data.polygons: p.use_smooth = False

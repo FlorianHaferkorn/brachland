@@ -3,8 +3,12 @@
   "region": "oental",
   "art": "bewohner",
   "name": "Der Wirt",
-  "ort": [47.72839, 12.09938],
+  "ort": [
+    47.72839,
+    12.09938
+  ],
   "text": "Er wischt den Tresen, an dem seit Wochen keiner sitzt. Wer fragt, was es gibt, bekommt die Antwort, dass es das nicht mehr gibt.",
   "figur": "wirt",
-  "blick": 111
+  "blick": 111,
+  "textAbend": "Abends ist der Tresen voll, und keiner zahlt. Er schenkt trotzdem aus. Wer gewinnt, erzählt es am Brett."
 }

@@ -281,6 +281,8 @@ export const Ort = z.object({
    * schärfere Waffe. Kein Handelssystem mit Preisen, eine Werkbank.
    */
   schmied: z.boolean().optional(),
+  /** Was der Bewohner abends im Wirtshaus sagt (D178). Ohne Angabe gilt `text`. */
+  textAbend: z.string().max(240).optional(),
 });
 export type Ort = z.infer<typeof Ort>;
 

@@ -319,7 +319,8 @@ if (existsSync('public/figuren/kampf')) {
     if (!herkunft.includes(f)) stop('Kampfclips', `${f} ohne Herkunftsangabe`);
     // D173: Die Waffenmodelle sind Netze ohne Animation — eigenes, kleines Budget.
     if (f === 'waffen.glb') {
-      if (kb > 60) stop('Waffenmodelle', `${f}: ${kb.toFixed(0)} KB über Budget 60 KB`);
+      // D178: 60 → 100 KB — die meisterlichen Modelle (Stufe 3) liegen mit drin.
+      if (kb > 100) stop('Waffenmodelle', `${f}: ${kb.toFixed(0)} KB über Budget 100 KB`);
       console.log(`  · [Waffenmodelle] ${f}: ${kb.toFixed(0)} KB`);
       continue;
     }

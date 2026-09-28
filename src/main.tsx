@@ -101,23 +101,37 @@ function mutationVon(v: Vorkommen): number {
  * Vorgabefigur. `?held=editor` erzwingt den Editor (D175).
  */
 const MESSADRESSE = ['absetzen', 'kampf', 'stimmung', 'kamera', 'zeit', 'ansicht'].some(k => new URLSearchParams(location.search).has(k));
+/** `?waffenstufe=3`: beide Waffen auf dieser Stufe (Messlauf, D178). */
+const WAFFENSTUFE_PROBE = (() => { const w = new URLSearchParams(location.search).get('waffenstufe'); return w === null ? undefined : { klinge: Number(w), axt: Number(w) }; })();
+/** Länge eines Spieltags in Sekunden (D178): 24 Minuten, ein Abend dauert damit gut 5. */
+const TAG_SEKUNDEN = 24 * 60;
+/**
+ * Ist am Lager jemand? Bis D177 stand ein Sieg in `besiegt` und galt für immer; seit D178 zählt die
+ * Zeit in `lagerSieg`. Ein alter Eintrag in `besiegt` ohne Zeit gilt als lange her.
+ */
+function lagerOffen(st: Spielstand, id: string): boolean {
+  const t = st.lagerSieg?.[id];
+  return t === undefined || Date.now() - t > LAGER_RUHE_MS;
+}
 /** `?lager=1`: Wegelager auch bei Messadressen (Probe, D175). */
 const LAGER_PROBE = new URLSearchParams(location.search).has('lager');
 const HELD_EDITOR = new URLSearchParams(location.search).get('held') === 'editor';
 
 /** Wegelager in der Welt (D175): an einem Ort festgemacht, Versatz in Metern (x, z). */
+/** Nach so langer Spielzeit (echte Minuten) sitzt am geschlagenen Lager wieder jemand (D178). */
+const LAGER_RUHE_MS = 40 * 60 * 1000;
 const WEGELAGER: {
-  id: string; bei: string; versatz: [number, number]; aufstellung: readonly GegnerArt[]; meldung: string;
+  id: string; name: string; bei: string; versatz: [number, number]; aufstellung: readonly GegnerArt[]; meldung: string;
   /** Beute beim Sieg (D176): Gegenstand → Anzahl, landet im Beutel. */
   beute: Record<string, number>;
   /** Stärke des Lagers für die Erfahrung (D177), wie die Stufe eines Wildvorkommens. */
   stufe: number;
 }[] = [
-  { id: 'lager-bruchweg', bei: 'steinbruch-wart', versatz: [55, 40], aufstellung: ['wegelagerer', 'wolf'],
+  { id: 'lager-bruchweg', name: 'Klinge am Bruchweg', bei: 'steinbruch-wart', versatz: [55, 40], aufstellung: ['wegelagerer', 'wolf'],
     meldung: 'Ein Mann mit Klinge tritt auf den Weg. Sein Hund knurrt.', beute: { kraeutersud: 1, harzverband: 1 }, stufe: 8 },
-  { id: 'lager-hofgraben', bei: 'hof-tremmel', versatz: [-60, 35], aufstellung: ['wegelagerer', 'fuchs'],
+  { id: 'lager-hofgraben', name: 'Der Mann hinter der Hecke', bei: 'hof-tremmel', versatz: [-60, 35], aufstellung: ['wegelagerer', 'fuchs'],
     meldung: 'Hinter der Hecke steht einer, der auf jemanden wie dich gewartet hat.', beute: { koeder: 2, netzschlinge: 1 }, stufe: 10 },
-  { id: 'lager-almsteig', bei: 'almhuette', versatz: [45, -50], aufstellung: ['wegelagerer', 'wegelagerer', 'wolf'],
+  { id: 'lager-almsteig', name: 'Zwei am Almsteig', bei: 'almhuette', versatz: [45, -50], aufstellung: ['wegelagerer', 'wegelagerer', 'wolf'],
     meldung: 'Zwei Klingen am Steig, und ein Wolf dazwischen. Das ist kein Zufall.', beute: { kraeutersud: 2, herzfunke: 1 }, stufe: 16 },
 ];
 
@@ -139,6 +153,18 @@ function App() {
     const roh = Number(new URLSearchParams(location.search).get('zeit'));
     return Number.isFinite(roh) && roh >= 0 && roh < 1 ? roh : 0.26;
   });
+  /**
+   * Tageslauf (D178): Die Zeit läuft von selbst — ein Tag dauert `TAG_SEKUNDEN`. Bei Messadressen
+   * steht sie (reproduzierbare Bilder), der Knopf neben dem Regler hält sie an.
+   * Weitergezählt wird alle 2 s, nicht je Bild: Die Stimmung ändert sich in 2 s um 0,17 % — das
+   * sieht niemand, aber ein Rerender je Bild der ganzen App wäre teuer.
+   */
+  const [tageslauf, setTageslauf] = useState(!MESSADRESSE);
+  useEffect(() => {
+    if (!tageslauf) return;
+    const id = setInterval(() => setTageszeit(t => (t + 2 / TAG_SEKUNDEN) % 1), 2000);
+    return () => clearInterval(id);
+  }, [tageslauf]);
   const [messung, setMessung] = useState<Messwerte | null>(null);
   const [qualitaet, setQualitaet] = useState<Qualitaet>(QUALITAET_STANDARD);
   const [schalterOffen, setSchalterOffen] = useState(false);
@@ -345,7 +371,7 @@ function App() {
         const d = Math.hypot(p.x - l.x, p.z - l.z);
         // Nach einer Niederlage erst wieder, wenn man weg war (40 m) — sonst ginge es endlos weiter.
         if (lagerRuhe.current.has(l.id)) { if (d > 40) lagerRuhe.current.delete(l.id); continue; }
-        if (stand.besiegt.includes(l.id) || d > 22) continue;
+        if (!lagerOffen(stand, l.id) || d > 22) continue;
         setWeltKampf({ id: l.id, aufstellung: l.aufstellung, beute: l.beute, stufe: l.stufe });
         setHinweis(l.meldung);
         break;
@@ -367,7 +393,7 @@ function App() {
     if (!alt) return;
     if (!sieg) { lagerRuhe.current.add(alt.id); setHinweis('Zurückgeschlagen — sie warten noch.'); return; }
     const st = standRef.current;
-    if (!st || st.besiegt.includes(alt.id)) return;
+    if (!st || !lagerOffen(st, alt.id)) return;
     const beutel = { ...st.beutel };
     for (const [g, n] of Object.entries(alt.beute)) beutel[g] = (beutel[g] ?? 0) + n;
     // D177: Erfahrung wie nach einem Kampf in der Welt — für den ersten stehenden Kämpfer im Team
@@ -389,7 +415,7 @@ function App() {
         stufenText = auf.mutiert ? ` ${k.name} wird zu ${neu.name}.` : ` ${neu.name} erreicht Stufe ${auf.stufe}.`;
       }
     }
-    sichereRef.current?.({ besiegt: [...st.besiegt, alt.id], beutel }, teamNeu);
+    sichereRef.current?.({ lagerSieg: { ...(st.lagerSieg ?? {}), [alt.id]: Date.now() }, beutel }, teamNeu);
     const liste = Object.entries(alt.beute).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n}`).join(', ');
     setHinweis(`Das Lager ist still. Du nimmst: ${liste}.${stufenText}`);
   }, []);
@@ -779,7 +805,7 @@ function App() {
         kampfAufstellung={weltKampf?.aufstellung ?? KAMPF_AUFSTELLUNG}
         kampfStand={kampfStand}
         kampfEnde={weltKampf ? kampfVorbei : undefined}
-        waffenStufen={stand?.waffenStufen}
+        waffenStufen={WAFFENSTUFE_PROBE ?? stand?.waffenStufen}
       />
       {!imKampf && !menueOffen && <Stockanzeige stoecke={stoecke} />}
 
@@ -829,9 +855,15 @@ function App() {
             background: '#0d1210aa', border: '1px solid #2a3632',
             borderRadius: 10, padding: '6px 9px', width: 168,
           }}>
-            <input type="range" min={0} max={0.999} step={0.002} value={tageszeit}
-              onChange={e => setTageszeit(Number(e.target.value))}
-              style={{ width: '100%', accentColor: '#3fd9a0', height: 18 }} />
+            <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+              <button aria-label={tageslauf ? 'Zeit anhalten' : 'Zeit laufen lassen'} onClick={() => setTageslauf(l => !l)} style={{
+                width: 22, height: 20, borderRadius: 5, border: '1px solid #2a3632', background: 'transparent',
+                color: tageslauf ? '#3fd9a0' : '#7d8b85', fontSize: 10, padding: 0,
+              }}>{tageslauf ? '❚❚' : '▶'}</button>
+              <input type="range" min={0} max={0.999} step={0.002} value={tageszeit}
+                onChange={e => setTageszeit(Number(e.target.value))}
+                style={{ flex: 1, accentColor: '#3fd9a0', height: 18 }} />
+            </div>
             <div style={{ display: 'flex', gap: 3, justifyContent: 'space-between' }}>
               {TAGESZEITEN.map(k => (
                 <button key={k.name} onClick={() => setTageszeit(k.zeit)} style={{
@@ -975,6 +1007,19 @@ function App() {
               beutel={stand.beutel}
               waffenStufen={stand.waffenStufen ?? KEINE_STUFEN}
               onSchmiede={schmiede}
+              abends={tageszeit >= 0.74 || tageszeit < 0.2}
+              kopfgeld={ortOffen === 'dorf-wirt' ? lager.map(l => {
+                const p = spielerRef.current?.position;
+                const d = p ? Math.hypot(l.x - p.x, l.z - p.z) : 0;
+                const himmel = p ? ['Norden', 'Nordosten', 'Osten', 'Südosten', 'Süden', 'Südwesten', 'Westen', 'Nordwesten'][
+                  Math.round(((Math.atan2(l.x - p.x, -(l.z - p.z)) * 180 / Math.PI + 360) % 360) / 45) % 8] : '';
+                const offen = lagerOffen(stand, l.id);
+                return {
+                  name: l.name,
+                  stand: offen ? `gemeldet · ${Math.round(d / 50) * 50} m ${himmel}` : 'ruhig — für den Moment',
+                  beute: Object.entries(l.beute).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n}`).join(', '),
+                };
+              }) : undefined}
               onSchliessen={() => setOrtOffen(null)}
             />
           )}

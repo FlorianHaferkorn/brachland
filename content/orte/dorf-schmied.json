@@ -10,5 +10,6 @@
   "text": "Die Esse ist kalt, der Amboss nicht. Wer Harz und Funken bringt, bekommt eine Schneide, die hält.",
   "figur": "werkfrau",
   "blick": -33,
-  "schmied": true
+  "schmied": true,
+  "textAbend": "Die Esse glüht noch nach. Sie trinkt am Amboss, nicht am Tresen — der Amboss hört besser zu."
 }

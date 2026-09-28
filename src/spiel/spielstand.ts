@@ -78,12 +78,18 @@ export interface Spielstand {
   held: HeldWahl | null;
   /** Stufen aus der Schmiede (D177), je Waffe 0…3. Ohne Versionssprung. */
   waffenStufen: WaffenStufen;
+  /**
+   * Wann ein Wegelager zuletzt geschlagen wurde (D178, ms seit 1970). Nach `LAGER_RUHE_MS` sitzt
+   * dort wieder jemand — das Kopfgeld-Brett beim Wirt zeigt, wo. Ohne Versionssprung.
+   */
+  lagerSieg: Record<string, number>;
 }
 
 export const LEERER_STAND: Spielstand = {
   version: SPIELSTAND_VERSION,
   held: null,
   waffenStufen: { klinge: 0, axt: 0 },
+  lagerSieg: {},
   team: [],
   gefangen: [],
   besiegt: [],

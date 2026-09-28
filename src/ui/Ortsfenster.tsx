@@ -26,8 +26,12 @@ export interface Auftragszeile {
 const RAHMEN = '#2a3632';
 const GRUEN = '#3fd9a0';
 
-export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, onSchliessen, beutel, waffenStufen, onSchmiede }: {
+export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, onSchliessen, beutel, waffenStufen, onSchmiede, abends, kopfgeld }: {
   ort: Ort;
+  /** Abends spricht man die Bewohner im Wirtshaus an (D178). */
+  abends?: boolean;
+  /** Kopfgeld-Brett des Wirts (D178). */
+  kopfgeld?: { name: string; stand: string; beute: string }[];
   /** Schmiede (D177). */
   beutel?: Record<string, number>;
   waffenStufen?: WaffenStufen;
@@ -51,8 +55,19 @@ export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, o
           {ort.name}
         </div>
         <div style={{ color: '#8b9a93', fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>
-          {ort.text}
+          {abends && ort.textAbend ? ort.textAbend : ort.text}
         </div>
+
+        {kopfgeld && kopfgeld.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ color: '#9b937f', fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>Kopfgeld am Brett</div>
+            {kopfgeld.map(k => (
+              <div key={k.name} style={{ borderLeft: `2px solid ${RAHMEN}`, padding: '4px 10px', marginBottom: 6, fontSize: 13, color: '#cfe0d8' }}>
+                {k.name}<div style={{ fontSize: 11, color: '#8b9a93' }}>{k.stand} · {k.beute}</div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {ort.schmied && beutel && waffenStufen && onSchmiede && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>

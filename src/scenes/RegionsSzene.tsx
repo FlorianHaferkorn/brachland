@@ -51,6 +51,7 @@ import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, HAARFAR
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 /** `?figur=alt`: die alte Wanderin statt der Figur aus dem Editor (Vergleich, D175). */
 const ALTE_FIGUR = new URLSearchParams(location.search).get('figur') === 'alt';
+const _meldeV = new THREE.Vector3();
 /** `?eile=20`: Tagesroutine im Zeitraffer (Messlauf, D177). */
 const EILE = Number(new URLSearchParams(location.search).get('eile') ?? 1) || 1;
 /** `?bewohner=alt`: die Bewohner wie bis D175 (D176). */
@@ -1601,8 +1602,10 @@ const MENSCH_PAUSE: [number, number] = [6, 14];
  * Dasselbe Wind-/Randmaterial wie Kreaturen und Spielerin, ein Material je
  * Figur (eigene Uniforms), ein Draw Call.
  */
-function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, ausflug, unterwegs = false }: {
+function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, ausflug, unterwegs = false, melde }: {
   figur: string; blick: number;
+  /** Meldet die Weltlage der Figur (D178) — für das Ansprechen. */
+  melde?: (x: number, z: number) => void;
   /** Tagesroutine (D177): Weltpunkt, zu dem der Bewohner geht, solange `unterwegs`. */
   ausflug?: [number, number];
   unterwegs?: boolean;
@@ -1739,6 +1742,7 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
       }
     }
     mixer.update(Math.min(dt, 0.1));
+    if (melde && g) { const wp = g.getWorldPosition(_meldeV); melde(wp.x, wp.z); }
   });
   return (
     <group ref={gruppe} rotation={[0, THREE.MathUtils.degToRad(blick), 0]}>
@@ -1922,6 +1926,8 @@ function Orte({ orte, ziel, onNah, rand, hoeheAn, tageszeit = 0.39 }: {
   const punktMat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#cfe9f2' }), []);
 
   const gemeldet = useRef<string | null>(null);
+  /** Wo die Bewohner gerade stehen (D178) — Ansprechen folgt der Figur, auch ins Wirtshaus. */
+  const lage = useRef(new Map<string, [number, number]>());
   // D177, Tagesroutine: Abends (Abendrot bis vor der Dämmerung) gehen die Dorfbewohner ins Wirtshaus
   // und stehen im Halbkreis vor dem Tresen; morgens gehen sie zurück. Der Wirt und die Schmiedin
   // bleiben, wo sie arbeiten.
@@ -1942,7 +1948,8 @@ function Orte({ orte, ziel, onNah, rand, hoeheAn, tageszeit = 0.39 }: {
     if (!p || !onNah) return;
     let naechster: string | null = null, beste = ORT_AB;
     for (const o of orte) {
-      const d = Math.hypot(o.position[0] - p.x, o.position[2] - p.z);
+      const [ox, oz] = lage.current.get(o.id) ?? [o.position[0], o.position[2]];
+      const d = Math.hypot(ox - p.x, oz - p.z);
       if (d < beste) { beste = d; naechster = o.id; }
     }
     // Nur bei Wechsel melden: sonst ein setState je Bild, solange man dasteht.
@@ -1962,7 +1969,8 @@ function Orte({ orte, ziel, onNah, rand, hoeheAn, tageszeit = 0.39 }: {
             <Suspense fallback={null}>
               <Mensch figur={o.figur} blick={o.blick ?? 0} gang={o.gang} farben={o.farben}
                       ziel={ziel} rand={rand} hoeheAn={hoeheAn} marke={{ geometry: punkt, material: punktMat }}
-                      ausflug={abendZiel(o)} unterwegs={abends} />
+                      ausflug={abendZiel(o)} unterwegs={abends}
+                      melde={(x, z) => lage.current.set(o.id, [x, z])} />
             </Suspense>
           ) : (
             <mesh geometry={figur} material={tuch} castShadow receiveShadow />
@@ -2866,8 +2874,10 @@ function baueWaffen(): Record<'klinge' | 'axt', THREE.Group> {
  * Reiten (D93, D145): Im Sattel spielt die Figur Idle, wird um den Widerrist
  * angehoben und bekommt die Sitzpose ueber drei Winkel je Bein (`sitzpose`).
  */
-function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
+function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
   gier: React.RefObject<number>;
+  /** Schmiedestufen (D178): Stufe 1–2 heller geschliffen, Stufe 3 ein anderes Modell. */
+  waffenStufen?: { klinge: number; axt: number };
   /** Kampfzustand (D167): Schlag, Rolle, Treffer, Fall als Clip. Ohne Kampf null. */
   kampf?: React.RefObject<KampfFigur | null>;
   schritt: React.RefObject<{ phase: number; tempo: number }>;
@@ -2977,13 +2987,41 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf }: {
         if (!m) continue;
         gruppe.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
         gruppe.clear();
-        m.position.set(0, 0, 0);
-        m.traverse(o => { if (o instanceof THREE.Mesh) o.castShadow = true; });
-        gruppe.add(m);
+        // D178: Stufe 3 („meisterlich“) ist ein eigenes Modell — beide hängen in der Gruppe, eins sichtbar.
+        for (const teil of [m, g.scene.getObjectByName(name + '3')]) {
+          if (!teil) continue;
+          teil.position.set(0, 0, 0);
+          teil.traverse(o => {
+            if (!(o instanceof THREE.Mesh)) return;
+            o.castShadow = true;
+            o.material = (o.material as THREE.Material).clone();
+          });
+          gruppe.add(teil);
+        }
       }
+      setWaffenGeladen(true);
     }).catch(() => { /* Rückfall: Kästen */ });
     return () => { lebt = false; };
   }, [waffen]);
+  // D178: Aussehen nach Schmiedestufe. Stufe 1/2: Stahl heller und glänzender (geschliffen, gehärtet),
+  // Stufe 3: das meisterliche Modell statt des einfachen.
+  const [waffenGeladen, setWaffenGeladen] = useState(false);
+  useEffect(() => {
+    for (const [art, gruppe] of [['klinge', waffen.klinge], ['axt', waffen.axt]] as const) {
+      const stufe = waffenStufen?.[art] ?? 0;
+      const [einfach, meister] = gruppe.children;
+      if (meister) { einfach.visible = stufe < 3; meister.visible = stufe >= 3; }
+      einfach?.traverse(o => {
+        if (!(o instanceof THREE.Mesh)) return;
+        const mat = o.material as THREE.MeshStandardMaterial;
+        if (!/Steel/.test(mat.name)) return;
+        mat.userData.grund ??= mat.color.clone();
+        mat.color.copy(mat.userData.grund as THREE.Color).multiplyScalar(1 + 0.35 * Math.min(2, stufe));
+        mat.metalness = Math.min(1, 0.5 + 0.2 * stufe);
+        mat.roughness = Math.max(0.2, 0.6 - 0.15 * stufe);
+      });
+    }
+  }, [waffen, waffenStufen, waffenGeladen]);
   useEffect(() => () => {
     for (const g of [waffen.klinge, waffen.axt]) {
       g.removeFromParent();
@@ -3672,7 +3710,7 @@ export function RegionsSzene({
             Baum samt allen `useMemo` (Klippen, Baender, Kacheln) und rechnet ihn nach
             jedem geladenen Modell neu. */}
         <Suspense fallback={null}>
-          <SpielerFigur gier={gier} schritt={schritt} reittier={reittier} kampf={kampfFigur}
+          <SpielerFigur gier={gier} schritt={schritt} reittier={reittier} kampf={kampfFigur} waffenStufen={waffenStufen}
                         rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
         </Suspense>
       </object3D>
