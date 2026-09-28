@@ -47,7 +47,7 @@ import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
-import { WAFFE_AN_HAND, legeAnHeldHand } from '../kampf/waffenhand.js';
+import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
 import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, HAARFARBEN, type HeldWahl, type Haar } from '../spieler/held.js';
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 /** `?figur=alt`: die alte Wanderin statt der Figur aus dem Editor (Vergleich, D175). */
@@ -2841,6 +2841,48 @@ function useWaffenClips(): THREE.AnimationClip[] {
  */
 // D174: `WAFFE_AN_HAND` liegt in `src/kampf/waffenhand.ts` — der Wegelagerer trägt dieselbe Klinge.
 
+/**
+ * D184: Waffen am Körper tragen. Kopien der Kastenmodelle, in der Ruhepose im Raum der Figur gelegt
+ * (Meter; Blick −Z, rechts = +X, Rücken = +Z) und dann mit `attach` an den Knochen gehängt — `attach`
+ * behält die Weltlage, der Knochen trägt sie danach mit. Speer und Axt über Kreuz am oberen Rücken
+ * (`spine_03`), die Klinge schräg an der linken Hüfte (`pelvis`). Die Waffenachse zeigt in der Gruppe
+ * nach −Y; `dir` ist, wohin sie am Körper zeigen soll, `mitte` der Punkt auf der Achse, der dort sitzt.
+ */
+function trageAmKoerper(scene: THREE.Object3D, w: Record<'klinge' | 'axt' | 'speer', THREE.Group>) {
+  const aus: Partial<Record<'klinge' | 'axt' | 'speer', THREE.Object3D>> = {};
+  const lagen = {
+    speer: { knochen: ['spine_03', 'Chest'], dir: [-0.36, 0.93, 0], mitte: [0.0, 1.28, 0.16], auf: 0.55 },
+    axt: { knochen: ['spine_03', 'Chest'], dir: [0.42, 0.9, 0], mitte: [0.0, 1.22, 0.2], auf: 0.36 },
+    klinge: { knochen: ['pelvis', 'Hips'], dir: [0.1, -0.94, 0.32], mitte: [-0.2, 0.86, 0.06], auf: 0.25 },
+  } as const;
+  scene.updateMatrixWorld(true);
+  const wurzel = new THREE.Matrix4().copy(scene.matrixWorld);
+  for (const art of ['speer', 'axt', 'klinge'] as const) {
+    const l = lagen[art];
+    const knochen = l.knochen.map(n => scene.getObjectByName(n)).find(Boolean);
+    if (!knochen) continue;
+    // Reste einer früheren Figur an derselben (geteilten) Szene abnehmen — sonst hängen zwei Sätze.
+    const alt: THREE.Object3D[] = [];
+    scene.traverse(o => { if (o.name === `Koerper_${art}`) alt.push(o); });
+    for (const o of alt) o.removeFromParent();
+    const kopie = new THREE.Group();
+    kopie.name = `Koerper_${art}`;
+    for (const c of w[art].children) kopie.add(c.clone());
+    const dir = new THREE.Vector3(...l.dir).normalize();
+    kopie.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir);
+    kopie.position.set(l.mitte[0], l.mitte[1], l.mitte[2]).addScaledVector(dir, -l.auf);
+    // In den Weltraum der Figurwurzel, dann an den Knochen — Lage bleibt.
+    kopie.applyMatrix4(wurzel);
+    scene.parent ? scene.parent.add(kopie) : scene.add(kopie);
+    knochen.attach(kopie);
+    aus[art] = kopie;
+  }
+  return aus;
+}
+
+/** Block-Clip je Waffe (D173/D174/D184). */
+const BLOCKCLIP = { klinge: 'Klinge_U_Block', axt: 'Axt_Block', speer: 'Speer_Block' } as const;
+
 function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
   const metall = new THREE.MeshStandardMaterial({ color: '#77736b', roughness: 0.45, metalness: 0.6 });
   const holz = new THREE.MeshStandardMaterial({ color: '#5a4431', roughness: 0.8 });
@@ -2860,10 +2902,7 @@ function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
   axt.add(teil(new THREE.BoxGeometry(0.2, 0.12, 0.045), metall, -0.76, -0.05));
   axt.add(teil(new THREE.BoxGeometry(0.03, 0.2, 0.05), metall, -0.76, -0.16));
   // D183: Der Speer — Eschenschaft 2 m, die Hand sitzt im hinteren Drittel, Spitze auf −Y wie die Klinge.
-  const speer = new THREE.Group();
-  speer.add(teil(new THREE.CylinderGeometry(0.018, 0.022, 2.0, 8), holz, -0.55));
-  const spitze = teil(new THREE.ConeGeometry(0.04, 0.26, 6), metall, -1.68);
-  spitze.rotation.x = Math.PI; speer.add(spitze);
+  const speer = baueSpeer();
   for (const g of [klinge, axt, speer]) {
     g.position.copy(WAFFE_AN_HAND.position);
     g.quaternion.copy(WAFFE_AN_HAND.drehung);
@@ -2990,7 +3029,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
       const h = scene.getObjectByName(HELD_KNOCHEN.hand);
       if (h) for (const g of [w.klinge, w.axt, w.speer]) { h.add(g); legeAnHeldHand(g); }
     }
-    return w;
+    return { ...w, ruecken: trageAmKoerper(scene, w) };
   }, [scene]);
   // D173: die Modelle aus dem Medieval Weapons Pack (CC0, `tools/waffenbau.py`) ersetzen die Kästen,
   // sobald die Datei geladen ist. Ohne Datei bleiben die Kästen.
@@ -3043,6 +3082,9 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
       g.removeFromParent();
       g.traverse(o => { if (o instanceof THREE.Mesh) { o.geometry.dispose(); (o.material as THREE.Material).dispose(); } });
     }
+    // D184: Die Körperkopien hängen an Knochen der geteilten (useGLTF-)Szene — ohne Abnehmen trüge die
+    // nächste Figur die alten mit (im Bild gefunden: Speer zugleich in der Hand und am Rücken).
+    for (const r of Object.values(waffen.ruecken)) r?.removeFromParent();
   }, [waffen]);
   useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
   // Die Beinknochen fuer die Sitzpose (D145). GLTFLoader streicht den Punkt aus
@@ -3088,6 +3130,11 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
     waffen.klinge.visible = !!k && k.waffe === 'klinge';
     waffen.axt.visible = !!k && k.waffe === 'axt';
     waffen.speer.visible = !!k && k.waffe === 'speer';
+    // D184: Was nicht in der Hand ist, hängt am Körper — Speer und Axt über Kreuz am Rücken, Klinge am Gürtel.
+    for (const art of ['klinge', 'axt', 'speer'] as const) {
+      const r = waffen.ruecken[art];
+      if (r) r.visible = !reittier && !(k && k.waffe === art);
+    }
     const { phase, tempo } = schritt.current;
     const stark = Math.min(1, tempo / RENNEN);
     // Clip nach Tempo, weich ueberblendet; im Sattel immer Idle.
@@ -3106,10 +3153,10 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
       }
       if (k.phase === 'gefallen') {
         ziel = clips.tod; blende = 0.15;
-      } else if (k.phase === 'block' && aktionen(k.waffe === 'axt' ? 'Axt_Block' : 'Klinge_U_Block', true)) {
+      } else if (k.phase === 'block' && aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)) {
         // D173: Deckung heben und halten — der Clip bleibt auf seinem letzten Bild stehen. D174: die Axt
         // hat ihren eigenen (Stiel quer, `waffenclips.py`).
-        const b = aktionen(k.waffe === 'axt' ? 'Axt_Block' : 'Klinge_U_Block', true)!;
+        const b = aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)!;
         b.clampWhenFinished = true; b.timeScale = 2;
         ziel = b; blende = 0.06;
       } else if (k.phase === 'rolle') {

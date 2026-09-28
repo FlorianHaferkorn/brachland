@@ -5,6 +5,22 @@
  */
 import * as THREE from 'three';
 
+/**
+ * D184: Der Speer aus Primitiven (kein Modell im Waffenpaket): Eschenschaft 2 m, die Hand sitzt im
+ * hinteren Drittel, Spitze auf −Y wie die Klinge. Spielerin und Speermann tragen denselben.
+ */
+export function baueSpeer(): THREE.Group {
+  const holz = new THREE.MeshStandardMaterial({ color: '#5a4431', roughness: 0.8 });
+  const metall = new THREE.MeshStandardMaterial({ color: '#77736b', roughness: 0.45, metalness: 0.6, name: 'Steel' });
+  const g = new THREE.Group();
+  const schaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.022, 2.0, 8), holz);
+  schaft.position.y = -0.55; schaft.castShadow = true; g.add(schaft);
+  const spitze = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.26, 6), metall);
+  spitze.position.y = -1.68; spitze.rotation.x = Math.PI; spitze.castShadow = true; g.add(spitze);
+  g.name = 'Speer';
+  return g;
+}
+
 export const WAFFE_AN_HAND = {
   position: new THREE.Vector3(0, 0.00118, -0.00025),
   drehung: new THREE.Quaternion(-0.0116, 0.0118, -0.0165, 0.9997)

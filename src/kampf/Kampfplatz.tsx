@@ -32,7 +32,7 @@ import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import {
-  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, FUCHS, GAMS, WEGELAGERER, PARADE, naechtlich, ZIELEN, vorwaerts, type Linie, type KampfWerte, type Schlag,
+  SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, FUCHS, GAMS, WEGELAGERER, SPEERMANN, AXTMANN, PARADE, naechtlich, ZIELEN, vorwaerts, type Linie, type KampfWerte, type Schlag,
   neuerKaempfer, puffere, setzeBlockAn, loeseBlock, naechsterSchlag, simuliere, waehleZiel, drehe, blickAuf, frei,
   WAFFEN, ruesteAus, wechsleZiel, type WaffenArt,
   type Kampfwelt, type Kaempfer, type Treffer,
@@ -44,7 +44,7 @@ import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { kreaturGeometrie, baueAnbau, saatAusId } from '../world/kreaturgestalt.js';
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
-import { haengeAnHand } from './waffenhand.js';
+import { haengeAnHand, baueSpeer } from './waffenhand.js';
 import { schadenFaktor } from '../spiel/schmiede.js';
 import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
 /** Aussehen des Wegelagerers (D175). */
@@ -52,15 +52,24 @@ const WEGELAGERER_WAHL: HeldWahl = {
   name: 'Wegelagerer', geschlecht: 'm', koerper: 'm', kleid: 'waldlaeufer', haar: 'Buzzed', bart: true,
   haut: 0.55, haarfarbe: '#2a1d15',
 };
+/** D184: Speerfrau und Axtmann — andere Gestalt, damit die Waffe schon von Weitem zu lesen ist. */
+const SPEERMANN_WAHL: HeldWahl = {
+  name: 'Speerfrau', geschlecht: 'w', koerper: 'w', kleid: 'bauer', haar: 'Buns', bart: false,
+  haut: 0.3, haarfarbe: '#6b4a2a',
+};
+const AXTMANN_WAHL: HeldWahl = {
+  name: 'Axtmann', geschlecht: 'm', koerper: 'm', kleid: 'bauer', haar: 'Kahl', bart: true,
+  haut: 0.7, haarfarbe: '#1a1410',
+};
 
 /**
  * Wer auf dem Platz steht (D169). `keiler` ist Stufe 2: der Wurzelkeiler aus der Welt, mit
  * seinem Modell und dem Gang aus dem Shader (D138); `kapsel` der Platzhalter aus Stufe 1,
  * bleibt als Vergleich (`?kampf=kapsel`).
  */
-export type GegnerArt = 'keiler' | 'grathorn' | 'wolf' | 'fuchs' | 'gams' | 'wegelagerer' | 'kapsel';
-export const GEGNER_ARTEN: readonly GegnerArt[] = ['keiler', 'grathorn', 'wolf', 'fuchs', 'gams', 'wegelagerer', 'kapsel'];
-const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, wolf: WOLF, fuchs: FUCHS, gams: GAMS, wegelagerer: WEGELAGERER, kapsel: UEBUNGSGEGNER };
+export type GegnerArt = 'keiler' | 'grathorn' | 'wolf' | 'fuchs' | 'gams' | 'wegelagerer' | 'speermann' | 'axtmann' | 'kapsel';
+export const GEGNER_ARTEN: readonly GegnerArt[] = ['keiler', 'grathorn', 'wolf', 'fuchs', 'gams', 'wegelagerer', 'speermann', 'axtmann', 'kapsel'];
+const WERTE: Record<GegnerArt, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, wolf: WOLF, fuchs: FUCHS, gams: GAMS, wegelagerer: WEGELAGERER, speermann: SPEERMANN, axtmann: AXTMANN, kapsel: UEBUNGSGEGNER };
 /** Modell je Art (D170). Die Kapsel hat keins. */
 const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', grathorn: 'grathorn', wolf: 'k7-wolf', fuchs: 'spuerfuchs', gams: 'nebelgams' };
 
@@ -72,6 +81,8 @@ const MODELL: Partial<Record<GegnerArt, string>> = { keiler: 'wurzelkeiler', gra
  */
 interface RigCfg {
   datei: string; angriff: string; scheitel: number; durchzug: number;
+  /** Haltung im Stand (D184); ohne Angabe die der Klinge. */
+  stand?: string;
   /** Mensch (D174): Clip je Linie, Scheitel/Durchzug in Clipsekunden, wie bei der Spielerin. */
   linien?: Record<Linie, { clip: string; scheitel: number; durchzug: number }>;
 }
@@ -82,6 +93,19 @@ const RIG: Partial<Record<GegnerArt, RigCfg>> = {
     links: { clip: 'Klinge_U_B', scheitel: 6 / 24, durchzug: 9 / 24 },
     oben: { clip: 'Klinge_U_C', scheitel: 14 / 24, durchzug: 18 / 24 },
     unten: { clip: 'Klinge_Stich', scheitel: 9 / 24, durchzug: 13 / 24 },
+  } },
+  // D184: Speerfrau und Axtmann mit den Clips ihrer Waffe (gleiches Skelett wie die Hauptfigur).
+  speermann: { datei: 'wanderer', angriff: 'Speer_Stoss', scheitel: 9 / 24, durchzug: 13 / 24, stand: 'Speer_Stand', linien: {
+    rechts: { clip: 'Speer_Stoss', scheitel: 9 / 24, durchzug: 13 / 24 },
+    links: { clip: 'Speer_Stoss', scheitel: 9 / 24, durchzug: 13 / 24 },
+    oben: { clip: 'Speer_Weit', scheitel: 14 / 24, durchzug: 18 / 24 },
+    unten: { clip: 'Speer_Stoss', scheitel: 9 / 24, durchzug: 13 / 24 },
+  } },
+  axtmann: { datei: 'wanderer', angriff: 'Axt_Schwer', scheitel: 20 / 24, durchzug: 25 / 24, stand: 'Axt_Stand', linien: {
+    rechts: { clip: 'Axt_Quer', scheitel: 10 / 24, durchzug: 15 / 24 },
+    links: { clip: 'Axt_Quer', scheitel: 10 / 24, durchzug: 15 / 24 },
+    oben: { clip: 'Axt_Schwer', scheitel: 20 / 24, durchzug: 25 / 24 },
+    unten: { clip: 'Axt_Lauf', scheitel: 7 / 24, durchzug: 11 / 24 },
   } },
   wolf: { datei: 'k7-wolf', angriff: 'Attack', scheitel: 6 / 24, durchzug: 10 / 24 },
   grathorn: { datei: 'grathorn', angriff: 'Attack_Headbutt', scheitel: 2 / 24, durchzug: 6 / 24 },
@@ -276,6 +300,8 @@ function KampfplatzMitModellen(props: PlatzProps) {
   // D174: der Wegelagerer; seit D175 eine Gestalt aus `heldbau.py` (Waldläufer, Bart) mit den
   // Clips der Hauptfigur — gleiches Skelett, keine Übertragung zur Laufzeit.
   const wanderer = useGLTF(gestaltPfad(WEGELAGERER_WAHL));
+  const bauerW = useGLTF(gestaltPfad(SPEERMANN_WAHL)), bauerM = useGLTF(gestaltPfad(AXTMANN_WAHL));
+  const speer = useMemo(() => baueSpeer(), []);
   const waffenClips = useGLTF(HELD_CLIPS);
   const waffenModelle = useGLTF('/figuren/kampf/waffen.glb');
   const leiber = useMemo<Partial<Record<GegnerArt, Leib | null>>>(() => ({
@@ -289,9 +315,17 @@ function KampfplatzMitModellen(props: PlatzProps) {
     gams: { scene: gamsRig.scene, clips: gamsRig.animations },
     wegelagerer: { scene: wanderer.scene, clips: waffenClips.animations,
                    waffe: waffenModelle.scene.getObjectByName('Klinge') ?? undefined, wahl: WEGELAGERER_WAHL },
-  }), [wolfRig, grathornRig, fuchsRig, gamsRig, wanderer, waffenClips, waffenModelle]);
+    speermann: { scene: bauerW.scene, clips: waffenClips.animations, waffe: speer, wahl: SPEERMANN_WAHL },
+    axtmann: { scene: bauerM.scene, clips: waffenClips.animations,
+               waffe: waffenModelle.scene.getObjectByName('Axt') ?? undefined, wahl: AXTMANN_WAHL },
+  }), [wolfRig, grathornRig, fuchsRig, gamsRig, wanderer, bauerW, bauerM, speer, waffenClips, waffenModelle]);
   return <KampfplatzKern {...props} leiber={leiber} rigs={rigs} />;
 }
+
+const WAFFE_START: WaffenArt = (() => {
+  const w = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('waffe') : null;
+  return w === 'axt' || w === 'speer' ? w : 'klinge';
+})();
 
 /** `?rig=0`: Tiere wie bis D171 als bewegte Körper — zum Vergleich. */
 const RIG_AUS = typeof location !== 'undefined' && new URLSearchParams(location.search).get('rig') === '0';
@@ -384,7 +418,8 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
   const los = useRef(!!onEnde);
   const gemeldet = useRef(false);
   /** Die gewählte Waffe überlebt die neue Runde. */
-  const waffeWahl = useRef<WaffenArt>('klinge');
+  // D184: Messadresse `?waffe=axt|speer` — mit dieser Waffe in den Kampf (Bildprüfung).
+  const waffeWahl = useRef<WaffenArt>(WAFFE_START);
   useEffect(() => () => { if (zielt) zielt.current = false; }, [zielt]);
   const tasten = useRef(new Set<string>());
   const meldung = useRef({ text: '', seit: 0 });
@@ -544,7 +579,10 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     if (!p) return;
     const dt = Math.min(rohDt, 0.1);
     const jetzt = performance.now();
-    if (!welt.current) { welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht); welt.current.spielerin.ausdauerFremd = true; }
+    if (!welt.current) {
+      welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht); welt.current.spielerin.ausdauerFremd = true;
+      if (waffeWahl.current !== 'klinge') ruesteAus(welt.current.spielerin, waffeWahl.current);
+    }
     // Bis zur ersten Eingabe steht der Platz still — die Gegner folgen dem Absetzpunkt nicht,
     // sie stehen dort, wo sie zuerst hingestellt wurden.
     const w = welt.current;
@@ -877,7 +915,7 @@ function spieleRig(pu: Puppe, g: Kaempfer, v: number, jetzt: number, dt: number)
     ziel = r.aktion(`Idle_HitReact_${pu.seite}`) ?? r.aktion('Kampf_Rueckstoss'); blende = 0.08;
     if (ziel && pu.blitz !== r.treffer) { r.treffer = pu.blitz; neu = true; ziel.setLoop(THREE.LoopOnce, 1); }
   } else {
-    const stand = cfg.linien ? r.aktion('Klinge_Stand') ?? r.aktion('Idle') : r.aktion('Idle');
+    const stand = cfg.linien ? r.aktion(cfg.stand ?? 'Klinge_Stand') ?? r.aktion('Idle') : r.aktion('Idle');
     ziel = v < 0.15 ? stand : v < 2.6 ? r.aktion('Walk') : r.aktion('Gallop') ?? r.aktion('Walk');
     if (ziel && ziel === r.aktion('Walk')) ziel.timeScale = Math.max(0.6, Math.min(2, v / 1.1));
     if (ziel && ziel === r.aktion('Gallop')) ziel.timeScale = Math.max(0.7, Math.min(1.6, v / 4));

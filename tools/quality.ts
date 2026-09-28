@@ -326,7 +326,8 @@ if (existsSync('public/figuren/kampf')) {
     }
     // D173: 300 KB statt 250 — die UAL2-Clips (Kombos, Block, Treffer) sind je Bild geschlüsselt,
     // und die Datei lädt nur mit Kampf, nicht beim Start.
-    if (kb > 300) stop('Kampfclips', `${f}: ${kb.toFixed(0)} KB über Budget 300 KB`);
+    // D184: 300 → 350 KB für die fünf Speerclips (+70 KB).
+    if (kb > 350) stop('Kampfclips', `${f}: ${kb.toFixed(0)} KB über Budget 350 KB`);
     const buf = readFileSync(pfad);
     const g = JSON.parse(buf.subarray(20, 20 + buf.readUInt32LE(12)).toString('utf8'));
     if (g.meshes?.length) stop('Kampfclips', `${f} trägt ${g.meshes.length} Netze — erlaubt sind nur Knochen und Animation`);
@@ -337,14 +338,15 @@ if (existsSync('public/figuren/kampf')) {
 
 /**
  * Hauptfigur (D175, `tools/heldbau.py`): eine Datei je Gestalt, texturiert, plus gemeinsame Clips.
- * Budget 1,3 MB je Gestalt (lädt einmal, nur die gewählte) und 600 KB für die Clips.
+ * Budget 1,3 MB je Gestalt (lädt einmal, nur die gewählte) und 700 KB für die Clips (seit D184).
  */
 if (existsSync('public/figuren/held')) {
   const herkunft = readFileSync('assets/HERKUNFT.md', 'utf8');
   for (const f of readdirSync('public/figuren/held').filter(f => f.endsWith('.glb'))) {
     const kb = statSync(join('public/figuren/held', f)).size / 1024;
     if (!herkunft.includes(f)) stop('Held', `${f} ohne Herkunftsangabe`);
-    const grenze = f === 'held-clips.glb' ? 600 : f.includes('-leicht') ? 650 : 1300;
+    // D184: Clips 600 → 700 KB für die fünf Speerclips (+89 KB).
+    const grenze = f === 'held-clips.glb' ? 700 : f.includes('-leicht') ? 650 : 1300;
     if (kb > grenze) stop('Held', `${f}: ${kb.toFixed(0)} KB über Budget ${grenze} KB`);
     console.log(`  · [Held] ${f}: ${kb.toFixed(0)} KB`);
   }

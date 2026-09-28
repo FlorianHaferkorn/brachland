@@ -102,10 +102,46 @@ CLIPS = {
         (17, dict(hand=(-0.35, 0.25, 0.8), richt=(-0.7, 0.2, -0.65), zwei='axt', rumpf=(40, 28), koerper=(0.25, -0.12), fuss_r=(0.45, 0))),
         (26, 'stand'),
     ]),
+    # D184: Der Speer — beide Hände am Schaft (links 0,5 m vor der rechten), Spitze nach vorn. Der Stich
+    # kommt aus dem Zurückziehen, geht gerade nach vorn und wird gehalten; der Weitstoss mit Ausfallschritt.
+    'Speer_Stand': ('Idle', 'schleife', [
+        (1, dict(hand=(0.22, 0.02, 1.0), richt=(0.05, 0.95, 0.25), zwei='speer', rumpf=(-15, 4), koerper=(0, -0.05),
+                 fuss_r=(0.12, 0.05), fuss_l=(-0.12, -0.03))),
+        (25, dict(hand=(0.22, 0.03, 0.98), richt=(0.05, 0.95, 0.22), zwei='speer', rumpf=(-16, 6), koerper=(0, -0.065),
+                  fuss_r=(0.12, 0.05), fuss_l=(-0.12, -0.03))),
+        (49, dict(hand=(0.22, 0.02, 1.0), richt=(0.05, 0.95, 0.25), zwei='speer', rumpf=(-15, 4), koerper=(0, -0.05),
+                  fuss_r=(0.12, 0.05), fuss_l=(-0.12, -0.03))),
+    ]),
+    'Speer_Stoss': ('Idle', 'einmal', [
+        (1, dict(hand=(0.22, 0.02, 1.0), richt=(0.05, 0.95, 0.25), zwei='speer', rumpf=(-15, 4), koerper=(0, -0.05))),
+        (6, dict(hand=(0.25, -0.18, 1.02), richt=(0.03, 0.97, 0.2), zwei='speer', rumpf=(-22, 2), koerper=(-0.04, -0.05))),
+        (9, dict(hand=(0.14, 0.52, 1.12), richt=(0, 1, 0.08), zwei='speer', rumpf=(-4, 10), koerper=(0.12, -0.07), fuss_r=(0.3, 0.02))),
+        (13, dict(hand=(0.13, 0.56, 1.1), richt=(0, 1, 0.06), zwei='speer', rumpf=(-3, 11), koerper=(0.13, -0.08), fuss_r=(0.3, 0.02))),
+        (24, dict(hand=(0.22, 0.02, 1.0), richt=(0.05, 0.95, 0.25), zwei='speer', rumpf=(-15, 4), koerper=(0, -0.05))),
+    ]),
+    'Speer_Weit': ('Idle', 'einmal', [
+        (1, dict(hand=(0.22, 0.02, 1.0), richt=(0.05, 0.95, 0.25), zwei='speer', rumpf=(-15, 4), koerper=(0, -0.05))),
+        (10, dict(hand=(0.3, -0.32, 1.02), richt=(0.05, 0.96, 0.25), zwei='speer', rumpf=(-28, 0), koerper=(-0.08, -0.06), fuss_l=(-0.1, -0.05))),
+        (14, dict(hand=(0.1, 0.78, 1.1), richt=(0, 1, 0.05), zwei='speer', rumpf=(0, 18), koerper=(0.3, -0.16), fuss_r=(0.55, 0.02))),
+        (18, dict(hand=(0.1, 0.82, 1.07), richt=(0, 1, 0.03), zwei='speer', rumpf=(0, 19), koerper=(0.31, -0.17), fuss_r=(0.55, 0.02))),
+        (30, dict(hand=(0.22, 0.02, 1.0), richt=(0.05, 0.95, 0.25), zwei='speer', rumpf=(-15, 4), koerper=(0, -0.05))),
+    ]),
+    'Speer_Lauf': ('Idle', 'einmal', [
+        (1, dict(hand=(0.24, -0.05, 1.02), richt=(0.03, 0.96, 0.25), zwei='speer', rumpf=(-18, 8), koerper=(0.05, -0.06))),
+        (7, dict(hand=(0.1, 0.84, 1.05), richt=(0, 1, 0.02), zwei='speer', rumpf=(0, 20), koerper=(0.35, -0.18), fuss_r=(0.6, 0.02))),
+        (11, dict(hand=(0.1, 0.86, 1.03), richt=(0, 1, 0.0), zwei='speer', rumpf=(0, 21), koerper=(0.36, -0.19), fuss_r=(0.6, 0.02))),
+        (22, dict(hand=(0.22, 0.02, 1.0), richt=(0.05, 0.95, 0.25), zwei='speer', rumpf=(-15, 4), koerper=(0, -0.05))),
+    ]),
+    'Speer_Block': ('Idle', 'einmal', [
+        (1, dict(hand=(0.22, 0.02, 1.0), richt=(0.05, 0.95, 0.25), zwei='speer', rumpf=(-15, 4), koerper=(0, -0.05))),
+        (5, dict(hand=(0.3, 0.3, 1.32), richt=(-1, 0.08, 0.12), zwei='speer', rumpf=(-6, 6), koerper=(-0.03, -0.08), fuss_l=(-0.12, -0.03))),
+        (8, dict(hand=(0.3, 0.31, 1.31), richt=(-1, 0.08, 0.12), zwei='speer', rumpf=(-6, 7), koerper=(-0.03, -0.09), fuss_l=(-0.12, -0.03))),
+    ]),
 }
 NAMEN = tuple(CLIPS)
 ACHSE = {'Klinge_Stand': 'klinge', 'Klinge_Stich': 'klinge',
-         'Axt_Stand': 'axt', 'Axt_Block': 'axt', 'Axt_Quer': 'axt', 'Axt_Schwer': 'axt', 'Axt_Lauf': 'axt'}
+         'Axt_Stand': 'axt', 'Axt_Block': 'axt', 'Axt_Quer': 'axt', 'Axt_Schwer': 'axt', 'Axt_Lauf': 'axt',
+         'Speer_Stand': 'speer', 'Speer_Stoss': 'speer', 'Speer_Weit': 'speer', 'Speer_Lauf': 'speer', 'Speer_Block': 'speer'}
 
 
 class Rig:
@@ -223,7 +259,7 @@ class Rig:
 
 
 RUMPF = (('Hips', 0.25), ('Abdomen', 0.25), ('Torso', 0.25), ('Chest', 0.25))
-GRIFF = {'axt': 0.22, 'klinge': -0.09}   # linke Hand entlang der Klinge/des Stiels, Meter
+GRIFF = {'axt': 0.22, 'klinge': -0.09, 'speer': 0.5}   # linke Hand entlang der Klinge/des Stiels, Meter
 POL_R = (0.6, -0.2, -0.8)
 POL_L = (-0.6, -0.2, -0.8)
 
@@ -284,7 +320,7 @@ def _pose(rig, basis, pose, bewegung):
         y = bewegung - klinge * bewegung.dot(klinge)
         if y.length < 0.05:
             y = unterarm - klinge * unterarm.dot(klinge)
-        elif pose.get('zwei') != 'axt' and y.dot(unterarm) < 0:
+        elif pose.get('zwei') not in ('axt', 'speer') and y.dot(unterarm) < 0:
             y = -y   # die Klinge hat zwei Schneiden: das Handgelenk knickt nicht nach hinten
         rig.lage('Wrist.R', -klinge, y)
         if pose.get('zwei'):

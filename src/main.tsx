@@ -60,7 +60,7 @@ const KAMPF_PARAM = new URLSearchParams(location.search).get('kampf');
  * zwei Telegrafe. `?kampf=keiler|grathorn|wolf|kapsel` stellt zwei derselben Art auf,
  * `?kampf=wolf,keiler` zwei verschiedene.
  */
-const KAMPF_ARTEN = ['keiler', 'grathorn', 'wolf', 'fuchs', 'gams', 'wegelagerer', 'kapsel'] as const;
+const KAMPF_ARTEN = ['keiler', 'grathorn', 'wolf', 'fuchs', 'gams', 'wegelagerer', 'speermann', 'axtmann', 'kapsel'] as const;
 type KampfArt = typeof KAMPF_ARTEN[number];
 const KAMPF_LISTE = (KAMPF_PARAM ?? '').split(',').filter((a): a is KampfArt => (KAMPF_ARTEN as readonly string[]).includes(a));
 // `?kampf=rudel` (D172): drei Wölfe — sie stellen die Spielerin von mehreren Seiten.
@@ -133,10 +133,10 @@ const WEGELAGER: {
 }[] = [
   { id: 'lager-bruchweg', name: 'Klinge am Bruchweg', bei: 'steinbruch-wart', versatz: [55, 40], aufstellung: ['wegelagerer', 'wolf'],
     meldung: 'Ein Mann mit Klinge tritt auf den Weg. Sein Hund knurrt.', beute: { kraeutersud: 1, harzverband: 1 }, stufe: 8 },
-  { id: 'lager-hofgraben', name: 'Der Mann hinter der Hecke', bei: 'hof-tremmel', versatz: [-60, 35], aufstellung: ['wegelagerer', 'fuchs'],
-    meldung: 'Hinter der Hecke steht einer, der auf jemanden wie dich gewartet hat.', beute: { koeder: 2, netzschlinge: 1 }, stufe: 10 },
-  { id: 'lager-almsteig', name: 'Zwei am Almsteig', bei: 'almhuette', versatz: [45, -50], aufstellung: ['wegelagerer', 'wegelagerer', 'wolf'],
-    meldung: 'Zwei Klingen am Steig, und ein Wolf dazwischen. Das ist kein Zufall.', beute: { kraeutersud: 2, herzfunke: 1 }, stufe: 16 },
+  { id: 'lager-hofgraben', name: 'Die Frau hinter der Hecke', bei: 'hof-tremmel', versatz: [-60, 35], aufstellung: ['speermann', 'fuchs'],
+    meldung: 'Hinter der Hecke steht eine mit einem Speer. Sie hat auf jemanden wie dich gewartet.', beute: { koeder: 2, netzschlinge: 1 }, stufe: 10 },
+  { id: 'lager-almsteig', name: 'Zwei am Almsteig', bei: 'almhuette', versatz: [45, -50], aufstellung: ['wegelagerer', 'axtmann', 'wolf'],
+    meldung: 'Eine Klinge, eine Axt am Steig, und ein Wolf dazwischen. Das ist kein Zufall.', beute: { kraeutersud: 2, herzfunke: 1 }, stufe: 16 },
 ];
 
 function App() {

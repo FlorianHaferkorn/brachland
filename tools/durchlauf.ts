@@ -6,14 +6,14 @@
  *   npx tsx tools/durchlauf.ts [kämpfe je zeile, vorgabe 40]
  */
 import { kampf, PROFILE } from './kampfbot.js';
-import { WEGELAGERER, WOLF, FUCHS, naechtlich, type KampfWerte } from '../src/kampf/echtzeit.js';
+import { WEGELAGERER, SPEERMANN, AXTMANN, WOLF, FUCHS, naechtlich, type KampfWerte } from '../src/kampf/echtzeit.js';
 import { schadenFaktor, angebot } from '../src/spiel/schmiede.js';
 
 const N = Number(process.argv[2] ?? 40);
 const LAGER: { name: string; auf: KampfWerte[]; beute: Record<string, number> }[] = [
   { name: 'Bruchweg', auf: [WEGELAGERER, WOLF], beute: { kraeutersud: 1, harzverband: 1 } },
-  { name: 'Hofgraben', auf: [WEGELAGERER, FUCHS], beute: { koeder: 2, netzschlinge: 1 } },
-  { name: 'Almsteig', auf: [WEGELAGERER, WEGELAGERER, WOLF], beute: { kraeutersud: 2, herzfunke: 1 } },
+  { name: 'Hofgraben', auf: [SPEERMANN, FUCHS], beute: { koeder: 2, netzschlinge: 1 } },
+  { name: 'Almsteig', auf: [WEGELAGERER, AXTMANN, WOLF], beute: { kraeutersud: 2, herzfunke: 1 } },
 ];
 console.log(`Durchlauf — ${N} Kämpfe je Zeile`);
 console.log('Lager       Zeit   Waffe   Stufe Profil        Siege  Zeit    erlitten');

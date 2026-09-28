@@ -47,7 +47,8 @@ HAARE = ['Hair_Buzzed', 'Hair_BuzzedFemale', 'Hair_SimpleParted', 'Hair_Long', '
 
 # Clips aus der alten Wanderin: Name bleibt.
 ALT_CLIPS = ['Idle', 'Walk', 'Run', 'Roll', 'Death', 'HitRecieve', 'Sword_Slash', 'Axe_Overhead',
-             'Klinge_Stand', 'Klinge_Stich', 'Axt_Stand', 'Axt_Block', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf']
+             'Klinge_Stand', 'Klinge_Stich', 'Axt_Stand', 'Axt_Block', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf',
+             'Speer_Stand', 'Speer_Stoss', 'Speer_Weit', 'Speer_Lauf', 'Speer_Block']
 # Altes Skelett → neues (Umkehrung der Karte in ual2uebertrag.py).
 ALT_KARTE = [
     ('Body', 'pelvis'),

@@ -234,20 +234,20 @@ export const WAFFEN: Record<WaffenArt, Waffe> = {
    * D183: Der Speer — Abstand statt Wucht. Reicht am weitesten (3,1–4,0 m), sticht schmal (±12–20°)
    * und stösst den Getroffenen weit zurück; wenig Haltungsschaden, weniger Schaden je Sekunde als
    * die Klinge. Gegen Tiere, die anspringen, hält er sie draussen; gegen drei Menschen fehlt ihm
-   * der Bogen. Clips vorerst die Stiche der Klinge (eigene Speerclips folgen, UNKLAR im Index).
+   * der Bogen. Seit D184 eigene beidhändige Clips (`tools/waffenclips.py`: Speer_Stand/Stoss/Weit/Lauf/Block).
    */
   speer: {
-    name: 'Speer', haltung: 'Klinge_Stand',
+    name: 'Speer', haltung: 'Speer_Stand',
     schlag: { name: 'Stoss', linie: 'unten', vorlauf: 0.26, aktiv: 0.12, erholung: 0.45, reichweite: 3.1, halbwinkel: 15 * GRAD,
       schaden: 20, haltungsschaden: 20, kosten: 16, nachdrehen: 4,
-      clip: 'Klinge_Stich', hieb: { scheitel: 9 / 24, durchzug: 13 / 24 }, schritt: 0.3, rueckstoss: 0.9 },
+      clip: 'Speer_Stoss', hieb: { scheitel: 9 / 24, durchzug: 13 / 24 }, schritt: 0.3, rueckstoss: 0.9 },
     leicht: [],
     schwer: { name: 'Weitstoss', linie: 'unten', vorlauf: 0.55, aktiv: 0.14, erholung: 0.55, reichweite: 4.0, halbwinkel: 12 * GRAD,
       schaden: 44, haltungsschaden: 50, kosten: 30, nachdrehen: 3,
-      clip: 'Klinge_Stich', hieb: { scheitel: 9 / 24, durchzug: 13 / 24 }, schritt: 0.5, rueckstoss: 1.4 },
+      clip: 'Speer_Weit', hieb: { scheitel: 14 / 24, durchzug: 18 / 24 }, schritt: 0.5, rueckstoss: 1.4 },
     lauf: { name: 'Anlauf', linie: 'unten', vorlauf: 0.15, aktiv: 0.14, erholung: 0.5, reichweite: 3.8, halbwinkel: 20 * GRAD,
       schaden: 32, haltungsschaden: 36, kosten: 22, nachdrehen: 3,
-      clip: 'Klinge_U_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.6, rueckstoss: 1.0 },
+      clip: 'Speer_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.6, rueckstoss: 1.0 },
   },
 };
 WAFFEN.speer.leicht = [WAFFEN.speer.schlag,
@@ -443,6 +443,34 @@ export const WEGELAGERER: KampfWerte = {
   lebenMax: 95, haltungMax: 60, haltungErholung: 22, haltungRuhe: 1.3, betaeubt: 0.9,
   radius: 0.3, hoehe: 1.8, halbLaenge: 0,
   mensch: { linienFolge: ['rechts', 'links', 'oben', 'rechts', 'unten', 'links', 'oben'], deckung: 'oben' },
+};
+
+/**
+ * D184: Der Speermann — sticht aus 3 m, bevor die Klinge heran ist, stösst zurück, deckt unten und
+ * oben. Weniger Leben, leichtere Treffer. Wer an seiner Spitze vorbeikommt, hat ihn.
+ */
+export const SPEERMANN: KampfWerte = {
+  ...WEGELAGERER,
+  schlag: { name: 'Stoss', vorlauf: 0.5, aktiv: 0.12, erholung: 0.6, reichweite: 3.0, halbwinkel: 18 * GRAD,
+    schaden: 15, haltungsschaden: 22, kosten: 0, nachdrehen: 2.5, schritt: 0.3, rueckstoss: 0.8 },
+  kette: [{ name: 'Nachstoss', vorlauf: 0.3, aktiv: 0.12, erholung: 1.0, reichweite: 3.0, halbwinkel: 18 * GRAD,
+    schaden: 13, haltungsschaden: 18, kosten: 0, nachdrehen: 2.5, schritt: 0.3, rueckstoss: 0.6 }],
+  lebenMax: 75, haltungMax: 50,
+  mensch: { linienFolge: ['unten', 'unten', 'oben', 'unten', 'oben'], deckung: 'unten' },
+};
+
+/**
+ * D184: Der Axtmann — langsam (0,7 s Vorlauf), aber ein Treffer kostet ein Drittel des Lebens und
+ * bricht fast die Deckung. Kein Nachschlag; nach dem Hieb steht er lange offen.
+ */
+export const AXTMANN: KampfWerte = {
+  ...WEGELAGERER,
+  schlag: { name: 'Axthieb', vorlauf: 0.7, aktiv: 0.16, erholung: 0.75, reichweite: 2.7, halbwinkel: 40 * GRAD,
+    schaden: 26, haltungsschaden: 45, kosten: 0, nachdrehen: 2.0, schritt: 0.4, rueckstoss: 0.6 },
+  kette: [],
+  tempo: 2.6,
+  lebenMax: 115, haltungMax: 75,
+  mensch: { linienFolge: ['oben', 'rechts', 'oben', 'links', 'unten'], deckung: 'oben' },
 };
 
 /**
