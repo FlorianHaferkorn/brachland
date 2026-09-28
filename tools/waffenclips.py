@@ -37,12 +37,14 @@ CLIPS = {
     # Die Haltungen aus dem Stand (Idle), nicht aus `Idle_Sword`: Die steht seitlich wie beim Fechten
     # (im Bild gefunden) — jede Drehung des Rumpfs käme dazu, und der Stich ginge zur Seite.
     'Klinge_Stand': ('Idle', 'schleife', [
-        (1, dict(hand=(0.24, 0.3, 1.05), richt=(-0.08, 0.8, 0.55), rumpf=(-10, 4), koerper=(0, -0.04),
-                 fuss_r=(0.12, 0.03), fuss_l=(-0.1, -0.02), links=(-0.27, 0.08, 0.98))),
-        (25, dict(hand=(0.24, 0.31, 1.03), richt=(-0.08, 0.82, 0.52), rumpf=(-11, 6), koerper=(0, -0.055),
-                  fuss_r=(0.12, 0.03), fuss_l=(-0.1, -0.02), links=(-0.27, 0.09, 0.97))),
-        (49, dict(hand=(0.24, 0.3, 1.05), richt=(-0.08, 0.8, 0.55), rumpf=(-10, 4), koerper=(0, -0.04),
-                  fuss_r=(0.12, 0.03), fuss_l=(-0.1, -0.02), links=(-0.27, 0.08, 0.98))),
+        # D189: Deckung statt hängendem Arm — Hand vor dem Bauchnabel auf 1,2 m, Klinge schräg nach oben
+        # vorn (die Spitze auf Kinnhöhe des Gegners), linke Hand locker vor der Brust.
+        (1, dict(hand=(0.2, 0.32, 1.2), richt=(-0.12, 0.62, 0.78), rumpf=(-12, 5), koerper=(0, -0.06),
+                 fuss_r=(0.14, 0.04), fuss_l=(-0.12, -0.03), links=(-0.2, 0.2, 1.12))),
+        (25, dict(hand=(0.2, 0.33, 1.18), richt=(-0.12, 0.64, 0.76), rumpf=(-13, 7), koerper=(0, -0.075),
+                  fuss_r=(0.14, 0.04), fuss_l=(-0.12, -0.03), links=(-0.2, 0.21, 1.1))),
+        (49, dict(hand=(0.2, 0.32, 1.2), richt=(-0.12, 0.62, 0.78), rumpf=(-12, 5), koerper=(0, -0.06),
+                  fuss_r=(0.14, 0.04), fuss_l=(-0.12, -0.03), links=(-0.2, 0.2, 1.12))),
     ]),
     'Axt_Stand': ('Idle', 'schleife', [
         (1, dict(hand=(0.22, 0.24, 1.02), richt=(0.12, 0.3, 0.95), zwei='axt', koerper=(0, -0.03), rumpf=(-8, 3))),

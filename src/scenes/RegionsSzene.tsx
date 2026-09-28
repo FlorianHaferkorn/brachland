@@ -42,6 +42,7 @@ import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { lagerTon } from '../ton/lagerton.js';
+import { kameraZustand } from '../kampf/kamerazustand.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
@@ -3409,6 +3410,7 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     // dreht herum, `neigung` hebt und senkt. Bei Neigung 0 steht sie waagerecht
     // hinter dem Spieler, bei NEIGUNG_MAX fast senkrecht darüber.
     umschau.current += (umschauZiel.current - umschau.current) * Math.min(1, dt * 4);
+    kameraZustand.vorn = gegnerSicht.current || Math.abs(umschau.current) > 0.6;
     const g = gier.current + SPIEGEL_GRAD * Math.PI / 180 + umschau.current;
     const n = neigung.current;
     const blickY = p.y + GROESSE.kameraBlickHoehe;

@@ -52,6 +52,9 @@ const balken = (breite: number, hoehe: number): React.CSSProperties => ({
 });
 const fuellung: React.CSSProperties = { height: '100%', width: '100%' };
 
+/** D189: In der Galerie trägt die Leiste die Bedienung — die Tastenzeile wäre doppelt. */
+const OHNE_HILFE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('galerie');
+
 export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | null> }) {
   const eigen = useRef<HTMLDivElement>(null);
   const funke = useRef<HTMLDivElement>(null);
@@ -176,7 +179,7 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
         <div style={balken(132, 5)}><div ref={eigen} style={{ ...fuellung, background: '#9c7d62' }} /></div>
         {/* D188: Kernfunke — voll heisst: der nächste schwere Schlag (I) entlädt ihn */}
         <div ref={funkeRahmen} title="Wasserfunke — voll: I entlädt ihn" style={{ ...balken(132, 4), display: 'none' }}><div ref={funke} style={{ ...fuellung, background: '#3f86b8' }} /></div>
-        <div style={{ ...text, opacity: 0.7 }}>
+        <div style={{ ...text, opacity: 0.7, display: OHNE_HILFE ? 'none' : undefined }}>
           J leicht · I schwer · Shift+J im Lauf · K Rolle · U/RMT Block · Pfeile/Maus Linie · L Ziel · V nah · C Ansicht · Q/E · 1/2/3 Waffe · <span ref={zaehler} />
         </div>
       </div>

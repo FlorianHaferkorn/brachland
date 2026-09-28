@@ -49,11 +49,12 @@ export interface Ergebnis { sieg: boolean; zeit: number; erlitten: number; treff
 export interface Einschlag { von: string; phase: string; schlag: string; rand: number }
 
 export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, saat: number,
-                      beobachte?: (e: Einschlag) => void, schadenFaktor = 1): Ergebnis {
+                      beobachte?: (e: Einschlag) => void, schadenFaktor = 1, element?: 'wasser'): Ergebnis {
   const z = zufall(saat);
   const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
   ruesteAus(s, waffe);
   s.schadenFaktor = schadenFaktor;
+  if (element) { s.element = element; s.ladung = 0; }
   const alle = aufstellung.map((werte, i) => {
     const winkel = (z.r() - 0.5) * 1.2 + (i ? 0.9 : 0);
     const k = neuerKaempfer(`g${i}`, werte, -Math.sin(winkel) * (8 + 2 * i), -Math.cos(winkel) * (8 + 2 * i), 0);
@@ -130,7 +131,15 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
       const rest = !offen ? 0 : g.phase === 'erholung' ? g.schlag.erholung - g.zeit
         : g.phase === 'betaeubt' ? (g.betaeubtFuer ?? g.werte.betaeubt) - g.zeit : (w.atem ?? 0);
       const restD = durch ? g.schlag.vorlauf - g.zeit : rest;
-      const art = g.phase === 'betaeubt' ? 'schwer' : 'leicht';
+      // D189: Mit vollem Funken schlägt er schwer, sobald der Schlag ins Fenster passt (Flutstoss).
+      // D189: Mit vollem Funken schwer — aber nur, wenn der schwere Schlag ins Fenster passt; sonst leicht
+      // weiter (erste Fassung wartete auf ein grosses Fenster und schlug gar nicht mehr: Axt 100 → 27 %).
+      const schwerPasst = (s.ladung ?? 0) >= 1 && (() => {
+        const sw = naechsterSchlag(s, 'schwer').schlag;
+        const r = g.phase === 'erholung' ? g.schlag.erholung - g.zeit : g.phase === 'betaeubt' ? (g.betaeubtFuer ?? g.werte.betaeubt) - g.zeit : 0;
+        return r > Math.max(0, rand - sw.reichweite * 0.9) / 4.5 + sw.vorlauf;
+      })();
+      const art = g.phase === 'betaeubt' || schwerPasst ? 'schwer' : 'leicht';
       const naechster = naechsterSchlag(s, art).schlag;
       const reich = naechster.reichweite * 0.9;
       const weg = Math.max(0, rand - reich) / 4.5;

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 /**
  * BRACHLAND — Kampftor: die Zahlen, die kein Bild zeigt (ADR-0007, Stufe 1)
  *
@@ -16,7 +17,7 @@ import {
   neuerKaempfer, setzeSchlagAn, setzeRolleAn, kannSchlagen, kannRollen,
   imBogen, loeseTreffer, schrittKaempfer, simuliere, waehleZiel, blickAuf, vorwaerts,
   WAFFEN, ruesteAus, wechsleZiel, KEILER, GRATHORN, WOLF,
-  puffere, naechsterSchlag, setzeBlockAn, loeseBlock, kannBlocken, WEGELAGERER, DECKUNG_KOSTEN, type Linie, PARADE, PARADE_BETAEUBT, BLOCK, PUFFER, KOMBO_AB, KOMBO_FENSTER, WURF_SPERRE, LADUNG, FLUT, TREFFERSTOPP, STOSS_DAUER, type Schlag,
+  puffere, naechsterSchlag, setzeBlockAn, loeseBlock, kannBlocken, WEGELAGERER, DECKUNG_KOSTEN, type Linie, PARADE, PARADE_BETAEUBT, BLOCK, PUFFER, KOMBO_AB, KOMBO_FENSTER, WURF_SPERRE, LADUNG, FLUT, funkenFaktor, TREFFERSTOPP, STOSS_DAUER, type Schlag,
   type Kaempfer, type Kampfwelt, type Treffer,
 } from '../src/kampf/echtzeit.js';
 
@@ -188,6 +189,16 @@ let schlaegeAusVoll = 0, rollenAusVoll = 0;
   s.ladung = 1;
   pruefe('leichter Schlag entlädt nie', !hau()[0].element && (s.ladung ?? 0) === 1);
   pruefe('Leben bleibt ohne Funken unberührt vom Element', l0 > 0);
+}
+
+// ---------------------------------------------------- D189: Elemente der Tiere = Inhalte, Funke nach Matrix
+{
+  const inhalt = (id: string) => JSON.parse(readFileSync(`content/creatures/${id}.json`, 'utf8')).elemente as string[];
+  for (const [w, id] of [[WOLF, 'k7-wolf'], [KEILER, 'wurzelkeiler'], [GRATHORN, 'grathorn']] as const)
+    pruefe(`${id}: Elemente wie im Inhalt`, JSON.stringify(w.elemente) === JSON.stringify(inhalt(id)), `${w.elemente} gegen ${inhalt(id)}`);
+  pruefe('Wasser gegen Mensch: neutral', funkenFaktor('wasser', WEGELAGERER) === 1);
+  pruefe('Wasser gegen Alt-Tech (Fuchs): schwach, gedämpft', Math.abs(funkenFaktor('wasser', { ...WOLF, elemente: ['alt-tech'] }) - Math.SQRT1_2) < 1e-9);
+  pruefe('Wasser gegen Frost: stark, gedämpft', Math.abs(funkenFaktor('wasser', { ...WOLF, elemente: ['frost'] }) - Math.SQRT2) < 1e-9);
 }
 
 // ---------------------------------------------------- D182: Wurfsperre — die Axt nagelt keinen fest

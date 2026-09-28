@@ -45,6 +45,7 @@ import { kreaturGeometrie, baueAnbau, saatAusId } from '../world/kreaturgestalt.
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
 import { haengeAnHand, baueSpeer } from './waffenhand.js';
+import { kameraZustand } from './kamerazustand.js';
 import { schadenFaktor } from '../spiel/schmiede.js';
 import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
 /** Aussehen des Wegelagerers (D175). */
@@ -735,7 +736,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         else if (e.gebrochen) melde('Haltung gebrochen');
       } else {
         const i = w.gegner.findIndex(g => g.id === e.auf);
-        if (e.element) melde('Flutstoss');
+        if (e.element) melde(e.wirkung === 'stark' ? 'Flutstoss — sehr wirksam' : e.wirkung === 'schwach' ? 'Flutstoss — kaum wirksam' : 'Flutstoss');
         if (i >= 0 && !e.ausgewichen) {
           zeichnung.puppen[i].blitz = jetzt;
           // Seite des Angreifers im Blick des Getroffenen: rechts ist (−vz, vx) zur Vorwärtsrichtung.
@@ -772,10 +773,11 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     sw.position.set(s.x, hoeheAufFlaeche(feld, s.x, s.z) + 0.05, s.z);
     sw.rotation.y = s.blick;
     if (sw.geometry !== faecherFuer(s.schlag)) sw.geometry = faecherFuer(s.schlag);
-    sw.material.opacity = s.phase === 'aktiv' ? 0.3 : s.phase === 'vorlauf' ? 0.12 : 0;
+    sw.material.opacity = kameraZustand.vorn || GALERIE ? 0 : s.phase === 'aktiv' ? 0.3 : s.phase === 'vorlauf' ? 0.12 : 0;
     const mk = zeichnung.marke;
     const zk = w.ziel ? w.gegner.find(g => g.id === w.ziel) : undefined;
-    mk.visible = !!zk;
+    // D189: In Vorder-/Seiten-/Gegneransicht und in der Galerie stünde die Marke gross vor der Kamera.
+    mk.visible = !!zk && !kameraZustand.vorn && !GALERIE;
     if (zk) {
       mk.position.set(zk.x, zk.y + zk.werte.hoehe + 0.45, zk.z);
       mk.rotation.y += dt * 2.5;

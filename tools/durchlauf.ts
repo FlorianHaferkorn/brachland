@@ -30,6 +30,20 @@ for (const l of LAGER) for (const nacht of [false, true]) for (const waffe of ['
       + ` ${String(Math.round(siege / N * 100)).padStart(4)} %  ${siege ? (zeit / siege).toFixed(1).padStart(5) + ' s' : '    –  '}  ${(erlitten / N).toFixed(0).padStart(5)}`);
   }
 
+// D189: Wasserfunke — Stufe 1, aufmerksam, ohne und mit Funke (der Bot schlägt schwer, wenn der Gegner
+// betäubt steht; mit voller Ladung wird das der Flutstoss).
+console.log('\nWasserfunke (Stufe 1, aufmerksam)   ohne → mit');
+const aufm = PROFILE.find(x => x.name === 'aufmerksam')!;
+for (const l of LAGER) for (const nacht of [false, true]) for (const waffe of ['klinge', 'axt', 'speer'] as const) {
+  const auf = nacht ? l.auf.map(w => naechtlich(w)) : l.auf;
+  const quote = (el?: 'wasser') => {
+    let siege = 0, zeit = 0;
+    for (let i = 0; i < N; i++) { const e = kampf(auf, waffe, aufm, 7000 + i, undefined, schadenFaktor(1), el); if (e.sieg) { siege++; zeit += e.zeit; } }
+    return `${String(Math.round(siege / N * 100)).padStart(3)} % ${(siege ? zeit / siege : 0).toFixed(0).padStart(3)} s`;
+  };
+  console.log(`${l.name.padEnd(11)} ${(nacht ? 'Nacht' : 'Tag').padEnd(6)} ${waffe.padEnd(7)} ${quote()} → ${quote('wasser')}`);
+}
+
 // Wirtschaft: was kostet Stufe 3, und wie viele Siege liefern das (Tag / Nacht = doppelte Beute)?
 const kosten: Record<string, number> = {};
 for (let s = 0; s < 3; s++) for (const [g, n] of Object.entries(angebot('klinge', s)!.preis)) kosten[g] = (kosten[g] ?? 0) + n;

@@ -24,6 +24,7 @@
  * das könnte ein langsames Bild (100 ms) das aktive Fenster eines Schlags (120 ms) überspringen,
  * und ob ein Treffer zählt, hinge an der Bildrate statt am Spiel.
  */
+import { schadensfaktor, type Element as ElementName } from '../data/schema.js';
 import { neueAusdauer, reicht, schritt as ausdauerSchritt, verbrauche, type Ausdauer } from '../spieler/ausdauer.js';
 
 export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen';
@@ -93,6 +94,8 @@ export interface Rolle {
 
 export interface KampfWerte {
   schlag: Schlag;
+  /** D189: Elemente des Tiers (aus `content/creatures`, im Test gegengeprüft) — Menschen haben keins. */
+  elemente?: readonly ElementName[];
   /**
    * Was nach `schlag` ohne Pause folgt (D171) — der Doppelbiss des Wolfs. Der nächste Schlag beginnt,
    * sobald die Erholung des vorigen um ist; das Angriffsrecht bleibt dabei.
@@ -172,6 +175,14 @@ export type WaffenArt = 'klinge' | 'axt' | 'speer';
 export type Element = 'wasser';
 export const LADUNG = { treffer: 0.2, parade: 0.35 };
 export const FLUT = { schaden: 1.25, stoss: 3, betaeubt: 0.7, betaeubtMensch: 0.35 };
+/**
+ * D189: Die Elementmatrix der Kreaturenkämpfe gilt auch für den Funken — gedämpft (Wurzel), weil ein
+ * Echtzeittreffer sonst mit ×4 einen Wolf auf einen Schlag nimmt: 4 → 2, 2 → 1,41, 0,5 → 0,71, 0,25 → 0,5.
+ * Wirkt auf Schaden und Betäubung des Flutstosses.
+ */
+export function funkenFaktor(element: Element, ziel: KampfWerte): number {
+  return ziel.elemente?.length ? Math.sqrt(schadensfaktor(element, [...ziel.elemente])) : 1;
+}
 /** Der schwere Schlag jeder Waffe — nur er entlädt den Funken. */
 export function istSchwer(s: Schlag): boolean {
   return s === WAFFEN.klinge.schwer || s === WAFFEN.axt.schwer || s === WAFFEN.speer.schwer;
@@ -337,6 +348,7 @@ export const UEBUNGSGEGNER: KampfWerte = {
  * Seite zu leicht, von vorn zu schwer zu treffen).
  */
 export const KEILER: KampfWerte = {
+  elemente: ['holz'],
   schlag: {
     vorlauf: 0.85, aktiv: 0.18, erholung: 1.0,
     reichweite: 2.6, halbwinkel: 35 * GRAD,
@@ -359,6 +371,7 @@ export const KEILER: KampfWerte = {
  * noch schmaler (±30°) und leichter: Wer den Keiler gelernt hat, muss hier früher rollen.
  */
 export const GRATHORN: KampfWerte = {
+  elemente: ['stein'],
   schlag: {
     vorlauf: 0.6, aktiv: 0.14, erholung: 0.8,
     reichweite: 2.2, halbwinkel: 30 * GRAD,
@@ -380,6 +393,7 @@ export const GRATHORN: KampfWerte = {
  * heisst. Dafür wenig Leben und Haltung: Die Klinge bricht ihn mit dem zweiten Treffer.
  */
 export const WOLF: KampfWerte = {
+  elemente: ['alt-tech', 'frost'],
   schlag: {
     name: 'Biss', vorlauf: 0.5, aktiv: 0.1, erholung: 0.22,
     reichweite: 2.0, halbwinkel: 40 * GRAD,
@@ -403,6 +417,7 @@ export const WOLF: KampfWerte = {
  * Rhythmus lesen. Wenig Leben, geringer Schaden; im Rudel mit dem Wolf ist er der Störer.
  */
 export const FUCHS: KampfWerte = {
+  elemente: ['alt-tech'],
   schlag: {
     name: 'Schnappen', vorlauf: 0.4, aktiv: 0.1, erholung: 0.95,
     reichweite: 1.8, halbwinkel: 40 * GRAD,
@@ -421,6 +436,7 @@ export const FUCHS: KampfWerte = {
  * steht oder zwischen zwei Gegnern, merkt das.
  */
 export const GAMS: KampfWerte = {
+  elemente: ['stein'],
   schlag: {
     name: 'Kopfstoss', vorlauf: 0.45, aktiv: 0.12, erholung: 0.7,
     reichweite: 2.0, halbwinkel: 30 * GRAD,
@@ -802,6 +818,8 @@ export interface Treffer {
   pariert?: boolean;
   /** D188: Das Element wurde mit diesem Treffer entladen. */
   element?: Element;
+  /** D189: Wirkung nach der Elementmatrix. */
+  wirkung?: 'stark' | 'schwach';
   /** In die gedeckte Linie eines Menschen geschlagen (D174): kein Schaden, der Angreifer zahlt Ausdauer. */
   gedeckt?: boolean;
   /** Block in der falschen Linie (D174): halber Schaden. */
@@ -860,7 +878,8 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     // D188: Entladung — der schwere Schlag mit voller Ladung trägt das Element (ein Schwung, alle Ziele).
     if (a.element && (a.ladung ?? 0) >= 1 && istSchwer(s) && a.entladung !== a.schwung) { a.entladung = a.schwung; a.ladung = 0; }
     const flut = !!a.element && a.entladung === a.schwung;
-    const f = (linieFalsch && blocktFrontal(z, a) && !s.durch ? 0.5 : 1) * (a.schadenFaktor ?? 1) * (flut ? FLUT.schaden : 1);
+    const ef = flut && a.element ? funkenFaktor(a.element, z.werte) : 1;
+    const f = (linieFalsch && blocktFrontal(z, a) && !s.durch ? 0.5 : 1) * (a.schadenFaktor ?? 1) * (flut ? FLUT.schaden * ef : 1);
     const schaden = s.schaden * f;
     z.leben = Math.max(0, z.leben - schaden);
     z.haltung -= s.haltungsschaden * f;
@@ -889,10 +908,10 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       const dx = z.x - a.x, dz = z.z - a.z, d = Math.hypot(dx, dz) || 1;
       const r = (s.rueckstoss ?? 0.2) * (flut ? FLUT.stoss : 1);
       z.stoss = { x: dx / d * r, z: dz / d * r, rest: STOSS_DAUER };
-      if (flut && !gebrochen) betaeube(z, z.werte.mensch ? FLUT.betaeubtMensch : FLUT.betaeubt);
+      if (flut && !gebrochen) betaeube(z, (z.werte.mensch ? FLUT.betaeubtMensch : FLUT.betaeubt) * ef);
     }
     raus.push({ von: a.id, auf: z.id, schaden, gebrochen, toedlich, ausgewichen: false,
-      ...(f < 1 ? { falscheLinie: true } : {}), ...(flut ? { element: a.element } : {}), linie });
+      ...(f < 1 ? { falscheLinie: true } : {}), ...(flut ? { element: a.element, wirkung: ef > 1.05 ? 'stark' as const : ef < 0.95 ? 'schwach' as const : undefined } : {}), linie });
   }
   return raus;
 }
