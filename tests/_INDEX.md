@@ -24,6 +24,7 @@ owns: *.test.ts
 | Schwierigkeit prüfen (ganze Kämpfe mit Reaktionszeit) | `kampfbot.test.ts` → `../tools/kampfbot.ts` |
 | Die Witterungsanzeige oder eine Richtung anfassen | `peilung.test.ts` → `../src/spieler/peilung.ts` |
 | Kamera bei Zielaufschaltung (Schulter, Gegneransicht) ändern | `sichtlinie.test.ts` → `../src/kampf/sichtlinie.ts` |
+| An der Tonwertkurve (`LOOK_GAMMA`, `LOOK_S`, AgX) drehen | `tonwert.test.ts` → `../src/scenes/tonwert.ts` — Sollwerte neu **messen** |
 | An Erfahrungskurve, Stufen oder Mutation drehen | `fortschritt.test.ts` → `../src/spiel/fortschritt.ts` |
 | Klettern, Springen oder Zehrraten ändern | `ausdauer.test.ts` → `../src/spieler/ausdauer.ts` |
 | Auftragsziele oder Vorbedingungen ändern | `auftraege.test.ts` → `../src/spiel/auftraege.ts` |
@@ -46,6 +47,7 @@ owns: *.test.ts
 | `battle.test.ts` | 16 Tests: Elementmatrix ausgewogen, Fokus-Ökonomie, Elementvorteil entscheidet, Phasen erzwingen Wechseln, Zehrung, Determinismus, Kampfdauer im Korridor |
 | `peilung.test.ts` | 11 Tests. Anlass war ein **Vorzeichenfehler**, der nur bei Blickrichtung 0 unauffällig war — der Pfeil zeigte beim Drehen in die falsche Richtung |
 | `sichtlinie.test.ts` | D192: Stamm zwischen Schulterkamera und Ziel zieht den Arm ein; Stamm nur neben dem Ziel nicht; Versatz zählt mit; feste Probenweite (0,3 m) überspringt keinen Stamm — mit 12 Proben je Strecke passiert |
+| `tonwert.test.ts` | D199: `agxMitLook` (CPU) trifft den Shader `CustomToneMapping` — 34 in Chromium gemessene Farbproben bei Belichtung 2,4 und 2,5, Toleranz 1/255. Hält `npm run licht` auf der Kurve, die das Spiel zeigt |
 | `fortschritt.test.ts` | 20 Tests. Anlass: Die erste Kurve machte Kreaturen bei der Mutation **schwächer** (L13 = 184 KP, L14 = 162 KP). Hält jetzt Monotonie und die Zahl der Kämpfe je Mutation fest |
 | `ausdauer.test.ts` | 20 Tests. Hält die Kletterhöhe als **Rechnung** fest (16/s × 2,2 m/s = 13,8 m gegen 14 m Klippe) und die Hysterese am Nullpunkt |
 | `auftraege.test.ts` | 25 Tests. Der Fortschritt wird abgeleitet, nicht gezählt — geprüft wird unter anderem, dass `schneehuhn` nicht `schneehuhn-alt` mitzählt |
