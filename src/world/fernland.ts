@@ -178,11 +178,15 @@ export function baueFernland(
    * eine 0,04 gemacht: aus der Kulisse wäre eine schwarze Wand geworden.
    *
    * Gerechnet wird ein Lambert-Term gegen dieselbe Sonnenrichtung, die auch das
-   * Nahgelände beleuchtet, plus dieselbe Umgebungsfarbe. Damit steht die Ferne
+   * Nahgelände beleuchtet, plus dieselbe Umgebungsfarbe — mit demselben 1/π wie der Renderer. Damit steht die Ferne
    * im gleichen Licht wie die Nähe, ohne dass ein Lichtmodell zweimal läuft.
    */
-  const sonnenLicht = new THREE.Color(licht.sonne).multiplyScalar(licht.sonneStaerke);
-  const grundLicht = new THREE.Color(licht.umgebung).multiplyScalar(licht.umgebungStaerke);
+  // D202: durch π — three.js rechnet Lambert als `Bestrahlung · Albedo / π` (`BRDF_Lambert` in
+  // `common.glsl.js`), und Sonne wie Hemisphäre gehen ohne π-Ausgleich in die Szene. Ohne diesen
+  // Faktor stand die Kulisse π-mal heller als das Nahgelände; seit `zielbild` die Sonne auf 3,2
+  // verdoppelte (D172), brannte der Fernberg weiss aus (Felsmulde-Kamera, 07.10.2026).
+  const sonnenLicht = new THREE.Color(licht.sonne).multiplyScalar(licht.sonneStaerke / Math.PI);
+  const grundLicht = new THREE.Color(licht.umgebung).multiplyScalar(licht.umgebungStaerke / Math.PI);
   const sonnenRichtung = new THREE.Vector3(...licht.sonnenstand).normalize();
   const beleuchtet = new THREE.Color();
   const farbe = new THREE.Color();
