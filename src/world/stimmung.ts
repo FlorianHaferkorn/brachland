@@ -36,6 +36,8 @@ export interface Stimmung {
   /** Fensterglut 0…1 (D134): wie hell hinter den Fenstern Licht brennt; ohne Angabe 0. */
   fenster?: number;
   zenit: string; horizont: string; scheibe: number; hof: number;
+  /** D203: Wolkenbedeckung 0…1 (`himmel.ts`); ohne Angabe `WOLKEN_VORGABE`. */
+  wolken?: number;
   /** Silhouettenlicht: Farbe des Himmels, der die Umrisse zeichnet. */
   randFarbe: string;
   randStaerke: number;

@@ -1868,12 +1868,12 @@ function Beleuchtung({ s, ziel }: {
 
   const himmel = useMemo(() => baueHimmel({
     zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
-    sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof,
+    sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
   }), [s]);
   useEffect(() => {
     setzeHimmel(himmel, {
       zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
-      sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof,
+      sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
     });
   }, [himmel, s]);
 
