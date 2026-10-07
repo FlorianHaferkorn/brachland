@@ -9,7 +9,8 @@ Repo-agnostisch, pure Python. Vier Prüfungen:
      ohne den `docs/sprints/_INDEX.md`-Bereich doppelt zu regieren.
 
   2. PFAD/ANKER (hart) — jeder konkrete Pfad (mit '/') im Index zeigt auf ein echtes
-     Ziel; Anker (#frag) gegen die Überschriften-Slugs. Globs/{{…}}/URLs übersprungen.
+     Ziel; Anker (#frag) gegen die Überschriften-Slugs. Globs/{{…}}/URLs übersprungen,
+     ebenso Ziele, die git ignoriert (`.cache/` u. ä. — lokale Belege, im Clone nie vorhanden).
 
   3. QUALITÄT/PLATZHALTER — `{{…}}` in einem committeten `_INDEX.md`/`CLAUDE.md`/
      `GOI_DOKTRIN.md` = ungefülltes Gerüst. Default: WARNUNG. Mit `--strict`: HART
@@ -257,6 +258,16 @@ def _strip_fences(text: str) -> str:
     return "\n".join(out)
 
 
+def _git_ignoriert(pfad: Path) -> bool:
+    """True, wenn git den Pfad ignoriert. Ohne git (oder ausserhalb des Repos) False — dann bleibt der Befund."""
+    try:
+        r = subprocess.run(["git", "check-ignore", "-q", str(pfad)], cwd=REPO_ROOT,
+                           capture_output=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0
+
+
 def check_paths(index: Path, errors: list[str]) -> None:
     for raw in PATH_RE.findall(_strip_fences(index.read_text(encoding="utf-8", errors="replace"))):
         ref = raw.strip()
@@ -274,6 +285,10 @@ def check_paths(index: Path, errors: list[str]) -> None:
             ref, anchor = ref.split("#", 1)
         target = next((c for c in [(index.parent / ref).resolve(), (REPO_ROOT / ref).resolve()] if c.exists()), None)
         if target is None:
+            # Verweise auf gitignorte Ablagen (`.cache/`: lokale Mess- und Bildartefakte) sind Belege
+            # auf der Maschine, die sie erzeugt hat — ein frischer Clone (CI) hat sie nie.
+            if any(_git_ignoriert(c) for c in [index.parent / ref, REPO_ROOT / ref]):
+                continue
             errors.append(f"[Pfad] {index.relative_to(REPO_ROOT)} → '{ref}' existiert nicht")
         elif anchor and target.suffix == ".md" and slugify(anchor) not in headings_of(target):
             errors.append(f"[Anker] {index.relative_to(REPO_ROOT)} → '{ref}#{anchor}' trifft keine Überschrift")
