@@ -22,7 +22,7 @@
  *
  * `npm run licht`
  */
-import { STIMMUNG, HEMI_BODEN } from '../src/scenes/RegionsSzene.js';
+import { STIMMUNG, HEMI_BODEN } from '../src/world/stimmung.js';
 import { BIOM_FARBE } from '../src/world/terrain.js';
 import { BAUM } from '../src/world/baum.js';
 
