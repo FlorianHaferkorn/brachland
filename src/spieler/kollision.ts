@@ -1,7 +1,7 @@
 /**
  * BRACHLAND — Kollision mit Props
  *
- * Bewusst nur Stämme, Findlinge und Totholz. Büsche und Grasbüschel bleiben
+ * Bewusst nur Stämme, Findlinge und Totholz — der Engine-Props und, seit G-136, der Blender-Szenen. Büsche und Grasbüschel bleiben
  * durchlässig: Durch Unterholz *geht* man, und alles blockieren zu lassen macht
  * einen Wald unbegehbar, statt ihn dicht wirken zu lassen.
  *
@@ -11,7 +11,7 @@
  */
 import type { PropArt, PropInstanz } from '../world/props.js';
 import type { Weltdaten } from '../world/osm.js';
-import { gesperrt } from '../world/bauwerke.js';
+import { gesperrt, SZENEN_STAEMME } from '../world/bauwerke.js';
 
 /** Stammradius je Art in Metern, wird mit der Instanzskalierung multipliziert. */
 const RADIUS: Partial<Record<PropArt, number>> = {
@@ -74,6 +74,11 @@ function baueGebaeudeRechtecke(
 export function baueKollision(
   props: readonly PropInstanz[],
   welt?: Weltdaten, breiteMeter = 0, tiefeMeter = 0,
+  /**
+   * Stämme der Blender-Szenen (G-136), `[x, z, r]`. Vorgabe: alle aus `public/bauten/staemme.json` —
+   * im Freihalte-Radius einer Szene stehen keine Engine-Bäume, sondern ihre.
+   */
+  szenenStaemme: readonly (readonly [number, number, number])[] = SZENEN_STAEMME,
 ): Kollisionsfeld {
   const raster = new Map<number, Hindernis[]>();
   const bauten = new Map<number, Rechteck[]>();
@@ -101,6 +106,13 @@ export function baueKollision(
     const k = schluessel(Math.floor(h.x / ZELLE), Math.floor(h.z / ZELLE));
     const liste = raster.get(k);
     if (liste) liste.push(h); else raster.set(k, [h]);
+    anzahl++;
+  }
+
+  for (const [x, z, r] of szenenStaemme) {
+    const k = schluessel(Math.floor(x / ZELLE), Math.floor(z / ZELLE));
+    const liste = raster.get(k);
+    if (liste) liste.push({ x, z, r }); else raster.set(k, [{ x, z, r }]);
     anzahl++;
   }
 

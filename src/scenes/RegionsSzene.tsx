@@ -1393,12 +1393,15 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
     // Neue Figuren: Arme verschränkt statt Idle_Neutral, ein Nicken statt Winken (UAL2).
     const idle = mixer.clipAction(finde('Idle')), ruhig = mixer.clipAction(finde(hg ? 'Idle_Ruhig' : 'Idle_Neutral'));
     const wink = mixer.clipAction(finde(hg ? 'Gruss' : 'Wave')), walk = mixer.clipAction(finde('Walk'));
-    idle.play();
     wink.setLoop(THREE.LoopOnce, 1); wink.clampWhenFinished = false;
     walk.timeScale = MENSCH_WALK_RATE;
     return { idle, ruhig, wink, walk, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
-  useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
+  // G-137: Idle im Effekt starten, nicht im useMemo — siehe `SpielerFigur`.
+  useEffect(() => {
+    clips.idle.reset().play(); clips.aktiv = clips.idle;
+    return () => { mixer.stopAllAction(); };
+  }, [mixer, clips]);
   /** Weich zu einem Clip wechseln (G-133: einblenden mit Gewicht 1, nicht 0). */
   const wechsle = (ziel: THREE.AnimationAction, dauer: number) => {
     if (ziel === clips.aktiv) return;
@@ -2752,7 +2755,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
     // der Faktor, mit dem `fadeIn` multipliziert — 0 mal Einblendung bleibt 0,
     // und die Figur lief bis D145 als T-Pose, weil Idle ausblendete und nichts
     // einblendete. Gesehen wurde das erst, als der Gang im Lauf gemessen wurde.
-    idle.play();
+    // Gestartet wird Idle im Effekt unten, nicht hier (G-137).
     return { idle, walk, run, schlag, axt, rolle, treffer, tod, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
   /**
@@ -2853,7 +2856,18 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
     // nächste Figur die alten mit (im Bild gefunden: Speer zugleich in der Hand und am Rücken).
     for (const r of Object.values(waffen.ruecken)) r?.removeFromParent();
   }, [waffen]);
-  useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
+  /**
+   * G-137: Idle hier starten, nicht im `useMemo`. `main.tsx` rendert in `<StrictMode>`, und im
+   * Dev-Server hängt React jede Komponente einmal ab und wieder an: Die Aufräumfunktion stoppt alle
+   * Clips, das `useMemo` läuft aber nicht noch einmal. Idle blieb gestoppt (`isRunning() === false`
+   * bei Gewicht 1), und weil die Clipwahl nur bei einem **Wechsel** neu startet, stand die Figur
+   * im Stand in der Ruhepose des Skeletts — T-Pose —, bis sie einmal ging. Gemessen 07.10.2026
+   * per Laufzeitsonde im Headless-Browser; der Produktions-Build war nicht betroffen.
+   */
+  useEffect(() => {
+    clips.idle.reset().play(); clips.aktiv = clips.idle;
+    return () => { mixer.stopAllAction(); };
+  }, [mixer, clips]);
   // Die Beinknochen fuer die Sitzpose (D145). GLTFLoader streicht den Punkt aus
   // den Namen (`UpperLeg.L` → `UpperLegL`); beide Schreibweisen werden gesucht.
   const beine = useMemo(() => {
