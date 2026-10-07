@@ -122,8 +122,8 @@ nur dort, in Bewegung (ADR-0005). Keine Look-Aussage aus Standbildern: genau das
 Projekt mehrere Runden gekostet.
 
 ### Art Direction ist entschieden, nicht offen
-Dämmerung, Nebel als Werkzeug, Silhouetten, **eine** Signalfarbe für Befall. Den Look legt
-das Blender-Referenzbild fest (ADR-0006): Die Engine folgt dem Render, Texturen sind seit
+Dämmerung, Nebel als Werkzeug, Silhouetten, **eine** Signalfarbe für Befall. Messlatte ist
+Soulframe-Ingame (ADR-0012), gemessen wird am Blender-Referenzbild (ADR-0006): Die Engine folgt dem Render, Texturen sind seit
 ADR-0006 erlaubt, die Tagesstimmung ist `zielbild` (warm, Goldnebel). Ein Gegenentwurf mit kühler
 Palette liegt als ADR-0011 **Proposed** vor (Ledger A-9). Die Werte in
 `src/scenes/RegionsSzene.tsx` sind erarbeitet; nicht ohne Grund daran drehen.

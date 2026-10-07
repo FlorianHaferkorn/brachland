@@ -18,6 +18,7 @@
  */
 import * as THREE from 'three';
 import { HIMMEL_UNIFORM } from './windmaterial.js';
+import { PALETTE } from './palette.js';
 
 /**
  * Himmelsanteil des Geländes um ein Set-Piece (D171, `tools/himmelboden.ts`): ein Raster von
@@ -104,6 +105,20 @@ const VARIATION_GLSL = /* glsl */ `
   diffuseColor.rgb *= mix(feucht, trocken, grob);
 `;
 
+/**
+ * D201: Fels an steilen Hängen, Schutt am Übergang. Bisher trug nur die Biomfarbe des Höhenrasters
+ * den Hang — ein 35°-Hang im Wald war so grün wie der Talboden. Gesteuert über die **Weltnormale**
+ * (seit D201 glatt aus dem Höhenfeld) mit verrauschter Schwelle, damit die Grenze keine Höhenlinie
+ * zeichnet. Farben aus der Palette (`fels.b`, `fels.schutt`), nicht im Shader erfunden.
+ */
+const HANG_GLSL = /* glsl */ `
+  float hangRausch = bodenRauschen(vWeltPos.xz * 0.31) - 0.5;
+  float steil = 1.0 - smoothstep(0.66, 0.86, vWeltNormal.y + hangRausch * 0.16);
+  float schutt = 1.0 - smoothstep(0.78, 0.93, vWeltNormal.y + hangRausch * 0.12);
+  diffuseColor.rgb = mix(diffuseColor.rgb, uSchutt, schutt * 0.45);
+  diffuseColor.rgb = mix(diffuseColor.rgb, uFels * (0.85 + hangRausch * 0.4), steil);
+`;
+
 const RELIEF_GLSL = /* glsl */ `
   // Blender mat_boden: Rauschen bei 6/m. Unser zweidimensionales Wertrauschen
   // hat steilere Einzelhaenge: 8 mm statt .15 m * .3 verhindern ein Kornraster.
@@ -137,48 +152,48 @@ const RELIEF_GLSL = /* glsl */ `
  * ADR-0006 und der Blender-Quelle; es veraendert weder Silhouette noch Kollision.
  */
 /**
- * `?bodenglatt=1` schaltet das Flat Shading des Bodens ab — **Messparameter, keine Umstellung** (D160).
+ * `?bodenkantig=1` stellt das alte Flat Shading wieder her — **Vergleichsschalter** (D201).
  *
- * Gebaut, um dem Schachbrettmuster nachzugehen, das am Stauwehr über dem Boden liegt. **Ergebnis: Flat
- * Shading ist nicht die Ursache** — mit und ohne sind Bild und Messwerte gleich (Drittel 0,236/0,119/0,075
- * gegen 0,236/0,119/0,074). Das Muster steht auch auf dem nackten Terrain (`?aus=gras,baeume,bauwerke,
- * haeuser,menschen`) und ist damit **Farbe, nicht Beleuchtung**: die zellenweisen Biomfarben des
- * Höhenrasters, die mit der entsättigten Palette als Raster lesen. Gehört zu Stufe 3 (Karte).
- *
- * Der Regler bleibt, weil er diesen Ausschluss reproduzierbar macht — nicht als halbe Umstellung.
+ * Bis D200 war Flat Shading die Vorgabe und `?bodenglatt=1` der Schalter dagegen. D160 maß mit ihm
+ * „kein Unterschied“ — zu Recht, aber aus dem falschen Grund: Die Kachelgeometrie war nicht
+ * indiziert, und `computeVertexNormals()` gab ohnehin nur Flächennormalen. Seit D201 kommen die
+ * Normalen aus dem Höhenfeld, und glatt ist die Vorgabe (ADR-0012: Soulframe als Messlatte —
+ * Gelände liest sich dort als Form, nicht als Facette).
  */
-const BODEN_GLATT: boolean = (() => {
+const BODEN_KANTIG: boolean = (() => {
   if (typeof location === 'undefined') return false;
-  return new URLSearchParams(location.search).get('bodenglatt') === '1';
+  return new URLSearchParams(location.search).get('bodenkantig') === '1';
 })();
 
 export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({
-    vertexColors: true, flatShading: !BODEN_GLATT, roughness: 0.95, metalness: 0,
+    vertexColors: true, flatShading: BODEN_KANTIG, roughness: 0.95, metalness: 0,
   });
 
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWeltPos;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWeltPos;\nvarying vec3 vWeltNormal;')
       .replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;',
+        '#include <begin_vertex>\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n  vWeltNormal = normalize(mat3(modelMatrix) * objectNormal);',
       );
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + VARIATION_GLSL)
+      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nuniform vec3 uFels;\nuniform vec3 uSchutt;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + VARIATION_GLSL + HANG_GLSL)
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL)
       .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
       .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL);
     shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
     shader.uniforms.uBodenRahmen = BODEN_HIMMEL.rahmen;
     shader.uniforms.uHimmel = HIMMEL_UNIFORM;
+    shader.uniforms.uFels = { value: new THREE.Color(PALETTE.fels.b) };
+    shader.uniforms.uSchutt = { value: new THREE.Color(PALETTE.fels.schutt) };
   };
 
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
-  material.customProgramCacheKey = () => 'brachland-boden-v3';
+  material.customProgramCacheKey = () => 'brachland-boden-v4' + (BODEN_KANTIG ? '-kantig' : '');
 
   return material;
 }
