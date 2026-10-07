@@ -24,7 +24,10 @@
  * das könnte ein langsames Bild (100 ms) das aktive Fenster eines Schlags (120 ms) überspringen,
  * und ob ein Treffer zählt, hinge an der Bildrate statt am Spiel.
  */
-import { schadensfaktor, type Element as ElementName } from '../data/schema.js';
+import { schadensfaktor, WaffenDaten, type Element as ElementName, type WaffenSchlag } from '../data/schema.js';
+import KLINGE_ROH from '../../content/waffen/klinge.json';
+import AXT_ROH from '../../content/waffen/axt.json';
+import SPEER_ROH from '../../content/waffen/speer.json';
 import { neueAusdauer, reicht, schritt as ausdauerSchritt, verbrauche, type Ausdauer } from '../spieler/ausdauer.js';
 
 export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen';
@@ -140,6 +143,28 @@ export interface KampfWerte {
 const GRAD = Math.PI / 180;
 
 /**
+ * Das Waffenwerk liegt als Daten in `content/waffen/` (ADR-0004: Inhalte sind Daten, nie Code) und
+ * wird hier gegen `WaffenDaten` geprüft — eine Datei, die dem Schema widerspricht, bricht schon beim
+ * Laden, nicht erst im Kampf. Die Dateien führen Grad und Clipbilder (24 fps), die Regeln rechnen
+ * in Radiant und Clipsekunden.
+ */
+const WAFFEN_DATEN = {
+  klinge: WaffenDaten.parse(KLINGE_ROH),
+  axt: WaffenDaten.parse(AXT_ROH),
+  speer: WaffenDaten.parse(SPEER_ROH),
+};
+const CLIP_BILDRATE = 24;
+
+function schlagAusDaten(d: WaffenSchlag): Schlag {
+  const { halbwinkelGrad, hieb, ...rest } = d;
+  return {
+    ...rest,
+    halbwinkel: halbwinkelGrad * GRAD,
+    hieb: { scheitel: hieb.scheitel / CLIP_BILDRATE, durchzug: hieb.durchzug / CLIP_BILDRATE },
+  };
+}
+
+/**
  * Die Spielerin.
  *
  * Der Schlag ist schnell angesetzt (0,18 s) und lang erholt (0,32 s): Wer trifft, ist danach eine
@@ -147,11 +172,10 @@ const GRAD = Math.PI / 180;
  * Rolle ist 0,30 s unverwundbar — das aktive Fenster des Übungsgegners dauert 0,15 s.
  */
 export const SPIELERIN: KampfWerte = {
-  schlag: {
-    vorlauf: 0.18, aktiv: 0.12, erholung: 0.32,
-    reichweite: 2.4, halbwinkel: 55 * GRAD,
-    schaden: 22, haltungsschaden: 34, kosten: 18, nachdrehen: 6,
-  },
+  // Der Grundschlag der Klinge (`content/waffen/klinge.json`, erster leichter), ohne Clip und Linie.
+  schlag: (({ vorlauf, aktiv, erholung, reichweite, halbwinkel, schaden, haltungsschaden, kosten, nachdrehen }) =>
+    ({ vorlauf, aktiv, erholung, reichweite, halbwinkel, schaden, haltungsschaden, kosten, nachdrehen }))(
+    schlagAusDaten(WAFFEN_DATEN.klinge.leicht[0])),
   rolle: { dauer: 0.55, unverwundbarVon: 0.05, unverwundbarBis: 0.35, strecke: 3.8, kosten: 24 },
   lebenMax: 100, haltungMax: 60, haltungErholung: 30, haltungRuhe: 1.2, betaeubt: 0.45,
   radius: 0.4, hoehe: 1.7, zucken: 0.3,
@@ -208,16 +232,11 @@ export interface Waffe {
   haltung: string;
 }
 
-const KLINGE_1: Schlag = { ...SPIELERIN.schlag, name: 'Hieb', linie: 'rechts', clip: 'Klinge_U_A',
-  hieb: { scheitel: 6 / 24, durchzug: 9 / 24 }, schritt: 0.3 };
-const AXT_1: Schlag = {
-  // D180: Vorlauf 0,42 → 0,37 s (Test: > 2 × Klinge), Schaden 38 → 36 (Schaden/s bleibt unter der Klinge). Mit 0,42 s passte
-  // der Hieb in kaum ein Strafenfenster der Wegelagerer — Almsteig mit Axt 7–37 % (tools/durchlauf.ts).
-  name: 'Axthieb', linie: 'oben', vorlauf: 0.37, aktiv: 0.16, erholung: 0.55,
-  reichweite: 2.9, halbwinkel: 40 * GRAD,
-  schaden: 36, haltungsschaden: 52, kosten: 30, nachdrehen: 3, standfest: true, wirft: 0.4,
-  clip: 'Axe_Overhead', hieb: { scheitel: 12 / 24, durchzug: 16 / 24 }, schritt: 0.25, rueckstoss: 0.3,
-};
+function waffeAusDaten(d: WaffenDaten): Waffe {
+  const leicht = d.leicht.map(schlagAusDaten);
+  return { name: d.name, haltung: d.haltung, schlag: leicht[0], leicht,
+    schwer: schlagAusDaten(d.schwer), lauf: schlagAusDaten(d.lauf) };
+}
 
 /**
  * Die Klinge: drei leichte (Hieb, Rückhand, Stich — der Stich reicht weiter und schmaler), ein
@@ -225,63 +244,23 @@ const AXT_1: Schlag = {
  * dann quer mit breitem Bogen), ein schwerer Hieb mit weitem Ausholen, ein Laufhieb schräg.
  * Klinge: Hieb, Rückhand, Zweihand und Laufstich aus der UAL2 (`tools/ual2uebertrag.py`, D173,
  * `hieb` gemessen an der Klingenspitze); Stich und alle Axtclips baut `tools/waffenclips.py`.
+ *
+ * Axthieb D180: Vorlauf 0,42 → 0,37 s (Test: > 2 × Klinge), Schaden 38 → 36 (Schaden/s bleibt unter
+ * der Klinge). Mit 0,42 s passte der Hieb in kaum ein Strafenfenster der Wegelagerer — Almsteig mit
+ * Axt 7–37 % (`tools/durchlauf.ts`).
+ *
+ * D183: Der Speer — Abstand statt Wucht. Reicht am weitesten (3,1–4,0 m), sticht schmal (±12–20°)
+ * und stösst den Getroffenen weit zurück; wenig Haltungsschaden, weniger Schaden je Sekunde als
+ * die Klinge. Gegen Tiere, die anspringen, hält er sie draussen; gegen drei Menschen fehlt ihm
+ * der Bogen. Seit D184 eigene beidhändige Clips (`tools/waffenclips.py`: Speer_Stand/Stoss/Weit/Lauf/Block).
+ *
+ * Werte: `content/waffen/*.json`, Schema `WaffenDaten` in `src/data/schema.ts`.
  */
 export const WAFFEN: Record<WaffenArt, Waffe> = {
-  klinge: {
-    name: 'Klinge', schlag: KLINGE_1, haltung: 'Klinge_Stand',
-    leicht: [
-      KLINGE_1,
-      { name: 'Rückhand', linie: 'links', vorlauf: 0.16, aktiv: 0.12, erholung: 0.34, reichweite: 2.4, halbwinkel: 60 * GRAD,
-        schaden: 26, haltungsschaden: 30, kosten: 16, nachdrehen: 6,
-        clip: 'Klinge_U_B', hieb: { scheitel: 6 / 24, durchzug: 9 / 24 }, schritt: 0.35 },
-      { name: 'Stich', linie: 'unten', vorlauf: 0.22, aktiv: 0.1, erholung: 0.45, reichweite: 2.8, halbwinkel: 20 * GRAD,
-        schaden: 34, haltungsschaden: 40, kosten: 20, nachdrehen: 5,
-        clip: 'Klinge_Stich', hieb: { scheitel: 9 / 24, durchzug: 13 / 24 }, schritt: 0.6, rueckstoss: 0.35 },
-    ],
-    schwer: { name: 'Zweihandhieb', linie: 'oben', vorlauf: 0.5, aktiv: 0.14, erholung: 0.5, reichweite: 2.6, halbwinkel: 45 * GRAD,
-      schaden: 48, haltungsschaden: 60, kosten: 30, nachdrehen: 4,
-      clip: 'Klinge_U_C', hieb: { scheitel: 14 / 24, durchzug: 18 / 24 }, schritt: 0.4, rueckstoss: 0.45 },
-    lauf: { name: 'Laufstich', linie: 'unten', vorlauf: 0.15, aktiv: 0.14, erholung: 0.5, reichweite: 2.8, halbwinkel: 35 * GRAD,
-      schaden: 30, haltungsschaden: 40, kosten: 22, nachdrehen: 3,
-      clip: 'Klinge_U_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.4, rueckstoss: 0.4 },
-  },
-  axt: {
-    name: 'Axt', schlag: AXT_1, haltung: 'Axt_Stand',
-    leicht: [
-      AXT_1,
-      { name: 'Querhieb', linie: 'rechts', vorlauf: 0.3, aktiv: 0.2, erholung: 0.42, reichweite: 2.9, halbwinkel: 95 * GRAD,
-        schaden: 34, haltungsschaden: 46, kosten: 28, nachdrehen: 3, standfest: true, wirft: 0.4,
-        clip: 'Axt_Quer', hieb: { scheitel: 10 / 24, durchzug: 15 / 24 }, schritt: 0.3, rueckstoss: 0.3 },
-    ],
-    schwer: { name: 'Spalthieb', linie: 'oben', vorlauf: 0.9, aktiv: 0.18, erholung: 0.7, reichweite: 3.0, halbwinkel: 40 * GRAD,
-      schaden: 60, haltungsschaden: 80, kosten: 42, nachdrehen: 2, standfest: true,
-      clip: 'Axt_Schwer', hieb: { scheitel: 20 / 24, durchzug: 25 / 24 }, schritt: 0.5, rueckstoss: 0.6 },
-    lauf: { name: 'Laufhieb', linie: 'rechts', vorlauf: 0.2, aktiv: 0.16, erholung: 0.6, reichweite: 3.0, halbwinkel: 55 * GRAD,
-      schaden: 40, haltungsschaden: 55, kosten: 30, nachdrehen: 2,
-      clip: 'Axt_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.6, rueckstoss: 0.5 },
-  },
-  /**
-   * D183: Der Speer — Abstand statt Wucht. Reicht am weitesten (3,1–4,0 m), sticht schmal (±12–20°)
-   * und stösst den Getroffenen weit zurück; wenig Haltungsschaden, weniger Schaden je Sekunde als
-   * die Klinge. Gegen Tiere, die anspringen, hält er sie draussen; gegen drei Menschen fehlt ihm
-   * der Bogen. Seit D184 eigene beidhändige Clips (`tools/waffenclips.py`: Speer_Stand/Stoss/Weit/Lauf/Block).
-   */
-  speer: {
-    name: 'Speer', haltung: 'Speer_Stand',
-    schlag: { name: 'Stoss', linie: 'unten', vorlauf: 0.26, aktiv: 0.12, erholung: 0.45, reichweite: 3.1, halbwinkel: 15 * GRAD,
-      schaden: 20, haltungsschaden: 20, kosten: 16, nachdrehen: 4,
-      clip: 'Speer_Stoss', hieb: { scheitel: 9 / 24, durchzug: 13 / 24 }, schritt: 0.3, rueckstoss: 0.9 },
-    leicht: [],
-    schwer: { name: 'Weitstoss', linie: 'unten', vorlauf: 0.55, aktiv: 0.14, erholung: 0.55, reichweite: 4.0, halbwinkel: 12 * GRAD,
-      schaden: 44, haltungsschaden: 50, kosten: 30, nachdrehen: 3,
-      clip: 'Speer_Weit', hieb: { scheitel: 14 / 24, durchzug: 18 / 24 }, schritt: 0.5, rueckstoss: 1.4 },
-    lauf: { name: 'Anlauf', linie: 'unten', vorlauf: 0.15, aktiv: 0.14, erholung: 0.5, reichweite: 3.8, halbwinkel: 20 * GRAD,
-      schaden: 32, haltungsschaden: 36, kosten: 22, nachdrehen: 3,
-      clip: 'Speer_Lauf', hieb: { scheitel: 7 / 24, durchzug: 11 / 24 }, schritt: 1.6, rueckstoss: 1.0 },
-  },
+  klinge: waffeAusDaten(WAFFEN_DATEN.klinge),
+  axt: waffeAusDaten(WAFFEN_DATEN.axt),
+  speer: waffeAusDaten(WAFFEN_DATEN.speer),
 };
-WAFFEN.speer.leicht = [WAFFEN.speer.schlag,
-  { ...WAFFEN.speer.schlag, name: 'Nachstoss', vorlauf: 0.22, schaden: 18, haltungsschaden: 18, rueckstoss: 0.6 }];
 
 /**
  * Eingaben bleiben so lange gültig (D171) — wer im Schlag schon den nächsten drückt, wird bedient.

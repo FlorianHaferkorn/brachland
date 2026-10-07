@@ -430,3 +430,50 @@ export const BiomMove = z.object({
 });
 
 export const SCHEMA_VERSION = 1;
+
+// --------------------------------------------------------------- Waffen (Echtzeitkampf)
+
+/**
+ * Das Waffenwerk (ADR-0008) als Daten statt als Konstante im Code. Ein Schlag trägt seine drei
+ * Phasen (Vorlauf, Aktiv, Erholung), den Bogen und die Wirkung; `src/kampf/echtzeit.ts` liest die
+ * Dateien aus `content/waffen/` und rechnet Grad in Radiant und Bilder in Clipsekunden um.
+ */
+export const KampfLinie = z.enum(['oben', 'unten', 'links', 'rechts']);
+
+export const WaffenSchlag = z.object({
+  name: z.string(),
+  linie: KampfLinie,
+  vorlauf: z.number().positive().describe('Sekunden'),
+  aktiv: z.number().positive().describe('Sekunden'),
+  erholung: z.number().positive().describe('Sekunden'),
+  reichweite: z.number().positive().max(6).describe('Meter, Mitte Angreifer bis Rand Ziel'),
+  halbwinkelGrad: z.number().gt(0).max(180).describe('halber Öffnungswinkel des Bogens'),
+  schaden: z.number().nonnegative(),
+  haltungsschaden: z.number().nonnegative(),
+  kosten: z.number().nonnegative().describe('Ausdauer beim Ansetzen'),
+  nachdrehen: z.number().nonnegative().describe('rad/s im Vorlauf'),
+  clip: z.string(),
+  hieb: z.object({
+    scheitel: z.number().int().nonnegative(),
+    durchzug: z.number().int().positive(),
+  }).refine(h => h.durchzug > h.scheitel, 'Durchzug muss nach dem Scheitel liegen')
+    .describe('Bilder bei 24 fps im Clip'),
+  schritt: z.number().nonnegative().describe('Vorschritt in Metern'),
+  rueckstoss: z.number().nonnegative().optional(),
+  standfest: z.boolean().optional(),
+  wirft: z.number().positive().optional().describe('Sekunden betäubt'),
+  durch: z.boolean().optional(),
+}).strict();
+export type WaffenSchlag = z.infer<typeof WaffenSchlag>;
+
+export const WaffenDaten = z.object({
+  id: z.enum(['klinge', 'axt', 'speer']),
+  name: z.string(),
+  /** Kampfhaltung im Stand (Clip). */
+  haltung: z.string(),
+  /** Leichte Kette; der erste ist der Grundschlag. */
+  leicht: z.array(WaffenSchlag).min(1),
+  schwer: WaffenSchlag,
+  lauf: WaffenSchlag,
+}).strict();
+export type WaffenDaten = z.infer<typeof WaffenDaten>;
