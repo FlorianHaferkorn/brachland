@@ -137,9 +137,9 @@ Positionen aus einem **Seed** erzeugen, nie speichern. Das Precache-Budget von 6
 ADR-0004 parkt Party-Game und ein Spiel, das primär von Grafik lebt (Photoreal), als
 **eigene spätere Projekte** und schließt Online-Multiplayer aus. Echtzeit-Nahkampf mit dem
 Regelwerk der Gattung (Ausdauer, Rolle, Parade, Lock-On, Haltung) ist seit ADR-0007
-entschieden, die Gestalt fremder Vorbilder bleibt tabu. ⚠️ ADR-0004 führt
-„Zelda-/Soulslike-Combat“ noch als geparkt, ADR-0007 löst das nicht ausdrücklich ab (Ledger
-A-10). Anfragen in die geparkten Richtungen werden nicht still umgesetzt, erst ADR-0004 ablösen.
+entschieden und löst den Soulslike-Park-Punkt aus ADR-0004 für das Regelwerk ab (Nachtrag
+D196); die Gestalt fremder Vorbilder bleibt tabu. Anfragen in die geparkten Richtungen werden
+nicht still umgesetzt, erst ADR-0004 ablösen.
 
 ### Compliance-Check
 ```bash
