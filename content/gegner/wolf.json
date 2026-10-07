@@ -1,0 +1,42 @@
+{
+  "id": "wolf",
+  "elemente": ["alt-tech", "frost"],
+  "schlag": {
+    "name": "Biss",
+    "vorlauf": 0.5,
+    "aktiv": 0.1,
+    "erholung": 0.22,
+    "reichweite": 2,
+    "halbwinkelGrad": 40,
+    "schaden": 14,
+    "haltungsschaden": 18,
+    "kosten": 0,
+    "nachdrehen": 3,
+    "schritt": 0.3
+  },
+  "kette": [
+    {
+      "name": "Nachbiss",
+      "vorlauf": 0.1,
+      "aktiv": 0.1,
+      "erholung": 0.9,
+      "reichweite": 2.2,
+      "halbwinkelGrad": 40,
+      "schaden": 16,
+      "haltungsschaden": 22,
+      "kosten": 0,
+      "nachdrehen": 4,
+      "schritt": 0.5
+    }
+  ],
+  "tempo": 4,
+  "linien": ["links", "rechts"],
+  "lebenMax": 90,
+  "haltungMax": 55,
+  "haltungErholung": 25,
+  "haltungRuhe": 1.2,
+  "betaeubt": 0.8,
+  "radius": 0.28,
+  "hoehe": 0.9,
+  "halbLaenge": 0.45
+}

@@ -1,0 +1,24 @@
+{
+  "id": "grathorn",
+  "elemente": ["stein"],
+  "schlag": {
+    "vorlauf": 0.6,
+    "aktiv": 0.14,
+    "erholung": 0.8,
+    "reichweite": 2.2,
+    "halbwinkelGrad": 30,
+    "schaden": 24,
+    "haltungsschaden": 44,
+    "kosten": 0,
+    "nachdrehen": 2
+  },
+  "linien": ["oben"],
+  "lebenMax": 120,
+  "haltungMax": 60,
+  "haltungErholung": 22,
+  "haltungRuhe": 1.4,
+  "betaeubt": 0.9,
+  "radius": 0.3,
+  "hoehe": 1.3,
+  "halbLaenge": 0.45
+}

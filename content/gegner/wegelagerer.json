@@ -1,0 +1,43 @@
+{
+  "id": "wegelagerer",
+  "schlag": {
+    "name": "Hieb",
+    "vorlauf": 0.5,
+    "aktiv": 0.12,
+    "erholung": 0.35,
+    "reichweite": 2.3,
+    "halbwinkelGrad": 45,
+    "schaden": 18,
+    "haltungsschaden": 30,
+    "kosten": 0,
+    "nachdrehen": 3,
+    "schritt": 0.3,
+    "rueckstoss": 0.3
+  },
+  "kette": [
+    {
+      "name": "Nachhieb",
+      "vorlauf": 0.3,
+      "aktiv": 0.12,
+      "erholung": 1.1,
+      "reichweite": 2.3,
+      "halbwinkelGrad": 45,
+      "schaden": 16,
+      "haltungsschaden": 26,
+      "kosten": 0,
+      "nachdrehen": 3,
+      "schritt": 0.3,
+      "rueckstoss": 0.3
+    }
+  ],
+  "tempo": 3,
+  "lebenMax": 95,
+  "haltungMax": 60,
+  "haltungErholung": 22,
+  "haltungRuhe": 1.3,
+  "betaeubt": 0.9,
+  "radius": 0.3,
+  "hoehe": 1.8,
+  "halbLaenge": 0,
+  "mensch": { "linienFolge": ["rechts", "links", "oben", "rechts", "unten", "links", "oben"], "deckung": "oben" }
+}

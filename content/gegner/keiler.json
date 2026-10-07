@@ -1,0 +1,25 @@
+{
+  "id": "keiler",
+  "elemente": ["holz"],
+  "schlag": {
+    "vorlauf": 0.85,
+    "aktiv": 0.18,
+    "erholung": 1,
+    "reichweite": 2.6,
+    "halbwinkelGrad": 35,
+    "schaden": 28,
+    "haltungsschaden": 36,
+    "kosten": 0,
+    "nachdrehen": 1.2,
+    "durch": true
+  },
+  "linien": ["unten"],
+  "lebenMax": 140,
+  "haltungMax": 70,
+  "haltungErholung": 18,
+  "haltungRuhe": 1.6,
+  "betaeubt": 1,
+  "radius": 0.35,
+  "hoehe": 1.05,
+  "halbLaenge": 0.55
+}

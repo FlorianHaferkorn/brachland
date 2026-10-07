@@ -24,10 +24,19 @@
  * das könnte ein langsames Bild (100 ms) das aktive Fenster eines Schlags (120 ms) überspringen,
  * und ob ein Treffer zählt, hinge an der Bildrate statt am Spiel.
  */
-import { schadensfaktor, WaffenDaten, type Element as ElementName, type WaffenSchlag } from '../data/schema.js';
+import { schadensfaktor, GegnerDaten, WaffenDaten, type Element as ElementName, type SchlagDaten } from '../data/schema.js';
 import KLINGE_ROH from '../../content/waffen/klinge.json';
 import AXT_ROH from '../../content/waffen/axt.json';
 import SPEER_ROH from '../../content/waffen/speer.json';
+import UEBUNGSGEGNER_ROH from '../../content/gegner/uebungsgegner.json';
+import KEILER_ROH from '../../content/gegner/keiler.json';
+import GRATHORN_ROH from '../../content/gegner/grathorn.json';
+import WOLF_ROH from '../../content/gegner/wolf.json';
+import FUCHS_ROH from '../../content/gegner/fuchs.json';
+import GAMS_ROH from '../../content/gegner/gams.json';
+import WEGELAGERER_ROH from '../../content/gegner/wegelagerer.json';
+import SPEERMANN_ROH from '../../content/gegner/speermann.json';
+import AXTMANN_ROH from '../../content/gegner/axtmann.json';
 import { neueAusdauer, reicht, schritt as ausdauerSchritt, verbrauche, type Ausdauer } from '../spieler/ausdauer.js';
 
 export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen';
@@ -155,13 +164,26 @@ const WAFFEN_DATEN = {
 };
 const CLIP_BILDRATE = 24;
 
-function schlagAusDaten(d: WaffenSchlag): Schlag {
+function schlagAusDaten(d: SchlagDaten): Schlag {
   const { halbwinkelGrad, hieb, ...rest } = d;
-  return {
+  const schlag: Schlag = { ...rest, halbwinkel: halbwinkelGrad * GRAD };
+  if (hieb) schlag.hieb = { scheitel: hieb.scheitel / CLIP_BILDRATE, durchzug: hieb.durchzug / CLIP_BILDRATE };
+  return schlag;
+}
+
+/**
+ * Gegner (D194) aus `content/gegner/` — geprüft gegen `GegnerDaten` beim Laden. Gegner rollen nicht;
+ * die leere Rolle setzt der Lader, damit sie nicht neunmal in den Daten steht.
+ */
+function gegnerAusDaten(roh: unknown): KampfWerte {
+  const { id: _id, schlag, kette, ...rest } = GegnerDaten.parse(roh);
+  const werte: KampfWerte = {
     ...rest,
-    halbwinkel: halbwinkelGrad * GRAD,
-    hieb: { scheitel: hieb.scheitel / CLIP_BILDRATE, durchzug: hieb.durchzug / CLIP_BILDRATE },
+    schlag: schlagAusDaten(schlag),
+    rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
   };
+  if (kette) werte.kette = kette.map(schlagAusDaten);
+  return werte;
 }
 
 /**
@@ -311,16 +333,7 @@ export function ruesteAus(k: Kaempfer, art: WaffenArt): boolean {
  * auf der Stelle den Treffer schluckt, liegt in der zweiten Hälfte des Vorlaufs — der Test rechnet
  * es aus und prüft, dass es nach einer menschlichen Reaktionszeit beginnt und breit genug ist.
  */
-export const UEBUNGSGEGNER: KampfWerte = {
-  schlag: {
-    vorlauf: 0.75, aktiv: 0.15, erholung: 0.9,
-    reichweite: 2.2, halbwinkel: 50 * GRAD,
-    schaden: 25, haltungsschaden: 30, kosten: 0, nachdrehen: 1.6,
-  },
-  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
-  lebenMax: 110, haltungMax: 50, haltungErholung: 20, haltungRuhe: 1.5, betaeubt: 0.9,
-  radius: 0.45, hoehe: 1.8,
-};
+export const UEBUNGSGEGNER: KampfWerte = gegnerAusDaten(UEBUNGSGEGNER_ROH);
 
 /**
  * Der Wurzelkeiler als Gegner (D169, ADR-0007 Stufe 2) — der erste aus einem Körperbauplan
@@ -331,23 +344,10 @@ export const UEBUNGSGEGNER: KampfWerte = {
  * er nicht), lange Erholung (1,0 s), in der er offen steht. Mehr Leben und Haltung als der
  * Übungsgegner: Die Klinge braucht drei Treffer für die Haltung, die Axt zwei. Seit D170 eine
  * Pille entlang des Körpers statt einer runden Kapsel (vorher r 0,55 m bei 1,8 m Länge — von der
- * Seite zu leicht, von vorn zu schwer zu treffen).
+ * Seite zu leicht, von vorn zu schwer zu treffen): halbe Breite 0,31 m, Körper 1,8 m lang.
+ * D173: Der Rammstoss geht durch jeden Block (`durch`).
  */
-export const KEILER: KampfWerte = {
-  elemente: ['holz'],
-  schlag: {
-    vorlauf: 0.85, aktiv: 0.18, erholung: 1.0,
-    reichweite: 2.6, halbwinkel: 35 * GRAD,
-    schaden: 28, haltungsschaden: 36, kosten: 0, nachdrehen: 1.2,
-    // D173: Der Rammstoss geht durch jeden Block.
-    durch: true,
-  },
-  linien: ['unten'],
-  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
-  lebenMax: 140, haltungMax: 70, haltungErholung: 18, haltungRuhe: 1.6, betaeubt: 1.0,
-  // D170: Pille statt runder Kapsel — halbe Breite 0,31 m, Körper 1,8 m lang.
-  radius: 0.35, hoehe: 1.05, halbLaenge: 0.55,
-};
+export const KEILER: KampfWerte = gegnerAusDaten(KEILER_ROH);
 
 /**
  * Der Grathorn als Gegner (D170) — zweiter Körperbauplan (Huftier mit Gehörn, Steinbock).
@@ -356,18 +356,7 @@ export const KEILER: KampfWerte = {
  * Keiler), dann kracht er schräg nach unten nach vorn. Schneller als der Keiler, kürzer (2,2 m),
  * noch schmaler (±30°) und leichter: Wer den Keiler gelernt hat, muss hier früher rollen.
  */
-export const GRATHORN: KampfWerte = {
-  elemente: ['stein'],
-  schlag: {
-    vorlauf: 0.6, aktiv: 0.14, erholung: 0.8,
-    reichweite: 2.2, halbwinkel: 30 * GRAD,
-    schaden: 24, haltungsschaden: 44, kosten: 0, nachdrehen: 2.0,
-  },
-  linien: ['oben'],
-  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
-  lebenMax: 120, haltungMax: 60, haltungErholung: 22, haltungRuhe: 1.4, betaeubt: 0.9,
-  radius: 0.3, hoehe: 1.3, halbLaenge: 0.45,
-};
+export const GRATHORN: KampfWerte = gegnerAusDaten(GRATHORN_ROH);
 
 /**
  * Der K7-Wolf als Gegner (D171) — dritter Körperbauplan (Raubtier), der erste mit einer **Kette**.
@@ -378,62 +367,21 @@ export const GRATHORN: KampfWerte = {
  * eine zweite Rolle gleich hinterher. Das ist die erste Lektion, die nicht „wann", sondern „wohin"
  * heisst. Dafür wenig Leben und Haltung: Die Klinge bricht ihn mit dem zweiten Treffer.
  */
-export const WOLF: KampfWerte = {
-  elemente: ['alt-tech', 'frost'],
-  schlag: {
-    name: 'Biss', vorlauf: 0.5, aktiv: 0.1, erholung: 0.22,
-    reichweite: 2.0, halbwinkel: 40 * GRAD,
-    schaden: 14, haltungsschaden: 18, kosten: 0, nachdrehen: 3.0, schritt: 0.3,
-  },
-  kette: [{
-    name: 'Nachbiss', vorlauf: 0.1, aktiv: 0.1, erholung: 0.9,
-    reichweite: 2.2, halbwinkel: 40 * GRAD,
-    schaden: 16, haltungsschaden: 22, kosten: 0, nachdrehen: 4.0, schritt: 0.5,
-  }],
-  tempo: 4.0,
-  linien: ['links', 'rechts'],
-  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
-  lebenMax: 90, haltungMax: 55, haltungErholung: 25, haltungRuhe: 1.2, betaeubt: 0.8,
-  radius: 0.28, hoehe: 0.9, halbLaenge: 0.45,
-};
+export const WOLF: KampfWerte = gegnerAusDaten(WOLF_ROH);
 
 /**
  * Der Spürfuchs als Gegner (D173) — klein, schnell, schwach. Er schnappt nach kurzem Ducken
  * (0,4 s): zu schnell, um erst beim Ausholen zu reagieren — wer ihn parieren will, muss seinen
  * Rhythmus lesen. Wenig Leben, geringer Schaden; im Rudel mit dem Wolf ist er der Störer.
  */
-export const FUCHS: KampfWerte = {
-  elemente: ['alt-tech'],
-  schlag: {
-    name: 'Schnappen', vorlauf: 0.4, aktiv: 0.1, erholung: 0.95,
-    reichweite: 1.8, halbwinkel: 40 * GRAD,
-    schaden: 10, haltungsschaden: 14, kosten: 0, nachdrehen: 4.0, schritt: 0.4,
-  },
-  tempo: 4.5,
-  linien: ['unten'],
-  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
-  lebenMax: 60, haltungMax: 40, haltungErholung: 25, haltungRuhe: 1.0, betaeubt: 0.8,
-  radius: 0.22, hoehe: 0.6, halbLaenge: 0.3,
-};
+export const FUCHS: KampfWerte = gegnerAusDaten(FUCHS_ROH);
 
 /**
  * Die Nebelgams als Gegner (D173) — Huftier wie der Grathorn, aber leicht: ein kurzer Kopfstoss
  * (0,45 s) mit weitem Rückstoss. Sie trifft selten hart, wirft aber aus der Stellung — wer am Rand
  * steht oder zwischen zwei Gegnern, merkt das.
  */
-export const GAMS: KampfWerte = {
-  elemente: ['stein'],
-  schlag: {
-    name: 'Kopfstoss', vorlauf: 0.45, aktiv: 0.12, erholung: 0.7,
-    reichweite: 2.0, halbwinkel: 30 * GRAD,
-    schaden: 18, haltungsschaden: 36, kosten: 0, nachdrehen: 2.5, schritt: 0.3, rueckstoss: 0.9,
-  },
-  tempo: 3.5,
-  linien: ['oben'],
-  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
-  lebenMax: 100, haltungMax: 55, haltungErholung: 22, haltungRuhe: 1.3, betaeubt: 0.9,
-  radius: 0.26, hoehe: 1.1, halbLaenge: 0.4,
-};
+export const GAMS: KampfWerte = gegnerAusDaten(GAMS_ROH);
 
 /**
  * Der Wegelagerer (D174, ADR-0009 Stufe 2) — der erste Mensch als Gegner, mit Klinge. Er schlägt in
@@ -441,52 +389,22 @@ export const GAMS: KampfWerte = {
  * und wechselt sie nach eigenem Angriff und nach jedem Treffer; wer ihn dreimal aus derselben Linie
  * trifft, wird gelesen. Tempo und Schaden wie ein Mensch: langsamer als der Wolf, härter.
  */
-export const WEGELAGERER: KampfWerte = {
-  schlag: {
-    name: 'Hieb', vorlauf: 0.5, aktiv: 0.12, erholung: 0.35,
-    reichweite: 2.3, halbwinkel: 45 * GRAD,
-    schaden: 18, haltungsschaden: 30, kosten: 0, nachdrehen: 3.0, schritt: 0.3, rueckstoss: 0.3,
-  },
-  kette: [{
-    name: 'Nachhieb', vorlauf: 0.3, aktiv: 0.12, erholung: 1.1,
-    reichweite: 2.3, halbwinkel: 45 * GRAD,
-    schaden: 16, haltungsschaden: 26, kosten: 0, nachdrehen: 3.0, schritt: 0.3, rueckstoss: 0.3,
-  }],
-  tempo: 3.0,
-  rolle: { dauer: 0, unverwundbarVon: 0, unverwundbarBis: 0, strecke: 0, kosten: 0 },
-  lebenMax: 95, haltungMax: 60, haltungErholung: 22, haltungRuhe: 1.3, betaeubt: 0.9,
-  radius: 0.3, hoehe: 1.8, halbLaenge: 0,
-  mensch: { linienFolge: ['rechts', 'links', 'oben', 'rechts', 'unten', 'links', 'oben'], deckung: 'oben' },
-};
+export const WEGELAGERER: KampfWerte = gegnerAusDaten(WEGELAGERER_ROH);
 
 /**
  * D184: Der Speermann — sticht aus 3 m, bevor die Klinge heran ist, stösst zurück, deckt unten und
  * oben. Weniger Leben, leichtere Treffer. Wer an seiner Spitze vorbeikommt, hat ihn.
+ * D190: Leben 75 → 65 — die Axt verlor nachts 77 % gegen sie; Schere ja, Sackgasse nein.
  */
-export const SPEERMANN: KampfWerte = {
-  ...WEGELAGERER,
-  schlag: { name: 'Stoss', vorlauf: 0.5, aktiv: 0.12, erholung: 0.6, reichweite: 3.0, halbwinkel: 18 * GRAD,
-    schaden: 15, haltungsschaden: 22, kosten: 0, nachdrehen: 2.5, schritt: 0.3, rueckstoss: 0.8 },
-  kette: [{ name: 'Nachstoss', vorlauf: 0.3, aktiv: 0.12, erholung: 1.0, reichweite: 3.0, halbwinkel: 18 * GRAD,
-    schaden: 13, haltungsschaden: 18, kosten: 0, nachdrehen: 2.5, schritt: 0.3, rueckstoss: 0.6 }],
-  // D190: Leben 75 → 65 — die Axt verlor nachts 77 % gegen sie; Schere ja, Sackgasse nein.
-  lebenMax: 65, haltungMax: 50,
-  mensch: { linienFolge: ['unten', 'unten', 'oben', 'unten', 'oben'], deckung: 'unten' },
-};
+export const SPEERMANN: KampfWerte = gegnerAusDaten(SPEERMANN_ROH);
 
 /**
  * D184: Der Axtmann — langsam (0,7 s Vorlauf), aber ein Treffer kostet ein Drittel des Lebens und
  * bricht fast die Deckung. Kein Nachschlag; nach dem Hieb steht er lange offen.
  */
-export const AXTMANN: KampfWerte = {
-  ...WEGELAGERER,
-  schlag: { name: 'Axthieb', vorlauf: 0.7, aktiv: 0.16, erholung: 0.75, reichweite: 2.7, halbwinkel: 40 * GRAD,
-    schaden: 26, haltungsschaden: 45, kosten: 0, nachdrehen: 2.0, schritt: 0.4, rueckstoss: 0.6 },
-  kette: [],
-  tempo: 2.6,
-  lebenMax: 115, haltungMax: 75,
-  mensch: { linienFolge: ['oben', 'rechts', 'oben', 'links', 'unten'], deckung: 'oben' },
-};
+export const AXTMANN: KampfWerte = gegnerAusDaten(AXTMANN_ROH);
+
+/** Werte: `content/gegner/*.json`, Schema `GegnerDaten` in `src/data/schema.ts` (D194). */
 
 /**
  * Gegnerwerte für die Nacht (D179): mehr Leben und Haltung, härtere Schläge, gleiche Fenster.

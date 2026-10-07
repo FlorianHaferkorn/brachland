@@ -19,6 +19,7 @@ owns: *.json
 | Einen Move anlegen | `../docs/design/BRACHLAND_Move-System_v1.md` → `moves/_INDEX.md` |
 | Einen Gegenstand anlegen | `gegenstaende/kraeutersud.json` als Muster → `../src/data/schema.ts` (`GegenstandWirkung`) |
 | Eine Region anlegen | `regions/oental.json` als Muster |
+| Einen Gegner nachstellen | `gegner/_INDEX.md` → `../tests/echtzeit.test.ts` |
 | Eine Waffe oder einen Schlag ändern | `waffen/_INDEX.md` → `../docs/adr/0008-waffenwerk-zwei-klassen.md` |
 | Verstehen, was geprüft wird | `../src/data/schema.ts`, `../tools/quality.ts` |
 
@@ -45,6 +46,7 @@ owns: *.json
 | `orte/` | 2 Zufluchten und 3 Bewohner auf freistehenden OSM-Gebäuden. Siehe `orte/_INDEX.md` |
 | `auftraege/` | 4 Aufträge — der kritische Pfad. Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
 | `waffen/` | 3 Waffen des Echtzeitkampfs (Klinge, Axt, Speer) — Phasen, Bogen, Wirkung je Schlag (ADR-0008, D191). Siehe `waffen/_INDEX.md` |
+| `gegner/` | 9 Gegner des Echtzeitkampfs (Übungsgegner, 5 Tiere, 3 Menschen) — Schlag, Kette, Linien, Leben, Haltung, Körper (ADR-0007, D194). Siehe `gegner/_INDEX.md` |
 | `creatures/alpenmurmel.json` | Alpenmurmel (Alpenmurmeltier, Stein, Erdpilz-Rückenpolster). 3 Stufen, `landuse=meadow` ab 700 m |
 | `creatures/schneehuhn.json` | Alpenschneehuhn (Frost, Frostfeder-Fächer). 3 Stufen, `natural=scree` ab 950 m — zweite Frost-Linie neben dem Firnhasen |
 | `creatures/k7-wolf.json` | **K7** (Wolf, alt-tech + frost, Klemmrippen-Rückenmodul) — die **erste Zuchtlinie**. 3 Baustände a/b/c statt Mutationen, `landuse=industrial`. Flache Werte ohne Ausreißer, angreifbar über das Element (Stein ×2), nicht über die Zahlen. Bringt die vier neuen Moves `haltebiss`, `kuehlrippen`, `reifriss`, `sterilgang` mit |

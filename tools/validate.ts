@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, WaffenDaten,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, WaffenDaten, GegnerDaten,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -50,6 +50,13 @@ const waffen = pruefe<any>('content/waffen', WaffenDaten);
   const doppelt = namen.filter((n: string, i: number) => namen.indexOf(n) !== i);
   if (doppelt.length) { console.log(`  ✗ Schlagnamen doppelt: ${[...new Set(doppelt)].join(', ')}`); fehler++; }
   else console.log(`  ✓ ${namen.length} Schlagnamen eindeutig`);
+}
+console.log('\nGegner:');
+pruefe<any>('content/gegner', GegnerDaten);
+// Wie bei den Waffen: Dateiname = id, `echtzeit.ts` importiert über den Namen.
+for (const f of readdirSync('content/gegner').filter(f => f.endsWith('.json'))) {
+  const id = JSON.parse(readFileSync(join('content/gegner', f), 'utf8')).id;
+  if (`${id}.json` !== f) { console.log(`  ✗ ${f} trägt id '${id}'`); fehler++; }
 }
 
 // Querverweise: jede referenzierte Move-ID muss es geben. Ohne diese Pruefung
