@@ -523,6 +523,33 @@ export const STIMMUNG: Record<string, Stimmung> = {
     hemiBoden: HEMI_BODEN_TAG,   // erbt `zielbild`
   },
 };
+/**
+ * Probe D195: **kaltnebel** — die kühle Tagespalette aus dem Briefing vom 07.10.2026 (ADR-0011,
+ * Option 2). **Nicht im Tageslauf**, nur per `?stimmung=kaltnebel`, wie seinerzeit `goldnebel` (D152).
+ *
+ * Gegenstück zu `zielbild` an derselben Sonne (13° hoch, Nordost), damit der Vergleich an derselben
+ * Kamera nur die Palette zeigt: Sonne neutral-kühl statt warm und schwächer (Dunst nimmt das
+ * Direktlicht), Fülllicht blaugrau und stärker, Dunst und Himmel blaugrau statt Sepia, Schatten
+ * etwas härter. Braun kommt aus dem Boden (`hemiBoden` wie der Tag) und den Biomfarben, nicht aus
+ * dem Licht.
+ *
+ * **Ungemessen.** Die Werte sind geschätzt, nicht gegen eine Referenz gelegt: gebaut in einer
+ * Cloud-Sandbox ohne Bildschirm, und `npm run licht` läuft unter Node nicht (lädt die Szene samt
+ * React-DOM). Bevor hier irgendetwas in den Tageslauf wandert: an den Bildtor-Adressen messen und
+ * am Zielgerät ansehen (Ledger A-9, ADR-0005 N3/N6).
+ */
+STIMMUNG.kaltnebel = {
+  himmel: '#1e272b', nebel: '#2a3539', nebelNah: 22, nebelFern: 220,
+  sonne: '#c8d0d6', sonneStaerke: 2.4, umgebung: '#56656d', umgebungStaerke: 3.0,
+  // Wie `zielbild`: Azimut 42°, Höhe 13°.
+  sonnenstand: [65.2, 22.5, -72.4] as const,
+  belichtung: 2.4,
+  schatten: 0.8,
+  fenster: 0.1,
+  zenit: '#22313b', horizont: '#4a565c', scheibe: 0.0, hof: 60,
+  randFarbe: '#8496a0', randStaerke: 0.2,
+  hemiBoden: HEMI_BODEN_TAG,
+};
 export type StimmungsName = keyof typeof STIMMUNG;
 /**
  * `zielbild` (Stufe 2): das Licht der Blender-Szene aus `tools/szenenbau.py` — Sonne 13° hoch im
