@@ -43,6 +43,7 @@ import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { lagerTon } from '../ton/lagerton.js';
 import { kameraZustand } from '../kampf/kamerazustand.js';
+import { armMitSicht, sichtFrei, ZIEL_RAND, type Versperrt } from '../kampf/sichtlinie.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
@@ -3341,6 +3342,8 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   /** 0 = frei, 1 = über der Schulter aufs Ziel. */
   const schulter = useRef(0);
   const blickZiel = useRef(new THREE.Vector3());
+  /** Arm der Schulterkamera nach Sichtprüfung (D192): zieht hart ein, fährt weich aus. */
+  const schulterArm = useRef<number>(GROESSE.kameraAbstand);
   /** Ruck bei Treffern (D171): Stärke in Metern, klingt in ~0,12 s ab. */
   const ruck = useRef({ getroffen: -1, gesetzt: -1, staerke: 0, uhr: 0 });
   /**
@@ -3452,13 +3455,13 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     const weit = GROESSE.kameraAbstand * zoom.current;
     // Ausdrücklich `number`: `GROESSE` ist `as const`, sonst erbt `frei` den Literaltyp 6.
     let frei: number = weit;
+    const versperrt: Versperrt = (x, y, z) => {
+      const [kx, kz] = kollision.schiebeRaus(x, z);
+      return kx !== x || kz !== z || y < hoeheAufFlaeche(feld, x, z) + 0.45;
+    };
     for (let i = 1; i <= SICHT_PROBEN; i++) {
       const d = (weit * i) / SICHT_PROBEN;
-      const x = p.x + rx * d, y = blickY + ry * d, z = p.z + rz * d;
-      const [kx, kz] = kollision.schiebeRaus(x, z);
-      const versperrt = kx !== x || kz !== z
-        || y < hoeheAufFlaeche(feld, x, z) + 0.45;
-      if (versperrt) { frei = d - SICHT_PUFFER; break; }
+      if (versperrt(p.x + rx * d, blickY + ry * d, p.z + rz * d)) { frei = d - SICHT_PUFFER; break; }
     }
     const ziel_ = Math.max(KAMERA_MIN, Math.min(weit, frei));
     abstand.current = ziel_ < abstand.current
@@ -3486,8 +3489,15 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     if (gf) {
       // Vom Gegner zur Spielerin, 3,2 m weit, 25° zur Seite gedreht, auf Augenhöhe des Gegners.
       const dx = p.x - gf.x, dz = p.z - gf.z, d = Math.hypot(dx, dz) || 1;
-      const w = Math.atan2(dx / d, dz / d) + 0.45;
-      const soll = new THREE.Vector3(gf.x + Math.sin(w) * 3.2, gf.y + 0.35, gf.z + Math.cos(w) * 3.2);
+      // D192: Steht dort ein Stamm oder verdeckt einer den Gegner, erst die andere Seite, dann näher.
+      const w0 = Math.atan2(dx / d, dz / d);
+      const lagen: [number, number][] = [[0.45, 3.2], [-0.45, 3.2], [0.45, 2.4], [-0.45, 2.4], [0.45, 1.6]];
+      const gp = [gf.x, gf.y, gf.z] as const;
+      const [w, ab] = lagen.find(([dw, ab]) => {
+        const k = [gf.x + Math.sin(w0 + dw) * ab, gf.y + 0.35, gf.z + Math.cos(w0 + dw) * ab] as const;
+        return !versperrt(k[0], k[1], k[2]) && sichtFrei(k, gp, versperrt, ZIEL_RAND);
+      }) ?? lagen[0];
+      const soll = new THREE.Vector3(gf.x + Math.sin(w0 + w) * ab, gf.y + 0.35, gf.z + Math.cos(w0 + w) * ab);
       gegnerKamera.current.lerp(soll, gegnerKamera.current.lengthSq() === 0 ? 1 : Math.min(1, dt * 5));
       camera.position.copy(gegnerKamera.current);
       camera.lookAt(gf.x, gf.y - 0.1, gf.z);
@@ -3497,9 +3507,24 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     gegnerKamera.current.set(0, 0, 0);
     camera.position.copy(geglaettet.current);
     const m = schulter.current;
-    if (m < 0.001) { camera.lookAt(p.x, blickY, p.z); wackle(); return; }
+    if (m < 0.001) { schulterArm.current = abstand.current; camera.lookAt(p.x, blickY, p.z); wackle(); return; }
     // Rechts der Blickrichtung (−sin g, −cos g) ist (cos g, −sin g) — dieselbe Achse wie `seit`.
     const sx = Math.cos(g) * SCHULTER.seite * m, sz = -Math.sin(g) * SCHULTER.seite * m;
+    // D192: Mit Versatz und mit Ziel neu prüfen — der Versatz kann die Kamera in einen Stamm schieben,
+    // und ein Stamm zwischen Kamera und Ziel verdeckt den Gegner, den man lesen soll. Einziehen hart,
+    // Ausfahren weich, wie oben.
+    const sollArm = armMitSicht({
+      blick: [p.x, blickY, p.z], richtung: [rx, ry, rz], versatz: [sx, SCHULTER.hoch * m, sz],
+      ziel: fokus ? [fokus.x, fokus.y, fokus.z] : null,
+      min: KAMERA_MIN, max: abstand.current, versperrt,
+    });
+    schulterArm.current = sollArm < schulterArm.current
+      ? sollArm
+      : schulterArm.current + (sollArm - schulterArm.current) * Math.min(1, dt * 2.5);
+    if (schulterArm.current < abstand.current - 0.01) {
+      const ra = schulterArm.current;
+      camera.position.set(p.x + rx * ra, blickY + ry * ra, p.z + rz * ra);
+    }
     camera.position.x += sx; camera.position.z += sz; camera.position.y += SCHULTER.hoch * m;
     const f = blickZiel.current, a = SCHULTER.zumZiel * m;
     camera.lookAt(
