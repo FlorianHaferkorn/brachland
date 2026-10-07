@@ -100,28 +100,33 @@ dieses Projekt bereits einmal um mehrere Tage Arbeit gebracht. Was nicht als Dat
 der Platte liegt, existiert nicht.
 
 ### Inhalte sind Daten, nie Code
-Kreaturen, Moves und Regionen liegen in `content/` und werden gegen `src/data/schema.ts`
+Kreaturen, Moves, Regionen und Waffen liegen in `content/` und werden gegen `src/data/schema.ts`
 validiert. `npm run validate` blockt den Merge. Ein hartkodierter Spielwert ist ein
 Fehler, auch wenn er funktioniert — das ist der Mechanismus, der 200 Kreaturen
 beherrschbar macht (ADR-0004).
 
 ### Kampf-Engine bleibt renderfrei
-`src/engine/` und `src/data/` importieren kein three.js. Daran hängen die 16 Tests.
+`src/engine/`, `src/data/` und die Kampfregeln `src/kampf/echtzeit.ts` (Echtzeitkampf,
+ADR-0007) importieren kein three.js, ebenso `src/kampf/sichtlinie.ts`. Daran hängen die Tests
+unter `tests/`. Treffer werden als Bogen gegen eine Kapsel geprüft, nicht per Raycast am Modell.
 
 ### Deutsch ist die Code-Sprache
 `baueTerrain`, `verteileProps`, `STIMMUNG`, `ZIELHOEHE`, `Weltdaten`, `PropArt` —
 durchgehend, auch Kommentare. Der Bestandscode ist so; eine Mischung wäre schlechter
 als jede der beiden Varianten konsequent.
 
-### Handy ist der Test, nicht der Laptop
-`npm run dev` gibt eine Netzwerk-Adresse aus — die aufs Handy im selben WLAN. Look,
-Nebel und Performance beurteilen sich nur auf dem Zielgerät. Keine Look-Aussage aus
-Standbildern: genau das hat das Projekt mehrere Runden gekostet.
+### Das Zielgerät ist der Test, nicht das Standbild
+Zielgerät ist seit ADR-0006 der **Desktop-Browser** (M1 als Referenzmaschine); das Handy ist
+nachrangig und eine spätere eigene Qualitätsstufe. Look, Nebel und Performance beurteilen sich
+nur dort, in Bewegung (ADR-0005). Keine Look-Aussage aus Standbildern: genau das hat das
+Projekt mehrere Runden gekostet.
 
 ### Art Direction ist entschieden, nicht offen
-Dämmerung, Nebel als Werkzeug, Silhouetten, **eine** Signalfarbe für Befall. Keine
-Texturen — Vertex-Farben und Geometrie. Die Werte in `src/scenes/RegionsSzene.tsx`
-sind erarbeitet; nicht ohne Grund daran drehen.
+Dämmerung, Nebel als Werkzeug, Silhouetten, **eine** Signalfarbe für Befall. Den Look legt
+das Blender-Referenzbild fest (ADR-0006): Die Engine folgt dem Render, Texturen sind seit
+ADR-0006 erlaubt, die Tagesstimmung ist `zielbild` (warm, Goldnebel). Ein Gegenentwurf mit kühler
+Palette liegt als ADR-0011 **Proposed** vor (Ledger A-9). Die Werte in
+`src/scenes/RegionsSzene.tsx` sind erarbeitet; nicht ohne Grund daran drehen.
 
 ### Performance-Invarianten
 Props **immer** als `InstancedMesh` (40.000 Einzelobjekte erledigen jedes Handy).
@@ -129,12 +134,15 @@ Positionen aus einem **Seed** erzeugen, nie speichern. Das Precache-Budget von 6
 (`npm run quality`) ist ein Gate, kein Richtwert.
 
 ### Scope-Guardrails sind bindend
-ADR-0004 parkt Zelda/Soulslike, Party-Game und Photoreal als **eigene spätere
-Projekte** und schließt Online-Multiplayer aus. Anfragen in diese Richtung werden nicht
-still umgesetzt — erst ADR-0004 ablösen.
+ADR-0004 parkt Party-Game und ein Spiel, das primär von Grafik lebt (Photoreal), als
+**eigene spätere Projekte** und schließt Online-Multiplayer aus. Echtzeit-Nahkampf mit dem
+Regelwerk der Gattung (Ausdauer, Rolle, Parade, Lock-On, Haltung) ist seit ADR-0007
+entschieden, die Gestalt fremder Vorbilder bleibt tabu. ⚠️ ADR-0004 führt
+„Zelda-/Soulslike-Combat“ noch als geparkt, ADR-0007 löst das nicht ausdrücklich ab (Ledger
+A-10). Anfragen in die geparkten Richtungen werden nicht still umgesetzt, erst ADR-0004 ablösen.
 
 ### Compliance-Check
 ```bash
-make check     # Drift-Gate + typecheck + 16 Engine-Tests + Schema-Validierung
-make quality   # Budgets. NICHT Teil von `make check` — hat offene Blocker (Ledger A-6)
+make check     # Drift-Gate + typecheck + Tests + Schema-Validierung + quality + geometrie
+make quality   # Budgets, seit 17.08.2026 Teil von `make check` (A-6 erledigt, siehe Makefile)
 ```
