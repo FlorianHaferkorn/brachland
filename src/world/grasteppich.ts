@@ -23,7 +23,7 @@ import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
 
 /** Halbe Kantenlänge des Halmfelds in Metern. */
-export const TEPPICH_HALB = 26;
+export const TEPPICH_HALB = 30;
 /** Halmzelle in Metern bei voller Qualität — ein Halm je Zelle, also 25 je m². */
 export const TEPPICH_ZELLE = 0.2;
 /** Ab dieser Bewegung wird die Feldtextur neu gefüllt. */
@@ -86,10 +86,18 @@ export function baueGrasteppich(
   const feldTextur = new THREE.DataTexture(daten, FELD_TEXEL, FELD_TEXEL, THREE.RGBAFormat, THREE.FloatType);
   feldTextur.magFilter = feldTextur.minFilter = THREE.NearestFilter;
   feldTextur.needsUpdate = true;
+  // Bodenfarbe am selben Ort (linear): Der Halm wächst aus ihr heraus und geht zum Rand des Rings
+  // ganz in sie über — sonst endet der Teppich als Kante (erster Render, Wiese 08.10.2026).
+  const ton = new Float32Array(FELD_TEXEL * FELD_TEXEL * 4);
+  const tonTextur = new THREE.DataTexture(ton, FELD_TEXEL, FELD_TEXEL, THREE.RGBAFormat, THREE.FloatType);
+  tonTextur.magFilter = tonTextur.minFilter = THREE.NearestFilter;
+  tonTextur.needsUpdate = true;
+  const farbe = new THREE.Color();
 
   const uniforms = {
     uZeit: { value: 0 },
     uFeld: { value: feldTextur },
+    uTon: { value: tonTextur },
     /** Weltlage von Texel (0,0) und 1/Texelzahl. */
     uFeldUrsprung: { value: new THREE.Vector3(0, 0, 1 / FELD_TEXEL) },
     /** Halmraster: Mitte in ganzen Zellen, Zellgrösse in Metern. */
@@ -109,6 +117,7 @@ export function baueGrasteppich(
 attribute vec2 aZelle;
 uniform float uZeit;
 uniform sampler2D uFeld;
+uniform sampler2D uTon;
 uniform vec3 uFeldUrsprung;
 uniform vec3 uRaster;
 uniform vec2 uMitte;
@@ -122,12 +131,12 @@ float halmRauschen(vec2 p) {
              mix(halmHash(i + vec2(0.0, 1.0)), halmHash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
 // Bilinear von Hand: Float-Texturen filtern nicht überall linear.
-vec4 feldAn(vec2 welt) {
+vec4 bilinear(sampler2D tex, vec2 welt) {
   vec2 t = (welt - uFeldUrsprung.xy) - 0.5;
   vec2 i = floor(t), f = t - i;
   float s = uFeldUrsprung.z;
-  vec4 a = texture2D(uFeld, (i + vec2(0.5, 0.5)) * s), b = texture2D(uFeld, (i + vec2(1.5, 0.5)) * s);
-  vec4 c = texture2D(uFeld, (i + vec2(0.5, 1.5)) * s), d = texture2D(uFeld, (i + vec2(1.5, 1.5)) * s);
+  vec4 a = texture2D(tex, (i + vec2(0.5, 0.5)) * s), b = texture2D(tex, (i + vec2(1.5, 0.5)) * s);
+  vec4 c = texture2D(tex, (i + vec2(0.5, 1.5)) * s), d = texture2D(tex, (i + vec2(1.5, 1.5)) * s);
   return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }`)
       .replace('#include <beginnormal_vertex>', `
@@ -135,9 +144,10 @@ vec4 feldAn(vec2 welt) {
   float h1 = halmHash(zelleW), h2 = halmHash(zelleW + 17.3), h3 = halmHash(zelleW + 41.9);
   float h4 = halmHash(zelleW + 73.1), h5 = halmHash(zelleW + 97.7);
   vec2 ort = (zelleW + vec2(h1, h2)) * uRaster.z;
-  vec4 boden = feldAn(ort);
+  vec4 boden = bilinear(uFeld, ort);
+  vec3 bodenTon = bilinear(uTon, ort).rgb;
   float abst = distance(ort, uMitte);
-  float rand = 1.0 - smoothstep(${(TEPPICH_HALB * 0.55).toFixed(1)}, ${(TEPPICH_HALB * 0.98).toFixed(1)}, abst);
+  float rand = 1.0 - smoothstep(${(TEPPICH_HALB * 0.45).toFixed(1)}, ${(TEPPICH_HALB * 0.98).toFixed(1)}, abst);
   // Dichte als Schwelle: stabil am Ort, kein Flackern beim Nachziehen.
   float da = step(h3, boden.g) * rand;
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
@@ -156,11 +166,15 @@ vec4 feldAn(vec2 welt) {
   vec3 halmPos = vec3(ort.x + quer.x * position.x * breite + biege.x * hoehe,
                       boden.r + y * hoehe * (1.0 - 0.25 * length(biege)),
                       ort.y + quer.y * position.x * breite + biege.y * hoehe);
-  // Farbe: Fuss dunkel, Spitze hell; trockene Flecken (Rauschen 30 m) gehen ins Strohfarbene.
+  // Farbe: aus dem Boden heraus, zur Spitze grüner und heller; trockene Flecken (Rauschen 30 m)
+  // gehen ins Strohfarbene. Zum Ringrand hin ganz Bodenfarbe — der Übergang hat keine Kante.
   float trocken = smoothstep(0.55, 0.85, halmRauschen(ort * 0.033 + 5.0)) * 0.7 + h4 * 0.15;
-  vec3 spitze = mix(uSpitze, vec3(0.62, 0.55, 0.34), trocken) * (0.85 + h5 * 0.3);
-  vHalmFarbe = mix(uFuss * 0.55, spitze, smoothstep(0.0, 1.0, y));
-  vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.65));
+  vec3 gruen = mix(bodenTon, uSpitze, 0.55);
+  vec3 spitze = mix(gruen, vec3(0.62, 0.55, 0.34), trocken) * (0.9 + h5 * 0.25);
+  vec3 fuss = bodenTon * 0.8;
+  float zumBoden = smoothstep(${(TEPPICH_HALB * 0.3).toFixed(1)}, ${(TEPPICH_HALB * 0.9).toFixed(1)}, abst);
+  vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
+  vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
   #ifdef USE_TANGENT
     vec3 objectTangent = vec3(1.0, 0.0, 0.0);
   #endif`)
@@ -172,7 +186,7 @@ vec4 feldAn(vec2 welt) {
       // Rückseite um, dann zeigte sie in den Boden und der halbe Rasen wäre schwarz.
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);');
   };
-  material.customProgramCacheKey = () => 'brachland-grasteppich-v1';
+  material.customProgramCacheKey = () => 'brachland-grasteppich-v2';
 
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;
@@ -200,10 +214,13 @@ vec4 feldAn(vec2 welt) {
           d *= 1 - THREE.MathUtils.smoothstep(Math.hypot(gx, gz), 0.6, 0.9);
         }
         daten[k] = h; daten[k + 1] = d; daten[k + 2] = HOEHE[biom] ?? 0; daten[k + 3] = 1;
+        feld.bodenfarbe(x, z, farbe);
+        ton[k] = farbe.r; ton[k + 1] = farbe.g; ton[k + 2] = farbe.b; ton[k + 3] = 1;
       }
     uniforms.uFeldUrsprung.value.set(x0, z0, 1 / FELD_TEXEL);
     uniforms.uRaster.value.set(Math.round(mx / zelle), Math.round(mz / zelle), zelle);
     feldTextur.needsUpdate = true;
+    tonTextur.needsUpdate = true;
     return true;
   }
 
@@ -211,6 +228,6 @@ vec4 feldAn(vec2 welt) {
     mesh,
     setzeZeit: (t) => { uniforms.uZeit.value = t; },
     ziehNach,
-    dispose: () => { geo.dispose(); halm.dispose(); material.dispose(); feldTextur.dispose(); },
+    dispose: () => { geo.dispose(); halm.dispose(); material.dispose(); feldTextur.dispose(); tonTextur.dispose(); },
   };
 }
