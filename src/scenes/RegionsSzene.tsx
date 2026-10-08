@@ -3717,7 +3717,7 @@ export function RegionsSzene({
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
       {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
       <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
-              bloom={0.12} schacht={0.25} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />
+              bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />
       <Messung melde={onMessung} />
       </WasserUmgebung>
     </Canvas>

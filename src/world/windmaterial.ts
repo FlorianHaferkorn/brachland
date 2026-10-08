@@ -242,7 +242,7 @@ const DURCHLASS_GLSL = /* glsl */ `
     float gegen = max(0.0, dot(-normalize(vViewPosition), directionalLights[0].direction));
     float streu = pow(gegen, 6.0) * (0.35 + 0.65 * rueck);
     vec3 durchFarbe = diffuseColor.rgb * (diffuseColor.rgb * 1.6 + 0.25);
-    reflectedLight.directDiffuse += durchFarbe * directionalLights[0].color * streu * uDurchlass * 0.6;
+    reflectedLight.directDiffuse += durchFarbe * directionalLights[0].color * streu * uDurchlass * 0.4;
   }
   #endif
 `;
@@ -417,7 +417,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v15' + (w.himmel ? '-himmel' : '');
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v16' + (w.himmel ? '-himmel' : '');
 
   // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens
   let tiefe: THREE.MeshDepthMaterial | undefined;
