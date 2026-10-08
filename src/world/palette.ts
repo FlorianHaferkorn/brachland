@@ -105,6 +105,7 @@ export const PALETTE = {
     findling:    '#858a8e',
     totholz:     '#5a5146',
     grasbuschel: '#708154',
+    farn:        '#5f7a47',
     blume:       '#97935f',
     pilz:        '#817364',
   },

@@ -18,7 +18,7 @@ import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
-import { WasserUmgebung, useWasserUmgebung } from './WasserUmgebung.js';
+import { WasserUmgebung, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
 import { STIMMUNG, HEMI_BODEN, type Stimmung } from '../world/stimmung.js';
 export { STIMMUNG, HEMI_BODEN, HEMI_BODEN_TAG, type Stimmung, type StimmungsName } from '../world/stimmung.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -48,11 +48,15 @@ import { kameraZustand } from '../kampf/kamerazustand.js';
 import { armMitSicht, sichtFrei, ZIEL_RAND, type Versperrt } from '../kampf/sichtlinie.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
-         VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
+         VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
+import { baueGrasteppich } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
-import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, HAARFARBEN, type HeldWahl, type Haar } from '../spieler/held.js';
+import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, HAARFARBEN, setzeFigurUmgebung, setzeFigurSaum, type HeldWahl, type Haar } from '../spieler/held.js';
+import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
+/** `?fuesse=0` schaltet die Fussanpassung ab (D214). */
+const FUESSE_AN = typeof location === 'undefined' || new URLSearchParams(location.search).get('fuesse') !== '0';
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 /** `?figur=alt`: die alte Wanderin statt der Figur aus dem Editor (Vergleich, D175). */
 const ALTE_FIGUR = new URLSearchParams(location.search).get('figur') === 'alt';
@@ -557,6 +561,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
 
       <Props props={props} wind={wind.material} grasWind={grasWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
+      {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} />}
     </group>
   );
 }
@@ -892,7 +897,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, baumWind, baumTiefe }: {
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
   // als bewegtes Laub aufbaut.
   const biegsam = chunk.art === 'nadelbaum' || chunk.art === 'laubbaum' || chunk.art === 'busch';
-  const gras = chunk.art === 'grasbuschel';
+  const gras = chunk.art === 'grasbuschel' || chunk.art === 'farn';
   const ref = useRef<THREE.InstancedMesh>(null);
 
   useEffect(() => {
@@ -1383,13 +1388,14 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
   }), []);
   useEffect(() => { setzeRand(new THREE.Color(rand.farbe), rand.staerke); }, [setzeRand, rand]);
   useEffect(() => { setzeRollen(farben ?? null); }, [setzeRollen, farben]);
+  const himmelKarte = useHimmelKarte();
   useEffect(() => {
-    if (hg) { legeWahlAn(scene, hg); return; }
+    if (hg) { legeWahlAn(scene, hg); setzeFigurUmgebung(scene, himmelKarte); return; }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
     });
-  }, [scene, material]);
+  }, [scene, material, himmelKarte]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
   const clips = useMemo(() => {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
@@ -1939,6 +1945,23 @@ function Beleuchtung({ s, ziel }: {
       />
     </>
   );
+}
+
+/**
+ * Einzelhalme im Nahbereich, auf der GPU (D211, `world/grasteppich.ts`). `?aus=teppich` schaltet ab.
+ */
+function Grasteppich({ welt, feld, ziel, dichte }: {
+  welt: Weltdaten; feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number;
+}) {
+  const aufWeg = useMemo(() => wegTest(welt, feld), [welt, feld]);
+  const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
+  useEffect(() => () => teppich.dispose(), [teppich]);
+  useFrame(({ clock }) => {
+    teppich.setzeZeit(clock.elapsedTime);
+    const p = ziel.current?.position;
+    if (p) teppich.ziehNach(p.x, p.z);
+  });
+  return <primitive object={teppich.mesh} />;
 }
 
 /**
@@ -2693,8 +2716,10 @@ function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
  * Reiten (D93, D145): Im Sattel spielt die Figur Idle, wird um den Widerrist
  * angehoben und bekommt die Sitzpose ueber drei Winkel je Bein (`sitzpose`).
  */
-function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
+function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeheAn }: {
   gier: React.RefObject<number>;
+  /** Geländehöhe für die Füsse (D214). Ohne sie bleiben die Füsse, wo der Clip sie hinsetzt. */
+  hoeheAn?: (x: number, z: number) => number;
   /** Schmiedestufen (D178): Stufe 1–2 heller geschliffen, Stufe 3 ein anderes Modell. */
   waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Kampfzustand (D167): Schlag, Rolle, Treffer, Fall als Clip. Ohne Kampf null. */
@@ -2729,13 +2754,17 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
   }, [setzeRand, rand]);
   // Material tauschen und Schatten setzen — einmal je Szene. Die neue Figur behält ihre Texturen
   // und bekommt die Wahl aus dem Editor (Frisur, Haut, Haar).
+  const fuss = useRef<FussZustand>(neuerFussZustand());
+  const himmelKarte = useHimmelKarte();
+  // D213: Saum für die neuen Gestalten aus derselben Randfarbe wie Kreaturen und alte Figur.
+  useEffect(() => { setzeFigurSaum(rand.farbe, rand.staerke); }, [rand]);
   useEffect(() => {
-    if (held) { legeWahlAn(scene, wahl!); return; }
+    if (held) { legeWahlAn(scene, wahl!); setzeFigurUmgebung(scene, himmelKarte); return; }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
     });
-  }, [scene, material, held, wahl]);
+  }, [scene, material, held, wahl, himmelKarte]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
   const clips = useMemo(() => {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
@@ -3035,6 +3064,8 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
       }
       sitzpose(beine, scene, sitz.current, breite ?? 0.2);
     }
+    // D214: Füsse auf den Boden, nach Clip und Sitzpose. `?fuesse=0` zum Vergleich.
+    if (hoeheAn && FUESSE_AN) setzeFuesse(beine, scene, hoeheAn, fuss.current, dt, held && sitz.current < 0.01);
 
     if (reittier) {
       const hoehe = (mitModell ? sitzHoehe.current?.hoehe : null) ?? reittier.hoehe;
@@ -3673,6 +3704,7 @@ export function RegionsSzene({
             jedem geladenen Modell neu. */}
         <Suspense fallback={null}>
           <SpielerFigur gier={gier} schritt={schritt} reittier={reittier} kampf={kampfFigur} waffenStufen={waffenStufen}
+                        hoeheAn={feld.hoehe}
                         rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
         </Suspense>
       </object3D>

@@ -68,7 +68,7 @@ for (const p of props) {
 }
 
 const ARTEN: PropArt[] = ['nadelbaum', 'laubbaum', 'busch', 'findling', 'totholz',
-                          'grasbuschel', 'blume', 'pilz'];
+                          'grasbuschel', 'blume', 'pilz', 'farn'];
 
 console.log(`Bewuchs je Biom — ${props.length.toLocaleString('de')} Props auf ${welt.gebaeude.length} Gebaeuden\n`);
 console.log(`  ${'Biom'.padEnd(10)} ${'ha'.padStart(7)} ${'Props'.padStart(8)} ${'/ha'.padStart(6)}   `

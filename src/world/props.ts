@@ -16,7 +16,7 @@ import type { TerrainErgebnis } from './terrain.js';
 import { MASSSTAB } from './terrain.js';
 
 export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbuschel' | 'totholz'
-                    | 'blume' | 'pilz';
+                    | 'blume' | 'pilz' | 'farn';
 
 /**
  * Props je Hektar und Biom.
@@ -31,8 +31,10 @@ export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbus
  * Fernattrappen statt voller Modelle (Ledger G-15), nicht noch mehr Dichte.
  */
 export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
-  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4 },
-  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9 },
+  // D212: Farn als Waldunterwuchs. Ein Wurmfarnbestand trägt mehrere Stöcke je 10 m²; 160/ha ist
+  // die lichte Form davon — genug, dass der Waldboden nicht mehr nackt ist.
+  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4, farn: 160 },
+  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9, farn: 25 },
   wiese:     { grasbuschel: 40, busch: 3, laubbaum: 1.2, blume: 22 },
   acker:     { grasbuschel: 8, blume: 2 },
   fels:      { findling: 18, busch: 4, nadelbaum: 1.6, grasbuschel: 6 },
@@ -101,12 +103,14 @@ export const SICHTWEITE: Record<PropArt, number> = {
   // Eine Blume ist 25 cm hoch und ein Pilz 15 — jenseits von 45 m sind sie
   // weniger als ein Pixel und kosten trotzdem einen ganzen Draw Call je Chunk.
   blume: 55, pilz: 45,
+  // Farn trägt eine Silhouette wie ein kleiner Busch; ab 110 m ist er Bodentextur.
+  farn: 110,
 };
 
 /** Ab dieser Neigung wächst nichts mehr — verhindert Bäume an Felswänden. */
 const MAX_NEIGUNG_GRAD: Partial<Record<PropArt, number>> = {
   nadelbaum: 38, laubbaum: 32, busch: 45, totholz: 35, grasbuschel: 40, findling: 60,
-  blume: 35, pilz: 30,
+  blume: 35, pilz: 30, farn: 42,
 };
 
 export interface PropInstanz {
@@ -196,8 +200,8 @@ function hausTest(
  * Rechteck gegen Rechteck prüft und die LOD-Kacheln braucht — zwei verschiedene
  * Fragen, darum zwei Funktionen.
  */
-function wegTest(
-  welt: Weltdaten, terrain: TerrainErgebnis,
+export function wegTest(
+  welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>,
 ): (x: number, z: number) => boolean {
   const [sued, west, nord, ost] = welt.bbox;
   /** Abstand zur Wegkante, den ein Prop mindestens hält. */
@@ -330,6 +334,12 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
     { datei: 'busch_breit',    hoehe: 2.1 },
     { datei: 'busch_gross',    hoehe: 2.4 },
   ],
+  farn: [
+    { datei: 'farn_klein',     hoehe: 0.45 },
+    { datei: 'farn_mittel',    hoehe: 0.7 },
+    { datei: 'farn_breit',     hoehe: 0.6 },
+    { datei: 'farn_hoch',      hoehe: 1.05 },
+  ],
   grasbuschel: [
     { datei: 'gras_matte',     hoehe: 0.18 },
     { datei: 'gras_kurz',      hoehe: 0.24 },
@@ -439,6 +449,7 @@ const TON_STREUUNG: Record<PropArt, { hell: number; warm: number }> = {
   totholz:     { hell: 0.16, warm: 0.12 },
   blume:       { hell: 0.14, warm: 0.06 },
   pilz:        { hell: 0.12, warm: 0.05 },
+  farn:        { hell: 0.22, warm: 0.22 },
 };
 
 /** Ein Schritt von `mulberry`, ohne Abschluss — 167.823 Aufrufe je Weltaufbau. */
@@ -479,7 +490,7 @@ export function propTon(
 /** Reale Zielhöhe je Art in Metern — nur noch für die Fernattrappe. */
 export const ZIELHOEHE: Record<PropArt, number> = {
   nadelbaum: 22, laubbaum: 14, busch: 1.6, findling: 1.1, totholz: 0.9,
-  grasbuschel: 0.35, blume: 0.26, pilz: 0.18,
+  grasbuschel: 0.35, blume: 0.26, pilz: 0.18, farn: 0.7,
 };
 
 export const propPfad = (datei: string) => `/props/${datei}.glb`;
@@ -568,6 +579,12 @@ export function propGeometrie(art: PropArt): THREE.BufferGeometry {
     case 'pilz': {
       const g = new THREE.CylinderGeometry(0.09, 0.03, 0.16, 5);
       g.translate(0, 0.08, 0);
+      return g;
+    }
+    case 'farn': {
+      const g = new THREE.ConeGeometry(0.5, 0.6, 5, 1, true);
+      g.rotateX(Math.PI);
+      g.translate(0, 0.3, 0);
       return g;
     }
   }

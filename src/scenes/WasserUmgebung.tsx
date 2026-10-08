@@ -61,6 +61,11 @@ export function WasserUmgebung({ werte, children }: { werte: HimmelWerte; childr
   return <WasserHimmel.Provider value={textur}>{children}</WasserHimmel.Provider>;
 }
 
+/** Die aktuelle Himmelsaufnahme (D213: auch für die Figuren). */
+export function useHimmelKarte(): THREE.Texture | null {
+  return useContext(WasserHimmel);
+}
+
 /** Auch spaeter geladene Wasserflaechen bekommen die aktuelle Aufnahme. */
 export function useWasserUmgebung(material: THREE.MeshStandardMaterial): void {
   const textur = useContext(WasserHimmel);

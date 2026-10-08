@@ -386,6 +386,46 @@ function grasbuschel(n: Netz, w: () => number, s: { halme: number; hoehe: number
   }
 }
 
+/**
+ * Farn (D212): Wedel aus einer gebogenen Mittelrippe mit Fiederpaaren, die zur Spitze kürzer
+ * werden. Ein Wedel steigt steil auf und hängt aussen über — die Silhouette, an der man Farn
+ * erkennt. Fiedern als je ein schmales Dreieck: Aus der Nähe genügt das Zackenprofil, aus 20 m
+ * liest sich ohnehin nur der Umriss des Wedels. Sichtseite nach oben.
+ */
+function farn(n: Netz, w: () => number, s: { wedel: number; laenge: number; fiedern: number; breite: number; steil: number }) {
+  for (let i = 0; i < s.wedel; i++) {
+    const a = (i / s.wedel) * Math.PI * 2 + (w() - 0.5) * 0.7;
+    const d: V3 = [Math.cos(a), 0, Math.sin(a)];
+    const q: V3 = [-d[2], 0, d[0]];
+    const laenge = s.laenge * (0.7 + 0.3 * w());
+    const steil = s.steil * (0.8 + 0.4 * w());
+    // Mittelrippe als Bogen: aufsteigend, dann überhängend.
+    const P = (t: number): V3 => {
+      const aus = t * laenge, hoch = Math.sin(t * Math.PI * 0.62) * laenge * steil - t * t * laenge * 0.25;
+      return [d[0] * aus, Math.max(0.02, hoch), d[2] * aus];
+    };
+    const ab = n.pos.length;
+    const fuss = mal(F.laubDunkel, 0.75), mitte = mix(F.laubDunkel, F.laub, 0.6), spitze = mix(F.laub, F.laubHell, 0.4);
+    for (let k = 0; k < s.fiedern; k++) {
+      const t = 0.14 + (k / s.fiedern) * 0.82, t2 = t + 0.82 / s.fiedern;
+      const p = P(t), p2 = P(t2);
+      const lang = s.breite * laenge * Math.sin(Math.min(1, t * 1.35) * Math.PI) * (0.85 + 0.3 * w());
+      const farbe = mix(mitte, spitze, t);
+      for (const seite of [-1, 1]) {
+        // Fieder schräg nach vorn und leicht hängend.
+        const spitzeF: V3 = [p[0] + (q[0] * seite + d[0] * 0.45) * lang, p[1] - lang * 0.18, p[2] + (q[2] * seite + d[2] * 0.45) * lang];
+        n.tri(p, p2, spitzeF, mix(fuss, farbe, 0.6), farbe, mal(farbe, 1.08));
+      }
+    }
+    // Rippe selbst als schmaler Streifen bis zur ersten Fieder.
+    const r0 = P(0), r1 = P(0.14);
+    const b = 0.012 * laenge;
+    n.quad([r0[0] - q[0] * b, r0[1], r0[2] - q[2] * b], [r0[0] + q[0] * b, r0[1], r0[2] + q[2] * b],
+           [r1[0] + q[0] * b, r1[1], r1[2] + q[2] * b], [r1[0] - q[0] * b, r1[1], r1[2] - q[2] * b], fuss, mitte);
+    n.richte(ab, (c) => [c[0], c[1] - 10, c[2]]);
+  }
+}
+
 /** Ein kleiner Doppelkegel als Blütenkopf. */
 function knospe(n: Netz, z: V3, r: number, h: number, oben: V3, unten: V3) {
   const ab = n.pos.length;
@@ -493,6 +533,12 @@ const BAUPLAN: Record<string, Bauplan> = {
   gras_blatt:  (n, w) => grasbuschel(n, w, { halme: 20, hoehe: 1, breite: 0.18, neigung: 0.45, fussR: 0.16 }),
   gras_staude: (n, w) => grasbuschel(n, w, { halme: 30, hoehe: 1, breite: 0.11, neigung: 0.22, fussR: 0.2 }),
 
+  // D212: Farn im Waldunterwuchs. Wurmfarn steht 0,5–1,2 m, Adlerfarn bis 1,5 m.
+  farn_klein:  (n, w) => farn(n, w, { wedel: 8, laenge: 1, fiedern: 10, breite: 0.16, steil: 1.1 }),
+  farn_mittel: (n, w) => farn(n, w, { wedel: 9, laenge: 1, fiedern: 10, breite: 0.17, steil: 1.25 }),
+  farn_breit:  (n, w) => farn(n, w, { wedel: 11, laenge: 1, fiedern: 10, breite: 0.19, steil: 0.95 }),
+  farn_hoch:   (n, w) => farn(n, w, { wedel: 9, laenge: 1, fiedern: 11, breite: 0.15, steil: 1.5 }),
+
   blume_gelb:     (n, w) => blume(n, w, { stiele: 6, hoehe: 1, bluete: F.gelb, blueteDunkel: dunkler(F.gelb), blaetter: 6, breite: 0.25 }),
   blume_gelb2:    (n, w) => blume(n, w, { stiele: 9, hoehe: 1, bluete: F.gelb, blueteDunkel: dunkler(F.gelb), blaetter: 5, breite: 0.32 }),
   blume_rot:      (n, w) => blume(n, w, { stiele: 6, hoehe: 1, bluete: F.rot, blueteDunkel: F.rotDunkel, blaetter: 6, breite: 0.25 }),
@@ -568,7 +614,7 @@ for (const [art, varianten] of Object.entries(VARIANTEN) as [PropArt, typeof VAR
     // Halm mit seiner Flächennormale steht halb im Eigenschatten und war im
     // Bild dunkler als das gestreute Gras daneben — dieselbe Pflanze in zwei
     // Helligkeiten. Die Szene zeichnet Gras deshalb glatt statt flach schattiert.
-    if (art === 'grasbuschel') {
+    if (art === 'grasbuschel' || art === 'farn') {
       const hoch = new Float32Array(pos.length);
       for (let i = 1; i < hoch.length; i += 3) hoch[i] = 1;
       prim.setAttribute('NORMAL', raus.createAccessor().setType('VEC3').setArray(hoch).setBuffer(puffer));
