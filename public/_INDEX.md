@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-26
+last-reviewed: 2026-10-08
 shelf-life-days: 90
 ---
 # public — Was der Service Worker ausliefert (_INDEX)
@@ -21,6 +21,7 @@ shelf-life-days: 90
 | `figuren/kampf/wanderin-waffen.glb` | D171: das Moveset der Wanderin (9 Clips `Klinge_*`/`Axt_*`) ohne Netz — nur Knochen und Animation, Meshopt, 244 KB. Gebaut von `tools/waffenclips.py` über `menschbau.py`, abgetrennt von `tools/waffenteilen.ts`; geladen erst mit Kampfplatz (`useWaffenClips`). Budget 250 KB in `tools/quality.ts` |
 | `creatures/kampf/*.glb` + `register.json` | D172: K7-Wolf und Grathorn mit Skin und sieben Clips der Quelle (Idle, Walk, Gallop, Angriff, zwei Treffer, Tod), aus `tools/kampftierbau.py` + `kampftierpack.ts`; Wolf 256 KB, Grathorn 205 KB, Budget 300 KB in `tools/quality.ts`. Nur mit Kampfplatz geladen |
 | `bauten/<name>-himmel.bin` + `.json` | D171: Himmelsanteil des Geländes um das Set-Piece, 0,5-m-Raster, 8 Bit (156 KB je Set-Piece), aus `tools/himmelboden.ts`; der Bodenshader liest es als Datentextur |
+| `material/*.webp` | D206: zwei Detailnormalen (Fels 28 KB, Boden 115 KB, 512², CC0 aus `@pmndrs/assets` 1.7.0), gelesen von `src/world/bodenmaterial.ts`; Herkunft in `../assets/HERKUNFT.md`. Im Precache (`webp` im Workbox-Glob) |
 | `herkunft.json` | Die Modelle-Tabelle aus `../assets/HERKUNFT.md` als JSON, geschrieben von `npm run herkunft` (D127) — ins Bündel importiert, damit die CC-BY-Nennung im Menü auch offline steht. `npm run quality` blockt, wenn JSON und Tabelle auseinanderliegen |
 | `props/baum-*.glb` + `props/baeume.json` | **Blender-Baeume** (ADR-0006, D155) aus `tools/baumbau.py`: je Art (buche, fichte), Variante (4) und Stufe (nah, mittel, fern) ein Netz mit Vertexfarbe, Laubmaske in `COLOR_0.a` (Loecher im Shader) und Windgewicht `_WIND`; Laub je Stufe dunkler gebacken (0,85/0,78/0,62). Das Register nennt Hoehe und Dreiecke (Buche 4.784–4.968 / 2.816–3.000 / 340, Fichte 848/348/120); `src/world/props.ts` (`blenderBaum`) nimmt die Datei statt `baueBaum` und statt des Kegels, sobald ein Eintrag da ist. Eigene Klasse im Dreieckskorridor (`Baum (Blender)` 100–6.000) |
 | `props/*.glb` | 36 **prozedurale** Attrappen, gebaut mit `npm run props:bau` (D120, vorher Kenney Nature Kit 2.1 CC0, D74): Busch, Grasbüschel, Findling, Totholz, Blume, Pilz je 6 Varianten, Median 219 Dreiecke (Korridor D111), zusammen **328 KB** quantisiert. Bis zum 07.09.2026 **92 KB** aus Kenney — weniger als die 23 Modelle davor, weil die acht Baum-GLB weg sind (Bäume sind prozedural, D40) und weil UV und Material aus den Dateien fliegen. Jedes Modell: **ein** Primitiv, Farbe als `COLOR_0` in der Projektpalette, Höhe in echten Metern. `npm run quality` blockt, wenn eines davon nicht stimmt (G-76) |

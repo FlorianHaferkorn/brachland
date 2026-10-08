@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-07
+last-reviewed: 2026-10-08
 owns: []
 ---
 
@@ -89,6 +89,16 @@ nichts gehört. Und beim **Grathorn** fällt das Hirschgeweih weg — es ist im
 Original ein eigenes Netz (`Stag_Horns`, 1.616 Flächen), und die Linie trägt laut
 `content/creatures/grathorn.json` ein Chitinplatten-Gehörn. Das kommt als Anbau
 aus `src/world/kreaturgestalt.ts` und ist BRACHLAND-eigen.
+
+## Materialien (`public/material`, D206)
+
+Detailnormalen für Boden und Fels. CC0, also ohne Pflicht zur Nennung; hier steht die Herkunft
+trotzdem, damit niemand rätseln muss.
+
+| Datei | Rolle | Autor | Lizenz | Quelle |
+|---|---|---|---|---|
+| fels-normal.webp | Felswand, triplanar an steilen Hängen | Poimandres (pmndrs) | CC0-1.0 | npm `@pmndrs/assets` 1.7.0, `normals/0005.webp`, unverändert |
+| boden-normal.webp | Feinkies/Erde, planar am Boden | Poimandres (pmndrs) | CC0-1.0 | npm `@pmndrs/assets` 1.7.0, `normals/0015.webp`, unverändert |
 
 ## Was im Spiel stehen muss
 

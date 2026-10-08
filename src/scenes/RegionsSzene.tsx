@@ -38,6 +38,7 @@ import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fern
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { BAUWERKE, bauwerkPfad, gesperrt, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { haengeAgxLookEin } from './tonwert.js';
+import { haengeNebelEin } from './nebel.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
@@ -193,6 +194,8 @@ const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
  * `CustomToneMapping` ohne Kurve — also stockdunkel.
  */
 haengeAgxLookEin();
+// D204: Nebel mit Auslauf und Höhendunst — wie der Look vor dem ersten Material einhängen.
+haengeNebelEin();
 
 /** Kurve ohne Adresse: der Look des Renders (D164). */
 const KURVE_VORGABE: THREE.ToneMapping = THREE.CustomToneMapping;

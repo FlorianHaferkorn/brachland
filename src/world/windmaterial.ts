@@ -200,7 +200,12 @@ const LOECHER_GLSL = /* glsl */ `
       float v = mix(mix(mix(h000, h100, f.x), mix(h010, h110, f.x), f.y), mix(mix(h001, h101, f.x), mix(h011, h111, f.x), f.y), f.z);
       n += v * a; q *= 2.0; a *= 0.5;
     }
-    if (n > uLoecher) discard;
+    // D205: Unter Pixelgroesse flimmerten die Loecher als Raster — die Krone las sich auf Entfernung
+    // gesprenkelt wie Pappe. Ab einem halben Pixel je Rauschzelle blenden sie aus, und die ferne
+    // Krone wird Masse (das tut sie auch im Auge).
+    float lochPixel = length(fwidth(vLoecherPos * uLoecherSkala));
+    float schwelle = mix(uLoecher, 1.01, smoothstep(0.5, 1.5, lochPixel));
+    if (n > schwelle) discard;
   }
 `;
 
@@ -222,6 +227,36 @@ const DURCHLASS_GLSL = /* glsl */ `
     reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * directionalLights[0].color * rueck * uDurchlass;
   }
   #endif
+`;
+
+/**
+ * D205: Farbvariation (ADR-0012, Laub). Bisher trug jede Krone und jede Fichte genau ihren
+ * Vertexfarbton — ein Wald aus Kopien. Zwei Quellen:
+ * - **Laub der Blender-Baeume** (Loecher an, Laubmaske): weiches 3D-Rauschen in Weltkoordinaten,
+ *   ~11 m und ~3,5 m — Helligkeit ±12 %, Ton zwischen Blaugruen und Oliv. Ortsfest, also kein
+ *   Flackern beim Wind.
+ * - **Instanzen** (Engine-Baeume, Buesche, Gras): ein Wert je Instanz aus ihrer Lage, ±8 % —
+ *   genug, dass zwei Nachbarn nicht gleich sind, zu wenig fuer bunte Flecken.
+ */
+const VARIATION_GLSL = /* glsl */ `
+  #ifdef USE_COLOR_ALPHA
+  if (uLoecher > 0.0 && vColor.a > 0.5) {
+    float v1 = laubRauschen(vLoecherPos * 0.09);
+    float v2 = laubRauschen(vLoecherPos * 0.29 + 11.0);
+    float hell = 0.88 + v1 * 0.24 + (v2 - 0.5) * 0.12;
+    diffuseColor.rgb *= hell * mix(vec3(0.93, 1.02, 0.98), vec3(1.07, 1.02, 0.86), v1);
+  }
+  #endif
+  diffuseColor.rgb *= 0.92 + vInstanzVar * 0.16;
+`;
+
+const LAUB_RAUSCHEN_GLSL = /* glsl */ `
+float laubHash(vec3 i) { return fract(sin(dot(i, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float laubRauschen(vec3 q) {
+  vec3 i = floor(q), f = fract(q); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(laubHash(i), laubHash(i + vec3(1,0,0)), f.x), mix(laubHash(i + vec3(0,1,0)), laubHash(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(laubHash(i + vec3(0,0,1)), laubHash(i + vec3(1,0,1)), f.x), mix(laubHash(i + vec3(0,1,1)), laubHash(i + vec3(1,1,1)), f.x), f.y), f.z);
+}
 `;
 
 const WIND_GLSL = /* glsl */ `
@@ -350,20 +385,21 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
         // aWind ebenfalls nur bei Instanzen deklarieren: Ein Attribut, das die
         // Geometrie nicht liefert, ist auf manchen Treibern ein harter Fehler.
         '#include <common>\nuniform float uZeit;\nuniform float uWindAmp;\nuniform float uAtmen;\nuniform float uGang;\n'
-        + 'uniform float uRollenAn;\nuniform vec3 uRollen[8];\nuniform float uRollenMaske[8];\nvarying vec3 vLoecherPos;\n'
+        + 'uniform float uRollenAn;\nuniform vec3 uRollen[8];\nuniform float uRollenMaske[8];\nvarying vec3 vLoecherPos;\nvarying float vInstanzVar;\n'
         + '#ifdef USE_INSTANCING\nattribute float aWind;\n#endif')
       .replace('#include <color_vertex>', '#include <color_vertex>' + ROLLEN_GLSL)
       .replace('#include <begin_vertex>', '#include <begin_vertex>' + WIND_GLSL + ATMEN_GLSL)
       // Weltposition fuer die Loecher: nach allen Verschiebungen, vor der Projektion
-      .replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\nvLoecherPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#else\nvLoecherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif');
+      .replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\nvLoecherPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\nvInstanzVar = fract(sin(dot((modelMatrix * instanceMatrix[3]).xz, vec2(12.9898, 78.233))) * 43758.5453);\n#else\nvLoecherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvInstanzVar = 0.5;\n#endif');
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>',
-        '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;\nuniform float uLoecher;\nuniform float uLoecherSkala;\nuniform float uDurchlass;\nvarying vec3 vLoecherPos;')
+        '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;\nuniform float uLoecher;\nuniform float uLoecherSkala;\nuniform float uDurchlass;\nvarying vec3 vLoecherPos;\nvarying float vInstanzVar;\n' + LAUB_RAUSCHEN_GLSL)
+      .replace('#include <color_fragment>', '#include <color_fragment>' + VARIATION_GLSL)
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v12' + (w.himmel ? '-himmel' : '');
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v13' + (w.himmel ? '-himmel' : '');
 
   // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens
   let tiefe: THREE.MeshDepthMaterial | undefined;

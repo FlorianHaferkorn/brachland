@@ -16,7 +16,7 @@
     "quality": "tsx tools/quality.ts",
     "last": "tsx tools/lastcheck.ts",
     "vorkommen": "tsx tools/vorkommencheck.ts",
-    "test": "tsx tests/battle.test.ts && tsx tests/echtzeit.test.ts && tsx tests/waffenclips.test.ts && tsx tests/kampfbot.test.ts && tsx tests/schmiede.test.ts && tsx tests/peilung.test.ts && tsx tests/sichtlinie.test.ts && tsx tests/tonwert.test.ts && tsx tests/staemme.test.ts && tsx tests/fortschritt.test.ts && tsx tests/ausdauer.test.ts && tsx tests/auftraege.test.ts && tsx tests/reiten.test.ts && tsx tests/zustaende.test.ts && tsx tests/gleiten.test.ts && tsx tests/siedlung.test.ts && tsx tests/menue.test.ts && tsx tests/propauswahl.test.ts && tsx tests/bautenpack.test.ts",
+    "test": "tsx tests/battle.test.ts && tsx tests/echtzeit.test.ts && tsx tests/waffenclips.test.ts && tsx tests/kampfbot.test.ts && tsx tests/schmiede.test.ts && tsx tests/peilung.test.ts && tsx tests/sichtlinie.test.ts && tsx tests/tonwert.test.ts && tsx tests/nebel.test.ts && tsx tests/staemme.test.ts && tsx tests/fortschritt.test.ts && tsx tests/ausdauer.test.ts && tsx tests/auftraege.test.ts && tsx tests/reiten.test.ts && tsx tests/zustaende.test.ts && tsx tests/gleiten.test.ts && tsx tests/siedlung.test.ts && tsx tests/menue.test.ts && tsx tests/propauswahl.test.ts && tsx tests/bautenpack.test.ts",
     "world": "tsx tools/buildworld.ts",
     "fernland": "tsx tools/fernland.ts",
     "zaehlen": "node tools/zaehlen.mjs",

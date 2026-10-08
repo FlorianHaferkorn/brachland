@@ -111,6 +111,62 @@ const VARIATION_GLSL = /* glsl */ `
  * (seit D201 glatt aus dem Höhenfeld) mit verrauschter Schwelle, damit die Grenze keine Höhenlinie
  * zeichnet. Farben aus der Palette (`fels.b`, `fels.schutt`), nicht im Shader erfunden.
  */
+/**
+ * D206: Detailnormalen aus CC0-Scans (`public/material/`, pmndrs/assets 1.7.0, CC0-1.0; Herkunft in
+ * `assets/HERKUNFT.md`). Fünfter Hebel aus ADR-0012: Das Rauschrelief oben trägt nur Korn, keine
+ * Gesteinsform. Fels triplanar (sonst verzerrt die Draufsicht steile Hänge), Boden planar von oben.
+ * Bis die Bilder geladen sind, liegt eine flache Normale im Slot — dann ändert sich nichts.
+ */
+const FLACH = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+FLACH.needsUpdate = true;
+const DETAIL = {
+  fels: { value: FLACH as THREE.Texture },
+  boden: { value: FLACH as THREE.Texture },
+};
+let detailGeladen = false;
+
+/** `?detail=0` schaltet die Detailnormalen ab — Vergleichsschalter (D206). */
+const DETAIL_AUS: boolean = (() => {
+  if (typeof location === 'undefined') return false;
+  return new URLSearchParams(location.search).get('detail') === '0';
+})();
+
+function ladeDetail(): void {
+  if (detailGeladen || DETAIL_AUS || typeof document === 'undefined') return;
+  detailGeladen = true;
+  const lader = new THREE.TextureLoader();
+  for (const [slot, datei] of [['fels', 'fels-normal'], ['boden', 'boden-normal']] as const)
+    lader.load(`/material/${datei}.webp`, (t) => {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.colorSpace = THREE.NoColorSpace;
+      t.anisotropy = 8;
+      DETAIL[slot].value = t;
+    });
+}
+
+const DETAIL_GLSL = /* glsl */ `
+  // Whiteout-Mischung in Weltlage (Golus), Geometrienormale als Basis.
+  vec3 basisW = normalize(vWeltNormal);
+  vec3 achse = pow(abs(basisW), vec3(4.0));
+  achse /= achse.x + achse.y + achse.z;
+  float felsSkala = 1.0 / 7.0;
+  vec3 tX = texture2D(uFelsNormal, vWeltPos.zy * felsSkala).xyz * 2.0 - 1.0;
+  vec3 tY = texture2D(uFelsNormal, vWeltPos.xz * felsSkala).xyz * 2.0 - 1.0;
+  vec3 tZ = texture2D(uFelsNormal, vWeltPos.xy * felsSkala).xyz * 2.0 - 1.0;
+  tX = vec3(tX.xy + basisW.zy, abs(tX.z) * basisW.x);
+  tY = vec3(tY.xy + basisW.xz, abs(tY.z) * basisW.y);
+  tZ = vec3(tZ.xy + basisW.xy, abs(tZ.z) * basisW.z);
+  vec3 felsW = normalize(tX.zyx * achse.x + tY.xzy * achse.y + tZ.xyz * achse.z);
+  vec3 tB = texture2D(uBodenNormal, vWeltPos.xz * 0.55).xyz * 2.0 - 1.0;
+  tB.xy *= 0.7;
+  vec3 bodenW = normalize(vec3(tB.x + basisW.x, abs(tB.z) * basisW.y, tB.y + basisW.z));
+  vec3 detailW = normalize(mix(bodenW, felsW, max(steil, schutt * 0.5)));
+  // Ferne: Mipmaps glätten ohnehin; ab ~150 m ganz aus, damit nichts flimmert.
+  float detailNah = 1.0 - smoothstep(60.0, 150.0, length(vViewPosition));
+  vec3 versatz = mat3(viewMatrix) * (detailW - basisW);
+  normal = normalize(normal + versatz * detailNah);
+`;
+
 const HANG_GLSL = /* glsl */ `
   float hangRausch = bodenRauschen(vWeltPos.xz * 0.31) - 0.5;
   float steil = 1.0 - smoothstep(0.66, 0.86, vWeltNormal.y + hangRausch * 0.16);
@@ -179,9 +235,9 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
       );
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nuniform vec3 uFels;\nuniform vec3 uSchutt;')
+      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform sampler2D uFelsNormal;\nuniform sampler2D uBodenNormal;')
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + VARIATION_GLSL + HANG_GLSL)
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL)
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL)
       .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
       .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL);
     shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
@@ -189,11 +245,14 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
     shader.uniforms.uHimmel = HIMMEL_UNIFORM;
     shader.uniforms.uFels = { value: new THREE.Color(PALETTE.fels.b) };
     shader.uniforms.uSchutt = { value: new THREE.Color(PALETTE.fels.schutt) };
+    shader.uniforms.uFelsNormal = DETAIL.fels;
+    shader.uniforms.uBodenNormal = DETAIL.boden;
   };
+  ladeDetail();
 
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
-  material.customProgramCacheKey = () => 'brachland-boden-v4' + (BODEN_KANTIG ? '-kantig' : '');
+  material.customProgramCacheKey = () => 'brachland-boden-v5' + (BODEN_KANTIG ? '-kantig' : '');
 
   return material;
 }
