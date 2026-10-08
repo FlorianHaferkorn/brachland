@@ -68,6 +68,24 @@ const AO_RADIUS_ADRESSE: number | null = (() => {
   return Number.isFinite(n) && n > 0 && n <= 32 ? n : null;
 })();
 
+/** `?bloom=0` aus, `?bloom=0.2` Staerke (D210). */
+const BLOOM_ADRESSE: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const roh = new URLSearchParams(location.search).get('bloom');
+  if (roh === null) return null;
+  const n = Number(roh);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+})();
+
+/** `?schacht=0` aus, `?schacht=0.5` Staerke der Lichtschaechte (D210). */
+const SCHACHT_ADRESSE: number | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const roh = new URLSearchParams(location.search).get('schacht');
+  if (roh === null) return null;
+  const n = Number(roh);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+})();
+
 /** Ist die Kontur an? Adresse schlaegt Vorgabe. */
 export function konturAn(vorgabe: boolean): boolean {
   return KONTUR_ADRESSE ?? vorgabe;
@@ -146,6 +164,67 @@ const AO_FRAGMENT = /* glsl */`
   }
 `;
 
+/**
+ * D210 (ADR-0012, Hebel 6): Helles fuer Bloom und Quelle der Lichtschaechte, auf Viertelaufloesung.
+ * rgb: was ueber der Schwelle liegt (linear, vor dem Tone Mapping); a: Himmel nahe der Sonne —
+ * nur dort, wo die Tiefe leer ist. Was davor steht (Stamm, Krone, Mauer), schneidet den Schacht.
+ */
+const HELL_FRAGMENT = /* glsl */`
+  #include <common>
+  __TIEFE__
+  uniform sampler2D tFarbe;
+  uniform vec2 uTexel;
+  uniform float uSchwelleHell;
+  uniform vec2 uSonneUv;
+  uniform float uSeiten;
+  varying vec2 vUv;
+  void main() {
+    vec3 c = 0.25 * (texture2D(tFarbe, vUv + uTexel * vec2(1.0, 1.0)).rgb
+                   + texture2D(tFarbe, vUv + uTexel * vec2(-1.0, 1.0)).rgb
+                   + texture2D(tFarbe, vUv + uTexel * vec2(1.0, -1.0)).rgb
+                   + texture2D(tFarbe, vUv + uTexel * vec2(-1.0, -1.0)).rgb);
+    float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    vec3 hell = c * max(l - uSchwelleHell, 0.0) / max(l, 1e-4);
+    float himmel = step(uFern * 0.95, meter(vUv));
+    vec2 ab = (vUv - uSonneUv) * vec2(uSeiten, 1.0);
+    float nahSonne = pow(max(0.0, 1.0 - length(ab) / 0.7), 2.0);
+    gl_FragColor = vec4(hell, himmel * min(l, 4.0) * nahSonne);
+  }
+`;
+
+/** Lichtschaechte: radiales Verwischen der Himmelsmaske zur Sonne hin. */
+const SCHACHT_FRAGMENT = /* glsl */`
+  uniform sampler2D tHell;
+  uniform vec2 uSonneUv;
+  varying vec2 vUv;
+  void main() {
+    vec2 schritt = (vUv - uSonneUv) * (0.95 / 40.0);
+    vec2 uv = vUv;
+    float summe = 0.0, gewicht = 1.0;
+    for (int i = 0; i < 40; i++) {
+      uv -= schritt;
+      summe += texture2D(tHell, uv).a * gewicht;
+      gewicht *= 0.965;
+    }
+    gl_FragColor = vec4(vec3(summe / 40.0), 1.0);
+  }
+`;
+
+/** Gauss mit neun Abgriffen, einmal waagrecht, einmal senkrecht. */
+const WEICH_FRAGMENT = /* glsl */`
+  uniform sampler2D tQuelle;
+  uniform vec2 uRichtung;
+  varying vec2 vUv;
+  void main() {
+    vec3 c = texture2D(tQuelle, vUv).rgb * 0.227027;
+    c += (texture2D(tQuelle, vUv + uRichtung * 1.5).rgb + texture2D(tQuelle, vUv - uRichtung * 1.5).rgb) * 0.1945946;
+    c += (texture2D(tQuelle, vUv + uRichtung * 3.0).rgb + texture2D(tQuelle, vUv - uRichtung * 3.0).rgb) * 0.1216216;
+    c += (texture2D(tQuelle, vUv + uRichtung * 4.5).rgb + texture2D(tQuelle, vUv - uRichtung * 4.5).rgb) * 0.054054;
+    c += (texture2D(tQuelle, vUv + uRichtung * 6.0).rgb + texture2D(tQuelle, vUv - uRichtung * 6.0).rgb) * 0.016216;
+    gl_FragColor = vec4(c, 1.0);
+  }
+`;
+
 const FRAGMENT = /* glsl */`
   #include <common>
   __TIEFE__
@@ -156,6 +235,10 @@ const FRAGMENT = /* glsl */`
   uniform float uStaerke;
   uniform float uSchwelle;
   uniform float uAO;
+  uniform sampler2D tBloom;
+  uniform sampler2D tSchacht;
+  uniform float uBloom;
+  uniform vec3 uSchacht;
   varying vec2 vUv;
 
   void main() {
@@ -180,21 +263,31 @@ const FRAGMENT = /* glsl */`
                  + texture2D(tAO, vUv + vec2(-uTexelAO.x, -uTexelAO.y) * 0.5).r);
       ao = pow(clamp(ao, 0.0, 1.0), uAO);
     }
-    gl_FragColor = vec4(farbe.rgb * ao * (1.0 - uStaerke * kante), 1.0);
+    vec3 rgb = farbe.rgb * ao * (1.0 - uStaerke * kante);
+    if (uBloom > 0.0) rgb += texture2D(tBloom, vUv).rgb * uBloom;
+    rgb += texture2D(tSchacht, vUv).r * uSchacht;
+    gl_FragColor = vec4(rgb, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
 `;
 
-export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius = 8 }: {
+export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius = 8,
+  bloom = 0, schacht = 0, sonne, sonnenFarbe = '#ffffff' }: {
   an: boolean; staerke?: number; schwelle?: number;
   /** Verdeckungsstaerke als Exponent; 0 = aus. */
   ao?: number; aoRadius?: number;
+  /** D210: Bloom-Staerke (0 = aus) und Lichtschaechte (0 = aus); `sonne` ist die Richtung zur Sonne. */
+  bloom?: number; schacht?: number;
+  sonne?: readonly [number, number, number]; sonnenFarbe?: THREE.ColorRepresentation;
 }) {
   const { gl, scene, camera, size } = useThree();
   const dpr = gl.getPixelRatio();
   const aoAn = ao > 0;
-  const passAn = an || aoAn;
+  bloom = BLOOM_ADRESSE ?? bloom;
+  schacht = sonne ? (SCHACHT_ADRESSE ?? schacht) : 0;
+  const hellAn = bloom > 0 || schacht > 0;
+  const passAn = an || aoAn || hellAn;
 
   const ziel = useMemo(() => {
     const b = Math.max(1, Math.round(size.width * dpr)), h = Math.max(1, Math.round(size.height * dpr));
@@ -204,9 +297,14 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       samples: 0,
     });
     const aoZiel = new THREE.WebGLRenderTarget(Math.max(1, Math.round(b / 2)), Math.max(1, Math.round(h / 2)), { depthBuffer: false });
-    return { rt, aoZiel };
+    const viertel = () => new THREE.WebGLRenderTarget(Math.max(1, Math.round(b / 4)), Math.max(1, Math.round(h / 4)),
+      { depthBuffer: false, type: THREE.HalfFloatType });
+    return { rt, aoZiel, hell: viertel(), weich: viertel(), schacht: viertel() };
   }, [size, dpr]);
-  useEffect(() => () => { ziel.rt.depthTexture?.dispose(); ziel.rt.dispose(); ziel.aoZiel.dispose(); }, [ziel]);
+  useEffect(() => () => {
+    ziel.rt.depthTexture?.dispose(); ziel.rt.dispose(); ziel.aoZiel.dispose();
+    ziel.hell.dispose(); ziel.weich.dispose(); ziel.schacht.dispose();
+  }, [ziel]);
 
   const quad = useMemo(() => {
     const material = new THREE.ShaderMaterial({
@@ -216,6 +314,8 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
         uTexel: { value: new THREE.Vector2() }, uTexelAO: { value: new THREE.Vector2() },
         uNah: { value: 0.2 }, uFern: { value: 1000 },
         uStaerke: { value: an ? staerke : 0 }, uSchwelle: { value: schwelle }, uAO: { value: ao },
+        tBloom: { value: null }, tSchacht: { value: null },
+        uBloom: { value: 0 }, uSchacht: { value: new THREE.Color(0, 0, 0) },
       },
       depthTest: false, depthWrite: false,
     });
@@ -227,12 +327,41 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       },
       depthTest: false, depthWrite: false,
     });
+    const hellMaterial = new THREE.ShaderMaterial({
+      vertexShader: SCHEITEL, fragmentShader: HELL_FRAGMENT.replace('__TIEFE__', TIEFE_GLSL),
+      uniforms: {
+        tFarbe: { value: null }, tTiefe: { value: null }, uNah: { value: 0.2 }, uFern: { value: 1000 },
+        uTexel: { value: new THREE.Vector2() }, uSchwelleHell: { value: 1.2 },
+        uSonneUv: { value: new THREE.Vector2(0.5, 0.5) }, uSeiten: { value: 1 },
+      },
+      depthTest: false, depthWrite: false,
+    });
+    const schachtMaterial = new THREE.ShaderMaterial({
+      vertexShader: SCHEITEL, fragmentShader: SCHACHT_FRAGMENT,
+      uniforms: { tHell: { value: null }, uSonneUv: { value: new THREE.Vector2(0.5, 0.5) } },
+      depthTest: false, depthWrite: false,
+    });
+    const weichMaterial = new THREE.ShaderMaterial({
+      vertexShader: SCHEITEL, fragmentShader: WEICH_FRAGMENT,
+      uniforms: { tQuelle: { value: null }, uRichtung: { value: new THREE.Vector2() } },
+      depthTest: false, depthWrite: false,
+    });
+    const vollbild = (m: THREE.Material) => {
+      const sz = new THREE.Scene(); const me = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), m);
+      me.frustumCulled = false; sz.add(me); return sz;
+    };
     const bild = new THREE.Scene(); const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material); mesh.frustumCulled = false; bild.add(mesh);
     const aoBild = new THREE.Scene(); const aoMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), aoMaterial); aoMesh.frustumCulled = false; aoBild.add(aoMesh);
     const kam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-    return { material, aoMaterial, bild, aoBild, kam };
+    return { material, aoMaterial, hellMaterial, schachtMaterial, weichMaterial, bild, aoBild,
+      hellBild: vollbild(hellMaterial), schachtBild: vollbild(schachtMaterial), weichBild: vollbild(weichMaterial), kam };
   }, [an, staerke, schwelle, ao, aoRadius]);
-  useEffect(() => () => { quad.material.dispose(); quad.aoMaterial.dispose(); }, [quad]);
+  useEffect(() => () => {
+    quad.material.dispose(); quad.aoMaterial.dispose();
+    quad.hellMaterial.dispose(); quad.schachtMaterial.dispose(); quad.weichMaterial.dispose();
+  }, [quad]);
+  const sonnenFarbeLinear = useMemo(() => new THREE.Color(sonnenFarbe), [sonnenFarbe]);
+  const hilf = useMemo(() => ({ v: new THREE.Vector3(), vor: new THREE.Vector3() }), []);
 
   // Prioritaet 1 uebernimmt das Zeichnen von fiber — auch wenn der Pass aus ist,
   // damit der Vergleich A/B denselben Weg nimmt und nur der Pass fehlt.
@@ -254,8 +383,44 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       gl.setRenderTarget(ziel.aoZiel);
       gl.render(quad.aoBild, quad.kam);
     }
+    // D210: Sonne auf dem Bildschirm; hinter der Kamera oder weit ausserhalb kein Schacht.
+    let schachtSichtbar = 0;
+    if (hellAn) {
+      const uh = quad.hellMaterial.uniforms;
+      if (sonne) {
+        hilf.v.set(sonne[0], sonne[1], sonne[2]).normalize();
+        k.getWorldDirection(hilf.vor);
+        schachtSichtbar = THREE.MathUtils.smoothstep(hilf.vor.dot(hilf.v), 0.15, 0.55);
+        hilf.v.multiplyScalar(k.far * 0.5).add(k.position).project(k);
+        uh.uSonneUv.value.set(hilf.v.x * 0.5 + 0.5, hilf.v.y * 0.5 + 0.5);
+        quad.schachtMaterial.uniforms.uSonneUv.value.copy(uh.uSonneUv.value);
+      }
+      uh.tFarbe.value = ziel.rt.texture; uh.tTiefe.value = ziel.rt.depthTexture;
+      uh.uNah.value = k.near; uh.uFern.value = k.far;
+      uh.uTexel.value.set(1 / ziel.rt.width, 1 / ziel.rt.height);
+      uh.uSeiten.value = k.aspect;
+      gl.setRenderTarget(ziel.hell);
+      gl.render(quad.hellBild, quad.kam);
+      if (schacht > 0 && schachtSichtbar > 0) {
+        quad.schachtMaterial.uniforms.tHell.value = ziel.hell.texture;
+        gl.setRenderTarget(ziel.schacht);
+        gl.render(quad.schachtBild, quad.kam);
+      }
+      if (bloom > 0) {
+        const uw = quad.weichMaterial.uniforms;
+        uw.tQuelle.value = ziel.hell.texture; uw.uRichtung.value.set(1 / ziel.hell.width, 0);
+        gl.setRenderTarget(ziel.weich); gl.render(quad.weichBild, quad.kam);
+        uw.tQuelle.value = ziel.weich.texture; uw.uRichtung.value.set(0, 1 / ziel.hell.height);
+        gl.setRenderTarget(ziel.hell); gl.render(quad.weichBild, quad.kam);
+      }
+    }
     gl.setRenderTarget(null);
     const u = quad.material.uniforms;
+    u.tBloom.value = bloom > 0 ? ziel.hell.texture : null;
+    u.uBloom.value = bloom;
+    const schachtWert = schacht * schachtSichtbar;
+    u.tSchacht.value = schachtWert > 0 ? ziel.schacht.texture : null;
+    u.uSchacht.value.copy(sonnenFarbeLinear).multiplyScalar(schachtWert);
     u.tFarbe.value = ziel.rt.texture;
     u.tTiefe.value = ziel.rt.depthTexture;
     u.tAO.value = aoAn ? ziel.aoZiel.texture : null;
