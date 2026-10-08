@@ -405,16 +405,20 @@ function farn(n: Netz, w: () => number, s: { wedel: number; laenge: number; fied
       return [d[0] * aus, Math.max(0.02, hoch), d[2] * aus];
     };
     const ab = n.pos.length;
-    const fuss = mal(F.laubDunkel, 0.75), mitte = mix(F.laubDunkel, F.laub, 0.6), spitze = mix(F.laub, F.laubHell, 0.4);
+    // Zweiter Render (D212): helle Töne lasen sich auf dem Waldboden grau — Farn ist satt und dunkel.
+    const fuss = mal(F.laubDunkel, 0.6), mitte = mix(F.laubDunkel, F.laub, 0.35), spitze = F.laub;
     for (let k = 0; k < s.fiedern; k++) {
       const t = 0.14 + (k / s.fiedern) * 0.82, t2 = t + 0.82 / s.fiedern;
       const p = P(t), p2 = P(t2);
       const lang = s.breite * laenge * Math.sin(Math.min(1, t * 1.35) * Math.PI) * (0.85 + 0.3 * w());
       const farbe = mix(mitte, spitze, t);
       for (const seite of [-1, 1]) {
-        // Fieder schräg nach vorn und leicht hängend.
+        // Fieder als Blättchen: schräg nach vorn, leicht hängend, mit Breite entlang der Rippe —
+        // ein Dreieck allein las sich als Stachel.
         const spitzeF: V3 = [p[0] + (q[0] * seite + d[0] * 0.45) * lang, p[1] - lang * 0.18, p[2] + (q[2] * seite + d[2] * 0.45) * lang];
-        n.tri(p, p2, spitzeF, mix(fuss, farbe, 0.6), farbe, mal(farbe, 1.08));
+        const spitzeG: V3 = [p2[0] + (q[0] * seite + d[0] * 0.35) * lang * 0.8, p2[1] - lang * 0.16, p2[2] + (q[2] * seite + d[2] * 0.35) * lang * 0.8];
+        n.tri(p, p2, spitzeF, mix(fuss, farbe, 0.6), farbe, mal(farbe, 1.06));
+        n.tri(p2, spitzeG, spitzeF, farbe, mal(farbe, 1.04), mal(farbe, 1.06));
       }
     }
     // Rippe selbst als schmaler Streifen bis zur ersten Fieder.
@@ -534,10 +538,10 @@ const BAUPLAN: Record<string, Bauplan> = {
   gras_staude: (n, w) => grasbuschel(n, w, { halme: 30, hoehe: 1, breite: 0.11, neigung: 0.22, fussR: 0.2 }),
 
   // D212: Farn im Waldunterwuchs. Wurmfarn steht 0,5–1,2 m, Adlerfarn bis 1,5 m.
-  farn_klein:  (n, w) => farn(n, w, { wedel: 8, laenge: 1, fiedern: 10, breite: 0.16, steil: 1.1 }),
-  farn_mittel: (n, w) => farn(n, w, { wedel: 9, laenge: 1, fiedern: 10, breite: 0.17, steil: 1.25 }),
-  farn_breit:  (n, w) => farn(n, w, { wedel: 11, laenge: 1, fiedern: 10, breite: 0.19, steil: 0.95 }),
-  farn_hoch:   (n, w) => farn(n, w, { wedel: 9, laenge: 1, fiedern: 11, breite: 0.15, steil: 1.5 }),
+  farn_klein:  (n, w) => farn(n, w, { wedel: 8, laenge: 1, fiedern: 10, breite: 0.2, steil: 1.1 }),
+  farn_mittel: (n, w) => farn(n, w, { wedel: 9, laenge: 1, fiedern: 10, breite: 0.21, steil: 1.25 }),
+  farn_breit:  (n, w) => farn(n, w, { wedel: 10, laenge: 1, fiedern: 10, breite: 0.23, steil: 0.95 }),
+  farn_hoch:   (n, w) => farn(n, w, { wedel: 9, laenge: 1, fiedern: 11, breite: 0.19, steil: 1.5 }),
 
   blume_gelb:     (n, w) => blume(n, w, { stiele: 6, hoehe: 1, bluete: F.gelb, blueteDunkel: dunkler(F.gelb), blaetter: 6, breite: 0.25 }),
   blume_gelb2:    (n, w) => blume(n, w, { stiele: 9, hoehe: 1, bluete: F.gelb, blueteDunkel: dunkler(F.gelb), blaetter: 5, breite: 0.32 }),

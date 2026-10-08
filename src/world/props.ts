@@ -31,9 +31,9 @@ export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbus
  * Fernattrappen statt voller Modelle (Ledger G-15), nicht noch mehr Dichte.
  */
 export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
-  // D212: Farn als Waldunterwuchs. Ein Wurmfarnbestand trägt mehrere Stöcke je 10 m²; 160/ha ist
-  // die lichte Form davon — genug, dass der Waldboden nicht mehr nackt ist.
-  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4, farn: 160 },
+  // D212: Farn als Waldunterwuchs. Ein Wurmfarnbestand trägt mehrere Stöcke je 10 m²; 350/ha ist
+  // die lichte Form davon. Erste Fassung (160/ha, 0,45–1,05 m) war im Bild aus 5 m kaum zu finden.
+  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4, farn: 350 },
   gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9, farn: 25 },
   wiese:     { grasbuschel: 40, busch: 3, laubbaum: 1.2, blume: 22 },
   acker:     { grasbuschel: 8, blume: 2 },
@@ -335,10 +335,10 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
     { datei: 'busch_gross',    hoehe: 2.4 },
   ],
   farn: [
-    { datei: 'farn_klein',     hoehe: 0.45 },
-    { datei: 'farn_mittel',    hoehe: 0.7 },
-    { datei: 'farn_breit',     hoehe: 0.6 },
-    { datei: 'farn_hoch',      hoehe: 1.05 },
+    { datei: 'farn_klein',     hoehe: 0.55 },
+    { datei: 'farn_mittel',    hoehe: 0.85 },
+    { datei: 'farn_breit',     hoehe: 0.75 },
+    { datei: 'farn_hoch',      hoehe: 1.25 },
   ],
   grasbuschel: [
     { datei: 'gras_matte',     hoehe: 0.18 },
