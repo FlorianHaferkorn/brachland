@@ -262,6 +262,11 @@ const FRAGMENT = /* glsl */`
                  + texture2D(tAO, vUv + vec2(uTexelAO.x, -uTexelAO.y) * 0.5).r
                  + texture2D(tAO, vUv + vec2(-uTexelAO.x, -uTexelAO.y) * 0.5).r);
       ao = pow(clamp(ao, 0.0, 1.0), uAO);
+      // D215: Feinstruktur (Halme, Laub) springt in der Tiefe in **beide** Richtungen; eine echte
+      // Kante (Mauerfuss, Stamm vor Boden) nur in eine. Wo beide Achsen springen, verdeckt jeder Halm
+      // seinen Nachbarn, und die Verdeckung wurde zu schwarzen Stoppeln (Wiese, 08.10.2026).
+      float rauh = min(abs(zl - z) + abs(zr - z), abs(zu - z) + abs(zo - z)) / z;
+      ao = mix(ao, 1.0, smoothstep(0.004, 0.03, rauh) * 0.85);
     }
     vec3 rgb = farbe.rgb * ao * (1.0 - uStaerke * kante);
     if (uBloom > 0.0) rgb += texture2D(tBloom, vUv).rgb * uBloom;
