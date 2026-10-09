@@ -90,6 +90,25 @@ float bodenRauschen(vec2 p) {
 }
 `;
 
+/**
+ * D216: Moos am Waldboden. Der Wald trug dieselbe Bodenvariation wie die Wiese; im Bild las er sich
+ * als grüner Teppich ohne Unterschied. Moos sitzt in Polstern (Rauschen ~4 m und ~1,3 m), satter und
+ * dunkler als der Boden, nur dort, wo die Bodenfarbe Wald ist (Abstand zur Biomfarbe — die Kachel
+ * mischt Biome weich, D162, also läuft das Moos am Waldrand mit aus) und nicht am Steilhang.
+ */
+const MOOS_GLSL = /* glsl */ `
+  {
+    float imWald = 1.0 - smoothstep(0.015, 0.06, distance(diffuseColor.rgb, uWaldTon));
+    float flach = smoothstep(0.75, 0.9, vWeltNormal.y);
+    float polster = bodenRauschen(vWeltPos.xz * 0.25) * 0.65 + bodenRauschen(vWeltPos.xz * 0.77 + 9.1) * 0.35;
+    float moos = smoothstep(0.45, 0.62, polster) * imWald * flach;
+    vec3 moosTon = uMoos * (0.85 + bodenRauschen(vWeltPos.xz * 2.3) * 0.3);
+    diffuseColor.rgb = mix(diffuseColor.rgb, moosTon, moos * 0.75);
+    // Nadelstreu zwischen den Polstern: etwas brauner als der Biomton.
+    diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.08, 0.95, 0.8), imWald * (1.0 - moos) * 0.5);
+  }
+`;
+
 const VARIATION_GLSL = /* glsl */ `
   float fein = bodenRauschen(vWeltPos.xz * 0.72);
   float grob = bodenRauschen(vWeltPos.xz * 0.115);
@@ -235,8 +254,8 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
       );
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform sampler2D uFelsNormal;\nuniform sampler2D uBodenNormal;')
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + VARIATION_GLSL + HANG_GLSL)
+      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\nuniform sampler2D uFelsNormal;\nuniform sampler2D uBodenNormal;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL)
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL)
       .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
       .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL);
@@ -245,6 +264,8 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
     shader.uniforms.uHimmel = HIMMEL_UNIFORM;
     shader.uniforms.uFels = { value: new THREE.Color(PALETTE.fels.b) };
     shader.uniforms.uSchutt = { value: new THREE.Color(PALETTE.fels.schutt) };
+    shader.uniforms.uWaldTon = { value: new THREE.Color(PALETTE.biom.wald) };
+    shader.uniforms.uMoos = { value: new THREE.Color(PALETTE.boden.moos) };
     shader.uniforms.uFelsNormal = DETAIL.fels;
     shader.uniforms.uBodenNormal = DETAIL.boden;
   };
@@ -252,7 +273,7 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
 
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
-  material.customProgramCacheKey = () => 'brachland-boden-v5' + (BODEN_KANTIG ? '-kantig' : '');
+  material.customProgramCacheKey = () => 'brachland-boden-v6' + (BODEN_KANTIG ? '-kantig' : '');
 
   return material;
 }

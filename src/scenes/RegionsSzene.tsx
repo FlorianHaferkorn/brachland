@@ -56,6 +56,8 @@ import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js
 import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, HAARFARBEN, setzeFigurUmgebung, setzeFigurSaum, type HeldWahl, type Haar } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
 /** `?fuesse=0` schaltet die Fussanpassung ab (D214). */
+/** Bis zu diesem Abstand bekommen Bewohner die Fussanpassung (D217). */
+const BEWOHNER_FUSS_AB = 14;
 const FUESSE_AN = typeof location === 'undefined' || new URLSearchParams(location.search).get('fuesse') !== '0';
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 /** `?figur=alt`: die alte Wanderin statt der Figur aus dem Editor (Vergleich, D175). */
@@ -1439,6 +1441,13 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
   const weg = useRef({ t: 0, richtung: 1, pause: 4 + ((blick * 7919) % 100) / 100 * 8, winkt: false, ruhig: false });
   const wurzelY = useRef<number | null>(null);
   const ausflugRef = useRef({ t: 0 });
+  // D217: Füsse auf den Boden auch für Bewohner — nur in der Nähe (Kosten je Figur und Bild).
+  const fuss = useRef<FussZustand>(neuerFussZustand());
+  const fussBeine = useMemo(() => {
+    if (!hg) return null;
+    const h = (n: keyof typeof HELD_KNOCHEN) => scene.getObjectByName(HELD_KNOCHEN[n]) ?? null;
+    return { ol: h('ol'), ul: h('ul'), fl: h('fl'), or: h('or'), ur: h('ur'), fr: h('fr') };
+  }, [scene, !!hg]);
   useFrame((_, dt) => {
     const g = gruppe.current, p = ziel.current?.position;
     const w = weg.current;
@@ -1514,6 +1523,11 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
       }
     }
     mixer.update(Math.min(dt, 0.1));
+    if (fussBeine && FUESSE_AN && g && p) {
+      const wp = g.getWorldPosition(_meldeV);
+      const nah = Math.hypot(p.x - wp.x, p.z - wp.z) < BEWOHNER_FUSS_AB;
+      if (nah || fuss.current.an > 0) setzeFuesse(fussBeine, scene, hoeheAn, fuss.current, dt, nah);
+    }
     if (melde && g) { const wp = g.getWorldPosition(_meldeV); melde(wp.x, wp.z); }
   });
   return (
@@ -2986,7 +3000,10 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     const { phase, tempo } = schritt.current;
     const stark = Math.min(1, tempo / RENNEN);
     // Clip nach Tempo, weich ueberblendet; im Sattel immer Idle.
-    let ziel = reittier || tempo < 0.15 ? clips.idle : tempo < 5.5 ? clips.walk : clips.run;
+    // D217: Schwelle mit Abstand — bei 5,5 m/s flackerte die Figur zwischen Gehen und Laufen,
+    // wenn das Tempo um die Grenze pendelte (Hang, Ausdauer). Hoch bei 5,5, zurück bei 4,8.
+    const laeuft = clips.aktiv === clips.run;
+    let ziel = reittier || tempo < 0.15 ? clips.idle : tempo < (laeuft ? 4.8 : 5.5) ? clips.walk : clips.run;
     // Im Kampf steht sie in der Haltung ihrer Waffe (D171), nicht in der Ruhe des Wanderns.
     if (k && k.phase === 'bereit' && ziel === clips.idle) ziel = aktionen(k.haltung, false) ?? clips.idle;
     // ---- Kampf (D167): Clip nach Phase, gestreckt auf die Dauer der Regel. Die Regel ist die
@@ -3049,8 +3066,17 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     if (ziel !== clips.aktiv || neu) {
       // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
       // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
+      const vorher = clips.aktiv;
       ziel.reset().setEffectiveWeight(1).play();
       if (hiebe.current.has(ziel)) { ziel.time = hiebZeit; ziel.timeScale = 0; }
+      // D217: Gehen ↔ Laufen im selben Schritt fortsetzen statt bei Bild 0 — sonst setzt der neue
+      // Clip mit dem falschen Fuss auf, und die Überblendung zeigt einen Hüpfer. Beide Clips beginnen
+      // mit demselben Fuss (UAL2), also reicht der Anteil am Zyklus. Länger überblendet als sonst.
+      const gang = (a: THREE.AnimationAction) => a === clips.walk || a === clips.run;
+      if (gang(vorher) && gang(ziel) && vorher !== ziel) {
+        ziel.time = (vorher.time / vorher.getClip().duration) * ziel.getClip().duration;
+        blende = 0.4;
+      }
       if (clips.aktiv !== ziel) clips.aktiv.crossFadeTo(ziel, blende, false);
       clips.aktiv = ziel;
     }

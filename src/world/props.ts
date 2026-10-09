@@ -31,9 +31,10 @@ export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbus
  * Fernattrappen statt voller Modelle (Ledger G-15), nicht noch mehr Dichte.
  */
 export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
-  // D212: Farn als Waldunterwuchs. Ein Wurmfarnbestand trägt mehrere Stöcke je 10 m²; 350/ha ist
-  // die lichte Form davon. Erste Fassung (160/ha, 0,45–1,05 m) war im Bild aus 5 m kaum zu finden.
-  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4, farn: 350 },
+  // D212/D216: Farn als Waldunterwuchs, in Beständen (`farnBestand`). Gesät werden 700/ha, stehen
+  // bleiben rund 45 % — im Bestand bis 700/ha (ein Stock je 14 m²), dazwischen nackter Boden.
+  // Gleichverteilt (D212, 350/ha) las sich aus Spielerhöhe als vereinzelte Pflanze, nicht als Farn.
+  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4, farn: 700 },
   gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9, farn: 25 },
   wiese:     { grasbuschel: 40, busch: 3, laubbaum: 1.2, blume: 22 },
   acker:     { grasbuschel: 8, blume: 2 },
@@ -241,6 +242,30 @@ export function wegTest(
   };
 }
 
+/** Wertrauschen 0…1 in der Ebene, deterministisch aus der Lage (kein Zufallsstrom). */
+function lageRauschen(x: number, z: number): number {
+  const h = (a: number, b: number) => {
+    let n = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263);
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+  };
+  const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz;
+  const ux = fx * fx * (3 - 2 * fx), uz = fz * fz * (3 - 2 * fz);
+  const a = h(ix, iz), b = h(ix + 1, iz), c = h(ix, iz + 1), d = h(ix + 1, iz + 1);
+  return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
+}
+
+/**
+ * Farnbestand an einer Stelle, 0…1 (D216). Farn wächst in Herden: Wurmfarn und Adlerfarn
+ * breiten sich über Rhizome aus und bilden Flecken von einigen bis zu Dutzenden Metern. Zwei
+ * Oktaven (rund 28 m und 9 m), damit die Ränder nicht rund sind. Bewusst **nicht** aus dem
+ * Zufallsstrom: Ein zusätzlicher Aufruf dort verschöbe jede spätere Instanz der Welt.
+ */
+export function farnBestand(x: number, z: number): number {
+  const n = lageRauschen(x / 28, z / 28) * 0.7 + lageRauschen(x / 9 + 31.7, z / 9 + 17.3) * 0.3;
+  return Math.min(1, Math.max(0, (n - 0.42) / 0.2));
+}
+
 export function verteileProps(
   welt: Weltdaten, terrain: TerrainErgebnis, seed = 1,
 ): PropInstanz[] {
@@ -282,6 +307,11 @@ export function verteileProps(
           if (imHaus(x, z)) continue;
           // Und 4.975 standen auf dem Belag, darunter 1.488 Fichten (G-84).
           if (aufWeg(x, z)) continue;
+          // Farn in Beständen (D216): die Schwelle aus der Lage, nicht aus dem Zufallsstrom.
+          if (art === 'farn' && lageRauschen(x * 3.1, z * 3.1) > farnBestand(x, z)) {
+            zufall(); zufall(); zufall();   // Strom wie bei einer gesetzten Instanz weiterdrehen
+            continue;
+          }
           props.push({
             art,
             variante: Math.floor(zufall() * variantenZahl(art)),

@@ -292,3 +292,16 @@ STIMMUNG.zielbild = {
  * `?stimmung=zielbild` und der Schlüssel bei 0,39 nie auseinanderlaufen.
  */
 STIMMUNG.tag = STIMMUNG.zielbild;
+/**
+ * Probe D218: **weitsicht** — `zielbild` mit fast dreifacher Sichtweite (Ledger A-12, Option b).
+ * **Nicht im Tageslauf**, nur per `?stimmung=weitsicht`. Soulframe (ADR-0012) staffelt über
+ * Kilometer; `zielbild` ist gegen das Blender-Referenzbild auf 20/230 m eingemessen, und an der
+ * Flanken-Kamera war alles dahinter eine helle Fläche (D204, D207). Sonst alles wie `zielbild`,
+ * damit derselbe Kamerapunkt nur die Sichtweite vergleicht. Kosten: Was im Nebel verschwand, wird
+ * jetzt gezeichnet — Prop-Sichtweiten (420 m) und Kacheln bleiben, aber bis 650 m sieht man sie.
+ * **Ungemessen**, Abnahme am Zielgerät.
+ */
+STIMMUNG.weitsicht = {
+  ...STIMMUNG.zielbild,
+  nebelNah: 40, nebelFern: 650,
+};
