@@ -407,7 +407,22 @@ export function baueKachelGeometrie(
 
   const positionen: number[] = [];
   const farben: number[] = [];
+  const normalen: number[] = [];
   const farbe = new THREE.Color();
+  /**
+   * D201: Normale aus dem **Höhenfeld**, nicht aus dem Dreieck. Die Geometrie ist nicht indiziert —
+   * jedes Dreieck hat eigene Ecken —, `computeVertexNormals()` lieferte deshalb nur Flächennormalen,
+   * und das Gelände las sich als Facetten, auch mit `?bodenglatt=1` (darum maß D160 „kein
+   * Unterschied“). Zentraler Gradient über die Schrittweite der Stufe: An Kachelgrenzen sehen beide
+   * Seiten dieselbe Normale, und sie passt zur Auflösung der Geometrie.
+   */
+  const normale = (x: number, z: number) => {
+    const dx = feld.hoehe(x + schritt, z) - feld.hoehe(x - schritt, z);
+    const dz = feld.hoehe(x, z + schritt) - feld.hoehe(x, z - schritt);
+    const nx = -dx, ny = 2 * schritt, nz = -dz;
+    const l = Math.hypot(nx, ny, nz);
+    normalen.push(nx / l, ny / l, nz / l);
+  };
 
   const punkt = (a: number, b: number): [number, number, number] => {
     const x = x0 + (a / teile) * KACHEL;
@@ -434,6 +449,7 @@ export function baueKachelGeometrie(
       positionen.push(x, y, z);
       feld.bodenfarbe(x, z, farbe);
       farben.push(farbe.r, farbe.g, farbe.b);
+      normale(x, z);
     }
   };
 
@@ -464,7 +480,7 @@ export function baueKachelGeometrie(
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
-  g.computeVertexNormals();
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(normalen, 3));
   g.computeBoundingSphere();
   return g;
 }

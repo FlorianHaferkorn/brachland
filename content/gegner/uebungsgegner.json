@@ -1,0 +1,21 @@
+{
+  "id": "uebungsgegner",
+  "schlag": {
+    "vorlauf": 0.75,
+    "aktiv": 0.15,
+    "erholung": 0.9,
+    "reichweite": 2.2,
+    "halbwinkelGrad": 50,
+    "schaden": 25,
+    "haltungsschaden": 30,
+    "kosten": 0,
+    "nachdrehen": 1.6
+  },
+  "lebenMax": 110,
+  "haltungMax": 50,
+  "haltungErholung": 20,
+  "haltungRuhe": 1.5,
+  "betaeubt": 0.9,
+  "radius": 0.45,
+  "hoehe": 1.8
+}

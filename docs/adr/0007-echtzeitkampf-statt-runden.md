@@ -4,7 +4,7 @@ shelf-life-days: 365
 ---
 # ADR-0007 — Echtzeitkampf statt Runden: Soulframe als Vorlage für die Mechanik, nicht für die Gestalt
 
-**Status:** Accepted · 2026-09-17 · löst das Rundensystem aus `docs/design/BRACHLAND_Kampfsystem_v2.md` ab · unverändert gültig bleiben ADR-0002 (CC0), ADR-0004 (fremdes IP), ADR-0005 (Qualitätsanspruch), ADR-0006 (Zielbild)
+**Status:** Accepted · 2026-09-17 · löst das Rundensystem aus `docs/design/BRACHLAND_Kampfsystem_v2.md` ab · löst den Park-Punkt „Zelda-/Soulslike-Combat“ aus ADR-0004 für das Regelwerk ab (Nachtrag D196) · unverändert gültig bleiben ADR-0002 (CC0), ADR-0004 (fremdes IP), ADR-0005 (Qualitätsanspruch), ADR-0006 (Zielbild)
 
 ## Kontext
 

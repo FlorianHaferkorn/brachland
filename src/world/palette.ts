@@ -105,6 +105,7 @@ export const PALETTE = {
     findling:    '#858a8e',
     totholz:     '#5a5146',
     grasbuschel: '#708154',
+    farn:        '#5f7a47',
     blume:       '#97935f',
     pilz:        '#817364',
   },
@@ -190,6 +191,11 @@ export const PALETTE = {
    * von oben als weisser Seestern — die ganze Wiese war ein Sternenfeld. Jetzt
    * anderthalbmal so hell wie der Boden, der Fuß bleibt dunkler als er.
    */
+  /** Bodenshader (D216): Moospolster am Waldboden — satter und dunkler als `biom.wald`. */
+  boden: {
+    moos: '#4a6230',
+  },
+
   streu: {
     grasFuss:   '#5d6f40',
     grasSpitze: '#8fa069',

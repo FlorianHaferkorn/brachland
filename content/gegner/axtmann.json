@@ -1,0 +1,28 @@
+{
+  "id": "axtmann",
+  "schlag": {
+    "name": "Axthieb",
+    "vorlauf": 0.7,
+    "aktiv": 0.16,
+    "erholung": 0.75,
+    "reichweite": 2.7,
+    "halbwinkelGrad": 40,
+    "schaden": 26,
+    "haltungsschaden": 45,
+    "kosten": 0,
+    "nachdrehen": 2,
+    "schritt": 0.4,
+    "rueckstoss": 0.6
+  },
+  "kette": [],
+  "tempo": 2.6,
+  "lebenMax": 115,
+  "haltungMax": 75,
+  "haltungErholung": 22,
+  "haltungRuhe": 1.3,
+  "betaeubt": 0.9,
+  "radius": 0.3,
+  "hoehe": 1.8,
+  "halbLaenge": 0,
+  "mensch": { "linienFolge": ["oben", "rechts", "oben", "links", "unten"], "deckung": "oben" }
+}

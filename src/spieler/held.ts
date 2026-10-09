@@ -74,19 +74,82 @@ export function hautFarbe(haut: number): THREE.Color {
 /** Mittlere Leuchtdichte der Hauttexturen (linear), gemessen im Editorbild — die Zeichnung um 1. */
 const HAUT_MITTEL = 0.22;
 
-function hautShader(mat: THREE.MeshStandardMaterial, ton: THREE.Color): void {
-  const u = (mat.userData.haut ??= { value: ton.clone() }) as { value: THREE.Color };
-  u.value.copy(ton);
-  mat.color.set(1, 1, 1);
-  if (mat.userData.hautShader) return;
-  mat.userData.hautShader = true;
+/**
+ * Licht, das alle Figuren teilen (D213): Saum aus der Stimmung (dieselbe Randfarbe, die Kreaturen
+ * und die alte Figur über `windmaterial.ts` tragen — die neuen Gestalten hatten ihn nie, ihr Pfad
+ * kehrte vor dem Materialtausch zurück). Die Szene setzt die Werte, die Materialien lesen sie.
+ */
+export const FIGUR_LICHT = {
+  saum: { value: new THREE.Color(0, 0, 0) },
+  saumStaerke: { value: 0 },
+};
+export function setzeFigurSaum(farbe: THREE.ColorRepresentation, staerke: number): void {
+  FIGUR_LICHT.saum.value.set(farbe);
+  FIGUR_LICHT.saumStaerke.value = staerke;
+}
+
+/**
+ * Figurshader (D213, ADR-0012): ein Eingriff für alle Materialien einer Gestalt.
+ * - **Saum:** Fresnel an der Silhouette in der Randfarbe der Stimmung — löst die Figur im
+ *   Gegenlicht und im Dunst vom Hintergrund (die stärkste Einzelwirkung in Soulframe-Bildern).
+ * - **Haut** (nur mit `ton`): Farbton aus der Wahl (D176), dazu eine weiche, rötliche Lichtkante —
+ *   Licht dringt in Haut ein und tritt hinter dem Terminator wieder aus. Ohne das wirkt Haut wie
+ *   bemalter Kunststoff. Eine Näherung (Wrap-Lighting), keine Streuung.
+ */
+function figurShader(mat: THREE.MeshStandardMaterial, ton: THREE.Color | null): void {
+  if (ton) {
+    const u = (mat.userData.haut ??= { value: ton.clone() }) as { value: THREE.Color };
+    u.value.copy(ton);
+    mat.color.set(1, 1, 1);
+  }
+  if (mat.userData.figurShader) return;
+  mat.userData.figurShader = true;
+  const haut = !!ton;
   mat.onBeforeCompile = sh => {
-    sh.uniforms.hautTon = u;
-    sh.fragmentShader = 'uniform vec3 hautTon;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+    sh.uniforms.uSaum = FIGUR_LICHT.saum;
+    sh.uniforms.uSaumStaerke = FIGUR_LICHT.saumStaerke;
+    let f = 'uniform vec3 uSaum;\nuniform float uSaumStaerke;\n' + sh.fragmentShader;
+    if (haut) {
+      sh.uniforms.hautTon = mat.userData.haut;
+      f = 'uniform vec3 hautTon;\n' + f.replace('#include <map_fragment>', `#include <map_fragment>
       float hautL = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
       diffuseColor.rgb = hautTon * clamp(hautL / ${HAUT_MITTEL.toFixed(3)}, 0.35, 1.8);`);
+    }
+    f = f.replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+      ${haut ? `#if NUM_DIR_LIGHTS > 0
+      {
+        float nl = dot(geometryNormal, directionalLights[0].direction);
+        float wickel = max(0.0, (nl + 0.5) / 1.5) - max(0.0, nl);
+        reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * vec3(1.0, 0.42, 0.3)
+          * directionalLights[0].color * wickel * 0.55;
+      }
+      #endif` : ''}
+      {
+        float saumKante = 1.0 - abs(dot(geometryNormal, geometryViewDir));
+        reflectedLight.indirectSpecular += uSaum * pow(saumKante, 3.0) * uSaumStaerke;
+      }`);
+    sh.fragmentShader = f;
   };
+  mat.customProgramCacheKey = () => (haut ? 'brachland-figur-haut-v1' : 'brachland-figur-v1');
   mat.needsUpdate = true;
+}
+
+/**
+ * Umgebungskarte auf alle Materialien einer Gestalt (D213): Bis hierher hatte keine Figur eine —
+ * die PBR-Texturen (Rauheit, Metall an Gürtel und Schnallen) hatten nichts zu spiegeln und lasen
+ * sich stumpf. Schwach (`staerke`), weil die Karte nur Himmel enthält und das Fülllicht schon da ist.
+ */
+export function setzeFigurUmgebung(obj: THREE.Object3D, karte: THREE.Texture | null, staerke = 0.35): void {
+  obj.traverse(o => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    for (const mat of (Array.isArray(m.material) ? m.material : [m.material]) as THREE.MeshStandardMaterial[]) {
+      if (!('envMap' in mat) || mat.envMap === karte) continue;
+      mat.envMap = karte;
+      mat.envMapIntensity = staerke;
+      mat.needsUpdate = true;
+    }
+  });
 }
 
 /**
@@ -110,9 +173,10 @@ export function legeWahlAn(obj: THREE.Object3D, w: HeldWahl): void {
     }
     for (const mat of (Array.isArray(m.material) ? m.material : [m.material]) as THREE.MeshStandardMaterial[]) {
       const mn = mat.name;
-      if (/Superhero|Regular/.test(mn)) hautShader(mat, haut);
-      else if (/Hair/.test(mn)) mat.color.copy(haar);
+      if (/Superhero|Regular/.test(mn)) { figurShader(mat, haut); continue; }
+      if (/Hair/.test(mn)) mat.color.copy(haar);
       else if (/Peasant|Ranger/.test(mn)) mat.color.set(1, 1, 1).lerp(new THREE.Color(w.kleidfarbe ?? '#ffffff'), w.kleidfarbe ? 0.45 : 0).multiplyScalar(w.kleidfarbe ? 1.25 : 1);
+      figurShader(mat, null);
     }
   });
 }

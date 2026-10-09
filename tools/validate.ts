@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, WaffenDaten, GegnerDaten,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -36,6 +36,28 @@ console.log('\nOrte:');
 const orte = pruefe<any>('content/orte', Ort);
 console.log('\nAufträge:');
 const auftraege = pruefe<any>('content/auftraege', Auftrag);
+console.log('\nWaffen:');
+const waffen = pruefe<any>('content/waffen', WaffenDaten);
+{
+  // Die Datei heisst wie ihre Waffe — `echtzeit.ts` importiert sie über den Namen.
+  for (const f of readdirSync('content/waffen').filter(f => f.endsWith('.json'))) {
+    const id = JSON.parse(readFileSync(join('content/waffen', f), 'utf8')).id;
+    if (`${id}.json` !== f) { console.log(`  ✗ ${f} trägt id '${id}'`); fehler++; }
+  }
+  // `istSchwer` erkennt den schweren Schlag am Namen: Ein Name, der zweimal vorkommt, entlädt den
+  // Funken aus dem falschen Schlag oder nie.
+  const namen = waffen.flatMap((w: any) => [...w.leicht, w.schwer, w.lauf].map((s: any) => s.name));
+  const doppelt = namen.filter((n: string, i: number) => namen.indexOf(n) !== i);
+  if (doppelt.length) { console.log(`  ✗ Schlagnamen doppelt: ${[...new Set(doppelt)].join(', ')}`); fehler++; }
+  else console.log(`  ✓ ${namen.length} Schlagnamen eindeutig`);
+}
+console.log('\nGegner:');
+pruefe<any>('content/gegner', GegnerDaten);
+// Wie bei den Waffen: Dateiname = id, `echtzeit.ts` importiert über den Namen.
+for (const f of readdirSync('content/gegner').filter(f => f.endsWith('.json'))) {
+  const id = JSON.parse(readFileSync(join('content/gegner', f), 'utf8')).id;
+  if (`${id}.json` !== f) { console.log(`  ✗ ${f} trägt id '${id}'`); fehler++; }
+}
 
 // Querverweise: jede referenzierte Move-ID muss es geben. Ohne diese Pruefung
 // faellt ein Tippfehler erst im Kampf auf — und dort als leerer Move-Knopf.

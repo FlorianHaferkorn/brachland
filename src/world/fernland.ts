@@ -178,16 +178,22 @@ export function baueFernland(
    * eine 0,04 gemacht: aus der Kulisse wäre eine schwarze Wand geworden.
    *
    * Gerechnet wird ein Lambert-Term gegen dieselbe Sonnenrichtung, die auch das
-   * Nahgelände beleuchtet, plus dieselbe Umgebungsfarbe. Damit steht die Ferne
+   * Nahgelände beleuchtet, plus dieselbe Umgebungsfarbe — mit demselben 1/π wie der Renderer. Damit steht die Ferne
    * im gleichen Licht wie die Nähe, ohne dass ein Lichtmodell zweimal läuft.
    */
-  const sonnenLicht = new THREE.Color(licht.sonne).multiplyScalar(licht.sonneStaerke);
-  const grundLicht = new THREE.Color(licht.umgebung).multiplyScalar(licht.umgebungStaerke);
+  // D202: durch π — three.js rechnet Lambert als `Bestrahlung · Albedo / π` (`BRDF_Lambert` in
+  // `common.glsl.js`), und Sonne wie Hemisphäre gehen ohne π-Ausgleich in die Szene. Ohne diesen
+  // Faktor stand die Kulisse π-mal heller als das Nahgelände; seit `zielbild` die Sonne auf 3,2
+  // verdoppelte (D172), brannte der Fernberg weiss aus (Felsmulde-Kamera, 07.10.2026).
+  const sonnenLicht = new THREE.Color(licht.sonne).multiplyScalar(licht.sonneStaerke / Math.PI);
+  const grundLicht = new THREE.Color(licht.umgebung).multiplyScalar(licht.umgebungStaerke / Math.PI);
   const sonnenRichtung = new THREE.Vector3(...licht.sonnenstand).normalize();
   const beleuchtet = new THREE.Color();
   const farbe = new THREE.Color();
   const positionen: number[] = [];
   const farben: number[] = [];
+  /** D207: der klare (undunstige) Anteil der Farbe, den das Mosaik im Shader abwandeln darf. */
+  const klar: number[] = [];
 
   /** Ein Punkt: Szenenkoordinaten plus die echte Höhe ü. NN für Farbe und Dunst. */
   type Punkt = readonly [number, number, number, number];
@@ -215,6 +221,10 @@ export function baueFernland(
     const nachEntfernung = Math.min(1, Math.max(0, (weit - 1400) / 4200));
     const nachHoehe = Math.min(1, Math.max(0, (1100 - v[3]) / 900));
     const anteil = Math.min(0.92, 0.30 + nachEntfernung * 0.45 + nachHoehe * 0.30);
+    // Mosaik nur im Tal und an Waldhängen, oben (Fels, Firn) nicht.
+    const tal = 1 - 0.7 * Math.min(1, Math.max(0, (v[3] - 1000) / 700));
+    const rest = (1 - anteil) * tal;
+    klar.push(farbe.r * rest, farbe.g * rest, farbe.b * rest);
     farbe.lerp(dunst, anteil);
     farben.push(farbe.r, farbe.g, farbe.b);
   }
@@ -331,6 +341,7 @@ export function baueFernland(
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
+  geo.setAttribute('klar', new THREE.Float32BufferAttribute(klar, 3));
   // Keine Normalen: Das Material rechnet kein Licht, die Schattierung steckt
   // bereits in der Farbe. Ein Normalenattribut wäre 230 KB toter Speicher.
   return geo;
@@ -347,19 +358,41 @@ export function baueFernland(
  * alle drei denselben Weg ins Bild nehmen (G-105).
  */
 export function baueFernlandMaterial(): THREE.Material {
+  // D207: Mosaik aus Wald und Offenland im Fragment, nur auf dem klaren Anteil der Farbe
+  // (`klar`), der Dunst bleibt unberührt — die Kulisse endet weiter bei der Horizontfarbe.
   return new THREE.ShaderMaterial({
     vertexColors: true,
     fog: false,
     vertexShader: `
+attribute vec3 klar;
 varying vec3 vFarbe;
+varying vec3 vKlar;
+varying vec2 vOrt;
 void main() {
   vFarbe = color;
+  vKlar = klar;
+  vOrt = (modelMatrix * vec4(position, 1.0)).xz;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`,
     fragmentShader: `
 varying vec3 vFarbe;
+varying vec3 vKlar;
+varying vec2 vOrt;
+float fernHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float fernRauschen(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(fernHash(i), fernHash(i + vec2(1, 0)), u.x),
+             mix(fernHash(i + vec2(0, 1)), fernHash(i + vec2(1, 1)), u.x), u.y);
+}
 void main() {
-  gl_FragColor = vec4(vFarbe, 1.0);
+  // D207: Wald und Offenland als Mosaik. Das 125-m-Raster trägt keine Fläche unter einem
+  // Kilometer; ohne das stand der Talboden als eine helle Platte (Flanken-Kamera, D204).
+  float n = fernRauschen(vOrt / 420.0) * 0.6 + fernRauschen(vOrt / 140.0 + 7.3) * 0.3
+          + fernRauschen(vOrt / 47.0 + 3.1) * 0.1;
+  float offen = smoothstep(0.48, 0.58, n);
+  vec3 mosaik = mix(vec3(0.62, 0.68, 0.62), vec3(1.30, 1.22, 0.98), offen);
+  gl_FragColor = vec4(vFarbe + vKlar * (mosaik - 1.0), 1.0);
   // Denselben Weg wie Himmel und Nebel — siehe himmel.ts und G-105.
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

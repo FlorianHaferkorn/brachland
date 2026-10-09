@@ -17,6 +17,7 @@
  */
 import { z } from 'zod';
 import REGISTER from '../../public/bauten/register.json';
+import STAEMME from '../../public/bauten/staemme.json';
 
 export const Terrasse = z.object({ x: z.number(), z: z.number(), rInnen: z.number().positive(), rAussen: z.number().positive() });
 export type Terrasse = z.infer<typeof Terrasse>;
@@ -42,6 +43,16 @@ export const Bauwerk = z.object({
 export type Bauwerk = z.infer<typeof Bauwerk>;
 
 export const BAUWERKE: Bauwerk[] = z.object({ bauwerke: z.array(Bauwerk) }).parse(REGISTER).bauwerke;
+
+/**
+ * Stämme der Szenen als Kreise `[x, z, r]` in Weltmetern (G-136) — aus den GLB geschnitten von
+ * `tools/staemme.ts`, nicht von Hand. Ohne sie lief man im Freihalte-Radius durch jeden Blender-Baum,
+ * und die Lock-On-Sicht (D192) sah sie nicht. `baueKollision` nimmt sie als Vorgabe.
+ */
+const Kreis = z.tuple([z.number(), z.number(), z.number().positive()]);
+const STAEMME_JE_SZENE = z.record(z.array(Kreis)).parse(STAEMME);
+export const SZENEN_STAEMME: readonly (readonly [number, number, number])[] = Object.values(STAEMME_JE_SZENE).flat();
+export const staemmeVon = (name: string) => STAEMME_JE_SZENE[name] ?? [];
 
 /**
  * Der Nebel endet je Stimmung spaetestens bei rund 420 m. Mit 650 m wird eine

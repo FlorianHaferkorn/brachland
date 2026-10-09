@@ -430,3 +430,90 @@ export const BiomMove = z.object({
 });
 
 export const SCHEMA_VERSION = 1;
+
+// --------------------------------------------------------------- Waffen (Echtzeitkampf)
+
+/**
+ * Das Waffenwerk (ADR-0008) als Daten statt als Konstante im Code. Ein Schlag trägt seine drei
+ * Phasen (Vorlauf, Aktiv, Erholung), den Bogen und die Wirkung; `src/kampf/echtzeit.ts` liest die
+ * Dateien aus `content/waffen/` und rechnet Grad in Radiant und Bilder in Clipsekunden um.
+ */
+export const KampfLinie = z.enum(['oben', 'unten', 'links', 'rechts']);
+
+/**
+ * Kern eines Schlags — gemeinsam für Waffen und Gegner (D194). Die Waffe verlangt zusätzlich Name,
+ * Linie, Clip und Hieb; ein Gegner trägt sie nur, wo er sie braucht.
+ */
+const SchlagKern = z.object({
+  name: z.string().optional(),
+  linie: KampfLinie.optional(),
+  vorlauf: z.number().positive().describe('Sekunden'),
+  aktiv: z.number().positive().describe('Sekunden'),
+  erholung: z.number().positive().describe('Sekunden'),
+  reichweite: z.number().positive().max(6).describe('Meter, Mitte Angreifer bis Rand Ziel'),
+  halbwinkelGrad: z.number().gt(0).max(180).describe('halber Öffnungswinkel des Bogens'),
+  schaden: z.number().nonnegative(),
+  haltungsschaden: z.number().nonnegative(),
+  kosten: z.number().nonnegative().describe('Ausdauer beim Ansetzen'),
+  nachdrehen: z.number().nonnegative().describe('rad/s im Vorlauf'),
+  clip: z.string().optional(),
+  hieb: z.object({
+    scheitel: z.number().int().nonnegative(),
+    durchzug: z.number().int().positive(),
+  }).refine(h => h.durchzug > h.scheitel, 'Durchzug muss nach dem Scheitel liegen')
+    .describe('Bilder bei 24 fps im Clip').optional(),
+  schritt: z.number().nonnegative().optional().describe('Vorschritt in Metern'),
+  rueckstoss: z.number().nonnegative().optional(),
+  standfest: z.boolean().optional(),
+  wirft: z.number().positive().optional().describe('Sekunden betäubt'),
+  durch: z.boolean().optional(),
+});
+export type SchlagDaten = z.infer<typeof SchlagKern>;
+
+export const GegnerSchlag = SchlagKern.strict();
+
+export const WaffenSchlag = SchlagKern.extend({
+  name: z.string(),
+  linie: KampfLinie,
+  clip: z.string(),
+  hieb: SchlagKern.shape.hieb.unwrap(),
+  schritt: z.number().nonnegative().describe('Vorschritt in Metern'),
+}).strict();
+export type WaffenSchlag = z.infer<typeof WaffenSchlag>;
+
+export const WaffenDaten = z.object({
+  id: z.enum(['klinge', 'axt', 'speer']),
+  name: z.string(),
+  /** Kampfhaltung im Stand (Clip). */
+  haltung: z.string(),
+  /** Leichte Kette; der erste ist der Grundschlag. */
+  leicht: z.array(WaffenSchlag).min(1),
+  schwer: WaffenSchlag,
+  lauf: WaffenSchlag,
+}).strict();
+export type WaffenDaten = z.infer<typeof WaffenDaten>;
+
+/**
+ * Gegner des Echtzeitkampfs (D194) — Tiere und Menschen, `content/gegner/`. Ohne Rolle: Gegner
+ * weichen nicht aus, `echtzeit.ts` setzt eine leere. Elemente nur bei Tieren; `npm run validate`
+ * prüft sie gegen die Kreatur gleichen Elements nicht, das tut `tests/echtzeit.test.ts` (D189).
+ */
+export const GegnerDaten = z.object({
+  id: z.string(),
+  elemente: z.array(Element).min(1).max(2).optional(),
+  schlag: GegnerSchlag,
+  kette: z.array(GegnerSchlag).optional(),
+  tempo: z.number().positive().optional().describe('m/s; ohne Angabe GEGNER_KI.tempo'),
+  linien: z.array(KampfLinie).min(1).optional(),
+  lebenMax: z.number().positive(),
+  haltungMax: z.number().positive(),
+  haltungErholung: z.number().nonnegative(),
+  haltungRuhe: z.number().nonnegative(),
+  betaeubt: z.number().nonnegative(),
+  radius: z.number().positive(),
+  hoehe: z.number().positive(),
+  halbLaenge: z.number().nonnegative().optional(),
+  zucken: z.number().nonnegative().optional(),
+  mensch: z.object({ linienFolge: z.array(KampfLinie).min(1), deckung: KampfLinie }).strict().optional(),
+}).strict().refine(g => !(g.mensch && g.linien), 'Menschen schlagen nach linienFolge, nicht nach linien');
+export type GegnerDaten = z.infer<typeof GegnerDaten>;

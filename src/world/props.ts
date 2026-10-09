@@ -16,7 +16,7 @@ import type { TerrainErgebnis } from './terrain.js';
 import { MASSSTAB } from './terrain.js';
 
 export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbuschel' | 'totholz'
-                    | 'blume' | 'pilz';
+                    | 'blume' | 'pilz' | 'farn';
 
 /**
  * Props je Hektar und Biom.
@@ -31,8 +31,11 @@ export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbus
  * Fernattrappen statt voller Modelle (Ledger G-15), nicht noch mehr Dichte.
  */
 export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
-  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4 },
-  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9 },
+  // D212/D216: Farn als Waldunterwuchs, in Beständen (`farnBestand`). Gesät werden 700/ha, stehen
+  // bleiben rund 45 % — im Bestand bis 700/ha (ein Stock je 14 m²), dazwischen nackter Boden.
+  // Gleichverteilt (D212, 350/ha) las sich aus Spielerhöhe als vereinzelte Pflanze, nicht als Farn.
+  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4, farn: 700 },
+  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9, farn: 25 },
   wiese:     { grasbuschel: 40, busch: 3, laubbaum: 1.2, blume: 22 },
   acker:     { grasbuschel: 8, blume: 2 },
   fels:      { findling: 18, busch: 4, nadelbaum: 1.6, grasbuschel: 6 },
@@ -101,12 +104,14 @@ export const SICHTWEITE: Record<PropArt, number> = {
   // Eine Blume ist 25 cm hoch und ein Pilz 15 — jenseits von 45 m sind sie
   // weniger als ein Pixel und kosten trotzdem einen ganzen Draw Call je Chunk.
   blume: 55, pilz: 45,
+  // Farn trägt eine Silhouette wie ein kleiner Busch; ab 110 m ist er Bodentextur.
+  farn: 110,
 };
 
 /** Ab dieser Neigung wächst nichts mehr — verhindert Bäume an Felswänden. */
 const MAX_NEIGUNG_GRAD: Partial<Record<PropArt, number>> = {
   nadelbaum: 38, laubbaum: 32, busch: 45, totholz: 35, grasbuschel: 40, findling: 60,
-  blume: 35, pilz: 30,
+  blume: 35, pilz: 30, farn: 42,
 };
 
 export interface PropInstanz {
@@ -196,8 +201,8 @@ function hausTest(
  * Rechteck gegen Rechteck prüft und die LOD-Kacheln braucht — zwei verschiedene
  * Fragen, darum zwei Funktionen.
  */
-function wegTest(
-  welt: Weltdaten, terrain: TerrainErgebnis,
+export function wegTest(
+  welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>,
 ): (x: number, z: number) => boolean {
   const [sued, west, nord, ost] = welt.bbox;
   /** Abstand zur Wegkante, den ein Prop mindestens hält. */
@@ -235,6 +240,30 @@ function wegTest(
     }
     return false;
   };
+}
+
+/** Wertrauschen 0…1 in der Ebene, deterministisch aus der Lage (kein Zufallsstrom). */
+function lageRauschen(x: number, z: number): number {
+  const h = (a: number, b: number) => {
+    let n = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263);
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+  };
+  const ix = Math.floor(x), iz = Math.floor(z), fx = x - ix, fz = z - iz;
+  const ux = fx * fx * (3 - 2 * fx), uz = fz * fz * (3 - 2 * fz);
+  const a = h(ix, iz), b = h(ix + 1, iz), c = h(ix, iz + 1), d = h(ix + 1, iz + 1);
+  return a + (b - a) * ux + (c - a) * uz + (a - b - c + d) * ux * uz;
+}
+
+/**
+ * Farnbestand an einer Stelle, 0…1 (D216). Farn wächst in Herden: Wurmfarn und Adlerfarn
+ * breiten sich über Rhizome aus und bilden Flecken von einigen bis zu Dutzenden Metern. Zwei
+ * Oktaven (rund 28 m und 9 m), damit die Ränder nicht rund sind. Bewusst **nicht** aus dem
+ * Zufallsstrom: Ein zusätzlicher Aufruf dort verschöbe jede spätere Instanz der Welt.
+ */
+export function farnBestand(x: number, z: number): number {
+  const n = lageRauschen(x / 28, z / 28) * 0.7 + lageRauschen(x / 9 + 31.7, z / 9 + 17.3) * 0.3;
+  return Math.min(1, Math.max(0, (n - 0.42) / 0.2));
 }
 
 export function verteileProps(
@@ -278,6 +307,11 @@ export function verteileProps(
           if (imHaus(x, z)) continue;
           // Und 4.975 standen auf dem Belag, darunter 1.488 Fichten (G-84).
           if (aufWeg(x, z)) continue;
+          // Farn in Beständen (D216): die Schwelle aus der Lage, nicht aus dem Zufallsstrom.
+          if (art === 'farn' && lageRauschen(x * 3.1, z * 3.1) > farnBestand(x, z)) {
+            zufall(); zufall(); zufall();   // Strom wie bei einer gesetzten Instanz weiterdrehen
+            continue;
+          }
           props.push({
             art,
             variante: Math.floor(zufall() * variantenZahl(art)),
@@ -329,6 +363,12 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
     { datei: 'busch_dicht',    hoehe: 1.8 },
     { datei: 'busch_breit',    hoehe: 2.1 },
     { datei: 'busch_gross',    hoehe: 2.4 },
+  ],
+  farn: [
+    { datei: 'farn_klein',     hoehe: 0.55 },
+    { datei: 'farn_mittel',    hoehe: 0.85 },
+    { datei: 'farn_breit',     hoehe: 0.75 },
+    { datei: 'farn_hoch',      hoehe: 1.25 },
   ],
   grasbuschel: [
     { datei: 'gras_matte',     hoehe: 0.18 },
@@ -439,6 +479,7 @@ const TON_STREUUNG: Record<PropArt, { hell: number; warm: number }> = {
   totholz:     { hell: 0.16, warm: 0.12 },
   blume:       { hell: 0.14, warm: 0.06 },
   pilz:        { hell: 0.12, warm: 0.05 },
+  farn:        { hell: 0.22, warm: 0.22 },
 };
 
 /** Ein Schritt von `mulberry`, ohne Abschluss — 167.823 Aufrufe je Weltaufbau. */
@@ -479,7 +520,7 @@ export function propTon(
 /** Reale Zielhöhe je Art in Metern — nur noch für die Fernattrappe. */
 export const ZIELHOEHE: Record<PropArt, number> = {
   nadelbaum: 22, laubbaum: 14, busch: 1.6, findling: 1.1, totholz: 0.9,
-  grasbuschel: 0.35, blume: 0.26, pilz: 0.18,
+  grasbuschel: 0.35, blume: 0.26, pilz: 0.18, farn: 0.7,
 };
 
 export const propPfad = (datei: string) => `/props/${datei}.glb`;
@@ -568,6 +609,12 @@ export function propGeometrie(art: PropArt): THREE.BufferGeometry {
     case 'pilz': {
       const g = new THREE.CylinderGeometry(0.09, 0.03, 0.16, 5);
       g.translate(0, 0.08, 0);
+      return g;
+    }
+    case 'farn': {
+      const g = new THREE.ConeGeometry(0.5, 0.6, 5, 1, true);
+      g.rotateX(Math.PI);
+      g.translate(0, 0.3, 0);
       return g;
     }
   }

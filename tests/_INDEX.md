@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-26
+last-reviewed: 2026-10-08
 shelf-life-days: 90
 owns: *.test.ts
 ---
@@ -23,6 +23,9 @@ owns: *.test.ts
 | Waffenclips oder ihre Regelzeiten ändern | `waffenclips.test.ts` → `../tools/waffenclips.py`, `../src/kampf/echtzeit.ts` |
 | Schwierigkeit prüfen (ganze Kämpfe mit Reaktionszeit) | `kampfbot.test.ts` → `../tools/kampfbot.ts` |
 | Die Witterungsanzeige oder eine Richtung anfassen | `peilung.test.ts` → `../src/spieler/peilung.ts` |
+| Kamera bei Zielaufschaltung (Schulter, Gegneransicht) ändern | `sichtlinie.test.ts` → `../src/kampf/sichtlinie.ts` |
+| Eine Blender-Szene neu exportieren oder an der Kollision drehen | `staemme.test.ts` → `../tools/staemme.ts`, `../src/spieler/kollision.ts` |
+| An der Tonwertkurve (`LOOK_GAMMA`, `LOOK_S`, AgX) drehen | `tonwert.test.ts` → `../src/scenes/tonwert.ts` — Sollwerte neu **messen** |
 | An Erfahrungskurve, Stufen oder Mutation drehen | `fortschritt.test.ts` → `../src/spiel/fortschritt.ts` |
 | Klettern, Springen oder Zehrraten ändern | `ausdauer.test.ts` → `../src/spieler/ausdauer.ts` |
 | Auftragsziele oder Vorbedingungen ändern | `auftraege.test.ts` → `../src/spiel/auftraege.ts` |
@@ -44,6 +47,10 @@ owns: *.test.ts
 | `schmiede.test.ts` | D177: Stufen enden bei 3, bezahlt wird nur, was im Beutel ist, eine geschmiedete Klinge trifft im Echtzeitkampf härter |
 | `battle.test.ts` | 16 Tests: Elementmatrix ausgewogen, Fokus-Ökonomie, Elementvorteil entscheidet, Phasen erzwingen Wechseln, Zehrung, Determinismus, Kampfdauer im Korridor |
 | `peilung.test.ts` | 11 Tests. Anlass war ein **Vorzeichenfehler**, der nur bei Blickrichtung 0 unauffällig war — der Pfeil zeigte beim Drehen in die falsche Richtung |
+| `sichtlinie.test.ts` | D192: Stamm zwischen Schulterkamera und Ziel zieht den Arm ein; Stamm nur neben dem Ziel nicht; Versatz zählt mit; feste Probenweite (0,3 m) überspringt keinen Stamm — mit 12 Proben je Strecke passiert |
+| `tonwert.test.ts` | D199: `agxMitLook` (CPU) trifft den Shader `CustomToneMapping` — 34 in Chromium gemessene Farbproben bei Belichtung 2,4 und 2,5, Toleranz 1/255. Hält `npm run licht` auf der Kurve, die das Spiel zeigt |
+| `nebel.test.ts` | D204: `nebelAnteil` (CPU-Kopie des Nebel-Shaders) — Mittelbereich wie das alte `smoothstep`, Decke `NEBEL_MAX`, monoton, Höhendunst nur über der Kamera |
+| `staemme.test.ts` | G-136: Jede Blender-Szene hat Stämme im Kollisionsfeld (≥ 100, alle im Freihalte-Radius, also richtige Achsenlage), der Stauwehr-Stamm aus dem Lock-On-Video ist bekannt und verdeckt die Sicht, `public/bauten/staemme.json` passt zu den GLB |
 | `fortschritt.test.ts` | 20 Tests. Anlass: Die erste Kurve machte Kreaturen bei der Mutation **schwächer** (L13 = 184 KP, L14 = 162 KP). Hält jetzt Monotonie und die Zahl der Kämpfe je Mutation fest |
 | `ausdauer.test.ts` | 20 Tests. Hält die Kletterhöhe als **Rechnung** fest (16/s × 2,2 m/s = 13,8 m gegen 14 m Klippe) und die Hysterese am Nullpunkt |
 | `auftraege.test.ts` | 25 Tests. Der Fortschritt wird abgeleitet, nicht gezählt — geprüft wird unter anderem, dass `schneehuhn` nicht `schneehuhn-alt` mitzählt |

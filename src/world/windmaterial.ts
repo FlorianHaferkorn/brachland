@@ -178,6 +178,27 @@ const RAND_GLSL = /* glsl */ `
  * Wertrauschen in drei Oktaven auf der Weltposition — genug fuer Loecher, die wie Blattwerk
  * lesen. Kein Perlin: Das hier muss nur unregelmaessig sein, nicht schoen.
  */
+/** Dreioktaviges Wertrauschen fuer die Lochmaske — als Funktion, weil es seit D209 zweimal laeuft. */
+const LOCH_FUNKTION_GLSL = /* glsl */ `
+float lochRauschen(vec3 q) {
+  float n = 0.0, a = 0.5;
+  for (int o = 0; o < 3; o++) {
+    vec3 i = floor(q), f = fract(q); f = f * f * (3.0 - 2.0 * f);
+    float h000 = fract(sin(dot(i, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+    float h100 = fract(sin(dot(i + vec3(1,0,0), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+    float h010 = fract(sin(dot(i + vec3(0,1,0), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+    float h110 = fract(sin(dot(i + vec3(1,1,0), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+    float h001 = fract(sin(dot(i + vec3(0,0,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+    float h101 = fract(sin(dot(i + vec3(1,0,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+    float h011 = fract(sin(dot(i + vec3(0,1,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+    float h111 = fract(sin(dot(i + vec3(1,1,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
+    float v = mix(mix(mix(h000, h100, f.x), mix(h010, h110, f.x), f.y), mix(mix(h001, h101, f.x), mix(h011, h111, f.x), f.y), f.z);
+    n += v * a; q *= 2.0; a *= 0.5;
+  }
+  return n;
+}
+`;
+
 const LOECHER_GLSL = /* glsl */ `
   #ifdef USE_COLOR_ALPHA
   float laubmaske = vColor.a;      // Baumbau: 1 = Blatt, 0 = Holz — Loecher nur im Laub
@@ -185,22 +206,17 @@ const LOECHER_GLSL = /* glsl */ `
   float laubmaske = 1.0;
   #endif
   if (uLoecher > 0.0 && laubmaske > 0.5) {
-    vec3 q = vLoecherPos * uLoecherSkala;
-    float n = 0.0, a = 0.5;
-    for (int o = 0; o < 3; o++) {
-      vec3 i = floor(q), f = fract(q); f = f * f * (3.0 - 2.0 * f);
-      float h000 = fract(sin(dot(i, vec3(127.1, 311.7, 74.7))) * 43758.5453);
-      float h100 = fract(sin(dot(i + vec3(1,0,0), vec3(127.1, 311.7, 74.7))) * 43758.5453);
-      float h010 = fract(sin(dot(i + vec3(0,1,0), vec3(127.1, 311.7, 74.7))) * 43758.5453);
-      float h110 = fract(sin(dot(i + vec3(1,1,0), vec3(127.1, 311.7, 74.7))) * 43758.5453);
-      float h001 = fract(sin(dot(i + vec3(0,0,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
-      float h101 = fract(sin(dot(i + vec3(1,0,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
-      float h011 = fract(sin(dot(i + vec3(0,1,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
-      float h111 = fract(sin(dot(i + vec3(1,1,1), vec3(127.1, 311.7, 74.7))) * 43758.5453);
-      float v = mix(mix(mix(h000, h100, f.x), mix(h010, h110, f.x), f.y), mix(mix(h001, h101, f.x), mix(h011, h111, f.x), f.y), f.z);
-      n += v * a; q *= 2.0; a *= 0.5;
-    }
-    if (n > uLoecher) discard;
+    // D205: Unter Pixelgroesse flimmerten die Loecher als Raster (Pfeffer auf ferner Krone).
+    // D209: Statt sie dort ganz zu schliessen (D205 machte ferne Kronen zu Watte), uebernimmt ein
+    // viermal groeberes Lochmuster — die Krone bleibt durchbrochen, die Loecher bleiben ueber einem
+    // Pixel. Erst wenn auch die groben unter Pixelgroesse fallen, wird die Krone Masse.
+    float lochPixel = length(fwidth(vLoecherPos * uLoecherSkala));
+    float grob = smoothstep(0.5, 1.5, lochPixel);
+    float n = 0.0;
+    if (grob < 1.0) n += lochRauschen(vLoecherPos * uLoecherSkala) * (1.0 - grob);
+    if (grob > 0.0) n += lochRauschen(vLoecherPos * uLoecherSkala * 0.25 + 17.0) * grob;
+    float schwelle = mix(uLoecher + grob * 0.05, 1.01, smoothstep(0.5, 1.5, lochPixel * 0.25));
+    if (n > schwelle) discard;
   }
 `;
 
@@ -220,8 +236,45 @@ const DURCHLASS_GLSL = /* glsl */ `
     reflectedLight.indirectDiffuse *= 1.0 - uDurchlass;
     float rueck = max(0.0, -dot(geometryNormal, directionalLights[0].direction));
     reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * directionalLights[0].color * rueck * uDurchlass;
+    // D208: Vorwärtsstreuung. Wer durch die Krone zur Sonne blickt, sieht das Blatt leuchten —
+    // gesättigter als seine Aufsicht (das Licht ging zweimal durch Blattgrün). Der Lambert-Term
+    // oben kennt den Blick nicht; ohne diesen stand Gegenlichtlaub matt wie im Seitenlicht.
+    float gegen = max(0.0, dot(-normalize(vViewPosition), directionalLights[0].direction));
+    float streu = pow(gegen, 6.0) * (0.35 + 0.65 * rueck);
+    vec3 durchFarbe = diffuseColor.rgb * (diffuseColor.rgb * 1.6 + 0.25);
+    reflectedLight.directDiffuse += durchFarbe * directionalLights[0].color * streu * uDurchlass * 0.4;
   }
   #endif
+`;
+
+/**
+ * D205: Farbvariation (ADR-0012, Laub). Bisher trug jede Krone und jede Fichte genau ihren
+ * Vertexfarbton — ein Wald aus Kopien. Zwei Quellen:
+ * - **Laub der Blender-Baeume** (Loecher an, Laubmaske): weiches 3D-Rauschen in Weltkoordinaten,
+ *   ~11 m und ~3,5 m — Helligkeit ±12 %, Ton zwischen Blaugruen und Oliv. Ortsfest, also kein
+ *   Flackern beim Wind.
+ * - **Instanzen** (Engine-Baeume, Buesche, Gras): ein Wert je Instanz aus ihrer Lage, ±8 % —
+ *   genug, dass zwei Nachbarn nicht gleich sind, zu wenig fuer bunte Flecken.
+ */
+const VARIATION_GLSL = /* glsl */ `
+  #ifdef USE_COLOR_ALPHA
+  if (uLoecher > 0.0 && vColor.a > 0.5) {
+    float v1 = laubRauschen(vLoecherPos * 0.09);
+    float v2 = laubRauschen(vLoecherPos * 0.29 + 11.0);
+    float hell = 0.88 + v1 * 0.24 + (v2 - 0.5) * 0.12;
+    diffuseColor.rgb *= hell * mix(vec3(0.93, 1.02, 0.98), vec3(1.07, 1.02, 0.86), v1);
+  }
+  #endif
+  diffuseColor.rgb *= 0.92 + vInstanzVar * 0.16;
+`;
+
+const LAUB_RAUSCHEN_GLSL = /* glsl */ `
+float laubHash(vec3 i) { return fract(sin(dot(i, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+float laubRauschen(vec3 q) {
+  vec3 i = floor(q), f = fract(q); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(laubHash(i), laubHash(i + vec3(1,0,0)), f.x), mix(laubHash(i + vec3(0,1,0)), laubHash(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(laubHash(i + vec3(0,0,1)), laubHash(i + vec3(1,0,1)), f.x), mix(laubHash(i + vec3(0,1,1)), laubHash(i + vec3(1,1,1)), f.x), f.y), f.z);
+}
 `;
 
 const WIND_GLSL = /* glsl */ `
@@ -350,20 +403,21 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
         // aWind ebenfalls nur bei Instanzen deklarieren: Ein Attribut, das die
         // Geometrie nicht liefert, ist auf manchen Treibern ein harter Fehler.
         '#include <common>\nuniform float uZeit;\nuniform float uWindAmp;\nuniform float uAtmen;\nuniform float uGang;\n'
-        + 'uniform float uRollenAn;\nuniform vec3 uRollen[8];\nuniform float uRollenMaske[8];\nvarying vec3 vLoecherPos;\n'
+        + 'uniform float uRollenAn;\nuniform vec3 uRollen[8];\nuniform float uRollenMaske[8];\nvarying vec3 vLoecherPos;\nvarying float vInstanzVar;\n'
         + '#ifdef USE_INSTANCING\nattribute float aWind;\n#endif')
       .replace('#include <color_vertex>', '#include <color_vertex>' + ROLLEN_GLSL)
       .replace('#include <begin_vertex>', '#include <begin_vertex>' + WIND_GLSL + ATMEN_GLSL)
       // Weltposition fuer die Loecher: nach allen Verschiebungen, vor der Projektion
-      .replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\nvLoecherPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#else\nvLoecherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif');
+      .replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\nvLoecherPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\nvInstanzVar = fract(sin(dot((modelMatrix * instanceMatrix[3]).xz, vec2(12.9898, 78.233))) * 43758.5453);\n#else\nvLoecherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvInstanzVar = 0.5;\n#endif');
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>',
-        '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;\nuniform float uLoecher;\nuniform float uLoecherSkala;\nuniform float uDurchlass;\nvarying vec3 vLoecherPos;')
+        '#include <common>\nuniform vec3 uRandFarbe;\nuniform float uRandStaerke;\nuniform float uRandSchaerfe;\nuniform float uLoecher;\nuniform float uLoecherSkala;\nuniform float uDurchlass;\nvarying vec3 vLoecherPos;\nvarying float vInstanzVar;\n' + LAUB_RAUSCHEN_GLSL + LOCH_FUNKTION_GLSL)
+      .replace('#include <color_fragment>', '#include <color_fragment>' + VARIATION_GLSL)
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v12' + (w.himmel ? '-himmel' : '');
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v16' + (w.himmel ? '-himmel' : '');
 
   // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens
   let tiefe: THREE.MeshDepthMaterial | undefined;
@@ -378,10 +432,10 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
         .replace('#include <begin_vertex>', '#include <begin_vertex>\n#include <color_vertex>' + WIND_GLSL)
         .replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\nvLoecherPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;\n#else\nvLoecherPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n#endif');
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\n#include <color_pars_fragment>\nuniform float uLoecher;\nuniform float uLoecherSkala;\nvarying vec3 vLoecherPos;')
+        .replace('#include <common>', '#include <common>\n#include <color_pars_fragment>\nuniform float uLoecher;\nuniform float uLoecherSkala;\nvarying vec3 vLoecherPos;' + LOCH_FUNKTION_GLSL)
         .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL);
     };
-    tiefe.customProgramCacheKey = () => 'brachland-tiefe-loecher-v2';
+    tiefe.customProgramCacheKey = () => 'brachland-tiefe-loecher-v3';
   }
 
   return {

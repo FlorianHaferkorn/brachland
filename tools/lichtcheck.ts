@@ -9,7 +9,7 @@
  *
  * Gerechnet wird die **Bildschirmhelligkeit eines Pixels** — also der ganze Weg:
  *
- *   Albedo → Bestrahlung (Hemisphere + Sonne) → Lambert → ACES → sRGB → Nebel
+ *   Albedo → Bestrahlung (Hemisphere + Sonne) → Lambert → AgX + Look (D199; `--aces` alt) → sRGB → Nebel
  *
  * in genau der Reihenfolge, in der three.js ihn im Fragment-Shader durchläuft. Der
  * Nebel kommt **nach** dem Tone Mapping und nach der Farbraumwandlung; das ist keine
@@ -22,7 +22,8 @@
  *
  * `npm run licht`
  */
-import { STIMMUNG, HEMI_BODEN } from '../src/scenes/RegionsSzene.js';
+import { STIMMUNG, HEMI_BODEN } from '../src/world/stimmung.js';
+import { agxMitLook } from '../src/scenes/tonwert.js';
 import { BIOM_FARBE } from '../src/world/terrain.js';
 import { BAUM } from '../src/world/baum.js';
 
@@ -48,6 +49,9 @@ function srgb(v: number): number {
 function leuchtdichte(rgb: [number, number, number]): number {
   return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
 }
+
+/** `npm run licht -- --aces`: alte Kurve (bis D198). Ohne Schalter rechnet das Werkzeug wie das Spiel. */
+const ACES = process.argv.includes('--aces');
 
 /**
  * ACES-Filmic, wie three.js es in `ACESFilmicToneMapping` implementiert.
@@ -123,7 +127,11 @@ function pixel(
   // Lambert. Der Faktor 1/π ist in three.js in der Lichtstärke aufgehoben —
   // weggelassen, weil sonst jede Szene um denselben Betrag zu dunkel gerechnet wird.
   const licht: [number, number, number] = [albedo[0] * e[0], albedo[1] * e[1], albedo[2] * e[2]];
-  const nachTon = licht.map(v => srgb(aces(v, s.belichtung))) as [number, number, number];
+  // D199: Standard ist die Kurve des Spiels (AgX + Look, `tonwert.ts`, seit D164). `--aces` rechnet wie
+  // bis D198 — nur zum Vergleich mit älteren Ledger-Zahlen.
+  const nachTon = (ACES
+    ? licht.map(v => aces(v, s.belichtung))
+    : agxMitLook(licht, s.belichtung)).map(srgb) as [number, number, number];
 
   if (abstand <= 0) return leuchtdichte(nachTon);
 
@@ -234,5 +242,7 @@ console.log('  · das Silhouettenlicht (Fresnel, `windmaterial.ts`) — es sitzt
 console.log('    Kante, nicht auf der Fläche, und trägt bei `nacht` mit randStaerke 0,30');
 console.log('    den größten Teil der Trennung. Der Kontrastwert für die Nacht ist');
 console.log('    deshalb eine Untergrenze, nicht das fertige Bild.');
-console.log('  · die ACES-Farbmatrizen. Für die Leuchtdichte ist der Unterschied klein,');
-console.log('    für den Farbton nicht — Farbaussagen gehören in den Browser, nicht hierher.');
+console.log('  · eine Farbaussage. Die Kurve rechnet AgX mit Matrizen wie der Shader (D199, gegen');
+console.log('    Chromium auf 0/255 geprüft), ausgegeben wird aber nur die Leuchtdichte.');
+console.log('  · gültige Urteile „zu hell"/„schwarz": Die Schwellen stammen aus der Handy-Zeit');
+console.log('    (D110, durch ADR-0006 abgelöst). Vergleiche zwischen Stimmungen tragen, Urteile nicht.');

@@ -18,8 +18,9 @@ import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
-import { WasserUmgebung, useWasserUmgebung } from './WasserUmgebung.js';
-import { PALETTE } from '../world/palette.js';
+import { WasserUmgebung, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
+import { STIMMUNG, HEMI_BODEN, type Stimmung } from '../world/stimmung.js';
+export { STIMMUNG, HEMI_BODEN, HEMI_BODEN_TAG, type Stimmung, type StimmungsName } from '../world/stimmung.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
@@ -37,19 +38,27 @@ import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fern
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { BAUWERKE, bauwerkPfad, gesperrt, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { haengeAgxLookEin } from './tonwert.js';
+import { haengeNebelEin } from './nebel.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { lagerTon } from '../ton/lagerton.js';
 import { kameraZustand } from '../kampf/kamerazustand.js';
+import { armMitSicht, sichtFrei, ZIEL_RAND, type Versperrt } from '../kampf/sichtlinie.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
-         VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum } from '../world/props.js';
+         VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
+import { baueGrasteppich } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
-import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, HAARFARBEN, type HeldWahl, type Haar } from '../spieler/held.js';
+import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, HAARFARBEN, setzeFigurUmgebung, setzeFigurSaum, type HeldWahl, type Haar } from '../spieler/held.js';
+import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
+/** `?fuesse=0` schaltet die Fussanpassung ab (D214). */
+/** Bis zu diesem Abstand bekommen Bewohner die Fussanpassung (D217). */
+const BEWOHNER_FUSS_AB = 14;
+const FUESSE_AN = typeof location === 'undefined' || new URLSearchParams(location.search).get('fuesse') !== '0';
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 /** `?figur=alt`: die alte Wanderin statt der Figur aus dem Editor (Vergleich, D175). */
 const ALTE_FIGUR = new URLSearchParams(location.search).get('figur') === 'alt';
@@ -95,70 +104,6 @@ import { REITEN_GEHEN, REITEN_RENNEN, REIT_MAX_GRAD } from '../spiel/reiten.js';
 import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG } from '../spieler/tempo.js';
 import { GLEIT_TEMPO, bremse, gleitSchritt, neuerFall, type Fall } from '../spieler/gleiten.js';
 
-/**
- * Tageszeiten als Schlüsselbilder eines durchgehenden Laufs.
- *
- * Vorher waren es drei Knöpfe, und dazwischen gab es nichts. Ein Sprung von Nacht auf
- * Dämmerung ist aber kein Tageswechsel, sondern ein Schnitt — und die interessanten
- * Zustände liegen genau dazwischen, im Übergang.
- *
- * Der Lauf ist bewusst **kein voller Tag**: Es gibt keinen Mittag. Die Art Direction
- * steht auf Dämmerung, Nebel und Silhouetten; Mittagssonne verzeiht nichts und würde
- * jede Schwäche der Geometrie zeigen. Der Zyklus läuft deshalb
- * Nacht → Morgengrauen → Nebelmorgen → Abendrot → Nacht.
- *
- * **Farbvokabular.** Jeder Schlüssel benutzt dieselben vier Rollen und nichts
- * darüber hinaus: ein kaltes Blaugrün für den Zenit, einen warmen Ton am Horizont,
- * einen entsättigten Nebelton und **eine** Sonnenfarbe. Was daraus nicht ableitbar
- * ist, kommt nicht ins Bild — die Signalfarbe des Befalls bleibt die einzige
- * Ausnahme (ADR-0002).
- */
-export interface Stimmung {
-  himmel: string; nebel: string; nebelNah: number; nebelFern: number;
-  sonne: string; sonneStaerke: number; umgebung: string; umgebungStaerke: number;
-  sonnenstand: readonly [number, number, number];
-  belichtung: number;
-  /** Schattenstärke der Sonne 0…1 (`shadow.intensity`); ohne Angabe 1. */
-  schatten?: number;
-  /** Fensterglut 0…1 (D134): wie hell hinter den Fenstern Licht brennt; ohne Angabe 0. */
-  fenster?: number;
-  zenit: string; horizont: string; scheibe: number; hof: number;
-  /** Silhouettenlicht: Farbe des Himmels, der die Umrisse zeichnet. */
-  randFarbe: string;
-  randStaerke: number;
-  /**
-   * Stärke des Himmelsanteils im Fülllicht (D170, `windmaterial.ts`); ohne Angabe 0,7. Die Nacht
-   * bekommt 0: Dort ist das Fülllicht das einzige Licht, und im Hof der Felsmulde wurden mit 0,7
-   * 8,1 % der Pixel reines Schwarz (Bildtor-Blocker, Grenze 6,5). (`himmel` ist die Himmelsfarbe.)
-   */
-  himmelAnteil?: number;
-  /**
-   * Bodenfarbe der Hemisphäre je Stimmung (D167); ohne Angabe `HEMI_BODEN`. Die Nacht braucht den
-   * hellen Boden gegen reines Schwarz, der Tag nicht — eine globale Zahl musste beides können.
-   */
-  hemiBoden?: string;
-}
-
-/**
- * Zweite Farbe der Hemisphere-Lichtquelle — das Licht „von unten".
- *
- * War `#121a16` und damit praktisch schwarz. Wirkung: Alles, was zur Sonne
- * abgewandt oder im Schatten stand, landete unter der **Schwarzgrenze des Tone
- * Mappings**. Die liegt bei ACES nicht bei null, sondern bei einer linearen
- * Strahldichte von rund 0,002/Belichtung — darunter ist der Zähler des RRT-Fits
- * negativ und das Ergebnis wird auf 0 geklemmt. Es gibt dort kein „sehr dunkel",
- * nur „aus". Gemessen mit `npm run licht`.
- *
- * Als Farbe exportiert, damit das Messwerkzeug dieselbe Zahl liest wie die Szene.
- */
-export const HEMI_BODEN = PALETTE.licht.hemiBoden;
-/**
- * Hemisphärenboden der Tagesstimmungen (D167): `nebelmorgen`, `goldnebel`, `zielbild`. Nacht,
- * Dämmerung und Abendrot behalten `HEMI_BODEN` — dort trägt das Umgebungslicht das Bild, und die
- * Nacht verlöre mit dem dunklen Boden fast doppelt so viele Pixel an reines Schwarz (Fenster
- * 2,7 → 4,8 %, Felsmulde nachts wird zum Bildtor-Blocker). Gemessen in `docs/MESSLAUF.md`.
- */
-export const HEMI_BODEN_TAG = PALETTE.licht.hemiBodenTag;
 
 /**
  * `?belichtung=3.2` überschreibt die Belichtung der laufenden Stimmung.
@@ -255,6 +200,8 @@ const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
  * `CustomToneMapping` ohne Kurve — also stockdunkel.
  */
 haengeAgxLookEin();
+// D204: Nebel mit Auslauf und Höhendunst — wie der Look vor dem ersten Material einhängen.
+haengeNebelEin();
 
 /** Kurve ohne Adresse: der Look des Renders (D164). */
 const KURVE_VORGABE: THREE.ToneMapping = THREE.CustomToneMapping;
@@ -360,196 +307,6 @@ const SPIEGEL_GRAD: number = (() => {
   return Number.isFinite(n) ? n : 0;
 })();
 
-export const STIMMUNG: Record<string, Stimmung> = {
-  nacht: {
-    himmel: '#0a0f12', nebel: '#101a1c', nebelNah: 25, nebelFern: 260,
-    // Umgebung von 0,35 auf 0,60: Bei 0,35 lag JEDE beschattete Fläche exakt bei
-    // 0,000 — nicht dunkel, sondern aus. Nacht bleibt die dunkelste Stimmung, aber
-    // mit Zeichnung statt mit Löchern.
-    /**
-     * Belichtung 1,40 → **2,60**: Bei 1,40 war am Hang fast die Hälfte des
-     * Bildes nicht dunkel, sondern **aus** (G-116).
-     *
-     * Der Hinweis darüber stammt aus einem Test gegen eine ebene Fläche und hat
-     * den Fall nie gesehen. Gemessen an vier echten Orten, Anteil der Pixel,
-     * deren höchster Kanal **exakt 0** ist:
-     *
-     * | Ort | nacht | daemmerung | nebelmorgen | abendrot |
-     * |---|---|---|---|---|
-     * | Felsflanke | **42,7 %** | 2,8 % | 1,0 % | 0,1 % |
-     * | Waldrand | **47,2 %** | 5,5 % | 4,9 % | 4,6 % |
-     * | Talboden | 1,7 % | 0,0 % | 0,2 % | 1,4 % |
-     * | Dorf | 1,1 % | 1,5 % | 1,3 % | 0,3 % |
-     *
-     * Nur `nacht`, und nur wo kein Himmel im Bild steht. Ein Spitzenwert bei
-     * **genau 0** und nicht bei 1 oder 2 heisst: Es ist keine Fläche unbeleuchtet,
-     * das Ergebnis fällt unter die 8-Bit-Schwelle. Genau deshalb halfen Umgebung
-     * (0,80 → 1,05) und ein kleiner Belichtungsschritt (1,40 → 1,75) nichts.
-     *
-     * Die Reihe, die es entschieden hat — Anteil exakt schwarzer Pixel gegen
-     * Belichtung: 1,40 → 42,7 % · 2,00 → 17,2 % · **2,60 → 3,6 %** · 3,20 →
-     * 2,6 % · 4,00 → 2,0 %. Der Knick liegt bei 2,60; darüber kostet jeder
-     * weitere Schritt Dunkelheit ohne Gewinn.
-     *
-     * Nacht bleibt mit Abstand die dunkelste Stimmung: Median-Leuchtdichte
-     * **0,014** gegen 0,118 bei `daemmerung` und 0,156 bei `nebelmorgen`. Die
-     * Lichtwerte sind unangetastet — Belichtung ist seit D22 genau der Regler
-     * für „kommt die Szene auf einem Bildschirm an", getrennt von der
-     * Kunstrichtung.
-     */
-    sonne: '#8fa9c4', sonneStaerke: 0.45, umgebung: '#22323a', umgebungStaerke: 0.80,
-    sonnenstand: [-80, 90, 60] as const,
-    belichtung: 2.60,
-    schatten: 0.7,
-    fenster: 1.0,    // nachts brennt Licht — das Dorf ist bewohnt (D134)
-    // Mond: harte kleine Scheibe, fast kein Hof.
-    zenit: '#05080d', horizont: '#131c22', scheibe: 0.0009, hof: 900,
-    // Nachts trägt der Umriss fast das ganze Bild — deshalb hier am stärksten.
-    randFarbe: '#4d6b82', randStaerke: 0.30,
-    himmelAnteil: 0,
-  },
-  daemmerung: {
-    himmel: '#141d20', nebel: '#1b2a2b', nebelNah: 60, nebelFern: 420,
-    sonne: '#c8b48a', sonneStaerke: 2.4, umgebung: '#4d5f64', umgebungStaerke: 4.0,
-    sonnenstand: [-120, 110, -90] as const,
-    belichtung: 2.7,
-    /**
-     * Schlagschatten auf 60 % (D122). Gemessen mit `?schatten=`: Bei 1,0 stand
-     * beschatteter Boden bei 28 % des beleuchteten — die Stilreferenz liegt bei
-     * etwa 60 %. 0,5 hob das Dorf von 0,102 auf 0,124, Felsflanke und
-     * Stauwehr um 0,01; 0,6 ist der Kompromiss, der den Schatten als Form
-     * behält.
-     */
-    schatten: 0.6,
-    fenster: 0.15,   // erste Lampen in der Daemmerung
-    // Tief stehende Sonne: kleine Scheibe, sehr weiter Hof. Der Hof IST die Stimmung.
-    zenit: '#1b3550', horizont: '#4a4238', scheibe: 0.0016, hof: 190,
-    randFarbe: '#6e7f86', randStaerke: 0.22,
-    himmelAnteil: 0.35,   // Dämmerung trägt sich über die Umgebung (D118) — halb
-  },
-  nebelmorgen: {
-    himmel: '#20282a', nebel: '#2c3a39', nebelNah: 30, nebelFern: 240,
-    // Sonne 1,6 → 1,3 und Belichtung 2,2 → 2,05 (D118): Bei 1,6 lag an der
-    // Felsflanke ein Viertel des Bildes über Leuchtdichte 0,30 — das Brennen kam
-    // aus der Sonne, nicht aus der Belichtung. Jetzt 0,169 Median, 0,4 % hell.
-    // D173: Sonne 1,3 → 1,5, Fülllicht 3,5 → 3,2, Schatten 0,5 → 0,65. Verhältnis Sonne·sin(Höhe) zu
-    // Fülllicht 0,20 → 0,25 — Richtung `tag` (0,29), aber darunter: Dunst streut, das bleibt weicher.
-    sonne: '#d8d2c0', sonneStaerke: 1.5, umgebung: '#5d7072', umgebungStaerke: 3.2,
-    sonnenstand: [90, 90, -110] as const,
-    belichtung: 2.05,
-    schatten: 0.65,   // Dunst: weicher Schatten
-    // Im Dunst gibt es keine Scheibe, nur einen breiten hellen Fleck.
-    zenit: '#26333a', horizont: '#3e4a48', scheibe: 0.0, hof: 42,
-    // Im Dunst streut das Licht ohnehin um jede Kante — Rand dezent.
-    randFarbe: '#8a9a9c', randStaerke: 0.14,
-    // Tag: dunklerer Hemisphärenboden (D167). Der Tag trägt sich über die Sonne; der helle Boden
-    // war gegen die ACES-Schwarzgrenze gesetzt und hob hier nur die Unterseiten an.
-    hemiBoden: HEMI_BODEN_TAG,
-  },
-  abendrot: {
-    himmel: '#1a1614', nebel: '#2a221d', nebelNah: 50, nebelFern: 380,
-    // Die Sonne steht 20° über dem Horizont — flacher Einfall, also kaum
-    // Direktlicht auf waagerechtem Boden. Was das Bild trägt, ist hier die
-    // Umgebung: 3,0 → 4,5 und Belichtung 2,4 → 3,0 (D118) holen die Felsflanke
-    // von Median 0,058 auf 0,108, ohne dass die Sonne angefasst wird.
-    /**
-     * Warme Sonne, **kaltes** Umgebungslicht — aus dem Grund, der übrig blieb.
-     *
-     * Bis zum 27.08.2026 stand hier `umgebung: '#4e433c'`, ein warmes Braun.
-     * Am Abend kommt das Direktlicht von der tiefstehenden Sonne und ist warm,
-     * das Licht in den Schatten kommt vom **Himmel** und ist blau — zwei warme
-     * Quellen sind physikalisch einfach falsch. Gemessen an der Felsflanke
-     * (`?absetzen=-1620,-1620,40`): Pixel unter Leuchtdichte 0,02 **29,8 % →
-     * 20,6 %**, also ein Drittel weniger Loch, bei einem Messrauschen von 0,3
-     * Punkten.
-     *
-     * **Wofür es NICHT gut war, und das gehört dazu (G-115):** Der Anlass war
-     * die Beobachtung, abendrot sei monochrom — gemessen als
-     * saettigungsgewichtete Bündelung des Farbwinkels **0,994**, wo dieselbe
-     * Szene in `daemmerung` 0,529 und in `nebelmorgen` 0,738 ergibt. Die
-     * Umstellung auf kaltes Umgebungslicht änderte daran **nichts** (0,994 →
-     * 0,990), und der Nebel als zweiter Verdächtiger genauso wenig (Nebel
-     * praktisch abgeschaltet: 0,990). Übrig bleibt die Sonnenfarbe selbst:
-     * `#d98b5b` hat Sättigung 0,58 gegen 0,31 bei `daemmerung`, und ein stark
-     * gesättigtes Licht zieht jede Fläche, die es trifft, auf seinen Ton. Das
-     * ist keine Fehlfunktion — das **ist** Abendrot.
-     */
-    sonne: '#d98b5b', sonneStaerke: 1.8, umgebung: '#454f5e', umgebungStaerke: 4.5,
-    sonnenstand: [130, 55, 70] as const,
-    belichtung: 3.0,
-    schatten: 0.7,   // lange Abendschatten sind die Stimmung
-    fenster: 0.4,
-    zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
-    randFarbe: '#c07a4e', randStaerke: 0.26,
-    himmelAnteil: 0.35,
-  },
-  /**
-   * Probe D152: warmer Dunst. **Nicht im Tageslauf**, nur per `?stimmung=goldnebel`.
-   *
-   * Referenz sind acht Landschafts-Pressebilder eines aktuellen Titels (Summer
-   * Game Fest, 05.06.2026), gemessen mit demselben Mass wie das Bildtor
-   * (`.cache/mess/stil.mjs`). Was die Bilder gemeinsam haben, und zwar alle:
-   * - Licht **und** Schatten sind warm. Hellste 10 %: `#b7a995`…`#d7bca7`;
-   *   dunkelste 2–12 %: `#191410`…`#302521`. Kein blauer Schatten.
-   * - Der Dunst ist hell und traegt die Lichtfarbe: oberes Drittel `#7a756b`…
-   *   `#9b7873`, Leuchtdichte 0,19–0,24; unteres Drittel 0,03–0,08. Das Bild
-   *   faellt von oben nach unten um den Faktor 3–8.
-   * - Saettigung nimmt zum Vordergrund **zu**: oben 0,19–0,28, unten 0,30–0,40.
-   * - Median 0,06–0,14, dunkel 15–25 %, hell 8–17 %. Eine Blende dunkler als
-   *   die D110-Ziele (>= 0,15 / <= 10 %) — deshalb Probe, nicht Tageslauf.
-   * - Farbton: 80–95 % der Saettigung liegen in 0–60°, dazu eine Akzentfamilie.
-   *
-   * Uebernommen wird nur das: Lichtfarbe, Dunstfarbe, Wertestaffelung. Keine
-   * Assets, keine Motive (ADR-0004). Erste Werte geschaetzt, dann gemessen und
-   * nachgezogen — die Zahlen im Ledger D152.
-   */
-  goldnebel: {
-    // Drei Wuerfe, gemessen (.cache/stil152*.txt):
-    // 1. umgebung #6a5748/3,2, belichtung 2,4: Felsflanke traf die Referenz
-    //    (Licht #d7c2ae gegen #d7bca7, Dunst oben 0,226), aber Dorf 0,074 und
-    //    Grashang 0,099 bei Saettigung 0,53 — Schattenseiten Sepia statt Dunst.
-    // 2. Dunst #7d6f63, umgebung #7b6e63/4,2, belichtung 2,9: Dorf 0,185, aber
-    //    Felsflanke 0,362 mit 66 % hell — ausgebleicht. Der Dunst war zu hell.
-    // 3. Dunst und Himmel von 1, nur das Fuelllicht entsaettigt und angehoben.
-    himmel: '#5a4c43', nebel: '#5a4b40', nebelNah: 20, nebelFern: 230,
-    sonne: '#e2c6a6', sonneStaerke: 1.4, umgebung: '#7b6e63', umgebungStaerke: 4.0,
-    sonnenstand: [110, 38, -90] as const,
-    belichtung: 2.5,
-    schatten: 0.55,
-    fenster: 0.2,
-    zenit: '#4c4340', horizont: '#9c7f6c', scheibe: 0.0030, hof: 60,
-    randFarbe: '#e8cba8', randStaerke: 0.32,
-    hemiBoden: HEMI_BODEN_TAG,   // erbt `zielbild`
-  },
-};
-export type StimmungsName = keyof typeof STIMMUNG;
-/**
- * `zielbild` (Stufe 2): das Licht der Blender-Szene aus `tools/szenenbau.py` — Sonne 13° hoch im
- * Nordosten (Azimut 42°), warm; Dunst und Fuelllicht wie `goldnebel`. Nur per `?stimmung=zielbild`,
- * fuer den Vergleich Spielbild gegen Render an derselben Kamera (`?kamera=`).
- */
-STIMMUNG.zielbild = {
-  ...STIMMUNG.goldnebel,
-  // D172: **Sonne 1,6 → 3,2, Fülllicht 4,0 → 2,5, Schlagschatten 0,6 → 1,0.** Das Verhältnis Sonne zu
-  // Himmel war der Hebel, nicht Schattenkarte (4096 bei ±120 m: dunkel 21,0 → 21,2 %) und nicht der
-  // Himmelsanteil im Gelände (+1,4 Punkte). Bei 13° Sonnenhöhe trifft die Sonne flachen Boden mit
-  // sin 13° = 0,22 — mit 1,6 lag der beschienene Waldboden kaum über dem Schatten, im Bild fehlten die
-  // Stammschatten des Renders ganz. Gemessen (Bogenkamera, 16:9):
-  //   Stauwehr  Drittel 0,154/0,074/0,045 → 0,176/0,093/0,052  (Render 0,175/0,090/0,050), dunkel 21 → 29 % (44)
-  //   Felsmulde Median 0,033 → 0,017 (Render 0,015), dunkel 41 → 52 % (58), Drittel 0,216/0,133/0,054 (0,225/0,123/0,044)
-  // Das Fülllicht bleibt über dem Wert, an dem die sonnenabgewandte Mauer schwarz wurde (D159: 2,0) —
-  // seit D170 dämpft der Himmelsanteil es dort, wo es nichts zu suchen hat, deshalb reichen 2,5.
-  sonne: '#f2dcc0', sonneStaerke: 3.2,
-  umgebungStaerke: 2.5,
-  schatten: 1.0,
-  // Azimut 42° von Nord im Uhrzeigersinn, Hoehe 13°: (sin·cos, sin, −cos·cos)
-  sonnenstand: [65.2, 22.5, -72.4] as const,
-};
-/**
- * `tag` (D168) ist `zielbild` im Tageslauf — dasselbe Objekt, damit die Messadresse
- * `?stimmung=zielbild` und der Schlüssel bei 0,39 nie auseinanderlaufen.
- */
-STIMMUNG.tag = STIMMUNG.zielbild;
 
 /**
  * `?stimmung=goldnebel` setzt eine Stimmung **ausserhalb** des Tageslaufs (D152).
@@ -745,6 +502,14 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
     amplitude: 0.25, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5,
   }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 1, metalness: 0 })), []);
   /**
+   * Farn (D212): eigener Wind ohne Saum. Mit Normalen nach oben ist `1 - |N·V|` kein Rand, sondern
+   * nur der Blickwinkel — auf dem dunklen Farn lag der Saum als grauer Schleier über der ganzen
+   * Pflanze (Render 08.10.2026). Dafür Durchlass: Wedel leuchten im Gegenlicht.
+   */
+  const farnWind = useMemo(() => baueWindMaterial({
+    amplitude: 0.2, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
+  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 1, metalness: 0 })), []);
+  /**
    * Blender-Baeume (D155): derselbe Wind, aber glatt schattiert (die Blattmassen tragen Normalen),
    * Loecher im Laub (`COLOR_0.a` = Laubmaske) und Durchlass fuer das Gegenlicht — dasselbe Rezept
    * wie die Bauwerke, nur als Instanz. Der Saum bleibt schwach: Klumpen mit Loechern sind lauter Kanten.
@@ -781,6 +546,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
     }
     wind.setzeZeit(uhr.current);
     grasWind.setzeZeit(uhr.current);
+    farnWind.setzeZeit(uhr.current);
     baumWind.setzeZeit(uhr.current);
   });
   /**
@@ -804,8 +570,9 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} grasWind={grasWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} />
+      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
+      {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} />}
     </group>
   );
 }
@@ -925,7 +692,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
-function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial }) {
+function Props({ props, wind, grasWind, farnWind, baumWind, baumTiefe }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<{ art: PropArt; variante: number; instanzen: PropInstanz[] }[]>([]);
@@ -982,7 +749,7 @@ function Props({ props, wind, grasWind, baumWind, baumTiefe }: { props: PropInst
   return (
     <>
       {sichtbar.map(({ c, stufe, id }) =>
-        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} baumWind={baumWind} baumTiefe={baumTiefe} />)}
+        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} baumWind={baumWind} baumTiefe={baumTiefe} />)}
       {fern.map(({ art, variante, instanzen }) =>
         <PropFernMesh key={`${art}:${variante}`} art={art} variante={variante} instanzen={instanzen} baumWind={baumWind} />)}
     </>
@@ -1130,8 +897,9 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
 const LEER: ReadonlySet<string> = new Set();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, wind, grasWind, baumWind, baumTiefe }: {
+function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, baumWind, baumTiefe }: {
   chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
+  farnWind: THREE.MeshStandardMaterial;
   baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial;
 }) {
   const fern = stufe === 'fern';
@@ -1141,7 +909,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, baumWind, baumTiefe }: {
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
   // als bewegtes Laub aufbaut.
   const biegsam = chunk.art === 'nadelbaum' || chunk.art === 'laubbaum' || chunk.art === 'busch';
-  const gras = chunk.art === 'grasbuschel';
+  const gras = chunk.art === 'grasbuschel' || chunk.art === 'farn';
   const ref = useRef<THREE.InstancedMesh>(null);
 
   useEffect(() => {
@@ -1183,7 +951,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, baumWind, baumTiefe }: {
       ref={ref} args={[undefined, undefined, chunk.instanzen.length]}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={fern && !blender ? fernGeo : geo}
-      material={blender ? baumWind : fern ? FERN_MATERIAL : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
+      material={blender ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
       castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
     />
@@ -1632,25 +1400,29 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
   }), []);
   useEffect(() => { setzeRand(new THREE.Color(rand.farbe), rand.staerke); }, [setzeRand, rand]);
   useEffect(() => { setzeRollen(farben ?? null); }, [setzeRollen, farben]);
+  const himmelKarte = useHimmelKarte();
   useEffect(() => {
-    if (hg) { legeWahlAn(scene, hg); return; }
+    if (hg) { legeWahlAn(scene, hg); setzeFigurUmgebung(scene, himmelKarte); return; }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
     });
-  }, [scene, material]);
+  }, [scene, material, himmelKarte]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
   const clips = useMemo(() => {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
     // Neue Figuren: Arme verschränkt statt Idle_Neutral, ein Nicken statt Winken (UAL2).
     const idle = mixer.clipAction(finde('Idle')), ruhig = mixer.clipAction(finde(hg ? 'Idle_Ruhig' : 'Idle_Neutral'));
     const wink = mixer.clipAction(finde(hg ? 'Gruss' : 'Wave')), walk = mixer.clipAction(finde('Walk'));
-    idle.play();
     wink.setLoop(THREE.LoopOnce, 1); wink.clampWhenFinished = false;
     walk.timeScale = MENSCH_WALK_RATE;
     return { idle, ruhig, wink, walk, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
-  useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
+  // G-137: Idle im Effekt starten, nicht im useMemo — siehe `SpielerFigur`.
+  useEffect(() => {
+    clips.idle.reset().play(); clips.aktiv = clips.idle;
+    return () => { mixer.stopAllAction(); };
+  }, [mixer, clips]);
   /** Weich zu einem Clip wechseln (G-133: einblenden mit Gewicht 1, nicht 0). */
   const wechsle = (ziel: THREE.AnimationAction, dauer: number) => {
     if (ziel === clips.aktiv) return;
@@ -1669,6 +1441,13 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
   const weg = useRef({ t: 0, richtung: 1, pause: 4 + ((blick * 7919) % 100) / 100 * 8, winkt: false, ruhig: false });
   const wurzelY = useRef<number | null>(null);
   const ausflugRef = useRef({ t: 0 });
+  // D217: Füsse auf den Boden auch für Bewohner — nur in der Nähe (Kosten je Figur und Bild).
+  const fuss = useRef<FussZustand>(neuerFussZustand());
+  const fussBeine = useMemo(() => {
+    if (!hg) return null;
+    const h = (n: keyof typeof HELD_KNOCHEN) => scene.getObjectByName(HELD_KNOCHEN[n]) ?? null;
+    return { ol: h('ol'), ul: h('ul'), fl: h('fl'), or: h('or'), ur: h('ur'), fr: h('fr') };
+  }, [scene, !!hg]);
   useFrame((_, dt) => {
     const g = gruppe.current, p = ziel.current?.position;
     const w = weg.current;
@@ -1744,6 +1523,11 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
       }
     }
     mixer.update(Math.min(dt, 0.1));
+    if (fussBeine && FUESSE_AN && g && p) {
+      const wp = g.getWorldPosition(_meldeV);
+      const nah = Math.hypot(p.x - wp.x, p.z - wp.z) < BEWOHNER_FUSS_AB;
+      if (nah || fuss.current.an > 0) setzeFuesse(fussBeine, scene, hoeheAn, fuss.current, dt, nah);
+    }
     if (melde && g) { const wp = g.getWorldPosition(_meldeV); melde(wp.x, wp.z); }
   });
   return (
@@ -2117,12 +1901,12 @@ function Beleuchtung({ s, ziel }: {
 
   const himmel = useMemo(() => baueHimmel({
     zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
-    sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof,
+    sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
   }), [s]);
   useEffect(() => {
     setzeHimmel(himmel, {
       zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
-      sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof,
+      sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
     });
   }, [himmel, s]);
 
@@ -2185,6 +1969,23 @@ function Beleuchtung({ s, ziel }: {
       />
     </>
   );
+}
+
+/**
+ * Einzelhalme im Nahbereich, auf der GPU (D211, `world/grasteppich.ts`). `?aus=teppich` schaltet ab.
+ */
+function Grasteppich({ welt, feld, ziel, dichte }: {
+  welt: Weltdaten; feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number;
+}) {
+  const aufWeg = useMemo(() => wegTest(welt, feld), [welt, feld]);
+  const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
+  useEffect(() => () => teppich.dispose(), [teppich]);
+  useFrame(({ clock }) => {
+    teppich.setzeZeit(clock.elapsedTime);
+    const p = ziel.current?.position;
+    if (p) teppich.ziehNach(p.x, p.z);
+  });
+  return <primitive object={teppich.mesh} />;
 }
 
 /**
@@ -2939,8 +2740,10 @@ function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
  * Reiten (D93, D145): Im Sattel spielt die Figur Idle, wird um den Widerrist
  * angehoben und bekommt die Sitzpose ueber drei Winkel je Bein (`sitzpose`).
  */
-function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
+function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeheAn }: {
   gier: React.RefObject<number>;
+  /** Geländehöhe für die Füsse (D214). Ohne sie bleiben die Füsse, wo der Clip sie hinsetzt. */
+  hoeheAn?: (x: number, z: number) => number;
   /** Schmiedestufen (D178): Stufe 1–2 heller geschliffen, Stufe 3 ein anderes Modell. */
   waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Kampfzustand (D167): Schlag, Rolle, Treffer, Fall als Clip. Ohne Kampf null. */
@@ -2975,13 +2778,17 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
   }, [setzeRand, rand]);
   // Material tauschen und Schatten setzen — einmal je Szene. Die neue Figur behält ihre Texturen
   // und bekommt die Wahl aus dem Editor (Frisur, Haut, Haar).
+  const fuss = useRef<FussZustand>(neuerFussZustand());
+  const himmelKarte = useHimmelKarte();
+  // D213: Saum für die neuen Gestalten aus derselben Randfarbe wie Kreaturen und alte Figur.
+  useEffect(() => { setzeFigurSaum(rand.farbe, rand.staerke); }, [rand]);
   useEffect(() => {
-    if (held) { legeWahlAn(scene, wahl!); return; }
+    if (held) { legeWahlAn(scene, wahl!); setzeFigurUmgebung(scene, himmelKarte); return; }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
     });
-  }, [scene, material, held, wahl]);
+  }, [scene, material, held, wahl, himmelKarte]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
   const clips = useMemo(() => {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
@@ -3004,7 +2811,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
     // der Faktor, mit dem `fadeIn` multipliziert — 0 mal Einblendung bleibt 0,
     // und die Figur lief bis D145 als T-Pose, weil Idle ausblendete und nichts
     // einblendete. Gesehen wurde das erst, als der Gang im Lauf gemessen wurde.
-    idle.play();
+    // Gestartet wird Idle im Effekt unten, nicht hier (G-137).
     return { idle, walk, run, schlag, axt, rolle, treffer, tod, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
   /**
@@ -3105,7 +2912,18 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
     // nächste Figur die alten mit (im Bild gefunden: Speer zugleich in der Hand und am Rücken).
     for (const r of Object.values(waffen.ruecken)) r?.removeFromParent();
   }, [waffen]);
-  useEffect(() => () => { mixer.stopAllAction(); }, [mixer]);
+  /**
+   * G-137: Idle hier starten, nicht im `useMemo`. `main.tsx` rendert in `<StrictMode>`, und im
+   * Dev-Server hängt React jede Komponente einmal ab und wieder an: Die Aufräumfunktion stoppt alle
+   * Clips, das `useMemo` läuft aber nicht noch einmal. Idle blieb gestoppt (`isRunning() === false`
+   * bei Gewicht 1), und weil die Clipwahl nur bei einem **Wechsel** neu startet, stand die Figur
+   * im Stand in der Ruhepose des Skeletts — T-Pose —, bis sie einmal ging. Gemessen 07.10.2026
+   * per Laufzeitsonde im Headless-Browser; der Produktions-Build war nicht betroffen.
+   */
+  useEffect(() => {
+    clips.idle.reset().play(); clips.aktiv = clips.idle;
+    return () => { mixer.stopAllAction(); };
+  }, [mixer, clips]);
   // Die Beinknochen fuer die Sitzpose (D145). GLTFLoader streicht den Punkt aus
   // den Namen (`UpperLeg.L` → `UpperLegL`); beide Schreibweisen werden gesucht.
   const beine = useMemo(() => {
@@ -3182,7 +3000,10 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
     const { phase, tempo } = schritt.current;
     const stark = Math.min(1, tempo / RENNEN);
     // Clip nach Tempo, weich ueberblendet; im Sattel immer Idle.
-    let ziel = reittier || tempo < 0.15 ? clips.idle : tempo < 5.5 ? clips.walk : clips.run;
+    // D217: Schwelle mit Abstand — bei 5,5 m/s flackerte die Figur zwischen Gehen und Laufen,
+    // wenn das Tempo um die Grenze pendelte (Hang, Ausdauer). Hoch bei 5,5, zurück bei 4,8.
+    const laeuft = clips.aktiv === clips.run;
+    let ziel = reittier || tempo < 0.15 ? clips.idle : tempo < (laeuft ? 4.8 : 5.5) ? clips.walk : clips.run;
     // Im Kampf steht sie in der Haltung ihrer Waffe (D171), nicht in der Ruhe des Wanderns.
     if (k && k.phase === 'bereit' && ziel === clips.idle) ziel = aktionen(k.haltung, false) ?? clips.idle;
     // ---- Kampf (D167): Clip nach Phase, gestreckt auf die Dauer der Regel. Die Regel ist die
@@ -3245,8 +3066,17 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
     if (ziel !== clips.aktiv || neu) {
       // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
       // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
+      const vorher = clips.aktiv;
       ziel.reset().setEffectiveWeight(1).play();
       if (hiebe.current.has(ziel)) { ziel.time = hiebZeit; ziel.timeScale = 0; }
+      // D217: Gehen ↔ Laufen im selben Schritt fortsetzen statt bei Bild 0 — sonst setzt der neue
+      // Clip mit dem falschen Fuss auf, und die Überblendung zeigt einen Hüpfer. Beide Clips beginnen
+      // mit demselben Fuss (UAL2), also reicht der Anteil am Zyklus. Länger überblendet als sonst.
+      const gang = (a: THREE.AnimationAction) => a === clips.walk || a === clips.run;
+      if (gang(vorher) && gang(ziel) && vorher !== ziel) {
+        ziel.time = (vorher.time / vorher.getClip().duration) * ziel.getClip().duration;
+        blende = 0.4;
+      }
       if (clips.aktiv !== ziel) clips.aktiv.crossFadeTo(ziel, blende, false);
       clips.aktiv = ziel;
     }
@@ -3270,6 +3100,8 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen }: {
       }
       sitzpose(beine, scene, sitz.current, breite ?? 0.2);
     }
+    // D214: Füsse auf den Boden, nach Clip und Sitzpose. `?fuesse=0` zum Vergleich.
+    if (hoeheAn && FUESSE_AN) setzeFuesse(beine, scene, hoeheAn, fuss.current, dt, held && sitz.current < 0.01);
 
     if (reittier) {
       const hoehe = (mitModell ? sitzHoehe.current?.hoehe : null) ?? reittier.hoehe;
@@ -3341,6 +3173,8 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   /** 0 = frei, 1 = über der Schulter aufs Ziel. */
   const schulter = useRef(0);
   const blickZiel = useRef(new THREE.Vector3());
+  /** Arm der Schulterkamera nach Sichtprüfung (D192): zieht hart ein, fährt weich aus. */
+  const schulterArm = useRef<number>(GROESSE.kameraAbstand);
   /** Ruck bei Treffern (D171): Stärke in Metern, klingt in ~0,12 s ab. */
   const ruck = useRef({ getroffen: -1, gesetzt: -1, staerke: 0, uhr: 0 });
   /**
@@ -3452,13 +3286,13 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     const weit = GROESSE.kameraAbstand * zoom.current;
     // Ausdrücklich `number`: `GROESSE` ist `as const`, sonst erbt `frei` den Literaltyp 6.
     let frei: number = weit;
+    const versperrt: Versperrt = (x, y, z) => {
+      const [kx, kz] = kollision.schiebeRaus(x, z);
+      return kx !== x || kz !== z || y < hoeheAufFlaeche(feld, x, z) + 0.45;
+    };
     for (let i = 1; i <= SICHT_PROBEN; i++) {
       const d = (weit * i) / SICHT_PROBEN;
-      const x = p.x + rx * d, y = blickY + ry * d, z = p.z + rz * d;
-      const [kx, kz] = kollision.schiebeRaus(x, z);
-      const versperrt = kx !== x || kz !== z
-        || y < hoeheAufFlaeche(feld, x, z) + 0.45;
-      if (versperrt) { frei = d - SICHT_PUFFER; break; }
+      if (versperrt(p.x + rx * d, blickY + ry * d, p.z + rz * d)) { frei = d - SICHT_PUFFER; break; }
     }
     const ziel_ = Math.max(KAMERA_MIN, Math.min(weit, frei));
     abstand.current = ziel_ < abstand.current
@@ -3486,8 +3320,15 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     if (gf) {
       // Vom Gegner zur Spielerin, 3,2 m weit, 25° zur Seite gedreht, auf Augenhöhe des Gegners.
       const dx = p.x - gf.x, dz = p.z - gf.z, d = Math.hypot(dx, dz) || 1;
-      const w = Math.atan2(dx / d, dz / d) + 0.45;
-      const soll = new THREE.Vector3(gf.x + Math.sin(w) * 3.2, gf.y + 0.35, gf.z + Math.cos(w) * 3.2);
+      // D192: Steht dort ein Stamm oder verdeckt einer den Gegner, erst die andere Seite, dann näher.
+      const w0 = Math.atan2(dx / d, dz / d);
+      const lagen: [number, number][] = [[0.45, 3.2], [-0.45, 3.2], [0.45, 2.4], [-0.45, 2.4], [0.45, 1.6]];
+      const gp = [gf.x, gf.y, gf.z] as const;
+      const [w, ab] = lagen.find(([dw, ab]) => {
+        const k = [gf.x + Math.sin(w0 + dw) * ab, gf.y + 0.35, gf.z + Math.cos(w0 + dw) * ab] as const;
+        return !versperrt(k[0], k[1], k[2]) && sichtFrei(k, gp, versperrt, ZIEL_RAND);
+      }) ?? lagen[0];
+      const soll = new THREE.Vector3(gf.x + Math.sin(w0 + w) * ab, gf.y + 0.35, gf.z + Math.cos(w0 + w) * ab);
       gegnerKamera.current.lerp(soll, gegnerKamera.current.lengthSq() === 0 ? 1 : Math.min(1, dt * 5));
       camera.position.copy(gegnerKamera.current);
       camera.lookAt(gf.x, gf.y - 0.1, gf.z);
@@ -3497,9 +3338,24 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     gegnerKamera.current.set(0, 0, 0);
     camera.position.copy(geglaettet.current);
     const m = schulter.current;
-    if (m < 0.001) { camera.lookAt(p.x, blickY, p.z); wackle(); return; }
+    if (m < 0.001) { schulterArm.current = abstand.current; camera.lookAt(p.x, blickY, p.z); wackle(); return; }
     // Rechts der Blickrichtung (−sin g, −cos g) ist (cos g, −sin g) — dieselbe Achse wie `seit`.
     const sx = Math.cos(g) * SCHULTER.seite * m, sz = -Math.sin(g) * SCHULTER.seite * m;
+    // D192: Mit Versatz und mit Ziel neu prüfen — der Versatz kann die Kamera in einen Stamm schieben,
+    // und ein Stamm zwischen Kamera und Ziel verdeckt den Gegner, den man lesen soll. Einziehen hart,
+    // Ausfahren weich, wie oben.
+    const sollArm = armMitSicht({
+      blick: [p.x, blickY, p.z], richtung: [rx, ry, rz], versatz: [sx, SCHULTER.hoch * m, sz],
+      ziel: fokus ? [fokus.x, fokus.y, fokus.z] : null,
+      min: KAMERA_MIN, max: abstand.current, versperrt,
+    });
+    schulterArm.current = sollArm < schulterArm.current
+      ? sollArm
+      : schulterArm.current + (sollArm - schulterArm.current) * Math.min(1, dt * 2.5);
+    if (schulterArm.current < abstand.current - 0.01) {
+      const ra = schulterArm.current;
+      camera.position.set(p.x + rx * ra, blickY + ry * ra, p.z + rz * ra);
+    }
     camera.position.x += sx; camera.position.z += sz; camera.position.y += SCHULTER.hoch * m;
     const f = blickZiel.current, a = SCHULTER.zumZiel * m;
     camera.lookAt(
@@ -3884,6 +3740,7 @@ export function RegionsSzene({
             jedem geladenen Modell neu. */}
         <Suspense fallback={null}>
           <SpielerFigur gier={gier} schritt={schritt} reittier={reittier} kampf={kampfFigur} waffenStufen={waffenStufen}
+                        hoeheAn={feld.hoehe}
                         rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
         </Suspense>
       </object3D>
@@ -3926,7 +3783,9 @@ export function RegionsSzene({
                    hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} kollision={kollision} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
-      <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)} />
+      {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
+      <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
+              bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />
       <Messung melde={onMessung} />
       </WasserUmgebung>
     </Canvas>

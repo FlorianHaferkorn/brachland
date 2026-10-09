@@ -36,7 +36,15 @@ export interface HimmelWerte {
   scheibe: number;
   /** Reichweite des Hofs. Kleiner Wert = weiter Hof. */
   hof: number;
+  /** D203: Wolkenbedeckung 0…1; ohne Angabe `WOLKEN_VORGABE`. */
+  wolken?: number;
 }
+
+/**
+ * D203: Bedeckung, wenn die Stimmung nichts sagt. Ein Himmel ohne eine einzige Wolke las sich an
+ * den Vergleichskameras als Fläche; Soulframe-Himmel (ADR-0012) tragen fast immer Schichten.
+ */
+export const WOLKEN_VORGABE = 0.45;
 
 const VERTEX = /* glsl */ `
 varying vec3 vRichtung;
@@ -57,7 +65,27 @@ uniform vec3 sonnenfarbe;
 uniform vec3 sonnenrichtung;
 uniform float scheibe;
 uniform float hof;
+uniform float wolken;
+uniform float uZeit;
 varying vec3 vRichtung;
+
+// D203: Wertrauschen und FBM für die Wolken — dieselbe Machart wie das Bodenrauschen, null Bytes.
+float himmelHash(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+float himmelRauschen(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(himmelHash(i), himmelHash(i + vec2(1.0, 0.0)), f.x),
+             mix(himmelHash(i + vec2(0.0, 1.0)), himmelHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+float himmelFbm(vec2 p) {
+  float s = 0.0, a = 0.5;
+  for (int k = 0; k < 5; k++) { s += a * himmelRauschen(p); p = mat2(1.6, 1.2, -1.2, 1.6) * p; a *= 0.5; }
+  return s;
+}
 
 void main() {
   vec3 r = normalize(vRichtung);
@@ -78,10 +106,27 @@ void main() {
   vec3 s = normalize(sonnenrichtung);
   float d = max(dot(r, s), 0.0);
 
-  // Hof: weiter, weicher Abfall. Das ist der Teil, der die Stimmung macht.
-  farbe += sonnenfarbe * pow(d, hof) * 0.55;
-  // Scheibe: harte Kante mit schmalem Saum.
-  farbe += sonnenfarbe * smoothstep(1.0 - scheibe, 1.0 - scheibe * 0.35, d) * 1.4;
+  // D203: Wolken. Kuppelprojektion — zum Horizont hin dichter gepackt, wie eine Wolkendecke in der
+  // Perspektive. Unten laufen sie in den Dunst aus, sonst stünde eine Kante über dem Gelände.
+  // Beleuchtet von der Sonne: Grundton aus dem Horizont, zur Sonne hin wärmer und heller, am Rand
+  // ein heller Saum im Gegenlicht.
+  float bedeckt = 0.0;
+  if (h > 0.0 && wolken > 0.0) {
+    vec2 uv = r.xz / (h + 0.12) * 0.75 + vec2(uZeit * 0.0035, uZeit * 0.0012);
+    float n = himmelFbm(uv) + 0.25 * himmelFbm(uv * 3.1 + 7.0) - 0.125;
+    float dichte = smoothstep(1.0 - wolken, 1.0 - wolken + 0.32, n);
+    bedeckt = dichte * smoothstep(0.015, 0.16, h);
+    float licht = 0.5 + 0.5 * pow(d, 2.0);
+    vec3 wolkenFarbe = mix(horizont * 0.82, mix(horizont, sonnenfarbe, 0.4) * 1.2, licht);
+    wolkenFarbe += sonnenfarbe * dichte * (1.0 - dichte) * 4.0 * pow(d, 5.0) * 0.45;
+    farbe = mix(farbe, wolkenFarbe, bedeckt * 0.9);
+  }
+
+  // Hof: weiter, weicher Abfall. Das ist der Teil, der die Stimmung macht. Durch Wolken gedämpft,
+  // nicht ausgelöscht — der Hof ist Streulicht und leuchtet die Wolken mit aus.
+  farbe += sonnenfarbe * pow(d, hof) * 0.55 * (1.0 - bedeckt * 0.5);
+  // Scheibe: harte Kante mit schmalem Saum, hinter Wolken verdeckt.
+  farbe += sonnenfarbe * smoothstep(1.0 - scheibe, 1.0 - scheibe * 0.35, d) * 1.4 * (1.0 - bedeckt * 0.9);
   // Gegenlicht: schwacher Aufheller gegenueber der Sonne, knapp ueber dem Horizont.
   float gegen = max(dot(r, -s), 0.0);
   farbe += sonnenfarbe * pow(gegen, 8.0) * exp(-max(h, 0.0) * 6.0) * 0.10;
@@ -115,6 +160,8 @@ export function baueHimmel(w: HimmelWerte): THREE.Mesh {
       sonnenrichtung: { value: new THREE.Vector3(...w.sonnenstand).normalize() },
       scheibe: { value: w.scheibe },
       hof: { value: w.hof },
+      wolken: { value: w.wolken ?? WOLKEN_VORGABE },
+      uZeit: { value: 0 },
     },
   });
 
@@ -123,6 +170,8 @@ export function baueHimmel(w: HimmelWerte): THREE.Mesh {
   const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 10), material);
   mesh.frustumCulled = false;
   mesh.renderOrder = -1000;
+  // Wolken ziehen: Zeit je Bild, ohne dass die Szene davon wissen muss.
+  mesh.onBeforeRender = () => { material.uniforms.uZeit.value = performance.now() / 1000; };
   return mesh;
 }
 
@@ -135,4 +184,5 @@ export function setzeHimmel(mesh: THREE.Mesh, w: HimmelWerte): void {
   (u.sonnenrichtung.value as THREE.Vector3).set(...w.sonnenstand).normalize();
   u.scheibe.value = w.scheibe;
   u.hof.value = w.hof;
+  u.wolken.value = w.wolken ?? WOLKEN_VORGABE;
 }
