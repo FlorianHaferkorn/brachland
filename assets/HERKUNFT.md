@@ -90,15 +90,25 @@ Original ein eigenes Netz (`Stag_Horns`, 1.616 Flächen), und die Linie trägt l
 `content/creatures/grathorn.json` ein Chitinplatten-Gehörn. Das kommt als Anbau
 aus `src/world/kreaturgestalt.ts` und ist BRACHLAND-eigen.
 
-## Materialien (`public/material`, D206)
+## Materialien (`public/material`, D206, seit D223 Scans)
 
-Detailnormalen für Boden und Fels. CC0, also ohne Pflicht zur Nennung; hier steht die Herkunft
-trotzdem, damit niemand rätseln muss.
+Gescannte Bodenschichten von Poly Haven. CC0, also ohne Pflicht zur Nennung; hier steht die
+Herkunft trotzdem, damit niemand rätseln muss. Lizenz geprüft am 15.10.2026 auf
+<https://polyhaven.com/license> („Our assets are all licensed as CC0“). Geladen in 2K (Diffuse,
+`nor_gl`, Displacement, JPG) über `api.polyhaven.com/files/<id>`, gepackt auf 1024² WebP:
+`*-farbe` = Diffuse linear durch den Scan-Mittelwert geteilt (Mittel 0,5, als Wurzel gespeichert)
++ Displacement im Alphakanal; `*-normal` = `nor_gl` verkleinert. Rohdaten liegen nicht im Repo
+(`.cache/scans/`, gitignored).
 
 | Datei | Rolle | Autor | Lizenz | Quelle |
 |---|---|---|---|---|
-| fels-normal.webp | Felswand, triplanar an steilen Hängen | Poimandres (pmndrs) | CC0-1.0 | npm `@pmndrs/assets` 1.7.0, `normals/0005.webp`, unverändert |
-| boden-normal.webp | Feinkies/Erde, planar am Boden | Poimandres (pmndrs) | CC0-1.0 | npm `@pmndrs/assets` 1.7.0, `normals/0015.webp`, unverändert |
+| wiese-farbe.webp, wiese-normal.webp | Offener Boden, planar | Rob Tuytel | CC0-1.0 | Poly Haven `forrest_ground_01` (2 × 2 m) |
+| waldboden-farbe.webp, waldboden-normal.webp | Waldboden (Laub, Moos), planar | Rob Tuytel | CC0-1.0 | Poly Haven `forest_leaves_02` (3 × 3 m) |
+| schutt-farbe.webp, schutt-normal.webp | Schutt am Hangfuss, planar | Rob Tuytel | CC0-1.0 | Poly Haven `rocks_ground_01` (2 × 2 m) |
+| fels-farbe.webp, fels-normal.webp | Fels an steilen Hängen, triplanar | Rob Tuytel | CC0-1.0 | Poly Haven `mossy_rock` (3 × 3 m) |
+
+Bis D222 lagen hier zwei Detailnormalen aus npm `@pmndrs/assets` 1.7.0 (`normals/0005`, `0015`,
+Poimandres, CC0-1.0); D223 hat sie ersetzt.
 
 ## Was im Spiel stehen muss
 

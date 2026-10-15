@@ -55,7 +55,7 @@ export default defineConfig({
         // in gar keinem Cache, weil die Seite beim ersten Aufruf noch nicht unter
         // Service-Worker-Kontrolle steht (G-100). Zuständig ist jetzt
         // `src/world/weltladen.ts`, das die Cache-API direkt bedient.
-        // D206: `webp` für die Detailnormalen unter `material/` (143 KB) — ohne sie offline flacher Boden.
+        // D206/D223: `webp` für die Bodenscans unter `material/` (5,1 MB) — ohne sie offline flacher Boden.
         globPatterns: ['**/*.{js,css,html,glb,webp}'],
         // **Bauwerke (Blender-Szenen) stehen nicht im Precache** (D155): zwei Szenen wiegen
         // schon 40 MB, und mit Stufe 3 werden es Dutzende. Sie werden geladen, wenn der
