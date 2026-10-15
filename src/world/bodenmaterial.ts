@@ -137,7 +137,8 @@ const VARIATION_GLSL = /* glsl */ `
  * (`mossy_rock`, triplanar). Je Schicht zwei Bilder:
  *
  * - `*-farbe.webp`: RGB ist **Modulation**, nicht Farbe — linear durch den Mittelwert des Scans
- *   geteilt, Mittel 0,5, als Wurzel gespeichert. Der Farbton kommt weiter aus Palette und Biom
+ *   geteilt, Mittel 0,5, linear gespeichert (als Wurzel
+ *   gespeichert mitteln die Mipmaps die Wurzel, und die Ferne wird dunkler). Der Farbton kommt weiter aus Palette und Biom
  *   (Art Direction, ADR-0012), der Scan liefert Hell/Dunkel und Farbwechsel innerhalb davon.
  *   A ist die Höhe des Scans: Die Schichten mischen über sie (Steine ragen aus dem Schutt,
  *   Moos aus dem Laub), nicht über eine weiche Rampe.
@@ -149,8 +150,8 @@ const VARIATION_GLSL = /* glsl */ `
  */
 const FLACH = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
 FLACH.needsUpdate = true;
-/** Modulation 1,0 (gespeichert √0,5 ≈ 181) und mittlere Höhe. */
-const NEUTRAL = new THREE.DataTexture(new Uint8Array([181, 181, 181, 128]), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+/** Modulation 1,0 (gespeichert 0,5) und mittlere Höhe. */
+const NEUTRAL = new THREE.DataTexture(new Uint8Array([128, 128, 128, 128]), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
 NEUTRAL.needsUpdate = true;
 
 const SCHICHTEN = ['wiese', 'waldboden', 'schutt', 'fels'] as const;
@@ -245,7 +246,7 @@ const SCAN_GLSL = /* glsl */ `
 
   vec3 scanMod = sWiese.rgb * scanGewicht.x + sWald.rgb * scanGewicht.y
                + sSchutt.rgb * scanGewicht.z + sFels.rgb * scanGewicht.w;
-  scanMod = scanMod * scanMod * 2.0;
+  scanMod *= 2.0;
   diffuseColor.rgb *= mix(vec3(1.0), scanMod, 0.85);
 `;
 

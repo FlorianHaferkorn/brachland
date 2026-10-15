@@ -96,7 +96,7 @@ Gescannte Bodenschichten von Poly Haven. CC0, also ohne Pflicht zur Nennung; hie
 Herkunft trotzdem, damit niemand rätseln muss. Lizenz geprüft am 15.10.2026 auf
 <https://polyhaven.com/license> („Our assets are all licensed as CC0“). Geladen in 2K (Diffuse,
 `nor_gl`, Displacement, JPG) über `api.polyhaven.com/files/<id>`, gepackt auf 1024² WebP:
-`*-farbe` = Diffuse linear durch den Scan-Mittelwert geteilt (Mittel 0,5, als Wurzel gespeichert)
+`*-farbe` = Diffuse linear durch den Scan-Mittelwert geteilt (Mittel 0,5, linear gespeichert)
 + Displacement im Alphakanal; `*-normal` = `nor_gl` verkleinert. Rohdaten liegen nicht im Repo
 (`.cache/scans/`, gitignored).
 
