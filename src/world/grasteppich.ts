@@ -148,8 +148,12 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vec3 bodenTon = bilinear(uTon, ort).rgb;
   float abst = distance(ort, uMitte);
   float rand = 1.0 - smoothstep(${(TEPPICH_HALB * 0.45).toFixed(1)}, ${(TEPPICH_HALB * 0.98).toFixed(1)}, abst);
+  // D225: Wo wenig Gras steht (Wald, Acker), wächst es in Horsten (~5 m) mit kahlen Stellen
+  // dazwischen — dort zeigt sich der gescannte Boden (D223). Volle Wiese (Dichte 1) bleibt geschlossen.
+  float horst = smoothstep(0.4, 0.75, halmRauschen(ort * 0.18 + 3.7)) * 1.8;
+  float dicht = boden.g * mix(1.0, horst, 1.0 - boden.g);
   // Dichte als Schwelle: stabil am Ort, kein Flackern beim Nachziehen.
-  float da = step(h3, boden.g) * rand;
+  float da = step(h3, dicht) * rand;
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
   float breite = 0.012 + h5 * 0.012;
   float winkel = h1 * 6.2832;
@@ -186,7 +190,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       // Rückseite um, dann zeigte sie in den Boden und der halbe Rasen wäre schwarz.
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);');
   };
-  material.customProgramCacheKey = () => 'brachland-grasteppich-v2';
+  material.customProgramCacheKey = () => 'brachland-grasteppich-v3';
 
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;
