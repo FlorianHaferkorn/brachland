@@ -521,7 +521,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
     // Stauwehr 30 % der Bildhelligkeit (Median 0,100 -> 0,069 ohne Saum). Kreaturen und Figur behalten
     // ihre weichen 1,6: dort ist die Flaeche gross und die Silhouette wirklich ein Rand.
     randSchaerfe: 10,
-    loecher: 0.42, loecherSkala: 9, durchlass: 0.45,
+    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde: true,
   }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide })), []);
   useEffect(() => {
     wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);

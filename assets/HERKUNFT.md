@@ -106,6 +106,7 @@ Herkunft trotzdem, damit niemand rätseln muss. Lizenz geprüft am 15.10.2026 au
 | waldboden-farbe.webp, waldboden-normal.webp | Waldboden (Laub, Moos), planar | Rob Tuytel | CC0-1.0 | Poly Haven `forest_leaves_02` (3 × 3 m) |
 | schutt-farbe.webp, schutt-normal.webp | Schutt am Hangfuss, planar | Rob Tuytel | CC0-1.0 | Poly Haven `rocks_ground_01` (2 × 2 m) |
 | fels-farbe.webp, fels-normal.webp | Fels an steilen Hängen, triplanar | Rob Tuytel | CC0-1.0 | Poly Haven `mossy_rock` (3 × 3 m) |
+| rinde-farbe.webp | Rinde der Blender-Bäume (D224), nur Farbe + Höhe, Relief im Shader | Dimitrios Savva | CC0-1.0 | Poly Haven `knotted_pine_bark` (1,7 × 1,7 m), Lizenz geprüft 15.10.2026 |
 
 Bis D222 lagen hier zwei Detailnormalen aus npm `@pmndrs/assets` 1.7.0 (`normals/0005`, `0015`,
 Poimandres, CC0-1.0); D223 hat sie ersetzt.
