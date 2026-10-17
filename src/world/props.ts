@@ -85,7 +85,7 @@ export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
  *     Satellitenstudie 2015, ländlicher Raum: 51,2 %), grünbedeckt sind 35–39 %.
  *     Der Rest ist gemähter Rasen, und Rasen trägt keine Horste — darum die Hälfte
  *     der Wiese, nicht 37 % davon.
- *   - **Totholz: 3.** Der Holzstoss an der Hauswand. `totholz_stapel` ist genau das
+ *   - **Totholz: 3.** Der Holzstoss an der Hauswand. `totholz_stapel` (bis D230; seither Scan-Totholz) ist genau das
  *     Modell dafür, und es stand bisher nur im Wald.
  *
  * Ungelöst bleibt die Struktur: Ortskern und Ortsrand tragen dieselbe Zahl, obwohl
