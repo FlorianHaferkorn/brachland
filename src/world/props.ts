@@ -34,9 +34,11 @@ export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
   // D212/D216: Farn als Waldunterwuchs, in Beständen (`farnBestand`). Gesät werden 700/ha, stehen
   // bleiben rund 45 % — im Bestand bis 700/ha (ein Stock je 14 m²), dazwischen nackter Boden.
   // Gleichverteilt (D212, 350/ha) las sich aus Spielerhöhe als vereinzelte Pflanze, nicht als Farn.
-  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4, farn: 700 },
-  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9, farn: 25 },
-  wiese:     { grasbuschel: 40, busch: 3, laubbaum: 1.2, blume: 22 },
+  // D236: Totholz im Wald 8 → 30/ha, im Gebüsch neu 6/ha — Äste, Stümpfe und Wurzeln (D230/D233) an der Waldkante.
+  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 30, grasbuschel: 30, pilz: 14, blume: 4, farn: 700 },
+  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9, farn: 25, totholz: 6 },
+  // D235: Wiese 40 → 250 Grasbüschel/ha (Scan-Büschel, D234) — mit dem dichten Nahteppich die echte Wiese.
+  wiese:     { grasbuschel: 250, busch: 3, laubbaum: 1.2, blume: 22 },
   acker:     { grasbuschel: 8, blume: 2 },
   fels:      { findling: 18, busch: 4, nadelbaum: 1.6, grasbuschel: 6 },
   wasser:    {},

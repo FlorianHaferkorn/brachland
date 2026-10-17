@@ -51,7 +51,7 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
-import { baueGrasteppich } from '../world/grasteppich.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
@@ -2032,13 +2032,17 @@ function Grasteppich({ welt, feld, ziel, dichte }: {
 }) {
   const aufWeg = useMemo(() => wegTest(welt, feld), [welt, feld]);
   const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
-  useEffect(() => () => teppich.dispose(), [teppich]);
+  // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
+  const nah = useMemo(() => (dichte >= 1 && !istAus('nahgras')
+    ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE) : null), [feld, aufWeg, dichte]);
+  useEffect(() => () => { teppich.dispose(); nah?.dispose(); }, [teppich, nah]);
   useFrame(({ clock }) => {
     teppich.setzeZeit(clock.elapsedTime);
+    nah?.setzeZeit(clock.elapsedTime);
     const p = ziel.current?.position;
-    if (p) teppich.ziehNach(p.x, p.z);
+    if (p) { teppich.ziehNach(p.x, p.z); nah?.ziehNach(p.x, p.z); }
   });
-  return <primitive object={teppich.mesh} />;
+  return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}</>;
 }
 
 /**
