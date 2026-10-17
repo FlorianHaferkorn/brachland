@@ -7,16 +7,19 @@
  * Bewusst **eine** kleine Leinwand für beide Seiten statt zwei: ein WebGL-Kontext
  * weniger, ein Renderdurchgang weniger. Sie zeichnet nur bei Bedarf
  * (`frameloop="demand"` wäre zu wenig — es gibt eine Leerlaufbewegung), bleibt aber
- * winzig: zwei Silhouetten unter 500 Dreiecken, kein Schatten, kein Nebel.
+ * klein: zwei Kreaturen, kein Schatten, kein Nebel. Seit D238 stehen dort die Modelle
+ * aus der Welt (`public/creatures/`, 3.000–5.000 Ecken je Tier) samt Anbau; die
+ * Silhouette bleibt Rückfall für Arten ohne Datei (Regenten) und solange die Datei lädt.
  *
  * Die Treffer-Rückmeldung ist der zweite Teil: Ohne sie ist ein Angriff eine Zahl im
  * Protokoll. Getroffene zucken zurück und blitzen kurz auf — 300 ms, mehr braucht es
  * nicht, damit ein Schlag sich wie ein Schlag anfühlt.
  */
-import { useMemo, useRef } from 'react';
+import { Suspense, useMemo, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import { baueKreaturGeometrie } from '../world/kreaturgestalt.js';
+import { baueKreaturGeometrie, kreaturGeometrie, MIT_MODELL } from '../world/kreaturgestalt.js';
 import { ELEMENT_FARBE } from '../world/kreaturgestalt.js';
 import { saatAusId, type Ursprung } from '../world/kreaturgestalt.js';
 import type { Element } from '../data/schema.js';
@@ -147,18 +150,49 @@ function klingt(zeit: number, dauer: number): number {
 /** Höhe, auf die jede Kreatur fürs Porträt normiert wird. */
 const BILDHOEHE = 0.95;
 
-function Gestalt({ bild, seite, treffer, zug }: {
+interface GestaltProps {
   bild: KaempferBild;
   /** -1 links (Spieler), +1 rechts (Gegner). */
   seite: number;
   treffer: React.RefObject<number>;
   zug: React.RefObject<Buehnenzug>;
-}) {
+}
+
+/** Silhouette aus `basisRig` — Rückfall für Arten ohne Modelldatei (D238). */
+function Silhouette(props: GestaltProps) {
+  const { bild } = props;
   const geometrie = useMemo(
     () => baueKreaturGeometrie(bild.basisRig, bild.elemente, bild.stufe,
                                bild.ursprung, saatAusId(bild.kreaturId)),
     [bild.basisRig, bild.elemente, bild.stufe, bild.ursprung, bild.kreaturId],
   );
+  return <Gestalt {...props} geometrie={geometrie} />;
+}
+
+/**
+ * Dasselbe Modell wie in der Welt, mit Anbau der Mutationsstufe (D238). Die Datei
+ * liegt nach der Begegnung meist schon im Cache von `useGLTF` — die Welt hat sie
+ * eben gezeichnet —, deshalb ist der Wechsel von der Silhouette selten zu sehen.
+ */
+function Modell(props: GestaltProps) {
+  const { scene } = useGLTF(`/creatures/${props.bild.kreaturId}.glb`);
+  const geometrie = useMemo(
+    () => kreaturGeometrie(scene, props.bild.kreaturId, props.bild.stufe),
+    [scene, props.bild.kreaturId, props.bild.stufe],
+  );
+  return geometrie ? <Gestalt {...props} geometrie={geometrie} /> : <Silhouette {...props} />;
+}
+
+function Kaempfer(props: GestaltProps) {
+  if (!MIT_MODELL.has(props.bild.kreaturId)) return <Silhouette {...props} />;
+  return (
+    <Suspense fallback={<Silhouette {...props} />}>
+      <Modell {...props} />
+    </Suspense>
+  );
+}
+
+function Gestalt({ bild, seite, treffer, zug, geometrie }: GestaltProps & { geometrie: THREE.BufferGeometry }) {
   const material = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0,
     // Der Treffer-Blitz läuft über die Emissionsstärke, nicht über die Farbe:
@@ -312,8 +346,8 @@ export function Kampfbuehne({
       <directionalLight position={[-2.5, 2.5, -3]} intensity={1.1} color="#6fa8b8" />
       <Fuehrung zug={zug} />
       <Einschlag zug={zug} />
-      <Gestalt bild={spieler} seite={-1} treffer={trefferSpieler} zug={zug} />
-      <Gestalt bild={gegner} seite={1} treffer={trefferGegner} zug={zug} />
+      <Kaempfer bild={spieler} seite={-1} treffer={trefferSpieler} zug={zug} />
+      <Kaempfer bild={gegner} seite={1} treffer={trefferGegner} zug={zug} />
     </Canvas>
   );
 }

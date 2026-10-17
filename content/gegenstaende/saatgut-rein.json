@@ -1,0 +1,10 @@
+{
+  "id": "saatgut-rein",
+  "name": "Saatgut, rein",
+  "wirkung": {
+    "art": "komponente"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Ein Beutel Körner von vor dem Befall, trocken gelagert. Was daraus wächst, erinnert sich an nichts."
+}

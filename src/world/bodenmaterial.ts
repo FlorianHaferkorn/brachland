@@ -27,7 +27,7 @@ import { PALETTE } from './palette.js';
  */
 const LEER = new THREE.DataTexture(new Uint8Array([255]), 1, 1, THREE.RedFormat, THREE.UnsignedByteType);
 LEER.needsUpdate = true;
-const BODEN_HIMMEL = {
+export const BODEN_HIMMEL = {
   karte: { value: LEER as THREE.Texture },
   /** x0, z0, 1/Breite, 1/Tiefe in Weltmetern; Breite 0 heisst: aus. */
   rahmen: { value: new THREE.Vector4(0, 0, 0, 0) },
@@ -269,6 +269,18 @@ const DETAIL_GLSL = /* glsl */ `
   normal = normalize(normal + versatz * detailNah);
 `;
 
+/**
+ * Nasser Uferstreifen (D239, H-156c): dunkler und glatter, wie im Blender-Render des
+ * Stauwehrs. Nasser Boden verliert etwa die Hälfte seiner Helligkeit (Wasserfilm
+ * statt Streuung an der Oberfläche) und wird glänzend. Ein Rauschen zerfranst die
+ * Kante, sonst läge ein gleichmässiges Band neben jedem Bach.
+ */
+const NASS_GLSL = /* glsl */ `
+  float nassFlecken = bodenRauschen(vWeltPos.xz * 0.7);
+  float nassAnteil = smoothstep(0.0, 1.0, vNass * (0.7 + nassFlecken * 0.6));
+  diffuseColor.rgb *= mix(1.0, 0.5, nassAnteil);
+`;
+
 const HANG_GLSL = /* glsl */ `
   float hangRausch = bodenRauschen(vWeltPos.xz * 0.31) - 0.5;
   float steil = 1.0 - smoothstep(0.66, 0.86, vWeltNormal.y + hangRausch * 0.16);
@@ -323,6 +335,10 @@ const BODEN_KANTIG: boolean = (() => {
   return new URLSearchParams(location.search).get('bodenkantig') === '1';
 })();
 
+/** `?ufer=0` zeigt den Boden ohne Nässe — Vergleichsschalter wie `?detail=0` (D239). */
+const MIT_UFER: boolean = typeof location === 'undefined'
+  || new URLSearchParams(location.search).get('ufer') !== '0';
+
 export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: BODEN_KANTIG, roughness: 0.95, metalness: 0,
@@ -330,15 +346,17 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
 
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWeltPos;\nvarying vec3 vWeltNormal;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWeltPos;\nvarying vec3 vWeltNormal;\nattribute float nass;\nvarying float vNass;')
       .replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n  vWeltNormal = normalize(mat3(modelMatrix) * objectNormal);',
+        '#include <begin_vertex>\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n  vWeltNormal = normalize(mat3(modelMatrix) * objectNormal);\n  vNass = nass;',
       );
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL)
+      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL)
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (MIT_UFER ? NASS_GLSL : ''))
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n'
+        + (MIT_UFER ? '  roughnessFactor = mix(roughnessFactor, 0.55, nassAnteil);\n' : ''))
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL)
       .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
       .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL);
@@ -362,7 +380,7 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
 
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
-  material.customProgramCacheKey = () => 'brachland-boden-v7' + (BODEN_KANTIG ? '-kantig' : '');
+  material.customProgramCacheKey = () => 'brachland-boden-v8' + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
 
   return material;
 }

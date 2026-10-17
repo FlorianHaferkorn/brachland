@@ -19,6 +19,7 @@ import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNEN
 import { NARBE } from './data/schema.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
+import { fehlende, heile, heillage } from './spiel/heilung.js';
 import { Menue } from './ui/Menue.js';
 import { verschiebe } from './spiel/team.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
@@ -322,15 +323,19 @@ function App() {
    * Der Regent steht an einem festen Ort. Umrechnung von lat/lon in Meter braucht
    * die Ausdehnung der Region — die kommt aus derselben Formel wie das Terrain.
    */
+  const regentBesiegt = !!stand?.besiegt.includes(`regent:${REGENT_ID}`);
   const regent = useMemo(() => {
     if (!welt) return undefined;
     const ort = regentOrt(REGENT_ID, welt.bbox);
     const r = REGENTEN.get(REGENT_ID);
     if (!ort || !r) return undefined;
+    // Nach dem Sieg bleibt der Ort (dort werden die Reinkulturen eingesetzt, D240),
+    // die Figur nicht — vorher stand der besiegte Wels weiter im Stauwasser.
+    if (regentBesiegt) return { ort, gestalt: null };
     // Der Flussvater ist ein Riesenwels — die Schlangenform kommt dem am nächsten.
     return { ort, gestalt: baueKreaturGeometrie('serpent', r.phasen[0].elemente, 2,
                                                 'verwachsener', saatAusId(r.id)) };
-  }, [welt]);
+  }, [welt, regentBesiegt]);
 
   /**
    * Fundstellen in Weltkoordinaten. Dieselbe Umrechnung wie beim Regenten — sie
@@ -747,6 +752,7 @@ function App() {
     gefangen: stand?.gefangen ?? [],
     fragmente: stand?.fragmente ?? [],
     regenten: stand?.regenten ?? [],
+    geheilt: stand?.geheilt ?? [],
   }), [stand]);
 
   /**
@@ -781,11 +787,24 @@ function App() {
     setHinweis(`${a.titel} erledigt · ${teile.join(', ')}`);
   }, [stand, team, sichere]);
 
+  /**
+   * Reinkulturen am Regentenort einsetzen (D240): der zweite Schritt der Heilung.
+   * Die Regel steht in `spiel/heilung.ts`; hier nur Spielstand und Meldung.
+   */
+  const setzeReinkulturenEin = useCallback(() => {
+    const r = REGENTEN.get(REGENT_ID);
+    if (!stand || !r) return;
+    const neu = heile(r, { regenten: stand.regenten, geheilt: stand.geheilt ?? [], beutel: stand.beutel });
+    if (!neu) return;
+    sichere(neu, team);
+    setHinweis('Das Protokoll ist umgeschrieben. Der Dunst über dem Stau reisst auf — das Tal atmet.');
+  }, [stand, team, sichere]);
+
   const beendeRegent = useCallback((ende: KampfEnde) => {
     setRegentKampf(null);
     if (!stand) return;
     if (ende === 'sieg') {
-      setHinweis('Der Flussvater ist besiegt. Das Stauwasser sinkt.');
+      setHinweis('Der Flussvater ist besiegt. Sein Protokoll liegt offen — mit den drei Reinkulturen lässt es sich umschreiben.');
       // Zweimal notiert, und das mit Absicht: `besiegt` steuert, ob der Regent
       // noch in der Welt steht, `regenten` ist der Weltzustand, den Aufträge
       // abfragen. Ein Regent ist kein Vorkommen — er passt nicht in dieselbe Liste.
@@ -824,6 +843,7 @@ function App() {
         onBegegnung={beginneKampf}
         naehe={naehe}
         regent={regent}
+        geheilt={!!stand?.geheilt?.includes(REGENT_ID)}
         onRegentNah={setRegentNah}
         gleiterFrei={gleiterFrei}
         onGleiten={setGleitet}
@@ -1074,6 +1094,38 @@ function App() {
 
           {/* Der Bosskampf startet nicht von selbst. Wer im Vorbeigehen in einen
               Regenten läuft, erlebt keinen Höhepunkt, sondern einen Unfall. */}
+          {/* Nach dem Sieg (D240): Reinkulturen einsetzen. Der Ort bleibt, die Figur ist weg. */}
+          {regentNah && stand.besiegt.includes(`regent:${REGENT_ID}`) && REGENTEN.get(REGENT_ID) && (() => {
+            const r = REGENTEN.get(REGENT_ID)!;
+            const heil = { regenten: stand.regenten, geheilt: stand.geheilt ?? [], beutel: stand.beutel };
+            const lage = heillage(r, heil);
+            const fehlt = fehlende(r, heil).map(id => GEGENSTAENDE.get(id)?.name ?? id);
+            return (
+              <div style={{
+                position: 'fixed', left: '50%', transform: 'translateX(-50%)',
+                bottom: 'calc(env(safe-area-inset-bottom, 8px) + 76px)', zIndex: 20,
+                background: '#131c19ee', border: '1px solid #2a3632', borderRadius: 10,
+                padding: '10px 14px', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', gap: 8, maxWidth: '86vw',
+              }}>
+                <div style={{ color: '#3fd9a0', fontSize: 13, fontWeight: 600 }}>
+                  {lage === 'geheilt' ? 'Das Tal ist geheilt' : 'Das Protokoll des Flussvaters'}
+                </div>
+                <div style={{ color: '#7d8b85', fontSize: 11, textAlign: 'center' }}>
+                  {lage === 'geheilt' ? 'Das Wasser läuft wieder. Hier ist nichts mehr zu tun.'
+                    : lage === 'bereit' ? 'Alle drei Reinkulturen sind dabei.'
+                    : `Es fehlt noch: ${fehlt.join(', ')}.`}
+                </div>
+                {lage === 'bereit' && (
+                  <button onClick={setzeReinkulturenEin} style={{
+                    minHeight: 40, padding: '0 20px', borderRadius: 9, fontSize: 13,
+                    background: 'transparent', border: '1px solid #3fd9a0', color: '#3fd9a0',
+                  }}>Reinkulturen einsetzen</button>
+                )}
+              </div>
+            );
+          })()}
+
           {regentNah && !stand.besiegt.includes(`regent:${REGENT_ID}`) && (
             <div style={{
               position: 'fixed', left: '50%', transform: 'translateX(-50%)',

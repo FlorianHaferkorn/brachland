@@ -77,7 +77,7 @@ Abnahmekriterien:
 - [ ] Entwicklung: 3 Stufen, drei Auslöser je Ursprung
 - [ ] Rückführung mit Reinkulturen
 - [ ] Regent Flussvater mit 3 Phasen und Elementwechsel
-- [ ] Heilungs-Loop: besiegen → Reinkulturen einsetzen → sichtbarer Regionswandel
+- [x] Heilungs-Loop: besiegen → Reinkulturen einsetzen → sichtbarer Regionswandel (D240, 17.10.2026; Wandel bisher nur Licht/Nebel — Wasserstand, Enklave, neue Spawns offen)
 - [ ] 2 Konzentrate (Kalkkern, Akkuherz) mit ihren Beschaffungswegen
 - [ ] Story-Bogen mit NPCs, Fundstücken, 3 Fraktionen
 - [ ] Weltkarte Bayern mit gesperrten Folgeregionen

@@ -265,6 +265,26 @@ STIMMUNG.kaltnebel = {
   hemiBoden: HEMI_BODEN_TAG,
 };
 export type StimmungsName = keyof typeof STIMMUNG;
+
+/**
+ * Wandel nach der Heilung (D240, Story-Bibel §6: „die Region kippt sichtbar“).
+ *
+ * Kein eigener Tageslauf, sondern ein Versatz auf jede Stimmung: Der Staudunst über
+ * dem Tal lichtet sich (Nebel weiter weg), das Licht kommt etwas klarer durch. Die
+ * Kunstrichtung bleibt — Dämmerung und Nebel als Werkzeug (ADR-0012) —, nur weniger
+ * davon. Die Faktoren sind gesetzt, nicht gemessen: am Zielgerät beurteilen (ADR-0005).
+ */
+export const GEHEILT = { nebelNah: 1.4, nebelFern: 1.6, sonne: 1.12, umgebung: 1.08 } as const;
+
+export function heileStimmung(s: Stimmung): Stimmung {
+  return {
+    ...s,
+    nebelNah: s.nebelNah * GEHEILT.nebelNah,
+    nebelFern: s.nebelFern * GEHEILT.nebelFern,
+    sonneStaerke: s.sonneStaerke * GEHEILT.sonne,
+    umgebungStaerke: s.umgebungStaerke * GEHEILT.umgebung,
+  };
+}
 /**
  * `zielbild` (Stufe 2): das Licht der Blender-Szene aus `tools/szenenbau.py` — Sonne 13° hoch im
  * Nordosten (Azimut 42°), warm; Dunst und Fuelllicht wie `goldnebel`. Nur per `?stimmung=zielbild`,

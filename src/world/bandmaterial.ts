@@ -13,6 +13,7 @@
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
 import * as THREE from 'three';
+import { BODEN_HIMMEL } from './bodenmaterial.js';
 import { PALETTE } from './palette.js';
 
 const HASH_GLSL = /* glsl */ `
@@ -45,6 +46,22 @@ const GISCHT_GLSL = /* glsl */ `
   float gischt = smoothstep(0.50, 0.85, straehne * 0.65 + straehne2 * 0.35);
   diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78, 0.83, 0.85), gischt * 0.9);
   diffuseColor.a = max(diffuseColor.a, gischt * 0.95);
+`;
+
+/**
+ * Himmelsspiegelung verdecken (D239, H-156c): Die Umgebungskarte ist nur Himmel, und
+ * unter Kronen und Mauern spiegelte das Wasser deshalb vollen Himmel — im Blender-Render
+ * steht dort das dunkle Spiegelbild der Bäume. Dasselbe Raster wie das Fülllicht des
+ * Bodens (D171, `BODEN_HIMMEL`); ausserhalb eines Set-Pieces bleibt der Faktor 1.
+ */
+const VERDECKT_GLSL = /* glsl */ `
+  if (uBodenRahmen.z > 0.0) {
+    vec2 uvH = (vWasserPos.xz - uBodenRahmen.xy) * uBodenRahmen.zw;
+    if (uvH.x > 0.0 && uvH.x < 1.0 && uvH.y > 0.0 && uvH.y < 1.0) {
+      float kante = smoothstep(0.0, 0.03, min(min(uvH.x, 1.0 - uvH.x), min(uvH.y, 1.0 - uvH.y)));
+      reflectedLight.indirectSpecular *= mix(1.0, texture2D(uBodenHimmel, uvH).r, kante);
+    }
+  }
 `;
 
 /**
@@ -109,12 +126,15 @@ export function baueWasserMaterial(
     shader.uniforms.zeit = zeit;
     // Fallendes Wasser läuft schneller. Derselbe Shader, ein anderer Faktor.
     shader.uniforms.uTempo = { value: fallend ? 4.5 : 1 };
+    shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
+    shader.uniforms.uBodenRahmen = BODEN_HIMMEL.rahmen;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec2 vBand;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vBand = uv;');
+      .replace('#include <common>', '#include <common>\nvarying vec2 vBand;\nvarying vec3 vWasserPos;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vBand = uv;\n  vWasserPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\n' + HASH_GLSL)
+      .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\nvarying vec3 vWasserPos;\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\n' + HASH_GLSL)
+      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + VERDECKT_GLSL)
       .replace('#include <color_fragment>', fallend ? /* glsl */ `#include <color_fragment>
   float ufer = ${form === 'becken' ? '2.0 * min(min(vBand.x, 1.0 - vBand.x), min(vBand.y, 1.0 - vBand.y))' : '1.0 - abs(vBand.x)'};
 
@@ -169,7 +189,7 @@ export function baueWasserMaterial(
     }
   };
 
-  material.customProgramCacheKey = () => `brachland-wasser-v7-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}`;
+  material.customProgramCacheKey = () => `brachland-wasser-v8-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}`;
   return material;
 }
 

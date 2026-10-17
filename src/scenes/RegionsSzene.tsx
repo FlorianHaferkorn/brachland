@@ -19,7 +19,7 @@ import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
 import { WasserUmgebung, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
-import { STIMMUNG, HEMI_BODEN, type Stimmung } from '../world/stimmung.js';
+import { STIMMUNG, HEMI_BODEN, heileStimmung, type Stimmung } from '../world/stimmung.js';
 export { STIMMUNG, HEMI_BODEN, HEMI_BODEN_TAG, type Stimmung, type StimmungsName } from '../world/stimmung.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -318,6 +318,10 @@ const SPIEGEL_GRAD: number = (() => {
  * liegt und damit die Art Direction still verschiebt. Unbekannte Namen fallen
  * auf den Tageslauf zurueck.
  */
+/** `?geheilt=1` zeigt die Region im Zustand nach der Heilung (D240) — zum Ansehen ohne Spielstand. */
+const GEHEILT_ANSICHT = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('geheilt') === '1';
+
 const STIMMUNG_MESSLAUF: Stimmung | null = (() => {
   if (typeof location === 'undefined') return null;
   const name = new URLSearchParams(location.search).get('stimmung');
@@ -1901,7 +1905,7 @@ export const REGENT_AB = 18;
 
 function Regentenort({ ort, gestalt, ziel, onNah }: {
   ort: [number, number, number];
-  gestalt: THREE.BufferGeometry;
+  gestalt: THREE.BufferGeometry | null;
   ziel: React.RefObject<THREE.Object3D | null>;
   onNah?: (nah: boolean) => void;
 }) {
@@ -1928,7 +1932,7 @@ function Regentenort({ ort, gestalt, ziel, onNah }: {
 
   return (
     <group ref={gruppe} position={ort}>
-      <mesh geometry={gestalt} material={material} scale={REGENT_HOEHE} castShadow receiveShadow />
+      {gestalt && <mesh geometry={gestalt} material={material} scale={REGENT_HOEHE} castShadow receiveShadow />}
     </group>
   );
 }
@@ -3552,7 +3556,10 @@ export interface RegionsSzeneProps {
   /** Wird jedes Bild mit der nächsten Kreatur beschrieben — Grundlage der Anzeige. */
   naehe?: React.RefObject<Naehe>;
   /** Ort des Regenten in Weltkoordinaten (x, z) plus seine Silhouette. */
-  regent?: { ort: [number, number]; gestalt: THREE.BufferGeometry };
+  /** `gestalt: null` nach dem Sieg: Der Ort bleibt (Heilung, D240), die Figur ist weg. */
+  regent?: { ort: [number, number]; gestalt: THREE.BufferGeometry | null };
+  /** Region geheilt (D240): Stimmung mit `heileStimmung`. `?geheilt=1` zum Ansehen. */
+  geheilt?: boolean;
   /** Wird gerufen, wenn der Spieler den Regentenort betritt oder verlässt. */
   onRegentNah?: (nah: boolean) => void;
   /**
@@ -3652,7 +3659,7 @@ export interface RegionsSzeneProps {
 export function RegionsSzene({
   welt, tageszeit = 0.26, spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
-  regent, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
+  regent, geheilt, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
   fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, spielerSprung, kampfStand, lagerstellen,
 }: RegionsSzeneProps) {
@@ -3669,7 +3676,10 @@ export function RegionsSzene({
   const gier = useRef(startBlick);
   // Einmal je Zeitpunkt mischen, nicht je Bild: Farbmischung ist billig, aber sie
   // hängt an einem Regler und nicht an der Bildrate.
-  const s = useMemo(() => STIMMUNG_MESSLAUF ?? stimmungBei(tageszeit), [tageszeit]);
+  const s = useMemo(() => {
+    const basis = STIMMUNG_MESSLAUF ?? stimmungBei(tageszeit);
+    return geheilt || GEHEILT_ANSICHT ? heileStimmung(basis) : basis;
+  }, [tageszeit, geheilt]);
   const neigung = useRef(NEIGUNG_START);
   const schritt = useRef({ phase: 0, tempo: 0 });
   // Als Ref gespiegelt: Die Bewegungsschleife liest jedes Bild, und ein Prop-Wechsel

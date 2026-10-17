@@ -131,8 +131,19 @@ for (const a of auftraege) {
     meldeA(a.id, `Ziel-Kreatur '${z.kreatur}' gibt es nicht`);
   if (z.art === 'finde' && !fragmentIds.has(z.fragment))
     meldeA(a.id, `Ziel-Fragment '${z.fragment}' gibt es nicht`);
-  if (z.art === 'regent' && !regentIds.has(z.regent))
+  if ((z.art === 'regent' || z.art === 'heile') && !regentIds.has(z.regent))
     meldeA(a.id, `Ziel-Regent '${z.regent}' gibt es nicht`);
+}
+
+// Heilung (D240): Jede Reinkultur-Komponente eines Regenten muss es als Gegenstand der Art
+// `komponente` geben und als Belohnung irgendeines Auftrags — sonst ist die Heilung unerreichbar.
+const belohnt = new Set(auftraege.flatMap((a: any) => Object.keys(a.belohnung)));
+const meldeR = (id: string, was: string) => { console.log(`  ✗ Regent '${id}': ${was}`); auftragsfehler++; };
+for (const r of regenten) for (const k of r.reinkulturen) {
+  const g = gegenstaende.find((x: any) => x.id === k);
+  if (!g) meldeR(r.id, `Reinkultur '${k}' gibt es nicht als Gegenstand`);
+  else if (g.wirkung.art !== 'komponente') meldeR(r.id, `Reinkultur '${k}' ist keine Komponente`);
+  if (!belohnt.has(k)) meldeR(r.id, `Reinkultur '${k}' ist keine Belohnung — Heilung unerreichbar`);
 }
 
 // Zyklus in den Vorbedingungen: Zwei Aufträge, die aufeinander warten, sind beide

@@ -78,6 +78,8 @@ export function wendeAn(
     }
     case 'fanghilfe':
       return { gewirkt: true, meldung: `${g.name} ausgelegt.`, fangBonus: w.bonus };
+    case 'komponente':
+      return { gewirkt: false, meldung: `${g.name} gehört an den Ort des Regenten, nicht an ${ziel.name}.` };
   }
 }
 
@@ -89,6 +91,7 @@ export function wirktAuf(g: Gegenstand, ziel: Kaempfer): boolean {
     case 'reinigung': return ziel.zustand === 'befallen';
     case 'fokus': return ziel.kp > 0 && ziel.fokus < REGELN.FOKUS_MAX;
     case 'fanghilfe': return true;
+    case 'komponente': return false;
   }
 }
 

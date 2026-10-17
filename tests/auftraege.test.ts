@@ -22,7 +22,7 @@ function pruefe(was: string, bedingung: boolean, notiz = '') {
   bedingung ? ok++ : fehler++;
 }
 
-const LEER: Taten = { besiegt: [], gefangen: [], fragmente: [], regenten: [] };
+const LEER: Taten = { besiegt: [], gefangen: [], fragmente: [], regenten: [], geheilt: [] };
 
 const A1: Auftrag = {
   id: 'a1', region: 'oental', geber: 'hof', titel: 'Drei', text: '',
@@ -133,6 +133,16 @@ console.log('Aufträge — Fortschritt wird abgeleitet, nicht mitgeschrieben\n')
          beides.length === 2 && beides[0].auftrag.id === 'a2' && beides[0].lage === 'erfuellt'
          && beides[1].lage === 'offen',
          beides.map(e => `${e.auftrag.id}:${e.lage}`).join(' '));
+}
+
+console.log('\nHeilung als Ziel (D240)');
+{
+  const ziel = { art: 'heile' as const, regent: 'flussvater' };
+  const nurBesiegt = werteZiel(ziel, { ...LEER, regenten: ['flussvater'] });
+  pruefe('Besiegt allein heilt nicht', !nurBesiegt.erfuellt);
+  pruefe('Text vor der Heilung', zielText(ziel, nurBesiegt) === 'Reinkulturen am Regentenort einsetzen');
+  const fertig = werteZiel(ziel, { ...LEER, regenten: ['flussvater'], geheilt: ['flussvater'] });
+  pruefe('Geheilt erfüllt das Ziel', fertig.erfuellt && zielText(ziel, fertig) === 'Region geheilt');
 }
 
 console.log(`\n${ok} bestanden, ${fehler} fehlgeschlagen`);

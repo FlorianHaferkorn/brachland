@@ -93,6 +93,20 @@ console.log('\nWasserfeld — Breite kommt aus der Linie, nicht aus dem Raster\n
   } as unknown as Weltdaten, 1000, 1000);
   pruefe('Graben flacher als Bach', graben.tiefeAn(0, 0) < mitte,
          `${graben.tiefeAn(0, 0).toFixed(2)} m gegen ${mitte.toFixed(2)} m`);
+
+  // Nasser Uferstreifen (D239): im Wasser voll, 3 m jenseits der Linie trocken.
+  pruefe('Ufer: im Bach voll nass', feld.nasseAn(0, 0) === 1 && feld.nasseAn(0, 1.9) === 1);
+  const n1 = feld.nasseAn(0, 3), n2 = feld.nasseAn(0, 4.5);
+  pruefe('Ufer: fällt nach aussen ab', n1 > n2 && n2 > 0,
+         `1 m: ${n1.toFixed(2)}, 2,5 m: ${n2.toFixed(2)}`);
+  pruefe('Ufer: 3 m jenseits trocken', feld.nasseAn(0, 5.1) === 0 && feld.nasseAn(400, 400) === 0);
+  const weiher = baueWasserfeld({
+    bbox: [0, 0, 1, 1], linien: [],
+    flaechen: [{ biom: 'wasser', punkte: [[0.52, 0.48], [0.52, 0.52], [0.48, 0.52], [0.48, 0.48], [0.52, 0.48]] }],
+  } as unknown as Weltdaten, 1000, 1000);
+  pruefe('Ufer: Weiher innen nass, Rand feucht, fern trocken',
+         weiher.nasseAn(0, 0) === 1 && weiher.nasseAn(21.5, 0) > 0 && weiher.nasseAn(30, 0) === 0,
+         `Rand+1,5 m: ${weiher.nasseAn(21.5, 0).toFixed(2)}`);
 }
 
 // ---- Stehende Gewässer ----------------------------------------------------

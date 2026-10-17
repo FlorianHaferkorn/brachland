@@ -1,0 +1,10 @@
+{
+  "id": "wasserprobe-quell",
+  "name": "Quellwasserprobe",
+  "wirkung": {
+    "art": "komponente"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Wasser aus der Zeit vor dem Stau, in einem Glas mit Datum. Der Vergleich, an dem sich alles andere misst."
+}
