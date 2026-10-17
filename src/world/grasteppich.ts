@@ -28,8 +28,12 @@ export const TEPPICH_HALB = 30;
 export const TEPPICH_ZELLE = 0.2;
 /** Ab dieser Bewegung wird die Feldtextur neu gefüllt. */
 export const TEPPICH_NACHZIEHEN = 4;
-/** Texel der Feldtextur je Kante (1 m), mit Rand über das Halmfeld hinaus. */
-const FELD_TEXEL = 2 * TEPPICH_HALB + 8;
+/**
+ * D235: Nahfeld für die dichte Wiese — zweite Halmschicht bis 12 m mit 7-cm-Zelle (~200 Halme je m²
+ * bei Dichte 1), über dem 30-m-Teppich. Nur auf voller Qualität (`Qualitaet.gras` ≥ 1).
+ */
+export const NAH_HALB = 12;
+export const NAH_ZELLE = 0.07;
 
 /** Wie dicht Gras je Biom steht (0…1). Wald trägt Moos und Farn, kein Rasen. */
 const DICHTE: Record<Biom, number> = {
@@ -70,9 +74,12 @@ export interface Grasteppich {
  */
 export function baueGrasteppich(
   feld: HoehenFeld, aufWeg: (x: number, z: number) => boolean, faktor = 1,
+  halb = TEPPICH_HALB, grundZelle = TEPPICH_ZELLE,
 ): Grasteppich {
-  const zelle = TEPPICH_ZELLE / Math.sqrt(Math.max(0.1, faktor));
-  const n = Math.ceil((2 * TEPPICH_HALB) / zelle);
+  /** Texel der Feldtextur je Kante (1 m), mit Rand über das Halmfeld hinaus. */
+  const FELD_TEXEL = 2 * halb + 8;
+  const zelle = grundZelle / Math.sqrt(Math.max(0.1, faktor));
+  const n = Math.ceil((2 * halb) / zelle);
   const halm = baueHalm();
   const geo = new THREE.InstancedBufferGeometry();
   geo.index = halm.index;
@@ -147,7 +154,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vec4 boden = bilinear(uFeld, ort);
   vec3 bodenTon = bilinear(uTon, ort).rgb;
   float abst = distance(ort, uMitte);
-  float rand = 1.0 - smoothstep(${(TEPPICH_HALB * 0.45).toFixed(1)}, ${(TEPPICH_HALB * 0.98).toFixed(1)}, abst);
+  float rand = 1.0 - smoothstep(${(halb * 0.45).toFixed(1)}, ${(halb * 0.98).toFixed(1)}, abst);
   // D225: Wo wenig Gras steht (Wald, Acker), wächst es in Horsten (~5 m) mit kahlen Stellen
   // dazwischen — dort zeigt sich der gescannte Boden (D223). Volle Wiese (Dichte 1) bleibt geschlossen.
   float horst = smoothstep(0.4, 0.75, halmRauschen(ort * 0.18 + 3.7)) * 1.8;
@@ -176,7 +183,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vec3 gruen = mix(bodenTon, uSpitze, 0.55);
   vec3 spitze = mix(gruen, vec3(0.62, 0.55, 0.34), trocken) * (0.9 + h5 * 0.25);
   vec3 fuss = bodenTon * 0.8;
-  float zumBoden = smoothstep(${(TEPPICH_HALB * 0.3).toFixed(1)}, ${(TEPPICH_HALB * 0.9).toFixed(1)}, abst);
+  float zumBoden = smoothstep(${(halb * 0.3).toFixed(1)}, ${(halb * 0.9).toFixed(1)}, abst);
   vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
   vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
   #ifdef USE_TANGENT
@@ -190,13 +197,13 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       // Rückseite um, dann zeigte sie in den Boden und der halbe Rasen wäre schwarz.
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);');
   };
-  material.customProgramCacheKey = () => 'brachland-grasteppich-v3';
+  material.customProgramCacheKey = () => `brachland-grasteppich-v3-${halb}`; // Shader trägt `halb` als Literal
 
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;
   mesh.receiveShadow = true;
   mesh.castShadow = false;
-  mesh.name = 'Grasteppich';
+  mesh.name = halb === TEPPICH_HALB ? 'Grasteppich' : 'Grasteppich-nah';
 
   const letzte = new THREE.Vector2(NaN, NaN);
   function ziehNach(mx: number, mz: number): boolean {

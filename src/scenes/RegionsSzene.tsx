@@ -37,7 +37,7 @@ import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
-import { BAUWERKE, bauwerkPfad, gesperrt, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
+import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { haengeAgxLookEin } from './tonwert.js';
 import { haengeNebelEin } from './nebel.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
@@ -48,9 +48,10 @@ import { lagerTon } from '../ton/lagerton.js';
 import { kameraZustand } from '../kampf/kamerazustand.js';
 import { armMitSicht, sichtFrei, ZIEL_RAND, type Versperrt } from '../kampf/sichtlinie.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
-import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
+import { propsWieSzene } from '../world/szenenprops.js';
+import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
-import { baueGrasteppich } from '../world/grasteppich.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
@@ -513,6 +514,10 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
   const farnWind = useMemo(() => baueWindMaterial({
     amplitude: 0.2, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
   }, scanBasis('farn', 'farn', true)), []);
+  /** Scan-Gras (D234): Blattkarten wie der Farn, ohne Saum, Durchlass im Gegenlicht. */
+  const grasScanWind = useMemo(() => baueWindMaterial({
+    amplitude: 0.25, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
+  }, scanBasis('gras', 'grasbuschel', true)), []);
 
   /**
    * Blender-Baeume (D155): derselbe Wind, aber glatt schattiert (die Blattmassen tragen Normalen),
@@ -552,6 +557,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
     wind.setzeZeit(uhr.current);
     grasWind.setzeZeit(uhr.current);
     farnWind.setzeZeit(uhr.current);
+    grasScanWind.setzeZeit(uhr.current);
     baumWind.setzeZeit(uhr.current);
   });
   /**
@@ -575,7 +581,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} />
+      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
       {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} />}
     </group>
@@ -697,7 +703,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
-function Props({ props, wind, grasWind, farnWind, baumWind, baumTiefe }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial }) {
+function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<{ art: PropArt; variante: number; instanzen: PropInstanz[] }[]>([]);
@@ -754,7 +760,7 @@ function Props({ props, wind, grasWind, farnWind, baumWind, baumTiefe }: { props
   return (
     <>
       {sichtbar.map(({ c, stufe, id }) =>
-        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} baumWind={baumWind} baumTiefe={baumTiefe} />)}
+        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={baumWind} baumTiefe={baumTiefe} />)}
       {fern.map(({ art, variante, instanzen }) =>
         <PropFernMesh key={`${art}:${variante}`} art={art} variante={variante} instanzen={instanzen} baumWind={baumWind} />)}
     </>
@@ -940,9 +946,9 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
 const LEER: ReadonlySet<string> = new Set();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, baumWind, baumTiefe }: {
+function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe }: {
   chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
-  farnWind: THREE.MeshStandardMaterial;
+  farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial;
   baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial;
 }) {
   const fern = stufe === 'fern';
@@ -997,7 +1003,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, baumWind, baumT
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={fern && !blender ? fernGeo : geo}
       material={blender ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
-        : textur ? statischesScanMaterial(textur, chunk.art)
+        : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
         : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
       castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
@@ -2026,13 +2032,17 @@ function Grasteppich({ welt, feld, ziel, dichte }: {
 }) {
   const aufWeg = useMemo(() => wegTest(welt, feld), [welt, feld]);
   const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
-  useEffect(() => () => teppich.dispose(), [teppich]);
+  // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
+  const nah = useMemo(() => (dichte >= 1 && !istAus('nahgras')
+    ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE) : null), [feld, aufWeg, dichte]);
+  useEffect(() => () => { teppich.dispose(); nah?.dispose(); }, [teppich, nah]);
   useFrame(({ clock }) => {
     teppich.setzeZeit(clock.elapsedTime);
+    nah?.setzeZeit(clock.elapsedTime);
     const p = ziel.current?.position;
-    if (p) teppich.ziehNach(p.x, p.z);
+    if (p) { teppich.ziehNach(p.x, p.z); nah?.ziehNach(p.x, p.z); }
   });
-  return <primitive object={teppich.mesh} />;
+  return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}</>;
 }
 
 /**
@@ -3681,15 +3691,8 @@ export function RegionsSzene({
 
   // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben
   // Positionen. Zweimal verteilen hieße, gegen unsichtbare Bäume zu laufen.
-  const props = useMemo(() => {
-    // Freihaltung der Bauwerke (ADR-0006): Die Blender-Szene bringt ihren eigenen Wald mit.
-    const roh = verteileProps(welt, { ...terrain, hoeheAn: feld.hoehe }, 1)
-      .filter(p => !gesperrt(p.position[0], p.position[2], 'props'));
-    return roh.map(p => ({
-      ...p,
-      position: [p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2]],
-    })) as PropInstanz[];
-  }, [welt, terrain, feld]);
+  // D232: dieselbe Funktion wie die Werkzeuge (`szenenprops.ts`).
+  const props = useMemo(() => propsWieSzene(welt, terrain, feld), [welt, terrain, feld]);
   const kollision = useMemo(
     () => baueKollision(props, welt, feld.breiteMeter, feld.tiefeMeter),
     [props, welt, feld],

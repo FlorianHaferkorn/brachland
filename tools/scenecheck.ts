@@ -2,11 +2,12 @@
 import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import { baueTerrain, baueGebaeude } from '../src/world/terrain.js';
+import { propsWieSzene } from '../src/world/szenenprops.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, aufsatzboden } from '../src/world/lod.js';
 import { zerlegeBaender, baueBaenderStufe, baueWegKachel, baueWasserKachel,
          baueFallKachel, baueGartenKachel } from '../src/world/baender.js';
 import { TERRAIN_SICHT } from '../src/scenes/sichtweiten.js';
-import { verteileProps, propGeometrie, attrappeGeometrie, zaehleProps, chunkeProps,
+import { propGeometrie, attrappeGeometrie, zaehleProps, chunkeProps,
          PROP_FARBE, VARIANTEN, variantenZahl, type PropArt } from '../src/world/props.js';
 import * as THREE from 'three';
 import { baueBaum } from '../src/world/baum.js';
@@ -90,7 +91,7 @@ const teile = {
   Gärten:   kacheln.reduce((a, k) => a + tri(baueGartenKachel(feld, satz, k, 0)), 0),
 };
 
-const props = verteileProps(welt, t, 1);
+const props = propsWieSzene(welt, t, feld); // D232
 const anzahl = zaehleProps(props);
 let propTris = 0;
 const propZeilen: string[] = [];

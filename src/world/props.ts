@@ -34,9 +34,11 @@ export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
   // D212/D216: Farn als Waldunterwuchs, in Beständen (`farnBestand`). Gesät werden 700/ha, stehen
   // bleiben rund 45 % — im Bestand bis 700/ha (ein Stock je 14 m²), dazwischen nackter Boden.
   // Gleichverteilt (D212, 350/ha) las sich aus Spielerhöhe als vereinzelte Pflanze, nicht als Farn.
-  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 8, grasbuschel: 30, pilz: 14, blume: 4, farn: 700 },
-  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9, farn: 25 },
-  wiese:     { grasbuschel: 40, busch: 3, laubbaum: 1.2, blume: 22 },
+  // D236: Totholz im Wald 8 → 30/ha, im Gebüsch neu 6/ha — Äste, Stümpfe und Wurzeln (D230/D233) an der Waldkante.
+  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 30, grasbuschel: 30, pilz: 14, blume: 4, farn: 700 },
+  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9, farn: 25, totholz: 6 },
+  // D235: Wiese 40 → 250 Grasbüschel/ha (Scan-Büschel, D234) — mit dem dichten Nahteppich die echte Wiese.
+  wiese:     { grasbuschel: 250, busch: 3, laubbaum: 1.2, blume: 22 },
   acker:     { grasbuschel: 8, blume: 2 },
   fels:      { findling: 18, busch: 4, nadelbaum: 1.6, grasbuschel: 6 },
   wasser:    {},
@@ -379,13 +381,15 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
     { textur: 'farn', datei: 'farn_scan_c',    hoehe: 0.56 },
     { textur: 'farn', datei: 'farn_scan_b',    hoehe: 0.68 },
   ],
+  // D234: gescannte Grasbüschel (Poly Haven `grass_medium_02`, CC0, `tools/phprops.ts`) auf die Höhen
+  // der prozeduralen; Blattkarten mit Alpha. Die prozeduralen bleiben in `propbau.ts` (Rückfall).
   grasbuschel: [
-    { datei: 'gras_matte',     hoehe: 0.18 },
-    { datei: 'gras_kurz',      hoehe: 0.24 },
-    { datei: 'gras_halme',     hoehe: 0.34 },
-    { datei: 'gras_hoch',      hoehe: 0.48 },
-    { datei: 'gras_blatt',     hoehe: 0.62 },
-    { datei: 'gras_staude',    hoehe: 0.85 },
+    { datei: 'gras_scan_a',    hoehe: 0.18, textur: 'gras' },
+    { datei: 'gras_scan_b',    hoehe: 0.24, textur: 'gras' },
+    { datei: 'gras_scan_c',    hoehe: 0.34, textur: 'gras' },
+    { datei: 'gras_scan_d',    hoehe: 0.48, textur: 'gras' },
+    { datei: 'gras_scan_e',    hoehe: 0.62, textur: 'gras' },
+    { datei: 'gras_scan_f',    hoehe: 0.85, textur: 'gras' },
   ],
   // D230: bemooste Steine (Poly Haven `rock_moss_set_01/02`, CC0), auf die Höhen der alten Varianten.
   findling: [
@@ -405,6 +409,10 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
     { datei: 'totholz_scan_stumpf',  hoehe: 0.6, textur: 'stumpf-1' },
     { datei: 'totholz_scan_wurzel',  hoehe: 0.2, textur: 'wurzel-a' },
     { datei: 'totholz_scan_wurzel2', hoehe: 0.2, textur: 'wurzel-b' },
+    // D233: Wurzelgeflecht (`root_cluster_01/02`, `single_root`, CC0).
+    { datei: 'totholz_scan_wurzelstock',  hoehe: 1.2,  textur: 'wurzelstock' },
+    { datei: 'totholz_scan_wurzelstrang', hoehe: 0.19, textur: 'wurzelstrang' },
+    { datei: 'totholz_scan_wurzel_einzel', hoehe: 0.18, textur: 'wurzel-einzel' },
   ],
   blume: [
     { datei: 'blume_gelb',     hoehe: 0.26 },

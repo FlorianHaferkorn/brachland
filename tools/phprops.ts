@@ -13,7 +13,7 @@
  * Je Textursatz `public/material/<textur>-farbe.webp` (Modulation, Mittel 0,5, A = Alpha oder 1)
  * und `-normal.webp`. Den Farbton gibt die Palette (`attrappe.<art>`), wie bei Boden und Farn.
  * Herkunft: `assets/HERKUNFT.md`. Geprüft und verworfen: `shrub_02` (dünne Ruten, kein dichter Busch),
- * `moss_01` (Moosstängel von 1–3 cm zum Streuen, kein Polster).
+ * `moss_01` (Moosstängel von 1–3 cm zum Streuen, kein Polster), `nettle_plant` (Keimlinge um 0,2 m, D233).
  */
 import { NodeIO, Document, type Node as GltfKnoten } from '@gltf-transform/core';
 import { MeshoptSimplifier } from 'meshoptimizer';
@@ -35,6 +35,10 @@ const TEXTUREN: Record<string, { quelle: string; material: string; groesse: numb
   'ast':         { quelle: 'dry_branches_medium_01', material: 'dry_branches_medium_01', groesse: 512 },
   'wurzel-a':    { quelle: 'pine_roots', material: 'pine_roots_a', groesse: 512 },
   'wurzel-b':    { quelle: 'pine_roots', material: 'pine_roots_b', groesse: 512 },
+  'wurzelstock': { quelle: 'root_cluster_01', material: 'root_cluster_01', groesse: 512 },
+  'wurzelstrang': { quelle: 'root_cluster_02', material: 'root_cluster_02', groesse: 512 },
+  'wurzel-einzel': { quelle: 'single_root', material: 'single_root', groesse: 512 },
+  'gras':        { quelle: 'grass_medium_02', material: 'grass_medium_02', groesse: 1024 },
 };
 
 /** Höhen wie die prozeduralen Varianten, die sie ersetzen (`props.ts` `VARIANTEN`). */
@@ -51,6 +55,17 @@ const SATZ: Eintrag[] = [
   { quelle: 'tree_stump_01', knoten: 'tree_stump_01', datei: 'totholz_scan_stumpf', textur: 'stumpf-1', hoehe: 0.6, dreiecke: 2400 },
   { quelle: 'pine_roots', knoten: 'pine_roots_a', datei: 'totholz_scan_wurzel', textur: 'wurzel-a', hoehe: 0.2, dreiecke: 2400 },
   { quelle: 'pine_roots', knoten: 'pine_roots_b', datei: 'totholz_scan_wurzel2', textur: 'wurzel-b', hoehe: 0.2, dreiecke: 2400 },
+  // D233: Wurzeln als Bodenstreu im Wald (Auftrag „Wurzelgeflecht“).
+  { quelle: 'root_cluster_01', knoten: 'root_cluster_01', datei: 'totholz_scan_wurzelstock', textur: 'wurzelstock', hoehe: 1.2, dreiecke: 2400 },
+  { quelle: 'root_cluster_02', knoten: 'root_cluster_02_a', datei: 'totholz_scan_wurzelstrang', textur: 'wurzelstrang', hoehe: 0.19, dreiecke: 2400 },
+  { quelle: 'single_root', knoten: 'single_root', datei: 'totholz_scan_wurzel_einzel', textur: 'wurzel-einzel', hoehe: 0.18, dreiecke: 1800 },
+  // D234: Grasbüschel aus `grass_medium_02` (Blattkarten, nicht reduziert), auf die alten Höhen.
+  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_a', datei: 'gras_scan_a', textur: 'gras', hoehe: 0.18, dreiecke: 0, wind: true, karten: true },
+  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_b', datei: 'gras_scan_b', textur: 'gras', hoehe: 0.24, dreiecke: 0, wind: true, karten: true },
+  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_c', datei: 'gras_scan_c', textur: 'gras', hoehe: 0.34, dreiecke: 0, wind: true, karten: true },
+  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_d', datei: 'gras_scan_d', textur: 'gras', hoehe: 0.48, dreiecke: 0, wind: true, karten: true },
+  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_e', datei: 'gras_scan_e', textur: 'gras', hoehe: 0.62, dreiecke: 0, wind: true, karten: true },
+  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_e', datei: 'gras_scan_f', textur: 'gras', hoehe: 0.85, dreiecke: 0, wind: true, karten: true },
 ];
 
 await MeshoptSimplifier.ready;

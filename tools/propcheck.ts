@@ -21,7 +21,9 @@ import { NodeIO } from '@gltf-transform/core';
 import { KHRONOS_EXTENSIONS } from '@gltf-transform/extensions';
 import { entpackeWelt } from '../src/world/osm.js';
 import { baueTerrain } from '../src/world/terrain.js';
-import { verteileProps, VARIANTEN, variantenZahl, propTon,
+import { propsWieSzene } from '../src/world/szenenprops.js';
+import { baueHoehenfeld } from '../src/world/lod.js';
+import { VARIANTEN, variantenZahl, propTon,
          type PropArt } from '../src/world/props.js';
 
 const ORDNER = 'public/props';
@@ -105,7 +107,7 @@ console.log('  Lizenz: CC0 (Kenney Nature Kit 2.1) — keine Namensnennung nöti
 // sehen genau gleich aus? Geometrie kommt aus (art, variante), Farbe aus `propTon`
 // — solange die Tönung 1,0 liefert, ist die Farbe je Geometrie eine einzige.
 const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
-const props = verteileProps(welt, baueTerrain(welt), 1);
+const props = propsWieSzene(welt, baueTerrain(welt), baueHoehenfeld(welt)); // D232
 
 /** Farbe auf drei Stellen — feiner unterscheidet das Auge im Feld ohnehin nicht. */
 const tonSchluessel = (p: { art: PropArt; variante: number; drehung: number }) => {

@@ -11,12 +11,14 @@
 import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync } from 'node:fs';
 import { baueTerrain } from '../src/world/terrain.js';
-import { verteileProps, chunkeProps } from '../src/world/props.js';
+import { chunkeProps } from '../src/world/props.js';
+import { baueHoehenfeld } from '../src/world/lod.js';
+import { propsWieSzene } from '../src/world/szenenprops.js';
 import { ATTRAPPE_AB } from '../src/scenes/sichtweiten.js';
 
 const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const t = baueTerrain(welt);
-const props = verteileProps(welt, t, 1);
+const props = propsWieSzene(welt, t, baueHoehenfeld(welt)); // D232
 const chunks = chunkeProps(props);
 
 const STANDORTE: [number, number][] = [[0, 0], [300, -300], [-350, 350], [450, 100]];
