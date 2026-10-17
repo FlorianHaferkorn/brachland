@@ -41,6 +41,13 @@ const TIEFE_STEHEND = 2.4;
 /** Uferzone: Über diese Breite steigt die Tiefe von 0 auf voll. */
 const UFER = 7;
 
+/**
+ * Nasser Uferstreifen (D239): Über diese Breite jenseits der Wasserlinie fällt die
+ * Nässe von 1 auf 0. Im Blender-Render des Stauwehrs ist der Uferboden dunkel und
+ * glänzt; im Spiel stand die Wiese trocken bis an die Wasserkante (H-156c).
+ */
+const NASS_BAND = 3;
+
 /** Kantenlänge einer Bucket-Zelle. Deutlich größer als jede Gewässerbreite. */
 const BUCKET = 32;
 
@@ -56,6 +63,12 @@ export interface Wasserfeld {
    * die denselben Querverlauf benutzt.
    */
   tiefeAn(x: number, z: number): number;
+  /**
+   * Nässe des Bodens, 0 trocken bis 1 an und unter der Wasserlinie (D239). Fällt
+   * über `NASS_BAND` Meter jenseits des Ufers quadratisch ab — der Boden saugt nahe
+   * am Wasser am meisten.
+   */
+  nasseAn(x: number, z: number): number;
   /** Nur zur Kontrolle in Werkzeugen. */
   segmente: number;
   /** Stehende Gewässer als Polygonzüge in Weltkoordinaten — für die Wasserfläche. */
@@ -116,6 +129,8 @@ export function baueWasserfeld(
    * Ort" falsch war: Sie stützte sich auf eine Messung, die nur Linien kannte.
    */
   const teiche: { punkte: [number, number][]; tiefe: number }[] = [];
+  /** Umriss je Teich, um `NASS_BAND` erweitert — erspart `randAbstand` für fast jeden Punkt. */
+  const teichRahmen: [number, number, number, number][] = [];
   // `?? []` statt Pflichtfeld: Eine ältere Weltdatei ohne `flaechen` soll ohne
   // Weiher laufen, nicht abstürzen — dieselbe Haltung wie beim Spielstand.
   for (const f of welt.flaechen ?? []) {
@@ -123,6 +138,9 @@ export function baueWasserfeld(
     const punkte = f.punkte.map(p => zuWelt(p[0], p[1]));
     if (punkte.length < 4) continue;
     teiche.push({ punkte, tiefe: TIEFE_STEHEND });
+    const xs = punkte.map(p => p[0]), zs = punkte.map(p => p[1]);
+    teichRahmen.push([Math.min(...xs) - NASS_BAND, Math.min(...zs) - NASS_BAND,
+                      Math.max(...xs) + NASS_BAND, Math.max(...zs) + NASS_BAND]);
   }
 
   for (const linie of welt.linien) {
@@ -178,6 +196,27 @@ export function baueWasserfeld(
         }
       }
       return beste;
+    },
+    nasseAn(x: number, z: number): number {
+      // Kürzester Abstand jenseits der Wasserlinie; <= 0 heisst im Wasser.
+      let abstand = NASS_BAND;
+      for (let i = 0; i < teiche.length; i++) {
+        const r = teichRahmen[i];
+        if (x < r[0] || z < r[1] || x > r[2] || z > r[3]) continue;
+        const p = teiche[i].punkte;
+        abstand = Math.min(abstand, imPolygon(x, z, p) ? 0 : randAbstand(x, z, p));
+      }
+      const cx = Math.floor(x / BUCKET), cz = Math.floor(z / BUCKET);
+      for (let a = -1; a <= 1 && abstand > 0; a++) {
+        for (let b = -1; b <= 1; b++) {
+          const liste = eimer.get(schluessel(cx + a, cz + b));
+          if (!liste) continue;
+          for (const s of liste) abstand = Math.min(abstand, Math.sqrt(abstandQ(x, z, s)) - s.halbe);
+        }
+      }
+      if (abstand >= NASS_BAND) return 0;
+      const t = 1 - Math.max(0, abstand) / NASS_BAND;
+      return t * t;
     },
   };
 }

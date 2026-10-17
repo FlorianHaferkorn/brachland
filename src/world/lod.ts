@@ -86,6 +86,8 @@ export interface HoehenFeld {
    * kann sie nicht auseinanderlaufen.
    */
   wasserTiefe: (x: number, z: number) => number;
+  /** Nässe des Uferbodens 0–1 (D239), als Vertex-Attribut `nass` an den Kacheln. */
+  nass: (x: number, z: number) => number;
   /** Stehende Gewässer als Polygone in Weltkoordinaten — für die Wasserfläche. */
   teiche: { punkte: [number, number][]; tiefe: number }[];
   biom: (x: number, z: number) => Biom;
@@ -232,7 +234,7 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
 
   return {
     hoehe, biom, bodenfarbe, breiteMeter, tiefeMeter,
-    wasserTiefe: wasser.tiefeAn, teiche: wasser.teiche,
+    wasserTiefe: wasser.tiefeAn, nass: wasser.nasseAn, teiche: wasser.teiche,
   };
 }
 
@@ -408,6 +410,7 @@ export function baueKachelGeometrie(
   const positionen: number[] = [];
   const farben: number[] = [];
   const normalen: number[] = [];
+  const nass: number[] = [];
   const farbe = new THREE.Color();
   /**
    * D201: Normale aus dem **Höhenfeld**, nicht aus dem Dreieck. Die Geometrie ist nicht indiziert —
@@ -450,6 +453,7 @@ export function baueKachelGeometrie(
       feld.bodenfarbe(x, z, farbe);
       farben.push(farbe.r, farbe.g, farbe.b);
       normale(x, z);
+      nass.push(feld.nass(x, z));
     }
   };
 
@@ -481,6 +485,7 @@ export function baueKachelGeometrie(
   g.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(normalen, 3));
+  g.setAttribute('nass', new THREE.Float32BufferAttribute(nass, 1));
   g.computeBoundingSphere();
   return g;
 }
