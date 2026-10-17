@@ -1,10 +1,10 @@
 ---
-last-reviewed: 2026-08-20
+last-reviewed: 2026-10-09
 shelf-life-days: 365
 ---
 # ADR-0002 — Assets: CC0-Props sofort, Kreaturen über Stil-Referenz und Kette
 
-**Status:** Accepted · 2026-08-16 · erweitert ADR-0001
+**Status:** Accepted · 2026-08-16 · erweitert ADR-0001 · erweitert durch ADR-0013 (jede kostenlose Lizenz, 09.10.2026)
 
 ## Kontext
 

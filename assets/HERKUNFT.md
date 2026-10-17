@@ -90,15 +90,33 @@ Original ein eigenes Netz (`Stag_Horns`, 1.616 Flächen), und die Linie trägt l
 `content/creatures/grathorn.json` ein Chitinplatten-Gehörn. Das kommt als Anbau
 aus `src/world/kreaturgestalt.ts` und ist BRACHLAND-eigen.
 
-## Materialien (`public/material`, D206)
+## Materialien (`public/material`, D206, seit D223 Scans)
 
-Detailnormalen für Boden und Fels. CC0, also ohne Pflicht zur Nennung; hier steht die Herkunft
-trotzdem, damit niemand rätseln muss.
+Gescannte Bodenschichten von Poly Haven. CC0, also ohne Pflicht zur Nennung; hier steht die
+Herkunft trotzdem, damit niemand rätseln muss. Lizenz geprüft am 15.10.2026 auf
+<https://polyhaven.com/license> („Our assets are all licensed as CC0“). Geladen in 2K (Diffuse,
+`nor_gl`, Displacement, JPG) über `api.polyhaven.com/files/<id>`, gepackt auf 1024² WebP:
+`*-farbe` = Diffuse linear durch den Scan-Mittelwert geteilt (Mittel 0,5, linear gespeichert)
++ Displacement im Alphakanal; `*-normal` = `nor_gl` verkleinert. Rohdaten liegen nicht im Repo
+(`.cache/scans/`, gitignored).
 
 | Datei | Rolle | Autor | Lizenz | Quelle |
 |---|---|---|---|---|
-| fels-normal.webp | Felswand, triplanar an steilen Hängen | Poimandres (pmndrs) | CC0-1.0 | npm `@pmndrs/assets` 1.7.0, `normals/0005.webp`, unverändert |
-| boden-normal.webp | Feinkies/Erde, planar am Boden | Poimandres (pmndrs) | CC0-1.0 | npm `@pmndrs/assets` 1.7.0, `normals/0015.webp`, unverändert |
+| wiese-farbe.webp, wiese-normal.webp | Offener Boden, planar | Rob Tuytel | CC0-1.0 | Poly Haven `forrest_ground_01` (2 × 2 m) |
+| waldboden-farbe.webp, waldboden-normal.webp | Waldboden (Laub, Moos), planar | Rob Tuytel | CC0-1.0 | Poly Haven `forest_leaves_02` (3 × 3 m) |
+| schutt-farbe.webp, schutt-normal.webp | Schutt am Hangfuss, planar | Rob Tuytel | CC0-1.0 | Poly Haven `rocks_ground_01` (2 × 2 m) |
+| fels-farbe.webp, fels-normal.webp | Fels an steilen Hängen, triplanar | Rob Tuytel | CC0-1.0 | Poly Haven `mossy_rock` (3 × 3 m) |
+| rinde-farbe.webp | Rinde der Blender-Bäume (D224), nur Farbe + Höhe, Relief im Shader | Dimitrios Savva | CC0-1.0 | Poly Haven `knotted_pine_bark` (1,7 × 1,7 m), Lizenz geprüft 15.10.2026 |
+| farn-farbe.webp, farn-normal.webp, ../props/farn_scan_a–d.glb | Scan-Farne (D229): vier Varianten, Modulation + Alpha, Normale; ×1,6 skaliert, Windgewicht ergänzt (`tools/farnscan.ts`) | Rob Tuytel (Scan), Rico Cilliers (Modell) | CC0-1.0 | Poly Haven Modell `fern_02`, 1K-glTF, Lizenz geprüft 17.10.2026 |
+| fels-moos-1-farbe.webp, fels-moos-1-normal.webp, ../props/findling_scan_d–f.glb | Bemooste Findlinge (D230), reduziert auf 2.200–2.400 Dreiecke | Kless Gyzen | CC0-1.0 | Poly Haven Modell `rock_moss_set_01`, 1K-glTF, Lizenz geprüft 17.10.2026 |
+| fels-moos-2-farbe.webp, fels-moos-2-normal.webp, ../props/findling_scan_a–c.glb | Bemooste Findlinge (D230), reduziert auf 1.500–1.800 Dreiecke | Kless Gyzen | CC0-1.0 | Poly Haven Modell `rock_moss_set_02`, 1K-glTF, Lizenz geprüft 17.10.2026 |
+| stumpf-1-farbe.webp, stumpf-1-normal.webp, ../props/totholz_scan_stumpf.glb | Baumstumpf (D230), 41.046 → 2.400 Dreiecke | Rob Tuytel | CC0-1.0 | Poly Haven Modell `tree_stump_01`, Lizenz geprüft 17.10.2026 |
+| stumpf-2-farbe.webp, stumpf-2-normal.webp, ../props/totholz_scan_dick.glb | Baumstumpf (D230), 62.345 → 2.399 Dreiecke | Rob Tuytel | CC0-1.0 | Poly Haven Modell `tree_stump_02`, Lizenz geprüft 17.10.2026 |
+| ast-farbe.webp, ast-normal.webp, ../props/totholz_scan_ast.glb, ../props/totholz_scan_zweig.glb | Liegende Äste (D230) | Rico Cilliers | CC0-1.0 | Poly Haven Modell `dry_branches_medium_01`, Lizenz geprüft 17.10.2026 |
+| wurzel-a-farbe.webp, wurzel-a-normal.webp, wurzel-b-farbe.webp, wurzel-b-normal.webp, ../props/totholz_scan_wurzel.glb, ../props/totholz_scan_wurzel2.glb | Wurzelteller (D230), je ~81k → 2.400 Dreiecke | Rob Tuytel | CC0-1.0 | Poly Haven Modell `pine_roots`, Lizenz geprüft 17.10.2026 |
+
+Bis D222 lagen hier zwei Detailnormalen aus npm `@pmndrs/assets` 1.7.0 (`normals/0005`, `0015`,
+Poimandres, CC0-1.0); D223 hat sie ersetzt.
 
 ## Was im Spiel stehen muss
 

@@ -196,6 +196,18 @@ for (const art of ['laubbaum', 'nadelbaum'] as const) {
     fern.flatMap(e => e.instanzen).length === 4 && new Set(fern.flatMap(e => e.instanzen)).size === 4);
 }
 
+// Findlinge tragen ihre Höhe in der Datei (0,45–3 m): Die Mittelstufe darf sie nicht auf Variante 0
+// zusammenlegen (D231).
+{
+  const steine: PropChunk[] = [0, 1, 2, 3, 4, 5].map(variante => ({
+    art: 'findling' as PropArt, variante, mitte: [70, 0], radius: 10, sichtweite: 300,
+    instanzen: [{ art: 'findling' as PropArt, variante, position: [70, 0, 0], drehung: 0, skalierung: 1 }],
+  }));
+  const mittel = waehleProps(steine, [0, 0], [0, 0], true).nah;
+  pruefe('findling: Mittelstufe behaelt jede Form', mittel.length === 6 && mittel.every(e =>
+    e.stufe === 'mittel' && e.c.instanzen.every(p => p.variante === e.c.variante)));
+}
+
 // ---------------------------------------------------- Chunk auf der Schwelle (D162)
 //
 // Ein Chunk ist 70 m breit. Kippt er geschlossen von `nah` auf `mittel`, wechseln

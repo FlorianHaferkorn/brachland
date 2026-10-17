@@ -589,6 +589,9 @@ for (const [art, varianten] of Object.entries(VARIANTEN) as [PropArt, typeof VAR
   if (!varianten.length) continue;
   console.log(art);
   for (const v of varianten) {
+    // D229/D230: Scan-Varianten kommen aus `farnscan.ts`/`phprops.ts`. Die Baupläne der ersetzten
+    // Farne, Findlinge und Totholz-Stücke bleiben unten stehen (Rückfall: Eintrag in `VARIANTEN` zurück).
+    if (v.textur) { console.log(`  · ${v.datei}: Scan, nicht hier gebaut`); continue; }
     const plan = BAUPLAN[v.datei];
     if (!plan) { console.log(`  ✗ ${v.datei}: kein Bauplan`); continue; }
     const netz = new Netz();

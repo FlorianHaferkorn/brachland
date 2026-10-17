@@ -97,8 +97,8 @@ float bodenRauschen(vec2 p) {
  * mischt Biome weich, D162, also läuft das Moos am Waldrand mit aus) und nicht am Steilhang.
  */
 const MOOS_GLSL = /* glsl */ `
+  float imWald = 1.0 - smoothstep(0.015, 0.06, distance(diffuseColor.rgb, uWaldTon));
   {
-    float imWald = 1.0 - smoothstep(0.015, 0.06, distance(diffuseColor.rgb, uWaldTon));
     float flach = smoothstep(0.75, 0.9, vWeltNormal.y);
     float polster = bodenRauschen(vWeltPos.xz * 0.25) * 0.65 + bodenRauschen(vWeltPos.xz * 0.77 + 9.1) * 0.35;
     float moos = smoothstep(0.45, 0.62, polster) * imWald * flach;
@@ -131,58 +131,141 @@ const VARIATION_GLSL = /* glsl */ `
  * zeichnet. Farben aus der Palette (`fels.b`, `fels.schutt`), nicht im Shader erfunden.
  */
 /**
- * D206: Detailnormalen aus CC0-Scans (`public/material/`, pmndrs/assets 1.7.0, CC0-1.0; Herkunft in
- * `assets/HERKUNFT.md`). Fünfter Hebel aus ADR-0012: Das Rauschrelief oben trägt nur Korn, keine
- * Gesteinsform. Fels triplanar (sonst verzerrt die Draufsicht steile Hänge), Boden planar von oben.
- * Bis die Bilder geladen sind, liegt eine flache Normale im Slot — dann ändert sich nichts.
+ * D223: Gescannte Bodenschichten (Poly Haven, CC0, Rob Tuytel; Herkunft in `assets/HERKUNFT.md`,
+ * gepackt von 2K auf 1K). Ersetzt die Detailnormalen aus D206. Vier Schichten: Wiese
+ * (`forrest_ground_01`), Waldboden (`forest_leaves_02`), Schutt (`rocks_ground_01`), Fels
+ * (`mossy_rock`, triplanar). Je Schicht zwei Bilder:
+ *
+ * - `*-farbe.webp`: RGB ist **Modulation**, nicht Farbe — linear durch den Mittelwert des Scans
+ *   geteilt, Mittel 0,5, linear gespeichert (als Wurzel
+ *   gespeichert mitteln die Mipmaps die Wurzel, und die Ferne wird dunkler). Der Farbton kommt weiter aus Palette und Biom
+ *   (Art Direction, ADR-0012), der Scan liefert Hell/Dunkel und Farbwechsel innerhalb davon.
+ *   A ist die Höhe des Scans: Die Schichten mischen über sie (Steine ragen aus dem Schutt,
+ *   Moos aus dem Laub), nicht über eine weiche Rampe.
+ * - `*-normal.webp`: Normalen im OpenGL-Format.
+ *
+ * Gegen das Kachelmuster wird jede ebene Schicht zweimal gelesen (zweite Lage gedreht und
+ * versetzt) und über Rauschen gewechselt. Bis die Bilder geladen sind, liegen neutrale Pixel
+ * in den Slots — dann ändert sich nichts.
  */
 const FLACH = new THREE.DataTexture(new Uint8Array([128, 128, 255, 255]), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
 FLACH.needsUpdate = true;
-const DETAIL = {
-  fels: { value: FLACH as THREE.Texture },
-  boden: { value: FLACH as THREE.Texture },
-};
-let detailGeladen = false;
+/** Modulation 1,0 (gespeichert 0,5) und mittlere Höhe. */
+const NEUTRAL = new THREE.DataTexture(new Uint8Array([128, 128, 128, 128]), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+NEUTRAL.needsUpdate = true;
 
-/** `?detail=0` schaltet die Detailnormalen ab — Vergleichsschalter (D206). */
+const SCHICHTEN = ['wiese', 'waldboden', 'schutt', 'fels'] as const;
+type Schicht = typeof SCHICHTEN[number];
+const SCAN = Object.fromEntries(SCHICHTEN.map(n => [n, {
+  farbe: { value: NEUTRAL as THREE.Texture },
+  normal: { value: FLACH as THREE.Texture },
+}])) as Record<Schicht, { farbe: { value: THREE.Texture }; normal: { value: THREE.Texture } }>;
+let scanGeladen = false;
+
+/** `?detail=0` schaltet die Scans ab — Vergleichsschalter (D206, seit D223 für alle Schichten). */
 const DETAIL_AUS: boolean = (() => {
   if (typeof location === 'undefined') return false;
   return new URLSearchParams(location.search).get('detail') === '0';
 })();
 
-function ladeDetail(): void {
-  if (detailGeladen || DETAIL_AUS || typeof document === 'undefined') return;
-  detailGeladen = true;
+function ladeScans(): void {
+  if (scanGeladen || DETAIL_AUS || typeof document === 'undefined') return;
+  scanGeladen = true;
   const lader = new THREE.TextureLoader();
-  for (const [slot, datei] of [['fels', 'fels-normal'], ['boden', 'boden-normal']] as const)
-    lader.load(`/material/${datei}.webp`, (t) => {
-      t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      t.colorSpace = THREE.NoColorSpace;
-      t.anisotropy = 8;
-      DETAIL[slot].value = t;
-    });
+  for (const n of SCHICHTEN)
+    for (const art of ['farbe', 'normal'] as const)
+      lader.load(`/material/${n}-${art}.webp`, (t) => {
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.colorSpace = THREE.NoColorSpace;
+        t.anisotropy = 8;
+        SCAN[n][art].value = t;
+      });
 }
 
+const SCAN_PARS_GLSL = /* glsl */ `
+uniform sampler2D uWieseFarbe;
+uniform sampler2D uWieseNormal;
+uniform sampler2D uWaldbodenFarbe;
+uniform sampler2D uWaldbodenNormal;
+uniform sampler2D uSchuttFarbe;
+uniform sampler2D uSchuttNormal;
+uniform sampler2D uFelsFarbe;
+uniform sampler2D uFelsNormal;
+
+// Zweite Lage gegen das Kachelmuster: um ~53° gedreht und versetzt.
+const mat2 SCAN_DREH = mat2(0.6, -0.8, 0.8, 0.6);
+vec2 scanZweit(vec2 uv) { return SCAN_DREH * uv + vec2(0.37, 0.71); }
+
+vec4 scanLesen(sampler2D t, vec2 uv, float wechsel) {
+  return mix(texture2D(t, uv), texture2D(t, scanZweit(uv)), wechsel);
+}
+
+// Tangentennormale in uv-Lage; die gedrehte Lage wird zurückgedreht.
+vec3 scanNormale(sampler2D t, vec2 uv, float wechsel) {
+  vec3 a = texture2D(t, uv).xyz * 2.0 - 1.0;
+  vec3 b = texture2D(t, scanZweit(uv)).xyz * 2.0 - 1.0;
+  b.xy = transpose(SCAN_DREH) * b.xy;
+  return normalize(mix(a, b, wechsel));
+}
+
+// Planare Draufsicht: Tangentennormale (u = x, v = z) auf die Weltnormale (Whiteout).
+vec3 scanAufWelt(vec3 t, vec3 basisW) {
+  return normalize(vec3(t.x + basisW.x, abs(t.z) * basisW.y, t.y + basisW.z));
+}
+`;
+
+/** Weltmasse der Scans in Metern (Poly Haven `dimensions`), Fels zweifach gestreckt: Hänge sind gross. */
+const SCAN_GLSL = /* glsl */ `
+  vec2 uvWiese = vWeltPos.xz / 2.0;
+  vec2 uvWald = vWeltPos.xz / 3.0;
+  vec2 uvSchutt = vWeltPos.xz / 2.0;
+  float felsSkala = 1.0 / 6.0;
+  float scanWechsel = smoothstep(0.38, 0.62, bodenRauschen(vWeltPos.xz * 0.07 + 3.3));
+
+  vec3 scanBasis = normalize(vWeltNormal);
+  vec3 felsAchse = pow(abs(scanBasis), vec3(4.0));
+  felsAchse /= felsAchse.x + felsAchse.y + felsAchse.z;
+
+  vec4 sWiese = scanLesen(uWieseFarbe, uvWiese, scanWechsel);
+  vec4 sWald = scanLesen(uWaldbodenFarbe, uvWald, scanWechsel);
+  vec4 sSchutt = scanLesen(uSchuttFarbe, uvSchutt, scanWechsel);
+  vec4 sFels = texture2D(uFelsFarbe, vWeltPos.zy * felsSkala) * felsAchse.x
+             + texture2D(uFelsFarbe, vWeltPos.xz * felsSkala) * felsAchse.y
+             + texture2D(uFelsFarbe, vWeltPos.xy * felsSkala) * felsAchse.z;
+
+  // Grundgewichte aus Biom und Hang (HANG_GLSL), dann Höhenmischung: Wer höher steht, deckt.
+  vec4 scanGewicht;
+  scanGewicht.w = steil;
+  scanGewicht.z = schutt * (1.0 - steil);
+  scanGewicht.y = imWald * (1.0 - scanGewicht.z - scanGewicht.w);
+  scanGewicht.x = max(0.0, 1.0 - scanGewicht.y - scanGewicht.z - scanGewicht.w);
+  vec4 scanHoehe = scanGewicht + vec4(sWiese.a, sWald.a, sSchutt.a, sFels.a) * 0.6;
+  float scanOben = max(max(scanHoehe.x, scanHoehe.y), max(scanHoehe.z, scanHoehe.w)) - 0.25;
+  scanGewicht = max(scanHoehe - scanOben, 0.0) * step(0.001, scanGewicht);
+  scanGewicht /= max(scanGewicht.x + scanGewicht.y + scanGewicht.z + scanGewicht.w, 1e-4);
+
+  vec3 scanMod = sWiese.rgb * scanGewicht.x + sWald.rgb * scanGewicht.y
+               + sSchutt.rgb * scanGewicht.z + sFels.rgb * scanGewicht.w;
+  scanMod *= 2.0;
+  diffuseColor.rgb *= mix(vec3(1.0), scanMod, 0.85);
+`;
+
 const DETAIL_GLSL = /* glsl */ `
-  // Whiteout-Mischung in Weltlage (Golus), Geometrienormale als Basis.
-  vec3 basisW = normalize(vWeltNormal);
-  vec3 achse = pow(abs(basisW), vec3(4.0));
-  achse /= achse.x + achse.y + achse.z;
-  float felsSkala = 1.0 / 7.0;
   vec3 tX = texture2D(uFelsNormal, vWeltPos.zy * felsSkala).xyz * 2.0 - 1.0;
   vec3 tY = texture2D(uFelsNormal, vWeltPos.xz * felsSkala).xyz * 2.0 - 1.0;
   vec3 tZ = texture2D(uFelsNormal, vWeltPos.xy * felsSkala).xyz * 2.0 - 1.0;
-  tX = vec3(tX.xy + basisW.zy, abs(tX.z) * basisW.x);
-  tY = vec3(tY.xy + basisW.xz, abs(tY.z) * basisW.y);
-  tZ = vec3(tZ.xy + basisW.xy, abs(tZ.z) * basisW.z);
-  vec3 felsW = normalize(tX.zyx * achse.x + tY.xzy * achse.y + tZ.xyz * achse.z);
-  vec3 tB = texture2D(uBodenNormal, vWeltPos.xz * 0.55).xyz * 2.0 - 1.0;
-  tB.xy *= 0.7;
-  vec3 bodenW = normalize(vec3(tB.x + basisW.x, abs(tB.z) * basisW.y, tB.y + basisW.z));
-  vec3 detailW = normalize(mix(bodenW, felsW, max(steil, schutt * 0.5)));
-  // Ferne: Mipmaps glätten ohnehin; ab ~150 m ganz aus, damit nichts flimmert.
-  float detailNah = 1.0 - smoothstep(60.0, 150.0, length(vViewPosition));
-  vec3 versatz = mat3(viewMatrix) * (detailW - basisW);
+  tX = vec3(tX.xy + scanBasis.zy, abs(tX.z) * scanBasis.x);
+  tY = vec3(tY.xy + scanBasis.xz, abs(tY.z) * scanBasis.y);
+  tZ = vec3(tZ.xy + scanBasis.xy, abs(tZ.z) * scanBasis.z);
+  vec3 felsW = normalize(tX.zyx * felsAchse.x + tY.xzy * felsAchse.y + tZ.xyz * felsAchse.z);
+  vec3 detailW = scanAufWelt(scanNormale(uWieseNormal, uvWiese, scanWechsel), scanBasis) * scanGewicht.x
+               + scanAufWelt(scanNormale(uWaldbodenNormal, uvWald, scanWechsel), scanBasis) * scanGewicht.y
+               + scanAufWelt(scanNormale(uSchuttNormal, uvSchutt, scanWechsel), scanBasis) * scanGewicht.z
+               + felsW * scanGewicht.w;
+  detailW = normalize(detailW);
+  // Ferne: Mipmaps glätten ohnehin; ab ~180 m ganz aus, damit nichts flimmert.
+  float detailNah = 1.0 - smoothstep(80.0, 180.0, length(vViewPosition));
+  vec3 versatz = mat3(viewMatrix) * (detailW - scanBasis);
   normal = normalize(normal + versatz * detailNah);
 `;
 
@@ -254,8 +337,8 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
       );
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\nuniform sampler2D uFelsNormal;\nuniform sampler2D uBodenNormal;')
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL)
+      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL)
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL)
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL)
       .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
       .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL);
@@ -266,14 +349,20 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
     shader.uniforms.uSchutt = { value: new THREE.Color(PALETTE.fels.schutt) };
     shader.uniforms.uWaldTon = { value: new THREE.Color(PALETTE.biom.wald) };
     shader.uniforms.uMoos = { value: new THREE.Color(PALETTE.boden.moos) };
-    shader.uniforms.uFelsNormal = DETAIL.fels;
-    shader.uniforms.uBodenNormal = DETAIL.boden;
+    shader.uniforms.uWieseFarbe = SCAN.wiese.farbe;
+    shader.uniforms.uWieseNormal = SCAN.wiese.normal;
+    shader.uniforms.uWaldbodenFarbe = SCAN.waldboden.farbe;
+    shader.uniforms.uWaldbodenNormal = SCAN.waldboden.normal;
+    shader.uniforms.uSchuttFarbe = SCAN.schutt.farbe;
+    shader.uniforms.uSchuttNormal = SCAN.schutt.normal;
+    shader.uniforms.uFelsFarbe = SCAN.fels.farbe;
+    shader.uniforms.uFelsNormal = SCAN.fels.normal;
   };
-  ladeDetail();
+  ladeScans();
 
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
-  material.customProgramCacheKey = () => 'brachland-boden-v6' + (BODEN_KANTIG ? '-kantig' : '');
+  material.customProgramCacheKey = () => 'brachland-boden-v7' + (BODEN_KANTIG ? '-kantig' : '');
 
   return material;
 }

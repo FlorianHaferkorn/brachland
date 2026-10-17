@@ -61,6 +61,13 @@ const MITTEL_VARIANTE = 0;
  */
 const BAUM: ReadonlySet<PropArt> = new Set<PropArt>(['nadelbaum', 'laubbaum']);
 
+/**
+ * Arten, deren Mittelstufe ihre Varianten **nicht** zusammenlegt (D157 Bäume, D231 Findlinge). Die
+ * Variantenhöhe steckt in der Datei, nicht in der Instanzskalierung: Zusammengelegt stand jeder
+ * Findling ab 45 m als `findling_scan_a` (0,45 m) da — ein 3-m-Block schrumpfte auf Kniehöhe.
+ */
+const FORM_BEHALTEN: ReadonlySet<PropArt> = new Set<PropArt>(['nadelbaum', 'laubbaum', 'findling']);
+
 export interface Auswahl {
   /** Chunks mit eigenem Mesh, je nach Abstand in voller oder mittlerer Auflösung. */
   nah: { c: PropChunk; stufe: PropStufe }[];
@@ -231,7 +238,7 @@ function legeMittelZusammen(
   const zusammen = new Map<string, PropChunk>();
   for (const e of eintraege) {
     // Baumvarianten behalten dieselbe Silhouette auf jeder Stufe (D157).
-    if (e.stufe !== 'mittel' || e.c.art === 'nadelbaum' || e.c.art === 'laubbaum') { heraus.push(e); continue; }
+    if (e.stufe !== 'mittel' || FORM_BEHALTEN.has(e.c.art)) { heraus.push(e); continue; }
     const c = e.c;
     const schluessel = `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
     const da = zusammen.get(schluessel);
