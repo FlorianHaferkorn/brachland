@@ -1,0 +1,16 @@
+{
+  "id": "was-danach-waechst",
+  "region": "oental",
+  "geber": "werk-schichtbuch",
+  "titel": "Was danach wächst",
+  "text": "Der Stau ist leer, aber das Wasser riecht noch nach ihm. Sie haben gesagt, er habe nur gereinigt. Dann schreiben Sie es zu Ende: Ich habe drei Dinge auf meiner Liste, die man dafür braucht. Bringen Sie sie dorthin, wo er lag.",
+  "ziel": {
+    "art": "heile",
+    "regent": "flussvater"
+  },
+  "belohnung": {
+    "reinkultur": 1,
+    "quellwasser": 3
+  },
+  "vorher": "was-im-stau-liegt"
+}

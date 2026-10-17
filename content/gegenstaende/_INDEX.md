@@ -30,6 +30,7 @@ owns: *.json
 | `netzschlinge.json` | **Netzschlinge** — Fangchance +35 Punkte, 6 % Beutechance. Aus Kabelresten geflochten. Wer darin hängt, wehrt sich kürzer. |
 | `quellwasser.json` | **Quellwasser** — Heilung 100 %, 2 % Beutechance. Aus einer Quelle oberhalb des Befalls. Selten, und man merkt warum. |
 | `reinkultur.json` | **Reinkultur** — Reinigung (löst Befall), 8 % Beutechance. Unbefallene Sporenkultur. Verdrängt, was sich eingenistet hat. |
+| `saatgut-rein.json` · `katalysator-v3.json` · `wasserprobe-quell.json` | **Reinkultur-Komponenten des Flussvaters** (D240) — Wirkung `komponente`, nicht im Kampf, keine Beute. Je eine als Belohnung von `nach-vorher-schmecken`, `was-am-stollen-steht`, `was-der-tresen-weiss` (Ruine/Hof, Altstollen, Becken — Story-Bibel §9). Am Regentenort nach dem Sieg eingesetzt (`src/spiel/heilung.ts`); `npm run validate` prüft, dass jede Komponente existiert und erreichbar ist |
 | `zunder.json` | **Zunder** — Fokus +4, 12 % Beutechance. Trockener Baumschwamm, glimmt lange. Sammelt den Kopf für den nächsten Zug. |
 
 ## Regeln

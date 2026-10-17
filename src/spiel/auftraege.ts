@@ -36,6 +36,8 @@ export interface Taten {
   fragmente: readonly string[];
   /** Besiegte Regenten. */
   regenten: readonly string[];
+  /** Geheilte Regionen, nach Regenten-ID (D240). */
+  geheilt: readonly string[];
 }
 
 /** Wie viele Vorkommen einer Kreatur in dieser Liste stehen. */
@@ -71,6 +73,10 @@ export function werteZiel(ziel: Auftragsziel, t: Taten): Fortschritt {
       const ist = t.regenten.includes(ziel.regent) ? 1 : 0;
       return { ist, soll: 1, erfuellt: ist === 1 };
     }
+    case 'heile': {
+      const ist = t.geheilt.includes(ziel.regent) ? 1 : 0;
+      return { ist, soll: 1, erfuellt: ist === 1 };
+    }
   }
 }
 
@@ -81,6 +87,7 @@ export function zielText(ziel: Auftragsziel, f: Fortschritt): string {
     case 'fange':   return `${ziel.kreatur} fangen · ${f.ist}/${f.soll}`;
     case 'finde':   return f.erfuellt ? 'Fundstück gelesen' : 'ein Fundstück lesen';
     case 'regent':  return f.erfuellt ? 'Regent besiegt' : 'den Regenten besiegen';
+    case 'heile':   return f.erfuellt ? 'Region geheilt' : 'Reinkulturen am Regentenort einsetzen';
   }
 }
 

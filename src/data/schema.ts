@@ -307,6 +307,8 @@ export const Auftragsziel = z.discriminatedUnion('art', [
   z.object({ art: z.literal('fange'),   kreatur: z.string(), anzahl: z.number().int().min(1).max(6) }),
   z.object({ art: z.literal('finde'),   fragment: z.string() }),
   z.object({ art: z.literal('regent'),  regent: z.string() }),
+  /** Region geheilt: Regent besiegt **und** seine Reinkultur-Komponenten eingesetzt (D240). */
+  z.object({ art: z.literal('heile'),   regent: z.string() }),
 ]);
 export type Auftragsziel = z.infer<typeof Auftragsziel>;
 
@@ -346,6 +348,11 @@ export const GegenstandWirkung = z.discriminatedUnion('art', [
   z.object({ art: z.literal('fanghilfe'), bonus: z.number().min(0.05).max(0.6) }),
   /** Füllt Fokus auf. */
   z.object({ art: z.literal('fokus'), punkte: z.number().int().min(1).max(8) }),
+  /**
+   * Reinkultur-Komponente eines Regenten (D240): wirkt auf keinen Kämpfer, sondern wird am
+   * Regentenort eingesetzt, wenn er besiegt ist (`spiel/heilung.ts`).
+   */
+  z.object({ art: z.literal('komponente') }),
 ]);
 
 export const Gegenstand = z.object({

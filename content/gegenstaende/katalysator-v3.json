@@ -1,0 +1,10 @@
+{
+  "id": "katalysator-v3",
+  "name": "Katalysator V3",
+  "wirkung": {
+    "art": "komponente"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Eine versiegelte Ampulle aus dem Stollenlager, Charge 3. Sie schreibt nichts, sie beschleunigt nur, was geschrieben wird."
+}

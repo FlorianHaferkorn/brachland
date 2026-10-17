@@ -64,6 +64,11 @@ export interface Spielstand {
    */
   regenten: string[];
   /**
+   * Geheilte Regionen nach Regenten-ID (D240): besiegt **und** Reinkulturen eingesetzt. Nicht
+   * ableitbar — das Einsetzen verbraucht Gegenstände. Ohne Versionssprung (siehe `orte`).
+   */
+  geheilt: string[];
+  /**
    * Aufträge: angenommen oder Belohnung abgeholt.
    *
    * Der **Fortschritt** steht bewusst nicht hier: Ob drei Sporenhähne besiegt sind,
@@ -103,6 +108,7 @@ export const LEERER_STAND: Spielstand = {
   fragmente: [],
   orte: [],
   regenten: [],
+  geheilt: [],
   auftraege: {},
 };
 

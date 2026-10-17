@@ -41,10 +41,10 @@ owns: *.json
 | `creatures/moderotter.json` | Moderotter (Kreuzotter, Fäulnis, Fäulnisdrüse). 2 Stufen, `waterway=ditch` — kommt im aktuellen Raster **nicht** vor, Ledger G-22 |
 | `creatures/firnhase.json` | Firnhase (Schneehase, Frost, Frostkristall-Fell). 2 Stufen, `natural=scree` ab 1000 m. Einziger Frost-Konter gegen Flussvater-Phase 2 |
 | `moves/` | 53 Moves mit eigenem Index — Aufbau, Bänder und Zuordnung zu den Linien stehen in `moves/_INDEX.md` |
-| `gegenstaende/` | 8 Gegenstände mit eigenem Index — Heilung, Wiederbelebung, Reinigung, Fanghilfen, Fokus. Siehe `gegenstaende/_INDEX.md` |
+| `gegenstaende/` | 11 Gegenstände mit eigenem Index — Heilung, Wiederbelebung, Reinigung, Fanghilfen, Fokus, Reinkultur-Komponenten (D240). Siehe `gegenstaende/_INDEX.md` |
 | `fragmente/` | 12 Fundstücke an OSM-Orten mit eigenem Index — die Geschichte der Region, ohne Sprecher. Siehe `fragmente/_INDEX.md` |
 | `orte/` | 2 Zufluchten und 3 Bewohner auf freistehenden OSM-Gebäuden. Siehe `orte/_INDEX.md` |
-| `auftraege/` | 4 Aufträge — der kritische Pfad. Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
+| `auftraege/` | 14 Aufträge — der kritische Pfad bis zur Heilung (D240). Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
 | `waffen/` | 3 Waffen des Echtzeitkampfs (Klinge, Axt, Speer) — Phasen, Bogen, Wirkung je Schlag (ADR-0008, D191). Siehe `waffen/_INDEX.md` |
 | `gegner/` | 9 Gegner des Echtzeitkampfs (Übungsgegner, 5 Tiere, 3 Menschen) — Schlag, Kette, Linien, Leben, Haltung, Körper (ADR-0007, D194). Siehe `gegner/_INDEX.md` |
 | `creatures/alpenmurmel.json` | Alpenmurmel (Alpenmurmeltier, Stein, Erdpilz-Rückenpolster). 3 Stufen, `landuse=meadow` ab 700 m |
