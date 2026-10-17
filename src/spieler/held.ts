@@ -40,6 +40,31 @@ export const HAARNAMEN: Record<Haar, string> = {
 export const KLEIDNAMEN: Record<Kleid, string> = { waldlaeufer: 'Waldläufer', bauer: 'Landvolk' };
 export const HAARFARBEN = ['#2a1d15', '#4a3020', '#7a5230', '#a8763f', '#c9a36a', '#8a8580', '#6b2a1c'];
 
+const BEWOHNER_GESTALT: Record<string, { koerper: 'm' | 'w'; kleid: 'waldlaeufer' | 'bauer'; alt?: boolean }> = {
+  alte: { koerper: 'w', kleid: 'bauer', alt: true }, arbeiter: { koerper: 'm', kleid: 'bauer' },
+  baeuerin: { koerper: 'w', kleid: 'bauer' }, bauer: { koerper: 'm', kleid: 'bauer' },
+  bursche: { koerper: 'm', kleid: 'waldlaeufer' }, foerster: { koerper: 'm', kleid: 'waldlaeufer' },
+  magd: { koerper: 'w', kleid: 'bauer' }, wanderer: { koerper: 'm', kleid: 'waldlaeufer' },
+  werkfrau: { koerper: 'w', kleid: 'waldlaeufer' }, wirt: { koerper: 'm', kleid: 'bauer' },
+};
+/**
+ * Bewohner als leichte Gestalt (D176): Körper und Kleid je Figur, Haar und Hautton aus einer Saat
+ * aus Figur und Blick — dieselbe Person draussen (`RegionsSzene`) und drinnen (`ui/Stube`, D242).
+ */
+export function bewohnerWahl(figur: string, blick: number, farben?: Partial<Record<string, string>>): HeldWahl | null {
+  const g = BEWOHNER_GESTALT[figur];
+  if (!g) return null;
+  const saat = Math.abs(Math.round(blick * 7919 + figur.length * 104729));
+  const haare: Haar[] = g.koerper === 'm' ? ['Buzzed', 'SimpleParted', 'Kahl', 'Long'] : ['Long', 'Buns', 'BuzzedFemale', 'SimpleParted'];
+  return {
+    name: figur, geschlecht: g.koerper, koerper: g.koerper, kleid: g.kleid,
+    haar: haare[saat % haare.length], bart: g.koerper === 'm' && saat % 3 === 0,
+    haut: ((saat >> 3) % 10) / 12, haarfarbe: g.alt ? '#8a8580' : farben?.haar ?? HAARFARBEN[(saat >> 5) % 5],
+    // D177: die Jackenfarbe aus dem Inhalt tönt die Kleidung — jeder Bewohner bleibt erkennbar.
+    kleidfarbe: farben?.oberteil,
+  };
+}
+
 export const STANDARD_HELD: HeldWahl = {
   name: 'Wanderin', geschlecht: 'w', koerper: 'w', kleid: 'waldlaeufer', haar: 'Long', bart: false,
   haut: 0.4, haarfarbe: '#4a3020',

@@ -226,6 +226,16 @@ function Gestalt({ bild, seite, treffer, zug, geometrie }: GestaltProps & { geom
     const bb = geometrie.boundingBox!;
     return [(bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2] as const;
   }, [geometrie]);
+  /**
+   * Langgestreckte Gestalten schräg stellen (D241). Frontal zeigt ein Wels, Molch oder eine
+   * Schlange nur den Kopf — die Länge, auf die normiert wird, läge ganz in der Bildtiefe.
+   * Ab doppelter Länge dreht die Gestalt die Flanke halb zum Betrachter, Nase zum Gegner.
+   */
+  const schraeg = useMemo(() => {
+    const bb = geometrie.boundingBox!;
+    const lang = bb.max.z - bb.min.z, quer = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y);
+    return lang > 2 * quer ? -0.75 : 0;
+  }, [geometrie]);
 
   useFrame((_, dt) => {
     const g = gruppe.current;
@@ -257,7 +267,7 @@ function Gestalt({ bild, seite, treffer, zug, geometrie }: GestaltProps & { geom
            scale={norm * (1 + bild.stufe * 0.12)}>
       {/* Der Gegner schaut zum Spieler, der Spieler vom Betrachter weg — wie im
           klassischen Aufbau: eigene Kreatur von hinten, gegnerische von vorn. */}
-      <group rotation={[0, seite > 0 ? Math.PI : 0, 0]}>
+      <group rotation={[0, (seite > 0 ? Math.PI : 0) + schraeg, 0]}>
         {/* Um den eigenen Mittelpunkt zentrieren: Die Geometrien haben ihren
             Ursprung am Fuß und (bei der Schlange) am Kopfende, nicht in der Mitte. */}
         <mesh geometry={geometrie} material={material}

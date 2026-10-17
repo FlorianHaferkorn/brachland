@@ -1,6 +1,7 @@
 {
   "id": "steinbruch-wart",
   "region": "oental",
+  "innen": "schuppen",
   "art": "bewohner",
   "name": "Der Wart vom Bruch",
   "ort": [47.72815, 12.08373],

@@ -1,6 +1,7 @@
 {
   "id": "almhuette",
   "region": "oental",
+  "innen": "stube",
   "art": "zuflucht",
   "name": "Almhütte",
   "ort": [47.74571, 12.06181],

@@ -144,3 +144,36 @@ export function verteileKreaturen(
   }
   return raus;
 }
+
+/** Abstand der Rückkehrer zum Regentenort: nicht im Wels, nicht ausser Sicht. */
+const RUECKKEHR_RING: [number, number] = [14, 38];
+
+/**
+ * Vorkommen, die erst nach der Heilung da sind (D241): Die Arten aus `regent.nachHeilung`
+ * kehren an den Regentenort zurück — im Ring um ihn, deterministisch wie alles hier. Die Ids
+ * (`<art>:heil:<n>`) sind eigene, damit „gefangen“ und „besiegt“ sie getrennt führen.
+ */
+export function rueckkehrVorkommen(
+  rueckkehr: readonly { kreatur: string; anzahl: number }[],
+  ort: [number, number],
+  stufenZahl: (kreatur: string) => number,
+  hoeheAn: (x: number, z: number) => number,
+  seed = 11,
+): Vorkommen[] {
+  const zufall = mulberry(seed);
+  const raus: Vorkommen[] = [];
+  for (const { kreatur, anzahl } of rueckkehr) {
+    for (let n = 0; n < anzahl; n++) {
+      const winkel = zufall() * Math.PI * 2;
+      const r = RUECKKEHR_RING[0] + zufall() * (RUECKKEHR_RING[1] - RUECKKEHR_RING[0]);
+      const x = ort[0] + Math.cos(winkel) * r, z = ort[1] + Math.sin(winkel) * r;
+      const stufe = wildStufe(Math.hypot(x, z), zufall());
+      raus.push({
+        id: `${kreatur}:heil:${n}`, kreatur, stufe,
+        mutation: mutationBei(stufe, stufenZahl(kreatur)),
+        position: [x, hoeheAn(x, z), z], drehung: zufall() * Math.PI * 2,
+      });
+    }
+  }
+  return raus;
+}

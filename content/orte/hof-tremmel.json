@@ -1,6 +1,7 @@
 {
   "id": "hof-tremmel",
   "region": "oental",
+  "innen": "stube",
   "art": "bewohner",
   "name": "Tremmel, Hofbesitzerin",
   "ort": [47.72921, 12.07889],
