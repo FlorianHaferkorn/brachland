@@ -13,6 +13,8 @@
 import { besteReittier, traegt, warumNicht, REITEN_AB_MUTATION,
          type Reitkandidat } from '../src/spiel/reiten.js';
 import { baueWasserfeld } from '../src/world/wasserfeld.js';
+import { senkePegel } from '../src/world/baender.js';
+import * as THREE from 'three';
 import type { Weltdaten } from '../src/world/osm.js';
 
 let ok = 0, fehler = 0;
@@ -141,6 +143,18 @@ console.log('\nWasserfeld — Breite kommt aus der Linie, nicht aus dem Raster\n
     flaechen: [{ biom: 'wasser', punkte: [[0.5, 0.5], [0.5, 0.6]] }],
   } as unknown as Weltdaten, 1000, 1000);
   pruefe('Entartetes Polygon wird verworfen', kaputt.teiche.length === 0);
+}
+
+// ---- Gesunkener Pegel nach der Heilung (D241) ------------------------------
+console.log('\nPegelsenke — Mitte voll, Rand unberührt, dazwischen weich\n');
+{
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([0, 1, 0, 20, 1, 0, 40, 1, 0, 80, 1, 0], 3));
+  senkePegel(g, { x: 0, z: 0, radius: 40, tiefe: 0.35 });
+  const y = (i: number) => g.getAttribute('position').getY(i);
+  pruefe('Senke: Mitte um die volle Tiefe', Math.abs(y(0) - 0.65) < 1e-6, y(0).toFixed(3));
+  pruefe('Senke: halber Radius halb', Math.abs(y(1) - 0.825) < 1e-6, y(1).toFixed(3));
+  pruefe('Senke: am und jenseits des Randes unberührt', y(2) === 1 && y(3) === 1);
 }
 
 console.log(`\n${ok} bestanden, ${fehler} fehlgeschlagen`);

@@ -40,6 +40,11 @@
     "klaerstrom",
     "wehrschlag"
   ],
+  "befall": 0.3,
+  "nachHeilung": [
+    { "kreatur": "kiemenbiber", "anzahl": 3 },
+    { "kreatur": "moderotter", "anzahl": 2 }
+  ],
   "reinkulturen": [
     "saatgut-rein",
     "katalysator-v3",

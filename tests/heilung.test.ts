@@ -1,7 +1,7 @@
 /**
  * BRACHLAND — Heilung einer Region (D240): besiegen → Reinkulturen einsetzen → geheilt.
  */
-import { fehlende, heile, heillage } from '../src/spiel/heilung.js';
+import { fehlende, heile, heillage, wildZustand } from '../src/spiel/heilung.js';
 
 let bestanden = 0, gefallen = 0;
 function pruefe(name: string, bedingung: boolean, hinweis = '') {
@@ -31,6 +31,16 @@ pruefe('je eine Komponente verbraucht, Rest bleibt',
 pruefe('Eingabe unverändert', voll['saatgut-rein'] === 1);
 pruefe('geheilt ist Endlage', heillage(r, { ...bereit, geheilt: ['flussvater'] }) === 'geheilt');
 pruefe('zweimal heilen geht nicht', heile(r, { ...bereit, geheilt: ['flussvater'] }) === null);
+
+// ---- Wildlinge vor und nach der Heilung (D241) ----------------------------
+{
+  const ids = Array.from({ length: 2000 }, (_, i) => `oental:${i}`);
+  const befallen = ids.filter(id => wildZustand(id, 0.3, false) === 'befallen').length / ids.length;
+  pruefe('vorher: Anteil befallen ≈ 0,3', Math.abs(befallen - 0.3) < 0.04, befallen.toFixed(3));
+  pruefe('nachher: alle rein', ids.every(id => wildZustand(id, 0.3, true) === 'rein'));
+  pruefe('befall 0: alle rein', ids.every(id => wildZustand(id, 0, false) === 'rein'));
+  pruefe('fest je Vorkommen', ids.every(id => wildZustand(id, 0.3, false) === wildZustand(id, 0.3, false)));
+}
 
 console.log(`${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);

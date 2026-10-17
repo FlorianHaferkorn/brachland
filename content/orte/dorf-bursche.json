@@ -1,6 +1,7 @@
 {
   "id": "dorf-bursche",
   "region": "oental",
+  "innen": "stube",
   "art": "bewohner",
   "name": "Der Bursche",
   "ort": [

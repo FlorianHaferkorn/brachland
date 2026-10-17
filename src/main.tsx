@@ -18,8 +18,9 @@ import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNEN
          baueKaempfer, baueRegent, regentOrt, nachMetern, ausKaempferId } from './data/inhalte.js';
 import { NARBE } from './data/schema.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
+import { Stube } from './ui/Stube.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
-import { fehlende, heile, heillage } from './spiel/heilung.js';
+import { fehlende, heile, heillage, wildZustand } from './spiel/heilung.js';
 import { Menue } from './ui/Menue.js';
 import { verschiebe } from './spiel/team.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
@@ -186,7 +187,8 @@ function App() {
   /** ID des Ortes, an dem man gerade steht — Zuflucht oder Bewohner. */
   const [ortNah, setOrtNah] = useState<string | null>(null);
   /** Offenes Ortsfenster. Getrennt von `ortNah`: Nähe ist kein Grund, etwas aufzumachen. */
-  const [ortOffen, setOrtOffen] = useState<string | null>(null);
+  // `?stube=<ortId>` öffnet das Ortsfenster samt Raum gleich beim Start (D242) — zum Ansehen.
+  const [ortOffen, setOrtOffen] = useState<string | null>(() => new URLSearchParams(location.search).get('stube'));
   /** Sitzt der Spieler auf? Nicht im Spielstand — beim Laden steht man wieder am Boden. */
   const [imSattel, setImSattel] = useState(false);
   /** Menü offen? Nicht im Spielstand — ein Spiel startet nie im Menü. */
@@ -331,9 +333,9 @@ function App() {
     if (!ort || !r) return undefined;
     // Nach dem Sieg bleibt der Ort (dort werden die Reinkulturen eingesetzt, D240),
     // die Figur nicht — vorher stand der besiegte Wels weiter im Stauwasser.
-    if (regentBesiegt) return { ort, gestalt: null };
-    // Der Flussvater ist ein Riesenwels — die Schlangenform kommt dem am nächsten.
-    return { ort, gestalt: baueKreaturGeometrie('serpent', r.phasen[0].elemente, 2,
+    if (regentBesiegt) return { ort, kreatur: r.id, rueckkehr: r.nachHeilung, gestalt: null };
+    // Silhouette als Ladebild und Rückfall; das Modell (D241) kommt über `kreatur`.
+    return { ort, kreatur: r.id, rueckkehr: r.nachHeilung, gestalt: baueKreaturGeometrie('serpent', r.phasen[0].elemente, 2,
                                                 'verwachsener', saatAusId(r.id)) };
   }, [welt, regentBesiegt]);
 
@@ -636,9 +638,12 @@ function App() {
     });
   }, [sichere]);
 
+  const regionGeheilt = !!stand?.geheilt?.includes(REGENT_ID);
   const beginneKampf = useCallback((v: Vorkommen) => {
-    setBegegnung({ v, gegner: baueKaempfer(v.kreatur, v.stufe) });
-  }, []);
+    // Vor der Heilung ist ein Teil der Wildlinge befallen, danach keiner (D241).
+    const zustand = wildZustand(v.id, REGENTEN.get(REGENT_ID)?.befall ?? 0, regionGeheilt);
+    setBegegnung({ v, gegner: baueKaempfer(v.kreatur, v.stufe, zustand) });
+  }, [regionGeheilt]);
 
   const beendeKampf = useCallback((ende: KampfEnde) => {
     const v = begegnung?.v;
@@ -828,6 +833,9 @@ function App() {
   if (!welt || !stand) return <Hinweis text="Œntal wird geladen …" />;
 
   const imKampf = begegnung !== null || regentKampf !== null;
+  // Raum hinter dem Ortsfenster (D242): Solange er offen ist, steht die Welt.
+  const innenOrt = ortOffen ? ORTE.get(ortOffen) : undefined;
+  const drinnen = !!innenOrt?.innen;
   const kampfTeam: Team = { kaempfer: team, aktiv: Math.max(0, team.findIndex(k => k.kp > 0)) };
 
   return (
@@ -856,7 +864,7 @@ function App() {
         startBlick={ABSETZEN?.blick}
         ausdauer={ausdauer}
         reittier={reittier}
-        angehalten={imKampf}
+        angehalten={imKampf || drinnen}
         fernland={fernland}
         meldeRand={meldeRand}
         stoecke={stoecke}
@@ -1063,9 +1071,11 @@ function App() {
             </button>
           )}
 
+          {innenOrt?.innen && <Stube ort={innenOrt} tageszeit={tageszeit} />}
           {ortOffen && ORTE.get(ortOffen) && (
             <Ortsfenster
               ort={ORTE.get(ortOffen)!}
+              innen={drinnen}
               auftraege={beiGeber(AUFTRAEGE, ortOffen, stand.auftraege, taten)}
               onRasten={raste}
               onAnnehmen={nimmAuftrag}

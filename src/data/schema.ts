@@ -287,6 +287,11 @@ export const Ort = z.object({
    * schärfere Waffe. Kein Handelssystem mit Preisen, eine Werkbank.
    */
   schmied: z.boolean().optional(),
+  /**
+   * Raum hinter dem Ortsfenster (D242): Art des Innenraums, gebaut von `world/stube.ts`. Ohne
+   * Angabe kein Raum — etwa wo der Bewohner vor dem Tor sitzt.
+   */
+  innen: z.enum(['stube', 'wirtsstube', 'stadel', 'schuppen', 'werkstatt']).optional(),
   /** Was der Bewohner abends im Wirtshaus sagt (D178). Ohne Angabe gilt `text`. */
   textAbend: z.string().max(240).optional(),
 });
@@ -395,6 +400,13 @@ export const Regent = z.object({
   moves: z.array(z.string()).min(4).max(6),
   /** Reinkultur-Komponenten, die zur Heilung gebraucht werden. */
   reinkulturen: z.array(z.string()).length(3),
+  /**
+   * Anteil befallener Wildlinge in seiner Region, solange er nicht geheilt ist (D241). Nach der
+   * Heilung sind alle rein — der Wandel, den man in jeder Begegnung merkt.
+   */
+  befall: z.number().min(0).max(1).default(0),
+  /** Arten, die nach der Heilung an seinen Ort zurückkehren (D241): neue, reine Vorkommen. */
+  nachHeilung: z.array(z.object({ kreatur: z.string(), anzahl: z.number().int().min(1).max(8) })).default([]),
   /**
    * Fester Ort in der Welt (lat, lon).
    *

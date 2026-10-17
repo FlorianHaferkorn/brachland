@@ -1,6 +1,7 @@
 {
   "id": "dorf-wirt",
   "region": "oental",
+  "innen": "wirtsstube",
   "art": "bewohner",
   "name": "Der Wirt",
   "ort": [

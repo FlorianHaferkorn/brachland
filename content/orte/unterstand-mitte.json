@@ -1,6 +1,7 @@
 {
   "id": "unterstand-mitte",
   "region": "oental",
+  "innen": "schuppen",
   "art": "zuflucht",
   "name": "Unterstand am Talweg",
   "ort": [47.73222, 12.08141],

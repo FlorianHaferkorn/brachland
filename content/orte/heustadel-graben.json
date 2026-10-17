@@ -1,6 +1,7 @@
 {
   "id": "heustadel-graben",
   "region": "oental",
+  "innen": "stadel",
   "art": "zuflucht",
   "name": "Heustadel am Grabenweg",
   "ort": [47.72886, 12.08293],

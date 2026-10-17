@@ -26,8 +26,10 @@ export interface Auftragszeile {
 const RAHMEN = '#2a3632';
 const GRUEN = '#3fd9a0';
 
-export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, onSchliessen, beutel, waffenStufen, onSchmiede, onFunke, funkeFrei, abends, kopfgeld }: {
+export function Ortsfenster({ ort, innen, auftraege, onRasten, onAnnehmen, onAbholen, onSchliessen, beutel, waffenStufen, onSchmiede, onFunke, funkeFrei, abends, kopfgeld }: {
   ort: Ort;
+  /** Hinter dem Fenster steht der Raum (D242): Abdunkeln nur am Rand, Karte rechts statt mittig. */
+  innen?: boolean;
   /** Abends spricht man die Bewohner im Wirtshaus an (D178). */
   abends?: boolean;
   /** Kopfgeld-Brett des Wirts (D178). */
@@ -47,8 +49,9 @@ export function Ortsfenster({ ort, auftraege, onRasten, onAnnehmen, onAbholen, o
 }) {
   return (
     <div onClick={onSchliessen} style={{
-      position: 'fixed', inset: 0, zIndex: 30, display: 'grid', placeItems: 'center',
-      background: '#0a0f0dcc', padding: 20,
+      position: 'fixed', inset: 0, zIndex: 30, display: 'grid',
+      placeItems: innen ? 'center end' : 'center',
+      background: innen ? 'linear-gradient(to right, #0a0f0d00 45%, #0a0f0db3)' : '#0a0f0dcc', padding: 20,
     }}>
       <div onClick={e => e.stopPropagation()} style={{
         maxWidth: 440, width: '100%', maxHeight: '80dvh', overflowY: 'auto',

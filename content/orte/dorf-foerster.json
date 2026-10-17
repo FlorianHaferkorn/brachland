@@ -1,6 +1,7 @@
 {
   "id": "dorf-foerster",
   "region": "oental",
+  "innen": "stube",
   "art": "bewohner",
   "name": "Der Förster",
   "ort": [

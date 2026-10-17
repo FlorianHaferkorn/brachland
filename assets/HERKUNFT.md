@@ -47,6 +47,7 @@ und der ist auf beiden Rechnern nicht lauffähig (G-119).
 | `schneehuhn.glb` | Schneehuhn | Poly by Google | **CC BY 3.0** | poly.pizza `4A0kLzM65Mg`, „Quail" |
 | `sporenhahn.glb` | Sporenhahn | Poly by Google | **CC BY 3.0** | poly.pizza `6NTegstc5Jy`, „Rooster" |
 | `trafomarder.glb` | Trafomarder | Poly by Google | **CC BY 3.0** | poly.pizza `4I1SBFHWuSo`, „Ferret" |
+| `flussvater.glb` | Flussvater, Regent (D241) | eigene Arbeit | CC0 | prozedural mit `tools/welsbau.ts` (Riesenwels × Kläranlagen-Organik, Story-Bibel §5); kein Fremdmodell |
 
 ## Menschen (`public/figuren`, D143)
 

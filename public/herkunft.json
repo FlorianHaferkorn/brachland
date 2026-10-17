@@ -154,6 +154,13 @@
   "quelle": "poly.pizza 4I1SBFHWuSo, „Ferret\""
  },
  {
+  "datei": "flussvater.glb",
+  "rolle": "Flussvater, Regent (D241)",
+  "autor": "eigene Arbeit",
+  "lizenz": "CC0",
+  "quelle": "prozedural mit tools/welsbau.ts (Riesenwels × Kläranlagen-Organik, Story-Bibel §5); kein Fremdmodell"
+ },
+ {
   "datei": "wanderin.glb",
   "rolle": "Spielerfigur",
   "autor": "Quaternius",
