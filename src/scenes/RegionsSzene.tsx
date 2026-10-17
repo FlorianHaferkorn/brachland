@@ -37,7 +37,7 @@ import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
-import { BAUWERKE, bauwerkPfad, gesperrt, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
+import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { haengeAgxLookEin } from './tonwert.js';
 import { haengeNebelEin } from './nebel.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
@@ -48,7 +48,8 @@ import { lagerTon } from '../ton/lagerton.js';
 import { kameraZustand } from '../kampf/kamerazustand.js';
 import { armMitSicht, sichtFrei, ZIEL_RAND, type Versperrt } from '../kampf/sichtlinie.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
-import { verteileProps, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
+import { propsWieSzene } from '../world/szenenprops.js';
+import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
 import { baueGrasteppich } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
@@ -3681,15 +3682,8 @@ export function RegionsSzene({
 
   // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben
   // Positionen. Zweimal verteilen hieße, gegen unsichtbare Bäume zu laufen.
-  const props = useMemo(() => {
-    // Freihaltung der Bauwerke (ADR-0006): Die Blender-Szene bringt ihren eigenen Wald mit.
-    const roh = verteileProps(welt, { ...terrain, hoeheAn: feld.hoehe }, 1)
-      .filter(p => !gesperrt(p.position[0], p.position[2], 'props'));
-    return roh.map(p => ({
-      ...p,
-      position: [p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2]],
-    })) as PropInstanz[];
-  }, [welt, terrain, feld]);
+  // D232: dieselbe Funktion wie die Werkzeuge (`szenenprops.ts`).
+  const props = useMemo(() => propsWieSzene(welt, terrain, feld), [welt, terrain, feld]);
   const kollision = useMemo(
     () => baueKollision(props, welt, feld.breiteMeter, feld.tiefeMeter),
     [props, welt, feld],

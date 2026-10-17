@@ -3,7 +3,7 @@ import { entpackeWelt } from '../src/world/osm.js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          aufsatzboden } from '../src/world/lod.js';
-import { verteileProps } from '../src/world/props.js';
+import { propsWieSzene } from '../src/world/szenenprops.js';
 import { baueTerrain, baueGebaeude } from '../src/world/terrain.js';
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel } from '../src/world/baender.js';
 
@@ -52,7 +52,7 @@ for (const [name, g] of [...bandteile, ['gebaeude', baueGebaeude(welt, boden)]] 
 }
 
 // Props brauchen das Rasterobjekt, aber die feine Hoehe — wie in der Szene.
-const props = verteileProps(welt, { ...baueTerrain(welt), hoeheAn: feld.hoehe }, 1)
+const props = propsWieSzene(welt, baueTerrain(welt), feld) // D232
   .filter(p => Math.hypot(p.position[0] - SP[0], p.position[2] - SP[1]) < 260);
 for (const p of props) dump.props.push([p.art, p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2], p.drehung, p.skalierung]);
 dump.farben = { nadelbaum:'#20351f', laubbaum:'#3a4d2c', busch:'#3f4f33', findling:'#6e7276', totholz:'#4a4239', grasbuschel:'#5c6b45' };

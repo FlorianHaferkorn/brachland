@@ -24,13 +24,16 @@
 import { readFileSync } from 'node:fs';
 import { entpackeWelt, type Biom } from '../src/world/osm.js';
 import { baueTerrain, MASSSTAB } from '../src/world/terrain.js';
-import { verteileProps, DICHTE, type PropArt } from '../src/world/props.js';
+import { DICHTE, type PropArt } from '../src/world/props.js';
+import { baueHoehenfeld } from '../src/world/lod.js';
+import { propsWieSzene } from '../src/world/szenenprops.js';
 
 const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const t = baueTerrain(welt);
 // Seed 1 — derselbe, den RegionsSzene.tsx benutzt. Ein anderer Seed misst eine
 // andere Welt als die, die man spielt.
-const props = verteileProps(welt, { ...t, hoeheAn: t.hoeheAn }, 1);
+// D232: dieselbe Verteilung wie die Szene (Höhenfeld, Freihaltung der Bauwerke).
+const props = propsWieSzene(welt, t, baueHoehenfeld(welt));
 
 const n = welt.aufloesung;
 const zellBreite = t.breiteMeter / (n - 1);

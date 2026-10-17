@@ -32,6 +32,7 @@ owns: *.ts, *.tsx
 | Aussehen der Kreaturen, Pilzfächer, Anbauten wie das Chitinplatten-Gehörn, Mutationsstufen | `world/kreaturgestalt.ts` | engine/, ui/ |
 | Vegetationsdichte, Varianten, Modellgrößen | `world/osm.ts` | OSM → Weltdaten: Höhen, Biomraster, Linien, Wege, Gebäude, Spawnzonen. Das Biomraster stempelt **Siedlung aus Gebäuden** (zwei in 20 m, D77) — ohne das standen 79 % der Häuser auf Wiese (G-81) |
 | `world/props.ts` | scenes/, engine/ |
+| Props genau so verteilen wie die Szene (für Werkzeuge, Messkameras, Kollision) | `world/szenenprops.ts` (D232) | props.ts direkt aufrufen |
 | Bodendecker direkt um den Spieler | `world/streuung.ts` | props.ts |
 | Oberfläche des Bodens, Rauschen, Farbvariation | `world/bodenmaterial.ts` | lod.ts |
 | Terrain-Detail, LOD-Schwellen, Mikrorelief | `world/lod.ts` | scenes/, engine/ |
