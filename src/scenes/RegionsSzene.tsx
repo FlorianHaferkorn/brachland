@@ -36,6 +36,7 @@ import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
+import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, gesperrt, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { haengeAgxLookEin } from './tonwert.js';
 import { haengeNebelEin } from './nebel.js';
@@ -505,10 +506,13 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
    * Farn (D212): eigener Wind ohne Saum. Mit Normalen nach oben ist `1 - |N·V|` kein Rand, sondern
    * nur der Blickwinkel — auf dem dunklen Farn lag der Saum als grauer Schleier über der ganzen
    * Pflanze (Render 08.10.2026). Dafür Durchlass: Wedel leuchten im Gegenlicht.
+   *
+   * D229: Seit den Scan-Farnen texturiert — `farn-farbe.webp` ist Modulation (Mittel 0,5) mit Alpha,
+   * der Farbton kommt als `color` aus der Palette (×2 hebt das Mittel 0,5 auf 1), keine Vertexfarben.
    */
   const farnWind = useMemo(() => baueWindMaterial({
     amplitude: 0.2, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
-  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 1, metalness: 0 })), []);
+  }, farnScanBasis()), []);
   /**
    * Blender-Baeume (D155): derselbe Wind, aber glatt schattiert (die Blattmassen tragen Normalen),
    * Loecher im Laub (`COLOR_0.a` = Laubmaske) und Durchlass fuer das Gegenlicht — dasselbe Rezept
@@ -858,6 +862,30 @@ function PropFernMesh({ art, variante, instanzen, baumWind }: { art: PropArt; va
  * Rinde `#f2be9e` Pfirsich. Dieselben Modelle in der Ferne benutzten `PROP_FARBE`
  * (Grau, Oliv). Ein Findling wechselte beim Näherkommen die Farbe (G-76).
  */
+/**
+ * Basis der Scan-Farne (D229): Karte und Normale aus `public/material/`, Alpha als Ausschnitt.
+ * `?detail=0` lässt die Karten weg — dann steht der Farn als Palettenfläche (Vergleichsschalter).
+ */
+function farnScanBasis(): THREE.MeshStandardMaterial {
+  const m = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(PALETTE.attrappe.farn).multiplyScalar(2), roughness: 1, metalness: 0,
+    side: THREE.DoubleSide, alphaTest: 0.5, flatShading: false,
+  });
+  if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('detail') === '0') {
+    m.color.multiplyScalar(0.5);
+    return m;
+  }
+  const lader = new THREE.TextureLoader();
+  const karte = (datei: string) => {
+    const t = lader.load(`/material/${datei}.webp`);
+    t.colorSpace = THREE.NoColorSpace; t.anisotropy = 8; t.flipY = false;
+    return t;
+  };
+  m.map = karte('farn-farbe');
+  m.normalMap = karte('farn-normal');
+  return m;
+}
+
 const PROP_MATERIAL = new THREE.MeshStandardMaterial({
   vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
 });
@@ -881,6 +909,11 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
     scene.traverse(o => {
       if (!geo && (o as THREE.Mesh).isMesh) geo = (o as THREE.Mesh).geometry.clone().applyMatrix4(o.matrixWorld);
     });
+    if (art === 'farn' && geo) {
+      // D229: Die Scan-Farne bringen ihr Windgewicht als `_WIND` mit; vorher standen Farne still.
+      const w = (geo as THREE.BufferGeometry).getAttribute('_wind');
+      if (w) (geo as THREE.BufferGeometry).setAttribute('aWind', w);
+    }
     if (eigen && geo) {
       // Windgewicht aus der Datei (`_WIND` → `_wind`), sonst aus der Hoehe; Laubmaske steht in COLOR_0.a
       const g = geo as THREE.BufferGeometry;

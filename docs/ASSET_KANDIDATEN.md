@@ -8,7 +8,15 @@ shelf-life-days: 60
 > davon ist heruntergeladen oder im Spiel.** Status und Entscheidung leben im Ledger (`_INDEX.md`,
 > D226, A-13). Lizenzen ändern sich: vor jeder Übernahme erneut prüfen (ADR-0013, Punkt 4).
 
-## Was zum Herunterladen fehlt
+## Ohne Token: Poly Haven Modelle (CC0, kein Login)
+
+Seit 17.10.2026 die erste Quelle (D229): 521 Modelle, alle CC0, über die schon freigegebene Domain.
+Die Sammlung `pine_forest` passt zum Wald. Übernommen: `fern_02` (Farne). Nächste Kandidaten:
+`rock_moss_set_01/02` (bemooste Findlinge, ~60k → reduzieren), `tree_stump_01/02` (Stümpfe),
+`dry_branches_medium_01` (Totholz, 17k), `shrub_03` (Busch, 17k), `moss_01`, `pine_roots`.
+Werkzeug-Vorlage: `tools/farnscan.ts`.
+
+## Was zum Herunterladen fehlt (Sketchfab)
 
 - Ein kostenloser **Sketchfab-Account** und dessen **API-Token** (Settings → Password & API).
 - Abruf: `GET https://api.sketchfab.com/v3/models/{uid}/download` mit `Authorization: Token <token>`;

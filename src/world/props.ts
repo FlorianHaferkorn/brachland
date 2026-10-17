@@ -364,11 +364,13 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
     { datei: 'busch_breit',    hoehe: 2.1 },
     { datei: 'busch_gross',    hoehe: 2.4 },
   ],
+  // D229: gescannte Farne (Poly Haven `fern_02`, CC0, `tools/farnscan.ts`) statt der prozeduralen
+  // aus D212. Texturiert mit `farnWind`; die Attrappe ab 42 m bleibt. Höhen aus dem Werkzeug (×1,6).
   farn: [
-    { datei: 'farn_klein',     hoehe: 0.55 },
-    { datei: 'farn_mittel',    hoehe: 0.85 },
-    { datei: 'farn_breit',     hoehe: 0.75 },
-    { datei: 'farn_hoch',      hoehe: 1.25 },
+    { datei: 'farn_scan_d',    hoehe: 0.34 },
+    { datei: 'farn_scan_a',    hoehe: 0.46 },
+    { datei: 'farn_scan_c',    hoehe: 0.56 },
+    { datei: 'farn_scan_b',    hoehe: 0.68 },
   ],
   grasbuschel: [
     { datei: 'gras_matte',     hoehe: 0.18 },

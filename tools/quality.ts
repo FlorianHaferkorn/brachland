@@ -420,13 +420,18 @@ if (propDateien.length) {
     const jsonLaenge = roh.readUInt32LE(12);
     const kopf = JSON.parse(roh.subarray(20, 20 + jsonLaenge).toString('utf8'));
     const prims = (kopf.meshes ?? []).flatMap((m: { primitives: unknown[] }) => m.primitives);
+    // D229: Scan-Props (`*_scan_*`) sind texturiert — sie brauchen UV und Windgewicht statt Vertexfarbe.
+    const scan = v.datei.includes('_scan_');
     if (prims.length !== 1)
       stop('Props', `${v.datei}.glb hat ${prims.length} Primitive — die Szene zeichnet nur das erste`);
+    else if (scan && (!prims[0].attributes?.TEXCOORD_0 || !prims[0].attributes?._WIND))
+      stop('Props', `${v.datei}.glb (Scan) ohne TEXCOORD_0 oder _WIND — Karte oder Wind fehlen`);
+    else if (scan) heil++;
     else if (!prims[0].attributes?.COLOR_0)
       stop('Props', `${v.datei}.glb ohne COLOR_0 — wird mit vertexColors gezeichnet und bliebe schwarz`);
     else heil++;
   }
-  console.log(`  · [Assets] Props: ${heil}/${propDateien.length} mit einem Primitiv und Vertexfarbe`);
+  console.log(`  · [Assets] Props: ${heil}/${propDateien.length} mit einem Primitiv und Vertexfarbe (Scans: UV + Wind)`);
 }
 
 /**
@@ -455,6 +460,9 @@ const KORRIDOR: Record<string, { min: number; max: number }> = {
   // 80 statt 20 Dreiecken, weil 20-Dreieck-Ikosaeder als facettierte Baelle am Waldrand standen; ein
   // Nahbaum liegt damit bei ~5.000. ADR-0006: gemessen (60 B/s bei 1,4 M Dreiecken am M1), nicht gedeckelt.
   'Baum (Blender)':  { min: 100, max: 6000 },
+  // D229: Gescannte Props (Poly Haven, ADR-0013) tragen ihre Form in Alphakarten, nicht in Facetten, und
+  // stehen nur bis zur Attrappengrenze (Farn 42 m). Eigene Klasse wie die Blender-Bäume.
+  'Prop (Scan)':     { min: 300, max: 2500 },
   // Untergrenze 1.200 → 500 (D129): Die neun Poly-by-Google-Modelle haben 568–1.200
   // Dreiecke und sind so gebaut — facettiert, unverschweisst. Unterteilen hat sie
   // zu Schuppentieren gemacht, nicht zu besseren; die Facetten sind der Stil.
@@ -473,7 +481,9 @@ const KORRIDOR: Record<string, { min: number; max: number }> = {
   const klassen: Record<string, number[]> = {};
   if (existsSync('public/props')) {
     const dateien = readdirSync('public/props').filter(f => f.endsWith('.glb'));
-    klassen['Prop'] = dateien.filter(f => !f.startsWith('baum-')).map(f => glbTris(join('public/props', f)));
+    klassen['Prop'] = dateien.filter(f => !f.startsWith('baum-') && !f.includes('_scan_')).map(f => glbTris(join('public/props', f)));
+    const scans = dateien.filter(f => f.includes('_scan_'));
+    if (scans.length) klassen['Prop (Scan)'] = scans.map(f => glbTris(join('public/props', f)));
     // Blender-Baeume (ADR-0006, `tools/baumbau.py`): eigene Klasse, weil sie das Bild tragen und der
     // Prop-Korridor (150–800) fuer Attrappen gedacht war. Der Deckel ist grosszuegig — gemessen, nicht gewuenscht.
     const baeume = dateien.filter(f => f.startsWith('baum-'));
