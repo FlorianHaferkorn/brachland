@@ -347,6 +347,11 @@ export interface Variante {
   datei: string;
   /** Reale Höhe in Metern. */
   hoehe: number;
+  /**
+   * Scan-Prop (D229/D230): Name des Textursatzes in `public/material/` (`<textur>-farbe.webp`,
+   * `-normal.webp`). Dann trägt die Datei UV statt Vertexfarbe, und die Szene zeichnet sie texturiert.
+   */
+  textur?: string;
 }
 
 export const VARIANTEN: Record<PropArt, Variante[]> = {
@@ -356,6 +361,8 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
   // PROZEDURALE_VARIANTEN, nicht hier.
   nadelbaum: [],
   laubbaum: [],
+  // D230: Scan-Busch `shrub_02` geprüft und verworfen — dünne Ruten, im Gebüsch (55/ha) wirkte der
+  // Bestand leer. Die prozeduralen bleiben, bis ein dichter Scan-Busch da ist.
   busch: [
     { datei: 'busch_klein',    hoehe: 0.9 },
     { datei: 'busch_dreieck',  hoehe: 1.2 },
@@ -367,10 +374,10 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
   // D229: gescannte Farne (Poly Haven `fern_02`, CC0, `tools/farnscan.ts`) statt der prozeduralen
   // aus D212. Texturiert mit `farnWind`; die Attrappe ab 42 m bleibt. Höhen aus dem Werkzeug (×1,6).
   farn: [
-    { datei: 'farn_scan_d',    hoehe: 0.34 },
-    { datei: 'farn_scan_a',    hoehe: 0.46 },
-    { datei: 'farn_scan_c',    hoehe: 0.56 },
-    { datei: 'farn_scan_b',    hoehe: 0.68 },
+    { textur: 'farn', datei: 'farn_scan_d',    hoehe: 0.34 },
+    { textur: 'farn', datei: 'farn_scan_a',    hoehe: 0.46 },
+    { textur: 'farn', datei: 'farn_scan_c',    hoehe: 0.56 },
+    { textur: 'farn', datei: 'farn_scan_b',    hoehe: 0.68 },
   ],
   grasbuschel: [
     { datei: 'gras_matte',     hoehe: 0.18 },
@@ -380,21 +387,24 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
     { datei: 'gras_blatt',     hoehe: 0.62 },
     { datei: 'gras_staude',    hoehe: 0.85 },
   ],
+  // D230: bemooste Steine (Poly Haven `rock_moss_set_01/02`, CC0), auf die Höhen der alten Varianten.
   findling: [
-    { datei: 'findling_flach', hoehe: 0.45 },
-    { datei: 'findling_klein', hoehe: 0.7 },
-    { datei: 'findling_kant',  hoehe: 0.9 },
-    { datei: 'findling_hoch',  hoehe: 1.7 },
-    { datei: 'findling_block', hoehe: 2.2 },
-    { datei: 'findling_gross', hoehe: 3.0 },
+    { datei: 'findling_scan_a', hoehe: 0.45, textur: 'fels-moos-2' },
+    { datei: 'findling_scan_b', hoehe: 0.7,  textur: 'fels-moos-2' },
+    { datei: 'findling_scan_c', hoehe: 0.9,  textur: 'fels-moos-2' },
+    { datei: 'findling_scan_d', hoehe: 1.7,  textur: 'fels-moos-1' },
+    { datei: 'findling_scan_e', hoehe: 2.2,  textur: 'fels-moos-1' },
+    { datei: 'findling_scan_f', hoehe: 3.0,  textur: 'fels-moos-1' },
   ],
+  // D230: Stümpfe, Äste und Wurzelteller (Poly Haven `tree_stump_01/02`, `dry_branches_medium_01`,
+  // `pine_roots`, CC0).
   totholz: [
-    { datei: 'totholz_stamm',  hoehe: 0.5 },
-    { datei: 'totholz_dick',   hoehe: 0.8 },
-    { datei: 'totholz_stapel', hoehe: 0.7 },
-    { datei: 'totholz_stumpf', hoehe: 0.6 },
-    { datei: 'totholz_wurzel', hoehe: 1.0 },
-    { datei: 'totholz_kante',  hoehe: 0.75 },
+    { datei: 'totholz_scan_ast',     hoehe: 0.5, textur: 'ast' },
+    { datei: 'totholz_scan_dick',    hoehe: 0.8, textur: 'stumpf-2' },
+    { datei: 'totholz_scan_zweig',   hoehe: 0.3, textur: 'ast' },
+    { datei: 'totholz_scan_stumpf',  hoehe: 0.6, textur: 'stumpf-1' },
+    { datei: 'totholz_scan_wurzel',  hoehe: 0.2, textur: 'wurzel-a' },
+    { datei: 'totholz_scan_wurzel2', hoehe: 0.2, textur: 'wurzel-b' },
   ],
   blume: [
     { datei: 'blume_gelb',     hoehe: 0.26 },

@@ -291,6 +291,8 @@ if (existsSync('public/figuren')) {
 /**
  * Materialien (`public/material`, D223, ADR-0013): Herkunft je Datei und ein Budget. Die Scans
  * stehen im Precache; 8 MB halten Platz für eine fünfte Schicht, nicht für 2K-Fassungen.
+ * D230: 8 → 12 MB. Mit den Textursätzen der Scan-Props (Fels, Holz) stehen 7,9 MB; ohne Anhebung
+ * passte kein weiterer Satz (Busch, Figuren). Das Gesamtpaket bleibt am 60-MB-Tor.
  */
 if (existsSync('public/material')) {
   const dateien = readdirSync('public/material').filter(f => f.endsWith('.webp'));
@@ -298,7 +300,7 @@ if (existsSync('public/material')) {
   const ohne = dateien.filter(f => !herkunft.includes(f));
   if (ohne.length) stop('Materialien', `ohne Herkunftsangabe: ${ohne.join(', ')}`);
   const gesamt = dateien.reduce((s, f) => s + statSync(join('public/material', f)).size, 0) / 1024;
-  if (gesamt > 8 * 1024) stop('Materialien', `${(gesamt / 1024).toFixed(1)} MB über Budget 8 MB`);
+  if (gesamt > 12 * 1024) stop('Materialien', `${(gesamt / 1024).toFixed(1)} MB über Budget 12 MB`);
   if (!ohne.length)
     console.log(`  · [Materialien] ${dateien.length} Bilder mit Herkunft, zusammen ${(gesamt / 1024).toFixed(1)} MB`);
 }

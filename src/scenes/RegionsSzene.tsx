@@ -512,7 +512,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
    */
   const farnWind = useMemo(() => baueWindMaterial({
     amplitude: 0.2, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
-  }, farnScanBasis()), []);
+  }, scanBasis('farn', 'farn', true)), []);
+
   /**
    * Blender-Baeume (D155): derselbe Wind, aber glatt schattiert (die Blattmassen tragen Normalen),
    * Loecher im Laub (`COLOR_0.a` = Laubmaske) und Durchlass fuer das Gegenlicht — dasselbe Rezept
@@ -863,13 +864,14 @@ function PropFernMesh({ art, variante, instanzen, baumWind }: { art: PropArt; va
  * (Grau, Oliv). Ein Findling wechselte beim Näherkommen die Farbe (G-76).
  */
 /**
- * Basis der Scan-Farne (D229): Karte und Normale aus `public/material/`, Alpha als Ausschnitt.
- * `?detail=0` lässt die Karten weg — dann steht der Farn als Palettenfläche (Vergleichsschalter).
+ * Basis der Scan-Props (D229/D230): Karte und Normale aus `public/material/<textur>-…`. Die Karte ist
+ * Modulation (Mittel 0,5) — `color` ist der Palettenton der Art ×2. Mit `alpha` als Ausschnitt und
+ * beidseitig (Blattkarten). `?detail=0` lässt die Karten weg — Palettenfläche (Vergleichsschalter).
  */
-function farnScanBasis(): THREE.MeshStandardMaterial {
+function scanBasis(textur: string, art: PropArt, alpha: boolean): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(PALETTE.attrappe.farn).multiplyScalar(2), roughness: 1, metalness: 0,
-    side: THREE.DoubleSide, alphaTest: 0.5, flatShading: false,
+    color: new THREE.Color(PALETTE.attrappe[art as keyof typeof PALETTE.attrappe]).multiplyScalar(2), roughness: 1, metalness: 0,
+    side: alpha ? THREE.DoubleSide : THREE.FrontSide, alphaTest: alpha ? 0.5 : 0, flatShading: false,
   });
   if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('detail') === '0') {
     m.color.multiplyScalar(0.5);
@@ -881,8 +883,16 @@ function farnScanBasis(): THREE.MeshStandardMaterial {
     t.colorSpace = THREE.NoColorSpace; t.anisotropy = 8; t.flipY = false;
     return t;
   };
-  m.map = karte('farn-farbe');
-  m.normalMap = karte('farn-normal');
+  m.map = karte(`${textur}-farbe`);
+  m.normalMap = karte(`${textur}-normal`);
+  return m;
+}
+
+/** Statische Scan-Props (Fels, Holz): ein Material je Textursatz, geteilt über alle Chunks. */
+const SCAN_STATISCH = new Map<string, THREE.MeshStandardMaterial>();
+function statischesScanMaterial(textur: string, art: PropArt): THREE.MeshStandardMaterial {
+  let m = SCAN_STATISCH.get(textur);
+  if (!m) { m = scanBasis(textur, art, false); SCAN_STATISCH.set(textur, m); }
   return m;
 }
 
@@ -909,8 +919,8 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
     scene.traverse(o => {
       if (!geo && (o as THREE.Mesh).isMesh) geo = (o as THREE.Mesh).geometry.clone().applyMatrix4(o.matrixWorld);
     });
-    if (art === 'farn' && geo) {
-      // D229: Die Scan-Farne bringen ihr Windgewicht als `_WIND` mit; vorher standen Farne still.
+    if (!eigen && geo) {
+      // D229/D230: Scan-Props bringen ihr Windgewicht als `_WIND` mit; vorher standen Farne still.
       const w = (geo as THREE.BufferGeometry).getAttribute('_wind');
       if (w) (geo as THREE.BufferGeometry).setAttribute('aWind', w);
     }
@@ -942,6 +952,8 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, baumWind, baumT
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
   // als bewegtes Laub aufbaut.
   const biegsam = chunk.art === 'nadelbaum' || chunk.art === 'laubbaum' || chunk.art === 'busch';
+  /** D230: Scan-Props tragen ihren Textursatz in `VARIANTEN`. */
+  const textur = VARIANTEN[chunk.art][chunk.variante]?.textur;
   const gras = chunk.art === 'grasbuschel' || chunk.art === 'farn';
   const ref = useRef<THREE.InstancedMesh>(null);
 
@@ -984,7 +996,9 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, baumWind, baumT
       ref={ref} args={[undefined, undefined, chunk.instanzen.length]}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={fern && !blender ? fernGeo : geo}
-      material={blender ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
+      material={blender ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
+        : textur ? statischesScanMaterial(textur, chunk.art)
+        : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
       castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
     />
