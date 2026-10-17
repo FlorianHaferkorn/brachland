@@ -514,6 +514,10 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
   const farnWind = useMemo(() => baueWindMaterial({
     amplitude: 0.2, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
   }, scanBasis('farn', 'farn', true)), []);
+  /** Scan-Gras (D234): Blattkarten wie der Farn, ohne Saum, Durchlass im Gegenlicht. */
+  const grasScanWind = useMemo(() => baueWindMaterial({
+    amplitude: 0.25, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
+  }, scanBasis('gras', 'grasbuschel', true)), []);
 
   /**
    * Blender-Baeume (D155): derselbe Wind, aber glatt schattiert (die Blattmassen tragen Normalen),
@@ -553,6 +557,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
     wind.setzeZeit(uhr.current);
     grasWind.setzeZeit(uhr.current);
     farnWind.setzeZeit(uhr.current);
+    grasScanWind.setzeZeit(uhr.current);
     baumWind.setzeZeit(uhr.current);
   });
   /**
@@ -576,7 +581,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} />
+      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
       {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} />}
     </group>
@@ -698,7 +703,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
-function Props({ props, wind, grasWind, farnWind, baumWind, baumTiefe }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial }) {
+function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<{ art: PropArt; variante: number; instanzen: PropInstanz[] }[]>([]);
@@ -755,7 +760,7 @@ function Props({ props, wind, grasWind, farnWind, baumWind, baumTiefe }: { props
   return (
     <>
       {sichtbar.map(({ c, stufe, id }) =>
-        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} baumWind={baumWind} baumTiefe={baumTiefe} />)}
+        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={baumWind} baumTiefe={baumTiefe} />)}
       {fern.map(({ art, variante, instanzen }) =>
         <PropFernMesh key={`${art}:${variante}`} art={art} variante={variante} instanzen={instanzen} baumWind={baumWind} />)}
     </>
@@ -941,9 +946,9 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
 const LEER: ReadonlySet<string> = new Set();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, baumWind, baumTiefe }: {
+function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe }: {
   chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
-  farnWind: THREE.MeshStandardMaterial;
+  farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial;
   baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial;
 }) {
   const fern = stufe === 'fern';
@@ -998,7 +1003,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, baumWind, baumT
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={fern && !blender ? fernGeo : geo}
       material={blender ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
-        : textur ? statischesScanMaterial(textur, chunk.art)
+        : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
         : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
       castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}

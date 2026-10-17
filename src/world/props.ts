@@ -379,13 +379,15 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
     { textur: 'farn', datei: 'farn_scan_c',    hoehe: 0.56 },
     { textur: 'farn', datei: 'farn_scan_b',    hoehe: 0.68 },
   ],
+  // D234: gescannte Grasbüschel (Poly Haven `grass_medium_02`, CC0, `tools/phprops.ts`) auf die Höhen
+  // der prozeduralen; Blattkarten mit Alpha. Die prozeduralen bleiben in `propbau.ts` (Rückfall).
   grasbuschel: [
-    { datei: 'gras_matte',     hoehe: 0.18 },
-    { datei: 'gras_kurz',      hoehe: 0.24 },
-    { datei: 'gras_halme',     hoehe: 0.34 },
-    { datei: 'gras_hoch',      hoehe: 0.48 },
-    { datei: 'gras_blatt',     hoehe: 0.62 },
-    { datei: 'gras_staude',    hoehe: 0.85 },
+    { datei: 'gras_scan_a',    hoehe: 0.18, textur: 'gras' },
+    { datei: 'gras_scan_b',    hoehe: 0.24, textur: 'gras' },
+    { datei: 'gras_scan_c',    hoehe: 0.34, textur: 'gras' },
+    { datei: 'gras_scan_d',    hoehe: 0.48, textur: 'gras' },
+    { datei: 'gras_scan_e',    hoehe: 0.62, textur: 'gras' },
+    { datei: 'gras_scan_f',    hoehe: 0.85, textur: 'gras' },
   ],
   // D230: bemooste Steine (Poly Haven `rock_moss_set_01/02`, CC0), auf die Höhen der alten Varianten.
   findling: [
@@ -405,6 +407,10 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
     { datei: 'totholz_scan_stumpf',  hoehe: 0.6, textur: 'stumpf-1' },
     { datei: 'totholz_scan_wurzel',  hoehe: 0.2, textur: 'wurzel-a' },
     { datei: 'totholz_scan_wurzel2', hoehe: 0.2, textur: 'wurzel-b' },
+    // D233: Wurzelgeflecht (`root_cluster_01/02`, `single_root`, CC0).
+    { datei: 'totholz_scan_wurzelstock',  hoehe: 1.2,  textur: 'wurzelstock' },
+    { datei: 'totholz_scan_wurzelstrang', hoehe: 0.19, textur: 'wurzelstrang' },
+    { datei: 'totholz_scan_wurzel_einzel', hoehe: 0.18, textur: 'wurzel-einzel' },
   ],
   blume: [
     { datei: 'blume_gelb',     hoehe: 0.26 },

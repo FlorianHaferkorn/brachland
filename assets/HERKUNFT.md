@@ -113,6 +113,10 @@ Herkunft trotzdem, damit niemand rätseln muss. Lizenz geprüft am 15.10.2026 au
 | stumpf-1-farbe.webp, stumpf-1-normal.webp, ../props/totholz_scan_stumpf.glb | Baumstumpf (D230), 41.046 → 2.400 Dreiecke | Rob Tuytel | CC0-1.0 | Poly Haven Modell `tree_stump_01`, Lizenz geprüft 17.10.2026 |
 | stumpf-2-farbe.webp, stumpf-2-normal.webp, ../props/totholz_scan_dick.glb | Baumstumpf (D230), 62.345 → 2.399 Dreiecke | Rob Tuytel | CC0-1.0 | Poly Haven Modell `tree_stump_02`, Lizenz geprüft 17.10.2026 |
 | ast-farbe.webp, ast-normal.webp, ../props/totholz_scan_ast.glb, ../props/totholz_scan_zweig.glb | Liegende Äste (D230) | Rico Cilliers | CC0-1.0 | Poly Haven Modell `dry_branches_medium_01`, Lizenz geprüft 17.10.2026 |
+| wurzelstock-farbe.webp, wurzelstock-normal.webp, ../props/totholz_scan_wurzelstock.glb | Wurzelstock (D233), 225.261 → 2.389 Dreiecke | Jenelle van Heerden, Rico Cilliers | CC0-1.0 | Poly Haven Modell `root_cluster_01`, Lizenz geprüft 17.10.2026 |
+| wurzelstrang-farbe.webp, wurzelstrang-normal.webp, ../props/totholz_scan_wurzelstrang.glb | Wurzelstrang (D233), 213.939 → 2.400 Dreiecke | Jenelle van Heerden | CC0-1.0 | Poly Haven Modell `root_cluster_02` (Teil `_a`), Lizenz geprüft 17.10.2026 |
+| wurzel-einzel-farbe.webp, wurzel-einzel-normal.webp, ../props/totholz_scan_wurzel_einzel.glb | Einzelwurzel (D233), 61.027 → 1.799 Dreiecke | Jenelle van Heerden | CC0-1.0 | Poly Haven Modell `single_root`, Lizenz geprüft 17.10.2026 |
+| gras-farbe.webp, gras-normal.webp, ../props/gras_scan_a–f.glb | Grasbüschel (D234), Blattkarten mit Alpha, nicht reduziert, auf 0,18–0,85 m skaliert | Rico Cilliers | CC0-1.0 | Poly Haven Modell `grass_medium_02`, Lizenz geprüft 17.10.2026 |
 | wurzel-a-farbe.webp, wurzel-a-normal.webp, wurzel-b-farbe.webp, wurzel-b-normal.webp, ../props/totholz_scan_wurzel.glb, ../props/totholz_scan_wurzel2.glb | Wurzelteller (D230), je ~81k → 2.400 Dreiecke | Rob Tuytel | CC0-1.0 | Poly Haven Modell `pine_roots`, Lizenz geprüft 17.10.2026 |
 
 Bis D222 lagen hier zwei Detailnormalen aus npm `@pmndrs/assets` 1.7.0 (`normals/0005`, `0015`,
