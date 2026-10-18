@@ -69,7 +69,9 @@ export function bestimmeBiom(tags: Record<string, string>): Biom {
 
 const OVERPASS = [
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.osm.ch/api/interpreter',
+  // Statt overpass.osm.ch: Der Spiegel hält nur die Schweiz und antwortet für Bayern mit
+  // leeren `elements` (geprüft 18.10.2026). maps.mail.ru hält den ganzen Planeten.
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
 ];
 const VERSUCHE_JE_HOST = 3;
