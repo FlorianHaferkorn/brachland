@@ -22,7 +22,7 @@ import { Stube } from './ui/Stube.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
 import { fehlende, heile, heillage, wildZustand } from './spiel/heilung.js';
 import { Menue } from './ui/Menue.js';
-import { verschiebe } from './spiel/team.js';
+import { verschiebe, zustandsAnzeige } from './spiel/team.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
 import { gleiterFrei as gleiterOffen, GLEIT_VERHAELTNIS } from './spieler/gleiten.js';
 import { reitsitz } from './world/kreaturgestalt.js';
@@ -1174,6 +1174,8 @@ function App() {
               }}>
                 {k.name} <span style={{ color: '#6f8079' }}>S{ausKaempferId(k.id).stufe}</span>
                 {' '}{Math.max(0, k.kp)}/{k.maxKp}
+                {/* Befall in der Signalfarbe (D244): Er zehrt im nächsten Kampf, das soll man vorher sehen. */}
+                {k.zustand === 'befallen' && <span style={{ color: '#3fd9a0' }}> · {zustandsAnzeige(k.zustand)!.kurz}</span>}
               </div>
             ))}
             {/* Warum kein Reittier? Ein Satz, und nur solange es einen gibt. Eine

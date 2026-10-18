@@ -68,6 +68,11 @@ export interface Buehnenzug {
    * sich nach nichts an.
    */
   kritisch?: boolean;
+  /**
+   * Phasenwechsel eines Regenten (D244): kein Angriff, ein Ausschlag beim Gegner in der Farbe
+   * des neuen Elements — gross und langsam, damit er sich von jedem Treffer unterscheidet.
+   */
+  phase?: boolean;
 }
 
 /**
@@ -110,7 +115,7 @@ function Einschlag({ zug }: { zug: React.RefObject<Buehnenzug> }) {
     m.visible = t > 0;
     if (t <= 0) return;
 
-    const stark = (z?.faktor && z.faktor > 1 ? 1.5 : z?.faktor && z.faktor < 1 ? 0.6 : 1)
+    const stark = z?.phase ? 2.6 : (z?.faktor && z.faktor > 1 ? 1.5 : z?.faktor && z.faktor < 1 ? 0.6 : 1)
       * (z?.kritisch ? 1.6 : 1);
     // Volltreffer blitzt weiß auf und läuft dann in die Elementfarbe zurück. Weiß,
     // weil es die einzige Farbe ist, die kein Element belegt — ein Volltreffer ist
@@ -253,7 +258,7 @@ function Gestalt({ bild, seite, treffer, zug, geometrie }: GestaltProps & { geom
     // angeschnitten, obwohl das JSX sie mittig setzte.
     // Ausfallschritt: Der Angreifer geht auf den Gegner zu und wieder zurück. Eine
     // halbe Sinuswelle — vorne am schnellsten, an den Enden ruhig.
-    const meins = zug.current?.seite === seite ? klingt(zug.current.zeit, AUSFALL_DAUER) : 0;
+    const meins = zug.current?.seite === seite && !zug.current.phase ? klingt(zug.current.zeit, AUSFALL_DAUER) : 0;
     const ausfall = Math.sin((1 - meins) * Math.PI) * 0.34;
 
     g.position.y = -BILDHOEHE / 2 + atem * 0.014;

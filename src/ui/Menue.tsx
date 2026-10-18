@@ -31,7 +31,7 @@ import HERKUNFT from '../../public/herkunft.json';
 import { KREATUREN, GEGENSTAENDE, FRAGMENTE, ORTE, ausKaempferId, nachMetern }
   from '../data/inhalte.js';
 import { wendeAn, wirktAuf } from '../spiel/gegenstaende.js';
-import { verschiebe } from '../spiel/team.js';
+import { verschiebe, zustandsAnzeige } from '../spiel/team.js';
 import { zeichneKarte, zeichneMarken, type Kartenmarke } from './karte.js';
 
 export type Reiter = 'karte' | 'beutel' | 'team' | 'verzeichnis';
@@ -69,6 +69,8 @@ const FARBE = {
   feld: '#131c19',
   rand: '#2a3632',
   akzent: '#3fd9a0',
+  /** Befall — dieselbe eine Signalfarbe wie in der Kampfanzeige (`BattleScreen`). */
+  signal: '#3fd9a0',
   text: '#9fb0a8',
   matt: '#6f8079',
   aus: '#5c6b64',
@@ -340,6 +342,7 @@ function TeamReiter(p: MenueProps) {
         const a = ausKaempferId(k.id);
         const kr = KREATUREN.get(a.kreatur);
         const anteil = k.maxKp > 0 ? Math.max(0, k.kp) / k.maxKp : 0;
+        const zu = zustandsAnzeige(k.zustand, k.narbe);
         return (
           <div key={i} style={{
             display: 'flex', alignItems: 'center', gap: 8,
@@ -352,10 +355,11 @@ function TeamReiter(p: MenueProps) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, color: k.kp > 0 ? FARBE.text : '#6b5450' }}>
                 {k.name} <span style={{ color: FARBE.matt, fontSize: 11 }}>Stufe {a.stufe}</span>
-                {k.zustand !== 'rein' && (
-                  <span style={{ color: '#c8a86b', fontSize: 11 }}> · {k.zustand}</span>
+                {zu && (
+                  <span style={{ color: zu.signal ? FARBE.signal : '#c8a86b', fontSize: 11 }}> · {zu.kurz}</span>
                 )}
               </div>
+              {zu && <div style={{ fontSize: 10, color: FARBE.aus }}>{zu.lang}</div>}
               <div style={{ fontSize: 11, color: FARBE.matt }}>
                 {Math.max(0, k.kp)}/{k.maxKp} KP
                 {kr && <span style={{ color: FARBE.aus }}> · {kr.elemente.join(', ')}</span>}

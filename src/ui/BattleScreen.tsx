@@ -7,11 +7,11 @@
  * Bewusst für Handy gebaut: Daumenreichweite unten, große Trefferflächen,
  * kein Hover. Farbgebung folgt der Art Direction (gedämpft + eine Signalfarbe).
  */
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { BAND } from '../data/schema.js';
 import {
   REGELN, schaden, schlag, waehleMove, elementFaktor, rng,
-  fangbarImZustand, iniEff, wendeWirkungenAn, tickeWirkungen, darfWechseln,
+  fangbarImZustand, iniEff, wendeWirkungenAn, tickeWirkungen, darfWechseln, phaseBei,
   type Kaempfer, type Team, type MoveDef,
 } from '../engine/battle.js';
 import { Kampfbuehne, type KaempferBild, type Buehnenzug } from './Kampfbuehne.js';
@@ -29,6 +29,15 @@ const FARBE = {
   gefahr:      '#c4553f',
   kp:          '#6fb98a',
 } as const;
+
+/** Für Meldungen in ganzen Sätzen — der Phasenwechsel nennt das neue Element beim Namen. */
+const ELEMENT_NAME: Record<string, string> = {
+  holz: 'Holz', stein: 'Stein', 'alt-tech': 'Alt-Tech', sporen: 'Sporen',
+  wasser: 'Wasser', brand: 'Brand', frost: 'Frost', faeulnis: 'Fäulnis',
+};
+
+/** So lange steht die Auftakt-Karte eines Regenten (D244), bevor man handeln kann. */
+const AUFTAKT_MS = 2600;
 
 const ELEMENT_KURZ: Record<string, string> = {
   holz: 'HLZ', stein: 'STN', 'alt-tech': 'TEC', sporen: 'SPO',
@@ -156,7 +165,21 @@ export function Kampfbildschirm({
   team, gegner, seed = 1, fangbar = true, bild, beutel, onVerbraucht, narbeFuer, onEnde,
 }: KampfProps) {
   const [, neuZeichnen] = useState(0);
-  const [meldungen, setMeldungen] = useState<string[]>([`${gegner.name} stellt sich.`]);
+  const regent = !!gegner.phasen?.length;
+  const [meldungen, setMeldungen] = useState<string[]>([regent && gegner.phasen![0].verhalten
+    ? `${gegner.name} ${gegner.phasen![0].verhalten}.` : `${gegner.name} stellt sich.`]);
+  /**
+   * Auftakt (D244): Ein Regent ist kein Wildling, der aus dem Gras springt. Sein Name steht einen
+   * Moment allein, bevor die Knöpfe kommen — die Pause ist der Auftritt.
+   */
+  const [auftakt, setAuftakt] = useState(regent);
+  useEffect(() => {
+    if (!auftakt) return;
+    const t = setTimeout(() => setAuftakt(false), AUFTAKT_MS);
+    return () => clearTimeout(t);
+  }, [auftakt]);
+  /** Laufende Phase. Die Regel steht in der Engine (`phaseBei`), hier nur das Erkennen des Wechsels. */
+  const phase = useRef(regent ? phaseBei(gegner) : 0);
   const [wechselOffen, setWechselOffen] = useState(false);
   const [beutelOffen, setBeutelOffen] = useState(false);
   /** Zuschlag aus einer ausgelegten Fanghilfe. Gilt für diesen Kampf. */
@@ -233,6 +256,19 @@ export function Kampfbildschirm({
         melde(`${k.name} zehrt an sich selbst (−${z}).`);
       }
       k.fokus = Math.min(REGELN.FOKUS_MAX, k.fokus + REGELN.FOKUS_REGEN);
+    }
+
+    // Phasenwechsel (D244): Element wechselt, die Bühne schlägt einmal in der neuen Farbe aus,
+    // und der Satz aus dem Inhalt sagt, was er jetzt tut. Vorher wechselte nur die Simulation.
+    if (regent && gegner.kp > 0) {
+      const neu = phaseBei(gegner);
+      if (neu !== phase.current) {
+        phase.current = neu;
+        const ph = gegner.phasen![neu];
+        gegner.elemente = [...ph.elemente];
+        zug.current = { zeit: performance.now() / 1000, seite: -1, element: ph.elemente[0], phase: true };
+        melde(`${gegner.name} ${ph.verhalten ?? 'verändert sich'} — jetzt ${ph.elemente.map(e => ELEMENT_NAME[e] ?? e).join(' und ')}.`);
+      }
     }
 
     if (gegner.kp <= 0) { melde(`${gegner.name} ist besiegt.`); setEnde('sieg'); }
@@ -314,7 +350,9 @@ export function Kampfbildschirm({
 
   const vorbei = ende !== null;
   const spielerBild = bild?.(aktiv.id) ?? null;
-  const gegnerBild = bild?.(gegner.id) ?? null;
+  const gegnerRoh = bild?.(gegner.id) ?? null;
+  // Das Bild trägt das Element der laufenden Phase, nicht das aus den Inhalten.
+  const gegnerBild = gegnerRoh && regent ? { ...gegnerRoh, elemente: [...gegner.elemente] } : gegnerRoh;
 
   return (
     <div style={{
@@ -322,6 +360,22 @@ export function Kampfbildschirm({
       display: 'flex', flexDirection: 'column', gap: 10, padding: 12,
       fontFamily: 'system-ui, sans-serif',
     }}>
+      {auftakt && (
+        // Tippen überspringt — wer den Regenten zum dritten Mal stellt, will nicht warten.
+        <div onClick={() => setAuftakt(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 5, display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 10, cursor: 'pointer',
+          background: 'radial-gradient(ellipse at center, #0d1210cc 0%, #0d1210f2 70%)',
+          animation: `auftakt ${AUFTAKT_MS}ms ease-in forwards`,
+        }}>
+          <style>{'@keyframes auftakt { 0% { opacity: 0 } 15% { opacity: 1 } 80% { opacity: 1 } 100% { opacity: 0 } }'}</style>
+          <div style={{ fontSize: 11, letterSpacing: 3, color: FARBE.gedaempft }}>REGENT</div>
+          <div style={{ fontSize: 30, fontWeight: 600, color: FARBE.text, letterSpacing: 1 }}>{gegner.name}</div>
+          {gegner.phasen![0].verhalten && (
+            <div style={{ fontSize: 13, color: FARBE.gedaempft }}>{gegner.phasen![0].verhalten}</div>
+          )}
+        </div>
+      )}
       <KaempferKarte k={gegner} gegner={aktiv} oben />
 
       {/* Bühne: feste Höhe statt flex.
@@ -357,7 +411,7 @@ export function Kampfbildschirm({
       <KaempferKarte k={aktiv} gegner={gegner} />
 
       {/* Bedienung unten — Daumenreichweite. Trefferflächen mindestens 44 px. */}
-      {!vorbei && !wechselOffen && !beutelOffen && (
+      {!vorbei && !wechselOffen && !beutelOffen && !auftakt && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           {aktiv.moves.map(m => {
             const kosten = BAND[m.band].fokus;

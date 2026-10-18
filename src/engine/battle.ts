@@ -193,7 +193,7 @@ export interface Kaempfer {
    */
   narbe?: { art: NarbenArt; wert: number };
   /** Regenten: Element wechselt bei KP-Anteil. */
-  phasen?: { elemente: Element[]; abKpAnteil: number }[];
+  phasen?: { elemente: Element[]; abKpAnteil: number; verhalten?: string }[];
 }
 
 export interface Team { kaempfer: Kaempfer[]; aktiv: number; }
@@ -488,6 +488,24 @@ export function waehleWechsel(team: Team, gegner: Kaempfer): number | null {
 }
 
 // -------------------------------------------------------------- Kampfablauf
+/**
+ * Phase eines Regenten nach KP-Anteil: die erste, deren Schwelle noch unterschritten ist.
+ *
+ * Eine Funktion für Simulation (`kampf`) und Kampfbildschirm (D244) — vorher stand die Regel nur
+ * in `kampf`, und der spielbare Kampf wechselte nie die Phase: Die drei Phasen des Flussvaters
+ * waren über tausende simulierte Kämpfe abgestimmt und im Spiel nie zu sehen.
+ */
+export function phaseBei(k: Kaempfer): number {
+  if (!k.phasen?.length) return 0;
+  // `abKpAnteil` heisst wie im Schema: **ab** diesem KP-Anteil abwärts gilt die Phase (1,0 / 0,66 /
+  // 0,33). Die Engine las die Zahl vorher als Untergrenze — mit den echten Inhalten startete der
+  // Flussvater damit in Phase 2, und die Wasserphase kam nie vor (D244).
+  const anteil = k.kp / k.maxKp;
+  let phase = 0;
+  k.phasen.forEach((p, i) => { if (anteil <= p.abKpAnteil) phase = i; });
+  return phase;
+}
+
 export interface Ergebnis { sieg: boolean; runden: number; verluste: number; log: Ereignis[]; }
 
 export function kampf(team: Team, boss: Kaempfer, seed = 1, log = false): Ergebnis {
@@ -500,9 +518,7 @@ export function kampf(team: Team, boss: Kaempfer, seed = 1, log = false): Ergebn
   for (let runde = 0; runde < REGELN.MAX_RUNDEN; runde++) {
     // Regenten-Phase nach KP-Anteil
     if (boss.phasen) {
-      const anteil = boss.kp / boss.maxKp;
-      const idx = boss.phasen.findIndex(p => anteil > p.abKpAnteil);
-      const neu = idx === -1 ? boss.phasen.length - 1 : idx;
+      const neu = phaseBei(boss);
       if (neu !== phase) {
         phase = neu; boss.elemente = boss.phasen[neu].elemente;
         merke({ art: 'phase', wer: boss.name, elemente: boss.elemente });

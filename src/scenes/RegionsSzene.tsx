@@ -1906,12 +1906,25 @@ const REGENT_MODELL_MASS = 3.8;
 const HEIL_PEGEL = { radius: 45, tiefe: 0.35 };
 /** Ab hier wird gefragt, ob man ihn stellen will. */
 export const REGENT_AB = 18;
-/** Ab hier taucht der Regent auf und wendet sich dem Spieler zu (D243). */
-const REGENT_BLICK = 60;
+/**
+ * Auftauchen des Regenten (D243), vorläufig — zu beurteilen am M1 in Bewegung, nicht am Standbild.
+ * Dafür `?auftauchen=tiefe,blick,schraeg` (z. B. `?auftauchen=1.6,80,0.6`): überschreibt die drei
+ * Werte für diesen Lauf, damit man sie am Zielgerät stellen kann, ohne neu zu bauen (D244).
+ */
+const AUFTAUCHEN_MESSLAUF: [number, number, number] | null = (() => {
+  if (typeof location === 'undefined') return null;
+  const roh = new URLSearchParams(location.search).get('auftauchen')?.split(',').map(Number);
+  if (!roh || roh.length !== 3 || roh.some(n => !Number.isFinite(n))) return null;
+  const [tiefe, blick, schraeg] = roh;
+  return tiefe >= 0 && tiefe <= 5 && blick > REGENT_AB && blick <= 200 && Math.abs(schraeg) <= Math.PI
+    ? [tiefe, blick, schraeg] : null;
+})();
 /** So tief liegt er von weitem — beim Wels bleiben Rücken und Rohre über Wasser. */
-const REGENT_TAUCHTIEFE = 1.2;
+const REGENT_TAUCHTIEFE = AUFTAUCHEN_MESSLAUF?.[0] ?? 1.2;
+/** Ab hier taucht der Regent auf und wendet sich dem Spieler zu. */
+const REGENT_BLICK = AUFTAUCHEN_MESSLAUF?.[1] ?? 60;
 /** Dreiviertel statt frontal: Frontal zeigt ein Wels nur Maul und Barteln. */
-const REGENT_SCHRAEG = 0.85;
+const REGENT_SCHRAEG = AUFTAUCHEN_MESSLAUF?.[2] ?? 0.85;
 
 /** Der Regent als Modell (D241), sobald `public/creatures/<id>.glb` im Register steht. */
 function RegentModell({ kreatur, material }: { kreatur: string; material: THREE.Material }) {

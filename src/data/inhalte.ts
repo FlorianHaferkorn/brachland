@@ -175,6 +175,6 @@ export function baueRegent(id: string): Kaempfer {
     maxKp: r.werte.kp,
     ang: r.werte.ang, ver: r.werte.ver, ini: r.werte.ini,
     moves: r.moves.map(moveDef),
-    phasen: r.phasen.map(p => ({ elemente: [...p.elemente], abKpAnteil: p.abKpAnteil })),
+    phasen: r.phasen.map(p => ({ elemente: [...p.elemente], abKpAnteil: p.abKpAnteil, verhalten: p.verhalten })),
   });
 }
