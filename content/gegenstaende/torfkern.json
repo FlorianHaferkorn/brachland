@@ -1,0 +1,10 @@
+{
+  "id": "torfkern",
+  "name": "Torfkern",
+  "wirkung": {
+    "art": "komponente"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Ein Bohrkern aus der Filze, gestochen vor dem Befall. Unten liegt, was das Moor einmal war."
+}

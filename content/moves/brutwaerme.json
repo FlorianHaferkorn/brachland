@@ -1,0 +1,10 @@
+{
+  "id": "brutwaerme",
+  "name": "Brutwärme",
+  "element": "faeulnis",
+  "band": "leicht",
+  "effekte": [
+    { "art": "befall", "chance": 0.35 }
+  ],
+  "beschreibung": "Feuchte Wärme aus dem Inkubator. Was darin liegt, schlüpft befallen."
+}

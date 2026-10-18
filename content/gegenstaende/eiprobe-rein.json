@@ -1,0 +1,10 @@
+{
+  "id": "eiprobe-rein",
+  "name": "Eiprobe, unbefallen",
+  "wirkung": {
+    "art": "komponente"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Ein Gelege aus einem Graben, den die Brutmutter nicht erreicht hat. Kalt, aber nicht tot."
+}

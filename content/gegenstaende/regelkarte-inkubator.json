@@ -1,0 +1,10 @@
+{
+  "id": "regelkarte-inkubator",
+  "name": "Regelkarte Inkubator",
+  "wirkung": {
+    "art": "komponente"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Eine Steckkarte aus dem Brutschrank, Werkseinstellung. Sie kennt nur eine Temperatur, und die ist richtig."
+}

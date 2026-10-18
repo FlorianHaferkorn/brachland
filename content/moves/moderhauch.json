@@ -6,7 +6,7 @@
   "effekte": [
     {
       "art": "schaden_ueber_zeit",
-      "proRunde": 6,
+      "proRunde": 0.06,
       "runden": 3
     }
   ],

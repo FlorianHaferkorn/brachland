@@ -51,7 +51,9 @@ export const BAND = {
 export const MoveEffekt = z.discriminatedUnion('art', [
   z.object({ art: z.literal('statuswert'), wert: z.enum(['ang','ver','ini']),
              stufen: z.number().int().min(-3).max(3), ziel: z.enum(['selbst','gegner']) }),
-  z.object({ art: z.literal('schaden_ueber_zeit'), proRunde: z.number(), runden: z.number().int() }),
+  // `proRunde` ist ein Anteil der maximalen KP (`battle.ts`), keine Punktzahl. Ohne Grenze standen
+  // 5 und 6 im Bestand — 500 % pro Runde, ein Sofort-K.o. auch gegen den Regenten (D246).
+  z.object({ art: z.literal('schaden_ueber_zeit'), proRunde: z.number().gt(0).max(0.25), runden: z.number().int() }),
   z.object({ art: z.literal('befall'), chance: z.number().min(0).max(1) }),
   z.object({ art: z.literal('wechselsperre'), runden: z.number().int() }),
   z.object({ art: z.literal('heilung'), anteil: z.number().min(0).max(1) }),

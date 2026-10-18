@@ -3,6 +3,7 @@
  * Die Zahlen stammen aus Kampfsystem v2.4 — weicht die Engine ab, ist entweder
  * die Engine falsch oder eine Designentscheidung wurde still verändert.
  */
+import { readFileSync } from 'node:fs';
 import { ELEMENTE, BAND, effektivitaet } from '../src/data/schema.js';
 import { erstelle, kampf, phaseBei, kpVorPhase, elementFaktor, rng, REGELN,
          type Kaempfer, type Team, type MoveDef } from '../src/engine/battle.js';
@@ -137,6 +138,28 @@ console.log('\n8. Phase nach KP-Anteil — eine Regel für Simulation und Kampfb
     pruefe(`kpVorPhase(${n}): davor ${n - 1}, ein Punkt später ${n}`, davor === n - 1 && phaseBei(r) === n,
       `kp ${r.kp + 1}: ${davor} → ${phaseBei(r)}`);
   }
+}
+
+console.log('\n9. Brutmutter aus content/ — Frost ist der Engpass, das alte Team reicht nicht (D246)\n');
+{
+  // Aus den Dateien, nicht nachgebaut: Die Werte sollen genau das prüfen, was im Spiel steht.
+  const lies = (pfad: string) => JSON.parse(readFileSync(new URL(`../content/${pfad}.json`, import.meta.url), 'utf8'));
+  const bm = lies('regenten/brutmutter');
+  const brutmutter = () => erstelle({
+    id: bm.id, name: bm.name, elemente: bm.phasen[0].elemente, zustand: 'rein',
+    maxKp: bm.werte.kp, ang: bm.werte.ang, ver: bm.werte.ver, ini: bm.werte.ini,
+    moves: bm.moves.map((id: string) => lies(`moves/${id}`)), phasen: bm.phasen,
+  });
+  // Sim 18.10.2026 (800 Kämpfe): Konter 67 %, Œntal-Team 21 %, ohne Frost 10 %.
+  const konter = quote(s => kampf(macheTeam(['frost','stein','alt-tech','sporen','frost','holz'], s), brutmutter(), s).sieg);
+  const oental = quote(s => kampf(macheTeam(['sporen','alt-tech','holz','stein','frost','wasser'], s), brutmutter(), s).sieg);
+  const ohneFrost = quote(s => kampf(macheTeam(['stein','alt-tech','holz','sporen','wasser','faeulnis'], s), brutmutter(), s).sieg);
+  imBereich('Konter-Team (Frost, Stein/Alt-Tech)', konter, 55, 85);
+  pruefe('das Œntal-Team reicht nicht', konter - oental > 25, `(${konter.toFixed(0)} % vs ${oental.toFixed(0)} %)`);
+  imBereich('ohne Frost kaum zu schaffen', ohneFrost, 0, 25);
+  // Gegenprobe zum Datenfehler: proRunde 6 hätte jeden Kämpfer im ersten Tick gelöscht.
+  const dot = lies('moves/giftbiss').effekte[0];
+  pruefe('Giftbiss zehrt einen Anteil, keine Punktzahl', dot.proRunde > 0 && dot.proRunde <= 0.25);
 }
 
 console.log(`\n${pass} bestanden, ${fail} fehlgeschlagen\n`);
