@@ -1,0 +1,10 @@
+{
+  "id": "ein-gelege-ohne-fahl",
+  "region": "fahlmoos",
+  "geber": "torfhuette-stecherin",
+  "titel": "Ein Gelege ohne Fahl",
+  "text": "Was in den Gräben schlüpft, kommt schon krank heraus. Aber nicht alles. Fangen Sie mir zwei Molche, die noch sauber sind. Dann weiß ich, dass es ein Ei gibt, das ihr nicht gehört.",
+  "ziel": { "art": "fange", "kreatur": "myzelmolch", "anzahl": 2 },
+  "belohnung": { "eiprobe-rein": 1 },
+  "vorher": "die-karte-hinter-glas"
+}

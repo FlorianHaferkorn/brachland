@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-08
+last-reviewed: 2026-10-18
 shelf-life-days: 180
 owns: *.json
 ---
@@ -26,6 +26,8 @@ owns: *.json
 | `heustadel-graben.json` | zuflucht | Heustadel zwischen Bruchweg (≈ 170 m) und Hofgraben (≈ 360 m), D183 — kurzer Rückweg nach einer Niederlage an den unteren Lagern |
 | `almhuette.json` | zuflucht | Hütte 2 km draußen auf 1000 m. Die Rast für den zweiten Teil der Region — der Weg dorthin ist ihr Preis |
 | `hof-tremmel.json` | bewohner | Hofbesitzerin. Gibt `streuner` und danach `eine-fuer-den-hof` |
+| `torfhuette-stecherin.json` | bewohner | **Fahlmoos** (D248): Torfstecherin vor der Torfarbeiterhütte (OSM „Mittagshütte“), 3 m südlich der Wand. Gibt `die-karte-hinter-glas` → `ein-gelege-ohne-fahl` → `was-unter-dem-torf-bruetet` |
+| `torfstadel.json` | zuflucht | **Fahlmoos** (D248): Torfstadel am Filzenrand (OSM „Torfstadel“), Aufwachpunkt 4,1 m vor der Wand |
 | `steinbruch-wart.json` | bewohner | Wart eines stillgelegten Bruchs. Gibt `was-am-stollen-steht` |
 | `werk-schichtbuch.json` | bewohner | Frau am Tor des Industriegeländes. Gibt `die-runde` — der einzige Hinweis im Spiel, dass es die K7 gibt und wo sie steht |
 | `dorf-wirt.json` · `dorf-alte.json` · `dorf-foerster.json` · `dorf-bursche.json` · `dorf-magd.json` | bewohner | Fünf Bewohner im dichtesten Dorf der Region (D145, um 1350/450), je vor einem Haus an der Strasse, je ein Auftrag (`was-der-tresen-weiss`, `die-zahl-am-morgen`, `bis-zur-kante`, `schritte-auf-der-strasse`, `nach-vorher-schmecken`). Bewusst **nicht** freistehend: Ein Dorf mit Menschen ist der Grund für die Figuren; die Marke findet man an der Figur, nicht am Haus |

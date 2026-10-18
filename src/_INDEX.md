@@ -18,6 +18,7 @@ owns: *.ts, *.tsx
 | Kontur, Kanten, Verdeckung (AO), Nachbearbeitung | `scenes/Kontur.tsx` (`?kontur=`, `?ao=`) | world/, engine/ |
 | Kreaturen in der Welt oder Begegnungen ändern | `world/vorkommen.ts` → `scenes/RegionsSzene.tsx` | data/inhalte.ts |
 | Team, Fangen oder Speichern ändern | `main.tsx` → `spiel/spielstand.ts` | ui/BattleScreen.tsx |
+| Eine Region wechseln, laden oder einen Übergang setzen | `spiel/region.ts` → `main.tsx` (Filter `HIESIGE_*`), `content/regions/` | world/ |
 | Fortschritt, Stufen oder Gegenstände ändern | `spiel/fortschritt.ts`, `spiel/gegenstaende.ts` | data/inhalte.ts, content/gegenstaende/ |
 | Bewegung, Kamera oder Blickneigung ändern | `spieler/steuerung.ts` → `scenes/RegionsSzene.tsx` | spieler/figur.ts |
 | Springen, Schwerkraft, Bodenkontakt ändern | `spieler/tempo.ts` (die Zahlen) → `scenes/RegionsSzene.tsx` (`Spieler`) → `spieler/steuerung.ts` | world/, engine/ |
@@ -65,7 +66,8 @@ owns: *.ts, *.tsx
 | `spiel/team.ts` | `verschiebe(liste, von, nach)` — Teamreihenfolge; `zustandsAnzeige(zustand, narbe)` — Befall/Narbe als Text fürs Menü und die Teamzeile (D244). Eigene Datei für sechs Zeilen, weil die Reihenfolge an **zwei** Stellen steht (Team und `erfahrungRef`, weil die Engine keinen Fortschritt kennt) und beide dieselbe Bewegung machen müssen. Getrennt bewegt, trägt die falsche Kreatur die falsche Erfahrung, und man sieht es erst beim nächsten Stufenaufstieg |
 | `data/schema.ts` | Zod-Schemas für Kreatur, Move, Region, Waffe (`WaffenDaten`, D191), Gegner (`GegnerDaten`, D194) **plus Elementmatrix** — der Drift-Schutz. `npm run validate` prüft alle Inhalte dagegen |
 | `data/inhalte.ts` | Lädt `content/` ins Spiel und macht aus Kreatur + Stufe einen `Kaempfer` der Engine. Prüft die Daten auch im Browser |
-| `spiel/spielstand.ts` | Spielstand über IndexedDB: Team, gefangene und besiegte Vorkommen, Position, Beutel, gelesene Fragmente. Nur Taten, keine Weltdaten |
+| `spiel/spielstand.ts` | Spielstand über IndexedDB: Team, gefangene und besiegte Vorkommen, Position samt Region (ADR-0014), Beutel, gelesene Fragmente. Nur Taten, keine Weltdaten |
+| `spiel/region.ts` | Geladene Region (ADR-0014): `?region=`, ohne Angabe Œntal; Kante aus der Position (`randSeite`), Nachbarregion, Ankunft an der Gegenkante, Adresse fürs Hinübergehen. Renderfrei, ohne `content/`-Import, damit `world/bauwerke.ts` es auch unter `tsx` lesen kann |
 | `spiel/bildrate.ts` | Bildzeit der **Seite** über requestAnimationFrame — läuft auch, wenn die Szene steht. Trennt „Szene zu teuer" von „Gerät gedeckelt" |
 | `spiel/fortschritt.ts` | Stufe (1–40), Erfahrung und Mutation. Kurve durchgerechnet, nicht geschätzt — `tests/fortschritt.test.ts` |
 | `spiel/gegenstaende.ts` | Wirkung von Gegenständen auf einen Kämpfer, plus Beuteverteilung nach einem Sieg |

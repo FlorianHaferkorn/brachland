@@ -449,7 +449,9 @@ function pruefeMarken() {
   const daneben: string[] = [];
   for (const ordner of ['orte', 'fragmente']) {
     for (const o of inhalt(ordner)) {
-      if (!o.ort) continue;
+      // Das Tor misst die Welt aus `oental.json`; Marken anderer Regionen stehen in deren Metern
+      // (ADR-0014) und gehören in einen eigenen Lauf über ihre Welt (G-144).
+      if (!o.ort || o.region !== 'oental') continue;
       const [x, z] = nachWelt(o.ort);
       geprueft++;
       if (Math.abs(x) > halbB || Math.abs(z) > halbT) {

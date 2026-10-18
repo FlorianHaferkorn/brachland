@@ -15,8 +15,8 @@ import { abgeschaltet } from './scenes/abschalter.js';
 import type { Stoecke } from './spieler/steuerung.js';
 import { neueAusdauer, type Ausdauer } from './spieler/ausdauer.js';
 import type { Vorkommen } from './world/vorkommen.js';
-import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNENDE,
-         baueKaempfer, baueRegent, regentOrt, nachMetern, ausKaempferId } from './data/inhalte.js';
+import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNENDE, REGIONEN,
+         baueKaempfer, baueRegent, regentOrt, nachMetern, regionsMasse, ausKaempferId } from './data/inhalte.js';
 import { NARBE } from './data/schema.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
 import { Stube } from './ui/Stube.js';
@@ -41,6 +41,7 @@ import { setzeHeldWahl, STANDARD_HELD } from './spieler/held.js';
 import { ladeStand, speichereStand, LEERER_STAND,
          type Spielstand, type TeamEintrag } from './spiel/spielstand.js';
 import { benutzeBildrate } from './spiel/bildrate.js';
+import { AKTIVE_REGION, adresseFuer, ankunft, inRegion, nachbarAn, type Seite } from './spiel/region.js';
 
 /**
  * Startkreatur.
@@ -52,8 +53,17 @@ import { benutzeBildrate } from './spiel/bildrate.js';
  */
 const START_KREATUR = 'grathorn';
 const TEAM_MAX = 6;
-/** Regent der ersten Region. Später kommt der aus den Regionsdaten. */
-const REGENT_ID = 'flussvater';
+/**
+ * Geladene Region (ADR-0014): eine Karte je Region, gewählt über `?region=`, ohne Angabe das Œntal.
+ * Eine unbekannte Id lädt nichts — `App` meldet sie, statt still das Œntal zu zeigen.
+ */
+const REGION = REGIONEN.get(AKTIVE_REGION);
+const REGENT_ID = REGION?.regent ?? '';
+/** Was in dieser Region streift, liegt und wohnt. Alles andere steht in fremden Metern. */
+const HIESIGE_KREATUREN = STREUNENDE.filter(k => REGION?.kreaturen.includes(k.id));
+const HIESIGE_FRAGMENTE = inRegion(FRAGMENTE.values(), AKTIVE_REGION);
+const HIESIGE_ORTE = inRegion(ORTE.values(), AKTIVE_REGION);
+const HIESIGE_AUFTRAEGE = inRegion(AUFTRAEGE, AKTIVE_REGION);
 /**
  * Kampf Stufe 1 (ADR-0007): `?kampf=1` stellt zwei Übungsgegner vor den
  * Startpunkt. Hinter einem Schalter, bis Fassade und Gegnerbestand stehen.
@@ -226,7 +236,8 @@ function App() {
     // Weltdaten seit D82 nicht mehr — sie gingen sonst beim ersten Besuch
     // zweimal über die Leitung (G-92), und eine Laufzeitregel greift hier nicht,
     // weil diese Zeile läuft, bevor ein Service Worker die Seite kontrolliert.
-    holeWeltdaten('/world/oental.json')
+    if (!REGION) return;
+    holeWeltdaten(`/world/${REGION.id}.json`)
       .then(d => setWelt(entpackeWelt((d as { welt: unknown }).welt as never)))
       .catch(e => setFehler(String(e)));
   }, []);
@@ -235,7 +246,8 @@ function App() {
   // den Fehlerzustand: 39 KB Bergrelief sind schön, aber kein Spielinhalt. Fehlt
   // die Datei, sieht der Rand aus wie vor D85, statt dass das Spiel nicht startet.
   useEffect(() => {
-    holeWeltdaten('/world/oental-fern.json')
+    if (!REGION) return;
+    holeWeltdaten(`/world/${REGION.id}-fern.json`)
       .then(d => setFernland(d as Fernland))
       .catch(() => setFernland(null));
   }, []);
@@ -250,11 +262,26 @@ function App() {
    * weggewesen — nur das ist eine neue Ankunft am Rand und nur das meldet.
    */
   const randZuletzt = useRef(0);
-  const meldeRand = useCallback(() => {
+  /** Nachbarregion hinter der Kante, an der man gerade steht (ADR-0014) — dann zeigt der Hinweis einen Weg. */
+  const [uebergang, setUebergang] = useState<{ nach: string; text: string } | null>(null);
+  const meldeRand = useCallback((seite: Seite | null) => {
     const jetzt = performance.now();
     const neuAngekommen = jetzt - randZuletzt.current > 2000;
     randZuletzt.current = jetzt;
-    if (neuAngekommen) setHinweis('Hier endet das Œntal. Weiter kommt ihr nicht.');
+    if (!neuAngekommen || !REGION) return;
+    const nach = nachbarAn(REGION, seite);
+    const text = nach
+      ? `Hier endet das ${REGION.name}. Dahinter liegt das ${REGIONEN.get(nach)?.name ?? nach}.`
+      : `Hier endet das ${REGION.name}. Weiter kommt ihr nicht.`;
+    setUebergang(nach ? { nach, text } : null);
+    setHinweis(text);
+  }, []);
+  /**
+   * Hinüber in die Nachbarregion: neu laden mit `?region=`. Der Spielstand ist schon gesichert — jede
+   * Änderung geht sofort in `speichereStand` —, und eine Region ist eine Karte, kein Streaming (ADR-0014).
+   */
+  const geheHinueber = useCallback((nach: string) => {
+    location.search = adresseFuer(nach, location.search);
   }, []);
 
   // Spielstand laden, sonst neu anfangen. Beides ergibt am Ende ein Team.
@@ -354,7 +381,7 @@ function App() {
    * hängt an der Ausdehnung der Region, nicht am Inhalt.
    */
   const fundstellen = useMemo(
-    () => (welt ? [...FRAGMENTE.values()].map(f => ({ id: f.id, ort: nachMetern(f.ort, welt.bbox) })) : []),
+    () => (welt ? HIESIGE_FRAGMENTE.map(f => ({ id: f.id, ort: nachMetern(f.ort, welt.bbox) })) : []),
     [welt],
   );
 
@@ -367,7 +394,7 @@ function App() {
    */
   const ortsmarken = useMemo(
     () => (welt
-      ? [...ORTE.values()].map(o => ({ id: o.id, art: o.art, ort: nachMetern(o.ort, welt.bbox), figur: o.figur, blick: o.blick, gang: o.gang, farben: o.farben }))
+      ? HIESIGE_ORTE.map(o => ({ id: o.id, art: o.art, ort: nachMetern(o.ort, welt.bbox), figur: o.figur, blick: o.blick, gang: o.gang, farben: o.farben }))
       : []),
     [welt],
   );
@@ -379,7 +406,7 @@ function App() {
    */
   const lager = useMemo(() => (welt ? WEGELAGER.flatMap(l => {
     const o = ORTE.get(l.bei);
-    if (!o) return [];
+    if (!o || o.region !== AKTIVE_REGION) return [];
     const [x, z] = nachMetern(o.ort, welt.bbox);
     return [{ ...l, x: x + l.versatz[0], z: z + l.versatz[1] }];
   }) : []), [welt]);
@@ -531,6 +558,7 @@ function App() {
         ...alt,
         ...aenderung,
         position: p ? [p.x, p.z] : alt.position,
+        region: AKTIVE_REGION,
         team: teamJetzt.map<TeamEintrag>((k, i) => {
           const a = ausKaempferId(k.id);
           return {
@@ -598,7 +626,7 @@ function App() {
    */
   const auftragsziel = useMemo(() => {
     if (!stand || !welt) return undefined;
-    for (const a of AUFTRAEGE) {
+    for (const a of HIESIGE_AUFTRAEGE) {
       if (stand.auftraege[a.id] !== 'angenommen') continue;
       if (a.ziel.art === 'finde') {
         const f = FRAGMENTE.get(a.ziel.fragment);
@@ -843,8 +871,9 @@ function App() {
     sichere({}, team);
   }, [stand, team, sichere]);
 
-  if (fehler) return <Hinweis text={`Weltdaten fehlen: ${fehler} — erst "npm run world oental 96" ausführen.`} />;
-  if (!welt || !stand) return <Hinweis text="Œntal wird geladen …" />;
+  if (!REGION) return <Hinweis text={`Eine Region „${AKTIVE_REGION}“ gibt es nicht — bekannt: ${[...REGIONEN.keys()].join(', ')}.`} />;
+  if (fehler) return <Hinweis text={`Weltdaten fehlen: ${fehler} — erst "npm run world ${REGION.id} 384" ausführen.`} />;
+  if (!welt || !stand) return <Hinweis text={`${REGION.name} wird geladen …`} />;
 
   const imKampf = begegnung !== null || regentKampf !== null;
   // Raum hinter dem Ortsfenster (D242): Solange er offen ist, steht die Welt.
@@ -859,7 +888,7 @@ function App() {
         lagerstellen={lagerstellenOffen}
         qualitaet={qualitaet}
         spielerRef={spielerRef}
-        kreaturen={STREUNENDE}
+        kreaturen={HIESIGE_KREATUREN}
         gestalt={gestalt}
         verbraucht={verbraucht}
         onBegegnung={beginneKampf}
@@ -874,7 +903,8 @@ function App() {
         onFund={findeFragment}
         orte={ortsmarken}
         onOrtNah={setOrtNah}
-        startPosition={ABSETZEN?.ort ?? stand.position}
+        startPosition={ABSETZEN?.ort ?? (stand.region === AKTIVE_REGION ? stand.position
+          : ankunft(REGION, stand.region, regionsMasse(welt.bbox).breite, regionsMasse(welt.bbox).tiefe))}
         startBlick={ABSETZEN?.blick}
         ausdauer={ausdauer}
         reittier={reittier}
@@ -1219,7 +1249,14 @@ function App() {
               left: '50%', transform: 'translateX(-50%)', zIndex: 20,
               background: '#131c19ee', border: '1px solid #2a3632', borderRadius: 8,
               padding: '7px 12px', color: '#3fd9a0', fontSize: 12, maxWidth: '80vw',
-            }}>{hinweis}</div>
+            }}>{hinweis}
+              {uebergang?.text === hinweis && (
+                <button onClick={e => { e.stopPropagation(); geheHinueber(uebergang.nach); }} style={{
+                  display: 'block', margin: '6px auto 0', background: '#1d2a26', color: '#3fd9a0',
+                  border: '1px solid #3fd9a0', borderRadius: 6, padding: '4px 10px', fontSize: 12,
+                }}>Hinüber ins {REGIONEN.get(uebergang.nach)?.name ?? uebergang.nach}</button>
+              )}
+            </div>
           )}
 
           {messung && (

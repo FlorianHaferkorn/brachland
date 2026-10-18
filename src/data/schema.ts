@@ -447,7 +447,17 @@ export const Region = z.object({
   konzentrate: z.array(Konzentrat).max(2),
   traversal: z.string().describe('Fähigkeit, die diese Region freischaltet'),
   zielSpielzeit: z.number().describe('Stunden'),
+  /**
+   * Übergänge an der Regionsgrenze (ADR-0014): Jede Region ist eine eigene Karte. Wer an der
+   * genannten Kante steht, kann hinüber; die Karte der Nachbarregion wird dann geladen.
+   * `validate` prüft, dass die Nachbarin existiert und den Weg zurück kennt.
+   */
+  nachbarn: z.array(z.object({
+    region: z.string(),
+    seite: z.enum(['nord', 'sued', 'ost', 'west']),
+  })).default([]),
 });
+export type Region = z.infer<typeof Region>;
 
 // --------------------------------------------------------------- Biom-Moves
 

@@ -18,12 +18,18 @@
 import { z } from 'zod';
 import REGISTER from '../../public/bauten/register.json';
 import STAEMME from '../../public/bauten/staemme.json';
+import { AKTIVE_REGION } from '../spiel/region.js';
 
 export const Terrasse = z.object({ x: z.number(), z: z.number(), rInnen: z.number().positive(), rAussen: z.number().positive() });
 export type Terrasse = z.infer<typeof Terrasse>;
 
 export const Bauwerk = z.object({
   name: z.string().regex(/^[a-z0-9-]+$/),
+  /**
+   * Region, in deren Metern `ursprung`, `terrasse` und `frei` stehen (ADR-0014). Das Register
+   * kennt das Feld bisher nicht; alle Szenen darin sind im Œntal gebaut.
+   */
+  region: z.string().default('oental'),
   ursprung: z.object({ x: z.number(), z: z.number() }),
   /** Gelaendehoehe am Ursprung **vor** der Terrasse (Weltmeter ueber `hoeheMin`), aus dem Terrainexport. */
   h0: z.number(),
@@ -42,7 +48,9 @@ export const Bauwerk = z.object({
 });
 export type Bauwerk = z.infer<typeof Bauwerk>;
 
-export const BAUWERKE: Bauwerk[] = z.object({ bauwerke: z.array(Bauwerk) }).parse(REGISTER).bauwerke;
+/** Nur die Szenen der geladenen Region — sonst stünde das Stauwehr in Œntal-Metern mitten im Moor. */
+export const BAUWERKE: Bauwerk[] = z.object({ bauwerke: z.array(Bauwerk) }).parse(REGISTER).bauwerke
+  .filter(b => b.region === AKTIVE_REGION);
 
 /**
  * Stämme der Szenen als Kreise `[x, z, r]` in Weltmetern (G-136) — aus den GLB geschnitten von
@@ -51,7 +59,8 @@ export const BAUWERKE: Bauwerk[] = z.object({ bauwerke: z.array(Bauwerk) }).pars
  */
 const Kreis = z.tuple([z.number(), z.number(), z.number().positive()]);
 const STAEMME_JE_SZENE = z.record(z.array(Kreis)).parse(STAEMME);
-export const SZENEN_STAEMME: readonly (readonly [number, number, number])[] = Object.values(STAEMME_JE_SZENE).flat();
+export const SZENEN_STAEMME: readonly (readonly [number, number, number])[] =
+  BAUWERKE.flatMap(b => STAEMME_JE_SZENE[b.name] ?? []);
 export const staemmeVon = (name: string) => STAEMME_JE_SZENE[name] ?? [];
 
 /**

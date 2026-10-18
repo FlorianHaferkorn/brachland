@@ -1,0 +1,29 @@
+{
+  "id": "fahlmoos",
+  "name": "Fahlmoos",
+  "realeGrundlage": "Kollerfilze und Rosenheimer Becken (Raubling/Kolbermoor)",
+  "bbox": [
+    47.769,
+    12.027,
+    47.805,
+    12.08
+  ],
+  "regent": "brutmutter",
+  "kreaturen": [
+    "kiemenbiber",
+    "moderotter",
+    "myzelmolch",
+    "sporenhahn",
+    "spuerfuchs",
+    "wurzelkeiler"
+  ],
+  "konzentrate": [],
+  "traversal": "Wasser",
+  "zielSpielzeit": 6,
+  "nachbarn": [
+    {
+      "region": "oental",
+      "seite": "sued"
+    }
+  ]
+}

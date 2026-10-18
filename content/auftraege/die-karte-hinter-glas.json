@@ -1,0 +1,9 @@
+{
+  "id": "die-karte-hinter-glas",
+  "region": "fahlmoos",
+  "geber": "torfhuette-stecherin",
+  "titel": "Die Karte hinter Glas",
+  "text": "In der Diensthütte hinten an der Hochrunst hängt eine Karte. Mein Großvater hat gesagt, die hat das Moor angefangen. Holen Sie sie. Ich geh da nicht mehr hin, seit die Tür von innen warm ist.",
+  "ziel": { "art": "finde", "fragment": "diensthuette-hochrunst" },
+  "belohnung": { "regelkarte-inkubator": 1 }
+}

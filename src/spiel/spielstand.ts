@@ -47,6 +47,11 @@ export interface Spielstand {
   /** IDs besiegter Vorkommen. Kommen später wieder, aber nicht in derselben Sitzung. */
   besiegt: string[];
   position: [number, number];
+  /**
+   * Region, in deren Metern `position` steht (ADR-0014). Alte Stände kennen das Feld nicht und
+   * bekommen über `LEERER_STAND` das Œntal — dort sind sie entstanden.
+   */
+  region: string;
   gesehen: string[];
   /** Gegenstände im Beutel: ID zu Anzahl. Nicht vorhandene ID heißt null Stück. */
   beutel: Record<string, number>;
@@ -108,6 +113,7 @@ export const LEERER_STAND: Spielstand = {
   gefangen: [],
   besiegt: [],
   position: [0, 0],
+  region: 'oental',
   gesehen: [],
   // Zwei Sude und ein Köder zum Anfangen. Ohne Startausstattung ist der erste
   // verlorene Kampf eine Sackgasse, und der erste Fang reiner Zufall.

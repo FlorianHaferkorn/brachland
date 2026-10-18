@@ -7,7 +7,7 @@
  */
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { effektivitaet, ELEMENTE, BAND } from '../src/data/schema.js';
+import { effektivitaet, schadensfaktor, ELEMENTE, BAND } from '../src/data/schema.js';
 import { VARIANTEN, propPfad } from '../src/world/props.js';
 import * as THREE from 'three';
 import { WEGBELAG, zerlegeBaender, baueGartenKachel } from '../src/world/baender.js';
@@ -156,11 +156,27 @@ for (const rf of regionen) {
   const regent = existsSync(`content/regenten/${r.regent}.json`)
     ? JSON.parse(readFileSync(`content/regenten/${r.regent}.json`, 'utf8')) : null;
   if (regent) {
+    // Elemente der Nachbarregionen (ADR-0014): Wer hinübergeht, bringt sein Team mit. Das Fahlmoos
+    // ist so gebaut, dass Frost aus dem Œntal kommen muss (D246) — ein Konter nur von dort ist ein
+    // Engpass mit Absicht, keiner ganz ohne Konter bleibt ein Blocker.
+    const nebenan = new Set<string>();
+    for (const n of r.nachbarn ?? []) {
+      const nr = existsSync(`content/regions/${n.region}.json`)
+        ? JSON.parse(readFileSync(`content/regions/${n.region}.json`, 'utf8')) : null;
+      for (const id of nr?.kreaturen ?? []) kreaturen.find(x => x.k.id === id)?.k.elemente.forEach((e: string) => nebenan.add(e));
+    }
+    // Konterbar heisst: der Angriff trifft die Phase mindestens doppelt, gerechnet wie die Engine
+    // (Produkt über die Typen). Vorher musste jedes Element einzeln 2× liegen — bei einer Doppelphase
+    // verlangte das 4×, und die flache Schlussphase der Brutmutter (D246) galt als unkonterbar.
+    const trifft = (e: string, ph: any) => schadensfaktor(e as any, ph.elemente) >= 2;
     for (const [i, ph] of regent.phasen.entries()) {
-      const konter = [...elemente].filter(e =>
-        ph.elemente.every((pe: any) => effektivitaet(e as any, pe) === 2));
-      if (konter.length === 0)
-        stop('Balance', `${rf}: Regenten-Phase ${i + 1} (${ph.elemente}) hat KEINEN Konter in der Region`);
+      const konter = [...elemente].filter(e => trifft(e, ph));
+      const mitgebracht = [...nebenan].filter(e => !elemente.has(e) && trifft(e, ph));
+      if (konter.length === 0 && mitgebracht.length === 0)
+        stop('Balance', `${rf}: Regenten-Phase ${i + 1} (${ph.elemente}) hat KEINEN Konter in der Region oder nebenan`);
+      else if (konter.length === 0)
+        warn('Balance', `${rf}: Phase ${i + 1} (${ph.elemente}) nur mit mitgebrachtem '${mitgebracht.join("'/'")}' `
+          + `aus der Nachbarregion konterbar — bewusst: die zweite Region verlangt ein umgebautes Team (D246)`);
       else if (konter.length === 1)
         warn('Balance', `${rf}: Phase ${i + 1} nur über '${konter[0]}' konterbar`
           + (konter[0] === 'frost'
