@@ -18,7 +18,7 @@ owns: *.json
 | Einen Regenten anlegen | `../docs/design/BRACHLAND_Kampfsystem_v2.md` (Phasen) → `regenten/flussvater.json` |
 | Einen Move anlegen | `../docs/design/BRACHLAND_Move-System_v1.md` → `moves/_INDEX.md` |
 | Einen Gegenstand anlegen | `gegenstaende/kraeutersud.json` als Muster → `../src/data/schema.ts` (`GegenstandWirkung`) |
-| Eine Region anlegen | `regions/oental.json` als Muster |
+| Eine Region anlegen | `regions/oental.json` als Muster; `nachbarn` beidseitig, danach `npm run world <id> 384` und `npm run fernland <id>` (ADR-0014) |
 | Einen Gegner nachstellen | `gegner/_INDEX.md` → `../tests/echtzeit.test.ts` |
 | Eine Waffe oder einen Schlag ändern | `waffen/_INDEX.md` → `../docs/adr/0008-waffenwerk-zwei-klassen.md` |
 | Verstehen, was geprüft wird | `../src/data/schema.ts`, `../tools/quality.ts` |
@@ -32,6 +32,7 @@ owns: *.json
 | `regenten/flussvater.json` | Der Flussvater — Regent von Œntal, Riesenwels mit Kläranlagen-Organik. **Drei Phasen** (wasser → faeulnis → alt-tech/stein), 480 KP. Der Grund, warum Wechseln Pflicht ist |
 | `regenten/brutmutter.json` | Die Brutmutter — Regent von Fahlmoos, Kreuzotter mit Inkubator. Drei Phasen (faeulnis → sporen → faeulnis/wasser), 500 KP, Frost als Engpass (D246). **Noch nicht im Spiel:** Region `fahlmoos` fehlt (G-140) |
 | `regions/oental.json` | Œntal = Inntal-Süd (Brannenburg/Wendelstein-Fuß). BBox, Regent, Traversal „Klettern", Zielspielzeit 6 Std |
+| `regions/fahlmoos.json` | Fahlmoos = Kollerfilze und Rosenheimer Becken (Raubling/Kolbermoor), eigene Karte nach ADR-0014. Regent Brutmutter, 6 Œntal-Arten als Platzhalter (G-144), Traversal „Wasser“ (UNKLAR), `nachbarn`: Œntal im Süden |
 | `creatures/nebelgams.json` | Nebelgams (Gams, Stein, Silikat-Hufe). 2 Stufen, `natural=scrub`, schnellster Steinträger |
 | `creatures/kiemenbiber.json` | Kiemenbiber (Biber, Wasser, Filterkiemen-Kragen). 3 Stufen, `waterway=stream` — im 96er-Raster praktisch nicht vorhanden, siehe Ledger G-22 |
 | `creatures/sporenhahn.json` | Sporenhahn (Auerhahn, Sporen, Sporenfächer). 3 Stufen, `landuse=forest`. Konter gegen Flussvater-Phase 1 |

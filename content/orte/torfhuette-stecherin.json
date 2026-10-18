@@ -1,0 +1,11 @@
+{
+  "id": "torfhuette-stecherin",
+  "region": "fahlmoos",
+  "art": "bewohner",
+  "name": "Hinterauer, Torfstecherin",
+  "ort": [47.79316, 12.05825],
+  "text": "Sie sitzt vor der Hütte, die Stiefel bis zum Knie schwarz. Sie zeigt nicht ins Moor. Sie zeigt auf den Steg, der hineinführt, und sagt nichts dazu.",
+  "figur": "arbeiter",
+  "blick": 180,
+  "gang": 2
+}

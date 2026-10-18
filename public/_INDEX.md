@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-10-15
+last-reviewed: 2026-10-18
 shelf-life-days: 90
 ---
 # public — Was der Service Worker ausliefert (_INDEX)
@@ -14,6 +14,7 @@ shelf-life-days: 90
 | Pfad | Inhalt |
 |---|---|
 | `world/oental.json` | Weltdaten für Œntal — 1,05 MB. Höhenraster, Biome, OSM-Geometrie, Spawn-Zonen. Erzeugt mit `npm run world oental 96` |
+| `world/fahlmoos.json` | Weltdaten für das Fahlmoos (D248) — 873 KB, DGM1, Höhe 464–516 m. Erzeugt mit `npm run world fahlmoos 384` (in der Cloud mit `NODE_USE_ENV_PROXY=1`) |
 | `creatures/*.glb` + `creatures/register.json` | 14 Kreaturmodelle aus `tools/kreaturbau.py` (D104–D109, D124), das Register sagt der Szene, welche Art ein Modell hat; Herkunft je Datei in `../assets/HERKUNFT.md` |
 | `bauten/*.glb` + `bauten/register.json` | Bauwerke aus der Blender-Szene (ADR-0006, Stufe 2), geschrieben von `tools/szenenexport.py`: je Bauwerk `-bauten.glb` (Stein/Holz mit gebackener Grundfarbe, Rauheit, Normale), `-gruen.glb` (Blattmassen mit Vertexfarbe, Loecher im Shader) und `-wasser.glb`. Das Register nennt Ursprung, `h0`, Terrasse und Freihaltung (`props`, `streu`, `haeuser`) — die Engine liest es ueber `src/world/bauwerke.ts`. **Nicht** unter dem Kreatur- oder Figurenbudget: Groesse und Dreiecke werden gemessen, nicht gedeckelt (ADR-0006). Zwei Bauwerke seit D155 (Felsmulde 8 + 19 MB, Stauwehr 4 + 30 MB) — **nicht im Precache**, sondern per Laufzeitregel `/bauten/` gecacht (`vite.config.ts`) **Neu gebaut in D162** nach der Geländekorrektur: h0 Felsmulde 452,9119 → 453,1171, Stauwehr 46,7470 → 46,4557; Dateigrössen und Dreieckszahlen gegenüber D157 unverändert (840.104 Dreiecke `stauwehr-gruen`). Rückweg unter `.cache/d162-neubau/public-vorher/`. |
 | `bauten/staemme.json` | Stammkreise `[x, z, r]` je Blender-Szene für das Kollisionsfeld (G-136), erzeugt von `../tools/staemme.ts` — nicht von Hand |

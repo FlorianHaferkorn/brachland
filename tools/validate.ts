@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, WaffenDaten, GegnerDaten,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -36,6 +36,8 @@ console.log('\nOrte:');
 const orte = pruefe<any>('content/orte', Ort);
 console.log('\nAufträge:');
 const auftraege = pruefe<any>('content/auftraege', Auftrag);
+console.log('\nRegionen:');
+const regionen = pruefe<any>('content/regions', Region);
 console.log('\nWaffen:');
 const waffen = pruefe<any>('content/waffen', WaffenDaten);
 {
@@ -151,6 +153,48 @@ for (const r of regenten) for (const k of r.reinkulturen) {
 for (const r of regenten) if (!existsSync(`content/regions/${r.region}.json`))
   console.log(`  · Regent '${r.id}': Region '${r.region}' fehlt noch — im Spiel nicht erreichbar, `
     + `Reinkulturen erst mit der Region prüfbar`);
+// Regionen als eigene Karten (ADR-0014): Was eine Region nennt, muss es geben, und was in einer
+// Region liegt, muss in ihrer Bbox liegen — sonst rechnet `nachMetern` es über den Rand hinaus.
+{
+  const meldeG = (id: string, was: string) => { console.log(`  ✗ Region '${id}': ${was}`); auftragsfehler++; };
+  const gegenueber = { nord: 'sued', sued: 'nord', ost: 'west', west: 'ost' } as const;
+  const nachId = new Map(regionen.map((r: any) => [r.id, r]));
+  const drin = (r: any, [lat, lon]: [number, number]) =>
+    lat >= r.bbox[0] && lat <= r.bbox[2] && lon >= r.bbox[1] && lon <= r.bbox[3];
+  for (const r of regionen) {
+    if (!existsSync(`public/world/${r.id}.json`)) meldeG(r.id, `Weltdaten fehlen — npm run world ${r.id} 384`);
+    if (!regentIds.has(r.regent)) meldeG(r.id, `Regent '${r.regent}' gibt es nicht`);
+    for (const k of r.kreaturen) if (!kreaturIds.has(k)) meldeG(r.id, `Kreatur '${k}' gibt es nicht`);
+    for (const n of r.nachbarn) {
+      const ziel: any = nachId.get(n.region);
+      if (!ziel) meldeG(r.id, `Nachbarin '${n.region}' gibt es nicht`);
+      else if (!ziel.nachbarn.some((m: any) => m.region === r.id && m.seite === gegenueber[n.seite as keyof typeof gegenueber]))
+        meldeG(r.id, `'${n.region}' kennt den Weg zurück nicht (Seite ${gegenueber[n.seite as keyof typeof gegenueber]})`);
+    }
+    // Eine feste Art steht an einer Koordinate — in einer anderen Region stünde sie irgendwo draußen.
+    for (const k of r.kreaturen) {
+      const kr = kreaturen.find((x: any) => x.id === k);
+      if (kr?.position && !drin(r, kr.position)) meldeG(r.id, `feste Kreatur '${k}' steht ausserhalb der Bbox`);
+    }
+  }
+  const lage = (was: string, x: any, ort: [number, number] | undefined) => {
+    const r = nachId.get(x.region);
+    if (!r) meldeG(x.region, `${was} '${x.id}' nennt eine Region, die es nicht gibt`);
+    else if (ort && !drin(r, ort)) meldeG(x.region, `${was} '${x.id}' liegt ausserhalb der Bbox`);
+  };
+  for (const f of fragmente) lage('Fragment', f, f.ort);
+  for (const o of orte) lage('Ort', o, o.ort);
+  for (const r of regenten) lage('Regent', r, r.ort);
+  for (const a of auftraege) {
+    lage('Auftrag', a, undefined);
+    const g = orte.find((o: any) => o.id === a.geber);
+    if (g && g.region !== a.region) meldeA(a.id, `Geber '${a.geber}' steht in '${g.region}', nicht in '${a.region}'`);
+    const f = a.ziel.art === 'finde' ? fragmente.find((x: any) => x.id === a.ziel.fragment) : null;
+    if (f && f.region !== a.region) meldeA(a.id, `Fundstück '${f.id}' liegt in '${f.region}'`);
+  }
+  console.log(`  ✓ ${regionen.length} Regionen gegen Kreaturen, Regenten, Nachbarn und Bbox geprüft`);
+}
+
 // Rückkehr nach der Heilung (D241): nur Arten, die es gibt.
 for (const r of regenten) for (const n of r.nachHeilung ?? [])
   if (!kreaturIds.has(n.kreatur)) meldeR(r.id, `Rückkehrer '${n.kreatur}' gibt es nicht`);
@@ -203,9 +247,13 @@ for (const o of orte.filter((x: any) => x.art === 'bewohner'))
  * Keine Fehlergrenze, nur eine Ausgabe: Ab wann ein Ort „zu dicht" steht, hängt
  * am Gefühl beim Spielen, und eine erfundene Schwelle wäre schlimmer als keine.
  */
-if (existsSync('public/world/oental.json')) {
-  const welt = JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt;
-  const M = 111_000, MO = 111_000 * Math.cos(47.733 * Math.PI / 180);
+// Je Region gegen ihre eigene Welt (ADR-0014): Bis zum Fahlmoos stand hier fest `oental.json`, und ein
+// Ort im Moor maß seinen Wandabstand gegen Häuser 5 km weiter südlich.
+const alleOrte = orte;
+for (const region of regionen) for (const orte of [alleOrte.filter((o: any) => o.region === region.id)])
+if (orte.length && existsSync(`public/world/${region.id}.json`)) {
+  const welt = JSON.parse(readFileSync(`public/world/${region.id}.json`, 'utf8')).welt;
+  const M = 111_000, MO = 111_000 * Math.cos((region.bbox[0] + region.bbox[2]) / 2 * Math.PI / 180);
   const zentren = welt.gebaeude.map((g: any) => {
     let a = 0, b = 0;
     for (const [la, lo] of g.punkte) { a += la; b += lo; }
@@ -242,14 +290,24 @@ if (existsSync('public/world/oental.json')) {
       auftragsfehler++;
     } else console.log(`  ✓ ${o.id}: Aufwachpunkt draussen, ${abstand.toFixed(1)} m von der Wand`);
   }
+  // Ein Bewohner steht vor dem Haus, nicht darin (D145) — geprüft, seit das Hilfsskript dafür in
+  // `.cache/` verloren ging und der erste Fahlmoos-Bewohner auf dem Hüttenmittelpunkt stand (D248).
+  for (const o of orte.filter((x: any) => x.art === 'bewohner')) {
+    const naehe = welt.gebaeude.map((g: any) => g.punkte.map(([la, lo]: number[]) => [(lo - o.ort[1]) * MO, -(la - o.ort[0]) * M]))
+      .filter((P: number[][]) => P.some(q => Math.hypot(q[0], q[1]) < 60));
+    if (naehe.some((P: number[][]) => innen([0, 0], P))) {
+      console.log(`  ✗ ${o.id}: Bewohner steht im Grundriss`);
+      auftragsfehler++;
+    }
+  }
   const schlimmster = nachbarn.reduce((a, b) => (b.n > a.n ? b : a));
-  console.log(`  ✓ ${orte.length} Orte freistehend: höchstens ${schlimmster.n} Nachbargebäude `
+  console.log(`  ✓ ${region.id}: ${orte.length} Orte freistehend: höchstens ${schlimmster.n} Nachbargebäude `
     + `im 70-m-Umkreis (${schlimmster.id}), ${nachbarn.filter(x => x.n === 0).length} ganz allein`);
 }
 
 const zufluchten = orte.filter((o: any) => o.art === 'zuflucht').length;
-if (zufluchten === 0) {
-  console.log('  ✗ keine Zuflucht — dann bleibt die Niederlage der beste Weg zu vollen KP');
+for (const r of regionen) if (!orte.some((o: any) => o.art === 'zuflucht' && o.region === r.id)) {
+  console.log(`  ✗ ${r.id}: keine Zuflucht — dann bleibt die Niederlage der beste Weg zu vollen KP`);
   auftragsfehler++;
 }
 console.log(auftragsfehler === 0

@@ -1,0 +1,10 @@
+{
+  "id": "was-unter-dem-torf-bruetet",
+  "region": "fahlmoos",
+  "geber": "torfhuette-stecherin",
+  "titel": "Was unter dem Torf brütet",
+  "text": "Mitten in der Filze ist es warm. Mitten im Winter. Da liegt sie und hält ihre Eier. Wenn sie liegt, bringen Sie mir den Kern, aus dem die Wärme kommt. Den Torf drumherum stech ich selbst ab.",
+  "ziel": { "art": "regent", "regent": "brutmutter" },
+  "belohnung": { "torfkern": 1 },
+  "vorher": "ein-gelege-ohne-fahl"
+}

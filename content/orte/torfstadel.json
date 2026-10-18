@@ -1,0 +1,10 @@
+{
+  "id": "torfstadel",
+  "region": "fahlmoos",
+  "innen": "stadel",
+  "art": "zuflucht",
+  "name": "Torfstadel am Filzenrand",
+  "ort": [47.78188, 12.0463],
+  "aufwachen": [0, 8],
+  "text": "Ein Stadel aus grauen Brettern, in dem noch Torf trocknet. Er riecht nach Rauch, der nie gebrannt hat. Die Wände halten das Moor draußen, solange man nicht hinhört."
+}

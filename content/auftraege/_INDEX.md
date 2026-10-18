@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-08
+last-reviewed: 2026-10-18
 shelf-life-days: 180
 owns: *.json
 ---
@@ -42,6 +42,9 @@ Auftrag nicht fertig wird.
 | `die-zahl-am-morgen.json` · `schritte-auf-der-strasse.json` | dorf-alte · dorf-bursche | 2 Firnhasen **fangen** / 4 Spürfüchse besiegen (D145) |
 | `was-im-stau-liegt.json` | werk-schichtbuch | **Zielart `regent`**, erst nach `das-stehende-wasser`. Bis zum 26.08.2026 war diese Zielart im Schema implementiert und von **keiner** Auftragsdatei benutzt — der Regent lag 1.381 m vom Start, das Nebelende bei 420 m, die Peilung zeigt nur auf Kreaturen, und kein einziger Text nannte ihn (G-101). Ein Boss, den man nur durch Zufall findet, ist kein Höhepunkt |
 | `der-kern-im-stau.json` | Die Schmiedin (D188): Flussvater besiegen, nach „Harz für die Esse“ → zwei Harzverbände für die Fassung des Wasserfunkens (`docs/design/BRACHLAND_Kernfunken_v1.md`) |
+| `die-karte-hinter-glas.json` | **Fahlmoos** (D248), Torfstecherin: Fundstück `diensthuette-hochrunst` → Reinkultur `regelkarte-inkubator` |
+| `ein-gelege-ohne-fahl.json` | Torfstecherin, nach der Karte: zwei Myzelmolche fangen → `eiprobe-rein` |
+| `was-unter-dem-torf-bruetet.json` | Torfstecherin, nach dem Gelege: Brutmutter besiegen → `torfkern`. Damit sind alle drei Reinkulturen der Brutmutter erreichbar |
 | `was-danach-waechst.json` | werk-schichtbuch | **Zielart `heile`** (D240), nach `was-im-stau-liegt`: die drei Komponenten am Regentenort einsetzen. Schliesst den Heilungs-Loop (Story-Bibel §6: besiegen → umschreiben → Wandel) |
 | `harz-fuer-die-esse.json` | Die Schmiedin (D177): zwei Trafomarder besiegen → zwei Harzverbände, genug für die erste Waffenstufe |
 

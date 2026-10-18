@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-10-08
+last-reviewed: 2026-10-18
 shelf-life-days: 90
 owns: *.test.ts
 ---
@@ -56,6 +56,7 @@ owns: *.test.ts
 | `auftraege.test.ts` | 25 Tests. Der Fortschritt wird abgeleitet, nicht gezählt — geprüft wird unter anderem, dass `schneehuhn` nicht `schneehuhn-alt` mitzählt |
 | `heilung.test.ts` | 15 Tests (D240, D241 `wildZustand`): unbesiegt oder unvollständig heilt nicht, je eine Komponente verbraucht, Eingabe unverändert, zweimal heilen geht nicht |
 | `stube.test.ts` | 40 Tests (D242): jede Raumart ohne NaN, in ihren Wänden, Anker (Fenster, Glut, Figur, Kamera) am richtigen Ort, fest je Id |
+| `region.test.ts` | 21 Tests (D248, ADR-0014): Region aus der Adresse, Kante aus der Position (Nord ist −z), Nachbarn aus `content/regions/`, Ankunft an der Gegenkante, andere Schalter bleiben beim Hinübergehen erhalten; ohne Adresse behält das Œntal seine Blender-Szenen |
 | `zustaende.test.ts` | 38 Tests zur Creature Design Bible v1.1. Hält drei Befunde fest, die beim Zusammenführen von Blatt und Code herauskamen: **Resistenz und Verteidigung wären derselbe Effekt gewesen**, **Krit gab es nicht**, und **Move-Effekte wurden nie angewendet** — `moveDef()` warf sie weg |
 | `menue.test.ts` | 25 Tests an den zwei Stellen des Menüs, an denen ein Fehler still bliebe. **Teamreihenfolge:** Sie steht an zwei Orten (Team und `erfahrungRef`), und laufen die auseinander, trägt die falsche Kreatur die falsche Erfahrung — sichtbar erst beim nächsten Stufenaufstieg. **Beutel ausserhalb des Kampfes:** `wendeAn` behauptet seit jeher, „Kampf und Beutel ausserhalb" gleich zu bedienen; aufgerufen hat es bis 20.08.2026 nur der Kampf. Der Kräutersud wird direkt aus `content/` gelesen und gegen dasselbe Zod-Schema geprüft, nicht als Attrappe — der Inhaltslader benutzt `import.meta.glob` und läuft ausserhalb von Vite nicht |
 | `siedlung.test.ts` | 9 Tests an einer Kunstwelt: 400 × 400 m Wiese, zwei Häuser 12 m auseinander, eines 150 m entfernt allein. Prüft, dass zwischen den zwei Siedlung entsteht, dass die einzelne Hütte Wiese **bleibt** (D77), und dass kein Prop in einem Grundriss landet (G-82). Bewusst an einer Kunstwelt statt an `oental.json`: Eine Prüfung gegen die Datei bestünde, solange die Datei alt ist |

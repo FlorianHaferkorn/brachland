@@ -38,6 +38,7 @@ import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fern
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
+import { randSeite, type Seite } from '../spiel/region.js';
 import { haengeAgxLookEin } from './tonwert.js';
 import { haengeNebelEin } from './nebel.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
@@ -2331,7 +2332,7 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   /** Meldet, ob gerade geglitten wird — für die Anzeige. Nur bei Änderung. */
   onGleiten?: (gleitet: boolean) => void;
   /** Wird in jedem Bild gerufen, in dem an der Regionsgrenze geklemmt wird. */
-  meldeRand?: () => void;
+  meldeRand?: (seite: Seite | null) => void;
   /** Zustand der beiden Daumenknüppel — die Anzeige liegt im DOM und liest ihn. */
   stoecke?: React.RefObject<Stoecke>;
   /** Hält die Laufeingabe an, solange der Kampf die Figur führt (Schlag, Rolle). */
@@ -2493,7 +2494,8 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       const [kx, kz] = kollision.schiebeRaus(p.x + dx, p.z + dz);
       const gx = Math.max(-halbB, Math.min(halbB, kx));
       const gz = Math.max(-halbT, Math.min(halbT, kz));
-      if (gx !== kx || gz !== kz) meldeRand?.();
+      // Welche Kante, sagt der Übergang zur Nachbarregion (ADR-0014).
+      if (gx !== kx || gz !== kz) meldeRand?.(randSeite(kx, kz, halbB, halbT));
       p.x = gx;
       p.z = gz;
     }
@@ -3701,7 +3703,7 @@ export interface RegionsSzeneProps {
    * wortlos stehen und hielt es für einen Fehler. Der Aufruf kommt in jedem Bild,
    * in dem geklemmt wird; das Entprellen macht die Anzeige.
    */
-  meldeRand?: () => void;
+  meldeRand?: (seite: Seite | null) => void;
   /**
    * Zustand der Daumenknüppel nach außen reichen — wie `ausdauer` als Ref.
    *

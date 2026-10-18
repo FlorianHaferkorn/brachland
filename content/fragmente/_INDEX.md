@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-16
+last-reviewed: 2026-10-18
 shelf-life-days: 180
 owns: *.json
 ---
@@ -37,6 +37,7 @@ Felsgrate. Die Welt liefert die Orte umsonst; sie mussten nur belegt werden.
 | `silo-hof.json` | bunker | 47.73032, 12.08282 | **Am Hofsilo** |
 | `stauwehr.json` | bach | 47.72518, 12.09582 | **Am Stauwehr** |
 | `absetzbecken.json` | **weiher** | 47.74678, 12.08377 | **Auf dem Grund** — liegt auf der Sohle des größten Weihers (62 × 71 m, 2,40 m tief), rund 30 m vom Ufer. Der Auslöser misst waagerecht 9 m; erreichbar ist das nur schwimmend. Das erste Fundstück, das eine Fähigkeit voraussetzt |
+| `diensthuette-hochrunst.json` | **hof** | 47.79671, 12.05471 | **Dienstvorschrift, dritte Fassung** — Fahlmoos (D248), an der realen Diensthütte Hochrunstfilze (1910). Die Brutanlage hinter der Brutmutter; Ziel von `die-karte-hinter-glas` |
 | `stollenmund.json` | ruine | 47.73038, 12.07810 | **Am Stollenmund** |
 
 ## Regeln

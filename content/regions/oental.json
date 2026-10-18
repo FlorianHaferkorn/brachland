@@ -27,5 +27,11 @@
   ],
   "konzentrate": [],
   "traversal": "Klettern",
-  "zielSpielzeit": 6
+  "zielSpielzeit": 6,
+  "nachbarn": [
+    {
+      "region": "fahlmoos",
+      "seite": "nord"
+    }
+  ]
 }
