@@ -5,7 +5,7 @@
  * gezeichneten Teilstücken nicht zusammenfindet, ein Loch, das als Fläche zählt, und eine
  * Weltdatei, die nach dem elften Biom nicht mehr lesbar ist.
  */
-import { aeussereRinge, bestimmeBiom, packeWelt, entpackeWelt, BIOME, type Weltdaten } from '../src/world/osm.js';
+import { relationsFlaechen, bestimmeBiom, packeWelt, entpackeWelt, baueWelt, BIOME, type Weltdaten } from '../src/world/osm.js';
 
 let pass = 0, fail = 0;
 const pruefe = (name: string, ist: boolean, detail = '') => {
@@ -17,23 +17,38 @@ const p = (lat: number, lon: number) => ({ lat, lon });
 console.log('\nRelationen');
 {
   // Ein Quadrat aus drei Ways, das mittlere verkehrt herum gezeichnet.
-  const ringe = aeussereRinge([
+  const ringe = relationsFlaechen([
     { role: 'outer', geometry: [p(0, 0), p(0, 1)] },
     { role: 'outer', geometry: [p(1, 1), p(0, 1)] },
     { role: 'outer', geometry: [p(1, 1), p(1, 0), p(0, 0)] },
   ]);
-  pruefe('Ring aus Teilstücken, eines verkehrt herum', ringe.length === 1 && ringe[0].length === 5, `${ringe.length} Ringe`);
-  pruefe('Ring ist geschlossen', ringe[0]?.[0].lat === ringe[0]?.at(-1)!.lat && ringe[0]?.[0].lon === ringe[0]?.at(-1)!.lon);
+  const r = ringe[0]?.aussen;
+  pruefe('Ring aus Teilstücken, eines verkehrt herum', ringe.length === 1 && r.length === 5, `${ringe.length} Ringe`);
+  pruefe('Ring ist geschlossen', r?.[0].lat === r?.at(-1)!.lat && r?.[0].lon === r?.at(-1)!.lon);
 }
 {
-  const ringe = aeussereRinge([
+  const ringe = relationsFlaechen([
     { role: 'outer', geometry: [p(0, 0), p(0, 4), p(4, 4), p(4, 0), p(0, 0)] },
     { role: 'inner', geometry: [p(1, 1), p(1, 2), p(2, 2), p(1, 1)] },
+    { role: 'outer', geometry: [p(10, 10), p(10, 11), p(11, 11), p(10, 10)] },
   ]);
-  pruefe('Innerer Ring (Lichtung) zählt nicht als Fläche', ringe.length === 1 && ringe[0].length === 5);
+  const gross = ringe.find(f => f.aussen.length === 5);
+  pruefe('Innerer Ring ist ein Loch, keine eigene Fläche', ringe.length === 2 && gross?.loecher.length === 1);
+  pruefe('Loch hängt am Ring, der es enthält', ringe.find(f => f.aussen.length === 4)?.loecher.length === 0);
 }
-pruefe('Offener Rest wird verworfen', aeussereRinge([{ role: 'outer', geometry: [p(0, 0), p(0, 1), p(1, 1)] }]).length === 0);
-pruefe('Mitglied ohne Geometrie stört nicht', aeussereRinge([{ role: 'outer' }]).length === 0);
+{
+  // Wald mit ausgespartem Moor: Die Zelle im Loch darf nicht Wald werden (Kollerfilze, G-143).
+  const n = 5, ll = (a: number, b: number) => [a, b] as [number, number];
+  const welt = baueWelt([0, 0, 4, 4], [
+    { id: -1, tags: { landuse: 'forest' }, geometry: [p(-1, -1), p(-1, 5), p(5, 5), p(5, -1), p(-1, -1)],
+      loecher: [[p(1.5, 1.5), p(1.5, 2.5), p(2.5, 2.5), p(2.5, 1.5), p(1.5, 1.5)]] },
+  ], Array.from({ length: n }, () => Array(n).fill(500)));
+  pruefe('Zelle im Loch ist nicht Wald', welt.biome[2][2] !== 'wald', welt.biome[2][2]);
+  pruefe('Zelle daneben ist Wald', welt.biome[0][0] === 'wald');
+  pruefe('Loch steht in der Weltdatei', JSON.stringify(welt.flaechen[0].loecher?.[0][0]) === JSON.stringify(ll(1.5, 1.5)));
+}
+pruefe('Offener Rest wird verworfen', relationsFlaechen([{ role: 'outer', geometry: [p(0, 0), p(0, 1), p(1, 1)] }]).length === 0);
+pruefe('Mitglied ohne Geometrie stört nicht', relationsFlaechen([{ role: 'outer' }]).length === 0);
 
 console.log('\nMoor');
 pruefe('natural=wetland ist Moor, kein Gewässer', bestimmeBiom({ natural: 'wetland', wetland: 'bog' }) === 'moor');

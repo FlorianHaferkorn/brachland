@@ -16,6 +16,8 @@ export interface OsmWay {
   id: number;
   tags: Record<string, string>;
   geometry: { lat: number; lon: number }[];
+  /** Nur bei Flächen aus Relationen (G-143): innere Ringe, also Lichtungen und ausgesparte Moore. */
+  loecher?: { lat: number; lon: number }[][];
 }
 
 /** Biome, auf die OSM-Tags abgebildet werden. Bestimmen Aussehen UND Spawns. */
@@ -83,17 +85,9 @@ export function overpassQuery([s, w, n, e]: BBox): string {
 type Punkt = { lat: number; lon: number };
 const gleich = (a: Punkt, b: Punkt) => a.lat === b.lat && a.lon === b.lon;
 
-/**
- * Äussere Ringe einer Multipolygon-Relation aus ihren Mitglieds-Ways zusammensetzen (G-143).
- * Ein Ring ist in OSM oft auf mehrere Ways verteilt, die Ende an Anfang (oder verkehrt herum)
- * anschliessen. Innere Ringe (Lichtungen) fallen weg: Das Biomraster nimmt die erste Fläche, die
- * eine Zelle enthält, und die Ways stehen vor den Relationen — eine als Way kartierte Lichtung
- * gewinnt also ohnehin. Offene Reste (Relation ragt aus der Bbox, Daten kaputt) werden verworfen.
- */
-export function aeussereRinge(mitglieder: { role?: string; geometry?: Punkt[] }[]): Punkt[][] {
-  const offen = mitglieder
-    .filter(m => (m.role ?? 'outer') !== 'inner' && m.geometry && m.geometry.length > 1)
-    .map(m => [...m.geometry!]);
+/** Teilstücke zu geschlossenen Ringen verbinden; offene Reste (Relation ragt aus der Bbox) fallen weg. */
+function schliesseRinge(teile: Punkt[][]): Punkt[][] {
+  const offen = teile.filter(t => t.length > 1).map(t => [...t]);
   const ringe: Punkt[][] = [];
   while (offen.length) {
     const ring = offen.pop()!;
@@ -112,6 +106,31 @@ export function aeussereRinge(mitglieder: { role?: string; geometry?: Punkt[] }[
   }
   return ringe;
 }
+
+/**
+ * Flächen einer Multipolygon-Relation aus ihren Mitglieds-Ways (G-143): äussere Ringe mit ihren
+ * Löchern. Ein Ring ist in OSM oft auf mehrere Ways verteilt, die Ende an Anfang (oder verkehrt
+ * herum) anschliessen. Die Löcher zählen: Der Wald um die Kollerfilze (Relation 3560086, 1.910 ha)
+ * spart die Moore als innere Ringe aus — ohne sie wurde das halbe Fahlmoos Wald.
+ */
+export function relationsFlaechen(mitglieder: { role?: string; geometry?: Punkt[] }[]): { aussen: Punkt[]; loecher: Punkt[][] }[] {
+  const teile = (rolle: 'outer' | 'inner') => mitglieder
+    .filter(m => ((m.role || 'outer') === 'inner') === (rolle === 'inner') && m.geometry)
+    .map(m => m.geometry!);
+  const flaechen = schliesseRinge(teile('outer')).map(aussen => ({ aussen, loecher: [] as Punkt[][] }));
+  for (const loch of schliesseRinge(teile('inner'))) {
+    const f = flaechen.find(f => imPolygon([loch[0].lat, loch[0].lon], f.aussen.map(q => [q.lat, q.lon])));
+    f?.loecher.push(loch);
+  }
+  return flaechen;
+}
+
+/** Fläche eines Rings in Grad² — nur zum Sortieren, kleinere Relation zuerst. */
+const ringFlaeche = (r: Punkt[]) => {
+  let a = 0;
+  for (let i = 0; i < r.length - 1; i++) a += r[i].lon * r[i + 1].lat - r[i + 1].lon * r[i].lat;
+  return Math.abs(a / 2);
+};
 
 export async function holeOsm(bbox: BBox, protokoll = console.log): Promise<OsmWay[]> {
   const body = () => new URLSearchParams({ data: overpassQuery(bbox) });
@@ -136,16 +155,19 @@ export async function holeOsm(bbox: BBox, protokoll = console.log): Promise<OsmW
           .filter(el => el.type === 'way' && el.geometry)
           .map(el => ({ id: el.id, tags: el.tags ?? {}, geometry: el.geometry }));
         if (!ways.length) throw new Error('Antwort ohne Ways — vermutlich abgeschnitten');
-        // Relationen als geschlossene Ways hinten an: Ways gewinnen im Biomraster (`aeussereRinge`).
+        // Relationen als geschlossene Ways hinten an, die kleinste zuerst: Im Biomraster gewinnt die
+        // erste Fläche, also die als Way kartierte Wiese vor dem Wald, das Moor vor dem Forst drumherum.
         // `type=multipolygon` fällt weg, negative id = Relation.
-        let relationen = 0;
+        const aus: OsmWay[] = [];
         for (const el of j.elements ?? []) {
           if (el.type !== 'relation' || !el.members) continue;
           const { type: _t, ...tags } = el.tags ?? {};
-          for (const ring of aeussereRinge(el.members)) { ways.push({ id: -el.id, tags, geometry: ring }); relationen++; }
+          for (const f of relationsFlaechen(el.members))
+            aus.push({ id: -el.id, tags, geometry: f.aussen, ...(f.loecher.length ? { loecher: f.loecher } : {}) });
         }
-        protokoll(`  ${ways.length - relationen} Ways, ${relationen} Ringe aus Relationen`);
-        return ways;
+        aus.sort((a, b) => ringFlaeche(a.geometry) - ringFlaeche(b.geometry));
+        protokoll(`  ${ways.length} Ways, ${aus.length} Flächen aus Relationen`);
+        return [...ways, ...aus];
       } catch (err) {
         letzterFehler = err;
         protokoll(`  ${host} → ${err}, Versuch ${versuch}/${VERSUCHE_JE_HOST}`);
@@ -198,7 +220,7 @@ export interface Weltdaten {
   /** Biom je Rasterzelle — bestimmt Textur und Spawn. */
   biome: Biom[][];
   /** Flächen und Linien für die Geometrie-Erzeugung. */
-  flaechen: { biom: Biom; punkte: [number, number][] }[];
+  flaechen: { biom: Biom; punkte: [number, number][]; loecher?: [number, number][][] }[];
   linien: { art: string; punkte: [number, number][]; breite: number }[];
   gebaeude: { punkte: [number, number][]; ebenen: number; art: string }[];
   /** Wege und Straßen — strukturieren die Landschaft stark. */
@@ -278,7 +300,10 @@ export function baueWelt(bbox: BBox, ways: OsmWay[], hoehen: number[][]): Weltda
         ['man_made', 'historic', 'landuse', 'natural'].includes(k));
       if (tag) marker.push({ tag: `${tag[0]}=${tag[1]}`, position: mitte as [number, number] });
     }
-    if (RINGGESCHLOSSEN(way.geometry)) flaechen.push({ biom: bestimmeBiom(way.tags), punkte });
+    if (RINGGESCHLOSSEN(way.geometry)) flaechen.push({
+      biom: bestimmeBiom(way.tags), punkte,
+      ...(way.loecher?.length ? { loecher: way.loecher.map(l => l.map(p => [p.lat, p.lon] as [number, number])) } : {}),
+    });
   }
 
   // Linienhafte Biom-Geber: cliff, tree_row etc. sind in OSM Linien, keine Flächen.
@@ -336,7 +361,8 @@ export function baueWelt(bbox: BBox, ways: OsmWay[], hoehen: number[][]): Weltda
       const lon = w + (e - w) * (j / (aufloesung - 1));
       // Wasser gewinnt: Ein Bach im Wald ist ein Bach, kein Wald.
       if (wasserZellen.has(i * aufloesung + j)) { zeile.push('wasser'); continue; }
-      const treffer = flaechen.find(f => f.biom !== 'unbekannt' && imPolygon([lat, lon], f.punkte));
+      const treffer = flaechen.find(f => f.biom !== 'unbekannt' && imPolygon([lat, lon], f.punkte)
+        && !f.loecher?.some(l => imPolygon([lat, lon], l)));
       if (treffer) { zeile.push(treffer.biom); continue; }
       // Linie in der Nähe? (Zellbreite als Radius)
       const zelleGrad = Math.max((n - s), (e - w)) / (aufloesung - 1);
