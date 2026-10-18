@@ -221,10 +221,32 @@ export const PALETTE = {
    * Befall aus der Stilreferenz: Pilz und Flechte in Ocker und Beige, die
    * Signalfarbe nur als Punkt und nie am Tier selbst.
    */
+  /**
+   * Innenräume (D242): Holz, Putz, Stein, Heu — gedämpft wie die Häuser draussen; hell sind nur
+   * die Glut und das Fenster, also genau das, was Licht macht.
+   */
+  stube: {
+    diele: '#5d4a38', holzHell: '#6e5641', holzDunkel: '#3f3126', balken: '#2f251d',
+    putz: '#8c8473', stein: '#5c5852', kachel: '#6f5a48', erde: '#433a2f',
+    heu: '#a28c52', stroh: '#8e7a4a', tuch: '#6c4b3c', ton: '#8a6a4e', eisen: '#3c3d3f',
+    glut: '#ff8a3a', fensterTag: '#c8d2d6', fensterAbend: '#e0b072', fensterNacht: '#4b5a72',
+    dunst: '#15130f',
+  },
+
   befall: {
     pilzHell:   '#c9b389',
     pilzDunkel: '#9a8560',
     signal:     '#cfe9f2',
+  },
+
+  /**
+   * Der Flussvater (D241, `tools/welsbau.ts`): Riesenwels × Kläranlagen-Organik. Rücken
+   * olivbraun mit dunklen Flecken, Bauch fahl, Maul dunkel; eingewachsene Rohre in
+   * Schlammgrün mit Rostringen. Leuchtdichte im Kreaturband, der Bauch an dessen Oberkante.
+   */
+  wels: {
+    ruecken: '#6b7259', flecken: '#565c48', bauch: '#a39c80', maul: '#3e3a34',
+    flosse: '#5d604c', rohr: '#5e6359', rohrRing: '#7d6a52',
   },
 
   /** Chitinplatten-Gehörn (D109): zwei Töne, abwechselnd je Platte. */

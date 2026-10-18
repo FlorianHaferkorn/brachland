@@ -18,8 +18,9 @@ import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNEN
          baueKaempfer, baueRegent, regentOrt, nachMetern, ausKaempferId } from './data/inhalte.js';
 import { NARBE } from './data/schema.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
+import { Stube } from './ui/Stube.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
-import { fehlende, heile, heillage } from './spiel/heilung.js';
+import { fehlende, heile, heillage, wildZustand } from './spiel/heilung.js';
 import { Menue } from './ui/Menue.js';
 import { verschiebe } from './spiel/team.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
@@ -186,7 +187,8 @@ function App() {
   /** ID des Ortes, an dem man gerade steht — Zuflucht oder Bewohner. */
   const [ortNah, setOrtNah] = useState<string | null>(null);
   /** Offenes Ortsfenster. Getrennt von `ortNah`: Nähe ist kein Grund, etwas aufzumachen. */
-  const [ortOffen, setOrtOffen] = useState<string | null>(null);
+  // `?stube=<ortId>` öffnet das Ortsfenster samt Raum gleich beim Start (D242) — zum Ansehen.
+  const [ortOffen, setOrtOffen] = useState<string | null>(() => new URLSearchParams(location.search).get('stube'));
   /** Sitzt der Spieler auf? Nicht im Spielstand — beim Laden steht man wieder am Boden. */
   const [imSattel, setImSattel] = useState(false);
   /** Menü offen? Nicht im Spielstand — ein Spiel startet nie im Menü. */
@@ -260,7 +262,7 @@ function App() {
       else if (MESSADRESSE) setzeHeldWahl(STANDARD_HELD);
       erfahrungRef.current = s.team.map(e => e.erfahrung ?? 0);
       setTeam(s.team.map(e => {
-        const k = baueKaempfer(e.kreatur, e.stufe);
+        const k = baueKaempfer(e.kreatur, e.stufe, e.zustand ?? 'rein');
         if (e.kp > 0) k.kp = Math.min(e.kp, k.maxKp);
         return k;
       }));
@@ -331,9 +333,9 @@ function App() {
     if (!ort || !r) return undefined;
     // Nach dem Sieg bleibt der Ort (dort werden die Reinkulturen eingesetzt, D240),
     // die Figur nicht — vorher stand der besiegte Wels weiter im Stauwasser.
-    if (regentBesiegt) return { ort, gestalt: null };
-    // Der Flussvater ist ein Riesenwels — die Schlangenform kommt dem am nächsten.
-    return { ort, gestalt: baueKreaturGeometrie('serpent', r.phasen[0].elemente, 2,
+    if (regentBesiegt) return { ort, kreatur: r.id, rueckkehr: r.nachHeilung, gestalt: null };
+    // Silhouette als Ladebild und Rückfall; das Modell (D241) kommt über `kreatur`.
+    return { ort, kreatur: r.id, rueckkehr: r.nachHeilung, gestalt: baueKreaturGeometrie('serpent', r.phasen[0].elemente, 2,
                                                 'verwachsener', saatAusId(r.id)) };
   }, [welt, regentBesiegt]);
 
@@ -441,7 +443,7 @@ function App() {
       const auf = gutschrift(a.stufe, erfahrungRef.current[i] ?? 0, erfahrungAusSieg(alt.stufe, 0), kr?.stufen.length ?? 1);
       erfahrungRef.current[i] = auf.erfahrung;
       if (auf.gestiegen > 0) {
-        const neu = baueKaempfer(a.kreatur, auf.stufe);
+        const neu = baueKaempfer(a.kreatur, auf.stufe, k.zustand);
         neu.kp = Math.max(1, Math.round(neu.maxKp * (k.maxKp > 0 ? k.kp / k.maxKp : 1)));
         teamNeu = [...tm]; teamNeu[i] = neu; setTeam(teamNeu);
         stufenText = auf.mutiert ? ` ${k.name} wird zu ${neu.name}.` : ` ${neu.name} erreicht Stufe ${auf.stufe}.`;
@@ -528,6 +530,7 @@ function App() {
             // keinen Fortschritt und soll ihn auch nicht kennen.
             erfahrung: erfahrungRef.current[i] ?? 0,
             kp: Math.max(0, k.kp),
+            zustand: k.zustand,
           };
         }),
       };
@@ -636,14 +639,18 @@ function App() {
     });
   }, [sichere]);
 
+  const regionGeheilt = !!stand?.geheilt?.includes(REGENT_ID);
   const beginneKampf = useCallback((v: Vorkommen) => {
-    setBegegnung({ v, gegner: baueKaempfer(v.kreatur, v.stufe) });
-  }, []);
+    // Vor der Heilung ist ein Teil der Wildlinge befallen, danach keiner (D241).
+    const zustand = wildZustand(v.id, REGENTEN.get(REGENT_ID)?.befall ?? 0, regionGeheilt);
+    setBegegnung({ v, gegner: baueKaempfer(v.kreatur, v.stufe, zustand) });
+  }, [regionGeheilt]);
 
   const beendeKampf = useCallback((ende: KampfEnde) => {
     const v = begegnung?.v;
+    const gegner = begegnung?.gegner;
     setBegegnung(null);
-    if (!v || !stand) return;
+    if (!v || !gegner || !stand) return;
 
     if (ende === 'gefangen') {
       if (team.length >= TEAM_MAX) {
@@ -651,7 +658,9 @@ function App() {
         sichere({ besiegt: [...stand.besiegt, v.id] }, team);
         return;
       }
-      const neuesTeam = [...team, baueKaempfer(v.kreatur, v.stufe)];
+      // Der Gefangene behält, was der Kampf aus ihm gemacht hat (G-138): befallen bleibt befallen,
+      // eine Reinigung im Kampf macht ihn zum Zurückgeführten mit Narbe.
+      const neuesTeam = [...team, baueKaempfer(v.kreatur, v.stufe, gegner.zustand)];
       erfahrungRef.current[neuesTeam.length - 1] = 0;
       setTeam(neuesTeam);
       setHinweis(`${KREATUREN.get(v.kreatur)?.linie ?? v.kreatur} aufgenommen.`);
@@ -700,7 +709,7 @@ function App() {
         // Neu bauen statt Werte nachziehen: Bei einer Mutation ändern sich Name,
         // Moveset und Gestalt mit — das ist kein Zahlenupdate, das ist ein anderes Wesen.
         const anteil = k.maxKp > 0 ? k.kp / k.maxKp : 1;
-        const neu = baueKaempfer(a.kreatur, auf.stufe);
+        const neu = baueKaempfer(a.kreatur, auf.stufe, k.zustand);
         neu.kp = Math.max(1, Math.round(neu.maxKp * anteil));
         const kopie = [...team]; kopie[i] = neu; setTeam(kopie);
         meldungen.push(auf.mutiert
@@ -828,6 +837,9 @@ function App() {
   if (!welt || !stand) return <Hinweis text="Œntal wird geladen …" />;
 
   const imKampf = begegnung !== null || regentKampf !== null;
+  // Raum hinter dem Ortsfenster (D242): Solange er offen ist, steht die Welt.
+  const innenOrt = ortOffen ? ORTE.get(ortOffen) : undefined;
+  const drinnen = !!innenOrt?.innen;
   const kampfTeam: Team = { kaempfer: team, aktiv: Math.max(0, team.findIndex(k => k.kp > 0)) };
 
   return (
@@ -856,7 +868,7 @@ function App() {
         startBlick={ABSETZEN?.blick}
         ausdauer={ausdauer}
         reittier={reittier}
-        angehalten={imKampf}
+        angehalten={imKampf || drinnen}
         fernland={fernland}
         meldeRand={meldeRand}
         stoecke={stoecke}
@@ -1063,9 +1075,11 @@ function App() {
             </button>
           )}
 
+          {innenOrt?.innen && <Stube ort={innenOrt} tageszeit={tageszeit} />}
           {ortOffen && ORTE.get(ortOffen) && (
             <Ortsfenster
               ort={ORTE.get(ortOffen)!}
+              innen={drinnen}
               auftraege={beiGeber(AUFTRAEGE, ortOffen, stand.auftraege, taten)}
               onRasten={raste}
               onAnnehmen={nimmAuftrag}

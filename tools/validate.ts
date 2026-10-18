@@ -145,6 +145,9 @@ for (const r of regenten) for (const k of r.reinkulturen) {
   else if (g.wirkung.art !== 'komponente') meldeR(r.id, `Reinkultur '${k}' ist keine Komponente`);
   if (!belohnt.has(k)) meldeR(r.id, `Reinkultur '${k}' ist keine Belohnung — Heilung unerreichbar`);
 }
+// Rückkehr nach der Heilung (D241): nur Arten, die es gibt.
+for (const r of regenten) for (const n of r.nachHeilung ?? [])
+  if (!kreaturIds.has(n.kreatur)) meldeR(r.id, `Rückkehrer '${n.kreatur}' gibt es nicht`);
 
 // Zyklus in den Vorbedingungen: Zwei Aufträge, die aufeinander warten, sind beide
 // für immer gesperrt — und im Spiel sichtbar nur als „da ist nichts".

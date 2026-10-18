@@ -12,6 +12,7 @@
  */
 import { openDB, type IDBPDatabase } from 'idb';
 
+import type { Zustand } from '../engine/battle.js';
 import type { HeldWahl } from '../spieler/held.js';
 import type { WaffenStufen } from './schmiede.js';
 
@@ -30,6 +31,12 @@ export interface TeamEintrag {
   erfahrung: number;
   /** Rest-KP. Wird beim Laden übernommen, damit ein Rückzug etwas kostet. */
   kp: number;
+  /**
+   * Befall-Zustand (G-138). Nicht ableitbar: Ein befallener Wildling bleibt befallen, bis ihn eine
+   * Reinigung zurückführt — und die Narbe folgt dann aus der Herkunft (`NARBE`), nicht aus dem
+   * Stand. Fehlt in älteren Ständen und heisst dann `rein`. Ohne Versionssprung (siehe `orte`).
+   */
+  zustand?: Zustand;
 }
 
 export interface Spielstand {

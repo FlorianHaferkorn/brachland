@@ -1,6 +1,7 @@
 {
   "id": "dorf-schmied",
   "region": "oental",
+  "innen": "werkstatt",
   "art": "bewohner",
   "name": "Die Schmiedin",
   "ort": [

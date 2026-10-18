@@ -1,6 +1,7 @@
 {
   "id": "dorf-magd",
   "region": "oental",
+  "innen": "stube",
   "art": "bewohner",
   "name": "Die Magd vom Unterhof",
   "ort": [

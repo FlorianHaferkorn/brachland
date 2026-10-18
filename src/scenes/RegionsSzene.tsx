@@ -12,7 +12,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
 import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../world/terrain.js';
-import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel,
+import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel, senkePegel, type Pegelsenke,
          baueGartenKachel, type Bandsatz } from '../world/baender.js';
 import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, reitsitz, kreaturGeometrie }
@@ -55,7 +55,7 @@ import { baueGrasteppich, NAH_HALB, NAH_ZELLE } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
-import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, HAARFARBEN, setzeFigurUmgebung, setzeFigurSaum, type HeldWahl, type Haar } from '../spieler/held.js';
+import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
 /** `?fuesse=0` schaltet die Fussanpassung ab (D214). */
 /** Bis zu diesem Abstand bekommen Bewohner die Fussanpassung (D217). */
@@ -74,32 +74,12 @@ const BEWOHNER_ALT = new URLSearchParams(location.search).get('bewohner') === 'a
  * Zuordnung folgt ihrer Rolle (Arbeit → Landvolk, draussen → Waldläufer). Frisur und Haar aus der
  * Blickrichtung als Saat, Haarfarbe aus `farben.haar`, wenn der Inhalt eine setzt.
  */
-const BEWOHNER_GESTALT: Record<string, { koerper: 'm' | 'w'; kleid: 'waldlaeufer' | 'bauer'; alt?: boolean }> = {
-  alte: { koerper: 'w', kleid: 'bauer', alt: true }, arbeiter: { koerper: 'm', kleid: 'bauer' },
-  baeuerin: { koerper: 'w', kleid: 'bauer' }, bauer: { koerper: 'm', kleid: 'bauer' },
-  bursche: { koerper: 'm', kleid: 'waldlaeufer' }, foerster: { koerper: 'm', kleid: 'waldlaeufer' },
-  magd: { koerper: 'w', kleid: 'bauer' }, wanderer: { koerper: 'm', kleid: 'waldlaeufer' },
-  werkfrau: { koerper: 'w', kleid: 'waldlaeufer' }, wirt: { koerper: 'm', kleid: 'bauer' },
-};
-function bewohnerWahl(figur: string, blick: number, farben?: Partial<Record<RollenSlot, string>>): HeldWahl | null {
-  const g = BEWOHNER_GESTALT[figur];
-  if (!g) return null;
-  const saat = Math.abs(Math.round(blick * 7919 + figur.length * 104729));
-  const haare: Haar[] = g.koerper === 'm' ? ['Buzzed', 'SimpleParted', 'Kahl', 'Long'] : ['Long', 'Buns', 'BuzzedFemale', 'SimpleParted'];
-  return {
-    name: figur, geschlecht: g.koerper, koerper: g.koerper, kleid: g.kleid,
-    haar: haare[saat % haare.length], bart: g.koerper === 'm' && saat % 3 === 0,
-    haut: ((saat >> 3) % 10) / 12, haarfarbe: g.alt ? '#8a8580' : farben?.haar ?? HAARFARBEN[(saat >> 5) % 5],
-    // D177: die Jackenfarbe aus dem Inhalt tönt die Kleidung — jeder Bewohner bleibt erkennbar.
-    kleidfarbe: farben?.oberteil,
-  };
-}
 const KEINE_CLIPS: THREE.AnimationClip[] = [];
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB } from './sichtweiten.js';
 import { buendleFernProps, propListenNeu, waehleProps, type PropStufe } from './propauswahl.js';
-import { verteileKreaturen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
+import { verteileKreaturen, rueckkehrVorkommen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
 import { REITEN_GEHEN, REITEN_RENNEN, REIT_MAX_GRAD } from '../spiel/reiten.js';
@@ -465,8 +445,10 @@ function LodTerrain({ feld, kacheln, ziel }: {
   ))}</>;
 }
 
-function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fenster }: {
+function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fenster, senke }: {
   welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
+  /** Gesunkener Pegel am Regentenort nach der Heilung (D241). */
+  senke?: Pegelsenke | null;
   kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
   props: PropInstanz[]; dichte: number;
   /** Silhouettenlicht — Farbe und Stärke kommen aus der Stimmung. */
@@ -580,7 +562,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
       <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel}
                   boden={aufBoden}
                   wegMaterial={wegMaterial} wasserMaterial={wasserMaterial}
-                  fallMaterial={fallMaterial} hausMaterial={hausMaterial} />
+                  fallMaterial={fallMaterial} hausMaterial={hausMaterial} senke={senke ?? null} />
 
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
@@ -607,7 +589,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
  * nächsten Bild nachgezogen.
  */
 function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
-                     wegMaterial, wasserMaterial, fallMaterial, hausMaterial }: {
+                     wegMaterial, wasserMaterial, fallMaterial, hausMaterial, senke }: {
+  senke: Pegelsenke | null;
   welt: Weltdaten; feld: HoehenFeld; satz: Bandsatz; kacheln: Kachel[];
   ziel: React.RefObject<THREE.Object3D | null>;
   boden: ReturnType<typeof aufsatzboden>;
@@ -637,6 +620,17 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     return baueGebaeude(welt, boden, indizes.map(i => welt.gebaeude[i]));
   }, [welt, boden]);
 
+  /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
+  const wasserKachel = useMemo(() => (
+    f: HoehenFeld, s: Bandsatz, k: Kachel, lod: number,
+  ) => {
+    const g = baueWasserKachel(f, s, k, lod);
+    return g && senke ? senkePegel(g, senke) : g;
+  }, [senke]);
+  const pegel = senke ? `:${senke.x}:${senke.z}` : '';
+  // Pegel gewechselt (Heilung): sofort neu sammeln, nicht erst nach dem nächsten Schritt.
+  useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [pegel]);
+
   useFrame(() => {
     const p = ziel.current?.position;
     if (!p) return;
@@ -653,10 +647,10 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       if (d > TERRAIN_SICHT) continue;
       const lod = lodFuerAbstand(d);
       for (const [art, bauen] of [
-        ['weg', baueWegKachel], ['wasser', baueWasserKachel], ['fall', baueFallKachel],
+        ['weg', baueWegKachel], ['wasser', wasserKachel], ['fall', baueFallKachel],
         ['haus', hausKachel], ['garten', baueGartenKachel],
       ] as const) {
-        const schluessel = `${art}:${k.ix}:${k.iz}:${lod}`;
+        const schluessel = `${art}:${k.ix}:${k.iz}:${lod}${art === 'wasser' ? pegel : ''}`;
         let g = cache.current.get(schluessel);
         if (g === undefined) {
           // `null` heißt „hier liegt nichts" und wird genauso gemerkt wie eine
@@ -1900,11 +1894,36 @@ function Klippen({ klippen, ziel, material }: {
  * einen im Vorbeigehen erwischt, ist ein Unfall, kein Höhepunkt.
  */
 const REGENT_HOEHE = 4.2;
+/**
+ * Das Modell (D241) ist 1,6 Einheiten lang statt der 1,2 der Silhouette: 3,8 ergibt gut sechs
+ * Meter Wels, zwei Meter hoch — doppelt so groß wie jede Kreatur, wie oben verlangt.
+ */
+const REGENT_MODELL_MASS = 3.8;
+/**
+ * Pegel nach der Heilung (D241): 0,35 m tiefer im Umkreis von 45 m. Der Bach ist in der Mitte
+ * 0,85 m tief — mehr als die Hälfte, und er läge streckenweise trocken; das wäre ein anderer Ort.
+ */
+const HEIL_PEGEL = { radius: 45, tiefe: 0.35 };
 /** Ab hier wird gefragt, ob man ihn stellen will. */
 export const REGENT_AB = 18;
+/** Ab hier taucht der Regent auf und wendet sich dem Spieler zu (D243). */
+const REGENT_BLICK = 60;
+/** So tief liegt er von weitem — beim Wels bleiben Rücken und Rohre über Wasser. */
+const REGENT_TAUCHTIEFE = 1.2;
+/** Dreiviertel statt frontal: Frontal zeigt ein Wels nur Maul und Barteln. */
+const REGENT_SCHRAEG = 0.85;
 
-function Regentenort({ ort, gestalt, ziel, onNah }: {
+/** Der Regent als Modell (D241), sobald `public/creatures/<id>.glb` im Register steht. */
+function RegentModell({ kreatur, material }: { kreatur: string; material: THREE.Material }) {
+  const { scene } = useGLTF(`/creatures/${kreatur}.glb`);
+  const geo = useMemo(() => kreaturGeometrie(scene, kreatur, 2), [scene, kreatur]);
+  return geo ? <mesh geometry={geo} material={material} scale={REGENT_MODELL_MASS} castShadow receiveShadow /> : null;
+}
+
+function Regentenort({ ort, kreatur, gestalt, ziel, onNah }: {
   ort: [number, number, number];
+  kreatur: string;
+  /** Silhouette; `null` heisst: besiegt, der Ort bleibt leer (D240). */
   gestalt: THREE.BufferGeometry | null;
   ziel: React.RefObject<THREE.Object3D | null>;
   onNah?: (nah: boolean) => void;
@@ -1917,22 +1936,46 @@ function Regentenort({ ort, gestalt, ziel, onNah }: {
   const war = useRef(false);
   const uhr = useRef(0);
 
+  const tauchen = useRef(1);
+  const blick = useRef<number | null>(null);
+
   useFrame((_, dt) => {
     uhr.current += dt;
-    // Schweres, langsames Heben — ein Wels im Stauwasser, kein Tier an Land.
-    if (gruppe.current) {
-      gruppe.current.position.y = ort[1] + Math.sin(uhr.current * 0.5) * 0.22;
-      gruppe.current.rotation.y = Math.sin(uhr.current * 0.22) * 0.28;
-    }
     const p = ziel.current?.position;
+    const abstand = p ? Math.hypot(ort[0] - p.x, ort[2] - p.z) : Infinity;
+    if (gruppe.current) {
+      // Auftauchen (D243): Von weitem liegt er tief, nur Rücken und Rohre über dem Wasser — man
+      // sieht etwas Grosses, nicht was. Erst beim Herankommen hebt er sich. Gedämpft, damit ein
+      // Schritt vor und zurück kein Wippen erzeugt.
+      const soll = 1 - Math.min(1, Math.max(0, (abstand - REGENT_AB) / (REGENT_BLICK - REGENT_AB)));
+      tauchen.current += (soll - tauchen.current) * Math.min(1, dt * 0.6);
+      gruppe.current.position.y = ort[1] - (1 - tauchen.current) * REGENT_TAUCHTIEFE
+        + Math.sin(uhr.current * 0.5) * 0.22;
+      // Zuwenden: Innerhalb der Blickweite dreht er den Kopf (−Z) zum Spieler, aber schräg —
+      // drei Viertel, damit die Flanke mit den Rohren im Bild bleibt. Schwer und langsam.
+      if (p && abstand < REGENT_BLICK) {
+        const richtung = Math.atan2(-(p.x - ort[0]), -(p.z - ort[2])) + REGENT_SCHRAEG;
+        blick.current ??= gruppe.current.rotation.y;
+        let d = richtung - blick.current;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        blick.current += d * Math.min(1, dt * 0.35);
+      }
+      gruppe.current.rotation.y = (blick.current ?? 0) + Math.sin(uhr.current * 0.22) * 0.12;
+    }
     if (!p || !onNah) return;
-    const nah = Math.hypot(ort[0] - p.x, ort[2] - p.z) <= REGENT_AB;
+    const nah = abstand <= REGENT_AB;
     if (nah !== war.current) { war.current = nah; onNah(nah); }
   });
 
   return (
     <group ref={gruppe} position={ort}>
-      {gestalt && <mesh geometry={gestalt} material={material} scale={REGENT_HOEHE} castShadow receiveShadow />}
+      {gestalt && (MIT_MODELL.has(kreatur)
+        ? (
+          <Suspense fallback={<mesh geometry={gestalt} material={material} scale={REGENT_HOEHE} />}>
+            <RegentModell kreatur={kreatur} material={material} />
+          </Suspense>
+        )
+        : <mesh geometry={gestalt} material={material} scale={REGENT_HOEHE} castShadow receiveShadow />)}
     </group>
   );
 }
@@ -3557,7 +3600,9 @@ export interface RegionsSzeneProps {
   naehe?: React.RefObject<Naehe>;
   /** Ort des Regenten in Weltkoordinaten (x, z) plus seine Silhouette. */
   /** `gestalt: null` nach dem Sieg: Der Ort bleibt (Heilung, D240), die Figur ist weg. */
-  regent?: { ort: [number, number]; gestalt: THREE.BufferGeometry | null };
+  regent?: { ort: [number, number]; kreatur: string; gestalt: THREE.BufferGeometry | null;
+            /** Rückkehrer nach der Heilung (D241, `regent.nachHeilung`). */
+            rueckkehr?: readonly { kreatur: string; anzahl: number }[] };
   /** Region geheilt (D240): Stimmung mit `heileStimmung`. `?geheilt=1` zum Ansehen. */
   geheilt?: boolean;
   /** Wird gerufen, wenn der Spieler den Regentenort betritt oder verlässt. */
@@ -3721,10 +3766,20 @@ export function RegionsSzene({
                      (i / (welt.aufloesung - 1) - 0.5) * feld.tiefeMeter],
           (x, z) => hoeheAufFlaeche(feld, x, z),
           feld.breiteMeter, feld.tiefeMeter)
+        // Nach der Heilung kehren Arten an den Regentenort zurück (D241).
+        .concat(regent?.rueckkehr && (geheilt || GEHEILT_ANSICHT)
+          ? rueckkehrVorkommen(regent.rueckkehr, regent.ort,
+              id => kreaturen.find(k => k.id === id)?.stufen.length ?? 1,
+              (x, z) => hoeheAufFlaeche(feld, x, z))
+          : [])
       : []),
-    [welt, kreaturen, feld],
+    [welt, kreaturen, feld, regent, geheilt],
   );
 
+  const senke = useMemo<Pegelsenke | null>(
+    () => (regent && (geheilt || GEHEILT_ANSICHT) ? { x: regent.ort[0], z: regent.ort[1], ...HEIL_PEGEL } : null),
+    [regent, geheilt],
+  );
   const regentOrt = useMemo<[number, number, number] | null>(
     () => (regent
       ? [regent.ort[0], hoeheAufFlaeche(feld, regent.ort[0], regent.ort[1]) + 1.1, regent.ort[1]]
@@ -3788,7 +3843,7 @@ export function RegionsSzene({
       {!istAus('kulisse') && fernGeo && (
         <mesh geometry={fernGeo} material={fernMaterial} frustumCulled={false} renderOrder={-500} />
       )}
-      <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref}
+      <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} senke={senke}
                props={istAus('baeume') ? LEERE_PROPS : props}
                dichte={istAus('gras') ? 0 : qualitaet.gras}
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
@@ -3831,7 +3886,7 @@ export function RegionsSzene({
                       hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} />
       )}
       {regent && regentOrt && (
-        <Regentenort ort={regentOrt} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />
+        <Regentenort ort={regentOrt} kreatur={regent.kreatur} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />
       )}
       {!istAus('bauwerke') && BAUWERKE.length > 0 && (
         <Bauwerke ziel={ref} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />

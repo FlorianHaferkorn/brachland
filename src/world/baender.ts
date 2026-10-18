@@ -565,6 +565,29 @@ export function baueWasserKachel(
   return fertig(positionen, uvs);
 }
 
+/**
+ * Gesunkener Pegel um einen Ort (D241): Nach der Heilung staut der Regent kein Wasser mehr.
+ * Der Spiegel sinkt um `tiefe`, nach aussen weich auslaufend bis `radius`. Das Bachbett ist ins
+ * Gelände geschnitten (`spiegelAufFlaeche` = Grund + Wassertiefe), also verschwinden die flachen
+ * Bandränder unter dem Ufer: Der Bach wird schmaler, der nasse Uferstreifen (D239) bleibt als
+ * Spur stehen. Nur das Bild — Waten misst `feld.wasserTiefe` und bleibt unberührt.
+ */
+export interface Pegelsenke { x: number; z: number; radius: number; tiefe: number }
+
+/** Senkt die Wasserfläche einer Kachel in place; gibt `g` zurück. */
+export function senkePegel(g: THREE.BufferGeometry, senke: Pegelsenke): THREE.BufferGeometry {
+  const p = g.getAttribute('position');
+  for (let i = 0; i < p.count; i++) {
+    const d = Math.hypot(p.getX(i) - senke.x, p.getZ(i) - senke.z) / senke.radius;
+    if (d >= 1) continue;
+    const w = 1 - d * d * (3 - 2 * d);   // glatter Auslauf, kein Knick am Rand
+    p.setY(i, p.getY(i) - senke.tiefe * w);
+  }
+  p.needsUpdate = true;
+  g.computeBoundingSphere();
+  return g;
+}
+
 /** Zwischenstützen des Fallstreifens auf dem Gelände, in Metern (D133). */
 const FALL_STUETZE = 1.5;
 /** Hub des Streifens über dem Spiegel: Abrisskante, Lauf, Fuß im Becken (D133). */

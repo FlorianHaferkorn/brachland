@@ -48,3 +48,18 @@ export function heile(r: Heilziel, s: Heilstand): { beutel: Record<string, numbe
   }
   return { beutel, geheilt: [...s.geheilt, r.id] };
 }
+
+/**
+ * Zustand eines Wildlings aus einem Vorkommen (D241). Vor der Heilung ist ein fester Anteil
+ * `befall` befallen — welcher, entscheidet ein Hash der Vorkommen-Id, nicht der Zufall: Dasselbe
+ * Tier ist bei jeder Begegnung dasselbe, und ein Neuladen würfelt nichts neu. Nach der Heilung
+ * ist jedes Vorkommen rein.
+ */
+export function wildZustand(vorkommen: string, befall: number, geheilt: boolean): 'rein' | 'befallen' {
+  if (geheilt || befall <= 0) return 'rein';
+  let h = 2166136261;
+  for (let i = 0; i < vorkommen.length; i++) { h ^= vorkommen.charCodeAt(i); h = Math.imul(h, 16777619); }
+  // Nachmischen (fmix32): FNV allein streut fortlaufende Ids schief (0,35 statt 0,30 gemessen).
+  h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16;
+  return (h >>> 0) / 4294967296 < befall ? 'befallen' : 'rein';
+}
