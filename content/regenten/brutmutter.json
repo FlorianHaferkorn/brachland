@@ -1,0 +1,57 @@
+{
+  "id": "brutmutter",
+  "name": "Die Brutmutter",
+  "region": "fahlmoos",
+  "basis": "Kreuzotter",
+  "merkmal": "Inkubator",
+  "phasen": [
+    {
+      "elemente": [
+        "faeulnis"
+      ],
+      "abKpAnteil": 1.0,
+      "verhalten": "brütet Befallene aus"
+    },
+    {
+      "elemente": [
+        "sporen"
+      ],
+      "abKpAnteil": 0.66,
+      "verhalten": "überzieht das Moor mit Gelegen"
+    },
+    {
+      "elemente": [
+        "faeulnis",
+        "wasser"
+      ],
+      "abKpAnteil": 0.33,
+      "verhalten": "flutet die Gräben über die Gelege"
+    }
+  ],
+  "werte": {
+    "kp": 500,
+    "ang": 74,
+    "ver": 60,
+    "ini": 56
+  },
+  "moves": [
+    "giftbiss",
+    "brutwaerme",
+    "gelegeteppich",
+    "moorflut"
+  ],
+  "befall": 0.4,
+  "nachHeilung": [
+    { "kreatur": "moderotter", "anzahl": 3 },
+    { "kreatur": "myzelmolch", "anzahl": 2 }
+  ],
+  "reinkulturen": [
+    "torfkern",
+    "eiprobe-rein",
+    "regelkarte-inkubator"
+  ],
+  "ort": [
+    47.78692,
+    12.05358
+  ]
+}

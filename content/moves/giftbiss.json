@@ -1,0 +1,10 @@
+{
+  "id": "giftbiss",
+  "name": "Giftbiss",
+  "element": "faeulnis",
+  "band": "normal",
+  "effekte": [
+    { "art": "schaden_ueber_zeit", "proRunde": 0.06, "runden": 3 }
+  ],
+  "beschreibung": "Der Biss sitzt kurz. Was er hinterlässt, arbeitet weiter."
+}

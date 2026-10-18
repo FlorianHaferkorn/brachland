@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-16
+last-reviewed: 2026-10-18
 shelf-life-days: 90
 owns: *.json
 ---
@@ -31,6 +31,7 @@ owns: *.json
 | `quellwasser.json` | **Quellwasser** — Heilung 100 %, 2 % Beutechance. Aus einer Quelle oberhalb des Befalls. Selten, und man merkt warum. |
 | `reinkultur.json` | **Reinkultur** — Reinigung (löst Befall), 8 % Beutechance. Unbefallene Sporenkultur. Verdrängt, was sich eingenistet hat. |
 | `saatgut-rein.json` · `katalysator-v3.json` · `wasserprobe-quell.json` | **Reinkultur-Komponenten des Flussvaters** (D240) — Wirkung `komponente`, nicht im Kampf, keine Beute. Je eine als Belohnung von `nach-vorher-schmecken`, `was-am-stollen-steht`, `was-der-tresen-weiss` (Ruine/Hof, Altstollen, Becken — Story-Bibel §9). Am Regentenort nach dem Sieg eingesetzt (`src/spiel/heilung.ts`); `npm run validate` prüft, dass jede Komponente existiert und erreichbar ist |
+| `torfkern.json` · `eiprobe-rein.json` · `regelkarte-inkubator.json` | **Reinkultur-Komponenten der Brutmutter** (D246) — wie beim Flussvater `komponente`, nicht im Kampf, keine Beute. Noch **keine** Auftragsbelohnung, weil die Region Fahlmoos fehlt; `validate` prüft die Erreichbarkeit, sobald es sie gibt (G-140) |
 | `zunder.json` | **Zunder** — Fokus +4, 12 % Beutechance. Trockener Baumschwamm, glimmt lange. Sammelt den Kopf für den nächsten Zug. |
 
 ## Regeln

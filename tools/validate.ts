@@ -143,8 +143,14 @@ for (const r of regenten) for (const k of r.reinkulturen) {
   const g = gegenstaende.find((x: any) => x.id === k);
   if (!g) meldeR(r.id, `Reinkultur '${k}' gibt es nicht als Gegenstand`);
   else if (g.wirkung.art !== 'komponente') meldeR(r.id, `Reinkultur '${k}' ist keine Komponente`);
-  if (!belohnt.has(k)) meldeR(r.id, `Reinkultur '${k}' ist keine Belohnung — Heilung unerreichbar`);
+  // Ein Regent, dessen Region noch nicht angelegt ist (D246, Brutmutter vor Fahlmoos), hat
+  // keine Aufträge, die belohnen könnten. Die Erreichbarkeit wird hart, sobald die Region da ist.
+  if (!belohnt.has(k) && existsSync(`content/regions/${r.region}.json`))
+    meldeR(r.id, `Reinkultur '${k}' ist keine Belohnung — Heilung unerreichbar`);
 }
+for (const r of regenten) if (!existsSync(`content/regions/${r.region}.json`))
+  console.log(`  · Regent '${r.id}': Region '${r.region}' fehlt noch — im Spiel nicht erreichbar, `
+    + `Reinkulturen erst mit der Region prüfbar`);
 // Rückkehr nach der Heilung (D241): nur Arten, die es gibt.
 for (const r of regenten) for (const n of r.nachHeilung ?? [])
   if (!kreaturIds.has(n.kreatur)) meldeR(r.id, `Rückkehrer '${n.kreatur}' gibt es nicht`);

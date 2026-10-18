@@ -1,0 +1,10 @@
+{
+  "id": "gelegeteppich",
+  "name": "Gelegeteppich",
+  "element": "sporen",
+  "band": "normal",
+  "effekte": [
+    { "art": "wechselsperre", "runden": 1 }
+  ],
+  "beschreibung": "Gelege überziehen den Boden. Wer drinsteht, kommt eine Runde nicht los."
+}

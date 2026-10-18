@@ -1,11 +1,11 @@
 ---
-last-reviewed: 2026-08-17
+last-reviewed: 2026-10-18
 shelf-life-days: 90
 ---
 # content/moves — Attacken als Daten (_INDEX)
 
-> **Kein `owns:` in diesem Index — bewusst.** Der Ordner enthält 53 fast gleichförmige
-> Dateien; ein Register mit 53 Zeilen wäre kein Wegweiser, sondern ein zweites
+> **Kein `owns:` in diesem Index — bewusst.** Der Ordner enthält 57 fast gleichförmige
+> Dateien; ein Register mit 57 Zeilen wäre kein Wegweiser, sondern ein zweites
 > Verzeichnis. Vollständigkeit sichert hier ein Tor statt einer Tabelle:
 > `npm run validate` prüft jede Datei gegen das Schema **und** löst jeden Verweis aus
 > Kreaturen und Regenten auf. Ein Move, den niemand referenziert, oder ein Verweis
@@ -53,6 +53,7 @@ Deshalb tragen fast alle Moves das Element ihrer Linie — Fremdelement-Moves ko
 | Trafomarder | `lichtbogen` normal · `kriechstrom` leicht |
 | K7 (Zuchtlinie) | `haltebiss` normal · `kuehlrippen` utility · `reifriss` normal · `sterilgang` utility |
 | Flussvater (Regent) | `stauwelle` schwer · `schlickgriff` normal · `klaerstrom` schwer · `wehrschlag` normal |
+| Brutmutter (Regent, D246) | `giftbiss` normal · `brutwaerme` leicht · `gelegeteppich` normal · `moorflut` schwer |
 
 ## Abweichungen vom Move-System v1
 
