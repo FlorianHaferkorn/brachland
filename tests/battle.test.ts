@@ -4,7 +4,7 @@
  * die Engine falsch oder eine Designentscheidung wurde still verändert.
  */
 import { ELEMENTE, BAND, effektivitaet } from '../src/data/schema.js';
-import { erstelle, kampf, elementFaktor, rng, REGELN,
+import { erstelle, kampf, phaseBei, elementFaktor, rng, REGELN,
          type Kaempfer, type Team, type MoveDef } from '../src/engine/battle.js';
 
 let pass = 0, fail = 0;
@@ -38,9 +38,10 @@ function flussvater(): Kaempfer {
     maxKp: 480, ang: 74, ver: 64, ini: 50,
     moves: [mv('wasser', 'normal'), mv('wasser', 'schwer')],
     phasen: [
-      { elemente: ['wasser'], abKpAnteil: 0.66 },
-      { elemente: ['faeulnis'], abKpAnteil: 0.33 },
-      { elemente: ['alt-tech'], abKpAnteil: 0 },
+      // Lesart wie im Schema und in content/regenten: ab diesem Anteil abwärts (D244).
+      { elemente: ['wasser'], abKpAnteil: 1 },
+      { elemente: ['faeulnis'], abKpAnteil: 0.66 },
+      { elemente: ['alt-tech'], abKpAnteil: 0.33 },
     ],
   });
 }
@@ -119,6 +120,16 @@ console.log('\n7. Kampfdauer im Zielkorridor\n');
 const dauern: number[] = [];
 for (let s = 1; s <= 300; s++) dauern.push(kampf(macheTeam(['sporen','alt-tech','holz','stein','frost','wasser'], s), flussvater(), s).runden);
 imBereich('Regentenkampf Ø Runden', dauern.reduce((a, b) => a + b, 0) / dauern.length, 8, 40);
+
+console.log('\n8. Phase nach KP-Anteil — eine Regel für Simulation und Kampfbildschirm (D244)\n');
+{
+  const r = flussvater();
+  const phase = (anteil: number) => { r.kp = Math.round(r.maxKp * anteil); return phaseBei(r); };
+  pruefe('volle KP: Phase 0', phase(1) === 0);
+  pruefe('unter 2/3: Phase 1', phase(0.6) === 1);
+  pruefe('unter 1/3: Phase 2', phase(0.2) === 2);
+  pruefe('ohne Phasen: 0', phaseBei(macheKaempfer('wasser', 1)) === 0);
+}
 
 console.log(`\n${pass} bestanden, ${fail} fehlgeschlagen\n`);
 process.exit(fail ? 1 : 0);

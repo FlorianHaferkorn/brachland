@@ -14,7 +14,7 @@
  *    beide Wege dasselbe tun.
  */
 import { readFileSync } from 'node:fs';
-import { verschiebe } from '../src/spiel/team.js';
+import { verschiebe, zustandsAnzeige } from '../src/spiel/team.js';
 import { wendeAn, wirktAuf } from '../src/spiel/gegenstaende.js';
 import { erstelle } from '../src/engine/battle.js';
 import { Gegenstand } from '../src/data/schema.js';
@@ -99,6 +99,14 @@ pruefe('Und startet ohne einen', LEERER_STAND.orte.length === 0);
 // jeden bestehenden Stand. Dieser Test hält die Absicht fest.
 pruefe('Die Spielstandversion ist dafür NICHT gesprungen', LEERER_STAND.version === 1,
   `Version ${LEERER_STAND.version}`);
+
+// ---- Zustand im Team lesbar (D244) ----------------------------------------
+pruefe('rein zeigt nichts', zustandsAnzeige('rein') === null);
+const bef = zustandsAnzeige('befallen');
+pruefe('befallen: Signalfarbe, nennt die Zehrung', !!bef?.signal && /12 %/.test(bef.lang), bef?.lang);
+const rg = zustandsAnzeige('rueckgefuehrt', { art: 'panzer' });
+pruefe('zurückgeführt: Narbe im Text, keine Signalfarbe', !!rg && !rg.signal && rg.lang.includes('hält mehr aus'), rg?.lang);
+pruefe('verhärtet: Signalfarbe', !!zustandsAnzeige('verhaertet')?.signal);
 
 console.log(`\n${bestanden} bestanden, ${fehlgeschlagen} fehlgeschlagen`);
 if (fehlgeschlagen) process.exit(1);
