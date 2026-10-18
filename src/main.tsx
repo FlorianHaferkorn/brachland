@@ -6,6 +6,7 @@ import { holeWeltdaten } from './world/weltladen.js';
 import type { Fernland } from './world/fernland.js';
 import { RegionsSzene, TAGESZEITEN, QUALITAET_STANDARD,
          type Messwerte, type Qualitaet, type Naehe } from './scenes/RegionsSzene.js';
+import { WEITE_WEIT } from './scenes/sichtweiten.js';
 import { Witterung } from './ui/Witterung.js';
 import { Ausdaueranzeige } from './ui/Ausdaueranzeige.js';
 import { Kampfanzeige, type KampfStand } from './ui/Kampfanzeige.js';
@@ -178,7 +179,11 @@ function App() {
     return () => clearInterval(id);
   }, [tageslauf]);
   const [messung, setMessung] = useState<Messwerte | null>(null);
-  const [qualitaet, setQualitaet] = useState<Qualitaet>(QUALITAET_STANDARD);
+  // `?weite=1|1.6|2` (D247): Sichtweite für den Vergleich am M1 vorwählen, ohne das Messmenü.
+  const [qualitaet, setQualitaet] = useState<Qualitaet>(() => {
+    const w = Number(new URLSearchParams(location.search).get('weite'));
+    return w > 0 ? { ...QUALITAET_STANDARD, weite: w } : QUALITAET_STANDARD;
+  });
   const [schalterOffen, setSchalterOffen] = useState(false);
   // Läuft immer — auch im Kampf, wenn die Szene steht. Der Vergleich beider Zahlen
   // sagt, ob die Grenze in der Szene liegt oder im Gerät.
@@ -1252,6 +1257,7 @@ function App() {
                 ['2x', () => setQualitaet(q => ({ ...q, dpr: 2 })), qualitaet.dpr === 2],
                 ['Schatten', () => setQualitaet(q => ({ ...q, schatten: !q.schatten })), qualitaet.schatten],
                 ['Gras aus', () => setQualitaet(q => ({ ...q, gras: q.gras === 0 ? 1 : 0 })), qualitaet.gras === 0],
+                ['Weit', () => setQualitaet(q => ({ ...q, weite: q.weite > 1 ? 1 : WEITE_WEIT })), qualitaet.weite > 1],
               ] as [string, () => void, boolean][]).map(([text, klick, an]) => (
                 <button key={text} onClick={klick} style={{
                   minHeight: 30, padding: '3px 9px', borderRadius: 7, fontSize: 11,

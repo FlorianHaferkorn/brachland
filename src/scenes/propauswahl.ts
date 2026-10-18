@@ -26,7 +26,7 @@
  * fällt niemand rechtzeitig herein.
  */
 import type { PropArt, PropChunk, PropInstanz } from '../world/props.js';
-import { ATTRAPPE_AB, MITTEL_AB, FERN_NEUBEWERTUNG, PROP_NEUBEWERTUNG } from './sichtweiten.js';
+import { ATTRAPPE_AB, MITTEL_AB, FERN_NEUBEWERTUNG, PROP_NEUBEWERTUNG, TERRAIN_SICHT } from './sichtweiten.js';
 
 export type PropStufe = 'nah' | 'mittel' | 'fern';
 
@@ -60,6 +60,13 @@ const MITTEL_VARIANTE = 0;
  * seit D157 von der Variantenzusammenlegung ausnimmt.
  */
 const BAUM: ReadonlySet<PropArt> = new Set<PropArt>(['nadelbaum', 'laubbaum']);
+
+/**
+ * Arten, die die Sichtweite „weit“ (D247) **nicht** streckt: Blume (25 cm) und Pilz (15 cm) sind
+ * jenseits ihrer 55/45 m kleiner als ein Pixel. Gestreckt kosteten sie nur Aufrufe (gemessen:
+ * an zwei Standorten zusammen 21 Chunks mehr, ohne etwas im Bild).
+ */
+const KLEINKRAM: ReadonlySet<PropArt> = new Set<PropArt>(['blume', 'pilz']);
 
 /**
  * Arten, deren Mittelstufe ihre Varianten **nicht** zusammenlegt (D157 Bäume, D231 Findlinge). Die
@@ -99,23 +106,27 @@ export function propListenNeu(nahAbstand: number, fernAbstand: number): { nah: b
  * @param anker   Position, an der das Bündel zuletzt gebaut wurde (x, z)
  * @param bauBuendel  ob das Bündel in diesem Durchlauf neu befüllt wird
  * @param warGebuendelt  Kacheln, die im **vorigen** Durchlauf Attrappen waren — siehe unten
+ * @param weite   Sichtweitenfaktor (D247, `Qualitaet.weite`): streckt beide Baumstufen und die
+ *                Sichtweite jeder Art, höchstens bis `TERRAIN_SICHT`. 1 = Schwellen wie gemessen
  */
 export function waehleProps(
   chunks: readonly PropChunk[], p: readonly [number, number],
   anker: readonly [number, number], bauBuendel: boolean,
-  warGebuendelt?: ReadonlySet<string>,
+  warGebuendelt?: ReadonlySet<string>, weite = 1,
 ): Auswahl {
+  const attrappeAb = ATTRAPPE_AB * weite, mittelAb = MITTEL_AB * weite;
+  const sicht = (c: PropChunk) => KLEINKRAM.has(c.art) ? c.sichtweite : Math.min(TERRAIN_SICHT, c.sichtweite * weite);
   const nah: { c: PropChunk; stufe: PropStufe }[] = [];
   const buendel = new Map<PropArt, PropChunk[]>();
   const buendelKacheln = new Set<string>();
 
   for (const c of chunks) {
     const vomAnker = Math.hypot(anker[0] - c.mitte[0], anker[1] - c.mitte[1]);
-    if (vomAnker > ATTRAPPE_AB) {
+    if (vomAnker > attrappeAb) {
       buendelKacheln.add(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`);
       // Sichtweite um die Ankerstrecke erweitert: Was in den nächsten 60 m in
       // Reichweite gerät, ist schon drin, statt später hineinzupoppen.
-      if (bauBuendel && vomAnker - c.radius <= c.sichtweite + FERN_NEUBEWERTUNG) {
+      if (bauBuendel && vomAnker - c.radius <= sicht(c) + FERN_NEUBEWERTUNG) {
         let ziel = buendel.get(c.art);
         if (!ziel) { ziel = []; buendel.set(c.art, ziel); }
         ziel.push(c);
@@ -125,7 +136,7 @@ export function waehleProps(
     const mitte = Math.hypot(p[0] - c.mitte[0], p[1] - c.mitte[1]);
     // Sichtbarkeit über den **nächsten Rand**: Ein Chunk, von dem eine Ecke in
     // Reichweite ragt, muss gezeichnet werden.
-    if (mitte - c.radius > c.sichtweite) continue;
+    if (mitte - c.radius > sicht(c)) continue;
     /**
      * Nah gegen Mittel über die **Mitte**, nicht über den Rand.
      *
@@ -196,11 +207,11 @@ export function waehleProps(
      */
     const kamAusDemBuendel = warGebuendelt?.has(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`) ?? false;
     if (kamAusDemBuendel) { nah.push({ c, stufe: 'mittel' }); continue; }
-    if (BAUM.has(c.art) && Math.abs(mitte - MITTEL_AB) < c.radius && c.instanzen.length > 0) {
+    if (BAUM.has(c.art) && Math.abs(mitte - mittelAb) < c.radius && c.instanzen.length > 0) {
       const nahe: PropInstanz[] = [], mittlere: PropInstanz[] = [];
       for (const i of c.instanzen) {
         const d = Math.hypot(p[0] - i.position[0], p[1] - i.position[2]);
-        (d > MITTEL_AB ? mittlere : nahe).push(i);
+        (d > mittelAb ? mittlere : nahe).push(i);
       }
       // **Nur teilen, wenn wirklich beide Seiten besetzt sind.** Liegt alles auf
       // einer Seite — der häufigere Fall, auch im Schwellenring —, bleibt es bei
@@ -216,7 +227,7 @@ export function waehleProps(
       }
       continue;
     }
-    nah.push({ c, stufe: mitte > MITTEL_AB ? 'mittel' : 'nah' });
+    nah.push({ c, stufe: mitte > mittelAb ? 'mittel' : 'nah' });
   }
   return { nah: legeMittelZusammen(nah), buendel, buendelKacheln };
 }

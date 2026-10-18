@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-10-08
+last-reviewed: 2026-10-18
 shelf-life-days: 90
 owns: *.ts, *.tsx
 ---
@@ -114,7 +114,7 @@ owns: *.ts, *.tsx
 | `scenes/tonwert.ts` | **Tonwertkurve wie im Zielbild** (D161): three.js' AgX plus dem Look `AgX - Medium High Contrast`, als `CustomToneMapping` eingehaengt (nicht in der Nachbearbeitung — die laeuft nur mit Kontur oder Verdeckung). Die Kurve ist gemessen, nicht umgerechnet: Gamma 1,12 plus S-Term 0,70 im sRGB-Raum, Fehler 0,029 gegen Blender. Haelt 0 auf 0 — der genauere Kontrast um Pivot 0,75 loeschte die Nachtbilder (Bildtor, 53–67 % leer) |
 | `scenes/nebel.ts` | **Nebel mit Staffelung** (D204): ersetzt three.js' linearen Nebel per ShaderChunk durch eine weiche Kurve `1 − exp(−(t·k)^1,5)` über `nebelNah…nebelFern` der Stimmung (bei `nebelFern` 85 % statt 100 %, dahinter läuft er aus) und dünnt ihn über Kamerahöhe aus (Rest 45 %, Skala 140 m), damit Kämme und Wipfel gegen den Dunst stehen. `?nebel=alt` schaltet den alten linearen Nebel zurück. `nebelAnteil()` ist dieselbe Formel in TS für Tests/Messung. |
 | `scenes/Kontur.tsx` | **Nachbearbeitung**: Kontur-Pass (D115, eine dunkle Linie an jeder Tiefenkante) und seit D155 **Verdeckung aus der Tiefe** (12 Proben in der Halbkugel, seit D158 Radius 8 m — er traegt die **grosse** Verdeckung allein, das Bake nur noch die Fuge (D159), halbes Ziel, ab 120 m ausgeblendet) — `?kontur=0|1`, `?ao=0|<Exponent>`, `?aoRadius=<Meter>`; das Fuelllicht regelt `?umgebung=` in `RegionsSzene.tsx`. Ein Vollbild-Render mit Tiefe, ein AO-Quad, ein Kompositquad; Tone Mapping und sRGB holt das Quad nach |
-| `scenes/sichtweiten.ts` | Entfernungsschwellen der Szene (Terrainsicht, Attrappen, Neubewertung). Eigenes Modul, damit `tools/lastcheck.ts` dieselben Zahlen nutzt, ohne React zu laden |
+| `scenes/sichtweiten.ts` | Entfernungsschwellen der Szene (Terrainsicht, Attrappen, Neubewertung). Eigenes Modul, damit `tools/lastcheck.ts` dieselben Zahlen nutzt, ohne React zu laden. Seit D247 `WEITE_WEIT` (1,6): Faktor der Sichtweite „weit“ auf Baumstufen, Prop-Sichtweiten und Fernring des Grasteppichs |
 | `world/osm.ts` | OSM- und EU-DEM-Abruf, Weltdatentypen (`Weltdaten`, `Biom`), Biom-Ableitung, Spawn-Zonen |
 | `world/palette.ts` | **Die eine Palette** (D117): jede Materialfarbe der Welt — Biome, Haus, Bäume, Attrappen, Materialrollen der Attrappen (Gruppe `kenney`, D74 → D120), Wege, Wasser, Fels, Streu, Elemente, Befall, Chitin, Figur, Hemisphärenboden und das Kreaturband für Fremdmodelle. Alle Generatoren lesen daraus; kein Hex-Literal mehr in `terrain.ts`, `props.ts`, `baum.ts`, `baender.ts`, `klippen.ts`, `streuung.ts`, `kreaturgestalt.ts`, `figur.ts`. Zahlen dazu mit `npm run palette` (101 Farben, Leuchtdichte Median 0,141, Sättigung Median 0,50) |
 | `world/stube.ts` | Innenräume (D242): `baueStube(art, id)` — Stube, Wirtsstube, Stadel, Schuppen, Werkstatt aus Kisten mit Vertexfarbe, Saat = Ort-Id; liefert Fenster, Glut, Figurplatz, Kamera |

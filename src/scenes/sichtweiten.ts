@@ -56,3 +56,11 @@ export const PROP_NEUBEWERTUNG = 8;
  * geringfügig anders gross im Bild.
  */
 export const FERN_NEUBEWERTUNG = 60;
+
+/**
+ * D247: Faktor der Sichtweite „weit“ (`Qualitaet.weite`). Streckt die Baumstufen (`MITTEL_AB`,
+ * `ATTRAPPE_AB`) und die Sichtweite jeder Prop-Art, gedeckelt auf `TERRAIN_SICHT`, und schaltet
+ * den Fernring des Grasteppichs zu. Die Schwellen oben stammen aus dem Handybudget, das seit
+ * ADR-0006 nicht mehr gilt; „normal“ (1) hält sie als Rückfall für langsame Rechner.
+ */
+export const WEITE_WEIT = 1.6;

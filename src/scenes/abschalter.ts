@@ -27,7 +27,7 @@
  */
 
 /** Gruppen, die sich abschalten lassen. */
-export type Gruppe = 'fels' | 'gras' | 'baeume' | 'kulisse' | 'haeuser' | 'menschen' | 'bauwerke' | 'teppich' | 'nahgras';
+export type Gruppe = 'fels' | 'gras' | 'baeume' | 'kulisse' | 'haeuser' | 'menschen' | 'bauwerke' | 'teppich' | 'nahgras' | 'ferngras';
 
 const AUS: ReadonlySet<string> = new Set(
   (typeof location === 'undefined'

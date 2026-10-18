@@ -284,5 +284,23 @@ for (const art of ['laubbaum', 'nadelbaum'] as const) {
   pruefe('buendelKacheln nennt keine Nahkachel', !frisch.buendelKacheln.has(key));
 }
 
+// D247: Sichtweite „weit“. Faktor 1 ändert nichts; 1,6 streckt die Baumstufen und die
+// Sichtweite, deckelt bei TERRAIN_SICHT und lässt Blume/Pilz, wie sie sind.
+{
+  const ein = (art: PropArt, mitte: number, sichtweite: number): PropChunk[] =>
+    [{ art, variante: 0, mitte: [mitte, 0], radius: 10, sichtweite, instanzen: [] }];
+  const stufe = (c: PropChunk[], w: number) => waehleProps(c, [0, 0], [0, 0], true, undefined, w);
+  const mittel = MITTEL_AB + 15, fern = ATTRAPPE_AB + 30;
+  pruefe('Faktor 1 = ohne Faktor',
+    JSON.stringify(stufe(chunks, 1).nah.map(n => n.stufe)) === JSON.stringify(waehleProps(chunks, [0, 0], [0, 0], true).nah.map(n => n.stufe)));
+  pruefe('weit: Baum hinter MITTEL_AB wird voll', stufe(ein('nadelbaum', mittel, 420), 1).nah[0]?.stufe === 'mittel'
+    && stufe(ein('nadelbaum', mittel, 420), 1.6).nah[0]?.stufe === 'nah');
+  pruefe('weit: Baum hinter ATTRAPPE_AB bleibt Modell', stufe(ein('laubbaum', fern, 420), 1).nah.length === 0
+    && stufe(ein('laubbaum', fern, 420), 1.6).nah.length === 1);
+  pruefe('weit: Busch reicht weiter', stufe(ein('busch', 110, 90), 1).nah.length === 0
+    && stufe(ein('busch', 110, 90), 1.6).nah.length === 1);
+  pruefe('weit: Blume bleibt bei ihrer Sichtweite', stufe(ein('blume', 80, 55), 1.6).nah.length === 0);
+}
+
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);

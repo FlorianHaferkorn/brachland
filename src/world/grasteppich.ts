@@ -33,6 +33,12 @@ export const TEPPICH_NACHZIEHEN = 4;
  * bei Dichte 1), über dem 30-m-Teppich. Nur auf voller Qualität (`Qualitaet.gras` ≥ 1).
  */
 export const NAH_HALB = 12;
+/**
+ * D247: Fernring für die Sichtweite „weit“ (`Qualitaet.weite`) — gröbere Zelle, breitere Halme,
+ * innen ausgespart und genau dort eingeblendet, wo der 30-m-Teppich ausblendet. Nah- und
+ * Mittelfeld bleiben damit Halm für Halm wie bisher; nur dahinter steht jetzt noch Wiese.
+ */
+export const FERN_ZELLE = 0.45;
 export const NAH_ZELLE = 0.07;
 
 /** Wie dicht Gras je Biom steht (0…1). Wald trägt Moos und Farn, kein Rasen. */
@@ -75,9 +81,16 @@ export interface Grasteppich {
 export function baueGrasteppich(
   feld: HoehenFeld, aufWeg: (x: number, z: number) => boolean, faktor = 1,
   halb = TEPPICH_HALB, grundZelle = TEPPICH_ZELLE,
+  /** Fernring (D247): halbe Kantenlänge des inneren Teppichs, der hier ausgespart wird. 0 = keiner. */
+  innen = 0,
+  /**
+   * Meter je Feldtexel. 1 für die inneren Ringe; der Fernring nimmt 3 — bei 1 m kostete sein
+   * Nachziehen gemessen 260–330 ms (23.000 Texel), ein Ruckler alle zehn Meter Lauf (D247).
+   */
+  texel = 1,
 ): Grasteppich {
-  /** Texel der Feldtextur je Kante (1 m), mit Rand über das Halmfeld hinaus. */
-  const FELD_TEXEL = 2 * halb + 8;
+  /** Texel der Feldtextur je Kante, mit Rand über das Halmfeld hinaus. */
+  const FELD_TEXEL = 2 * Math.ceil((halb + 4) / texel);
   const zelle = grundZelle / Math.sqrt(Math.max(0.1, faktor));
   const n = Math.ceil((2 * halb) / zelle);
   const halm = baueHalm();
@@ -139,7 +152,7 @@ float halmRauschen(vec2 p) {
 }
 // Bilinear von Hand: Float-Texturen filtern nicht überall linear.
 vec4 bilinear(sampler2D tex, vec2 welt) {
-  vec2 t = (welt - uFeldUrsprung.xy) - 0.5;
+  vec2 t = (welt - uFeldUrsprung.xy) / ${texel.toFixed(1)} - 0.5;
   vec2 i = floor(t), f = t - i;
   float s = uFeldUrsprung.z;
   vec4 a = texture2D(tex, (i + vec2(0.5, 0.5)) * s), b = texture2D(tex, (i + vec2(1.5, 0.5)) * s);
@@ -154,7 +167,11 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vec4 boden = bilinear(uFeld, ort);
   vec3 bodenTon = bilinear(uTon, ort).rgb;
   float abst = distance(ort, uMitte);
-  float rand = 1.0 - smoothstep(${(halb * 0.45).toFixed(1)}, ${(halb * 0.98).toFixed(1)}, abst);
+  float rand = ${innen > 0
+    // Fernring: blendet ein, wo der innere Teppich ausblendet (dieselbe Kurve), und läuft spät aus.
+    ? `smoothstep(${(innen * 0.45).toFixed(1)}, ${(innen * 0.98).toFixed(1)}, abst)
+      * (1.0 - smoothstep(${(halb * 0.7).toFixed(1)}, ${(halb * 0.98).toFixed(1)}, abst))`
+    : `1.0 - smoothstep(${(halb * 0.45).toFixed(1)}, ${(halb * 0.98).toFixed(1)}, abst)`};
   // D225: Wo wenig Gras steht (Wald, Acker), wächst es in Horsten (~5 m) mit kahlen Stellen
   // dazwischen — dort zeigt sich der gescannte Boden (D223). Volle Wiese (Dichte 1) bleibt geschlossen.
   float horst = smoothstep(0.4, 0.75, halmRauschen(ort * 0.18 + 3.7)) * 1.8;
@@ -162,7 +179,8 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   // Dichte als Schwelle: stabil am Ort, kein Flackern beim Nachziehen.
   float da = step(h3, dicht) * rand;
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
-  float breite = 0.012 + h5 * 0.012;
+  // Im Fernring breiter: Ein 2-cm-Halm ist auf 50 m kleiner als ein Pixel und flimmert nur.
+  float breite = (0.012 + h5 * 0.012) * ${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : '1.0'};
   float winkel = h1 * 6.2832;
   vec2 quer = vec2(cos(winkel), sin(winkel));
   vec2 vor = vec2(-quer.y, quer.x);
@@ -183,7 +201,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vec3 gruen = mix(bodenTon, uSpitze, 0.55);
   vec3 spitze = mix(gruen, vec3(0.62, 0.55, 0.34), trocken) * (0.9 + h5 * 0.25);
   vec3 fuss = bodenTon * 0.8;
-  float zumBoden = smoothstep(${(halb * 0.3).toFixed(1)}, ${(halb * 0.9).toFixed(1)}, abst);
+  float zumBoden = smoothstep(${(halb * (innen > 0 ? 0.5 : 0.3)).toFixed(1)}, ${(halb * (innen > 0 ? 0.95 : 0.9)).toFixed(1)}, abst);
   vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
   vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
   #ifdef USE_TANGENT
@@ -197,23 +215,26 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       // Rückseite um, dann zeigte sie in den Boden und der halbe Rasen wäre schwarz.
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v3-${halb}`; // Shader trägt `halb` als Literal
+  material.customProgramCacheKey = () => `brachland-grasteppich-v3-${halb}-${innen}-${texel}`; // Shader trägt alle drei als Literal
 
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;
   mesh.receiveShadow = true;
   mesh.castShadow = false;
-  mesh.name = halb === TEPPICH_HALB ? 'Grasteppich' : 'Grasteppich-nah';
+  mesh.name = innen > 0 ? 'Grasteppich-fern' : halb === TEPPICH_HALB ? 'Grasteppich' : 'Grasteppich-nah';
+  // Der Fernring füllt (2·halb+8)² Texel — bei 72 m rund 23.000 statt 4.600. Seltener nachziehen;
+  // sein Rand liegt im Auslauf, dort sieht man ein paar Meter Versatz nicht.
+  const nachziehen = TEPPICH_NACHZIEHEN * Math.max(1, halb / TEPPICH_HALB);
 
   const letzte = new THREE.Vector2(NaN, NaN);
   function ziehNach(mx: number, mz: number): boolean {
     uniforms.uMitte.value.set(mx, mz);
-    if (Math.hypot(mx - letzte.x, mz - letzte.y) < TEPPICH_NACHZIEHEN) return false;
+    if (Math.hypot(mx - letzte.x, mz - letzte.y) < nachziehen) return false;
     letzte.set(mx, mz);
-    const x0 = Math.floor(mx) - FELD_TEXEL / 2, z0 = Math.floor(mz) - FELD_TEXEL / 2;
+    const x0 = (Math.floor(mx / texel) - FELD_TEXEL / 2) * texel, z0 = (Math.floor(mz / texel) - FELD_TEXEL / 2) * texel;
     for (let i = 0; i < FELD_TEXEL; i++)
       for (let j = 0; j < FELD_TEXEL; j++) {
-        const x = x0 + j + 0.5, z = z0 + i + 0.5, k = (i * FELD_TEXEL + j) * 4;
+        const x = x0 + (j + 0.5) * texel, z = z0 + (i + 0.5) * texel, k = (i * FELD_TEXEL + j) * 4;
         const h = feld.hoehe(x, z);
         const biom = feld.biom(x, z);
         let d = DICHTE[biom] ?? 0;
