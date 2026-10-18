@@ -51,7 +51,7 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
-import { baueGrasteppich, NAH_HALB, NAH_ZELLE } from '../world/grasteppich.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE, TEPPICH_HALB, FERN_ZELLE } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
@@ -77,7 +77,7 @@ const BEWOHNER_ALT = new URLSearchParams(location.search).get('bewohner') === 'a
 const KEINE_CLIPS: THREE.AnimationClip[] = [];
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
-import { TERRAIN_SICHT, NEUAUFBAU_AB } from './sichtweiten.js';
+import { TERRAIN_SICHT, NEUAUFBAU_AB, WEITE_WEIT } from './sichtweiten.js';
 import { buendleFernProps, propListenNeu, waehleProps, type PropStufe } from './propauswahl.js';
 import { verteileKreaturen, rueckkehrVorkommen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
@@ -445,12 +445,14 @@ function LodTerrain({ feld, kacheln, ziel }: {
   ))}</>;
 }
 
-function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fenster, senke }: {
+function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, rand, fenster, senke }: {
   welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
   /** Gesunkener Pegel am Regentenort nach der Heilung (D241). */
   senke?: Pegelsenke | null;
   kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
   props: PropInstanz[]; dichte: number;
+  /** Sichtweitenfaktor (D247, `Qualitaet.weite`). */
+  weite: number;
   /** Silhouettenlicht — Farbe und Stärke kommen aus der Stimmung. */
   rand: { farbe: string; staerke: number };
   /** Fensterglut 0…1 aus der Stimmung (D134). */
@@ -567,9 +569,9 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, rand, fens
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} />
+      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} weite={weite} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
-      {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} />}
+      {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite} />}
     </group>
   );
 }
@@ -701,7 +703,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
-function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial }) {
+function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; weite: number }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<{ art: PropArt; variante: number; instanzen: PropInstanz[] }[]>([]);
@@ -709,6 +711,8 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
   const letzteFern = useRef(new THREE.Vector3(NaN, NaN, NaN));
   /** Kacheln, die im vorigen Durchlauf Attrappen waren — siehe `waehleProps` (D164). */
   const vorigeAttrappen = useRef<ReadonlySet<string> | undefined>(undefined);
+  // Neue Sichtweite (D247): beide Listen sofort neu, statt auf die nächsten 8/60 m Lauf zu warten.
+  useEffect(() => { letzte.current.set(NaN, NaN, NaN); letzteFern.current.set(NaN, NaN, NaN); }, [weite]);
 
   useFrame(({ camera }) => {
     const p = camera.position;
@@ -734,7 +738,7 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
     // Sie zwingen die Kette über die Mittelstufe, statt vom Kegel aufs volle Modell zu
     // springen — gemessen 6 solcher Sprünge in 24 s Lauf (D164, `propauswahl.ts`).
     const { nah, buendel, buendelKacheln } = waehleProps(
-      chunks, [p.x, p.z], anker, fernNeu, vorigeAttrappen.current);
+      chunks, [p.x, p.z], anker, fernNeu, vorigeAttrappen.current, weite);
     vorigeAttrappen.current = buendelKacheln;
 
     // Ein neuer Fernanker verschiebt auch die Grenze zwischen Chunk und Bündel.
@@ -2087,22 +2091,28 @@ function Beleuchtung({ s, ziel }: {
 /**
  * Einzelhalme im Nahbereich, auf der GPU (D211, `world/grasteppich.ts`). `?aus=teppich` schaltet ab.
  */
-function Grasteppich({ welt, feld, ziel, dichte }: {
-  welt: Weltdaten; feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number;
+function Grasteppich({ welt, feld, ziel, dichte, weite }: {
+  welt: Weltdaten; feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number; weite: number;
 }) {
   const aufWeg = useMemo(() => wegTest(welt, feld), [welt, feld]);
   const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
   // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
   const nah = useMemo(() => (dichte >= 1 && !istAus('nahgras')
     ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE) : null), [feld, aufWeg, dichte]);
-  useEffect(() => () => { teppich.dispose(); nah?.dispose(); }, [teppich, nah]);
+  // D247: Fernring hinter dem Teppich, nur bei Sichtweite „weit“; `?aus=ferngras` schaltet ab.
+  const fern = useMemo(() => (weite > 1 && dichte > 0 && !istAus('ferngras')
+    ? baueGrasteppich(feld, aufWeg, dichte, Math.round(TEPPICH_HALB * 1.5 * weite), FERN_ZELLE, TEPPICH_HALB, 3)
+    : null), [feld, aufWeg, dichte, weite]);
+  useEffect(() => () => { teppich.dispose(); nah?.dispose(); fern?.dispose(); }, [teppich, nah, fern]);
   useFrame(({ clock }) => {
     teppich.setzeZeit(clock.elapsedTime);
     nah?.setzeZeit(clock.elapsedTime);
+    fern?.setzeZeit(clock.elapsedTime);
     const p = ziel.current?.position;
-    if (p) { teppich.ziehNach(p.x, p.z); nah?.ziehNach(p.x, p.z); }
+    // Fernring nie im selben Bild wie der Teppich nachziehen: gemessen ~55 + ~30 ms (D247, G-141).
+    if (p) { const voll = teppich.ziehNach(p.x, p.z); nah?.ziehNach(p.x, p.z); if (!voll) fern?.ziehNach(p.x, p.z); }
   });
-  return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}</>;
+  return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}{fern && <primitive object={fern.mesh} />}</>;
 }
 
 /**
@@ -3573,6 +3583,11 @@ export interface Qualitaet {
   schatten: boolean;
   /** Faktor auf die Streudichte. 0 schaltet Gras und Kleinzeug ab. */
   gras: number;
+  /**
+   * Sichtweite (D247): 1 = Schwellen aus dem Handybudget, `WEITE_WEIT` = Bäume, Büsche und Gras
+   * weiter hinaus in voller Stufe, dazu der Fernring des Grasteppichs.
+   */
+  weite: number;
 }
 
 /**
@@ -3584,7 +3599,7 @@ export interface Qualitaet {
  */
 const LEERE_PROPS: PropInstanz[] = [];
 
-export const QUALITAET_STANDARD: Qualitaet = { dpr: 2, schatten: true, gras: 1 };
+export const QUALITAET_STANDARD: Qualitaet = { dpr: 2, schatten: true, gras: 1, weite: WEITE_WEIT };
 
 export interface RegionsSzeneProps {
   welt: Weltdaten;
@@ -3858,7 +3873,7 @@ export function RegionsSzene({
       )}
       <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} senke={senke}
                props={istAus('baeume') ? LEERE_PROPS : props}
-               dichte={istAus('gras') ? 0 : qualitaet.gras}
+               dichte={istAus('gras') ? 0 : qualitaet.gras} weite={qualitaet.weite}
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
                fenster={s.fenster ?? 0} />
       <object3D ref={ref} position={start}>
