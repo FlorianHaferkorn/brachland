@@ -22,6 +22,8 @@ export interface OsmWay {
 export const BIOME = [
   'fels', 'wald', 'gebuesch', 'wiese', 'acker', 'wasser',
   'siedlung', 'industrie', 'ruine', 'unbekannt',
+  // G-143: hinten angehängt — die Stelle ist der Code in `biomeStr`, alte Weltdateien bleiben lesbar.
+  'moor',
 ] as const;
 export type Biom = typeof BIOME[number];
 
@@ -43,7 +45,10 @@ const TAG_BIOM: [string, string, Biom][] = [
   ['landuse',  'farmland',    'acker'],
   ['landuse',  'orchard',     'acker'],
   ['natural',  'water',       'wasser'],
-  ['natural',  'wetland',     'wasser'],
+  // G-143: Feuchtgebiet ist begehbarer Moorboden, kein Weiher. Als `wasser` wurde jede
+  // `natural=wetland`-Fläche zum stehenden Gewässer (`wasserfeld.ts`), im Fahlmoos 13 Stück.
+  ['natural',  'wetland',     'moor'],
+  ['landuse',  'peat_cutting', 'moor'],
   ['landuse',  'residential', 'siedlung'],
   ['landuse',  'farmyard',    'siedlung'],
   ['landuse',  'industrial',  'industrie'],
@@ -70,7 +75,42 @@ const VERSUCHE_JE_HOST = 3;
 export function overpassQuery([s, w, n, e]: BBox): string {
   const box = `(${s},${w},${n},${e})`;
   const keys = ['natural', 'landuse', 'waterway', 'building', 'man_made', 'historic', 'highway'];
-  return `[out:json][timeout:180];\n(\n${keys.map(k => `  way["${k}"]${box};`).join('\n')}\n);\nout geom;`;
+  // G-143: Flächen als Multipolygon-Relation (die Kollerfilze, grosse Wälder) kamen vorher nicht an.
+  const relationen = ['natural', 'landuse'].map(k => `  relation["type"="multipolygon"]["${k}"]${box};`);
+  return `[out:json][timeout:180];\n(\n${keys.map(k => `  way["${k}"]${box};`).join('\n')}\n${relationen.join('\n')}\n);\nout geom;`;
+}
+
+type Punkt = { lat: number; lon: number };
+const gleich = (a: Punkt, b: Punkt) => a.lat === b.lat && a.lon === b.lon;
+
+/**
+ * Äussere Ringe einer Multipolygon-Relation aus ihren Mitglieds-Ways zusammensetzen (G-143).
+ * Ein Ring ist in OSM oft auf mehrere Ways verteilt, die Ende an Anfang (oder verkehrt herum)
+ * anschliessen. Innere Ringe (Lichtungen) fallen weg: Das Biomraster nimmt die erste Fläche, die
+ * eine Zelle enthält, und die Ways stehen vor den Relationen — eine als Way kartierte Lichtung
+ * gewinnt also ohnehin. Offene Reste (Relation ragt aus der Bbox, Daten kaputt) werden verworfen.
+ */
+export function aeussereRinge(mitglieder: { role?: string; geometry?: Punkt[] }[]): Punkt[][] {
+  const offen = mitglieder
+    .filter(m => (m.role ?? 'outer') !== 'inner' && m.geometry && m.geometry.length > 1)
+    .map(m => [...m.geometry!]);
+  const ringe: Punkt[][] = [];
+  while (offen.length) {
+    const ring = offen.pop()!;
+    let weiter = true;
+    while (!gleich(ring[0], ring.at(-1)!) && weiter) {
+      weiter = false;
+      for (let k = 0; k < offen.length; k++) {
+        const t = offen[k], ende = ring.at(-1)!;
+        if (gleich(t[0], ende)) ring.push(...t.slice(1));
+        else if (gleich(t.at(-1)!, ende)) ring.push(...t.reverse().slice(1));
+        else continue;
+        offen.splice(k, 1); weiter = true; break;
+      }
+    }
+    if (ring.length > 3 && gleich(ring[0], ring.at(-1)!)) ringe.push(ring);
+  }
+  return ringe;
 }
 
 export async function holeOsm(bbox: BBox, protokoll = console.log): Promise<OsmWay[]> {
@@ -92,10 +132,19 @@ export async function holeOsm(bbox: BBox, protokoll = console.log): Promise<OsmW
           continue;
         }
         const j = await r.json() as { elements?: any[] };
-        const ways = (j.elements ?? [])
+        const ways: OsmWay[] = (j.elements ?? [])
           .filter(el => el.type === 'way' && el.geometry)
           .map(el => ({ id: el.id, tags: el.tags ?? {}, geometry: el.geometry }));
         if (!ways.length) throw new Error('Antwort ohne Ways — vermutlich abgeschnitten');
+        // Relationen als geschlossene Ways hinten an: Ways gewinnen im Biomraster (`aeussereRinge`).
+        // `type=multipolygon` fällt weg, negative id = Relation.
+        let relationen = 0;
+        for (const el of j.elements ?? []) {
+          if (el.type !== 'relation' || !el.members) continue;
+          const { type: _t, ...tags } = el.tags ?? {};
+          for (const ring of aeussereRinge(el.members)) { ways.push({ id: -el.id, tags, geometry: ring }); relationen++; }
+        }
+        protokoll(`  ${ways.length - relationen} Ways, ${relationen} Ringe aus Relationen`);
         return ways;
       } catch (err) {
         letzterFehler = err;
@@ -442,7 +491,7 @@ export function imPolygon([y, x]: [number, number], poly: [number, number][]): b
  * - **Höhen** als Int16 in Dezimetern, base64. Der Wertebereich −3.276 bis 3.276 m
  *   deckt jede Region ab, die dieses Spiel je haben wird; 10 cm liegen unter der
  *   Sichtbarkeitsschwelle. 378 KB → 175 KB.
- * - **Biome** als eine Zeichenkette, ein Zeichen je Zelle. 499 KB → 65 KB.
+ * - **Biome** als eine Zeichenkette, ein Zeichen je Zelle (Basis 36, G-143). 499 KB → 65 KB.
  *
  * Das Spiel arbeitet unverändert mit `Weltdaten`; `entpackeWelt` stellt sie her.
  */
@@ -467,7 +516,8 @@ export function packeWelt(welt: Weltdaten): GepackteWelt {
 
   let biomeStr = '';
   for (let i = 0; i < n; i++)
-    for (let j = 0; j < n; j++) biomeStr += String(BIOME.indexOf(welt.biome[i][j]));
+    // Ein Zeichen je Zelle, Basis 36: 0–9 wie bisher, ab dem elften Biom (`moor`) Buchstaben.
+    for (let j = 0; j < n; j++) biomeStr += BIOME.indexOf(welt.biome[i][j]).toString(36);
 
   const { hoehen: _h, biome: _b, ...rest } = welt;
   return { ...rest, hoehenB64: btoa(roh), biomeStr };
@@ -488,7 +538,7 @@ export function entpackeWelt(g: GepackteWelt | Weltdaten): Weltdaten {
     for (let j = 0; j < n; j++) {
       const v = dm[i * n + j];
       zh.push(v === LUECKE ? NaN : v / 10);
-      zb.push(BIOME[Number(g.biomeStr[i * n + j])] ?? 'unbekannt');
+      zb.push(BIOME[parseInt(g.biomeStr[i * n + j], 36)] ?? 'unbekannt');
     }
     hoehen.push(zh); biome.push(zb);
   }

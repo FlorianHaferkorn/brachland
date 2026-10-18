@@ -29,6 +29,11 @@ export const TEPPICH_ZELLE = 0.2;
 /** Ab dieser Bewegung wird die Feldtextur neu gefüllt. */
 export const TEPPICH_NACHZIEHEN = 4;
 /**
+ * G-141: So viele Millisekunden je Bild dürfen alle Ringe zusammen nachziehen. 3 ms lassen bei 60 Hz
+ * gut 13 ms fürs Bild; die Füllung des 30-m-Teppichs verteilt sich damit auf ~15–20 Bilder.
+ */
+export const TEPPICH_FRIST_MS = 3;
+/**
  * D235: Nahfeld für die dichte Wiese — zweite Halmschicht bis 12 m mit 7-cm-Zelle (~200 Halme je m²
  * bei Dichte 1), über dem 30-m-Teppich. Nur auf voller Qualität (`Qualitaet.gras` ≥ 1).
  */
@@ -45,11 +50,13 @@ export const NAH_ZELLE = 0.07;
 const DICHTE: Record<Biom, number> = {
   wiese: 1.0, gebuesch: 0.75, wald: 0.22, acker: 0.45, ruine: 0.55,
   siedlung: 0.4, industrie: 0.25, fels: 0.12, unbekannt: 0.35, wasser: 0,
+  // G-143: Hochmoor trägt Wollgras und Pfeifengras in Bulten, dazwischen Torfmoos ohne Halm.
+  moor: 0.6,
 };
 /** Halmhöhe je Biom in Metern (Mittel); ungemähte Wiese steht höher als Hof und Waldrand. */
 const HOEHE: Record<Biom, number> = {
   wiese: 0.55, gebuesch: 0.5, wald: 0.3, acker: 0.4, ruine: 0.45,
-  siedlung: 0.25, industrie: 0.3, fels: 0.2, unbekannt: 0.35, wasser: 0,
+  siedlung: 0.25, industrie: 0.3, fels: 0.2, unbekannt: 0.35, wasser: 0, moor: 0.4,
 };
 
 /** Ein Halm: drei Viereckstufen und eine Spitze, x in Halbbreiten, y von 0 bis 1. */
@@ -69,8 +76,13 @@ export interface Grasteppich {
   mesh: THREE.Mesh;
   /** Je Bild: Zeit und Kamera für Wind und Randausblendung. */
   setzeZeit(t: number): void;
-  /** Feld um (mx, mz) neu füllen, wenn weit genug gegangen. Gibt true zurück, wenn gefüllt. */
-  ziehNach(mx: number, mz: number): boolean;
+  /**
+   * Feld um (mx, mz) neu füllen, wenn weit genug gegangen (G-141). Gefüllt wird zeilenweise in einen
+   * Hinterpuffer, bis `frist` (`performance.now()`) erreicht ist — mindestens eine Zeile je Aufruf;
+   * erst die volle Füllung wird sichtbar. Ohne `frist` alles in einem Zug (erstes Bild).
+   * Gibt true zurück, solange in diesem Aufruf gefüllt wurde.
+   */
+  ziehNach(mx: number, mz: number, frist?: number): boolean;
   dispose(): void;
 }
 
@@ -226,31 +238,49 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   // sein Rand liegt im Auslauf, dort sieht man ein paar Meter Versatz nicht.
   const nachziehen = TEPPICH_NACHZIEHEN * Math.max(1, halb / TEPPICH_HALB);
 
+  // G-141: Das Füllen kostete gemessen 49–59 ms in einem Bild, alle 4 m Lauf. Jetzt läuft es
+  // zeilenweise über mehrere Bilder in diese Hinterpuffer; die Texturen tauschen erst, wenn alles
+  // steht. Der Rand von 4 m über das Halmfeld hinaus trägt die Bilder dazwischen.
+  const datenNeu = new Float32Array(daten.length), tonNeu = new Float32Array(ton.length);
   const letzte = new THREE.Vector2(NaN, NaN);
-  function ziehNach(mx: number, mz: number): boolean {
-    uniforms.uMitte.value.set(mx, mz);
-    if (Math.hypot(mx - letzte.x, mz - letzte.y) < nachziehen) return false;
-    letzte.set(mx, mz);
-    const x0 = (Math.floor(mx / texel) - FELD_TEXEL / 2) * texel, z0 = (Math.floor(mz / texel) - FELD_TEXEL / 2) * texel;
-    for (let i = 0; i < FELD_TEXEL; i++)
-      for (let j = 0; j < FELD_TEXEL; j++) {
-        const x = x0 + (j + 0.5) * texel, z = z0 + (i + 0.5) * texel, k = (i * FELD_TEXEL + j) * 4;
-        const h = feld.hoehe(x, z);
-        const biom = feld.biom(x, z);
-        let d = DICHTE[biom] ?? 0;
-        if (d > 0 && (feld.wasserTiefe(x, z) > 0.02 || gesperrt(x, z, 'streu') || aufWeg(x, z))) d = 0;
-        if (d > 0) {
-          // Hang: ab ~40° kein Halt mehr (wie die Grasbüschel-Props).
-          const gx = feld.hoehe(x + 0.5, z) - feld.hoehe(x - 0.5, z);
-          const gz = feld.hoehe(x, z + 0.5) - feld.hoehe(x, z - 0.5);
-          d *= 1 - THREE.MathUtils.smoothstep(Math.hypot(gx, gz), 0.6, 0.9);
-        }
-        daten[k] = h; daten[k + 1] = d; daten[k + 2] = HOEHE[biom] ?? 0; daten[k + 3] = 1;
-        feld.bodenfarbe(x, z, farbe);
-        ton[k] = farbe.r; ton[k + 1] = farbe.g; ton[k + 2] = farbe.b; ton[k + 3] = 1;
+  /** Laufende Füllung: Ursprung, Mitte und nächste Zeile; `zeile < 0` heisst keine. */
+  const lauf = { x0: 0, z0: 0, mx: 0, mz: 0, zeile: -1 };
+
+  function fuelleZeile(i: number): void {
+    for (let j = 0; j < FELD_TEXEL; j++) {
+      const x = lauf.x0 + (j + 0.5) * texel, z = lauf.z0 + (i + 0.5) * texel, k = (i * FELD_TEXEL + j) * 4;
+      const h = feld.hoehe(x, z);
+      const biom = feld.biom(x, z);
+      let d = DICHTE[biom] ?? 0;
+      if (d > 0 && (feld.wasserTiefe(x, z) > 0.02 || gesperrt(x, z, 'streu') || aufWeg(x, z))) d = 0;
+      if (d > 0) {
+        // Hang: ab ~40° kein Halt mehr (wie die Grasbüschel-Props).
+        const gx = feld.hoehe(x + 0.5, z) - feld.hoehe(x - 0.5, z);
+        const gz = feld.hoehe(x, z + 0.5) - feld.hoehe(x, z - 0.5);
+        d *= 1 - THREE.MathUtils.smoothstep(Math.hypot(gx, gz), 0.6, 0.9);
       }
-    uniforms.uFeldUrsprung.value.set(x0, z0, 1 / FELD_TEXEL);
-    uniforms.uRaster.value.set(Math.round(mx / zelle), Math.round(mz / zelle), zelle);
+      datenNeu[k] = h; datenNeu[k + 1] = d; datenNeu[k + 2] = HOEHE[biom] ?? 0; datenNeu[k + 3] = 1;
+      feld.bodenfarbe(x, z, farbe);
+      tonNeu[k] = farbe.r; tonNeu[k + 1] = farbe.g; tonNeu[k + 2] = farbe.b; tonNeu[k + 3] = 1;
+    }
+  }
+
+  function ziehNach(mx: number, mz: number, frist = Infinity): boolean {
+    uniforms.uMitte.value.set(mx, mz);
+    if (lauf.zeile < 0) {
+      if (Math.hypot(mx - letzte.x, mz - letzte.y) < nachziehen) return false;
+      letzte.set(mx, mz);
+      lauf.mx = mx; lauf.mz = mz; lauf.zeile = 0;
+      lauf.x0 = (Math.floor(mx / texel) - FELD_TEXEL / 2) * texel;
+      lauf.z0 = (Math.floor(mz / texel) - FELD_TEXEL / 2) * texel;
+    }
+    do fuelleZeile(lauf.zeile++);
+    while (lauf.zeile < FELD_TEXEL && performance.now() < frist);
+    if (lauf.zeile < FELD_TEXEL) return true;
+    lauf.zeile = -1;
+    daten.set(datenNeu); ton.set(tonNeu);
+    uniforms.uFeldUrsprung.value.set(lauf.x0, lauf.z0, 1 / FELD_TEXEL);
+    uniforms.uRaster.value.set(Math.round(lauf.mx / zelle), Math.round(lauf.mz / zelle), zelle);
     feldTextur.needsUpdate = true;
     tonTextur.needsUpdate = true;
     return true;

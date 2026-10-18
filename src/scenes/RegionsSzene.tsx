@@ -52,7 +52,7 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
-import { baueGrasteppich, NAH_HALB, NAH_ZELLE, TEPPICH_HALB, FERN_ZELLE } from '../world/grasteppich.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
@@ -2105,13 +2105,20 @@ function Grasteppich({ welt, feld, ziel, dichte, weite }: {
     ? baueGrasteppich(feld, aufWeg, dichte, Math.round(TEPPICH_HALB * 1.5 * weite), FERN_ZELLE, TEPPICH_HALB, 3)
     : null), [feld, aufWeg, dichte, weite]);
   useEffect(() => () => { teppich.dispose(); nah?.dispose(); fern?.dispose(); }, [teppich, nah, fern]);
+  const erstesBild = useRef(true);
+  useEffect(() => { erstesBild.current = true; }, [teppich, nah, fern]);
   useFrame(({ clock }) => {
     teppich.setzeZeit(clock.elapsedTime);
     nah?.setzeZeit(clock.elapsedTime);
     fern?.setzeZeit(clock.elapsedTime);
     const p = ziel.current?.position;
-    // Fernring nie im selben Bild wie der Teppich nachziehen: gemessen ~55 + ~30 ms (D247, G-141).
-    if (p) { const voll = teppich.ziehNach(p.x, p.z); nah?.ziehNach(p.x, p.z); if (!voll) fern?.ziehNach(p.x, p.z); }
+    // G-141: Alle drei Ringe teilen sich je Bild eine Frist für das Nachziehen, statt ~55 + ~30 ms
+    // in einem Bild (D247). Das allererste Füllen läuft ohne Frist, sonst fehlt der Rasen anfangs.
+    if (p) {
+      const frist = erstesBild.current ? Infinity : performance.now() + TEPPICH_FRIST_MS;
+      erstesBild.current = false;
+      teppich.ziehNach(p.x, p.z, frist); nah?.ziehNach(p.x, p.z, frist); fern?.ziehNach(p.x, p.z, frist);
+    }
   });
   return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}{fern && <primitive object={fern.mesh} />}</>;
 }
