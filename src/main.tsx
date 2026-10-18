@@ -31,7 +31,7 @@ import { beute } from './spiel/gegenstaende.js';
 import { baueKreaturGeometrie, saatAusId } from './world/kreaturgestalt.js';
 import { Kampfbildschirm, type KampfEnde } from './ui/BattleScreen.js';
 import type { KaempferBild } from './ui/Kampfbuehne.js';
-import type { Kaempfer, Team } from './engine/battle.js';
+import { kpVorPhase, type Kaempfer, type Team } from './engine/battle.js';
 import { HeldEditor } from './ui/HeldEditor.js';
 import { GALERIE, galerieAuto } from './kampf/Kampfplatz.js';
 import { angebot, bezahlbar, bezahle, KEINE_STUFEN, FUNKE_PREIS, FUNKE_REGENT } from './spiel/schmiede.js';
@@ -103,7 +103,12 @@ function mutationVon(v: Vorkommen): number {
  * Adressen der Messwerkzeuge (Bildtor, Kampfblick …): dort startet das Spiel ohne Editor mit der
  * Vorgabefigur. `?held=editor` erzwingt den Editor (D175).
  */
-const MESSADRESSE = ['absetzen', 'kampf', 'stimmung', 'kamera', 'zeit', 'ansicht'].some(k => new URLSearchParams(location.search).has(k));
+/**
+ * `?regent=1|2` (D245): Der Regent steht beim Stellen kurz vor dieser Phase — der erste Treffer
+ * zeigt den Wechsel. Messwerkzeug wie `absetzen`; ohne Angabe beginnt er mit vollen KP.
+ */
+const REGENT_PHASE = Number(new URLSearchParams(location.search).get('regent')) || 0;
+const MESSADRESSE = ['absetzen', 'kampf', 'stimmung', 'kamera', 'zeit', 'ansicht', 'regent'].some(k => new URLSearchParams(location.search).has(k));
 /** `?waffenstufe=3`: beide Waffen auf dieser Stufe (Messlauf, D178). */
 const WAFFENSTUFE_PROBE = (() => { const w = new URLSearchParams(location.search).get('waffenstufe'); return w === null ? undefined : { klinge: Number(w), axt: Number(w), speer: Number(w) }; })();
 /** Länge eines Spieltags in Sekunden (D178): 24 Minuten, ein Abend dauert damit gut 5. */
@@ -1154,7 +1159,11 @@ function App() {
               <div style={{ color: '#7d8b85', fontSize: 11, textAlign: 'center' }}>
                 Das Wasser steht. Er wartet nicht, aber er kommt auch nicht.
               </div>
-              <button onClick={() => setRegentKampf(baueRegent(REGENT_ID))} style={{
+              <button onClick={() => {
+                const r = baueRegent(REGENT_ID);
+                if (REGENT_PHASE > 0) r.kp = kpVorPhase(r, REGENT_PHASE);
+                setRegentKampf(r);
+              }} style={{
                 minHeight: 40, padding: '0 20px', borderRadius: 9, fontSize: 13,
                 background: 'transparent', border: '1px solid #c4553f', color: '#c4553f',
               }}>Stellen</button>

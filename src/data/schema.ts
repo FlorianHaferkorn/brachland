@@ -393,9 +393,17 @@ export const Regent = z.object({
   /** Phasen: Element wechselt bei KP-Schwellen. Zweites Element NUR in der Schlussphase. */
   phasen: z.array(z.object({
     elemente: z.array(Element).min(1).max(2),
+    /** **Ab** diesem KP-Anteil abwärts gilt die Phase — erste 1,0, dann fallend (D244, `phaseBei`). */
     abKpAnteil: z.number().min(0).max(1),
     verhalten: z.string(),
-  })).min(2).max(4),
+  })).min(2).max(4)
+    // D245: Die Lesart stand nur im Namen, und die Engine las sie anders (D244). Jetzt prüft sie
+    // `validate`, bevor ein zweiter Regent dazukommt.
+    .refine(ph => ph[0].abKpAnteil === 1, 'Phasen: Die erste Phase gilt ab vollen KP (abKpAnteil 1)')
+    .refine(ph => ph.every((p, i) => i === 0 || p.abKpAnteil < ph[i - 1].abKpAnteil),
+      'Phasen: abKpAnteil muss streng fallen — sonst wird eine Phase übersprungen')
+    .refine(ph => ph.slice(0, -1).every(p => p.elemente.length === 1),
+      'Phasen: Zweites Element nur in der Schlussphase'),
   werte: RegentWerte,
   moves: z.array(z.string()).min(4).max(6),
   /** Reinkultur-Komponenten, die zur Heilung gebraucht werden. */

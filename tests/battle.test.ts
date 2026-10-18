@@ -4,7 +4,7 @@
  * die Engine falsch oder eine Designentscheidung wurde still verändert.
  */
 import { ELEMENTE, BAND, effektivitaet } from '../src/data/schema.js';
-import { erstelle, kampf, phaseBei, elementFaktor, rng, REGELN,
+import { erstelle, kampf, phaseBei, kpVorPhase, elementFaktor, rng, REGELN,
          type Kaempfer, type Team, type MoveDef } from '../src/engine/battle.js';
 
 let pass = 0, fail = 0;
@@ -129,6 +129,14 @@ console.log('\n8. Phase nach KP-Anteil — eine Regel für Simulation und Kampfb
   pruefe('unter 2/3: Phase 1', phase(0.6) === 1);
   pruefe('unter 1/3: Phase 2', phase(0.2) === 2);
   pruefe('ohne Phasen: 0', phaseBei(macheKaempfer('wasser', 1)) === 0);
+  // Messadresse ?regent=<n> (D245): kurz davor stehen, ein Punkt Schaden kippt die Phase.
+  for (const n of [1, 2]) {
+    r.kp = kpVorPhase(r, n);
+    const davor = phaseBei(r);
+    r.kp -= 1;
+    pruefe(`kpVorPhase(${n}): davor ${n - 1}, ein Punkt später ${n}`, davor === n - 1 && phaseBei(r) === n,
+      `kp ${r.kp + 1}: ${davor} → ${phaseBei(r)}`);
+  }
 }
 
 console.log(`\n${pass} bestanden, ${fail} fehlgeschlagen\n`);

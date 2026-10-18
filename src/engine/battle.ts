@@ -506,6 +506,17 @@ export function phaseBei(k: Kaempfer): number {
   return phase;
 }
 
+/**
+ * KP, bei denen ein Regent gerade noch in der Phase vor `n` steht — ein Treffer kippt ihn in Phase
+ * `n`. Für die Messadresse `?regent=<n>` (D245): Den Phasenwechsel am Zielgerät anschauen, ohne
+ * vorher ein Drittel von 480 KP herunterzukämpfen. Ausserhalb der Phasen: volle KP.
+ */
+export function kpVorPhase(k: Kaempfer, n: number): number {
+  const ph = k.phasen?.[n];
+  if (!ph || n <= 0) return k.maxKp;
+  return Math.min(k.maxKp, Math.floor(ph.abKpAnteil * k.maxKp) + 1);
+}
+
 export interface Ergebnis { sieg: boolean; runden: number; verluste: number; log: Ereignis[]; }
 
 export function kampf(team: Team, boss: Kaempfer, seed = 1, log = false): Ergebnis {
