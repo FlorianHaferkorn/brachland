@@ -2,6 +2,8 @@
  * BRACHLAND — Heilung einer Region (D240): besiegen → Reinkulturen einsetzen → geheilt.
  */
 import { fehlende, heile, heillage, wildZustand } from '../src/spiel/heilung.js';
+import { erstelle, type Kaempfer } from '../src/engine/battle.js';
+import type { TeamEintrag } from '../src/spiel/spielstand.js';
 
 let bestanden = 0, gefallen = 0;
 function pruefe(name: string, bedingung: boolean, hinweis = '') {
@@ -40,6 +42,26 @@ pruefe('zweimal heilen geht nicht', heile(r, { ...bereit, geheilt: ['flussvater'
   pruefe('nachher: alle rein', ids.every(id => wildZustand(id, 0.3, true) === 'rein'));
   pruefe('befall 0: alle rein', ids.every(id => wildZustand(id, 0, false) === 'rein'));
   pruefe('fest je Vorkommen', ids.every(id => wildZustand(id, 0.3, false) === wildZustand(id, 0.3, false)));
+}
+
+// ---- Zustand übersteht Fang, Speichern und Laden (G-138) ------------------
+{
+  // Dieselbe Strecke wie `main.tsx`: Kämpfer → TeamEintrag → Kämpfer. `baueKaempfer` braucht
+  // `import.meta.glob`, darum hier `erstelle` mit festen Werten (siehe menue.test.ts).
+  const bau = (zustand: Kaempfer['zustand']) => erstelle({
+    id: 'probe-s1-l5', name: 'Probe', elemente: ['wasser'], zustand,
+    narbe: { art: 'panzer', wert: 0.2 }, maxKp: 40, ang: 20, ver: 20, ini: 20, moves: [],
+  });
+  const speichere = (k: Kaempfer): TeamEintrag => ({ kreatur: 'probe', stufe: 5, erfahrung: 0, kp: k.kp, zustand: k.zustand });
+  const lade = (e: TeamEintrag) => bau(e.zustand ?? 'rein');
+
+  const befallen = lade(speichere(bau('befallen')));
+  pruefe('befallen bleibt befallen', befallen.zustand === 'befallen');
+  pruefe('befallen: Befall-Bonus bleibt', befallen.ang > bau('rein').ang, `${befallen.ang}`);
+  const zurueck = lade(speichere(bau('rueckgefuehrt')));
+  pruefe('zurückgeführt behält die Narbe', zurueck.zustand === 'rueckgefuehrt' && zurueck.narbe?.art === 'panzer');
+  const alt: TeamEintrag = { kreatur: 'probe', stufe: 5, erfahrung: 0, kp: 0 };
+  pruefe('alter Stand ohne Feld: rein', lade(alt).zustand === 'rein' && !lade(alt).narbe);
 }
 
 console.log(`${bestanden} bestanden, ${gefallen} fehlgeschlagen`);

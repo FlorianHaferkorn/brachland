@@ -262,7 +262,7 @@ function App() {
       else if (MESSADRESSE) setzeHeldWahl(STANDARD_HELD);
       erfahrungRef.current = s.team.map(e => e.erfahrung ?? 0);
       setTeam(s.team.map(e => {
-        const k = baueKaempfer(e.kreatur, e.stufe);
+        const k = baueKaempfer(e.kreatur, e.stufe, e.zustand ?? 'rein');
         if (e.kp > 0) k.kp = Math.min(e.kp, k.maxKp);
         return k;
       }));
@@ -443,7 +443,7 @@ function App() {
       const auf = gutschrift(a.stufe, erfahrungRef.current[i] ?? 0, erfahrungAusSieg(alt.stufe, 0), kr?.stufen.length ?? 1);
       erfahrungRef.current[i] = auf.erfahrung;
       if (auf.gestiegen > 0) {
-        const neu = baueKaempfer(a.kreatur, auf.stufe);
+        const neu = baueKaempfer(a.kreatur, auf.stufe, k.zustand);
         neu.kp = Math.max(1, Math.round(neu.maxKp * (k.maxKp > 0 ? k.kp / k.maxKp : 1)));
         teamNeu = [...tm]; teamNeu[i] = neu; setTeam(teamNeu);
         stufenText = auf.mutiert ? ` ${k.name} wird zu ${neu.name}.` : ` ${neu.name} erreicht Stufe ${auf.stufe}.`;
@@ -530,6 +530,7 @@ function App() {
             // keinen Fortschritt und soll ihn auch nicht kennen.
             erfahrung: erfahrungRef.current[i] ?? 0,
             kp: Math.max(0, k.kp),
+            zustand: k.zustand,
           };
         }),
       };
@@ -647,8 +648,9 @@ function App() {
 
   const beendeKampf = useCallback((ende: KampfEnde) => {
     const v = begegnung?.v;
+    const gegner = begegnung?.gegner;
     setBegegnung(null);
-    if (!v || !stand) return;
+    if (!v || !gegner || !stand) return;
 
     if (ende === 'gefangen') {
       if (team.length >= TEAM_MAX) {
@@ -656,7 +658,9 @@ function App() {
         sichere({ besiegt: [...stand.besiegt, v.id] }, team);
         return;
       }
-      const neuesTeam = [...team, baueKaempfer(v.kreatur, v.stufe)];
+      // Der Gefangene behält, was der Kampf aus ihm gemacht hat (G-138): befallen bleibt befallen,
+      // eine Reinigung im Kampf macht ihn zum Zurückgeführten mit Narbe.
+      const neuesTeam = [...team, baueKaempfer(v.kreatur, v.stufe, gegner.zustand)];
       erfahrungRef.current[neuesTeam.length - 1] = 0;
       setTeam(neuesTeam);
       setHinweis(`${KREATUREN.get(v.kreatur)?.linie ?? v.kreatur} aufgenommen.`);
@@ -705,7 +709,7 @@ function App() {
         // Neu bauen statt Werte nachziehen: Bei einer Mutation ändern sich Name,
         // Moveset und Gestalt mit — das ist kein Zahlenupdate, das ist ein anderes Wesen.
         const anteil = k.maxKp > 0 ? k.kp / k.maxKp : 1;
-        const neu = baueKaempfer(a.kreatur, auf.stufe);
+        const neu = baueKaempfer(a.kreatur, auf.stufe, k.zustand);
         neu.kp = Math.max(1, Math.round(neu.maxKp * anteil));
         const kopie = [...team]; kopie[i] = neu; setTeam(kopie);
         meldungen.push(auf.mutiert

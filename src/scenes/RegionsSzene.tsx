@@ -1906,6 +1906,12 @@ const REGENT_MODELL_MASS = 3.8;
 const HEIL_PEGEL = { radius: 45, tiefe: 0.35 };
 /** Ab hier wird gefragt, ob man ihn stellen will. */
 export const REGENT_AB = 18;
+/** Ab hier taucht der Regent auf und wendet sich dem Spieler zu (D243). */
+const REGENT_BLICK = 60;
+/** So tief liegt er von weitem — beim Wels bleiben Rücken und Rohre über Wasser. */
+const REGENT_TAUCHTIEFE = 1.2;
+/** Dreiviertel statt frontal: Frontal zeigt ein Wels nur Maul und Barteln. */
+const REGENT_SCHRAEG = 0.85;
 
 /** Der Regent als Modell (D241), sobald `public/creatures/<id>.glb` im Register steht. */
 function RegentModell({ kreatur, material }: { kreatur: string; material: THREE.Material }) {
@@ -1930,16 +1936,34 @@ function Regentenort({ ort, kreatur, gestalt, ziel, onNah }: {
   const war = useRef(false);
   const uhr = useRef(0);
 
+  const tauchen = useRef(1);
+  const blick = useRef<number | null>(null);
+
   useFrame((_, dt) => {
     uhr.current += dt;
-    // Schweres, langsames Heben — ein Wels im Stauwasser, kein Tier an Land.
-    if (gruppe.current) {
-      gruppe.current.position.y = ort[1] + Math.sin(uhr.current * 0.5) * 0.22;
-      gruppe.current.rotation.y = Math.sin(uhr.current * 0.22) * 0.28;
-    }
     const p = ziel.current?.position;
+    const abstand = p ? Math.hypot(ort[0] - p.x, ort[2] - p.z) : Infinity;
+    if (gruppe.current) {
+      // Auftauchen (D243): Von weitem liegt er tief, nur Rücken und Rohre über dem Wasser — man
+      // sieht etwas Grosses, nicht was. Erst beim Herankommen hebt er sich. Gedämpft, damit ein
+      // Schritt vor und zurück kein Wippen erzeugt.
+      const soll = 1 - Math.min(1, Math.max(0, (abstand - REGENT_AB) / (REGENT_BLICK - REGENT_AB)));
+      tauchen.current += (soll - tauchen.current) * Math.min(1, dt * 0.6);
+      gruppe.current.position.y = ort[1] - (1 - tauchen.current) * REGENT_TAUCHTIEFE
+        + Math.sin(uhr.current * 0.5) * 0.22;
+      // Zuwenden: Innerhalb der Blickweite dreht er den Kopf (−Z) zum Spieler, aber schräg —
+      // drei Viertel, damit die Flanke mit den Rohren im Bild bleibt. Schwer und langsam.
+      if (p && abstand < REGENT_BLICK) {
+        const richtung = Math.atan2(-(p.x - ort[0]), -(p.z - ort[2])) + REGENT_SCHRAEG;
+        blick.current ??= gruppe.current.rotation.y;
+        let d = richtung - blick.current;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        blick.current += d * Math.min(1, dt * 0.35);
+      }
+      gruppe.current.rotation.y = (blick.current ?? 0) + Math.sin(uhr.current * 0.22) * 0.12;
+    }
     if (!p || !onNah) return;
-    const nah = Math.hypot(ort[0] - p.x, ort[2] - p.z) <= REGENT_AB;
+    const nah = abstand <= REGENT_AB;
     if (nah !== war.current) { war.current = nah; onNah(nah); }
   });
 
