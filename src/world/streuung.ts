@@ -34,13 +34,13 @@ export const STREU_NACHZIEHEN = 6;
  */
 const DICHTE: Record<Biom, number> = {
   wiese: 1.0, gebuesch: 0.8, wald: 0.55, acker: 0.35, ruine: 0.45,
-  siedlung: 0.25, industrie: 0.15, fels: 0.12, unbekannt: 0.3, wasser: 0,
+  siedlung: 0.25, industrie: 0.15, fels: 0.12, unbekannt: 0.3, wasser: 0, moor: 0.7,
 };
 
 /** Kleinzeug verteilt sich anders als Gras: viel auf Fels und in Ruinen, wenig auf der Wiese. */
 const KLEIN_DICHTE: Record<Biom, number> = {
   fels: 1.0, ruine: 0.9, wald: 0.7, gebuesch: 0.5, industrie: 0.5,
-  acker: 0.25, wiese: 0.22, siedlung: 0.3, unbekannt: 0.3, wasser: 0,
+  acker: 0.25, wiese: 0.22, siedlung: 0.3, unbekannt: 0.3, wasser: 0, moor: 0.35,
 };
 
 /** Deterministisches Rauschen — gleicher Punkt, gleiches Ergebnis. */

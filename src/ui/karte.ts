@@ -38,6 +38,7 @@ const GRUND: Record<Biom, string> = {
   industrie: '#2f2b28',
   ruine: '#302b26',
   unbekannt: '#22261f',
+  moor: '#28281c',
 };
 const AUSWEICH = '#22261f';
 

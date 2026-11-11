@@ -49,6 +49,9 @@ export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
   industrie: { busch: 4, totholz: 3, grasbuschel: 9 },
   ruine:     { busch: 9, totholz: 5, findling: 5, grasbuschel: 14, blume: 3 },
   unbekannt: { grasbuschel: 10 },
+  // G-143: Hochmoor — Bulten aus Wollgras und Pfeifengras, Latschen und Heide als Busch, einzelne
+  // Spirken und Moorbirken, viel totes Holz. Kein Farn, kein geschlossener Bestand. Erstwert, am M1 prüfen.
+  moor:      { grasbuschel: 160, busch: 22, nadelbaum: 5, laubbaum: 3, totholz: 10, blume: 6 },
 };
 
 /**

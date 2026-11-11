@@ -56,6 +56,8 @@ export const PALETTE = {
     industrie: '#6d5a53',
     ruine:     '#625d57',
     unbekannt: '#5e6a61',
+    /** G-143: Torf mit Moos — dunkler und brauner als die Wiese, grüner als das Gewässerbett. Erstwert. */
+    moor:      '#5f5f42',
   },
 
   /** Häuser aus dem Generator. Zwei Grundtöne, Wand und Holz, plus Zubehör. */
