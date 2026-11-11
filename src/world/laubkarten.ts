@@ -242,6 +242,5 @@ export function schrumpfeHuelle(geo: THREE.BufferGeometry, meter = 0.4, skala = 
   return kern;
 }
 
-/** Schalter für den Vertikalschnitt: `?laubkarten=1`. */
-export const LAUBKARTEN_AN = typeof location !== 'undefined'
-  && new URLSearchParams(location.search).get('laubkarten') === '1';
+/** Schalter: `echt.ts` (`?laubkarten=1` oder `?echt=1`). */
+export { LAUBKARTEN_AN } from './echt.js';

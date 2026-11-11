@@ -20,6 +20,7 @@ import { MASSSTAB, BIOM_FARBE } from './terrain.js';
 import type { Aufsatzboden } from './terrain.js';
 import { TERRASSEN, terrassiere, type Terrasse } from './bauwerke.js';
 import { baueWasserfeld } from './wasserfeld.js';
+import { UFER_GRUEN } from './echt.js';
 
 /** Kachelkantenlänge in Metern. */
 export const KACHEL = 64;
@@ -210,8 +211,13 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
   const biom = (x: number, z: number): Biom => {
     const j = Math.max(0, Math.min(n - 1, Math.round((x / breiteMeter + 0.5) * (n - 1))));
     const i = Math.max(0, Math.min(n - 1, Math.round((z / tiefeMeter + 0.5) * (n - 1))));
-    return welt.biome[i][j];
+    const b = welt.biome[i][j];
+    // `?ufer=1`/`?echt=1` (echt.ts): der Bachstempel macht ~10 m breite `wasser`-Zellen; trocken
+    // ist das Ufer, und Ufer ist bewachsen. Wo Wasser steht, bleibt es Wasser.
+    return UFER_GRUEN && b === 'wasser' && wasser.tiefeAn(x, z) <= 0.02 ? 'wiese' : b;
   };
+  /** Farbe einer Rasterecke; mit `UFER_GRUEN` trägt das gestempelte Ufer Wiesenton statt Schlamm. */
+  const ton = (b: Biom) => BIOM_TON[UFER_GRUEN && b === 'wasser' ? 'wiese' : b];
 
   // Siehe `HoehenFeld.bodenfarbe` — dieselbe Rasterkoordinate wie `rohHoehe`,
   // nur dass hier vier Farben gemischt werden statt vier Höhen.
@@ -222,8 +228,8 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
     const j0 = Math.floor(fj), i0 = Math.floor(fi);
     const j1 = Math.min(n - 1, j0 + 1), i1 = Math.min(n - 1, i0 + 1);
     const tx = glaetten(fj - j0), tz = glaetten(fi - i0);
-    const a = BIOM_TON[welt.biome[i0][j0]], b = BIOM_TON[welt.biome[i0][j1]];
-    const c = BIOM_TON[welt.biome[i1][j0]], d = BIOM_TON[welt.biome[i1][j1]];
+    const a = ton(welt.biome[i0][j0]), b = ton(welt.biome[i0][j1]);
+    const c = ton(welt.biome[i1][j0]), d = ton(welt.biome[i1][j1]);
     return ziel.setRGB(
       (a.r * (1 - tx) + b.r * tx) * (1 - tz) + (c.r * (1 - tx) + d.r * tx) * tz,
       (a.g * (1 - tx) + b.g * tx) * (1 - tz) + (c.g * (1 - tx) + d.g * tx) * tz,
