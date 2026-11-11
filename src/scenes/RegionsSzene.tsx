@@ -7,7 +7,7 @@
  * Props laufen als InstancedMesh — 40.000 Bäume als Einzelobjekte würden jedes
  * Handy erledigen, als Instanzen sind es eine Handvoll Draw Calls.
  */
-import { Suspense, useMemo, useRef, useEffect, useState } from 'react';
+import { Suspense, useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
@@ -18,14 +18,16 @@ import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
-import { WasserUmgebung, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
+import { WasserUmgebung, WasserSzeneProbe, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
+import { EzBaumProbe, istEzProbeBereit } from './EzBaumProbe.js';
+import { TakramProbe } from './TakramProbe.js';
 import { STIMMUNG, HEMI_BODEN, heileStimmung, type Stimmung } from '../world/stimmung.js';
 export { STIMMUNG, HEMI_BODEN, HEMI_BODEN_TAG, type Stimmung, type StimmungsName } from '../world/stimmung.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
-         hoeheAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
+         hoeheAufFlaeche, spiegelAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung, type Stoecke } from '../spieler/steuerung.js';
 import { peilung } from '../spieler/peilung.js';
 import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
@@ -43,7 +45,7 @@ import { haengeAgxLookEin } from './tonwert.js';
 import { haengeNebelEin } from './nebel.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
-import { baueWasserMaterial, baueWegMaterial } from '../world/bandmaterial.js';
+import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { lagerTon } from '../ton/lagerton.js';
 import { kameraZustand } from '../kampf/kamerazustand.js';
@@ -474,8 +476,15 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
      in der Geometrie. Ein Material für alles davon bleibt es trotzdem. */
   const hausMaterial = useMemo(() => baueHausMaterial(), []);
   useEffect(() => { (hausMaterial.userData.glut as { value: number }).value = fenster; }, [hausMaterial, fenster]);
+  const wasserProbe = useMemo<WasserReflexProbe | null>(() => {
+    if (typeof location === 'undefined') return null;
+    const parameter = new URLSearchParams(location.search), region = parameter.get('region');
+    if (parameter.get('wasserreflex') !== '1' || (region && region !== 'oental')) return null;
+    return { karte: { value: null }, mitte: { value: new THREE.Vector3() }, bereit: { value: 0 } };
+  }, []);
   const wasserMaterial = useMemo(() => baueWasserMaterial(false,
-    typeof location !== 'undefined' && new URLSearchParams(location.search).get('wasser') === 'physikalisch'), []);
+    typeof location !== 'undefined' && new URLSearchParams(location.search).get('wasser') === 'physikalisch',
+    'band', wasserProbe), [wasserProbe]);
   useWasserUmgebung(wasserMaterial);
   const fallMaterial = useMemo(() => baueWasserMaterial(true), []);
   const wegMaterial = useMemo(() => baueWegMaterial(), []);
@@ -557,9 +566,24 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * Bruchteil davon — und es fällt weg, sobald die Kachel außer Sicht gerät.
    */
   const satz = useMemo(() => zerlegeBaender(welt, feld), [welt, feld]);
+  const reflexMitte = useMemo(() => {
+    if (!wasserProbe) return null;
+    // Naechster wirklicher liegender Bachabschnitt zur registrierten Wehrmitte;
+    // hoehe folgt dem real erzeugten Wasserspiegel, nicht dem Bauwerksursprung.
+    let beste = 100 * 100, x = 0, z = 0, gefunden = false;
+    for (const teile of satz.baeche.values()) for (const b of teile) {
+      const dx = b.bx - b.ax, dz = b.bz - b.az, laengeQ = dx * dx + dz * dz;
+      const t = laengeQ ? THREE.MathUtils.clamp(((1110 - b.ax) * dx + (871 - b.az) * dz) / laengeQ, 0, 1) : 0;
+      const px = b.ax + t * dx, pz = b.az + t * dz;
+      const abstandQ = (px - 1110) ** 2 + (pz - 871) ** 2;
+      if (abstandQ < beste) { beste = abstandQ; x = px; z = pz; gefunden = true; }
+    }
+    return gefunden ? new THREE.Vector3(x, spiegelAufFlaeche(feld, x, z) + 0.06, z) : null;
+  }, [feld, satz, wasserProbe]);
 
   return (
     <group>
+      {wasserProbe && reflexMitte && <WasserSzeneProbe probe={wasserProbe} mitte={reflexMitte} ziel={ziel} />}
       <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} />
 
       <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel}
@@ -704,10 +728,30 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
+type FernGruppe = { art: PropArt; variante: number; instanzen: PropInstanz[]; zelle?: string };
+
+/** EZ-Test: Fernbaeume raeumlich gruppieren, damit Frustum-Culling sie nicht alle zeichnet. */
+function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
+  const ergebnis: FernGruppe[] = [];
+  for (const gruppe of gruppen) {
+    if (gruppe.art !== 'nadelbaum' && gruppe.art !== 'laubbaum') { ergebnis.push(gruppe); continue; }
+    const zellen = new Map<string, PropInstanz[]>();
+    for (const instanz of gruppe.instanzen) {
+      const id = `${Math.floor(instanz.position[0] / 256)}:${Math.floor(instanz.position[2] / 256)}`;
+      const liste = zellen.get(id);
+      if (liste) liste.push(instanz); else zellen.set(id, [instanz]);
+    }
+    for (const [zelle, instanzen] of zellen) ergebnis.push({ ...gruppe, zelle, instanzen });
+  }
+  return ergebnis;
+}
+
 function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; weite: number }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
-  const [fern, setFern] = useState<{ art: PropArt; variante: number; instanzen: PropInstanz[] }[]>([]);
+  const [fern, setFern] = useState<FernGruppe[]>([]);
+  // Messbarer Standard der EZ-Probe; ?ezcluster=0 erhaelt den A/B-Rueckweg.
+  const ezZellen = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1' && new URLSearchParams(location.search).get('ezcluster') !== '0';
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
   const letzteFern = useRef(new THREE.Vector3(NaN, NaN, NaN));
   /** Kacheln, die im vorigen Durchlauf Attrappen waren — siehe `waehleProps` (D164). */
@@ -756,16 +800,31 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
       })));
     }
     if (fernNeu) {
-      setFern(buendleFernProps(buendel));
+      const gruppen = buendleFernProps(buendel);
+      if (!ezZellen) setFern(gruppen);
+      else setFern(alt => {
+        const vorher = new Map(alt.map(g => [`${g.art}:${g.variante}:${g.zelle ?? ''}`, g]));
+        return zellteileFern(gruppen).map(g => {
+          const v = vorher.get(`${g.art}:${g.variante}:${g.zelle ?? ''}`);
+          return v && v.instanzen.length === g.instanzen.length && v.instanzen.every((p, i) => p === g.instanzen[i]) ? v : g;
+        });
+      });
     }
   });
 
   return (
     <>
+      {/* Blender-Baumstufen werden bei Bedarf geladen. Eine eigene Grenze je
+          Gruppe verhindert, dass React waehrenddessen Licht und ganze Szene
+          ausblendet. Bereits geladene Gruppen bleiben sichtbar. */}
       {sichtbar.map(({ c, stufe, id }) =>
-        <PropChunkMesh key={id} chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={baumWind} baumTiefe={baumTiefe} />)}
-      {fern.map(({ art, variante, instanzen }) =>
-        <PropFernMesh key={`${art}:${variante}`} art={art} variante={variante} instanzen={instanzen} baumWind={baumWind} />)}
+        <Suspense key={id} fallback={null}>
+          <PropChunkMesh chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={baumWind} baumTiefe={baumTiefe} />
+        </Suspense>)}
+      {fern.map(({ art, variante, instanzen, zelle }) =>
+        <Suspense key={`${art}:${variante}:${zelle ?? ''}`} fallback={null}>
+          <PropFernMesh art={art} variante={variante} instanzen={instanzen} baumWind={baumWind} zellCulling={zelle !== undefined} />
+        </Suspense>)}
     </>
   );
 }
@@ -803,7 +862,7 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
  * `InstancedMesh` neu auf, und das ist genau der Fall, den `PropChunkMesh` im
  * Kommentar als teuer beschreibt.
  */
-function PropFernMesh({ art, variante, instanzen, baumWind }: { art: PropArt; variante: number; instanzen: PropInstanz[]; baumWind: THREE.MeshStandardMaterial }) {
+function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling }: { art: PropArt; variante: number; instanzen: PropInstanz[]; baumWind: THREE.MeshStandardMaterial; zellCulling: boolean }) {
   // Dieselbe Baumvariante in allen Stufen; die Fernstufe reduziert nur Dreiecke.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   const blender = eigen ? blenderBaum(eigen, variante, 'fern') : null;
@@ -824,6 +883,11 @@ function PropFernMesh({ art, variante, instanzen, baumWind }: { art: PropArt; va
   }, [art, blender, scene]);
   const ref = useRef<THREE.InstancedMesh>(null);
   const [kapazitaet, setKapazitaet] = useState(() => Math.ceil(instanzen.length * 1.4) + 64);
+  const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
+    ref.current = mesh;
+    if (mesh && !mesh.instanceColor) mesh.count = 0; // Vor dem ersten Befuellen keine Identitaetsmatrizen zeichnen.
+    if (mesh && blender && istEzProbeBereit()) mesh.visible = false;
+  }, [blender]);
 
   useEffect(() => {
     if (instanzen.length > kapazitaet) {
@@ -832,6 +896,7 @@ function PropFernMesh({ art, variante, instanzen, baumWind }: { art: PropArt; va
     }
     const m = ref.current;
     if (!m) return;
+    if (blender && istEzProbeBereit()) m.visible = false;
     const hilfe = new THREE.Object3D();
     const ton = new THREE.Color();
     instanzen.forEach((p, i) => {
@@ -846,16 +911,17 @@ function PropFernMesh({ art, variante, instanzen, baumWind }: { art: PropArt; va
     m.count = instanzen.length;
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
-  }, [instanzen, kapazitaet]);
+    if (zellCulling) m.computeBoundingSphere();
+  }, [instanzen, kapazitaet, zellCulling]);
 
   return (
     <instancedMesh
-      ref={ref} args={[undefined, undefined, kapazitaet]}
+      ref={setzeMesh} args={[undefined, undefined, kapazitaet]}
       name={blender ? `baum:${art}:${variante}:fern` : `prop:${art}:fern`}
       geometry={geo} material={blender ? baumWind : FERN_MATERIAL}
       // Der Bündel umspannt den ganzen Sichtring; ein Frustum-Test daran wäre
       // immer wahr und damit verlorene Zeit.
-      frustumCulled={false}
+      frustumCulled={zellCulling}
     />
   );
 }
@@ -895,6 +961,32 @@ function scanBasis(textur: string, art: PropArt, alpha: boolean): THREE.MeshStan
   m.map = karte(`${textur}-farbe`);
   m.normalMap = karte(`${textur}-normal`);
   return m;
+}
+
+/** Ein Felsen am identischen Platz: existierender Scan oder TripoSR-Ergebnis (D250). */
+function FelsVergleich({ art, position }: { art: 'scan' | 'ki'; position: [number, number, number] }) {
+  const { scene } = useGLTF(art === 'ki' ? '/vergleich/triposr-fels-d250.glb' : '/props/findling_scan_e.glb');
+  const material = useMemo(() => art === 'ki'
+    ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 })
+    : scanBasis('fels-moos-1', 'findling', false), [art]);
+  useEffect(() => () => { material.map?.dispose(); material.normalMap?.dispose(); material.dispose(); }, [material]);
+  const objekt = useMemo(() => {
+    const kopie = scene.clone(true);
+    kopie.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.geometry = o.geometry.clone();
+      if (!o.geometry.getAttribute('normal')) o.geometry.computeVertexNormals();
+      o.material = material; o.castShadow = true; o.receiveShadow = true;
+    });
+    const box = new THREE.Box3().setFromObject(kopie);
+    const mitte = box.getCenter(new THREE.Vector3());
+    const faktor = 1.7 / Math.max(0.001, box.max.y - box.min.y);
+    kopie.scale.setScalar(faktor);
+    kopie.position.set(-mitte.x * faktor, -box.min.y * faktor, -mitte.z * faktor);
+    return kopie;
+  }, [scene, material]);
+  useEffect(() => () => { objekt.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose(); }); }, [objekt]);
+  return <group position={position}><primitive object={objekt} /></group>;
 }
 
 /** Statische Scan-Props (Fels, Holz): ein Material je Textursatz, geteilt über alle Chunks. */
@@ -965,9 +1057,15 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
   const textur = VARIANTEN[chunk.art][chunk.variante]?.textur;
   const gras = chunk.art === 'grasbuschel' || chunk.art === 'farn';
   const ref = useRef<THREE.InstancedMesh>(null);
+  const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
+    ref.current = mesh;
+    if (mesh && !mesh.instanceColor) mesh.count = 0; // Bereits befuellte Meshes beim erneuten Anhaengen erhalten.
+    if (mesh && blender && istEzProbeBereit()) mesh.visible = false;
+  }, [blender]);
 
   useEffect(() => {
     if (!ref.current) return;
+    if (blender && istEzProbeBereit()) ref.current.visible = false;
     const m = new THREE.Object3D();
     const ton = new THREE.Color();
     chunk.instanzen.forEach((p, i) => {
@@ -984,6 +1082,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
     });
     ref.current.instanceMatrix.needsUpdate = true;
     if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
+    ref.current.count = chunk.instanzen.length;
     ref.current.computeBoundingSphere();
   }, [chunk]);
 
@@ -1002,7 +1101,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
 
   return (
     <instancedMesh
-      ref={ref} args={[undefined, undefined, chunk.instanzen.length]}
+      ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={fern && !blender ? fernGeo : geo}
       material={blender ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
@@ -2003,6 +2102,8 @@ function Beleuchtung({ s, ziel }: {
 }) {
   const { scene, gl } = useThree();
   const sonne = useRef<THREE.DirectionalLight>(null);
+  const [takramBereit, setzeTakramBereit] = useState(false);
+  const takramAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('takram') === '1';
 
   /**
    * Nebel und Himmel gehören zusammen.
@@ -2073,7 +2174,8 @@ function Beleuchtung({ s, ziel }: {
     <>
       {/* Der Himmel hängt an der Kamera: keine Ausdehnung im Spielraum, kein Nebel,
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
-      <primitive object={himmel} />
+      {!takramBereit && <primitive object={himmel} />}
+      {takramAn && <TakramProbe sonnenstand={s.sonnenstand} meldeBereit={setzeTakramBereit} />}
       <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, UMGEBUNG_MESSLAUF ?? s.umgebungStaerke]} />
       <directionalLight
         ref={sonne}
@@ -3837,6 +3939,9 @@ export function RegionsSzene({
     const [x, z] = startPosition ?? [0, 0];
     return [x, hoeheAufFlaeche(feld, x, z), z];
   }, [feld, startPosition]);
+  const felsArt = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('felsprobe') : null;
+  const felsX = start[0] - Math.sin(startBlick) * 8 + Math.cos(startBlick) * 2;
+  const felsZ = start[2] - Math.cos(startBlick) * 8 - Math.sin(startBlick) * 2;
 
   /**
    * Die Kulisse wird je Stimmung **neu gebaut**, weil Dunst und Beleuchtung in
@@ -3878,6 +3983,9 @@ export function RegionsSzene({
                dichte={istAus('gras') ? 0 : qualitaet.gras} weite={qualitaet.weite}
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
                fenster={s.fenster ?? 0} />
+      {(felsArt === 'ki' || felsArt === 'scan') && <Suspense fallback={null}>
+        <FelsVergleich art={felsArt} position={[felsX, hoeheAufFlaeche(feld, felsX, felsZ), felsZ]} />
+      </Suspense>}
       <object3D ref={ref} position={start}>
         {/* Eigene Suspense-Grenze (G-134): Ein ladendes GLB darf nicht die ganze Szene
             aufhalten — ohne Grenze verwirft React beim ersten Aufbau den gesamten
@@ -3928,6 +4036,7 @@ export function RegionsSzene({
                    hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} kollision={kollision} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
+      <EzBaumProbe ziel={ref} />
       {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
       <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
               bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />

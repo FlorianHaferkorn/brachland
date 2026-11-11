@@ -17,6 +17,8 @@ owns: *.test.ts
 
 | Deine Aufgabe ist … | Lies |
 |---|---|
+| Lagerton oder Audio-Freigabe bei erster Eingabe ändern | `lagerton.test.ts` → `../src/ton/lagerton.ts` |
+| EZ-Baum-LOD bei schnellen Richtungswechseln ändern | `ezlod.test.ts` → `../src/scenes/ezlod.ts` |
 | Geometriekompression oder Bauwerk-Export ändern | `bautenpack.test.ts` → `../tools/bautenpack.ts` |
 | Kampfregeln, Elemente, Fokus oder Phasen ändern | `battle.test.ts` → `../src/engine/battle.ts` |
 | Echtzeitkampf: Fenster, Reichweiten, Kosten, KI ändern | `echtzeit.test.ts` → `../src/kampf/echtzeit.ts` |
@@ -34,12 +36,14 @@ owns: *.test.ts
 | Am Gleitverhältnis, an Tempo oder Schwerkraft drehen | `gleiten.test.ts` → `../src/spieler/gleiten.ts`, `../src/spieler/tempo.ts`, `npm run gleit` |
 | Am Biomraster, an der Siedlungsregel oder der Prop-Verteilung drehen | `siedlung.test.ts` → `../src/world/osm.ts`, `../src/world/props.ts` |
 | An der Teamreihenfolge oder am Beutel ausserhalb des Kampfes drehen | `menue.test.ts` → `../src/spiel/team.ts`, `../src/spiel/gegenstaende.ts` |
+| `ezlod.test.ts` | Prüft stetige, lückenlose Dreistufenblenden auch bei schnellen Wechseln und Richtungsumkehr. |
 | `propauswahl.test.ts` | Die zwei Prop-Listen dürfen keinen Chunk verlieren. Seit die Attrappen gebündelt werden (G-111), wird die Nahliste alle 8 m neu bestimmt und das Bündel alle 60 m. D157 prüft Baumvarianten über alle Stufen; D158 den Randfall, dass ein neuer Fernanker trotz gerade erfolgter Nahbewertung beide Listen erneuert. Geprüft wird zusätzlich ein **Lauf** über 76 Schritte: jeder Chunk in Reichweite steht genau einmal |
 
 ## Register
 
 | Datei | Was festgehalten wird |
 |---|---|
+| `lagerton.test.ts` | Vorbereitung ohne Klangquellen und synchrones Resume bei Eingabegeste; eine Kontextinstanz bei mehreren Gesten sowie Fallback nach verweigerter Vorbereitung. |
 | `bautenpack.test.ts` | Tatsächlicher Runtime-Decoder: Attribute, Weltmatrizen, Materialwerte/-gruppen, Namen und orientierte Dreiecke bleiben beim verlustfreien Meshopt-Roundtrip erhalten; Quellschutz und Größenstabilität bei Wiederkompression. |
 | `echtzeit.test.ts` | 79 Prüfungen, das Kampftor (D166–D170): Reichweite ±5 cm, Winkel, ein Treffer je Schwung, Rollenfenster in 5-ms-Schritten (≥ 200 ms, nach Reaktionszeit erreichbar), Ausdauer 5 Schläge/4 Rollen, Haltung bricht beim 2. Treffer, Zielwahl, KI aus 12 Anlaufrichtungen, Angriffsrecht: zwei Gegner nie zugleich im Schlag, im Wechsel, der Wartende ausser Reichweite (D167), Waffenklassen als Werkzeuge statt Stufen und Zielwahl/Zielwechsel (D168), der Keiler als erster echter Gegner (D169), Zucken, Pille statt Kreis und der Grathorn (D170), Moveset/Puffer/Kette/Vorschritt/Rückstoss/Trefferstopp und der Wolf mit Doppelbiss (D171), das Rudel umzingelt (D172, 130 Prüfungen), gleiches Ergebnis bei 10/30/144 B/s. Druckt die Messtabelle |
 | `waffenclips.test.ts` | D171: Scheitel und Durchzug jedes Schlags (`hieb`, Clipsekunden) liegen auf Schlüsselbildern von `tools/waffenclips.py`, Haltungen sind Schleifen, `menschbau.ANIM_WAFFEN` = `waffenclips.CLIPS`, die Waffendatei trägt jeden gebrauchten Clip, die Wanderin keinen |

@@ -52,7 +52,10 @@ void main() {
   vRichtung = normalize(position);
   // w = z erzwingen: Die Kugel liegt damit immer auf der fernen Ebene und
   // ueberzeichnet nichts, egal wie gross sie ist.
-  vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  // Nur die Blickdrehung verwenden: Eine Kamera kann sich nach dem letzten
+  // Positionsupdate des Himmels noch bewegen. Ohne Translation bleibt sie
+  // unabhaengig von der Reihenfolge der Frame-Callbacks im Kugelmittelpunkt.
+  vec4 p = projectionMatrix * mat4(mat3(viewMatrix)) * vec4(position, 1.0);
   gl_Position = p.xyww;
 }
 `;
