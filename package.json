@@ -51,11 +51,11 @@
     "@types/react": "^19.2.18",
     "geotiff": "^3.0.5",
     "idb": "^8.0.0",
-    "postprocessing": "6.36.7",
+    "postprocessing": "6.39.6",
     "proj4": "^2.21.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "three": "^0.169.0",
+    "three": "^0.187.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -63,7 +63,7 @@
     "@gltf-transform/extensions": "^4.4.2",
     "@gltf-transform/functions": "^4.4.2",
     "@types/react-dom": "^19.2.4",
-    "@types/three": "^0.169.0",
+    "@types/three": "^0.187.0",
     "@vitejs/plugin-react": "^4",
     "meshoptimizer": "^1.2.0",
     "sharp": "^0.35.3",
