@@ -1807,14 +1807,18 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
     // Vertikalschnitt (`?laubkarten=1`): Kronen bekommen Foto-Blattkarten, der Klumpen wird zum
     // dunklen Kern 40 cm innen. Nach dem Durchlauf, damit `traverse` die neuen Kinder nicht besucht.
     const karten: ReturnType<typeof baueLaubkarten>[] = [];
+    klon.updateMatrixWorld(true);
+    const sk = new THREE.Vector3();
     huellen.forEach(({ o, art, w }, i) => {
-      const k = baueLaubkarten(o.geometry as THREE.BufferGeometry, art, i + 1);
-      o.geometry = schrumpfeHuelle(o.geometry as THREE.BufferGeometry);
+      o.getWorldScale(sk);
+      const skala = Math.cbrt(Math.abs(sk.x * sk.y * sk.z)) || 1;
+      const k = baueLaubkarten(o.geometry as THREE.BufferGeometry, art, i + 1, 1, skala);
+      o.geometry = schrumpfeHuelle(o.geometry as THREE.BufferGeometry, 0.4, skala);
       w.material.color.multiplyScalar(0.4);
       w.material.side = THREE.FrontSide;
       o.add(k.mesh); karten.push(k);
     });
-    if (karten.length) console.info(`[laubkarten] ${bauwerk.name}: ${karten.length} Hüllen, ${karten.reduce((s, k) => s + k.anzahl, 0)} Karten`);
+    if (karten.length) console.info(`[laubkarten] ${bauwerk.name}: ${karten.length} Hüllen, ${karten.reduce((s, k) => s + k.anzahl, 0)} Karten auf ${Math.round(karten.reduce((s, k) => s + k.flaeche, 0))} m²`);
     return { objekt: klon, materialien, karten };
   }, [scene, teil, rand.farbe, rand.staerke]);
   useEffect(() => {

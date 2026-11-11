@@ -125,7 +125,15 @@ export interface Laubkarten {
  * Karten auf die Hülle `geo` streuen. Ergebnis liegt im **lokalen Raum** von `geo` — als Kind des
  * Hüll-Meshes einhängen, dann sitzt es ohne weitere Umrechnung.
  */
-export function baueLaubkarten(geo: THREE.BufferGeometry, artName: KartenArt, saat = 1, faktor = 1): Laubkarten {
+export function baueLaubkarten(
+  geo: THREE.BufferGeometry, artName: KartenArt, saat = 1, faktor = 1,
+  /**
+   * Meter je lokaler Einheit. glTF mit KHR_mesh_quantization speichert Positionen normiert, erst
+   * die Knotenskala macht Meter daraus — ohne diesen Faktor bekam die Stauwehr-Szene 776 statt
+   * zehntausender Karten. Dichte, Kartengrösse und Versatz rechnen in Metern.
+   */
+  skala = 1,
+): Laubkarten {
   const art = ARTEN[artName];
   const pos = geo.getAttribute('position') as THREE.BufferAttribute;
   let nor = geo.getAttribute('normal') as THREE.BufferAttribute | undefined;
@@ -143,7 +151,9 @@ export function baueLaubkarten(geo: THREE.BufferGeometry, artName: KartenArt, sa
     flaeche += b.sub(a).cross(c.sub(a)).length() / 2;
     kum[t] = flaeche;
   }
+  flaeche *= skala * skala;
   const anzahl = Math.min(KARTEN_MAX, Math.round(flaeche * art.dichte * faktor));
+  const kumSkala = skala * skala;
   const zuf = zufall(saat * 7919 + 17);
 
   const mesh = new THREE.InstancedMesh(KARTE, baueKartenMaterial(art), anzahl);
@@ -157,7 +167,7 @@ export function baueLaubkarten(geo: THREE.BufferGeometry, artName: KartenArt, sa
 
   for (let i = 0; i < anzahl; i++) {
     // Dreieck per Bisektion, Punkt gleichverteilt darin.
-    const ziel = zuf() * flaeche;
+    const ziel = zuf() * flaeche / kumSkala;
     let lo = 0, hi = dreiecke - 1;
     while (lo < hi) { const mid = (lo + hi) >> 1; if (kum[mid] < ziel) lo = mid + 1; else hi = mid; }
     let u = zuf(), v = zuf();
@@ -169,7 +179,7 @@ export function baueLaubkarten(geo: THREE.BufferGeometry, artName: KartenArt, sa
     n.set(0, 0, 0).addScaledVector(na, w0).addScaledVector(nb, u).addScaledVector(nc, v).normalize();
     // ±20 cm um die Hülle streuen: Tiefe statt einer Schicht. Der Kern liegt 40 cm innen
     // (`schrumpfeHuelle`), also verschwindet keine Karte im undurchsichtigen Klumpen.
-    p.addScaledVector(n, (zuf() - 0.5) * 0.4);
+    p.addScaledVector(n, (zuf() - 0.5) * 0.4 / skala);
 
     if (art.haengend) {
       // Weide: Karte senkrecht, Längsachse nach unten, um die Hochachse zufällig gedreht und
@@ -177,7 +187,7 @@ export function baueLaubkarten(geo: THREE.BufferGeometry, artName: KartenArt, sa
       qRoll.setFromAxisAngle(hoch, zuf() * Math.PI * 2);
       qKipp.setFromAxisAngle(achse.set(1, 0, 0), (zuf() - 0.5) * art.streuung);
       q.copy(qRoll).multiply(qKipp);
-      p.y -= art.groesse[1] * 0.35;
+      p.y -= art.groesse[1] * 0.35 / skala;
     } else {
       // Karte zur Hülle hin ausrichten, dann zufällig kippen und um sich selbst drehen.
       q.setFromUnitVectors(vorne, n);
@@ -187,7 +197,7 @@ export function baueLaubkarten(geo: THREE.BufferGeometry, artName: KartenArt, sa
       q.premultiply(qKipp).multiply(qRoll);
     }
     const g = 0.7 + zuf() * 0.6;
-    s.set(art.groesse[0] * g, art.groesse[1] * g, 1);
+    s.set(art.groesse[0] * g / skala, art.groesse[1] * g / skala, 1);
     m.compose(p, q, s);
     mesh.setMatrixAt(i, m);
     // Hüllnormale in den Kartenraum: `instanceMatrix` dreht sie im Shader zurück.
@@ -219,13 +229,14 @@ export function baueLaubkarten(geo: THREE.BufferGeometry, artName: KartenArt, sa
  * Dunkler Kern: dieselbe Hülle, jede Ecke `meter` entlang ihrer Normale nach innen. Neue Geometrie;
  * die alte bleibt für `baueLaubkarten` unverändert.
  */
-export function schrumpfeHuelle(geo: THREE.BufferGeometry, meter = 0.4): THREE.BufferGeometry {
+export function schrumpfeHuelle(geo: THREE.BufferGeometry, meter = 0.4, skala = 1): THREE.BufferGeometry {
+  const weg = meter / skala;
   const kern = geo.clone();
   if (!kern.getAttribute('normal')) kern.computeVertexNormals();
   const pos = kern.getAttribute('position') as THREE.BufferAttribute;
   const nor = kern.getAttribute('normal') as THREE.BufferAttribute;
   for (let i = 0; i < pos.count; i++)
-    pos.setXYZ(i, pos.getX(i) - nor.getX(i) * meter, pos.getY(i) - nor.getY(i) * meter, pos.getZ(i) - nor.getZ(i) * meter);
+    pos.setXYZ(i, pos.getX(i) - nor.getX(i) * weg, pos.getY(i) - nor.getY(i) * weg, pos.getZ(i) - nor.getZ(i) * weg);
   pos.needsUpdate = true;
   kern.computeBoundingSphere();
   return kern;
