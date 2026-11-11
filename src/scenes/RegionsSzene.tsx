@@ -54,6 +54,7 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
+import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type KartenArt } from '../world/laubkarten.js';
 import { baueGrasteppich, NAH_HALB, NAH_ZELLE, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
@@ -1754,8 +1755,9 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
   bauwerk: Bauwerk; teil: 'bauten' | 'gruen'; rand: { farbe: string; staerke: number };
 }) {
   const { scene } = useGLTF(bauwerkPfad(bauwerk, teil));
-  const { objekt, materialien } = useMemo(() => {
+  const { objekt, materialien, karten } = useMemo(() => {
     const klon = scene.clone(true);
+    const huellen: { o: THREE.Mesh; art: KartenArt; w: ReturnType<typeof baueWindMaterial> }[] = [];
     /**
      * Jedes Material mit **seinem** Saumanteil (D166).
      *
@@ -1797,15 +1799,31 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
       if (laub) { w.material.side = THREE.DoubleSide; if (w.tiefe) o.customDepthMaterial = w.tiefe; }
       if (NORMAL_MESSLAUF !== null && w.material.normalMap) w.material.normalScale.setScalar(NORMAL_MESSLAUF);
       o.material = w.material; materialien.push({ w, anteil });
+      if (LAUBKARTEN_AN && teil === 'gruen') {
+        const art = kartenArtFuer(o.name);
+        if (art) huellen.push({ o, art, w });
+      }
     });
-    return { objekt: klon, materialien };
+    // Vertikalschnitt (`?laubkarten=1`): Kronen bekommen Foto-Blattkarten, der Klumpen wird zum
+    // dunklen Kern 40 cm innen. Nach dem Durchlauf, damit `traverse` die neuen Kinder nicht besucht.
+    const karten: ReturnType<typeof baueLaubkarten>[] = [];
+    huellen.forEach(({ o, art, w }, i) => {
+      const k = baueLaubkarten(o.geometry as THREE.BufferGeometry, art, i + 1);
+      o.geometry = schrumpfeHuelle(o.geometry as THREE.BufferGeometry);
+      w.material.color.multiplyScalar(0.4);
+      w.material.side = THREE.FrontSide;
+      o.add(k.mesh); karten.push(k);
+    });
+    if (karten.length) console.info(`[laubkarten] ${bauwerk.name}: ${karten.length} Hüllen, ${karten.reduce((s, k) => s + k.anzahl, 0)} Karten`);
+    return { objekt: klon, materialien, karten };
   }, [scene, teil, rand.farbe, rand.staerke]);
   useEffect(() => {
     materialien.forEach(({ w, anteil }) => w.setzeRand(new THREE.Color(rand.farbe), rand.staerke * anteil));
   }, [materialien, rand.farbe, rand.staerke]);
   useEffect(() => () => {
     materialien.forEach(({ w }) => { w.material.dispose(); w.tiefe?.dispose(); });
-  }, [materialien]);
+    karten.forEach(k => k.dispose());
+  }, [materialien, karten]);
   return <primitive object={objekt} />;
 }
 
