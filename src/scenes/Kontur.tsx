@@ -43,6 +43,7 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
+import { MSAA } from '../world/echt.js';
 
 const KONTUR_ADRESSE: boolean | null = (() => {
   if (typeof location === 'undefined') return null;
@@ -299,7 +300,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
     const rt = new THREE.WebGLRenderTarget(b, h, {
       type: THREE.HalfFloatType,
       depthTexture: new THREE.DepthTexture(b, h, THREE.UnsignedIntType),
-      samples: 0,
+      samples: MSAA,
     });
     const aoZiel = new THREE.WebGLRenderTarget(Math.max(1, Math.round(b / 2)), Math.max(1, Math.round(h / 2)), { depthBuffer: false });
     const viertel = () => new THREE.WebGLRenderTarget(Math.max(1, Math.round(b / 4)), Math.max(1, Math.round(h / 4)),

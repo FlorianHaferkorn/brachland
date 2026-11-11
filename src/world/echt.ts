@@ -17,3 +17,14 @@ export const LAUBKARTEN_AN = ECHT || an('laubkarten');
  * `wasser` gestempelt. Wo dort trocken ist, zählt die Zelle als Wiese — Farbe, Gras, Streu.
  */
 export const UFER_GRUEN = ECHT || an('ufer');
+/**
+ * Kantenglättung im Zwischenbild (`Kontur.tsx`): Seit D155 zeichnet die Szene für AO/Kontur/Bloom
+ * in ein Renderziel mit `samples: 0` — `antialias` am Canvas wirkt dann nie, jede Kante hat
+ * Treppen. `?msaa=0|2|4|8` setzt die Samples für die Messung am M1; `?echt=1` nimmt 4.
+ */
+export const MSAA: number = (() => {
+  const roh = suche.get('msaa');
+  const n = roh === null ? NaN : Number(roh);
+  if ([0, 2, 4, 8].includes(n)) return n;
+  return ECHT ? 4 : 0;
+})();

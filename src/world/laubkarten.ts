@@ -21,6 +21,7 @@
  * je Hülle. Renderfrei gilt hier nicht: Das ist Welt-Code und kennt three.js.
  */
 import * as THREE from 'three';
+import { MSAA } from './echt.js';
 
 export type KartenArt = 'laub' | 'nadel' | 'weide';
 
@@ -82,6 +83,8 @@ function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({
     map: textur(art.textur), alphaTest: 0.45, side: THREE.DoubleSide,
     roughness: 0.75, metalness: 0,
+    // Weiche Blattränder statt Treppen — wirkt nur mit MSAA im Zielbild (`echt.ts` MSAA).
+    alphaToCoverage: MSAA > 0,
   });
   const uDurchlass = { value: art.durchlass };
   m.onBeforeCompile = (shader) => {
@@ -179,7 +182,8 @@ export function baueLaubkarten(
     n.set(0, 0, 0).addScaledVector(na, w0).addScaledVector(nb, u).addScaledVector(nc, v).normalize();
     // ±20 cm um die Hülle streuen: Tiefe statt einer Schicht. Der Kern liegt 40 cm innen
     // (`schrumpfeHuelle`), also verschwindet keine Karte im undurchsichtigen Klumpen.
-    p.addScaledVector(n, (zuf() - 0.5) * 0.4 / skala);
+    const versatz = zuf() - 0.5;
+    p.addScaledVector(n, versatz * 0.4 / skala);
 
     if (art.haengend) {
       // Weide: Karte senkrecht, Längsachse nach unten, um die Hochachse zufällig gedreht und
@@ -205,7 +209,12 @@ export function baueLaubkarten(
     achse.copy(n).applyQuaternion(qInv);
     huelle[i * 3] = achse.x; huelle[i * 3 + 1] = achse.y; huelle[i * 3 + 2] = achse.z;
     // Farbe: leichte Streuung in Helligkeit und Gelbanteil, wie Sonnen- und Schattenblätter.
-    const h = 0.82 + zuf() * 0.3;
+    // Kronen-Verdeckung: Karten innen (Versatz < 0) und an der Unterseite (Normale nach unten)
+    // bekommen weniger Himmel ab. Das ist der Teil, der eine Krone schwer und rund macht.
+    const unten = 0.5 + 0.5 * n.y;              // 0 = Unterseite, 1 = Oberseite
+    const innen = 0.5 + versatz;                // 0 = innen, 1 = aussen
+    const ao = 0.38 + 0.62 * (0.55 * unten + 0.45 * innen);
+    const h = (0.85 + zuf() * 0.25) * ao;
     farbe.setRGB(h * (0.95 + zuf() * 0.1), h, h * (0.85 + zuf() * 0.1));
     mesh.setColorAt(i, farbe);
   }
