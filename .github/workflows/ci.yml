@@ -25,6 +25,10 @@ jobs:
       - name: Drift-Gate (strict)
         run: python3 scripts/check_index.py --strict
 
+      # Doppelte Ledger-IDs nach parallelen Branches (Claude/Codex, 11.11.2026: D249/D250).
+      - name: Ledger-IDs eindeutig
+        run: python3 scripts/check_ledger_ids.py
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
