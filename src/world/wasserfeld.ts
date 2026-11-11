@@ -173,10 +173,13 @@ export function baueWasserfeld(
       const cx = Math.floor(x / BUCKET), cz = Math.floor(z / BUCKET);
       let beste = 0;
 
-      // Stehendes Wasser zuerst: elf Polygone sind billig genug, um sie ohne
-      // Raster durchzugehen, und ein Teich ist immer tiefer als der Bach, der
-      // hineinführt — der größere Wert gewinnt ohnehin.
-      for (const t of teiche) {
+      // Das vorhandene, um das Nässeband erweiterte Rechteck ist ein sicherer
+      // Vorfilter: ausserhalb kann kein Punkt im Teichpolygon liegen. Das spart
+      // teure Polygonpruefungen bei den vielen Geländehöhen-Abfragen.
+      for (let i = 0; i < teiche.length; i++) {
+        const r = teichRahmen[i];
+        if (x < r[0] || z < r[1] || x > r[2] || z > r[3]) continue;
+        const t = teiche[i];
         if (!imPolygon(x, z, t.punkte)) continue;
         const rand = randAbstand(x, z, t.punkte);
         beste = Math.max(beste, t.tiefe * Math.sqrt(Math.min(1, rand / UFER)));

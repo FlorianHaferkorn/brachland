@@ -5,6 +5,18 @@ owns: []
 
 # Herkunft der Fremdmodelle
 
+## Vergleichsmodell D250
+
+`public/vergleich/triposr-fels-d250.glb` wurde mit dem MIT-lizenzierten
+[TripoSR](https://github.com/VAST-AI-Research/TripoSR) auf dem öffentlichen Host
+`codemaker2015/TripoSR` (Stand `9ba6f9a8fc9a2d13253d5f63c184767b101173ad`,
+Gitter 128, keine Hintergrundentfernung) aus einem eigenen Blender-Render erzeugt.
+Die Vorlage zeigt `findling_scan_e.glb` und `fels-moos-1-farbe.webp` aus dem
+CC0-Scan [rock_moss_set_01](https://polyhaven.com/a/rock_moss_set_01) von Kless Gyzen.
+GLB: 641.048 Byte, 31.948 Dreiecke, SHA-256
+`e809c48254898971571639dace268c5581b54daef2600646d939f802c34da023`.
+Das Modell ist eine isolierte Vergleichsprobe, keine Freigabe fuer Spielinhalte.
+
 Jede Datei unter `public/creatures` und `public/figuren` steht hier mit Autor und Lizenz. Das ist
 keine Höflichkeit: **CC-BY verlangt die Namensnennung**, und ohne diese Tabelle
 wäre die Bedingung nicht erfüllt. `tools/quality.ts` prüft deshalb, dass jede
@@ -108,6 +120,8 @@ Herkunft trotzdem, damit niemand rätseln muss. Lizenz geprüft am 15.10.2026 au
 | schutt-farbe.webp, schutt-normal.webp | Schutt am Hangfuss, planar | Rob Tuytel | CC0-1.0 | Poly Haven `rocks_ground_01` (2 × 2 m) |
 | fels-farbe.webp, fels-normal.webp | Fels an steilen Hängen, triplanar | Rob Tuytel | CC0-1.0 | Poly Haven `mossy_rock` (3 × 3 m) |
 | rinde-farbe.webp | Rinde der Blender-Bäume (D224), nur Farbe + Höhe, Relief im Shader | Dimitrios Savva | CC0-1.0 | Poly Haven `knotted_pine_bark` (1,7 × 1,7 m), Lizenz geprüft 15.10.2026 |
+| ez-nadel-cc0-v5.webp | EZ-Tree-Nadelkarte: Ausschnitt aus Farb- und Alphakarte, 512², mit eigener Randmaske | Rob Tuytel, Rico Cilliers | CC0-1.0 | Poly Haven [`pine_tree_01`](https://polyhaven.com/a/pine_tree_01), offizielle `twig_diff`/`twig_alpha` 1K-Modelltexturen; erzeugt mit `tools/eztexturen.mjs`, geprüft 08.11.2026 |
+| ez-laub-cc0-v5.webp | EZ-Tree-Laubkarte: Ausschnitt aus Farb- und Alphakarte, 512², mit eigener Randmaske | Rico Cilliers | CC0-1.0 | Poly Haven [`tree_small_02`](https://polyhaven.com/a/tree_small_02), offizielle `leaves_diff`/`leaves_alpha` 1K-Modelltexturen; erzeugt mit `tools/eztexturen.mjs`, geprüft 08.11.2026 |
 | farn-farbe.webp, farn-normal.webp, ../props/farn_scan_a–d.glb | Scan-Farne (D229): vier Varianten, Modulation + Alpha, Normale; ×1,6 skaliert, Windgewicht ergänzt (`tools/farnscan.ts`) | Rob Tuytel (Scan), Rico Cilliers (Modell) | CC0-1.0 | Poly Haven Modell `fern_02`, 1K-glTF, Lizenz geprüft 17.10.2026 |
 | fels-moos-1-farbe.webp, fels-moos-1-normal.webp, ../props/findling_scan_d–f.glb | Bemooste Findlinge (D230), reduziert auf 2.200–2.400 Dreiecke | Kless Gyzen | CC0-1.0 | Poly Haven Modell `rock_moss_set_01`, 1K-glTF, Lizenz geprüft 17.10.2026 |
 | fels-moos-2-farbe.webp, fels-moos-2-normal.webp, ../props/findling_scan_a–c.glb | Bemooste Findlinge (D230), reduziert auf 1.500–1.800 Dreiecke | Kless Gyzen | CC0-1.0 | Poly Haven Modell `rock_moss_set_02`, 1K-glTF, Lizenz geprüft 17.10.2026 |
