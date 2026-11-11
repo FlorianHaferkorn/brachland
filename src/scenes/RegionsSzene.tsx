@@ -3973,7 +3973,9 @@ export function RegionsSzene({
 
   return (
     <Canvas
-      shadows={qualitaet.schatten}
+      // ADR-0015: three r18x hat PCFSoftShadowMap entfernt (R3F-Vorgabe bei `true`) und fiel mit
+      // Warnung auf PCFShadowMap zurück — die filtert jetzt selbst weich (Vogel-Disk). Ausdrücklich.
+      shadows={qualitaet.schatten ? 'percentage' : false}
       frameloop={angehalten ? 'never' : 'always'}
       dpr={[1, qualitaet.dpr]}
       camera={{ fov: 55, near: 0.2, far: KAMERA_FERN, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}

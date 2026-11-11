@@ -68,6 +68,9 @@ function baueHalm(): THREE.BufferGeometry {
   const idx = [0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 6];
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  // Wert egal, der Vertex-Shader setzt `objectNormal` selbst. Ohne das Attribut schaltet three
+  // ab r18x auf FLAT_SHADED, dann fehlt `vNormal` und der Teppich kompiliert nicht (ADR-0015).
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(pos.map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
   g.setIndex(idx);
   return g;
 }
@@ -112,6 +115,7 @@ export function baueGrasteppich(
   const geo = new THREE.InstancedBufferGeometry();
   geo.index = halm.index;
   geo.setAttribute('position', halm.getAttribute('position'));
+  geo.setAttribute('normal', halm.getAttribute('normal'));
   const versatz = new Float32Array(n * n * 2);
   for (let i = 0, k = 0; i < n; i++) for (let j = 0; j < n; j++) { versatz[k++] = j - n / 2; versatz[k++] = i - n / 2; }
   geo.setAttribute('aZelle', new THREE.InstancedBufferAttribute(versatz, 2));
