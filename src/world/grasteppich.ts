@@ -101,6 +101,9 @@ export function baueGrasteppich(
    */
   texel = 1,
 ): Grasteppich {
+  // D255: gezielte Vergleichsprobe; ohne Parameter bleibt der bestehende Look.
+  // Alle Ringe verwenden denselben ortsfesten Faktor, ohne neue Geometrie.
+  const strukturAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('grasstruktur') === '1';
   /** Texel der Feldtextur je Kante, mit Rand über das Halmfeld hinaus. */
   const FELD_TEXEL = 2 * Math.ceil((halb + 4) / texel);
   const zelle = grundZelle / Math.sqrt(Math.max(0.1, faktor));
@@ -188,9 +191,18 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   // dazwischen — dort zeigt sich der gescannte Boden (D223). Volle Wiese (Dichte 1) bleibt geschlossen.
   float horst = smoothstep(0.4, 0.75, halmRauschen(ort * 0.18 + 3.7)) * 1.8;
   float dicht = boden.g * mix(1.0, horst, 1.0 - boden.g);
+  ${strukturAn ? `
+  // Besonders volle Wiesen erhalten zusammenhaengende, sanfte Hoehen- und
+  // Dichteunterschiede. Die Maske bleibt am Weltort verankert und veraendert
+  // keine Weg-, Wasser- oder Bauwerksfreihaltung; null Dichte bleibt null.
+  float wiesenAnteil = smoothstep(0.7, 0.95, boden.g);
+  float wiesenStruktur = clamp(horst / 1.8, 0.0, 1.0);
+  dicht *= mix(1.0, mix(0.82, 1.0, wiesenStruktur), wiesenAnteil);
+  ` : ''}
   // Dichte als Schwelle: stabil am Ort, kein Flackern beim Nachziehen.
   float da = step(h3, dicht) * rand;
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
+  ${strukturAn ? 'hoehe *= mix(1.0, mix(0.78, 1.05, wiesenStruktur), wiesenAnteil);' : ''}
   // Im Fernring breiter: Ein 2-cm-Halm ist auf 50 m kleiner als ein Pixel und flimmert nur.
   float breite = (0.012 + h5 * 0.012) * ${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : '1.0'};
   float winkel = h1 * 6.2832;
@@ -227,7 +239,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       // Rückseite um, dann zeigte sie in den Boden und der halbe Rasen wäre schwarz.
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v3-${halb}-${innen}-${texel}`; // Shader trägt alle drei als Literal
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}`;
 
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;

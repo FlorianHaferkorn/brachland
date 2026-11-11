@@ -5,7 +5,8 @@
  * Knistern: kurze Rauschimpulse mit zufälligem Abstand, hochpassgefiltert. Murmeln: Rauschen durch
  * zwei Formantfilter (≈ 500 / 1500 Hz) mit langsam wanderndem Pegel — liest sich als Stimmen hinter
  * einer Wand, nicht als Sprache. Lautstärke fällt mit dem Abstand (voll bei 8 m, still ab 45 m).
- * Der AudioContext startet erst mit der ersten Eingabe (Browser-Regel).
+ * Der AudioContext wird ohne Ton im Leerlauf vorbereitet. Der Klanggraph und
+ * `resume()` entstehen erst bei einer expliziten Eingabe (Autoplay-Regel).
  */
 const VOLL = 8, STILL = 45;
 
@@ -16,29 +17,46 @@ let murmelPegel: GainNode | null = null;
 let rauschen: AudioBuffer | null = null;
 let naechsterKnack = 0;
 
-function starte(): void {
-  if (ctx) return;
+/** Nur den Kontext vorbereiten; ohne verbundene Quellen kann kein Ton entstehen. */
+function bereiteVor(): AudioContext | null {
+  if (ctx) return ctx;
   const C = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!C) return;
-  ctx = new C();
-  master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
-  rauschen = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-  const d = rauschen.getChannelData(0);
-  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  if (!C) return null;
+  try { ctx = new C(); } catch { /* Manche Browser erlauben die Anlage erst in einer Geste. */ }
+  return ctx;
+}
 
-  knisterPegel = ctx.createGain(); knisterPegel.gain.value = 0.9; knisterPegel.connect(master);
+function starte(): void {
+  if (master) return;
+  // Falls die Leerlaufvorbereitung verweigert wurde oder noch nicht lief,
+  // wird die Anlage direkt innerhalb der aktuellen Eingabegeste wiederholt.
+  if (!bereiteVor() || !ctx) return;
+  const quellen: AudioScheduledSourceNode[] = [];
+  try {
+    master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
+    rauschen = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const d = rauschen.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 
-  // Murmeln: Dauerrauschen → zwei Formanten → langsam modulierter Pegel.
-  murmelPegel = ctx.createGain(); murmelPegel.gain.value = 0.0; murmelPegel.connect(master);
-  const quelle = ctx.createBufferSource(); quelle.buffer = rauschen; quelle.loop = true;
-  for (const [f, q] of [[520, 6], [1450, 8]] as const) {
-    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q;
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.7 + Math.random();
-    const tiefe = ctx.createGain(); tiefe.gain.value = f * 0.12;
-    lfo.connect(tiefe).connect(bp.frequency); lfo.start();
-    quelle.connect(bp).connect(murmelPegel);
+    knisterPegel = ctx.createGain(); knisterPegel.gain.value = 0.9; knisterPegel.connect(master);
+
+    // Murmeln: Dauerrauschen → zwei Formanten → langsam modulierter Pegel.
+    murmelPegel = ctx.createGain(); murmelPegel.gain.value = 0.0; murmelPegel.connect(master);
+    const quelle = ctx.createBufferSource(); quelle.buffer = rauschen; quelle.loop = true;
+    for (const [f, q] of [[520, 6], [1450, 8]] as const) {
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = f; bp.Q.value = q;
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 0.7 + Math.random();
+      const tiefe = ctx.createGain(); tiefe.gain.value = f * 0.12;
+      lfo.connect(tiefe).connect(bp.frequency); lfo.start(); quellen.push(lfo);
+      quelle.connect(bp).connect(murmelPegel);
+    }
+    quelle.start(); quellen.push(quelle);
+  } catch {
+    // Ein partieller Graph bleibt stumm und wird bei der naechsten Geste neu versucht.
+    for (const quelle of quellen) { try { quelle.stop(); } catch { /* Bereits beendet. */ } quelle.disconnect(); }
+    master?.disconnect(); knisterPegel?.disconnect(); murmelPegel?.disconnect();
+    master = null; knisterPegel = null; murmelPegel = null; rauschen = null;
   }
-  quelle.start();
 }
 
 function knack(): void {
@@ -54,7 +72,16 @@ function knack(): void {
 }
 
 if (typeof window !== 'undefined') {
-  const an = () => { starte(); void ctx?.resume(); };
+  // Die teure Konstruktion faellt in den Leerlauf statt auf die erste Bewegung.
+  // Es wird nichts verbunden oder abgespielt; ausstehende Vorbereitung und
+  // mehrere Gesten teilen dank bereiteVor() denselben Kontext.
+  if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(() => { bereiteVor(); }, { timeout: 1500 });
+  else window.setTimeout(() => { bereiteVor(); }, 0);
+  const an = () => {
+    starte();
+    try { void ctx?.resume().catch(() => { /* Naechste Geste darf erneut entsperren. */ }); }
+    catch { /* Ein Browser kann resume auch synchron verweigern. */ }
+  };
   window.addEventListener('pointerdown', an, { passive: true });
   window.addEventListener('keydown', an);
 }

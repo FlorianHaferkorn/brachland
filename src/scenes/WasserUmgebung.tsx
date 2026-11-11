@@ -1,8 +1,9 @@
-/** Derselbe Himmel wie im Spiel, als Wasserreflexion; keine Vegetationsreflexion. */
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { useThree } from '@react-three/fiber';
+/** Wasserhimmel und optionaler lokaler Szenenreflex am Stauwehr. */
+import { createContext, useContext, useEffect, useState, type ReactNode, type RefObject } from 'react';
+import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { baueHimmel, type HimmelWerte } from '../world/himmel.js';
+import type { WasserReflexProbe } from '../world/bandmaterial.js';
 
 const WasserHimmel = createContext<THREE.Texture | null>(null);
 
@@ -80,4 +81,78 @@ export function useWasserUmgebung(material: THREE.MeshStandardMaterial): void {
       }
     };
   }, [material, textur]);
+}
+
+/**
+ * Opt-in-Probe fuer einen begrenzten Abschnitt: Sechs lineare, gedrosselte
+ * Szenenansichten direkt ueber dem Wasserspiegel, ohne scene.environment.
+ * Es ist eine punktfoermige Umgebungskarte, kein parallaxenkorrekter Spiegel.
+ */
+export function WasserSzeneProbe({ probe, mitte, ziel }: {
+  probe: WasserReflexProbe; mitte: THREE.Vector3; ziel: RefObject<THREE.Object3D | null>;
+}) {
+  const { gl, scene } = useThree();
+  const [daten] = useState(() => {
+    const target = new THREE.WebGLCubeRenderTarget(128, {
+      type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace,
+      generateMipmaps: false, depthBuffer: true,
+    });
+    return { target, kamera: new THREE.CubeCamera(0.5, 500, target),
+      viewport: new THREE.Vector4(), scissor: new THREE.Vector4(), position: new THREE.Vector3(),
+      naechster: 0, gesperrt: false, statistik: { aufnahmen: 0, letzteCpuMs: 0, aufrufe: 0, dreiecke: 0 } };
+  });
+  useEffect(() => {
+    probe.mitte.value.copy(mitte);
+    scene.userData.wasserReflexMessung = daten.statistik;
+    return () => {
+      if (scene.userData.wasserReflexMessung === daten.statistik) delete scene.userData.wasserReflexMessung;
+      probe.bereit.value = 0; probe.karte.value = null; daten.target.dispose();
+    };
+  }, [daten, mitte, probe, scene]);
+
+  useFrame(({ clock }) => {
+    if (daten.gesperrt || !ziel.current) return;
+    ziel.current.getWorldPosition(daten.position);
+    if (daten.position.distanceToSquared(mitte) > 150 * 150) { probe.bereit.value = 0; return; }
+    const jetzt = clock.elapsedTime;
+    if (jetzt < daten.naechster) return;
+    daten.naechster = jetzt + 1.5;
+    daten.kamera.position.copy(mitte); daten.kamera.position.y += 0.3;
+
+    // Auch spaeter geladene Becken und Wasserfaelle nicht mit aufnehmen.
+    const wasser = new Map<THREE.Material, boolean>();
+    scene.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+        if (m.userData.istWasser && !wasser.has(m)) wasser.set(m, m.visible);
+      }
+    });
+    const vorher = gl.getRenderTarget(), seite = gl.getActiveCubeFace(), stufe = gl.getActiveMipmapLevel();
+    const xr = gl.xr.enabled, schatten = gl.shadowMap.autoUpdate, schattenUpdate = gl.shadowMap.needsUpdate;
+    const autoClear = gl.autoClear, scissorTest = gl.getScissorTest(), infoReset = gl.info.autoReset;
+    gl.getViewport(daten.viewport); gl.getScissor(daten.scissor);
+    const beginn = performance.now(), aufrufe = gl.info.render.calls, dreiecke = gl.info.render.triangles;
+    try {
+      for (const m of wasser.keys()) m.visible = false;
+      gl.xr.enabled = false; gl.shadowMap.autoUpdate = false; gl.shadowMap.needsUpdate = false;
+      gl.info.autoReset = false; gl.autoClear = true; gl.setScissorTest(false);
+      daten.kamera.update(gl, scene);
+      daten.statistik.aufnahmen++;
+      daten.statistik.letzteCpuMs = performance.now() - beginn;
+      daten.statistik.aufrufe = gl.info.render.calls - aufrufe;
+      daten.statistik.dreiecke = gl.info.render.triangles - dreiecke;
+      probe.karte.value = daten.target.texture; probe.bereit.value = 1;
+    } catch (fehler) {
+      // Ein fehlgeschlagener Capture darf weder Wasser noch Renderer lahmlegen.
+      daten.gesperrt = true; probe.bereit.value = 0;
+      console.error('Wasserreflex-Probe:', fehler);
+    } finally {
+      for (const [m, sichtbar] of wasser) m.visible = sichtbar;
+      gl.setRenderTarget(vorher, seite, stufe);
+      gl.setViewport(daten.viewport); gl.setScissor(daten.scissor); gl.setScissorTest(scissorTest);
+      gl.xr.enabled = xr; gl.shadowMap.autoUpdate = schatten; gl.shadowMap.needsUpdate = schattenUpdate;
+      gl.autoClear = autoClear; gl.info.autoReset = infoReset;
+    }
+  });
+  return null;
 }

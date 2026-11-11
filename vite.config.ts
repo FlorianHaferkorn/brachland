@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const ezQuelle = fileURLToPath(new URL('./node_modules/@dgreenheck/ez-tree/src/lib/index.js', import.meta.url));
+const ezTexturen = fileURLToPath(new URL('./src/world/eztexturen.ts', import.meta.url));
 
 /**
  * Inhaltsstempel über `public/world` — wandert als `__WELTSTAND__` in den
@@ -26,7 +30,17 @@ function weltstand(): string {
 }
 
 export default defineConfig({
+  // Das npm-Bundle enthaelt Blattbilder ungeklaerter Herkunft als Base64. Nur den
+  // Generator aus dessen Quelldateien bauen und seine Texturen gezielt ersetzen.
+  resolve: { alias: [{ find: '@dgreenheck/ez-tree', replacement: ezQuelle }] },
   plugins: [
+    {
+      name: 'ez-tree-freie-texturen', enforce: 'pre',
+      resolveId(id, importer) {
+        if (id === './textures' && importer?.replaceAll('\\', '/').endsWith('/@dgreenheck/ez-tree/src/lib/tree.js')) return ezTexturen;
+        return null;
+      },
+    },
     react(),
     VitePWA({
       registerType: 'autoUpdate',

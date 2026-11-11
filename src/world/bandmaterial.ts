@@ -16,6 +16,13 @@ import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
 import { PALETTE } from './palette.js';
 
+/** Optionale lokale Echtzeitprobe; ohne sie bleibt der bisherige Shader unveraendert. */
+export interface WasserReflexProbe {
+  karte: { value: THREE.CubeTexture | null };
+  mitte: { value: THREE.Vector3 };
+  bereit: { value: number };
+}
+
 const HASH_GLSL = /* glsl */ `
 float bandHash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
@@ -82,6 +89,7 @@ export function baueWasserMaterial(
   fallend = false,
   physikalisch = false,
   form: 'band' | 'becken' = 'band',
+  probe?: WasserReflexProbe | null,
 ): THREE.MeshStandardMaterial {
   const material = fallend ? new THREE.MeshStandardMaterial({
     color: PALETTE.wasser.fallend,
@@ -121,6 +129,9 @@ export function baueWasserMaterial(
 
   const zeit = { value: 0 };
   material.userData.zeit = zeit;
+  // Alle Wasserflaechen einschliesslich Becken/Faelle waehrend einer
+  // Szenenaufnahme ausblenden: sonst Selbstreflexion und Target-Feedback.
+  material.userData.istWasser = true;
 
   material.onBeforeCompile = (shader) => {
     shader.uniforms.zeit = zeit;
@@ -128,13 +139,32 @@ export function baueWasserMaterial(
     shader.uniforms.uTempo = { value: fallend ? 4.5 : 1 };
     shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
     shader.uniforms.uBodenRahmen = BODEN_HIMMEL.rahmen;
+    if (probe && !fallend) {
+      shader.uniforms.uWehrReflex = probe.karte;
+      shader.uniforms.uWehrMitte = probe.mitte;
+      shader.uniforms.uWehrBereit = probe.bereit;
+    }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vBand;\nvarying vec3 vWasserPos;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vBand = uv;\n  vWasserPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\nvarying vec3 vWasserPos;\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\n' + HASH_GLSL)
-      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + VERDECKT_GLSL)
+      .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\nvarying vec3 vWasserPos;\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\n' + HASH_GLSL + (probe && !fallend ? /* glsl */ `
+uniform samplerCube uWehrReflex;
+uniform vec3 uWehrMitte;
+uniform float uWehrBereit;
+float wehrAnteil(vec3 p) {
+  // Unter Wasser keine oberseitige Luft-/Vegetationsaufnahme vortaeuschen.
+  if (!gl_FrontFacing) return 0.0;
+  float horizontal = 1.0 - smoothstep(25.0, 55.0, distance(p.xz, uWehrMitte.xz));
+  float hoehe = 1.0 - smoothstep(2.0, 5.0, abs(p.y - uWehrMitte.y));
+  return horizontal * hoehe * uWehrBereit;
+}
+` : ''))
+      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + (probe && !fallend
+        ? VERDECKT_GLSL.replace('reflectedLight.indirectSpecular *= mix(1.0, texture2D(uBodenHimmel, uvH).r, kante);',
+          'reflectedLight.indirectSpecular *= mix(mix(1.0, texture2D(uBodenHimmel, uvH).r, kante), 1.0, wehrAnteil(vWasserPos));')
+        : VERDECKT_GLSL))
       .replace('#include <color_fragment>', fallend ? /* glsl */ `#include <color_fragment>
   float ufer = ${form === 'becken' ? '2.0 * min(min(vBand.x, 1.0 - vBand.x), min(vBand.y, 1.0 - vBand.y))' : '1.0 - abs(vBand.x)'};
 
@@ -173,6 +203,21 @@ export function baueWasserMaterial(
   vec3 wellenNormale = vec3(w2 * 0.10 + kraus * 0.16, 0.0, w1 * 0.14);
   normal = normalize(normal + mat3(viewMatrix) * wellenNormale * ${fallend ? '1.0' : '0.15'});
 `);
+    if (probe && !fallend) {
+      // PBR verarbeitet die lokale Strahlung ueber denselben Fresnel-/BRDF-Pfad
+      // wie den Himmel. Keine additive Emission und kein globales environment.
+      shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_maps>', /* glsl */ `
+  #include <lights_fragment_maps>
+  #if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )
+    float anteilWehr = wehrAnteil(vWasserPos);
+    if (anteilWehr > 0.0) {
+      vec3 spiegelRichtung = inverseTransformDirection(reflect(-geometryViewDir, geometryNormal), viewMatrix);
+      vec3 wehrStrahlung = textureCube(uWehrReflex, spiegelRichtung).rgb * envMapIntensity;
+      radiance = mix(radiance, wehrStrahlung, anteilWehr);
+    }
+  #endif
+`);
+    }
     if (!fallend && !physikalisch) {
       shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>', /* glsl */ `
   // Klarwasser hat keine diffuse Albedo: outgoingLight enthaelt nur Reflexion.
@@ -189,7 +234,7 @@ export function baueWasserMaterial(
     }
   };
 
-  material.customProgramCacheKey = () => `brachland-wasser-v8-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}`;
+  material.customProgramCacheKey = () => `brachland-wasser-v8-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}`;
   return material;
 }
 
