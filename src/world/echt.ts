@@ -39,6 +39,12 @@ export const ABGLEICH_AN = teil('abgleich');
  */
 export const AO_RUHIG = teil('aoruhig');
 /**
+ * Gras wie Gras (D266, `grasteppich.ts`): satteres Grün mit Farbflecken statt grau-weisser Spitzen,
+ * Büschel (Höhe in ~70-cm-Flecken), dunkle Basis (Verdeckung im Rasen), Durchlicht im Gegenlicht,
+ * kein Glanz. Der Teppich selbst — Dichte, Ringe, Wind — bleibt.
+ */
+export const GRAS_ECHT = teil('gras');
+/**
  * Weg B der Gegenüberstellung (D265): ein Himmelsfoto (HDRI, Poly Haven `alps_field`, CC0) als
  * Umgebungslicht für alle Standardmaterialien statt nur der gerechneten Hemisphäre. **Nicht** Teil
  * von `?echt=1`: Es ändert die entschiedene Lichtstimmung (`zielbild`, A-9/ADR-0011) — eine Probe

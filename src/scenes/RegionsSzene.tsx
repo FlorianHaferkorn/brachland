@@ -1785,7 +1785,7 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
   hoeheAn: (x: number, z: number) => number;
 }) {
   const { scene } = useGLTF(bauwerkPfad(bauwerk, teil));
-  const { objekt, materialien, karten } = useMemo(() => {
+  const { objekt, materialien, karten, kerne } = useMemo(() => {
     const klon = scene.clone(true);
     const huellen: { o: THREE.Mesh; art: KartenArt; w: ReturnType<typeof baueWindMaterial> }[] = [];
     /**
@@ -1851,17 +1851,29 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
     // Vertikalschnitt (`?laubkarten=1`): Kronen bekommen Foto-Blattkarten, der Klumpen wird zum
     // dunklen Kern 40 cm innen. Nach dem Durchlauf, damit `traverse` die neuen Kinder nicht besucht.
     const karten: ReturnType<typeof baueLaubkarten>[] = [];
+    const kerne: THREE.Material[] = [];
     if (fussEcken) console.info(`[stamm] ${bauwerk.name}/${teil}: ${fussEcken} Ecken an Stammfüssen`);
     huellen.forEach(({ o, art, w }, i) => {
       const skala = skalaVon(o);
       const k = baueLaubkarten(o.geometry as THREE.BufferGeometry, art, i + 1, 1, skala);
       o.geometry = schrumpfeHuelle(o.geometry as THREE.BufferGeometry, 0.4, skala);
-      w.material.color.multiplyScalar(0.4);
-      w.material.side = THREE.FrontSide;
+      /**
+       * D266: Der Kern bekommt ein eigenes, mattes Material. Mit dem Laubmaterial behielt er Saum,
+       * Durchlicht und Löcher — im Gegenlicht leuchtete er durch die Kartenlücken als graue Fläche
+       * (Weide vorn links, Stauwehr 12.11.2026).
+       */
+      const basis = w.material;
+      const kern = new THREE.MeshStandardMaterial({
+        vertexColors: basis.vertexColors, color: basis.color.clone().multiplyScalar(0.4),
+        roughness: 1, metalness: 0, side: THREE.FrontSide,
+      });
+      o.material = kern;
+      o.customDepthMaterial = undefined;
+      kerne.push(kern);
       o.add(k.mesh); karten.push(k);
     });
     if (karten.length) console.info(`[laubkarten] ${bauwerk.name}: ${karten.length} Hüllen, ${karten.reduce((s, k) => s + k.anzahl, 0)} Karten auf ${Math.round(karten.reduce((s, k) => s + k.flaeche, 0))} m² (${karten.map(k => `${k.mesh.name.split(':')[1]} ${k.anzahl}/${Math.round(k.flaeche)}`).join(', ')})`);
-    return { objekt: klon, materialien, karten };
+    return { objekt: klon, materialien, karten, kerne };
   }, [scene, teil, rand.farbe, rand.staerke]);
   useEffect(() => {
     materialien.forEach(({ w, anteil }) => w.setzeRand(new THREE.Color(rand.farbe), rand.staerke * anteil));
@@ -1869,7 +1881,8 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
   useEffect(() => () => {
     materialien.forEach(({ w }) => { w.material.dispose(); w.tiefe?.dispose(); });
     karten.forEach(k => k.dispose());
-  }, [materialien, karten]);
+    kerne.forEach(m => m.dispose());
+  }, [materialien, karten, kerne]);
   return <primitive object={objekt} />;
 }
 

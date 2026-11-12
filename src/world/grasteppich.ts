@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
+import { GRAS_ECHT } from './echt.js';
 import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
 
@@ -147,7 +148,8 @@ export function baueGrasteppich(
   };
 
   const material = new THREE.MeshStandardMaterial({
-    vertexColors: false, roughness: 0.85, metalness: 0, side: THREE.DoubleSide,
+    // D266: Mit `GRAS_ECHT` matt — bei 0,85 glänzte jede Spitze im Streiflicht grau-weiss.
+    vertexColors: false, roughness: GRAS_ECHT ? 1 : 0.85, metalness: 0, side: THREE.DoubleSide,
   });
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -163,6 +165,7 @@ uniform vec2 uMitte;
 uniform vec3 uFuss;
 uniform vec3 uSpitze;
 varying vec3 vHalmFarbe;
+varying float vHalmY;
 float halmHash(vec2 p) { p = mod(p, 4096.0); return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float halmRauschen(vec2 p) {
   vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -207,6 +210,11 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float da = step(h3, dicht) * rand;
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
   ${strukturAn ? 'hoehe *= mix(1.0, mix(0.78, 1.05, wiesenStruktur), wiesenAnteil);' : ''}
+  ${GRAS_ECHT ? `
+  // D266: Büschel. Gras wächst in Horsten von Handbreite bis Armlänge, nicht als Teppich gleicher
+  // Höhe — zwei Rauschlagen (70 cm, 3 m) heben und senken die Halme.
+  float buschel = halmRauschen(ort * 1.4 + 11.0) * 0.65 + halmRauschen(ort * 0.33 + 2.0) * 0.35;
+  hoehe *= 0.45 + 1.1 * buschel;` : ''}
   // Im Fernring breiter: Ein 2-cm-Halm ist auf 50 m kleiner als ein Pixel und flimmert nur.
   float breite = (0.012 + h5 * 0.012) * ${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : '1.0'};
   float winkel = h1 * 6.2832;
@@ -230,20 +238,37 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vec3 spitze = mix(gruen, vec3(0.62, 0.55, 0.34), trocken) * (0.9 + h5 * 0.25);
   vec3 fuss = bodenTon * 0.8;
   float zumBoden = smoothstep(${(halb * (innen > 0 ? 0.5 : 0.3)).toFixed(1)}, ${(halb * (innen > 0 ? 0.95 : 0.9)).toFixed(1)}, abst);
+  ${GRAS_ECHT ? `
+  // D266: Grün statt Grau. Zwei Grüntöne in 4-m-Flecken (sattes Wiesengrün, gelbgrün), je Halm
+  // ±15 % Helligkeit; trocken bleibt Stroh. Die Basis tief dunkel: Im Rasen kommt unten kaum Licht an.
+  float fleck = halmRauschen(ort * 0.25 + 7.0);
+  vec3 sattGruen = mix(vec3(0.075, 0.16, 0.03), vec3(0.17, 0.24, 0.05), fleck);
+  spitze = mix(mix(sattGruen, gruen, 0.35), vec3(0.45, 0.40, 0.22), trocken) * (0.85 + h5 * 0.3);
+  fuss = bodenTon * 0.35;` : ''}
   vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
+  vHalmY = y * (1.0 - zumBoden);
   vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
   #ifdef USE_TANGENT
     vec3 objectTangent = vec3(1.0, 0.0, 0.0);
   #endif`)
       .replace('#include <begin_vertex>', 'vec3 transformed = halmPos;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;')
       .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;')
       // Beide Seiten mit derselben (nach oben gekippten) Normale: three dreht sie für die
       // Rückseite um, dann zeigte sie in den Boden und der halbe Rasen wäre schwarz.
-      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);');
+      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);')
+      // D266: Durchlicht — steht die Sonne hinter dem Halm, leuchtet die Spitze (Gras ist dünn).
+      .replace('#include <lights_fragment_end>', GRAS_ECHT ? `#include <lights_fragment_end>
+#if NUM_DIR_LIGHTS > 0
+  {
+    vec3 sonne = directionalLights[ 0 ].direction;
+    float gegen = saturate(dot(-normalize(vViewPosition), sonne));
+    reflectedLight.directDiffuse += diffuseColor.rgb * directionalLights[ 0 ].color * 0.55 * pow(gegen, 3.0) * vHalmY;
+  }
+#endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}`;
 
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;

@@ -54,11 +54,24 @@ const ARTEN: Record<KartenArt, ArtWerte> = {
 };
 
 /**
- * Obergrenze je Hülle. D263: 60.000 → 200.000. Die vereinigten Waldkronen (`WaldLaub`, `WaldNadeln`)
- * hingen an der alten Grenze; mit der kleineren Laubkarte (D262) sank dort die Deckung, die
- * Kronen wurden licht. Eine Karte sind zwei Dreiecke — 200.000 Karten 0,4 Mio Dreiecke.
+ * Obergrenze je Hülle. D263: 60.000 → 200.000. D266: → 600.000, weil die Karten jetzt in Feldern mit
+ * Entfernungsstufe liegen (`FELD_METER`, `anteilFuer`): Gezeichnet wird nah alles, fern ein Bruchteil.
+ * Die vereinigte Waldkrone (`WaldLaub`, 64.000 m²) braucht bei voller Dichte ~480.000.
  */
-export const KARTEN_MAX = 200_000;
+export const KARTEN_MAX = 600_000;
+/** Kantenlänge eines Kartenfelds in Metern (D266). Je Feld ein Aufruf. */
+export const FELD_METER = 48;
+/**
+ * Anteil der Karten, die ein Feld in `meter` Abstand zur Kamera zeichnet (D266). Die Karten sind in
+ * Zufallsfolge erzeugt — die ersten n sind gleichmässig über das Feld verteilt, also dünnt `count`
+ * aus, ohne Löcher zu reissen. Bis 35 m alles, ab 180 m ein Fünftel; dort deckt der Nebel.
+ */
+export function anteilFuer(meter: number): number {
+  if (meter <= 35) return 1;
+  if (meter >= 180) return 0.2;
+  const t = (meter - 35) / 145;
+  return 1 - 0.8 * t * (2 - t);
+}
 
 /** Deterministischer Zufall (Mulberry32) — gleiche Hülle, gleiche Karten. */
 function zufall(saat: number): () => number {
@@ -133,7 +146,8 @@ const KARTE = (() => {
 })();
 
 export interface Laubkarten {
-  mesh: THREE.InstancedMesh;
+  /** Gruppe der Kartenfelder (je Feld ein `InstancedMesh`). */
+  mesh: THREE.Group;
   anzahl: number;
   flaeche: number;
   dispose(): void;
@@ -174,7 +188,8 @@ export function baueLaubkarten(
   const kumSkala = skala * skala;
   const zuf = zufall(saat * 7919 + 17);
 
-  const mesh = new THREE.InstancedMesh(KARTE, baueKartenMaterial(art), anzahl);
+  const matrizen = new Float32Array(anzahl * 16);
+  const farben = new Float32Array(anzahl * 3);
   const huelle = new Float32Array(anzahl * 3);
   const farbe = new THREE.Color();
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), qInv = new THREE.Quaternion();
@@ -218,7 +233,7 @@ export function baueLaubkarten(
     const g = 0.7 + zuf() * 0.6;
     s.set(art.groesse[0] * g / skala, art.groesse[1] * g / skala, 1);
     m.compose(p, q, s);
-    mesh.setMatrixAt(i, m);
+    m.toArray(matrizen, i * 16);
     // Hüllnormale in den Kartenraum: `instanceMatrix` dreht sie im Shader zurück.
     qInv.copy(q).invert();
     achse.copy(n).applyQuaternion(qInv);
@@ -231,21 +246,54 @@ export function baueLaubkarten(
     const ao = 0.38 + 0.62 * (0.55 * unten + 0.45 * innen);
     const h = (0.85 + zuf() * 0.25) * ao;
     farbe.setRGB(h * (0.95 + zuf() * 0.1), h, h * (0.85 + zuf() * 0.1));
-    mesh.setColorAt(i, farbe);
+    farbe.toArray(farben, i * 3);
   }
-  // Eigene Geometrie je Netz: `aHuelle` ist je Instanz verschieden.
-  const kartenGeo = KARTE.clone();
-  kartenGeo.setAttribute('aHuelle', new THREE.InstancedBufferAttribute(huelle, 3));
-  mesh.geometry = kartenGeo;
-  mesh.instanceMatrix.needsUpdate = true;
-  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  mesh.name = `Laubkarten:${artName}`;
-  mesh.computeBoundingSphere();
+
+  /**
+   * D266: In Felder von `FELD_METER` teilen (lokaler Raum, also durch `skala`). Je Feld ein Netz mit
+   * eigener Grenzkugel — die Kamera verwirft Felder ausser Sicht, und `onBeforeRender` setzt
+   * `count` nach Abstand. Reihenfolge innerhalb eines Felds bleibt die Zufallsfolge.
+   */
+  const feldLokal = FELD_METER / skala;
+  const eimer = new Map<string, number[]>();
+  for (let i = 0; i < anzahl; i++) {
+    const k = Math.floor(matrizen[i * 16 + 12] / feldLokal) + ',' + Math.floor(matrizen[i * 16 + 14] / feldLokal);
+    const l = eimer.get(k);
+    if (l) l.push(i); else eimer.set(k, [i]);
+  }
+  const material = baueKartenMaterial(art);
+  const gruppe = new THREE.Group();
+  gruppe.name = `Laubkarten:${artName}`;
+  const geometrien: THREE.BufferGeometry[] = [];
+  const mitteW = new THREE.Vector3();
+  for (const liste of eimer.values()) {
+    const geo = KARTE.clone();
+    const h = new Float32Array(liste.length * 3);
+    const feld = new THREE.InstancedMesh(geo, material, liste.length);
+    liste.forEach((i, j) => {
+      m.fromArray(matrizen, i * 16); feld.setMatrixAt(j, m);
+      farbe.fromArray(farben, i * 3); feld.setColorAt(j, farbe);
+      h[j * 3] = huelle[i * 3]; h[j * 3 + 1] = huelle[i * 3 + 1]; h[j * 3 + 2] = huelle[i * 3 + 2];
+    });
+    // Eigene Geometrie je Netz: `aHuelle` ist je Instanz verschieden.
+    geo.setAttribute('aHuelle', new THREE.InstancedBufferAttribute(h, 3));
+    feld.instanceMatrix.needsUpdate = true;
+    if (feld.instanceColor) feld.instanceColor.needsUpdate = true;
+    feld.castShadow = true;
+    feld.receiveShadow = true;
+    feld.computeBoundingSphere();
+    const voll = liste.length;
+    const mitte = feld.boundingSphere!.center.clone();
+    feld.onBeforeRender = (_r, _s, kamera) => {
+      mitteW.copy(mitte).applyMatrix4(feld.matrixWorld);
+      feld.count = Math.max(1, Math.round(voll * anteilFuer(mitteW.distanceTo(kamera.position))));
+    };
+    geometrien.push(geo);
+    gruppe.add(feld);
+  }
   return {
-    mesh, anzahl, flaeche,
-    dispose: () => { kartenGeo.dispose(); (mesh.material as THREE.Material).dispose(); },
+    mesh: gruppe, anzahl, flaeche,
+    dispose: () => { geometrien.forEach(g => g.dispose()); material.dispose(); },
   };
 }
 
