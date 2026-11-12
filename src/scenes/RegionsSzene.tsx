@@ -39,7 +39,7 @@ import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
-import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, staemmeVon, type Bauwerk } from '../world/bauwerke.js';
+import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { randSeite, type Seite } from '../spiel/region.js';
 import { haengeAgxLookEin } from './tonwert.js';
 import { haengeNebelEin } from './nebel.js';
@@ -1724,8 +1724,10 @@ export interface Ortsmarke {
  */
 const BAUWERK_NEUBEWERTUNG = 100;
 
-function Bauwerke({ rand, ziel }: {
+function Bauwerke({ rand, ziel, hoeheAn }: {
   rand: { farbe: string; staerke: number };
+  /** Sichtbares Gelände (Weltmeter) — für den Stammfuss (D262). */
+  hoeheAn: (x: number, z: number) => number;
   ziel: React.RefObject<THREE.Object3D | null>;
 }) {
   const [sichtbar, setzeSichtbar] = useState<Bauwerk[]>([]);
@@ -1744,7 +1746,7 @@ function Bauwerke({ rand, ziel }: {
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
                 ? <BauwerkWasser bauwerk={b} />
-                : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} />}
+                : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
           ))}
         </group>
@@ -1753,8 +1755,9 @@ function Bauwerke({ rand, ziel }: {
   );
 }
 
-function Bauwerkteil({ bauwerk, teil, rand }: {
+function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
   bauwerk: Bauwerk; teil: 'bauten' | 'gruen'; rand: { farbe: string; staerke: number };
+  hoeheAn: (x: number, z: number) => number;
 }) {
   const { scene } = useGLTF(bauwerkPfad(bauwerk, teil));
   const { objekt, materialien, karten } = useMemo(() => {
@@ -1804,7 +1807,7 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
       let fuss = false;
       if (holz) {
         const g = o.geometry as THREE.BufferGeometry;
-        if (!g.getAttribute('_fuss')) fussEcken += setzeStammfuss(g, o.matrixWorld, bauwerk.ursprung.x, bauwerk.ursprung.z, staemmeVon(bauwerk.name));
+        if (!g.getAttribute('_fuss')) fussEcken += setzeStammfuss(g, o.matrixWorld, { x: bauwerk.ursprung.x, y: bauwerk.h0, z: bauwerk.ursprung.z }, hoeheAn);
         fuss = true;
       }
       // Rinden-Scan nur, wo keine gebackene Textur liegt (die Weiden bringen ihre eigene mit).
@@ -4072,7 +4075,7 @@ export function RegionsSzene({
         <Regentenort ort={regentOrt} kreatur={regent.kreatur} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />
       )}
       {!istAus('bauwerke') && BAUWERKE.length > 0 && (
-        <Bauwerke ziel={ref} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
+        <Bauwerke ziel={ref} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} hoeheAn={feld.hoehe} />
       )}
       {vorkommen.length > 0 && gestalt && (
         <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref} gier={gier}

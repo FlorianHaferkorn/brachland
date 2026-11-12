@@ -32,8 +32,13 @@ export const STAMM_AN = teil('stamm');
  * ADR-0011 (Proposed).
  */
 export const ABGLEICH_AN = teil('abgleich');
-/** Szenenspiegelung im Wasser am Stauwehr (D255, `?wasserreflex=1`) — mit `?echt=1` an. */
-export const WASSERREFLEX_AN = teil('wasserreflex');
+/**
+ * Szenenspiegelung im Wasser am Stauwehr (D255): nur einzeln mit `?wasserreflex=1`, **nicht** Teil von
+ * `?echt=1`. Sechs Szenenpässe je Aufnahme (~22 Mio Dreiecke) machten das Bild unter SwiftShader so
+ * schwer, dass kein Bildschirmfoto mehr zustande kam (12.11.2026), und D255 belegt keinen sichtbaren
+ * Gewinn — der dunkle Keil am Wehr ist Geometrie (H-156c).
+ */
+export const WASSERREFLEX_AN = an('wasserreflex');
 /**
  * Kantenglättung im Zwischenbild (`Kontur.tsx`): Seit D155 zeichnet die Szene für AO/Kontur/Bloom
  * in ein Renderziel mit `samples: 0` — `antialias` am Canvas wirkt dann nie, jede Kante hat

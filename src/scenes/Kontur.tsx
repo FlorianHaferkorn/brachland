@@ -245,14 +245,14 @@ const FRAGMENT = /* glsl */`
 
   /* Farbabgleich (D262, \`?abgleich=1\` / \`?echt=1\`): linear, vor dem Tonemapping.
    * 1. Weissabgleich: ein Teil des Sepiastichs raus, Helligkeit bleibt (Luminanz wieder hergestellt).
-   * 2. Kontrast um Mittelgrau 0,18 in Potenz — Schatten tiefer, Licht heller, Mitte bleibt.
+   * 2. Kontrast um 0,12 (Mitte des dämmrigen Bildes) in Potenz 1,1 — Schatten tiefer, Licht heller, Mitte bleibt.
    * 3. Etwas Sättigung zurück, die der Stich vorher als Gelbbraun gebunden hatte. */
   vec3 abgleich(vec3 c) {
     float l0 = dot(c, vec3(0.2126, 0.7152, 0.0722));
-    c *= vec3(0.9, 1.0, 1.16);
+    c *= vec3(0.8, 1.0, 1.35);
     float l1 = dot(c, vec3(0.2126, 0.7152, 0.0722));
     c *= l0 / max(l1, 1e-5);
-    c = 0.18 * pow(max(c, vec3(0.0)) / 0.18, vec3(1.12));
+    c = 0.12 * pow(max(c, vec3(0.0)) / 0.12, vec3(1.1));
     float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
     return max(mix(vec3(l), c, 1.12), vec3(0.0));
   }

@@ -40,14 +40,15 @@ interface ArtWerte {
    * Wiederholungen des Fotos je Kartenkante (D262). Der Zweig im Foto trägt 6–7 Blätter über die
    * ganze Kachel; auf einer 75-cm-Karte war ein Blatt so 30–35 cm lang statt 8–12 cm — aus der
    * Nähe las die Krone wie Riesenlaub. 2 × 2 Zweige auf 60 cm bringen das Blatt auf ~13 cm.
+   * Weide: 2 × 4 auf der schmalen Hängekarte, sonst war das Blatt 17 × 30 cm und blass gestreckt.
    */
-  kacheln: number;
+  kacheln: [number, number];
 }
 
 const ARTEN: Record<KartenArt, ArtWerte> = {
-  laub: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7.5, groesse: [0.6, 0.6], streuung: 0.9, haengend: false, durchlass: 0.6, kacheln: 2 },
-  nadel: { textur: '/material/ez-nadel-cc0-v5.webp', dichte: 6.5, groesse: [0.8, 0.55], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: 1 },
-  weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7, groesse: [0.35, 1.1], streuung: 0.35, haengend: true, durchlass: 0.65, kacheln: 1 },
+  laub: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7.5, groesse: [0.6, 0.6], streuung: 0.9, haengend: false, durchlass: 0.6, kacheln: [2, 2] },
+  nadel: { textur: '/material/ez-nadel-cc0-v5.webp', dichte: 6.5, groesse: [0.8, 0.55], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: [1, 1] },
+  weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7, groesse: [0.35, 1.1], streuung: 0.35, haengend: true, durchlass: 0.65, kacheln: [2, 4] },
 };
 
 /** Obergrenze je Hülle: Eine riesige zusammengeführte Krone soll nicht 300.000 Karten bekommen. */
@@ -74,14 +75,14 @@ export function kartenArtFuer(name: string): KartenArt | null {
 }
 
 const texturen = new Map<string, THREE.Texture>();
-function textur(pfad: string, kacheln: number): THREE.Texture {
-  const schluessel = pfad + '×' + kacheln;
+function textur(pfad: string, kacheln: [number, number]): THREE.Texture {
+  const schluessel = pfad + '×' + kacheln.join('×');
   let t = texturen.get(schluessel);
   if (!t) {
     t = new THREE.TextureLoader().load(pfad);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
-    if (kacheln > 1) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(kacheln, kacheln); }
+    if (kacheln[0] * kacheln[1] > 1) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(kacheln[0], kacheln[1]); }
     texturen.set(schluessel, t);
   }
   return t;
