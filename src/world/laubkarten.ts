@@ -21,7 +21,8 @@
  * je Hülle. Renderfrei gilt hier nicht: Das ist Welt-Code und kennt three.js.
  */
 import * as THREE from 'three';
-import { MSAA } from './echt.js';
+import { MSAA, PINSEL_AN } from './echt.js';
+import { pinselTextur, PINSEL_BAND_GLSL } from './pinsel.js';
 
 export type KartenArt = 'laub' | 'nadel' | 'weide';
 
@@ -45,12 +46,25 @@ interface ArtWerte {
    * standen als Streifen in der Krone.
    */
   kacheln: [number, number];
+  /** Nur `PINSEL_AN`: Grundfarbe der Striche (die Textur trägt nur Grau und Alpha). */
+  grundfarbe?: string;
 }
 
 const ARTEN: Record<KartenArt, ArtWerte> = {
   laub: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7.5, groesse: [0.6, 0.6], streuung: 0.9, haengend: false, durchlass: 0.6, kacheln: [2, 2] },
   nadel: { textur: '/material/ez-nadel-cc0-v5.webp', dichte: 6.5, groesse: [0.8, 0.55], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: [1, 1] },
   weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 22, groesse: [0.2, 0.6], streuung: 0.35, haengend: true, durchlass: 0.65, kacheln: [1, 2] },
+};
+
+/**
+ * Pinsel-Fassung (D269, `?malerei=1`): grosse, wenige Striche statt vieler kleiner Blätter — der Strich
+ * ist die Einheit, nicht das Blatt. ~3× so gross wie ein Blatt, ~40 % der Dichte, Grundfarben als
+ * Ölfarbe (gelblicher als das Foto-Laub, die Bänder in `pinsel.ts` machen Licht und Schatten).
+ */
+const ARTEN_PINSEL: Record<KartenArt, ArtWerte> = {
+  laub: { textur: '', dichte: 3.0, groesse: [1.1, 1.1], streuung: 0.9, haengend: false, durchlass: 0.35, kacheln: [1, 1], grundfarbe: '#6f9a3c' },
+  nadel: { textur: '', dichte: 3.4, groesse: [1.2, 0.9], streuung: 0.5, haengend: false, durchlass: 0.2, kacheln: [1, 1], grundfarbe: '#3f6b48' },
+  weide: { textur: '', dichte: 9, groesse: [0.45, 0.9], streuung: 0.35, haengend: true, durchlass: 0.45, kacheln: [1, 1], grundfarbe: '#8fae4a' },
 };
 
 /**
@@ -109,7 +123,8 @@ function textur(pfad: string, kacheln: [number, number]): THREE.Texture {
 
 function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({
-    map: textur(art.textur, art.kacheln), alphaTest: 0.45, side: THREE.DoubleSide,
+    map: PINSEL_AN ? pinselTextur() : textur(art.textur, art.kacheln), alphaTest: 0.45, side: THREE.DoubleSide,
+    ...(PINSEL_AN && art.grundfarbe ? { color: art.grundfarbe } : {}),
     roughness: 0.75, metalness: 0,
     // Weiche Blattränder statt Treppen — wirkt nur mit MSAA im Zielbild (`echt.ts` MSAA).
     alphaToCoverage: MSAA > 0,
@@ -126,6 +141,8 @@ function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
       .replace('#include <common>', '#include <common>\nuniform float uDurchlass;')
       // Beide Kartenseiten schattieren wie die Hülle: three dreht die Normale der Rückseite um.
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);')
+      // D269: Farbbänder statt weichem Verlauf (nach allen Lichtern, vor der Ausgabe).
+      .replace('#include <opaque_fragment>', PINSEL_AN ? PINSEL_BAND_GLSL + '\n#include <opaque_fragment>' : '#include <opaque_fragment>')
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
 #if NUM_DIR_LIGHTS > 0
   {
@@ -136,7 +153,7 @@ function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
   }
 #endif`);
   };
-  m.customProgramCacheKey = () => 'brachland-laubkarten-v1';
+  m.customProgramCacheKey = () => 'brachland-laubkarten-v1' + (PINSEL_AN ? '-pinsel' : '');
   return m;
 }
 
@@ -166,7 +183,7 @@ export function baueLaubkarten(
    */
   skala = 1,
 ): Laubkarten {
-  const art = ARTEN[artName];
+  const art = (PINSEL_AN ? ARTEN_PINSEL : ARTEN)[artName];
   const pos = geo.getAttribute('position') as THREE.BufferAttribute;
   let nor = geo.getAttribute('normal') as THREE.BufferAttribute | undefined;
   if (!nor) { geo.computeVertexNormals(); nor = geo.getAttribute('normal') as THREE.BufferAttribute; }

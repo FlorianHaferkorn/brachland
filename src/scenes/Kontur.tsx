@@ -43,7 +43,7 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { MSAA, ABGLEICH_AN, AO_RUHIG, TAA_AN } from '../world/echt.js';
+import { MSAA, ABGLEICH_AN, AO_RUHIG, TAA_AN, KUWAHARA_AN } from '../world/echt.js';
 
 const KONTUR_ADRESSE: boolean | null = (() => {
   if (typeof location === 'undefined') return null;
@@ -253,7 +253,33 @@ const FRAGMENT = /* glsl */`
   uniform vec3 uSchacht;
   uniform float uAbgleich;
   uniform float uRuhig;
+  uniform float uKuwahara;
   varying vec2 vUv;
+
+  /* Malfilter (D269): Kuwahara mit vier Sektoren. Gemittelt wird in Karis-Stauchung (c / (1 + c)),
+   * damit helle Pixel die Varianz nicht dominieren; Schrittweite = Pixelverhältnis, sonst wäre der
+   * Strich auf einem 2×-Schirm halb so gross. 4 × 16 Proben je Pixel. */
+  vec3 kuwahara(vec2 uv) {
+    vec3 mittel[4]; float var[4];
+    for (int q = 0; q < 4; q++) { mittel[q] = vec3(0.0); var[q] = 0.0; }
+    vec2 schritt = uTexel * uKuwahara;
+    for (int q = 0; q < 4; q++) {
+      vec2 richtung = vec2((q == 1 || q == 2) ? -1.0 : 1.0, (q >= 2) ? -1.0 : 1.0);
+      vec3 summe = vec3(0.0); float lSumme = 0.0, l2 = 0.0;
+      for (int j = 0; j < 4; j++) for (int i = 0; i < 4; i++) {
+        vec3 c = texture2D(tFarbe, uv + vec2(float(i), float(j)) * richtung * schritt).rgb;
+        c = c / (1.0 + c);
+        float l = dot(c, vec3(0.299, 0.587, 0.114));
+        summe += c; lSumme += l; l2 += l * l;
+      }
+      mittel[q] = summe / 16.0;
+      float lm = lSumme / 16.0;
+      var[q] = l2 / 16.0 - lm * lm;
+    }
+    vec3 best = mittel[0]; float vMin = var[0];
+    for (int q = 1; q < 4; q++) if (var[q] < vMin) { vMin = var[q]; best = mittel[q]; }
+    return best / max(1.0 - best, vec3(1e-3));
+  }
 
   /* Farbabgleich (D262, \`?abgleich=1\` / \`?echt=1\`): linear, vor dem Tonemapping.
    * 1. Weissabgleich: ein Teil des Sepiastichs raus, Helligkeit bleibt (Luminanz wieder hergestellt).
@@ -270,7 +296,7 @@ const FRAGMENT = /* glsl */`
   }
 
   void main() {
-    vec4 farbe = texture2D(tFarbe, vUv);
+    vec4 farbe = uKuwahara > 0.0 ? vec4(kuwahara(vUv), 1.0) : texture2D(tFarbe, vUv);
     float z = meter(vUv);
     float zl = meter(vUv - vec2(uTexel.x, 0.0));
     float zr = meter(vUv + vec2(uTexel.x, 0.0));
@@ -436,6 +462,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
         tBloom: { value: null }, tSchacht: { value: null },
         uBloom: { value: 0 }, uSchacht: { value: new THREE.Color(0, 0, 0) },
         uAbgleich: { value: ABGLEICH_AN ? 1 : 0 }, uRuhig: { value: AO_RUHIG ? 1 : 0 },
+        uKuwahara: { value: KUWAHARA_AN ? Math.max(1, dpr) : 0 },
       },
       depthTest: false, depthWrite: false,
     });
@@ -492,7 +519,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       hellBild: vollbild(hellMaterial), schachtBild: vollbild(schachtMaterial), weichBild: vollbild(weichMaterial), kam,
       taaMaterial, ausgabeMaterial,
       taaBild: taaMaterial ? vollbild(taaMaterial) : null, ausgabeBild: ausgabeMaterial ? vollbild(ausgabeMaterial) : null };
-  }, [an, staerke, schwelle, ao, aoRadius]);
+  }, [an, staerke, schwelle, ao, aoRadius, dpr]);
   useEffect(() => () => {
     quad.material.dispose(); quad.aoMaterial.dispose();
     quad.hellMaterial.dispose(); quad.schachtMaterial.dispose(); quad.weichMaterial.dispose();

@@ -19,7 +19,8 @@
 import * as THREE from 'three';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT } from './echt.js';
+import { GRAS_ECHT, PINSEL_AN } from './echt.js';
+import { PINSEL_BAND_GLSL } from './pinsel.js';
 import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
 
@@ -229,7 +230,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float buschel = halmRauschen(ort * 1.4 + 11.0) * 0.65 + halmRauschen(ort * 0.33 + 2.0) * 0.35;
   hoehe *= 0.45 + 1.1 * buschel;` : ''}
   // Im Fernring breiter: Ein 2-cm-Halm ist auf 50 m kleiner als ein Pixel und flimmert nur.
-  float breite = (0.012 + h5 * 0.012) * ${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : GRAS_ECHT && halb === NAH_HALB_ECHT ? NAH_BREITE_ECHT.toFixed(2) : '1.0'};
+  float breite = (0.012 + h5 * 0.012) * ${PINSEL_AN ? '1.9 * ' : ''}${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : GRAS_ECHT && halb === NAH_HALB_ECHT ? NAH_BREITE_ECHT.toFixed(2) : '1.0'};
   float winkel = h1 * 6.2832;
   vec2 quer = vec2(cos(winkel), sin(winkel));
   vec2 vor = vec2(-quer.y, quer.x);
@@ -271,6 +272,8 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       // Beide Seiten mit derselben (nach oben gekippten) Normale: three dreht sie für die
       // Rückseite um, dann zeigte sie in den Boden und der halbe Rasen wäre schwarz.
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);')
+      // D269 (`?malerei=1`): drei Farbbänder statt weichem Verlauf, Halme als breite Striche.
+      .replace('#include <opaque_fragment>', PINSEL_AN ? PINSEL_BAND_GLSL + '\n#include <opaque_fragment>' : '#include <opaque_fragment>')
       // D266: Durchlicht — steht die Sonne hinter dem Halm, leuchtet die Spitze (Gras ist dünn).
       .replace('#include <lights_fragment_end>', GRAS_ECHT ? `#include <lights_fragment_end>
 #if NUM_DIR_LIGHTS > 0
@@ -281,7 +284,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   }
 #endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${PINSEL_AN ? '-pinsel' : ''}`;
 
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;

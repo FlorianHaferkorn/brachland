@@ -9,7 +9,14 @@
 const suche = typeof location === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
 const an = (name: string) => suche.get(name) === '1';
 
-export const ECHT = an('echt');
+/**
+ * Malerischer Look (D269): `?malerei=1` = `?echt=1` plus Pinsel und Malfilter. Anlass: Reel
+ * „oil-paint“ (patch.gg/blendi, three.js r186, WebGL2) vom 12.11.2026 und Flos „ne A“ — Realismus
+ * allein ist dem Film nicht gewachsen, ein gemalter Look verzeiht Flimmern und fehlende Mikrodetails.
+ * Einzeln: `?echt=1&pinsel=1` (nur B), `?echt=1&kuwahara=1` (nur C), oder `?malerei=1&pinsel=0`.
+ */
+export const MALEREI = an('malerei');
+export const ECHT = an('echt') || MALEREI;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */
 const teil = (name: string) => (suche.get(name) === '0' ? false : ECHT || an(name));
 /** Foto-Blattkarten auf den Kronen der Blender-Szenen (`laubkarten.ts`). */
@@ -102,3 +109,16 @@ export const MSAA: number = (() => {
   if ([0, 2, 4, 8].includes(n)) return n;
   return ECHT ? 4 : 0;
 })();
+
+/**
+ * B — Pinselstriche (D269, `laubkarten.ts`, `grasteppich.ts`): Laub als grosse Striche mit Pinselbogen
+ * statt Foto-Blättern, drei Farbbänder (Licht, Halbton, Schatten) nach der Beleuchtung der Hülle;
+ * Gras mit breiteren Halmen und denselben Bändern. Braucht `laubkarten` (steckt in `echt` und `malerei`).
+ */
+export const PINSEL_AN = teil('pinsel') && (MALEREI || an('pinsel'));
+/**
+ * C — Malfilter (D269, `Kontur.tsx`): Kuwahara über das Szenenbild vor Kontur und Verdeckung. Vier
+ * Sektoren, der mit der kleinsten Varianz gewinnt — Flächen werden glatt, Kanten bleiben. Nachteil:
+ * Die „Striche“ liegen am Bildschirm, nicht an der Welt (Schiebefenster-Effekt in Bewegung).
+ */
+export const KUWAHARA_AN = teil('kuwahara') && (MALEREI || an('kuwahara'));
