@@ -18,9 +18,9 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { MASSSTAB, BIOM_FARBE } from './terrain.js';
 import type { Aufsatzboden } from './terrain.js';
-import { TERRASSEN, terrassiere, type Terrasse } from './bauwerke.js';
+import { TERRASSEN, terrassiere, gesperrt, type Terrasse } from './bauwerke.js';
 import { baueWasserfeld } from './wasserfeld.js';
-import { UFER_GRUEN, BETT_QUER } from './echt.js';
+import { UFER_GRUEN, BETT_QUER, FLUR_GRUEN } from './echt.js';
 
 /** Kachelkantenlänge in Metern. */
 export const KACHEL = 64;
@@ -243,6 +243,7 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
     const b = welt.biome[i][j];
     // `?ufer=1`/`?echt=1` (echt.ts): der Bachstempel macht ~10 m breite `wasser`-Zellen; trocken
     // ist das Ufer, und Ufer ist bewachsen. Wo Wasser steht, bleibt es Wasser.
+    if (FLUR_GRUEN && (b === 'industrie' || b === 'siedlung') && gesperrt(x, z, 'haeuser')) return 'wiese';
     return UFER_GRUEN && b === 'wasser' && wasser.tiefeAn(x, z) <= 0.02 ? 'wiese' : b;
   };
   /** Farbe einer Rasterecke; mit `UFER_GRUEN` trägt das gestempelte Ufer Wiesenton statt Schlamm. */
@@ -257,8 +258,12 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
     const j0 = Math.floor(fj), i0 = Math.floor(fi);
     const j1 = Math.min(n - 1, j0 + 1), i1 = Math.min(n - 1, i0 + 1);
     const tx = glaetten(fj - j0), tz = glaetten(fi - i0);
-    const a = ton(welt.biome[i0][j0]), b = ton(welt.biome[i0][j1]);
-    const c = ton(welt.biome[i1][j0]), d = ton(welt.biome[i1][j1]);
+    // D267: Ecken im Freihaltekreis eines Bauwerks — Industrie/Siedlung als Wiese (`FLUR_GRUEN`).
+    const eckeX = (j: number) => (j / (n - 1) - 0.5) * breiteMeter, eckeZ = (i: number) => (i / (n - 1) - 0.5) * tiefeMeter;
+    const flur = (b: Biom, i: number, j: number): Biom =>
+      FLUR_GRUEN && (b === 'industrie' || b === 'siedlung') && gesperrt(eckeX(j), eckeZ(i), 'haeuser') ? 'wiese' : b;
+    const a = ton(flur(welt.biome[i0][j0], i0, j0)), b = ton(flur(welt.biome[i0][j1], i0, j1));
+    const c = ton(flur(welt.biome[i1][j0], i1, j0)), d = ton(flur(welt.biome[i1][j1], i1, j1));
     return ziel.setRGB(
       (a.r * (1 - tx) + b.r * tx) * (1 - tz) + (c.r * (1 - tx) + d.r * tx) * tz,
       (a.g * (1 - tx) + b.g * tx) * (1 - tz) + (c.g * (1 - tx) + d.g * tx) * tz,

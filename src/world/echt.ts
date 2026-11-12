@@ -51,6 +51,12 @@ export const GRAS_ECHT = teil('gras');
  */
 export const BACH_ECHT = teil('bach');
 /**
+ * Flur um die Set-Pieces (D267, `lod.ts`): Industrie- und Siedlungsboden zählt im Häuser-Freihaltekreis
+ * eines Bauwerks (`frei.haeuser`) als Wiese. Die Häuser sind dort seit D155 weg, ihre Bodenfarbe blieb —
+ * am Stauwehr eine flache, betongraue Ebene im Wald, die wie ein zugefrorener See las.
+ */
+export const FLUR_GRUEN = teil('flur');
+/**
  * Weg B der Gegenüberstellung (D265): ein Himmelsfoto (HDRI, Poly Haven `alps_field`, CC0) als
  * Umgebungslicht für alle Standardmaterialien statt nur der gerechneten Hemisphäre. **Nicht** Teil
  * von `?echt=1`: Es ändert die entschiedene Lichtstimmung (`zielbild`, A-9/ADR-0011) — eine Probe
