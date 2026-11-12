@@ -13,12 +13,13 @@
  *
  * Was fehlt und das Bild vom Spiel unterscheidet: der Grasteppich (GLSL, hier ein einfacher
  * Halmersatz), Wind, Nebelshader, Kontur, die gerechnete Dämmerung. Die Probe zeigt die Plattform,
- * nicht ein fertiges Spiel. Schalter: `?ssr=0`, `?ao=0`, `?traa=0`, `?hdri=0`, `?echt=1` (Querbett,
+ * nicht ein fertiges Spiel. Schalter: `?ssr=0`, `?ao=0`, `?traa=0`, `?hdri=0`, `?schatten=0`, `?karten=0`,
+ * `?halme=0`, `?bauten=0` (Fehlersuche), `?echt=1` (Querbett,
  * grünes Ufer, Laubkarten wie im Spiel).
  */
 import * as THREE from 'three/webgpu';
 import {
-  pass, mrt, output, normalView, directionToColor, colorToDirection, metalness, roughness,
+  pass, mrt, output, normalView, packNormalToRGB, unpackRGBToNormal, metalness, roughness,
   velocity, vec2, vec4, sample, blendColor, texture, positionWorld, vertexColor, uv, mix, color,
 } from 'three/tsl';
 import { ao } from 'three/examples/jsm/tsl/display/GTAONode.js';
@@ -45,17 +46,32 @@ const KAMERA = { auge: new THREE.Vector3(1068, 48.25, 867), ziel: new THREE.Vect
 const GELAENDE_HALB = 220, GELAENDE_RASTER = 1;
 /** Halmersatz: Radius um den Blickpunkt am Boden, Zahl der Halme. */
 const HALM_RADIUS = 32, HALM_ZAHL = 220_000;
+/** Bilder bis „fertig“ (TRAA braucht Verlauf); `?bilder=` für langsame Software-Renderer. */
+const BILDER_BIS_FERTIG = Number(suche.get('bilder') ?? 40);
 
 async function main() {
-  const renderer = new THREE.WebGPURenderer({ antialias: false });
+  // `?webgl=1`: dasselbe Node-System auf dem WebGL2-Backend. Für Bilder ohne GPU (SwiftShader): Dort
+  // verliert das WebGPU-Gerät schon bei der einfachsten Nachbearbeitung den Kontakt (12.11.2026,
+  // ein Würfel ohne Nachbearbeitung läuft). Auf dem M1 ohne Schalter mit echtem WebGPU.
+  const renderer = new THREE.WebGPURenderer({ antialias: false, forceWebGL: suche.get('webgl') === '1' });
   renderer.setPixelRatio(devicePixelRatio);
   renderer.setSize(innerWidth, innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
-  renderer.shadowMap.enabled = true;
+  // Erster Lauf mit 1,0 war zu dunkel (Halme fast schwarz); 1,5 nach Augenmass, nicht gemessen.
+  renderer.toneMappingExposure = 1.5;
+  renderer.shadowMap.enabled = !aus('schatten');
   document.body.appendChild(renderer.domElement);
   await renderer.init();
 
+  if (suche.get('leer') === '1') {
+    // Fehlersuche: nur ein Würfel — läuft WebGPU auf diesem Gerät überhaupt?
+    const sz = new THREE.Scene(), k = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 100);
+    k.position.set(2, 2, 3); k.lookAt(0, 0, 0);
+    sz.add(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshNormalMaterial()));
+    let z = 0;
+    renderer.setAnimationLoop(() => { renderer.render(sz, k); if (++z > 40) hud.textContent = `leer ${renderer.info.render.triangles} Dreiecke\nLadezeit 0 s`; });
+    return;
+  }
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(KAMERA.fov, innerWidth / innerHeight, 0.2, 3000);
   camera.position.copy(KAMERA.auge);
@@ -81,7 +97,7 @@ async function main() {
   const [sx, sy, sz] = st.sonnenstand;
   sonne.position.set(KAMERA.ziel.x + sx * 3, KAMERA.ziel.y + sy * 3, KAMERA.ziel.z + sz * 3);
   sonne.target.position.copy(KAMERA.ziel);
-  sonne.castShadow = true;
+  sonne.castShadow = !aus('schatten');
   sonne.shadow.mapSize.set(4096, 4096);
   const sc = sonne.shadow.camera as THREE.OrthographicCamera;
   sc.left = -120; sc.right = 120; sc.top = 120; sc.bottom = -120; sc.near = 1; sc.far = 800;
@@ -132,7 +148,7 @@ async function main() {
   // Bäche: dieselben Wasserkacheln wie im Spiel, Material für SSR glatt.
   hud.textContent = 'Wasser …';
   const satz = zerlegeBaender(welt, feld);
-  const wasserMat = new THREE.MeshStandardNodeMaterial({ color: '#1d2622', roughness: 0.03, metalness: 0 });
+  const wasserMat = new THREE.MeshStandardNodeMaterial({ color: '#0d120f', roughness: 0.08, metalness: 0 });
   for (const k of baueKachelraster(feld)) {
     if (Math.hypot(k.mitte[0] - mitte.x, k.mitte[1] - mitte.y) - k.radius > GELAENDE_HALB) continue;
     const g = baueWasserKachel(feld, satz, k, 0);
@@ -147,7 +163,7 @@ async function main() {
   gruppe.position.set(b.ursprung.x, b.h0, b.ursprung.z);
   scene.add(gruppe);
   let kartenZahl = 0;
-  for (const teil of b.dateien) {
+  for (const teil of aus('bauten') ? [] : b.dateien) {
     if (teil === 'wasser') continue;
     const { scene: s } = await gltf.loadAsync(bauwerkPfad(b, teil));
     s.updateMatrixWorld(true);
@@ -156,9 +172,11 @@ async function main() {
       if (!(o instanceof THREE.Mesh)) return;
       o.castShadow = true; o.receiveShadow = true;
       if (Array.isArray(o.material)) o.material = o.material[0];
+      // Farne und Schilf sind dünne Flächen: beidseitig, sonst stehen sie von hinten schwarz.
+      if (teil === 'gruen') (o.material as THREE.Material).side = THREE.DoubleSide;
       if (teil === 'gruen' && kartenArtFuer(o.name)) huellen.push(o);
     });
-    for (const [i, o] of huellen.entries()) {
+    for (const [i, o] of (aus('karten') ? [] : huellen).entries()) {
       const art = kartenArtFuer(o.name)!;
       const sk = new THREE.Vector3(); o.getWorldScale(sk);
       const skala = Math.cbrt(Math.abs(sk.x * sk.y * sk.z)) || 1;
@@ -181,7 +199,7 @@ async function main() {
   halm.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 0.45, 1, 0.45, 0, 0.8, 1, 0.8, 0.5, 1], 2));
   halm.setIndex([0, 1, 2, 1, 3, 2, 2, 3, 4, 3, 5, 4, 4, 5, 6]);
   const halmMat = new THREE.MeshStandardNodeMaterial({ side: THREE.DoubleSide, roughness: 0.85 });
-  halmMat.colorNode = mix(color('#1f2a12'), color('#7d8f45'), uv().y).mul(vertexColor().rgb.mul(0).add(1));
+  halmMat.colorNode = mix(color('#3d4d1e'), color('#a8b85e'), uv().y);
   const halme = new THREE.InstancedMesh(halm, halmMat, HALM_ZAHL);
   const blick = new THREE.Vector2(KAMERA.auge.x + (KAMERA.ziel.x - KAMERA.auge.x) * 0.4, KAMERA.auge.z + (KAMERA.ziel.z - KAMERA.auge.z) * 0.4);
   let a = 12345;
@@ -208,20 +226,25 @@ async function main() {
   halme.receiveShadow = true;
   halme.castShadow = false;
   halme.frustumCulled = false;
-  scene.add(halme);
+  if (!aus('halme')) scene.add(halme);
 
   // Nachbearbeitung, nur fertige Bausteine.
   const pipeline = new THREE.RenderPipeline(renderer);
   const szene = pass(scene, camera);
-  szene.setMRT(mrt({
-    output, normal: directionToColor(normalView), metalrough: vec2(metalness, roughness), velocity,
+  // Fehlersuche: `?mrt=` wählt die Zusatzziele (Vorgabe alle); `?mrt=0` keine.
+  const ziele = (suche.get('mrt') ?? 'normal,metalrough,velocity').split(',');
+  if (suche.get('mrt') !== '0') szene.setMRT(mrt({
+    output,
+    ...(ziele.includes('normal') ? { normal: packNormalToRGB(normalView) } : {}),
+    ...(ziele.includes('metalrough') ? { metalrough: vec2(metalness, roughness) } : {}),
+    ...(ziele.includes('velocity') ? { velocity } : {}),
   }));
   const farbe = szene.getTextureNode('output');
   const tiefe = szene.getTextureNode('depth');
   const normalTex = szene.getTextureNode('normal');
   const mr = szene.getTextureNode('metalrough');
   const geschw = szene.getTextureNode('velocity');
-  const normale = sample((u) => colorToDirection(normalTex.sample(u)));
+  const normale = sample((u) => unpackRGBToNormal(normalTex.sample(u)));
   // SSR liest das Rohbild als Textur (`sample`), deshalb zuerst; die Verdeckung danach.
   let bild = vec4(farbe) as unknown as THREE.Node<'vec4'>;
   if (!aus('ssr')) {
@@ -234,9 +257,10 @@ async function main() {
   if (!aus('ao')) {
     const v = ao(tiefe, normale, camera);
     v.resolutionScale = 0.5;
-    bild = vec4(bild.rgb.mul(v.getTextureNode().r), bild.a) as unknown as THREE.Node<'vec4'>;
+    // Verdeckung zu 60 %: voll gab es schwarze Wiesen (erster Lauf).
+    bild = vec4(bild.rgb.mul(mix(1.0, v.getTextureNode().r, 0.6)), bild.a) as unknown as THREE.Node<'vec4'>;
   }
-  pipeline.outputNode = aus('traa') ? bild : traa(bild, tiefe, geschw, camera);
+  pipeline.outputNode = suche.get('mrt') !== null ? farbe : aus('traa') ? bild : traa(bild, tiefe, geschw, camera);
 
   let bilder = 0, letzte = performance.now();
   const zeiten: number[] = [];
@@ -244,13 +268,13 @@ async function main() {
     const t = performance.now();
     zeiten.push(t - letzte); letzte = t;
     if (zeiten.length > 30) zeiten.shift();
-    pipeline.render();
+    if (aus('pipeline')) renderer.render(scene, camera); else pipeline.render();
     bilder++;
     const ms = zeiten.reduce((s, x) => s + x, 0) / zeiten.length;
     const info = renderer.info.render;
     // „Ladezeit … s" erst nach 40 Bildern: TRAA braucht Verlauf, sonst misst man das erste, rohe Bild.
-    hud.textContent = `WebGPU-Probe Stauwehr\n${info.triangles.toLocaleString('de-DE')} Dreiecke\n${info.drawCalls} Aufrufe\n${kartenZahl.toLocaleString('de-DE')} Karten, ${gesetzt.toLocaleString('de-DE')} Halme\n${ms.toFixed(1)} ms je Bild`
-      + (bilder > 40 ? `\nLadezeit ${((t - start) / 1000).toFixed(1)} s` : '');
+    hud.textContent = `WebGPU-Probe Stauwehr (${(renderer.backend as { isWebGPUBackend?: boolean }).isWebGPUBackend ? 'WebGPU' : 'WebGL2'})\n${info.triangles.toLocaleString('de-DE')} Dreiecke\n${info.drawCalls} Aufrufe\n${kartenZahl.toLocaleString('de-DE')} Karten, ${gesetzt.toLocaleString('de-DE')} Halme\n${ms.toFixed(1)} ms je Bild`
+      + (bilder > BILDER_BIS_FERTIG ? `\nLadezeit ${((t - start) / 1000).toFixed(1)} s` : '');
   });
 }
 
