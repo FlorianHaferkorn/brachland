@@ -681,6 +681,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
         ['weg', baueWegKachel], ['wasser', wasserKachel], ['fall', baueFallKachel],
         ['haus', hausKachel], ['garten', baueGartenKachel],
       ] as const) {
+        if (art === 'wasser' && istAus('wasser')) continue;
         const schluessel = `${art}:${k.ix}:${k.iz}:${lod}${art === 'wasser' ? pegel : ''}`;
         let g = cache.current.get(schluessel);
         if (g === undefined) {
