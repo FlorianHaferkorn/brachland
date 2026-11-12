@@ -27,6 +27,11 @@ import type { HoehenFeld } from './lod.js';
 export const TEPPICH_HALB = 30;
 /** Halmzelle in Metern bei voller Qualität — ein Halm je Zelle, also 25 je m². */
 export const TEPPICH_ZELLE = 0.2;
+/**
+ * D266: Mit `GRAS_ECHT` 0,15 m (44 statt 25 Halme je m² im 30-m-Teppich). Zwischen 12 und 30 m las die
+ * Wiese mit 25 je m² als einzelne Sprossen. Kostet ~0,35 Mio Dreiecke mehr; am M1 zu messen (A-16).
+ */
+export const TEPPICH_ZELLE_ECHT = 0.15;
 /** Ab dieser Bewegung wird die Feldtextur neu gefüllt. */
 export const TEPPICH_NACHZIEHEN = 4;
 /**
@@ -96,7 +101,7 @@ export interface Grasteppich {
  */
 export function baueGrasteppich(
   feld: HoehenFeld, aufWeg: (x: number, z: number) => boolean, faktor = 1,
-  halb = TEPPICH_HALB, grundZelle = TEPPICH_ZELLE,
+  halb = TEPPICH_HALB, grundZelle = GRAS_ECHT ? TEPPICH_ZELLE_ECHT : TEPPICH_ZELLE,
   /** Fernring (D247): halbe Kantenlänge des inneren Teppichs, der hier ausgespart wird. 0 = keiner. */
   innen = 0,
   /**

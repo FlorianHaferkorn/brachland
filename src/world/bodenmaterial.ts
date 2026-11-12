@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { HIMMEL_UNIFORM } from './windmaterial.js';
 import { PALETTE } from './palette.js';
+import { GRAS_ECHT } from './echt.js';
 
 /**
  * Himmelsanteil des Geländes um ein Set-Piece (D171, `tools/himmelboden.ts`): ein Raster von
@@ -248,6 +249,12 @@ const SCAN_GLSL = /* glsl */ `
                + sSchutt.rgb * scanGewicht.z + sFels.rgb * scanGewicht.w;
   scanMod *= 2.0;
   diffuseColor.rgb *= mix(vec3(1.0), scanMod, 0.85);
+#ifdef GRAS_ECHT
+  // D266: Unter einer Wiese liegt kein heller Boden, sondern die untere Halmschicht und Streu —
+  // dunkler und grüner. Ohne das leuchtete der Boden zwischen den Halmen in der Sonne grau-weiss,
+  // und der Rasen las als einzelne Sprossen (Stauwehr, 12.11.2026).
+  diffuseColor.rgb *= mix(vec3(1.0), vec3(0.5, 0.64, 0.36), scanGewicht.x * 0.85);
+#endif
 `;
 
 const DETAIL_GLSL = /* glsl */ `
@@ -380,7 +387,8 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
 
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
-  material.customProgramCacheKey = () => 'brachland-boden-v8' + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
+  if (GRAS_ECHT) material.defines = { ...material.defines, GRAS_ECHT: '' };
+  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
 
   return material;
 }

@@ -1863,9 +1863,12 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
        * (Weide vorn links, Stauwehr 12.11.2026).
        */
       const basis = w.material;
+      // Weide ohne Kern: Sie ist von Natur aus durchsichtig, und durch die lockeren Hängekarten sah
+      // man auf die flachen, sonnenbeschienenen Facetten des Kerns (graue Flecken, Weide5 8 m vor der
+      // Bildtor-Kamera). `visible: false` am Material blendet nur den Kern aus, die Karten (Kinder) bleiben.
       const kern = new THREE.MeshStandardMaterial({
-        vertexColors: basis.vertexColors, color: basis.color.clone().multiplyScalar(0.4),
-        roughness: 1, metalness: 0, side: THREE.FrontSide,
+        vertexColors: basis.vertexColors, color: basis.color.clone().multiplyScalar(0.25),
+        roughness: 1, metalness: 0, side: THREE.FrontSide, visible: art !== 'weide',
       });
       o.material = kern;
       o.customDepthMaterial = undefined;
