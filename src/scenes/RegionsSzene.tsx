@@ -58,7 +58,9 @@ import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type Kar
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
-import { baueGrasteppich, NAH_HALB, NAH_ZELLE, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
+import { GRAS_ECHT, WEIHER_AN } from '../world/echt.js';
+import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
@@ -1768,6 +1770,9 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
     <>
       {sichtbar.map(b => (
         <group key={b.name} position={[b.ursprung.x, b.h0, b.ursprung.z]}>
+          {WEIHER_AN && b.dateien.includes('bauten') && (
+            <Suspense fallback={null}><BauwerkWeiher bauwerk={b} hoeheAn={hoeheAn} /></Suspense>
+          )}
           {b.dateien.map(teil => (
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
@@ -1779,6 +1784,29 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
       ))}
     </>
   );
+}
+
+/**
+ * Stauweiher (D268, `world/weiher.ts`): nur für Bauwerke mit einem Objekt `Wehr`. Teilt sich die
+ * geladene `bauten`-Datei mit `Bauwerkteil` (drei cached je Pfad) und verändert sie nicht.
+ */
+function BauwerkWeiher({ bauwerk, hoeheAn }: { bauwerk: Bauwerk; hoeheAn: (x: number, z: number) => number }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'bauten'));
+  const material = useMemo(() => baueWasserMaterial(false, false, 'weiher'), []);
+  useWasserUmgebung(material);
+  const weiher = useMemo(() => {
+    scene.updateMatrixWorld(true);
+    const wehr = scene.getObjectByName('Wehr');
+    if (!wehr) return null;
+    const box = new THREE.Box3().setFromObject(wehr);
+    const { x: ox, z: oz } = bauwerk.ursprung;
+    // Gruppenraum: Welt minus Ursprung und `h0` (die Gruppe steht dort, siehe `Bauwerke`).
+    const w = baueWeiher(box, (x, z) => hoeheAn(x + ox, z + oz) - bauwerk.h0);
+    if (w) console.info(`[weiher] ${bauwerk.name}: Spiegel ${(w.spiegel + bauwerk.h0).toFixed(2)} m, ${w.zellen} Zellen`);
+    return w;
+  }, [scene, bauwerk, hoeheAn]);
+  useEffect(() => () => { weiher?.geometrie.dispose(); material.dispose(); }, [weiher, material]);
+  return weiher ? <mesh geometry={weiher.geometrie} material={material} renderOrder={1} /> : null;
 }
 
 function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
@@ -2283,7 +2311,8 @@ function Grasteppich({ welt, feld, ziel, dichte, weite }: {
   const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
   // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
   const nah = useMemo(() => (dichte >= 1 && !istAus('nahgras')
-    ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE) : null), [feld, aufWeg, dichte]);
+    ? (GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT)
+      : baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE)) : null), [feld, aufWeg, dichte]);
   // D247: Fernring hinter dem Teppich, nur bei Sichtweite „weit“; `?aus=ferngras` schaltet ab.
   const fern = useMemo(() => (weite > 1 && dichte > 0 && !istAus('ferngras')
     ? baueGrasteppich(feld, aufWeg, dichte, Math.round(TEPPICH_HALB * 1.5 * weite), FERN_ZELLE, TEPPICH_HALB, 3)

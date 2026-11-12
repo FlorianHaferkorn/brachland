@@ -50,6 +50,16 @@ export const GRAS_ECHT = teil('gras');
  * wo Fresnel am stärksten ist (flacher Blick), den hellen Himmel — es lag weiss im Wald.
  */
 export const BACH_ECHT = teil('bach');
+/** Stauweiher hinter dem Wehr, aus dem GLB abgeleitet (D268, `weiher.ts`). */
+export const WEIHER_AN = teil('weiher');
+/**
+ * Zeitliche Kantenglättung (D268, `Kontur.tsx`): Kamera-Jitter nach Halton (8 Stellungen), das fertige
+ * Bild (nach Kontur, Verdeckung, Bloom) wird gegen das Vorbild aufgelöst — Reprojektion aus der
+ * Tiefe, Nachbarschafts-Begrenzung. Gegen das Flimmern von Halmen und Blattkanten in Bewegung, das
+ * MSAA nicht fasst (Kantenglättung wirkt nur an Dreieckskanten, nicht in Teilbildpunkt-Strukturen).
+ * Kostet drei Vollbild-Ziele (~125 MB bei 2880×1800) und zwei Vollbildpässe.
+ */
+export const TAA_AN = teil('taa');
 /**
  * Flur um die Set-Pieces (D267, `lod.ts`): Industrie- und Siedlungsboden zählt im Häuser-Freihaltekreis
  * eines Bauwerks (`frei.haeuser`) als Wiese. Die Häuser sind dort seit D155 weg, ihre Bodenfarbe blieb —

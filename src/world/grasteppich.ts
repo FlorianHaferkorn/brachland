@@ -51,6 +51,14 @@ export const NAH_HALB = 12;
  */
 export const FERN_ZELLE = 0.45;
 export const NAH_ZELLE = 0.07;
+/**
+ * D268 (`?gras=1` / `?echt=1`): Nahfeld auf 8 m verkürzt und auf 4,5-cm-Zelle verdichtet (~490 statt ~200
+ * Halme je m²) bei **gleich vielen Instanzen** (356² gegen 343²) — Wiese wie Rasen, wo man sie anfasst,
+ * und dünnere Halme (Faktor `NAH_BREITE_ECHT`). Dahinter übernimmt der 30-m-Teppich mit 15 cm (D266).
+ */
+export const NAH_HALB_ECHT = 8;
+export const NAH_ZELLE_ECHT = 0.045;
+const NAH_BREITE_ECHT = 0.7;
 
 /** Wie dicht Gras je Biom steht (0…1). Wald trägt Moos und Farn, kein Rasen. */
 const DICHTE: Record<Biom, number> = {
@@ -221,7 +229,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float buschel = halmRauschen(ort * 1.4 + 11.0) * 0.65 + halmRauschen(ort * 0.33 + 2.0) * 0.35;
   hoehe *= 0.45 + 1.1 * buschel;` : ''}
   // Im Fernring breiter: Ein 2-cm-Halm ist auf 50 m kleiner als ein Pixel und flimmert nur.
-  float breite = (0.012 + h5 * 0.012) * ${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : '1.0'};
+  float breite = (0.012 + h5 * 0.012) * ${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : GRAS_ECHT && halb === NAH_HALB_ECHT ? NAH_BREITE_ECHT.toFixed(2) : '1.0'};
   float winkel = h1 * 6.2832;
   vec2 quer = vec2(cos(winkel), sin(winkel));
   vec2 vor = vec2(-quer.y, quer.x);
