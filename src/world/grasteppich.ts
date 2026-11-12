@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT, PINSEL_AN } from './echt.js';
+import { GRAS_ECHT, GRAS_VIEL, PINSEL_AN } from './echt.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
 import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
@@ -180,6 +180,7 @@ uniform vec3 uFuss;
 uniform vec3 uSpitze;
 varying vec3 vHalmFarbe;
 varying float vHalmY;
+varying float vQ;
 float halmHash(vec2 p) { p = mod(p, 4096.0); return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float halmRauschen(vec2 p) {
   vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -220,6 +221,12 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float wiesenStruktur = clamp(horst / 1.8, 0.0, 1.0);
   dicht *= mix(1.0, mix(0.82, 1.0, wiesenStruktur), wiesenAnteil);
   ` : ''}
+  ${GRAS_VIEL ? `
+  // D271: Arten in ~10-m-Flecken (Stroh), Kraut in kleineren (~5 m) mit je Halm 35 % Anteil.
+  // Büschel: Rauschen auf ~1,2 m lässt 45 % der Dichte zwischen den Horsten stehen — der Boden scheint durch.
+  float stroh = smoothstep(0.52, 0.66, halmRauschen(ort * 0.09 + 19.0));
+  float kraut = (1.0 - stroh) * step(0.62, halmRauschen(ort * 0.2 + 51.0)) * step(h2, 0.35);
+  dicht *= mix(0.55, 1.0, smoothstep(0.3, 0.55, halmRauschen(ort * 0.8 + 71.0)));` : ''}
   // Dichte als Schwelle: stabil am Ort, kein Flackern beim Nachziehen.
   float da = step(h3, dicht) * rand;
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
@@ -229,8 +236,10 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   // Höhe — zwei Rauschlagen (70 cm, 3 m) heben und senken die Halme.
   float buschel = halmRauschen(ort * 1.4 + 11.0) * 0.65 + halmRauschen(ort * 0.33 + 2.0) * 0.35;
   hoehe *= 0.45 + 1.1 * buschel;` : ''}
+  ${GRAS_VIEL ? 'hoehe *= mix(1.0, 1.7, stroh) * mix(1.0, 0.6, kraut);' : ''}
   // Im Fernring breiter: Ein 2-cm-Halm ist auf 50 m kleiner als ein Pixel und flimmert nur.
   float breite = (0.012 + h5 * 0.012) * ${PINSEL_AN ? '1.9 * ' : ''}${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : GRAS_ECHT && halb === NAH_HALB_ECHT ? NAH_BREITE_ECHT.toFixed(2) : '1.0'};
+  ${GRAS_VIEL ? 'breite *= mix(1.0, 0.6, stroh) * mix(1.0, 3.2, kraut);' : ''}
   float winkel = h1 * 6.2832;
   vec2 quer = vec2(cos(winkel), sin(winkel));
   vec2 vor = vec2(-quer.y, quer.x);
@@ -239,7 +248,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float welle = sin(dot(ort, windRichtung) * 0.35 - uZeit * 1.6) * 0.5 + 0.5;
   float boe = halmRauschen(ort * 0.05 - windRichtung * uZeit * 0.4);
   float zittern = sin(uZeit * 3.1 + h2 * 20.0) * 0.08;
-  float neigung = 0.18 + h3 * 0.35;
+  float neigung = (0.18 + h3 * 0.35)${GRAS_VIEL ? ' * mix(mix(1.0, 1.8, stroh), 0.6, kraut)' : ''};
   float y = position.y;
   vec2 biege = vor * neigung * y * y + windRichtung * (welle * 0.35 + boe * 0.45 + zittern) * y * y;
   vec3 halmPos = vec3(ort.x + quer.x * position.x * breite + biege.x * hoehe,
@@ -259,6 +268,16 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vec3 sattGruen = mix(vec3(0.075, 0.16, 0.03), vec3(0.17, 0.24, 0.05), fleck);
   spitze = mix(mix(sattGruen, gruen, 0.35), vec3(0.45, 0.40, 0.22), trocken) * (0.85 + h5 * 0.3);
   fuss = bodenTon * 0.35;` : ''}
+  ${GRAS_VIEL ? `
+  // D271: Farbe nach Art, leicht entsättigt. Stroh ist unten nicht dunkel (trockener Halm), Kraut olivgrün.
+  vec3 strohF = mix(vec3(0.50, 0.42, 0.22), vec3(0.62, 0.53, 0.30), h5);
+  vec3 krautF = mix(vec3(0.20, 0.27, 0.09), vec3(0.30, 0.36, 0.14), h5);
+  vec3 graeser = mix(vec3(0.10, 0.17, 0.05), vec3(0.22, 0.28, 0.09), fleck);
+  vec3 artFarbe = mix(mix(graeser, strohF, stroh), krautF, kraut);
+  artFarbe = mix(vec3(dot(artFarbe, vec3(0.299, 0.587, 0.114))), artFarbe, 0.85);
+  spitze = artFarbe * (0.85 + h5 * 0.3);
+  fuss = mix(bodenTon * 0.35, strohF * 0.45, stroh);
+  vQ = position.x / max(1.0 - 0.75 * y, 0.05);` : 'vQ = 0.0;'}
   vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
   vHalmY = y * (1.0 - zumBoden);
   vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
@@ -267,8 +286,10 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   #endif`)
       .replace('#include <begin_vertex>', 'vec3 transformed = halmPos;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;')
-      .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;\nvarying float vQ;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;' + (GRAS_VIEL ? `
+  { float kante = abs(vQ);   // D271: Kante dunkler, Mittelrippe heller — der Halm hat Körper statt Flachband
+    diffuseColor.rgb *= (1.0 - 0.3 * kante * kante) * (1.0 + 0.18 * (1.0 - smoothstep(0.0, 0.12, kante))); }` : ''))
       // Beide Seiten mit derselben (nach oben gekippten) Normale: three dreht sie für die
       // Rückseite um, dann zeigte sie in den Boden und der halbe Rasen wäre schwarz.
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);')
@@ -284,7 +305,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   }
 #endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${PINSEL_AN ? '-pinsel' : ''}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${GRAS_VIEL ? '-viel' : ''}${PINSEL_AN ? '-pinsel' : ''}`;
 
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;

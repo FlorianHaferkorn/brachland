@@ -50,7 +50,13 @@ export const AO_RUHIG = teil('aoruhig');
  * Büschel (Höhe in ~70-cm-Flecken), dunkle Basis (Verdeckung im Rasen), Durchlicht im Gegenlicht,
  * kein Glanz. Der Teppich selbst — Dichte, Ringe, Wind — bleibt.
  */
-export const GRAS_ECHT = teil('gras');
+/**
+ * Gras-Vielfalt (D271, `?gras=2`): Pflanzenarten (Gras, Stroh, Kraut), Büschel mit kahlen Stellen, Halmkante
+ * und -rippe. Anlass: Vergleich mit Phantom-Blade-Zero-Pressebildern am 12.11.2026 — dort fällt nicht die
+ * Dichte auf, sondern Vielfalt. Schaltet `?gras=1` (Nahfeld, D268) mit ein.
+ */
+export const GRAS_VIEL = suche.get('gras') === '2';
+export const GRAS_ECHT = teil('gras') || GRAS_VIEL;
 /**
  * Bach im Wald (D267, `bandmaterial.ts`): Die Spiegelung zeigt unterhalb einer Waldkante (~7–27° über
  * dem Wasser) das dunkle Ufer statt Himmel. Ohne Szenenspiegelung reflektierte das Wasser gerade dort,
