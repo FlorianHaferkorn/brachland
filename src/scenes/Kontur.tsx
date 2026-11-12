@@ -43,7 +43,7 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { MSAA } from '../world/echt.js';
+import { MSAA, ABGLEICH_AN } from '../world/echt.js';
 
 const KONTUR_ADRESSE: boolean | null = (() => {
   if (typeof location === 'undefined') return null;
@@ -240,7 +240,22 @@ const FRAGMENT = /* glsl */`
   uniform sampler2D tSchacht;
   uniform float uBloom;
   uniform vec3 uSchacht;
+  uniform float uAbgleich;
   varying vec2 vUv;
+
+  /* Farbabgleich (D262, \`?abgleich=1\` / \`?echt=1\`): linear, vor dem Tonemapping.
+   * 1. Weissabgleich: ein Teil des Sepiastichs raus, Helligkeit bleibt (Luminanz wieder hergestellt).
+   * 2. Kontrast um Mittelgrau 0,18 in Potenz — Schatten tiefer, Licht heller, Mitte bleibt.
+   * 3. Etwas Sättigung zurück, die der Stich vorher als Gelbbraun gebunden hatte. */
+  vec3 abgleich(vec3 c) {
+    float l0 = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c *= vec3(0.9, 1.0, 1.16);
+    float l1 = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c *= l0 / max(l1, 1e-5);
+    c = 0.18 * pow(max(c, vec3(0.0)) / 0.18, vec3(1.12));
+    float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    return max(mix(vec3(l), c, 1.12), vec3(0.0));
+  }
 
   void main() {
     vec4 farbe = texture2D(tFarbe, vUv);
@@ -272,6 +287,7 @@ const FRAGMENT = /* glsl */`
     vec3 rgb = farbe.rgb * ao * (1.0 - uStaerke * kante);
     if (uBloom > 0.0) rgb += texture2D(tBloom, vUv).rgb * uBloom;
     rgb += texture2D(tSchacht, vUv).r * uSchacht;
+    if (uAbgleich > 0.0) rgb = abgleich(rgb);
     gl_FragColor = vec4(rgb, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -322,6 +338,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
         uStaerke: { value: an ? staerke : 0 }, uSchwelle: { value: schwelle }, uAO: { value: ao },
         tBloom: { value: null }, tSchacht: { value: null },
         uBloom: { value: 0 }, uSchacht: { value: new THREE.Color(0, 0, 0) },
+        uAbgleich: { value: ABGLEICH_AN ? 1 : 0 },
       },
       depthTest: false, depthWrite: false,
     });

@@ -39,7 +39,7 @@ import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
-import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
+import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, staemmeVon, type Bauwerk } from '../world/bauwerke.js';
 import { randSeite, type Seite } from '../spiel/region.js';
 import { haengeAgxLookEin } from './tonwert.js';
 import { haengeNebelEin } from './nebel.js';
@@ -55,6 +55,8 @@ import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
 import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type KartenArt } from '../world/laubkarten.js';
+import { STAMM_AN, WASSERREFLEX_AN } from '../world/echt.js';
+import { setzeStammfuss } from '../world/stammfuss.js';
 import { baueGrasteppich, NAH_HALB, NAH_ZELLE, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
@@ -480,7 +482,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const wasserProbe = useMemo<WasserReflexProbe | null>(() => {
     if (typeof location === 'undefined') return null;
     const parameter = new URLSearchParams(location.search), region = parameter.get('region');
-    if (parameter.get('wasserreflex') !== '1' || (region && region !== 'oental')) return null;
+    if (!WASSERREFLEX_AN || (region && region !== 'oental')) return null;
     return { karte: { value: null }, mitte: { value: new THREE.Vector3() }, bereit: { value: 0 } };
   }, []);
   const wasserMaterial = useMemo(() => baueWasserMaterial(false,
@@ -1768,6 +1770,10 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
      * lang; gezeichnet wurde überall der volle Saum.
      */
     const materialien: { w: ReturnType<typeof baueWindMaterial>; anteil: number }[] = [];
+    // Vertikalschnitt (`?stamm=1`, D262): Weltlage jedes Netzes für Rindenmass und Stammfuss.
+    klon.updateMatrixWorld(true);
+    const skalaVon = (o: THREE.Object3D) => { const v = new THREE.Vector3(); o.getWorldScale(v); return Math.cbrt(Math.abs(v.x * v.y * v.z)) || 1; };
+    let fussEcken = 0;
     klon.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return;
       o.castShadow = true; o.receiveShadow = true;
@@ -1793,9 +1799,19 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
       const anteil = laub ? 0.15 : 0;
       // Himmelsanteil (D170, `tools/himmel.ts`): nur, wo die Datei ihn mitbringt.
       const himmel = !!(o.geometry as THREE.BufferGeometry).getAttribute('_himmel');
+      // Holz der Szene: vereinigte Waldstämme (`WaldHolz`, nur Vertexfarbe) und Weidenstämme.
+      const holz = STAMM_AN && /Holz/.test(o.name);
+      let fuss = false;
+      if (holz) {
+        const g = o.geometry as THREE.BufferGeometry;
+        if (!g.getAttribute('_fuss')) fussEcken += setzeStammfuss(g, o.matrixWorld, bauwerk.ursprung.x, bauwerk.ursprung.z, staemmeVon(bauwerk.name));
+        fuss = true;
+      }
+      // Rinden-Scan nur, wo keine gebackene Textur liegt (die Weiden bringen ihre eigene mit).
+      const rinde = holz && !basis.map ? { rinde: 'ganz' as const, rindeMeter: skalaVon(o) } : {};
       const w = baueWindMaterial(laub
         ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, randSchaerfe: 10, loecher: 0.42, loecherSkala: 9, durchlass: 0.55, himmel }
-        : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, himmel }, basis);
+        : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, himmel, fuss, ...rinde }, basis);
       if (laub) { w.material.side = THREE.DoubleSide; if (w.tiefe) o.customDepthMaterial = w.tiefe; }
       if (NORMAL_MESSLAUF !== null && w.material.normalMap) w.material.normalScale.setScalar(NORMAL_MESSLAUF);
       o.material = w.material; materialien.push({ w, anteil });
@@ -1807,11 +1823,9 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
     // Vertikalschnitt (`?laubkarten=1`): Kronen bekommen Foto-Blattkarten, der Klumpen wird zum
     // dunklen Kern 40 cm innen. Nach dem Durchlauf, damit `traverse` die neuen Kinder nicht besucht.
     const karten: ReturnType<typeof baueLaubkarten>[] = [];
-    klon.updateMatrixWorld(true);
-    const sk = new THREE.Vector3();
+    if (fussEcken) console.info(`[stamm] ${bauwerk.name}/${teil}: ${fussEcken} Ecken an Stammfüssen`);
     huellen.forEach(({ o, art, w }, i) => {
-      o.getWorldScale(sk);
-      const skala = Math.cbrt(Math.abs(sk.x * sk.y * sk.z)) || 1;
+      const skala = skalaVon(o);
       const k = baueLaubkarten(o.geometry as THREE.BufferGeometry, art, i + 1, 1, skala);
       o.geometry = schrumpfeHuelle(o.geometry as THREE.BufferGeometry, 0.4, skala);
       w.material.color.multiplyScalar(0.4);

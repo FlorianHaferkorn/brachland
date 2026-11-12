@@ -10,13 +10,30 @@ const suche = typeof location === 'undefined' ? new URLSearchParams() : new URLS
 const an = (name: string) => suche.get(name) === '1';
 
 export const ECHT = an('echt');
+/** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */
+const teil = (name: string) => (suche.get(name) === '0' ? false : ECHT || an(name));
 /** Foto-Blattkarten auf den Kronen der Blender-Szenen (`laubkarten.ts`). */
-export const LAUBKARTEN_AN = ECHT || an('laubkarten');
+export const LAUBKARTEN_AN = teil('laubkarten');
 /**
  * Bachufer grün statt Schlamm: Bäche werden mit einer ganzen Rasterzelle (~10 m bei 384) als Biom
  * `wasser` gestempelt. Wo dort trocken ist, zählt die Zelle als Wiese — Farbe, Gras, Streu.
  */
-export const UFER_GRUEN = ECHT || an('ufer');
+export const UFER_GRUEN = teil('ufer');
+/**
+ * Rinde und Stammfuss an den Waldstämmen der Blender-Szenen (D262): `WaldHolz` bekommt den
+ * Rinden-Scan, den die Engine-Bäume seit D224 tragen, und jedes Holz der Szene die Verdeckung am
+ * Boden (`stammfuss.ts`).
+ */
+export const STAMM_AN = teil('stamm');
+/**
+ * Farbabgleich im Zwischenbild (D262): nimmt einen Teil des Sepiastichs der Stimmung heraus und
+ * setzt eine sanfte S-Kurve. Berührt die entschiedene Tagesstimmung nicht — die Stimmung bleibt
+ * `zielbild`, nur das fertige Bild wird abgeglichen. Gegenentwurf mit kühler Palette bleibt
+ * ADR-0011 (Proposed).
+ */
+export const ABGLEICH_AN = teil('abgleich');
+/** Szenenspiegelung im Wasser am Stauwehr (D255, `?wasserreflex=1`) — mit `?echt=1` an. */
+export const WASSERREFLEX_AN = teil('wasserreflex');
 /**
  * Kantenglättung im Zwischenbild (`Kontur.tsx`): Seit D155 zeichnet die Szene für AO/Kontur/Bloom
  * in ein Renderziel mit `samples: 0` — `antialias` am Canvas wirkt dann nie, jede Kante hat

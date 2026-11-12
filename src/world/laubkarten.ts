@@ -36,12 +36,18 @@ interface ArtWerte {
   /** Hängend: Längsachse nach unten (Weide), sonst frei gedreht. */
   haengend: boolean;
   durchlass: number;
+  /**
+   * Wiederholungen des Fotos je Kartenkante (D262). Der Zweig im Foto trägt 6–7 Blätter über die
+   * ganze Kachel; auf einer 75-cm-Karte war ein Blatt so 30–35 cm lang statt 8–12 cm — aus der
+   * Nähe las die Krone wie Riesenlaub. 2 × 2 Zweige auf 60 cm bringen das Blatt auf ~13 cm.
+   */
+  kacheln: number;
 }
 
 const ARTEN: Record<KartenArt, ArtWerte> = {
-  laub: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 5.5, groesse: [0.75, 0.75], streuung: 0.9, haengend: false, durchlass: 0.6 },
-  nadel: { textur: '/material/ez-nadel-cc0-v5.webp', dichte: 6.5, groesse: [0.8, 0.55], streuung: 0.5, haengend: false, durchlass: 0.3 },
-  weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7, groesse: [0.35, 1.1], streuung: 0.35, haengend: true, durchlass: 0.65 },
+  laub: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7.5, groesse: [0.6, 0.6], streuung: 0.9, haengend: false, durchlass: 0.6, kacheln: 2 },
+  nadel: { textur: '/material/ez-nadel-cc0-v5.webp', dichte: 6.5, groesse: [0.8, 0.55], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: 1 },
+  weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7, groesse: [0.35, 1.1], streuung: 0.35, haengend: true, durchlass: 0.65, kacheln: 1 },
 };
 
 /** Obergrenze je Hülle: Eine riesige zusammengeführte Krone soll nicht 300.000 Karten bekommen. */
@@ -68,20 +74,22 @@ export function kartenArtFuer(name: string): KartenArt | null {
 }
 
 const texturen = new Map<string, THREE.Texture>();
-function textur(pfad: string): THREE.Texture {
-  let t = texturen.get(pfad);
+function textur(pfad: string, kacheln: number): THREE.Texture {
+  const schluessel = pfad + '×' + kacheln;
+  let t = texturen.get(schluessel);
   if (!t) {
     t = new THREE.TextureLoader().load(pfad);
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
-    texturen.set(pfad, t);
+    if (kacheln > 1) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(kacheln, kacheln); }
+    texturen.set(schluessel, t);
   }
   return t;
 }
 
 function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({
-    map: textur(art.textur), alphaTest: 0.45, side: THREE.DoubleSide,
+    map: textur(art.textur, art.kacheln), alphaTest: 0.45, side: THREE.DoubleSide,
     roughness: 0.75, metalness: 0,
     // Weiche Blattränder statt Treppen — wirkt nur mit MSAA im Zielbild (`echt.ts` MSAA).
     alphaToCoverage: MSAA > 0,

@@ -75,8 +75,19 @@ export interface WindMaterialWerte {
    * Rinde (D224): Holz der Blender-Bäume (`COLOR_0.a` < 0,5) bekommt den Rinden-Scan
    * `public/material/rinde-farbe.webp` — Modulation wie beim Boden (D223) plus Relief aus der Höhe.
    * Nur für Netze mit Laubmaske.
+   *
+   * `'ganz'` (Vertikalschnitt `?echt=1`, D262): das ganze Netz ist Holz, ohne Laubmaske — die
+   * vereinigten Waldstämme der Blender-Szenen (`WaldHolz`) tragen nur drei Farbkanäle. Dann gibt
+   * `rindeMeter` an, wie viele Meter eine Modelleinheit ist (quantisierte glTF-Positionen).
    */
-  rinde?: boolean;
+  rinde?: boolean | 'ganz';
+  rindeMeter?: number;
+  /**
+   * Stammfuss (D262): Die Geometrie trägt `_fuss` (0 am Boden, 1 ab ~1,2 m darüber,
+   * `stammfuss.ts`). Dort wird das Holz dunkler — die Verdeckung durch Boden, Streu und Gras, die
+   * aus einem Stamm erst einen Stamm macht, der im Boden steht.
+   */
+  fuss?: boolean;
 }
 
 /**
@@ -106,10 +117,11 @@ function ladeRinde(): void {
 /** Stammmass des Scans: 1,7 m je Kachel. Zwei Seitenprojektionen, gewichtet nach der Modellnormale. */
 const RINDE_PARS_GLSL = /* glsl */ `
 uniform sampler2D uRinde;
+uniform float uRindeMeter;
 varying vec3 vRindePos;
 varying vec3 vRindeNormal;
 vec4 rindeLesen() {
-  vec2 skala = vec2(1.0 / 1.7);
+  vec2 skala = vec2(uRindeMeter / 1.7);
   vec4 a = texture2D(uRinde, vRindePos.zy * skala);
   vec4 b = texture2D(uRinde, vRindePos.xy * skala + 0.5);
   vec2 w = pow(abs(normalize(vRindeNormal).xz) + 1e-3, vec2(4.0));
@@ -118,16 +130,20 @@ vec4 rindeLesen() {
 `;
 
 const RINDE_FARBE_GLSL = /* glsl */ `
-  #ifdef USE_COLOR_ALPHA
+  #if defined( USE_COLOR_ALPHA ) || defined( RINDE_GANZ )
   vec4 rindeScan = rindeLesen();
+  #ifdef RINDE_GANZ
+  float istHolz = 1.0;
+  #else
   float istHolz = 1.0 - step(0.5, vColor.a);
+  #endif
   diffuseColor.rgb *= mix(vec3(1.0), rindeScan.rgb * 2.0, 0.85 * istHolz);
   #endif
 `;
 
 /** Relief aus der Höhe (Mikkelsen, wie das Bodenrelief D201): 1,2 cm, ab ~40 m ausgeblendet. */
 const RINDE_RELIEF_GLSL = /* glsl */ `
-  #ifdef USE_COLOR_ALPHA
+  #if defined( USE_COLOR_ALPHA ) || defined( RINDE_GANZ )
   {
     float hoehe = rindeScan.a * 0.012 * istHolz * (1.0 - smoothstep(25.0, 40.0, length(vViewPosition)));
     vec3 dx = dFdx(-vViewPosition);
@@ -456,6 +472,8 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
     shader.uniforms.uDurchlass = durchlass;
     if (w.rinde) {
       shader.uniforms.uRinde = RINDE;
+      shader.uniforms.uRindeMeter = { value: w.rindeMeter ?? 1 };
+      if (w.rinde === 'ganz') shader.fragmentShader = '#define RINDE_GANZ\n' + shader.fragmentShader;
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nvarying vec3 vRindePos;\nvarying vec3 vRindeNormal;')
         // Vor dem Wind: Modelllage in Ruhe, sonst schwimmt die Rinde mit dem Ast.
@@ -464,6 +482,15 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
         .replace('#include <common>', '#include <common>\n' + RINDE_PARS_GLSL)
         .replace('#include <color_fragment>', '#include <color_fragment>' + RINDE_FARBE_GLSL)
         .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>' + RINDE_RELIEF_GLSL);
+    }
+    if (w.fuss) {
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float _fuss;\nvarying float vFuss;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFuss = _fuss;');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vFuss;')
+        // Fülllicht stark, Sonne schwach: Am Fuss fehlt vor allem der Himmel, Streiflicht kommt an.
+        .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n{ float f = smoothstep(0.0, 1.0, vFuss); reflectedLight.indirectDiffuse *= mix(0.25, 1.0, f); reflectedLight.directDiffuse *= mix(0.6, 1.0, f); }');
     }
     if (w.himmel) {
       shader.uniforms.uHimmel = HIMMEL_UNIFORM;
@@ -496,7 +523,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v16' + (w.himmel ? '-himmel' : '') + (w.rinde ? '-rinde' : '');
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v16' + (w.himmel ? '-himmel' : '') + (w.rinde ? '-rinde' + (w.rinde === 'ganz' ? '-ganz' : '') : '') + (w.fuss ? '-fuss' : '');
   if (w.rinde) ladeRinde();
 
   // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens
