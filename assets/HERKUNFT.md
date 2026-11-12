@@ -137,6 +137,12 @@ Herkunft trotzdem, damit niemand rätseln muss. Lizenz geprüft am 15.10.2026 au
 Bis D222 lagen hier zwei Detailnormalen aus npm `@pmndrs/assets` 1.7.0 (`normals/0005`, `0015`,
 Poimandres, CC0-1.0); D223 hat sie ersetzt.
 
+## Himmel (`public/himmel`, D265)
+
+| Datei | Was | Urheber | Lizenz | Quelle |
+|---|---|---|---|---|
+| alps_field_1k.hdr | Himmelsfoto (HDRI, 1k, Radiance) als Umgebungslicht der Probe `?hdri=1` und der WebGPU-Probe | Andreas Mischok | CC0-1.0 | Poly Haven [`alps_field`](https://polyhaven.com/a/alps_field) |
+
 ## Was im Spiel stehen muss
 
 Für CC BY reicht die Nennung in einer mitgelieferten Datei; ein Impressum im

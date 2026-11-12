@@ -19,6 +19,7 @@
 import * as THREE from 'three';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
+import { GRAS_ECHT } from './echt.js';
 import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
 
@@ -26,6 +27,11 @@ import type { HoehenFeld } from './lod.js';
 export const TEPPICH_HALB = 30;
 /** Halmzelle in Metern bei voller Qualität — ein Halm je Zelle, also 25 je m². */
 export const TEPPICH_ZELLE = 0.2;
+/**
+ * D266: Mit `GRAS_ECHT` 0,15 m (44 statt 25 Halme je m² im 30-m-Teppich). Zwischen 12 und 30 m las die
+ * Wiese mit 25 je m² als einzelne Sprossen. Kostet ~0,35 Mio Dreiecke mehr; am M1 zu messen (A-16).
+ */
+export const TEPPICH_ZELLE_ECHT = 0.15;
 /** Ab dieser Bewegung wird die Feldtextur neu gefüllt. */
 export const TEPPICH_NACHZIEHEN = 4;
 /**
@@ -45,6 +51,14 @@ export const NAH_HALB = 12;
  */
 export const FERN_ZELLE = 0.45;
 export const NAH_ZELLE = 0.07;
+/**
+ * D268 (`?gras=1` / `?echt=1`): Nahfeld auf 8 m verkürzt und auf 4,5-cm-Zelle verdichtet (~490 statt ~200
+ * Halme je m²) bei **gleich vielen Instanzen** (356² gegen 343²) — Wiese wie Rasen, wo man sie anfasst,
+ * und dünnere Halme (Faktor `NAH_BREITE_ECHT`). Dahinter übernimmt der 30-m-Teppich mit 15 cm (D266).
+ */
+export const NAH_HALB_ECHT = 8;
+export const NAH_ZELLE_ECHT = 0.045;
+const NAH_BREITE_ECHT = 0.7;
 
 /** Wie dicht Gras je Biom steht (0…1). Wald trägt Moos und Farn, kein Rasen. */
 const DICHTE: Record<Biom, number> = {
@@ -68,6 +82,9 @@ function baueHalm(): THREE.BufferGeometry {
   const idx = [0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4, 4, 5, 6];
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  // Wert egal, der Vertex-Shader setzt `objectNormal` selbst. Ohne das Attribut schaltet three
+  // ab r18x auf FLAT_SHADED, dann fehlt `vNormal` und der Teppich kompiliert nicht (ADR-0015).
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(pos.map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
   g.setIndex(idx);
   return g;
 }
@@ -92,7 +109,7 @@ export interface Grasteppich {
  */
 export function baueGrasteppich(
   feld: HoehenFeld, aufWeg: (x: number, z: number) => boolean, faktor = 1,
-  halb = TEPPICH_HALB, grundZelle = TEPPICH_ZELLE,
+  halb = TEPPICH_HALB, grundZelle = GRAS_ECHT ? TEPPICH_ZELLE_ECHT : TEPPICH_ZELLE,
   /** Fernring (D247): halbe Kantenlänge des inneren Teppichs, der hier ausgespart wird. 0 = keiner. */
   innen = 0,
   /**
@@ -112,6 +129,7 @@ export function baueGrasteppich(
   const geo = new THREE.InstancedBufferGeometry();
   geo.index = halm.index;
   geo.setAttribute('position', halm.getAttribute('position'));
+  geo.setAttribute('normal', halm.getAttribute('normal'));
   const versatz = new Float32Array(n * n * 2);
   for (let i = 0, k = 0; i < n; i++) for (let j = 0; j < n; j++) { versatz[k++] = j - n / 2; versatz[k++] = i - n / 2; }
   geo.setAttribute('aZelle', new THREE.InstancedBufferAttribute(versatz, 2));
@@ -143,7 +161,8 @@ export function baueGrasteppich(
   };
 
   const material = new THREE.MeshStandardMaterial({
-    vertexColors: false, roughness: 0.85, metalness: 0, side: THREE.DoubleSide,
+    // D266: Mit `GRAS_ECHT` matt — bei 0,85 glänzte jede Spitze im Streiflicht grau-weiss.
+    vertexColors: false, roughness: GRAS_ECHT ? 1 : 0.85, metalness: 0, side: THREE.DoubleSide,
   });
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -159,6 +178,7 @@ uniform vec2 uMitte;
 uniform vec3 uFuss;
 uniform vec3 uSpitze;
 varying vec3 vHalmFarbe;
+varying float vHalmY;
 float halmHash(vec2 p) { p = mod(p, 4096.0); return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float halmRauschen(vec2 p) {
   vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -203,8 +223,13 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float da = step(h3, dicht) * rand;
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
   ${strukturAn ? 'hoehe *= mix(1.0, mix(0.78, 1.05, wiesenStruktur), wiesenAnteil);' : ''}
+  ${GRAS_ECHT ? `
+  // D266: Büschel. Gras wächst in Horsten von Handbreite bis Armlänge, nicht als Teppich gleicher
+  // Höhe — zwei Rauschlagen (70 cm, 3 m) heben und senken die Halme.
+  float buschel = halmRauschen(ort * 1.4 + 11.0) * 0.65 + halmRauschen(ort * 0.33 + 2.0) * 0.35;
+  hoehe *= 0.45 + 1.1 * buschel;` : ''}
   // Im Fernring breiter: Ein 2-cm-Halm ist auf 50 m kleiner als ein Pixel und flimmert nur.
-  float breite = (0.012 + h5 * 0.012) * ${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : '1.0'};
+  float breite = (0.012 + h5 * 0.012) * ${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : GRAS_ECHT && halb === NAH_HALB_ECHT ? NAH_BREITE_ECHT.toFixed(2) : '1.0'};
   float winkel = h1 * 6.2832;
   vec2 quer = vec2(cos(winkel), sin(winkel));
   vec2 vor = vec2(-quer.y, quer.x);
@@ -226,20 +251,37 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vec3 spitze = mix(gruen, vec3(0.62, 0.55, 0.34), trocken) * (0.9 + h5 * 0.25);
   vec3 fuss = bodenTon * 0.8;
   float zumBoden = smoothstep(${(halb * (innen > 0 ? 0.5 : 0.3)).toFixed(1)}, ${(halb * (innen > 0 ? 0.95 : 0.9)).toFixed(1)}, abst);
+  ${GRAS_ECHT ? `
+  // D266: Grün statt Grau. Zwei Grüntöne in 4-m-Flecken (sattes Wiesengrün, gelbgrün), je Halm
+  // ±15 % Helligkeit; trocken bleibt Stroh. Die Basis tief dunkel: Im Rasen kommt unten kaum Licht an.
+  float fleck = halmRauschen(ort * 0.25 + 7.0);
+  vec3 sattGruen = mix(vec3(0.075, 0.16, 0.03), vec3(0.17, 0.24, 0.05), fleck);
+  spitze = mix(mix(sattGruen, gruen, 0.35), vec3(0.45, 0.40, 0.22), trocken) * (0.85 + h5 * 0.3);
+  fuss = bodenTon * 0.35;` : ''}
   vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
+  vHalmY = y * (1.0 - zumBoden);
   vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
   #ifdef USE_TANGENT
     vec3 objectTangent = vec3(1.0, 0.0, 0.0);
   #endif`)
       .replace('#include <begin_vertex>', 'vec3 transformed = halmPos;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;')
       .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;')
       // Beide Seiten mit derselben (nach oben gekippten) Normale: three dreht sie für die
       // Rückseite um, dann zeigte sie in den Boden und der halbe Rasen wäre schwarz.
-      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);');
+      .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);')
+      // D266: Durchlicht — steht die Sonne hinter dem Halm, leuchtet die Spitze (Gras ist dünn).
+      .replace('#include <lights_fragment_end>', GRAS_ECHT ? `#include <lights_fragment_end>
+#if NUM_DIR_LIGHTS > 0
+  {
+    vec3 sonne = directionalLights[ 0 ].direction;
+    float gegen = saturate(dot(-normalize(vViewPosition), sonne));
+    reflectedLight.directDiffuse += diffuseColor.rgb * directionalLights[ 0 ].color * 0.55 * pow(gegen, 3.0) * vHalmY;
+  }
+#endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}`;
 
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;

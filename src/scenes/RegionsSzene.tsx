@@ -54,7 +54,13 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
-import { baueGrasteppich, NAH_HALB, NAH_ZELLE, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
+import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type KartenArt } from '../world/laubkarten.js';
+import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE } from '../world/echt.js';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
+import { setzeStammfuss } from '../world/stammfuss.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
+import { GRAS_ECHT, WEIHER_AN } from '../world/echt.js';
+import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
@@ -199,7 +205,7 @@ const KURVE_VORGABE: THREE.ToneMapping = THREE.CustomToneMapping;
 const SCHATTENKARTE = (() => {
   const roh = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('schattenkarte');
   const [a, h] = (roh ?? '').split(',').map(Number);
-  return { aufloesung: Number.isFinite(a) && a >= 512 ? a : 2048, halb: Number.isFinite(h) && h >= 20 ? h : 250 };
+  return { aufloesung: Number.isFinite(a) && a >= 512 ? a : SCHATTEN_AUFLOESUNG, halb: Number.isFinite(h) && h >= 20 ? h : 250 };
 })();
 
 /**
@@ -479,7 +485,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const wasserProbe = useMemo<WasserReflexProbe | null>(() => {
     if (typeof location === 'undefined') return null;
     const parameter = new URLSearchParams(location.search), region = parameter.get('region');
-    if (parameter.get('wasserreflex') !== '1' || (region && region !== 'oental')) return null;
+    if (!WASSERREFLEX_AN || (region && region !== 'oental')) return null;
     return { karte: { value: null }, mitte: { value: new THREE.Vector3() }, bereit: { value: 0 } };
   }, []);
   const wasserMaterial = useMemo(() => baueWasserMaterial(false,
@@ -677,6 +683,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
         ['weg', baueWegKachel], ['wasser', wasserKachel], ['fall', baueFallKachel],
         ['haus', hausKachel], ['garten', baueGartenKachel],
       ] as const) {
+        if (art === 'wasser' && istAus('wasser')) continue;
         const schluessel = `${art}:${k.ix}:${k.iz}:${lod}${art === 'wasser' ? pegel : ''}`;
         let g = cache.current.get(schluessel);
         if (g === undefined) {
@@ -1707,6 +1714,30 @@ export interface Ortsmarke {
 }
 
 /**
+ * Weg B (D265, `?hdri=1`): Himmelsfoto als Umgebungslicht. PMREM gefiltert, als `scene.environment`
+ * für jedes Standardmaterial; die Hemisphäre bleibt mit einem Viertel als Grundlicht für die
+ * eigenen Shader, die keine Umgebungskarte lesen. Sonne und Schatten bleiben, wie sie sind.
+ */
+function HdriLicht() {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    let weg = false;
+    const pmrem = new THREE.PMREMGenerator(gl);
+    let karte: THREE.Texture | null = null;
+    new HDRLoader().load('/himmel/alps_field_1k.hdr', (t) => {
+      if (weg) { t.dispose(); return; }
+      karte = pmrem.fromEquirectangular(t).texture;
+      t.dispose();
+      scene.environment = karte;
+      scene.environmentIntensity = HDRI_STAERKE;
+      console.info('[hdri] alps_field aktiv, Stärke', HDRI_STAERKE);
+    });
+    return () => { weg = true; if (scene.environment === karte) scene.environment = null; karte?.dispose(); pmrem.dispose(); };
+  }, [gl, scene]);
+  return null;
+}
+
+/**
  * Bauwerke aus der Blender-Szene (ADR-0006, Stufe 2).
  *
  * `tools/szenenexport.py` backt die prozeduralen Materialien und schreibt je Bauwerk bis zu
@@ -1721,8 +1752,10 @@ export interface Ortsmarke {
  */
 const BAUWERK_NEUBEWERTUNG = 100;
 
-function Bauwerke({ rand, ziel }: {
+function Bauwerke({ rand, ziel, hoeheAn }: {
   rand: { farbe: string; staerke: number };
+  /** Sichtbares Gelände (Weltmeter) — für den Stammfuss (D262). */
+  hoeheAn: (x: number, z: number) => number;
   ziel: React.RefObject<THREE.Object3D | null>;
 }) {
   const [sichtbar, setzeSichtbar] = useState<Bauwerk[]>([]);
@@ -1737,11 +1770,14 @@ function Bauwerke({ rand, ziel }: {
     <>
       {sichtbar.map(b => (
         <group key={b.name} position={[b.ursprung.x, b.h0, b.ursprung.z]}>
+          {WEIHER_AN && b.dateien.includes('bauten') && (
+            <Suspense fallback={null}><BauwerkWeiher bauwerk={b} hoeheAn={hoeheAn} /></Suspense>
+          )}
           {b.dateien.map(teil => (
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
                 ? <BauwerkWasser bauwerk={b} />
-                : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} />}
+                : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
           ))}
         </group>
@@ -1750,12 +1786,37 @@ function Bauwerke({ rand, ziel }: {
   );
 }
 
-function Bauwerkteil({ bauwerk, teil, rand }: {
+/**
+ * Stauweiher (D268, `world/weiher.ts`): nur für Bauwerke mit einem Objekt `Wehr`. Teilt sich die
+ * geladene `bauten`-Datei mit `Bauwerkteil` (drei cached je Pfad) und verändert sie nicht.
+ */
+function BauwerkWeiher({ bauwerk, hoeheAn }: { bauwerk: Bauwerk; hoeheAn: (x: number, z: number) => number }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'bauten'));
+  const material = useMemo(() => baueWasserMaterial(false, false, 'weiher'), []);
+  useWasserUmgebung(material);
+  const weiher = useMemo(() => {
+    scene.updateMatrixWorld(true);
+    const wehr = scene.getObjectByName('Wehr');
+    if (!wehr) return null;
+    const box = new THREE.Box3().setFromObject(wehr);
+    const { x: ox, z: oz } = bauwerk.ursprung;
+    // Gruppenraum: Welt minus Ursprung und `h0` (die Gruppe steht dort, siehe `Bauwerke`).
+    const w = baueWeiher(box, (x, z) => hoeheAn(x + ox, z + oz) - bauwerk.h0);
+    if (w) console.info(`[weiher] ${bauwerk.name}: Spiegel ${(w.spiegel + bauwerk.h0).toFixed(2)} m, ${w.zellen} Zellen`);
+    return w;
+  }, [scene, bauwerk, hoeheAn]);
+  useEffect(() => () => { weiher?.geometrie.dispose(); material.dispose(); }, [weiher, material]);
+  return weiher ? <mesh geometry={weiher.geometrie} material={material} renderOrder={1} /> : null;
+}
+
+function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
   bauwerk: Bauwerk; teil: 'bauten' | 'gruen'; rand: { farbe: string; staerke: number };
+  hoeheAn: (x: number, z: number) => number;
 }) {
   const { scene } = useGLTF(bauwerkPfad(bauwerk, teil));
-  const { objekt, materialien } = useMemo(() => {
+  const { objekt, materialien, karten, kerne } = useMemo(() => {
     const klon = scene.clone(true);
+    const huellen: { o: THREE.Mesh; art: KartenArt; w: ReturnType<typeof baueWindMaterial> }[] = [];
     /**
      * Jedes Material mit **seinem** Saumanteil (D166).
      *
@@ -1766,6 +1827,10 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
      * lang; gezeichnet wurde überall der volle Saum.
      */
     const materialien: { w: ReturnType<typeof baueWindMaterial>; anteil: number }[] = [];
+    // Vertikalschnitt (`?stamm=1`, D262): Weltlage jedes Netzes für Rindenmass und Stammfuss.
+    klon.updateMatrixWorld(true);
+    const skalaVon = (o: THREE.Object3D) => { const v = new THREE.Vector3(); o.getWorldScale(v); return Math.cbrt(Math.abs(v.x * v.y * v.z)) || 1; };
+    let fussEcken = 0;
     klon.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return;
       o.castShadow = true; o.receiveShadow = true;
@@ -1791,21 +1856,65 @@ function Bauwerkteil({ bauwerk, teil, rand }: {
       const anteil = laub ? 0.15 : 0;
       // Himmelsanteil (D170, `tools/himmel.ts`): nur, wo die Datei ihn mitbringt.
       const himmel = !!(o.geometry as THREE.BufferGeometry).getAttribute('_himmel');
+      // Holz der Szene: vereinigte Waldstämme (`WaldHolz`, nur Vertexfarbe) und Weidenstämme.
+      const holz = STAMM_AN && /Holz/.test(o.name);
+      let fuss = false;
+      if (holz) {
+        const g = o.geometry as THREE.BufferGeometry;
+        if (!g.getAttribute('_fuss')) fussEcken += setzeStammfuss(g, o.matrixWorld, { x: bauwerk.ursprung.x, y: bauwerk.h0, z: bauwerk.ursprung.z }, hoeheAn);
+        fuss = true;
+      }
+      // Rinden-Scan nur, wo keine gebackene Textur liegt (die Weiden bringen ihre eigene mit).
+      const rinde = holz && !basis.map ? { rinde: 'ganz' as const, rindeMeter: skalaVon(o) } : {};
       const w = baueWindMaterial(laub
         ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, randSchaerfe: 10, loecher: 0.42, loecherSkala: 9, durchlass: 0.55, himmel }
-        : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, himmel }, basis);
+        : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, himmel, fuss, ...rinde }, basis);
       if (laub) { w.material.side = THREE.DoubleSide; if (w.tiefe) o.customDepthMaterial = w.tiefe; }
       if (NORMAL_MESSLAUF !== null && w.material.normalMap) w.material.normalScale.setScalar(NORMAL_MESSLAUF);
       o.material = w.material; materialien.push({ w, anteil });
+      if (LAUBKARTEN_AN && teil === 'gruen') {
+        const art = kartenArtFuer(o.name);
+        if (art) huellen.push({ o, art, w });
+      }
     });
-    return { objekt: klon, materialien };
+    // Vertikalschnitt (`?laubkarten=1`): Kronen bekommen Foto-Blattkarten, der Klumpen wird zum
+    // dunklen Kern 40 cm innen. Nach dem Durchlauf, damit `traverse` die neuen Kinder nicht besucht.
+    const karten: ReturnType<typeof baueLaubkarten>[] = [];
+    const kerne: THREE.Material[] = [];
+    if (fussEcken) console.info(`[stamm] ${bauwerk.name}/${teil}: ${fussEcken} Ecken an Stammfüssen`);
+    huellen.forEach(({ o, art, w }, i) => {
+      const skala = skalaVon(o);
+      const k = baueLaubkarten(o.geometry as THREE.BufferGeometry, art, i + 1, 1, skala);
+      o.geometry = schrumpfeHuelle(o.geometry as THREE.BufferGeometry, 0.4, skala);
+      /**
+       * D266: Der Kern bekommt ein eigenes, mattes Material. Mit dem Laubmaterial behielt er Saum,
+       * Durchlicht und Löcher — im Gegenlicht leuchtete er durch die Kartenlücken als graue Fläche
+       * (Weide vorn links, Stauwehr 12.11.2026).
+       */
+      const basis = w.material;
+      // Weide ohne Kern: Sie ist von Natur aus durchsichtig, und durch die lockeren Hängekarten sah
+      // man auf die flachen, sonnenbeschienenen Facetten des Kerns (graue Flecken, Weide5 8 m vor der
+      // Bildtor-Kamera). `visible: false` am Material blendet nur den Kern aus, die Karten (Kinder) bleiben.
+      const kern = new THREE.MeshStandardMaterial({
+        vertexColors: basis.vertexColors, color: basis.color.clone().multiplyScalar(0.25),
+        roughness: 1, metalness: 0, side: THREE.FrontSide, visible: art !== 'weide',
+      });
+      o.material = kern;
+      o.customDepthMaterial = undefined;
+      kerne.push(kern);
+      o.add(k.mesh); karten.push(k);
+    });
+    if (karten.length) console.info(`[laubkarten] ${bauwerk.name}: ${karten.length} Hüllen, ${karten.reduce((s, k) => s + k.anzahl, 0)} Karten auf ${Math.round(karten.reduce((s, k) => s + k.flaeche, 0))} m² (${karten.map(k => `${k.mesh.name.split(':')[1]} ${k.anzahl}/${Math.round(k.flaeche)}`).join(', ')})`);
+    return { objekt: klon, materialien, karten, kerne };
   }, [scene, teil, rand.farbe, rand.staerke]);
   useEffect(() => {
     materialien.forEach(({ w, anteil }) => w.setzeRand(new THREE.Color(rand.farbe), rand.staerke * anteil));
   }, [materialien, rand.farbe, rand.staerke]);
   useEffect(() => () => {
     materialien.forEach(({ w }) => { w.material.dispose(); w.tiefe?.dispose(); });
-  }, [materialien]);
+    karten.forEach(k => k.dispose());
+    kerne.forEach(m => m.dispose());
+  }, [materialien, karten, kerne]);
   return <primitive object={objekt} />;
 }
 
@@ -2176,7 +2285,8 @@ function Beleuchtung({ s, ziel }: {
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       {!takramBereit && <primitive object={himmel} />}
       {takramAn && <TakramProbe sonnenstand={s.sonnenstand} meldeBereit={setzeTakramBereit} />}
-      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, UMGEBUNG_MESSLAUF ?? s.umgebungStaerke]} />
+      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? 0.25 : 1)]} />
+      {HDRI_AN && <HdriLicht />}
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
@@ -2201,7 +2311,8 @@ function Grasteppich({ welt, feld, ziel, dichte, weite }: {
   const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
   // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
   const nah = useMemo(() => (dichte >= 1 && !istAus('nahgras')
-    ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE) : null), [feld, aufWeg, dichte]);
+    ? (GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT)
+      : baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE)) : null), [feld, aufWeg, dichte]);
   // D247: Fernring hinter dem Teppich, nur bei Sichtweite „weit“; `?aus=ferngras` schaltet ab.
   const fern = useMemo(() => (weite > 1 && dichte > 0 && !istAus('ferngras')
     ? baueGrasteppich(feld, aufWeg, dichte, Math.round(TEPPICH_HALB * 1.5 * weite), FERN_ZELLE, TEPPICH_HALB, 3)
@@ -3973,7 +4084,9 @@ export function RegionsSzene({
 
   return (
     <Canvas
-      shadows={qualitaet.schatten}
+      // ADR-0015: three r18x hat PCFSoftShadowMap entfernt (R3F-Vorgabe bei `true`) und fiel mit
+      // Warnung auf PCFShadowMap zurück — die filtert jetzt selbst weich (Vogel-Disk). Ausdrücklich.
+      shadows={qualitaet.schatten ? 'percentage' : false}
       frameloop={angehalten ? 'never' : 'always'}
       dpr={[1, qualitaet.dpr]}
       camera={{ fov: 55, near: 0.2, far: KAMERA_FERN, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}
@@ -4034,7 +4147,7 @@ export function RegionsSzene({
         <Regentenort ort={regentOrt} kreatur={regent.kreatur} gestalt={regent.gestalt} ziel={ref} onNah={onRegentNah} />
       )}
       {!istAus('bauwerke') && BAUWERKE.length > 0 && (
-        <Bauwerke ziel={ref} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
+        <Bauwerke ziel={ref} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} hoeheAn={feld.hoehe} />
       )}
       {vorkommen.length > 0 && gestalt && (
         <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref} gier={gier}

@@ -27,7 +27,8 @@
  */
 
 /** Gruppen, die sich abschalten lassen. */
-export type Gruppe = 'fels' | 'gras' | 'baeume' | 'kulisse' | 'haeuser' | 'menschen' | 'bauwerke' | 'teppich' | 'nahgras' | 'ferngras';
+/** `wasser` (D267): Bach- und Teichbänder — zur Frage, welche Fläche im Bild überhaupt Wasser ist. */
+export type Gruppe = 'fels' | 'gras' | 'baeume' | 'kulisse' | 'haeuser' | 'menschen' | 'bauwerke' | 'teppich' | 'nahgras' | 'ferngras' | 'wasser';
 
 const AUS: ReadonlySet<string> = new Set(
   (typeof location === 'undefined'

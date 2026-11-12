@@ -1,6 +1,6 @@
 # Single-Entry-Gate (claude-repo-kit). `make check` MUSS grün sein vor Commit/PR.
 # Der pre-commit-Hook ruft dieses Target automatisch.
-.PHONY: check check-index test typecheck validate quality geometrie roi-check install dev build preview help
+.PHONY: check check-index ledger-ids test typecheck validate quality geometrie roi-check install dev build preview help
 
 PY := $(shell command -v python3 2>/dev/null || command -v python)
 
@@ -19,11 +19,14 @@ help:   ## Verfügbare Targets
 # Befunde behoben sind." Sie sind behoben — 0 Blocker bei 2.033 Gebäuden, 87.052
 # Wasservertices und 23 Marken, Grundgesamtheit. Es prüft, was kein anderes Tor
 # prüft: dass Geometrie richtig in der Welt sitzt. Laufzeit rund 2 Minuten.
-check: check-index typecheck test validate quality geometrie   ## Vollständiges Gate vor jedem Commit
+check: check-index ledger-ids typecheck test validate quality geometrie   ## Vollständiges Gate vor jedem Commit
 	@echo "✓ make check grün"
 
 check-index:   ## Doku-Drift-Gate strict (blockt {{…}}-Stubs, tote Pfade, fehlende Register)
 	@"$(PY)" scripts/check_index.py --strict
+
+ledger-ids:   ## Jede ID in docs/_INDEX.md genau einmal; nennt die nächste freie D-Nummer
+	@"$(PY)" scripts/check_ledger_ids.py
 
 typecheck:   ## TypeScript über alles
 	@test -d node_modules || { echo "⏭  node_modules fehlt — 'make install' zuerst (übersprungen)"; exit 0; }

@@ -12,6 +12,7 @@
  *   die weiche Kante: außen durchsichtig, innen deckend.
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
+import { BACH_ECHT } from './echt.js';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
 import { PALETTE } from './palette.js';
@@ -88,7 +89,7 @@ const VERDECKT_GLSL = /* glsl */ `
 export function baueWasserMaterial(
   fallend = false,
   physikalisch = false,
-  form: 'band' | 'becken' = 'band',
+  form: 'band' | 'becken' | 'weiher' = 'band',
   probe?: WasserReflexProbe | null,
 ): THREE.MeshStandardMaterial {
   const material = fallend ? new THREE.MeshStandardMaterial({
@@ -122,7 +123,7 @@ export function baueWasserMaterial(
     attenuationDistance: 1 / 0.6,
     // Der Himmel ist die einzige Umgebung in der Karte. Ohne die verdeckenden
     // Baeume des Blender-Renders darf er das Wasser nicht vollstaendig aufhellen.
-    envMapIntensity: form === 'becken' ? 0.15 : 0.35,
+    envMapIntensity: form === 'becken' ? 0.15 : form === 'weiher' ? 0.25 : 0.35,
     transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false,
     forceSinglePass: true,
   });
@@ -133,6 +134,16 @@ export function baueWasserMaterial(
   // Szenenaufnahme ausblenden: sonst Selbstreflexion und Target-Feedback.
   material.userData.istWasser = true;
 
+  /**
+   * Uferfaktor 0…1 je Fläche. Band: Quer (`vBand.x` −1…1). Becken: Abstand zum Rechteckrand.
+   * Weiher (D268): `uv.x` = halbe Tiefe in 0,5-m-Schritten, von `weiher.ts` je Ecke gesetzt.
+   */
+  const UFER_AUSDRUCK = form === 'becken' ? '2.0 * min(min(vBand.x, 1.0 - vBand.x), min(vBand.y, 1.0 - vBand.y))'
+    : form === 'weiher' ? '2.0 * vBand.x' : '1.0 - abs(vBand.x)';
+  // Wellen: auf Bändern längs/quer des Bandes; auf dem Weiher gibt es keine Laufrichtung — dort aus
+  // der Weltposition, sonst stünde die Welle über die ganze Fläche gleich.
+  const WELLE_Y = form === 'weiher' ? '(vWasserPos.x * 0.9 + vWasserPos.z * 0.5)' : 'vBand.y';
+  const WELLE_X = form === 'weiher' ? '(vWasserPos.z * 0.8 - vWasserPos.x * 0.3)' : 'vBand.x';
   material.onBeforeCompile = (shader) => {
     shader.uniforms.zeit = zeit;
     // Fallendes Wasser läuft schneller. Derselbe Shader, ein anderer Faktor.
@@ -166,7 +177,7 @@ float wehrAnteil(vec3 p) {
           'reflectedLight.indirectSpecular *= mix(mix(1.0, texture2D(uBodenHimmel, uvH).r, kante), 1.0, wehrAnteil(vWasserPos));')
         : VERDECKT_GLSL))
       .replace('#include <color_fragment>', fallend ? /* glsl */ `#include <color_fragment>
-  float ufer = ${form === 'becken' ? '2.0 * min(min(vBand.x, 1.0 - vBand.x), min(vBand.y, 1.0 - vBand.y))' : '1.0 - abs(vBand.x)'};
+  float ufer = ${UFER_AUSDRUCK};
 
   /* Tiefe.
    *
@@ -187,7 +198,7 @@ float wehrAnteil(vec3 p) {
   // Weiche Uferkante statt Plattenrand.
   diffuseColor.a = deckung * smoothstep(0.0, 0.28, ufer);
 ` + GISCHT_GLSL : /* glsl */ `#include <color_fragment>
-  float ufer = ${form === 'becken' ? '2.0 * min(min(vBand.x, 1.0 - vBand.x), min(vBand.y, 1.0 - vBand.y))' : '1.0 - abs(vBand.x)'};
+  float ufer = ${UFER_AUSDRUCK};
   // Dichte .6 aus der Blender-Quelle; die Bandmitte ist nur eine Tiefennaeherung.
   float dicke = mix(0.08, 0.8, smoothstep(0.0, 0.75, ufer));
   diffuseColor.a *= smoothstep(0.0, 0.28, ufer);
@@ -195,14 +206,27 @@ float wehrAnteil(vec3 p) {
       .replace('#include <normal_fragment_maps>', /* glsl */ `#include <normal_fragment_maps>
   // Zwei Wellenzüge unterschiedlicher Länge und Geschwindigkeit. Der zweite läuft
   // schräg, sonst entsteht ein sichtbares Streifenmuster.
-  float w1 = sin(vBand.y * 2.3 - zeit * uTempo * 1.7 + vBand.x * 1.1);
-  float w2 = sin(vBand.y * 5.9 - zeit * uTempo * 2.9 - vBand.x * 2.7);
-  float kraus = bandRauschen(vec2(vBand.y * 1.7 - zeit * uTempo * 0.6, vBand.x * 3.0)) - 0.5;
+  float w1 = sin(${WELLE_Y} * 2.3 - zeit * uTempo * 1.7 + ${WELLE_X} * 1.1);
+  float w2 = sin(${WELLE_Y} * 5.9 - zeit * uTempo * 2.9 - ${WELLE_X} * 2.7);
+  float kraus = bandRauschen(vec2(${WELLE_Y} * 1.7 - zeit * uTempo * 0.6, ${WELLE_X} * 3.0)) - 0.5;
   // normal liegt im Sichtraum. Die Weltwelle muss mitgedreht werden, sonst
   // aendert ein Kameraschwenk die Wasseroberflaeche selbst.
   vec3 wellenNormale = vec3(w2 * 0.10 + kraus * 0.16, 0.0, w1 * 0.14);
   normal = normalize(normal + mat3(viewMatrix) * wellenNormale * ${fallend ? '1.0' : '0.15'});
 `);
+    if (BACH_ECHT && !fallend) {
+      // D267: Waldkante in der Spiegelung. Unter ihr liegt das gegenüberliegende Ufer mit Bäumen,
+      // dunkel und grünbraun; darüber der Himmel. Weiche Kante, und die Wellennormale verzieht sie.
+      shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_maps>', /* glsl */ `#include <lights_fragment_maps>
+  #if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )
+  {
+    vec3 spiegelWelt = inverseTransformDirection(reflect(-geometryViewDir, normal), viewMatrix);
+    float ueberKante = smoothstep(0.12, 0.45, spiegelWelt.y);
+    radiance *= mix(vec3(0.09, 0.115, 0.07), vec3(1.0), ueberKante);
+  }
+  #endif
+`);
+    }
     if (probe && !fallend) {
       // PBR verarbeitet die lokale Strahlung ueber denselben Fresnel-/BRDF-Pfad
       // wie den Himmel. Keine additive Emission und kein globales environment.
@@ -234,7 +258,7 @@ float wehrAnteil(vec3 p) {
     }
   };
 
-  material.customProgramCacheKey = () => `brachland-wasser-v8-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}`;
+  material.customProgramCacheKey = () => `brachland-wasser-v8-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}${BACH_ECHT && !fallend ? '-bach' : ''}`;
   return material;
 }
 

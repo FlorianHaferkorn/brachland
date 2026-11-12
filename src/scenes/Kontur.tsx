@@ -43,6 +43,7 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
+import { MSAA, ABGLEICH_AN, AO_RUHIG, TAA_AN } from '../world/echt.js';
 
 const KONTUR_ADRESSE: boolean | null = (() => {
   if (typeof location === 'undefined') return null;
@@ -124,6 +125,7 @@ const AO_FRAGMENT = /* glsl */`
   __TIEFE__
   uniform vec2 uTanHalb;
   uniform float uRadius;
+  uniform float uRuhig;
   varying vec2 vUv;
 
   // Sichtraumposition: uv → Sichtstrahl mal Tiefe. z zeigt nach hinten (negativ).
@@ -138,6 +140,16 @@ const AO_FRAGMENT = /* glsl */`
     vec3 N = normalize(cross(dFdx(P), dFdy(P)));
     // Halbkugel um N: Basis aus einem je Pixel gedrehten Zufallsvektor
     float w = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    // D263 (\`?echt=1\`): statt weissem Rauschen ein 4×4-Bayer-Muster. Jede Drehung kommt in jedem
+    // 4×4-Block genau einmal vor, und die 16-Proben-Weichzeichnung im Zielbild hebt es restlos auf.
+    // Mit weissem Rauschen blieb nach den vier Proben ein Korn, das in Bewegung flimmerte.
+    if (uRuhig > 0.0) {
+      vec2 q = mod(floor(gl_FragCoord.xy), 4.0);
+      vec2 fein = mod(q, 2.0), grob = floor(q / 2.0);
+      // 2×2-Bayer (0 2 / 3 1) zweimal geschachtelt: 16 verschiedene Werte je 4×4-Block.
+      float b = 4.0 * mod(2.0 * fein.x + 3.0 * fein.y, 4.0) + mod(2.0 * grob.x + 3.0 * grob.y, 4.0);
+      w = (b + 0.5) / 16.0;
+    }
     vec3 zufall = vec3(cos(w * 6.2832), sin(w * 6.2832), 0.37);
     vec3 T = normalize(zufall - N * dot(zufall, N));
     vec3 B = cross(N, T);
@@ -239,7 +251,23 @@ const FRAGMENT = /* glsl */`
   uniform sampler2D tSchacht;
   uniform float uBloom;
   uniform vec3 uSchacht;
+  uniform float uAbgleich;
+  uniform float uRuhig;
   varying vec2 vUv;
+
+  /* Farbabgleich (D262, \`?abgleich=1\` / \`?echt=1\`): linear, vor dem Tonemapping.
+   * 1. Weissabgleich: ein Teil des Sepiastichs raus, Helligkeit bleibt (Luminanz wieder hergestellt).
+   * 2. Kontrast um 0,12 (Mitte des dämmrigen Bildes) in Potenz 1,1 — Schatten tiefer, Licht heller, Mitte bleibt.
+   * 3. Etwas Sättigung zurück, die der Stich vorher als Gelbbraun gebunden hatte. */
+  vec3 abgleich(vec3 c) {
+    float l0 = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c *= vec3(0.8, 1.0, 1.35);
+    float l1 = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    c *= l0 / max(l1, 1e-5);
+    c = 0.12 * pow(max(c, vec3(0.0)) / 0.12, vec3(1.1));
+    float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+    return max(mix(vec3(l), c, 1.12), vec3(0.0));
+  }
 
   void main() {
     vec4 farbe = texture2D(tFarbe, vUv);
@@ -257,6 +285,17 @@ const FRAGMENT = /* glsl */`
     // die Verdeckung bleibt. Potenz statt Faktor, damit 0,5 sichtbar dunkler ist als 0,8.
     float ao = 1.0;
     if (uAO > 0.0) {
+      if (uRuhig > 0.0) {
+        // D263: 4×4 AO-Texel (= 8×8 Bildpixel), tiefengewichtet — das Bayer-Muster verschwindet,
+        // Kanten bleiben, weil Proben auf anderer Tiefe (Stamm vor Wiese) kaum zählen.
+        float summe = 0.0, gewicht = 0.0;
+        for (int i = 0; i < 4; i++) for (int j = 0; j < 4; j++) {
+          vec2 suv = vUv + (vec2(float(i), float(j)) - 1.5) * uTexelAO;
+          float g = 1.0 / (1.0 + pow(abs(meter(suv) - z) / (0.03 * z), 2.0));
+          summe += texture2D(tAO, suv).r * g; gewicht += g;
+        }
+        ao = summe / max(gewicht, 1e-4);
+      } else
       ao = 0.25 * (texture2D(tAO, vUv + vec2(uTexelAO.x, uTexelAO.y) * 0.5).r
                  + texture2D(tAO, vUv + vec2(-uTexelAO.x, uTexelAO.y) * 0.5).r
                  + texture2D(tAO, vUv + vec2(uTexelAO.x, -uTexelAO.y) * 0.5).r
@@ -271,11 +310,75 @@ const FRAGMENT = /* glsl */`
     vec3 rgb = farbe.rgb * ao * (1.0 - uStaerke * kante);
     if (uBloom > 0.0) rgb += texture2D(tBloom, vUv).rgb * uBloom;
     rgb += texture2D(tSchacht, vUv).r * uSchacht;
+    if (uAbgleich > 0.0) rgb = abgleich(rgb);
     gl_FragColor = vec4(rgb, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
 `;
+
+/**
+ * Auflösung des Zeitverlaufs (D268). Alles in Karis-Stauchung (c / (1 + max(c))), damit helle Pixel
+ * (Sonne, Gischt) den Verlauf nicht aufreissen und die Begrenzung auf die 3×3-Nachbarschaft in
+ * einem Raum liegt, in dem Min/Max etwas bedeuten.
+ * Reprojektion nur aus der Kamerabewegung: Tiefe → Weltpunkt → Position im Vorbild. Bewegte Objekte
+ * (Tiere, Figuren) bekommen den Verlauf an der falschen Stelle; die Begrenzung hält den Geist klein.
+ */
+const TAA_FRAGMENT = /* glsl */`
+  #include <common>
+  __TIEFE__
+  uniform sampler2D tAktuell;
+  uniform sampler2D tVerlauf;
+  uniform vec2 uTexel;
+  uniform vec2 uTanHalb;
+  uniform mat4 uKameraWelt;
+  uniform mat4 uVorherVP;
+  uniform float uErste;
+  uniform float uMischung;
+  varying vec2 vUv;
+
+  vec3 stauche(vec3 c) { return c / (1.0 + max(max(c.r, c.g), c.b)); }
+  vec3 entstauche(vec3 c) { return c / max(1.0 - max(max(c.r, c.g), c.b), 1e-3); }
+
+  void main() {
+    vec3 mitte = stauche(texture2D(tAktuell, vUv).rgb);
+    vec3 lo = mitte, hi = mitte;
+    for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
+      if (i == 0 && j == 0) continue;
+      vec3 c = stauche(texture2D(tAktuell, vUv + vec2(float(i), float(j)) * uTexel).rgb);
+      lo = min(lo, c); hi = max(hi, c);
+    }
+    float z = meter(vUv);
+    vec4 welt = uKameraWelt * vec4((vUv * 2.0 - 1.0) * uTanHalb * z, -z, 1.0);
+    vec4 vor = uVorherVP * welt;
+    vec2 vorUv = vor.xy / max(vor.w, 1e-4) * 0.5 + 0.5;
+    bool innen = vor.w > 0.0 && vorUv.x > 0.0 && vorUv.y > 0.0 && vorUv.x < 1.0 && vorUv.y < 1.0;
+    vec3 verlauf = clamp(stauche(texture2D(tVerlauf, vorUv).rgb), lo, hi);
+    float bewegung = length((vorUv - vUv) / uTexel);
+    float a = mix(uMischung, 0.5, clamp(bewegung / 8.0, 0.0, 1.0));
+    if (uErste > 0.5 || !innen) a = 1.0;
+    gl_FragColor = vec4(entstauche(mix(verlauf, mitte, a)), 1.0);
+  }
+`;
+
+/** Letzter Pass mit TAA: Verlauf auf den Bildschirm, mit Tone Mapping und Ausgabefarbraum. */
+const TAA_AUSGABE = /* glsl */`
+  #include <common>
+  uniform sampler2D tQuelle;
+  varying vec2 vUv;
+  void main() {
+    gl_FragColor = vec4(texture2D(tQuelle, vUv).rgb, 1.0);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }
+`;
+
+/** Halton-Folge (Basis 2 und 3), Teilbildpunkt-Versatz in −0,5…0,5. */
+function halton(i: number, basis: number): number {
+  let f = 1, r = 0;
+  while (i > 0) { f /= basis; r += f * (i % basis); i = Math.floor(i / basis); }
+  return r - 0.5;
+}
 
 export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius = 8,
   bloom = 0, schacht = 0, sonne, sonnenFarbe = '#ffffff' }: {
@@ -299,17 +402,28 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
     const rt = new THREE.WebGLRenderTarget(b, h, {
       type: THREE.HalfFloatType,
       depthTexture: new THREE.DepthTexture(b, h, THREE.UnsignedIntType),
-      samples: 0,
+      samples: MSAA,
     });
     const aoZiel = new THREE.WebGLRenderTarget(Math.max(1, Math.round(b / 2)), Math.max(1, Math.round(h / 2)), { depthBuffer: false });
     const viertel = () => new THREE.WebGLRenderTarget(Math.max(1, Math.round(b / 4)), Math.max(1, Math.round(h / 4)),
       { depthBuffer: false, type: THREE.HalfFloatType });
-    return { rt, aoZiel, hell: viertel(), weich: viertel(), schacht: viertel() };
+    const voll = () => new THREE.WebGLRenderTarget(b, h, { type: THREE.HalfFloatType, depthBuffer: false });
+    return {
+      rt, aoZiel, hell: viertel(), weich: viertel(), schacht: viertel(),
+      // D268: TAA — Komposition und zwei Verlaufsbilder (Ping-Pong); sonst gar nicht angelegt.
+      komp: TAA_AN ? voll() : null, verlauf: TAA_AN ? [voll(), voll()] as const : null,
+    };
   }, [size, dpr]);
   useEffect(() => () => {
     ziel.rt.depthTexture?.dispose(); ziel.rt.dispose(); ziel.aoZiel.dispose();
     ziel.hell.dispose(); ziel.weich.dispose(); ziel.schacht.dispose();
+    ziel.komp?.dispose(); ziel.verlauf?.forEach(v => v.dispose());
   }, [ziel]);
+  // Zustand der Zeitauflösung; neues Ziel (Grössenwechsel) = neuer Zustand = erstes Bild ohne Verlauf.
+  const taa = useMemo(() => ({
+    index: 0, bild: 0, erste: true,
+    vorherVP: new THREE.Matrix4(), jetztVP: new THREE.Matrix4(),
+  }), [ziel]);
 
   const quad = useMemo(() => {
     const material = new THREE.ShaderMaterial({
@@ -321,6 +435,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
         uStaerke: { value: an ? staerke : 0 }, uSchwelle: { value: schwelle }, uAO: { value: ao },
         tBloom: { value: null }, tSchacht: { value: null },
         uBloom: { value: 0 }, uSchacht: { value: new THREE.Color(0, 0, 0) },
+        uAbgleich: { value: ABGLEICH_AN ? 1 : 0 }, uRuhig: { value: AO_RUHIG ? 1 : 0 },
       },
       depthTest: false, depthWrite: false,
     });
@@ -329,6 +444,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       uniforms: {
         tTiefe: { value: null }, uNah: { value: 0.2 }, uFern: { value: 1000 },
         uTanHalb: { value: new THREE.Vector2(1, 1) }, uRadius: { value: aoRadius },
+        uRuhig: { value: AO_RUHIG ? 1 : 0 },
       },
       depthTest: false, depthWrite: false,
     });
@@ -358,12 +474,29 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
     const bild = new THREE.Scene(); const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material); mesh.frustumCulled = false; bild.add(mesh);
     const aoBild = new THREE.Scene(); const aoMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), aoMaterial); aoMesh.frustumCulled = false; aoBild.add(aoMesh);
     const kam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const taaMaterial = TAA_AN ? new THREE.ShaderMaterial({
+      vertexShader: SCHEITEL, fragmentShader: TAA_FRAGMENT.replace('__TIEFE__', TIEFE_GLSL),
+      uniforms: {
+        tAktuell: { value: null }, tVerlauf: { value: null }, tTiefe: { value: null },
+        uNah: { value: 0.2 }, uFern: { value: 1000 }, uTexel: { value: new THREE.Vector2() },
+        uTanHalb: { value: new THREE.Vector2(1, 1) }, uKameraWelt: { value: new THREE.Matrix4() },
+        uVorherVP: { value: new THREE.Matrix4() }, uErste: { value: 1 }, uMischung: { value: 0.12 },
+      },
+      depthTest: false, depthWrite: false,
+    }) : null;
+    const ausgabeMaterial = TAA_AN ? new THREE.ShaderMaterial({
+      vertexShader: SCHEITEL, fragmentShader: TAA_AUSGABE, uniforms: { tQuelle: { value: null } },
+      depthTest: false, depthWrite: false,
+    }) : null;
     return { material, aoMaterial, hellMaterial, schachtMaterial, weichMaterial, bild, aoBild,
-      hellBild: vollbild(hellMaterial), schachtBild: vollbild(schachtMaterial), weichBild: vollbild(weichMaterial), kam };
+      hellBild: vollbild(hellMaterial), schachtBild: vollbild(schachtMaterial), weichBild: vollbild(weichMaterial), kam,
+      taaMaterial, ausgabeMaterial,
+      taaBild: taaMaterial ? vollbild(taaMaterial) : null, ausgabeBild: ausgabeMaterial ? vollbild(ausgabeMaterial) : null };
   }, [an, staerke, schwelle, ao, aoRadius]);
   useEffect(() => () => {
     quad.material.dispose(); quad.aoMaterial.dispose();
     quad.hellMaterial.dispose(); quad.schachtMaterial.dispose(); quad.weichMaterial.dispose();
+    quad.taaMaterial?.dispose(); quad.ausgabeMaterial?.dispose();
   }, [quad]);
   const sonnenFarbeLinear = useMemo(() => new THREE.Color(sonnenFarbe), [sonnenFarbe]);
   const hilf = useMemo(() => ({ v: new THREE.Vector3(), vor: new THREE.Vector3() }), []);
@@ -377,8 +510,16 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
     gl.info.reset();
     if (!passAn) { gl.setRenderTarget(null); gl.render(scene, camera); return; }
     const k = camera as THREE.PerspectiveCamera;
+    const taaAn = !!(TAA_AN && ziel.komp && ziel.verlauf && quad.taaBild && quad.ausgabeBild);
     gl.setRenderTarget(ziel.rt);
+    if (taaAn) {
+      // Teilbildpunkt-Versatz der Projektion für dieses Bild; danach zurück, damit nichts ausserhalb
+      // (Zielsuche, Culling in anderen Systemen) die verschobene Matrix sieht.
+      const s = (taa.bild % 8) + 1;
+      k.setViewOffset(ziel.rt.width, ziel.rt.height, halton(s, 2), halton(s, 3), ziel.rt.width, ziel.rt.height);
+    }
     gl.render(scene, camera);
+    if (taaAn) { k.clearViewOffset(); taa.jetztVP.multiplyMatrices(k.projectionMatrix, k.matrixWorldInverse); }
     if (aoAn) {
       const ua = quad.aoMaterial.uniforms;
       ua.tTiefe.value = ziel.rt.depthTexture;
@@ -419,7 +560,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
         gl.setRenderTarget(ziel.hell); gl.render(quad.weichBild, quad.kam);
       }
     }
-    gl.setRenderTarget(null);
+    gl.setRenderTarget(taaAn ? ziel.komp : null);
     const u = quad.material.uniforms;
     u.tBloom.value = bloom > 0 ? ziel.hell.texture : null;
     u.uBloom.value = bloom;
@@ -434,6 +575,27 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
     u.uTexelAO.value.set(1 / ziel.aoZiel.width, 1 / ziel.aoZiel.height);
     u.uNah.value = k.near; u.uFern.value = k.far;
     gl.render(quad.bild, quad.kam);
+    if (taaAn && quad.taaMaterial && quad.ausgabeMaterial) {
+      // Zeitauflösung: Komposition + Vorbild → neues Verlaufsbild; das geht mit Tone Mapping auf den Schirm.
+      const v = ziel.verlauf!, jetzt = v[taa.index], vorher = v[1 - taa.index];
+      const ut = quad.taaMaterial.uniforms;
+      ut.tAktuell.value = ziel.komp!.texture; ut.tVerlauf.value = vorher.texture;
+      ut.tTiefe.value = ziel.rt.depthTexture;
+      ut.uNah.value = k.near; ut.uFern.value = k.far;
+      ut.uTexel.value.set(1 / ziel.rt.width, 1 / ziel.rt.height);
+      const th = Math.tan(k.fov * Math.PI / 360);
+      ut.uTanHalb.value.set(th * k.aspect, th);
+      ut.uKameraWelt.value.copy(k.matrixWorld);
+      ut.uVorherVP.value.copy(taa.vorherVP);
+      ut.uErste.value = taa.erste ? 1 : 0;
+      gl.setRenderTarget(jetzt);
+      gl.render(quad.taaBild!, quad.kam);
+      quad.ausgabeMaterial.uniforms.tQuelle.value = jetzt.texture;
+      gl.setRenderTarget(null);
+      gl.render(quad.ausgabeBild!, quad.kam);
+      taa.vorherVP.copy(taa.jetztVP);
+      taa.index = 1 - taa.index; taa.bild++; taa.erste = false;
+    }
   }, 1);
 
   return null;

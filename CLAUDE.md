@@ -47,6 +47,11 @@ als SoT für Notizen-Register, offene/entschiedene Punkte.
 
 Ziel: kein Re-Derive, keine doppelten Fragen, kein veralteter Status.
 
+**Ledger-Nummern parallel zu Codex** (seit 11.11.2026, nach der D249/D250-Kollision):
+vor dem Vergeben `main` holen, `make ledger-ids` nennt die nächste freie D-Nummer.
+Kollidiert eine Nummer trotzdem, nummeriert die später gemergte Seite um;
+`scripts/check_ledger_ids.py` (in `make check` und CI) lässt Dubletten nicht durch.
+
 **Ledger vs. Auto-Memory:** Entscheidungen/Fakten mit Dauerwert gehören in den Ledger
 (git-tracked, team-/kundenfähig) — Auto-Memory ist maschinenlokal und hält nur Pointer
 + persönliche Arbeitspräferenzen, kein Ersatz (siehe GOI §8).

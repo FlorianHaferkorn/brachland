@@ -25,6 +25,11 @@ ist veraltet. Bestehende Gate-Befunde nicht durch angehobene Budgets verdecken.
   `docs.md` für Dokumentation, `scripts.md` für die Python-Gates.
 - Über Bereichs-`_INDEX.md` navigieren. Neue Dateien im zuständigen Register
   eintragen; offene Punkte nur in Tabelle A, Entscheidungen in Tabelle B pflegen.
+- **Ledger-Nummern (D/G/H/A) parallel zu Claude:** vor dem Vergeben `main` holen;
+  `make ledger-ids` nennt die nächste freie D-Nummer. Pro Arbeitsstand früh einen
+  eigenen Branch pushen, nicht tagelang lokal sammeln. Kollidiert eine Nummer trotzdem,
+  nummeriert die **später gemergte** Seite um; das Gate `scripts/check_ledger_ids.py`
+  (in `make check` und CI) lässt doppelte IDs nicht durch.
 - Deutsch für Bezeichner und Kommentare; TypeScript strikt, ESM-Importe auf
   TS-Quellen mit `.js`. Spielinhalte bleiben Daten unter `content/`.
 - `src/engine/` und `src/data/` bleiben ohne three.js. Instancing für Massenobjekte,

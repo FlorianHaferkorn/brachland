@@ -45,6 +45,14 @@ import { readFileSync, writeFileSync } from 'node:fs';
 const GRUND = 'tools/bildtor.json';
 const NEU = process.argv.includes('--neu');
 /**
+ * `--neu-dreiecke` (H-255a, 11.11.2026): nur Dreiecke und Aufrufe neu schreiben. Die Grundwerte
+ * vom 25.09. (D168) lagen nach D235 (Nahteppich) und D247 (Sichtweite „weit“) an allen Orten über
+ * der 30-%-Grenze — bewusst, keine Regression: mit `weite=1&aus=teppich` blieben alle sieben Orte
+ * bei +3 bis +19 %. Ein volles `--neu` würde dabei auch die offenen Leer-Befunde der Nacht
+ * (Felsflanke, Felsmulde) als Grundwert übernehmen und damit verstecken.
+ */
+const NEU_DREIECKE = process.argv.includes('--neu-dreiecke');
+/**
  * `--stimmung daemmerung` faehrt nur die Faelle einer Stimmung — die Messschleife
  * fuer das Licht (D110) braucht fuenf Bilder, nicht zwoelf. Grundwerte werden
  * dabei nie geschrieben; `--neu` gilt nur fuer den vollen Lauf.
@@ -62,7 +70,7 @@ const BASIS = 'http://127.0.0.1:4173/';
  */
 const EXTRA = process.argv.includes('--extra')
   ? process.argv[process.argv.indexOf('--extra') + 1] : '';
-if (EXTRA && NEU) {
+if (EXTRA && (NEU || NEU_DREIECKE)) {
   console.error('--extra und --neu zusammen ergeben Grundwerte fuer einen Zustand, der nicht ausgeliefert wird.');
   process.exit(2);
 }
@@ -187,6 +195,8 @@ for (const f of grund.faelle) {
   if (NEU) {
     f.leer = Number(w.leer.toFixed(1)); f.dunkel = Number(w.dunkel.toFixed(1));
     f.median = Number(w.median.toFixed(3)); f.dreiecke = w.dreiecke; f.aufrufe = w.aufrufe;
+  } else if (NEU_DREIECKE && w.dreiecke > 0) {
+    f.dreiecke = w.dreiecke; f.aufrufe = w.aufrufe;
   }
 }
 await browser.close();
@@ -207,9 +217,9 @@ for (const { f, w, aus, abw, vorher } of zeilen) {
     console.log(`      ⚠️ Median ${vorher.median.toFixed(3)} → ${w.median.toFixed(3)}: erst erklaeren, dann als Grundwert nehmen`);
 }
 
-if (NEU && !NUR) {
+if ((NEU || NEU_DREIECKE) && !NUR) {
   writeFileSync(GRUND, JSON.stringify(grund, null, 2) + '\n');
-  console.log(`\nGrundwerte neu geschrieben nach ${GRUND}`);
+  console.log(`\nGrundwerte ${NEU ? '' : '(nur Dreiecke/Aufrufe) '}neu geschrieben nach ${GRUND}`);
   process.exit(0);
 }
 

@@ -18,8 +18,9 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { MASSSTAB, BIOM_FARBE } from './terrain.js';
 import type { Aufsatzboden } from './terrain.js';
-import { TERRASSEN, terrassiere, type Terrasse } from './bauwerke.js';
+import { TERRASSEN, terrassiere, gesperrt, type Terrasse } from './bauwerke.js';
 import { baueWasserfeld } from './wasserfeld.js';
+import { UFER_GRUEN, BETT_QUER, FLUR_GRUEN } from './echt.js';
 
 /** Kachelkantenlänge in Metern. */
 export const KACHEL = 64;
@@ -149,7 +150,10 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
   // von Doppelung, an der schon die Höhenquellen einmal auseinandergelaufen sind.
   const wasser = baueWasserfeld(welt, breiteMeter, tiefeMeter);
 
-  const rohHoehe = (x: number, z: number): number => {
+  /** Anstieg der abgestochenen Böschung je Meter vom Ufer weg (D263). */
+  const BOESCHUNG = 0.6;
+  /** Gelände vor dem Bachbett: DEM bilinear plus Mikrorelief. */
+  const flaeche = (x: number, z: number): number => {
     // Rasterkoordinate mit Nachkommaanteil
     const fj = (x / breiteMeter + 0.5) * (n - 1);
     const fi = (z / tiefeMeter + 0.5) * (n - 1);
@@ -194,10 +198,36 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
     // wären Buckel unnatürlich, an einem Steilhang sind sie es nicht.
     const neigung = Math.min(1, (Math.abs(h10 - h00) + Math.abs(h01 - h00)) / 12);
     const staerke = mikroStaerke * (0.45 + 0.85 * neigung);
+    return basis + mikrorelief(x, z) * staerke;
+  };
+  const rohHoehe = (x: number, z: number): number => {
     // Das Bett wird abgezogen, nicht dazugerechnet: Der Wasserspiegel bleibt dort,
     // wo das Gelände vorher war, und die Sohle geht darunter. Andersherum stünde
     // das Wasser als Wall in der Landschaft.
-    return basis + mikrorelief(x, z) * staerke - wasser.tiefeAn(x, z);
+    const t = wasser.tiefeAn(x, z);
+    const oben = flaeche(x, z);
+    if (!BETT_QUER) return oben - t;
+    /**
+     * D263 (`?bett=1` / `?echt=1`): Querbett — die hohe Böschung wird abgestochen.
+     *
+     * Das Wasserband liegt quer waagerecht auf dem **tieferen** Ufer (`baender.ts`, `liegendesBand`),
+     * Gelände und Sohle folgten aber dem Querhang. Am Wehr stand nasser Boden 0,44 m über dem
+     * Spiegel (D255) — der dunkle Keil. Eine Absenkung nur im Bett reicht nicht: Das Bett ist 4 m
+     * breit, das Netz hat 2 m Eckabstand, die Ecke auf der hohen Uferkante bleibt oben und zieht das
+     * Dreieck mit (gemessen 12.11.2026: 0,44 → 0,52 m). Deshalb:
+     * - Spiegel wie das Band: tiefere der beiden Uferkanten (Mittellinie ± halbe Breite, quer).
+     * - Im Bett: Sohle höchstens Spiegel minus Tiefe.
+     * - Ausserhalb bis `BETT_QUER` m: Böschung steigt vom Spiegel mit `BOESCHUNG` (Anstieg je Meter);
+     *   wo das Gelände tiefer liegt, bleibt es.
+     * Längs des Bachs ändert sich nichts. Waten, Kollision und Kacheln lesen dieselbe Höhe.
+     */
+    const q = wasser.querAn(x, z, BETT_QUER);
+    if (!q) return oben - t;
+    const spiegel = Math.min(
+      flaeche(q.mx + q.nx * q.halbe, q.mz + q.nz * q.halbe),
+      flaeche(q.mx - q.nx * q.halbe, q.mz - q.nz * q.halbe));
+    const draussen = Math.max(0, q.abstand - q.halbe);
+    return Math.min(oben, spiegel + draussen * BOESCHUNG) - t;
   };
   // Terrassen: erst hier, damit `roh` die Zielhoehe liefert, bevor sie selbst terrassiert wuerde.
   const zielhoehen = terrassen.map(t => rohHoehe(t.x, t.z));
@@ -210,8 +240,14 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
   const biom = (x: number, z: number): Biom => {
     const j = Math.max(0, Math.min(n - 1, Math.round((x / breiteMeter + 0.5) * (n - 1))));
     const i = Math.max(0, Math.min(n - 1, Math.round((z / tiefeMeter + 0.5) * (n - 1))));
-    return welt.biome[i][j];
+    const b = welt.biome[i][j];
+    // `?ufer=1`/`?echt=1` (echt.ts): der Bachstempel macht ~10 m breite `wasser`-Zellen; trocken
+    // ist das Ufer, und Ufer ist bewachsen. Wo Wasser steht, bleibt es Wasser.
+    if (FLUR_GRUEN && (b === 'industrie' || b === 'siedlung') && gesperrt(x, z, 'haeuser')) return 'wiese';
+    return UFER_GRUEN && b === 'wasser' && wasser.tiefeAn(x, z) <= 0.02 ? 'wiese' : b;
   };
+  /** Farbe einer Rasterecke; mit `UFER_GRUEN` trägt das gestempelte Ufer Wiesenton statt Schlamm. */
+  const ton = (b: Biom) => BIOM_TON[UFER_GRUEN && b === 'wasser' ? 'wiese' : b];
 
   // Siehe `HoehenFeld.bodenfarbe` — dieselbe Rasterkoordinate wie `rohHoehe`,
   // nur dass hier vier Farben gemischt werden statt vier Höhen.
@@ -222,8 +258,12 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
     const j0 = Math.floor(fj), i0 = Math.floor(fi);
     const j1 = Math.min(n - 1, j0 + 1), i1 = Math.min(n - 1, i0 + 1);
     const tx = glaetten(fj - j0), tz = glaetten(fi - i0);
-    const a = BIOM_TON[welt.biome[i0][j0]], b = BIOM_TON[welt.biome[i0][j1]];
-    const c = BIOM_TON[welt.biome[i1][j0]], d = BIOM_TON[welt.biome[i1][j1]];
+    // D267: Ecken im Freihaltekreis eines Bauwerks — Industrie/Siedlung als Wiese (`FLUR_GRUEN`).
+    const eckeX = (j: number) => (j / (n - 1) - 0.5) * breiteMeter, eckeZ = (i: number) => (i / (n - 1) - 0.5) * tiefeMeter;
+    const flur = (b: Biom, i: number, j: number): Biom =>
+      FLUR_GRUEN && (b === 'industrie' || b === 'siedlung') && gesperrt(eckeX(j), eckeZ(i), 'haeuser') ? 'wiese' : b;
+    const a = ton(flur(welt.biome[i0][j0], i0, j0)), b = ton(flur(welt.biome[i0][j1], i0, j1));
+    const c = ton(flur(welt.biome[i1][j0], i1, j0)), d = ton(flur(welt.biome[i1][j1], i1, j1));
     return ziel.setRGB(
       (a.r * (1 - tx) + b.r * tx) * (1 - tz) + (c.r * (1 - tx) + d.r * tx) * tz,
       (a.g * (1 - tx) + b.g * tx) * (1 - tz) + (c.g * (1 - tx) + d.g * tx) * tz,
