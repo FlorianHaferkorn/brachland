@@ -16,7 +16,12 @@ Renderer gehört nach `scenes/`, `world/` oder `ui/`.
 ### three.js-Invarianten
 - **Instancing ist Pflicht** für alles ab ~100 Objekten. `InstancedMesh`, nicht Schleifen.
 - Geometrien und Materialien in `useMemo` — pro Frame neu erzeugt killt das Handy.
-- Kein Texture-Loading. Vertex-Farben und Geometrie (Art Direction, ADR-0002).
+- **Texturen sind erlaubt** (ADR-0006 Stufe 2, löst D112 „keine Texturen" ab; D264). Was das
+  Qualitätstor (`tools/quality.ts`) prüft, gilt: Bilder als `.webp` unter `public/material`, jede
+  Datei mit Herkunft in `assets/HERKUNFT.md`, Lizenz nach ADR-0013 (kostet nichts), Materialbudget
+  12 MB, Gesamtpaket 60 MB Precache. Eine Textur einmal laden und teilen (Cache je Pfad), nicht je
+  Material. Vertex-Farbe bleibt, wo sie reicht und das Tor sie verlangt (Prop-Primitive,
+  Kreaturen ohne UV); Scan-Props und Blender-Set-Pieces tragen UV und Textur.
 - Determinismus über Seed: Positionen werden erzeugt, nicht gespeichert. ~40.000 Props
   als JSON wären mehrere Megabyte und würden das Offline-Budget sprengen.
 

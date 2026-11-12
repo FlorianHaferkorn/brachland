@@ -87,7 +87,7 @@ diese Lektion hat das Projekt mehrere Runden gekostet.
   `Weltdaten`, `PropArt`. Durchgehend, auch in Kommentaren. Nicht mischen.
 - **ESM-Imports mit `.js`-Endung** auf TS-Quellen (`from './world/osm.js'`) — Vorgabe
   von `moduleResolution: bundler` bei `type: module`.
-- **Keine Texturen.** Vertex-Farben und Geometrie. Das ist Art Direction, keine Sparmaßnahme.
+- **Texturen erlaubt seit ADR-0006** (D112 „keine Texturen" abgelöst, D264). Regeln und Budgets: `.claude/rules/src.md`, geprüft von `tools/quality.ts`. Vertex-Farbe bleibt für Prop-Primitive und Kreaturen.
 - **Instancing ist Pflicht.** 40.000 Bäume als Einzelobjekte erledigen jedes Handy;
   als `InstancedMesh` sind es eine Handvoll Draw Calls.
 - **Determinismus über Seed.** Prop-Positionen werden nicht gespeichert, sondern aus

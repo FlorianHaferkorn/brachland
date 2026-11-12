@@ -27,7 +27,8 @@ Third-Person, 1:1-Maßstab.
 Die Werte stehen in `src/scenes/RegionsSzene.tsx` und sind erarbeitet, nicht geraten:
 
 **Dämmerung, Nebel als Werkzeug, Silhouetten, eine Signalfarbe für Befall.**
-Keine Texturen — alles Vertex-Farben und Geometrie. Mittagssonne verzeiht nichts,
+Texturen sind seit ADR-0006 erlaubt (gebackene Blender-Materialien, Scans; D264) — die frühere
+Regel „keine Texturen, alles Vertex-Farben" ist abgelöst. Mittagssonne verzeiht nichts,
 deshalb gibt es sie nicht.
 
 Drei umschaltbare Stimmungen: `daemmerung` (Nebel 60–420 m), `nebelmorgen`

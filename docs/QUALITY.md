@@ -20,7 +20,7 @@ eigener Commit mit Begründung ist:
 
 | Stelle | Steht da | Widerspruch |
 |---|---|---|
-| §2 Assets | „Texturen ≤ 1024 px" | D112: **keine Texturen**, Farbe als `COLOR_0`; das Tor blockt `TEXCOORD_0` |
+| §2 Assets | „Texturen ≤ 1024 px" | D112: **keine Texturen**, Farbe als `COLOR_0`; das Tor blockt `TEXCOORD_0` — **abgelöst durch ADR-0006** (D264): Texturen erlaubt, Tor prüft Herkunft und 12-MB-Materialbudget, Scan-Props mit UV |
 | §2 Assets / `BUDGET.trisMax` | „≤ 8.000 Tris" | D129: Modellkorridor **500–3.000**; ein Modell mit `zielTris` 8.000 fiele durch das eigene Tor |
 | §2 Performance | „Ladezeit < 5 s" | D146 gemessen: Dorf **7,1 s** auf dem M1 mit echter GPU (vorher 14,4 s). Die Latte ist entweder falsch oder gerissen — am Zielgerät nie geprüft (L1) |
 
