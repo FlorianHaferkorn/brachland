@@ -39,6 +39,14 @@ export const ABGLEICH_AN = teil('abgleich');
  */
 export const AO_RUHIG = teil('aoruhig');
 /**
+ * Weg B der Gegenüberstellung (D265): ein Himmelsfoto (HDRI, Poly Haven `alps_field`, CC0) als
+ * Umgebungslicht für alle Standardmaterialien statt nur der gerechneten Hemisphäre. **Nicht** Teil
+ * von `?echt=1`: Es ändert die entschiedene Lichtstimmung (`zielbild`, A-9/ADR-0011) — eine Probe
+ * zum Ansehen, keine Vorgabe. `?hdri=1`; die Stärke mit `?hdristaerke=` (Vorgabe 0,8).
+ */
+export const HDRI_AN = an('hdri');
+export const HDRI_STAERKE = (() => { const v = Number(suche.get('hdristaerke')); return Number.isFinite(v) && v > 0 ? v : 0.8; })();
+/**
  * Querbett (D263, `lod.ts`): Breite in Metern jenseits der Uferkante, auf der die hohe Böschung auf
  * den Spiegel abgestochen wird; 0 = aus (Vorgabe). Zwei Netzecken (2 m) plus Rand.
  */

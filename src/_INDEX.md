@@ -61,6 +61,7 @@ owns: *.ts, *.tsx
 | Datei | Zweck |
 |---|---|
 | `scenes/ezlod.ts` | Reine Gewichtung und Ditherintervalle für unterbrochene EZ-Baum-LOD-Wechsel; geprüft durch `../tests/ezlod.test.ts`. |
+| `probe/webgpuStauwehr.ts` | **WebGPU-Probe Stauwehr** (D265, Weg C, ADR-0015), Seite `probe-webgpu.html` im Wurzelordner: dieselbe Welt (Höhenfeld, Bäche, Blender-Set-Pieces, Laubkarten) mit `WebGPURenderer`, HDRI-Licht und den fertigen three.js-Bausteinen GTAO, SSR, TRAA; Halmersatz statt Grasteppich. Schalter `?ssr=0`, `?ao=0`, `?traa=0`, `?hdri=0`, `?echt=1`. Spiel unberührt |
 | `scenes/EzBaumProbe.tsx` | Experiment D254: `?ezbaum=1` ersetzt Baumgruppen in drei LOD-Stufen, überblendet auch mehrfach unterbrochene Wechsel und puffert kurze Gruppenlücken; `?ezdiagnose=1` protokolliert Ereignisse. Fernzellen standardmäßig aktiv, `?ezcluster=0` für A/B; offene Befunde siehe Ledger H-249. |
 | `scenes/TakramProbe.tsx` | Experiment D249: `?takram=1` ersetzt den sichtbaren Himmel durch Three-Geospatial; Weltlicht, Nebel und Wasserreflexion bleiben unverändert. Versionskonflikt und Messgrenzen siehe D249. |
 | `world/eztexturen.ts` | Lizenzgeklaerte, an EZ-Tree via Build-Alias gelieferte Blatt- und Rindenkarten; Quellen und Erzeugung `../assets/HERKUNFT.md` / `../tools/eztexturen.mjs`. |

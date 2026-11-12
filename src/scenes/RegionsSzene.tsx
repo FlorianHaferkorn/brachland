@@ -55,7 +55,8 @@ import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
 import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type KartenArt } from '../world/laubkarten.js';
-import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG } from '../world/echt.js';
+import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE } from '../world/echt.js';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
 import { baueGrasteppich, NAH_HALB, NAH_ZELLE, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
@@ -1710,6 +1711,30 @@ export interface Ortsmarke {
 }
 
 /**
+ * Weg B (D265, `?hdri=1`): Himmelsfoto als Umgebungslicht. PMREM gefiltert, als `scene.environment`
+ * für jedes Standardmaterial; die Hemisphäre bleibt mit einem Viertel als Grundlicht für die
+ * eigenen Shader, die keine Umgebungskarte lesen. Sonne und Schatten bleiben, wie sie sind.
+ */
+function HdriLicht() {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    let weg = false;
+    const pmrem = new THREE.PMREMGenerator(gl);
+    let karte: THREE.Texture | null = null;
+    new HDRLoader().load('/himmel/alps_field_1k.hdr', (t) => {
+      if (weg) { t.dispose(); return; }
+      karte = pmrem.fromEquirectangular(t).texture;
+      t.dispose();
+      scene.environment = karte;
+      scene.environmentIntensity = HDRI_STAERKE;
+      console.info('[hdri] alps_field aktiv, Stärke', HDRI_STAERKE);
+    });
+    return () => { weg = true; if (scene.environment === karte) scene.environment = null; karte?.dispose(); pmrem.dispose(); };
+  }, [gl, scene]);
+  return null;
+}
+
+/**
  * Bauwerke aus der Blender-Szene (ADR-0006, Stufe 2).
  *
  * `tools/szenenexport.py` backt die prozeduralen Materialien und schreibt je Bauwerk bis zu
@@ -2215,7 +2240,8 @@ function Beleuchtung({ s, ziel }: {
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       {!takramBereit && <primitive object={himmel} />}
       {takramAn && <TakramProbe sonnenstand={s.sonnenstand} meldeBereit={setzeTakramBereit} />}
-      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, UMGEBUNG_MESSLAUF ?? s.umgebungStaerke]} />
+      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? 0.25 : 1)]} />
+      {HDRI_AN && <HdriLicht />}
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
