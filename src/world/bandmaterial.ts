@@ -12,6 +12,7 @@
  *   die weiche Kante: außen durchsichtig, innen deckend.
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
+import { BACH_ECHT } from './echt.js';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
 import { PALETTE } from './palette.js';
@@ -203,6 +204,19 @@ float wehrAnteil(vec3 p) {
   vec3 wellenNormale = vec3(w2 * 0.10 + kraus * 0.16, 0.0, w1 * 0.14);
   normal = normalize(normal + mat3(viewMatrix) * wellenNormale * ${fallend ? '1.0' : '0.15'});
 `);
+    if (BACH_ECHT && !fallend) {
+      // D267: Waldkante in der Spiegelung. Unter ihr liegt das gegenüberliegende Ufer mit Bäumen,
+      // dunkel und grünbraun; darüber der Himmel. Weiche Kante, und die Wellennormale verzieht sie.
+      shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_maps>', /* glsl */ `#include <lights_fragment_maps>
+  #if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )
+  {
+    vec3 spiegelWelt = inverseTransformDirection(reflect(-geometryViewDir, normal), viewMatrix);
+    float ueberKante = smoothstep(0.12, 0.45, spiegelWelt.y);
+    radiance *= mix(vec3(0.09, 0.115, 0.07), vec3(1.0), ueberKante);
+  }
+  #endif
+`);
+    }
     if (probe && !fallend) {
       // PBR verarbeitet die lokale Strahlung ueber denselben Fresnel-/BRDF-Pfad
       // wie den Himmel. Keine additive Emission und kein globales environment.
@@ -234,7 +248,7 @@ float wehrAnteil(vec3 p) {
     }
   };
 
-  material.customProgramCacheKey = () => `brachland-wasser-v8-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}`;
+  material.customProgramCacheKey = () => `brachland-wasser-v8-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}${BACH_ECHT && !fallend ? '-bach' : ''}`;
   return material;
 }
 

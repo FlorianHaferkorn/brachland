@@ -45,6 +45,12 @@ export const AO_RUHIG = teil('aoruhig');
  */
 export const GRAS_ECHT = teil('gras');
 /**
+ * Bach im Wald (D267, `bandmaterial.ts`): Die Spiegelung zeigt unterhalb einer Waldkante (~7–27° über
+ * dem Wasser) das dunkle Ufer statt Himmel. Ohne Szenenspiegelung reflektierte das Wasser gerade dort,
+ * wo Fresnel am stärksten ist (flacher Blick), den hellen Himmel — es lag weiss im Wald.
+ */
+export const BACH_ECHT = teil('bach');
+/**
  * Weg B der Gegenüberstellung (D265): ein Himmelsfoto (HDRI, Poly Haven `alps_field`, CC0) als
  * Umgebungslicht für alle Standardmaterialien statt nur der gerechneten Hemisphäre. **Nicht** Teil
  * von `?echt=1`: Es ändert die entschiedene Lichtstimmung (`zielbild`, A-9/ADR-0011) — eine Probe
