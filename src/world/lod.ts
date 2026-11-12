@@ -20,7 +20,7 @@ import { MASSSTAB, BIOM_FARBE } from './terrain.js';
 import type { Aufsatzboden } from './terrain.js';
 import { TERRASSEN, terrassiere, type Terrasse } from './bauwerke.js';
 import { baueWasserfeld } from './wasserfeld.js';
-import { UFER_GRUEN } from './echt.js';
+import { UFER_GRUEN, BETT_QUER } from './echt.js';
 
 /** Kachelkantenlänge in Metern. */
 export const KACHEL = 64;
@@ -150,7 +150,10 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
   // von Doppelung, an der schon die Höhenquellen einmal auseinandergelaufen sind.
   const wasser = baueWasserfeld(welt, breiteMeter, tiefeMeter);
 
-  const rohHoehe = (x: number, z: number): number => {
+  /** Anstieg der abgestochenen Böschung je Meter vom Ufer weg (D263). */
+  const BOESCHUNG = 0.6;
+  /** Gelände vor dem Bachbett: DEM bilinear plus Mikrorelief. */
+  const flaeche = (x: number, z: number): number => {
     // Rasterkoordinate mit Nachkommaanteil
     const fj = (x / breiteMeter + 0.5) * (n - 1);
     const fi = (z / tiefeMeter + 0.5) * (n - 1);
@@ -195,10 +198,36 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
     // wären Buckel unnatürlich, an einem Steilhang sind sie es nicht.
     const neigung = Math.min(1, (Math.abs(h10 - h00) + Math.abs(h01 - h00)) / 12);
     const staerke = mikroStaerke * (0.45 + 0.85 * neigung);
+    return basis + mikrorelief(x, z) * staerke;
+  };
+  const rohHoehe = (x: number, z: number): number => {
     // Das Bett wird abgezogen, nicht dazugerechnet: Der Wasserspiegel bleibt dort,
     // wo das Gelände vorher war, und die Sohle geht darunter. Andersherum stünde
     // das Wasser als Wall in der Landschaft.
-    return basis + mikrorelief(x, z) * staerke - wasser.tiefeAn(x, z);
+    const t = wasser.tiefeAn(x, z);
+    const oben = flaeche(x, z);
+    if (!BETT_QUER) return oben - t;
+    /**
+     * D263 (`?bett=1` / `?echt=1`): Querbett — die hohe Böschung wird abgestochen.
+     *
+     * Das Wasserband liegt quer waagerecht auf dem **tieferen** Ufer (`baender.ts`, `liegendesBand`),
+     * Gelände und Sohle folgten aber dem Querhang. Am Wehr stand nasser Boden 0,44 m über dem
+     * Spiegel (D255) — der dunkle Keil. Eine Absenkung nur im Bett reicht nicht: Das Bett ist 4 m
+     * breit, das Netz hat 2 m Eckabstand, die Ecke auf der hohen Uferkante bleibt oben und zieht das
+     * Dreieck mit (gemessen 12.11.2026: 0,44 → 0,52 m). Deshalb:
+     * - Spiegel wie das Band: tiefere der beiden Uferkanten (Mittellinie ± halbe Breite, quer).
+     * - Im Bett: Sohle höchstens Spiegel minus Tiefe.
+     * - Ausserhalb bis `BETT_QUER` m: Böschung steigt vom Spiegel mit `BOESCHUNG` (Anstieg je Meter);
+     *   wo das Gelände tiefer liegt, bleibt es.
+     * Längs des Bachs ändert sich nichts. Waten, Kollision und Kacheln lesen dieselbe Höhe.
+     */
+    const q = wasser.querAn(x, z, BETT_QUER);
+    if (!q) return oben - t;
+    const spiegel = Math.min(
+      flaeche(q.mx + q.nx * q.halbe, q.mz + q.nz * q.halbe),
+      flaeche(q.mx - q.nx * q.halbe, q.mz - q.nz * q.halbe));
+    const draussen = Math.max(0, q.abstand - q.halbe);
+    return Math.min(oben, spiegel + draussen * BOESCHUNG) - t;
   };
   // Terrassen: erst hier, damit `roh` die Zielhoehe liefert, bevor sie selbst terrassiert wuerde.
   const zielhoehen = terrassen.map(t => rohHoehe(t.x, t.z));

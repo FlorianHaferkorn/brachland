@@ -40,7 +40,9 @@ interface ArtWerte {
    * Wiederholungen des Fotos je Kartenkante (D262). Der Zweig im Foto trägt 6–7 Blätter über die
    * ganze Kachel; auf einer 75-cm-Karte war ein Blatt so 30–35 cm lang statt 8–12 cm — aus der
    * Nähe las die Krone wie Riesenlaub. 2 × 2 Zweige auf 60 cm bringen das Blatt auf ~13 cm.
-   * Weide: 2 × 4 auf der schmalen Hängekarte, sonst war das Blatt 17 × 30 cm und blass gestreckt.
+   * Weide: schmale Hängekarte 0,2 × 0,6 m mit dem Zweig zweimal untereinander — Blatt ~10 cm.
+   * Die erste Fassung (2 × 4 auf 0,35 × 1,1 m) setzte den Zweig nebeneinander, und die Stiele
+   * standen als Streifen in der Krone.
    */
   kacheln: [number, number];
 }
@@ -48,11 +50,15 @@ interface ArtWerte {
 const ARTEN: Record<KartenArt, ArtWerte> = {
   laub: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7.5, groesse: [0.6, 0.6], streuung: 0.9, haengend: false, durchlass: 0.6, kacheln: [2, 2] },
   nadel: { textur: '/material/ez-nadel-cc0-v5.webp', dichte: 6.5, groesse: [0.8, 0.55], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: [1, 1] },
-  weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7, groesse: [0.35, 1.1], streuung: 0.35, haengend: true, durchlass: 0.65, kacheln: [2, 4] },
+  weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 22, groesse: [0.2, 0.6], streuung: 0.35, haengend: true, durchlass: 0.65, kacheln: [1, 2] },
 };
 
-/** Obergrenze je Hülle: Eine riesige zusammengeführte Krone soll nicht 300.000 Karten bekommen. */
-export const KARTEN_MAX = 60_000;
+/**
+ * Obergrenze je Hülle. D263: 60.000 → 200.000. Die vereinigten Waldkronen (`WaldLaub`, `WaldNadeln`)
+ * hingen an der alten Grenze; mit der kleineren Laubkarte (D262) sank dort die Deckung, die
+ * Kronen wurden licht. Eine Karte sind zwei Dreiecke — 200.000 Karten 0,4 Mio Dreiecke.
+ */
+export const KARTEN_MAX = 200_000;
 
 /** Deterministischer Zufall (Mulberry32) — gleiche Hülle, gleiche Karten. */
 function zufall(saat: number): () => number {

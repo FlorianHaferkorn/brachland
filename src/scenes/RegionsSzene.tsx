@@ -55,7 +55,7 @@ import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
 import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type KartenArt } from '../world/laubkarten.js';
-import { STAMM_AN, WASSERREFLEX_AN } from '../world/echt.js';
+import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG } from '../world/echt.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
 import { baueGrasteppich, NAH_HALB, NAH_ZELLE, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
 import { istAus } from './abschalter.js';
@@ -202,7 +202,7 @@ const KURVE_VORGABE: THREE.ToneMapping = THREE.CustomToneMapping;
 const SCHATTENKARTE = (() => {
   const roh = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('schattenkarte');
   const [a, h] = (roh ?? '').split(',').map(Number);
-  return { aufloesung: Number.isFinite(a) && a >= 512 ? a : 2048, halb: Number.isFinite(h) && h >= 20 ? h : 250 };
+  return { aufloesung: Number.isFinite(a) && a >= 512 ? a : SCHATTEN_AUFLOESUNG, halb: Number.isFinite(h) && h >= 20 ? h : 250 };
 })();
 
 /**
@@ -1835,7 +1835,7 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
       w.material.side = THREE.FrontSide;
       o.add(k.mesh); karten.push(k);
     });
-    if (karten.length) console.info(`[laubkarten] ${bauwerk.name}: ${karten.length} Hüllen, ${karten.reduce((s, k) => s + k.anzahl, 0)} Karten auf ${Math.round(karten.reduce((s, k) => s + k.flaeche, 0))} m²`);
+    if (karten.length) console.info(`[laubkarten] ${bauwerk.name}: ${karten.length} Hüllen, ${karten.reduce((s, k) => s + k.anzahl, 0)} Karten auf ${Math.round(karten.reduce((s, k) => s + k.flaeche, 0))} m² (${karten.map(k => `${k.mesh.name.split(':')[1]} ${k.anzahl}/${Math.round(k.flaeche)}`).join(', ')})`);
     return { objekt: klon, materialien, karten };
   }, [scene, teil, rand.farbe, rand.staerke]);
   useEffect(() => {

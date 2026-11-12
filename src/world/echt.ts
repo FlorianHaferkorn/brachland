@@ -33,6 +33,22 @@ export const STAMM_AN = teil('stamm');
  */
 export const ABGLEICH_AN = teil('abgleich');
 /**
+ * Ruhige Verdeckung (D263): Der AO-Pass dreht seine Proben je Pixel mit weissem Rauschen und wird
+ * nur mit vier Proben weichgezeichnet — es bleibt Korn, das in Bewegung flimmert. Mit dem Schalter
+ * Bayer-Muster plus 4×4-Weichzeichnung mit Tiefengewicht (`Kontur.tsx`).
+ */
+export const AO_RUHIG = teil('aoruhig');
+/**
+ * Querbett (D263, `lod.ts`): Breite in Metern jenseits der Uferkante, auf der die hohe Böschung auf
+ * den Spiegel abgestochen wird; 0 = aus (Vorgabe). Zwei Netzecken (2 m) plus Rand.
+ */
+export const BETT_QUER = teil('bett') ? 3 : 0;
+/**
+ * Schattenkarte (D263): 2048² auf ±250 m sind ~24 cm je Schattenpixel, Schattenkanten im Gras
+ * werden zu Treppen. `?echt=1` nimmt 4096² (~12 cm). `?schattenkarte=` überschreibt weiter.
+ */
+export const SCHATTEN_AUFLOESUNG = ECHT && suche.get('schattenkarte') === null ? 4096 : 2048;
+/**
  * Szenenspiegelung im Wasser am Stauwehr (D255): nur einzeln mit `?wasserreflex=1`, **nicht** Teil von
  * `?echt=1`. Sechs Szenenpässe je Aufnahme (~22 Mio Dreiecke) machten das Bild unter SwiftShader so
  * schwer, dass kein Bildschirmfoto mehr zustande kam (12.11.2026), und D255 belegt keinen sichtbaren

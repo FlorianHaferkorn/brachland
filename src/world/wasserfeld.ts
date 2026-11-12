@@ -17,6 +17,7 @@
  * hätte bei brauchbarer Auflösung mehrere MB gekostet — für eine Information, die
  * auf 39 km Bachlauf verteilt fast überall „nein" lautet.
  */
+import { BETT_QUER } from './echt.js';
 import type { Weltdaten } from './osm.js';
 import { MASSSTAB } from './terrain.js';
 
@@ -46,7 +47,9 @@ const UFER = 7;
  * Nässe von 1 auf 0. Im Blender-Render des Stauwehrs ist der Uferboden dunkel und
  * glänzt; im Spiel stand die Wiese trocken bis an die Wasserkante (H-156c).
  */
-const NASS_BAND = 3;
+const NASS_BAND = BETT_QUER ? 1.2 : 3;
+// D263: Mit dem Querbett (`?bett=1`) steigt die Böschung 0,6 m je Meter — drei Meter nasser Boden
+// stünden dort bis 1,8 m über dem Spiegel und läsen wieder als dunkler Keil. 1,2 m ≈ 0,7 m Höhe.
 
 /** Kantenlänge einer Bucket-Zelle. Deutlich größer als jede Gewässerbreite. */
 const BUCKET = 32;
@@ -69,6 +72,12 @@ export interface Wasserfeld {
    * am Wasser am meisten.
    */
   nasseAn(x: number, z: number): number;
+  /**
+   * Nächster Bachabschnitt innerhalb `halbe + rand` (D263, Querbett in `lod.ts`): der nächste Punkt
+   * auf der Mittellinie, die Querrichtung (Einheitsnormale des Abschnitts) und die halbe Breite.
+   * `null` ausserhalb. Nur Linien, keine Teiche — ein Weiher liegt ohnehin waagerecht.
+   */
+  querAn(x: number, z: number, rand: number): { mx: number; mz: number; nx: number; nz: number; halbe: number; abstand: number } | null;
   /** Nur zur Kontrolle in Werkzeugen. */
   segmente: number;
   /** Stehende Gewässer als Polygonzüge in Weltkoordinaten — für die Wasserfläche. */
@@ -199,6 +208,27 @@ export function baueWasserfeld(
         }
       }
       return beste;
+    },
+    querAn(x: number, z: number, rand: number) {
+      const cx = Math.floor(x / BUCKET), cz = Math.floor(z / BUCKET);
+      let best: Segment | null = null, bestQ = Infinity;
+      for (let a = -1; a <= 1; a++)
+        for (let b = -1; b <= 1; b++) {
+          const liste = eimer.get(schluessel(cx + a, cz + b));
+          if (!liste) continue;
+          for (const s of liste) {
+            const dq = abstandQ(x, z, s);
+            const grenze = s.halbe + rand;
+            if (dq < grenze * grenze && dq < bestQ) { best = s; bestQ = dq; }
+          }
+        }
+      if (!best) return null;
+      const dx = best.bx - best.ax, dz = best.bz - best.az;
+      const lq = dx * dx + dz * dz;
+      if (lq <= 0) return null;
+      const t = Math.max(0, Math.min(1, ((x - best.ax) * dx + (z - best.az) * dz) / lq));
+      const l = Math.sqrt(lq);
+      return { mx: best.ax + dx * t, mz: best.az + dz * t, nx: -dz / l, nz: dx / l, halbe: best.halbe, abstand: Math.sqrt(bestQ) };
     },
     nasseAn(x: number, z: number): number {
       // Kürzester Abstand jenseits der Wasserlinie; <= 0 heisst im Wasser.

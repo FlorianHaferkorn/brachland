@@ -43,7 +43,7 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { MSAA, ABGLEICH_AN } from '../world/echt.js';
+import { MSAA, ABGLEICH_AN, AO_RUHIG } from '../world/echt.js';
 
 const KONTUR_ADRESSE: boolean | null = (() => {
   if (typeof location === 'undefined') return null;
@@ -125,6 +125,7 @@ const AO_FRAGMENT = /* glsl */`
   __TIEFE__
   uniform vec2 uTanHalb;
   uniform float uRadius;
+  uniform float uRuhig;
   varying vec2 vUv;
 
   // Sichtraumposition: uv → Sichtstrahl mal Tiefe. z zeigt nach hinten (negativ).
@@ -139,6 +140,16 @@ const AO_FRAGMENT = /* glsl */`
     vec3 N = normalize(cross(dFdx(P), dFdy(P)));
     // Halbkugel um N: Basis aus einem je Pixel gedrehten Zufallsvektor
     float w = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+    // D263 (\`?echt=1\`): statt weissem Rauschen ein 4×4-Bayer-Muster. Jede Drehung kommt in jedem
+    // 4×4-Block genau einmal vor, und die 16-Proben-Weichzeichnung im Zielbild hebt es restlos auf.
+    // Mit weissem Rauschen blieb nach den vier Proben ein Korn, das in Bewegung flimmerte.
+    if (uRuhig > 0.0) {
+      vec2 q = mod(floor(gl_FragCoord.xy), 4.0);
+      vec2 fein = mod(q, 2.0), grob = floor(q / 2.0);
+      // 2×2-Bayer (0 2 / 3 1) zweimal geschachtelt: 16 verschiedene Werte je 4×4-Block.
+      float b = 4.0 * mod(2.0 * fein.x + 3.0 * fein.y, 4.0) + mod(2.0 * grob.x + 3.0 * grob.y, 4.0);
+      w = (b + 0.5) / 16.0;
+    }
     vec3 zufall = vec3(cos(w * 6.2832), sin(w * 6.2832), 0.37);
     vec3 T = normalize(zufall - N * dot(zufall, N));
     vec3 B = cross(N, T);
@@ -241,6 +252,7 @@ const FRAGMENT = /* glsl */`
   uniform float uBloom;
   uniform vec3 uSchacht;
   uniform float uAbgleich;
+  uniform float uRuhig;
   varying vec2 vUv;
 
   /* Farbabgleich (D262, \`?abgleich=1\` / \`?echt=1\`): linear, vor dem Tonemapping.
@@ -273,6 +285,17 @@ const FRAGMENT = /* glsl */`
     // die Verdeckung bleibt. Potenz statt Faktor, damit 0,5 sichtbar dunkler ist als 0,8.
     float ao = 1.0;
     if (uAO > 0.0) {
+      if (uRuhig > 0.0) {
+        // D263: 4×4 AO-Texel (= 8×8 Bildpixel), tiefengewichtet — das Bayer-Muster verschwindet,
+        // Kanten bleiben, weil Proben auf anderer Tiefe (Stamm vor Wiese) kaum zählen.
+        float summe = 0.0, gewicht = 0.0;
+        for (int i = 0; i < 4; i++) for (int j = 0; j < 4; j++) {
+          vec2 suv = vUv + (vec2(float(i), float(j)) - 1.5) * uTexelAO;
+          float g = 1.0 / (1.0 + pow(abs(meter(suv) - z) / (0.03 * z), 2.0));
+          summe += texture2D(tAO, suv).r * g; gewicht += g;
+        }
+        ao = summe / max(gewicht, 1e-4);
+      } else
       ao = 0.25 * (texture2D(tAO, vUv + vec2(uTexelAO.x, uTexelAO.y) * 0.5).r
                  + texture2D(tAO, vUv + vec2(-uTexelAO.x, uTexelAO.y) * 0.5).r
                  + texture2D(tAO, vUv + vec2(uTexelAO.x, -uTexelAO.y) * 0.5).r
@@ -338,7 +361,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
         uStaerke: { value: an ? staerke : 0 }, uSchwelle: { value: schwelle }, uAO: { value: ao },
         tBloom: { value: null }, tSchacht: { value: null },
         uBloom: { value: 0 }, uSchacht: { value: new THREE.Color(0, 0, 0) },
-        uAbgleich: { value: ABGLEICH_AN ? 1 : 0 },
+        uAbgleich: { value: ABGLEICH_AN ? 1 : 0 }, uRuhig: { value: AO_RUHIG ? 1 : 0 },
       },
       depthTest: false, depthWrite: false,
     });
@@ -347,6 +370,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       uniforms: {
         tTiefe: { value: null }, uNah: { value: 0.2 }, uFern: { value: 1000 },
         uTanHalb: { value: new THREE.Vector2(1, 1) }, uRadius: { value: aoRadius },
+        uRuhig: { value: AO_RUHIG ? 1 : 0 },
       },
       depthTest: false, depthWrite: false,
     });
