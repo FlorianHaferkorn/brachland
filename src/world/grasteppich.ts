@@ -34,9 +34,9 @@ export const TEPPICH_ZELLE = 0.2;
  * Wiese mit 25 je m² als einzelne Sprossen. Kostet ~0,35 Mio Dreiecke mehr; am M1 zu messen (A-16).
  */
 export const TEPPICH_ZELLE_ECHT = 0.15;
-/** D272 (`?gras=3`): Foto-Büschel statt Halme — Zelle 20 cm im Teppich (25 Büschel je m²), 14 cm im Nahfeld (51 je m²). */
-export const TEPPICH_ZELLE_FEIN = 0.2;
-export const NAH_ZELLE_FEIN = 0.14;
+/** D272 (`?gras=3`): Foto-Büschel statt Halme — Zelle 15 cm im Teppich (44 Büschel je m²), 12 cm im Nahfeld (69 je m²). */
+export const TEPPICH_ZELLE_FEIN = 0.15;
+export const NAH_ZELLE_FEIN = 0.12;
 /** Ab dieser Bewegung wird die Feldtextur neu gefüllt. */
 export const TEPPICH_NACHZIEHEN = 4;
 /**
@@ -284,9 +284,9 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   ${GRAS_VIEL && !GRAS_FEIN ? 'breite *= mix(1.0, 0.6, stroh) * mix(1.0, 3.2, kraut);' : ''}
   ${GRAS_FEIN ? `
   // D272: quadratische Karte; Grösse = Kachelmass × Zufall × Bodenhöhe × Büschelhöhe × Zellgrösse/20 cm
-  // (grössere Zellen, Fernring, bekommen grössere Büschel, damit sie sich schliessen).
-  float gr = uKachelGr[kachel] * (0.75 + 0.6 * h4) * clamp(boden.b / 0.55, 0.45, 1.4) * (0.6 + 0.8 * buschel)
-           * ${(zelle / 0.2).toFixed(3)} * mix(1.0, 1.5, stroh);
+  // (grössere Zellen, Fernring, bekommen grössere Büschel, damit sie sich schliessen); Faktor 1,5: Wiese, nicht Rasen.
+  float gr = 1.5 * uKachelGr[kachel] * (0.75 + 0.6 * h4) * clamp(boden.b / 0.55, 0.45, 1.4) * (0.6 + 0.8 * buschel)
+           * ${(zelle / 0.15).toFixed(3)} * mix(1.0, 1.5, stroh);
   hoehe = gr * da;
   breite = gr * 0.5;` : ''}
   float winkel = h1 * 6.2832;
@@ -342,7 +342,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;\nvarying float vQ;\nvarying vec2 vKartenUv;\nuniform sampler2D uKarte;')
       .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;' + (GRAS_FEIN ? `
   { vec4 horst = texture2D(uKarte, vKartenUv);   // D272: Foto-Büschel — Farbe, Deckung, Verdeckung am Fuss
-    diffuseColor.rgb = vHalmFarbe * horst.rgb * mix(0.4, 1.0, smoothstep(0.0, 0.5, vHalmY));
+    diffuseColor.rgb = vHalmFarbe * horst.rgb * 2.4 * mix(0.55, 1.0, smoothstep(0.0, 0.5, vHalmY));   // 2,4: Foto-Albedo (Mittel 0,125 linear) auf die Helligkeit der Szene (alte Spitze ~0,3)
     diffuseColor.a = horst.a; }` : '') + (GRAS_VIEL && !GRAS_FEIN ? `
   { float kante = abs(vQ);   // D271: Kante dunkler, Mittelrippe heller — der Halm hat Körper statt Flachband
     diffuseColor.rgb *= (1.0 - 0.3 * kante * kante) * (1.0 + 0.18 * (1.0 - smoothstep(0.0, 0.12, kante))); }` : ''))
