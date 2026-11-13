@@ -56,6 +56,12 @@ export const AO_RUHIG = teil('aoruhig');
  * Dichte auf, sondern Vielfalt. Schaltet `?gras=1` (Nahfeld, D268) mit ein.
  */
 /**
+ * Mip-Ketten mit Deckungserhalt für die Laub- und Nadelkarten (D273, `alphamips.ts`): dünne Blattränder
+ * zerfallen beim Verkleinern sonst im Alpha-Test zu ausgefransten Flecken. `?mips=1` oder in `?echt=1`.
+ */
+export const MIPS_ERHALT = teil('mips');
+
+/**
  * Gras aus feinen Horsten (D272, `?gras=3`): echte Halmbreite (3–8 mm) und Dichte über Karten mit je ~44
  * gezeichneten Halmen statt breiter Einzelhalme; schliesst `?gras=2` (Vielfalt) und `?gras=1` ein.
  */

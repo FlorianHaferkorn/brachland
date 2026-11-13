@@ -21,7 +21,8 @@
  * je Hülle. Renderfrei gilt hier nicht: Das ist Welt-Code und kennt three.js.
  */
 import * as THREE from 'three';
-import { MSAA, PINSEL_AN } from './echt.js';
+import { MIPS_ERHALT, MSAA, PINSEL_AN } from './echt.js';
+import { ladeRgba, leereKarte, setzeAlphaMips } from './alphamips.js';
 import { pinselTextur, PINSEL_BAND_GLSL } from './pinsel.js';
 
 export type KartenArt = 'laub' | 'nadel' | 'weide';
@@ -107,12 +108,25 @@ export function kartenArtFuer(name: string): KartenArt | null {
   return null;
 }
 
+/** Alpha-Schwelle der Blattkarten (Material) — die Mip-Kette erhält die Deckung für genau sie. */
+const KARTEN_SCHWELLE = 0.45;
 const texturen = new Map<string, THREE.Texture>();
 function textur(pfad: string, kacheln: [number, number]): THREE.Texture {
   const schluessel = pfad + '×' + kacheln.join('×');
   let t = texturen.get(schluessel);
   if (!t) {
-    t = new THREE.TextureLoader().load(pfad);
+    if (MIPS_ERHALT) {
+      // D273: Mip-Kette mit Deckungserhalt (`alphamips.ts`); bis das Bild da ist, durchsichtig.
+      const d = leereKarte();
+      t = d;
+      void ladeRgba(pfad).then((b) => {
+        setzeAlphaMips(d, b.data, b.b, b.h, { schwelle: KARTEN_SCHWELLE, spiegelY: true });
+        d.colorSpace = THREE.SRGBColorSpace;
+        d.flipY = false;
+      });
+    } else {
+      t = new THREE.TextureLoader().load(pfad);
+    }
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     if (kacheln[0] * kacheln[1] > 1) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(kacheln[0], kacheln[1]); }
@@ -123,7 +137,7 @@ function textur(pfad: string, kacheln: [number, number]): THREE.Texture {
 
 function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({
-    map: PINSEL_AN ? pinselTextur() : textur(art.textur, art.kacheln), alphaTest: 0.45, side: THREE.DoubleSide,
+    map: PINSEL_AN ? pinselTextur() : textur(art.textur, art.kacheln), alphaTest: KARTEN_SCHWELLE, side: THREE.DoubleSide,
     ...(PINSEL_AN && art.grundfarbe ? { color: art.grundfarbe } : {}),
     roughness: 0.75, metalness: 0,
     // Weiche Blattränder statt Treppen — wirkt nur mit MSAA im Zielbild (`echt.ts` MSAA).
