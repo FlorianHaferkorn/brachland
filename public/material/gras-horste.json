@@ -1,0 +1,164 @@
+{
+ "atlas": "horste.webp",
+ "breite": 1536,
+ "hoehe": 1152,
+ "kachel": 384,
+ "kacheln": [
+  {
+   "art": "gruen",
+   "quelle": "grass_medium_01#00",
+   "rect": [
+    0.0,
+    0.6666666666666667,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.1864,
+   "hoehe": 0.14,
+   "breite": 0.185
+  },
+  {
+   "art": "gruen",
+   "quelle": "grass_medium_01#01",
+   "rect": [
+    0.25,
+    0.6666666666666667,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.2827,
+   "hoehe": 0.169,
+   "breite": 0.284
+  },
+  {
+   "art": "gruen",
+   "quelle": "grass_medium_01#02",
+   "rect": [
+    0.5,
+    0.6666666666666667,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.1914,
+   "hoehe": 0.178,
+   "breite": 0.188
+  },
+  {
+   "art": "gruen",
+   "quelle": "grass_medium_01#06",
+   "rect": [
+    0.75,
+    0.6666666666666667,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.1653,
+   "hoehe": 0.1,
+   "breite": 0.166
+  },
+  {
+   "art": "gruen",
+   "quelle": "grass_medium_01#07",
+   "rect": [
+    0.0,
+    0.33333333333333337,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.1939,
+   "hoehe": 0.145,
+   "breite": 0.192
+  },
+  {
+   "art": "gruen",
+   "quelle": "grass_medium_01#09",
+   "rect": [
+    0.25,
+    0.33333333333333337,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.3098,
+   "hoehe": 0.147,
+   "breite": 0.317
+  },
+  {
+   "art": "gruen",
+   "quelle": "grass_medium_01#10",
+   "rect": [
+    0.5,
+    0.33333333333333337,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.2745,
+   "hoehe": 0.142,
+   "breite": 0.279
+  },
+  {
+   "art": "stroh",
+   "quelle": "grass_medium_02#00",
+   "rect": [
+    0.75,
+    0.33333333333333337,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.1603,
+   "hoehe": 0.157,
+   "breite": 0.119
+  },
+  {
+   "art": "stroh",
+   "quelle": "grass_medium_02#01",
+   "rect": [
+    0.0,
+    0.0,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.1834,
+   "hoehe": 0.18,
+   "breite": 0.179
+  },
+  {
+   "art": "stroh",
+   "quelle": "grass_medium_02#02",
+   "rect": [
+    0.25,
+    0.0,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.2662,
+   "hoehe": 0.232,
+   "breite": 0.262
+  },
+  {
+   "art": "stroh",
+   "quelle": "grass_medium_02#03",
+   "rect": [
+    0.5,
+    0.0,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.3213,
+   "hoehe": 0.26,
+   "breite": 0.317
+  },
+  {
+   "art": "stroh",
+   "quelle": "grass_medium_02#04",
+   "rect": [
+    0.75,
+    0.0,
+    0.25,
+    0.3333333333333333
+   ],
+   "groesse": 0.4118,
+   "hoehe": 0.403,
+   "breite": 0.356
+  }
+ ]
+}
