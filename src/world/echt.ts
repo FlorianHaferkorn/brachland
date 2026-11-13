@@ -55,7 +55,12 @@ export const AO_RUHIG = teil('aoruhig');
  * und -rippe. Anlass: Vergleich mit Phantom-Blade-Zero-Pressebildern am 12.11.2026 — dort fällt nicht die
  * Dichte auf, sondern Vielfalt. Schaltet `?gras=1` (Nahfeld, D268) mit ein.
  */
-export const GRAS_VIEL = suche.get('gras') === '2';
+/**
+ * Gras aus feinen Horsten (D272, `?gras=3`): echte Halmbreite (3–8 mm) und Dichte über Karten mit je ~44
+ * gezeichneten Halmen statt breiter Einzelhalme; schliesst `?gras=2` (Vielfalt) und `?gras=1` ein.
+ */
+export const GRAS_FEIN = suche.get('gras') === '3';
+export const GRAS_VIEL = suche.get('gras') === '2' || GRAS_FEIN;
 export const GRAS_ECHT = teil('gras') || GRAS_VIEL;
 /**
  * Bach im Wald (D267, `bandmaterial.ts`): Die Spiegelung zeigt unterhalb einer Waldkante (~7–27° über

@@ -19,7 +19,8 @@
 import * as THREE from 'three';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT, GRAS_VIEL, PINSEL_AN } from './echt.js';
+import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN } from './echt.js';
+import { horstTextur, HORST_FARBFAKTOR, HORST_SCHWELLE } from './grashorst.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
 import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
@@ -33,6 +34,9 @@ export const TEPPICH_ZELLE = 0.2;
  * Wiese mit 25 je m² als einzelne Sprossen. Kostet ~0,35 Mio Dreiecke mehr; am M1 zu messen (A-16).
  */
 export const TEPPICH_ZELLE_ECHT = 0.15;
+/** D272 (`?gras=3`): Horste statt Halme — Zelle 20 cm im Teppich (25 Horste je m², je ~44 Halme), 10 cm im Nahfeld. */
+export const TEPPICH_ZELLE_FEIN = 0.2;
+export const NAH_ZELLE_FEIN = 0.1;
 /** Ab dieser Bewegung wird die Feldtextur neu gefüllt. */
 export const TEPPICH_NACHZIEHEN = 4;
 /**
@@ -90,6 +94,25 @@ function baueHalm(): THREE.BufferGeometry {
   return g;
 }
 
+/**
+ * D272: Zwei gekreuzte Karten je Instanz (je 2 Höhenstufen für die Biegung), `position.z` kennzeichnet
+ * die Karte (0/1) und wählt im Shader die Achse; `uv.y` = 1 − Höhe (Zeile 0 der Textur ist oben).
+ */
+function baueHorst(): THREE.BufferGeometry {
+  const pos: number[] = [], uv: number[] = [], idx: number[] = [];
+  for (let k = 0; k < 2; k++) {
+    const o = pos.length / 3;
+    for (const y of [0, 0.5, 1]) for (const x of [-1, 1]) { pos.push(x, y, k); uv.push((x + 1) / 2, 1 - y); }
+    idx.push(o, o + 1, o + 3, o, o + 3, o + 2, o + 2, o + 3, o + 5, o + 2, o + 5, o + 4);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(pos.map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  return g;
+}
+
 export interface Grasteppich {
   mesh: THREE.Mesh;
   /** Je Bild: Zeit und Kamera für Wind und Randausblendung. */
@@ -110,7 +133,7 @@ export interface Grasteppich {
  */
 export function baueGrasteppich(
   feld: HoehenFeld, aufWeg: (x: number, z: number) => boolean, faktor = 1,
-  halb = TEPPICH_HALB, grundZelle = GRAS_ECHT ? TEPPICH_ZELLE_ECHT : TEPPICH_ZELLE,
+  halb = TEPPICH_HALB, grundZelle = GRAS_FEIN ? TEPPICH_ZELLE_FEIN : GRAS_ECHT ? TEPPICH_ZELLE_ECHT : TEPPICH_ZELLE,
   /** Fernring (D247): halbe Kantenlänge des inneren Teppichs, der hier ausgespart wird. 0 = keiner. */
   innen = 0,
   /**
@@ -126,11 +149,12 @@ export function baueGrasteppich(
   const FELD_TEXEL = 2 * Math.ceil((halb + 4) / texel);
   const zelle = grundZelle / Math.sqrt(Math.max(0.1, faktor));
   const n = Math.ceil((2 * halb) / zelle);
-  const halm = baueHalm();
+  const halm = GRAS_FEIN ? baueHorst() : baueHalm();
   const geo = new THREE.InstancedBufferGeometry();
   geo.index = halm.index;
   geo.setAttribute('position', halm.getAttribute('position'));
   geo.setAttribute('normal', halm.getAttribute('normal'));
+  if (GRAS_FEIN) geo.setAttribute('uv', halm.getAttribute('uv'));
   const versatz = new Float32Array(n * n * 2);
   for (let i = 0, k = 0; i < n; i++) for (let j = 0; j < n; j++) { versatz[k++] = j - n / 2; versatz[k++] = i - n / 2; }
   geo.setAttribute('aZelle', new THREE.InstancedBufferAttribute(versatz, 2));
@@ -159,6 +183,7 @@ export function baueGrasteppich(
     uMitte: { value: new THREE.Vector2() },
     uFuss: { value: new THREE.Color(PALETTE.streu.grasFuss) },
     uSpitze: { value: new THREE.Color(PALETTE.streu.grasSpitze) },
+    uKarte: { value: GRAS_FEIN ? horstTextur() : null },
   };
 
   const material = new THREE.MeshStandardMaterial({
@@ -181,6 +206,8 @@ uniform vec3 uSpitze;
 varying vec3 vHalmFarbe;
 varying float vHalmY;
 varying float vQ;
+varying vec2 vKartenUv;
+uniform sampler2D uKarte;
 float halmHash(vec2 p) { p = mod(p, 4096.0); return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float halmRauschen(vec2 p) {
   vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -237,12 +264,14 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float buschel = halmRauschen(ort * 1.4 + 11.0) * 0.65 + halmRauschen(ort * 0.33 + 2.0) * 0.35;
   hoehe *= 0.45 + 1.1 * buschel;` : ''}
   ${GRAS_VIEL ? 'hoehe *= mix(1.0, 1.7, stroh) * mix(1.0, 0.6, kraut);' : ''}
+  ${GRAS_FEIN ? 'hoehe *= 0.6;   // D272: Wiese 15–45 cm statt 30–80 cm' : ''}
   // Im Fernring breiter: Ein 2-cm-Halm ist auf 50 m kleiner als ein Pixel und flimmert nur.
-  float breite = (0.012 + h5 * 0.012) * ${PINSEL_AN ? '1.9 * ' : ''}${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : GRAS_ECHT && halb === NAH_HALB_ECHT ? NAH_BREITE_ECHT.toFixed(2) : '1.0'};
-  ${GRAS_VIEL ? 'breite *= mix(1.0, 0.6, stroh) * mix(1.0, 3.2, kraut);' : ''}
+  float breite = ${GRAS_FEIN ? `${(zelle * 1.15).toFixed(3)} * (0.85 + h5 * 0.3)` : `(0.012 + h5 * 0.012) * ${PINSEL_AN ? '1.9 * ' : ''}${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : GRAS_ECHT && halb === NAH_HALB_ECHT ? NAH_BREITE_ECHT.toFixed(2) : '1.0'}`};
+  ${GRAS_VIEL ? `breite *= mix(1.0, 0.6, stroh) * mix(1.0, ${GRAS_FEIN ? '1.4' : '3.2'}, kraut);` : ''}
   float winkel = h1 * 6.2832;
   vec2 quer = vec2(cos(winkel), sin(winkel));
   vec2 vor = vec2(-quer.y, quer.x);
+  vec2 ach = ${GRAS_FEIN ? 'position.z > 0.5 ? vor : quer' : 'quer'};   // D272: zweite Karte steht quer zur ersten
   // Wind: eine Welle, die über das Feld läuft, plus Böen aus Rauschen, plus Eigenzittern.
   vec2 windRichtung = normalize(vec2(0.8, 0.6));
   float welle = sin(dot(ort, windRichtung) * 0.35 - uZeit * 1.6) * 0.5 + 0.5;
@@ -251,9 +280,9 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float neigung = (0.18 + h3 * 0.35)${GRAS_VIEL ? ' * mix(mix(1.0, 1.8, stroh), 0.6, kraut)' : ''};
   float y = position.y;
   vec2 biege = vor * neigung * y * y + windRichtung * (welle * 0.35 + boe * 0.45 + zittern) * y * y;
-  vec3 halmPos = vec3(ort.x + quer.x * position.x * breite + biege.x * hoehe,
+  vec3 halmPos = vec3(ort.x + ach.x * position.x * breite + biege.x * hoehe,
                       boden.r + y * hoehe * (1.0 - 0.25 * length(biege)),
-                      ort.y + quer.y * position.x * breite + biege.y * hoehe);
+                      ort.y + ach.y * position.x * breite + biege.y * hoehe);
   // Farbe: aus dem Boden heraus, zur Spitze grüner und heller; trockene Flecken (Rauschen 30 m)
   // gehen ins Strohfarbene. Zum Ringrand hin ganz Bodenfarbe — der Übergang hat keine Kante.
   float trocken = smoothstep(0.55, 0.85, halmRauschen(ort * 0.033 + 5.0)) * 0.7 + h4 * 0.15;
@@ -278,6 +307,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   spitze = artFarbe * (0.85 + h5 * 0.3);
   fuss = mix(bodenTon * 0.35, strohF * 0.45, stroh);
   vQ = position.x / max(1.0 - 0.75 * y, 0.05);` : 'vQ = 0.0;'}
+  vKartenUv = ${GRAS_FEIN ? 'uv' : 'vec2(0.0)'};
   vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
   vHalmY = y * (1.0 - zumBoden);
   vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
@@ -286,8 +316,11 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   #endif`)
       .replace('#include <begin_vertex>', 'vec3 transformed = halmPos;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;\nvarying float vQ;')
-      .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;' + (GRAS_VIEL ? `
+      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;\nvarying float vQ;\nvarying vec2 vKartenUv;\nuniform sampler2D uKarte;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;' + (GRAS_FEIN ? `
+  { vec4 horst = texture2D(uKarte, vKartenUv);   // D272: Halmkarte — Farbmultiplikator und Deckung
+    diffuseColor.rgb = vHalmFarbe * horst.rgb * ${HORST_FARBFAKTOR.toFixed(1)};
+    diffuseColor.a = horst.a; }` : '') + (GRAS_VIEL && !GRAS_FEIN ? `
   { float kante = abs(vQ);   // D271: Kante dunkler, Mittelrippe heller — der Halm hat Körper statt Flachband
     diffuseColor.rgb *= (1.0 - 0.3 * kante * kante) * (1.0 + 0.18 * (1.0 - smoothstep(0.0, 0.12, kante))); }` : ''))
       // Beide Seiten mit derselben (nach oben gekippten) Normale: three dreht sie für die
@@ -305,8 +338,10 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   }
 #endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${GRAS_VIEL ? '-viel' : ''}${PINSEL_AN ? '-pinsel' : ''}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${GRAS_VIEL ? '-viel' : ''}${GRAS_FEIN ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}`;
 
+  // D272: Halmkarten mit Alpha-Test; mit MSAA (Kontur) weiche Kanten über alphaToCoverage.
+  if (GRAS_FEIN) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }
   const mesh = new THREE.Mesh(geo, material);
   mesh.frustumCulled = false;
   mesh.receiveShadow = true;

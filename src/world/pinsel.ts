@@ -18,7 +18,7 @@ const BOGEN = 512;
 let bogen: THREE.CanvasTexture | null = null;
 
 /** Deterministischer Zufall — derselbe Bogen bei jedem Start. */
-function zufall(saat: number): () => number {
+export function zufall(saat: number): () => number {
   let a = saat >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
