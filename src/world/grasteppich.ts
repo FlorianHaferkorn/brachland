@@ -273,10 +273,15 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   int kachel = min(int(h6 * ${HORST_GRUEN}.0), ${HORST_GRUEN - 1});
   if (stroh > 0.5) kachel = ${HORST_GRUEN} + min(int(h6 * ${HORST_STROH}.0), ${HORST_STROH - 1});
   else if (kraut > 0.5) kachel = ${HORST_GRUEN + HORST_STROH} + min(int(h6 * ${HORST_KRAUT}.0), ${HORST_KRAUT - 1});
-  if (h7 < 0.03) kachel = ${HORST_GRUEN + HORST_STROH + HORST_KRAUT} + min(int(h6 * ${HORST_BLUME}.0), ${HORST_BLUME - 1});
-  bool strohKachel = kachel >= ${HORST_GRUEN} && kachel < ${HORST_GRUEN + HORST_STROH};` : ''}
+  if (h7 < 0.06) kachel = ${HORST_GRUEN + HORST_STROH + HORST_KRAUT} + min(int(h6 * ${HORST_BLUME}.0), ${HORST_BLUME - 1});
+  bool strohKachel = kachel >= ${HORST_GRUEN} && kachel < ${HORST_GRUEN + HORST_STROH};
+  bool blumeKachel = kachel >= ${HORST_GRUEN + HORST_STROH + HORST_KRAUT};` : ''}
   // Dichte als Schwelle: stabil am Ort, kein Flackern beim Nachziehen.
   float da = step(h3, dicht) * rand;
+  ${GRAS_FEIN && innen === 0 ? `// D272: Ab 7 m bleibt nur jede vierte Zelle, dafür doppelt so breit und hoch (Ghost of Tsushima: 3 von 4 Halmen
+  // fallen weg) — ein Büschel hat dann mehr Pixel, die Mip-Stufe sinkt, der Rand bleibt scharf.
+  float spreiz = smoothstep(7.0, 14.0, abst);
+  da *= step(halmHash(zelleW + 23.1), mix(1.0, 0.25, spreiz));` : ''}
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
   ${strukturAn ? 'hoehe *= mix(1.0, mix(0.78, 1.05, wiesenStruktur), wiesenAnteil);' : ''}
   ${GRAS_ECHT ? `
@@ -292,7 +297,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   // D272: quadratische Karte; Grösse = Kachelmass × Zufall × Bodenhöhe × Büschelhöhe × Zellgrösse/20 cm
   // (grössere Zellen, Fernring, bekommen grössere Büschel, damit sie sich schliessen); Faktor 1,5: Wiese, nicht Rasen.
   float gr = 1.5 * uKachelGr[kachel] * (0.75 + 0.6 * h4) * clamp(boden.b / 0.55, 0.45, 1.4) * (0.6 + 0.8 * buschel)
-           * ${(zelle / 0.15).toFixed(3)} * mix(1.0, 1.25, stroh) * boden.a;
+           * ${(zelle / 0.15).toFixed(3)} * mix(1.0, 1.25, stroh) * boden.a * (blumeKachel ? 1.2 : 1.0)${innen === 0 ? ' * mix(1.0, 2.0, spreiz)' : ''};
   hoehe = gr * da;
   breite = gr * 0.5;` : ''}
   float winkel = h1 * 6.2832;
@@ -338,7 +343,8 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vKartenUv = vec2(kr.x + uv.x * kr.z, (1.0 - kr.y - kr.w) + uv.y * kr.w);` : 'vKartenUv = vec2(0.0);'}
   vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
   vHalmY = y * (1.0 - zumBoden);
-  ${GRAS_FEIN ? 'vHalmFarbe = vec3((0.8 + 0.4 * h5) * (strohKachel ? 0.8 : 1.0));   // D272: nur Helligkeit je Büschel (Stroh ×0,8), die Farbe kommt aus dem Foto' : ''}
+  ${GRAS_FEIN ? `// D272: Helligkeit je Büschel; grüne Kacheln saftiger (Grün ×1,3, Blau ×0,85), Stroh ×0,8, Kraut leicht grüner.
+  vHalmFarbe = vec3(0.8 + 0.4 * h5) * (strohKachel ? vec3(0.8) : kachel < ${HORST_GRUEN} ? vec3(1.15, 1.3, 0.85) : vec3(1.05, 1.15, 0.9));` : ''}
   vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
   #ifdef USE_TANGENT
     vec3 objectTangent = vec3(1.0, 0.0, 0.0);

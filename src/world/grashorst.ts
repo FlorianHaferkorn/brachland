@@ -122,7 +122,7 @@ export function ladeHorstAtlas(): Promise<HorstAtlas> {
     for (let s = 0; s < MIP_STUFEN; s++) {
       let aus: Uint8Array<ArrayBuffer> = ist;
       if (s > 0) {
-        let lo = 1, hi = 8;
+        let lo = 1, hi = 4;   // Deckel 4: darüber werden aus Rauschen ausgefranste Flecken
         for (let k = 0; k < 14; k++) { const mid = (lo + hi) / 2; if (deckung(ist, mid) < ziel) lo = mid; else hi = mid; }
         aus = new Uint8Array(ist);
         for (let i = 3; i < aus.length; i += 4) aus[i] = Math.min(255, ist[i] * hi);
