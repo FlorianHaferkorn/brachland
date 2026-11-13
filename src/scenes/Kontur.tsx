@@ -126,6 +126,7 @@ const AO_FRAGMENT = /* glsl */`
   uniform vec2 uTanHalb;
   uniform float uRadius;
   uniform float uRuhig;
+  uniform float uFrame;   // D275: 0…15, mit TAA je Bild weitergedreht (sonst 0)
   varying vec2 vUv;
 
   // Sichtraumposition: uv → Sichtstrahl mal Tiefe. z zeigt nach hinten (negativ).
@@ -148,6 +149,10 @@ const AO_FRAGMENT = /* glsl */`
       vec2 fein = mod(q, 2.0), grob = floor(q / 2.0);
       // 2×2-Bayer (0 2 / 3 1) zweimal geschachtelt: 16 verschiedene Werte je 4×4-Block.
       float b = 4.0 * mod(2.0 * fein.x + 3.0 * fein.y, 4.0) + mod(2.0 * grob.x + 3.0 * grob.y, 4.0);
+      // D275: Das Muster rotiert je Bild durch alle 16 Werte. Ohne das blieb im Zielbild ein regelmässiges
+      // Punktraster (Periode 8 px) auf Laub und Gras stehen: Dort springt die Tiefe so stark, dass die
+      // tiefengewichtete Weichzeichnung kaum Nachbarn zählt, und die TAA mittelte ein festes Muster nie weg.
+      b = mod(b + uFrame, 16.0);
       w = (b + 0.5) / 16.0;
     }
     vec3 zufall = vec3(cos(w * 6.2832), sin(w * 6.2832), 0.37);
@@ -471,7 +476,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       uniforms: {
         tTiefe: { value: null }, uNah: { value: 0.2 }, uFern: { value: 1000 },
         uTanHalb: { value: new THREE.Vector2(1, 1) }, uRadius: { value: aoRadius },
-        uRuhig: { value: AO_RUHIG ? 1 : 0 },
+        uRuhig: { value: AO_RUHIG ? 1 : 0 }, uFrame: { value: 0 },
       },
       depthTest: false, depthWrite: false,
     });
@@ -551,6 +556,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       const ua = quad.aoMaterial.uniforms;
       ua.tTiefe.value = ziel.rt.depthTexture;
       ua.uNah.value = k.near; ua.uFern.value = k.far;
+      ua.uFrame.value = taaAn ? taa.bild % 16 : 0;
       const th = Math.tan(k.fov * Math.PI / 360);
       ua.uTanHalb.value.set(th * k.aspect, th);
       gl.setRenderTarget(ziel.aoZiel);
