@@ -251,7 +251,10 @@ float wehrAnteil(vec3 p) {
   float f0 = pow((1.333 - 1.0) / (1.333 + 1.0), 2.0);
   float reflexion = f0 + (1.0 - f0) * pow(1.0 - cosBlick, 5.0);
   float deckung = 1.0 - (1.0 - reflexion) * exp(-0.6 * dicke);
-  outgoingLight /= max(deckung, 0.0001);
+${BACH_ECHT ? `  // D274: Spitzen der Spiegelung weich begrenzen (Reinhard auf die Reflexion). Sonne und heller Himmel
+  // spiegelten als harte weisse Platte mit Streifenmuster; die Spiegelung bleibt, brennt aber nicht aus.
+  outgoingLight = outgoingLight / (1.0 + 0.6 * outgoingLight);
+` : ''}  outgoingLight /= max(deckung, 0.0001);
   diffuseColor.a *= deckung;
   #include <opaque_fragment>
 `);
