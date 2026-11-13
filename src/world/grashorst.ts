@@ -6,7 +6,7 @@
  * einzelner Büschel (0,12–0,36 m), als Blattkarten mit der Silhouette der Halme geschnitten. Roh sind sie
  * bis 25.000 Dreiecke je Büschel — zu schwer für 20–100 Büschel je m². Sie wurden deshalb einmal je Netz
  * seitlich mit orthografischer Kamera in ein Bild gerendert (`tools/grashorste.mjs`) und zu einem Atlas
- * gepackt: 12 Kacheln à 384², Alpha aus der Silhouette, Farbe unter dem Rand nach aussen gefüllt (keine
+ * gepackt: 19 Kacheln à 384² (7 grün, 5 trocken, 4 Kraut, 3 Blüten), Alpha aus der Silhouette, Farbe unter dem Rand nach aussen gefüllt (keine
  * dunklen Säume). `public/material/gras-horste.json` hält je Kachel das Rechteck im Atlas und die Kantenlänge
  * der Kachel in Metern; Herkunft in `assets/HERKUNFT.md`.
  *
@@ -18,15 +18,17 @@
 import * as THREE from 'three';
 
 /** Alpha-Schwelle, die der Material-Alpha-Test benutzt (und die Mip-Kette erhält). */
-export const HORST_SCHWELLE = 0.4;
-/** Kacheln je Art im Atlas (Reihenfolge: erst grün, dann trocken); wird beim Laden gegen die JSON geprüft. */
+export const HORST_SCHWELLE = 0.3;
+/** Kacheln je Art im Atlas (Reihenfolge: grün, trocken, Kraut, Blume); wird beim Laden gegen die JSON geprüft. */
 export const HORST_GRUEN = 7;
 export const HORST_STROH = 5;
-export const HORST_ZAHL = HORST_GRUEN + HORST_STROH;
+export const HORST_KRAUT = 4;
+export const HORST_BLUME = 3;
+export const HORST_ZAHL = HORST_GRUEN + HORST_STROH + HORST_KRAUT + HORST_BLUME;
 const MIP_STUFEN = 6;
 
 export interface HorstKachel {
-  art: 'gruen' | 'stroh';
+  art: 'gruen' | 'stroh' | 'kraut' | 'blume';
   /** Rechteck im Atlas in UV (x, y, Breite, Höhe), unten links. */
   rect: [number, number, number, number];
   /** Kantenlänge der quadratischen Kachel in Metern. */
@@ -104,10 +106,9 @@ export function ladeHorstAtlas(): Promise<HorstAtlas> {
       fetch('/material/gras-horste.json').then((r) => r.json()) as Promise<{ kacheln: HorstKachel[] }>,
       fetch('/material/gras-horste.webp').then((r) => r.blob()).then((b) => createImageBitmap(b, { premultiplyAlpha: 'none' })),
     ]);
-    const gruen = daten.kacheln.filter((k) => k.art === 'gruen').length;
-    const stroh = daten.kacheln.filter((k) => k.art === 'stroh').length;
-    if (gruen !== HORST_GRUEN || stroh !== HORST_STROH)
-      console.warn(`[grashorst] Atlas hat ${gruen}/${stroh} Kacheln, erwartet ${HORST_GRUEN}/${HORST_STROH}`);
+    const zahl = (a: string) => daten.kacheln.filter((k) => k.art === a).length;
+    if (zahl('gruen') !== HORST_GRUEN || zahl('stroh') !== HORST_STROH || zahl('kraut') !== HORST_KRAUT || zahl('blume') !== HORST_BLUME)
+      console.warn(`[grashorst] Atlas hat ${zahl('gruen')}/${zahl('stroh')}/${zahl('kraut')}/${zahl('blume')} Kacheln, erwartet ${HORST_GRUEN}/${HORST_STROH}/${HORST_KRAUT}/${HORST_BLUME}`);
     const c = document.createElement('canvas');
     c.width = bild.width; c.height = bild.height;
     const g = c.getContext('2d', { willReadFrequently: true })!;

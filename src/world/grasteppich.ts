@@ -20,7 +20,7 @@ import * as THREE from 'three';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
 import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN } from './echt.js';
-import { ladeHorstAtlas, leereHorstTextur, HORST_GRUEN, HORST_SCHWELLE, HORST_STROH, HORST_ZAHL } from './grashorst.js';
+import { ladeHorstAtlas, leereHorstTextur, HORST_BLUME, HORST_GRUEN, HORST_KRAUT, HORST_SCHWELLE, HORST_STROH, HORST_ZAHL } from './grashorst.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
 import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
@@ -262,13 +262,19 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   ${GRAS_VIEL ? `
   // D271: Arten in ~10-m-Flecken (Stroh), Kraut in kleineren (~5 m) mit je Halm 35 % Anteil.
   // Büschel: Rauschen auf ~1,2 m lässt 45 % der Dichte zwischen den Horsten stehen — der Boden scheint durch.
-  float stroh = smoothstep(0.52, 0.66, halmRauschen(ort * 0.09 + 19.0));
+  float stroh = smoothstep(${GRAS_FEIN ? '0.58, 0.70' : '0.52, 0.66'}, halmRauschen(ort * 0.09 + 19.0));
   float kraut = (1.0 - stroh) * step(0.62, halmRauschen(ort * 0.2 + 51.0)) * step(h2, 0.35);
-  dicht *= mix(0.55, 1.0, smoothstep(0.3, 0.55, halmRauschen(ort * 0.8 + 71.0)));` : ''}
+  dicht *= mix(${GRAS_FEIN ? '0.3' : '0.55'}, 1.0, smoothstep(0.3, 0.55, halmRauschen(ort * 0.8 + 71.0)));` : ''}
   ${GRAS_FEIN ? `
   // D272: Kachel je Weltzelle — grüne Büschel im Normalfall, trockene in den Strohflecken.
-  float h6 = halmHash(zelleW + 5.7);
-  int kachel = stroh > 0.5 ? ${HORST_GRUEN} + min(int(h6 * ${HORST_STROH}.0), ${HORST_STROH - 1}) : min(int(h6 * ${HORST_GRUEN}.0), ${HORST_GRUEN - 1});` : ''}
+  // D272: Kachel je Weltzelle — grüne Büschel im Normalfall, trockene in Strohflecken, Kraut in Krautflecken
+  // (35 % der Zellen dort), Blüten als Akzent in 3 % aller Zellen.
+  float h6 = halmHash(zelleW + 5.7), h7 = halmHash(zelleW + 11.3);
+  int kachel = min(int(h6 * ${HORST_GRUEN}.0), ${HORST_GRUEN - 1});
+  if (stroh > 0.5) kachel = ${HORST_GRUEN} + min(int(h6 * ${HORST_STROH}.0), ${HORST_STROH - 1});
+  else if (kraut > 0.5) kachel = ${HORST_GRUEN + HORST_STROH} + min(int(h6 * ${HORST_KRAUT}.0), ${HORST_KRAUT - 1});
+  if (h7 < 0.03) kachel = ${HORST_GRUEN + HORST_STROH + HORST_KRAUT} + min(int(h6 * ${HORST_BLUME}.0), ${HORST_BLUME - 1});
+  bool strohKachel = kachel >= ${HORST_GRUEN} && kachel < ${HORST_GRUEN + HORST_STROH};` : ''}
   // Dichte als Schwelle: stabil am Ort, kein Flackern beim Nachziehen.
   float da = step(h3, dicht) * rand;
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
@@ -286,7 +292,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   // D272: quadratische Karte; Grösse = Kachelmass × Zufall × Bodenhöhe × Büschelhöhe × Zellgrösse/20 cm
   // (grössere Zellen, Fernring, bekommen grössere Büschel, damit sie sich schliessen); Faktor 1,5: Wiese, nicht Rasen.
   float gr = 1.5 * uKachelGr[kachel] * (0.75 + 0.6 * h4) * clamp(boden.b / 0.55, 0.45, 1.4) * (0.6 + 0.8 * buschel)
-           * ${(zelle / 0.15).toFixed(3)} * mix(1.0, 1.5, stroh);
+           * ${(zelle / 0.15).toFixed(3)} * mix(1.0, 1.25, stroh) * boden.a;
   hoehe = gr * da;
   breite = gr * 0.5;` : ''}
   float winkel = h1 * 6.2832;
@@ -332,7 +338,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vKartenUv = vec2(kr.x + uv.x * kr.z, (1.0 - kr.y - kr.w) + uv.y * kr.w);` : 'vKartenUv = vec2(0.0);'}
   vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
   vHalmY = y * (1.0 - zumBoden);
-  ${GRAS_FEIN ? 'vHalmFarbe = vec3(0.8 + 0.4 * h5);   // D272: nur Helligkeit je Büschel, die Farbe kommt aus dem Foto' : ''}
+  ${GRAS_FEIN ? 'vHalmFarbe = vec3((0.8 + 0.4 * h5) * (strohKachel ? 0.8 : 1.0));   // D272: nur Helligkeit je Büschel (Stroh ×0,8), die Farbe kommt aus dem Foto' : ''}
   vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
   #ifdef USE_TANGENT
     vec3 objectTangent = vec3(1.0, 0.0, 0.0);
@@ -342,7 +348,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;\nvarying float vQ;\nvarying vec2 vKartenUv;\nuniform sampler2D uKarte;')
       .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;' + (GRAS_FEIN ? `
   { vec4 horst = texture2D(uKarte, vKartenUv);   // D272: Foto-Büschel — Farbe, Deckung, Verdeckung am Fuss
-    diffuseColor.rgb = vHalmFarbe * horst.rgb * 2.4 * mix(0.55, 1.0, smoothstep(0.0, 0.5, vHalmY));   // 2,4: Foto-Albedo (Mittel 0,125 linear) auf die Helligkeit der Szene (alte Spitze ~0,3)
+    diffuseColor.rgb = vHalmFarbe * horst.rgb * 1.9 * mix(0.55, 1.0, smoothstep(0.0, 0.5, vHalmY));   // 1,9: Foto-Albedo (Mittel 0,125 linear) auf die Helligkeit der Szene (alte Spitze ~0,3); 2,4 überbelichtete
     diffuseColor.a = horst.a; }` : '') + (GRAS_VIEL && !GRAS_FEIN ? `
   { float kante = abs(vQ);   // D271: Kante dunkler, Mittelrippe heller — der Halm hat Körper statt Flachband
     diffuseColor.rgb *= (1.0 - 0.3 * kante * kante) * (1.0 + 0.18 * (1.0 - smoothstep(0.0, 0.12, kante))); }` : ''))
@@ -395,7 +401,15 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
         const gz = feld.hoehe(x, z + 0.5) - feld.hoehe(x, z - 0.5);
         d *= 1 - THREE.MathUtils.smoothstep(Math.hypot(gx, gz), 0.6, 0.9);
       }
-      datenNeu[k] = h; datenNeu[k + 1] = d; datenNeu[k + 2] = HOEHE[biom] ?? 0; datenNeu[k + 3] = 1;
+      // D272: Alpha = Höhenfaktor. Kürzer (×0,55) wo ein Weg bis 1,5 m, ×0,7 wo Wasser bis 2 m entfernt liegt —
+      // Wegrand und Ufer sind betreten bzw. nass, dort steht kein Hochgras.
+      let hf = 1;
+      if (GRAS_FEIN && d > 0) {
+        if (aufWeg(x + 1.5, z) || aufWeg(x - 1.5, z) || aufWeg(x, z + 1.5) || aufWeg(x, z - 1.5)) hf = 0.55;
+        else if (feld.wasserTiefe(x + 2, z) > 0.02 || feld.wasserTiefe(x - 2, z) > 0.02
+          || feld.wasserTiefe(x, z + 2) > 0.02 || feld.wasserTiefe(x, z - 2) > 0.02) hf = 0.7;
+      }
+      datenNeu[k] = h; datenNeu[k + 1] = d; datenNeu[k + 2] = HOEHE[biom] ?? 0; datenNeu[k + 3] = hf;
       feld.bodenfarbe(x, z, farbe);
       tonNeu[k] = farbe.r; tonNeu[k + 1] = farbe.g; tonNeu[k + 2] = farbe.b; tonNeu[k + 3] = 1;
     }

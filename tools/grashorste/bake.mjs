@@ -3,14 +3,15 @@
  *   node tools/grashorste/bake.mjs grass_medium_01 384   (und grass_medium_02)
  * Schreibt `.cache/grashorste/out/<id>_0_<nr>.png` (Hintergrund Magenta) und `<id>_0.json` (Mass in Metern).
  * Schritt 2: `python3 tools/grashorste/pack.py` packt die gewählten Kacheln zu `public/material/gras-horste.webp`.
- * Braucht Playwright (Chromium, WebGL) und Netz zu api.polyhaven.com; die Rohdateien (~10 MB) bleiben in
+ * Braucht Playwright (Chromium, WebGL; global installiert → `PLAYWRIGHT=/opt/node22/lib/node_modules/playwright/index.mjs`) und Netz zu api.polyhaven.com; die Rohdateien (~10 MB) bleiben in
  * `.cache/` (gitignored). Herkunft: `assets/HERKUNFT.md`.
  */
-import { chromium } from 'playwright';
 import { createServer } from 'node:http';
 import { readFileSync, existsSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
 
+// Playwright liegt global (nicht in package.json): Pfad notfalls per PLAYWRIGHT=/…/playwright/index.mjs angeben.
+const { chromium } = await import(process.env.PLAYWRIGHT ?? 'playwright');
 const [id, h = '384', az = '0'] = process.argv.slice(2);
 if (!id) { console.error('Aufruf: node tools/grashorste/bake.mjs <poly-haven-id> [Pixelhöhe] [Azimut]'); process.exit(1); }
 const wurzel = resolve('.cache/grashorste');

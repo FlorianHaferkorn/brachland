@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { HIMMEL_UNIFORM } from './windmaterial.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT } from './echt.js';
+import { GRAS_ECHT, GRAS_VIEL } from './echt.js';
 
 /**
  * Himmelsanteil des Geländes um ein Set-Piece (D171, `tools/himmelboden.ts`): ein Raster von
@@ -255,6 +255,20 @@ const SCAN_GLSL = /* glsl */ `
   // und der Rasen las als einzelne Sprossen (Stauwehr, 12.11.2026).
   diffuseColor.rgb *= mix(vec3(1.0), vec3(0.5, 0.64, 0.36), scanGewicht.x * 0.85);
 #endif
+#ifdef GRAS_VIEL
+  // D272 (?gras=3): Zwischen den Büscheln liegt nasser Boden. Dasselbe Rauschen wie die Lücken im
+  // Grasteppich (halmRauschen(ort * 0.8 + 71)), damit freier Boden und fehlende Büschel zusammenfallen.
+  {
+    vec2 lp = mod(vWeltPos.xz * 0.8 + 71.0, 4096.0);
+    vec2 li = floor(lp), lf = fract(lp); lf = lf * lf * (3.0 - 2.0 * lf);
+    float l00 = fract(sin(dot(mod(li, 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float l10 = fract(sin(dot(mod(li + vec2(1.0, 0.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float l01 = fract(sin(dot(mod(li + vec2(0.0, 1.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float l11 = fract(sin(dot(mod(li + vec2(1.0, 1.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float luecke = 1.0 - smoothstep(0.3, 0.55, mix(mix(l00, l10, lf.x), mix(l01, l11, lf.x), lf.y));
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.13, 0.095, 0.055), luecke * scanGewicht.x * 0.85);
+  }
+#endif
 `;
 
 const DETAIL_GLSL = /* glsl */ `
@@ -388,7 +402,8 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
   if (GRAS_ECHT) material.defines = { ...material.defines, GRAS_ECHT: '' };
-  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
+  if (GRAS_VIEL) material.defines = { ...material.defines, GRAS_VIEL: '' };
+  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
 
   return material;
 }
