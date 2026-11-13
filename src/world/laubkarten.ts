@@ -55,7 +55,9 @@ const ARTEN: Record<KartenArt, ArtWerte> = {
   laub: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7.5, groesse: [0.6, 0.6], streuung: 0.9, haengend: false, durchlass: 0.6, kacheln: [2, 2] },
   nadel: { textur: '/material/ez-nadel-cc0-v5.webp', dichte: 6.5, groesse: [0.8, 0.55], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: [1, 1] },
   // D274: Durchlass 0,65 → 0,4: Die schmalen Weidenstreifen leuchteten im Gegenlicht vor hellem Himmel weiss-grau.
-  weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 22, groesse: [0.2, 0.6], streuung: 0.35, haengend: true, durchlass: 0.4, kacheln: [1, 2] },
+  // D276: Dichte 22 → 34 (+55 %, ~+35.000 Karten): Zwischen den Streifen schien der helle Hintergrund (Teich, Himmel)
+  // als weiss-graue Flecken durch — die Weide hat keinen deckenden Kern.
+  weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 34, groesse: [0.2, 0.6], streuung: 0.35, haengend: true, durchlass: 0.4, kacheln: [1, 2] },
 };
 
 /**
