@@ -254,6 +254,7 @@ export function baueGebaeude(
    * Lage, nicht der Hauswuerfel: Der wuerde jede Bretterfarbe danach verschieben.
    */
   const glut: number[] = [];
+  const rollen: number[] = [];
   let glutWert = 0;
   const glutHash = (x: number, y: number, z: number) => {
     const v = Math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453;
@@ -328,6 +329,15 @@ export function baueGebaeude(
   const LAUB = new THREE.Color(PALETTE.attrappe.busch);
   /** Ziegelreihen und First: dieselbe Dachfarbe, eine Kante heller. */
   const DACH_KANTE = DACH.clone().multiplyScalar(1.3);
+  /**
+   * D284: Materialrolle je Farbe für die Hausscans (`hausmaterial.ts`): 0 Putz, 1 Schalung, 2 Dach, 3 Sockel,
+   * 4 = keine (Fenster, Läden, Geranien … bleiben glatt). Zuordnung über die Farbobjekte selbst — alle Farben
+   * des Generators stehen oben als Konstanten, Varianten (Schalungstöne, Dachkante) sind deren Klone.
+   */
+  const ROLLE = new Map<THREE.Color, number>([
+    [WAND, 0], [KAMIN, 0], [SCHALUNG, 1], ...SCHALUNG_TOENE.map(c => [c, 1] as [THREE.Color, number]),
+    [DACH, 2], [DACH_KANTE, 2], [SOCKEL, 3],
+  ]);
 
   /**
    * Kontaktabdunklung je Ecke — das gebackene AO des Hausgenerators (Phase 1).
@@ -358,6 +368,7 @@ export function baueGebaeude(
     positionen.push(...a, ...b, ...c);
     for (const v of [a, b, c]) { const k = ao(v); farben.push(f.r * k, f.g * k, f.b * k); }
     glut.push(glutWert, glutWert, glutWert);
+    const r = ROLLE.get(f) ?? 4; rollen.push(r, r, r);
   };
 
   /**
@@ -1301,6 +1312,7 @@ export function baueGebaeude(
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
   geo.setAttribute('glut', new THREE.Float32BufferAttribute(glut, 1));
+  geo.setAttribute('rolle', new THREE.Float32BufferAttribute(rollen, 1));
   geo.computeVertexNormals();
   return geo;
 }

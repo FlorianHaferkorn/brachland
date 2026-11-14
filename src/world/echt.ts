@@ -72,6 +72,11 @@ export const MIPS_ERHALT = teil('mips');
  */
 // D283: Teil von `?echt=1` (Flo 14.11.2026 „mach alles davon“); `?laub=0` nimmt es heraus, `?laub=2` schaltet es einzeln ein.
 export const LAUB_FEIN = suche.get('laub') === '2' || (ECHT && suche.get('laub') !== '0');
+/**
+ * D284 (`?haus=1` / `?echt=1`): Hausscans — Putz, Schalung, Dachziegel, Sockel aus Poly-Haven-Texturen (CC0) auf
+ * den prozeduralen Häusern (`hausmaterial.ts`), Farbe bleibt die Palette, die Textur bringt Struktur und Relief.
+ */
+export const HAUS_ECHT = teil('haus');
 export const GRAS_FEIN = suche.get('gras') === '3';
 export const GRAS_VIEL = suche.get('gras') === '2' || GRAS_FEIN;
 export const GRAS_ECHT = teil('gras') || GRAS_VIEL;
