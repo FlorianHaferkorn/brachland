@@ -16,6 +16,7 @@ import { BACH_ECHT, GEWAESSER_ECHT } from './echt.js';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
 import { PALETTE } from './palette.js';
+import { SPIEGELBILD } from './spiegelbild.js';
 
 /** Optionale lokale Echtzeitprobe; ohne sie bleibt der bisherige Shader unveraendert. */
 export interface WasserReflexProbe {
@@ -151,6 +152,10 @@ export function baueWasserMaterial(
     shader.uniforms.uTempo = { value: fallend ? 4.5 : 1 };
     shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
     shader.uniforms.uBodenRahmen = BODEN_HIMMEL.rahmen;
+    if (GEWAESSER_ECHT && !fallend) {
+      shader.uniforms.uSpiegelKarte = SPIEGELBILD.karte; shader.uniforms.uSpiegelMatrix = SPIEGELBILD.matrix;
+      shader.uniforms.uSpiegelHoehe = SPIEGELBILD.hoehe; shader.uniforms.uSpiegelAn = SPIEGELBILD.an;
+    }
     if (probe && !fallend) {
       shader.uniforms.uWehrReflex = probe.karte;
       shader.uniforms.uWehrMitte = probe.mitte;
@@ -239,6 +244,23 @@ float wehrAnteil(vec3 p) {
   }
   #endif
 `);
+    }
+    if (GEWAESSER_ECHT && !fallend) {
+      // D280: Spiegelbild der Szene (`spiegelbild.ts`) statt Himmelskarte, wo die Fläche auf der Spiegelhöhe
+      // des nächsten Stillgewässers liegt. Die Wellennormale verzieht das Bild; am Bildrand weich zurück
+      // zur Himmelskarte. Fresnel und BRDF macht three.js danach wie bisher.
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform sampler2D uSpiegelKarte;\nuniform mat4 uSpiegelMatrix;\nuniform float uSpiegelHoehe;\nuniform float uSpiegelAn;')
+        .replace('#include <lights_fragment_end>', /* glsl */ `
+  #if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )
+  if (uSpiegelAn > 0.5 && gl_FrontFacing && abs(vWasserPos.y - uSpiegelHoehe) < 0.35) {
+    vec4 sp = uSpiegelMatrix * vec4(vWasserPos, 1.0);
+    vec2 suv = sp.xy / sp.w + normal.xy * 0.03;
+    float imBild = smoothstep(0.0, 0.04, suv.x) * smoothstep(1.0, 0.96, suv.x) * smoothstep(0.0, 0.04, suv.y) * smoothstep(1.0, 0.96, suv.y);
+    radiance = mix(radiance, texture2D(uSpiegelKarte, suv).rgb, imBild);
+  }
+  #endif
+  #include <lights_fragment_end>`);
     }
     if (probe && !fallend) {
       // PBR verarbeitet die lokale Strahlung ueber denselben Fresnel-/BRDF-Pfad
