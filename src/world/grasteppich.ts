@@ -20,7 +20,7 @@ import * as THREE from 'three';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
 import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN } from './echt.js';
-import { ladeHorstAtlas, leereHorstTextur, HORST_BLUME, HORST_GRUEN, HORST_KRAUT, HORST_SCHWELLE, HORST_STROH, HORST_ZAHL } from './grashorst.js';
+import { ladeHorstAtlas, leereHorstTextur, HORST_BLUME, HORST_GRUEN, HORST_HALM, HORST_KRAUT, HORST_SCHWELLE, HORST_STROH, HORST_ZAHL } from './grashorst.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
 import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
@@ -273,6 +273,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   int kachel = min(int(h6 * ${HORST_GRUEN}.0), ${HORST_GRUEN - 1});
   if (stroh > 0.5) kachel = ${HORST_GRUEN} + min(int(h6 * ${HORST_STROH}.0), ${HORST_STROH - 1});
   else if (kraut > 0.5) kachel = ${HORST_GRUEN + HORST_STROH} + min(int(h6 * ${HORST_KRAUT}.0), ${HORST_KRAUT - 1});
+  if (h7 >= 0.06 && h7 < 0.10) kachel = ${HORST_GRUEN + HORST_STROH + HORST_KRAUT + HORST_BLUME} + min(int(h6 * ${HORST_HALM}.0), ${HORST_HALM - 1});   // 4 %: Halme mit Samenständen
   if (h7 < 0.06) kachel = ${HORST_GRUEN + HORST_STROH + HORST_KRAUT} + min(int(h6 * ${HORST_BLUME}.0), ${HORST_BLUME - 1});
   bool strohKachel = kachel >= ${HORST_GRUEN} && kachel < ${HORST_GRUEN + HORST_STROH};
   bool blumeKachel = kachel >= ${HORST_GRUEN + HORST_STROH + HORST_KRAUT};` : ''}

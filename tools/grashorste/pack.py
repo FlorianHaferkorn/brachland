@@ -3,14 +3,14 @@ Grashorst-Atlas, Schritt 2 (D272): gewählte Kacheln aus `bake.mjs` zu `public/m
   python3 tools/grashorste/pack.py
 Alpha = nicht Magenta und nicht fast schwarz (Scan-Hintergrund); Farbe unter dem Rand nach aussen gefüllt
 (keine dunklen Säume); Kacheln 384² mit 4 px Rand, unten bündig (Wurzel), Mass je Kachel in Metern in
-`public/material/gras-horste.json`. Reihenfolge: 'gruen', 'stroh', 'kraut', 'blume' (`src/world/grashorst.ts`).
+`public/material/gras-horste.json`. Reihenfolge: 'gruen', 'stroh', 'kraut', 'blume', 'halm' (Halme mit Samenständen) (`src/world/grashorst.ts`).
 """
 import json
 import numpy as np
 from PIL import Image
 
 AUS = '.cache/grashorste/out'
-W, H, C, GUT = 1536, 1920, 384, 4
+W, H, C, GUT = 1536, 2304, 384, 4
 NUTZ = C - 2 * GUT
 WAHL = [('grass_medium_01', 0, 'gruen'), ('grass_medium_01', 1, 'gruen'), ('grass_medium_01', 2, 'gruen'),
         ('grass_medium_01', 6, 'gruen'), ('grass_medium_01', 7, 'gruen'), ('grass_medium_01', 9, 'gruen'),
@@ -19,7 +19,8 @@ WAHL = [('grass_medium_01', 0, 'gruen'), ('grass_medium_01', 1, 'gruen'), ('gras
         ('grass_medium_02', 3, 'stroh'), ('grass_medium_02', 4, 'stroh'),
         ('weed_plant_02', 0, 'kraut'), ('weed_plant_02', 1, 'kraut'), ('nettle_plant', 4, 'kraut'),
         ('shrub_sorrel_01', 4, 'kraut'),
-        ('dandelion_01', 0, 'blume'), ('dandelion_01', 1, 'blume'), ('periwinkle_plant', 0, 'blume')]
+        ('dandelion_01', 0, 'blume'), ('dandelion_01', 1, 'blume'), ('periwinkle_plant', 0, 'blume'),
+        ('grass_medium_01', 3, 'halm'), ('grass_medium_01', 4, 'halm'), ('grass_medium_01', 5, 'halm')]
 
 
 def fuelle(rgb, alpha, n=6):
