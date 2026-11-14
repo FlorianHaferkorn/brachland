@@ -74,6 +74,13 @@ export const GRAS_ECHT = teil('gras') || GRAS_VIEL;
  * wo Fresnel am stärksten ist (flacher Blick), den hellen Himmel — es lag weiss im Wald.
  */
 export const BACH_ECHT = teil('bach');
+/**
+ * Gewässer wie echt (D280, `bandmaterial.ts`): Wasser hat einen eigenen, dunklen Körper (Streulicht statt
+ * schwarzer Albedo), Tiefe nach Uferabstand bis 3 m statt 0,8 m (Teiche und Weiher decken in der Mitte
+ * statt Wiese durchscheinen zu lassen), kräftigere Himmelsspiegelung mit Waldkante, und Wellen aus
+ * mehrlagigem Rauschen statt zweier Sinuszüge (kein Streifenmuster). Teiche/Weiher ruhig, Bäche bewegter.
+ */
+export const GEWAESSER_ECHT = teil('gewaesser');
 /** Stauweiher hinter dem Wehr, aus dem GLB abgeleitet (D268, `weiher.ts`). */
 export const WEIHER_AN = teil('weiher');
 /**
