@@ -9,7 +9,14 @@
 const suche = typeof location === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
 const an = (name: string) => suche.get(name) === '1';
 
-export const ECHT = an('echt');
+/**
+ * Malerischer Look (D269): `?malerei=1` = `?echt=1` plus Pinsel und Malfilter. Anlass: Reel
+ * „oil-paint“ (patch.gg/blendi, three.js r186, WebGL2) vom 12.11.2026 und Flos „ne A“ — Realismus
+ * allein ist dem Film nicht gewachsen, ein gemalter Look verzeiht Flimmern und fehlende Mikrodetails.
+ * Einzeln: `?echt=1&pinsel=1` (nur B), `?echt=1&kuwahara=1` (nur C), oder `?malerei=1&pinsel=0`.
+ */
+export const MALEREI = an('malerei');
+export const ECHT = an('echt') || MALEREI;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */
 const teil = (name: string) => (suche.get(name) === '0' ? false : ECHT || an(name));
 /** Foto-Blattkarten auf den Kronen der Blender-Szenen (`laubkarten.ts`). */
@@ -43,13 +50,37 @@ export const AO_RUHIG = teil('aoruhig');
  * Büschel (Höhe in ~70-cm-Flecken), dunkle Basis (Verdeckung im Rasen), Durchlicht im Gegenlicht,
  * kein Glanz. Der Teppich selbst — Dichte, Ringe, Wind — bleibt.
  */
-export const GRAS_ECHT = teil('gras');
+/**
+ * Gras-Vielfalt (D271, `?gras=2`): Pflanzenarten (Gras, Stroh, Kraut), Büschel mit kahlen Stellen, Halmkante
+ * und -rippe. Anlass: Vergleich mit Phantom-Blade-Zero-Pressebildern am 12.11.2026 — dort fällt nicht die
+ * Dichte auf, sondern Vielfalt. Schaltet `?gras=1` (Nahfeld, D268) mit ein.
+ */
+/**
+ * Mip-Ketten mit Deckungserhalt für die Laub- und Nadelkarten (D273, `alphamips.ts`): dünne Blattränder
+ * zerfallen beim Verkleinern sonst im Alpha-Test zu ausgefransten Flecken. `?mips=1` oder in `?echt=1`.
+ */
+export const MIPS_ERHALT = teil('mips');
+
+/**
+ * Gras aus feinen Horsten (D272, `?gras=3`): echte Halmbreite (3–8 mm) und Dichte über Karten mit je ~44
+ * gezeichneten Halmen statt breiter Einzelhalme; schliesst `?gras=2` (Vielfalt) und `?gras=1` ein.
+ */
+export const GRAS_FEIN = suche.get('gras') === '3';
+export const GRAS_VIEL = suche.get('gras') === '2' || GRAS_FEIN;
+export const GRAS_ECHT = teil('gras') || GRAS_VIEL;
 /**
  * Bach im Wald (D267, `bandmaterial.ts`): Die Spiegelung zeigt unterhalb einer Waldkante (~7–27° über
  * dem Wasser) das dunkle Ufer statt Himmel. Ohne Szenenspiegelung reflektierte das Wasser gerade dort,
  * wo Fresnel am stärksten ist (flacher Blick), den hellen Himmel — es lag weiss im Wald.
  */
 export const BACH_ECHT = teil('bach');
+/**
+ * Gewässer wie echt (D280, `bandmaterial.ts`): Wasser hat einen eigenen, dunklen Körper (Streulicht statt
+ * schwarzer Albedo), Tiefe nach Uferabstand bis 3 m statt 0,8 m (Teiche und Weiher decken in der Mitte
+ * statt Wiese durchscheinen zu lassen), kräftigere Himmelsspiegelung mit Waldkante, und Wellen aus
+ * mehrlagigem Rauschen statt zweier Sinuszüge (kein Streifenmuster). Teiche/Weiher ruhig, Bäche bewegter.
+ */
+export const GEWAESSER_ECHT = teil('gewaesser');
 /** Stauweiher hinter dem Wehr, aus dem GLB abgeleitet (D268, `weiher.ts`). */
 export const WEIHER_AN = teil('weiher');
 /**
@@ -102,3 +133,16 @@ export const MSAA: number = (() => {
   if ([0, 2, 4, 8].includes(n)) return n;
   return ECHT ? 4 : 0;
 })();
+
+/**
+ * B — Pinselstriche (D269, `laubkarten.ts`, `grasteppich.ts`): Laub als grosse Striche mit Pinselbogen
+ * statt Foto-Blättern, drei Farbbänder (Licht, Halbton, Schatten) nach der Beleuchtung der Hülle;
+ * Gras mit breiteren Halmen und denselben Bändern. Braucht `laubkarten` (steckt in `echt` und `malerei`).
+ */
+export const PINSEL_AN = teil('pinsel') && (MALEREI || an('pinsel'));
+/**
+ * C — Malfilter (D269, `Kontur.tsx`): Kuwahara über das Szenenbild vor Kontur und Verdeckung. Vier
+ * Sektoren, der mit der kleinsten Varianz gewinnt — Flächen werden glatt, Kanten bleiben. Nachteil:
+ * Die „Striche“ liegen am Bildschirm, nicht an der Welt (Schiebefenster-Effekt in Bewegung).
+ */
+export const KUWAHARA_AN = teil('kuwahara') && (MALEREI || an('kuwahara'));

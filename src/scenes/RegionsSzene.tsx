@@ -58,8 +58,9 @@ import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type Kar
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
-import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
-import { GRAS_ECHT, WEIHER_AN } from '../world/echt.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, NAH_ZELLE_FEIN, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
+import { GRAS_ECHT, GRAS_FEIN, WEIHER_AN, GEWAESSER_ECHT } from '../world/echt.js';
+import { meldeSpiegelflaeche, Spiegelbild } from '../world/spiegelbild.js';
 import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
@@ -603,6 +604,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} weite={weite} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
       {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite} />}
+      {GEWAESSER_ECHT && <Spiegelung feld={feld} />}
     </group>
   );
 }
@@ -1776,7 +1778,7 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
           {b.dateien.map(teil => (
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
-                ? <BauwerkWasser bauwerk={b} />
+                ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
                 : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
           ))}
@@ -1806,6 +1808,14 @@ function BauwerkWeiher({ bauwerk, hoeheAn }: { bauwerk: Bauwerk; hoeheAn: (x: nu
     return w;
   }, [scene, bauwerk, hoeheAn]);
   useEffect(() => () => { weiher?.geometrie.dispose(); material.dispose(); }, [weiher, material]);
+  // D280: Spiegelebene anmelden (Welt: Gruppenraum + Ursprung + h0).
+  useEffect(() => {
+    if (!weiher || !GEWAESSER_ECHT) return;
+    weiher.geometrie.computeBoundingSphere();
+    const k = weiher.geometrie.boundingSphere!;
+    return meldeSpiegelflaeche({ x: k.center.x + bauwerk.ursprung.x, z: k.center.z + bauwerk.ursprung.z,
+      hoehe: weiher.spiegel + bauwerk.h0, radius: k.radius });
+  }, [weiher, bauwerk]);
   return weiher ? <mesh geometry={weiher.geometrie} material={material} renderOrder={1} /> : null;
 }
 
@@ -2304,6 +2314,30 @@ function Beleuchtung({ s, ziel }: {
 /**
  * Einzelhalme im Nahbereich, auf der GPU (D211, `world/grasteppich.ts`). `?aus=teppich` schaltet ab.
  */
+/**
+ * Spiegelbild auf stillem Wasser (D280, `world/spiegelbild.ts`): meldet die Teiche des Höhenfelds als
+ * Spiegelebenen an und rechnet je Bild das Spiegelbild des nächsten — vor dem Hauptbild (Priorität 0,5,
+ * `Kontur` zeichnet mit 1).
+ */
+function Spiegelung({ feld }: { feld: HoehenFeld }) {
+  const { gl, scene, camera } = useThree();
+  const spiegel = useMemo(() => new Spiegelbild(), []);
+  useEffect(() => () => spiegel.dispose(), [spiegel]);
+  useEffect(() => {
+    const ab = feld.teiche.map((t) => {
+      let x = 0, z = 0, hoehe = Infinity;
+      // Dieselbe Höhe wie die gezeichnete Teichfläche (`baender.ts`: tiefster Uferpunkt auf dem Netz).
+      for (const [px, pz] of t.punkte) { x += px; z += pz; hoehe = Math.min(hoehe, spiegelAufFlaeche(feld, px, pz)); }
+      x /= t.punkte.length; z /= t.punkte.length;
+      const radius = Math.max(...t.punkte.map(([px, pz]) => Math.hypot(px - x, pz - z)));
+      return meldeSpiegelflaeche({ x, z, hoehe, radius });
+    });
+    return () => ab.forEach((f) => f());
+  }, [feld]);
+  useFrame(() => spiegel.aktualisiere(gl, scene, camera as THREE.PerspectiveCamera), 0.5);
+  return null;
+}
+
 function Grasteppich({ welt, feld, ziel, dichte, weite }: {
   welt: Weltdaten; feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number; weite: number;
 }) {
@@ -2311,7 +2345,8 @@ function Grasteppich({ welt, feld, ziel, dichte, weite }: {
   const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
   // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
   const nah = useMemo(() => (dichte >= 1 && !istAus('nahgras')
-    ? (GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT)
+    ? (GRAS_FEIN ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_FEIN)
+      : GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT)
       : baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE)) : null), [feld, aufWeg, dichte]);
   // D247: Fernring hinter dem Teppich, nur bei Sichtweite „weit“; `?aus=ferngras` schaltet ab.
   const fern = useMemo(() => (weite > 1 && dichte > 0 && !istAus('ferngras')

@@ -12,10 +12,11 @@
  *   die weiche Kante: außen durchsichtig, innen deckend.
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
-import { BACH_ECHT } from './echt.js';
+import { BACH_ECHT, GEWAESSER_ECHT } from './echt.js';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
 import { PALETTE } from './palette.js';
+import { SPIEGELBILD } from './spiegelbild.js';
 
 /** Optionale lokale Echtzeitprobe; ohne sie bleibt der bisherige Shader unveraendert. */
 export interface WasserReflexProbe {
@@ -116,14 +117,15 @@ export function baueWasserMaterial(
     // Ohne Transmission darf die durchsichtige Grundfarbe nicht als deckende
     // Albedo leuchten. Absorption wird dann als neutrales Abdunkeln geblendet;
     // der Farbton kommt vom sichtbaren Gewaesserbett, nicht von Selbstleuchten.
-    color: physikalisch ? new THREE.Color(PALETTE.wasser.durchsicht) : new THREE.Color(0, 0, 0),
+    // D280 (`?gewaesser=1`): dunkler, olivgrüner Wasserkörper (Streulicht im Wasser) statt schwarz.
+    color: physikalisch ? new THREE.Color(PALETTE.wasser.durchsicht) : GEWAESSER_ECHT ? new THREE.Color(0.018, 0.03, 0.024) : new THREE.Color(0, 0, 0),
     roughness: 0.03, metalness: 0, transmission: physikalisch ? 1 : 0, ior: 1.333,
     thickness: 0.4,
     attenuationColor: PALETTE.wasser.absorption,
     attenuationDistance: 1 / 0.6,
     // Der Himmel ist die einzige Umgebung in der Karte. Ohne die verdeckenden
     // Baeume des Blender-Renders darf er das Wasser nicht vollstaendig aufhellen.
-    envMapIntensity: form === 'becken' ? 0.15 : form === 'weiher' ? 0.25 : 0.35,
+    envMapIntensity: GEWAESSER_ECHT ? 0.6 : form === 'becken' ? 0.15 : form === 'weiher' ? 0.25 : 0.35,
     transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false,
     forceSinglePass: true,
   });
@@ -150,6 +152,10 @@ export function baueWasserMaterial(
     shader.uniforms.uTempo = { value: fallend ? 4.5 : 1 };
     shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
     shader.uniforms.uBodenRahmen = BODEN_HIMMEL.rahmen;
+    if (GEWAESSER_ECHT && !fallend) {
+      shader.uniforms.uSpiegelKarte = SPIEGELBILD.karte; shader.uniforms.uSpiegelMatrix = SPIEGELBILD.matrix;
+      shader.uniforms.uSpiegelHoehe = SPIEGELBILD.hoehe; shader.uniforms.uSpiegelAn = SPIEGELBILD.an;
+    }
     if (probe && !fallend) {
       shader.uniforms.uWehrReflex = probe.karte;
       shader.uniforms.uWehrMitte = probe.mitte;
@@ -200,7 +206,7 @@ float wehrAnteil(vec3 p) {
 ` + GISCHT_GLSL : /* glsl */ `#include <color_fragment>
   float ufer = ${UFER_AUSDRUCK};
   // Dichte .6 aus der Blender-Quelle; die Bandmitte ist nur eine Tiefennaeherung.
-  float dicke = mix(0.08, 0.8, smoothstep(0.0, 0.75, ufer));
+  float dicke = mix(0.08, ${GEWAESSER_ECHT ? (form === 'band' ? '1.6' : '3.0') : '0.8'}, smoothstep(0.0, ${GEWAESSER_ECHT ? '0.6' : '0.75'}, ufer));
   diffuseColor.a *= smoothstep(0.0, 0.28, ufer);
 `)
       .replace('#include <normal_fragment_maps>', /* glsl */ `#include <normal_fragment_maps>
@@ -212,7 +218,19 @@ float wehrAnteil(vec3 p) {
   // normal liegt im Sichtraum. Die Weltwelle muss mitgedreht werden, sonst
   // aendert ein Kameraschwenk die Wasseroberflaeche selbst.
   vec3 wellenNormale = vec3(w2 * 0.10 + kraus * 0.16, 0.0, w1 * 0.14);
-  normal = normalize(normal + mat3(viewMatrix) * wellenNormale * ${fallend ? '1.0' : '0.15'});
+  ${GEWAESSER_ECHT && !fallend ? `
+  // D280: Wellen aus drei Rauschlagen (5 m, 1,7 m, 0,5 m), die mit dem Wind treiben — kein Sinus-Streifen.
+  // Normale aus dem Gefälle der Höhe (Differenzen); ruhig auf Teich und Weiher, bewegter im Bach.
+  {
+    vec2 wp = vWasserPos.xz;
+    vec2 wind = vec2(0.35, 0.22) * zeit * uTempo;
+    float e = 0.12;
+    #define WH(p) (bandRauschen((p) * 0.2 + wind * 0.25) * 0.55 + bandRauschen((p) * 0.6 - wind * 0.6) * 0.3 + bandRauschen((p) * 2.0 + wind * 1.4) * 0.15)
+    float h0 = WH(wp), hx = WH(wp + vec2(e, 0.0)), hz = WH(wp + vec2(0.0, e));
+    #undef WH
+    wellenNormale = vec3(h0 - hx, 0.0, h0 - hz) / e;
+  }` : ''}
+  normal = normalize(normal + mat3(viewMatrix) * wellenNormale * ${fallend ? '1.0' : GEWAESSER_ECHT ? (form === 'band' ? '0.18' : '0.04') : '0.15'});
 `);
     if (BACH_ECHT && !fallend) {
       // D267: Waldkante in der Spiegelung. Unter ihr liegt das gegenüberliegende Ufer mit Bäumen,
@@ -226,6 +244,23 @@ float wehrAnteil(vec3 p) {
   }
   #endif
 `);
+    }
+    if (GEWAESSER_ECHT && !fallend) {
+      // D280: Spiegelbild der Szene (`spiegelbild.ts`) statt Himmelskarte, wo die Fläche auf der Spiegelhöhe
+      // des nächsten Stillgewässers liegt. Die Wellennormale verzieht das Bild; am Bildrand weich zurück
+      // zur Himmelskarte. Fresnel und BRDF macht three.js danach wie bisher.
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform sampler2D uSpiegelKarte;\nuniform mat4 uSpiegelMatrix;\nuniform float uSpiegelHoehe;\nuniform float uSpiegelAn;')
+        .replace('#include <lights_fragment_end>', /* glsl */ `
+  #if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )
+  if (uSpiegelAn > 0.5 && gl_FrontFacing && abs(vWasserPos.y - uSpiegelHoehe) < 0.6) {
+    vec4 sp = uSpiegelMatrix * vec4(vWasserPos, 1.0);
+    vec2 suv = sp.xy / sp.w + normal.xy * 0.03;
+    float imBild = smoothstep(0.0, 0.04, suv.x) * smoothstep(1.0, 0.96, suv.x) * smoothstep(0.0, 0.04, suv.y) * smoothstep(1.0, 0.96, suv.y);
+    radiance = mix(radiance, texture2D(uSpiegelKarte, suv).rgb, imBild);
+  }
+  #endif
+  #include <lights_fragment_end>`);
     }
     if (probe && !fallend) {
       // PBR verarbeitet die lokale Strahlung ueber denselben Fresnel-/BRDF-Pfad
@@ -251,14 +286,17 @@ float wehrAnteil(vec3 p) {
   float f0 = pow((1.333 - 1.0) / (1.333 + 1.0), 2.0);
   float reflexion = f0 + (1.0 - f0) * pow(1.0 - cosBlick, 5.0);
   float deckung = 1.0 - (1.0 - reflexion) * exp(-0.6 * dicke);
-  outgoingLight /= max(deckung, 0.0001);
+${BACH_ECHT ? `  // D274: Spitzen der Spiegelung weich begrenzen (Reinhard auf die Reflexion). Sonne und heller Himmel
+  // spiegelten als harte weisse Platte mit Streifenmuster; die Spiegelung bleibt, brennt aber nicht aus.
+  outgoingLight = outgoingLight / (1.0 + 0.6 * outgoingLight);
+` : ''}  outgoingLight /= max(deckung, 0.0001);
   diffuseColor.a *= deckung;
   #include <opaque_fragment>
 `);
     }
   };
 
-  material.customProgramCacheKey = () => `brachland-wasser-v8-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}${BACH_ECHT && !fallend ? '-bach' : ''}`;
+  material.customProgramCacheKey = () => `brachland-wasser-v8${GEWAESSER_ECHT ? '-gewaesser' : ''}-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}${BACH_ECHT && !fallend ? '-bach' : ''}`;
   return material;
 }
 
