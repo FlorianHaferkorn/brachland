@@ -65,6 +65,12 @@ export const MIPS_ERHALT = teil('mips');
  * Gras aus feinen Horsten (D272, `?gras=3`): echte Halmbreite (3–8 mm) und Dichte über Karten mit je ~44
  * gezeichneten Halmen statt breiter Einzelhalme; schliesst `?gras=2` (Vielfalt) und `?gras=1` ein.
  */
+/**
+ * D282 (`?laub=2`): Laubkarten aus gebackenen Büscheln echter Poly-Haven-Baummodelle (`laub-bueschel.webp`),
+ * Blätter fast ohne Glanz, Mip-Kette mit Deckungserhalt, Krone ab ~15 m dichter und mit weniger Durchlicht.
+ * Gegen weisse Säume und Krisseln (Flo 14.11.2026).
+ */
+export const LAUB_FEIN = suche.get('laub') === '2';
 export const GRAS_FEIN = suche.get('gras') === '3';
 export const GRAS_VIEL = suche.get('gras') === '2' || GRAS_FEIN;
 export const GRAS_ECHT = teil('gras') || GRAS_VIEL;
