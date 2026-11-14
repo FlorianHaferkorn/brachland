@@ -76,6 +76,8 @@ export const GRAS_ECHT = teil('gras') || GRAS_VIEL;
 export const BACH_ECHT = teil('bach');
 /** Stauweiher hinter dem Wehr, aus dem GLB abgeleitet (D268, `weiher.ts`). */
 export const WEIHER_AN = teil('weiher');
+/** Au-See am Stauwehr aus `public/world/seen.json` (D280, `see.ts`): überfluteter Bruchwald hinter dem Teich. */
+export const SEE_AN = teil('see');
 /**
  * Zeitliche Kantenglättung (D268, `Kontur.tsx`): Kamera-Jitter nach Halton (8 Stellungen), das fertige
  * Bild (nach Kontur, Verdeckung, Bloom) wird gegen das Vorbild aufgelöst — Reprojektion aus der

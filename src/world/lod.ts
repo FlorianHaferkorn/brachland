@@ -21,6 +21,7 @@ import type { Aufsatzboden } from './terrain.js';
 import { TERRASSEN, terrassiere, gesperrt, type Terrasse } from './bauwerke.js';
 import { baueWasserfeld } from './wasserfeld.js';
 import { UFER_GRUEN, BETT_QUER, FLUR_GRUEN } from './echt.js';
+import { SEEN, seeKappe } from './see.js';
 
 /** Kachelkantenlänge in Metern. */
 export const KACHEL = 64;
@@ -90,7 +91,7 @@ export interface HoehenFeld {
   /** Nässe des Uferbodens 0–1 (D239), als Vertex-Attribut `nass` an den Kacheln. */
   nass: (x: number, z: number) => number;
   /** Stehende Gewässer als Polygone in Weltkoordinaten — für die Wasserfläche. */
-  teiche: { punkte: [number, number][]; tiefe: number }[];
+  teiche: { punkte: [number, number][]; tiefe: number; spiegel?: number }[];
   biom: (x: number, z: number) => Biom;
   /**
    * Bodenfarbe an beliebiger Stelle — die vier Nachbarzellen des Biomrasters
@@ -205,7 +206,8 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
     // wo das Gelände vorher war, und die Sohle geht darunter. Andersherum stünde
     // das Wasser als Wall in der Landschaft.
     const t = wasser.tiefeAn(x, z);
-    const oben = flaeche(x, z);
+    // D280: Seen (`see.ts`) kappen das Gelände auf ihren Spiegel; Bett-Tiefe `t` kommt wie bei jedem Teich dazu.
+    const oben = SEEN.length ? seeKappe(x, z, flaeche(x, z)) : flaeche(x, z);
     if (!BETT_QUER) return oben - t;
     /**
      * D263 (`?bett=1` / `?echt=1`): Querbett — die hohe Böschung wird abgestochen.

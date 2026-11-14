@@ -18,6 +18,7 @@
  * auf 39 km Bachlauf verteilt fast überall „nein" lautet.
  */
 import { BETT_QUER } from './echt.js';
+import { SEEN, seeUmriss } from './see.js';
 import type { Weltdaten } from './osm.js';
 import { MASSSTAB } from './terrain.js';
 
@@ -81,7 +82,7 @@ export interface Wasserfeld {
   /** Nur zur Kontrolle in Werkzeugen. */
   segmente: number;
   /** Stehende Gewässer als Polygonzüge in Weltkoordinaten — für die Wasserfläche. */
-  teiche: { punkte: [number, number][]; tiefe: number }[];
+  teiche: { punkte: [number, number][]; tiefe: number; spiegel?: number }[];
 }
 
 /** Liegt ein Punkt in einem Polygon? Strahlverfahren, ungerade Zahl an Schnitten. */
@@ -137,7 +138,7 @@ export function baueWasserfeld(
    * Das ist auch der Grund, warum die erste Aussage „Schwimmen hat hier keinen
    * Ort" falsch war: Sie stützte sich auf eine Messung, die nur Linien kannte.
    */
-  const teiche: { punkte: [number, number][]; tiefe: number }[] = [];
+  const teiche: { punkte: [number, number][]; tiefe: number; spiegel?: number }[] = [];
   /** Umriss je Teich, um `NASS_BAND` erweitert — erspart `randAbstand` für fast jeden Punkt. */
   const teichRahmen: [number, number, number, number][] = [];
   // `?? []` statt Pflichtfeld: Eine ältere Weltdatei ohne `flaechen` soll ohne
@@ -147,6 +148,15 @@ export function baueWasserfeld(
     const punkte = f.punkte.map(p => zuWelt(p[0], p[1]));
     if (punkte.length < 4) continue;
     teiche.push({ punkte, tiefe: TIEFE_STEHEND });
+    const xs = punkte.map(p => p[0]), zs = punkte.map(p => p[1]);
+    teichRahmen.push([Math.min(...xs) - NASS_BAND, Math.min(...zs) - NASS_BAND,
+                      Math.max(...xs) + NASS_BAND, Math.max(...zs) + NASS_BAND]);
+  }
+
+  // D280: Seen aus `see.ts` (Daten) — mit eigener Tiefe und fester Spiegelhöhe.
+  for (const see of SEEN) {
+    const punkte = seeUmriss(see);
+    teiche.push({ punkte, tiefe: see.tiefe, spiegel: see.spiegel });
     const xs = punkte.map(p => p[0]), zs = punkte.map(p => p[1]);
     teichRahmen.push([Math.min(...xs) - NASS_BAND, Math.min(...zs) - NASS_BAND,
                       Math.max(...xs) + NASS_BAND, Math.max(...zs) + NASS_BAND]);

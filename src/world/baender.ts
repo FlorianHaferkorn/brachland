@@ -131,7 +131,7 @@ export interface Bandsatz {
   wege: Map<string, Bandstueck[]>;
   baeche: Map<string, Bandstueck[]>;
   faelle: Map<string, Bandstueck[]>;
-  teiche: Map<string, { punkte: [number, number][] }[]>;
+  teiche: Map<string, { punkte: [number, number][]; spiegel?: number }[]>;
   /** Indizes in `welt.gebaeude` je Kachel — Häuser fallen mit der Entfernung weg. */
   gebaeude: Map<string, number[]>;
   gaerten: Map<string, Garten[]>;
@@ -523,8 +523,9 @@ export function baueWasserKachel(
     const p = teich.punkte;
     // Ein Teich ist waagerecht. Der Spiegel liegt auf dem tiefsten Punkt des Ufers:
     // höher liefe er über, tiefer bliebe ein Rand trockener Grube stehen.
-    let spiegel = Infinity;
-    for (const [x, z] of p) spiegel = Math.min(spiegel, spiegelAufFlaeche(feld, x, z, s));
+    // D280: Seen (`see.ts`) bringen ihre Spiegelhöhe mit — das Gelände ist dort auf sie gekappt.
+    let spiegel = teich.spiegel ?? Infinity;
+    if (teich.spiegel === undefined) for (const [x, z] of p) spiegel = Math.min(spiegel, spiegelAufFlaeche(feld, x, z, s));
     if (!Number.isFinite(spiegel)) continue;
 
     const UFER = 7;
