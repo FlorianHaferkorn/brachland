@@ -54,12 +54,12 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
-import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type KartenArt } from '../world/laubkarten.js';
+import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
 import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, NAH_ZELLE_FEIN, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
-import { GRAS_ECHT, GRAS_FEIN, WEIHER_AN, GEWAESSER_ECHT } from '../world/echt.js';
+import { GRAS_ECHT, GRAS_FEIN, WEIHER_AN, GEWAESSER_ECHT, LAUB_FEIN } from '../world/echt.js';
 import { meldeSpiegelflaeche, Spiegelbild } from '../world/spiegelbild.js';
 import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
@@ -529,20 +529,27 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * Loecher im Laub (`COLOR_0.a` = Laubmaske) und Durchlass fuer das Gegenlicht — dasselbe Rezept
    * wie die Bauwerke, nur als Instanz. Der Saum bleibt schwach: Klumpen mit Loechern sind lauter Kanten.
    */
-  const baumWind = useMemo(() => baueWindMaterial({
+  const baumWerte = (bueschel?: THREE.Texture) => ({
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.2,
     // Schaerfe 3 -> 10 (D160): Auf Blattmassen aus kleinen Kugeln ist `1 - |N·V|` fast ueberall hoch,
     // der Saum lag deshalb als heller Flaum ueber der ganzen Krone statt als Kante — gemessen am
     // Stauwehr 30 % der Bildhelligkeit (Median 0,100 -> 0,069 ohne Saum). Kreaturen und Figur behalten
     // ihre weichen 1,6: dort ist die Flaeche gross und die Silhouette wirklich ein Rand.
     randSchaerfe: 10,
-    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde: true,
-  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide })), []);
+    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde: true as const, bueschel,
+  });
+  const baumBasis = () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
+  // D283 (`?laub=2`): Buchen bekommen den Laub-, Fichten den Nadel-Büschelatlas — darum zwei Materialien.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const baumWind = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('laub') : undefined), baumBasis()), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const baumWindNadel = useMemo(() => LAUB_FEIN ? baueWindMaterial(baumWerte(bueschelTextur('nadel')), baumBasis()) : baumWind, [baumWind]);
   useEffect(() => {
     wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);
     grasWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
     baumWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
-  }, [wind, grasWind, baumWind, rand]);
+    if (baumWindNadel !== baumWind) baumWindNadel.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
+  }, [wind, grasWind, baumWind, baumWindNadel, rand]);
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
@@ -564,6 +571,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     farnWind.setzeZeit(uhr.current);
     grasScanWind.setzeZeit(uhr.current);
     baumWind.setzeZeit(uhr.current);
+    if (baumWindNadel !== baumWind) baumWindNadel.setzeZeit(uhr.current);
   });
   /**
    * Bänder einmal zerlegen, dann je Kachel bauen.
@@ -601,7 +609,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} weite={weite} />
+      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material} baumTiefeNadel={baumWindNadel.tiefe} weite={weite} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
       {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite} />}
       {GEWAESSER_ECHT && <Spiegelung feld={feld} />}
@@ -756,7 +764,7 @@ function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
   return ergebnis;
 }
 
-function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; weite: number }) {
+function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; weite: number }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<FernGruppe[]>([]);
@@ -829,11 +837,11 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
           ausblendet. Bereits geladene Gruppen bleiben sichtbar. */}
       {sichtbar.map(({ c, stufe, id }) =>
         <Suspense key={id} fallback={null}>
-          <PropChunkMesh chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={baumWind} baumTiefe={baumTiefe} />
+          <PropChunkMesh chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} />
         </Suspense>)}
       {fern.map(({ art, variante, instanzen, zelle }) =>
         <Suspense key={`${art}:${variante}:${zelle ?? ''}`} fallback={null}>
-          <PropFernMesh art={art} variante={variante} instanzen={instanzen} baumWind={baumWind} zellCulling={zelle !== undefined} />
+          <PropFernMesh art={art} variante={variante} instanzen={instanzen} baumWind={art === 'nadelbaum' ? baumWindNadel : baumWind} zellCulling={zelle !== undefined} />
         </Suspense>)}
     </>
   );

@@ -66,11 +66,12 @@ export const MIPS_ERHALT = teil('mips');
  * gezeichneten Halmen statt breiter Einzelhalme; schliesst `?gras=2` (Vielfalt) und `?gras=1` ein.
  */
 /**
- * D282 (`?laub=2`): Laubkarten aus gebackenen Büscheln echter Poly-Haven-Baummodelle (`laub-bueschel.webp`),
+ * D282 (`?laub=2`, seit D283 Teil von `?echt=1`): Laubkarten aus gebackenen Büscheln echter Poly-Haven-Baummodelle (`laub-bueschel.webp`),
  * Blätter fast ohne Glanz, Mip-Kette mit Deckungserhalt, Krone ab ~15 m dichter und mit weniger Durchlicht.
  * Gegen weisse Säume und Krisseln (Flo 14.11.2026).
  */
-export const LAUB_FEIN = suche.get('laub') === '2';
+// D283: Teil von `?echt=1` (Flo 14.11.2026 „mach alles davon“); `?laub=0` nimmt es heraus, `?laub=2` schaltet es einzeln ein.
+export const LAUB_FEIN = suche.get('laub') === '2' || (ECHT && suche.get('laub') !== '0');
 export const GRAS_FEIN = suche.get('gras') === '3';
 export const GRAS_VIEL = suche.get('gras') === '2' || GRAS_FEIN;
 export const GRAS_ECHT = teil('gras') || GRAS_VIEL;

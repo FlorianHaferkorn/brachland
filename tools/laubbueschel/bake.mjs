@@ -1,6 +1,7 @@
 /**
  * Laubbüschel-Atlas, Schritt 1 (D282): Poly-Haven-Baum (CC0) laden und Ausschnitte der Aussenkrone rendern.
  *   node tools/laubbueschel/bake.mjs tree_small_02 [n=16] [kante_m=0.5] [px=1024]
+ *   node tools/laubbueschel/bake.mjs weide [n=16]   (D283: prozedurale Hängeruten, `weide.html`, 0,3 × 0,9 m)
  * Schreibt `.cache/laubbueschel/out/<id>_<nr>.png` (Hintergrund Magenta) und `<id>.json`.
  * Schritt 2: `python3 tools/laubbueschel/pack.py` packt die gewählten Ausschnitte zu `public/material/laub-bueschel.webp`.
  * Braucht Playwright (global → `PLAYWRIGHT=/opt/node22/lib/node_modules/playwright/index.mjs`) und Netz zu
@@ -18,7 +19,8 @@ const wurzel = resolve('.cache/laubbueschel');
 const modell = join(wurzel, 'modelle', id), out = join(wurzel, 'out');
 mkdirSync(join(modell, 'textures'), { recursive: true }); mkdirSync(out, { recursive: true });
 
-if (!existsSync(join(modell, `${id}.gltf`))) {
+const weide = id === 'weide';
+if (!weide && !existsSync(join(modell, `${id}.gltf`))) {
   const f = (await (await fetch(`https://api.polyhaven.com/files/${id}`)).json()).gltf['1k'].gltf;
   const hol = async (url, ziel) => writeFileSync(ziel, Buffer.from(await (await fetch(url)).arrayBuffer()));
   await hol(f.url, join(modell, `${id}.gltf`));
@@ -28,6 +30,7 @@ if (!existsSync(join(modell, `${id}.gltf`))) {
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.gltf': 'application/json', '.bin': 'application/octet-stream', '.jpg': 'image/jpeg', '.png': 'image/png' };
 const abbilden = (u) => {
   if (u === '/bake.html') return resolve('tools/laubbueschel/bake.html');
+  if (u === '/weide.html') return resolve('tools/laubbueschel/weide.html');
   if (u.startsWith('/three/')) return join(resolve('node_modules/three'), u.slice(7));
   if (u.startsWith('/modelle/')) return join(wurzel, 'modelle', u.slice(9));
   return null;
@@ -41,14 +44,14 @@ const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftsha
 const p = await b.newPage();
 p.on('pageerror', (e) => console.log('Seitenfehler', e.message.slice(0, 300)));
 p.on('console', (m) => console.log('[seite]', m.text().slice(0, 200)));
-await p.goto(`http://127.0.0.1:5198/bake.html?id=${id}&n=${n}&s=${s}&px=${px}&muster=${encodeURIComponent(muster)}`);
+await p.goto(weide ? `http://127.0.0.1:5198/weide.html?n=${n}` : `http://127.0.0.1:5198/bake.html?id=${id}&n=${n}&s=${s}&px=${px}&muster=${encodeURIComponent(muster)}`);
 await p.waitForFunction(() => document.title === 'fertig', null, { timeout: 1200000, polling: 2000 });
 const res = await p.evaluate(() => window.__ergebnis);
 const meta = res.bilder.map((r) => {
   const f = `${id}_${String(r.nr).padStart(2, '0')}.png`;
   writeFileSync(join(out, f), Buffer.from(r.png.split(',')[1], 'base64'));
-  return { file: f, s: r.s };
+  return { file: f, s: r.s ?? null };
 });
-writeFileSync(join(out, `${id}.json`), JSON.stringify({ blatt: res.blatt, groesse: res.groesse, bilder: meta }, null, 1));
-console.log(id, 'Blattnetze:', res.blatt.length, res.blatt.slice(0, 6), 'Krone m:', res.groesse.map((x) => x.toFixed(1)), 'Bilder:', meta.length);
+writeFileSync(join(out, `${id}.json`), JSON.stringify({ blatt: res.blatt ?? null, groesse: res.groesse ?? null, bilder: meta }, null, 1));
+console.log(id, 'Bilder:', meta.length, res.blatt ? `Blattnetze ${res.blatt.length}, Krone m ${res.groesse.map((x) => x.toFixed(1))}` : '');
 await b.close(); srv.close();

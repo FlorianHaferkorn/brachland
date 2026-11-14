@@ -49,8 +49,8 @@ interface ArtWerte {
   kacheln: [number, number];
   /** Nur `PINSEL_AN`: Grundfarbe der Striche (die Textur trägt nur Grau und Alpha). */
   grundfarbe?: string;
-  /** D282: Atlas mit `atlas × atlas` Büschelkacheln; je Karte eine zufällige Kachel. */
-  atlas?: number;
+  /** D282: Atlas mit Spalten × Zeilen Büschelkacheln; je Karte eine zufällige Kachel. */
+  atlas?: [number, number];
 }
 
 const ARTEN: Record<KartenArt, ArtWerte> = {
@@ -67,15 +67,19 @@ const ARTEN: Record<KartenArt, ArtWerte> = {
  * Aussenkrone eines Poly-Haven-Baums (12 × `tree_small_02`, 4 × `island_tree_02`, CC0) mit echten Blättern in 3D,
  * hintere Blätter im Büschel dunkler. Eine Kachel deckt ~20 %; 8 Karten à 0,9 m je m² geben ~1,3 Blattlagen (das
  * Zweigfoto: 7,5 × 0,6² × 0,42 ≈ 1,1) — etwa gleich viele Karten, keine Wiederholung im Bild.
- * Nadel ebenso (Kiefer/Tanne). Die Weide behält ihre Hängekarten und bekommt nur Glanz- und Fernkorrektur.
+ * Nadel ebenso (Kiefer/Tanne), Weide aus prozeduralen Hängeruten (D283).
  */
 const ARTEN_FEIN: Record<KartenArt, ArtWerte> = {
   ...ARTEN,
-  laub: { textur: '/material/laub-bueschel.webp', dichte: 8, groesse: [0.9, 0.9], streuung: 0.9, haengend: false, durchlass: 0.45, kacheln: [1, 1], atlas: 4 },
+  laub: { textur: '/material/laub-bueschel.webp', dichte: 8, groesse: [0.9, 0.9], streuung: 0.9, haengend: false, durchlass: 0.45, kacheln: [1, 1], atlas: [4, 4] },
   // Nadel: Das alte Zweigfoto war ein auf das Quadrat gestreckter Ausschnitt (150 × 380 px → 512²) — Nadeln ~3× zu
   // dick, aus der Ferne dunkle eckige Blöcke (Flo 14.11.2026: „komische Rechtecke“). Büschel aus `pine_sapling_small`
   // (12) und `fir_sapling` (4) decken ~13 %: 12 Karten à 0,8 m je m² ≈ 1,0 Lagen wie zuvor (6,5 × 0,8 × 0,55 × 0,35).
-  nadel: { textur: '/material/nadel-bueschel.webp', dichte: 12, groesse: [0.8, 0.8], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: [1, 1], atlas: 4 },
+  // D283: Weide aus prozedural gebackenen Hängeruten (`tools/laubbueschel/weide.html`; Poly Haven hat keine Weide):
+  // lanzettliche Blätter mit silbriger Unterseite statt des Buchenzweigs. Kachel 0,3 × 0,9 m deckt ~15 %; 40 Karten
+  // je m² ≈ 1,6 Lagen wie zuvor (34 × 0,2 × 0,6 × 0,42 ≈ 1,7).
+  weide: { textur: '/material/weide-bueschel.webp', dichte: 40, groesse: [0.3, 0.9], streuung: 0.35, haengend: true, durchlass: 0.4, kacheln: [1, 1], atlas: [8, 2] },
+  nadel: { textur: '/material/nadel-bueschel.webp', dichte: 12, groesse: [0.8, 0.8], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: [1, 1], atlas: [4, 4] },
 };
 
 /**
@@ -156,6 +160,11 @@ function textur(pfad: string, kacheln: [number, number]): THREE.Texture {
   return t;
 }
 
+/** D283: Büschelatlas für die Kronen der Blender-Bäume (`windmaterial.ts` `bueschel`), geteilt mit den Karten. */
+export function bueschelTextur(art: 'laub' | 'nadel'): THREE.Texture {
+  return textur(ARTEN_FEIN[art].textur, [1, 1]);
+}
+
 function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({
     map: PINSEL_AN ? pinselTextur() : textur(art.textur, art.kacheln), alphaTest: KARTEN_SCHWELLE, side: THREE.DoubleSide,
@@ -172,7 +181,7 @@ function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
       .replace('#include <common>', '#include <common>\nattribute vec3 aHuelle;' + (art.atlas ? '\nattribute float aKachel;' : ''))
       // D282: Kachel des Büschelatlas je Instanz.
       .replace('#include <uv_vertex>', art.atlas
-        ? `#include <uv_vertex>\n  vMapUv = (vMapUv + vec2(mod(aKachel, ${art.atlas}.0), floor(aKachel / ${art.atlas}.0))) / ${art.atlas}.0;`
+        ? `#include <uv_vertex>\n  vMapUv = (vMapUv + vec2(mod(aKachel, ${art.atlas[0]}.0), floor(aKachel / ${art.atlas[0]}.0))) / vec2(${art.atlas[0]}.0, ${art.atlas[1]}.0);`
         : '#include <uv_vertex>')
       // Hüllnormale, schon in den Kartenraum zurückgedreht (CPU), damit `instanceMatrix` sie wieder
       // auf die Hülle bringt.
@@ -198,7 +207,7 @@ function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
   }
 #endif${LAUB_FEIN ? '\n  reflectedLight.directSpecular *= 0.15;\n  reflectedLight.indirectSpecular *= 0.15;' : ''}`);
   };
-  m.customProgramCacheKey = () => 'brachland-laubkarten-v1' + (PINSEL_AN ? '-pinsel' : '') + (LAUB_FEIN ? '-fein' + (art.atlas ?? 0) : '');
+  m.customProgramCacheKey = () => 'brachland-laubkarten-v1' + (PINSEL_AN ? '-pinsel' : '') + (LAUB_FEIN ? '-fein' + (art.atlas ?? []).join('x') : '');
   return m;
 }
 
@@ -310,7 +319,7 @@ export function baueLaubkarten(
     const h = (0.85 + zuf() * 0.25) * ao;
     farbe.setRGB(h * (0.95 + zuf() * 0.1), h, h * (0.85 + zuf() * 0.1));
     farbe.toArray(farben, i * 3);
-    if (art.atlas) kachel[i] = Math.floor(zuf() * art.atlas * art.atlas);
+    if (art.atlas) kachel[i] = Math.floor(zuf() * art.atlas[0] * art.atlas[1]);
   }
 
   /**
