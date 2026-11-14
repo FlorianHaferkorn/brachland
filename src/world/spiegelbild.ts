@@ -59,6 +59,7 @@ export class Spiegelbild {
     }
     if (!beste) { SPIEGELBILD.an.value = 0; return; }
     const h = beste.hoehe;
+    if (this.bild === 0) console.info(`[spiegel] Ebene ${h.toFixed(2)} m bei ${beste.x.toFixed(0)}/${beste.z.toFixed(0)}, ${flaechen.size} Flächen`);
 
     // Zielgrösse: halbe Zeichenfläche.
     gl.getDrawingBufferSize(this.groesse);

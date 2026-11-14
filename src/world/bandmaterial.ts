@@ -253,7 +253,7 @@ float wehrAnteil(vec3 p) {
         .replace('#include <common>', '#include <common>\nuniform sampler2D uSpiegelKarte;\nuniform mat4 uSpiegelMatrix;\nuniform float uSpiegelHoehe;\nuniform float uSpiegelAn;')
         .replace('#include <lights_fragment_end>', /* glsl */ `
   #if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )
-  if (uSpiegelAn > 0.5 && gl_FrontFacing && abs(vWasserPos.y - uSpiegelHoehe) < 0.35) {
+  if (uSpiegelAn > 0.5 && gl_FrontFacing && abs(vWasserPos.y - uSpiegelHoehe) < 0.6) {
     vec4 sp = uSpiegelMatrix * vec4(vWasserPos, 1.0);
     vec2 suv = sp.xy / sp.w + normal.xy * 0.03;
     float imBild = smoothstep(0.0, 0.04, suv.x) * smoothstep(1.0, 0.96, suv.x) * smoothstep(0.0, 0.04, suv.y) * smoothstep(1.0, 0.96, suv.y);

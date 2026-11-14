@@ -2326,7 +2326,8 @@ function Spiegelung({ feld }: { feld: HoehenFeld }) {
   useEffect(() => {
     const ab = feld.teiche.map((t) => {
       let x = 0, z = 0, hoehe = Infinity;
-      for (const [px, pz] of t.punkte) { x += px; z += pz; hoehe = Math.min(hoehe, feld.hoehe(px, pz) + feld.wasserTiefe(px, pz)); }
+      // Dieselbe Höhe wie die gezeichnete Teichfläche (`baender.ts`: tiefster Uferpunkt auf dem Netz).
+      for (const [px, pz] of t.punkte) { x += px; z += pz; hoehe = Math.min(hoehe, spiegelAufFlaeche(feld, px, pz)); }
       x /= t.punkte.length; z /= t.punkte.length;
       const radius = Math.max(...t.punkte.map(([px, pz]) => Math.hypot(px - x, pz - z)));
       return meldeSpiegelflaeche({ x, z, hoehe, radius });
