@@ -517,8 +517,12 @@ export function baueKachelGeometrie(
     const p2 = punkt(...rand[(k + 1) % rand.length]);
     const u1: [number, number, number] = [p1[0], p1[1] - schuerzeTiefe, p1[2]];
     const u2: [number, number, number] = [p2[0], p2[1] - schuerzeTiefe, p2[2]];
-    dreieck([p1, u1, p2]);
-    dreieck([p2, u1, u2]);
+    // D282: Wicklung so, dass die Schürze **nach aussen** zeigt. Vorher zeigte ihre Vorderseite in die eigene
+    // Kachel; wer von der Nachbarkachel auf einen Riss sah (dort, wo der Nachbar tiefer liegt), sah die
+    // Rückseite — und die wird nicht gezeichnet. Durch die Lücke schien der Nebel als heller Keil entlang
+    // der LOD-Grenze (Stauwehr, x = 1152; Flo 14.11.2026 „komische Kanten“). Von innen braucht niemand sie.
+    dreieck([p1, p2, u1]);
+    dreieck([p2, u2, u1]);
   }
 
   const g = new THREE.BufferGeometry();
