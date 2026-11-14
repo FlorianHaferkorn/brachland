@@ -28,8 +28,9 @@
 
 /** Gruppen, die sich abschalten lassen. */
 /** `wasser` (D267): Bach- und Teichbänder — zur Frage, welche Fläche im Bild überhaupt Wasser ist.
- *  `becken` (D279): die Wasserbecken, die die Blender-Szene selbst mitbringt (`BauwerkWasser`, Form `becken`). */
-export type Gruppe = 'fels' | 'gras' | 'baeume' | 'kulisse' | 'haeuser' | 'menschen' | 'bauwerke' | 'teppich' | 'nahgras' | 'ferngras' | 'wasser' | 'becken';
+ *  `becken` (D279): die Wasserbecken, die die Blender-Szene selbst mitbringt (`BauwerkWasser`, Form `becken`).
+ *  `wege` (D282): Weg-Bänder — zur Frage, ob schmale graue Keile auf der Wiese halb versunkene Wege sind. */
+export type Gruppe = 'fels' | 'gras' | 'baeume' | 'kulisse' | 'haeuser' | 'menschen' | 'bauwerke' | 'teppich' | 'nahgras' | 'ferngras' | 'wasser' | 'becken' | 'wege';
 
 const AUS: ReadonlySet<string> = new Set(
   (typeof location === 'undefined'
