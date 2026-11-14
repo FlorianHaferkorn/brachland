@@ -4,7 +4,7 @@ shelf-life-days: 365
 ---
 # ADR-0006 — Zielbild vor Zielgerät: der Look wird in Blender festgelegt, das Handy ist nachrangig
 
-**Status:** Accepted · 2026-09-15 · ändert ADR-0001 (Zielplattform), löst D110/D111/D112 ab, erweitert ADR-0005
+**Status:** Accepted · 2026-09-15 · ändert ADR-0001 (Zielplattform), löst D110/D111/D112 ab, erweitert ADR-0005 · Zielgerät M1: Ablösung vorgeschlagen durch ADR-0016 (Proposed, 14.11.2026)
 
 ## Kontext
 
