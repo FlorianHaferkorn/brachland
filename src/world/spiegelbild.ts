@@ -4,8 +4,8 @@
  * Teiche und Weiher spiegelten nur die Himmelskarte: Bei flachem Blick lag eine helle, glatte Fläche wie
  * Eis zwischen den Ufern, ohne das Spiegelbild der Bäume (Teich-Render 14.11.2026). Stilles Wasser wirkt
  * erst mit dem Spiegelbild der Umgebung echt. Hier: **eine** waagerechte Spiegelebene je Bild — die des
- * nächsten gemeldeten Stillgewässers —, ein Szenenpass aus der gespiegelten Kamera in ein halb so grosses
- * HalfFloat-Ziel, mit schräger Clip-Ebene (Lengyel), damit nichts unter dem Spiegel ins Bild kommt.
+ * nächsten gemeldeten Stillgewässers —, ein Szenenpass aus der gespiegelten Kamera in ein HalfFloat-Ziel in
+ * voller Auflösung (D281), mit schräger Clip-Ebene (Lengyel), damit nichts unter dem Spiegel ins Bild kommt.
  * Das Wassermaterial (`bandmaterial.ts`) liest das Bild über `SPIEGELBILD.matrix` und ersetzt damit die
  * Himmelsstrahlung, wo die Fläche auf der Spiegelhöhe liegt; Fresnel und Wellen bleiben im Material.
  *
@@ -63,7 +63,8 @@ export class Spiegelbild {
 
     // Zielgrösse: halbe Zeichenfläche.
     gl.getDrawingBufferSize(this.groesse);
-    const b = Math.max(2, Math.round(this.groesse.x / 2)), hh = Math.max(2, Math.round(this.groesse.y / 2));
+    // D281: volle Auflösung (Stufe „Ultra“, ADR-0016) — in halber war das Spiegelbild treppig.
+    const b = Math.max(2, this.groesse.x), hh = Math.max(2, this.groesse.y);
     if (this.ziel.width !== b || this.ziel.height !== hh) this.ziel.setSize(b, hh);
 
     // Wasserflächen alle 60 Bilder neu sammeln (Kacheln kommen und gehen).

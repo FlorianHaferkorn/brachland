@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { HIMMEL_UNIFORM } from './windmaterial.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT, GRAS_VIEL } from './echt.js';
+import { GEWAESSER_ECHT, GRAS_ECHT, GRAS_VIEL } from './echt.js';
 
 /**
  * Himmelsanteil des Geländes um ein Set-Piece (D171, `tools/himmelboden.ts`): ein Raster von
@@ -377,7 +377,9 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
       .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (MIT_UFER ? NASS_GLSL : ''))
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n'
-        + (MIT_UFER ? '  roughnessFactor = mix(roughnessFactor, 0.55, nassAnteil);\n' : ''))
+        // D281 (`?gewaesser=1`): 0,55 spiegelte den hellen Himmel als weissen Reif-Streifen am Ufer; nasse Erde ist
+        // dunkel und matter, glänzend nur der dünne Wasserfilm direkt an der Linie.
+        + (MIT_UFER ? `  roughnessFactor = mix(roughnessFactor, ${GEWAESSER_ECHT ? 'mix(0.85, 0.5, smoothstep(0.85, 1.0, vNass))' : '0.55'}, nassAnteil);\n` : ''))
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL)
       .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
       .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL);
@@ -403,7 +405,7 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
   if (GRAS_ECHT) material.defines = { ...material.defines, GRAS_ECHT: '' };
   if (GRAS_VIEL) material.defines = { ...material.defines, GRAS_VIEL: '' };
-  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
+  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
 
   return material;
 }
