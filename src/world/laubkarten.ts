@@ -67,11 +67,15 @@ const ARTEN: Record<KartenArt, ArtWerte> = {
  * Aussenkrone eines Poly-Haven-Baums (12 × `tree_small_02`, 4 × `island_tree_02`, CC0) mit echten Blättern in 3D,
  * hintere Blätter im Büschel dunkler. Eine Kachel deckt ~20 %; 8 Karten à 0,9 m je m² geben ~1,3 Blattlagen (das
  * Zweigfoto: 7,5 × 0,6² × 0,42 ≈ 1,1) — etwa gleich viele Karten, keine Wiederholung im Bild.
- * Weide und Nadel behalten ihre Karten und bekommen nur Glanz- und Fernkorrektur.
+ * Nadel ebenso (Kiefer/Tanne). Die Weide behält ihre Hängekarten und bekommt nur Glanz- und Fernkorrektur.
  */
 const ARTEN_FEIN: Record<KartenArt, ArtWerte> = {
   ...ARTEN,
   laub: { textur: '/material/laub-bueschel.webp', dichte: 8, groesse: [0.9, 0.9], streuung: 0.9, haengend: false, durchlass: 0.45, kacheln: [1, 1], atlas: 4 },
+  // Nadel: Das alte Zweigfoto war ein auf das Quadrat gestreckter Ausschnitt (150 × 380 px → 512²) — Nadeln ~3× zu
+  // dick, aus der Ferne dunkle eckige Blöcke (Flo 14.11.2026: „komische Rechtecke“). Büschel aus `pine_sapling_small`
+  // (12) und `fir_sapling` (4) decken ~13 %: 12 Karten à 0,8 m je m² ≈ 1,0 Lagen wie zuvor (6,5 × 0,8 × 0,55 × 0,35).
+  nadel: { textur: '/material/nadel-bueschel.webp', dichte: 12, groesse: [0.8, 0.8], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: [1, 1], atlas: 4 },
 };
 
 /**
