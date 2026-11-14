@@ -266,7 +266,12 @@ const SCAN_GLSL = /* glsl */ `
     float l01 = fract(sin(dot(mod(li + vec2(0.0, 1.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
     float l11 = fract(sin(dot(mod(li + vec2(1.0, 1.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
     float luecke = 1.0 - smoothstep(0.3, 0.55, mix(mix(l00, l10, lf.x), mix(l01, l11, lf.x), lf.y));
-    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.13, 0.095, 0.055), luecke * scanGewicht.x * 0.85);
+    // D282: Flo 14.11.2026 „komische bräunliche Flächen“ — als Flatfarbe lagen die Lücken als runde, gleichmässig
+    // braune Ovale auf der Wiese. Jetzt: Rand von feinerem Rauschen zerfranst, und der Scan-Boden bleibt sichtbar,
+    // nur dunkler und erdiger (Erde zwischen Gras ist kein Farbfleck, sondern abgedunkelter Boden mit Streu).
+    float fransen = smoothstep(0.35, 0.65, bodenRauschen(vWeltPos.xz * 2.7 + 13.0));
+    float erde = luecke * mix(0.35, 1.0, fransen) * scanGewicht.x * 0.7;
+    diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.62, 0.52, 0.4) + vec3(0.02, 0.015, 0.008), erde);
   }
 #endif
 `;
