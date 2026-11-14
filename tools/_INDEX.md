@@ -41,6 +41,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 
 | Datei | Zweck |
 |---|---|
+| `biomprobe.ts` | **Biom und Bodenfarbe entlang einer Blickrichtung** (D278/D279): `ECHT=1 npx tsx tools/biomprobe.ts <x0> <z0> <x1> <z1> [bis-Meter]` gibt je 5 m Biom, Höhe, Bodenfarbe und Wassertiefe aus (Mitte und 12 m seitlich) — ohne Render. `ECHT=1` setzt die Schalter von `?echt=1` (in Node gibt es kein `location`) |
 | `grashorste/` (`bake.mjs`, `bake.html`, `pack.py`) | **Grashorst-Atlas** (D272, `?gras=3`): lädt Poly-Haven-Gräser (CC0), rendert jedes Netz seitlich orthografisch (Playwright + three.js) und packt 12 gewählte Büschel zu `public/material/gras-horste.webp` + `.json`. Rohdaten in `.cache/grashorste/` (gitignored). Herkunft: `../assets/HERKUNFT.md` |
 | `eztexturen.mjs` | Erzeugt zwei 512²-CC0-Blattkarten aus verifizierten Poly-Haven-Farb-/Alpha-Downloads und eigenem Randbeschnitt; verweigert das Überschreiben. Herkunft: `../assets/HERKUNFT.md`. |
 | `terrainexport.ts` | Terrain-Ausschnitt für Blender: `npx tsx tools/terrainexport.ts cx cz groesse [schritt] [zielordner] [praefix]`. OBJ für Gelände, Wasser, Häuser und Wege plus Metadaten; Nah-/Fernfeld und Achsenabbildung in `../docs/MESSLAUF.md`. Seit D156 aus dem Cache gesichert. |

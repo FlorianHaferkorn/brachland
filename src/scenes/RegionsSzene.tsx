@@ -1776,7 +1776,7 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
           {b.dateien.map(teil => (
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
-                ? <BauwerkWasser bauwerk={b} />
+                ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
                 : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
           ))}
