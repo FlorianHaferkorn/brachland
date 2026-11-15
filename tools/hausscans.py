@@ -57,9 +57,8 @@ for i, (id_, rolle) in enumerate(WAHL):
     kanten.append({'rolle': rolle, 'quelle': id_, 'meter': round(info['dimensions'][0] / 1000, 3),
                    'autoren': list(info.get('authors', {}).keys())})
 Image.fromarray(farbe).save(f'public/material/{SATZ}-scans.webp', quality=86, method=6)
-# Weg: Normale in halber Auflösung (Budget 12 MB, D285) — das Relief eines Wegs liest aus Augenhöhe kaum.
+# D286: Budget aufgehoben — Normale wieder in voller Auflösung für beide Sätze.
 nor_bild = Image.fromarray(normal)
-if SATZ == 'weg': nor_bild = nor_bild.resize((K, K), Image.LANCZOS)
 nor_bild.save(f'public/material/{SATZ}-scans-nor.webp', quality=88, method=6)
 json.dump({'kachel': K, 'rollen': kanten}, open(f'public/material/{SATZ}-scans.json', 'w'), indent=1, ensure_ascii=False)
 print('geschrieben', SATZ, [(k['rolle'], k['meter']) for k in kanten],
