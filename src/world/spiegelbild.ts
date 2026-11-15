@@ -67,9 +67,13 @@ export class Spiegelbild {
     const b = Math.max(2, this.groesse.x), hh = Math.max(2, this.groesse.y);
     if (this.ziel.width !== b || this.ziel.height !== hh) this.ziel.setSize(b, hh);
 
-    // Wasserflächen alle 60 Bilder neu sammeln (Kacheln kommen und gehen).
-    if (this.bild++ % 60 === 0) {
-      this.wasser = [];
+    // Wasserflächen **jedes Bild** neu sammeln (Kacheln kommen und gehen). Früher alle 60 Bilder: Beim
+    // Laden (Messlauf SwiftShader: ~16 Bilder in 10 min) fehlte das Bachband in der Liste des ersten Bilds,
+    // wurde in den Spiegelpass gezeichnet und las dabei das Ziel, in das es schrieb (GL-Rückkopplung,
+    // „Feedback loop formed between Framebuffer and active Texture“). Ein Durchlauf über ~1.300 Objekte.
+    this.bild++;
+    {
+      this.wasser.length = 0;
       szene.traverse((o) => {
         const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
         const ms = Array.isArray(m) ? m : m ? [m] : [];
@@ -108,17 +112,12 @@ export class Spiegelbild {
     gl.shadowMap.autoUpdate = false;
     gl.setRenderTarget(this.ziel);
     gl.clear();
-    const dAufrufe = gl.info.render.calls; // DIAGNOSE-TEMP
     gl.render(szene, r);
-    (this as any).diagAufrufe = gl.info.render.calls - dAufrufe; // DIAGNOSE-TEMP
     gl.setRenderTarget(vorher);
     gl.shadowMap.autoUpdate = schatten;
     this.wasser.forEach((o, i) => { o.visible = sichtbar[i]; });
 
     SPIEGELBILD.hoehe.value = h;
     SPIEGELBILD.an.value = 1;
-    // DIAGNOSE-TEMP
-    (globalThis as any).__spiegel = { inst: this, gl, szene, SPIEGELBILD, ziel: this.ziel, r, wasser: this.wasser };
-    if (this.bild < 5 || this.bild % 20 === 0) console.info(`[spiegel] diag bild ${this.bild} wasser ${this.wasser.length} karte ${SPIEGELBILD.karte.value === this.ziel.texture} rt ${b}x${hh} aufrufe ${(this as any).diagAufrufe}`);
   }
 }
