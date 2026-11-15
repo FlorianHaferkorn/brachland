@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN } from './echt.js';
 import { gesperrt } from './bauwerke.js';
 
 /** Meter je Breitengrad; für Längengrad mit cos(lat) skaliert. */
@@ -201,7 +201,7 @@ export interface Huelle {
   welt: (u: number, v: number) => [number, number];
 }
 
-export function orientierteHuelle(p: readonly [number, number][]): Huelle {
+export function orientierteHuelle(p: readonly [number, number][], achseVorgabe?: number): Huelle {
   let achse = 0, laengste = 0;
   for (let k = 0; k < p.length - 1; k++) {
     const dx = p[k + 1][0] - p[k][0], dz = p[k + 1][1] - p[k][1];
@@ -215,8 +215,10 @@ export function orientierteHuelle(p: readonly [number, number][]): Huelle {
     return { c, si, minU: Math.min(...us), maxU: Math.max(...us),
              minV: Math.min(...vs), maxV: Math.max(...vs) };
   };
+  // D290: Firstrichtung aus LoD2 vorgegeben — u liegt dann entlang des echten Firsts, auch quer zur langen Seite.
+  if (achseVorgabe !== undefined) achse = achseVorgabe;
   let m = messen(achse);
-  if (m.maxV - m.minV > m.maxU - m.minU) { achse += Math.PI / 2; m = messen(achse); }
+  if (achseVorgabe === undefined && m.maxV - m.minV > m.maxU - m.minU) { achse += Math.PI / 2; m = messen(achse); }
   return {
     achse, cos: m.c, sin: m.si,
     minU: m.minU, maxU: m.maxU, minV: m.minV, maxV: m.maxV,
@@ -459,7 +461,15 @@ export function baueGebaeude(
     for (let k = 0; k < p.length - 1; k++) umlauf += p[k][0] * p[k + 1][1] - p[k + 1][0] * p[k][1];
     if (umlauf < 0) p.reverse();
     const wuerfel = wuerfelAus(p[0][0], p[0][1]);
-    const h = (g.ebenen * METER_JE_EBENE) / MASSSTAB.stauchung;
+    /**
+     * D290: Mit LoD2 kommen Traufhöhe, Firsthöhe, Dachform und Firstrichtung aus den amtlichen 3D-Gebäudemodellen
+     * (echte Silhouette); die Geschosszahl folgt aus der Traufe (≈ 2,9 m je Geschoss). Ohne LoD2 wie bisher aus OSM.
+     */
+    const echt2 = LOD2_AN && g.lod2 ? g.lod2 : null;
+    const ebenen = echt2 ? Math.max(1, Math.min(4, Math.round(echt2.t / 2.9))) : g.ebenen;
+    const h = echt2 ? Math.max(2.2, echt2.t) / MASSSTAB.stauchung : (ebenen * METER_JE_EBENE) / MASSSTAB.stauchung;
+    /** Geschosshöhe: mit LoD2 die echte Traufe gleichmässig geteilt, sonst 3 m. */
+    const geschoss = echt2 ? h / ebenen : METER_JE_EBENE;
 
     /**
      * Sockel auf den tiefsten Punkt der **Wandlinie**, nicht der Ecken.
@@ -518,7 +528,7 @@ export function baueGebaeude(
      * verschiedene Körper: Der Deckel stand über, der First zeigte in die falsche
      * Richtung, und an den Ecken klaffte es (G-71).
      */
-    const hu = orientierteHuelle(p);
+    const hu = orientierteHuelle(p, echt2 && echt2.w !== null ? echt2.w * Math.PI / 180 : undefined);
     const { minU, maxU, minV, maxV } = hu;
     /** Punkt im Hüllensystem zurück nach Welt, mit Höhe. */
     const welt3 = (u: number, y: number, v: number): [number, number, number] => {
@@ -583,7 +593,7 @@ export function baueGebaeude(
     // Und höchstens drei Ebenen: Ein Viergeschossiges mit Läden an 68 Fenstern
     // kam auf 1.502 Dreiecke — zwei über dem Deckel — und ist im Bestand ein
     // Wohnblock, kein Bauernhaus.
-    const wohnhaus = (!garage && !NUTZBAU.has(g.art) && klein <= 16 && breite <= 26 && g.ebenen <= 3) || einfirst;
+    const wohnhaus = (!garage && !NUTZBAU.has(g.art) && klein <= 16 && breite <= 26 && ebenen <= 3) || einfirst;
     /** Umfang des Grundrisses — die Brettbreite wächst damit, siehe `bretterwand`. */
     let umfang = 0;
     for (let k = 0; k < p.length - 1; k++) umfang += Math.hypot(p[k + 1][0] - p[k][0], p[k + 1][1] - p[k][1]);
@@ -627,8 +637,8 @@ export function baueGebaeude(
      * Nur ab zwei Ebenen und nicht an Garagen — ein Holzobergeschoss auf einem
      * Flachbau ist kein Alpenhaus, sondern ein Fehler.
      */
-    const holzAb = g.ebenen >= 2 && !garage
-      ? boden + (g.ebenen - 1) * METER_JE_EBENE
+    const holzAb = ebenen >= 2 && !garage
+      ? boden + (ebenen - 1) * geschoss
       : Infinity;
 
     // Wände
@@ -676,7 +686,7 @@ export function baueGebaeude(
       };
       if (wandLaenge >= 2.5) {
         band(boden, 0.34, 0.05, SOCKEL);
-        for (let e = 1; e < g.ebenen; e++) band(boden + e * METER_JE_EBENE - 0.07, 0.14, 0.07, DACH);
+        for (let e = 1; e < ebenen; e++) band(boden + e * geschoss - 0.07, 0.14, 0.07, DACH);
       }
 
       // Haustür
@@ -757,8 +767,8 @@ export function baueGebaeude(
       }
       const anzahl = Math.max(1, Math.floor(laenge / 3.2));
       const breiteF = 0.9, hoeheF = 1.15;
-      for (let ebene = 0; ebene < g.ebenen; ebene++) {
-        const yUnten = boden + ebene * METER_JE_EBENE + 1.05;
+      for (let ebene = 0; ebene < ebenen; ebene++) {
+        const yUnten = boden + ebene * geschoss + 1.05;
         if (yUnten + hoeheF > boden + h - 0.25) continue;
         for (let i = 0; i < anzahl; i++) {
           const t = (i + 0.5) / anzahl;
@@ -900,7 +910,9 @@ export function baueGebaeude(
     const neigungsFaktor = klein <= 14 ? steil
       : klein >= 34 ? 0.11
       : steil + (0.11 - steil) * (klein - 14) / 20;
-    const firstH = traufe + klein * neigungsFaktor;
+    // D290: Firsthöhe aus LoD2 — Flachdach (1000) und Pultdach (2100) als flaches Dach, sonst die echte Dachhöhe.
+    const firstH = echt2 ? traufe + (echt2.d === 1000 || echt2.d === 2100 ? 0.15 : Math.max(0.3, echt2.f - echt2.t))
+      : traufe + klein * neigungsFaktor;
     const aU0 = minU - ueberGiebel, aU1 = maxU + ueberGiebel;
     const aV0 = minV - ueber, aV1 = maxV + ueber;
     const mv = (minV + maxV) / 2;
@@ -1248,7 +1260,7 @@ export function baueGebaeude(
      * Balkon zu halten. Jetzt wird die Tiefe auf den Überstand begrenzt, und wo
      * weniger als 0,5 m bleiben, gibt es keinen Balkon.
      */
-    if (g.ebenen >= 2 && Math.max(breite, tiefe) >= 6) {
+    if (ebenen >= 2 && Math.max(breite, tiefe) >= 6) {
       /** Liegt der Punkt im Grundriss? Der Ring ist geschlossen (letzter = erster). */
       const imGrundriss = (x: number, z: number) => {
         let drin = false;
@@ -1280,7 +1292,7 @@ export function baueGebaeude(
       const platz = maxV + ueber - 0.15 - bV;
       const tiefeB = Math.min(1.1, platz);
       if (beste > 0 && tiefeB >= 0.5) {
-        const y = boden + (g.ebenen - 1) * METER_JE_EBENE + 0.6;
+        const y = boden + (ebenen - 1) * geschoss + 0.6;
         const bruest = 0.95;
         const v0 = bV, v1 = bV + tiefeB;
         // Der Balkon liegt an einer Wand, deren Aussenseite nach +V zeigt —

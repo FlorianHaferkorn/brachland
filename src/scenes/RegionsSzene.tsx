@@ -34,6 +34,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
+import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
@@ -681,7 +682,9 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     if (istAus('haeuser')) return null;
     const indizes = s.gebaeude.get(`${k.ix}:${k.iz}`);
     if (!indizes?.length) return null;
-    return baueGebaeude(welt, boden, indizes.map(i => welt.gebaeude[i]), bewohnt);
+    // D290: LoD2-Silhouette je Gebäude (gleiche Reihenfolge wie `welt.gebaeude`; nur für die Region, zu der die Datei passt).
+    const lod2 = LOD2_DATEN.length === welt.gebaeude.length ? LOD2_DATEN : null;
+    return baueGebaeude(welt, boden, indizes.map(i => (lod2 ? { ...welt.gebaeude[i], lod2: lod2[i] } : welt.gebaeude[i])), bewohnt);
   }, [welt, boden, bewohnt]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
@@ -2187,6 +2190,8 @@ function Klippen({ klippen, ziel, material }: {
  * groß wie jede Kreatur, und der Kampf beginnt nicht von selbst. Ein Bosskampf, der
  * einen im Vorbeigehen erwischt, ist ein Unfall, kein Höhepunkt.
  */
+/** D290: LoD2-Silhouetten (`tools/lod2import.py`), Reihenfolge wie `welt.gebaeude` des Œntals. */
+const LOD2_DATEN = LOD2_ROH as ({ t: number; f: number; d: number; w: number | null } | null)[];
 const REGENT_HOEHE = 4.2;
 /**
  * Das Modell (D241) ist 1,6 Einheiten lang statt der 1,2 der Silhouette: 3,8 ergibt gut sechs

@@ -85,6 +85,11 @@ export const BELAG_ECHT = teil('belag');
  * für grosse, längliche Grundrisse, Fensterkreuz und Vorhänge statt schwarzer Scheibe.
  */
 export const BAUWELT_AN = teil('bau');
+/**
+ * D290 (`?lod2=1` / `?echt=1`): echte Silhouetten aus den amtlichen 3D-Gebäudemodellen (LoD2, LDBV, CC BY 4.0) —
+ * Trauf- und Firsthöhe, Dachform, Firstrichtung je Gebäude (`public/world/oental-lod2.json`, `tools/lod2import.py`).
+ */
+export const LOD2_AN = teil('lod2');
 export const GRAS_FEIN = suche.get('gras') === '3';
 export const GRAS_VIEL = suche.get('gras') === '2' || GRAS_FEIN;
 export const GRAS_ECHT = teil('gras') || GRAS_VIEL;
