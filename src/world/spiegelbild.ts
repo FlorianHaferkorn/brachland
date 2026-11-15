@@ -115,5 +115,8 @@ export class Spiegelbild {
 
     SPIEGELBILD.hoehe.value = h;
     SPIEGELBILD.an.value = 1;
+    // DIAGNOSE-TEMP
+    (globalThis as any).__spiegel = { inst: this, gl, szene, SPIEGELBILD, ziel: this.ziel, r, wasser: this.wasser };
+    if (this.bild < 5 || this.bild % 20 === 0) console.info(`[spiegel] diag bild ${this.bild} wasser ${this.wasser.length} karte ${SPIEGELBILD.karte.value === this.ziel.texture} rt ${b}x${hh}`);
   }
 }
