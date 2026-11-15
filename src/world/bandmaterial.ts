@@ -239,7 +239,7 @@ float wehrAnteil(vec3 p) {
     #undef WH
     wellenNormale = vec3(h0 - hx, 0.0, h0 - hz) / e;
   }` : ''}
-  normal = normalize(normal + mat3(viewMatrix) * wellenNormale * ${fallend ? '1.0' : GEWAESSER_ECHT ? (form === 'band' ? '0.18' : '0.04') : '0.15'});
+  normal = normalize(normal + mat3(viewMatrix) * wellenNormale * ${fallend ? '1.0' : GEWAESSER_ECHT ? (form === 'band' ? '0.18' : WELLEN_ECHT ? '0.10' : '0.04') : '0.15'});
 `);
     if (BACH_ECHT && !fallend) {
       // D267: Waldkante in der Spiegelung. Unter ihr liegt das gegenüberliegende Ufer mit Bäumen,
