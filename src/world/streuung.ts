@@ -202,6 +202,13 @@ export function streueUmgebung(
 }
 
 /** Steine, Äste, Wurzelstücke — flach und klein, ohne Wind. */
+/** D292: Ton je Instanz als Faktor auf die Steinfarbe der Geometrie (three multipliziert Instanz- und Eckfarbe). */
+const AST_FAKTOR = (() => {
+  const a = new THREE.Color(PALETTE.streu.ast), s = new THREE.Color(PALETTE.streu.stein);
+  return new THREE.Color(a.r / s.r, a.g / s.g, a.b / s.b);
+})();
+const kleinTon = new THREE.Color();
+
 export function streueKleinzeug(
   feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh, faktor = 1,
 ): number {
@@ -212,13 +219,22 @@ export function streueKleinzeug(
     hilfe.rotation.set(ast ? Math.PI * 0.5 : h1 * 0.3, h2 * Math.PI * 2, h3 * 0.4);
     if (ast) hilfe.scale.set(gr * 0.28, gr * 2.6, gr * 0.28);
     else hilfe.scale.set(gr * 1.4, gr * 0.55, gr * 1.2);
+    /**
+     * D292: Äste in Holzfarbe, Steine mit Helligkeitsstreuung, beide zu gut einem Drittel im Boden. Vorher lagen
+     * graue, scharfkantige Körper obenauf und lasen im Bild als weisse Glasscherben (Ledger A-19).
+     */
+    const hell = 0.72 + ((h2 * 7.31) % 1) * 0.3;
+    if (ast) kleinTon.copy(AST_FAKTOR).multiplyScalar(hell);
+    else kleinTon.setRGB(hell * 1.03, hell, hell * 0.95);
+    hilfe.position.y -= (ast ? gr * 0.28 : gr * 0.55) * 0.5 * 0.4;
+    return kleinTon;
   });
 }
 
 function streue(
   feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh,
   dichte: Record<Biom, number>, jeQm: number, max: number, salz: number,
-  form: (h1: number, h2: number, h3: number) => void,
+  form: (h1: number, h2: number, h3: number) => THREE.Color | void,
 ): number {
   const ZELLE = 2;
   const jeZelle = jeQm * ZELLE * ZELLE;
@@ -249,8 +265,9 @@ function streue(
         if (d > r * 0.75 && hash(ix, iz, b + 3) < (d - r * 0.75) / (r * 0.25)) continue;
 
         hilfe.position.set(x, feld.hoehe(x, z), z);
-        form(hash(ix, iz, b + 4), hash(ix, iz, b + 5), hash(ix, iz, b + 6));
+        const ton = form(hash(ix, iz, b + 4), hash(ix, iz, b + 5), hash(ix, iz, b + 6));
         hilfe.updateMatrix();
+        if (ton) mesh.setColorAt(n, ton);
         mesh.setMatrixAt(n++, hilfe.matrix);
       }
     }

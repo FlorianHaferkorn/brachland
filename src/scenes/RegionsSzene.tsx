@@ -2500,6 +2500,7 @@ function Streuschicht({ feld, ziel, dichte }: {
     if (k) {
       k.count = streueKleinzeug(feld, p.x, p.z, k, dichte);
       k.instanceMatrix.needsUpdate = true;
+      if (k.instanceColor) k.instanceColor.needsUpdate = true;
       k.computeBoundingSphere();
     }
   });

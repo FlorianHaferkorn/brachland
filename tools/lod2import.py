@@ -14,7 +14,7 @@ Namensnennung „Bayerische Vermessungsverwaltung – www.geodaten.bayern.de“,
 Ausgabe: eine Liste in der Reihenfolge von `welt.gebaeude` (oental.json), je OSM-Gebäude `null` oder
 {"t": Traufhöhe, "f": Firsthöhe über Grund in m, "d": Dachform (AdV-Schlüssel 1000 Flach, 2100 Pult, 3100 Sattel,
 3200 Walm, 3300 Krüppelwalm, …), "w": Firstrichtung als Winkel in der Weltebene (atan2(dz, dx), Grad)}.
-Feld "c": Dachfarbe aus DOP20 (siehe oben). Zuordnung: der Grundriss-Schwerpunkt des LoD2-Gebäudes liegt im OSM-Grundriss; bei mehreren das grösste.
+Feld "c": Dachfarbe aus DOP20 (siehe oben), sonnige Hälfte ohne Bewuchs und Module (D292). Zuordnung: der Grundriss-Schwerpunkt des LoD2-Gebäudes liegt im OSM-Grundriss; bei mehreren das grösste.
 Die Form des Hauses (Fassade, Material, Verfall) bleibt beim Generator; LoD2 liefert nur die echte Silhouette.
 """
 import json
@@ -166,8 +166,18 @@ def dachfarbe(b):
     m = np.asarray(maske) > 0
     if m.sum() < 8:
         return None
-    rgb = np.asarray(bild)[m]
-    med = np.median(rgb, axis=0)
+    rgb = np.asarray(bild)[m].astype(float)
+    # D292: Robuste Dachfarbe. Der Median über alle Pixel nahm Schattenseite, überhängende Kronen und Solarmodule mit —
+    # zwei Dächer im Dorf wurden blauschwarz. Jetzt ohne Grün (Bewuchs), ohne Bläuliches (Module, Himmelsreflex) und
+    # nur die sonnige Hälfte (Luminanz ab dem Median des Rests). Eine Moduleerkennung über Farbe allein griff
+    # vor allem Schatten (Kontaktbogen 15.11.2026), deshalb kein eigenes Modulfeld.
+    r, g, b = rgb[:, 0], rgb[:, 1], rgb[:, 2]
+    rest = rgb[~(((g > r + 4) & (g > b + 4)) | (b > r + 4))]
+    if len(rest) < max(8, 0.2 * len(rgb)):
+        rest = rgb
+    lum = rest @ np.array([0.2126, 0.7152, 0.0722])
+    rest = rest[lum >= np.median(lum)]
+    med = np.median(rest, axis=0)
     return '#%02x%02x%02x' % tuple(int(v) for v in med)
 
 ergebnis, treffer = [], 0

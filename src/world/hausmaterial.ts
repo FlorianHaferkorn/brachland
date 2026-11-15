@@ -57,6 +57,14 @@ const VERFALL_FARBE = /* glsl */ `
   // Bauwelt D287: Das Erdgeschoss ist weiss gekalkt (Denkmalliste: verputztes Nagelfluh-/Feldsteinmauerwerk). Der Paletten-
   // putz las mit dem Scan als grauer Granit — aufhellen; verlassene Häuser vergrauen etwas.
   if (scanR < 0.5) diffuseColor.rgb *= mix(vec3(1.5, 1.48, 1.42), vec3(1.25, 1.24, 1.2), vStufe * 0.5);
+  // D292: Holz altert. Ungestrichenes Lärchen-/Fichtenholz wird an der Sonne dunkelbraun, im Wetter silbergrau — nach
+  // 40–60 Jahren ohne Pflege (D287) erst recht; das Palettenholz las mit dem Scan als frisches Orange. Bewohnt
+  // dunkler und gedämpft, verlassen und verfallen zunehmend grau.
+  if (scanR > 0.5 && scanR < 1.5) {
+    float holzL = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+    vec3 vergraut = vec3(holzL) * vec3(1.02, 0.98, 0.92);
+    diffuseColor.rgb = mix(diffuseColor.rgb, vergraut, 0.38 + vStufe * 0.2) * (0.86 - vStufe * 0.04);
+  }
   float efeuDeckung = 0.0;
   vec3 efeuFarbe = vec3(0.0);
   if (scanR < 3.5) {

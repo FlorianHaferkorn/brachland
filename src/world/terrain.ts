@@ -1341,16 +1341,21 @@ export function baueGebaeude(
         // Boden: von oben (vom Hang aus) und von unten (von der Strasse aus)
         // sichtbar, also beide Seiten.
         quadNach(welt3(bU0, y, v0), welt3(bU1, y, v0), welt3(bU1, y, v1), welt3(bU0, y, v1), SCHALUNG, OBEN);
-        quadNach(welt3(bU0, y - 0.08, v0), welt3(bU1, y - 0.08, v0), welt3(bU1, y - 0.08, v1), welt3(bU0, y - 0.08, v1), TUER, UNTEN);
+        // D292 (Bauwelt): Unterseite und Handlauf in dunklem Holz statt Türschwarz — aus der Strasse las die Laube
+        // sonst als zwei schwarze Striche ohne Bretter.
+        const LAUBE_DUNKEL = BAUWELT_AN ? SCHALUNG_TOENE[0] : TUER;
+        quadNach(welt3(bU0, y - 0.08, v0), welt3(bU1, y - 0.08, v0), welt3(bU1, y - 0.08, v1), welt3(bU0, y - 0.08, v1), LAUBE_DUNKEL, UNTEN);
         // Fußleiste und Handlauf — die zwei Waagerechten.
         quadNach(welt3(bU0, y + 0.04, v1), welt3(bU1, y + 0.04, v1),
                  welt3(bU1, y + 0.22, v1), welt3(bU0, y + 0.22, v1), SCHALUNG, VOR);
         quadNach(welt3(bU0, y + bruest - 0.13, v1 + 0.06), welt3(bU1, y + bruest - 0.13, v1 + 0.06),
-                 welt3(bU1, y + bruest, v1 + 0.06), welt3(bU0, y + bruest, v1 + 0.06), TUER, VOR);
+                 welt3(bU1, y + bruest, v1 + 0.06), welt3(bU0, y + bruest, v1 + 0.06), LAUBE_DUNKEL, VOR);
         // Bretter dazwischen. Alle 0,42 m, gedeckelt bei 16: An einem 14-m-Haus
         // wären es sonst 33, und ab etwa 20 sieht man den Unterschied nicht mehr.
         const bretter = Math.min(16, Math.max(3, Math.round((bU1 - bU0) / 0.42)));
-        const bb = (bU1 - bU0) / bretter * 0.55;
+        // D292: Im Bestand ist die Brüstung fast geschlossen (Bretter Stoss an Stoss, oft mit Sägeornament); mit 55 %
+        // Deckung sah man durch die Laube hindurch die gleichfarbige Wand, und die Brüstung verschwand.
+        const bb = (bU1 - bU0) / bretter * (BAUWELT_AN ? 0.86 : 0.55);
         for (let i = 0; i < bretter; i++) {
           const cu = bU0 + (bU1 - bU0) * (i + 0.5) / bretter;
           quadNach(welt3(cu - bb / 2, y + 0.2, v1 + 0.01), welt3(cu + bb / 2, y + 0.2, v1 + 0.01),
@@ -1359,9 +1364,23 @@ export function baueGebaeude(
         }
         // Zwei Stützen bis zum Boden — ohne sie schwebt der Balkon, mit fester
         // Länge hängen sie in der Luft.
-        for (const u of [bU0 + 0.35, bU1 - 0.35]) {
-          kasten(u - 0.07, u + 0.07, v1 - 0.19, v1 - 0.05, fest(boden), fest(y), TUER,
-                 { u0: true, u1: true, v1: true });
+        if (BAUWELT_AN) {
+          /**
+           * D292: Die Laube des Inntaler Hofs ruht auf Konsolen — den vorstehenden Köpfen der Deckenbalken des
+           * Blockbaus —, nicht auf Stützen bis zum Boden; die standen wie ein Gerüst vor der Wand. Alle ~1,6 m ein
+           * Balkenkopf von der Wand bis unter die Vorderkante.
+           */
+          const koepfe = Math.max(2, Math.round((bU1 - bU0) / 1.6) + 1);
+          for (let i = 0; i < koepfe; i++) {
+            const u = bU0 + 0.1 + (bU1 - bU0 - 0.2) * i / (koepfe - 1);
+            kasten(u - 0.08, u + 0.08, v0 - 0.02, v1 - 0.04, fest(y - 0.3), fest(y - 0.08), SCHALUNG_TOENE[0],
+                   { unten: true, u0: true, u1: true, v1: true });
+          }
+        } else {
+          for (const u of [bU0 + 0.35, bU1 - 0.35]) {
+            kasten(u - 0.07, u + 0.07, v1 - 0.19, v1 - 0.05, fest(boden), fest(y), TUER,
+                   { u0: true, u1: true, v1: true });
+          }
         }
         /**
          * Eckpfosten und Geranienkasten (D119). Die Pfosten schliessen die
@@ -1370,7 +1389,7 @@ export function baueGebaeude(
          * im Bestand der Ort, an dem die Geranien hängen, nicht das Fenster.
          */
         for (const u of [bU0, bU1]) {
-          kasten(u - 0.06, u + 0.06, v1 - 0.06, v1 + 0.08, fest(y), fest(y + bruest + 0.06), TUER,
+          kasten(u - 0.06, u + 0.06, v1 - 0.06, v1 + 0.08, fest(y), fest(y + bruest + 0.06), LAUBE_DUNKEL,
                  { oben: true, u0: true, u1: true, v1: true });
         }
         // D289: Blumen nur an bewohnten Häusern — an verlassenen hingen sonst frische Geranien am morschen Balkon.
