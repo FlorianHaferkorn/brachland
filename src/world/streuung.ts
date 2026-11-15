@@ -224,10 +224,11 @@ export function streueKleinzeug(
      * graue, scharfkantige Körper obenauf und lasen im Bild als weisse Glasscherben (Ledger A-19).
      */
     // Steine auf die Helligkeit des Scan-Bodens (D284/D285) gezogen: mit der Palettenfarbe standen sie im
-    // Prüfbild 15.11.2026 dreimal so hell wie der Boden daneben und lasen weiter als Scherben.
+    // Prüfbild 15.11.2026 dreimal so hell wie der Boden daneben und lasen weiter als Scherben. 36–56 % reichten nicht
+    // (die flache Oberseite fängt Sonne und Himmel voll), daher 16–26 %.
     const r = (h2 * 7.31) % 1;
     if (ast) kleinTon.copy(AST_FAKTOR).multiplyScalar(0.72 + r * 0.3);
-    else { const hell = 0.36 + r * 0.2; kleinTon.setRGB(hell * 1.04, hell, hell * 0.9); }
+    else { const hell = 0.16 + r * 0.1; kleinTon.setRGB(hell * 1.04, hell, hell * 0.9); }
     hilfe.position.y -= (ast ? gr * 0.28 : gr * 0.55) * 0.5 * 0.4;
     return kleinTon;
   });
