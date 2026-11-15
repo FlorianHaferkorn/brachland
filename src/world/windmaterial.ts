@@ -385,7 +385,14 @@ const BUESCHEL_FARBE_GLSL = /* glsl */ `
   if (vColor.a > 0.5)
   #endif
   {
-    vec3 bnw = inverseTransformDirection(normalize(vNormal), viewMatrix);
+
+    // D289: Flach schattierte Materialien haben kein vNormal — dann die Normale aus den Bildschirmableitungen.
+    #ifdef FLAT_SHADED
+    vec3 bnN = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
+    #else
+    vec3 bnN = normalize(vNormal);
+    #endif
+    vec3 bnw = inverseTransformDirection(bnN, viewMatrix);
     vec4 bs = bueschelProbe(vLoecherPos, bnw);
     // Mittel der Atlanten (linear) ~0,118 Leuchtdichte; Lücken im Büschel = Tiefe der Krone, dunkler.
     float bl = dot(bs.rgb, vec3(0.2126, 0.7152, 0.0722)) / 0.118;
@@ -399,10 +406,17 @@ const BUESCHEL_RAND_GLSL = /* glsl */ `
   #endif
   {
     // Silhouette: nur wo die Fläche flach zum Blick steht und das Büschel noch über ein paar Pixel reicht.
-    float br = 1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition)));
+
+    // D289: Flach schattierte Materialien haben kein vNormal — dann die Normale aus den Bildschirmableitungen.
+    #ifdef FLAT_SHADED
+    vec3 bnN = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
+    #else
+    vec3 bnN = normalize(vNormal);
+    #endif
+    float br = 1.0 - abs(dot(bnN, normalize(vViewPosition)));
     float bpx = length(fwidth(vLoecherPos / 0.9)) * 512.0;
     if (br > 0.55 && bpx < 6.0) {
-      vec4 bs = bueschelProbe(vLoecherPos, inverseTransformDirection(normalize(vNormal), viewMatrix));
+      vec4 bs = bueschelProbe(vLoecherPos, inverseTransformDirection(bnN, viewMatrix));
       if (bs.a < 0.45 * (1.0 - smoothstep(2.0, 6.0, bpx))) discard;
     }
   }
