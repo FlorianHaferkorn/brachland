@@ -108,7 +108,9 @@ export class Spiegelbild {
     gl.shadowMap.autoUpdate = false;
     gl.setRenderTarget(this.ziel);
     gl.clear();
+    const dAufrufe = gl.info.render.calls; // DIAGNOSE-TEMP
     gl.render(szene, r);
+    (this as any).diagAufrufe = gl.info.render.calls - dAufrufe; // DIAGNOSE-TEMP
     gl.setRenderTarget(vorher);
     gl.shadowMap.autoUpdate = schatten;
     this.wasser.forEach((o, i) => { o.visible = sichtbar[i]; });
@@ -117,6 +119,6 @@ export class Spiegelbild {
     SPIEGELBILD.an.value = 1;
     // DIAGNOSE-TEMP
     (globalThis as any).__spiegel = { inst: this, gl, szene, SPIEGELBILD, ziel: this.ziel, r, wasser: this.wasser };
-    if (this.bild < 5 || this.bild % 20 === 0) console.info(`[spiegel] diag bild ${this.bild} wasser ${this.wasser.length} karte ${SPIEGELBILD.karte.value === this.ziel.texture} rt ${b}x${hh}`);
+    if (this.bild < 5 || this.bild % 20 === 0) console.info(`[spiegel] diag bild ${this.bild} wasser ${this.wasser.length} karte ${SPIEGELBILD.karte.value === this.ziel.texture} rt ${b}x${hh} aufrufe ${(this as any).diagAufrufe}`);
   }
 }
