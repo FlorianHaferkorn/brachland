@@ -79,6 +79,12 @@ export const LAUB_FEIN = suche.get('laub') === '2' || (ECHT && suche.get('laub')
 export const HAUS_ECHT = teil('haus');
 /** D285 (`?belag=1` / `?echt=1`): Wegbeläge aus Scans — Asphalt, Schotter, Erdpfad, Graspfad (`bandmaterial.ts`). */
 export const BELAG_ECHT = teil('belag');
+/**
+ * D289 (`?bau=1` / `?echt=1`): Bauwelt (D287, `docs/design/BRACHLAND_Bauwelt_v1.md`) im Hausgenerator — Flachsatteldach
+ * (~22° statt 40°), Giebelüberstand grösser als Traufüberstand, Einfirsthof (Wohnteil + Tenne unter einem First, Tennentor)
+ * für grosse, längliche Grundrisse, Fensterkreuz und Vorhänge statt schwarzer Scheibe.
+ */
+export const BAUWELT_AN = teil('bau');
 export const GRAS_FEIN = suche.get('gras') === '3';
 export const GRAS_VIEL = suche.get('gras') === '2' || GRAS_FEIN;
 export const GRAS_ECHT = teil('gras') || GRAS_VIEL;

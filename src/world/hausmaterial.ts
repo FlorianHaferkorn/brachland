@@ -14,7 +14,8 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { HAUS_ECHT } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT } from './echt.js';
+import { bueschelTextur } from './laubkarten.js';
 import SCANS from '../../public/material/haus-scans.json';
 
 /**
@@ -37,6 +38,53 @@ const SCAN_METER = new THREE.Vector4(...(SCANS as { rollen: { meter: number }[] 
  * jeder Wand senkrecht und Ziegelreihen an jedem Dach parallel zur Traufe, egal wie das Haus gedreht ist —
  * eine dreiachsige Projektion hätte die Ziegelreihen an der Hälfte der Dächer quer gelegt.
  */
+/**
+ * D289 Verfall (Bauwelt D287): Moos auf der Dachhaut, Feuchte und Algen am Sockel, Efeu von unten die Wände hinauf —
+ * Stärke nach der Verfallsstufe je Haus (Attribut `zustand.x`: 0 bewohnt, 1 verlassen, 2 verfallen), Höhe über dem
+ * Sockel aus `zustand.y`. Efeu nimmt Farbe und Deckung aus dem Laub-Büschelatlas (D282), in der Wandebene gelesen.
+ */
+const VERFALL_PARS = /* glsl */ `
+uniform sampler2D uEfeu;
+varying vec2 vZustand;
+float verfallHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float verfallRauschen(vec2 p) {
+  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(verfallHash(i), verfallHash(i + vec2(1.0, 0.0)), f.x), mix(verfallHash(i + vec2(0.0, 1.0)), verfallHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+`;
+const VERFALL_FARBE = /* glsl */ `
+  float vStufe = vZustand.x, vHoehe = vZustand.y;
+  float efeuDeckung = 0.0;
+  vec3 efeuFarbe = vec3(0.0);
+  if (scanR < 3.5) {
+    vec2 wp = vec2(dot(vHausPos, scanT), vHausPos.y);
+    float n1 = verfallRauschen(wp * 0.35 + vHausPos.xz * 0.05), n2 = verfallRauschen(wp * 1.7 + 13.0);
+    if (scanR > 1.5 && scanR < 2.5) {
+      // Moos und Gras auf der Dachhaut: Flecken, an der Traufe und in Kehlen dichter; bewohnt nur ein Hauch.
+      float moos = smoothstep(0.55 - vStufe * 0.22, 0.85 - vStufe * 0.2, n1 * 0.7 + n2 * 0.3);
+      vec3 moosFarbe = mix(vec3(0.16, 0.19, 0.07), vec3(0.30, 0.31, 0.12), n2);
+      diffuseColor.rgb = mix(diffuseColor.rgb, moosFarbe, moos * (0.25 + vStufe * 0.35));
+    } else {
+      // Feuchte und Algen am Sockel, Schmutzläufer von oben — mit der Stufe stärker.
+      float feucht = (1.0 - smoothstep(0.0, 0.6 + vStufe * 0.5, vHoehe)) * (0.25 + vStufe * 0.2);
+      diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.55, 0.62, 0.5), feucht);
+      // Efeu: von unten nach oben, verlassen bis ~3 m, verfallen bis unters Dach; bewohnte Häuser frei.
+      float reicht = vStufe < 0.5 ? -1.0 : vStufe < 1.5 ? 3.2 : 7.5;
+      float mass = smoothstep(reicht, reicht - 1.8, vHoehe + (n1 - 0.5) * 3.0) * smoothstep(0.35, 0.6, n1 + n2 * 0.25);
+      if (mass > 0.01) {
+        vec2 ep = wp / 0.9;
+        vec2 ez = floor(ep);
+        float ek = floor(verfallHash(ez) * 16.0);
+        vec2 euv = (fract(ep) + vec2(mod(ek, 4.0), floor(ek / 4.0))) * 0.25;
+        vec4 blatt = textureGrad(uEfeu, euv, dFdx(ep) * 0.25, dFdy(ep) * 0.25);
+        efeuDeckung = mass * smoothstep(0.2, 0.5, blatt.a + mass * 0.35);
+        efeuFarbe = blatt.rgb * 0.9;
+        diffuseColor.rgb = mix(diffuseColor.rgb, efeuFarbe, efeuDeckung);
+      }
+    }
+  }
+`;
+
 const SCAN_PARS = /* glsl */ `
 uniform sampler2D uScanFarbe;
 uniform sampler2D uScanNormal;
@@ -77,26 +125,28 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
       shader.uniforms.uScanNormal = { value: SCAN_TEXTUREN.normal };
       shader.uniforms.uScanMeter = { value: SCAN_METER };
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute float rolle;\nvarying float vRolle;\nvarying vec3 vHausPos;')
-        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n  vRolle = rolle;\n  vHausPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+        .replace('#include <common>', '#include <common>\nattribute float rolle;\nvarying float vRolle;\nvarying vec3 vHausPos;' + (BAUWELT_AN ? '\nattribute vec2 zustand;\nvarying vec2 vZustand;' : ''))
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n  vRolle = rolle;\n  vHausPos = (modelMatrix * vec4(transformed, 1.0)).xyz;' + (BAUWELT_AN ? '\n  vZustand = zustand;' : ''));
+      if (BAUWELT_AN) shader.uniforms.uEfeu = { value: bueschelTextur('laub') };
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\n' + SCAN_PARS)
+        .replace('#include <common>', '#include <common>\n' + SCAN_PARS + (BAUWELT_AN ? VERFALL_PARS : ''))
         .replace('#include <color_fragment>', `#include <color_fragment>
   float scanR = floor(vRolle + 0.5);
   vec2 scanP = vec2(0.0);
   if (scanR < 3.5) {
     scanP = scanUv(scanR);
     diffuseColor.rgb *= scanLies(uScanFarbe, scanP, scanR).rgb * 2.0;
-  }`)
+  }
+${BAUWELT_AN ? VERFALL_FARBE : ''}`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   if (scanR < 3.5) {
     vec3 sn = scanLies(uScanNormal, scanP, scanR).xyz * 2.0 - 1.0;
-    sn.xy *= 0.8;
+    sn.xy *= 0.8${BAUWELT_AN ? ' * (1.0 - efeuDeckung)' : ''};
     vec3 nw = normalize(scanT * sn.x + scanB * sn.y + scanN * sn.z);
     normal = normalize((viewMatrix * vec4(nw, 0.0)).xyz);
   }`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-  if (scanR > 1.5 && scanR < 2.5) roughnessFactor = 0.72;
+  if (scanR > 1.5 && scanR < 2.5) roughnessFactor = 0.72;${BAUWELT_AN ? '\n  roughnessFactor = mix(roughnessFactor, 0.65, efeuDeckung);' : ''}
   // D285: Glas — glatt, spiegelt die Umgebungskarte (Himmelslicht \`?umlicht=1\`); dahinter dunkler Raum.
   // Leichte Welligkeit je Scheibe (alte Fenster), damit nicht jede Scheibe ein perfekter Spiegel ist.
   if (scanR > 4.5) roughnessFactor = 0.05 + 0.08 * fract(sin(dot(floor(vHausPos.xz * 1.3), vec2(12.9898, 78.233))) * 43758.5453);`)
@@ -113,6 +163,6 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v1' + (SCAN_TEXTUREN ? '-scans' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v1' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '');
   return material;
 }

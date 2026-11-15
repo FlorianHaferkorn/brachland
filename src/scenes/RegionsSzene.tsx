@@ -34,6 +34,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
+import { ORTE, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
@@ -541,6 +542,15 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const baumBasis = () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
   // D283 (`?laub=2`): Buchen bekommen den Laub-, Fichten den Nadel-Büschelatlas — darum zwei Materialien.
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  /**
+   * D289: Büsche mit Büschelatlas (D283) — eigenes Material ohne Löcher. Auf dem Baum-Material (Löcher für die ganze
+   * Fläche, weil Büsche keine Laubmaske tragen) verschwand der Busch im Dorf-Prüfbild fast ganz (D285).
+   */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const buschWind = useMemo(() => LAUB_FEIN ? baueWindMaterial({
+    amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5, durchlass: 0.3,
+    bueschel: bueschelTextur('laub'),
+  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.9, metalness: 0 })) : null, []);
   const baumWind = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('laub') : undefined), baumBasis()), []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const baumWindNadel = useMemo(() => LAUB_FEIN ? baueWindMaterial(baumWerte(bueschelTextur('nadel')), baumBasis()) : baumWind, [baumWind]);
@@ -549,7 +559,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     grasWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
     baumWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
     if (baumWindNadel !== baumWind) baumWindNadel.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
-  }, [wind, grasWind, baumWind, baumWindNadel, rand]);
+    buschWind?.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
+  }, [wind, grasWind, baumWind, baumWindNadel, buschWind, rand]);
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
@@ -572,6 +583,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     grasScanWind.setzeZeit(uhr.current);
     baumWind.setzeZeit(uhr.current);
     if (baumWindNadel !== baumWind) baumWindNadel.setzeZeit(uhr.current);
+    buschWind?.setzeZeit(uhr.current);
   });
   /**
    * Bänder einmal zerlegen, dann je Kachel bauen.
@@ -609,7 +621,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material} baumTiefeNadel={baumWindNadel.tiefe} weite={weite} />
+      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material} baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={weite} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
       {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite} />}
       {GEWAESSER_ECHT && <Spiegelung feld={feld} />}
@@ -654,14 +666,21 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
    * darum geht es: 214.000 Dreiecke lagen vorher in einem Mesh, das gezeichnet
    * wurde, sobald ein Zipfel der Region im Bild war.
    */
+  /**
+   * D289: Bewohnte Orte (Bewohner und Zufluchten aus `content/orte`) in Weltmetern — um sie herum stehen die Häuser
+   * in Verfallsstufe 0 (Bauwelt D287). Aus den Inhalten, nicht hartkodiert.
+   */
+  const bewohnt = useMemo(() => [...ORTE.values()]
+    .filter(o => o.art === 'bewohner' || o.art === 'zuflucht')
+    .map(o => nachMetern(o.ort, welt.bbox)), [welt]);
   const hausKachel = useMemo(() => (
     _feld: HoehenFeld, s: Bandsatz, k: Kachel, _lod: number,
   ) => {
     if (istAus('haeuser')) return null;
     const indizes = s.gebaeude.get(`${k.ix}:${k.iz}`);
     if (!indizes?.length) return null;
-    return baueGebaeude(welt, boden, indizes.map(i => welt.gebaeude[i]));
-  }, [welt, boden]);
+    return baueGebaeude(welt, boden, indizes.map(i => welt.gebaeude[i]), bewohnt);
+  }, [welt, boden, bewohnt]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
   const wasserKachel = useMemo(() => (
@@ -764,7 +783,7 @@ function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
   return ergebnis;
 }
 
-function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; weite: number }) {
+function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, buschWind, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial; weite: number }) {
   // D285: Mit dem Foto-Grasteppich (`?gras=3`) fallen die stilisierten Grasbüschel-Props weg — sie standen als
   // Agaven-Sterne zwischen den Foto-Halmen (Dorf-Prüfbild 14.11.2026).
   const chunks = useMemo(() => chunkeProps(GRAS_FEIN ? props.filter(p => p.art !== 'grasbuschel') : props), [props]);
@@ -839,7 +858,7 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
           ausblendet. Bereits geladene Gruppen bleiben sichtbar. */}
       {sichtbar.map(({ c, stufe, id }) =>
         <Suspense key={id} fallback={null}>
-          <PropChunkMesh chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} />
+          <PropChunkMesh chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
         </Suspense>)}
       {fern.map(({ art, variante, instanzen, zelle }) =>
         <Suspense key={`${art}:${variante}:${zelle ?? ''}`} fallback={null}>
@@ -1061,10 +1080,10 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
 const LEER: ReadonlySet<string> = new Set();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe }: {
+function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, buschWind }: {
   chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
   farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial;
-  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial;
+  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial;
 }) {
   const fern = stufe === 'fern';
   const { geo, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
@@ -1124,7 +1143,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
       ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={fern && !blender ? fernGeo : geo}
-      material={blender || (LAUB_FEIN && chunk.art === 'busch' && !fern) ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
+      material={blender ? baumWind : buschWind && chunk.art === 'busch' && !fern ? buschWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
         : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
         : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
