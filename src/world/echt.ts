@@ -106,6 +106,12 @@ export const BACH_ECHT = teil('bach');
  * mehrlagigem Rauschen statt zweier Sinuszüge (kein Streifenmuster). Teiche/Weiher ruhig, Bäche bewegter.
  */
 export const GEWAESSER_ECHT = teil('gewaesser');
+/**
+ * Wellenbild nach einem Blender-Wasser-Aufbau (D293, Quelle: Node-Bild von Flo, 15.11.2026): zur Rauschhöhe von
+ * D280 eine verzerrte Ringwelle (Wave/Rings/Sine, Distortion ~4,8) zu gleichen Teilen — gebogene, unregelmässige
+ * Kämme statt Beulen — und eine feine Lage für das Glitzern. Wirkt nur mit `gewaesser`.
+ */
+export const WELLEN_ECHT = teil('wellen') && GEWAESSER_ECHT;
 /** Stauweiher hinter dem Wehr, aus dem GLB abgeleitet (D268, `weiher.ts`). */
 export const WEIHER_AN = teil('weiher');
 /**

@@ -12,7 +12,7 @@
  *   die weiche Kante: außen durchsichtig, innen deckend.
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
-import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT } from './echt.js';
+import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT, WELLEN_ECHT } from './echt.js';
 import WEG_SCANS from '../../public/material/weg-scans.json';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
@@ -226,8 +226,16 @@ float wehrAnteil(vec3 p) {
     vec2 wp = vWasserPos.xz;
     vec2 wind = vec2(0.35, 0.22) * zeit * uTempo;
     float e = 0.12;
-    #define WH(p) (bandRauschen((p) * 0.2 + wind * 0.25) * 0.55 + bandRauschen((p) * 0.6 - wind * 0.6) * 0.3 + bandRauschen((p) * 2.0 + wind * 1.4) * 0.15)
+    #define WH0(p) (bandRauschen((p) * 0.2 + wind * 0.25) * 0.55 + bandRauschen((p) * 0.6 - wind * 0.6) * 0.3 + bandRauschen((p) * 2.0 + wind * 1.4) * 0.15)
+    ${WELLEN_ECHT ? `
+    // D293 (Blender-Aufbau): Ringwelle um einen fernen Mittelpunkt, Phase mit Rauschen verzerrt (Distortion ~4,8),
+    // Wellenlänge 1,3 m, läuft mit der Zeit nach aussen; dazu eine feine Lage (0,15 m) für das Glitzern. Mischung
+    // 1:1 mit dem Rauschen wie im Mix-Knoten (Faktor 0,5).
+    #define WRING(p) (0.5 + 0.5 * sin(length((p) - vec2(-180.0, 140.0)) * 4.83 + 4.8 * (bandRauschen((p) * 0.35 + wind * 0.1) - 0.5) * 2.0 - zeit * uTempo * 1.6))
+    #define WH(p) (mix(WH0(p), WRING(p), 0.5) + bandRauschen((p) * 6.5 + wind * 2.0) * 0.06)` : '#define WH(p) WH0(p)'}
     float h0 = WH(wp), hx = WH(wp + vec2(e, 0.0)), hz = WH(wp + vec2(0.0, e));
+    #undef WH0
+    ${WELLEN_ECHT ? '#undef WRING' : ''}
     #undef WH
     wellenNormale = vec3(h0 - hx, 0.0, h0 - hz) / e;
   }` : ''}
@@ -297,7 +305,7 @@ ${BACH_ECHT ? `  // D274: Spitzen der Spiegelung weich begrenzen (Reinhard auf d
     }
   };
 
-  material.customProgramCacheKey = () => `brachland-wasser-v8${GEWAESSER_ECHT ? '-gewaesser' : ''}-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}${BACH_ECHT && !fallend ? '-bach' : ''}`;
+  material.customProgramCacheKey = () => `brachland-wasser-v8${GEWAESSER_ECHT ? '-gewaesser' : ''}${WELLEN_ECHT ? '-wellen' : ''}-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}${BACH_ECHT && !fallend ? '-bach' : ''}`;
   return material;
 }
 
