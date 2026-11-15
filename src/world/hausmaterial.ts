@@ -54,6 +54,9 @@ float verfallRauschen(vec2 p) {
 `;
 const VERFALL_FARBE = /* glsl */ `
   float vStufe = vZustand.x, vHoehe = vZustand.y;
+  // Bauwelt D287: Das Erdgeschoss ist weiss gekalkt (Denkmalliste: verputztes Nagelfluh-/Feldsteinmauerwerk). Der Paletten-
+  // putz las mit dem Scan als grauer Granit — aufhellen; verlassene Häuser vergrauen etwas.
+  if (scanR < 0.5) diffuseColor.rgb *= mix(vec3(1.5, 1.48, 1.42), vec3(1.25, 1.24, 1.2), vStufe * 0.5);
   float efeuDeckung = 0.0;
   vec3 efeuFarbe = vec3(0.0);
   if (scanR < 3.5) {

@@ -1321,7 +1321,8 @@ export function baueGebaeude(
           kasten(u - 0.06, u + 0.06, v1 - 0.06, v1 + 0.08, fest(y), fest(y + bruest + 0.06), TUER,
                  { oben: true, u0: true, u1: true, v1: true });
         }
-        if (wohnhaus) {
+        // D289: Blumen nur an bewohnten Häusern — an verlassenen hingen sonst frische Geranien am morschen Balkon.
+        if (wohnhaus && (!BAUWELT_AN || stufeJetzt === 0)) {
           const ky = y + bruest - 0.42;
           kasten(bU0 + 0.15, bU1 - 0.15, v1 + 0.08, v1 + 0.30, fest(ky), fest(ky + 0.22), KASTEN,
                  { unten: true, u0: true, u1: true, v1: true });
