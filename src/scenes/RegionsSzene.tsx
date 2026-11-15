@@ -11,6 +11,7 @@ import { Suspense, useMemo, useRef, useEffect, useState, useCallback } from 'rea
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
+import { imPolygon } from '../world/osm.js';
 import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../world/terrain.js';
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel, senkePegel, type Pegelsenke,
          baueGartenKachel, type Bandsatz } from '../world/baender.js';
@@ -35,7 +36,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
-import { ORTE, nachMetern } from '../data/inhalte.js';
+import { ORTE, FASSADEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
@@ -676,6 +677,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
   const bewohnt = useMemo(() => [...ORTE.values()]
     .filter(o => o.art === 'bewohner' || o.art === 'zuflucht')
     .map(o => nachMetern(o.ort, welt.bbox)), [welt]);
+  const fassaden = useMemo(() => [...FASSADEN.values()].filter(f => f.region === 'oental'), []);
   const hausKachel = useMemo(() => (
     _feld: HoehenFeld, s: Bandsatz, k: Kachel, _lod: number,
   ) => {
@@ -684,8 +686,13 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     if (!indizes?.length) return null;
     // D290: LoD2-Silhouette je Gebäude (gleiche Reihenfolge wie `welt.gebaeude`; nur für die Region, zu der die Datei passt).
     const lod2 = LOD2_DATEN.length === welt.gebaeude.length ? LOD2_DATEN : null;
-    return baueGebaeude(welt, boden, indizes.map(i => (lod2 ? { ...welt.gebaeude[i], lod2: lod2[i] } : welt.gebaeude[i])), bewohnt);
-  }, [welt, boden, bewohnt]);
+    return baueGebaeude(welt, boden, indizes.map(i => {
+      const g = welt.gebaeude[i];
+      // D291: Fassaden-Steckbrief, dessen Punkt im Grundriss liegt.
+      const fassade = fassaden.find(f => imPolygon(f.ort, g.punkte)) ?? null;
+      return lod2 || fassade ? { ...g, lod2: lod2 ? lod2[i] : g.lod2, fassade } : g;
+    }), bewohnt);
+  }, [welt, boden, bewohnt, fassaden]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
   const wasserKachel = useMemo(() => (
@@ -2191,7 +2198,7 @@ function Klippen({ klippen, ziel, material }: {
  * einen im Vorbeigehen erwischt, ist ein Unfall, kein Höhepunkt.
  */
 /** D290: LoD2-Silhouetten (`tools/lod2import.py`), Reihenfolge wie `welt.gebaeude` des Œntals. */
-const LOD2_DATEN = LOD2_ROH as ({ t: number; f: number; d: number; w: number | null } | null)[];
+const LOD2_DATEN = LOD2_ROH as ({ t: number; f: number; d: number; w: number | null; c?: string | null } | null)[];
 const REGENT_HOEHE = 4.2;
 /**
  * Das Modell (D241) ist 1,6 Einheiten lang statt der 1,2 der Silhouette: 3,8 ergibt gut sechs

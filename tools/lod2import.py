@@ -4,13 +4,17 @@ LoD2-Import (D290): echte Trauf- und Firsthöhen, Dachform und Firstrichtung je 
 
   python3 tools/lod2import.py            # lädt fehlende Kacheln nach .cache/lod2/, schreibt public/world/oental-lod2.json
 
+D290 Dachfarbe: aus den Digitalen Orthophotos DOP20 (WMS `geoservices.bayern.de/od/wms/dop/v1/dop20`, Layer `by_dop20c`,
+ebenfalls CC BY 4.0, kostenfrei) — je Gebäude der Median der Pixel unter den LoD2-Dachflächen (Feld "c", sRGB-Hex).
+Luftbild-Kacheln 256 m mit 0,25 m/Pixel, zwischengespeichert in .cache/lod2/dop/.
+
 Lizenz: CC BY 4.0 (Nutzungsbedingungen geodaten.bayern.de: „Die kostenfreien Datensätze … stehen unter CC BY 4.0“),
 Namensnennung „Bayerische Vermessungsverwaltung – www.geodaten.bayern.de“, Änderungen angeben (assets/HERKUNFT.md).
 
 Ausgabe: eine Liste in der Reihenfolge von `welt.gebaeude` (oental.json), je OSM-Gebäude `null` oder
 {"t": Traufhöhe, "f": Firsthöhe über Grund in m, "d": Dachform (AdV-Schlüssel 1000 Flach, 2100 Pult, 3100 Sattel,
 3200 Walm, 3300 Krüppelwalm, …), "w": Firstrichtung als Winkel in der Weltebene (atan2(dz, dx), Grad)}.
-Zuordnung: der Grundriss-Schwerpunkt des LoD2-Gebäudes liegt im OSM-Grundriss; bei mehreren das grösste.
+Feld "c": Dachfarbe aus DOP20 (siehe oben). Zuordnung: der Grundriss-Schwerpunkt des LoD2-Gebäudes liegt im OSM-Grundriss; bei mehreren das grösste.
 Die Form des Hauses (Fassade, Material, Verfall) bleibt beim Generator; LoD2 liefert nur die echte Silhouette.
 """
 import json
@@ -19,6 +23,8 @@ import os
 import re
 import urllib.request
 import xml.etree.ElementTree as ET
+import numpy as np
+from PIL import Image, ImageDraw
 
 ROH = '.cache/lod2'
 WELT = 'public/world/oental.json'
@@ -130,7 +136,39 @@ for k in kacheln(bbox):
             ny = ox * math.sin(gamma) + oy * math.cos(gamma)
             # Welt: x nach Osten, z nach Süden.
             w = round(math.degrees(math.atan2(-ny, ex)), 1)
-        gebaeude.append({'lat': lat, 'lon': lon, 't': round(traufe, 2), 'f': round(first, 2), 'd': int(dach), 'w': w, 'a': flaeche})
+        gebaeude.append({'lat': lat, 'lon': lon, 't': round(traufe, 2), 'f': round(first, 2), 'd': int(dach), 'w': w, 'a': flaeche,
+                         'cx': cx, 'cy': cy, 'dach': [[(p[0], p[1]) for p in poly] for poly in dach_poly]})
+
+# Dachfarbe aus DOP20: Kacheln zu 256 m, 1024 Pixel (0,25 m/Pixel).
+KANTE, PX = 256, 1024
+os.makedirs(f'{ROH}/dop', exist_ok=True)
+kachel_bilder = {}
+def dop_kachel(kx, ky):
+    if (kx, ky) not in kachel_bilder:
+        pfad = f'{ROH}/dop/{kx}_{ky}.png'
+        if not os.path.exists(pfad):
+            url = ('https://geoservices.bayern.de/od/wms/dop/v1/dop20?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&LAYERS=by_dop20c&STYLES='
+                   f'&CRS=EPSG:25832&BBOX={kx},{ky},{kx + KANTE},{ky + KANTE}&WIDTH={PX}&HEIGHT={PX}&FORMAT=image/png')
+            req = urllib.request.Request(url, headers={'User-Agent': 'brachland-werkzeug/1.0'})
+            with urllib.request.urlopen(req) as r, open(pfad, 'wb') as f:
+                f.write(r.read())
+        kachel_bilder[(kx, ky)] = Image.open(pfad).convert('RGB')
+    return kachel_bilder[(kx, ky)]
+
+def dachfarbe(b):
+    kx, ky = int(b['cx'] // KANTE * KANTE), int(b['cy'] // KANTE * KANTE)
+    bild = dop_kachel(kx, ky)
+    maske = Image.new('L', (PX, PX), 0)
+    zeichne = ImageDraw.Draw(maske)
+    for poly in b['dach']:
+        pts = [((x - kx) / KANTE * PX, (ky + KANTE - y) / KANTE * PX) for x, y in poly]
+        if len(pts) >= 3: zeichne.polygon(pts, fill=255)
+    m = np.asarray(maske) > 0
+    if m.sum() < 8:
+        return None
+    rgb = np.asarray(bild)[m]
+    med = np.median(rgb, axis=0)
+    return '#%02x%02x%02x' % tuple(int(v) for v in med)
 
 ergebnis, treffer = [], 0
 for g in welt['gebaeude']:
@@ -142,6 +180,6 @@ for g in welt['gebaeude']:
         continue
     b = max(kand, key=lambda b: b['a'])
     treffer += 1
-    ergebnis.append({'t': b['t'], 'f': b['f'], 'd': b['d'], 'w': b['w']})
+    ergebnis.append({'t': b['t'], 'f': b['f'], 'd': b['d'], 'w': b['w'], 'c': dachfarbe(b)})
 json.dump(ergebnis, open(AUS, 'w'), separators=(',', ':'))
 print(f'LoD2: {len(gebaeude)} Gebäude in {len(kacheln(bbox))} Kacheln, {treffer} von {len(welt["gebaeude"])} OSM-Gebäuden zugeordnet → {AUS} ({os.path.getsize(AUS) // 1024} KB)')

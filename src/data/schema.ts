@@ -245,6 +245,37 @@ export type Fragment = z.infer<typeof Fragment>;
  * Die Positionen stammen aus den OSM-Gebäuden der Region — freistehende Höfe,
  * Hütten und Kapellen. Die Welt liefert sie umsonst; sie mussten nur belegt werden.
  */
+/**
+ * D291 Fassaden-Steckbrief (Bauwelt D287): die echte Fassade eines story-relevanten Gebäudes nach Flos Foto. Die
+ * Silhouette kommt aus LoD2 (D290), der Steckbrief ergänzt, was kein offener Datensatz hat: Fensterachsen, Laube,
+ * Farben, Malerei. Zuordnung zum Gebäude über `ort` (liegt im Grundriss). Ohne Steckbrief setzt der Generator die
+ * Fassade nach Bautyp.
+ */
+const Hex = z.string().regex(/^#[0-9a-f]{6}$/i);
+export const Fassade = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  region: z.string(),
+  name: z.string().max(60),
+  /** Punkt im Grundriss (lat, lon). */
+  ort: z.tuple([z.number(), z.number()]),
+  /** Eigenes Foto: Pfad unter `assets/fotos/` (nicht ausgeliefert), Aufnahmedatum, Urheber. */
+  quelle: z.object({ foto: z.string(), datum: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), urheber: z.string() }),
+  /** Fensterachsen je Geschoss an der Traufseite bzw. am Giebel (Strassenseite zuerst). */
+  fensterachsen: z.object({ traufe: z.number().int().min(0).max(14), giebel: z.number().int().min(0).max(8) }),
+  laube: z.enum(['keine', 'traufseite', 'giebel', 'umlaufend']),
+  hochlaube: z.boolean(),
+  /** Farben in sRGB: Putz des Erdgeschosses, Holz von Obergeschoss/Giebel, Fensterläden (null = keine Läden). */
+  putz: Hex,
+  holz: Hex,
+  laeden: Hex.nullable(),
+  /** Wandmalerei oder Inschrift, kurz beschrieben (null = keine). */
+  malerei: z.string().max(200).nullable(),
+  /** Verfallsstufe erzwingen (0 bewohnt … 3 Ruine); ohne Angabe nach Lage (D289). */
+  stufe: z.number().int().min(0).max(3).optional(),
+  besonderheiten: z.string().max(240).optional(),
+});
+export type Fassade = z.infer<typeof Fassade>;
+
 export const Ort = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   region: z.string(),

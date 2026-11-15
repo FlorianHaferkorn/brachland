@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten, Fassade,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -34,6 +34,8 @@ console.log('\nFragmente:');
 const fragmente = pruefe<any>('content/fragmente', Fragment);
 console.log('\nOrte:');
 const orte = pruefe<any>('content/orte', Ort);
+console.log('\nFassaden:');
+pruefe<any>('content/fassaden', Fassade);
 console.log('\nAufträge:');
 const auftraege = pruefe<any>('content/auftraege', Auftrag);
 console.log('\nRegionen:');

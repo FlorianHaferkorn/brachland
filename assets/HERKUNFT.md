@@ -153,7 +153,7 @@ Poimandres, CC0-1.0); D223 hat sie ersetzt.
 
 | Datei | Rolle | Urheber | Lizenz | Quelle |
 |---|---|---|---|---|
-| `oental-lod2.json` | Echte Gebäudesilhouetten (Trauf- und Firsthöhe, Dachform, Firstrichtung je Gebäude), verändert: aus CityGML gelesen, auf Kennwerte verdichtet und den OSM-Grundrissen zugeordnet (`tools/lod2import.py`) | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de | CC BY 4.0 | 3D-Gebäudemodelle LoD2 (OpenData), Kacheln 728–732 / 5288–5292 (UTM 32), abgerufen 15.11.2026 |
+| `oental-lod2.json` | Echte Gebäudesilhouetten (Trauf- und Firsthöhe, Dachform, Firstrichtung je Gebäude), verändert: aus CityGML gelesen, auf Kennwerte verdichtet und den OSM-Grundrissen zugeordnet; dazu je Gebäude die Dachfarbe als Mittel der Dachpixel aus dem Luftbild (D291) (`tools/lod2import.py`) | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de | CC BY 4.0 | 3D-Gebäudemodelle LoD2 (OpenData), Kacheln 728–732 / 5288–5292 (UTM 32), abgerufen 15.11.2026; Digitale Orthophotos DOP20 (WMS `by_dop20c`, OpenData), 121 Kacheln à 256 m, abgerufen 15.11.2026 |
 
 ## Was im Spiel stehen muss
 

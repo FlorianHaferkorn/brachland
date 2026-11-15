@@ -446,6 +446,8 @@ export function baueGebaeude(
   };
 
   for (const g of auswahl) {
+    /** D291: erste Ecke dieses Hauses — für die Umfärbung nach dem Fassaden-Steckbrief am Ende. */
+    const ersteEcke = farben.length / 3;
     const p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
     if (p.length < 3) continue;
     // Freihaltung eines Bauwerks (ADR-0006, D155): Die Blender-Szene blendet OSM-Haeuser im Nahbereich
@@ -556,8 +558,8 @@ export function baueGebaeude(
     const stufe = !BAUWELT_AN ? 0
       : bewohnt.some(([bx, bz]) => (bx - mx0) * (bx - mx0) + (bz - mz0) * (bz - mz0) < 150 * 150) ? 0
       : wuerfelAus(mz0 + 3.7, mx0 - 1.1)() < 0.6 ? 1 : 2;
-    stufeJetzt = stufe;
-    const bewohntHaus = stufe === 0;
+    stufeJetzt = g.fassade?.stufe !== undefined && BAUWELT_AN ? Math.min(2, g.fassade.stufe) : stufe;
+    const bewohntHaus = stufeJetzt === 0;
     const wohnGrenze = wohnVorn ? minU + breite * 0.42 : maxU - breite * 0.42;
     /** Liegt ein Weltpunkt im Wirtschaftsteil (Tenne/Stall)? */
     const imStall = (x: number, z: number) => {
@@ -765,7 +767,10 @@ export function baueGebaeude(
         }
         continue;
       }
-      const anzahl = Math.max(1, Math.floor(laenge / 3.2));
+      // D291: Fensterachsen aus dem Fassaden-Steckbrief — Traufseite (parallel zum First) bzw. Giebel.
+      const traufseitig = Math.abs((x2 - x1) * hu.cos + (z2 - z1) * hu.sin) > laenge * 0.7;
+      const anzahl = g.fassade ? (traufseitig ? g.fassade.fensterachsen.traufe : g.fassade.fensterachsen.giebel)
+        : Math.max(1, Math.floor(laenge / 3.2));
       const breiteF = 0.9, hoeheF = 1.15;
       for (let ebene = 0; ebene < ebenen; ebene++) {
         const yUnten = boden + ebene * geschoss + 1.05;
@@ -937,15 +942,50 @@ export function baueGebaeude(
     const richtU = (s: number): [number, number, number] => [s * ux, 0, s * uz];
     const richtV = (s: number): [number, number, number] => [s * vx, 0, s * vz];
     const OBEN: [number, number, number] = [0, 1, 0], UNTEN: [number, number, number] = [0, -1, 0];
+    /**
+     * D290 Walm- und Krüppelwalmdach (LoD2-Dachform 3200/3300): der First ist an beiden Enden um `walmEinzug`
+     * eingerückt, die Giebelenden werden zu Walmflächen (Grundriss-Neigung 45° wie die Traufseiten). Krüppelwalm
+     * vereinfacht mit halbem Einzug. Ohne Walm ist `walmEinzug` 0 und alles bleibt Satteldach.
+     */
+    const walm = !!echt2 && (echt2.d === 3200 || echt2.d === 3300);
+    const walmEinzug = walm ? Math.min((aU1 - aU0) / 2 - 0.1, (mv - aV0) * (echt2!.d === 3300 ? 0.5 : 1)) : 0;
+    /** u-Rand der Dachfläche in der Tiefe v (bei Walm von der Traufe zum First eingezogen). */
+    const uRand = (v: number, seite: -1 | 1) => {
+      const anteil = walm ? 1 - Math.min(1, Math.abs(v - mv) / Math.max(0.01, mv - aV0)) : 0;
+      return seite < 0 ? aU0 + walmEinzug * anteil : aU1 - walmEinzug * anteil;
+    };
     const dachHaut = (versatz: number, farbe: THREE.Color, seite: [number, number, number]) => {
+      const f0 = aU0 + walmEinzug, f1 = aU1 - walmEinzug;
       quadNach(welt3(aU0, traufe + versatz, aV0), welt3(aU1, traufe + versatz, aV0),
-               welt3(aU1, firstH + versatz, mv), welt3(aU0, firstH + versatz, mv), farbe, seite);
+               welt3(f1, firstH + versatz, mv), welt3(f0, firstH + versatz, mv), farbe, seite);
       quadNach(welt3(aU1, traufe + versatz, aV1), welt3(aU0, traufe + versatz, aV1),
-               welt3(aU0, firstH + versatz, mv), welt3(aU1, firstH + versatz, mv), farbe, seite);
+               welt3(f0, firstH + versatz, mv), welt3(f1, firstH + versatz, mv), farbe, seite);
+      if (walm) {
+        // Walmflächen an den Enden (Dreieck als Viereck mit doppelter Spitze).
+        quadNach(welt3(aU0, traufe + versatz, aV1), welt3(aU0, traufe + versatz, aV0),
+                 welt3(f0, firstH + versatz, mv), welt3(f0, firstH + versatz, mv), farbe, seite);
+        quadNach(welt3(aU1, traufe + versatz, aV0), welt3(aU1, traufe + versatz, aV1),
+                 welt3(f1, firstH + versatz, mv), welt3(f1, firstH + versatz, mv), farbe, seite);
+      }
     };
     // First läuft über u, die lange Achse. Die Fallunterscheidung von früher ist
     // weg — die Drehung erledigt, was vorher zwei Zweige tun mussten.
-    dachHaut(dick, DACH, OBEN);
+    /**
+     * D290 Dachfarbe aus dem Luftbild (DOP20): Farbton des echten Dachs, die Helligkeit zur Hälfte von der Palette
+     * (Art Direction bleibt), leicht entsättigt (Luftbilder sind sonnig und kräftig). Eigene Farbobjekte je Haus,
+     * in `ROLLE` als Dach (2) angemeldet, damit der Dachscan sie trägt.
+     */
+    let dachFarbe = DACH, dachKante = DACH_KANTE;
+    if (echt2?.c) {
+      const luft = new THREE.Color(echt2.c);
+      const hell = (c: THREE.Color) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+      const ziel = (hell(DACH) + hell(luft)) / 2;
+      const grau = hell(luft);
+      luft.lerp(new THREE.Color(grau, grau, grau), 0.25).multiplyScalar(ziel / Math.max(0.005, grau));
+      dachFarbe = luft; dachKante = luft.clone().multiplyScalar(1.3);
+      ROLLE.set(dachFarbe, 2); ROLLE.set(dachKante, 2);
+    }
+    dachHaut(dick, dachFarbe, OBEN);
     // Untersicht: dieselbe Fläche tiefer. Wer unter dem Überstand steht, sieht
     // sonst durch das Dach hindurch. Seit D119 in Schalungston statt in
     // `TUER`: Die Sparren darunter sind dunkel, und dunkel vor dunkel ist
@@ -957,8 +997,8 @@ export function baueGebaeude(
              welt3(aU1, traufe + dick, aV0), welt3(aU0, traufe + dick, aV0), TUER, richtV(-1));
     quadNach(welt3(aU1, traufe, aV1), welt3(aU0, traufe, aV1),
              welt3(aU0, traufe + dick, aV1), welt3(aU1, traufe + dick, aV1), TUER, richtV(1));
-    // Ortgang — die vier schrägen Kanten über den Giebeln.
-    for (const u of [aU0, aU1]) {
+    // Ortgang — die vier schrägen Kanten über den Giebeln (beim Walmdach gibt es keine Giebel).
+    for (const u of walm ? [] : [aU0, aU1]) {
       for (const v of [aV0, aV1]) {
         quadNach(welt3(u, traufe, v), welt3(u, traufe + dick, v),
                  welt3(u, firstH + dick, mv), welt3(u, firstH, mv), TUER, richtU(u === aU0 ? -1 : 1));
@@ -1030,8 +1070,8 @@ export function baueGebaeude(
         const x0 = ax + (bx - ax) * t0, z0 = az + (bz - az) * t0;
         const x1 = ax + (bx - ax) * t1, z1 = az + (bz - az) * t1;
         const y0 = dachY(vA + (vB - vA) * t0), y1 = dachY(vA + (vB - vA) * t1);
-        // Liegt das Teilstück an der Traufe, gibt es dort keinen Giebel.
-        if (y0 - traufe < 0.02 && y1 - traufe < 0.02) continue;
+        // Liegt das Teilstück an der Traufe, gibt es dort keinen Giebel — beim Walmdach nirgends (D290).
+        if (walm || (y0 - traufe < 0.02 && y1 - traufe < 0.02)) continue;
         quad([x0, traufe, z0], [x1, traufe, z1], [x1, y1, z1], [x0, y0, z0], giebel);
       }
     }
@@ -1111,14 +1151,14 @@ export function baueGebaeude(
       for (let i = 1; i <= reihen; i++) {
         for (const s of [-1, 1]) {
           const vA = mv + s * (mv - aV0 - i * abstand), vB = vA + s * 0.07;
-          quadNach(welt3(aU0, dachY(vA) + dick + 0.03, vA), welt3(aU1, dachY(vA) + dick + 0.03, vA),
-                   welt3(aU1, dachY(vB) + dick + 0.03, vB), welt3(aU0, dachY(vB) + dick + 0.03, vB), DACH_KANTE, OBEN);
+          quadNach(welt3(uRand(vA, -1), dachY(vA) + dick + 0.03, vA), welt3(uRand(vA, 1), dachY(vA) + dick + 0.03, vA),
+                   welt3(uRand(vB, 1), dachY(vB) + dick + 0.03, vB), welt3(uRand(vB, -1), dachY(vB) + dick + 0.03, vB), dachKante, OBEN);
         }
       }
       for (const s of [-1, 1]) {
         const vB = mv + s * 0.20;
-        quadNach(welt3(aU0, firstH + dick + 0.06, mv), welt3(aU1, firstH + dick + 0.06, mv),
-                 welt3(aU1, dachY(vB) + dick + 0.02, vB), welt3(aU0, dachY(vB) + dick + 0.02, vB), DACH_KANTE, OBEN);
+        quadNach(welt3(uRand(mv, -1), firstH + dick + 0.06, mv), welt3(uRand(mv, 1), firstH + dick + 0.06, mv),
+                 welt3(uRand(vB, 1), dachY(vB) + dick + 0.02, vB), welt3(uRand(vB, -1), dachY(vB) + dick + 0.02, vB), dachKante, OBEN);
       }
     }
 
@@ -1260,7 +1300,7 @@ export function baueGebaeude(
      * Balkon zu halten. Jetzt wird die Tiefe auf den Überstand begrenzt, und wo
      * weniger als 0,5 m bleiben, gibt es keinen Balkon.
      */
-    if (ebenen >= 2 && Math.max(breite, tiefe) >= 6) {
+    if (ebenen >= 2 && Math.max(breite, tiefe) >= 6 && g.fassade?.laube !== 'keine') {
       /** Liegt der Punkt im Grundriss? Der Ring ist geschlossen (letzter = erster). */
       const imGrundriss = (x: number, z: number) => {
         let drin = false;
@@ -1396,6 +1436,29 @@ export function baueGebaeude(
           }
         }
         kasten(u0, u1, vm - 1.0, vm + 1.0, fest(fussY), fest(kopfY), BRENNHOLZ_TOENE[0], { oben: true, v0: true, v1: true });
+      }
+    }
+
+    /**
+     * D291: Farben nach dem Fassaden-Steckbrief. Die Ecken dieses Hauses werden nach ihrer Rolle umgefärbt: Putz (0)
+     * und Holz (1) auf die fotografierte Farbe, Läden auf ihre Farbe — das Verhältnis zur Palettenfarbe (gebackene
+     * Kontaktabdunklung, Brett-Töne) bleibt erhalten.
+     */
+    if (g.fassade) {
+      const putz = new THREE.Color(g.fassade.putz), holz = new THREE.Color(g.fassade.holz);
+      const laden = g.fassade.laeden ? new THREE.Color(g.fassade.laeden) : null;
+      const lum = (c: { r: number; g: number; b: number }) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+      for (let e = ersteEcke; e < farben.length / 3; e++) {
+        const r = rollen[e];
+        const alt = { r: farben[e * 3], g: farben[e * 3 + 1], b: farben[e * 3 + 2] };
+        let ziel: THREE.Color | null = null, bezug = 0;
+        if (r === 0) { ziel = putz; bezug = lum(WAND); }
+        else if (r === 1) { ziel = holz; bezug = lum(SCHALUNG); }
+        else if (laden && Math.abs(alt.r / Math.max(1e-4, alt.g) - LADEN.r / LADEN.g) < 0.02
+                 && Math.abs(alt.b / Math.max(1e-4, alt.g) - LADEN.b / LADEN.g) < 0.02) { ziel = laden; bezug = lum(LADEN); }
+        if (!ziel) continue;
+        const k = lum(alt) / Math.max(1e-4, bezug);
+        farben[e * 3] = ziel.r * k; farben[e * 3 + 1] = ziel.g * k; farben[e * 3 + 2] = ziel.b * k;
       }
     }
   }

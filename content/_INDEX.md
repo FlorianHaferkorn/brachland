@@ -21,6 +21,7 @@ owns: *.json
 | Eine Region anlegen | `regions/oental.json` als Muster; `nachbarn` beidseitig, danach `npm run world <id> 384` und `npm run fernland <id>` (ADR-0014) |
 | Einen Gegner nachstellen | `gegner/_INDEX.md` → `../tests/echtzeit.test.ts` |
 | Eine Waffe oder einen Schlag ändern | `waffen/_INDEX.md` → `../docs/adr/0008-waffenwerk-zwei-klassen.md` |
+| Eine Hausfassade nach Foto anlegen | `fassaden/_INDEX.md` → `../docs/design/BRACHLAND_Fassaden_Fotoliste_v1.md` |
 | Verstehen, was geprüft wird | `../src/data/schema.ts`, `../tools/quality.ts` |
 
 ## Register
