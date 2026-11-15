@@ -425,7 +425,9 @@ function LodTerrain({ feld, kacheln, ziel }: {
     // nächsten Bild nachgezogen; bis dahin fehlt am Rand ein Stück, das im Nebel liegt.
     let budget = 12;
     const jeStufe = new Map<number, THREE.BufferGeometry[]>();
-    for (const k of kacheln) {
+    // D289: nächste Kacheln zuerst (siehe Bänder) — sonst fehlt bei wenigen Bildern je Sekunde der Boden am Spieler.
+    for (const k of [...kacheln].sort((a, b) =>
+      Math.hypot(a.mitte[0] - p.x, a.mitte[1] - p.z) - Math.hypot(b.mitte[0] - p.x, b.mitte[1] - p.z))) {
       const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
       if (d > TERRAIN_SICHT) continue;
       const lod = lodFuerAbstand(d);
@@ -704,7 +706,11 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
                       wasser: [] as THREE.BufferGeometry[],
                       fall: [] as THREE.BufferGeometry[],
                       haus: [] as THREE.BufferGeometry[] };
-    for (const k of kacheln) {
+    // D289: nächste Kacheln zuerst. In Rasterreihenfolge kamen die Kacheln am Spieler bei wenigen Bildern je Sekunde
+    // als letzte an die Reihe (Budget 12 je Bild) — Häuser und Wege vor der Nase fehlten minutenlang, ferne standen.
+    const geordnet = [...kacheln].sort((a, b) =>
+      Math.hypot(a.mitte[0] - p.x, a.mitte[1] - p.z) - Math.hypot(b.mitte[0] - p.x, b.mitte[1] - p.z));
+    for (const k of geordnet) {
       const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
       if (d > TERRAIN_SICHT) continue;
       const lod = lodFuerAbstand(d);
