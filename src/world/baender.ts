@@ -853,6 +853,9 @@ export function baueGartenKachel(
   // `mergeGeometries` verlangt dieselben Attribute: Ein Beet hat keine Fenster,
   // also Glut 0 (D134). Ohne die Zeile fiel die ganze Hauskachel still aus dem Bild.
   g.setAttribute('glut', new THREE.Float32BufferAttribute(new Float32Array(positionen.length / 3), 1));
+  // D284: dieselbe Pflicht für die Materialrolle der Hausscans — Beete sind „keine“ (4).
+  g.setAttribute('rolle', new THREE.Float32BufferAttribute(new Float32Array(positionen.length / 3).fill(4), 1));
+  g.setAttribute('zustand', new THREE.Float32BufferAttribute(new Float32Array(positionen.length / 3 * 2), 2));
   g.computeVertexNormals();
   g.computeBoundingSphere();
   return g;

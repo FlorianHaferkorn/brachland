@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-08-20
+last-reviewed: 2026-11-15
 shelf-life-days: 180
 owns: *.md
 ---
@@ -24,6 +24,7 @@ owns: *.md
 | Eine Kreatur anlegen | `BRACHLAND_Roster-Struktur_v1.md` → `BRACHLAND_Roster_Kapitel1.md` |
 | Wissen, was in Kapitel 1 vorkommt | `BRACHLAND_Roster_Kapitel1.md` |
 | Modelle beschaffen und aufbereiten | `BRACHLAND_Asset-Workflow_v1.md` → `../WORKFLOW.md` |
+| Gebäude, Siedlungen, Bauwerke bauen oder beurteilen | `BRACHLAND_Bauwelt_v1.md` (realer Bestand Inntal-Süd + Verfallsstufen nach dem Kollaps) |
 | Ein Kreaturenmodell bauen oder beurteilen | `BRACHLAND_Creature-Bible_v1.1.md` → für Wildlinge zusätzlich `BRACHLAND_Stilreferenz_v1.md` |
 | Wissen, was Zustände, Narben oder Herkünfte mechanisch tun | `BRACHLAND_Creature-Bible_v1.1.md` → `../../src/engine/battle.ts` |
 | Bewegung, Klettern, Reiten, Gleiten planen | `BRACHLAND_Traversal_v1.md` |
@@ -41,6 +42,8 @@ owns: *.md
 | `BRACHLAND_Roster_Kapitel1.md` | Œntal: 16 Linien, 35 Kreaturen, 7 der 8 Elemente (Brand erst im Aschefeld) |
 | `BRACHLAND_Asset-Workflow_v1.md` | Ergebnis des Kreatur-Spikes: Kette und Kostenmessung |
 | `BRACHLAND_Creature-Bible_v1.1.md` | **Oberste Kreatur-Referenz seit 17.08.2026.** Textfassung des Blattes: drei Herkünfte, drei Stufen, vier Zustände, drei Narben — mit den Stellen, an denen Blatt und Code auseinanderlagen, und wer jeweils gewonnen hat |
+| `BRACHLAND_Fassaden_Fotoliste_v1.md` | Fotoliste (D291): 44 Gebäude, deren Fassade nach eigenem Foto als Steckbrief in `content/fassaden/` kommt (Story-Orte, Umfeld, Kirchen) — mit Koordinate, LoD2-Silhouette, Aufnahme-Anleitung und Datenformat |
+| `BRACHLAND_Bauwelt_v1.md` | **Verbindlich für Gebäude seit 15.11.2026 (D287).** Vorbild ist der reale Bestand (Einfirsthof mit Blockbau-OG, Laube, Flachsatteldach; Kirchen mit Spitzhelm bzw. Zwiebelhaube je Ort), angepasst an 40–60 Jahre nach dem Kollaps: Verfallsstufen 0 bewohnt bis 3 Ruine, Befall nur an Infrastruktur. Typzuweisung aus Grundfläche/Seitenverhältnis/Lage, nicht aus `ebenen`. Recherche mit Quellen |
 | `BRACHLAND_Stilreferenz_v1.md` | **Verbindlich für Wildlinge seit 16.08.2026.** Ein erkennbares Alpentier, auf dem etwas wächst — Pilzfächer als Leitmerkmal, Signalfarbe nur als Punkt. Schließt ADR-0002. Der Bible untergeordnet |
 | `BRACHLAND_Traversal_v1.md` | Ausdauer, Springen, Klettern, Schwimmen, Reiten, Gleiten — Auswahl gegen Enshrouded, Reihenfolge, Freischaltung |
 | `BRACHLAND_Story-Struktur_v1.md` | Vier übliche Bauweisen, Auswahl für BRACHLAND (kritischer Pfad + Fragmente + Weltzustand, keine Nabe), Auftrags- und Fragmentschema |

@@ -9,7 +9,14 @@
 const suche = typeof location === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
 const an = (name: string) => suche.get(name) === '1';
 
-export const ECHT = an('echt');
+/**
+ * Malerischer Look (D269): `?malerei=1` = `?echt=1` plus Pinsel und Malfilter. Anlass: Reel
+ * „oil-paint“ (patch.gg/blendi, three.js r186, WebGL2) vom 12.11.2026 und Flos „ne A“ — Realismus
+ * allein ist dem Film nicht gewachsen, ein gemalter Look verzeiht Flimmern und fehlende Mikrodetails.
+ * Einzeln: `?echt=1&pinsel=1` (nur B), `?echt=1&kuwahara=1` (nur C), oder `?malerei=1&pinsel=0`.
+ */
+export const MALEREI = an('malerei');
+export const ECHT = an('echt') || MALEREI;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */
 const teil = (name: string) => (suche.get(name) === '0' ? false : ECHT || an(name));
 /** Foto-Blattkarten auf den Kronen der Blender-Szenen (`laubkarten.ts`). */
@@ -43,13 +50,68 @@ export const AO_RUHIG = teil('aoruhig');
  * Büschel (Höhe in ~70-cm-Flecken), dunkle Basis (Verdeckung im Rasen), Durchlicht im Gegenlicht,
  * kein Glanz. Der Teppich selbst — Dichte, Ringe, Wind — bleibt.
  */
-export const GRAS_ECHT = teil('gras');
+/**
+ * Gras-Vielfalt (D271, `?gras=2`): Pflanzenarten (Gras, Stroh, Kraut), Büschel mit kahlen Stellen, Halmkante
+ * und -rippe. Anlass: Vergleich mit Phantom-Blade-Zero-Pressebildern am 12.11.2026 — dort fällt nicht die
+ * Dichte auf, sondern Vielfalt. Schaltet `?gras=1` (Nahfeld, D268) mit ein.
+ */
+/**
+ * Mip-Ketten mit Deckungserhalt für die Laub- und Nadelkarten (D273, `alphamips.ts`): dünne Blattränder
+ * zerfallen beim Verkleinern sonst im Alpha-Test zu ausgefransten Flecken. `?mips=1` oder in `?echt=1`.
+ */
+export const MIPS_ERHALT = teil('mips');
+
+/**
+ * Gras aus feinen Horsten (D272, `?gras=3`): echte Halmbreite (3–8 mm) und Dichte über Karten mit je ~44
+ * gezeichneten Halmen statt breiter Einzelhalme; schliesst `?gras=2` (Vielfalt) und `?gras=1` ein.
+ */
+/**
+ * D282 (`?laub=2`, seit D283 Teil von `?echt=1`): Laubkarten aus gebackenen Büscheln echter Poly-Haven-Baummodelle (`laub-bueschel.webp`),
+ * Blätter fast ohne Glanz, Mip-Kette mit Deckungserhalt, Krone ab ~15 m dichter und mit weniger Durchlicht.
+ * Gegen weisse Säume und Krisseln (Flo 14.11.2026).
+ */
+// D283: Teil von `?echt=1` (Flo 14.11.2026 „mach alles davon“); `?laub=0` nimmt es heraus, `?laub=2` schaltet es einzeln ein.
+export const LAUB_FEIN = suche.get('laub') === '2' || (ECHT && suche.get('laub') !== '0');
+/**
+ * D284 (`?haus=1` / `?echt=1`): Hausscans — Putz, Schalung, Dachziegel, Sockel aus Poly-Haven-Texturen (CC0) auf
+ * den prozeduralen Häusern (`hausmaterial.ts`), Farbe bleibt die Palette, die Textur bringt Struktur und Relief.
+ */
+export const HAUS_ECHT = teil('haus');
+/** D285 (`?belag=1` / `?echt=1`): Wegbeläge aus Scans — Asphalt, Schotter, Erdpfad, Graspfad (`bandmaterial.ts`). */
+export const BELAG_ECHT = teil('belag');
+/**
+ * D289 (`?bau=1` / `?echt=1`): Bauwelt (D287, `docs/design/BRACHLAND_Bauwelt_v1.md`) im Hausgenerator — Flachsatteldach
+ * (~22° statt 40°), Giebelüberstand grösser als Traufüberstand, Einfirsthof (Wohnteil + Tenne unter einem First, Tennentor)
+ * für grosse, längliche Grundrisse, Fensterkreuz und Vorhänge statt schwarzer Scheibe.
+ */
+export const BAUWELT_AN = teil('bau');
+/**
+ * D290 (`?lod2=1` / `?echt=1`): echte Silhouetten aus den amtlichen 3D-Gebäudemodellen (LoD2, LDBV, CC BY 4.0) —
+ * Trauf- und Firsthöhe, Dachform, Firstrichtung je Gebäude (`public/world/oental-lod2.json`, `tools/lod2import.py`).
+ */
+export const LOD2_AN = teil('lod2');
+export const GRAS_FEIN = suche.get('gras') === '3';
+export const GRAS_VIEL = suche.get('gras') === '2' || GRAS_FEIN;
+export const GRAS_ECHT = teil('gras') || GRAS_VIEL;
 /**
  * Bach im Wald (D267, `bandmaterial.ts`): Die Spiegelung zeigt unterhalb einer Waldkante (~7–27° über
  * dem Wasser) das dunkle Ufer statt Himmel. Ohne Szenenspiegelung reflektierte das Wasser gerade dort,
  * wo Fresnel am stärksten ist (flacher Blick), den hellen Himmel — es lag weiss im Wald.
  */
 export const BACH_ECHT = teil('bach');
+/**
+ * Gewässer wie echt (D280, `bandmaterial.ts`): Wasser hat einen eigenen, dunklen Körper (Streulicht statt
+ * schwarzer Albedo), Tiefe nach Uferabstand bis 3 m statt 0,8 m (Teiche und Weiher decken in der Mitte
+ * statt Wiese durchscheinen zu lassen), kräftigere Himmelsspiegelung mit Waldkante, und Wellen aus
+ * mehrlagigem Rauschen statt zweier Sinuszüge (kein Streifenmuster). Teiche/Weiher ruhig, Bäche bewegter.
+ */
+export const GEWAESSER_ECHT = teil('gewaesser');
+/**
+ * Wellenbild nach einem Blender-Wasser-Aufbau (D293, Quelle: Node-Bild von Flo, 15.11.2026): zur Rauschhöhe von
+ * D280 eine verzerrte Ringwelle (Wave/Rings/Sine, Distortion ~4,8) zu gleichen Teilen — gebogene, unregelmässige
+ * Kämme statt Beulen — und eine feine Lage für das Glitzern. Wirkt nur mit `gewaesser`.
+ */
+export const WELLEN_ECHT = teil('wellen') && GEWAESSER_ECHT;
 /** Stauweiher hinter dem Wehr, aus dem GLB abgeleitet (D268, `weiher.ts`). */
 export const WEIHER_AN = teil('weiher');
 /**
@@ -73,6 +135,14 @@ export const FLUR_GRUEN = teil('flur');
  * zum Ansehen, keine Vorgabe. `?hdri=1`; die Stärke mit `?hdristaerke=` (Vorgabe 0,8).
  */
 export const HDRI_AN = an('hdri');
+/**
+ * D285 (`?umlicht=1` / `?echt=1`): Bildlicht aus dem eigenen Himmel. Der Spielhimmel der Stimmung (samt Boden-
+ * ton) wird per PMREM zur Umgebungskarte und beleuchtet alle Standardmaterialien — Schattenseiten bekommen
+ * Himmelsfarbe statt Schwarz, Glanz spiegelt den richtigen Himmel. Anders als `?hdri=1` (D265, Fremdfoto,
+ * kühl-türkis) bleibt die Stimmung (A-9) erhalten. Stärke `?umlichtstaerke=` (Vorgabe 0,9).
+ */
+export const UMLICHT_AN = teil('umlicht') && !HDRI_AN;
+export const UMLICHT_STAERKE = (() => { const v = Number(suche.get('umlichtstaerke')); return Number.isFinite(v) && v > 0 ? v : 0.9; })();
 export const HDRI_STAERKE = (() => { const v = Number(suche.get('hdristaerke')); return Number.isFinite(v) && v > 0 ? v : 0.8; })();
 /**
  * Querbett (D263, `lod.ts`): Breite in Metern jenseits der Uferkante, auf der die hohe Böschung auf
@@ -102,3 +172,16 @@ export const MSAA: number = (() => {
   if ([0, 2, 4, 8].includes(n)) return n;
   return ECHT ? 4 : 0;
 })();
+
+/**
+ * B — Pinselstriche (D269, `laubkarten.ts`, `grasteppich.ts`): Laub als grosse Striche mit Pinselbogen
+ * statt Foto-Blättern, drei Farbbänder (Licht, Halbton, Schatten) nach der Beleuchtung der Hülle;
+ * Gras mit breiteren Halmen und denselben Bändern. Braucht `laubkarten` (steckt in `echt` und `malerei`).
+ */
+export const PINSEL_AN = teil('pinsel') && (MALEREI || an('pinsel'));
+/**
+ * C — Malfilter (D269, `Kontur.tsx`): Kuwahara über das Szenenbild vor Kontur und Verdeckung. Vier
+ * Sektoren, der mit der kleinsten Varianz gewinnt — Flächen werden glatt, Kanten bleiben. Nachteil:
+ * Die „Striche“ liegen am Bildschirm, nicht an der Welt (Schiebefenster-Effekt in Bewegung).
+ */
+export const KUWAHARA_AN = teil('kuwahara') && (MALEREI || an('kuwahara'));

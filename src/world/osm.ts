@@ -224,7 +224,16 @@ export interface Weltdaten {
   /** Flächen und Linien für die Geometrie-Erzeugung. */
   flaechen: { biom: Biom; punkte: [number, number][]; loecher?: [number, number][][] }[];
   linien: { art: string; punkte: [number, number][]; breite: number }[];
-  gebaeude: { punkte: [number, number][]; ebenen: number; art: string }[];
+  gebaeude: {
+    punkte: [number, number][]; ebenen: number; art: string;
+    /** D290: echte Silhouette aus LoD2 (Traufe t, First f über Grund in m, Dachform d nach AdV, Firstrichtung w in Grad). */
+    lod2?: { t: number; f: number; d: number; w: number | null; c?: string | null } | null;
+    /** D291: Fassaden-Steckbrief (content/fassaden), falls für dieses Gebäude vorhanden. */
+    fassade?: {
+      fensterachsen: { traufe: number; giebel: number }; laube: 'keine' | 'traufseite' | 'giebel' | 'umlaufend';
+      hochlaube: boolean; putz: string; holz: string; laeden: string | null; malerei: string | null; stufe?: number;
+    } | null;
+  }[];
   /** Wege und Straßen — strukturieren die Landschaft stark. */
   wege: { art: string; punkte: [number, number][]; breite: number }[];
   /** Feste Positionen für Verwachsene und Uniques. */

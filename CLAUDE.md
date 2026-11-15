@@ -136,7 +136,7 @@ Palette liegt als ADR-0011 **Proposed** vor (Ledger A-9). Die Werte in
 ### Performance-Invarianten
 Props **immer** als `InstancedMesh` (40.000 Einzelobjekte erledigen jedes Handy).
 Positionen aus einem **Seed** erzeugen, nie speichern. Das Precache-Budget von 60 MB
-(`npm run quality`) ist ein Gate, kein Richtwert.
+(`npm run quality`) ist ein Gate, kein Richtwert — **seit D286 (15.11.2026) vorübergehend aufgehoben** (nur Warnung).
 
 ### Scope-Guardrails sind bindend
 ADR-0004 parkt Party-Game und ein Spiel, das primär von Grafik lebt (Photoreal), als

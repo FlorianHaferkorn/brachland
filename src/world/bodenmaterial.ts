@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { HIMMEL_UNIFORM } from './windmaterial.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT } from './echt.js';
+import { GEWAESSER_ECHT, GRAS_ECHT, GRAS_VIEL } from './echt.js';
 
 /**
  * Himmelsanteil des Geländes um ein Set-Piece (D171, `tools/himmelboden.ts`): ein Raster von
@@ -255,6 +255,25 @@ const SCAN_GLSL = /* glsl */ `
   // und der Rasen las als einzelne Sprossen (Stauwehr, 12.11.2026).
   diffuseColor.rgb *= mix(vec3(1.0), vec3(0.5, 0.64, 0.36), scanGewicht.x * 0.85);
 #endif
+#ifdef GRAS_VIEL
+  // D272 (?gras=3): Zwischen den Büscheln liegt nasser Boden. Dasselbe Rauschen wie die Lücken im
+  // Grasteppich (halmRauschen(ort * 0.8 + 71)), damit freier Boden und fehlende Büschel zusammenfallen.
+  {
+    vec2 lp = mod(vWeltPos.xz * 0.8 + 71.0, 4096.0);
+    vec2 li = floor(lp), lf = fract(lp); lf = lf * lf * (3.0 - 2.0 * lf);
+    float l00 = fract(sin(dot(mod(li, 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float l10 = fract(sin(dot(mod(li + vec2(1.0, 0.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float l01 = fract(sin(dot(mod(li + vec2(0.0, 1.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float l11 = fract(sin(dot(mod(li + vec2(1.0, 1.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float luecke = 1.0 - smoothstep(0.3, 0.55, mix(mix(l00, l10, lf.x), mix(l01, l11, lf.x), lf.y));
+    // D282: Flo 14.11.2026 „komische bräunliche Flächen“ — als Flatfarbe lagen die Lücken als runde, gleichmässig
+    // braune Ovale auf der Wiese. Jetzt: Rand von feinerem Rauschen zerfranst, und der Scan-Boden bleibt sichtbar,
+    // nur dunkler und erdiger (Erde zwischen Gras ist kein Farbfleck, sondern abgedunkelter Boden mit Streu).
+    float fransen = smoothstep(0.35, 0.65, bodenRauschen(vWeltPos.xz * 2.7 + 13.0));
+    float erde = luecke * mix(0.35, 1.0, fransen) * scanGewicht.x * 0.7;
+    diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.62, 0.52, 0.4) + vec3(0.02, 0.015, 0.008), erde);
+  }
+#endif
 `;
 
 const DETAIL_GLSL = /* glsl */ `
@@ -363,7 +382,9 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
       .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL)
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (MIT_UFER ? NASS_GLSL : ''))
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n'
-        + (MIT_UFER ? '  roughnessFactor = mix(roughnessFactor, 0.55, nassAnteil);\n' : ''))
+        // D281 (`?gewaesser=1`): 0,55 spiegelte den hellen Himmel als weissen Reif-Streifen am Ufer; nasse Erde ist
+        // dunkel und matter, glänzend nur der dünne Wasserfilm direkt an der Linie.
+        + (MIT_UFER ? `  roughnessFactor = mix(roughnessFactor, ${GEWAESSER_ECHT ? 'mix(0.85, 0.5, smoothstep(0.85, 1.0, vNass))' : '0.55'}, nassAnteil);\n` : ''))
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL)
       .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
       .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL);
@@ -388,7 +409,8 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
   if (GRAS_ECHT) material.defines = { ...material.defines, GRAS_ECHT: '' };
-  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
+  if (GRAS_VIEL) material.defines = { ...material.defines, GRAS_VIEL: '' };
+  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
 
   return material;
 }

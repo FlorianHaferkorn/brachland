@@ -88,6 +88,14 @@ export interface WindMaterialWerte {
    * aus einem Stamm erst einen Stamm macht, der im Boden steht.
    */
   fuss?: boolean;
+  /**
+   * D283 (`?laub=2`): Büschelatlas (`laub-bueschel.webp` / `nadel-bueschel.webp`, 4 × 4 Kacheln à 0,9 m) auf
+   * den Kronen der Blender-Bäume. Die Kronen sind glatte Klumpen mit Vertexfarbe — fern lasen sie als blasse
+   * Scheiben (Flo 14.11.2026). Gelesen dreiachsig in Weltlage, zwei versetzte Lagen (die Büschel sind rund,
+   * eine Lage zeigte das Kachelraster); die Helligkeit des Büschels moduliert die Vertexfarbe, und am
+   * Kronenrand franst die Silhouette nach dem Alpha des Büschels aus. Nur im Laub (Laubmaske).
+   */
+  bueschel?: THREE.Texture;
 }
 
 /**
@@ -352,6 +360,68 @@ const VARIATION_GLSL = /* glsl */ `
   diffuseColor.rgb *= 0.92 + vInstanzVar * 0.16;
 `;
 
+const BUESCHEL_PARS_GLSL = /* glsl */ `
+uniform sampler2D uBueschel;
+vec4 bueschelLage(vec2 p) {
+  vec2 z = floor(p);
+  float k = floor(fract(sin(dot(z, vec2(12.9898, 78.233))) * 43758.5453) * 16.0);
+  vec2 uv = (fract(p) + vec2(mod(k, 4.0), floor(k / 4.0))) * 0.25;
+  return textureGrad(uBueschel, uv, dFdx(p) * 0.25, dFdy(p) * 0.25);
+}
+vec4 bueschelEben(vec2 p) {
+  vec4 a = bueschelLage(p), b = bueschelLage(p * mat2(0.8, -0.6, 0.6, 0.8) + 0.5);
+  return a.a >= b.a ? a : b;
+}
+vec4 bueschelProbe(vec3 pos, vec3 nw) {
+  vec3 w = pow(abs(nw), vec3(4.0)); w /= (w.x + w.y + w.z);
+  vec3 p = pos / 0.9;
+  return bueschelEben(p.zy) * w.x + bueschelEben(p.xz) * w.y + bueschelEben(p.xy) * w.z;
+}
+`;
+
+const BUESCHEL_FARBE_GLSL = /* glsl */ `
+  // Ohne Laubmaske (Büsche, D285) gilt das ganze Netz als Laub.
+  #ifdef USE_COLOR_ALPHA
+  if (vColor.a > 0.5)
+  #endif
+  {
+
+    // D289: Flach schattierte Materialien haben kein vNormal — dann die Normale aus den Bildschirmableitungen.
+    #ifdef FLAT_SHADED
+    vec3 bnN = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
+    #else
+    vec3 bnN = normalize(vNormal);
+    #endif
+    vec3 bnw = inverseTransformDirection(bnN, viewMatrix);
+    vec4 bs = bueschelProbe(vLoecherPos, bnw);
+    // Mittel der Atlanten (linear) ~0,118 Leuchtdichte; Lücken im Büschel = Tiefe der Krone, dunkler.
+    float bl = dot(bs.rgb, vec3(0.2126, 0.7152, 0.0722)) / 0.118;
+    diffuseColor.rgb *= mix(0.55, clamp(bl, 0.35, 1.7), smoothstep(0.05, 0.4, bs.a));
+  }
+`;
+
+const BUESCHEL_RAND_GLSL = /* glsl */ `
+  #ifdef USE_COLOR_ALPHA
+  if (vColor.a > 0.5)
+  #endif
+  {
+    // Silhouette: nur wo die Fläche flach zum Blick steht und das Büschel noch über ein paar Pixel reicht.
+
+    // D289: Flach schattierte Materialien haben kein vNormal — dann die Normale aus den Bildschirmableitungen.
+    #ifdef FLAT_SHADED
+    vec3 bnN = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
+    #else
+    vec3 bnN = normalize(vNormal);
+    #endif
+    float br = 1.0 - abs(dot(bnN, normalize(vViewPosition)));
+    float bpx = length(fwidth(vLoecherPos / 0.9)) * 512.0;
+    if (br > 0.55 && bpx < 6.0) {
+      vec4 bs = bueschelProbe(vLoecherPos, inverseTransformDirection(bnN, viewMatrix));
+      if (bs.a < 0.45 * (1.0 - smoothstep(2.0, 6.0, bpx))) discard;
+    }
+  }
+`;
+
 const LAUB_RAUSCHEN_GLSL = /* glsl */ `
 float laubHash(vec3 i) { return fract(sin(dot(i, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 float laubRauschen(vec3 q) {
@@ -470,6 +540,13 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
     shader.uniforms.uLoecher = loecher;
     shader.uniforms.uLoecherSkala = loecherSkala;
     shader.uniforms.uDurchlass = durchlass;
+    if (w.bueschel) {
+      shader.uniforms.uBueschel = { value: w.bueschel };
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\n' + BUESCHEL_PARS_GLSL)
+        .replace('#include <color_fragment>', '#include <color_fragment>' + BUESCHEL_FARBE_GLSL)
+        .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + BUESCHEL_RAND_GLSL);
+    }
     if (w.rinde) {
       shader.uniforms.uRinde = RINDE;
       shader.uniforms.uRindeMeter = { value: w.rindeMeter ?? 1 };
@@ -523,7 +600,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v16' + (w.himmel ? '-himmel' : '') + (w.rinde ? '-rinde' + (w.rinde === 'ganz' ? '-ganz' : '') : '') + (w.fuss ? '-fuss' : '');
+  material.customProgramCacheKey = () => 'brachland-wind-rand-v16' + (w.himmel ? '-himmel' : '') + (w.rinde ? '-rinde' + (w.rinde === 'ganz' ? '-ganz' : '') : '') + (w.fuss ? '-fuss' : '') + (w.bueschel ? '-bueschel-' + w.bueschel.uuid : '');
   if (w.rinde) ladeRinde();
 
   // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens

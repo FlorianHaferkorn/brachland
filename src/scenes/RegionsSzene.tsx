@@ -11,6 +11,7 @@ import { Suspense, useMemo, useRef, useEffect, useState, useCallback } from 'rea
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
+import { imPolygon } from '../world/osm.js';
 import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../world/terrain.js';
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel, senkePegel, type Pegelsenke,
          baueGartenKachel, type Bandsatz } from '../world/baender.js';
@@ -34,6 +35,8 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
+import LOD2_ROH from '../../public/world/oental-lod2.json';
+import { ORTE, FASSADEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
@@ -54,12 +57,13 @@ import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
-import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type KartenArt } from '../world/laubkarten.js';
-import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE } from '../world/echt.js';
+import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
+import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
-import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
-import { GRAS_ECHT, WEIHER_AN } from '../world/echt.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, NAH_ZELLE_FEIN, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
+import { GRAS_ECHT, GRAS_FEIN, WEIHER_AN, GEWAESSER_ECHT, LAUB_FEIN } from '../world/echt.js';
+import { meldeSpiegelflaeche, Spiegelbild } from '../world/spiegelbild.js';
 import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
@@ -423,7 +427,9 @@ function LodTerrain({ feld, kacheln, ziel }: {
     // nächsten Bild nachgezogen; bis dahin fehlt am Rand ein Stück, das im Nebel liegt.
     let budget = 12;
     const jeStufe = new Map<number, THREE.BufferGeometry[]>();
-    for (const k of kacheln) {
+    // D289: nächste Kacheln zuerst (siehe Bänder) — sonst fehlt bei wenigen Bildern je Sekunde der Boden am Spieler.
+    for (const k of [...kacheln].sort((a, b) =>
+      Math.hypot(a.mitte[0] - p.x, a.mitte[1] - p.z) - Math.hypot(b.mitte[0] - p.x, b.mitte[1] - p.z))) {
       const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
       if (d > TERRAIN_SICHT) continue;
       const lod = lodFuerAbstand(d);
@@ -528,20 +534,37 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * Loecher im Laub (`COLOR_0.a` = Laubmaske) und Durchlass fuer das Gegenlicht — dasselbe Rezept
    * wie die Bauwerke, nur als Instanz. Der Saum bleibt schwach: Klumpen mit Loechern sind lauter Kanten.
    */
-  const baumWind = useMemo(() => baueWindMaterial({
+  const baumWerte = (bueschel?: THREE.Texture) => ({
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.2,
     // Schaerfe 3 -> 10 (D160): Auf Blattmassen aus kleinen Kugeln ist `1 - |N·V|` fast ueberall hoch,
     // der Saum lag deshalb als heller Flaum ueber der ganzen Krone statt als Kante — gemessen am
     // Stauwehr 30 % der Bildhelligkeit (Median 0,100 -> 0,069 ohne Saum). Kreaturen und Figur behalten
     // ihre weichen 1,6: dort ist die Flaeche gross und die Silhouette wirklich ein Rand.
     randSchaerfe: 10,
-    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde: true,
-  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide })), []);
+    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde: true as const, bueschel,
+  });
+  const baumBasis = () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
+  // D283 (`?laub=2`): Buchen bekommen den Laub-, Fichten den Nadel-Büschelatlas — darum zwei Materialien.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  /**
+   * D289: Büsche mit Büschelatlas (D283) — eigenes Material ohne Löcher. Auf dem Baum-Material (Löcher für die ganze
+   * Fläche, weil Büsche keine Laubmaske tragen) verschwand der Busch im Dorf-Prüfbild fast ganz (D285).
+   */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const buschWind = useMemo(() => LAUB_FEIN ? baueWindMaterial({
+    amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5, durchlass: 0.3,
+    bueschel: bueschelTextur('laub'),
+  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.9, metalness: 0 })) : null, []);
+  const baumWind = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('laub') : undefined), baumBasis()), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const baumWindNadel = useMemo(() => LAUB_FEIN ? baueWindMaterial(baumWerte(bueschelTextur('nadel')), baumBasis()) : baumWind, [baumWind]);
   useEffect(() => {
     wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);
     grasWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
     baumWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
-  }, [wind, grasWind, baumWind, rand]);
+    if (baumWindNadel !== baumWind) baumWindNadel.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
+    buschWind?.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
+  }, [wind, grasWind, baumWind, baumWindNadel, buschWind, rand]);
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
@@ -563,6 +586,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     farnWind.setzeZeit(uhr.current);
     grasScanWind.setzeZeit(uhr.current);
     baumWind.setzeZeit(uhr.current);
+    if (baumWindNadel !== baumWind) baumWindNadel.setzeZeit(uhr.current);
+    buschWind?.setzeZeit(uhr.current);
   });
   /**
    * Bänder einmal zerlegen, dann je Kachel bauen.
@@ -600,9 +625,10 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} weite={weite} />
+      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material} baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={weite} />
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
       {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite} />}
+      {GEWAESSER_ECHT && <Spiegelung feld={feld} />}
     </group>
   );
 }
@@ -644,14 +670,29 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
    * darum geht es: 214.000 Dreiecke lagen vorher in einem Mesh, das gezeichnet
    * wurde, sobald ein Zipfel der Region im Bild war.
    */
+  /**
+   * D289: Bewohnte Orte (Bewohner und Zufluchten aus `content/orte`) in Weltmetern — um sie herum stehen die Häuser
+   * in Verfallsstufe 0 (Bauwelt D287). Aus den Inhalten, nicht hartkodiert.
+   */
+  const bewohnt = useMemo(() => [...ORTE.values()]
+    .filter(o => o.art === 'bewohner' || o.art === 'zuflucht')
+    .map(o => nachMetern(o.ort, welt.bbox)), [welt]);
+  const fassaden = useMemo(() => [...FASSADEN.values()].filter(f => f.region === 'oental'), []);
   const hausKachel = useMemo(() => (
     _feld: HoehenFeld, s: Bandsatz, k: Kachel, _lod: number,
   ) => {
     if (istAus('haeuser')) return null;
     const indizes = s.gebaeude.get(`${k.ix}:${k.iz}`);
     if (!indizes?.length) return null;
-    return baueGebaeude(welt, boden, indizes.map(i => welt.gebaeude[i]));
-  }, [welt, boden]);
+    // D290: LoD2-Silhouette je Gebäude (gleiche Reihenfolge wie `welt.gebaeude`; nur für die Region, zu der die Datei passt).
+    const lod2 = LOD2_DATEN.length === welt.gebaeude.length ? LOD2_DATEN : null;
+    return baueGebaeude(welt, boden, indizes.map(i => {
+      const g = welt.gebaeude[i];
+      // D291: Fassaden-Steckbrief, dessen Punkt im Grundriss liegt.
+      const fassade = fassaden.find(f => imPolygon(f.ort, g.punkte)) ?? null;
+      return lod2 || fassade ? { ...g, lod2: lod2 ? lod2[i] : g.lod2, fassade } : g;
+    }), bewohnt);
+  }, [welt, boden, bewohnt, fassaden]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
   const wasserKachel = useMemo(() => (
@@ -675,7 +716,11 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
                       wasser: [] as THREE.BufferGeometry[],
                       fall: [] as THREE.BufferGeometry[],
                       haus: [] as THREE.BufferGeometry[] };
-    for (const k of kacheln) {
+    // D289: nächste Kacheln zuerst. In Rasterreihenfolge kamen die Kacheln am Spieler bei wenigen Bildern je Sekunde
+    // als letzte an die Reihe (Budget 12 je Bild) — Häuser und Wege vor der Nase fehlten minutenlang, ferne standen.
+    const geordnet = [...kacheln].sort((a, b) =>
+      Math.hypot(a.mitte[0] - p.x, a.mitte[1] - p.z) - Math.hypot(b.mitte[0] - p.x, b.mitte[1] - p.z));
+    for (const k of geordnet) {
       const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
       if (d > TERRAIN_SICHT) continue;
       const lod = lodFuerAbstand(d);
@@ -684,6 +729,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
         ['haus', hausKachel], ['garten', baueGartenKachel],
       ] as const) {
         if (art === 'wasser' && istAus('wasser')) continue;
+        if (art === 'weg' && istAus('wege')) continue;
         const schluessel = `${art}:${k.ix}:${k.iz}:${lod}${art === 'wasser' ? pegel : ''}`;
         let g = cache.current.get(schluessel);
         if (g === undefined) {
@@ -753,8 +799,10 @@ function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
   return ergebnis;
 }
 
-function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; weite: number }) {
-  const chunks = useMemo(() => chunkeProps(props), [props]);
+function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, buschWind, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial; weite: number }) {
+  // D285: Mit dem Foto-Grasteppich (`?gras=3`) fallen die stilisierten Grasbüschel-Props weg — sie standen als
+  // Agaven-Sterne zwischen den Foto-Halmen (Dorf-Prüfbild 14.11.2026).
+  const chunks = useMemo(() => chunkeProps(GRAS_FEIN ? props.filter(p => p.art !== 'grasbuschel') : props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<FernGruppe[]>([]);
   // Messbarer Standard der EZ-Probe; ?ezcluster=0 erhaelt den A/B-Rueckweg.
@@ -826,11 +874,11 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
           ausblendet. Bereits geladene Gruppen bleiben sichtbar. */}
       {sichtbar.map(({ c, stufe, id }) =>
         <Suspense key={id} fallback={null}>
-          <PropChunkMesh chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={baumWind} baumTiefe={baumTiefe} />
+          <PropChunkMesh chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
         </Suspense>)}
       {fern.map(({ art, variante, instanzen, zelle }) =>
         <Suspense key={`${art}:${variante}:${zelle ?? ''}`} fallback={null}>
-          <PropFernMesh art={art} variante={variante} instanzen={instanzen} baumWind={baumWind} zellCulling={zelle !== undefined} />
+          <PropFernMesh art={art} variante={variante} instanzen={instanzen} baumWind={art === 'nadelbaum' ? baumWindNadel : baumWind} zellCulling={zelle !== undefined} />
         </Suspense>)}
     </>
   );
@@ -1048,10 +1096,10 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
 const LEER: ReadonlySet<string> = new Set();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe }: {
+function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, buschWind }: {
   chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
   farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial;
-  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial;
+  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial;
 }) {
   const fern = stufe === 'fern';
   const { geo, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
@@ -1111,7 +1159,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
       ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={fern && !blender ? fernGeo : geo}
-      material={blender ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
+      material={blender ? baumWind : buschWind && chunk.art === 'busch' && !fern ? buschWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
         : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
         : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
@@ -1714,6 +1762,41 @@ export interface Ortsmarke {
 }
 
 /**
+ * D285 (`?umlicht=1`): Umgebungslicht aus dem eigenen Himmel. Eine Kopie der Himmelskugel und eine Bodenscheibe
+ * im Hemisphären-Bodenton (Gegenlicht vom Gelände statt Himmel von unten) werden einmal je Stimmung in eine
+ * PMREM-Karte gerendert und als `scene.environment` gesetzt. Die Hemisphäre bleibt mit 35 % für die eigenen
+ * Shader, die keine Umgebungskarte lesen.
+ */
+function HimmelLicht({ s }: { s: Stimmung }) {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    const werte = {
+      zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
+      sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
+    };
+    const himmel = baueHimmel(werte);
+    setzeHimmel(himmel, werte);
+    const boden = new THREE.Mesh(new THREE.CircleGeometry(400, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN).multiplyScalar(0.6), fog: false }));
+    boden.position.y = -2;
+    const fang = new THREE.Scene();
+    fang.add(himmel, boden);
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const karte = pmrem.fromScene(fang, 0.02, 0.1, 2000).texture;
+    scene.environment = karte;
+    scene.environmentIntensity = UMLICHT_STAERKE;
+    console.info('[umlicht] Himmel als Umgebungslicht, Stärke', UMLICHT_STAERKE);
+    return () => {
+      if (scene.environment === karte) scene.environment = null;
+      karte.dispose(); pmrem.dispose();
+      himmel.geometry.dispose(); (himmel.material as THREE.Material).dispose();
+      boden.geometry.dispose(); (boden.material as THREE.Material).dispose();
+    };
+  }, [gl, scene, s]);
+  return null;
+}
+
+/**
  * Weg B (D265, `?hdri=1`): Himmelsfoto als Umgebungslicht. PMREM gefiltert, als `scene.environment`
  * für jedes Standardmaterial; die Hemisphäre bleibt mit einem Viertel als Grundlicht für die
  * eigenen Shader, die keine Umgebungskarte lesen. Sonne und Schatten bleiben, wie sie sind.
@@ -1776,7 +1859,7 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
           {b.dateien.map(teil => (
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
-                ? <BauwerkWasser bauwerk={b} />
+                ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
                 : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
           ))}
@@ -1806,6 +1889,14 @@ function BauwerkWeiher({ bauwerk, hoeheAn }: { bauwerk: Bauwerk; hoeheAn: (x: nu
     return w;
   }, [scene, bauwerk, hoeheAn]);
   useEffect(() => () => { weiher?.geometrie.dispose(); material.dispose(); }, [weiher, material]);
+  // D280: Spiegelebene anmelden (Welt: Gruppenraum + Ursprung + h0).
+  useEffect(() => {
+    if (!weiher || !GEWAESSER_ECHT) return;
+    weiher.geometrie.computeBoundingSphere();
+    const k = weiher.geometrie.boundingSphere!;
+    return meldeSpiegelflaeche({ x: k.center.x + bauwerk.ursprung.x, z: k.center.z + bauwerk.ursprung.z,
+      hoehe: weiher.spiegel + bauwerk.h0, radius: k.radius });
+  }, [weiher, bauwerk]);
   return weiher ? <mesh geometry={weiher.geometrie} material={material} renderOrder={1} /> : null;
 }
 
@@ -2106,6 +2197,8 @@ function Klippen({ klippen, ziel, material }: {
  * groß wie jede Kreatur, und der Kampf beginnt nicht von selbst. Ein Bosskampf, der
  * einen im Vorbeigehen erwischt, ist ein Unfall, kein Höhepunkt.
  */
+/** D290: LoD2-Silhouetten (`tools/lod2import.py`), Reihenfolge wie `welt.gebaeude` des Œntals. */
+const LOD2_DATEN = LOD2_ROH as ({ t: number; f: number; d: number; w: number | null; c?: string | null } | null)[];
 const REGENT_HOEHE = 4.2;
 /**
  * Das Modell (D241) ist 1,6 Einheiten lang statt der 1,2 der Silhouette: 3,8 ergibt gut sechs
@@ -2285,8 +2378,9 @@ function Beleuchtung({ s, ziel }: {
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       {!takramBereit && <primitive object={himmel} />}
       {takramAn && <TakramProbe sonnenstand={s.sonnenstand} meldeBereit={setzeTakramBereit} />}
-      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? 0.25 : 1)]} />
+      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? 0.25 : UMLICHT_AN ? 0.35 : 1)]} />
       {HDRI_AN && <HdriLicht />}
+      {UMLICHT_AN && <HimmelLicht s={s} />}
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
@@ -2304,6 +2398,30 @@ function Beleuchtung({ s, ziel }: {
 /**
  * Einzelhalme im Nahbereich, auf der GPU (D211, `world/grasteppich.ts`). `?aus=teppich` schaltet ab.
  */
+/**
+ * Spiegelbild auf stillem Wasser (D280, `world/spiegelbild.ts`): meldet die Teiche des Höhenfelds als
+ * Spiegelebenen an und rechnet je Bild das Spiegelbild des nächsten — vor dem Hauptbild (Priorität 0,5,
+ * `Kontur` zeichnet mit 1).
+ */
+function Spiegelung({ feld }: { feld: HoehenFeld }) {
+  const { gl, scene, camera } = useThree();
+  const spiegel = useMemo(() => new Spiegelbild(), []);
+  useEffect(() => () => spiegel.dispose(), [spiegel]);
+  useEffect(() => {
+    const ab = feld.teiche.map((t) => {
+      let x = 0, z = 0, hoehe = Infinity;
+      // Dieselbe Höhe wie die gezeichnete Teichfläche (`baender.ts`: tiefster Uferpunkt auf dem Netz).
+      for (const [px, pz] of t.punkte) { x += px; z += pz; hoehe = Math.min(hoehe, spiegelAufFlaeche(feld, px, pz)); }
+      x /= t.punkte.length; z /= t.punkte.length;
+      const radius = Math.max(...t.punkte.map(([px, pz]) => Math.hypot(px - x, pz - z)));
+      return meldeSpiegelflaeche({ x, z, hoehe, radius });
+    });
+    return () => ab.forEach((f) => f());
+  }, [feld]);
+  useFrame(() => spiegel.aktualisiere(gl, scene, camera as THREE.PerspectiveCamera), 0.5);
+  return null;
+}
+
 function Grasteppich({ welt, feld, ziel, dichte, weite }: {
   welt: Weltdaten; feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number; weite: number;
 }) {
@@ -2311,7 +2429,8 @@ function Grasteppich({ welt, feld, ziel, dichte, weite }: {
   const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
   // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
   const nah = useMemo(() => (dichte >= 1 && !istAus('nahgras')
-    ? (GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT)
+    ? (GRAS_FEIN ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_FEIN)
+      : GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT)
       : baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE)) : null), [feld, aufWeg, dichte]);
   // D247: Fernring hinter dem Teppich, nur bei Sichtweite „weit“; `?aus=ferngras` schaltet ab.
   const fern = useMemo(() => (weite > 1 && dichte > 0 && !istAus('ferngras')
@@ -2381,6 +2500,7 @@ function Streuschicht({ feld, ziel, dichte }: {
     if (k) {
       k.count = streueKleinzeug(feld, p.x, p.z, k, dichte);
       k.instanceMatrix.needsUpdate = true;
+      if (k.instanceColor) k.instanceColor.needsUpdate = true;
       k.computeBoundingSphere();
     }
   });

@@ -202,6 +202,8 @@ export const PALETTE = {
     grasFuss:   '#5d6f40',
     grasSpitze: '#8fa069',
     stein:      '#6f716a',
+    /** D292: Äste der Nahstreuung — vergrautes Totholz. Mit der Steinfarbe lasen die gestreckten Körper als weisse Scherben. */
+    ast:        '#4f4337',
   },
 
   /** Elementfarben der Silhouetten — ein Ton je Element, gedämpft. */
