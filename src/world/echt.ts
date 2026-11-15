@@ -77,6 +77,8 @@ export const LAUB_FEIN = suche.get('laub') === '2' || (ECHT && suche.get('laub')
  * den prozeduralen Häusern (`hausmaterial.ts`), Farbe bleibt die Palette, die Textur bringt Struktur und Relief.
  */
 export const HAUS_ECHT = teil('haus');
+/** D285 (`?belag=1` / `?echt=1`): Wegbeläge aus Scans — Asphalt, Schotter, Erdpfad, Graspfad (`bandmaterial.ts`). */
+export const BELAG_ECHT = teil('belag');
 export const GRAS_FEIN = suche.get('gras') === '3';
 export const GRAS_VIEL = suche.get('gras') === '2' || GRAS_FEIN;
 export const GRAS_ECHT = teil('gras') || GRAS_VIEL;
@@ -116,6 +118,14 @@ export const FLUR_GRUEN = teil('flur');
  * zum Ansehen, keine Vorgabe. `?hdri=1`; die Stärke mit `?hdristaerke=` (Vorgabe 0,8).
  */
 export const HDRI_AN = an('hdri');
+/**
+ * D285 (`?umlicht=1` / `?echt=1`): Bildlicht aus dem eigenen Himmel. Der Spielhimmel der Stimmung (samt Boden-
+ * ton) wird per PMREM zur Umgebungskarte und beleuchtet alle Standardmaterialien — Schattenseiten bekommen
+ * Himmelsfarbe statt Schwarz, Glanz spiegelt den richtigen Himmel. Anders als `?hdri=1` (D265, Fremdfoto,
+ * kühl-türkis) bleibt die Stimmung (A-9) erhalten. Stärke `?umlichtstaerke=` (Vorgabe 0,9).
+ */
+export const UMLICHT_AN = teil('umlicht') && !HDRI_AN;
+export const UMLICHT_STAERKE = (() => { const v = Number(suche.get('umlichtstaerke')); return Number.isFinite(v) && v > 0 ? v : 0.9; })();
 export const HDRI_STAERKE = (() => { const v = Number(suche.get('hdristaerke')); return Number.isFinite(v) && v > 0 ? v : 0.8; })();
 /**
  * Querbett (D263, `lod.ts`): Breite in Metern jenseits der Uferkante, auf der die hohe Böschung auf

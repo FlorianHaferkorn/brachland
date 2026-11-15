@@ -380,20 +380,24 @@ vec4 bueschelProbe(vec3 pos, vec3 nw) {
 `;
 
 const BUESCHEL_FARBE_GLSL = /* glsl */ `
+  // Ohne Laubmaske (Büsche, D285) gilt das ganze Netz als Laub.
   #ifdef USE_COLOR_ALPHA
-  if (vColor.a > 0.5) {
+  if (vColor.a > 0.5)
+  #endif
+  {
     vec3 bnw = inverseTransformDirection(normalize(vNormal), viewMatrix);
     vec4 bs = bueschelProbe(vLoecherPos, bnw);
     // Mittel der Atlanten (linear) ~0,118 Leuchtdichte; Lücken im Büschel = Tiefe der Krone, dunkler.
     float bl = dot(bs.rgb, vec3(0.2126, 0.7152, 0.0722)) / 0.118;
     diffuseColor.rgb *= mix(0.55, clamp(bl, 0.35, 1.7), smoothstep(0.05, 0.4, bs.a));
   }
-  #endif
 `;
 
 const BUESCHEL_RAND_GLSL = /* glsl */ `
   #ifdef USE_COLOR_ALPHA
-  if (vColor.a > 0.5) {
+  if (vColor.a > 0.5)
+  #endif
+  {
     // Silhouette: nur wo die Fläche flach zum Blick steht und das Büschel noch über ein paar Pixel reicht.
     float br = 1.0 - abs(dot(normalize(vNormal), normalize(vViewPosition)));
     float bpx = length(fwidth(vLoecherPos / 0.9)) * 512.0;
@@ -402,7 +406,6 @@ const BUESCHEL_RAND_GLSL = /* glsl */ `
       if (bs.a < 0.45 * (1.0 - smoothstep(2.0, 6.0, bpx))) discard;
     }
   }
-  #endif
 `;
 
 const LAUB_RAUSCHEN_GLSL = /* glsl */ `

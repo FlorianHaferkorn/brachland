@@ -331,12 +331,12 @@ export function baueGebaeude(
   const DACH_KANTE = DACH.clone().multiplyScalar(1.3);
   /**
    * D284: Materialrolle je Farbe für die Hausscans (`hausmaterial.ts`): 0 Putz, 1 Schalung, 2 Dach, 3 Sockel,
-   * 4 = keine (Fenster, Läden, Geranien … bleiben glatt). Zuordnung über die Farbobjekte selbst — alle Farben
+   * 4 = keine (Läden, Geranien … bleiben glatt), 5 = Glas (D285: spiegelt den Himmel statt schwarzem Loch). Zuordnung über die Farbobjekte selbst — alle Farben
    * des Generators stehen oben als Konstanten, Varianten (Schalungstöne, Dachkante) sind deren Klone.
    */
   const ROLLE = new Map<THREE.Color, number>([
     [WAND, 0], [KAMIN, 0], [SCHALUNG, 1], ...SCHALUNG_TOENE.map(c => [c, 1] as [THREE.Color, number]),
-    [DACH, 2], [DACH_KANTE, 2], [SOCKEL, 3],
+    [DACH, 2], [DACH_KANTE, 2], [SOCKEL, 3], [FENSTER, 5],
   ]);
 
   /**

@@ -55,7 +55,7 @@ import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
 import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
-import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE } from '../world/echt.js';
+import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
 import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, NAH_ZELLE_FEIN, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
@@ -765,7 +765,9 @@ function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
 }
 
 function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; weite: number }) {
-  const chunks = useMemo(() => chunkeProps(props), [props]);
+  // D285: Mit dem Foto-Grasteppich (`?gras=3`) fallen die stilisierten Grasbüschel-Props weg — sie standen als
+  // Agaven-Sterne zwischen den Foto-Halmen (Dorf-Prüfbild 14.11.2026).
+  const chunks = useMemo(() => chunkeProps(GRAS_FEIN ? props.filter(p => p.art !== 'grasbuschel') : props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<FernGruppe[]>([]);
   // Messbarer Standard der EZ-Probe; ?ezcluster=0 erhaelt den A/B-Rueckweg.
@@ -1122,7 +1124,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
       ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={fern && !blender ? fernGeo : geo}
-      material={blender ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
+      material={blender || (LAUB_FEIN && chunk.art === 'busch' && !fern) ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
         : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
         : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
@@ -1725,6 +1727,41 @@ export interface Ortsmarke {
 }
 
 /**
+ * D285 (`?umlicht=1`): Umgebungslicht aus dem eigenen Himmel. Eine Kopie der Himmelskugel und eine Bodenscheibe
+ * im Hemisphären-Bodenton (Gegenlicht vom Gelände statt Himmel von unten) werden einmal je Stimmung in eine
+ * PMREM-Karte gerendert und als `scene.environment` gesetzt. Die Hemisphäre bleibt mit 35 % für die eigenen
+ * Shader, die keine Umgebungskarte lesen.
+ */
+function HimmelLicht({ s }: { s: Stimmung }) {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    const werte = {
+      zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
+      sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
+    };
+    const himmel = baueHimmel(werte);
+    setzeHimmel(himmel, werte);
+    const boden = new THREE.Mesh(new THREE.CircleGeometry(400, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN).multiplyScalar(0.6), fog: false }));
+    boden.position.y = -2;
+    const fang = new THREE.Scene();
+    fang.add(himmel, boden);
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const karte = pmrem.fromScene(fang, 0.02, 0.1, 2000).texture;
+    scene.environment = karte;
+    scene.environmentIntensity = UMLICHT_STAERKE;
+    console.info('[umlicht] Himmel als Umgebungslicht, Stärke', UMLICHT_STAERKE);
+    return () => {
+      if (scene.environment === karte) scene.environment = null;
+      karte.dispose(); pmrem.dispose();
+      himmel.geometry.dispose(); (himmel.material as THREE.Material).dispose();
+      boden.geometry.dispose(); (boden.material as THREE.Material).dispose();
+    };
+  }, [gl, scene, s]);
+  return null;
+}
+
+/**
  * Weg B (D265, `?hdri=1`): Himmelsfoto als Umgebungslicht. PMREM gefiltert, als `scene.environment`
  * für jedes Standardmaterial; die Hemisphäre bleibt mit einem Viertel als Grundlicht für die
  * eigenen Shader, die keine Umgebungskarte lesen. Sonne und Schatten bleiben, wie sie sind.
@@ -2304,8 +2341,9 @@ function Beleuchtung({ s, ziel }: {
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       {!takramBereit && <primitive object={himmel} />}
       {takramAn && <TakramProbe sonnenstand={s.sonnenstand} meldeBereit={setzeTakramBereit} />}
-      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? 0.25 : 1)]} />
+      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? 0.25 : UMLICHT_AN ? 0.35 : 1)]} />
       {HDRI_AN && <HdriLicht />}
+      {UMLICHT_AN && <HimmelLicht s={s} />}
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}

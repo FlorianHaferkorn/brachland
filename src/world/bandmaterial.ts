@@ -12,7 +12,8 @@
  *   die weiche Kante: außen durchsichtig, innen deckend.
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
-import { BACH_ECHT, GEWAESSER_ECHT } from './echt.js';
+import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT } from './echt.js';
+import WEG_SCANS from '../../public/material/weg-scans.json';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
 import { PALETTE } from './palette.js';
@@ -307,6 +308,35 @@ ${BACH_ECHT ? `  // D274: Spitzen der Spiegelung weich begrenzen (Reinhard auf d
  * Spurrinnen über `uv.x`, Flecken über die Weltposition. Ein Weg soll ausgetreten
  * wirken, nicht gestreichelt.
  */
+/**
+ * D285: Wegscans (`tools/hausscans.py weg`): 2 × 2-Atlas Asphalt, Schotter, Erdpfad, Graspfad — Farbe als
+ * Modulation (Mittel 0,5 → ×2), der Ton bleibt `WEGBELAG`. Welcher Scan, folgt aus dem Belag: Randschärfe
+ * (`vBelag.y`) unter 0,3 Asphalt, bis 0,8 Schotter, darüber Erdpfad; Feldwege mit Spurrinnen (`vBelag.x` > 0,4)
+ * tragen zwischen den Spuren den Graspfad. Projektion von oben in Weltmetern.
+ */
+const WEG_TEXTUREN = (() => {
+  if (!BELAG_ECHT || typeof document === 'undefined') return null;
+  const lade = (pfad: string) => {
+    const t = new THREE.TextureLoader().load(pfad);
+    t.colorSpace = THREE.NoColorSpace; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.anisotropy = 8;
+    return t;
+  };
+  return { farbe: lade('/material/weg-scans.webp'), normal: lade('/material/weg-scans-nor.webp') };
+})();
+const WEG_METER = new THREE.Vector4(...(WEG_SCANS as { rollen: { meter: number }[] }).rollen.map(r => r.meter) as [number, number, number, number]);
+const WEG_SCAN_GLSL = /* glsl */ `
+uniform sampler2D uWegFarbe;
+uniform sampler2D uWegNormal;
+uniform vec4 uWegMeter;
+vec4 wegLies(sampler2D t, float r) {
+  float m = r < 0.5 ? uWegMeter.x : r < 1.5 ? uWegMeter.y : r < 2.5 ? uWegMeter.z : uWegMeter.w;
+  vec2 p = vWeltPos.xz / m;
+  vec2 off = vec2(mod(r, 2.0), 1.0 - floor(r / 2.0)) * 0.5;
+  vec2 uv = off + (fract(p) * 0.996 + 0.002) * 0.5;
+  return textureGrad(t, uv, dFdx(p) * 0.5, dFdy(p) * 0.5);
+}
+`;
+
 export function baueWegMaterial(): THREE.MeshStandardMaterial {
   // `vertexColors` statt einer festen Farbe: In den Weltdaten stehen neun
   // OSM-Klassen über 170,5 km, von 8 m Asphalt bis 1,6 m Trampelpfad. Sie
@@ -318,6 +348,11 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
   });
 
   material.onBeforeCompile = (shader) => {
+    if (WEG_TEXTUREN) {
+      shader.uniforms.uWegFarbe = { value: WEG_TEXTUREN.farbe };
+      shader.uniforms.uWegNormal = { value: WEG_TEXTUREN.normal };
+      shader.uniforms.uWegMeter = { value: WEG_METER };
+    }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',
         '#include <common>\nattribute vec2 belag;\nvarying vec2 vBand;\nvarying vec2 vBelag;\nvarying vec3 vWeltPos;')
@@ -325,7 +360,7 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
         '#include <begin_vertex>\n  vBand = uv;\n  vBelag = belag;\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec2 vBand;\nvarying vec2 vBelag;\nvarying vec3 vWeltPos;\n' + HASH_GLSL)
+      .replace('#include <common>', '#include <common>\nvarying vec2 vBand;\nvarying vec2 vBelag;\nvarying vec3 vWeltPos;\n' + HASH_GLSL + (WEG_TEXTUREN ? WEG_SCAN_GLSL : ''))
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float quer = abs(vBand.x);
   float rand = 1.0 - quer;
@@ -347,9 +382,23 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
    * Asphalt hat eine gebaute Kante (0,15), ein Trampelpfad gar keine (1,2). */
   float franse = bandRauschen(vec2(vBand.y * 1.4, vBand.x * 2.0)) * 0.22 * vBelag.y;
   diffuseColor.a *= smoothstep(0.0, 0.12 + 0.28 * vBelag.y + franse, rand);
-`);
+${WEG_TEXTUREN ? `
+  // D285: Scan nach Belag; Feldweg zwischen den Spuren Graspfad.
+  float wegR = vBelag.y < 0.3 ? 0.0 : vBelag.y < 0.8 ? 1.0 : 2.0;
+  float wegGras = step(0.4, vBelag.x) * (1.0 - smoothstep(0.22, 0.38, quer));
+  vec3 wegScan = mix(wegLies(uWegFarbe, wegR).rgb, wegLies(uWegFarbe, 3.0).rgb, wegGras) * 2.0;
+  // Alter Asphalt ist grau, nicht schwarz: die Palette bleibt der Ton, der Belag hellt um 30 % auf.
+  diffuseColor.rgb *= wegScan * (wegR < 0.5 ? 1.3 : 1.0);
+  vec3 wegNt = mix(wegLies(uWegNormal, wegR).xyz, wegLies(uWegNormal, 3.0).xyz, wegGras) * 2.0 - 1.0;` : ''}
+`)
+      .replace('#include <normal_fragment_maps>', WEG_TEXTUREN ? `#include <normal_fragment_maps>
+  {
+    vec3 wn = inverseTransformDirection(normal, viewMatrix);
+    wn = normalize(wn + vec3(wegNt.x, 0.0, wegNt.y) * 0.8);
+    normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz);
+  }` : '#include <normal_fragment_maps>');
   };
 
-  material.customProgramCacheKey = () => 'brachland-weg-v2';
+  material.customProgramCacheKey = () => 'brachland-weg-v2' + (WEG_TEXTUREN ? '-scans' : '');
   return material;
 }

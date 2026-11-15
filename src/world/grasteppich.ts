@@ -400,7 +400,8 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       const x = lauf.x0 + (j + 0.5) * texel, z = lauf.z0 + (i + 0.5) * texel, k = (i * FELD_TEXEL + j) * 4;
       const h = feld.hoehe(x, z);
       const biom = feld.biom(x, z);
-      let d = DICHTE[biom] ?? 0;
+      // D285: Mit Foto-Büscheln (`?gras=3`) tragen Siedlungen Hausgärten und Rasen statt kahlem Grund (Dorf-Prüfbild).
+      let d = (GRAS_FEIN && biom === 'siedlung') ? 0.75 : DICHTE[biom] ?? 0;
       if (d > 0 && (feld.wasserTiefe(x, z) > 0.02 || gesperrt(x, z, 'streu') || aufWeg(x, z))) d = 0;
       if (d > 0) {
         // Hang: ab ~40° kein Halt mehr (wie die Grasbüschel-Props).
