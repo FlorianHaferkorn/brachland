@@ -17,6 +17,7 @@ owns: *.test.ts
 
 | Deine Aufgabe ist … | Lies |
 |---|---|
+| Hausfront-Räume, Fenster-UV oder Haus/Garten-Attribute ändern | `hausfront.test.ts` → `../src/world/terrain.ts`, `../src/world/baender.ts` |
 | Fensteröffnungen, Scheibentiefe und Laibungen ändern | `fenstertiefe.test.ts` → `../src/world/terrain.ts` |
 | Lagerton oder Audio-Freigabe bei erster Eingabe ändern | `lagerton.test.ts` → `../src/ton/lagerton.ts` |
 | EZ-Baum-LOD bei schnellen Richtungswechseln ändern | `ezlod.test.ts` → `../src/scenes/ezlod.ts` |
@@ -55,6 +56,7 @@ owns: *.test.ts
 | `sichtlinie.test.ts` | D192: Stamm zwischen Schulterkamera und Ziel zieht den Arm ein; Stamm nur neben dem Ziel nicht; Versatz zählt mit; feste Probenweite (0,3 m) überspringt keinen Stamm — mit 12 Proben je Strecke passiert |
 | `tonwert.test.ts` | D199: `agxMitLook` (CPU) trifft den Shader `CustomToneMapping` — 34 in Chromium gemessene Farbproben bei Belichtung 2,4 und 2,5, Toleranz 1/255. Hält `npm run licht` auf der Kurve, die das Spiel zeigt |
 | `nebel.test.ts` | D204: `nebelAnteil` (CPU-Kopie des Nebel-Shaders) — Mittelbereich wie das alte `smoothstep`, Decke `NEBEL_MAX`, monoton, Höhendunst nur über der Kamera |
+| `hausfront.test.ts` | D297: Raum-UV/Seed auf allen Scheibenecken und neutral auf anderen Bauteilen, vollständige Fenster-UV und deterministische Varianten bei 0°/37°; Raycasts auf obere Scheiben entdecken verbliebene opake Vorhänge; Gärten mit neutralen Raumdaten, Haus/Garten per mergeGeometries gemeinsam renderbar; Pflegezone: Kanten, Ecken und 1,6-m-Grenze, Wald ausgeschlossen (31 Prüfungen) |
 | `fenstertiefe.test.ts` | D296: erzeugte Hausgeometrie bei 0°/37°, Fenster an allen vier Fassaden; Frontstrahlen passieren die Fassadenebene und treffen Scheiben 18 cm dahinter, schräge Strahlen die nach innen gerichtete Laibung; vollständige Attribute, endliche Normalen, keine entarteten Dreiecke, Glut nur auf Scheiben |
 | `staemme.test.ts` | G-136: Jede Blender-Szene hat Stämme im Kollisionsfeld (≥ 100, alle im Freihalte-Radius, also richtige Achsenlage), der Stauwehr-Stamm aus dem Lock-On-Video ist bekannt und verdeckt die Sicht, `public/bauten/staemme.json` passt zu den GLB |
 | `fortschritt.test.ts` | 20 Tests. Anlass: Die erste Kurve machte Kreaturen bei der Mutation **schwächer** (L13 = 184 KP, L14 = 162 KP). Hält jetzt Monotonie und die Zahl der Kämpfe je Mutation fest |

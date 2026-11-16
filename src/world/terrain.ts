@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN } from './echt.js';
 import { gesperrt } from './bauwerke.js';
 
 /** Meter je Breitengrad; für Längengrad mit cos(lat) skaliert. */
@@ -263,6 +263,8 @@ export function baueGebaeude(
    */
   const glut: number[] = [];
   const rollen: number[] = [];
+  const raumUv: number[] = [];
+  let raumFenster: { x: number; z: number; dx: number; dz: number; unten: number; breite: number; hoehe: number; seed: number } | null = null;
   /** D289: je Ecke Verfallsstufe (0–2) und Höhe über dem Sockel (für Efeu und Feuchte im Shader). */
   const zustand: number[] = [];
   let stufeJetzt = 0;
@@ -382,6 +384,12 @@ export function baueGebaeude(
     for (const v of [a, b, c]) { const k = ao(v); farben.push(f.r * k, f.g * k, f.b * k); }
     glut.push(glutWert, glutWert, glutWert);
     const r = ROLLE.get(f) ?? 4; rollen.push(r, r, r);
+    if (HAUSFRONT_AN) for (const v of [a, b, c]) {
+      if (f === FENSTER && raumFenster) {
+        const q = raumFenster;
+        raumUv.push(((v[0]-q.x)*q.dx+(v[2]-q.z)*q.dz)/q.breite+0.5, (v[1]-q.unten)/q.hoehe, q.seed);
+      } else raumUv.push(0, 0, 0);
+    }
     for (const v of [a, b, c]) zustand.push(stufeJetzt, v[1] - aoBoden);
   };
 
@@ -857,6 +865,8 @@ export function baueGebaeude(
           }
           // Hinter knapp der Haelfte der Wohnhausfenster brennt nachts Licht,
           // in Staellen und Hallen hinter jedem achten (D134).
+          if (HAUSFRONT_AN) raumFenster = { x: cx, z: cz, dx: (x2-x1)/laenge, dz: (z2-z1)/laenge,
+            unten: yUnten, breite: breiteF, hoehe: hoeheF, seed: glutHash(cx + 17.7, yUnten, cz) };
           glutWert = (!BAUWELT_AN || bewohntHaus) && glutHash(cx, yUnten, cz) < (wohnhaus ? 0.45 : 0.12) ? 1 : 0;
           quad(
             [cx - ex + nx * o, yUnten, cz - ez + nz * o],
@@ -865,6 +875,7 @@ export function baueGebaeude(
             [cx - ex + nx * o, yUnten + hoeheF, cz - ez + nz * o],
             FENSTER,
           );
+          raumFenster = null;
           glutWert = 0;
           if (BAUWELT_AN) {
             /**
@@ -878,7 +889,7 @@ export function baueGebaeude(
             const qy = yUnten + hoeheF * 0.6;
             quad([cx - ex + nx * ov, qy - 0.025, cz - ez + nz * ov], [cx + ex + nx * ov, qy - 0.025, cz + ez + nz * ov],
                  [cx + ex + nx * ov, qy + 0.025, cz + ez + nz * ov], [cx - ex + nx * ov, qy + 0.025, cz - ez + nz * ov], RAHMEN);
-            if (wohnhaus && bewohntHaus && glutHash(cx + 3.1, yUnten, cz) < 0.5) {
+            if (!HAUSFRONT_AN && wohnhaus && bewohntHaus && glutHash(cx + 3.1, yUnten, cz) < 0.5) {
               const vo = o + 0.003;
               quad([cx - ex + nx * vo, yUnten + hoeheF * 0.68, cz - ez + nz * vo], [cx + ex + nx * vo, yUnten + hoeheF * 0.68, cz + ez + nz * vo],
                    [cx + ex + nx * vo, yUnten + hoeheF, cz + ez + nz * vo], [cx - ex + nx * vo, yUnten + hoeheF, cz - ez + nz * vo], VORHANG);
@@ -1543,6 +1554,7 @@ export function baueGebaeude(
   geo.setAttribute('glut', new THREE.Float32BufferAttribute(glut, 1));
   geo.setAttribute('rolle', new THREE.Float32BufferAttribute(rollen, 1));
   geo.setAttribute('zustand', new THREE.Float32BufferAttribute(zustand, 2));
+  if (HAUSFRONT_AN) geo.setAttribute('raumUv', new THREE.Float32BufferAttribute(raumUv, 3));
   geo.computeVertexNormals();
   return geo;
 }

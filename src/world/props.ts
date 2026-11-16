@@ -14,6 +14,7 @@ import BAEUME_REGISTER from '../../public/props/baeume.json';
 import type { Weltdaten, Biom } from './osm.js';
 import type { TerrainErgebnis } from './terrain.js';
 import { MASSSTAB } from './terrain.js';
+import { HAUSFRONT_AN } from './echt.js';
 
 export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbuschel' | 'totholz'
                     | 'blume' | 'pilz' | 'farn';
@@ -149,7 +150,7 @@ export function mulberry(seed: number) {
  * Durchlauf; erst wenn die Hülle passt, wird das Polygon geprüft.
  */
 function hausTest(
-  welt: Weltdaten, terrain: TerrainErgebnis,
+  welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>, kantenAbstand = 0,
 ): (x: number, z: number) => boolean {
   const [sued, west, nord, ost] = welt.bbox;
   const zuWelt = (lat: number, lon: number): [number, number] => [
@@ -157,7 +158,7 @@ function hausTest(
     ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
   ];
   /** Abstand zur Wand, den ein Prop mindestens hält. */
-  const RAND = 0.7;
+  const RAND = Math.max(0.7, kantenAbstand);
   const RASTER = 32;
   const huellen = welt.gebaeude.map(g => {
     const p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
@@ -187,8 +188,34 @@ function hausTest(
         if ((za > z) !== (zb > z) && x < ((xb - xa) * (z - za)) / (zb - za) + xa) drin = !drin;
       }
       if (drin) return true;
+      // D297: Die bisherige Hüllenerweiterung allein hält noch keinen Abstand
+      // zur echten Wand. Nur die Probe fragt zusätzlich die Grundrisskanten ab.
+      if (kantenAbstand > 0) for (let a = 0, b = p.length - 1; a < p.length; b = a++) {
+        const [ax, az] = p[b], [bx, bz] = p[a];
+        const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+        const t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0;
+        if ((x - ax - t * dx) ** 2 + (z - az - t * dz) ** 2 < kantenAbstand ** 2) return true;
+      }
     }
     return false;
+  };
+}
+
+/**
+ * D297: schmaler Pflege-/Gehstreifen am Gebäudesockel in Siedlungen.
+ * Der tatsächliche Nutzungszustand des Hauses ist hier nicht verfügbar; deshalb
+ * ist dies ausdrücklich eine Siedlungsprobe, keine Zuordnung „bewohnt“ je Haus.
+ * Raster und Kantenprüfung werden einmal beim Bau vorbereitet, nicht pro Bild.
+ */
+export function hausfrontPflegeTest(
+  welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>,
+): (x: number, z: number) => boolean {
+  const amHaus = hausTest(welt, terrain, 1.6);
+  const n = welt.aufloesung;
+  return (x, z) => {
+    const i = Math.max(0, Math.min(n - 1, Math.round((z / terrain.tiefeMeter + 0.5) * (n - 1))));
+    const j = Math.max(0, Math.min(n - 1, Math.round((x / terrain.breiteMeter + 0.5) * (n - 1))));
+    return welt.biome[i][j] === 'siedlung' && amHaus(x, z);
   };
 }
 
@@ -208,7 +235,10 @@ function hausTest(
  */
 export function wegTest(
   welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>,
+  /** Dieselbe Sockelmaske erreicht so auch den Grasteppich über dessen Wegprädikat. */
+  mitHausfrontPflege = HAUSFRONT_AN,
 ): (x: number, z: number) => boolean {
+  const pflege = mitHausfrontPflege ? hausfrontPflegeTest(welt, terrain) : null;
   const [sued, west, nord, ost] = welt.bbox;
   /** Abstand zur Wegkante, den ein Prop mindestens hält. */
   const RAND = 0.6;
@@ -236,6 +266,7 @@ export function wegTest(
       }
   });
   return (x, z) => {
+    if (pflege?.(x, z)) return true;
     for (const i of eimer.get(`${Math.floor(x / RASTER)}:${Math.floor(z / RASTER)}`) ?? []) {
       const s = segmente[i];
       const dx = s.bx - s.ax, dz = s.bz - s.az;
@@ -280,7 +311,8 @@ export function verteileProps(
   const zellTiefe = terrain.tiefeMeter / (n - 1);
   const hektarJeZelle = (zellBreite * zellTiefe * MASSSTAB.stauchung ** 2) / 10_000;
   const imHaus = hausTest(welt, terrain);
-  const aufWeg = wegTest(welt, terrain);
+  const aufWeg = wegTest(welt, terrain, false);
+  const pflege = HAUSFRONT_AN ? hausfrontPflegeTest(welt, terrain) : null;
 
   const props: PropInstanz[] = [];
 
@@ -312,6 +344,12 @@ export function verteileProps(
           if (imHaus(x, z)) continue;
           // Und 4.975 standen auf dem Belag, darunter 1.488 Fichten (G-84).
           if (aufWeg(x, z)) continue;
+          // Nur niedrigen Bewuchs zurücknehmen; Bäume, Findlinge und Totholz bleiben.
+          // Die drei Instanzwürfe mitnehmen, damit spätere Pflanzen denselben Seed behalten.
+          if (pflege && (art === 'grasbuschel' || art === 'farn' || art === 'busch' || art === 'blume' || art === 'pilz') && pflege(x, z)) {
+            zufall(); zufall(); zufall();
+            continue;
+          }
           // Farn in Beständen (D216): die Schwelle aus der Lage, nicht aus dem Zufallsstrom.
           if (art === 'farn' && lageRauschen(x * 3.1, z * 3.1) > farnBestand(x, z)) {
             zufall(); zufall(); zufall();   // Strom wie bei einer gesetzten Instanz weiterdrehen

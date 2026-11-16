@@ -188,3 +188,6 @@ export const KUWAHARA_AN = teil('kuwahara') && (MALEREI || an('kuwahara'));
 
 /** D296: echte Fensteröffnungen mit Laibungen, nur als einzelne Vergleichsprobe. */
 export const FENSTERTIEFE_AN = an('fenstertiefe');
+
+/** D297: zusammenhängende Material-/Fenster-/Bewuchsprobe im Dorf, einzeln zuschaltbar. */
+export const HAUSFRONT_AN = an('hausfront');

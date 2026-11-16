@@ -14,8 +14,9 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { BAUWELT_AN, HAUS_ECHT } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN } from './echt.js';
 import { bueschelTextur } from './laubkarten.js';
+import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import SCANS from '../../public/material/haus-scans.json';
 
 /**
@@ -136,11 +137,11 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
       shader.uniforms.uScanNormal = { value: SCAN_TEXTUREN.normal };
       shader.uniforms.uScanMeter = { value: SCAN_METER };
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute float rolle;\nvarying float vRolle;\nvarying vec3 vHausPos;' + (BAUWELT_AN ? '\nattribute vec2 zustand;\nvarying vec2 vZustand;' : ''))
-        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n  vRolle = rolle;\n  vHausPos = (modelMatrix * vec4(transformed, 1.0)).xyz;' + (BAUWELT_AN ? '\n  vZustand = zustand;' : ''));
+        .replace('#include <common>', '#include <common>\nattribute float rolle;\nvarying float vRolle;\nvarying vec3 vHausPos;' + (BAUWELT_AN ? '\nattribute vec2 zustand;\nvarying vec2 vZustand;' : '') + (HAUSFRONT_AN ? '\nattribute vec3 raumUv;\nvarying vec3 vRaumUv;\nvarying vec3 vHausNormal;' : ''))
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n  vRolle = rolle;\n  vHausPos = (modelMatrix * vec4(transformed, 1.0)).xyz;' + (BAUWELT_AN ? '\n  vZustand = zustand;' : '') + (HAUSFRONT_AN ? '\n  vRaumUv = raumUv; vHausNormal = normalize(mat3(modelMatrix) * objectNormal);' : ''));
       if (BAUWELT_AN) shader.uniforms.uEfeu = { value: bueschelTextur('laub') };
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\n' + SCAN_PARS + (BAUWELT_AN ? VERFALL_PARS : ''))
+        .replace('#include <common>', '#include <common>\n' + SCAN_PARS + (BAUWELT_AN ? VERFALL_PARS : '') + (HAUSFRONT_AN ? HAUSFRONT_PARS : ''))
         .replace('#include <color_fragment>', `#include <color_fragment>
   float scanR = floor(vRolle + 0.5);
   vec2 scanP = vec2(0.0);
@@ -148,7 +149,8 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
     scanP = scanUv(scanR);
     diffuseColor.rgb *= scanLies(uScanFarbe, scanP, scanR).rgb * 2.0;
   }
-${BAUWELT_AN ? VERFALL_FARBE : ''}`)
+${BAUWELT_AN ? VERFALL_FARBE : ''}
+${HAUSFRONT_AN ? HAUSFRONT_FARBE : ''}`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   if (scanR < 3.5) {
     vec3 sn = scanLies(uScanNormal, scanP, scanR).xyz * 2.0 - 1.0;
@@ -176,6 +178,6 @@ ${BAUWELT_AN ? VERFALL_FARBE : ''}`)
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '');
   return material;
 }

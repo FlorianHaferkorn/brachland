@@ -20,6 +20,7 @@
  * nach Entfernung ausgeblendet.
  */
 import * as THREE from 'three';
+import { HAUSFRONT_AN } from './echt.js';
 import { PALETTE } from './palette.js';
 import type { Weltdaten } from './osm.js';
 import { MASSSTAB, WEG_TEILUNG, orientierteHuelle } from './terrain.js';
@@ -856,6 +857,7 @@ export function baueGartenKachel(
   // D284: dieselbe Pflicht für die Materialrolle der Hausscans — Beete sind „keine“ (4).
   g.setAttribute('rolle', new THREE.Float32BufferAttribute(new Float32Array(positionen.length / 3).fill(4), 1));
   g.setAttribute('zustand', new THREE.Float32BufferAttribute(new Float32Array(positionen.length / 3 * 2), 2));
+  if (HAUSFRONT_AN) g.setAttribute('raumUv', new THREE.Float32BufferAttribute(new Float32Array(positionen.length), 3));
   g.computeVertexNormals();
   g.computeBoundingSphere();
   return g;
