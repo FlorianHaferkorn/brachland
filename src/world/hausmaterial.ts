@@ -161,8 +161,10 @@ ${BAUWELT_AN ? VERFALL_FARBE : ''}`)
   // D285: Glas — glatt, spiegelt die Umgebungskarte (Himmelslicht \`?umlicht=1\`); dahinter dunkler Raum.
   // Leichte Welligkeit je Scheibe (alte Fenster), damit nicht jede Scheibe ein perfekter Spiegel ist.
   if (scanR > 4.5) roughnessFactor = 0.05 + 0.08 * fract(sin(dot(floor(vHausPos.xz * 1.3), vec2(12.9898, 78.233))) * 43758.5453);`)
-        .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
-  if (scanR > 4.5) radiance *= 1.6;`);
+        .replace('#include <lights_fragment_end>', `
+  // D295: Vor RE_IndirectSpecular skalieren; danach wird radiance nicht mehr gelesen.
+  if (scanR > 4.5) radiance *= 1.6;
+  #include <lights_fragment_end>`);
     }
     shader.uniforms.uGlutFarbe = { value: GLUT_FARBE };
     shader.vertexShader = shader.vertexShader
@@ -174,6 +176,6 @@ ${BAUWELT_AN ? VERFALL_FARBE : ''}`)
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v1' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '');
   return material;
 }
