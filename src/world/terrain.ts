@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN } from './echt.js';
 import { gesperrt } from './bauwerke.js';
 
 /** Meter je Breitengrad; für Längengrad mit cos(lat) skaliert. */
@@ -610,6 +610,35 @@ export function baueGebaeude(
      * hätte sonst 540 Bretter und 2.188 Dreiecke, über dem Deckel (D111).
      * Nur an Wohnhäusern; eine Halle ist im Bestand Blech, nicht Lärche.
      */
+    // D296: Rechteckige Wandfelder nur an realen Fensteröffnungen unterteilen.
+    // Gilt auch für einzelne Bretter; die vorhandenen Farbtöne bleiben erhalten.
+    let wandLoch: { u0: number; u1: number; y0: number; y1: number }[] = [];
+    let wandStart: [number, number] = [0, 0], wandRichtung: [number, number] = [1, 0];
+    const wandFeld = (ax: number, az: number, bx: number, bz: number, y0: number, y1: number, farbe: THREE.Color) => {
+      if (!wandLoch.length) { quad([ax,y0,az], [bx,y0,bz], [bx,y1,bz], [ax,y1,az], farbe); return; }
+      const uA = (ax - wandStart[0]) * wandRichtung[0] + (az - wandStart[1]) * wandRichtung[1];
+      const uB = (bx - wandStart[0]) * wandRichtung[0] + (bz - wandStart[1]) * wandRichtung[1];
+      const relevant = wandLoch.filter(l => l.u1 > uA && l.u0 < uB && l.y1 > y0 && l.y0 < y1);
+      const ys = [...new Set([y0, y1, ...relevant.flatMap(l => [Math.max(y0,l.y0), Math.min(y1,l.y1)])])].sort((a,b) => a-b);
+      const P = (u: number, y: number): [number, number, number] => [wandStart[0] + wandRichtung[0]*u, y, wandStart[1] + wandRichtung[1]*u];
+      // Pro Höhenband nur die geschlossenen Abschnitte bauen. Ein kartesisches
+      // Raster würde Fensterkanten durch die gesamte Wand fortsetzen und viel
+      // unnötige Geometrie erzeugen, besonders zwischen den Geschossen.
+      for (let j = 0; j < ys.length - 1; j++) {
+        const y = (ys[j] + ys[j + 1]) * 0.5;
+        const loecher = relevant.filter(l => y > l.y0 && y < l.y1).sort((a, b) => a.u0 - b.u0);
+        const streifen = (von: number, bis: number) => {
+          if (bis - von < 1e-6 || ys[j + 1] - ys[j] < 1e-6) return;
+          quad(P(von, ys[j]), P(bis, ys[j]), P(bis, ys[j + 1]), P(von, ys[j + 1]), farbe);
+        };
+        let rand = uA;
+        for (const loch of loecher) {
+          streifen(rand, Math.min(uB, loch.u0));
+          rand = Math.max(rand, Math.min(uB, loch.u1));
+        }
+        streifen(rand, uB);
+      }
+    };
     const brettBreite = Math.max(0.5, umfang / 60);
     const bretterwand = (x1: number, z1: number, x2: number, z2: number, y0: number, y1: number) => {
       const l = Math.hypot(x2 - x1, z2 - z1);
@@ -618,9 +647,8 @@ export function baueGebaeude(
       for (let i = 0; i < n; i++) {
         const t0 = i / n, t1 = (i + 1) / n;
         ton = (ton + 1 + Math.floor(wuerfel() * 4)) % 5;
-        quad([x1 + (x2 - x1) * t0, y0, z1 + (z2 - z1) * t0], [x1 + (x2 - x1) * t1, y0, z1 + (z2 - z1) * t1],
-             [x1 + (x2 - x1) * t1, y1, z1 + (z2 - z1) * t1], [x1 + (x2 - x1) * t0, y1, z1 + (z2 - z1) * t0],
-             SCHALUNG_TOENE[ton]);
+        wandFeld(x1 + (x2-x1)*t0, z1 + (z2-z1)*t0,
+                  x1 + (x2-x1)*t1, z1 + (z2-z1)*t1, y0, y1, SCHALUNG_TOENE[ton]);
       }
     };
 
@@ -648,16 +676,33 @@ export function baueGebaeude(
       const [x1, z1] = p[k], [x2, z2] = p[k + 1];
       const oben = boden + h;
       const stallWand = imStall((x1 + x2) / 2, (z1 + z2) / 2);
+      const breiteF = 0.9, hoeheF = 1.15;
+      wandLoch = [];
+      const lochLaenge = Math.hypot(x2-x1,z2-z1);
+      const traufseitig = Math.abs((x2-x1)*hu.cos + (z2-z1)*hu.sin) > lochLaenge*0.7;
+      const anzahl = g.fassade ? (traufseitig ? g.fassade.fensterachsen.traufe : g.fassade.fensterachsen.giebel)
+        : Math.max(1, Math.floor(lochLaenge / 3.2));
+      const fensterUnterkante = (ebene: number) => boden + ebene * geschoss + 1.05;
+      // Unpassende Fotoachsen erzeugen keine überlappenden Löcher oder offene Hausecken.
+      const fensterVertieft = FENSTERTIEFE_AN && !stallWand && lochLaenge >= 2.2 && anzahl > 0 && lochLaenge / anzahl >= 1.2;
+      wandStart = [x1,z1]; wandRichtung = [(x2-x1)/Math.max(lochLaenge,1e-6),(z2-z1)/Math.max(lochLaenge,1e-6)];
+      if (fensterVertieft) {
+        for(let e=0;e<ebenen;e++) {
+          const y=fensterUnterkante(e);
+          if(y+hoeheF > oben-0.25) continue;
+          for(let i=0;i<anzahl;i++) { const u=lochLaenge*(i+0.5)/anzahl; wandLoch.push({u0:u-breiteF/2,u1:u+breiteF/2,y0:y,y1:y+hoeheF}); }
+        }
+      }
       if (stallWand) {
         // D289: Tenne/Stall — Bruchsteinsockel bis 0,9 m, darüber Bretter bis zur Traufe.
         quad([x1, fuss, z1], [x2, fuss, z2], [x2, boden + 0.9, z2], [x1, boden + 0.9, z1], SOCKEL);
         bretterwand(x1, z1, x2, z2, boden + 0.9, oben);
       } else if (holzAb < oben && holzAb > fuss) {
-        quad([x1, fuss, z1], [x2, fuss, z2], [x2, holzAb, z2], [x1, holzAb, z1], WAND);
+        wandFeld(x1,z1,x2,z2,fuss,holzAb,WAND);
         if (wohnhaus) bretterwand(x1, z1, x2, z2, holzAb, oben);
-        else quad([x1, holzAb, z1], [x2, holzAb, z2], [x2, oben, z2], [x1, oben, z1], SCHALUNG);
+        else wandFeld(x1,z1,x2,z2,holzAb,oben,SCHALUNG);
       } else {
-        quad([x1, fuss, z1], [x2, fuss, z2], [x2, oben, z2], [x1, oben, z1], WAND);
+        wandFeld(x1,z1,x2,z2,fuss,oben,WAND);
       }
 
       const wandLaenge = Math.hypot(x2 - x1, z2 - z1);
@@ -743,13 +788,9 @@ export function baueGebaeude(
       }
 
       /**
-       * Fenster als aufgesetzte Flächen, nicht als Löcher in der Wand.
-       *
-       * Ein Loch bräuchte eine Triangulierung mit Aussparung — bei 2.033 Grundrissen
-       * die teuerste Art, ein Rechteck dunkel zu färben. Aufgesetzt liegen sie 4 cm
-       * vor der Wand; auf jede Entfernung, auf der man Fenster überhaupt sieht, ist
-       * der Unterschied unsichtbar. Sie sind der Grund, warum ein Haus als Haus
-       * gelesen wird und nicht als Quader.
+       * Fenster: Vorgabe als aufgesetzte Fläche; D296 vertieft die Scheibe um 18 cm.
+       * In der Probe ist das Wandfeld bereits ausgespart. Fasche und Laibung
+       * umschliessen die Öffnung, die opake Scheibe schliesst die Gebäudehülle.
        */
       const laenge = wandLaenge;
       if (laenge < 2.2) continue;
@@ -767,19 +808,15 @@ export function baueGebaeude(
         }
         continue;
       }
-      // D291: Fensterachsen aus dem Fassaden-Steckbrief — Traufseite (parallel zum First) bzw. Giebel.
-      const traufseitig = Math.abs((x2 - x1) * hu.cos + (z2 - z1) * hu.sin) > laenge * 0.7;
-      const anzahl = g.fassade ? (traufseitig ? g.fassade.fensterachsen.traufe : g.fassade.fensterachsen.giebel)
-        : Math.max(1, Math.floor(laenge / 3.2));
-      const breiteF = 0.9, hoeheF = 1.15;
+      // D296: dieselben Achsen, Masse und Unterkanten wie die Wandaussparungen oben.
       for (let ebene = 0; ebene < ebenen; ebene++) {
-        const yUnten = boden + ebene * geschoss + 1.05;
+        const yUnten = fensterUnterkante(ebene);
         if (yUnten + hoeheF > boden + h - 0.25) continue;
         for (let i = 0; i < anzahl; i++) {
           const t = (i + 0.5) / anzahl;
           const cx = x1 + (x2 - x1) * t, cz = z1 + (z2 - z1) * t;
           const ex = (x2 - x1) / laenge * breiteF / 2, ez = (z2 - z1) / laenge * breiteF / 2;
-          const o = 0.04;
+          const o = fensterVertieft ? -0.18 : 0.04;
           /**
            * Laibung zuerst, Scheibe darüber.
            *
@@ -792,6 +829,22 @@ export function baueGebaeude(
           const r = 0.11;
           const rx = (x2 - x1) / laenge * (breiteF / 2 + r);
           const rz = (z2 - z1) / laenge * (breiteF / 2 + r);
+          if (fensterVertieft) {
+            const dx=(x2-x1)/laenge, dz=(z2-z1)/laenge;
+            const P=(u:number,y:number,vor:number):[number,number,number] => [cx+dx*u+nx*vor,y,cz+dz*u+nz*vor];
+            const a=breiteF/2, y0=yUnten, y1=yUnten+hoeheF, v=0.025;
+            const ton=wohnhaus ? RAHMEN : SOCKEL;
+            // Vier offene Faschenstreifen; kein Quad verdeckt die Aussparung.
+            quadNach(P(-a-r,y0-r,v),P(-a,y0-r,v),P(-a,y1+r,v),P(-a-r,y1+r,v),ton,[nx,0,nz]);
+            quadNach(P(a,y0-r,v),P(a+r,y0-r,v),P(a+r,y1+r,v),P(a,y1+r,v),ton,[nx,0,nz]);
+            quadNach(P(-a,y0-r,v),P(a,y0-r,v),P(a,y0,v),P(-a,y0,v),ton,[nx,0,nz]);
+            quadNach(P(-a,y1,v),P(a,y1,v),P(a,y1+r,v),P(-a,y1+r,v),ton,[nx,0,nz]);
+            // Laibung: Licht und Silhouette entstehen aus der tatsächlichen Tiefe.
+            quadNach(P(-a,y0,o),P(-a,y0,v),P(-a,y1,v),P(-a,y1,o),ton,[dx,0,dz]);
+            quadNach(P(a,y0,v),P(a,y0,o),P(a,y1,o),P(a,y1,v),ton,[-dx,0,-dz]);
+            quadNach(P(-a,y0,v),P(-a,y0,o),P(a,y0,o),P(a,y0,v),ton,[0,1,0]);
+            quadNach(P(-a,y1,o),P(-a,y1,v),P(a,y1,v),P(a,y1,o),ton,[0,-1,0]);
+          } else {
           quad(
             [cx - rx + nx * (o - 0.015), yUnten - r, cz - rz + nz * (o - 0.015)],
             [cx + rx + nx * (o - 0.015), yUnten - r, cz + rz + nz * (o - 0.015)],
@@ -801,6 +854,7 @@ export function baueGebaeude(
             // die Wand, rahmt nichts — er war gegen den Fensterschwarz unsichtbar.
             wohnhaus ? RAHMEN : SOCKEL,
           );
+          }
           // Hinter knapp der Haelfte der Wohnhausfenster brennt nachts Licht,
           // in Staellen und Hallen hinter jedem achten (D134).
           glutWert = (!BAUWELT_AN || bewohntHaus) && glutHash(cx, yUnten, cz) < (wohnhaus ? 0.45 : 0.12) ? 1 : 0;
@@ -851,7 +905,7 @@ export function baueGebaeude(
           quad([cx - rx + nx * 0.10, bankY, cz - rz + nz * 0.10], [cx + rx + nx * 0.10, bankY, cz + rz + nz * 0.10],
                [cx + rx + nx * 0.10, yUnten - r, cz + rz + nz * 0.10], [cx - rx + nx * 0.10, yUnten - r, cz - rz + nz * 0.10],
                RAHMEN);
-          const lb = 0.40, o2 = o + 0.01;
+          const lb = 0.40, o2 = fensterVertieft ? 0.05 : o + 0.01;
           for (const s of [-1, 1]) {
             // D289: Verlassene Häuser haben Läden verloren — 30 % (Stufe 1) bzw. 60 % (Stufe 2) fehlen.
             if (BAUWELT_AN && stufeJetzt > 0 && glutHash(cx + s * 1.7, yUnten + 0.3, cz) < stufeJetzt * 0.3) continue;
@@ -863,7 +917,7 @@ export function baueGebaeude(
                  [cx + dx * lo + nx * o2, yUnten + hoeheF + 0.02, cz + dz * lo + nz * o2], LADEN);
           }
           if (ebene >= 1 && k === tuerWand && (!BAUWELT_AN || bewohntHaus)) {
-            const kv = o + 0.24, ky0 = bankY - 0.18, ky1 = bankY;
+            const kv = 0.28, ky0 = bankY - 0.18, ky1 = bankY;
             quad([cx - ex + nx * kv, ky0, cz - ez + nz * kv], [cx + ex + nx * kv, ky0, cz + ez + nz * kv],
                  [cx + ex + nx * kv, ky1, cz + ez + nz * kv], [cx - ex + nx * kv, ky1, cz - ez + nz * kv], KASTEN);
             const gv = kv + 0.03, gx = ex * 1.12, gz = ez * 1.12;
@@ -874,8 +928,8 @@ export function baueGebaeude(
                    [cx + gx * f0 + nx * gv, ky1 + (t === 1 ? 0.14 : 0.22), cz + gz * f0 + nz * gv],
                    t === 1 ? LAUB : GERANIE);
             }
-            quadNach([cx - gx + nx * (o + 0.06), ky1 + 0.12, cz - gz + nz * (o + 0.06)],
-                     [cx + gx + nx * (o + 0.06), ky1 + 0.12, cz + gz + nz * (o + 0.06)],
+            quadNach([cx - gx + nx * 0.10, ky1 + 0.12, cz - gz + nz * 0.10],
+                     [cx + gx + nx * 0.10, ky1 + 0.12, cz + gz + nz * 0.10],
                      [cx + gx + nx * gv, ky1 + 0.22, cz + gz + nz * gv],
                      [cx - gx + nx * gv, ky1 + 0.22, cz - gz + nz * gv], GERANIE, [0, 1, 0]);
           }

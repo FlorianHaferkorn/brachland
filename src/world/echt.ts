@@ -185,3 +185,6 @@ export const PINSEL_AN = teil('pinsel') && (MALEREI || an('pinsel'));
  * Die „Striche“ liegen am Bildschirm, nicht an der Welt (Schiebefenster-Effekt in Bewegung).
  */
 export const KUWAHARA_AN = teil('kuwahara') && (MALEREI || an('kuwahara'));
+
+/** D296: echte Fensteröffnungen mit Laibungen, nur als einzelne Vergleichsprobe. */
+export const FENSTERTIEFE_AN = an('fenstertiefe');
