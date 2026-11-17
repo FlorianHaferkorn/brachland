@@ -855,3 +855,31 @@ Die Probe verfolgt denselben vorhandenen Strauch1437,6501/424,8656 in120Einzelbi
 Im normalen Fernblick wird der kleine Strauch häufig von Gebäuden und Kronen verdeckt. `freigestellt` blendet nur im Messbrowser große Prop-Bäume einschließlich ihrer Schatten aus; das muss die Galerie ausdrücklich nennen und ist keine Gesamtbild-Abnahme. Normaler Spielclip separat ohne diese Freistellung. Galerie: synchrones10sVideo bei halber Geschwindigkeit,4facherDetailausschnitt mit nächster Nachbarschaft, zusätzliche normale12,7sSpielaufnahme. Die Bildtafel wählt die nächste noch gemeinsame Fernprobe und die engste Annäherung, nicht beliebige Framezahlen. Neue Dateinamen erhalten; keine alten Ausgaben überschreiben.
 
 Kosten mit `vergleich.mjs` ohne Screenshots/Video/Szenensonden im12sZeitfenster, vollständige Szene und gleiche erhöhte Fernkamera10Grad, Reihenfolge0/1/1/0. Keine FPS-Aussage aus dem schrittweise aufgenommenen Tele-Video: dort bremsen die Bildschirmfotos die Anzeige. Auch eine ruhige Form belegt keine allgemeine Blattflimmerfreiheit; D301 bleibt unverändert.
+
+
+## D303 — Referenzhaus im vollständigen Hof
+
+Gegenprobe ist D302 (`hofgruen=1&referenzhaus=0`), Kandidat
+`hofgruen=1&referenzhaus=1`. Nur Gebäude297 wird geändert. Beide verwenden
+`zielbild`, Zeit0,26 und dieselben angeglichenen Lichtwerte der Hofprobe
+(Umgebung6, Sonne0,8, Umlicht1,2, Schatten0,4); kein neues Lichtprofil.
+
+## Referenzhaus am Hof (D303)
+
+```bash
+node tools/mess/hauslauf.mjs <neuer-vorher-name> 0 fahrt
+node tools/mess/hauslauf.mjs <neuer-nachher-name> 1 fahrt
+node tools/mess/hausgalerie.mjs <neuer-galeriename> <vorher-name> <nachher-name> [spieltest.webm]
+```
+
+144Bilder bei1280×720/DPR1 und60Grad Blickfeld:96Bilder Annäherung vom
+Hofweg mit normaler Verfolgerkamerahöhe, dann Schnitt zu48Bildern am Eingang
+auf Augenhöhe. Beide Seiten mit identischer Kamera- und Shader-Windfolge;
+Figuren bewegen sich unabhängig. Keine Bäume oder Nachbarhäuser ausgeblendet.
+Die enge Eingangsansicht liegt unter dem bestehenden Dach des Vorderhauses;
+das ist reale Verdeckung und wird nicht für den Vergleich entfernt. Der Schnitt
+ist kein LOD-Wechsel.32Aufwärmbilder am Schnitt vermeiden Kamerageschichte im TAA.
+Die verlustfreien VP9-Clips sind eine reproduzierbare Qualitätsprobe, kein
+Geschwindigkeitsbeleg. Ein separater Lauf ohne feste Kamera prüft die normale
+Spielsteuerung. FPS mit `vergleich.mjs` separat ohne Video/Bildsonden messen.
+Historische Ausgaben bleiben erhalten; bestehende Zielnamen werden abgewiesen.

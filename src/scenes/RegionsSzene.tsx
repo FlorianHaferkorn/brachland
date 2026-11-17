@@ -62,7 +62,7 @@ import { richteHofPropEin } from '../world/hofmaterial.js';
 import { waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT } from '../world/echt.js';
+import { HOF_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -707,7 +707,10 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       // D291: Fassaden-Steckbrief, dessen Punkt im Grundriss liegt.
       const fassade = fassaden.find(f => imPolygon(f.ort, g.punkte)) ?? null;
       return lod2 || fassade ? { ...g, lod2: lod2 ? lod2[i] : g.lod2, fassade } : g;
-    }), bewohnt);
+    }), bewohnt, REFERENZHAUS_AN && HOF_UNIFORM.bereit.value ? {
+      mitte: HOF_UNIFORM.mitte.value.toArray(),
+      vorne: [-HOF_UNIFORM.achse.value.y, HOF_UNIFORM.achse.value.x],
+    } : undefined);
   }, [welt, boden, bewohnt, fassaden]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */

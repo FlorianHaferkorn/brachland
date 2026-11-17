@@ -1,0 +1,63 @@
+/** D303: vollständige Hofszene, gleiche Kamerafahrt und Windphase bei normalem 60°-Blickfeld.
+ * node tools/mess/hauslauf.mjs <neuer-name> <0|1> [stand|fahrt]
+ * Einzelbilder sind Qualitätsbelege, keine FPS-Messung. */
+import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
+import {playwright} from './pw.mjs';
+const [name,probe,modus='fahrt']=process.argv.slice(2);
+if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
+const ziel=`.cache/mess/${name}`;
+if(existsSync(ziel)) throw Error(`Ausgabe existiert: ${ziel}`);
+mkdirSync(ziel,{recursive:true});
+const {chromium}=await playwright();
+const browser=await chromium.launch({args:['--use-angle=metal','--ignore-gpu-blocklist']});
+const seite=await browser.newPage({viewport:{width:1280,height:720},deviceScaleFactor:1});
+await seite.addInitScript(()=>{
+ const original=window.requestAnimationFrame.bind(window),abbruch=window.cancelAnimationFrame.bind(window);
+ let pause=false,n=1000000;const wartend=new Map();
+ window.requestAnimationFrame=cb=>{if(!pause)return original(cb);const id=n++;wartend.set(id,cb);return id;};
+ window.cancelAnimationFrame=id=>{if(!wartend.delete(id))abbruch(id);};
+ window.__hausPause=()=>{pause=true;};
+ window.__hausSchritt=()=>{const c=[...wartend.values()];wartend.clear();for(const f of c)f(performance.now());};
+});
+const fehler=[];seite.on('pageerror',e=>fehler.push(String(e)));seite.on('console',m=>{if(m.type()==='error')fehler.push(m.text());});
+const parameter=new URLSearchParams(`absetzen=1432,423,150&zeit=.26&kontur=0&stimmung=zielbild&hofgruen=1&referenzhaus=${probe}&kamera=1444,36.8,418,1431,37.5,432&fov=60&umgebung=6&sonne=.8&umlichtstaerke=1.2&schatten=.4`);
+const spiel=new URLSearchParams(parameter);spiel.delete('kamera');spiel.delete('fov');
+try {
+ await seite.goto(`http://127.0.0.1:4173/?${parameter}`);
+ await seite.waitForFunction(()=>document.body.textContent.includes('Ladezeit')&&window.__szene?.userData.ezKamera,null,{timeout:180000});
+ await seite.waitForTimeout(15000);
+ await seite.evaluate(()=>{
+  const s=window.__szene,vorher=s.onBeforeRender;
+  window.__haus={index:0,bilder:0,position:[]};
+  s.onBeforeRender=function(gl,szene,kamera,ziel){
+   vorher.call(this,gl,szene,kamera,ziel);
+   const d=window.__haus;
+   // Zwei normale Blicke: erst vollständiges Haus vom freien Weg, dann Eingang aus Augenhöhe.
+   if(d.index<96) {
+    const t=d.index/95;kamera.position.set(1444-4*t,36.8,418+3*t);
+    kamera.lookAt(1432,38.2,433);
+   } else {
+    const t=(d.index-96)/47;kamera.position.set(1429.67+.9*t,36.20+.05*t,424.35+1.45*t);
+    kamera.lookAt(1430.96,35.8,430.46);
+   }
+   kamera.updateMatrixWorld(true);d.position=kamera.position.toArray();
+   szene.traverse(o=>{for(const m of Array.isArray(o.material)?o.material:[o.material]){
+    if(!m)continue;const u=gl.properties.get(m).uniforms;
+    for(const k of ['uEzZeit','uZeit','uTime'])if(u?.[k])u[k].value=1000+d.index/24;
+   }});d.bilder++;
+  };
+  for(const e of document.querySelectorAll('body *'))if(e.tagName!=='CANVAS'&&!e.querySelector('canvas'))e.style.visibility='hidden';
+ });
+ await seite.evaluate(async()=>{for(let i=0;i<8;i++)await new Promise(r=>requestAnimationFrame(r));window.__hausPause();});
+ await seite.waitForTimeout(200);
+ await seite.evaluate(()=>{for(let i=0;i<64;i++)window.__hausSchritt();});
+ const indizes=modus==='fahrt'?Array.from({length:144},(_,i)=>i):[0,47,95,143];
+ for(const i of indizes){
+  await seite.evaluate(i=>{window.__haus.index=i;for(let f=0;f<(i===96?32:1);f++)window.__hausSchritt();},i);
+  await seite.waitForTimeout(10);
+  await seite.screenshot({path:`${ziel}/${String(i).padStart(3,'0')}.png`});
+ }
+ const bericht={probe,modus,parameter:String(parameter),spielURL:`http://127.0.0.1:4173/?${spiel}`,bilder:indizes.length,fpsVideo:24,breite:1280,hoehe:720,fehler,letzte:await seite.evaluate(()=>window.__haus)};
+ writeFileSync(`${ziel}/bericht.json`,JSON.stringify(bericht,null,2));console.log(JSON.stringify(bericht));
+ if(fehler.length)process.exitCode=1;
+}finally{await browser.close();}

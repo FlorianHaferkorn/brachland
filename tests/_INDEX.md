@@ -17,7 +17,8 @@ owns: *.test.ts
 
 | Deine Aufgabe ist … | Lies |
 |---|---|
-| Hausfront-Räume, Fenster-UV oder Haus/Garten-Attribute ändern | `hausfront.test.ts` → `../src/world/terrain.ts`, `../src/world/baender.ts` |
+| Hausfront-Räume, Fenster-UV oder Haus/Garten-Attribute ändern | `referenzhaus.test.ts` | D303: lokale Auswahl ohne Änderung anderer Häuser, Eingang auf freier Front, echte Fenster-/Türtiefe, Umlauf, UV und vollständige Geometrieattribute. |
+| `hausfront.test.ts` → `../src/world/terrain.ts`, `../src/world/baender.ts` |
 | Fensteröffnungen, Scheibentiefe und Laibungen ändern | `fenstertiefe.test.ts` → `../src/world/terrain.ts` |
 | Lagerton oder Audio-Freigabe bei erster Eingabe ändern | `lagerton.test.ts` → `../src/ton/lagerton.ts` |
 | EZ-Baum-LOD bei schnellen Richtungswechseln ändern | `ezlod.test.ts` → `../src/scenes/ezlod.ts` |

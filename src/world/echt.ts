@@ -24,6 +24,8 @@ export const HOF_STRAUCH_WEIT = HOF_GRUEN_AN && suche.get('strauchweit') !== '0'
 export const BLATTRUHE_AN = HOF_GRUEN_AN && suche.get('blattruhe') !== '0';
 /** D301: kontinuierliche AO-Flächen statt Normalen über Blatt-/Himmel-Tiefensprünge. */
 export const BLATTVERLAUF_AN = BLATTRUHE_AN && suche.get('blattverlauf') !== '0';
+/** D303: nur das ausgewählte Hofhaus, expliziter Vorher/Nachher-Schalter. */
+export const REFERENZHAUS_AN = HOF_GRUEN_AN && an('referenzhaus');
 export const HOF_AN = an('scanhof') || HOF_GRUEN_AN;
 export const ECHT = an('echt') || MALEREI || HOF_AN;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */

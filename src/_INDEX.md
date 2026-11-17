@@ -91,6 +91,7 @@ owns: *.ts, *.tsx
 | `world/hofstrauch.ts` | D299/D302: sechs geteilte, deterministische Mehrstammformen mit Blattbüschelkarten und Wind; unter hofgruen dieselbe760Dreieck-Quellform auch fern, Gegenprobe strauchweit=0. |
 | `world/hofplatz.ts` | D298: aus dem realen Grundriss abgeleitete Hofmaske, CPU/GLSL und geteilte Uniforms; Messprobe `?scanhof=1`. |
 | `world/hofmaterial.ts` | D298: originale sRGB-Scanfarben, Normalen, Rauheit/AO und Kies am Hof; gemeinsame Texturen nur bei aktivierter Probe. |
+| `world/hausbauteil.ts` | D303: geschlossene Fassadenkörper im gemeinsamen Hausmesh und vorsichtiges Zusammenfassen gerader Grundrissstücke für das lokale Referenzhaus. |
 | `world/hausfront.ts` | D297: `?echt=1&hausfront=1`, Materialpass für Kalkputz, verwitterte Bretter, Dach und Fenster; eine zuschaltbare Gesamtprobe. |
 | `world/fensterraum.ts` | D297: analytischer Parallaxenraum hinter Fensterquads, Möbelquader und je Scheibe variierte Leinenvorhänge; Shader ohne neue Texturen/Meshes. |
 | `world/bandmaterial.ts` | Wasser und Wege: weiche Ränder, Strömung, Gischt und Spurrinnen im Shader. Ruhiges Wasser nutzt Absorption/Fresnel und gedämpfte Himmelsreflexion; optionale lokale Szenenreflexion für die Stauwehrprobe (D255), Transmission zum Vergleich. |

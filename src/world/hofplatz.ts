@@ -77,6 +77,15 @@ export function hofDeckung(x: number, z: number, hof: Hof | null): number {
   return (1 - glatt(-0.85, 0.25, rand + fleck)) * glatt(-0.05, 0.15, innen);
 }
 
+/** D303: der schmale Zugang zum neuen Eingang bleibt ohne niedrigen Bewuchs. */
+export function hofEingangFrei(x: number, z: number, hof: Hof | null): boolean {
+  if (!hof) return false;
+  const dx=x-hof.mitte[0], dz=z-hof.mitte[1];
+  const u=dx*hof.achse[0]+dz*hof.achse[1];
+  const v=-dx*hof.achse[1]+dz*hof.achse[0]-hof.halb[1];
+  return Math.abs(u)<1.15 && v>-.25 && v<3.2;
+}
+
 /** Kleine Scan-Gruppen am seitlichen Hofrand; gleicher Gebäudeseed, freie Wege und Grundrisse. */
 export function hofRandProps(hof: Hof | null, hoehe: (x: number, z: number) => number,
   gesperrt: (x: number, z: number) => boolean): PropInstanz[] {
