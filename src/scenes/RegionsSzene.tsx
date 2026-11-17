@@ -62,7 +62,7 @@ import { richteHofPropEin } from '../world/hofmaterial.js';
 import { waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_GRUEN_AN } from '../world/echt.js';
+import { HOF_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -797,7 +797,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
-type FernGruppe = { art: PropArt; variante: number; instanzen: PropInstanz[]; zelle?: string };
+type FernGruppe = { art: PropArt; variante: number; instanzen: PropInstanz[]; zelle?: string; hofStrauch?: boolean; hofSchatten?: boolean };
 
 /** EZ-Test: Fernbaeume raeumlich gruppieren, damit Frustum-Culling sie nicht alle zeichnet. */
 function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
@@ -874,9 +874,9 @@ function Props({ props, hofBaum = false, wind, grasWind, farnWind, grasScanWind,
       const gruppen = buendleFernProps(buendel);
       if (!ezZellen) setFern(gruppen);
       else setFern(alt => {
-        const vorher = new Map(alt.map(g => [`${g.art}:${g.variante}:${g.zelle ?? ''}`, g]));
+        const vorher = new Map(alt.map(g => [`${g.art}:${g.variante}:${g.zelle ?? ''}:${!!g.hofStrauch}:${!!g.hofSchatten}`, g]));
         return zellteileFern(gruppen).map(g => {
-          const v = vorher.get(`${g.art}:${g.variante}:${g.zelle ?? ''}`);
+          const v = vorher.get(`${g.art}:${g.variante}:${g.zelle ?? ''}:${!!g.hofStrauch}:${!!g.hofSchatten}`);
           return v && v.instanzen.length === g.instanzen.length && v.instanzen.every((p, i) => p === g.instanzen[i]) ? v : g;
         });
       });
@@ -892,9 +892,9 @@ function Props({ props, hofBaum = false, wind, grasWind, farnWind, grasScanWind,
         <Suspense key={id} fallback={null}>
           <PropChunkMesh chunk={c} stufe={stufe} hofBaum={hofBaum} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
         </Suspense>)}
-      {fern.map(({ art, variante, instanzen, zelle }) =>
-        <Suspense key={`${art}:${variante}:${zelle ?? ''}`} fallback={null}>
-          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} instanzen={instanzen} baumWind={art === 'nadelbaum' ? baumWindNadel : baumWind} zellCulling={zelle !== undefined} />
+      {fern.map(({ art, variante, instanzen, zelle, hofStrauch, hofSchatten }) =>
+        <Suspense key={`${art}:${variante}:${zelle ?? ''}:${hofStrauch ? 'hof' : ''}:${hofSchatten ? 'schatten' : ''}`} fallback={null}>
+          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} hofStrauch={hofStrauch} hofSchatten={hofSchatten} instanzen={instanzen} baumWind={art === 'nadelbaum' ? baumWindNadel : baumWind} zellCulling={zelle !== undefined} />
         </Suspense>)}
     </>
   );
@@ -933,12 +933,13 @@ function Props({ props, hofBaum = false, wind, grasWind, farnWind, grasScanWind,
  * `InstancedMesh` neu auf, und das ist genau der Fall, den `PropChunkMesh` im
  * Kommentar als teuer beschreibt.
  */
-function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum = false }: { art: PropArt; variante: number; instanzen: PropInstanz[]; baumWind: THREE.MeshStandardMaterial; zellCulling: boolean; hofBaum?: boolean }) {
+function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum = false, hofStrauch = false, hofSchatten = false }: { art: PropArt; variante: number; instanzen: PropInstanz[]; baumWind: THREE.MeshStandardMaterial; zellCulling: boolean; hofBaum?: boolean; hofStrauch?: boolean; hofSchatten?: boolean }) {
   // Dieselbe Baumvariante in allen Stufen; die Fernstufe reduziert nur Dreiecke.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   const blender = eigen ? blenderBaum(eigen, variante, 'fern') : null;
   const { scene } = useGLTF(propPfad(blender ? blender.datei : VARIANTEN.busch[0].datei));
   const geo = useMemo(() => {
+    if (hofStrauch) return hofStrauchGeometrie(variante, VARIANTEN.busch[variante]?.hoehe ?? 1.2);
     if (!blender) return attrappeGeometrie(art);
     let g: THREE.BufferGeometry | null = null;
     scene.updateMatrixWorld(true);
@@ -951,15 +952,16 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum
       if (gewicht) geometrie.setAttribute('aWind', gewicht);
     }
     return (g ?? attrappeGeometrie(art)) as THREE.BufferGeometry;
-  }, [art, blender, scene]);
+  }, [art, blender, scene, hofStrauch, variante]);
+  const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
   const ref = useRef<THREE.InstancedMesh>(null);
   const [kapazitaet, setKapazitaet] = useState(() => Math.ceil(instanzen.length * 1.4) + 64);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
     ref.current = mesh;
     if (mesh && !mesh.instanceColor) mesh.count = 0; // Vor dem ersten Befuellen keine Identitaetsmatrizen zeichnen.
-    if (mesh) mesh.userData.hofGruen = hofBaum;
+    if (mesh) { mesh.userData.hofGruen = hofBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = variante; }
     if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
-  }, [blender, hofBaum]);
+  }, [blender, hofBaum, hofStrauch, variante]);
 
   useEffect(() => {
     if (instanzen.length > kapazitaet) {
@@ -983,17 +985,18 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum
     m.count = instanzen.length;
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
-    if (zellCulling) m.computeBoundingSphere();
-  }, [instanzen, kapazitaet, zellCulling, hofBaum]);
+    if (zellCulling || hofStrauch) m.computeBoundingSphere();
+  }, [instanzen, kapazitaet, zellCulling, hofBaum, hofStrauch]);
 
   return (
     <instancedMesh
       ref={setzeMesh} args={[undefined, undefined, kapazitaet]}
-      name={blender ? `baum:${art}:${variante}:fern` : `prop:${art}:fern`}
-      geometry={geo} material={blender ? baumWind : FERN_MATERIAL}
+      name={blender ? `baum:${art}:${variante}:fern` : `prop:${art}:fern${hofStrauch ? `:hof:${variante}` : ''}`}
+      geometry={geo} material={blender ? baumWind : strauchMaterial ?? FERN_MATERIAL}
+      receiveShadow={hofStrauch && hofSchatten}
       // Der Bündel umspannt den ganzen Sichtring; ein Frustum-Test daran wäre
       // immer wahr und damit verlorene Zeit.
-      frustumCulled={zellCulling}
+      frustumCulled={zellCulling || hofStrauch}
     />
   );
 }
@@ -1122,6 +1125,7 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind
   const fern = stufe === 'fern';
   const { geo, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
   const hofStrauch = HOF_GRUEN_AN && chunk.art === 'busch' && istHofBusch(chunk.mitte, chunk.radius);
+  const strauchBleibt = HOF_STRAUCH_WEIT && hofStrauch;
   const strauchGeo = useMemo(() => hofStrauch ? hofStrauchGeometrie(chunk.variante, VARIANTEN.busch[chunk.variante]?.hoehe ?? 1.2) : null, [hofStrauch, chunk.variante]);
   const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
   const fernGeo = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
@@ -1136,9 +1140,9 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
     ref.current = mesh;
     if (mesh && !mesh.instanceColor) mesh.count = 0; // Bereits befuellte Meshes beim erneuten Anhaengen erhalten.
-    if (mesh) mesh.userData.hofGruen = hofBaum;
+    if (mesh) { mesh.userData.hofGruen = hofBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = chunk.variante; }
     if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
-  }, [blender, hofBaum]);
+  }, [blender, hofBaum, hofStrauch, chunk.variante]);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -1180,12 +1184,12 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind
     <instancedMesh
       ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
-      geometry={fern && !blender ? fernGeo : strauchGeo ?? geo}
-      material={blender ? baumWind : strauchMaterial && !fern ? strauchMaterial : buschWind && chunk.art === 'busch' && !fern ? buschWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
+      geometry={strauchBleibt ? strauchGeo! : fern && !blender ? fernGeo : strauchGeo ?? geo}
+      material={blender ? baumWind : strauchMaterial && (!fern || strauchBleibt) ? strauchMaterial : buschWind && chunk.art === 'busch' && !fern ? buschWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
         : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
         : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
-      castShadow={grossesTeil && !fern} receiveShadow={!fern && (grossesTeil || (HOF_AN && HOF_UNIFORM.bereit.value > 0 && Math.hypot(chunk.mitte[0] - HOF_UNIFORM.mitte.value.x, chunk.mitte[1] - HOF_UNIFORM.mitte.value.y) < 60))}
+      castShadow={grossesTeil && !fern} receiveShadow={(!fern || strauchBleibt) && (grossesTeil || (HOF_AN && HOF_UNIFORM.bereit.value > 0 && Math.hypot(chunk.mitte[0] - HOF_UNIFORM.mitte.value.x, chunk.mitte[1] - HOF_UNIFORM.mitte.value.y) < 60))}
     />
   );
 }

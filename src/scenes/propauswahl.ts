@@ -25,7 +25,8 @@
  * Rendering wäre das ein Baum, der für ein paar Schritte weg ist, und darauf
  * fällt niemand rechtzeitig herein.
  */
-import { HOF_GRUEN_AN } from '../world/echt.js';
+import { HOF_GRUEN_AN, HOF_STRAUCH_WEIT } from '../world/echt.js';
+import { HOF_UNIFORM } from '../world/hofplatz.js';
 import { istHofBusch } from '../world/hofgruenwahl.js';
 import type { PropArt, PropChunk, PropInstanz } from '../world/props.js';
 import { ATTRAPPE_AB, MITTEL_AB, FERN_NEUBEWERTUNG, PROP_NEUBEWERTUNG, TERRAIN_SICHT } from './sichtweiten.js';
@@ -269,19 +270,31 @@ function legeMittelZusammen(
   return heraus;
 }
 
-/** Fernbaeume nach Variante buendeln: wenige Aufrufe, ohne beim LOD-Wechsel die Form zu tauschen. */
+/** Lokale Hofsträucher behalten neben den Baumvarianten auch ihre bisherige Schattenklasse. */
 export function buendleFernProps(chunks: ReadonlyMap<PropArt, PropChunk[]>): {
-  art: PropArt; variante: number; instanzen: PropInstanz[];
+  art: PropArt; variante: number; instanzen: PropInstanz[]; hofStrauch?: boolean; hofSchatten?: boolean;
 }[] {
-  const gruppen = new Map<string, { art: PropArt; variante: number; instanzen: PropInstanz[] }>();
+  const gruppen = new Map<string, {
+    art: PropArt; variante: number; instanzen: PropInstanz[]; hofStrauch?: boolean; hofSchatten?: boolean;
+  }>();
   for (const [art, teile] of chunks) {
     const baum = art === 'nadelbaum' || art === 'laubbaum';
-    for (const c of teile) for (const p of c.instanzen) {
-      const variante = baum ? p.variante : 0;
-      const id = `${art}:${variante}`;
-      let gruppe = gruppen.get(id);
-      if (!gruppe) { gruppe = { art, variante, instanzen: [] }; gruppen.set(id, gruppe); }
-      gruppe.instanzen.push(p);
+    for (const c of teile) {
+      const hofStrauch = HOF_STRAUCH_WEIT && art === 'busch' && istHofBusch(c.mitte, c.radius);
+      const hofSchatten = hofStrauch && HOF_UNIFORM.bereit.value > 0
+        && Math.hypot(c.mitte[0] - HOF_UNIFORM.mitte.value.x, c.mitte[1] - HOF_UNIFORM.mitte.value.y) < 60;
+      for (const p of c.instanzen) {
+        const variante = baum || hofStrauch ? p.variante : 0;
+        const id = `${art}:${variante}${hofStrauch ? `:hof:${hofSchatten ? 1 : 0}` : ''}`;
+        let gruppe = gruppen.get(id);
+        if (!gruppe) {
+          gruppe = { art, variante, instanzen: [] };
+          if (hofStrauch) gruppe.hofStrauch = true;
+          if (hofSchatten) gruppe.hofSchatten = true;
+          gruppen.set(id, gruppe);
+        }
+        gruppe.instanzen.push(p);
+      }
     }
   }
   return [...gruppen.values()];

@@ -88,7 +88,7 @@ owns: *.ts, *.tsx
 | `ui/Kampfbuehne.tsx` | Kreaturen im Kampfbild — eine kleine Leinwand für beide Seiten, Leerlaufatmung und Trefferzucken |
 | `world/hausmaterial.ts` | Hausmaterial mit **Fensterglut** (D134); D295: Glasreflexion vor `lights_fragment_end` verstärkt, damit `RE_IndirectSpecular` den Wert tatsächlich liest. ein `glut`-Attribut je Ecke aus `terrain.ts`, eine Zeile Emissiv im Shader, `userData.glut.value` je Stimmung — nachts brennen Fenster ohne zweiten Draw Call. Gärten (`baender.ts`) tragen Glut 0, sonst scheitert das Fassen mit den Häusern |
 | `world/hofgruenwahl.ts` | D299: ortsfeste, referenzerhaltende Baumaufteilung vor dem Chunking und Grobfilter für Strauch-Kacheln. |
-| `world/hofstrauch.ts` | D299: sechs geteilte, deterministische Mehrstammformen mit Blattbüschelkarten und Wind statt Knollenkörpern; `?hofgruen=1`. |
+| `world/hofstrauch.ts` | D299/D302: sechs geteilte, deterministische Mehrstammformen mit Blattbüschelkarten und Wind; unter hofgruen dieselbe760Dreieck-Quellform auch fern, Gegenprobe strauchweit=0. |
 | `world/hofplatz.ts` | D298: aus dem realen Grundriss abgeleitete Hofmaske, CPU/GLSL und geteilte Uniforms; Messprobe `?scanhof=1`. |
 | `world/hofmaterial.ts` | D298: originale sRGB-Scanfarben, Normalen, Rauheit/AO und Kies am Hof; gemeinsame Texturen nur bei aktivierter Probe. |
 | `world/hausfront.ts` | D297: `?echt=1&hausfront=1`, Materialpass für Kalkputz, verwitterte Bretter, Dach und Fenster; eine zuschaltbare Gesamtprobe. |

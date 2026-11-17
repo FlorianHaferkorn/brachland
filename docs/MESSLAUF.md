@@ -816,6 +816,8 @@ Die geskriptete96-Bilder-Kronenfahrt und der normale12s-Hoflauf bleiben getrennt
 
 ## Restflimmern D301
 
+Seit D302 für historische D301-/D300-/D299-Gegenläufe zusätzlich `strauchweit=0` setzen.
+
 `hofgruen=1&blattruhe=1&blattverlauf=0` stellt D300 wieder her. `blattverlauf=1` nutzt die D301-Probe: AO-Flächen aus verträglichen Tiefennachbarn, vollständige Herausnahme unzuverlässiger Bildschirm-AO an Feinstruktur, matte EZ-Blätter einschließlich Fresnel-Anteil und ein tiefenkantengeführter TAA-Vorfilter. `blattruhe=0` bleibt D299; ohne Hofprobe gilt der bisherige Spielpfad.
 
 Der Vorfilter integriert die vorhandenen neun Farbproben mit Gewichten4/2/1 in der Karis-Stauchung. Die Kantenmaske verwendet sechs relative zweite Tiefendifferenzen im3×3Umfeld statt einer sprunghaften Mittelpunktklassifizierung. Das ist keine sichere Laubsegmentierung: Auch Silhouetten anderer Objekte können reagieren. Geschichte, Reprojektion, TAA-Mischgewicht, Licht, Wind, LOD-Abstände und Texturen bleiben unverändert. Die räumliche Integration beruhigt Kanten auf Kosten sichtbar weicherer Feinstruktur; deshalb nicht nur den Schwankungswert beurteilen, sondern Blätter, Zweige, Gras, Materialdetails und mögliche Farbsäume in Bewegung vergleichen.
@@ -834,3 +836,22 @@ node tools/mess/blattgalerie.mjs neuer_d301_vergleich .cache/mess/neue_d301_vor 
 Die GPU-Proben führen echte Produktionsfunktionen aus: AO auf Float-Tiefentexturen (auch kleine nahe Flächen), Kantenmaske auf Tiefenfeldern und der originale Three-Phong-Hook bei schwarzer Diffus-/Glanzfarbe unter Streiflicht. Phong zeigt dort trotz schwarzer Glanzfarbe ein helles Fresnel-Signal; der matte Shader muss schwarz bleiben. Keine Code-Textvergleiche als Ersatz für Zeichentests.
 
 D301 verlängert die statische Blattprobe auf48Bilder nach96Aufwärmbildern: drei vollständige16erAO-Musterzyklen statt der älteren24Bilder. Vergleiche nur neue Reihen mit gleicher Bildanzahl; alte D300-Werte nicht direkt dagegen rechnen. Das Spiel-Bundle wird in den neueren Berichten unter `programme` mitgeführt. Diagnosen `ao=0`, `schatten=0` und der rein im Messbrowser wirkende Zusatz `messglanz=0` bleiben Untersuchungen, keine veröffentlichte Qualitätsstufe.
+
+
+## Strauch-Fernwechsel D302
+
+`hofgruen=1&strauchweit=0` ist D301, `strauchweit=1` behält die lokalen Hof-Strauchformen auch fern. Der Strauch hat bereits760Dreiecke; statt einer neuen Reduktionsform wird die vorhandene Geometrie und das Material aus dem Cache über beide Verwaltungen geteilt. Varianten und Schattenempfang werden im Fernbündel getrennt, Transformationen und Farben bleiben aus denselben Instanzen. Keine neue Textur oder globale Busch-Übernahme: die Auswahl bleibt der D299-Schnitt von Chunk-Hüllkreis und100mHofkreis, kein exakter100mInstanzschnitt.
+
+```bash
+node tools/mess/strauchlauf.mjs neue_strauch_vor 0
+node tools/mess/strauchlauf.mjs neue_strauch_nach 1
+node tools/mess/strauchlauf.mjs neue_strauch_detail_vor 0 freigestellt
+node tools/mess/strauchlauf.mjs neue_strauch_detail_nach 1 freigestellt
+node tools/mess/strauchgalerie.mjs neuer_strauchvergleich .cache/mess/neue_strauch_detail_vor .cache/mess/neue_strauch_detail_nach .cache/mess/normalspiel
+```
+
+Die Probe verfolgt denselben vorhandenen Strauch1437,6501/424,8656 in120Einzelbildern mit gleicher Windphase: erhöhte10Grad-Telekamera, XZ-Abstand235→100→235m, Höhe99m, Blickziel35,5m. Das XZ-Verwaltungslimit und der tatsächliche Abstand zum Strauch sind wegen der70mChunks und des60mFernankers verschieden. Deshalb echte Verwaltungsstufen aus den Mesheinträgen erfassen, nicht allein eine vermeintliche110/176mSchwelle behaupten. JSON speichert auch Geometrie-/Materialidentität und die Kombination aus Matrix, Farbe, Schattenempfang. NeueProbe fordert durchgängig ein Ziel, eine Geometrie, ein Material, identische Eigenschaften sowie mindestens Mittel- und Fernverwaltung.
+
+Im normalen Fernblick wird der kleine Strauch häufig von Gebäuden und Kronen verdeckt. `freigestellt` blendet nur im Messbrowser große Prop-Bäume einschließlich ihrer Schatten aus; das muss die Galerie ausdrücklich nennen und ist keine Gesamtbild-Abnahme. Normaler Spielclip separat ohne diese Freistellung. Galerie: synchrones10sVideo bei halber Geschwindigkeit,4facherDetailausschnitt mit nächster Nachbarschaft, zusätzliche normale12,7sSpielaufnahme. Die Bildtafel wählt die nächste noch gemeinsame Fernprobe und die engste Annäherung, nicht beliebige Framezahlen. Neue Dateinamen erhalten; keine alten Ausgaben überschreiben.
+
+Kosten mit `vergleich.mjs` ohne Screenshots/Video/Szenensonden im12sZeitfenster, vollständige Szene und gleiche erhöhte Fernkamera10Grad, Reihenfolge0/1/1/0. Keine FPS-Aussage aus dem schrittweise aufgenommenen Tele-Video: dort bremsen die Bildschirmfotos die Anzeige. Auch eine ruhige Form belegt keine allgemeine Blattflimmerfreiheit; D301 bleibt unverändert.

@@ -18,6 +18,8 @@ const an = (name: string) => suche.get(name) === '1';
 export const MALEREI = an('malerei');
 /** D299: Vegetationsprobe am Scan-Hof; eigener, zurückschaltbarer Vergleich. */
 export const HOF_GRUEN_AN = an('hofgruen');
+/** D302: dieselbe sparsame Strauchform auch in der Fernverwaltung; Rückfall `strauchweit=0`. */
+export const HOF_STRAUCH_WEIT = HOF_GRUEN_AN && suche.get('strauchweit') !== '0';
 /** D300: abgestufte Blattkanten im MSAA-Ziel; `blattruhe=0` erhält den D299-Gegenlauf. */
 export const BLATTRUHE_AN = HOF_GRUEN_AN && suche.get('blattruhe') !== '0';
 /** D301: kontinuierliche AO-Flächen statt Normalen über Blatt-/Himmel-Tiefensprünge. */

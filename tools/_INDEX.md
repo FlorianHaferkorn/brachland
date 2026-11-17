@@ -105,6 +105,8 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `mess/taamaske.mjs` | D301: GPU-Test des exportierten TAA-Tiefenmasken-GLSL-Helfers; konstante/geneigte Fläche, Nahpixel, Einzelkante, Übergang und Nulltiefe. `node tools/mess/taamaske.mjs`, kein Spielstart. |
 | `mess/blattglanz.mjs` | D301: echter Three-Phong-GPU-Test des Produktionshooks bei schwarzer Diffus-/Glanzfarbe; Gegenprobe muss Fresnel-Glanz zeigen, matte Variante vollständig schwarz bleiben. `node tools/mess/blattglanz.mjs`, kein Spielstart. |
 | `mess/blattgalerie.mjs` | D300/D301: A/B-Galerie mit synchronen Blatt-/Laufvideos und optionaler Kronenfahrt, Vergleichstafel und Messgrenzen; vier/sechs abgeschlossene Eingabeordner, 24/48Detailbilder, --staende=D300,D301, neue Ausgaben. |
+| `mess/strauchlauf.mjs` | D302: 120 Bilder aus dem echten Spielrenderer beim Strauchwechsel zwischen Chunk und Fernbündel; identische Kamera-/Windfolge, erhöhte 10°-Telekamera für die Fernprüfung, neue Ausgabeordner, kein FPS-Lauf. |
+| `mess/strauchgalerie.mjs` | D302: synchroner D301-/D302-Strauchvergleich aus zwei 120er-Bildfolgen, Prüfwerttabelle und PNG-Tafel; optional normaler Spiellauf, relative Medien und ausschließlich neue Ausgabeordner. |
 | `mess/hofgalerie.mjs` | D298/D299: Vorher-/Nachher-Galerie mit Regler, eingebettetem Video und PNG-Tafel; optionales JSON-Rezept als zweites Argument, neue Ausgabeordner. |
 | `mess/hofladen.mjs` | D298: kalter Browserlauf ohne Service Worker, unmittelbare Assetbytes und lokale Ladezeit; neue Messnamen, keine historischen Berichte überschreiben. |
 | `mess/sonde.mjs` | InstancedMesh-Sonde über `window.__szene`: Instanzzahl, Geometrie, Material und Attribute als JSON. |
