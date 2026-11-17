@@ -8,10 +8,16 @@
  * stehen in `assets/HERKUNFT.md` und `tools/eztexturen.mjs`.
  */
 import * as THREE from 'three';
+import { HOF_GRUEN_AN } from './echt.js';
+import { ladeRgba, leereKarte, setzeAlphaMips } from './alphamips.js';
 
 type KartenArt = 'ao' | 'color' | 'normal' | 'roughness';
 const lader = new THREE.TextureLoader();
 const karten = new Map<string, THREE.Texture>();
+const blattLaden: Promise<void>[] = [];
+
+/** Originalbäume erst ersetzen, wenn auch die transparenten Blattbilder bereitstehen. */
+export async function warteEzBlattkarten(): Promise<void> { await Promise.all(blattLaden); }
 
 function neutral(normal: boolean): THREE.DataTexture {
   const t = new THREE.DataTexture(new Uint8Array(normal ? [128, 128, 255, 255] : [255, 255, 255, 255]), 1, 1, THREE.RGBAFormat);
@@ -38,7 +44,17 @@ export function getLeafTexture(art: string): THREE.Texture {
   const schluessel = art === 'pine' ? 'nadel' : 'laub';
   let textur = karten.get(schluessel);
   if (!textur) {
-    textur = lader.load(`/material/ez-${schluessel}-cc0-v5.webp`);
+    const pfad = `/material/ez-${schluessel}-cc0-v5.webp`;
+    if (HOF_GRUEN_AN) {
+      const t = leereKarte();
+      textur = t;
+      blattLaden.push(ladeRgba(pfad).then(b => {
+        setzeAlphaMips(t, b.data, b.b, b.h, { schwelle: schluessel === 'nadel' ? 0.3 : 0.5, spiegelY: true, stufen: 6 });
+        t.colorSpace = THREE.SRGBColorSpace;
+        t.flipY = false;
+        t.anisotropy = 4;
+      }));
+    } else textur = lader.load(pfad);
     textur.colorSpace = THREE.SRGBColorSpace;
     karten.set(schluessel, textur);
   }

@@ -1,0 +1,30 @@
+{
+  "titel": "BRACHLAND – Hofvegetation",
+  "probeTitel": "Vegetationsprobe",
+  "beschreibung": "Vergleich des D298-Scan-Hofs mit verzweigten Baumkronen und mehrstämmigen Sträuchern. Identische Kameras und Lichtwerte je Bildpaar; Wind und Figuren laufen unabhängig.",
+  "paare": [
+    {
+      "titel": "Hof · gleiches Prüflicht",
+      "vor": ".cache/mess/d299-kosten-1/start.png",
+      "nach": ".cache/mess/d299-kosten-2/start.png"
+    },
+    {
+      "titel": "Straße · ursprüngliches Szenenlicht",
+      "vor": ".cache/bilder/d299-strasse-final-0.png",
+      "nach": ".cache/bilder/d299-strasse-final-1.png"
+    },
+    {
+      "titel": "Nacht · gleiche Lichtwerte",
+      "vor": ".cache/bilder/d299-nacht-final-0.png",
+      "nach": ".cache/bilder/d299-nacht-final-1.png"
+    }
+  ],
+  "messungen": [
+    ".cache/mess/d299-kosten-1/bericht.json",
+    ".cache/mess/d299-kosten-2/bericht.json",
+    ".cache/mess/d299-kosten-3/bericht.json",
+    ".cache/mess/d299-kosten-4/bericht.json"
+  ],
+  "videoPfad": ".cache/mess/d299-hof-bewegung",
+  "spielUrl": "http://127.0.0.1:4173/?absetzen=1444,419,150&zeit=0.26&stimmung=zielbild&hofgruen=1&umgebung=6&sonne=0.8&umlichtstaerke=1.2&schatten=0.4"
+}

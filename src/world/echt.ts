@@ -16,7 +16,9 @@ const an = (name: string) => suche.get(name) === '1';
  * Einzeln: `?echt=1&pinsel=1` (nur B), `?echt=1&kuwahara=1` (nur C), oder `?malerei=1&pinsel=0`.
  */
 export const MALEREI = an('malerei');
-export const HOF_AN = an('scanhof');
+/** D299: Vegetationsprobe am Scan-Hof; eigener, zurückschaltbarer Vergleich. */
+export const HOF_GRUEN_AN = an('hofgruen');
+export const HOF_AN = an('scanhof') || HOF_GRUEN_AN;
 export const ECHT = an('echt') || MALEREI || HOF_AN;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */
 const teil = (name: string) => (suche.get(name) === '0' ? false : ECHT || an(name));

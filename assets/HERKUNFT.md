@@ -5,6 +5,11 @@ owns: []
 
 # Herkunft der Fremdmodelle
 
+D299: Die Hofvegetation nutzt den bereits eingebundenen MIT-Generator EZ-Tree mit den hier
+nachgewiesenen CC0-Ersatzkarten. Neue Mehrstamm-Sträucher werden in `src/world/hofstrauch.ts`
+aus dem Seed erzeugt und verwenden den vorhandenen CC0-Atlas `laub-bueschel.webp`.
+Keine neuen Fremdmodelle oder Texturdateien; keine Bibliotheks-Bilder ungeklärter Herkunft.
+
 ## Vergleichsmodell D250
 
 `public/vergleich/triposr-fels-d250.glb` wurde mit dem MIT-lizenzierten

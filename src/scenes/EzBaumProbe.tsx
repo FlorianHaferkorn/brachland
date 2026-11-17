@@ -7,6 +7,8 @@ import { blenderBaum } from '../world/props.js';
 import { EZ_BLEND_DAUER, EZ_STUFEN, ezIntervall, ezWechsel } from './ezlod.js';
 import type { EzIntervall, EzVerlauf } from './ezlod.js';
 import { ergaenzeEzLaublicht } from '../world/ezlaubmaterial.js';
+import { getLeafTexture, warteEzBlattkarten } from '../world/eztexturen.js';
+import { HOF_GRUEN_AN } from '../world/echt.js';
 
 type Stufe = 'nah' | 'mittel' | 'fern';
 type BaumArt = 'nadelbaum' | 'laubbaum';
@@ -46,7 +48,9 @@ function baumHistorie(e: Historie): Historie {
 // EZ-Vorbereitung muessen ihre Refs bereits beim Anhaengen unsichtbar sein, damit
 // sie nicht neben einem noch vorhandenen Ersatz beobachtet oder gezeichnet werden.
 let ezBereit = false;
-export function istEzProbeBereit(): boolean { return ezBereit; }
+let ezNurHof = false;
+/** Lokale EZ-Proben dürfen die übrigen Originalgruppen beim Montieren nicht ausblenden. */
+export function istEzProbeBereit(hofBaum = false): boolean { return ezBereit && (!ezNurHof || hofBaum); }
 
 // Die zwei Farb-/Tiefenpasses erhalten exakt dieselbe Verschiebung. Der eigene
 // EZ-Shader ersetzt project_vertex und unterstuetzt keine Instanzmatrix.
@@ -144,7 +148,7 @@ function stammStufe(quelle: THREE.BufferGeometry, anteil: number, vereinfacher: 
   return kopie;
 }
 
-export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | null> }) {
+export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Object3D | null>; lokal?: boolean }) {
   const { scene, camera } = useThree();
   const saetze = useRef<Map<string, BaumSatz> | null>(null);
   const paare = useRef(new Map<THREE.InstancedMesh, Ersatz>());
@@ -161,7 +165,10 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
   const blickmatrix = useMemo(() => new THREE.Matrix4(), []);
   const kameraWelt = useMemo(() => new THREE.Vector3(), []);
   const baumKugel = useMemo(() => new THREE.Sphere(new THREE.Vector3(), BAUM_SICHTRADIUS), []);
-  const aktiv = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1';
+  const globalAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1';
+  const hofAn = lokal ?? HOF_GRUEN_AN;
+  const nurHof = hofAn && !globalAn;
+  const aktiv = globalAn || hofAn;
   const diagnose = useMemo<Diagnose | null>(() => typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezdiagnose') === '1'
     ? { ereignisse: [], naechster: 0, gesamt: 0 } : null, []);
   const diagnoseBild = useRef(0);
@@ -176,6 +183,11 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
     void Promise.all([import('@dgreenheck/ez-tree'), import('meshoptimizer/simplifier')]).then(async ([ez, meshopt]) => {
       await meshopt.MeshoptSimplifier.ready;
       if (beendet) return;
+      if (HOF_GRUEN_AN) {
+        getLeafTexture('oak'); getLeafTexture('pine');
+        await warteEzBlattkarten();
+        if (beendet) return;
+      }
       const alle = new Map<string, BaumSatz>();
       for (const art of ['nadelbaum', 'laubbaum'] as const) for (let variante = 0; variante < 4; variante++) {
         const baum = new ez.Tree();
@@ -200,11 +212,12 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
         const fern = { stamm: stammStufe(nah.stamm, 0.025, meshopt.MeshoptSimplifier), laub: laubStufe(nah.laub, 0.05) };
         alle.set(`${art}:${variante}`, { baum, hoehe: box.max.y - box.min.y, tiefe, stammTiefe, stufen: { nah, mittel, fern } });
       }
-      if (!beendet) { saetze.current = alle; ezBereit = true; }
+      if (!beendet) { saetze.current = alle; ezNurHof = nurHof; ezBereit = true; }
     }).catch(fehler => console.error('EZ-Baumprobe:', fehler));
     return () => {
       beendet = true;
       ezBereit = false;
+      ezNurHof = false;
       if (scene.userData.ezKamera === camera) delete scene.userData.ezKamera;
       if (diagnose && scene.userData.ezDiagnose === diagnose) delete scene.userData.ezDiagnose;
       diagnoseEntfernt.current.clear();
@@ -223,7 +236,7 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
       }
       saetze.current = null;
     };
-  }, [aktiv, camera, diagnose, scene, windZeit]);
+  }, [aktiv, nurHof, camera, diagnose, scene, windZeit]);
 
   useFrame((_, dt) => {
     if (!aktiv || !saetze.current || !ziel.current) return;
@@ -236,6 +249,7 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
     const kandidaten: { original: THREE.InstancedMesh; art: BaumArt; variante: number; stufe: Stufe; satz: BaumSatz }[] = [];
     scene.traverse(o => {
       if (!(o instanceof THREE.InstancedMesh) || !o.name.startsWith('baum:') || !o.count || !o.instanceColor) return;
+      if (nurHof && o.userData.hofGruen !== true) return;
       const [, rohArt, rohVariante, rohStufe] = o.name.split(':');
       if ((rohArt !== 'nadelbaum' && rohArt !== 'laubbaum') ||
           (rohStufe !== 'nah' && rohStufe !== 'mittel' && rohStufe !== 'fern')) return;

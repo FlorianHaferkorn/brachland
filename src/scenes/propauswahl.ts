@@ -25,6 +25,8 @@
  * Rendering wäre das ein Baum, der für ein paar Schritte weg ist, und darauf
  * fällt niemand rechtzeitig herein.
  */
+import { HOF_GRUEN_AN } from '../world/echt.js';
+import { istHofBusch } from '../world/hofgruenwahl.js';
 import type { PropArt, PropChunk, PropInstanz } from '../world/props.js';
 import { ATTRAPPE_AB, MITTEL_AB, FERN_NEUBEWERTUNG, PROP_NEUBEWERTUNG, TERRAIN_SICHT } from './sichtweiten.js';
 
@@ -249,7 +251,7 @@ function legeMittelZusammen(
   const zusammen = new Map<string, PropChunk>();
   for (const e of eintraege) {
     // Baumvarianten behalten dieselbe Silhouette auf jeder Stufe (D157).
-    if (e.stufe !== 'mittel' || FORM_BEHALTEN.has(e.c.art)) { heraus.push(e); continue; }
+    if (e.stufe !== 'mittel' || FORM_BEHALTEN.has(e.c.art) || (HOF_GRUEN_AN && e.c.art === 'busch' && istHofBusch(e.c.mitte, e.c.radius))) { heraus.push(e); continue; }
     const c = e.c;
     const schluessel = `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
     const da = zusammen.get(schluessel);

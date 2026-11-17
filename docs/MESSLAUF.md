@@ -747,3 +747,23 @@ Feste Vergleichskamera: `absetzen=1441,418,0`, `kamera=1440,36.8,421,1433,37.8,4
 `node tools/mess/hofladen.mjs <neuer-name> <0|1>` misst einen neuen Browserkontext ohne Service Worker: unmittelbare HTTP-Dateibytes, neue Hofkarten, Beobachtungsdauer bis Lade-HUD plus15sNachladefenster und Netzruhe. Das trennt den unmittelbar benötigten Datenumfang vom grösseren Offline-Precache. Lokaler HTTP-Server, keine Aussage über Internetbandbreite oder M1/Safari-Abnahme.
 
 Die direkte Hof-Bewegung verwendet `absetzen=1444,419,150`: Blick0° bedeutet −Z und führt vom Hof weg. Galerie/Spiel-Link starten deshalb nach150°. Endstandberichte: `.cache/mess/d298-ende-{1,2,3,4}`, Ladeberichte `.cache/mess/d298-hofdaten-{0,1}`, Laufvideo `.cache/mess/d298-hof-bewegung`. Aus diesen Dateien baut `node tools/mess/hofgalerie.mjs <neuer-ordnername>` eine eigenständige HTML-Galerie mit eingebettetem Video und eine PNG-Tafel; bestehende Ordner werden nicht überschrieben.
+
+## Hofvegetation D299
+
+`scanhof=1&hofgruen=0` ist der D298-Gegenlauf, `hofgruen=1` die lokale Vegetationsprobe. Dieselben Hof-/Strassenkameras wie D298 verwenden. Die neue Probe trennt Bauminstanzen vor dem Chunking; ein einfaches Filtern im EZ-Renderer würde Aussengruppen mitverbergen und ist ausdrücklich ausgeschlossen. `ezbaum=1` bleibt der globale Gegenversuch.
+
+```bash
+node tools/mess/hofgruen.mjs neuer_hof_audit 1
+node tools/mess/hofladen.mjs neuer_hof_datenlauf 1 hofgruen
+```
+
+Der Audit prüft nicht nur sichtbare EZ-Meshes, sondern lokale Originale, unveränderte Aussengruppen, fertige Deckungs-Mips und gemeinsame Farb-/Tiefenkarten. Kosten separat in der Folge0/1/1/0 mit `vergleich.mjs`, keine Video-/Szenensonden währenddessen. Blattkarten/Geometrien gehören zu vorhandenen Quellen; neue Strauchformen werden deterministisch erzeugt. Für Bewegung `1444,419,150`,12s mit Schwenk und `ezdiagnose=1` verwenden. Eine bestandene Verwaltungssonde belegt keine flimmerfreien Kartenränder.
+
+Schnelle Mehrfachwechsel im lokalen Modus lassen sich mit dem optionalen URL-Parameter reproduzieren:
+
+```bash
+node tools/mess/ezdreifach.mjs neuer_hof_dreifach 'absetzen=1444,419,150&ezbaum=0&hofgruen=1'
+node tools/mess/hofgalerie.mjs neuer_hofvergleich tools/mess/hofgruen-vergleich.json
+```
+
+Die Galerie-Konfiguration verweist auf die abgeschlossenen D299-Berichte/Bilder. Für neue Reihen die Konfiguration auf neue Dateinamen umstellen. Das eingebettete Video beginnt automatisch beim letzten12,7s-Ausschnitt der Aufzeichnung; Ladephase und historische Originalvideos bleiben erhalten.
