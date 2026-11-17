@@ -956,3 +956,36 @@ D304-Straßenkamera960×540:24,11/26,54/28,51/25,61FPS,
 p95100,5/84,4/67,7/85,2ms. Mittel24,86→27,53FPS, lokal+10,7%.
 AlleMediane33,3ms; Systemlast und kleine Stichprobe begrenzen die Aussage.
 Dreiecke/Renderaufrufe jeweils7.644.993/656 einschließlich Renderpässen.
+
+## D306 — Hoflauben und Pflanzkästen
+
+Beide Varianten enthalten D305 (`hofgruen=1&hofhaeuser=1&hauskompakt=1`),
+nur `hoflauben=0/1` unterscheidet sie. Keine neue Beleuchtung und keine
+globale Balkonänderung. Das bisherige rote/grüne Quaderband wird an vorhandenen
+Hoflauben durch getrennte Kästen und körperliche Brüstungsbretter ersetzt.
+
+```bash
+node tools/mess/hauslauf.mjs <neuer-vorher-name> 0 fahrt lauben
+node tools/mess/hauslauf.mjs <neuer-nachher-name> 1 fahrt lauben
+node tools/mess/hausgalerie.mjs <neue-galerie> <vorher-name> <nachher-name> [spieltest.webm]
+```
+
+Gleiche216Bild-Kamerafolge und60Grad wie D304/D305. Drei normale Ansichten,
+keine Telekamera, keine freigestellten Bäume oder Nachbarhäuser. Die letzte
+Ansicht zeigt die Laube am unteren Hof. Vorherige Detail-Entwürfe bleiben
+als `d306-hof-stand1`(kantigeres Laub) und `d306-hof-stand2`(runde Endform)
+erhalten. Endaufnahme/Performance getrennt durchführen; die Anzahl zusätzlicher
+Dreiecke allein ist keine Aussage über den FPS-Mehrpreis.
+
+D306-Endstand: `.cache/mess/d306-hof-vor` / `d306-hof-nach`, Galerie
+`.cache/bilder/d306-hofvergleich-final/vergleich.html`, separater Spiellauf
+`d306-spieltest` ab1447/430/200 (12s,25Sonden/90Baumwechsel,0Fehler).
+Sieben vorhandene Lauben mit29getrennten Kästen; Haus320 bleibt ohne Balkon.
+Haus-/Gartendreiecke364.120→374.100, Puffer54.551.712→56.409.584Byte.
+
+Vier isolierte12s-Läufe0/1/1/0 (`d306-kosten-{1,2,3,4}`) unter derselben
+D304/D305-Straßenkamera960×540:30,88/31,41/28,84/31,00FPS,
+p9566,6/66,7/83,3/66,7ms. Mittel30,94→30,13FPS, lokal−2,6%;
+kleine Stichprobe und Systemlast, kein allgemeiner Gerätebenchmark.
+Renderaufrufe656jeweils; gezählte Dreiecke einschließlich Renderpässen
+7.644.993→7.664.953.

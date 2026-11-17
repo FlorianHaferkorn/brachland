@@ -4,7 +4,7 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-if(!['referenz','hof','kompakt'].includes(profil)) throw Error('Profil referenz|hof|kompakt angeben.');
+if(!['referenz','hof','kompakt','lauben'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben angeben.');
 const anzahl=profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
 const ziel=`.cache/mess/${name}`;
@@ -23,8 +23,9 @@ await seite.addInitScript(()=>{
 });
 const fehler=[];seite.on('pageerror',e=>fehler.push(String(e)));seite.on('console',m=>{if(m.type()==='error')fehler.push(m.text());});
 const parameter=new URLSearchParams(`absetzen=1432,423,150&zeit=.26&kontur=0&stimmung=zielbild&hofgruen=1&referenzhaus=${probe}&kamera=1444,36.8,418,1431,37.5,432&fov=60&umgebung=6&sonne=.8&umlichtstaerke=1.2&schatten=.4`);
-if(profil!=='referenz'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',profil==='kompakt'?'1':probe);}
-parameter.set('hauskompakt',profil==='kompakt'?probe:'0');
+if(profil!=='referenz'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',['kompakt','lauben'].includes(profil)?'1':probe);}
+parameter.set('hauskompakt',profil==='kompakt'?probe:profil==='lauben'?'1':'0');
+parameter.set('hoflauben',profil==='lauben'?probe:'0');
 const spiel=new URLSearchParams(parameter);spiel.delete('kamera');spiel.delete('fov');
 // Der Spiel-Link startet auf dem freien Weg, nicht am stationären Messanker in der Garage.
 spiel.set('absetzen',profil!=='referenz'?'1447,430,200':'1444,419,150');

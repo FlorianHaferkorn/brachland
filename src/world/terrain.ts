@@ -10,8 +10,9 @@
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN } from './echt.js';
-import type { HausReferenz } from './hausbauteil.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN } from './echt.js';
+import type { HausReferenz, HausQuad } from './hausbauteil.js';
+import { baueLaubenkasten } from './laubenkasten.js';
 import { fassadenKasten, vereinfacheHauswand } from './hausbauteil.js';
 import { gesperrt } from './bauwerke.js';
 
@@ -468,6 +469,7 @@ export function baueGebaeude(
     const mitteProbe = hProbe?.welt((hProbe.minU+hProbe.maxU)/2,(hProbe.minV+hProbe.maxV)/2);
     const hausReferenz = mitteProbe ? referenzen.find(r => Math.hypot(mitteProbe[0]-r.mitte[0],mitteProbe[1]-r.mitte[1]) < 0.1) : undefined;
     const referenzHaus = !!hausReferenz;
+    const laubenDetails = referenzHaus && HOF_LAUBEN_AN;
     if (referenzHaus) p = vereinfacheHauswand(p);
     if (p.length < 3) continue;
     // Freihaltung eines Bauwerks (ADR-0006, D155): Die Blender-Szene blendet OSM-Haeuser im Nahbereich
@@ -1484,29 +1486,30 @@ export function baueGebaeude(
         // Der Balkon liegt an einer Wand, deren Aussenseite nach +V zeigt —
         // alles hier richtet sich also nach +V, nach oben oder nach unten.
         const VOR = richtV(1);
-        // Boden: von oben (vom Hang aus) und von unten (von der Strasse aus)
-        // sichtbar, also beide Seiten.
-        quadNach(welt3(bU0, y, v0), welt3(bU1, y, v0), welt3(bU1, y, v1), welt3(bU0, y, v1), SCHALUNG, OBEN);
-        // D292 (Bauwelt): Unterseite und Handlauf in dunklem Holz statt Türschwarz — aus der Strasse las die Laube
-        // sonst als zwei schwarze Striche ohne Bretter.
         const LAUBE_DUNKEL = BAUWELT_AN ? SCHALUNG_TOENE[0] : TUER;
-        quadNach(welt3(bU0, y - 0.08, v0), welt3(bU1, y - 0.08, v0), welt3(bU1, y - 0.08, v1), welt3(bU0, y - 0.08, v1), LAUBE_DUNKEL, UNTEN);
-        // Fußleiste und Handlauf — die zwei Waagerechten.
-        quadNach(welt3(bU0, y + 0.04, v1), welt3(bU1, y + 0.04, v1),
-                 welt3(bU1, y + 0.22, v1), welt3(bU0, y + 0.22, v1), SCHALUNG, VOR);
-        quadNach(welt3(bU0, y + bruest - 0.13, v1 + 0.06), welt3(bU1, y + bruest - 0.13, v1 + 0.06),
-                 welt3(bU1, y + bruest, v1 + 0.06), welt3(bU0, y + bruest, v1 + 0.06), LAUBE_DUNKEL, VOR);
-        // Bretter dazwischen. Alle 0,42 m, gedeckelt bei 16: An einem 14-m-Haus
-        // wären es sonst 33, und ab etwa 20 sieht man den Unterschied nicht mehr.
-        const bretter = Math.min(16, Math.max(3, Math.round((bU1 - bU0) / 0.42)));
-        // D292: Im Bestand ist die Brüstung fast geschlossen (Bretter Stoss an Stoss, oft mit Sägeornament); mit 55 %
-        // Deckung sah man durch die Laube hindurch die gleichfarbige Wand, und die Brüstung verschwand.
-        const bb = (bU1 - bU0) / bretter * (BAUWELT_AN ? 0.86 : 0.55);
-        for (let i = 0; i < bretter; i++) {
-          const cu = bU0 + (bU1 - bU0) * (i + 0.5) / bretter;
-          quadNach(welt3(cu - bb / 2, y + 0.2, v1 + 0.01), welt3(cu + bb / 2, y + 0.2, v1 + 0.01),
-                   welt3(cu + bb / 2, y + bruest - 0.12, v1 + 0.01),
-                   welt3(cu - bb / 2, y + bruest - 0.12, v1 + 0.01), SCHALUNG_TOENE[(i * 2) % 5], VOR);
+        if (laubenDetails) {
+          const alleSeiten = { oben:true, unten:true, u0:true, u1:true, v0:true, v1:true };
+          kasten(bU0,bU1,v0,v1,fest(y-.08),fest(y),LAUBE_DUNKEL,alleSeiten);
+          kasten(bU0-.04,bU1+.04,v1-.02,v1+.09,fest(y+.04),fest(y+.16),REFERENZ_HOLZ,alleSeiten);
+          kasten(bU0-.06,bU1+.06,v1-.015,v1+.135,fest(y+bruest-.10),fest(y+bruest+.025),REFERENZ_HOLZ,alleSeiten);
+          const anzahl = Math.min(48,Math.max(3,Math.round((bU1-bU0)/.24)));
+          const halb=(bU1-bU0)/anzahl*.43;
+          for(let i=0;i<anzahl;i++) {
+            const u=bU0+(bU1-bU0)*(i+.5)/anzahl;
+            kasten(u-halb,u+halb,v1+.015,v1+.07,fest(y+.14),fest(y+bruest-.10),SCHALUNG_TOENE[(i*2)%5],alleSeiten);
+          }
+        } else {
+          // D305-Gegenprobe: alte Flächen und Brettanzahl unverändert.
+          quadNach(welt3(bU0,y,v0),welt3(bU1,y,v0),welt3(bU1,y,v1),welt3(bU0,y,v1),SCHALUNG,OBEN);
+          quadNach(welt3(bU0,y-.08,v0),welt3(bU1,y-.08,v0),welt3(bU1,y-.08,v1),welt3(bU0,y-.08,v1),LAUBE_DUNKEL,UNTEN);
+          quadNach(welt3(bU0,y+.04,v1),welt3(bU1,y+.04,v1),welt3(bU1,y+.22,v1),welt3(bU0,y+.22,v1),SCHALUNG,VOR);
+          quadNach(welt3(bU0,y+bruest-.13,v1+.06),welt3(bU1,y+bruest-.13,v1+.06),welt3(bU1,y+bruest,v1+.06),welt3(bU0,y+bruest,v1+.06),LAUBE_DUNKEL,VOR);
+          const bretter=Math.min(16,Math.max(3,Math.round((bU1-bU0)/.42)));
+          const bb=(bU1-bU0)/bretter*(BAUWELT_AN ? 0.86 : 0.55);
+          for(let i=0;i<bretter;i++) {
+            const u=bU0+(bU1-bU0)*(i+.5)/bretter;
+            quadNach(welt3(u-bb/2,y+.2,v1+.01),welt3(u+bb/2,y+.2,v1+.01),welt3(u+bb/2,y+bruest-.12,v1+.01),welt3(u-bb/2,y+bruest-.12,v1+.01),SCHALUNG_TOENE[(i*2)%5],VOR);
+          }
         }
         // Zwei Stützen bis zum Boden — ohne sie schwebt der Balkon, mit fester
         // Länge hängen sie in der Luft.
@@ -1536,12 +1539,30 @@ export function baueGebaeude(
          */
         for (const u of [bU0, bU1]) {
           kasten(u - 0.06, u + 0.06, v1 - 0.06, v1 + 0.08, fest(y), fest(y + bruest + 0.06), LAUBE_DUNKEL,
-                 { oben: true, u0: true, u1: true, v1: true });
+                 { oben: true, u0: true, u1: true, v1: true, unten:laubenDetails, v0:laubenDetails });
         }
         // D289: Blumen nur an bewohnten Häusern — an verlassenen hingen sonst frische Geranien am morschen Balkon.
         if (wohnhaus && (!BAUWELT_AN || stufeJetzt === 0)) {
           const ky = y + bruest - 0.42;
-          kasten(bU0 + 0.15, bU1 - 0.15, v1 + 0.08, v1 + 0.30, fest(ky), fest(ky + 0.22), KASTEN,
+          if (laubenDetails) {
+            const span=bU1-bU0-.30;
+            const anzahl=Math.max(3,Math.min(5,Math.floor(span/1.35)));
+            const breite=Math.min(1.05,span/anzahl-.24);
+            const erde=KASTEN.clone().multiplyScalar(.28);
+            const ausgabe: HausQuad = (a,b,c,d,farbe,n) => {
+              quadNach(welt3(a[0],a[1],a[2]),welt3(b[0],b[1],b[2]),welt3(c[0],c[1],c[2]),welt3(d[0],d[1],d[2]),farbe,
+                [n[0]*hu.cos-n[2]*hu.sin,n[1],n[0]*hu.sin+n[2]*hu.cos]);
+            };
+            const [sx,sz]=hu.welt((bU0+bU1)/2,v1);
+            const seed=Math.floor(glutHash(sx,y,sz)*4294967295);
+            for(let i=0;i<anzahl;i++) baueLaubenkasten(ausgabe,bU0+.15+span*(i+.5)/anzahl,ky+.22,v1+.32,breite,seed+i*7919,
+              {holz:REFERENZ_HOLZ,laub:LAUB,bluete:GERANIE,erde});
+            // Gleicher Würfelverbrauch wie das frühere 0,7m-Blütenband: Holzstapel usw. bleiben erhalten.
+            const gU0=bU0+.12, gU1=bU1-.12;
+            const seg=Math.max(2,Math.round((gU1-gU0)/.7));
+            for(let i=0;i<seg;i++)wuerfel();
+          } else {
+            kasten(bU0 + 0.15, bU1 - 0.15, v1 + 0.08, v1 + 0.30, fest(ky), fest(ky + 0.22), KASTEN,
                  { unten: true, u0: true, u1: true, v1: true });
           // Blüten in Segmenten von 0,7 m, rot und Laub im Wechsel — ein
           // durchgehender roter Balken war das Erste, was im Bild stand, und
@@ -1554,6 +1575,7 @@ export function baueGebaeude(
             const rot = wuerfel() < 0.6;
             kasten(a0, a1, v1 + 0.06, v1 + 0.36, fest(ky + 0.18), fest(ky + (rot ? 0.42 : 0.34)),
                    rot ? GERANIE : LAUB, { v1: true, oben: rot });
+          }
           }
         }
       }
