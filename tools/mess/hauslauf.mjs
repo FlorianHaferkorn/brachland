@@ -25,6 +25,8 @@ const fehler=[];seite.on('pageerror',e=>fehler.push(String(e)));seite.on('consol
 const parameter=new URLSearchParams(`absetzen=1432,423,150&zeit=.26&kontur=0&stimmung=zielbild&hofgruen=1&referenzhaus=${probe}&kamera=1444,36.8,418,1431,37.5,432&fov=60&umgebung=6&sonne=.8&umlichtstaerke=1.2&schatten=.4`);
 if(profil==='hof'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',probe);}
 const spiel=new URLSearchParams(parameter);spiel.delete('kamera');spiel.delete('fov');
+// Der Spiel-Link startet auf dem freien Weg, nicht am stationären Messanker in der Garage.
+spiel.set('absetzen',profil==='hof'?'1447,430,200':'1444,419,150');
 try {
  await seite.goto(`http://127.0.0.1:4173/?${parameter}`);
  await seite.waitForFunction(()=>document.body.textContent.includes('Ladezeit')&&window.__szene?.userData.ezKamera,null,{timeout:180000});

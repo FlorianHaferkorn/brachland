@@ -911,9 +911,14 @@ nur der Vorprüfung; die endgültige Bildfolge bleibt ein eigener neuer Lauf.
 Normales Spiel ohne feste Kamera und FPS separat ohne Video/Bildsonden prüfen.
 
 D304-Endstand: `.cache/mess/d304-hof-vor` / `d304-hof-nach`; Galerie
-`.cache/bilder/d304-hofvergleich-final/vergleich.html`. Normaler Spieltest
+`.cache/bilder/d304-hofvergleich-final-v2/vergleich.html`. Normaler Spieltest
 `d304-spieltest`, Start1447/430/200 ohne feste Kamera,12s/25Sonden,94Baumwechsel,
 0Browser-/Duplikat-/Blend-/Wartefehler. Kosten `d304-kosten-{1,2,3,4}`
 mit gleicher Kamera1447/36,4/436→1457/38/432 und60Grad,960×540:0/1/1/0
 26,44/23,06/23,08/25,11FPS; p9583,4/100,7/115,7/99,9ms. Lokal rund10,5%
 weniger FPS, kein allgemeiner Benchmark und kein Geschwindigkeitsvorteil.
+
+Der Galerie-Spiel-Link startet frei auf1447/430/200. Der ursprüngliche stationäre
+Aufnahmeanker1432/423 liegt in Garage352; die Kamerafahrten selbst liegen außerhalb
+der Grundrisse. Die getrennte Aufnahme mit echter Spielsteuerung startet ebenfalls
+auf dem freien Weg1447/430/200.

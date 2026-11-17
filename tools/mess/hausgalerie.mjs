@@ -51,7 +51,7 @@ const esc = s => String(s).replaceAll('&', '&amp;').replaceAll('<', '&lt;').repl
 const spielURL = berichte[1].spielURL;
 let spiellink = '';
 if (typeof spielURL === 'string') {
-  try { const u = new URL(spielURL); if (['http:', 'https:'].includes(u.protocol)) spiellink = `<a href="${esc(u.href)}" target="_blank" rel="noopener">Nachher im Spiel öffnen</a> · `; } catch { /* kein Link bei ungültiger Adresse */ }
+  try { const u = new URL(spielURL); if (hof) u.searchParams.set('absetzen', '1447,430,200'); if (['http:', 'https:'].includes(u.protocol)) spiellink = `<a href="${esc(u.href)}" target="_blank" rel="noopener">Nachher im Spiel öffnen</a> · `; } catch { /* kein Link bei ungültiger Adresse */ }
 }
 const regler = bilder.map((i, n) => `<section><h2>${(hof ? ['Hofansicht', 'Annäherung am Hof', 'Gegenüberliegende Häuser', 'Weitere Hoffassaden'] : ['Blick zum Hof', 'Annäherung', 'Hausfront aus Spielperspektive', 'Eingang aus Augenhöhe'])[n]} · Bild ${String(i).padStart(3, '0')}</h2>
 <div class="vergleich" style="--anteil:50%"><img src="vorher-${i}.png" alt="Haus vor der Überarbeitung, Bild ${i}" width="1280" height="720"><img class="danach" src="nachher-${i}.png" alt="Haus nach der Überarbeitung, identische Kamera" width="1280" height="720"><span class="kante"></span><span class="schild links">VORHER</span><span class="schild rechts">NACHHER</span></div>
