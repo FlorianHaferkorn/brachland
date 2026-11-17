@@ -8,7 +8,7 @@
  * stehen in `assets/HERKUNFT.md` und `tools/eztexturen.mjs`.
  */
 import * as THREE from 'three';
-import { HOF_GRUEN_AN } from './echt.js';
+import { HOF_GRUEN_AN, BLATTRUHE_AN, MIPS_ERHALT } from './echt.js';
 import { ladeRgba, leereKarte, setzeAlphaMips } from './alphamips.js';
 
 type KartenArt = 'ao' | 'color' | 'normal' | 'roughness';
@@ -49,7 +49,9 @@ export function getLeafTexture(art: string): THREE.Texture {
       const t = leereKarte();
       textur = t;
       blattLaden.push(ladeRgba(pfad).then(b => {
-        setzeAlphaMips(t, b.data, b.b, b.h, { schwelle: schluessel === 'nadel' ? 0.3 : 0.5, spiegelY: true, stufen: 6 });
+        // Einzelkarten dürfen bis 1×1 filtern; der Strauchatlas bleibt wegen seiner Zellgrenzen getrennt.
+        setzeAlphaMips(t, b.data, b.b, b.h, { schwelle: schluessel === 'nadel' ? 0.3 : 0.5, spiegelY: true,
+          stufen: BLATTRUHE_AN && MIPS_ERHALT ? 0 : 6 });
         t.colorSpace = THREE.SRGBColorSpace;
         t.flipY = false;
         t.anisotropy = 4;

@@ -18,6 +18,8 @@ const an = (name: string) => suche.get(name) === '1';
 export const MALEREI = an('malerei');
 /** D299: Vegetationsprobe am Scan-Hof; eigener, zurückschaltbarer Vergleich. */
 export const HOF_GRUEN_AN = an('hofgruen');
+/** D300: abgestufte Blattkanten im MSAA-Ziel; `blattruhe=0` erhält den D299-Gegenlauf. */
+export const BLATTRUHE_AN = HOF_GRUEN_AN && suche.get('blattruhe') !== '0';
 export const HOF_AN = an('scanhof') || HOF_GRUEN_AN;
 export const ECHT = an('echt') || MALEREI || HOF_AN;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */

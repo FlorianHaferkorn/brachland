@@ -9,6 +9,38 @@
  */
 import * as THREE from 'three';
 
+/** Deckungswechsel um die Blatt-Schwelle zentrieren, damit der Rand nicht mit der Ableitung schrumpft. */
+export function beruhigeEzBlattkante(material: THREE.Material): void {
+  const vorher = material.onBeforeCompile, programm = material.customProgramCacheKey.bind(material);
+  material.onBeforeCompile = (shader, renderer) => {
+    vorher.call(material, shader, renderer);
+    shader.fragmentShader = shader.fragmentShader.replace('#include <alphatest_fragment>', /* glsl */ `
+      #ifdef USE_ALPHATEST
+        #ifdef ALPHA_TO_COVERAGE
+          float ezRandbreite = max(fwidth(diffuseColor.a), 0.0001);
+          diffuseColor.a = smoothstep(alphaTest - ezRandbreite * 0.5, alphaTest + ezRandbreite * 0.5, diffuseColor.a);
+          if (diffuseColor.a == 0.0) discard;
+        #else
+          if (diffuseColor.a < alphaTest) discard;
+        #endif
+      #endif
+    `);
+  };
+  material.customProgramCacheKey = () => `${programm()}:ez-blattrand-v1`;
+  material.needsUpdate = true;
+}
+
+/** three.js ersetzt bei Alpha-to-Coverage selbst eigene Schatten-Schwellen durch 0,5.
+ * Erst nach dieser Vorbereitung die tatsächliche Blattdeckung am gezeichneten Material bewahren.
+ */
+export function bewahreEzBlattschatten(mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshPhongMaterial>): void {
+  const vorher = mesh.onBeforeShadow;
+  mesh.onBeforeShadow = (...argumente) => {
+    vorher.call(mesh, ...argumente);
+    argumente[5].alphaTest = mesh.material.alphaTest;
+  };
+}
+
 /** Nach anderen Shader-Anpassungen aufrufen; vorhandene Hooks bleiben erhalten. */
 export function ergaenzeEzLaublicht(material: THREE.Material): void {
   const vorher = material.onBeforeCompile;

@@ -100,6 +100,8 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `mess/hofgruen-vergleich.json` | D299: versioniertes Rezept für Bildpaare, Kostenberichte, Hofvideo und Spiel-Link der Vegetationsgalerie. |
 | `mess/hofgruen-vergleich.json` | D299: Kamerapaare, Kostenberichte und Spieladresse für die Vegetationsgalerie; Eingabe für `mess/hofgalerie.mjs`. |
 | `mess/hofgruen.mjs` | D299: Rendererprüfung der lokalen Baumaufteilung, sichtbarer Aussengruppen sowie fertiger Blatt-/Tiefenkarten mit Deckungs-Mips. |
+| `mess/blattlauf.mjs` | D300: isolierte Rendererprobe mit 24 Einzelbildschritten und eingefrorenen Winduniformen, Subpixel- oder TAA-Modus; neue Ausgabeordner, keine Performanceaussage. |
+| `mess/blattgalerie.mjs` | D300: eigenständige A/B-Galerie mit synchronen Blatt-/Laufvideos, Vergleichstafel und Grenzen der Schwankungsmessung; vier abgeschlossene Eingabeordner, neue Ausgaben. |
 | `mess/hofgalerie.mjs` | D298/D299: Vorher-/Nachher-Galerie mit Regler, eingebettetem Video und PNG-Tafel; optionales JSON-Rezept als zweites Argument, neue Ausgabeordner. |
 | `mess/hofladen.mjs` | D298: kalter Browserlauf ohne Service Worker, unmittelbare Assetbytes und lokale Ladezeit; neue Messnamen, keine historischen Berichte überschreiben. |
 | `mess/sonde.mjs` | InstancedMesh-Sonde über `window.__szene`: Instanzzahl, Geometrie, Material und Attribute als JSON. |

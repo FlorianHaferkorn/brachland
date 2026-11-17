@@ -767,3 +767,23 @@ node tools/mess/hofgalerie.mjs neuer_hofvergleich tools/mess/hofgruen-vergleich.
 ```
 
 Die Galerie-Konfiguration verweist auf die abgeschlossenen D299-Berichte/Bilder. Für neue Reihen die Konfiguration auf neue Dateinamen umstellen. Das eingebettete Video beginnt automatisch beim letzten12,7s-Ausschnitt der Aufzeichnung; Ladephase und historische Originalvideos bleiben erhalten.
+
+## Blattkanten D300
+
+`hofgruen=1&blattruhe=0` ist der D299-Gegenlauf; `hofgruen=1` nutzt zentrierte Alpha-to-Coverage-Kanten bei aktivem MSAA und vollständige Mips der EZ-Einzelkarten. `msaa=0` nimmt nur die Sample-Deckung heraus; `mips=0` behält die bisherige Sechsstufenkette. Strauchatlas, TAA, Geometrien, Wind und LOD-Abstände bleiben unverändert. Schattenkarten sind nicht multisampelt: `onBeforeShadow` bewahrt die Quellschwelle auch nach der three.js-Vorbereitung (Nadeln0,3 statt pauschal0,5).
+
+```bash
+node tools/mess/blattlauf.mjs neuer_blatt_vor 0 taa
+node tools/mess/blattlauf.mjs neuer_blatt_nach 1 taa
+node tools/mess/hofgruen.mjs neuer_blatt_audit 1
+node tools/mess/hofgruen.mjs neuer_blatt_ohne_msaa 1 'msaa=0'
+node tools/mess/blattlauf.mjs neue_kronenfahrt_vor 0 fahrt
+node tools/mess/blattlauf.mjs neue_kronenfahrt_nach 1 fahrt
+node tools/mess/blattgalerie.mjs neuer_blattvergleich .cache/mess/neuer_blatt_vor .cache/mess/neuer_blatt_nach .cache/mess/lauf_vor .cache/mess/lauf_nach .cache/mess/neue_kronenfahrt_vor .cache/mess/neue_kronenfahrt_nach
+```
+
+Die isolierte Blattprobe hält Kamera und Winduniformen fest und zeichnet nach48Aufwärmbildern24einzelne TAA-Bilder. Sie misst den mittleren absoluten Abstand vom zeitlichen Pixelmittel in einem vorher festgelegten Kronenfeld (x20/y25/550×240, Bild960×540, RGB0–255). Kein FPS-Lauf und kein Beweis für ruhigen Wind oder alle Entfernungen. Der Standardmodus `subpixel` verschiebt stattdessen ohne TAA die Projektion0…1…0Pixel; sein bilinearer Restfehler ist eine andere Diagnose und nicht mit der TAA-Schwankung vergleichbar. Das Messwerkzeug setzt die Windzeit hinter alte Blendbeginne, damit keine abgeschlossene LOD-Blende zurückgespult wird; die Zeitsteuerung gilt nur im Messbrowser.
+
+Bewegung wieder mit `lodlauf.mjs`, Start1444,419,150,12s, denselben Lichtwerten und `schwenk-dialog` auf beiden Seiten; nur `blattruhe=0|1` variieren. Wind und Figuren laufen dabei unabhängig. Bildzeiten separat mit `vergleich.mjs`, vier isolierte Läufe0/1/1/0. Die Videos/Szenensonden belasten den Renderer und taugen nicht als Kostenvergleich. Neue Ergebnisordner erhalten; keine D299-Baseline ersetzen.
+
+Der ergänzende Modus `fahrt` hält die Kronen im Blick:96Einzelbilder mit aktiver TAA, Kamera entlang4mStrasse plus1,2mSeitwärtsbogen und gleiche Windphase je Bildnummer (4sSpielzeit mit24Schritten/s). Das ist eine geskriptete Rendererfahrt; der unabhängige Spiellauf prüft zusätzlich Bewegung und LOD-Verwaltung. Die Galerie zeigt diese Fahrt bei halber Geschwindigkeit sowie eine zweifache Detail-Zeitlupe und den normalen Hoflauf. Detail-/Kronenvideos mit verlustfreier VP9-Quantisierung und voller Farbauflösung, damit die Kompression feine Pixelwechsel nicht verschluckt; RGB→YUV-Farbraumwandlung bleibt. Bestehende Ordner werden verweigert. Werkzeugvoraussetzungen: Playwright wie die übrigen Messläufe sowie `ffmpeg`/`ffprobe` zum Zusammenstellen.

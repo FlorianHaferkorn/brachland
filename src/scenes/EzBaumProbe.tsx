@@ -6,9 +6,9 @@ import type { Tree } from '@dgreenheck/ez-tree';
 import { blenderBaum } from '../world/props.js';
 import { EZ_BLEND_DAUER, EZ_STUFEN, ezIntervall, ezWechsel } from './ezlod.js';
 import type { EzIntervall, EzVerlauf } from './ezlod.js';
-import { ergaenzeEzLaublicht } from '../world/ezlaubmaterial.js';
+import { ergaenzeEzLaublicht, bewahreEzBlattschatten, beruhigeEzBlattkante } from '../world/ezlaubmaterial.js';
 import { getLeafTexture, warteEzBlattkarten } from '../world/eztexturen.js';
-import { HOF_GRUEN_AN } from '../world/echt.js';
+import { HOF_GRUEN_AN, BLATTRUHE_AN, MSAA } from '../world/echt.js';
 
 type Stufe = 'nah' | 'mittel' | 'fern';
 type BaumArt = 'nadelbaum' | 'laubbaum';
@@ -196,11 +196,15 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
         const material = baum.leavesMesh.material;
         if (Array.isArray(material)) throw new Error('EZ-Baumprobe erwartet ein Laubmaterial.');
         const laub = material as THREE.MeshPhongMaterial;
+        // MSAA kann die fotografische Blattkante nur mit Sample-Deckung glätten.
+        // Die nicht multisampelte Schattenkarte behält ihren harten Alpha-Test.
+        laub.alphaToCoverage = BLATTRUHE_AN && MSAA > 0;
         const tiefe = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking,
           map: laub.map, alphaTest: laub.alphaTest, side: laub.side });
         windEinbauen(laub, windZeit); windEinbauen(tiefe, windZeit);
         blendeEinbauen(laub, windZeit); blendeEinbauen(tiefe, windZeit);
         ergaenzeEzLaublicht(laub);
+        if (laub.alphaToCoverage) beruhigeEzBlattkante(laub);
         const stammMaterial = baum.branchesMesh.material;
         if (Array.isArray(stammMaterial)) throw new Error('EZ-Baumprobe erwartet ein Stammmaterial.');
         blendeEinbauen(stammMaterial, windZeit);
@@ -289,6 +293,7 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
         laub.name = `ezlaub:${art}:${variante}:${stufe}`;
         stamm.userData.ezQuelle = o.name;
         laub.customDepthMaterial = satz.tiefe; stamm.customDepthMaterial = satz.stammTiefe;
+        bewahreEzBlattschatten(laub as THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshPhongMaterial>);
         stamm.castShadow = o.castShadow; laub.castShadow = o.castShadow;
         stamm.receiveShadow = o.receiveShadow; laub.receiveShadow = o.receiveShadow;
         stamm.frustumCulled = o.frustumCulled; laub.frustumCulled = o.frustumCulled;
@@ -447,6 +452,7 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
           stamm.castShadow = e.schatten; laub.castShadow = e.schatten;
           stamm.receiveShadow = e.empfaengt; laub.receiveShadow = e.empfaengt;
           laub.customDepthMaterial = e.satz.tiefe; stamm.customDepthMaterial = e.satz.stammTiefe;
+          bewahreEzBlattschatten(laub as THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshPhongMaterial>);
           p = { stamm, laub, kapazitaet, stammBlende: stammGeo.blende, laubBlende: laubGeo.blende,
             stammIntervall: stammGeo.intervall, laubIntervall: laubGeo.intervall };
           wartendeMeshes.current.set(id, p); scene.add(stamm, laub);
@@ -498,6 +504,7 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
         stamm.castShadow = e.schatten; laub.castShadow = e.schatten;
         stamm.receiveShadow = e.empfaengt; laub.receiveShadow = e.empfaengt;
         laub.customDepthMaterial = e.satz.tiefe; stamm.customDepthMaterial = e.satz.stammTiefe;
+        bewahreEzBlattschatten(laub as THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshPhongMaterial>);
         p = { stamm, laub, kapazitaet, stammBlende: stammGeo.blende, laubBlende: laubGeo.blende,
             stammIntervall: stammGeo.intervall, laubIntervall: laubGeo.intervall };
         uebergaenge.current.set(id, p); scene.add(stamm, laub);
