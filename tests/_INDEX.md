@@ -20,6 +20,8 @@ owns: *.test.ts
 | Hausfront-Räume, Fenster-UV oder Haus/Garten-Attribute ändern | `hausfront.test.ts` → `../src/world/terrain.ts`, `../src/world/baender.ts` |
 | Referenzhaus oder lokale Bauteile ändern | `referenzhaus.test.ts` |
 | Hofauswahl oder freie Eingänge ändern | `hofhaeuser.test.ts` |
+| Haus-/Gartengeometrie indexieren | `hausindex.test.ts` |
+| Materialarbeit im Hofshader sparen | `hausspar.test.ts` |
 | Fensteröffnungen, Scheibentiefe und Laibungen ändern | `fenstertiefe.test.ts` → `../src/world/terrain.ts` |
 | Lagerton oder Audio-Freigabe bei erster Eingabe ändern | `lagerton.test.ts` → `../src/ton/lagerton.ts` |
 | EZ-Baum-LOD bei schnellen Richtungswechseln ändern | `ezlod.test.ts` → `../src/scenes/ezlod.ts` |
@@ -63,6 +65,8 @@ owns: *.test.ts
 | `ezblattschatten.test.ts` | D300: gezeichnetes Tiefenmaterial behält trotz three.js-Überschreibung bei Alpha-to-Coverage die Nadel-/Laubschwelle der Farbkarte. |
 | `hofplatz.test.ts` | D298: Grundrissauswahl, Hofmaske und Ausschluss des Hausinneren; Scan-Shader-Hook bleibt beim Klonen für Wind erhalten (33 Prüfungen, einschliesslich deterministischer Randgruppen und gesperrter Wege). |
 | `referenzhaus.test.ts` | D303: lokale Auswahl, echte Fenster-/Türtiefe, Umlauf, UV und vollständige Geometrieattribute. |
+| `hausindex.test.ts` | D305: exakte Rückexpansion, harte Kanten/UV/Seeds, Hashkollisionen, Vorzeichen von Null, 16-/32-Bit-Grenze sowie reales Haus-/Garten-Merge. |
+| `hausspar.test.ts` | D305: Shader-Gegenläufe, Gradienten vor räumlichen Zweigen, vollständige Rauheits-/Glas-/Glutpfade und unveränderter Rückfall. |
 | `hofhaeuser.test.ts` | D304: begrenzte Hofauswahl, freie Eingänge trotz Garagen/Nachbarn, Gebäudemitte und Integration der Referenzbauteile. |
 | `hausfront.test.ts` | D297: Raum-UV/Seed auf allen Scheibenecken und neutral auf anderen Bauteilen, vollständige Fenster-UV und deterministische Varianten bei 0°/37°; Raycasts auf obere Scheiben entdecken verbliebene opake Vorhänge; Gärten mit neutralen Raumdaten, Haus/Garten per mergeGeometries gemeinsam renderbar; Pflegezone: Kanten, Ecken und 1,6-m-Grenze, Wald ausgeschlossen (31 Prüfungen) |
 | `fenstertiefe.test.ts` | D296: erzeugte Hausgeometrie bei 0°/37°, Fenster an allen vier Fassaden; Frontstrahlen passieren die Fassadenebene und treffen Scheiben 18 cm dahinter, schräge Strahlen die nach innen gerichtete Laibung; vollständige Attribute, endliche Normalen, keine entarteten Dreiecke, Glut nur auf Scheiben |

@@ -14,7 +14,7 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN } from './echt.js';
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
@@ -114,6 +114,10 @@ vec2 scanUv(float r) {
   float m = r < 0.5 ? uScanMeter.x : r < 1.5 ? uScanMeter.y : r < 2.5 ? uScanMeter.z : uScanMeter.w;
   return vec2(dot(vHausPos, scanT), dot(vHausPos, scanB)) / m;
 }
+vec4 scanLiesGrad(sampler2D t, vec2 p, float r, vec2 gradX, vec2 gradY) {
+  vec2 off = vec2(mod(r, 2.0), 1.0 - floor(r / 2.0)) * 0.5;
+  return textureGrad(t, off + (fract(p) * 0.996 + 0.002) * 0.5, gradX * 0.5, gradY * 0.5);
+}
 vec4 scanLies(sampler2D t, vec2 p, float r) {
   // Kachel im 2 × 2-Atlas (Zeile 0 oben im Bild = oben in UV); textureGrad gegen Mip-Sprünge an der Wiederholung.
   vec2 off = vec2(mod(r, 2.0), 1.0 - floor(r / 2.0)) * 0.5;
@@ -132,6 +136,18 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
   const glut = { value: 0 };
   material.userData.glut = glut;
 
+  // Vollständig überlagerte Albedo-/Normalwerte werden später nicht mehr gelesen.
+  // Die Scan-Basis und Verfallsdeckung bleiben für die Rauheit nötig. Gradienten
+  // vor den räumlichen Zweig ziehen, damit der 38–48m-Übergang definiert bleibt.
+  const anteilZeile = HOF_HAUS_FARBE.split('\n').find(z => z.includes('hofHausAnteil ='))!;
+  const frontPass = HAUS_SHADER_SPAR_AN ? /* glsl */ `
+    vec3 sparFrontN = normalize(vHausNormal);
+    vec3 sparFrontT = abs(sparFrontN.y) > 0.97 ? vec3(1,0,0) : normalize(cross(sparFrontN, vec3(0,1,0)));
+    float sparFrontPixel = max(fwidth(dot(vHausPos, sparFrontT) / 0.22), 0.001);
+    if (!hofVoll) {
+      ${HAUSFRONT_FARBE.replace('max(fwidth(brett), 0.001)', 'sparFrontPixel')}
+    }` : HAUSFRONT_FARBE;
+  const hofPass = HAUS_SHADER_SPAR_AN ? HOF_HAUS_FARBE.replace(anteilZeile, '') : HOF_HAUS_FARBE;
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uGlut = glut;
     if (SCAN_TEXTUREN) {
@@ -153,16 +169,19 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
         .replace('#include <color_fragment>', `#include <color_fragment>
   float scanR = floor(vRolle + 0.5);
   vec2 scanP = vec2(0.0);
+  ${HAUS_SHADER_SPAR_AN ? `${anteilZeile}\n  bool hofVoll = scanR < 3.5 && hofHausAnteil == 1.0;` : ''}
   if (scanR < 3.5) {
     scanP = scanUv(scanR);
-    diffuseColor.rgb *= scanLies(uScanFarbe, scanP, scanR).rgb * 2.0;
+    ${HAUS_SHADER_SPAR_AN ? '' : 'diffuseColor.rgb *= scanLies(uScanFarbe, scanP, scanR).rgb * 2.0;'}
   }
+  ${HAUS_SHADER_SPAR_AN ? `vec2 scanGradX = dFdx(scanP), scanGradY = dFdy(scanP);
+  if (scanR < 3.5 && !hofVoll) diffuseColor.rgb *= scanLiesGrad(uScanFarbe, scanP, scanR, scanGradX, scanGradY).rgb * 2.0;` : ''}
 ${BAUWELT_AN ? VERFALL_FARBE : ''}
-${HAUSFRONT_AN ? HAUSFRONT_FARBE : ''}
-${HOF_AN ? HOF_HAUS_FARBE.replace('vZustand.y', BAUWELT_AN ? 'vZustand.y' : '1.0') : ''}`)
+${HAUSFRONT_AN ? frontPass : ''}
+${HOF_AN ? hofPass.replace('vZustand.y', BAUWELT_AN ? 'vZustand.y' : '1.0') : ''}`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-  if (scanR < 3.5) {
-    vec3 sn = scanLies(uScanNormal, scanP, scanR).xyz * 2.0 - 1.0;
+  if (scanR < 3.5${HAUS_SHADER_SPAR_AN ? ' && !hofVoll' : ''}) {
+    vec3 sn = ${HAUS_SHADER_SPAR_AN ? 'scanLiesGrad(uScanNormal, scanP, scanR, scanGradX, scanGradY)' : 'scanLies(uScanNormal, scanP, scanR)'}.xyz * 2.0 - 1.0;
     sn.xy *= 0.8${BAUWELT_AN ? ' * (1.0 - efeuDeckung)' : ''};
     vec3 nw = normalize(scanT * sn.x + scanB * sn.y + scanN * sn.z);
     normal = normalize((viewMatrix * vec4(nw, 0.0)).xyz);
@@ -191,6 +210,6 @@ ${HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofArm.r, hofHausAnteil *
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '');
   return material;
 }

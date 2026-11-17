@@ -92,6 +92,7 @@ owns: *.ts, *.tsx
 | `world/hofplatz.ts` | D298: aus dem realen Grundriss abgeleitete Hofmaske, CPU/GLSL und geteilte Uniforms; Messprobe `?scanhof=1`. |
 | `world/hofmaterial.ts` | D298: originale sRGB-Scanfarben, Normalen, Rauheit/AO und Kies am Hof; gemeinsame Texturen nur bei aktivierter Probe. |
 | `world/hofhaeuser.ts` | D304: örtlicher Wohnhausverbund, freie Eingänge gegen alle Nachbargrundrisse und Zugangspflege; keine gespeicherten Gebäudekopien. |
+| `world/hausindex.ts` | D305: wortgleiche Float32-Ecken nach Normalberechnung zusammenlegen; exakt gleiche Dreieckfolge, alle Attribute und harte Kanten erhalten. |
 | `world/hausbauteil.ts` | D303: geschlossene Fassadenkörper im gemeinsamen Hausmesh und vorsichtiges Zusammenfassen gerader Grundrissstücke für das lokale Referenzhaus. |
 | `world/hausfront.ts` | D297: `?echt=1&hausfront=1`, Materialpass für Kalkputz, verwitterte Bretter, Dach und Fenster; eine zuschaltbare Gesamtprobe. |
 | `world/fensterraum.ts` | D297: analytischer Parallaxenraum hinter Fensterquads, Möbelquader und je Scheibe variierte Leinenvorhänge; Shader ohne neue Texturen/Meshes. |

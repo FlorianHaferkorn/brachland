@@ -59,11 +59,12 @@ import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
 import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
 import { richteHofPropEin } from '../world/hofmaterial.js';
+import { indexiereHausGeometrie } from '../world/hausindex.js';
 import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN } from '../world/echt.js';
+import { HOF_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -760,6 +761,11 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
           // und das sind die meisten.
           if (budget-- <= 0) { letzte.current.set(NaN, NaN, NaN); continue; }
           g = bauen(feld, satz, k, lod);
+          // Vor dem Cache, auch für Gärten: mergeGeometries verlangt einheitliche Indizes.
+          // Normalen sind bereits fertig; nur vollständig identische Eckattribute teilen Speicher.
+          if (g && HAUS_KOMPAKT_AN && (art === 'haus' || art === 'garten')) {
+            const roh=g;g=indexiereHausGeometrie(roh);if(g!==roh)roh.dispose();
+          }
           cache.current.set(schluessel, g);
         }
         // Gärten teilen sich das Material mit den Häusern: beides Vertexfarbe,

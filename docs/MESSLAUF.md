@@ -922,3 +922,37 @@ Der Galerie-Spiel-Link startet frei auf1447/430/200. Der ursprüngliche station�
 Aufnahmeanker1432/423 liegt in Garage352; die Kamerafahrten selbst liegen außerhalb
 der Grundrisse. Die getrennte Aufnahme mit echter Spielsteuerung startet ebenfalls
 auf dem freien Weg1447/430/200.
+
+## D305 — gleiche Hofhäuser mit geteilten Eckpunkten und gesparter Materialarbeit
+
+Gegenprobe `hofgruen=1&hofhaeuser=1&hauskompakt=0`, Kandidat
+`hofgruen=1&hofhaeuser=1&hauskompakt=1`. Beide enthalten sämtliche D304-Bauteile
+und korrigierten Eingänge. `hausshader=0` bei Kandidat1 isoliert die
+Geometrieindexierung; der vollständig überlagerte Farbstapel bleibt dann aktiv.
+Für historische D304-Rezepte `hauskompakt=0` ergänzen.
+
+```bash
+node tools/mess/hauslauf.mjs <neuer-vorher-name> 0 fahrt kompakt
+node tools/mess/hauslauf.mjs <neuer-nachher-name> 1 fahrt kompakt
+node tools/mess/hausgalerie.mjs <neue-galerie> <vorher-name> <nachher-name> [spieltest.webm]
+```
+
+Gleiche216Bild-Folge wie D304, drei72Bild-Ansichten,32Aufwärmbilder an den
+Schnitten. Berichte enthalten zusätzlich die geladenen Haus-/Gartenpuffer
+(Vertexeinträge, Dreiecke, Attribut-/Indexbytes). Diese zählen keine Texturen
+und sind keine Messung des gesamten GPU-Speichers. Durch die unabhängigen
+Figuren und Windschatten sind Rendererbilder kein bitgleicher Datenbeweis;
+der kommt aus den Dreiecks-/Attributtests. Kein Bauteil für die Aufnahme
+ausgeblendet. Separater Spiellauf und isolierte Kostenmessungen bleiben nötig.
+
+Endstand: `.cache/mess/d305-hof-vor`/`d305-hof-nach`; Galerie
+`.cache/bilder/d305-hofvergleich-final/vergleich.html`. Haus-/Gartenpuffer
+69.911.040→54.551.712Byte,Vertexeinträge1.092.360→784.098,364.120Dreiecke
+unverändert. Kein Gesamt-GPU-Speicherwert. Normaler12s-Lauf `d305-spieltest`
+mit25Sonden/90Baumwechseln,0Browser-/Duplikat-/Blend-/Wartefehler.
+
+Vier isolierte12s-Kostenläufe0/1/1/0 (`d305-kosten-{1,2,3,4}`) unter derselben
+D304-Straßenkamera960×540:24,11/26,54/28,51/25,61FPS,
+p95100,5/84,4/67,7/85,2ms. Mittel24,86→27,53FPS, lokal+10,7%.
+AlleMediane33,3ms; Systemlast und kleine Stichprobe begrenzen die Aussage.
+Dreiecke/Renderaufrufe jeweils7.644.993/656 einschließlich Renderpässen.

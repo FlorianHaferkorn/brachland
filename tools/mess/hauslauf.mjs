@@ -4,8 +4,8 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-if(!['referenz','hof'].includes(profil)) throw Error('Profil referenz|hof angeben.');
-const anzahl=profil==='hof'?216:144;
+if(!['referenz','hof','kompakt'].includes(profil)) throw Error('Profil referenz|hof|kompakt angeben.');
+const anzahl=profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
 const ziel=`.cache/mess/${name}`;
 if(existsSync(ziel)) throw Error(`Ausgabe existiert: ${ziel}`);
@@ -23,10 +23,11 @@ await seite.addInitScript(()=>{
 });
 const fehler=[];seite.on('pageerror',e=>fehler.push(String(e)));seite.on('console',m=>{if(m.type()==='error')fehler.push(m.text());});
 const parameter=new URLSearchParams(`absetzen=1432,423,150&zeit=.26&kontur=0&stimmung=zielbild&hofgruen=1&referenzhaus=${probe}&kamera=1444,36.8,418,1431,37.5,432&fov=60&umgebung=6&sonne=.8&umlichtstaerke=1.2&schatten=.4`);
-if(profil==='hof'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',probe);}
+if(profil!=='referenz'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',profil==='kompakt'?'1':probe);}
+parameter.set('hauskompakt',profil==='kompakt'?probe:'0');
 const spiel=new URLSearchParams(parameter);spiel.delete('kamera');spiel.delete('fov');
 // Der Spiel-Link startet auf dem freien Weg, nicht am stationären Messanker in der Garage.
-spiel.set('absetzen',profil==='hof'?'1447,430,200':'1444,419,150');
+spiel.set('absetzen',profil!=='referenz'?'1447,430,200':'1444,419,150');
 try {
  await seite.goto(`http://127.0.0.1:4173/?${parameter}`);
  await seite.waitForFunction(()=>document.body.textContent.includes('Ladezeit')&&window.__szene?.userData.ezKamera,null,{timeout:180000});
@@ -38,7 +39,7 @@ try {
    vorher.call(this,gl,szene,kamera,ziel);
    const d=window.__haus;
    // Zwei normale Blicke: erst vollständiges Haus vom freien Weg, dann Eingang aus Augenhöhe.
-   if(profil==='hof') {
+   if(profil!=='referenz') {
     const abschnitt=Math.floor(d.index/72),t=(d.index%72)/71;
     // Die Hofansichten werden vor dem Messlauf auf freie Kamerapositionen geprüft.
     if(abschnitt===0){kamera.position.set(1444-4*t,36.8,418+3*t);kamera.lookAt(1432,38.2,433);}
@@ -62,13 +63,21 @@ try {
  await seite.evaluate(async()=>{for(let i=0;i<8;i++)await new Promise(r=>requestAnimationFrame(r));window.__hausPause();});
  await seite.waitForTimeout(200);
  await seite.evaluate(()=>{for(let i=0;i<64;i++)window.__hausSchritt();});
- const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):profil==='hof'?[0,71,143,215]:[0,47,95,143];
+ const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
  for(const i of indizes){
-  await seite.evaluate(({i,profil,modus})=>{window.__haus.index=i;for(let f=0;f<((modus==='stand'||(profil==='hof'?i%72===0:i===96))?32:1);f++)window.__hausSchritt();},{i,profil,modus});
+  await seite.evaluate(({i,profil,modus})=>{window.__haus.index=i;for(let f=0;f<((modus==='stand'||(profil!=='referenz'?i%72===0:i===96))?32:1);f++)window.__hausSchritt();},{i,profil,modus});
   await seite.waitForTimeout(10);
   await seite.screenshot({path:`${ziel}/${String(i).padStart(3,'0')}.png`});
  }
- const bericht={probe,modus,profil,parameter:String(parameter),spielURL:`http://127.0.0.1:4173/?${spiel}`,bilder:indizes.length,fpsVideo:24,breite:1280,hoehe:720,fehler,letzte:await seite.evaluate(()=>window.__haus)};
+ const hausPuffer=await seite.evaluate(()=>{
+  const gesehen=new Set(),daten=[];
+  window.__szene.traverse(o=>{
+   const g=o.geometry;if(!g?.getAttribute('glut')||gesehen.has(g))return;gesehen.add(g);
+   daten.push({ecken:g.getAttribute('position').count,dreiecke:(g.index?.count??g.getAttribute('position').count)/3,
+    byte:Object.values(g.attributes).reduce((s,a)=>s+a.array.byteLength,0)+(g.index?.array.byteLength??0),indiziert:!!g.index});
+  });return daten;
+ });
+ const bericht={probe,modus,profil,hausPuffer,parameter:String(parameter),spielURL:`http://127.0.0.1:4173/?${spiel}`,bilder:indizes.length,fpsVideo:24,breite:1280,hoehe:720,fehler,letzte:await seite.evaluate(()=>window.__haus)};
  writeFileSync(`${ziel}/bericht.json`,JSON.stringify(bericht,null,2));console.log(JSON.stringify(bericht));
  if(fehler.length)process.exitCode=1;
 }finally{await browser.close();}
