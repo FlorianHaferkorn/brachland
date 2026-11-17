@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { PALETTE } from './palette.js';
 import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN } from './echt.js';
+import type { HausReferenz } from './hausbauteil.js';
 import { fassadenKasten, vereinfacheHauswand } from './hausbauteil.js';
 import { gesperrt } from './bauwerke.js';
 
@@ -251,7 +252,7 @@ export function baueGebaeude(
    * Im Umkreis von 150 m Stufe 0 (bewohnt, geflickt, Vorhänge, Licht), sonst 1 (verlassen) oder 2 (verfallen).
    */
   bewohnt: readonly (readonly [number, number])[] = [],
-  referenz?: { mitte: readonly number[]; vorne: readonly number[] },
+  referenz?: HausReferenz | readonly HausReferenz[],
 ): THREE.BufferGeometry | null {
   const [sued, west, nord, ost] = welt.bbox;
   const positionen: number[] = [];
@@ -458,13 +459,15 @@ export function baueGebaeude(
     };
   };
 
+  const referenzen: readonly HausReferenz[] = !referenz ? [] : Array.isArray(referenz) ? referenz : [referenz as HausReferenz];
   for (const g of auswahl) {
     /** D291: erste Ecke dieses Hauses — für die Umfärbung nach dem Fassaden-Steckbrief am Ende. */
     const ersteEcke = farben.length / 3;
     let p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
-    const hProbe = referenz && p.length >= 4 ? orientierteHuelle(p) : null;
+    const hProbe = referenzen.length && p.length >= 4 ? orientierteHuelle(p) : null;
     const mitteProbe = hProbe?.welt((hProbe.minU+hProbe.maxU)/2,(hProbe.minV+hProbe.maxV)/2);
-    const referenzHaus = !!referenz && !!mitteProbe && Math.hypot(mitteProbe[0]-referenz.mitte[0],mitteProbe[1]-referenz.mitte[1]) < 0.1;
+    const hausReferenz = mitteProbe ? referenzen.find(r => Math.hypot(mitteProbe[0]-r.mitte[0],mitteProbe[1]-r.mitte[1]) < 0.1) : undefined;
+    const referenzHaus = !!hausReferenz;
     if (referenzHaus) p = vereinfacheHauswand(p);
     if (p.length < 3) continue;
     // Freihaltung eines Bauwerks (ADR-0006, D155): Die Blender-Szene blendet OSM-Haeuser im Nahbereich
@@ -593,11 +596,13 @@ export function baueGebaeude(
      * bekommt statt der Tür ein Tor: 2,6 m breit, weil ein 1,05 m breiter Eingang
      * an einer Garage sofort als Fehler auffällt.
      */
-    let tuerWand = 0, tuerLang = 0;
+    let tuerWand = referenzHaus ? -1 : 0, tuerLang = 0;
     for (let k = 0; k < p.length - 1; k++) {
       const l = Math.hypot(p[k + 1][0] - p[k][0], p[k + 1][1] - p[k][1]);
-      const front = referenzHaus ? ((p[k+1][1]-p[k][1])*referenz!.vorne[0] - (p[k+1][0]-p[k][0])*referenz!.vorne[1]) / l : 1;
-      if (front > 0.9 && l > tuerLang) { tuerLang = l; tuerWand = k; }
+      const front = referenzHaus ? ((p[k+1][1]-p[k][1])*hausReferenz!.vorne[0] - (p[k+1][0]-p[k][0])*hausReferenz!.vorne[1]) / l : 1;
+      const e = hausReferenz?.eingang;
+      const aufWand = e === undefined || (e !== null && Math.abs(((e[0]-p[k][0])*(p[k+1][1]-p[k][1])-(e[1]-p[k][1])*(p[k+1][0]-p[k][0]))/l)<.03);
+      if (aufWand && front > 0.9 && l > tuerLang) { tuerLang = l; tuerWand = k; }
     }
     const garage = g.art === 'garage' || g.art === 'carport';
     const tuerBreite = garage ? 2.6 : 1.05;
@@ -700,9 +705,12 @@ export function baueGebaeude(
       const traufseitig = Math.abs((x2-x1)*hu.cos + (z2-z1)*hu.sin) > lochLaenge*0.7;
       const anzahl = g.fassade ? (traufseitig ? g.fassade.fensterachsen.traufe : g.fassade.fensterachsen.giebel)
         : Math.max(1, Math.floor(lochLaenge / 3.2));
+      const eingangU = hausReferenz?.eingang
+        ? ((hausReferenz.eingang[0]-x1)*(x2-x1)+(hausReferenz.eingang[1]-z1)*(z2-z1))/lochLaenge : lochLaenge/2;
+      const eingangX=x1+(x2-x1)*eingangU/lochLaenge, eingangZ=z1+(z2-z1)*eingangU/lochLaenge;
       const eingangBoden = referenzHaus && k === tuerWand
-        ? Math.max(boden, terrain.hoeheAn((x1+x2)/2+(z2-z1)/lochLaenge*.35,(z1+z2)/2-(x2-x1)/lochLaenge*.35)) : boden;
-      const tuerKollision = (ebene: number, u: number) => referenzHaus && k === tuerWand && ebene === 0 && Math.abs(u-lochLaenge/2) < (tuerBreite+breiteF)/2+0.18;
+        ? Math.max(boden, terrain.hoeheAn(eingangX+(z2-z1)/lochLaenge*.35,eingangZ-(x2-x1)/lochLaenge*.35)) : boden;
+      const tuerKollision = (ebene: number, u: number) => referenzHaus && k === tuerWand && ebene === 0 && Math.abs(u-eingangU) < (tuerBreite+breiteF)/2+(hausReferenz?.eingang ? 0.65 : 0.18);
       const fensterUnterkante = (ebene: number) => boden + ebene * geschoss + 1.05;
       // Unpassende Fotoachsen erzeugen keine überlappenden Löcher oder offene Hausecken.
       const fensterVertieft = (FENSTERTIEFE_AN || referenzHaus) && !stallWand && lochLaenge >= 2.2 && anzahl > 0 && lochLaenge / anzahl >= 1.2;
@@ -714,7 +722,7 @@ export function baueGebaeude(
           for(let i=0;i<anzahl;i++) { const u=lochLaenge*(i+0.5)/anzahl; if(tuerKollision(e,u)) continue; wandLoch.push({u0:u-breiteF/2,u1:u+breiteF/2,y0:y,y1:y+hoeheF}); }
         }
       }
-      if (referenzHaus && k === tuerWand) wandLoch.push({u0:lochLaenge/2-tuerBreite/2,u1:lochLaenge/2+tuerBreite/2,y0:boden,y1:eingangBoden+tuerHoehe+.02});
+      if (referenzHaus && k === tuerWand) wandLoch.push({u0:eingangU-tuerBreite/2,u1:eingangU+tuerBreite/2,y0:boden,y1:eingangBoden+tuerHoehe+.02});
       if (stallWand) {
         // D289: Tenne/Stall — Bruchsteinsockel bis 0,9 m, darüber Bretter bis zur Traufe.
         quad([x1, fuss, z1], [x2, fuss, z2], [x2, boden + 0.9, z2], [x1, boden + 0.9, z1], SOCKEL);
@@ -756,7 +764,7 @@ export function baueGebaeude(
       if (wandLaenge >= 2.5) {
         if (referenzHaus) {
           const K=fassadenKasten(quadNach,[x1,z1],[(x2-x1)/wandLaenge,(z2-z1)/wandLaenge],[wx,wz]);
-          const abschnitte=k===tuerWand ? [[0,wandLaenge/2-tuerBreite/2-0.12],[wandLaenge/2+tuerBreite/2+0.12,wandLaenge]] : [[0,wandLaenge]];
+          const abschnitte=k===tuerWand ? [[0,eingangU-tuerBreite/2-0.12],[eingangU+tuerBreite/2+0.12,wandLaenge]] : [[0,wandLaenge]];
           for(const [a,b] of abschnitte) {
             K(a,b,fuss-0.06,boden+0.34,0.015,0.13,SOCKEL);
             K(a,b,boden+0.34,boden+0.41,0.01,0.17,RAHMEN);
@@ -768,7 +776,7 @@ export function baueGebaeude(
 
       // Haustür
       if (k === tuerWand && wandLaenge >= tuerBreite + 0.6) {
-        const t = 0.5;
+        const t = eingangU/wandLaenge;
         const cx = x1 + (x2 - x1) * t, cz = z1 + (z2 - z1) * t;
         const ex = (x2 - x1) / wandLaenge * tuerBreite / 2;
         const ez = (z2 - z1) / wandLaenge * tuerBreite / 2;

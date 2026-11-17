@@ -883,3 +883,37 @@ Die verlustfreien VP9-Clips sind eine reproduzierbare Qualitätsprobe, kein
 Geschwindigkeitsbeleg. Ein separater Lauf ohne feste Kamera prüft die normale
 Spielsteuerung. FPS mit `vergleich.mjs` separat ohne Video/Bildsonden messen.
 Historische Ausgaben bleiben erhalten; bestehende Zielnamen werden abgewiesen.
+
+
+## D304 — Bauteile auf das Hofensemble übertragen
+
+Gegenprobe `hofgruen=1&referenzhaus=1&hofhaeuser=0` zeigt D303 mit nur einem
+Referenzhaus. Kandidat `hofgruen=1&referenzhaus=1&hofhaeuser=1` überträgt die
+Bauteile auf acht Wohnhäuser in35m um den Hof (297/301/307/308/320/344/345/346).
+Garagen bleiben bei ihrer bisherigen Ausführung; alle Grundrisse werden für
+freie Eingänge berücksichtigt. Der verdeckte D303-Eingang an297 wird dabei auf
+eine freie Straßenfassade verlegt. Auswahl nur beim Weltaufbau, keine Erzeugung
+von Bauteilen pro Frame; Häuser bleiben im vorhandenen Kachelmesh/Material.
+
+```bash
+node tools/mess/hauslauf.mjs <neuer-vorher-name> 0 fahrt hof
+node tools/mess/hauslauf.mjs <neuer-nachher-name> 1 fahrt hof
+node tools/mess/hausgalerie.mjs <neue-galerie> <vorher-name> <nachher-name> [spieltest.webm]
+```
+
+Profil `hof`:216Bilder/9s bei24Bildern/s,1280×720/DPR1, drei identische
+Kamerafahrten mit je72Bildern und60Grad Blickfeld. Erste Ansicht wie D303 vom
+Hofweg; zweite von1447/430→1447/436 auf die gegenüberliegenden Häuser; dritte
+von1454/447→1457/453 auf320/344. Kamerahöhen36,4–36,8m in Weltkoordinaten,
+keine Telekamera oder freigestellten Objekte.32Aufwärmbilder an jedem Schnitt,
+gleiche Shader-Windphase je Bild; Figuren laufen unabhängig. `stand hof` dient
+nur der Vorprüfung; die endgültige Bildfolge bleibt ein eigener neuer Lauf.
+Normales Spiel ohne feste Kamera und FPS separat ohne Video/Bildsonden prüfen.
+
+D304-Endstand: `.cache/mess/d304-hof-vor` / `d304-hof-nach`; Galerie
+`.cache/bilder/d304-hofvergleich-final/vergleich.html`. Normaler Spieltest
+`d304-spieltest`, Start1447/430/200 ohne feste Kamera,12s/25Sonden,94Baumwechsel,
+0Browser-/Duplikat-/Blend-/Wartefehler. Kosten `d304-kosten-{1,2,3,4}`
+mit gleicher Kamera1447/36,4/436→1457/38/432 und60Grad,960×540:0/1/1/0
+26,44/23,06/23,08/25,11FPS; p9583,4/100,7/115,7/99,9ms. Lokal rund10,5%
+weniger FPS, kein allgemeiner Benchmark und kein Geschwindigkeitsvorteil.

@@ -1,6 +1,13 @@
 /** D303: Körper im lokalen Fassadensystem, gesammelt im bestehenden Hausmesh. */
 import type { Color } from 'three';
 
+/** Auswahl und Eingangsadresse; undefined erhält die frühere Richtungsprobe, null setzt keine Tür. */
+export interface HausReferenz {
+  mitte: readonly number[];
+  vorne: readonly number[];
+  eingang?: readonly number[] | null;
+}
+
 type Punkt = [number, number, number];
 export type HausQuad = (a: Punkt, b: Punkt, c: Punkt, d: Punkt, farbe: Color, normal: readonly [number, number, number]) => void;
 

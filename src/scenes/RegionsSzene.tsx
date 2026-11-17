@@ -59,10 +59,11 @@ import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
 import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
 import { richteHofPropEin } from '../world/hofmaterial.js';
-import { waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
+import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
+import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN } from '../world/echt.js';
+import { HOF_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -694,6 +695,8 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     .filter(o => o.art === 'bewohner' || o.art === 'zuflucht')
     .map(o => nachMetern(o.ort, welt.bbox)), [welt]);
   const fassaden = useMemo(() => [...FASSADEN.values()].filter(f => f.region === 'oental'), []);
+  const hofHaeuser = useMemo(() => HOF_HAEUSER_AN
+    ? bestimmeHofhaeuser(welt, boden, bestimmeHof(welt, boden)) : null, [welt, boden]);
   const hausKachel = useMemo(() => (
     _feld: HoehenFeld, s: Bandsatz, k: Kachel, _lod: number,
   ) => {
@@ -707,11 +710,11 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       // D291: Fassaden-Steckbrief, dessen Punkt im Grundriss liegt.
       const fassade = fassaden.find(f => imPolygon(f.ort, g.punkte)) ?? null;
       return lod2 || fassade ? { ...g, lod2: lod2 ? lod2[i] : g.lod2, fassade } : g;
-    }), bewohnt, REFERENZHAUS_AN && HOF_UNIFORM.bereit.value ? {
+    }), bewohnt, hofHaeuser ?? (REFERENZHAUS_AN && HOF_UNIFORM.bereit.value ? {
       mitte: HOF_UNIFORM.mitte.value.toArray(),
       vorne: [-HOF_UNIFORM.achse.value.y, HOF_UNIFORM.achse.value.x],
-    } : undefined);
-  }, [welt, boden, bewohnt, fassaden]);
+    } : undefined));
+  }, [welt, boden, bewohnt, fassaden, hofHaeuser]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
   const wasserKachel = useMemo(() => (

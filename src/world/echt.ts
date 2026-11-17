@@ -24,6 +24,8 @@ export const HOF_STRAUCH_WEIT = HOF_GRUEN_AN && suche.get('strauchweit') !== '0'
 export const BLATTRUHE_AN = HOF_GRUEN_AN && suche.get('blattruhe') !== '0';
 /** D301: kontinuierliche AO-Flächen statt Normalen über Blatt-/Himmel-Tiefensprünge. */
 export const BLATTVERLAUF_AN = BLATTRUHE_AN && suche.get('blattverlauf') !== '0';
+/** D304: Bauteile auf den örtlichen Hofverbund übertragen; D303 bleibt separat abrufbar. */
+export const HOF_HAEUSER_AN = HOF_GRUEN_AN && an('hofhaeuser');
 /** D303: nur das ausgewählte Hofhaus, expliziter Vorher/Nachher-Schalter. */
 export const REFERENZHAUS_AN = HOF_GRUEN_AN && an('referenzhaus');
 export const HOF_AN = an('scanhof') || HOF_GRUEN_AN;
