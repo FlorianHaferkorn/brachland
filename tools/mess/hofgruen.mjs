@@ -33,6 +33,7 @@ try {
       if (o.name.startsWith('ezlaub:')) d.blattkarten.push({ name: o.name,
         breite: o.material.map?.image?.width, mipStufen: o.material.map?.mipmaps?.length,
         alphaToCoverage: o.material.alphaToCoverage, tiefenAlphaToCoverage: o.customDepthMaterial?.alphaToCoverage,
+        glanz: o.material.specular?.toArray(),
         tiefenkarteGleich: o.customDepthMaterial?.map === o.material.map,
         alphaGleich: o.customDepthMaterial?.alphaTest === o.material.alphaTest });
     });
@@ -44,6 +45,8 @@ try {
     if (!daten.blattkarten.length || daten.blattkarten.some(b => !(b.breite > 1 && b.mipStufen >= 2 && b.tiefenkarteGleich && b.alphaGleich))) fehler.push('Blatt-/Tiefenkarten oder Mips nicht bereit.');
     const deckung = parameter.get('blattruhe') !== '0' && parameter.get('msaa') !== '0';
     if (daten.blattkarten.some(b => b.alphaToCoverage !== deckung || b.tiefenAlphaToCoverage)) fehler.push('EZ-Blattränder nutzen nicht die erwartete MSAA-Deckung oder verändern Schatten.');
+    if (parameter.get('blattverlauf') !== '0' && parameter.get('blattruhe') !== '0'
+      && daten.blattkarten.some(b => b.glanz?.some(v => v !== 0))) fehler.push('EZ-Blattkarten behalten ungefilterte Phong-Glanzspitzen.');
   } else if (daten.ez || daten.aussenVersteckt) fehler.push('Gegenlauf verändert Originalbäume.');
   await seite.screenshot({ path: `${ziel}/bild.png` });
   const bericht = { probe, ...daten, fehler };

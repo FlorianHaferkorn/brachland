@@ -100,8 +100,11 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `mess/hofgruen-vergleich.json` | D299: versioniertes Rezept für Bildpaare, Kostenberichte, Hofvideo und Spiel-Link der Vegetationsgalerie. |
 | `mess/hofgruen-vergleich.json` | D299: Kamerapaare, Kostenberichte und Spieladresse für die Vegetationsgalerie; Eingabe für `mess/hofgalerie.mjs`. |
 | `mess/hofgruen.mjs` | D299: Rendererprüfung der lokalen Baumaufteilung, sichtbarer Aussengruppen sowie fertiger Blatt-/Tiefenkarten mit Deckungs-Mips. |
-| `mess/blattlauf.mjs` | D300: isolierte Rendererprobe mit 24 Einzelbildschritten und eingefrorenen Winduniformen, Subpixel- oder TAA-Modus; neue Ausgabeordner, keine Performanceaussage. |
-| `mess/blattgalerie.mjs` | D300: eigenständige A/B-Galerie mit synchronen Blatt-/Laufvideos, Vergleichstafel und Grenzen der Schwankungsmessung; vier abgeschlossene Eingabeordner, neue Ausgaben. |
+| `mess/blattlauf.mjs` | D300/D301: isolierte Rendererprobe; 24 Subpixelbilder, 48 TAA-Bilder nach96Aufwärmbildern oder96Fahrtbilder; optionale Zusatzparameter, Kameras/Wind vorgegeben, neue Ausgabeordner, keine Performanceaussage. |
+| `mess/aonormale.mjs` | D301: führt den exportierten AO-Normalen-GLSL-Helfer auf echten WebGL2-Float-Tiefenfeldern aus; Ebene, einseitige Sprünge, isoliertes Nahpixel und degenerierte Fläche. `node tools/mess/aonormale.mjs`, kein Spielstart. |
+| `mess/taamaske.mjs` | D301: GPU-Test des exportierten TAA-Tiefenmasken-GLSL-Helfers; konstante/geneigte Fläche, Nahpixel, Einzelkante, Übergang und Nulltiefe. `node tools/mess/taamaske.mjs`, kein Spielstart. |
+| `mess/blattglanz.mjs` | D301: echter Three-Phong-GPU-Test des Produktionshooks bei schwarzer Diffus-/Glanzfarbe; Gegenprobe muss Fresnel-Glanz zeigen, matte Variante vollständig schwarz bleiben. `node tools/mess/blattglanz.mjs`, kein Spielstart. |
+| `mess/blattgalerie.mjs` | D300/D301: A/B-Galerie mit synchronen Blatt-/Laufvideos und optionaler Kronenfahrt, Vergleichstafel und Messgrenzen; vier/sechs abgeschlossene Eingabeordner, 24/48Detailbilder, --staende=D300,D301, neue Ausgaben. |
 | `mess/hofgalerie.mjs` | D298/D299: Vorher-/Nachher-Galerie mit Regler, eingebettetem Video und PNG-Tafel; optionales JSON-Rezept als zweites Argument, neue Ausgabeordner. |
 | `mess/hofladen.mjs` | D298: kalter Browserlauf ohne Service Worker, unmittelbare Assetbytes und lokale Ladezeit; neue Messnamen, keine historischen Berichte überschreiben. |
 | `mess/sonde.mjs` | InstancedMesh-Sonde über `window.__szene`: Instanzzahl, Geometrie, Material und Attribute als JSON. |

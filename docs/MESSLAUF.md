@@ -770,6 +770,8 @@ Die Galerie-Konfiguration verweist auf die abgeschlossenen D299-Berichte/Bilder.
 
 ## Blattkanten D300
 
+Historischer D300-Vergleich: Seit D301 zusätzlich `blattverlauf=0` setzen, um diesen Stand wiederherzustellen.
+
 `hofgruen=1&blattruhe=0` ist der D299-Gegenlauf; `hofgruen=1` nutzt zentrierte Alpha-to-Coverage-Kanten bei aktivem MSAA und vollständige Mips der EZ-Einzelkarten. `msaa=0` nimmt nur die Sample-Deckung heraus; `mips=0` behält die bisherige Sechsstufenkette. Strauchatlas, TAA, Geometrien, Wind und LOD-Abstände bleiben unverändert. Schattenkarten sind nicht multisampelt: `onBeforeShadow` bewahrt die Quellschwelle auch nach der three.js-Vorbereitung (Nadeln0,3 statt pauschal0,5).
 
 ```bash
@@ -787,3 +789,48 @@ Die isolierte Blattprobe hält Kamera und Winduniformen fest und zeichnet nach48
 Bewegung wieder mit `lodlauf.mjs`, Start1444,419,150,12s, denselben Lichtwerten und `schwenk-dialog` auf beiden Seiten; nur `blattruhe=0|1` variieren. Wind und Figuren laufen dabei unabhängig. Bildzeiten separat mit `vergleich.mjs`, vier isolierte Läufe0/1/1/0. Die Videos/Szenensonden belasten den Renderer und taugen nicht als Kostenvergleich. Neue Ergebnisordner erhalten; keine D299-Baseline ersetzen.
 
 Der ergänzende Modus `fahrt` hält die Kronen im Blick:96Einzelbilder mit aktiver TAA, Kamera entlang4mStrasse plus1,2mSeitwärtsbogen und gleiche Windphase je Bildnummer (4sSpielzeit mit24Schritten/s). Das ist eine geskriptete Rendererfahrt; der unabhängige Spiellauf prüft zusätzlich Bewegung und LOD-Verwaltung. Die Galerie zeigt diese Fahrt bei halber Geschwindigkeit sowie eine zweifache Detail-Zeitlupe und den normalen Hoflauf. Detail-/Kronenvideos mit verlustfreier VP9-Quantisierung und voller Farbauflösung, damit die Kompression feine Pixelwechsel nicht verschluckt; RGB→YUV-Farbraumwandlung bleibt. Bestehende Ordner werden verweigert. Werkzeugvoraussetzungen: Playwright wie die übrigen Messläufe sowie `ffmpeg`/`ffprobe` zum Zusammenstellen.
+
+
+## Blattverlauf D301
+
+Gegenprobe `hofgruen=1&blattruhe=1&blattverlauf=0` ist D300, die neue Probe nimmt `blattverlauf=1`. Ohne Hofprobe greift die Änderung nicht; `blattruhe=0` erhält auch weiterhin den D299-Rückfall. Kameras, Licht, Wind, Texturen, Geometrien und LOD-Abstände bleiben identisch.
+
+Die Verdeckung nutzt vier Tiefennachbarn statt Bildschirm-Ableitungen über Blatt-/Himmelsprünge. Nicht verlässlich rekonstruierbare Flächen erhalten dort keine zusätzliche Bildschirm-Verdeckung; gebackene AO und Sonnenschatten bleiben bestehen. Die Degenerationsprüfung skaliert mit dem Flächenmaß, damit kleine nahe Flächen bei hoher Auflösung erhalten bleiben. Das direkte Phong-Glanzglied entfällt bei den EZ-Blattkarten: schwarze Glanzfarbe allein entfernt den Fresnel-Glanz im Streiflicht nicht.
+
+Die TAA integriert das aktuelle Farbsample an Tiefenkanten mit einem 3×3-Binomialkern (Mitte4/Achsen2/Ecken1, Summe16) in derselben Karis-Stauchung wie die bestehende History. Das verwendet die vorhandenen neun Farbabfragen, zusätzlich die neun Tiefenwerte des Umfelds. Die Maske nimmt das Maximum sechs relativer zweiter Tiefendifferenzen im 3×3-Feld; lineare Tiefenneigungen ergeben0. Das ist eine Tiefenkantenkennung, keine sichere Laubsegmentierung: auch Silhouetten anderer Objekte können lokal geglättet werden. Die ursprünglichen Farbgrenzen, Reprojektion und History-Mischung bleiben erhalten. In der Bildprüfung deshalb Zweige, Dach-/Fensterkanten, Halos und lokale Unschärfe gegen D300 prüfen.
+
+```bash
+node tools/mess/aonormale.mjs
+node tools/mess/blattglanz.mjs
+node tools/mess/taamaske.mjs
+node tools/mess/blattlauf.mjs neuer_d300 1 taa 'blattverlauf=0'
+node tools/mess/blattlauf.mjs neuer_d301 1 taa 'blattverlauf=1'
+node tools/mess/blattlauf.mjs neue_fahrt_d300 1 fahrt 'blattverlauf=0'
+node tools/mess/blattlauf.mjs neue_fahrt_d301 1 fahrt 'blattverlauf=1'
+```
+
+Die GPU-Regressionen führen den tatsächlich exportierten GLSL-Helfer beziehungsweise den transpilierten Material-Hook mit dem echten three.js-Renderer aus; kein Vergleich mit Quelltextmustern. Für die ruhende TAA-Probe zeichnet `blattlauf.mjs` seit D301 nach96Aufwärmbildern48Bilder, also drei vollständige16er-AO-Zyklen. Direkte Prozentvergleiche nur innerhalb derselben neuen Reihe; alte24-Bilder-Berichte aus D300 bleiben historische Belege. `extra`/`parameter` speichern die tatsächlich angefragten Schalter. `messglanz=0` ist eine lokale Diagnose des Messwerkzeugs, kein Spielschalter.
+
+Die geskriptete96-Bilder-Kronenfahrt und der normale12s-Hoflauf bleiben getrennte Belege. Galerie mit vier oder optional sechs Eingabeordnern wie D300, zusätzlich `--staende=D300,D301`; sie übernimmt24oder48Bilder aus den Berichten und prüft gleiche Anzahlen. Bestehende Ausgaben werden verweigert. Bildzeiten weiterhin separat ohne Video/Sonden und ohne parallel laufende Renderer messen.
+
+
+## Restflimmern D301
+
+`hofgruen=1&blattruhe=1&blattverlauf=0` stellt D300 wieder her. `blattverlauf=1` nutzt die D301-Probe: AO-Flächen aus verträglichen Tiefennachbarn, vollständige Herausnahme unzuverlässiger Bildschirm-AO an Feinstruktur, matte EZ-Blätter einschließlich Fresnel-Anteil und ein tiefenkantengeführter TAA-Vorfilter. `blattruhe=0` bleibt D299; ohne Hofprobe gilt der bisherige Spielpfad.
+
+Der Vorfilter integriert die vorhandenen neun Farbproben mit Gewichten4/2/1 in der Karis-Stauchung. Die Kantenmaske verwendet sechs relative zweite Tiefendifferenzen im3×3Umfeld statt einer sprunghaften Mittelpunktklassifizierung. Das ist keine sichere Laubsegmentierung: Auch Silhouetten anderer Objekte können reagieren. Geschichte, Reprojektion, TAA-Mischgewicht, Licht, Wind, LOD-Abstände und Texturen bleiben unverändert. Die räumliche Integration beruhigt Kanten auf Kosten sichtbar weicherer Feinstruktur; deshalb nicht nur den Schwankungswert beurteilen, sondern Blätter, Zweige, Gras, Materialdetails und mögliche Farbsäume in Bewegung vergleichen.
+
+```bash
+node tools/mess/aonormale.mjs
+node tools/mess/taamaske.mjs
+node tools/mess/blattglanz.mjs
+node tools/mess/blattlauf.mjs neue_d301_vor 1 taa 'blattverlauf=0'
+node tools/mess/blattlauf.mjs neue_d301_nach 1 taa 'blattverlauf=1'
+node tools/mess/blattlauf.mjs neue_d301_fahrt_vor 1 fahrt 'blattverlauf=0'
+node tools/mess/blattlauf.mjs neue_d301_fahrt_nach 1 fahrt 'blattverlauf=1'
+node tools/mess/blattgalerie.mjs neuer_d301_vergleich .cache/mess/neue_d301_vor .cache/mess/neue_d301_nach .cache/mess/lauf_d300 .cache/mess/lauf_d301 .cache/mess/neue_d301_fahrt_vor .cache/mess/neue_d301_fahrt_nach --staende=D300,D301
+```
+
+Die GPU-Proben führen echte Produktionsfunktionen aus: AO auf Float-Tiefentexturen (auch kleine nahe Flächen), Kantenmaske auf Tiefenfeldern und der originale Three-Phong-Hook bei schwarzer Diffus-/Glanzfarbe unter Streiflicht. Phong zeigt dort trotz schwarzer Glanzfarbe ein helles Fresnel-Signal; der matte Shader muss schwarz bleiben. Keine Code-Textvergleiche als Ersatz für Zeichentests.
+
+D301 verlängert die statische Blattprobe auf48Bilder nach96Aufwärmbildern: drei vollständige16erAO-Musterzyklen statt der älteren24Bilder. Vergleiche nur neue Reihen mit gleicher Bildanzahl; alte D300-Werte nicht direkt dagegen rechnen. Das Spiel-Bundle wird in den neueren Berichten unter `programme` mitgeführt. Diagnosen `ao=0`, `schatten=0` und der rein im Messbrowser wirkende Zusatz `messglanz=0` bleiben Untersuchungen, keine veröffentlichte Qualitätsstufe.

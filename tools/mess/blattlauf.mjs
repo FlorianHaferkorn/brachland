@@ -1,14 +1,14 @@
 /** D300: gleiche Subpixelbewegung im echten Renderer, ohne Wind-/TAA-Phasen als Störgrösse.
  * node tools/mess/blattlauf.mjs <neuer-name> <0|1>
- * Die 24 Bilder sind eine isolierte Materialprobe, keine FPS- oder Gameplaymessung.
+ * 48 TAA-Bilder erfassen drei AO-Zyklen; die Bildfolgen sind keine FPS-Messung.
  */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { playwright } from './pw.mjs';
-const [name, probe, modus = 'subpixel'] = process.argv.slice(2);
+const [name, probe, modus = 'subpixel', extra = ''] = process.argv.slice(2);
 if (!name || !/^[a-z0-9_-]+$/i.test(name) || !['0', '1'].includes(probe)) throw Error('Neuen Namen und 0|1 angeben.');
 if (!['subpixel', 'taa', 'fahrt'].includes(modus)) throw Error('Modus subpixel, taa oder fahrt angeben.');
-const anzahl = modus === 'fahrt' ? 96 : 24;
+const anzahl = modus === 'fahrt' ? 96 : modus === 'taa' ? 48 : 24;
 const ziel = `.cache/mess/${name}`;
 if (existsSync(ziel)) throw Error(`Ausgabe existiert: ${ziel}`);
 mkdirSync(ziel, { recursive: true });
@@ -32,9 +32,15 @@ const fehler = [], bilder = [];
 seite.on('pageerror', e => fehler.push(String(e)));
 seite.on('console', m => { if (m.type() === 'error') fehler.push(m.text()); });
 try {
-  await seite.goto(`http://127.0.0.1:4173/?absetzen=1441,418,0&zeit=0.26&kontur=0&stimmung=zielbild&hofgruen=1&blattruhe=${probe}&taa=${modus !== 'subpixel' ? 1 : 0}&kamera=1441,35.66,418,1441,39,462&fov=42.6`);
+  const parameter = new URLSearchParams(`absetzen=1441,418,0&zeit=0.26&kontur=0&stimmung=zielbild&hofgruen=1&blattruhe=${probe}&taa=${modus !== 'subpixel' ? 1 : 0}&kamera=1441,35.66,418,1441,39,462&fov=42.6`);
+  for (const [k, v] of new URLSearchParams(extra)) parameter.set(k, v);
+  await seite.goto(`http://127.0.0.1:4173/?${parameter}`);
   await seite.waitForFunction(() => document.body.textContent.includes('Ladezeit') && window.__szene?.userData.ezKamera, undefined, { timeout: 180000 });
   await seite.waitForTimeout(15000);
+  // Diagnose nur im Messbrowser: Geometrie, Spielcode und gespeicherte Materialien bleiben erhalten.
+  if (parameter.get('messglanz') === '0') await seite.evaluate(() => {
+    window.__szene.traverse(o => { if (o.name.startsWith('ezlaub:')) o.material.specular.setRGB(0, 0, 0); });
+  });
   await seite.evaluate(modus => {
     const s = window.__szene, vorher = s.onBeforeRender;
     window.__blatt = { versatz: 0, index: 0, bild: 0, samples: null, deckung: [] };
@@ -69,7 +75,7 @@ try {
   await seite.evaluate(async () => { for (let i = 0; i < 8; i++) await new Promise(r => requestAnimationFrame(r)); });
   await seite.evaluate(() => window.__blattPause());
   await seite.waitForTimeout(200);
-  await seite.evaluate(() => { for (let i = 0; i < 48; i++) window.__blattSchritt(); });
+  await seite.evaluate(() => { for (let i = 0; i < 96; i++) window.__blattSchritt(); });
   for (let i = 0; i < anzahl; i++) {
     const versatz = modus !== 'subpixel' ? 0 : i < 12 ? i / 12 : (24 - i) / 12;
     await seite.evaluate(({ v, i }) => {
@@ -100,9 +106,11 @@ try {
     schwankung += roh.reduce((s, b) => s + Math.abs(b.data[i] - mittel), 0) / roh.length;
   }
   const bericht = { probe, methode: modus === 'fahrt' ? '96 TAA-Bilder mit gleicher Kamerafahrt und Windphase; 24 Schritte/s Spielzeit, keine FPS-Messung'
-    : modus === 'taa' ? '24 aufeinanderfolgende TAA-Bilder; Kamera und Winduniformen fest; kein FPS-Lauf'
+    : modus === 'taa' ? '48 aufeinanderfolgende TAA-Bilder, drei vollständige 16er-AO-Zyklen nach 96 Aufwärmbildern; Kamera und Winduniformen fest; kein FPS-Lauf'
     : '24 Subpixelstellungen 0…1…0 Pixel; Winduniformen fest, TAA aus; kein FPS-Lauf',
-    modus, roi, bilinearRestfehler: modus === 'fahrt' ? null : fehlerSumme / proben,
+    modus, extra, parameter: parameter.toString(),
+    programme: await seite.evaluate(() => [...document.scripts].map(s => s.src).filter(Boolean)),
+    roi, bilinearRestfehler: modus === 'fahrt' ? null : fehlerSumme / proben,
     mittlereSchwankung: modus === 'fahrt' ? null : schwankung / (roi.b * roi.h * 3), samples: lauf.samples, deckung: lauf.deckung,
     bilder: bilder.length, fehler };
   writeFileSync(`${ziel}/bericht.json`, JSON.stringify(bericht, null, 2));

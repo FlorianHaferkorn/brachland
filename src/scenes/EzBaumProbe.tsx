@@ -8,7 +8,7 @@ import { EZ_BLEND_DAUER, EZ_STUFEN, ezIntervall, ezWechsel } from './ezlod.js';
 import type { EzIntervall, EzVerlauf } from './ezlod.js';
 import { ergaenzeEzLaublicht, bewahreEzBlattschatten, beruhigeEzBlattkante } from '../world/ezlaubmaterial.js';
 import { getLeafTexture, warteEzBlattkarten } from '../world/eztexturen.js';
-import { HOF_GRUEN_AN, BLATTRUHE_AN, MSAA } from '../world/echt.js';
+import { HOF_GRUEN_AN, BLATTRUHE_AN, BLATTVERLAUF_AN, MSAA } from '../world/echt.js';
 
 type Stufe = 'nah' | 'mittel' | 'fern';
 type BaumArt = 'nadelbaum' | 'laubbaum';
@@ -196,6 +196,8 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
         const material = baum.leavesMesh.material;
         if (Array.isArray(material)) throw new Error('EZ-Baumprobe erwartet ein Laubmaterial.');
         const laub = material as THREE.MeshPhongMaterial;
+        // Fein aufgelöste Kartennormalen tragen keine verlässlich gefilterten Glanzspitzen.
+        if (BLATTVERLAUF_AN) laub.specular.setRGB(0, 0, 0);
         // MSAA kann die fotografische Blattkante nur mit Sample-Deckung glätten.
         // Die nicht multisampelte Schattenkarte behält ihren harten Alpha-Test.
         laub.alphaToCoverage = BLATTRUHE_AN && MSAA > 0;
@@ -203,7 +205,7 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
           map: laub.map, alphaTest: laub.alphaTest, side: laub.side });
         windEinbauen(laub, windZeit); windEinbauen(tiefe, windZeit);
         blendeEinbauen(laub, windZeit); blendeEinbauen(tiefe, windZeit);
-        ergaenzeEzLaublicht(laub);
+        ergaenzeEzLaublicht(laub, BLATTVERLAUF_AN);
         if (laub.alphaToCoverage) beruhigeEzBlattkante(laub);
         const stammMaterial = baum.branchesMesh.material;
         if (Array.isArray(stammMaterial)) throw new Error('EZ-Baumprobe erwartet ein Stammmaterial.');

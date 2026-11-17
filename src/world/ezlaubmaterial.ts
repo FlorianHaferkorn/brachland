@@ -42,11 +42,14 @@ export function bewahreEzBlattschatten(mesh: THREE.Mesh<THREE.BufferGeometry, TH
 }
 
 /** Nach anderen Shader-Anpassungen aufrufen; vorhandene Hooks bleiben erhalten. */
-export function ergaenzeEzLaublicht(material: THREE.Material): void {
+export function ergaenzeEzLaublicht(material: THREE.Material, matt = false): void {
   const vorher = material.onBeforeCompile;
   const programm = material.customProgramCacheKey.bind(material);
   material.onBeforeCompile = (shader, renderer) => {
     vorher.call(material, shader, renderer);
+    // Phong behält selbst bei schwarzer Glanzfarbe Fresnel-Reflexe im Streiflicht.
+    if (matt) shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_end>',
+      '#include <lights_fragment_end>\nreflectedLight.directSpecular = vec3(0.0);');
     // Die Poly-Haven-Karten sind fuer eine dunklere Scanvorlage belichtet.
     // Im linearen Farbraum die Leuchtdichte anheben, ohne die Farbanteile
     // einzeln zu veraendern. So bleibt die Saettigung der Blattkarte erhalten.
@@ -70,6 +73,6 @@ export function ergaenzeEzLaublicht(material: THREE.Material): void {
       #endif
     `);
   };
-  material.customProgramCacheKey = () => `${programm()}:ez-laublicht-v3`;
+  material.customProgramCacheKey = () => `${programm()}:ez-laublicht-v3${matt ? ':matt' : ''}`;
   material.needsUpdate = true;
 }
