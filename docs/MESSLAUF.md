@@ -727,3 +727,23 @@ Kampfbot 60 Kämpfe je Zeile, Profil `parierend` (Block 0,09 s vor dem Aktiven, 
 | Gams | 100 % / 40,0 s | 100 % / 5,5 s | 97 % / 54,1 s | 100 % / 20,7 s |
 
 Nebelmorgen nach D173 (Bildtor): Felsflanke Median 0,146 (vorher 0,140), Grashang 0,102 (0,099), Felsmulde 0,059 mit 22,2 % dunkel (18,0 %).
+
+## Scan-Hof D298
+
+`?scanhof=1` aktiviert die zusammenhängende Scanprobe am Wohnhaus nahe1433/434 und schliesst `echt` sowie D297-Hausfront ein. Der direkte Gegenlauf verwendet deshalb `echt=1&hausfront=1&scanhof=0`. Tag/Stimmung, Sonne, Kamera und Bildgrösse bleiben gleich; Windphase und umhergehende Figuren sind nicht eingefroren. Neue Texturen werden nur im Probepfad als Materialien gebunden, gehören wie andere verwendete Materialbilder zum Offline-Precache. Verworfener Erdboden und redundante neue Prop-Normalen sind ausgenommen.
+
+Neue, noch nicht vorhandene Assets bauen:
+
+```bash
+node tools/hofscans.mjs
+node tools/hofscans.mjs props
+node tools/hofscans.mjs kies
+```
+
+Die Ausgaben sind append-only: vorhandene Dateien führen zum Abbruch. Quellen, Autoren, Lizenzprüfung und SHA-256 sind in `public/material/hof-scans.json` beziehungsweise `hof-props.json` beziehungsweise `hof-kies.json` festgehalten.
+
+Feste Vergleichskamera: `absetzen=1441,418,0`, `kamera=1440,36.8,421,1433,37.8,434`, `fov=60`, `stimmung=zielbild`. Gleiches Prüflicht auf beiden Seiten: `umgebung=6&sonne=0.8&umlichtstaerke=1.2&schatten=0.4`. Die zusätzliche Strassenansicht behält die ursprünglichen Lichtwerte; beide Varianten je Ansicht identisch. Kosten mit `tools/mess/vergleich.mjs` in isolierten Läufen (12s, 960×540), Reihenfolge Vorgabe/Probe/Probe/Vorgabe; keine Bildaufnahmen während des Zeitfensters. Für Bewegung `tools/mess/lodlauf.mjs` ohne feste `kamera` verwenden, damit die Kamera tatsächlich mitläuft. Zahlen und Grenzen im Ledger D298.
+
+`node tools/mess/hofladen.mjs <neuer-name> <0|1>` misst einen neuen Browserkontext ohne Service Worker: unmittelbare HTTP-Dateibytes, neue Hofkarten, Beobachtungsdauer bis Lade-HUD plus15sNachladefenster und Netzruhe. Das trennt den unmittelbar benötigten Datenumfang vom grösseren Offline-Precache. Lokaler HTTP-Server, keine Aussage über Internetbandbreite oder M1/Safari-Abnahme.
+
+Die direkte Hof-Bewegung verwendet `absetzen=1444,419,150`: Blick0° bedeutet −Z und führt vom Hof weg. Galerie/Spiel-Link starten deshalb nach150°. Endstandberichte: `.cache/mess/d298-ende-{1,2,3,4}`, Ladeberichte `.cache/mess/d298-hofdaten-{0,1}`, Laufvideo `.cache/mess/d298-hof-bewegung`. Aus diesen Dateien baut `node tools/mess/hofgalerie.mjs <neuer-ordnername>` eine eigenständige HTML-Galerie mit eingebettetem Video und eine PNG-Tafel; bestehende Ordner werden nicht überschrieben.

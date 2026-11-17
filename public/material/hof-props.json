@@ -1,0 +1,313 @@
+{
+  "geprueft": "2026-11-17",
+  "groesse": 1024,
+  "rohBytes": 3249611,
+  "farbe": "Originale sRGB-Albedo ohne Palettenmodulation; Originalalpha bei Farn und Gras.",
+  "normal": "OpenGL, lineare Daten; dieselbe Bildorientierung wie vorhandene Texturen.",
+  "arm": "R=AO, G=Rauheit, B=Metallanteil 0; lineare Daten",
+  "eintraege": [
+    {
+      "name": "fels-moos-1",
+      "quelle": "rock_moss_set_01",
+      "quelleUrl": "https://polyhaven.com/a/rock_moss_set_01",
+      "autoren": {
+        "Kless Gyzen": "All"
+      },
+      "lizenz": "CC0-1.0",
+      "lizenzUrl": "https://polyhaven.com/license",
+      "alpha": false,
+      "karten": [
+        {
+          "art": "Diffuse",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_01/rock_moss_set_01_diff_1k.jpg",
+          "bytes": 168099,
+          "sha256": "40cea65d8aa4ee73a93b04af19963834d061eee9779c3fc2c1cba76eef812ccc"
+        },
+        {
+          "art": "nor_gl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_01/rock_moss_set_01_nor_gl_1k.jpg",
+          "bytes": 209975,
+          "sha256": "eb4aad3f207f1dc5b624d74ae240372171626a66912bd71adf7bd3e518181d6e"
+        },
+        {
+          "art": "AO",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_01/rock_moss_set_01_ao_1k.jpg",
+          "bytes": 112517,
+          "sha256": "7cabdcd42d1239ec5e9f2557fb5859d05141b65263ead1ee6a881a173acf87f7"
+        },
+        {
+          "art": "Rough",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_01/rock_moss_set_01_rough_1k.jpg",
+          "bytes": 82624,
+          "sha256": "4d6ec46623abd8e2cdb855f59c7ce31873ad61b36b60e4de579e9e776a497c6b"
+        }
+      ],
+      "uvBelege": [
+        {
+          "datei": "public/props/findling_scan_d.glb",
+          "ecken": 1450,
+          "uvSha256": "99454e3bf0514c95d3e11efb3a4bad5a9abeb14d14ea74b0f96f39928aa71a00"
+        },
+        {
+          "datei": "public/props/findling_scan_e.glb",
+          "ecken": 1405,
+          "uvSha256": "d46136d278c881d8ee3adfa55c8c3e672a45e57bb2340fee92295961e75abaa4"
+        },
+        {
+          "datei": "public/props/findling_scan_f.glb",
+          "ecken": 1413,
+          "uvSha256": "87dd6a147d7a814a30c04758ceba1d3533ec05ce388653bdf354207881e3c03a"
+        }
+      ],
+      "uvKompatibilitaet": "Unveränderte volle 1K-Bildfläche, keine Drehung/Spiegelung/Beschneidung; UV direkt übernommen in tools/phprops.ts bzw. tools/farnscan.ts."
+    },
+    {
+      "name": "fels-moos-2",
+      "quelle": "rock_moss_set_02",
+      "quelleUrl": "https://polyhaven.com/a/rock_moss_set_02",
+      "autoren": {
+        "Kless Gyzen": "All"
+      },
+      "lizenz": "CC0-1.0",
+      "lizenzUrl": "https://polyhaven.com/license",
+      "alpha": false,
+      "karten": [
+        {
+          "art": "Diffuse",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_02/rock_moss_set_02_diff_1k.jpg",
+          "bytes": 194307,
+          "sha256": "91dd2cc77d5198b067d77e5bdb3fa8ee7b8950aeff5aec2c1ccaddb76dcca481"
+        },
+        {
+          "art": "nor_gl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_02/rock_moss_set_02_nor_gl_1k.jpg",
+          "bytes": 273527,
+          "sha256": "dd2503789089fb72ef469efd14364d393e769c0de8781a251475cac7e0b6f51d"
+        },
+        {
+          "art": "AO",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_02/rock_moss_set_02_ao_1k.jpg",
+          "bytes": 113765,
+          "sha256": "d311b221c6287c9bd695a6cc50bebba9fe2fb1ef7d15a15df3e1f3996bb56270"
+        },
+        {
+          "art": "Rough",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/rock_moss_set_02/rock_moss_set_02_rough_1k.jpg",
+          "bytes": 146226,
+          "sha256": "12252219a98a560940359973e83af831abdcfab0ead3f0a2a7b135a0143105f1"
+        }
+      ],
+      "uvBelege": [
+        {
+          "datei": "public/props/findling_scan_a.glb",
+          "ecken": 824,
+          "uvSha256": "948dfdc08bf3d8b6097b8fb8a32a1bb55c636c9e420adef6d4cbcb4353218019"
+        },
+        {
+          "datei": "public/props/findling_scan_b.glb",
+          "ecken": 838,
+          "uvSha256": "668153b9d575760d3ccfd6bbc9a4f9dabe6ef465d0dfb5c148ad3f9270462405"
+        },
+        {
+          "datei": "public/props/findling_scan_c.glb",
+          "ecken": 1027,
+          "uvSha256": "85a149dfd8c31de27c556bf2aca40e79b2ab6d827cfe27c0e2ba0bf46bae1915"
+        }
+      ],
+      "uvKompatibilitaet": "Unveränderte volle 1K-Bildfläche, keine Drehung/Spiegelung/Beschneidung; UV direkt übernommen in tools/phprops.ts bzw. tools/farnscan.ts."
+    },
+    {
+      "name": "farn",
+      "quelle": "fern_02",
+      "quelleUrl": "https://polyhaven.com/a/fern_02",
+      "autoren": {
+        "Rob Tuytel": "scanning",
+        "Rico Cilliers": "modeling"
+      },
+      "lizenz": "CC0-1.0",
+      "lizenzUrl": "https://polyhaven.com/license",
+      "alpha": true,
+      "karten": [
+        {
+          "art": "Diffuse",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_diff_1k.jpg",
+          "bytes": 315705,
+          "sha256": "a828a6e7b4c01c826911e2eac4b3afc7457dab7b3b392a31c681ed88b7d50029"
+        },
+        {
+          "art": "nor_gl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_nor_gl_1k.jpg",
+          "bytes": 367222,
+          "sha256": "45bce132c6e96a0864bc89ab5da51361ab3f4afa83a6669ae499ab5ca811f621"
+        },
+        {
+          "art": "AO",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_ao_1k.jpg",
+          "bytes": 143666,
+          "sha256": "33e9d3cd0693208352c8ab6d482128484fa120a476147467c4359fd9c01316a2"
+        },
+        {
+          "art": "Rough",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_rough_1k.jpg",
+          "bytes": 208576,
+          "sha256": "a7386298267ae30662b66c381815bc1f496ef1a2f1fe167abfa7eedfeac08f3e"
+        },
+        {
+          "art": "Alpha",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/fern_02/fern_02_alpha_1k.jpg",
+          "bytes": 246038,
+          "sha256": "4d8c4d57373651e500f1a3b2071cd59d2d9cc031bc30ff73bc8a5d2b2c91571a"
+        }
+      ],
+      "uvBelege": [
+        {
+          "datei": "public/props/farn_scan_a.glb",
+          "ecken": 544,
+          "uvSha256": "d3bcf9b5c4a20f90a763e951e7e26c60effe703f3a554a011722209b457c3888"
+        },
+        {
+          "datei": "public/props/farn_scan_b.glb",
+          "ecken": 1660,
+          "uvSha256": "829f97440aac02d95b8c042bf6fd1a622fb85c5d621e4dd759a785c6b4671a58"
+        },
+        {
+          "datei": "public/props/farn_scan_c.glb",
+          "ecken": 1568,
+          "uvSha256": "5c0585b43040ae64a76e334e28abaf45c4254fc06c133b2bfa45216817ddca81"
+        },
+        {
+          "datei": "public/props/farn_scan_d.glb",
+          "ecken": 565,
+          "uvSha256": "dcccec91025f8460d6b506fd72323196f09a62f49b432ab84637f42749986742"
+        }
+      ],
+      "uvKompatibilitaet": "Unveränderte volle 1K-Bildfläche, keine Drehung/Spiegelung/Beschneidung; UV direkt übernommen in tools/phprops.ts bzw. tools/farnscan.ts."
+    },
+    {
+      "name": "gras",
+      "quelle": "grass_medium_02",
+      "quelleUrl": "https://polyhaven.com/a/grass_medium_02",
+      "autoren": {
+        "Rico Cilliers": "All"
+      },
+      "lizenz": "CC0-1.0",
+      "lizenzUrl": "https://polyhaven.com/license",
+      "alpha": true,
+      "karten": [
+        {
+          "art": "Diffuse",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_02/grass_medium_02_diff_1k.jpg",
+          "bytes": 161235,
+          "sha256": "91ae99005b449011aceb207a68a937258fd9bfd66ff367d344c50398b1df389c"
+        },
+        {
+          "art": "nor_gl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_02/grass_medium_02_nor_gl_1k.jpg",
+          "bytes": 118146,
+          "sha256": "0b464550366ed72a6cad9c357e19ac4c83fc9adc87272771479138129853b300"
+        },
+        {
+          "art": "AO",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_02/grass_medium_02_ao_1k.jpg",
+          "bytes": 88210,
+          "sha256": "8a87b0c2cdda07f166551e9950074a7af6ed2ca4ef4b2042cbca0f78f6072d74"
+        },
+        {
+          "art": "Rough",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_02/grass_medium_02_rough_1k.jpg",
+          "bytes": 184910,
+          "sha256": "1ccf7d18f9c468ab43cb1995db54883ba55493b9d9952a4d5c16c8b9f14608c3"
+        },
+        {
+          "art": "Alpha",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_02/grass_medium_02_alpha_1k.jpg",
+          "bytes": 114863,
+          "sha256": "5d832bb55433c8f401b314d5b7676b427e86ed74f4feb124bfae1581e38a772c"
+        }
+      ],
+      "uvBelege": [
+        {
+          "datei": "public/props/gras_scan_a.glb",
+          "ecken": 645,
+          "uvSha256": "8b5fcc67f416cb3328adbb4720b5e9c6278cbd0f9b4b5e81fbebdbc4f8b08dc7"
+        },
+        {
+          "datei": "public/props/gras_scan_b.glb",
+          "ecken": 1575,
+          "uvSha256": "8a610a95c531787e7d48da97bcc6859e92abf43ae791ac897743bb75d2e00d1c"
+        },
+        {
+          "datei": "public/props/gras_scan_c.glb",
+          "ecken": 1072,
+          "uvSha256": "ac36c135badd51e3f44cbac1b51db0cb7211db8408afa1f30b1cc51b022cea9e"
+        },
+        {
+          "datei": "public/props/gras_scan_d.glb",
+          "ecken": 2197,
+          "uvSha256": "b26967daf594f20fc67fb4ec48656466005bf28888550c6e9b76e7fa4e428de0"
+        },
+        {
+          "datei": "public/props/gras_scan_e.glb",
+          "ecken": 1542,
+          "uvSha256": "fd4d290218420d0e916fb3e29c83fe0619dbeb042ef0749553a11c9ffe0098a3"
+        },
+        {
+          "datei": "public/props/gras_scan_f.glb",
+          "ecken": 1542,
+          "uvSha256": "fd4d290218420d0e916fb3e29c83fe0619dbeb042ef0749553a11c9ffe0098a3"
+        }
+      ],
+      "uvKompatibilitaet": "Unveränderte volle 1K-Bildfläche, keine Drehung/Spiegelung/Beschneidung; UV direkt übernommen in tools/phprops.ts bzw. tools/farnscan.ts."
+    }
+  ],
+  "ausgaben": {
+    "hof-fels-moos-1-farbe.webp": {
+      "bytes": 216118,
+      "sha256": "7715f6fde83d6d7a4a12f0cabe51069829789b9bc8ad5a6349810e9b01b15507"
+    },
+    "hof-fels-moos-1-normal.webp": {
+      "bytes": 321428,
+      "sha256": "64e5badbb104a89823eba037e1e3d0b0ccefbf0d00a505b69a638bec3b22e7f4"
+    },
+    "hof-fels-moos-1-arm.webp": {
+      "bytes": 152172,
+      "sha256": "6e3216baecde50419eb24efebc0d961107c058a81eee254cc907a5b41d78ea3c"
+    },
+    "hof-fels-moos-2-farbe.webp": {
+      "bytes": 251680,
+      "sha256": "39cd633e1f58cf864121b8b2be4089247b15d58a7acd7f7afd79c734095d9a52"
+    },
+    "hof-fels-moos-2-normal.webp": {
+      "bytes": 377464,
+      "sha256": "c8583c6afe5d5e49e1aad96becd8a358fe46629ae31232f42a5ab28c0d0b0c3c"
+    },
+    "hof-fels-moos-2-arm.webp": {
+      "bytes": 257846,
+      "sha256": "e025bd4b2d12a4bbefa900615716018de0a38ac365b0ac17ba7b88ae3a919f10"
+    },
+    "hof-farn-farbe.webp": {
+      "bytes": 132408,
+      "sha256": "6f1222a9387b0967c104993bdf41bcda9ffc50367efdf6f3b03106b74d8e15de"
+    },
+    "hof-farn-normal.webp": {
+      "bytes": 145828,
+      "sha256": "2eb3d9dccbd253d8ab22ecd220041aa60ec5d07d75134193dfd929b51ef3e783"
+    },
+    "hof-farn-arm.webp": {
+      "bytes": 109260,
+      "sha256": "35db0fd809f822d604e9e8e90aaf50386a1b8c5e9a95c2de6a39a08906df6e42"
+    },
+    "hof-gras-farbe.webp": {
+      "bytes": 123616,
+      "sha256": "8f4fb8f9b5523f76ecb781daa54531ad8e0c975d2b281b8b7a91139a2c46b6a9"
+    },
+    "hof-gras-normal.webp": {
+      "bytes": 39096,
+      "sha256": "6e4ca5a11d3ba25a513cbc512f2828c043b7d6e030b98f1400356cbd4f160fdc"
+    },
+    "hof-gras-arm.webp": {
+      "bytes": 77046,
+      "sha256": "35ad5bb5e1c0f965b5a9c61f38390a7a9d2003f5c6561fc354eee11cc69a8c36"
+    }
+  }
+}

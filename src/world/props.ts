@@ -14,7 +14,8 @@ import BAEUME_REGISTER from '../../public/props/baeume.json';
 import type { Weltdaten, Biom } from './osm.js';
 import type { TerrainErgebnis } from './terrain.js';
 import { MASSSTAB } from './terrain.js';
-import { HAUSFRONT_AN } from './echt.js';
+import { bestimmeHof, hofDeckung, hofRandProps } from './hofplatz.js';
+import { HAUSFRONT_AN, HOF_AN } from './echt.js';
 
 export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbuschel' | 'totholz'
                     | 'blume' | 'pilz' | 'farn';
@@ -211,11 +212,14 @@ export function hausfrontPflegeTest(
   welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>,
 ): (x: number, z: number) => boolean {
   const amHaus = hausTest(welt, terrain, 1.6);
+  const hof = HOF_AN ? bestimmeHof(welt, terrain) : null;
   const n = welt.aufloesung;
   return (x, z) => {
     const i = Math.max(0, Math.min(n - 1, Math.round((z / terrain.tiefeMeter + 0.5) * (n - 1))));
     const j = Math.max(0, Math.min(n - 1, Math.round((x / terrain.breiteMeter + 0.5) * (n - 1))));
-    return welt.biome[i][j] === 'siedlung' && amHaus(x, z);
+    // Gleiche Ortsmaske wie der Kies; am Rand bleiben einzelne Horste stehen.
+    const rest = 0.12 + 0.76 * (0.5 + 0.5 * Math.sin(x * 12.9898 + z * 7.233));
+    return hofDeckung(x, z, hof) > rest || (welt.biome[i][j] === 'siedlung' && amHaus(x, z));
   };
 }
 
@@ -366,6 +370,8 @@ export function verteileProps(
       }
     }
   }
+  if (HOF_AN) props.push(...hofRandProps(bestimmeHof(welt, terrain), terrain.hoeheAn,
+    (x, z) => imHaus(x, z) || aufWeg(x, z)));
   return props;
 }
 

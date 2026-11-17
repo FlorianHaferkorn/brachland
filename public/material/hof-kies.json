@@ -1,0 +1,59 @@
+{
+  "geprueft": "2026-11-17",
+  "groesse": 1024,
+  "rohBytes": 4643128,
+  "rolle": "boden",
+  "quelle": "gravel_floor_02",
+  "quelleUrl": "https://polyhaven.com/a/gravel_floor_02",
+  "meter": 2,
+  "autoren": {
+    "Jenelle van Heerden": "Processing",
+    "Dimitrios Savva": "Photography"
+  },
+  "lizenz": "CC0-1.0",
+  "lizenzUrl": "https://polyhaven.com/license",
+  "karten": [
+    {
+      "art": "Diffuse",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_floor_02/gravel_floor_02_diff_1k.jpg",
+      "bytes": 1240441,
+      "sha256": "ac9874264762a9e8d337e684259d51dac41a012933f0d8013033fee7076383f3"
+    },
+    {
+      "art": "nor_gl",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_floor_02/gravel_floor_02_nor_gl_1k.jpg",
+      "bytes": 1545680,
+      "sha256": "7db09804733f912bd120a1a3179bb867a01819ab9539a1c80eadfaff7e22509e"
+    },
+    {
+      "art": "Rough",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_floor_02/gravel_floor_02_rough_1k.jpg",
+      "bytes": 680926,
+      "sha256": "5efe350a5e27408bf85c6aebdf725127d7ef064e2c4eaf888fc1a1744e2d7bb6"
+    },
+    {
+      "art": "AO",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_floor_02/gravel_floor_02_ao_1k.jpg",
+      "bytes": 1176081,
+      "sha256": "de27fa9b9e101318b537b0bae7c2d77c48e0c6e1d4f7160917c4d847bd227958"
+    }
+  ],
+  "farbe": "Originale sRGB-Albedo ohne Neutralisierung oder Mittelwertmodulation.",
+  "normal": "OpenGL, lineare Daten",
+  "arm": "R=AO, G=Rauheit, B=Metallanteil 0; lineare Daten",
+  "auswahl": "Thumbnail visuell geprüft: dichtes hellgraues Schotterbett statt rostbrauner Erde.",
+  "ausgaben": {
+    "hof-kies-farbe.webp": {
+      "bytes": 637236,
+      "sha256": "ad5d550ebca18f99b88d0205a7349609b7f65b120e98c652d20e28980f891be6"
+    },
+    "hof-kies-normal.webp": {
+      "bytes": 799354,
+      "sha256": "e1bc676d59e379cfe85f3fdb3718d7de91dd5193e0c923ac965b2065fa70939a"
+    },
+    "hof-kies-arm.webp": {
+      "bytes": 576564,
+      "sha256": "737e2e86e755c8e2f1c757c56c8c0de0b78929072791d3854192be150644b1df"
+    }
+  }
+}

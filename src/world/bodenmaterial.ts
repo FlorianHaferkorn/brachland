@@ -18,8 +18,10 @@
  */
 import * as THREE from 'three';
 import { HIMMEL_UNIFORM } from './windmaterial.js';
+import { hofTextur, hofUniforms, HOF_BODEN_PARS, HOF_BODEN_FARBE, HOF_BODEN_NORMAL } from './hofmaterial.js';
+import HOF_KIES from '../../public/material/hof-kies.json';
 import { PALETTE } from './palette.js';
-import { GEWAESSER_ECHT, GRAS_ECHT, GRAS_VIEL } from './echt.js';
+import { GEWAESSER_ECHT, GRAS_ECHT, GRAS_VIEL, HOF_AN } from './echt.js';
 
 /**
  * Himmelsanteil des Geländes um ein Set-Piece (D171, `tools/himmelboden.ts`): ein Raster von
@@ -371,6 +373,12 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   });
 
   material.onBeforeCompile = (shader) => {
+    if (HOF_AN) Object.assign(shader.uniforms, hofUniforms(), {
+      uHofBodenFarbe: { value: hofTextur('kies-farbe', true) },
+      uHofBodenNormal: { value: hofTextur('kies-normal') },
+      uHofBodenArm: { value: hofTextur('kies-arm') },
+      uHofBodenMeter: { value: HOF_KIES.meter },
+    });
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWeltPos;\nvarying vec3 vWeltNormal;\nattribute float nass;\nvarying float vNass;')
       .replace(
@@ -379,15 +387,16 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
       );
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (MIT_UFER ? NASS_GLSL : ''))
+      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL + (HOF_AN ? HOF_BODEN_PARS : ''))
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (MIT_UFER ? NASS_GLSL : '') + (HOF_AN ? HOF_BODEN_FARBE : ''))
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n'
         // D281 (`?gewaesser=1`): 0,55 spiegelte den hellen Himmel als weissen Reif-Streifen am Ufer; nasse Erde ist
         // dunkel und matter, glänzend nur der dünne Wasserfilm direkt an der Linie.
+        + (HOF_AN ? 'roughnessFactor = mix(roughnessFactor, clamp(hofBodenArm.g, 0.6, 1.0), hofBodenAnteil);\n' : '')
         + (MIT_UFER ? `  roughnessFactor = mix(roughnessFactor, ${GEWAESSER_ECHT ? 'mix(0.85, 0.5, smoothstep(0.85, 1.0, vNass))' : '0.55'}, nassAnteil);\n` : ''))
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL)
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL + (HOF_AN ? HOF_BODEN_NORMAL : ''))
       .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
-      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL);
+      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL + (HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofBodenArm.r, hofBodenAnteil * 0.5);' : ''));
     shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
     shader.uniforms.uBodenRahmen = BODEN_HIMMEL.rahmen;
     shader.uniforms.uHimmel = HIMMEL_UNIFORM;
@@ -410,7 +419,7 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
   if (GRAS_ECHT) material.defines = { ...material.defines, GRAS_ECHT: '' };
   if (GRAS_VIEL) material.defines = { ...material.defines, GRAS_VIEL: '' };
-  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
+  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken') + (HOF_AN ? '-scanhof' : '');
 
   return material;
 }

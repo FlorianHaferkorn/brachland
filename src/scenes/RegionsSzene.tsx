@@ -58,6 +58,9 @@ import { propsWieSzene } from '../world/szenenprops.js';
 import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
 import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
+import { richteHofPropEin } from '../world/hofmaterial.js';
+import { waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
+import { HOF_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -1015,6 +1018,7 @@ function scanBasis(textur: string, art: PropArt, alpha: boolean): THREE.MeshStan
   };
   m.map = karte(`${textur}-farbe`);
   m.normalMap = karte(`${textur}-normal`);
+  if (HOF_AN && ['fels-moos-1', 'fels-moos-2', 'farn', 'gras'].includes(textur)) richteHofPropEin(m, textur);
   return m;
 }
 
@@ -1163,7 +1167,7 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
         : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
         : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
-      castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
+      castShadow={grossesTeil && !fern} receiveShadow={!fern && (grossesTeil || (HOF_AN && HOF_UNIFORM.bereit.value > 0 && Math.hypot(chunk.mitte[0] - HOF_UNIFORM.mitte.value.x, chunk.mitte[1] - HOF_UNIFORM.mitte.value.y) < 60))}
     />
   );
 }
@@ -3888,7 +3892,10 @@ function Messung({ melde }: { melde?: (m: Messwerte) => void }) {
   const stand = useRef({ bilder: 0, zeit: 0 });
   // Messlauf-Sonde (D155): der Szenengraph fuer `.cache/mess/sonde.mjs` — welche Instanzbuendel zeichnen
   // mit welcher Geometrie und welchem Material. Ohne das ist „welcher Baum ist das im Bild" Raten.
-  useEffect(() => { (window as unknown as { __szene?: THREE.Scene }).__szene = scene; }, [scene]);
+  useEffect(() => {
+    (window as unknown as { __szene?: THREE.Scene }).__szene = scene;
+    if (HOF_AN) scene.userData.hofProbe = HOF_UNIFORM;
+  }, [scene]);
   useFrame((_, dt) => {
     if (!melde) return;
     const s = stand.current;
@@ -4112,6 +4119,7 @@ export function RegionsSzene({
 
   // Höhenfeld mit Mikrorelief — die gemeinsame Wahrheit für Boden, Props und Spawn.
   const feld = useMemo(() => baueHoehenfeld(welt, MIKRO_MESSLAUF ?? undefined), [welt]);
+  useMemo(() => { if (HOF_AN) waehleHof(welt, feld); }, [welt, feld]);
   const kacheln = useMemo(() => baueKachelraster(feld), [feld]);
 
   // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben

@@ -16,7 +16,8 @@ const an = (name: string) => suche.get(name) === '1';
  * Einzeln: `?echt=1&pinsel=1` (nur B), `?echt=1&kuwahara=1` (nur C), oder `?malerei=1&pinsel=0`.
  */
 export const MALEREI = an('malerei');
-export const ECHT = an('echt') || MALEREI;
+export const HOF_AN = an('scanhof');
+export const ECHT = an('echt') || MALEREI || HOF_AN;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */
 const teil = (name: string) => (suche.get(name) === '0' ? false : ECHT || an(name));
 /** Foto-Blattkarten auf den Kronen der Blender-Szenen (`laubkarten.ts`). */
@@ -190,4 +191,4 @@ export const KUWAHARA_AN = teil('kuwahara') && (MALEREI || an('kuwahara'));
 export const FENSTERTIEFE_AN = an('fenstertiefe');
 
 /** D297: zusammenhängende Material-/Fenster-/Bewuchsprobe im Dorf, einzeln zuschaltbar. */
-export const HAUSFRONT_AN = an('hausfront');
+export const HAUSFRONT_AN = an('hausfront') || HOF_AN;

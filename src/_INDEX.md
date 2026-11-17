@@ -85,6 +85,8 @@ owns: *.ts, *.tsx
 | `ui/BattleScreen.tsx` | Kampfoberfläche: Moves, Wechsel, Fangen, Rückzug. An die Szene angebunden |
 | `ui/Kampfbuehne.tsx` | Kreaturen im Kampfbild — eine kleine Leinwand für beide Seiten, Leerlaufatmung und Trefferzucken |
 | `world/hausmaterial.ts` | Hausmaterial mit **Fensterglut** (D134); D295: Glasreflexion vor `lights_fragment_end` verstärkt, damit `RE_IndirectSpecular` den Wert tatsächlich liest. ein `glut`-Attribut je Ecke aus `terrain.ts`, eine Zeile Emissiv im Shader, `userData.glut.value` je Stimmung — nachts brennen Fenster ohne zweiten Draw Call. Gärten (`baender.ts`) tragen Glut 0, sonst scheitert das Fassen mit den Häusern |
+| `world/hofplatz.ts` | D298: aus dem realen Grundriss abgeleitete Hofmaske, CPU/GLSL und geteilte Uniforms; Messprobe `?scanhof=1`. |
+| `world/hofmaterial.ts` | D298: originale sRGB-Scanfarben, Normalen, Rauheit/AO und Kies am Hof; gemeinsame Texturen nur bei aktivierter Probe. |
 | `world/hausfront.ts` | D297: `?echt=1&hausfront=1`, Materialpass für Kalkputz, verwitterte Bretter, Dach und Fenster; eine zuschaltbare Gesamtprobe. |
 | `world/fensterraum.ts` | D297: analytischer Parallaxenraum hinter Fensterquads, Möbelquader und je Scheibe variierte Leinenvorhänge; Shader ohne neue Texturen/Meshes. |
 | `world/bandmaterial.ts` | Wasser und Wege: weiche Ränder, Strömung, Gischt und Spurrinnen im Shader. Ruhiges Wasser nutzt Absorption/Fresnel und gedämpfte Himmelsreflexion; optionale lokale Szenenreflexion für die Stauwehrprobe (D255), Transmission zum Vergleich. |

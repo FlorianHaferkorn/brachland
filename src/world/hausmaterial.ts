@@ -14,9 +14,11 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN } from './echt.js';
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
+import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
+import HOF_SCANS from '../../public/material/hof-scans.json';
 import SCANS from '../../public/material/haus-scans.json';
 
 /**
@@ -136,12 +138,18 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
       shader.uniforms.uScanFarbe = { value: SCAN_TEXTUREN.farbe };
       shader.uniforms.uScanNormal = { value: SCAN_TEXTUREN.normal };
       shader.uniforms.uScanMeter = { value: SCAN_METER };
+      if (HOF_AN) Object.assign(shader.uniforms, hofUniforms(), {
+        uHofFarbe: { value: hofTextur('scans', true) },
+        uHofNormal: { value: hofTextur('scans-nor') },
+        uHofArm: { value: hofTextur('scans-arm') },
+        uHofMeter: { value: new THREE.Vector4(...HOF_SCANS.rollen.map(r => r.meter) as [number, number, number, number]) },
+      });
       shader.vertexShader = shader.vertexShader
         .replace('#include <common>', '#include <common>\nattribute float rolle;\nvarying float vRolle;\nvarying vec3 vHausPos;' + (BAUWELT_AN ? '\nattribute vec2 zustand;\nvarying vec2 vZustand;' : '') + (HAUSFRONT_AN ? '\nattribute vec3 raumUv;\nvarying vec3 vRaumUv;\nvarying vec3 vHausNormal;' : ''))
         .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n  vRolle = rolle;\n  vHausPos = (modelMatrix * vec4(transformed, 1.0)).xyz;' + (BAUWELT_AN ? '\n  vZustand = zustand;' : '') + (HAUSFRONT_AN ? '\n  vRaumUv = raumUv; vHausNormal = normalize(mat3(modelMatrix) * objectNormal);' : ''));
       if (BAUWELT_AN) shader.uniforms.uEfeu = { value: bueschelTextur('laub') };
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\n' + SCAN_PARS + (BAUWELT_AN ? VERFALL_PARS : '') + (HAUSFRONT_AN ? HAUSFRONT_PARS : ''))
+        .replace('#include <common>', '#include <common>\n' + SCAN_PARS + (BAUWELT_AN ? VERFALL_PARS : '') + (HAUSFRONT_AN ? HAUSFRONT_PARS : '') + (HOF_AN ? HOF_HAUS_PARS : ''))
         .replace('#include <color_fragment>', `#include <color_fragment>
   float scanR = floor(vRolle + 0.5);
   vec2 scanP = vec2(0.0);
@@ -150,19 +158,24 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
     diffuseColor.rgb *= scanLies(uScanFarbe, scanP, scanR).rgb * 2.0;
   }
 ${BAUWELT_AN ? VERFALL_FARBE : ''}
-${HAUSFRONT_AN ? HAUSFRONT_FARBE : ''}`)
+${HAUSFRONT_AN ? HAUSFRONT_FARBE : ''}
+${HOF_AN ? HOF_HAUS_FARBE.replace('vZustand.y', BAUWELT_AN ? 'vZustand.y' : '1.0') : ''}`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   if (scanR < 3.5) {
     vec3 sn = scanLies(uScanNormal, scanP, scanR).xyz * 2.0 - 1.0;
     sn.xy *= 0.8${BAUWELT_AN ? ' * (1.0 - efeuDeckung)' : ''};
     vec3 nw = normalize(scanT * sn.x + scanB * sn.y + scanN * sn.z);
     normal = normalize((viewMatrix * vec4(nw, 0.0)).xyz);
-  }`)
+  }
+${HOF_AN ? HOF_HAUS_NORMAL : ''}`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-  if (scanR > 1.5 && scanR < 2.5) roughnessFactor = 0.72;${BAUWELT_AN ? '\n  roughnessFactor = mix(roughnessFactor, 0.65, efeuDeckung);' : ''}
+  if (scanR > 1.5 && scanR < 2.5) roughnessFactor = 0.72;
+${HOF_AN ? 'if (scanR < 3.5) roughnessFactor = mix(roughnessFactor, clamp(hofArm.g, 0.5, 1.0), hofHausAnteil);' : ''}${BAUWELT_AN ? '\n  roughnessFactor = mix(roughnessFactor, 0.65, efeuDeckung);' : ''}
   // D285: Glas — glatt, spiegelt die Umgebungskarte (Himmelslicht \`?umlicht=1\`); dahinter dunkler Raum.
   // Leichte Welligkeit je Scheibe (alte Fenster), damit nicht jede Scheibe ein perfekter Spiegel ist.
   if (scanR > 4.5) roughnessFactor = 0.05 + 0.08 * fract(sin(dot(floor(vHausPos.xz * 1.3), vec2(12.9898, 78.233))) * 43758.5453);`)
+        .replace('#include <aomap_fragment>', `#include <aomap_fragment>
+${HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofArm.r, hofHausAnteil * 0.55);' : ''}`)
         .replace('#include <lights_fragment_end>', `
   // D295: Vor RE_IndirectSpecular skalieren; danach wird radiance nicht mehr gelesen.
   if (scanR > 4.5) radiance *= 1.6;
@@ -178,6 +191,6 @@ ${HAUSFRONT_AN ? HAUSFRONT_FARBE : ''}`)
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '');
   return material;
 }

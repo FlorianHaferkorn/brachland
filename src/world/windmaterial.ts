@@ -520,13 +520,17 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
   const loecherSkala = { value: w.loecherSkala ?? 9 };
   const durchlass = { value: w.durchlass ?? 0 };
 
+  // Material.clone() kopiert userData, aber keine Shader-Hooks. Vor dem Klonen sichern.
+  const hofKompilieren = basis?.userData.hofProbe ? basis.onBeforeCompile : null;
+  const hofSchluessel = basis?.userData.hofProbe ? basis.customProgramCacheKey() : '';
   const material = basis instanceof THREE.MeshStandardMaterial
     ? (basis.clone() as THREE.MeshStandardMaterial)
     : new THREE.MeshStandardMaterial({
         vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0,
       });
 
-  material.onBeforeCompile = (shader) => {
+  material.onBeforeCompile = (shader, renderer) => {
+    hofKompilieren?.call(material, shader, renderer);
     shader.uniforms.uZeit = zeit;
     shader.uniforms.uRandFarbe = randFarbe;
     shader.uniforms.uRandStaerke = randStaerke;
@@ -600,7 +604,7 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => 'brachland-wind-rand-v16' + (w.himmel ? '-himmel' : '') + (w.rinde ? '-rinde' + (w.rinde === 'ganz' ? '-ganz' : '') : '') + (w.fuss ? '-fuss' : '') + (w.bueschel ? '-bueschel-' + w.bueschel.uuid : '');
+  material.customProgramCacheKey = () => hofSchluessel + 'brachland-wind-rand-v16' + (w.himmel ? '-himmel' : '') + (w.rinde ? '-rinde' + (w.rinde === 'ganz' ? '-ganz' : '') : '') + (w.fuss ? '-fuss' : '') + (w.bueschel ? '-bueschel-' + w.bueschel.uuid : '');
   if (w.rinde) ladeRinde();
 
   // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens
