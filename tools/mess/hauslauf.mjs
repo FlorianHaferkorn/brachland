@@ -4,8 +4,8 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-if(!['referenz','hof','kompakt','lauben'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben angeben.');
-const anzahl=profil!=='referenz'?216:144;
+if(!['referenz','hof','kompakt','lauben','boden'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden angeben.');
+const anzahl=profil==='boden'?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
 const ziel=`.cache/mess/${name}`;
 if(existsSync(ziel)) throw Error(`Ausgabe existiert: ${ziel}`);
@@ -23,9 +23,10 @@ await seite.addInitScript(()=>{
 });
 const fehler=[];seite.on('pageerror',e=>fehler.push(String(e)));seite.on('console',m=>{if(m.type()==='error')fehler.push(m.text());});
 const parameter=new URLSearchParams(`absetzen=1432,423,150&zeit=.26&kontur=0&stimmung=zielbild&hofgruen=1&referenzhaus=${probe}&kamera=1444,36.8,418,1431,37.5,432&fov=60&umgebung=6&sonne=.8&umlichtstaerke=1.2&schatten=.4`);
-if(profil!=='referenz'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',['kompakt','lauben'].includes(profil)?'1':probe);}
-parameter.set('hauskompakt',profil==='kompakt'?probe:profil==='lauben'?'1':'0');
-parameter.set('hoflauben',profil==='lauben'?probe:'0');
+if(profil!=='referenz'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',['kompakt','lauben','boden'].includes(profil)?'1':probe);}
+parameter.set('hauskompakt',profil==='kompakt'?probe:['lauben','boden'].includes(profil)?'1':'0');
+parameter.set('hoflauben',profil==='lauben'?probe:profil==='boden'?'1':'0');
+parameter.set('hofboden',profil==='boden'?probe:'0');
 const spiel=new URLSearchParams(parameter);spiel.delete('kamera');spiel.delete('fov');
 // Der Spiel-Link startet auf dem freien Weg, nicht am stationären Messanker in der Garage.
 spiel.set('absetzen',profil!=='referenz'?'1447,430,200':'1444,419,150');
@@ -45,7 +46,8 @@ try {
     // Die Hofansichten werden vor dem Messlauf auf freie Kamerapositionen geprüft.
     if(abschnitt===0){kamera.position.set(1444-4*t,36.8,418+3*t);kamera.lookAt(1432,38.2,433);}
     else if(abschnitt===1){kamera.position.set(1447,36.4,430+6*t);kamera.lookAt(1457,38,432);}
-    else{kamera.position.set(1454+3*t,36.532+.225*t,447+6*t);kamera.lookAt(1445.5,38,454.5);}
+    else if(abschnitt===2){kamera.position.set(1454+3*t,36.532+.225*t,447+6*t);kamera.lookAt(1445.5,38,454.5);}
+    else{kamera.position.set(1442-2*t,36.4,427.9+1.4*t);kamera.lookAt(1437.578,34.8,431.053);}
    } else if(d.index<96) {
     const t=d.index/95;kamera.position.set(1444-4*t,36.8,418+3*t);
     kamera.lookAt(1432,38.2,433);
@@ -64,7 +66,7 @@ try {
  await seite.evaluate(async()=>{for(let i=0;i<8;i++)await new Promise(r=>requestAnimationFrame(r));window.__hausPause();});
  await seite.waitForTimeout(200);
  await seite.evaluate(()=>{for(let i=0;i<64;i++)window.__hausSchritt();});
- const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
+ const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):profil==='boden'?[0,71,143,215,287]:profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
  for(const i of indizes){
   await seite.evaluate(({i,profil,modus})=>{window.__haus.index=i;for(let f=0;f<((modus==='stand'||(profil!=='referenz'?i%72===0:i===96))?32:1);f++)window.__hausSchritt();},{i,profil,modus});
   await seite.waitForTimeout(10);

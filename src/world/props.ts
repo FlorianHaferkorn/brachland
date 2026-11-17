@@ -16,7 +16,8 @@ import type { TerrainErgebnis } from './terrain.js';
 import { MASSSTAB } from './terrain.js';
 import { bestimmeHof, hofDeckung, hofRandProps, hofEingangFrei } from './hofplatz.js';
 import { bestimmeHofhaeuser, hofhausZugangFrei } from './hofhaeuser.js';
-import { HAUSFRONT_AN, HOF_AN, REFERENZHAUS_AN, HOF_HAEUSER_AN } from './echt.js';
+import { hofbodenZugang } from './hofboden.js';
+import { HAUSFRONT_AN, HOF_AN, REFERENZHAUS_AN, HOF_HAEUSER_AN, HOF_BODEN_AN } from './echt.js';
 
 export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbuschel' | 'totholz'
                     | 'blume' | 'pilz' | 'farn';
@@ -213,10 +214,17 @@ export function hausfrontPflegeTest(
   welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>,
 ): (x: number, z: number) => boolean {
   const amHaus = hausTest(welt, terrain, 1.6);
+  const amSockel = HOF_BODEN_AN ? hausTest(welt, terrain, .38) : amHaus;
   const hof = HOF_AN ? bestimmeHof(welt, terrain) : null;
   const hofHaeuser = HOF_HAEUSER_AN ? bestimmeHofhaeuser(welt, terrain, hof) : null;
   const n = welt.aufloesung;
   return (x, z) => {
+    const bodenProbe = HOF_BODEN_AN && hof && Math.hypot(x-hof.mitte[0],z-hof.mitte[1]) < 38;
+    if (bodenProbe && hofHaeuser) {
+      if (hofhausZugangFrei(x,z,hofHaeuser) || hofbodenZugang(x,z,hofHaeuser) > .15 || amSockel(x,z)) return true;
+      const rest = .18 + .68 * (.5 + .5 * Math.sin(x*12.9898+z*7.233));
+      return hofDeckung(x,z,hof) > rest;
+    }
     if (hofHaeuser ? hofhausZugangFrei(x,z,hofHaeuser) : REFERENZHAUS_AN && hofEingangFrei(x,z,hof)) return true;
     const i = Math.max(0, Math.min(n - 1, Math.round((z / terrain.tiefeMeter + 0.5) * (n - 1))));
     const j = Math.max(0, Math.min(n - 1, Math.round((x / terrain.breiteMeter + 0.5) * (n - 1))));

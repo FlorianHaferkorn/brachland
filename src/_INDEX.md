@@ -91,6 +91,10 @@ owns: *.ts, *.tsx
 | `world/hofstrauch.ts` | D299/D302: sechs geteilte, deterministische Mehrstammformen mit Blattbüschelkarten und Wind; unter hofgruen dieselbe760Dreieck-Quellform auch fern, Gegenprobe strauchweit=0. |
 | `world/hofplatz.ts` | D298: aus dem realen Grundriss abgeleitete Hofmaske, CPU/GLSL und geteilte Uniforms; Messprobe `?scanhof=1`. |
 | `world/hofmaterial.ts` | D298: originale sRGB-Scanfarben, Normalen, Rauheit/AO und Kies am Hof; gemeinsame Texturen nur bei aktivierter Probe. |
+| `world/hofboden.ts` | D307: gemeinsame CPU-/GLSL-Masken für unregelmäßige Hofränder und abgetretene freie Türvorfelder. |
+| `world/hofbodenkontakt.ts` | D307: einmaliges R8-Raster an echten ausgewählten Hauskanten, fremde Gebäudeinneren ausgespart. |
+| `world/hofsockel.ts` | D307: geschlossene Sockel-/Kappenkörper mit kontinuierlich geländefolgenden Oberkanten. |
+| `world/hoftrittplatten.ts` | D307: zwei geschlossene, geländefolgende Trittplatten je geprüftem Hofeingang, im vorhandenen Hausbatch. |
 | `world/hofhaeuser.ts` | D304: örtlicher Wohnhausverbund, freie Eingänge gegen alle Nachbargrundrisse und Zugangspflege; keine gespeicherten Gebäudekopien. |
 | `world/hausindex.ts` | D305: wortgleiche Float32-Ecken nach Normalberechnung zusammenlegen; exakt gleiche Dreieckfolge, alle Attribute und harte Kanten erhalten. |
 | `world/laubenkasten.ts` | D306: getrennte offene Holzkästen, Erdfläche und geschlossene Laub-/Blütenkörper aus lokalem Seed; im bestehenden Hausmesh, ohne zusätzliche Assets. |

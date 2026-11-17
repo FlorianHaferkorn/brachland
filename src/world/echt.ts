@@ -26,6 +26,8 @@ export const BLATTRUHE_AN = HOF_GRUEN_AN && suche.get('blattruhe') !== '0';
 export const BLATTVERLAUF_AN = BLATTRUHE_AN && suche.get('blattverlauf') !== '0';
 /** D304: Bauteile auf den örtlichen Hofverbund übertragen; D303 bleibt separat abrufbar. */
 export const HOF_HAEUSER_AN = HOF_GRUEN_AN && an('hofhaeuser');
+/** D307: örtliche Bodenmischung, Zugänge und Geländekontakt; Rückfall hofboden=0. */
+export const HOF_BODEN_AN = HOF_HAEUSER_AN && an('hofboden');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */
 export const HOF_LAUBEN_AN = HOF_HAEUSER_AN && an('hoflauben');
 /** D305: identische Haus-/Gartenecken einmal speichern; Rückfall auf D304 mit hauskompakt=0. */

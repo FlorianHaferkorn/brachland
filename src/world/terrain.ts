@@ -10,8 +10,10 @@
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
+import { baueHofsockel } from './hofsockel.js';
+import { baueHoftrittplatten } from './hoftrittplatten.js';
 import { baueLaubenkasten } from './laubenkasten.js';
 import { fassadenKasten, vereinfacheHauswand } from './hausbauteil.js';
 import { gesperrt } from './bauwerke.js';
@@ -373,9 +375,11 @@ export function baueGebaeude(
    * wie bisher. `aoBoden`/`aoTraufe` setzt die Schleife je Gebaeude.
    */
   let aoBoden = -Infinity, aoTraufe = -Infinity;
+  let lokalerBodenkontakt = false;
+  const kontaktBoden = (v: readonly number[]) => lokalerBodenkontakt ? terrain.hoeheAn(v[0], v[2]) : aoBoden;
   const ao = (v: [number, number, number]): number => {
     let f = 1;
-    const ueber = v[1] - aoBoden;
+    const ueber = v[1] - kontaktBoden(v);
     if (ueber < 0.9) f *= 0.68 + 0.32 * Math.max(0, ueber) / 0.9;
     const unter = aoTraufe - v[1];
     if (unter >= -0.02 && unter < 0.75) f *= 0.76 + 0.24 * unter / 0.75;
@@ -397,7 +401,7 @@ export function baueGebaeude(
         raumUv.push(((v[0]-q.x)*q.dx+(v[2]-q.z)*q.dz)/q.breite+0.5, (v[1]-q.unten)/q.hoehe, q.seed);
       } else raumUv.push(0, 0, 0);
     }
-    for (const v of [a, b, c]) zustand.push(stufeJetzt, v[1] - aoBoden);
+    for (const v of [a, b, c]) zustand.push(stufeJetzt, v[1] - kontaktBoden(v));
   };
 
   /**
@@ -469,6 +473,7 @@ export function baueGebaeude(
     const mitteProbe = hProbe?.welt((hProbe.minU+hProbe.maxU)/2,(hProbe.minV+hProbe.maxV)/2);
     const hausReferenz = mitteProbe ? referenzen.find(r => Math.hypot(mitteProbe[0]-r.mitte[0],mitteProbe[1]-r.mitte[1]) < 0.1) : undefined;
     const referenzHaus = !!hausReferenz;
+    lokalerBodenkontakt = referenzHaus && HOF_BODEN_AN;
     const laubenDetails = referenzHaus && HOF_LAUBEN_AN;
     if (referenzHaus) p = vereinfacheHauswand(p);
     if (p.length < 3) continue;
@@ -767,7 +772,9 @@ export function baueGebaeude(
         if (referenzHaus) {
           const K=fassadenKasten(quadNach,[x1,z1],[(x2-x1)/wandLaenge,(z2-z1)/wandLaenge],[wx,wz]);
           const abschnitte=k===tuerWand ? [[0,eingangU-tuerBreite/2-0.12],[eingangU+tuerBreite/2+0.12,wandLaenge]] : [[0,wandLaenge]];
-          for(const [a,b] of abschnitte) {
+          if (HOF_BODEN_AN) baueHofsockel(quadNach,[x1,z1],[(x2-x1)/wandLaenge,(z2-z1)/wandLaenge],
+            [wx,wz],abschnitte as [number,number][],fuss-.06,boden+.34,terrain.hoeheAn,SOCKEL,RAHMEN);
+          else for(const [a,b] of abschnitte) {
             K(a,b,fuss-0.06,boden+0.34,0.015,0.13,SOCKEL);
             K(a,b,boden+0.34,boden+0.41,0.01,0.17,RAHMEN);
           }
@@ -815,6 +822,8 @@ export function baueGebaeude(
           const grund = Math.min(...[-a-.18,a+.18].flatMap(u=>[-.14,.38].map(v=>
             terrain.hoeheAn(cx+(x2-x1)/wandLaenge*u+wx*v,cz+(z2-z1)/wandLaenge*u+wz*v))))-.12;
           K(-a-.18,a+.18,grund,y0+.015,-.14,.38,SOCKEL);
+          if (HOF_BODEN_AN && hausReferenz?.eingang) baueHoftrittplatten(quadNach,
+            [hausReferenz.eingang[0],hausReferenz.eingang[1]], [wx,wz], terrain.hoeheAn, Math.floor(glutHash(cx,y0,cz)*4294967295), SOCKEL);
         }
         /**
          * Vordach über der Haustür — ein kleines Pultdach auf zwei Kopfbändern.

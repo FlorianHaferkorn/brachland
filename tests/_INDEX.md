@@ -63,6 +63,11 @@ owns: *.test.ts
 | `hofgruen.test.ts` | D299: lokale Baumwahl ohne Verlust/Duplikate oder Seedänderungen; Strauchvarianten bleiben in der Mittelstufe erhalten. |
 | `hofstrauch.test.ts` | D299: deterministische Geometrie/UV, korrekte Meterhöhe und Bodenstand, gültige Attribute und Windgewichte. |
 | `ezblattschatten.test.ts` | D300: gezeichnetes Tiefenmaterial behält trotz three.js-Überschreibung bei Alpha-to-Coverage die Nadel-/Laubschwelle der Farbkarte. |
+| `hofbodenintegration.test.ts` | D307: reale acht Hofhäuser, Rückfallschalter, Nachbargrundrisse, örtlicher Sockelkontakt und Platten im Hausbatch. |
+| `hofbodenkontakt.test.ts` | D307: Pixelzentren, Auswahl, Maskenverlauf und ausgesparte fremde Grundrisse des Bodenrands. |
+| `hofboden.test.ts` | D307: Lokalität, Stetigkeit und freie Türvorfelder der CPU-/GLSL-Bodenmasken. |
+| `hofsockel.test.ts` | D307: geschlossene Sockelkörper, stetige Endhöhen, Türspalten und Bodenanschluss am gewellten Hang. |
+| `hoftrittplatten.test.ts` | D307: geschlossene Platten, Außennormalen, Schwellenabstand und Hangkontakt. |
 | `hofplatz.test.ts` | D298: Grundrissauswahl, Hofmaske und Ausschluss des Hausinneren; Scan-Shader-Hook bleibt beim Klonen für Wind erhalten (33 Prüfungen, einschliesslich deterministischer Randgruppen und gesperrter Wege). |
 | `referenzhaus.test.ts` | D303: lokale Auswahl, echte Fenster-/Türtiefe, Umlauf, UV und vollständige Geometrieattribute. |
 | `hausindex.test.ts` | D305: exakte Rückexpansion, harte Kanten/UV/Seeds, Hashkollisionen, Vorzeichen von Null, 16-/32-Bit-Grenze sowie reales Haus-/Garten-Merge. |

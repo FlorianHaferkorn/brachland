@@ -1,7 +1,11 @@
 /** Zusammenhängender Hof der Scanprobe; Lage und Achse folgen dem echten Grundriss. */
 import * as THREE from 'three';
+import { baueHofbodenkontakt } from './hofbodenkontakt.js';
 import type { Weltdaten } from './osm.js';
 import { orientierteHuelle } from './terrain.js';
+import { HOF_BODEN_AN } from './echt.js';
+import { hofbodenRand, HOF_ZUGANG_MAX } from './hofboden.js';
+import { bestimmeHofhaeuser } from './hofhaeuser.js';
 import type { PropInstanz } from './props.js';
 
 export interface Hof {
@@ -17,11 +21,17 @@ const MESSZIEL: readonly [number, number] = [1433, 434];
 const MESSBLICK: readonly [number, number] = [1441, 418];
 const WOHNARTEN = new Set(['yes', 'house', 'detached', 'residential', 'apartments', 'farm', 'terrace', 'semidetached_house']);
 
+const LEER_KONTAKT = new THREE.DataTexture(new Uint8Array([0]), 1, 1, THREE.RedFormat);
+LEER_KONTAKT.needsUpdate = true;
 export const HOF_UNIFORM = {
   mitte: { value: new THREE.Vector2() },
   achse: { value: new THREE.Vector2(1, 0) },
   halb: { value: new THREE.Vector2() },
   bereit: { value: 0 },
+  zugaenge: { value: Array.from({ length: HOF_ZUGANG_MAX }, () => new THREE.Vector4()) },
+  zugangZahl: { value: 0 },
+  kontakt: { value: LEER_KONTAKT as THREE.Texture },
+  kontaktRahmen: { value: new THREE.Vector4() },
 };
 
 /** Reine Auswahl, auch für Tests ohne globale Uniform-Nebenwirkung. */
@@ -58,6 +68,23 @@ export function waehleHof(welt: Weltdaten, terrain: Weltmass): Hof | null {
     HOF_UNIFORM.achse.value.set(...hof.achse);
     HOF_UNIFORM.halb.value.set(...hof.halb);
   }
+  const haeuser = HOF_BODEN_AN ? bestimmeHofhaeuser(welt, terrain, hof).filter(h => h.eingang).slice(0, HOF_ZUGANG_MAX) : [];
+  HOF_UNIFORM.zugangZahl.value = haeuser.length;
+  haeuser.forEach((h,i) => HOF_UNIFORM.zugaenge.value[i].set(...h.eingang!, ...h.vorne));
+  const alt = HOF_UNIFORM.kontakt.value;
+  HOF_UNIFORM.kontakt.value = LEER_KONTAKT;
+  HOF_UNIFORM.kontaktRahmen.value.set(0, 0, 0, 0);
+  if (HOF_BODEN_AN && hof) {
+    const k = baueHofbodenkontakt(welt, terrain, haeuser, hof.mitte);
+    const t = new THREE.DataTexture(k.daten, k.breite, k.breite, THREE.RedFormat);
+    t.minFilter = t.magFilter = THREE.LinearFilter;
+    t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+    t.generateMipmaps = false;
+    t.needsUpdate = true;
+    HOF_UNIFORM.kontakt.value = t;
+    HOF_UNIFORM.kontaktRahmen.value.set(...k.rahmen);
+  }
+  if (alt !== LEER_KONTAKT) alt.dispose();
   return hof;
 }
 const glatt = (a: number, b: number, x: number) => {
@@ -73,8 +100,8 @@ export function hofDeckung(x: number, z: number, hof: Hof | null): number {
   const v = -dx * hof.achse[1] + dz * hof.achse[0];
   const innen = Math.max(Math.abs(u) - hof.halb[0], Math.abs(v) - hof.halb[1]);
   const rand = Math.max(Math.abs(u) - hof.halb[0] - 2.4, Math.abs(v - 1.8) - hof.halb[1] - 4.2);
-  const fleck = Math.sin(u * 1.7 + v * 0.6) * Math.sin(v * 1.3 - u * 0.4) * 0.28;
-  return (1 - glatt(-0.85, 0.25, rand + fleck)) * glatt(-0.05, 0.15, innen);
+  const fleck = HOF_BODEN_AN ? hofbodenRand(u, v) : Math.sin(u * 1.7 + v * 0.6) * Math.sin(v * 1.3 - u * 0.4) * 0.28;
+  return (1 - glatt(HOF_BODEN_AN ? -1.4 : -0.85, HOF_BODEN_AN ? 0.65 : 0.25, rand + fleck)) * glatt(-0.05, 0.15, innen);
 }
 
 /** D303: der schmale Zugang zum neuen Eingang bleibt ohne niedrigen Bewuchs. */
@@ -103,7 +130,7 @@ export function hofRandProps(hof: Hof | null, hoehe: (x: number, z: number) => n
     const z = hof.mitte[1] + u * hof.achse[1] + v * hof.achse[0];
     if (gesperrt(x, z)) continue;
     props.push({ art: stein ? 'findling' : 'farn', variante: stein ? i : i % 4,
-      position: [x, hoehe(x, z) - (stein ? 0.08 : 0), z],
+      position: [x, hoehe(x, z) - (stein ? (HOF_BODEN_AN ? 0.18 : 0.08) : 0), z],
       skalierung: stein ? 0.7 : 0.65, drehung: zufall(i * 4 + 2) * Math.PI * 2 });
   }
   return props;
@@ -120,7 +147,8 @@ float hofDeckung(vec2 p) {
   vec2 q = vec2(dot(d, uHofAchse), dot(d, vec2(-uHofAchse.y, uHofAchse.x)));
   float innen = max(abs(q.x) - uHofHalb.x, abs(q.y) - uHofHalb.y);
   float rand = max(abs(q.x) - uHofHalb.x - 2.4, abs(q.y - 1.8) - uHofHalb.y - 4.2);
-  float fleck = sin(q.x * 1.7 + q.y * 0.6) * sin(q.y * 1.3 - q.x * 0.4) * 0.28;
-  return uHofBereit * (1.0 - smoothstep(-0.85, 0.25, rand + fleck)) * smoothstep(-0.05, 0.15, innen);
+  float fleck = ${HOF_BODEN_AN ? `0.44 * sin(q.x * 0.63 + q.y * 0.27) * sin(q.y * 0.91 - q.x * 0.19)
+    + 0.26 * sin(q.x * 1.37 - q.y * 0.41 + 1.7) * sin(q.y * 1.13 + q.x * 0.35)` : 'sin(q.x * 1.7 + q.y * 0.6) * sin(q.y * 1.3 - q.x * 0.4) * 0.28'};
+  return uHofBereit * (1.0 - smoothstep(${HOF_BODEN_AN ? '-1.4, 0.65' : '-0.85, 0.25'}, rand + fleck)) * smoothstep(-0.05, 0.15, innen);
 }
 `;

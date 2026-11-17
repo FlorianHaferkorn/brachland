@@ -1,5 +1,7 @@
 /** D298: Originale Scan-Albedo und Materialkanäle der begrenzten Hofprobe. */
 import * as THREE from 'three';
+import { HOF_BODEN_AN } from './echt.js';
+import { HOF_ZUGANG_PARS } from './hofboden.js';
 import { HOF_UNIFORM, HOF_PARS } from './hofplatz.js';
 
 const texturen = new Map<string, THREE.Texture>();
@@ -19,7 +21,9 @@ export function hofTextur(name: string, farbe = false): THREE.Texture {
 
 export function hofUniforms() {
   return { uHofMitte: HOF_UNIFORM.mitte, uHofAchse: HOF_UNIFORM.achse,
-    uHofHalb: HOF_UNIFORM.halb, uHofBereit: HOF_UNIFORM.bereit };
+    uHofHalb: HOF_UNIFORM.halb, uHofBereit: HOF_UNIFORM.bereit,
+    uHofZugaenge: HOF_UNIFORM.zugaenge, uHofZugangZahl: HOF_UNIFORM.zugangZahl,
+    uHofKontakt: HOF_UNIFORM.kontakt, uHofKontaktRahmen: HOF_UNIFORM.kontaktRahmen };
 }
 
 export const HOF_HAUS_PARS = /* glsl */ `
@@ -51,6 +55,11 @@ export const HOF_HAUS_FARBE = /* glsl */ `
     vec3 lokalP = vHausPos - vec3(uHofMitte.x, 0.0, uHofMitte.y);
     hofScanP = vec2(dot(lokalP, hofT), dot(lokalP, hofB)) / hm;
     vec3 albedo = hofLies(uHofFarbe, hofScanP, scanR).rgb;
+    ${HOF_BODEN_AN ? `// Horizontale Trittsteine sind einzelne Platten, kein aufgedrucktes Bruchsteinmauerwerk.
+    if (scanR > 2.5 && hofN.y > 0.7) {
+      float korn = sin(vHausPos.x * 3.1 + vHausPos.z * 0.7) * sin(vHausPos.z * 4.3);
+      albedo = vec3(0.15, 0.145, 0.13) * (1.0 + korn * 0.08);
+    }` : ''}
     hofArm = hofLies(uHofArm, hofScanP, scanR).rgb;
     // Originalfarben ersetzen die mehrfach modulierte Palette. Nur der Sockelkontakt bleibt.
     float kontakt = mix(0.72, 1.0, smoothstep(0.0, 0.9, vZustand.y));
@@ -61,7 +70,7 @@ export const HOF_HAUS_FARBE = /* glsl */ `
 export const HOF_HAUS_NORMAL = /* glsl */ `
   if (scanR < 3.5 && hofHausAnteil > 0.0) {
     vec3 hn = hofLies(uHofNormal, hofScanP, scanR).xyz * 2.0 - 1.0;
-    hn.xy *= 0.65;
+    hn.xy *= ${HOF_BODEN_AN ? '(scanR > 2.5 && hofN.y > 0.7) ? 0.12 : 0.65' : '0.65'};
     vec3 hnW = normalize(hofT * hn.x + hofB * hn.y + hofN * hn.z);
     normal = normalize(mix(normal, (viewMatrix * vec4(hnW, 0.0)).xyz, hofHausAnteil));
   }
@@ -69,6 +78,7 @@ export const HOF_HAUS_NORMAL = /* glsl */ `
 
 export const HOF_BODEN_PARS = /* glsl */ `
 ${HOF_PARS}
+${HOF_BODEN_AN ? HOF_ZUGANG_PARS + '\nuniform sampler2D uHofKontakt;\nuniform vec4 uHofKontaktRahmen;' : ''}
 uniform sampler2D uHofBodenFarbe, uHofBodenNormal, uHofBodenArm;
 uniform float uHofBodenMeter;
 float hofBodenAnteil;
@@ -79,9 +89,26 @@ export const HOF_BODEN_FARBE = /* glsl */ `
   hofBodenAnteil = hofDeckung(vWeltPos.xz);
   hofBodenUv = vWeltPos.xz / uHofBodenMeter;
   hofBodenArm = vec3(1.0, 0.9, 0.0);
+  ${HOF_BODEN_AN ? `
+  float hofLokal = uHofBereit * (1.0 - smoothstep(38.0, 43.0, distance(vWeltPos.xz, uHofMitte)));
+  if (hofLokal > 0.0) {
+    float zugang = hofZugang(vWeltPos.xz);
+    float streu = smoothstep(0.28, 0.72, bodenRauschen((vWeltPos.xz - uHofMitte) * 0.53));
+    vec2 kontaktUv = (vWeltPos.xz - uHofKontaktRahmen.xy) * uHofKontaktRahmen.zw;
+    // Die Kontaktkarte hat keine Mips: ihr Abtasten braucht keine Fragmentableitungen.
+    float kontakt = texture2D(uHofKontakt, kontaktUv).r;
+    float kontaktStreu = kontakt * mix(0.5, 0.9, streu);
+    float erdRand = hofBodenAnteil * (1.0 - hofBodenAnteil) * 2.5;
+    vec3 erde = vec3(0.095, 0.065, 0.035) * (sWiese.rgb * 1.4 + 0.3);
+    diffuseColor.rgb = mix(diffuseColor.rgb, erde, hofLokal * clamp(erdRand + kontaktStreu + zugang * 0.9, 0.0, 0.95));
+    hofBodenAnteil *= mix(0.30, 0.92, streu) * (1.0 - max(zugang * 0.88, kontaktStreu));
+  }
+  ` : ''}
+  // Ableitungen vor der Ortsverzweigung halten die Mipwahl an den Maskenrändern stabil.
+  vec2 hofDx = dFdx(hofBodenUv), hofDy = dFdy(hofBodenUv);
   if (hofBodenAnteil > 0.0) {
-    vec3 kies = texture2D(uHofBodenFarbe, hofBodenUv).rgb;
-    hofBodenArm = texture2D(uHofBodenArm, hofBodenUv).rgb;
+    vec3 kies = ${HOF_BODEN_AN ? 'textureGrad(uHofBodenFarbe, hofBodenUv, hofDx, hofDy)' : 'texture2D(uHofBodenFarbe, hofBodenUv)'}.rgb;
+    hofBodenArm = ${HOF_BODEN_AN ? 'textureGrad(uHofBodenArm, hofBodenUv, hofDx, hofDy)' : 'texture2D(uHofBodenArm, hofBodenUv)'}.rgb;
     diffuseColor.rgb = mix(diffuseColor.rgb, kies, hofBodenAnteil);
   }
 `;
@@ -120,7 +147,7 @@ export function richteHofPropEin(material: THREE.MeshStandardMaterial, textur: s
 }
 export const HOF_BODEN_NORMAL = /* glsl */ `
   if (hofBodenAnteil > 0.0) {
-    vec3 hn = texture2D(uHofBodenNormal, hofBodenUv).xyz * 2.0 - 1.0;
+    vec3 hn = ${HOF_BODEN_AN ? 'textureGrad(uHofBodenNormal, hofBodenUv, hofDx, hofDy)' : 'texture2D(uHofBodenNormal, hofBodenUv)'}.xyz * 2.0 - 1.0;
     hn.xy *= 0.65;
     vec3 hw = scanAufWelt(hn, normalize(vWeltNormal));
     normal = normalize(mix(normal, (viewMatrix * vec4(hw, 0.0)).xyz, hofBodenAnteil));
