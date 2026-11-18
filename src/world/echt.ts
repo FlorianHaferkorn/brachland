@@ -34,6 +34,8 @@ export const HOF_VERFALL_AN = HOF_HAEUSER_AN && an('hofverfall') && suche.get('b
 export const HOF_RANKE_AN = HOF_VERFALL_AN && an('hofranke');
 /** D314: Einsturzspur an derselben Referenzruine. */
 export const HOF_RUINE_AN = HOF_RANKE_AN && an('hofruine');
+/** D316: abgesacktes Dach und durchgehende Einsturzspur an Haus 308. */
+export const HOF_EINSTURZ_AN = HOF_RUINE_AN && an('hofeinsturz');
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

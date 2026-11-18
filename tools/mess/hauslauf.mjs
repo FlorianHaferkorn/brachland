@@ -4,8 +4,8 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-if(!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall','ranke','ruine'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine angeben.');
-const eckfahrt=profil==='ranke'||profil==='ruine';
+if(!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall','ranke','ruine','einsturz'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz angeben.');
+const eckfahrt=['ranke','ruine','einsturz'].includes(profil);
 const bodennah=eckfahrt||['boden','gras','teppich','verfall'].includes(profil);
 const anzahl=eckfahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
@@ -34,6 +34,7 @@ if(profil==='verfall'){parameter.set('hofgras','1');parameter.set('hofverfall',p
 if(eckfahrt){
  parameter.set('hofgras','1');parameter.set('hofverfall','1');parameter.set('hofranke',profil==='ranke'?probe:'1');
  if(profil==='ruine')parameter.set('hofruine',probe);
+ if(profil==='einsturz'){parameter.set('hofruine','1');parameter.set('hofeinsturz',probe);}
  parameter.set('absetzen','1425,403,175');parameter.set('kamera','1424,36.44,403,1426,37.8,409.3');
 }
 if(profil==='teppich'){parameter.set('hofgras','1');parameter.set('teppichspar',probe);}
@@ -44,14 +45,14 @@ try {
  await seite.goto(`http://127.0.0.1:4173/?${parameter}`);
  await seite.waitForFunction(()=>document.body.textContent.includes('Ladezeit')&&window.__szene?.userData.ezKamera,null,{timeout:180000});
  await seite.waitForTimeout(15000);
- await seite.evaluate(profil=>{
+ await seite.evaluate(({profil,eckfahrt})=>{
   const s=window.__szene,vorher=s.onBeforeRender;
   window.__haus={index:0,bilder:0,position:[]};
   s.onBeforeRender=function(gl,szene,kamera,ziel){
    vorher.call(this,gl,szene,kamera,ziel);
    const d=window.__haus;
    // Zwei normale Blicke: erst vollständiges Haus vom freien Weg, dann Eingang aus Augenhöhe.
-   if(profil==='ranke'||profil==='ruine') {
+   if(eckfahrt) {
     const t=d.index/191;
     kamera.position.set(1424+11*(1-(1-t)**1.3),36.44-.12*t,403+8*t*t);
     kamera.lookAt(1426+.25*t,37.8+.25*t,409.3);
@@ -76,7 +77,7 @@ try {
    }});d.bilder++;
   };
   for(const e of document.querySelectorAll('body *'))if(e.tagName!=='CANVAS'&&!e.querySelector('canvas'))e.style.visibility='hidden';
- },profil);
+ },{profil,eckfahrt});
  await seite.evaluate(async()=>{for(let i=0;i<8;i++)await new Promise(r=>requestAnimationFrame(r));window.__hausPause();});
  await seite.waitForTimeout(200);
  await seite.evaluate(()=>{for(let i=0;i<64;i++)window.__hausSchritt();});

@@ -38,16 +38,22 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),352,353,354]) {
   const haus={...welt.gebaeude[i],lod2:lod[i]},g=baueGebaeude(welt,boden,[haus],[[hof.mitte[0],hof.mitte[1]-75]],haeuser);
   const p=g.getAttribute('position'),r=g.getAttribute('rolle'),z=g.getAttribute('zustand'),glut=g.getAttribute('glut'),uv=g.getAttribute('raumUv');
   const referenz=haeuser.find(h=>h.gebaeudeIndex===i);
-  let endlich=true,raumFalsch=0,glutFalsch=0,kontaktFehler=0,oberePlatten=0,blockiert=0,ausserhalbVorfeld=0,licht=0,schuttEcken=0;
+  let endlich=true,raumFalsch=0,glutFalsch=0,kontaktFehler=0,oberePlatten=0,blockiert=0,ausserhalbVorfeld=0,licht=0,schuttEcken=0,balkenEcken=0;
+  const dachHoehen={};
   for(const a of Object.values(g.attributes)) {endlich&&=a.count===p.count;for(const wert of a.array)endlich&&=Number.isFinite(wert);}
   for(let j=0;j<p.count;j++) {
     if(glut.getX(j)!==0){licht++;if(r.getX(j)!==5)glutFalsch++;}
     if(r.getX(j)!==5 && (uv.getX(j)!==0||uv.getY(j)!==0||uv.getZ(j)!==0))raumFalsch++;
     if(referenz && Math.abs(z.getY(j)-(p.getY(j)-hoehe(p.getX(j),p.getZ(j))))>2e-5)kontaktFehler++;
-    if(i===308&&referenz?.eingang&&r.getX(j)===4&&z.getY(j)<.4) {
+    if(i===308&&r.getX(j)===2&&z.getY(j)>4) {
+      const ort=p.getX(j).toFixed(3)+','+p.getZ(j).toFixed(3);
+      dachHoehen[ort]=Math.max(dachHoehen[ort]??-Infinity,p.getY(j));
+    }
+    if(i===308&&referenz?.eingang&&r.getX(j)===4) {
       const dx=p.getX(j)-referenz.eingang[0],dz=p.getZ(j)-referenz.eingang[1];
       const [nx,nz]=referenz.vorne,vor=dx*nx+dz*nz,seitlich=dx*(-nz)+dz*nx;
-      if(vor>.3&&vor<2.25&&seitlich<-.92)schuttEcken++;
+      if(vor>.3&&vor<2.25&&seitlich<-.92&&z.getY(j)<.4)schuttEcken++;
+      if(vor>.55&&vor<1.65&&seitlich<-.92&&z.getY(j)>1&&z.getY(j)<3.4)balkenEcken++;
     }
     if(!referenz?.eingang||r.getX(j)!==3||Math.abs(p.getY(j)-hoehe(p.getX(j),p.getZ(j))-.035)>2e-5)continue;
     const dx=p.getX(j)-referenz.eingang[0],dz=p.getZ(j)-referenz.eingang[1];
@@ -84,7 +90,7 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),352,353,354]) {
       for(const seitlich of [-.86,-.32,.32,.86])wandTiefen.push(messTiefe(seitlich,oben-.36));
     }
   }
-  result.haeuser[i]={hash:hash(g),ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen,wandTiefen,schuttEcken};
+  result.haeuser[i]={hash:hash(g),ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen,wandTiefen,schuttEcken,balkenEcken,dachHoehen};
   if(i===297){
     const innen=referenz.mitte;
     if(!imPolygon(innen,ringe[i])) throw Error('Bewohnerprobe muss im Grundriss liegen');
@@ -101,6 +107,7 @@ interface Hausbefund {
   hash: string; ecken: number; stufe: number; endlich: boolean; raumFalsch: number; glutFalsch: number; licht: number;
   kontaktFehler: number; oberePlatten: number; blockiert: number; ausserhalbVorfeld: number;
   indexGleich: boolean; tritte: boolean[]; tuerTiefen: (number | null)[]; wandTiefen: (number | null)[]; schuttEcken: number;
+  balkenEcken: number; dachHoehen: Record<string, number>;
 }
 interface Stand {
   haeuser: Record<number, Hausbefund>; eingabeErhalten: boolean; bewohntHash: string;
@@ -114,6 +121,7 @@ const bisher = lauf(''), aus = lauf('&hofboden=0'), an = lauf('&hofboden=1');
 const verfall = lauf('&hofboden=1&hofverfall=1');
 const ranke = lauf('&hofboden=1&hofverfall=1&hofranke=1');
 const ruine = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1');
+const spur = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -157,5 +165,16 @@ pruefe('D314: Schutt liegt seitlich der Tür, Trittplatten und Öffnung bleiben 
   && einsturz.tritte.every(Boolean) && einsturz.tuerTiefen.every((tiefe, i) => tiefe === kurve.tuerTiefen[i]));
 pruefe('D314: endlicher, kompaktierbarer Hauspuffer und gleiche Nachbarbauten', einsturz.endlich && einsturz.indexGleich
   && Object.entries(ranke.haeuser).every(([i, b]) => i === '308' || b.hash === ruine.haeuser[Number(i)].hash));
+const abgesackt = spur.haeuser[308];
+const absenkung = Object.entries(einsturz.dachHoehen).flatMap(([ort, y]) =>
+  ort in abgesackt.dachHoehen ? [y - abgesackt.dachHoehen[ort]] : []);
+pruefe('D316: Dachhaut ist am ursprünglichen Grundriss nach unten verformt',
+  absenkung.filter(d => d > .4).length >= 3 && Math.max(...absenkung) >= .75 && absenkung.every(d => d >= -.001),
+  `max. ${Math.max(...absenkung).toFixed(2)} m`);
+pruefe('D316: geneigtes Bruchholz am Schutt und freie Tür mit beiden Trittsteinen',
+  abgesackt.balkenEcken > einsturz.balkenEcken && abgesackt.tritte.length === 2 && abgesackt.tritte.every(Boolean)
+  && abgesackt.tuerTiefen.every((tiefe, i) => tiefe === einsturz.tuerTiefen[i]));
+pruefe('D316: dieselbe Kompaktierung und unveränderte Nachbarbauten', abgesackt.endlich && abgesackt.indexGleich
+  && Object.entries(ruine.haeuser).every(([i, b]) => i === '308' || b.hash === spur.haeuser[Number(i)].hash));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;
