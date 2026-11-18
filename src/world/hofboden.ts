@@ -88,21 +88,27 @@ export function hofgrasFrei(x: number, z: number, zugaenge: readonly { x: number
   return true;
 }
 
-export const HOF_GRAS_PARS = /* glsl */ `
-uniform vec4 uHofZugaenge[${HOF_ZUGANG_MAX}];
-uniform int uHofZugangZahl;
-uniform vec2 uHofMitte;
-float hofgrasDeckung(vec2 ort) {
-  float deckung = 1.0;
-  for (int i = 0; i < ${HOF_ZUGANG_MAX}; i++) {
-    if (i >= uHofZugangZahl) break;
-    vec4 h = uHofZugaenge[i];
-    vec2 d = ort - h.xy;
-    float quer = abs(dot(d, vec2(h.w, -h.z)));
-    float vor = dot(d, h.zw);
-    float abstand = length(vec2(max(0.0, quer - .52), max(0.0, max(-vor, vor - 1.56))));
-    deckung = min(deckung, smoothstep(${HOF_GRAS_TRITTRAND}, 1.02, abstand));
+
+/** D309: Abstandsmaske einmal aus den Türadressen berechnen. Zwischen den vier
+ * bilinear gelesenen Zentren können höchstens sqrt(2) Texelschritte liegen.
+ * Der Puffer hält deshalb die 65 cm auch zwischen Texelzentren sicher frei. */
+export function rastereHofgras(mitte: readonly [number, number], zugaenge: readonly HofbodenZugang[]) {
+  const breite = 512, meter = 96, schritt = meter / breite;
+  const x0 = mitte[0] - meter / 2, z0 = mitte[1] - meter / 2;
+  const daten = new Uint8Array(breite * breite).fill(255);
+  const abtastpuffer = schritt * Math.SQRT2;
+  // 3 m umfassen Vorfeld-Ecken, weichen Auslauf und Abtastpuffer.
+  const radius = Math.hypot(.52, 1.56) + 1.02 + abtastpuffer;
+  for (const { eingang: [x, z], vorne: [nx, nz] } of zugaenge) {
+    const links = Math.max(0, Math.floor((x - x0 - radius) / schritt));
+    const rechts = Math.min(breite - 1, Math.ceil((x - x0 + radius) / schritt));
+    const oben = Math.max(0, Math.floor((z - z0 - radius) / schritt));
+    const unten = Math.min(breite - 1, Math.ceil((z - z0 + radius) / schritt));
+    for (let i = oben; i <= unten; i++) for (let j = links; j <= rechts; j++) {
+      const abstand = hofgrasTrittabstand(x0 + (j + .5) * schritt, z0 + (i + .5) * schritt, x, z, nx, nz);
+      const index = i * breite + j;
+      daten[index] = Math.min(daten[index], Math.round(255 * glatt(HOF_GRAS_TRITTRAND, 1.02, abstand - abtastpuffer)));
+    }
   }
-  return deckung;
+  return { daten, breite, rahmen: [x0, z0, 1 / meter, 1 / meter] as const };
 }
-`;

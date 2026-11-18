@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { baueHofbodenkontakt } from './hofbodenkontakt.js';
 import type { Weltdaten } from './osm.js';
 import { orientierteHuelle } from './terrain.js';
-import { HOF_BODEN_AN } from './echt.js';
-import { hofbodenRand, HOF_ZUGANG_MAX } from './hofboden.js';
+import { HOF_BODEN_AN, HOF_GRAS_AN } from './echt.js';
+import { hofbodenRand, HOF_ZUGANG_MAX, rastereHofgras } from './hofboden.js';
 import { bestimmeHofhaeuser } from './hofhaeuser.js';
 import type { PropInstanz } from './props.js';
 
@@ -32,6 +32,8 @@ export const HOF_UNIFORM = {
   zugangZahl: { value: 0 },
   kontakt: { value: LEER_KONTAKT as THREE.Texture },
   kontaktRahmen: { value: new THREE.Vector4() },
+  gras: { value: LEER_KONTAKT as THREE.Texture },
+  grasRahmen: { value: new THREE.Vector4() },
 };
 
 /** Reine Auswahl, auch für Tests ohne globale Uniform-Nebenwirkung. */
@@ -85,6 +87,18 @@ export function waehleHof(welt: Weltdaten, terrain: Weltmass): Hof | null {
     HOF_UNIFORM.kontaktRahmen.value.set(...k.rahmen);
   }
   if (alt !== LEER_KONTAKT) alt.dispose();
+  const altesGras = HOF_UNIFORM.gras.value;
+  HOF_UNIFORM.gras.value = LEER_KONTAKT;
+  HOF_UNIFORM.grasRahmen.value.set(0, 0, 0, 0);
+  if (HOF_GRAS_AN && hof && haeuser.length) {
+    const raster = rastereHofgras(hof.mitte, haeuser.map(h => ({ eingang: h.eingang!, vorne: h.vorne })));
+    const t = new THREE.DataTexture(raster.daten, raster.breite, raster.breite, THREE.RedFormat);
+    t.minFilter = t.magFilter = THREE.LinearFilter;
+    t.needsUpdate = true;
+    HOF_UNIFORM.gras.value = t;
+    HOF_UNIFORM.grasRahmen.value.set(...raster.rahmen);
+  }
+  if (altesGras !== LEER_KONTAKT) altesGras.dispose();
   return hof;
 }
 const glatt = (a: number, b: number, x: number) => {

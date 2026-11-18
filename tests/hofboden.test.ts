@@ -1,5 +1,5 @@
 /** D307: Bodenmaske verlässt das tatsächlich geprüfte freie Türvorfeld nicht. */
-import { hofbodenRand, hofbodenZugang, hofgrasFrei, HOF_ZUGANG_MAX } from '../src/world/hofboden.js';
+import { hofbodenRand, hofbodenZugang, hofgrasFrei, rastereHofgras, HOF_ZUGANG_MAX } from '../src/world/hofboden.js';
 import type { HofbodenZugang } from '../src/world/hofboden.js';
 
 let ok = 0, fehler = 0;
@@ -54,5 +54,25 @@ pruefe('Gras bleibt seitlich und vor beiden Trittplatten auch außerhalb der Ste
 pruefe('Nachbarwiese außerhalb des Sicherheitsabstands behält ihre Wurzeln',
   grasFrei(1.25, .76) && grasFrei(0, 2.25));
 pruefe('Ohne bestätigten Eingang bleibt das Gras frei verteilt', hofgrasFrei(0, 0, [], 0));
+const raster = rastereHofgras([1433, 434], [gedreht]);
+const [x0, z0, sx, sz] = raster.rahmen;
+const rasterWert = (x: number, z: number) => {
+  const u = (x - x0) * sx * raster.breite - .5;
+  const v = (z - z0) * sz * raster.breite - .5;
+  const j = Math.floor(u), i = Math.floor(v);
+  const a = u - j, b = v - i;
+  const oben = i * raster.breite + j, unten = oben + raster.breite;
+  return (1 - b) * ((1 - a) * raster.daten[oben] + a * raster.daten[oben + 1])
+    + b * ((1 - a) * raster.daten[unten] + a * raster.daten[unten + 1]);
+};
+let rasterFrei = true;
+for (let i = -60; i <= 120; i++) for (let j = -65; j <= 65; j++) {
+  const u = j * .02, v = i * .02;
+  const x = gedreht.eingang[0] + c * u - s * v, z = gedreht.eingang[1] + s * u + c * v;
+  if (!grasFrei(u, v)) rasterFrei &&= rasterWert(x, z) === 0;
+}
+pruefe('Bilineares Raster lässt keinen Halm in den analytisch geschützten Bereich', rasterFrei);
+pruefe('Raster lässt Grün vier Meter neben der Tür unverändert',
+  rasterWert(gedreht.eingang[0] + 4, gedreht.eingang[1]) === 255);
 console.log(`\nHofboden: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exit(1);
