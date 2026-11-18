@@ -106,7 +106,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `mess/blattglanz.mjs` | D301: echter Three-Phong-GPU-Test des Produktionshooks bei schwarzer Diffus-/Glanzfarbe; Gegenprobe muss Fresnel-Glanz zeigen, matte Variante vollständig schwarz bleiben. `node tools/mess/blattglanz.mjs`, kein Spielstart. |
 | `mess/blattgalerie.mjs` | D300/D301: A/B-Galerie mit synchronen Blatt-/Laufvideos und optionaler Kronenfahrt, Vergleichstafel und Messgrenzen; vier/sechs abgeschlossene Eingabeordner, 24/48Detailbilder, --staende=D300,D301, neue Ausgaben. |
 | `mess/hofprofil.mjs` | D310: stehender Hofblick mit Gegenproben für Grasteppich und Schattenkarte; getrennte GPU-Zeitabfragen, Ausgabe als JSON. |
-| `mess/hauslauf.mjs` | Referenz-, Hof-, Kompakt-, Lauben-, Boden-, Gras-, Grasteppich- und Verfallsprofil (D312), vier bodennahe Ansichten, zuletzt Eingang aus Augenhöhe. Haus-/Gartenpuffer und identische 60°-Kamerafahrt mit fester Windphase. PNG/JSON werden nur neu angelegt. |
+| `mess/hauslauf.mjs` | Hofproben mit Haus-/Gartenpuffern und identischer 60°-Kamerafahrt bei fester Windphase. Das Profil `ranke` (D313) führt um die beschädigte Ecke von Haus 308. PNG/JSON werden nur neu angelegt. |
 | `mess/hausgalerie.mjs` | D303–D308: synchron steuerbare Vorher-/Nachher-Videos und Bildregler aus zwei vollständigen Hausläufen. |
 | `mess/strauchlauf.mjs` | D302: 120 Bilder aus dem echten Spielrenderer beim Strauchwechsel zwischen Chunk und Fernbündel; identische Kamera-/Windfolge, erhöhte 10°-Telekamera für die Fernprüfung, neue Ausgabeordner, kein FPS-Lauf. |
 | `mess/strauchgalerie.mjs` | D302: synchroner D301-/D302-Strauchvergleich aus zwei 120er-Bildfolgen, Prüfwerttabelle und PNG-Tafel; optional normaler Spiellauf, relative Medien und ausschließlich neue Ausgabeordner. |

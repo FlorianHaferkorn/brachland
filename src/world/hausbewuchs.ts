@@ -1,3 +1,4 @@
+import { CatmullRomCurve3, Vector3 } from 'three';
 import type { Color } from 'three';
 import { mulberry } from './props.js';
 
@@ -5,6 +6,8 @@ type Punkt = [number, number, number];
 type Wandkante = readonly [number, number];
 type Wandpunkt = [laenge: number, hoehe: number, abstand: number];
 type Dreieck = (a: Punkt, b: Punkt, c: Punkt, farbe: Color) => void;
+type Rankenfarben = { blaetter: readonly Color[]; trieb: Color };
+export type Rankenpunkt = { ort: Punkt; aussen: Punkt };
 
 const DREIECKE_JE_WAND = 1980;
 const BLATTFORM: readonly Wandpunkt[] = [
@@ -16,7 +19,7 @@ const BLATTFORM: readonly Wandpunkt[] = [
 export function baueHausbewuchs(
   dreieck: Dreieck, start: Wandkante, ende: Wandkante, aussen: Wandkante,
   boden: (x: number, z: number) => number, traufe: number, stufe: 1 | 2,
-  saat: number, tuerU: number | null, farben: { blaetter: readonly Color[]; trieb: Color },
+  saat: number, tuerU: number | null, farben: Rankenfarben,
 ): void {
   const dx = ende[0] - start[0], dz = ende[1] - start[1];
   const laenge = Math.hypot(dx, dz);
@@ -134,6 +137,70 @@ export function baueHausbewuchs(
       polster([oben[0] + finger * 0.26, oben[1] - 0.13, 0.09], -seite, Math.ceil(dichte * 0.67),
         0.2 + zufall() * (stufe === 2 ? 0.42 : 0.17));
       unten = oben;
+    }
+  }
+}
+
+/** Eine gezeichnete Ranke mit gleichmäßigem Blattabstand in Metern, auch an Knicken der Fassade. */
+export function baueRankenkurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: number, farben: Rankenfarben): void {
+  const kurve = new CatmullRomCurve3(punkte.map(p => new Vector3(...p.ort)));
+  const normalen = punkte.map(p => new Vector3(...p.aussen));
+  const zufall = mulberry(saat);
+  const laenge = kurve.getLength();
+  const abschnitte = Math.min(36, Math.max(2, Math.ceil(laenge / .27)));
+  let letzterRing: Vector3[] | null = null;
+  const flaeche = (a: Vector3, b: Vector3, c: Vector3, farbe: Color) =>
+    dreieck(a.toArray(), b.toArray(), c.toArray(), farbe);
+
+  for (let i = 0; i <= abschnitte; i++) {
+    const anteil = i / abschnitte;
+    const t = kurve.getUtoTmapping(anteil, anteil * laenge);
+    const ort = kurve.getPoint(t), tangente = kurve.getTangent(t);
+    const abschnitt = t * (punkte.length - 1);
+    const links = Math.min(punkte.length - 2, Math.floor(abschnitt));
+    const normal = normalen[links].clone().lerp(normalen[links + 1], abschnitt - links).normalize();
+    const quer = new Vector3().crossVectors(tangente, normal).normalize();
+    const radial = new Vector3().crossVectors(quer, tangente).normalize();
+    const radius = .048 * (1 - anteil) + .008;
+    const ring = [0, 1, 2].map(j => {
+      const winkel = j * 2 * Math.PI / 3;
+      return ort.clone().addScaledVector(radial, Math.cos(winkel) * radius)
+        .addScaledVector(quer, Math.sin(winkel) * radius);
+    });
+    if (letzterRing) for (let j = 0; j < ring.length; j++) {
+      const k = (j + 1) % ring.length;
+      flaeche(letzterRing[j], ring[k], ring[j], farben.trieb);
+      flaeche(letzterRing[j], letzterRing[k], ring[k], farben.trieb);
+    }
+    letzterRing = ring;
+    if (i < 2) continue;
+
+    const seite = i % 2 ? 1 : -1;
+    const fuelle = Math.sin(Math.PI * anteil) * (.65 + .35 * Math.sin(anteil * 24) ** 2);
+    const ausladung = .13 + .72 * fuelle;
+    const blattVor = new Vector3().crossVectors(normal, quer).normalize();
+    const triebEnde = ort.clone().addScaledVector(quer, seite * ausladung * .72).addScaledVector(normal, .07);
+    const triebKante = blattVor.clone().multiplyScalar(.011);
+    const astA = ort.clone().sub(triebKante), astB = ort.clone().add(triebKante);
+    flaeche(seite === 1 ? astB : astA, seite === 1 ? astA : astB, triebEnde, farben.trieb);
+
+    for (let j = 0; j < 5; j++) {
+      const seitlich = j < 3 ? seite * (.14 + zufall() * .86) : (zufall() - .5) * .48;
+      const mitte = ort.clone().addScaledVector(quer, seitlich * ausladung)
+        .addScaledVector(blattVor, (zufall() - .42) * .44).addScaledVector(normal, .10 + zufall() * .24);
+      const groesse = (.14 + zufall() * .24) * (.68 + .32 * fuelle);
+      const winkel = seite * .7 + (zufall() - .5) * 3.3;
+      const cos = Math.cos(winkel), sin = Math.sin(winkel);
+      const stiel = blattVor.clone().multiplyScalar(cos).addScaledVector(quer, sin);
+      const breite = quer.clone().multiplyScalar(cos).addScaledVector(blattVor, -sin);
+      const rand = BLATTFORM.map(([u, y, h]) => mitte.clone().addScaledVector(breite, groesse * u)
+        .addScaledVector(stiel, groesse * y).addScaledVector(normal, groesse * h));
+      const falz = mitte.clone().addScaledVector(normal, groesse * .11);
+      const farbe = farben.blaetter[Math.floor(zufall() * farben.blaetter.length)];
+      const ansatz = ort.clone().lerp(triebEnde, Math.max(0, Math.min(1, seitlich * seite)));
+      const halbeKante = triebKante.clone().multiplyScalar(.5 * Math.sign(seitlich));
+      flaeche(ansatz.clone().add(halbeKante), ansatz.clone().sub(halbeKante), rand[0], farben.trieb);
+      for (let k = 0; k < rand.length; k++) flaeche(falz, rand[(k + 1) % rand.length], rand[k], farbe);
     }
   }
 }

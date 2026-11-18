@@ -3,6 +3,7 @@ import type { Color } from 'three';
 
 /** Auswahl und Eingangsadresse; undefined erhält die frühere Richtungsprobe, null setzt keine Tür. */
 export interface HausReferenz {
+  gebaeudeIndex?: number;
   mitte: readonly number[];
   vorne: readonly number[];
   eingang?: readonly number[] | null;

@@ -11,11 +11,12 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
-import { baueHausbewuchs } from './hausbewuchs.js';
+import { baueHausbewuchs, baueRankenkurve } from './hausbewuchs.js';
+import type { Rankenpunkt } from './hausbewuchs.js';
 import { baueLaubenkasten } from './laubenkasten.js';
 import { fassadenKasten, vereinfacheHauswand } from './hausbauteil.js';
 import { gesperrt } from './bauwerke.js';
@@ -599,6 +600,10 @@ export function baueGebaeude(
       stufeJetzt = bewohntHier ? 0 : wuerfelAus(mz0 + 3.7, mx0 - 1.1)() < .33 ? 1 : 2;
     }
     const bauSchaden = hofVerfall ? stufeJetzt : 0;
+    // Die gezeichnete Spur gehört zur freiliegenden Nordecke von Haus 308 und dessen Satteldach.
+    const kurvenHaus = HOF_RANKE_AN && bauSchaden === 2 && hausReferenz?.gebaeudeIndex === 308 && p.length === 5
+      && Math.hypot(p[1][0] - 1425.85, p[1][1] - 408.90) < .15
+      && echt2?.d === 3100 && breite >= 6 && echt2.f - echt2.t >= .35;
     const bewohntHaus = stufeJetzt === 0;
     const wohnGrenze = wohnVorn ? minU + breite * 0.42 : maxU - breite * 0.42;
     /** Liegt ein Weltpunkt im Wirtschaftsteil (Tenne/Stall)? */
@@ -758,7 +763,7 @@ export function baueGebaeude(
       const wandLaenge = Math.hypot(x2 - x1, z2 - z1);
       if (wandLaenge < 0.5) continue;
       const wx = (z2 - z1) / wandLaenge, wz = -(x2 - x1) / wandLaenge;   // Wandnormale
-      if ((bauSchaden === 1 || bauSchaden === 2) && wandLaenge >= 2.2) {
+      if ((bauSchaden === 1 || bauSchaden === 2) && wandLaenge >= 2.2 && !(kurvenHaus && k < 2)) {
         const saat = Math.floor(glutHash(x1, boden, z1) * 4294967295);
         const zurGasse = wx * hausReferenz!.vorne[0] + wz * hausReferenz!.vorne[1] > -.2;
         if (zurGasse || bauSchaden === 2) baueHausbewuchs(tri, [x1,z1], [x2,z2], [wx,wz],
@@ -1141,6 +1146,35 @@ export function baueGebaeude(
         u: schadStart + u * schadBreite,
         v: schadTraufe + (mv - schadTraufe) * [0, .48, .35, .62, 0][i],
       })) : null;
+    if (kurvenHaus && bruch) {
+      // Kontrollpunkte entlang der beiden ausgefalteten Wände; die Knickzone wird außen gerundet.
+      const wand = (k: number, anteil: number, hoehe: number, abstand = .17): Rankenpunkt => {
+        const a = p[k], b = p[k + 1], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz);
+        const nx = dz / l, nz = -dx / l;
+        return { ort: [a[0] + dx * anteil + nx * abstand, traufe - hoehe, a[1] + dz * anteil + nz * abstand], aussen: [nx, 0, nz] };
+      };
+      const wurzel = wand(0, .74, 0, .08);
+      wurzel.ort[1] = terrain.hoeheAn(wurzel.ort[0], wurzel.ort[2]) - .035;
+      const eckeA = wand(0, 1, h * .48), eckeB = wand(1, 0, h * .48);
+      const [nx, , nz] = richtV(schadSeite);
+      const abstandZurEcke = ({ u, v }: { u: number; v: number }) => {
+        const [x, z] = hu.welt(u, v);
+        return Math.hypot(x - p[1][0], z - p[1][1]);
+      };
+      const nahAnfang = abstandZurEcke(bruch[0]) < abstandZurEcke(bruch[4]);
+      const ende = bruch[nahAnfang ? 0 : 4], innen = bruch[nahAnfang ? 1 : 3];
+      const spitzeU = ende.u + (innen.u - ende.u) * .08;
+      const spitzeV = ende.v + (innen.v - ende.v) * .08;
+      const punkte: Rankenpunkt[] = [wurzel, wand(0, .74, h * .74), wand(0, .84, h * .57), wand(0, .95, h * .53), {
+        ort: [p[1][0] + (eckeA.aussen[0] + eckeB.aussen[0]) * .23, eckeA.ort[1], p[1][1] + (eckeA.aussen[2] + eckeB.aussen[2]) * .23],
+        aussen: [eckeA.aussen[0] + eckeB.aussen[0], 0, eckeA.aussen[2] + eckeB.aussen[2]],
+      }, wand(1, .10, h * .40), wand(1, .15, h * .22), wand(1, .10, .37), {
+        ort: welt3(ende.u, traufe - .23, schadTraufe + schadSeite * .13), aussen: [nx, .25, nz],
+      }, {
+        ort: welt3(spitzeU, dachY(spitzeV) + .15, spitzeV + schadSeite * .18), aussen: [nx, .52, nz],
+      }];
+      baueRankenkurve(tri, punkte, 308, WANDRANKE);
+    }
 
     const gebrocheneSeite = (versatz: number, farbe: THREE.Color, normal: [number, number, number]) => {
       if (!bruch) return;

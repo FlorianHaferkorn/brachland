@@ -58,7 +58,7 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),352,353,354]) {
     const b=indexiert.getAttribute(name);
     for(let j=0;j<a.count;j++)for(let k=0;k<a.itemSize;k++)if(a.array[j*a.itemSize+k]!==b.array[indexiert.index.getX(j)*a.itemSize+k])indexGleich=false;
   }
-  const tritte=[];
+  const tritte=[], tuerTiefen=[];
   if(referenz?.eingang) {
     const mesh=new THREE.Mesh(g,material);mesh.updateMatrixWorld();
     for(const vor of [.76,1.30]) {
@@ -67,8 +67,14 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),352,353,354]) {
       const t=strahl.intersectObject(mesh,false)[0];
       tritte.push(!!t&&r.getX(t.face.a)===3&&Math.abs(t.point.y-hoehe(x,z)-.035)<2e-5);
     }
+    if(i===308) for(const seitlich of [-.25,-.13,.13,.25]) {
+      const [nx,nz]=referenz.vorne;
+      const x=referenz.eingang[0]+nx*1.25+nz*seitlich,z=referenz.eingang[1]+nz*1.25-nx*seitlich;
+      strahl.set(new THREE.Vector3(x,hoehe(...referenz.eingang)+1.25,z),new THREE.Vector3(-nx,0,-nz));
+      tuerTiefen.push(strahl.intersectObject(mesh,false)[0]?.distance??null);
+    }
   }
-  result.haeuser[i]={hash:hash(g),ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht};
+  result.haeuser[i]={hash:hash(g),ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen};
   if(i===297){
     const innen=referenz.mitte;
     if(!imPolygon(innen,ringe[i])) throw Error('Bewohnerprobe muss im Grundriss liegen');
@@ -84,7 +90,7 @@ console.log(JSON.stringify(result));`;
 interface Hausbefund {
   hash: string; ecken: number; stufe: number; endlich: boolean; raumFalsch: number; glutFalsch: number; licht: number;
   kontaktFehler: number; oberePlatten: number; blockiert: number; ausserhalbVorfeld: number;
-  indexGleich: boolean; tritte: boolean[];
+  indexGleich: boolean; tritte: boolean[]; tuerTiefen: (number | null)[];
 }
 interface Stand {
   haeuser: Record<number, Hausbefund>; eingabeErhalten: boolean; bewohntHash: string;
@@ -96,6 +102,7 @@ const lauf = (query: string): Stand => JSON.parse(execFileSync(process.execPath,
   { encoding: 'utf8', env: { ...process.env, D307_BODEN_QUERY: query } }));
 const bisher = lauf(''), aus = lauf('&hofboden=0'), an = lauf('&hofboden=1');
 const verfall = lauf('&hofboden=1&hofverfall=1');
+const ranke = lauf('&hofboden=1&hofverfall=1&hofranke=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -125,5 +132,12 @@ pruefe('D312: Verfall bleibt kompaktierbar und beide Trittplatten bleiben erreic
   const b = verfall.haeuser[h.gebaeudeIndex];
   return b.endlich && b.indexGleich && b.tritte.length === 2 && b.tritte.every(Boolean);
 }));
+const kurve = ranke.haeuser[308], verstreut = verfall.haeuser[308];
+pruefe('D313: Kurve verändert ausschließlich das Referenzhaus', kurve.hash !== verstreut.hash
+  && Object.entries(verfall.haeuser).every(([i, b]) => i === '308' || b.hash === ranke.haeuser[Number(i)].hash));
+pruefe('D313: Eingangsöffnung und Trittplatten bleiben frei', kurve.tritte.length === 2 && kurve.tritte.every(Boolean)
+  && kurve.tuerTiefen.length === 4 && kurve.tuerTiefen.every((tiefe, i) => tiefe !== null && tiefe === verstreut.tuerTiefen[i]));
+pruefe('D313: Die Kurve passt in den bestehenden Puffer und das Dreieckbudget der beiden Wände',
+  kurve.endlich && kurve.indexGleich && kurve.ecken <= verstreut.ecken, `${kurve.ecken / 3} / ${verstreut.ecken / 3} Dreiecke`);
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;
