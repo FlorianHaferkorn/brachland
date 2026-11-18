@@ -307,6 +307,12 @@ STIMMUNG.zielbild = {
   // Azimut 42° von Nord im Uhrzeigersinn, Hoehe 13°: (sin·cos, sin, −cos·cos)
   sonnenstand: [65.2, 22.5, -72.4] as const,
 };
+/** D317: bewölktes, leicht warmes Licht der Hofreferenz als eigene Messstimmung. */
+STIMMUNG.hofziel = {
+  ...STIMMUNG.zielbild, himmel: '#705e54', nebel: '#837363', nebelNah: 17, nebelFern: 142,
+  zenit: '#574a41', horizont: '#a58268', wolken: .59, scheibe: .0001, hof: 55,
+  sonne: '#f4d3aa', umgebung: '#9d8e7e', hemiBoden: '#736351', belichtung: 2.10,
+};
 /**
  * `tag` (D168) ist `zielbild` im Tageslauf — dasselbe Objekt, damit die Messadresse
  * `?stimmung=zielbild` und der Schlüssel bei 0,39 nie auseinanderlaufen.

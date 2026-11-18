@@ -5,6 +5,13 @@ owns: []
 
 # Herkunft der Fremdmodelle
 
+## Eigenes Material für Haus 308 (D317)
+
+| Datei unter `public/material/` | Inhalt | Herkunft |
+|---|---|---|
+| `hof-ziel-farbe.webp` | Farbwerte für Kalkputz, Holzschalung, Dachschindeln und Feldsteinsockel | Projektintern mit ImageGen aus dem [eigenen Hof-Zielbild](../docs/bilder/d315-hof-einsturz.webp) erzeugt. [Prompt und Aufbereitung](../docs/HOF_ZIELBILDER.md#spielbare-fassung-von-haus-308-d317). |
+| `hof-ziel-normal.webp` | Relief derselben vier Materialien | Projektintern aus den Helligkeitsgradienten der Farbkarte abgeleitet. |
+
 D299: Die Hofvegetation nutzt den bereits eingebundenen MIT-Generator EZ-Tree mit den hier
 nachgewiesenen CC0-Ersatzkarten. Neue Mehrstamm-Sträucher werden in `src/world/hofstrauch.ts`
 aus dem Seed erzeugt und verwenden den vorhandenen CC0-Atlas `laub-bueschel.webp`.

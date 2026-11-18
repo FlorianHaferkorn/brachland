@@ -1,11 +1,11 @@
-import { CatmullRomCurve3, Vector3 } from 'three';
-import type { Color } from 'three';
+import { CatmullRomCurve3, Color, Vector3 } from 'three';
 import { mulberry } from './props.js';
 
 type Punkt = [number, number, number];
 type Wandkante = readonly [number, number];
 type Wandpunkt = [laenge: number, hoehe: number, abstand: number];
-type Dreieck = (a: Punkt, b: Punkt, c: Punkt, farbe: Color) => void;
+export type BlattKoordinaten = readonly [readonly [number, number], readonly [number, number], readonly [number, number]];
+type Dreieck = (a: Punkt, b: Punkt, c: Punkt, farbe: Color, blatt?: BlattKoordinaten) => void;
 type Rankenfarben = { blaetter: readonly Color[]; trieb: Color };
 export type Rankenpunkt = { ort: Punkt; aussen: Punkt };
 
@@ -142,7 +142,13 @@ export function baueHausbewuchs(
 }
 
 /** Eine gezeichnete Ranke mit gleichmäßigem Blattabstand in Metern, auch an Knicken der Fassade. */
-export function baueRankenkurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: number, farben: Rankenfarben): void {
+export function baueRankenkurve(
+  dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: number, farben: Rankenfarben, zielbild = false,
+): void {
+  if (zielbild) {
+    baueEfeukurve(dreieck, punkte, saat);
+    return;
+  }
   const kurve = new CatmullRomCurve3(punkte.map(p => new Vector3(...p.ort)));
   const normalen = punkte.map(p => new Vector3(...p.aussen));
   const zufall = mulberry(saat);
@@ -201,6 +207,103 @@ export function baueRankenkurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[]
       const halbeKante = triebKante.clone().multiplyScalar(.5 * Math.sign(seitlich));
       flaeche(ansatz.clone().add(halbeKante), ansatz.clone().sub(halbeKante), rand[0], farben.trieb);
       for (let k = 0; k < rand.length; k++) flaeche(falz, rand[(k + 1) % rand.length], rand[k], farbe);
+    }
+  }
+}
+
+// Die Seitenspitzen und Einschnitte lassen junge Efeublätter auch im Halbschatten erkennen.
+const EFEUBLATT: readonly Wandpunkt[] = [
+  [0, -.44, 0], [-.32, -.38, -.04], [-.45, -.15, -.11], [-.56, .13, -.10], [-.24, .16, -.05],
+  [0, .68, -.09], [.23, .18, -.07], [.55, .20, -.10], [.43, -.15, -.13], [.29, -.40, -.03],
+];
+const EFEULAUB = ['#303722', '#3b462a', '#434c30', '#4c5435', '#595d3c', '#656347']
+  .map(ton => new Color(ton));
+const EFEURINDE = ['#4e4233', '#62503d', '#705b43'].map(ton => new Color(ton));
+
+/** D317: eng um die Hausecke wachsender Efeu mit drei verholzten Wurzelsträngen. */
+function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: number): void {
+  if (punkte.length < 2) return;
+  const kurve = new CatmullRomCurve3(punkte.map(punkt => new Vector3(...punkt.ort)));
+  const normalen = punkte.map(punkt => new Vector3(...punkt.aussen));
+  const laenge = kurve.getLength();
+  if (laenge < .05) return;
+  const abschnitte = Math.min(58, Math.max(2, Math.ceil(laenge / .13)));
+  const zufall = mulberry(saat);
+  const ringe: Vector3[][] = [[], [], []];
+  const flaeche = (a: Vector3, b: Vector3, c: Vector3, farbe: Color, blatt?: BlattKoordinaten) =>
+    dreieck(a.toArray(), b.toArray(), c.toArray(), farbe, blatt);
+
+  for (let i = 0; i <= abschnitte; i++) {
+    const anteil = i / abschnitte;
+    const t = kurve.getUtoTmapping(anteil, anteil * laenge);
+    const ort = kurve.getPoint(t), tangente = kurve.getTangent(t);
+    const stelle = t * (punkte.length - 1);
+    const links = Math.min(punkte.length - 2, Math.floor(stelle));
+    const normal = normalen[links].clone().lerp(normalen[links + 1], stelle - links).normalize();
+    const quer = new Vector3().crossVectors(tangente, normal);
+    if (quer.lengthSq() < 1e-5) {
+      const achse = Math.abs(tangente.y) < .9 ? new Vector3(0, 1, 0) : new Vector3(1, 0, 0);
+      quer.crossVectors(achse, tangente);
+    }
+    quer.normalize();
+    const radial = new Vector3().crossVectors(quer, tangente).normalize();
+    const laubHoch = new Vector3().crossVectors(normal, quer).normalize();
+
+    for (let r = 0; r < ringe.length; r++) {
+      const drehung = anteil * (8 + r * 2) + r * Math.PI * 2 / 3;
+      const abst = .014 + .065 * (1 - anteil) ** 1.1;
+      const zentrum = ort.clone().addScaledVector(quer, Math.cos(drehung) * abst * 1.6)
+        .addScaledVector(radial, Math.sin(drehung) * abst);
+      const radius = (.052 - .009 * r) * (1 - anteil) ** 1.25 + .009;
+      const ring = [0, 1, 2].map(j => {
+        const winkel = j * Math.PI * 2 / 3 + r;
+        return zentrum.clone().addScaledVector(radial, Math.cos(winkel) * radius)
+          .addScaledVector(quer, Math.sin(winkel) * radius);
+      });
+      const vorher = ringe[r];
+      for (let j = 0; j < vorher.length; j++) {
+        const k = (j + 1) % ring.length;
+        const ton = EFEURINDE[(j + r) % EFEURINDE.length];
+        flaeche(vorher[j], ring[k], ring[j], ton);
+        flaeche(vorher[j], vorher[k], ring[k], ton);
+      }
+      ringe[r] = ring;
+    }
+    if (anteil < .065) continue;
+
+    const fuelle = Math.min(1, (anteil - .085) * 5.5) * (.78 + .22 * Math.sin(anteil * 28) ** 2);
+    const breite = .19 + .69 * fuelle;
+    const zahl = Math.round(2 + 6 * fuelle);
+    const hauptseite = i % 2 ? 1 : -1;
+    const ast = ort.clone().addScaledVector(quer, breite * .72 * hauptseite).addScaledVector(normal, .10);
+    const astKante = laubHoch.clone().multiplyScalar(.016 * hauptseite);
+    flaeche(ort.clone().add(astKante), ort.clone().sub(astKante), ast, EFEURINDE[1]);
+
+    for (let j = 0; j < zahl; j++) {
+      const seite = j % 3 === 0 ? -hauptseite : hauptseite;
+      const ausladung = seite * breite * (.04 + zufall() ** 1.15 * .96);
+      const mitte = ort.clone().addScaledVector(quer, ausladung)
+        .addScaledVector(laubHoch, (zufall() - .48) * .38)
+        .addScaledVector(normal, .10 + zufall() * .14);
+      const groesse = (.14 + zufall() * .19) * (.58 + .42 * fuelle);
+      const winkel = seite * .75 + (zufall() - .5) * 2.25;
+      const cos = Math.cos(winkel), sin = Math.sin(winkel);
+      const stiel = laubHoch.clone().multiplyScalar(cos).addScaledVector(quer, sin);
+      const querBlatt = quer.clone().multiplyScalar(cos).addScaledVector(laubHoch, -sin);
+      const neigung = (zufall() - .5) * .70;
+      const knick = (zufall() - .57) * .51;
+      const rand = EFEUBLATT.map(([u, y, v]) => mitte.clone()
+        .addScaledVector(querBlatt, groesse * u).addScaledVector(stiel, groesse * y)
+        .addScaledVector(normal, groesse * (v + neigung * u + knick * y)));
+      const falz = mitte.clone().addScaledVector(normal, groesse * .052);
+      const farbe = EFEULAUB[Math.floor(zufall() * EFEULAUB.length)];
+      const ansatz = ort.clone().lerp(ast, Math.max(0, ausladung * hauptseite / breite));
+      const stielKante = laubHoch.clone().multiplyScalar(.006 * seite);
+      flaeche(ansatz.clone().add(stielKante), ansatz.clone().sub(stielKante), rand[0], EFEURINDE[2]);
+      for (let k = 0; k < rand.length; k++) {
+        const l = (k + 1) % rand.length;
+        flaeche(falz, rand[l], rand[k], farbe, [[0, 0], [EFEUBLATT[l][0], EFEUBLATT[l][1]], [EFEUBLATT[k][0], EFEUBLATT[k][1]]]);
+      }
     }
   }
 }

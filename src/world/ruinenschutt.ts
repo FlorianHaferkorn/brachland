@@ -15,7 +15,7 @@ const BRUCH = new Color('#ba9e78');
 export function baueRuinenschutt(
   dreieck: Dreieck, ursprung: PunktXZ, tangente: PunktXZ, aussen: PunktXZ,
   hoeheAn: (x: number, z: number) => number, saat: number,
-  gesperrt: (x: number, z: number) => boolean,
+  gesperrt: (x: number, z: number) => boolean, zielbild = false,
 ): void {
   const zufall = mulberry(saat);
   const gespiegelt = tangente[0] * aussen[1] - tangente[1] * aussen[0] > 0;
@@ -85,5 +85,14 @@ export function baueRuinenschutt(
     const halb = laenge * .5;
     const kontur: PunktXZ[] = [[-halb, -.061], [halb * .83, -.068], [halb, -.027], [halb * .70, .071], [-halb, .064]];
     stueck(u, v, kontur, winkel, .065, .06, ton(HOLZ), true);
+  }
+  if (zielbild) {
+    const schindel: readonly PunktXZ[] = [[-.25,-.20],[.28,-.14],[.24,.09],[.05,.19],[-.20,.14]];
+    const grauholz = new Color('#514b41');
+    const verwittert = new Color('#71675a');
+    for (const [u,v,w,dicke] of [[-.38,.41,-.46,.17],[.07,.41,.31,.16],[-.27,.96,.67,.09],
+      [-.60,1.23,1.37,.09],[.49,.59,-.71,.13],[.21,1.24,1.25,.036]]) {
+      stueck(u, v, schindel, w, dicke, .044, dicke > .10 ? grauholz : verwittert);
+    }
   }
 }

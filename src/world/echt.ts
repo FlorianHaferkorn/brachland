@@ -36,6 +36,8 @@ export const HOF_RANKE_AN = HOF_VERFALL_AN && an('hofranke');
 export const HOF_RUINE_AN = HOF_RANKE_AN && an('hofruine');
 /** D316: abgesacktes Dach und durchgehende Einsturzspur an Haus 308. */
 export const HOF_EINSTURZ_AN = HOF_RUINE_AN && an('hofeinsturz');
+/** D317: Zielbildfassung von Haus 308. */
+export const HOF_ZIEL_AN = HOF_EINSTURZ_AN && an('hofziel');
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

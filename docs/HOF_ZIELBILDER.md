@@ -83,3 +83,22 @@ Use case: stylized-concept. Asset: BRACHLAND visual target, approach through a r
 ```
 
 </details>
+
+## Spielbare Fassung von Haus 308 (D317)
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt hofziel` erfasst die Hausruine aus denselben Kamerapositionen wie D316. Mit Probe `0` läuft der D316-Vergleich. Bild 064 ist der direkte Rückvergleich zum Konzept oben. Die neue Spielvariante nutzt `hofziel=1` und die separate Lichtstimmung `stimmung=hofziel`.
+
+Der Vergleich liegt lokal unter `.cache/bilder/d317-hof-zielbild/index.html`. Die acht Sekunden Fahrt verwenden 192 Bilder pro Fassung bei 24 Bildern pro Sekunde. Die geladene Haus- und Gartengeometrie steigt von 406.999 auf 411.781 Dreiecke. Der Dachüberstand, die Tiefe des Bruchs und die Dichte des Efeus weichen im Spiel noch vom Konzeptbild ab.
+
+Vier separate 12-s-Spielmessungen am M1 bei 960 × 540 und gleicher Beleuchtung (`stimmung=hofziel`) schalten am Startpunkt 1436/398/171 nur `hofziel` in der Reihenfolge 0/1/1/0 um. Im Mittel ergeben sich 45,68 → 46,00 FPS und 33,65 → 33,70 ms p95. Die längsten Einzelbilder liegen bei 50,9 ms ohne und 67,8 ms mit Probe. In beiden neuen Läufen trat je ein Bild über 50 ms auf, in den beiden Gegenläufen zusammen eines. Die Stichprobe reicht für die Einordnung des stabilen Bildzeitniveaus im Ausschnitt, größere Einzelspitzen bleiben messbar. Rohberichte unter `.cache/mess/d317-fps-{1,2,3,4}`.
+
+Die vier Karten für Kalkputz, Schalung, Schindeldach und Feldsteinsockel wurden mit ImageGen aus dem obigen eigenen Zielbild als vier Quadranten erzeugt, zugeschnitten und mit umlaufenden Filtrierungsrändern in einen WebP-Atlas gepackt. Die Normalenkarte leitet ihr Relief aus Helligkeitsgradienten ab. Beide Atlanten sind 1280 × 1280 Pixel groß.
+
+<details>
+<summary>Prompt für die Materialkarten</summary>
+
+```text
+Use case: stylized-concept. Make a new 1:1 square texture swatch image divided exactly into four equal square quadrants that touch with no separators or borders. It will be cropped at the halfway lines to make four PBR base color maps for BRACHLAND's own original farmhouse. The supplied BRACHLAND rendering is our material reference only. Extract the same authentic hues and material meaning at the same human scale. Top-left quadrant: pale lightly warm beige lime render with flat peeling areas and exposed grey-brown stone aggregate, a fine small network of cracks, mineral colors, with fissures no bigger than a few centimeters. Top-right quadrant: very old faded gray-brown timber plank cladding, boards aligned strictly vertical in the image, irregular shallow scratches, dark thin seams, gray wood fibers, rough dryness, no visible moss and no large damage holes. Bottom-left quadrant: irregular weathered grey wooden roof shingles aligned in horizontal rows, some silver tones and warm grey, touches of thin brown-green moss in the seams, natural aged roof. Bottom-right quadrant: small dark charcoal-brown fieldstones with brown mortar and fine gray textures, scattered muted moss. Every quadrant is a flat evenly lit, orthographic seamless PBR base color texture crop, no scene perspective, no shadows, no depth of field, no light gradients, no vignettes. No architecture objects, windows or trims. No text, no graphic layout, no frame or gutters. Four equally sized fully filled materials. Heavy physical realism at ground level, muted natural colors.
+```
+
+</details>

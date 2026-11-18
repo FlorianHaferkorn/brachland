@@ -203,7 +203,7 @@ const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
  * `?kurve=` würde die Tabelle nie ausgewertet und der Baustein nie ersetzt, das Bild liefe auf
  * `CustomToneMapping` ohne Kurve — also stockdunkel.
  */
-haengeAgxLookEin();
+haengeAgxLookEin(typeof location !== 'undefined' && new URLSearchParams(location.search).get('stimmung') === 'hofziel');
 // D204: Nebel mit Auslauf und Höhendunst — wie der Look vor dem ersten Material einhängen.
 haengeNebelEin();
 

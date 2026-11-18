@@ -43,7 +43,7 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),352,353,354]) {
   for(const a of Object.values(g.attributes)) {endlich&&=a.count===p.count;for(const wert of a.array)endlich&&=Number.isFinite(wert);}
   for(let j=0;j<p.count;j++) {
     if(glut.getX(j)!==0){licht++;if(r.getX(j)!==5)glutFalsch++;}
-    if(r.getX(j)!==5 && (uv.getX(j)!==0||uv.getY(j)!==0||uv.getZ(j)!==0))raumFalsch++;
+    if(r.getX(j)!==5 && r.getX(j)!==7 && (uv.getX(j)!==0||uv.getY(j)!==0||uv.getZ(j)!==0))raumFalsch++;
     if(referenz && Math.abs(z.getY(j)-(p.getY(j)-hoehe(p.getX(j),p.getZ(j))))>2e-5)kontaktFehler++;
     if(i===308&&r.getX(j)===2&&z.getY(j)>4) {
       const ort=p.getX(j).toFixed(3)+','+p.getZ(j).toFixed(3);
@@ -122,6 +122,7 @@ const verfall = lauf('&hofboden=1&hofverfall=1');
 const ranke = lauf('&hofboden=1&hofverfall=1&hofranke=1');
 const ruine = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1');
 const spur = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1');
+const ziel = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -176,5 +177,13 @@ pruefe('D316: geneigtes Bruchholz am Schutt und freie Tür mit beiden Trittstein
   && abgesackt.tuerTiefen.every((tiefe, i) => tiefe === einsturz.tuerTiefen[i]));
 pruefe('D316: dieselbe Kompaktierung und unveränderte Nachbarbauten', abgesackt.endlich && abgesackt.indexGleich
   && Object.entries(ruine.haeuser).every(([i, b]) => i === '308' || b.hash === spur.haeuser[Number(i)].hash));
+const zielhaus = ziel.haeuser[308];
+pruefe('D317: Zielmaterial markiert nur Haus 308, der Hauspuffer bleibt kompaktierbar',
+  zielhaus.stufe === 6 && zielhaus.endlich && zielhaus.indexGleich && zielhaus.hash !== abgesackt.hash
+  && Object.entries(spur.haeuser).every(([i, b]) => i === '308' || b.hash === ziel.haeuser[Number(i)].hash));
+pruefe('D317: Schindeln liegen im Schuttfeld und Eingang mit beiden Trittplatten bleibt frei',
+  zielhaus.schuttEcken >= abgesackt.schuttEcken && zielhaus.tritte.length === 2 && zielhaus.tritte.every(Boolean)
+  && zielhaus.tuerTiefen.every((tiefe, i) => tiefe === abgesackt.tuerTiefen[i]),
+  `Schuttecken ${abgesackt.schuttEcken} → ${zielhaus.schuttEcken}, Tritte ${zielhaus.tritte}, Tür ${zielhaus.tuerTiefen}`);
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

@@ -4,8 +4,8 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-if(!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall','ranke','ruine','einsturz'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz angeben.');
-const eckfahrt=['ranke','ruine','einsturz'].includes(profil);
+if(!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall','ranke','ruine','einsturz','hofziel'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel angeben.');
+const eckfahrt=['ranke','ruine','einsturz','hofziel'].includes(profil);
 const bodennah=eckfahrt||['boden','gras','teppich','verfall'].includes(profil);
 const anzahl=eckfahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
@@ -35,6 +35,12 @@ if(eckfahrt){
  parameter.set('hofgras','1');parameter.set('hofverfall','1');parameter.set('hofranke',profil==='ranke'?probe:'1');
  if(profil==='ruine')parameter.set('hofruine',probe);
  if(profil==='einsturz'){parameter.set('hofruine','1');parameter.set('hofeinsturz',probe);}
+ if(profil==='hofziel'){
+  parameter.set('hofruine','1');parameter.set('hofeinsturz','1');parameter.set('hofziel',probe);
+  if(probe==='1'){
+   parameter.set('stimmung','hofziel');parameter.set('umgebung','6.4');parameter.set('sonne','.73');
+  }
+ }
  parameter.set('absetzen','1425,403,175');parameter.set('kamera','1424,36.44,403,1426,37.8,409.3');
 }
 if(profil==='teppich'){parameter.set('hofgras','1');parameter.set('teppichspar',probe);}
