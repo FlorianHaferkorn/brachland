@@ -145,6 +145,10 @@ export function baueGrasteppich(
 ): Grasteppich {
   // D255: gezielte Vergleichsprobe; ohne Parameter bleibt der bestehende Look.
   // Alle Ringe verwenden denselben ortsfesten Faktor, ohne neue Geometrie.
+  // D310: Vergleichsschalter am Hof. Halme ohne Fläche brauchen keine weitere Shaderarbeit.
+  const sparsam = HOF_GRAS_AN && new URLSearchParams(location.search).get('teppichspar') !== '0';
+  const schneideAb = (bedingung: string) => sparsam
+    ? `if (${bedingung}) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }` : '';
   const strukturAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('grasstruktur') === '1';
   /** Texel der Feldtextur je Kante, mit Rand über das Halmfeld hinaus. */
   const FELD_TEXEL = 2 * Math.ceil((halb + 4) / texel);
@@ -245,14 +249,14 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float h1 = halmHash(zelleW), h2 = halmHash(zelleW + 17.3), h3 = halmHash(zelleW + 41.9);
   float h4 = halmHash(zelleW + 73.1), h5 = halmHash(zelleW + 97.7);
   vec2 ort = (zelleW + vec2(h1, h2)) * uRaster.z;
-  vec4 boden = bilinear(uFeld, ort);
-  vec3 bodenTon = bilinear(uTon, ort).rgb;
   float abst = distance(ort, uMitte);
   float rand = ${innen > 0
     // Fernring: blendet ein, wo der innere Teppich ausblendet (dieselbe Kurve), und läuft spät aus.
     ? `smoothstep(${(innen * 0.45).toFixed(1)}, ${(innen * 0.98).toFixed(1)}, abst)
       * (1.0 - smoothstep(${(halb * 0.7).toFixed(1)}, ${(halb * 0.98).toFixed(1)}, abst))`
     : `1.0 - smoothstep(${(halb * 0.45).toFixed(1)}, ${(halb * 0.98).toFixed(1)}, abst)`};
+  ${schneideAb('rand == 0.0')}
+  vec4 boden = bilinear(uFeld, ort);
   // D225: Wo wenig Gras steht (Wald, Acker), wächst es in Horsten (~5 m) mit kahlen Stellen
   // dazwischen — dort zeigt sich der gescannte Boden (D223). Volle Wiese (Dichte 1) bleibt geschlossen.
   float horst = smoothstep(0.4, 0.75, halmRauschen(ort * 0.18 + 3.7)) * 1.8;
@@ -289,6 +293,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   // fallen weg) — ein Büschel hat dann mehr Pixel, die Mip-Stufe sinkt, der Rand bleibt scharf.
   float spreiz = smoothstep(7.0, 14.0, abst);
   da *= step(halmHash(zelleW + 23.1), mix(1.0, 0.25, spreiz));` : ''}
+  ${schneideAb('da == 0.0')}
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
   ${strukturAn ? 'hoehe *= mix(1.0, mix(0.78, 1.05, wiesenStruktur), wiesenAnteil);' : ''}
   ${GRAS_ECHT ? `
@@ -319,6 +324,8 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
     breite *= frei * mix(1.0, 0.68, hof);
   }
   ` : ''}
+  ${schneideAb('hoehe == 0.0')}
+  vec3 bodenTon = bilinear(uTon, ort).rgb;
   float winkel = h1 * 6.2832;
   vec2 quer = vec2(cos(winkel), sin(winkel));
   vec2 vor = vec2(-quer.y, quer.x);
@@ -392,7 +399,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   }
 #endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${GRAS_VIEL ? '-viel' : ''}${GRAS_FEIN ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras-raster' : ''}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${GRAS_VIEL ? '-viel' : ''}${GRAS_FEIN ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras-raster' : ''}${sparsam ? '-teppichspar' : ''}`;
 
   // D272: Halmkarten mit Alpha-Test; mit MSAA (Kontur) weiche Kanten über alphaToCoverage.
   if (GRAS_FEIN) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }
