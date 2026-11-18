@@ -1,5 +1,5 @@
 /** CPU-Profil desselben spielbaren Laufs wie vergleich.mjs, ohne Video.
- * node tools/mess/cpuprofil.mjs <neuer-name> [url-zusatz] [port] [build-verzeichnis]
+ * node tools/mess/cpuprofil.mjs <neuer-name> [url-zusatz] [port] [build-verzeichnis] [x,z,grad]
  * Fuer Zuordnung: Vite-Produktionsbuild mit Sourcemaps und passenden Preview-Port starten.
  * CPU-Profiling kostet selbst Zeit; Bildraten separat mit vergleich.mjs messen.
  */
@@ -8,9 +8,10 @@ import path from 'node:path';
 import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
 import { playwright } from './pw.mjs';
 
-const [name, extra = '', port = '4174', build = '.cache/cpuprofil-build'] = process.argv.slice(2);
+const [name, extra = '', port = '4174', build = '.cache/cpuprofil-build', ort = '0,0,310'] = process.argv.slice(2);
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
 if (!/^\d+$/.test(port)) throw new Error('Numerischen lokalen Preview-Port angeben.');
+if (!/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(ort)) throw new Error('Ort als x,z,grad angeben.');
 const ziel = `.cache/mess/${name}`;
 if (existsSync(ziel)) throw new Error(`Ausgabe existiert bereits: ${ziel}`);
 mkdirSync(ziel, { recursive: true });
@@ -22,6 +23,17 @@ let messen = false;
 await seite.addInitScript(() => {
   const messung = { aufrufe: {}, tasten: [] };
   window.__cpuAudio = messung;
+  window.__cpuUploads = [];
+  const webgl = WebGL2RenderingContext.prototype;
+  const bufferData = webgl.bufferData;
+  webgl.bufferData = function (...args) {
+    const byte = args[1]?.byteLength ?? 0;
+    if (!window.__cpuBildlauf?.aktiv || byte < 1024 * 1024) return bufferData.apply(this, args);
+    const beginn = performance.now();
+    const ergebnis = bufferData.apply(this, args);
+    window.__cpuUploads.push({ beginnMs: beginn, byte, cpuMs: performance.now() - beginn });
+    return ergebnis;
+  };
   const protokoll = (name, dauer, beginn) => {
     const e = messung.aufrufe[name] ?? { anzahl: 0, ms: 0, maximumMs: 0, ersterBeginnMs: beginn };
     e.anzahl++; e.ms += dauer; e.maximumMs = Math.max(e.maximumMs, dauer); messung.aufrufe[name] = e;
@@ -44,7 +56,7 @@ seite.on('pageerror', e => fehler.push(String(e)));
 seite.on('console', m => { if (m.type() === 'error') fehler.push(m.text()); });
 seite.on('request', r => { if (messen && r.url().endsWith('.glb')) anfragen.push({ zeit: Date.now(), url: r.url() }); });
 try {
-  await seite.goto(`http://127.0.0.1:${port}/?absetzen=0,0,310&zeit=0.26&kontur=0${extra}`, { waitUntil: 'domcontentloaded' });
+  await seite.goto(`http://127.0.0.1:${port}/?absetzen=${ort}&zeit=0.26&kontur=0${extra}`, { waitUntil: 'domcontentloaded' });
   await seite.waitForSelector('button[aria-label="Menü"]', { timeout: 240000 });
   await seite.waitForFunction(() => document.body.textContent.includes('Ladezeit'), undefined, { timeout: 120000 });
   await seite.waitForTimeout(15000);
@@ -71,7 +83,7 @@ try {
   messen = false;
   const { profile } = await cdp.send('Profiler.stop');
   const bildzeitpunkte = await seite.evaluate(() => { window.__cpuBildlauf.aktiv = false; return window.__cpuBildlauf.zeitpunkte; });
-  const audio = await seite.evaluate(() => window.__cpuAudio);
+  const { audio, uploads } = await seite.evaluate(() => ({ audio: window.__cpuAudio, uploads: window.__cpuUploads }));
   const hud = await seite.textContent('body');
   const maps = new Map();
   const abbilden = f => {
@@ -119,11 +131,12 @@ try {
       anteile.set(key, (anteile.get(key) ?? 0) + ueberlapp);
     }
     langeBilder.push({ abMs: +(bildzeitpunkte[i - 1] - bildzeitpunkte[0]).toFixed(1), dauerMs: +(ende - anfang).toFixed(1),
+      uploads: uploads.filter(u => u.beginnMs + zeitVersatz >= anfang && u.beginnMs + zeitVersatz < ende),
       top: [...anteile].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([funktion, ms]) => ({ funktion, ms: +ms.toFixed(1) })) });
   }
-  const bericht = { extra, port, build, dauerMs: (profile.endTime - profile.startTime) / 1000,
+  const bericht = { ort, extra, port, build, dauerMs: (profile.endTime - profile.startTime) / 1000,
     samples: profile.samples?.length ?? 0, topSelbst: [...rang].sort((a, b) => b.selbstMs - a.selbstMs).slice(0, 60),
-    topInklusive: [...rang].sort((a, b) => b.inklusiveMs - a.inklusiveMs).slice(0, 60), langeBilder, audio, hud, anfragen, fehler,
+    topInklusive: [...rang].sort((a, b) => b.inklusiveMs - a.inklusiveMs).slice(0, 60), langeBilder, audio, uploads, hud, anfragen, fehler,
     hinweis: 'Sampling-Hauptthread, weder GPU-Zeit noch kausaler Beweis fuer Bildausreisser; Profiler erzeugt Eigenlast.' };
   writeFileSync(`${ziel}/profil.cpuprofile`, JSON.stringify(profile));
   writeFileSync(`${ziel}/bericht.json`, JSON.stringify(bericht, null, 2));

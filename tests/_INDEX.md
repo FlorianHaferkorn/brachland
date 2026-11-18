@@ -20,7 +20,8 @@ owns: *.test.ts
 | Hausfront-Räume, Fenster-UV oder Haus/Garten-Attribute ändern | `hausfront.test.ts` → `../src/world/terrain.ts`, `../src/world/baender.ts` |
 | Referenzhaus oder lokale Bauteile ändern | `referenzhaus.test.ts` |
 | Hofauswahl oder freie Eingänge ändern | `hofhaeuser.test.ts` |
-| Haus-/Gartengeometrie indexieren | `hausindex.test.ts` |
+| Haus-/Gartengeometrie indexieren | `kachelgruppen.test.ts` | D311: Puffer bei Sortierwechsel behalten, nur veränderte Gruppen neu bauen. |
+| `hausindex.test.ts` |
 | Materialarbeit im Hofshader sparen | `hausspar.test.ts` |
 | Fensteröffnungen, Scheibentiefe und Laibungen ändern | `fenstertiefe.test.ts` → `../src/world/terrain.ts` |
 | Lagerton oder Audio-Freigabe bei erster Eingabe ändern | `lagerton.test.ts` → `../src/ton/lagerton.ts` |

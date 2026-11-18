@@ -60,6 +60,8 @@ import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
 import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
 import { richteHofPropEin } from '../world/hofmaterial.js';
 import { indexiereHausGeometrie } from '../world/hausindex.js';
+import { aktualisiereKachelpuffer, geometrienAusKachelpuffern, sammleKachel } from '../world/kachelgruppen.js';
+import type { Kachelpuffer, Kachelsammlung } from '../world/kachelgruppen.js';
 import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
@@ -409,11 +411,15 @@ export const TAGESZEITEN = TAGESLAUF.map(k => ({ name: k.name, zeit: k.zeit }));
  * - Gebaute Kacheln bleiben im Cache. Ein Neuaufbau pro Bild wäre unbezahlbar, und
  *   ohne Bewegung ändert sich die Zuordnung ohnehin nicht.
  */
+const HOF_KACHELPUFFER_AN = HOF_AN && typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('kachelpuffer') !== '0';
+
 function LodTerrain({ feld, kacheln, ziel }: {
   feld: HoehenFeld; kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
 }) {
   const cache = useRef(new Map<string, THREE.BufferGeometry>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  const puffer = useRef<Kachelpuffer>(new Map());
   const [stufen, setStufen] = useState<THREE.BufferGeometry[]>([]);
 
   const material = useMemo(() => baueBodenMaterial(), []);
@@ -434,6 +440,7 @@ function LodTerrain({ feld, kacheln, ziel }: {
     // nächsten Bild nachgezogen; bis dahin fehlt am Rand ein Stück, das im Nebel liegt.
     let budget = 12;
     const jeStufe = new Map<number, THREE.BufferGeometry[]>();
+    const kachelgruppen: Kachelsammlung = new Map();
     // D289: nächste Kacheln zuerst (siehe Bänder) — sonst fehlt bei wenigen Bildern je Sekunde der Boden am Spieler.
     for (const k of [...kacheln].sort((a, b) =>
       Math.hypot(a.mitte[0] - p.x, a.mitte[1] - p.z) - Math.hypot(b.mitte[0] - p.x, b.mitte[1] - p.z))) {
@@ -447,13 +454,26 @@ function LodTerrain({ feld, kacheln, ziel }: {
         g = baueKachelGeometrie(feld, k, lod);
         cache.current.set(schluessel, g);
       }
-      const liste = jeStufe.get(lod);
-      if (liste) liste.push(g); else jeStufe.set(lod, [g]);
+      if (HOF_KACHELPUFFER_AN) sammleKachel(kachelgruppen, k, g, String(lod));
+      else {
+        const liste = jeStufe.get(lod);
+        if (liste) liste.push(g); else jeStufe.set(lod, [g]);
+      }
     }
 
     // Budget nicht ausgeschöpft: alle Kacheln in Sicht stehen — Ladezeit (D146).
     if (budget >= 0) meldeFertig('terrain');
 
+    if (HOF_KACHELPUFFER_AN) {
+      puffer.current = aktualisiereKachelpuffer(puffer.current, kachelgruppen);
+      const geometrien = geometrienAusKachelpuffern(puffer.current);
+      const erhalten = new Set(geometrien);
+      setStufen(vorher => {
+        for (const g of vorher) if (!erhalten.has(g)) g.dispose();
+        return geometrien;
+      });
+      return;
+    }
     const zusammengefasst: THREE.BufferGeometry[] = [];
     for (const gs of jeStufe.values()) {
       const m = mergeGeometries(gs, false);
@@ -676,6 +696,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
 }) {
   const cache = useRef(new Map<string, THREE.BufferGeometry | null>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  const hausPuffer = useRef<Kachelpuffer>(new Map());
   const [teile, setTeile] = useState<{ weg: THREE.BufferGeometry[];
                                        wasser: THREE.BufferGeometry[];
                                        fall: THREE.BufferGeometry[];
@@ -735,6 +756,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     letzte.current.copy(p);
 
     let budget = 12;
+    const hausGruppen: Kachelsammlung = new Map();
     const sammeln = { weg: [] as THREE.BufferGeometry[],
                       wasser: [] as THREE.BufferGeometry[],
                       fall: [] as THREE.BufferGeometry[],
@@ -753,7 +775,8 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       ] as const) {
         if (art === 'wasser' && istAus('wasser')) continue;
         if (art === 'weg' && istAus('wege')) continue;
-        const schluessel = `${art}:${k.ix}:${k.iz}:${lod}${art === 'wasser' ? pegel : ''}`;
+        const stufe = HOF_KACHELPUFFER_AN && art === 'haus' ? 0 : lod;
+        const schluessel = `${art}:${k.ix}:${k.iz}:${stufe}${art === 'wasser' ? pegel : ''}`;
         let g = cache.current.get(schluessel);
         if (g === undefined) {
           // `null` heißt „hier liegt nichts" und wird genauso gemerkt wie eine
@@ -770,7 +793,9 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
         }
         // Gärten teilen sich das Material mit den Häusern: beides Vertexfarbe,
         // beides undurchsichtig, beides derselbe Draw Call je Kachelgruppe.
-        if (g) sammeln[art === 'garten' ? 'haus' : art].push(g);
+        if (!g) continue;
+        if (HOF_KACHELPUFFER_AN && (art === 'haus' || art === 'garten')) sammleKachel(hausGruppen, k, g, 'haus');
+        else sammeln[art === 'garten' ? 'haus' : art].push(g);
       }
     }
 
@@ -778,11 +803,15 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
 
     const fassen = (gs: THREE.BufferGeometry[]) =>
       gs.length ? [mergeGeometries(gs, false)].filter(Boolean) as THREE.BufferGeometry[] : [];
+    if (HOF_KACHELPUFFER_AN) hausPuffer.current = aktualisiereKachelpuffer(hausPuffer.current, hausGruppen);
+    const haus = HOF_KACHELPUFFER_AN ? geometrienAusKachelpuffern(hausPuffer.current) : fassen(sammeln.haus);
+    const erhalten = new Set(haus);
     const neu = { weg: fassen(sammeln.weg), wasser: fassen(sammeln.wasser),
-                  fall: fassen(sammeln.fall), haus: fassen(sammeln.haus) };
+                  fall: fassen(sammeln.fall), haus };
     setTeile(vorher => {
-      for (const liste of [vorher.weg, vorher.wasser, vorher.fall, vorher.haus])
+      for (const liste of [vorher.weg, vorher.wasser, vorher.fall])
         liste.forEach(g => g.dispose());
+      for (const g of vorher.haus) if (!erhalten.has(g)) g.dispose();
       return neu;
     });
   });
