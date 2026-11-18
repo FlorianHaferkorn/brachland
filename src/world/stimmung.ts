@@ -313,6 +313,11 @@ STIMMUNG.hofziel = {
   zenit: '#574a41', horizont: '#a58268', wolken: .59, scheibe: .0001, hof: 55,
   sonne: '#f4d3aa', umgebung: '#9d8e7e', hemiBoden: '#736351', belichtung: 2.10,
 };
+/** D318: wärmeres Streulicht unter der niedrigen Wolkendecke am Hof. */
+STIMMUNG.hofdachbruch = {
+  ...STIMMUNG.hofziel, zenit: '#665142', horizont: '#a9886d', wolken: .55,
+  sonne: '#ffdaac', umgebung: '#ac9b85', hemiBoden: '#7b6c56',
+};
 /**
  * `tag` (D168) ist `zielbild` im Tageslauf — dasselbe Objekt, damit die Messadresse
  * `?stimmung=zielbild` und der Schlüssel bei 0,39 nie auseinanderlaufen.

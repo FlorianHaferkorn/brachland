@@ -143,10 +143,11 @@ export function baueHausbewuchs(
 
 /** Eine gezeichnete Ranke mit gleichmäßigem Blattabstand in Metern, auch an Knicken der Fassade. */
 export function baueRankenkurve(
-  dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: number, farben: Rankenfarben, zielbild = false,
+  dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: number, farben: Rankenfarben,
+  zielbild = false, zielkrone = false,
 ): void {
   if (zielbild) {
-    baueEfeukurve(dreieck, punkte, saat);
+    baueEfeukurve(dreieck, punkte, saat, zielkrone);
     return;
   }
   const kurve = new CatmullRomCurve3(punkte.map(p => new Vector3(...p.ort)));
@@ -220,16 +221,103 @@ const EFEULAUB = ['#303722', '#3b462a', '#434c30', '#4c5435', '#595d3c', '#65634
   .map(ton => new Color(ton));
 const EFEURINDE = ['#4e4233', '#62503d', '#705b43'].map(ton => new Color(ton));
 
+// Der Rand behält die Spitzen, die dazwischenliegenden Bögen runden die fünf Lappen ab.
+const KRONENBLATT: readonly Wandpunkt[] = [
+  [0,-.43,-.02], [-.20,-.48,0], [-.38,-.39,-.025], [-.42,-.22,-.04],
+  [-.35,-.06,-.052], [-.57,.13,-.085], [-.39,.22,-.06], [-.235,.19,-.03],
+  [-.12,.46,-.015], [0,.72,-.055], [.15,.47,-.03], [.225,.22,-.026],
+  [.38,.24,-.04], [.565,.19,-.08], [.385,-.08,-.043], [.37,-.25,-.033],
+  [.29,-.43,-.015], [.15,-.47,.005],
+];
+const KRONENLAUB = ['#39462b', '#414b32', '#485336', '#535c3b', '#5c6241', '#686c48', '#78784c']
+  .map(ton => new Color(ton));
+const SCHATTENLAUB = KRONENLAUB.map(ton => ton.clone().multiplyScalar(.64));
+const KRONENRINDE = ['#47382b', '#584836', '#5d4d38', '#63533d', '#514537']
+  .map(ton => new Color(ton));
+
+type VektorDreieck = (a: Vector3, b: Vector3, c: Vector3, farbe: Color, blatt?: BlattKoordinaten) => void;
+
+/** Verdichtete alte Triebe unmittelbar an der Wand, junge Blattfinger am Kronenrand. */
+function baueKronenblaetter(
+  flaeche: VektorDreieck, ort: Vector3, quer: Vector3, hoch: Vector3, normal: Vector3,
+  lauf: number, hoehe: number, zufall: () => number,
+): void {
+  // Wurzelholz bleibt am Boden ablesbar. Die Ausläufer werden oben wieder lichter.
+  const aufstieg = Math.max(0, Math.min(1, (hoehe - .24) / 1.11));
+  const auslauf = Math.min(1, (1.075 - lauf) * 7);
+  const dichte = aufstieg * auslauf;
+  if (dichte < .10) return;
+  const schwung = Math.sin(lauf * 22) * .50 + Math.sin(lauf * 47 + 1.35) * .24;
+  const halbeBreite = .24 + dichte * (.77 + schwung * .42);
+  const mitte = Math.floor(zufall() * KRONENLAUB.length);
+  const dunkleSeite = zufall() > .5 ? -1 : 1;
+
+  const fieder = (ansatz: Vector3, ziel: Vector3, seitlich: number, gross: number, schatten: boolean) => {
+    // Hängende Blätter, die im Winkel dem lokalen Ende des Seitentriebs folgen.
+    const winkel = Math.PI + seitlich * .72 + (zufall() - .5) * 2;
+    const cos = Math.cos(winkel), sin = Math.sin(winkel);
+    const laengs = hoch.clone().multiplyScalar(cos).addScaledVector(quer, sin);
+    const breit = quer.clone().multiplyScalar(cos).addScaledVector(hoch, -sin);
+    const blattKnick = (zufall() - .28) * .58, rollung = (zufall() - .5) * .83;
+    const blattBreite = gross * (.8 + zufall() * .36);
+    const rand = KRONENBLATT.map(([x, y, w]) => ziel.clone()
+      .addScaledVector(breit, x * blattBreite)
+      .addScaledVector(laengs, y * gross)
+      .addScaledVector(normal, gross * (w + x * rollung + y * blattKnick)));
+    const falz = ziel.clone().addScaledVector(normal, .05 * gross);
+    const palette = schatten ? SCHATTENLAUB : KRONENLAUB;
+    const ton = palette[Math.max(0, Math.min(palette.length - 1, mitte + Math.floor(zufall() * 5) - 2))];
+    const stielKante = hoch.clone().multiplyScalar(.005);
+    flaeche(ansatz.clone().add(stielKante), ansatz.clone().sub(stielKante), rand[0], KRONENRINDE[1]);
+    for (let k = 0; k < rand.length; k++) {
+      const l = (k + 1) % rand.length;
+      flaeche(falz, rand[l], rand[k], ton, [[0, 0], [KRONENBLATT[l][0], KRONENBLATT[l][1]], [KRONENBLATT[k][0], KRONENBLATT[k][1]]]);
+    }
+  };
+
+  // Tiefe in der Krone kommt von der dunklen wandnahen Lage.
+  for (let k = 0; k < Math.ceil(dichte * 3); k++) {
+    const ziel = ort.clone().addScaledVector(quer, (zufall() - .5) * halbeBreite * .81)
+      .addScaledVector(hoch, (zufall() - .5) * .30)
+      .addScaledVector(normal, .04 + zufall() * .105);
+    fieder(ort, ziel, (zufall() - .5) * 1.2, .19 + zufall() * .17, k !== 0);
+  }
+  const seitentriebe = Math.ceil(dichte * 5);
+  const seite = (Math.floor(lauf * 17) % 2 ? 1 : -1);
+  for (const richtung of [-1, 1]) {
+    const reichweite = richtung * halbeBreite * (.68 + zufall() * .31 + (seite === richtung ? .14 : 0));
+    const neigung = -.32 + zufall() * .64;
+    const ausstand = .13 + zufall() * .17;
+    const ast = (t: number) => ort.clone().addScaledVector(quer, reichweite * t)
+      .addScaledVector(hoch, neigung * t * t)
+      .addScaledVector(normal, ausstand * t);
+    const ansatz = ast(.22);
+    const spitze = ast(1);
+    const kante = hoch.clone().multiplyScalar(.013 * richtung);
+    flaeche(ansatz.clone().add(kante), ansatz.clone().sub(kante), spitze, KRONENRINDE[0]);
+    for (let j = 0; j < seitentriebe; j++) {
+      const fortschritt = (j + .27 + zufall() * .59) / seitentriebe;
+      const ansatz = ast(fortschritt * .82);
+      const ziel = ast(fortschritt).addScaledVector(hoch, (zufall() - .48) * .35)
+        .addScaledVector(normal, .028 + zufall() * .085);
+      const groesse = (.17 + zufall() * .15) * (.9 + .24 * (1 - fortschritt)) * (.77 + .23 * dichte);
+      fieder(ansatz, ziel, richtung, groesse, richtung === dunkleSeite && j === 0);
+    }
+  }
+}
+
 /** D317: eng um die Hausecke wachsender Efeu mit drei verholzten Wurzelsträngen. */
-function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: number): void {
+function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: number, zielkrone: boolean): void {
   if (punkte.length < 2) return;
   const kurve = new CatmullRomCurve3(punkte.map(punkt => new Vector3(...punkt.ort)));
   const normalen = punkte.map(punkt => new Vector3(...punkt.aussen));
   const laenge = kurve.getLength();
   if (laenge < .05) return;
-  const abschnitte = Math.min(58, Math.max(2, Math.ceil(laenge / .13)));
+  const abschnitte = zielkrone ? Math.min(62, Math.max(3, Math.ceil(laenge / .14)))
+    : Math.min(58, Math.max(2, Math.ceil(laenge / .13)));
   const zufall = mulberry(saat);
-  const ringe: Vector3[][] = [[], [], []];
+  const ringe: Vector3[][] = Array.from({ length: zielkrone ? 4 : 3 }, () => []);
+  const profil = zielkrone ? [0, 1, 2, 3, 4] : [0, 1, 2];
   const flaeche = (a: Vector3, b: Vector3, c: Vector3, farbe: Color, blatt?: BlattKoordinaten) =>
     dreieck(a.toArray(), b.toArray(), c.toArray(), farbe, blatt);
 
@@ -250,24 +338,32 @@ function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: n
     const laubHoch = new Vector3().crossVectors(normal, quer).normalize();
 
     for (let r = 0; r < ringe.length; r++) {
-      const drehung = anteil * (8 + r * 2) + r * Math.PI * 2 / 3;
-      const abst = .014 + .065 * (1 - anteil) ** 1.1;
-      const zentrum = ort.clone().addScaledVector(quer, Math.cos(drehung) * abst * 1.6)
+      const drehung = zielkrone ? anteil * (14 + r * 3) + r * Math.PI * .5
+        : anteil * (8 + r * 2) + r * Math.PI * 2 / 3;
+      const abst = zielkrone ? .021 + .108 * (1 - anteil) ** 1.3 : .014 + .065 * (1 - anteil) ** 1.1;
+      const zentrum = ort.clone().addScaledVector(quer, Math.cos(drehung) * abst * (zielkrone ? 1.34 : 1.6))
         .addScaledVector(radial, Math.sin(drehung) * abst);
-      const radius = (.052 - .009 * r) * (1 - anteil) ** 1.25 + .009;
-      const ring = [0, 1, 2].map(j => {
-        const winkel = j * Math.PI * 2 / 3 + r;
-        return zentrum.clone().addScaledVector(radial, Math.cos(winkel) * radius)
-          .addScaledVector(quer, Math.sin(winkel) * radius);
+      const radius = zielkrone ? (.087 - .013 * r) * (1 - anteil) ** 1.37 + .006
+        : (.052 - .009 * r) * (1 - anteil) ** 1.25 + .009;
+      const ring = profil.map(j => {
+        const winkel = j * Math.PI * 2 / profil.length + r;
+        const rippe = zielkrone ? radius * (.86 + .23 * Math.sin(j * 7.53 + r * 1.91)) : radius;
+        return zentrum.clone().addScaledVector(radial, Math.cos(winkel) * rippe)
+          .addScaledVector(quer, Math.sin(winkel) * rippe);
       });
       const vorher = ringe[r];
       for (let j = 0; j < vorher.length; j++) {
         const k = (j + 1) % ring.length;
-        const ton = EFEURINDE[(j + r) % EFEURINDE.length];
+        const palette = zielkrone ? KRONENRINDE : EFEURINDE;
+        const ton = palette[(j + r) % palette.length];
         flaeche(vorher[j], ring[k], ring[j], ton);
         flaeche(vorher[j], vorher[k], ring[k], ton);
       }
       ringe[r] = ring;
+    }
+    if (zielkrone) {
+      baueKronenblaetter(flaeche, ort, quer, laubHoch, normal, anteil, ort.y - punkte[0].ort[1], zufall);
+      continue;
     }
     if (anteil < .065) continue;
 

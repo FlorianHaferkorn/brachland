@@ -123,6 +123,7 @@ const ranke = lauf('&hofboden=1&hofverfall=1&hofranke=1');
 const ruine = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1');
 const spur = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1');
 const ziel = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1');
+const dachbruch = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1&hofdachbruch=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -185,5 +186,16 @@ pruefe('D317: Schindeln liegen im Schuttfeld und Eingang mit beiden Trittplatten
   zielhaus.schuttEcken >= abgesackt.schuttEcken && zielhaus.tritte.length === 2 && zielhaus.tritte.every(Boolean)
   && zielhaus.tuerTiefen.every((tiefe, i) => tiefe === abgesackt.tuerTiefen[i]),
   `Schuttecken ${abgesackt.schuttEcken} → ${zielhaus.schuttEcken}, Tritte ${zielhaus.tritte}, Tür ${zielhaus.tuerTiefen}`);
+const bruchhaus = dachbruch.haeuser[308];
+pruefe('D318: Der neue Dachbruch liegt ausschließlich an Haus 308',
+  bruchhaus.hash !== zielhaus.hash && bruchhaus.endlich && bruchhaus.indexGleich && bruchhaus.raumFalsch === 0
+  && Object.entries(ziel.haeuser).every(([i,b]) => i === '308' || b.hash === dachbruch.haeuser[Number(i)].hash));
+pruefe('D318: Beide Platten und derselbe Türquerschnitt bleiben frei',
+  bruchhaus.tritte.length === 2 && bruchhaus.tritte.every(Boolean)
+  && bruchhaus.tuerTiefen.every((tiefe,i) => tiefe === zielhaus.tuerTiefen[i]));
+pruefe('D318: Geometrischer Dachbruch und sichtbare Tiefe ändern sich im bestehenden Hauspuffer',
+  bruchhaus.ecken > zielhaus.ecken && bruchhaus.ecken - zielhaus.ecken < 18000 * 3
+  && bruchhaus.wandTiefen.some((tiefe,i) => tiefe !== zielhaus.wandTiefen[i]),
+  `Dreiecke ${zielhaus.ecken / 3} → ${bruchhaus.ecken / 3}, Tiefe ${zielhaus.wandTiefen} → ${bruchhaus.wandTiefen}`);
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

@@ -14,7 +14,7 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN } from './echt.js';
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
@@ -186,6 +186,20 @@ const HOF_ZIEL_FARBE = /* glsl */ `
       } else if (scanR < 2.5) {
         farbe = mix(farbe, vec3(grau), .68) * vec3(.84,.83,.80);
       } else farbe *= (1.0 - nass * .35);
+      ${HOF_DACHBRUCH_AN ? /* glsl */ `
+      if (scanR < .5 || scanR > 2.5) {
+        // Feuchte und Moos steigen in ungleichen Flecken aus den Sockelfugen.
+        float feuchte = 1.0 - smoothstep(.22,1.34,vHoehe + (wasser - .44) * .85);
+        float fleck = verfallRauschen(ort * vec2(5.0,6.1)) * .62 + wasser * .66;
+        float moos = smoothstep(.46,.83,fleck) * feuchte;
+        if (scanR > 2.5) farbe = mix(farbe,vec3(grau) * vec3(.88,.89,.84),.70);
+        farbe = mix(farbe, farbe * vec3(.54,.69,.37), moos * .86);
+      } else if (scanR > 1.5 && hofN.y > .50) {
+        float fugen = verfallRauschen(ort * vec2(3.7,13.2));
+        float moos = smoothstep(.54,.82,wasser * .69 + fugen * .53);
+        farbe = mix(farbe, mix(farbe,vec3(.085,.09,.044),.78), moos * .63);
+      }
+      ` : ''}
       diffuseColor.rgb = farbe;
     }
   }
@@ -210,7 +224,7 @@ const HOF_ZIEL_FARBE = /* glsl */ `
     float korn = verfallRauschen(p * 19.0);
     float saft = smoothstep(0.12,.52,length(p * vec2(1.03,.71)));
     diffuseColor.rgb *= (.87 + .22 * korn - .27 * saft);
-    diffuseColor.rgb += vec3(.048,.046,.023) * ader;
+    diffuseColor.rgb += ${HOF_DACHBRUCH_AN ? 'vec3(.035,.037,.021)' : 'vec3(.048,.046,.023)'} * ader;
   }
 `;
 
@@ -311,6 +325,6 @@ ${HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofArm.r, hofHausAnteil *
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '');
   return material;
 }

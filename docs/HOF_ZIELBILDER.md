@@ -102,3 +102,13 @@ Use case: stylized-concept. Make a new 1:1 square texture swatch image divided e
 ```
 
 </details>
+
+## Dachbruch und Efeu (D318)
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt hofdachbruch` nutzt dieselbe Kamerafahrt wie D317. Probe `0` ruft D317 auf. D318 ergänzt an Haus 308 die abgesackte, weit in die Öffnung ragende Schindelhaut, übereinander verkeilte Holzstücke, einen tiefer liegenden Innenraum, dichteren Efeu und den bemoosten Sockel. Die Variante verwendet die D317-Materialkarten bei wärmerem Himmelslicht. Eingang und Trittplatten bleiben frei.
+
+Der lokale Vergleich unter `.cache/bilder/d318-hof-dachbruch/index.html` zeigt Zielbild, D317 und D318 nebeneinander. Beide Spielaufnahmen nutzen 192 Bilder über acht Sekunden. Die geladenen Haus- und Gartenpuffer steigen von 411.781 auf 422.536 Dreiecke. Der Spielrender behält die ursprünglichen Hausgrundrisse und weicht durch die Dachform und die Himmelsbeleuchtung sichtbar von der Vorlage ab.
+
+Ein Raster aus 96 × 54 Sichtstrahlen an Kamera 064 trifft am isolierten Haus 308 in D317 bei 290 von 2.322 Haustrefferpunkten auf Efeublätter. In D318 sind es 422 von 2.391. Der Anteil steigt von 12,5 auf 17,6 %. Die Messung nutzt das originale Höhenfeld und betrachtet die Geometrie ohne vorstehende Geländeobjekte.
+
+Vier getrennte 12-s-Spielmessungen am M1 bei 960 × 540, Startpunkt 1436/398/171 und identischer Beleuchtung (`stimmung=hofdachbruch`) schalten nur `hofdachbruch` in der Reihenfolge 0/1/1/0 um. Die Mittelwerte betragen 47,04 → 46,79 FPS und 33,4 → 33,6 ms p95. Längstes Einzelbild 35,3 → 50,6 ms. In der neuen Fassung gab es über beide Läufe ein Bild über 50 ms. Rohberichte unter `.cache/mess/d318-fps-{1,2,3,4}`.

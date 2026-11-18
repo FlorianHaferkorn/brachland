@@ -38,6 +38,8 @@ export const HOF_RUINE_AN = HOF_RANKE_AN && an('hofruine');
 export const HOF_EINSTURZ_AN = HOF_RUINE_AN && an('hofeinsturz');
 /** D317: Zielbildfassung von Haus 308. */
 export const HOF_ZIEL_AN = HOF_EINSTURZ_AN && an('hofziel');
+/** D318: weiter ausgearbeitete Schindelruine und dichterer Eckbewuchs. */
+export const HOF_DACHBRUCH_AN = HOF_ZIEL_AN && an('hofdachbruch');
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

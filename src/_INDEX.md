@@ -100,6 +100,7 @@ owns: *.ts, *.tsx
 | `world/hausbewuchs.ts` | D312/D313: Klettertriebe und Blattpolster im Hauspuffer. Flächiger Bewuchs lässt den Eingang frei, die Referenzranke folgt einer von Hand platzierten räumlichen Kurve. D317 verdichtet sie an Haus 308 mit drei verholzten Strängen und gelappten Blättern. |
 | `world/ruinenschutt.ts` | D314: deterministisch gestreute Ziegelfragmente, Bruchsteine und Splitterbretter im Hauspuffer. Geländeauflage und Freihaltung werden je Stück geprüft. |
 | `world/bruchholz.ts` | D316: Balken mit gesplitterten Stirnflächen, Längsfugen und 72 Dreiecken im vorhandenen Hauspuffer. |
+| `world/hoftruemmer.ts` | D318: alterssplittrige Sparren und dicht gestaffelte, verkeilte Dachreste an der offenen Decke von Haus 308. |
 | `world/hausindex.ts` | D305: wortgleiche Float32-Ecken nach Normalberechnung zusammenlegen; exakt gleiche Dreieckfolge, alle Attribute und harte Kanten erhalten. |
 | `world/laubenkasten.ts` | D306: getrennte offene Holzkästen, Erdfläche und geschlossene Laub-/Blütenkörper aus lokalem Seed; im bestehenden Hausmesh, ohne zusätzliche Assets. |
 | `world/hausbauteil.ts` | D303: geschlossene Fassadenkörper im gemeinsamen Hausmesh und vorsichtiges Zusammenfassen gerader Grundrissstücke für das lokale Referenzhaus. |
