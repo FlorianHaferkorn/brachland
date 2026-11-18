@@ -28,6 +28,8 @@ export const BLATTVERLAUF_AN = BLATTRUHE_AN && suche.get('blattverlauf') !== '0'
 export const HOF_HAEUSER_AN = HOF_GRUEN_AN && an('hofhaeuser');
 /** D307: örtliche Bodenmischung, Zugänge und Geländekontakt; Rückfall hofboden=0. */
 export const HOF_BODEN_AN = HOF_HAEUSER_AN && an('hofboden');
+/** D312: separater Vergleich für den verwachsenen Hofverbund. */
+export const HOF_VERFALL_AN = HOF_HAEUSER_AN && an('hofverfall') && suche.get('bau') !== '0';
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

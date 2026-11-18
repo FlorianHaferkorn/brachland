@@ -32,16 +32,16 @@ const hash=g=>{
   for(const [name,a]of Object.entries(g.attributes)) {h.update(name);h.update(Buffer.from(a.array.buffer,a.array.byteOffset,a.array.byteLength));}
   return h.digest('hex');
 };
-const result={haeuser:{},eingabeErhalten:false,uniforms:{zahl:HOF_UNIFORM.zugangZahl.value,werte:HOF_UNIFORM.zugaenge.value.map(q=>q.toArray())},auswahl:haeuser};
+const result={haeuser:{},bewohntHash:'',eingabeErhalten:false,uniforms:{zahl:HOF_UNIFORM.zugangZahl.value,werte:HOF_UNIFORM.zugaenge.value.map(q=>q.toArray())},auswahl:haeuser};
 const material=new THREE.MeshBasicMaterial({side:THREE.FrontSide}),strahl=new THREE.Raycaster();
 for(const i of [...haeuser.map(h=>h.gebaeudeIndex),352,353,354]) {
-  const haus={...welt.gebaeude[i],lod2:lod[i]},g=baueGebaeude(welt,boden,[haus],[hof.mitte],haeuser);
+  const haus={...welt.gebaeude[i],lod2:lod[i]},g=baueGebaeude(welt,boden,[haus],[[hof.mitte[0],hof.mitte[1]-75]],haeuser);
   const p=g.getAttribute('position'),r=g.getAttribute('rolle'),z=g.getAttribute('zustand'),glut=g.getAttribute('glut'),uv=g.getAttribute('raumUv');
   const referenz=haeuser.find(h=>h.gebaeudeIndex===i);
-  let endlich=true,raumFalsch=0,glutFalsch=0,kontaktFehler=0,oberePlatten=0,blockiert=0,ausserhalbVorfeld=0;
+  let endlich=true,raumFalsch=0,glutFalsch=0,kontaktFehler=0,oberePlatten=0,blockiert=0,ausserhalbVorfeld=0,licht=0;
   for(const a of Object.values(g.attributes)) {endlich&&=a.count===p.count;for(const wert of a.array)endlich&&=Number.isFinite(wert);}
   for(let j=0;j<p.count;j++) {
-    if(r.getX(j)!==5 && glut.getX(j)!==0)glutFalsch++;
+    if(glut.getX(j)!==0){licht++;if(r.getX(j)!==5)glutFalsch++;}
     if(r.getX(j)!==5 && (uv.getX(j)!==0||uv.getY(j)!==0||uv.getZ(j)!==0))raumFalsch++;
     if(referenz && Math.abs(z.getY(j)-(p.getY(j)-hoehe(p.getX(j),p.getZ(j))))>2e-5)kontaktFehler++;
     if(!referenz?.eingang||r.getX(j)!==3||Math.abs(p.getY(j)-hoehe(p.getX(j),p.getZ(j))-.035)>2e-5)continue;
@@ -68,19 +68,26 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),352,353,354]) {
       tritte.push(!!t&&r.getX(t.face.a)===3&&Math.abs(t.point.y-hoehe(x,z)-.035)<2e-5);
     }
   }
-  result.haeuser[i]={hash:hash(g),ecken:p.count,endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte};
+  result.haeuser[i]={hash:hash(g),ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht};
+  if(i===297){
+    const innen=referenz.mitte;
+    if(!imPolygon(innen,ringe[i])) throw Error('Bewohnerprobe muss im Grundriss liegen');
+    const bewohnt=baueGebaeude(welt,boden,[haus],[innen],haeuser);
+    if(bewohnt.getAttribute('zustand').getX(0)===0) result.bewohntHash=hash(bewohnt);
+    bewohnt.dispose();
+  }
   indexiert.dispose();g.dispose();
 }
 material.dispose();result.eingabeErhalten=vorher===JSON.stringify(welt.gebaeude);
 console.log(JSON.stringify(result));`;
 
 interface Hausbefund {
-  hash: string; ecken: number; endlich: boolean; raumFalsch: number; glutFalsch: number;
+  hash: string; ecken: number; stufe: number; endlich: boolean; raumFalsch: number; glutFalsch: number; licht: number;
   kontaktFehler: number; oberePlatten: number; blockiert: number; ausserhalbVorfeld: number;
   indexGleich: boolean; tritte: boolean[];
 }
 interface Stand {
-  haeuser: Record<number, Hausbefund>; eingabeErhalten: boolean;
+  haeuser: Record<number, Hausbefund>; eingabeErhalten: boolean; bewohntHash: string;
   uniforms: { zahl: number; werte: number[][] };
   auswahl: { gebaeudeIndex: number; eingang: [number, number] | null; vorne: [number, number] }[];
 }
@@ -88,6 +95,7 @@ const lauf = (query: string): Stand => JSON.parse(execFileSync(process.execPath,
   ['--import', 'tsx', '--input-type=module', '--eval', kind],
   { encoding: 'utf8', env: { ...process.env, D307_BODEN_QUERY: query } }));
 const bisher = lauf(''), aus = lauf('&hofboden=0'), an = lauf('&hofboden=1');
+const verfall = lauf('&hofboden=1&hofverfall=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -105,5 +113,17 @@ for (const h of an.auswahl) {
   pruefe(`Haus${i}: bestehende Kompaktierung erhält jedes Attributwort`, a.indexGleich);
 }
 for (const i of [352, 353, 354]) pruefe(`Haus${i}: Garagen/nicht gewählter Nachbar in allen Attributen unverändert`, an.haeuser[i].hash === aus.haeuser[i].hash && aus.haeuser[i].hash === bisher.haeuser[i].hash);
+pruefe('D312: Ein Bewohner im Gebäude erhält die gepflegte Fassung', verfall.bewohntHash === an.haeuser[297].hash);
+pruefe('D312: Verfall erhält die Weltgrundrisse und Nachbargeometrie', verfall.eingabeErhalten
+  && [352, 353, 354].every(i => verfall.haeuser[i].hash === an.haeuser[i].hash));
+pruefe('D312: Gegenprobe zählt alle Hofhäuser zur bewohnten Umgebung', an.auswahl.every(h => an.haeuser[h.gebaeudeIndex].stufe === 0));
+pruefe('D312: Aufgegebene Hofhäuser haben zwei Verfallsstufen und keine Fensterglut', verfall.auswahl.map(h => {
+  const b = verfall.haeuser[h.gebaeudeIndex];
+  return b.licht === 0 ? b.stufe : -1;
+}).join() === '1,2,2,2,2,1,2,1');
+pruefe('D312: Verfall bleibt kompaktierbar und beide Trittplatten bleiben erreichbar', verfall.auswahl.every(h => {
+  const b = verfall.haeuser[h.gebaeudeIndex];
+  return b.endlich && b.indexGleich && b.tritte.length === 2 && b.tritte.every(Boolean);
+}));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

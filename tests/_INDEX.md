@@ -64,7 +64,7 @@ owns: *.test.ts
 | `hofgruen.test.ts` | D299: lokale Baumwahl ohne Verlust/Duplikate oder Seedänderungen; Strauchvarianten bleiben in der Mittelstufe erhalten. |
 | `hofstrauch.test.ts` | D299: deterministische Geometrie/UV, korrekte Meterhöhe und Bodenstand, gültige Attribute und Windgewichte. |
 | `ezblattschatten.test.ts` | D300: gezeichnetes Tiefenmaterial behält trotz three.js-Überschreibung bei Alpha-to-Coverage die Nadel-/Laubschwelle der Farbkarte. |
-| `hofbodenintegration.test.ts` | D307: reale acht Hofhäuser, Rückfallschalter, Nachbargrundrisse, örtlicher Sockelkontakt und Platten im Hausbatch. |
+| `hofbodenintegration.test.ts` | D307/D312: reale acht Hofhäuser, Rückfallschalter, Nachbargrundrisse, örtlicher Sockelkontakt, erreichbare Platten und Verfallsstufen mit und ohne Bewohner im Grundriss. |
 | `hofbodenkontakt.test.ts` | D307: Pixelzentren, Auswahl, Maskenverlauf und ausgesparte fremde Grundrisse des Bodenrands. |
 | `hofboden.test.ts` | D307: Lokalität, Stetigkeit und freie Türvorfelder der CPU-/GLSL-Bodenmasken. |
 | `hofsockel.test.ts` | D307: geschlossene Sockelkörper, stetige Endhöhen, Türspalten und Bodenanschluss am gewellten Hang. |

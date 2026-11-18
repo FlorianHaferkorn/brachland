@@ -9,11 +9,13 @@
  */
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
+import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
+import { baueHausbewuchs } from './hausbewuchs.js';
 import { baueLaubenkasten } from './laubenkasten.js';
 import { fassadenKasten, vereinfacheHauswand } from './hausbauteil.js';
 import { gesperrt } from './bauwerke.js';
@@ -330,6 +332,10 @@ export function baueGebaeude(
    */
   const LADEN = new THREE.Color(PALETTE.haus.laden);
   const RAHMEN = new THREE.Color(PALETTE.haus.rahmen);
+  const WANDRANKE = {
+    blaetter: ['#354727', '#435632', '#4f6034', '#5c6e3e', '#667548'].map(ton => new THREE.Color(ton)),
+    trieb: new THREE.Color('#554633'),
+  };
   const GERANIE = new THREE.Color(PALETTE.haus.geranie);
   const KASTEN = new THREE.Color(PALETTE.haus.kasten);
   const BRENNHOLZ = new THREE.Color(PALETTE.haus.holz);
@@ -586,6 +592,13 @@ export function baueGebaeude(
       : bewohnt.some(([bx, bz]) => (bx - mx0) * (bx - mx0) + (bz - mz0) * (bz - mz0) < 150 * 150) ? 0
       : wuerfelAus(mz0 + 3.7, mx0 - 1.1)() < 0.6 ? 1 : 2;
     stufeJetzt = g.fassade?.stufe !== undefined && BAUWELT_AN ? Math.min(2, g.fassade.stufe) : stufe;
+    // Ein naher Enklavenbewohner pflegt nicht automatisch alle Nachbarhäuser.
+    const hofVerfall = HOF_VERFALL_AN && referenzHaus;
+    if (hofVerfall && g.fassade?.stufe === undefined) {
+      const bewohntHier = bewohnt.some(([x,z]) => imPolygon([x,z], p));
+      stufeJetzt = bewohntHier ? 0 : wuerfelAus(mz0 + 3.7, mx0 - 1.1)() < .33 ? 1 : 2;
+    }
+    const bauSchaden = hofVerfall ? stufeJetzt : 0;
     const bewohntHaus = stufeJetzt === 0;
     const wohnGrenze = wohnVorn ? minU + breite * 0.42 : maxU - breite * 0.42;
     /** Liegt ein Weltpunkt im Wirtschaftsteil (Tenne/Stall)? */
@@ -745,6 +758,12 @@ export function baueGebaeude(
       const wandLaenge = Math.hypot(x2 - x1, z2 - z1);
       if (wandLaenge < 0.5) continue;
       const wx = (z2 - z1) / wandLaenge, wz = -(x2 - x1) / wandLaenge;   // Wandnormale
+      if ((bauSchaden === 1 || bauSchaden === 2) && wandLaenge >= 2.2) {
+        const saat = Math.floor(glutHash(x1, boden, z1) * 4294967295);
+        const zurGasse = wx * hausReferenz!.vorne[0] + wz * hausReferenz!.vorne[1] > -.2;
+        if (zurGasse || bauSchaden === 2) baueHausbewuchs(tri, [x1,z1], [x2,z2], [wx,wz],
+          terrain.hoeheAn, oben, bauSchaden, saat, k === tuerWand ? eingangU : null, WANDRANKE);
+      }
 
       /**
        * Sockel und Gesimse — die zwei waagerechten Linien, an denen man ein Haus
@@ -947,8 +966,13 @@ export function baueGebaeude(
             K(-.025,.025,y0+.055,y1-.055,o+.006,o+.065,RAHMEN);
             K(-a+.055,a-.055,y0+hoeheF*.6-.02,y0+hoeheF*.6+.02,o+.006,o+.065,RAHMEN);
             K(-a-.16,a+.16,y0-.16,y0-.08,-.18,.28,RAHMEN);
+            if (bauSchaden > 0 && glutHash(cx - 1.7, y0, cz) < .33 + bauSchaden * .1) {
+              K(-a-.07,a+.07,y0+hoeheF*.27,y0+hoeheF*.40,-.035,.035,REFERENZ_HOLZ);
+            }
             for(const seite of [-1,1]) {
-              const winkel=seite*.24, c=Math.cos(winkel), s=Math.sin(winkel);
+              const zustandLaden = glutHash(cx + seite * 1.7, y0, cz);
+              if (bauSchaden > 0 && zustandLaden < bauSchaden * .26) continue;
+              const winkel=seite*(.24 + (bauSchaden > 0 ? zustandLaden * .65 : 0)), c=Math.cos(winkel), s=Math.sin(winkel);
               const richtung=[dx*c+nx*s,dz*c+nz*s];
               const n=[nx*c-dx*s,nz*c-dz*s];
               const ursprung=[cx+dx*seite*(a+.15)+nx*.06,cz+dz*seite*(a+.15)+nz*.06];
@@ -1102,11 +1126,38 @@ export function baueGebaeude(
       const anteil = walm ? 1 - Math.min(1, Math.abs(v - mv) / Math.max(0.01, mv - aV0)) : 0;
       return seite < 0 ? aU0 + walmEinzug * anteil : aU1 - walmEinzug * anteil;
     };
+    const dachY = (v: number) => {
+      const halb = mv - aV0;
+      if (halb <= 0) return traufe;
+      return firstH - (firstH - traufe) * Math.min(1, Math.abs(v - mv) / halb);
+    };
+    const schadSeite = vz > 0 ? -1 : 1;
+    const schadTraufe = schadSeite === -1 ? aV0 : aV1;
+    const schadSaat = glutHash(mx0, 31.4, mz0);
+    const schadBreite = Math.min(5.8, breite * .34);
+    const schadStart = minU + breite * (.21 + schadSaat * .19);
+    const bruch = bauSchaden === 2 && !walm && breite >= 6 && firstH - traufe >= .35
+      ? [0, .24, .56, .79, 1].map((u, i) => ({
+        u: schadStart + u * schadBreite,
+        v: schadTraufe + (mv - schadTraufe) * [0, .48, .35, .62, 0][i],
+      })) : null;
+
+    const gebrocheneSeite = (versatz: number, farbe: THREE.Color, normal: [number, number, number]) => {
+      if (!bruch) return;
+      const punkte = [{ u: aU0, v: schadTraufe }, ...bruch, { u: aU1, v: schadTraufe }];
+      const E = (u: number, v: number) => welt3(u, dachY(v) + versatz, v);
+      for (let i = 0; i + 1 < punkte.length; i++) {
+        const a = punkte[i], b = punkte[i+1];
+        quadNach(E(a.u,a.v), E(b.u,b.v), E(b.u,mv), E(a.u,mv), farbe, normal);
+      }
+    };
     const dachHaut = (versatz: number, farbe: THREE.Color, seite: [number, number, number]) => {
       const f0 = aU0 + walmEinzug, f1 = aU1 - walmEinzug;
-      quadNach(welt3(aU0, traufe + versatz, aV0), welt3(aU1, traufe + versatz, aV0),
+      if (bruch && schadSeite === -1) gebrocheneSeite(versatz, farbe, seite);
+      else quadNach(welt3(aU0, traufe + versatz, aV0), welt3(aU1, traufe + versatz, aV0),
                welt3(f1, firstH + versatz, mv), welt3(f0, firstH + versatz, mv), farbe, seite);
-      quadNach(welt3(aU1, traufe + versatz, aV1), welt3(aU0, traufe + versatz, aV1),
+      if (bruch && schadSeite === 1) gebrocheneSeite(versatz, farbe, seite);
+      else quadNach(welt3(aU1, traufe + versatz, aV1), welt3(aU0, traufe + versatz, aV1),
                welt3(f0, firstH + versatz, mv), welt3(f1, firstH + versatz, mv), farbe, seite);
       if (walm) {
         // Walmflächen an den Enden (Dreieck als Viereck mit doppelter Spitze).
@@ -1140,11 +1191,18 @@ export function baueGebaeude(
     // nichts — im Bestand ist die Untersicht ohnehin verschalt, hell, und die
     // Kontaktabdunklung unter der Traufe (D116) nimmt ihr das Grelle.
     dachHaut(0, SCHALUNG_TOENE[1], UNTEN);
-    // Traufkanten — die beiden waagerechten Stirnflächen.
-    quadNach(welt3(aU0, traufe, aV0), welt3(aU1, traufe, aV0),
-             welt3(aU1, traufe + dick, aV0), welt3(aU0, traufe + dick, aV0), TUER, richtV(-1));
-    quadNach(welt3(aU1, traufe, aV1), welt3(aU0, traufe, aV1),
-             welt3(aU0, traufe + dick, aV1), welt3(aU1, traufe + dick, aV1), TUER, richtV(1));
+    // Die gerissene Dachkante hat weiterhin eine Materialstärke.
+    for (const seite of [-1, 1] as const) {
+      const v = seite === -1 ? aV0 : aV1;
+      const rand = bruch && schadSeite === seite
+        ? [{u:aU0,v}, ...bruch, {u:aU1,v}] : [{u:aU0,v},{u:aU1,v}];
+      if (seite === 1) rand.reverse();
+      for (let i = 0; i + 1 < rand.length; i++) {
+        const a=rand[i], b=rand[i+1];
+        quadNach(welt3(a.u,dachY(a.v),a.v), welt3(b.u,dachY(b.v),b.v),
+          welt3(b.u,dachY(b.v)+dick,b.v), welt3(a.u,dachY(a.v)+dick,a.v), TUER,richtV(seite));
+      }
+    }
     // Ortgang — die vier schrägen Kanten über den Giebeln (beim Walmdach gibt es keine Giebel).
     for (const u of walm ? [] : [aU0, aU1]) {
       for (const v of [aV0, aV1]) {
@@ -1178,11 +1236,6 @@ export function baueGebaeude(
      * Kosten: zwei Dreiecke je Kante statt zwei je Haus. Bei sechs Ecken sind das
      * 12 statt 2 — gegen 222 Dreiecke im Median (D84) ein Zuschlag von 4 %.
      */
-    const dachY = (v: number) => {
-      const halb = mv - aV0;
-      if (halb <= 0) return traufe;
-      return firstH - (firstH - traufe) * Math.min(1, Math.abs(v - mv) / halb);
-    };
     // Holz, wenn das Haus ein Holzobergeschoss trägt: Der Giebel ist im Bestand
     // fast immer verschalt, auch wenn das Geschoss darunter verputzt ist.
     const giebel = Number.isFinite(holzAb) ? SCHALUNG : WAND;
@@ -1244,6 +1297,16 @@ export function baueGebaeude(
       if (seiten.v1) quadNach(E(u0, v1, false), E(u1, v1, false), E(u1, v1, true), E(u0, v1, true), farbe, richtV(1));
     };
     const fest = (y: number) => () => y;
+    if (bruch) {
+      // Im Riss bleiben Sparren mit ungleich langen, abgesackten Enden stehen.
+      for (let i = 1; i < bruch.length - 1; i++) {
+        const { u, v } = bruch[i];
+        const ende = schadTraufe + (v - schadTraufe) * (.13 + .13 * i);
+        const hoehe = (_u: number, t: number) => dachY(t) - .03 - .32 * Math.abs(v - t) / Math.max(.1,Math.abs(v-ende));
+        kasten(u-.07,u+.07, Math.min(v,ende), Math.max(v,ende),
+          (u,t) => hoehe(u,t)-.15, hoehe,TUER,{oben:true,unten:true,u0:true,u1:true,v0:true,v1:true});
+      }
+    }
 
     /**
      * Sparrenköpfe unter dem Überstand und Pfettenköpfe am Giebel (D119).
@@ -1308,6 +1371,7 @@ export function baueGebaeude(
       for (let i = 1; i <= reihen; i++) {
         for (const s of [-1, 1]) {
           const vA = mv + s * (mv - aV0 - i * abstand), vB = vA + s * 0.07;
+          if (bruch && schadSeite === s) continue;
           quadNach(welt3(uRand(vA, -1), dachY(vA) + dick + 0.03, vA), welt3(uRand(vA, 1), dachY(vA) + dick + 0.03, vA),
                    welt3(uRand(vB, 1), dachY(vB) + dick + 0.03, vB), welt3(uRand(vB, -1), dachY(vB) + dick + 0.03, vB), dachKante, OBEN);
         }
@@ -1329,8 +1393,8 @@ export function baueGebaeude(
      */
     if (!garage && breite >= 5) {
       const ry = traufe - 0.02;
-      kasten(aU0, aU1, aV0 - 0.05, aV0 + 0.08, fest(ry - 0.12), fest(ry), RINNE, { unten: true, v0: true, v1: true });
-      kasten(aU0, aU1, aV1 - 0.08, aV1 + 0.05, fest(ry - 0.12), fest(ry), RINNE, { unten: true, v0: true, v1: true });
+      if (!bruch || schadSeite !== -1) kasten(aU0, aU1, aV0 - 0.05, aV0 + 0.08, fest(ry - 0.12), fest(ry), RINNE, { unten: true, v0: true, v1: true });
+      if (!bruch || schadSeite !== 1) kasten(aU0, aU1, aV1 - 0.08, aV1 + 0.05, fest(ry - 0.12), fest(ry), RINNE, { unten: true, v0: true, v1: true });
       const ecken: [number, number][] = [[minU, minV], [maxU, minV], [maxU, maxV], [minU, maxV]];
       const wahl = Math.floor(wuerfel() * 4);
       for (let e = 0; e < 4; e++) {
@@ -1500,11 +1564,15 @@ export function baueGebaeude(
           const alleSeiten = { oben:true, unten:true, u0:true, u1:true, v0:true, v1:true };
           kasten(bU0,bU1,v0,v1,fest(y-.08),fest(y),LAUBE_DUNKEL,alleSeiten);
           kasten(bU0-.04,bU1+.04,v1-.02,v1+.09,fest(y+.04),fest(y+.16),REFERENZ_HOLZ,alleSeiten);
-          kasten(bU0-.06,bU1+.06,v1-.015,v1+.135,fest(y+bruest-.10),fest(y+bruest+.025),REFERENZ_HOLZ,alleSeiten);
+          const bruchA = bU0 + (bU1 - bU0) * .34, bruchB = bU0 + (bU1 - bU0) * .58;
+          const handlauf = (a: number, b: number) => kasten(a,b,v1-.015,v1+.135,fest(y+bruest-.10),fest(y+bruest+.025),REFERENZ_HOLZ,alleSeiten);
+          if (bauSchaden === 2) { handlauf(bU0-.06,bruchA); handlauf(bruchB,bU1+.06); }
+          else handlauf(bU0-.06,bU1+.06);
           const anzahl = Math.min(48,Math.max(3,Math.round((bU1-bU0)/.24)));
           const halb=(bU1-bU0)/anzahl*.43;
           for(let i=0;i<anzahl;i++) {
             const u=bU0+(bU1-bU0)*(i+.5)/anzahl;
+            if (bauSchaden === 2 && u + halb > bruchA && u - halb < bruchB) continue;
             kasten(u-halb,u+halb,v1+.015,v1+.07,fest(y+.14),fest(y+bruest-.10),SCHALUNG_TOENE[(i*2)%5],alleSeiten);
           }
         } else {
@@ -1602,7 +1670,7 @@ export function baueGebaeude(
      * des Stapels, nicht auf `boden` — die Giebelseite kann einen halben
      * Meter höher liegen als der tiefste Punkt der Wandlinie.
      */
-    if (wohnhaus && breite >= 7 && wuerfel() < 0.5) {
+    if (wohnhaus && breite >= 7 && wuerfel() < 0.5 && bauSchaden === 0) {
       let beste: { u: number; vm: number; s: number } | null = null;
       for (let k = 0; k < p.length - 1; k++) {
         const uA = p[k][0] * hu.cos + p[k][1] * hu.sin, vA = -p[k][0] * hu.sin + p[k][1] * hu.cos;

@@ -14,7 +14,7 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN } from './echt.js';
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
@@ -126,6 +126,46 @@ vec4 scanLies(sampler2D t, vec2 p, float r) {
 }
 `;
 
+// Nach dem Hofscan, damit dessen Originalalbedo die Alterung nicht mehr übermalt.
+const HOF_VERFALL_FARBE = /* glsl */ `
+  float hofSchaden = step(0.5, vStufe) * hofHausAnteil;
+  if (hofSchaden > 0.0) {
+    float schwer = step(1.5, vStufe);
+    if (scanR < 3.5) {
+      vec3 nn = normalize(vHausNormal);
+      vec3 entlang = abs(nn.y) > 0.97 ? vec3(1,0,0) : normalize(cross(nn,vec3(0,1,0)));
+      vec2 pVerfall = vec2(dot(vHausPos,entlang),vHausPos.y);
+      float flecken = verfallRauschen(pVerfall * vec2(.78,.91));
+      float rand = verfallRauschen(pVerfall * 5.2);
+      float laeufer = verfallRauschen(pVerfall * vec2(2.3,.22));
+      vec3 alt = diffuseColor.rgb;
+      if (scanR < 0.5) {
+        // Ausbrüche folgen größeren Feuchtstellen, kleine Kanten fransen aus.
+        float blank = smoothstep(.56 - schwer*.13,.73 - schwer*.13,flecken + rand*.21);
+        vec3 stein = vec3(.105,.092,.072) * (.55 + rand*.95);
+        alt = mix(alt * mix(.69,.97,laeufer), stein, blank * .84);
+      } else if (scanR < 1.5) {
+        float hell = dot(alt,vec3(.2126,.7152,.0722));
+        alt = mix(alt,vec3(hell) * vec3(.91,.95,.89),.72) * (.54 + .35*laeufer);
+      } else if (scanR < 2.5) {
+        float moos = smoothstep(.44-schwer*.07,.79-schwer*.08,flecken + rand*.14);
+        alt = mix(alt*.76,vec3(.09,.115,.045) * (.65+rand*.72),moos*.76);
+      }
+      if (scanR < 1.5 || (scanR > 2.5 && abs(nn.y)<.7)) {
+        float unten = 1.0 - smoothstep(.12,1.2 + schwer*.8,vHoehe);
+        alt *= mix(vec3(1.0),vec3(.4,.48,.33),unten * (.35 + .52*flecken));
+        alt = mix(alt,efeuFarbe,efeuDeckung * mix(.34,.84,schwer));
+      }
+      diffuseColor.rgb = mix(diffuseColor.rgb,alt,hofSchaden);
+    } else if (scanR > 4.5) {
+      // Blinde Scheiben bzw. dunkle Öffnung, ohne sichtbaren Vorhang.
+      float staub = verfallRauschen(vRaumUv.xy * vec2(7,5) + vRaumUv.z * 41.0);
+      vec3 glas = mix(vec3(.013,.015,.012),vec3(.064,.066,.056),staub*.65);
+      diffuseColor.rgb = mix(diffuseColor.rgb,glas,hofSchaden);
+    }
+  }
+`;
+
 /** Strahldichte einer brennenden Scheibe bei Glut 1, linear. Warmes Lampenlicht. */
 const GLUT_FARBE = new THREE.Vector3(0.30, 0.21, 0.11);
 
@@ -178,7 +218,8 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
   if (scanR < 3.5 && !hofVoll) diffuseColor.rgb *= scanLiesGrad(uScanFarbe, scanP, scanR, scanGradX, scanGradY).rgb * 2.0;` : ''}
 ${BAUWELT_AN ? VERFALL_FARBE : ''}
 ${HAUSFRONT_AN ? frontPass : ''}
-${HOF_AN ? hofPass.replace('vZustand.y', BAUWELT_AN ? 'vZustand.y' : '1.0') : ''}`)
+${HOF_AN ? hofPass.replace('vZustand.y', BAUWELT_AN ? 'vZustand.y' : '1.0') : ''}
+${HOF_VERFALL_AN ? HOF_VERFALL_FARBE : ''}`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   if (scanR < 3.5${HAUS_SHADER_SPAR_AN ? ' && !hofVoll' : ''}) {
     vec3 sn = ${HAUS_SHADER_SPAR_AN ? 'scanLiesGrad(uScanNormal, scanP, scanR, scanGradX, scanGradY)' : 'scanLies(uScanNormal, scanP, scanR)'}.xyz * 2.0 - 1.0;
@@ -192,12 +233,13 @@ ${HOF_AN ? HOF_HAUS_NORMAL : ''}`)
 ${HOF_AN ? 'if (scanR < 3.5) roughnessFactor = mix(roughnessFactor, clamp(hofArm.g, 0.5, 1.0), hofHausAnteil);' : ''}${BAUWELT_AN ? '\n  roughnessFactor = mix(roughnessFactor, 0.65, efeuDeckung);' : ''}
   // D285: Glas — glatt, spiegelt die Umgebungskarte (Himmelslicht \`?umlicht=1\`); dahinter dunkler Raum.
   // Leichte Welligkeit je Scheibe (alte Fenster), damit nicht jede Scheibe ein perfekter Spiegel ist.
-  if (scanR > 4.5) roughnessFactor = 0.05 + 0.08 * fract(sin(dot(floor(vHausPos.xz * 1.3), vec2(12.9898, 78.233))) * 43758.5453);`)
+  if (scanR > 4.5) roughnessFactor = 0.05 + 0.08 * fract(sin(dot(floor(vHausPos.xz * 1.3), vec2(12.9898, 78.233))) * 43758.5453);
+  ${HOF_VERFALL_AN ? 'if (scanR > 4.5) roughnessFactor = mix(roughnessFactor, 0.9, hofSchaden);' : ''}`)
         .replace('#include <aomap_fragment>', `#include <aomap_fragment>
 ${HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofArm.r, hofHausAnteil * 0.55);' : ''}`)
         .replace('#include <lights_fragment_end>', `
   // D295: Vor RE_IndirectSpecular skalieren; danach wird radiance nicht mehr gelesen.
-  if (scanR > 4.5) radiance *= 1.6;
+  if (scanR > 4.5) radiance *= ${HOF_VERFALL_AN ? 'mix(1.6, 0.18, hofSchaden)' : '1.6'};
   #include <lights_fragment_end>`);
     }
     shader.uniforms.uGlutFarbe = { value: GLUT_FARBE };
@@ -210,6 +252,6 @@ ${HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofArm.r, hofHausAnteil *
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '');
   return material;
 }

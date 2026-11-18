@@ -1,11 +1,11 @@
 /** D303: vollständige Hofszene, gleiche Kamerafahrt und Windphase bei normalem 60°-Blickfeld.
- * node tools/mess/hauslauf.mjs <neuer-name> <0|1> [stand|fahrt]
+ * node tools/mess/hauslauf.mjs <neuer-name> <0|1> [stand|fahrt] [profil]
  * Einzelbilder sind Qualitätsbelege, keine FPS-Messung. */
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-if(!['referenz','hof','kompakt','lauben','boden','gras','teppich'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich angeben.');
-const bodennah=['boden','gras','teppich'].includes(profil);
+if(!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall angeben.');
+const bodennah=['boden','gras','teppich','verfall'].includes(profil);
 const anzahl=bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
 const ziel=`.cache/mess/${name}`;
@@ -24,11 +24,12 @@ await seite.addInitScript(()=>{
 });
 const fehler=[];seite.on('pageerror',e=>fehler.push(String(e)));seite.on('console',m=>{if(m.type()==='error')fehler.push(m.text());});
 const parameter=new URLSearchParams(`absetzen=1432,423,150&zeit=.26&kontur=0&stimmung=zielbild&hofgruen=1&referenzhaus=${probe}&kamera=1444,36.8,418,1431,37.5,432&fov=60&umgebung=6&sonne=.8&umlichtstaerke=1.2&schatten=.4`);
-if(profil!=='referenz'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',['kompakt','lauben','boden','gras','teppich'].includes(profil)?'1':probe);}
-parameter.set('hauskompakt',profil==='kompakt'?probe:['lauben','boden','gras','teppich'].includes(profil)?'1':'0');
+if(profil!=='referenz'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',['kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)?'1':probe);}
+parameter.set('hauskompakt',profil==='kompakt'?probe:['lauben','boden','gras','teppich','verfall'].includes(profil)?'1':'0');
 parameter.set('hoflauben',profil==='lauben'?probe:bodennah?'1':'0');
-parameter.set('hofboden',profil==='boden'?probe:['gras','teppich'].includes(profil)?'1':'0');
+parameter.set('hofboden',profil==='boden'?probe:['gras','teppich','verfall'].includes(profil)?'1':'0');
 if(profil==='gras')parameter.set('hofgras',probe);
+if(profil==='verfall'){parameter.set('hofgras','1');parameter.set('hofverfall',probe);}
 if(profil==='teppich'){parameter.set('hofgras','1');parameter.set('teppichspar',probe);}
 const spiel=new URLSearchParams(parameter);spiel.delete('kamera');spiel.delete('fov');
 // Der Spiel-Link startet auf dem freien Weg, nicht am stationären Messanker in der Garage.
