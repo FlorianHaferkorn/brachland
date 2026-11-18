@@ -4,9 +4,10 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-if(!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall','ranke'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke angeben.');
-const bodennah=['boden','gras','teppich','verfall','ranke'].includes(profil);
-const anzahl=profil==='ranke'?192:bodennah?288:profil!=='referenz'?216:144;
+if(!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall','ranke','ruine'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine angeben.');
+const eckfahrt=profil==='ranke'||profil==='ruine';
+const bodennah=eckfahrt||['boden','gras','teppich','verfall'].includes(profil);
+const anzahl=eckfahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
 const ziel=`.cache/mess/${name}`;
 if(existsSync(ziel)) throw Error(`Ausgabe existiert: ${ziel}`);
@@ -30,14 +31,15 @@ parameter.set('hoflauben',profil==='lauben'?probe:bodennah?'1':'0');
 parameter.set('hofboden',profil==='boden'?probe:bodennah?'1':'0');
 if(profil==='gras')parameter.set('hofgras',probe);
 if(profil==='verfall'){parameter.set('hofgras','1');parameter.set('hofverfall',probe);}
-if(profil==='ranke'){
- parameter.set('hofgras','1');parameter.set('hofverfall','1');parameter.set('hofranke',probe);
+if(eckfahrt){
+ parameter.set('hofgras','1');parameter.set('hofverfall','1');parameter.set('hofranke',profil==='ranke'?probe:'1');
+ if(profil==='ruine')parameter.set('hofruine',probe);
  parameter.set('absetzen','1425,403,175');parameter.set('kamera','1424,36.44,403,1426,37.8,409.3');
 }
 if(profil==='teppich'){parameter.set('hofgras','1');parameter.set('teppichspar',probe);}
 const spiel=new URLSearchParams(parameter);spiel.delete('kamera');spiel.delete('fov');
 // Der Spiel-Link startet auf dem freien Weg, nicht am stationären Messanker in der Garage.
-spiel.set('absetzen',profil!=='referenz'&&profil!=='ranke'?'1447,430,200':profil==='referenz'?'1444,419,150':parameter.get('absetzen'));
+spiel.set('absetzen',eckfahrt?parameter.get('absetzen'):profil==='referenz'?'1444,419,150':'1447,430,200');
 try {
  await seite.goto(`http://127.0.0.1:4173/?${parameter}`);
  await seite.waitForFunction(()=>document.body.textContent.includes('Ladezeit')&&window.__szene?.userData.ezKamera,null,{timeout:180000});
@@ -49,7 +51,7 @@ try {
    vorher.call(this,gl,szene,kamera,ziel);
    const d=window.__haus;
    // Zwei normale Blicke: erst vollständiges Haus vom freien Weg, dann Eingang aus Augenhöhe.
-   if(profil==='ranke') {
+   if(profil==='ranke'||profil==='ruine') {
     const t=d.index/191;
     kamera.position.set(1424+11*(1-(1-t)**1.3),36.44-.12*t,403+8*t*t);
     kamera.lookAt(1426+.25*t,37.8+.25*t,409.3);
@@ -78,7 +80,7 @@ try {
  await seite.evaluate(async()=>{for(let i=0;i<8;i++)await new Promise(r=>requestAnimationFrame(r));window.__hausPause();});
  await seite.waitForTimeout(200);
  await seite.evaluate(()=>{for(let i=0;i<64;i++)window.__hausSchritt();});
- const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):profil==='ranke'?[0,64,127,191]:bodennah?[0,71,143,215,287]:profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
+ const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):eckfahrt?[0,64,127,191]:bodennah?[0,71,143,215,287]:profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
  for(const i of indizes){
   await seite.evaluate(({i,profil,modus})=>{window.__haus.index=i;for(let f=0;f<((modus==='stand'||(profil!=='referenz'?i%72===0:i===96))?32:1);f++)window.__hausSchritt();},{i,profil,modus});
   await seite.waitForTimeout(10);

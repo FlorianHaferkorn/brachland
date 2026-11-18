@@ -32,6 +32,8 @@ export const HOF_BODEN_AN = HOF_HAEUSER_AN && an('hofboden');
 export const HOF_VERFALL_AN = HOF_HAEUSER_AN && an('hofverfall') && suche.get('bau') !== '0';
 /** D313: von Hand geführter Efeu am beschädigten Referenzhaus. */
 export const HOF_RANKE_AN = HOF_VERFALL_AN && an('hofranke');
+/** D314: Einsturzspur an derselben Referenzruine. */
+export const HOF_RUINE_AN = HOF_RANKE_AN && an('hofruine');
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

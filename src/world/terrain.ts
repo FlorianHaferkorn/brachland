@@ -11,12 +11,13 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
 import { baueHausbewuchs, baueRankenkurve } from './hausbewuchs.js';
 import type { Rankenpunkt } from './hausbewuchs.js';
+import { baueRuinenschutt } from './ruinenschutt.js';
 import { baueLaubenkasten } from './laubenkasten.js';
 import { fassadenKasten, vereinfacheHauswand } from './hausbauteil.js';
 import { gesperrt } from './bauwerke.js';
@@ -369,6 +370,7 @@ export function baueGebaeude(
 
   const REFERENZ_HOLZ = TUER.clone();
   ROLLE.set(REFERENZ_HOLZ, 1);
+  const RUINEN_INNEN = TUER.clone().multiplyScalar(.42);
 
   /**
    * Kontaktabdunklung je Ecke — das gebackene AO des Hausgenerators (Phase 1).
@@ -604,6 +606,7 @@ export function baueGebaeude(
     const kurvenHaus = HOF_RANKE_AN && bauSchaden === 2 && hausReferenz?.gebaeudeIndex === 308 && p.length === 5
       && Math.hypot(p[1][0] - 1425.85, p[1][1] - 408.90) < .15
       && echt2?.d === 3100 && breite >= 6 && echt2.f - echt2.t >= .35;
+    const ruinenHaus = HOF_RUINE_AN && kurvenHaus;
     const bewohntHaus = stufeJetzt === 0;
     const wohnGrenze = wohnVorn ? minU + breite * 0.42 : maxU - breite * 0.42;
     /** Liegt ein Weltpunkt im Wirtschaftsteil (Tenne/Stall)? */
@@ -688,15 +691,27 @@ export function baueGebaeude(
       }
     };
     const brettBreite = Math.max(0.5, umfang / 60);
-    const bretterwand = (x1: number, z1: number, x2: number, z2: number, y0: number, y1: number) => {
+    const bretterwand = (x1: number, z1: number, x2: number, z2: number, y0: number, y1: number, eingebrochen = false) => {
       const l = Math.hypot(x2 - x1, z2 - z1);
       const n = Math.max(1, Math.round(l / brettBreite));
+      const nx = (z2-z1)/l, nz = -(x2-x1)/l;
       let ton = Math.floor(wuerfel() * 5);
       for (let i = 0; i < n; i++) {
         const t0 = i / n, t1 = (i + 1) / n;
         ton = (ton + 1 + Math.floor(wuerfel() * 4)) % 5;
-        wandFeld(x1 + (x2-x1)*t0, z1 + (z2-z1)*t0,
-                  x1 + (x2-x1)*t1, z1 + (z2-z1)*t1, y0, y1, SCHALUNG_TOENE[ton]);
+        const ax=x1+(x2-x1)*t0, az=z1+(z2-z1)*t0, bx=x1+(x2-x1)*t1, bz=z1+(z2-z1)*t1;
+        const mitte = (t0+t1)*.5;
+        if (eingebrochen && mitte > .19 && mitte < .74) {
+          // Gebrochene Brettenden tragen noch die Stärke der verwitterten Schalung.
+          const h0 = y0 + .39 + [0,.43,.12,.61,.26,.96,.57][i%7];
+          const h1 = h0 + (i%2 ? .12 : -.19);
+          const a: [number, number, number] = [ax,h0,az], b: [number, number, number] = [bx,h1,bz];
+          const innen = ([x,y,z]: [number, number, number]): [number, number, number] => [x-nx*.11,y,z-nz*.11];
+          quad([ax,y0,az],[bx,y0,bz],b,a,SCHALUNG_TOENE[ton]);
+          quadNach(a,b,innen(b),innen(a),RAHMEN,[0,1,0]);
+          quadNach(a,innen(a),innen([ax,y0,az]),[ax,y0,az],TUER,[-(x2-x1),0,-(z2-z1)]);
+          quadNach(b,[bx,y0,bz],innen([bx,y0,bz]),innen(b),TUER,[x2-x1,0,z2-z1]);
+        } else wandFeld(ax,az,bx,bz,y0,y1,SCHALUNG_TOENE[ton]);
       }
     };
 
@@ -723,6 +738,7 @@ export function baueGebaeude(
     for (let k = 0; k < p.length - 1; k++) {
       const [x1, z1] = p[k], [x2, z2] = p[k + 1];
       const oben = boden + h;
+      const einsturz = ruinenHaus && k === 1;
       const stallWand = imStall((x1 + x2) / 2, (z1 + z2) / 2);
       const breiteF = 0.9, hoeheF = 1.15;
       wandLoch = [];
@@ -735,7 +751,9 @@ export function baueGebaeude(
       const eingangX=x1+(x2-x1)*eingangU/lochLaenge, eingangZ=z1+(z2-z1)*eingangU/lochLaenge;
       const eingangBoden = referenzHaus && k === tuerWand
         ? Math.max(boden, terrain.hoeheAn(eingangX+(z2-z1)/lochLaenge*.35,eingangZ-(x2-x1)/lochLaenge*.35)) : boden;
-      const tuerKollision = (ebene: number, u: number) => referenzHaus && k === tuerWand && ebene === 0 && Math.abs(u-eingangU) < (tuerBreite+breiteF)/2+(hausReferenz?.eingang ? 0.65 : 0.18);
+      const fensterEntfaellt = (ebene: number, u: number) =>
+        (referenzHaus && k === tuerWand && ebene === 0 && Math.abs(u-eingangU) < (tuerBreite+breiteF)/2+(hausReferenz?.eingang ? 0.65 : 0.18))
+        || (einsturz && ebene > 0 && u / lochLaenge > .13 && u / lochLaenge < .83);
       const fensterUnterkante = (ebene: number) => boden + ebene * geschoss + 1.05;
       // Unpassende Fotoachsen erzeugen keine überlappenden Löcher oder offene Hausecken.
       const fensterVertieft = (FENSTERTIEFE_AN || referenzHaus) && !stallWand && lochLaenge >= 2.2 && anzahl > 0 && lochLaenge / anzahl >= 1.2;
@@ -744,7 +762,7 @@ export function baueGebaeude(
         for(let e=0;e<ebenen;e++) {
           const y=fensterUnterkante(e);
           if(y+hoeheF > oben-0.25) continue;
-          for(let i=0;i<anzahl;i++) { const u=lochLaenge*(i+0.5)/anzahl; if(tuerKollision(e,u)) continue; wandLoch.push({u0:u-breiteF/2,u1:u+breiteF/2,y0:y,y1:y+hoeheF}); }
+          for(let i=0;i<anzahl;i++) { const u=lochLaenge*(i+0.5)/anzahl; if(fensterEntfaellt(e,u)) continue; wandLoch.push({u0:u-breiteF/2,u1:u+breiteF/2,y0:y,y1:y+hoeheF}); }
         }
       }
       if (referenzHaus && k === tuerWand) wandLoch.push({u0:eingangU-tuerBreite/2,u1:eingangU+tuerBreite/2,y0:boden,y1:eingangBoden+tuerHoehe+.02});
@@ -754,7 +772,7 @@ export function baueGebaeude(
         bretterwand(x1, z1, x2, z2, boden + 0.9, oben);
       } else if (holzAb < oben && holzAb > fuss) {
         wandFeld(x1,z1,x2,z2,fuss,holzAb,WAND);
-        if (wohnhaus) bretterwand(x1, z1, x2, z2, holzAb, oben);
+        if (wohnhaus) bretterwand(x1, z1, x2, z2, holzAb, oben, einsturz);
         else wandFeld(x1,z1,x2,z2,holzAb,oben,SCHALUNG);
       } else {
         wandFeld(x1,z1,x2,z2,fuss,oben,WAND);
@@ -763,6 +781,25 @@ export function baueGebaeude(
       const wandLaenge = Math.hypot(x2 - x1, z2 - z1);
       if (wandLaenge < 0.5) continue;
       const wx = (z2 - z1) / wandLaenge, wz = -(x2 - x1) / wandLaenge;   // Wandnormale
+      if (einsturz) {
+        // Im Einsturz sind Deckenansatz, hintere Wand und abgescherte Ständer sichtbar.
+        const K = fassadenKasten(quadNach,[x1,z1],wandRichtung,[wx,wz]);
+        const u = (t: number) => t * wandLaenge;
+        K(u(.17),u(.77),holzAb-.04,holzAb+.12,-1.55,-.09,TUER);
+        K(u(.17),u(.77),holzAb+.12,oben+.05,-1.6,-1.53,RUINEN_INNEN);
+        for (const [t, rest] of [[.22,.35],[.41,.59],[.63,.80],[.72,.45]]) {
+          K(u(t)-.065,u(t)+.065,holzAb,oben-rest,-.31,-.13,SPARREN);
+        }
+        const P = (t: number, y: number, v: number): [number, number, number] => [x1+u(t)*wandRichtung[0]+wx*v,y,z1+u(t)*wandRichtung[1]+wz*v];
+        quadNach(P(.22,oben-.55,-.16),P(.66,holzAb+.34,-.08),P(.68,holzAb+.59,-.08),P(.24,oben-.34,-.16),SPARREN,[wx,0,wz]);
+        const [tx,tz] = wandRichtung;
+        const [sx,,sz] = P(.19,boden,0);
+        baueRuinenschutt(tri,[sx,sz],wandRichtung,[wx,wz],terrain.hoeheAn,417,(x,z) => {
+          const ort = (x-x1)*tx + (z-z1)*tz;
+          const grenze = k === tuerWand ? eingangU - .92 : u(.41);
+          return ort < .03 || ort > grenze;
+        });
+      }
       if ((bauSchaden === 1 || bauSchaden === 2) && wandLaenge >= 2.2 && !(kurvenHaus && k < 2)) {
         const saat = Math.floor(glutHash(x1, boden, z1) * 4294967295);
         const zurGasse = wx * hausReferenz!.vorne[0] + wz * hausReferenz!.vorne[1] > -.2;
@@ -904,8 +941,9 @@ export function baueGebaeude(
         if (yUnten + hoeheF > boden + h - 0.25) continue;
         for (let i = 0; i < anzahl; i++) {
           const t = (i + 0.5) / anzahl;
-          if (tuerKollision(ebene,laenge*t)) continue;
+          if (fensterEntfaellt(ebene,laenge*t)) continue;
           const cx = x1 + (x2 - x1) * t, cz = z1 + (z2 - z1) * t;
+          const zerbrochen = einsturz && ebene === 0 && t < .4;
           const ex = (x2 - x1) / laenge * breiteF / 2, ez = (z2 - z1) / laenge * breiteF / 2;
           const o = fensterVertieft ? -0.18 : 0.04;
           /**
@@ -951,7 +989,14 @@ export function baueGebaeude(
           if (HAUSFRONT_AN) raumFenster = { x: cx, z: cz, dx: (x2-x1)/laenge, dz: (z2-z1)/laenge,
             unten: yUnten, breite: breiteF, hoehe: hoeheF, seed: glutHash(cx + 17.7, yUnten, cz) };
           glutWert = (!BAUWELT_AN || bewohntHaus) && glutHash(cx, yUnten, cz) < (wohnhaus ? 0.45 : 0.12) ? 1 : 0;
-          quad(
+          if (zerbrochen) {
+            // Ein Rest Glas sitzt in den unteren Ecken, der Raum dahinter bleibt offen sichtbar.
+            const links: [number, number, number] = [cx-ex+nx*o,yUnten,cz-ez+nz*o];
+            const rechts: [number, number, number] = [cx+ex+nx*o,yUnten,cz+ez+nz*o];
+            const mitte: [number, number, number] = [cx+nx*o,yUnten+.02,cz+nz*o];
+            tri(links,[links[0],yUnten+.31,links[2]],mitte,FENSTER);
+            tri(mitte,[rechts[0],yUnten+.19,rechts[2]],rechts,FENSTER);
+          } else quad(
             [cx - ex + nx * o, yUnten, cz - ez + nz * o],
             [cx + ex + nx * o, yUnten, cz + ez + nz * o],
             [cx + ex + nx * o, yUnten + hoeheF, cz + ez + nz * o],
@@ -968,9 +1013,15 @@ export function baueGebaeude(
             K(a-.055,a,y0,y1,o+.006,o+.08,RAHMEN);
             K(-a+.055,a-.055,y0,y0+.055,o+.006,o+.08,RAHMEN);
             K(-a+.055,a-.055,y1-.055,y1,o+.006,o+.08,RAHMEN);
-            K(-.025,.025,y0+.055,y1-.055,o+.006,o+.065,RAHMEN);
-            K(-a+.055,a-.055,y0+hoeheF*.6-.02,y0+hoeheF*.6+.02,o+.006,o+.065,RAHMEN);
+            if (!zerbrochen) {
+              K(-.025,.025,y0+.055,y1-.055,o+.006,o+.065,RAHMEN);
+              K(-a+.055,a-.055,y0+hoeheF*.6-.02,y0+hoeheF*.6+.02,o+.006,o+.065,RAHMEN);
+            }
             K(-a-.16,a+.16,y0-.16,y0-.08,-.18,.28,RAHMEN);
+            if (zerbrochen) {
+              K(-a-.28,a+.28,y0-.18,y1+.25,-.93,-.84,RUINEN_INNEN);
+              continue;
+            }
             if (bauSchaden > 0 && glutHash(cx - 1.7, y0, cz) < .33 + bauSchaden * .1) {
               K(-a-.07,a+.07,y0+hoeheF*.27,y0+hoeheF*.40,-.035,.035,REFERENZ_HOLZ);
             }
@@ -1139,12 +1190,12 @@ export function baueGebaeude(
     const schadSeite = vz > 0 ? -1 : 1;
     const schadTraufe = schadSeite === -1 ? aV0 : aV1;
     const schadSaat = glutHash(mx0, 31.4, mz0);
-    const schadBreite = Math.min(5.8, breite * .34);
+    const schadBreite = ruinenHaus ? Math.min(7.4, breite * .51) : Math.min(5.8, breite * .34);
     const schadStart = minU + breite * (.21 + schadSaat * .19);
     const bruch = bauSchaden === 2 && !walm && breite >= 6 && firstH - traufe >= .35
       ? [0, .24, .56, .79, 1].map((u, i) => ({
         u: schadStart + u * schadBreite,
-        v: schadTraufe + (mv - schadTraufe) * [0, .48, .35, .62, 0][i],
+        v: schadTraufe + (mv - schadTraufe) * (ruinenHaus ? [0,.73,.45,.88,0] : [0,.48,.35,.62,0])[i],
       })) : null;
     if (kurvenHaus && bruch) {
       // Kontrollpunkte entlang der beiden ausgefalteten Wände; die Knickzone wird außen gerundet.
@@ -1300,8 +1351,14 @@ export function baueGebaeude(
        * Dreiecke je kreuzender Kante, beim Rechteck vier je Haus.
        */
       const teiler = (vA - mv) * (vB - mv) < 0 ? [0, (mv - vA) / (vB - vA), 1] : [0, 1];
+      const giebeleinsturz = ruinenHaus && k === 1;
+      if (giebeleinsturz) {
+        teiler.push(.19,.74);
+        teiler.sort((a,b) => a-b);
+      }
       for (let s = 0; s + 1 < teiler.length; s++) {
         const t0 = teiler[s], t1 = teiler[s + 1];
+        if (giebeleinsturz && t0 >= .19 && t1 <= .74) continue;
         const x0 = ax + (bx - ax) * t0, z0 = az + (bz - az) * t0;
         const x1 = ax + (bx - ax) * t1, z1 = az + (bz - az) * t1;
         const y0 = dachY(vA + (vB - vA) * t0), y1 = dachY(vA + (vB - vA) * t1);
