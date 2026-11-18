@@ -19,8 +19,10 @@
 import * as THREE from 'three';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN } from './echt.js';
+import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_GRAS_AN } from './echt.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_BLUME, HORST_GRUEN, HORST_HALM, HORST_KRAUT, HORST_SCHWELLE, HORST_STROH, HORST_ZAHL } from './grashorst.js';
+import { HOF_UNIFORM } from './hofplatz.js';
+import { HOF_GRAS_PARS } from './hofboden.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
 import type { Biom } from './osm.js';
 import type { HoehenFeld } from './lod.js';
@@ -201,8 +203,13 @@ export function baueGrasteppich(
   });
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
+    if (HOF_GRAS_AN) Object.assign(shader.uniforms, {
+      uHofMitte: HOF_UNIFORM.mitte, uHofZugaenge: HOF_UNIFORM.zugaenge,
+      uHofZugangZahl: HOF_UNIFORM.zugangZahl,
+    });
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
+${HOF_GRAS_AN ? HOF_GRAS_PARS : ''}
 attribute vec2 aZelle;
 uniform float uZeit;
 uniform sampler2D uFeld;
@@ -301,6 +308,15 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
            * ${(zelle / 0.15).toFixed(3)} * mix(1.0, 1.25, stroh) * boden.a * (blumeKachel ? 1.2 : 1.0)${innen === 0 ? ' * mix(1.0, 2.0, spreiz)' : ''};
   hoehe = gr * da;
   breite = gr * 0.5;` : ''}
+  ${HOF_GRAS_AN ? `
+  if (uHofZugangZahl > 0 && distance(ort, uHofMitte) < 48.0) {
+    float hof = 1.0 - smoothstep(32.0, 46.0, distance(ort, uHofMitte));
+    float polster = smoothstep(0.25, 0.74, halmRauschen(ort * 0.76 + 19.0));
+    float frei = hofgrasDeckung(ort);
+    hoehe *= frei * mix(1.0, mix(0.39, 0.81, polster), hof);
+    breite *= frei * mix(1.0, 0.68, hof);
+  }
+  ` : ''}
   float winkel = h1 * 6.2832;
   vec2 quer = vec2(cos(winkel), sin(winkel));
   vec2 vor = vec2(-quer.y, quer.x);
@@ -374,7 +390,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   }
 #endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${GRAS_VIEL ? '-viel' : ''}${GRAS_FEIN ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${GRAS_VIEL ? '-viel' : ''}${GRAS_FEIN ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras' : ''}`;
 
   // D272: Halmkarten mit Alpha-Test; mit MSAA (Kontur) weiche Kanten über alphaToCoverage.
   if (GRAS_FEIN) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }

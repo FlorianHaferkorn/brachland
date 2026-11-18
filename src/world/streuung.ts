@@ -11,6 +11,9 @@
  * Fleck trägt bei jedem Besuch dieselben Büschel.
  */
 import * as THREE from 'three';
+import { HOF_GRAS_AN } from './echt.js';
+import { HOF_UNIFORM } from './hofplatz.js';
+import { hofgrasFrei } from './hofboden.js';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
 import type { Biom } from './osm.js';
@@ -183,6 +186,7 @@ export function baueStreuMaterial(amplitude = 0.16): {
 }
 
 const hilfe = new THREE.Object3D();
+const hofOrt = new THREE.Vector2();
 
 /**
  * Füllt die Instanzmatrizen für die Umgebung von (mx, mz) und gibt die Anzahl zurück.
@@ -197,8 +201,20 @@ export function streueUmgebung(
   return streue(feld, mx, mz, mesh, DICHTE, STREU_JE_QM * faktor, STREU_MAX, 0, (h1, h2, h3) => {
     const hoehe = 0.18 + h1 * 0.30;
     hilfe.rotation.set(0, h2 * Math.PI * 2, 0);
-    hilfe.scale.set(0.9 + h3 * 0.7, hoehe, 0.9 + h3 * 0.7);
-  });
+    const amHof = HOF_GRAS_AN && HOF_UNIFORM.bereit.value
+      ? 1 - THREE.MathUtils.smoothstep(HOF_UNIFORM.mitte.value.distanceTo(hofOrt.set(hilfe.position.x, hilfe.position.z)), 32, 46) : 0;
+    const breite = (0.9 + h3 * 0.7) * (1 - amHof * .53);
+    hilfe.scale.set(breite, hoehe * (1 - amHof * (.32 + h3 * .15)), breite);
+  }, HOF_GRAS_AN ? (x, z) => {
+    if (!HOF_UNIFORM.bereit.value) return true;
+    const d = HOF_UNIFORM.mitte.value.distanceTo(hofOrt.set(x, z));
+    if (d >= 48) return true;
+    if (!hofgrasFrei(x, z, HOF_UNIFORM.zugaenge.value, HOF_UNIFORM.zugangZahl.value)) return false;
+    // Horste mit verschieden dichten Zwischenräumen statt gleichmäßig verteilter Sterne.
+    const fleck = Math.sin(x * 1.4 + z * .61) * Math.cos(z * 1.18 - x * .39);
+    return hash(Math.floor(x * 71), Math.floor(z * 71), 308) >
+      (.24 - fleck * .21) * (1 - THREE.MathUtils.smoothstep(d, 32, 46));
+  } : undefined);
 }
 
 /** Steine, Äste, Wurzelstücke — flach und klein, ohne Wind. */
@@ -238,6 +254,7 @@ function streue(
   feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh,
   dichte: Record<Biom, number>, jeQm: number, max: number, salz: number,
   form: (h1: number, h2: number, h3: number) => THREE.Color | void,
+  freigabe?: (x: number, z: number) => boolean,
 ): number {
   const ZELLE = 2;
   const jeZelle = jeQm * ZELLE * ZELLE;
@@ -263,6 +280,7 @@ function streue(
         const z = zz + hash(ix, iz, b + 2) * ZELLE;
         const d = Math.hypot(x - mx, z - mz);
         if (d > r) continue;
+        if (freigabe && !freigabe(x, z)) continue;
         if (gesperrt(x, z, 'streu')) continue;   // Hof eines Bauwerks (ADR-0006)
         // Am Rand ausdünnen, damit die Schicht nicht als Kreis endet.
         if (d > r * 0.75 && hash(ix, iz, b + 3) < (d - r * 0.75) / (r * 0.25)) continue;

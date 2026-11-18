@@ -1,5 +1,5 @@
 /** D307: Bodenmaske verlässt das tatsächlich geprüfte freie Türvorfeld nicht. */
-import { hofbodenRand, hofbodenZugang, HOF_ZUGANG_MAX } from '../src/world/hofboden.js';
+import { hofbodenRand, hofbodenZugang, hofgrasFrei, HOF_ZUGANG_MAX } from '../src/world/hofboden.js';
 import type { HofbodenZugang } from '../src/world/hofboden.js';
 
 let ok = 0, fehler = 0;
@@ -45,5 +45,14 @@ pruefe('Nichtendliche Abfrage erzeugt keine NaN-Uniformfolge', hofbodenZugang(Na
 const voll = Array.from({ length: HOF_ZUGANG_MAX }, () => zweite);
 pruefe('CPU respektiert acht gepackte GLSL-Slots', hofbodenZugang(0, .7, [...voll, haus]) === 0);
 pruefe('Null-Türen verbrauchen keinen gepackten GLSL-Slot', hofbodenZugang(0, .7, [{ eingang: null, vorne: [0, 1] }, ...voll.slice(1), haus]) === 1);
+// Der gefährliche Wurzelort liegt außerhalb der Platte, der Halm ragt aber hinein.
+const grasslot = [{ x: gedreht.eingang[0], y: gedreht.eingang[1], z: -s, w: c }];
+const grasFrei = (u: number, v: number) => hofgrasFrei(
+  gedreht.eingang[0] + c * u - s * v, gedreht.eingang[1] + s * u + c * v, grasslot, 1);
+pruefe('Gras bleibt seitlich und vor beiden Trittplatten auch außerhalb der Steinkanten frei',
+  !grasFrei(.9, .76) && !grasFrei(-.9, 1.30) && !grasFrei(0, 1.95));
+pruefe('Nachbarwiese außerhalb des Sicherheitsabstands behält ihre Wurzeln',
+  grasFrei(1.25, .76) && grasFrei(0, 2.25));
+pruefe('Ohne bestätigten Eingang bleibt das Gras frei verteilt', hofgrasFrei(0, 0, [], 0));
 console.log(`\nHofboden: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exit(1);

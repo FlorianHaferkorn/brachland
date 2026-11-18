@@ -16,8 +16,8 @@ import type { TerrainErgebnis } from './terrain.js';
 import { MASSSTAB } from './terrain.js';
 import { bestimmeHof, hofDeckung, hofRandProps, hofEingangFrei } from './hofplatz.js';
 import { bestimmeHofhaeuser, hofhausZugangFrei } from './hofhaeuser.js';
-import { hofbodenZugang } from './hofboden.js';
-import { HAUSFRONT_AN, HOF_AN, REFERENZHAUS_AN, HOF_HAEUSER_AN, HOF_BODEN_AN } from './echt.js';
+import { hofbodenZugang, hofgrasTrittabstand, HOF_GRAS_TRITTRAND } from './hofboden.js';
+import { HAUSFRONT_AN, HOF_AN, REFERENZHAUS_AN, HOF_HAEUSER_AN, HOF_BODEN_AN, HOF_GRAS_AN } from './echt.js';
 
 export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbuschel' | 'totholz'
                     | 'blume' | 'pilz' | 'farn';
@@ -329,6 +329,8 @@ export function verteileProps(
   const aufWeg = wegTest(welt, terrain, false);
   const pflege = HAUSFRONT_AN ? hausfrontPflegeTest(welt, terrain) : null;
 
+  const grasHof = HOF_GRAS_AN ? bestimmeHof(welt, terrain) : null;
+  const zugaenge = grasHof ? bestimmeHofhaeuser(welt, terrain, grasHof) : [];
   const props: PropInstanz[] = [];
 
   for (let i = 0; i < n - 1; i++) {
@@ -370,12 +372,20 @@ export function verteileProps(
             zufall(); zufall(); zufall();   // Strom wie bei einer gesetzten Instanz weiterdrehen
             continue;
           }
+          const grasAbstand = grasHof && art === 'grasbuschel'
+            ? Math.hypot(x - grasHof.mitte[0], z - grasHof.mitte[1]) : Infinity;
+          const grasHofanteil = 1 - THREE.MathUtils.smoothstep(grasAbstand, 32, 46);
+          if (grasAbstand < 48 && zugaenge.some(h => h.eingang &&
+            hofgrasTrittabstand(x, z, ...h.eingang, ...h.vorne) <= HOF_GRAS_TRITTRAND)) {
+            zufall(); zufall(); zufall();
+            continue;
+          }
           props.push({
             art,
             variante: Math.floor(zufall() * variantenZahl(art)),
             position: [x, terrain.hoeheAn(x, z), z],
             drehung: zufall() * Math.PI * 2,
-            skalierung: 0.75 + zufall() * 0.6,
+            skalierung: (0.75 + zufall() * 0.6) * (1 - grasHofanteil * .48),
           });
         }
       }

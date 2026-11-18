@@ -67,3 +67,42 @@ float hofZugang(vec2 p) {
   return anteil;
 }
 `;
+
+// Das Rechteck umschließt beide Platten und die Schwelle. Der Abstand bis 65cm
+// lässt Raum für geneigte Halme, Wind und die Breite der Büschel.
+export const HOF_GRAS_TRITTRAND = .65;
+export function hofgrasTrittabstand(x: number, z: number, eingangX: number, eingangZ: number,
+  normalX: number, normalZ: number): number {
+  const dx = x - eingangX, dz = z - eingangZ;
+  const quer = Math.abs(dx * normalZ - dz * normalX);
+  const vor = dx * normalX + dz * normalZ;
+  return Math.hypot(Math.max(0, quer - .52), Math.max(0, -vor, vor - 1.56));
+}
+
+export function hofgrasFrei(x: number, z: number, zugaenge: readonly { x: number; y: number; z: number; w: number }[],
+  zahl: number): boolean {
+  for (let i = 0; i < zahl; i++) {
+    const h = zugaenge[i];
+    if (hofgrasTrittabstand(x, z, h.x, h.y, h.z, h.w) <= HOF_GRAS_TRITTRAND) return false;
+  }
+  return true;
+}
+
+export const HOF_GRAS_PARS = /* glsl */ `
+uniform vec4 uHofZugaenge[${HOF_ZUGANG_MAX}];
+uniform int uHofZugangZahl;
+uniform vec2 uHofMitte;
+float hofgrasDeckung(vec2 ort) {
+  float deckung = 1.0;
+  for (int i = 0; i < ${HOF_ZUGANG_MAX}; i++) {
+    if (i >= uHofZugangZahl) break;
+    vec4 h = uHofZugaenge[i];
+    vec2 d = ort - h.xy;
+    float quer = abs(dot(d, vec2(h.w, -h.z)));
+    float vor = dot(d, h.zw);
+    float abstand = length(vec2(max(0.0, quer - .52), max(0.0, max(-vor, vor - 1.56))));
+    deckung = min(deckung, smoothstep(${HOF_GRAS_TRITTRAND}, 1.02, abstand));
+  }
+  return deckung;
+}
+`;
