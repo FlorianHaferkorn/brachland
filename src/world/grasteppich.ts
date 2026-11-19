@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_GRAS_AN } from './echt.js';
+import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN } from './echt.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_BLUME, HORST_GRUEN, HORST_HALM, HORST_KRAUT, HORST_SCHWELLE, HORST_STROH, HORST_ZAHL } from './grashorst.js';
 import { HOF_UNIFORM } from './hofplatz.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
@@ -115,7 +115,7 @@ function baueHorst(): THREE.BufferGeometry {
 }
 
 export interface Grasteppich {
-  mesh: THREE.Mesh;
+  mesh: THREE.Object3D;
   /** Je Bild: Zeit und Kamera für Wind und Randausblendung. */
   setzeZeit(t: number): void;
   /**
@@ -155,15 +155,9 @@ export function baueGrasteppich(
   const zelle = grundZelle / Math.sqrt(Math.max(0.1, faktor));
   const n = Math.ceil((2 * halb) / zelle);
   const halm = GRAS_FEIN ? baueHorst() : baueHalm();
-  const geo = new THREE.InstancedBufferGeometry();
-  geo.index = halm.index;
-  geo.setAttribute('position', halm.getAttribute('position'));
-  geo.setAttribute('normal', halm.getAttribute('normal'));
-  if (GRAS_FEIN) geo.setAttribute('uv', halm.getAttribute('uv'));
-  const versatz = new Float32Array(n * n * 2);
-  for (let i = 0, k = 0; i < n; i++) for (let j = 0; j < n; j++) { versatz[k++] = j - n / 2; versatz[k++] = i - n / 2; }
-  geo.setAttribute('aZelle', new THREE.InstancedBufferAttribute(versatz, 2));
-  geo.instanceCount = n * n;
+  // Foto-Büschel haben eigene, vom Atlas abhängige Ausdehnungen.
+  const kachelnAn = HOF_BILDTAKT_AN && HOF_GRAS_AN && !GRAS_FEIN;
+  const kachelZellen = kachelnAn ? Math.ceil(8 / zelle) : n;
 
   const daten = new Float32Array(FELD_TEXEL * FELD_TEXEL * 4);
   const feldTextur = new THREE.DataTexture(daten, FELD_TEXEL, FELD_TEXEL, THREE.RGBAFormat, THREE.FloatType);
@@ -403,11 +397,64 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
 
   // D272: Halmkarten mit Alpha-Test; mit MSAA (Kontur) weiche Kanten über alphaToCoverage.
   if (GRAS_FEIN) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }
-  const mesh = new THREE.Mesh(geo, material);
-  mesh.frustumCulled = false;
-  mesh.receiveShadow = true;
-  mesh.castShadow = false;
+  const teile: { geo: THREE.InstancedBufferGeometry; x: number; z: number; breite: number; tiefe: number }[] = [];
+  const gruppe = new THREE.Group();
+  for (let z = 0; z < n; z += kachelZellen) {
+    for (let x = 0; x < n; x += kachelZellen) {
+      const breite = Math.min(kachelZellen, n - x);
+      const tiefe = Math.min(kachelZellen, n - z);
+      const geo = new THREE.InstancedBufferGeometry();
+      geo.index = halm.index;
+      geo.setAttribute('position', halm.getAttribute('position'));
+      geo.setAttribute('normal', halm.getAttribute('normal'));
+      if (GRAS_FEIN) geo.setAttribute('uv', halm.getAttribute('uv'));
+      const versatz = new Float32Array(breite * tiefe * 2);
+      for (let i = 0, k = 0; i < tiefe; i++) {
+        for (let j = 0; j < breite; j++) {
+          versatz[k++] = x + j - n / 2;
+          versatz[k++] = z + i - n / 2;
+        }
+      }
+      geo.setAttribute('aZelle', new THREE.InstancedBufferAttribute(versatz, 2));
+      geo.instanceCount = breite * tiefe;
+      if (kachelnAn) geo.boundingSphere = new THREE.Sphere();
+      const teil = new THREE.Mesh(geo, material);
+      teil.frustumCulled = kachelnAn;
+      teil.receiveShadow = true;
+      gruppe.add(teil);
+      teile.push({ geo, x: x - n / 2, z: z - n / 2, breite, tiefe });
+    }
+  }
+  const mesh = kachelnAn ? gruppe : gruppe.children[0]!;
   mesh.name = innen > 0 ? 'Grasteppich-fern' : halb === TEPPICH_HALB ? 'Grasteppich' : 'Grasteppich-nah';
+  const box = new THREE.Box3();
+  // Größtmöglicher Überstand in x/z inklusive Wind, Biegung und breitem Fernhalm.
+  const ueberstand = GRAS_ECHT || GRAS_VIEL ? 5 : 1.3;
+
+  function setzeKachelgrenzen(): void {
+    const raster = uniforms.uRaster.value;
+    const texelIndex = (wert: number, ursprung: number) =>
+      Math.max(0, Math.min(FELD_TEXEL - 1, Math.floor((wert - ursprung) / texel - 0.5)));
+    for (const { geo, x, z, breite, tiefe } of teile) {
+      const x0 = (raster.x + x) * zelle, x1 = x0 + breite * zelle;
+      const z0 = (raster.y + z) * zelle, z1 = z0 + tiefe * zelle;
+      // Bilinearer Fußpunkt liegt zwischen den vier Texeln. Einen zusätzlichen Texel für
+      // Rundung und Clamp am Texturrand einbeziehen.
+      const i0 = Math.max(0, texelIndex(z0, lauf.z0) - 1);
+      const i1 = Math.min(FELD_TEXEL - 1, texelIndex(z1, lauf.z0) + 2);
+      const j0 = Math.max(0, texelIndex(x0, lauf.x0) - 1);
+      const j1 = Math.min(FELD_TEXEL - 1, texelIndex(x1, lauf.x0) + 2);
+      let tief = Infinity, hoch = -Infinity;
+      for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+        const h = daten[(i * FELD_TEXEL + j) * 4]!;
+        tief = Math.min(tief, h);
+        hoch = Math.max(hoch, h);
+      }
+      box.min.set(x0 - ueberstand, tief - 0.01, z0 - ueberstand);
+      box.max.set(x1 + ueberstand, hoch + ueberstand, z1 + ueberstand);
+      box.getBoundingSphere(geo.boundingSphere!);
+    }
+  }
   // Der Fernring füllt (2·halb+8)² Texel — bei 72 m rund 23.000 statt 4.600. Seltener nachziehen;
   // sein Rand liegt im Auslauf, dort sieht man ein paar Meter Versatz nicht.
   const nachziehen = TEPPICH_NACHZIEHEN * Math.max(1, halb / TEPPICH_HALB);
@@ -464,6 +511,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
     daten.set(datenNeu); ton.set(tonNeu);
     uniforms.uFeldUrsprung.value.set(lauf.x0, lauf.z0, 1 / FELD_TEXEL);
     uniforms.uRaster.value.set(Math.round(lauf.mx / zelle), Math.round(lauf.mz / zelle), zelle);
+    if (kachelnAn) setzeKachelgrenzen();
     feldTextur.needsUpdate = true;
     tonTextur.needsUpdate = true;
     return true;
@@ -473,6 +521,9 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
     mesh,
     setzeZeit: (t) => { uniforms.uZeit.value = t; },
     ziehNach,
-    dispose: () => { geo.dispose(); halm.dispose(); material.dispose(); feldTextur.dispose(); tonTextur.dispose(); },
+    dispose: () => {
+      for (const teil of teile) teil.geo.dispose();
+      halm.dispose(); material.dispose(); feldTextur.dispose(); tonTextur.dispose();
+    },
   };
 }

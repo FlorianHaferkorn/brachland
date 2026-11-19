@@ -55,7 +55,7 @@ import { kameraZustand } from '../kampf/kamerazustand.js';
 import { armMitSicht, sichtFrei, ZIEL_RAND, type Versperrt } from '../kampf/sichtlinie.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
-import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
+import { BLENDER_BAEUME, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
 import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
 import { richteHofPropEin } from '../world/hofmaterial.js';
@@ -66,7 +66,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_BILDRUHE_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
+import { HOF_AN, HOF_BILDRUHE_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -3935,6 +3935,12 @@ const FOV_MESSLAUF: number | null = (() => {
 // Alle Prop-Modelle vorladen — sonst poppen sie im ersten Bild nach.
 for (const varianten of Object.values(VARIANTEN))
   for (const v of varianten) useGLTF.preload(propPfad(v.datei));
+// Die Nahstufe verwendet das Blender-Register. Ohne Vorbereitung begann ihr
+// Laden und Dekodieren am ersten LOD-Wechsel während der Hofroute.
+if (HOF_BILDTAKT_AN) {
+  for (const baum of BLENDER_BAEUME)
+    if (baum.stufe === 'nah') useGLTF.preload(propPfad(baum.datei));
+}
 
 /** Was die Szene je halbe Sekunde über sich meldet. */
 export interface Messwerte {

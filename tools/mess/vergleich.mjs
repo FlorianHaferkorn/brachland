@@ -23,12 +23,18 @@ try {
   await seite.screenshot({ path: `${ziel}/start.png` });
   const startHud = await seite.textContent('body');
   await seite.evaluate(() => {
-    window.__vergleich = { zeiten: [], aktiv: true };
-    let vorher = performance.now();
+    const start = performance.now();
+    const lauf = { start, zeitpunkte: [], tastendruck: null, loslassen: null, aktiv: true };
+    window.__vergleich = lauf;
+    window.addEventListener('keydown', e => {
+      if (e.code === 'KeyW' && lauf.tastendruck === null) lauf.tastendruck = performance.now() - start;
+    });
+    window.addEventListener('keyup', e => {
+      if (e.code === 'KeyW') lauf.loslassen = performance.now() - start;
+    });
     const tick = jetzt => {
-      const v = window.__vergleich;
-      if (!v.aktiv) return;
-      v.zeiten.push(jetzt - vorher); vorher = jetzt;
+      if (!lauf.aktiv) return;
+      lauf.zeitpunkte.push(jetzt - start);
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
@@ -38,7 +44,11 @@ try {
   await seite.waitForTimeout(12000);
   await seite.keyboard.up('w');
   await seite.keyboard.up('Shift');
-  const zeiten = await seite.evaluate(() => { window.__vergleich.aktiv = false; return window.__vergleich.zeiten; });
+  const lauf = await seite.evaluate(() => {
+    const l = window.__vergleich; l.aktiv = false;
+    return { zeitpunkte: l.zeitpunkte, tastendruck: l.tastendruck, loslassen: l.loslassen };
+  });
+  const zeiten = lauf.zeitpunkte.map((zeit, i) => zeit - (lauf.zeitpunkte[i - 1] ?? 0));
   const endeHud = await seite.textContent('body');
   const reflexion = await seite.evaluate(() => window.__szene?.userData.wasserReflexMessung ?? null);
   await seite.screenshot({ path: `${ziel}/ende.png` });
@@ -47,7 +57,7 @@ try {
   const quantil = p => sortiert[Math.min(sortiert.length - 1, Math.floor(sortiert.length * p))] ?? null;
   const bericht = { ort, extra, dauerZielSek: 12, bilder: zeiten.length, dauerMs: summe,
     fps: zeiten.length * 1000 / summe, medianMs: quantil(0.5), p95Ms: quantil(0.95),
-    maxMs: quantil(1), ueber50ms: zeiten.filter(z => z > 50).length, startHud, endeHud, reflexion, fehler };
+    maxMs: quantil(1), ueber50ms: zeiten.filter(z => z > 50).length, lauf, startHud, endeHud, reflexion, fehler };
   writeFileSync(`${ziel}/bericht.json`, JSON.stringify(bericht, null, 2));
   console.log(JSON.stringify(bericht, null, 2));
   if (fehler.length || zeiten.length < 10) process.exitCode = 1;

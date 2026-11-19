@@ -52,6 +52,8 @@ export const HOF_ORTSALTERUNG_AN = HOF_VERFALLVERLAUF_AN && an('ortsalterung');
 export const HOF_SILHOUETTE_AN = HOF_ORTSALTERUNG_AN && an('hofsilhouette');
 /** D323: unveränderte Prop-Fernanker wiederverwenden und Klanggraph bei Bedarf aufbauen. */
 export const HOF_BILDRUHE_AN = HOF_ORTSALTERUNG_AN && an('bildruhe');
+/** D324: denselben Hof mit räumlich begrenzter Grasarbeit und vorbereiteten Nahbaumdaten zeichnen. */
+export const HOF_BILDTAKT_AN = HOF_SILHOUETTE_AN && HOF_BILDRUHE_AN && an('bildtakt');
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

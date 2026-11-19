@@ -196,3 +196,30 @@ Zwei CPU-Profile auf dem unveränderten D322-Build hängen beim Spielerstart 143
 Im Gegenprofil mit `bildruhe=1` bei derselben D322-Kulisse tauchen die beiden beobachteten Muster im Laufabschnitt nicht auf. Der beobachtete Aufbau der fünf Gain-Knoten fällt am Startpunkt ohne hörbares Lager weg. Ein 50-ms-Bild mit Lade- und Renderarbeit bleibt. Die lange Browserphase vor der Eingabe bleibt ebenfalls, ohne eindeutig eigenen Verursacher im CPU-Profil. Rohberichte `.cache/mess/d323-cpu-d322-{a,b}` und `.cache/mess/d323-cpu-bildruhe`.
 
 Vier 12-s-Spielmessungen auf dem M1 bei 960 × 540 und Startpunkt 1436/398/171 bei gleichbleibender D323-Kulisse schalten nur `bildruhe` in der Reihenfolge 0/1/1/0 um. Mittlere FPS 34,93 → 32,50. Mittlere p95-Bildzeit 34,75 → 42,15 ms, längstes Einzelbild 100,1 → 52,0 ms. Bilder über 50 ms in je zwei Läufen 6 → 13. Rohberichte unter `.cache/mess/d323-fps-{1,2,3,4}`.
+
+## Bildzeiten bei gleicher Hofkulisse (D324)
+
+Beide Seiten verwenden die D323-Dächer, -Baumkulisse und -Beleuchtung mit `hofsilhouette=1&bildruhe=1`. Im CPU-Profil mit dieser Kulisse fiel rund 1,4 s nach dem Loslaufen ein 50,3-ms-Bild mit fünf Anfragen für Blender-Nahbaumvarianten, Pufferaufbau und Szenenarbeit zusammen. Die Spielmessung erfasst die Bildzeit gesondert. Der Grasteppich schickte je Ring das volle Raster in den Shader, einschließlich der Halme hinter der Kamera.
+
+`bildtakt=1` zeichnet das vorhandene Raster in rund 8 m großen Instanzkacheln. Die Hüllkugeln berücksichtigen die aus der Feldtextur interpolierten Bodentiefen und den maximalen Halmüberstand durch Wind. Der Renderer kann ganze Kacheln außerhalb des Sichtfelds auslassen. Die Halmzellen, der Shader und die Maske der Trittplatten bleiben gleich. Auf der Spielroute liegen zum Start rund 0,61 Mio. weniger Dreiecke an, verteilt auf 167 zusätzliche Aufrufe. Der Foto-Grasmodus verwendet weiterhin seine ursprüngliche Geometrie. Die Nahbaumvarianten werden zusammen mit den bereits vorbereiteten Prop-Modellen vorgeladen. `bildtakt=0` stellt den D323-Pfad wieder her.
+
+Die erste 0/1/1/0-Gegenprobe für die Kachelung allein stieg von 37,22 auf 40,75 FPS. Die Summe über 50 ms sank von vier auf zwei. In beiden Kachelläufen blieb je ein Bild mit rund 67 ms. Rohdaten unter `.cache/mess/d324-kacheln-{a1,b1,b2,a2}`.
+
+Die abschließende 0/1/1/0-Reihe vergleicht dieselbe Kulisse auf dem M1 bei 960 × 540. Der spielbare Lauf startet bei 1436/398/171 mit 15 s Aufwärmen und 12 s Shift+W. A steht für D323, B für Kacheln plus Vorladen. Jedes erfasste Bild bleibt im Messwert.
+
+| Lauf | FPS | Median in ms | p95 in ms | Maximum in ms | Bilder über 50 ms |
+|---|---:|---:|---:|---:|---:|
+| A1 | 37,65 | 31,9 | 35,1 | 35,4 | 0 |
+| B1 | 40,34 | 18,6 | 35,0 | 50,0 | 0 |
+| B2 | 41,18 | 18,5 | 35,1 | 35,4 | 0 |
+| A2 | 37,98 | 31,7 | 35,2 | 51,9 | 2 |
+
+D324 liegt bei 40,76 FPS und 35,05 ms mittlerem p95. Die historische D323-Serie mit Bildruhe lag bei 32,50 FPS und 42,15 ms, mit 13 Bildern über 50 ms und einer Spitze von 52,0 ms. Die aktuelle D323-Kontrolle erreicht bereits 35,15 ms p95. Die isolierte Verbesserung liegt vor allem in FPS, Median und der Zahl der langen Bilder dieser Stichprobe. Rohdaten inklusive Tastengrenzen und aller Bildzeitpunkte liegen unter `.cache/mess/d324-bildtakt-{a1,b1,b2,a2}`.
+
+Das CPU-Gegenprofil erfasst während der Fahrt keine neuen GLB-Anfragen. Beide Profile zeigen eine lange Browserphase unmittelbar zu Beginn ihrer Aufzeichnung. Die Laufwerte in der Tabelle stammen aus den separaten Durchgängen ohne Sampling. Profile unter `.cache/mess/d324-cpu-{vor,nach}`.
+
+Die Echtzeitaufnahmen `.cache/mess/d324-fahrt-{vor,nach}` zeigen den Lauf aus normaler Spielperspektive. `echtzeitfahrt.mjs` schneidet mit den Zeitmarken des Tastendrucks. Browserbilder behalten ihre Standzeiten im 60-Hz-Ausgabevideo. Die Aufnahmen enthalten 347 und 367 CDP-Bilder in je 12,02 s. Die Aufnahme hat eigene Last. Der direkte Bewegungsvergleich liegt unter `.cache/bilder/d324-bildzeit/index.html`.
+
+Auf der unveränderten D323-Route erreicht die Spielfigur nach einigen Sekunden die Fassade und bleibt dort. In den ersten fünf Sekunden nach W-down (vor dem Stehen an der Fassade) steigt die mittlere Bildrate von 37,29 auf 39,43 FPS. Die Zahl der Bilder über 50 ms in diesem Abschnitt sinkt von eins auf null.
+
+`node tools/mess/hauslauf.mjs <name> 0|1 stand bildtakt` prüft die ganze Dachkante, die Kronen und das Vorfeld an vier identischen Kamera- und Windzuständen. Alle 20 geladenen Haus- und Gartenpuffer stimmen mit insgesamt 444.720 Dreiecken überein. In den vier Bildpaaren beträgt die mittlere absolute RGB-Abweichung höchstens 0,014 von 255. Beide Echtzeitaufnahmen und alle acht Kontrollbilder entstanden ohne Browserfehler.
