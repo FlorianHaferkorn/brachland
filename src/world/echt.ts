@@ -46,6 +46,8 @@ export const HOF_LICHT_AN = HOF_DACHBRUCH_AN && an('hoflicht') && suche.get('sti
 export const HOF_ZIELTREUE_AN = HOF_LICHT_AN && an('zieltreue');
 /** D321: abgestufte Schäden zwischen Dach, Fassade und Bewuchs an Haus 308. */
 export const HOF_VERFALLVERLAUF_AN = HOF_ZIELTREUE_AN && an('verfallverlauf');
+/** D322: Alterung aus Bauform, Exposition und Nutzung im spielbaren Ausschnitt. */
+export const HOF_ORTSALTERUNG_AN = HOF_VERFALLVERLAUF_AN && an('ortsalterung');
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

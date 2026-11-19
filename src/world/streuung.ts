@@ -11,9 +11,9 @@
  * Fleck trägt bei jedem Besuch dieselben Büschel.
  */
 import * as THREE from 'three';
-import { HOF_GRAS_AN, HOF_ZIELTREUE_AN } from './echt.js';
-import { HOF_UNIFORM } from './hofplatz.js';
-import { hofgrasFrei } from './hofboden.js';
+import { HOF_GRAS_AN, HOF_ORTSALTERUNG_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import { HOF_UNIFORM, hofVorfeldPfad } from './hofplatz.js';
+import { hofbodenRand, hofgrasFrei } from './hofboden.js';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
 import type { Biom } from './osm.js';
@@ -187,6 +187,13 @@ export function baueStreuMaterial(amplitude = 0.16): {
 
 const hilfe = new THREE.Object3D();
 const hofOrt = new THREE.Vector2();
+const grasTon = new THREE.Color();
+
+function vorfeldGewicht(x: number, z: number): number {
+  if (HOF_UNIFORM.zielHalb.value.x <= 0) return 0;
+  const d = HOF_UNIFORM.zielVorfeld.value;
+  return 1 - THREE.MathUtils.smoothstep(Math.hypot(x - d.x, z - d.y), 8.5, 14.5);
+}
 
 /**
  * Füllt die Instanzmatrizen für die Umgebung von (mx, mz) und gibt die Anzahl zurück.
@@ -205,17 +212,65 @@ export function streueUmgebung(
       ? 1 - THREE.MathUtils.smoothstep(HOF_UNIFORM.mitte.value.distanceTo(hofOrt.set(hilfe.position.x, hilfe.position.z)), 32, 46) : 0;
     const breite = (0.9 + h3 * 0.7) * (1 - amHof * .53);
     hilfe.scale.set(breite, hoehe * (1 - amHof * (.32 + h3 * .15)), breite);
+    if (HOF_ORTSALTERUNG_AN && HOF_GRAS_AN) {
+      const staerke = vorfeldGewicht(hilfe.position.x, hilfe.position.z);
+      hilfe.scale.y *= 1 + staerke * (h1 * h1 * 1.04 - .46);
+      return grasTon.setRGB(1 - staerke * (.39 - h2 * .19), 1 - staerke * (.47 - h2 * .19),
+        1 - staerke * (.52 - h2 * .17));
+    }
   }, HOF_GRAS_AN ? (x, z) => {
     if (!HOF_UNIFORM.bereit.value) return true;
     const d = HOF_UNIFORM.mitte.value.distanceTo(hofOrt.set(x, z));
     if (d >= 48) return true;
     if (!hofgrasFrei(x, z, HOF_UNIFORM.zugaenge.value, HOF_UNIFORM.zugangZahl.value)) return false;
+    if (HOF_ORTSALTERUNG_AN && hofVorfeldPfad(x, z) > hash(Math.floor(x * 71), Math.floor(z * 71), 322)) return false;
     // Horste mit verschieden dichten Zwischenräumen statt gleichmäßig verteilter Sterne.
     const fleck = Math.sin(x * 1.4 + z * .61) * Math.cos(z * 1.18 - x * .39);
     return hash(Math.floor(x * 71), Math.floor(z * 71), 308) >
       (.24 - fleck * .21) * (1 - THREE.MathUtils.smoothstep(d, 32, 46));
   } : undefined);
+  if (HOF_ORTSALTERUNG_AN && HOF_GRAS_AN) {
+    const gesamt = streueVorfeldHorste(feld, mx, mz, mesh, anzahl, faktor);
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    return gesamt;
+  }
   return HOF_ZIELTREUE_AN ? streueVorfeld(feld, mx, mz, mesh, anzahl, faktor) : anzahl;
+}
+
+/** Geländenahe Horste aus versetzten Zellen, mit freien Lücken auf dem ausgetretenen Pfad. */
+function streueVorfeldHorste(feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh,
+  anzahl: number, faktor: number): number {
+  const { x: cx, y: cz, z: nx, w: nz } = HOF_UNIFORM.zielVorfeld.value;
+  const { x: halbU, y: halbV } = HOF_UNIFORM.zielHalb.value;
+  if (halbU <= 0 || faktor <= 0 || Math.hypot(cx - mx, cz - mz) > STREU_RADIUS + 15) return anzahl;
+  const max = Math.min(STREU_MAX, mesh.instanceMatrix.count), schritt = .48;
+  const iuMin = Math.floor((-halbU - 2.5) / schritt), iuMax = Math.ceil((halbU + 5.6) / schritt);
+  const ivMin = Math.floor(-halbV / schritt), ivMax = Math.ceil((halbV + 4.8) / schritt);
+  const { zugaenge, zugangZahl } = HOF_UNIFORM;
+  for (let iv = ivMin; iv <= ivMax && anzahl < max; iv++) for (let iu = iuMin; iu <= iuMax && anzahl < max; iu++) {
+    const u = (iu + hash(iu, iv, 323)) * schritt, v = (iv + hash(iu, iv, 324)) * schritt;
+    const vor = v - halbV, neben = u - halbU;
+    // Nur die freie Seite am Giebel und der Streifen vor der tatsächlichen Wand.
+    if (vor < .19 && neben < .19) continue;
+    const abstand = Math.hypot(Math.max(0, neben), Math.max(0, vor));
+    const x = cx + u * nz + v * nx, z = cz - u * nx + v * nz;
+    const d = Math.hypot(x - mx, z - mz);
+    if (d > STREU_RADIUS || !hofgrasFrei(x, z, zugaenge.value, zugangZahl.value) || gesperrt(x, z, 'streu')
+      || feld.biom(x, z) === 'wasser') continue;
+    const gruppe = .5 + .66 * hofbodenRand(u + 4.17, v - 2.51);
+    const deckung = gruppe * (1 - hofVorfeldPfad(x, z))
+      * (1 - THREE.MathUtils.smoothstep(abstand, 2, 5.3))
+      * (1 - THREE.MathUtils.smoothstep(d, STREU_RADIUS * .76, STREU_RADIUS));
+    if (hash(iu, iv, 325) > deckung * faktor) continue;
+    const reife = hash(iu, iv, 326), breit = .56 + reife * .61;
+    hilfe.position.set(x, hoeheAufFlaeche(feld, x, z), z);
+    hilfe.rotation.set(0, hash(iu, iv, 327) * Math.PI * 2, 0);
+    hilfe.scale.set(breit, .10 + reife * reife * .43, breit);
+    hilfe.updateMatrix();
+    mesh.setColorAt(anzahl, grasTon.setRGB(.57 + reife * .18, .55 + reife * .16, .43 + reife * .16));
+    mesh.setMatrixAt(anzahl++, hilfe.matrix);
+  }
+  return anzahl;
 }
 
 /** Ortstreue Horste in drei schmalen Säumen. Vorhandene Instanzen, Wind und Freihaltung gelten weiter. */

@@ -4,10 +4,13 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-const eckfahrt=['ranke','ruine','einsturz','hofziel','hofdachbruch','hoflicht','zieltreue','verfallverlauf'].includes(profil);
-if(!eckfahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf angeben.');
-const bodennah=eckfahrt||['boden','gras','teppich','verfall'].includes(profil);
-const anzahl=eckfahrt?192:bodennah?288:profil!=='referenz'?216:144;
+const eckfahrt=['ranke','ruine','einsturz','hofziel','hofdachbruch','hoflicht','zieltreue','verfallverlauf','ortsalterung'].includes(profil);
+const strassenfahrt=profil==='ortsstrasse';
+const ortsalterung=profil==='ortsalterung'||strassenfahrt;
+const kurzeFahrt=eckfahrt||strassenfahrt;
+if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse angeben.');
+const bodennah=kurzeFahrt||['boden','gras','teppich','verfall'].includes(profil);
+const anzahl=kurzeFahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
 const ziel=`.cache/mess/${name}`;
 if(existsSync(ziel)) throw Error(`Ausgabe existiert: ${ziel}`);
@@ -31,22 +34,23 @@ parameter.set('hoflauben',profil==='lauben'?probe:bodennah?'1':'0');
 parameter.set('hofboden',profil==='boden'?probe:bodennah?'1':'0');
 if(profil==='gras')parameter.set('hofgras',probe);
 if(profil==='verfall'){parameter.set('hofgras','1');parameter.set('hofverfall',probe);}
-if(eckfahrt){
+if(kurzeFahrt){
  parameter.set('hofgras','1');parameter.set('hofverfall','1');parameter.set('hofranke',profil==='ranke'?probe:'1');
  if(profil==='ruine')parameter.set('hofruine',probe);
  if(profil==='einsturz'){parameter.set('hofruine','1');parameter.set('hofeinsturz',probe);}
- if(['hofziel','hofdachbruch','hoflicht','zieltreue','verfallverlauf'].includes(profil)){
+ if(ortsalterung||['hofziel','hofdachbruch','hoflicht','zieltreue','verfallverlauf'].includes(profil)){
   parameter.set('hofruine','1');parameter.set('hofeinsturz','1');
   parameter.set('hofziel',profil==='hofziel'?probe:'1');
   if(probe==='1'||profil!=='hofziel'){
    parameter.set('stimmung','hofziel');parameter.set('umgebung','6.4');parameter.set('sonne','.73');
   }
-  if(['hoflicht','zieltreue','verfallverlauf'].includes(profil)){
+  if(ortsalterung||['hoflicht','zieltreue','verfallverlauf'].includes(profil)){
    parameter.set('hofdachbruch','1');parameter.set('stimmung','hofdachbruch');
    parameter.set('hoflicht',profil==='hoflicht'?probe:'1');
    if(profil==='zieltreue')parameter.set('zieltreue',probe);
-   if(profil==='verfallverlauf'){
-    parameter.set('zieltreue','1');parameter.set('verfallverlauf',probe);
+   if(profil==='verfallverlauf'||ortsalterung){
+    parameter.set('zieltreue','1');parameter.set('verfallverlauf',ortsalterung?'1':probe);
+    if(ortsalterung)parameter.set('ortsalterung',probe);
    }
   }
   if(profil==='hofdachbruch'){
@@ -54,17 +58,18 @@ if(eckfahrt){
    if(probe==='1')parameter.set('stimmung','hofdachbruch');
   }
  }
- parameter.set('absetzen','1425,403,175');parameter.set('kamera','1424,36.44,403,1426,37.8,409.3');
+ parameter.set('absetzen',strassenfahrt?'1461.65,457.25,103':'1425,403,175');
+ parameter.set('kamera',strassenfahrt?'1461.65,36.05,457.25,1446.7,38.5,460.7':'1424,36.44,403,1426,37.8,409.3');
 }
 if(profil==='teppich'){parameter.set('hofgras','1');parameter.set('teppichspar',probe);}
 const spiel=new URLSearchParams(parameter);spiel.delete('kamera');spiel.delete('fov');
 // Der Spiel-Link startet auf dem freien Weg, nicht am stationären Messanker in der Garage.
-spiel.set('absetzen',eckfahrt?parameter.get('absetzen'):profil==='referenz'?'1444,419,150':'1447,430,200');
+spiel.set('absetzen',kurzeFahrt?parameter.get('absetzen'):profil==='referenz'?'1444,419,150':'1447,430,200');
 try {
  await seite.goto(`http://127.0.0.1:4173/?${parameter}`);
  await seite.waitForFunction(()=>document.body.textContent.includes('Ladezeit')&&window.__szene?.userData.ezKamera,null,{timeout:180000});
  await seite.waitForTimeout(15000);
- await seite.evaluate(({profil,eckfahrt})=>{
+ await seite.evaluate(({profil,eckfahrt,strassenfahrt})=>{
   const s=window.__szene,vorher=s.onBeforeRender;
   window.__haus={index:0,bilder:0,position:[]};
   s.onBeforeRender=function(gl,szene,kamera,ziel){
@@ -75,6 +80,11 @@ try {
     const t=d.index/191;
     kamera.position.set(1424+11*(1-(1-t)**1.3),36.44-.12*t,403+8*t*t);
     kamera.lookAt(1426+.25*t,37.8+.25*t,409.3);
+   } else if(strassenfahrt) {
+    // Südöstlicher Straßenzug am Hof. Blick auf Wohnhäuser und niedrigere Garagen.
+    const t=d.index/191;
+    kamera.position.set(1461.65+13.1*t,36.05+.12*t,457.25+24.42*t);
+    kamera.lookAt(1446.7+15.3*t,38.5,460.7+22.1*t);
    } else if(profil!=='referenz') {
     const abschnitt=Math.floor(d.index/72),t=(d.index%72)/71;
     // Die Hofansichten werden vor dem Messlauf auf freie Kamerapositionen geprüft.
@@ -96,11 +106,11 @@ try {
    }});d.bilder++;
   };
   for(const e of document.querySelectorAll('body *'))if(e.tagName!=='CANVAS'&&!e.querySelector('canvas'))e.style.visibility='hidden';
- },{profil,eckfahrt});
+ },{profil,eckfahrt,strassenfahrt});
  await seite.evaluate(async()=>{for(let i=0;i<8;i++)await new Promise(r=>requestAnimationFrame(r));window.__hausPause();});
  await seite.waitForTimeout(200);
  await seite.evaluate(()=>{for(let i=0;i<64;i++)window.__hausSchritt();});
- const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):eckfahrt?[0,64,127,191]:bodennah?[0,71,143,215,287]:profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
+ const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):kurzeFahrt?[0,64,127,191]:bodennah?[0,71,143,215,287]:profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
  for(const i of indizes){
   await seite.evaluate(({i,profil,modus})=>{window.__haus.index=i;for(let f=0;f<((modus==='stand'||(profil!=='referenz'?i%72===0:i===96))?32:1);f++)window.__hausSchritt();},{i,profil,modus});
   await seite.waitForTimeout(10);

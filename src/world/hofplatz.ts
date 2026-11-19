@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { baueHofbodenkontakt } from './hofbodenkontakt.js';
 import type { Weltdaten } from './osm.js';
 import { orientierteHuelle } from './terrain.js';
-import { HOF_BODEN_AN, HOF_GRAS_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import { HOF_BODEN_AN, HOF_GRAS_AN, HOF_ORTSALTERUNG_AN, HOF_ZIELTREUE_AN } from './echt.js';
 import { hofbodenRand, HOF_ZUGANG_MAX, rastereHofgras } from './hofboden.js';
 import { bestimmeHofhaeuser } from './hofhaeuser.js';
 import type { PropInstanz } from './props.js';
@@ -118,6 +118,7 @@ export function waehleHof(welt: Weltdaten, terrain: Weltmass): Hof | null {
   HOF_UNIFORM.grasRahmen.value.set(0, 0, 0, 0);
   if (HOF_GRAS_AN && hof && haeuser.length) {
     const raster = rastereHofgras(hof.mitte, haeuser.map(h => ({ eingang: h.eingang!, vorne: h.vorne })));
+    if (HOF_ORTSALTERUNG_AN && HOF_UNIFORM.zielHalb.value.x > 0) zeichneVorfeldPfade(raster);
     const t = new THREE.DataTexture(raster.daten, raster.breite, raster.breite, THREE.RedFormat);
     t.minFilter = t.magFilter = THREE.LinearFilter;
     t.needsUpdate = true;
@@ -131,6 +132,54 @@ const glatt = (a: number, b: number, x: number) => {
   const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 };
+
+/** Ausgetretener Zugang zur Traufe und ein schmalerer Pfad um den Giebel. */
+export function hofVorfeldPfad(x: number, z: number): number {
+  const { x: cx, y: cz, z: nx, w: nz } = HOF_UNIFORM.zielVorfeld.value;
+  const { x: halbU, y: halbV } = HOF_UNIFORM.zielHalb.value;
+  const dx = x - cx, dz = z - cz;
+  if (halbU <= 0 || dx * dx + dz * dz > 19 * 19) return 0;
+  const u = dx * nz - dz * nx, v = dx * nx + dz * nz;
+  const vor = v - halbV, neben = u - halbU;
+  const haupt = -0.68 * Math.sin(vor * 0.66) * glatt(.95, 3.0, vor);
+  const rand = hofbodenRand(u, v) * 0.44;
+  const zugang = glatt(.72, 1.85, vor) * (1 - glatt(6.0, 7.7, vor))
+    * (1 - glatt(.30, .95, Math.abs(u - haupt) + rand));
+  const seitlich = halbV - 1.48 + .58 * Math.sin(neben * .83);
+  const giebelseite = glatt(.30, 1.7, neben) * (1 - glatt(5.0, 7.5, neben))
+    * (1 - glatt(.20, .81, Math.abs(v - seitlich) - rand));
+  return Math.max(zugang, giebelseite * .90);
+}
+
+/** Gleiche Pfadkontur im Bodenmaterial, ohne einen weiteren Textur-Sampler. */
+export const HOF_VORFELD_PFAD_GLSL = /* glsl */ `
+float hofVorfeldPfad(vec2 q, vec2 halb) {
+  float vor = q.y - halb.y, neben = q.x - halb.x;
+  float haupt = -0.68 * sin(vor * 0.66) * smoothstep(.95, 3.0, vor);
+  float rand = hofBodenRand(q) * .44;
+  float zugang = smoothstep(.72, 1.85, vor) * (1.0 - smoothstep(6.0, 7.7, vor))
+    * (1.0 - smoothstep(.30, .95, abs(q.x - haupt) + rand));
+  float seitlich = halb.y - 1.48 + .58 * sin(neben * .83);
+  float giebelseite = smoothstep(.30, 1.7, neben) * (1.0 - smoothstep(5.0, 7.5, neben))
+    * (1.0 - smoothstep(.20, .81, abs(q.y - seitlich) - rand));
+  return max(zugang, giebelseite * .90);
+}
+`;
+
+/** Gras und Erde beziehen ihre Pfadkontur aus derselben vorhandenen 8-Bit-Maske. */
+function zeichneVorfeldPfade({ daten, breite, rahmen }: ReturnType<typeof rastereHofgras>): void {
+  const { x: cx, y: cz } = HOF_UNIFORM.zielVorfeld.value;
+  const [x0, z0, skala] = rahmen, schritt = 1 / (skala * breite);
+  const links = Math.max(0, Math.floor((cx - 19 - x0) / schritt));
+  const rechts = Math.min(breite, Math.ceil((cx + 19 - x0) / schritt));
+  const oben = Math.max(0, Math.floor((cz - 19 - z0) / schritt));
+  const unten = Math.min(breite, Math.ceil((cz + 19 - z0) / schritt));
+  for (let j = oben; j < unten; j++) for (let i = links; i < rechts; i++) {
+    const pfad = hofVorfeldPfad(x0 + (i + .5) * schritt, z0 + (j + .5) * schritt);
+    const k = j * breite + i;
+    daten[k] = Math.min(daten[k], Math.round(255 * (1 - pfad)));
+  }
+}
 
 /** Bodenmaske: seitlich/hinten 2,4 m, vorne 6 m; weicher, ortsfester unregelmäßiger Rand. */
 export function hofDeckung(x: number, z: number, hof: Hof | null): number {

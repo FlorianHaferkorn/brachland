@@ -14,7 +14,7 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN } from './echt.js';
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
@@ -56,7 +56,7 @@ float verfallRauschen(vec2 p) {
 }
 `;
 const VERFALL_FARBE = /* glsl */ `
-  float vStufe = ${HOF_ZIEL_AN ? 'vZustand.x - 4.0 * zielHaus' : 'vZustand.x'}, vHoehe = vZustand.y;
+  float vStufe = ${HOF_ORTSALTERUNG_AN ? 'floor(mod(vZustand.x,4.0))' : HOF_ZIEL_AN ? 'vZustand.x - 4.0 * zielHaus' : 'vZustand.x'}, vHoehe = vZustand.y;
   // Bauwelt D287: Das Erdgeschoss ist weiss gekalkt (Denkmalliste: verputztes Nagelfluh-/Feldsteinmauerwerk). Der Paletten-
   // putz las mit dem Scan als grauer Granit — aufhellen; verlassene Häuser vergrauen etwas.
   if (scanR < 0.5) diffuseColor.rgb *= mix(vec3(1.5, 1.48, 1.42), vec3(1.25, 1.24, 1.2), vStufe * 0.5);
@@ -85,7 +85,7 @@ const VERFALL_FARBE = /* glsl */ `
       // Efeu: von unten nach oben, verlassen bis ~3 m, verfallen bis unters Dach; bewohnte Häuser frei.
       float reicht = vStufe < 0.5 ? -1.0 : vStufe < 1.5 ? 3.2 : 7.5;
       float mass = smoothstep(reicht, reicht - 1.8, vHoehe + (n1 - 0.5) * 3.0) * smoothstep(0.35, 0.6, n1 + n2 * 0.25);
-      if (mass > 0.01${HOF_ZIEL_AN ? ' && zielHaus < .5' : ''}) {
+      if (mass > 0.01${HOF_ZIEL_AN ? ' && zielHaus < .5' : ''}${HOF_ORTSALTERUNG_AN ? ' && vZustand.x < 8.0' : ''}) {
         vec2 ep = wp / 0.9;
         vec2 ez = floor(ep);
         float ek = floor(verfallHash(ez) * 16.0);
@@ -287,6 +287,11 @@ const HOF_ZIEL_FARBE = /* glsl */ `
     float reife = smoothstep(.027,.13,samenhell);
     vec3 altersTon = mix(vec3(.70,.87,.83),vec3(.99,1.02,.80),reife);
     diffuseColor.rgb = mix(diffuseColor.rgb, blattFarbe * altersTon * (.38 + 6.1 * samenhell),.79);
+    ${HOF_ORTSALTERUNG_AN ? /* glsl */ `
+    float blattHell = dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
+    vec3 matt = vec3(blattHell) * mix(vec3(.76,.94,.76),vec3(1.06,1.04,.76),reife);
+    diffuseColor.rgb = mix(diffuseColor.rgb,matt,.42);
+    ` : ''}
     ` : /* glsl */ `
     // Blattadern laufen in der Ebene vom Stiel in die drei Blattspitzen.
     vec2 p = vRaumUv.xy;
@@ -306,6 +311,41 @@ const HOF_ZIEL_FARBE = /* glsl */ `
     diffuseColor.rgb *= mix(vec3(1.0),vec3(.66,.70,.59),verfallFeuchte * .60);
   }
   ` : ''}
+`;
+
+const ORTSALTERUNG_FARBE = /* glsl */ `
+  if (vZustand.x >= 8.0 && zielHaus < .5 && scanR < 4.5) {
+    float werte = floor(fract(vZustand.x) * 4096.0 + .5);
+    float feuchte = floor(werte / 64.0) / 63.0;
+    float abnutzung = mod(werte,64.0) / 63.0;
+    vec3 wandNormal = normalize(vHausNormal);
+    float wandAnteil = 1.0 - smoothstep(.46,.73,abs(wandNormal.y));
+    float kuehl = .72 - .24 * wandNormal.z;
+    vec2 ort = vHausPos.xz - uHofMitte;
+    vec2 wand = vec2(dot(ort,vec2(-wandNormal.z,wandNormal.x)), vHausPos.y);
+    float laeufer = verfallRauschen(wand * vec2(1.65,.21));
+    float fleck = verfallRauschen(wand * vec2(1.93,1.37) + ort * .12);
+    float bodennaesse = 1.0 - smoothstep(.18,.35 + 1.92*feuchte*kuehl,vHoehe + (fleck-.45)*.83);
+    float bewittert = abnutzung * (.38 + .62 * fleck);
+    float nass = feuchte * kuehl * max(wandAnteil * bodennaesse,laeufer * (.38 + .36 * abnutzung));
+    vec3 farbe = diffuseColor.rgb;
+    if (scanR < .5 && wandAnteil > .5) {
+      // Unter dem ausgewaschenen Putz kommt körniges, dunkleres Mauerwerk zum Vorschein.
+      float ausbruch = smoothstep(.67,.97,fleck*.56 + laeufer*.24 + bewittert*.47 + nass*.55);
+      float korn = verfallRauschen(wand * 5.4);
+      vec3 stein = vec3(.123,.109,.089) * (.62 + .48*korn + .41*fleck);
+      farbe = mix(farbe * (1.0 - .26*bewittert),stein,ausbruch*.73);
+    } else if (scanR > 1.5 && scanR < 2.5 && wandNormal.y > .32) {
+      float schollen = smoothstep(.52,.84,laeufer*.54 + fleck*.30 + feuchte*.39);
+      farbe = mix(farbe,farbe * vec3(.66,.72,.49),schollen * abnutzung);
+    }
+    // Die waagerechte Trittfläche bleibt lesbar, auch bei nassen Fugen darunter.
+    if (scanR < 2.5 || wandAnteil > .25) {
+      float hell = dot(farbe,vec3(.2126,.7152,.0722));
+      farbe = mix(farbe,vec3(hell) * vec3(1.07,1.0,.88),bewittert*.53);
+      diffuseColor.rgb = farbe * mix(vec3(1.0),vec3(.57,.64,.46),nass*.84);
+    }
+  }
 `;
 
 const HOF_ZIEL_NORMAL = HOF_HAUS_NORMAL.replace('hofLies(uHofNormal, hofScanP, scanR)', /* glsl */ `
@@ -371,7 +411,7 @@ float zielMassstab(float r) { return r < .5 ? 1.0 : r < 1.5 ? .92 : r < 2.5 ? 1.
 ` : '') + (HOF_ZIELTREUE_AN ? '\nuniform sampler2D uHofEfeuFarbe;\n' : ''))
         .replace('#include <color_fragment>', `#include <color_fragment>
   float scanR = floor(vRolle + 0.5);
-  ${HOF_ZIEL_AN ? 'float zielHaus = step(4.0, vZustand.x); if (scanR >= 6.0) scanR = 4.0;' : ''}
+  ${HOF_ZIEL_AN ? `float zielHaus = step(4.0, ${HOF_ORTSALTERUNG_AN ? 'mod(vZustand.x,8.0)' : 'vZustand.x'}); if (scanR >= 6.0) scanR = 4.0;` : ''}
   vec2 scanP = vec2(0.0);
   ${HAUS_SHADER_SPAR_AN ? `${anteilZeile}\n  bool hofVoll = scanR < 3.5 && hofHausAnteil == 1.0;` : ''}
   if (scanR < 3.5) {
@@ -384,7 +424,8 @@ ${BAUWELT_AN ? VERFALL_FARBE : ''}
 ${HAUSFRONT_AN ? frontPass : ''}
 ${HOF_AN ? hofPass.replace('vZustand.y', BAUWELT_AN ? 'vZustand.y' : '1.0') : ''}
 ${HOF_VERFALL_AN ? HOF_VERFALL_FARBE : ''}
-${HOF_ZIEL_AN ? HOF_ZIEL_FARBE : ''}`)
+${HOF_ZIEL_AN ? HOF_ZIEL_FARBE : ''}
+${HOF_ORTSALTERUNG_AN ? ORTSALTERUNG_FARBE : ''}`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   if (scanR < 3.5${HAUS_SHADER_SPAR_AN ? ' && !hofVoll' : ''}) {
     vec3 sn = ${HAUS_SHADER_SPAR_AN ? 'scanLiesGrad(uScanNormal, scanP, scanR, scanGradX, scanGradY)' : 'scanLies(uScanNormal, scanP, scanR)'}.xyz * 2.0 - 1.0;
@@ -435,6 +476,6 @@ ${HOF_ZIELTREUE_AN ? /* glsl */ `
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? '-ortsalterung' : '');
   return material;
 }

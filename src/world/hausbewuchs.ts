@@ -1,6 +1,6 @@
 import { CatmullRomCurve3, Color, Vector3 } from 'three';
 import { mulberry } from './props.js';
-import { HOF_VERFALLVERLAUF_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import { HOF_ORTSALTERUNG_AN, HOF_VERFALLVERLAUF_AN, HOF_ZIELTREUE_AN } from './echt.js';
 
 type Punkt = [number, number, number];
 type Wandkante = readonly [number, number];
@@ -249,7 +249,9 @@ function baueKronenblaetter(
   const dichte = aufstieg * auslauf;
   if (dichte < .10) return;
   const schwung = Math.sin(lauf * 22) * .50 + Math.sin(lauf * 47 + 1.35) * .24;
-  const halbeBreite = .24 + dichte * ((HOF_ZIELTREUE_AN ? .99 : .77) + schwung * .42);
+  // Am oberen Wandanschluss greifen einzelne Triebe weiter in die Traufe.
+  const traufsaum = HOF_ORTSALTERUNG_AN ? .40 * Math.max(0, 1 - Math.abs(lauf - .77) / .16) : 0;
+  const halbeBreite = .24 + dichte * ((HOF_ZIELTREUE_AN ? .99 : .77) + schwung * .42 + traufsaum);
   const mitte = Math.floor(zufall() * KRONENLAUB.length);
   const dunkleSeite = zufall() > .5 ? -1 : 1;
 

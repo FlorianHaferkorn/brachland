@@ -1,8 +1,8 @@
 /** D298: Originale Scan-Albedo und Materialkanäle der begrenzten Hofprobe. */
 import * as THREE from 'three';
-import { HOF_BODEN_AN, HOF_VERFALLVERLAUF_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import { HOF_BODEN_AN, HOF_GRAS_AN, HOF_ORTSALTERUNG_AN, HOF_VERFALLVERLAUF_AN, HOF_ZIELTREUE_AN } from './echt.js';
 import { HOF_ZUGANG_PARS } from './hofboden.js';
-import { HOF_UNIFORM, HOF_PARS } from './hofplatz.js';
+import { HOF_UNIFORM, HOF_PARS, HOF_VORFELD_PFAD_GLSL } from './hofplatz.js';
 
 const texturen = new Map<string, THREE.Texture>();
 export function hofTextur(name: string, farbe = false): THREE.Texture {
@@ -80,6 +80,7 @@ export const HOF_BODEN_PARS = /* glsl */ `
 ${HOF_PARS}
 ${HOF_BODEN_AN ? HOF_ZUGANG_PARS + '\nuniform sampler2D uHofKontakt;\nuniform vec4 uHofKontaktRahmen;' : ''}
 ${HOF_ZIELTREUE_AN ? 'uniform vec4 uHofZielVorfeld;\nuniform vec2 uHofZielHalb;' : ''}
+${HOF_ORTSALTERUNG_AN && HOF_GRAS_AN ? HOF_VORFELD_PFAD_GLSL : ''}
 uniform sampler2D uHofBodenFarbe, uHofBodenNormal, uHofBodenArm;
 uniform float uHofBodenMeter;
 float hofBodenAnteil;
@@ -107,7 +108,7 @@ export const HOF_BODEN_FARBE = /* glsl */ `
   ` : ''}
   ${HOF_ZIELTREUE_AN ? `
   vec2 zielDelta = vWeltPos.xz - uHofZielVorfeld.xy;
-  if (uHofZielHalb.x > 0.0 && dot(zielDelta, zielDelta) < 182.25) {
+  if (uHofZielHalb.x > 0.0 && dot(zielDelta, zielDelta) < ${HOF_ORTSALTERUNG_AN ? '361.0' : '182.25'}) {
     vec2 n = uHofZielVorfeld.zw;
     vec2 q = vec2(dot(zielDelta, vec2(n.y, -n.x)), dot(zielDelta, n));
     vec2 rand = abs(q) - uHofZielHalb;
@@ -125,8 +126,20 @@ export const HOF_BODEN_FARBE = /* glsl */ `
     feuchteErde = mix(feuchteErde,feuchteErde * vec3(.49,.67,.39),moosAmFuss * .73);
     hofBodenAnteil *= 1.0 - saum * .38;
     ` : ''}
+    ${HOF_ORTSALTERUNG_AN ? /* glsl */ `
+    float pfad = ${HOF_GRAS_AN ? 'hofVorfeldPfad(q, uHofZielHalb)' : '0.0'};
+    float naehe = 1.0 - smoothstep(4.0, 8.3, abstand + (fleck - .5) * 2.2);
+    float umfeld = 1.0 - smoothstep(8.0, 13.0, length(zielDelta));
+    float erde = max(saum * .76, pfad * .89);
+    vec3 untergrund = mix(feuchteErde, vec3(.048, .033, .021), .42 + .44 * pfad);
+    diffuseColor.rgb *= mix(vec3(1.0), vec3(.69,.67,.58), naehe * umfeld * .72);
+    diffuseColor.rgb = mix(diffuseColor.rgb, untergrund * (.60 + .80 * fleck), erde);
+    float kiesNester = smoothstep(.41, .76, fleck) * max(saum * .43, pfad * .40);
+    hofBodenAnteil = mix(max(hofBodenAnteil, kiesNester), kiesNester, pfad * .82);
+    ` : `
     diffuseColor.rgb = mix(diffuseColor.rgb, feuchteErde, saum * 0.76);
     hofBodenAnteil = max(hofBodenAnteil, saum * smoothstep(0.18, 0.74, fleck) * 0.72);
+    `}
   }
   ` : ''}
   // Ableitungen vor der Ortsverzweigung halten die Mipwahl an den Maskenrändern stabil.

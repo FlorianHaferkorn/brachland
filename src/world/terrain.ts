@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
@@ -23,6 +23,7 @@ import { baueBruchholz } from './bruchholz.js';
 import { baueLaubenkasten } from './laubenkasten.js';
 import { fassadenKasten, vereinfacheHauswand } from './hausbauteil.js';
 import { gesperrt } from './bauwerke.js';
+import { bestimmeBaualterung, packeBaualterung } from './baualterung.js';
 
 /** Meter je Breitengrad; für Längengrad mit cos(lat) skaliert. */
 const METER_JE_GRAD = 111_320;
@@ -277,9 +278,10 @@ export function baueGebaeude(
   const rollen: number[] = [];
   const raumUv: number[] = [];
   let raumFenster: { x: number; z: number; dx: number; dz: number; unten: number; breite: number; hoehe: number; seed: number } | null = null;
-  /** Verfallsstufe (0–2), an Haus 308 mit Offset 4, und Höhe über dem lokalen Boden. */
+  /** Verfallsstufe (0–2), Zielhaus (4), Ortsalterung (ab 8) und Höhe über dem lokalen Boden. */
   const zustand: number[] = [];
   let stufeJetzt = 0;
+  let alterungJetzt = 0;
   let zielHausJetzt = false;
   let glutWert = 0;
   const glutHash = (x: number, y: number, z: number) => {
@@ -424,7 +426,7 @@ export function baueGebaeude(
         raumUv.push(((v[0]-q.x)*q.dx+(v[2]-q.z)*q.dz)/q.breite+0.5, (v[1]-q.unten)/q.hoehe, q.seed);
       } else raumUv.push(0, 0, 0);
     }
-    for (const v of [a, b, c]) zustand.push(stufeJetzt + (zielHausJetzt ? 4 : 0), v[1] - kontaktBoden(v));
+    for (const v of [a, b, c]) zustand.push(alterungJetzt + stufeJetzt + (zielHausJetzt ? 4 : 0), v[1] - kontaktBoden(v));
   };
 
   /**
@@ -611,7 +613,9 @@ export function baueGebaeude(
     stufeJetzt = g.fassade?.stufe !== undefined && BAUWELT_AN ? Math.min(2, g.fassade.stufe) : stufe;
     // Ein naher Enklavenbewohner pflegt nicht automatisch alle Nachbarhäuser.
     const hofVerfall = HOF_VERFALL_AN && referenzHaus;
-    if (hofVerfall && g.fassade?.stufe === undefined) {
+    const ortsalterung = HOF_ORTSALTERUNG_AN && referenzen.some(({ mitte }) =>
+      (mitte[0]-mx0) ** 2 + (mitte[1]-mz0) ** 2 <= 53 ** 2);
+    if ((hofVerfall || ortsalterung) && g.fassade?.stufe === undefined) {
       const bewohntHier = bewohnt.some(([x,z]) => imPolygon([x,z], p));
       stufeJetzt = bewohntHier ? 0 : wuerfelAus(mz0 + 3.7, mx0 - 1.1)() < .33 ? 1 : 2;
     }
@@ -627,6 +631,9 @@ export function baueGebaeude(
     const dachbruchHaus = HOF_DACHBRUCH_AN && zielHaus;
     const zieltreueHaus = HOF_ZIELTREUE_AN && dachbruchHaus;
     const verlaufHaus = HOF_VERFALLVERLAUF_AN && zieltreueHaus;
+    const ortsprofil = ortsalterung ? bestimmeBaualterung(stufeJetzt, bergseits - unterkante, klein,
+      NUTZBAU.has(g.art) || ebenen === 1, wuerfelAus(mx0 + 21.3,mz0 - 19.5)) : null;
+    alterungJetzt = ortsprofil ? packeBaualterung(ortsprofil) : 0;
     const bewohntHaus = stufeJetzt === 0;
     const wohnGrenze = wohnVorn ? minU + breite * 0.42 : maxU - breite * 0.42;
     /** Liegt ein Weltpunkt im Wirtschaftsteil (Tenne/Stall)? */
@@ -911,11 +918,12 @@ export function baueGebaeude(
           baueBruchholz(tri,fuss,P(.295,holzAb+.87,.085),.29,.25,316308);
         }
       }
-      if ((bauSchaden === 1 || bauSchaden === 2) && wandLaenge >= 2.2 && !(kurvenHaus && k < 2)) {
+      const feuchteWand = ortsprofil && !referenzHaus && stufeJetzt === 2 && ortsprofil.feuchte > .59 && wz < -.38;
+      if ((bauSchaden === 1 || bauSchaden === 2 || feuchteWand) && wandLaenge >= 2.2 && !(kurvenHaus && k < 2)) {
         const saat = Math.floor(glutHash(x1, boden, z1) * 4294967295);
-        const zurGasse = wx * hausReferenz!.vorne[0] + wz * hausReferenz!.vorne[1] > -.2;
-        if (zurGasse || bauSchaden === 2) baueHausbewuchs(tri, [x1,z1], [x2,z2], [wx,wz],
-          terrain.hoeheAn, oben, bauSchaden, saat, k === tuerWand ? eingangU : null, WANDRANKE);
+        const zurGasse = hausReferenz && wx * hausReferenz.vorne[0] + wz * hausReferenz.vorne[1] > -.2;
+        if (zurGasse || bauSchaden === 2 || feuchteWand) baueHausbewuchs(tri, [x1,z1], [x2,z2], [wx,wz],
+          terrain.hoeheAn, oben, bauSchaden === 2 ? 2 : 1, saat, k === tuerWand ? eingangU : null, WANDRANKE);
       }
 
       /**
@@ -1309,22 +1317,33 @@ export function baueGebaeude(
       if (halb <= 0) return traufe;
       return firstH - (firstH - traufe) * Math.min(1, Math.abs(v - mv) / halb);
     };
-    const schadSeite = vz > 0 ? -1 : 1;
+    const sackdach = ortsprofil && !zielHaus && (!echt2 || echt2.d === 3100) && breite >= 5.5
+      && ortsprofil.dachschaden > .30 ? ortsprofil : null;
+    const schadSeite = sackdach && sackdach.lage > .53 ? (vz > 0 ? 1 : -1) : (vz > 0 ? -1 : 1);
     const schadTraufe = schadSeite === -1 ? aV0 : aV1;
     const schadSaat = glutHash(mx0, 31.4, mz0);
-    const schadBreite = ruinenHaus ? Math.min(7.4, breite * .51) : Math.min(5.8, breite * .34);
-    const schadStart = minU + breite * (.21 + schadSaat * .19);
+    const schadBreite = ruinenHaus ? Math.min(7.4, breite * .51)
+      : sackdach ? Math.min(5.0, breite * (.20 + sackdach.dachschaden * .28)) : Math.min(5.8, breite * .34);
+    const schadStart = minU + (sackdach ? (breite - schadBreite) * (.14 + sackdach.lage * .72) : breite * (.21 + schadSaat * .19));
     const bruchDachY = (u: number, v: number) => {
       const y = dachY(v);
+      if (sackdach) {
+        const phase = (u - schadStart) / schadBreite;
+        const mulde = THREE.MathUtils.smoothstep(phase,-.24,.47) * (1 - THREE.MathUtils.smoothstep(phase,.53,1.24));
+        const zurTraufe = Math.max(0, (v-mv) / (schadTraufe-mv));
+        return y - sackdach.dachschaden * mulde * zurTraufe ** 2.3;
+      }
       if (!einsturzspur) return y;
       // Die erhaltene Gegenseite, der First und die äußeren Giebel bleiben Anschlüsse.
       if (zieltreueHaus) {
         const phase = (u - schadStart) / schadBreite;
         const durchhang = verlaufHaus
-          ? THREE.MathUtils.smoothstep(phase,-.20,.44) * (1 - THREE.MathUtils.smoothstep(phase,.64,1.34))
+          ? THREE.MathUtils.smoothstep(phase,ortsalterung ? -.43 : -.20,.44)
+            * (1 - THREE.MathUtils.smoothstep(phase,.64,ortsalterung ? 1.49 : 1.34))
           : Math.max(0, 1 - ((phase - .64) / .67) ** 2);
         const zurTraufe = Math.min(1, Math.max(0, (v - mv) / (schadTraufe - mv)));
-        if (verlaufHaus) return y - (1.49 + .20 * Math.sin(phase * 11.4)) * durchhang * zurTraufe ** 3.4;
+        if (verlaufHaus) return y - ((ortsalterung ? 1.53 : 1.49) + .20 * Math.sin(phase * 11.4))
+          * durchhang * zurTraufe ** (ortsalterung ? 2.74 : 3.4);
         return y - 1.57 * durchhang * zurTraufe ** 4.8;
       }
       const laengs = (u - schadStart) / schadBreite - .46;
@@ -1332,10 +1351,12 @@ export function baueGebaeude(
       const vomFirst = Math.min(1, Math.max(0, (v-mv) / (schadTraufe-mv) * 3.15));
       return y - (dachbruchHaus ? 1.44 : 1.14) * laengsGewicht * vomFirst;
     };
-    const bruch = bauSchaden === 2 && !walm && breite >= 6 && firstH - traufe >= .35
+    const bruch = (bauSchaden === 2 || sackdach) && !walm && breite >= 6 && firstH - traufe >= .35
       ? [0, .24, .56, .79, 1].map((u, i) => ({
         u: schadStart + u * schadBreite,
-        v: schadTraufe + (mv - schadTraufe) * (verlaufHaus ? [0,.127,.208,.127,0] : zieltreueHaus ? [0,.21,.104,.041,0] : dachbruchHaus ? [0,.16,.26,.23,0]
+        v: schadTraufe + (mv - schadTraufe) * (sackdach
+          ? [0,.09+sackdach.lage*.17,.16+sackdach.feuchte*.21,.06+(1-sackdach.lage)*.13,0]
+          : verlaufHaus ? [0,.127,.208,.127,0] : zieltreueHaus ? [0,.21,.104,.041,0] : dachbruchHaus ? [0,.16,.26,.23,0]
           : zielHaus ? [0,.66,.40,.29,0] : ruinenHaus ? [0,.73,.45,.88,0] : [0,.48,.35,.62,0])[i],
       })) : null;
     const splitterRand = bruch && zielHaus ? bruch.flatMap((a, i) => {
@@ -1349,11 +1370,11 @@ export function baueGebaeude(
     }) : bruch;
     const traufenRand = splitterRand && (() => {
       const start = {u:aU0,v:schadTraufe}, ende = {u:aU1,v:schadTraufe};
-      if (!dachbruchHaus) return [start,...splitterRand,ende];
+      if (!dachbruchHaus && !sackdach) return [start,...splitterRand,ende];
       // Sparren und gebogene Dachhaut folgen derselben Absenkung. Auch neben
       // der Öffnung braucht die Haut Stützstellen, sonst ragen Sparren heraus.
       const strecke = (von: number, bis: number) => {
-        const abschnitte = Math.max(1,Math.ceil((bis-von)/.32));
+        const abschnitte = Math.max(1,Math.ceil((bis-von)/(sackdach ? .7 : .32)));
         return Array.from({length:abschnitte-1},(_,i) => ({u:von+(bis-von)*(i+1)/abschnitte,v:schadTraufe}));
       };
       return [start,...strecke(aU0,splitterRand[0].u),...splitterRand,
@@ -1412,7 +1433,7 @@ export function baueGebaeude(
           continue;
         }
         const querA = a.v + (mv-a.v)*.45, querB = b.v + (mv-b.v)*.45;
-        if (einsturzspur) {
+        if (einsturzspur || sackdach) {
           quadNach(E(a.u,a.v),E(b.u,b.v),E(b.u,querB),E(a.u,querA),farbe,normal);
           quadNach(E(a.u,querA),E(b.u,querB),E(b.u,mv),E(a.u,mv),farbe,normal);
         } else quadNach(E(a.u,a.v), E(b.u,b.v), E(b.u,mv), E(a.u,mv), farbe, normal);
@@ -1471,11 +1492,11 @@ export function baueGebaeude(
           welt3(b.u,yB+dick,b.v), welt3(a.u,yA+dick,a.v), zielHaus ? ALTE_SCHINDEL : TUER,richtV(seite));
       }
     }
-    if (splitterRand && zieltreueHaus) {
+    if (splitterRand && (zieltreueHaus || sackdach)) {
       const deckung = verlaufHaus ? [{u:Math.max(aU0+.06,splitterRand[0].u-.90),v:schadTraufe},...splitterRand,
         {u:Math.min(aU1-.06,splitterRand[splitterRand.length-1].u+.94),v:schadTraufe}] : splitterRand;
       baueDachschindeln(tri,quadNach,(u,v,hub) => welt3(u,bruchDachY(u,v)+dick+hub,v),
-        deckung,schadSeite,richtV(schadSeite),SCHINDELTOENE,verlaufHaus);
+        deckung,schadSeite,richtV(schadSeite),SCHINDELTOENE,verlaufHaus || !!sackdach);
     } else if (splitterRand && zielHaus) {
       // Überlappende, nach außen gewölbte Schindeln über der Bruchkante.
       for (let i = 0; i < splitterRand.length - 1; i++) {

@@ -34,7 +34,7 @@ const hash=g=>{
 };
 const result={haeuser:{},bewohntHash:'',eingabeErhalten:false,uniforms:{zahl:HOF_UNIFORM.zugangZahl.value,werte:HOF_UNIFORM.zugaenge.value.map(q=>q.toArray())},auswahl:haeuser};
 const material=new THREE.MeshBasicMaterial({side:THREE.FrontSide}),strahl=new THREE.Raycaster();
-for(const i of [...haeuser.map(h=>h.gebaeudeIndex),352,353,354]) {
+for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,693]) {
   const haus={...welt.gebaeude[i],lod2:lod[i]},g=baueGebaeude(welt,boden,[haus],[[hof.mitte[0],hof.mitte[1]-75]],haeuser);
   const p=g.getAttribute('position'),r=g.getAttribute('rolle'),z=g.getAttribute('zustand'),glut=g.getAttribute('glut'),uv=g.getAttribute('raumUv');
   const referenz=haeuser.find(h=>h.gebaeudeIndex===i);
@@ -90,12 +90,13 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),352,353,354]) {
       for(const seitlich of [-.86,-.32,.32,.86])wandTiefen.push(messTiefe(seitlich,oben-.36));
     }
   }
-  result.haeuser[i]={hash:hash(g),ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen,wandTiefen,schuttEcken,balkenEcken,dachHoehen};
+  const positionHash=createHash('sha256').update(Buffer.from(p.array.buffer,p.array.byteOffset,p.array.byteLength)).digest('hex');
+  result.haeuser[i]={hash:hash(g),positionHash,ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen,wandTiefen,schuttEcken,balkenEcken,dachHoehen};
   if(i===297){
     const innen=referenz.mitte;
     if(!imPolygon(innen,ringe[i])) throw Error('Bewohnerprobe muss im Grundriss liegen');
     const bewohnt=baueGebaeude(welt,boden,[haus],[innen],haeuser);
-    if(bewohnt.getAttribute('zustand').getX(0)===0) result.bewohntHash=hash(bewohnt);
+    if(Math.floor(bewohnt.getAttribute('zustand').getX(0)%4)===0) result.bewohntHash=hash(bewohnt);
     bewohnt.dispose();
   }
   indexiert.dispose();g.dispose();
@@ -104,7 +105,7 @@ material.dispose();result.eingabeErhalten=vorher===JSON.stringify(welt.gebaeude)
 console.log(JSON.stringify(result));`;
 
 interface Hausbefund {
-  hash: string; ecken: number; stufe: number; endlich: boolean; raumFalsch: number; glutFalsch: number; licht: number;
+  hash: string; positionHash: string; ecken: number; stufe: number; endlich: boolean; raumFalsch: number; glutFalsch: number; licht: number;
   kontaktFehler: number; oberePlatten: number; blockiert: number; ausserhalbVorfeld: number;
   indexGleich: boolean; tritte: boolean[]; tuerTiefen: (number | null)[]; wandTiefen: (number | null)[]; schuttEcken: number;
   balkenEcken: number; dachHoehen: Record<string, number>;
@@ -127,6 +128,7 @@ const dachbruch = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinstu
 const zielbildQuery = '&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1&hofdachbruch=1&hoflicht=1&stimmung=hofdachbruch&zieltreue=1';
 const zieltreue = lauf(zielbildQuery);
 const verlauf = lauf(zielbildQuery + '&verfallverlauf=1');
+const ortsprobe = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -215,5 +217,17 @@ pruefe('D321: Die gestaffelte Bruchkante liegt nur an Haus 308',
 pruefe('D321: Auslaufende Bruchstellen verändern weder Trittplatten noch den Türquerschnitt',
   gealtert.tritte.length === 2 && gealtert.tritte.every(Boolean)
   && gealtert.tuerTiefen.every((tiefe, i) => tiefe === zielbildhaus.tuerTiefen[i]));
+const strassenHaeuser = [316, 343, 355];
+pruefe('D322: Eigenständige Alterungswerte außerhalb des Hofverbunds, Fernhaus bleibt bytegleich',
+  strassenHaeuser.every(i => ortsprobe.haeuser[i].stufe >= 8 && ortsprobe.haeuser[i].hash !== verlauf.haeuser[i].hash)
+  && new Set(strassenHaeuser.map(i => ortsprobe.haeuser[i].stufe)).size === strassenHaeuser.length
+  && ortsprobe.haeuser[693].hash === verlauf.haeuser[693].hash,
+  strassenHaeuser.map(i => `${i}=${ortsprobe.haeuser[i].stufe}`).join(', '));
+pruefe('D322: Neben der Materialalterung variiert die Dachgeometrie weiterer Häuser',
+  strassenHaeuser.some(i => ortsprobe.haeuser[i].positionHash !== verlauf.haeuser[i].positionHash));
+pruefe('D322: Grundrisse, Fensterglut der bewohnten Probe, Tritte und Türquerschnitt bleiben gültig',
+  ortsprobe.eingabeErhalten && ortsprobe.bewohntHash.length > 0
+  && Object.values(ortsprobe.haeuser).every(h => h.endlich && h.indexGleich && h.raumFalsch === 0 && h.glutFalsch === 0 && h.tritte.every(Boolean))
+  && ortsprobe.haeuser[308].tuerTiefen.every((tiefe, i) => tiefe === gealtert.tuerTiefen[i]));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;
