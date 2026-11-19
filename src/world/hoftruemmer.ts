@@ -59,7 +59,7 @@ export function baueSchalungsriss(
 /** D320: versetzte Deckreihen auf der eingesunkenen Dachhaut. */
 export function baueDachschindeln(
   dreieck: Dreieck, quad: HausQuad, P: Dachpunkt, rand: readonly Dachkante[],
-  zurTraufe: -1 | 1, aussen: Punkt, holztoene: readonly Color[], verlauf = false,
+  zurTraufe: -1 | 1, aussen: Punkt, holztoene: readonly Color[], verlauf = false, bruchhaut = false,
 ): void {
   const zufall = mulberry(320308);
   const start = rand[0].u, ende = rand[rand.length - 1].u;
@@ -69,7 +69,7 @@ export function baueDachschindeln(
     const a = rand[i - 1], b = rand[i];
     return a.v + (b.v - a.v) * (u - a.u) / (b.u - a.u);
   };
-  for (let reihe = 0; reihe < 6; reihe++) {
+  for (let reihe = 0; reihe < (bruchhaut ? 8 : 6); reihe++) {
     // Die Deckung folgt den Latten. Nur die unteren Reihen sind an der Abrisskante ausgerissen.
     for (let u0 = start + (reihe % 2) * .14; u0 < ende - .105;) {
       const breit = .18 + zufall() * .24;
@@ -80,18 +80,21 @@ export function baueDachschindeln(
       const loseDeckung = verlauf && randUebergang > .65 && nahAmBruch;
       if (!nahAmBruch || zufall() > .19) {
         const mitte = (u0 + u1) / 2;
-        const laenge = .38 + zufall() * .22;
+        const laenge = (bruchhaut ? .46 : .38) + zufall() * .22;
         const ueberstand = nahAmBruch ? .10 + zufall() * .27 : .04 * zufall();
         const spreizung = loseDeckung ? .29 : nahAmBruch ? .25 : .105;
         // Am auslaufenden Rand liegt die Deckung wieder auf der Traufe auf.
         const ueberschuss = verlauf ? -.16 + (ueberstand+.16)*randUebergang : ueberstand;
         const v = tiefe(mitte) + zurTraufe * (ueberschuss - reihe * .286);
-        const v0 = v + zurTraufe * (zufall() - .5) * spreizung;
-        const v1 = v + zurTraufe * (zufall() - .5) * spreizung;
+        const v0 = v + (bruchhaut ? tiefe(u0) - tiefe(mitte) : 0) + zurTraufe * (zufall() - .5) * spreizung;
+        const v1 = v + (bruchhaut ? tiefe(u1) - tiefe(mitte) : 0) + zurTraufe * (zufall() - .5) * spreizung;
         const lippe = .038 + zufall() * .062 * randUebergang + (loseDeckung ? (zufall()-.7)*.071 : 0);
-        const a = P(u0,v0,lippe), b = P(u1,v1,lippe + (zufall() - .5) * .052);
+        // Frontenden einzelner Deckbretter sacken ab. Die firstseitige
+        // Überlappung liegt auf der nächsten Reihe und bleibt unverformt.
+        const abknick = bruchhaut && loseDeckung ? (.06 + zufall()*.17) * (1 - reihe*.45) : 0;
+        const a = P(u0,v0,lippe-abknick), b = P(u1,v1,lippe-abknick + (zufall() - .5) * .052);
         const c = P(u1-.018,v1-zurTraufe*laenge,.025), d = P(u0+.015,v0-zurTraufe*laenge,.032);
-        const aUnten = P(u0,v0,lippe-.052), bUnten = P(u1,v1,lippe-.046);
+        const aUnten = P(u0,v0,lippe-abknick-.052), bUnten = P(u1,v1,lippe-abknick-.046);
         const farbe = holztoene[Math.floor(zufall() * holztoene.length)];
         quad(a,b,c,d,farbe,OBEN);
         quad(aUnten,bUnten,b,a,SCHNITT,aussen);
@@ -99,8 +102,8 @@ export function baueDachschindeln(
           // Nur über der fehlenden Schalung kann man die Unterseite und einzelne lange Fasern sehen.
           quad(aUnten,d,c,bUnten,UNTERSICHT,UNTEN);
           if (zufall() > .45) {
-            const spitze = P(mitte + (zufall() - .5) * .11,v+zurTraufe*(.10+zufall()*.15),lippe-.14-zufall()*.34);
-            const faser = P(mitte,v,-.014), riss = P(mitte+.04,v,lippe-.02);
+            const spitze = P(mitte + (zufall() - .5) * .11,v+zurTraufe*(.10+zufall()*.15),lippe-abknick-.14-zufall()*.34);
+            const faser = P(mitte,v,-.014-abknick), riss = P(mitte+.04,v,lippe-abknick-.02);
             dreieck(faser,spitze,riss,SCHNITT);
             dreieck(faser,riss,spitze,UNTERSICHT);
           }

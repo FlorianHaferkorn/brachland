@@ -34,7 +34,7 @@ const hash=g=>{
 };
 const result={haeuser:{},bewohntHash:'',eingabeErhalten:false,uniforms:{zahl:HOF_UNIFORM.zugangZahl.value,werte:HOF_UNIFORM.zugaenge.value.map(q=>q.toArray())},auswahl:haeuser};
 const material=new THREE.MeshBasicMaterial({side:THREE.FrontSide}),strahl=new THREE.Raycaster();
-for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,693]) {
+for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,508,510,512,693]) {
   const haus={...welt.gebaeude[i],lod2:lod[i]},g=baueGebaeude(welt,boden,[haus],[[hof.mitte[0],hof.mitte[1]-75]],haeuser);
   const p=g.getAttribute('position'),r=g.getAttribute('rolle'),z=g.getAttribute('zustand'),glut=g.getAttribute('glut'),uv=g.getAttribute('raumUv');
   const referenz=haeuser.find(h=>h.gebaeudeIndex===i);
@@ -129,6 +129,7 @@ const zielbildQuery = '&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinstur
 const zieltreue = lauf(zielbildQuery);
 const verlauf = lauf(zielbildQuery + '&verfallverlauf=1');
 const ortsprobe = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1');
+const silhouette = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -229,5 +230,18 @@ pruefe('D322: Grundrisse, Fensterglut der bewohnten Probe, Tritte und Türquersc
   ortsprobe.eingabeErhalten && ortsprobe.bewohntHash.length > 0
   && Object.values(ortsprobe.haeuser).every(h => h.endlich && h.indexGleich && h.raumFalsch === 0 && h.glutFalsch === 0 && h.tritte.every(Boolean))
   && ortsprobe.haeuser[308].tuerTiefen.every((tiefe, i) => tiefe === gealtert.tuerTiefen[i]));
+const westhaeuser = [508, 510, 512];
+pruefe('D323: Die Weststraße erhält individuelle Alterung außerhalb der Hofauswahl',
+  westhaeuser.every(i => ortsprobe.haeuser[i].stufe >= 8 && ortsprobe.haeuser[i].hash !== verlauf.haeuser[i].hash)
+  && new Set(westhaeuser.map(i => ortsprobe.haeuser[i].stufe)).size === westhaeuser.length
+  && westhaeuser.some(i => ortsprobe.haeuser[i].positionHash !== verlauf.haeuser[i].positionHash)
+  && ortsprobe.haeuser[506].hash === verlauf.haeuser[506].hash);
+pruefe('D323: Die Dachkorrektur betrifft nur die beiden Häuser an der Giebelfuge',
+  silhouette.haeuser[308].positionHash !== ortsprobe.haeuser[308].positionHash
+  && Object.entries(silhouette.haeuser).every(([i, h]) => h.endlich && h.indexGleich
+    && (i === '308' || i === '346' || h.hash === ortsprobe.haeuser[Number(i)].hash)));
+pruefe('D323: Beide Hofplatten und derselbe Türquerschnitt bleiben frei',
+  silhouette.haeuser[308].tritte.length === 2 && silhouette.haeuser[308].tritte.every(Boolean)
+  && silhouette.haeuser[308].tuerTiefen.every((tiefe, i) => tiefe === ortsprobe.haeuser[308].tuerTiefen[i]));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

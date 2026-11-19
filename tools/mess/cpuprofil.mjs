@@ -1,5 +1,5 @@
 /** CPU-Profil desselben spielbaren Laufs wie vergleich.mjs, ohne Video.
- * node tools/mess/cpuprofil.mjs <neuer-name> [url-zusatz] [port] [build-verzeichnis] [x,z,grad]
+ * node tools/mess/cpuprofil.mjs <neuer-name> [url-zusatz] [port] [build-verzeichnis] [x,z,grad] [ausreisser-ms]
  * Fuer Zuordnung: Vite-Produktionsbuild mit Sourcemaps und passenden Preview-Port starten.
  * CPU-Profiling kostet selbst Zeit; Bildraten separat mit vergleich.mjs messen.
  */
@@ -8,10 +8,12 @@ import path from 'node:path';
 import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
 import { playwright } from './pw.mjs';
 
-const [name, extra = '', port = '4174', build = '.cache/cpuprofil-build', ort = '0,0,310'] = process.argv.slice(2);
+const [name, extra = '', port = '4174', build = '.cache/cpuprofil-build', ort = '0,0,310', schwellenText = '100'] = process.argv.slice(2);
+const ausreisserMs = Number(schwellenText);
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
 if (!/^\d+$/.test(port)) throw new Error('Numerischen lokalen Preview-Port angeben.');
 if (!/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(ort)) throw new Error('Ort als x,z,grad angeben.');
+if (!Number.isFinite(ausreisserMs) || ausreisserMs < 16) throw new Error('Ausreisserschwelle ab 16 ms angeben.');
 const ziel = `.cache/mess/${name}`;
 if (existsSync(ziel)) throw new Error(`Ausgabe existiert bereits: ${ziel}`);
 mkdirSync(ziel, { recursive: true });
@@ -25,15 +27,31 @@ await seite.addInitScript(() => {
   window.__cpuAudio = messung;
   window.__cpuUploads = [];
   const webgl = WebGL2RenderingContext.prototype;
-  const bufferData = webgl.bufferData;
-  webgl.bufferData = function (...args) {
-    const byte = args[1]?.byteLength ?? 0;
-    if (!window.__cpuBildlauf?.aktiv || byte < 1024 * 1024) return bufferData.apply(this, args);
-    const beginn = performance.now();
-    const ergebnis = bufferData.apply(this, args);
-    window.__cpuUploads.push({ beginnMs: beginn, byte, cpuMs: performance.now() - beginn });
-    return ergebnis;
-  };
+  for (const name of ['bufferData', 'bufferSubData']) {
+    const original = webgl[name];
+    webgl[name] = function (...args) {
+      if (!window.__cpuBildlauf?.aktiv) return original.apply(this, args);
+      const quelle = args[name === 'bufferData' ? 1 : 2];
+      const offset = args[3] ?? 0;
+      const anzahl = args[4] || (quelle?.length ?? 0) - offset;
+      const byte = anzahl * (quelle?.BYTES_PER_ELEMENT ?? 0) || quelle?.byteLength || 0;
+      if (byte < 256 * 1024) return original.apply(this, args);
+      const beginn = performance.now();
+      const ergebnis = original.apply(this, args);
+      window.__cpuUploads.push({ beginnMs: beginn, name, byte, cpuMs: performance.now() - beginn });
+      return ergebnis;
+    };
+  }
+  window.__cpuLangzeit = [];
+  if (PerformanceObserver.supportedEntryTypes.includes('long-animation-frame')) {
+    const beobachter = new PerformanceObserver(liste => {
+      for (const eintrag of liste.getEntries()) if (window.__cpuBildlauf?.aktiv) {
+        window.__cpuLangzeit.push({ startMs: eintrag.startTime, dauerMs: eintrag.duration, blockiertMs: eintrag.blockingDuration,
+          skripte: eintrag.scripts.map(s => ({ name: s.sourceFunctionName, dauerMs: s.duration, position: s.sourceCharPosition, quelle: s.sourceURL })) });
+      }
+    });
+    beobachter.observe({ type: 'long-animation-frame' });
+  }
   const protokoll = (name, dauer, beginn) => {
     const e = messung.aufrufe[name] ?? { anzahl: 0, ms: 0, maximumMs: 0, ersterBeginnMs: beginn };
     e.anzahl++; e.ms += dauer; e.maximumMs = Math.max(e.maximumMs, dauer); messung.aufrufe[name] = e;
@@ -83,7 +101,7 @@ try {
   messen = false;
   const { profile } = await cdp.send('Profiler.stop');
   const bildzeitpunkte = await seite.evaluate(() => { window.__cpuBildlauf.aktiv = false; return window.__cpuBildlauf.zeitpunkte; });
-  const { audio, uploads } = await seite.evaluate(() => ({ audio: window.__cpuAudio, uploads: window.__cpuUploads }));
+  const { audio, uploads, langzeit } = await seite.evaluate(() => ({ audio: window.__cpuAudio, uploads: window.__cpuUploads, langzeit: window.__cpuLangzeit }));
   const hud = await seite.textContent('body');
   const maps = new Map();
   const abbilden = f => {
@@ -122,7 +140,7 @@ try {
   const langeBilder = [];
   for (let i = 1; i < bildzeitpunkte.length; i++) {
     const anfang = bildzeitpunkte[i - 1] + zeitVersatz, ende = bildzeitpunkte[i] + zeitVersatz;
-    if (ende - anfang < 100) continue;
+    if (ende - anfang < ausreisserMs || bildzeitpunkte[i] - bildzeitpunkte[0] < 250) continue;
     const anteile = new Map();
     for (const a of abtastungen) {
       const ueberlapp = Math.max(0, Math.min(ende, a.zeit) - Math.max(anfang, a.zeit - a.dauer));
@@ -131,10 +149,11 @@ try {
       anteile.set(key, (anteile.get(key) ?? 0) + ueberlapp);
     }
     langeBilder.push({ abMs: +(bildzeitpunkte[i - 1] - bildzeitpunkte[0]).toFixed(1), dauerMs: +(ende - anfang).toFixed(1),
+      hauptthread: langzeit.filter(e => e.startMs + zeitVersatz < ende && e.startMs + e.dauerMs + zeitVersatz > anfang),
       uploads: uploads.filter(u => u.beginnMs + zeitVersatz >= anfang && u.beginnMs + zeitVersatz < ende),
       top: [...anteile].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([funktion, ms]) => ({ funktion, ms: +ms.toFixed(1) })) });
   }
-  const bericht = { ort, extra, port, build, dauerMs: (profile.endTime - profile.startTime) / 1000,
+  const bericht = { ort, extra, port, build, ausreisserMs, dauerMs: (profile.endTime - profile.startTime) / 1000,
     samples: profile.samples?.length ?? 0, topSelbst: [...rang].sort((a, b) => b.selbstMs - a.selbstMs).slice(0, 60),
     topInklusive: [...rang].sort((a, b) => b.inklusiveMs - a.inklusiveMs).slice(0, 60), langeBilder, audio, uploads, hud, anfragen, fehler,
     hinweis: 'Sampling-Hauptthread, weder GPU-Zeit noch kausaler Beweis fuer Bildausreisser; Profiler erzeugt Eigenlast.' };

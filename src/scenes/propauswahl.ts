@@ -92,6 +92,18 @@ export interface Auswahl {
   buendelKacheln: Set<string>;
 }
 
+/** Nahkandidaten und Fernzuordnung bleiben zwischen zwei Fernankern gleich. */
+export interface PropAnkerCache {
+  stand?: {
+    quelle: readonly PropChunk[];
+    x: number;
+    z: number;
+    weite: number;
+    kandidaten: PropChunk[];
+    buendelKacheln: Set<string>;
+  };
+}
+
 /**
  * Welche der zwei verschieden getakteten Listen neu gebaut werden muss.
  * Ein neuer Fernanker erzwingt die Nahliste mit: Er verschiebt ihre gemeinsame
@@ -115,26 +127,33 @@ export function propListenNeu(nahAbstand: number, fernAbstand: number): { nah: b
 export function waehleProps(
   chunks: readonly PropChunk[], p: readonly [number, number],
   anker: readonly [number, number], bauBuendel: boolean,
-  warGebuendelt?: ReadonlySet<string>, weite = 1,
+  warGebuendelt?: ReadonlySet<string>, weite = 1, cache?: PropAnkerCache,
 ): Auswahl {
   const attrappeAb = ATTRAPPE_AB * weite, mittelAb = MITTEL_AB * weite;
   const sicht = (c: PropChunk) => KLEINKRAM.has(c.art) ? c.sichtweite : Math.min(TERRAIN_SICHT, c.sichtweite * weite);
   const nah: { c: PropChunk; stufe: PropStufe }[] = [];
   const buendel = new Map<PropArt, PropChunk[]>();
-  const buendelKacheln = new Set<string>();
+  const stand = cache?.stand;
+  const bekannt = !bauBuendel && stand !== undefined && stand.quelle === chunks
+    && stand.x === anker[0] && stand.z === anker[1] && stand.weite === weite;
+  const buendelKacheln = bekannt ? stand.buendelKacheln : new Set<string>();
+  const kandidaten: PropChunk[] | null = cache && !bekannt ? [] : null;
 
-  for (const c of chunks) {
-    const vomAnker = Math.hypot(anker[0] - c.mitte[0], anker[1] - c.mitte[1]);
-    if (vomAnker > attrappeAb) {
-      buendelKacheln.add(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`);
-      // Sichtweite um die Ankerstrecke erweitert: Was in den nächsten 60 m in
-      // Reichweite gerät, ist schon drin, statt später hineinzupoppen.
-      if (bauBuendel && vomAnker - c.radius <= sicht(c) + FERN_NEUBEWERTUNG) {
-        let ziel = buendel.get(c.art);
-        if (!ziel) { ziel = []; buendel.set(c.art, ziel); }
-        ziel.push(c);
+  for (const c of bekannt ? stand.kandidaten : chunks) {
+    if (!bekannt) {
+      const vomAnker = Math.hypot(anker[0] - c.mitte[0], anker[1] - c.mitte[1]);
+      if (vomAnker > attrappeAb) {
+        buendelKacheln.add(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`);
+        // Sichtweite um die Ankerstrecke erweitert: Was in den nächsten 60 m in
+        // Reichweite gerät, ist schon drin, statt später hineinzupoppen.
+        if (bauBuendel && vomAnker - c.radius <= sicht(c) + FERN_NEUBEWERTUNG) {
+          let ziel = buendel.get(c.art);
+          if (!ziel) { ziel = []; buendel.set(c.art, ziel); }
+          ziel.push(c);
+        }
+        continue;
       }
-      continue;
+      kandidaten?.push(c);
     }
     const mitte = Math.hypot(p[0] - c.mitte[0], p[1] - c.mitte[1]);
     // Sichtbarkeit über den **nächsten Rand**: Ein Chunk, von dem eine Ecke in
@@ -232,6 +251,7 @@ export function waehleProps(
     }
     nah.push({ c, stufe: mitte > mittelAb ? 'mittel' : 'nah' });
   }
+  if (cache && kandidaten) cache.stand = { quelle: chunks, x: anker[0], z: anker[1], weite, kandidaten, buendelKacheln };
   return { nah: legeMittelZusammen(nah), buendel, buendelKacheln };
 }
 

@@ -4,11 +4,13 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-const eckfahrt=['ranke','ruine','einsturz','hofziel','hofdachbruch','hoflicht','zieltreue','verfallverlauf','ortsalterung'].includes(profil);
-const strassenfahrt=profil==='ortsstrasse';
-const ortsalterung=profil==='ortsalterung'||strassenfahrt;
+const hofsilhouette=profil==='hofsilhouette';
+const eckfahrt=hofsilhouette||['ranke','ruine','einsturz','hofziel','hofdachbruch','hoflicht','zieltreue','verfallverlauf','ortsalterung'].includes(profil);
+const weststrasse=profil==='weststrasse';
+const strassenfahrt=profil==='ortsstrasse'||weststrasse;
+const ortsalterung=profil==='ortsalterung'||hofsilhouette||strassenfahrt;
 const kurzeFahrt=eckfahrt||strassenfahrt;
-if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse angeben.');
+if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette angeben.');
 const bodennah=kurzeFahrt||['boden','gras','teppich','verfall'].includes(profil);
 const anzahl=kurzeFahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
@@ -50,7 +52,8 @@ if(kurzeFahrt){
    if(profil==='zieltreue')parameter.set('zieltreue',probe);
    if(profil==='verfallverlauf'||ortsalterung){
     parameter.set('zieltreue','1');parameter.set('verfallverlauf',ortsalterung?'1':probe);
-    if(ortsalterung)parameter.set('ortsalterung',probe);
+    if(ortsalterung)parameter.set('ortsalterung',hofsilhouette?'1':probe);
+    if(hofsilhouette)parameter.set('hofsilhouette',probe);
    }
   }
   if(profil==='hofdachbruch'){
@@ -58,8 +61,13 @@ if(kurzeFahrt){
    if(probe==='1')parameter.set('stimmung','hofdachbruch');
   }
  }
- parameter.set('absetzen',strassenfahrt?'1461.65,457.25,103':'1425,403,175');
- parameter.set('kamera',strassenfahrt?'1461.65,36.05,457.25,1446.7,38.5,460.7':'1424,36.44,403,1426,37.8,409.3');
+ if(weststrasse){
+  parameter.set('absetzen','1358.45,413,245');
+  parameter.set('kamera','1358.45,37.75,413,1380,39.8,423');
+ } else {
+  parameter.set('absetzen',strassenfahrt?'1461.65,457.25,103':'1425,403,175');
+  parameter.set('kamera',strassenfahrt?'1461.65,36.05,457.25,1446.7,38.5,460.7':'1424,36.44,403,1426,37.8,409.3');
+ }
 }
 if(profil==='teppich'){parameter.set('hofgras','1');parameter.set('teppichspar',probe);}
 const spiel=new URLSearchParams(parameter);spiel.delete('kamera');spiel.delete('fov');
@@ -69,7 +77,7 @@ try {
  await seite.goto(`http://127.0.0.1:4173/?${parameter}`);
  await seite.waitForFunction(()=>document.body.textContent.includes('Ladezeit')&&window.__szene?.userData.ezKamera,null,{timeout:180000});
  await seite.waitForTimeout(15000);
- await seite.evaluate(({profil,eckfahrt,strassenfahrt})=>{
+ await seite.evaluate(({profil,eckfahrt,strassenfahrt,weststrasse})=>{
   const s=window.__szene,vorher=s.onBeforeRender;
   window.__haus={index:0,bilder:0,position:[]};
   s.onBeforeRender=function(gl,szene,kamera,ziel){
@@ -80,6 +88,11 @@ try {
     const t=d.index/191;
     kamera.position.set(1424+11*(1-(1-t)**1.3),36.44-.12*t,403+8*t*t);
     kamera.lookAt(1426+.25*t,37.8+.25*t,409.3);
+   } else if(weststrasse) {
+    // Westlicher Wohnweg 600 in den Œntal-Daten. Freistehende Satteldächer 508, 510 und 512.
+    const t=d.index/191;
+    kamera.position.set(1358.45+19.45*t,37.75+.30*t,413+43*t);
+    kamera.lookAt(1380+21*t,39.8+.30*t,423+32*t);
    } else if(strassenfahrt) {
     // Südöstlicher Straßenzug am Hof. Blick auf Wohnhäuser und niedrigere Garagen.
     const t=d.index/191;
@@ -106,7 +119,7 @@ try {
    }});d.bilder++;
   };
   for(const e of document.querySelectorAll('body *'))if(e.tagName!=='CANVAS'&&!e.querySelector('canvas'))e.style.visibility='hidden';
- },{profil,eckfahrt,strassenfahrt});
+ },{profil,eckfahrt,strassenfahrt,weststrasse});
  await seite.evaluate(async()=>{for(let i=0;i<8;i++)await new Promise(r=>requestAnimationFrame(r));window.__hausPause();});
  await seite.waitForTimeout(200);
  await seite.evaluate(()=>{for(let i=0;i<64;i++)window.__hausSchritt();});

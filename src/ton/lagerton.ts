@@ -8,6 +8,8 @@
  * Der AudioContext wird ohne Ton im Leerlauf vorbereitet. Der Klanggraph und
  * `resume()` entstehen erst bei einer expliziten Eingabe (Autoplay-Regel).
  */
+import { HOF_BILDRUHE_AN } from '../world/echt.js';
+
 const VOLL = 8, STILL = 45;
 
 let ctx: AudioContext | null = null;
@@ -16,6 +18,9 @@ let knisterPegel: GainNode | null = null;
 let murmelPegel: GainNode | null = null;
 let rauschen: AudioBuffer | null = null;
 let naechsterKnack = 0;
+let gesteGesehen = false;
+let graphGeplant = false;
+let lagerHoerbar = false;
 
 /** Nur den Kontext vorbereiten; ohne verbundene Quellen kann kein Ton entstehen. */
 function bereiteVor(): AudioContext | null {
@@ -78,7 +83,11 @@ if (typeof window !== 'undefined') {
   if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(() => { bereiteVor(); }, { timeout: 1500 });
   else window.setTimeout(() => { bereiteVor(); }, 0);
   const an = () => {
-    starte();
+    if (HOF_BILDRUHE_AN) {
+      gesteGesehen = true;
+      bereiteVor();
+      if (ctx?.state === 'running') return;
+    } else starte();
     try { void ctx?.resume().catch(() => { /* Naechste Geste darf erneut entsperren. */ }); }
     catch { /* Ein Browser kann resume auch synchron verweigern. */ }
   };
@@ -88,6 +97,19 @@ if (typeof window !== 'undefined') {
 
 /** Pro Bild: Abstand zum nächsten besetzten Lager (m) und ob es Nacht ist. `Infinity` = kein Lager. */
 export function lagerTon(abstand: number, nacht: boolean): void {
+  if (HOF_BILDRUHE_AN && !master) {
+    // Entsperren bleibt in der Eingabegeste. Der Klanggraph wird erst am hörbaren Lager gebraucht.
+    lagerHoerbar = abstand < STILL;
+    if (gesteGesehen && ctx?.state === 'running' && lagerHoerbar && !graphGeplant) {
+      graphGeplant = true;
+      const fuelleGraph = () => {
+        graphGeplant = false;
+        if (lagerHoerbar && ctx?.state === 'running') starte();
+      };
+      if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(fuelleGraph, { timeout: 150 });
+      else window.setTimeout(fuelleGraph, 0);
+    }
+  }
   if (!ctx || !master || !murmelPegel) return;
   const t = ctx.currentTime;
   const nah = Math.max(0, Math.min(1, (STILL - abstand) / (STILL - VOLL)));

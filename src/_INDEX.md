@@ -87,7 +87,7 @@ owns: *.ts, *.tsx
 | `ui/BattleScreen.tsx` | Kampfoberfläche: Moves, Wechsel, Fangen, Rückzug. An die Szene angebunden |
 | `ui/Kampfbuehne.tsx` | Kreaturen im Kampfbild — eine kleine Leinwand für beide Seiten, Leerlaufatmung und Trefferzucken |
 | `world/hausmaterial.ts` | Hausmaterial mit **Fensterglut** (D134); D295: Glasreflexion vor `lights_fragment_end` verstärkt, damit `RE_IndirectSpecular` den Wert tatsächlich liest. ein `glut`-Attribut je Ecke aus `terrain.ts`, eine Zeile Emissiv im Shader, `userData.glut.value` je Stimmung — nachts brennen Fenster ohne zweiten Draw Call. Gärten (`baender.ts`) tragen Glut 0, sonst scheitert das Fassen mit den Häusern |
-| `world/hofgruenwahl.ts` | D299: ortsfeste, referenzerhaltende Baumaufteilung vor dem Chunking und Grobfilter für Strauch-Kacheln. |
+| `world/hofgruenwahl.ts` | Baumaufteilung vor dem Chunking und Grobfilter für Strauch-Kacheln (D299). D323 staffelt vorhandene Laub- und Nadelbäume am Hof. |
 | `world/hofstrauch.ts` | D299/D302: sechs geteilte, deterministische Mehrstammformen mit Blattbüschelkarten und Wind; unter hofgruen dieselbe760Dreieck-Quellform auch fern, Gegenprobe strauchweit=0. |
 | `world/hofplatz.ts` | D298: aus dem realen Grundriss abgeleitete Hofmaske, CPU/GLSL und geteilte Uniforms; Messprobe `?scanhof=1`. |
 | `world/hofmaterial.ts` | D298: originale sRGB-Scanfarben, Normalen, Rauheit/AO und Kies am Hof; gemeinsame Texturen nur bei aktivierter Probe. |
@@ -126,7 +126,7 @@ owns: *.ts, *.tsx
 | `kampf/spritzer.ts` | D190: sichtbare Elementwirkung — Tropfen/Staub (eine InstancedMesh, 80 Teilchen) und ein auslaufender Bodenring beim Entladen des Funkens |
 | `kampf/kamerazustand.ts` | D189: Was die Kamera zeigt (`vorn` = Vorder-, Seiten-, Gegneransicht) — die Kamera schreibt, der Kampfplatz blendet danach Zielmarke und Fächer aus |
 | `kampf/sichtlinie.ts` | D192: Sichtlinie bei Zielaufschaltung, rein — `armMitSicht` kürzt den Schulterarm, bis Figur **und** Ziel frei zu sehen sind; `sichtFrei` prüft eine Strecke gegen dieselbe Frage wie die Kamera (Kollisionsfeld + Gelände) |
-| `ton/lagerton.ts` | Lagerton (D181/D254): Knistern und gedämpftes Murmeln an besetzten Wegelagern aus WebAudio; Kontext wird stumm im Leerlauf vorbereitet, Quellen und Resume starten erst bei einer Eingabe. Fallback bei verweigerter Vorbereitung. |
+| `ton/lagerton.ts` | Knistern und gedämpftes Murmeln an besetzten Wegelagern aus WebAudio. Der Kontext wird im Leerlauf vorbereitet und bei Eingabe entsperrt. `bildruhe=1` baut den Klanggraph bei Annäherung an ein hörbares Lager im Leerlauf auf. |
 | `spieler/tempo.ts` | Gehen, Rennen, Schwerkraft, Absprung — an **einer** Stelle. Vorher standen dieselben Zahlen in `scenes/RegionsSzene.tsx`, im Ledger D18 und in `tools/masstab.ts`, und alle drei waren verschieden (G-66). Rein, damit die Werkzeuge sie importieren können |
 | `spieler/gleiten.ts` | Gleiten: Verhältnis 3:1, Sinkrate 4,0 m/s, Öffnen ab 3 m Fallhöhe. Das Verhältnis ist **gemessen** (`npm run gleit`, D71), nicht gewählt. Freigeschaltet mit dem Regenten, abgeleitet statt gespeichert. Rein und getestet |
 | `world/wasserfeld.ts` | `querAn` (D263): nächster Bachabschnitt mit Querrichtung für das Querbett. Wassertiefe an einem Punkt: 1.506 Bachsegmente in 32-m-Eimern **plus 11 Weiher als Polygone**, mit konservativem Rechteckvorfilter (D254). Grundlage von Waten, Schwimmen und dem aus dem Gelände geschnittenen Bett. |

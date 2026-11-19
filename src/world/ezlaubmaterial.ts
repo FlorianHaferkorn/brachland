@@ -42,11 +42,17 @@ export function bewahreEzBlattschatten(mesh: THREE.Mesh<THREE.BufferGeometry, TH
 }
 
 /** Nach anderen Shader-Anpassungen aufrufen; vorhandene Hooks bleiben erhalten. */
-export function ergaenzeEzLaublicht(material: THREE.Material, matt = false): void {
+export function ergaenzeEzLaublicht(material: THREE.Material, matt = false, kulisse?: 'laubbaum' | 'nadelbaum'): void {
   const vorher = material.onBeforeCompile;
   const programm = material.customProgramCacheKey.bind(material);
+  const kulissenton = kulisse ? { value: kulisse === 'laubbaum'
+    ? new THREE.Vector3(1.13, 1.04, 0.67) : new THREE.Vector3(0.91, 0.99, 0.87) } : null;
   material.onBeforeCompile = (shader, renderer) => {
     vorher.call(material, shader, renderer);
+    if (kulissenton) {
+      shader.uniforms.uEzKulissenton = kulissenton;
+      shader.fragmentShader = 'uniform vec3 uEzKulissenton;\n' + shader.fragmentShader;
+    }
     // Phong behält selbst bei schwarzer Glanzfarbe Fresnel-Reflexe im Streiflicht.
     if (matt) shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_end>',
       '#include <lights_fragment_end>\nreflectedLight.directSpecular = vec3(0.0);');
@@ -59,20 +65,25 @@ export function ergaenzeEzLaublicht(material: THREE.Material, matt = false): voi
       vec3 ezBlattfarbe = max(diffuseColor.rgb, vec3(0.0));
       float ezBlatthelligkeit = dot(ezBlattfarbe, vec3(0.2126, 0.7152, 0.0722));
       diffuseColor.rgb = ezBlattfarbe * inversesqrt(max(ezBlatthelligkeit, 0.01));
+      ${kulisse ? /* glsl */ `
+        // Gedämpfte Olive an den breiten Laubkronen und kühle Töne am Nadelsaum.
+        float ezLicht = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+        diffuseColor.rgb = mix(diffuseColor.rgb, uEzKulissenton * ezLicht, 0.72) * 0.67;
+      ` : ''}
     `);
     shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_end>', /* glsl */ `
       #include <lights_fragment_end>
       // Rueckseitiges Sonnenlicht wie beim bestehenden Baum-Laubmaterial.
       #if NUM_DIR_LIGHTS > 0
         float ezRueck = max(0.0, -dot(geometryNormal, directionalLights[0].direction));
-        reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * directionalLights[0].color * ezRueck * 0.45;
+        reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * directionalLights[0].color * ezRueck * ${kulisse ? '0.32' : '0.45'};
       #endif
       // Ein kleiner Anteil mehrfach gestreuten Himmelslichts in dichten Kronen.
       #if NUM_HEMI_LIGHTS > 0
-        reflectedLight.indirectDiffuse += BRDF_Lambert(diffuseColor.rgb) * getHemisphereLightIrradiance(hemisphereLights[0], geometryNormal) * 0.35;
+        reflectedLight.indirectDiffuse += BRDF_Lambert(diffuseColor.rgb) * getHemisphereLightIrradiance(hemisphereLights[0], geometryNormal) * ${kulisse ? '0.25' : '0.35'};
       #endif
     `);
   };
-  material.customProgramCacheKey = () => `${programm()}:ez-laublicht-v3${matt ? ':matt' : ''}`;
+  material.customProgramCacheKey = () => `${programm()}:ez-laublicht-v3${matt ? ':matt' : ''}${kulisse ? ':kulisse' : ''}`;
   material.needsUpdate = true;
 }

@@ -12,6 +12,22 @@ export interface HofBaumAuswahl {
   rest: PropInstanz[];
 }
 
+/** Die stehenden Laubbäume am Giebel und der Nadelbaumsaum liegen in verschiedenen Tiefen. */
+export function staffeleHofBaeume(props: PropInstanz[], mitte: readonly [number, number]): void {
+  for (const p of props) {
+    const x = p.position[0] - mitte[0], z = p.position[2] - mitte[1];
+    if (p.art === 'nadelbaum') {
+      // Die kleineren Bäume am hinteren Rand füllen den Saum unter den größeren Kronen.
+      const rand = Math.max(0, 1 - Math.hypot((x - 6) / 22, (z - 37) / 22));
+      if (rand > 0) p.skalierung *= 1 + rand * Math.max(0, 1.18 - p.skalierung) * 0.96;
+    } else if (p.art === 'laubbaum') {
+      // Die Giebelgruppe breitet sich tiefer aus, der höchste Teil bleibt hinter dem Ortgang.
+      const giebel = Math.max(0, 1 - Math.hypot((x + 25) / 17, (z + 11) / 14));
+      if (giebel > 0) p.skalierung *= 1 - giebel * .10;
+    }
+  }
+}
+
 /** Vor dem Chunking trennen, damit kein Instanzmesh lokale und nicht ersetzte Bäume vermischt. */
 export function teileHofBaeume(props: readonly PropInstanz[], mitte: readonly [number, number] | null,
   radius = HOF_BAUM_RADIUS): HofBaumAuswahl {

@@ -48,6 +48,10 @@ export const HOF_ZIELTREUE_AN = HOF_LICHT_AN && an('zieltreue');
 export const HOF_VERFALLVERLAUF_AN = HOF_ZIELTREUE_AN && an('verfallverlauf');
 /** D322: Alterung aus Bauform, Exposition und Nutzung im spielbaren Ausschnitt. */
 export const HOF_ORTSALTERUNG_AN = HOF_VERFALLVERLAUF_AN && an('ortsalterung');
+/** D323: Dachkontur und Baumgruppen für das Zielbild am Hof. */
+export const HOF_SILHOUETTE_AN = HOF_ORTSALTERUNG_AN && an('hofsilhouette');
+/** D323: unveränderte Prop-Fernanker wiederverwenden und Klanggraph bei Bedarf aufbauen. */
+export const HOF_BILDRUHE_AN = HOF_ORTSALTERUNG_AN && an('bildruhe');
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

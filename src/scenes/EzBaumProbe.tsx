@@ -8,7 +8,7 @@ import { EZ_BLEND_DAUER, EZ_STUFEN, ezIntervall, ezWechsel } from './ezlod.js';
 import type { EzIntervall, EzVerlauf } from './ezlod.js';
 import { ergaenzeEzLaublicht, bewahreEzBlattschatten, beruhigeEzBlattkante } from '../world/ezlaubmaterial.js';
 import { getLeafTexture, warteEzBlattkarten } from '../world/eztexturen.js';
-import { HOF_GRUEN_AN, BLATTRUHE_AN, BLATTVERLAUF_AN, MSAA } from '../world/echt.js';
+import { HOF_GRUEN_AN, HOF_SILHOUETTE_AN, BLATTRUHE_AN, BLATTVERLAUF_AN, MSAA } from '../world/echt.js';
 
 type Stufe = 'nah' | 'mittel' | 'fern';
 type BaumArt = 'nadelbaum' | 'laubbaum';
@@ -192,7 +192,17 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
       for (const art of ['nadelbaum', 'laubbaum'] as const) for (let variante = 0; variante < 4; variante++) {
         const baum = new ez.Tree();
         baum.loadPreset(art === 'nadelbaum' ? 'Pine Medium' : 'Oak Medium');
-        if (variante) { baum.options.seed += variante * 137; baum.generate(); }
+        const hofKulisse = HOF_SILHOUETTE_AN && nurHof;
+        const breiteKrone = hofKulisse && art === 'laubbaum';
+        if (breiteKrone) {
+          // Gleiche Anzahl von Ästen und Blattkarten. Die unteren Äste reichen weiter aus.
+          baum.options.branch.start[1] *= 0.86;
+          baum.options.branch.length[1] *= 1.24;
+          baum.options.branch.length[2] *= 1.10;
+          baum.options.leaves.size *= 1.08;
+          baum.options.leaves.sizeVariance *= 0.79;
+        }
+        if (variante || breiteKrone) { baum.options.seed += variante * 137; baum.generate(); }
         const material = baum.leavesMesh.material;
         if (Array.isArray(material)) throw new Error('EZ-Baumprobe erwartet ein Laubmaterial.');
         const laub = material as THREE.MeshPhongMaterial;
@@ -205,7 +215,7 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
           map: laub.map, alphaTest: laub.alphaTest, side: laub.side });
         windEinbauen(laub, windZeit); windEinbauen(tiefe, windZeit);
         blendeEinbauen(laub, windZeit); blendeEinbauen(tiefe, windZeit);
-        ergaenzeEzLaublicht(laub, BLATTVERLAUF_AN);
+        ergaenzeEzLaublicht(laub, BLATTVERLAUF_AN, hofKulisse ? art : undefined);
         if (laub.alphaToCoverage) beruhigeEzBlattkante(laub);
         const stammMaterial = baum.branchesMesh.material;
         if (Array.isArray(stammMaterial)) throw new Error('EZ-Baumprobe erwartet ein Stammmaterial.');

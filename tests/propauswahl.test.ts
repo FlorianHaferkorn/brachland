@@ -12,7 +12,7 @@
  * nach jedem Schritt muss jeder Chunk, der überhaupt in Reichweite ist, in genau
  * einer Liste stehen.
  */
-import { buendleFernProps, propListenNeu, waehleProps } from '../src/scenes/propauswahl.js';
+import { buendleFernProps, propListenNeu, waehleProps, type PropAnkerCache } from '../src/scenes/propauswahl.js';
 import { ATTRAPPE_AB, FERN_NEUBEWERTUNG, MITTEL_AB, PROP_NEUBEWERTUNG } from '../src/scenes/sichtweiten.js';
 import type { PropArt, PropChunk } from '../src/world/props.js';
 
@@ -55,6 +55,26 @@ const chunks = raster('nadelbaum', 420);
  * Kachel gezeichnet".
  */
 const kachel = (c: PropChunk) => `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
+
+// D323: Fernzuordnung skaliert mit dem Anker, LOD und Übergang weiter mit der Kamera.
+{
+  const cache: PropAnkerCache = {};
+  const kenne = (a: ReturnType<typeof waehleProps>) => JSON.stringify([a.nah, [...a.buendel], [...a.buendelKacheln]]);
+  let vorher: ReadonlySet<string> | undefined;
+  for (const [p, anker, bauBuendel, weite] of [
+    [[0, 0], [0, 0], true, 1], [[8, 0], [0, 0], false, 1], [[16, 8], [0, 0], false, 1],
+    [[60, 0], [60, 0], true, 1], [[68, 0], [60, 0], false, 1.4],
+  ] as const) {
+    const alt = waehleProps(chunks, p, anker, bauBuendel, vorher, weite);
+    const neu = waehleProps(chunks, p, anker, bauBuendel, vorher, weite, cache);
+    pruefe('Fernankercache erhält Anordnung, Übergänge und Bündel', kenne(alt) === kenne(neu));
+    vorher = neu.buendelKacheln;
+  }
+  const weitere = [...chunks, ...raster('laubbaum', 420, 70)];
+  const p = [68, 0] as const, anker = [60, 0] as const;
+  pruefe('Bei neuen Propdaten wird der Fernankercache ersetzt', kenne(waehleProps(weitere, p, anker, false, vorher, 1.4, cache))
+    === kenne(waehleProps(weitere, p, anker, false, vorher, 1.4)));
+}
 
 // ---------------------------------------------------- 1. Keine Doppelung
 {

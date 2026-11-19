@@ -66,7 +66,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
+import { HOF_AN, HOF_BILDRUHE_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -100,7 +100,7 @@ const KEINE_CLIPS: THREE.AnimationClip[] = [];
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB, WEITE_WEIT } from './sichtweiten.js';
-import { buendleFernProps, propListenNeu, waehleProps, type PropStufe } from './propauswahl.js';
+import { buendleFernProps, propListenNeu, waehleProps, type PropAnkerCache, type PropStufe } from './propauswahl.js';
 import { verteileKreaturen, rueckkehrVorkommen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
@@ -870,6 +870,7 @@ function Props({ props, hofBaum = false, wind, grasWind, farnWind, grasScanWind,
   const letzteFern = useRef(new THREE.Vector3(NaN, NaN, NaN));
   /** Kacheln, die im vorigen Durchlauf Attrappen waren — siehe `waehleProps` (D164). */
   const vorigeAttrappen = useRef<ReadonlySet<string> | undefined>(undefined);
+  const propAnker = useRef<PropAnkerCache>({});
   // Neue Sichtweite (D247): beide Listen sofort neu, statt auf die nächsten 8/60 m Lauf zu warten.
   useEffect(() => { letzte.current.set(NaN, NaN, NaN); letzteFern.current.set(NaN, NaN, NaN); }, [weite]);
 
@@ -897,7 +898,7 @@ function Props({ props, hofBaum = false, wind, grasWind, farnWind, grasScanWind,
     // Sie zwingen die Kette über die Mittelstufe, statt vom Kegel aufs volle Modell zu
     // springen — gemessen 6 solcher Sprünge in 24 s Lauf (D164, `propauswahl.ts`).
     const { nah, buendel, buendelKacheln } = waehleProps(
-      chunks, [p.x, p.z], anker, fernNeu, vorigeAttrappen.current, weite);
+      chunks, [p.x, p.z], anker, fernNeu, vorigeAttrappen.current, weite, HOF_BILDRUHE_AN ? propAnker.current : undefined);
     vorigeAttrappen.current = buendelKacheln;
 
     // Ein neuer Fernanker verschiebt auch die Grenze zwischen Chunk und Bündel.
