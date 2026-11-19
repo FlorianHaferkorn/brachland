@@ -42,9 +42,12 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,5
   const p=g.getAttribute('position'),r=g.getAttribute('rolle'),z=g.getAttribute('zustand'),glut=g.getAttribute('glut'),uv=g.getAttribute('raumUv');
   const referenz=haeuser.find(h=>h.gebaeudeIndex===i);
   let endlich=true,raumFalsch=0,glutFalsch=0,kontaktFehler=0,oberePlatten=0,blockiert=0,ausserhalbVorfeld=0,licht=0,schuttEcken=0,balkenEcken=0;
+  let blattecken=0, holzrahmen=0, tiefeOeffnung=0;
   const dachHoehen={};
   for(const a of Object.values(g.attributes)) {endlich&&=a.count===p.count;for(const wert of a.array)endlich&&=Number.isFinite(wert);}
   for(let j=0;j<p.count;j++) {
+    if(r.getX(j)===7) blattecken++;
+    if(r.getX(j)===6) holzrahmen++;
     if(glut.getX(j)!==0){licht++;if(r.getX(j)!==5)glutFalsch++;}
     if(r.getX(j)!==5 && r.getX(j)!==7 && (uv.getX(j)!==0||uv.getY(j)!==0||uv.getZ(j)!==0))raumFalsch++;
     if(referenz && Math.abs(z.getY(j)-(p.getY(j)-hoehe(p.getX(j),p.getZ(j))))>2e-5)kontaktFehler++;
@@ -73,6 +76,22 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,5
     for(let j=0;j<a.count;j++)for(let k=0;k<a.itemSize;k++)if(a.array[j*a.itemSize+k]!==b.array[indexiert.index.getX(j)*a.itemSize+k])indexGleich=false;
   }
   const tritte=[], tuerTiefen=[], wandTiefen=[];
+  if(i===508) {
+    const ring=ringe[i], wandBoden=Math.min(...ring.map(([x,z])=>hoehe(x,z)));
+    const flaeche=ring.slice(0,-1).reduce((s,[x,z],k)=>s+x*ring[k+1][1]-z*ring[k+1][0],0);
+    const mesh=new THREE.Mesh(g,material);
+    mesh.updateMatrixWorld();
+    for(let k=0;k<ring.length-1;k++){
+      const [x,z]=ring[k], dx=ring[k+1][0]-x, dz=ring[k+1][1]-z, laenge=Math.hypot(dx,dz);
+      if(laenge<3) continue;
+      const nx=dz/laenge*Math.sign(flaeche), nz=-dx/laenge*Math.sign(flaeche);
+      for(let u=1;u<20;u++){
+        strahl.set(new THREE.Vector3(x+dx*u/20+nx*1.2,wandBoden+lod[i].t*.79,z+dz*u/20+nz*1.2),new THREE.Vector3(-nx,0,-nz));
+        const tiefe=strahl.intersectObject(mesh,false)[0]?.distance;
+        if(tiefe!==undefined&&tiefe>2.35&&tiefe<4.05) tiefeOeffnung++;
+      }
+    }
+  }
   if(referenz?.eingang) {
     const mesh=new THREE.Mesh(g,material);mesh.updateMatrixWorld();
     for(const vor of [.76,1.30]) {
@@ -94,7 +113,7 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,5
     }
   }
   const positionHash=createHash('sha256').update(Buffer.from(p.array.buffer,p.array.byteOffset,p.array.byteLength)).digest('hex');
-  result.haeuser[i]={hash:hash(g),positionHash,ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen,wandTiefen,schuttEcken,balkenEcken,dachHoehen};
+  result.haeuser[i]={hash:hash(g),positionHash,ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen,wandTiefen,schuttEcken,balkenEcken,dachHoehen,blattecken,holzrahmen,tiefeOeffnung};
   if(i===297){
     const innen=referenz.mitte;
     if(!imPolygon(innen,ringe[i])) throw Error('Bewohnerprobe muss im Grundriss liegen');
@@ -112,6 +131,7 @@ interface Hausbefund {
   kontaktFehler: number; oberePlatten: number; blockiert: number; ausserhalbVorfeld: number;
   indexGleich: boolean; tritte: boolean[]; tuerTiefen: (number | null)[]; wandTiefen: (number | null)[]; schuttEcken: number;
   balkenEcken: number; dachHoehen: Record<string, number>;
+  blattecken: number; holzrahmen: number; tiefeOeffnung: number;
 }
 interface Stand {
   haeuser: Record<number, Hausbefund>; eingabeErhalten: boolean; bewohntHash: string;
@@ -134,6 +154,7 @@ const verlauf = lauf(zielbildQuery + '&verfallverlauf=1');
 const ortsprobe = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1');
 const silhouette = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1');
 const westprobe = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1');
+const westdetail = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1&westdetail=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -261,5 +282,17 @@ pruefe('D329: Drei unterscheidbare und verlustfrei indexierte Zustände',
   westhaeuser.map(i => `${i}: ${silhouette.haeuser[i].ecken/3} → ${westprobe.haeuser[i].ecken/3}`).join(', '));
 pruefe('D329: Fensterglut nur im instandgesetzten Haus',
   !westprobe.haeuser[508].licht && !westprobe.haeuser[510].licht && westprobe.haeuser[512].licht > 0);
+pruefe('D330: Detailgeometrie nur an den drei Häusern und verlustfrei indexierbar',
+  Object.entries(westprobe.haeuser).every(([i,h]) => {
+    const detail = westdetail.haeuser[Number(i)];
+    return (westhaeuser.includes(Number(i)) === (h.hash !== detail.hash))
+      && detail.endlich && detail.indexGleich && !detail.raumFalsch && !detail.glutFalsch;
+  }));
+pruefe('D330: Sichtstrahlen treffen den mehr als einen Meter tiefen Innenraum bei 508',
+  westdetail.haeuser[508].tiefeOeffnung > westprobe.haeuser[508].tiefeOeffnung + 3,
+  `${westprobe.haeuser[508].tiefeOeffnung} → ${westdetail.haeuser[508].tiefeOeffnung}`);
+pruefe('D330: Texturierte Efeublätter bei 510 und 3D-Rahmenrollen an allen drei Fassaden',
+  westdetail.haeuser[510].blattecken > westprobe.haeuser[510].blattecken
+    && westhaeuser.every(i => westdetail.haeuser[i].holzrahmen > 0));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

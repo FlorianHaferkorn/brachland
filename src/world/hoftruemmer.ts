@@ -60,8 +60,9 @@ export function baueSchalungsriss(
 export function baueDachschindeln(
   dreieck: Dreieck, quad: HausQuad, P: Dachpunkt, rand: readonly Dachkante[],
   zurTraufe: -1 | 1, aussen: Punkt, holztoene: readonly Color[], verlauf = false, bruchhaut = false,
+  saat = 320308,
 ): void {
-  const zufall = mulberry(320308);
+  const zufall = mulberry(saat);
   const start = rand[0].u, ende = rand[rand.length - 1].u;
   const tiefe = (u: number) => {
     const i = rand.findIndex(kante => kante.u >= u);

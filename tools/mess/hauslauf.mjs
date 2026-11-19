@@ -4,7 +4,8 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-const westverfall=profil==='westverfall';
+const westdetail=profil==='westdetail';
+const westverfall=profil==='westverfall'||westdetail;
 const bildspitzen=profil==='bildspitzen'||westverfall;
 const kachelnachlauf=profil==='kachelnachlauf'||bildspitzen;
 const bildfluss=profil==='bildfluss'||kachelnachlauf;
@@ -15,7 +16,7 @@ const weststrasse=profil==='weststrasse';
 const strassenfahrt=profil==='ortsstrasse'||weststrasse;
 const ortsalterung=profil==='ortsalterung'||hofsilhouette||strassenfahrt;
 const kurzeFahrt=eckfahrt||strassenfahrt;
-if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette|bildtakt|bildfluss|kachelnachlauf|bildspitzen|westverfall angeben.');
+if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette|bildtakt|bildfluss|kachelnachlauf|bildspitzen|westverfall|westdetail angeben.');
 const bodennah=kurzeFahrt||['boden','gras','teppich','verfall'].includes(profil);
 const anzahl=kurzeFahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
@@ -82,7 +83,8 @@ if(kurzeFahrt){
   parameter.set('kamera',[...start,...ziel].join(','));
   parameter.set('fov','55');
   parameter.set('teppichspar','1');
-  parameter.set('westverfall',probe);
+  parameter.set('westverfall',westdetail?'1':probe);
+  if(westdetail) parameter.set('westdetail',probe);
  } else if(weststrasse){
   parameter.set('absetzen','1358.45,413,245');
   parameter.set('kamera','1358.45,37.75,413,1380,39.8,423');

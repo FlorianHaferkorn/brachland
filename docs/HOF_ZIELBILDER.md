@@ -330,3 +330,23 @@ Die dreifache Ansicht mit gleichem Licht und gleicher 55-Grad-Kamera in Spielhö
 | Bilder über 50 ms | 0 | 0 |
 
 Alle Läufe erreichten alle 12 Wegpunkte ohne Browserfehler. Die Messungen liefen ohne Video in der Folge `westverfall=0/1/1/0` bei aktiven D328-Optimierungen. Die Einzelberichte liegen unter `.cache/mess/d329-finale-ab-{a1,b1,b2,a2}`. Zwei separate Echtzeitaufnahmen unter `.cache/mess/d329-finale-film-{a,b}` ergeben den direkten Vergleich unter `.cache/bilder/d329-weststrasse/index.html`. Die drei abgestimmten Ansichten je Fassung liegen unter `.cache/mess/d329-finale-stand-{a,b}` und lassen sich mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westverfall` wiederholen.
+
+## Materialtiefe und Bruchanschlüsse an der Weststraße (D330)
+
+Der Vergleich mit Haus 308 und dem eigenen Zielbild zeigt drei klare Abstände in D329. Unter der ausgeschnittenen Traufe von 508 bleiben ganze Bretterreihen stehen. Putz, Holz und Fenster wirken vor allem bei schrägem Licht gleichförmig. Der Efeu von 510 verteilt sich in gering entwickelten Trieben über dieselbe Wand. Das Zielbild zeigt tiefen Innenraum, lokal freigelegtes Mauerwerk und zusammenhängenden Bewuchs an einer Hausecke.
+
+`westdetail=1` setzt die D329-Nutzungszustände mit derselben Texturgrundlage für Kalkputz, Bruchstein, Holz und Dachhaut wie am Hof um. Flächenbasis, Regenläufer und Bodenabstand bestimmen Ausbrüche, Normalen und Rauheit. Das instand gesetzte Haus erhält eine hellere Kalkschicht, und Ersatzholz bleibt als jüngeres Material ablesbar. Der Generator setzt geländefolgende Sockel, Fensterbänke und Läden mit tatsächlicher Tiefe an zugewandten Fassaden. Der Efeu nutzt Blätter und Stämme aus dem Hofgenerator.
+
+Bei 508 benutzen Dachöffnung, ausgefaserte Bretter und Riegel denselben entlang des Firsts berechneten Abschnitt. Gebrochene Hölzer sitzen zwischen Dachhaut und zurückgesetztem Innenraum. Die Schindelverteilung verwendet einen aus dem Gebäude abgeleiteten Seed. Bei 510 wurzelt eine zusammenhängende Ranke an der kühleren Ecke der zum Wohnweg gewandten Fassade, mit kleineren Trieben am Sockel. Die Probe bleibt auf den drei vorhandenen Nutzungsdaten begrenzt. `westdetail=0` ruft D329 auf.
+
+Im Geometrietest treffen bei 508 fünf Prüfblickstrahlen auf Geometrie mehr als einen Meter hinter der Fassadenebene im neuen Innenraum. In D329 zählt der Test dort null solcher Treffer. Die geladenen Haus- und Gartenpuffer enthalten in der Bildprobe je Fassung 439.350 bzw. 459.653 Dreiecke. Die drei Bildpaare aus Spielhöhe zeigen die Öffnung, die Efeuecke und die Ausbesserungen bei gleicher Kamera und gleicher Beleuchtung. Gegenüber dem Hofziel bleiben die Übergänge von Gras und Schutt zum Sockel sowie vom Efeu zum Dach zu gleichförmig. Die Dachränder der Weststraße lesen sich insgesamt gerader als im Zielbild.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | D329 | D330 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,95 | 49,63 |
+| FPS, Weststraße | 50,45 | 49,88 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame | 35,4 ms | 48,2 ms |
+| Bilder über 50 ms | 0 | 0 |
+
+Alle vier Messungen ohne Videoaufnahme liefen im selben Build mit `westdetail=0/1/1/0` und aktivem D328. Jeder Lauf erreichte alle zwölf Wegpunkte. Die Einzelberichte liegen unter `.cache/mess/d330-finale-ab-{a1,b1,b2,a2}`. Die Detailbilder unter `.cache/mess/d330-finale-stand-{a,b}` lassen sich mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westdetail` wiederholen. Der Vergleich mit getrennt aufgenommenen Echtzeitfahrten und der Hofreferenz liegt unter `.cache/bilder/d330-weststrasse/index.html`.
