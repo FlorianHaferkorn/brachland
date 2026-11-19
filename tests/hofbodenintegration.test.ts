@@ -124,7 +124,9 @@ const ruine = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1');
 const spur = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1');
 const ziel = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1');
 const dachbruch = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1&hofdachbruch=1');
-const zieltreue = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1&hofdachbruch=1&hoflicht=1&stimmung=hofdachbruch&zieltreue=1');
+const zielbildQuery = '&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1&hofdachbruch=1&hoflicht=1&stimmung=hofdachbruch&zieltreue=1';
+const zieltreue = lauf(zielbildQuery);
+const verlauf = lauf(zielbildQuery + '&verfallverlauf=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -205,5 +207,13 @@ pruefe('D320: Der überarbeitete Hauspuffer betrifft nur Haus 308 und bleibt ver
 pruefe('D320: Die Ruine lässt die beiden Trittplatten und den Türquerschnitt frei',
   zielbildhaus.tritte.length === 2 && zielbildhaus.tritte.every(Boolean)
   && zielbildhaus.tuerTiefen.every((tiefe, i) => tiefe === bruchhaus.tuerTiefen[i]));
+const gealtert = verlauf.haeuser[308];
+pruefe('D321: Die gestaffelte Bruchkante liegt nur an Haus 308',
+  gealtert.hash !== zielbildhaus.hash && gealtert.endlich && gealtert.indexGleich && gealtert.raumFalsch === 0
+  && gealtert.wandTiefen.some((tiefe, i) => tiefe !== zielbildhaus.wandTiefen[i])
+  && Object.entries(zieltreue.haeuser).every(([i, b]) => i === '308' || b.hash === verlauf.haeuser[Number(i)].hash));
+pruefe('D321: Auslaufende Bruchstellen verändern weder Trittplatten noch den Türquerschnitt',
+  gealtert.tritte.length === 2 && gealtert.tritte.every(Boolean)
+  && gealtert.tuerTiefen.every((tiefe, i) => tiefe === zielbildhaus.tuerTiefen[i]));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

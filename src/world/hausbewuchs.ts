@@ -1,6 +1,6 @@
 import { CatmullRomCurve3, Color, Vector3 } from 'three';
 import { mulberry } from './props.js';
-import { HOF_ZIELTREUE_AN } from './echt.js';
+import { HOF_VERFALLVERLAUF_AN, HOF_ZIELTREUE_AN } from './echt.js';
 
 type Punkt = [number, number, number];
 type Wandkante = readonly [number, number];
@@ -244,8 +244,8 @@ function baueKronenblaetter(
   lauf: number, hoehe: number, zufall: () => number,
 ): void {
   // Wurzelholz bleibt am Boden ablesbar. Die Ausläufer werden oben wieder lichter.
-  const aufstieg = Math.max(0, Math.min(1, (hoehe - .24) / 1.11));
-  const auslauf = Math.min(1, (1.075 - lauf) * 7);
+  const aufstieg = Math.max(0, Math.min(1, (hoehe - (HOF_VERFALLVERLAUF_AN ? .08 : .24)) / (HOF_VERFALLVERLAUF_AN ? 1.86 : 1.11)));
+  const auslauf = HOF_VERFALLVERLAUF_AN ? Math.min(1, (1.025 - lauf) * 5.7) : Math.min(1, (1.075 - lauf) * 7);
   const dichte = aufstieg * auslauf;
   if (dichte < .10) return;
   const schwung = Math.sin(lauf * 22) * .50 + Math.sin(lauf * 47 + 1.35) * .24;
@@ -286,7 +286,9 @@ function baueKronenblaetter(
   const seitentriebe = Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 6 : 5));
   const seite = (Math.floor(lauf * 17) % 2 ? 1 : -1);
   for (const richtung of [-1, 1]) {
-    const reichweite = richtung * halbeBreite * (.68 + zufall() * .31 + (seite === richtung ? .14 : 0));
+    // Seitentriebe laufen in versetzten Inseln aus, auch am Übergang um die Ecke.
+    const ausbreitung = HOF_VERFALLVERLAUF_AN ? .96 + .36 * richtung * Math.sin(20 * lauf + 1.6) : 1;
+    const reichweite = richtung * halbeBreite * (.68 + zufall() * .31 + (seite === richtung ? .14 : 0)) * ausbreitung;
     const neigung = -.32 + zufall() * .64;
     const ausstand = .13 + zufall() * .17;
     const ast = (t: number) => ort.clone().addScaledVector(quer, reichweite * t)
@@ -301,7 +303,8 @@ function baueKronenblaetter(
       const ansatz = ast(fortschritt * .82);
       const ziel = ast(fortschritt).addScaledVector(hoch, (zufall() - .48) * .35)
         .addScaledVector(normal, .028 + zufall() * .085);
-      const groesse = (.17 + zufall() * .15) * (.9 + .24 * (1 - fortschritt)) * (.77 + .23 * dichte);
+      const blattEnde = HOF_VERFALLVERLAUF_AN ? 1.15 - .61 * fortschritt * fortschritt : .9 + .24 * (1 - fortschritt);
+      const groesse = (.17 + zufall() * .15) * blattEnde * (.77 + .23 * dichte);
       fieder(ansatz, ziel, richtung, groesse, richtung === dunkleSeite && j === 0);
     }
   }
@@ -368,7 +371,10 @@ function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: n
     }
     if (anteil < .065) continue;
 
-    const fuelle = Math.min(1, (anteil - .085) * 5.5) * (.78 + .22 * Math.sin(anteil * 28) ** 2);
+    const dichte = HOF_VERFALLVERLAUF_AN
+      ? Math.min(1, anteil * 4.3, (1.035 - anteil) * 2.8)
+      : Math.min(1, (anteil - .085) * 5.5);
+    const fuelle = dichte * (.78 + .22 * Math.sin(anteil * 28) ** 2);
     const breite = .19 + .69 * fuelle;
     const zahl = Math.round(2 + 6 * fuelle);
     const hauptseite = i % 2 ? 1 : -1;
@@ -382,7 +388,7 @@ function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: n
       const mitte = ort.clone().addScaledVector(quer, ausladung)
         .addScaledVector(laubHoch, (zufall() - .48) * .38)
         .addScaledVector(normal, .10 + zufall() * .14);
-      const groesse = (.14 + zufall() * .19) * (.58 + .42 * fuelle);
+      const groesse = (.14 + zufall() * .19) * (HOF_VERFALLVERLAUF_AN ? .27 + .66 * fuelle : .58 + .42 * fuelle);
       const winkel = seite * .75 + (zufall() - .5) * 2.25;
       const cos = Math.cos(winkel), sin = Math.sin(winkel);
       const stiel = laubHoch.clone().multiplyScalar(cos).addScaledVector(quer, sin);

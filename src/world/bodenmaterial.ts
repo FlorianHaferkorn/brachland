@@ -22,7 +22,7 @@ import { hofTextur, hofUniforms, HOF_BODEN_PARS, HOF_BODEN_FARBE, HOF_BODEN_NORM
 import { HOF_UNIFORM } from './hofplatz.js';
 import HOF_KIES from '../../public/material/hof-kies.json';
 import { PALETTE } from './palette.js';
-import { GEWAESSER_ECHT, GRAS_ECHT, GRAS_VIEL, HOF_AN, HOF_BODEN_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import { GEWAESSER_ECHT, GRAS_ECHT, GRAS_VIEL, HOF_AN, HOF_BODEN_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN } from './echt.js';
 
 /**
  * Himmelsanteil des Geländes um ein Set-Piece (D171, `tools/himmelboden.ts`): ein Raster von
@@ -424,7 +424,7 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
   if (GRAS_ECHT) material.defines = { ...material.defines, GRAS_ECHT: '' };
   if (GRAS_VIEL) material.defines = { ...material.defines, GRAS_VIEL: '' };
-  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken') + (HOF_AN ? '-scanhof' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '');
+  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken') + (HOF_AN ? '-scanhof' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '');
 
   return material;
 }

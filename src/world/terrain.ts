@@ -11,13 +11,13 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
 import { baueHausbewuchs, baueRankenkurve } from './hausbewuchs.js';
 import type { BlattKoordinaten, Rankenpunkt } from './hausbewuchs.js';
-import { baueDachschindeln, baueTruemmerkeil } from './hoftruemmer.js';
+import { baueDachschindeln, baueSchalungsriss, baueTruemmerkeil, bruchKantenabtrag } from './hoftruemmer.js';
 import { baueRuinenschutt } from './ruinenschutt.js';
 import { baueBruchholz } from './bruchholz.js';
 import { baueLaubenkasten } from './laubenkasten.js';
@@ -626,6 +626,7 @@ export function baueGebaeude(
     const zielHaus = zielHausJetzt;
     const dachbruchHaus = HOF_DACHBRUCH_AN && zielHaus;
     const zieltreueHaus = HOF_ZIELTREUE_AN && dachbruchHaus;
+    const verlaufHaus = HOF_VERFALLVERLAUF_AN && zieltreueHaus;
     const bewohntHaus = stufeJetzt === 0;
     const wohnGrenze = wohnVorn ? minU + breite * 0.42 : maxU - breite * 0.42;
     /** Liegt ein Weltpunkt im Wirtschaftsteil (Tenne/Stall)? */
@@ -710,7 +711,8 @@ export function baueGebaeude(
       }
     };
     const brettBreite = Math.max(0.5, umfang / 60);
-    const bretterwand = (x1: number, z1: number, x2: number, z2: number, y0: number, y1: number, eingebrochen = false) => {
+    const bretterwand = (x1: number, z1: number, x2: number, z2: number, y0: number, y1: number, eingebrochen = false,
+      putzbruch?: (t: number) => number) => {
       const l = Math.hypot(x2 - x1, z2 - z1);
       const n = Math.max(1, Math.round(l / brettBreite));
       const nx = (z2-z1)/l, nz = -(x2-x1)/l;
@@ -720,7 +722,10 @@ export function baueGebaeude(
         ton = (ton + 1 + Math.floor(wuerfel() * 4)) % 5;
         const ax=x1+(x2-x1)*t0, az=z1+(z2-z1)*t0, bx=x1+(x2-x1)*t1, bz=z1+(z2-z1)*t1;
         const mitte = (t0+t1)*.5;
-        if (eingebrochen && mitte > .19 && mitte < .74) {
+        if (putzbruch && mitte > .14 && mitte < .86) {
+          const P = (t: number, y: number, v: number): [number, number, number] => [x1+(x2-x1)*t+nx*v,y,z1+(z2-z1)*t+nz*v];
+          baueSchalungsriss(tri,quadNach,P,t0,t1,y0,y1,[(x2-x1)/l,0,(z2-z1)/l],[nx,0,nz],SCHALUNG_TOENE[ton],i,putzbruch);
+        } else if (eingebrochen && mitte > .19 && mitte < .74) {
           // Gebrochene Brettenden tragen noch die Stärke der verwitterten Schalung.
           const h0 = y0 + (dachbruchHaus ? .23 + [0,.15,.08,.31,.23,.46,.32][i%7]
             : .39 + [0,.43,.12,.61,.26,.96,.57][i%7]);
@@ -786,13 +791,31 @@ export function baueGebaeude(
         }
       }
       if (referenzHaus && k === tuerWand) wandLoch.push({u0:eingangU-tuerBreite/2,u1:eingangU+tuerBreite/2,y0:boden,y1:eingangBoden+tuerHoehe+.02});
+      const bruchGrenze = Math.max(boden+1.05+hoeheF+.065,k === tuerWand ? eingangBoden+tuerHoehe+.095 : -Infinity);
+      const putzbruch = verlaufHaus && einsturz && holzAb > bruchGrenze
+        ? (t: number) => Math.min(holzAb-bruchGrenze,bruchKantenabtrag(t)) : undefined;
       if (stallWand) {
         // D289: Tenne/Stall — Bruchsteinsockel bis 0,9 m, darüber Bretter bis zur Traufe.
         quad([x1, fuss, z1], [x2, fuss, z2], [x2, boden + 0.9, z2], [x1, boden + 0.9, z1], SOCKEL);
         bretterwand(x1, z1, x2, z2, boden + 0.9, oben);
       } else if (holzAb < oben && holzAb > fuss) {
-        wandFeld(x1,z1,x2,z2,fuss,holzAb,WAND);
-        if (wohnhaus) bretterwand(x1, z1, x2, z2, holzAb, oben, einsturz);
+        if (putzbruch) {
+          // Die Oberkante der Mauer bröckelt entlang der eingebrochenen Lastspur ab. Die Aussparungen bleiben gleich.
+          wandFeld(x1,z1,x2,z2,fuss,bruchGrenze,WAND);
+          const nx = wandRichtung[1], nz = -wandRichtung[0];
+          const P = (t: number, y: number, v = 0): [number, number, number] => [x1+(x2-x1)*t+nx*v,y,z1+(z2-z1)*t+nz*v];
+          const reihe = [0,.18,.21,.24,.27,.30,.33,.36,.39,.42,.45,.48,.51,.54,.57,.60,.63,.66,.69,.72,.75,.79,.82,1];
+          for (let i = 0; i < reihe.length - 1; i++) {
+            const a = reihe[i], b = reihe[i+1], ya = holzAb-putzbruch(a), yb = holzAb-putzbruch(b);
+            if (ya > bruchGrenze && yb > bruchGrenze) quad(P(a,bruchGrenze),P(b,bruchGrenze),P(b,yb),P(a,ya),WAND);
+            else if (ya > bruchGrenze) tri(P(a,bruchGrenze),P(a,ya),P(b,bruchGrenze),WAND);
+            else if (yb > bruchGrenze) tri(P(a,bruchGrenze),P(b,yb),P(b,bruchGrenze),WAND);
+            if (ya < holzAb-.015 || yb < holzAb-.015) {
+              quadNach(P(a,ya),P(b,yb),P(b,yb+.027,-.16),P(a,ya+.027,-.16),SOCKEL,[0,1,0]);
+            }
+          }
+        } else wandFeld(x1,z1,x2,z2,fuss,holzAb,WAND);
+        if (wohnhaus) bretterwand(x1, z1, x2, z2, holzAb, oben, einsturz, putzbruch);
         else wandFeld(x1,z1,x2,z2,holzAb,oben,SCHALUNG);
       } else {
         wandFeld(x1,z1,x2,z2,fuss,oben,WAND);
@@ -805,7 +828,11 @@ export function baueGebaeude(
         // Im Einsturz sind Deckenansatz, hintere Wand und abgescherte Ständer sichtbar.
         const K = fassadenKasten(quadNach,[x1,z1],wandRichtung,[wx,wz]);
         const u = (t: number) => t * wandLaenge;
-        K(u(.17),u(.77),holzAb-.04,holzAb+.12,-1.55,-.09,TUER);
+        if (putzbruch) {
+          K(u(.16),u(.36),holzAb-.12,holzAb+.06,-1.55,-.12,TUER);
+          K(u(.39),u(.62),holzAb-.22,holzAb-.09,-1.55,-.48,RUINEN_INNEN);
+          K(u(.63),u(.78),holzAb-.10,holzAb+.06,-1.55,-.19,TUER);
+        } else K(u(.17),u(.77),holzAb-.04,holzAb+.12,-1.55,-.09,TUER);
         const rueckwand = dachbruchHaus ? -2.62 : -1.6;
         if (dachbruchHaus) K(u(.14),u(.81),holzAb+.12,oben+.38,rueckwand,rueckwand+.07,RUINEN_INNEN);
         else K(u(.17),u(.77),holzAb+.12,oben+.05,-1.6,-1.53,RUINEN_INNEN);
@@ -827,7 +854,7 @@ export function baueGebaeude(
           K(eckscheibe-.33,eckscheibe+.33,y,y+.75,tiefe,tiefe+.04,RUINEN_INNEN);
           for (const x of [-.31,0,.31]) K(eckscheibe+x-.028,eckscheibe+x+.028,y,y+.75,tiefe+.04,tiefe+.08,REFERENZ_HOLZ);
           for (const hoehe of [y,y+.36,y+.71]) K(eckscheibe-.31,eckscheibe+.31,hoehe,hoehe+.04,tiefe+.04,tiefe+.08,REFERENZ_HOLZ);
-          baueTruemmerkeil(tri,quadNach,P,wandLaenge,holzAb,oben,ALTE_SCHINDEL,[wx,0,wz],zieltreueHaus);
+          baueTruemmerkeil(tri,quadNach,P,wandLaenge,holzAb,oben,ALTE_SCHINDEL,[wx,0,wz],zieltreueHaus,verlaufHaus);
           baueRankenkurve(tri, [
             { ort: P(.55,holzAb+.17,.16), aussen: [wx,.24,wz] },
             { ort: P(.61,holzAb+.38,.19), aussen: [wx,.28,wz] },
@@ -923,9 +950,16 @@ export function baueGebaeude(
             K(a,b,fuss-0.06,boden+0.34,0.015,0.13,SOCKEL);
             K(a,b,boden+0.34,boden+0.41,0.01,0.17,RAHMEN);
           }
-          if(Number.isFinite(holzAb)) K(0,wandLaenge,holzAb-0.15,Math.min(oben,holzAb)+0.02,0.02,0.13,TUER);
+          if (putzbruch) {
+            K(0,wandLaenge*.192,holzAb-.15,holzAb+.02,.02,.13,TUER);
+            K(wandLaenge*.795,wandLaenge,holzAb-.15,holzAb+.02,.02,.13,TUER);
+            const P = (t: number, y: number, v: number): [number, number, number] =>
+              [x1+(x2-x1)*t+wx*v,y,z1+(z2-z1)*t+wz*v];
+            baueBruchholz(tri,P(.187,holzAb-.064,.071),P(.383,holzAb-.19,.28),.129,.161,321320,true,true);
+            baueBruchholz(tri,P(.806,holzAb-.062,.07),P(.623,holzAb-.27,.18),.13,.14,321321,true,true);
+          } else if(Number.isFinite(holzAb)) K(0,wandLaenge,holzAb-0.15,Math.min(oben,holzAb)+0.02,0.02,0.13,TUER);
         } else band(boden, 0.34, 0.05, SOCKEL);
-        for (let e = 1; e < ebenen; e++) band(boden + e * geschoss - 0.07, 0.14, 0.07, DACH);
+        for (let e = 1; e < ebenen; e++) if (!putzbruch || e < ebenen-1) band(boden + e * geschoss - 0.07, 0.14, 0.07, DACH);
       }
 
       // Haustür
@@ -1286,8 +1320,11 @@ export function baueGebaeude(
       // Die erhaltene Gegenseite, der First und die äußeren Giebel bleiben Anschlüsse.
       if (zieltreueHaus) {
         const phase = (u - schadStart) / schadBreite;
-        const durchhang = Math.max(0, 1 - ((phase - .64) / .67) ** 2);
+        const durchhang = verlaufHaus
+          ? THREE.MathUtils.smoothstep(phase,-.20,.44) * (1 - THREE.MathUtils.smoothstep(phase,.64,1.34))
+          : Math.max(0, 1 - ((phase - .64) / .67) ** 2);
         const zurTraufe = Math.min(1, Math.max(0, (v - mv) / (schadTraufe - mv)));
+        if (verlaufHaus) return y - (1.49 + .20 * Math.sin(phase * 11.4)) * durchhang * zurTraufe ** 3.4;
         return y - 1.57 * durchhang * zurTraufe ** 4.8;
       }
       const laengs = (u - schadStart) / schadBreite - .46;
@@ -1298,7 +1335,7 @@ export function baueGebaeude(
     const bruch = bauSchaden === 2 && !walm && breite >= 6 && firstH - traufe >= .35
       ? [0, .24, .56, .79, 1].map((u, i) => ({
         u: schadStart + u * schadBreite,
-        v: schadTraufe + (mv - schadTraufe) * (zieltreueHaus ? [0,.21,.104,.041,0] : dachbruchHaus ? [0,.16,.26,.23,0]
+        v: schadTraufe + (mv - schadTraufe) * (verlaufHaus ? [0,.127,.208,.127,0] : zieltreueHaus ? [0,.21,.104,.041,0] : dachbruchHaus ? [0,.16,.26,.23,0]
           : zielHaus ? [0,.66,.40,.29,0] : ruinenHaus ? [0,.73,.45,.88,0] : [0,.48,.35,.62,0])[i],
       })) : null;
     const splitterRand = bruch && zielHaus ? bruch.flatMap((a, i) => {
@@ -1306,7 +1343,7 @@ export function baueGebaeude(
       if (!b) return [a];
       return [a, ...[.27,.48,.71,.88].map((t,k) => ({
         u: a.u + (b.u - a.u) * t,
-        v: a.v + (b.v - a.v) * t + schadSeite * (zieltreueHaus ? [.18,-.225,.32,-.16]
+        v: a.v + (b.v - a.v) * t + schadSeite * (verlaufHaus ? [.13,-.25,.16,-.09] : zieltreueHaus ? [.18,-.225,.32,-.16]
           : dachbruchHaus ? [.17,-.12,.31,-.21] : [.10,-.24,.15,-.20])[(i + k) % 4],
       }))];
     }) : bruch;
@@ -1435,8 +1472,10 @@ export function baueGebaeude(
       }
     }
     if (splitterRand && zieltreueHaus) {
+      const deckung = verlaufHaus ? [{u:Math.max(aU0+.06,splitterRand[0].u-.90),v:schadTraufe},...splitterRand,
+        {u:Math.min(aU1-.06,splitterRand[splitterRand.length-1].u+.94),v:schadTraufe}] : splitterRand;
       baueDachschindeln(tri,quadNach,(u,v,hub) => welt3(u,bruchDachY(u,v)+dick+hub,v),
-        splitterRand,schadSeite,richtV(schadSeite),SCHINDELTOENE);
+        deckung,schadSeite,richtV(schadSeite),SCHINDELTOENE,verlaufHaus);
     } else if (splitterRand && zielHaus) {
       // Überlappende, nach außen gewölbte Schindeln über der Bruchkante.
       for (let i = 0; i < splitterRand.length - 1; i++) {

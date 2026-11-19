@@ -14,7 +14,7 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN } from './echt.js';
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
@@ -167,6 +167,29 @@ const HOF_VERFALL_FARBE = /* glsl */ `
 `;
 
 const HOF_ZIEL_FARBE = /* glsl */ `
+  ${HOF_VERFALLVERLAUF_AN ? /* glsl */ `
+  float freigelegt = 0.0;
+  float verfallFeuchte = 0.0;
+  vec2 bruchsteinUv = vec2(0.0);
+  if (zielHaus > .5 && vRolle < 6.5 && scanR < 4.5) {
+    // Koordinaten der gebrochenen Traufwand. Dieselbe Spur läuft über Putz, Holz und Einfassung.
+    vec2 ecke = vHausPos.xz - vec2(1425.846,408.901);
+    vec2 wand = vec2(dot(ecke,vec2(.468,.884)),dot(ecke,vec2(.884,-.468)));
+    vec2 p = vec2(wand.x + wand.y * .67,vHausPos.y);
+    float fleck = verfallRauschen(p * vec2(1.33,1.58));
+    float schlieren = verfallRauschen(p * vec2(5.4,.63));
+    float bruch = (1.0 - smoothstep(1.55,3.68,abs(wand.x - 3.18)))
+      * (1.0 - smoothstep(.52,1.92,abs(wand.y)));
+    float spuelfront = 1.3 + .84 * fleck + .55 * schlieren;
+    float regen = bruch * smoothstep(spuelfront - .33,spuelfront + .52,vHoehe);
+    float kapillar = 1.0 - smoothstep(.15,.84 + .91 * schlieren,vHoehe);
+    float rankenspur = (1.0 - smoothstep(.28,1.48 + .55 * fleck,length(ecke))) * (.37 + .63 * fleck);
+    verfallFeuchte = max(regen * (.35 + .65 * schlieren),max(kapillar * (.40 + .60 * fleck),rankenspur));
+    freigelegt = smoothstep(.69,1.03, .58 * fleck + .32 * schlieren + .52 * verfallFeuchte);
+    vec3 lokal = vHausPos - vec3(uHofMitte.x,0.0,uHofMitte.y);
+    bruchsteinUv = vec2(dot(lokal,hofT),dot(lokal,hofB)) * zielMassstab(3.0) / uHofMeter.w;
+  }
+  ` : ''}
   if (zielHaus > .5 && scanR < 3.5 && hofHausAnteil > 0.0) {
     // Die horizontale Trittplatte behält ihre eigene Oberfläche.
     if (scanR < 2.5 || hofN.y < .7) {
@@ -222,6 +245,18 @@ const HOF_ZIEL_FARBE = /* glsl */ `
         farbe *= .65 + .48 * ruecksprung;
       }
       ` : ''}
+      ${HOF_VERFALLVERLAUF_AN ? /* glsl */ `
+      if (scanR < .5) {
+        // Abgeplatzter Kalk legt dasselbe Bruchsteinmaterial wie am Sockel frei.
+        vec3 stein = hofLies(uHofZielFarbe,bruchsteinUv,3.0).rgb;
+        float steinHell = dot(stein,vec3(.2126,.7152,.0722));
+        vec3 schale = mix(stein,vec3(steinHell) * vec3(.90,.96,.79),.48) * .82;
+        float rissRand = smoothstep(.10,.52,freigelegt) * (1.0 - smoothstep(.51,.84,freigelegt));
+        farbe = mix(farbe * (1.0 - .20 * rissRand),schale,freigelegt * .90);
+      }
+      vec3 feuchtFarbe = farbe * vec3(.62,.69,.51);
+      farbe = mix(farbe,feuchtFarbe,verfallFeuchte * .57);
+      ` : ''}
       diffuseColor.rgb = farbe;
     }
   }
@@ -266,7 +301,23 @@ const HOF_ZIEL_FARBE = /* glsl */ `
     diffuseColor.rgb += ${HOF_DACHBRUCH_AN ? 'vec3(.035,.037,.021)' : 'vec3(.048,.046,.023)'} * ader;
     `}
   }
+  ${HOF_VERFALLVERLAUF_AN ? /* glsl */ `
+  if (zielHaus > .5 && vRolle > 3.5 && vRolle < 6.5 && (scanR < 4.5 || vRolle > 5.5)) {
+    diffuseColor.rgb *= mix(vec3(1.0),vec3(.66,.70,.59),verfallFeuchte * .60);
+  }
+  ` : ''}
 `;
+
+const HOF_ZIEL_NORMAL = HOF_HAUS_NORMAL.replace('hofLies(uHofNormal, hofScanP, scanR)', /* glsl */ `
+    ((zielHaus > .5 && (scanR < 2.5 || hofN.y < .7))
+      ? hofLies(uHofZielNormal, hofScanP * zielMassstab(scanR), scanR)
+      : hofLies(uHofNormal, hofScanP, scanR))`);
+const HOF_VERLAUF_NORMAL = HOF_ZIEL_NORMAL.replace('    hn.xy *=', /* glsl */ `
+    if (scanR < .5 && zielHaus > .5) {
+      vec3 steinNormal = hofLies(uHofZielNormal,bruchsteinUv,3.0).xyz * 2.0 - 1.0;
+      hn = normalize(mix(hn,steinNormal,freigelegt * .90));
+    }
+    hn.xy *=`);
 
 /** Strahldichte einer brennenden Scheibe bei Glut 1, linear. Warmes Lampenlicht. */
 const GLUT_FARBE = new THREE.Vector3(0.30, 0.21, 0.11);
@@ -290,6 +341,7 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
       ${HAUSFRONT_FARBE.replace('max(fwidth(brett), 0.001)', 'sparFrontPixel')}
     }` : HAUSFRONT_FARBE;
   const hofPass = HAUS_SHADER_SPAR_AN ? HOF_HAUS_FARBE.replace(anteilZeile, '') : HOF_HAUS_FARBE;
+  const hofNormal = HOF_VERFALLVERLAUF_AN ? HOF_VERLAUF_NORMAL : HOF_ZIEL_AN ? HOF_ZIEL_NORMAL : HOF_HAUS_NORMAL;
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uGlut = glut;
     if (SCAN_TEXTUREN) {
@@ -340,8 +392,7 @@ ${HOF_ZIEL_AN ? HOF_ZIEL_FARBE : ''}`)
     vec3 nw = normalize(scanT * sn.x + scanB * sn.y + scanN * sn.z);
     normal = normalize((viewMatrix * vec4(nw, 0.0)).xyz);
   }
-${HOF_AN ? (HOF_ZIEL_AN ? HOF_HAUS_NORMAL.replace('hofLies(uHofNormal, hofScanP, scanR)',
-  '((zielHaus > .5 && (scanR < 2.5 || hofN.y < .7)) ? hofLies(uHofZielNormal, hofScanP * zielMassstab(scanR), scanR) : hofLies(uHofNormal, hofScanP, scanR))') : HOF_HAUS_NORMAL) : ''}`)
+${HOF_AN ? hofNormal : ''}`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
   if (scanR > 1.5 && scanR < 2.5) roughnessFactor = 0.72;
 ${HOF_AN ? 'if (scanR < 3.5) roughnessFactor = mix(roughnessFactor, clamp(hofArm.g, 0.5, 1.0), hofHausAnteil);' : ''}${BAUWELT_AN ? '\n  roughnessFactor = mix(roughnessFactor, 0.65, efeuDeckung);' : ''}
@@ -384,6 +435,6 @@ ${HOF_ZIELTREUE_AN ? /* glsl */ `
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '');
   return material;
 }

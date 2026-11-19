@@ -1,6 +1,6 @@
 /** D298: Originale Scan-Albedo und Materialkanäle der begrenzten Hofprobe. */
 import * as THREE from 'three';
-import { HOF_BODEN_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import { HOF_BODEN_AN, HOF_VERFALLVERLAUF_AN, HOF_ZIELTREUE_AN } from './echt.js';
 import { HOF_ZUGANG_PARS } from './hofboden.js';
 import { HOF_UNIFORM, HOF_PARS } from './hofplatz.js';
 
@@ -118,8 +118,13 @@ export const HOF_BODEN_FARBE = /* glsl */ `
     float sicht = smoothstep(-uHofZielHalb.x + 0.30, -uHofZielHalb.x + 1.2, q.x);
     float breite = 1.16 + 1.95 * smoothstep(0.0, uHofZielHalb.y, q.y);
     float saum = sicht * smoothstep(-0.12, 0.03, innen)
-      * (1.0 - smoothstep(breite * 0.45, breite, abstand + (fleck - 0.49) * 1.12));
+      * (1.0 - smoothstep(breite * ${HOF_VERFALLVERLAUF_AN ? '0.12' : '0.45'}, breite, abstand + (fleck - 0.49) * 1.12));
     vec3 feuchteErde = vec3(0.094, 0.073, 0.05) * (0.71 + sWiese.rgb * 0.83);
+    ${HOF_VERFALLVERLAUF_AN ? /* glsl */ `
+    float moosAmFuss = (1.0 - smoothstep(.10,.86,abstand)) * smoothstep(.38,.67,fleck);
+    feuchteErde = mix(feuchteErde,feuchteErde * vec3(.49,.67,.39),moosAmFuss * .73);
+    hofBodenAnteil *= 1.0 - saum * .38;
+    ` : ''}
     diffuseColor.rgb = mix(diffuseColor.rgb, feuchteErde, saum * 0.76);
     hofBodenAnteil = max(hofBodenAnteil, saum * smoothstep(0.18, 0.74, fleck) * 0.72);
   }

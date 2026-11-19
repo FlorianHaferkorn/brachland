@@ -154,3 +154,13 @@ Use case: photorealistic-natural. Create one square diffuse-only texture for a r
 ```
 
 </details>
+
+## Verlauf des Verfalls (D321)
+
+Die Dachhaut hängt über einem größeren Bereich durch. An den Rändern leiten erhaltene, verschobene und ausgebrochene Schindeln in den offenen Dachstuhl über. Ausgefaserte Bretter und der unterbrochene Fassadenriegel treffen auf eine ausgebrochene Putzkante. Feuchte folgt am Holz, Putz und den Einfassungen denselben Niederschlagsspuren. An Abplatzungen kommt die Bruchsteinfarbe und -normale des vorhandenen Sockels zum Vorschein. Kleinere Blätter auf auslaufenden Trieben und fleckiges Moos verbinden Bewuchs und Mauerfuß mit der Erde.
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt verfallverlauf` nimmt dieselbe 8-s-Fahrt wie D320 auf. Probe `0` zeigt D320. Die Hausgrundrisse, Trittplatten und Höhe und Tiefe des Türquerschnitts bleiben erhalten.
+
+In der 60°-Kamerafahrt unter `.cache/bilder/d321-verfallverlauf/index.html` ist der Bruch am Riegel und der obere Putzrand in Bild 127 am deutlichsten zu sehen. Je 192 Bilder in 1280 × 720, ohne Browserfehler. Die Zahl der Dreiecke in den 20 geladenen Haus- und Gartenpuffern sinkt von 428.291 auf 427.566. Auf dem Prüfhang reichen vier horizontale Strahlen im oberen Bruchfeld in D320 zwischen 0,72 und 0,93 m und in D321 zwischen 0,53 und 3,80 m in das Haus. Beide Trittplatten und die vier Türstrahltiefen bleiben in der Integrationsprobe gleich. Die gestaffelte Bruchkante bleibt in der Bewegung sichtbar. Verlauf der Dachlinie und Dichte des Bewuchses weichen vom Zielbild ab.
+
+Vier 12-s-Spielmessungen auf dem M1 bei 960 × 540 und Startpunkt 1436/398/171 schalten nur `verfallverlauf` in der Reihenfolge 0/1/1/0 um. Mittlere FPS 45,36 → 45,48. Mittlere p95-Bildzeit 33,50 → 33,50 ms, längstes Einzelbild 152,0 → 50,1 ms. Bilder über 50 ms in je zwei Läufen 3 → 1. Rohberichte unter `.cache/mess/d321-fps-{1,2,3,4}`.
