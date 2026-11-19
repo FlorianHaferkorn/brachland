@@ -3,6 +3,8 @@ LoD2-Import (D290): echte Trauf- und Firsthöhen, Dachform und Firstrichtung je 
 3D-Gebäudemodellen der Bayerischen Vermessungsverwaltung (LoD2, CityGML 1.0, UTM 32N / DHHN2016).
 
   python3 tools/lod2import.py            # lädt fehlende Kacheln nach .cache/lod2/, schreibt public/world/oental-lod2.json
+  python3 tools/lod2import.py --dachmasse 508 510 512 --kachelordner .cache/d331-massprobe
+                                       # ergänzt die Dachkörperprobe ohne Abruf neuer Luftbilder
 
 D290 Dachfarbe: aus den Digitalen Orthophotos DOP20 (WMS `geoservices.bayern.de/od/wms/dop/v1/dop20`, Layer `by_dop20c`,
 ebenfalls CC BY 4.0, kostenfrei) — je Gebäude der Median der Pixel unter den LoD2-Dachflächen (Feld "c", sRGB-Hex).
@@ -15,16 +17,17 @@ Ausgabe: eine Liste in der Reihenfolge von `welt.gebaeude` (oental.json), je OSM
 {"t": Traufhöhe, "f": Firsthöhe über Grund in m, "d": Dachform (AdV-Schlüssel 1000 Flach, 2100 Pult, 3100 Sattel,
 3200 Walm, 3300 Krüppelwalm, …), "w": Firstrichtung als Winkel in der Weltebene (atan2(dz, dx), Grad)}.
 Feld "c": Dachfarbe aus DOP20 (siehe oben), sonnige Hälfte ohne Bewuchs und Module (D292). Zuordnung: der Grundriss-Schwerpunkt des LoD2-Gebäudes liegt im OSM-Grundriss; bei mehreren das grösste.
+Die Dachkörperprobe ergänzt "p" (projizierter Firstwinkel) und bei mehreren Satteldachkörpern "teile" mit je
+[Dachform, uMin, uMax, vMin, vMax, vFirst, Traufe, First]. u/v sind Meter ab
+der OSM-Hülle auf der p-Achse. Traufe/First gelten über dem LoD2-Sockel des jeweiligen Teils.
 Die Form des Hauses (Fassade, Material, Verfall) bleibt beim Generator; LoD2 liefert nur die echte Silhouette.
 """
 import json
 import math
 import os
-import re
+from argparse import ArgumentParser
 import urllib.request
 import xml.etree.ElementTree as ET
-import numpy as np
-from PIL import Image, ImageDraw
 
 ROH = '.cache/lod2'
 WELT = 'public/world/oental.json'
@@ -60,6 +63,16 @@ def polygone(knoten):
         yield [(w[i], w[i + 1], w[i + 2]) for i in range(0, len(w) - 2, 3)]
 
 
+def firstrichtung(firstkante, mittel_lat):
+    """UTM-Firstpunkte mit derselben Meterabbildung wie im Spiel projizieren."""
+    a, b = firstkante
+    la, loa = utm_nach_wgs(*a[:2])
+    lb, lob = utm_nach_wgs(*b[:2])
+    dx = (lob - loa) * math.cos(math.radians(mittel_lat))
+    dz = la - lb
+    return round(math.degrees(math.atan2(dz, dx)), 2)
+
+
 def kacheln(bbox):
     """2-km-Kacheln (UTM-km der SW-Ecke, gerade), die die bbox überdecken."""
     s, w, n, o = bbox
@@ -87,11 +100,32 @@ def im_polygon(lat, lon, poly):
     return drin
 
 
+def umgrenzung(poly):
+    la, lo = zip(*poly)
+    return min(la), min(lo), max(la), max(lo)
+
+
+parser = ArgumentParser(description='Amtliche LoD2-Daten den OSM-Grundrissen zuordnen')
+parser.add_argument('--dachmasse', type=int, nargs='+', metavar='INDEX',
+                    help='Nur die Dachmaße ausgewählter Gebäude ergänzen.')
+parser.add_argument('--kachelordner', default=ROH, help='Ordner für die CityGML- und DOP20-Kacheln.')
+argumente = parser.parse_args()
+ROH = argumente.kachelordner
 welt = json.load(open(WELT))['welt']
 bbox = welt['bbox']
+mittel_lat = (bbox[0] + bbox[2]) / 2
+indexe = argumente.dachmasse
+if indexe and any(not 0 <= i < len(welt['gebaeude']) for i in indexe):
+    parser.error('Gebäudeindex außerhalb der Weltdaten.')
+if not indexe:
+    import numpy as np
+    from PIL import Image, ImageDraw
+kachelauswahl = sorted({
+    k for i in indexe for k in kacheln(umgrenzung(welt['gebaeude'][i]['punkte']))
+}) if indexe else kacheln(bbox)
 os.makedirs(ROH, exist_ok=True)
 gebaeude = []
-for k in kacheln(bbox):
+for k in kachelauswahl:
     pfad = f'{ROH}/{k}.gml'
     if not os.path.exists(pfad):
         req = urllib.request.Request(f'https://download1.bayernwolke.de/a/lod2/citygml/{k}.gml', headers={'User-Agent': 'brachland-werkzeug/1.0'})
@@ -116,28 +150,74 @@ for k in kacheln(bbox):
         traufe = min(p[2] for p in dach_pkt) - z0
         first = zmax - z0
         # Firstrichtung: längste waagerechte Dachkante in Firsthöhe (UTM: x Ost, y Nord).
-        best, winkel = 0.0, None
+        best, firstkante = 0.0, None
         for poly in dach_poly:
             for a, b in zip(poly, poly[1:]):
                 if abs(a[2] - b[2]) < 0.15 and a[2] > zmax - 0.25:
                     l = math.hypot(b[0] - a[0], b[1] - a[1])
                     if l > best:
-                        best, winkel = l, (b[0] - a[0], b[1] - a[1])
+                        best, firstkante = l, (a, b)
         cx = sum(p[0] for p in boden_pkt) / len(boden_pkt)
         cy = sum(p[1] for p in boden_pkt) / len(boden_pkt)
         lat, lon = utm_nach_wgs(cx, cy)
         flaeche = (max(p[0] for p in boden_pkt) - min(p[0] for p in boden_pkt)) * (max(p[1] for p in boden_pkt) - min(p[1] for p in boden_pkt))
-        w = None
-        if winkel:
-            # Meridiankonvergenz: Gitternord liegt um γ ≈ (λ − 9°)·sin φ östlich von Geographisch-Nord.
-            gamma = math.radians((lon - 9) * math.sin(math.radians(lat)))
-            ox, oy = winkel
-            ex = ox * math.cos(gamma) - oy * math.sin(gamma)
-            ny = ox * math.sin(gamma) + oy * math.cos(gamma)
-            # Welt: x nach Osten, z nach Süden.
-            w = round(math.degrees(math.atan2(-ny, ex)), 1)
+        w = firstrichtung(firstkante, mittel_lat) if firstkante else None
         gebaeude.append({'lat': lat, 'lon': lon, 't': round(traufe, 2), 'f': round(first, 2), 'd': int(dach), 'w': w, 'a': flaeche,
-                         'cx': cx, 'cy': cy, 'dach': [[(p[0], p[1]) for p in poly] for poly in dach_poly]})
+                         'cx': cx, 'cy': cy, 'firstkante': firstkante,
+                         'dach': [[(p[0], p[1]) for p in poly] for poly in dach_poly]})
+
+
+def zuordnung(poly):
+    la0, lo0, la1, lo1 = umgrenzung(poly)
+    return [b for b in gebaeude if la0 <= b['lat'] <= la1 and lo0 <= b['lon'] <= lo1 and im_polygon(b['lat'], b['lon'], poly)]
+
+
+def dachkoerper(poly, winkel, kand):
+    """Amtliche Dachkörper in lokalem U/V passend zum OSM-Grundriss beschreiben."""
+    c, s = math.cos(math.radians(winkel)), math.sin(math.radians(winkel))
+    cos_lat = math.cos(math.radians(mittel_lat))
+    mitte_lon = (bbox[1] + bbox[3]) / 2
+
+    def uv(lat, lon):
+        x = (lon - mitte_lon) * cos_lat * 111320
+        z = (mittel_lat - lat) * 111320
+        return x * c + z * s, -x * s + z * c
+
+    u, v = zip(*(uv(*p) for p in poly))
+    u0, v0 = min(u), min(v)
+    teile = []
+    for b in kand:
+        if b['d'] not in (2100, 3100) or b['firstkante'] is None:
+            continue
+        u, v = zip(*(uv(*utm_nach_wgs(*p)) for flaeche in b['dach'] for p in flaeche))
+        vfirst = sum(uv(*utm_nach_wgs(*p[:2]))[1] for p in b['firstkante']) / 2
+        werte = (min(u) - u0, max(u) - u0, min(v) - v0, max(v) - v0, vfirst - v0, b['t'], b['f'])
+        teile.append([b['d'], *(round(wert, 2) for wert in werte)])
+    return sorted(teile, key=lambda teil: teil[1])
+
+
+if indexe:
+    with open(AUS) as datei:
+        ergebnis = json.load(datei)
+    if len(ergebnis) != len(welt['gebaeude']):
+        parser.error('Bestehende LoD2- und OSM-Gebäudeanzahl stimmen nicht überein.')
+    for i in indexe:
+        poly = welt['gebaeude'][i]['punkte']
+        kand = zuordnung(poly)
+        if not kand or not ergebnis[i]:
+            parser.error(f'Kein bestehender und amtlicher Dachdatensatz für Gebäude {i}.')
+        b = max(kand, key=lambda b: b['a'])
+        if b['w'] is None:
+            parser.error(f'Keine amtliche Firstkante für Gebäude {i}.')
+        ergebnis[i]['p'] = b['w']
+        if sum(teil['d'] == 3100 for teil in kand) > 1:
+            ergebnis[i]['teile'] = dachkoerper(poly, b['w'], kand)
+        else:
+            ergebnis[i].pop('teile', None)
+    with open(AUS, 'w') as datei:
+        json.dump(ergebnis, datei, separators=(',', ':'))
+    print(f'LoD2: Dachmaße für {len(indexe)} Gebäude ergänzt → {AUS}')
+    raise SystemExit(0)
 
 # Dachfarbe aus DOP20: Kacheln zu 256 m, 1024 Pixel (0,25 m/Pixel).
 KANTE, PX = 256, 1024
@@ -182,9 +262,7 @@ def dachfarbe(b):
 
 ergebnis, treffer = [], 0
 for g in welt['gebaeude']:
-    poly = g['punkte']
-    la0 = min(p[0] for p in poly); la1 = max(p[0] for p in poly); lo0 = min(p[1] for p in poly); lo1 = max(p[1] for p in poly)
-    kand = [b for b in gebaeude if la0 <= b['lat'] <= la1 and lo0 <= b['lon'] <= lo1 and im_polygon(b['lat'], b['lon'], poly)]
+    kand = zuordnung(g['punkte'])
     if not kand:
         ergebnis.append(None)
         continue
@@ -192,4 +270,4 @@ for g in welt['gebaeude']:
     treffer += 1
     ergebnis.append({'t': b['t'], 'f': b['f'], 'd': b['d'], 'w': b['w'], 'c': dachfarbe(b)})
 json.dump(ergebnis, open(AUS, 'w'), separators=(',', ':'))
-print(f'LoD2: {len(gebaeude)} Gebäude in {len(kacheln(bbox))} Kacheln, {treffer} von {len(welt["gebaeude"])} OSM-Gebäuden zugeordnet → {AUS} ({os.path.getsize(AUS) // 1024} KB)')
+print(f'LoD2: {len(gebaeude)} Gebäude in {len(kachelauswahl)} Kacheln, {treffer} von {len(welt["gebaeude"])} OSM-Gebäuden zugeordnet → {AUS} ({os.path.getsize(AUS) // 1024} KB)')

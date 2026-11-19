@@ -4,7 +4,8 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-const westdetail=profil==='westdetail';
+const westdach=profil==='westdach';
+const westdetail=profil==='westdetail'||westdach;
 const westverfall=profil==='westverfall'||westdetail;
 const bildspitzen=profil==='bildspitzen'||westverfall;
 const kachelnachlauf=profil==='kachelnachlauf'||bildspitzen;
@@ -16,7 +17,7 @@ const weststrasse=profil==='weststrasse';
 const strassenfahrt=profil==='ortsstrasse'||weststrasse;
 const ortsalterung=profil==='ortsalterung'||hofsilhouette||strassenfahrt;
 const kurzeFahrt=eckfahrt||strassenfahrt;
-if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette|bildtakt|bildfluss|kachelnachlauf|bildspitzen|westverfall|westdetail angeben.');
+if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette|bildtakt|bildfluss|kachelnachlauf|bildspitzen|westverfall|westdetail|westdach angeben.');
 const bodennah=kurzeFahrt||['boden','gras','teppich','verfall'].includes(profil);
 const anzahl=kurzeFahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
@@ -41,6 +42,8 @@ const westBlicke=[
  {start:[1368.2,37.90,436.2],ende:[1372,37.90,444.5],ziel:[1397.16,40.68,442.42]},
  {start:[1380,38.05,459],ende:[1384,38.13,469],ziel:[1405.74,40.30,464.27]},
 ];
+// Zusatzbild über der Spielkamera für die Dachfuge bei 512 (Index 224).
+if(westdach) westBlicke.push({start:[1379,54,457],ende:[1379,54,457],ziel:[1405.74,43,464.27]});
 const parameter=new URLSearchParams(`absetzen=1432,423,150&zeit=.26&kontur=0&stimmung=zielbild&hofgruen=1&referenzhaus=${probe}&kamera=1444,36.8,418,1431,37.5,432&fov=60&umgebung=6&sonne=.8&umlichtstaerke=1.2&schatten=.4`);
 if(profil!=='referenz'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',profil==='hof'?probe:'1');}
 parameter.set('hauskompakt',profil==='kompakt'?probe:profil==='lauben'||bodennah?'1':'0');
@@ -84,7 +87,8 @@ if(kurzeFahrt){
   parameter.set('fov','55');
   parameter.set('teppichspar','1');
   parameter.set('westverfall',westdetail?'1':probe);
-  if(westdetail) parameter.set('westdetail',probe);
+  if(westdetail) parameter.set('westdetail',westdach?'1':probe);
+  if(westdach) parameter.set('westdach',probe);
  } else if(weststrasse){
   parameter.set('absetzen','1358.45,413,245');
   parameter.set('kamera','1358.45,37.75,413,1380,39.8,423');
@@ -152,7 +156,8 @@ try {
  await seite.evaluate(async()=>{for(let i=0;i<8;i++)await new Promise(r=>requestAnimationFrame(r));window.__hausPause();});
  await seite.waitForTimeout(200);
  await seite.evaluate(()=>{for(let i=0;i<64;i++)window.__hausSchritt();});
- const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):westverfall?[32,96,160]:kurzeFahrt?[0,64,127,191]:bodennah?[0,71,143,215,287]:profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
+ const westStand=westdach?[32,96,160,224]:[32,96,160];
+ const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):westverfall?westStand:kurzeFahrt?[0,64,127,191]:bodennah?[0,71,143,215,287]:profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
  for(const i of indizes){
   const blickwechsel=westverfall?i%64===0:profil!=='referenz'?i%72===0:i===96;
   const schritte=modus==='stand'||blickwechsel?32:1;

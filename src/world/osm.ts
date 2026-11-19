@@ -230,7 +230,15 @@ export interface Weltdaten {
     punkte: [number, number][]; ebenen: number; art: string;
     hausnutzung?: Hausnutzung;
     /** D290: echte Silhouette aus LoD2 (Traufe t, First f über Grund in m, Dachform d nach AdV, Firstrichtung w in Grad). */
-    lod2?: { t: number; f: number; d: number; w: number | null; c?: string | null } | null;
+    lod2?: {
+      t: number; f: number; d: number; w: number | null; c?: string | null;
+      /** Aus den Firstendpunkten in Spielachsen projizierte Richtung in Grad. */
+      p?: number;
+      /** Abschnitte in Metern ab Minimum der auf p projizierten OSM-Hülle. Höhen ab LoD2-Grund. */
+      teile?: readonly (readonly [
+        art: number, u0: number, u1: number, v0: number, v1: number, firstV: number, traufe: number, first: number,
+      ])[];
+    } | null;
     /** D291: Fassaden-Steckbrief (content/fassaden), falls für dieses Gebäude vorhanden. */
     fassade?: {
       fensterachsen: { traufe: number; giebel: number }; laube: 'keine' | 'traufseite' | 'giebel' | 'umlaufend';

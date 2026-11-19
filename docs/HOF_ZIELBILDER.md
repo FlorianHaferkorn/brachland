@@ -350,3 +350,41 @@ Im Geometrietest treffen bei 508 fünf Prüfblickstrahlen auf Geometrie mehr als
 | Bilder über 50 ms | 0 | 0 |
 
 Alle vier Messungen ohne Videoaufnahme liefen im selben Build mit `westdetail=0/1/1/0` und aktivem D328. Jeder Lauf erreichte alle zwölf Wegpunkte. Die Einzelberichte liegen unter `.cache/mess/d330-finale-ab-{a1,b1,b2,a2}`. Die Detailbilder unter `.cache/mess/d330-finale-stand-{a,b}` lassen sich mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westdetail` wiederholen. Der Vergleich mit getrennt aufgenommenen Echtzeitfahrten und der Hofreferenz liegt unter `.cache/bilder/d330-weststrasse/index.html`.
+
+## Maßprobe für die Dachkörper
+
+Am 19.11.2026 wurden die vier Dachkörper mit den Dachpolygonen der CityGML-Kachel `732_5290` abgeglichen. Die Richtung ist der Winkel der längsten waagerechten Firstkante in den Spielachsen X Ost und Z Süd. Die Quellenwerte stammen aus direkt nach WGS84 umgerechneten Firstendpunkten. Die Dachneigung der Hauptfläche ergibt sich aus dem Höhenunterschied senkrecht zum First. Bei 508 gilt links die intakte Dachfläche vor der Verformung. Bei 512 steht rechts der größere der zugeordneten Satteldachkörper.
+
+| Haus | Firstwinkel D330 / LoD2 | Dachneigung D330 / LoD2 |
+|---|---:|---:|
+| 308 | 57,1° / 61,74° | 17,6° / 18,5° |
+| 508 | −30,8° / −26,25° | 15,8° / 24,5° |
+| 510 | 146,2° / 150,69° | 17,0° / 23,3° |
+| 512 | 150,4° / 154,97° | 14,8° / 20,2° |
+
+Der Import dreht den UTM-Richtungsvektor bei der Meridiankonvergenz mit vertauschtem Vorzeichen. Der Generator spannt den Dachkörper über die gedrehte rechteckige Hülle des OSM-Grundrisses samt Überständen. Dadurch sinkt die Neigung und bei 510 verlängert sich der First von 18,07 m im Quellmodell auf 26,44 m im Spielgenerator. Bei 512 liegen mehrere amtliche Dachkörper in einem OSM-Grundriss. Ein Dachobjekt mit einer einzigen Firstachse bildet diese Gliederung unzureichend ab. Die LoD2-BY-Höhen sind standardisierte Näherungen. Öffnungen von 1,05 × 2,10 m (Tür) und 0,90 × 1,15 m (Fenster) sind Spielvorgaben. [Bayerische Vermessungsverwaltung, LoD2-BY](https://www.ldbv.bayern.de/produkte/liegenschaftsinformationen/gebaeudemodell.html)
+
+Die lokale Blender-Maßprobe für 510 hält den OSM-Grundriss und die Firsthöhe fest. Die Studie setzt die amtliche Richtung ein, nimmt die Traufhöhe an der Wand auf und verlängert die Ebene über 0,65 m Traufüberstand. Am Giebel nimmt sie den Überstand von 2,20 auf 0,85 m zurück. Beide Überstände der Studie sind Entwurfsmaße. Der First misst in der Studie 22,63 m, die Neigung beträgt 21,1°. Render in gleicher Übersicht und aus 1,80 m Höhe sowie die Blender-Datei und das Probe-GLB liegen unter `.cache/d331-massprobe/`. Der glTF-Rückimport erhält die gemessenen Dachabmessungen bis unter 0,1 mm. Die Probe misst die Konstruktion getrennt von Material, Verfall und Spielperformance.
+
+Für wiederverwendbare Bautypen aus dem vermessenen Blockout zuerst Trauf-/Giebelansicht und eine Kamera in Spielhöhe freigeben. Von diesem Blockout aus das Zielbild rendern und gezielt Putz, Dachdeckung, tragende Teile und Bewuchs gestalten. Generierte Varianten beziehen dieselben Materialatlanten und Bauteilmaße. Grundriss, Dachkörper und Kontakt zum Gelände stammen aus den Gebäudedaten, der Verfall aus konstruktiv gebundenen Standortregeln. Ein Vorbild pro Bautyp und ausgewählte Einzelgebäude tragen den Gestaltungsaufwand. Weitere Varianten benötigen keinen Modellaufruf.
+
+## Maßstäbliche Dächer an der Weststraße (D331)
+
+Die drei Probegebäude übernehmen die korrigierte Firstachse aus der Projektion der beiden amtlichen Firstendpunkte. Das Dach setzt mit der Traufhöhe an der Wand an und zieht die geneigte Fläche 0,65 m weiter. An den Giebeln stehen 0,85 m über. Beide Überstände stammen aus der Blender-Studie. Dachhaut, Untersicht, Sparren, Rinnen und Ortgänge beziehen ihre Höhe aus derselben Querlinie. Der vorhandene OSM-Grundriss bildet weiterhin den Wandanschluss. Der Zustandsschalter `westdach=1` baut diese Fassung bei aktiven Details, `westdach=0` hält die D330-Gegenprobe.
+
+Bei 508 bleibt der Einsturz an der bisher sichtbaren Traufseite. Der Straßenpunkt liegt fast in der Firstverlängerung. Die neue Achse drehte die Auswahl zunächst um. Der Schaden verwendet deshalb dieselbe Traufseite wie in D330, aufgebaut auf der korrigierten Dachlinie. Bei 510 sinkt die am gebauten Netz gemessene Firstlänge von 26,445 m auf 22,632 m bei 150,69°. Bei 512 setzen die beiden Satteldachkörper mit ihren jeweiligen Trauf- und Firsthöhen an der gemessenen U-Teilung an. Ein Abdeckstreifen überdeckt den Stoß. Die Querform beider Körper ist an den heutigen OSM-Grundriss angepasst. Der kleine amtliche Pultabschnitt steht zusätzlich in den LoD2-Daten. Das Spielfeld stellt die beiden Hauptkörper dar.
+
+Reproduktion der Datenprobe mit `python3 tools/lod2import.py --dachmasse 508 510 512 --kachelordner .cache/d331-massprobe`. Ein neuer Vollimport berechnet `w` aus den projizierten Endpunkten. Im eingecheckten Datensatz liegen die korrigierten Winkel der Probe separat in `p`. Das erlaubt den direkten Vergleich im selben Build.
+
+Die Geometrieprobe misst bei 512 auf der dem Reparaturblech abgewandten Traufseite 1,0 cm Höhenunterschied in D330 und 17,6 cm Stufe in D331. Bei 508 treffen drei der Prüfblickstrahlen auf den zurückgesetzten Innenraum gegenüber fünf in D330. Alle 103 Prüfungen bestehen, die nicht zur Probe gehörenden Vergleichshäuser sind bytegleich. Vier Bildpaare aus der Engine zeigen drei Ansichten aus Spielhöhe und eine Aufsicht auf die Dachteilung von 512. Der 508er Bruch, der Eingang von 512 und das geflickte Blech sind sichtbar. Die geladenen Haus- und Gartenpuffer enthalten 459.653 → 459.679 Dreiecke bei 72.499.004 → 72.498.676 Bytes. Bildaufnahmen unter `.cache/mess/d331-finale-stand-{a,b}`, reproduzierbar mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westdach`.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | D330 | D331 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 48,76 | 49,47 |
+| FPS, Weststraße | 50,03 | 49,74 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 51,9 ms | 50,7 ms |
+| Bilder über 50 ms, gesamte Route | 2 | 1 |
+| Bilder über 50 ms, Weststraße | 0 | 0 |
+
+Je zwei Läufe ohne Aufnahme im selben Build mit `westdach=0/1/1/0`. Alle Läufe erreichen die zwölf Wegpunkte ohne Browserfehler. Einzelberichte unter `.cache/mess/d331-finale-ab-{a1,b1,b2,a2}`. Die getrennten Echtzeitaufnahmen liegen unter `.cache/mess/d331-finale-film-{a,b}` und der direkte Vergleich unter `.cache/bilder/d331-weststrasse/index.html`.

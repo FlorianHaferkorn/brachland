@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
@@ -536,6 +536,8 @@ export function baueGebaeude(
      * (echte Silhouette); die Geschosszahl folgt aus der Traufe (≈ 2,9 m je Geschoss). Ohne LoD2 wie bisher aus OSM.
      */
     const echt2 = LOD2_AN && g.lod2 ? g.lod2 : null;
+    const dachWinkel = WESTDACH_AN && westDetail && echt2?.d === 3100 ? echt2.p : undefined;
+    const westDach = dachWinkel !== undefined;
     const ebenen = echt2 ? Math.max(1, Math.min(4, Math.round(echt2.t / 2.9))) : g.ebenen;
     const h = echt2 ? Math.max(2.2, echt2.t) / MASSSTAB.stauchung : (ebenen * METER_JE_EBENE) / MASSSTAB.stauchung;
     /** Geschosshöhe: mit LoD2 die echte Traufe gleichmässig geteilt, sonst 3 m. */
@@ -598,7 +600,8 @@ export function baueGebaeude(
      * verschiedene Körper: Der Deckel stand über, der First zeigte in die falsche
      * Richtung, und an den Ecken klaffte es (G-71).
      */
-    const hu = orientierteHuelle(p, echt2 && echt2.w !== null ? echt2.w * Math.PI / 180 : undefined);
+    const firstWinkel = dachWinkel ?? echt2?.w;
+    const hu = orientierteHuelle(p, firstWinkel == null ? undefined : firstWinkel * Math.PI / 180);
     const { minU, maxU, minV, maxV } = hu;
     /** Punkt im Hüllensystem zurück nach Welt, mit Höhe. */
     const welt3 = (u: number, y: number, v: number): [number, number, number] => {
@@ -805,7 +808,12 @@ export function baueGebaeude(
     const [ux, uz] = hu.welt(1, 0), [vx, vz] = hu.welt(0, 1);
     const sackdach = ortsprofil && !zielHaus && (!echt2 || echt2.d === 3100) && breite >= 5.5
       && ortsprofil.dachschaden > .30 ? ortsprofil : null;
-    const strassenTraufe = strassenSeite(vx,vz) > 0 ? 1 : -1;
+    // Der Straßenpunkt liegt teils fast in Firstverlängerung. Die gemessene
+    // Achse darf dort den bereits gestalteten Schaden auf die Gegenseite kippen.
+    const alteAchse = westDach && echt2?.w != null ? echt2.w * Math.PI / 180 : undefined;
+    const seitenWert = alteAchse === undefined ? strassenSeite(vx,vz)
+      : strassenSeite(-Math.sin(alteAchse),Math.cos(alteAchse)) * Math.sign(Math.cos(hu.achse-alteAchse));
+    const strassenTraufe = seitenWert > 0 ? 1 : -1;
     const schadSeite = dachruine ? strassenTraufe
       : sackdach && sackdach.lage > .53 ? (vz > 0 ? 1 : -1) : (vz > 0 ? -1 : 1);
     const schadSaat = glutHash(mx0, 31.4, mz0);
@@ -1389,9 +1397,9 @@ export function baueGebaeude(
      * anderthalb Meter weit, damit der Schnee vom Balkon bleibt. Ohne ihn sitzt das
      * Dach bündig auf dem Quader, und genau das sah aus wie ein Karton mit Deckel.
      */
-    const ueber = BAUWELT_AN ? Math.min(1.4, 0.3 + klein * 0.08) : Math.min(1.4, klein * 0.16);
+    const ueber = westDach ? .65 : BAUWELT_AN ? Math.min(1.4, 0.3 + klein * 0.08) : Math.min(1.4, klein * 0.16);
     /** D289: Giebelüberstand — im Inntal grösser als an der Traufe, er deckt die Lauben (Bauwelt: 1,5–2,5 m). */
-    const ueberGiebel = BAUWELT_AN && !garage ? Math.min(2.2, ueber + 0.6 + klein * 0.03) : ueber;
+    const ueberGiebel = westDach ? .85 : BAUWELT_AN && !garage ? Math.min(2.2, ueber + 0.6 + klein * 0.03) : ueber;
     const traufe = boden + h;
     /**
      * Dachneigung nach Spannweite — nicht ein fester Faktor.
@@ -1425,7 +1433,17 @@ export function baueGebaeude(
       && p.some(([x,z]) => Math.hypot(x - 1418.905, z - 420.634) < .15);
     const aU0 = minU - (giebelfuge ? .32 : ueberGiebel), aU1 = maxU + ueberGiebel;
     const aV0 = minV - ueber, aV1 = maxV + ueber;
-    const mv = (minV + maxV) / 2;
+    const sattel = westDach ? echt2?.teile?.filter(teil => teil[0] === 3100) : undefined;
+    const [ersterTeil, zweiterTeil] = sattel?.length === 2 ? sattel : [];
+    const dachfuge = ersterTeil && zweiterTeil ? minU + (ersterTeil[2] + zweiterTeil[1]) / 2 : undefined;
+    const mv = ersterTeil && zweiterTeil
+      ? minV + (ersterTeil[5] + zweiterTeil[5]) / 2
+      : (minV + maxV) / 2;
+    const dachfelder = dachfuge !== undefined && ersterTeil && zweiterTeil ? [
+      { u0: aU0, u1: dachfuge, traufe: boden + ersterTeil[6], first: boden + ersterTeil[7] },
+      { u0: dachfuge, u1: aU1, traufe: boden + zweiterTeil[6], first: boden + zweiterTeil[7] },
+    ] : [{ u0: aU0, u1: aU1, traufe, first: firstH }];
+    const dachfeld = (u: number) => dachfuge !== undefined && u >= dachfuge ? dachfelder[1] : dachfelder[0];
     // Der geschädigte Ortgang zieht sich zur vorderen Traufe ein. Dieselbe
     // Verjüngung tragen Dachhaut, Ortgangbrett und Pfettenköpfe.
     const dachpunkt = dachsilhouette ? (u: number, y: number, v: number): [number, number, number] => {
@@ -1466,14 +1484,18 @@ export function baueGebaeude(
       const anteil = walm ? 1 - Math.min(1, Math.abs(v - mv) / Math.max(0.01, mv - aV0)) : 0;
       return seite < 0 ? aU0 + walmEinzug * anteil : aU1 - walmEinzug * anteil;
     };
-    const dachY = (v: number) => {
-      const halb = mv - aV0;
-      if (halb <= 0) return traufe;
-      return firstH - (firstH - traufe) * Math.min(1, Math.abs(v - mv) / halb);
+    const feldHoehe = (v: number, feld: typeof dachfelder[number]) => {
+      // Die gemessene Traufe sitzt an der Wand. Der Überstand verlängert
+      // dieselbe Ebene, damit Sparren und Dachhaut die Neigung behalten.
+      const halb = westDach ? Math.abs((v < mv ? minV : maxV) - mv) : mv - aV0;
+      if (halb <= 0) return feld.traufe;
+      const abstand = Math.abs(v - mv) / halb;
+      return feld.first - (feld.first - feld.traufe) * (westDach ? abstand : Math.min(1, abstand));
     };
+    const dachY = (v: number, u = aU0) => feldHoehe(v, dachfeld(u));
     const schadTraufe = schadSeite === -1 ? aV0 : aV1;
     const bruchDachY = (u: number, v: number) => {
-      const y = dachY(v);
+      const y = dachY(v, u);
       if (sackdach) {
         const phase = (u - schadStart) / schadBreite;
         const mulde = THREE.MathUtils.smoothstep(phase,-.24,.47) * (1 - THREE.MathUtils.smoothstep(phase,.53,1.24));
@@ -1595,14 +1617,19 @@ export function baueGebaeude(
       }
     };
     const dachHaut = (versatz: number, farbe: THREE.Color, seite: [number, number, number]) => {
-      const f0 = aU0 + walmEinzug, f1 = aU1 - walmEinzug;
-      if (bruch && schadSeite === -1) gebrocheneSeite(versatz, farbe, seite);
-      else quadNach(dachpunkt(aU0, traufe + versatz, aV0), dachpunkt(aU1, traufe + versatz, aV0),
-               dachpunkt(f1, firstH + versatz, mv), dachpunkt(f0, firstH + versatz, mv), farbe, seite);
-      if (bruch && schadSeite === 1) gebrocheneSeite(versatz, farbe, seite);
-      else quadNach(dachpunkt(aU1, traufe + versatz, aV1), dachpunkt(aU0, traufe + versatz, aV1),
-               dachpunkt(f0, firstH + versatz, mv), dachpunkt(f1, firstH + versatz, mv), farbe, seite);
+      for (const feld of dachfelder) {
+        const f0 = feld.u0 + walmEinzug, f1 = feld.u1 - walmEinzug;
+        const y0 = westDach ? feldHoehe(aV0, feld) : traufe;
+        const y1 = westDach ? feldHoehe(aV1, feld) : traufe;
+        if (bruch && schadSeite === -1) gebrocheneSeite(versatz, farbe, seite);
+        else quadNach(dachpunkt(feld.u0, y0 + versatz, aV0), dachpunkt(feld.u1, y0 + versatz, aV0),
+                 dachpunkt(f1, feld.first + versatz, mv), dachpunkt(f0, feld.first + versatz, mv), farbe, seite);
+        if (bruch && schadSeite === 1) gebrocheneSeite(versatz, farbe, seite);
+        else quadNach(dachpunkt(feld.u1, y1 + versatz, aV1), dachpunkt(feld.u0, y1 + versatz, aV1),
+                 dachpunkt(f0, feld.first + versatz, mv), dachpunkt(f1, feld.first + versatz, mv), farbe, seite);
+      }
       if (walm) {
+        const f0 = aU0 + walmEinzug, f1 = aU1 - walmEinzug;
         // Walmflächen an den Enden (Dreieck als Viereck mit doppelter Spitze).
         quadNach(dachpunkt(aU0, traufe + versatz, aV1), dachpunkt(aU0, traufe + versatz, aV0),
                  dachpunkt(f0, firstH + versatz, mv), dachpunkt(f0, firstH + versatz, mv), farbe, seite);
@@ -1633,8 +1660,8 @@ export function baueGebaeude(
       const v0 = strassenTraufe < 0 ? aV0+.12 : aV1-.12;
       const v1 = v0+(mv-v0)*(.55+.15*ortsprofil.lage);
       const u0 = minU+breite*(.11+ortsprofil.lage*.19);
-      const breiteFlicken = Math.min(4.65,breite*.35);
-      const E = (u: number, v: number, hub = .045) => dachpunkt(u,dachY(v)+dick+hub,v);
+      const breiteFlicken = Math.min(4.65,breite*.35,dachfeld(u0).u1-u0-.18);
+      const E = (u: number, v: number, hub = .045) => dachpunkt(u,dachY(v,u)+dick+hub,v);
       const felder = Math.max(3, Math.ceil(breiteFlicken/.82));
       for (let i=0; i<felder; i++) {
         const a = u0+breiteFlicken*i/felder, b = u0+breiteFlicken*(i+1)/felder;
@@ -1651,14 +1678,17 @@ export function baueGebaeude(
     // Die gerissene Dachkante hat weiterhin eine Materialstärke.
     for (const seite of [-1, 1] as const) {
       const v = seite === -1 ? aV0 : aV1;
-      const rand = traufenRand && schadSeite === seite
-        ? [...traufenRand] : [{u:aU0,v},{u:aU1,v}];
-      if (seite === 1) rand.reverse();
-      for (let i = 0; i + 1 < rand.length; i++) {
-        const a=rand[i], b=rand[i+1];
-        const yA=bruchDachY(a.u,a.v), yB=bruchDachY(b.u,b.v);
-        quadNach(dachpunkt(a.u,yA,a.v), dachpunkt(b.u,yB,b.v),
-          dachpunkt(b.u,yB+dick,b.v), dachpunkt(a.u,yA+dick,a.v), zielHaus ? ALTE_SCHINDEL : TUER,richtV(seite));
+      for (const feld of dachfelder) {
+        const riss = traufenRand && schadSeite === seite;
+        const rand = riss ? [...traufenRand] : [{u:feld.u0,v},{u:feld.u1,v}];
+        if (seite === 1) rand.reverse();
+        for (let i = 0; i + 1 < rand.length; i++) {
+          const a=rand[i], b=rand[i+1];
+          const yA=riss ? bruchDachY(a.u,a.v) : feldHoehe(a.v,feld);
+          const yB=riss ? bruchDachY(b.u,b.v) : feldHoehe(b.v,feld);
+          quadNach(dachpunkt(a.u,yA,a.v), dachpunkt(b.u,yB,b.v),
+            dachpunkt(b.u,yB+dick,b.v), dachpunkt(a.u,yA+dick,a.v), zielHaus ? ALTE_SCHINDEL : TUER,richtV(seite));
+        }
       }
     }
     if (splitterRand && (zieltreueHaus || sackdach)) {
@@ -1693,8 +1723,26 @@ export function baueGebaeude(
     for (const u of walm ? [] : [aU0, aU1]) {
       if (dachsilhouette && u === aU0) continue;
       for (const v of [aV0, aV1]) {
-        quadNach(dachpunkt(u, traufe, v), dachpunkt(u, traufe + dick, v),
-                 dachpunkt(u, firstH + dick, mv), dachpunkt(u, firstH, mv), TUER, richtU(u === aU0 ? -1 : 1));
+        const y = westDach ? dachY(v,u) : traufe;
+        const grat = dachfeld(u).first;
+        quadNach(dachpunkt(u, y, v), dachpunkt(u, y + dick, v),
+                 dachpunkt(u, grat + dick, mv), dachpunkt(u, grat, mv), TUER, richtU(u === aU0 ? -1 : 1));
+      }
+    }
+    if (dachfuge !== undefined) {
+      // Die beiden Dachschalen stoßen aneinander. Das Brett schließt die
+      // Höhenstufe an der Unterseite und deckt die Fuge bis zur Dachhaut ab.
+      const lo = dachfelder[0], hi = dachfelder[1];
+      for (const [v0,v1] of [[aV0,mv],[mv,aV1]]) {
+        const links0=feldHoehe(v0,lo), links1=feldHoehe(v1,lo);
+        const rechts0=feldHoehe(v0,hi), rechts1=feldHoehe(v1,hi);
+        for (const [u,feld,seite] of [[dachfuge-.09,lo,-1],[dachfuge+.09,hi,1]] as const) {
+          const y0 = feldHoehe(v0,feld)+dick+.07, y1 = feldHoehe(v1,feld)+dick+.07;
+          quadNach(dachpunkt(u,Math.min(links0,rechts0),v0), dachpunkt(u,Math.min(links1,rechts1),v1),
+            dachpunkt(u,y1,v1), dachpunkt(u,y0,v0), TUER,richtU(seite));
+        }
+        quadNach(dachpunkt(dachfuge-.09,links0+dick+.07,v0),dachpunkt(dachfuge+.09,rechts0+dick+.07,v0),
+          dachpunkt(dachfuge+.09,rechts1+dick+.07,v1),dachpunkt(dachfuge-.09,links1+dick+.07,v1),dachKante,OBEN);
       }
     }
     /**
@@ -1754,16 +1802,17 @@ export function baueGebaeude(
        */
       const teiler = (vA - mv) * (vB - mv) < 0 ? [0, (mv - vA) / (vB - vA), 1] : [0, 1];
       const giebeleinsturz = ruinenHaus && k === 1;
-      if (giebeleinsturz) {
-        teiler.push(.19,.74);
-        teiler.sort((a,b) => a-b);
-      }
+      const uA = ax * ux + az * uz, uB = bx * ux + bz * uz;
+      if (dachfuge !== undefined && (uA-dachfuge)*(uB-dachfuge) < 0) teiler.push((dachfuge-uA)/(uB-uA));
+      if (giebeleinsturz) teiler.push(.19,.74);
+      if (giebeleinsturz || dachfuge !== undefined) teiler.sort((a,b) => a-b);
       for (let s = 0; s + 1 < teiler.length; s++) {
         const t0 = teiler[s], t1 = teiler[s + 1];
         if (giebeleinsturz && t0 >= .19 && t1 <= .74) continue;
         const x0 = ax + (bx - ax) * t0, z0 = az + (bz - az) * t0;
         const x1 = ax + (bx - ax) * t1, z1 = az + (bz - az) * t1;
-        const y0 = dachY(vA + (vB - vA) * t0), y1 = dachY(vA + (vB - vA) * t1);
+        const feld = dachfeld(uA+(uB-uA)*(t0+t1)/2);
+        const y0 = feldHoehe(vA + (vB - vA) * t0,feld), y1 = feldHoehe(vA + (vB - vA) * t1,feld);
         // Liegt das Teilstück an der Traufe, gibt es dort keinen Giebel — beim Walmdach nirgends (D290).
         if (walm || (y0 - traufe < 0.02 && y1 - traufe < 0.02)) continue;
         quad([x0, traufe, z0], [x1, traufe, z1], [x1, y1, z1], [x0, y0, z0], giebel);
@@ -1854,10 +1903,11 @@ export function baueGebaeude(
       const halb = mv - aV0;
       // Pfetten nur am Wohnhaus: Eine Halle hat Binder, keine Balkenköpfe.
       for (const v of wohnhaus ? [mv, mv - halb * 0.55, mv + halb * 0.55] : []) {
-        const pb = 0.11, yTop = dachY(v) - 0.02;
-        kasten(aU0 + 0.02, minU + 0.25, v - pb, v + pb, fest(yTop - 0.24), fest(yTop), SPARREN,
+        const pb = 0.11;
+        const links = dachY(v,aU0)-.02, rechts = dachY(v,aU1)-.02;
+        kasten(aU0 + 0.02, minU + 0.25, v - pb, v + pb, fest(links - 0.24), fest(links), SPARREN,
                { unten: true, v0: true, v1: true, u0: true });
-        kasten(maxU - 0.25, aU1 - 0.02, v - pb, v + pb, fest(yTop - 0.24), fest(yTop), SPARREN,
+        kasten(maxU - 0.25, aU1 - 0.02, v - pb, v + pb, fest(rechts - 0.24), fest(rechts), SPARREN,
                { unten: true, v0: true, v1: true, u1: true });
       }
     }
@@ -1898,21 +1948,22 @@ export function baueGebaeude(
      * First als zwei Bänder über dem Grat, ebenfalls hell. Ein Dach mit First
      * ist ein Dach, eines ohne ein Keil.
      */
-    {
+    for (const feld of dachfelder) {
+      const rand = (v: number, seite: -1 | 1) => dachfuge === undefined ? uRand(v,seite) : seite < 0 ? feld.u0 : feld.u1;
       const reihen = Math.min(6, Math.max(1, Math.floor((mv - aV0) / 1.15)));
       const abstand = (mv - aV0) / (reihen + 0.35);
       for (let i = 1; i <= reihen; i++) {
         for (const s of [-1, 1]) {
           const vA = mv + s * (mv - aV0 - i * abstand), vB = vA + s * 0.07;
           if (bruch && schadSeite === s) continue;
-          quadNach(dachpunkt(uRand(vA, -1), dachY(vA) + dick + 0.03, vA), dachpunkt(uRand(vA, 1), dachY(vA) + dick + 0.03, vA),
-                   dachpunkt(uRand(vB, 1), dachY(vB) + dick + 0.03, vB), dachpunkt(uRand(vB, -1), dachY(vB) + dick + 0.03, vB), dachKante, OBEN);
+          quadNach(dachpunkt(rand(vA, -1), feldHoehe(vA,feld) + dick + 0.03, vA), dachpunkt(rand(vA, 1), feldHoehe(vA,feld) + dick + 0.03, vA),
+                   dachpunkt(rand(vB, 1), feldHoehe(vB,feld) + dick + 0.03, vB), dachpunkt(rand(vB, -1), feldHoehe(vB,feld) + dick + 0.03, vB), dachKante, OBEN);
         }
       }
       for (const s of [-1, 1]) {
         const vB = mv + s * 0.20;
-        quadNach(dachpunkt(uRand(mv, -1), firstH + dick + 0.06, mv), dachpunkt(uRand(mv, 1), firstH + dick + 0.06, mv),
-                 dachpunkt(uRand(vB, 1), dachY(vB) + dick + 0.02, vB), dachpunkt(uRand(vB, -1), dachY(vB) + dick + 0.02, vB), dachKante, OBEN);
+        quadNach(dachpunkt(rand(mv, -1), feld.first + dick + 0.06, mv), dachpunkt(rand(mv, 1), feld.first + dick + 0.06, mv),
+                 dachpunkt(rand(vB, 1), feldHoehe(vB,feld) + dick + 0.02, vB), dachpunkt(rand(vB, -1), feldHoehe(vB,feld) + dick + 0.02, vB), dachKante, OBEN);
       }
     }
 
@@ -1925,10 +1976,16 @@ export function baueGebaeude(
      * Bauteil am Haus, das nicht Holz und nicht Putz ist.
      */
     if (!garage && breite >= 5) {
-      const ry = traufe - 0.02;
       const blech = zielHaus ? ALTES_BLECH : RINNE;
-      if (!bruch || schadSeite !== -1) kasten(aU0, aU1, aV0 - 0.05, aV0 + 0.08, fest(ry - 0.12), fest(ry), blech, { unten: true, v0: true, v1: true });
-      if (!bruch || schadSeite !== 1) kasten(aU0, aU1, aV1 - 0.08, aV1 + 0.05, fest(ry - 0.12), fest(ry), blech, { unten: true, v0: true, v1: true });
+      for (const feld of dachfelder) {
+        for (const s of [-1,1] as const) {
+          if (bruch && schadSeite === s) continue;
+          const v = s < 0 ? aV0 : aV1;
+          const ry = (westDach ? feldHoehe(v,feld) : traufe)-.02;
+          kasten(feld.u0,feld.u1,v-(s<0?.05:.08),v+(s<0?.08:.05),fest(ry-.12),fest(ry),blech,
+            {unten:true,v0:true,v1:true});
+        }
+      }
       const ecken: [number, number][] = [[minU, minV], [maxU, minV], [maxU, maxV], [minU, maxV]];
       const wahl = Math.floor(wuerfel() * 4);
       for (let e = 0; e < 4; e++) {
@@ -1941,6 +1998,7 @@ export function baueGebaeude(
         if (naechste > 0.6) continue;
         const su = eu === minU ? 1 : -1, sv = ev === minV ? -1 : 1;
         const u0 = eu + su * 0.25 - 0.06, v0 = ev + sv * 0.12 - 0.06;
+        const ry = (westDach ? dachY(sv < 0 ? aV0 : aV1,eu) : traufe)-.02;
         kasten(u0, u0 + 0.12, v0, v0 + 0.12, fest(boden), fest(ry - 0.12), blech,
                { u0: true, u1: true, v0: sv < 0, v1: sv > 0 });
         break;
@@ -1995,7 +2053,7 @@ export function baueGebaeude(
       // der Querschnitt über den First greift.
       const sv = mv - Math.max(sb + 0.25, klein * 0.10);
       // Fuß aus derselben Formel wie die Dachhaut, an der firstfernen Kante.
-      const fussY = dachY(sv - sb) - 0.15;
+      const fussY = dachY(sv - sb,su) - 0.15;
       // Kopf: über den First, und der Überstand wächst mit dem Haus mit.
       const kopfY = firstH + 0.55 + Math.min(0.9, klein * 0.030);
       const schaft: [number, number][] = [
@@ -2207,6 +2265,7 @@ export function baueGebaeude(
     if (wohnhaus && breite >= 7 && wuerfel() < 0.5 && bauSchaden === 0) {
       let beste: { u: number; vm: number; s: number } | null = null;
       for (let k = 0; k < p.length - 1; k++) {
+        if (westDach && k === tuerWand) continue;
         const uA = p[k][0] * hu.cos + p[k][1] * hu.sin, vA = -p[k][0] * hu.sin + p[k][1] * hu.cos;
         const uB = p[k + 1][0] * hu.cos + p[k + 1][1] * hu.sin, vB = -p[k + 1][0] * hu.sin + p[k + 1][1] * hu.cos;
         if (Math.abs(vB - vA) < 2.6) continue;

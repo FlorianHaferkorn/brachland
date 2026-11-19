@@ -16,7 +16,7 @@ import {createHash} from 'node:crypto';
 import * as THREE from 'three';
 Object.defineProperty(globalThis,'location',{value:{search:'?hofgruen=1&hofhaeuser=1&hoflauben=1&bau=1&lod2=1'+process.env.D307_BODEN_QUERY},configurable:true});
 const {entpackeWelt,imPolygon}=await import('./src/world/osm.ts');
-const {baueGebaeude}=await import('./src/world/terrain.ts');
+const {baueGebaeude,orientierteHuelle}=await import('./src/world/terrain.ts');
 const {bestimmeHof,waehleHof,HOF_UNIFORM}=await import('./src/world/hofplatz.ts');
 const {bestimmeHofhaeuser}=await import('./src/world/hofhaeuser.ts');
 const {indexiereHausGeometrie}=await import('./src/world/hausindex.ts');
@@ -76,6 +76,35 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,5
     for(let j=0;j<a.count;j++)for(let k=0;k<a.itemSize;k++)if(a.array[j*a.itemSize+k]!==b.array[indexiert.index.getX(j)*a.itemSize+k])indexGleich=false;
   }
   const tritte=[], tuerTiefen=[], wandTiefen=[];
+  let firstLaenge=0, firstWinkel=0, dachstufe=0;
+  if(i===510) {
+    // Die hellere Firstkappe trägt die höchsten Dachvertices. Ihre beiden
+    // Enden liefern Länge und Winkel aus dem gebauten Netz.
+    const dachpunkte=[];
+    for(let j=0;j<p.count;j++) if(r.getX(j)===2) dachpunkte.push([p.getX(j),p.getY(j),p.getZ(j)]);
+    const maxY=Math.max(...dachpunkte.map(q=>q[1]));
+    const first=dachpunkte.filter(q=>q[1]>=maxY-.006);
+    for(const a of first) for(const b of first) {
+      const laenge=Math.hypot(b[0]-a[0],b[2]-a[2]);
+      if(laenge<=firstLaenge) continue;
+      firstLaenge=laenge;
+      firstWinkel=(Math.atan2(b[2]-a[2],b[0]-a[0])*180/Math.PI+180)%180;
+    }
+  }
+  if(i===512 && lod[i].teile) {
+    const hu=orientierteHuelle(ringe[i],lod[i].p*Math.PI/180);
+    const sattel=lod[i].teile.filter(t=>t[0]===3100);
+    const u=hu.minU+(sattel[0][2]+sattel[1][1])/2;
+    const mesh=new THREE.Mesh(g,material);
+    mesh.updateMatrixWorld();
+    const hi=[];
+    for(const du of [-.24,.24]) {
+      const [x,z]=hu.welt(u+du,hu.minV+.33);
+      strahl.set(new THREE.Vector3(x,hoehe(x,z)+25,z),new THREE.Vector3(0,-1,0));
+      hi.push(strahl.intersectObject(mesh,false)[0]?.point.y);
+    }
+    if(hi.every(Number.isFinite)) dachstufe=Math.abs(hi[0]-hi[1]);
+  }
   if(i===508) {
     const ring=ringe[i], wandBoden=Math.min(...ring.map(([x,z])=>hoehe(x,z)));
     const flaeche=ring.slice(0,-1).reduce((s,[x,z],k)=>s+x*ring[k+1][1]-z*ring[k+1][0],0);
@@ -113,7 +142,7 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,5
     }
   }
   const positionHash=createHash('sha256').update(Buffer.from(p.array.buffer,p.array.byteOffset,p.array.byteLength)).digest('hex');
-  result.haeuser[i]={hash:hash(g),positionHash,ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen,wandTiefen,schuttEcken,balkenEcken,dachHoehen,blattecken,holzrahmen,tiefeOeffnung};
+  result.haeuser[i]={hash:hash(g),positionHash,ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen,wandTiefen,schuttEcken,balkenEcken,dachHoehen,blattecken,holzrahmen,tiefeOeffnung,firstLaenge,firstWinkel,dachstufe};
   if(i===297){
     const innen=referenz.mitte;
     if(!imPolygon(innen,ringe[i])) throw Error('Bewohnerprobe muss im Grundriss liegen');
@@ -132,6 +161,7 @@ interface Hausbefund {
   indexGleich: boolean; tritte: boolean[]; tuerTiefen: (number | null)[]; wandTiefen: (number | null)[]; schuttEcken: number;
   balkenEcken: number; dachHoehen: Record<string, number>;
   blattecken: number; holzrahmen: number; tiefeOeffnung: number;
+  firstLaenge: number; firstWinkel: number; dachstufe: number;
 }
 interface Stand {
   haeuser: Record<number, Hausbefund>; eingabeErhalten: boolean; bewohntHash: string;
@@ -155,6 +185,7 @@ const ortsprobe = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1');
 const silhouette = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1');
 const westprobe = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1');
 const westdetail = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1&westdetail=1');
+const westdach = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1&westdetail=1&westdach=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -294,5 +325,22 @@ pruefe('D330: Sichtstrahlen treffen den mehr als einen Meter tiefen Innenraum be
 pruefe('D330: Texturierte Efeublätter bei 510 und 3D-Rahmenrollen an allen drei Fassaden',
   westdetail.haeuser[510].blattecken > westprobe.haeuser[510].blattecken
     && westhaeuser.every(i => westdetail.haeuser[i].holzrahmen > 0));
+pruefe('D331: Die Dachmaße ändern nur die drei Weststraßenhäuser',
+  Object.entries(westdetail.haeuser).every(([i,h]) => {
+    const dach = westdach.haeuser[Number(i)];
+    return westhaeuser.includes(Number(i)) === (h.hash !== dach.hash) && dach.endlich && dach.indexGleich;
+  }));
+const vorDach = westdetail.haeuser[510], nachDach = westdach.haeuser[510];
+pruefe('D331: Der First von 510 ist kürzer und folgt der projizierten Messkante',
+  nachDach.firstLaenge > 22 && nachDach.firstLaenge < vorDach.firstLaenge - 3.6
+  && Math.abs(nachDach.firstWinkel-150.69) < .05,
+  `${vorDach.firstLaenge.toFixed(3)} → ${nachDach.firstLaenge.toFixed(3)} m · ${nachDach.firstWinkel.toFixed(3)}°`);
+pruefe('D331: Zwischen den beiden Dachkörpern von 512 bleibt eine gemessene Höhenstufe',
+  westdetail.haeuser[512].dachstufe < .085 && westdach.haeuser[512].dachstufe > .12
+  && westdach.haeuser[512].dachstufe < .26,
+  `${westdetail.haeuser[512].dachstufe.toFixed(3)} → ${westdach.haeuser[512].dachstufe.toFixed(3)} m`);
+pruefe('D331: Bei 508 bleibt der tiefe Innenraum durch den Dachbruch sichtbar',
+  westdach.haeuser[508].tiefeOeffnung >= 3,
+  `${westdetail.haeuser[508].tiefeOeffnung} → ${westdach.haeuser[508].tiefeOeffnung}`);
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

@@ -2447,7 +2447,7 @@ function Klippen({ klippen, ziel, material }: {
  * einen im Vorbeigehen erwischt, ist ein Unfall, kein Höhepunkt.
  */
 /** D290: LoD2-Silhouetten (`tools/lod2import.py`), Reihenfolge wie `welt.gebaeude` des Œntals. */
-const LOD2_DATEN = LOD2_ROH as ({ t: number; f: number; d: number; w: number | null; c?: string | null } | null)[];
+const LOD2_DATEN = LOD2_ROH as (NonNullable<Weltdaten['gebaeude'][number]['lod2']> | null)[];
 const REGENT_HOEHE = 4.2;
 /**
  * Das Modell (D241) ist 1,6 Einheiten lang statt der 1,2 der Silhouette: 3,8 ergibt gut sechs

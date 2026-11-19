@@ -64,7 +64,7 @@ owns: *.test.ts
 | `hofgruen.test.ts` | D299: lokale Baumwahl ohne Verlust/Duplikate oder Seedänderungen; Strauchvarianten bleiben in der Mittelstufe erhalten. |
 | `hofstrauch.test.ts` | D299: deterministische Geometrie/UV, korrekte Meterhöhe und Bodenstand, gültige Attribute und Windgewichte. |
 | `ezblattschatten.test.ts` | D300: gezeichnetes Tiefenmaterial behält trotz three.js-Überschreibung bei Alpha-to-Coverage die Nadel-/Laubschwelle der Farbkarte. |
-| `hofbodenintegration.test.ts` | Reale Hofhäuser mit Sockelkontakt, Trittplatten, Verfallsstufen und gezeichneter Ranke. D322 und D323 prüfen weitere Straßen und die Giebelfuge zwischen 308 und 346. D329 prüft die drei Nutzungszustände. D330 vergleicht die Tiefe der Öffnung bei 508 und prüft Blatt- und Rahmenattribute. |
+| `hofbodenintegration.test.ts` | Reale Hofhäuser mit Sockelkontakt, Trittplatten, Verfallsstufen und gezeichneter Ranke. D322 und D323 prüfen weitere Straßen und die Giebelfuge zwischen 308 und 346. D329 prüft die drei Nutzungszustände. D330 vergleicht die Tiefe der Öffnung bei 508 und prüft Blatt- und Rahmenattribute. D331 misst Firstlage und Dachstufe an gebauter Geometrie und prüft den offenen Bruch erneut. |
 | `hofbodenkontakt.test.ts` | D307: Pixelzentren, Auswahl, Maskenverlauf und ausgesparte fremde Grundrisse des Bodenrands. |
 | `hofboden.test.ts` | D307: Lokalität, Stetigkeit und freie Türvorfelder der CPU-/GLSL-Bodenmasken. |
 | `hofsockel.test.ts` | D307: geschlossene Sockelkörper, stetige Endhöhen, Türspalten und Bodenanschluss am gewellten Hang. |
