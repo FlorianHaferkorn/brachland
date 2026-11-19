@@ -58,6 +58,8 @@ export const HOF_BILDTAKT_AN = HOF_SILHOUETTE_AN && HOF_BILDRUHE_AN && an('bildt
 export const HOF_BILDFLUSS_AN = HOF_BILDTAKT_AN && an('bildfluss');
 /** D327: Geländekacheln und sichtbare Aufsätze gemeinsam, in kleinen Arbeitsschritten wechseln. */
 export const HOF_KACHELNACHLAUF_AN = HOF_BILDFLUSS_AN && an('kachelnachlauf');
+/** D328: Gruppenwechsel mit vorbereiteten Baumformen und geteilten Kopien. Rückfall mit bildspitzen=0. */
+export const HOF_BILDSPITZEN_AN = HOF_KACHELNACHLAUF_AN && suche.get('bildspitzen') !== '0';
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

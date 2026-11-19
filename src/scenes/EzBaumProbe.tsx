@@ -8,7 +8,7 @@ import { EZ_BLEND_DAUER, EZ_STUFEN, ezIntervall, ezWechsel } from './ezlod.js';
 import type { EzIntervall, EzVerlauf } from './ezlod.js';
 import { ergaenzeEzLaublicht, bewahreEzBlattschatten, beruhigeEzBlattkante } from '../world/ezlaubmaterial.js';
 import { getLeafTexture, warteEzBlattkarten } from '../world/eztexturen.js';
-import { HOF_GRUEN_AN, HOF_SILHOUETTE_AN, BLATTRUHE_AN, BLATTVERLAUF_AN, MSAA } from '../world/echt.js';
+import { HOF_BILDSPITZEN_AN, HOF_GRUEN_AN, HOF_SILHOUETTE_AN, BLATTRUHE_AN, BLATTVERLAUF_AN, MSAA } from '../world/echt.js';
 
 type Stufe = 'nah' | 'mittel' | 'fern';
 type BaumArt = 'nadelbaum' | 'laubbaum';
@@ -51,6 +51,22 @@ let ezBereit = false;
 let ezNurHof = false;
 /** Lokale EZ-Proben dürfen die übrigen Originalgruppen beim Montieren nicht ausblenden. */
 export function istEzProbeBereit(hofBaum = false): boolean { return ezBereit && (!ezNurHof || hofBaum); }
+const EZ_VARIANTEN = 4;
+
+/** Eine zurückgestellte Originalform wird erst beim sichtbaren Rückfall gebaut. */
+function zeigeOriginal(o: THREE.InstancedMesh): void {
+  if (HOF_BILDSPITZEN_AN && o.userData.ezOriginalGeometrie) {
+    if (!o.parent || !o.count) return;
+    o.geometry = o.userData.ezOriginalGeometrie() as THREE.BufferGeometry;
+    o.computeBoundingSphere();
+    delete o.userData.ezOriginalGeometrie;
+  }
+  o.visible = true;
+}
+
+export function uebernimmtEzVariante(variante: number, hofBaum: boolean): boolean {
+  return Number.isInteger(variante) && variante >= 0 && variante < EZ_VARIANTEN && istEzProbeBereit(hofBaum);
+}
 
 // Die zwei Farb-/Tiefenpasses erhalten exakt dieselbe Verschiebung. Der eigene
 // EZ-Shader ersetzt project_vertex und unterstuetzt keine Instanzmatrix.
@@ -189,7 +205,7 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
         if (beendet) return;
       }
       const alle = new Map<string, BaumSatz>();
-      for (const art of ['nadelbaum', 'laubbaum'] as const) for (let variante = 0; variante < 4; variante++) {
+      for (const art of ['nadelbaum', 'laubbaum'] as const) for (let variante = 0; variante < EZ_VARIANTEN; variante++) {
         const baum = new ez.Tree();
         baum.loadPreset(art === 'nadelbaum' ? 'Pine Medium' : 'Oak Medium');
         const hofKulisse = HOF_SILHOUETTE_AN && nurHof;
@@ -224,6 +240,12 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
         blendeEinbauen(stammTiefe, windZeit);
         const box = new THREE.Box3().setFromObject(baum);
         const nah = { stamm: baum.branchesMesh.geometry, laub: baum.leavesMesh.geometry };
+        if (HOF_BILDSPITZEN_AN) {
+          // Die Stufen ändern nur die Indizes. Three kopiert beim Klonen dieselbe
+          // Sphäre, die sonst jede Ersatzgruppe aus allen Vertices ermittelt.
+          nah.stamm.computeBoundingSphere();
+          nah.laub.computeBoundingSphere();
+        }
         const mittel = { stamm: stammStufe(nah.stamm, 0.30, meshopt.MeshoptSimplifier), laub: laubStufe(nah.laub, 0.50) };
         const fern = { stamm: stammStufe(nah.stamm, 0.025, meshopt.MeshoptSimplifier), laub: laubStufe(nah.laub, 0.05) };
         alle.set(`${art}:${variante}`, { baum, hoehe: box.max.y - box.min.y, tiefe, stammTiefe, stufen: { nah, mittel, fern } });
@@ -237,7 +259,7 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
       if (scene.userData.ezKamera === camera) delete scene.userData.ezKamera;
       if (diagnose && scene.userData.ezDiagnose === diagnose) delete scene.userData.ezDiagnose;
       diagnoseEntfernt.current.clear();
-      for (const p of paare.current.values()) { p.original.visible = true; scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); }
+      for (const p of paare.current.values()) { zeigeOriginal(p.original); scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); }
       for (const p of uebergaenge.current.values()) { scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); }
       for (const p of wartendeMeshes.current.values()) { scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); }
       wartendeMeshes.current.clear();
@@ -280,7 +302,7 @@ export function EzBaumProbe({ ziel, lokal }: { ziel: React.RefObject<THREE.Objec
     const behalten = new Set(kandidaten.map(k => k.original));
     for (const [o, p] of paare.current) if (!behalten.has(o)) {
       for (const e of p.eintraege) { entfernteIds.add(e.id); diagnoseGrund?.set(e.id, 'gruppe-entfernt'); }
-      o.visible = true; scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); paare.current.delete(o); geaendert = true;
+      zeigeOriginal(o); scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); paare.current.delete(o); geaendert = true;
     }
     for (const { original: o, art, variante, stufe, satz } of kandidaten) {
       let p = paare.current.get(o);

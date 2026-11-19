@@ -20,7 +20,7 @@ import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
 import { WasserUmgebung, WasserSzeneProbe, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
-import { EzBaumProbe, istEzProbeBereit } from './EzBaumProbe.js';
+import { EzBaumProbe, istEzProbeBereit, uebernimmtEzVariante } from './EzBaumProbe.js';
 import { TakramProbe } from './TakramProbe.js';
 import { STIMMUNG, HEMI_BODEN, heileStimmung, type Stimmung } from '../world/stimmung.js';
 export { STIMMUNG, HEMI_BODEN, HEMI_BODEN_TAG, type Stimmung, type StimmungsName } from '../world/stimmung.js';
@@ -67,7 +67,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
+import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -515,7 +515,7 @@ function LodTerrain({ feld, kacheln, ziel, nachlauf }: {
     if (budget >= 0) { meldeFertig('terrain'); nachlauf.bodenFertig = true; }
 
     if (HOF_KACHELPUFFER_AN) {
-      const neu = gestaffelt ? yield* bereiteKachelpuffer(puffer.current, kachelgruppen, vorladen)
+      const neu = gestaffelt ? yield* bereiteKachelpuffer(puffer.current, kachelgruppen, vorladen, HOF_BILDSPITZEN_AN)
         : aktualisiereKachelpuffer(puffer.current, kachelgruppen);
       const geometrien = geometrienAusKachelpuffern(neu);
       return () => {
@@ -920,7 +920,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     const fassen = (gs: THREE.BufferGeometry[]) =>
       gs.length ? [mergeGeometries(gs, false)].filter(Boolean) as THREE.BufferGeometry[] : [];
     const hausNeu = !HOF_KACHELPUFFER_AN ? hausPuffer.current
-      : gestaffelt ? yield* bereiteKachelpuffer(hausPuffer.current, hausGruppen, vorladen)
+      : gestaffelt ? yield* bereiteKachelpuffer(hausPuffer.current, hausGruppen, vorladen, HOF_BILDSPITZEN_AN)
       : aktualisiereKachelpuffer(hausPuffer.current, hausGruppen);
     const haus = HOF_KACHELPUFFER_AN ? geometrienAusKachelpuffern(hausNeu) : fassen(sammeln.haus);
     const baenderNeu = new Map<string, { quellen: THREE.BufferGeometry[]; geometrien: THREE.BufferGeometry[] }>();
@@ -1288,34 +1288,30 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
   const blender = eigen ? blenderBaum(eigen, variante, stufe) : null;
   const pfad = propPfad(blender ? blender.datei : ((liste[variante] ?? liste[0])?.datei ?? VARIANTEN.busch[0].datei));
   const { scene } = useGLTF(pfad);
-  return useMemo(() => {
-    if (eigen && !blender) return { geo: baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel'), blender: false };
+  const normalisiert = useMemo(() => {
     let geo: THREE.BufferGeometry | null = null;
-    // Der Blender-Ursprung kann am Kronenzentrum liegen. Beim Herausloesen
-    // muss die Knotenmatrix mit: sonst versinkt etwa Fichte 0 um 10,25 m.
-    scene.updateMatrixWorld(true);
-    scene.traverse(o => {
-      if (!geo && (o as THREE.Mesh).isMesh) geo = (o as THREE.Mesh).geometry.clone().applyMatrix4(o.matrixWorld);
-    });
-    if (!eigen && geo) {
-      // D229/D230: Scan-Props bringen ihr Windgewicht als `_WIND` mit; vorher standen Farne still.
-      const w = (geo as THREE.BufferGeometry).getAttribute('_wind');
-      if (w) (geo as THREE.BufferGeometry).setAttribute('aWind', w);
-    }
-    if (eigen && geo) {
-      // Windgewicht aus der Datei (`_WIND` → `_wind`), sonst aus der Hoehe; Laubmaske steht in COLOR_0.a
-      const g = geo as THREE.BufferGeometry;
-      const w = g.getAttribute('_wind');
-      if (w) g.setAttribute('aWind', w); else windAusHoehe(g, g.boundingBox?.max.y ?? 20);
-    }
-    // Keine Normierung mehr. Die Höhe steht in `VARIANTEN` und ist beim Bauen in
-    // die Datei eingerechnet — sie hier erneut auf eine Zielhöhe je Art zu ziehen,
-    // hätte alle sechs Grasvarianten wieder auf dieselben 0,35 m gestreckt.
-    return { geo: (geo ?? propGeometrie(art)) as THREE.BufferGeometry, blender: !!(eigen && blender) };
+    return () => {
+      if (geo) return geo;
+      if (eigen && !blender) return geo = baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel');
+      // Der Blender-Ursprung kann am Kronenzentrum liegen. Beim Herausloesen
+      // muss die Knotenmatrix mit: sonst versinkt etwa Fichte 0 um 10,25 m.
+      scene.updateMatrixWorld(true);
+      const mesh = scene.getObjectByProperty('isMesh', true) as THREE.Mesh | undefined;
+      if (!mesh) return geo = propGeometrie(art);
+      geo = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
+      // Scan-Props und Blender-Bäume bringen ihr Windgewicht als `_WIND` mit.
+      const w = geo.getAttribute('_wind');
+      if (w) geo.setAttribute('aWind', w);
+      else if (eigen) windAusHoehe(geo, geo.boundingBox?.max.y ?? 20);
+      // Die Höhe steht in VARIANTEN und ist bereits in die Datei eingerechnet.
+      return geo;
+    };
   }, [scene, art, eigen, blender, variante, stufe]);
+  return { normalisiert, blender: !!(eigen && blender) };
 }
 
 const LEER: ReadonlySet<string> = new Set();
+const LEERES_PROP_NETZ = new THREE.BufferGeometry();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
 function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, buschWind }: {
@@ -1324,12 +1320,16 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind
   baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial;
 }) {
   const fern = stufe === 'fern';
-  const { geo, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
+  const { normalisiert, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
+  const ezOriginal = HOF_BILDSPITZEN_AN && blender && uebernimmtEzVariante(chunk.variante, hofBaum) ? normalisiert : undefined;
   const hofStrauch = HOF_GRUEN_AN && chunk.art === 'busch' && istHofBusch(chunk.mitte, chunk.radius);
   const strauchBleibt = HOF_STRAUCH_WEIT && hofStrauch;
   const strauchGeo = useMemo(() => hofStrauch ? hofStrauchGeometrie(chunk.variante, VARIANTEN.busch[chunk.variante]?.hoehe ?? 1.2) : null, [hofStrauch, chunk.variante]);
   const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
-  const fernGeo = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
+  const attrappe = fern && !blender && !strauchBleibt;
+  const fernGeo = useMemo(() => !HOF_BILDSPITZEN_AN || attrappe ? attrappeGeometrie(chunk.art) : null, [attrappe, chunk.art]);
+  const geo = ezOriginal ? LEERES_PROP_NETZ : normalisiert();
+  const netz = strauchBleibt ? strauchGeo! : attrappe ? fernGeo! : strauchGeo ?? geo;
   // Nur was sich biegen kann, bekommt das Windmaterial. Findlinge und Totholz
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
   // als bewegtes Laub aufbaut.
@@ -1344,9 +1344,12 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind
       mesh.count = 0;
       if (HOF_BILDFLUSS_AN) mesh.visible = false;
     }
-    if (mesh) { mesh.userData.hofGruen = hofBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = chunk.variante; }
+    if (mesh) {
+      mesh.userData.hofGruen = hofBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = chunk.variante;
+      mesh.userData.ezOriginalGeometrie = ezOriginal;
+    }
     if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
-  }, [blender, hofBaum, hofStrauch, chunk.variante]);
+  }, [blender, ezOriginal, hofBaum, hofStrauch, chunk.variante]);
 
   useEffect(() => {
     const mesh = ref.current;
@@ -1371,13 +1374,18 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.count = chunk.instanzen.length;
-    mesh.computeBoundingSphere();
+    if (!HOF_BILDSPITZEN_AN) mesh.computeBoundingSphere();
     if (HOF_BILDFLUSS_AN && anfang && mesh.count > 0 && !ezErsetzt) mesh.visible = true;
   }, [chunk, hofBaum]);
 
   // Der Umriss ändert sich beim Wechsel auf die Attrappe; ohne Neuberechnung
   // schneidet das Frustum-Culling falsch.
-  useEffect(() => { ref.current?.computeBoundingSphere(); }, [fern]);
+  useEffect(() => {
+    if (!HOF_BILDSPITZEN_AN) ref.current?.computeBoundingSphere();
+  }, [fern]);
+  useEffect(() => {
+    if (HOF_BILDSPITZEN_AN && !ezOriginal) ref.current?.computeBoundingSphere();
+  }, [chunk, ezOriginal, netz]);
 
   // Kein useFrame mehr in dieser Komponente. Sichtbarkeit und Attrappen-Entscheidung
   // trifft die Verwaltung — bei 16.663 Chunks wären 16.663 Callbacks je Bild der
@@ -1392,7 +1400,7 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind
     <instancedMesh
       ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
-      geometry={strauchBleibt ? strauchGeo! : fern && !blender ? fernGeo : strauchGeo ?? geo}
+      geometry={netz}
       material={blender ? baumWind : strauchMaterial && (!fern || strauchBleibt) ? strauchMaterial : buschWind && chunk.art === 'busch' && !fern ? buschWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
         : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
         : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
