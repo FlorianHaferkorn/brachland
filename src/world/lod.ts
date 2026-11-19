@@ -438,7 +438,7 @@ export function lodFuerAbstand(abstand: number): number {
  * genau der Fehler, der als G-8 zwei Fehldiagnosen überstanden hat.
  */
 export function baueKachelGeometrie(
-  feld: HoehenFeld, kachel: Kachel, lod: number, schuerzeTiefeFest?: number,
+  feld: HoehenFeld, kachel: Kachel, lod: number, schuerzeTiefeFest?: number, indexiert = false,
 ): THREE.BufferGeometry {
   const schritt = LOD_STUFEN[Math.min(lod, LOD_STUFEN.length - 1)].schritt;
   // 0,45 × Schritt deckt den gemessenen Maximalriss jeder Stufe mit Reserve.
@@ -451,10 +451,11 @@ export function baueKachelGeometrie(
   const farben: number[] = [];
   const normalen: number[] = [];
   const nass: number[] = [];
+  const indizes: number[] = [];
   const farbe = new THREE.Color();
   /**
-   * D201: Normale aus dem **Höhenfeld**, nicht aus dem Dreieck. Die Geometrie ist nicht indiziert —
-   * jedes Dreieck hat eigene Ecken —, `computeVertexNormals()` lieferte deshalb nur Flächennormalen,
+   * D201: Normale aus dem **Höhenfeld**, damit benachbarte Kacheln dieselbe Normale verwenden.
+   * Auf der bisher nicht indizierten Geometrie lieferte `computeVertexNormals()` nur Flächennormalen,
    * und das Gelände las sich als Facetten, auch mit `?bodenglatt=1` (darum maß D160 „kein
    * Unterschied“). Zentraler Gradient über die Schrittweite der Stufe: An Kachelgrenzen sehen beide
    * Seiten dieselbe Normale, und sie passt zur Auflösung der Geometrie.
@@ -487,24 +488,13 @@ export function baueKachelGeometrie(
    * in **Weltkoordinaten**, also ortsfest über alle Stufen. Der Vertex-Jitter war
    * das dritte Rauschen an derselben Fläche und das einzige, das das Raster trug.
    */
-  const dreieck = (p: [number, number, number][]) => {
-    for (const [x, y, z] of p) {
-      positionen.push(x, y, z);
-      feld.bodenfarbe(x, z, farbe);
-      farben.push(farbe.r, farbe.g, farbe.b);
-      normale(x, z);
-      nass.push(feld.nass(x, z));
-    }
+  const ecke = (x: number, y: number, z: number): void => {
+    positionen.push(x, y, z);
+    feld.bodenfarbe(x, z, farbe);
+    farben.push(farbe.r, farbe.g, farbe.b);
+    normale(x, z);
+    nass.push(feld.nass(x, z));
   };
-
-  for (let b = 0; b < teile; b++) {
-    for (let a = 0; a < teile; a++) {
-      const p00 = punkt(a, b), p10 = punkt(a + 1, b);
-      const p01 = punkt(a, b + 1), p11 = punkt(a + 1, b + 1);
-      dreieck([p00, p01, p10]);
-      dreieck([p10, p01, p11]);
-    }
-  }
 
   // Schürze rundherum
   const rand: [number, number][] = [];
@@ -512,17 +502,51 @@ export function baueKachelGeometrie(
   for (let b = 1; b <= teile; b++) rand.push([teile, b]);
   for (let a = teile - 1; a >= 0; a--) rand.push([a, teile]);
   for (let b = teile - 1; b >= 1; b--) rand.push([0, b]);
-  for (let k = 0; k < rand.length; k++) {
-    const p1 = punkt(...rand[k]);
-    const p2 = punkt(...rand[(k + 1) % rand.length]);
-    const u1: [number, number, number] = [p1[0], p1[1] - schuerzeTiefe, p1[2]];
-    const u2: [number, number, number] = [p2[0], p2[1] - schuerzeTiefe, p2[2]];
-    // D282: Wicklung so, dass die Schürze **nach aussen** zeigt. Vorher zeigte ihre Vorderseite in die eigene
-    // Kachel; wer von der Nachbarkachel auf einen Riss sah (dort, wo der Nachbar tiefer liegt), sah die
-    // Rückseite — und die wird nicht gezeichnet. Durch die Lücke schien der Nebel als heller Keil entlang
-    // der LOD-Grenze (Stauwehr, x = 1152; Flo 14.11.2026 „komische Kanten“). Von innen braucht niemand sie.
-    dreieck([p1, p2, u1]);
-    dreieck([p2, u2, u1]);
+  // D282: Beide Pfade wickeln die Schürze nach außen. Dadurch deckt sie die Lücke
+  // auch vom tieferen Nachbarboden aus ab (Stauwehr, x = 1152).
+  if (indexiert) {
+    // D326: Jeder Rasterpunkt und jeder untere Schürzenpunkt erhält genau eine
+    // Höhen-, Farb-, Normalen- und Nässeprobe. Diagonalen und Dreieckfolge bleiben gleich.
+    const reihe = teile + 1;
+    for (let b = 0; b <= teile; b++) {
+      for (let a = 0; a <= teile; a++) ecke(...punkt(a, b));
+    }
+    for (let b = 0; b < teile; b++) {
+      for (let a = 0; a < teile; a++) {
+        const p00 = b * reihe + a;
+        const p10 = p00 + 1, p01 = p00 + reihe, p11 = p01 + 1;
+        indizes.push(p00, p01, p10, p10, p01, p11);
+      }
+    }
+    const schuerzenStart = reihe * reihe;
+    const obererRand = rand.map(([a, b]) => b * reihe + a);
+    for (const oben of obererRand) {
+      const i = oben * 3;
+      ecke(positionen[i], positionen[i + 1] - schuerzeTiefe, positionen[i + 2]);
+    }
+    for (let k = 0; k < rand.length; k++) {
+      const naechster = (k + 1) % rand.length;
+      const p1 = obererRand[k], p2 = obererRand[naechster];
+      const u1 = schuerzenStart + k, u2 = schuerzenStart + naechster;
+      indizes.push(p1, p2, u1, p2, u2, u1);
+    }
+  } else {
+    for (let b = 0; b < teile; b++) {
+      for (let a = 0; a < teile; a++) {
+        const p00 = punkt(a, b), p10 = punkt(a + 1, b);
+        const p01 = punkt(a, b + 1), p11 = punkt(a + 1, b + 1);
+        ecke(...p00); ecke(...p01); ecke(...p10);
+        ecke(...p10); ecke(...p01); ecke(...p11);
+      }
+    }
+    for (let k = 0; k < rand.length; k++) {
+      const p1 = punkt(...rand[k]);
+      const p2 = punkt(...rand[(k + 1) % rand.length]);
+      const u1: [number, number, number] = [p1[0], p1[1] - schuerzeTiefe, p1[2]];
+      const u2: [number, number, number] = [p2[0], p2[1] - schuerzeTiefe, p2[2]];
+      ecke(...p1); ecke(...p2); ecke(...u1);
+      ecke(...p2); ecke(...u2); ecke(...u1);
+    }
   }
 
   const g = new THREE.BufferGeometry();
@@ -530,6 +554,7 @@ export function baueKachelGeometrie(
   g.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(normalen, 3));
   g.setAttribute('nass', new THREE.Float32BufferAttribute(nass, 1));
+  if (indexiert) g.setIndex(indizes);
   g.computeBoundingSphere();
   return g;
 }

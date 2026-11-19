@@ -66,7 +66,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_BILDRUHE_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
+import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -453,7 +453,7 @@ function LodTerrain({ feld, kacheln, ziel }: {
       let g = cache.current.get(schluessel);
       if (!g) {
         if (budget-- <= 0) { letzte.current.set(NaN, NaN, NaN); continue; }
-        g = baueKachelGeometrie(feld, k, lod);
+        g = baueKachelGeometrie(feld, k, lod, undefined, HOF_BILDFLUSS_AN);
         cache.current.set(schluessel, g);
       }
       if (HOF_KACHELPUFFER_AN) sammleKachel(kachelgruppen, k, g, String(lod));
@@ -796,7 +796,11 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
         // Gärten teilen sich das Material mit den Häusern: beides Vertexfarbe,
         // beides undurchsichtig, beides derselbe Draw Call je Kachelgruppe.
         if (!g) continue;
-        if (HOF_KACHELPUFFER_AN && (art === 'haus' || art === 'garten')) sammleKachel(hausGruppen, k, g, 'haus');
+        // Gartenhöhen wechseln mit dem Gelände-LOD. Feste Häuser behalten ihren
+        // GPU-Puffer auch dann, wenn nur die Zaun- und Beetgeometrie ersetzt wird.
+        if (HOF_KACHELPUFFER_AN && (art === 'haus' || art === 'garten')) {
+          sammleKachel(hausGruppen, k, g, HOF_BILDFLUSS_AN ? art : 'haus');
+        }
         else sammeln[art === 'garten' ? 'haus' : art].push(g);
       }
     }
@@ -1002,7 +1006,12 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum
   const [kapazitaet, setKapazitaet] = useState(() => Math.ceil(instanzen.length * 1.4) + 64);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
     ref.current = mesh;
-    if (mesh && !mesh.instanceColor) mesh.count = 0; // Vor dem ersten Befuellen keine Identitaetsmatrizen zeichnen.
+    if (mesh && !mesh.instanceColor) {
+      mesh.count = 0;
+      // Auch bei count=0 wählt three.js ein Shaderprogramm. Ein leeres Bündel
+      // würde dabei die Variante ohne Instanzfarben erstmals kompilieren.
+      if (HOF_BILDFLUSS_AN) mesh.visible = false;
+    }
     if (mesh) { mesh.userData.hofGruen = hofBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = variante; }
     if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
   }, [blender, hofBaum, hofStrauch, variante]);
@@ -1014,7 +1023,9 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum
     }
     const m = ref.current;
     if (!m) return;
-    if (blender && istEzProbeBereit(hofBaum)) m.visible = false;
+    const ezErsetzt = blender && istEzProbeBereit(hofBaum);
+    const anfang = !m.instanceColor;
+    if (ezErsetzt) m.visible = false;
     const hilfe = new THREE.Object3D();
     const ton = new THREE.Color();
     instanzen.forEach((p, i) => {
@@ -1030,6 +1041,7 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
     if (zellCulling || hofStrauch) m.computeBoundingSphere();
+    if (HOF_BILDFLUSS_AN && anfang && m.count > 0 && !ezErsetzt) m.visible = true;
   }, [instanzen, kapazitaet, zellCulling, hofBaum, hofStrauch]);
 
   return (
@@ -1183,14 +1195,20 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind
   const ref = useRef<THREE.InstancedMesh>(null);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
     ref.current = mesh;
-    if (mesh && !mesh.instanceColor) mesh.count = 0; // Bereits befuellte Meshes beim erneuten Anhaengen erhalten.
+    if (mesh && !mesh.instanceColor) {
+      mesh.count = 0;
+      if (HOF_BILDFLUSS_AN) mesh.visible = false;
+    }
     if (mesh) { mesh.userData.hofGruen = hofBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = chunk.variante; }
     if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
   }, [blender, hofBaum, hofStrauch, chunk.variante]);
 
   useEffect(() => {
-    if (!ref.current) return;
-    if (blender && istEzProbeBereit(hofBaum)) ref.current.visible = false;
+    const mesh = ref.current;
+    if (!mesh) return;
+    const ezErsetzt = blender && istEzProbeBereit(hofBaum);
+    const anfang = !mesh.instanceColor;
+    if (ezErsetzt) mesh.visible = false;
     const m = new THREE.Object3D();
     const ton = new THREE.Color();
     chunk.instanzen.forEach((p, i) => {
@@ -1198,17 +1216,18 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind
       m.rotation.y = p.drehung;
       m.scale.setScalar(p.skalierung);
       m.updateMatrix();
-      ref.current!.setMatrixAt(i, m.matrix);
+      mesh.setMatrixAt(i, m.matrix);
       // Farbe je Instanz (D79). `setRGB` ohne Farbraum schreibt direkt in den
       // Arbeitsraum — die Werte sind Faktoren um 1,0, keine Farben, und dürfen
       // deshalb nicht durch die sRGB-Umrechnung.
       const [r, g, b] = propTon(p.art, p.variante, p.drehung);
-      ref.current!.setColorAt(i, ton.setRGB(r, g, b));
+      mesh.setColorAt(i, ton.setRGB(r, g, b));
     });
-    ref.current.instanceMatrix.needsUpdate = true;
-    if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
-    ref.current.count = chunk.instanzen.length;
-    ref.current.computeBoundingSphere();
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.count = chunk.instanzen.length;
+    mesh.computeBoundingSphere();
+    if (HOF_BILDFLUSS_AN && anfang && mesh.count > 0 && !ezErsetzt) mesh.visible = true;
   }, [chunk, hofBaum]);
 
   // Der Umriss ändert sich beim Wechsel auf die Attrappe; ohne Neuberechnung
@@ -2241,6 +2260,9 @@ function Klippen({ klippen, ziel, material }: {
         if (n >= liste.length) break;
       }
       m.count = n;
+      // Außerhalb der Reichweite bleiben manche Varianten leer. Kein erster
+      // Shader-Einsatz beim Schwenk auf ein leeres Instanz-Mesh.
+      if (HOF_BILDFLUSS_AN) m.visible = n > 0;
       m.instanceMatrix.needsUpdate = true;
       m.computeBoundingSphere();
     });

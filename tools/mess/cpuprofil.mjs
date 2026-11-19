@@ -1,5 +1,5 @@
 /** CPU-Profil desselben spielbaren Laufs wie vergleich.mjs, ohne Video.
- * node tools/mess/cpuprofil.mjs <neuer-name> [url-zusatz] [port] [build-verzeichnis] [x,z,grad] [ausreisser-ms]
+ * node tools/mess/cpuprofil.mjs <neuer-name> [url-zusatz] [port] [build-verzeichnis] [x,z,grad|hofwest] [ausreisser-ms]
  * Fuer Zuordnung: Vite-Produktionsbuild mit Sourcemaps und passenden Preview-Port starten.
  * CPU-Profiling kostet selbst Zeit; Bildraten separat mit vergleich.mjs messen.
  */
@@ -7,8 +7,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
 import { playwright } from './pw.mjs';
+import { HOFWEST_START, bereiteHofwestroute, laufeHofwestroute } from './hofwestroute.mjs';
 
-const [name, extra = '', port = '4174', build = '.cache/cpuprofil-build', ort = '0,0,310', schwellenText = '100'] = process.argv.slice(2);
+const [name, extra = '', port = '4174', build = '.cache/cpuprofil-build', strecke = '0,0,310', schwellenText = '100'] = process.argv.slice(2);
+const hofwest = strecke === 'hofwest';
+const ort = hofwest ? HOFWEST_START : strecke;
 const ausreisserMs = Number(schwellenText);
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
 if (!/^\d+$/.test(port)) throw new Error('Numerischen lokalen Preview-Port angeben.');
@@ -26,7 +29,29 @@ await seite.addInitScript(() => {
   const messung = { aufrufe: {}, tasten: [] };
   window.__cpuAudio = messung;
   window.__cpuUploads = [];
+  window.__cpuProgramm = [];
   const webgl = WebGL2RenderingContext.prototype;
+  for (const name of ['compileShader', 'linkProgram', 'getProgramParameter', 'getProgramInfoLog', 'getUniformLocation', 'texSubImage2D']) {
+    const original = webgl[name];
+    webgl[name] = function (...args) {
+      if (!window.__cpuBildlauf?.aktiv) return original.apply(this, args);
+      const beginnMs = performance.now();
+      try { return original.apply(this, args); }
+      finally {
+        const dauerMs = performance.now() - beginnMs;
+        if (dauerMs >= 2) {
+          const programm = name === 'getProgramInfoLog'
+            ? window.__cpuRenderer?.info.programs?.find(p => p.program === args[0])
+            : undefined;
+          const objekt = name === 'getProgramInfoLog' ? window.__cpuZeichnen : undefined;
+          window.__cpuProgramm.push({ name, beginnMs, dauerMs,
+            material: programm?.name, schluessel: programm?.cacheKey,
+            objekt: objekt && { name: objekt.name, typ: objekt.type, instanzen: objekt.count,
+              instanzfarbe: !!objekt.instanceColor, eltern: objekt.parent?.name } });
+        }
+      }
+    };
+  }
   for (const name of ['bufferData', 'bufferSubData']) {
     const original = webgl[name];
     webgl[name] = function (...args) {
@@ -78,6 +103,25 @@ try {
   await seite.waitForSelector('button[aria-label="Menü"]', { timeout: 240000 });
   await seite.waitForFunction(() => document.body.textContent.includes('Ladezeit'), undefined, { timeout: 120000 });
   await seite.waitForTimeout(15000);
+  if (hofwest) await bereiteHofwestroute(seite);
+  await seite.evaluate(() => {
+    const szene = window.__szene;
+    if (!szene) return;
+    const vorher = szene.onBeforeRender;
+    szene.onBeforeRender = function (renderer, ...argumente) {
+      if (!window.__cpuRenderer) {
+        window.__cpuRenderer = renderer;
+        const zeichne = renderer.renderBufferDirect;
+        renderer.renderBufferDirect = function (kamera, welt, geometrie, material, objekt, gruppe) {
+          const davor = window.__cpuZeichnen;
+          window.__cpuZeichnen = objekt;
+          try { return zeichne.call(this, kamera, welt, geometrie, material, objekt, gruppe); }
+          finally { window.__cpuZeichnen = davor; }
+        };
+      }
+      vorher.call(this, renderer, ...argumente);
+    };
+  });
   const cdp = await seite.context().newCDPSession(seite);
   await cdp.send('Performance.enable');
   await seite.evaluate(() => {
@@ -94,14 +138,25 @@ try {
   await cdp.send('Profiler.enable');
   await cdp.send('Profiler.setSamplingInterval', { interval: 1000 });
   await cdp.send('Profiler.start');
+  if (hofwest) await seite.waitForTimeout(750);
   messen = true;
-  await seite.keyboard.down('Shift'); await seite.keyboard.down('w');
-  await seite.waitForTimeout(12000);
-  await seite.keyboard.up('w'); await seite.keyboard.up('Shift');
+  let route;
+  if (hofwest) {
+    route = await laufeHofwestroute(seite);
+    if (route.fehler) fehler.push(route.fehler);
+  } else {
+    await seite.keyboard.down('Shift'); await seite.keyboard.down('w');
+    await seite.waitForTimeout(12000);
+    await seite.keyboard.up('w'); await seite.keyboard.up('Shift');
+  }
   messen = false;
   const { profile } = await cdp.send('Profiler.stop');
-  const bildzeitpunkte = await seite.evaluate(() => { window.__cpuBildlauf.aktiv = false; return window.__cpuBildlauf.zeitpunkte; });
-  const { audio, uploads, langzeit } = await seite.evaluate(() => ({ audio: window.__cpuAudio, uploads: window.__cpuUploads, langzeit: window.__cpuLangzeit }));
+  const { zeitpunkte, ursprung, audio, uploads, programme, langzeit } = await seite.evaluate(() => {
+    window.__cpuBildlauf.aktiv = false;
+    return { zeitpunkte: window.__cpuBildlauf.zeitpunkte, ursprung: performance.timeOrigin,
+      audio: window.__cpuAudio, uploads: window.__cpuUploads, programme: window.__cpuProgramm, langzeit: window.__cpuLangzeit };
+  });
+  const bildzeitpunkte = route ? route.bilder.map(([zeit]) => zeit - ursprung) : zeitpunkte;
   const hud = await seite.textContent('body');
   const maps = new Map();
   const abbilden = f => {
@@ -149,13 +204,15 @@ try {
       anteile.set(key, (anteile.get(key) ?? 0) + ueberlapp);
     }
     langeBilder.push({ abMs: +(bildzeitpunkte[i - 1] - bildzeitpunkte[0]).toFixed(1), dauerMs: +(ende - anfang).toFixed(1),
+      ort: route?.bilder[i].slice(1),
       hauptthread: langzeit.filter(e => e.startMs + zeitVersatz < ende && e.startMs + e.dauerMs + zeitVersatz > anfang),
       uploads: uploads.filter(u => u.beginnMs + zeitVersatz >= anfang && u.beginnMs + zeitVersatz < ende),
+      programme: programme.filter(u => u.beginnMs + zeitVersatz < ende && u.beginnMs + u.dauerMs + zeitVersatz > anfang),
       top: [...anteile].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([funktion, ms]) => ({ funktion, ms: +ms.toFixed(1) })) });
   }
   const bericht = { ort, extra, port, build, ausreisserMs, dauerMs: (profile.endTime - profile.startTime) / 1000,
     samples: profile.samples?.length ?? 0, topSelbst: [...rang].sort((a, b) => b.selbstMs - a.selbstMs).slice(0, 60),
-    topInklusive: [...rang].sort((a, b) => b.inklusiveMs - a.inklusiveMs).slice(0, 60), langeBilder, audio, uploads, hud, anfragen, fehler,
+    topInklusive: [...rang].sort((a, b) => b.inklusiveMs - a.inklusiveMs).slice(0, 60), langeBilder, audio, uploads, programme, route, hud, anfragen, fehler,
     hinweis: 'Sampling-Hauptthread, weder GPU-Zeit noch kausaler Beweis fuer Bildausreisser; Profiler erzeugt Eigenlast.' };
   writeFileSync(`${ziel}/profil.cpuprofile`, JSON.stringify(profile));
   writeFileSync(`${ziel}/bericht.json`, JSON.stringify(bericht, null, 2));

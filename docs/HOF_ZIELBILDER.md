@@ -247,3 +247,23 @@ Alle vier Messläufe erreichen die 12 Wegpunkte in 36,4–36,5 s und legen 152,1
 Die Steigerung der mittleren Bildrate aus D324 bestätigt sich. Die kurzen D324-Läufe an der Fassade hatten höchstens 50,0 ms erreicht. Auf der durchgehenden Route dauern die längsten Bilder in allen vier Durchgängen 183–219 ms und fallen um die achte Sekunde bei x≈1420 und z≈405,6 an. Weitere wiederkehrende lange Bilder liegen im Durchgang bei z≈412 und auf der Weststraße bei z≈441. Die Positionsaufzeichnung lokalisiert die Ausreißer. Ihre Ursache lässt sich aus der Messung der Bildzeiten allein nicht bestimmen.
 
 Die Rohberichte liegen unter `.cache/mess/d325-hofwest-{a1,b1,b2,a2}`. Die Echtzeitaufnahmen liegen unter `.cache/mess/d325-film-{a,b}`, der Seitenvergleich unter `.cache/bilder/d325-hof-weststrasse/index.html`.
+
+## Kachelwechsel mit getrennten Puffern (D326)
+
+Die Spitze der 152-m-Route liegt am ersten 32-m-Kachelwechsel bei x≈1420 und z≈405,6. Im CPU-Profil belegen `mergeAttributes` und `bufferData` zusammen rund 195 ms des längsten Frames. Die WebGL-Sonde zählt 53,4 MB große Pufferuploads in diesem Frame. Gärten beziehen ihre Höhen aus der Gelände-LOD-Stufe. Ein neuer Gartenpuffer ersetzte zuvor auch die vollständige Geometrie der unveränderten Häuser in derselben 256-m-Gruppe. In den folgenden Frames kamen Shader-Kompilierungen erstmals sichtbarer, teils noch leerer Instanzgruppen hinzu.
+
+`bildfluss=1` baut Haus- und Gartenpuffer unabhängig. Gelände-Kacheln speichern identische Eckwerte einmal und verweisen über Indizes darauf. Instanzgruppen der Nah- und Fern-Props werden ab der ersten Befüllung gezeichnet. Dazu gehört beim Baumersatz dieselbe bisherige Sichtbarkeitsentscheidung. Leere Klippengruppen werden ebenfalls ausgeblendet. Ein zusätzliches Profil erfasste bei x≈1372 einen 85,7-ms-Shaderaufruf beim Zeichnen einer solchen Gruppe mit null Instanzen. Materialien, Verfall, Dreiecke und LOD-Schwellen stammen aus dem bisherigen Bau. `bildfluss=0` gibt auf derselben Kulisse den D325-Vergleichspfad.
+
+In einer CPU-Probe an sechs Kacheln und fünf LOD-Stufen sind nach Indexexpansion alle vier Geländeattribute und die Hüllkugeln identisch. Das Datenvolumen dieser Stichprobe sinkt von 2,32 auf 0,53 MB. Der Median für den Aufbau von zwölf Kacheln auf dem M1 fällt von 64,2 auf 12,5 ms. Die Summe der Pufferuploads ab 256 KiB sinkt im separaten Profil vor der letzten Shaderkorrektur von rund 453 auf 77 MB. Messwerkzeug `node tools/mess/cpuprofil.mjs <name> "<D325-Parameter>&bildtakt=1&bildfluss=0" 4173 dist hofwest 48`. Profile haben Eigenlast. Die A/B-Bildzeiten stammen aus gesonderten Spielläufen.
+
+Vier 152-m-Läufe am M1 bei 960 × 540 vergleichen `bildfluss=0/1/1/0`. Alle erreichen dieselben 12 Wegpunkte. Der historische D325-Maximalwert von 200,0 ms tritt in der frischen D325-Kontrolle an derselben Stelle mit 249,9 und 252,0 ms auf. Die Spitzen der beiden D326-Läufe sind 66,7 bzw. 83,3 ms. Mit D326 bleiben in beiden Durchgängen je zwei Bilder über 50 ms am Hof und im Übergang.
+
+| Abschnitt | FPS D325 → D326 | p95 D325 → D326 | Bilder über 50 ms D325 → D326 | Maximum D325 → D326 |
+|---|---:|---:|---:|---:|
+| Gesamt | 40,38 → 42,55 | 35,20 → 34,45 ms | 26 → 4 | 252,0 → 83,3 ms |
+| Hof und Übergang | 39,52 → 42,17 | 35,20 → 34,60 ms | 18 → 4 | 252,0 → 83,3 ms |
+| Weststraße | 41,88 → 43,21 | 35,05 → 34,25 ms | 8 → 0 | 116,7 → 50,0 ms |
+
+Die Rohberichte liegen unter `.cache/mess/d326-hofwest-{a1,b1,b2,a2}`. Die CPU-Profile sind `.cache/mess/d326-cpu-{vor,programme,zwischenschritt,nach,rest}`. Die Aufnahmen entstehen getrennt von der Zeitmessung. Der D325-Referenzclip und die neue D326-Aufnahme laufen nebeneinander in `.cache/bilder/d326-hofruckler/index.html`.
+
+Vier Kontrollbildpaare ohne HUD vergleichen dieselbe Kamera und Windphase über `hauslauf.mjs <name> 1 stand bildfluss` mit dem D324-Referenzsatz `.cache/mess/d324-stand-nach`. Beide Fassungen enthalten in den geladenen Haus- und Gartenpuffern exakt 444.720 Dreiecke. Die mittlere absolute RGB-Abweichung beträgt je Bild höchstens 0,014 von 255. Die Bewegungsaufnahme der korrigierten Fassung erreicht dieselben 12 Wegpunkte in 36,26 s. Messung und Aufnahmen melden keine Browserfehler.

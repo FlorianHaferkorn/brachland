@@ -54,6 +54,8 @@ export const HOF_SILHOUETTE_AN = HOF_ORTSALTERUNG_AN && an('hofsilhouette');
 export const HOF_BILDRUHE_AN = HOF_ORTSALTERUNG_AN && an('bildruhe');
 /** D324: denselben Hof mit räumlich begrenzter Grasarbeit und vorbereiteten Nahbaumdaten zeichnen. */
 export const HOF_BILDTAKT_AN = HOF_SILHOUETTE_AN && HOF_BILDRUHE_AN && an('bildtakt');
+/** D326: getrennte Haus- und Gartenpuffer, indiziertes Gelände und erst gefüllte Instanzgruppen zeichnen. */
+export const HOF_BILDFLUSS_AN = HOF_BILDTAKT_AN && an('bildfluss');
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

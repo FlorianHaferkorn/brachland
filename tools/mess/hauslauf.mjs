@@ -4,14 +4,15 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-const bildtakt=profil==='bildtakt';
+const bildfluss=profil==='bildfluss';
+const bildtakt=profil==='bildtakt'||bildfluss;
 const hofsilhouette=profil==='hofsilhouette'||bildtakt;
 const eckfahrt=hofsilhouette||['ranke','ruine','einsturz','hofziel','hofdachbruch','hoflicht','zieltreue','verfallverlauf','ortsalterung'].includes(profil);
 const weststrasse=profil==='weststrasse';
 const strassenfahrt=profil==='ortsstrasse'||weststrasse;
 const ortsalterung=profil==='ortsalterung'||hofsilhouette||strassenfahrt;
 const kurzeFahrt=eckfahrt||strassenfahrt;
-if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette|bildtakt angeben.');
+if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette|bildtakt|bildfluss angeben.');
 const bodennah=kurzeFahrt||['boden','gras','teppich','verfall'].includes(profil);
 const anzahl=kurzeFahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
@@ -55,7 +56,8 @@ if(kurzeFahrt){
     parameter.set('zieltreue','1');parameter.set('verfallverlauf',ortsalterung?'1':probe);
     if(ortsalterung)parameter.set('ortsalterung',hofsilhouette?'1':probe);
     if(hofsilhouette)parameter.set('hofsilhouette',bildtakt?'1':probe);
-    if(bildtakt){parameter.set('bildruhe','1');parameter.set('bildtakt',probe);}
+    if(bildtakt){parameter.set('bildruhe','1');parameter.set('bildtakt',bildfluss?'1':probe);}
+    if(bildfluss)parameter.set('bildfluss',probe);
    }
   }
   if(profil==='hofdachbruch'){
