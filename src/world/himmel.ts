@@ -23,6 +23,7 @@
  * Spielraum und keine Wechselwirkung mit Nebel oder Schatten.
  */
 import * as THREE from 'three';
+import { HOF_ZIELTREUE_AN } from './echt.js';
 
 export interface HimmelWerte {
   zenit: string;
@@ -70,6 +71,7 @@ uniform float scheibe;
 uniform float hof;
 uniform float wolken;
 uniform float uZeit;
+${HOF_ZIELTREUE_AN ? 'uniform sampler2D uHofWolken;\nuniform float uHofWolkenAnteil;' : ''}
 varying vec3 vRichtung;
 
 // D203: Wertrauschen und FBM für die Wolken — dieselbe Machart wie das Bodenrauschen, null Bytes.
@@ -122,7 +124,20 @@ void main() {
     float licht = 0.5 + 0.5 * pow(d, 2.0);
     vec3 wolkenFarbe = mix(horizont * 0.82, mix(horizont, sonnenfarbe, 0.4) * 1.2, licht);
     wolkenFarbe += sonnenfarbe * dichte * (1.0 - dichte) * 4.0 * pow(d, 5.0) * 0.45;
-    farbe = mix(farbe, wolkenFarbe, bedeckt * 0.9);
+    ${HOF_ZIELTREUE_AN ? /* glsl */ `
+    // Dünne, warm erhellte Wolkenlücken zwischen dunkleren Schichtwolken.
+    float aufbruch = pow(max(0.0,dot(r,vec3(.13,.40,.904))),9.0);
+    float durchlass = 1.0 - smoothstep(.31,.72,n);
+    vec3 wolkenSchatten = mix(zenit * .83,horizont * .74,smoothstep(.14,.53,h));
+    vec3 warmesLicht = mix(horizont,sonnenfarbe,.44) * (.60 + .48 * aufbruch);
+    vec3 schicht = mix(wolkenSchatten,warmesLicht,durchlass * (.34 + .66 * aufbruch));
+    farbe = mix(farbe,schicht,smoothstep(.025,.24,h)*.92);
+    // Blickrichtungsfeste Wolkenkarte. Am Horizont bleibt der Nebel farbgleich.
+    vec2 wolkenUv = vec2(fract(atan(r.x,r.z)*.15915494 + .24), asin(clamp(h,-1.0,1.0))*.31830989 + .50);
+    vec3 wolkenKarte = texture2D(uHofWolken,wolkenUv).rgb;
+    float naht = smoothstep(0.0,.045,min(wolkenUv.x,1.0-wolkenUv.x));
+    farbe = mix(farbe,wolkenKarte * vec3(.84,.70,.56),uHofWolkenAnteil * smoothstep(.025,.17,h) * naht);
+    ` : 'farbe = mix(farbe, wolkenFarbe, bedeckt * 0.9);'}
   }
 
   // Hof: weiter, weicher Abfall. Das ist der Teil, der die Stimmung macht. Durch Wolken gedämpft,
@@ -148,7 +163,17 @@ void main() {
 }
 `;
 
+let hofWolken: THREE.Texture | undefined;
+let hofWolkenSeit = Infinity;
+
 export function baueHimmel(w: HimmelWerte): THREE.Mesh {
+  if (HOF_ZIELTREUE_AN && !hofWolken) {
+    hofWolken = new THREE.TextureLoader().load('/material/hof-himmel-farbe.webp', () => {
+      hofWolkenSeit = performance.now();
+    });
+    hofWolken.colorSpace = THREE.SRGBColorSpace;
+    hofWolken.wrapS = THREE.RepeatWrapping;
+  }
   const material = new THREE.ShaderMaterial({
     vertexShader: VERTEX,
     fragmentShader: FRAGMENT,
@@ -165,6 +190,7 @@ export function baueHimmel(w: HimmelWerte): THREE.Mesh {
       hof: { value: w.hof },
       wolken: { value: w.wolken ?? WOLKEN_VORGABE },
       uZeit: { value: 0 },
+      ...(hofWolken && HOF_ZIELTREUE_AN ? { uHofWolken: { value: hofWolken }, uHofWolkenAnteil: { value: 0 } } : {}),
     },
   });
 
@@ -174,7 +200,11 @@ export function baueHimmel(w: HimmelWerte): THREE.Mesh {
   mesh.frustumCulled = false;
   mesh.renderOrder = -1000;
   // Wolken ziehen: Zeit je Bild, ohne dass die Szene davon wissen muss.
-  mesh.onBeforeRender = () => { material.uniforms.uZeit.value = performance.now() / 1000; };
+  mesh.onBeforeRender = () => {
+    const jetzt = performance.now();
+    material.uniforms.uZeit.value = jetzt / 1000;
+    if (HOF_ZIELTREUE_AN) material.uniforms.uHofWolkenAnteil.value = THREE.MathUtils.smoothstep(jetzt - hofWolkenSeit, 0, 550);
+  };
   return mesh;
 }
 

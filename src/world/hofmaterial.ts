@@ -1,6 +1,6 @@
 /** D298: Originale Scan-Albedo und Materialkanäle der begrenzten Hofprobe. */
 import * as THREE from 'three';
-import { HOF_BODEN_AN } from './echt.js';
+import { HOF_BODEN_AN, HOF_ZIELTREUE_AN } from './echt.js';
 import { HOF_ZUGANG_PARS } from './hofboden.js';
 import { HOF_UNIFORM, HOF_PARS } from './hofplatz.js';
 
@@ -79,6 +79,7 @@ export const HOF_HAUS_NORMAL = /* glsl */ `
 export const HOF_BODEN_PARS = /* glsl */ `
 ${HOF_PARS}
 ${HOF_BODEN_AN ? HOF_ZUGANG_PARS + '\nuniform sampler2D uHofKontakt;\nuniform vec4 uHofKontaktRahmen;' : ''}
+${HOF_ZIELTREUE_AN ? 'uniform vec4 uHofZielVorfeld;\nuniform vec2 uHofZielHalb;' : ''}
 uniform sampler2D uHofBodenFarbe, uHofBodenNormal, uHofBodenArm;
 uniform float uHofBodenMeter;
 float hofBodenAnteil;
@@ -102,6 +103,25 @@ export const HOF_BODEN_FARBE = /* glsl */ `
     vec3 erde = vec3(0.095, 0.065, 0.035) * (sWiese.rgb * 1.4 + 0.3);
     diffuseColor.rgb = mix(diffuseColor.rgb, erde, hofLokal * clamp(erdRand + kontaktStreu + zugang * 0.9, 0.0, 0.95));
     hofBodenAnteil *= mix(0.30, 0.92, streu) * (1.0 - max(zugang * 0.88, kontaktStreu));
+  }
+  ` : ''}
+  ${HOF_ZIELTREUE_AN ? `
+  vec2 zielDelta = vWeltPos.xz - uHofZielVorfeld.xy;
+  if (uHofZielHalb.x > 0.0 && dot(zielDelta, zielDelta) < 182.25) {
+    vec2 n = uHofZielVorfeld.zw;
+    vec2 q = vec2(dot(zielDelta, vec2(n.y, -n.x)), dot(zielDelta, n));
+    vec2 rand = abs(q) - uHofZielHalb;
+    float innen = max(rand.x, rand.y);
+    float abstand = length(max(rand, 0.0));
+    float fleck = bodenRauschen(q * 0.76) * 0.67 + bodenRauschen(q * 2.43 + 2.0) * 0.33;
+    // Erdiger Sockelsaum mit ungleichmäßig auslaufendem Kies auf Eingang- und Zaunseite.
+    float sicht = smoothstep(-uHofZielHalb.x + 0.30, -uHofZielHalb.x + 1.2, q.x);
+    float breite = 1.16 + 1.95 * smoothstep(0.0, uHofZielHalb.y, q.y);
+    float saum = sicht * smoothstep(-0.12, 0.03, innen)
+      * (1.0 - smoothstep(breite * 0.45, breite, abstand + (fleck - 0.49) * 1.12));
+    vec3 feuchteErde = vec3(0.094, 0.073, 0.05) * (0.71 + sWiese.rgb * 0.83);
+    diffuseColor.rgb = mix(diffuseColor.rgb, feuchteErde, saum * 0.76);
+    hofBodenAnteil = max(hofBodenAnteil, saum * smoothstep(0.18, 0.74, fleck) * 0.72);
   }
   ` : ''}
   // Ableitungen vor der Ortsverzweigung halten die Mipwahl an den Maskenrändern stabil.

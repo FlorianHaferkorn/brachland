@@ -11,13 +11,13 @@
  * Fleck trägt bei jedem Besuch dieselben Büschel.
  */
 import * as THREE from 'three';
-import { HOF_GRAS_AN } from './echt.js';
+import { HOF_GRAS_AN, HOF_ZIELTREUE_AN } from './echt.js';
 import { HOF_UNIFORM } from './hofplatz.js';
 import { hofgrasFrei } from './hofboden.js';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
 import type { Biom } from './osm.js';
-import type { HoehenFeld } from './lod.js';
+import { hoeheAufFlaeche, type HoehenFeld } from './lod.js';
 
 /** Radius, in dem gestreut wird. Darüber übernehmen die echten Props. */
 export const STREU_RADIUS = 22;
@@ -198,7 +198,7 @@ const hofOrt = new THREE.Vector2();
 export function streueUmgebung(
   feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh, faktor = 1,
 ): number {
-  return streue(feld, mx, mz, mesh, DICHTE, STREU_JE_QM * faktor, STREU_MAX, 0, (h1, h2, h3) => {
+  const anzahl = streue(feld, mx, mz, mesh, DICHTE, STREU_JE_QM * faktor, STREU_MAX, 0, (h1, h2, h3) => {
     const hoehe = 0.18 + h1 * 0.30;
     hilfe.rotation.set(0, h2 * Math.PI * 2, 0);
     const amHof = HOF_GRAS_AN && HOF_UNIFORM.bereit.value
@@ -215,6 +215,46 @@ export function streueUmgebung(
     return hash(Math.floor(x * 71), Math.floor(z * 71), 308) >
       (.24 - fleck * .21) * (1 - THREE.MathUtils.smoothstep(d, 32, 46));
   } : undefined);
+  return HOF_ZIELTREUE_AN ? streueVorfeld(feld, mx, mz, mesh, anzahl, faktor) : anzahl;
+}
+
+/** Ortstreue Horste in drei schmalen Säumen. Vorhandene Instanzen, Wind und Freihaltung gelten weiter. */
+function streueVorfeld(feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh, anzahl: number, faktor: number): number {
+  const r = STREU_RADIUS;
+  const { x: cx, y: cz, z: nx, w: nz } = HOF_UNIFORM.zielVorfeld.value;
+  const { x: halbU, y: halbV } = HOF_UNIFORM.zielHalb.value;
+  if (halbU <= 0 || faktor <= 0 || Math.hypot(cx - mx, cz - mz) > r + 13) return anzahl;
+  const max = Math.min(STREU_MAX, mesh.instanceMatrix.count);
+  // Je Streifen Längsgrenzen, senkrechter Anfang, Breite und Ausrichtung. Der Hofgarten beginnt 1 m vor der Wand.
+  const saum = [
+    { start: -halbU + .37, ende: halbU + 1.43, basis: halbV + .24, breite: 1.16, seitlich: false },
+    { start: -halbV, ende: halbV + .21, basis: halbU + .2, breite: .87, seitlich: true },
+    { start: -halbV - .25, ende: halbV + .36, basis: halbU + 1.24, breite: .9, seitlich: true },
+    { start: halbU + 1.13, ende: halbU + 4.3, basis: halbV + .05, breite: .77, seitlich: false },
+  ];
+  for (const [seite, s] of saum.entries()) {
+    const laenge = s.ende - s.start;
+    for (let k = 0; k <= Math.ceil(laenge / .24) && anzahl < max; k++) for (let reihe = 0; reihe < 3 && anzahl < max; reihe++) {
+      const salz = 320 + seite * 17;
+      const gruppen = .56 + .32 * Math.sin(k * .41 + seite * 1.85) - reihe * .045;
+      if (hash(k, reihe, salz) > gruppen * faktor) continue;
+      const laengs = s.start + Math.min(laenge, (k + hash(k, reihe, salz + 1)) * .24);
+      const quer = s.basis + (reihe + hash(k, reihe, salz + 2)) * s.breite / 3;
+      const u = s.seitlich ? quer : laengs, v = s.seitlich ? laengs : quer;
+      const x = cx + u * nz + v * nx, z = cz - u * nx + v * nz;
+      const d = Math.hypot(x - mx, z - mz);
+      if (d > r || hash(k, reihe, salz + 3) < (d - r * .75) / (r * .25)) continue;
+      if (!hofgrasFrei(x, z, HOF_UNIFORM.zugaenge.value, HOF_UNIFORM.zugangZahl.value)
+        || gesperrt(x, z, 'streu') || feld.biom(x, z) === 'wasser') continue;
+      const breit = .43 + .42 * hash(k, reihe, salz + 4);
+      hilfe.position.set(x, hoeheAufFlaeche(feld, x, z), z);
+      hilfe.rotation.set(0, hash(k, reihe, salz + 5) * Math.PI * 2, 0);
+      hilfe.scale.set(breit, .17 + .23 * hash(k, reihe, salz + 6), breit);
+      hilfe.updateMatrix();
+      mesh.setMatrixAt(anzahl++, hilfe.matrix);
+    }
+  }
+  return anzahl;
 }
 
 /** Steine, Äste, Wurzelstücke — flach und klein, ohne Wind. */

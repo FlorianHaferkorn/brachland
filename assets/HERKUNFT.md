@@ -11,6 +11,8 @@ owns: []
 |---|---|---|
 | `hof-ziel-farbe.webp` | Farbwerte für Kalkputz, Holzschalung, Dachschindeln und Feldsteinsockel | Projektintern mit ImageGen aus dem [eigenen Hof-Zielbild](../docs/bilder/d315-hof-einsturz.webp) erzeugt. [Prompt und Aufbereitung](../docs/HOF_ZIELBILDER.md#spielbare-fassung-von-haus-308-d317). |
 | `hof-ziel-normal.webp` | Relief derselben vier Materialien | Projektintern aus den Helligkeitsgradienten der Farbkarte abgeleitet. |
+| `hof-efeu-farbe.webp` | Farbkarte für die modellierten Efeublätter an Haus 308, 512 × 512 | D320, eigenes [Hof-Zielbild](../docs/bilder/d315-hof-einsturz.webp) als Referenz für das eingebaute ImageGen. [Prompt](../docs/HOF_ZIELBILDER.md#ausarbeitung-am-zielbild-d320). |
+| `hof-himmel-farbe.webp` | Panoramakarte für Wolken über der Hofruine, 1280 × 640 | D320, mit dem eingebauten ImageGen nach der Wolkendecke aus dem [eigenen Hof-Zielbild](../docs/bilder/d315-hof-einsturz.webp) erzeugt. [Prompt](../docs/HOF_ZIELBILDER.md#ausarbeitung-am-zielbild-d320). |
 
 D299: Die Hofvegetation nutzt den bereits eingebundenen MIT-Generator EZ-Tree mit den hier
 nachgewiesenen CC0-Ersatzkarten. Neue Mehrstamm-Sträucher werden in `src/world/hofstrauch.ts`

@@ -14,7 +14,7 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_LICHT_AN } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from './echt.js';
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
@@ -200,6 +200,28 @@ const HOF_ZIEL_FARBE = /* glsl */ `
         farbe = mix(farbe, mix(farbe,vec3(.085,.09,.044),.78), moos * .63);
       }
       ` : ''}
+      ${HOF_ZIELTREUE_AN ? /* glsl */ `
+      // Unregelmäßige Feuchte folgt Fugen, Verfärbung und Holzfasern derselben Flächen.
+      float ruecksprung = verfallRauschen(ort * vec2(1.7,3.5));
+      if (scanR < .5) {
+        float laeufer = verfallRauschen(ort * vec2(14.0,0.42));
+        float feuchteRand = 1.0 - smoothstep(.19,1.13,vHoehe + (ruecksprung - .5) * .71);
+        float schollen = smoothstep(.51,.76,ruecksprung + .31 * laeufer);
+        farbe = mix(farbe * .80, vec3(.145,.124,.094), .26);
+        vec3 bodenmoos = farbe * vec3(.60,.72,.51);
+        farbe = mix(farbe,bodenmoos,feuchteRand * schollen * .86);
+        farbe *= 1.0 - .17 * schollen;
+      } else if (scanR < 1.5 && abs(hofN.y) < .48) {
+        float leiste = verfallRauschen(vec2(ort.x * 10.6, ort.y * .39));
+        farbe *= .67 + .55 * leiste + .12 * ruecksprung;
+      } else if (scanR > 1.5 && scanR < 2.5 && hofN.y > .35) {
+        float moos = smoothstep(.48,.78,ruecksprung);
+        float grau = dot(farbe,vec3(.2126,.7152,.0722));
+        farbe = mix(farbe * .62, vec3(grau) * mix(vec3(.72,.71,.65),vec3(.75,.80,.51),moos), .64);
+      } else if (scanR > 2.5) {
+        farbe *= .65 + .48 * ruecksprung;
+      }
+      ` : ''}
       diffuseColor.rgb = farbe;
     }
   }
@@ -212,8 +234,25 @@ const HOF_ZIEL_FARBE = /* glsl */ `
     float grau = dot(diffuseColor.rgb, vec3(.2126,.7152,.0722));
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(grau) * vec3(1.04,.98,.88), .52);
     diffuseColor.rgb *= (.89 + .16 * korn) * (.70 + .40 * regen);
+    ${HOF_ZIELTREUE_AN ? /* glsl */ `
+    // Verbleibende Farbe bricht in Inseln auf und gibt dunkleres Holz frei.
+    float faser = verfallRauschen(vec2(u * 158.0, vHausPos.y * 3.2));
+    float abplatzer = smoothstep(.51,.75,regen * .62 + korn * .28 + faser * .37);
+    vec3 altHolz = vec3(.119,.099,.074) * (.53 + .63 * faser);
+    vec3 farbanstrich = diffuseColor.rgb * (.73 + .28 * faser);
+    diffuseColor.rgb = mix(farbanstrich, altHolz, abplatzer * .79);
+    ` : ''}
   }
   if (vRolle > 6.5) {
+    ${HOF_ZIELTREUE_AN ? /* glsl */ `
+    // Die Blattkontur ist Geometrie. Die Farbkarte liefert Pigment und feine Adern.
+    vec2 blattUv = clamp(vRaumUv.xy * vec2(.81,.76) + vec2(.5,.394), .028, .972);
+    vec3 blattFarbe = texture2D(uHofEfeuFarbe, blattUv).rgb;
+    float samenhell = dot(diffuseColor.rgb,vec3(.2126,.7152,.0722));
+    float reife = smoothstep(.027,.13,samenhell);
+    vec3 altersTon = mix(vec3(.70,.87,.83),vec3(.99,1.02,.80),reife);
+    diffuseColor.rgb = mix(diffuseColor.rgb, blattFarbe * altersTon * (.38 + 6.1 * samenhell),.79);
+    ` : /* glsl */ `
     // Blattadern laufen in der Ebene vom Stiel in die drei Blattspitzen.
     vec2 p = vRaumUv.xy;
     float y = p.y + .43;
@@ -225,6 +264,7 @@ const HOF_ZIEL_FARBE = /* glsl */ `
     float saft = smoothstep(0.12,.52,length(p * vec2(1.03,.71)));
     diffuseColor.rgb *= (.87 + .22 * korn - .27 * saft);
     diffuseColor.rgb += ${HOF_DACHBRUCH_AN ? 'vec3(.035,.037,.021)' : 'vec3(.048,.046,.023)'} * ader;
+    `}
   }
 `;
 
@@ -270,12 +310,13 @@ export function baueHausMaterial(): THREE.MeshStandardMaterial {
         uHofZielFarbe: { value: hofTextur('ziel-farbe', true) },
         uHofZielNormal: { value: hofTextur('ziel-normal') },
       });
+      if (HOF_ZIELTREUE_AN) shader.uniforms.uHofEfeuFarbe = { value: hofTextur('efeu-farbe', true) };
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', '#include <common>\n' + SCAN_PARS + (BAUWELT_AN ? VERFALL_PARS : '') + (HAUSFRONT_AN ? HAUSFRONT_PARS : '') + (HOF_AN ? HOF_HAUS_PARS : '')
           + (HOF_ZIEL_AN ? /* glsl */ `
 uniform sampler2D uHofZielFarbe, uHofZielNormal;
 float zielMassstab(float r) { return r < .5 ? 1.0 : r < 1.5 ? .92 : r < 2.5 ? 1.18 : .82; }
-` : ''))
+` : '') + (HOF_ZIELTREUE_AN ? '\nuniform sampler2D uHofEfeuFarbe;\n' : ''))
         .replace('#include <color_fragment>', `#include <color_fragment>
   float scanR = floor(vRolle + 0.5);
   ${HOF_ZIEL_AN ? 'float zielHaus = step(4.0, vZustand.x); if (scanR >= 6.0) scanR = 4.0;' : ''}
@@ -309,7 +350,15 @@ ${HOF_AN ? 'if (scanR < 3.5) roughnessFactor = mix(roughnessFactor, clamp(hofArm
   if (scanR > 4.5) roughnessFactor = 0.05 + 0.08 * fract(sin(dot(floor(vHausPos.xz * 1.3), vec2(12.9898, 78.233))) * 43758.5453);
   ${HOF_VERFALL_AN ? 'if (scanR > 4.5) roughnessFactor = mix(roughnessFactor, 0.9, hofSchaden);' : ''}`)
         .replace('#include <aomap_fragment>', `#include <aomap_fragment>
-${HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofArm.r, hofHausAnteil * 0.55);' : ''}`)
+${HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofArm.r, hofHausAnteil * 0.55);' : ''}
+${HOF_ZIELTREUE_AN ? /* glsl */ `
+  // Der Efeu liegt in verschiedenen Lagen dicht vor der Hausecke.
+  if (zielHaus > .5 && scanR < 1.5 && vRolle < 2.0) {
+    float ueberdeckt = 1.0 - smoothstep(.22,1.34,distance(vHausPos.xz,vec2(1425.85,408.90)));
+    float blattSaum = smoothstep(.46,1.53,vHoehe);
+    reflectedLight.indirectDiffuse *= 1.0 - .42 * ueberdeckt * blattSaum;
+  }
+` : ''}`)
         .replace('#include <lights_fragment_end>', `
   // D295: Vor RE_IndirectSpecular skalieren; danach wird radiance nicht mehr gelesen.
   if (scanR > 4.5) radiance *= ${HOF_VERFALL_AN ? 'mix(1.6, 0.18, hofSchaden)' : '1.6'};
@@ -335,6 +384,6 @@ ${HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofArm.r, hofHausAnteil *
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '');
   return material;
 }

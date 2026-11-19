@@ -124,6 +124,7 @@ const ruine = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1');
 const spur = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1');
 const ziel = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1');
 const dachbruch = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1&hofdachbruch=1');
+const zieltreue = lauf('&hofboden=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1&hofdachbruch=1&hoflicht=1&stimmung=hofdachbruch&zieltreue=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -197,5 +198,12 @@ pruefe('D318: Geometrischer Dachbruch und sichtbare Tiefe ändern sich im besteh
   bruchhaus.ecken > zielhaus.ecken && bruchhaus.ecken - zielhaus.ecken < 18000 * 3
   && bruchhaus.wandTiefen.some((tiefe,i) => tiefe !== zielhaus.wandTiefen[i]),
   `Dreiecke ${zielhaus.ecken / 3} → ${bruchhaus.ecken / 3}, Tiefe ${zielhaus.wandTiefen} → ${bruchhaus.wandTiefen}`);
+const zielbildhaus = zieltreue.haeuser[308];
+pruefe('D320: Der überarbeitete Hauspuffer betrifft nur Haus 308 und bleibt verlustfrei kompaktierbar',
+  zielbildhaus.hash !== bruchhaus.hash && zielbildhaus.endlich && zielbildhaus.indexGleich && zielbildhaus.raumFalsch === 0
+  && Object.entries(dachbruch.haeuser).every(([i, b]) => i === '308' || b.hash === zieltreue.haeuser[Number(i)].hash));
+pruefe('D320: Die Ruine lässt die beiden Trittplatten und den Türquerschnitt frei',
+  zielbildhaus.tritte.length === 2 && zielbildhaus.tritte.every(Boolean)
+  && zielbildhaus.tuerTiefen.every((tiefe, i) => tiefe === bruchhaus.tuerTiefen[i]));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

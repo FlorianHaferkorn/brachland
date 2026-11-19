@@ -66,7 +66,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN } from '../world/echt.js';
+import { HOF_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -204,7 +204,7 @@ const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
  * `CustomToneMapping` ohne Kurve — also stockdunkel.
  */
 haengeAgxLookEin(typeof location !== 'undefined'
-  && ['hofziel','hofdachbruch'].includes(new URLSearchParams(location.search).get('stimmung') ?? ''));
+  && ['hofziel','hofdachbruch'].includes(new URLSearchParams(location.search).get('stimmung') ?? ''), HOF_ZIELTREUE_AN);
 // D204: Nebel mit Auslauf und Höhendunst — wie der Look vor dem ersten Material einhängen.
 haengeNebelEin();
 
@@ -327,6 +327,7 @@ const GEHEILT_ANSICHT = typeof location !== 'undefined'
 
 const STIMMUNG_MESSLAUF: Stimmung | null = (() => {
   if (typeof location === 'undefined') return null;
+  if (HOF_ZIELTREUE_AN) return STIMMUNG.hofbild;
   const name = new URLSearchParams(location.search).get('stimmung');
   return name !== null && Object.prototype.hasOwnProperty.call(STIMMUNG, name) ? STIMMUNG[name] : null;
 })();

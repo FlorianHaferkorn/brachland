@@ -42,6 +42,8 @@ export const HOF_ZIEL_AN = HOF_EINSTURZ_AN && an('hofziel');
 export const HOF_DACHBRUCH_AN = HOF_ZIEL_AN && an('hofdachbruch');
 /** D319: weiche Sonnenschatten und indirekte Aufhellung am Referenzhof. */
 export const HOF_LICHT_AN = HOF_DACHBRUCH_AN && an('hoflicht') && suche.get('stimmung') === 'hofdachbruch';
+/** D320: zusammenhängende Zielbildfassung des Hauses und seines Vorfelds. */
+export const HOF_ZIELTREUE_AN = HOF_LICHT_AN && an('zieltreue');
 /** D308: kürzeres, fleckiges Hofgras und freie Trittplatten. */
 export const HOF_GRAS_AN = HOF_BODEN_AN && an('hofgras');
 /** D306: räumliche Brüstung und getrennte bepflanzte Kästen am Hof. */

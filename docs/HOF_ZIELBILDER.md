@@ -122,3 +122,35 @@ Die Blender-Probe vergleicht auf dem D318-Mesh und mit Kamera 064 hartes Sonnenl
 Der lokale Vergleich unter `.cache/bilder/d319-hoflicht/index.html` zeigt acht Sekunden Bewegung in beiden Fassungen. Die 20 geladenen Haus-/Gartenpuffer stimmen in Größe und Dreieckszahl überein (422.536 Dreiecke). Im gewählten 100 × 58 Pixel großen Ausschnitt der rechten Traufe (x=846, y=72 in Bild 064) steigt die mittlere lineare sRGB-Leuchtdichte von 0,00925 auf 0,01233.
 
 Vier 12-s-Spielmessungen auf dem M1 bei 960 × 540 und Startpunkt 1436/398/171 schalten nur `hoflicht` in der Reihenfolge 0/1/1/0. Im Mittel 46,77 → 47,40 FPS, p95 über alle Läufe 33,4–33,5 ms. Längstes Einzelbild 51,7 → 49,9 ms. Die Unterschiede liegen im Bereich der Schwankung zwischen den Läufen. Rohberichte unter `.cache/mess/d319-fps-{1,2,3,4}`.
+
+## Ausarbeitung am Zielbild (D320)
+
+Haus 308 erhält eine asymmetrische Bruchkante mit überlappenden Schindeln und ausgefaserten Sparren. An der Ecke liegen mehr Efeublätter in mehreren Tiefen. Feuchtes Mauerwerk, abgeblätterte Fensterfarbe, dunkle Erde und ein verwitterter Gartenzaun verbinden die Ruine mit dem Vorfeld. Die Trittplatten und der Türquerschnitt bleiben frei.
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt zieltreue` erfasst dieselbe 8-s-Kamerafahrt wie D319. Mit Probe `0` läuft D319. Die Bildwirkung wird in der Zielkamera 064 und beim Vorbeigehen geprüft.
+
+Die Fahrten unter `.cache/mess/d319-nach` und `.cache/mess/d320-nach` enthalten je 192 Bilder in 1280 × 720 bei 60° Blickfeld. Der Vergleich unter `.cache/bilder/d320-zielbild-hof/index.html` zeigt Zielbild, Kamera 064 und beide Fassungen in Bewegung. Die 20 geladenen Haus- und Gartenpuffer steigen von 422.536 auf 428.291 Dreiecke (+1,36 %). Die Integrationstests prüfen unveränderte Puffer der Vergleichshäuser, verlustfreie Kompaktierung und gleichen freien Türquerschnitt. In der Spielaufnahme bleiben die Platten sichtbar. Dachprofil, Efeuverteilung und der Baumbestand am Horizont weichen weiterhin von der Vorlage ab.
+
+Vier getrennte 12-s-Spielmessungen auf dem M1 bei 960 × 540 und Startpunkt 1436/398/171 schalten `zieltreue` in der Reihenfolge 0/1/1/0 um. Mittlere FPS 46,75 → 45,60 und mittlere p95-Bildzeit 33,45 → 33,65 ms. In den beiden neuen Läufen dauerte je ein Einzelbild 50,8 bzw. 51,7 ms. In den beiden bisherigen Läufen war das längste Einzelbild 35,3 ms. Keine Browserfehler in den vier Läufen. Rohdaten unter `.cache/mess/d320-fps-{1,2,3,4}`.
+
+Die Blattfarbkarte `public/material/hof-efeu-farbe.webp` stammt aus dem eingebauten ImageGen. Sie wurde auf 512 × 512 Pixel verkleinert und als WebP gespeichert. Adern und Pigmente liegen in der Farbkarte, die gelappte Kontur und die Überlappung entstehen im bestehenden Hauspuffer.
+
+Das Wolkenpanorama `public/material/hof-himmel-farbe.webp` stammt aus demselben Verfahren. Der Himmelshader legt es auf die vorhandene Kuppel und blendet es am Nebelband sowie an der Panoramanaht aus.
+
+<details>
+<summary>Prompt der Wolkenkarte</summary>
+
+```text
+Use case: photorealistic-natural. Generate a wide 2:1 equirectangular sky-dome color texture for the original BRACHLAND ruin scene. Use the supplied BRACHLAND image only as the color and cloud appearance reference, specifically the upper left sky, with realistic layered peach-gray low clouds as at a late overcast alpine afternoon. Render sky only over the entire image, a coherent 360-degree panorama with luminance and softness varied across the frame but left and right edges able to meet. The equator at center height is warm muted distant haze blending upwards into layered darker grey-peach cloud banks and small warm luminous openings between layers. Preserve readable medium-scale, finely textured cloud billows like the reference, no visible sun disk or light shafts. No ground, landscape, architecture, trees, silhouettes, water, frame, seams, labels, or text. Soft amber cloud breaks, pale air, natural low-contrast photographic style. Every pixel sky.
+```
+
+</details>
+
+<details>
+<summary>Prompt der Blattfarbkarte</summary>
+
+```text
+Use case: photorealistic-natural. Create one square diffuse-only texture for a real-time European ivy (Hedera helix) leaf mesh for the original BRACHLAND farmhouse. The supplied original BRACHLAND concept is a color and material reference. Crop face-on very closely to an ivy blade, so the deep muted olive leaf epidermis fills every single pixel of the square, extending past all four borders. The mesh already supplies the lobed silhouette. Photograph texture reading with fine understated silver pale-green branching veins, tiny scuffs and subtle mottled olive greens, muted organic hue. Stalk junction centered horizontally near bottom, a narrow central pale vein runs up the center, side veins branch upward and out at natural angles. Uniform flat diffuse illumination, subtle nonuniform leaf pigments, no brightness gradient, tactile fine botanical details. No backdrop, no vignette, no specimen border, no shadow, no other leaves, no petiole outside the blade, no text, no high-gloss highlights.
+```
+
+</details>

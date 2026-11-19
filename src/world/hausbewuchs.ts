@@ -1,5 +1,6 @@
 import { CatmullRomCurve3, Color, Vector3 } from 'three';
 import { mulberry } from './props.js';
+import { HOF_ZIELTREUE_AN } from './echt.js';
 
 type Punkt = [number, number, number];
 type Wandkante = readonly [number, number];
@@ -248,7 +249,7 @@ function baueKronenblaetter(
   const dichte = aufstieg * auslauf;
   if (dichte < .10) return;
   const schwung = Math.sin(lauf * 22) * .50 + Math.sin(lauf * 47 + 1.35) * .24;
-  const halbeBreite = .24 + dichte * (.77 + schwung * .42);
+  const halbeBreite = .24 + dichte * ((HOF_ZIELTREUE_AN ? .99 : .77) + schwung * .42);
   const mitte = Math.floor(zufall() * KRONENLAUB.length);
   const dunkleSeite = zufall() > .5 ? -1 : 1;
 
@@ -276,13 +277,13 @@ function baueKronenblaetter(
   };
 
   // Tiefe in der Krone kommt von der dunklen wandnahen Lage.
-  for (let k = 0; k < Math.ceil(dichte * 3); k++) {
+  for (let k = 0; k < Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 4 : 3)); k++) {
     const ziel = ort.clone().addScaledVector(quer, (zufall() - .5) * halbeBreite * .81)
       .addScaledVector(hoch, (zufall() - .5) * .30)
       .addScaledVector(normal, .04 + zufall() * .105);
     fieder(ort, ziel, (zufall() - .5) * 1.2, .19 + zufall() * .17, k !== 0);
   }
-  const seitentriebe = Math.ceil(dichte * 5);
+  const seitentriebe = Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 6 : 5));
   const seite = (Math.floor(lauf * 17) % 2 ? 1 : -1);
   for (const richtung of [-1, 1]) {
     const reichweite = richtung * halbeBreite * (.68 + zufall() * .31 + (seite === richtung ? .14 : 0));

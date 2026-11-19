@@ -4,8 +4,8 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-const eckfahrt=['ranke','ruine','einsturz','hofziel','hofdachbruch','hoflicht'].includes(profil);
-if(!eckfahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht angeben.');
+const eckfahrt=['ranke','ruine','einsturz','hofziel','hofdachbruch','hoflicht','zieltreue'].includes(profil);
+if(!eckfahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue angeben.');
 const bodennah=eckfahrt||['boden','gras','teppich','verfall'].includes(profil);
 const anzahl=eckfahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
@@ -35,14 +35,16 @@ if(eckfahrt){
  parameter.set('hofgras','1');parameter.set('hofverfall','1');parameter.set('hofranke',profil==='ranke'?probe:'1');
  if(profil==='ruine')parameter.set('hofruine',probe);
  if(profil==='einsturz'){parameter.set('hofruine','1');parameter.set('hofeinsturz',probe);}
- if(profil==='hofziel'||profil==='hofdachbruch'||profil==='hoflicht'){
+ if(profil==='hofziel'||profil==='hofdachbruch'||profil==='hoflicht'||profil==='zieltreue'){
   parameter.set('hofruine','1');parameter.set('hofeinsturz','1');
   parameter.set('hofziel',profil==='hofziel'?probe:'1');
   if(probe==='1'||profil!=='hofziel'){
    parameter.set('stimmung','hofziel');parameter.set('umgebung','6.4');parameter.set('sonne','.73');
   }
-  if(profil==='hoflicht'){
-   parameter.set('hofdachbruch','1');parameter.set('stimmung','hofdachbruch');parameter.set('hoflicht',probe);
+  if(profil==='hoflicht'||profil==='zieltreue'){
+   parameter.set('hofdachbruch','1');parameter.set('stimmung','hofdachbruch');
+   parameter.set('hoflicht',profil==='zieltreue'?'1':probe);
+   if(profil==='zieltreue')parameter.set('zieltreue',probe);
   }
   if(profil==='hofdachbruch'){
    parameter.set('hofdachbruch',probe);

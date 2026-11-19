@@ -58,7 +58,7 @@ let eingehaengt = false;
  * Uebersetzen jedes Materials, ein spaeterer Aufruf haette keine Wirkung mehr auf bereits
  * uebersetzte Programme.
  */
-export function haengeAgxLookEin(hofziel = false): void {
+export function haengeAgxLookEin(hofziel = false, zieltreue = false): void {
   if (eingehaengt) return;
   eingehaengt = true;
   THREE.ShaderChunk.tonemapping_pars_fragment = THREE.ShaderChunk.tonemapping_pars_fragment.replace(
@@ -85,7 +85,7 @@ export function haengeAgxLookEin(hofziel = false): void {
       // D317: Bäume und Wiese erhalten die gedämpften Olivtöne des Hof-Zielbilds.
       float gruen = smoothstep(.01, .16, s.g - max(s.r, s.b));
       float hell = dot(s, vec3(.2126,.7152,.0722));
-      s = mix(s, vec3(hell) * vec3(1.04,1.0,.90), gruen * .57);
+      s = mix(s, vec3(hell) * vec3(1.04,1.0,.90), gruen * ${zieltreue ? '.76' : '.57'});
       ` : ''}
       return mix(s / 12.92,
                  pow((s + 0.055) / 1.055, vec3(2.4)),

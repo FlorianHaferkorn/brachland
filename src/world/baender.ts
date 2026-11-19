@@ -24,6 +24,7 @@ import { HAUSFRONT_AN } from './echt.js';
 import { PALETTE } from './palette.js';
 import type { Weltdaten } from './osm.js';
 import { MASSSTAB, WEG_TEILUNG, orientierteHuelle } from './terrain.js';
+import { istHofZielhaus } from './hofplatz.js';
 import { KACHEL, LOD_STUFEN, hoeheAufFlaeche, spiegelAufFlaeche,
          type HoehenFeld, type Kachel } from './lod.js';
 
@@ -125,6 +126,8 @@ export interface Garten {
   ecken: [number, number][];
   /** Richtung der Beetreihen — dieselbe Achse wie der First des Hauses. */
   achse: number;
+  /** Das Vorfeld der Einsturzspur hat seinen eigenen, aufgelassenen Garten. */
+  verwildert?: true;
 }
 
 /** Alles, was auf dem Gelände aufliegt, nach Kachel sortiert. */
@@ -375,7 +378,9 @@ function gebaeudeUndGaerten(
       }
       if (hoch - tief > GARTEN_STEIGUNG) continue;
 
-      einsortieren(satz.gaerten, kx, kz, { ecken, achse: hu.achse });
+      const garten: Garten = { ecken, achse: hu.achse };
+      if (istHofZielhaus(i, h.p)) garten.verwildert = true;
+      einsortieren(satz.gaerten, kx, kz, garten);
       return;
     }
   });
@@ -782,11 +787,53 @@ export function baueGartenKachel(
   };
 
   const zaunF = linearAus(ZAUN), erdeF = linearAus(ERDE), krautF = linearAus(KRAUT);
+  const altholz = [linearAus([99, 96, 84]), linearAus([117, 112, 99]), linearAus([78, 74, 65])];
 
   for (const garten of gaerten) {
     const cos = Math.cos(garten.achse), sin = Math.sin(garten.achse);
     const e = garten.ecken;
     const boden = (x: number, z: number) => hoeheAufFlaeche(feld, x, z, s);
+
+    if (garten.verwildert) {
+      // Nur ein Teil der Garteneinfassung steht noch. Material und Kachelbatch bleiben dieselben.
+      for (let seite = 0; seite < 4; seite++) {
+        const [ax, az] = e[seite], [bx, bz] = e[(seite + 1) % 4];
+        const len = Math.hypot(bx - ax, bz - az), tx = (bx - ax) / len, tz = (bz - az) / len;
+        const punkt = (u: number, y: number, sperre = 0): [number, number, number] => {
+          const x = ax + u * tx - sperre * tz, z = az + u * tz + sperre * tx;
+          return [x, boden(x, z) + y, z];
+        };
+        const zaun = (a: [number, number, number], b: [number, number, number],
+          c: [number, number, number], d: [number, number, number], ton: number) => {
+          flaeche(a, b, c, d, altholz[ton]);
+          flaeche(b, a, d, c, altholz[ton]);
+        };
+        const felder = Math.ceil(len / 2.35);
+        for (let k = 0; k < felder; k++) {
+          const u = k / felder * len, v = (k + 1) / felder * len;
+          const [px, py, pz] = punkt(u, -.025);
+          kasten(px, pz, py, .048, .055, .47 + ((k + seite * 5) % 7) * .065, cos, sin, altholz[(k + 1) % 3]);
+          if ((k * 3 + seite) % 5 !== 3) {
+            const ab = .06 + (k + seite * 7) % 3 * .05, bis = v - ((k + seite) % 3 === 1 ? .36 : .05);
+            const y1 = .28 + (k + 2 * seite) % 4 * .047, y2 = y1 + ((k * 5 + seite) % 7 - 3) * .049;
+            zaun(punkt(u + ab, y1), punkt(bis, y2), punkt(bis - .02, y2 + .11), punkt(u + ab, y1 + .11), (k + 2) % 3);
+          }
+        }
+        const latten = Math.floor(len / .37);
+        for (let k = 1; k < latten; k++) {
+          const seed = (k * 37 + seite * 19) % 53;
+          if (seed < 16 || (seite === 1 && k <= 2)) continue;
+          const u = k / latten * len + (seed % 11 - 5) * .014;
+          const h = .44 + (seed % 23) * .016, breite = .064 + (seed % 7) * .011;
+          const neigung = (seed % 17 - 8) * .019;
+          const a = punkt(u - breite, .035, -.033), b = punkt(u + breite, .01, -.033);
+          const c = punkt(u + neigung + breite * .85, h - .025, seed * .002 - .038);
+          const d = punkt(u + neigung - breite, h, seed * .002 - .04);
+          zaun(a, b, c, d, seed % 3);
+        }
+      }
+      continue;
+    }
 
     // Zaun: Pfosten alle 2,4 m, zwei Riegel dazwischen.
     for (let i = 0; i < 4; i++) {

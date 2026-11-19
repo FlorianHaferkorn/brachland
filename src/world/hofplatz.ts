@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { baueHofbodenkontakt } from './hofbodenkontakt.js';
 import type { Weltdaten } from './osm.js';
 import { orientierteHuelle } from './terrain.js';
-import { HOF_BODEN_AN, HOF_GRAS_AN } from './echt.js';
+import { HOF_BODEN_AN, HOF_GRAS_AN, HOF_ZIELTREUE_AN } from './echt.js';
 import { hofbodenRand, HOF_ZUGANG_MAX, rastereHofgras } from './hofboden.js';
 import { bestimmeHofhaeuser } from './hofhaeuser.js';
 import type { PropInstanz } from './props.js';
@@ -34,7 +34,15 @@ export const HOF_UNIFORM = {
   kontaktRahmen: { value: new THREE.Vector4() },
   gras: { value: LEER_KONTAKT as THREE.Texture },
   grasRahmen: { value: new THREE.Vector4() },
+  zielVorfeld: { value: new THREE.Vector4() },
+  zielHalb: { value: new THREE.Vector2() },
 };
+
+/** Dieselbe Adresse wie die lokale Einsturzspur. Ein Index allein ist in anderen Welten kein Bezug. */
+export function istHofZielhaus(gebaeudeIndex: number, p: readonly [number, number][]): boolean {
+  return HOF_ZIELTREUE_AN && gebaeudeIndex === 308 && p.length === 5
+    && p.some(([x, z]) => Math.hypot(x - 1425.85, z - 408.90) < .15);
+}
 
 /** Reine Auswahl, auch für Tests ohne globale Uniform-Nebenwirkung. */
 export function bestimmeHof(welt: Weltdaten, terrain: Weltmass): Hof | null {
@@ -73,6 +81,24 @@ export function waehleHof(welt: Weltdaten, terrain: Weltmass): Hof | null {
   const haeuser = HOF_BODEN_AN ? bestimmeHofhaeuser(welt, terrain, hof).filter(h => h.eingang).slice(0, HOF_ZUGANG_MAX) : [];
   HOF_UNIFORM.zugangZahl.value = haeuser.length;
   haeuser.forEach((h,i) => HOF_UNIFORM.zugaenge.value[i].set(...h.eingang!, ...h.vorne));
+  HOF_UNIFORM.zielHalb.value.set(0, 0);
+  if (HOF_ZIELTREUE_AN) {
+    const zielhaus = haeuser.find(h => h.gebaeudeIndex === 308);
+    if (zielhaus) {
+      const [sued, west, nord, ost] = welt.bbox;
+      const umriss = welt.gebaeude[zielhaus.gebaeudeIndex].punkte.map(([lat, lon]): [number, number] => [
+        ((lon - west) / (ost - west) - .5) * terrain.breiteMeter,
+        ((nord - lat) / (nord - sued) - .5) * terrain.tiefeMeter,
+      ]);
+      if (istHofZielhaus(zielhaus.gebaeudeIndex, umriss)) {
+        const [nx, nz] = zielhaus.vorne;
+        const halbU = Math.max(...umriss.map(([x, z]) => Math.abs((x - zielhaus.mitte[0]) * nz - (z - zielhaus.mitte[1]) * nx)));
+        const halbV = Math.max(...umriss.map(([x, z]) => Math.abs((x - zielhaus.mitte[0]) * nx + (z - zielhaus.mitte[1]) * nz)));
+        HOF_UNIFORM.zielVorfeld.value.set(...zielhaus.mitte, nx, nz);
+        HOF_UNIFORM.zielHalb.value.set(halbU, halbV);
+      }
+    }
+  }
   const alt = HOF_UNIFORM.kontakt.value;
   HOF_UNIFORM.kontakt.value = LEER_KONTAKT;
   HOF_UNIFORM.kontaktRahmen.value.set(0, 0, 0, 0);

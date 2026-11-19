@@ -318,6 +318,11 @@ STIMMUNG.hofdachbruch = {
   ...STIMMUNG.hofziel, zenit: '#665142', horizont: '#a9886d', wolken: .55,
   sonne: '#ffdaac', umgebung: '#ac9b85', hemiBoden: '#7b6c56',
 };
+/** D320: warme Schichtwolken, graubrauner Ferndunst und ruhigeres Streulicht wie im Hofbild. */
+STIMMUNG.hofbild = {
+  ...STIMMUNG.hofdachbruch, zenit: '#877263', horizont: '#bb967d', nebel: '#91806e',
+  nebelNah: 15, nebelFern: 114, wolken: .61, umgebung: '#ac9b88', hemiBoden: '#77654f',
+};
 /**
  * `tag` (D168) ist `zielbild` im Tageslauf — dasselbe Objekt, damit die Messadresse
  * `?stimmung=zielbild` und der Schlüssel bei 0,39 nie auseinanderlaufen.
