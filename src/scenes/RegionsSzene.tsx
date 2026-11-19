@@ -60,13 +60,14 @@ import { BLENDER_BAEUME, chunkeProps, propGeometrie, attrappeGeometrie, propPfad
 import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
 import { richteHofPropEin } from '../world/hofmaterial.js';
 import { indexiereHausGeometrie } from '../world/hausindex.js';
-import { aktualisiereKachelpuffer, geometrienAusKachelpuffern, sammleKachel } from '../world/kachelgruppen.js';
+import { aktualisiereKachelpuffer, bereiteKachelpuffer, geometrienAusKachelpuffern, sammleKachel } from '../world/kachelgruppen.js';
 import type { Kachelpuffer, Kachelsammlung } from '../world/kachelgruppen.js';
+import { baueKachelupload } from '../world/kachelupload.js';
 import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
+import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -415,28 +416,78 @@ export const TAGESZEITEN = TAGESLAUF.map(k => ({ name: k.name, zeit: k.zeit }));
  */
 const HOF_KACHELPUFFER_AN = HOF_AN && typeof location !== 'undefined'
   && new URLSearchParams(location.search).get('kachelpuffer') !== '0';
+const KACHELNACHLAUF_AN = HOF_KACHELPUFFER_AN && HOF_KACHELNACHLAUF_AN;
+const KACHEL_FRIST_MS = 3;
 
-function LodTerrain({ feld, kacheln, ziel }: {
+type Sichtkachel = { kachel: Kachel; lod: number };
+type Kachelbau = Generator<void, () => void>;
+type KachelVorladen = (geometrie: THREE.BufferGeometry) => boolean;
+type BereiteKacheln = (auswahl: readonly Sichtkachel[], gestaffelt: boolean, anker: THREE.Vector3,
+  vorladen?: KachelVorladen) => Kachelbau;
+type Kachelnachlauf = {
+  bodenFertig: boolean;
+  baenderFertig: boolean;
+  pegelNeu: boolean;
+  baender?: BereiteKacheln;
+};
+
+function kachelauswahl(kacheln: Kachel[], p: THREE.Vector3): Sichtkachel[] {
+  const distanz = (k: Kachel) => Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z);
+  const quelle = KACHELNACHLAUF_AN ? kacheln : [...kacheln].sort((a, b) => distanz(a) - distanz(b));
+  const auswahl = [];
+  for (const kachel of quelle) {
+    const abstand = distanz(kachel);
+    const d = Math.max(0, abstand - kachel.radius);
+    if (d <= TERRAIN_SICHT) auswahl.push({ kachel, lod: lodFuerAbstand(d), abstand });
+  }
+  if (KACHELNACHLAUF_AN) auswahl.sort((a, b) => a.abstand - b.abstand);
+  return auswahl;
+}
+
+function fülleKachelbau(arbeit: Kachelbau, frist: number): (() => void) | undefined {
+  do {
+    const schritt = arbeit.next();
+    if (schritt.done) return schritt.value;
+  } while (performance.now() < frist);
+}
+
+function entsorgeErsetzteKacheln(vorher: readonly THREE.BufferGeometry[], nachher: readonly THREE.BufferGeometry[]): void {
+  const erhalten = new Set(nachher);
+  for (const g of vorher) if (!erhalten.has(g)) g.dispose();
+}
+
+function LodTerrain({ feld, kacheln, ziel, nachlauf }: {
   feld: HoehenFeld; kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
+  nachlauf: Kachelnachlauf;
 }) {
   const cache = useRef(new Map<string, THREE.BufferGeometry>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
   const puffer = useRef<Kachelpuffer>(new Map());
   const [stufen, setStufen] = useState<THREE.BufferGeometry[]>([]);
+  const angezeigt = useRef(stufen);
+  const lauf = useRef<{ anker: THREE.Vector3; arbeit: Kachelbau; vorgeladen: THREE.BufferGeometry[] } | null>(null);
+  const gl = useThree(s => s.gl);
+  const upload = useRef<ReturnType<typeof baueKachelupload> | null>(null);
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    const vorbereitung = baueKachelupload(gl);
+    upload.current = vorbereitung;
+    return () => {
+      for (const g of lauf.current?.vorgeladen ?? []) g.dispose();
+      lauf.current = null;
+      upload.current = null;
+      vorbereitung.dispose();
+    };
+  }, [gl, nachlauf]);
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    entsorgeErsetzteKacheln(angezeigt.current, stufen);
+    angezeigt.current = stufen;
+  }, [stufen]);
 
   const material = useMemo(() => baueBodenMaterial(), []);
 
-  useFrame(() => {
-    const p = ziel.current?.position;
-    if (!p) return;
-    // Himmelsanteil des Bodens (D171): das Raster des nächsten Set-Pieces im Ladekreis.
-    const nah = sichtbareBauwerke(p.x, p.z)
-      .sort((a, b) => Math.hypot(a.ursprung.x - p.x, a.ursprung.z - p.z) - Math.hypot(b.ursprung.x - p.x, b.ursprung.z - p.z))[0];
-    setzeBodenHimmel(nah?.name ?? null);
-    // Beim ersten Bild ist der Abstand NaN — der Vergleich schlägt fehl, also wird gebaut.
-    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
-    letzte.current.copy(p);
-
+  const baue: BereiteKacheln = function* (auswahl, gestaffelt, anker, vorladen) {
     // Höchstens so viele Kacheln je Bild neu bauen. Alle 226 auf einmal kosten
     // gemessen 68 ms — ein sichtbarer Ruckler alle 32 m. Fehlende Kacheln werden im
     // nächsten Bild nachgezogen; bis dahin fehlt am Rand ein Stück, das im Nebel liegt.
@@ -444,17 +495,14 @@ function LodTerrain({ feld, kacheln, ziel }: {
     const jeStufe = new Map<number, THREE.BufferGeometry[]>();
     const kachelgruppen: Kachelsammlung = new Map();
     // D289: nächste Kacheln zuerst (siehe Bänder) — sonst fehlt bei wenigen Bildern je Sekunde der Boden am Spieler.
-    for (const k of [...kacheln].sort((a, b) =>
-      Math.hypot(a.mitte[0] - p.x, a.mitte[1] - p.z) - Math.hypot(b.mitte[0] - p.x, b.mitte[1] - p.z))) {
-      const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
-      if (d > TERRAIN_SICHT) continue;
-      const lod = lodFuerAbstand(d);
+    for (const { kachel: k, lod } of auswahl) {
       const schluessel = `${k.ix}:${k.iz}:${lod}`;
       let g = cache.current.get(schluessel);
       if (!g) {
-        if (budget-- <= 0) { letzte.current.set(NaN, NaN, NaN); continue; }
+        if (!gestaffelt && budget-- <= 0) continue;
         g = baueKachelGeometrie(feld, k, lod, undefined, HOF_BILDFLUSS_AN);
         cache.current.set(schluessel, g);
+        if (gestaffelt) yield;
       }
       if (HOF_KACHELPUFFER_AN) sammleKachel(kachelgruppen, k, g, String(lod));
       else {
@@ -464,24 +512,74 @@ function LodTerrain({ feld, kacheln, ziel }: {
     }
 
     // Budget nicht ausgeschöpft: alle Kacheln in Sicht stehen — Ladezeit (D146).
-    if (budget >= 0) meldeFertig('terrain');
+    if (budget >= 0) { meldeFertig('terrain'); nachlauf.bodenFertig = true; }
 
     if (HOF_KACHELPUFFER_AN) {
-      puffer.current = aktualisiereKachelpuffer(puffer.current, kachelgruppen);
-      const geometrien = geometrienAusKachelpuffern(puffer.current);
-      const erhalten = new Set(geometrien);
-      setStufen(vorher => {
-        for (const g of vorher) if (!erhalten.has(g)) g.dispose();
-        return geometrien;
-      });
-      return;
+      const neu = gestaffelt ? yield* bereiteKachelpuffer(puffer.current, kachelgruppen, vorladen)
+        : aktualisiereKachelpuffer(puffer.current, kachelgruppen);
+      const geometrien = geometrienAusKachelpuffern(neu);
+      return () => {
+        letzte.current.copy(anker);
+        if (budget < 0) letzte.current.set(NaN, NaN, NaN);
+        puffer.current = neu;
+        if (KACHELNACHLAUF_AN) setStufen(geometrien);
+        else setStufen(vorher => {
+          entsorgeErsetzteKacheln(vorher, geometrien);
+          return geometrien;
+        });
+      };
     }
     const zusammengefasst: THREE.BufferGeometry[] = [];
     for (const gs of jeStufe.values()) {
       const m = mergeGeometries(gs, false);
       if (m) zusammengefasst.push(m);
     }
-    setStufen(vorher => { vorher.forEach(g => g.dispose()); return zusammengefasst; });
+    return () => {
+      letzte.current.copy(anker);
+      if (budget < 0) letzte.current.set(NaN, NaN, NaN);
+      setStufen(vorher => { vorher.forEach(g => g.dispose()); return zusammengefasst; });
+    };
+  };
+
+  useFrame(() => {
+    const p = ziel.current?.position;
+    if (!p) return;
+    const nah = sichtbareBauwerke(p.x, p.z)
+      .sort((a, b) => Math.hypot(a.ursprung.x - p.x, a.ursprung.z - p.z) - Math.hypot(b.ursprung.x - p.x, b.ursprung.z - p.z))[0];
+    setzeBodenHimmel(nah?.name ?? null);
+    const baender = nachlauf.baender;
+    if (KACHELNACHLAUF_AN && nachlauf.bodenFertig && nachlauf.baenderFertig && baender) {
+      // Boden und Aufsätze bleiben bis zur gemeinsamen Freigabe auf ihrer alten Höhe.
+      // Ein Sprung oder geänderter Pegel ersetzt einen noch nicht freigegebenen Auftrag.
+      if (lauf.current && (nachlauf.pegelNeu || p.distanceTo(lauf.current.anker) >= NEUAUFBAU_AB)) {
+        for (const g of lauf.current.vorgeladen) g.dispose();
+        lauf.current = null;
+      }
+      const frist = performance.now() + KACHEL_FRIST_MS;
+      if (!lauf.current) {
+        if (!nachlauf.pegelNeu && letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+        nachlauf.pegelNeu = false;
+        const anker = p.clone();
+        const auswahl = kachelauswahl(kacheln, anker);
+        const vorgeladen: THREE.BufferGeometry[] = [];
+        const vorladen: KachelVorladen = g => {
+          if (!upload.current?.ladeGrossenPuffer(g)) return false;
+          vorgeladen.push(g);
+          return true;
+        };
+        const arbeit = (function* (): Kachelbau {
+          const bodenFreigeben = yield* baue(auswahl, true, anker, vorladen);
+          const baenderFreigeben = yield* baender(auswahl, true, anker, vorladen);
+          return () => { bodenFreigeben(); baenderFreigeben(); };
+        })();
+        lauf.current = { anker, arbeit, vorgeladen };
+      }
+      const freigeben = fülleKachelbau(lauf.current.arbeit, frist);
+      if (freigeben) { lauf.current = null; freigeben(); }
+      return;
+    }
+    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+    fülleKachelbau(baue(kachelauswahl(kacheln, p), false, p), Infinity)?.();
   });
 
   return <>{stufen.map((g, i) => (
@@ -633,6 +731,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * Bruchteil davon — und es fällt weg, sobald die Kachel außer Sicht gerät.
    */
   const satz = useMemo(() => zerlegeBaender(welt, feld), [welt, feld]);
+  const nachlauf = useMemo<Kachelnachlauf>(() => ({ bodenFertig: false, baenderFertig: false, pegelNeu: false }), [feld, satz]);
   const reflexMitte = useMemo(() => {
     if (!wasserProbe) return null;
     // Naechster wirklicher liegender Bachabschnitt zur registrierten Wehrmitte;
@@ -651,9 +750,9 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   return (
     <group>
       {wasserProbe && reflexMitte && <WasserSzeneProbe probe={wasserProbe} mitte={reflexMitte} ziel={ziel} />}
-      <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} />
+      <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} />
 
-      <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel}
+      <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf}
                   boden={aufBoden}
                   wegMaterial={wegMaterial} wasserMaterial={wasserMaterial}
                   fallMaterial={fallMaterial} hausMaterial={hausMaterial} senke={senke ?? null} />
@@ -688,22 +787,30 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
  * nächsten Bild nachgezogen.
  */
 function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
-                     wegMaterial, wasserMaterial, fallMaterial, hausMaterial, senke }: {
+                     wegMaterial, wasserMaterial, fallMaterial, hausMaterial, senke, nachlauf }: {
   senke: Pegelsenke | null;
   welt: Weltdaten; feld: HoehenFeld; satz: Bandsatz; kacheln: Kachel[];
   ziel: React.RefObject<THREE.Object3D | null>;
   boden: ReturnType<typeof aufsatzboden>;
   wegMaterial: THREE.Material; wasserMaterial: THREE.Material;
   fallMaterial: THREE.Material; hausMaterial: THREE.Material;
+  nachlauf: Kachelnachlauf;
 }) {
   const cache = useRef(new Map<string, THREE.BufferGeometry | null>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
   const hausPuffer = useRef<Kachelpuffer>(new Map());
+  const bandPuffer = useRef(new Map<string, { quellen: THREE.BufferGeometry[]; geometrien: THREE.BufferGeometry[] }>());
   const [teile, setTeile] = useState<{ weg: THREE.BufferGeometry[];
                                        wasser: THREE.BufferGeometry[];
                                        fall: THREE.BufferGeometry[];
                                        haus: THREE.BufferGeometry[] }>(
     { weg: [], wasser: [], fall: [], haus: [] });
+  const angezeigt = useRef(teile);
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    entsorgeErsetzteKacheln(Object.values(angezeigt.current).flat(), Object.values(teile).flat());
+    angezeigt.current = teile;
+  }, [teile]);
 
   /**
    * Häuser einer Kachel. Sie hängen nicht an der LOD-Stufe — ein Haus ist ein
@@ -749,14 +856,12 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
   }, [senke]);
   const pegel = senke ? `:${senke.x}:${senke.z}` : '';
   // Pegel gewechselt (Heilung): sofort neu sammeln, nicht erst nach dem nächsten Schritt.
-  useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [pegel]);
+  useEffect(() => {
+    letzte.current.set(NaN, NaN, NaN);
+    if (nachlauf.baenderFertig) nachlauf.pegelNeu = true;
+  }, [pegel, nachlauf]);
 
-  useFrame(() => {
-    const p = ziel.current?.position;
-    if (!p) return;
-    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
-    letzte.current.copy(p);
-
+  const baue: BereiteKacheln = function* (auswahl, gestaffelt, anker, vorladen) {
     let budget = 12;
     const hausGruppen: Kachelsammlung = new Map();
     const sammeln = { weg: [] as THREE.BufferGeometry[],
@@ -765,26 +870,30 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
                       haus: [] as THREE.BufferGeometry[] };
     // D289: nächste Kacheln zuerst. In Rasterreihenfolge kamen die Kacheln am Spieler bei wenigen Bildern je Sekunde
     // als letzte an die Reihe (Budget 12 je Bild) — Häuser und Wege vor der Nase fehlten minutenlang, ferne standen.
-    const geordnet = [...kacheln].sort((a, b) =>
-      Math.hypot(a.mitte[0] - p.x, a.mitte[1] - p.z) - Math.hypot(b.mitte[0] - p.x, b.mitte[1] - p.z));
-    for (const k of geordnet) {
-      const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
-      if (d > TERRAIN_SICHT) continue;
-      const lod = lodFuerAbstand(d);
-      for (const [art, bauen] of [
-        ['weg', baueWegKachel], ['wasser', wasserKachel], ['fall', baueFallKachel],
-        ['haus', hausKachel], ['garten', baueGartenKachel],
-      ] as const) {
-        if (art === 'wasser' && istAus('wasser')) continue;
-        if (art === 'weg' && istAus('wege')) continue;
+    const arten = [
+      ['weg', baueWegKachel], ['wasser', wasserKachel], ['fall', baueFallKachel],
+      ['haus', hausKachel], ['garten', baueGartenKachel],
+    ] as const;
+    const ohneWasser = istAus('wasser'), ohneWege = istAus('wege');
+    for (const { kachel: k, lod } of auswahl) {
+      const id = `${k.ix}:${k.iz}`;
+      for (const [art, bauen] of arten) {
+        if (art === 'wasser' && ohneWasser) continue;
+        if (art === 'weg' && ohneWege) continue;
         const stufe = HOF_KACHELPUFFER_AN && art === 'haus' ? 0 : lod;
-        const schluessel = `${art}:${k.ix}:${k.iz}:${stufe}${art === 'wasser' ? pegel : ''}`;
+        const schluessel = `${art}:${id}:${stufe}${art === 'wasser' ? pegel : ''}`;
         let g = cache.current.get(schluessel);
         if (g === undefined) {
           // `null` heißt „hier liegt nichts" und wird genauso gemerkt wie eine
           // Geometrie — sonst probiert jede Neubewertung die leeren Kacheln erneut,
           // und das sind die meisten.
-          if (budget-- <= 0) { letzte.current.set(NaN, NaN, NaN); continue; }
+          if (gestaffelt) {
+            const hatQuelle = art === 'weg' ? satz.wege.has(id)
+              : art === 'wasser' ? satz.baeche.has(id) || satz.teiche.has(id)
+              : art === 'fall' ? satz.faelle.has(id)
+              : art === 'haus' ? satz.gebaeude.has(id) : satz.gaerten.has(id);
+            if (!hatQuelle) continue;
+          } else if (budget-- <= 0) continue;
           g = bauen(feld, satz, k, lod);
           // Vor dem Cache, auch für Gärten: mergeGeometries verlangt einheitliche Indizes.
           // Normalen sind bereits fertig; nur vollständig identische Eckattribute teilen Speicher.
@@ -792,6 +901,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
             const roh=g;g=indexiereHausGeometrie(roh);if(g!==roh)roh.dispose();
           }
           cache.current.set(schluessel, g);
+          if (gestaffelt && g) yield;
         }
         // Gärten teilen sich das Material mit den Häusern: beides Vertexfarbe,
         // beides undurchsichtig, beides derselbe Draw Call je Kachelgruppe.
@@ -805,21 +915,54 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       }
     }
 
-    if (budget >= 0) meldeFertig('baender');
+    if (budget >= 0) { meldeFertig('baender'); nachlauf.baenderFertig = true; }
 
     const fassen = (gs: THREE.BufferGeometry[]) =>
       gs.length ? [mergeGeometries(gs, false)].filter(Boolean) as THREE.BufferGeometry[] : [];
-    if (HOF_KACHELPUFFER_AN) hausPuffer.current = aktualisiereKachelpuffer(hausPuffer.current, hausGruppen);
-    const haus = HOF_KACHELPUFFER_AN ? geometrienAusKachelpuffern(hausPuffer.current) : fassen(sammeln.haus);
-    const erhalten = new Set(haus);
-    const neu = { weg: fassen(sammeln.weg), wasser: fassen(sammeln.wasser),
-                  fall: fassen(sammeln.fall), haus };
-    setTeile(vorher => {
-      for (const liste of [vorher.weg, vorher.wasser, vorher.fall])
-        liste.forEach(g => g.dispose());
-      for (const g of vorher.haus) if (!erhalten.has(g)) g.dispose();
-      return neu;
-    });
+    const hausNeu = !HOF_KACHELPUFFER_AN ? hausPuffer.current
+      : gestaffelt ? yield* bereiteKachelpuffer(hausPuffer.current, hausGruppen, vorladen)
+      : aktualisiereKachelpuffer(hausPuffer.current, hausGruppen);
+    const haus = HOF_KACHELPUFFER_AN ? geometrienAusKachelpuffern(hausNeu) : fassen(sammeln.haus);
+    const baenderNeu = new Map<string, { quellen: THREE.BufferGeometry[]; geometrien: THREE.BufferGeometry[] }>();
+    const neu = { weg: [] as THREE.BufferGeometry[], wasser: [] as THREE.BufferGeometry[],
+                  fall: [] as THREE.BufferGeometry[], haus };
+    for (const art of ['weg', 'wasser', 'fall'] as const) {
+      const quellen = sammeln[art];
+      const alt = bandPuffer.current.get(art);
+      // Die Reihenfolge gehört zum Puffer: Transparente Bänder behalten die bisherige Dreieckfolge.
+      const gleich = KACHELNACHLAUF_AN && alt && alt.quellen.length === quellen.length
+        && quellen.every((g, i) => g === alt.quellen[i]);
+      const geometrien = gleich ? alt.geometrien : fassen(quellen);
+      neu[art] = geometrien;
+      baenderNeu.set(art, { quellen, geometrien });
+      if (gestaffelt && !gleich && geometrien.length) {
+        yield;
+        if (vorladen?.(geometrien[0])) yield;
+      }
+    }
+    return () => {
+      letzte.current.copy(anker);
+      if (budget < 0) letzte.current.set(NaN, NaN, NaN);
+      hausPuffer.current = hausNeu;
+      bandPuffer.current = baenderNeu;
+      if (KACHELNACHLAUF_AN) setTeile(neu);
+      else setTeile(vorher => {
+        entsorgeErsetzteKacheln(Object.values(vorher).flat(), Object.values(neu).flat());
+        return neu;
+      });
+    };
+  };
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    nachlauf.baender = baue;
+    return () => { if (nachlauf.baender === baue) nachlauf.baender = undefined; };
+  }, [nachlauf, baue]);
+
+  useFrame(() => {
+    if (KACHELNACHLAUF_AN && nachlauf.bodenFertig && nachlauf.baenderFertig && nachlauf.baender) return;
+    const p = ziel.current?.position;
+    if (!p || letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+    fülleKachelbau(baue(kachelauswahl(kacheln, p), false, p), Infinity)?.();
   });
 
   return <>
@@ -874,7 +1017,7 @@ function Props({ props, hofBaum = false, wind, grasWind, farnWind, grasScanWind,
   const letzteFern = useRef(new THREE.Vector3(NaN, NaN, NaN));
   /** Kacheln, die im vorigen Durchlauf Attrappen waren — siehe `waehleProps` (D164). */
   const vorigeAttrappen = useRef<ReadonlySet<string> | undefined>(undefined);
-  const propAnker = useRef<PropAnkerCache>({});
+  const propAnker = useRef<PropAnkerCache>({ fernschluesselBeiBedarf: HOF_KACHELNACHLAUF_AN });
   // Neue Sichtweite (D247): beide Listen sofort neu, statt auf die nächsten 8/60 m Lauf zu warten.
   useEffect(() => { letzte.current.set(NaN, NaN, NaN); letzteFern.current.set(NaN, NaN, NaN); }, [weite]);
 
@@ -901,9 +1044,11 @@ function Props({ props, hofBaum = false, wind, grasWind, farnWind, grasScanWind,
     // `vorigeAttrappen` sind die Kacheln, die beim **letzten** Durchlauf Attrappen waren.
     // Sie zwingen die Kette über die Mittelstufe, statt vom Kegel aufs volle Modell zu
     // springen — gemessen 6 solcher Sprünge in 24 s Lauf (D164, `propauswahl.ts`).
-    const { nah, buendel, buendelKacheln } = waehleProps(
-      chunks, [p.x, p.z], anker, fernNeu, vorigeAttrappen.current, weite, HOF_BILDRUHE_AN ? propAnker.current : undefined);
-    vorigeAttrappen.current = buendelKacheln;
+    const auswahl = waehleProps(chunks, [p.x, p.z], anker, fernNeu,
+      HOF_KACHELNACHLAUF_AN ? undefined : vorigeAttrappen.current, weite,
+      HOF_BILDRUHE_AN ? propAnker.current : undefined);
+    const { nah, buendel } = auswahl;
+    if (!HOF_KACHELNACHLAUF_AN) vorigeAttrappen.current = auswahl.buendelKacheln;
 
     // Ein neuer Fernanker verschiebt auch die Grenze zwischen Chunk und Bündel.
     // Deshalb beide Listen gemeinsam ersetzen, selbst wenn die letzte 8-m-

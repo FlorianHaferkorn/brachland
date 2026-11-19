@@ -92,16 +92,33 @@ export interface Auswahl {
   buendelKacheln: Set<string>;
 }
 
+interface PropAnkerstand {
+  quelle: readonly PropChunk[];
+  x: number;
+  z: number;
+  weite: number;
+  kandidaten: PropChunk[];
+  buendelKacheln?: Set<string>;
+}
+
 /** Nahkandidaten und Fernzuordnung bleiben zwischen zwei Fernankern gleich. */
 export interface PropAnkerCache {
-  stand?: {
-    quelle: readonly PropChunk[];
-    x: number;
-    z: number;
-    weite: number;
-    kandidaten: PropChunk[];
-    buendelKacheln: Set<string>;
-  };
+  stand?: PropAnkerstand;
+  /** Die Szene fragt die letzte Zuordnung aus dem Anker ab. Die vollständige Schlüsselliste bleibt abrufbar. */
+  fernschluesselBeiBedarf?: boolean;
+}
+
+function fernschluessel(stand: PropAnkerstand): Set<string> {
+  if (stand.buendelKacheln) return stand.buendelKacheln;
+  const liste = new Set<string>();
+  const ab = ATTRAPPE_AB * stand.weite;
+  for (const c of stand.quelle) {
+    if (Math.hypot(stand.x - c.mitte[0], stand.z - c.mitte[1]) > ab) {
+      liste.add(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`);
+    }
+  }
+  stand.buendelKacheln = liste;
+  return liste;
 }
 
 /**
@@ -136,14 +153,24 @@ export function waehleProps(
   const stand = cache?.stand;
   const bekannt = !bauBuendel && stand !== undefined && stand.quelle === chunks
     && stand.x === anker[0] && stand.z === anker[1] && stand.weite === weite;
-  const buendelKacheln = bekannt ? stand.buendelKacheln : new Set<string>();
+  const fernBeiBedarf = cache?.fernschluesselBeiBedarf === true;
+  const buendelKacheln = bekannt ? stand.buendelKacheln : fernBeiBedarf ? undefined : new Set<string>();
+  const alterAnker = fernBeiBedarf && !warGebuendelt ? stand : undefined;
+  const alteSchluessel = warGebuendelt ?? (alterAnker && alterAnker.quelle !== chunks ? fernschluessel(alterAnker) : undefined);
   const kandidaten: PropChunk[] | null = cache && !bekannt ? [] : null;
 
   for (const c of bekannt ? stand.kandidaten : chunks) {
     if (!bekannt) {
-      const vomAnker = Math.hypot(anker[0] - c.mitte[0], anker[1] - c.mitte[1]);
+      const dx = anker[0] - c.mitte[0], dz = anker[1] - c.mitte[1];
+      if (fernBeiBedarf) {
+        // Der Abstand auf einer Achse unterschätzt den tatsächlichen Abstand.
+        // Nur sicher unsichtbare Fern-Props vor der exakten Prüfung auslassen.
+        const achse = Math.max(Math.abs(dx), Math.abs(dz));
+        if (achse > attrappeAb && (!bauBuendel || achse - c.radius > sicht(c) + FERN_NEUBEWERTUNG)) continue;
+      }
+      const vomAnker = Math.hypot(dx, dz);
       if (vomAnker > attrappeAb) {
-        buendelKacheln.add(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`);
+        buendelKacheln?.add(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`);
         // Sichtweite um die Ankerstrecke erweitert: Was in den nächsten 60 m in
         // Reichweite gerät, ist schon drin, statt später hineinzupoppen.
         if (bauBuendel && vomAnker - c.radius <= sicht(c) + FERN_NEUBEWERTUNG) {
@@ -227,7 +254,9 @@ export function waehleProps(
      * Schritt lang — und ein Baum auf Mittelstufe statt Nahstufe für 8 m Weg ist
      * unsichtbar gegen einen Kegel, der zum Baum wird.
      */
-    const kamAusDemBuendel = warGebuendelt?.has(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`) ?? false;
+    const kamAusDemBuendel = alteSchluessel?.has(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`)
+      ?? (alterAnker !== undefined
+        && Math.hypot(alterAnker.x - c.mitte[0], alterAnker.z - c.mitte[1]) > ATTRAPPE_AB * alterAnker.weite);
     if (kamAusDemBuendel) { nah.push({ c, stufe: 'mittel' }); continue; }
     if (BAUM.has(c.art) && Math.abs(mitte - mittelAb) < c.radius && c.instanzen.length > 0) {
       const nahe: PropInstanz[] = [], mittlere: PropInstanz[] = [];
@@ -251,8 +280,12 @@ export function waehleProps(
     }
     nah.push({ c, stufe: mitte > mittelAb ? 'mittel' : 'nah' });
   }
-  if (cache && kandidaten) cache.stand = { quelle: chunks, x: anker[0], z: anker[1], weite, kandidaten, buendelKacheln };
-  return { nah: legeMittelZusammen(nah), buendel, buendelKacheln };
+  const neu = bekannt ? stand : { quelle: chunks, x: anker[0], z: anker[1], weite, kandidaten: kandidaten ?? [], buendelKacheln };
+  if (cache && kandidaten) cache.stand = neu;
+  return {
+    nah: legeMittelZusammen(nah), buendel,
+    get buendelKacheln() { return fernschluessel(neu); },
+  };
 }
 
 /**

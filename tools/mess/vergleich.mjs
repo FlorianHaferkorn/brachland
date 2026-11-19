@@ -1,13 +1,14 @@
 /** Gleicher spielbarer Lauf fuer A/B-Proben; neue Ausgabe, keine Bilder waehrend der Zeitmessung.
- * node tools/mess/vergleich.mjs <name> [zusaetzliche-urlparameter] [x,z,grad|hofwest] */
+ * node tools/mess/vergleich.mjs <name> [zusaetzliche-urlparameter] [x,z,grad|hofwest] [port] */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { playwright } from './pw.mjs';
 import { HOFWEST_START, bereiteHofwestroute, hofwestZeiten, laufeHofwestroute } from './hofwestroute.mjs';
 
-const [name, extra = '', strecke = '0,0,310'] = process.argv.slice(2);
+const [name, extra = '', strecke = '0,0,310', port = '4173'] = process.argv.slice(2);
 const hofwest = strecke === 'hofwest';
 const ort = hofwest ? HOFWEST_START : strecke;
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
+if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) throw new Error('Gültigen lokalen Preview-Port angeben.');
 if (!/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(ort)) throw new Error('Ort als x,z,grad angeben.');
 const ziel = `.cache/mess/${name}`;
 if (existsSync(ziel)) throw new Error(`Ausgabe existiert bereits: ${ziel}`);
@@ -26,7 +27,7 @@ function kennzahlen(zeiten) {
     medianMs: quantil(0.5), p95Ms: quantil(0.95), maxMs: quantil(1), ueber50ms: zeiten.filter(z => z > 50).length };
 }
 try {
-  await seite.goto(`http://127.0.0.1:4173/?absetzen=${ort}&zeit=0.26&kontur=0${extra}`, { waitUntil: 'domcontentloaded' });
+  await seite.goto(`http://127.0.0.1:${port}/?absetzen=${ort}&zeit=0.26&kontur=0${extra}`, { waitUntil: 'domcontentloaded' });
   await seite.waitForSelector('button[aria-label="Menü"]', { timeout: 240000 });
   await seite.waitForFunction(() => document.body.textContent.includes('Ladezeit'), undefined, { timeout: 120000 });
   await seite.waitForTimeout(15000);

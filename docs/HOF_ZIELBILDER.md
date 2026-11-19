@@ -267,3 +267,24 @@ Vier 152-m-Läufe am M1 bei 960 × 540 vergleichen `bildfluss=0/1/1/0`. Alle err
 Die Rohberichte liegen unter `.cache/mess/d326-hofwest-{a1,b1,b2,a2}`. Die CPU-Profile sind `.cache/mess/d326-cpu-{vor,programme,zwischenschritt,nach,rest}`. Die Aufnahmen entstehen getrennt von der Zeitmessung. Der D325-Referenzclip und die neue D326-Aufnahme laufen nebeneinander in `.cache/bilder/d326-hofruckler/index.html`.
 
 Vier Kontrollbildpaare ohne HUD vergleichen dieselbe Kamera und Windphase über `hauslauf.mjs <name> 1 stand bildfluss` mit dem D324-Referenzsatz `.cache/mess/d324-stand-nach`. Beide Fassungen enthalten in den geladenen Haus- und Gartenpuffern exakt 444.720 Dreiecke. Die mittlere absolute RGB-Abweichung beträgt je Bild höchstens 0,014 von 255. Die Bewegungsaufnahme der korrigierten Fassung erreicht dieselben 12 Wegpunkte in 36,26 s. Messung und Aufnahmen melden keine Browserfehler.
+
+## Gemeinsamer Kachelwechsel mit vorbereiteten Uploads (D327)
+
+Das frische D326-Profil reproduziert den verbliebenen Hofruckler mit 82,4 ms bei x≈1420,1 und z≈405,6. Im Frame liegen rund 7 ms Gartenindizierung, mehrere Zusammenführungen von Gelände- und Haus-/Gartenpuffern und 1,735 MB Straßenattribute. Die bekannten späten Fernanker-Frames enthalten zudem Arbeit in `waehleProps` für die Fernschlüsselliste. Ein Gegenprofil mit gestaffeltem CPU-Bau allein zeigt verbleibende Uploadspitzen an der gemeinsamen Freigabe. Beim längsten dieser Frames entfallen rund 42 ms auf `bufferData`.
+
+`kachelnachlauf=1` hält nach dem Laden die letzte vollständige Geländefassung sichtbar. Der 32-m-Anker bestimmt dieselbe stabil sortierte Kachelauswahl für Gelände und Bänder. Der Bau und die Zusammenführungen laufen schrittweise mit einer gemeinsamen 3-ms-Frist. Eine einzelne Operation darf die Frist überschreiten. Große neue GPU-Puffer werden vor ihrer Freigabe in einem separaten 1×1-Renderziel mit leerem Zeichenbereich vorbereitet. Danach wechseln Boden, Wege, Wasser, Häuser und Gärten gemeinsam. Identische Bandquellen behalten ihren Puffer und ihre Dreieckfolge. Alte Puffer werden nach dem Szenenwechsel freigegeben. Bei Sprung oder Pegelwechsel lässt sich ein laufender Auftrag ersetzen. Der Fernanker speichert seine Zuordnung als Position und bildet vollständige Fernschlüssel nur bei Bedarf. Die bisherigen Stufen, Geometrien und Materialien gelten weiter. `kachelnachlauf=0` schaltet auf den direkten Kachelwechsel zurück.
+
+Die 152-m-Route bleibt dieselbe. Beide neuen Läufe erreichen alle 12 Wegpunkte. In einem Radius von 1 m um die drei Koordinaten der vier D326-Ausreißer liegen die längsten Frames in D327 bei 33,8 ms (Hof bei x≈1420), 34,2 ms (Übergang bei x≈1385) und 34,3 ms (Fernanker bei x≈1393). Die zwei verbliebenen langen Frames aus den D327-Läufen liegen an anderen Stellen. Es sind 66,6 ms nach 2,23 s und 50,1 ms nach 28,27 s.
+
+| Unabhängige Spielläufe auf dem M1 bei 960 × 540 | FPS | p95 | Bilder über 50 ms | Maximum |
+|---|---:|---:|---:|---:|
+| D326-Messreihe aus dem vorherigen Stand, zwei Läufe | 42,55 | 34,45 ms | 4 | 83,3 ms |
+| Unveränderter D326-Build aus `afd9bfc`, zwei neue Läufe | 46,45 | 33,80 ms | 4 | 99,9 ms |
+| Gemeinsamer Build mit direktem Wechsel, zwei Läufe | 46,54 | 33,75 ms | 1 | 50,1 ms |
+| D327 mit gestaffeltem Wechsel, zwei Läufe | 46,03 | 33,65 ms | 2 | 66,6 ms |
+
+Im frisch gebauten D326 lagen alle vier langen Bilder am Hof bei x≈1420. Die beiden D326-Läufe erreichten 46,08 und 46,81 FPS, die D327-Läufe 45,52 und 46,54 FPS. Damit liegen die Mittelwerte rund 0,9 % auseinander und die Laufspannen überlappen. Ein zusätzlicher D327-Kontrolllauf erreichte 45,50 FPS, 34,20 ms p95 und maximal 48,7 ms.
+
+Die Umschaltmessung läuft in der Reihenfolge 0/1/1/0. Der direkte Wechsel enthält bereits die gemeinsamen Änderungen am Kachellauf und bleibt als Gegenprobe verfügbar. Die vier Berichte liegen unter `.cache/mess/d327-hofwest-{a1,b1,b2,a2}`, die beiden CPU-Diagnosen unter `.cache/mess/d327-cpu-{vor,kandidat}`. Die frischen D326-Berichte liegen unter `.cache/mess/d327-d326-kontrolle{,-zwei}`, der zusätzliche D327-Bericht unter `.cache/mess/d327-aktuell-kontrolle`. Der Seitenvergleich verwendet die bestehende D326-Echtzeitaufnahme und die neue D327-Aufnahme der vollständigen Route. Er liegt unter `.cache/bilder/d327-hofwest-vergleich/index.html`.
+
+Vier Kontrollbilder mit gleicher Kamera und Windphase vergleichen `.cache/mess/d326-stand-nach` mit `.cache/mess/d327-stand-nach`. Die Haus- und Gartenpuffer enthalten in beiden Fassungen 444.720 Dreiecke. Die mittlere absolute RGB-Abweichung beträgt höchstens 0,011 von 255. Die vollständige neue Aufnahme dauert 36,28 s und erreicht alle 12 Wegpunkte. Die Messungen, Bilder und Aufnahmen melden keine Browserfehler.

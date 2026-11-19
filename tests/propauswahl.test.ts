@@ -76,6 +76,32 @@ const kachel = (c: PropChunk) => `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
     === kenne(waehleProps(weitere, p, anker, false, vorher, 1.4)));
 }
 
+// D327: Die Szene führt die alte Fernzuordnung über den Anker fort.
+{
+  const cache: PropAnkerCache = { fernschluesselBeiBedarf: true };
+  const quellwechsel = [...chunks, ...raster('laubbaum', 420, 70)];
+  const listen = (a: ReturnType<typeof waehleProps>) => JSON.stringify([a.nah, [...a.buendel]]);
+  let vorher: ReadonlySet<string> | undefined;
+  for (const [quelle, p, anker, bauBuendel, weite] of [
+    [chunks, [0, 0], [0, 0], true, 1],
+    [chunks, [8, 0], [0, 0], false, 1],
+    [chunks, [70, 0], [70, 0], true, 1],
+    [chunks, [675, 0], [675, 0], true, 1.4],
+    [quellwechsel, [8, 0], [8, 0], true, 1],
+    [quellwechsel, [16, 0], [8, 0], false, 1],
+  ] as const) {
+    const alt = waehleProps(quelle, p, anker, bauBuendel, vorher, weite);
+    const neu = waehleProps(quelle, p, anker, bauBuendel, undefined, weite, cache);
+    pruefe('Fernanker erhält Listen bei Schritten, Sprüngen und Quellenwechsel', listen(alt) === listen(neu));
+    pruefe('Der aktuelle Fernanker speichert die Schlüsselliste erst bei Bedarf', cache.stand?.buendelKacheln === undefined);
+    vorher = alt.buendelKacheln;
+  }
+  const p = [16, 0] as const, anker = [8, 0] as const;
+  const neu = waehleProps(quellwechsel, p, anker, false, undefined, 1, cache);
+  pruefe('Die nachträglich abgerufene Schlüsselliste bleibt vollständig und geordnet',
+    JSON.stringify([...neu.buendelKacheln]) === JSON.stringify([...vorher!]));
+}
+
 // ---------------------------------------------------- 1. Keine Doppelung
 {
   const { nah, buendel } = waehleProps(chunks, [0, 0], [0, 0], true);

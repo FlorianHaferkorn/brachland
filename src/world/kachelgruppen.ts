@@ -18,6 +18,15 @@ export function sammleKachel(sammlung: Kachelsammlung, kachel: Kachel, geometrie
 
 /** Auch die Reihenfolge der Quellen bleibt bei einer anderen Spielerposition stabil. */
 export function aktualisiereKachelpuffer(alt: Kachelpuffer, sammlung: Kachelsammlung): Kachelpuffer {
+  const arbeit = bereiteKachelpuffer(alt, sammlung);
+  for (let schritt = arbeit.next(); ; schritt = arbeit.next()) {
+    if (schritt.done) return schritt.value;
+  }
+}
+
+/** Unterbricht nur nach einer tatsächlichen Pufferkopie. Alte Puffer bleiben bis zur Freigabe nutzbar. */
+export function* bereiteKachelpuffer(alt: Kachelpuffer, sammlung: Kachelsammlung,
+  vorladen?: (geometrie: BufferGeometry) => boolean): Generator<void, Kachelpuffer> {
   const neu: Kachelpuffer = new Map();
   for (const [schluessel, gruppe] of sammlung) {
     const quellen = gruppe.sort((a, b) => a.reihe - b.reihe || a.spalte - b.spalte).map(q => q.geometrie);
@@ -28,6 +37,8 @@ export function aktualisiereKachelpuffer(alt: Kachelpuffer, sammlung: Kachelsamm
     }
     const geometrie = mergeGeometries(quellen, false);
     if (geometrie) neu.set(schluessel, { quellen, geometrie });
+    yield;
+    if (geometrie && vorladen?.(geometrie)) yield;
   }
   return neu;
 }

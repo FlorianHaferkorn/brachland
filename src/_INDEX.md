@@ -92,6 +92,7 @@ owns: *.ts, *.tsx
 | `world/hofplatz.ts` | D298: aus dem realen Grundriss abgeleitete Hofmaske, CPU/GLSL und geteilte Uniforms; Messprobe `?scanhof=1`. |
 | `world/hofmaterial.ts` | D298: originale sRGB-Scanfarben, Normalen, Rauheit/AO und Kies am Hof; gemeinsame Texturen nur bei aktivierter Probe. |
 | `world/kachelgruppen.ts` | D311: stabile räumliche Geometriepuffer für Gelände, Häuser und Gärten. |
+| `world/kachelupload.ts` | D327: große Geometriepuffer für den gemeinsamen Kachelwechsel außerhalb des sichtbaren Bilds laden. |
 | `world/hofboden.ts` | D307: gemeinsame CPU-/GLSL-Masken für unregelmäßige Hofränder und abgetretene freie Türvorfelder. |
 | `world/hofbodenkontakt.ts` | D307: einmaliges R8-Raster an echten ausgewählten Hauskanten, fremde Gebäudeinneren ausgespart. |
 | `world/hofsockel.ts` | D307: geschlossene Sockel-/Kappenkörper mit kontinuierlich geländefolgenden Oberkanten. |
