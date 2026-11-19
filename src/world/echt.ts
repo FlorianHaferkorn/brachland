@@ -48,6 +48,8 @@ export const HOF_ZIELTREUE_AN = HOF_LICHT_AN && an('zieltreue');
 export const HOF_VERFALLVERLAUF_AN = HOF_ZIELTREUE_AN && an('verfallverlauf');
 /** D322: Alterung aus Bauform, Exposition und Nutzung im spielbaren Ausschnitt. */
 export const HOF_ORTSALTERUNG_AN = HOF_VERFALLVERLAUF_AN && an('ortsalterung');
+/** D329: drei Nutzungszustände der Satteldachhäuser an der Weststraße. */
+export const WESTVERFALL_AN = HOF_ORTSALTERUNG_AN && an('westverfall');
 /** D323: Dachkontur und Baumgruppen für das Zielbild am Hof. */
 export const HOF_SILHOUETTE_AN = HOF_ORTSALTERUNG_AN && an('hofsilhouette');
 /** D323: unveränderte Prop-Fernanker wiederverwenden und Klanggraph bei Bedarf aufbauen. */

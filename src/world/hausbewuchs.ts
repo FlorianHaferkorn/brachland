@@ -20,7 +20,7 @@ const BLATTFORM: readonly Wandpunkt[] = [
 export function baueHausbewuchs(
   dreieck: Dreieck, start: Wandkante, ende: Wandkante, aussen: Wandkante,
   boden: (x: number, z: number) => number, traufe: number, stufe: 1 | 2,
-  saat: number, tuerU: number | null, farben: Rankenfarben,
+  saat: number, tuerU: number | null, farben: Rankenfarben, dicht = false,
 ): void {
   const dx = ende[0] - start[0], dz = ende[1] - start[1];
   const laenge = Math.hypot(dx, dz);
@@ -37,16 +37,17 @@ export function baueHausbewuchs(
     && (tuerU === null || Math.abs(u - tuerU) > 0.85 + radius || y - radius >= tuerOberkante);
 
   let anzahl = 0;
-  const flaeche = (a: Wandpunkt, b: Wandpunkt, c: Wandpunkt, farbe: Color) => {
+  const dreieckgrenze = dicht ? 3300 : DREIECKE_JE_WAND;
+  const flaeche = (a: Wandpunkt, b: Wandpunkt, c: Wandpunkt, farbe: Color, blatt?: BlattKoordinaten) => {
     const kreuz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
-    if (kreuz * umlauf > 0) dreieck(welt(a), welt(b), welt(c), farbe);
-    else dreieck(welt(a), welt(c), welt(b), farbe);
+    if (kreuz * umlauf > 0) dreieck(welt(a), welt(b), welt(c), farbe, blatt);
+    else dreieck(welt(a), welt(c), welt(b), farbe, blatt && [blatt[0], blatt[2], blatt[1]]);
     anzahl++;
   };
 
   const trieb = (a: Wandpunkt, b: Wandpunkt, dicke: number) => {
     const strecke = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    if (anzahl + 2 > DREIECKE_JE_WAND || strecke < 0.02) return;
+    if (anzahl + 2 > dreieckgrenze || strecke < 0.02) return;
     const u = (b[1] - a[1]) * dicke / strecke, y = (a[0] - b[0]) * dicke / strecke;
     const randLinks = Math.min(a[0], b[0]) - Math.abs(u), randRechts = Math.max(a[0], b[0]) + Math.abs(u);
     if (randLinks < 0.025 || randRechts > laenge - 0.025 || Math.max(a[1], b[1]) + Math.abs(y) > traufe) return;
@@ -62,7 +63,7 @@ export function baueHausbewuchs(
 
   const blatt = (u: number, y: number, tiefe: number, laengeBlatt: number, winkel: number, ton: number) => {
     const einfach = stufe === 2 && ton % 3 !== 0;
-    if (anzahl + (einfach ? 2 : BLATTFORM.length) > DREIECKE_JE_WAND || !passt(u, y, laengeBlatt * 0.59)) return;
+    if (anzahl + (einfach ? 2 : BLATTFORM.length) > dreieckgrenze || !passt(u, y, laengeBlatt * 0.59)) return;
     const sin = Math.sin(winkel), cos = Math.cos(winkel);
     const randpunkt = ([q, h, v]: Wandpunkt): Wandpunkt => [
       u + (q * cos + h * sin) * laengeBlatt,
@@ -70,16 +71,20 @@ export function baueHausbewuchs(
       tiefe + v * laengeBlatt,
     ];
     const farbe = farben.blaetter[ton];
+    const uv = (i: number): [number, number] => [BLATTFORM[i][0], BLATTFORM[i][1]];
     if (einfach) {
       const fuss = randpunkt(BLATTFORM[0]), links = randpunkt(BLATTFORM[1]);
       const spitze = randpunkt(BLATTFORM[3]), rechts = randpunkt(BLATTFORM[5]);
-      flaeche(fuss, links, spitze, farbe);
-      flaeche(fuss, spitze, rechts, farbe);
+      flaeche(fuss, links, spitze, farbe, dicht ? [uv(0), uv(1), uv(3)] : undefined);
+      flaeche(fuss, spitze, rechts, farbe, dicht ? [uv(0), uv(3), uv(5)] : undefined);
       return;
     }
     const rand = BLATTFORM.map(randpunkt);
     const mitte: Wandpunkt = [u, y, tiefe + laengeBlatt * 0.18];
-    for (let i = 0; i < rand.length; i++) flaeche(mitte, rand[i], rand[(i + 1) % rand.length], farbe);
+    for (let i = 0; i < rand.length; i++) {
+      const j = (i + 1) % rand.length;
+      flaeche(mitte, rand[i], rand[j], farbe, dicht ? [[0, 0], uv(i), uv(j)] : undefined);
+    }
   };
 
   const polster = (punkt: Wandpunkt, richtung: number, dichte: number, breite: number) => {
@@ -92,7 +97,7 @@ export function baueHausbewuchs(
       const u = punkt[0] + Math.cos(winkel) * radius;
       const y = punkt[1] + Math.sin(winkel) * radius * 0.78;
       const tiefe = Math.max(0.095, Math.min(0.30, punkt[2] + (zufall() - 0.22) * 0.13));
-      const groesse = stufe === 2 ? 0.15 + zufall() * 0.14 : 0.105 + zufall() * 0.11;
+      const groesse = dicht ? .20 + zufall() * .19 : stufe === 2 ? .15 + zufall() * .14 : .105 + zufall() * .11;
       const blattTon = zufall() < 0.78 ? ton : Math.floor(zufall() * palette);
       blatt(u, y, tiefe, groesse, richtung * 0.7 + (zufall() - 0.5) * 3.6, blattTon);
     }
@@ -115,7 +120,7 @@ export function baueHausbewuchs(
     const drift = (zufall() - 0.5) * Math.min(2.6, laenge * 0.19);
     const schwung = zufall() * Math.PI * 2;
     const abschnitte = Math.max(3, Math.min(stufe === 2 ? 16 : 8, Math.ceil((y1 - y0) / 0.38)));
-    const dichte = stufe === 2 ? Math.floor(19 / wurzeln) : 6;
+    const dichte = dicht ? Math.floor(33 / wurzeln) : stufe === 2 ? Math.floor(19 / wurzeln) : 6;
     let unten: Wandpunkt = [u, y0, 0.018];
     for (let i = 1; i <= abschnitte; i++) {
       const t = i / abschnitte;
@@ -134,9 +139,9 @@ export function baueHausbewuchs(
       const seitentrieb: Wandpunkt = [oben[0] + finger, oben[1] + hoehensprung, 0.09 + zufall() * 0.09];
       trieb(oben, seitentrieb, 0.009);
       // Ein Knoten liegt vorn am Seitentrieb, ein zweiter am Haupttrieb hinter dem ersten.
-      polster(seitentrieb, seite, dichte, 0.19 + zufall() * (stufe === 2 ? 0.52 : 0.27));
+      polster(seitentrieb, seite, dichte, (dicht ? .45 : .19) + zufall() * (stufe === 2 ? .52 : .27));
       polster([oben[0] + finger * 0.26, oben[1] - 0.13, 0.09], -seite, Math.ceil(dichte * 0.67),
-        0.2 + zufall() * (stufe === 2 ? 0.42 : 0.17));
+        (dicht ? .42 : .20) + zufall() * (stufe === 2 ? .42 : .17));
       unten = oben;
     }
   }

@@ -10,6 +10,8 @@
  * Attribution: OSM-Daten stehen unter ODbL — Namensnennung ist Pflicht.
  */
 
+import type { Hausnutzung } from '../data/schema.js';
+
 export type BBox = [sued: number, west: number, nord: number, ost: number];
 
 export interface OsmWay {
@@ -226,6 +228,7 @@ export interface Weltdaten {
   linien: { art: string; punkte: [number, number][]; breite: number }[];
   gebaeude: {
     punkte: [number, number][]; ebenen: number; art: string;
+    hausnutzung?: Hausnutzung;
     /** D290: echte Silhouette aus LoD2 (Traufe t, First f über Grund in m, Dachform d nach AdV, Firstrichtung w in Grad). */
     lod2?: { t: number; f: number; d: number; w: number | null; c?: string | null } | null;
     /** D291: Fassaden-Steckbrief (content/fassaden), falls für dieses Gebäude vorhanden. */

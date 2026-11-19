@@ -21,6 +21,8 @@ const {bestimmeHof,waehleHof,HOF_UNIFORM}=await import('./src/world/hofplatz.ts'
 const {bestimmeHofhaeuser}=await import('./src/world/hofhaeuser.ts');
 const {indexiereHausGeometrie}=await import('./src/world/hausindex.ts');
 const welt=entpackeWelt(JSON.parse(fs.readFileSync('public/world/oental.json','utf8')).welt),lod=JSON.parse(fs.readFileSync('public/world/oental-lod2.json','utf8'));
+const nutzungen=JSON.parse(fs.readFileSync('content/regions/oental.json','utf8')).hausnutzung;
+const zuordnung=nutzungen.map(n=>welt.gebaeude.flatMap((g,i)=>imPolygon(n.ort,g.punkte)?[i]:[]));
 const vorher=JSON.stringify(welt.gebaeude),[s,we,n,o]=welt.bbox;
 const mass={breiteMeter:(o-we)*111320*Math.cos((s+n)/2*Math.PI/180),tiefeMeter:(n-s)*111320};
 const hoehe=(x,z)=>34+(x-1433)*.08+(z-434)*.05;
@@ -32,10 +34,11 @@ const hash=g=>{
   for(const [name,a]of Object.entries(g.attributes)) {h.update(name);h.update(Buffer.from(a.array.buffer,a.array.byteOffset,a.array.byteLength));}
   return h.digest('hex');
 };
-const result={haeuser:{},bewohntHash:'',eingabeErhalten:false,uniforms:{zahl:HOF_UNIFORM.zugangZahl.value,werte:HOF_UNIFORM.zugaenge.value.map(q=>q.toArray())},auswahl:haeuser};
+const result={haeuser:{},bewohntHash:'',eingabeErhalten:false,uniforms:{zahl:HOF_UNIFORM.zugangZahl.value,werte:HOF_UNIFORM.zugaenge.value.map(q=>q.toArray())},auswahl:haeuser,zuordnung};
 const material=new THREE.MeshBasicMaterial({side:THREE.FrontSide}),strahl=new THREE.Raycaster();
 for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,508,510,512,693]) {
-  const haus={...welt.gebaeude[i],lod2:lod[i]},g=baueGebaeude(welt,boden,[haus],[[hof.mitte[0],hof.mitte[1]-75]],haeuser);
+  const haus={...welt.gebaeude[i],lod2:lod[i],hausnutzung:nutzungen.find(n=>imPolygon(n.ort,welt.gebaeude[i].punkte))};
+  const g=baueGebaeude(welt,boden,[haus],[[hof.mitte[0],hof.mitte[1]-75]],haeuser);
   const p=g.getAttribute('position'),r=g.getAttribute('rolle'),z=g.getAttribute('zustand'),glut=g.getAttribute('glut'),uv=g.getAttribute('raumUv');
   const referenz=haeuser.find(h=>h.gebaeudeIndex===i);
   let endlich=true,raumFalsch=0,glutFalsch=0,kontaktFehler=0,oberePlatten=0,blockiert=0,ausserhalbVorfeld=0,licht=0,schuttEcken=0,balkenEcken=0;
@@ -112,7 +115,7 @@ interface Hausbefund {
 }
 interface Stand {
   haeuser: Record<number, Hausbefund>; eingabeErhalten: boolean; bewohntHash: string;
-  uniforms: { zahl: number; werte: number[][] };
+  uniforms: { zahl: number; werte: number[][] }; zuordnung: number[][];
   auswahl: { gebaeudeIndex: number; eingang: [number, number] | null; vorne: [number, number] }[];
 }
 const lauf = (query: string): Stand => JSON.parse(execFileSync(process.execPath,
@@ -130,6 +133,7 @@ const zieltreue = lauf(zielbildQuery);
 const verlauf = lauf(zielbildQuery + '&verfallverlauf=1');
 const ortsprobe = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1');
 const silhouette = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1');
+const westprobe = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -243,5 +247,19 @@ pruefe('D323: Die Dachkorrektur betrifft nur die beiden Häuser an der Giebelfug
 pruefe('D323: Beide Hofplatten und derselbe Türquerschnitt bleiben frei',
   silhouette.haeuser[308].tritte.length === 2 && silhouette.haeuser[308].tritte.every(Boolean)
   && silhouette.haeuser[308].tuerTiefen.every((tiefe, i) => tiefe === ortsprobe.haeuser[308].tuerTiefen[i]));
+pruefe('D329: Drei Nutzungspunkte treffen jeweils genau einen realen Grundriss',
+  westprobe.zuordnung.every((treffer, i) => treffer.length === 1 && treffer[0] === westhaeuser[i]));
+pruefe('D329: Die Hausnutzungen ändern nur 508, 510, 512',
+  westprobe.eingabeErhalten && Object.entries(silhouette.haeuser).every(([i, haus]) =>
+    westhaeuser.includes(Number(i)) === (haus.hash !== westprobe.haeuser[Number(i)].hash)));
+pruefe('D329: Drei unterscheidbare und verlustfrei indexierte Zustände',
+  westhaeuser.every((i, k) => {
+    const haus = westprobe.haeuser[i];
+    return Math.floor(haus.stufe) % 32 === 26-k && haus.endlich && haus.indexGleich && !haus.raumFalsch
+      && !haus.glutFalsch && haus.positionHash !== silhouette.haeuser[i].positionHash;
+  }),
+  westhaeuser.map(i => `${i}: ${silhouette.haeuser[i].ecken/3} → ${westprobe.haeuser[i].ecken/3}`).join(', '));
+pruefe('D329: Fensterglut nur im instandgesetzten Haus',
+  !westprobe.haeuser[508].licht && !westprobe.haeuser[510].licht && westprobe.haeuser[512].licht > 0);
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

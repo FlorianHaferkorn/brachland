@@ -98,7 +98,7 @@ owns: *.ts, *.tsx
 | `world/hofsockel.ts` | D307: geschlossene Sockel-/Kappenkörper mit kontinuierlich geländefolgenden Oberkanten. |
 | `world/hoftrittplatten.ts` | D307: zwei geschlossene, geländefolgende Trittplatten je geprüftem Hofeingang, im vorhandenen Hausbatch. |
 | `world/hofhaeuser.ts` | D304: örtlicher Wohnhausverbund, freie Eingänge gegen alle Nachbargrundrisse und Zugangspflege; keine gespeicherten Gebäudekopien. |
-| `world/baualterung.ts` | D322: reproduzierbare Feuchte, Abnutzung und Dachschäden aus Nutzungszustand, Spannweite und Gelände. Materialwerte belegen den Nachkommaanteil des vorhandenen Hausattributs. |
+| `world/baualterung.ts` | D322: reproduzierbare Feuchte, Abnutzung und Dachschäden aus Nutzungszustand, Spannweite und Gelände. D329 leitet aus regionaler Hausnutzung Ruine, bewachsene Hülle und Reparatur ab. Materialwerte belegen den Nachkommaanteil des vorhandenen Hausattributs. |
 | `world/hausbewuchs.ts` | D312/D313: Klettertriebe und Blattpolster im Hauspuffer. Flächiger Bewuchs lässt den Eingang frei, die Referenzranke folgt einer von Hand platzierten räumlichen Kurve. D317 verdichtet sie an Haus 308 mit drei verholzten Strängen und gelappten Blättern. |
 | `world/ruinenschutt.ts` | D314: deterministisch gestreute Ziegelfragmente, Bruchsteine und Splitterbretter im Hauspuffer. Geländeauflage und Freihaltung werden je Stück geprüft. |
 | `world/bruchholz.ts` | D316: Balken mit gesplitterten Stirnflächen, Längsfugen und 72 Dreiecken im vorhandenen Hauspuffer. |

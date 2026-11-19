@@ -4,7 +4,8 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-const bildspitzen=profil==='bildspitzen';
+const westverfall=profil==='westverfall';
+const bildspitzen=profil==='bildspitzen'||westverfall;
 const kachelnachlauf=profil==='kachelnachlauf'||bildspitzen;
 const bildfluss=profil==='bildfluss'||kachelnachlauf;
 const bildtakt=profil==='bildtakt'||bildfluss;
@@ -14,7 +15,7 @@ const weststrasse=profil==='weststrasse';
 const strassenfahrt=profil==='ortsstrasse'||weststrasse;
 const ortsalterung=profil==='ortsalterung'||hofsilhouette||strassenfahrt;
 const kurzeFahrt=eckfahrt||strassenfahrt;
-if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette|bildtakt|bildfluss|kachelnachlauf|bildspitzen angeben.');
+if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette|bildtakt|bildfluss|kachelnachlauf|bildspitzen|westverfall angeben.');
 const bodennah=kurzeFahrt||['boden','gras','teppich','verfall'].includes(profil);
 const anzahl=kurzeFahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
@@ -33,6 +34,12 @@ await seite.addInitScript(()=>{
  window.__hausSchritt=()=>{const c=[...wartend.values()];wartend.clear();for(const f of c)f(performance.now());};
 });
 const fehler=[];seite.on('pageerror',e=>fehler.push(String(e)));seite.on('console',m=>{if(m.type()==='error')fehler.push(m.text());});
+// Drei Blicke von Weg 600 in Richtung der Häuser 508, 510 und 512.
+const westBlicke=[
+ {start:[1360,37.89,415],ende:[1362.1,37.75,420.5],ziel:[1380.35,41.2,422.1]},
+ {start:[1368.2,37.90,436.2],ende:[1372,37.90,444.5],ziel:[1397.16,40.68,442.42]},
+ {start:[1380,38.05,459],ende:[1384,38.13,469],ziel:[1405.74,40.30,464.27]},
+];
 const parameter=new URLSearchParams(`absetzen=1432,423,150&zeit=.26&kontur=0&stimmung=zielbild&hofgruen=1&referenzhaus=${probe}&kamera=1444,36.8,418,1431,37.5,432&fov=60&umgebung=6&sonne=.8&umlichtstaerke=1.2&schatten=.4`);
 if(profil!=='referenz'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',profil==='hof'?probe:'1');}
 parameter.set('hauskompakt',profil==='kompakt'?probe:profil==='lauben'||bodennah?'1':'0');
@@ -61,7 +68,7 @@ if(kurzeFahrt){
     if(bildtakt){parameter.set('bildruhe','1');parameter.set('bildtakt',bildfluss?'1':probe);}
     if(bildfluss)parameter.set('bildfluss',kachelnachlauf?'1':probe);
     if(kachelnachlauf)parameter.set('kachelnachlauf',bildspitzen?'1':probe);
-    if(bildspitzen)parameter.set('bildspitzen',probe);
+    if(bildspitzen)parameter.set('bildspitzen',westverfall?'1':probe);
    }
   }
   if(profil==='hofdachbruch'){
@@ -69,7 +76,14 @@ if(kurzeFahrt){
    if(probe==='1')parameter.set('stimmung','hofdachbruch');
   }
  }
- if(weststrasse){
+ if(westverfall){
+  const {start,ziel}=westBlicke[0];
+  parameter.set('absetzen','1362.5,419.4,250');
+  parameter.set('kamera',[...start,...ziel].join(','));
+  parameter.set('fov','55');
+  parameter.set('teppichspar','1');
+  parameter.set('westverfall',probe);
+ } else if(weststrasse){
   parameter.set('absetzen','1358.45,413,245');
   parameter.set('kamera','1358.45,37.75,413,1380,39.8,423');
  } else {
@@ -85,14 +99,19 @@ try {
  await seite.goto(`http://127.0.0.1:4173/?${parameter}`);
  await seite.waitForFunction(()=>document.body.textContent.includes('Ladezeit')&&window.__szene?.userData.ezKamera,null,{timeout:180000});
  await seite.waitForTimeout(15000);
- await seite.evaluate(({profil,eckfahrt,strassenfahrt,weststrasse})=>{
+ await seite.evaluate(({profil,eckfahrt,strassenfahrt,weststrasse,westverfall,westBlicke})=>{
   const s=window.__szene,vorher=s.onBeforeRender;
   window.__haus={index:0,bilder:0,position:[]};
   s.onBeforeRender=function(gl,szene,kamera,ziel){
    vorher.call(this,gl,szene,kamera,ziel);
    const d=window.__haus;
    // Zwei normale Blicke: erst vollständiges Haus vom freien Weg, dann Eingang aus Augenhöhe.
-   if(eckfahrt) {
+   if(westverfall) {
+    const {start,ende,ziel}=westBlicke[Math.floor(d.index/64)];
+    const t=(d.index%64)/63;
+    kamera.position.set(...start.map((wert,i)=>wert+(ende[i]-wert)*t));
+    kamera.lookAt(...ziel);
+   } else if(eckfahrt) {
     const t=d.index/191;
     kamera.position.set(1424+11*(1-(1-t)**1.3),36.44-.12*t,403+8*t*t);
     kamera.lookAt(1426+.25*t,37.8+.25*t,409.3);
@@ -127,13 +146,15 @@ try {
    }});d.bilder++;
   };
   for(const e of document.querySelectorAll('body *'))if(e.tagName!=='CANVAS'&&!e.querySelector('canvas'))e.style.visibility='hidden';
- },{profil,eckfahrt,strassenfahrt,weststrasse});
+ },{profil,eckfahrt,strassenfahrt,weststrasse,westverfall,westBlicke});
  await seite.evaluate(async()=>{for(let i=0;i<8;i++)await new Promise(r=>requestAnimationFrame(r));window.__hausPause();});
  await seite.waitForTimeout(200);
  await seite.evaluate(()=>{for(let i=0;i<64;i++)window.__hausSchritt();});
- const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):kurzeFahrt?[0,64,127,191]:bodennah?[0,71,143,215,287]:profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
+ const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):westverfall?[32,96,160]:kurzeFahrt?[0,64,127,191]:bodennah?[0,71,143,215,287]:profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
  for(const i of indizes){
-  await seite.evaluate(({i,profil,modus})=>{window.__haus.index=i;for(let f=0;f<((modus==='stand'||(profil!=='referenz'?i%72===0:i===96))?32:1);f++)window.__hausSchritt();},{i,profil,modus});
+  const blickwechsel=westverfall?i%64===0:profil!=='referenz'?i%72===0:i===96;
+  const schritte=modus==='stand'||blickwechsel?32:1;
+  await seite.evaluate(({i,schritte})=>{window.__haus.index=i;for(let f=0;f<schritte;f++)window.__hausSchritt();},{i,schritte});
   await seite.waitForTimeout(10);
   await seite.screenshot({path:`${ziel}/${String(i).padStart(3,'0')}.png`});
  }

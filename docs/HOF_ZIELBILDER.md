@@ -306,3 +306,27 @@ Je zwei Läufe ohne Videoaufnahme, in der Umschaltfolge 1/0/0/1. Alle vier Läuf
 Berichte liegen unter `.cache/mess/d328-ab-{a2,a3,b1,b2}`. Der CPU-Bericht stammt aus `.cache/mess/d328-d327-cpu-a1`, der unveränderte D327-Lauf aus `.cache/mess/d328-vor-a1`. Der direkte Bewegungsvergleich der getrennten Echtzeitaufnahmen liegt in `.cache/bilder/d328-hofwest-vergleich/index.html`.
 
 Vier Kontrollbilder unter `.cache/mess/d328-stand-{a,b}` nutzen dieselbe Kamera und Windphase. Die Haus- und Gartenpuffer umfassen in beiden Fassungen 444.720 Dreiecke. Die mittlere absolute RGB-Abweichung beträgt in jedem Paar höchstens 0,013 von 255. Beide Echtzeitaufnahmen zeigen aus normaler Spielperspektive dieselben 12 Wegpunkte in rund 36,3 s. Messungen und Aufnahmen melden keine Browserfehler.
+
+## Drei Nutzungszustände an der Weststraße (D329)
+
+Die Häuser 508, 510 und 512 am Wohnweg 600 bauen auf den vorhandenen OSM-Grundrissen und LoD2-Dächern auf. Der Giebel, die Hanglage und die Blickrichtung vom Wohnweg bestimmen die zugewandte Traufe und die Fassaden.
+
+| Haus | Lesbares Merkmal in Spielhöhe | Ableitung |
+|---|---|---|
+| 508 | Eingesackte Traufe, freiliegende Sparren, gebrochene Scheiben und Schutt am Fuß derselben Wand | Spannweite und Hangfeuchte verstärken die Dachsenke. Die Dachkante folgt mehreren Teilabschnitten um die Bruchstelle. Wiederverwendete Schindeln und Holzquerschnitte hängen am Bruch. |
+| 510 | Zusammenhängende Efeupolster vom Sockel bis zum Obergeschoss unter intakter Dachkante | Straßenfassade und kühle Seiten bestimmen Blattdichte und Ausladung. Wurzeln, Verästelung und Blattverteilung kommen aus Wandlänge, Geländehöhe und Gebäudeseed. |
+| 512 | Geflicktes Blechdach, Ersatzholz, gefasste Tür und gesetzte Steine im Vorfeld | Die Tür nutzt die zum Wohnweg gewandte geeignete Wand. Ersatzblech folgt einer bestehenden Dachseite. Dünne Falze und unterschiedlich alte Bretter machen die Reparatur lesbar. |
+
+`content/regions/oental.json` hält je Haus einen Punkt im Grundriss, einen Punkt auf dem Wohnweg und den Nutzungszustand. Diese drei Werte reichen für den Generator. Der Umschalter `westverfall=1` aktiviert die Fassungen bei aktiver Ortsalterung. Probe `0` zeigt D328. Die Details gehen in die vorhandenen Hauspuffer ein. Dieselbe Shaderlogik nutzt den vorhandenen Zustandskanal für Feuchte und Abnutzung. Die Geometrieprobe prüft die eindeutige Zuordnung, die drei Zustände, Indexierung und Fensterglut. Bei den Kontrollgebäuden stimmen die Vertexdaten byteweise.
+
+Die dreifache Ansicht mit gleichem Licht und gleicher 55-Grad-Kamera in Spielhöhe liegt als Vorher-Nachher-Vergleich neben der normalen 152-m-Fahrt. Die Straßenansicht zeigt Bruch und Gerüst bei 508 klar an der linken Traufe. Der Efeu von 510 hat Nester aus Geometrie und eine auslaufende Grunddeckung an derselben Fassade. Bei 512 sind Türstock und geflicktes Vordach aus Spielhöhe deutlicher als das Blechfeld auf der Hauptdachfläche. In der gleich gerahmten Detailprobe wachsen die geladenen Haus- und Gartenpuffer von 432.470 auf 439.350 Dreiecke. Alle sechs Bildbelege meldeten null Browserfehler.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | D328 | D329 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 50,44 | 50,20 |
+| FPS, Weststraße | 50,87 | 51,01 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame | 35,4 ms | 35,3 ms |
+| Bilder über 50 ms | 0 | 0 |
+
+Alle Läufe erreichten alle 12 Wegpunkte ohne Browserfehler. Die Messungen liefen ohne Video in der Folge `westverfall=0/1/1/0` bei aktiven D328-Optimierungen. Die Einzelberichte liegen unter `.cache/mess/d329-finale-ab-{a1,b1,b2,a2}`. Zwei separate Echtzeitaufnahmen unter `.cache/mess/d329-finale-film-{a,b}` ergeben den direkten Vergleich unter `.cache/bilder/d329-weststrasse/index.html`. Die drei abgestimmten Ansichten je Fassung liegen unter `.cache/mess/d329-finale-stand-{a,b}` und lassen sich mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westverfall` wiederholen.

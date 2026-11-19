@@ -28,6 +28,23 @@
   "konzentrate": [],
   "traversal": "Klettern",
   "zielSpielzeit": 6,
+  "hausnutzung": [
+    {
+      "ort": [47.7292083, 12.0999361],
+      "strasse": [47.7291486, 12.0997387],
+      "zustand": "ruine"
+    },
+    {
+      "ort": [47.7290257, 12.1001605],
+      "strasse": [47.7289405, 12.0998788],
+      "zustand": "verwachsen"
+    },
+    {
+      "ort": [47.7288293, 12.1002754],
+      "strasse": [47.7287485, 12.1000081],
+      "zustand": "instandgesetzt"
+    }
+  ],
   "nachbarn": [
     {
       "region": "fahlmoos",

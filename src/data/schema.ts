@@ -468,6 +468,13 @@ export const Konzentrat = z.object({
   beschreibung: z.string(),
 });
 
+const Hausnutzung = z.object({
+  ort: z.tuple([z.number(), z.number()]).describe('Punkt im Gebäudegrundriss'),
+  strasse: z.tuple([z.number(), z.number()]).describe('Zugewandter Punkt auf dem Wohnweg'),
+  zustand: z.enum(['ruine', 'verwachsen', 'instandgesetzt']),
+});
+export type Hausnutzung = z.infer<typeof Hausnutzung>;
+
 export const Region = z.object({
   id: z.string(),
   name: z.string(),
@@ -478,6 +485,7 @@ export const Region = z.object({
   konzentrate: z.array(Konzentrat).max(2),
   traversal: z.string().describe('Fähigkeit, die diese Region freischaltet'),
   zielSpielzeit: z.number().describe('Stunden'),
+  hausnutzung: z.array(Hausnutzung).optional(),
   /**
    * Übergänge an der Regionsgrenze (ADR-0014): Jede Region ist eine eigene Karte. Wer an der
    * genannten Kante steht, kann hinüber; die Karte der Nachbarregion wird dann geladen.

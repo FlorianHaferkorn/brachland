@@ -36,7 +36,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
-import { ORTE, FASSADEN, nachMetern } from '../data/inhalte.js';
+import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
@@ -67,7 +67,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN } from '../world/echt.js';
+import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
@@ -826,6 +826,9 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     .filter(o => o.art === 'bewohner' || o.art === 'zuflucht')
     .map(o => nachMetern(o.ort, welt.bbox)), [welt]);
   const fassaden = useMemo(() => [...FASSADEN.values()].filter(f => f.region === 'oental'), []);
+  const hausnutzung = useMemo(() => WESTVERFALL_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.hausnutzung
+    : undefined, [welt]);
   const hofHaeuser = useMemo(() => HOF_HAEUSER_AN
     ? bestimmeHofhaeuser(welt, boden, bestimmeHof(welt, boden)) : null, [welt, boden]);
   const hausKachel = useMemo(() => (
@@ -840,12 +843,13 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       const g = welt.gebaeude[i];
       // D291: Fassaden-Steckbrief, dessen Punkt im Grundriss liegt.
       const fassade = fassaden.find(f => imPolygon(f.ort, g.punkte)) ?? null;
-      return lod2 || fassade ? { ...g, lod2: lod2 ? lod2[i] : g.lod2, fassade } : g;
+      const nutzung = hausnutzung?.find(n => imPolygon(n.ort, g.punkte));
+      return lod2 || fassade || nutzung ? { ...g, lod2: lod2 ? lod2[i] : g.lod2, fassade, hausnutzung: nutzung } : g;
     }), bewohnt, hofHaeuser ?? (REFERENZHAUS_AN && HOF_UNIFORM.bereit.value ? {
       mitte: HOF_UNIFORM.mitte.value.toArray(),
       vorne: [-HOF_UNIFORM.achse.value.y, HOF_UNIFORM.achse.value.x],
     } : undefined));
-  }, [welt, boden, bewohnt, fassaden, hofHaeuser]);
+  }, [welt, boden, bewohnt, fassaden, hausnutzung, hofHaeuser]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
   const wasserKachel = useMemo(() => (
