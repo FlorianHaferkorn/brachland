@@ -1,5 +1,5 @@
 /** Visueller A/B-Lauf mit normaler Spielkamera, fester Eingabe und echter Zeitbasis.
- * node tools/mess/echtzeitfahrt.mjs <name> [url-zusatz] [x,z,grad] [960x540|1280x720]
+ * node tools/mess/echtzeitfahrt.mjs <name> [url-zusatz] [x,z,grad|hofwest] [960x540|1280x720]
  * Ausgabe: .cache/mess/<name>/fahrt.mp4 und bericht.json. Braucht Playwright und FFmpeg (libx264).
  * CDP liefert Unix-Zeitstempel am Bild. Der Clip beginnt bei W-down und endet bei W-up,
  * auf der gleichen Zeitachse wie die Browserereignisse. Bildlücken bleiben als Standzeit sichtbar.
@@ -10,8 +10,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { playwright } from './pw.mjs';
+import { HOFWEST_START, bereiteHofwestroute, laufeHofwestroute } from './hofwestroute.mjs';
 
-const [name, extra = '', ort = '1436,398,171', format = '960x540'] = process.argv.slice(2);
+const [name, extra = '', strecke = '1436,398,171', format = '960x540'] = process.argv.slice(2);
+const hofwest = strecke === 'hofwest';
+const ort = hofwest ? HOFWEST_START : strecke;
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
 if (extra && !extra.startsWith('&')) throw new Error('Zusatzparameter mit & beginnen und in Anführungszeichen setzen.');
 if (!/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(ort)) throw new Error('Ort als x,z,grad angeben.');
@@ -35,7 +38,7 @@ const browser = await chromium.launch({
 });
 const bilder = [];
 const fehler = [];
-let marken;
+let marken, route;
 try {
   const seite = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
   seite.on('pageerror', fehlerobjekt => fehler.push(String(fehlerobjekt)));
@@ -44,7 +47,8 @@ try {
   await seite.waitForSelector('button[aria-label="Menü"]', { timeout: 240000 });
   await seite.waitForFunction(() => document.body.textContent.includes('Ladezeit'), undefined, { timeout: 120000 });
   await seite.waitForTimeout(warmupMs);
-  await seite.evaluate(() => {
+  if (hofwest) await bereiteHofwestroute(seite);
+  else await seite.evaluate(() => {
     window.__echtzeitfahrtMarken = {};
     window.addEventListener('keydown', ereignis => {
       if (ereignis.code === 'KeyW') window.__echtzeitfahrtMarken.startMs = performance.timeOrigin + performance.now();
@@ -61,12 +65,18 @@ try {
   });
   await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 90, maxWidth: width, maxHeight: height, everyNthFrame: 1 });
   await seite.waitForTimeout(vorlaufMs);
-  await seite.keyboard.down('Shift');
-  await seite.keyboard.down('w');
-  await seite.waitForTimeout(dauerZielMs);
-  await seite.keyboard.up('w');
-  await seite.keyboard.up('Shift');
-  marken = await seite.evaluate(() => window.__echtzeitfahrtMarken);
+  if (hofwest) {
+    route = await laufeHofwestroute(seite);
+    marken = route;
+    if (route.fehler) fehler.push(route.fehler);
+  } else {
+    await seite.keyboard.down('Shift');
+    await seite.keyboard.down('w');
+    await seite.waitForTimeout(dauerZielMs);
+    await seite.keyboard.up('w');
+    await seite.keyboard.up('Shift');
+    marken = await seite.evaluate(() => window.__echtzeitfahrtMarken);
+  }
   await seite.waitForTimeout(nachlaufMs);
   await cdp.send('Page.stopScreencast');
 } finally {
@@ -110,7 +120,8 @@ try {
 }
 
 const bericht = {
-  url, ort, format, eingabe: 'Shift+W', warmupMs, dauerZielMs, dauerMs,
+  url, ort, format, warmupMs, dauerMs,
+  ...(hofwest ? { eingabe: 'W und Maus', route } : { eingabe: 'Shift+W', dauerZielMs }),
   zeitbasis: 'Unix-Millisekunden, DOM-Tastenereignisse und CDP-Bildzeitstempel',
   schnittUnixMs: { startMs, endeMs },
   erstesCDPBildRelativMs: bilder[0].zeitMs - startMs,

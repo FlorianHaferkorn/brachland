@@ -223,3 +223,27 @@ Die Echtzeitaufnahmen `.cache/mess/d324-fahrt-{vor,nach}` zeigen den Lauf aus no
 Auf der unveränderten D323-Route erreicht die Spielfigur nach einigen Sekunden die Fassade und bleibt dort. In den ersten fünf Sekunden nach W-down (vor dem Stehen an der Fassade) steigt die mittlere Bildrate von 37,29 auf 39,43 FPS. Die Zahl der Bilder über 50 ms in diesem Abschnitt sinkt von eins auf null.
 
 `node tools/mess/hauslauf.mjs <name> 0|1 stand bildtakt` prüft die ganze Dachkante, die Kronen und das Vorfeld an vier identischen Kamera- und Windzuständen. Alle 20 geladenen Haus- und Gartenpuffer stimmen mit insgesamt 444.720 Dreiecken überein. In den vier Bildpaaren beträgt die mittlere absolute RGB-Abweichung höchstens 0,014 von 255. Beide Echtzeitaufnahmen und alle acht Kontrollbilder entstanden ohne Browserfehler.
+
+## Durchgehender Lauf vom Hof zur Weststraße (D325)
+
+Die Spielfigur geht von der östlichen Hofzufahrt bei 1451/395,5 an Haus 308 vorbei. Sie nimmt die Verbindung bei z=412 und folgt anschließend Weg 600 bis 1384,8/471. Die 12 Wegpunkte liegen in der gemeinsamen Eingabesteuerung `tools/mess/hofwestroute.mjs`. Sie hält W, lenkt über den Mauspfad und prüft anhand der Spielerposition, ob die Strecke frei bleibt. Der Wechsel zur Weststraße liegt am neunten Wegpunkt bei 1362/420. Die Kamera bleibt im Spielbetrieb.
+
+Vier Messläufe auf dem Apple M1 bei 960 × 540 wechseln nur `bildtakt` in der Reihenfolge 0/1/1/0. Sie enthalten je 15 s Aufwärmzeit. Die Bildzeiten sind die vollständigen Abstände aufeinanderfolgender Animationsframes während der Route. p95 wird je Lauf berechnet und je Variante gemittelt. Die Bilder über 50 ms werden je Variante aus zwei Läufen addiert. Das separate Video benutzt dieselbe Wegpunktsteuerung. Die Rohberichte enthalten die Position zu jedem Bildzeitpunkt.
+
+```sh
+hof='&hofgruen=1&referenzhaus=1&hofhaeuser=1&hauskompakt=1&hoflauben=1&hofboden=1&hofgras=1&teppichspar=1&kachelpuffer=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1&hofdachbruch=1&hoflicht=1&stimmung=hofdachbruch&umgebung=6.4&sonne=.73&umlichtstaerke=1.2&schatten=.4&zieltreue=1&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&bildruhe=1'
+node tools/mess/vergleich.mjs neuer-hofwest-a "${hof}&bildtakt=0" hofwest
+node tools/mess/echtzeitfahrt.mjs neuer-hofwest-film-b "${hof}&bildtakt=1" hofwest 960x540
+```
+
+Alle vier Messläufe erreichen die 12 Wegpunkte in 36,4–36,5 s und legen 152,1–152,2 m zurück. Die niedrigste mittlere horizontale Geschwindigkeit in einem Fenster von mindestens 500 ms beträgt 3,02 m/s. Die Figur bleibt auf keinem der Läufe an der Fassade stehen.
+
+| Abschnitt | FPS D323 → D324 | p95 D323 → D324 | Bilder über 50 ms D323 → D324 | Maximum D323 → D324 |
+|---|---:|---:|---:|---:|
+| Gesamt | 37,59 → 40,62 | 35,15 → 35,15 ms | 26 → 29 | 218,6 → 200,0 ms |
+| Hof und Übergang | 37,09 → 40,54 | 35,05 → 35,15 ms | 18 → 21 | 218,6 → 200,0 ms |
+| Weststraße | 38,45 → 40,75 | 35,25 → 35,15 ms | 8 → 8 | 149,5 → 116,7 ms |
+
+Die Steigerung der mittleren Bildrate aus D324 bestätigt sich. Die kurzen D324-Läufe an der Fassade hatten höchstens 50,0 ms erreicht. Auf der durchgehenden Route dauern die längsten Bilder in allen vier Durchgängen 183–219 ms und fallen um die achte Sekunde bei x≈1420 und z≈405,6 an. Weitere wiederkehrende lange Bilder liegen im Durchgang bei z≈412 und auf der Weststraße bei z≈441. Die Positionsaufzeichnung lokalisiert die Ausreißer. Ihre Ursache lässt sich aus der Messung der Bildzeiten allein nicht bestimmen.
+
+Die Rohberichte liegen unter `.cache/mess/d325-hofwest-{a1,b1,b2,a2}`. Die Echtzeitaufnahmen liegen unter `.cache/mess/d325-film-{a,b}`, der Seitenvergleich unter `.cache/bilder/d325-hof-weststrasse/index.html`.
