@@ -14,7 +14,7 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_LICHT_AN } from './echt.js';
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
@@ -313,6 +313,16 @@ ${HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofArm.r, hofHausAnteil *
         .replace('#include <lights_fragment_end>', `
   // D295: Vor RE_IndirectSpecular skalieren; danach wird radiance nicht mehr gelesen.
   if (scanR > 4.5) radiance *= ${HOF_VERFALL_AN ? 'mix(1.6, 0.18, hofSchaden)' : '1.6'};
+  ${HOF_LICHT_AN ? /* glsl */ `
+  // Näherung für vom Hofboden zurückgeworfenes Licht. Die Haus-AO greift danach.
+  if (zielHaus > .5 && hofHausAnteil > 0.0 && scanR < 4.5) {
+    vec3 nWand = normalize(vHausNormal);
+    float ruecklicht = max(0.0, dot(nWand, vec3(.439,-.704,-.558)));
+    float ecke = 1.0 - smoothstep(0.9,3.0,abs(vHoehe - 4.72));
+    float laub = vRolle > 6.5 ? .69 : 1.0;
+    irradiance += vec3(.84,.72,.55) * (.04 + .92 * ruecklicht) * (0.46 + 0.54 * ecke) * laub * hofHausAnteil;
+  }
+  ` : ''}
   #include <lights_fragment_end>`);
     }
     shader.uniforms.uGlutFarbe = { value: GLUT_FARBE };
@@ -325,6 +335,6 @@ ${HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofArm.r, hofHausAnteil *
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '');
   return material;
 }

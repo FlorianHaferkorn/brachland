@@ -112,3 +112,13 @@ Der lokale Vergleich unter `.cache/bilder/d318-hof-dachbruch/index.html` zeigt Z
 Ein Raster aus 96 × 54 Sichtstrahlen an Kamera 064 trifft am isolierten Haus 308 in D317 bei 290 von 2.322 Haustrefferpunkten auf Efeublätter. In D318 sind es 422 von 2.391. Der Anteil steigt von 12,5 auf 17,6 %. Die Messung nutzt das originale Höhenfeld und betrachtet die Geometrie ohne vorstehende Geländeobjekte.
 
 Vier getrennte 12-s-Spielmessungen am M1 bei 960 × 540, Startpunkt 1436/398/171 und identischer Beleuchtung (`stimmung=hofdachbruch`) schalten nur `hofdachbruch` in der Reihenfolge 0/1/1/0 um. Die Mittelwerte betragen 47,04 → 46,79 FPS und 33,4 → 33,6 ms p95. Längstes Einzelbild 35,3 → 50,6 ms. In der neuen Fassung gab es über beide Läufe ein Bild über 50 ms. Rohberichte unter `.cache/mess/d318-fps-{1,2,3,4}`.
+
+## Hoflicht aus der Blender-Probe (D319)
+
+Die Blender-Probe vergleicht auf dem D318-Mesh und mit Kamera 064 hartes Sonnenlicht, breitere Schatten und eine zusätzliche flächige Aufhellung. Die Spielvariante nähert die Aufhellung über die Oberflächenausrichtung im Hausshader an. Helligkeit und warme Tönung konzentrieren sich an Holz, Traufe und Efeu von Haus 308. Der Filterradius derselben Sonnen-Schattenkarte blendet zwischen 44 und 65 m Hofabstand des Spielers zurück.
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt hoflicht` zeichnet die neue Fassung auf. Probe `0` läuft mit derselben Kamera, Stimmung und Geometrie wie D318. Der Rückschalter lautet `hoflicht=0`.
+
+Der lokale Vergleich unter `.cache/bilder/d319-hoflicht/index.html` zeigt acht Sekunden Bewegung in beiden Fassungen. Die 20 geladenen Haus-/Gartenpuffer stimmen in Größe und Dreieckszahl überein (422.536 Dreiecke). Im gewählten 100 × 58 Pixel großen Ausschnitt der rechten Traufe (x=846, y=72 in Bild 064) steigt die mittlere lineare sRGB-Leuchtdichte von 0,00925 auf 0,01233.
+
+Vier 12-s-Spielmessungen auf dem M1 bei 960 × 540 und Startpunkt 1436/398/171 schalten nur `hoflicht` in der Reihenfolge 0/1/1/0. Im Mittel 46,77 → 47,40 FPS, p95 über alle Läufe 33,4–33,5 ms. Längstes Einzelbild 51,7 → 49,9 ms. Die Unterschiede liegen im Bereich der Schwankung zwischen den Läufen. Rohberichte unter `.cache/mess/d319-fps-{1,2,3,4}`.
