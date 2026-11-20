@@ -8,6 +8,7 @@ export const WEG_UEBER_GRUND = .12;
 export const BORD_ABSENKUNG = .025;
 export const DECKE_UEBER_GRUND = .018;
 export const ZUFAHRT_UEBER_GRUND = .009;
+export const GEHWEG_RANDABTRAG = .18;
 type Bodenraster = { ursprung: Ort; schritt: number };
 
 function achsabschnitte(punkte: readonly Ort[]) {
@@ -57,6 +58,19 @@ function randbreite(s: number, seite: number, profil: WohnwegQuerschnitt) {
   const gehweg = profil.gehwege.find(g => gehoertZu(s, seite, g));
   const zufahrt = profil.zufahrten.find(z => gehoertZu(s, seite, z));
   return Math.max(gehweg?.breite ?? 0, zufahrt?.tiefe ?? 0);
+}
+
+/** Zusammenhängende Frostschäden an der Gehwegaußenkante, mit freien Zufahrten und Anschlüssen. */
+export function gehwegRandverfall(s: number, seite: number, profil: WohnwegQuerschnitt): number {
+  const gehweg = profil.gehwege.find(g => gehoertZu(s, seite, g));
+  if (!gehweg || !profil.verwitterung?.staerke) return 0;
+  const zufahrtsabstand = Math.min(4, ...profil.zufahrten.filter(z => z.seite === seite)
+    .map(z => Math.max(z.von - s, 0, s - z.bis)));
+  const anschluss = Math.min(s - gehweg.von, gehweg.bis - s, zufahrtsabstand - .30);
+  const welle = .5 + .24 * Math.sin(s * .74 + seite * 2.2) + .16 * Math.sin(s * 1.63 + seite)
+    + .10 * Math.sin(s * 4.9);
+  return profil.verwitterung.staerke * THREE.MathUtils.smoothstep(anschluss, 0, .90)
+    * THREE.MathUtils.smoothstep(welle, .25, .76);
 }
 
 function ortAnAchse(achse: ReturnType<typeof achsabschnitte>[number], s: number, q: number): Ort {
@@ -168,15 +182,20 @@ export function baueStrassenquerschnitt(
   verwitterung?: QuerschnittVerwitterung,
   mitSchotterspuren = false,
   bodenraster?: Bodenraster,
+  mitRandverfall = false,
 ): THREE.BufferGeometry {
   const abschnitte = achsabschnitte(punkte);
   const [start, ende] = querschnittGrenzen(profil);
   const kantenAn = querschnittKanten(profil, breiteAlt);
   const halte = [...profil.stationen.map(([s]) => s), ...profil.gehwege.flatMap(g => [g.von, g.bis]),
     ...profil.zufahrten.flatMap(z => [z.von - .7, z.von, z.bis, z.bis + .7])];
+  if (mitRandverfall) for (const z of profil.zufahrten) {
+    halte.push(z.von - .30, z.bis + .30);
+  }
   const positionen: number[] = [], indizes: number[] = [], rollen: number[] = [], farben: number[] = [];
   const belagdaten: number[] = [];
   const spurdaten: number[] = [];
+  const randdaten: number[] = [];
   const stationJeEcke: number[] = [];
 
   const viereck = (a: Punkt, b: Punkt, c: Punkt, d: Punkt, rolle: number, drehen = false) => {
@@ -192,7 +211,7 @@ export function baueStrassenquerschnitt(
   for (const achse of abschnitte) {
     const von = Math.max(start, achse.von), bis = Math.min(ende, achse.bis);
     if (bis <= von) continue;
-    const teile = Math.ceil((bis - von) / 1.25);
+    const teile = Math.ceil((bis - von) / (mitRandverfall ? .62 : 1.25));
     const stationen = [...new Set([...halte.filter(s => s > von && s < bis),
       ...Array.from({length: teile + 1}, (_, i) => i === teile ? bis : von + (bis - von)*i/teile)])].sort((a,b) => a-b);
     const punkt = (s: number, q: number, hub = 0, bodennah = false): Punkt => {
@@ -212,14 +231,34 @@ export function baueStrassenquerschnitt(
         if (!g && !z) continue;
         const qa = a[seite < 0 ? 0 : 1], qb = b[seite < 0 ? 0 : 1];
         const ha = g ? bordhoehe(s,seite,profil) : 0, hb = g ? bordhoehe(t,seite,profil) : 0;
+        const schadenA = mitRandverfall && g && !z ? gehwegRandverfall(s, seite, profil) : 0;
+        const schadenB = mitRandverfall && g && !z ? gehwegRandverfall(t, seite, profil) : 0;
+        const abtrag = g ? Math.min(GEHWEG_RANDABTRAG, g.breite * .16) : 0;
+        const aussenA = (g?.breite ?? 0) - abtrag * schadenA;
+        const aussenB = (g?.breite ?? 0) - abtrag * schadenB;
+        const kantenHubA = ha - .038 * schadenA, kantenHubB = hb - .038 * schadenB;
         const seitenband = (innere: number, aeussere: number, h: number, rolle: number) =>
           viereck(punkt(s,qa+seite*innere,ha*h),punkt(s,qa+seite*aeussere,ha*h),
             punkt(t,qb+seite*aeussere,hb*h),punkt(t,qb+seite*innere,hb*h),rolle,seite < 0);
         if (g) {
-          viereck(punkt(s,qa),punkt(s,qa,ha),punkt(t,qb,hb),punkt(t,qb),2,seite < 0);
           const bord = Math.min(.12, g.breite/3);
-          seitenband(0,bord,1,2);
-          seitenband(bord,g.breite,1,z ? 3 : 1);
+          const frostA = THREE.MathUtils.smoothstep(schadenA, .43, .88);
+          const frostB = THREE.MathUtils.smoothstep(schadenB, .43, .88);
+          if (frostA || frostB) {
+            const vornA = punkt(s, qa + seite * bord * .36 * frostA, ha - .054 * frostA);
+            const vornB = punkt(t, qb + seite * bord * .36 * frostB, hb - .054 * frostB);
+            viereck(punkt(s,qa),vornA,vornB,punkt(t,qb),2,seite < 0);
+            viereck(vornA,punkt(s,qa+seite*bord,ha),punkt(t,qb+seite*bord,hb),vornB,2,seite < 0);
+          } else {
+            viereck(punkt(s,qa),punkt(s,qa,ha),punkt(t,qb,hb),punkt(t,qb),2,seite < 0);
+            seitenband(0,bord,1,2);
+          }
+          if (schadenA || schadenB) {
+            const abbruch = Math.max(bord, g.breite - .39);
+            if (abbruch > bord) seitenband(bord, abbruch, 1, 1);
+            viereck(punkt(s,qa+seite*abbruch,ha),punkt(s,qa+seite*aussenA,kantenHubA),
+              punkt(t,qb+seite*aussenB,kantenHubB),punkt(t,qb+seite*abbruch,hb),1,seite < 0);
+          } else seitenband(bord,g.breite,1,z ? 3 : 1);
         }
         const ende = Math.max(z?.tiefe ?? 0, g?.breite ?? 0);
         const gehwegbreite = g?.breite ?? 0;
@@ -236,8 +275,8 @@ export function baueStrassenquerschnitt(
           }
         }
         // Die äußere Stirn endet unter Gelände und schließt die Schicht am Hang.
-        const xa = qa+seite*ende, xb = qb+seite*ende;
-        const yA = g && ende === g.breite ? ha : 0, yB = g && ende === g.breite ? hb : 0;
+        const xa = qa+seite*(g && !z ? aussenA : ende), xb = qb+seite*(g && !z ? aussenB : ende);
+        const yA = g && ende === g.breite ? kantenHubA : 0, yB = g && ende === g.breite ? kantenHubB : 0;
         viereck(punkt(s,xa,-.17),punkt(t,xb,-.17),
           punkt(t,xb,yB,ende > gehwegbreite),punkt(s,xa,yA,ende > gehwegbreite),g && !z ? 1 : 3,seite < 0);
       }
@@ -251,6 +290,14 @@ export function baueStrassenquerschnitt(
           const q = -dx * achse.tz + dz * achse.tx;
           const [links, rechts] = kantenAn(s);
           belagdaten.push(s, q - links, q - rechts, verwitterung.staerke);
+          if (mitRandverfall) {
+            const seite = q < (links + rechts) * .5 ? -1 : 1;
+            const g = profil.gehwege.find(g => gehoertZu(s, seite, g));
+            const schaden = gehwegRandverfall(s, seite, profil);
+            const kant = seite < 0 ? links : rechts;
+            const aussen = g ? g.breite - Math.min(GEHWEG_RANDABTRAG, g.breite * .16) * schaden : 0;
+            randdaten.push(aussen - seite * (q - kant), schaden);
+          }
         }
       }
     }
@@ -261,6 +308,7 @@ export function baueStrassenquerschnitt(
   geo.setAttribute('rolle', new THREE.Float32BufferAttribute(rollen,1));
   if (verwitterung) geo.setAttribute('querprofil', new THREE.Float32BufferAttribute(belagdaten, 4));
   if (mitSchotterspuren) geo.setAttribute('schotterspur', new THREE.Float32BufferAttribute(spurdaten, 4));
+  if (mitRandverfall && verwitterung) geo.setAttribute('abriebkante', new THREE.Float32BufferAttribute(randdaten, 2));
   geo.setIndex(indizes);
   if (bodenraster) return aufBodenraster(geo, bodenraster, hoehe, stationJeEcke, start, ende);
   geo.computeVertexNormals();

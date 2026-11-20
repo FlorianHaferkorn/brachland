@@ -9,7 +9,8 @@ import { entpackeWelt } from '../src/world/osm.js';
 import { MASSSTAB } from '../src/world/terrain.js';
 import { baueStrassenbewuchs } from '../src/world/strassenbewuchs.js';
 import {
-  baueQuerschnittGrasmaske, baueStrassenquerschnitt, querschnittFreihaltung, querschnittGrenzen, querschnittKanten,
+  GEHWEG_RANDABTRAG, baueQuerschnittGrasmaske, baueStrassenquerschnitt, gehwegRandverfall,
+  querschnittFreihaltung, querschnittGrenzen, querschnittKanten,
 } from '../src/world/strassenquerschnitt.js';
 
 const punkte = [[0, 0], [60, 0]] as const;
@@ -169,6 +170,33 @@ for (const s of [15.1, 21.67, 23.97, 24.04, 26.3, 34.83]) {
 const [links] = kanten(32);
 assert.ok(Math.abs(ueberGrund(32, links - 1.6) - .043) < .00001);
 assert.ok(Math.abs(ueberGrund(32, links - 5.98) - .009) < .0002);
+
+const randNetz = baueStrassenquerschnitt(punkte, grund, variante, 5, verwitterung, true,
+  { ursprung: [0, 0], schritt: 2 }, true);
+const abrieb = randNetz.getAttribute('abriebkante'), randPosition = randNetz.getAttribute('position');
+assert.equal(abrieb.count, randPosition.count);
+let ausbrueche = 0;
+for (let i = 0; i < abrieb.count; i++) {
+  const s = randPosition.getX(i);
+  if (s >= 25 - .30 - 1e-5 && s <= 28 + .30 + 1e-5) assert.ok(abrieb.getY(i) < 1e-7);
+  if (Math.abs(abrieb.getX(i)) > .00001 || abrieb.getY(i) < .35) continue;
+  const aussen = kanten(s)[0] - variante.gehwege[0].breite;
+  assert.ok(Math.abs(randPosition.getZ(i) - aussen - GEHWEG_RANDABTRAG * abrieb.getY(i)) < .00002);
+  ausbrueche++;
+}
+assert.ok(ausbrueche > 10);
+assert.equal(gehwegRandverfall(26, -1, variante), 0);
+assert.equal(gehwegRandverfall(22, 1, variante), 0);
+gezeichnet.geometry = randNetz;
+for (const s of [21.67, 23.97, 24.04, 26.3, 34.83]) {
+  const [a, b] = kanten(s);
+  assert.ok(Math.abs(ueberGrund(s, (a+b)/2) - .018) < .00001);
+}
+assert.ok(Math.abs(ueberGrund(32, links - 1.6) - .043) < .00001);
+assert.ok(Math.abs(ueberGrund(32, links - 5.98) - .009) < .0002);
+randNetz.dispose();
+console.log(`✓ ${ausbrueche} ausgebrochene Kantenvertices, Fahrbahnhöhe und Zugänge unverändert`);
+
 bodennetz.dispose();
 material.dispose();
 

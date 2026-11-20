@@ -4,7 +4,10 @@ import { WEG_UEBER_GRUND } from './baender.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_SCHWELLE, type HorstKachel } from './grashorst.js';
 import { mulberry } from './props.js';
 import { WEG_TEILUNG } from './terrain.js';
-import { BORD_ABSENKUNG, DECKE_UEBER_GRUND, ZUFAHRT_UEBER_GRUND, querschnittFreihaltung, querschnittSaum } from './strassenquerschnitt.js';
+import {
+  BORD_ABSENKUNG, DECKE_UEBER_GRUND, GEHWEG_RANDABTRAG, ZUFAHRT_UEBER_GRUND,
+  gehwegRandverfall, querschnittFreihaltung, querschnittSaum,
+} from './strassenquerschnitt.js';
 import type { WohnwegQuerschnitt } from '../data/schema.js';
 
 export interface StrassenbewuchsWeg {
@@ -23,6 +26,8 @@ export interface StrassenbewuchsWeg {
   schotterspuren?: boolean;
   /** Niedrige, unterbrochene Saumgruppen auf der Erdseite des Gehwegs. */
   nahtbewuchs?: boolean;
+  /** Erdlinsen und Bruchkies neben ausgebrochenen Gehwegkanten. */
+  randverfall?: boolean;
   bodenpassend?: boolean;
   /** Erhaltene Zugänge an der Straße, in Weltmetern. */
   wohnwegZugaenge?: readonly (readonly [number, number])[];
@@ -174,12 +179,67 @@ export function baueStrassenbewuchs(
   const matrix = new THREE.Matrix4(), skalierung = new THREE.Vector3(), farbe = new THREE.Color();
 
   let saumhorste = 0, saumflecken = 0, zufahrtshorste = 0, nahthorste = 0;
+  let randlinsen = 0, randhorste = 0, randbruch = 0;
   const bepflanzeQuerschnitt = (weg: StrassenbewuchsWeg) => {
     const profil = weg.vermessenerSaum, verwitterung = profil?.verwitterung;
     if (!profil || !verwitterung || !verwitterung.staerke) return;
     const aussen = querschnittSaum(weg.punkte, profil, weg.breite);
     const belegt = querschnittFreihaltung(weg.punkte, profil, weg.breite).enthaelt;
     const { von, bis } = verwitterung.saum;
+    if (weg.randverfall) for (const { seite, von, bis, breite: gehwegbreite } of profil.gehwege) {
+      const maximalerAbtrag = Math.min(GEHWEG_RANDABTRAG, gehwegbreite * .16);
+      const amBruch = (s: number, abstand: number, hub: number): Punkt | undefined => {
+        const abtrag = gehwegRandverfall(s, seite, profil);
+        if (abtrag < .035) return undefined;
+        const ort = aussen(s, seite, abstand - maximalerAbtrag * abtrag);
+        if (!ort || !freierBoden(...ort)) return undefined;
+        const [x, z] = ort;
+        if (weg.wohnwegZugaenge?.some(([a, b]) => Math.hypot(x - a, z - b) < 1.55)) return undefined;
+        return [x, boden(x, z) + hub, z];
+      };
+      const raster = .97;
+      for (let i = Math.ceil(von / raster); i * raster < bis; i++) {
+        const zufall = mulberry(weg.saat ^ Math.imul(2 * i + (seite < 0 ? 1 : 0), 21491));
+        const s = (i + .15 + zufall() * .51) * raster;
+        const abtrag = gehwegRandverfall(s, seite, profil);
+        if (abtrag < .16) continue;
+        const hub = .028 + .055 * abtrag;
+        const mitte = amBruch(s, .21, hub);
+        const laenge = .29 + .27 * zufall(), breite = .30 + .27 * abtrag;
+        const kontur = [
+          amBruch(s - laenge, .14, .009), amBruch(s - laenge * .58, .068, hub * .53),
+          amBruch(s + laenge * .37, .068, hub * .43), amBruch(s + laenge, .13, .009),
+          amBruch(s + laenge * .64, breite, .009), amBruch(s - laenge * .41, breite * 1.15, .009),
+        ];
+        if (!mitte || !kontur.every((p): p is Punkt => p !== undefined)) continue;
+        farbe.copy(ERDE).lerp(SPLITT, .25 + .29 * zufall()).multiplyScalar(.86 + .24 * zufall());
+        const kern = vertex(mitte, farbe, .90);
+        const rand = kontur.map((p, k) => vertex(p, farbe, k === 1 || k === 2 ? .57 : 0));
+        for (let k = 0; k < rand.length; k++) indizes.push(kern, rand[k], rand[(k + 1) % rand.length]);
+        randlinsen++;
+
+        // Nur innerhalb der modellierten Erdlinse streuen, so sitzen Steine und Halme auf der Auflage.
+        for (let k = 0; k < 2 + Math.round(4 * abtrag); k++) {
+          const dreieck = Math.floor(zufall() * kontur.length);
+          const a = kontur[dreieck], b = kontur[(dreieck + 1) % kontur.length];
+          const quer = zufall(), streuung = .13 + .56 * zufall();
+          const koordinate = (achse: 0 | 1 | 2) => THREE.MathUtils.lerp(mitte[achse], THREE.MathUtils.lerp(a[achse], b[achse], quer), streuung);
+          const ort: Punkt = [koordinate(0), koordinate(1) - .003, koordinate(2)];
+          if (!frei(ort)) continue;
+          const wuchs = zufall(), auswahl = zufall(), drehung = zufall() * TAU;
+          if (auswahl < .47) {
+            splitt.push({ ort, groesse: .024 + .049 * wuchs, drehung, ton: 1.17 + wuchs * .37, auswahl });
+            randbruch++;
+          } else {
+            wildkraut.push({
+              ort, groesse: .046 + .10 * wuchs, breite: .07 + .08 * wuchs, drehung,
+              ton: .69 + .31 * zufall(), auswahl, sorte: auswahl < .64 ? 'kraut' : auswahl < .87 ? 'halm' : 'stroh',
+            });
+            randhorste++;
+          }
+        }
+      }
+    }
     if (weg.nahtbewuchs) for (const gehweg of profil.gehwege) {
       const raster = .79;
       for (let i = Math.ceil(Math.max(von, gehweg.von + .5) / raster); i * raster < Math.min(bis, gehweg.bis - .5); i++) {
@@ -612,6 +672,7 @@ ${hatMarkierungen ? /* glsl */ `
     ...(saumhorste || saumflecken ? { saumhorste, saumflecken } : {}),
     ...(zufahrtshorste ? { zufahrtshorste } : {}),
     ...(nahthorste ? { nahthorste } : {}),
+    ...(randlinsen ? { randlinsen, randhorste, randbruch } : {}),
     ...(wege.some(weg => weg.markierungen || weg.fahrbahnprofil) ? { markierungsMeter, markierungsDreiecke, asphaltSchollen } : {}),
   };
   return {

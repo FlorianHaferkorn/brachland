@@ -10,7 +10,7 @@ import type { HoehenFeld } from './lod.js';
 import { imPolygon } from './osm.js';
 import type { Weltdaten } from './osm.js';
 import {
-  MILBINGERBELAG_AN, MILBINGERDETAIL_AN, MILBINGEROBEN_AN, MILBINGERMASSE_AN, STRASSENPROFIL_AN,
+  MILBINGERBELAG_AN, MILBINGERDETAIL_AN, MILBINGEROBEN_AN, MILBINGERMASSE_AN, MILBINGERRAND_AN, STRASSENPROFIL_AN,
   WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN,
 } from './echt.js';
 import { baueStrassenquerschnitt, querschnittGrenzen } from './strassenquerschnitt.js';
@@ -57,8 +57,9 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
       const vermessen = WOHNWEGQUERSCHNITT_AN ? querschnitt : undefined;
       const verwitterung = MILBINGERBELAG_AN ? vermessen?.verwitterung : undefined;
       const schotterspuren = MILBINGEROBEN_AN && !!verwitterung;
+      const randverfall = MILBINGERRAND_AN && !!verwitterung;
       if (vermessen) querschnitte.push({
-        geometrie: baueStrassenquerschnitt(punkte, boden, vermessen, weg.breite, verwitterung, schotterspuren, bodenraster),
+        geometrie: baueStrassenquerschnitt(punkte, boden, vermessen, weg.breite, verwitterung, schotterspuren, bodenraster, randverfall),
         verwittert: !!verwitterung,
       });
       return [{
@@ -71,6 +72,7 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
         vermessenerSaum: verwitterung ? vermessen : undefined,
         schotterspuren,
         nahtbewuchs: MILBINGERDETAIL_AN && !!verwitterung,
+        randverfall,
         bodenpassend: !!bodenraster,
         wohnwegZugaenge: WESTANSCHLUSS_AN && wohnwegrand ? wohnwegZugaenge : undefined,
         fahrbahnprofil: STRASSENPROFIL_AN,
@@ -114,7 +116,7 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
     const mobiliar = baueStrassenmobiliar(objekte, boden);
     gruppe.add(bewuchs.gruppe, mobiliar.gruppe);
     const clay = querschnitte.some(q => !q.verwittert) ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 }) : null;
-    const belag = querschnitte.some(q => q.verwittert) ? baueQuerschnittMaterial(MILBINGEROBEN_AN, MILBINGERDETAIL_AN) : null;
+    const belag = querschnitte.some(q => q.verwittert) ? baueQuerschnittMaterial(MILBINGEROBEN_AN, MILBINGERDETAIL_AN, MILBINGERRAND_AN) : null;
     for (const { geometrie, verwittert } of querschnitte) {
       const mesh = new THREE.Mesh(geometrie, (verwittert ? belag : clay)!);
       mesh.name = 'Vermessener Straßenkörper';
