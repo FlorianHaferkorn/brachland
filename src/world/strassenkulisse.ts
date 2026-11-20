@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { nachMetern } from '../data/inhalte.js';
+import { nachMetern, REGIONEN } from '../data/inhalte.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { baueStrassenbewuchs } from './strassenbewuchs.js';
 import { baueStrassenmobiliar } from './strassenmobiliar.js';
@@ -8,7 +8,7 @@ import { hoeheAufFlaeche } from './lod.js';
 import type { HoehenFeld } from './lod.js';
 import { imPolygon } from './osm.js';
 import type { Weltdaten } from './osm.js';
-import { STRASSENPROFIL_AN } from './echt.js';
+import { STRASSENPROFIL_AN, WESTANSCHLUSS_AN } from './echt.js';
 
 type Ort = [number, number];
 
@@ -30,13 +30,17 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
   const zuWelt = (ort: Ort): Ort => nachMetern(ort, welt.bbox);
   const wegNachId = new Map(welt.wege.flatMap(weg => weg.quelle ? [[weg.quelle.osmId, weg] as const] : []));
   const boden = (x: number, z: number) => hoeheAufFlaeche(feld, x, z);
+  const wohnwegZugaenge = WESTANSCHLUSS_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.hausnutzung
+      ?.filter(nutzung => nutzung.zustand === 'instandgesetzt').map(nutzung => zuWelt(nutzung.strasse))
+    : undefined;
   const grundrisse = welt.gebaeude.map(g => {
     const ring = g.punkte.map(zuWelt);
     const xs = ring.map(p => p[0]), zs = ring.map(p => p[1]);
     return { ring, minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) };
   });
   return abschnitte.map(abschnitt => {
-    const wege = abschnitt.wege.flatMap(({ osmWeg, verfall, profil }) => {
+    const wege = abschnitt.wege.flatMap(({ osmWeg, verfall, profil, wohnwegrand }) => {
       const weg = wegNachId.get(osmWeg);
       if (!weg) return [];
       const belag = weg.quelle?.oberflaeche;
@@ -45,6 +49,8 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
         breite: (STRASSENPROFIL_AN ? profil?.breite : undefined) ?? weg.breite,
         versatz: STRASSENPROFIL_AN ? profil?.versatz : undefined,
         saat: osmWeg, verfall,
+        wohnwegrand: WESTANSCHLUSS_AN && wohnwegrand,
+        wohnwegZugaenge: WESTANSCHLUSS_AN && wohnwegrand ? wohnwegZugaenge : undefined,
         fahrbahnprofil: STRASSENPROFIL_AN,
         markierungen: STRASSENPROFIL_AN ? profil?.markierungen : undefined,
         gebundenerBelag: belag === 'asphalt' || belag === 'concrete',

@@ -67,7 +67,7 @@ owns: *.test.ts
 | `hofbodenintegration.test.ts` | Reale Hofhäuser mit Sockelkontakt, Trittplatten, Verfallsstufen und gezeichneter Ranke. D322 und D323 prüfen weitere Straßen und die Giebelfuge zwischen 308 und 346. D329 prüft die drei Nutzungszustände, D330 die Öffnung bei 508 und Blatt- und Rahmenattribute. D331 und D335 prüfen Dachmaße, Fenstervertiefung und den Regenläufer am offenen Bruch. |
 | `hofbodenkontakt.test.ts` | D307: Pixelzentren, Auswahl, Maskenverlauf und ausgesparte fremde Grundrisse des Bodenrands. |
 | `hofboden.test.ts` | D307: Lokalität, Stetigkeit und freie Türvorfelder der CPU-/GLSL-Bodenmasken. |
-| `hofsockel.test.ts` | D307: geschlossene Sockelkörper, stetige Endhöhen, Türspalten und Bodenanschluss am gewellten Hang. |
+| `hofsockel.test.ts` | D307: geschlossene Sockelkörper, stetige Endhöhen, Türspalten und Bodenanschluss am gewellten Hang. D336 prüft Frostabtrag bei durchgehender Sockelkappe. |
 | `hoftrittplatten.test.ts` | D307: geschlossene Platten, Außennormalen, Schwellenabstand und Hangkontakt. |
 | `hofplatz.test.ts` | D298: Grundrissauswahl, Hofmaske und Ausschluss des Hausinneren; Scan-Shader-Hook bleibt beim Klonen für Wind erhalten (33 Prüfungen, einschliesslich deterministischer Randgruppen und gesperrter Wege). |
 | `referenzhaus.test.ts` | D303: lokale Auswahl, echte Fenster-/Türtiefe, Umlauf, UV und vollständige Geometrieattribute. |

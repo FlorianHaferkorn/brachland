@@ -3,12 +3,12 @@ import type { Color } from 'three';
 import { fassadenKasten, type HausQuad } from './hausbauteil.js';
 
 type Punkt = [number, number, number];
-type Farben = { holz: Color; laub: Color; bluete: Color; erde: Color };
+type Farben = { holz: Color; laub: Color; bluete?: Color; erde: Color; halter?: Color };
 const TAU = Math.PI * 2;
 
 /** Lokale Koordinaten u/y/v; vorneV ist die äußere Vorderkante des Kastens.
- * Alles landet im bestehenden Hausbatch. 252–292 Dreiecke je Kasten, keine
- * Texturen, Einzelmeshes oder zusätzlichen Aufrufe des Haus-Zufallsstroms.
+ * Alles landet im bestehenden Hausbatch. Mit Halter liegt die Rückwand
+ * des Kastens an der Brüstung. Die Haken führen bis hinter den Handlauf.
  */
 export function baueLaubenkasten(quad: HausQuad, mitteU: number, obenY: number, vorneV: number, breite: number, seed: number, farben: Farben): void {
   if (![mitteU, obenY, vorneV, breite, seed].every(Number.isFinite) || breite <= .2) throw new Error('Laubenkasten braucht endliche Koordinaten und Breite über20cm.');
@@ -29,6 +29,11 @@ export function baueLaubenkasten(quad: HausQuad, mitteU: number, obenY: number, 
   quad([u0,untenY,v0],[u0,untenY,v1],[u1,untenY,v1],[u1,untenY,v0],farben.holz,[0,-1,0]);
   const erdeY = obenY - .04;
   quad([u0+dicke,erdeY,v0+dicke],[u1-dicke,erdeY,v0+dicke],[u1-dicke,erdeY,v1-dicke],[u0+dicke,erdeY,v1-dicke],farben.erde,[0,1,0]);
+  if (farben.halter) for (const u of [mitteU - breite * .31, mitteU + breite * .31]) {
+    K(u-.018,u+.018,untenY-.026,untenY,v0-.032,v1-.018,farben.halter);
+    K(u-.018,u+.018,untenY-.026,obenY+.119,v0-.032,v0-.009,farben.halter);
+    K(u-.018,u+.018,obenY+.096,obenY+.119,v0-.105,v0+.015,farben.halter);
+  }
 
   // Ein Quad darf zwei benachbarte, nicht koplanare Dreiecke verbinden. Die
   // gemeinsame Diagonale bleibt eine echte Außenkante, kein entartetes Dreieck.
@@ -52,13 +57,15 @@ export function baueLaubenkasten(quad: HausQuad, mitteU: number, obenY: number, 
     }
   };
   const gruen = [farben.laub.clone().multiplyScalar(.84),farben.laub,farben.laub.clone().multiplyScalar(1.08)];
-  const rot = [farben.bluete,farben.bluete.clone().multiplyScalar(.85),farben.bluete.clone().multiplyScalar(1.10)];
-  const schritt=breite/6;
-  for(let i=0;i<6;i++) {
+  const triebe = farben.bluete ? 6 : 3 + Math.floor(zufall() * 3);
+  const schritt=breite/triebe;
+  for(let i=0;i<triebe;i++) {
     const u=u0+schritt*(i+.5)+(zufall()-.5)*schritt*.22;
     const y=obenY+.015+zufall()*.055, v=v1-.055+zufall()*.085;
     koerper([u,y,v],[Math.min(.20,schritt*.66),.065+zufall()*.04,.10+zufall()*.035],5,gruen[i%3],zufall()*TAU,true);
   }
+  if (!farben.bluete) return;
+  const rot = [farben.bluete,farben.bluete.clone().multiplyScalar(.85),farben.bluete.clone().multiplyScalar(1.10)];
   const anzahl=4+Math.floor(zufall()*3), bluetenSchritt=(breite-.10)/anzahl;
   for(let i=0;i<anzahl;i++) {
     const u=u0+.05+bluetenSchritt*(i+.5)+(zufall()-.5)*bluetenSchritt*.20;

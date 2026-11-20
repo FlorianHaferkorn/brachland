@@ -195,6 +195,11 @@ function vorfeldGewicht(x: number, z: number): number {
   return 1 - THREE.MathUtils.smoothstep(Math.hypot(x - d.x, z - d.y), 8.5, 14.5);
 }
 
+export interface WohnwegStreuung {
+  gewicht: (x: number, z: number) => number;
+  aufWeg: (x: number, z: number) => boolean;
+}
+
 /**
  * Füllt die Instanzmatrizen für die Umgebung von (mx, mz) und gibt die Anzahl zurück.
  *
@@ -204,6 +209,7 @@ function vorfeldGewicht(x: number, z: number): number {
  */
 export function streueUmgebung(
   feld: HoehenFeld, mx: number, mz: number, mesh: THREE.InstancedMesh, faktor = 1,
+  wohnweg?: WohnwegStreuung,
 ): number {
   const anzahl = streue(feld, mx, mz, mesh, DICHTE, STREU_JE_QM * faktor, STREU_MAX, 0, (h1, h2, h3) => {
     const hoehe = 0.18 + h1 * 0.30;
@@ -212,14 +218,25 @@ export function streueUmgebung(
       ? 1 - THREE.MathUtils.smoothstep(HOF_UNIFORM.mitte.value.distanceTo(hofOrt.set(hilfe.position.x, hilfe.position.z)), 32, 46) : 0;
     const breite = (0.9 + h3 * 0.7) * (1 - amHof * .53);
     hilfe.scale.set(breite, hoehe * (1 - amHof * (.32 + h3 * .15)), breite);
+    const west = wohnweg?.gewicht(hilfe.position.x, hilfe.position.z) ?? 0;
+    if (west > 0) {
+      const fleck = .5 + .5 * Math.sin(hilfe.position.x*.74 + hilfe.position.z*.38)
+        * Math.cos(hilfe.position.z*.86 - hilfe.position.x*.18);
+      const spreizung = 1 - west * (.38 + .27 * fleck);
+      hilfe.scale.x *= spreizung;
+      hilfe.scale.z *= spreizung;
+      hilfe.scale.y *= 1 - west * (.18 + .44 * h1 * fleck);
+    }
     if (HOF_ORTSALTERUNG_AN && HOF_GRAS_AN) {
       const staerke = vorfeldGewicht(hilfe.position.x, hilfe.position.z);
       hilfe.scale.y *= 1 + staerke * (h1 * h1 * 1.04 - .46);
       return grasTon.setRGB(1 - staerke * (.39 - h2 * .19), 1 - staerke * (.47 - h2 * .19),
         1 - staerke * (.52 - h2 * .17));
     }
-  }, HOF_GRAS_AN ? (x, z) => {
-    if (!HOF_UNIFORM.bereit.value) return true;
+  }, HOF_GRAS_AN || wohnweg ? (x, z) => {
+    // Der eigene Saumbewuchs liegt im Wegband. Grobe Streubüschel stehen dahinter.
+    if (wohnweg && wohnweg.gewicht(x, z) > .2 && wohnweg.aufWeg(x, z)) return false;
+    if (!HOF_GRAS_AN || !HOF_UNIFORM.bereit.value) return true;
     const d = HOF_UNIFORM.mitte.value.distanceTo(hofOrt.set(x, z));
     if (d >= 48) return true;
     if (!hofgrasFrei(x, z, HOF_UNIFORM.zugaenge.value, HOF_UNIFORM.zugangZahl.value)) return false;

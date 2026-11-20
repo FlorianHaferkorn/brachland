@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ASPHALTRAND_GLSL, BAND_RAUSCHEN_GLSL } from './bandmaterial.js';
 import { WEG_UEBER_GRUND } from './baender.js';
-import { ladeHorstAtlas, leereHorstTextur, HORST_SCHWELLE } from './grashorst.js';
+import { ladeHorstAtlas, leereHorstTextur, HORST_SCHWELLE, type HorstKachel } from './grashorst.js';
 import { mulberry } from './props.js';
 import { WEG_TEILUNG } from './terrain.js';
 
@@ -12,6 +12,10 @@ export interface StrassenbewuchsWeg {
   saat: number;
   /** Bewuchs und Frostschäden zwischen 0 und 1. */
   verfall?: number;
+  /** Niedriger, gruppierter Bewuchs für schmale Wohnwege. */
+  wohnwegrand?: boolean;
+  /** Erhaltene Zugänge an der Straße, in Weltmetern. */
+  wohnwegZugaenge?: readonly (readonly [number, number])[];
   /** Auf ungebundenem Belag entstehen Rinnen und Pflanzeninseln ohne Asphaltrisse. */
   gebundenerBelag?: boolean;
   /** Bruchstücke der gebundenen Fahrbahn und stärker gezackter Randsaum. */
@@ -41,9 +45,11 @@ interface Stueck {
 interface Bewuchs {
   ort: Punkt;
   groesse: number;
+  breite?: number;
   drehung: number;
   ton: number;
   auswahl: number;
+  sorte?: HorstKachel['art'];
 }
 
 const MOOS = new THREE.Color('#495340');
@@ -244,6 +250,45 @@ export function baueStrassenbewuchs(
             }
           }
 
+          if (weg.wohnwegrand) {
+            // Die Gruppen folgen durchgehenden Metern statt den OSM-Kanten.
+            // Mehrere kleine Horste teilen sich Farbe und Wuchshöhe, dazwischen
+            // bleibt offener Boden. Nur am äußeren Rand stehen einzelne Rispen.
+            const raster = 1.36;
+            const von = Math.floor((meter - .44) / raster);
+            const bis = Math.floor((meter + laenge + .44) / raster);
+            for (let i = von; i <= bis; i++) {
+              if (i < 0) continue;
+              const horstZufall = mulberry(weg.saat ^ Math.imul(2 * i + (seite < 0 ? 1 : 0), 15683));
+              const zentrum = (i + .16 + horstZufall() * .68) * raster;
+              const buschig = .5 + .5 * Math.sin(zentrum * (seite < 0 ? .52 : .67) + phase + seite * 2.2);
+              if (horstZufall() > verfall * (.37 + .51 * buschig)) continue;
+              const trocken = horstZufall();
+              const streuung = .16 + horstZufall() * .27;
+              const querMitte = Math.min(halb + .17, mitte + (horstZufall() - .38) * .57);
+              const anzahl = 2 + Math.floor(buschig * 2 + horstZufall() * 2);
+              for (let k = 0; k < anzahl; k++) {
+                const l = zentrum - meter + (horstZufall() - .5) * 2 * streuung;
+                const rand = querMitte + (horstZufall() - .5) * .48;
+                const x = horstZufall(), wuchs = horstZufall();
+                const trockenHalm = x > .94 && rand >= halb - .14;
+                const sorte = trockenHalm ? 'halm' : trocken > .81 ? 'stroh' : x < .28 ? 'kraut' : 'gruen';
+                const groesse = trockenHalm ? .225 + wuchs * .055
+                  : sorte === 'kraut' ? .085 + wuchs * .065 : .108 + wuchs * .109;
+                const breite = sorte === 'kraut' ? .13 + wuchs * .10 : .105 + wuchs * .073;
+                const quer = THREE.MathUtils.clamp(rand, freieSpur + breite * .65 + .04, halb + .34);
+                const drehung = horstZufall() * TAU, ton = .71 + trocken * .21 + horstZufall() * .13;
+                const auswahl = horstZufall(), splittwahl = horstZufall();
+                if (l < 0 || l >= laenge) continue;
+                const ort = punktAmBand(st, l, seite * quer, boden, -.012);
+                if (!frei(ort) || weg.wohnwegZugaenge?.some(([x, z]) => Math.hypot(ort[0] - x, ort[2] - z) < 1.4)) continue;
+                wildkraut.push({ ort, groesse, breite, drehung, ton, auswahl, sorte });
+                if (splittwahl < .13) splitt.push({ ort, groesse: .042 + splittwahl * .64, drehung, ton, auswahl });
+              }
+            }
+            continue;
+          }
+
           const anzahl = Math.round(laenge * (1.1 + 10.2 * drang) * verfall);
           for (let k = 0; k < anzahl; k++) {
             const groesse = .14 + (.09 + .34 * drang) * zufall();
@@ -345,9 +390,9 @@ ${hatMarkierungen ? /* glsl */ `
   const instanzen = (geo: THREE.BufferGeometry, material: THREE.MeshStandardMaterial,
     eintraege: readonly Bewuchs[], istStein: boolean) => {
     const mesh = new THREE.InstancedMesh(geo, material, eintraege.length);
-    eintraege.forEach(({ ort, groesse, drehung, ton, auswahl }, i) => {
+    eintraege.forEach(({ ort, groesse, breite = groesse, drehung, ton, auswahl }, i) => {
       matrix.makeRotationY(drehung);
-      matrix.scale(skalierung.set(groesse * (istStein ? 1.5 : 1), groesse * (istStein ? .48 : 1), groesse));
+      matrix.scale(skalierung.set(breite * (istStein ? 1.5 : 1), groesse * (istStein ? .48 : 1), breite));
       matrix.setPosition(ort[0], ort[1] + (istStein ? groesse * .27 : 0), ort[2]);
       mesh.setMatrixAt(i, matrix);
       if (istStein) farbe.copy(SPLITT).lerp(ERDE, auswahl * .47).multiplyScalar(ton);
@@ -389,9 +434,10 @@ ${hatMarkierungen ? /* glsl */ `
         const kraut = felder.filter(k => k.art === 'kraut');
         const trocken = felder.filter(k => k.art === 'stroh');
         const blume = felder.filter(k => k.art === 'blume');
+        const sorten = { gruen, kraut, stroh: trocken, blume, halm: felder.filter(k => k.art === 'halm') };
         wildkraut.forEach((eintrag, i) => {
           const x = eintrag.auswahl;
-          const art = x < .62 ? gruen : x < .81 ? kraut : x < .96 ? trocken : blume;
+          const art = eintrag.sorte ? sorten[eintrag.sorte] : x < .62 ? gruen : x < .81 ? kraut : x < .96 ? trocken : blume;
           const kachel = art[Math.floor((x * 37 % 1) * art.length)];
           if (kachel) kacheln.setXYZW(i, ...kachel.rect);
         });

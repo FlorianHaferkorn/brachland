@@ -4,7 +4,8 @@
 import {existsSync,mkdirSync,writeFileSync} from 'node:fs';
 import {playwright} from './pw.mjs';
 const [name,probe,modus='fahrt',profil='referenz']=process.argv.slice(2);
-const westfassade=profil==='westfassade';
+const westanschluss=profil==='westanschluss';
+const westfassade=profil==='westfassade'||westanschluss;
 const westdach=profil==='westdach'||westfassade;
 const westdetail=profil==='westdetail'||westdach;
 const westverfall=profil==='westverfall'||westdetail;
@@ -18,9 +19,9 @@ const weststrasse=profil==='weststrasse';
 const strassenfahrt=profil==='ortsstrasse'||weststrasse;
 const ortsalterung=profil==='ortsalterung'||hofsilhouette||strassenfahrt;
 const kurzeFahrt=eckfahrt||strassenfahrt;
-if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette|bildtakt|bildfluss|kachelnachlauf|bildspitzen|westverfall|westdetail|westdach|westfassade angeben.');
+if(!kurzeFahrt&&!['referenz','hof','kompakt','lauben','boden','gras','teppich','verfall'].includes(profil)) throw Error('Profil referenz|hof|kompakt|lauben|boden|gras|teppich|verfall|ranke|ruine|einsturz|hofziel|hofdachbruch|hoflicht|zieltreue|verfallverlauf|ortsalterung|ortsstrasse|weststrasse|hofsilhouette|bildtakt|bildfluss|kachelnachlauf|bildspitzen|westverfall|westdetail|westdach|westfassade|westanschluss angeben.');
 const bodennah=kurzeFahrt||['boden','gras','teppich','verfall'].includes(profil);
-const anzahl=kurzeFahrt?192:bodennah?288:profil!=='referenz'?216:144;
+const anzahl=westanschluss?256:kurzeFahrt?192:bodennah?288:profil!=='referenz'?216:144;
 if(!name || !/^[a-z0-9_-]+$/i.test(name) || !['0','1'].includes(probe) || !['stand','fahrt'].includes(modus)) throw Error('Name, 0|1, stand|fahrt angeben.');
 const ziel=`.cache/mess/${name}`;
 if(existsSync(ziel)) throw Error(`Ausgabe existiert: ${ziel}`);
@@ -45,6 +46,7 @@ const westBlicke=[
 ];
 // Zusatzbild über der Spielkamera für die Dachfuge bei 512 (Index 224).
 if(westdach&&!westfassade) westBlicke.push({start:[1379,54,457],ende:[1379,54,457],ziel:[1405.74,43,464.27]});
+if(westanschluss) westBlicke.push({start:[1360.4,37.80,417],ende:[1362.1,37.75,420.5],ziel:[1376,37.44,452]});
 const parameter=new URLSearchParams(`absetzen=1432,423,150&zeit=.26&kontur=0&stimmung=zielbild&hofgruen=1&referenzhaus=${probe}&kamera=1444,36.8,418,1431,37.5,432&fov=60&umgebung=6&sonne=.8&umlichtstaerke=1.2&schatten=.4`);
 if(profil!=='referenz'){parameter.set('referenzhaus','1');parameter.set('hofhaeuser',profil==='hof'?probe:'1');}
 parameter.set('hauskompakt',profil==='kompakt'?probe:profil==='lauben'||bodennah?'1':'0');
@@ -92,7 +94,8 @@ if(kurzeFahrt){
   if(westdach) parameter.set('westdach',westfassade?'1':probe);
   if(westfassade){
    for(const aktiv of ['bau','lod2','belag','kachelpuffer','strassenverfall','strassenprofil']) parameter.set(aktiv,'1');
-   parameter.set('westfassade',probe);
+   parameter.set('westfassade',westanschluss?'1':probe);
+   if(westanschluss) parameter.set('westanschluss',probe);
   }
  } else if(weststrasse){
   parameter.set('absetzen','1358.45,413,245');
@@ -161,7 +164,7 @@ try {
  await seite.evaluate(async()=>{for(let i=0;i<8;i++)await new Promise(r=>requestAnimationFrame(r));window.__hausPause();});
  await seite.waitForTimeout(200);
  await seite.evaluate(()=>{for(let i=0;i<64;i++)window.__hausSchritt();});
- const westStand=westdach&&!westfassade?[32,96,160,224]:[32,96,160];
+ const westStand=westdach&&(!westfassade||westanschluss)?[32,96,160,224]:[32,96,160];
  const indizes=modus==='fahrt'?Array.from({length:anzahl},(_,i)=>i):westverfall?westStand:kurzeFahrt?[0,64,127,191]:bodennah?[0,71,143,215,287]:profil!=='referenz'?[0,71,143,215]:[0,47,95,143];
  for(const i of indizes){
   const blickwechsel=westverfall?i%64===0:profil!=='referenz'?i%72===0:i===96;

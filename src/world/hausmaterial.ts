@@ -14,7 +14,7 @@
  * hell, aber nicht ausgebrannt, und der Rahmen daneben bleibt, was er ist.
  */
 import * as THREE from 'three';
-import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTFASSADE_AN } from './echt.js';
+import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTFASSADE_AN, WESTANSCHLUSS_AN } from './echt.js';
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
@@ -403,11 +403,20 @@ const WESTDETAIL_FARBE = /* glsl */ `
     detailNass = feuchte * (.64 + .32*max(0.0,-detailN.z))
       * max(sockel*.92, schaden*lauf*wolke*.76);
     ${WESTFASSADE_AN ? /* glsl */ `
-    if (scanR < .5 && vRaumUv.z > .5) {
+    if (scanR < .5 && ${WESTANSCHLUSS_AN ? 'mod(vRaumUv.z, 2.0)' : 'vRaumUv.z'} > .5) {
       // Aus dem Bruchrand läuft Wasser über die erhaltene Mauer.
       float spur = 1.0 - smoothstep(.05, .43, abs(vRaumUv.x + .21*(lauf-.5)));
       float ablauf = 1.0 - smoothstep(.14, 2.45, max(0.0, -vRaumUv.y + wolke*.39));
       detailNass = max(detailNass, spur*ablauf*(.37 + .48*rand));
+    }
+    ` : ''}
+    ${WESTANSCHLUSS_AN ? /* glsl */ `
+    float spritzwasser = 0.0;
+    if (vRaumUv.z >= 2.0) {
+      float randhoehe = .17 + schaden*.30 + wolke*.24 + lauf*.29;
+      float flecken = smoothstep(.30,.70,wolke*.50 + lauf*.29 + rand*.21);
+      spritzwasser = (1.0 - smoothstep(.04,randhoehe,vHoehe)) * flecken;
+      detailNass = max(detailNass, spritzwasser * (.23 + schaden*.52 + feuchte*.19));
     }
     ` : ''}
     vec3 farbe = hofLies(uHofZielFarbe,detailUv,scanR).rgb;
@@ -415,6 +424,7 @@ const WESTDETAIL_FARBE = /* glsl */ `
     if (scanR < .5) {
       detailAusbruch = smoothstep(.56 + .28*(1.0-schaden), .88 + .20*(1.0-schaden),
         wolke*.56 + lauf*.27 + rand*.17 + detailNass*.59);
+      ${WESTANSCHLUSS_AN ? 'detailAusbruch = max(detailAusbruch, spritzwasser * (.23 + schaden*.71));' : ''}
       vec3 stein = hofLies(uHofZielFarbe,detailStein,3.0).rgb;
       vec3 kalk = mix(farbe,vec3(grau)*vec3(1.01,.99,.93),.66);
       if (vStufe < .5) {
@@ -428,7 +438,7 @@ const WESTDETAIL_FARBE = /* glsl */ `
     } else if (scanR < 2.5) {
       float moos = smoothstep(.46,.84,wolke*.56 + lauf*.28 + .31*feuchte);
       farbe = mix(farbe*.81,farbe*vec3(.65,.74,.42),moos*feuchte);
-    }
+    }${WESTANSCHLUSS_AN ? ' else if (vRaumUv.z >= 2.0) { farbe *= mix(vec3(1.0), vec3(.76,.77,.63), spritzwasser); }' : ''}
     farbe *= mix(vec3(1.0),vec3(.56,.63,.45),detailNass);
     if (scanR < 1.5) farbe = mix(farbe,efeuFarbe,efeuDeckung*.78);
     diffuseColor.rgb = mix(diffuseColor.rgb,farbe,.93);
@@ -570,6 +580,6 @@ ${HOF_ZIELTREUE_AN ? /* glsl */ `
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? '-ortsalterung' : '') + (WESTVERFALL_AN ? '-westverfall' : '') + (WESTDETAIL_AN ? '-westdetail' : '') + (WESTFASSADE_AN ? '-westfassade' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? '-ortsalterung' : '') + (WESTVERFALL_AN ? '-westverfall' : '') + (WESTDETAIL_AN ? '-westdetail' : '') + (WESTFASSADE_AN ? '-westfassade' : '') + (WESTANSCHLUSS_AN ? '-westanschluss' : '');
   return material;
 }

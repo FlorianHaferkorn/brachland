@@ -3,6 +3,7 @@ import type { Color } from 'three';
 import type { HausQuad } from './hausbauteil.js';
 
 type Punkt = [number, number, number];
+type Sockelzustand = 'ruine' | 'verwachsen' | 'instandgesetzt';
 
 /** Abschnitte entlang der Wandtangente, alle Koordinaten in Weltmetern.
  * Gemeinsame Endpunkte haben dieselbe Oberkante; die Unterseiten der einzelnen
@@ -11,7 +12,8 @@ type Punkt = [number, number, number];
  */
 export function baueHofsockel(quad: HausQuad, ursprung: readonly number[], tangente: readonly number[],
   normal: readonly number[], abschnitte: readonly (readonly [number, number])[], grund: number,
-  mindestOberkante: number, hoehe: (x: number, z: number) => number, sockelfarbe: Color, kappenfarbe: Color): void {
+  mindestOberkante: number, hoehe: (x: number, z: number) => number, sockelfarbe: Color, kappenfarbe: Color,
+  zustand?: Sockelzustand): void {
   if (![ursprung[0],ursprung[1],tangente[0],tangente[1],normal[0],normal[1],grund,mindestOberkante].every(Number.isFinite)) {
     throw new Error('Hofsockel braucht endliche Koordinaten und Höhen.');
   }
@@ -51,12 +53,18 @@ export function baueHofsockel(quad: HausQuad, ursprung: readonly number[], tange
   for(const [von,bis] of abschnitte) {
     const anzahl=Math.ceil(bis-von);
     const stellen=Array.from({length:anzahl+1},(_,i)=>von+(bis-von)*i/anzahl);
-    const kanten=stellen.map(u=>Math.max(mindestOberkante,terrain(u,.17)+.18));
+    const abtrag = zustand === 'ruine' ? .12 : zustand === 'verwachsen' ? .075 : .035;
+    const kanten = stellen.map(u => {
+      const [x, , z] = P(u, 0, 0);
+      const frost = zustand === undefined ? 0 : abtrag * (.55 + .28*Math.sin(x*1.91+z*.87) + .17*Math.sin(z*3.37-x*1.03));
+      const oben = Math.max(mindestOberkante - frost, terrain(u,.17) + .18 - frost*.50);
+      return { oben, kappe: oben + .07 - frost*.38 };
+    });
     for(let i=0;i<anzahl;i++) {
-      const a=stellen[i],b=stellen[i+1],obenA=kanten[i],obenB=kanten[i+1];
+      const a=stellen[i],b=stellen[i+1],links=kanten[i],rechts=kanten[i+1];
       const unten=Math.min(grund,...[a,(a+b)/2,b].flatMap(u=>[.01,.015,.13,.17].map(v=>terrain(u,v)-.12)));
-      koerper(a,b,unten,unten,obenA,obenB,.015,.13,sockelfarbe);
-      koerper(a,b,obenA,obenB,obenA+.07,obenB+.07,.01,.17,kappenfarbe);
+      koerper(a,b,unten,unten,links.oben,rechts.oben,.015,.13,sockelfarbe);
+      koerper(a,b,links.oben,rechts.oben,links.kappe,rechts.kappe,.01,.17,kappenfarbe);
     }
   }
 }

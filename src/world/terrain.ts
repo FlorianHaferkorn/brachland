@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN, WESTFASSADE_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN, WESTFASSADE_AN, WESTANSCHLUSS_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
@@ -285,6 +285,7 @@ export function baueGebaeude(
   let alterungJetzt = 0;
   let bewuchsWandJetzt = false;
   let westDetailJetzt = false;
+  let westAnschlussJetzt = false;
   let zielHausJetzt = false;
   let glutWert = 0;
   const glutHash = (x: number, y: number, z: number) => {
@@ -437,8 +438,8 @@ export function baueGebaeude(
         raumUv.push(((v[0]-q.x)*q.dx+(v[2]-q.z)*q.dz)/q.breite+0.5, (v[1]-q.unten)/q.hoehe, q.seed);
       } else if (r === 0 && regenlauf) {
         const q = regenlauf;
-        raumUv.push((v[0]-q.x)*q.dx+(v[2]-q.z)*q.dz, v[1]-q.oben, 1);
-      } else raumUv.push(0, 0, 0);
+        raumUv.push((v[0]-q.x)*q.dx+(v[2]-q.z)*q.dz, v[1]-q.oben, westAnschlussJetzt ? 3 : 1);
+      } else raumUv.push(0, 0, (r === 0 || r === 3) && westAnschlussJetzt ? 2 : 0);
     }
     for (const v of [a, b, c]) zustand.push(alterungJetzt + stufeJetzt + (zielHausJetzt ? 4 : 0)
       + (bewuchsWandJetzt ? 32 : 0), v[1] - kontaktBoden(v));
@@ -517,6 +518,7 @@ export function baueGebaeude(
     const westDetail = WESTDETAIL_AN && !!nutzung;
     const fassadenbaukasten = WESTFASSADE_AN && nutzung?.fassadenbaukasten === true;
     westDetailJetzt = westDetail;
+    westAnschlussJetzt = WESTANSCHLUSS_AN && fassadenbaukasten;
     const dachruine = nutzung?.zustand === 'ruine';
     const verwachsen = nutzung?.zustand === 'verwachsen';
     const reparatur = nutzung?.zustand === 'instandgesetzt';
@@ -1092,7 +1094,7 @@ export function baueGebaeude(
           const abschnitte=k===tuerWand ? [[0,eingangU-tuerBreite/2-0.12],[eingangU+tuerBreite/2+0.12,wandLaenge]] : [[0,wandLaenge]];
           if (HOF_BODEN_AN || tiefeDetails) baueHofsockel(quadNach,[x1,z1],[(x2-x1)/wandLaenge,(z2-z1)/wandLaenge],
             [wx,wz],abschnitte.filter(([a,b]) => b > a) as [number,number][],fuss-.06,boden+.34,terrain.hoeheAn,SOCKEL,
-            dachbruchHaus || tiefeDetails ? SOCKEL : RAHMEN);
+            dachbruchHaus || tiefeDetails ? SOCKEL : RAHMEN, westAnschlussJetzt ? nutzung?.zustand : undefined);
           else for(const [a,b] of abschnitte) {
             K(a,b,fuss-0.06,boden+0.34,0.015,0.13,SOCKEL);
             K(a,b,boden+0.34,boden+0.41,0.01,0.17,RAHMEN);
@@ -2240,7 +2242,9 @@ export function baueGebaeude(
         // alles hier richtet sich also nach +V, nach oben oder nach unten.
         const VOR = richtV(1);
         const LAUBE_DUNKEL = BAUWELT_AN ? SCHALUNG_TOENE[0] : TUER;
-        if (laubenDetails) {
+        const westLaube = WESTANSCHLUSS_AN && fassadenbaukasten && reparatur;
+        const laubeKompakt = laubenDetails || westLaube;
+        if (laubeKompakt) {
           const alleSeiten = { oben:true, unten:true, u0:true, u1:true, v0:true, v1:true };
           kasten(bU0,bU1,v0,v1,fest(y-.08),fest(y),LAUBE_DUNKEL,alleSeiten);
           kasten(bU0-.04,bU1+.04,v1-.02,v1+.09,fest(y+.04),fest(y+.16),REFERENZ_HOLZ,alleSeiten);
@@ -2296,15 +2300,15 @@ export function baueGebaeude(
          */
         for (const u of [bU0, bU1]) {
           kasten(u - 0.06, u + 0.06, v1 - 0.06, v1 + 0.08, fest(y), fest(y + bruest + 0.06), LAUBE_DUNKEL,
-                 { oben: true, u0: true, u1: true, v1: true, unten:laubenDetails, v0:laubenDetails });
+                 { oben: true, u0: true, u1: true, v1: true, unten:laubeKompakt, v0:laubeKompakt });
         }
         // D289: Blumen nur an bewohnten Häusern — an verlassenen hingen sonst frische Geranien am morschen Balkon.
         if (wohnhaus && (!BAUWELT_AN || stufeJetzt === 0)) {
           const ky = y + bruest - 0.42;
-          if (laubenDetails) {
+          if (laubeKompakt) {
             const span=bU1-bU0-.30;
-            const anzahl=Math.max(3,Math.min(5,Math.floor(span/1.35)));
-            const breite=Math.min(1.05,span/anzahl-.24);
+            const anzahl=westLaube ? Math.max(2,Math.min(4,Math.round(span/3.7)))
+              : Math.max(3,Math.min(5,Math.floor(span/1.35)));
             const erde=KASTEN.clone().multiplyScalar(.28);
             const ausgabe: HausQuad = (a,b,c,d,farbe,n) => {
               quadNach(welt3(a[0],a[1],a[2]),welt3(b[0],b[1],b[2]),welt3(c[0],c[1],c[2]),welt3(d[0],d[1],d[2]),farbe,
@@ -2312,8 +2316,23 @@ export function baueGebaeude(
             };
             const [sx,sz]=hu.welt((bU0+bU1)/2,v1);
             const seed=Math.floor(glutHash(sx,y,sz)*4294967295);
-            for(let i=0;i<anzahl;i++) baueLaubenkasten(ausgabe,bU0+.15+span*(i+.5)/anzahl,ky+.22,v1+.32,breite,seed+i*7919,
-              {holz:REFERENZ_HOLZ,laub:LAUB,bluete:GERANIE,erde});
+            if (westLaube) {
+              const laub=LAUB.clone().lerp(new THREE.Color('#766e45'),.33).multiplyScalar(.82);
+              const halter=RINNE.clone().multiplyScalar(.54);
+              const feld=span/anzahl;
+              for(let i=0;i<anzahl;i++) {
+                // Vorgehängte Kästen mit Lücken. Die Rückwand berührt die Brüstung,
+                // die Haken tragen den Kasten unterhalb des Handlaufs.
+                const mitte=bU0+.15+feld*(i+.5+(glutHash(sx+i*1.9,y,sz)-.5)*.23);
+                const breite=Math.min(feld-.32,.62+glutHash(sx,y+i*1.7,sz)*.36);
+                baueLaubenkasten(ausgabe,mitte,ky+.22,v1+.302,breite,seed+i*7919,
+                  {holz:REFERENZ_HOLZ,laub,erde,halter});
+              }
+            } else {
+              const breite=Math.min(1.05,span/anzahl-.24);
+              for(let i=0;i<anzahl;i++) baueLaubenkasten(ausgabe,bU0+.15+span*(i+.5)/anzahl,ky+.22,v1+.32,breite,seed+i*7919,
+                {holz:REFERENZ_HOLZ,laub:LAUB,bluete:GERANIE,erde});
+            }
             // Gleicher Würfelverbrauch wie das frühere 0,7m-Blütenband: Holzstapel usw. bleiben erhalten.
             const gU0=bU0+.12, gU1=bU1-.12;
             const seg=Math.max(2,Math.round((gU1-gU0)/.7));

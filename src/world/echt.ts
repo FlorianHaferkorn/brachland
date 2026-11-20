@@ -56,6 +56,8 @@ export const WESTDETAIL_AN = WESTVERFALL_AN && an('westdetail');
 export const WESTDACH_AN = WESTDETAIL_AN && an('westdach');
 /** D335: regionaler Fassadenbaukasten an Gebäuden mit Nutzungsprofil. */
 export const WESTFASSADE_AN = WESTDACH_AN && an('westfassade');
+/** D336: Bauwerks- und Vegetationsanschlüsse am westlichen Wohnweg. */
+export const WESTANSCHLUSS_AN = WESTFASSADE_AN && an('westanschluss');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

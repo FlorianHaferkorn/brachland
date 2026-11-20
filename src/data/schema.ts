@@ -486,6 +486,7 @@ const Strassenkulisse = z.object({
   wege: z.array(z.object({
     osmWeg: z.number().int().positive(),
     verfall: z.number().min(0).max(1),
+    wohnwegrand: z.boolean().optional(),
     profil: z.object({
       breite: z.number().positive().optional(),
       /** Versatz der Fahrbahnmitte quer zur OSM-Achse in Weltmetern. */

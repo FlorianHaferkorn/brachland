@@ -73,6 +73,21 @@ for(const winkel of [0,.7,Math.PI,-1.8])for(const seite of [-1,1]) {
   pruefe(`${titel}: gemeinsame Enden haben exakt dieselbe Oberkante`,stetig);
   pruefe(`${titel}: Farbidentität für Sockel und Kappe erhalten`,f.every((q,i)=>q.farbe===(i%12<6?sockel:kappe)));
 }
+const alterung = (zustand: 'ruine' | 'instandgesetzt') => {
+  const flaechen: Flaeche[] = [];
+  baueHofsockel((a,b,c,d,farbe,n) => flaechen.push({ p: [a,b,c,d], n, farbe }),
+    [1433,434], [1,0], [0,1], [[0,7]], 0, .34, () => 0, sockel, kappe, zustand);
+  return flaechen;
+};
+const ruine = alterung('ruine'), reparatur = alterung('instandgesetzt');
+const ruecken = (f: Flaeche[]) => f.filter((_, i) => i % 12 === 10).flatMap(q => q.p.map(p => p[1]));
+const streuung = (werte: number[]) => Math.max(...werte) - Math.min(...werte);
+pruefe('D336: Ruinensockel ist unregelmäßiger abgetragen als der reparierte Sockel',
+  streuung(ruecken(ruine)) > .04 && streuung(ruecken(ruine)) > streuung(ruecken(reparatur)) * 2);
+pruefe('D336: Verwitterte Kappen und Sockel bleiben geschlossen und teilen die Stoßkante',
+  Array.from({ length: 14 }, (_,i) => geschlossen(ruine.slice(i*6, (i+1)*6))).every(Boolean)
+  && Array.from({ length: 6 }, (_,i) =>
+    ruine[i*12+10].p[2].every((wert,k) => wert === ruine[(i+1)*12+10].p[1][k])).every(Boolean));
 let anzahl=0;const dummy:HausQuad=()=>{anzahl++;};
 baueHofsockel(dummy,[0,0],[1,0],[0,1],[],0,.34,()=>0,sockel,kappe);
 pruefe('Leere Abschnittsliste erzeugt keine Geometrie',anzahl===0);

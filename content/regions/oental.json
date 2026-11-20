@@ -53,7 +53,8 @@
       "wege": [
         {
           "osmWeg": 198749032,
-          "verfall": 0.98
+          "verfall": 0.98,
+          "wohnwegrand": true
         }
       ],
       "objekte": []

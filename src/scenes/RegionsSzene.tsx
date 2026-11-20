@@ -33,7 +33,7 @@ import { benutzeSteuerung, type Stoecke } from '../spieler/steuerung.js';
 import { peilung } from '../spieler/peilung.js';
 import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
-         STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
+         STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN, type WohnwegStreuung } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
@@ -50,7 +50,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { STRASSENVERFALL_AN } from '../world/echt.js';
+import { STRASSENVERFALL_AN, WESTANSCHLUSS_AN } from '../world/echt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { lagerTon } from '../ton/lagerton.js';
@@ -736,6 +736,20 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const strassen = useMemo(() => STRASSENVERFALL_AN
     ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.strassenkulisse
     : undefined, [welt]);
+  const wohnweg = useMemo<WohnwegStreuung | undefined>(() => {
+    if (!WESTANSCHLUSS_AN || !strassen) return undefined;
+    const ids = new Set(strassen.flatMap(abschnitt => abschnitt.wege.filter(w => w.wohnwegrand).map(w => w.osmWeg)));
+    const wege = welt.wege.filter(w => w.quelle && ids.has(w.quelle.osmId));
+    const nutzungen = [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.hausnutzung;
+    const hoefe = (nutzungen ?? []).filter(n => n.fassadenbaukasten).map(n => nachMetern(n.ort, welt.bbox));
+    if (!wege.length || !hoefe.length) return undefined;
+    const aufWeg = wegTest({ ...welt, wege }, feld, false);
+    return { aufWeg, gewicht: (x, z) => {
+      let abstand2 = 34 * 34;
+      for (const [hx, hz] of hoefe) abstand2 = Math.min(abstand2, (x-hx)**2 + (z-hz)**2);
+      return 1 - THREE.MathUtils.smoothstep(abstand2, 14*14, 34*34);
+    } };
+  }, [welt, feld, strassen]);
   const satz = useMemo(() => {
     const zustand = strassen && new Map(strassen.flatMap(s => s.wege.map(w => [w.osmWeg, w] as const)));
     return zerlegeBaender(welt, feld, zustand);
@@ -775,7 +789,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
           wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material}
           baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material}
           baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={weite} />)}
-      <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
+      <Streuschicht feld={feld} ziel={ziel} dichte={dichte} wohnweg={wohnweg} />
       {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite} />}
       {GEWAESSER_ECHT && <Spiegelung feld={feld} />}
     </group>
@@ -2742,8 +2756,8 @@ function Grasteppich({ welt, feld, ziel, dichte, weite }: {
  * Wird beim Gehen nachgezogen statt einmalig verteilt: 30.000 Props über 16 km²
  * lassen den Boden direkt vor dem Spieler leer, und genau dort schaut man hin.
  */
-function Streuschicht({ feld, ziel, dichte }: {
-  feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number;
+function Streuschicht({ feld, ziel, dichte, wohnweg }: {
+  feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number; wohnweg?: WohnwegStreuung;
 }) {
   const grasGeo = useMemo(() => baueBueschelGeometrie(), []);
   const kleinGeo = useMemo(() => baueKleinzeugGeometrie(), []);
@@ -2761,7 +2775,7 @@ function Streuschicht({ feld, ziel, dichte }: {
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
 
   // Dichteänderung erzwingt ein Nachziehen beim nächsten Bild.
-  useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [dichte]);
+  useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [dichte, wohnweg]);
 
   useFrame(({ clock }) => {
     gras.setzeZeit(clock.elapsedTime);
@@ -2773,7 +2787,7 @@ function Streuschicht({ feld, ziel, dichte }: {
 
     const g = grasMesh.current;
     if (g) {
-      g.count = streueUmgebung(feld, p.x, p.z, g, dichte);
+      g.count = streueUmgebung(feld, p.x, p.z, g, dichte, wohnweg);
       g.instanceMatrix.needsUpdate = true;
       g.computeBoundingSphere();
     }

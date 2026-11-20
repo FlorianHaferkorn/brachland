@@ -473,3 +473,25 @@ In den Spielansichten enthält der Haus- und Gartenpuffer 459.679 Dreiecke und 7
 | Frames über 50 ms, gesamte Route | 0 | 1 |
 
 Die vier Läufe erreichen je zwölf Wegpunkte. Ein 50,1-ms-Frame tritt nach 8,38 s im Hof auf. Die Weststraße bleibt in beiden Baukastenläufen unter 36 ms. Gemessen wurde im selben Build bei aktivem D334 und `westfassade=0/1/1/0`. Einzelberichte liegen unter `.cache/mess/d335-finale-ab-{a1,b1,b2,a2}`. Die getrennten Echtzeitaufnahmen liegen unter `.cache/mess/d335-finale-film-{a,b}`. Die Standbilder lassen sich mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westfassade` wiederholen. Die Galerie liegt unter `.cache/bilder/d335-fassadenbaukasten/index.html`.
+
+## Übergänge an Haus und Straßenrand (D336)
+
+Feuchte und sichtbare Steine ziehen sich in unterschiedlich hohen Flecken über den Sockel in den unteren Putz. Die Sockelkappe folgt dem Gelände. Frostabtrag verändert ihre Höhe an der Ruine stärker als am instand gesetzten Haus. Alle Sockelstücke und Kappen bleiben geschlossen, und benachbarte Stücke teilen die Kanten. Die Texturprobe nutzt den vorhandenen Atlas und die Höhe über dem örtlichen Boden.
+
+An Haus 512 sind vier einzelne Holzkästen über die Brüstung verteilt. Metallhaken hängen über den Handlauf, und zwischen den Kästen bleibt das Holz sichtbar. Die Pflanzen bestehen aus unterschiedlich großen olivgrünen Gruppen. Der lokale Geometrietest zählt acht Haken und null rote Balkonvertices.
+
+Am Milbinger Wohnweg 198749032 stellt `wohnwegrand` die Mischung auf niedriges Gras, Kräuter und trockene Halme um. Kleine Gruppen wechseln mit offenen Stellen. Die meisten Pflanzen sind 9–22 cm hoch, einzelne Rispen am Außenrand erreichen 28 cm. Die CPU-Probe des tatsächlich gebauten Wegbands zählt 4.291 Pflanzenkarten vorher und 1.062 nachher. Laufspur und der erfasste gepflegte Zugang bleiben frei. Die Probe nutzt die drei bestehenden Rendergruppen und den Grasatlas. Die allgemeine Streuschicht hält sich im Umfeld der drei Häuser vom Straßenband fern und staffelt die Breite und Höhe ihrer Büschel im angrenzenden Vorfeld.
+
+`westanschluss=1` aktiviert die Probe bei aktivem D335. `tools/mess/hauslauf.mjs <name> <0|1> stand westanschluss` nimmt die drei Häuser und den Straßenrand aus festen Kameras auf.
+
+Die acht Aufnahmen verwenden identische Blickpunkte, Beleuchtung und Windphase ohne Browserfehler. Der geladene Haus- und Gartenpuffer wächst von 478.957 auf 480.267 Dreiecke und von 75,41 auf 75,67 MB.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | D335 | D336 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 42,11 | 44,00 |
+| FPS, Weststraße | 42,39 | 44,22 |
+| p95, gesamte Route | 34,80 ms | 34,45 ms |
+| Längster Frame, Weststraße | 100,0 ms | 35,4 ms |
+| Frames über 50 ms, gesamte Route | 11 | 1 |
+
+Alle vier Läufe erreichen zwölf Wegpunkte. Die elf langen Frames der alten Fassung stammen aus dem ersten Gegenlauf. Der einzelne lange Frame von D336 tritt bei 2,23 s im Hof auf und misst 51,9 ms. Gemessen wurde ohne Videoaufnahme in der Folge `westanschluss=0/1/1/0`. Die Einzelberichte liegen unter `.cache/mess/d336-abgabe-ab-{a1,b1,b2,a2}`. Die separaten Echtzeitaufnahmen und die Bildvergleiche sind in `.cache/bilder/d336-westanschluss/index.html` gesammelt.
