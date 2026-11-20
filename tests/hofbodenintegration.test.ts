@@ -96,7 +96,8 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,5
     const putzRegen=i===508 && r.getX(j)===0 && uv.getZ(j)===1 && process.env.D307_BODEN_QUERY.includes('&westfassade=1');
     if(putzRegen) regenEcken++;
     else if(r.getX(j)!==5 && r.getX(j)!==7 && (uv.getX(j)!==0||uv.getY(j)!==0||uv.getZ(j)!==0))raumFalsch++;
-    if(referenz && Math.abs(z.getY(j)-(p.getY(j)-hoehe(p.getX(j),p.getZ(j))))>2e-5)kontaktFehler++;
+    if((referenz || (haus.lod2?.koerper && process.env.D307_BODEN_QUERY.includes('&milbingerboden=1')))
+      && Math.abs(z.getY(j)-(p.getY(j)-hoehe(p.getX(j),p.getZ(j))))>2e-5)kontaktFehler++;
     if(i===308&&r.getX(j)===2&&z.getY(j)>4) {
       const ort=p.getX(j).toFixed(3)+','+p.getZ(j).toFixed(3);
       dachHoehen[ort]=Math.max(dachHoehen[ort]??-Infinity,p.getY(j));
@@ -236,7 +237,9 @@ const westdach = lauf(westdachQuery);
 const westfassade = lauf(westdachQuery + '&westfassade=1');
 const milbingerQuery = westdachQuery + '&westfassade=1&westanschluss=1&wohnwegquerschnitt=1&milbingerbelag=1&milbingeroben=1';
 const milbingerVorher = lauf(milbingerQuery), milbingerMasse = lauf(milbingerQuery + '&milbingermasse=1');
-const milbingerDetail = lauf(milbingerQuery + '&milbingermasse=1&milbingerdetail=1');
+const milbingerDetailQuery = milbingerQuery + '&milbingermasse=1&milbingerdetail=1';
+const milbingerDetail = lauf(milbingerDetailQuery);
+const milbingerBoden = lauf(milbingerDetailQuery + '&milbingerboden=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -427,5 +430,13 @@ pruefe('D341: Nur die vermessenen Hauspuffer erhalten Dachdetails und bleiben ex
 pruefe('D341: Die Milbinger Scheiben liegen in räumlichen Laibungen',
   [506,509].every(i => milbingerMasse.haeuser[i].vertieftesGlas === 0 && milbingerDetail.haeuser[i].vertieftesGlas >= 12),
   [506,509].map(i => `${i}: ${milbingerDetail.haeuser[i].vertieftesGlas} Ecken bei 18 cm`).join(', '));
+pruefe('D342: Die LoD2-Sockel folgen dem örtlichen Hang und behalten denselben First',
+  [506,509].every(i => {
+    const boden = milbingerBoden.haeuser[i], vorher = milbingerDetail.haeuser[i];
+    return boden.endlich && boden.indexGleich && boden.ecken > vorher.ecken
+      && !boden.kontaktFehler && boden.firstLaenge === vorher.firstLaenge;
+  }));
+pruefe('D342: Hof und drei Westfassaden bleiben geometrisch unverändert',
+  [308,508,510,512].every(i => milbingerBoden.haeuser[i].hash === milbingerDetail.haeuser[i].hash));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

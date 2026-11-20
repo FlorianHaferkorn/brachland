@@ -68,6 +68,8 @@ export const MILBINGEROBEN_AN = MILBINGERBELAG_AN && an('milbingeroben');
 export const MILBINGERMASSE_AN = MILBINGEROBEN_AN && an('milbingermasse');
 /** D341: räumliche Dachkanten, örtliche Materialalterung und Straßenrand. */
 export const MILBINGERDETAIL_AN = MILBINGERMASSE_AN && an('milbingerdetail');
+/** D342: hangfolgende Sockel und durchgehender Bodenanschluss am Milbinger Wohnweg. */
+export const MILBINGERBODEN_AN = MILBINGERDETAIL_AN && an('milbingerboden');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

@@ -1,7 +1,7 @@
 /** D307: geschlossene Sockelstücke, kontinuierliche Kappe und Geländeanschluss. */
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { baueHofsockel } from '../src/world/hofsockel.js';
+import { baueFeldsteinsockel, baueHofsockel } from '../src/world/hofsockel.js';
 import type { HausQuad } from '../src/world/hausbauteil.js';
 type Punkt=[number,number,number];
 type Flaeche={p:Punkt[];n:readonly[number,number,number];farbe:THREE.Color};
@@ -97,4 +97,24 @@ assert.throws(()=>baueHofsockel(dummy,[0,0],[1,0],[1,1],[[0,1]],0,.34,()=>0,sock
 assert.throws(()=>baueHofsockel(dummy,[0,0],[1,0],[0,1],[[1,0]],0,.34,()=>0,sockel,kappe));
 assert.throws(()=>baueHofsockel(dummy,[0,0],[1,0],[0,1],[[0,1]],0,.34,()=>NaN,sockel,kappe));
 ok+=5;
+const feldstein: Flaeche[] = [];
+const ring: [number, number][] = [[0,0], [5,0], [5,3], [0,3], [0,0]];
+const feldhoehe = (x: number, z: number) => .12 * x - .08 * z + .043 * Math.sin(2 * x + z);
+const felddreiecke: HausQuad = (a,b,c,d,farbe,n) => {
+  const v = (p: Punkt) => new THREE.Vector3(...p);
+  const rechts = v(b).sub(v(a)).cross(v(c).sub(v(a))).dot(new THREE.Vector3(...n)) > 0;
+  feldstein.push({ p: rechts ? [a,b,c,d] : [a,d,c,b], farbe, n });
+};
+for (let k = 0; k < ring.length - 1; k++) {
+  baueFeldsteinsockel(felddreiecke, ring, k, -.4, feldhoehe, sockel, [], k === 0 ? [1.7, 3.3] : undefined);
+}
+pruefe('D342: Gehrungen und Türlaibungen bilden eine geschlossene Steinauflage', geschlossen(feldstein));
+const schulter = feldstein.filter(f => f.n[1] === 1).flatMap(f => f.p);
+const fussseite = feldstein.filter(f => f.n[1] === -1).flatMap(f => f.p);
+pruefe('D342: Die niedrige Schulter folgt dem Hang und das Fundament sitzt im Boden',
+  streuung(schulter.map(p => p[1])) > .50
+  && schulter.every(([x,y,z]) => y - feldhoehe(x,z) >= .14 && y - feldhoehe(x,z) <= .45)
+  && fussseite.every(([x,y,z]) => y - feldhoehe(x,z) < -.12));
+pruefe('D342: Die Sockelgeometrie lässt den Türspalt frei',
+  !feldstein.some(f => f.p.some(([x, , z]) => x > 1.70001 && x < 3.29999 && z < -.01)));
 console.log(`\n${ok} bestanden, 0 fehlgeschlagen`);

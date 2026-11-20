@@ -11,10 +11,10 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom, LoD2Koerper } from './osm.js';
 import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN, WESTFASSADE_AN, WESTANSCHLUSS_AN, MILBINGERMASSE_AN, MILBINGERDETAIL_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN, WESTFASSADE_AN, WESTANSCHLUSS_AN, MILBINGERMASSE_AN, MILBINGERDETAIL_AN, MILBINGERBODEN_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueLoD2Dach } from './lod2dach.js';
-import { baueHofsockel } from './hofsockel.js';
+import { baueFeldsteinsockel, baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
 import { baueHausbewuchs, baueRankenkurve } from './hausbewuchs.js';
 import type { BlattKoordinaten, Rankenpunkt } from './hausbewuchs.js';
@@ -377,6 +377,8 @@ export function baueGebaeude(
     [WAND, 0], [KAMIN, 0], [SCHALUNG, 1], ...SCHALUNG_TOENE.map(c => [c, 1] as [THREE.Color, number]),
     [DACH, 2], [DACH_KANTE, 2], [SOCKEL, 3], [FENSTER, 5],
   ]);
+  const FELDSTEIN = MILBINGERBODEN_AN ? new THREE.Color('#8b8476') : SOCKEL;
+  if (MILBINGERBODEN_AN) ROLLE.set(FELDSTEIN, 3);
   const TRAUFHOLZ = MILBINGERDETAIL_AN ? SCHALUNG.clone().multiplyScalar(.58) : DACH_KANTE;
   const TRAUFUNTERSICHT = MILBINGERDETAIL_AN ? SCHALUNG.clone().multiplyScalar(.37) : SCHALUNG_TOENE[1];
   if (MILBINGERDETAIL_AN) {
@@ -414,11 +416,10 @@ export function baueGebaeude(
   let aoBoden = -Infinity, aoTraufe = -Infinity;
   let lokalerBodenkontakt = false;
   const kontaktBoden = (v: readonly number[]) => lokalerBodenkontakt ? terrain.hoeheAn(v[0], v[2]) : aoBoden;
-  const ao = (v: [number, number, number]): number => {
+  const ao = (y: number, ueber: number): number => {
     let f = 1;
-    const ueber = v[1] - kontaktBoden(v);
     if (ueber < 0.9) f *= 0.68 + 0.32 * Math.max(0, ueber) / 0.9;
-    const unter = aoTraufe - v[1];
+    const unter = aoTraufe - y;
     if (unter >= -0.02 && unter < 0.75) f *= 0.76 + 0.24 * unter / 0.75;
     return f;
   };
@@ -430,7 +431,12 @@ export function baueGebaeude(
   ) => {
     positionen.push(...a, ...b, ...c);
     const toenung = zielHausJetzt ? (f === RAHMEN ? .69 : f === LADEN ? .80 : 1) : 1;
-    for (const v of [a, b, c]) { const k = ao(v) * toenung; farben.push(f.r * k, f.g * k, f.b * k); }
+    const bauzustand = alterungJetzt + stufeJetzt + (zielHausJetzt ? 4 : 0) + (bewuchsWandJetzt ? 32 : 0);
+    for (const v of [a, b, c]) {
+      const abstand = v[1] - kontaktBoden(v), k = ao(v[1], abstand) * toenung;
+      farben.push(f.r * k, f.g * k, f.b * k);
+      zustand.push(bauzustand, abstand);
+    }
     glut.push(glutWert, glutWert, glutWert);
     const detailRolle = zielHausJetzt || westDetailJetzt;
     const r = blatt ? 7 : detailRolle && (f === RAHMEN || f === LADEN || f === TUERLACK || f === FASSADEN_ERSATZHOLZ) ? 6
@@ -448,8 +454,6 @@ export function baueGebaeude(
         raumUv.push((v[0]-q.x)*q.dx+(v[2]-q.z)*q.dz, v[1]-q.oben, westAnschlussJetzt ? 3 : 1);
       } else raumUv.push(0, 0, (r === 0 || r === 3) && westAnschlussJetzt ? 2 : 0);
     }
-    for (const v of [a, b, c]) zustand.push(alterungJetzt + stufeJetzt + (zielHausJetzt ? 4 : 0)
-      + (bewuchsWandJetzt ? 32 : 0), v[1] - kontaktBoden(v));
   };
 
   /**
@@ -538,6 +542,9 @@ export function baueGebaeude(
   };
 
   type Haus = Weltdaten['gebaeude'][number];
+  const bodenUmrisse = MILBINGERBODEN_AN && auswahl.some(g => g.lod2?.koerper?.length)
+    ? auswahl.flatMap(g => (g.lod2?.koerper?.map(k => k.grundriss) ?? [g.punkte])
+      .map(quelle => ({ quelle, ring: quelle.map(([lat, lon]) => zuWelt(lat, lon)) }))) : [];
   function* hausKoerper(): Generator<{ haus: Haus; amtlich?: LoD2Koerper }> {
     for (const haus of auswahl) {
       const koerper = MILBINGERMASSE_AN && LOD2_AN && !haus.hausnutzung ? haus.lod2?.koerper : undefined;
@@ -557,6 +564,7 @@ export function baueGebaeude(
   const referenzen: readonly HausReferenz[] = !referenz ? [] : Array.isArray(referenz) ? referenz : [referenz as HausReferenz];
   for (const { haus: g, amtlich } of hausKoerper()) {
     const milbingerHaus = MILBINGERDETAIL_AN && !!amtlich;
+    const milbingerBoden = MILBINGERBODEN_AN && !!amtlich;
     /** D291: erste Ecke dieses Hauses — für die Umfärbung nach dem Fassaden-Steckbrief am Ende. */
     const ersteEcke = farben.length / 3;
     let p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
@@ -572,7 +580,7 @@ export function baueGebaeude(
     const dachruine = nutzung?.zustand === 'ruine';
     const verwachsen = nutzung?.zustand === 'verwachsen';
     const reparatur = nutzung?.zustand === 'instandgesetzt';
-    lokalerBodenkontakt = (referenzHaus && HOF_BODEN_AN) || !!nutzung;
+    lokalerBodenkontakt = milbingerBoden || (referenzHaus && HOF_BODEN_AN) || !!nutzung;
     const laubenDetails = referenzHaus && HOF_LAUBEN_AN;
     if (referenzHaus) p = vereinfacheHauswand(p);
     if (p.length < 3) continue;
@@ -594,6 +602,10 @@ export function baueGebaeude(
      * (echte Silhouette); die Geschosszahl folgt aus der Traufe (≈ 2,9 m je Geschoss). Ohne LoD2 wie bisher aus OSM.
      */
     const echt2 = LOD2_AN && g.lod2 ? g.lod2 : null;
+    const nachbargrundrisse = amtlich && MILBINGERDETAIL_AN
+      ? echt2?.koerper?.filter(k => k !== amtlich).map(k => k.grundriss) : undefined;
+    const sockelNachbarn = milbingerBoden ? (nachbargrundrisse ?? []).map(r => r.map(([lat, lon]) => zuWelt(lat, lon))) : [];
+    const tuerUmfeld = milbingerBoden ? bodenUmrisse.filter(u => u.quelle !== amtlich?.grundriss).map(u => u.ring) : [];
     const dachWinkel = WESTDACH_AN && westDetail && echt2?.d === 3100 ? echt2.p : undefined;
     const westDach = dachWinkel !== undefined;
     const ebenen = echt2 ? Math.max(1, Math.min(4, Math.round(echt2.t / 2.9))) : g.ebenen;
@@ -925,8 +937,21 @@ export function baueGebaeude(
       const eingangU = hausReferenz?.eingang
         ? ((hausReferenz.eingang[0]-x1)*(x2-x1)+(hausReferenz.eingang[1]-z1)*(z2-z1))/lochLaenge : lochLaenge/2;
       const eingangX=x1+(x2-x1)*eingangU/lochLaenge, eingangZ=z1+(z2-z1)*eingangU/lochLaenge;
-      const eingangBoden = (referenzHaus || reparatur) && k === tuerWand
-        ? Math.max(boden, terrain.hoeheAn(eingangX+(z2-z1)/lochLaenge*.35,eingangZ-(x2-x1)/lochLaenge*.35)) : boden;
+      const lokaleSchwelle = (() => {
+        if (!milbingerBoden || k !== tuerWand || !tuerVertieft || lochLaenge < tuerBreite + .60) return;
+        const halb = tuerBreite / 2 + .19;
+        const vorfeld = [-halb, 0, halb].flatMap(u => [.08, .30, .51].map(v => [
+          eingangX - wz * u + wx * v, eingangZ + wx * u + wz * v,
+        ] as [number, number]));
+        if (vorfeld.some(q => imPolygon(q, p) || tuerUmfeld.some(r => imPolygon(q, r)))) return;
+        const gelaende = vorfeld.map(q => terrain.hoeheAn(...q));
+        const y = Math.max(boden, Math.max(...gelaende) + .075);
+        const min = Math.min(...gelaende);
+        if (y - min > .20 || y + tuerHoehe > oben - .35) return;
+        return { y, grund: Math.min(fuss - .07, min - .13) };
+      })();
+      const eingangBoden = lokaleSchwelle?.y ?? ((referenzHaus || reparatur) && k === tuerWand
+        ? Math.max(boden, terrain.hoeheAn(eingangX+(z2-z1)/lochLaenge*.35,eingangZ-(x2-x1)/lochLaenge*.35)) : boden);
       const fensterEntfaellt = (ebene: number, u: number) =>
         ((tuerVertieft || reparatur) && k === tuerWand && ebene === 0 && Math.abs(u-eingangU) < (tuerBreite+breiteF)/2+(hausReferenz?.eingang ? 0.65 : 0.18))
         || (einsturz && ebene > 0 && u / lochLaenge > .13 && u / lochLaenge < .83)
@@ -945,7 +970,7 @@ export function baueGebaeude(
         }
       }
       if (tuerVertieft && k === tuerWand) wandLoch.push({
-        u0: eingangU - tuerBreite / 2, u1: eingangU + tuerBreite / 2, y0: boden,
+        u0: eingangU - tuerBreite / 2, u1: eingangU + tuerBreite / 2, y0: lokaleSchwelle?.y ?? boden,
         y1: referenzHaus ? eingangBoden + tuerHoehe + .02 : Math.min(eingangBoden + tuerHoehe, oben - .30),
       });
       const bruchGrenze = Math.max(boden+1.05+hoeheF+.065,k === tuerWand ? eingangBoden+tuerHoehe+.095 : -Infinity);
@@ -959,7 +984,7 @@ export function baueGebaeude(
       }
       if (stallWand) {
         // D289: Tenne/Stall — Bruchsteinsockel bis 0,9 m, darüber Bretter bis zur Traufe.
-        quad([x1, fuss, z1], [x2, fuss, z2], [x2, boden + 0.9, z2], [x1, boden + 0.9, z1], SOCKEL);
+        quad([x1, fuss, z1], [x2, fuss, z2], [x2, boden + 0.9, z2], [x1, boden + 0.9, z1], milbingerBoden ? WAND : SOCKEL);
         bretterwand(x1, z1, x2, z2, boden + 0.9, oben);
       } else if (holzAb < oben && holzAb > fuss) {
         if (putzbruch) {
@@ -987,6 +1012,8 @@ export function baueGebaeude(
       regenlauf = null;
 
       const wandLaenge = Math.hypot(x2 - x1, z2 - z1);
+      if (milbingerBoden) baueFeldsteinsockel(quadNach, p, k, fuss, terrain.hoeheAn, FELDSTEIN, sockelNachbarn,
+        k === tuerWand && tuerVertieft ? [eingangU - tuerBreite / 2 - .12, eingangU + tuerBreite / 2 + .12] : undefined);
       if (wandLaenge < 0.5) continue;
       if (spalt) {
         const u = (t: number) => (spalt.von+(spalt.bis-spalt.von)*t)*wandLaenge;
@@ -1174,7 +1201,7 @@ export function baueGebaeude(
             baueBruchholz(tri,P(.187,holzAb-.064,.071),P(.383,holzAb-.19,.28),.129,.161,321320,true,true);
             baueBruchholz(tri,P(.806,holzAb-.062,.07),P(.623,holzAb-.27,.18),.13,.14,321321,true,true);
           } else if(Number.isFinite(holzAb)) K(0,wandLaenge,holzAb-0.15,Math.min(oben,holzAb)+0.02,0.02,0.13,TUER);
-        } else band(boden, 0.34, 0.05, SOCKEL);
+        } else if (!milbingerBoden) band(boden, 0.34, 0.05, SOCKEL);
         for (let e = 1; e < ebenen; e++) {
           if (fassadenWand && e === ebenen - 1 && Number.isFinite(holzAb)) continue;
           if (!putzbruch || e < ebenen - 1) band(boden + e * geschoss - .07, .14, .07, DACH);
@@ -1225,7 +1252,8 @@ export function baueGebaeude(
           K(a-.22,a-.08,y0+1.08,y0+1.12,-.06,.015,RINNE);
           const grund = Math.min(...[-a-.18,a+.18].flatMap(u=>[-.14,.38].map(v=>
             terrain.hoeheAn(cx+(x2-x1)/wandLaenge*u+wx*v,cz+(z2-z1)/wandLaenge*u+wz*v))))-.12;
-          K(-a-.18,a+.18,grund,y0+.015,-.14,.38,SOCKEL);
+          if (lokaleSchwelle) K(-a-.17,a+.17,lokaleSchwelle.grund,y0+.015,-.14,.50,FELDSTEIN);
+          else K(-a-.18,a+.18,grund,y0+.015,-.14,.38,SOCKEL);
           if (HOF_BODEN_AN && hausReferenz?.eingang) baueHoftrittplatten(quadNach,
             [hausReferenz.eingang[0],hausReferenz.eingang[1]], [wx,wz], terrain.hoeheAn, Math.floor(glutHash(cx,y0,cz)*4294967295), SOCKEL);
         }
@@ -1521,8 +1549,6 @@ export function baueGebaeude(
         deckung: dachFarbe, untersicht: TRAUFUNTERSICHT, stirn: MILBINGERDETAIL_AN ? TRAUFHOLZ : dachKante,
         rinne: RINNE, wand: Number.isFinite(holzAb) ? SCHALUNG : WAND,
       };
-      const nachbargrundrisse = MILBINGERDETAIL_AN
-        ? echt2?.koerper?.filter(k => k !== amtlich).map(k => k.grundriss) : undefined;
       baueLoD2Dach(amtlich, zuWelt, boden, traufe, (a, b, c, rolle) => {
         tri(a, b, c, materialrollen[rolle]);
       }, nachbargrundrisse);

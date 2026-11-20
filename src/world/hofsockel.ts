@@ -1,8 +1,10 @@
 /** D307: geschlossener Hofsockel und Kappe folgen dem Gelände statt einer Bodenebene. */
 import type { Color } from 'three';
 import type { HausQuad } from './hausbauteil.js';
+import { imPolygon } from './osm.js';
 
 type Punkt = [number, number, number];
+type Lage = [x: number, z: number];
 type Sockelzustand = 'ruine' | 'verwachsen' | 'instandgesetzt';
 
 /** Abschnitte entlang der Wandtangente, alle Koordinaten in Weltmetern.
@@ -66,5 +68,75 @@ export function baueHofsockel(quad: HausQuad, ursprung: readonly number[], tange
       koerper(a,b,unten,unten,links.oben,rechts.oben,.015,.13,sockelfarbe);
       koerper(a,b,links.oben,rechts.oben,links.kappe,rechts.kappe,.01,.17,kappenfarbe);
     }
+  }
+}
+
+/**
+ * Eine unregelmäßige Steinauflage bis unter die Erde. Die schmale Schulter
+ * bindet in die geschlossene Fassadenwand ein. Die Gehrung ist je Ecke für
+ * beide Wandstücke identisch, der Verlauf wird auf die geplottete Höhe gelegt.
+ */
+export function baueFeldsteinsockel(
+  quad: HausQuad, ring: Lage[], kante: number, fundament: number, hoehe: (x: number, z: number) => number,
+  stein: Color, nachbarn: Lage[][], tuer?: readonly [von: number, bis: number],
+): void {
+  const kanten = ring.length - 1;
+  const a = ring[kante], b = ring[kante + 1];
+  const dx = b[0] - a[0], dz = b[1] - a[1], laenge = Math.hypot(dx, dz);
+  if (laenge < .02) return;
+  const tx = dx / laenge, tz = dz / laenge, nx = tz, nz = -tx;
+  const aussen: Punkt = [nx, 0, nz];
+  const norm = (k: number): Lage => {
+    const p = ring[k], q = ring[k + 1], x = q[0] - p[0], z = q[1] - p[1];
+    const l = Math.hypot(x, z);
+    return l > 1e-6 ? [z / l, -x / l] : [nx, nz];
+  };
+  const gehrung = (k: number): Lage => {
+    const [ox, oz] = norm((k + kanten - 1) % kanten), [ex, ez] = norm(k % kanten);
+    const faktor = 1 / Math.max(.50, 1 + ox * ex + oz * ez);
+    return [(ox + ex) * faktor, (oz + ez) * faktor];
+  };
+  const links = gehrung(kante), rechts = gehrung(kante + 1);
+  const profil = (u: number) => {
+    const [ox, oz] = u === 0 ? links : u === laenge ? rechts : [nx, nz];
+    const x = u === laenge ? b[0] : a[0] + tx * u, z = u === laenge ? b[1] : a[1] + tz * u;
+    const relief = .5 + .30 * Math.sin(x * 2.29 + z * 1.17) + .20 * Math.sin(z * 3.55 - x * 1.82);
+    const tiefe = .052 + .055 * relief;
+    const sx = x + ox * tiefe, sz = z + oz * tiefe;
+    const lokal = hoehe(sx, sz), y = lokal + .16 + .22 * relief;
+    const fuss = Math.min(fundament - .13, lokal - .18);
+    return {
+      krone: [sx, y, sz] as Punkt,
+      innen: [x - ox * .023, y + .046, z - oz * .023] as Punkt,
+      aussenfuss: [x + ox * tiefe * .83, fuss, z + oz * tiefe * .83] as Punkt,
+      innenfuss: [x - ox * .023, fuss, z - oz * .023] as Punkt,
+    };
+  };
+  type Profil = ReturnType<typeof profil>;
+  const ende = (p: Profil, richtung: number) =>
+    quad(p.innenfuss, p.aussenfuss, p.krone, p.innen, stein, [tx * richtung, 0, tz * richtung]);
+  const abschnitte = tuer ? [[0, tuer[0]], [tuer[1], laenge]] : [[0, laenge]];
+  for (const [von, bis] of abschnitte) {
+    if (bis - von < .02) continue;
+    const n = Math.ceil((bis - von) / .92);
+    let vorher = profil(von), offen = false;
+    for (let i = 1; i <= n; i++) {
+      const u = i === n ? bis : von + (bis - von) * i / n;
+      const nachher = profil(u);
+      const mitte: Lage = [(vorher.krone[0] + nachher.krone[0]) * .5, (vorher.krone[2] + nachher.krone[2]) * .5];
+      if (nachbarn.some(nachbar => imPolygon(mitte, nachbar))) {
+        if (offen) ende(vorher, 1);
+        offen = false;
+      } else {
+        if (!offen && (i > 1 || von > 0)) ende(vorher, -1);
+        quad(vorher.aussenfuss, nachher.aussenfuss, nachher.krone, vorher.krone, stein, aussen);
+        quad(vorher.krone, nachher.krone, nachher.innen, vorher.innen, stein, [0, 1, 0]);
+        quad(vorher.innenfuss, vorher.innen, nachher.innen, nachher.innenfuss, stein, [-nx, 0, -nz]);
+        quad(vorher.aussenfuss, vorher.innenfuss, nachher.innenfuss, nachher.aussenfuss, stein, [0, -1, 0]);
+        offen = true;
+      }
+      vorher = nachher;
+    }
+    if (offen && bis < laenge) ende(vorher, 1);
   }
 }

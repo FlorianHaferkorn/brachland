@@ -65,9 +65,9 @@ owns: *.test.ts
 | `hofstrauch.test.ts` | D299: deterministische Geometrie/UV, korrekte Meterhöhe und Bodenstand, gültige Attribute und Windgewichte. |
 | `ezblattschatten.test.ts` | D300: gezeichnetes Tiefenmaterial behält trotz three.js-Überschreibung bei Alpha-to-Coverage die Nadel-/Laubschwelle der Farbkarte. |
 | `hofbodenintegration.test.ts` | Reale Hofhäuser mit Sockelkontakt, Trittplatten, Verfallsstufen und gezeichneter Ranke. D322 und D323 prüfen weitere Straßen und die Giebelfuge zwischen 308 und 346. D329 prüft die drei Nutzungszustände, D330 die Öffnung bei 508 und Blatt- und Rahmenattribute. D331 und D335 prüfen Dachmaße, Fenstervertiefung und den Regenläufer am offenen Bruch. D340 prüft die amtliche Firstspanne und den lokalen Dachschalter. |
-| `hofbodenkontakt.test.ts` | D307: Pixelzentren, Auswahl, Maskenverlauf und ausgesparte fremde Grundrisse des Bodenrands. |
+| `hofbodenkontakt.test.ts` | D307: Pixelzentren, Auswahl, Maskenverlauf und ausgesparte Grundrisse. D342 prüft gültige Milbinger Fassadenabstände, freie Türvorfelder und getrennte Atlasteile. |
 | `hofboden.test.ts` | D307: Lokalität, Stetigkeit und freie Türvorfelder der CPU-/GLSL-Bodenmasken. |
-| `hofsockel.test.ts` | D307: geschlossene Sockelkörper, stetige Endhöhen, Türspalten und Bodenanschluss am gewellten Hang. D336 prüft Frostabtrag bei durchgehender Sockelkappe. |
+| `hofsockel.test.ts` | D307: geschlossene Sockelkörper, stetige Endhöhen, Türspalten und Bodenanschluss am gewellten Hang. D336 prüft Frostabtrag bei durchgehender Sockelkappe. D342 prüft eingebettete Feldsteinfronten, Gehrungen und freie Wandstöße. |
 | `strassenquerschnitt.test.ts` | D337: Übergänge zum Wegband, Bordhöhe an Zufahrten und Freihaltung im GPU-Grasraster. D338 prüft Abmessungen und Materialkoordinaten. D339 prüft den Beginn der Fahrspuren hinter dem Gehweg sowie Erdanschluss und Flankenbewuchs. D340 prüft die Höhen an Geländeknick, Bord und Einfahrt sowie den DGM1-Auslauf. |
 | `hoftrittplatten.test.ts` | D307: geschlossene Platten, Außennormalen, Schwellenabstand und Hangkontakt. |
 | `hofplatz.test.ts` | D298: Grundrissauswahl, Hofmaske und Ausschluss des Hausinneren; Scan-Shader-Hook bleibt beim Klonen für Wind erhalten (33 Prüfungen, einschliesslich deterministischer Randgruppen und gesperrter Wege). |

@@ -252,6 +252,8 @@ export function wegTest(
   welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>,
   /** Dieselbe Sockelmaske erreicht so auch den Grasteppich über dessen Wegprädikat. */
   mitHausfrontPflege = HAUSFRONT_AN,
+  /** Örtlicher Wuchs darf den Pflegestreifen besiedeln. Wegsegmente bleiben gesperrt. */
+  pflegeAusnahme?: (x: number, z: number) => boolean,
 ): (x: number, z: number) => boolean {
   const pflege = mitHausfrontPflege ? hausfrontPflegeTest(welt, terrain) : null;
   const [sued, west, nord, ost] = welt.bbox;
@@ -281,7 +283,7 @@ export function wegTest(
       }
   });
   return (x, z) => {
-    if (pflege?.(x, z)) return true;
+    if (pflege?.(x, z) && !pflegeAusnahme?.(x, z)) return true;
     for (const i of eimer.get(`${Math.floor(x / RASTER)}:${Math.floor(z / RASTER)}`) ?? []) {
       const s = segmente[i];
       const dx = s.bx - s.ax, dz = s.bz - s.az;

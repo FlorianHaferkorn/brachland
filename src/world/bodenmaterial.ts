@@ -22,7 +22,7 @@ import { hofTextur, hofUniforms, HOF_BODEN_PARS, HOF_BODEN_FARBE, HOF_BODEN_NORM
 import { HOF_UNIFORM } from './hofplatz.js';
 import HOF_KIES from '../../public/material/hof-kies.json';
 import { PALETTE } from './palette.js';
-import { WIESENBEREICH_GLSL, WIESENWUCHS_GLSL, type Wiesenbereich } from './wiesenbereich.js';
+import { WIESENBEREICH_GLSL, wiesenKontaktGlsl, WIESENWUCHS_GLSL, type Wiesenbereich } from './wiesenbereich.js';
 import { MILBINGERDETAIL_AN } from './echt.js';
 import { GEWAESSER_ECHT, GRAS_ECHT, GRAS_VIEL, HOF_AN, HOF_BODEN_AN, HOF_GRAS_AN, HOF_ORTSALTERUNG_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN } from './echt.js';
 
@@ -301,6 +301,21 @@ const MILBINGER_BODEN = /* glsl */ `
   }
 `;
 
+const SOCKELBODEN = /* glsl */ `
+  float mauerfuss = wiesenHauskontakt(vWeltPos.xz).r;
+  if (mauerfuss > 0.0) {
+    // Zwischen Fundament, ausgewaschenem Kies und Gras bleibt ein löchriger Streusaum.
+    float fleck = .58*fein + .42*bodenRauschen(vWeltPos.xz * 2.96);
+    float saum = smoothstep(.17,.87,mauerfuss * (.63 + .74*fleck));
+    float lager = smoothstep(.42,.73,sSchutt.a*.72 + fleck*.39);
+    vec3 humus = vec3(.122,.086,.054) * (sWald.rgb * 1.59 + .24);
+    vec3 riesel = vec3(.154,.139,.113) * (sSchutt.rgb * 1.72 + .22);
+    vec3 auflage = mix(humus,riesel,lager*(.48 + .39*fleck));
+    diffuseColor.rgb = mix(diffuseColor.rgb,auflage,saum*.78);
+    diffuseColor.rgb *= 1.0 - smoothstep(.88,.999,mauerfuss) * (.16 + .08*fleck);
+  }
+`;
+
 const DETAIL_GLSL = /* glsl */ `
   vec3 tX = texture2D(uFelsNormal, vWeltPos.zy * felsSkala).xyz * 2.0 - 1.0;
   vec3 tY = texture2D(uFelsNormal, vWeltPos.xz * felsSkala).xyz * 2.0 - 1.0;
@@ -392,6 +407,10 @@ const MIT_UFER: boolean = typeof location === 'undefined'
 
 export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStandardMaterial {
   const milbinger = MILBINGERDETAIL_AN && wiesenbereich;
+  const kontakt = wiesenbereich?.kontakt;
+  const hofTeil = HOF_AN && HOF_BODEN_AN ? kontakt?.hofTeil : undefined;
+  const hofFarben = hofTeil ? HOF_BODEN_FARBE.replace('texture2D(uHofKontakt, kontaktUv).r',
+    'kontaktAtlas(uHofKontakt, kontaktUv, uHofKontaktTeil).r') : HOF_BODEN_FARBE;
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: BODEN_KANTIG, roughness: 0.95, metalness: 0,
   });
@@ -408,6 +427,16 @@ export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStan
       uHofZielVorfeld: HOF_UNIFORM.zielVorfeld,
       uHofZielHalb: HOF_UNIFORM.zielHalb,
     });
+    if (kontakt) {
+      shader.uniforms.uWiesenKontaktRahmen = { value: kontakt.rahmen };
+      shader.uniforms.uWiesenKontaktTeil = { value: kontakt.wiesenTeil };
+      if (hofTeil) {
+        // Desktop-WebGL stellt hier 16 Fragment-Sampler bereit. Beide R8-Raster
+        // teilen den bestehenden Hof-Slot, ihre Weltkoordinaten bleiben getrennt.
+        shader.uniforms.uHofKontakt = { value: kontakt.textur };
+        shader.uniforms.uHofKontaktTeil = { value: hofTeil };
+      } else shader.uniforms.uWiesenKontakt = { value: kontakt.textur };
+    }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWeltPos;\nvarying vec3 vWeltNormal;\nattribute float nass;\nvarying float vNass;')
       .replace(
@@ -416,8 +445,8 @@ export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStan
       );
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL + (wiesenbereich ? WIESENBEREICH_GLSL : '') + (milbinger ? WIESENWUCHS_GLSL : '') + (HOF_AN ? HOF_BODEN_PARS : ''))
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (milbinger ? MILBINGER_BODEN : '') + (MIT_UFER ? NASS_GLSL : '') + (HOF_AN ? HOF_BODEN_FARBE : ''))
+      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL + (wiesenbereich ? WIESENBEREICH_GLSL : '') + (milbinger ? WIESENWUCHS_GLSL : '') + (HOF_AN ? HOF_BODEN_PARS : '') + (kontakt ? wiesenKontaktGlsl(!!hofTeil) : ''))
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (milbinger ? MILBINGER_BODEN : '') + (kontakt ? SOCKELBODEN : '') + (MIT_UFER ? NASS_GLSL : '') + (HOF_AN ? hofFarben : ''))
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n'
         // D281 (`?gewaesser=1`): 0,55 spiegelte den hellen Himmel als weissen Reif-Streifen am Ufer; nasse Erde ist
         // dunkel und matter, glänzend nur der dünne Wasserfilm direkt an der Linie.
@@ -454,7 +483,7 @@ export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStan
 
   if (milbinger) {
     const basis = material.customProgramCacheKey;
-    material.customProgramCacheKey = () => basis() + '-milbingerdetail';
+    material.customProgramCacheKey = () => basis() + (hofTeil ? '-kontaktatlas' : kontakt ? '-milbingerkontakt' : '-milbingerdetail');
   }
   return material;
 }

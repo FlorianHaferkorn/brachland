@@ -35,7 +35,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN, type WohnwegStreuung } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
-import { baueWiesenbereich, type Wiesenbereich } from '../world/wiesenbereich.js';
+import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
@@ -51,7 +51,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { MILBINGERMASSE_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { LOD2_AN, MILBINGERBODEN_AN, MILBINGERMASSE_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
 import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
@@ -2734,6 +2734,8 @@ function Grasteppich({ welt, feld, ziel, dichte, weite, strassenmaske, wiesenber
 }) {
   const aufWeg = useMemo(() => wegTest(welt, feld), [welt, feld]);
   const lokal = GRAS_FEIN ? undefined : wiesenbereich;
+  const fotoWeg = useMemo(() => lokal?.kontakt
+    ? wegTest(welt, feld, undefined, lokal.kontakt.freigabe) : aufWeg, [welt, feld, lokal, aufWeg]);
   const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte, undefined, undefined, 0, 1, strassenmaske, lokal),
     [feld, aufWeg, dichte, strassenmaske, lokal]);
   // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
@@ -2747,8 +2749,8 @@ function Grasteppich({ welt, feld, ziel, dichte, weite, strassenmaske, wiesenber
     ? baueGrasteppich(feld, aufWeg, dichte, Math.round(TEPPICH_HALB * 1.5 * weite), FERN_ZELLE, TEPPICH_HALB, 3, strassenmaske)
     : null), [feld, aufWeg, dichte, weite, strassenmaske]);
   const fotoWiese = useMemo(() => lokal && dichte > 0
-    ? baueGrasteppich(feld, aufWeg, dichte, TEPPICH_HALB, TEPPICH_ZELLE_FEIN, 0, 1, strassenmaske, lokal, true)
-    : null, [feld, aufWeg, dichte, strassenmaske, lokal]);
+    ? baueGrasteppich(feld, fotoWeg, dichte, TEPPICH_HALB, TEPPICH_ZELLE_FEIN, 0, 1, strassenmaske, lokal, true)
+    : null, [feld, fotoWeg, dichte, strassenmaske, lokal]);
   useEffect(() => () => { teppich.dispose(); nah?.dispose(); fern?.dispose(); fotoWiese?.dispose(); },
     [teppich, nah, fern, fotoWiese]);
   useEffect(() => {
@@ -4469,8 +4471,15 @@ export function RegionsSzene({
     return baueQuerschnittGrasmaske(masken);
   }, [welt, strassen]);
   useEffect(() => () => { strassenmaske?.textur.dispose(); }, [strassenmaske]);
-  const wiesenbereich = useMemo(() => MILBINGERMASSE_AN && strassenmaske
-    ? baueWiesenbereich(strassenmaske.rahmen) : undefined, [strassenmaske]);
+  const wiesenbereich = useMemo(() => {
+    if (!MILBINGERMASSE_AN || !strassenmaske) return undefined;
+    const hofkarte = HOF_UNIFORM.kontakt.value;
+    const kontakt = MILBINGERBODEN_AN && LOD2_AN && !istAus('haeuser') && LOD2_DATEN.length === welt.gebaeude.length
+      ? baueWiesenHauskontakt(welt, LOD2_DATEN, ort => nachMetern(ort, welt.bbox),
+        hofkarte instanceof THREE.DataTexture ? hofkarte : undefined) : undefined;
+    return baueWiesenbereich(strassenmaske.rahmen, kontakt);
+  }, [welt, strassenmaske, feld]);
+  useEffect(() => () => { wiesenbereich?.kontakt?.textur.dispose(); }, [wiesenbereich]);
 
   // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben
   // Positionen. Zweimal verteilen hieße, gegen unsichtbare Bäume zu laufen.

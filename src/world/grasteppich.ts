@@ -18,7 +18,7 @@
  */
 import * as THREE from 'three';
 import type { QuerschnittGrasmaske } from './strassenquerschnitt.js';
-import { WIESENBEREICH_GLSL, WIESENWUCHS_GLSL, type Wiesenbereich } from './wiesenbereich.js';
+import { WIESENBEREICH_GLSL, wiesenKontaktGlsl, WIESENWUCHS_GLSL, type Wiesenbereich } from './wiesenbereich.js';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
 import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN, MILBINGERDETAIL_AN } from './echt.js';
@@ -151,6 +151,7 @@ export function baueGrasteppich(
 ): Grasteppich {
   const foto = GRAS_FEIN || nurWiesenbereich;
   const wildwiese = MILBINGERDETAIL_AN && nurWiesenbereich;
+  const kontakt = wildwiese ? wiesenbereich?.kontakt : undefined;
   const viel = GRAS_VIEL || foto;
   const echt = GRAS_ECHT || viel;
   // D255: gezielte Vergleichsprobe; ohne Parameter bleibt der bestehende Look.
@@ -215,6 +216,10 @@ export function baueGrasteppich(
       uHofGrasRahmen: HOF_UNIFORM.grasRahmen,
     });
     if (wiesenbereich) shader.uniforms.uWiesenbereich = { value: wiesenbereich.rahmen };
+    if (kontakt) Object.assign(shader.uniforms, {
+      uWiesenKontakt: { value: kontakt.textur }, uWiesenKontaktRahmen: { value: kontakt.rahmen },
+      uWiesenKontaktTeil: { value: kontakt.wiesenTeil },
+    });
     if (strassenmaske) Object.assign(shader.uniforms, {
       uStrassenGras: { value: strassenmaske.textur },
       uStrassenGrasRahmen: { value: strassenmaske.rahmen },
@@ -225,6 +230,7 @@ ${HOF_GRAS_AN ? 'uniform vec2 uHofMitte;\nuniform sampler2D uHofGras;\nuniform v
 ${strassenmaske ? 'uniform sampler2D uStrassenGras;\nuniform vec4 uStrassenGrasRahmen;' : ''}
 ${wiesenbereich ? WIESENBEREICH_GLSL : ''}
 ${wildwiese ? WIESENWUCHS_GLSL : ''}
+${kontakt ? wiesenKontaktGlsl() : ''}
 attribute vec2 aZelle;
 uniform float uZeit;
 uniform sampler2D uFeld;
@@ -305,6 +311,11 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   stroh = max(stroh*.56, smoothstep(.26,.76,wuchs.y));
   kraut = max(kraut, step(h2,wuchs.x*.31)*(1.0-stroh));
   float blueten = .010 + wuchs.x*.048*(1.0-stroh);` : ''}
+  ${kontakt ? `vec2 haus = wiesenHauskontakt(ort);
+  float tritt = smoothstep(.52,.93,haus.r);
+  dicht = mix(dicht,max(dicht,boden.g*(.17 + .71*wuchs.x)),tritt);
+  dicht *= 1.0 - smoothstep(.13,.55,haus.g);
+  stroh = mix(stroh,max(stroh,.50),tritt*.78);` : ''}
   ${foto ? `
   // D272: Kachel je Weltzelle — grüne Büschel im Normalfall, trockene in den Strohflecken.
   // D272: Kachel je Weltzelle — grüne Büschel im Normalfall, trockene in Strohflecken, Kraut in Krautflecken
@@ -342,6 +353,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float gr = 1.5 * uKachelGr[kachel] * (0.75 + 0.6 * h4) * clamp(boden.b / 0.55, 0.45, 1.4) * (0.6 + 0.8 * buschel)
            * ${(zelle / 0.15).toFixed(3)} * mix(1.0, 1.25, stroh) * boden.a * (blumeKachel ? 1.2 : 1.0)${innen === 0 ? ' * mix(1.0, 2.0, spreiz)' : ''};
   ${wildwiese ? 'gr *= mix(.86,2.37,wuchs.x) + .33*buschel;' : nurWiesenbereich ? 'gr *= 1.57 + .39 * buschel;' : ''}
+  ${kontakt ? 'gr *= mix(1.0, .36 + .27 * h5, tritt);' : ''}
   hoehe = gr * da;
   breite = gr * 0.5;` : ''}
   ${HOF_GRAS_AN ? `
@@ -438,7 +450,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   if (foto) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }
   if (wildwiese) {
     const basis = material.customProgramCacheKey;
-    material.customProgramCacheKey = () => basis() + '-wildwiese';
+    material.customProgramCacheKey = () => basis() + (kontakt ? '-wildwiese-kontakt' : '-wildwiese');
   }
   const teile: { mesh: THREE.Mesh<THREE.InstancedBufferGeometry>; x: number; z: number; breite: number; tiefe: number }[] = [];
   const gruppe = new THREE.Group();

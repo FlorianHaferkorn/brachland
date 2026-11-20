@@ -615,3 +615,24 @@ Der Fußweg nutzt in beiden Fassungen dieselbe Spielkamera und Eingabe über 10,
 | p95, Weststraße | 32,40 ms | 33,30 ms |
 
 Alle vier Läufe erreichen zwölf Wegpunkte ohne Browserfehler. Gemessen wurde in demselben Build in der Folge `milbingerdetail=0/1/1/0`. D341 kostet auf der gesamten Route 2,85 % mittlere FPS. Ein Frame mit genau 50 ms liegt bei 28,008 s auf der Weststraße. Der andere D341-Lauf bleibt bei höchstens 35,30 ms. Die Rohberichte liegen unter `.cache/mess/d341-final2-ab-{a1,b1,b2,a2}`.
+
+## Übergang von Haus und Boden an der Milbinger Straße (D342)
+
+Der D341-Sockel lag als durchgehend waagerechtes Band am Gebäudeminimum. Außerdem sperrte der allgemeine Pflegestreifen Gras bis 1,6 m von der Wand. `milbingerboden=1` ersetzt den Aufbau bei den 13 amtlichen Teilkörpern der acht Milbinger Gebäude. Niedrige Feldsteinfronten greifen in den Hang, benachbarte Wandabschnitte schließen an den Gehrungen. Fassade, Sockel und Bodenkontakt lesen dieselbe gezeichnete Geländeoberfläche. Zehn geprüfte Türen erhalten eine kurze Steintrittfläche, deren vordere Kante 11,3–14,6 cm über dem örtlichen Gelände liegt. Am Haus 509 sind es 11,7 cm. Die höchsten Dachpunkte und die geprüften Hauspuffer von Hof und Weststraße bleiben erhalten. 4.648 zusätzliche Dreiecke liegen im bestehenden Gebäudebatch.
+
+Das Kontaktfeld nimmt die amtlichen Teilgrundrisse als Ausgangspunkt. Es läuft bis 2,15 m nach außen weich aus und spart Gebäudeinneres aus. In diesem Feld wechseln sich vorhandene Erd-, Streu- und Schuttscans ab. Der Fotograsring lässt ausgedünnte und kürzere Horste näher an die Fassaden. Der zweite Kanal hält das unmittelbare Türvorfeld auch zwischen den Abtastpunkten des 1-m-Grasfelds frei. Die vorhandene Straßenmaske sperrt belegte Wegflächen. Milbinger- und Hofkontakt teilen im Geländeshader einen RG8-Texturslot mit zwei getrennten UV-Teilrahmen. Der Rastervergleich erhält die Hofwerte bytegleich.
+
+Die Blender-Studie am Sockel von Haus 509 verwendet die exportierten Spielflächen und separat gewähltes Licht. Quellen sind die vorhandenen Scan-Atlanten und das DGM1-Mesh. Bild und Szene liegen unter `.cache/d342-milbinger/blender-bodenkontakt-v2-sockel509.{png,blend}`. Die spielbaren Gegenläufe setzen `milbingermasse=1&milbingerdetail=1` und variieren allein `milbingerboden=0/1`.
+
+Vier feste Kamerapaare zeigen die Sockel von 509 und 506, die Straßenseite und die Trittfläche. Die Spielkamera läuft mit derselben W-Eingabe 4,75 s an Haus 509 entlang. Sie legt 19,95 bzw. 20,08 m zurück und steigt in beiden Fassungen um rund 31 cm. An der Tür bleibt die Trittfläche sichtbar, die Halme stehen seitlich. Beide Aufnahmen und alle acht Standbilder melden keine Browser- oder Shaderfehler. Die Galerie mit beiden spielbaren Fassungen liegt unter `.cache/bilder/d342-milbinger/index.html`.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D341 | D342 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 50,85 | 50,74 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 51,10 ms | 35,40 ms |
+| Frames über 50 ms, gesamte Route | 1 | 0 |
+| FPS, Weststraße | 53,20 | 53,46 |
+| p95, Weststraße | 33,30 ms | 33,30 ms |
+
+Alle vier Läufe erreichen zwölf Wegpunkte ohne Browserfehler. Gemessen wurde ohne Videoaufnahme im selben Build in der Folge `milbingerboden=0/1/1/0`. Die Differenz von 0,11 FPS liegt unter der Schwankung der beiden D341-Läufe. Die Rohberichte liegen unter `.cache/mess/d342-final-ab-{a1,b1,b2,a2}`.

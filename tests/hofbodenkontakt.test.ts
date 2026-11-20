@@ -1,8 +1,10 @@
 /** D307: örtliches Kontaktband hält Nachbarhäuser und Grundrisse frei. */
 import assert from 'node:assert/strict';
+import { DataTexture, RedFormat } from 'three';
 import { baueHofbodenkontakt } from '../src/world/hofbodenkontakt.js';
 import type { Weltdaten } from '../src/world/osm.js';
 import type { Hofbodenkontakt } from '../src/world/hofbodenkontakt.js';
+import { baueWiesenHauskontakt } from '../src/world/wiesenbereich.js';
 
 let ok = 0;
 function pruefe(name: string, gut: boolean): void { assert.ok(gut, name); console.log(`  ✓ ${name}`); ok++; }
@@ -41,4 +43,27 @@ const verschoben = haus([[-4, -3], [4, -3], [4, 3], [-4, 3], [-4, -3]].map(([x, 
 const v = baueHofbodenkontakt({ ...fixture, gebaeude: [verschoben] }, mass, [{ gebaeudeIndex: 0 }], versatz);
 pruefe('Weltversatz erhält den örtlichen Kanal bytegleich', g.daten.every((w, i) => w === v.daten[i]));
 assert.throws(() => baueHofbodenkontakt(fixture, mass, [], [NaN, 0])); ok++;
+const teil = haus([[-3,-5],[3,-5],[3,5],[-3,5],[-3,-5]]);
+const milbingerWelt = { ...welt, gebaeude: [rechteck,nachbar] };
+const dach: Weltdaten['gebaeude'][number]['lod2'] = { t: 3, f: 5, d: 3100, w: null,
+  koerper: [{ t: 3, f: 5, d: 3100, w: null, grundriss: teil.punkte, dachflaechen: [], wandabschluesse: [] }] };
+const nachWelt = ([lat,lon]: readonly [number,number]): [number,number] => [(lon-.5)*1000,(.5-lat)*1000];
+const milbinger = baueWiesenHauskontakt(milbingerWelt,[dach,null],nachWelt)!;
+pruefe('D342: Der Milbinger Bewuchs folgt der LoD2-Wand statt der OSM-Hülle', milbinger.freigabe(3.45,3));
+pruefe('D342: Türvorfeld, Gebäudeflächen und Umgebung bleiben ausgespart',
+  [[3.4,0],[2.7,3],[4.4,0],[8,8]].every(([x,z]) => !milbinger.freigabe(x,z)));
+const hofTextur = new DataTexture(new Uint8Array([11,22,33,44]),2,2,RedFormat);
+const atlas = baueWiesenHauskontakt(milbingerWelt,[dach,null],nachWelt,hofTextur)!;
+const { data: atlasDaten, width: atlasBreite, height: atlasTiefe } = atlas.textur.image;
+const milbingerDaten = milbinger.textur.image.data;
+assert.ok(atlasDaten && milbingerDaten);
+pruefe('D342: Hof und Milbinger legen ihre Raster bytegleich in getrennte Atlasteile',
+  atlasDaten[0] === 11 && atlasDaten[2] === 22 && atlasDaten[2*atlasBreite] === 33 && atlasDaten[2*atlasBreite+2] === 44
+  && atlas.wiesenTeil.y === 2 / atlasTiefe
+  && milbingerDaten.every((v, i) => v === atlasDaten[i + 4*atlasBreite]));
+pruefe('D342: Der zweite Kanal enthält scharf abgetastete Grasfreihaltung',
+  milbingerDaten.some((v,i) => i % 2 === 1 && v === 255));
+atlas.textur.dispose();
+hofTextur.dispose();
+milbinger.textur.dispose();
 console.log(`\nHofbodenkontakt: ${ok} bestanden.`);
