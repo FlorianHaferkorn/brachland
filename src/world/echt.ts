@@ -66,6 +66,8 @@ export const MILBINGERBELAG_AN = WOHNWEGQUERSCHNITT_AN && an('milbingerbelag');
 export const MILBINGEROBEN_AN = MILBINGERBELAG_AN && an('milbingeroben');
 /** D340: vermessene Proportionen und die Scan-Wiese im Milbinger Straßenraum. */
 export const MILBINGERMASSE_AN = MILBINGEROBEN_AN && an('milbingermasse');
+/** D341: räumliche Dachkanten, örtliche Materialalterung und Straßenrand. */
+export const MILBINGERDETAIL_AN = MILBINGERMASSE_AN && an('milbingerdetail');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

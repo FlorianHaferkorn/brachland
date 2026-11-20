@@ -18,10 +18,10 @@
  */
 import * as THREE from 'three';
 import type { QuerschnittGrasmaske } from './strassenquerschnitt.js';
-import { WIESENBEREICH_GLSL, type Wiesenbereich } from './wiesenbereich.js';
+import { WIESENBEREICH_GLSL, WIESENWUCHS_GLSL, type Wiesenbereich } from './wiesenbereich.js';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN } from './echt.js';
+import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN, MILBINGERDETAIL_AN } from './echt.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_BLUME, HORST_GRUEN, HORST_HALM, HORST_KRAUT, HORST_SCHWELLE, HORST_STROH, HORST_ZAHL } from './grashorst.js';
 import { HOF_UNIFORM } from './hofplatz.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
@@ -150,6 +150,7 @@ export function baueGrasteppich(
   nurWiesenbereich = false,
 ): Grasteppich {
   const foto = GRAS_FEIN || nurWiesenbereich;
+  const wildwiese = MILBINGERDETAIL_AN && nurWiesenbereich;
   const viel = GRAS_VIEL || foto;
   const echt = GRAS_ECHT || viel;
   // D255: gezielte Vergleichsprobe; ohne Parameter bleibt der bestehende Look.
@@ -223,6 +224,7 @@ export function baueGrasteppich(
 ${HOF_GRAS_AN ? 'uniform vec2 uHofMitte;\nuniform sampler2D uHofGras;\nuniform vec4 uHofGrasRahmen;' : ''}
 ${strassenmaske ? 'uniform sampler2D uStrassenGras;\nuniform vec4 uStrassenGrasRahmen;' : ''}
 ${wiesenbereich ? WIESENBEREICH_GLSL : ''}
+${wildwiese ? WIESENWUCHS_GLSL : ''}
 attribute vec2 aZelle;
 uniform float uZeit;
 uniform sampler2D uFeld;
@@ -298,6 +300,11 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float stroh = smoothstep(${foto ? '0.58, 0.70' : '0.52, 0.66'}, halmRauschen(ort * 0.09 + 19.0));
   float kraut = (1.0 - stroh) * step(0.62, halmRauschen(ort * 0.2 + 51.0)) * step(h2, 0.35);
   dicht *= mix(${foto ? (nurWiesenbereich ? '0.42' : '0.3') : '0.55'}, 1.0, smoothstep(0.3, 0.55, halmRauschen(ort * 0.8 + 71.0)));` : ''}
+  ${wildwiese ? `vec2 wuchs = wiesenWuchs(ort);
+  dicht *= mix(.23,1.28,smoothstep(.06,.69,wuchs.x - wuchs.y*.16));
+  stroh = max(stroh*.56, smoothstep(.26,.76,wuchs.y));
+  kraut = max(kraut, step(h2,wuchs.x*.31)*(1.0-stroh));
+  float blueten = .010 + wuchs.x*.048*(1.0-stroh);` : ''}
   ${foto ? `
   // D272: Kachel je Weltzelle — grüne Büschel im Normalfall, trockene in den Strohflecken.
   // D272: Kachel je Weltzelle — grüne Büschel im Normalfall, trockene in Strohflecken, Kraut in Krautflecken
@@ -306,8 +313,8 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   int kachel = min(int(h6 * ${HORST_GRUEN}.0), ${HORST_GRUEN - 1});
   if (stroh > 0.5) kachel = ${HORST_GRUEN} + min(int(h6 * ${HORST_STROH}.0), ${HORST_STROH - 1});
   else if (kraut > 0.5) kachel = ${HORST_GRUEN + HORST_STROH} + min(int(h6 * ${HORST_KRAUT}.0), ${HORST_KRAUT - 1});
-  if (h7 >= 0.06 && h7 < 0.10) kachel = ${HORST_GRUEN + HORST_STROH + HORST_KRAUT + HORST_BLUME} + min(int(h6 * ${HORST_HALM}.0), ${HORST_HALM - 1});   // 4 %: Halme mit Samenständen
-  if (h7 < 0.06) kachel = ${HORST_GRUEN + HORST_STROH + HORST_KRAUT} + min(int(h6 * ${HORST_BLUME}.0), ${HORST_BLUME - 1});
+  if (h7 >= ${wildwiese ? 'blueten' : '0.06'} && h7 < ${wildwiese ? 'blueten + .025 + .08*wuchs.x' : '0.10'}) kachel = ${HORST_GRUEN + HORST_STROH + HORST_KRAUT + HORST_BLUME} + min(int(h6 * ${HORST_HALM}.0), ${HORST_HALM - 1});
+  if (h7 < ${wildwiese ? 'blueten' : '0.06'}) kachel = ${HORST_GRUEN + HORST_STROH + HORST_KRAUT} + min(int(h6 * ${HORST_BLUME}.0), ${HORST_BLUME - 1});
   bool strohKachel = kachel >= ${HORST_GRUEN} && kachel < ${HORST_GRUEN + HORST_STROH};
   bool blumeKachel = kachel >= ${HORST_GRUEN + HORST_STROH + HORST_KRAUT};` : ''}
   // Dichte als Schwelle: stabil am Ort, kein Flackern beim Nachziehen.
@@ -334,7 +341,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   // (grössere Zellen, Fernring, bekommen grössere Büschel, damit sie sich schliessen); Faktor 1,5: Wiese, nicht Rasen.
   float gr = 1.5 * uKachelGr[kachel] * (0.75 + 0.6 * h4) * clamp(boden.b / 0.55, 0.45, 1.4) * (0.6 + 0.8 * buschel)
            * ${(zelle / 0.15).toFixed(3)} * mix(1.0, 1.25, stroh) * boden.a * (blumeKachel ? 1.2 : 1.0)${innen === 0 ? ' * mix(1.0, 2.0, spreiz)' : ''};
-  ${nurWiesenbereich ? 'gr *= 1.57 + .39 * buschel;' : ''}
+  ${wildwiese ? 'gr *= mix(.86,2.37,wuchs.x) + .33*buschel;' : nurWiesenbereich ? 'gr *= 1.57 + .39 * buschel;' : ''}
   hoehe = gr * da;
   breite = gr * 0.5;` : ''}
   ${HOF_GRAS_AN ? `
@@ -396,6 +403,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vHalmY = y * (1.0 - zumBoden);
   ${foto ? `// D272: Helligkeit je Büschel; grüne Kacheln saftiger (Grün ×1,3, Blau ×0,85), Stroh ×0,8, Kraut leicht grüner.
   vHalmFarbe = vec3(0.8 + 0.4 * h5) * (strohKachel ? vec3(0.8) : kachel < ${HORST_GRUEN} ? vec3(1.15, 1.3, 0.85) : vec3(1.05, 1.15, 0.9));` : ''}
+  ${wildwiese ? 'vHalmFarbe *= mix(vec3(.79,.87,.75), vec3(1.02,.96,.78), wuchs.y);' : ''}
   vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
   #ifdef USE_TANGENT
     vec3 objectTangent = vec3(1.0, 0.0, 0.0);
@@ -428,6 +436,10 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
 
   // D272: Halmkarten mit Alpha-Test; mit MSAA (Kontur) weiche Kanten über alphaToCoverage.
   if (foto) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }
+  if (wildwiese) {
+    const basis = material.customProgramCacheKey;
+    material.customProgramCacheKey = () => basis() + '-wildwiese';
+  }
   const teile: { mesh: THREE.Mesh<THREE.InstancedBufferGeometry>; x: number; z: number; breite: number; tiefe: number }[] = [];
   const gruppe = new THREE.Group();
   for (let z = 0; z < n; z += kachelZellen) {

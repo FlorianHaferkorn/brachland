@@ -9,7 +9,10 @@ import { hoeheAufFlaeche, LOD_STUFEN } from './lod.js';
 import type { HoehenFeld } from './lod.js';
 import { imPolygon } from './osm.js';
 import type { Weltdaten } from './osm.js';
-import { MILBINGERBELAG_AN, MILBINGEROBEN_AN, MILBINGERMASSE_AN, STRASSENPROFIL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from './echt.js';
+import {
+  MILBINGERBELAG_AN, MILBINGERDETAIL_AN, MILBINGEROBEN_AN, MILBINGERMASSE_AN, STRASSENPROFIL_AN,
+  WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN,
+} from './echt.js';
 import { baueStrassenquerschnitt, querschnittGrenzen } from './strassenquerschnitt.js';
 
 type Ort = [number, number];
@@ -67,6 +70,7 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
         querschnitt: vermessen && querschnittGrenzen(vermessen),
         vermessenerSaum: verwitterung ? vermessen : undefined,
         schotterspuren,
+        nahtbewuchs: MILBINGERDETAIL_AN && !!verwitterung,
         bodenpassend: !!bodenraster,
         wohnwegZugaenge: WESTANSCHLUSS_AN && wohnwegrand ? wohnwegZugaenge : undefined,
         fahrbahnprofil: STRASSENPROFIL_AN,
@@ -110,7 +114,7 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
     const mobiliar = baueStrassenmobiliar(objekte, boden);
     gruppe.add(bewuchs.gruppe, mobiliar.gruppe);
     const clay = querschnitte.some(q => !q.verwittert) ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 }) : null;
-    const belag = querschnitte.some(q => q.verwittert) ? baueQuerschnittMaterial(MILBINGEROBEN_AN) : null;
+    const belag = querschnitte.some(q => q.verwittert) ? baueQuerschnittMaterial(MILBINGEROBEN_AN, MILBINGERDETAIL_AN) : null;
     for (const { geometrie, verwittert } of querschnitte) {
       const mesh = new THREE.Mesh(geometrie, (verwittert ? belag : clay)!);
       mesh.name = 'Vermessener Straßenkörper';

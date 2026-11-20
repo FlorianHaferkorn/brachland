@@ -21,6 +21,8 @@ export interface StrassenbewuchsWeg {
   /** Verwitterter Außenrand entlang des vermessenen Querschnitts. */
   vermessenerSaum?: WohnwegQuerschnitt;
   schotterspuren?: boolean;
+  /** Niedrige, unterbrochene Saumgruppen auf der Erdseite des Gehwegs. */
+  nahtbewuchs?: boolean;
   bodenpassend?: boolean;
   /** Erhaltene Zugänge an der Straße, in Weltmetern. */
   wohnwegZugaenge?: readonly (readonly [number, number])[];
@@ -171,13 +173,34 @@ export function baueStrassenbewuchs(
   };
   const matrix = new THREE.Matrix4(), skalierung = new THREE.Vector3(), farbe = new THREE.Color();
 
-  let saumhorste = 0, saumflecken = 0, zufahrtshorste = 0;
+  let saumhorste = 0, saumflecken = 0, zufahrtshorste = 0, nahthorste = 0;
   const bepflanzeQuerschnitt = (weg: StrassenbewuchsWeg) => {
     const profil = weg.vermessenerSaum, verwitterung = profil?.verwitterung;
     if (!profil || !verwitterung || !verwitterung.staerke) return;
     const aussen = querschnittSaum(weg.punkte, profil, weg.breite);
     const belegt = querschnittFreihaltung(weg.punkte, profil, weg.breite).enthaelt;
     const { von, bis } = verwitterung.saum;
+    if (weg.nahtbewuchs) for (const gehweg of profil.gehwege) {
+      const raster = .79;
+      for (let i = Math.ceil(Math.max(von, gehweg.von + .5) / raster); i * raster < Math.min(bis, gehweg.bis - .5); i++) {
+        const zufall = mulberry(weg.saat ^ Math.imul(2 * i + (gehweg.seite === 1 ? 1 : 0), 27109));
+        const station = (i + zufall() * .46) * raster;
+        const nachbar = profil.zufahrten.some(z => z.seite === gehweg.seite && station >= z.von - .23 && station <= z.bis + .23);
+        const gruppierung = .55 + .45 * Math.sin(station * .91) ** 2;
+        if (nachbar || zufall() > .67 * gruppierung * verwitterung.staerke) continue;
+        const ort = aussen(station, gehweg.seite, .30 + zufall() * .11);
+        if (!ort || belegt(...ort) || !freierBoden(...ort)) continue;
+        const [x, z] = ort, wuchs = zufall(), auswahl = zufall();
+        const breite = .064 + .068 * wuchs;
+        const radius = breite / 2;
+        if ([-radius, radius].some(dx => [-radius, radius].some(dz => belegt(x + dx, z + dz)))) continue;
+        wildkraut.push({
+          ort: [x, boden(x, z) - .004, z], groesse: .046 + .051 * wuchs, breite,
+          drehung: zufall() * TAU, ton: .62 + wuchs * .22, auswahl, sorte: auswahl < .46 ? 'kraut' : 'halm',
+        });
+        nahthorste++;
+      }
+    }
     const raster = 1.16;
     for (const seite of [-1, 1] as const) for (let i = Math.ceil(von / raster); i * raster < bis; i++) {
       // Dieselben Horste bleiben beim Verlängern eines Prüfabschnitts erhalten.
@@ -588,6 +611,7 @@ ${hatMarkierungen ? /* glsl */ `
     wildkraut: wildkraut.length, splitt: splitt.length, risse, auflageDreiecke: indizes.length / 3,
     ...(saumhorste || saumflecken ? { saumhorste, saumflecken } : {}),
     ...(zufahrtshorste ? { zufahrtshorste } : {}),
+    ...(nahthorste ? { nahthorste } : {}),
     ...(wege.some(weg => weg.markierungen || weg.fahrbahnprofil) ? { markierungsMeter, markierungsDreiecke, asphaltSchollen } : {}),
   };
   return {

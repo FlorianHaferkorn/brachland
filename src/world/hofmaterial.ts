@@ -34,11 +34,14 @@ vec2 hofScanP;
 vec3 hofT, hofB, hofN;
 float hofHausAnteil;
 vec3 hofArm;
-vec4 hofLies(sampler2D t, vec2 p, float r) {
+vec4 hofLiesGrad(sampler2D t, vec2 p, float r, vec2 dx, vec2 dy) {
   vec2 off = vec2(mod(r, 2.0), 1.0 - floor(r / 2.0)) * 0.5;
   // Acht umgelegte Randpixel schützen den Atlas vor Nachbarkacheln in den Mips.
   return textureGrad(t, off + (fract(p) * (1008.0/1024.0) + 8.0/1024.0) * 0.5,
-    dFdx(p) * (504.0/1024.0), dFdy(p) * (504.0/1024.0));
+    dx * (504.0/1024.0), dy * (504.0/1024.0));
+}
+vec4 hofLies(sampler2D t, vec2 p, float r) {
+  return hofLiesGrad(t, p, r, dFdx(p), dFdy(p));
 }
 `;
 

@@ -17,6 +17,7 @@ import * as THREE from 'three';
 Object.defineProperty(globalThis,'location',{value:{search:'?hofgruen=1&hofhaeuser=1&hoflauben=1&bau=1&lod2=1'+process.env.D307_BODEN_QUERY},configurable:true});
 const {entpackeWelt,imPolygon}=await import('./src/world/osm.ts');
 const {baueGebaeude,orientierteHuelle}=await import('./src/world/terrain.ts');
+const {baueLoD2Dach}=await import('./src/world/lod2dach.ts');
 const {bestimmeHof,waehleHof,HOF_UNIFORM}=await import('./src/world/hofplatz.ts');
 const {bestimmeHofhaeuser}=await import('./src/world/hofhaeuser.ts');
 const {indexiereHausGeometrie}=await import('./src/world/hausindex.ts');
@@ -28,19 +29,49 @@ const mass={breiteMeter:(o-we)*111320*Math.cos((s+n)/2*Math.PI/180),tiefeMeter:(
 const hoehe=(x,z)=>34+(x-1433)*.08+(z-434)*.05;
 const boden={...mass,hoeheAn:hoehe,tiefsteFlaeche:hoehe},hof=bestimmeHof(welt,mass),haeuser=bestimmeHofhaeuser(welt,mass,hof);
 waehleHof(welt,mass);
-const ringe=welt.gebaeude.map(g=>g.punkte.map(([lat,lon])=>[((lon-we)/(o-we)-.5)*mass.breiteMeter,((n-lat)/(n-s)-.5)*mass.tiefeMeter]));
+const nachWelt=(lat,lon)=>[((lon-we)/(o-we)-.5)*mass.breiteMeter,((n-lat)/(n-s)-.5)*mass.tiefeMeter];
+const ringe=welt.gebaeude.map(g=>g.punkte.map(p=>nachWelt(...p)));
 const hash=g=>{
   const h=createHash('sha256');
   for(const [name,a]of Object.entries(g.attributes)) {h.update(name);h.update(Buffer.from(a.array.buffer,a.array.byteOffset,a.array.byteLength));}
   return h.digest('hex');
 };
 const result={haeuser:{},bewohntHash:'',eingabeErhalten:false,uniforms:{zahl:HOF_UNIFORM.zugangZahl.value,werte:HOF_UNIFORM.zugaenge.value.map(q=>q.toArray())},auswahl:haeuser,zuordnung};
+if(process.env.D307_BODEN_QUERY.includes('&milbingerdetail=1')) {
+  const check={dachkern:true,richtung:true,neueDeckung:0,rinnen:0,ueberschneidungen:0};
+  for(const i of [410,413,444,506,507,509,511,513]) {
+    const koerper=lod[i].koerper;
+    for(const k of koerper) {
+      const bau=(nachbarn)=>{
+        const flaechen={deckung:[],untersicht:[],stirn:[],wand:[],rinne:[]};
+        baueLoD2Dach(k,nachWelt,30,30+k.t,(a,b,c,rolle)=>flaechen[rolle].push([a,b,c]),nachbarn);
+        return flaechen;
+      };
+      const nachbarn=koerper.filter(q=>q!==k).map(q=>q.grundriss);
+      const vorher=bau(), nachher=bau(nachbarn);
+      const deckung=nachher.deckung.slice(vorher.deckung.length);
+      check.dachkern&&=JSON.stringify(vorher.deckung)===JSON.stringify(nachher.deckung.slice(0,vorher.deckung.length))
+        && JSON.stringify(vorher.wand)===JSON.stringify(nachher.wand);
+      check.richtung&&=nachher.deckung.every(([a,b,c])=>(b[2]-a[2])*(c[0]-a[0])-(b[0]-a[0])*(c[2]-a[2])>0)
+        && nachher.untersicht.every(([a,b,c])=>(b[2]-a[2])*(c[0]-a[0])-(b[0]-a[0])*(c[2]-a[2])<0);
+      const nachbarWelt=nachbarn.map(ring=>ring.map(p=>nachWelt(...p)));
+      for(const [a,b,c] of [...deckung,...nachher.rinne]) {
+        const mitte=[(a[0]+b[0]+c[0])/3,(a[2]+b[2]+c[2])/3];
+        if(nachbarWelt.some(ring=>imPolygon(mitte,ring))) check.ueberschneidungen++;
+      }
+      check.neueDeckung+=deckung.length;
+      check.rinnen+=nachher.rinne.length;
+    }
+  }
+  result.dachdetails=check;
+}
 const material=new THREE.MeshBasicMaterial({side:THREE.FrontSide}),strahl=new THREE.Raycaster();
 for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,508,509,510,512,693]) {
   const haus={...welt.gebaeude[i],lod2:lod[i],hausnutzung:nutzungen.find(n=>imPolygon(n.ort,welt.gebaeude[i].punkte))};
   const g=baueGebaeude(welt,boden,[haus],[[hof.mitte[0],hof.mitte[1]-75]],haeuser);
   const p=g.getAttribute('position'),r=g.getAttribute('rolle'),z=g.getAttribute('zustand'),glut=g.getAttribute('glut'),uv=g.getAttribute('raumUv');
   const referenz=haeuser.find(h=>h.gebaeudeIndex===i);
+  const dachRinge=haus.lod2?.koerper?.map(k=>k.grundriss.map(p=>nachWelt(...p))) ?? [];
   let endlich=true,raumFalsch=0,glutFalsch=0,kontaktFehler=0,oberePlatten=0,blockiert=0,ausserhalbVorfeld=0,licht=0,schuttEcken=0,balkenEcken=0;
   let blattecken=0, holzrahmen=0, tiefeOeffnung=0, vertieftesGlas=0, regenEcken=0;
   const dachHoehen={};
@@ -48,14 +79,18 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,5
   for(let j=0;j<p.count;j++) {
     if(r.getX(j)===7) blattecken++;
     if(r.getX(j)===6) holzrahmen++;
-    if(haus.hausnutzung && r.getX(j)===5) {
-      const x=p.getX(j),z=p.getZ(j), ring=ringe[i];
-      const abstand=Math.min(...ring.slice(0,-1).map(([ax,az],k)=>{
-        const [bx,bz]=ring[k+1], dx=bx-ax,dz=bz-az;
-        const t=THREE.MathUtils.clamp(((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz),0,1);
-        return Math.hypot(x-ax-dx*t,z-az-dz*t);
-      }));
-      if(abstand>.22 && abstand<.24 && imPolygon([x,z],ring)) vertieftesGlas++;
+    if(r.getX(j)===5) {
+      const x=p.getX(j),z=p.getZ(j), tiefe=haus.hausnutzung ? .23 : .18;
+      for(const ring of haus.hausnutzung ? [ringe[i]] : dachRinge) {
+        if(!imPolygon([x,z],ring)) continue;
+        const abstand=Math.min(...ring.map(([ax,az],k)=>{
+          const [bx,bz]=ring[(k+1)%ring.length], dx=bx-ax,dz=bz-az;
+          if(dx*dx+dz*dz<1e-9) return Infinity;
+          const t=THREE.MathUtils.clamp(((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz),0,1);
+          return Math.hypot(x-ax-dx*t,z-az-dz*t);
+        }));
+        if(Math.abs(abstand-tiefe)<.01) { vertieftesGlas++; break; }
+      }
     }
     if(glut.getX(j)!==0){licht++;if(r.getX(j)!==5)glutFalsch++;}
     const putzRegen=i===508 && r.getX(j)===0 && uv.getZ(j)===1 && process.env.D307_BODEN_QUERY.includes('&westfassade=1');
@@ -175,6 +210,7 @@ interface Hausbefund {
 }
 interface Stand {
   haeuser: Record<number, Hausbefund>; eingabeErhalten: boolean; bewohntHash: string;
+  dachdetails?: { dachkern: boolean; richtung: boolean; neueDeckung: number; rinnen: number; ueberschneidungen: number };
   uniforms: { zahl: number; werte: number[][] }; zuordnung: number[][];
   auswahl: { gebaeudeIndex: number; eingang: [number, number] | null; vorne: [number, number] }[];
 }
@@ -200,6 +236,7 @@ const westdach = lauf(westdachQuery);
 const westfassade = lauf(westdachQuery + '&westfassade=1');
 const milbingerQuery = westdachQuery + '&westfassade=1&westanschluss=1&wohnwegquerschnitt=1&milbingerbelag=1&milbingeroben=1';
 const milbingerVorher = lauf(milbingerQuery), milbingerMasse = lauf(milbingerQuery + '&milbingermasse=1');
+const milbingerDetail = lauf(milbingerQuery + '&milbingermasse=1&milbingerdetail=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -380,5 +417,15 @@ pruefe('D340: First von Haus 509 folgt der amtlichen Kante im gebauten Netz',
 pruefe('D340: Neue Dachkörper bleiben kompaktierbar und lassen den Weststraßenverfall stehen',
   milbingerMasse.eingabeErhalten && Object.entries(milbingerMasse.haeuser).every(([i, dach]) =>
     dach.endlich && dach.indexGleich && (dach.hash !== milbingerVorher.haeuser[Number(i)].hash) === (i === '506' || i === '509')));
+const dachdetails = milbingerDetail.dachdetails;
+pruefe('D341: Überstände und Rinnen erhalten Dachkern und Wandabschlüsse mit richtiger Sichtseite',
+  !!dachdetails?.dachkern && dachdetails.richtung && dachdetails.neueDeckung > 0 && dachdetails.rinnen > 0
+  && dachdetails.ueberschneidungen === 0);
+pruefe('D341: Nur die vermessenen Hauspuffer erhalten Dachdetails und bleiben exakt indexierbar',
+  Object.entries(milbingerDetail.haeuser).every(([i, dach]) =>
+    dach.endlich && dach.indexGleich && (dach.hash !== milbingerMasse.haeuser[Number(i)].hash) === (i === '506' || i === '509')));
+pruefe('D341: Die Milbinger Scheiben liegen in räumlichen Laibungen',
+  [506,509].every(i => milbingerMasse.haeuser[i].vertieftesGlas === 0 && milbingerDetail.haeuser[i].vertieftesGlas >= 12),
+  [506,509].map(i => `${i}: ${milbingerDetail.haeuser[i].vertieftesGlas} Ecken bei 18 cm`).join(', '));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

@@ -346,17 +346,49 @@ const WEG_SCAN_GLSL = /* glsl */ `
 uniform sampler2D uWegFarbe;
 uniform sampler2D uWegNormal;
 uniform vec4 uWegMeter;
-vec4 wegLies(sampler2D t, float r) {
+vec4 wegLiesAn(sampler2D t, float r, vec2 ort) {
   float m = r < 0.5 ? uWegMeter.x : r < 1.5 ? uWegMeter.y : r < 2.5 ? uWegMeter.z : uWegMeter.w;
-  vec2 p = vWeltPos.xz / m;
+  vec2 p = ort / m;
   vec2 off = vec2(mod(r, 2.0), 1.0 - floor(r / 2.0)) * 0.5;
   vec2 uv = off + (fract(p) * 0.996 + 0.002) * 0.5;
   return textureGrad(t, uv, dFdx(p) * 0.5, dFdy(p) * 0.5);
 }
+vec4 wegLies(sampler2D t, float r) {
+  return wegLiesAn(t, r, vWeltPos.xz);
+}
+`;
+
+const QUERSCHNITT_DETAIL_GLSL = /* glsl */ `
+  // Schmale Betonstöße, mit Streuung pro Stein. Im Fernbild klingt die Fuge aus.
+  float beton = (1.0 - asphalt) * (1.0 - zufahrt);
+  float feldlaenge = mix(2.6, 1.0, bord);
+  float stoss = station / feldlaenge + .06 * korn;
+  float feld = floor(stoss + .5);
+  float fugenversatz = (bandHash(vec2(feld, bord + step(0.5, quer))) - .5) * .16;
+  float fugendistanz = abs(stoss - feld + fugenversatz) * feldlaenge;
+  float fugenpixel = fwidth(station);
+  float fuge = beton * (1.0 - smoothstep(.003 + korn * .008, .014 + fugenpixel, fugendistanz))
+    * (1.0 - smoothstep(.028, .11, fugenpixel)) * mix(.26, .49, bord);
+  float steinton = bandHash(vec2(floor(stoss + fugenversatz), bord + step(0.5, quer)));
+  diffuseColor.rgb *= 1.0 - fuge * alter;
+  diffuseColor.rgb *= mix(1.0, .91 + .15 * steinton, beton);
+
+  // Sand und organisches Material sammeln sich am Rinnstein und stückweise in den Stößen.
+  float saum = 1.0 - smoothstep(.025, .12 + .28 * fleck, rand);
+  float ablagerung = smoothstep(.42, .76, fleck * .64 + korn * .36);
+  float dunkel = (.53 * saum + .44 * fuge) * ablagerung * alter;
+  vec3 sediment = mix(vec3(.106, .092, .065), vec3(.059, .075, .041),
+    smoothstep(.43, .69, fleck * .46 + korn * .54));
+  diffuseColor.rgb = mix(diffuseColor.rgb, sediment, dunkel);
+
+  // Feiner heller Splitt tritt nur in den ausgewaschenen Rändern zu Tage.
+  float klein = mix(.5, bandRauschen(scanOrt * 20.0), 1.0 - smoothstep(.23, .8, length(fwidth(scanOrt)) * 20.0));
+  float abrieb = smoothstep(.58, .79, klein * .68 + .32 * korn);
+  diffuseColor.rgb *= 1.0 + abrieb * alter * (.30 * zufahrt + .15 * saum + .23 * beton);
 `;
 
 /** Asphalt, Bord und Zufahrt liegen im selben Mesh und verwenden den vorhandenen Wegatlas. */
-export function baueQuerschnittMaterial(mitSchotterspuren = false): THREE.MeshStandardMaterial {
+export function baueQuerschnittMaterial(mitSchotterspuren = false, mitStrassendetail = false): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 });
   const scans = WEG_TEXTUREN;
   material.onBeforeCompile = shader => {
@@ -372,17 +404,20 @@ attribute float rolle;
 varying vec4 vQuerprofil;
 varying float vRolle;
 varying vec3 vWeltPos;
+${mitStrassendetail ? 'varying float vProfilNormalY;' : ''}
 ${mitSchotterspuren ? 'attribute vec4 schotterspur; varying vec4 vSchotterspur;' : ''}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 vQuerprofil = querprofil;
 vRolle = rolle;
 vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+${mitStrassendetail ? 'vProfilNormalY = normal.y;' : ''}
 ${mitSchotterspuren ? 'vSchotterspur = schotterspur;' : ''}`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
 varying vec4 vQuerprofil;
 varying float vRolle;
 varying vec3 vWeltPos;
+${mitStrassendetail ? 'varying float vProfilNormalY;' : ''}
 ${mitSchotterspuren ? 'varying vec4 vSchotterspur;' : ''}` + BAND_RAUSCHEN_GLSL + (scans ? WEG_SCAN_GLSL : ''))
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float asphalt = 1.0 - step(.5, vRolle);
@@ -391,28 +426,35 @@ ${mitSchotterspuren ? 'varying vec4 vSchotterspur;' : ''}` + BAND_RAUSCHEN_GLSL 
   float quer = vQuerprofil.y / (vQuerprofil.y - vQuerprofil.z);
   float rand = abs(min(vQuerprofil.y, -vQuerprofil.z));
   float alter = vQuerprofil.w;
+  float station = vQuerprofil.x;
   vec2 welt = vWeltPos.xz;
   float fleck = bandRauschen(welt * .63);
   float korn = bandRauschen(welt * 4.6);
   float fugendreck = (1.0 - smoothstep(.03, .44 + fleck * .38, rand))
     * smoothstep(.19, .67, fleck * .51 + korn * .49);
-  float belagTon = mix(.74 + zufahrt * .18, 1.10, asphalt);
+  float belagTon = ${mitStrassendetail ? 'mix(.57 + zufahrt * .32 + bord * .05, 1.03, asphalt)' : 'mix(.74 + zufahrt * .18, 1.10, asphalt)'};
   diffuseColor.rgb *= belagTon * (.87 + .24 * fleck + .09 * korn);
+  ${mitStrassendetail ? /* glsl */ `
+  // Seitenfläche in Stationsmetern und Höhe abbilden, damit sie nicht auf einen Texelstreifen fällt.
+  float stirn = 1.0 - step(.55, abs(vProfilNormalY));
+  vec2 scanOrt = mix(welt, vec2(station, vWeltPos.y), stirn);
+  scanOrt *= mix(1.65, 1.0, max(asphalt, zufahrt));` : ''}
   ${scans ? `float scanRolle = zufahrt;
-  vec3 scanFarbe = wegLies(uWegFarbe, scanRolle).rgb;
-  diffuseColor.rgb *= mix(vec3(1.0), scanFarbe * 2.0, mix(.49 - bord * .17, .94, max(asphalt, zufahrt)));
-  vec3 scanNormale = wegLies(uWegNormal, scanRolle).xyz * 2.0 - 1.0;` : ''}
+  vec3 scanFarbe = ${mitStrassendetail ? 'wegLiesAn(uWegFarbe, scanRolle, scanOrt)' : 'wegLies(uWegFarbe, scanRolle)'}.rgb;
+  diffuseColor.rgb *= mix(vec3(1.0), scanFarbe * 2.0, mix(${mitStrassendetail ? '.78 + bord * .05' : '.49 - bord * .17'}, .94, max(asphalt, zufahrt)));
+  vec3 scanNormale = ${mitStrassendetail ? 'wegLiesAn(uWegNormal, scanRolle, scanOrt)' : 'wegLies(uWegNormal, scanRolle)'}.xyz * 2.0 - 1.0;` : ''}
 
   // Die Risse starten an der Kante und verlieren sich vor der befahrenen Mitte.
-  float station = vQuerprofil.x;
   float querMeter = (vQuerprofil.y + vQuerprofil.z) * .5;
   float periode = floor(station * .28);
   float bruch = station + .49 * querMeter
+    ${mitStrassendetail ? '+ (bandHash(vec2(periode, step(0.5, quer))) - .5) * 1.4' : ''}
     + .46 * bandRauschen(vec2(querMeter * 3.0, periode));
   float linie = abs(fract(bruch * .28 + .17) - .48) / .28;
   float pixelbreite = fwidth(bruch);
   float riss = (1.0 - smoothstep(.009, .017 + pixelbreite * .65, linie))
     * (1.0 - smoothstep(.045, .15, pixelbreite)) * (1.0 - smoothstep(.38, 1.38 + .55 * fleck, rand));
+  ${mitStrassendetail ? 'riss *= smoothstep(.24, .66, fleck * .59 + korn * .41);' : ''}
   float spurabstand = min(abs(quer - .29), abs(quer - .71));
   float spur = 1.0 - smoothstep(.05, .16, spurabstand);
   float reparatur = smoothstep(.64, .78, bandRauschen(welt * .27) + korn * .11);
@@ -435,16 +477,27 @@ ${mitSchotterspuren ? /* glsl */ `
     diffuseColor.rgb = mix(diffuseColor.rgb, schotter, smoothstep(0.0, .18, tiefe));
   }
 ` : ''}
+${mitStrassendetail ? QUERSCHNITT_DETAIL_GLSL : ''}
 `)
+      .replace('#include <roughnessmap_fragment>', mitStrassendetail ? /* glsl */ `#include <roughnessmap_fragment>
+  roughnessFactor = clamp(mix(.98, .78, dunkel * 1.6 + spur * asphalt * .35) + .04 * (korn - .5), .76, .99);
+` : '#include <roughnessmap_fragment>')
       .replace('#include <normal_fragment_maps>', scans ? /* glsl */ `#include <normal_fragment_maps>
   vec3 belagNormal = inverseTransformDirection(normal, viewMatrix);
+${mitStrassendetail ? /* glsl */ `
+  vec3 seitentangente = normalize(vec3(belagNormal.z, 0.0, -belagNormal.x) + vec3(.0001, 0.0, 0.0));
+  vec3 scanRelief = mix(vec3(scanNormale.x, 0.0, scanNormale.y),
+    seitentangente * scanNormale.x + vec3(0.0, scanNormale.y, 0.0), stirn);
+  belagNormal = normalize(belagNormal + scanRelief * mix(.41, .50, max(asphalt, zufahrt)));
+` : /* glsl */ `
   float relief = smoothstep(.55, .93, belagNormal.y) * mix(.26, .48, max(asphalt, zufahrt));
   belagNormal = normalize(belagNormal + vec3(scanNormale.x, 0.0, scanNormale.y) * relief);
+`}
   normal = normalize((viewMatrix * vec4(belagNormal, 0.0)).xyz);
 ` : '#include <normal_fragment_maps>');
   };
   material.customProgramCacheKey = () => 'brachland-querschnitt' + (scans ? '-scans' : '')
-    + (mitSchotterspuren ? '-schotterspuren' : '');
+    + (mitSchotterspuren ? '-schotterspuren' : '') + (mitStrassendetail ? '-strassendetail' : '');
   return material;
 }
 

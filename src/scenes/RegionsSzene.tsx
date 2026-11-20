@@ -631,7 +631,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   }, [props, wiesenbereich]);
   /* Wand, Holz, Fenster, Sockel, Gesims, Tür und Garten stecken als Vertexfarben
      in der Geometrie. Ein Material für alles davon bleibt es trotzdem. */
-  const hausMaterial = useMemo(() => baueHausMaterial(), []);
+  const hausMaterial = useMemo(() => baueHausMaterial(wiesenbereich), [wiesenbereich]);
+  useEffect(() => () => hausMaterial.dispose(), [hausMaterial]);
   useEffect(() => { (hausMaterial.userData.glut as { value: number }).value = fenster; }, [hausMaterial, fenster]);
   const wasserProbe = useMemo<WasserReflexProbe | null>(() => {
     if (typeof location === 'undefined') return null;

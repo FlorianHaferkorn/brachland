@@ -592,3 +592,26 @@ In den ersten beiden D340-Messläufen erscheint bei 2,17 s und Weltposition x144
 | p95, Weststraße | 33,35 ms | 32,50 ms |
 
 Alle vier Läufe erreichen zwölf Wegpunkte ohne Browserfehler. Die Messung läuft ohne Videoaufnahme. D339 stammt aus den beiden Gegenläufen der Erstmessung. Die beiden abschließenden D340-Läufe unter `.cache/mess/d340-vorlauf-bereit-b{1,2}` verwenden denselben Start und dieselbe Route. Der Shader-Vorlauf wird bei `milbingermasse=0` übersprungen.
+
+## Gealterte Bauteile und bewachsene Fugen an der Milbinger Straße (D341)
+
+`milbingermasse=1&milbingerdetail=0/1` vergleicht die vermessene Fassung D340 und die Detailprobe. Die 13 Teilkörper der acht LoD2-Häuser behalten ihre amtlichen Dachflächen und Wandabschlüsse. Untersicht, Traufe, Ortgang und sparsame Rinnen sind Entwurfsdetails. Die Überstände reichen vom amtlichen Kern bis zu 47 cm hinaus. Die Zusatzflächen laufen an den Stößen zu benachbarten Baukörpern aus. 1.472 zusätzliche Dachdreiecke bleiben in den gemeinsamen Hauspuffern.
+
+Wohnteile erhalten echte Laibungen mit 18 cm zurückgesetzten Scheiben, räumliche Fensterbänke, Holzläden und zurückgesetzte Türen. Bei verlassenen Häusern bestimmt ein ortsfester Seed die abgenommenen Läden, Bretterreparaturen, einzelnen Glasreste und den Zustand der Oberflächen. Gebietsbezogene Fassadensteckbriefe haben Vorrang. An kühlen Hausecken wächst Efeu aus dem Boden. Der Übergang bündelt dort die Putzflecken und das freiliegende Mauerwerk, wo Feuchte vom Boden oder von Läufern kommt. Farb-, Normalen- und Rauheitskarten stammen aus den bereits eingebundenen Haus- und Hofatlanten. Die Materialmaske läuft außerhalb des örtlichen Wiesenrahmens aus, damit seitliche Fassaden desselben Straßenzugs mitbehandelt werden. Der bestehende Hof und die drei gestalteten Weststraßen-Fassaden behalten ihren eigenen Materialpfad.
+
+Schmutz und Moos liegen am Rinnstein und in unregelmäßigen Betonfugen. Senkrechte Bordflächen lesen ihre Textur in der Stirnebene. Fahrbahn und Einfahrten behalten das DGM1-Höhenprofil. 17 niedrig wachsende Nahtrandpflanzen kommen im vorhandenen Instanzsatz hinzu. Die Prüfung hält selbst den um 23 cm erweiterten Korridor für Gehweg und Zufahrten frei. Boden und Horste lesen dieselben ortsfesten Wuchsinseln. Wo Halme auslaufen, werden die vorhandenen Schutt- und Streuscans sichtbar. Für D341 kommen keine Texturdateien hinzu.
+
+Die Blender-Bauteilstudie verwendet die exportierten Spielnetze und dieselbe Fassadenkamera. Sie prüft Laibungen, Dachüberstände und Materialtiefe bei separat gewähltem Licht. Die Blender-Datei und das Bild stehen unter `.cache/d341-milbinger/blender-studie-bauteile-fassade.{blend,png}`. Die spielbaren Vorher-Nachher-Bilder und der Fußweg liegen unter `.cache/bilder/d341-milbinger/index.html`. Fensterachsen, Farben einzelner Gebäude und Originaldetails brauchen weiterhin Ansichten vor Ort. D341 ist eine örtliche Ausarbeitung des Spielmaterials.
+
+Der Fußweg nutzt in beiden Fassungen dieselbe Spielkamera und Eingabe über 10,2 s. Er führt 43,02 m (D340) bzw. 42,89 m (D341) weit und quert die obere Einfahrt vollständig. In fünf zeitgleichen Ansichten sind Dachziegel, Laibungen, Bewuchs und Übergänge zum lockeren Boden sichtbar. Das freiliegende Mauerwerk ist in der Nähe besser lesbar. Die Baumkulisse und das warme Dunstlicht prägen den weiterhin stilisierten Gesamteindruck. Die Aufnahmen melden keine Browserfehler. Die Bildzeitmessung läuft separat ohne Video.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D340 | D341 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 52,89 | 51,38 |
+| p95, gesamte Route | 33,30 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 51,10 ms | 50,00 ms |
+| Frames über 50 ms, gesamte Route | 1 | 0 |
+| FPS, Weststraße | 56,13 | 53,95 |
+| p95, Weststraße | 32,40 ms | 33,30 ms |
+
+Alle vier Läufe erreichen zwölf Wegpunkte ohne Browserfehler. Gemessen wurde in demselben Build in der Folge `milbingerdetail=0/1/1/0`. D341 kostet auf der gesamten Route 2,85 % mittlere FPS. Ein Frame mit genau 50 ms liegt bei 28,008 s auf der Weststraße. Der andere D341-Lauf bleibt bei höchstens 35,30 ms. Die Rohberichte liegen unter `.cache/mess/d341-final2-ab-{a1,b1,b2,a2}`.

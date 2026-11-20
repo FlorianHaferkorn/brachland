@@ -120,9 +120,32 @@ for (const objekt of randNeu.gruppe.children) if (objekt instanceof InstancedMes
     assert.ok(!belegt(stand.elements[12], stand.elements[14]), 'Flankenbewuchs und Steine halten die Zufahrt frei');
   }
 }
+console.log('✓ Schotterspuren beginnen hinter dem Gehweg, Erdanschluss und Flanken liegen an der zweiten Einfahrt');
+
+const naht = baueStrassenbewuchs([{ ...weg, vermessenerSaum: variante, schotterspuren: true, nahtbewuchs: true }], () => 0);
+const nahtdaten = naht.gruppe.userData.strassenbewuchs;
+assert.ok(nahtdaten.nahthorste > 0);
+assert.equal(nahtdaten.wildkraut - randNeu.gruppe.userData.strassenbewuchs.wildkraut, nahtdaten.nahthorste);
+assert.equal(nahtdaten.auflageDreiecke, randNeu.gruppe.userData.strassenbewuchs.auflageDreiecke);
+assert.equal(naht.gruppe.children.length, randNeu.gruppe.children.length, 'Die niedrigen Horste bleiben im bestehenden Instanzbatch');
+let gepruefteNahthorste = 0;
+for (const objekt of naht.gruppe.children) if (objekt instanceof InstancedMesh && objekt.geometry.hasAttribute('kartenfeld')) {
+  for (let i = 0; i < objekt.count; i++) {
+    objekt.getMatrixAt(i, stand);
+    const [x, , z] = stand.elements.slice(12, 15);
+    const breite = Math.hypot(stand.elements[0], stand.elements[2]);
+    if (stand.elements[5] >= .10) continue;
+    for (const dx of [-breite / 2, breite / 2]) for (const dz of [-breite / 2, breite / 2]) {
+      assert.ok(!belegt(x + dx, z + dz), 'Der ganze Nahthorst bleibt außerhalb der befestigten Fläche');
+    }
+    gepruefteNahthorste++;
+  }
+}
+assert.equal(gepruefteNahthorste, nahtdaten.nahthorste);
 randAlt.entsorge();
 randNeu.entsorge();
-console.log('✓ Schotterspuren beginnen hinter dem Gehweg, Erdanschluss und Flanken liegen an der zweiten Einfahrt');
+naht.entsorge();
+console.log(`✓ ${nahtdaten.nahthorste} niedrige Nahthorste im bestehenden Batch halten den Gehweg und die Zufahrten frei`);
 
 // Winklige Oberfläche auf dem 2-m-Raster. Der Belag darf Kanten und Nebendiagonalen nicht abschneiden.
 const grund = (s: number, q: number) => .21 * Math.abs(s - 24) + .19 * Math.abs(q + 4);

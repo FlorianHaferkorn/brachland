@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom, LoD2Koerper } from './osm.js';
 import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN, WESTFASSADE_AN, WESTANSCHLUSS_AN, MILBINGERMASSE_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN, WESTFASSADE_AN, WESTANSCHLUSS_AN, MILBINGERMASSE_AN, MILBINGERDETAIL_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueLoD2Dach } from './lod2dach.js';
 import { baueHofsockel } from './hofsockel.js';
@@ -377,6 +377,12 @@ export function baueGebaeude(
     [WAND, 0], [KAMIN, 0], [SCHALUNG, 1], ...SCHALUNG_TOENE.map(c => [c, 1] as [THREE.Color, number]),
     [DACH, 2], [DACH_KANTE, 2], [SOCKEL, 3], [FENSTER, 5],
   ]);
+  const TRAUFHOLZ = MILBINGERDETAIL_AN ? SCHALUNG.clone().multiplyScalar(.58) : DACH_KANTE;
+  const TRAUFUNTERSICHT = MILBINGERDETAIL_AN ? SCHALUNG.clone().multiplyScalar(.37) : SCHALUNG_TOENE[1];
+  if (MILBINGERDETAIL_AN) {
+    ROLLE.set(TRAUFHOLZ, 1);
+    ROLLE.set(TRAUFUNTERSICHT, 1);
+  }
 
   const REFERENZ_HOLZ = TUER.clone();
   ROLLE.set(REFERENZ_HOLZ, 1);
@@ -543,13 +549,14 @@ export function baueGebaeude(
         // OSM-Zuordnung bleibt erhalten, nur die Hülle dieses Teilbaus kommt
         // aus LoD2. Weststraßenhäuser mit eigener Alterung behalten ihr Profil.
         const { t, f, d, w } = amtlich;
-        yield { haus: { ...haus, punkte: amtlich.grundriss, lod2: { t, f, d, w, c: haus.lod2?.c } }, amtlich };
+        yield { haus: { ...haus, punkte: amtlich.grundriss, lod2: { t, f, d, w, c: haus.lod2?.c, koerper } }, amtlich };
       }
     }
   }
 
   const referenzen: readonly HausReferenz[] = !referenz ? [] : Array.isArray(referenz) ? referenz : [referenz as HausReferenz];
   for (const { haus: g, amtlich } of hausKoerper()) {
+    const milbingerHaus = MILBINGERDETAIL_AN && !!amtlich;
     /** D291: erste Ecke dieses Hauses — für die Umfärbung nach dem Fassaden-Steckbrief am Ende. */
     const ersteEcke = farben.length / 3;
     let p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
@@ -692,6 +699,10 @@ export function baueGebaeude(
     if ((hofVerfall || ortsalterung) && g.fassade?.stufe === undefined) {
       const bewohntHier = bewohnt.some(([x,z]) => imPolygon([x,z], p));
       stufeJetzt = bewohntHier ? 0 : wuerfelAus(mz0 + 3.7, mx0 - 1.1)() < .33 ? 1 : 2;
+    }
+    if (milbingerHaus && g.fassade?.stufe === undefined) {
+      const bewohntHier = bewohnt.some(([x, z]) => imPolygon([x, z], p));
+      stufeJetzt = bewohntHier ? 0 : wuerfelAus(mz0 + 9.1, mx0 - 3.7)() < .54 ? 1 : 2;
     }
     if (nutzung) stufeJetzt = dachruine ? 2 : verwachsen ? 1 : 0;
     const bauSchaden = hofVerfall ? stufeJetzt : 0;
@@ -898,7 +909,8 @@ export function baueGebaeude(
       const traufseitig = Math.abs((x2-x1)*hu.cos + (z2-z1)*hu.sin) > lochLaenge*0.7;
       const tiefeDetails = westDetail && strassenWand > -.22;
       const fassadenWand = fassadenbaukasten && tiefeDetails && !stallWand;
-      const tuerVertieft = referenzHaus || (fassadenbaukasten && !stallWand && lochLaenge >= tuerBreite + .6);
+      const milbingerWand = milbingerHaus && wohnhaus && !stallWand;
+      const tuerVertieft = referenzHaus || ((fassadenbaukasten || milbingerWand) && !stallWand && lochLaenge >= tuerBreite + .6);
       const spalt = (() => {
         if (!westDetail || !dachruine || !sackdach || !traufseitig || !Number.isFinite(holzAb)
           || oben-holzAb < 1.7 || schadSeite*(wx*vx+wz*vz) < .84) return undefined;
@@ -922,7 +934,7 @@ export function baueGebaeude(
           && u-breiteF*.82 < spalt.bis*lochLaenge);
       const fensterUnterkante = (ebene: number) => boden + ebene * geschoss + 1.05;
       // Unpassende Fotoachsen erzeugen keine überlappenden Löcher oder offene Hausecken.
-      const fensterVertieft = (FENSTERTIEFE_AN || referenzHaus || fassadenWand)
+      const fensterVertieft = (FENSTERTIEFE_AN || referenzHaus || fassadenWand || milbingerWand)
         && !stallWand && lochLaenge >= 2.2 && anzahl > 0 && lochLaenge / anzahl >= 1.2;
       wandStart = [x1,z1]; wandRichtung = [(x2-x1)/Math.max(lochLaenge,1e-6),(z2-z1)/Math.max(lochLaenge,1e-6)];
       if (fensterVertieft) {
@@ -1086,6 +1098,14 @@ export function baueGebaeude(
         if (zurGasse || bauSchaden === 2 || feuchteWand || rankenWand) baueHausbewuchs(tri, [x1,z1], [x2,z2], [wx,wz],
           terrain.hoeheAn, oben, bauSchaden === 2 || (rankenWand && strassenWand > .53) ? 2 : 1,
           saat, k === tuerWand && !verwachsen ? eingangU : null, WANDRANKE, rankenWand && strassenWand > .53 && k !== hauptWand);
+      }
+      if (milbingerWand && stufeJetzt > 0 && wz < -.56 && wandLaenge > 4.2 && !feuchteWand) {
+        // Der Wurzelfuß liegt in der kühleren Ecke. Die Eingangsschwelle bleibt frei.
+        const ende = k !== tuerWand || eingangU > wandLaenge * .37 ? .32 : .98;
+        const anfang = ende < .5 ? .02 : .68;
+        baueHausbewuchs(tri, [x1+(x2-x1)*anfang,z1+(z2-z1)*anfang],
+          [x1+(x2-x1)*ende,z1+(z2-z1)*ende], [wx,wz], terrain.hoeheAn, oben-.15, 1,
+          Math.floor(glutHash(x1,boden+.37,z1)*0x7fffffff), null, WANDRANKE);
       }
       if (k === hauptWand || spalt) {
         const saat = Math.floor(glutHash(x1,oben,z1)*0x7fffffff);
@@ -1284,7 +1304,8 @@ export function baueGebaeude(
           if (fensterEntfaellt(ebene,laenge*t)) continue;
           const cx = x1 + (x2 - x1) * t, cz = z1 + (z2 - z1) * t;
           const zerbrochen = (einsturz && !zielHaus && ebene === 0 && t < .4)
-            || (dachruine && strassenWand > .36 && fensterVertieft && glutHash(cx,yUnten,cz) < .64);
+            || (dachruine && strassenWand > .36 && fensterVertieft && glutHash(cx,yUnten,cz) < .64)
+            || (milbingerWand && stufeJetzt === 2 && fensterVertieft && glutHash(cx+4.8,yUnten,cz) < .23);
           const ex = (x2 - x1) / laenge * breiteF / 2, ez = (z2 - z1) / laenge * breiteF / 2;
           const o = fensterVertieft ? (fassadenWand ? -.23 : -.18) : .04;
           /**
@@ -1303,7 +1324,7 @@ export function baueGebaeude(
             const dx=(x2-x1)/laenge, dz=(z2-z1)/laenge;
             const P=(u:number,y:number,vor:number):[number,number,number] => [cx+dx*u+nx*vor,y,cz+dz*u+nz*vor];
             const a=breiteF/2, y0=yUnten, y1=yUnten+hoeheF, v=0.025;
-            const ton = fassadenWand
+            const ton = fassadenWand || milbingerWand
               ? (y0 >= holzAb ? REFERENZ_HOLZ : reparatur ? RAHMEN : SOCKEL)
               : wohnhaus ? RAHMEN : SOCKEL;
             // Vier offene Faschenstreifen; kein Quad verdeckt die Aussparung.
@@ -1352,7 +1373,7 @@ export function baueGebaeude(
           );
           raumFenster = null;
           glutWert = 0;
-          if (referenzHaus || (tiefeDetails && fensterVertieft)) {
+          if (referenzHaus || ((tiefeDetails || milbingerWand) && fensterVertieft)) {
             const dx=(x2-x1)/laenge,dz=(z2-z1)/laenge;
             const K=fassadenKasten(quadNach,[cx,cz],[dx,dz],[nx,nz]);
             const a=breiteF/2, y0=yUnten, y1=yUnten+hoeheF;
@@ -1369,7 +1390,7 @@ export function baueGebaeude(
                 K(-a+.055,a-.055,y-.02,y+.02,o+.006,o+.065,rahmen);
               }
             }
-            if (fassadenWand) {
+            if (fassadenWand || milbingerWand) {
               const punkt = (u: number, y: number, v: number): [number, number, number] =>
                 [cx + dx*u + nx*v, y, cz + dz*u + nz*v];
               const steinbank = y0 < holzAb;
@@ -1380,12 +1401,12 @@ export function baueGebaeude(
               K(-a-.28,a+.28,y0-.18,y1+.25,-.93,-.84,RUINEN_INNEN);
               continue;
             }
-            const fensterSchaden = tiefeDetails ? stufeJetzt : bauSchaden;
+            const fensterSchaden = tiefeDetails || milbingerWand ? stufeJetzt : bauSchaden;
             if (fensterSchaden > 0 && (!zielHaus || !einsturz || t >= .4) && glutHash(cx - 1.7, y0, cz) < .33 + fensterSchaden * .1) {
               K(-a-.07,a+.07,y0+hoeheF*.27,y0+hoeheF*.40,-.035,.035,REFERENZ_HOLZ);
             }
             // An engen Achsen und bei einem Steckbrief ohne Läden bleibt der Rahmen frei.
-            if (fassadenWand && (g.fassade?.laeden === null || laenge / anzahl < 2.10)) continue;
+            if ((fassadenWand || milbingerWand) && (g.fassade?.laeden === null || laenge / anzahl < 2.10)) continue;
             for(const seite of [-1,1]) {
               const zustandLaden = glutHash(cx + seite * 1.7, y0, cz);
               if (fensterSchaden > 0 && zustandLaden < fensterSchaden * .26) continue;
@@ -1496,12 +1517,15 @@ export function baueGebaeude(
     if (amtlich) {
       // Die amtliche Dachhaut ersetzt Überstand, rechteckige Abdeckung und
       // Einheitsgiebel. Die Fassade darunter behält Sockel, Fenster und Material.
-      const wand = Number.isFinite(holzAb) ? SCHALUNG : WAND;
+      const materialrollen = {
+        deckung: dachFarbe, untersicht: TRAUFUNTERSICHT, stirn: MILBINGERDETAIL_AN ? TRAUFHOLZ : dachKante,
+        rinne: RINNE, wand: Number.isFinite(holzAb) ? SCHALUNG : WAND,
+      };
+      const nachbargrundrisse = MILBINGERDETAIL_AN
+        ? echt2?.koerper?.filter(k => k !== amtlich).map(k => k.grundriss) : undefined;
       baueLoD2Dach(amtlich, zuWelt, boden, traufe, (a, b, c, rolle) => {
-        tri(a, b, c, rolle === 'deckung' ? dachFarbe
-          : rolle === 'untersicht' ? SCHALUNG_TOENE[1]
-          : rolle === 'stirn' ? dachKante : wand);
-      });
+        tri(a, b, c, materialrollen[rolle]);
+      }, nachbargrundrisse);
       faerbeFassade(g.fassade, ersteEcke);
       continue;
     }
