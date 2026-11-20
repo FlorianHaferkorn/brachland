@@ -488,6 +488,24 @@ const Strassengeschichte = Strassenobjekt.pick({ ort: true, verfall: true }).ext
 const Stationsbereich = z.object({
   von: z.number().nonnegative(), bis: z.number().positive(), seite: z.union([z.literal(-1), z.literal(1)]),
 });
+const Strassenalterung = z.object({
+  /** Historische Arbeitsmarkierungen der Spielwelt, quer ab gemessener Fahrbahnmitte. */
+  farbreste: z.array(z.object({
+    von: z.number().nonnegative(), bis: z.number().positive(), quer: z.number(),
+    breite: z.number().min(.05).max(.25),
+  }).refine(s => s.bis > s.von)).max(12),
+  ausbrueche: z.array(z.object({
+    station: z.number().nonnegative(), quer: z.number(),
+    laenge: z.number().min(.12).max(2.6), breite: z.number().min(.12).max(1.7),
+  })).max(12),
+  ablaeufe: z.array(z.object({
+    station: z.number().nonnegative(), seite: z.union([z.literal(-1), z.literal(1)]),
+  })).max(6),
+  schachtdeckel: z.object({
+    station: z.number().nonnegative(), quer: z.number(), durchmesser: z.number().min(.3).max(1),
+  }).optional(),
+});
+export type Strassenalterung = z.infer<typeof Strassenalterung>;
 const WohnwegQuerschnitt = z.object({
   /** Längsmeter ab dem ersten OSM-Punkt, dann beide Asphaltkanten quer nach (-dz, dx). */
   stationen: z.array(z.tuple([z.number().nonnegative(), z.number(), z.number()])).min(2)
@@ -507,9 +525,15 @@ const WohnwegQuerschnitt = z.object({
     staerke: z.number().min(0).max(1),
     saum: z.object({ von: z.number().nonnegative(), bis: z.number().positive() }),
   }).optional(),
-}).refine(p => p.stationen.length >= 2 && [...p.gehwege, ...p.zufahrten, ...(p.verwitterung ? [p.verwitterung.saum] : [])].every(a =>
+  alterung: Strassenalterung.optional(),
+}).refine(p => p.stationen.length >= 2 && [...p.gehwege, ...p.zufahrten, ...(p.verwitterung ? [p.verwitterung.saum] : []),
+  ...(p.alterung?.farbreste ?? []),
+  ...(p.alterung?.ausbrueche ?? []).map(s => ({ von: s.station - s.laenge / 2, bis: s.station + s.laenge / 2 })),
+  ...(p.alterung?.ablaeufe ?? []).map(s => ({ von: s.station - .3, bis: s.station + .3 })),
+  ...(p.alterung?.schachtdeckel ? [{ von: p.alterung.schachtdeckel.station - p.alterung.schachtdeckel.durchmesser/2,
+    bis: p.alterung.schachtdeckel.station + p.alterung.schachtdeckel.durchmesser/2 }] : [])].every(a =>
   a.von < a.bis && a.von >= p.stationen[0][0] && a.bis <= p.stationen.at(-1)![0]),
-  'Gehwege, Zufahrten und der bewachsene Saum müssen innerhalb der gemessenen Stationen liegen.');
+  'Gehwege, Zufahrten, bewachsene Säume und Alterung müssen innerhalb der gemessenen Stationen liegen.');
 export type WohnwegQuerschnitt = z.infer<typeof WohnwegQuerschnitt>;
 
 const Strassenkulisse = z.object({

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { nachMetern, REGIONEN } from '../data/inhalte.js';
-import type { Strassenkulisse } from '../data/schema.js';
+import type { Strassenalterung, Strassenkulisse } from '../data/schema.js';
 import { baueStrassenbewuchs } from './strassenbewuchs.js';
 import { baueQuerschnittMaterial } from './bandmaterial.js';
 import { baueStrassenmobiliar } from './strassenmobiliar.js';
@@ -10,7 +10,7 @@ import type { HoehenFeld } from './lod.js';
 import { imPolygon } from './osm.js';
 import type { Weltdaten } from './osm.js';
 import {
-  MILBINGERBELAG_AN, MILBINGERDETAIL_AN, MILBINGEROBEN_AN, MILBINGERMASSE_AN, MILBINGERRAND_AN, MILBINGERSUBSTANZ_AN, STRASSENPROFIL_AN,
+  MILBINGERBELAG_AN, MILBINGERDETAIL_AN, MILBINGERFINALE_AN, MILBINGEROBEN_AN, MILBINGERMASSE_AN, MILBINGERRAND_AN, MILBINGERSUBSTANZ_AN, STRASSENPROFIL_AN,
   WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN,
 } from './echt.js';
 import { baueStrassenquerschnitt, querschnittGrenzen } from './strassenquerschnitt.js';
@@ -48,7 +48,7 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
     return { ring, minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) };
   });
   return abschnitte.map(abschnitt => {
-    const querschnitte: { geometrie: THREE.BufferGeometry; verwittert: boolean }[] = [];
+    const querschnitte: { geometrie: THREE.BufferGeometry; verwittert: boolean; alterung?: Strassenalterung }[] = [];
     const wege = abschnitt.wege.flatMap(({ osmWeg, verfall, profil, wohnwegrand, querschnitt }) => {
       const weg = wegNachId.get(osmWeg);
       if (!weg) return [];
@@ -58,9 +58,11 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
       const verwitterung = MILBINGERBELAG_AN ? vermessen?.verwitterung : undefined;
       const schotterspuren = MILBINGEROBEN_AN && !!verwitterung;
       const randverfall = MILBINGERRAND_AN && !!verwitterung;
+      const alterung = MILBINGERFINALE_AN && randverfall ? vermessen?.alterung : undefined;
       if (vermessen) querschnitte.push({
-        geometrie: baueStrassenquerschnitt(punkte, boden, vermessen, weg.breite, verwitterung, schotterspuren, bodenraster, randverfall),
+        geometrie: baueStrassenquerschnitt(punkte, boden, vermessen, weg.breite, verwitterung, schotterspuren, bodenraster, randverfall, !!alterung),
         verwittert: !!verwitterung,
+        alterung,
       });
       return [{
         punkte,
@@ -73,6 +75,7 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
         schotterspuren,
         nahtbewuchs: MILBINGERDETAIL_AN && !!verwitterung,
         randverfall,
+        strassenfinale: !!alterung,
         bodenpassend: !!bodenraster,
         wohnwegZugaenge: WESTANSCHLUSS_AN && wohnwegrand ? wohnwegZugaenge : undefined,
         fahrbahnprofil: STRASSENPROFIL_AN,
@@ -119,10 +122,16 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
     const bewuchs = baueStrassenbewuchs(wege, boden, frei);
     const mobiliar = baueStrassenmobiliar(objekte, boden);
     gruppe.add(bewuchs.gruppe, mobiliar.gruppe);
-    const clay = querschnitte.some(q => !q.verwittert) ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 }) : null;
-    const belag = querschnitte.some(q => q.verwittert) ? baueQuerschnittMaterial(MILBINGEROBEN_AN, MILBINGERDETAIL_AN, MILBINGERRAND_AN) : null;
-    for (const { geometrie, verwittert } of querschnitte) {
-      const mesh = new THREE.Mesh(geometrie, (verwittert ? belag : clay)!);
+    const materialien = new Map<Strassenalterung | undefined | null, THREE.MeshStandardMaterial>();
+    for (const { geometrie, verwittert, alterung } of querschnitte) {
+      const schluessel = verwittert ? alterung : null;
+      let material = materialien.get(schluessel);
+      if (!material) {
+        material = verwittert ? baueQuerschnittMaterial(MILBINGEROBEN_AN, MILBINGERDETAIL_AN, MILBINGERRAND_AN, alterung)
+          : new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 });
+        materialien.set(schluessel, material);
+      }
+      const mesh = new THREE.Mesh(geometrie, material);
       mesh.name = 'Vermessener Straßenkörper';
       mesh.receiveShadow = true;
       gruppe.add(mesh);
@@ -133,8 +142,7 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
       entsorge: () => {
         bewuchs.entsorge(); mobiliar.freigeben();
         for (const { geometrie } of querschnitte) geometrie.dispose();
-        clay?.dispose();
-        belag?.dispose();
+        for (const material of materialien.values()) material.dispose();
       },
     };
   });

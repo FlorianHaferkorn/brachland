@@ -17,6 +17,8 @@ import WEG_SCANS from '../../public/material/weg-scans.json';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
 import { OBERFLAECHEN_GLSL } from './oberflaechen.js';
+import { STRASSENALTERUNG_GLSL } from './strassenalterung.js';
+import type { Strassenalterung } from '../data/schema.js';
 import { PALETTE } from './palette.js';
 import { SPIEGELBILD } from './spiegelbild.js';
 
@@ -452,15 +454,33 @@ const querschnittSubstrat = (mitSchotterspuren: boolean) => /* glsl */ `
 /** Asphalt, Bord und Zufahrt liegen im selben Mesh und verwenden den vorhandenen Wegatlas. */
 export function baueQuerschnittMaterial(
   mitSchotterspuren = false, mitStrassendetail = false, mitRandverfall = false,
+  alterung?: Strassenalterung,
 ): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 });
   const scans = WEG_TEXTUREN;
   const substrat = mitRandverfall && MILBINGERSUBSTANZ_AN;
+  const endzustand = mitRandverfall ? alterung : undefined;
+  // Derselbe Boden bleibt unter dem teilweise erodierten Material sichtbar.
+  material.alphaToCoverage = !!endzustand;
+  if (endzustand) material.defines = {
+    ...material.defines,
+    FARBRESTE: endzustand.farbreste.length,
+    SCHLAGLOECHER: endzustand.ausbrueche.length,
+    RINNENROSTE: endzustand.ablaeufe.length,
+    ...(endzustand.schachtdeckel ? { SCHACHTDECKEL: 1 } : {}),
+  };
   material.onBeforeCompile = shader => {
     if (scans) {
       shader.uniforms.uWegFarbe = { value: scans.farbe };
       shader.uniforms.uWegNormal = { value: scans.normal };
       shader.uniforms.uWegMeter = { value: WEG_METER };
+    }
+    if (endzustand) {
+      shader.uniforms.uFarbrest = { value: endzustand.farbreste.map(m => new THREE.Vector4(m.von,m.bis,m.quer,m.breite)) };
+      shader.uniforms.uSchlagloch = { value: endzustand.ausbrueche.map(m => new THREE.Vector4(m.station,m.quer,m.laenge/2,m.breite/2)) };
+      shader.uniforms.uRinnenrost = { value: endzustand.ablaeufe.map(a => new THREE.Vector2(a.station,a.seite)) };
+      const deckel = endzustand.schachtdeckel;
+      if (deckel) shader.uniforms.uSchachtdeckel = { value: new THREE.Vector3(deckel.station,deckel.quer,deckel.durchmesser/2) };
     }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
@@ -470,6 +490,7 @@ varying vec4 vQuerprofil;
 varying float vRolle;
 varying vec3 vWeltPos;
 ${mitStrassendetail ? 'varying float vProfilNormalY;' : ''}
+${endzustand ? 'attribute float auslauf; varying float vAuslauf;' : ''}
 ${mitRandverfall ? 'attribute vec2 abriebkante; varying vec2 vAbriebkante;' : ''}
 ${mitSchotterspuren ? 'attribute vec4 schotterspur; varying vec4 vSchotterspur;' : ''}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
@@ -477,6 +498,7 @@ vQuerprofil = querprofil;
 vRolle = rolle;
 vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
 ${mitStrassendetail ? 'vProfilNormalY = normal.y;' : ''}
+${endzustand ? 'vAuslauf = auslauf;' : ''}
 ${mitRandverfall ? 'vAbriebkante = abriebkante;' : ''}
 ${mitSchotterspuren ? 'vSchotterspur = schotterspur;' : ''}`);
     shader.fragmentShader = shader.fragmentShader
@@ -485,9 +507,24 @@ varying vec4 vQuerprofil;
 varying float vRolle;
 varying vec3 vWeltPos;
 ${mitStrassendetail ? 'varying float vProfilNormalY;' : ''}
+${endzustand ? /* glsl */ `
+varying float vAuslauf;
+#if FARBRESTE > 0
+uniform vec4 uFarbrest[FARBRESTE];
+#endif
+#if SCHLAGLOECHER > 0
+uniform vec4 uSchlagloch[SCHLAGLOECHER];
+#endif
+#if RINNENROSTE > 0
+uniform vec2 uRinnenrost[RINNENROSTE];
+#endif
+#ifdef SCHACHTDECKEL
+uniform vec3 uSchachtdeckel;
+#endif
+` : ''}
 ${mitRandverfall ? 'varying vec2 vAbriebkante;' : ''}
 ${mitSchotterspuren ? 'varying vec4 vSchotterspur;' : ''}` + BAND_RAUSCHEN_GLSL + (scans ? WEG_SCAN_GLSL : '')
-        + (substrat ? OBERFLAECHEN_GLSL : ''))
+        + (substrat || endzustand ? OBERFLAECHEN_GLSL : ''))
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float asphalt = 1.0 - step(.5, vRolle);
   float bord = step(1.5, vRolle) * (1.0 - step(2.5, vRolle));
@@ -549,11 +586,23 @@ ${mitSchotterspuren ? /* glsl */ `
 ${mitStrassendetail ? QUERSCHNITT_DETAIL_GLSL : ''}
 ${mitRandverfall ? QUERSCHNITT_RANDVERFALL_GLSL : ''}
 ${substrat ? querschnittSubstrat(mitSchotterspuren) : ''}
+${endzustand ? STRASSENALTERUNG_GLSL + /* glsl */ `
+  // Im Raster folgt dieselbe auslaufende Schicht der Geländeoberfläche.
+  float auslaufOrt = vAuslauf + (randKorn-.5)*.31 + (randBoden-.5)*.38;
+  float auslaufSchmutz = smoothstep(.10,.78,auslaufOrt)*smoothstep(0.0,.30,vAuslauf);
+  vec3 auslaufBoden = mix(vec3(.071,.055,.037),vec3(.048,.063,.031),
+    smoothstep(.33,.78,randBoden*.66 + randKorn*.34));
+  diffuseColor.rgb = mix(diffuseColor.rgb,auslaufBoden*(.82+.33*randKorn),auslaufSchmutz*.57);
+  float auslaufDeckung = 1.0 - smoothstep(.21,.88,auslaufOrt)*smoothstep(0.0,.34,vAuslauf);
+  diffuseColor.a *= auslaufDeckung;
+  if (auslaufDeckung < .025) discard;
+` : ''}
 `)
       .replace('#include <roughnessmap_fragment>', /* glsl */ `#include <roughnessmap_fragment>
 ${mitStrassendetail ? 'roughnessFactor = clamp(mix(.98, .78, dunkel * 1.6 + spur * asphalt * .35) + .04 * (korn - .5), .76, .99);' : ''}
 ${mitRandverfall ? 'roughnessFactor = mix(roughnessFactor, .71, nasseKante * .65);' : ''}
-${substrat ? 'roughnessFactor = mix(mix(roughnessFactor,.94,schotter*.77),.86,feinteil);' : ''}`)
+${substrat ? 'roughnessFactor = mix(mix(roughnessFactor,.94,schotter*.77),.86,feinteil);' : ''}
+${endzustand ? 'roughnessFactor = mix(mix(roughnessFactor,.88,farbRest),.42,stehendesWasser*.72);' : ''}`)
       .replace('#include <normal_fragment_maps>', scans ? /* glsl */ `#include <normal_fragment_maps>
   vec3 belagNormal = inverseTransformDirection(normal, viewMatrix);
 ${mitStrassendetail ? /* glsl */ `
@@ -571,10 +620,16 @@ ${mitStrassendetail ? /* glsl */ `
       .replace('#include <normal_fragment_begin>', /* glsl */ `#include <normal_fragment_begin>
         normal = substratNormale(normal, vViewPosition,
           substratHoehe * (1.0 - smoothstep(9.0,32.0,length(vViewPosition))), faceDirection);`);
+    if (endzustand) shader.fragmentShader = shader.fragmentShader
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = max(metalnessFactor,ablaufMetall);')
+      .replace('#include <normal_fragment_begin>', /* glsl */ `#include <normal_fragment_begin>
+        normal = substratNormale(normal, vViewPosition,
+          fahrbahnRelief * (1.0 - smoothstep(13.0,38.0,length(vViewPosition))), faceDirection);`);
   };
   material.customProgramCacheKey = () => 'brachland-querschnitt' + (scans ? '-scans' : '')
     + (mitSchotterspuren ? '-schotterspuren' : '') + (mitStrassendetail ? '-strassendetail' : '')
-    + (mitRandverfall ? '-randverfall' : '') + (substrat ? '-substrat' : '');
+    + (mitRandverfall ? '-randverfall' : '') + (substrat ? '-substrat' : '')
+    + (endzustand ? '-strassenalterung' : '');
   return material;
 }
 

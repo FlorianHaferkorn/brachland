@@ -80,6 +80,8 @@ export const MILBINGERFERN_AN = MILBINGERLICHT_AN && suche.get('milbingerfern') 
 export const MILBINGERRAND_AN = MILBINGERBODEN_AN && an('milbingerrand');
 /** D347: Materialtiefe und fortgeschrittene Übernahme an der Milbinger Straße. */
 export const MILBINGERSUBSTANZ_AN = MILBINGERRAND_AN && an('milbingersubstanz');
+/** D348: zusammenhängender Belag, Farbreste und Straßenrand in Milbinger. */
+export const MILBINGERFINALE_AN = MILBINGERSUBSTANZ_AN && an('milbingerfinale');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

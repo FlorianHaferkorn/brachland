@@ -29,6 +29,8 @@ export interface StrassenbewuchsWeg {
   nahtbewuchs?: boolean;
   /** Erdlinsen und Bruchkies neben ausgebrochenen Gehwegkanten. */
   randverfall?: boolean;
+  /** Pflanzeninseln in ausgespülten, offenen Fahrbahnrändern. */
+  strassenfinale?: boolean;
   bodenpassend?: boolean;
   /** Erhaltene Zugänge an der Straße, in Weltmetern. */
   wohnwegZugaenge?: readonly (readonly [number, number])[];
@@ -180,13 +182,42 @@ export function baueStrassenbewuchs(
   const matrix = new THREE.Matrix4(), skalierung = new THREE.Vector3(), farbe = new THREE.Color();
 
   let saumhorste = 0, saumflecken = 0, zufahrtshorste = 0, nahthorste = 0;
-  let randlinsen = 0, randhorste = 0, randbruch = 0, zufahrtskiesel = 0;
+  let randlinsen = 0, randhorste = 0, randbruch = 0, zufahrtskiesel = 0, fahrbahnsaum = 0;
   const bepflanzeQuerschnitt = (weg: StrassenbewuchsWeg) => {
     const profil = weg.vermessenerSaum, verwitterung = profil?.verwitterung;
     if (!profil || !verwitterung || !verwitterung.staerke) return;
     const aussen = querschnittSaum(weg.punkte, profil, weg.breite);
     const belegt = querschnittFreihaltung(weg.punkte, profil, weg.breite).enthaelt;
     const { von, bis } = verwitterung.saum;
+    if (weg.strassenfinale) {
+      const start = profil.stationen[0][0], ende = profil.stationen.at(-1)![0];
+      for (const seite of [-1, 1] as const) for (let i = Math.ceil(start / .82); i*.82 < ende; i++) {
+        const zufall = mulberry(weg.saat ^ Math.imul(i*2 + (seite > 0 ? 1 : 0),34871));
+        const s = (i + zufall()*.55)*.82;
+        if (s > ende || profil.zufahrten.some(z => z.seite === seite && s > z.von-.58 && s < z.bis+.58)) continue;
+        const amBord = profil.gehwege.some(g => g.seite === seite && s >= g.von && s <= g.bis);
+        const deckung = (.61 + .27*Math.sin(s*.49) + .12*Math.sin(s*1.36 + .8)) * (amBord ? .39 : 1);
+        if (zufall() > deckung) continue;
+        const anzahl = amBord ? 1 : 3 + Math.floor(4*deckung);
+        for (let k = 0; k < anzahl; k++) {
+          const laengs = s + (zufall()-.5)*.63, quer = amBord ? -.055 : -.18 + zufall()*.64;
+          const ort = aussen(laengs,seite,quer,true);
+          if (!ort || !freierBoden(...ort)) continue;
+          const wuchs = zufall(), auswahl = zufall(), drehung = zufall()*TAU;
+          const [x,z] = ort;
+          const fuss: Punkt = [x,boden(x,z) + (quer < 0 ? .012 : -.002),z];
+          if (auswahl < .26) {
+            splitt.push({ ort: fuss, groesse: .024+.053*wuchs, drehung, ton: .81+.46*zufall(), auswahl });
+          } else {
+            const aussenwuchs = Math.max(0, quer)*.55;
+            wildkraut.push({ ort: fuss, groesse: .038 + wuchs*(.096 + aussenwuchs),
+              breite: .058 + wuchs*(.113 + aussenwuchs), drehung, ton: .65+.24*zufall(),
+              auswahl, sorte: auswahl < .54 ? 'kraut' : auswahl < .79 ? 'halm' : 'stroh' });
+          }
+          fahrbahnsaum++;
+        }
+      }
+    }
     if (weg.randverfall) for (const { seite, von, bis, breite: gehwegbreite } of profil.gehwege) {
       const maximalerAbtrag = Math.min(GEHWEG_RANDABTRAG, gehwegbreite * .16);
       const amBruch = (s: number, abstand: number, hub: number): Punkt | undefined => {
@@ -321,8 +352,9 @@ export function baueStrassenbewuchs(
         const anzahl = Math.ceil((zufahrt.bis - zufahrt.von) * Math.max(0, zufahrt.tiefe - gehweg) * 7.5);
         const hubInnen = DECKE_UEBER_GRUND + (gehweg > 0 ? BORD_ABSENKUNG : 0);
         for (let i = 0; i < anzahl; i++) {
-          const s = THREE.MathUtils.lerp(zufahrt.von + .16, zufahrt.bis - .16, kiesSaat());
-          const t = .07 + .86 * kiesSaat();
+          const abstand = weg.strassenfinale ? .55 : .16;
+          const s = THREE.MathUtils.lerp(zufahrt.von + abstand, zufahrt.bis - abstand, kiesSaat());
+          const t = weg.strassenfinale ? .15 + .68*kiesSaat() : .07 + .86*kiesSaat();
           const spur = Math.abs(Math.abs(s - mitte) - belag.spurabstand / 2);
           if (spur < .31 && kiesSaat() < .95) continue;
           const punkt = aussen(s, zufahrt.seite, THREE.MathUtils.lerp(gehweg, zufahrt.tiefe, t), true);
@@ -344,7 +376,7 @@ export function baueStrassenbewuchs(
         const phase = zufall() * TAU;
         const anfang = aussen(station, zufahrt.seite, gehweg, true);
         const ende = aussen(station, zufahrt.seite, zufahrt.tiefe, true);
-        if (anfang && ende && zellen > 0) {
+        if (!weg.strassenfinale && anfang && ende && zellen > 0) {
           const hubInnen = (weg.bodenpassend ? DECKE_UEBER_GRUND : WEG_UEBER_GRUND) + (gehweg > 0 ? BORD_ABSENKUNG : 0);
           const hubAussen = weg.bodenpassend ? ZUFAHRT_UEBER_GRUND : WEG_UEBER_GRUND;
           const innenY = boden(...anfang) + hubInnen;
@@ -692,6 +724,7 @@ ${hatMarkierungen ? /* glsl */ `
   }
   gruppe.userData.strassenbewuchs = {
     wildkraut: wildkraut.length, splitt: splitt.length, zufahrtskiesel, risse, auflageDreiecke: indizes.length / 3,
+    ...(fahrbahnsaum ? { fahrbahnsaum } : {}),
     ...(saumhorste || saumflecken ? { saumhorste, saumflecken } : {}),
     ...(zufahrtshorste ? { zufahrtshorste } : {}),
     ...(nahthorste ? { nahthorste } : {}),

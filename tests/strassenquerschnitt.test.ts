@@ -194,8 +194,46 @@ for (const s of [21.67, 23.97, 24.04, 26.3, 34.83]) {
 }
 assert.ok(Math.abs(ueberGrund(32, links - 1.6) - .043) < .00001);
 assert.ok(Math.abs(ueberGrund(32, links - 5.98) - .009) < .0002);
+const randRaster = { ursprung: [0, 0] as const, schritt: 2 };
+const rueckfall = baueStrassenquerschnitt(punkte, grund, variante, 5, verwitterung, true, randRaster, true, false);
+assert.deepEqual(Object.keys(rueckfall.attributes), Object.keys(randNetz.attributes));
+for (const [name, attribut] of Object.entries(randNetz.attributes)) {
+  assert.deepEqual(rueckfall.getAttribute(name).array, attribut.array);
+}
+assert.deepEqual(rueckfall.index?.array, randNetz.index?.array);
+rueckfall.dispose();
 randNetz.dispose();
 console.log(`✓ ${ausbrueche} ausgebrochene Kantenvertices, Fahrbahnhöhe und Zugänge unverändert`);
+
+const finaleNetz = baueStrassenquerschnitt(punkte, grund, variante, 5, verwitterung, true, randRaster, true, true);
+gezeichnet.geometry = finaleNetz;
+const auslauf = finaleNetz.getAttribute('auslauf');
+const finaleP = finaleNetz.getAttribute('position'), finaleR = finaleNetz.getAttribute('rolle');
+const spurFinal = finaleNetz.getAttribute('schotterspur');
+assert.equal(auslauf.count, finaleP.count);
+let kiesrand = 0, fahrbahnrand = 0;
+for (let i = 0; i < auslauf.count; i++) {
+  const gewicht = auslauf.getX(i);
+  assert.ok(Number.isFinite(gewicht) && gewicht >= 0 && gewicht <= 1);
+  if (gewicht < .9999) continue;
+  const s = finaleP.getX(i), q = finaleP.getZ(i), y = finaleP.getY(i), [l, r] = kanten(s);
+  assert.ok(Math.abs(y - grund(s, q) - .0025) < .00003, 'Der Auslauf liegt ohne Z-Fighting auf demselben Geländeraster');
+  if (finaleR.getX(i) === 0) {
+    assert.ok(Math.min(Math.abs(q - l), Math.abs(q - r)) < .00002);
+    fahrbahnrand++;
+  } else if (spurFinal.getZ(i) > 0) {
+    assert.ok(Math.min(Math.abs(s - 30), Math.abs(s - 34), Math.abs(q - l + 6)) < .00002, 'Die vermessene Außenkante bleibt erhalten');
+    kiesrand++;
+  }
+}
+assert.ok(kiesrand > 10 && fahrbahnrand > 10);
+assert.ok(Math.abs(ueberGrund(32, links - 1.6) - .043) < .00002, 'Die Zufahrt bleibt bündig an der vorhandenen Bordabsenkung');
+assert.ok(Math.abs(ueberGrund(32, links - 5.996) - .0025) < .00023);
+assert.ok(ueberGrund(30.01, kanten(30.01)[0] - 4) < .005, 'Auch die seitliche Fläche verliert ihre Aufsatzkante');
+assert.ok(Math.abs(ueberGrund(22, kanten(22)[1] - .7) - .018) < .00002, 'Die Fahrbahnmitte behält ihre Höhe');
+assert.ok(ueberGrund(22, kanten(22)[1] - .002) < .003, 'Am unbebordeten Asphalt übernimmt das Gelände');
+finaleNetz.dispose();
+console.log(`✓ D348: ${kiesrand} bündige Kiesrand- und ${fahrbahnrand} Asphaltrandpunkte auf dem Geländeraster`);
 
 bodennetz.dispose();
 material.dispose();

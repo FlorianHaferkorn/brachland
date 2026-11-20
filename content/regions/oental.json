@@ -230,6 +230,28 @@
               "staerke": 0.92,
               "saum": { "von": 65, "bis": 98 }
             },
+            "alterung": {
+              "farbreste": [
+                { "von": 112.8, "bis": 114.3, "quer": 0.78, "breite": 0.115 },
+                { "von": 116.3, "bis": 118.0, "quer": 0.68, "breite": 0.115 },
+                { "von": 120.0, "bis": 122.3, "quer": 0.66, "breite": 0.115 },
+                { "von": 124.2, "bis": 125.7, "quer": 0.72, "breite": 0.115 },
+                { "von": 127.9, "bis": 129.0, "quer": 0.88, "breite": 0.115 }
+              ],
+              "ausbrueche": [
+                { "station": 77.4, "quer": -0.96, "laenge": 0.74, "breite": 0.59 },
+                { "station": 98.4, "quer": 1.53, "laenge": 1.27, "breite": 0.85 },
+                { "station": 109.6, "quer": -1.37, "laenge": 0.78, "breite": 0.49 },
+                { "station": 118.7, "quer": 1.37, "laenge": 1.56, "breite": 0.90 },
+                { "station": 123.7, "quer": 1.06, "laenge": 0.72, "breite": 0.52 },
+                { "station": 138.5, "quer": -1.46, "laenge": 1.12, "breite": 0.61 }
+              ],
+              "ablaeufe": [
+                { "station": 106.5, "seite": -1 },
+                { "station": 133.8, "seite": -1 }
+              ],
+              "schachtdeckel": { "station": 140.2, "quer": 1.67, "durchmesser": 0.61 }
+            },
             "gehwege": [
               {
                 "von": 65,
