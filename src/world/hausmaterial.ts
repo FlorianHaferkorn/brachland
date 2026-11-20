@@ -18,7 +18,8 @@ import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_B
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
-import { MILBINGERDETAIL_AN } from './echt.js';
+import { MILBINGERDETAIL_AN, MILBINGERSUBSTANZ_AN } from './echt.js';
+import { OBERFLAECHEN_GLSL } from './oberflaechen.js';
 import type { Wiesenbereich } from './wiesenbereich.js';
 import HOF_SCANS from '../../public/material/hof-scans.json';
 import SCANS from '../../public/material/haus-scans.json';
@@ -469,7 +470,7 @@ float milbingerHausGewicht(vec2 ort) {
 }
 `;
 
-const MILBINGER_FARBE = /* glsl */ `
+const milbingerFarbe = (substrat: boolean) => /* glsl */ `
   float milbingerAnteil = milbingerHausGewicht(vHausPos.xz)
     * (1.0 - smoothstep(55.0, 88.0, length(vViewPosition))) * (1.0 - zielHaus);
   if (vZustand.x >= 24.0 || vRolle >= 5.5) milbingerAnteil = 0.0;
@@ -482,6 +483,7 @@ const MILBINGER_FARBE = /* glsl */ `
   float altMeter = scanR < .5 ? uHofMeter.x : scanR < 1.5 ? uHofMeter.y : scanR < 2.5 ? uHofMeter.z : uHofMeter.w;
   vec3 altArm = vec3(1.0,.84,0.0);
   float altFeucht = 0.0, altBruch = 0.0;
+  ${substrat ? 'float fassadenRelief = 0.0;' : ''}
   if (milbingerAnteil > 0.0) {
     float alter = clamp(.54 + .22 * vStufe, .52, .98);
     float wetter = .74 + .22 * max(0.0, -altN.z);
@@ -526,6 +528,15 @@ const MILBINGER_FARBE = /* glsl */ `
       } else {
         farbe = mix(farbe,scan*vec3(.74,.70,.60),.84) * kontakt * (1.0 - .60 * altFeucht);
       }
+      ${substrat ? /* glsl */ `
+      float altPixel = max(length(altDx),length(altDy));
+      float zuschlag = substratKorn(altOrt,altPixel,31.0) - .5;
+      float mineralisch = 1.0 - step(.5,scanR) + step(2.5,scanR);
+      float fugenprofil = .012*(altArm.r-.63) - .019*altBruch;
+      float putzKorn = .0064*zuschlag*(.34 + .88*altBruch);
+      fassadenRelief = (fugenprofil + putzKorn)*mineralisch*milbingerAnteil*(1.0-.72*efeuDeckung);
+      farbe *= 1.0 + mineralisch*(zuschlag*.46 - .20*(1.0-altArm.r));
+      ` : ''}
     } else {
       // Lack und Glas brechen den hellen Himmelsreflex an verlassenen Häusern fleckig auf.
       farbe *= mix(.53,.92,.56 * laeufer + .44 * putzfleck);
@@ -559,6 +570,7 @@ const GLUT_FARBE = new THREE.Vector3(0.30, 0.21, 0.11);
 
 export function baueHausMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStandardMaterial {
   const milbinger = MILBINGERDETAIL_AN && wiesenbereich;
+  const substrat = MILBINGERSUBSTANZ_AN && !!milbinger;
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 0.88, flatShading: true,
   });
@@ -609,7 +621,8 @@ export function baueHausMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStand
           + (HOF_ZIEL_AN ? /* glsl */ `
 uniform sampler2D uHofZielFarbe, uHofZielNormal;
 float zielMassstab(float r) { return r < .5 ? 1.0 : r < 1.5 ? .92 : r < 2.5 ? 1.18 : .82; }
-` : '') + (HOF_ZIELTREUE_AN ? '\nuniform sampler2D uHofEfeuFarbe;\n' : '') + (milbinger ? MILBINGER_HAUS_PARS : ''))
+` : '') + (HOF_ZIELTREUE_AN ? '\nuniform sampler2D uHofEfeuFarbe;\n' : '') + (milbinger ? MILBINGER_HAUS_PARS : '')
+          + (substrat ? OBERFLAECHEN_GLSL : ''))
         .replace('#include <color_fragment>', `#include <color_fragment>
   float scanR = floor(vRolle + 0.5);
   ${HOF_ZIEL_AN ? `float zielHaus = step(4.0, ${HOF_ORTSALTERUNG_AN ? 'mod(vZustand.x,8.0)' : 'vZustand.x'}); if (scanR >= 6.0) scanR = 4.0;` : ''}
@@ -629,7 +642,7 @@ ${HOF_ZIEL_AN ? HOF_ZIEL_FARBE : ''}
 ${HOF_ORTSALTERUNG_AN ? ORTSALTERUNG_FARBE : ''}
 ${WESTVERFALL_AN ? 'if (vZustand.x >= 24.0 && vStufe > 1.5 && scanR > 4.5) diffuseColor.rgb *= .51;' : ''}
 ${WESTDETAIL_AN ? WESTDETAIL_FARBE : ''}
-${milbinger ? MILBINGER_FARBE : ''}`)
+${milbinger ? milbingerFarbe(substrat) : ''}`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   if (scanR < 3.5${HAUS_SHADER_SPAR_AN ? ' && !hofVoll' : ''}${WESTDETAIL_AN ? ' && !westMaterial' : ''}) {
     vec3 sn = ${HAUS_SHADER_SPAR_AN ? 'scanLiesGrad(uScanNormal, scanP, scanR, scanGradX, scanGradY)' : 'scanLies(uScanNormal, scanP, scanR)'}.xyz * 2.0 - 1.0;
@@ -639,7 +652,8 @@ ${milbinger ? MILBINGER_FARBE : ''}`)
   }
 ${HOF_AN ? hofNormal : ''}
 ${WESTDETAIL_AN ? WESTDETAIL_NORMAL : ''}
-${milbinger ? MILBINGER_NORMAL : ''}`)
+${milbinger ? MILBINGER_NORMAL : ''}
+${substrat ? 'normal = substratNormale(normal, vViewPosition, fassadenRelief * (1.0 - smoothstep(9.0,32.0,length(vViewPosition))), faceDirection);' : ''}`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
   if (scanR > 1.5 && scanR < 2.5) roughnessFactor = 0.72;
 ${HOF_AN ? 'if (scanR < 3.5) roughnessFactor = mix(roughnessFactor, clamp(hofArm.g, 0.5, 1.0), hofHausAnteil);' : ''}${BAUWELT_AN ? '\n  roughnessFactor = mix(roughnessFactor, 0.65, efeuDeckung);' : ''}
@@ -689,7 +703,7 @@ ${HOF_ZIELTREUE_AN ? /* glsl */ `
   material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? '-ortsalterung' : '') + (WESTVERFALL_AN ? '-westverfall' : '') + (WESTDETAIL_AN ? '-westdetail' : '') + (WESTFASSADE_AN ? '-westfassade' : '') + (WESTANSCHLUSS_AN ? '-westanschluss' : '');
   if (milbinger) {
     const basis = material.customProgramCacheKey;
-    material.customProgramCacheKey = () => basis() + '-milbingerdetail';
+    material.customProgramCacheKey = () => basis() + '-milbingerdetail' + (substrat ? '-substrat' : '');
   }
   return material;
 }

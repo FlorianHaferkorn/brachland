@@ -23,7 +23,8 @@ import { HOF_UNIFORM } from './hofplatz.js';
 import HOF_KIES from '../../public/material/hof-kies.json';
 import { PALETTE } from './palette.js';
 import { WIESENBEREICH_GLSL, wiesenKontaktGlsl, WIESENWUCHS_GLSL, type Wiesenbereich } from './wiesenbereich.js';
-import { MILBINGERDETAIL_AN } from './echt.js';
+import { MILBINGERDETAIL_AN, MILBINGERSUBSTANZ_AN } from './echt.js';
+import { OBERFLAECHEN_GLSL } from './oberflaechen.js';
 import { GEWAESSER_ECHT, GRAS_ECHT, GRAS_VIEL, HOF_AN, HOF_BODEN_AN, HOF_GRAS_AN, HOF_ORTSALTERUNG_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN } from './echt.js';
 
 /**
@@ -291,12 +292,13 @@ const SCAN_GLSL = /* glsl */ `
 
 const MILBINGER_BODEN = /* glsl */ `
   float milbingerStreu = 0.0;
+  vec2 milbingerWuchs = vec2(0.0);
   if (wiesenanteil > 0.0) {
-    vec2 wuchs = wiesenWuchs(vWeltPos.xz);
-    milbingerStreu = wiesenanteil * (1.0 - smoothstep(.13,.49,wuchs.x - .19*wuchs.y))
+    milbingerWuchs = wiesenWuchs(vWeltPos.xz);
+    milbingerStreu = wiesenanteil * (1.0 - smoothstep(.13,.49,milbingerWuchs.x - .19*milbingerWuchs.y))
       * smoothstep(.23,.75,sWald.a*.56 + sSchutt.a*.44 + fein*.36);
     vec3 streu = vec3(.102,.072,.043) * (sWald.rgb*1.14 + sSchutt.rgb*.73 + .12);
-    vec3 gruen = diffuseColor.rgb * mix(vec3(.66,.83,.61),vec3(1.0,.86,.64),wuchs.y);
+    vec3 gruen = diffuseColor.rgb * mix(vec3(.66,.83,.61),vec3(1.0,.86,.64),milbingerWuchs.y);
     diffuseColor.rgb = mix(diffuseColor.rgb, mix(gruen,streu,milbingerStreu), wiesenanteil*.94);
   }
 `;
@@ -313,6 +315,32 @@ const SOCKELBODEN = /* glsl */ `
     vec3 auflage = mix(humus,riesel,lager*(.48 + .39*fleck));
     diffuseColor.rgb = mix(diffuseColor.rgb,auflage,saum*.78);
     diffuseColor.rgb *= 1.0 - smoothstep(.88,.999,mauerfuss) * (.16 + .08*fleck);
+  }
+`;
+
+const SUBSTRAT_BODEN = /* glsl */ `
+  float substratAnteil = wiesenbereichGewicht(vWeltPos.xz) * (1.0 - .96 * scanGewicht.w);
+  vec2 substratOrt = vWeltPos.xz;
+  float substratPixel = max(length(dFdx(substratOrt)), length(dFdy(substratOrt)));
+  float substratHoehe = 0.0;
+  float substratRauheit = .95;
+  if (substratAnteil > 0.0) {
+    float offeneErde = max(milbingerStreu, (1.0 - smoothstep(.08,.52,milbingerWuchs.x - .21*milbingerWuchs.y))*.82);
+    float senke = substratRauschen(substratOrt*1.48);
+    float feuchteErde = smoothstep(.34,.71,senke*.67 + vNass*.45);
+    float klumpen = .64*substratKorn(substratOrt,substratPixel,5.9)
+      + .36*mix(.5,sWald.a,substratDetail(substratPixel,12.0));
+    float wurzelfilz = .55*substratKorn(substratOrt,substratPixel,2.8)
+      + .45*mix(.5,sWiese.a,substratDetail(substratPixel,10.0));
+    float feinkorn = substratKorn(substratOrt,substratPixel,24.0);
+    float erdRelief = .043*(klumpen-.5) + .009*(feinkorn-.5);
+    float wiesenRelief = .046*(wurzelfilz-.5) + .024*(senke-.5);
+    substratHoehe = mix(wiesenRelief,erdRelief*(1.0-.28*feuchteErde),offeneErde)*substratAnteil;
+    vec3 erdFarbe = mix(vec3(.132,.098,.065),vec3(.060,.045,.031),feuchteErde);
+    erdFarbe *= .45 + 1.16*klumpen + .28*feinkorn;
+    vec3 wiesenFarbe = diffuseColor.rgb * mix(vec3(.72,.73,.53),vec3(1.19,1.21,.96),wurzelfilz);
+    diffuseColor.rgb = mix(diffuseColor.rgb,mix(wiesenFarbe,erdFarbe,offeneErde*.82),substratAnteil);
+    substratRauheit = mix(.97,mix(.94,.76,feuchteErde),offeneErde);
   }
 `;
 
@@ -407,6 +435,7 @@ const MIT_UFER: boolean = typeof location === 'undefined'
 
 export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStandardMaterial {
   const milbinger = MILBINGERDETAIL_AN && wiesenbereich;
+  const substrat = MILBINGERSUBSTANZ_AN && !!milbinger;
   const kontakt = wiesenbereich?.kontakt;
   const hofTeil = HOF_AN && HOF_BODEN_AN ? kontakt?.hofTeil : undefined;
   const hofFarben = hofTeil ? HOF_BODEN_FARBE.replace('texture2D(uHofKontakt, kontaktUv).r',
@@ -451,11 +480,18 @@ export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStan
         // D281 (`?gewaesser=1`): 0,55 spiegelte den hellen Himmel als weissen Reif-Streifen am Ufer; nasse Erde ist
         // dunkel und matter, glänzend nur der dünne Wasserfilm direkt an der Linie.
         + (milbinger ? 'roughnessFactor = mix(roughnessFactor, .78, milbingerStreu * .68);\n' : '')
+        + (substrat ? 'roughnessFactor = mix(roughnessFactor, substratRauheit, substratAnteil);\n' : '')
         + (HOF_AN ? 'roughnessFactor = mix(roughnessFactor, clamp(hofBodenArm.g, 0.6, 1.0), hofBodenAnteil);\n' : '')
         + (MIT_UFER ? `  roughnessFactor = mix(roughnessFactor, ${GEWAESSER_ECHT ? 'mix(0.85, 0.5, smoothstep(0.85, 1.0, vNass))' : '0.55'}, nassAnteil);\n` : ''))
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL + (HOF_AN ? HOF_BODEN_NORMAL : ''))
       .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
       .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL + (HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofBodenArm.r, hofBodenAnteil * 0.5);' : ''));
+    if (substrat) shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\n' + OBERFLAECHEN_GLSL)
+      .replace('#include <roughnessmap_fragment>', SUBSTRAT_BODEN + '\n#include <roughnessmap_fragment>')
+      .replace('#include <normal_fragment_maps>', /* glsl */ `#include <normal_fragment_maps>
+        normal = substratNormale(normal, vViewPosition,
+          substratHoehe * (1.0 - smoothstep(11.0,38.0,length(vViewPosition))), faceDirection);`);
     shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
     shader.uniforms.uBodenRahmen = BODEN_HIMMEL.rahmen;
     shader.uniforms.uHimmel = HIMMEL_UNIFORM;
@@ -483,7 +519,8 @@ export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStan
 
   if (milbinger) {
     const basis = material.customProgramCacheKey;
-    material.customProgramCacheKey = () => basis() + (hofTeil ? '-kontaktatlas' : kontakt ? '-milbingerkontakt' : '-milbingerdetail');
+    material.customProgramCacheKey = () => basis() + (hofTeil ? '-kontaktatlas' : kontakt ? '-milbingerkontakt' : '-milbingerdetail')
+      + (substrat ? '-substrat' : '');
   }
   return material;
 }

@@ -65,6 +65,36 @@ if(process.env.D307_BODEN_QUERY.includes('&milbingerdetail=1')) {
   }
   result.dachdetails=check;
 }
+if(process.env.D307_BODEN_QUERY.includes('&milbingersubstanz=1')) {
+  const {milbingerGartenprops,baueMilbingerSandkasten,milbingerQuerabstand}=await import('./src/world/milbingersubstanz.ts');
+  const inhalt=JSON.parse(fs.readFileSync('content/milbinger-substanz.json','utf8'));
+  const frei=(x,z)=>Math.abs(milbingerQuerabstand(x,z))<5.3;
+  const garten=milbingerGartenprops(welt,hoehe,frei,lod);
+  const gaerten=garten.every(p=>!frei(p.position[0],p.position[2]) && hoehe(p.position[0],p.position[2])===p.position[1]);
+  const sandkasten=baueMilbingerSandkasten(welt,hoehe,frei);
+  const sand=sandkasten?.gruppe.children[0].geometry;
+  const sandposition=sand?.getAttribute('position'), sandnormal=sand?.getAttribute('normal');
+  const sandGut=!!sandposition&&Array.from({length:sandposition.count},(_,i)=>i).every(i=>{
+    const x=sandposition.getX(i),y=sandposition.getY(i),z=sandposition.getZ(i);
+    return !frei(x,z)&&sandnormal.getY(i)>0&&y>hoehe(x,z)&&y-hoehe(x,z)<.14;
+  });
+  sandkasten?.entsorge();
+  const brueche=inhalt.haeuser.filter(h=>h.dach).map(h=>{
+    const [haupt,...neben]=lod[h.index].koerper;
+    const dach=(schaden)=>{
+      let deckung=0,sparren=0,innen=0;
+      baueLoD2Dach(haupt,nachWelt,30,30+haupt.t,(a,b,c,rolle)=>{
+        if(rolle==='deckung')deckung+=((b[2]-a[2])*(c[0]-a[0])-(b[0]-a[0])*(c[2]-a[2]))/2;
+        if(rolle==='sparren')sparren++;
+        if(rolle==='hohlraum')innen++;
+      },neben.map(n=>n.grundriss),schaden);
+      return {deckung,sparren,innen};
+    };
+    const ganz=dach(), gebrochen=dach(h.dach);
+    return {offen:ganz.deckung-gebrochen.deckung,sparren:gebrochen.sparren,innen:gebrochen.innen};
+  });
+  result.substanz={brueche,gaerten:gaerten?garten.length:0,sandGut};
+}
 const material=new THREE.MeshBasicMaterial({side:THREE.FrontSide}),strahl=new THREE.Raycaster();
 for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,508,509,510,512,693]) {
   const haus={...welt.gebaeude[i],lod2:lod[i],hausnutzung:nutzungen.find(n=>imPolygon(n.ort,welt.gebaeude[i].punkte))};
@@ -212,6 +242,7 @@ interface Hausbefund {
 interface Stand {
   haeuser: Record<number, Hausbefund>; eingabeErhalten: boolean; bewohntHash: string;
   dachdetails?: { dachkern: boolean; richtung: boolean; neueDeckung: number; rinnen: number; ueberschneidungen: number };
+  substanz?: { brueche: { offen: number; sparren: number; innen: number }[]; gaerten: number; sandGut: boolean };
   uniforms: { zahl: number; werte: number[][] }; zuordnung: number[][];
   auswahl: { gebaeudeIndex: number; eingang: [number, number] | null; vorne: [number, number] }[];
 }
@@ -240,6 +271,7 @@ const milbingerVorher = lauf(milbingerQuery), milbingerMasse = lauf(milbingerQue
 const milbingerDetailQuery = milbingerQuery + '&milbingermasse=1&milbingerdetail=1';
 const milbingerDetail = lauf(milbingerDetailQuery);
 const milbingerBoden = lauf(milbingerDetailQuery + '&milbingerboden=1');
+const milbingerSubstanz = lauf(milbingerDetailQuery + '&milbingerboden=1&milbingerrand=1&milbingersubstanz=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -438,5 +470,14 @@ pruefe('D342: Die LoD2-Sockel folgen dem örtlichen Hang und behalten denselben 
   }));
 pruefe('D342: Hof und drei Westfassaden bleiben geometrisch unverändert',
   [308,508,510,512].every(i => milbingerBoden.haeuser[i].hash === milbingerDetail.haeuser[i].hash));
+const substanz = milbingerSubstanz.substanz;
+pruefe('D347: Beide LoD2-Dachöffnungen haben fehlende Haut, Sparren und Innenfläche',
+  !!substanz && substanz.brueche.length === 2 && substanz.brueche.every(b => b.offen > 3 && b.offen < 6 && b.sparren > 100 && b.innen === 27));
+pruefe('D347: Gartensaum und Sandfläche sitzen über dem Boden jenseits der Straßenmaske',
+  !!substanz && substanz.gaerten > 100 && substanz.sandGut);
+pruefe('D347: Häuser mit Dachbruch bleiben indexierbar, Hof und Westfassaden bytegleich',
+  [506,509].every(i => milbingerSubstanz.haeuser[i].hash !== milbingerBoden.haeuser[i].hash
+    && milbingerSubstanz.haeuser[i].endlich && milbingerSubstanz.haeuser[i].indexGleich)
+  && [308,508,510,512].every(i => milbingerSubstanz.haeuser[i].hash === milbingerBoden.haeuser[i].hash));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

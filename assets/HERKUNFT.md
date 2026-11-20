@@ -25,6 +25,14 @@ Keine neuen Fremdmodelle oder Texturdateien; keine Bibliotheks-Bilder ungeklärt
 |---|---|---|
 | `milbinger-wolkendecke.webp` | Fotografierte obere Himmelshalbkugel für Milbinger vor der Heilung, 1024 × 256 | D344, CC0. [Overcast Soil (Pure Sky)](https://polyhaven.com/a/overcast_soil_puresky) von Sergej Majboroda (Foto) und Jarod Guest (Himmelsbearbeitung). 1K-Radiance-Quelle, Belichtung auf den oberen Himmel normiert, danach sRGB-WebP. |
 
+## Straßenmobiliar (D347)
+
+| Datei unter `public/` | Rolle | Autor | Lizenz | Quelle |
+|---|---|---|---|---|
+| `bauten/milbinger-kleinwagen.glb` | Verlassener Kompaktwagen | tevy | CC0 1.0 | [Five-Door Hatchback](https://tevy.dev/models/hatchback), v1 LOD1. Quelle mit `tools/kompaktwagen-pack.mjs` für WebGL gepackt. Rost, Schmutz und veränderte Glasoberflächen entstehen im Spiel. |
+
+Laternen, Schilder, Reifen, Spielzeug und Sandrahmen sind eigene prozedurale Modelle.
+
 ## Vergleichsmodell D250
 
 `public/vergleich/triposr-fels-d250.glb` wurde mit dem MIT-lizenzierten

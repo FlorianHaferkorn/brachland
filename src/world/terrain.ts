@@ -14,6 +14,8 @@ import { PALETTE } from './palette.js';
 import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN, WESTFASSADE_AN, WESTANSCHLUSS_AN, MILBINGERMASSE_AN, MILBINGERDETAIL_AN, MILBINGERBODEN_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueLoD2Dach } from './lod2dach.js';
+import { istMilbingerRegion, milbingerHausverfall, milbingerQuerabstand, milbingerStrassennormale } from './milbingersubstanz.js';
+import { MILBINGERSUBSTANZ_AN } from './echt.js';
 import { baueFeldsteinsockel, baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
 import { baueHausbewuchs, baueRankenkurve } from './hausbewuchs.js';
@@ -545,24 +547,28 @@ export function baueGebaeude(
   const bodenUmrisse = MILBINGERBODEN_AN && auswahl.some(g => g.lod2?.koerper?.length)
     ? auswahl.flatMap(g => (g.lod2?.koerper?.map(k => k.grundriss) ?? [g.punkte])
       .map(quelle => ({ quelle, ring: quelle.map(([lat, lon]) => zuWelt(lat, lon)) }))) : [];
-  function* hausKoerper(): Generator<{ haus: Haus; amtlich?: LoD2Koerper }> {
+  const milbingerInhalt = MILBINGERSUBSTANZ_AN && istMilbingerRegion(welt);
+  function* hausKoerper(): Generator<{ haus: Haus; amtlich?: LoD2Koerper;
+    hausverfall?: ReturnType<typeof milbingerHausverfall>; hauptkoerper?: boolean }> {
     for (const haus of auswahl) {
       const koerper = MILBINGERMASSE_AN && LOD2_AN && !haus.hausnutzung ? haus.lod2?.koerper : undefined;
       if (!koerper?.length) {
         yield { haus };
         continue;
       }
+      const hausverfall = milbingerInhalt ? milbingerHausverfall(welt.gebaeude.findIndex(g => g.punkte === haus.punkte)) : undefined;
       for (const amtlich of koerper) {
         // OSM-Zuordnung bleibt erhalten, nur die Hülle dieses Teilbaus kommt
         // aus LoD2. Weststraßenhäuser mit eigener Alterung behalten ihr Profil.
         const { t, f, d, w } = amtlich;
-        yield { haus: { ...haus, punkte: amtlich.grundriss, lod2: { t, f, d, w, c: haus.lod2?.c, koerper } }, amtlich };
+        yield { haus: { ...haus, punkte: amtlich.grundriss, lod2: { t, f, d, w, c: haus.lod2?.c, koerper } }, amtlich,
+          hausverfall, hauptkoerper: amtlich === koerper[0] };
       }
     }
   }
 
   const referenzen: readonly HausReferenz[] = !referenz ? [] : Array.isArray(referenz) ? referenz : [referenz as HausReferenz];
-  for (const { haus: g, amtlich } of hausKoerper()) {
+  for (const { haus: g, amtlich, hausverfall, hauptkoerper } of hausKoerper()) {
     const milbingerHaus = MILBINGERDETAIL_AN && !!amtlich;
     const milbingerBoden = MILBINGERBODEN_AN && !!amtlich;
     /** D291: erste Ecke dieses Hauses — für die Umfärbung nach dem Fassaden-Steckbrief am Ende. */
@@ -714,7 +720,7 @@ export function baueGebaeude(
     }
     if (milbingerHaus && g.fassade?.stufe === undefined) {
       const bewohntHier = bewohnt.some(([x, z]) => imPolygon([x, z], p));
-      stufeJetzt = bewohntHier ? 0 : wuerfelAus(mz0 + 9.1, mx0 - 3.7)() < .54 ? 1 : 2;
+      stufeJetzt = bewohntHier ? 0 : hausverfall?.stufe ?? (wuerfelAus(mz0 + 9.1, mx0 - 3.7)() < .54 ? 1 : 2);
     }
     if (nutzung) stufeJetzt = dachruine ? 2 : verwachsen ? 1 : 0;
     const bauSchaden = hofVerfall ? stufeJetzt : 0;
@@ -902,6 +908,23 @@ export function baueGebaeude(
       if (l >= 4) {
         const wert = strassenSeite(dz/l,-dx/l);
         if (wert > hauptWert) { hauptWand = k; hauptWert = wert; }
+      }
+    }
+
+    let verfallWand = -1;
+    if (hausverfall && hauptkoerper && stufeJetzt > 0) {
+      const qSeite = Math.sign(milbingerQuerabstand(mx0, mz0));
+      const [qx, qz] = milbingerStrassennormale;
+      let beste = 0;
+      for (let k = 0; k < p.length - 1; k++) {
+        const [ax, az] = p[k], [bx, bz] = p[k + 1];
+        const dx = bx - ax, dz = bz - az, laenge = Math.hypot(dx, dz);
+        if (laenge < 3.4) continue;
+        const nx = dz / laenge, nz = -dx / laenge;
+        const q: [number, number] = [(ax + bx) * .5 + nx * .72, (az + bz) * .5 + nz * .72];
+        if (imPolygon(q, p) || tuerUmfeld.some(grundriss => imPolygon(q, grundriss))) continue;
+        const wert = laenge * (.33 + Math.max(0, -(nx * qx + nz * qz) * qSeite));
+        if (wert > beste) { beste = wert; verfallWand = k; }
       }
     }
 
@@ -1126,7 +1149,20 @@ export function baueGebaeude(
           terrain.hoeheAn, oben, bauSchaden === 2 || (rankenWand && strassenWand > .53) ? 2 : 1,
           saat, k === tuerWand && !verwachsen ? eingangU : null, WANDRANKE, rankenWand && strassenWand > .53 && k !== hauptWand);
       }
-      if (milbingerWand && stufeJetzt > 0 && wz < -.56 && wandLaenge > 4.2 && !feuchteWand) {
+      if (k === verfallWand && hausverfall) {
+        // Dachnahe Ranken stehen in Wasserspuren. Dachüberstände und der Zugang bleiben frei.
+        const saat = Math.floor(glutHash(x1 + .24, boden + .7, z1) * 4294967295);
+        baueHausbewuchs(tri, [x1, z1], [x2, z2], [wx, wz], terrain.hoeheAn,
+          oben - .16, stufeJetzt >= 2 ? 2 : 1, saat, k === tuerWand ? eingangU : null, WANDRANKE, stufeJetzt >= 2);
+        if (stufeJetzt >= 2) {
+          const u = wandLaenge * .25;
+          const [tx, tz] = wandRichtung;
+          baueRuinenschutt(tri, [x1 + u * tx, z1 + u * tz], wandRichtung, [wx, wz], terrain.hoeheAn, saat,
+            (x, z) => Math.abs(milbingerQuerabstand(x, z)) < 7.6
+              || (k === tuerWand && Math.abs((x - eingangX) * tx + (z - eingangZ) * tz) < 1.06)
+              || imPolygon([x,z], p) || tuerUmfeld.some(ring => imPolygon([x,z], ring)));
+        }
+      } else if (milbingerWand && stufeJetzt > 0 && wz < -.56 && wandLaenge > 4.2 && !feuchteWand) {
         // Der Wurzelfuß liegt in der kühleren Ecke. Die Eingangsschwelle bleibt frei.
         const ende = k !== tuerWand || eingangU > wandLaenge * .37 ? .32 : .98;
         const anfang = ende < .5 ? .02 : .68;
@@ -1333,7 +1369,8 @@ export function baueGebaeude(
           const cx = x1 + (x2 - x1) * t, cz = z1 + (z2 - z1) * t;
           const zerbrochen = (einsturz && !zielHaus && ebene === 0 && t < .4)
             || (dachruine && strassenWand > .36 && fensterVertieft && glutHash(cx,yUnten,cz) < .64)
-            || (milbingerWand && stufeJetzt === 2 && fensterVertieft && glutHash(cx+4.8,yUnten,cz) < .23);
+            || (milbingerWand && stufeJetzt === 2 && fensterVertieft && glutHash(cx+4.8,yUnten,cz)
+              < (hausverfall ? k === verfallWand ? .77 : .41 : .23));
           const ex = (x2 - x1) / laenge * breiteF / 2, ez = (z2 - z1) / laenge * breiteF / 2;
           const o = fensterVertieft ? (fassadenWand ? -.23 : -.18) : .04;
           /**
@@ -1427,6 +1464,12 @@ export function baueGebaeude(
             } else K(-a-.16,a+.16,y0-.16,y0-.08,-.18,.28,RAHMEN);
             if (zerbrochen) {
               K(-a-.28,a+.28,y0-.18,y1+.25,-.93,-.84,RUINEN_INNEN);
+              if (hausverfall && k === verfallWand && glutHash(cx+.4,y0,cz) < .63) {
+                // Einzelne ausgerissene Ladenleiste hängt noch am oberen Beschlag.
+                baueBruchholz(tri, [cx-dx*(a+.12)+nx*.11, y1-.10, cz-dz*(a+.12)+nz*.11],
+                  [cx-dx*(a+.29)+nx*.23, y0+.20, cz-dz*(a+.29)+nz*.23],
+                  .155, .063, Math.floor(glutHash(cx,y1,cz)*0x7fffffff), true, true);
+              }
               continue;
             }
             const fensterSchaden = tiefeDetails || milbingerWand ? stufeJetzt : bauSchaden;
@@ -1547,11 +1590,11 @@ export function baueGebaeude(
       // Einheitsgiebel. Die Fassade darunter behält Sockel, Fenster und Material.
       const materialrollen = {
         deckung: dachFarbe, untersicht: TRAUFUNTERSICHT, stirn: MILBINGERDETAIL_AN ? TRAUFHOLZ : dachKante,
-        rinne: RINNE, wand: Number.isFinite(holzAb) ? SCHALUNG : WAND,
+        rinne: RINNE, wand: Number.isFinite(holzAb) ? SCHALUNG : WAND, sparren: SPARREN, hohlraum: RUINEN_INNEN,
       };
-      baueLoD2Dach(amtlich, zuWelt, boden, traufe, (a, b, c, rolle) => {
-        tri(a, b, c, materialrollen[rolle]);
-      }, nachbargrundrisse);
+      baueLoD2Dach(amtlich, zuWelt, boden, traufe, (a, b, c, rolle, farbe) => {
+        tri(a, b, c, farbe ?? materialrollen[rolle]);
+      }, nachbargrundrisse, hauptkoerper && stufeJetzt >= 2 ? hausverfall?.dach : undefined);
       faerbeFassade(g.fassade, ersteEcke);
       continue;
     }

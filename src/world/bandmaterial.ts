@@ -12,10 +12,11 @@
  *   die weiche Kante: außen durchsichtig, innen deckend.
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
-import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT, MILBINGERBELAG_AN, STRASSENPROFIL_AN, STRASSENVERFALL_AN, WELLEN_ECHT } from './echt.js';
+import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT, MILBINGERBELAG_AN, MILBINGERSUBSTANZ_AN, STRASSENPROFIL_AN, STRASSENVERFALL_AN, WELLEN_ECHT } from './echt.js';
 import WEG_SCANS from '../../public/material/weg-scans.json';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
+import { OBERFLAECHEN_GLSL } from './oberflaechen.js';
 import { PALETTE } from './palette.js';
 import { SPIEGELBILD } from './spiegelbild.js';
 
@@ -420,12 +421,41 @@ const QUERSCHNITT_RANDVERFALL_GLSL = /* glsl */ `
   float nasseKante = max(asphalt*rinnenSchmutz, ausbruch * erdFleck);
 `;
 
+const querschnittSubstrat = (mitSchotterspuren: boolean) => /* glsl */ `
+  float substratPixel = max(length(dFdx(welt)), length(dFdy(welt)));
+  float einfahrtKies = ${mitSchotterspuren ? 'step(.001,vSchotterspur.z) * smoothstep(.01,.19,vSchotterspur.y)' : '0.0'};
+  float schotter = min(1.0, einfahrtKies + randSaum*.69);
+  float feinteil = asphalt * rinnenSchmutz * (1.0 - smoothstep(.45,.81,randBoden));
+  float packung = 0.0;
+  if (schotter > 0.0) {
+    float grobkies = substratKiesel(welt,substratPixel,12.5);
+    vec2 gedreht = mat2(.71,-.71,.71,.71)*welt;
+    float feinkies = substratKiesel(gedreht + vec2(6.3,8.7),substratPixel,22.7);
+    packung = .73*grobkies + .47*feinkies;
+  }
+  vec2 sand = feinteil > 0.0 ? substratSand(welt,substratPixel) : vec2(0.0);
+  float verdichtet = mix(1.0,.63,spur*asphalt);
+  float bindemittel = substratKorn(welt,substratPixel,mix(21.0,36.0,asphalt))-.5;
+  float substratBeton = (1.0-asphalt)*(1.0-einfahrtKies);
+  float substratHoehe = (.004*bindemittel - .009*riss - .011*nebenriss)*asphalt*verdichtet
+    + .020*packung*schotter + sand.x*feinteil + .010*bindemittel*substratBeton;
+  vec3 kiesbett = diffuseColor.rgb*(.75 + .40*packung);
+  vec3 zuschlag = vec3(.251,.227,.191) * (.67 + .67*randBoden);
+  diffuseColor.rgb = mix(diffuseColor.rgb,mix(kiesbett,zuschlag,packung*.69),schotter);
+  diffuseColor.rgb = mix(diffuseColor.rgb,vec3(.147,.119,.083)*sand.y,feinteil*.59);
+  float erdansaum = asphalt*(1.0 - smoothstep(.012,.074 + .28*randBoden,rand))
+    * smoothstep(.30,.75,.58*randBoden + .42*randKorn);
+  diffuseColor.rgb = mix(diffuseColor.rgb,erdton*(.82 + .43*randKorn),erdansaum*.58);
+  diffuseColor.rgb *= 1.0 + bindemittel*(asphalt*.26 + substratBeton*.42);
+`;
+
 /** Asphalt, Bord und Zufahrt liegen im selben Mesh und verwenden den vorhandenen Wegatlas. */
 export function baueQuerschnittMaterial(
   mitSchotterspuren = false, mitStrassendetail = false, mitRandverfall = false,
 ): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 });
   const scans = WEG_TEXTUREN;
+  const substrat = mitRandverfall && MILBINGERSUBSTANZ_AN;
   material.onBeforeCompile = shader => {
     if (scans) {
       shader.uniforms.uWegFarbe = { value: scans.farbe };
@@ -456,7 +486,8 @@ varying float vRolle;
 varying vec3 vWeltPos;
 ${mitStrassendetail ? 'varying float vProfilNormalY;' : ''}
 ${mitRandverfall ? 'varying vec2 vAbriebkante;' : ''}
-${mitSchotterspuren ? 'varying vec4 vSchotterspur;' : ''}` + BAND_RAUSCHEN_GLSL + (scans ? WEG_SCAN_GLSL : ''))
+${mitSchotterspuren ? 'varying vec4 vSchotterspur;' : ''}` + BAND_RAUSCHEN_GLSL + (scans ? WEG_SCAN_GLSL : '')
+        + (substrat ? OBERFLAECHEN_GLSL : ''))
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float asphalt = 1.0 - step(.5, vRolle);
   float bord = step(1.5, vRolle) * (1.0 - step(2.5, vRolle));
@@ -517,10 +548,12 @@ ${mitSchotterspuren ? /* glsl */ `
 ` : ''}
 ${mitStrassendetail ? QUERSCHNITT_DETAIL_GLSL : ''}
 ${mitRandverfall ? QUERSCHNITT_RANDVERFALL_GLSL : ''}
+${substrat ? querschnittSubstrat(mitSchotterspuren) : ''}
 `)
       .replace('#include <roughnessmap_fragment>', /* glsl */ `#include <roughnessmap_fragment>
 ${mitStrassendetail ? 'roughnessFactor = clamp(mix(.98, .78, dunkel * 1.6 + spur * asphalt * .35) + .04 * (korn - .5), .76, .99);' : ''}
-${mitRandverfall ? 'roughnessFactor = mix(roughnessFactor, .71, nasseKante * .65);' : ''}`)
+${mitRandverfall ? 'roughnessFactor = mix(roughnessFactor, .71, nasseKante * .65);' : ''}
+${substrat ? 'roughnessFactor = mix(mix(roughnessFactor,.94,schotter*.77),.86,feinteil);' : ''}`)
       .replace('#include <normal_fragment_maps>', scans ? /* glsl */ `#include <normal_fragment_maps>
   vec3 belagNormal = inverseTransformDirection(normal, viewMatrix);
 ${mitStrassendetail ? /* glsl */ `
@@ -534,10 +567,14 @@ ${mitStrassendetail ? /* glsl */ `
 `}
   normal = normalize((viewMatrix * vec4(belagNormal, 0.0)).xyz);
 ` : '#include <normal_fragment_maps>');
+    if (substrat) shader.fragmentShader = shader.fragmentShader
+      .replace('#include <normal_fragment_begin>', /* glsl */ `#include <normal_fragment_begin>
+        normal = substratNormale(normal, vViewPosition,
+          substratHoehe * (1.0 - smoothstep(9.0,32.0,length(vViewPosition))), faceDirection);`);
   };
   material.customProgramCacheKey = () => 'brachland-querschnitt' + (scans ? '-scans' : '')
     + (mitSchotterspuren ? '-schotterspuren' : '') + (mitStrassendetail ? '-strassendetail' : '')
-    + (mitRandverfall ? '-randverfall' : '');
+    + (mitRandverfall ? '-randverfall' : '') + (substrat ? '-substrat' : '');
   return material;
 }
 

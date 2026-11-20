@@ -78,6 +78,8 @@ export const MILBINGERKLAR_AN = an('milbingerklar');
 export const MILBINGERFERN_AN = MILBINGERLICHT_AN && suche.get('milbingerfern') !== '0';
 /** D346: ausgebrochener Gehwegrand und zusammenhängende Verwitterung am Milbinger Weg. */
 export const MILBINGERRAND_AN = MILBINGERBODEN_AN && an('milbingerrand');
+/** D347: Materialtiefe und fortgeschrittene Übernahme an der Milbinger Straße. */
+export const MILBINGERSUBSTANZ_AN = MILBINGERRAND_AN && an('milbingersubstanz');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

@@ -1,14 +1,18 @@
 import { ShapeUtils, Vector2 } from 'three';
+import type { Color } from 'three';
+import { baueBruchholz } from './bruchholz.js';
+import { mulberry } from './props.js';
 import { imPolygon } from './osm.js';
 import type { LoD2Koerper } from './osm.js';
 
 type Punkt = [number, number, number];
 type Lage = [x: number, z: number];
 type Dreieck = [Punkt, Punkt, Punkt];
-type Dachrolle = 'deckung' | 'untersicht' | 'stirn' | 'wand' | 'rinne';
-type Zeichner = (a: Punkt, b: Punkt, c: Punkt, rolle: Dachrolle) => void;
+type Dachrolle = 'deckung' | 'untersicht' | 'stirn' | 'wand' | 'rinne' | 'sparren' | 'hohlraum';
+type Zeichner = (a: Punkt, b: Punkt, c: Punkt, rolle: Dachrolle, farbe?: Color) => void;
 type Dachkante = { a: Punkt; b: Punkt; gefaelle: Lage };
 type Ueberstand = { kante: Dachkante; aussen: Lage; tiefe: number; laenge: number; rinne: boolean };
+export type LoD2Dachbruch = { flaeche: number; radius: number; saat: number };
 
 /** Dachhaut und Überstand teilen sich die Stärke und Materialrollen. */
 const tiefer = ([x, y, z]: Punkt): Punkt => [x, y - .14, z];
@@ -46,6 +50,80 @@ function ziehe(a: Punkt, b: Punkt, t: number): Punkt {
 function schliesseDachkante(a: Punkt, b: Punkt, zeichne: Zeichner): void {
   zeichne(b, a, tiefer(a), 'stirn');
   zeichne(b, tiefer(a), tiefer(b), 'stirn');
+}
+
+/** Zackige Öffnung in der Dachhaut mit Abstand zu den vermessenen Firsten und Traufen. */
+function schneideDachbruch(ring: Punkt[], dreiecke: Dreieck[], gefaelle: Lage, bruch: LoD2Dachbruch):
+  { rand: Punkt[]; stuecke: Dreieck[]; mitte: Punkt; a: Lage; b: Lage; radius: number } | undefined {
+  const dachgrund = ring.map(grund);
+  const flaeche = ([p, q, r]: Dreieck) => Math.abs((q[0] - p[0]) * (r[2] - p[2]) - (q[2] - p[2]) * (r[0] - p[0]));
+  const gross = dreiecke.reduce((bestes, dreieck) => flaeche(dreieck) > flaeche(bestes) ? dreieck : bestes);
+  const mitte = gross[0].map((_, i) => (gross[0][i] + gross[1][i] + gross[2][i]) / 3) as Punkt;
+  const l = Math.hypot(...gefaelle);
+  if (l < .06) return;
+  const a: Lage = [-gefaelle[1] / l, gefaelle[0] / l], b: Lage = [gefaelle[0] / l, gefaelle[1] / l];
+  const zufall = mulberry(bruch.saat);
+  const formen = Array.from({ length: 9 }, (_, i) => {
+    const phi = 2 * Math.PI * (i + zufall() * .27) / 9;
+    const r = .70 + zufall() * .30;
+    return [Math.cos(phi) * r, Math.sin(phi) * r * .78] as Lage;
+  });
+  const randPunkt = (u: number, v: number): Punkt => {
+    const dx = a[0] * u + b[0] * v, dz = a[1] * u + b[1] * v;
+    return [mitte[0] + dx, mitte[1] + gefaelle[0] * dx + gefaelle[1] * dz, mitte[2] + dz];
+  };
+  const passt = (p: Punkt) => {
+    const [x, z] = grund(p);
+    if (!imPolygon([x, z], dachgrund)) return false;
+    return dachgrund.every(([ax, az], i) => {
+      const [bx, bz] = dachgrund[(i + 1) % dachgrund.length];
+      const dx = bx - ax, dz = bz - az, d2 = dx * dx + dz * dz;
+      if (d2 < 1e-9) return true;
+      const t = Math.min(1, Math.max(0, ((x - ax) * dx + (z - az) * dz) / d2));
+      return (x - ax - t * dx) ** 2 + (z - az - t * dz) ** 2 > .28 ** 2;
+    });
+  };
+  for (let radius = bruch.radius; radius >= .70; radius *= .83) {
+    const rand = formen.map(([u, v]) => randPunkt(u * radius, v * radius));
+    if (!rand.every((p, i) => passt(p) && passt(ziehe(p, rand[(i + 1) % rand.length], .5)))) continue;
+    const vp = ([x, , z]: Punkt) => new Vector2(x - mitte[0], z - mitte[2]);
+    if (ShapeUtils.area(rand.map(vp)) < 0) rand.reverse();
+    const punkte = [...ring, ...rand];
+    const stuecke = ShapeUtils.triangulateShape(ring.map(vp), [rand.map(vp)]).map(([i, j, k]): Dreieck => {
+      const [p, q, r] = [punkte[i], punkte[j], punkte[k]];
+      return (q[2] - p[2]) * (r[0] - p[0]) - (q[0] - p[0]) * (r[2] - p[2]) > 0 ? [p, q, r] : [p, r, q];
+    });
+    return { rand, stuecke, mitte, a, b, radius };
+  }
+}
+
+function zeichneDachbruch(schnitt: NonNullable<ReturnType<typeof schneideDachbruch>>, zeichne: Zeichner, saat: number): void {
+  const { rand, mitte, a, b, radius } = schnitt;
+  const lochU = ([x, , z]: Punkt) => (x - mitte[0]) * a[0] + (z - mitte[2]) * a[1];
+  const lochV = ([x, , z]: Punkt) => (x - mitte[0]) * b[0] + (z - mitte[2]) * b[1];
+  const tief = ([x, y, z]: Punkt): Punkt => [x, y - 1.34 - .073 * Math.sin(x * 1.7 + z * 2.3), z];
+  for (let i = 0; i < rand.length; i++) {
+    const p = rand[i], q = rand[(i + 1) % rand.length];
+    schliesseDachkante(p, q, zeichne);
+    zeichne(tief(mitte), tief(q), tief(p), 'hohlraum');
+    // Durch die fehlende Haut geht der Blick bis in den dunklen Innenraum.
+    // Die eingefallene Decke hat seitlich noch Tiefe, auch am flachen Blickwinkel.
+    zeichne(tiefer(q), tiefer(p), tief(p), 'hohlraum');
+    zeichne(tiefer(q), tief(p), tief(q), 'hohlraum');
+  }
+  for (const [i, offset] of [-.46, .03, .41].entries()) {
+    const u = offset * radius;
+    const trifft = rand.flatMap((p, j) => {
+      const q = rand[(j + 1) % rand.length], pu = lochU(p), qu = lochU(q);
+      return (pu > u) !== (qu > u) ? [ziehe(p, q, (u - pu) / (qu - pu))] : [];
+    }).sort((p,q) => lochV(p) - lochV(q));
+    if (trifft.length < 2) continue;
+    const p = trifft[0], q = trifft[trifft.length - 1];
+    const enden = i === 1 ? [p, q] : [i === 0 ? p : q, ziehe(p, q, i === 0 ? .51 : .54)];
+    baueBruchholz((p0, p1, p2, farbe) => zeichne(p0, p1, p2, 'sparren', farbe),
+      [enden[0][0], enden[0][1] - .22, enden[0][2]], [enden[1][0], enden[1][1] - (i === 1 ? .22 : .52), enden[1][2]],
+      .105, .125, saat + 71 * i, true, i !== 1);
+  }
 }
 
 /** Nur Wandfluchten dürfen überstehen. First, Kehle und angeschlossene Teile bleiben geometrisch unangetastet. */
@@ -146,6 +224,7 @@ export function baueLoD2Dach(
   sockel: number, traufe: number,
   zeichne: Zeichner,
   nachbargrundrisse?: readonly LoD2Koerper['grundriss'][],
+  bruch?: LoD2Dachbruch,
 ): void {
   const punkt = ([lat, lon, y]: Punkt): Punkt => {
     const [x, z] = nachWelt(lat, lon);
@@ -174,14 +253,17 @@ export function baueLoD2Dach(
   };
 
   const dachkanten = new Map<string, Dachkante>();
-  for (const roh of koerper.dachflaechen) {
+  for (const [i, roh] of koerper.dachflaechen.entries()) {
     const dach = flaeche(roh, true);
     if (!dach) continue;
-    for (const [a, b, c] of dach.dreiecke) {
+    const gefaelle: Lage = nachbargrundrisse || bruch ? dachgefaelle(dach.dreiecke) : [0, 0];
+    const schnitt = bruch?.flaeche === i && dach.dreiecke.length
+      ? schneideDachbruch(dach.ring, dach.dreiecke, gefaelle, bruch) : undefined;
+    for (const [a, b, c] of schnitt?.stuecke ?? dach.dreiecke) {
       zeichne(a, b, c, 'deckung');
       zeichne(tiefer(a), tiefer(c), tiefer(b), 'untersicht');
     }
-    const gefaelle: Lage = nachbargrundrisse ? dachgefaelle(dach.dreiecke) : [0, 0];
+    if (schnitt && bruch) zeichneDachbruch(schnitt, zeichne, bruch.saat);
     for (const [i, a] of dach.ring.entries()) {
       const b = dach.ring[(i + 1) % dach.ring.length];
       const schluessel = [a.join(','), b.join(',')].sort().join('|');

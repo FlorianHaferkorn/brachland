@@ -264,5 +264,12 @@
   "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
   "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
   "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
+  "datei": "bauten/milbinger-kleinwagen.glb",
+  "rolle": "Verlassener Kompaktwagen",
+  "autor": "tevy",
+  "lizenz": "CC0 1.0",
+  "quelle": "[Five-Door Hatchback](https://tevy.dev/models/hatchback), v1 LOD1. Quelle mit tools/kompaktwagen-pack.mjs für WebGL gepackt. Rost, Schmutz und veränderte Glasoberflächen entstehen im Spiel."
  }
 ]

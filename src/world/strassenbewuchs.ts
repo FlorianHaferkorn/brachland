@@ -4,6 +4,7 @@ import { WEG_UEBER_GRUND } from './baender.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_SCHWELLE, type HorstKachel } from './grashorst.js';
 import { mulberry } from './props.js';
 import { WEG_TEILUNG } from './terrain.js';
+import { MILBINGERSUBSTANZ_AN } from './echt.js';
 import {
   BORD_ABSENKUNG, DECKE_UEBER_GRUND, GEHWEG_RANDABTRAG, ZUFAHRT_UEBER_GRUND,
   gehwegRandverfall, querschnittFreihaltung, querschnittSaum,
@@ -179,7 +180,7 @@ export function baueStrassenbewuchs(
   const matrix = new THREE.Matrix4(), skalierung = new THREE.Vector3(), farbe = new THREE.Color();
 
   let saumhorste = 0, saumflecken = 0, zufahrtshorste = 0, nahthorste = 0;
-  let randlinsen = 0, randhorste = 0, randbruch = 0;
+  let randlinsen = 0, randhorste = 0, randbruch = 0, zufahrtskiesel = 0;
   const bepflanzeQuerschnitt = (weg: StrassenbewuchsWeg) => {
     const profil = weg.vermessenerSaum, verwitterung = profil?.verwitterung;
     if (!profil || !verwitterung || !verwitterung.staerke) return;
@@ -312,6 +313,28 @@ export function baueStrassenbewuchs(
       const belag = zufahrt.schotterspuren;
       if (!belag) continue;
       const zufall = mulberry(weg.saat ^ Math.imul(Math.round(zufahrt.von * 100) + zufahrt.seite, 19013));
+      if (MILBINGERSUBSTANZ_AN && weg.randverfall && weg.bodenpassend) {
+        const kiesSaat = mulberry(weg.saat ^ Math.imul(Math.round(zufahrt.von * 100), 34709));
+        const mitte = (zufahrt.von + zufahrt.bis) / 2;
+        const gehweg = profil.gehwege.find(g => g.seite === zufahrt.seite
+          && g.von <= mitte && g.bis >= mitte)?.breite ?? 0;
+        const anzahl = Math.ceil((zufahrt.bis - zufahrt.von) * Math.max(0, zufahrt.tiefe - gehweg) * 7.5);
+        const hubInnen = DECKE_UEBER_GRUND + (gehweg > 0 ? BORD_ABSENKUNG : 0);
+        for (let i = 0; i < anzahl; i++) {
+          const s = THREE.MathUtils.lerp(zufahrt.von + .16, zufahrt.bis - .16, kiesSaat());
+          const t = .07 + .86 * kiesSaat();
+          const spur = Math.abs(Math.abs(s - mitte) - belag.spurabstand / 2);
+          if (spur < .31 && kiesSaat() < .95) continue;
+          const punkt = aussen(s, zufahrt.seite, THREE.MathUtils.lerp(gehweg, zufahrt.tiefe, t), true);
+          if (!punkt) continue;
+          const [x, z] = punkt;
+          const y = boden(x, z) + THREE.MathUtils.lerp(hubInnen, ZUFAHRT_UEBER_GRUND, t);
+          const groesse = .019 + .041 * kiesSaat() ** 1.65;
+          splitt.push({ ort: [x, y, z], groesse, drehung: kiesSaat() * TAU,
+            ton: 1.02 + .46 * kiesSaat(), auswahl: kiesSaat() });
+          zufahrtskiesel++;
+        }
+      }
       for (const flanke of [-1, 1] as const) {
         const station = flanke < 0 ? zufahrt.von : zufahrt.bis;
         const gehweg = profil.gehwege.find(g => g.seite === zufahrt.seite
@@ -668,7 +691,7 @@ ${hatMarkierungen ? /* glsl */ `
     }
   }
   gruppe.userData.strassenbewuchs = {
-    wildkraut: wildkraut.length, splitt: splitt.length, risse, auflageDreiecke: indizes.length / 3,
+    wildkraut: wildkraut.length, splitt: splitt.length, zufahrtskiesel, risse, auflageDreiecke: indizes.length / 3,
     ...(saumhorste || saumflecken ? { saumhorste, saumflecken } : {}),
     ...(zufahrtshorste ? { zufahrtshorste } : {}),
     ...(nahthorste ? { nahthorste } : {}),

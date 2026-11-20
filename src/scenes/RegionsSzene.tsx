@@ -37,6 +37,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
 import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
 import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
+import { baueMilbingerSandkasten } from '../world/milbingersubstanz.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
@@ -52,7 +53,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
 import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
@@ -4551,11 +4552,16 @@ export function RegionsSzene({
     return baueWiesenbereich(strassenmaske.rahmen, kontakt);
   }, [welt, strassenmaske, feld]);
   useEffect(() => () => { wiesenbereich?.kontakt?.textur.dispose(); }, [wiesenbereich]);
+  const sandkasten = useMemo(() => MILBINGERSUBSTANZ_AN && strassenmaske
+    ? baueMilbingerSandkasten(welt, (x, z) => hoeheAufFlaeche(feld, x, z), strassenmaske.enthaelt)
+    : undefined, [welt, feld, strassenmaske]);
+  useEffect(() => () => sandkasten?.entsorge(), [sandkasten]);
 
   // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben
   // Positionen. Zweimal verteilen hieße, gegen unsichtbare Bäume zu laufen.
   // D232: dieselbe Funktion wie die Werkzeuge (`szenenprops.ts`).
-  const props = useMemo(() => propsWieSzene(welt, terrain, feld, strassenmaske?.enthaelt), [welt, terrain, feld, strassenmaske]);
+  const props = useMemo(() => propsWieSzene(welt, terrain, feld, strassenmaske?.enthaelt,
+    LOD2_AN && LOD2_DATEN.length === welt.gebaeude.length ? LOD2_DATEN : undefined), [welt, terrain, feld, strassenmaske]);
   const kollision = useMemo(
     () => baueKollision(props, welt, feld.breiteMeter, feld.tiefeMeter),
     [props, welt, feld],
@@ -4665,6 +4671,7 @@ export function RegionsSzene({
                dichte={istAus('gras') ? 0 : qualitaet.gras} weite={qualitaet.weite}
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
                fenster={s.fenster ?? 0} />
+      {sandkasten && <primitive object={sandkasten.gruppe} />}
       {(felsArt === 'ki' || felsArt === 'scan') && <Suspense fallback={null}>
         <FelsVergleich art={felsArt} position={[felsX, hoeheAufFlaeche(feld, felsX, felsZ), felsZ]} />
       </Suspense>}

@@ -5,7 +5,8 @@
  * Die Tabelle in `assets/HERKUNFT.md` ist die eine Quelle — das Tor prüft sie
  * gegen die Dateien —, aber `assets/` wird nicht ausgeliefert. Dieses Werkzeug
  * liest die Tabellen „## Modelle" und „## Menschen" und schreibt sie als JSON nach `public/`, wo
- * das Verzeichnis im Menü sie unter „Herkunft" zeigt. Keine zweite Pflege:
+ * das Verzeichnis im Menü sie unter „Herkunft" zeigt. Weltdaten und Straßenmobiliar
+ * werden ebenso übernommen. Keine zweite Pflege:
  * Wer die Tabelle ändert, lässt `npm run herkunft` laufen; `npm run quality`
  * blockt, wenn JSON und Tabelle auseinanderliegen.
  */
@@ -23,7 +24,7 @@ export function leseHerkunft(pfad = 'assets/HERKUNFT.md'): Herkunft[] {
   const text = readFileSync(pfad, 'utf8');
   // Beide Tabellen: Kreaturen (## Modelle) und Menschen (## Menschen, D143).
   // D290: auch Weltdaten (LoD2, CC BY 4.0 — Namensnennung im Spiel Pflicht).
-  const bloecke = ['## Modelle', '## Menschen', '## Weltdaten'].map(kopf => {
+  const bloecke = ['## Modelle', '## Menschen', '## Weltdaten', '## Straßenmobiliar'].map(kopf => {
     const ab = text.indexOf(kopf);
     if (ab < 0) return '';
     const bis = text.indexOf('\n## ', ab + 1);

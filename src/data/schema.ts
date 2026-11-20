@@ -482,6 +482,9 @@ const Strassenobjekt = z.object({
   ort: z.tuple([z.number(), z.number()]),
   verfall: z.number().min(0).max(1),
 });
+const Strassengeschichte = Strassenobjekt.pick({ ort: true, verfall: true }).extend({
+  richtung: z.number().min(0).lt(360),
+});
 const Stationsbereich = z.object({
   von: z.number().nonnegative(), bis: z.number().positive(), seite: z.union([z.literal(-1), z.literal(1)]),
 });
@@ -540,6 +543,14 @@ const Strassenkulisse = z.object({
       achsenpunkt: z.boolean(),
     }),
   ])),
+  /** Ausstattungsorte für BRACHLAND ohne behaupteten Nachweis des heutigen Objekts. */
+  geschichte: z.array(z.discriminatedUnion('art', [
+    Strassengeschichte.extend({ art: z.literal('laterne') }),
+    Strassengeschichte.extend({ art: z.literal('strassenname'), text: z.string().min(1) }),
+    Strassengeschichte.extend({ art: z.literal('kleinwagen') }),
+    Strassengeschichte.extend({ art: z.literal('reifen') }),
+    Strassengeschichte.extend({ art: z.literal('spielroller') }),
+  ])).optional(),
 });
 export type Strassenkulisse = z.infer<typeof Strassenkulisse>;
 

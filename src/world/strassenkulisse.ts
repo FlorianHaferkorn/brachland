@@ -10,7 +10,7 @@ import type { HoehenFeld } from './lod.js';
 import { imPolygon } from './osm.js';
 import type { Weltdaten } from './osm.js';
 import {
-  MILBINGERBELAG_AN, MILBINGERDETAIL_AN, MILBINGEROBEN_AN, MILBINGERMASSE_AN, MILBINGERRAND_AN, STRASSENPROFIL_AN,
+  MILBINGERBELAG_AN, MILBINGERDETAIL_AN, MILBINGEROBEN_AN, MILBINGERMASSE_AN, MILBINGERRAND_AN, MILBINGERSUBSTANZ_AN, STRASSENPROFIL_AN,
   WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN,
 } from './echt.js';
 import { baueStrassenquerschnitt, querschnittGrenzen } from './strassenquerschnitt.js';
@@ -96,6 +96,10 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
         richtung: eintrag.richtung, text: eintrag.text, verfall: eintrag.verfall,
       }];
     });
+    if (MILBINGERSUBSTANZ_AN) for (const eintrag of abschnitt.geschichte ?? []) {
+      const [x, z] = zuWelt(eintrag.ort);
+      objekte.push({ ...eintrag, x, z, geschichte: true });
+    }
     const gruppe = new THREE.Group();
     gruppe.name = 'Straßenkulisse';
     const grenzen = new THREE.Box3();

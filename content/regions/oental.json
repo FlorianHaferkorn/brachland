@@ -268,7 +268,14 @@
           }
         }
       ],
-      "objekte": []
+      "objekte": [],
+      "geschichte": [
+        { "art": "strassenname", "ort": [47.72895830, 12.09973657], "richtung": 155.6, "verfall": 0.86, "text": "Milbinger Straße" },
+        { "art": "laterne", "ort": [47.72905134, 12.09981541], "richtung": 245.6, "verfall": 0.83 },
+        { "art": "kleinwagen", "ort": [47.72903321, 12.09965877], "richtung": 155.6, "verfall": 0.96 },
+        { "art": "reifen", "ort": [47.72902192, 12.09962526], "richtung": 120, "verfall": 0.97 },
+        { "art": "spielroller", "ort": [47.72906989, 12.09962018], "richtung": 301, "verfall": 0.81 }
+      ]
     },
     {
       "wege": [
