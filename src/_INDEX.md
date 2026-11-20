@@ -105,7 +105,7 @@ owns: *.ts, *.tsx
 | `world/hoftruemmer.ts` | Sparren, Schindeln und verkeilte Dachreste an der offenen Decke von Haus 308. D321 verbindet ausgerissene Schalung und abgeplatzte Putzkante über ein gemeinsames Bruchprofil. |
 | `world/hausindex.ts` | D305: wortgleiche Float32-Ecken nach Normalberechnung zusammenlegen; exakt gleiche Dreieckfolge, alle Attribute und harte Kanten erhalten. |
 | `world/laubenkasten.ts` | D306: getrennte offene Holzkästen, Erdfläche und geschlossene Laub-/Blütenkörper aus lokalem Seed; im bestehenden Hausmesh, ohne zusätzliche Assets. |
-| `world/hausbauteil.ts` | D303: geschlossene Fassadenkörper im gemeinsamen Hausmesh und vorsichtiges Zusammenfassen gerader Grundrissstücke für das lokale Referenzhaus. |
+| `world/hausbauteil.ts` | D303: Fassadenkörper im gemeinsamen Hausmesh und Vereinfachung gerader Grundrissstücke. D335 ergänzt geneigte Fensterbänke und Fallrohre mit durchgehendem Rohrquerschnitt. |
 | `world/hausfront.ts` | D297: `?echt=1&hausfront=1`, Materialpass für Kalkputz, verwitterte Bretter, Dach und Fenster; eine zuschaltbare Gesamtprobe. |
 | `world/fensterraum.ts` | D297: analytischer Parallaxenraum hinter Fensterquads, Möbelquader und je Scheibe variierte Leinenvorhänge; Shader ohne neue Texturen/Meshes. |
 | `world/bandmaterial.ts` | Wasser und Wege: weiche Ränder, Strömung, Gischt und Spurrinnen im Shader. Ruhiges Wasser nutzt Absorption/Fresnel und gedämpfte Himmelsreflexion; optionale lokale Szenenreflexion für die Stauwehrprobe (D255), Transmission zum Vergleich. |

@@ -472,6 +472,7 @@ const Hausnutzung = z.object({
   ort: z.tuple([z.number(), z.number()]).describe('Punkt im Gebäudegrundriss'),
   strasse: z.tuple([z.number(), z.number()]).describe('Zugewandter Punkt auf dem Wohnweg'),
   zustand: z.enum(['ruine', 'verwachsen', 'instandgesetzt']),
+  fassadenbaukasten: z.boolean().optional(),
 });
 export type Hausnutzung = z.infer<typeof Hausnutzung>;
 

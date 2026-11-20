@@ -32,17 +32,20 @@
     {
       "ort": [47.7292083, 12.0999361],
       "strasse": [47.7291486, 12.0997387],
-      "zustand": "ruine"
+      "zustand": "ruine",
+      "fassadenbaukasten": true
     },
     {
       "ort": [47.7290257, 12.1001605],
       "strasse": [47.7289405, 12.0998788],
-      "zustand": "verwachsen"
+      "zustand": "verwachsen",
+      "fassadenbaukasten": true
     },
     {
       "ort": [47.7288293, 12.1002754],
       "strasse": [47.7287485, 12.1000081],
-      "zustand": "instandgesetzt"
+      "zustand": "instandgesetzt",
+      "fassadenbaukasten": true
     }
   ],
   "strassenkulisse": [

@@ -42,14 +42,25 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,5
   const p=g.getAttribute('position'),r=g.getAttribute('rolle'),z=g.getAttribute('zustand'),glut=g.getAttribute('glut'),uv=g.getAttribute('raumUv');
   const referenz=haeuser.find(h=>h.gebaeudeIndex===i);
   let endlich=true,raumFalsch=0,glutFalsch=0,kontaktFehler=0,oberePlatten=0,blockiert=0,ausserhalbVorfeld=0,licht=0,schuttEcken=0,balkenEcken=0;
-  let blattecken=0, holzrahmen=0, tiefeOeffnung=0;
+  let blattecken=0, holzrahmen=0, tiefeOeffnung=0, vertieftesGlas=0, regenEcken=0;
   const dachHoehen={};
   for(const a of Object.values(g.attributes)) {endlich&&=a.count===p.count;for(const wert of a.array)endlich&&=Number.isFinite(wert);}
   for(let j=0;j<p.count;j++) {
     if(r.getX(j)===7) blattecken++;
     if(r.getX(j)===6) holzrahmen++;
+    if(haus.hausnutzung && r.getX(j)===5) {
+      const x=p.getX(j),z=p.getZ(j), ring=ringe[i];
+      const abstand=Math.min(...ring.slice(0,-1).map(([ax,az],k)=>{
+        const [bx,bz]=ring[k+1], dx=bx-ax,dz=bz-az;
+        const t=THREE.MathUtils.clamp(((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz),0,1);
+        return Math.hypot(x-ax-dx*t,z-az-dz*t);
+      }));
+      if(abstand>.22 && abstand<.24 && imPolygon([x,z],ring)) vertieftesGlas++;
+    }
     if(glut.getX(j)!==0){licht++;if(r.getX(j)!==5)glutFalsch++;}
-    if(r.getX(j)!==5 && r.getX(j)!==7 && (uv.getX(j)!==0||uv.getY(j)!==0||uv.getZ(j)!==0))raumFalsch++;
+    const putzRegen=i===508 && r.getX(j)===0 && uv.getZ(j)===1 && process.env.D307_BODEN_QUERY.includes('&westfassade=1');
+    if(putzRegen) regenEcken++;
+    else if(r.getX(j)!==5 && r.getX(j)!==7 && (uv.getX(j)!==0||uv.getY(j)!==0||uv.getZ(j)!==0))raumFalsch++;
     if(referenz && Math.abs(z.getY(j)-(p.getY(j)-hoehe(p.getX(j),p.getZ(j))))>2e-5)kontaktFehler++;
     if(i===308&&r.getX(j)===2&&z.getY(j)>4) {
       const ort=p.getX(j).toFixed(3)+','+p.getZ(j).toFixed(3);
@@ -142,7 +153,7 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,5
     }
   }
   const positionHash=createHash('sha256').update(Buffer.from(p.array.buffer,p.array.byteOffset,p.array.byteLength)).digest('hex');
-  result.haeuser[i]={hash:hash(g),positionHash,ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen,wandTiefen,schuttEcken,balkenEcken,dachHoehen,blattecken,holzrahmen,tiefeOeffnung,firstLaenge,firstWinkel,dachstufe};
+  result.haeuser[i]={hash:hash(g),positionHash,ecken:p.count,stufe:z.getX(0),endlich,raumFalsch,glutFalsch,kontaktFehler,oberePlatten,blockiert,ausserhalbVorfeld,indexGleich,tritte,licht,tuerTiefen,wandTiefen,schuttEcken,balkenEcken,dachHoehen,blattecken,holzrahmen,tiefeOeffnung,firstLaenge,firstWinkel,dachstufe,vertieftesGlas,regenEcken};
   if(i===297){
     const innen=referenz.mitte;
     if(!imPolygon(innen,ringe[i])) throw Error('Bewohnerprobe muss im Grundriss liegen');
@@ -161,7 +172,7 @@ interface Hausbefund {
   indexGleich: boolean; tritte: boolean[]; tuerTiefen: (number | null)[]; wandTiefen: (number | null)[]; schuttEcken: number;
   balkenEcken: number; dachHoehen: Record<string, number>;
   blattecken: number; holzrahmen: number; tiefeOeffnung: number;
-  firstLaenge: number; firstWinkel: number; dachstufe: number;
+  firstLaenge: number; firstWinkel: number; dachstufe: number; vertieftesGlas: number; regenEcken: number;
 }
 interface Stand {
   haeuser: Record<number, Hausbefund>; eingabeErhalten: boolean; bewohntHash: string;
@@ -185,7 +196,9 @@ const ortsprobe = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1');
 const silhouette = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1');
 const westprobe = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1');
 const westdetail = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1&westdetail=1');
-const westdach = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1&westdetail=1&westdach=1');
+const westdachQuery = zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1&westdetail=1&westdach=1';
+const westdach = lauf(westdachQuery);
+const westfassade = lauf(westdachQuery + '&westfassade=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -342,5 +355,22 @@ pruefe('D331: Zwischen den beiden Dachkörpern von 512 bleibt eine gemessene Hö
 pruefe('D331: Bei 508 bleibt der tiefe Innenraum durch den Dachbruch sichtbar',
   westdach.haeuser[508].tiefeOeffnung >= 3,
   `${westdetail.haeuser[508].tiefeOeffnung} → ${westdach.haeuser[508].tiefeOeffnung}`);
+pruefe('D335: Fassadenbaukasten verändert ausschließlich die gewählten Häuser',
+  westfassade.eingabeErhalten && Object.entries(westdach.haeuser).every(([i, vorher]) => {
+    const nachher = westfassade.haeuser[Number(i)];
+    return westhaeuser.includes(Number(i)) === (vorher.hash !== nachher.hash)
+      && nachher.endlich && nachher.indexGleich && !nachher.raumFalsch && !nachher.glutFalsch;
+  }));
+pruefe('D335: In allen drei Gebäuden sitzt Glas 23 cm hinter der Fassadenkante',
+  westhaeuser.every(i => westdach.haeuser[i].vertieftesGlas === 0 && westfassade.haeuser[i].vertieftesGlas >= 12),
+  westhaeuser.map(i => `${i}: ${westfassade.haeuser[i].vertieftesGlas} Ecken`).join(', '));
+pruefe('D335: Firstlage, Dachstufe und Sicht in den Einsturz bleiben erhalten',
+  Math.abs(westfassade.haeuser[510].firstLaenge - nachDach.firstLaenge) < .001
+  && Math.abs(westfassade.haeuser[510].firstWinkel - nachDach.firstWinkel) < .001
+  && Math.abs(westfassade.haeuser[512].dachstufe - westdach.haeuser[512].dachstufe) < .001
+  && westfassade.haeuser[508].tiefeOeffnung >= 3);
+pruefe('D335: Regenlauf liegt ausschließlich am offenen Bruch',
+  westfassade.haeuser[508].regenEcken > 0 && westfassade.haeuser[510].regenEcken === 0
+  && westfassade.haeuser[512].regenEcken === 0 && westdach.haeuser[508].regenEcken === 0);
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

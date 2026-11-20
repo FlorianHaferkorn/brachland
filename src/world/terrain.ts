@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
 import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN, WESTFASSADE_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
 import { baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
@@ -21,7 +21,7 @@ import { baueDachschindeln, baueSchalungsriss, baueTruemmerkeil, bruchKantenabtr
 import { baueRuinenschutt } from './ruinenschutt.js';
 import { baueBruchholz } from './bruchholz.js';
 import { baueLaubenkasten } from './laubenkasten.js';
-import { fassadenKasten, vereinfacheHauswand } from './hausbauteil.js';
+import { baueFassadenbank, baueFassadenFallrohr, fassadenKasten, vereinfacheHauswand } from './hausbauteil.js';
 import { gesperrt } from './bauwerke.js';
 import { altereNachNutzung, bestimmeBaualterung, packeBaualterung } from './baualterung.js';
 
@@ -278,6 +278,7 @@ export function baueGebaeude(
   const rollen: number[] = [];
   const raumUv: number[] = [];
   let raumFenster: { x: number; z: number; dx: number; dz: number; unten: number; breite: number; hoehe: number; seed: number } | null = null;
+  let regenlauf: { x: number; z: number; dx: number; dz: number; oben: number } | null = null;
   /** Verfallsstufe (0–2), Zielhaus (4), Ortsalterung (8), Nutzungsprobe (+16) und Bodenabstand. */
   const zustand: number[] = [];
   let stufeJetzt = 0;
@@ -387,6 +388,7 @@ export function baueGebaeude(
   const REPARATUR_BLECH = new THREE.Color('#67737a');
   const BLECHFALZ = new THREE.Color('#8a9290');
   const ERSATZHOLZ = new THREE.Color('#a2835d');
+  const FASSADEN_ERSATZHOLZ = new THREE.Color('#786957');
   const TUERLACK = new THREE.Color('#394d48');
   ROLLE.set(ERSATZHOLZ, 1);
 
@@ -423,7 +425,7 @@ export function baueGebaeude(
     for (const v of [a, b, c]) { const k = ao(v) * toenung; farben.push(f.r * k, f.g * k, f.b * k); }
     glut.push(glutWert, glutWert, glutWert);
     const detailRolle = zielHausJetzt || westDetailJetzt;
-    const r = blatt ? 7 : detailRolle && (f === RAHMEN || f === LADEN || f === TUERLACK) ? 6
+    const r = blatt ? 7 : detailRolle && (f === RAHMEN || f === LADEN || f === TUERLACK || f === FASSADEN_ERSATZHOLZ) ? 6
       : detailRolle && f === SPARREN ? 1
       : westDetailJetzt && f === ERSATZHOLZ ? 4 : ROLLE.get(f) ?? 4;
     rollen.push(r, r, r);
@@ -433,6 +435,9 @@ export function baueGebaeude(
       if (f === FENSTER && raumFenster) {
         const q = raumFenster;
         raumUv.push(((v[0]-q.x)*q.dx+(v[2]-q.z)*q.dz)/q.breite+0.5, (v[1]-q.unten)/q.hoehe, q.seed);
+      } else if (r === 0 && regenlauf) {
+        const q = regenlauf;
+        raumUv.push((v[0]-q.x)*q.dx+(v[2]-q.z)*q.dz, v[1]-q.oben, 1);
       } else raumUv.push(0, 0, 0);
     }
     for (const v of [a, b, c]) zustand.push(alterungJetzt + stufeJetzt + (zielHausJetzt ? 4 : 0)
@@ -510,6 +515,7 @@ export function baueGebaeude(
     const referenzHaus = !!hausReferenz;
     const nutzung = WESTVERFALL_AN ? g.hausnutzung : undefined;
     const westDetail = WESTDETAIL_AN && !!nutzung;
+    const fassadenbaukasten = WESTFASSADE_AN && nutzung?.fassadenbaukasten === true;
     westDetailJetzt = westDetail;
     const dachruine = nutzung?.zustand === 'ruine';
     const verwachsen = nutzung?.zustand === 'verwachsen';
@@ -846,6 +852,8 @@ export function baueGebaeude(
       bewuchsWandJetzt = rankenWand;
       const traufseitig = Math.abs((x2-x1)*hu.cos + (z2-z1)*hu.sin) > lochLaenge*0.7;
       const tiefeDetails = westDetail && strassenWand > -.22;
+      const fassadenWand = fassadenbaukasten && tiefeDetails && !stallWand;
+      const tuerVertieft = referenzHaus || (fassadenbaukasten && !stallWand && lochLaenge >= tuerBreite + .6);
       const spalt = (() => {
         if (!westDetail || !dachruine || !sackdach || !traufseitig || !Number.isFinite(holzAb)
           || oben-holzAb < 1.7 || schadSeite*(wx*vx+wz*vz) < .84) return undefined;
@@ -863,13 +871,14 @@ export function baueGebaeude(
       const eingangBoden = (referenzHaus || reparatur) && k === tuerWand
         ? Math.max(boden, terrain.hoeheAn(eingangX+(z2-z1)/lochLaenge*.35,eingangZ-(x2-x1)/lochLaenge*.35)) : boden;
       const fensterEntfaellt = (ebene: number, u: number) =>
-        ((referenzHaus || reparatur) && k === tuerWand && ebene === 0 && Math.abs(u-eingangU) < (tuerBreite+breiteF)/2+(hausReferenz?.eingang ? 0.65 : 0.18))
+        ((tuerVertieft || reparatur) && k === tuerWand && ebene === 0 && Math.abs(u-eingangU) < (tuerBreite+breiteF)/2+(hausReferenz?.eingang ? 0.65 : 0.18))
         || (einsturz && ebene > 0 && u / lochLaenge > .13 && u / lochLaenge < .83)
         || (spalt !== undefined && ebene > 0 && u+breiteF*.82 > spalt.von*lochLaenge
           && u-breiteF*.82 < spalt.bis*lochLaenge);
       const fensterUnterkante = (ebene: number) => boden + ebene * geschoss + 1.05;
       // Unpassende Fotoachsen erzeugen keine überlappenden Löcher oder offene Hausecken.
-      const fensterVertieft = (FENSTERTIEFE_AN || referenzHaus) && !stallWand && lochLaenge >= 2.2 && anzahl > 0 && lochLaenge / anzahl >= 1.2;
+      const fensterVertieft = (FENSTERTIEFE_AN || referenzHaus || fassadenWand)
+        && !stallWand && lochLaenge >= 2.2 && anzahl > 0 && lochLaenge / anzahl >= 1.2;
       wandStart = [x1,z1]; wandRichtung = [(x2-x1)/Math.max(lochLaenge,1e-6),(z2-z1)/Math.max(lochLaenge,1e-6)];
       if (fensterVertieft) {
         for(let e=0;e<ebenen;e++) {
@@ -878,11 +887,19 @@ export function baueGebaeude(
           for(let i=0;i<anzahl;i++) { const u=lochLaenge*(i+0.5)/anzahl; if(fensterEntfaellt(e,u)) continue; wandLoch.push({u0:u-breiteF/2,u1:u+breiteF/2,y0:y,y1:y+hoeheF}); }
         }
       }
-      if (referenzHaus && k === tuerWand) wandLoch.push({u0:eingangU-tuerBreite/2,u1:eingangU+tuerBreite/2,y0:boden,y1:eingangBoden+tuerHoehe+.02});
+      if (tuerVertieft && k === tuerWand) wandLoch.push({
+        u0: eingangU - tuerBreite / 2, u1: eingangU + tuerBreite / 2, y0: boden,
+        y1: referenzHaus ? eingangBoden + tuerHoehe + .02 : Math.min(eingangBoden + tuerHoehe, oben - .30),
+      });
       const bruchGrenze = Math.max(boden+1.05+hoeheF+.065,k === tuerWand ? eingangBoden+tuerHoehe+.095 : -Infinity);
       const putzbruch = holzAb > bruchGrenze && (spalt || (verlaufHaus && einsturz))
         ? (t: number) => Math.min(holzAb-bruchGrenze,bruchKantenabtrag(spalt ? (t-spalt.von)/(spalt.bis-spalt.von) : t))
         : undefined;
+      if (fassadenbaukasten && spalt) {
+        const t = spalt.von + .33*(spalt.bis - spalt.von);
+        regenlauf = { x: x1 + (x2-x1)*t, z: z1 + (z2-z1)*t,
+          dx: wandRichtung[0], dz: wandRichtung[1], oben: holzAb - (putzbruch?.(t) ?? 0) };
+      }
       if (stallWand) {
         // D289: Tenne/Stall — Bruchsteinsockel bis 0,9 m, darüber Bretter bis zur Traufe.
         quad([x1, fuss, z1], [x2, fuss, z2], [x2, boden + 0.9, z2], [x1, boden + 0.9, z1], SOCKEL);
@@ -910,6 +927,7 @@ export function baueGebaeude(
       } else {
         wandFeld(x1,z1,x2,z2,fuss,oben,WAND);
       }
+      regenlauf = null;
 
       const wandLaenge = Math.hypot(x2 - x1, z2 - z1);
       if (wandLaenge < 0.5) continue;
@@ -1092,7 +1110,10 @@ export function baueGebaeude(
             baueBruchholz(tri,P(.806,holzAb-.062,.07),P(.623,holzAb-.27,.18),.13,.14,321321,true,true);
           } else if(Number.isFinite(holzAb)) K(0,wandLaenge,holzAb-0.15,Math.min(oben,holzAb)+0.02,0.02,0.13,TUER);
         } else band(boden, 0.34, 0.05, SOCKEL);
-        for (let e = 1; e < ebenen; e++) if (!putzbruch || e < ebenen-1) band(boden + e * geschoss - 0.07, 0.14, 0.07, DACH);
+        for (let e = 1; e < ebenen; e++) {
+          if (fassadenWand && e === ebenen - 1 && Number.isFinite(holzAb)) continue;
+          if (!putzbruch || e < ebenen - 1) band(boden + e * geschoss - .07, .14, .07, DACH);
+        }
       }
 
       // Haustür
@@ -1101,8 +1122,8 @@ export function baueGebaeude(
         const cx = x1 + (x2 - x1) * t, cz = z1 + (z2 - z1) * t;
         const ex = (x2 - x1) / wandLaenge * tuerBreite / 2;
         const ez = (z2 - z1) / wandLaenge * tuerBreite / 2;
-        const o = referenzHaus ? -0.14 : 0.06, y0 = eingangBoden + 0.02, y1 = Math.min(eingangBoden+tuerHoehe,boden+h-0.3);
-        if (!referenzHaus) quad(
+        const o = tuerVertieft ? -0.14 : 0.06, y0 = eingangBoden + 0.02, y1 = Math.min(eingangBoden+tuerHoehe,boden+h-0.3);
+        if (!tuerVertieft) quad(
           [cx - ex + wx * o, y0, cz - ez + wz * o],
           [cx + ex + wx * o, y0, cz + ez + wz * o],
           [cx + ex + wx * o, y1, cz + ez + wz * o],
@@ -1111,22 +1132,28 @@ export function baueGebaeude(
         );
         // Türstock: ein schmaler heller Rahmen, damit die Tür nicht als Loch liest.
         const r = 0.09;
-        if (!referenzHaus) quad(
+        if (!tuerVertieft) quad(
           [cx - ex - ex * 0.14 + wx * (o - 0.02), y0, cz - ez - ez * 0.14 + wz * (o - 0.02)],
           [cx + ex + ex * 0.14 + wx * (o - 0.02), y0, cz + ez + ez * 0.14 + wz * (o - 0.02)],
           [cx + ex + ex * 0.14 + wx * (o - 0.02), y1 + r, cz + ez + ez * 0.14 + wz * (o - 0.02)],
           [cx - ex - ex * 0.14 + wx * (o - 0.02), y1 + r, cz - ez - ez * 0.14 + wz * (o - 0.02)],
           SOCKEL,
         );
-        if (referenzHaus) {
+        if (tuerVertieft) {
           const K=fassadenKasten(quadNach,[cx,cz],[(x2-x1)/wandLaenge,(z2-z1)/wandLaenge],[wx,wz]);
           const a=tuerBreite/2;
+          const tuerholz = fassadenbaukasten && reparatur ? TUERLACK : REFERENZ_HOLZ;
+          const tuerstock = fassadenbaukasten && reparatur ? FASSADEN_ERSATZHOLZ : RAHMEN;
           // Aufgedoppelte Füllungen und Querfriese statt einer aufgeklebten Türfläche.
-          for(let b=0;b<4;b++) K(-a+.055+b*(tuerBreite-.11)/4,-a+.055+(b+1)*(tuerBreite-.11)/4-.008,y0+.12,y1-.12,-.135,-.115,REFERENZ_HOLZ);
+          for(let b=0;b<4;b++) K(-a+.055+b*(tuerBreite-.11)/4,-a+.055+(b+1)*(tuerBreite-.11)/4-.008,y0+.12,y1-.12,-.135,-.115,tuerholz);
           for(const y of [y0+.12,y0+.92,y1-.15]) K(-a+.03,a-.03,y,y+.075,-.115,-.075,TUER);
-          K(-a-.13,-a,y0,y1+.13,-.16,.08,RAHMEN);
-          K(a,a+.13,y0,y1+.13,-.16,.08,RAHMEN);
-          K(-a,a,y1,y1+.13,-.16,.08,RAHMEN);
+          K(-a-.13,-a,y0,y1+.13,-.16,.08,tuerstock);
+          K(a,a+.13,y0,y1+.13,-.16,.08,tuerstock);
+          K(-a,a,y1,y1+.13,-.16,.08,tuerstock);
+          if (!referenzHaus) {
+            K(-a,-a+.04,y0,y1,-.14,.005,tuerstock);
+            K(a-.04,a,y0,y1,-.14,.005,tuerstock);
+          }
           // Zurückgesetzte Brettertür, Füllungen, Schloss und Drücker.
           K(-a,a,y0,y1,-.18,-.14,TUER);
           K(a-.16,a-.10,y0+.92,y0+1.16,-.10,-.06,RINNE);
@@ -1137,7 +1164,7 @@ export function baueGebaeude(
           if (HOF_BODEN_AN && hausReferenz?.eingang) baueHoftrittplatten(quadNach,
             [hausReferenz.eingang[0],hausReferenz.eingang[1]], [wx,wz], terrain.hoeheAn, Math.floor(glutHash(cx,y0,cz)*4294967295), SOCKEL);
         }
-        if (reparatur) {
+        if (reparatur && (!fassadenbaukasten || !tuerVertieft)) {
           const K = fassadenKasten(quadNach, [cx,cz], [wandRichtung[0], wandRichtung[1]], [wx,wz]);
           const a = tuerBreite / 2;
           K(-a-.15,-a-.025,y0,y1+.13,.04,.155,ERSATZHOLZ);
@@ -1150,6 +1177,8 @@ export function baueGebaeude(
           baueHoftrittplatten(quadNach, [cx,cz], [wx,wz], terrain.hoeheAn,
             Math.floor(glutHash(cx,y0,cz)*4294967295), SOCKEL);
         }
+        if (reparatur && tuerVertieft && !referenzHaus) baueHoftrittplatten(quadNach, [cx,cz], [wx,wz],
+          terrain.hoeheAn, Math.floor(glutHash(cx,y0,cz)*4294967295), SOCKEL);
         /**
          * Vordach über der Haustür — ein kleines Pultdach auf zwei Kopfbändern.
          *
@@ -1212,7 +1241,7 @@ export function baueGebaeude(
           const zerbrochen = (einsturz && !zielHaus && ebene === 0 && t < .4)
             || (dachruine && strassenWand > .36 && fensterVertieft && glutHash(cx,yUnten,cz) < .64);
           const ex = (x2 - x1) / laenge * breiteF / 2, ez = (z2 - z1) / laenge * breiteF / 2;
-          const o = fensterVertieft ? -0.18 : 0.04;
+          const o = fensterVertieft ? (fassadenWand ? -.23 : -.18) : .04;
           /**
            * Laibung zuerst, Scheibe darüber.
            *
@@ -1222,14 +1251,16 @@ export function baueGebaeude(
            * ganzen Haus: bei 8 bis 20 Stück kostet es 16 bis 40 Dreiecke und
            * verändert die Wand vollständig.
            */
-          const r = 0.11;
+          const r = fassadenWand ? .08 : .11;
           const rx = (x2 - x1) / laenge * (breiteF / 2 + r);
           const rz = (z2 - z1) / laenge * (breiteF / 2 + r);
           if (fensterVertieft) {
             const dx=(x2-x1)/laenge, dz=(z2-z1)/laenge;
             const P=(u:number,y:number,vor:number):[number,number,number] => [cx+dx*u+nx*vor,y,cz+dz*u+nz*vor];
             const a=breiteF/2, y0=yUnten, y1=yUnten+hoeheF, v=0.025;
-            const ton=wohnhaus ? RAHMEN : SOCKEL;
+            const ton = fassadenWand
+              ? (y0 >= holzAb ? REFERENZ_HOLZ : reparatur ? RAHMEN : SOCKEL)
+              : wohnhaus ? RAHMEN : SOCKEL;
             // Vier offene Faschenstreifen; kein Quad verdeckt die Aussparung.
             quadNach(P(-a-r,y0-r,v),P(-a,y0-r,v),P(-a,y1+r,v),P(-a-r,y1+r,v),ton,[nx,0,nz]);
             quadNach(P(a,y0-r,v),P(a+r,y0-r,v),P(a+r,y1+r,v),P(a,y1+r,v),ton,[nx,0,nz]);
@@ -1280,19 +1311,26 @@ export function baueGebaeude(
             const dx=(x2-x1)/laenge,dz=(z2-z1)/laenge;
             const K=fassadenKasten(quadNach,[cx,cz],[dx,dz],[nx,nz]);
             const a=breiteF/2, y0=yUnten, y1=yUnten+hoeheF;
-            K(-a,-a+.055,y0,y1,o+.006,o+.08,RAHMEN);
-            K(a-.055,a,y0,y1,o+.006,o+.08,RAHMEN);
-            K(-a+.055,a-.055,y0,y0+.055,o+.006,o+.08,RAHMEN);
-            K(-a+.055,a-.055,y1-.055,y1,o+.006,o+.08,RAHMEN);
+            const rahmen = fassadenWand && reparatur ? FASSADEN_ERSATZHOLZ : RAHMEN;
+            K(-a,-a+.055,y0,y1,o+.006,o+.08,rahmen);
+            K(a-.055,a,y0,y1,o+.006,o+.08,rahmen);
+            K(-a+.055,a-.055,y0,y0+.055,o+.006,o+.08,rahmen);
+            K(-a+.055,a-.055,y1-.055,y1,o+.006,o+.08,rahmen);
             if (!zerbrochen) {
-              K(-.025,.025,y0+.055,y1-.055,o+.006,o+.065,RAHMEN);
+              K(-.025,.025,y0+.055,y1-.055,o+.006,o+.065,rahmen);
               const sprossen = zieltreueHaus ? [.327,.674] : [.60];
               for (const t of sprossen) {
                 const y = y0 + hoeheF*t;
-                K(-a+.055,a-.055,y-.02,y+.02,o+.006,o+.065,RAHMEN);
+                K(-a+.055,a-.055,y-.02,y+.02,o+.006,o+.065,rahmen);
               }
             }
-            K(-a-.16,a+.16,y0-.16,y0-.08,-.18,.28,RAHMEN);
+            if (fassadenWand) {
+              const punkt = (u: number, y: number, v: number): [number, number, number] =>
+                [cx + dx*u + nx*v, y, cz + dz*u + nz*v];
+              const steinbank = y0 < holzAb;
+              baueFassadenbank(quadNach, punkt, a + .095, y0 - .012, o + .025, steinbank ? .19 : .13,
+                [dx, dz], [nx, nz], steinbank ? SOCKEL : rahmen);
+            } else K(-a-.16,a+.16,y0-.16,y0-.08,-.18,.28,RAHMEN);
             if (zerbrochen) {
               K(-a-.28,a+.28,y0-.18,y1+.25,-.93,-.84,RUINEN_INNEN);
               continue;
@@ -1301,6 +1339,8 @@ export function baueGebaeude(
             if (fensterSchaden > 0 && (!zielHaus || !einsturz || t >= .4) && glutHash(cx - 1.7, y0, cz) < .33 + fensterSchaden * .1) {
               K(-a-.07,a+.07,y0+hoeheF*.27,y0+hoeheF*.40,-.035,.035,REFERENZ_HOLZ);
             }
+            // An engen Achsen und bei einem Steckbrief ohne Läden bleibt der Rahmen frei.
+            if (fassadenWand && (g.fassade?.laeden === null || laenge / anzahl < 2.10)) continue;
             for(const seite of [-1,1]) {
               const zustandLaden = glutHash(cx + seite * 1.7, y0, cz);
               if (fensterSchaden > 0 && zustandLaden < fensterSchaden * .26) continue;
@@ -1310,7 +1350,8 @@ export function baueGebaeude(
               const ursprung=[cx+dx*seite*(a+.15)+nx*.06,cz+dz*seite*(a+.15)+nz*.06];
               const L=fassadenKasten(quadNach,ursprung,richtung,n);
               const lo=seite<0 ? -.4 : 0, hi=lo+.4;
-              const ton = reparatur && glutHash(cx+seite,y0,cz)<.42 ? ERSATZHOLZ : LADEN;
+              const ton = reparatur && glutHash(cx+seite,y0,cz)<.42
+                ? (fassadenWand ? FASSADEN_ERSATZHOLZ : ERSATZHOLZ) : LADEN;
               for(let b=0;b<3;b++) L(lo+b*.134,Math.min(hi,lo+(b+1)*.134-.009),y0-.02,y1+.02,-.025,.025,ton);
               for(const y of [y0+.14,y1-.18]) L(lo,hi,y,y+.065,.025,.055,TUER);
               for(const y of [y0+.18,y1-.22]) L(seite<0 ? -.07 : 0,seite<0 ? 0 : .07,y,y+.045,.055,.075,RINNE);
@@ -1976,7 +2017,8 @@ export function baueGebaeude(
      * Bauteil am Haus, das nicht Holz und nicht Putz ist.
      */
     if (!garage && breite >= 5) {
-      const blech = zielHaus ? ALTES_BLECH : RINNE;
+      const blech = zielHaus || (fassadenbaukasten && dachruine) ? ALTES_BLECH
+        : fassadenbaukasten && reparatur ? REPARATUR_BLECH : RINNE;
       for (const feld of dachfelder) {
         for (const s of [-1,1] as const) {
           if (bruch && schadSeite === s) continue;
@@ -1986,22 +2028,68 @@ export function baueGebaeude(
             {unten:true,v0:true,v1:true});
         }
       }
-      const ecken: [number, number][] = [[minU, minV], [maxU, minV], [maxU, maxV], [minU, maxV]];
+      // Der Würfelzug bleibt für die nachfolgenden Bauteile erhalten.
       const wahl = Math.floor(wuerfel() * 4);
-      for (let e = 0; e < 4; e++) {
-        const [eu, ev] = ecken[(wahl + e) % 4];
-        let naechste = Infinity;
+      if (fassadenbaukasten) {
+        // Ein Traufanschluss über einer echten Wand. Die Rohrposition folgt
+        // dem Dachfeld, auch wenn das Gebäude aus zwei Dachkörpern besteht.
+        let anschluss: { u: number; vWand: number; vRinne: number; y: number; seite: number } | undefined;
+        let besterWert = -Infinity;
         for (let k = 0; k < p.length - 1; k++) {
-          const uP = p[k][0] * hu.cos + p[k][1] * hu.sin, vP = -p[k][0] * hu.sin + p[k][1] * hu.cos;
-          naechste = Math.min(naechste, Math.hypot(uP - eu, vP - ev));
+          const [ax, az] = p[k], [bx, bz] = p[k + 1];
+          const dx = bx - ax, dz = bz - az, l = Math.hypot(dx, dz);
+          if (l < 2.2 || Math.abs(dx*ux + dz*uz) < .92*l) continue;
+          const seite = (dz*vx - dx*vz) < 0 ? -1 : 1;
+          if (bruch && schadSeite === seite) continue;
+          const vRinne = seite < 0 ? aV0 : aV1;
+          for (const t of [.46/l, 1 - .46/l]) {
+            const x = ax + dx*t, z = az + dz*t;
+            const u = x*ux + z*uz, vWand = x*vx + z*vz;
+            const abstand = (vRinne - vWand)*seite;
+            if (abstand < .12 || abstand > 1.35) continue;
+            const feld = dachfelder.find(f => u > f.u0 + .13 && u < f.u1 - .13);
+            if (!feld) continue;
+            const wert = strassenSeite(dz/l,-dx/l) - .35*abstand + .18*glutHash(x,boden,z);
+            if (wert <= besterWert) continue;
+            besterWert = wert;
+            anschluss = { u, vWand, vRinne, y: feldHoehe(vRinne, feld) - .10, seite };
+          }
         }
-        if (naechste > 0.6) continue;
-        const su = eu === minU ? 1 : -1, sv = ev === minV ? -1 : 1;
-        const u0 = eu + su * 0.25 - 0.06, v0 = ev + sv * 0.12 - 0.06;
-        const ry = (westDach ? dachY(sv < 0 ? aV0 : aV1,eu) : traufe)-.02;
-        kasten(u0, u0 + 0.12, v0, v0 + 0.12, fest(boden), fest(ry - 0.12), blech,
-               { u0: true, u1: true, v0: sv < 0, v1: sv > 0 });
-        break;
+        if (anschluss) {
+          const { u, vWand, vRinne, y, seite } = anschluss;
+          const rohr = vWand + seite*.13;
+          const [sx,,sz] = welt3(u, 0, rohr);
+          const grund = terrain.hoeheAn(sx, sz);
+          const fussRohr = dachruine ? y - 1.04 : grund + (reparatur ? .14 : .30);
+          if (fussRohr < y - .63) {
+            const verlauf: [number, number][] = [[y, vRinne], [y-.18, vRinne], [y-.48, rohr], [fussRohr, rohr]];
+            if (!dachruine) verlauf.push([fussRohr-.06, rohr+seite*.15]);
+            baueFassadenFallrohr(quadNach, welt3, u, verlauf, blech);
+            for (const hoehe of [y-.57, fussRohr+.21]) if (hoehe < y-.5 && hoehe > fussRohr) {
+              kasten(u-.067,u+.067,rohr-.061,rohr+.061,fest(hoehe-.025),fest(hoehe+.025),blech,
+                { oben: true, unten: true, u0: true, u1: true, v0: true, v1: true });
+              kasten(u-.028,u+.028,Math.min(vWand,rohr),Math.max(vWand,rohr),
+                fest(hoehe-.018),fest(hoehe+.018),blech,{ oben: true, unten: true, u0: true, u1: true });
+            }
+          }
+        }
+      } else {
+        const ecken: [number, number][] = [[minU, minV], [maxU, minV], [maxU, maxV], [minU, maxV]];
+        for (let e = 0; e < 4; e++) {
+          const [eu, ev] = ecken[(wahl + e) % 4];
+          let naechste = Infinity;
+          for (let k = 0; k < p.length - 1; k++) {
+            const uP = p[k][0] * hu.cos + p[k][1] * hu.sin, vP = -p[k][0] * hu.sin + p[k][1] * hu.cos;
+            naechste = Math.min(naechste, Math.hypot(uP - eu, vP - ev));
+          }
+          if (naechste > 0.6) continue;
+          const su = eu === minU ? 1 : -1, sv = ev === minV ? -1 : 1;
+          const u0 = eu + su * 0.25 - 0.06, v0 = ev + sv * 0.12 - 0.06;
+          const ry = (westDach ? dachY(sv < 0 ? aV0 : aV1,eu) : traufe)-.02;
+          kasten(u0, u0 + 0.12, v0, v0 + 0.12, fest(boden), fest(ry - 0.12), blech,
+                 { u0: true, u1: true, v0: sv < 0, v1: sv > 0 });
+          break;
+        }
       }
     }
 

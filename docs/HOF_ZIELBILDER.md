@@ -447,3 +447,29 @@ Die drei A/B-Bildpaare zeigen Ortseinfahrt, Milbinger Straße und Bahnhofstraße
 | Frames über 50 ms, gesamte Route | 0 | 1 |
 
 Alle vier Läufe erreichen die zwölf Wegpunkte. Gemessen wurde im selben Build ohne Videoaufnahme mit `strassenprofil=0/1/1/0`. Der einzelne Frame über 50 ms trat nach 2,22 s noch im Hof auf. In beiden D334-Läufen blieb die Spitze an der Milbinger Straße unter 36 ms. Einzelberichte liegen unter `.cache/mess/d334-finale-ab-{a1,b1,b2,a2}`. Die Bilder und separaten Bewegungsvergleiche der 152-m-Route und der Ortseinfahrt liegen unter `.cache/bilder/d334-fahrbahnprofil/index.html`.
+
+## Fassadenbaukasten an der Weststraße (D335)
+
+Die drei Weststraßenhäuser teilen sich geneigte Fensterbänke, Laibungen, Läden, Türstöcke und abgewinkelte Fallrohre. Der Generator baut sie in Metermaßen an die vorhandenen Fassadenachsen und Dachfelder. Das Glas liegt an den zugewandten Seiten 23 cm hinter der Außenkante. Fensterbänke an Mauerwerk ragen 19 cm über die Wand, an Holzschalung 13 cm. OSM und LoD2-BY liefern die Grundrisse und Dachkörper. Fenstermaße, Fensterachsen und Entwässerungspositionen sind Entwurfswerte. Der Fotoabgleich ist unter A-20 erfasst. [Fassaden-Fotoliste](design/BRACHLAND_Fassaden_Fotoliste_v1.md)
+
+| Haus | Geometrie und Nutzung |
+|---|---|
+| 508 · Ruine | Unter der beschädigten Traufe brechen Bretter und Regenrinne ab. Ein Regenläufer beginnt am Bruchrand. Einzelne Scheiben und Läden fehlen, und der Blick in den Dachbruch bleibt frei. |
+| 510 · Verwachsen | Die Efeuranke sitzt an der kühleren Ecke. Laibungen bleiben zwischen den Trieben ablesbar. Das Fallrohr hängt mit versetztem Knie an der Rinne und endet über dem verwachsenen Sockel. |
+| 512 · Instand gesetzt | Nachgedunkeltes Ersatzholz sitzt an ausgewählten Läden und an den erneuerten Fensterrahmen. Die Tür liegt hinter dem Putz und hat eine Trittfläche. Entwässerung und Türfeld folgen den Anschlussmaßen des Hauses. |
+
+`hausnutzung[].fassadenbaukasten` schaltet das gemeinsame Verfahren pro Grundstück frei. Ein anderer Baukörper durchläuft dieselbe Montage mit seinem Grundriss, seinen Öffnungsachsen und seinem Nutzungszustand. Die Bauteile fließen in die vorhandenen Kachelmeshes und verwenden den bestehenden Materialatlas. Die Regenmaske nutzt den vorhandenen UV-Kanal auf den betroffenen Putzflächen. Für diese Montage gibt es keinen KI-Aufruf pro Gebäude.
+
+Die Geometrieprüfung misst zurückgesetztes Glas in allen drei Gebäuden. Die Firstlänge und Firstachse bei 510, die Dachstufe bei 512 und der tiefe Innenraum bei 508 bleiben in der Stichprobe erhalten. Die übrigen geprüften Häuser liefern bitgleiche Meshattribute.
+
+In den Spielansichten enthält der Haus- und Gartenpuffer 459.679 Dreiecke und 72,50 MB vor der Probe, 478.957 Dreiecke und 75,41 MB mit Baukasten. Die drei Bildpaare verwenden dieselben Blickpunkte und dieselbe Windphase. Alle sechs Aufnahmen sind frei von Browserfehlern.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | Vorher | Fassadenbaukasten |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 40,81 | 41,91 |
+| FPS, Weststraße | 40,66 | 42,49 |
+| p95, gesamte Route | 34,95 ms | 34,75 ms |
+| Längster Frame, gesamte Route | 49,9 ms | 50,1 ms |
+| Frames über 50 ms, gesamte Route | 0 | 1 |
+
+Die vier Läufe erreichen je zwölf Wegpunkte. Ein 50,1-ms-Frame tritt nach 8,38 s im Hof auf. Die Weststraße bleibt in beiden Baukastenläufen unter 36 ms. Gemessen wurde im selben Build bei aktivem D334 und `westfassade=0/1/1/0`. Einzelberichte liegen unter `.cache/mess/d335-finale-ab-{a1,b1,b2,a2}`. Die getrennten Echtzeitaufnahmen liegen unter `.cache/mess/d335-finale-film-{a,b}`. Die Standbilder lassen sich mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westfassade` wiederholen. Die Galerie liegt unter `.cache/bilder/d335-fassadenbaukasten/index.html`.
