@@ -22,6 +22,26 @@ export interface OsmWay {
   loecher?: { lat: number; lon: number }[][];
 }
 
+/** Optionaler OSM-Steckbrief. Ältere Weltdaten haben nur die Weggeometrie. */
+export interface Wegquelle {
+  osmId: number;
+  name?: string;
+  oberflaeche?: string;
+  gemesseneBreite?: number;
+  beleuchtung?: 'yes' | 'no';
+}
+
+export function wegquelle({ id, tags }: OsmWay): Wegquelle {
+  const breite = Number(tags.width?.replace(',', '.').replace(/\s*m$/, ''));
+  return {
+    osmId: id,
+    ...(tags.name && { name: tags.name }),
+    ...(tags.surface && { oberflaeche: tags.surface }),
+    ...(breite > 0 && Number.isFinite(breite) && { gemesseneBreite: breite }),
+    ...(tags.lit === 'yes' || tags.lit === 'no' ? { beleuchtung: tags.lit } : {}),
+  };
+}
+
 /** Biome, auf die OSM-Tags abgebildet werden. Bestimmen Aussehen UND Spawns. */
 export const BIOME = [
   'fels', 'wald', 'gebuesch', 'wiese', 'acker', 'wasser',
@@ -246,7 +266,7 @@ export interface Weltdaten {
     } | null;
   }[];
   /** Wege und Straßen — strukturieren die Landschaft stark. */
-  wege: { art: string; punkte: [number, number][]; breite: number }[];
+  wege: { art: string; punkte: [number, number][]; breite: number; quelle?: Wegquelle }[];
   /** Feste Positionen für Verwachsene und Uniques. */
   marker: { tag: string; position: [number, number] }[];
   attribution: string;
@@ -290,7 +310,7 @@ export function baueWelt(bbox: BBox, ways: OsmWay[], hoehen: number[][]): Weltda
     }
     if (way.tags.highway) {
       const b = WEG_BREITE[way.tags.highway];
-      if (b) wege.push({ art: way.tags.highway, punkte, breite: b });
+      if (b) wege.push({ art: way.tags.highway, punkte, breite: b, quelle: wegquelle(way) });
       continue;
     }
     if (way.tags.waterway) {

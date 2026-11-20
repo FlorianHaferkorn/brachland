@@ -45,6 +45,116 @@
       "zustand": "instandgesetzt"
     }
   ],
+  "strassenkulisse": [
+    {
+      "wege": [
+        {
+          "osmWeg": 198749032,
+          "verfall": 0.98
+        }
+      ],
+      "objekte": []
+    },
+    {
+      "wege": [
+        {
+          "osmWeg": 26518481,
+          "verfall": 0.86
+        },
+        {
+          "osmWeg": 42330343,
+          "verfall": 0.9
+        }
+      ],
+      "objekte": [
+        {
+          "art": "ortstafel",
+          "osmKnoten": 290649874,
+          "osmWeg": 42330343,
+          "ort": [
+            47.7448979,
+            12.09097
+          ],
+          "verfall": 0.69,
+          "text": "Brannenburg",
+          "richtung": 323.48,
+          "achsenpunkt": true
+        }
+      ]
+    },
+    {
+      "wege": [
+        {
+          "osmWeg": 216224683,
+          "verfall": 0.72
+        },
+        {
+          "osmWeg": 1243519279,
+          "verfall": 0.72
+        },
+        {
+          "osmWeg": 25919910,
+          "verfall": 0.72
+        },
+        {
+          "osmWeg": 25919760,
+          "verfall": 0.72
+        }
+      ],
+      "objekte": [
+        {
+          "art": "laterne",
+          "osmKnoten": 13867049286,
+          "osmWeg": 216224683,
+          "ort": [
+            47.7409029,
+            12.1060655
+          ],
+          "verfall": 0.64
+        },
+        {
+          "art": "laterne",
+          "osmKnoten": 13866815952,
+          "osmWeg": 1243519279,
+          "ort": [
+            47.7408679,
+            12.1066181
+          ],
+          "verfall": 0.64
+        },
+        {
+          "art": "laterne",
+          "osmKnoten": 13866843514,
+          "osmWeg": 1243519279,
+          "ort": [
+            47.7407188,
+            12.1068431
+          ],
+          "verfall": 0.64
+        },
+        {
+          "art": "laterne",
+          "osmKnoten": 13866865284,
+          "osmWeg": 25919910,
+          "ort": [
+            47.7405742,
+            12.1070609
+          ],
+          "verfall": 0.64
+        },
+        {
+          "art": "laterne",
+          "osmKnoten": 13866842099,
+          "osmWeg": 25919760,
+          "ort": [
+            47.740387,
+            12.1068214
+          ],
+          "verfall": 0.64
+        }
+      ]
+    }
+  ],
   "nachbarn": [
     {
       "region": "fahlmoos",

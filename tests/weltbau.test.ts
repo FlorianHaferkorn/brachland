@@ -69,5 +69,21 @@ pruefe('Moor hängt hinten an — alte Codes bleiben', BIOME.indexOf('moor') ===
   pruefe('Alte Weltdatei liest sich unverändert', alt.biome.flat().join() === 'wiese,wasser,unbekannt,wald,wasser,fels,siedlung,ruine,fels');
 }
 
+console.log('\nStraßenquellen');
+{
+  const strasse = baueWelt([0, 0, 1, 1], [
+    { id: 4321, tags: { highway: 'residential', name: 'Am Bahnhof', surface: 'asphalt', width: '5,4 m', lit: 'yes' },
+      geometry: [p(.4, .2), p(.4, .7)] },
+    { id: 4322, tags: { highway: 'path', width: 'variabel', lit: 'automatic' }, geometry: [p(.5, .2), p(.5, .7)] },
+  ], [[12, 13], [14, 15]]);
+  const [weg, pfad] = entpackeWelt(packeWelt(strasse)).wege;
+  pruefe('Straßenattribute bleiben beim Packen erhalten', weg.quelle?.osmId === 4321
+    && weg.quelle.name === 'Am Bahnhof' && weg.quelle.oberflaeche === 'asphalt'
+    && weg.quelle.gemesseneBreite === 5.4 && weg.quelle.beleuchtung === 'yes');
+  pruefe('Quellenbreite verändert die bestehende Spielgeometrie nicht', weg.breite === 5);
+  pruefe('Uneindeutige Breiten und Beleuchtung ergeben keine scheinpräzisen Daten',
+    pfad.quelle?.osmId === 4322 && !('gemesseneBreite' in pfad.quelle) && !('beleuchtung' in pfad.quelle));
+}
+
 console.log(`\n${pass} bestanden, ${fail} fehlgeschlagen`);
 if (fail) process.exit(1);

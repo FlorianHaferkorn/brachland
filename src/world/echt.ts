@@ -54,6 +54,8 @@ export const WESTVERFALL_AN = HOF_ORTSALTERUNG_AN && an('westverfall');
 export const WESTDETAIL_AN = WESTVERFALL_AN && an('westdetail');
 /** D331: maßstäbliche Dachkörper im Weststraßen-Ausschnitt. */
 export const WESTDACH_AN = WESTDETAIL_AN && an('westdach');
+/** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
+export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D323: Dachkontur und Baumgruppen für das Zielbild am Hof. */
 export const HOF_SILHOUETTE_AN = HOF_ORTSALTERUNG_AN && an('hofsilhouette');
 /** D323: unveränderte Prop-Fernanker wiederverwenden und Klanggraph bei Bedarf aufbauen. */

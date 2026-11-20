@@ -49,6 +49,9 @@ import { haengeNebelEin } from './nebel.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
+import { baueStrassenkulissen } from '../world/strassenkulisse.js';
+import { STRASSENVERFALL_AN } from '../world/echt.js';
+import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { lagerTon } from '../ton/lagerton.js';
 import { kameraZustand } from '../kampf/kamerazustand.js';
@@ -730,7 +733,13 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * und passiert genau einmal je Welt. Was danach je Kachel gebaut wird, ist ein
    * Bruchteil davon — und es fällt weg, sobald die Kachel außer Sicht gerät.
    */
-  const satz = useMemo(() => zerlegeBaender(welt, feld), [welt, feld]);
+  const strassen = useMemo(() => STRASSENVERFALL_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.strassenkulisse
+    : undefined, [welt]);
+  const satz = useMemo(() => {
+    const verfall = strassen && new Map(strassen.flatMap(s => s.wege.map(w => [w.osmWeg, w.verfall] as const)));
+    return zerlegeBaender(welt, feld, verfall);
+  }, [welt, feld, strassen]);
   const nachlauf = useMemo<Kachelnachlauf>(() => ({ bodenFertig: false, baenderFertig: false, pegelNeu: false }), [feld, satz]);
   const reflexMitte = useMemo(() => {
     if (!wasserProbe) return null;
@@ -756,6 +765,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
                   boden={aufBoden}
                   wegMaterial={wegMaterial} wasserMaterial={wasserMaterial}
                   fallMaterial={fallMaterial} hausMaterial={hausMaterial} senke={senke ?? null} />
+      {strassen && <Strassenkulissen welt={welt} feld={feld} abschnitte={strassen} />}
 
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
@@ -770,6 +780,22 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       {GEWAESSER_ECHT && <Spiegelung feld={feld} />}
     </group>
   );
+}
+
+function Strassenkulissen({ welt, feld, abschnitte }: {
+  welt: Weltdaten; feld: HoehenFeld; abschnitte: readonly Strassenkulisse[];
+}) {
+  const kulissen = useMemo(() => baueStrassenkulissen(welt, feld, abschnitte), [welt, feld, abschnitte]);
+  useEffect(() => () => { for (const s of kulissen) s.entsorge(); }, [kulissen]);
+  useFrame(({ camera }) => {
+    const { x, z } = camera.position;
+    for (const { gruppe, grenzen } of kulissen) {
+      const dx = Math.max(0, grenzen.min.x - x, x - grenzen.max.x);
+      const dz = Math.max(0, grenzen.min.z - z, z - grenzen.max.z);
+      gruppe.visible = dx * dx + dz * dz < 240 * 240;
+    }
+  });
+  return <>{kulissen.map(({ gruppe }) => <primitive key={gruppe.uuid} object={gruppe} />)}</>;
 }
 
 /**

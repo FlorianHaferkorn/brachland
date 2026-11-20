@@ -388,3 +388,37 @@ Die Geometrieprobe misst bei 512 auf der dem Reparaturblech abgewandten Traufsei
 | Bilder über 50 ms, Weststraße | 0 | 0 |
 
 Je zwei Läufe ohne Aufnahme im selben Build mit `westdach=0/1/1/0`. Alle Läufe erreichen die zwölf Wegpunkte ohne Browserfehler. Einzelberichte unter `.cache/mess/d331-finale-ab-{a1,b1,b2,a2}`. Die getrennten Echtzeitaufnahmen liegen unter `.cache/mess/d331-finale-film-{a,b}` und der direkte Vergleich unter `.cache/bilder/d331-weststrasse/index.html`.
+
+## Reale Bauform und stärkerer Verfall (D332)
+
+Für den Batch dient das tatsächliche Gebäude als Referenz für Grundriss, Baukörper, Anbauten, Geschosszahl, First, Traufe und Dachflächen. Amtliche Gebäudedaten und belegte Fassadenansichten bestimmen das intakte Grundmodell. Fehlende Maße und Widersprüche zwischen Grundriss und Dachflächen werden zur Sichtprüfung ausgewiesen. Der Bautyp liefert die passenden Bauteile und Materialien.
+
+Stärkerer Verfall ist zulässig. Einstürze, Fehlstellen und Bewuchs leiten sich anschließend aus Konstruktion, Lage und Nutzung des Hauses ab. Ein Einsturz darf die Silhouette deutlich verändern. Erhaltene Dachabschnitte und Wände folgen der ursprünglichen Bauform. Zur Abnahme werden das intakte Grundmodell gegen die Quellen und die verfallene Spielfassung aus derselben Kamera geprüft.
+
+## Verwachsene Straßen nach realen Vorlagen (D333)
+
+Gerüst des Entwurfs sind erhaltene Straßen und gelesene Ortsnamen zwischen überwachsenen Flächen. Die Weltgestaltung von Guerrilla liefert dafür das Prinzip, noch erkennbare Orte durch Gelände und Pflanzen zurückzuerobern. Inhaltliche und bauliche Vorlage ist der Inntal-Ausschnitt. [Guerrilla über reale Orte in Horizon Forbidden West](https://blog.playstation.com/?p=367869)
+
+Der Œntal-Weltimport behält für alle 1.195 bestehenden Wegsegmente die OSM-ID und, soweit vorhanden, Name, Belag, Breitenangabe und Beleuchtung. Beim Nachrüsten aus dem lokalen Rohsnapshot wurden alle 1.195 Wegkörper und die restlichen Weltfelder gegen die gepackte Welt abgeglichen. 370 Segmente haben einen Namen, 951 eine Belagsangabe, 164 eine Breitenangabe in Metern und 87 eine Beleuchtungsangabe. Die Rohdatei wächst um 71.098 Bytes. `strassenkulisse` bindet Verfall und Straßenobjekte über OSM-IDs an. Das bestehende Band legt die Höhen fest. Der Shader lässt am Rand stellenweise Boden durchscheinen. Risse, Wildkräuter und Splitt folgen denselben Wegdreiecken. Die Pflanzen halten einen mittleren Korridor frei. Jede Ortsgruppe wird einmal gebaut und ist bis 240 m von ihrem Umfeld sichtbar.
+
+| Ort | Beleg und Übernahme |
+|---|---|
+| Milbinger Straße | [OSM-Weg 198749032](https://www.openstreetmap.org/way/198749032), Wohnstraße und Asphalt. Die Renderprobe zeigt stärkeren Verfall. |
+| Ortseinfahrt Brannenburg | [OSM-Knoten 290649874](https://www.openstreetmap.org/node/290649874) mit Namen an der Holzhausener Straße / St 2089. Er markiert die Station auf der Straßenachse. Die Front blickt mit 323,48° zur Anfahrt. Der rechte seitliche Abstand von 4,65 m ist ein Entwurfsmaß. |
+| Bahnhof- und Wendelsteinstraße | Fünf bestätigte Laternenpositionen. Knoten 13867049286, 13866815952, 13866843514, 13866865284 und 13866842099. Die generischen Mastkörper stehen an den Koordinaten, die Arme richten sich zur Fahrbahn. |
+
+OSM-Knoten wurden am 20.11.2026 direkt mit OpenStreetMap abgeglichen. Der Inventurlauf fand im Œntal-Rechteck 32 Laternenknoten und fünf Ortstafeleinträge. Diese Zahl bezeichnet Einträge im Datensatz. DOP20-Luftbilder der Bayerischen Vermessungsverwaltung dienen als Lagekontrolle. Die KartaView-Abfrage lieferte im geprüften Umkreis der drei Stellen keine Aufnahmen. Mastmodell, Einbaulage der Ortstafel und einzelne Straßennamensschilder brauchen Seitenansichten. Die Ortstafel folgt im Modell der amtlichen Vorlage und verwendet den belegten Ortsnamen. [OpenStreetMap und ODbL](https://www.openstreetmap.org/copyright) · [StVO Anlage 3](https://www.gesetze-im-internet.de/stvo_2013/anlage_3.html) · [KartaView-Fotoabfrage](https://kartaview.org/doc/photos)
+
+`strassenverfall=1` aktiviert die sieben gewählten Wegabschnitte und die sechs Straßenobjekte. `strassenverfall=0` hält die vorherige Oberfläche für den Vergleich. Das Paket ergänzt keine Straßenbildtexturen. Atlas und Geometrie entstehen lokal aus den Daten und vorhandenen Texturen.
+
+Vier Bildpaare zeigen die drei Kulissen bei gleicher Kamera. Die Milbinger Gruppe enthält 48 Risse, 4.291 Wildkraut- und 763 Splittinstanzen. Die Gruppe an der Ortseinfahrt trägt ein Objekt und die Bahnhof-/Wendelstein-Gruppe fünf. Alle acht Aufnahmen melden null Browserfehler. Kameras und Parameter stehen in `.cache/mess/d333-finale/bericht.json` für die Gegenprobe und `.cache/mess/d333-nach/bericht.json` für die neue Fassung.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | Vorher | Straßenverfall |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,22 | 49,67 |
+| FPS, Milbinger Straße | 50,38 | 50,29 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 66,6 ms | 35,3 ms |
+| Bilder über 50 ms, gesamte Route | 2 | 0 |
+
+Messungen ohne Aufnahme im selben Build mit `strassenverfall=0/1/1/0` bei aktivem D331. Alle Läufe erreichen die zwölf Wegpunkte. Die Route prüft den Bewuchs an der Milbinger Straße. Schild und Laternen sind an ihren eigenen Standorten im Spiel fotografiert. Einzelberichte unter `.cache/mess/d333-finale-ab-{a1,b1,b2,a2}`. Die getrennten Echtzeitaufnahmen liegen unter `.cache/mess/d333-finale-film-{a,b}` und der zusammengefügte Vergleich unter `.cache/bilder/d333-strassenverfall/index.html`.

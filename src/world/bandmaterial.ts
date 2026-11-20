@@ -12,7 +12,7 @@
  *   die weiche Kante: außen durchsichtig, innen deckend.
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
-import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT, WELLEN_ECHT } from './echt.js';
+import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT, STRASSENVERFALL_AN, WELLEN_ECHT } from './echt.js';
 import WEG_SCANS from '../../public/material/weg-scans.json';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
@@ -354,6 +354,7 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({
     color: '#ffffff', vertexColors: true, roughness: 1, metalness: 0, transparent: true,
   });
+  const belagTyp = STRASSENVERFALL_AN ? 'vec3' : 'vec2';
 
   material.onBeforeCompile = (shader) => {
     if (WEG_TEXTUREN) {
@@ -363,12 +364,12 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
     }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',
-        '#include <common>\nattribute vec2 belag;\nvarying vec2 vBand;\nvarying vec2 vBelag;\nvarying vec3 vWeltPos;')
+        `#include <common>\nattribute ${belagTyp} belag;\nvarying vec2 vBand;\nvarying ${belagTyp} vBelag;\nvarying vec3 vWeltPos;`)
       .replace('#include <begin_vertex>',
         '#include <begin_vertex>\n  vBand = uv;\n  vBelag = belag;\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec2 vBand;\nvarying vec2 vBelag;\nvarying vec3 vWeltPos;\n' + HASH_GLSL + (WEG_TEXTUREN ? WEG_SCAN_GLSL : ''))
+      .replace('#include <common>', `#include <common>\nvarying vec2 vBand;\nvarying ${belagTyp} vBelag;\nvarying vec3 vWeltPos;\n` + HASH_GLSL + (WEG_TEXTUREN ? WEG_SCAN_GLSL : ''))
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float quer = abs(vBand.x);
   float rand = 1.0 - quer;
@@ -398,6 +399,20 @@ ${WEG_TEXTUREN ? `
   // Alter Asphalt ist grau, nicht schwarz: die Palette bleibt der Ton, der Belag hellt um 30 % auf.
   diffuseColor.rgb *= wegScan * (wegR < 0.5 ? 1.3 : 1.0);
   vec3 wegNt = mix(wegLies(uWegNormal, wegR).xyz, wegLies(uWegNormal, 3.0).xyz, wegGras) * 2.0 - 1.0;` : ''}
+${STRASSENVERFALL_AN ? /* glsl */ `
+  if (vBelag.z > 0.0) {
+    // Meterfeste, versetzte Frostaufbrüche am Rand. Hohe Verfallswerte lassen
+    // Boden durchscheinen. Die Laufspur in der Mitte bleibt durchgängig.
+    float bucht = bandRauschen(vWeltPos.xz * .29);
+    float kante = bandRauschen(vWeltPos.xz * 2.1);
+    float spur = smoothstep(.32, .53, quer);
+    float aufbruch = spur * vBelag.z *
+      smoothstep(.37, .69, quer * .65 + bucht * .43 + kante * .17);
+    vec3 erde = vec3(.14, .103, .049) * (.78 + .54 * kante);
+    diffuseColor.rgb = mix(diffuseColor.rgb, erde, aufbruch * .88);
+    diffuseColor.a *= 1.0 - aufbruch * .92;
+  }
+` : ''}
 `)
       .replace('#include <normal_fragment_maps>', WEG_TEXTUREN ? `#include <normal_fragment_maps>
   {
@@ -407,6 +422,6 @@ ${WEG_TEXTUREN ? `
   }` : '#include <normal_fragment_maps>');
   };
 
-  material.customProgramCacheKey = () => 'brachland-weg-v2' + (WEG_TEXTUREN ? '-scans' : '');
+  material.customProgramCacheKey = () => 'brachland-weg-v2' + (WEG_TEXTUREN ? '-scans' : '') + (STRASSENVERFALL_AN ? '-verfall' : '');
   return material;
 }

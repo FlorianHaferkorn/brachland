@@ -475,6 +475,31 @@ const Hausnutzung = z.object({
 });
 export type Hausnutzung = z.infer<typeof Hausnutzung>;
 
+const Strassenobjekt = z.object({
+  osmKnoten: z.number().int().positive(),
+  osmWeg: z.number().int().positive(),
+  ort: z.tuple([z.number(), z.number()]),
+  verfall: z.number().min(0).max(1),
+});
+const Strassenkulisse = z.object({
+  wege: z.array(z.object({
+    osmWeg: z.number().int().positive(),
+    verfall: z.number().min(0).max(1),
+  })),
+  objekte: z.array(z.discriminatedUnion('art', [
+    Strassenobjekt.extend({ art: z.literal('laterne') }),
+    Strassenobjekt.extend({
+      art: z.literal('ortstafel'),
+      text: z.string().min(1),
+      /** Frontnormalenwinkel der Tafel, Nord = 0°. */
+      richtung: z.number().min(0).lt(360),
+      /** OSM liegt auf der Straßenachse. Auf den rechten Rand der Anfahrt setzen. */
+      achsenpunkt: z.boolean(),
+    }),
+  ])),
+});
+export type Strassenkulisse = z.infer<typeof Strassenkulisse>;
+
 export const Region = z.object({
   id: z.string(),
   name: z.string(),
@@ -486,6 +511,7 @@ export const Region = z.object({
   traversal: z.string().describe('Fähigkeit, die diese Region freischaltet'),
   zielSpielzeit: z.number().describe('Stunden'),
   hausnutzung: z.array(Hausnutzung).optional(),
+  strassenkulisse: z.array(Strassenkulisse).optional(),
   /**
    * Übergänge an der Regionsgrenze (ADR-0014): Jede Region ist eine eigene Karte. Wer an der
    * genannten Kante steht, kann hinüber; die Karte der Nachbarregion wird dann geladen.

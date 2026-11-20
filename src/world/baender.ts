@@ -20,7 +20,7 @@
  * nach Entfernung ausgeblendet.
  */
 import * as THREE from 'three';
-import { HAUSFRONT_AN } from './echt.js';
+import { HAUSFRONT_AN, STRASSENVERFALL_AN } from './echt.js';
 import { PALETTE } from './palette.js';
 import type { Weltdaten } from './osm.js';
 import { MASSSTAB, WEG_TEILUNG, orientierteHuelle } from './terrain.js';
@@ -31,7 +31,7 @@ import { KACHEL, LOD_STUFEN, hoeheAufFlaeche, spiegelAufFlaeche,
 /** Wie hoch die Wasserfläche über dem Gelände liegt. */
 const WASSER_UEBER_GRUND = 0.06;
 /** Wie hoch das Wegband über dem Gelände liegt, damit nichts durchblitzt. */
-const WEG_UEBER_GRUND = 0.12;
+export const WEG_UEBER_GRUND = 0.12;
 
 /**
  * Ab diesem Gefälle je Teilstück wird aus dem liegenden Band eine stehende Fläche.
@@ -81,6 +81,8 @@ export interface Wegbelag {
   rinne: number;
   /** Wie stark der Rand ausfranst. Asphalt hat eine Kante, ein Pfad nicht. */
   franse: number;
+  /** Straßenverfall des gewählten OSM-Abschnitts. */
+  verfall?: number;
 }
 
 export const WEGBELAG: Record<string, Wegbelag> = {
@@ -170,7 +172,7 @@ function einsortieren<T>(karte: Map<string, T[]>, ix: number, iz: number, wert: 
  * weit in die Nachbarkachel ragen; bei 4 m Teilung und 64 m Kacheln sind das
  * höchstens 2 m, und die Naht behandelt die Schürze.
  */
-export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
+export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld, verfall?: ReadonlyMap<number, number>): Bandsatz {
   const [sued, west, nord, ost] = welt.bbox;
   const zuWelt = (lat: number, lon: number): [number, number] => [
     ((lon - west) / (ost - west) - 0.5) * feld.breiteMeter,
@@ -241,7 +243,11 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
   };
 
   for (const linie of welt.linien) zerlegen(linie.punkte, linie.breite, satz.baeche, satz.faelle);
-  for (const weg of welt.wege) zerlegen(weg.punkte, weg.breite, satz.wege, null, belagFuer(weg.art));
+  for (const weg of welt.wege) {
+    const belag = belagFuer(weg.art);
+    const zustand = weg.quelle && verfall?.get(weg.quelle.osmId);
+    zerlegen(weg.punkte, weg.breite, satz.wege, null, zustand ? { ...belag, verfall: zustand } : belag);
+  }
 
   // Nach den Wegen, weil die Gartenprüfung sie braucht: Ein Beet auf der
   // Dorfstraße ist schlimmer als kein Beet.
@@ -484,6 +490,7 @@ function belagSchreiben(st: Bandstueck, n: number, farben: number[], belaege: nu
   for (let i = 0; i < n; i++) {
     farben.push(f[0], f[1], f[2]);
     belaege.push(b.rinne, b.franse);
+    if (STRASSENVERFALL_AN) belaege.push(b.verfall ?? 0);
   }
 }
 
@@ -509,7 +516,7 @@ export function baueWegKachel(
   const g = fertig(positionen, uvs);
   if (!g) return null;
   g.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
-  g.setAttribute('belag', new THREE.Float32BufferAttribute(belaege, 2));
+  g.setAttribute('belag', new THREE.Float32BufferAttribute(belaege, STRASSENVERFALL_AN ? 3 : 2));
   return g;
 }
 
