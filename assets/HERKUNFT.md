@@ -19,6 +19,12 @@ nachgewiesenen CC0-Ersatzkarten. Neue Mehrstamm-Sträucher werden in `src/world/
 aus dem Seed erzeugt und verwenden den vorhandenen CC0-Atlas `laub-bueschel.webp`.
 Keine neuen Fremdmodelle oder Texturdateien; keine Bibliotheks-Bilder ungeklärter Herkunft.
 
+## Milbinger Wolkenaufnahme (D344)
+
+| Datei unter `public/material/` | Inhalt | Herkunft |
+|---|---|---|
+| `milbinger-wolkendecke.webp` | Fotografierte obere Himmelshalbkugel für Milbinger vor der Heilung, 1024 × 256 | D344, CC0. [Overcast Soil (Pure Sky)](https://polyhaven.com/a/overcast_soil_puresky) von Sergej Majboroda (Foto) und Jarod Guest (Himmelsbearbeitung). 1K-Radiance-Quelle, Belichtung auf den oberen Himmel normiert, danach sRGB-WebP. |
+
 ## Vergleichsmodell D250
 
 `public/vergleich/triposr-fels-d250.glb` wurde mit dem MIT-lizenzierten

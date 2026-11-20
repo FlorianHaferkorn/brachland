@@ -25,7 +25,7 @@
 import * as THREE from 'three';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { HOF_ZIELTREUE_AN } from './echt.js';
-import { MILBINGER_TAGESLICHT } from './milbingerlicht.js';
+import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT } from './milbingerlicht.js';
 
 export interface HimmelWerte {
   zenit: string;
@@ -169,8 +169,12 @@ let hofWolken: THREE.Texture | undefined;
 let hofWolkenSeit = Infinity;
 let alpenhimmel: THREE.Texture | undefined;
 let alpenhimmelSeit = Infinity;
+let wolkendecke: THREE.Texture | undefined;
+let wolkendeckeSeit = Infinity;
 
-export function baueHimmel(w: HimmelWerte, fotoHimmel = false): THREE.Mesh {
+type Ortsfoto = 'klar' | 'bedeckt';
+
+export function baueHimmel(w: HimmelWerte, ortsfoto?: Ortsfoto): THREE.Mesh {
   if (HOF_ZIELTREUE_AN && !hofWolken) {
     hofWolken = new THREE.TextureLoader().load('/material/hof-himmel-farbe.webp', () => {
       hofWolkenSeit = performance.now();
@@ -178,11 +182,18 @@ export function baueHimmel(w: HimmelWerte, fotoHimmel = false): THREE.Mesh {
     hofWolken.colorSpace = THREE.SRGBColorSpace;
     hofWolken.wrapS = THREE.RepeatWrapping;
   }
-  if (fotoHimmel && !alpenhimmel) {
+  if (ortsfoto === 'klar' && !alpenhimmel) {
     alpenhimmel = new HDRLoader().load('/himmel/alps_field_1k.hdr', () => { alpenhimmelSeit = performance.now(); });
     alpenhimmel.wrapS = THREE.RepeatWrapping;
   }
-  const fragment = fotoHimmel ? FRAGMENT
+  if (ortsfoto === 'bedeckt' && !wolkendecke) {
+    wolkendecke = new THREE.TextureLoader().load('/material/milbinger-wolkendecke.webp', () => {
+      wolkendeckeSeit = performance.now();
+    });
+    wolkendecke.colorSpace = THREE.SRGBColorSpace;
+    wolkendecke.wrapS = THREE.RepeatWrapping;
+  }
+  const fragment = ortsfoto === 'klar' ? FRAGMENT
     .replace('uniform float uZeit;', `uniform float uZeit;
 uniform sampler2D uAlpenhimmel;
 uniform float uAlpenanteil, uAlpendrehung;
@@ -217,6 +228,18 @@ const float fotokamm[17] = float[17](193.,199.,221.,221.,234.,226.,194.,183.,185
     }
     farbe = mix(farbe, ortshimmel, uAlpenanteil * smoothstep(.04,.08,h));
   }
+  gl_FragColor =`) : ortsfoto === 'bedeckt' ? FRAGMENT
+    .replace('uniform float uZeit;', `uniform float uZeit;
+uniform sampler2D uWolkendecke;
+uniform float uWolkenanteil, uWolkendrehung;`)
+    .replace('  gl_FragColor =', `
+  if (uWolkenanteil > 0.0) {
+    // Das Foto enthält nur die obere Hemisphäre. Bodendunst deckt ihren unteren Rand.
+    vec2 uv = vec2(fract(atan(r.z,r.x)*.15915494 + .5 + uWolkendrehung), asin(clamp(h,0.0,1.0))*.63661977);
+    vec3 foto = texture2D(uWolkendecke, uv).rgb;
+    vec3 decke = mix(dunst, foto * .72, smoothstep(.005,.29,h));
+    farbe = mix(farbe, decke, uWolkenanteil);
+  }
   gl_FragColor =`) : FRAGMENT;
   const material = new THREE.ShaderMaterial({
     vertexShader: VERTEX,
@@ -234,9 +257,13 @@ const float fotokamm[17] = float[17](193.,199.,221.,221.,234.,226.,194.,183.,185
       hof: { value: w.hof },
       wolken: { value: w.wolken ?? WOLKEN_VORGABE },
       uZeit: { value: 0 },
-      ...(fotoHimmel ? {
+      ...(ortsfoto === 'klar' ? {
         uAlpenhimmel: { value: alpenhimmel }, uAlpenanteil: { value: 0 },
         uAlpendrehung: { value: MILBINGER_TAGESLICHT.wolkenDrehung },
+      } : {}),
+      ...(ortsfoto === 'bedeckt' ? {
+        uWolkendecke: { value: wolkendecke }, uWolkenanteil: { value: 0 },
+        uWolkendrehung: { value: MILBINGER_WOLKENLICHT.wolkenDrehung },
       } : {}),
       ...(hofWolken && HOF_ZIELTREUE_AN ? { uHofWolken: { value: hofWolken }, uHofWolkenAnteil: { value: 0 } } : {}),
     },
@@ -252,8 +279,10 @@ const float fotokamm[17] = float[17](193.,199.,221.,221.,234.,226.,194.,183.,185
     const jetzt = performance.now();
     material.uniforms.uZeit.value = jetzt / 1000;
     if (HOF_ZIELTREUE_AN) material.uniforms.uHofWolkenAnteil.value = THREE.MathUtils.smoothstep(jetzt - hofWolkenSeit, 0, 550);
-    if (fotoHimmel) material.uniforms.uAlpenanteil.value = (mesh.userData.alpenanteil ?? 0)
+    if (ortsfoto === 'klar') material.uniforms.uAlpenanteil.value = (mesh.userData.ortsfotoAnteil ?? 0)
       * THREE.MathUtils.smoothstep(jetzt - alpenhimmelSeit, 0, 650);
+    if (ortsfoto === 'bedeckt') material.uniforms.uWolkenanteil.value = (mesh.userData.ortsfotoAnteil ?? 0)
+      * THREE.MathUtils.smoothstep(jetzt - wolkendeckeSeit, 0, 650);
   };
   return mesh;
 }

@@ -6,6 +6,14 @@ shelf-life-days: 365
 
 Der Hof im Œntal zeigt 40–60 Jahre nach dem Kollaps drei Zustände auf engem Raum: ein eingestürztes Haus, ein verlassenes Haus mit intakter Silhouette und, wo Bewohner verortet sind, geflickte Bauten. Das Mauerwerk aus Feldstein und Kalkputz, das hölzerne Obergeschoss und das flache Satteldach geben dem Ort seine Inntaler Identität. [Story-Bibel](design/BRACHLAND_Story-Bibel_v1.md) · [Bauwelt](design/BRACHLAND_Bauwelt_v1.md)
 
+## Maßstab für reale Orte
+
+Ein Spielbild soll aus demselben Standpunkt und Blickwinkel wie ein Foto vor Ort wirken. Bei vergleichbarem Licht müssen Hausformen, Proportionen, Straßenverlauf, Höhen und Entfernungen wiedererkennbar sein. Materialien, Bewuchs und der Verfall seit dem Kollaps sollen genauso glaubwürdig aussehen, als hätte man den Ort in diesem Zustand fotografiert.
+
+## Referenzen für später
+
+- Fotorealismus als visueller Maßstab. [Instagram-Reel De6cZjkhpuL](https://www.instagram.com/reel/De6cZjkhpuL/)
+
 ## Gesichtet am 18.11.2026
 
 | Referenz | Im Bild beobachtet | Ziel für den Hof |
@@ -660,3 +668,13 @@ Vier feste Kamerapaare zeigen Hauptbaum, Straßenrand, Haus 509 und Spielfigur. 
 Gemessen wurde ohne Video, zweimal je Fassung über 152 m in der Folge 0/1/1/0, einmal je Fassung über 35 m. Beide langen Frames (83,20 und 82,90 ms) liegen in den ersten 100 ms nach dem Loslaufen am Hof. Das separate CPU-Profil zeigt im entsprechenden 84,3-ms-Frame 69 ms in der ersten Auswertung eines Tiefenprogramms beim Schilf im Schattenpass. Ein Vorlauf nur für das Schilf ließ den Ausschlag in beiden Gegenläufen bestehen. Beim Ausschalten des Schilfschattens trat der blockierende Aufruf mit demselben Programmschlüssel beim Waldholz auf. Der punktuelle Vorlauf wurde verworfen. Die Rohberichte liegen unter `.cache/mess/d343-final-ab-{a1,b1,b2,a2}` und `.cache/mess/d343-final-nah-{0,1}`. Ursache und Gegenproben stehen in `.cache/mess/d343-anlaufprofil-b`, `.cache/mess/d343-schilf-ab-*` und `.cache/mess/d343-anlaufprofil-ohneschilf-b`.
 
 Für die Abnahme nach A-19 bleiben glatte Fernhänge, vereinfachte Figurenanatomie und örtlich generische Bauteile offen. Die vermessene Form eines Gebäudes belegt seine Geometrie im Großen. Originale Fassadenachsen, Dachdetails, Bordhöhen und Straßenausstattung brauchen Seitenansichten vor Ort (H-255c). Der Vergleich im Spiel zeigt den örtlichen Stand dieses Durchgangs.
+
+## Fotografierte Wolkendecke vor der Heilung (D344)
+
+Der Flussvater staut den Fluss und flutet Teile des Œntals. Der klare D343-Himmel vermittelte für diesen Weltzustand zu viel ungebrochenes Tageslicht. In der Milbinger Probe zeigt D344 über der Talsohle eine fotografierte Wolkendecke mit weicheren Schatten, schwächerem Direktlicht und kühlerem, grauem Taldunst. Die Lichtquelle folgt dem helleren Wolkenbereich bei rund 38° über dem Horizont. Die Farbe am unteren Rand der Himmelshalbkugel läuft in denselben Dunstton wie die Fernkulisse. [Story-Bibel, §§ 5–6](design/BRACHLAND_Story-Bibel_v1.md#5-die-regenten-serie-regent) · [Herkunft der Wolkenaufnahme](../assets/HERKUNFT.md#milbinger-wolkenaufnahme-d344)
+
+Das Spiel nutzt mit `milbingerlicht=1` den bewölkten Himmel vor der Heilung und das hellere Tageslicht nach der Heilung des Flussvaters. `geheilt=1` lässt den zweiten Zustand ohne Spielstand prüfen. Die Ortsmischung läuft am Rand des Milbinger Ausschnitts und bei Nacht aus. `milbingerklar=1` ruft für den direkten Vergleich den klaren D343-Himmel bei gleichem Weltzustand auf. Beide Fassungen nutzen dieselbe Lichtquelle und denselben Schattenpass. Die Blender-Studie am Haus 509 wertet die vollständige HDR-Aufnahme fürs Umgebungslicht aus, im Spiel braucht der obere Ausschnitt nur eine 15,7 KiB große WebP-Karte. Die Blender-Datei und ihr Render liegen unter `.cache/d344-milbinger/blender-wolkendecke-haus509.{blend,png}`.
+
+Die feste Kamera auf Giebel und Hauptbaum zeigt den direkten Unterschied. Im freien Himmelsfeld (x 242–431, y 15–71 bei 960 × 540) sinkt die mittlere HSV-Sättigung von 61,7 auf 19,5 %. Der Spiellauf erreicht bei gleicher Eingabe 35,33 bzw. 35,35 m. Der Himmelsvergleich, die hellere Ansicht nach der Heilung und die Bewegungsaufnahmen zeigen keine Browser- oder Shaderfehler. Galerie und Video liegen unter `.cache/bilder/d344-milbinger/index.html`.
+
+In der separaten Paarmessung auf derselben Strecke bei 960 × 540 (M1, je ein Lauf ohne Video) erreicht D343 52,03 FPS bei 33,40 ms p95 und D344 51,79 FPS bei 33,30 ms p95. In beiden Läufen liegen alle Frames unter 36 ms. Rohberichte: `.cache/mess/d344-nah-{0,1}`.

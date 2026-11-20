@@ -36,7 +36,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN, type WohnwegStreuung } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
 import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
-import { MILBINGER_TAGESLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
+import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
@@ -52,7 +52,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { LOD2_AN, MILBINGERBODEN_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
 import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
@@ -2605,14 +2605,17 @@ function Regentenort({ ort, kreatur, gestalt, ziel, onNah }: {
   );
 }
 
-function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial }: {
+function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial, geheilt }: {
   s: Stimmung; ziel: React.RefObject<THREE.Object3D | null>; wiesenbereich?: Wiesenbereich;
-  fernMaterial: THREE.ShaderMaterial;
+  fernMaterial: THREE.ShaderMaterial; geheilt: boolean;
 }) {
   const { scene, gl } = useThree();
   const sonne = useRef<THREE.DirectionalLight>(null);
   const halbkugel = useRef<THREE.HemisphereLight>(null);
   const ortslicht = MILBINGERLICHT_AN && wiesenbereich;
+  const wolkendecke = !geheilt && !MILBINGERKLAR_AN;
+  const tageslicht = wolkendecke ? MILBINGER_WOLKENLICHT : MILBINGER_TAGESLICHT;
+  const ortsfoto = ortslicht ? (wolkendecke ? 'bedeckt' : 'klar') : undefined;
   const bodenfarbe = HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN;
   const fuelllicht = (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? .25 : UMLICHT_AN ? .35 : 1);
   const direktlicht = SONNE_MESSLAUF ?? s.sonneStaerke;
@@ -2643,7 +2646,7 @@ function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial }: {
   const himmel = useMemo(() => baueHimmel({
     zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
     sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
-  }, !!ortslicht), [s, ortslicht]);
+  }, ortsfoto), [s, ortsfoto]);
   useEffect(() => {
     setzeHimmel(himmel, {
       zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
@@ -2688,7 +2691,6 @@ function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial }: {
     const l = sonne.current;
     if (!p || !l) return;
     const ort = ortslicht ? milbingerLichtanteil(ortslicht.rahmen, p.x, p.z, s.sonneStaerke) : 0;
-    const tageslicht = MILBINGER_TAGESLICHT;
     const misch = THREE.MathUtils.lerp;
     l.position.set(p.x + misch(s.sonnenstand[0], tageslicht.sonnenstand.x, ort),
       p.y + misch(s.sonnenstand[1], tageslicht.sonnenstand.y, ort), p.z + misch(s.sonnenstand[2], tageslicht.sonnenstand.z, ort));
@@ -2698,7 +2700,7 @@ function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial }: {
       const mitte = HOF_UNIFORM.mitte.value;
       const hofAnteil = HOF_UNIFORM.bereit.value
         * (1 - THREE.MathUtils.smoothstep(Math.hypot(p.x - mitte.x, p.z - mitte.y), 44, 65));
-      l.shadow.radius = misch(1 + 1.9 * hofAnteil, 1.75, ort);
+      l.shadow.radius = misch(1 + 1.9 * hofAnteil, wolkendecke ? 2.7 : 1.75, ort);
     }
     if (lichtbasis) {
       // Licht, Horizont und Nebel folgen demselben ortsfesten Übergang. Keine
@@ -2735,7 +2737,7 @@ function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial }: {
       const versatz: THREE.Vector3 | undefined = fernMaterial.uniforms.uDunstversatz?.value;
       versatz?.set(tageslicht.dunst.r - lichtbasis.horizont.r, tageslicht.dunst.g - lichtbasis.horizont.g,
         tageslicht.dunst.b - lichtbasis.horizont.b).multiplyScalar(ort);
-      himmel.userData.alpenanteil = ort;
+      himmel.userData.ortsfotoAnteil = ort;
     }
   });
 
@@ -4645,7 +4647,7 @@ export function RegionsSzene({
     >
       <WasserUmgebung werte={{ zenit: s.zenit, horizont: s.horizont, dunst: s.nebel,
         sonne: s.sonne, sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof }}>
-      <Beleuchtung s={s} ziel={ref} wiesenbereich={wiesenbereich} fernMaterial={fernMaterial} />
+      <Beleuchtung s={s} ziel={ref} wiesenbereich={wiesenbereich} fernMaterial={fernMaterial} geheilt={!!geheilt || GEHEILT_ANSICHT} />
       {!istAus('kulisse') && fernGeo && (
         <mesh geometry={fernGeo} material={fernMaterial} frustumCulled={false} renderOrder={-500} />
       )}

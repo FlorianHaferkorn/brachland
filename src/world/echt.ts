@@ -72,6 +72,8 @@ export const MILBINGERDETAIL_AN = MILBINGERMASSE_AN && an('milbingerdetail');
 export const MILBINGERBODEN_AN = MILBINGERDETAIL_AN && an('milbingerboden');
 /** D343: örtliches Tageslicht, Baumkulisse und Materialprobe der Spielfigur. */
 export const MILBINGERLICHT_AN = MILBINGERBODEN_AN && an('milbingerlicht');
+/** D344: D343-Tageslicht für den direkten Vergleich zur Wolkendecke. */
+export const MILBINGERKLAR_AN = an('milbingerklar');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */
