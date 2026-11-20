@@ -356,7 +356,7 @@ vec4 wegLies(sampler2D t, float r) {
 `;
 
 /** Asphalt, Bord und Zufahrt liegen im selben Mesh und verwenden den vorhandenen Wegatlas. */
-export function baueQuerschnittMaterial(): THREE.MeshStandardMaterial {
+export function baueQuerschnittMaterial(mitSchotterspuren = false): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 });
   const scans = WEG_TEXTUREN;
   material.onBeforeCompile = shader => {
@@ -371,16 +371,19 @@ attribute vec4 querprofil;
 attribute float rolle;
 varying vec4 vQuerprofil;
 varying float vRolle;
-varying vec3 vWeltPos;`)
+varying vec3 vWeltPos;
+${mitSchotterspuren ? 'attribute vec4 schotterspur; varying vec4 vSchotterspur;' : ''}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
 vQuerprofil = querprofil;
 vRolle = rolle;
-vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+${mitSchotterspuren ? 'vSchotterspur = schotterspur;' : ''}`);
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>
 varying vec4 vQuerprofil;
 varying float vRolle;
-varying vec3 vWeltPos;` + BAND_RAUSCHEN_GLSL + (scans ? WEG_SCAN_GLSL : ''))
+varying vec3 vWeltPos;
+${mitSchotterspuren ? 'varying vec4 vSchotterspur;' : ''}` + BAND_RAUSCHEN_GLSL + (scans ? WEG_SCAN_GLSL : ''))
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float asphalt = 1.0 - step(.5, vRolle);
   float bord = step(1.5, vRolle) * (1.0 - step(2.5, vRolle));
@@ -416,6 +419,22 @@ varying vec3 vWeltPos;` + BAND_RAUSCHEN_GLSL + (scans ? WEG_SCAN_GLSL : ''))
   diffuseColor.rgb *= 1.0 - alter * asphalt * (.17 * spur + .22 * reparatur + .62 * riss);
   vec3 feuchte = mix(vec3(.097, .074, .045), vec3(.047, .065, .026), smoothstep(.42, .67, korn * .58 + fleck * .42));
   diffuseColor.rgb = mix(diffuseColor.rgb, feuchte, fugendreck * alter * mix(.87, .64, asphalt));
+${mitSchotterspuren ? /* glsl */ `
+  if (vSchotterspur.z > 0.0) {
+    float tiefe = vSchotterspur.y;
+    float seite = vSchotterspur.x + (fleck - .5) * .20 + (korn - .5) * .13;
+    float spurDistanz = abs(abs(seite) - vSchotterspur.z);
+    float verdichtet = (1.0 - smoothstep(.13, .37, spurDistanz))
+      * smoothstep(.015, .23, tiefe) * (1.0 - .42 * smoothstep(.84, 1.0, tiefe));
+    float randabstand = min(vSchotterspur.w - abs(seite), (1.0 - tiefe) * 4.0);
+    float abtrag = (1.0 - smoothstep(.035, .66, randabstand))
+      * smoothstep(.25, .81, fleck * .61 + korn * .39);
+    vec3 schotter = diffuseColor.rgb * vec3(1.40, 1.31, 1.12);
+    schotter *= mix(1.0, .55 + .12 * fleck, verdichtet);
+    schotter = mix(schotter, feuchte * 1.58, abtrag * .76);
+    diffuseColor.rgb = mix(diffuseColor.rgb, schotter, smoothstep(0.0, .18, tiefe));
+  }
+` : ''}
 `)
       .replace('#include <normal_fragment_maps>', scans ? /* glsl */ `#include <normal_fragment_maps>
   vec3 belagNormal = inverseTransformDirection(normal, viewMatrix);
@@ -424,7 +443,8 @@ varying vec3 vWeltPos;` + BAND_RAUSCHEN_GLSL + (scans ? WEG_SCAN_GLSL : ''))
   normal = normalize((viewMatrix * vec4(belagNormal, 0.0)).xyz);
 ` : '#include <normal_fragment_maps>');
   };
-  material.customProgramCacheKey = () => scans ? 'brachland-querschnitt-scans' : 'brachland-querschnitt';
+  material.customProgramCacheKey = () => 'brachland-querschnitt' + (scans ? '-scans' : '')
+    + (mitSchotterspuren ? '-schotterspuren' : '');
   return material;
 }
 

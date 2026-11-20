@@ -4,7 +4,7 @@ import { WEG_UEBER_GRUND } from './baender.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_SCHWELLE, type HorstKachel } from './grashorst.js';
 import { mulberry } from './props.js';
 import { WEG_TEILUNG } from './terrain.js';
-import { querschnittFreihaltung, querschnittSaum } from './strassenquerschnitt.js';
+import { BORD_ABSENKUNG, querschnittFreihaltung, querschnittSaum } from './strassenquerschnitt.js';
 import type { WohnwegQuerschnitt } from '../data/schema.js';
 
 export interface StrassenbewuchsWeg {
@@ -20,6 +20,7 @@ export interface StrassenbewuchsWeg {
   querschnitt?: readonly [number, number];
   /** Verwitterter Außenrand entlang des vermessenen Querschnitts. */
   vermessenerSaum?: WohnwegQuerschnitt;
+  schotterspuren?: boolean;
   /** Erhaltene Zugänge an der Straße, in Weltmetern. */
   wohnwegZugaenge?: readonly (readonly [number, number])[];
   /** Auf ungebundenem Belag entstehen Rinnen und Pflanzeninseln ohne Asphaltrisse. */
@@ -169,7 +170,7 @@ export function baueStrassenbewuchs(
   };
   const matrix = new THREE.Matrix4(), skalierung = new THREE.Vector3(), farbe = new THREE.Color();
 
-  let saumhorste = 0, saumflecken = 0;
+  let saumhorste = 0, saumflecken = 0, zufahrtshorste = 0;
   const bepflanzeQuerschnitt = (weg: StrassenbewuchsWeg) => {
     const profil = weg.vermessenerSaum, verwitterung = profil?.verwitterung;
     if (!profil || !verwitterung || !verwitterung.staerke) return;
@@ -220,6 +221,70 @@ export function baueStrassenbewuchs(
             : trocken > .56 ? (sorte > .78 ? 'halm' : 'stroh') : 'gruen',
         });
         saumhorste++;
+      }
+    }
+    if (!weg.schotterspuren) return;
+    for (const zufahrt of profil.zufahrten) {
+      const belag = zufahrt.schotterspuren;
+      if (!belag) continue;
+      const zufall = mulberry(weg.saat ^ Math.imul(Math.round(zufahrt.von * 100) + zufahrt.seite, 19013));
+      for (const flanke of [-1, 1] as const) {
+        const station = flanke < 0 ? zufahrt.von : zufahrt.bis;
+        const gehweg = profil.gehwege.find(g => g.seite === zufahrt.seite
+          && g.von <= station && g.bis >= station)?.breite ?? 0;
+        const laenge = zufahrt.tiefe - gehweg;
+        const zellen = Math.floor(laenge / .48);
+        const phase = zufall() * TAU;
+        const anfang = aussen(station, zufahrt.seite, gehweg, true);
+        const ende = aussen(station, zufahrt.seite, zufahrt.tiefe, true);
+        if (anfang && ende && zellen > 0) {
+          const innenY = boden(...anfang) + WEG_UEBER_GRUND + (gehweg > 0 ? BORD_ABSENKUNG : 0);
+          const aussenY = boden(...ende) + WEG_UEBER_GRUND;
+          const kante: ([number, number] | undefined)[] = [];
+          for (let i = 0; i <= zellen; i++) {
+            const anteil = i / zellen;
+            const breite = .18 + .23 * (.5 + .5 * Math.sin(i * 2.48 + phase));
+            const ort = aussen(station + breite * flanke, zufahrt.seite, gehweg + anteil * laenge, true);
+            if (!ort || belegt(...ort) || !freierBoden(...ort)) {
+              kante.push(undefined);
+              continue;
+            }
+            const innen: Punkt = [THREE.MathUtils.lerp(anfang[0], ende[0], anteil),
+              THREE.MathUtils.lerp(innenY, aussenY, anteil) - .005, THREE.MathUtils.lerp(anfang[1], ende[1], anteil)];
+            const [x, z] = ort, untergrund: Punkt = [x, boden(x, z) + .011, z];
+            farbe.copy(ERDE).lerp(SPLITT, .68 - .23 * Math.sin(i * 1.68 + phase));
+            kante.push([vertex(innen, farbe, .94), vertex(untergrund, farbe, 0)]);
+          }
+          for (let i = 1; i < kante.length; i++) {
+            const a = kante[i - 1], b = kante[i];
+            if (a && b) indizes.push(a[0], a[1], b[0], a[1], b[1], b[0]);
+          }
+        }
+        if (belag.saumdichte <= 0) continue;
+        for (let i = 0; i < zellen; i++) {
+          const tiefe = (i + .18 + .62 * zufall()) / zellen;
+          const gruppe = .38 + .62 * (.5 + .5 * Math.sin(tiefe * 15 + phase));
+          if (zufall() > belag.saumdichte * gruppe) continue;
+          for (let k = 0; k < 2 + Math.floor(gruppe * 3); k++) {
+            const laengs = station + flanke * (.48 + zufall() * .67);
+            const quer = gehweg + .26 + tiefe * laenge + (zufall() - .5) * .54;
+            const ort = aussen(laengs, zufahrt.seite, quer, true);
+            if (!ort || belegt(...ort) || !freierBoden(...ort)) continue;
+            const [x, z] = ort, wuchs = zufall(), grasart = zufall();
+            const art = grasart < .56 ? 'kraut' : grasart < .78 ? 'halm' : 'gruen';
+            const hoechste = .15 + .31 * tiefe;
+            wildkraut.push({
+              ort: [x, boden(x, z) - .006, z], groesse: .13 + wuchs * hoechste,
+              breite: .19 + wuchs * .18, drehung: zufall() * TAU,
+              ton: .67 + zufall() * .23, auswahl: zufall(), sorte: art,
+            });
+            if (k === 0 && grasart < .34) {
+              splitt.push({ ort: [x, boden(x, z) + .006, z], groesse: .05 + wuchs * .045,
+                drehung: phase, ton: .98 + wuchs * .41, auswahl: grasart });
+            }
+            zufahrtshorste++;
+          }
+        }
       }
     }
   };
@@ -515,6 +580,7 @@ ${hatMarkierungen ? /* glsl */ `
   gruppe.userData.strassenbewuchs = {
     wildkraut: wildkraut.length, splitt: splitt.length, risse, auflageDreiecke: indizes.length / 3,
     ...(saumhorste || saumflecken ? { saumhorste, saumflecken } : {}),
+    ...(zufahrtshorste ? { zufahrtshorste } : {}),
     ...(wege.some(weg => weg.markierungen || weg.fahrbahnprofil) ? { markierungsMeter, markierungsDreiecke, asphaltSchollen } : {}),
   };
   return {

@@ -548,3 +548,24 @@ Der Fußwegvergleich zeigt denselben Start, dieselbe W-Eingabe und rund 43 m Lau
 | Längster Frame, Weststraße | 34,90 ms | 49,50 ms |
 
 Alle Läufe erreichen zwölf Wegpunkte. Gemessen wurde ohne Videoaufnahme im selben Build in der Folge `milbingerbelag=0/1/1/0`. Der Frame mit 50,2 ms lag bei 7,95 s im Hof, an derselben Position wie ein 49,3-ms-Frame im Gegenlauf. Auf der Weststraße blieben alle Frames bei höchstens 49,5 ms. Die Rohberichte liegen unter `.cache/mess/d338-abnahme-ab-{a1,b1,b2,a2}`.
+
+## Schotterspuren an der oberen Milbinger Einfahrt (D339)
+
+Die zweite Detailprobe liegt an der linken Zufahrt von Station 137,6 bis 141,7 m. Der Blender-Entwurf verwendet dasselbe Straßenmesh und denselben Kamerablick wie das Spiel. Der im D337-Luftbildabgleich bestimmte Verlauf gibt die Lage vor. Schotter, Feuchte und Flankenbewuchs sind Ausgestaltungen des Weltzustands.
+
+Zwei verdichtete Fahrspuren beginnen hinter dem Gehweg und verlieren sich im helleren Schotter. Ihr Abstand beträgt im Entwurf 1,54 m. Ein unregelmäßiger, 18 bis 41 cm breiter Erd- und Kiesstreifen legt sich von der befestigten Kante ins Gelände. Je nach Abstand zum Gehweg wechseln niedrige Kräuter, Gräser und höhere Rispen. In der Spielprobe liegen 35 neue Horste und einzelne kleine Steine außerhalb der befestigten Flächen. Der Straßenkörper bleibt bei 1.002 Dreiecken. Erdanschluss, Splitt und Horste nutzen die bisherigen Auflagen und Instanzgruppen. Der Shader nutzt den vorhandenen Wegatlas.
+
+`schotterspuren` im Regionsprofil speichert Abstand und Saumdichte pro Zufahrt. `milbingeroben=0/1` trennt die Fassungen bei aktivem D338. Die Regressionstests vergleichen die Positionen und Indizes des Straßenkörpers und prüfen, dass die Spuren hinter dem Gehweg beginnen und die Zugangsmaske frei bleibt. Die Galerie mit Spielbildern, Blender-Zielbild und Fußwegvergleich liegt lokal unter `.cache/bilder/d339-milbinger/index.html`.
+
+Der 10,2-s-Vergleich läuft mit derselben Spielkamera und W-Eingabe von Station 152,5 bis rund 109,5 m. Die Figuren bewegen sich 42,92 beziehungsweise 43,03 m und passieren die obere Zufahrt. Beide Standbildpaare und beide Filme melden keine Browserfehler.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D338 | D339 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,26 | 49,83 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 133,20 ms | 35,40 ms |
+| Frames über 50 ms, gesamte Route | 2 | 0 |
+| FPS, Weststraße | 50,59 | 51,49 |
+| p95, Weststraße | 33,40 ms | 33,30 ms |
+
+Alle Läufe erreichen zwölf Wegpunkte. Gemessen wurde ohne Videoaufnahme im selben Build in der Folge `milbingeroben=0/1/1/0`. Die beiden langen Frames stammen aus dem ersten D338-Lauf um Sekunde 32. Der zweite D338-Lauf erreichte 50,08 FPS. Der Unterschied bei den Spitzen erlaubt daher keine Zuordnung zur Straßenänderung. Die Rohberichte liegen unter `.cache/mess/d339-final-ab-{a1,b1,b2,a2}`.

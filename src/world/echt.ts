@@ -62,6 +62,8 @@ export const WESTANSCHLUSS_AN = WESTFASSADE_AN && an('westanschluss');
 export const WOHNWEGQUERSCHNITT_AN = WESTANSCHLUSS_AN && an('wohnwegquerschnitt');
 /** D338: Material- und Saumprobe am vermessenen Wohnweg. */
 export const MILBINGERBELAG_AN = WOHNWEGQUERSCHNITT_AN && an('milbingerbelag');
+/** D339: eigenständiger Schotterbelag und Flankenbewuchs für ausgewählte Zufahrten. */
+export const MILBINGEROBEN_AN = MILBINGERBELAG_AN && an('milbingeroben');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

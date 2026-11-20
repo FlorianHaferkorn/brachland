@@ -78,3 +78,43 @@ for (let i = 0; i < horste.count; i++) {
 }
 bepflanzt.entsorge();
 console.log(`✓ Abmessungen identisch und ${horste.count} Horste im freigegebenen Saum`);
+
+const variante: WohnwegQuerschnitt = {
+  ...profil,
+  verwitterung,
+  zufahrten: [...profil.zufahrten, { von: 30, bis: 34, seite: -1, tiefe: 6,
+    schotterspuren: { spurabstand: 1.54, saumdichte: .86 } }],
+};
+const alteZufahrten = baueStrassenquerschnitt(punkte, () => 0, variante, 5, verwitterung);
+const neueZufahrten = baueStrassenquerschnitt(punkte, () => 0, variante, 5, verwitterung, true);
+assert.deepEqual(neueZufahrten.index?.array, alteZufahrten.index?.array);
+const spur = neueZufahrten.getAttribute('schotterspur');
+const spurPosition = neueZufahrten.getAttribute('position');
+assert.deepEqual(spurPosition.array, alteZufahrten.getAttribute('position').array);
+let spurEcken = 0;
+for (let i = 0; i < spur.count; i++) {
+  if (!spur.getZ(i)) continue;
+  const s = spurPosition.getX(i);
+  assert.ok(s >= 30 && s <= 34 && Math.abs(spur.getX(i) - (s - 32)) < 1e-5);
+  assert.ok(Math.abs(spur.getZ(i) - .77) < 1e-5);
+  assert.ok(spurPosition.getZ(i) <= kanten(s)[0] - 1.65 + 1e-5, 'Die Spur beginnt hinter dem Gehweg');
+  spurEcken++;
+}
+assert.ok(spurEcken > 0);
+alteZufahrten.dispose();
+neueZufahrten.dispose();
+
+const randAlt = baueStrassenbewuchs([{ ...weg, vermessenerSaum: variante }], () => 0);
+const randNeu = baueStrassenbewuchs([{ ...weg, vermessenerSaum: variante, schotterspuren: true }], () => 0);
+const belegt = querschnittFreihaltung(punkte, variante, 5).enthaelt;
+assert.ok(randNeu.gruppe.userData.strassenbewuchs.zufahrtshorste > 0);
+assert.ok(randNeu.gruppe.userData.strassenbewuchs.auflageDreiecke > randAlt.gruppe.userData.strassenbewuchs.auflageDreiecke);
+for (const objekt of randNeu.gruppe.children) if (objekt instanceof InstancedMesh) {
+  for (let i = 0; i < objekt.count; i++) {
+    objekt.getMatrixAt(i, stand);
+    assert.ok(!belegt(stand.elements[12], stand.elements[14]), 'Flankenbewuchs und Steine halten die Zufahrt frei');
+  }
+}
+randAlt.entsorge();
+randNeu.entsorge();
+console.log('✓ Schotterspuren beginnen hinter dem Gehweg, Erdanschluss und Flanken liegen an der zweiten Einfahrt');

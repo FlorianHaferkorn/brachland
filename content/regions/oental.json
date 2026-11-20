@@ -106,7 +106,8 @@
                 "von": 137.6,
                 "bis": 141.7,
                 "seite": -1,
-                "tiefe": 6.7
+                "tiefe": 6.7,
+                "schotterspuren": { "spurabstand": 1.54, "saumdichte": 0.86 }
               }
             ]
           }

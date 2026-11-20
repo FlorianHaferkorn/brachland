@@ -68,7 +68,7 @@ owns: *.test.ts
 | `hofbodenkontakt.test.ts` | D307: Pixelzentren, Auswahl, Maskenverlauf und ausgesparte fremde Grundrisse des Bodenrands. |
 | `hofboden.test.ts` | D307: Lokalität, Stetigkeit und freie Türvorfelder der CPU-/GLSL-Bodenmasken. |
 | `hofsockel.test.ts` | D307: geschlossene Sockelkörper, stetige Endhöhen, Türspalten und Bodenanschluss am gewellten Hang. D336 prüft Frostabtrag bei durchgehender Sockelkappe. |
-| `strassenquerschnitt.test.ts` | D337: Übergänge zum Wegband, Bordhöhe an Zufahrten und Freihaltung im GPU-Grasraster. D338 prüft unveränderte Abmessungen, Materialkoordinaten und Wurzeln außerhalb der befestigten Flächen. |
+| `strassenquerschnitt.test.ts` | D337: Übergänge zum Wegband, Bordhöhe an Zufahrten und Freihaltung im GPU-Grasraster. D338 prüft Abmessungen und Materialkoordinaten. D339 prüft den Beginn der Fahrspuren hinter dem Gehweg sowie Erdanschluss und Flankenbewuchs. |
 | `hoftrittplatten.test.ts` | D307: geschlossene Platten, Außennormalen, Schwellenabstand und Hangkontakt. |
 | `hofplatz.test.ts` | D298: Grundrissauswahl, Hofmaske und Ausschluss des Hausinneren; Scan-Shader-Hook bleibt beim Klonen für Wind erhalten (33 Prüfungen, einschliesslich deterministischer Randgruppen und gesperrter Wege). |
 | `referenzhaus.test.ts` | D303: lokale Auswahl, echte Fenster-/Türtiefe, Umlauf, UV und vollständige Geometrieattribute. |

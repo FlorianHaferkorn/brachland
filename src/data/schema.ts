@@ -491,7 +491,15 @@ const WohnwegQuerschnitt = z.object({
     .refine(s => s.every(([meter, minus, plus], i) => plus > minus && (!i || meter > s[i - 1][0])),
       'Querschnitte nach Station ordnen und Kanten aufsteigend angeben.'),
   gehwege: z.array(Stationsbereich.extend({ breite: z.number().positive() })).default([]),
-  zufahrten: z.array(Stationsbereich.extend({ tiefe: z.number().positive() })).default([]),
+  zufahrten: z.array(Stationsbereich.extend({
+    tiefe: z.number().positive(),
+    schotterspuren: z.object({
+      /** Abstand der beiden Spurmitten in Metern quer zur Einfahrt. */
+      spurabstand: z.number().positive(),
+      saumdichte: z.number().min(0).max(1),
+    }).optional(),
+  }).refine(z => !z.schotterspuren || z.schotterspuren.spurabstand + .55 <= z.bis - z.von,
+    'Die beiden Fahrspuren brauchen Abstand zum Rand der Zufahrt.')).default([]),
   verwitterung: z.object({
     staerke: z.number().min(0).max(1),
     saum: z.object({ von: z.number().nonnegative(), bis: z.number().positive() }),

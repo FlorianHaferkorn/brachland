@@ -5,6 +5,7 @@ type Ort = readonly [number, number];
 type Punkt = [number, number, number];
 export type QuerschnittVerwitterung = NonNullable<WohnwegQuerschnitt['verwitterung']>;
 export const WEG_UEBER_GRUND = .12;
+export const BORD_ABSENKUNG = .025;
 
 function achsabschnitte(punkte: readonly Ort[]) {
   let meter = 0;
@@ -59,18 +60,19 @@ function ortAnAchse(achse: ReturnType<typeof achsabschnitte>[number], s: number,
 export function querschnittSaum(punkte: readonly Ort[], profil: WohnwegQuerschnitt, breite: number) {
   const abschnitte = achsabschnitte(punkte);
   const kantenAn = querschnittKanten(profil, breite);
-  return (s: number, seite: -1 | 1, abstand: number): Ort | undefined => {
+  return (s: number, seite: -1 | 1, abstand: number, abFahrbahn = false): Ort | undefined => {
     const achse = abschnitte.find(a => s >= a.von && s <= a.bis);
     if (!achse) return undefined;
     const kant = kantenAn(s)[seite < 0 ? 0 : 1];
-    return ortAnAchse(achse, s, kant + seite * (randbreite(s, seite, profil) + abstand));
+    const rand = abFahrbahn ? 0 : randbreite(s, seite, profil);
+    return ortAnAchse(achse, s, kant + seite * (rand + abstand));
   };
 }
 
 function bordhoehe(s: number, seite: number, profil: WohnwegQuerschnitt) {
   const abstand = Math.min(.7, ...profil.zufahrten.filter(z => z.seite === seite)
     .map(z => Math.max(z.von - s, 0, s - z.bis)));
-  return .025 + .085 * THREE.MathUtils.smoothstep(abstand, 0, .7);
+  return BORD_ABSENKUNG + .085 * THREE.MathUtils.smoothstep(abstand, 0, .7);
 }
 
 const grautoene = ['#565654', '#a6a59e', '#c4c0b6', '#85847f'].map(ton => new THREE.Color(ton));
@@ -79,6 +81,7 @@ const grautoene = ['#565654', '#a6a59e', '#c4c0b6', '#85847f'].map(ton => new TH
 export function baueStrassenquerschnitt(
   punkte: readonly Ort[], hoehe: (x: number, z: number) => number, profil: WohnwegQuerschnitt, breiteAlt: number,
   verwitterung?: QuerschnittVerwitterung,
+  mitSchotterspuren = false,
 ): THREE.BufferGeometry {
   const abschnitte = achsabschnitte(punkte);
   const [start, ende] = querschnittGrenzen(profil);
@@ -87,12 +90,14 @@ export function baueStrassenquerschnitt(
     ...profil.zufahrten.flatMap(z => [z.von - .7, z.von, z.bis, z.bis + .7])];
   const positionen: number[] = [], indizes: number[] = [], rollen: number[] = [], farben: number[] = [];
   const belagdaten: number[] = [];
+  const spurdaten: number[] = [];
 
   const viereck = (a: Punkt, b: Punkt, c: Punkt, d: Punkt, rolle: number, drehen = false) => {
     const i = positionen.length / 3;
     positionen.push(...a, ...b, ...c, ...d);
     const farbe = grautoene[rolle];
     for (let k = 0; k < 4; k++) { rollen.push(rolle); farben.push(farbe.r, farbe.g, farbe.b); }
+    if (mitSchotterspuren) for (let k = 0; k < 16; k++) spurdaten.push(0);
     if (drehen) indizes.push(i, i+2, i+1, i, i+3, i+2);
     else indizes.push(i, i+1, i+2, i, i+2, i+3);
   };
@@ -129,9 +134,18 @@ export function baueStrassenquerschnitt(
           seitenband(bord,g.breite,1,z ? 3 : 1);
         }
         const ende = Math.max(z?.tiefe ?? 0, g?.breite ?? 0);
-        if (z && ende > (g?.breite ?? 0)) {
-          viereck(punkt(s,qa+seite*(g?.breite ?? 0),ha),punkt(s,qa+seite*ende),
-            punkt(t,qb+seite*ende),punkt(t,qb+seite*(g?.breite ?? 0),hb),3,seite < 0);
+        const gehwegbreite = g?.breite ?? 0;
+        if (z && ende > gehwegbreite) {
+          viereck(punkt(s,qa+seite*gehwegbreite,ha),punkt(s,qa+seite*ende),
+            punkt(t,qb+seite*ende),punkt(t,qb+seite*gehwegbreite,hb),3,seite < 0);
+          if (mitSchotterspuren && z.schotterspuren) {
+            // Quer zur Einfahrt läuft die OSM-Station. Die Spuren beginnen hinter dem Gehweg.
+            const mitte = (z.von + z.bis) / 2, halb = (z.bis - z.von) / 2;
+            const spur = z.schotterspuren.spurabstand / 2;
+            spurdaten.splice(spurdaten.length - 16, 16,
+              s - mitte, 0, spur, halb, s - mitte, 1, spur, halb,
+              t - mitte, 1, spur, halb, t - mitte, 0, spur, halb);
+          }
         }
         // Die äußere Stirn endet unter Gelände und schließt die Schicht am Hang.
         const xa = qa+seite*ende, xb = qb+seite*ende;
@@ -154,6 +168,7 @@ export function baueStrassenquerschnitt(
   geo.setAttribute('color', new THREE.Float32BufferAttribute(farben,3));
   geo.setAttribute('rolle', new THREE.Float32BufferAttribute(rollen,1));
   if (verwitterung) geo.setAttribute('querprofil', new THREE.Float32BufferAttribute(belagdaten, 4));
+  if (mitSchotterspuren) geo.setAttribute('schotterspur', new THREE.Float32BufferAttribute(spurdaten, 4));
   geo.setIndex(indizes);
   geo.computeVertexNormals();
   return geo;
