@@ -543,6 +543,23 @@ const Strassenkulisse = z.object({
 });
 export type Strassenkulisse = z.infer<typeof Strassenkulisse>;
 
+export const Nahhoehen = z.object({
+  /** Nordwestlicher Stützpunkt im Meter-Koordinatensystem der Region. */
+  ursprung: z.tuple([z.number(), z.number()]),
+  breite: z.number().int().min(2),
+  tiefe: z.number().int().min(2),
+  schritt: z.number().positive(),
+  auslauf: z.number().positive(),
+  datum: z.number(),
+  /** Nord nach Süd, je Rasterzeile vorzeichenbehaftete Zentimeter relativ zum Datum, little endian. */
+  zeilen: z.array(z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/)),
+  quelle: z.string().min(1),
+}).refine(r => r.zeilen.length === r.tiefe && r.zeilen.every(zeile => {
+  const padding = zeile.endsWith('==') ? 2 : zeile.endsWith('=') ? 1 : 0;
+  return zeile.length % 4 === 0 && zeile.length * 3 / 4 - padding === r.breite * 2;
+}), 'Das Höhenraster braucht je Stützpunkt zwei Bytes.');
+export type Nahhoehen = z.infer<typeof Nahhoehen>;
+
 export const Region = z.object({
   id: z.string(),
   name: z.string(),
@@ -555,6 +572,7 @@ export const Region = z.object({
   zielSpielzeit: z.number().describe('Stunden'),
   hausnutzung: z.array(Hausnutzung).optional(),
   strassenkulisse: z.array(Strassenkulisse).optional(),
+  nahhoehen: Nahhoehen.optional(),
   /**
    * Übergänge an der Regionsgrenze (ADR-0014): Jede Region ist eine eigene Karte. Wer an der
    * genannten Kante steht, kann hinüber; die Karte der Nachbarregion wird dann geladen.

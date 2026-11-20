@@ -5,6 +5,8 @@ LoD2-Import (D290): echte Trauf- und Firsthöhen, Dachform und Firstrichtung je 
   python3 tools/lod2import.py            # lädt fehlende Kacheln nach .cache/lod2/, schreibt public/world/oental-lod2.json
   python3 tools/lod2import.py --dachmasse 508 510 512 --kachelordner .cache/d331-massprobe
                                        # ergänzt die Dachkörperprobe ohne Abruf neuer Luftbilder
+  python3 tools/lod2import.py --dachmasse 410 413 444 506 507 509 511 513 --koerper --kachelordner .cache/d331-massprobe
+                                       # ergänzt Grundrisse und Dachpolygonringe der Milbinger Probe
 
 D290 Dachfarbe: aus den Digitalen Orthophotos DOP20 (WMS `geoservices.bayern.de/od/wms/dop/v1/dop20`, Layer `by_dop20c`,
 ebenfalls CC BY 4.0, kostenfrei) — je Gebäude der Median der Pixel unter den LoD2-Dachflächen (Feld "c", sRGB-Hex).
@@ -63,6 +65,24 @@ def polygone(knoten):
         yield [(w[i], w[i + 1], w[i + 2]) for i in range(0, len(w) - 2, 3)]
 
 
+def wandring(grund):
+    """Stützstellen der Dachkanten aus den geraden Wandfluchten entfernen."""
+    ring = grund[:-1] if grund[0] == grund[-1] else grund[:]
+    for _ in range(len(ring) - 3):
+        for i, b in enumerate(ring):
+            (ax, ay, _), (cx, cy, _) = ring[i - 1], ring[(i + 1) % len(ring)]
+            bx, by, _ = b
+            dx, dy = cx - ax, cy - ay
+            laenge = math.hypot(dx, dy)
+            if laenge and abs(dx * (by - ay) - dy * (bx - ax)) / laenge < .015 \
+                    and 0 <= (bx - ax) * dx + (by - ay) * dy <= laenge ** 2:
+                ring.pop(i)
+                break
+        else:
+            break
+    return ring + ring[:1]
+
+
 def firstrichtung(firstkante, mittel_lat):
     """UTM-Firstpunkte mit derselben Meterabbildung wie im Spiel projizieren."""
     a, b = firstkante
@@ -108,6 +128,8 @@ def umgrenzung(poly):
 parser = ArgumentParser(description='Amtliche LoD2-Daten den OSM-Grundrissen zuordnen')
 parser.add_argument('--dachmasse', type=int, nargs='+', metavar='INDEX',
                     help='Nur die Dachmaße ausgewählter Gebäude ergänzen.')
+parser.add_argument('--koerper', action='store_true',
+                    help='Mit --dachmasse auch amtliche Dachflächen, Wandabschlüsse und Wandgrundrisse übernehmen.')
 parser.add_argument('--kachelordner', default=ROH, help='Ordner für die CityGML- und DOP20-Kacheln.')
 argumente = parser.parse_args()
 ROH = argumente.kachelordner
@@ -117,6 +139,8 @@ mittel_lat = (bbox[0] + bbox[2]) / 2
 indexe = argumente.dachmasse
 if indexe and any(not 0 <= i < len(welt['gebaeude']) for i in indexe):
     parser.error('Gebäudeindex außerhalb der Weltdaten.')
+if argumente.koerper and not indexe:
+    parser.error('--koerper braucht die Gebäudeauswahl aus --dachmasse.')
 if not indexe:
     import numpy as np
     from PIL import Image, ImageDraw
@@ -135,12 +159,14 @@ for k in kachelauswahl:
         if el.tag != '{http://www.opengis.net/citygml/building/1.0}Building':
             continue
         dach = el.findtext('bldg:roofType', default='0', namespaces=NS)
-        boden_pkt, dach_pkt, dach_poly = [], [], []
+        boden_pkt, dach_pkt, dach_poly, boden_poly, wand_poly = [], [], [], [], []
         for flaeche in el.iter():
             if flaeche.tag.endswith('}GroundSurface'):
-                for p in polygone(flaeche): boden_pkt += p
+                for p in polygone(flaeche): boden_pkt += p; boden_poly.append(p)
             elif flaeche.tag.endswith('}RoofSurface'):
                 for p in polygone(flaeche): dach_pkt += p; dach_poly.append(p)
+            elif argumente.koerper and flaeche.tag.endswith('}WallSurface'):
+                wand_poly.extend(polygone(flaeche))
         el.clear()
         if not boden_pkt or not dach_pkt:
             continue
@@ -162,8 +188,21 @@ for k in kachelauswahl:
         lat, lon = utm_nach_wgs(cx, cy)
         flaeche = (max(p[0] for p in boden_pkt) - min(p[0] for p in boden_pkt)) * (max(p[1] for p in boden_pkt) - min(p[1] for p in boden_pkt))
         w = firstrichtung(firstkante, mittel_lat) if firstkante else None
+        koerper = None
+        if argumente.koerper and len(boden_poly) == 1 and wand_poly:
+            def horizontal(p):
+                lat, lon = utm_nach_wgs(*p[:2])
+                return [round(lat, 8), round(lon, 8)]
+            def flaechen(polys):
+                return [[[*horizontal(p), round(p[2] - z0, 3)] for p in ring] for ring in polys]
+            koerper = {'grundriss': [horizontal(p) for p in wandring(boden_poly[0])],
+                       'dachflaechen': flaechen(dach_poly), 'wandabschluesse': flaechen([
+                           ring for ring in wand_poly if any(p[2] > z0 + max(2.2, round(traufe, 2)) + .001 for p in ring)
+                       ]),
+                       't': round(traufe, 2), 'f': round(first, 2), 'd': int(dach), 'w': w}
         gebaeude.append({'lat': lat, 'lon': lon, 't': round(traufe, 2), 'f': round(first, 2), 'd': int(dach), 'w': w, 'a': flaeche,
                          'cx': cx, 'cy': cy, 'firstkante': firstkante,
+                         'koerper': koerper,
                          'dach': [[(p[0], p[1]) for p in poly] for poly in dach_poly]})
 
 
@@ -214,6 +253,11 @@ if indexe:
             ergebnis[i]['teile'] = dachkoerper(poly, b['w'], kand)
         else:
             ergebnis[i].pop('teile', None)
+        if argumente.koerper:
+            koerper = [b['koerper'] for b in sorted(kand, key=lambda b: -b['a'])]
+            if any(k is None for k in koerper):
+                parser.error(f'Kein geschlossener amtlicher Grundriss und Dachkörper für Gebäude {i}.')
+            ergebnis[i]['koerper'] = koerper
     with open(AUS, 'w') as datei:
         json.dump(ergebnis, datei, separators=(',', ':'))
     print(f'LoD2: Dachmaße für {len(indexe)} Gebäude ergänzt → {AUS}')

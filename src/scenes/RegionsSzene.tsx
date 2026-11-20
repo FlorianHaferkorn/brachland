@@ -35,6 +35,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          streueUmgebung, streueKleinzeug,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN, type WohnwegStreuung } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
+import { baueWiesenbereich, type Wiesenbereich } from '../world/wiesenbereich.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
@@ -50,7 +51,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { MILBINGERMASSE_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
 import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
@@ -75,7 +76,7 @@ import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILD
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
-import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, NAH_ZELLE_FEIN, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, NAH_ZELLE_FEIN, TEPPICH_HALB, TEPPICH_ZELLE_FEIN, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
 import { GRAS_ECHT, GRAS_FEIN, WEIHER_AN, GEWAESSER_ECHT, LAUB_FEIN } from '../world/echt.js';
 import { meldeSpiegelflaeche, Spiegelbild } from '../world/spiegelbild.js';
 import { baueWeiher } from '../world/weiher.js';
@@ -460,9 +461,10 @@ function entsorgeErsetzteKacheln(vorher: readonly THREE.BufferGeometry[], nachhe
   for (const g of vorher) if (!erhalten.has(g)) g.dispose();
 }
 
-function LodTerrain({ feld, kacheln, ziel, nachlauf }: {
+function LodTerrain({ feld, kacheln, ziel, nachlauf, wiesenbereich }: {
   feld: HoehenFeld; kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
   nachlauf: Kachelnachlauf;
+  wiesenbereich?: Wiesenbereich;
 }) {
   const cache = useRef(new Map<string, THREE.BufferGeometry>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
@@ -489,7 +491,8 @@ function LodTerrain({ feld, kacheln, ziel, nachlauf }: {
     angezeigt.current = stufen;
   }, [stufen]);
 
-  const material = useMemo(() => baueBodenMaterial(), []);
+  const material = useMemo(() => baueBodenMaterial(wiesenbereich), [wiesenbereich]);
+  useEffect(() => () => material.dispose(), [material]);
 
   const baue: BereiteKacheln = function* (auswahl, gestaffelt, anker, vorladen) {
     // Höchstens so viele Kacheln je Bild neu bauen. Alle 226 auf einmal kosten
@@ -591,10 +594,11 @@ function LodTerrain({ feld, kacheln, ziel, nachlauf }: {
   ))}</>;
 }
 
-function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, rand, fenster, senke, strassen, strassenmaske }: {
+function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, rand, fenster, senke, strassen, strassenmaske, wiesenbereich }: {
   welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
   strassen?: readonly Strassenkulisse[];
   strassenmaske?: QuerschnittGrasmaske;
+  wiesenbereich?: Wiesenbereich;
   /** Gesunkener Pegel am Regentenort nach der Heilung (D241). */
   senke?: Pegelsenke | null;
   kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
@@ -619,10 +623,12 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const aufBoden = useMemo(() => aufsatzboden(feld), [feld]);
   const hofBaeume = useMemo(() => {
     const globalEz = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1';
+    const sichtbar = wiesenbereich ? props.filter(p => p.art !== 'grasbuschel'
+      || wiesenbereich.gewicht(p.position[0], p.position[2]) < .6) : props;
     return HOF_GRUEN_AN && !globalEz
-      ? teileHofBaeume(props, HOF_UNIFORM.bereit.value ? [HOF_UNIFORM.mitte.value.x, HOF_UNIFORM.mitte.value.y] : null)
-      : { rest: props, lokaleBaeume: [] };
-  }, [props]);
+      ? teileHofBaeume(sichtbar, HOF_UNIFORM.bereit.value ? [HOF_UNIFORM.mitte.value.x, HOF_UNIFORM.mitte.value.y] : null)
+      : { rest: sichtbar, lokaleBaeume: [] };
+  }, [props, wiesenbereich]);
   /* Wand, Holz, Fenster, Sockel, Gesims, Tür und Garten stecken als Vertexfarben
      in der Geometrie. Ein Material für alles davon bleibt es trotzdem. */
   const hausMaterial = useMemo(() => baueHausMaterial(), []);
@@ -744,12 +750,14 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     const hoefe = (nutzungen ?? []).filter(n => n.fassadenbaukasten).map(n => nachMetern(n.ort, welt.bbox));
     if (!wege.length || !hoefe.length) return undefined;
     const aufWeg = wegTest({ ...welt, wege }, feld, false);
-    return { aufWeg, freihalten: strassenmaske?.enthaelt, gewicht: (x, z) => {
+    const freihalten = wiesenbereich ? (x: number, z: number) =>
+      wiesenbereich.gewicht(x, z) >= .6 || !!strassenmaske?.enthaelt(x, z) : strassenmaske?.enthaelt;
+    return { aufWeg, freihalten, gewicht: (x, z) => {
       let abstand2 = 34 * 34;
       for (const [hx, hz] of hoefe) abstand2 = Math.min(abstand2, (x-hx)**2 + (z-hz)**2);
       return 1 - THREE.MathUtils.smoothstep(abstand2, 14*14, 34*34);
     } };
-  }, [welt, feld, strassen, strassenmaske]);
+  }, [welt, feld, strassen, strassenmaske, wiesenbereich]);
   const satz = useMemo(() => {
     const zustand = strassen && new Map(strassen.flatMap(s => s.wege.map(w => [w.osmWeg, w] as const)));
     return zerlegeBaender(welt, feld, zustand);
@@ -773,7 +781,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   return (
     <group>
       {wasserProbe && reflexMitte && <WasserSzeneProbe probe={wasserProbe} mitte={reflexMitte} ziel={ziel} />}
-      <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} />
+      <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} wiesenbereich={wiesenbereich} />
 
       <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf}
                   boden={aufBoden}
@@ -790,7 +798,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
           baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material}
           baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={weite} />)}
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} wohnweg={wohnweg} />
-      {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite} strassenmaske={strassenmaske} />}
+      {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite}
+        strassenmaske={strassenmaske} wiesenbereich={wiesenbereich} />}
       {GEWAESSER_ECHT && <Spiegelung feld={feld} />}
     </group>
   );
@@ -2717,29 +2726,45 @@ function Spiegelung({ feld }: { feld: HoehenFeld }) {
   return null;
 }
 
-function Grasteppich({ welt, feld, ziel, dichte, weite, strassenmaske }: {
+function Grasteppich({ welt, feld, ziel, dichte, weite, strassenmaske, wiesenbereich }: {
   welt: Weltdaten; feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number; weite: number;
   strassenmaske?: QuerschnittGrasmaske;
+  wiesenbereich?: Wiesenbereich;
 }) {
   const aufWeg = useMemo(() => wegTest(welt, feld), [welt, feld]);
-  const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte, undefined, undefined, 0, 1, strassenmaske),
-    [feld, aufWeg, dichte, strassenmaske]);
+  const lokal = GRAS_FEIN ? undefined : wiesenbereich;
+  const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte, undefined, undefined, 0, 1, strassenmaske, lokal),
+    [feld, aufWeg, dichte, strassenmaske, lokal]);
   // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
   const nah = useMemo(() => (dichte >= 1 && !istAus('nahgras')
     ? (GRAS_FEIN ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_FEIN, 0, 1, strassenmaske)
-      : GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT, 0, 1, strassenmaske)
-      : baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE, 0, 1, strassenmaske)) : null), [feld, aufWeg, dichte, strassenmaske]);
+      : GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT, 0, 1, strassenmaske, lokal)
+      : baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE, 0, 1, strassenmaske, lokal)) : null),
+    [feld, aufWeg, dichte, strassenmaske, lokal]);
   // D247: Fernring hinter dem Teppich, nur bei Sichtweite „weit“; `?aus=ferngras` schaltet ab.
   const fern = useMemo(() => (weite > 1 && dichte > 0 && !istAus('ferngras')
     ? baueGrasteppich(feld, aufWeg, dichte, Math.round(TEPPICH_HALB * 1.5 * weite), FERN_ZELLE, TEPPICH_HALB, 3, strassenmaske)
     : null), [feld, aufWeg, dichte, weite, strassenmaske]);
-  useEffect(() => () => { teppich.dispose(); nah?.dispose(); fern?.dispose(); }, [teppich, nah, fern]);
+  const fotoWiese = useMemo(() => lokal && dichte > 0
+    ? baueGrasteppich(feld, aufWeg, dichte, TEPPICH_HALB, TEPPICH_ZELLE_FEIN, 0, 1, strassenmaske, lokal, true)
+    : null, [feld, aufWeg, dichte, strassenmaske, lokal]);
+  useEffect(() => () => { teppich.dispose(); nah?.dispose(); fern?.dispose(); fotoWiese?.dispose(); },
+    [teppich, nah, fern, fotoWiese]);
+  useEffect(() => {
+    const vorlauf = fotoWiese?.vorlauf;
+    if (!vorlauf) return;
+    vorlauf.onAfterRender = () => {
+      // Licht, Nebel und Tonwertkurve können während des Aufbaus wechseln.
+      if (ladezeit() !== null) vorlauf.visible = false;
+    };
+  }, [fotoWiese]);
   const erstesBild = useRef(true);
-  useEffect(() => { erstesBild.current = true; }, [teppich, nah, fern]);
+  useEffect(() => { erstesBild.current = true; }, [teppich, nah, fern, fotoWiese]);
   useFrame(({ clock }) => {
     teppich.setzeZeit(clock.elapsedTime);
     nah?.setzeZeit(clock.elapsedTime);
     fern?.setzeZeit(clock.elapsedTime);
+    fotoWiese?.setzeZeit(clock.elapsedTime);
     const p = ziel.current?.position;
     // G-141: Alle drei Ringe teilen sich je Bild eine Frist für das Nachziehen, statt ~55 + ~30 ms
     // in einem Bild (D247). Das allererste Füllen läuft ohne Frist, sonst fehlt der Rasen anfangs.
@@ -2747,9 +2772,17 @@ function Grasteppich({ welt, feld, ziel, dichte, weite, strassenmaske }: {
       const frist = erstesBild.current ? Infinity : performance.now() + TEPPICH_FRIST_MS;
       erstesBild.current = false;
       teppich.ziehNach(p.x, p.z, frist); nah?.ziehNach(p.x, p.z, frist); fern?.ziehNach(p.x, p.z, frist);
+      if (fotoWiese && lokal) {
+        const r = lokal.rahmen;
+        fotoWiese.mesh.visible = p.x > r.x - TEPPICH_HALB && p.x < r.z + TEPPICH_HALB
+          && p.z > r.y - TEPPICH_HALB && p.z < r.w + TEPPICH_HALB;
+        if (fotoWiese.mesh.visible) fotoWiese.ziehNach(p.x, p.z, frist);
+      }
     }
   });
-  return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}{fern && <primitive object={fern.mesh} />}</>;
+  return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}{fern && <primitive object={fern.mesh} />}
+    {fotoWiese && <primitive object={fotoWiese.mesh} />}
+    {fotoWiese?.vorlauf && <primitive object={fotoWiese.vorlauf} />}</>;
 }
 
 /**
@@ -4415,14 +4448,16 @@ export function RegionsSzene({
   // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
   // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
   const terrain = useMemo(() => baueTerrain(welt), [welt]);
+  const regionsinhalt = useMemo(() => STRASSENVERFALL_AN || MILBINGERMASSE_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))
+    : undefined, [welt]);
 
   // Höhenfeld mit Mikrorelief — die gemeinsame Wahrheit für Boden, Props und Spawn.
-  const feld = useMemo(() => baueHoehenfeld(welt, MIKRO_MESSLAUF ?? undefined), [welt]);
+  const nahhoehen = MILBINGERMASSE_AN ? regionsinhalt?.nahhoehen : undefined;
+  const feld = useMemo(() => baueHoehenfeld(welt, MIKRO_MESSLAUF ?? undefined, undefined, nahhoehen), [welt, nahhoehen]);
   useMemo(() => { if (HOF_AN) waehleHof(welt, feld); }, [welt, feld]);
   const kacheln = useMemo(() => baueKachelraster(feld), [feld]);
-  const strassen = useMemo(() => STRASSENVERFALL_AN
-    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.strassenkulisse
-    : undefined, [welt]);
+  const strassen = STRASSENVERFALL_AN ? regionsinhalt?.strassenkulisse : undefined;
   const strassenmaske = useMemo(() => {
     if (!WOHNWEGQUERSCHNITT_AN || !strassen) return undefined;
     const masken = strassen.flatMap(abschnitt => abschnitt.wege.flatMap(({ osmWeg, querschnitt }) => {
@@ -4433,6 +4468,8 @@ export function RegionsSzene({
     return baueQuerschnittGrasmaske(masken);
   }, [welt, strassen]);
   useEffect(() => () => { strassenmaske?.textur.dispose(); }, [strassenmaske]);
+  const wiesenbereich = useMemo(() => MILBINGERMASSE_AN && strassenmaske
+    ? baueWiesenbereich(strassenmaske.rahmen) : undefined, [strassenmaske]);
 
   // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben
   // Positionen. Zweimal verteilen hieße, gegen unsichtbare Bäume zu laufen.
@@ -4539,7 +4576,7 @@ export function RegionsSzene({
         <mesh geometry={fernGeo} material={fernMaterial} frustumCulled={false} renderOrder={-500} />
       )}
       <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} senke={senke}
-               strassen={strassen} strassenmaske={strassenmaske}
+               strassen={strassen} strassenmaske={strassenmaske} wiesenbereich={wiesenbereich}
                props={istAus('baeume') ? LEERE_PROPS : props}
                dichte={istAus('gras') ? 0 : qualitaet.gras} weite={qualitaet.weite}
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}

@@ -64,6 +64,8 @@ export const WOHNWEGQUERSCHNITT_AN = WESTANSCHLUSS_AN && an('wohnwegquerschnitt'
 export const MILBINGERBELAG_AN = WOHNWEGQUERSCHNITT_AN && an('milbingerbelag');
 /** D339: eigenständiger Schotterbelag und Flankenbewuchs für ausgewählte Zufahrten. */
 export const MILBINGEROBEN_AN = MILBINGERBELAG_AN && an('milbingeroben');
+/** D340: vermessene Proportionen und die Scan-Wiese im Milbinger Straßenraum. */
+export const MILBINGERMASSE_AN = MILBINGEROBEN_AN && an('milbingermasse');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

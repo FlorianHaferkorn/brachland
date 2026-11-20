@@ -22,6 +22,7 @@ import { hofTextur, hofUniforms, HOF_BODEN_PARS, HOF_BODEN_FARBE, HOF_BODEN_NORM
 import { HOF_UNIFORM } from './hofplatz.js';
 import HOF_KIES from '../../public/material/hof-kies.json';
 import { PALETTE } from './palette.js';
+import { WIESENBEREICH_GLSL, type Wiesenbereich } from './wiesenbereich.js';
 import { GEWAESSER_ECHT, GRAS_ECHT, GRAS_VIEL, HOF_AN, HOF_BODEN_AN, HOF_GRAS_AN, HOF_ORTSALTERUNG_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN } from './echt.js';
 
 /**
@@ -258,7 +259,12 @@ const SCAN_GLSL = /* glsl */ `
   // und der Rasen las als einzelne Sprossen (Stauwehr, 12.11.2026).
   diffuseColor.rgb *= mix(vec3(1.0), vec3(0.5, 0.64, 0.36), scanGewicht.x * 0.85);
 #endif
-#ifdef GRAS_VIEL
+#ifdef WIESENBEREICH
+  float wiesenanteil = wiesenbereichGewicht(vWeltPos.xz) * scanGewicht.x;
+  // In der Siedlung mischt der Wiesenscan die trockene Grundfarbe in kürzere grüne Weide.
+  diffuseColor.rgb *= mix(vec3(1.0), vec3(.94, 1.11, .83), wiesenanteil * .82);
+#endif
+#if defined(GRAS_VIEL) || defined(WIESENBEREICH)
   // D272 (?gras=3): Zwischen den Büscheln liegt nasser Boden. Dasselbe Rauschen wie die Lücken im
   // Grasteppich (halmRauschen(ort * 0.8 + 71)), damit freier Boden und fehlende Büschel zusammenfallen.
   {
@@ -274,6 +280,9 @@ const SCAN_GLSL = /* glsl */ `
     // nur dunkler und erdiger (Erde zwischen Gras ist kein Farbfleck, sondern abgedunkelter Boden mit Streu).
     float fransen = smoothstep(0.35, 0.65, bodenRauschen(vWeltPos.xz * 2.7 + 13.0));
     float erde = luecke * mix(0.35, 1.0, fransen) * scanGewicht.x * 0.7;
+#if defined(WIESENBEREICH) && !defined(GRAS_VIEL)
+    erde *= wiesenbereichGewicht(vWeltPos.xz);
+#endif
     diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.62, 0.52, 0.4) + vec3(0.02, 0.015, 0.008), erde);
   }
 #endif
@@ -368,12 +377,13 @@ const BODEN_KANTIG: boolean = (() => {
 const MIT_UFER: boolean = typeof location === 'undefined'
   || new URLSearchParams(location.search).get('ufer') !== '0';
 
-export function baueBodenMaterial(): THREE.MeshStandardMaterial {
+export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: BODEN_KANTIG, roughness: 0.95, metalness: 0,
   });
 
   material.onBeforeCompile = (shader) => {
+    if (wiesenbereich) shader.uniforms.uWiesenbereich = { value: wiesenbereich.rahmen };
     if (HOF_AN) Object.assign(shader.uniforms, hofUniforms(), {
       uHofBodenFarbe: { value: hofTextur('kies-farbe', true) },
       uHofBodenNormal: { value: hofTextur('kies-normal') },
@@ -392,7 +402,7 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
       );
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL + (HOF_AN ? HOF_BODEN_PARS : ''))
+      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL + (wiesenbereich ? WIESENBEREICH_GLSL : '') + (HOF_AN ? HOF_BODEN_PARS : ''))
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (MIT_UFER ? NASS_GLSL : '') + (HOF_AN ? HOF_BODEN_FARBE : ''))
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n'
         // D281 (`?gewaesser=1`): 0,55 spiegelte den hellen Himmel als weissen Reif-Streifen am Ufer; nasse Erde ist
@@ -424,7 +434,8 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
   if (GRAS_ECHT) material.defines = { ...material.defines, GRAS_ECHT: '' };
   if (GRAS_VIEL) material.defines = { ...material.defines, GRAS_VIEL: '' };
-  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken') + (HOF_AN ? '-scanhof' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? (HOF_GRAS_AN ? '-ortsalterung-pfad' : '-ortsalterung') : '');
+  if (wiesenbereich) material.defines = { ...material.defines, WIESENBEREICH: '' };
+  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken') + (HOF_AN ? '-scanhof' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? (HOF_GRAS_AN ? '-ortsalterung-pfad' : '-ortsalterung') : '') + (wiesenbereich ? '-wiesenbereich' : '');
 
   return material;
 }

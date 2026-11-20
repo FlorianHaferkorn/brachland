@@ -4,7 +4,7 @@ import { WEG_UEBER_GRUND } from './baender.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_SCHWELLE, type HorstKachel } from './grashorst.js';
 import { mulberry } from './props.js';
 import { WEG_TEILUNG } from './terrain.js';
-import { BORD_ABSENKUNG, querschnittFreihaltung, querschnittSaum } from './strassenquerschnitt.js';
+import { BORD_ABSENKUNG, DECKE_UEBER_GRUND, ZUFAHRT_UEBER_GRUND, querschnittFreihaltung, querschnittSaum } from './strassenquerschnitt.js';
 import type { WohnwegQuerschnitt } from '../data/schema.js';
 
 export interface StrassenbewuchsWeg {
@@ -21,6 +21,7 @@ export interface StrassenbewuchsWeg {
   /** Verwitterter Außenrand entlang des vermessenen Querschnitts. */
   vermessenerSaum?: WohnwegQuerschnitt;
   schotterspuren?: boolean;
+  bodenpassend?: boolean;
   /** Erhaltene Zugänge an der Straße, in Weltmetern. */
   wohnwegZugaenge?: readonly (readonly [number, number])[];
   /** Auf ungebundenem Belag entstehen Rinnen und Pflanzeninseln ohne Asphaltrisse. */
@@ -238,8 +239,10 @@ export function baueStrassenbewuchs(
         const anfang = aussen(station, zufahrt.seite, gehweg, true);
         const ende = aussen(station, zufahrt.seite, zufahrt.tiefe, true);
         if (anfang && ende && zellen > 0) {
-          const innenY = boden(...anfang) + WEG_UEBER_GRUND + (gehweg > 0 ? BORD_ABSENKUNG : 0);
-          const aussenY = boden(...ende) + WEG_UEBER_GRUND;
+          const hubInnen = (weg.bodenpassend ? DECKE_UEBER_GRUND : WEG_UEBER_GRUND) + (gehweg > 0 ? BORD_ABSENKUNG : 0);
+          const hubAussen = weg.bodenpassend ? ZUFAHRT_UEBER_GRUND : WEG_UEBER_GRUND;
+          const innenY = boden(...anfang) + hubInnen;
+          const aussenY = boden(...ende) + hubAussen;
           const kante: ([number, number] | undefined)[] = [];
           for (let i = 0; i <= zellen; i++) {
             const anteil = i / zellen;
@@ -249,8 +252,12 @@ export function baueStrassenbewuchs(
               kante.push(undefined);
               continue;
             }
-            const innen: Punkt = [THREE.MathUtils.lerp(anfang[0], ende[0], anteil),
-              THREE.MathUtils.lerp(innenY, aussenY, anteil) - .005, THREE.MathUtils.lerp(anfang[1], ende[1], anteil)];
+            const ix = THREE.MathUtils.lerp(anfang[0], ende[0], anteil);
+            const iz = THREE.MathUtils.lerp(anfang[1], ende[1], anteil);
+            const iy = weg.bodenpassend
+              ? boden(ix, iz) + THREE.MathUtils.lerp(hubInnen, hubAussen, anteil)
+              : THREE.MathUtils.lerp(innenY, aussenY, anteil);
+            const innen: Punkt = [ix, iy - .005, iz];
             const [x, z] = ort, untergrund: Punkt = [x, boden(x, z) + .011, z];
             farbe.copy(ERDE).lerp(SPLITT, .68 - .23 * Math.sin(i * 1.68 + phase));
             kante.push([vertex(innen, farbe, .94), vertex(untergrund, farbe, 0)]);

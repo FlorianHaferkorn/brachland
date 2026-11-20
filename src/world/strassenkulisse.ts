@@ -5,11 +5,11 @@ import { baueStrassenbewuchs } from './strassenbewuchs.js';
 import { baueQuerschnittMaterial } from './bandmaterial.js';
 import { baueStrassenmobiliar } from './strassenmobiliar.js';
 import type { Strassenmobiliar } from './strassenmobiliar.js';
-import { hoeheAufFlaeche } from './lod.js';
+import { hoeheAufFlaeche, LOD_STUFEN } from './lod.js';
 import type { HoehenFeld } from './lod.js';
 import { imPolygon } from './osm.js';
 import type { Weltdaten } from './osm.js';
-import { MILBINGERBELAG_AN, MILBINGEROBEN_AN, STRASSENPROFIL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from './echt.js';
+import { MILBINGERBELAG_AN, MILBINGEROBEN_AN, MILBINGERMASSE_AN, STRASSENPROFIL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from './echt.js';
 import { baueStrassenquerschnitt, querschnittGrenzen } from './strassenquerschnitt.js';
 
 type Ort = [number, number];
@@ -32,6 +32,9 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
   const zuWelt = (ort: Ort): Ort => nachMetern(ort, welt.bbox);
   const wegNachId = new Map(welt.wege.flatMap(weg => weg.quelle ? [[weg.quelle.osmId, weg] as const] : []));
   const boden = (x: number, z: number) => hoeheAufFlaeche(feld, x, z);
+  const bodenraster = MILBINGERMASSE_AN ? {
+    ursprung: [-feld.breiteMeter / 2, -feld.tiefeMeter / 2] as const, schritt: LOD_STUFEN[0].schritt,
+  } : undefined;
   const wohnwegZugaenge = WESTANSCHLUSS_AN
     ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.hausnutzung
       ?.filter(nutzung => nutzung.zustand === 'instandgesetzt').map(nutzung => zuWelt(nutzung.strasse))
@@ -52,7 +55,7 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
       const verwitterung = MILBINGERBELAG_AN ? vermessen?.verwitterung : undefined;
       const schotterspuren = MILBINGEROBEN_AN && !!verwitterung;
       if (vermessen) querschnitte.push({
-        geometrie: baueStrassenquerschnitt(punkte, boden, vermessen, weg.breite, verwitterung, schotterspuren),
+        geometrie: baueStrassenquerschnitt(punkte, boden, vermessen, weg.breite, verwitterung, schotterspuren, bodenraster),
         verwittert: !!verwitterung,
       });
       return [{
@@ -64,6 +67,7 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
         querschnitt: vermessen && querschnittGrenzen(vermessen),
         vermessenerSaum: verwitterung ? vermessen : undefined,
         schotterspuren,
+        bodenpassend: !!bodenraster,
         wohnwegZugaenge: WESTANSCHLUSS_AN && wohnwegrand ? wohnwegZugaenge : undefined,
         fahrbahnprofil: STRASSENPROFIL_AN,
         markierungen: STRASSENPROFIL_AN ? profil?.markierungen : undefined,

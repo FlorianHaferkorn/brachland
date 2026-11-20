@@ -8,11 +8,12 @@
  * Weltkoordinaten: X = Ost, Y = Höhe, Z = Süd. Ursprung in der Mitte des Ausschnitts.
  */
 import * as THREE from 'three';
-import type { Weltdaten, Biom } from './osm.js';
+import type { Weltdaten, Biom, LoD2Koerper } from './osm.js';
 import { imPolygon } from './osm.js';
 import { PALETTE } from './palette.js';
-import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN, WESTFASSADE_AN, WESTANSCHLUSS_AN } from './echt.js';
+import { BAUWELT_AN, LOD2_AN, FENSTERTIEFE_AN, HAUSFRONT_AN, HOF_LAUBEN_AN, HOF_BODEN_AN, HOF_VERFALL_AN, HOF_RANKE_AN, HOF_RUINE_AN, HOF_EINSTURZ_AN, HOF_ZIEL_AN, HOF_DACHBRUCH_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN, HOF_ORTSALTERUNG_AN, HOF_SILHOUETTE_AN, WESTVERFALL_AN, WESTDETAIL_AN, WESTDACH_AN, WESTFASSADE_AN, WESTANSCHLUSS_AN, MILBINGERMASSE_AN } from './echt.js';
 import type { HausReferenz, HausQuad } from './hausbauteil.js';
+import { baueLoD2Dach } from './lod2dach.js';
 import { baueHofsockel } from './hofsockel.js';
 import { baueHoftrittplatten } from './hoftrittplatten.js';
 import { baueHausbewuchs, baueRankenkurve } from './hausbewuchs.js';
@@ -505,8 +506,50 @@ export function baueGebaeude(
     };
   };
 
+  /**
+   * D291: Farben nach dem Fassaden-Steckbrief. Die Ecken dieses Hauses werden nach ihrer Rolle umgefärbt: Putz (0)
+   * und Holz (1) auf die fotografierte Farbe, Läden auf ihre Farbe — das Verhältnis zur Palettenfarbe (gebackene
+   * Kontaktabdunklung, Brett-Töne) bleibt erhalten.
+   */
+  const faerbeFassade = (fassade: Weltdaten['gebaeude'][number]['fassade'], ersteEcke: number) => {
+    if (fassade) {
+      const putz = new THREE.Color(fassade.putz), holz = new THREE.Color(fassade.holz);
+      const laden = fassade.laeden ? new THREE.Color(fassade.laeden) : null;
+      const lum = (c: { r: number; g: number; b: number }) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+      for (let e = ersteEcke; e < farben.length / 3; e++) {
+        const r = rollen[e];
+        const alt = { r: farben[e * 3], g: farben[e * 3 + 1], b: farben[e * 3 + 2] };
+        let ziel: THREE.Color | null = null, bezug = 0;
+        if (r === 0) { ziel = putz; bezug = lum(WAND); }
+        else if (r === 1) { ziel = holz; bezug = lum(SCHALUNG); }
+        else if (laden && Math.abs(alt.r / Math.max(1e-4, alt.g) - LADEN.r / LADEN.g) < 0.02
+                 && Math.abs(alt.b / Math.max(1e-4, alt.g) - LADEN.b / LADEN.g) < 0.02) { ziel = laden; bezug = lum(LADEN); }
+        if (!ziel) continue;
+        const k = lum(alt) / Math.max(1e-4, bezug);
+        farben[e * 3] = ziel.r * k; farben[e * 3 + 1] = ziel.g * k; farben[e * 3 + 2] = ziel.b * k;
+      }
+    }
+  };
+
+  type Haus = Weltdaten['gebaeude'][number];
+  function* hausKoerper(): Generator<{ haus: Haus; amtlich?: LoD2Koerper }> {
+    for (const haus of auswahl) {
+      const koerper = MILBINGERMASSE_AN && LOD2_AN && !haus.hausnutzung ? haus.lod2?.koerper : undefined;
+      if (!koerper?.length) {
+        yield { haus };
+        continue;
+      }
+      for (const amtlich of koerper) {
+        // OSM-Zuordnung bleibt erhalten, nur die Hülle dieses Teilbaus kommt
+        // aus LoD2. Weststraßenhäuser mit eigener Alterung behalten ihr Profil.
+        const { t, f, d, w } = amtlich;
+        yield { haus: { ...haus, punkte: amtlich.grundriss, lod2: { t, f, d, w, c: haus.lod2?.c } }, amtlich };
+      }
+    }
+  }
+
   const referenzen: readonly HausReferenz[] = !referenz ? [] : Array.isArray(referenz) ? referenz : [referenz as HausReferenz];
-  for (const g of auswahl) {
+  for (const { haus: g, amtlich } of hausKoerper()) {
     /** D291: erste Ecke dieses Hauses — für die Umfärbung nach dem Fassaden-Steckbrief am Ende. */
     const ersteEcke = farben.length / 3;
     let p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
@@ -1434,6 +1477,35 @@ export function baueGebaeude(
 
     bewuchsWandJetzt = false;
     /**
+     * D290 Dachfarbe aus dem Luftbild (DOP20): Farbton des echten Dachs, die Helligkeit zur Hälfte von der Palette
+     * (Art Direction bleibt), leicht entsättigt (Luftbilder sind sonnig und kräftig). Eigene Farbobjekte je Haus,
+     * in `ROLLE` als Dach (2) angemeldet, damit der Dachscan sie trägt.
+     */
+    let dachFarbe = DACH, dachKante = DACH_KANTE;
+    if (echt2?.c) {
+      const luft = new THREE.Color(echt2.c);
+      const hell = (c: THREE.Color) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+      const ziel = (hell(DACH) + hell(luft)) / 2;
+      const grau = hell(luft);
+      luft.lerp(new THREE.Color(grau, grau, grau), 0.25).multiplyScalar(ziel / Math.max(0.005, grau));
+      dachFarbe = luft; dachKante = luft.clone().multiplyScalar(1.3);
+      ROLLE.set(dachFarbe, 2); ROLLE.set(dachKante, 2);
+    }
+
+    const traufe = boden + h;
+    if (amtlich) {
+      // Die amtliche Dachhaut ersetzt Überstand, rechteckige Abdeckung und
+      // Einheitsgiebel. Die Fassade darunter behält Sockel, Fenster und Material.
+      const wand = Number.isFinite(holzAb) ? SCHALUNG : WAND;
+      baueLoD2Dach(amtlich, zuWelt, boden, traufe, (a, b, c, rolle) => {
+        tri(a, b, c, rolle === 'deckung' ? dachFarbe
+          : rolle === 'untersicht' ? SCHALUNG_TOENE[1]
+          : rolle === 'stirn' ? dachKante : wand);
+      });
+      faerbeFassade(g.fassade, ersteEcke);
+      continue;
+    }
+    /**
      * Dach mit Überstand.
      *
      * Der Überstand ist das Merkmal, an dem man ein Alpenhaus erkennt — bis zu
@@ -1443,7 +1515,6 @@ export function baueGebaeude(
     const ueber = westDach ? .65 : BAUWELT_AN ? Math.min(1.4, 0.3 + klein * 0.08) : Math.min(1.4, klein * 0.16);
     /** D289: Giebelüberstand — im Inntal grösser als an der Traufe, er deckt die Lauben (Bauwelt: 1,5–2,5 m). */
     const ueberGiebel = westDach ? .85 : BAUWELT_AN && !garage ? Math.min(2.2, ueber + 0.6 + klein * 0.03) : ueber;
-    const traufe = boden + h;
     /**
      * Dachneigung nach Spannweite — nicht ein fester Faktor.
      *
@@ -1682,21 +1753,6 @@ export function baueGebaeude(
     };
     // First läuft über u, die lange Achse. Die Fallunterscheidung von früher ist
     // weg — die Drehung erledigt, was vorher zwei Zweige tun mussten.
-    /**
-     * D290 Dachfarbe aus dem Luftbild (DOP20): Farbton des echten Dachs, die Helligkeit zur Hälfte von der Palette
-     * (Art Direction bleibt), leicht entsättigt (Luftbilder sind sonnig und kräftig). Eigene Farbobjekte je Haus,
-     * in `ROLLE` als Dach (2) angemeldet, damit der Dachscan sie trägt.
-     */
-    let dachFarbe = DACH, dachKante = DACH_KANTE;
-    if (echt2?.c) {
-      const luft = new THREE.Color(echt2.c);
-      const hell = (c: THREE.Color) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
-      const ziel = (hell(DACH) + hell(luft)) / 2;
-      const grau = hell(luft);
-      luft.lerp(new THREE.Color(grau, grau, grau), 0.25).multiplyScalar(ziel / Math.max(0.005, grau));
-      dachFarbe = luft; dachKante = luft.clone().multiplyScalar(1.3);
-      ROLLE.set(dachFarbe, 2); ROLLE.set(dachKante, 2);
-    }
     dachHaut(dick, dachFarbe, OBEN);
     if (reparatur && !walm && firstH - traufe > .45 && ortsprofil) {
       // Gefalztes Ersatzblech deckt den unteren Teil einer Dachseite.
@@ -2403,28 +2459,7 @@ export function baueGebaeude(
       }
     }
 
-    /**
-     * D291: Farben nach dem Fassaden-Steckbrief. Die Ecken dieses Hauses werden nach ihrer Rolle umgefärbt: Putz (0)
-     * und Holz (1) auf die fotografierte Farbe, Läden auf ihre Farbe — das Verhältnis zur Palettenfarbe (gebackene
-     * Kontaktabdunklung, Brett-Töne) bleibt erhalten.
-     */
-    if (g.fassade) {
-      const putz = new THREE.Color(g.fassade.putz), holz = new THREE.Color(g.fassade.holz);
-      const laden = g.fassade.laeden ? new THREE.Color(g.fassade.laeden) : null;
-      const lum = (c: { r: number; g: number; b: number }) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
-      for (let e = ersteEcke; e < farben.length / 3; e++) {
-        const r = rollen[e];
-        const alt = { r: farben[e * 3], g: farben[e * 3 + 1], b: farben[e * 3 + 2] };
-        let ziel: THREE.Color | null = null, bezug = 0;
-        if (r === 0) { ziel = putz; bezug = lum(WAND); }
-        else if (r === 1) { ziel = holz; bezug = lum(SCHALUNG); }
-        else if (laden && Math.abs(alt.r / Math.max(1e-4, alt.g) - LADEN.r / LADEN.g) < 0.02
-                 && Math.abs(alt.b / Math.max(1e-4, alt.g) - LADEN.b / LADEN.g) < 0.02) { ziel = laden; bezug = lum(LADEN); }
-        if (!ziel) continue;
-        const k = lum(alt) / Math.max(1e-4, bezug);
-        farben[e * 3] = ziel.r * k; farben[e * 3 + 1] = ziel.g * k; farben[e * 3 + 2] = ziel.b * k;
-      }
-    }
+    faerbeFassade(g.fassade, ersteEcke);
   }
 
   if (!positionen.length) return null;

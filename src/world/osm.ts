@@ -31,6 +31,14 @@ export interface Wegquelle {
   beleuchtung?: 'yes' | 'no';
 }
 
+/** Amtliche Dachflächen und Wandabschlüsse in WGS84, Höhe relativ zum LoD2-Gebäudesockel. */
+export interface LoD2Koerper {
+  t: number; f: number; d: number; w: number | null;
+  grundriss: [number, number][];
+  dachflaechen: [lat: number, lon: number, hoehe: number][][];
+  wandabschluesse: [lat: number, lon: number, hoehe: number][][];
+}
+
 export function wegquelle({ id, tags }: OsmWay): Wegquelle {
   const breite = Number(tags.width?.replace(',', '.').replace(/\s*m$/, ''));
   return {
@@ -254,6 +262,7 @@ export interface Weltdaten {
       t: number; f: number; d: number; w: number | null; c?: string | null;
       /** Aus den Firstendpunkten in Spielachsen projizierte Richtung in Grad. */
       p?: number;
+      koerper?: LoD2Koerper[];
       /** Abschnitte in Metern ab Minimum der auf p projizierten OSM-Hülle. Höhen ab LoD2-Grund. */
       teile?: readonly (readonly [
         art: number, u0: number, u1: number, v0: number, v1: number, firstV: number, traufe: number, first: number,

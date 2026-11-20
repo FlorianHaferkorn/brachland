@@ -1,7 +1,12 @@
 /** D337: Der Fahrbahnanschluss und die Absenkung müssen auf denselben Stationen liegen wie die Freihaltung. */
 import assert from 'node:assert/strict';
-import { InstancedMesh, Matrix4 } from 'three';
+import { readFileSync } from 'node:fs';
+import { InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, Raycaster, Vector3 } from 'three';
+import { Region } from '../src/data/schema.js';
 import type { WohnwegQuerschnitt } from '../src/data/schema.js';
+import { baueHoehenfeld } from '../src/world/lod.js';
+import { entpackeWelt } from '../src/world/osm.js';
+import { MASSSTAB } from '../src/world/terrain.js';
 import { baueStrassenbewuchs } from '../src/world/strassenbewuchs.js';
 import {
   baueQuerschnittGrasmaske, baueStrassenquerschnitt, querschnittFreihaltung, querschnittGrenzen, querschnittKanten,
@@ -118,3 +123,40 @@ for (const objekt of randNeu.gruppe.children) if (objekt instanceof InstancedMes
 randAlt.entsorge();
 randNeu.entsorge();
 console.log('✓ Schotterspuren beginnen hinter dem Gehweg, Erdanschluss und Flanken liegen an der zweiten Einfahrt');
+
+// Winklige Oberfläche auf dem 2-m-Raster. Der Belag darf Kanten und Nebendiagonalen nicht abschneiden.
+const grund = (s: number, q: number) => .21 * Math.abs(s - 24) + .19 * Math.abs(q + 4);
+const bodennetz = baueStrassenquerschnitt(punkte, grund, variante, 5, verwitterung, true, { ursprung: [0, 0], schritt: 2 });
+const material = new MeshBasicMaterial();
+const gezeichnet = new Mesh(bodennetz, material);
+const strahl = new Raycaster();
+const unten = new Vector3(0, -1, 0);
+const ueberGrund = (s: number, q: number) => {
+  strahl.set(new Vector3(s, grund(s, q) + 3, q), unten);
+  const treffer = strahl.intersectObject(gezeichnet)[0];
+  assert.ok(treffer, 'Der Rasterzuschnitt lässt keinen fehlenden Belag zurück');
+  return treffer.point.y - grund(s, q);
+};
+for (const s of [15.1, 21.67, 23.97, 24.04, 26.3, 34.83]) {
+  const [links, rechts] = kanten(s);
+  for (let q = links + .1; q < rechts; q += .27) {
+    assert.ok(Math.abs(ueberGrund(s, q) - .018) < .00001, 'Die neue Fahrbahn bleibt auf der nahen Geländeoberfläche');
+  }
+}
+const [links] = kanten(32);
+assert.ok(Math.abs(ueberGrund(32, links - 1.6) - .043) < .00001);
+assert.ok(Math.abs(ueberGrund(32, links - 5.98) - .009) < .0002);
+bodennetz.dispose();
+material.dispose();
+
+const welt = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
+const region = Region.parse(JSON.parse(readFileSync('content/regions/oental.json', 'utf8')));
+const raster = region.nahhoehen!;
+const a = baueHoehenfeld(welt), b = baueHoehenfeld(welt, undefined, undefined, raster);
+assert.equal(b.hoehe(1000, 1000), a.hoehe(1000, 1000), 'D340 erfasst nur den Straßenraum');
+const [x, z] = raster.ursprung;
+assert.equal(b.hoehe(x, z + 30), a.hoehe(x, z + 30), 'Die alte Höhe liegt exakt an der Auslaufkante an');
+const probe = Buffer.from(raster.zeilen[34], 'base64').readInt16LE(2 * 31) * .01;
+const datum = (raster.datum - welt.hoeheMin) * MASSSTAB.ueberhoehung;
+assert.ok(Math.abs(b.hoehe(x + 31, z + 34) - datum - probe) < 1e-8, 'DGM1-Relief wird im Kern 1:1 übernommen');
+console.log('✓ DGM1-Auslauf und geländegleicher Fahrbahnkontakt geprüft');

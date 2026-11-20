@@ -36,7 +36,7 @@ const hash=g=>{
 };
 const result={haeuser:{},bewohntHash:'',eingabeErhalten:false,uniforms:{zahl:HOF_UNIFORM.zugangZahl.value,werte:HOF_UNIFORM.zugaenge.value.map(q=>q.toArray())},auswahl:haeuser,zuordnung};
 const material=new THREE.MeshBasicMaterial({side:THREE.FrontSide}),strahl=new THREE.Raycaster();
-for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,508,510,512,693]) {
+for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,508,509,510,512,693]) {
   const haus={...welt.gebaeude[i],lod2:lod[i],hausnutzung:nutzungen.find(n=>imPolygon(n.ort,welt.gebaeude[i].punkte))};
   const g=baueGebaeude(welt,boden,[haus],[[hof.mitte[0],hof.mitte[1]-75]],haeuser);
   const p=g.getAttribute('position'),r=g.getAttribute('rolle'),z=g.getAttribute('zustand'),glut=g.getAttribute('glut'),uv=g.getAttribute('raumUv');
@@ -88,13 +88,12 @@ for(const i of [...haeuser.map(h=>h.gebaeudeIndex),316,343,352,353,354,355,506,5
   }
   const tritte=[], tuerTiefen=[], wandTiefen=[];
   let firstLaenge=0, firstWinkel=0, dachstufe=0;
-  if(i===510) {
-    // Die hellere Firstkappe trägt die höchsten Dachvertices. Ihre beiden
-    // Enden liefern Länge und Winkel aus dem gebauten Netz.
+  if(i===509 || i===510) {
+    // Die höchsten Dachvertices liefern Länge und Winkel aus dem gebauten Netz.
     const dachpunkte=[];
     for(let j=0;j<p.count;j++) if(r.getX(j)===2) dachpunkte.push([p.getX(j),p.getY(j),p.getZ(j)]);
     const maxY=Math.max(...dachpunkte.map(q=>q[1]));
-    const first=dachpunkte.filter(q=>q[1]>=maxY-.006);
+    const first=dachpunkte.filter(q=>q[1]>=maxY-(i===509?.02:.006));
     for(const a of first) for(const b of first) {
       const laenge=Math.hypot(b[0]-a[0],b[2]-a[2]);
       if(laenge<=firstLaenge) continue;
@@ -199,6 +198,8 @@ const westdetail = lauf(zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsil
 const westdachQuery = zielbildQuery + '&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&westverfall=1&westdetail=1&westdach=1';
 const westdach = lauf(westdachQuery);
 const westfassade = lauf(westdachQuery + '&westfassade=1');
+const milbingerQuery = westdachQuery + '&westfassade=1&westanschluss=1&wohnwegquerschnitt=1&milbingerbelag=1&milbingeroben=1';
+const milbingerVorher = lauf(milbingerQuery), milbingerMasse = lauf(milbingerQuery + '&milbingermasse=1');
 pruefe('Drei Schalterläufe erhalten alle Weltgrundrisse', bisher.eingabeErhalten && aus.eingabeErhalten && an.eingabeErhalten);
 pruefe('Echte Hofauswahl bleibt auf acht Wohnhäuser begrenzt', an.auswahl.map(h => h.gebaeudeIndex).join() === '297,301,307,308,320,344,345,346');
 pruefe('Ohne Probe keine aktiven Zugangsuniforms', bisher.uniforms.zahl === 0 && aus.uniforms.zahl === 0);
@@ -372,5 +373,12 @@ pruefe('D335: Firstlage, Dachstufe und Sicht in den Einsturz bleiben erhalten',
 pruefe('D335: Regenlauf liegt ausschließlich am offenen Bruch',
   westfassade.haeuser[508].regenEcken > 0 && westfassade.haeuser[510].regenEcken === 0
   && westfassade.haeuser[512].regenEcken === 0 && westdach.haeuser[508].regenEcken === 0);
+const first509Vorher = milbingerVorher.haeuser[509].firstLaenge, first509Masse = milbingerMasse.haeuser[509].firstLaenge;
+pruefe('D340: First von Haus 509 folgt der amtlichen Kante im gebauten Netz',
+  Math.abs(first509Vorher - 23.21) < .03 && Math.abs(first509Masse - 8.72) < .03,
+  `${first509Vorher.toFixed(3)} → ${first509Masse.toFixed(3)} m`);
+pruefe('D340: Neue Dachkörper bleiben kompaktierbar und lassen den Weststraßenverfall stehen',
+  milbingerMasse.eingabeErhalten && Object.entries(milbingerMasse.haeuser).every(([i, dach]) =>
+    dach.endlich && dach.indexGleich && (dach.hash !== milbingerVorher.haeuser[Number(i)].hash) === (i === '506' || i === '509')));
 console.log(`\nHofbodenintegration: ${ok} bestanden, ${fehler} Fehler.`);
 if (fehler) process.exitCode = 1;

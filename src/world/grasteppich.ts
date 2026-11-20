@@ -18,6 +18,7 @@
  */
 import * as THREE from 'three';
 import type { QuerschnittGrasmaske } from './strassenquerschnitt.js';
+import { WIESENBEREICH_GLSL, type Wiesenbereich } from './wiesenbereich.js';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
 import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN } from './echt.js';
@@ -25,7 +26,7 @@ import { ladeHorstAtlas, leereHorstTextur, HORST_BLUME, HORST_GRUEN, HORST_HALM,
 import { HOF_UNIFORM } from './hofplatz.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
 import type { Biom } from './osm.js';
-import type { HoehenFeld } from './lod.js';
+import { hoeheAufFlaeche, type HoehenFeld } from './lod.js';
 
 /** Halbe Kantenlänge des Halmfelds in Metern. */
 export const TEPPICH_HALB = 30;
@@ -117,6 +118,7 @@ function baueHorst(): THREE.BufferGeometry {
 
 export interface Grasteppich {
   mesh: THREE.Object3D;
+  vorlauf?: THREE.Mesh;
   /** Je Bild: Zeit und Kamera für Wind und Randausblendung. */
   setzeZeit(t: number): void;
   /**
@@ -144,7 +146,12 @@ export function baueGrasteppich(
    */
   texel = 1,
   strassenmaske?: QuerschnittGrasmaske,
+  wiesenbereich?: Wiesenbereich,
+  nurWiesenbereich = false,
 ): Grasteppich {
+  const foto = GRAS_FEIN || nurWiesenbereich;
+  const viel = GRAS_VIEL || foto;
+  const echt = GRAS_ECHT || viel;
   // D255: gezielte Vergleichsprobe; ohne Parameter bleibt der bestehende Look.
   // Alle Ringe verwenden denselben ortsfesten Faktor, ohne neue Geometrie.
   // D310: Vergleichsschalter am Hof. Halme ohne Fläche brauchen keine weitere Shaderarbeit.
@@ -156,9 +163,9 @@ export function baueGrasteppich(
   const FELD_TEXEL = 2 * Math.ceil((halb + 4) / texel);
   const zelle = grundZelle / Math.sqrt(Math.max(0.1, faktor));
   const n = Math.ceil((2 * halb) / zelle);
-  const halm = GRAS_FEIN ? baueHorst() : baueHalm();
+  const halm = foto ? baueHorst() : baueHalm();
   // Foto-Büschel haben eigene, vom Atlas abhängige Ausdehnungen.
-  const kachelnAn = HOF_BILDTAKT_AN && HOF_GRAS_AN && !GRAS_FEIN;
+  const kachelnAn = (HOF_BILDTAKT_AN && HOF_GRAS_AN && !foto) || nurWiesenbereich;
   const kachelZellen = kachelnAn ? Math.ceil(8 / zelle) : n;
 
   const daten = new Float32Array(FELD_TEXEL * FELD_TEXEL * 4);
@@ -184,12 +191,12 @@ export function baueGrasteppich(
     uMitte: { value: new THREE.Vector2() },
     uFuss: { value: new THREE.Color(PALETTE.streu.grasFuss) },
     uSpitze: { value: new THREE.Color(PALETTE.streu.grasSpitze) },
-    uKarte: { value: GRAS_FEIN ? leereHorstTextur() : null },
+    uKarte: { value: foto ? leereHorstTextur() : null },
     /** D272: Rechteck je Kachel im Atlas (x, y, Breite, Höhe) und ihre Kantenlänge in Metern. */
     uKachel: { value: Array.from({ length: HORST_ZAHL }, () => new THREE.Vector4(0, 0, 1, 1)) },
     uKachelGr: { value: new Float32Array(HORST_ZAHL).fill(0.25) },
   };
-  if (GRAS_FEIN) {
+  if (foto) {
     void ladeHorstAtlas().then((a) => {
       uniforms.uKarte.value = a.textur;
       a.kacheln.slice(0, HORST_ZAHL).forEach((k, i) => { uniforms.uKachel.value[i].set(...k.rect); uniforms.uKachelGr.value[i] = k.groesse; });
@@ -197,8 +204,8 @@ export function baueGrasteppich(
   }
 
   const material = new THREE.MeshStandardMaterial({
-    // D266: Mit `GRAS_ECHT` matt — bei 0,85 glänzte jede Spitze im Streiflicht grau-weiss.
-    vertexColors: false, roughness: GRAS_ECHT ? 1 : 0.85, metalness: 0, side: THREE.DoubleSide,
+    // D266: Mit `echt` matt — bei 0,85 glänzte jede Spitze im Streiflicht grau-weiss.
+    vertexColors: false, roughness: echt ? 1 : 0.85, metalness: 0, side: THREE.DoubleSide,
   });
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -206,6 +213,7 @@ export function baueGrasteppich(
       uHofMitte: HOF_UNIFORM.mitte, uHofGras: HOF_UNIFORM.gras,
       uHofGrasRahmen: HOF_UNIFORM.grasRahmen,
     });
+    if (wiesenbereich) shader.uniforms.uWiesenbereich = { value: wiesenbereich.rahmen };
     if (strassenmaske) Object.assign(shader.uniforms, {
       uStrassenGras: { value: strassenmaske.textur },
       uStrassenGrasRahmen: { value: strassenmaske.rahmen },
@@ -214,6 +222,7 @@ export function baueGrasteppich(
       .replace('#include <common>', `#include <common>
 ${HOF_GRAS_AN ? 'uniform vec2 uHofMitte;\nuniform sampler2D uHofGras;\nuniform vec4 uHofGrasRahmen;' : ''}
 ${strassenmaske ? 'uniform sampler2D uStrassenGras;\nuniform vec4 uStrassenGrasRahmen;' : ''}
+${wiesenbereich ? WIESENBEREICH_GLSL : ''}
 attribute vec2 aZelle;
 uniform float uZeit;
 uniform sampler2D uFeld;
@@ -250,6 +259,12 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float h1 = halmHash(zelleW), h2 = halmHash(zelleW + 17.3), h3 = halmHash(zelleW + 41.9);
   float h4 = halmHash(zelleW + 73.1), h5 = halmHash(zelleW + 97.7);
   vec2 ort = (zelleW + vec2(h1, h2)) * uRaster.z;
+  ${wiesenbereich ? `
+  float ortsgewicht = wiesenbereichGewicht(ort);
+  if (${nurWiesenbereich ? 'ortsgewicht <= 0.0' : 'ortsgewicht >= 1.0'}) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    return;
+  }` : ''}
   ${strassenmaske ? `
   vec2 uvStrasse = (ort - uStrassenGrasRahmen.xy) * uStrassenGrasRahmen.zw;
   if (all(greaterThanEqual(uvStrasse, vec2(0.0))) && all(lessThan(uvStrasse, vec2(1.0)))
@@ -277,13 +292,13 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float wiesenStruktur = clamp(horst / 1.8, 0.0, 1.0);
   dicht *= mix(1.0, mix(0.82, 1.0, wiesenStruktur), wiesenAnteil);
   ` : ''}
-  ${GRAS_VIEL ? `
+  ${viel ? `
   // D271: Arten in ~10-m-Flecken (Stroh), Kraut in kleineren (~5 m) mit je Halm 35 % Anteil.
   // Büschel: Rauschen auf ~1,2 m lässt 45 % der Dichte zwischen den Horsten stehen — der Boden scheint durch.
-  float stroh = smoothstep(${GRAS_FEIN ? '0.58, 0.70' : '0.52, 0.66'}, halmRauschen(ort * 0.09 + 19.0));
+  float stroh = smoothstep(${foto ? '0.58, 0.70' : '0.52, 0.66'}, halmRauschen(ort * 0.09 + 19.0));
   float kraut = (1.0 - stroh) * step(0.62, halmRauschen(ort * 0.2 + 51.0)) * step(h2, 0.35);
-  dicht *= mix(${GRAS_FEIN ? '0.3' : '0.55'}, 1.0, smoothstep(0.3, 0.55, halmRauschen(ort * 0.8 + 71.0)));` : ''}
-  ${GRAS_FEIN ? `
+  dicht *= mix(${foto ? (nurWiesenbereich ? '0.42' : '0.3') : '0.55'}, 1.0, smoothstep(0.3, 0.55, halmRauschen(ort * 0.8 + 71.0)));` : ''}
+  ${foto ? `
   // D272: Kachel je Weltzelle — grüne Büschel im Normalfall, trockene in den Strohflecken.
   // D272: Kachel je Weltzelle — grüne Büschel im Normalfall, trockene in Strohflecken, Kraut in Krautflecken
   // (35 % der Zellen dort), Blüten als Akzent in 3 % aller Zellen.
@@ -297,27 +312,29 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   bool blumeKachel = kachel >= ${HORST_GRUEN + HORST_STROH + HORST_KRAUT};` : ''}
   // Dichte als Schwelle: stabil am Ort, kein Flackern beim Nachziehen.
   float da = step(h3, dicht) * rand;
-  ${GRAS_FEIN && innen === 0 ? `// D272: Ab 7 m bleibt nur jede vierte Zelle, dafür doppelt so breit und hoch (Ghost of Tsushima: 3 von 4 Halmen
+  ${wiesenbereich ? `da *= step(halmHash(zelleW + 66.1), ${nurWiesenbereich ? 'ortsgewicht' : '1.0 - ortsgewicht'});` : ''}
+  ${foto && innen === 0 ? `// D272: Ab 7 m bleibt nur jede vierte Zelle, dafür doppelt so breit und hoch (Ghost of Tsushima: 3 von 4 Halmen
   // fallen weg) — ein Büschel hat dann mehr Pixel, die Mip-Stufe sinkt, der Rand bleibt scharf.
   float spreiz = smoothstep(7.0, 14.0, abst);
-  da *= step(halmHash(zelleW + 23.1), mix(1.0, 0.25, spreiz));` : ''}
+  da *= step(halmHash(zelleW + 23.1), mix(1.0, ${nurWiesenbereich ? '0.45' : '0.25'}, spreiz));` : ''}
   ${schneideAb('da == 0.0')}
   float hoehe = boden.b * (0.55 + h4 * 0.9) * da;
   ${strukturAn ? 'hoehe *= mix(1.0, mix(0.78, 1.05, wiesenStruktur), wiesenAnteil);' : ''}
-  ${GRAS_ECHT ? `
+  ${echt ? `
   // D266: Büschel. Gras wächst in Horsten von Handbreite bis Armlänge, nicht als Teppich gleicher
   // Höhe — zwei Rauschlagen (70 cm, 3 m) heben und senken die Halme.
   float buschel = halmRauschen(ort * 1.4 + 11.0) * 0.65 + halmRauschen(ort * 0.33 + 2.0) * 0.35;
   hoehe *= 0.45 + 1.1 * buschel;` : ''}
-  ${GRAS_VIEL ? 'hoehe *= mix(1.0, 1.7, stroh) * mix(1.0, 0.6, kraut);' : ''}
+  ${viel ? 'hoehe *= mix(1.0, 1.7, stroh) * mix(1.0, 0.6, kraut);' : ''}
   // Im Fernring breiter: Ein 2-cm-Halm ist auf 50 m kleiner als ein Pixel und flimmert nur.
-  float breite = (0.012 + h5 * 0.012) * ${PINSEL_AN ? '1.9 * ' : ''}${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : GRAS_ECHT && halb === NAH_HALB_ECHT ? NAH_BREITE_ECHT.toFixed(2) : '1.0'};
-  ${GRAS_VIEL && !GRAS_FEIN ? 'breite *= mix(1.0, 0.6, stroh) * mix(1.0, 3.2, kraut);' : ''}
-  ${GRAS_FEIN ? `
+  float breite = (0.012 + h5 * 0.012) * ${PINSEL_AN ? '1.9 * ' : ''}${innen > 0 ? (grundZelle / TEPPICH_ZELLE).toFixed(2) : echt && halb === NAH_HALB_ECHT ? NAH_BREITE_ECHT.toFixed(2) : '1.0'};
+  ${viel && !foto ? 'breite *= mix(1.0, 0.6, stroh) * mix(1.0, 3.2, kraut);' : ''}
+  ${foto ? `
   // D272: quadratische Karte; Grösse = Kachelmass × Zufall × Bodenhöhe × Büschelhöhe × Zellgrösse/20 cm
   // (grössere Zellen, Fernring, bekommen grössere Büschel, damit sie sich schliessen); Faktor 1,5: Wiese, nicht Rasen.
   float gr = 1.5 * uKachelGr[kachel] * (0.75 + 0.6 * h4) * clamp(boden.b / 0.55, 0.45, 1.4) * (0.6 + 0.8 * buschel)
            * ${(zelle / 0.15).toFixed(3)} * mix(1.0, 1.25, stroh) * boden.a * (blumeKachel ? 1.2 : 1.0)${innen === 0 ? ' * mix(1.0, 2.0, spreiz)' : ''};
+  ${nurWiesenbereich ? 'gr *= 1.57 + .39 * buschel;' : ''}
   hoehe = gr * da;
   breite = gr * 0.5;` : ''}
   ${HOF_GRAS_AN ? `
@@ -337,13 +354,13 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float winkel = h1 * 6.2832;
   vec2 quer = vec2(cos(winkel), sin(winkel));
   vec2 vor = vec2(-quer.y, quer.x);
-  vec2 ach = ${GRAS_FEIN ? 'position.z > 0.5 ? vor : quer' : 'quer'};   // D272: zweite Karte steht quer zur ersten
+  vec2 ach = ${foto ? 'position.z > 0.5 ? vor : quer' : 'quer'};   // D272: zweite Karte steht quer zur ersten
   // Wind: eine Welle, die über das Feld läuft, plus Böen aus Rauschen, plus Eigenzittern.
   vec2 windRichtung = normalize(vec2(0.8, 0.6));
   float welle = sin(dot(ort, windRichtung) * 0.35 - uZeit * 1.6) * 0.5 + 0.5;
   float boe = halmRauschen(ort * 0.05 - windRichtung * uZeit * 0.4);
   float zittern = sin(uZeit * 3.1 + h2 * 20.0) * 0.08;
-  float neigung = (0.18 + h3 * 0.35)${GRAS_VIEL ? ' * mix(mix(1.0, 1.8, stroh), 0.6, kraut)' : ''};
+  float neigung = (0.18 + h3 * 0.35)${viel ? ' * mix(mix(1.0, 1.8, stroh), 0.6, kraut)' : ''};
   float y = position.y;
   vec2 biege = vor * neigung * y * y + windRichtung * (welle * 0.35 + boe * 0.45 + zittern) * y * y;
   vec3 halmPos = vec3(ort.x + ach.x * position.x * breite + biege.x * hoehe,
@@ -356,14 +373,14 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vec3 spitze = mix(gruen, vec3(0.62, 0.55, 0.34), trocken) * (0.9 + h5 * 0.25);
   vec3 fuss = bodenTon * 0.8;
   float zumBoden = smoothstep(${(halb * (innen > 0 ? 0.5 : 0.3)).toFixed(1)}, ${(halb * (innen > 0 ? 0.95 : 0.9)).toFixed(1)}, abst);
-  ${GRAS_ECHT ? `
+  ${echt ? `
   // D266: Grün statt Grau. Zwei Grüntöne in 4-m-Flecken (sattes Wiesengrün, gelbgrün), je Halm
   // ±15 % Helligkeit; trocken bleibt Stroh. Die Basis tief dunkel: Im Rasen kommt unten kaum Licht an.
   float fleck = halmRauschen(ort * 0.25 + 7.0);
   vec3 sattGruen = mix(vec3(0.075, 0.16, 0.03), vec3(0.17, 0.24, 0.05), fleck);
   spitze = mix(mix(sattGruen, gruen, 0.35), vec3(0.45, 0.40, 0.22), trocken) * (0.85 + h5 * 0.3);
   fuss = bodenTon * 0.35;` : ''}
-  ${GRAS_VIEL ? `
+  ${viel ? `
   // D271: Farbe nach Art, leicht entsättigt. Stroh ist unten nicht dunkel (trockener Halm), Kraut olivgrün.
   vec3 strohF = mix(vec3(0.50, 0.42, 0.22), vec3(0.62, 0.53, 0.30), h5);
   vec3 krautF = mix(vec3(0.20, 0.27, 0.09), vec3(0.30, 0.36, 0.14), h5);
@@ -373,11 +390,11 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   spitze = artFarbe * (0.85 + h5 * 0.3);
   fuss = mix(bodenTon * 0.35, strohF * 0.45, stroh);
   vQ = position.x / max(1.0 - 0.75 * y, 0.05);` : 'vQ = 0.0;'}
-  ${GRAS_FEIN ? `vec4 kr = uKachel[kachel];
+  ${foto ? `vec4 kr = uKachel[kachel];
   vKartenUv = vec2(kr.x + uv.x * kr.z, (1.0 - kr.y - kr.w) + uv.y * kr.w);` : 'vKartenUv = vec2(0.0);'}
   vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
   vHalmY = y * (1.0 - zumBoden);
-  ${GRAS_FEIN ? `// D272: Helligkeit je Büschel; grüne Kacheln saftiger (Grün ×1,3, Blau ×0,85), Stroh ×0,8, Kraut leicht grüner.
+  ${foto ? `// D272: Helligkeit je Büschel; grüne Kacheln saftiger (Grün ×1,3, Blau ×0,85), Stroh ×0,8, Kraut leicht grüner.
   vHalmFarbe = vec3(0.8 + 0.4 * h5) * (strohKachel ? vec3(0.8) : kachel < ${HORST_GRUEN} ? vec3(1.15, 1.3, 0.85) : vec3(1.05, 1.15, 0.9));` : ''}
   vec3 objectNormal = normalize(mix(vec3(vor.x, 0.0, vor.y), vec3(0.0, 1.0, 0.0), 0.82));
   #ifdef USE_TANGENT
@@ -386,10 +403,10 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       .replace('#include <begin_vertex>', 'vec3 transformed = halmPos;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;\nvarying float vQ;\nvarying vec2 vKartenUv;\nuniform sampler2D uKarte;')
-      .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;' + (GRAS_FEIN ? `
+      .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;' + (foto ? `
   { vec4 horst = texture2D(uKarte, vKartenUv);   // D272: Foto-Büschel — Farbe, Deckung, Verdeckung am Fuss
     diffuseColor.rgb = vHalmFarbe * horst.rgb * 1.9 * mix(0.55, 1.0, smoothstep(0.0, 0.5, vHalmY));   // 1,9: Foto-Albedo (Mittel 0,125 linear) auf die Helligkeit der Szene (alte Spitze ~0,3); 2,4 überbelichtete
-    diffuseColor.a = horst.a; }` : '') + (GRAS_VIEL && !GRAS_FEIN ? `
+    diffuseColor.a = horst.a; }` : '') + (viel && !foto ? `
   { float kante = abs(vQ);   // D271: Kante dunkler, Mittelrippe heller — der Halm hat Körper statt Flachband
     diffuseColor.rgb *= (1.0 - 0.3 * kante * kante) * (1.0 + 0.18 * (1.0 - smoothstep(0.0, 0.12, kante))); }` : ''))
       // Beide Seiten mit derselben (nach oben gekippten) Normale: three dreht sie für die
@@ -398,7 +415,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       // D269 (`?malerei=1`): drei Farbbänder statt weichem Verlauf, Halme als breite Striche.
       .replace('#include <opaque_fragment>', PINSEL_AN ? PINSEL_BAND_GLSL + '\n#include <opaque_fragment>' : '#include <opaque_fragment>')
       // D266: Durchlicht — steht die Sonne hinter dem Halm, leuchtet die Spitze (Gras ist dünn).
-      .replace('#include <lights_fragment_end>', GRAS_ECHT ? `#include <lights_fragment_end>
+      .replace('#include <lights_fragment_end>', echt ? `#include <lights_fragment_end>
 #if NUM_DIR_LIGHTS > 0
   {
     vec3 sonne = directionalLights[ 0 ].direction;
@@ -407,11 +424,11 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   }
 #endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${GRAS_VIEL ? '-viel' : ''}${GRAS_FEIN ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras-raster' : ''}${sparsam ? '-teppichspar' : ''}${strassenmaske ? '-strassenmaske' : ''}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${echt ? '-echt' : ''}${viel ? '-viel' : ''}${foto ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras-raster' : ''}${sparsam ? '-teppichspar' : ''}${strassenmaske ? '-strassenmaske' : ''}${wiesenbereich ? (nurWiesenbereich ? '-wiesenbereich' : '-wiesenumfeld') : ''}`;
 
   // D272: Halmkarten mit Alpha-Test; mit MSAA (Kontur) weiche Kanten über alphaToCoverage.
-  if (GRAS_FEIN) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }
-  const teile: { geo: THREE.InstancedBufferGeometry; x: number; z: number; breite: number; tiefe: number }[] = [];
+  if (foto) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }
+  const teile: { mesh: THREE.Mesh<THREE.InstancedBufferGeometry>; x: number; z: number; breite: number; tiefe: number }[] = [];
   const gruppe = new THREE.Group();
   for (let z = 0; z < n; z += kachelZellen) {
     for (let x = 0; x < n; x += kachelZellen) {
@@ -421,7 +438,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       geo.index = halm.index;
       geo.setAttribute('position', halm.getAttribute('position'));
       geo.setAttribute('normal', halm.getAttribute('normal'));
-      if (GRAS_FEIN) geo.setAttribute('uv', halm.getAttribute('uv'));
+      if (foto) geo.setAttribute('uv', halm.getAttribute('uv'));
       const versatz = new Float32Array(breite * tiefe * 2);
       for (let i = 0, k = 0; i < tiefe; i++) {
         for (let j = 0; j < breite; j++) {
@@ -436,22 +453,37 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       teil.frustumCulled = kachelnAn;
       teil.receiveShadow = true;
       gruppe.add(teil);
-      teile.push({ geo, x: x - n / 2, z: z - n / 2, breite, tiefe });
+      teile.push({ mesh: teil, x: x - n / 2, z: z - n / 2, breite, tiefe });
     }
   }
   const mesh = kachelnAn ? gruppe : gruppe.children[0]!;
-  mesh.name = innen > 0 ? 'Grasteppich-fern' : halb === TEPPICH_HALB ? 'Grasteppich' : 'Grasteppich-nah';
+  mesh.name = nurWiesenbereich ? 'Grasteppich-Milbinger-Foto' : innen > 0 ? 'Grasteppich-fern' : halb === TEPPICH_HALB ? 'Grasteppich' : 'Grasteppich-nah';
+  const vorlauf = nurWiesenbereich ? new THREE.Mesh(teile[0].mesh.geometry.clone(), material) : undefined;
+  if (vorlauf) {
+    // Three bindet das Shaderprogramm auch bei null Instanzen. Damit landet
+    // das erste Warten auf den Treiber beim Szenenstart und keine Karte im Bild.
+    vorlauf.geometry.instanceCount = 0;
+    vorlauf.receiveShadow = true;
+    vorlauf.frustumCulled = false;
+  }
   const box = new THREE.Box3();
   // Größtmöglicher Überstand in x/z inklusive Wind, Biegung und breitem Fernhalm.
-  const ueberstand = GRAS_ECHT || GRAS_VIEL ? 5 : 1.3;
+  const ueberstand = echt || viel ? 5 : 1.3;
 
   function setzeKachelgrenzen(): void {
     const raster = uniforms.uRaster.value;
     const texelIndex = (wert: number, ursprung: number) =>
       Math.max(0, Math.min(FELD_TEXEL - 1, Math.floor((wert - ursprung) / texel - 0.5)));
-    for (const { geo, x, z, breite, tiefe } of teile) {
+    for (const { mesh, x, z, breite, tiefe } of teile) {
       const x0 = (raster.x + x) * zelle, x1 = x0 + breite * zelle;
       const z0 = (raster.y + z) * zelle, z1 = z0 + tiefe * zelle;
+      if (wiesenbereich) {
+        const r = wiesenbereich.rahmen;
+        mesh.visible = nurWiesenbereich
+          ? x0 < r.z && x1 > r.x && z0 < r.w && z1 > r.y
+          : wiesenbereich.gewicht(x0, z0) < 1 || wiesenbereich.gewicht(x1, z1) < 1;
+        if (!mesh.visible) continue;
+      }
       // Bilinearer Fußpunkt liegt zwischen den vier Texeln. Einen zusätzlichen Texel für
       // Rundung und Clamp am Texturrand einbeziehen.
       const i0 = Math.max(0, texelIndex(z0, lauf.z0) - 1);
@@ -466,7 +498,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       }
       box.min.set(x0 - ueberstand, tief - 0.01, z0 - ueberstand);
       box.max.set(x1 + ueberstand, hoch + ueberstand, z1 + ueberstand);
-      box.getBoundingSphere(geo.boundingSphere!);
+      box.getBoundingSphere(mesh.geometry.boundingSphere!);
     }
   }
   // Der Fernring füllt (2·halb+8)² Texel — bei 72 m rund 23.000 statt 4.600. Seltener nachziehen;
@@ -484,10 +516,10 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   function fuelleZeile(i: number): void {
     for (let j = 0; j < FELD_TEXEL; j++) {
       const x = lauf.x0 + (j + 0.5) * texel, z = lauf.z0 + (i + 0.5) * texel, k = (i * FELD_TEXEL + j) * 4;
-      const h = feld.hoehe(x, z);
+      const h = nurWiesenbereich ? hoeheAufFlaeche(feld, x, z) : feld.hoehe(x, z);
       const biom = feld.biom(x, z);
       // D285: Mit Foto-Büscheln (`?gras=3`) tragen Siedlungen Hausgärten und Rasen statt kahlem Grund (Dorf-Prüfbild).
-      let d = (GRAS_FEIN && biom === 'siedlung') ? 0.75 : DICHTE[biom] ?? 0;
+      let d = (foto && biom === 'siedlung') ? (nurWiesenbereich ? .86 : .75) : DICHTE[biom] ?? 0;
       if (d > 0 && (feld.wasserTiefe(x, z) > 0.02 || gesperrt(x, z, 'streu') || aufWeg(x, z))) d = 0;
       if (d > 0) {
         // Hang: ab ~40° kein Halt mehr (wie die Grasbüschel-Props).
@@ -498,7 +530,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       // D272: Alpha = Höhenfaktor. Kürzer (×0,55) wo ein Weg bis 1,5 m, ×0,7 wo Wasser bis 2 m entfernt liegt —
       // Wegrand und Ufer sind betreten bzw. nass, dort steht kein Hochgras.
       let hf = 1;
-      if (GRAS_FEIN && d > 0) {
+      if (foto && d > 0) {
         if (aufWeg(x + 1.5, z) || aufWeg(x - 1.5, z) || aufWeg(x, z + 1.5) || aufWeg(x, z - 1.5)) hf = 0.55;
         else if (feld.wasserTiefe(x + 2, z) > 0.02 || feld.wasserTiefe(x - 2, z) > 0.02
           || feld.wasserTiefe(x, z + 2) > 0.02 || feld.wasserTiefe(x, z - 2) > 0.02) hf = 0.7;
@@ -533,10 +565,12 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
 
   return {
     mesh,
+    vorlauf,
     setzeZeit: (t) => { uniforms.uZeit.value = t; },
     ziehNach,
     dispose: () => {
-      for (const teil of teile) teil.geo.dispose();
+      for (const teil of teile) teil.mesh.geometry.dispose();
+      vorlauf?.geometry.dispose();
       halm.dispose(); material.dispose(); feldTextur.dispose(); tonTextur.dispose();
     },
   };

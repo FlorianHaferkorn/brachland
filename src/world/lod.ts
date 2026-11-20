@@ -16,6 +16,7 @@
  */
 import * as THREE from 'three';
 import type { Weltdaten, Biom } from './osm.js';
+import type { Nahhoehen } from '../data/schema.js';
 import { MASSSTAB, BIOM_FARBE } from './terrain.js';
 import type { Aufsatzboden } from './terrain.js';
 import { TERRASSEN, terrassiere, gesperrt, type Terrasse } from './bauwerke.js';
@@ -130,7 +131,9 @@ const METER_JE_GRAD = 111_320;
  * ohne die Liste zu kennen. Die Zielhoehe je Terrasse ist die Gelaendehoehe an ihrer Mitte **ohne**
  * Terrasse, einmal gerechnet — so hat es auch der Szenenbau gemacht (`bodenhoehe` vor `terrasse`).
  */
-export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: readonly Terrasse[] = TERRASSEN): HoehenFeld {
+export function baueHoehenfeld(
+  welt: Weltdaten, mikroStaerke = 1.1, terrassen: readonly Terrasse[] = TERRASSEN, nahhoehen?: Nahhoehen,
+): HoehenFeld {
   const [sued, west, nord, ost] = welt.bbox;
   const n = welt.aufloesung;
   const mittelLat = (sued + nord) / 2;
@@ -140,6 +143,7 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
   const gueltig = welt.hoehen.flat().filter(h => !Number.isNaN(h));
   const mittel = gueltig.reduce((a, b) => a + b, 0) / Math.max(1, gueltig.length);
   const H = welt.hoehen.map(z => z.map(x => (Number.isNaN(x) ? mittel : x)));
+  const nah = nahhoehen && liesNahhoehen(nahhoehen, welt.hoeheMin);
 
   const roh = (i: number, j: number) =>
     (H[Math.max(0, Math.min(n - 1, i))][Math.max(0, Math.min(n - 1, j))] - welt.hoeheMin)
@@ -198,7 +202,8 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
     // wären Buckel unnatürlich, an einem Steilhang sind sie es nicht.
     const neigung = Math.min(1, (Math.abs(h10 - h00) + Math.abs(h01 - h00)) / 12);
     const staerke = mikroStaerke * (0.45 + 0.85 * neigung);
-    return basis + mikrorelief(x, z) * staerke;
+    const grob = basis + mikrorelief(x, z) * staerke;
+    return nah ? nah(x, z, grob) : grob;
   };
   const rohHoehe = (x: number, z: number): number => {
     // Das Bett wird abgezogen, nicht dazugerechnet: Der Wasserspiegel bleibt dort,
@@ -275,6 +280,28 @@ export function baueHoehenfeld(welt: Weltdaten, mikroStaerke = 1.1, terrassen: r
   return {
     hoehe, biom, bodenfarbe, breiteMeter, tiefeMeter,
     wasserTiefe: wasser.tiefeAn, nass: wasser.nasseAn, teiche: wasser.teiche,
+  };
+}
+
+function liesNahhoehen(raster: Nahhoehen, weltNull: number) {
+  const { ursprung: [x0, z0], breite, tiefe, schritt, auslauf, datum, zeilen } = raster;
+  const x1 = x0 + (breite - 1) * schritt, z1 = z0 + (tiefe - 1) * schritt;
+  const werte = Int16Array.from(zeilen.flatMap(zeile => {
+    const bytes = atob(zeile);
+    return Array.from({ length: breite }, (_, i) => bytes.charCodeAt(i * 2) | (bytes.charCodeAt(i * 2 + 1) << 8));
+  }));
+  // Ortsniveau bleibt im Welthöhensystem, relative Höhen innerhalb des Messfelds sind 1:1.
+  const anker = (datum - weltNull) * MASSSTAB.ueberhoehung / MASSSTAB.stauchung;
+  return (x: number, z: number, grob: number): number => {
+    const rand = Math.min(x - x0, x1 - x, z - z0, z1 - z);
+    if (rand <= 0) return grob;
+    const u = (x - x0) / schritt, v = (z - z0) / schritt;
+    const ix = Math.min(breite - 2, Math.floor(u)), iz = Math.min(tiefe - 2, Math.floor(v));
+    const fx = u - ix, fz = v - iz, i = iz * breite + ix;
+    const oben = werte[i] * (1 - fx) + werte[i + 1] * fx;
+    const unten = werte[i + breite] * (1 - fx) + werte[i + breite + 1] * fx;
+    const hoehe = anker + (oben * (1 - fz) + unten * fz) / 100;
+    return THREE.MathUtils.lerp(grob, hoehe, glaetten(Math.min(1, rand / auslauf)));
   };
 }
 

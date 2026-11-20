@@ -569,3 +569,26 @@ Der 10,2-s-Vergleich läuft mit derselben Spielkamera und W-Eingabe von Station 
 | p95, Weststraße | 33,40 ms | 33,30 ms |
 
 Alle Läufe erreichen zwölf Wegpunkte. Gemessen wurde ohne Videoaufnahme im selben Build in der Folge `milbingeroben=0/1/1/0`. Die beiden langen Frames stammen aus dem ersten D338-Lauf um Sekunde 32. Der zweite D338-Lauf erreichte 50,08 FPS. Der Unterschied bei den Spitzen erlaubt daher keine Zuordnung zur Straßenänderung. Die Rohberichte liegen unter `.cache/mess/d339-final-ab-{a1,b1,b2,a2}`.
+
+## Dächer, Straßenhöhe und Wiesenscan an der Milbinger Straße (D340)
+
+Die acht sichtbaren Gebäude 410, 413, 444, 506, 507, 509, 511 und 513 erhalten 36 Dachflächen von 13 Baukörpern aus amtlichem LoD2-BY. Dachkontur, Höhen und getrennte Anbauten folgen den Quelldaten. Die Fassaden unterhalb der Traufe kommen aus dem Hausgenerator. Bei 509 verkürzt sich die im Spiel erzeugte Firstspanne von 23,21 auf 8,72 m. 506 erhält einen 21,33 m spannenden Hauptfirst und zwei niedrigere Anbauten. LoD2-BY beschreibt standardisierte Bauformen und ungefähr metergenaue Höhen. [Bayerische Vermessungsverwaltung, LoD2-BY](https://www.ldbv.bayern.de/produkte/liegenschaftsinformationen/gebaeudemodell.html)
+
+Der Nahbereich verwendet ein DGM1-Raster mit 89 × 141 Stützpunkten im Abstand von 1 m. Ein 12-m-Übergang verbindet es mit dem Höhenfeld der Region. Geländekacheln, Fundament, Straßenkörper und Spielerhöhe lesen dasselbe Feld. Zwischen Station 65 und 147 m liegt die Fahrbahn rund 1,8 cm über dem gezeichneten und begehbaren Boden. D339 lag dort ungefähr 10–17 cm darüber. Am Ende der oberen Einfahrt sinkt diese Differenz von 11,6 auf 0,9 cm. Im Original-DGM liegt das Ende der Einfahrt an Station 139,65 etwa 9,7 cm höher als die Fahrbahnmitte. Das Modell trifft dieses Gefälle. Die Bordabsenkung von 2,5 cm bleibt ein Entwurfsmaß. Der Straßenkörper verwendet 6.019 Dreiecke. 6.849 vertikale Stichproben trafen die vorbereiteten Belagsflächen. [Bayerische Vermessungsverwaltung, DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)
+
+Die Wiese verwendet den bestehenden Wiesenscan mit Farb- und Normalenkarte sowie den am Stauwehr erprobten Foto-Horst-Atlas. Die D340-Abstimmung erzeugt dichtere Gruppen mit kleinen freiliegenden Erdstellen. Eine gemeinsame Ortsmaske verbindet Foto-Horste, Nahboden und die angrenzenden Halme in einem 9-m-Übergang. Die Freihaltung der gepflasterten Flächen bleibt in beiden Graspfaden aktiv. [Herkunft der Materialien](../assets/HERKUNFT.md)
+
+`milbingermasse=0/1` trennt D339 und D340. Drei Standbildpaare vergleichen feste Weltkameras auf Höhe der Spielfigur und in Schrägaufsicht. Der 10,2-s-Fußweg verwendet dieselbe W-Eingabe und die normale Spielkamera ab Station 152,5 m. Die Figuren gehen 42,94 beziehungsweise 42,98 m und passieren die obere Einfahrt. Beide Aufnahmen melden keine Browserfehler. Die Vergleichsgalerie liegt lokal unter `.cache/bilder/d340-milbinger/index.html`.
+
+In den ersten beiden D340-Messläufen erscheint bei 2,17 s und Weltposition x1442,96/z400,05 jeweils ein Frame um 100 ms. Im Gegenlauf mit `compileAsync` bleibt ein Frame mit 83,3 ms an derselben Stelle. Das separate CPU-Profil misst dort 67,6 ms allein in `getProgramInfoLog` beim ersten Zeichnen der Fotowiese. Die abschließende Fassung bereitet das konkrete Renderprogramm beim Szenenaufbau mit einer Instanzzahl von null vor. Sobald Gelände und Bänder vollständig sind, blendet sich allein das Vorlauf-Mesh aus. Die Rohdaten der Ursachenprüfung liegen unter `.cache/mess/d340-final-ab-{a1,b1,b2,a2}` und `.cache/mess/d340-vorbereitet-{b1,cpu}`.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D339 | D340 mit Shader-Vorlauf |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,42 | 53,09 |
+| p95, gesamte Route | 33,40 ms | 33,30 ms |
+| Längster Frame, gesamte Route | 49,90 ms | 35,30 ms |
+| Frames über 50 ms, gesamte Route | 0 | 0 |
+| FPS, Weststraße | 50,94 | 55,91 |
+| p95, Weststraße | 33,35 ms | 32,50 ms |
+
+Alle vier Läufe erreichen zwölf Wegpunkte ohne Browserfehler. Die Messung läuft ohne Videoaufnahme. D339 stammt aus den beiden Gegenläufen der Erstmessung. Die beiden abschließenden D340-Läufe unter `.cache/mess/d340-vorlauf-bereit-b{1,2}` verwenden denselben Start und dieselbe Route. Der Shader-Vorlauf wird bei `milbingermasse=0` übersprungen.
