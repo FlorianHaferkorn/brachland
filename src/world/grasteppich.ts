@@ -17,6 +17,7 @@
  *   Streuschicht und Grasbüschel-Props.
  */
 import * as THREE from 'three';
+import type { QuerschnittGrasmaske } from './strassenquerschnitt.js';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
 import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN } from './echt.js';
@@ -142,6 +143,7 @@ export function baueGrasteppich(
    * Nachziehen gemessen 260–330 ms (23.000 Texel), ein Ruckler alle zehn Meter Lauf (D247).
    */
   texel = 1,
+  strassenmaske?: QuerschnittGrasmaske,
 ): Grasteppich {
   // D255: gezielte Vergleichsprobe; ohne Parameter bleibt der bestehende Look.
   // Alle Ringe verwenden denselben ortsfesten Faktor, ohne neue Geometrie.
@@ -204,9 +206,14 @@ export function baueGrasteppich(
       uHofMitte: HOF_UNIFORM.mitte, uHofGras: HOF_UNIFORM.gras,
       uHofGrasRahmen: HOF_UNIFORM.grasRahmen,
     });
+    if (strassenmaske) Object.assign(shader.uniforms, {
+      uStrassenGras: { value: strassenmaske.textur },
+      uStrassenGrasRahmen: { value: strassenmaske.rahmen },
+    });
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
 ${HOF_GRAS_AN ? 'uniform vec2 uHofMitte;\nuniform sampler2D uHofGras;\nuniform vec4 uHofGrasRahmen;' : ''}
+${strassenmaske ? 'uniform sampler2D uStrassenGras;\nuniform vec4 uStrassenGrasRahmen;' : ''}
 attribute vec2 aZelle;
 uniform float uZeit;
 uniform sampler2D uFeld;
@@ -243,6 +250,13 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   float h1 = halmHash(zelleW), h2 = halmHash(zelleW + 17.3), h3 = halmHash(zelleW + 41.9);
   float h4 = halmHash(zelleW + 73.1), h5 = halmHash(zelleW + 97.7);
   vec2 ort = (zelleW + vec2(h1, h2)) * uRaster.z;
+  ${strassenmaske ? `
+  vec2 uvStrasse = (ort - uStrassenGrasRahmen.xy) * uStrassenGrasRahmen.zw;
+  if (all(greaterThanEqual(uvStrasse, vec2(0.0))) && all(lessThan(uvStrasse, vec2(1.0)))
+      && texture2D(uStrassenGras, uvStrasse).r > 0.5) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    return;
+  }` : ''}
   float abst = distance(ort, uMitte);
   float rand = ${innen > 0
     // Fernring: blendet ein, wo der innere Teppich ausblendet (dieselbe Kurve), und läuft spät aus.
@@ -393,7 +407,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   }
 #endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${GRAS_VIEL ? '-viel' : ''}${GRAS_FEIN ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras-raster' : ''}${sparsam ? '-teppichspar' : ''}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${GRAS_ECHT ? '-echt' : ''}${GRAS_VIEL ? '-viel' : ''}${GRAS_FEIN ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras-raster' : ''}${sparsam ? '-teppichspar' : ''}${strassenmaske ? '-strassenmaske' : ''}`;
 
   // D272: Halmkarten mit Alpha-Test; mit MSAA (Kontur) weiche Kanten über alphaToCoverage.
   if (GRAS_FEIN) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }

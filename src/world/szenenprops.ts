@@ -17,10 +17,12 @@ import { bestimmeHof } from './hofplatz.js';
 import { staffeleHofBaeume } from './hofgruenwahl.js';
 
 /** Seed 1 wie die Szene; Höhe aus dem Feld, Bauwerke freigehalten, Fuss auf dem Feld. */
-export function propsWieSzene(welt: Weltdaten, terrain: TerrainErgebnis, feld: HoehenFeld): PropInstanz[] {
+export function propsWieSzene(
+  welt: Weltdaten, terrain: TerrainErgebnis, feld: HoehenFeld, freihalten?: (x: number, z: number) => boolean,
+): PropInstanz[] {
   const props = verteileProps(welt, { ...terrain, hoeheAn: feld.hoehe }, 1)
     // Freihaltung der Bauwerke (ADR-0006): Die Blender-Szene bringt ihren eigenen Wald mit.
-    .filter(p => !gesperrt(p.position[0], p.position[2], 'props'))
+    .filter(p => !freihalten?.(p.position[0], p.position[2]) && !gesperrt(p.position[0], p.position[2], 'props'))
     .map(p => ({ ...p, position: [p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2]] }) as PropInstanz);
   if (HOF_SILHOUETTE_AN) {
     const hof = bestimmeHof(welt, terrain);

@@ -1,16 +1,19 @@
 /**
- * Terrainausschnitt fuer Blender (D153): npx tsx tools/terrainexport.ts cx cz groesse [schritt] [zielordner] [praefix]
+ * Terrainausschnitt fuer Blender (D153): npx tsx tools/terrainexport.ts cx cz groesse [schritt] [zielordner] [praefix] [--querschnitte]
  * Schreibt .cache/blender/terrain.obj (Blender-Achsen: X=x, Y=-z, Z=y; Vertexfarbe = Biom),
  * wasser.obj (Wasserspiegel, nur nasse Zellen), haeuser.obj (Grundriss x Ebenen), wege.obj (Linien)
  * und terrain.json (Meta: Mitte, Hoehe, Biomhistogramm). Alles relativ zur Mitte (cx, cz).
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { entpackeWelt, type Weltdaten } from '../src/world/osm.js';
-import { baueHoehenfeld } from '../src/world/lod.js';
+import { baueHoehenfeld, hoeheAufFlaeche } from '../src/world/lod.js';
+import { Region } from '../src/data/schema.js';
+import { baueStrassenquerschnitt } from '../src/world/strassenquerschnitt.js';
 
-const [cx, cz, groesse, schritt] = [Number(process.argv[2]), Number(process.argv[3]), Number(process.argv[4] ?? 400), Number(process.argv[5] ?? 2)];
-const ZIEL = process.argv[6] ?? '.cache/blender';   // Zielordner je Szene (D155)
-const PRAEFIX = process.argv[7] ?? '';                // 'fern_' fuer den groben Aussenring
+const argumente = process.argv.slice(2).filter(wert => wert !== '--querschnitte');
+const [cx, cz, groesse, schritt] = [Number(argumente[0]), Number(argumente[1]), Number(argumente[2] ?? 400), Number(argumente[3] ?? 2)];
+const ZIEL = argumente[4] ?? '.cache/blender';   // Zielordner je Szene (D155)
+const PRAEFIX = argumente[5] ?? '';              // 'fern_' fuer den groben Aussenring
 const welt: Weltdaten = entpackeWelt(JSON.parse(readFileSync('public/world/oental.json', 'utf8')).welt);
 const feld = baueHoehenfeld(welt);
 const [sued, west, nord, ost] = welt.bbox;
@@ -79,6 +82,39 @@ for (const w of welt.wege) {
   wv += pts.length;
 }
 writeFileSync(`${ZIEL}/${PRAEFIX}wege.obj`, wege);
+if (process.argv.includes('--querschnitte')) {
+  const region = Region.parse(JSON.parse(readFileSync('content/regions/oental.json', 'utf8')));
+  const rolleNamen = ['Fahrbahn', 'Gehweg', 'Bordstein', 'Zufahrt'];
+  const obj: string[] = [];
+  let versatz = 1;
+  for (const abschnitt of region.strassenkulisse ?? []) for (const { osmWeg, querschnitt } of abschnitt.wege) {
+    if (!querschnitt) continue;
+    const weg = welt.wege.find(w => w.quelle?.osmId === osmWeg);
+    if (!weg) continue;
+    const netz = baueStrassenquerschnitt(weg.punkte.map(nachWelt), (x, z) => hoeheAufFlaeche(feld, x, z), querschnitt, weg.breite);
+    netz.computeBoundingBox();
+    const box = netz.boundingBox!;
+    const drin = box.max.x >= cx - half && box.min.x <= cx + half && box.max.z >= cz - half && box.min.z <= cz + half;
+    if (drin) {
+      const positionen = netz.getAttribute('position'), rollen = netz.getAttribute('rolle');
+      const index = netz.index!;
+      obj.push(`o Strasse_${osmWeg}`);
+      for (let i = 0; i < positionen.count; i++) {
+        obj.push(`v ${(positionen.getX(i) - cx).toFixed(4)} ${(cz - positionen.getZ(i)).toFixed(4)} ${(positionen.getY(i) - h0).toFixed(4)}`);
+      }
+      for (const [rolle, name] of rolleNamen.entries()) {
+        obj.push(`g Strasse_${osmWeg}_${name}`);
+        for (let i = 0; i < index.count; i += 3) {
+          const a = index.getX(i), b = index.getX(i + 1), c = index.getX(i + 2);
+          if (rollen.getX(a) === rolle) obj.push(`f ${a + versatz} ${b + versatz} ${c + versatz}`);
+        }
+      }
+      versatz += positionen.count;
+    }
+    netz.dispose();
+  }
+  if (obj.length) writeFileSync(`${ZIEL}/${PRAEFIX}strassenquerschnitte.obj`, obj.join('\n') + '\n');
+}
 const meta = { cx, cz, groesse, schritt, h0, hmin: hmin - h0, hmax: hmax - h0, hist, nass, hausN, wegN, teiche: feld.teiche.length };
 writeFileSync(`${ZIEL}/${PRAEFIX}terrain.json`, JSON.stringify(meta, null, 1));
 console.log(JSON.stringify(meta));

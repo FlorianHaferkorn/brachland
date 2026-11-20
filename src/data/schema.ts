@@ -482,11 +482,27 @@ const Strassenobjekt = z.object({
   ort: z.tuple([z.number(), z.number()]),
   verfall: z.number().min(0).max(1),
 });
+const Stationsbereich = z.object({
+  von: z.number().nonnegative(), bis: z.number().positive(), seite: z.union([z.literal(-1), z.literal(1)]),
+});
+const WohnwegQuerschnitt = z.object({
+  /** Längsmeter ab dem ersten OSM-Punkt, dann beide Asphaltkanten quer nach (-dz, dx). */
+  stationen: z.array(z.tuple([z.number().nonnegative(), z.number(), z.number()])).min(2)
+    .refine(s => s.every(([meter, minus, plus], i) => plus > minus && (!i || meter > s[i - 1][0])),
+      'Querschnitte nach Station ordnen und Kanten aufsteigend angeben.'),
+  gehwege: z.array(Stationsbereich.extend({ breite: z.number().positive() })).default([]),
+  zufahrten: z.array(Stationsbereich.extend({ tiefe: z.number().positive() })).default([]),
+}).refine(p => p.stationen.length >= 2 && [...p.gehwege, ...p.zufahrten].every(a =>
+  a.von < a.bis && a.von >= p.stationen[0][0] && a.bis <= p.stationen.at(-1)![0]),
+  'Gehwege und Zufahrten müssen innerhalb der gemessenen Stationen liegen.');
+export type WohnwegQuerschnitt = z.infer<typeof WohnwegQuerschnitt>;
+
 const Strassenkulisse = z.object({
   wege: z.array(z.object({
     osmWeg: z.number().int().positive(),
     verfall: z.number().min(0).max(1),
     wohnwegrand: z.boolean().optional(),
+    querschnitt: WohnwegQuerschnitt.optional(),
     profil: z.object({
       breite: z.number().positive().optional(),
       /** Versatz der Fahrbahnmitte quer zur OSM-Achse in Weltmetern. */

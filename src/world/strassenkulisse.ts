@@ -8,7 +8,8 @@ import { hoeheAufFlaeche } from './lod.js';
 import type { HoehenFeld } from './lod.js';
 import { imPolygon } from './osm.js';
 import type { Weltdaten } from './osm.js';
-import { STRASSENPROFIL_AN, WESTANSCHLUSS_AN } from './echt.js';
+import { STRASSENPROFIL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from './echt.js';
+import { baueStrassenquerschnitt, querschnittGrenzen } from './strassenquerschnitt.js';
 
 type Ort = [number, number];
 
@@ -40,16 +41,21 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
     return { ring, minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) };
   });
   return abschnitte.map(abschnitt => {
-    const wege = abschnitt.wege.flatMap(({ osmWeg, verfall, profil, wohnwegrand }) => {
+    const querschnitte: THREE.BufferGeometry[] = [];
+    const wege = abschnitt.wege.flatMap(({ osmWeg, verfall, profil, wohnwegrand, querschnitt }) => {
       const weg = wegNachId.get(osmWeg);
       if (!weg) return [];
       const belag = weg.quelle?.oberflaeche;
+      const punkte = weg.punkte.map(zuWelt);
+      const vermessen = WOHNWEGQUERSCHNITT_AN ? querschnitt : undefined;
+      if (vermessen) querschnitte.push(baueStrassenquerschnitt(punkte, boden, vermessen, weg.breite));
       return [{
-        punkte: weg.punkte.map(zuWelt),
+        punkte,
         breite: (STRASSENPROFIL_AN ? profil?.breite : undefined) ?? weg.breite,
         versatz: STRASSENPROFIL_AN ? profil?.versatz : undefined,
         saat: osmWeg, verfall,
         wohnwegrand: WESTANSCHLUSS_AN && wohnwegrand,
+        querschnitt: vermessen && querschnittGrenzen(vermessen),
         wohnwegZugaenge: WESTANSCHLUSS_AN && wohnwegrand ? wohnwegZugaenge : undefined,
         fahrbahnprofil: STRASSENPROFIL_AN,
         markierungen: STRASSENPROFIL_AN ? profil?.markierungen : undefined,
@@ -86,10 +92,21 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
     const bewuchs = baueStrassenbewuchs(wege, boden, frei);
     const mobiliar = baueStrassenmobiliar(objekte, boden);
     gruppe.add(bewuchs.gruppe, mobiliar.gruppe);
-    gruppe.userData.strassen = { wege: wege.length, objekte: objekte.length };
+    const clay = querschnitte.length ? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 }) : null;
+    for (const geometrie of querschnitte) {
+      const mesh = new THREE.Mesh(geometrie, clay!);
+      mesh.name = 'Vermessener Straßenkörper';
+      mesh.receiveShadow = true;
+      gruppe.add(mesh);
+    }
+    gruppe.userData.strassen = { wege: wege.length, objekte: objekte.length, querschnitte: querschnitte.length };
     return {
       gruppe, grenzen,
-      entsorge: () => { bewuchs.entsorge(); mobiliar.freigeben(); },
+      entsorge: () => {
+        bewuchs.entsorge(); mobiliar.freigeben();
+        for (const geometrie of querschnitte) geometrie.dispose();
+        clay?.dispose();
+      },
     };
   });
 }

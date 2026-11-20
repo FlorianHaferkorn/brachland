@@ -14,6 +14,8 @@ export interface StrassenbewuchsWeg {
   verfall?: number;
   /** Niedriger, gruppierter Bewuchs für schmale Wohnwege. */
   wohnwegrand?: boolean;
+  /** Ersetzte Stationen der untexturierten Fahrbahnprobe. */
+  querschnitt?: readonly [number, number];
   /** Erhaltene Zugänge an der Straße, in Weltmetern. */
   wohnwegZugaenge?: readonly (readonly [number, number])[];
   /** Auf ungebundenem Belag entstehen Rinnen und Pflanzeninseln ohne Asphaltrisse. */
@@ -183,6 +185,7 @@ export function baueStrassenbewuchs(
       const dx = (x1 - x0) / distanz, dz = (z1 - z0) / distanz;
       const querX = -dz * versatz, querZ = dx * versatz;
       for (let j = 0; j < teile; j++, meter += laenge) {
+        if (weg.querschnitt && meter < weg.querschnitt[1] && meter + laenge > weg.querschnitt[0]) continue;
         const x = x0 + dx * laenge * j + querX, z = z0 + dz * laenge * j + querZ;
         const ex = x0 + dx * laenge * (j + 1), ez = z0 + dz * laenge * (j + 1);
         const nx = -dz * halb, nz = dx * halb;

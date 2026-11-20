@@ -495,3 +495,32 @@ Die acht Aufnahmen verwenden identische Blickpunkte, Beleuchtung und Windphase o
 | Frames über 50 ms, gesamte Route | 11 | 1 |
 
 Alle vier Läufe erreichen zwölf Wegpunkte. Die elf langen Frames der alten Fassung stammen aus dem ersten Gegenlauf. Der einzelne lange Frame von D336 tritt bei 2,23 s im Hof auf und misst 51,9 ms. Gemessen wurde ohne Videoaufnahme in der Folge `westanschluss=0/1/1/0`. Die Einzelberichte liegen unter `.cache/mess/d336-abgabe-ab-{a1,b1,b2,a2}`. Die separaten Echtzeitaufnahmen und die Bildvergleiche sind in `.cache/bilder/d336-westanschluss/index.html` gesammelt.
+
+## Vermessener Querschnitt der Milbinger Straße (D337)
+
+Auf der ersten Geraden des OSM-Wegs 198749032 liegen 13 Querprofile zwischen Station 65 und 147 m. Die Abstände zur OSM-Achse stammen aus dem amtlichen RGB-Orthofoto DOP20. Die Fahrbahn ist in der Probe 4,1 bis 5,8 m breit. Ihre Mitte liegt 3,1 bis 5,0 m links der OSM-Achse in Kartierungsrichtung. Zwei Übergänge von je 8 m schließen an das vorhandene 5-m-Wegband an. [OpenStreetMap-Weg](https://www.openstreetmap.org/way/198749032) · [Bayerische Vermessungsverwaltung, DOP20 RGB](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?active=SERVICE&pn=dop20rgb)
+
+Die Luftbildprobe stammt aus dem WMS-Layer `by_dop20c` in EPSG:4326, abgefragt am 20.11.2026. Die BBox reicht von 12,09905° bis 12,10090° Ost und von 47,72810° bis 47,72983° Nord. Auf sichtbarem Asphalt liegt die Ablesegenauigkeit bei ungefähr ±0,4–0,7 m. Abschnitte 94–108 und 125–136 m sind unter Baumkronen interpoliert. Der OSM-Tag erfasst den Gehweg links. Das Luftbild zeigt ihn besonders zwischen Station 65 und 73 m. Seine durchgehende Breite von 1,65 m und die 11 cm hohen Borde mit Absenkung auf 2,5 cm sind Modellannahmen. Die vier Zufahrten sind an sichtbaren Belaganschlüssen vereinfacht erfasst.
+
+| Zufahrt | Station in m | Seite in Kartierungsrichtung |
+|---|---:|---|
+| 1 | 71,4–74,5 | links |
+| 2 | 75,2–79,0 | rechts |
+| 3 | 80,7–84,7 | rechts |
+| 4 | 137,6–141,7 | links |
+
+Der Generator baut aus den 13 Profilen ein statisches, vertexgefärbtes Mesh mit 1.002 Dreiecken. Blender verwendet dasselbe Mesh und vereinfachte Nachbarhäuser auf OSM-Grundrissen. Die Spielprobe hält Fahrbahn, Gehweg und Zufahrten von Gras und größeren Props frei. Die Fortbewegung liest weiterhin die vorhandene Geländehöhe. `wohnwegquerschnitt=1` aktiviert den Prüfabschnitt bei aktivem D336 und `strassenverfall=1`. Das untexturierte Mesh dient der Prüfung der Anschlüsse und Proportionen vor dem Material- und Verwitterungsdurchgang.
+
+`npx tsx tools/terrainexport.ts 1370 447 220 2 .cache/milbinger-export --querschnitte` exportiert den Straßenkörper mit Fahrbahn, Gehweg, Bordstein und Zufahrten als OBJ-Gruppen. Gelände und Querschnitte teilen den Ursprung und die Achsenabbildung für Blender. Weitere gerade Prüfabschnitte können dieselbe Geometrie und Freihaltung mit ihren eigenen gemessenen Kanten nutzen.
+
+Die festen Spielkameras zeigen denselben Blick auf den Straßenverlauf und die Bordabsenkung. Alle vier Standbilder wurden ohne Browserfehler erfasst. Eine aus dem Querschnitt erzeugte Ortsmaske hält auch die per Shader gesetzten Halme aus dem Straßenkörper und den Einfahrten fern. Der Laufvergleich zu Fuß verwendet denselben Start und dieselbe Eingabe. Die Vergleichsbilder und das Video liegen lokal unter `.cache/bilder/d337-milbinger/index.html`.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D336 | D337 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 48,61 | 49,69 |
+| FPS, Weststraße | 49,17 | 51,62 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 35,3 ms | 35,4 ms |
+| Frames über 50 ms, gesamte Route | 0 | 0 |
+
+Alle Läufe erreichen zwölf Wegpunkte. Die Zeitmessung läuft ohne Videoaufnahme im selben Build in der Folge `wohnwegquerschnitt=0/1/1/0`. Einzelberichte liegen unter `.cache/mess/d337-abnahme-ab-{a1,b1,b2,a2}`.

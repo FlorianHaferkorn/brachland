@@ -198,6 +198,7 @@ function vorfeldGewicht(x: number, z: number): number {
 export interface WohnwegStreuung {
   gewicht: (x: number, z: number) => number;
   aufWeg: (x: number, z: number) => boolean;
+  freihalten?: (x: number, z: number) => boolean;
 }
 
 /**
@@ -234,6 +235,7 @@ export function streueUmgebung(
         1 - staerke * (.52 - h2 * .17));
     }
   }, HOF_GRAS_AN || wohnweg ? (x, z) => {
+    if (wohnweg?.freihalten?.(x, z)) return false;
     // Der eigene Saumbewuchs liegt im Wegband. Grobe Streubüschel stehen dahinter.
     if (wohnweg && wohnweg.gewicht(x, z) > .2 && wohnweg.aufWeg(x, z)) return false;
     if (!HOF_GRAS_AN || !HOF_UNIFORM.bereit.value) return true;

@@ -58,6 +58,8 @@ export const WESTDACH_AN = WESTDETAIL_AN && an('westdach');
 export const WESTFASSADE_AN = WESTDACH_AN && an('westfassade');
 /** D336: Bauwerks- und Vegetationsanschlüsse am westlichen Wohnweg. */
 export const WESTANSCHLUSS_AN = WESTFASSADE_AN && an('westanschluss');
+/** D337: untexturierte Geometrieprobe des vermessenen Straßenzugs. */
+export const WOHNWEGQUERSCHNITT_AN = WESTANSCHLUSS_AN && an('wohnwegquerschnitt');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

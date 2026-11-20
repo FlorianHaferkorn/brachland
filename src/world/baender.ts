@@ -20,19 +20,19 @@
  * nach Entfernung ausgeblendet.
  */
 import * as THREE from 'three';
-import { HAUSFRONT_AN, STRASSENPROFIL_AN, STRASSENVERFALL_AN } from './echt.js';
-import type { Strassenkulisse } from '../data/schema.js';
+import { HAUSFRONT_AN, STRASSENPROFIL_AN, STRASSENVERFALL_AN, WOHNWEGQUERSCHNITT_AN } from './echt.js';
+import type { Strassenkulisse, WohnwegQuerschnitt } from '../data/schema.js';
 import { PALETTE } from './palette.js';
 import type { Weltdaten } from './osm.js';
 import { MASSSTAB, WEG_TEILUNG, orientierteHuelle } from './terrain.js';
 import { istHofZielhaus } from './hofplatz.js';
+import { querschnittGrenzen, querschnittKanten, WEG_UEBER_GRUND } from './strassenquerschnitt.js';
 import { KACHEL, LOD_STUFEN, hoeheAufFlaeche, spiegelAufFlaeche,
          type HoehenFeld, type Kachel } from './lod.js';
 
 /** Wie hoch die Wasserfläche über dem Gelände liegt. */
 const WASSER_UEBER_GRUND = 0.06;
-/** Wie hoch das Wegband über dem Gelände liegt, damit nichts durchblitzt. */
-export const WEG_UEBER_GRUND = 0.12;
+export { WEG_UEBER_GRUND };
 
 /**
  * Ab diesem Gefälle je Teilstück wird aus dem liegenden Band eine stehende Fläche.
@@ -58,6 +58,8 @@ export interface Bandstueck {
   v1: number; v2: number;
   /** Steht dieses Stück als Wasserfall? Einmal entschieden, nie neu. */
   fall: boolean;
+  /** Für Flächenfreihaltung erhalten, durch die Querschnittprobe gezeichnet. */
+  querschnitt?: true;
   /** Belag des Wegs — Farbe und Oberfläche. Bei Gewässern undefiniert. */
   belag?: Wegbelag;
 }
@@ -189,10 +191,12 @@ export function zerlegeBaender(
   const zerlegen = (
     punkte: readonly [number, number][], breite: number,
     ziel: Map<string, Bandstueck[]>, fallZiel: Map<string, Bandstueck[]> | null,
-    belag?: Wegbelag, versatz = 0,
+    belag?: Wegbelag, versatz = 0, profil?: WohnwegQuerschnitt,
   ) => {
     const halbe = breite / (2 * MASSSTAB.stauchung);
     const halbeFall = Math.max(0.8, halbe);
+    const grenzen = profil && querschnittGrenzen(profil);
+    const querKanten = profil && querschnittKanten(profil, breite);
     let laengs = 0;
     for (let k = 0; k < punkte.length - 1; k++) {
       const [ax, az] = zuWelt(...punkte[k]);
@@ -201,8 +205,17 @@ export function zerlegeBaender(
       const len = Math.hypot(dx, dz) || 1;
       const querX = -dz / len * versatz, querZ = dx / len * versatz;
       const teile = Math.max(1, Math.ceil(len / WEG_TEILUNG));
-      for (let t = 0; t < teile; t++) {
-        const t1 = t / teile, t2 = (t + 1) / teile;
+      const schnitte = grenzen && Array.from({ length: teile + 1 }, (_, i) => i / teile);
+      if (schnitte && grenzen) {
+        for (const s of grenzen) {
+          const t = (s - laengs) / len;
+          if (t > 0 && t < 1 && !schnitte.some(a => Math.abs(a - t) < 1e-8)) schnitte.push(t);
+        }
+        schnitte.sort((a, b) => a - b);
+      }
+      const stuecke = schnitte ? schnitte.length - 1 : teile;
+      for (let i = 0; i < stuecke; i++) {
+        const t1 = schnitte?.[i] ?? i / teile, t2 = schnitte?.[i + 1] ?? (i + 1) / teile;
         const x1 = ax + dx * t1 + querX, z1 = az + dz * t1 + querZ;
         const x2 = ax + dx * t2 + querX, z2 = az + dz * t2 + querZ;
         // Der Wasserfall wird auf der feinen Fläche entschieden — der einen, die
@@ -216,6 +229,16 @@ export function zerlegeBaender(
           nx: (-dz / len) * b, nz: (dx / len) * b,
           v1: laengs + len * t1, v2: laengs + len * t2, fall, belag,
         };
+        const station = (stueck.v1 + stueck.v2) / 2;
+        if (grenzen && querKanten && profil && station >= grenzen[0] && station <= grenzen[1]) {
+          stueck.querschnitt = true;
+          // Der Gartenabgleich behält einen konservativen Korridor.
+          const ausladung = Math.max(...[querKanten(stueck.v1), querKanten(stueck.v2)].flat().map(Math.abs))
+            + Math.max(0, ...[...profil.gehwege, ...profil.zufahrten]
+              .filter(r => r.von <= stueck.v2 && r.bis >= stueck.v1).map(r => 'breite' in r ? r.breite : r.tiefe));
+          stueck.nx = -dz/len * ausladung;
+          stueck.nz = dx/len * ausladung;
+        }
         const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2;
         /**
          * **Was ausserhalb der Region liegt, wird nicht gebaut** (D162).
@@ -252,7 +275,8 @@ export function zerlegeBaender(
     const zustand = weg.quelle && strassen?.get(weg.quelle.osmId);
     const profil = STRASSENPROFIL_AN ? zustand?.profil : undefined;
     zerlegen(weg.punkte, profil?.breite ?? weg.breite, satz.wege, null,
-      zustand ? { ...belag, verfall: zustand.verfall } : belag, profil?.versatz);
+      zustand ? { ...belag, verfall: zustand.verfall } : belag, profil?.versatz,
+      WOHNWEGQUERSCHNITT_AN ? zustand?.querschnitt : undefined);
   }
 
   // Nach den Wegen, weil die Gartenprüfung sie braucht: Ein Beet auf der
@@ -517,7 +541,8 @@ export function baueWegKachel(
   if (!stuecke) return null;
   const positionen: number[] = [], uvs: number[] = [];
   const farben: number[] = [], belaege: number[] = [];
-  liegendesBand(feld, stuecke, lod, WEG_UEBER_GRUND, hoeheAufFlaeche, false,
+  liegendesBand(feld, WOHNWEGQUERSCHNITT_AN ? stuecke.filter(s => !s.querschnitt) : stuecke,
+                lod, WEG_UEBER_GRUND, hoeheAufFlaeche, false,
                 positionen, uvs, farben, belaege);
   const g = fertig(positionen, uvs);
   if (!g) return null;
