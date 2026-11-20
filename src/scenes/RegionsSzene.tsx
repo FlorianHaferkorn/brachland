@@ -2737,6 +2737,13 @@ function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial, geheilt }: {
       const versatz: THREE.Vector3 | undefined = fernMaterial.uniforms.uDunstversatz?.value;
       versatz?.set(tageslicht.dunst.r - lichtbasis.horizont.r, tageslicht.dunst.g - lichtbasis.horizont.g,
         tageslicht.dunst.b - lichtbasis.horizont.b).multiplyScalar(ort);
+      const fern = fernMaterial.uniforms;
+      if (fern.uFernDunst) {
+        fern.uFernDunst.value.copy(u.horizont.value);
+        fern.uFernSonne.value.copy(richtung);
+        fern.uFernDirekt.value.copy(l.color).multiplyScalar(l.intensity / Math.PI);
+        if (h) fern.uFernUmfeld.value.copy(h.color).multiplyScalar(h.intensity / Math.PI);
+      }
       himmel.userData.ortsfotoAnteil = ort;
     }
   });
@@ -4631,7 +4638,8 @@ export function RegionsSzene({
     }) : null),
     [fernland, welt, s],
   );
-  const fernMaterial = useMemo(() => baueFernlandMaterial(MILBINGERLICHT_AN), []);
+  const fernDetail = !!fernland?.detail;
+  const fernMaterial = useMemo(() => baueFernlandMaterial(MILBINGERLICHT_AN, fernDetail), [fernDetail]);
   useEffect(() => () => fernMaterial.dispose(), [fernMaterial]);
   useEffect(() => () => { fernGeo?.dispose(); }, [fernGeo]);
 

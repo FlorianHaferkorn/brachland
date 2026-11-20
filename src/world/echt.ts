@@ -74,6 +74,8 @@ export const MILBINGERBODEN_AN = MILBINGERDETAIL_AN && an('milbingerboden');
 export const MILBINGERLICHT_AN = MILBINGERBODEN_AN && an('milbingerlicht');
 /** D344: D343-Tageslicht für den direkten Vergleich zur Wolkendecke. */
 export const MILBINGERKLAR_AN = an('milbingerklar');
+/** D345: DGM1-Fernrelief. Der Nullschalter erhält die D344-Kulisse für den Vergleich. */
+export const MILBINGERFERN_AN = MILBINGERLICHT_AN && suche.get('milbingerfern') !== '0';
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

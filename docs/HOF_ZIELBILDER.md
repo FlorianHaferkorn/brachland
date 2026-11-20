@@ -678,3 +678,15 @@ Das Spiel nutzt mit `milbingerlicht=1` den bewölkten Himmel vor der Heilung und
 Die feste Kamera auf Giebel und Hauptbaum zeigt den direkten Unterschied. Im freien Himmelsfeld (x 242–431, y 15–71 bei 960 × 540) sinkt die mittlere HSV-Sättigung von 61,7 auf 19,5 %. Der Spiellauf erreicht bei gleicher Eingabe 35,33 bzw. 35,35 m. Der Himmelsvergleich, die hellere Ansicht nach der Heilung und die Bewegungsaufnahmen zeigen keine Browser- oder Shaderfehler. Galerie und Video liegen unter `.cache/bilder/d344-milbinger/index.html`.
 
 In der separaten Paarmessung auf derselben Strecke bei 960 × 540 (M1, je ein Lauf ohne Video) erreicht D343 52,03 FPS bei 33,40 ms p95 und D344 51,79 FPS bei 33,30 ms p95. In beiden Läufen liegen alle Frames unter 36 ms. Rohberichte: `.cache/mess/d344-nah-{0,1}`.
+
+## Amtliches Fernrelief hinter der Milbinger Straße (D345)
+
+Die Gegenprobe ohne Fernkulisse und die Sichtstrahlen aus der Spielkamera ordnen den hellen, kantigen Hang dem bisherigen 125-m-Fernraster zu. Die sichtbare Flanke liegt rund 1,9–2,5 km entfernt. Der DGM1-Ausschnitt trägt 101 × 101 Stützpunkte im Abstand von rund 31 m. Sein Rand läuft auf 220 m ins vorhandene Raster aus. Der Anschluss an die Region übernimmt weiterhin die Höhen an der Regionskante. Die vertikale Überhöhung der Spielwelt um 15 % gilt auch für die Kulisse. [DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1) · [Herkunft und Erzeugung](../assets/HERKUNFT.md#weltdaten-publicworld-d290)
+
+Bei 276 Stichproben an den amtlichen Stützpunkten des sichtbaren Ausschnitts lag das alte Mesh im Mittel 10,34 m und höchstens 56,00 m neben dem Höhenwert. Das neue Mesh trifft die Stützpunkte auf unter 1 cm. An 55 Punkten der Ostnaht beträgt die größte Abweichung 0,26 mm. Diese Prüfung misst die Übereinstimmung mit dem resampelten Höhenraster. Der Wechsel von Flächennormalen zu glatten Normalen beseitigt die dreieckigen Lichtkanten. Der Materialshader übernimmt Lichtfarbe und Dunst des jeweiligen Weltzustands und berechnet die Luftperspektive ab der Kamera. Wald- und Felsflecken sind aus Höhe, Hangneigung und Weltposition angenähert.
+
+Die Fernkulisse bleibt ein Draw Call mit 49.504 statt 19.192 Dreiecken. Die indizierte Fassung nutzt 28.613 statt 57.576 Vertices. Das zusätzliche Raster kostet rund 42 KiB. `milbingerfern=0` zeigt im selben Build die alte Kulisse. Die Wolkendecke von D344 ist in beiden Fassungen aktiv.
+
+Beide 8,4-s-Aufnahmen legen mit normaler Spielkamera praktisch dieselbe Strecke zurück (je rund 35,29 m). Zwei Ortsansichten und der synchronisierte Straßenlauf zeigen den feiner gegliederten Kamm und die unterschiedlichen Grautöne der Flanken. Bilder und Clips melden keine Browserfehler. Die Galerie liegt unter `.cache/bilder/d345-milbinger/index.html`.
+
+Getrennt von der Aufnahme wurden je zwei Läufe bei 960 × 540 auf dem M1 gemessen (`0/1/1/0`). Mittlere FPS 51,60 → 51,20, p95 33,30 → 33,40 ms. Der Spitzenwert beträgt in beiden Fassungen 35,30 ms. Rohberichte stehen unter `.cache/mess/d345-nah-{a1,b1,b2,a2}`.

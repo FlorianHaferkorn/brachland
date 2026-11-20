@@ -24,6 +24,7 @@
  * ## Aufruf
  *
  *     npm run fernland oental [faktor] [aufloesung]
+ *     npm run fernland -- oental --dgm1-sued
  *
  * Dauert rund drei Minuten: OpenTopoData nimmt 100 Punkte je Anfrage und will
  * eine Sekunde Pause dazwischen. 96² Punkte sind 93 Anfragen — deutlich unter
@@ -31,8 +32,25 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { holeHoehen, type BBox } from '../src/world/osm.js';
+import { holeHoehenDgm1, QUELLE as DGM1_QUELLE } from './dgm1.js';
 
 const region = process.argv[2] ?? 'oental';
+if (process.argv[3] === '--dgm1-sued') {
+  if (region !== 'oental') throw new Error('Der D345-Ausschnitt ist für das Œntal eingemessen.');
+  const grund = JSON.parse(readFileSync('public/world/oental-fern.json', 'utf8')) as { bbox: BBox; aufloesung: number };
+  const [s, w, n, o] = grund.bbox;
+  const lat = (i: number) => n - (n-s) * i / (grund.aufloesung-1);
+  const lon = (j: number) => w + (o-w) * j / (grund.aufloesung-1);
+  // Die Kanten liegen auf Gitterlinien des vorhandenen Fernraster-Ausschnitts.
+  const bbox: BBox = [lat(75), lon(47), lat(50), lon(72)];
+  const aufloesung = 101;
+  const { raster, luecken } = await holeHoehenDgm1(bbox, aufloesung);
+  if (luecken) throw new Error(`DGM1-Fernausschnitt unvollständig (${luecken * 100} % Lücken)`);
+  const hoehen = raster.map(zeile => zeile.map(h => Math.round(h)));
+  writeFileSync('public/world/oental-fern-sued.json', JSON.stringify({ bbox, aufloesung, hoehen, quelle: DGM1_QUELLE }) + '\n');
+  process.exit(0);
+}
+
 const FAKTOR = Number(process.argv[3] ?? 3);
 const AUFLOESUNG = Number(process.argv[4] ?? 96);
 

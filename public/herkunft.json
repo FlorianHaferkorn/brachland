@@ -257,5 +257,12 @@
   "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
   "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
   "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
+  "datei": "oental-fern-sued.json",
+  "rolle": "D345. 25 DGM1-Kacheln zum Fernraster des südöstlichen Hangs resampelt und auf Meter gerundet. Erzeugt mit npm run fernland -- oental --dgm1-sued.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
  }
 ]

@@ -71,6 +71,30 @@ export interface Fernland {
   aufloesung: number;
   hoehen: (number | null)[][];
   quelle: string;
+  detail?: Fernland;
+}
+
+/** Bilineare Abtastung des geografischen Rasters. */
+function rasterHoehe(raster: Fernland, lat: number, lon: number, ersatz: number): number {
+  const [s, w, n, o] = raster.bbox;
+  const ende = raster.aufloesung - 1;
+  const y = THREE.MathUtils.clamp((n - lat) / (n - s) * ende, 0, ende);
+  const x = THREE.MathUtils.clamp((lon - w) / (o - w) * ende, 0, ende);
+  const i = Math.floor(y), j = Math.floor(x);
+  const i1 = Math.min(ende, i + 1), j1 = Math.min(ende, j + 1);
+  const h = (zeile: number, spalte: number) => raster.hoehen[zeile]?.[spalte] ?? ersatz;
+  const tx = x - j, ty = y - i;
+  return (h(i, j) * (1 - tx) + h(i, j1) * tx) * (1 - ty)
+       + (h(i1, j) * (1 - tx) + h(i1, j1) * tx) * ty;
+}
+
+/** Gemeinsame Koordinatenlinien vermeiden T-Stöße zwischen groben und feineren Zellen. */
+function fernAchse(werte: number[], detailMin: number, detailMax: number): number[] {
+  return werte.flatMap((a, i) => {
+    const b = werte[i+1];
+    if (b === undefined || Math.min(a,b) < detailMin - 1e-9 || Math.max(a,b) > detailMax + 1e-9) return [a];
+    return [a, a+(b-a)*.25, a+(b-a)*.5, a+(b-a)*.75];
+  });
 }
 
 /**
@@ -124,8 +148,13 @@ export function baueFernland(
     ((rn - lat) / (rn - rs) - 0.5) * regTiefe,
   ];
 
-  const latVon = (i: number) => fn - (fn - fs) * (i / (n - 1));
-  const lonVon = (j: number) => fw + (fe - fw) * (j / (n - 1));
+  const latRaster = Array.from({ length: n }, (_, i) => fn - (fn - fs) * (i / (n - 1)));
+  const lonRaster = Array.from({ length: n }, (_, j) => fw + (fe - fw) * (j / (n - 1)));
+  const detail = fern.detail;
+  const latLinien = detail ? fernAchse(latRaster, detail.bbox[0], detail.bbox[2]) : latRaster;
+  const lonLinien = detail ? fernAchse(lonRaster, detail.bbox[1], detail.bbox[3]) : lonRaster;
+  const latVon = (i: number) => latLinien[i];
+  const lonVon = (j: number) => lonLinien[j];
 
   /**
    * Höhe in Szeneneinheiten — **dieselbe Rechnung wie `baueTerrain`**.
@@ -139,14 +168,15 @@ export function baueFernland(
 
   /** Fernhöhe an beliebiger Stelle, bilinear. Auf den Gitterlinien exakt linear. */
   const fernBei = (lat: number, lon: number): number => {
-    const fi = Math.max(0, Math.min(n - 1, ((fn - lat) / (fn - fs)) * (n - 1)));
-    const fj = Math.max(0, Math.min(n - 1, ((lon - fw) / (fe - fw)) * (n - 1)));
-    const i0 = Math.floor(fi), j0 = Math.floor(fj);
-    const i1 = Math.min(n - 1, i0 + 1), j1 = Math.min(n - 1, j0 + 1);
-    const ti = fi - i0, tj = fj - j0;
-    const h = (i: number, j: number) => fern.hoehen[i]?.[j] ?? welt.hoeheMin;
-    return (h(i0, j0) * (1 - tj) + h(i0, j1) * tj) * (1 - ti)
-         + (h(i1, j0) * (1 - tj) + h(i1, j1) * tj) * ti;
+    const grob = rasterHoehe(fern, lat, lon, welt.hoeheMin);
+    if (!detail) return grob;
+    const [s, w, n, o] = detail.bbox;
+    const meterJeLaengengrad = regBreite / (re - rw);
+    const rand = Math.min((lat - s) * METER_JE_GRAD, (n - lat) * METER_JE_GRAD,
+      (lon - w) * meterJeLaengengrad, (o - lon) * meterJeLaengengrad);
+    if (rand <= 0) return grob;
+    const anteil = THREE.MathUtils.smoothstep(rand, 0, 220);
+    return THREE.MathUtils.lerp(grob, rasterHoehe(detail, lat, lon, grob), anteil);
   };
 
   /**
@@ -196,12 +226,22 @@ export function baueFernland(
   /** D207: der klare (undunstige) Anteil der Farbe, den das Mosaik im Shader abwandeln darf. */
   const klar: number[] = [];
   const dunstgewichte: number[] = [];
+  const indices: number[] = [];
+  const eindeutigePunkte = new Map<Punkt, number>();
 
   /** Ein Punkt: Szenenkoordinaten plus die echte Höhe ü. NN für Farbe und Dunst. */
   type Punkt = readonly [number, number, number, number];
+  const fernPunkte = new Map<string, Punkt>();
   const punktFern = (lat: number, lon: number): Punkt => {
+    const key = detail ? `${lat}:${lon}` : '';
+    if (detail) {
+      const punkt = fernPunkte.get(key);
+      if (punkt) return punkt;
+    }
     const h = fernBei(lat, lon), [x, z] = zuWelt(lat, lon);
-    return [x, zuHoehe(h), z, h];
+    const punkt: Punkt = [x, zuHoehe(h), z, h];
+    if (detail) fernPunkte.set(key, punkt);
+    return punkt;
   };
   const punktNah = (lat: number, lon: number): Punkt => {
     const h = feineHoehe(lat, lon), [x, z] = zuWelt(lat, lon);
@@ -209,8 +249,19 @@ export function baueFernland(
   };
 
   function schiebe(v: Punkt) {
+    if (detail) {
+      const index = eindeutigePunkte.get(v);
+      if (index !== undefined) { indices.push(index); return; }
+      const i = positionen.length / 3;
+      eindeutigePunkte.set(v, i);
+      indices.push(i);
+    }
     positionen.push(v[0], v[1], v[2]);
     bergfarbe(v[3], farbe);
+    if (detail) {
+      farben.push(farbe.r, farbe.g, farbe.b);
+      return;
+    }
     farbe.multiply(beleuchtet);
     /**
      * Dunst einbacken: nach **Entfernung von der Regionsmitte** und nach Höhe.
@@ -245,18 +296,20 @@ export function baueFernland(
   function dreieckOben(p: Punkt, q: Punkt, r: Punkt) {
     const ux = q[0] - p[0], uy = q[1] - p[1], uz = q[2] - p[2];
     const vx = r[0] - p[0], vy = r[1] - p[1], vz = r[2] - p[2];
-    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    const laenge = Math.hypot(nx, ny, nz) || 1;
+    const ny = uz * vx - ux * vz;
     const dreh = ny < 0;
-    const w = (dreh ? -1 : 1) / laenge;
-    nx *= w; ny *= w; nz *= w;
-    // Flachschattierung: ein Lambert-Wert je Dreieck, kein Verlauf über die Ecken.
-    const lam = Math.max(0, nx * sonnenRichtung.x + ny * sonnenRichtung.y + nz * sonnenRichtung.z);
-    beleuchtet.setRGB(
-      grundLicht.r + sonnenLicht.r * lam,
-      grundLicht.g + sonnenLicht.g * lam,
-      grundLicht.b + sonnenLicht.b * lam,
-    );
+    if (!detail) {
+      const nx = uy * vz - uz * vy, nz = ux * vy - uy * vx;
+      const laenge = Math.hypot(nx, ny, nz) || 1;
+      const w = (dreh ? -1 : 1) / laenge;
+      // Der alte Pfad backt einen Lambert-Wert pro Dreieck ein.
+      const lam = Math.max(0, nx*w*sonnenRichtung.x + ny*w*sonnenRichtung.y + nz*w*sonnenRichtung.z);
+      beleuchtet.setRGB(
+        grundLicht.r + sonnenLicht.r * lam,
+        grundLicht.g + sonnenLicht.g * lam,
+        grundLicht.b + sonnenLicht.b * lam,
+      );
+    }
     schiebe(p);
     if (dreh) { schiebe(r); schiebe(q); } else { schiebe(q); schiebe(r); }
   }
@@ -274,13 +327,13 @@ export function baueFernland(
    * Ecken lag eine 125-m-Sehne gegen ein 10-m-Gelände, und die wich bis 40 m ab.
    */
   let iN = 0, iS = n - 1, jW = 0, jO = n - 1;
-  for (let i = 0; i < n; i++) if (latVon(i) >= rn) iN = i;
-  for (let i = n - 1; i >= 0; i--) if (latVon(i) <= rs) iS = i;
-  for (let j = 0; j < n; j++) if (lonVon(j) <= rw) jW = j;
-  for (let j = n - 1; j >= 0; j--) if (lonVon(j) >= re) jO = j;
+  for (let i = 0; i < latLinien.length; i++) if (latVon(i) >= rn) iN = i;
+  for (let i = latLinien.length - 1; i >= 0; i--) if (latVon(i) <= rs) iS = i;
+  for (let j = 0; j < lonLinien.length; j++) if (lonVon(j) <= rw) jW = j;
+  for (let j = lonLinien.length - 1; j >= 0; j--) if (lonVon(j) >= re) jO = j;
 
-  for (let i = 0; i < n - 1; i++) {
-    for (let j = 0; j < n - 1; j++) {
+  for (let i = 0; i < latLinien.length - 1; i++) {
+    for (let j = 0; j < lonLinien.length - 1; j++) {
       if (i >= iN && i < iS && j >= jW && j < jO) continue;
       viereck(
         punktFern(latVon(i), lonVon(j)),
@@ -313,8 +366,9 @@ export function baueFernland(
   }
 
   /** t-Werte der groben Knoten zwischen zwei Indizes, auf 0…1 normiert. */
-  const grobT = (von: number, bis: number) =>
-    Array.from({ length: bis - von + 1 }, (_, k) => k / (bis - von));
+  const grobT = (linie: number[], von: number, bis: number) =>
+    linie.slice(von, bis+1).map((wert, k) => detail
+      ? (wert - linie[von]) / (linie[bis] - linie[von]) : k / (bis - von));
 
   const nordAussen = latVon(iN), suedAussen = latVon(iS);
   const westAussen = lonVon(jW), ostAussen = lonVon(jO);
@@ -326,29 +380,86 @@ export function baueFernland(
   streifen(
     t => punktNah(rn, misch(rw, re, t)),
     t => punktFern(nordAussen, misch(westAussen, ostAussen, t)),
-    grobT(jW, jO));
+    grobT(lonLinien, jW, jO));
   streifen(
     t => punktNah(rs, misch(rw, re, t)),
     t => punktFern(suedAussen, misch(westAussen, ostAussen, t)),
-    grobT(jW, jO));
+    grobT(lonLinien, jW, jO));
   streifen(
     t => punktNah(misch(rn, rs, t), rw),
     t => punktFern(misch(nordAussen, suedAussen, t), westAussen),
-    grobT(iN, iS));
+    grobT(latLinien, iN, iS));
   streifen(
     t => punktNah(misch(rn, rs, t), re),
     t => punktFern(misch(nordAussen, suedAussen, t), ostAussen),
-    grobT(iN, iS));
+    grobT(latLinien, iN, iS));
 
   if (!positionen.length) return null;
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
-  geo.setAttribute('klar', new THREE.Float32BufferAttribute(klar, 3));
-  if (licht.beweglicherDunst) geo.setAttribute('dunstgewicht', new THREE.Float32BufferAttribute(dunstgewichte, 1));
-  // Keine Normalen: Das Material rechnet kein Licht, die Schattierung steckt
-  // bereits in der Farbe. Ein Normalenattribut wäre 230 KB toter Speicher.
+  if (detail) {
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+  } else {
+    geo.setAttribute('klar', new THREE.Float32BufferAttribute(klar, 3));
+    if (licht.beweglicherDunst) geo.setAttribute('dunstgewicht', new THREE.Float32BufferAttribute(dunstgewichte, 1));
+  }
   return geo;
+}
+
+const FERN_MOSAIK = /* glsl */ `
+float fernHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float fernRauschen(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(fernHash(i), fernHash(i + vec2(1, 0)), u.x),
+             mix(fernHash(i + vec2(0, 1)), fernHash(i + vec2(1, 1)), u.x), u.y);
+}
+`;
+
+/** Das feinere DGM-Relief übernimmt Licht und Dunst der aktuellen Milbinger Stimmung. */
+function baueReliefMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    vertexColors: true,
+    uniforms: {
+      uFernDunst: { value: new THREE.Color('#999f9b') },
+      uFernSonne: { value: new THREE.Vector3(47, 59, -60).normalize() },
+      uFernDirekt: { value: new THREE.Color(.40, .37, .32) },
+      uFernUmfeld: { value: new THREE.Color(.40, .43, .45) },
+    },
+    vertexShader: /* glsl */ `
+varying vec3 vFarbe, vLand, vHangnormale;
+void main() {
+  vFarbe = color;
+  vLand = (modelMatrix * vec4(position, 1.0)).xyz;
+  vHangnormale = mat3(modelMatrix) * normal;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`,
+    fragmentShader: /* glsl */ `
+uniform vec3 uFernDunst, uFernSonne, uFernDirekt, uFernUmfeld;
+varying vec3 vFarbe, vLand, vHangnormale;
+${FERN_MOSAIK}
+void main() {
+  vec3 normale = normalize(vHangnormale);
+  float entfernung = length(vLand - cameraPosition);
+  float hoehe = max(vLand.y - cameraPosition.y, 0.0);
+  // Luftperspektive und stärkerer Nebel in der Talsohle.
+  float tau = entfernung / 4900.0 + (1.0 - exp(-entfernung / 1300.0)) * .77 * exp(-hoehe / 104.0);
+  float dunst = 1.0 - exp(-tau);
+  vec2 ort = vLand.xz;
+  float flecken = .57*fernRauschen(ort/165.0) + .31*fernRauschen(ort/61.0) + .12*fernRauschen(ort/19.0);
+  float offen = smoothstep(.44, .63, flecken);
+  float steil = 1.0 - smoothstep(.56, .86, normale.y + .10*(flecken-.5));
+  vec3 bewuchs = vFarbe * mix(vec3(.57,.70,.58), vec3(1.18,1.16,.97), offen);
+  vec3 boden = mix(bewuchs, vec3(.23,.22,.19) * (.83 + .36*flecken), steil * .64);
+  float direkt = max(0.0, dot(normale, uFernSonne));
+  vec3 farbe = boden * (uFernUmfeld * (.73 + .27*normale.y) + uFernDirekt * direkt);
+  gl_FragColor = vec4(mix(farbe, uFernDunst, dunst), 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}`,
+  });
 }
 
 /**
@@ -361,7 +472,8 @@ export function baueFernland(
  * kleben: Himmel, Nebel und Kulisse enden bei derselben Dunstfarbe, also müssen
  * alle drei denselben Weg ins Bild nehmen (G-105).
  */
-export function baueFernlandMaterial(beweglicherDunst = false): THREE.ShaderMaterial {
+export function baueFernlandMaterial(beweglicherDunst = false, relief = false): THREE.ShaderMaterial {
+  if (relief) return baueReliefMaterial();
   // D207: Mosaik aus Wald und Offenland im Fragment, nur auf dem klaren Anteil der Farbe
   // (`klar`), der Dunst bleibt unberührt — die Kulisse endet weiter bei der Horizontfarbe.
   return new THREE.ShaderMaterial({
@@ -386,13 +498,7 @@ varying vec3 vFarbe;
 varying vec3 vKlar;
 varying vec2 vOrt;
 ${beweglicherDunst ? 'uniform vec3 uDunstversatz;\nvarying float vDunstgewicht;' : ''}
-float fernHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float fernRauschen(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(fernHash(i), fernHash(i + vec2(1, 0)), u.x),
-             mix(fernHash(i + vec2(0, 1)), fernHash(i + vec2(1, 1)), u.x), u.y);
-}
+${FERN_MOSAIK}
 void main() {
   // D207: Wald und Offenland als Mosaik. Das 125-m-Raster trägt keine Fläche unter einem
   // Kilometer; ohne das stand der Talboden als eine helle Platte (Flanken-Kamera, D204).
