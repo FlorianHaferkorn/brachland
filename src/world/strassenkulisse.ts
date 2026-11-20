@@ -8,6 +8,7 @@ import { hoeheAufFlaeche } from './lod.js';
 import type { HoehenFeld } from './lod.js';
 import { imPolygon } from './osm.js';
 import type { Weltdaten } from './osm.js';
+import { STRASSENPROFIL_AN } from './echt.js';
 
 type Ort = [number, number];
 
@@ -35,12 +36,17 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
     return { ring, minX: Math.min(...xs), maxX: Math.max(...xs), minZ: Math.min(...zs), maxZ: Math.max(...zs) };
   });
   return abschnitte.map(abschnitt => {
-    const wege = abschnitt.wege.flatMap(({ osmWeg, verfall }) => {
+    const wege = abschnitt.wege.flatMap(({ osmWeg, verfall, profil }) => {
       const weg = wegNachId.get(osmWeg);
       if (!weg) return [];
       const belag = weg.quelle?.oberflaeche;
       return [{
-        punkte: weg.punkte.map(zuWelt), breite: weg.breite, saat: osmWeg, verfall,
+        punkte: weg.punkte.map(zuWelt),
+        breite: (STRASSENPROFIL_AN ? profil?.breite : undefined) ?? weg.breite,
+        versatz: STRASSENPROFIL_AN ? profil?.versatz : undefined,
+        saat: osmWeg, verfall,
+        fahrbahnprofil: STRASSENPROFIL_AN,
+        markierungen: STRASSENPROFIL_AN ? profil?.markierungen : undefined,
         gebundenerBelag: belag === 'asphalt' || belag === 'concrete',
       }];
     });
@@ -53,7 +59,8 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
         return [{ art: 'laterne', x, z, richtung: THREE.MathUtils.radToDeg(Math.atan2(dx, -dz)), verfall: eintrag.verfall }];
       }
       const winkel = THREE.MathUtils.degToRad(eintrag.richtung);
-      const rand = eintrag.achsenpunkt ? weg.breite / 2 + .65 : 0;
+      const profil = STRASSENPROFIL_AN ? abschnitt.wege.find(w => w.osmWeg === eintrag.osmWeg)?.profil : undefined;
+      const rand = eintrag.achsenpunkt ? (profil?.breite ?? weg.breite) / 2 + (profil?.versatz ?? 0) + .65 : 0;
       return [{
         art: 'ortstafel', x: x - Math.cos(winkel) * rand, z: z - Math.sin(winkel) * rand,
         richtung: eintrag.richtung, text: eintrag.text, verfall: eintrag.verfall,

@@ -12,7 +12,7 @@
  *   die weiche Kante: außen durchsichtig, innen deckend.
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
-import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT, STRASSENVERFALL_AN, WELLEN_ECHT } from './echt.js';
+import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT, STRASSENPROFIL_AN, STRASSENVERFALL_AN, WELLEN_ECHT } from './echt.js';
 import WEG_SCANS from '../../public/material/weg-scans.json';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
@@ -26,7 +26,7 @@ export interface WasserReflexProbe {
   bereit: { value: number };
 }
 
-const HASH_GLSL = /* glsl */ `
+export const BAND_RAUSCHEN_GLSL = /* glsl */ `
 float bandHash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
@@ -37,6 +37,16 @@ float bandRauschen(vec2 p) {
   f = f * f * (3.0 - 2.0 * f);
   return mix(mix(bandHash(i), bandHash(i + vec2(1.0, 0.0)), f.x),
              mix(bandHash(i + vec2(0.0, 1.0)), bandHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+`;
+
+export const ASPHALTRAND_GLSL = /* glsl */ `
+float asphaltRandbreite(float korn) {
+  return .038 + .030 * korn;
+}
+float asphaltAufbruch(float quer, float bucht, float kante, float verfall) {
+  return verfall * smoothstep(.49, .82, quer)
+    * smoothstep(.69, 1.00, quer * .58 + bucht * .55 + kante * .15);
 }
 `;
 
@@ -167,7 +177,7 @@ export function baueWasserMaterial(
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vBand = uv;\n  vWasserPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\nvarying vec3 vWasserPos;\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\n' + HASH_GLSL + (probe && !fallend ? /* glsl */ `
+      .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\nvarying vec3 vWasserPos;\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\n' + BAND_RAUSCHEN_GLSL + (probe && !fallend ? /* glsl */ `
 uniform samplerCube uWehrReflex;
 uniform vec3 uWehrMitte;
 uniform float uWehrBereit;
@@ -369,7 +379,8 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
         '#include <begin_vertex>\n  vBand = uv;\n  vBelag = belag;\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>\nvarying vec2 vBand;\nvarying ${belagTyp} vBelag;\nvarying vec3 vWeltPos;\n` + HASH_GLSL + (WEG_TEXTUREN ? WEG_SCAN_GLSL : ''))
+      .replace('#include <common>', `#include <common>\nvarying vec2 vBand;\nvarying ${belagTyp} vBelag;\nvarying vec3 vWeltPos;\n`
+        + BAND_RAUSCHEN_GLSL + (STRASSENPROFIL_AN ? ASPHALTRAND_GLSL : '') + (WEG_TEXTUREN ? WEG_SCAN_GLSL : ''))
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float quer = abs(vBand.x);
   float rand = 1.0 - quer;
@@ -390,7 +401,11 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
   /* Ausgefranster Rand. vBelag.y entscheidet, wie weich die Kante ist:
    * Asphalt hat eine gebaute Kante (0,15), ein Trampelpfad gar keine (1,2). */
   float franse = bandRauschen(vec2(vBand.y * 1.4, vBand.x * 2.0)) * 0.22 * vBelag.y;
-  diffuseColor.a *= smoothstep(0.0, 0.12 + 0.28 * vBelag.y + franse, rand);
+  float randbreite = 0.12 + 0.28 * vBelag.y + franse;
+${STRASSENPROFIL_AN ? `
+  if (vBelag.z > 0.0 && vBelag.y < .30) randbreite = asphaltRandbreite(fleck);
+` : ''}
+  diffuseColor.a *= smoothstep(0.0, randbreite, rand);
 ${WEG_TEXTUREN ? `
   // D285: Scan nach Belag; Feldweg zwischen den Spuren Graspfad.
   float wegR = vBelag.y < 0.3 ? 0.0 : vBelag.y < 0.8 ? 1.0 : 2.0;
@@ -408,6 +423,19 @@ ${STRASSENVERFALL_AN ? /* glsl */ `
     float spur = smoothstep(.32, .53, quer);
     float aufbruch = spur * vBelag.z *
       smoothstep(.37, .69, quer * .65 + bucht * .43 + kante * .17);
+${STRASSENPROFIL_AN ? /* glsl */ `
+    if (vBelag.y < .30) {
+      // Ausgebleichte Deckschicht und freigefahrener, dichterer Asphalt.
+      aufbruch = asphaltAufbruch(quer, bucht, kante, vBelag.z);
+      float helligkeit = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
+      vec3 decke = vec3(.96, 1.015, 1.065) * helligkeit;
+      float spurabstand = (quer - .44) * 5.4;
+      float poliert = exp(-spurabstand * spurabstand);
+      float reparatur = smoothstep(.57, .80, bucht * .77 + kante * .23);
+      diffuseColor.rgb = mix(diffuseColor.rgb, decke, .95)
+        * (1.08 + .18 * kante - .26 * poliert - .32 * reparatur);
+    }
+  ` : ''}
     vec3 erde = vec3(.14, .103, .049) * (.78 + .54 * kante);
     diffuseColor.rgb = mix(diffuseColor.rgb, erde, aufbruch * .88);
     diffuseColor.a *= 1.0 - aufbruch * .92;
@@ -422,6 +450,7 @@ ${STRASSENVERFALL_AN ? /* glsl */ `
   }` : '#include <normal_fragment_maps>');
   };
 
-  material.customProgramCacheKey = () => 'brachland-weg-v2' + (WEG_TEXTUREN ? '-scans' : '') + (STRASSENVERFALL_AN ? '-verfall' : '');
+  material.customProgramCacheKey = () => 'brachland-weg-v2' + (WEG_TEXTUREN ? '-scans' : '')
+    + (STRASSENVERFALL_AN ? '-verfall' : '') + (STRASSENPROFIL_AN ? '-profil' : '');
   return material;
 }

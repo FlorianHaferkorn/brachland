@@ -20,7 +20,8 @@
  * nach Entfernung ausgeblendet.
  */
 import * as THREE from 'three';
-import { HAUSFRONT_AN, STRASSENVERFALL_AN } from './echt.js';
+import { HAUSFRONT_AN, STRASSENPROFIL_AN, STRASSENVERFALL_AN } from './echt.js';
+import type { Strassenkulisse } from '../data/schema.js';
 import { PALETTE } from './palette.js';
 import type { Weltdaten } from './osm.js';
 import { MASSSTAB, WEG_TEILUNG, orientierteHuelle } from './terrain.js';
@@ -172,7 +173,9 @@ function einsortieren<T>(karte: Map<string, T[]>, ix: number, iz: number, wert: 
  * weit in die Nachbarkachel ragen; bei 4 m Teilung und 64 m Kacheln sind das
  * höchstens 2 m, und die Naht behandelt die Schürze.
  */
-export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld, verfall?: ReadonlyMap<number, number>): Bandsatz {
+export function zerlegeBaender(
+  welt: Weltdaten, feld: HoehenFeld, strassen?: ReadonlyMap<number, Strassenkulisse['wege'][number]>,
+): Bandsatz {
   const [sued, west, nord, ost] = welt.bbox;
   const zuWelt = (lat: number, lon: number): [number, number] => [
     ((lon - west) / (ost - west) - 0.5) * feld.breiteMeter,
@@ -186,7 +189,7 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld, verfall?: Read
   const zerlegen = (
     punkte: readonly [number, number][], breite: number,
     ziel: Map<string, Bandstueck[]>, fallZiel: Map<string, Bandstueck[]> | null,
-    belag?: Wegbelag,
+    belag?: Wegbelag, versatz = 0,
   ) => {
     const halbe = breite / (2 * MASSSTAB.stauchung);
     const halbeFall = Math.max(0.8, halbe);
@@ -196,11 +199,12 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld, verfall?: Read
       const [bx, bz] = zuWelt(...punkte[k + 1]);
       const dx = bx - ax, dz = bz - az;
       const len = Math.hypot(dx, dz) || 1;
+      const querX = -dz / len * versatz, querZ = dx / len * versatz;
       const teile = Math.max(1, Math.ceil(len / WEG_TEILUNG));
       for (let t = 0; t < teile; t++) {
         const t1 = t / teile, t2 = (t + 1) / teile;
-        const x1 = ax + dx * t1, z1 = az + dz * t1;
-        const x2 = ax + dx * t2, z2 = az + dz * t2;
+        const x1 = ax + dx * t1 + querX, z1 = az + dz * t1 + querZ;
+        const x2 = ax + dx * t2 + querX, z2 = az + dz * t2 + querZ;
         // Der Wasserfall wird auf der feinen Fläche entschieden — der einen, die
         // sich mit der Kameraentfernung nicht ändert.
         const fall = fallZiel !== null
@@ -245,8 +249,10 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld, verfall?: Read
   for (const linie of welt.linien) zerlegen(linie.punkte, linie.breite, satz.baeche, satz.faelle);
   for (const weg of welt.wege) {
     const belag = belagFuer(weg.art);
-    const zustand = weg.quelle && verfall?.get(weg.quelle.osmId);
-    zerlegen(weg.punkte, weg.breite, satz.wege, null, zustand ? { ...belag, verfall: zustand } : belag);
+    const zustand = weg.quelle && strassen?.get(weg.quelle.osmId);
+    const profil = STRASSENPROFIL_AN ? zustand?.profil : undefined;
+    zerlegen(weg.punkte, profil?.breite ?? weg.breite, satz.wege, null,
+      zustand ? { ...belag, verfall: zustand.verfall } : belag, profil?.versatz);
   }
 
   // Nach den Wegen, weil die Gartenprüfung sie braucht: Ein Beet auf der

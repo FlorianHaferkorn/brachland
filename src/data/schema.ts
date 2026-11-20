@@ -485,6 +485,19 @@ const Strassenkulisse = z.object({
   wege: z.array(z.object({
     osmWeg: z.number().int().positive(),
     verfall: z.number().min(0).max(1),
+    profil: z.object({
+      breite: z.number().positive().optional(),
+      /** Versatz der Fahrbahnmitte quer zur OSM-Achse in Weltmetern. */
+      versatz: z.number().optional(),
+      /** Stationen in Metern ab dem ersten OSM-Stützpunkt dieses Weges. */
+      markierungen: z.array(z.object({
+        von: z.number().nonnegative(),
+        bis: z.number().positive(),
+        breite: z.number().positive(),
+        quer: z.number().optional().describe('Abstand von der Fahrbahnmitte in Weltmetern'),
+        querEnde: z.number().optional().describe('Querabstand am Ende eines versetzten Streifens'),
+      }).refine(linie => linie.bis > linie.von, 'Markierung endet vor ihrem Anfang.')).optional(),
+    }).optional(),
   })),
   objekte: z.array(z.discriminatedUnion('art', [
     Strassenobjekt.extend({ art: z.literal('laterne') }),

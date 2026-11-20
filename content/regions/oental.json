@@ -59,11 +59,32 @@
       "wege": [
         {
           "osmWeg": 26518481,
-          "verfall": 0.86
+          "verfall": 0.86,
+          "profil": {
+            "breite": 6,
+            "versatz": 0.6,
+            "markierungen": [
+              { "von": 0, "bis": 2.4, "breite": 0.12, "quer": 0.6, "querEnde": 0.8 },
+              { "von": 21.1, "bis": 25.7, "breite": 0.12, "quer": 1.18, "querEnde": 1.24 },
+              { "von": 56, "bis": 59.95, "breite": 0.12, "quer": 0.4, "querEnde": 0.2 },
+              { "von": 22, "bis": 59.95, "breite": 0.12, "quer": -1.4, "querEnde": -2.65 },
+              { "von": 54.5, "bis": 59.95, "breite": 0.12, "quer": 2.93 }
+            ]
+          }
         },
         {
           "osmWeg": 42330343,
-          "verfall": 0.9
+          "verfall": 0.9,
+          "profil": {
+            "breite": 6,
+            "versatz": 0.6,
+            "markierungen": [
+              { "von": 0, "bis": 0.35, "breite": 0.12, "quer": 0.2 },
+              { "von": 7.8, "bis": 12.2, "breite": 0.12, "quer": 0.1, "querEnde": -0.1 },
+              { "von": 0, "bis": 28, "breite": 0.12, "quer": -2.71, "querEnde": -2.94 },
+              { "von": 0, "bis": 28, "breite": 0.12, "quer": 2.93, "querEnde": 2.71 }
+            ]
+          }
         }
       ],
       "objekte": [

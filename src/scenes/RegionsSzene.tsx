@@ -737,8 +737,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.strassenkulisse
     : undefined, [welt]);
   const satz = useMemo(() => {
-    const verfall = strassen && new Map(strassen.flatMap(s => s.wege.map(w => [w.osmWeg, w.verfall] as const)));
-    return zerlegeBaender(welt, feld, verfall);
+    const zustand = strassen && new Map(strassen.flatMap(s => s.wege.map(w => [w.osmWeg, w] as const)));
+    return zerlegeBaender(welt, feld, zustand);
   }, [welt, feld, strassen]);
   const nachlauf = useMemo<Kachelnachlauf>(() => ({ bodenFertig: false, baenderFertig: false, pegelNeu: false }), [feld, satz]);
   const reflexMitte = useMemo(() => {

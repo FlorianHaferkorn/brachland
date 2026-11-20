@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ASPHALTRAND_GLSL, BAND_RAUSCHEN_GLSL } from './bandmaterial.js';
 import { WEG_UEBER_GRUND } from './baender.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_SCHWELLE } from './grashorst.js';
 import { mulberry } from './props.js';
@@ -13,11 +14,18 @@ export interface StrassenbewuchsWeg {
   verfall?: number;
   /** Auf ungebundenem Belag entstehen Rinnen und Pflanzeninseln ohne Asphaltrisse. */
   gebundenerBelag?: boolean;
+  /** Bruchstücke der gebundenen Fahrbahn und stärker gezackter Randsaum. */
+  fahrbahnprofil?: boolean;
+  /** Verschiebung der Fahrbahnmitte quer zur OSM-Achse in Weltmetern. */
+  versatz?: number;
+  /** Gemessene Streifen. Längs- und Quermaße gelten in Weltmetern. */
+  markierungen?: readonly { von: number; bis: number; breite: number; quer?: number; querEnde?: number }[];
 }
 
 type Bodenhoehe = (x: number, z: number) => number;
 type FreierBoden = (x: number, z: number) => boolean;
 type Punkt = readonly [x: number, y: number, z: number];
+type Bandpunkt = readonly [laengs: number, quer: number];
 
 interface Stueck {
   x: number;
@@ -42,6 +50,9 @@ const MOOS = new THREE.Color('#495340');
 const ERDE = new THREE.Color('#605746');
 const SPLITT = new THREE.Color('#6a6559');
 const RISS = new THREE.Color('#24271f');
+const MARKIERUNG = new THREE.Color('#e5e2d0');
+const ASPHALT = new THREE.Color('#55544e');
+const BRUCHKANTE = new THREE.Color('#37372f');
 const TAU = Math.PI * 2;
 
 function punktAmBand(st: Stueck, laengs: number, quer: number, boden: Bodenhoehe, hub = 0): Punkt {
@@ -74,6 +85,20 @@ function atlasKarten(): THREE.BufferGeometry {
   return geo;
 }
 
+/** Schneidet einen Streifen so, dass keines seiner Dreiecke den Bandknick überspannt. */
+function anBanddiagonaleTeilen(st: Stueck, ring: readonly Bandpunkt[], seite: -1 | 1): Bandpunkt[] {
+  const abstand = ([l, q]: Bandpunkt) => seite * (l / st.laenge + q / (2 * st.halb) - .5);
+  return ring.flatMap((a, i) => {
+    const b = ring[(i + 1) % ring.length], dA = abstand(a), dB = abstand(b);
+    const raus: Bandpunkt[] = dA >= 0 ? [a] : [];
+    if (dA * dB < 0) {
+      const t = dA / (dA - dB);
+      raus.push([THREE.MathUtils.lerp(a[0], b[0], t), THREE.MathUtils.lerp(a[1], b[1], t)]);
+    }
+    return raus;
+  });
+}
+
 /** Berechnet die Auflagen des beprobten Straßenzugs einmal. Büschel und Splitt bleiben Instanzen. */
 export function baueStrassenbewuchs(
   wege: readonly StrassenbewuchsWeg[],
@@ -83,24 +108,63 @@ export function baueStrassenbewuchs(
   const gruppe = new THREE.Group();
   gruppe.name = 'Straßenbewuchs';
   const positionen: number[] = [], farben: number[] = [], indizes: number[] = [];
+  const hatMarkierungen = wege.some(weg => weg.markierungen?.length);
+  const lack: number[] = [];
   const wildkraut: Bewuchs[] = [], splitt: Bewuchs[] = [];
   let risse = 0;
+  let markierungsMeter = 0, markierungsDreiecke = 0, asphaltSchollen = 0;
 
-  const vertex = (p: Punkt, farbe: THREE.Color, deckung: number) => {
+  const vertex = (p: Punkt, farbe: THREE.Color, deckung: number, randabstand = -1, verfall = 0) => {
     const index = positionen.length / 3;
     positionen.push(...p);
     farben.push(farbe.r, farbe.g, farbe.b, deckung);
+    if (hatMarkierungen) lack.push(randabstand, verfall);
     return index;
   };
   const frei = ([x, , z]: Punkt) => freierBoden(x, z);
+  const lackieren = (st: Stueck, meter: number, streifen: NonNullable<StrassenbewuchsWeg['markierungen']>[number], verfall: number) => {
+    const l0 = Math.max(0, streifen.von - meter), l1 = Math.min(st.laenge, streifen.bis - meter);
+    if (l1 <= l0) return;
+    const quer = streifen.quer ?? 0, querEnde = streifen.querEnde ?? quer;
+    const quergrenzen = (l: number) => {
+      const q = THREE.MathUtils.lerp(quer, querEnde, (meter + l - streifen.von) / (streifen.bis - streifen.von));
+      const halb = streifen.breite / 2;
+      return [Math.max(-st.halb, q - halb), Math.min(st.halb, q + halb)];
+    };
+    const unterteilt = Math.ceil((l1 - l0) / .36);
+    for (let k = 0; k < unterteilt; k++) {
+      const a = THREE.MathUtils.lerp(l0, l1, k / unterteilt);
+      const b = THREE.MathUtils.lerp(l0, l1, (k + 1) / unterteilt);
+      const [a0, a1] = quergrenzen(a), [b0, b1] = quergrenzen(b);
+      if (a0 >= a1 || b0 >= b1) continue;
+      const flaeche: Bandpunkt[] = [[a,a0],[a,a1],[b,b1],[b,b0]];
+      if (!flaeche.every(([l, quer]) => frei(punktAmBand(st,l,quer,boden)))) continue;
+      for (const seite of [-1, 1] as const) {
+        const ring = anBanddiagonaleTeilen(st, flaeche, seite);
+        if (ring.length < 3) continue;
+        const ecken = ring.map(([l, quer]) => {
+          const meterwert = meter + l;
+          const abgerieben = .24 + .52 * (.5 + .5 * Math.sin(meterwert * 4.03 + quer * 7.1))
+            + .17 * (.5 + .5 * Math.sin(meterwert * 12.7 - quer * 4.3));
+          return vertex(punktAmBand(st,l,quer,boden,.013), MARKIERUNG, 1 - verfall * abgerieben,
+            1 - Math.abs(quer) / st.halb, verfall);
+        });
+        for (let i = 1; i + 1 < ecken.length; i++) indizes.push(ecken[0],ecken[i],ecken[i + 1]);
+        markierungsDreiecke += ecken.length - 2;
+      }
+      markierungsMeter += b - a;
+    }
+  };
   const matrix = new THREE.Matrix4(), skalierung = new THREE.Vector3(), farbe = new THREE.Color();
 
   for (const weg of wege) {
     const zufall = mulberry(weg.saat);
     const verfall = THREE.MathUtils.clamp(weg.verfall ?? 1, 0, 1);
-    const halb = weg.breite / 2;
+    const halb = weg.breite / 2, versatz = weg.versatz ?? 0;
     const freieSpur = Math.min(.90, halb * .70);
-    if (halb < .45 || verfall === 0) continue;
+    const markierungen = weg.markierungen ?? [];
+    const fahrbahnprofil = !!weg.fahrbahnprofil && weg.gebundenerBelag !== false;
+    if (halb < .45 || (verfall === 0 && markierungen.length === 0)) continue;
     const phase = zufall() * TAU;
     let meter = 0;
 
@@ -108,25 +172,62 @@ export function baueStrassenbewuchs(
       const [x0, z0] = weg.punkte[i - 1];
       const [x1, z1] = weg.punkte[i];
       const distanz = Math.hypot(x1 - x0, z1 - z0);
-      if (distanz < .05) continue;
+      if (distanz === 0 || (distanz < .05 && markierungen.length === 0)) continue;
       const teile = Math.ceil(distanz / WEG_TEILUNG), laenge = distanz / teile;
       const dx = (x1 - x0) / distanz, dz = (z1 - z0) / distanz;
+      const querX = -dz * versatz, querZ = dx * versatz;
       for (let j = 0; j < teile; j++, meter += laenge) {
-        const x = x0 + dx * laenge * j, z = z0 + dz * laenge * j;
+        const x = x0 + dx * laenge * j + querX, z = z0 + dz * laenge * j + querZ;
         const ex = x0 + dx * laenge * (j + 1), ez = z0 + dz * laenge * (j + 1);
         const nx = -dz * halb, nz = dx * halb;
         const st: Stueck = {
           x, z, dx, dz, laenge, halb,
           hoehen: [boden(x - nx, z - nz), boden(x + nx, z + nz), boden(ex - nx, ez - nz), boden(ex + nx, ez + nz)],
         };
+        for (const streifen of markierungen) lackieren(st, meter, streifen, verfall);
+        if (verfall === 0 || distanz < .05) continue;
 
         for (const seite of [-1, 1]) {
           const horst = .5 + .5 * Math.sin(meter * (seite < 0 ? .19 : .27) + phase + seite * 1.23);
           const drang = verfall * (.19 + .81 * horst ** 1.5);
-          const mitte = halb - drang * (halb - freieSpur) * .68;
+          const randbucht = fahrbahnprofil ? .34 * Math.sin(meter * .48 + phase + 2.8 * seite)
+            + .19 * Math.sin(meter * 1.07 - phase * seite) : 0;
+          const saum = halb - drang * (halb - freieSpur) * .68;
+          const mitte = fahrbahnprofil ? Math.max(freieSpur + .13, saum + randbucht * verfall) : saum;
           const breite = Math.min(.29 + drang * .71, mitte - freieSpur);
           const laengs = laenge * (.42 + zufall() * .16);
           const radius = Math.min(laenge * .4, .55 + drang * 1.04);
+
+          if (fahrbahnprofil && laenge >= .7) {
+            // Eigenes Zufallsfeld hält die Schollen unabhängig vom Blattatlas.
+            const scholle = mulberry(weg.saat ^ Math.imul(Math.round(meter * 100) + seite, 22799));
+            const quer = Math.max(freieSpur + .24, Math.min(halb - .08, halb * .84 + randbucht * .67));
+            const querweite = Math.min(.13 + scholle() * .24, quer - freieSpur);
+            if (querweite > .12 && scholle() < verfall * (.37 + drang * .44)) {
+              const laengsweite = Math.min(laenge * .35, .28 + scholle() * .59);
+              const relief = .013 + scholle() * .025;
+              const kern = punktAmBand(st, laengs, seite * quer, boden, relief);
+              const ring = Array.from({ length: 8 }, (_, k): Bandpunkt => {
+                const winkel = TAU * k / 8 + (scholle() - .5) * .53;
+                const f = .62 + scholle() * .38;
+                return [THREE.MathUtils.clamp(laengs + Math.cos(winkel) * laengsweite * f, 0, laenge),
+                  seite * (quer + Math.sin(winkel) * querweite * f)];
+              });
+              const oben = ring.map(([l, q]) => punktAmBand(st,l,q,boden,relief * (.54 + scholle() * .46)));
+              if (frei(kern) && oben.every(frei)) {
+                farbe.copy(ASPHALT).multiplyScalar(.75 + scholle() * .45);
+                const a = vertex(kern, farbe, .87);
+                const b = oben.map(p => vertex(p, farbe, .74 + scholle() * .24));
+                const c = ring.map(([l, q]) => vertex(punktAmBand(st,l,q,boden,-.013), BRUCHKANTE, .83));
+                for (let k = 0; k < b.length; k++) {
+                  const k2 = (k + 1) % b.length;
+                  indizes.push(a,b[seite > 0 ? k2 : k],b[seite > 0 ? k : k2],
+                    b[k],c[k],b[k2],b[k2],c[k],c[k2]);
+                }
+                asphaltSchollen++;
+              }
+            }
+          }
 
           if (breite > .03 && zufall() < drang * 1.35) {
             const kern = punktAmBand(st, laengs, seite * mitte, boden, .023);
@@ -189,6 +290,7 @@ export function baueStrassenbewuchs(
     const flaeche = new THREE.BufferGeometry();
     flaeche.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
     flaeche.setAttribute('color', new THREE.Float32BufferAttribute(farben, 4));
+    if (hatMarkierungen) flaeche.setAttribute('lack', new THREE.Float32BufferAttribute(lack, 2));
     flaeche.setIndex(indizes);
     // Auflagen übernehmen auf beiden Seiten die Normalenrichtung des Bodens.
     flaeche.setAttribute('normal', new THREE.Float32BufferAttribute(
@@ -200,11 +302,14 @@ export function baueStrassenbewuchs(
     });
     material.onBeforeCompile = shader => {
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec2 vAuflage;')
-        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvAuflage = position.xz;');
+        .replace('#include <common>', `#include <common>\nvarying vec2 vAuflage;
+${hatMarkierungen ? 'attribute vec2 lack; varying vec2 vLack;' : ''}`)
+        .replace('#include <begin_vertex>', `#include <begin_vertex>\nvAuflage = position.xz;
+${hatMarkierungen ? 'vLack = lack;' : ''}`);
       shader.fragmentShader = shader.fragmentShader
         .replace('#include <common>', `#include <common>
 varying vec2 vAuflage;
+${hatMarkierungen ? 'varying vec2 vLack;\n' + BAND_RAUSCHEN_GLSL + ASPHALTRAND_GLSL : ''}
 float auflageKorn(vec2 p) {
   return fract(sin(dot(mod(p, 4096.0), vec2(83.2, 35.1))) * 43758.5453);
 }
@@ -218,8 +323,17 @@ float auflageRauschen(vec2 p) {
   float moos = auflageRauschen(vAuflage * 9.0);
   float korn = auflageRauschen(vAuflage * 36.0);
   diffuseColor.rgb *= 0.75 + 0.42 * moos + 0.18 * korn;
-  diffuseColor.a *= smoothstep(0.05, 0.49, moos * 0.51 + diffuseColor.a * 0.64);`);
+  diffuseColor.a *= smoothstep(0.05, 0.49, moos * 0.51 + diffuseColor.a * 0.64);
+${hatMarkierungen ? /* glsl */ `
+  if (vLack.x >= 0.0) {
+    float ausbruch = asphaltAufbruch(1.0 - vLack.x, bandRauschen(vAuflage * .29),
+      bandRauschen(vAuflage * 2.1), vLack.y);
+    diffuseColor.a *= (1.0 - ausbruch) * smoothstep(0.0, asphaltRandbreite(bandRauschen(vAuflage * .85)), vLack.x);
+    diffuseColor.a *= smoothstep(.21, .56, moos * .61 + korn * .39);
+  }
+` : ''}`);
     };
+    if (hatMarkierungen) material.customProgramCacheKey = () => 'strassenauflage-mit-lack';
     const mesh = new THREE.Mesh(flaeche, material);
     mesh.renderOrder = .5;
     mesh.receiveShadow = true;
@@ -289,7 +403,10 @@ float auflageRauschen(vec2 p) {
       }).catch((fehler: unknown) => console.warn('Straßenbewuchs: Grashorst-Atlas fehlt.', fehler));
     }
   }
-  gruppe.userData.strassenbewuchs = { wildkraut: wildkraut.length, splitt: splitt.length, risse, auflageDreiecke: indizes.length / 3 };
+  gruppe.userData.strassenbewuchs = {
+    wildkraut: wildkraut.length, splitt: splitt.length, risse, auflageDreiecke: indizes.length / 3,
+    ...(wege.some(weg => weg.markierungen || weg.fahrbahnprofil) ? { markierungsMeter, markierungsDreiecke, asphaltSchollen } : {}),
+  };
   return {
     gruppe,
     entsorge: () => {

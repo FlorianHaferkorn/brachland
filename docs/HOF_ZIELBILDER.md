@@ -422,3 +422,28 @@ Vier Bildpaare zeigen die drei Kulissen bei gleicher Kamera. Die Milbinger Grupp
 | Bilder über 50 ms, gesamte Route | 2 | 0 |
 
 Messungen ohne Aufnahme im selben Build mit `strassenverfall=0/1/1/0` bei aktivem D331. Alle Läufe erreichen die zwölf Wegpunkte. Die Route prüft den Bewuchs an der Milbinger Straße. Schild und Laternen sind an ihren eigenen Standorten im Spiel fotografiert. Einzelberichte unter `.cache/mess/d333-finale-ab-{a1,b1,b2,a2}`. Die getrennten Echtzeitaufnahmen liegen unter `.cache/mess/d333-finale-film-{a,b}` und der zusammengefügte Vergleich unter `.cache/bilder/d333-strassenverfall/index.html`.
+
+## Fahrbahnprofile nach Luftbild (D334)
+
+An der Ortstafel Brannenburg misst die unverschattete Asphaltdecke der St 2089 im bayerischen DOP20 rund 6,0 m (Ableseunsicherheit etwa ±0,4 m). Die Mitte liegt dort etwa 0,8 m neben der OSM-Achse. Das Spiel übernimmt die Breite als Näherung für beide anschließenden OSM-Wege und zeichnet ihre Fahrbahn 0,6 m parallel versetzt. An die neue Fahrbahnkante rückt auch der modellierte Schildmast. Der genaue Maststandort bleibt über Seitenaufnahmen zu prüfen. Luftbildausschnitt in WGS84: 47,74455–47,74519° N und 12,09051–12,09148° E. [Bayerische Vermessungsverwaltung, Digitale Orthophotos](https://www.ldbv.bayern.de/produkte/luftbilder/orthophotos.html)
+
+| OSM-Weg | Sichtbare Leitlinie ab dem ersten Stützpunkt | Abgelesene Randlinie |
+|---|---|---|
+| [26518481](https://www.openstreetmap.org/way/26518481) | 0–2,4 m, 21,1–25,7 m und 56,0 m bis zum Übergang bei 59,95 m | Nordostseite ab 22,0 m, Südwestseite ab 54,5 m. Davor begrenzen Baumkrone und Schatten die Ablesung der Südwestseite. |
+| [42330343](https://www.openstreetmap.org/way/42330343) | Fortsetzung bis 0,35 m, nächster Strich bei 7,8–12,2 m | Beide Seiten über die ersten 28 m. |
+
+Die Endpunkte der Striche sind auf etwa ±0,35 m ablesbar. Die Strichbreite von 12 cm ist ein Modellmaß unterhalb der nativen Bildauflösung von 20 cm. Die rechtwinkligen Schnitte an der Milbinger Straße ergeben lokal 5,6 und 6,6 m (je etwa ±0,6 m). Einfahrten, Gehweg und ein seitlicher Unterschied zur OSM-Achse erfordern einen eigenen Lageabgleich vor einer Geometriekorrektur. Auf den geprüften Schnitten ist kein Farbstreifen erkennbar, ebenso an der Bahnhofstraße.
+
+`strassenkulisse.wege[].profil` erfasst die gemessenen Straßenabschnitte einmal je OSM-Weg. Die Längenstationen folgen der OSM-Achse, die Querabstände der neuen Fahrbahnmitte. `strassenprofil=1` aktiviert bei aktivem D333 den grauen Asphalt, dunklere Reifenspuren und Reparaturflecken. Aufgebrochene Asphaltschollen, der gezackte Krautsaum und abgeriebene Farbreste nutzen das vorhandene Auflagen-Mesh. Asphalt und Farbreste teilen die Bruchmaske. Das Spiel benötigt dafür keine zusätzlichen Texturen oder Draw Calls. Die amtlichen Aufnahmen dienen der Vermessung.
+
+Die drei A/B-Bildpaare zeigen Ortseinfahrt, Milbinger Straße und Bahnhofstraße aus identischen Kameras. An der Ortseinfahrt kommen 115 m Markierungsgeometrie vor Abreibung und Bewuchs sowie 98 kleine Asphaltschollen hinzu. An der Milbinger Straße und an der Bahnhofstraße zeigen die Bilder die neue Asphaltoberfläche und die Bruchstücke. Die sechs Aufnahmen melden null Browserfehler.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | D333 | D334 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,55 | 49,56 |
+| FPS, Milbinger Straße | 50,18 | 49,72 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 35,3 ms | 51,2 ms |
+| Frames über 50 ms, gesamte Route | 0 | 1 |
+
+Alle vier Läufe erreichen die zwölf Wegpunkte. Gemessen wurde im selben Build ohne Videoaufnahme mit `strassenprofil=0/1/1/0`. Der einzelne Frame über 50 ms trat nach 2,22 s noch im Hof auf. In beiden D334-Läufen blieb die Spitze an der Milbinger Straße unter 36 ms. Einzelberichte liegen unter `.cache/mess/d334-finale-ab-{a1,b1,b2,a2}`. Die Bilder und separaten Bewegungsvergleiche der 152-m-Route und der Ortseinfahrt liegen unter `.cache/bilder/d334-fahrbahnprofil/index.html`.
