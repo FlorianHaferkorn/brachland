@@ -3,6 +3,7 @@ import type { WohnwegQuerschnitt } from '../data/schema.js';
 
 type Ort = readonly [number, number];
 type Punkt = [number, number, number];
+export type QuerschnittVerwitterung = NonNullable<WohnwegQuerschnitt['verwitterung']>;
 export const WEG_UEBER_GRUND = .12;
 
 function achsabschnitte(punkte: readonly Ort[]) {
@@ -41,6 +42,31 @@ export function querschnittKanten(profil: WohnwegQuerschnitt, breiteAlt: number)
 const gehoertZu = (s: number, seite: number, bereich: { von: number; bis: number; seite: number }) =>
   bereich.seite === seite && s >= bereich.von && s <= bereich.bis;
 
+function randbreite(s: number, seite: number, profil: WohnwegQuerschnitt) {
+  const gehweg = profil.gehwege.find(g => gehoertZu(s, seite, g));
+  const zufahrt = profil.zufahrten.find(z => gehoertZu(s, seite, z));
+  return Math.max(gehweg?.breite ?? 0, zufahrt?.tiefe ?? 0);
+}
+
+function ortAnAchse(achse: ReturnType<typeof achsabschnitte>[number], s: number, q: number): Ort {
+  return [
+    achse.ax + (s - achse.von) * achse.tx - q * achse.tz,
+    achse.az + (s - achse.von) * achse.tz + q * achse.tx,
+  ];
+}
+
+/** Abgetragene, bündige Erde und Bewuchs verwenden die äußere Profilkante. */
+export function querschnittSaum(punkte: readonly Ort[], profil: WohnwegQuerschnitt, breite: number) {
+  const abschnitte = achsabschnitte(punkte);
+  const kantenAn = querschnittKanten(profil, breite);
+  return (s: number, seite: -1 | 1, abstand: number): Ort | undefined => {
+    const achse = abschnitte.find(a => s >= a.von && s <= a.bis);
+    if (!achse) return undefined;
+    const kant = kantenAn(s)[seite < 0 ? 0 : 1];
+    return ortAnAchse(achse, s, kant + seite * (randbreite(s, seite, profil) + abstand));
+  };
+}
+
 function bordhoehe(s: number, seite: number, profil: WohnwegQuerschnitt) {
   const abstand = Math.min(.7, ...profil.zufahrten.filter(z => z.seite === seite)
     .map(z => Math.max(z.von - s, 0, s - z.bis)));
@@ -52,6 +78,7 @@ const grautoene = ['#565654', '#a6a59e', '#c4c0b6', '#85847f'].map(ton => new TH
 /** Ein statischer Vertexfarben-Mesh für Fahrbahn, Gehweg, Bord und Zufahrten. */
 export function baueStrassenquerschnitt(
   punkte: readonly Ort[], hoehe: (x: number, z: number) => number, profil: WohnwegQuerschnitt, breiteAlt: number,
+  verwitterung?: QuerschnittVerwitterung,
 ): THREE.BufferGeometry {
   const abschnitte = achsabschnitte(punkte);
   const [start, ende] = querschnittGrenzen(profil);
@@ -59,6 +86,7 @@ export function baueStrassenquerschnitt(
   const halte = [...profil.stationen.map(([s]) => s), ...profil.gehwege.flatMap(g => [g.von, g.bis]),
     ...profil.zufahrten.flatMap(z => [z.von - .7, z.von, z.bis, z.bis + .7])];
   const positionen: number[] = [], indizes: number[] = [], rollen: number[] = [], farben: number[] = [];
+  const belagdaten: number[] = [];
 
   const viereck = (a: Punkt, b: Punkt, c: Punkt, d: Punkt, rolle: number, drehen = false) => {
     const i = positionen.length / 3;
@@ -75,13 +103,11 @@ export function baueStrassenquerschnitt(
     const teile = Math.ceil((bis - von) / 1.25);
     const stationen = [...new Set([...halte.filter(s => s > von && s < bis),
       ...Array.from({length: teile + 1}, (_, i) => i === teile ? bis : von + (bis - von)*i/teile)])].sort((a,b) => a-b);
-    const ort = (s: number, q: number): Ort => [
-      achse.ax+(s-achse.von)*achse.tx-q*achse.tz, achse.az+(s-achse.von)*achse.tz+q*achse.tx,
-    ];
     const punkt = (s: number, q: number, hub = 0): Punkt => {
-      const [x, z] = ort(s, q);
+      const [x, z] = ortAnAchse(achse, s, q);
       return [x, hoehe(x, z) + WEG_UEBER_GRUND + hub, z];
     };
+    const ersterVertex = positionen.length / 3;
     for (let i = 1; i < stationen.length; i++) {
       const s = stationen[i-1], t = stationen[i], mitte = (s+t)/2;
       if (t-s < 1e-5) continue;
@@ -113,11 +139,21 @@ export function baueStrassenquerschnitt(
         viereck(punkt(s,xa,-.17),punkt(t,xb,-.17),punkt(t,xb,yB),punkt(s,xa,yA),g && !z ? 1 : 3,seite < 0);
       }
     }
+    if (verwitterung) {
+      for (let i = ersterVertex * 3; i < positionen.length; i += 3) {
+        const dx = positionen[i] - achse.ax, dz = positionen[i + 2] - achse.az;
+        const s = achse.von + dx * achse.tx + dz * achse.tz;
+        const q = -dx * achse.tz + dz * achse.tx;
+        const [links, rechts] = kantenAn(s);
+        belagdaten.push(s, q - links, q - rechts, verwitterung.staerke);
+      }
+    }
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positionen,3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(farben,3));
   geo.setAttribute('rolle', new THREE.Float32BufferAttribute(rollen,1));
+  if (verwitterung) geo.setAttribute('querprofil', new THREE.Float32BufferAttribute(belagdaten, 4));
   geo.setIndex(indizes);
   geo.computeVertexNormals();
   return geo;
@@ -141,9 +177,7 @@ export function querschnittFreihaltung(punkte: readonly Ort[], profil: WohnwegQu
     if (s < Math.max(von,a.von) || s > Math.min(bis,a.bis) || Math.abs(q) > ausladung) return false;
     const [minus, plus] = kantenAn(s);
     const seite = q < (minus+plus)/2 ? -1 : 1;
-    const g = profil.gehwege.find(g => gehoertZu(s,seite,g));
-    const f = profil.zufahrten.find(f => gehoertZu(s,seite,f));
-    const aussen = Math.max(g?.breite ?? 0, f?.tiefe ?? 0) + .23;
+    const aussen = randbreite(s, seite, profil) + .23;
     return seite < 0 ? q >= minus-aussen : q <= plus+aussen;
   });
   return { rahmen, enthaelt };

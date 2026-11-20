@@ -492,9 +492,13 @@ const WohnwegQuerschnitt = z.object({
       'Querschnitte nach Station ordnen und Kanten aufsteigend angeben.'),
   gehwege: z.array(Stationsbereich.extend({ breite: z.number().positive() })).default([]),
   zufahrten: z.array(Stationsbereich.extend({ tiefe: z.number().positive() })).default([]),
-}).refine(p => p.stationen.length >= 2 && [...p.gehwege, ...p.zufahrten].every(a =>
+  verwitterung: z.object({
+    staerke: z.number().min(0).max(1),
+    saum: z.object({ von: z.number().nonnegative(), bis: z.number().positive() }),
+  }).optional(),
+}).refine(p => p.stationen.length >= 2 && [...p.gehwege, ...p.zufahrten, ...(p.verwitterung ? [p.verwitterung.saum] : [])].every(a =>
   a.von < a.bis && a.von >= p.stationen[0][0] && a.bis <= p.stationen.at(-1)![0]),
-  'Gehwege und Zufahrten müssen innerhalb der gemessenen Stationen liegen.');
+  'Gehwege, Zufahrten und der bewachsene Saum müssen innerhalb der gemessenen Stationen liegen.');
 export type WohnwegQuerschnitt = z.infer<typeof WohnwegQuerschnitt>;
 
 const Strassenkulisse = z.object({

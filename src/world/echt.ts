@@ -60,6 +60,8 @@ export const WESTFASSADE_AN = WESTDACH_AN && an('westfassade');
 export const WESTANSCHLUSS_AN = WESTFASSADE_AN && an('westanschluss');
 /** D337: untexturierte Geometrieprobe des vermessenen Straßenzugs. */
 export const WOHNWEGQUERSCHNITT_AN = WESTANSCHLUSS_AN && an('wohnwegquerschnitt');
+/** D338: Material- und Saumprobe am vermessenen Wohnweg. */
+export const MILBINGERBELAG_AN = WOHNWEGQUERSCHNITT_AN && an('milbingerbelag');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

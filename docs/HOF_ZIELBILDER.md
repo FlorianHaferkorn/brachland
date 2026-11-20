@@ -524,3 +524,27 @@ Die festen Spielkameras zeigen denselben Blick auf den Straßenverlauf und die B
 | Frames über 50 ms, gesamte Route | 0 | 0 |
 
 Alle Läufe erreichen zwölf Wegpunkte. Die Zeitmessung läuft ohne Videoaufnahme im selben Build in der Folge `wohnwegquerschnitt=0/1/1/0`. Einzelberichte liegen unter `.cache/mess/d337-abnahme-ab-{a1,b1,b2,a2}`.
+
+## Belag und Bewuchs an der Milbinger Einfahrt (D338)
+
+Die linke Zufahrt bei Station 71,4 bis 74,5 m dient als Detailprobe. Ein eigener Blender-Render verwendet das Straßenmesh und die Detailkamera aus D337. Die beiden Reels zeigen ungleich verteilten Bewuchs und eine in der Bewegung lesbare Abstufung vom Weg bis zur höheren Vegetation. Im BRACHLAND-Entwurf wachsen kleine Kräuter an der befestigten Kante, höhere trockene Horste folgen dahinter. [Rithick Sundar, Sunlit Meadowlands](https://www.instagram.com/reel/Dc04v3RBRu1/) · [Gourav Mohanty, Can Blender beat AI](https://www.instagram.com/reel/DflzH6JsWy5/)
+
+Der Spielshader unterscheidet Fahrbahn, Gehweg, Bord und Zufahrt im selben Mesh. Die Fahrbahn trägt den vorhandenen Asphalt-Scan und dunklere Nutzungs- und Reparaturstellen. Feine Randrisse laufen zur Fahrspur aus. Die Zufahrt verwendet die vorhandene Schotterkachel. An der Bordkante mischt der Shader stellenweise dunklere Erde und Moos ein. Die Oberflächen sind eine Ausgestaltung des Weltzustands. Asphaltlage und Bordabsenkung stammen aus der D337-Probe. [Herkunft der Weg- und Pflanzenatlanten](../assets/HERKUNFT.md)
+
+Der Saum ist im Regionsprofil für Station 65 bis 98 m aktiviert. Seine Positionen folgen der gemessenen Fahrbahnkante und der modellierten äußeren Kante von Gehweg und Zufahrt. Der Seed pro Station erzeugt Gruppen aus vorhandenen Gras-, Stroh-, Kräuter- und Blütenkarten. Der Generator prüft Wasser, Gebäude und die befestigte Fläche vor der Platzierung. Die Welt braucht für neue Abschnitte weder individuelle Texturbilder noch einen KI-Aufruf je Grundstück.
+
+`milbingerbelag=0/1` trennt D337 und D338 bei aktivem `wohnwegquerschnitt=1`. Die Geometrieprüfung vergleicht Positionen und Indizes und prüft die Horstwurzeln gegen die Freihaltemaske. Die Spielgalerie liegt lokal unter `.cache/bilder/d338-milbinger/index.html`.
+
+Der Fußwegvergleich zeigt denselben Start, dieselbe W-Eingabe und rund 43 m Laufstrecke aus der normalen Spielkamera. Beide Filmhälften sind 10,2 s lang. Zwei Standbildpaare zeigen die abgesenkte Zufahrt und die Anfahrt. Beide Spielfassungen zeichnen 1.002 Dreiecke für den Straßenkörper. Die Aufnahmen melden keine Browserfehler.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D337 | D338 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,51 | 49,66 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 49,30 ms | 50,20 ms |
+| Frames über 50 ms, gesamte Route | 0 | 1 |
+| FPS, Weststraße | 51,69 | 51,63 |
+| p95, Weststraße | 33,30 ms | 33,30 ms |
+| Längster Frame, Weststraße | 34,90 ms | 49,50 ms |
+
+Alle Läufe erreichen zwölf Wegpunkte. Gemessen wurde ohne Videoaufnahme im selben Build in der Folge `milbingerbelag=0/1/1/0`. Der Frame mit 50,2 ms lag bei 7,95 s im Hof, an derselben Position wie ein 49,3-ms-Frame im Gegenlauf. Auf der Weststraße blieben alle Frames bei höchstens 49,5 ms. Die Rohberichte liegen unter `.cache/mess/d338-abnahme-ab-{a1,b1,b2,a2}`.

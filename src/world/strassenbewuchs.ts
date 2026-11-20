@@ -4,6 +4,8 @@ import { WEG_UEBER_GRUND } from './baender.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_SCHWELLE, type HorstKachel } from './grashorst.js';
 import { mulberry } from './props.js';
 import { WEG_TEILUNG } from './terrain.js';
+import { querschnittFreihaltung, querschnittSaum } from './strassenquerschnitt.js';
+import type { WohnwegQuerschnitt } from '../data/schema.js';
 
 export interface StrassenbewuchsWeg {
   /** Linienverlauf in Weltmetern. Breite ist die volle Breite des Wegbandes. */
@@ -16,6 +18,8 @@ export interface StrassenbewuchsWeg {
   wohnwegrand?: boolean;
   /** Ersetzte Stationen der untexturierten Fahrbahnprobe. */
   querschnitt?: readonly [number, number];
+  /** Verwitterter Außenrand entlang des vermessenen Querschnitts. */
+  vermessenerSaum?: WohnwegQuerschnitt;
   /** Erhaltene Zugänge an der Straße, in Weltmetern. */
   wohnwegZugaenge?: readonly (readonly [number, number])[];
   /** Auf ungebundenem Belag entstehen Rinnen und Pflanzeninseln ohne Asphaltrisse. */
@@ -165,7 +169,63 @@ export function baueStrassenbewuchs(
   };
   const matrix = new THREE.Matrix4(), skalierung = new THREE.Vector3(), farbe = new THREE.Color();
 
+  let saumhorste = 0, saumflecken = 0;
+  const bepflanzeQuerschnitt = (weg: StrassenbewuchsWeg) => {
+    const profil = weg.vermessenerSaum, verwitterung = profil?.verwitterung;
+    if (!profil || !verwitterung || !verwitterung.staerke) return;
+    const aussen = querschnittSaum(weg.punkte, profil, weg.breite);
+    const belegt = querschnittFreihaltung(weg.punkte, profil, weg.breite).enthaelt;
+    const { von, bis } = verwitterung.saum;
+    const raster = 1.16;
+    for (const seite of [-1, 1] as const) for (let i = Math.ceil(von / raster); i * raster < bis; i++) {
+      // Dieselben Horste bleiben beim Verlängern eines Prüfabschnitts erhalten.
+      const zufall = mulberry(weg.saat ^ Math.imul(2 * i + (seite < 0 ? 1 : 0), 28351));
+      const s = (i + .08 + zufall() * .66) * raster;
+      const zugang = Math.min(3, ...profil.zufahrten.filter(z => z.seite === seite)
+        .map(z => Math.max(z.von - s, 0, s - z.bis)));
+      if (s > bis || zugang < .7) continue;
+      const dichte = .36 + .64 * (.5 + .5 * Math.sin(s * .56 + seite * 2.9)) ** 1.5;
+      const trocken = zufall();
+      if (zufall() > verwitterung.staerke * (.43 + .57 * dichte)) continue;
+      const grund = (meter: number, abstand: number): Punkt | undefined => {
+        const ort = aussen(meter, seite, abstand);
+        if (!ort) return undefined;
+        const [x, z] = ort;
+        if (belegt(x, z) || !freierBoden(x, z)) return undefined;
+        return [x, boden(x, z) + .016, z];
+      };
+      const mitte = grund(s, .65);
+      if (!mitte) continue;
+      const ring = Array.from({ length: 9 }, (_, k) => {
+        const winkel = TAU * k / 9, faktor = .74 + zufall() * .26;
+        return grund(s + Math.cos(winkel) * .78 * faktor, .65 + Math.sin(winkel) * .38 * faktor);
+      });
+      if (ring.every((ecke): ecke is Punkt => ecke !== undefined)) {
+        farbe.copy(ERDE).lerp(MOOS, (1 - trocken) * .46).multiplyScalar(.77 + zufall() * .3);
+        const kern = vertex(mitte, farbe, .79);
+        const rand = ring.map(p => vertex(p, farbe, 0));
+        for (let k = 0; k < rand.length; k++) indizes.push(kern, rand[k], rand[(k + 1) % rand.length]);
+        saumflecken++;
+      }
+      for (let k = 0; k < 3 + Math.floor(dichte * 6); k++) {
+        const abstand = .41 + zufall() * (dichte * .82 + .21);
+        const ort = grund(s + (zufall() - .5) * Math.min(1.1, zugang), abstand);
+        const wuchs = zufall(), sorte = zufall();
+        if (!ort) continue;
+        const hoch = Math.min(1, Math.max(0, abstand - .43) * 1.6);
+        wildkraut.push({
+          ort, groesse: .103 + wuchs * (.118 + hoch * .26), breite: .14 + wuchs * (.14 + hoch * .21),
+          drehung: zufall() * TAU, ton: .69 + zufall() * .29, auswahl: zufall(),
+          sorte: sorte < .22 ? 'kraut' : sorte < .27 ? 'blume'
+            : trocken > .56 ? (sorte > .78 ? 'halm' : 'stroh') : 'gruen',
+        });
+        saumhorste++;
+      }
+    }
+  };
+
   for (const weg of wege) {
+    if (weg.vermessenerSaum) bepflanzeQuerschnitt(weg);
     const zufall = mulberry(weg.saat);
     const verfall = THREE.MathUtils.clamp(weg.verfall ?? 1, 0, 1);
     const halb = weg.breite / 2, versatz = weg.versatz ?? 0;
@@ -454,6 +514,7 @@ ${hatMarkierungen ? /* glsl */ `
   }
   gruppe.userData.strassenbewuchs = {
     wildkraut: wildkraut.length, splitt: splitt.length, risse, auflageDreiecke: indizes.length / 3,
+    ...(saumhorste || saumflecken ? { saumhorste, saumflecken } : {}),
     ...(wege.some(weg => weg.markierungen || weg.fahrbahnprofil) ? { markierungsMeter, markierungsDreiecke, asphaltSchollen } : {}),
   };
   return {

@@ -1,6 +1,8 @@
 /** D337: Der Fahrbahnanschluss und die Absenkung müssen auf denselben Stationen liegen wie die Freihaltung. */
 import assert from 'node:assert/strict';
+import { InstancedMesh, Matrix4 } from 'three';
 import type { WohnwegQuerschnitt } from '../src/data/schema.js';
+import { baueStrassenbewuchs } from '../src/world/strassenbewuchs.js';
 import {
   baueQuerschnittGrasmaske, baueStrassenquerschnitt, querschnittFreihaltung, querschnittGrenzen, querschnittKanten,
 } from '../src/world/strassenquerschnitt.js';
@@ -29,7 +31,6 @@ const bei = (s: number, rolle: number, hoehe: number) => {
 };
 assert.ok(bei(15, 1, .23), 'Gehweg 11 cm über der Fahrbahn');
 assert.ok(bei(25, 3, .145), 'Gehweg an der Einfahrt auf 2,5 cm abgesenkt');
-netz.dispose();
 
 const maske = baueQuerschnittGrasmaske([querschnittFreihaltung(punkte, profil, 5)])!;
 const koordinaten: [number, number, boolean][] = [
@@ -47,3 +48,33 @@ for (const [s, q, frei] of koordinaten) {
 }
 maske.textur.dispose();
 console.log('✓ Querschnitt schließt an das Wegband an, Bordabsenkung und Freihaltung stimmen');
+
+const verwitterung = { staerke: .92, saum: { von: 15, bis: 35 } };
+const verwittertesNetz = baueStrassenquerschnitt(punkte, () => 0, profil, 5, verwitterung);
+assert.deepEqual(verwittertesNetz.getAttribute('position').array, position.array);
+assert.deepEqual(verwittertesNetz.index?.array, netz.index?.array);
+const belag = verwittertesNetz.getAttribute('querprofil');
+assert.equal(belag.count, position.count);
+for (let i = 0; i < belag.count; i++) {
+  const [links, rechts] = kanten(belag.getX(i));
+  const q = position.getZ(i);
+  assert.ok(Math.abs(belag.getY(i) - (q - links)) < 1e-5 && Math.abs(belag.getZ(i) - (q - rechts)) < 1e-5);
+}
+verwittertesNetz.dispose();
+netz.dispose();
+
+const weg = { punkte, breite: 5, saat: 198749032, verfall: 0, querschnitt: querschnittGrenzen(profil) };
+const clay = baueStrassenbewuchs([weg], () => 0);
+assert.equal(clay.gruppe.userData.strassenbewuchs.wildkraut, 0);
+clay.entsorge();
+const bepflanzt = baueStrassenbewuchs([{ ...weg, vermessenerSaum: { ...profil, verwitterung } }], () => 0);
+const horste = bepflanzt.gruppe.children.find((objekt): objekt is InstancedMesh => objekt instanceof InstancedMesh);
+assert.ok(horste && horste.count > 0);
+const frei = querschnittFreihaltung(punkte, profil, 5).enthaelt;
+const stand = new Matrix4();
+for (let i = 0; i < horste.count; i++) {
+  horste.getMatrixAt(i, stand);
+  assert.ok(!frei(stand.elements[12], stand.elements[14]), 'Die Horste wurzeln außerhalb der befestigten Flächen');
+}
+bepflanzt.entsorge();
+console.log(`✓ Abmessungen identisch und ${horste.count} Horste im freigegebenen Saum`);

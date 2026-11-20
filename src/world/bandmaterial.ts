@@ -12,7 +12,7 @@
  *   die weiche Kante: außen durchsichtig, innen deckend.
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
-import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT, STRASSENPROFIL_AN, STRASSENVERFALL_AN, WELLEN_ECHT } from './echt.js';
+import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT, MILBINGERBELAG_AN, STRASSENPROFIL_AN, STRASSENVERFALL_AN, WELLEN_ECHT } from './echt.js';
 import WEG_SCANS from '../../public/material/weg-scans.json';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
@@ -333,7 +333,7 @@ ${BACH_ECHT ? `  // D274: Spitzen der Spiegelung weich begrenzen (Reinhard auf d
  * tragen zwischen den Spuren den Graspfad. Projektion von oben in Weltmetern.
  */
 const WEG_TEXTUREN = (() => {
-  if (!BELAG_ECHT || typeof document === 'undefined') return null;
+  if ((!BELAG_ECHT && !MILBINGERBELAG_AN) || typeof document === 'undefined') return null;
   const lade = (pfad: string) => {
     const t = new THREE.TextureLoader().load(pfad);
     t.colorSpace = THREE.NoColorSpace; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.anisotropy = 8;
@@ -355,6 +355,79 @@ vec4 wegLies(sampler2D t, float r) {
 }
 `;
 
+/** Asphalt, Bord und Zufahrt liegen im selben Mesh und verwenden den vorhandenen Wegatlas. */
+export function baueQuerschnittMaterial(): THREE.MeshStandardMaterial {
+  const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 });
+  const scans = WEG_TEXTUREN;
+  material.onBeforeCompile = shader => {
+    if (scans) {
+      shader.uniforms.uWegFarbe = { value: scans.farbe };
+      shader.uniforms.uWegNormal = { value: scans.normal };
+      shader.uniforms.uWegMeter = { value: WEG_METER };
+    }
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute vec4 querprofil;
+attribute float rolle;
+varying vec4 vQuerprofil;
+varying float vRolle;
+varying vec3 vWeltPos;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+vQuerprofil = querprofil;
+vRolle = rolle;
+vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+varying vec4 vQuerprofil;
+varying float vRolle;
+varying vec3 vWeltPos;` + BAND_RAUSCHEN_GLSL + (scans ? WEG_SCAN_GLSL : ''))
+      .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
+  float asphalt = 1.0 - step(.5, vRolle);
+  float bord = step(1.5, vRolle) * (1.0 - step(2.5, vRolle));
+  float zufahrt = step(2.5, vRolle);
+  float quer = vQuerprofil.y / (vQuerprofil.y - vQuerprofil.z);
+  float rand = abs(min(vQuerprofil.y, -vQuerprofil.z));
+  float alter = vQuerprofil.w;
+  vec2 welt = vWeltPos.xz;
+  float fleck = bandRauschen(welt * .63);
+  float korn = bandRauschen(welt * 4.6);
+  float fugendreck = (1.0 - smoothstep(.03, .44 + fleck * .38, rand))
+    * smoothstep(.19, .67, fleck * .51 + korn * .49);
+  float belagTon = mix(.74 + zufahrt * .18, 1.10, asphalt);
+  diffuseColor.rgb *= belagTon * (.87 + .24 * fleck + .09 * korn);
+  ${scans ? `float scanRolle = zufahrt;
+  vec3 scanFarbe = wegLies(uWegFarbe, scanRolle).rgb;
+  diffuseColor.rgb *= mix(vec3(1.0), scanFarbe * 2.0, mix(.49 - bord * .17, .94, max(asphalt, zufahrt)));
+  vec3 scanNormale = wegLies(uWegNormal, scanRolle).xyz * 2.0 - 1.0;` : ''}
+
+  // Die Risse starten an der Kante und verlieren sich vor der befahrenen Mitte.
+  float station = vQuerprofil.x;
+  float querMeter = (vQuerprofil.y + vQuerprofil.z) * .5;
+  float periode = floor(station * .28);
+  float bruch = station + .49 * querMeter
+    + .46 * bandRauschen(vec2(querMeter * 3.0, periode));
+  float linie = abs(fract(bruch * .28 + .17) - .48) / .28;
+  float pixelbreite = fwidth(bruch);
+  float riss = (1.0 - smoothstep(.009, .017 + pixelbreite * .65, linie))
+    * (1.0 - smoothstep(.045, .15, pixelbreite)) * (1.0 - smoothstep(.38, 1.38 + .55 * fleck, rand));
+  float spurabstand = min(abs(quer - .29), abs(quer - .71));
+  float spur = 1.0 - smoothstep(.05, .16, spurabstand);
+  float reparatur = smoothstep(.64, .78, bandRauschen(welt * .27) + korn * .11);
+  diffuseColor.rgb *= 1.0 - alter * asphalt * (.17 * spur + .22 * reparatur + .62 * riss);
+  vec3 feuchte = mix(vec3(.097, .074, .045), vec3(.047, .065, .026), smoothstep(.42, .67, korn * .58 + fleck * .42));
+  diffuseColor.rgb = mix(diffuseColor.rgb, feuchte, fugendreck * alter * mix(.87, .64, asphalt));
+`)
+      .replace('#include <normal_fragment_maps>', scans ? /* glsl */ `#include <normal_fragment_maps>
+  vec3 belagNormal = inverseTransformDirection(normal, viewMatrix);
+  float relief = smoothstep(.55, .93, belagNormal.y) * mix(.26, .48, max(asphalt, zufahrt));
+  belagNormal = normalize(belagNormal + vec3(scanNormale.x, 0.0, scanNormale.y) * relief);
+  normal = normalize((viewMatrix * vec4(belagNormal, 0.0)).xyz);
+` : '#include <normal_fragment_maps>');
+  };
+  material.customProgramCacheKey = () => scans ? 'brachland-querschnitt-scans' : 'brachland-querschnitt';
+  return material;
+}
+
 export function baueWegMaterial(): THREE.MeshStandardMaterial {
   // `vertexColors` statt einer festen Farbe: In den Weltdaten stehen neun
   // OSM-Klassen über 170,5 km, von 8 m Asphalt bis 1,6 m Trampelpfad. Sie
@@ -365,11 +438,12 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
     color: '#ffffff', vertexColors: true, roughness: 1, metalness: 0, transparent: true,
   });
   const belagTyp = STRASSENVERFALL_AN ? 'vec3' : 'vec2';
+  const scans = BELAG_ECHT && WEG_TEXTUREN;
 
   material.onBeforeCompile = (shader) => {
-    if (WEG_TEXTUREN) {
-      shader.uniforms.uWegFarbe = { value: WEG_TEXTUREN.farbe };
-      shader.uniforms.uWegNormal = { value: WEG_TEXTUREN.normal };
+    if (scans) {
+      shader.uniforms.uWegFarbe = { value: scans.farbe };
+      shader.uniforms.uWegNormal = { value: scans.normal };
       shader.uniforms.uWegMeter = { value: WEG_METER };
     }
     shader.vertexShader = shader.vertexShader
@@ -380,7 +454,7 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
 
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\nvarying vec2 vBand;\nvarying ${belagTyp} vBelag;\nvarying vec3 vWeltPos;\n`
-        + BAND_RAUSCHEN_GLSL + (STRASSENPROFIL_AN ? ASPHALTRAND_GLSL : '') + (WEG_TEXTUREN ? WEG_SCAN_GLSL : ''))
+        + BAND_RAUSCHEN_GLSL + (STRASSENPROFIL_AN ? ASPHALTRAND_GLSL : '') + (scans ? WEG_SCAN_GLSL : ''))
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float quer = abs(vBand.x);
   float rand = 1.0 - quer;
@@ -406,7 +480,7 @@ ${STRASSENPROFIL_AN ? `
   if (vBelag.z > 0.0 && vBelag.y < .30) randbreite = asphaltRandbreite(fleck);
 ` : ''}
   diffuseColor.a *= smoothstep(0.0, randbreite, rand);
-${WEG_TEXTUREN ? `
+${scans ? `
   // D285: Scan nach Belag; Feldweg zwischen den Spuren Graspfad.
   float wegR = vBelag.y < 0.3 ? 0.0 : vBelag.y < 0.8 ? 1.0 : 2.0;
   float wegGras = step(0.4, vBelag.x) * (1.0 - smoothstep(0.22, 0.38, quer));
@@ -442,7 +516,7 @@ ${STRASSENPROFIL_AN ? /* glsl */ `
   }
 ` : ''}
 `)
-      .replace('#include <normal_fragment_maps>', WEG_TEXTUREN ? `#include <normal_fragment_maps>
+      .replace('#include <normal_fragment_maps>', scans ? `#include <normal_fragment_maps>
   {
     vec3 wn = inverseTransformDirection(normal, viewMatrix);
     wn = normalize(wn + vec3(wegNt.x, 0.0, wegNt.y) * 0.8);
@@ -450,7 +524,7 @@ ${STRASSENPROFIL_AN ? /* glsl */ `
   }` : '#include <normal_fragment_maps>');
   };
 
-  material.customProgramCacheKey = () => 'brachland-weg-v2' + (WEG_TEXTUREN ? '-scans' : '')
+  material.customProgramCacheKey = () => 'brachland-weg-v2' + (scans ? '-scans' : '')
     + (STRASSENVERFALL_AN ? '-verfall' : '') + (STRASSENPROFIL_AN ? '-profil' : '');
   return material;
 }
