@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import type { PropChunk, PropInstanz } from '../src/world/props.js';
 Object.defineProperty(globalThis, 'location', { value: { search: '?hofgruen=1' }, configurable: true });
 const { HOF_UNIFORM } = await import('../src/world/hofplatz.js');
-const { teileHofBaeume, istHofBusch, HOF_BAUM_RADIUS } = await import('../src/world/hofgruenwahl.js');
+const { teileHofBaeume, teileMilbingerBaeume, istHofBusch, HOF_BAUM_RADIUS } = await import('../src/world/hofgruenwahl.js');
 const { waehleProps, buendleFernProps } = await import('../src/scenes/propauswahl.js');
 
 const mitte: [number, number] = [1432.666, 433.662];
@@ -34,6 +34,19 @@ assert.deepEqual(teileHofBaeume(eingabe, mitte, -1).rest, eingabe); anzahl++;
 assert.deepEqual(teileHofBaeume(eingabe, [NaN, 0]).rest, eingabe); anzahl++;
 assert.deepEqual(teileHofBaeume([], mitte), { lokaleBaeume: [], rest: [] }); anzahl++;
 assert.deepEqual(teileHofBaeume(eingabe, mitte, 0).lokaleBaeume, [eingabe[1]]); anzahl++;
+
+const rahmen = [mitte[0], mitte[1], mitte[0] + 20, mitte[1] + 20] as const;
+const kern = [prop('laubbaum', 10, 10, 0), prop('nadelbaum', -11, 2, 3)];
+const auslauf = Array.from({ length: 80 }, (_, v) => prop('laubbaum', 20 + 33, v / 4, v % 4));
+const aussen = [prop('nadelbaum', 75.001, 10, 1), prop('busch', 10, 10, 0)];
+const kulisse = [...kern, ...auslauf, ...aussen], kulisseVorher = JSON.stringify(kulisse);
+const milbinger = teileMilbingerBaeume(kulisse, rahmen);
+assert.ok(kern.every(p => milbinger.lokaleBaeume.includes(p))); anzahl++;
+assert.ok(aussen.every(p => milbinger.rest.includes(p))); anzahl++;
+assert.ok(auslauf.some(p => milbinger.rest.includes(p)) && auslauf.some(p => milbinger.lokaleBaeume.includes(p))); anzahl++;
+assert.ok(kulisse.every(p => milbinger.lokaleBaeume.includes(p) !== milbinger.rest.includes(p))); anzahl++;
+assert.deepEqual(teileMilbingerBaeume(kulisse, rahmen), milbinger); anzahl++;
+assert.equal(JSON.stringify(kulisse), kulisseVorher); anzahl++;
 
 const alteMitte = HOF_UNIFORM.mitte.value.clone(), altBereit = HOF_UNIFORM.bereit.value;
 try {

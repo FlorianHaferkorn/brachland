@@ -50,6 +50,7 @@ owns: *.test.ts
 
 | Datei | Was festgehalten wird |
 |---|---|
+| `heldmaterial.test.ts` | D343: Kleiderprobe vor dem Skinning, ursprüngliche Farb- und Normalenkarten, getrennter Hautshader und Materialrückfall. |
 | `lagerton.test.ts` | Vorbereitung ohne Klangquellen und synchrones Resume bei Eingabegeste; eine Kontextinstanz bei mehreren Gesten sowie Fallback nach verweigerter Vorbereitung. |
 | `bautenpack.test.ts` | Tatsächlicher Runtime-Decoder: Attribute, Weltmatrizen, Materialwerte/-gruppen, Namen und orientierte Dreiecke bleiben beim verlustfreien Meshopt-Roundtrip erhalten; Quellschutz und Größenstabilität bei Wiederkompression. |
 | `echtzeit.test.ts` | 79 Prüfungen, das Kampftor (D166–D170): Reichweite ±5 cm, Winkel, ein Treffer je Schwung, Rollenfenster in 5-ms-Schritten (≥ 200 ms, nach Reaktionszeit erreichbar), Ausdauer 5 Schläge/4 Rollen, Haltung bricht beim 2. Treffer, Zielwahl, KI aus 12 Anlaufrichtungen, Angriffsrecht: zwei Gegner nie zugleich im Schlag, im Wechsel, der Wartende ausser Reichweite (D167), Waffenklassen als Werkzeuge statt Stufen und Zielwahl/Zielwechsel (D168), der Keiler als erster echter Gegner (D169), Zucken, Pille statt Kreis und der Grathorn (D170), Moveset/Puffer/Kette/Vorschritt/Rückstoss/Trefferstopp und der Wolf mit Doppelbiss (D171), das Rudel umzingelt (D172, 130 Prüfungen), gleiches Ergebnis bei 10/30/144 B/s. Druckt die Messtabelle |

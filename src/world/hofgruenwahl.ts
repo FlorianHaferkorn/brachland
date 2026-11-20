@@ -44,6 +44,24 @@ export function teileHofBaeume(props: readonly PropInstanz[], mitte: readonly [n
   return { lokaleBaeume, rest };
 }
 
+/** Rund um den Straßenausschnitt wechselt die Modellwahl allmählich, der Baumbestand bleibt vollständig. */
+export function teileMilbingerBaeume(props: readonly PropInstanz[], rahmen: readonly [number, number, number, number]): HofBaumAuswahl {
+  const lokaleBaeume: PropInstanz[] = [], rest: PropInstanz[] = [];
+  const [x0, z0, x1, z1] = rahmen;
+  for (const p of props) {
+    if (p.art !== 'nadelbaum' && p.art !== 'laubbaum') { rest.push(p); continue; }
+    const [x, , z] = p.position;
+    const dx = Math.max(0, x0 - x, x - x1), dz = Math.max(0, z0 - z, z - z1);
+    if (dx * dx + dz * dz >= 55 ** 2) { rest.push(p); continue; }
+    const abstand = Math.hypot(dx, dz);
+    const t = Math.max(0, Math.min(1, (abstand - 12) / 43));
+    const saat = (Math.imul(Math.round(x * 100), 0x9e3779b1) ^ Math.imul(Math.round(z * 100), 0x85ebca77)) >>> 0;
+    const zufall = ((saat ^ (saat >>> 16)) >>> 0) / 0x100000000;
+    (zufall < 1 - t * t * (3 - 2 * t) ? lokaleBaeume : rest).push(p);
+  }
+  return { lokaleBaeume, rest };
+}
+
 /** Grobfilter für Strauch-Chunks: ihr Hüllkreis schneidet den festen Hofkreis, unabhängig von der Kamera. */
 export function istHofBusch(mitte: readonly [number, number], radius = 0): boolean {
   if (HOF_UNIFORM.bereit.value <= 0 || !mitte.every(Number.isFinite) || !Number.isFinite(radius) || radius < 0) return false;

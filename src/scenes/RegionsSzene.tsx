@@ -36,6 +36,7 @@ import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
          STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN, type WohnwegStreuung } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
 import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
+import { MILBINGER_TAGESLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
@@ -51,7 +52,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { LOD2_AN, MILBINGERBODEN_AN, MILBINGERMASSE_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { LOD2_AN, MILBINGERBODEN_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
 import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
@@ -70,7 +71,7 @@ import type { Kachelpuffer, Kachelsammlung } from '../world/kachelgruppen.js';
 import { baueKachelupload } from '../world/kachelupload.js';
 import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
-import { teileHofBaeume, istHofBusch } from '../world/hofgruenwahl.js';
+import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
 import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
@@ -625,9 +626,13 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     const globalEz = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1';
     const sichtbar = wiesenbereich ? props.filter(p => p.art !== 'grasbuschel'
       || wiesenbereich.gewicht(p.position[0], p.position[2]) < .6) : props;
-    return HOF_GRUEN_AN && !globalEz
-      ? teileHofBaeume(sichtbar, HOF_UNIFORM.bereit.value ? [HOF_UNIFORM.mitte.value.x, HOF_UNIFORM.mitte.value.y] : null)
+    const rahmen = MILBINGERLICHT_AN && !globalEz ? wiesenbereich?.rahmen : undefined;
+    const milbinger = rahmen ? teileMilbingerBaeume(sichtbar, [rahmen.x, rahmen.y, rahmen.z, rahmen.w])
       : { rest: sichtbar, lokaleBaeume: [] };
+    const hof = HOF_GRUEN_AN && !globalEz
+      ? teileHofBaeume(milbinger.rest, HOF_UNIFORM.bereit.value ? [HOF_UNIFORM.mitte.value.x, HOF_UNIFORM.mitte.value.y] : null)
+      : { rest: milbinger.rest, lokaleBaeume: [] };
+    return { ...hof, milbingerBaeume: milbinger.lokaleBaeume };
   }, [props, wiesenbereich]);
   /* Wand, Holz, Fenster, Sockel, Gesims, Tür und Garten stecken als Vertexfarben
      in der Geometrie. Ein Material für alles davon bleibt es trotzdem. */
@@ -793,8 +798,10 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      {[{ props: hofBaeume.rest, hofBaum: false }, { props: hofBaeume.lokaleBaeume, hofBaum: true }]
-        .filter(g => g.props.length > 0).map(g => <Props key={String(g.hofBaum)} props={g.props} hofBaum={g.hofBaum}
+      {[{ props: hofBaeume.rest, hofBaum: false, milbingerBaum: false }, { props: hofBaeume.lokaleBaeume, hofBaum: true, milbingerBaum: false },
+        { props: hofBaeume.milbingerBaeume, hofBaum: true, milbingerBaum: true }]
+        .filter(g => g.props.length > 0).map(g => <Props key={g.milbingerBaum ? 'milbinger' : String(g.hofBaum)}
+          props={g.props} hofBaum={g.hofBaum} milbingerBaum={g.milbingerBaum}
           wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material}
           baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material}
           baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={weite} />)}
@@ -1059,7 +1066,7 @@ function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
   return ergebnis;
 }
 
-function Props({ props, hofBaum = false, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, buschWind, weite }: { props: PropInstanz[]; hofBaum?: boolean; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial; weite: number }) {
+function Props({ props, hofBaum = false, milbingerBaum = false, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, buschWind, weite }: { props: PropInstanz[]; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial; weite: number }) {
   // D285: Mit dem Foto-Grasteppich (`?gras=3`) fallen die stilisierten Grasbüschel-Props weg — sie standen als
   // Agaven-Sterne zwischen den Foto-Halmen (Dorf-Prüfbild 14.11.2026).
   const chunks = useMemo(() => chunkeProps(GRAS_FEIN ? props.filter(p => p.art !== 'grasbuschel') : props), [props]);
@@ -1137,11 +1144,11 @@ function Props({ props, hofBaum = false, wind, grasWind, farnWind, grasScanWind,
           ausblendet. Bereits geladene Gruppen bleiben sichtbar. */}
       {sichtbar.map(({ c, stufe, id }) =>
         <Suspense key={id} fallback={null}>
-          <PropChunkMesh chunk={c} stufe={stufe} hofBaum={hofBaum} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
+          <PropChunkMesh chunk={c} stufe={stufe} hofBaum={hofBaum} milbingerBaum={milbingerBaum} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
         </Suspense>)}
       {fern.map(({ art, variante, instanzen, zelle, hofStrauch, hofSchatten }) =>
         <Suspense key={`${art}:${variante}:${zelle ?? ''}:${hofStrauch ? 'hof' : ''}:${hofSchatten ? 'schatten' : ''}`} fallback={null}>
-          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} hofStrauch={hofStrauch} hofSchatten={hofSchatten} instanzen={instanzen} baumWind={art === 'nadelbaum' ? baumWindNadel : baumWind} zellCulling={zelle !== undefined} />
+          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} milbingerBaum={milbingerBaum} hofStrauch={hofStrauch} hofSchatten={hofSchatten} instanzen={instanzen} baumWind={art === 'nadelbaum' ? baumWindNadel : baumWind} zellCulling={zelle !== undefined} />
         </Suspense>)}
     </>
   );
@@ -1180,7 +1187,7 @@ function Props({ props, hofBaum = false, wind, grasWind, farnWind, grasScanWind,
  * `InstancedMesh` neu auf, und das ist genau der Fall, den `PropChunkMesh` im
  * Kommentar als teuer beschreibt.
  */
-function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum = false, hofStrauch = false, hofSchatten = false }: { art: PropArt; variante: number; instanzen: PropInstanz[]; baumWind: THREE.MeshStandardMaterial; zellCulling: boolean; hofBaum?: boolean; hofStrauch?: boolean; hofSchatten?: boolean }) {
+function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum = false, milbingerBaum = false, hofStrauch = false, hofSchatten = false }: { art: PropArt; variante: number; instanzen: PropInstanz[]; baumWind: THREE.MeshStandardMaterial; zellCulling: boolean; hofBaum?: boolean; milbingerBaum?: boolean; hofStrauch?: boolean; hofSchatten?: boolean }) {
   // Dieselbe Baumvariante in allen Stufen; die Fernstufe reduziert nur Dreiecke.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   const blender = eigen ? blenderBaum(eigen, variante, 'fern') : null;
@@ -1211,9 +1218,9 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum
       // würde dabei die Variante ohne Instanzfarben erstmals kompilieren.
       if (HOF_BILDFLUSS_AN) mesh.visible = false;
     }
-    if (mesh) { mesh.userData.hofGruen = hofBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = variante; }
+    if (mesh) { mesh.userData.hofGruen = hofBaum; mesh.userData.milbingerBaum = milbingerBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = variante; }
     if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
-  }, [blender, hofBaum, hofStrauch, variante]);
+  }, [blender, hofBaum, milbingerBaum, hofStrauch, variante]);
 
   useEffect(() => {
     if (instanzen.length > kapazitaet) {
@@ -1368,8 +1375,8 @@ const LEER: ReadonlySet<string> = new Set();
 const LEERES_PROP_NETZ = new THREE.BufferGeometry();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, buschWind }: {
-  chunk: PropChunk; stufe: PropStufe; hofBaum?: boolean; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
+function PropChunkMesh({ chunk, stufe, hofBaum = false, milbingerBaum = false, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, buschWind }: {
+  chunk: PropChunk; stufe: PropStufe; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
   farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial;
   baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial;
 }) {
@@ -1399,11 +1406,11 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, wind, grasWind, farnWind
       if (HOF_BILDFLUSS_AN) mesh.visible = false;
     }
     if (mesh) {
-      mesh.userData.hofGruen = hofBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = chunk.variante;
+      mesh.userData.hofGruen = hofBaum; mesh.userData.milbingerBaum = milbingerBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = chunk.variante;
       mesh.userData.ezOriginalGeometrie = ezOriginal;
     }
     if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
-  }, [blender, ezOriginal, hofBaum, hofStrauch, chunk.variante]);
+  }, [blender, ezOriginal, hofBaum, milbingerBaum, hofStrauch, chunk.variante]);
 
   useEffect(() => {
     const mesh = ref.current;
@@ -2598,11 +2605,25 @@ function Regentenort({ ort, kreatur, gestalt, ziel, onNah }: {
   );
 }
 
-function Beleuchtung({ s, ziel }: {
-  s: Stimmung; ziel: React.RefObject<THREE.Object3D | null>;
+function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial }: {
+  s: Stimmung; ziel: React.RefObject<THREE.Object3D | null>; wiesenbereich?: Wiesenbereich;
+  fernMaterial: THREE.ShaderMaterial;
 }) {
   const { scene, gl } = useThree();
   const sonne = useRef<THREE.DirectionalLight>(null);
+  const halbkugel = useRef<THREE.HemisphereLight>(null);
+  const ortslicht = MILBINGERLICHT_AN && wiesenbereich;
+  const bodenfarbe = HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN;
+  const fuelllicht = (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? .25 : UMLICHT_AN ? .35 : 1);
+  const direktlicht = SONNE_MESSLAUF ?? s.sonneStaerke;
+  const umfeldlicht = HDRI_AN ? HDRI_STAERKE : UMLICHT_STAERKE;
+  const schatten = SCHATTEN_MESSLAUF ?? s.schatten ?? 1;
+  const belichtung = BELICHTUNG_MESSLAUF ?? s.belichtung;
+  const lichtbasis = useMemo(() => ortslicht ? {
+    sonne: new THREE.Color(s.sonne), himmel: new THREE.Color(s.umgebung),
+    erde: new THREE.Color(bodenfarbe), nebel: new THREE.Color(s.nebel),
+    horizont: new THREE.Color(s.horizont), zenit: new THREE.Color(s.zenit),
+  } : null, [ortslicht, s, bodenfarbe]);
   const [takramBereit, setzeTakramBereit] = useState(false);
   const takramAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('takram') === '1';
 
@@ -2622,7 +2643,7 @@ function Beleuchtung({ s, ziel }: {
   const himmel = useMemo(() => baueHimmel({
     zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
     sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
-  }), [s]);
+  }, !!ortslicht), [s, ortslicht]);
   useEffect(() => {
     setzeHimmel(himmel, {
       zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
@@ -2643,8 +2664,8 @@ function Beleuchtung({ s, ziel }: {
    */
   useEffect(() => {
     gl.toneMapping = KURVE_MESSLAUF ?? KURVE_VORGABE;
-    gl.toneMappingExposure = BELICHTUNG_MESSLAUF ?? s.belichtung;
-  }, [gl, s]);
+    gl.toneMappingExposure = belichtung;
+  }, [gl, belichtung]);
   // Himmelsanteil im Fülllicht je Stimmung (D170) — ein Uniform für alle Set-Pieces.
   useEffect(() => { setzeHimmelStaerke(s.himmelAnteil ?? 0.7); }, [s.himmelAnteil]);
 
@@ -2666,14 +2687,55 @@ function Beleuchtung({ s, ziel }: {
     const p = ziel.current?.position;
     const l = sonne.current;
     if (!p || !l) return;
-    l.position.set(p.x + s.sonnenstand[0], p.y + s.sonnenstand[1], p.z + s.sonnenstand[2]);
+    const ort = ortslicht ? milbingerLichtanteil(ortslicht.rahmen, p.x, p.z, s.sonneStaerke) : 0;
+    const tageslicht = MILBINGER_TAGESLICHT;
+    const misch = THREE.MathUtils.lerp;
+    l.position.set(p.x + misch(s.sonnenstand[0], tageslicht.sonnenstand.x, ort),
+      p.y + misch(s.sonnenstand[1], tageslicht.sonnenstand.y, ort), p.z + misch(s.sonnenstand[2], tageslicht.sonnenstand.z, ort));
     l.target.position.copy(p);
     l.target.updateMatrixWorld();
     if (HOF_LICHT_AN) {
       const mitte = HOF_UNIFORM.mitte.value;
       const hofAnteil = HOF_UNIFORM.bereit.value
         * (1 - THREE.MathUtils.smoothstep(Math.hypot(p.x - mitte.x, p.z - mitte.y), 44, 65));
-      l.shadow.radius = 1 + 1.9 * hofAnteil;
+      l.shadow.radius = misch(1 + 1.9 * hofAnteil, 1.75, ort);
+    }
+    if (lichtbasis) {
+      // Licht, Horizont und Nebel folgen demselben ortsfesten Übergang. Keine
+      // Lichtquellen oder Renderpässe wechseln beim Überschreiten einer Kachel.
+      const h = halbkugel.current;
+      if (h) {
+        h.color.lerpColors(lichtbasis.himmel, tageslicht.himmel, ort);
+        h.groundColor.lerpColors(lichtbasis.erde, tageslicht.erde, ort);
+        h.intensity = misch(fuelllicht, tageslicht.hemisphaere, ort);
+      }
+      l.color.lerpColors(lichtbasis.sonne, tageslicht.sonne, ort);
+      l.intensity = misch(direktlicht, tageslicht.direkt, ort);
+      l.shadow.intensity = misch(schatten, tageslicht.schatten, ort);
+      l.shadow.normalBias = .035 * ort;
+      const zoom = misch(1, 1.56, ort);
+      if (l.shadow.camera.zoom !== zoom) {
+        l.shadow.camera.zoom = zoom;
+        l.shadow.camera.updateProjectionMatrix();
+      }
+      gl.toneMappingExposure = misch(belichtung, tageslicht.belichtung, ort);
+      if (HDRI_AN || UMLICHT_AN) scene.environmentIntensity = misch(umfeldlicht, tageslicht.umfeld, ort);
+      if (scene.fog instanceof THREE.Fog) {
+        scene.fog.color.lerpColors(lichtbasis.nebel, tageslicht.dunst, ort);
+        scene.fog.near = misch(s.nebelNah, tageslicht.nebelNah, ort);
+        scene.fog.far = misch(s.nebelFern, tageslicht.nebelFern, ort);
+      }
+      const u = (himmel.material as THREE.ShaderMaterial).uniforms;
+      const richtung: THREE.Vector3 = u.sonnenrichtung.value;
+      richtung.copy(l.position).sub(p).normalize();
+      u.sonnenfarbe.value.copy(l.color);
+      u.zenit.value.lerpColors(lichtbasis.zenit, tageslicht.himmel, ort);
+      u.horizont.value.lerpColors(lichtbasis.horizont, tageslicht.dunst, ort);
+      u.dunst.value.lerpColors(lichtbasis.nebel, tageslicht.dunst, ort);
+      const versatz: THREE.Vector3 | undefined = fernMaterial.uniforms.uDunstversatz?.value;
+      versatz?.set(tageslicht.dunst.r - lichtbasis.horizont.r, tageslicht.dunst.g - lichtbasis.horizont.g,
+        tageslicht.dunst.b - lichtbasis.horizont.b).multiplyScalar(ort);
+      himmel.userData.alpenanteil = ort;
     }
   });
 
@@ -2683,18 +2745,18 @@ function Beleuchtung({ s, ziel }: {
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       {!takramBereit && <primitive object={himmel} />}
       {takramAn && <TakramProbe sonnenstand={s.sonnenstand} meldeBereit={setzeTakramBereit} />}
-      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? 0.25 : UMLICHT_AN ? 0.35 : 1)]} />
+      <hemisphereLight ref={halbkugel} args={[s.umgebung, bodenfarbe, fuelllicht]} />
       {HDRI_AN && <HdriLicht />}
       {UMLICHT_AN && <HimmelLicht s={s} />}
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
-        color={s.sonne} intensity={SONNE_MESSLAUF ?? s.sonneStaerke}
+        color={s.sonne} intensity={direktlicht}
         castShadow shadow-mapSize={[SCHATTENKARTE.aufloesung, SCHATTENKARTE.aufloesung]}
         shadow-camera-left={-SCHATTENKARTE.halb} shadow-camera-right={SCHATTENKARTE.halb}
         shadow-camera-top={SCHATTENKARTE.halb} shadow-camera-bottom={-SCHATTENKARTE.halb}
         shadow-camera-far={700} shadow-bias={-0.0008}
-        shadow-intensity={SCHATTEN_MESSLAUF ?? s.schatten ?? 1}
+        shadow-intensity={schatten}
       />
     </>
   );
@@ -3585,7 +3647,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
   // D213: Saum für die neuen Gestalten aus derselben Randfarbe wie Kreaturen und alte Figur.
   useEffect(() => { setzeFigurSaum(rand.farbe, rand.staerke); }, [rand]);
   useEffect(() => {
-    if (held) { legeWahlAn(scene, wahl!); setzeFigurUmgebung(scene, himmelKarte); return; }
+    if (held) { legeWahlAn(scene, wahl!, MILBINGERLICHT_AN); setzeFigurUmgebung(scene, himmelKarte); return; }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
@@ -4563,10 +4625,12 @@ export function RegionsSzene({
       dunst: s.horizont, sonne: s.sonne, sonneStaerke: s.sonneStaerke,
       umgebung: s.umgebung, umgebungStaerke: s.umgebungStaerke,
       sonnenstand: s.sonnenstand,
+      beweglicherDunst: MILBINGERLICHT_AN,
     }) : null),
     [fernland, welt, s],
   );
-  const fernMaterial = useMemo(() => baueFernlandMaterial(), []);
+  const fernMaterial = useMemo(() => baueFernlandMaterial(MILBINGERLICHT_AN), []);
+  useEffect(() => () => fernMaterial.dispose(), [fernMaterial]);
   useEffect(() => () => { fernGeo?.dispose(); }, [fernGeo]);
 
   return (
@@ -4581,7 +4645,7 @@ export function RegionsSzene({
     >
       <WasserUmgebung werte={{ zenit: s.zenit, horizont: s.horizont, dunst: s.nebel,
         sonne: s.sonne, sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof }}>
-      <Beleuchtung s={s} ziel={ref} />
+      <Beleuchtung s={s} ziel={ref} wiesenbereich={wiesenbereich} fernMaterial={fernMaterial} />
       {!istAus('kulisse') && fernGeo && (
         <mesh geometry={fernGeo} material={fernMaterial} frustumCulled={false} renderOrder={-500} />
       )}
@@ -4644,7 +4708,7 @@ export function RegionsSzene({
                    hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} kollision={kollision} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
-      <EzBaumProbe ziel={ref} lokal={HOF_GRUEN_AN} />
+      <EzBaumProbe ziel={ref} lokal={HOF_GRUEN_AN} milbinger={MILBINGERLICHT_AN && !!wiesenbereich} />
       {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
       <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
               bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />

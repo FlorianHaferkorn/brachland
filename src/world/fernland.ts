@@ -102,6 +102,7 @@ export interface FernLicht {
   umgebung: THREE.ColorRepresentation;
   umgebungStaerke: number;
   sonnenstand: readonly [number, number, number];
+  beweglicherDunst?: boolean;
 }
 
 export function baueFernland(
@@ -194,6 +195,7 @@ export function baueFernland(
   const farben: number[] = [];
   /** D207: der klare (undunstige) Anteil der Farbe, den das Mosaik im Shader abwandeln darf. */
   const klar: number[] = [];
+  const dunstgewichte: number[] = [];
 
   /** Ein Punkt: Szenenkoordinaten plus die echte Höhe ü. NN für Farbe und Dunst. */
   type Punkt = readonly [number, number, number, number];
@@ -221,6 +223,7 @@ export function baueFernland(
     const nachEntfernung = Math.min(1, Math.max(0, (weit - 1400) / 4200));
     const nachHoehe = Math.min(1, Math.max(0, (1100 - v[3]) / 900));
     const anteil = Math.min(0.92, 0.30 + nachEntfernung * 0.45 + nachHoehe * 0.30);
+    if (licht.beweglicherDunst) dunstgewichte.push(anteil);
     // Mosaik nur im Tal und an Waldhängen, oben (Fels, Firn) nicht.
     const tal = 1 - 0.7 * Math.min(1, Math.max(0, (v[3] - 1000) / 700));
     const rest = (1 - anteil) * tal;
@@ -342,6 +345,7 @@ export function baueFernland(
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positionen, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
   geo.setAttribute('klar', new THREE.Float32BufferAttribute(klar, 3));
+  if (licht.beweglicherDunst) geo.setAttribute('dunstgewicht', new THREE.Float32BufferAttribute(dunstgewichte, 1));
   // Keine Normalen: Das Material rechnet kein Licht, die Schattierung steckt
   // bereits in der Farbe. Ein Normalenattribut wäre 230 KB toter Speicher.
   return geo;
@@ -357,20 +361,23 @@ export function baueFernland(
  * kleben: Himmel, Nebel und Kulisse enden bei derselben Dunstfarbe, also müssen
  * alle drei denselben Weg ins Bild nehmen (G-105).
  */
-export function baueFernlandMaterial(): THREE.Material {
+export function baueFernlandMaterial(beweglicherDunst = false): THREE.ShaderMaterial {
   // D207: Mosaik aus Wald und Offenland im Fragment, nur auf dem klaren Anteil der Farbe
   // (`klar`), der Dunst bleibt unberührt — die Kulisse endet weiter bei der Horizontfarbe.
   return new THREE.ShaderMaterial({
     vertexColors: true,
     fog: false,
+    uniforms: beweglicherDunst ? { uDunstversatz: { value: new THREE.Vector3() } } : {},
     vertexShader: `
 attribute vec3 klar;
+${beweglicherDunst ? 'attribute float dunstgewicht;\nvarying float vDunstgewicht;' : ''}
 varying vec3 vFarbe;
 varying vec3 vKlar;
 varying vec2 vOrt;
 void main() {
   vFarbe = color;
   vKlar = klar;
+  ${beweglicherDunst ? 'vDunstgewicht = dunstgewicht;' : ''}
   vOrt = (modelMatrix * vec4(position, 1.0)).xz;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`,
@@ -378,6 +385,7 @@ void main() {
 varying vec3 vFarbe;
 varying vec3 vKlar;
 varying vec2 vOrt;
+${beweglicherDunst ? 'uniform vec3 uDunstversatz;\nvarying float vDunstgewicht;' : ''}
 float fernHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float fernRauschen(vec2 p) {
   vec2 i = floor(p), f = fract(p);
@@ -392,7 +400,7 @@ void main() {
           + fernRauschen(vOrt / 47.0 + 3.1) * 0.1;
   float offen = smoothstep(0.48, 0.58, n);
   vec3 mosaik = mix(vec3(0.62, 0.68, 0.62), vec3(1.30, 1.22, 0.98), offen);
-  gl_FragColor = vec4(vFarbe + vKlar * (mosaik - 1.0), 1.0);
+  gl_FragColor = vec4(vFarbe + vKlar * (mosaik - 1.0)${beweglicherDunst ? ' + uDunstversatz * vDunstgewicht' : ''}, 1.0);
   // Denselben Weg wie Himmel und Nebel — siehe himmel.ts und G-105.
   #include <tonemapping_fragment>
   #include <colorspace_fragment>

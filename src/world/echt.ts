@@ -70,6 +70,8 @@ export const MILBINGERMASSE_AN = MILBINGEROBEN_AN && an('milbingermasse');
 export const MILBINGERDETAIL_AN = MILBINGERMASSE_AN && an('milbingerdetail');
 /** D342: hangfolgende Sockel und durchgehender Bodenanschluss am Milbinger Wohnweg. */
 export const MILBINGERBODEN_AN = MILBINGERDETAIL_AN && an('milbingerboden');
+/** D343: örtliches Tageslicht, Baumkulisse und Materialprobe der Spielfigur. */
+export const MILBINGERLICHT_AN = MILBINGERBODEN_AN && an('milbingerlicht');
 /** D333: quellenbasierte Straßenausstattung und begehbarer Verfall. */
 export const STRASSENVERFALL_AN = an('strassenverfall');
 /** D334: am Luftbild gemessene Breiten und Markierungen. */

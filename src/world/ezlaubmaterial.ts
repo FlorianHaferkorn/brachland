@@ -42,7 +42,7 @@ export function bewahreEzBlattschatten(mesh: THREE.Mesh<THREE.BufferGeometry, TH
 }
 
 /** Nach anderen Shader-Anpassungen aufrufen; vorhandene Hooks bleiben erhalten. */
-export function ergaenzeEzLaublicht(material: THREE.Material, matt = false, kulisse?: 'laubbaum' | 'nadelbaum'): void {
+export function ergaenzeEzLaublicht(material: THREE.Material, matt = false, kulisse?: 'laubbaum' | 'nadelbaum', kronentiefe = false): void {
   const vorher = material.onBeforeCompile;
   const programm = material.customProgramCacheKey.bind(material);
   const kulissenton = kulisse ? { value: kulisse === 'laubbaum'
@@ -52,6 +52,12 @@ export function ergaenzeEzLaublicht(material: THREE.Material, matt = false, kuli
     if (kulissenton) {
       shader.uniforms.uEzKulissenton = kulissenton;
       shader.fragmentShader = 'uniform vec3 uEzKulissenton;\n' + shader.fragmentShader;
+    }
+    if (kronentiefe) {
+      shader.vertexShader = 'attribute float aEzKronentiefe; varying float vEzKronentiefe;\n' + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>',
+        '#include <begin_vertex>\nvEzKronentiefe = aEzKronentiefe;');
+      shader.fragmentShader = 'varying float vEzKronentiefe;\n' + shader.fragmentShader;
     }
     // Phong behält selbst bei schwarzer Glanzfarbe Fresnel-Reflexe im Streiflicht.
     if (matt) shader.fragmentShader = shader.fragmentShader.replace('#include <lights_fragment_end>',
@@ -64,7 +70,9 @@ export function ergaenzeEzLaublicht(material: THREE.Material, matt = false, kuli
       #include <color_fragment>
       vec3 ezBlattfarbe = max(diffuseColor.rgb, vec3(0.0));
       float ezBlatthelligkeit = dot(ezBlattfarbe, vec3(0.2126, 0.7152, 0.0722));
-      diffuseColor.rgb = ezBlattfarbe * inversesqrt(max(ezBlatthelligkeit, 0.01));
+      diffuseColor.rgb = ezBlattfarbe * ${kronentiefe
+        ? 'mix(1.0, inversesqrt(max(ezBlatthelligkeit, 0.01)), 0.69) * vEzKronentiefe'
+        : 'inversesqrt(max(ezBlatthelligkeit, 0.01))'};
       ${kulisse ? /* glsl */ `
         // Gedämpfte Olive an den breiten Laubkronen und kühle Töne am Nadelsaum.
         float ezLicht = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
@@ -76,14 +84,42 @@ export function ergaenzeEzLaublicht(material: THREE.Material, matt = false, kuli
       // Rueckseitiges Sonnenlicht wie beim bestehenden Baum-Laubmaterial.
       #if NUM_DIR_LIGHTS > 0
         float ezRueck = max(0.0, -dot(geometryNormal, directionalLights[0].direction));
-        reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * directionalLights[0].color * ezRueck * ${kulisse ? '0.32' : '0.45'};
+        reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * directionalLights[0].color * ezRueck * ${kronentiefe ? '0.26' : kulisse ? '0.32' : '0.45'};
       #endif
       // Ein kleiner Anteil mehrfach gestreuten Himmelslichts in dichten Kronen.
       #if NUM_HEMI_LIGHTS > 0
-        reflectedLight.indirectDiffuse += BRDF_Lambert(diffuseColor.rgb) * getHemisphereLightIrradiance(hemisphereLights[0], geometryNormal) * ${kulisse ? '0.25' : '0.35'};
+        reflectedLight.indirectDiffuse += BRDF_Lambert(diffuseColor.rgb) * getHemisphereLightIrradiance(hemisphereLights[0], geometryNormal) * ${kronentiefe ? '0.19' : kulisse ? '0.25' : '0.35'};
       #endif
     `);
   };
-  material.customProgramCacheKey = () => `${programm()}:ez-laublicht-v3${matt ? ':matt' : ''}${kulisse ? ':kulisse' : ''}`;
+  material.customProgramCacheKey = () => `${programm()}:ez-laublicht-v3${matt ? ':matt' : ''}${kulisse ? ':kulisse' : ''}${kronentiefe ? ':tiefe' : ''}`;
+  material.needsUpdate = true;
+}
+
+/** Relief aus der Höhenmaske der vorhandenen Rindenkarte, ohne neuen Texturslot. */
+export function ergaenzeEzRinde(material: THREE.MeshPhongMaterial): void {
+  const vorher = material.onBeforeCompile;
+  const programm = material.customProgramCacheKey.bind(material);
+  material.normalMap = null;
+  material.aoMap = null;
+  material.specular.setScalar(.034);
+  material.shininess = 9;
+  material.onBeforeCompile = (shader, renderer) => {
+    vorher.call(material, shader, renderer);
+    shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', /* glsl */ `
+      #include <normal_fragment_maps>
+      #ifdef USE_MAP
+        float ezRinde = texture2D(map, vMapUv).a;
+        vec3 ezRindeX = dFdx(-vViewPosition);
+        vec3 ezRindeY = dFdy(-vViewPosition);
+        vec3 ezRindeR1 = cross(ezRindeY, normal);
+        vec3 ezRindeR2 = cross(normal, ezRindeX);
+        float ezRindeDet = dot(ezRindeX, ezRindeR1);
+        vec3 ezRindeGrad = sign(ezRindeDet) * (dFdx(ezRinde) * ezRindeR1 + dFdy(ezRinde) * ezRindeR2);
+        normal = normalize(max(0.00000001, abs(ezRindeDet)) * normal - ezRindeGrad * .040);
+      #endif
+    `);
+  };
+  material.customProgramCacheKey = () => `${programm()}:ez-rindenrelief`;
   material.needsUpdate = true;
 }

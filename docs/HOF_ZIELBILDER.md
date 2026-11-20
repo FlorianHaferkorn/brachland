@@ -636,3 +636,27 @@ Vier feste Kamerapaare zeigen die Sockel von 509 und 506, die Straßenseite und 
 | p95, Weststraße | 33,30 ms | 33,30 ms |
 
 Alle vier Läufe erreichen zwölf Wegpunkte ohne Browserfehler. Gemessen wurde ohne Videoaufnahme im selben Build in der Folge `milbingerboden=0/1/1/0`. Die Differenz von 0,11 FPS liegt unter der Schwankung der beiden D341-Läufe. Die Rohberichte liegen unter `.cache/mess/d342-final-ab-{a1,b1,b2,a2}`.
+
+## Tageslicht, Baumkulisse und Spielfigur an der Milbinger Straße (D343)
+
+Hyperrealismus gilt für jedes sichtbare Element. Die Probe setzt ihn im bestehenden Milbinger Ausschnitt gemeinsam für Bebauung, Gelände, Straßenraum, Licht, Vegetation und Figur an. Der spielbare Vergleich variiert `milbingerlicht=0/1` bei aktiven D340–D342-Details. Die amtlichen Gebäudeformen, der vermessene Straßenquerschnitt und der DGM1-Höhenausschnitt bilden in beiden Fassungen die Grundlage.
+
+Das vorhandene Alpenpanorama von Andreas Mischok (Poly Haven, CC0) liefert die Wolken. Für die Spielansicht blendet der Shader fotografiertes Gelände und Kondensstreifen aus. Die helle Stelle des Panoramas liegt bei rund 42° Sonnenhöhe. Sie bestimmt die Richtung der vorhandenen Lichtquelle. Direktlicht, Fülllicht, Nebel und Belichtung variieren gemeinsam am Ortsrand. Dieselbe Dunstfarbe greift in die aus Höhenwerten gebaute Fernkulisse ein. Die Beleuchtung nutzt die bestehenden Lichtquellen und Schattenpässe. Die gesonderte Blender-Studie `.cache/d343-milbinger/blender-tageslicht-haus509.{blend,png}` prüft Sockel, Fassadenrelief und Schatten am exportierten Netz aus derselben Fassadenkamera. Sie verwendet ein eigenes Grasmaterial und eine separat eingestellte HDR-Umgebung.
+
+53 vorhandene Bäume erhalten acht örtliche Varianten. Kleinere Fotokarten, offene Kronenränder und dichteres inneres Laub machen die Verzweigung lesbar. Der vorhandene Rindenatlas liefert das Relief. Die Varianten laufen durch die bestehenden Übergänge für Entfernung, Wind und Schatten. Das Material der Spielfigur variiert Stoff, Leder und abgelaufene Stiefel mit den vorhandenen Texturen. Oberflächenspuren bewegen sich mit dem animierten Körper.
+
+Vier feste Kamerapaare zeigen Hauptbaum, Straßenrand, Haus 509 und Spielfigur. Zwei Gegenläufe mit normaler Spielkamera folgen dem Sockel von Haus 509 (20,00 m / 19,97 m) und der Straße (35,31 m / 35,37 m). Gerade in Bewegung zeichnen sich Astschatten auf Weg und Fassade ab. Die acht Bilder und vier Clips melden keine Browserfehler. Die beiden synchron dargestellten Videovergleiche und die spielbaren Fassungen liegen unter `.cache/bilder/d343-milbinger/index.html`.
+
+| Bildzeitmessung bei 960 × 540, M1 | D342 | D343 |
+|---|---:|---:|
+| FPS, Milbinger Straße (35 m) | 46,73 | 51,57 |
+| p95, Milbinger Straße | 34,30 ms | 33,40 ms |
+| Frames über 50 ms, Milbinger Straße | 0 | 0 |
+| FPS, Hof und Weststraße (152 m) | 49,91 | 51,85 |
+| p95, Hof und Weststraße | 33,50 ms | 33,30 ms |
+| Längster Frame, Hof und Weststraße | 49,50 ms | 83,20 ms |
+| Frames über 50 ms, Hof und Weststraße | 0 | 2 |
+
+Gemessen wurde ohne Video, zweimal je Fassung über 152 m in der Folge 0/1/1/0, einmal je Fassung über 35 m. Beide langen Frames (83,20 und 82,90 ms) liegen in den ersten 100 ms nach dem Loslaufen am Hof. Das separate CPU-Profil zeigt im entsprechenden 84,3-ms-Frame 69 ms in der ersten Auswertung eines Tiefenprogramms beim Schilf im Schattenpass. Ein Vorlauf nur für das Schilf ließ den Ausschlag in beiden Gegenläufen bestehen. Beim Ausschalten des Schilfschattens trat der blockierende Aufruf mit demselben Programmschlüssel beim Waldholz auf. Der punktuelle Vorlauf wurde verworfen. Die Rohberichte liegen unter `.cache/mess/d343-final-ab-{a1,b1,b2,a2}` und `.cache/mess/d343-final-nah-{0,1}`. Ursache und Gegenproben stehen in `.cache/mess/d343-anlaufprofil-b`, `.cache/mess/d343-schilf-ab-*` und `.cache/mess/d343-anlaufprofil-ohneschilf-b`.
+
+Für die Abnahme nach A-19 bleiben glatte Fernhänge, vereinfachte Figurenanatomie und örtlich generische Bauteile offen. Die vermessene Form eines Gebäudes belegt seine Geometrie im Großen. Originale Fassadenachsen, Dachdetails, Bordhöhen und Straßenausstattung brauchen Seitenansichten vor Ort (H-255c). Der Vergleich im Spiel zeigt den örtlichen Stand dieses Durchgangs.
