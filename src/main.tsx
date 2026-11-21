@@ -925,6 +925,7 @@ function App() {
         kampfStand={kampfStand}
         kampfEnde={weltKampf ? kampfVorbei : undefined}
         kampfNacht={weltKampf?.nacht}
+        kampfRichtung={stand.richtungskampf !== false}
         spielerSprung={spielerSprung}
         waffenStufen={WAFFENSTUFE_PROBE ?? stand?.waffenStufen}
       />
@@ -1094,6 +1095,8 @@ function App() {
           {menueOffen && (
             <Menue
               onFigur={() => { setMenueOffen(false); setEditorOffen(true); }}
+              richtung={stand.richtungskampf !== false}
+              onRichtung={an => { const neu = { ...stand, richtungskampf: an }; setStand(neu); void speichereStand(neu); }}
               welt={welt}
               team={team}
               beutel={stand.beutel}

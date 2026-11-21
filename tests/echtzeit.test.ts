@@ -940,5 +940,49 @@ console.log(`  Leichte Kette (mit Abbruch)          ${kettenWerte}`);
   pruefe('Nach eigenem Angriff wechselt er die Deckung', w.deckung !== vorher, `${vorher} → ${w.deckung}`);
   console.log(`  Wegelagerer: Linien ${WEGELAGERER.mensch!.linienFolge.join('/')} · Deckung kostet ${DECKUNG_KOSTEN} × Schaden an Ausdauer`);
 }
+// ---------------------------------------------------- D355: Richtungskampf abschaltbar
+{
+  /** Wie `linienLauf`, aber beide Kämpfer im Modus „ohne Linien“ — so setzt ihn `simuliere`. */
+  function ohneLauf(blockLinie: Linie | undefined, vor = 0.4) {
+    const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
+    s.linie = blockLinie; s.ohneLinien = true;
+    const g = neuerKaempfer('g', WEGELAGERER, 0, -1.6, blickAuf(0, -1.6, 0, 0));
+    g.ohneLinien = true;
+    setzeSchlagAn(g);
+    let t = 0, tr: Treffer[] = [];
+    while (t < 1.5 && !tr.length) {
+      if (s.phase === 'bereit' && t >= WEGELAGERER.schlag.vorlauf - vor) setzeBlockAn(s);
+      schrittKaempfer(s, SCHRITT); schrittKaempfer(g, SCHRITT);
+      tr = loeseTreffer(g, [s]); t += SCHRITT;
+    }
+    return { s, g, tr: tr[0] };
+  }
+  const erste = WEGELAGERER.mensch!.linienFolge[0];
+  const falscheWahl: Linie = erste === 'oben' ? 'unten' : 'oben';
+  const aus = ohneLauf(falscheWahl);
+  pruefe('Aus: Schlag trägt keine Linie', aus.g.schlagLinie === undefined, String(aus.g.schlagLinie));
+  pruefe('Aus: Block hält voll, auch mit „falscher“ Wahl', !!aus.tr?.geblockt && !aus.tr.falscheLinie
+    && aus.s.leben === SPIELERIN.lebenMax, JSON.stringify(aus.tr));
+  pruefe('Aus: Block ohne gewählte Linie hält voll', ohneLauf(undefined).s.leben === SPIELERIN.lebenMax);
+  pruefe('Aus: Parade wie Stufe 1', !!ohneLauf(falscheWahl, 0.1).tr?.pariert);
+  {
+    // Deckung des Menschen greift nicht: In seine gedeckte Linie geschlagen, trifft es trotzdem.
+    const g = neuerKaempfer('g', WEGELAGERER, 0, -1.6, blickAuf(0, -1.6, 0, 0)); g.ohneLinien = true;
+    const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0); s.ohneLinien = true; s.linie = g.deckung;
+    const l0 = g.leben;
+    setzeSchlagAn(s);
+    let tr: Treffer[] = [];
+    for (let t = 0; t < 1 && !tr.length; t += SCHRITT) { schrittKaempfer(s, SCHRITT); tr = loeseTreffer(s, [g]); }
+    pruefe('Aus: keine Deckung, der Schlag trifft', !tr[0]?.gedeckt && g.leben < l0, JSON.stringify(tr[0]));
+  }
+  {
+    // `simuliere` setzt den Modus aus der Welt; ohne Angabe bleibt der Richtungskampf an.
+    const w: Kampfwelt = { spielerin: neuerKaempfer('s', SPIELERIN, 0, 0, 0), gegner: [neuerKaempfer('g', WEGELAGERER, 0, -6, 0)], ziel: null };
+    simuliere(w, SCHRITT);
+    pruefe('Vorgabe: Richtungskampf an', !w.spielerin.ohneLinien && !w.gegner[0].ohneLinien);
+    w.richtung = false; simuliere(w, SCHRITT);
+    pruefe('richtung=false schaltet alle Kämpfer um', !!w.spielerin.ohneLinien && !!w.gegner[0].ohneLinien);
+  }
+}
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
 if (gefallen) process.exit(1);

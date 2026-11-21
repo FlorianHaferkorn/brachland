@@ -4482,6 +4482,8 @@ export interface RegionsSzeneProps {
   waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Begegnung bei Nacht (D179). */
   kampfNacht?: boolean;
+  /** D355: Richtungskampf an/aus aus dem Spielstand. */
+  kampfRichtung?: boolean;
   /** Spieler versetzen (D179, Aufwachen in der Zuflucht). */
   spielerSprung?: React.RefObject<[number, number, number?] | null>;
   /** Stand für die Kampfanzeige im DOM, wie `ausdauer` als Ref. */
@@ -4493,7 +4495,7 @@ export function RegionsSzene({
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, geheilt, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, spielerSprung, kampfStand, lagerstellen,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, kampfRichtung, spielerSprung, kampfStand, lagerstellen,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -4703,7 +4705,7 @@ export function RegionsSzene({
         <Suspense fallback={null}>
           <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
                       ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} waffenStufen={waffenStufen} nacht={kampfNacht}
+                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} waffenStufen={waffenStufen} nacht={kampfNacht} richtung={kampfRichtung}
                       key={kampfEnde ? `welt-${kampfAufstellung?.join(',')}` : 'platz'} />
         </Suspense>
       )}
