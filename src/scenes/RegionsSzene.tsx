@@ -31,9 +31,7 @@ import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, spiegelAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung, type Stoecke } from '../spieler/steuerung.js';
 import { peilung } from '../spieler/peilung.js';
-import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
-         streueUmgebung, streueKleinzeug,
-         STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN, type WohnwegStreuung } from '../world/streuung.js';
+import { baueKleinzeugGeometrie, streueKleinzeug, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
 import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
 import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
@@ -45,7 +43,8 @@ import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel, HIMMEL_PHYSIK_AN } from '../world/himmel.js';
 import { koppleStimmung, mischeAtmosphaere, ATMOSPHAERE_VORGABE } from '../world/atmosphaere.js';
 import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
-import { baumRaster, streuMatrizen } from '../world/streukarten.js';
+import { baumRaster, streuBaeume, streuMatrizen } from '../world/streukarten.js';
+import { BODEN_NAH, bodenMaterial, bodenMatrizen, buschGeometrie, flachGeometrie, type BodenMatrizen } from '../world/bodenpflanzen.js';
 import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
@@ -57,7 +56,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { EFEUKARTEN_AN, HOFBAU_AN, STREU_AN, FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { BODEN_AN, EFEUKARTEN_AN, HOFBAU_AN, STREU_AN, FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
 import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
@@ -631,11 +630,9 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const aufBoden = useMemo(() => aufsatzboden(feld), [feld]);
   const hofBaeume = useMemo(() => {
     const globalEz = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1';
-    const sichtbar = wiesenbereich ? props.filter(p => p.art !== 'grasbuschel'
-      || wiesenbereich.gewicht(p.position[0], p.position[2]) < .6) : props;
     const rahmen = MILBINGERLICHT_AN && !globalEz ? wiesenbereich?.rahmen : undefined;
-    const milbinger = rahmen ? teileMilbingerBaeume(sichtbar, [rahmen.x, rahmen.y, rahmen.z, rahmen.w])
-      : { rest: sichtbar, lokaleBaeume: [] };
+    const milbinger = rahmen ? teileMilbingerBaeume(props, [rahmen.x, rahmen.y, rahmen.z, rahmen.w])
+      : { rest: props, lokaleBaeume: [] };
     const hof = HOF_GRUEN_AN && !globalEz
       ? teileHofBaeume(milbinger.rest, HOF_UNIFORM.bereit.value ? [HOF_UNIFORM.mitte.value.x, HOF_UNIFORM.mitte.value.y] : null)
       : { rest: milbinger.rest, lokaleBaeume: [] };
@@ -662,16 +659,6 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
   }), []);
   /**
-   * Gras-Attrappen: derselbe Wind, aber **glatt** schattiert (D121). Die
-   * Grasbüschel tragen seit D121 Normalen senkrecht nach oben wie die Streuung
-   * — mit `flatShading` würde three.js sie ignorieren und die Flächennormale
-   * aus den Ableitungen nehmen, und ein Halm stünde wieder halb im
-   * Eigenschatten. Kleinere Amplitude: ein Büschel schwingt, es peitscht nicht.
-   */
-  const grasWind = useMemo(() => baueWindMaterial({
-    amplitude: 0.25, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5,
-  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 1, metalness: 0 })), []);
-  /**
    * Farn (D212): eigener Wind ohne Saum. Mit Normalen nach oben ist `1 - |N·V|` kein Rand, sondern
    * nur der Blickwinkel — auf dem dunklen Farn lag der Saum als grauer Schleier über der ganzen
    * Pflanze (Render 08.10.2026). Dafür Durchlass: Wedel leuchten im Gegenlicht.
@@ -682,10 +669,6 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const farnWind = useMemo(() => baueWindMaterial({
     amplitude: 0.2, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
   }, scanBasis('farn', 'farn', true)), []);
-  /** Scan-Gras (D234): Blattkarten wie der Farn, ohne Saum, Durchlass im Gegenlicht. */
-  const grasScanWind = useMemo(() => baueWindMaterial({
-    amplitude: 0.25, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
-  }, scanBasis('gras', 'grasbuschel', true)), []);
 
   /**
    * Blender-Baeume (D155): derselbe Wind, aber glatt schattiert (die Blattmassen tragen Normalen),
@@ -718,11 +701,10 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const baumWindNadel = useMemo(() => LAUB_FEIN ? baueWindMaterial(baumWerte(bueschelTextur('nadel')), baumBasis()) : baumWind, [baumWind]);
   useEffect(() => {
     wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);
-    grasWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
     baumWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
     if (baumWindNadel !== baumWind) baumWindNadel.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
     buschWind?.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
-  }, [wind, grasWind, baumWind, baumWindNadel, buschWind, rand]);
+  }, [wind, baumWind, baumWindNadel, buschWind, rand]);
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
@@ -740,9 +722,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       if (z) z.value += dt;
     }
     wind.setzeZeit(uhr.current);
-    grasWind.setzeZeit(uhr.current);
     farnWind.setzeZeit(uhr.current);
-    grasScanWind.setzeZeit(uhr.current);
     if (HOF_GRUEN_AN) setzeHofStrauchZeit(uhr.current);
     baumWind.setzeZeit(uhr.current);
     if (baumWindNadel !== baumWind) baumWindNadel.setzeZeit(uhr.current);
@@ -755,22 +735,6 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * und passiert genau einmal je Welt. Was danach je Kachel gebaut wird, ist ein
    * Bruchteil davon — und es fällt weg, sobald die Kachel außer Sicht gerät.
    */
-  const wohnweg = useMemo<WohnwegStreuung | undefined>(() => {
-    if (!WESTANSCHLUSS_AN || !strassen) return undefined;
-    const ids = new Set(strassen.flatMap(abschnitt => abschnitt.wege.filter(w => w.wohnwegrand).map(w => w.osmWeg)));
-    const wege = welt.wege.filter(w => w.quelle && ids.has(w.quelle.osmId));
-    const nutzungen = [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.hausnutzung;
-    const hoefe = (nutzungen ?? []).filter(n => n.fassadenbaukasten).map(n => nachMetern(n.ort, welt.bbox));
-    if (!wege.length || !hoefe.length) return undefined;
-    const aufWeg = wegTest({ ...welt, wege }, feld, false);
-    const freihalten = wiesenbereich ? (x: number, z: number) =>
-      wiesenbereich.gewicht(x, z) >= .6 || !!strassenmaske?.enthaelt(x, z) : strassenmaske?.enthaelt;
-    return { aufWeg, freihalten, gewicht: (x, z) => {
-      let abstand2 = 34 * 34;
-      for (const [hx, hz] of hoefe) abstand2 = Math.min(abstand2, (x-hx)**2 + (z-hz)**2);
-      return 1 - THREE.MathUtils.smoothstep(abstand2, 14*14, 34*34);
-    } };
-  }, [welt, feld, strassen, strassenmaske, wiesenbereich]);
   const satz = useMemo(() => {
     const zustand = strassen && new Map(strassen.flatMap(s => s.wege.map(w => [w.osmWeg, w] as const)));
     return zerlegeBaender(welt, feld, zustand);
@@ -796,6 +760,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       {wasserProbe && reflexMitte && <WasserSzeneProbe probe={wasserProbe} mitte={reflexMitte} ziel={ziel} />}
       <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} wiesenbereich={wiesenbereich} />
       {STREU_AN && <StreuSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} props={props} />}
+      {BODEN_AN && <BodenSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} props={props} />}
 
       <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf}
                   boden={aufBoden}
@@ -810,10 +775,10 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
         { props: hofBaeume.milbingerBaeume, hofBaum: true, milbingerBaum: true }]
         .filter(g => g.props.length > 0).map(g => <Props key={g.milbingerBaum ? 'milbinger' : String(g.hofBaum)}
           props={g.props} hofBaum={g.hofBaum} milbingerBaum={g.milbingerBaum}
-          wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material}
+          wind={wind.material} farnWind={farnWind.material}
           baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material}
           baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={weite} />)}
-      <Streuschicht feld={feld} ziel={ziel} dichte={dichte} wohnweg={wohnweg} />
+      <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
       {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite}
         strassenmaske={strassenmaske} wiesenbereich={wiesenbereich} />}
       {GEWAESSER_ECHT && <Spiegelung feld={feld} />}
@@ -1079,9 +1044,8 @@ function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
   hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
   ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
 }) {
-  // D362: Bäume steuern Dichte und Art der Streu.
-  const baeume = useMemo(() => baumRaster(props.filter(p => p.art === 'laubbaum' || p.art === 'nadelbaum')
-    .map(p => ({ x: p.position[0], z: p.position[2], nadel: p.art === 'nadelbaum' }))), [props]);
+  // D362/D366: Bäume legen unter ihrer Krone eine geschlossene Decke ihrer Art.
+  const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
   const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
   const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
   const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
@@ -1104,6 +1068,41 @@ function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
       receiveShadow frustumCulled={false}
       ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
   ))}</>;
+}
+
+/**
+ * D366: Bodenpflanzen-Karten (Sauerklee, Waldmeister, Moos, Kräuter liegend; Brombeere, Jungwuchs stehend) im
+ * Nahbereich. Gebaut bis `BODEN_NAH` + 8 m, neu gelegt nach 8 m Weg — die Ausblendung im Shader (ab 75 % von
+ * `BODEN_NAH`) liegt damit immer innerhalb des gebauten Kreises.
+ */
+let bodenFlachMaterial: THREE.MeshStandardMaterial | null = null;
+let bodenBuschMaterial: THREE.MeshStandardMaterial | null = null;
+
+function BodenSchicht({ hoeheAn, biomAn, ziel, props }: {
+  hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
+  ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
+}) {
+  const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
+  const [matrizen, setMatrizen] = useState<BodenMatrizen>({ flach: [[], [], [], []], busch: [[], [], [], []] });
+  const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
+  const geometrien = useMemo(() => ({ flach: [0, 1, 2, 3].map(flachGeometrie), busch: [0, 1, 2, 3].map(buschGeometrie) }), []);
+  useEffect(() => () => [...geometrien.flach, ...geometrien.busch].forEach(g => g.dispose()), [geometrien]);
+  bodenFlachMaterial ??= bodenMaterial('bodenflach');
+  bodenBuschMaterial ??= bodenMaterial('bodenbusch');
+  useFrame(() => {
+    const p = ziel.current?.position, jetzt = performance.now();
+    if (!p || jetzt - zuletzt.current < 500) return;
+    zuletzt.current = jetzt;
+    if (mitte.current && mitte.current.distanceTo(new THREE.Vector2(p.x, p.z)) < 8) return;
+    mitte.current = new THREE.Vector2(p.x, p.z);
+    setMatrizen(bodenMatrizen(p.x, p.z, BODEN_NAH + 8, hoeheAn, biomAn, baeume));
+  });
+  const schicht = (art: 'flach' | 'busch', material: THREE.MeshStandardMaterial) => matrizen[art].map((liste, i) => liste.length > 0 && (
+    <instancedMesh key={`${art}${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[art][i], material, liste.length]}
+      receiveShadow frustumCulled={false}
+      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  ));
+  return <>{schicht('flach', bodenFlachMaterial)}{schicht('busch', bodenBuschMaterial)}</>;
 }
 
 /**
@@ -1160,10 +1159,8 @@ function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
   return ergebnis;
 }
 
-function Props({ props, hofBaum = false, milbingerBaum = false, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, buschWind, weite }: { props: PropInstanz[]; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial; weite: number }) {
-  // D285: Mit dem Foto-Grasteppich (`?gras=3`) fallen die stilisierten Grasbüschel-Props weg — sie standen als
-  // Agaven-Sterne zwischen den Foto-Halmen (Dorf-Prüfbild 14.11.2026).
-  const chunks = useMemo(() => chunkeProps(GRAS_FEIN ? props.filter(p => p.art !== 'grasbuschel') : props), [props]);
+function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, buschWind, weite }: { props: PropInstanz[]; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial; weite: number }) {
+  const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<FernGruppe[]>([]);
   // Messbarer Standard der EZ-Probe; ?ezcluster=0 erhaelt den A/B-Rueckweg.
@@ -1238,7 +1235,7 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, grasWind, 
           ausblendet. Bereits geladene Gruppen bleiben sichtbar. */}
       {sichtbar.map(({ c, stufe, id }) =>
         <Suspense key={id} fallback={null}>
-          <PropChunkMesh chunk={c} stufe={stufe} hofBaum={hofBaum} milbingerBaum={milbingerBaum} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
+          <PropChunkMesh chunk={c} stufe={stufe} hofBaum={hofBaum} milbingerBaum={milbingerBaum} wind={wind} farnWind={farnWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
         </Suspense>)}
       {fern.map(({ art, variante, instanzen, zelle, hofStrauch, hofSchatten }) =>
         <Suspense key={`${art}:${variante}:${zelle ?? ''}:${hofStrauch ? 'hof' : ''}:${hofSchatten ? 'schatten' : ''}`} fallback={null}>
@@ -1391,7 +1388,7 @@ function scanBasis(textur: string, art: PropArt, alpha: boolean): THREE.MeshStan
   };
   m.map = karte(`${textur}-farbe`);
   m.normalMap = karte(`${textur}-normal`);
-  if (HOF_AN && ['fels-moos-1', 'fels-moos-2', 'farn', 'gras'].includes(textur)) richteHofPropEin(m, textur);
+  if (HOF_AN && ['fels-moos-1', 'fels-moos-2', 'farn'].includes(textur)) richteHofPropEin(m, textur);
   return m;
 }
 
@@ -1469,9 +1466,9 @@ const LEER: ReadonlySet<string> = new Set();
 const LEERES_PROP_NETZ = new THREE.BufferGeometry();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, hofBaum = false, milbingerBaum = false, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, buschWind }: {
-  chunk: PropChunk; stufe: PropStufe; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
-  farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial;
+function PropChunkMesh({ chunk, stufe, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, buschWind }: {
+  chunk: PropChunk; stufe: PropStufe; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial;
+  farnWind: THREE.MeshStandardMaterial;
   baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial;
 }) {
   const fern = stufe === 'fern';
@@ -1491,7 +1488,6 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, milbingerBaum = false, w
   const biegsam = chunk.art === 'nadelbaum' || chunk.art === 'laubbaum' || chunk.art === 'busch';
   /** D230: Scan-Props tragen ihren Textursatz in `VARIANTEN`. */
   const textur = VARIANTEN[chunk.art][chunk.variante]?.textur;
-  const gras = chunk.art === 'grasbuschel' || chunk.art === 'farn';
   const ref = useRef<THREE.InstancedMesh>(null);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
     ref.current = mesh;
@@ -1557,8 +1553,8 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, milbingerBaum = false, w
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={netz}
       material={blender ? baumWind : strauchMaterial && (!fern || strauchBleibt) ? strauchMaterial : buschWind && chunk.art === 'busch' && !fern ? buschWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
-        : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
-        : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
+        : textur ? statischesScanMaterial(textur, chunk.art)
+        : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
       castShadow={grossesTeil && !fern} receiveShadow={(!fern || strauchBleibt) && (grossesTeil || (HOF_AN && HOF_UNIFORM.bereit.value > 0 && Math.hypot(chunk.mitte[0] - HOF_UNIFORM.mitte.value.x, chunk.mitte[1] - HOF_UNIFORM.mitte.value.y) < 60))}
     />
@@ -2956,46 +2952,36 @@ function Grasteppich({ welt, feld, ziel, dichte, weite, strassenmaske, wiesenber
 }
 
 /**
- * Bodendecker im Nahbereich.
+ * Steine und Äste im Nahbereich.
  *
  * Wird beim Gehen nachgezogen statt einmalig verteilt: 30.000 Props über 16 km²
  * lassen den Boden direkt vor dem Spieler leer, und genau dort schaut man hin.
+ * D366: Die Grasbüschel dieser Schicht sind entfernt (siehe `streuung.ts`).
  */
-function Streuschicht({ feld, ziel, dichte, wohnweg }: {
-  feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number; wohnweg?: WohnwegStreuung;
+function Streuschicht({ feld, ziel, dichte }: {
+  feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number;
 }) {
-  const grasGeo = useMemo(() => baueBueschelGeometrie(), []);
   const kleinGeo = useMemo(() => baueKleinzeugGeometrie(), []);
-  const gras = useMemo(() => baueStreuMaterial(), []);
   // Steine und Äste bewegen sich nicht — eigenes Material ohne Wind.
   const kleinMaterial = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
   }), []);
 
   // Kein Schattenwurf und kein Schattenempfang: Ein Shadow-Texel ist bei ±250 m
-  // Schattenkamera und 2048² rund 24 cm — die Büschel sind kleiner als ein Texel.
+  // Schattenkamera und 2048² rund 24 cm — Steine und Äste sind kleiner als ein Texel.
   // Sie würden sich selbst beschatten und schwarz rendern.
-  const grasMesh = useRef<THREE.InstancedMesh>(null);
   const kleinMesh = useRef<THREE.InstancedMesh>(null);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
 
   // Dichteänderung erzwingt ein Nachziehen beim nächsten Bild.
-  useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [dichte, wohnweg]);
+  useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [dichte]);
 
-  useFrame(({ clock }) => {
-    gras.setzeZeit(clock.elapsedTime);
-
+  useFrame(() => {
     const p = ziel.current?.position;
     if (!p) return;
     if (letzte.current.distanceTo(p) < STREU_NACHZIEHEN) return;
     letzte.current.copy(p);
 
-    const g = grasMesh.current;
-    if (g) {
-      g.count = streueUmgebung(feld, p.x, p.z, g, dichte, wohnweg);
-      g.instanceMatrix.needsUpdate = true;
-      g.computeBoundingSphere();
-    }
     const k = kleinMesh.current;
     if (k) {
       k.count = streueKleinzeug(feld, p.x, p.z, k, dichte);
@@ -3006,16 +2992,10 @@ function Streuschicht({ feld, ziel, dichte, wohnweg }: {
   });
 
   return (
-    <>
-      <instancedMesh
-        ref={grasMesh} args={[grasGeo, gras.material, STREU_MAX]}
-        frustumCulled={false} receiveShadow={false} castShadow={false}
-      />
-      <instancedMesh
-        ref={kleinMesh} args={[kleinGeo, kleinMaterial, KLEIN_MAX]}
-        frustumCulled={false} receiveShadow={false} castShadow={false}
-      />
-    </>
+    <instancedMesh
+      ref={kleinMesh} args={[kleinGeo, kleinMaterial, KLEIN_MAX]}
+      frustumCulled={false} receiveShadow={false} castShadow={false}
+    />
   );
 }
 

@@ -83,7 +83,7 @@ export default defineConfig({
           // D298: verworfener Erdboden und redundante Prop-Normalen sind Quellenbelege,
           // werden von keinem Material verwendet und gehören deshalb nicht in den Offline-Download.
           '**/material/hof-boden-*.webp', '**/material/hof-farn-normal.webp',
-          '**/material/hof-gras-normal.webp', '**/material/hof-fels-moos-*-normal.webp'],
+          '**/material/hof-fels-moos-*-normal.webp'],
         runtimeCaching: [{
           urlPattern: ({ url }) => url.pathname.startsWith('/bauten/'),
           handler: 'CacheFirst',

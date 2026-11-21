@@ -13,7 +13,7 @@ const prop = (art: PropInstanz['art'], x: number, z: number, variante: number): 
   drehung: variante * 0.137, skalierung: 0.75 + variante * 0.05,
 });
 const eingabe = [
-  prop('grasbuschel', 0, 0, 0), prop('nadelbaum', 0, 0, 1), prop('laubbaum', 0, HOF_BAUM_RADIUS, 2),
+  prop('blume', 0, 0, 0), prop('nadelbaum', 0, 0, 1), prop('laubbaum', 0, HOF_BAUM_RADIUS, 2),
   prop('busch', 5, 5, 3), prop('nadelbaum', HOF_BAUM_RADIUS + 0.001, 0, 4),
   prop('laubbaum', -HOF_BAUM_RADIUS, 0, 5), prop('findling', 1, 1, 0),
 ];

@@ -38,7 +38,6 @@ const TEXTUREN: Record<string, { quelle: string; material: string; groesse: numb
   'wurzelstock': { quelle: 'root_cluster_01', material: 'root_cluster_01', groesse: 512 },
   'wurzelstrang': { quelle: 'root_cluster_02', material: 'root_cluster_02', groesse: 512 },
   'wurzel-einzel': { quelle: 'single_root', material: 'single_root', groesse: 512 },
-  'gras':        { quelle: 'grass_medium_02', material: 'grass_medium_02', groesse: 1024 },
 };
 
 /** Höhen wie die prozeduralen Varianten, die sie ersetzen (`props.ts` `VARIANTEN`). */
@@ -59,13 +58,6 @@ const SATZ: Eintrag[] = [
   { quelle: 'root_cluster_01', knoten: 'root_cluster_01', datei: 'totholz_scan_wurzelstock', textur: 'wurzelstock', hoehe: 1.2, dreiecke: 2400 },
   { quelle: 'root_cluster_02', knoten: 'root_cluster_02_a', datei: 'totholz_scan_wurzelstrang', textur: 'wurzelstrang', hoehe: 0.19, dreiecke: 2400 },
   { quelle: 'single_root', knoten: 'single_root', datei: 'totholz_scan_wurzel_einzel', textur: 'wurzel-einzel', hoehe: 0.18, dreiecke: 1800 },
-  // D234: Grasbüschel aus `grass_medium_02` (Blattkarten, nicht reduziert), auf die alten Höhen.
-  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_a', datei: 'gras_scan_a', textur: 'gras', hoehe: 0.18, dreiecke: 0, wind: true, karten: true },
-  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_b', datei: 'gras_scan_b', textur: 'gras', hoehe: 0.24, dreiecke: 0, wind: true, karten: true },
-  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_c', datei: 'gras_scan_c', textur: 'gras', hoehe: 0.34, dreiecke: 0, wind: true, karten: true },
-  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_d', datei: 'gras_scan_d', textur: 'gras', hoehe: 0.48, dreiecke: 0, wind: true, karten: true },
-  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_e', datei: 'gras_scan_e', textur: 'gras', hoehe: 0.62, dreiecke: 0, wind: true, karten: true },
-  { quelle: 'grass_medium_02', knoten: 'grass_medium_02_e', datei: 'gras_scan_f', textur: 'gras', hoehe: 0.85, dreiecke: 0, wind: true, karten: true },
 ];
 
 await MeshoptSimplifier.ready;

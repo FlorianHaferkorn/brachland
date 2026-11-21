@@ -139,6 +139,23 @@ async function hauptlauf() {
       register.baeume.filter(b => b.art === art && b.stufe === 'nah').map(b => b.hoehe), m => `${m.toFixed(1)} m`);
   }
 
+  // D366: Bodenpflanzen — gebackene Höhe der Kachel (höchste Pflanze, `boden-karten.json`) × Instanzskalierung, so
+  // wie `bodenMatrizen` die Karten in einem Probewald aufstellt. Moospolster ist als Breite angegeben, nur gelistet.
+  const { bodenMatrizen, KACHELN } = await import('../src/world/bodenpflanzen.js');
+  const { baumRaster } = await import('../src/world/streukarten.js');
+  const probe = bodenMatrizen(0, 0, 60, (x, z) => 0.25 * Math.sin(x * 1.3) * Math.sin(z * 1.3), () => 'wald',
+    baumRaster(Array.from({ length: 40 }, (_, i) => ({ x: -60 + (i % 8) * 15, z: -60 + Math.floor(i / 8) * 30, nadel: i % 3 === 0, krone: 4 }))));
+  for (const r of ref('boden')) {
+    const werte: number[] = [];
+    for (const satz of ['bodenflach', 'bodenbusch'] as const) KACHELN[satz].forEach((info, kachel) => {
+      if (info.name !== r.id) return;
+      const liste = satz === 'bodenflach' ? probe.flach[kachel] : probe.busch[kachel];
+      for (const m of liste) werte.push(info.hoehe * Math.hypot(m.elements[0], m.elements[1], m.elements[2]) / info.kante);
+    });
+    if (r.id === 'moospolster') { console.log(`  · [${r.id}] Polsterbreite, in tools/bodenkarten.py gesetzt (nicht gemessen)`); continue; }
+    zeile(r, 'Bodenpflanzen-Karten (Probewald)', werte, cm);
+  }
+
   console.log(verstoesse ? `\n${verstoesse} Verstoss/Verstösse gegen belegte Referenzen` : '\n0 Verstösse');
   process.exit(verstoesse ? 1 : 0);
 }

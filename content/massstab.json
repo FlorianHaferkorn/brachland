@@ -87,6 +87,72 @@
       "url": "https://www.gartenjournal.net/fichte",
       "messung": "streu",
       "belegt": true
+    },
+    {
+      "id": "sauerklee",
+      "was": "Wuchshöhe Wald-Sauerklee (Oxalis acetosella); Blättchen 0,5–2 cm lang, 0,8–3 cm breit",
+      "min": 0.05,
+      "max": 0.15,
+      "ziel": 0.09,
+      "quelle": "Wikipedia DE „Wald-Sauerklee“: „Wuchshöhen von 5 bis 15 Zentimetern“; Teilblättchen 0,5–2 cm lang, 0,8–3 cm breit (abgerufen 21.11.2026)",
+      "url": "https://de.wikipedia.org/wiki/Wald-Sauerklee",
+      "messung": "boden",
+      "belegt": true
+    },
+    {
+      "id": "waldmeister",
+      "was": "Wuchshöhe Waldmeister (Galium odoratum); Blätter 15–50 mm, zu 6–8 im Quirl",
+      "min": 0.05,
+      "max": 0.5,
+      "ziel": 0.2,
+      "quelle": "Wikipedia DE „Waldmeister“: „Wuchshöhen von 5 bis 50 cm“, Blattlänge meist 15–50 mm, zu sechst bis acht in Scheinwirteln (abgerufen 21.11.2026)",
+      "url": "https://de.wikipedia.org/wiki/Waldmeister",
+      "messung": "boden",
+      "belegt": true
+    },
+    {
+      "id": "moospolster",
+      "was": "Polsterbreite Gemeines Weißmoos (Leucobryum glaucum), Stämmchen meist um 10 cm",
+      "min": 0.1,
+      "max": 0.2,
+      "ziel": 0.15,
+      "quelle": "Wikipedia DE „Gemeines Weißmoos“: „etwa 10 bis 20 cm breite, kompakte, rundliche Polster“ (abgerufen 21.11.2026)",
+      "url": "https://de.wikipedia.org/wiki/Gemeines_Weißmoos",
+      "messung": "boden",
+      "belegt": true
+    },
+    {
+      "id": "brombeere-jung",
+      "was": "Höhe junger Brombeeren (Rubus sect. Rubus) im Waldunterwuchs",
+      "min": 0.3,
+      "max": 0.6,
+      "ziel": 0.45,
+      "quelle": "UNKLAR: Spanne aus dem Auftrag D366 (Flo, 21.11.2026), keine Fachquelle für Jungpflanzen; Wikipedia DE „Brombeeren“ nennt für ausgewachsene Sträucher 0,5–3 m und 3-, 5- oder 7-zählige Blätter",
+      "url": "https://de.wikipedia.org/wiki/Brombeeren",
+      "messung": "boden",
+      "belegt": false
+    },
+    {
+      "id": "jungwuchs-buche",
+      "was": "Höhe junger Rotbuchen in der Naturverjüngung (Kraut- bis Strauchschicht)",
+      "min": 0.2,
+      "max": 0.6,
+      "ziel": 0.4,
+      "quelle": "UNKLAR: Spanne aus dem Auftrag D366 (Flo, 21.11.2026), nicht gegen eine Fachquelle geprüft",
+      "url": "",
+      "messung": "boden",
+      "belegt": false
+    },
+    {
+      "id": "jungwuchs-fichte",
+      "was": "Höhe junger Fichten in der Naturverjüngung (Kraut- bis Strauchschicht)",
+      "min": 0.2,
+      "max": 0.6,
+      "ziel": 0.4,
+      "quelle": "UNKLAR: Spanne aus dem Auftrag D366 (Flo, 21.11.2026), nicht gegen eine Fachquelle geprüft",
+      "url": "",
+      "messung": "boden",
+      "belegt": false
     }
   ]
 }
