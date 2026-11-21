@@ -30,6 +30,8 @@ ist veraltet. Bestehende Gate-Befunde nicht durch angehobene Budgets verdecken.
   eigenen Branch pushen, nicht tagelang lokal sammeln. Kollidiert eine Nummer trotzdem,
   nummeriert die **später gemergte** Seite um; das Gate `scripts/check_ledger_ids.py`
   (in `make check` und CI) lässt doppelte IDs nicht durch.
+- **Vorher/Nachher-Bilder** zu jeder sichtbaren Änderung an Flo (seit 21.11.2026): gleiche Kamera und
+  Ladezeit, beschriftet, unter `.cache/bilder/<Dxxx>/`.
 - Deutsch für Bezeichner und Kommentare; TypeScript strikt, ESM-Importe auf
   TS-Quellen mit `.js`. Spielinhalte bleiben Daten unter `content/`.
 - `src/engine/` und `src/data/` bleiben ohne three.js. Instancing für Massenobjekte,

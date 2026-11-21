@@ -126,6 +126,10 @@ nachrangig und eine spätere eigene Qualitätsstufe. Look, Nebel und Performance
 nur dort, in Bewegung (ADR-0005). Keine Look-Aussage aus Standbildern: genau das hat das
 Projekt mehrere Runden gekostet.
 
+**Vorher/Nachher-Bilder sind Pflicht** (Flo, 21.11.2026): Jede sichtbare Änderung kommt mit einem Bildpaar an
+Flo — gleiche Kamera, gleiche Ladezeit, beschriftet, abgelegt unter `.cache/bilder/<Dxxx>/`. Ohne GPU (Cloud,
+SwiftShader) ist das ein Größen- und Formvergleich, keine Look-Abnahme; das steht dann dabei.
+
 ### Art Direction ist entschieden, nicht offen
 Dämmerung, Nebel als Werkzeug, Silhouetten, **eine** Signalfarbe für Befall. Messlatte ist
 Soulframe-Ingame (ADR-0012), gemessen wird am Blender-Referenzbild (ADR-0006): Die Engine folgt dem Render, Texturen sind seit
