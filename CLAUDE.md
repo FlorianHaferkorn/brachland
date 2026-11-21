@@ -132,7 +132,8 @@ Flo — gleiche Kamera, gleiche Ladezeit, beschriftet, abgelegt unter `.cache/bi
 SwiftShader) ist das ein Größen- und Formvergleich, keine Look-Abnahme; das steht dann dabei.
 
 ### Art Direction ist entschieden, nicht offen
-Dämmerung, Nebel als Werkzeug, Silhouetten, **eine** Signalfarbe für Befall. Messlatte ist
+**Gemalter Realismus (ADR-0018, D370):** Substanz real (Maserung, Brüche, Tiefe, Masse), Darstellung gemalt; kein
+Mikrorauschen. Dämmerung, Nebel als Werkzeug, Silhouetten, **eine** Signalfarbe für Befall. Messlatte ist
 Soulframe-Ingame (ADR-0012), gemessen wird am Blender-Referenzbild (ADR-0006): Die Engine folgt dem Render, Texturen sind seit
 ADR-0006 erlaubt, die Tagesstimmung ist `zielbild` (warm, Goldnebel). Ein Gegenentwurf mit kühler
 Palette liegt als ADR-0011 **Proposed** vor (Ledger A-9). Die Werte in
@@ -144,7 +145,7 @@ Positionen aus einem **Seed** erzeugen, nie speichern. Das Precache-Budget von 6
 (`npm run quality`) ist ein Gate, kein Richtwert — **seit D286 (15.11.2026) vorübergehend aufgehoben** (nur Warnung).
 
 ### Scope-Guardrails sind bindend
-ADR-0004 parkt Party-Game (Photoreal ist seit ADR-0016/D357, 21.11.2026, **nicht mehr** geparkt — Hyperrealismus ist Ziel) als
+ADR-0004 parkt Party-Game (Photoreal seit ADR-0016/D357 nicht mehr geparkt; **Stil seit ADR-0018/D370: gemalter Realismus** — Substanz real, Darstellung gemalt) als
 **eigenes späteres Projekt** und schließt Online-Multiplayer aus. Echtzeit-Nahkampf mit dem
 Regelwerk der Gattung (Ausdauer, Rolle, Parade, Lock-On, Haltung) ist seit ADR-0007
 entschieden und löst den Soulslike-Park-Punkt aus ADR-0004 für das Regelwerk ab (Nachtrag

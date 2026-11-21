@@ -4,7 +4,7 @@ shelf-life-days: 180
 ---
 # ADR-0016 — AAA-naher Qualitätsanspruch, neues Zielgerät, Scan-Assets und Charakter-Pipeline
 
-**Status:** Accepted in Teilen · 2026-11-21 (Flo, D357, siehe „Entscheidung 21.11.2026“) · vorgeschlagen 2026-11-14 · löst ab: **ADR-0004** (nur den Park-Punkt „Spiel, das primär von
+**Status:** Accepted in Teilen · 2026-11-21 (Flo, D357, siehe „Entscheidung 21.11.2026“) · **„Hyperrealismus ist Ziel“ abgelöst durch ADR-0018** (gemalter Realismus, Flo 21.11.2026, D370) · vorgeschlagen 2026-11-14 · löst ab: **ADR-0004** (nur den Park-Punkt „Spiel, das primär von
 Grafik lebt (Photoreal)“), **ADR-0006** (nur das Zielgerät M1); erweitert ADR-0005 (Qualität), ADR-0012
 (Messlatte Soulframe), ADR-0013 (Lizenzen), ADR-0015 (WebGPU) · Bestätigung durch Flo offen
 
