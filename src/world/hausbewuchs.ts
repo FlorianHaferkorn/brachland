@@ -10,7 +10,11 @@ import massstab from '../../content/massstab.json';
  */
 const EFEU = massstab.referenzen.find(r => r.id === 'efeublatt')!;
 /** Kleinere Blätter brauchen mehr Blätter je Büschel, sonst zerfällt die Deckung in Punkte. */
-const EFEU_DICHTE = 3;
+const EFEU_DICHTE = 5;
+/** Die verholzte Efeukrone (Haus 308) ist schon dicht; mehr sprengt das Hausbudget aus D318. */
+const EFEU_DICHTE_KRONE = 3;
+/** D354: Wölbung der Efeupolster in Metern je Stufe (1, 2, dicht). */
+const EFEU_KUPPEL: Record<number, number> = { 1: .14, 2: .20, 3: .26 };
 
 /** Blattlänge in Metern. `jung` 0…1 verkleinert Triebspitzen und Ränder; Median ≈ `EFEU.ziel` bei `jung` = 1. */
 function efeuLaenge(zufall: () => number, jung = 1): number {
@@ -33,7 +37,7 @@ type Dreieck = (a: Punkt, b: Punkt, c: Punkt, farbe: Color, blatt?: BlattKoordin
 type Rankenfarben = { blaetter: readonly Color[]; trieb: Color };
 export type Rankenpunkt = { ort: Punkt; aussen: Punkt };
 
-const DREIECKE_JE_WAND = 1980 * 2;
+const DREIECKE_JE_WAND = 1980 * 3;
 const BLATTFORM: readonly Wandpunkt[] = [
   [0, -0.46, 0], [-0.41, -0.28, 0.03], [-0.28, 0.06, -0.16],
   [0, 0.57, 0.11], [0.33, 0.10, -0.12], [0.43, -0.23, 0.04],
@@ -61,7 +65,7 @@ export function baueHausbewuchs(
     && (tuerU === null || Math.abs(u - tuerU) > 0.85 + radius || y - radius >= tuerOberkante);
 
   let anzahl = 0;
-  const dreieckgrenze = dicht ? 3300 * 2 : DREIECKE_JE_WAND;
+  const dreieckgrenze = dicht ? 3300 * 3 : DREIECKE_JE_WAND;
   const flaeche = (a: Wandpunkt, b: Wandpunkt, c: Wandpunkt, farbe: Color, blatt?: BlattKoordinaten) => {
     const kreuz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
     if (kreuz * umlauf > 0) dreieck(welt(a), welt(b), welt(c), farbe, blatt);
@@ -85,16 +89,21 @@ export function baueHausbewuchs(
     flaeche(links, spitzeRechts, spitzeLinks, farben.trieb);
   };
 
-  const blatt = (u: number, y: number, tiefe: number, laengeBlatt: number, winkel: number, ton: number) => {
+  /**
+   * D354: `aufstellen` hebt die Blattspitze von der Wand ab (echter Efeu stellt die Spreite zum Licht),
+   * `hell` dunkelt Blätter tief im Polster ab — beides zusammen macht das Polster plastisch.
+   */
+  const blatt = (u: number, y: number, tiefe: number, laengeBlatt: number, winkel: number, ton: number,
+    aufstellen = 0, hell = 1) => {
     const einfach = stufe === 2 && ton % 3 !== 0;
     if (anzahl + (einfach ? 2 : BLATTFORM.length) > dreieckgrenze || !passt(u, y, laengeBlatt * 0.59)) return;
     const sin = Math.sin(winkel), cos = Math.cos(winkel);
     const randpunkt = ([q, h, v]: Wandpunkt): Wandpunkt => [
       u + (q * cos + h * sin) * laengeBlatt,
       y + (-q * sin + h * cos) * laengeBlatt,
-      tiefe + v * laengeBlatt,
+      tiefe + (v + h * aufstellen) * laengeBlatt,
     ];
-    const farbe = farben.blaetter[ton];
+    const farbe = hell === 1 ? farben.blaetter[ton] : farben.blaetter[ton].clone().multiplyScalar(hell);
     const uv = (i: number): [number, number] => [BLATTFORM[i][0], BLATTFORM[i][1]];
     if (einfach) {
       const fuss = randpunkt(BLATTFORM[0]), links = randpunkt(BLATTFORM[1]);
@@ -120,10 +129,14 @@ export function baueHausbewuchs(
       const radius = breite * Math.pow(zufall(), 1.2);
       const u = punkt[0] + Math.cos(winkel) * radius;
       const y = punkt[1] + Math.sin(winkel) * radius * 0.78;
-      const tiefe = Math.max(0.095, Math.min(0.30, punkt[2] + (zufall() - 0.22) * 0.13));
+      // D354: Das Polster wölbt sich zur Mitte bis ~0,3 m von der Wand; innen liegen die Blätter im Schatten.
+      const rand = radius / breite;
+      const kuppel = (EFEU_KUPPEL[dicht ? 3 : stufe] ?? .14) * (1 - rand * rand) * (.6 + .4 * zufall());
+      const tiefe = Math.max(0.09, Math.min(0.45, punkt[2] + kuppel + (zufall() - 0.3) * 0.05));
       const groesse = efeuLaenge(zufall, dicht ? 1 : stufe === 2 ? .8 : .6) / SPANNE_BLATTFORM;
       const blattTon = zufall() < 0.78 ? ton : Math.floor(zufall() * palette);
-      blatt(u, y, tiefe, groesse, richtung * 0.7 + (zufall() - 0.5) * 3.6, blattTon);
+      const hell = (.5 + .5 * Math.min(1, kuppel / .2 + .25 * (1 - rand))) * (.9 + .2 * zufall());
+      blatt(u, y, tiefe, groesse, richtung * 0.7 + (zufall() - 0.5) * 3.6, blattTon, .45 + .45 * zufall(), hell);
     }
   };
 
@@ -316,13 +329,13 @@ function baueKronenblaetter(
   };
 
   // Tiefe in der Krone kommt von der dunklen wandnahen Lage.
-  for (let k = 0; k < Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 4 : 3) * EFEU_DICHTE); k++) {
+  for (let k = 0; k < Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 4 : 3) * EFEU_DICHTE_KRONE); k++) {
     const ziel = ort.clone().addScaledVector(quer, (zufall() - .5) * halbeBreite * .81)
       .addScaledVector(hoch, (zufall() - .5) * .30)
       .addScaledVector(normal, .04 + zufall() * .105);
     fieder(ort, ziel, (zufall() - .5) * 1.2, efeuLaenge(zufall, dichte) / SPANNE_KRONENBLATT, k !== 0);
   }
-  const seitentriebe = Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 6 : 5) * EFEU_DICHTE);
+  const seitentriebe = Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 6 : 5) * EFEU_DICHTE_KRONE);
   const seite = (Math.floor(lauf * 17) % 2 ? 1 : -1);
   for (const richtung of [-1, 1]) {
     // Seitentriebe laufen in versetzten Inseln aus, auch am Übergang um die Ecke.
@@ -424,9 +437,14 @@ function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: n
     for (let j = 0; j < zahl; j++) {
       const seite = j % 3 === 0 ? -hauptseite : hauptseite;
       const ausladung = seite * breite * (.04 + zufall() ** 1.15 * .96);
+      // D354: Polster um den Trieb — mittig weit vorn, am Rand flach an der Wand.
+      const randAnteil = Math.min(1, Math.abs(ausladung) / Math.max(.01, breite));
+      const vorstand = .06 + EFEU_KUPPEL[2] * (1 - randAnteil * randAnteil) * (.55 + .45 * zufall());
       const mitte = ort.clone().addScaledVector(quer, ausladung)
         .addScaledVector(laubHoch, (zufall() - .48) * .38)
-        .addScaledVector(normal, .10 + zufall() * .14);
+        .addScaledVector(normal, vorstand);
+      const schattenHell = (.5 + .5 * Math.min(1, (vorstand - .06) / EFEU_KUPPEL[2] + .2)) * (.9 + .2 * zufall());
+      const aufstellen = .4 + .5 * zufall();
       const groesse = efeuLaenge(zufall, HOF_VERFALLVERLAUF_AN ? fuelle : .5 + .5 * fuelle) / SPANNE_EFEUBLATT;
       const winkel = seite * .75 + (zufall() - .5) * 2.25;
       const cos = Math.cos(winkel), sin = Math.sin(winkel);
@@ -436,9 +454,9 @@ function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: n
       const knick = (zufall() - .57) * .51;
       const rand = EFEUBLATT.map(([u, y, v]) => mitte.clone()
         .addScaledVector(querBlatt, groesse * u).addScaledVector(stiel, groesse * y)
-        .addScaledVector(normal, groesse * (v + neigung * u + knick * y)));
+        .addScaledVector(normal, groesse * (v + neigung * u + knick * y + aufstellen * y)));
       const falz = mitte.clone().addScaledVector(normal, groesse * .052);
-      const farbe = EFEULAUB[Math.floor(zufall() * EFEULAUB.length)];
+      const farbe = EFEULAUB[Math.floor(zufall() * EFEULAUB.length)].clone().multiplyScalar(schattenHell);
       const ansatz = ort.clone().lerp(ast, Math.max(0, ausladung * hauptseite / breite));
       const stielKante = laubHoch.clone().multiplyScalar(.006 * seite);
       flaeche(ansatz.clone().add(stielKante), ansatz.clone().sub(stielKante), rand[0], EFEURINDE[2]);
