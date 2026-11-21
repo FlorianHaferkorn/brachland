@@ -42,7 +42,7 @@ import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
-import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
+import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
@@ -53,7 +53,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
 import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
@@ -4242,6 +4242,9 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   return null;
 }
 
+/** D350: Ringtiefe ab Regionskante, bis zu der das DGM1-Fernrelief mit ~31 m Linienabstand bleibt. */
+const FERN_FEIN_BIS_M = 1000;
+
 /**
  * `?kamera=x,y,z,tx,ty,tz` stellt die Kamera fest (Weltmeter, y absolut) und `?fov=42.6`
  * setzt das senkrechte Sichtfeld — Messparameter fuer den Vergleich Spielbild gegen
@@ -4641,11 +4644,15 @@ export function RegionsSzene({
       umgebung: s.umgebung, umgebungStaerke: s.umgebungStaerke,
       sonnenstand: s.sonnenstand,
       beweglicherDunst: MILBINGERLICHT_AN,
-    }) : null),
+    }, FERNHALB_AN ? FERN_FEIN_BIS_M : Infinity) : null),
     [fernland, welt, s],
   );
   const fernDetail = !!fernland?.detail;
   const fernMaterial = useMemo(() => baueFernlandMaterial(MILBINGERLICHT_AN, fernDetail), [fernDetail]);
+  useEffect(() => stelleReliefLicht(fernMaterial, {
+    dunst: s.horizont, sonne: s.sonne, sonneStaerke: s.sonneStaerke,
+    umgebung: s.umgebung, umgebungStaerke: s.umgebungStaerke, sonnenstand: s.sonnenstand,
+  }), [fernMaterial, s]);
   useEffect(() => () => fernMaterial.dispose(), [fernMaterial]);
   useEffect(() => () => { fernGeo?.dispose(); }, [fernGeo]);
 

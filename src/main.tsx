@@ -249,9 +249,11 @@ function App() {
   useEffect(() => {
     if (!REGION) return;
     const grund = holeWeltdaten(`/world/${REGION.id}-fern.json`) as Promise<Fernland>;
-    const sued = MILBINGERFERN_AN && REGION.id === 'oental'
-      ? (holeWeltdaten(FERNRING_AN ? '/world/oental-fern-ring.json' : '/world/oental-fern-sued.json') as Promise<Fernland>)
-        .catch(() => undefined)
+    // D351: Ring je Region, wo es eine Datei gibt; sonst D345-Südausschnitt im Œntal.
+    const detailDatei = FERNRING_AN ? `/world/${REGION.id}-fern-ring.json`
+      : MILBINGERFERN_AN && REGION.id === 'oental' ? '/world/oental-fern-sued.json' : null;
+    const sued = detailDatei
+      ? (holeWeltdaten(detailDatei) as Promise<Fernland>).catch(() => undefined)
       : undefined;
     Promise.all([grund, sued])
       .then(([daten, detail]) => setFernland(detail ? { ...daten, detail } : daten))

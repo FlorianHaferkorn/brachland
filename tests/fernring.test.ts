@@ -11,9 +11,12 @@ import { entpackeWelt } from '../src/world/osm.js';
 import { MASSSTAB } from '../src/world/terrain.js';
 
 const lies = <T>(pfad: string) => JSON.parse(readFileSync(pfad, 'utf8')) as T;
-const welt = entpackeWelt(lies<{ welt: Parameters<typeof entpackeWelt>[0] }>('public/world/oental.json').welt);
-const grund = lies<Fernland>('public/world/oental-fern.json');
-const ring = lies<Fernland>('public/world/oental-fern-ring.json');
+
+/** D350: `feinBis` ist die Ringtiefe mit vollem Raster; jenseits trägt nur jede zweite Feinlinie. */
+function pruefe(region: string, feinBis: number): number {
+const welt = entpackeWelt(lies<{ welt: Parameters<typeof entpackeWelt>[0] }>(`public/world/${region}.json`).welt);
+const grund = lies<Fernland>(`public/world/${region}-fern.json`);
+const ring = lies<Fernland>(`public/world/${region}-fern-ring.json`);
 
 // 1. Rasterlage: Ringkanten auf groben Gitterlinien, vier Feinlinien je Zelle.
 const [s, w, n, o] = grund.bbox;
@@ -39,7 +42,7 @@ const licht = {
   dunst: '#999f9b', sonne: '#ffffff', sonneStaerke: 1, umgebung: '#888888', umgebungStaerke: 1,
   sonnenstand: [1, 1, 1] as const,
 };
-const geo = baueFernland({ ...grund, detail: ring }, welt, licht);
+const geo = baueFernland({ ...grund, detail: ring }, welt, licht, feinBis);
 assert.ok(geo, 'Fernland ohne Geometrie');
 const pos = geo.getAttribute('position');
 const index = geo.getIndex();
@@ -65,8 +68,8 @@ const meterLon = regBreite / (go - gw);
 
 // 3. Im Inneren des Rings (über 220 m vom Rand, ausserhalb der Region) trifft jeder Vertex den Stützpunkt.
 let geprueft = 0, groessteAbweichung = 0;
-for (let i = 0; i <= ra; i += 3) {
-  for (let j = 0; j <= ra; j += 3) {
+for (let i = 0; i <= ra; i += 2) {
+  for (let j = 0; j <= ra; j += 2) {
     const lat = ringLat(i), lon = ringLon(j);
     const rand = Math.min((lat - rs) * 111_320, (rn - lat) * 111_320, (lon - rw) * meterLon, (ro - lon) * meterLon);
     const inRegion = lat > gs && lat < gn && lon > gw && lon < go;
@@ -78,12 +81,12 @@ for (let i = 0; i <= ra; i += 3) {
     geprueft++;
   }
 }
-assert.ok(geprueft > 4000, `zu wenige Ringpunkte geprüft (${geprueft})`);
+assert.ok(geprueft > 4000, `${region}: zu wenige Ringpunkte geprüft (${geprueft})`);
 assert.ok(groessteAbweichung < 0.01, `Ring weicht ${groessteAbweichung} vom DGM1 ab`);
 
 // 4. Am Ringrand läuft die Kulisse exakt auf das grobe Raster aus (keine Stufe zur Ferne).
 let randPunkte = 0, randAbweichung = 0;
-for (let k = 0; k <= ra; k += 4) {
+for (let k = 0; k <= ra; k += 4) { // grobe Knoten: immer Vertex
   for (const [i, j] of [[0, k], [ra, k], [k, 0], [k, ra]]) {
     const gi = Math.round((n - ringLat(i)) / zelleLat), gj = Math.round((ringLon(j) - w) / zelleLon);
     const [x, z] = zuWelt(ringLat(i), ringLon(j));
@@ -105,4 +108,11 @@ for (let t = 0; t < idx.length; t += 3) {
   assert.ok(uz * vx - ux * vz >= -1e-6, `Dreieck ${t / 3} zeigt nach unten`);
 }
 
-console.log(`fernring: ${idx.length / 3} Dreiecke, ${geprueft} Stützpunkte < ${groessteAbweichung.toFixed(4)}, Rand ${randPunkte} Punkte < ${randAbweichung.toFixed(4)}`);
+console.log(`fernring ${region} fein bis ${feinBis} m: ${idx.length / 3} Dreiecke, ${geprueft} Stützpunkte < ${groessteAbweichung.toFixed(4)}, Rand ${randPunkte} Punkte < ${randAbweichung.toFixed(4)}`);
+return idx.length / 3;
+}
+
+const voll = pruefe('oental', Infinity);
+const halb = pruefe('oental', 1000);
+assert.ok(halb < voll * 0.85, `Halbierung spart zu wenig (${halb} gegen ${voll})`);
+pruefe('fahlmoos', 1000);

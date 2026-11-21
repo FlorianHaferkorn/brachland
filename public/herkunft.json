@@ -273,6 +273,13 @@
   "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
  },
  {
+  "datei": "fahlmoos-fern-ring.json",
+  "rolle": "D351. 100 DGM1-Kacheln (E 724–733, N 5292–5301) auf 277² Punkte im Fernraster-Ring resampelt und auf Meter gerundet, 0 % Lücken. Erzeugt mit npm run fernland -- fahlmoos --dgm1-ring.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
   "datei": "bauten/milbinger-kleinwagen.glb",
   "rolle": "Verlassener Kompaktwagen",
   "autor": "tevy",

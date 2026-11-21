@@ -76,8 +76,13 @@ export const MILBINGERLICHT_AN = MILBINGERBODEN_AN && an('milbingerlicht');
 export const MILBINGERKLAR_AN = an('milbingerklar');
 /** D345: DGM1-Fernrelief. Der Nullschalter erhält die D344-Kulisse für den Vergleich. */
 export const MILBINGERFERN_AN = MILBINGERLICHT_AN && suche.get('milbingerfern') !== '0';
-/** D349: DGM1-Ring um die ganze Region statt nur des Südhangs. `fernring=0` zeigt D345. */
-export const FERNRING_AN = MILBINGERFERN_AN && suche.get('fernring') !== '0';
+/**
+ * D349: DGM1-Ring um die ganze Region statt nur des Südhangs. `fernring=0` zeigt D345.
+ * D351: `fernring=1` schaltet den Ring auch ohne Milbinger Kette zu (Fahlmoos, übriges Œntal).
+ */
+export const FERNRING_AN = (MILBINGERFERN_AN && suche.get('fernring') !== '0') || an('fernring');
+/** D350: Ring jenseits 1 km Ringtiefe mit halber Linienzahl. `fernhalb=0` zeigt den vollen Ring. */
+export const FERNHALB_AN = FERNRING_AN && suche.get('fernhalb') !== '0';
 /** D346: ausgebrochener Gehwegrand und zusammenhängende Verwitterung am Milbinger Weg. */
 export const MILBINGERRAND_AN = MILBINGERBODEN_AN && an('milbingerrand');
 /** D347: Materialtiefe und fortgeschrittene Übernahme an der Milbinger Straße. */

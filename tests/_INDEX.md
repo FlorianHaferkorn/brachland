@@ -70,7 +70,7 @@ owns: *.test.ts
 | `hofboden.test.ts` | D307: Lokalität, Stetigkeit und freie Türvorfelder der CPU-/GLSL-Bodenmasken. |
 | `hofsockel.test.ts` | D307: geschlossene Sockelkörper, stetige Endhöhen, Türspalten und Bodenanschluss am gewellten Hang. D336 prüft Frostabtrag bei durchgehender Sockelkappe. D342 prüft eingebettete Feldsteinfronten, Gehrungen und freie Wandstöße. |
 | `strassenquerschnitt.test.ts` | D337: Übergänge zum Wegband, Bordhöhe an Zufahrten und Freihaltung im GPU-Grasraster. D338 prüft Abmessungen und Materialkoordinaten. D339 prüft den Beginn der Fahrspuren hinter dem Gehweg sowie Erdanschluss und Flankenbewuchs. D340 prüft die Höhen an Geländeknick, Bord und Einfahrt sowie den DGM1-Auslauf. D346 prüft Randabtrag, Schutzbereiche und Fahrbahnhöhe. |
-| `fernring.test.ts` | D349: DGM1-Ring auf dem groben Fernraster (vier Feinlinien je Zelle), Treffer an den Stützpunkten < 1 cm, Ringrand ohne Stufe zum groben Raster, alle Dreiecke nach oben. |
+| `fernring.test.ts` | D349–D351: Œntal voll und halbiert (D350 spart > 15 %), Fahlmoos halbiert. DGM1-Ring auf dem groben Fernraster (vier Feinlinien je Zelle), Treffer an den Stützpunkten < 1 cm, Ringrand ohne Stufe zum groben Raster, alle Dreiecke nach oben. |
 | `hoftrittplatten.test.ts` | D307: geschlossene Platten, Außennormalen, Schwellenabstand und Hangkontakt. |
 | `hofplatz.test.ts` | D298: Grundrissauswahl, Hofmaske und Ausschluss des Hausinneren; Scan-Shader-Hook bleibt beim Klonen für Wind erhalten (33 Prüfungen, einschliesslich deterministischer Randgruppen und gesperrter Wege). |
 | `referenzhaus.test.ts` | D303: lokale Auswahl, echte Fenster-/Türtiefe, Umlauf, UV und vollständige Geometrieattribute. |

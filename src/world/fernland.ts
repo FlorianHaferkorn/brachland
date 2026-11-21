@@ -88,11 +88,22 @@ function rasterHoehe(raster: Fernland, lat: number, lon: number, ersatz: number)
        + (h(i1, j) * (1 - tx) + h(i1, j1) * tx) * ty;
 }
 
-/** Gemeinsame Koordinatenlinien vermeiden T-Stöße zwischen groben und feineren Zellen. */
-function fernAchse(werte: number[], detailMin: number, detailMax: number): number[] {
+/**
+ * Gemeinsame Koordinatenlinien vermeiden T-Stöße zwischen groben und feineren Zellen.
+ *
+ * D350: Innerhalb `[innenMin, innenMax]` vier Feinlinien je grober Zelle (~31 m), im übrigen
+ * Detailbereich zwei (~62 m). Beide liegen auf DGM1-Stützpunkten, weil das Detailraster vier
+ * Punkte je Zelle trägt. Die Achsen bleiben getrennt (Tensorgitter): Eine Zeile, die den
+ * Innenbereich kreuzt, behält ihre Teilung bis zum Ringrand — dafür entsteht kein T-Stoß.
+ */
+function fernAchse(
+  werte: number[], detailMin: number, detailMax: number,
+  innenMin = -Infinity, innenMax = Infinity,
+): number[] {
   return werte.flatMap((a, i) => {
     const b = werte[i+1];
     if (b === undefined || Math.min(a,b) < detailMin - 1e-9 || Math.max(a,b) > detailMax + 1e-9) return [a];
+    if (Math.min(a,b) < innenMin - 1e-9 || Math.max(a,b) > innenMax + 1e-9) return [a, a+(b-a)*.5];
     return [a, a+(b-a)*.25, a+(b-a)*.5, a+(b-a)*.75];
   });
 }
@@ -131,6 +142,8 @@ export interface FernLicht {
 
 export function baueFernland(
   fern: Fernland, welt: Weltdaten, licht: FernLicht,
+  /** D350: Ringtiefe in Metern ab Regionskante, bis zu der das Detail voll aufgelöst bleibt. */
+  feinBisMeter = Infinity,
 ): THREE.BufferGeometry | null {
   const [fs, fw, fn, fe] = fern.bbox;
   const [rs, rw, rn, re] = welt.bbox;
@@ -151,8 +164,10 @@ export function baueFernland(
   const latRaster = Array.from({ length: n }, (_, i) => fn - (fn - fs) * (i / (n - 1)));
   const lonRaster = Array.from({ length: n }, (_, j) => fw + (fe - fw) * (j / (n - 1)));
   const detail = fern.detail;
-  const latLinien = detail ? fernAchse(latRaster, detail.bbox[0], detail.bbox[2]) : latRaster;
-  const lonLinien = detail ? fernAchse(lonRaster, detail.bbox[1], detail.bbox[3]) : lonRaster;
+  const feinLat = feinBisMeter / METER_JE_GRAD;
+  const feinLon = feinBisMeter / (METER_JE_GRAD * Math.cos(mLat * Math.PI / 180));
+  const latLinien = detail ? fernAchse(latRaster, detail.bbox[0], detail.bbox[2], rs - feinLat, rn + feinLat) : latRaster;
+  const lonLinien = detail ? fernAchse(lonRaster, detail.bbox[1], detail.bbox[3], rw - feinLon, re + feinLon) : lonRaster;
   const latVon = (i: number) => latLinien[i];
   const lonVon = (j: number) => lonLinien[j];
 
@@ -460,6 +475,21 @@ void main() {
   #include <colorspace_fragment>
 }`,
   });
+}
+
+/**
+ * D351: Relief-Material aus der Stimmung beleuchten — dieselben Grössen, die `baueFernland` im
+ * alten Pfad einbackt (Sonne und Umgebung durch π, siehe D202). Ohne das stand das Relief
+ * ausserhalb der Milbinger Lichtkette mit festen Vorgabewerten im Bild. Die Milbinger Kette
+ * überschreibt die Werte weiter je Bild.
+ */
+export function stelleReliefLicht(material: THREE.ShaderMaterial, licht: FernLicht): void {
+  const u = material.uniforms;
+  if (!u.uFernDunst) return;
+  u.uFernDunst.value.set(licht.dunst);
+  u.uFernSonne.value.set(...licht.sonnenstand).normalize();
+  u.uFernDirekt.value.set(licht.sonne).multiplyScalar(licht.sonneStaerke / Math.PI);
+  u.uFernUmfeld.value.set(licht.umgebung).multiplyScalar(licht.umgebungStaerke / Math.PI);
 }
 
 /**
