@@ -42,7 +42,8 @@ import { ersetzteGebaeude, hofbauLagen, ladeHofbauten } from '../world/hofbau.js
 import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
-import { baueHimmel, setzeHimmel } from '../world/himmel.js';
+import { baueHimmel, setzeHimmel, HIMMEL_PHYSIK_AN } from '../world/himmel.js';
+import { koppleStimmung, mischeAtmosphaere, ATMOSPHAERE_VORGABE } from '../world/atmosphaere.js';
 import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
 import { baumRaster, streuMatrizen } from '../world/streukarten.js';
 import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
@@ -404,6 +405,8 @@ export function stimmungBei(zeit: number): Stimmung {
     randStaerke: z(A.randStaerke, B.randStaerke),
     hemiBoden: mischeFarbe(A.hemiBoden ?? HEMI_BODEN, B.hemiBoden ?? HEMI_BODEN, f),
     himmelAnteil: z(A.himmelAnteil ?? 0.7, B.himmelAnteil ?? 0.7),
+    // D368: die Luft wandert mit (nur `?himmel=physik` liest sie).
+    atmosphaere: mischeAtmosphaere(A.atmosphaere ?? ATMOSPHAERE_VORGABE, B.atmosphaere ?? ATMOSPHAERE_VORGABE, f),
   };
 }
 
@@ -2167,6 +2170,7 @@ function HimmelLicht({ s }: { s: Stimmung }) {
     const werte = {
       zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
       sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
+      atmosphaere: s.atmosphaere,
     };
     const himmel = baueHimmel(werte);
     setzeHimmel(himmel, werte);
@@ -2737,6 +2741,7 @@ function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial, geheilt }: {
   const himmel = useMemo(() => baueHimmel({
     zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
     sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
+    atmosphaere: s.atmosphaere,
   }, ortsfoto), [s, ortsfoto]);
   useEffect(() => {
     setzeHimmel(himmel, {
@@ -4602,7 +4607,10 @@ export function RegionsSzene({
   // hängt an einem Regler und nicht an der Bildrate.
   const s = useMemo(() => {
     const basis = STIMMUNG_MESSLAUF ?? stimmungBei(tageszeit);
-    return geheilt || GEHEILT_ANSICHT ? heileStimmung(basis) : basis;
+    const gemischt = geheilt || GEHEILT_ANSICHT ? heileStimmung(basis) : basis;
+    // D368: Farben von Nebel, Fernland, Sonne und Fülllicht aus dem physikalischen Himmel; alle
+    // Stärken bleiben die der Stimmung. Ohne `?himmel=physik` unverändert.
+    return HIMMEL_PHYSIK_AN ? koppleStimmung(gemischt) : gemischt;
   }, [tageszeit, geheilt]);
   const neigung = useRef(NEIGUNG_START);
   const schritt = useRef({ phase: 0, tempo: 0 });
@@ -4759,7 +4767,8 @@ export function RegionsSzene({
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
       <WasserUmgebung werte={{ zenit: s.zenit, horizont: s.horizont, dunst: s.nebel,
-        sonne: s.sonne, sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof }}>
+        sonne: s.sonne, sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof,
+        atmosphaere: s.atmosphaere }}>
       <Beleuchtung s={s} ziel={ref} wiesenbereich={wiesenbereich} fernMaterial={fernMaterial} geheilt={!!geheilt || GEHEILT_ANSICHT} />
       {!istAus('kulisse') && fernGeo && (
         <mesh geometry={fernGeo} material={fernMaterial} frustumCulled={false} renderOrder={-500} />

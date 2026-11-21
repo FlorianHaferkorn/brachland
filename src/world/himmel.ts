@@ -26,6 +26,16 @@ import * as THREE from 'three';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { HOF_ZIELTREUE_AN } from './echt.js';
 import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT } from './milbingerlicht.js';
+import { bauePhysikHimmel } from './physikhimmel.js';
+import type { Atmosphaere } from './stimmung.js';
+
+/**
+ * D368: `?himmel=physik` ersetzt den Verlaufshimmel durch den physikalischen (`physikhimmel.ts`) und
+ * koppelt Nebel, Fernland, Sonne und Fülllicht an ihn (`atmosphaere.ts` `koppleStimmung`).
+ * Vorgabe aus.
+ */
+export const HIMMEL_PHYSIK_AN = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('himmel') === 'physik';
 
 export interface HimmelWerte {
   zenit: string;
@@ -41,6 +51,8 @@ export interface HimmelWerte {
   hof: number;
   /** D203: Wolkenbedeckung 0…1; ohne Angabe `WOLKEN_VORGABE`. */
   wolken?: number;
+  /** D368: Luft der Stimmung; nur mit `?himmel=physik` gelesen. */
+  atmosphaere?: Atmosphaere;
 }
 
 /**
@@ -175,6 +187,7 @@ let wolkendeckeSeit = Infinity;
 type Ortsfoto = 'klar' | 'bedeckt';
 
 export function baueHimmel(w: HimmelWerte, ortsfoto?: Ortsfoto): THREE.Mesh {
+  if (HIMMEL_PHYSIK_AN && w.atmosphaere && !ortsfoto) return bauePhysikHimmel({ ...w, atmosphaere: w.atmosphaere });
   if (HOF_ZIELTREUE_AN && !hofWolken) {
     hofWolken = new THREE.TextureLoader().load('/material/hof-himmel-farbe.webp', () => {
       hofWolkenSeit = performance.now();
@@ -288,6 +301,8 @@ uniform float uWolkenanteil, uWolkendrehung;`)
 }
 
 export function setzeHimmel(mesh: THREE.Mesh, w: HimmelWerte): void {
+  // Der physikalische Himmel wird je Stimmung neu gebaut, seine Uniforms heissen anders.
+  if (mesh.userData.physik) return;
   const u = (mesh.material as THREE.ShaderMaterial).uniforms;
   (u.zenit.value as THREE.Color).set(w.zenit);
   (u.horizont.value as THREE.Color).set(w.horizont);
