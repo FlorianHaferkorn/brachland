@@ -14,7 +14,7 @@ import type { Biom } from './osm.js';
 const LAUB = 0, NADEL = 1, KIES = 2, ZWEIGE = 3;
 
 /** Wahrscheinlichkeit je Meter-Zelle und Art(en) je Biom. Wasser und Unbekanntes bleiben frei. */
-const STREU: Partial<Record<Biom, { p: number; arten: readonly number[] }>> = {
+const STREU: Partial<Record<Biom, { p: number; arten: readonly number[]; nurUnterBaum?: boolean }>> = {
   wald: { p: 0.75, arten: [LAUB, LAUB, NADEL, NADEL, ZWEIGE] },
   gebuesch: { p: 0.55, arten: [LAUB, LAUB, ZWEIGE] },
   moor: { p: 0.25, arten: [NADEL, ZWEIGE] },
@@ -22,8 +22,8 @@ const STREU: Partial<Record<Biom, { p: number; arten: readonly number[] }>> = {
   ruine: { p: 0.5, arten: [KIES, ZWEIGE, LAUB] },
   siedlung: { p: 0.3, arten: [KIES, LAUB, ZWEIGE] },
   industrie: { p: 0.35, arten: [KIES, KIES, ZWEIGE] },
-  wiese: { p: 0.06, arten: [ZWEIGE, LAUB] },
-  acker: { p: 0.05, arten: [ZWEIGE, KIES] },
+  wiese: { p: 0.06, arten: [ZWEIGE, LAUB], nurUnterBaum: true },
+  acker: { p: 0.05, arten: [ZWEIGE, KIES], nurUnterBaum: true },
 };
 
 /** Weiches Wertrauschen (0…1) auf `zelle` Metern — Streu liegt in Inseln, nicht gleichmässig (D361, Tupfenmuster). */
@@ -88,7 +88,9 @@ export function streuMatrizen(
     const insel = 0.65 * haeufung(x, zz, 9) + 0.35 * haeufung(x, zz, 3);
     const baum = baeume ? naechsterBaum(baeume, x, zz) : null;
     // Unter der Krone (≤ 5 m) dichter, bis 10 m wie das Biom, im Offenen ein Drittel.
-    const kronenFaktor = !baeume ? 1 : !baum || baum.d > 10 ? 0.33 : baum.d < 5 ? 1.6 : 1;
+    // D363: Auf Wiese und Acker deckt das Gras jede Streu im Offenen zu — dort nur unter Bäumen (sonst Tupfen).
+    const offen = !baum || baum.d > (regel.nurUnterBaum ? 7 : 10);
+    const kronenFaktor = !baeume ? 1 : offen ? (regel.nurUnterBaum ? 0 : 0.33) : baum.d < 5 ? 1.6 : 1;
     // Unter einer Krone fällt immer Streu: der Baum bildet seine eigene Insel, unabhängig vom Rauschen.
     const inselAnteil = Math.max(Math.min(1, Math.max(0, (insel - 0.32) * 2.6)), baum && baum.d < 5 ? 1 - baum.d / 6 : 0);
     if (wurf() > Math.min(0.95, regel.p * kronenFaktor) * inselAnteil) continue;

@@ -36,6 +36,7 @@ owns: *.json
 | `milbinger-substanz.json` | D347: Gartensäume entlang der im DOP20 erkennbaren Pflanzstreifen und örtliche Verfallsstufen der LoD2-Häuser. Dachschäden und Relikte gehören zur Spielwelt. |
 | `massstab.json` | D352: reale Referenzmaße mit Quelle (Efeublatt, Figur, Bordhöhe, Baumhöhen), Schema `MassReferenz`; `../tools/massstab.ts` prüft die gebaute Geometrie dagegen, `../src/world/hausbewuchs.ts` liest die Efeugrösse daraus. Neue Zeile: Spanne, Quelle, `belegt`. |
 | `hofbaukasten.json` | D360: Maße, Farben und Verfallswerte des Inntaler Einfirsthofs für `../tools/hofbaukasten.py`, Schema `Hofbaukasten`. Jede Zahl mit Quelle (Bauwelt-Notiz, Ledger) oder `annahme: true`; `npm run validate` lehnt eine Zahl ohne Beleg und ohne Kennzeichnung ab. |
+| `hofbauten.json` | D363: welche OSM-Gebäude (Index in `welt.gebaeude` je Region) ein Hof-Baukasten-Modell ersetzt, mit Saat, Stufe und Grund; Schema `Hofbauten`, `npm run validate` prüft, dass `public/bauten/<modell>.glb` existiert. |
 | `regions/fahlmoos.json` | Fahlmoos = Kollerfilze und Rosenheimer Becken (Raubling/Kolbermoor), eigene Karte nach ADR-0014. Regent Brutmutter, 6 Œntal-Arten als Platzhalter (G-144), Traversal „Wasser“ (UNKLAR), `nachbarn`: Œntal im Süden |
 | `creatures/nebelgams.json` | Nebelgams (Gams, Stein, Silikat-Hufe). 2 Stufen, `natural=scrub`, schnellster Steinträger |
 | `creatures/kiemenbiber.json` | Kiemenbiber (Biber, Wasser, Filterkiemen-Kragen). 3 Stufen, `waterway=stream` — im 96er-Raster praktisch nicht vorhanden, siehe Ledger G-22 |

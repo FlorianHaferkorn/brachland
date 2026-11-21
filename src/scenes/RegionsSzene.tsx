@@ -38,6 +38,7 @@ import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
 import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
 import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
 import { baueMilbingerSandkasten } from '../world/milbingersubstanz.js';
+import { ersetzteGebaeude, hofbauLagen, ladeHofbauten } from '../world/hofbau.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
@@ -55,7 +56,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { EFEUKARTEN_AN, STREU_AN, FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { EFEUKARTEN_AN, HOFBAU_AN, STREU_AN, FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
 import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
@@ -894,11 +895,16 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     : undefined, [welt]);
   const hofHaeuser = useMemo(() => HOF_HAEUSER_AN
     ? bestimmeHofhaeuser(welt, boden, bestimmeHof(welt, boden)) : null, [welt, boden]);
+  const hofbauRegion = useMemo(() => HOFBAU_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.id : undefined, [welt]);
+  const hofbauErsetzt = useMemo(() => hofbauRegion ? ersetzteGebaeude(hofbauRegion) : new Set<number>(), [hofbauRegion]);
   const hausKachel = useMemo(() => (
     _feld: HoehenFeld, s: Bandsatz, k: Kachel, _lod: number,
   ) => {
     if (istAus('haeuser')) return null;
-    const indizes = s.gebaeude.get(`${k.ix}:${k.iz}`);
+    const alle = s.gebaeude.get(`${k.ix}:${k.iz}`);
+    // D363: Gebäude mit Hof-Baukasten-Modell baut das Spiel nicht selbst.
+    const indizes = hofbauErsetzt.size ? alle?.filter(i => !hofbauErsetzt.has(i)) : alle;
     if (!indizes?.length) return null;
     // D290: LoD2-Silhouette je Gebäude (gleiche Reihenfolge wie `welt.gebaeude`; nur für die Region, zu der die Datei passt).
     const lod2 = LOD2_DATEN.length === welt.gebaeude.length ? LOD2_DATEN : null;
@@ -920,7 +926,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       efeuKarten.current.stand++;
     }
     return geb;
-  }, [welt, boden, bewohnt, fassaden, hausnutzung, hofHaeuser]);
+  }, [welt, boden, bewohnt, fassaden, hausnutzung, hofHaeuser, hofbauErsetzt]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
   const wasserKachel = useMemo(() => (
@@ -1048,7 +1054,18 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       <mesh key={`h${i}`} geometry={g} material={hausMaterial} castShadow receiveShadow />
     ))}
     {EFEUKARTEN_AN && <EfeuKartenSchicht quelle={efeuKarten} />}
+    {hofbauRegion && <HofbauSchicht region={hofbauRegion} welt={welt} boden={boden} />}
   </>;
+}
+
+/** D363: Höfe aus dem Hof-Baukasten (`content/hofbauten.json`) an ihren Grundrissen. */
+function HofbauSchicht({ region, welt, boden }: { region: string; welt: Weltdaten; boden: ReturnType<typeof aufsatzboden> }) {
+  const gruppe = useRef<THREE.Group>(null);
+  useEffect(() => {
+    if (!gruppe.current) return;
+    return ladeHofbauten(hofbauLagen(region, welt, boden), gruppe.current);
+  }, [region, welt, boden]);
+  return <group ref={gruppe} />;
 }
 
 /** D361: Bodenstreu-Karten im Umkreis von 45 m; neu gelegt, wenn die Figur 15 m gewandert ist. */

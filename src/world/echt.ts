@@ -85,6 +85,8 @@ export const FERNRING_AN = (MILBINGERFERN_AN && suche.get('fernring') !== '0') |
 export const FERNHALB_AN = FERNRING_AN && suche.get('fernhalb') !== '0';
 /** D358: Efeu als gebackene Karten in echter Blattgrösse; Einzelblätter nur noch am Rand. D359: Vorgabe, `efeukarten=0` zeigt D354. */
 export const EFEUKARTEN_AN = suche.get('efeukarten') !== '0';
+/** D363: Gebäude aus `content/hofbauten.json` als Hof-Baukasten-Modell (Blender, D360) statt des erzeugten Hauses. */
+export const HOFBAU_AN = an('hofbau');
 /** D361: Bodenstreu als gebackene Karten (Laub, Nadeln, Kies, Zweige) um die Spielfigur; `streu=0` schaltet ab. */
 export const STREU_AN = suche.get('streu') !== '0';
 /** D346: ausgebrochener Gehwegrand und zusammenhängende Verwitterung am Milbinger Weg. */

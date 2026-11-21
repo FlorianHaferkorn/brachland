@@ -201,6 +201,12 @@ Poimandres, CC0-1.0); D223 hat sie ersetzt.
 | `oental-fern-ring.json` | D349. 100 DGM1-Kacheln (E 726–735, N 5286–5295) auf 277² Punkte im Fernraster-Ring resampelt und auf Meter gerundet, 0 % Lücken. Erzeugt mit `npm run fernland -- oental --dgm1-ring`. | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet | [DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1) |
 | `fahlmoos-fern-ring.json` | D351. 100 DGM1-Kacheln (E 724–733, N 5292–5301) auf 277² Punkte im Fernraster-Ring resampelt und auf Meter gerundet, 0 % Lücken. Erzeugt mit `npm run fernland -- fahlmoos --dgm1-ring`. | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet | [DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1) |
 
+## Hof-Baukasten (D363)
+
+| Datei | Was | Urheber | Lizenz | Quelle |
+|---|---|---|---|---|
+| `bauten/hof-708.glb` | Inntaler Einfirsthof, Verfallsstufe 1, für Gebäude 708 (Œntal) | BRACHLAND (prozedural) | eigenes Werk | `tools/hofbaukasten.py` Saat 708 Stufe 1, Masse 36 × 14,7 m aus dem OSM-Grundriss; Materialien prozedural in Blender gebacken, gepackt mit `tools/hofbau_pack.mjs`. Keine Fremdtexturen. |
+
 ## Was im Spiel stehen muss
 
 Für CC BY reicht die Nennung in einer mitgelieferten Datei; ein Impressum im

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten, Fassade, Massstab, Hofbaukasten,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten, Fassade, Massstab, Hofbauten, Hofbaukasten,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -37,6 +37,12 @@ const orte = pruefe<any>('content/orte', Ort);
 console.log('\nFassaden:');
 pruefe<any>('content/fassaden', Fassade);
 {
+  const h = Hofbauten.safeParse(JSON.parse(readFileSync('content/hofbauten.json', 'utf8')));
+  if (!h.success) { console.log('  ✗ content/hofbauten.json', JSON.stringify(h.error.issues)); fehler++; }
+  else for (const b of h.data.hofbauten) {
+    if (!existsSync(`public/bauten/${b.modell}.glb`)) { console.log(`  ✗ hofbauten: public/bauten/${b.modell}.glb fehlt`); fehler++; }
+    else ok++;
+  }
   const r = Massstab.safeParse(JSON.parse(readFileSync('content/massstab.json', 'utf8')));
   if (!r.success) { console.log('  ✗ content/massstab.json', JSON.stringify(r.error.issues)); fehler++; }
   else ok++;

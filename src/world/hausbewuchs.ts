@@ -143,16 +143,23 @@ export function baueHausbewuchs(
     knoten.forEach((k, i) => {
       // Karten: jeder dritte Knoten der Haupt- und Seitentriebe; alt = gross und weit vor der Wand.
       if (k.ordnung < 2 && i % 3 === 0 && k.alter > .08) {
-        const groesse = .6 + .45 * k.alter;
-        let u = k.u + (zufall() - .5) * .16;
+        const voll = .6 + .45 * k.alter;
+        const u0 = k.u + (zufall() - .5) * .16;
         // D362: Das Blattbüschel einer Karte reicht ~0,42 × Kante um die Mitte. Ragt es in ein Fenster, rückt die
-        // Karte seitlich weg (höchstens 0,3 m); passt sie dann nicht, entfällt sie und Einzelblätter treten an.
-        const radius = .42 * Math.min(1.1, Math.max(.6, groesse));
-        const stoesst = (uu: number) => loecher.find(o => uu + radius > o.u0 - .03 && uu - radius < o.u1 + .03
-          && k.y + radius > o.y0 - .03 && k.y - radius < o.y1 + .03);
-        const o = stoesst(u);
-        if (o) u = Math.abs(u - o.u0) < Math.abs(o.u1 - u) ? o.u0 - .03 - radius : o.u1 + .03 + radius;
-        if (!o || (Math.abs(u - k.u) <= .3 && !stoesst(u) && u > radius * .5 && u < laenge - radius * .5)) {
+        // Karte seitlich weg (höchstens 0,3 m). D363: passt sie dann nicht, kommt die kleinste Karte (0,6 m, junge
+        // Blätter 4–7 cm) — so wie Efeu am Fensterrand jung und kleinblättrig nachwächst; erst dann Einzelblätter.
+        const platz = (g: number): number | null => {
+          const radius = .42 * Math.min(1.1, Math.max(.6, g));
+          const stoesst = (uu: number) => loecher.find(o => uu + radius > o.u0 - .03 && uu - radius < o.u1 + .03
+            && k.y + radius > o.y0 - .03 && k.y - radius < o.y1 + .03);
+          const o = stoesst(u0);
+          if (!o) return u0;
+          const u = Math.abs(u0 - o.u0) < Math.abs(o.u1 - u0) ? o.u0 - .03 - radius : o.u1 + .03 + radius;
+          return Math.abs(u - k.u) <= .3 && !stoesst(u) && u > radius * .5 && u < laenge - radius * .5 ? u : null;
+        };
+        let groesse = voll, u = platz(voll);
+        if (u === null && voll > .6) { groesse = .6; u = platz(.6); }
+        if (u !== null) {
           meldeEfeuKarte({ ort: welt([u, k.y, 0]), normal: aussen,
             vorstand: .04 + .22 * k.alter * staerke, groesse,
             winkel: Math.atan2(-umlauf * k.du, k.dy), saat: Math.floor(zufall() * 0x7fffffff) });

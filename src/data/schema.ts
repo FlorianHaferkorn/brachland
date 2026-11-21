@@ -317,6 +317,21 @@ export const Hofbaukasten = z.object({
 }).strict();
 export type Hofbaukasten = z.infer<typeof Hofbaukasten>;
 
+/**
+ * D363: Gebäude, die das Spiel durch ein Modell aus dem Hof-Baukasten (`tools/hofbaukasten.py`, D360) ersetzt.
+ * `gebaeude` ist der Index in `welt.gebaeude` der Region; das Modell liegt unter `public/bauten/<modell>.glb`.
+ */
+export const Hofbau = z.object({
+  region: z.string(),
+  gebaeude: z.number().int().nonnegative(),
+  modell: z.string().regex(/^[a-z0-9-]+$/),
+  saat: z.number().int(),
+  stufe: z.number().int().min(0).max(3),
+  grund: z.string().min(10),
+});
+export const Hofbauten = z.object({ hofbauten: z.array(Hofbau) });
+export type Hofbau = z.infer<typeof Hofbau>;
+
 export const Fassade = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   region: z.string(),

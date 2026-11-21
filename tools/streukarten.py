@@ -87,11 +87,18 @@ def feld(nummer):
     random.seed(4711 + nummer * 97)
     teile = []
 
+    # D363: unregelmässiger, weicher Rand — ein Kreis mit dichtem Kern las im Spiel als Tupfen. Der Randradius
+    # schwankt mit dem Winkel (drei Lappen-Ordnungen), die Dichte fällt über die äussere Hälfte weich ab.
+    lappen = [(random.uniform(0, 6.283), a, k) for a, k in ((0.16, 2), (0.10, 3), (0.06, 5))]
+
+    def rand(w):
+        return 1 - sum(a for _, a, _ in lappen) + sum(a * (1 + math.cos(k * w + ph)) / 2 * 2 for ph, a, k in lappen) * 0.5
+
     def frei():
         while True:
             x, y = random.uniform(-RADIUS, RADIUS), random.uniform(-RADIUS, RADIUS)
-            r = math.hypot(x, y) / RADIUS
-            if r < 1 and random.random() > r ** 2.5: return x, y
+            r = math.hypot(x, y) / RADIUS / rand(math.atan2(y, x))
+            if r < 1 and random.random() > max(0, (r - 0.35) / 0.65) ** 1.6: return x, y
 
     def lege(form, n, laenge, farbe, flach=True, hoehe=0.0):
         for _ in range(n):
