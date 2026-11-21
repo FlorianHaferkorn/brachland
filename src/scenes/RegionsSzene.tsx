@@ -43,7 +43,8 @@ import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
-import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
+import { streuMatrizen } from '../world/streukarten.js';
+import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
@@ -54,7 +55,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { EFEUKARTEN_AN, FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { EFEUKARTEN_AN, STREU_AN, FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
 import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
@@ -790,6 +791,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     <group>
       {wasserProbe && reflexMitte && <WasserSzeneProbe probe={wasserProbe} mitte={reflexMitte} ziel={ziel} />}
       <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} wiesenbereich={wiesenbereich} />
+      {STREU_AN && <StreuSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} />}
 
       <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf}
                   boden={aufBoden}
@@ -1047,6 +1049,34 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     ))}
     {EFEUKARTEN_AN && <EfeuKartenSchicht quelle={efeuKarten} />}
   </>;
+}
+
+/** D361: Bodenstreu-Karten im Umkreis von 45 m; neu gelegt, wenn die Figur 15 m gewandert ist. */
+const STREU_RADIUS = 45, STREU_NEU_AB = 15;
+let streuMaterial: THREE.MeshStandardMaterial | null = null;
+
+function StreuSchicht({ hoeheAn, biomAn, ziel }: {
+  hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
+  ziel: React.RefObject<THREE.Object3D | null>;
+}) {
+  const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
+  const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
+  const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
+  useEffect(() => () => geometrien.forEach(g => g.dispose()), [geometrien]);
+  streuMaterial ??= kartenMaterial('streu', 0.55);
+  useFrame(() => {
+    const p = ziel.current?.position, jetzt = performance.now();
+    if (!p || jetzt - zuletzt.current < 500) return;
+    zuletzt.current = jetzt;
+    if (mitte.current && mitte.current.distanceTo(new THREE.Vector2(p.x, p.z)) < STREU_NEU_AB) return;
+    mitte.current = new THREE.Vector2(p.x, p.z);
+    setMatrizen(streuMatrizen(p.x, p.z, STREU_RADIUS, hoeheAn, biomAn));
+  });
+  return <>{matrizen.map((liste, i) => liste.length > 0 && (
+    <instancedMesh key={`${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[i], streuMaterial!, liste.length]}
+      receiveShadow frustumCulled={false}
+      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  ))}</>;
 }
 
 /**

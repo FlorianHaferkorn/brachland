@@ -11,6 +11,8 @@ owns: []
 |---|---|---|
 | `efeu-karten-farbe.webp` | Vier Efeufelder 1 × 1 m als 2 × 2-Atlas, Grundfarbe und Deckung, 2048 × 2048 | Projektintern prozedural in Blender 5.3 erzeugt (`tools/efeukarten.py`, `tools/efeukarten_pack.py`), Blattgrösse nach `content/massstab.json`. Eigene Arbeit, CC0. |
 | `efeu-karten-normal.webp` | Normale im Tangentenraum und Wandabstand (Alpha) derselben Felder | wie oben, gleicher Lauf |
+| `streu-karten-farbe.webp` | D361: vier Bodenstreu-Felder 1 × 1 m als 2 × 2-Atlas, Grundfarbe und Deckung | Projektintern prozedural in Blender 5.3 (`tools/streukarten.py`), Grössen nach `content/massstab.json`. Eigene Arbeit, CC0. |
+| `streu-karten-normal.webp` | Normale und Höhe über Grund derselben Felder | wie oben |
 
 ## Eigenes Material für Haus 308 (D317)
 

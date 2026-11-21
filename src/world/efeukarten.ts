@@ -69,6 +69,30 @@ export function kachelGeometrie(kachel: number): THREE.PlaneGeometry {
   return g;
 }
 
+/**
+ * D361: gebackene Karte (Farbe + Deckung, Normale + Abstand/Höhe in Alpha) als Material — für Efeu und Streu.
+ * `tief` ist die Helligkeit der tiefsten Lage (Alpha 0).
+ */
+export function kartenMaterial(art: string, tief: number): THREE.MeshStandardMaterial {
+  const lade = (name: string, farbe: boolean) => {
+    const t = new THREE.TextureLoader().load(`/material/${art}-karten-${name}.webp`);
+    t.colorSpace = farbe ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    t.anisotropy = 8;
+    return t;
+  };
+  const m = new THREE.MeshStandardMaterial({
+    map: lade('farbe', true), normalMap: lade('normal', false), alphaTest: 0.5,
+    side: THREE.DoubleSide, roughness: 0.6, metalness: 0,
+  });
+  m.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', /* glsl */ `
+#include <normal_fragment_maps>
+// Abstand/Höhe (A der Normalenkarte): tiefe Lagen liegen im Schatten der oberen.
+diffuseColor.rgb *= mix(${tief.toFixed(2)}, 1.0, texture2D(normalMap, vNormalMapUv).a);`);
+  };
+  return m;
+}
+
 let material: THREE.MeshStandardMaterial | null = null;
 let tiefe: THREE.MeshDepthMaterial | null = null;
 
@@ -81,22 +105,6 @@ export function efeuKartenTiefe(): THREE.MeshDepthMaterial {
 
 /** Ein Material für alle Karten: Ausschnitt per Alpha-Test, Tiefe (Normalen-Alpha) dunkelt das Innere des Polsters ab. */
 export function efeuKartenMaterial(): THREE.MeshStandardMaterial {
-  if (material) return material;
-  const lade = (name: string, farbe: boolean) => {
-    const t = new THREE.TextureLoader().load(`/material/efeu-karten-${name}.webp`);
-    t.colorSpace = farbe ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-    t.anisotropy = 8;
-    return t;
-  };
-  material = new THREE.MeshStandardMaterial({
-    map: lade('farbe', true), normalMap: lade('normal', false), alphaTest: 0.5,
-    side: THREE.DoubleSide, roughness: 0.55, metalness: 0,
-  });
-  material.onBeforeCompile = (shader) => {
-    shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', /* glsl */ `
-#include <normal_fragment_maps>
-// Abstand zur Wand (A der Normalenkarte): tiefe Blätter im Polster liegen im Schatten der äusseren.
-diffuseColor.rgb *= mix(0.42, 1.0, texture2D(normalMap, vNormalMapUv).a);`);
-  };
+  material ??= kartenMaterial('efeu', 0.42);
   return material;
 }

@@ -1,0 +1,62 @@
+/**
+ * BRACHLAND — Bodenstreu als gebackene Karten (D361): Falllaub, Nadeln, Zapfen, Kies, Moos, Zweige in echter Grösse.
+ *
+ * Die Bodenscans (D223) tragen die Fläche; aus der Nähe fehlt ihnen das, was obenauf liegt. `tools/streukarten.py`
+ * backt in Blender vier Felder 1 × 1 m (Laubstreu Buche, Nadelstreu Fichte mit Zapfen, Kies mit Moos, Zweige mit
+ * trockenem Laub; Grössen aus `content/massstab.json`). Hier liegen sie als Karten auf dem Gelände: je Meter-Zelle
+ * ein Würfelwurf aus dem Seed der Zelle (Performance-Invariante: erzeugt, nicht gespeichert), Art und Dichte nach
+ * Biom, Karte nach der Geländeneigung gekippt und um die Normale gedreht.
+ */
+import * as THREE from 'three';
+import type { Biom } from './osm.js';
+
+/** Atlas-Kacheln: 0 Laub, 1 Nadel, 2 Kies/Moos, 3 Zweige. */
+const LAUB = 0, NADEL = 1, KIES = 2, ZWEIGE = 3;
+
+/** Wahrscheinlichkeit je Meter-Zelle und Art(en) je Biom. Wasser und Unbekanntes bleiben frei. */
+const STREU: Partial<Record<Biom, { p: number; arten: readonly number[] }>> = {
+  wald: { p: 0.75, arten: [LAUB, LAUB, NADEL, NADEL, ZWEIGE] },
+  gebuesch: { p: 0.55, arten: [LAUB, LAUB, ZWEIGE] },
+  moor: { p: 0.25, arten: [NADEL, ZWEIGE] },
+  fels: { p: 0.35, arten: [KIES, KIES, ZWEIGE] },
+  ruine: { p: 0.5, arten: [KIES, ZWEIGE, LAUB] },
+  siedlung: { p: 0.3, arten: [KIES, LAUB, ZWEIGE] },
+  industrie: { p: 0.35, arten: [KIES, KIES, ZWEIGE] },
+  wiese: { p: 0.06, arten: [ZWEIGE, LAUB] },
+  acker: { p: 0.05, arten: [ZWEIGE, KIES] },
+};
+
+/** Ganzzahl-Hash einer Zelle — dieselbe Zelle gibt immer dieselbe Streu. */
+function zellHash(ix: number, iz: number, salz: number): number {
+  let h = (ix * 73856093) ^ (iz * 19349663) ^ (salz * 83492791);
+  h = Math.imul(h ^ (h >>> 13), 0x5bd1e995);
+  return (h ^ (h >>> 15)) >>> 0;
+}
+
+/** Instanzmatrizen je Atlas-Kachel im Quadrat um (mx, mz). */
+export function streuMatrizen(
+  mx: number, mz: number, radius: number,
+  hoeheAn: (x: number, z: number) => number, biomAn: (x: number, z: number) => Biom,
+): THREE.Matrix4[][] {
+  const kacheln: THREE.Matrix4[][] = [[], [], [], []];
+  const z = new THREE.Vector3(0, 0, 1), n = new THREE.Vector3(), q = new THREE.Quaternion(), dreh = new THREE.Quaternion();
+  const p = new THREE.Vector3(), s = new THREE.Vector3();
+  const x0 = Math.floor(mx - radius), x1 = Math.ceil(mx + radius), z0 = Math.floor(mz - radius), z1 = Math.ceil(mz + radius);
+  for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) {
+    let h = zellHash(ix, iz, 361);
+    const wurf = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };
+    const x = ix + wurf(), zz = iz + wurf();
+    if ((x - mx) ** 2 + (zz - mz) ** 2 > radius * radius) continue;
+    const regel = STREU[biomAn(x, zz)];
+    if (!regel || wurf() > regel.p) continue;
+    const e = 0.4;
+    n.set(hoeheAn(x - e, zz) - hoeheAn(x + e, zz), 2 * e, hoeheAn(x, zz - e) - hoeheAn(x, zz + e)).normalize();
+    q.setFromUnitVectors(z, n);
+    dreh.setFromAxisAngle(z, wurf() * Math.PI * 2);
+    const kante = 0.9 + 0.2 * wurf();          // 0,9–1,1 m: die Grössen im Feld bleiben echt
+    p.set(x, hoeheAn(x, zz) + 0.015, zz);
+    s.set(kante, kante, 1);
+    kacheln[regel.arten[Math.floor(wurf() * regel.arten.length)]].push(new THREE.Matrix4().compose(p, q.clone().multiply(dreh), s));
+  }
+  return kacheln;
+}

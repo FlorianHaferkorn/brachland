@@ -54,6 +54,39 @@
       "url": "",
       "messung": "baum",
       "belegt": false
+    },
+    {
+      "id": "buchenblatt",
+      "was": "Blattlänge Rotbuche (Fagus sylvatica), Falllaub",
+      "min": 0.05,
+      "max": 0.1,
+      "ziel": 0.075,
+      "quelle": "Gartenjournal Rotbuche-Steckbrief: 5–10 cm lang, 3–7 cm breit; SDW Faltblatt Buche (Blattbau). Gartenportal = Richtwert",
+      "url": "https://www.gartenjournal.net/rotbuche-steckbrief",
+      "messung": "streu",
+      "belegt": true
+    },
+    {
+      "id": "fichtennadel",
+      "was": "Nadellänge Fichte (Picea abies)",
+      "min": 0.01,
+      "max": 0.025,
+      "ziel": 0.017,
+      "quelle": "Gartenjournal Fichte: Nadeln 1–2,5 cm. Gartenportal = Richtwert",
+      "url": "https://www.gartenjournal.net/fichte",
+      "messung": "streu",
+      "belegt": true
+    },
+    {
+      "id": "fichtenzapfen",
+      "was": "Zapfenlänge Fichte (Picea abies), reif",
+      "min": 0.1,
+      "max": 0.15,
+      "ziel": 0.125,
+      "quelle": "Gartenjournal Fichte: reife Zapfen 10–15 cm lang, 3–4 cm dick. Gartenportal = Richtwert",
+      "url": "https://www.gartenjournal.net/fichte",
+      "messung": "streu",
+      "belegt": true
     }
   ]
 }

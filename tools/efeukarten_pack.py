@@ -14,10 +14,12 @@ from PIL import Image
 
 QUELLE = sys.argv[1] if len(sys.argv) > 1 else '.cache/efeukarten'
 KACHEL = int(sys.argv[2]) if len(sys.argv) > 2 else 1024
+# D361: dieselbe Packung für andere Kartenarten (`streu`): liest `<art><n>-*.png`, schreibt `<art>-karten-*.webp`.
+ART = sys.argv[3] if len(sys.argv) > 3 else 'efeu'
 
 
 def lade(n, art):
-    return np.asarray(Image.open(f'{QUELLE}/efeu{n}-{art}.png').convert('RGBA').resize((KACHEL, KACHEL), Image.LANCZOS)).astype(np.float32) / 255
+    return np.asarray(Image.open(f'{QUELLE}/{ART}{n}-{art}.png').convert('RGBA').resize((KACHEL, KACHEL), Image.LANCZOS)).astype(np.float32) / 255
 
 
 def fuelle(rgb, deckung, schritte=24):
@@ -43,6 +45,6 @@ for n in range(4):
     nrgb = fuelle(nm[..., :3], a); nrgb[a < 0.02] = (0.5, 0.5, 1.0)
     normal[sy, sx, :3] = nrgb; normal[sy, sx, 3] = ab[..., 0] * (a > 0.02)
 for name, bild in (('farbe', farbe), ('normal', normal)):
-    pfad = f'public/material/efeu-karten-{name}.webp'
+    pfad = f'public/material/{ART}-karten-{name}.webp'
     Image.fromarray((bild * 255 + 0.5).clip(0, 255).astype(np.uint8), 'RGBA').save(pfad, 'WEBP', quality=88, method=6)
     print(pfad, Image.open(pfad).size)

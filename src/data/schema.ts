@@ -265,7 +265,8 @@ export const MassReferenz = z.object({
   ziel: z.number().positive(),
   quelle: z.string().min(3),
   url: z.union([z.string().url(), z.literal('')]),
-  messung: z.enum(['hausbewuchs', 'figur', 'bordstein', 'baum']),
+  /** `streu`: Eingabe für `tools/streukarten.py` (D361), im Tor nur aufgelistet. */
+  messung: z.enum(['hausbewuchs', 'figur', 'bordstein', 'baum', 'streu']),
   belegt: z.boolean(),
 }).refine(r => r.min <= r.ziel && r.ziel <= r.max, 'ziel liegt nicht zwischen min und max');
 export const Massstab = z.object({ referenzen: z.array(MassReferenz).min(1) });
