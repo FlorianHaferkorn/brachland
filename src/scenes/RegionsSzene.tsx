@@ -47,6 +47,7 @@ import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } 
 import { baumRaster, streuMatrizen } from '../world/streukarten.js';
 import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot, type RindenArt } from '../world/windmaterial.js';
+import { BAUM_UEBERBLEND, UEBERBLEND_BAND, impostorGeometrie, impostorMaterial } from '../world/impostor.js';
 import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { randSeite, type Seite } from '../spiel/region.js';
@@ -110,7 +111,7 @@ const BEWOHNER_ALT = new URLSearchParams(location.search).get('bewohner') === 'a
 const KEINE_CLIPS: THREE.AnimationClip[] = [];
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
-import { TERRAIN_SICHT, NEUAUFBAU_AB, WEITE_WEIT } from './sichtweiten.js';
+import { TERRAIN_SICHT, NEUAUFBAU_AB, WEITE_WEIT, ATTRAPPE_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
 import { buendleFernProps, propListenNeu, waehleProps, type PropAnkerCache, type PropStufe } from './propauswahl.js';
 import { verteileKreaturen, rueckkehrVorkommen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
@@ -690,6 +691,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * wie die Bauwerke, nur als Instanz. Der Saum bleibt schwach: Klumpen mit Loechern sind lauter Kanten.
    */
   // D364: Rinde je Art (Scan-Albedo, Normale, Rauheit, Moos) — Buche und Fichte darum immer zwei Materialien.
+  // D367: `ueberblend` gibt die Mittelstufe im Band vor der Impostor-Grenze nach einem Raster ab.
   const baumWerte = (bueschel: THREE.Texture | undefined, rinde: RindenArt) => ({
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.2,
     // Schaerfe 3 -> 10 (D160): Auf Blattmassen aus kleinen Kugeln ist `1 - |N·V|` fast ueberall hoch,
@@ -697,7 +699,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     // Stauwehr 30 % der Bildhelligkeit (Median 0,100 -> 0,069 ohne Saum). Kreaturen und Figur behalten
     // ihre weichen 1,6: dort ist die Flaeche gross und die Silhouette wirklich ein Rand.
     randSchaerfe: 10,
-    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde, bueschel,
+    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde, bueschel, ueberblend: BAUM_UEBERBLEND,
   });
   const baumBasis = () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
   // D283 (`?laub=2`): Buchen bekommen den Laub-, Fichten den Nadel-Büschelatlas — darum zwei Materialien.
@@ -1164,6 +1166,9 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, grasWind, 
   const chunks = useMemo(() => chunkeProps(GRAS_FEIN ? props.filter(p => p.art !== 'grasbuschel') : props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<FernGruppe[]>([]);
+  /** D367: Mittelstufen-Bäume im Übergabeband — stehen zusätzlich als Impostor (komplementäres Raster). */
+  const [band, setBand] = useState<FernGruppe[]>([]);
+  useEffect(() => { BAUM_UEBERBLEND.value.set(ATTRAPPE_AB * weite, UEBERBLEND_BAND); }, [weite]);
   // Messbarer Standard der EZ-Probe; ?ezcluster=0 erhaelt den A/B-Rueckweg.
   const ezZellen = typeof location !== 'undefined' && (new URLSearchParams(location.search).get('ezbaum') === '1' || (HOF_GRUEN_AN && hofBaum)) && new URLSearchParams(location.search).get('ezcluster') !== '0';
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
@@ -1208,6 +1213,20 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, grasWind, 
     // Nahbewertung erst ein Bild zuvor lief; sonst steht ein Randchunk kurz doppelt.
     if (nahNeu || fernNeu) {
       letzte.current.copy(p);
+      // Band: alle Bäume der Mittelstufe, die bis zur nächsten Neubewertung ins Band laufen können.
+      const bandAb = ATTRAPPE_AB * weite - UEBERBLEND_BAND - PROP_NEUBEWERTUNG;
+      const jeVariante = new Map<string, FernGruppe>();
+      for (const { c, stufe } of nah) {
+        if (stufe !== 'mittel' || (c.art !== 'laubbaum' && c.art !== 'nadelbaum')) continue;
+        for (const q of c.instanzen) {
+          if (Math.hypot(q.position[0] - p.x, q.position[2] - p.z) < bandAb) continue;
+          const k = `${c.art}:${c.variante}`;
+          let g = jeVariante.get(k);
+          if (!g) jeVariante.set(k, g = { art: c.art, variante: c.variante, instanzen: [] });
+          g.instanzen.push(q);
+        }
+      }
+      setBand([...jeVariante.values()]);
       setSichtbar(nah.map(({ c, stufe }) => ({
         // Die Stufe gehört in den Schlüssel: Seit die Mittelstufe ihre Varianten
         // zusammenlegt (D100), tragen alle zusammengelegten Chunks `variante 0`,
@@ -1240,7 +1259,11 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, grasWind, 
         </Suspense>)}
       {fern.map(({ art, variante, instanzen, zelle, hofStrauch, hofSchatten }) =>
         <Suspense key={`${art}:${variante}:${zelle ?? ''}:${hofStrauch ? 'hof' : ''}:${hofSchatten ? 'schatten' : ''}`} fallback={null}>
-          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} milbingerBaum={milbingerBaum} hofStrauch={hofStrauch} hofSchatten={hofSchatten} instanzen={instanzen} baumWind={art === 'nadelbaum' ? baumWindNadel : baumWind} zellCulling={zelle !== undefined} />
+          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} milbingerBaum={milbingerBaum} hofStrauch={hofStrauch} hofSchatten={hofSchatten} instanzen={instanzen} zellCulling={zelle !== undefined} />
+        </Suspense>)}
+      {band.map(({ art, variante, instanzen }) =>
+        <Suspense key={`band:${art}:${variante}`} fallback={null}>
+          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} milbingerBaum={milbingerBaum} instanzen={instanzen} zellCulling={false} band />
         </Suspense>)}
     </>
   );
@@ -1279,26 +1302,19 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, grasWind, 
  * `InstancedMesh` neu auf, und das ist genau der Fall, den `PropChunkMesh` im
  * Kommentar als teuer beschreibt.
  */
-function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum = false, milbingerBaum = false, hofStrauch = false, hofSchatten = false }: { art: PropArt; variante: number; instanzen: PropInstanz[]; baumWind: THREE.MeshStandardMaterial; zellCulling: boolean; hofBaum?: boolean; milbingerBaum?: boolean; hofStrauch?: boolean; hofSchatten?: boolean }) {
-  // Dieselbe Baumvariante in allen Stufen; die Fernstufe reduziert nur Dreiecke.
+function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, milbingerBaum = false, hofStrauch = false, hofSchatten = false, band = false }: { art: PropArt; variante: number; instanzen: PropInstanz[]; zellCulling: boolean; hofBaum?: boolean; milbingerBaum?: boolean; hofStrauch?: boolean; hofSchatten?: boolean; band?: boolean }) {
+  // D367: Die Fernstufe der Blender-Bäume ist ein Impostor desselben Nahbaums (acht gebackene Ansichten, zwei
+  // Dreiecke je Baum) statt der dezimierten Krone; ohne Registereintrag bleibt die Attrappe.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   const blender = eigen ? blenderBaum(eigen, variante, 'fern') : null;
-  const { scene } = useGLTF(propPfad(blender ? blender.datei : VARIANTEN.busch[0].datei));
+  const rahmen = blender?.impostor ?? null;
   const geo = useMemo(() => {
     if (hofStrauch) return hofStrauchGeometrie(variante, VARIANTEN.busch[variante]?.hoehe ?? 1.2);
-    if (!blender) return attrappeGeometrie(art);
-    let g: THREE.BufferGeometry | null = null;
-    scene.updateMatrixWorld(true);
-    scene.traverse(o => {
-      if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry.clone().applyMatrix4(o.matrixWorld);
-    });
-    if (g) {
-      const geometrie = g as THREE.BufferGeometry;
-      const gewicht = geometrie.getAttribute('_wind');
-      if (gewicht) geometrie.setAttribute('aWind', gewicht);
-    }
-    return (g ?? attrappeGeometrie(art)) as THREE.BufferGeometry;
-  }, [art, blender, scene, hofStrauch, variante]);
+    if (!rahmen) return attrappeGeometrie(art);
+    return impostorGeometrie(rahmen);
+  }, [art, rahmen, hofStrauch, variante]);
+  useEffect(() => () => { if (rahmen) geo.dispose(); }, [geo, rahmen]);
+  const impMaterial = useMemo(() => blender && rahmen ? impostorMaterial(blender.datei, rahmen, BAUM_UEBERBLEND) : null, [blender, rahmen]);
   const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
   const ref = useRef<THREE.InstancedMesh>(null);
   const [kapazitaet, setKapazitaet] = useState(() => Math.ceil(instanzen.length * 1.4) + 64);
@@ -1338,15 +1354,22 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling, hofBaum
     m.count = instanzen.length;
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    if (rahmen) {
+      // D367: 1 = Instanz im Übergabeband (zeichnet nur das Gegenraster zur Mittelstufe)
+      let a = geo.getAttribute('aUeberblend') as THREE.InstancedBufferAttribute | undefined;
+      if (!a || a.count < kapazitaet) geo.setAttribute('aUeberblend', a = new THREE.InstancedBufferAttribute(new Float32Array(kapazitaet), 1));
+      (a.array as Float32Array).fill(band ? 1 : 0);
+      a.needsUpdate = true;
+    }
     if (zellCulling || hofStrauch) m.computeBoundingSphere();
     if (HOF_BILDFLUSS_AN && anfang && m.count > 0 && !ezErsetzt) m.visible = true;
-  }, [instanzen, kapazitaet, zellCulling, hofBaum, hofStrauch]);
+  }, [instanzen, kapazitaet, zellCulling, hofBaum, hofStrauch, rahmen, geo, band]);
 
   return (
     <instancedMesh
       ref={setzeMesh} args={[undefined, undefined, kapazitaet]}
-      name={blender ? `baum:${art}:${variante}:fern` : `prop:${art}:fern${hofStrauch ? `:hof:${variante}` : ''}`}
-      geometry={geo} material={blender ? baumWind : strauchMaterial ?? FERN_MATERIAL}
+      name={blender ? `baum:${art}:${variante}:fern${band ? ':band' : ''}` : `prop:${art}:fern${hofStrauch ? `:hof:${variante}` : ''}`}
+      geometry={geo} material={impMaterial ?? strauchMaterial ?? FERN_MATERIAL}
       receiveShadow={hofStrauch && hofSchatten}
       // Der Bündel umspannt den ganzen Sichtring; ein Frustum-Test daran wäre
       // immer wahr und damit verlorene Zeit.
@@ -1438,7 +1461,8 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
   // Auch der prozedurale Fallback braucht einen unbedingten Lade-Hook.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   // Blender-Baum (D155), wenn das Register einen hat — sonst der prozedurale (D40)
-  const blender = eigen ? blenderBaum(eigen, variante, stufe) : null;
+  // D367: Die Fernstufe ist ein Impostor ohne Netz; ein Chunk in Fernstufe zeigt die Mittelstufe.
+  const blender = eigen ? blenderBaum(eigen, variante, stufe === 'fern' ? 'mittel' : stufe) : null;
   const pfad = propPfad(blender ? blender.datei : ((liste[variante] ?? liste[0])?.datei ?? VARIANTEN.busch[0].datei));
   const { scene } = useGLTF(pfad);
   const normalisiert = useMemo(() => {
