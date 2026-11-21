@@ -271,6 +271,51 @@ export const MassReferenz = z.object({
 export const Massstab = z.object({ referenzen: z.array(MassReferenz).min(1) });
 export type MassReferenz = z.infer<typeof MassReferenz>;
 
+/**
+ * D360: Hof-Baukasten für den Inntaler Einfirsthof (`content/hofbaukasten.json`, gelesen von
+ * `tools/hofbaukasten.py`). Jede Zahl trägt ihre Quelle; was die Bauwelt-Notiz nicht nennt, ist
+ * `annahme: true`. Die Schlüssel sind fest, weil das Blender-Werkzeug sie ohne Rückfall liest.
+ */
+export const HOF_MASSE = [
+  'wohnteilbreite', 'gesamtlaenge', 'wohnteilanteil', 'geschosse', 'geschosshoehe_eg', 'geschosshoehe_og',
+  'kniestock', 'sockelhoehe', 'mauerstaerke_eg', 'dachneigung', 'ueberstand_traufe', 'ueberstand_giebel',
+  'dachdicke', 'laubentiefe', 'bruestungshoehe', 'hochlaube_anteil', 'balken_hoehe', 'balken_staerke',
+  'vorkopf', 'brettbreite', 'brettstaerke', 'fenster_breite', 'fenster_hoehe', 'fenster_bruestung',
+  'fensterachse', 'tuer_breite', 'tuer_hoehe', 'tennentor_breite', 'tennentor_hoehe', 'pfette_querschnitt',
+  'sparrenabstand', 'sparren_hoehe',
+] as const;
+export const HOF_FARBEN = [
+  'putz', 'stein', 'holz_sonne', 'holz_grau', 'ziegel_rot', 'ziegel_anthrazit', 'schindel', 'blech', 'rost', 'laeden',
+] as const;
+export const HOF_VERFALL = [
+  'laeden_fehlen', 'laeden_schief', 'laubenbretter_fehlen', 'laube_abgestuerzt', 'dach_fehlstelle', 'dach_flicken',
+  'fenster_verbrettert', 'fenster_licht', 'vergrauung', 'moos',
+] as const;
+const Herkunft = { quelle: z.string().min(3), annahme: z.boolean() };
+export const HofMass = z.object({
+  was: z.string().min(3),
+  einheit: z.enum(['m', 'grad', 'anteil', 'anzahl']),
+  min: z.number().nonnegative(),
+  max: z.number().nonnegative(),
+  ziel: z.number().nonnegative(),
+  ...Herkunft,
+}).strict().refine(m => m.min <= m.ziel && m.ziel <= m.max, 'ziel liegt nicht zwischen min und max');
+const HofWert = z.object({ wert: z.number().nonnegative(), ...Herkunft }).strict();
+export const Hofbaukasten = z.object({
+  typ: z.literal('einfirsthof'),
+  hinweis: z.string(),
+  masse: z.object(Object.fromEntries(HOF_MASSE.map(k => [k, HofMass])) as Record<(typeof HOF_MASSE)[number], typeof HofMass>).strict(),
+  farben: z.object(Object.fromEntries(HOF_FARBEN.map(k => [k, z.object({ hex: Hex, ...Herkunft }).strict()])) as
+    Record<(typeof HOF_FARBEN)[number], z.ZodObject<{ hex: typeof Hex; quelle: z.ZodString; annahme: z.ZodBoolean }, 'strict'>>).strict(),
+  verfall: z.array(z.object({
+    stufe: z.number().int().min(0).max(3),
+    bild: z.string().min(3),
+    ...Object.fromEntries(HOF_VERFALL.map(k => [k, HofWert])) as Record<(typeof HOF_VERFALL)[number], typeof HofWert>,
+  }).strict()).length(4)
+    .refine(v => v.every((s, i) => s.stufe === i), 'verfall muss die Stufen 0, 1, 2, 3 in dieser Reihenfolge enthalten'),
+}).strict();
+export type Hofbaukasten = z.infer<typeof Hofbaukasten>;
+
 export const Fassade = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   region: z.string(),

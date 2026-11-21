@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten, Fassade, Massstab,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten, Fassade, Massstab, Hofbaukasten,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -40,6 +40,21 @@ pruefe<any>('content/fassaden', Fassade);
   const r = Massstab.safeParse(JSON.parse(readFileSync('content/massstab.json', 'utf8')));
   if (!r.success) { console.log('  ✗ content/massstab.json', JSON.stringify(r.error.issues)); fehler++; }
   else ok++;
+}
+{
+  // D360: Hof-Baukasten. Eine Zahl ohne annahme muss auf die Bauwelt-Notiz oder eine Ledger-Zeile zeigen.
+  const r = Hofbaukasten.safeParse(JSON.parse(readFileSync('content/hofbaukasten.json', 'utf8')));
+  if (!r.success) { console.log('  ✗ content/hofbaukasten.json', JSON.stringify(r.error.issues)); fehler++; }
+  else {
+    const eintraege: [string, { quelle: string; annahme: boolean }][] = [
+      ...Object.entries(r.data.masse), ...Object.entries(r.data.farben),
+      ...r.data.verfall.flatMap(s => Object.entries(s).filter(([, w]) => typeof w === 'object') as [string, any][])
+        .map(([k, w]) => [`verfall.${k}`, w] as [string, any]),
+    ];
+    const ohne = eintraege.filter(([, w]) => !w.annahme && !/Bauwelt|Ledger D\d+/.test(w.quelle));
+    ohne.forEach(([k]) => console.log(`  ✗ hofbaukasten ${k}: kein Beleg und nicht als annahme gekennzeichnet`));
+    if (ohne.length) fehler++; else { console.log(`  ✓ hofbaukasten.json (${eintraege.filter(([, w]) => w.annahme).length} Annahmen)`); ok++; }
+  }
 }
 console.log('\nAufträge:');
 const auftraege = pruefe<any>('content/auftraege', Auftrag);
