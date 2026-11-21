@@ -122,7 +122,7 @@ def stil():
         s2 = g.nodes.new('CompositorNodeFilter'); s2.inputs['Type'].default_value = 'Sobel'; L(normale, s2.inputs['Image'])
         bw1 = g.nodes.new('CompositorNodeRGBToBW'); L(s1.outputs[0], bw1.inputs[0])
         bw2 = g.nodes.new('CompositorNodeRGBToBW'); L(s2.outputs[0], bw2.inputs[0])
-        a = kurve(bw1.outputs[0], 0.25, 0.9); b = kurve(bw2.outputs[0], 0.6, 1.6)
+        a = kurve(bw1.outputs[0], 0.12, 0.45); b = kurve(bw2.outputs[0], 2.5, 4.0, hoch=0.5)
         mx = g.nodes.new('ShaderNodeMath'); mx.operation = 'MAXIMUM'; L(a, mx.inputs[0]); L(b, mx.inputs[1])
         # in der Ferne keine Linien: Nebel blendet sie aus
         nah = g.nodes.new('ShaderNodeMath'); nah.operation = 'MULTIPLY'; L(mx.outputs[0], nah.inputs[0])
@@ -143,8 +143,8 @@ def stil():
     if art == 'gemalt':
         # Soulframe-Linie: Formen vereinfacht zu Pinselflächen (anisotroper Kuwahara), warmes Licht, Luftschichten, Glühen.
         lin = farbe
-        tief = mix(lin, (0.95, 0.78, 0.55), kurve(nebel, 0.08, 0.9, hoch=0.55), ort=(-400, 200))
-        kw = knoten(g, 'CompositorNodeKuwahara', (-200, 200), Size=9, Uniformity=4, Sharpness=0.6, Eccentricity=1.2)
+        tief = mix(lin, (0.80, 0.70, 0.56), kurve(nebel, 0.25, 0.95, hoch=0.45), ort=(-400, 200))
+        kw = knoten(g, 'CompositorNodeKuwahara', (-200, 200), Size=6, Uniformity=4, Sharpness=0.85, Eccentricity=1.0)
         kw.inputs['Type'].default_value = 'Anisotropic'
         L(tief, kw.inputs['Image'])
         gl = knoten(g, 'CompositorNodeGlare', (0, 200), Threshold=0.7, Strength=0.6, Size=0.8)
@@ -154,9 +154,9 @@ def stil():
         cb = g.nodes.new('CompositorNodeColorBalance'); cb.location = (400, 200)
         L(disp, cb.inputs['Image'])
         try:
-            cb.inputs[4].default_value = (1.04, 1.0, 0.95, 1); cb.inputs[8].default_value = (1.04, 1.0, 0.92, 1)
+            cb.inputs[4].default_value = (0.97, 0.98, 1.04, 1); cb.inputs[8].default_value = (1.03, 1.0, 0.95, 1)
         except Exception as e: print('Balance', e)
-        hs = knoten(g, 'CompositorNodeHueSat', (600, 200), Saturation=0.92)
+        hs = knoten(g, 'CompositorNodeHueSat', (600, 200), Saturation=1.15)
         L(cb.outputs[0], hs.inputs['Image']); ende = hs.outputs[0]
     elif art == 'grafisch':
         # Grafischer Realismus: klare Flächen, wenige Tonwerte, Silhouetten-Linien, Tiefe in drei Nebelebenen.
@@ -166,16 +166,13 @@ def stil():
         n3 = e.new(0.35); n3.color = (0.72, 0.72, 0.72, 1); n4 = e.new(0.7); n4.color = (1, 1, 1, 1)
         L(nebel, stufen.inputs[0])
         bw = g.nodes.new('CompositorNodeRGBToBW'); L(stufen.outputs[0], bw.inputs[0])
-        ebenen = mix(farbe, (0.88, 0.80, 0.66), bw.outputs[0], ort=(-200, 200))
-        kw = knoten(g, 'CompositorNodeKuwahara', (0, 200), Size=4)
-        kw.inputs['Type'].default_value = 'Classic'
+        ebenen = mix(farbe, (0.88, 0.80, 0.66), kurve(bw.outputs[0], 0.0, 1.0, hoch=0.75), ort=(-200, 200))
+        kw = knoten(g, 'CompositorNodeKuwahara', (0, 200), Size=7, Uniformity=6, Sharpness=1.0, Eccentricity=0.6)
+        kw.inputs['Type'].default_value = 'Anisotropic'
         L(ebenen, kw.inputs['Image'])
         disp = agx(kw.outputs[0], (200, 200))
-        po = knoten(g, 'CompositorNodePosterize', (400, 200), Steps=12)
-        L(disp, po.inputs['Image'])
-        weich = mix(disp, po.outputs[0], 0.55, ort=(500, 200))
-        linie = mix(weich, (0.10, 0.08, 0.07), kanten(), ort=(700, 200))
-        hs = knoten(g, 'CompositorNodeHueSat', (900, 200), Saturation=1.1)
+        linie = mix(disp, (0.12, 0.10, 0.09), kanten(), ort=(700, 200))
+        hs = knoten(g, 'CompositorNodeHueSat', (900, 200), Saturation=0.85)
         L(linie, hs.inputs['Image']); ende = hs.outputs[0]
     elif art == 'roh':
         # Vergleich: der unveränderte Render (heutige Zielbild-Linie, ADR-0006)
@@ -190,8 +187,8 @@ def stil():
         mitte = e.new(0.45); mitte.color = (0.42, 0.36, 0.29, 1)
         L(bw.outputs[0], duo.inputs[0])
         etwas = mix(duo.outputs[0], disp, 0.18, ort=(400, 200))
-        kw = knoten(g, 'CompositorNodeKuwahara', (500, 200), Size=3)
-        kw.inputs['Type'].default_value = 'Classic'
+        kw = knoten(g, 'CompositorNodeKuwahara', (500, 200), Size=7, Uniformity=6, Sharpness=0.9, Eccentricity=1.0)
+        kw.inputs['Type'].default_value = 'Anisotropic'
         L(etwas, kw.inputs['Image'])
         glim = knoten(g, 'CompositorNodeGlare', (500, -200), Threshold=0.0, Strength=1.4, Size=0.9)
         glim.inputs['Type'].default_value = 'Bloom'
