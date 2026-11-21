@@ -1,0 +1,80 @@
+{
+ "geprueft": "2026-11-21",
+ "weiss": "oben",
+ "saetze": {
+  "haus-scans-hoehe.webp": [
+   {
+    "quelle": "grey_plaster_02",
+    "quelleUrl": "https://polyhaven.com/a/grey_plaster_02",
+    "karte": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/grey_plaster_02/grey_plaster_02_disp_1k.png",
+    "bytes": 1994457,
+    "sha256": "8873d6e3693c81cbe01cb541b7940fe7a21be7f61851738525fc2542c55c511b",
+    "lizenz": "CC0-1.0"
+   },
+   {
+    "quelle": "old_planks_02",
+    "quelleUrl": "https://polyhaven.com/a/old_planks_02",
+    "karte": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/old_planks_02/old_planks_02_disp_1k.png",
+    "bytes": 1825948,
+    "sha256": "85658e5e26a6b8c0242dc490686ee1ad9b47bd8813daf7b7fcce97752b391f13",
+    "lizenz": "CC0-1.0"
+   },
+   {
+    "quelle": "grey_roof_tiles",
+    "quelleUrl": "https://polyhaven.com/a/grey_roof_tiles",
+    "karte": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/grey_roof_tiles/grey_roof_tiles_disp_1k.png",
+    "bytes": 1833742,
+    "sha256": "fcee6b446c52ab4bb2792f6068da255680afa8e9c10a7f1ec94e89942c2c5072",
+    "lizenz": "CC0-1.0"
+   },
+   {
+    "quelle": "old_stone_wall",
+    "quelleUrl": "https://polyhaven.com/a/old_stone_wall",
+    "karte": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/old_stone_wall/old_stone_wall_disp_1k.png",
+    "bytes": 1607161,
+    "sha256": "d3b37791d12af42153cdb1dba6dcdd3ba1cd0e2ee97d9330400b083ef0e29e32",
+    "lizenz": "CC0-1.0"
+   }
+  ],
+  "hof-scans-hoehe.webp": [
+   {
+    "quelle": "plastered_wall_03",
+    "quelleUrl": "https://polyhaven.com/a/plastered_wall_03",
+    "karte": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/plastered_wall_03/plastered_wall_03_disp_1k.png",
+    "bytes": 1232747,
+    "sha256": "d264e56d4f26db58042e3c6cdce30fb7fc56abb7524aade4095b5ca186e9af1c",
+    "lizenz": "CC0-1.0"
+   },
+   {
+    "quelle": "weathered_planks",
+    "quelleUrl": "https://polyhaven.com/a/weathered_planks",
+    "karte": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/weathered_planks/weathered_planks_disp_1k.png",
+    "bytes": 1448014,
+    "sha256": "d04c3743ab639b910e0ee58d8b906ad12d323cf96f3ef42c2cadb37f92a18507",
+    "lizenz": "CC0-1.0"
+   },
+   {
+    "quelle": "grey_roof_tiles",
+    "quelleUrl": "https://polyhaven.com/a/grey_roof_tiles",
+    "karte": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/grey_roof_tiles/grey_roof_tiles_disp_1k.png",
+    "bytes": 1833742,
+    "sha256": "fcee6b446c52ab4bb2792f6068da255680afa8e9c10a7f1ec94e89942c2c5072",
+    "lizenz": "CC0-1.0"
+   },
+   {
+    "quelle": "old_stone_wall",
+    "quelleUrl": "https://polyhaven.com/a/old_stone_wall",
+    "karte": "https://dl.polyhaven.org/file/ph-assets/Textures/png/1k/old_stone_wall/old_stone_wall_disp_1k.png",
+    "bytes": 1607161,
+    "sha256": "d3b37791d12af42153cdb1dba6dcdd3ba1cd0e2ee97d9330400b083ef0e29e32",
+    "lizenz": "CC0-1.0"
+   }
+  ],
+  "hof-ziel-hoehe.webp": [
+   {
+    "quelle": "hof-ziel-farbe.webp",
+    "ableitung": "Helligkeit, Hochpass, je Kachel gestreckt"
+   }
+  ]
+ }
+}
