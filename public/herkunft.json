@@ -266,6 +266,13 @@
   "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
  },
  {
+  "datei": "oental-fern-ring.json",
+  "rolle": "D349. 100 DGM1-Kacheln (E 726–735, N 5286–5295) auf 277² Punkte im Fernraster-Ring resampelt und auf Meter gerundet, 0 % Lücken. Erzeugt mit npm run fernland -- oental --dgm1-ring.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
   "datei": "bauten/milbinger-kleinwagen.glb",
   "rolle": "Verlassener Kompaktwagen",
   "autor": "tevy",

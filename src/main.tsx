@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { entpackeWelt, type Weltdaten } from './world/osm.js';
 import { holeWeltdaten } from './world/weltladen.js';
 import type { Fernland } from './world/fernland.js';
-import { MILBINGERFERN_AN } from './world/echt.js';
+import { FERNRING_AN, MILBINGERFERN_AN } from './world/echt.js';
 import { RegionsSzene, TAGESZEITEN, QUALITAET_STANDARD,
          type Messwerte, type Qualitaet, type Naehe } from './scenes/RegionsSzene.js';
 import { WEITE_WEIT } from './scenes/sichtweiten.js';
@@ -250,7 +250,8 @@ function App() {
     if (!REGION) return;
     const grund = holeWeltdaten(`/world/${REGION.id}-fern.json`) as Promise<Fernland>;
     const sued = MILBINGERFERN_AN && REGION.id === 'oental'
-      ? (holeWeltdaten('/world/oental-fern-sued.json') as Promise<Fernland>).catch(() => undefined)
+      ? (holeWeltdaten(FERNRING_AN ? '/world/oental-fern-ring.json' : '/world/oental-fern-sued.json') as Promise<Fernland>)
+        .catch(() => undefined)
       : undefined;
     Promise.all([grund, sued])
       .then(([daten, detail]) => setFernland(detail ? { ...daten, detail } : daten))

@@ -25,6 +25,7 @@
  *
  *     npm run fernland oental [faktor] [aufloesung]
  *     npm run fernland -- oental --dgm1-sued
+ *     npm run fernland -- oental --dgm1-ring [rand]
  *
  * Dauert rund drei Minuten: OpenTopoData nimmt 100 Punkte je Anfrage und will
  * eine Sekunde Pause dazwischen. 96² Punkte sind 93 Anfragen — deutlich unter
@@ -35,6 +36,40 @@ import { holeHoehen, type BBox } from '../src/world/osm.js';
 import { holeHoehenDgm1, QUELLE as DGM1_QUELLE } from './dgm1.js';
 
 const region = process.argv[2] ?? 'oental';
+/**
+ * D349: DGM1-Ring um die ganze Region statt nur des Südhangs (D345).
+ *
+ * Der Ring liegt auf Gitterlinien des groben Fernrasters und reicht `rand` Zellen (Vorgabe 18,
+ * rund 2,25 km) über die Regionskante hinaus. Die Auflösung ist das Vierfache der Zellenzahl
+ * plus eins — dieselbe Teilung, die `fernAchse` in `src/world/fernland.ts` einzieht, damit jede
+ * Feinlinie auf einem DGM1-Stützpunkt liegt (rund 31 m). Kacheln ausserhalb Bayerns gibt es
+ * nicht; deren Punkte bleiben `null` und fallen im Spiel auf das grobe Raster zurück.
+ */
+if (process.argv[3] === '--dgm1-ring') {
+  const rand = Number(process.argv[4] ?? 18);
+  const grund = JSON.parse(readFileSync(`public/world/${region}-fern.json`, 'utf8')) as { bbox: BBox; aufloesung: number };
+  const reg = JSON.parse(readFileSync(`content/regions/${region}.json`, 'utf8')).bbox as BBox;
+  const [s, w, n, o] = grund.bbox;
+  const ende = grund.aufloesung - 1;
+  const dLat = (n-s) / ende, dLon = (o-w) / ende;
+  const lat = (i: number) => n - dLat * i;
+  const lon = (j: number) => w + dLon * j;
+  const klemme = (k: number) => Math.max(0, Math.min(ende, k));
+  const iN = klemme(Math.floor((n - reg[2]) / dLat) - rand), iS = klemme(Math.ceil((n - reg[0]) / dLat) + rand);
+  const jW = klemme(Math.floor((reg[1] - w) / dLon) - rand), jO = klemme(Math.ceil((reg[3] - w) / dLon) + rand);
+  if (iS - iN !== jO - jW) console.log(`  Hinweis: Ring nicht quadratisch (${iS - iN} × ${jO - jW} Zellen), Raster folgt der Breite`);
+  const zellen = Math.max(iS - iN, jO - jW);
+  const bbox: BBox = [lat(iN + zellen), lon(jW), lat(iN), lon(jW + zellen)];
+  const aufloesung = zellen * 4 + 1;
+  console.log(`  Ring ${zellen} Zellen, ${aufloesung}² Punkte`);
+  const { raster, luecken } = await holeHoehenDgm1(bbox, aufloesung);
+  if (luecken > 0.25) throw new Error(`DGM1-Ring zu lückenhaft (${(luecken * 100).toFixed(1)} %)`);
+  const hoehen = raster.map(zeile => zeile.map(h => (Number.isFinite(h) ? Math.round(h) : null)));
+  const datei = `public/world/${region}-fern-ring.json`;
+  writeFileSync(datei, JSON.stringify({ bbox, aufloesung, hoehen, quelle: DGM1_QUELLE }) + '\n');
+  console.log(`  ${datei} — ${(readFileSync(datei).length / 1024).toFixed(0)} KB, Lücken ${(luecken * 100).toFixed(1)} %`);
+  process.exit(0);
+}
 if (process.argv[3] === '--dgm1-sued') {
   if (region !== 'oental') throw new Error('Der D345-Ausschnitt ist für das Œntal eingemessen.');
   const grund = JSON.parse(readFileSync('public/world/oental-fern.json', 'utf8')) as { bbox: BBox; aufloesung: number };
