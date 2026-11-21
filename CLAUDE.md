@@ -121,7 +121,8 @@ durchgehend, auch Kommentare. Der Bestandscode ist so; eine Mischung wäre schle
 als jede der beiden Varianten konsequent.
 
 ### Das Zielgerät ist der Test, nicht das Standbild
-Zielgerät ist seit ADR-0006 der **Desktop-Browser** (M1 als Referenzmaschine); das Handy ist
+Zielgerät ist seit ADR-0006 der **Desktop-Browser** (M1 als Mess-Referenz; seit ADR-0016/D357 geht Qualität
+vor den M1-Grenzen — was er nicht schafft, wird eine höhere Stufe; WebGPU ist der Qualitätspfad, ADR-0015); das Handy ist
 nachrangig und eine spätere eigene Qualitätsstufe. Look, Nebel und Performance beurteilen sich
 nur dort, in Bewegung (ADR-0005). Keine Look-Aussage aus Standbildern: genau das hat das
 Projekt mehrere Runden gekostet.
@@ -143,8 +144,8 @@ Positionen aus einem **Seed** erzeugen, nie speichern. Das Precache-Budget von 6
 (`npm run quality`) ist ein Gate, kein Richtwert — **seit D286 (15.11.2026) vorübergehend aufgehoben** (nur Warnung).
 
 ### Scope-Guardrails sind bindend
-ADR-0004 parkt Party-Game und ein Spiel, das primär von Grafik lebt (Photoreal), als
-**eigene spätere Projekte** und schließt Online-Multiplayer aus. Echtzeit-Nahkampf mit dem
+ADR-0004 parkt Party-Game (Photoreal ist seit ADR-0016/D357, 21.11.2026, **nicht mehr** geparkt — Hyperrealismus ist Ziel) als
+**eigenes späteres Projekt** und schließt Online-Multiplayer aus. Echtzeit-Nahkampf mit dem
 Regelwerk der Gattung (Ausdauer, Rolle, Parade, Lock-On, Haltung) ist seit ADR-0007
 entschieden und löst den Soulslike-Park-Punkt aus ADR-0004 für das Regelwerk ab (Nachtrag
 D196); die Gestalt fremder Vorbilder bleibt tabu. Anfragen in die geparkten Richtungen werden

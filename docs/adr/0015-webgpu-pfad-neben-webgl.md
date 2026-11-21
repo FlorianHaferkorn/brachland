@@ -1,11 +1,11 @@
 ---
-last-reviewed: 2026-11-11
+last-reviewed: 2026-11-21
 shelf-life-days: 180
 ---
 # ADR-0015 — three.js aktuell halten und einen WebGPU-Pfad neben WebGL aufbauen
 
-**Status:** Proposed · 2026-11-11 · erweitert ADR-0001 (three.js/PWA bleibt), ADR-0006 (Zielgerät
-Desktop-Browser, M1) und ADR-0012 (Messlatte) gelten unverändert · Bestätigung durch Flo offen
+**Status:** Accepted · 2026-11-21 (Flo, D357: WebGPU ist der Qualitätspfad, WebGL bleibt als Rückfall) · vorgeschlagen 2026-11-11 · erweitert ADR-0001 (three.js/PWA bleibt), ADR-0006 (Zielgerät
+Desktop-Browser, M1) und ADR-0012 (Messlatte) gelten unverändert
 
 ## Kontext
 

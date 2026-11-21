@@ -1,10 +1,10 @@
 ---
-last-reviewed: 2026-11-14
+last-reviewed: 2026-11-21
 shelf-life-days: 180
 ---
 # ADR-0016 — AAA-naher Qualitätsanspruch, neues Zielgerät, Scan-Assets und Charakter-Pipeline
 
-**Status:** Proposed · 2026-11-14 · löst ab: **ADR-0004** (nur den Park-Punkt „Spiel, das primär von
+**Status:** Accepted in Teilen · 2026-11-21 (Flo, D357, siehe „Entscheidung 21.11.2026“) · vorgeschlagen 2026-11-14 · löst ab: **ADR-0004** (nur den Park-Punkt „Spiel, das primär von
 Grafik lebt (Photoreal)“), **ADR-0006** (nur das Zielgerät M1); erweitert ADR-0005 (Qualität), ADR-0012
 (Messlatte Soulframe), ADR-0013 (Lizenzen), ADR-0015 (WebGPU) · Bestätigung durch Flo offen
 
@@ -38,7 +38,17 @@ Motion Capture. Erreichbar ist: **in ausgewählten Orten AAA-nah aussehen** und 
 | Verteilung | Browser/PWA, kein Installieren | Installation, Windows/Konsole | beides |
 | Risiko | Grenze bei GI, Haaren, Gesichtsanimation | Neuanfang, Monate ohne spielbaren Stand | Aufwand verdoppelt |
 
-## Entscheidung (Vorschlag)
+## Entscheidung 21.11.2026 (Flo, D357)
+
+| Punkt | Entscheid |
+|---|---|
+| Park-Punkt Photoreal (ADR-0004) | **aufgehoben.** Hyperrealismus ist offizielles Ziel; die übrigen Scope-Grenzen aus ADR-0004 bleiben |
+| WebGPU (ADR-0015) | **angenommen:** Qualitätspfad, WebGL als Rückfall |
+| Zielgerät (ADR-0006) | **M1 bleibt Mess-Referenz, Qualität geht aber vor den Grenzen des M1.** Was der M1 nicht flüssig schafft, wird eine höhere Qualitätsstufe (z. B. „Ultra“), statt die Qualität zu deckeln. ⚠️ UNKLAR, ob ein neues Gerät dazukommt |
+| Assets (Punkt 2) | **nur kostenlos und für Web-Auslieferung erlaubt** (ADR-0013 bleibt). Fab/Megascans sind kostenlos, aber die Web-Auslieferung ist ungeklärt und eher verboten → nicht verwenden, bis die EULA es ausdrücklich erlaubt |
+| MetaHuman (Punkt 3), Ausweg UE5 (Punkt 5) | **offen** (A-18); D288 „kein Unreal vorerst“ gilt |
+
+## Entscheidung (Vorschlag vom 14.11.2026)
 
 **Option A, konsequent auf Qualität gestellt** — mit B als bewusst offenem Ausweg, falls A am Bild scheitert:
 
