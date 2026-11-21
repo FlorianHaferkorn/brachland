@@ -534,7 +534,13 @@ export const PROZEDURALE_VARIANTEN: Partial<Record<PropArt, number>> = {
  * Datei statt `baueBaum`; fehlt er, bleibt der prozedurale Baum (D40). Die Liste kommt aus dem
  * Werkzeug, nicht von Hand (G-129).
  */
-export interface BlenderBaum { art: 'buche' | 'fichte'; variante: number; stufe: 'nah' | 'mittel' | 'fern'; datei: string; hoehe: number; dreiecke: number }
+export interface BlenderBaum {
+  art: 'buche' | 'fichte'; variante: number; stufe: 'nah' | 'mittel' | 'fern'; datei: string; hoehe: number; dreiecke: number;
+  /** D364: Brusthöhendurchmesser (1,3 m) am gebauten Netz, Meter — gemessen vom Maßstab-Tor. */
+  bhd?: number;
+  /** D367: Fernstufe als Impostor (Atlas `public/material/<datei>-farbe/-normal.webp`). */
+  impostor?: { breite: number; hoehe: number; unten: number; ansichten: number; zelle: [number, number] };
+}
 export const BLENDER_BAEUME: BlenderBaum[] = (BAEUME_REGISTER as { baeume: BlenderBaum[] }).baeume;
 export function blenderBaum(art: 'buche' | 'fichte', variante: number, stufe: 'nah' | 'mittel' | 'fern'): BlenderBaum | null {
   const je = BLENDER_BAEUME.filter(b => b.art === art && b.stufe === stufe);

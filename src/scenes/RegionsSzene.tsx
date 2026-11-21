@@ -46,7 +46,7 @@ import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
 import { baumRaster, streuMatrizen } from '../world/streukarten.js';
 import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
-import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
+import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot, type RindenArt } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { randSeite, type Seite } from '../spiel/region.js';
@@ -689,14 +689,15 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * Loecher im Laub (`COLOR_0.a` = Laubmaske) und Durchlass fuer das Gegenlicht — dasselbe Rezept
    * wie die Bauwerke, nur als Instanz. Der Saum bleibt schwach: Klumpen mit Loechern sind lauter Kanten.
    */
-  const baumWerte = (bueschel?: THREE.Texture) => ({
+  // D364: Rinde je Art (Scan-Albedo, Normale, Rauheit, Moos) — Buche und Fichte darum immer zwei Materialien.
+  const baumWerte = (bueschel: THREE.Texture | undefined, rinde: RindenArt) => ({
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.2,
     // Schaerfe 3 -> 10 (D160): Auf Blattmassen aus kleinen Kugeln ist `1 - |N·V|` fast ueberall hoch,
     // der Saum lag deshalb als heller Flaum ueber der ganzen Krone statt als Kante — gemessen am
     // Stauwehr 30 % der Bildhelligkeit (Median 0,100 -> 0,069 ohne Saum). Kreaturen und Figur behalten
     // ihre weichen 1,6: dort ist die Flaeche gross und die Silhouette wirklich ein Rand.
     randSchaerfe: 10,
-    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde: true as const, bueschel,
+    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde, bueschel,
   });
   const baumBasis = () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
   // D283 (`?laub=2`): Buchen bekommen den Laub-, Fichten den Nadel-Büschelatlas — darum zwei Materialien.
@@ -710,9 +711,9 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5, durchlass: 0.3,
     bueschel: bueschelTextur('laub'),
   }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.9, metalness: 0 })) : null, []);
-  const baumWind = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('laub') : undefined), baumBasis()), []);
+  const baumWind = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('laub') : undefined, 'buche'), baumBasis()), []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const baumWindNadel = useMemo(() => LAUB_FEIN ? baueWindMaterial(baumWerte(bueschelTextur('nadel')), baumBasis()) : baumWind, [baumWind]);
+  const baumWindNadel = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('nadel') : undefined, 'fichte'), baumBasis()), []);
   useEffect(() => {
     wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);
     grasWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
