@@ -2,6 +2,7 @@ import { CatmullRomCurve3, Color, Vector3 } from 'three';
 import { mulberry } from './props.js';
 import { EFEUKARTEN_AN, HOF_ORTSALTERUNG_AN, HOF_VERFALLVERLAUF_AN, HOF_ZIELTREUE_AN } from './echt.js';
 import { meldeEfeuKarte } from './efeukarten.js';
+import { wachseEfeu, type Oeffnung } from './efeuwuchs.js';
 import massstab from '../../content/massstab.json';
 
 /**
@@ -14,7 +15,7 @@ const EFEU = massstab.referenzen.find(r => r.id === 'efeublatt')!;
 /** D358: Mit Efeukarten trägt die Karte die Masse; Einzelblätter bleiben für Rand und Silhouette. */
 const EFEU_DICHTE = EFEUKARTEN_AN ? 2 : 5;
 /** Die verholzte Efeukrone (Haus 308) ist schon dicht; mehr sprengt das Hausbudget aus D318. */
-const EFEU_DICHTE_KRONE = 3;
+const EFEU_DICHTE_KRONE = EFEUKARTEN_AN ? 2 : 3;
 /** D354: Wölbung der Efeupolster in Metern je Stufe (1, 2, dicht). */
 const EFEU_KUPPEL: Record<number, number> = { 1: .14, 2: .20, 3: .26 };
 
@@ -51,6 +52,8 @@ export function baueHausbewuchs(
   dreieck: Dreieck, start: Wandkante, ende: Wandkante, aussen: Wandkante,
   boden: (x: number, z: number) => number, traufe: number, stufe: 1 | 2,
   saat: number, tuerU: number | null, farben: Rankenfarben, dicht = false,
+  /** D359: Fenster und Tür in Wand-u (ab `start`), damit der Efeu sie umwächst. */
+  oeffnungen: readonly Oeffnung[] = [],
 ): void {
   const dx = ende[0] - start[0], dz = ende[1] - start[1];
   const laenge = Math.hypot(dx, dz);
@@ -121,6 +124,39 @@ export function baueHausbewuchs(
       flaeche(mitte, rand[i], rand[j], farbe, dicht ? [[0, 0], uv(i), uv(j)] : undefined);
     }
   };
+
+  /**
+   * D359: natürlicher Wuchs mit Efeukarten — Wurzeln am Boden, Triebe zum Licht, Verzweigung, Öffnungen umwachsen.
+   * Stämme werden gezeichnet, die Masse tragen Karten entlang der Triebe, die Spitzen Einzelblätter.
+   */
+  if (EFEUKARTEN_AN) {
+    const staerke = dicht ? 1 : stufe === 2 ? .8 : .5;
+    const loecher = tuerU === null ? oeffnungen
+      : [...oeffnungen, { u0: tuerU - .85, u1: tuerU + .85, y0: -1e9, y1: tuerOberkante }];
+    const { knoten, strecken } = wachseEfeu({ laenge, bodenBei, traufe, oeffnungen: loecher, staerke,
+      ueberwaechst: stufe === 2, zufall });
+    for (const { a, b } of strecken) {
+      const dicke = [.006, .004, .0025][b.ordnung] + (b.ordnung === 0 ? .03 : .012) * a.alter ** 1.4;
+      trieb([a.u, a.y, .012 + .02 * (1 - a.alter)], [b.u, b.y, .012 + .02 * (1 - b.alter)], dicke);
+    }
+    const palette = farben.blaetter.length;
+    knoten.forEach((k, i) => {
+      // Karten: jeder dritte Knoten der Haupt- und Seitentriebe; alt = gross und weit vor der Wand.
+      if (k.ordnung < 2 && i % 3 === 0 && k.alter > .08) {
+        const seit = (zufall() - .5) * .16;
+        meldeEfeuKarte({ ort: welt([k.u + seit, k.y, 0]), normal: aussen,
+          vorstand: .04 + .22 * k.alter * staerke, groesse: .6 + .45 * k.alter,
+          winkel: Math.atan2(-umlauf * k.du, k.dy), saat: Math.floor(zufall() * 0x7fffffff) });
+      }
+      // Spitzen: einzelne Blätter, damit der Rand aus Blättern besteht, nicht aus einer Kartenkante.
+      if (k.alter < .22) for (let j = 0; j < 3; j++) {
+        const groesse = efeuLaenge(zufall, .55) / SPANNE_BLATTFORM;
+        blatt(k.u + (zufall() - .5) * .14, k.y + (zufall() - .3) * .12, .03 + zufall() * .06, groesse,
+          Math.atan2(k.du, k.dy) + (zufall() - .5) * 1.6, Math.floor(zufall() * palette), .4 + .4 * zufall(), .85 + .2 * zufall());
+      }
+    });
+    return;
+  }
 
   const polster = (punkt: Wandpunkt, richtung: number, dichte: number, breite: number) => {
     const palette = farben.blaetter.length;

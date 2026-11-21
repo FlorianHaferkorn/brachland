@@ -1142,18 +1142,30 @@ export function baueGebaeude(
         }
       }
       const feuchteWand = ortsprofil && !referenzHaus && stufeJetzt === 2 && ortsprofil.feuchte > .59 && wz < -.38;
+      // D359: Fenster und Tür für den Efeuwuchs — auch dort, wo die Fenster nicht vertieft (also nicht in `wandLoch`) sind.
+      const efeuLoecher = [...wandLoch];
+      if (!fensterVertieft) for (let e = 0; e < ebenen; e++) {
+        const y = fensterUnterkante(e);
+        if (y + hoeheF > oben - 0.25) continue;
+        for (let i = 0; i < anzahl; i++) {
+          const u = lochLaenge * (i + 0.5) / anzahl;
+          if (!fensterEntfaellt(e, u)) efeuLoecher.push({ u0: u - breiteF / 2, u1: u + breiteF / 2, y0: y, y1: y + hoeheF });
+        }
+      }
+      const efeuLoecherAb = (ab: number) => efeuLoecher.map(o => ({ ...o, u0: o.u0 - ab, u1: o.u1 - ab }));
       if ((bauSchaden === 1 || bauSchaden === 2 || feuchteWand || rankenWand) && wandLaenge >= 2.2 && !(kurvenHaus && k < 2)) {
         const saat = Math.floor(glutHash(x1, boden, z1) * 4294967295);
         const zurGasse = hausReferenz && wx * hausReferenz.vorne[0] + wz * hausReferenz.vorne[1] > -.2;
         if (zurGasse || bauSchaden === 2 || feuchteWand || rankenWand) baueHausbewuchs(tri, [x1,z1], [x2,z2], [wx,wz],
           terrain.hoeheAn, oben, bauSchaden === 2 || (rankenWand && strassenWand > .53) ? 2 : 1,
-          saat, k === tuerWand && !verwachsen ? eingangU : null, WANDRANKE, rankenWand && strassenWand > .53 && k !== hauptWand);
+          saat, k === tuerWand && !verwachsen ? eingangU : null, WANDRANKE, rankenWand && strassenWand > .53 && k !== hauptWand,
+          efeuLoecher);
       }
       if (k === verfallWand && hausverfall) {
         // Dachnahe Ranken stehen in Wasserspuren. Dachüberstände und der Zugang bleiben frei.
         const saat = Math.floor(glutHash(x1 + .24, boden + .7, z1) * 4294967295);
         baueHausbewuchs(tri, [x1, z1], [x2, z2], [wx, wz], terrain.hoeheAn,
-          oben - .16, stufeJetzt >= 2 ? 2 : 1, saat, k === tuerWand ? eingangU : null, WANDRANKE, stufeJetzt >= 2);
+          oben - .16, stufeJetzt >= 2 ? 2 : 1, saat, k === tuerWand ? eingangU : null, WANDRANKE, stufeJetzt >= 2, efeuLoecher);
         if (stufeJetzt >= 2) {
           const u = wandLaenge * .25;
           const [tx, tz] = wandRichtung;
@@ -1168,7 +1180,7 @@ export function baueGebaeude(
         const anfang = ende < .5 ? .02 : .68;
         baueHausbewuchs(tri, [x1+(x2-x1)*anfang,z1+(z2-z1)*anfang],
           [x1+(x2-x1)*ende,z1+(z2-z1)*ende], [wx,wz], terrain.hoeheAn, oben-.15, 1,
-          Math.floor(glutHash(x1,boden+.37,z1)*0x7fffffff), null, WANDRANKE);
+          Math.floor(glutHash(x1,boden+.37,z1)*0x7fffffff), null, WANDRANKE, false, efeuLoecherAb(anfang * lochLaenge));
       }
       if (k === hauptWand || spalt) {
         const saat = Math.floor(glutHash(x1,oben,z1)*0x7fffffff);

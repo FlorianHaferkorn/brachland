@@ -43,7 +43,7 @@ import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
-import { efeuKartenMaterial, kachelGeometrie, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
+import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
@@ -1068,7 +1068,7 @@ function EfeuKartenSchicht({ quelle }: { quelle: React.RefObject<{ je: Map<strin
   });
   return <>{matrizen.map((liste, i) => liste.length > 0 && (
     <instancedMesh key={`${i}:${liste.length}`} args={[geometrien[i], efeuKartenMaterial(), liste.length]} receiveShadow
-      frustumCulled={false}
+      castShadow customDepthMaterial={efeuKartenTiefe()} frustumCulled={false}
       ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
   ))}</>;
 }

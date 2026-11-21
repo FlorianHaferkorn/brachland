@@ -20,6 +20,8 @@ export interface EfeuKarte {
   vorstand: number;
   /** Gewünschte Kantenlänge in Metern (wird auf 0,6–1,1 m begrenzt). */
   groesse: number;
+  /** D359: Wuchsrichtung als Drehung in der Wandebene (Bogenmass, 0 = aufwärts); ohne Angabe frei. */
+  winkel?: number;
   saat: number;
 }
 
@@ -46,7 +48,8 @@ export function kartenMatrizen(karten: readonly EfeuKarte[]): THREE.Matrix4[][] 
     const schichten: (readonly [number, number])[] = k.vorstand > 0.15
       ? [[0.02, 1], [Math.max(0.05, k.vorstand * 0.8), 0.72]] : [[0.02, 1]];
     for (const [tiefe, anteil] of schichten) {
-      const winkel = (zufall() - 0.5) * 0.6;                       // ±17°: Triebe wachsen aufwärts
+      // Mit Wuchsrichtung: der Karte folgen (±10°), sonst ±17° um die Senkrechte.
+      const winkel = k.winkel !== undefined ? k.winkel + (zufall() - 0.5) * 0.35 : (zufall() - 0.5) * 0.6;
       dreh.setFromAxisAngle(z, winkel);
       // Kein Spiegeln: eine gespiegelte Karte zeigt die Rückseite, Normalen und Licht kehren sich um (D358, Tarnmuster).
       p.set(k.ort[0] + n.x * tiefe, k.ort[1], k.ort[2] + n.z * tiefe);
@@ -67,6 +70,14 @@ export function kachelGeometrie(kachel: number): THREE.PlaneGeometry {
 }
 
 let material: THREE.MeshStandardMaterial | null = null;
+let tiefe: THREE.MeshDepthMaterial | null = null;
+
+/** D359: Schatten mit demselben Blattumriss — ohne eigenes Tiefenmaterial würfe jede Karte ein volles Quadrat. */
+export function efeuKartenTiefe(): THREE.MeshDepthMaterial {
+  if (tiefe) return tiefe;
+  tiefe = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: efeuKartenMaterial().map, alphaTest: 0.5 });
+  return tiefe;
+}
 
 /** Ein Material für alle Karten: Ausschnitt per Alpha-Test, Tiefe (Normalen-Alpha) dunkelt das Innere des Polsters ab. */
 export function efeuKartenMaterial(): THREE.MeshStandardMaterial {
