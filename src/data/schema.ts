@@ -245,6 +245,119 @@ export type Fragment = z.infer<typeof Fragment>;
  * Die Positionen stammen aus den OSM-Gebäuden der Region — freistehende Höfe,
  * Hütten und Kapellen. Die Welt liefert sie umsonst; sie mussten nur belegt werden.
  */
+/**
+ * D291 Fassaden-Steckbrief (Bauwelt D287): die echte Fassade eines story-relevanten Gebäudes nach Flos Foto. Die
+ * Silhouette kommt aus LoD2 (D290), der Steckbrief ergänzt, was kein offener Datensatz hat: Fensterachsen, Laube,
+ * Farben, Malerei. Zuordnung zum Gebäude über `ort` (liegt im Grundriss). Ohne Steckbrief setzt der Generator die
+ * Fassade nach Bautyp.
+ */
+const Hex = z.string().regex(/^#[0-9a-f]{6}$/i);
+/**
+ * D352: Referenzmaße der Welt. Jede Zeile nennt eine reale Spanne mit Quelle; `tools/massstab.ts`
+ * misst die gebaute Geometrie dagegen (`messung`). `belegt: false` heisst: Spanne ohne geprüfte
+ * Quelle, das Tor warnt dann nur.
+ */
+export const MassReferenz = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  was: z.string().min(3),
+  min: z.number().positive(),
+  max: z.number().positive(),
+  ziel: z.number().positive(),
+  quelle: z.string().min(3),
+  url: z.union([z.string().url(), z.literal('')]),
+  /** `streu`: Eingabe für `tools/streukarten.py` (D361), im Tor nur aufgelistet. `boden` (D366): Bodenpflanzen-Karten
+   *  (`tools/bodenkarten.py`), das Tor misst die aufgestellten Pflanzenhöhen aus `src/world/bodenpflanzen.ts`.
+   *  `stamm` (D364): BHD aus `baeume.json`; `rinde` (D364): Kachelmass der Rinden-Scans (`RINDE_KACHEL`) gegen die Scangrösse. */
+  messung: z.enum(['hausbewuchs', 'figur', 'bordstein', 'baum', 'streu', 'boden', 'stamm', 'rinde']),
+  belegt: z.boolean(),
+}).refine(r => r.min <= r.ziel && r.ziel <= r.max, 'ziel liegt nicht zwischen min und max');
+export const Massstab = z.object({ referenzen: z.array(MassReferenz).min(1) });
+export type MassReferenz = z.infer<typeof MassReferenz>;
+
+/**
+ * D360: Hof-Baukasten für den Inntaler Einfirsthof (`content/hofbaukasten.json`, gelesen von
+ * `tools/hofbaukasten.py`). Jede Zahl trägt ihre Quelle; was die Bauwelt-Notiz nicht nennt, ist
+ * `annahme: true`. Die Schlüssel sind fest, weil das Blender-Werkzeug sie ohne Rückfall liest.
+ */
+export const HOF_MASSE = [
+  'wohnteilbreite', 'gesamtlaenge', 'wohnteilanteil', 'geschosse', 'geschosshoehe_eg', 'geschosshoehe_og',
+  'kniestock', 'sockelhoehe', 'mauerstaerke_eg', 'dachneigung', 'ueberstand_traufe', 'ueberstand_giebel',
+  'dachdicke', 'laubentiefe', 'bruestungshoehe', 'hochlaube_anteil', 'balken_hoehe', 'balken_staerke',
+  'vorkopf', 'brettbreite', 'brettstaerke', 'fenster_breite', 'fenster_hoehe', 'fenster_bruestung',
+  'fensterachse', 'tuer_breite', 'tuer_hoehe', 'tennentor_breite', 'tennentor_hoehe', 'pfette_querschnitt',
+  'sparrenabstand', 'sparren_hoehe',
+] as const;
+export const HOF_FARBEN = [
+  'putz', 'stein', 'holz_sonne', 'holz_grau', 'ziegel_rot', 'ziegel_anthrazit', 'schindel', 'blech', 'rost', 'laeden',
+] as const;
+export const HOF_VERFALL = [
+  'laeden_fehlen', 'laeden_schief', 'laubenbretter_fehlen', 'laube_abgestuerzt', 'dach_fehlstelle', 'dach_flicken',
+  'fenster_verbrettert', 'fenster_licht', 'vergrauung', 'moos',
+] as const;
+const Herkunft = { quelle: z.string().min(3), annahme: z.boolean() };
+export const HofMass = z.object({
+  was: z.string().min(3),
+  einheit: z.enum(['m', 'grad', 'anteil', 'anzahl']),
+  min: z.number().nonnegative(),
+  max: z.number().nonnegative(),
+  ziel: z.number().nonnegative(),
+  ...Herkunft,
+}).strict().refine(m => m.min <= m.ziel && m.ziel <= m.max, 'ziel liegt nicht zwischen min und max');
+const HofWert = z.object({ wert: z.number().nonnegative(), ...Herkunft }).strict();
+export const Hofbaukasten = z.object({
+  typ: z.literal('einfirsthof'),
+  hinweis: z.string(),
+  masse: z.object(Object.fromEntries(HOF_MASSE.map(k => [k, HofMass])) as Record<(typeof HOF_MASSE)[number], typeof HofMass>).strict(),
+  farben: z.object(Object.fromEntries(HOF_FARBEN.map(k => [k, z.object({ hex: Hex, ...Herkunft }).strict()])) as
+    Record<(typeof HOF_FARBEN)[number], z.ZodObject<{ hex: typeof Hex; quelle: z.ZodString; annahme: z.ZodBoolean }, 'strict'>>).strict(),
+  verfall: z.array(z.object({
+    stufe: z.number().int().min(0).max(3),
+    bild: z.string().min(3),
+    ...Object.fromEntries(HOF_VERFALL.map(k => [k, HofWert])) as Record<(typeof HOF_VERFALL)[number], typeof HofWert>,
+  }).strict()).length(4)
+    .refine(v => v.every((s, i) => s.stufe === i), 'verfall muss die Stufen 0, 1, 2, 3 in dieser Reihenfolge enthalten'),
+}).strict();
+export type Hofbaukasten = z.infer<typeof Hofbaukasten>;
+
+/**
+ * D363: Gebäude, die das Spiel durch ein Modell aus dem Hof-Baukasten (`tools/hofbaukasten.py`, D360) ersetzt.
+ * `gebaeude` ist der Index in `welt.gebaeude` der Region; das Modell liegt unter `public/bauten/<modell>.glb`.
+ */
+export const Hofbau = z.object({
+  region: z.string(),
+  gebaeude: z.number().int().nonnegative(),
+  modell: z.string().regex(/^[a-z0-9-]+$/),
+  saat: z.number().int(),
+  stufe: z.number().int().min(0).max(3),
+  grund: z.string().min(10),
+});
+export const Hofbauten = z.object({ hofbauten: z.array(Hofbau) });
+export type Hofbau = z.infer<typeof Hofbau>;
+
+export const Fassade = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  region: z.string(),
+  name: z.string().max(60),
+  /** Punkt im Grundriss (lat, lon). */
+  ort: z.tuple([z.number(), z.number()]),
+  /** Eigenes Foto: Pfad unter `assets/fotos/` (nicht ausgeliefert), Aufnahmedatum, Urheber. */
+  quelle: z.object({ foto: z.string(), datum: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), urheber: z.string() }),
+  /** Fensterachsen je Geschoss an der Traufseite bzw. am Giebel (Strassenseite zuerst). */
+  fensterachsen: z.object({ traufe: z.number().int().min(0).max(14), giebel: z.number().int().min(0).max(8) }),
+  laube: z.enum(['keine', 'traufseite', 'giebel', 'umlaufend']),
+  hochlaube: z.boolean(),
+  /** Farben in sRGB: Putz des Erdgeschosses, Holz von Obergeschoss/Giebel, Fensterläden (null = keine Läden). */
+  putz: Hex,
+  holz: Hex,
+  laeden: Hex.nullable(),
+  /** Wandmalerei oder Inschrift, kurz beschrieben (null = keine). */
+  malerei: z.string().max(200).nullable(),
+  /** Verfallsstufe erzwingen (0 bewohnt … 3 Ruine); ohne Angabe nach Lage (D289). */
+  stufe: z.number().int().min(0).max(3).optional(),
+  besonderheiten: z.string().max(240).optional(),
+});
+export type Fassade = z.infer<typeof Fassade>;
+
 export const Ort = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   region: z.string(),
@@ -437,6 +550,133 @@ export const Konzentrat = z.object({
   beschreibung: z.string(),
 });
 
+const Hausnutzung = z.object({
+  ort: z.tuple([z.number(), z.number()]).describe('Punkt im Gebäudegrundriss'),
+  strasse: z.tuple([z.number(), z.number()]).describe('Zugewandter Punkt auf dem Wohnweg'),
+  zustand: z.enum(['ruine', 'verwachsen', 'instandgesetzt']),
+  fassadenbaukasten: z.boolean().optional(),
+});
+export type Hausnutzung = z.infer<typeof Hausnutzung>;
+
+const Strassenobjekt = z.object({
+  osmKnoten: z.number().int().positive(),
+  osmWeg: z.number().int().positive(),
+  ort: z.tuple([z.number(), z.number()]),
+  verfall: z.number().min(0).max(1),
+});
+const Strassengeschichte = Strassenobjekt.pick({ ort: true, verfall: true }).extend({
+  richtung: z.number().min(0).lt(360),
+});
+const Stationsbereich = z.object({
+  von: z.number().nonnegative(), bis: z.number().positive(), seite: z.union([z.literal(-1), z.literal(1)]),
+});
+const Strassenalterung = z.object({
+  /** Historische Arbeitsmarkierungen der Spielwelt, quer ab gemessener Fahrbahnmitte. */
+  farbreste: z.array(z.object({
+    von: z.number().nonnegative(), bis: z.number().positive(), quer: z.number(),
+    breite: z.number().min(.05).max(.25),
+  }).refine(s => s.bis > s.von)).max(12),
+  ausbrueche: z.array(z.object({
+    station: z.number().nonnegative(), quer: z.number(),
+    laenge: z.number().min(.12).max(2.6), breite: z.number().min(.12).max(1.7),
+  })).max(12),
+  ablaeufe: z.array(z.object({
+    station: z.number().nonnegative(), seite: z.union([z.literal(-1), z.literal(1)]),
+  })).max(6),
+  schachtdeckel: z.object({
+    station: z.number().nonnegative(), quer: z.number(), durchmesser: z.number().min(.3).max(1),
+  }).optional(),
+});
+export type Strassenalterung = z.infer<typeof Strassenalterung>;
+const WohnwegQuerschnitt = z.object({
+  /** Längsmeter ab dem ersten OSM-Punkt, dann beide Asphaltkanten quer nach (-dz, dx). */
+  stationen: z.array(z.tuple([z.number().nonnegative(), z.number(), z.number()])).min(2)
+    .refine(s => s.every(([meter, minus, plus], i) => plus > minus && (!i || meter > s[i - 1][0])),
+      'Querschnitte nach Station ordnen und Kanten aufsteigend angeben.'),
+  gehwege: z.array(Stationsbereich.extend({ breite: z.number().positive() })).default([]),
+  zufahrten: z.array(Stationsbereich.extend({
+    tiefe: z.number().positive(),
+    schotterspuren: z.object({
+      /** Abstand der beiden Spurmitten in Metern quer zur Einfahrt. */
+      spurabstand: z.number().positive(),
+      saumdichte: z.number().min(0).max(1),
+    }).optional(),
+  }).refine(z => !z.schotterspuren || z.schotterspuren.spurabstand + .55 <= z.bis - z.von,
+    'Die beiden Fahrspuren brauchen Abstand zum Rand der Zufahrt.')).default([]),
+  verwitterung: z.object({
+    staerke: z.number().min(0).max(1),
+    saum: z.object({ von: z.number().nonnegative(), bis: z.number().positive() }),
+  }).optional(),
+  alterung: Strassenalterung.optional(),
+}).refine(p => p.stationen.length >= 2 && [...p.gehwege, ...p.zufahrten, ...(p.verwitterung ? [p.verwitterung.saum] : []),
+  ...(p.alterung?.farbreste ?? []),
+  ...(p.alterung?.ausbrueche ?? []).map(s => ({ von: s.station - s.laenge / 2, bis: s.station + s.laenge / 2 })),
+  ...(p.alterung?.ablaeufe ?? []).map(s => ({ von: s.station - .3, bis: s.station + .3 })),
+  ...(p.alterung?.schachtdeckel ? [{ von: p.alterung.schachtdeckel.station - p.alterung.schachtdeckel.durchmesser/2,
+    bis: p.alterung.schachtdeckel.station + p.alterung.schachtdeckel.durchmesser/2 }] : [])].every(a =>
+  a.von < a.bis && a.von >= p.stationen[0][0] && a.bis <= p.stationen.at(-1)![0]),
+  'Gehwege, Zufahrten, bewachsene Säume und Alterung müssen innerhalb der gemessenen Stationen liegen.');
+export type WohnwegQuerschnitt = z.infer<typeof WohnwegQuerschnitt>;
+
+const Strassenkulisse = z.object({
+  wege: z.array(z.object({
+    osmWeg: z.number().int().positive(),
+    verfall: z.number().min(0).max(1),
+    wohnwegrand: z.boolean().optional(),
+    querschnitt: WohnwegQuerschnitt.optional(),
+    profil: z.object({
+      breite: z.number().positive().optional(),
+      /** Versatz der Fahrbahnmitte quer zur OSM-Achse in Weltmetern. */
+      versatz: z.number().optional(),
+      /** Stationen in Metern ab dem ersten OSM-Stützpunkt dieses Weges. */
+      markierungen: z.array(z.object({
+        von: z.number().nonnegative(),
+        bis: z.number().positive(),
+        breite: z.number().positive(),
+        quer: z.number().optional().describe('Abstand von der Fahrbahnmitte in Weltmetern'),
+        querEnde: z.number().optional().describe('Querabstand am Ende eines versetzten Streifens'),
+      }).refine(linie => linie.bis > linie.von, 'Markierung endet vor ihrem Anfang.')).optional(),
+    }).optional(),
+  })),
+  objekte: z.array(z.discriminatedUnion('art', [
+    Strassenobjekt.extend({ art: z.literal('laterne') }),
+    Strassenobjekt.extend({
+      art: z.literal('ortstafel'),
+      text: z.string().min(1),
+      /** Frontnormalenwinkel der Tafel, Nord = 0°. */
+      richtung: z.number().min(0).lt(360),
+      /** OSM liegt auf der Straßenachse. Auf den rechten Rand der Anfahrt setzen. */
+      achsenpunkt: z.boolean(),
+    }),
+  ])),
+  /** Ausstattungsorte für BRACHLAND ohne behaupteten Nachweis des heutigen Objekts. */
+  geschichte: z.array(z.discriminatedUnion('art', [
+    Strassengeschichte.extend({ art: z.literal('laterne') }),
+    Strassengeschichte.extend({ art: z.literal('strassenname'), text: z.string().min(1) }),
+    Strassengeschichte.extend({ art: z.literal('kleinwagen') }),
+    Strassengeschichte.extend({ art: z.literal('reifen') }),
+    Strassengeschichte.extend({ art: z.literal('spielroller') }),
+  ])).optional(),
+});
+export type Strassenkulisse = z.infer<typeof Strassenkulisse>;
+
+export const Nahhoehen = z.object({
+  /** Nordwestlicher Stützpunkt im Meter-Koordinatensystem der Region. */
+  ursprung: z.tuple([z.number(), z.number()]),
+  breite: z.number().int().min(2),
+  tiefe: z.number().int().min(2),
+  schritt: z.number().positive(),
+  auslauf: z.number().positive(),
+  datum: z.number(),
+  /** Nord nach Süd, je Rasterzeile vorzeichenbehaftete Zentimeter relativ zum Datum, little endian. */
+  zeilen: z.array(z.string().regex(/^[A-Za-z0-9+/]+={0,2}$/)),
+  quelle: z.string().min(1),
+}).refine(r => r.zeilen.length === r.tiefe && r.zeilen.every(zeile => {
+  const padding = zeile.endsWith('==') ? 2 : zeile.endsWith('=') ? 1 : 0;
+  return zeile.length % 4 === 0 && zeile.length * 3 / 4 - padding === r.breite * 2;
+}), 'Das Höhenraster braucht je Stützpunkt zwei Bytes.');
+export type Nahhoehen = z.infer<typeof Nahhoehen>;
+
 export const Region = z.object({
   id: z.string(),
   name: z.string(),
@@ -447,6 +687,9 @@ export const Region = z.object({
   konzentrate: z.array(Konzentrat).max(2),
   traversal: z.string().describe('Fähigkeit, die diese Region freischaltet'),
   zielSpielzeit: z.number().describe('Stunden'),
+  hausnutzung: z.array(Hausnutzung).optional(),
+  strassenkulisse: z.array(Strassenkulisse).optional(),
+  nahhoehen: Nahhoehen.optional(),
   /**
    * Übergänge an der Regionsgrenze (ADR-0014): Jede Region ist eine eigene Karte. Wer an der
    * genannten Kante steht, kann hinüber; die Karte der Nachbarregion wird dann geladen.

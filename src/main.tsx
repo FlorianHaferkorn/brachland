@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { entpackeWelt, type Weltdaten } from './world/osm.js';
 import { holeWeltdaten } from './world/weltladen.js';
 import type { Fernland } from './world/fernland.js';
+import { FERNRING_AN, MILBINGERFERN_AN } from './world/echt.js';
 import { RegionsSzene, TAGESZEITEN, QUALITAET_STANDARD,
          type Messwerte, type Qualitaet, type Naehe } from './scenes/RegionsSzene.js';
 import { WEITE_WEIT } from './scenes/sichtweiten.js';
@@ -247,8 +248,15 @@ function App() {
   // die Datei, sieht der Rand aus wie vor D85, statt dass das Spiel nicht startet.
   useEffect(() => {
     if (!REGION) return;
-    holeWeltdaten(`/world/${REGION.id}-fern.json`)
-      .then(d => setFernland(d as Fernland))
+    const grund = holeWeltdaten(`/world/${REGION.id}-fern.json`) as Promise<Fernland>;
+    // D351: Ring je Region, wo es eine Datei gibt; sonst D345-Südausschnitt im Œntal.
+    const detailDatei = FERNRING_AN ? `/world/${REGION.id}-fern-ring.json`
+      : MILBINGERFERN_AN && REGION.id === 'oental' ? '/world/oental-fern-sued.json' : null;
+    const sued = detailDatei
+      ? (holeWeltdaten(detailDatei) as Promise<Fernland>).catch(() => undefined)
+      : undefined;
+    Promise.all([grund, sued])
+      .then(([daten, detail]) => setFernland(detail ? { ...daten, detail } : daten))
       .catch(() => setFernland(null));
   }, []);
 
@@ -917,6 +925,7 @@ function App() {
         kampfStand={kampfStand}
         kampfEnde={weltKampf ? kampfVorbei : undefined}
         kampfNacht={weltKampf?.nacht}
+        kampfRichtung={stand.richtungskampf !== false}
         spielerSprung={spielerSprung}
         waffenStufen={WAFFENSTUFE_PROBE ?? stand?.waffenStufen}
       />
@@ -1086,6 +1095,8 @@ function App() {
           {menueOffen && (
             <Menue
               onFigur={() => { setMenueOffen(false); setEditorOffen(true); }}
+              richtung={stand.richtungskampf !== false}
+              onRichtung={an => { const neu = { ...stand, richtungskampf: an }; setStand(neu); void speichereStand(neu); }}
               welt={welt}
               team={team}
               beutel={stand.beutel}

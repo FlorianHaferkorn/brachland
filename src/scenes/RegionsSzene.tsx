@@ -11,6 +11,7 @@ import { Suspense, useMemo, useRef, useEffect, useState, useCallback } from 'rea
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
+import { imPolygon } from '../world/osm.js';
 import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../world/terrain.js';
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel, senkePegel, type Pegelsenke,
          baueGartenKachel, type Bandsatz } from '../world/baender.js';
@@ -19,7 +20,7 @@ import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
 import { WasserUmgebung, WasserSzeneProbe, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
-import { EzBaumProbe, istEzProbeBereit } from './EzBaumProbe.js';
+import { EzBaumProbe, istEzProbeBereit, uebernimmtEzVariante } from './EzBaumProbe.js';
 import { TakramProbe } from './TakramProbe.js';
 import { STIMMUNG, HEMI_BODEN, heileStimmung, type Stimmung } from '../world/stimmung.js';
 export { STIMMUNG, HEMI_BODEN, HEMI_BODEN_TAG, type Stimmung, type StimmungsName } from '../world/stimmung.js';
@@ -30,14 +31,23 @@ import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, spiegelAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung, type Stoecke } from '../spieler/steuerung.js';
 import { peilung } from '../spieler/peilung.js';
-import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
-         streueUmgebung, streueKleinzeug,
-         STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
+import { baueKleinzeugGeometrie, streueKleinzeug, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
+import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
+import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
+import { baueMilbingerSandkasten } from '../world/milbingersubstanz.js';
+import { ersetzteGebaeude, hofbauLagen, ladeHofbauten } from '../world/hofbau.js';
+import LOD2_ROH from '../../public/world/oental-lod2.json';
+import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
-import { baueHimmel, setzeHimmel } from '../world/himmel.js';
-import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
-import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
+import { baueHimmel, setzeHimmel, HIMMEL_PHYSIK_AN } from '../world/himmel.js';
+import { koppleStimmung, mischeAtmosphaere, ATMOSPHAERE_VORGABE } from '../world/atmosphaere.js';
+import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
+import { baumRaster, streuBaeume, streuMatrizen } from '../world/streukarten.js';
+import { BODEN_NAH, bodenMaterial, bodenMatrizen, buschGeometrie, flachGeometrie, type BodenMatrizen } from '../world/bodenpflanzen.js';
+import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
+import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot, type RindenArt } from '../world/windmaterial.js';
+import { BAUM_UEBERBLEND, UEBERBLEND_BAND, impostorGeometrie, impostorMaterial } from '../world/impostor.js';
 import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { randSeite, type Seite } from '../spiel/region.js';
@@ -46,20 +56,35 @@ import { haengeNebelEin } from './nebel.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
+import { baueStrassenkulissen } from '../world/strassenkulisse.js';
+import { BODEN_AN, EFEUKARTEN_AN, HOFBAU_AN, STREU_AN, FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
+import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { lagerTon } from '../ton/lagerton.js';
 import { kameraZustand } from '../kampf/kamerazustand.js';
 import { armMitSicht, sichtFrei, ZIEL_RAND, type Versperrt } from '../kampf/sichtlinie.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
-import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
+import { BLENDER_BAEUME, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
-import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type KartenArt } from '../world/laubkarten.js';
-import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE } from '../world/echt.js';
+import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
+import { richteHofPropEin } from '../world/hofmaterial.js';
+import { indexiereHausGeometrie } from '../world/hausindex.js';
+import { aktualisiereKachelpuffer, bereiteKachelpuffer, geometrienAusKachelpuffern, sammleKachel } from '../world/kachelgruppen.js';
+import type { Kachelpuffer, Kachelsammlung } from '../world/kachelgruppen.js';
+import { baueKachelupload } from '../world/kachelupload.js';
+import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
+import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
+import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
+import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
+import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
+import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
-import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
-import { GRAS_ECHT, WEIHER_AN } from '../world/echt.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, NAH_ZELLE_FEIN, TEPPICH_HALB, TEPPICH_ZELLE_FEIN, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
+import { GRAS_ECHT, GRAS_FEIN, WEIHER_AN, GEWAESSER_ECHT, LAUB_FEIN } from '../world/echt.js';
+import { meldeSpiegelflaeche, Spiegelbild } from '../world/spiegelbild.js';
 import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
@@ -86,8 +111,8 @@ const BEWOHNER_ALT = new URLSearchParams(location.search).get('bewohner') === 'a
 const KEINE_CLIPS: THREE.AnimationClip[] = [];
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
-import { TERRAIN_SICHT, NEUAUFBAU_AB, WEITE_WEIT } from './sichtweiten.js';
-import { buendleFernProps, propListenNeu, waehleProps, type PropStufe } from './propauswahl.js';
+import { TERRAIN_SICHT, NEUAUFBAU_AB, WEITE_WEIT, ATTRAPPE_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
+import { buendleFernProps, propListenNeu, waehleProps, type PropAnkerCache, type PropStufe } from './propauswahl.js';
 import { verteileKreaturen, rueckkehrVorkommen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
@@ -190,7 +215,8 @@ const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
  * `?kurve=` würde die Tabelle nie ausgewertet und der Baustein nie ersetzt, das Bild liefe auf
  * `CustomToneMapping` ohne Kurve — also stockdunkel.
  */
-haengeAgxLookEin();
+haengeAgxLookEin(typeof location !== 'undefined'
+  && ['hofziel','hofdachbruch'].includes(new URLSearchParams(location.search).get('stimmung') ?? ''), HOF_ZIELTREUE_AN);
 // D204: Nebel mit Auslauf und Höhendunst — wie der Look vor dem ersten Material einhängen.
 haengeNebelEin();
 
@@ -313,6 +339,7 @@ const GEHEILT_ANSICHT = typeof location !== 'undefined'
 
 const STIMMUNG_MESSLAUF: Stimmung | null = (() => {
   if (typeof location === 'undefined') return null;
+  if (HOF_ZIELTREUE_AN) return STIMMUNG.hofbild;
   const name = new URLSearchParams(location.search).get('stimmung');
   return name !== null && Object.prototype.hasOwnProperty.call(STIMMUNG, name) ? STIMMUNG[name] : null;
 })();
@@ -378,6 +405,8 @@ export function stimmungBei(zeit: number): Stimmung {
     randStaerke: z(A.randStaerke, B.randStaerke),
     hemiBoden: mischeFarbe(A.hemiBoden ?? HEMI_BODEN, B.hemiBoden ?? HEMI_BODEN, f),
     himmelAnteil: z(A.himmelAnteil ?? 0.7, B.himmelAnteil ?? 0.7),
+    // D368: die Luft wandert mit (nur `?himmel=physik` liest sie).
+    atmosphaere: mischeAtmosphaere(A.atmosphaere ?? ATMOSPHAERE_VORGABE, B.atmosphaere ?? ATMOSPHAERE_VORGABE, f),
   };
 }
 
@@ -398,55 +427,174 @@ export const TAGESZEITEN = TAGESLAUF.map(k => ({ name: k.name, zeit: k.zeit }));
  * - Gebaute Kacheln bleiben im Cache. Ein Neuaufbau pro Bild wäre unbezahlbar, und
  *   ohne Bewegung ändert sich die Zuordnung ohnehin nicht.
  */
-function LodTerrain({ feld, kacheln, ziel }: {
+const HOF_KACHELPUFFER_AN = HOF_AN && typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('kachelpuffer') !== '0';
+const KACHELNACHLAUF_AN = HOF_KACHELPUFFER_AN && HOF_KACHELNACHLAUF_AN;
+const KACHEL_FRIST_MS = 3;
+
+type Sichtkachel = { kachel: Kachel; lod: number };
+type Kachelbau = Generator<void, () => void>;
+type KachelVorladen = (geometrie: THREE.BufferGeometry) => boolean;
+type BereiteKacheln = (auswahl: readonly Sichtkachel[], gestaffelt: boolean, anker: THREE.Vector3,
+  vorladen?: KachelVorladen) => Kachelbau;
+type Kachelnachlauf = {
+  bodenFertig: boolean;
+  baenderFertig: boolean;
+  pegelNeu: boolean;
+  baender?: BereiteKacheln;
+};
+
+function kachelauswahl(kacheln: Kachel[], p: THREE.Vector3): Sichtkachel[] {
+  const distanz = (k: Kachel) => Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z);
+  const quelle = KACHELNACHLAUF_AN ? kacheln : [...kacheln].sort((a, b) => distanz(a) - distanz(b));
+  const auswahl = [];
+  for (const kachel of quelle) {
+    const abstand = distanz(kachel);
+    const d = Math.max(0, abstand - kachel.radius);
+    if (d <= TERRAIN_SICHT) auswahl.push({ kachel, lod: lodFuerAbstand(d), abstand });
+  }
+  if (KACHELNACHLAUF_AN) auswahl.sort((a, b) => a.abstand - b.abstand);
+  return auswahl;
+}
+
+function fülleKachelbau(arbeit: Kachelbau, frist: number): (() => void) | undefined {
+  do {
+    const schritt = arbeit.next();
+    if (schritt.done) return schritt.value;
+  } while (performance.now() < frist);
+}
+
+function entsorgeErsetzteKacheln(vorher: readonly THREE.BufferGeometry[], nachher: readonly THREE.BufferGeometry[]): void {
+  const erhalten = new Set(nachher);
+  for (const g of vorher) if (!erhalten.has(g)) g.dispose();
+}
+
+function LodTerrain({ feld, kacheln, ziel, nachlauf, wiesenbereich }: {
   feld: HoehenFeld; kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
+  nachlauf: Kachelnachlauf;
+  wiesenbereich?: Wiesenbereich;
 }) {
   const cache = useRef(new Map<string, THREE.BufferGeometry>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  const puffer = useRef<Kachelpuffer>(new Map());
   const [stufen, setStufen] = useState<THREE.BufferGeometry[]>([]);
+  const angezeigt = useRef(stufen);
+  const lauf = useRef<{ anker: THREE.Vector3; arbeit: Kachelbau; vorgeladen: THREE.BufferGeometry[] } | null>(null);
+  const gl = useThree(s => s.gl);
+  const upload = useRef<ReturnType<typeof baueKachelupload> | null>(null);
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    const vorbereitung = baueKachelupload(gl);
+    upload.current = vorbereitung;
+    return () => {
+      for (const g of lauf.current?.vorgeladen ?? []) g.dispose();
+      lauf.current = null;
+      upload.current = null;
+      vorbereitung.dispose();
+    };
+  }, [gl, nachlauf]);
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    entsorgeErsetzteKacheln(angezeigt.current, stufen);
+    angezeigt.current = stufen;
+  }, [stufen]);
 
-  const material = useMemo(() => baueBodenMaterial(), []);
+  const material = useMemo(() => baueBodenMaterial(wiesenbereich), [wiesenbereich]);
+  useEffect(() => () => material.dispose(), [material]);
 
-  useFrame(() => {
-    const p = ziel.current?.position;
-    if (!p) return;
-    // Himmelsanteil des Bodens (D171): das Raster des nächsten Set-Pieces im Ladekreis.
-    const nah = sichtbareBauwerke(p.x, p.z)
-      .sort((a, b) => Math.hypot(a.ursprung.x - p.x, a.ursprung.z - p.z) - Math.hypot(b.ursprung.x - p.x, b.ursprung.z - p.z))[0];
-    setzeBodenHimmel(nah?.name ?? null);
-    // Beim ersten Bild ist der Abstand NaN — der Vergleich schlägt fehl, also wird gebaut.
-    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
-    letzte.current.copy(p);
-
+  const baue: BereiteKacheln = function* (auswahl, gestaffelt, anker, vorladen) {
     // Höchstens so viele Kacheln je Bild neu bauen. Alle 226 auf einmal kosten
     // gemessen 68 ms — ein sichtbarer Ruckler alle 32 m. Fehlende Kacheln werden im
     // nächsten Bild nachgezogen; bis dahin fehlt am Rand ein Stück, das im Nebel liegt.
     let budget = 12;
     const jeStufe = new Map<number, THREE.BufferGeometry[]>();
-    for (const k of kacheln) {
-      const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
-      if (d > TERRAIN_SICHT) continue;
-      const lod = lodFuerAbstand(d);
+    const kachelgruppen: Kachelsammlung = new Map();
+    // D289: nächste Kacheln zuerst (siehe Bänder) — sonst fehlt bei wenigen Bildern je Sekunde der Boden am Spieler.
+    for (const { kachel: k, lod } of auswahl) {
       const schluessel = `${k.ix}:${k.iz}:${lod}`;
       let g = cache.current.get(schluessel);
       if (!g) {
-        if (budget-- <= 0) { letzte.current.set(NaN, NaN, NaN); continue; }
-        g = baueKachelGeometrie(feld, k, lod);
+        if (!gestaffelt && budget-- <= 0) continue;
+        g = baueKachelGeometrie(feld, k, lod, undefined, HOF_BILDFLUSS_AN);
         cache.current.set(schluessel, g);
+        if (gestaffelt) yield;
       }
-      const liste = jeStufe.get(lod);
-      if (liste) liste.push(g); else jeStufe.set(lod, [g]);
+      if (HOF_KACHELPUFFER_AN) sammleKachel(kachelgruppen, k, g, String(lod));
+      else {
+        const liste = jeStufe.get(lod);
+        if (liste) liste.push(g); else jeStufe.set(lod, [g]);
+      }
     }
 
     // Budget nicht ausgeschöpft: alle Kacheln in Sicht stehen — Ladezeit (D146).
-    if (budget >= 0) meldeFertig('terrain');
+    if (budget >= 0) { meldeFertig('terrain'); nachlauf.bodenFertig = true; }
 
+    if (HOF_KACHELPUFFER_AN) {
+      const neu = gestaffelt ? yield* bereiteKachelpuffer(puffer.current, kachelgruppen, vorladen, HOF_BILDSPITZEN_AN)
+        : aktualisiereKachelpuffer(puffer.current, kachelgruppen);
+      const geometrien = geometrienAusKachelpuffern(neu);
+      return () => {
+        letzte.current.copy(anker);
+        if (budget < 0) letzte.current.set(NaN, NaN, NaN);
+        puffer.current = neu;
+        if (KACHELNACHLAUF_AN) setStufen(geometrien);
+        else setStufen(vorher => {
+          entsorgeErsetzteKacheln(vorher, geometrien);
+          return geometrien;
+        });
+      };
+    }
     const zusammengefasst: THREE.BufferGeometry[] = [];
     for (const gs of jeStufe.values()) {
       const m = mergeGeometries(gs, false);
       if (m) zusammengefasst.push(m);
     }
-    setStufen(vorher => { vorher.forEach(g => g.dispose()); return zusammengefasst; });
+    return () => {
+      letzte.current.copy(anker);
+      if (budget < 0) letzte.current.set(NaN, NaN, NaN);
+      setStufen(vorher => { vorher.forEach(g => g.dispose()); return zusammengefasst; });
+    };
+  };
+
+  useFrame(() => {
+    const p = ziel.current?.position;
+    if (!p) return;
+    const nah = sichtbareBauwerke(p.x, p.z)
+      .sort((a, b) => Math.hypot(a.ursprung.x - p.x, a.ursprung.z - p.z) - Math.hypot(b.ursprung.x - p.x, b.ursprung.z - p.z))[0];
+    setzeBodenHimmel(nah?.name ?? null);
+    const baender = nachlauf.baender;
+    if (KACHELNACHLAUF_AN && nachlauf.bodenFertig && nachlauf.baenderFertig && baender) {
+      // Boden und Aufsätze bleiben bis zur gemeinsamen Freigabe auf ihrer alten Höhe.
+      // Ein Sprung oder geänderter Pegel ersetzt einen noch nicht freigegebenen Auftrag.
+      if (lauf.current && (nachlauf.pegelNeu || p.distanceTo(lauf.current.anker) >= NEUAUFBAU_AB)) {
+        for (const g of lauf.current.vorgeladen) g.dispose();
+        lauf.current = null;
+      }
+      const frist = performance.now() + KACHEL_FRIST_MS;
+      if (!lauf.current) {
+        if (!nachlauf.pegelNeu && letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+        nachlauf.pegelNeu = false;
+        const anker = p.clone();
+        const auswahl = kachelauswahl(kacheln, anker);
+        const vorgeladen: THREE.BufferGeometry[] = [];
+        const vorladen: KachelVorladen = g => {
+          if (!upload.current?.ladeGrossenPuffer(g)) return false;
+          vorgeladen.push(g);
+          return true;
+        };
+        const arbeit = (function* (): Kachelbau {
+          const bodenFreigeben = yield* baue(auswahl, true, anker, vorladen);
+          const baenderFreigeben = yield* baender(auswahl, true, anker, vorladen);
+          return () => { bodenFreigeben(); baenderFreigeben(); };
+        })();
+        lauf.current = { anker, arbeit, vorgeladen };
+      }
+      const freigeben = fülleKachelbau(lauf.current.arbeit, frist);
+      if (freigeben) { lauf.current = null; freigeben(); }
+      return;
+    }
+    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+    fülleKachelbau(baue(kachelauswahl(kacheln, p), false, p), Infinity)?.();
   });
 
   return <>{stufen.map((g, i) => (
@@ -454,8 +602,11 @@ function LodTerrain({ feld, kacheln, ziel }: {
   ))}</>;
 }
 
-function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, rand, fenster, senke }: {
+function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, rand, fenster, senke, strassen, strassenmaske, wiesenbereich }: {
   welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
+  strassen?: readonly Strassenkulisse[];
+  strassenmaske?: QuerschnittGrasmaske;
+  wiesenbereich?: Wiesenbereich;
   /** Gesunkener Pegel am Regentenort nach der Heilung (D241). */
   senke?: Pegelsenke | null;
   kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
@@ -478,9 +629,20 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * (G-73).
    */
   const aufBoden = useMemo(() => aufsatzboden(feld), [feld]);
+  const hofBaeume = useMemo(() => {
+    const globalEz = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1';
+    const rahmen = MILBINGERLICHT_AN && !globalEz ? wiesenbereich?.rahmen : undefined;
+    const milbinger = rahmen ? teileMilbingerBaeume(props, [rahmen.x, rahmen.y, rahmen.z, rahmen.w])
+      : { rest: props, lokaleBaeume: [] };
+    const hof = HOF_GRUEN_AN && !globalEz
+      ? teileHofBaeume(milbinger.rest, HOF_UNIFORM.bereit.value ? [HOF_UNIFORM.mitte.value.x, HOF_UNIFORM.mitte.value.y] : null)
+      : { rest: milbinger.rest, lokaleBaeume: [] };
+    return { ...hof, milbingerBaeume: milbinger.lokaleBaeume };
+  }, [props, wiesenbereich]);
   /* Wand, Holz, Fenster, Sockel, Gesims, Tür und Garten stecken als Vertexfarben
      in der Geometrie. Ein Material für alles davon bleibt es trotzdem. */
-  const hausMaterial = useMemo(() => baueHausMaterial(), []);
+  const hausMaterial = useMemo(() => baueHausMaterial(wiesenbereich), [wiesenbereich]);
+  useEffect(() => () => hausMaterial.dispose(), [hausMaterial]);
   useEffect(() => { (hausMaterial.userData.glut as { value: number }).value = fenster; }, [hausMaterial, fenster]);
   const wasserProbe = useMemo<WasserReflexProbe | null>(() => {
     if (typeof location === 'undefined') return null;
@@ -498,16 +660,6 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
   }), []);
   /**
-   * Gras-Attrappen: derselbe Wind, aber **glatt** schattiert (D121). Die
-   * Grasbüschel tragen seit D121 Normalen senkrecht nach oben wie die Streuung
-   * — mit `flatShading` würde three.js sie ignorieren und die Flächennormale
-   * aus den Ableitungen nehmen, und ein Halm stünde wieder halb im
-   * Eigenschatten. Kleinere Amplitude: ein Büschel schwingt, es peitscht nicht.
-   */
-  const grasWind = useMemo(() => baueWindMaterial({
-    amplitude: 0.25, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5,
-  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 1, metalness: 0 })), []);
-  /**
    * Farn (D212): eigener Wind ohne Saum. Mit Normalen nach oben ist `1 - |N·V|` kein Rand, sondern
    * nur der Blickwinkel — auf dem dunklen Farn lag der Saum als grauer Schleier über der ganzen
    * Pflanze (Render 08.10.2026). Dafür Durchlass: Wedel leuchten im Gegenlicht.
@@ -518,30 +670,44 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const farnWind = useMemo(() => baueWindMaterial({
     amplitude: 0.2, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
   }, scanBasis('farn', 'farn', true)), []);
-  /** Scan-Gras (D234): Blattkarten wie der Farn, ohne Saum, Durchlass im Gegenlicht. */
-  const grasScanWind = useMemo(() => baueWindMaterial({
-    amplitude: 0.25, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
-  }, scanBasis('gras', 'grasbuschel', true)), []);
 
   /**
    * Blender-Baeume (D155): derselbe Wind, aber glatt schattiert (die Blattmassen tragen Normalen),
    * Loecher im Laub (`COLOR_0.a` = Laubmaske) und Durchlass fuer das Gegenlicht — dasselbe Rezept
    * wie die Bauwerke, nur als Instanz. Der Saum bleibt schwach: Klumpen mit Loechern sind lauter Kanten.
    */
-  const baumWind = useMemo(() => baueWindMaterial({
+  // D364: Rinde je Art (Scan-Albedo, Normale, Rauheit, Moos) — Buche und Fichte darum immer zwei Materialien.
+  // D367: `ueberblend` gibt die Mittelstufe im Band vor der Impostor-Grenze nach einem Raster ab.
+  const baumWerte = (bueschel: THREE.Texture | undefined, rinde: RindenArt) => ({
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.2,
     // Schaerfe 3 -> 10 (D160): Auf Blattmassen aus kleinen Kugeln ist `1 - |N·V|` fast ueberall hoch,
     // der Saum lag deshalb als heller Flaum ueber der ganzen Krone statt als Kante — gemessen am
     // Stauwehr 30 % der Bildhelligkeit (Median 0,100 -> 0,069 ohne Saum). Kreaturen und Figur behalten
     // ihre weichen 1,6: dort ist die Flaeche gross und die Silhouette wirklich ein Rand.
     randSchaerfe: 10,
-    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde: true,
-  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide })), []);
+    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde, bueschel, ueberblend: BAUM_UEBERBLEND,
+  });
+  const baumBasis = () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
+  // D283 (`?laub=2`): Buchen bekommen den Laub-, Fichten den Nadel-Büschelatlas — darum zwei Materialien.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  /**
+   * D289: Büsche mit Büschelatlas (D283) — eigenes Material ohne Löcher. Auf dem Baum-Material (Löcher für die ganze
+   * Fläche, weil Büsche keine Laubmaske tragen) verschwand der Busch im Dorf-Prüfbild fast ganz (D285).
+   */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const buschWind = useMemo(() => LAUB_FEIN ? baueWindMaterial({
+    amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5, durchlass: 0.3,
+    bueschel: bueschelTextur('laub'),
+  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.9, metalness: 0 })) : null, []);
+  const baumWind = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('laub') : undefined, 'buche'), baumBasis()), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const baumWindNadel = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('nadel') : undefined, 'fichte'), baumBasis()), []);
   useEffect(() => {
     wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);
-    grasWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
     baumWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
-  }, [wind, grasWind, baumWind, rand]);
+    if (baumWindNadel !== baumWind) baumWindNadel.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
+    buschWind?.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
+  }, [wind, baumWind, baumWindNadel, buschWind, rand]);
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
@@ -559,10 +725,11 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       if (z) z.value += dt;
     }
     wind.setzeZeit(uhr.current);
-    grasWind.setzeZeit(uhr.current);
     farnWind.setzeZeit(uhr.current);
-    grasScanWind.setzeZeit(uhr.current);
+    if (HOF_GRUEN_AN) setzeHofStrauchZeit(uhr.current);
     baumWind.setzeZeit(uhr.current);
+    if (baumWindNadel !== baumWind) baumWindNadel.setzeZeit(uhr.current);
+    buschWind?.setzeZeit(uhr.current);
   });
   /**
    * Bänder einmal zerlegen, dann je Kachel bauen.
@@ -571,7 +738,11 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * und passiert genau einmal je Welt. Was danach je Kachel gebaut wird, ist ein
    * Bruchteil davon — und es fällt weg, sobald die Kachel außer Sicht gerät.
    */
-  const satz = useMemo(() => zerlegeBaender(welt, feld), [welt, feld]);
+  const satz = useMemo(() => {
+    const zustand = strassen && new Map(strassen.flatMap(s => s.wege.map(w => [w.osmWeg, w] as const)));
+    return zerlegeBaender(welt, feld, zustand);
+  }, [welt, feld, strassen]);
+  const nachlauf = useMemo<Kachelnachlauf>(() => ({ bodenFertig: false, baenderFertig: false, pegelNeu: false }), [feld, satz]);
   const reflexMitte = useMemo(() => {
     if (!wasserProbe) return null;
     // Naechster wirklicher liegender Bachabschnitt zur registrierten Wehrmitte;
@@ -590,21 +761,48 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   return (
     <group>
       {wasserProbe && reflexMitte && <WasserSzeneProbe probe={wasserProbe} mitte={reflexMitte} ziel={ziel} />}
-      <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} />
+      <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} wiesenbereich={wiesenbereich} />
+      {STREU_AN && <StreuSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} props={props} />}
+      {BODEN_AN && <BodenSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} props={props} />}
 
-      <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel}
+      <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf}
                   boden={aufBoden}
                   wegMaterial={wegMaterial} wasserMaterial={wasserMaterial}
                   fallMaterial={fallMaterial} hausMaterial={hausMaterial} senke={senke ?? null} />
+      {strassen && <Strassenkulissen welt={welt} feld={feld} abschnitte={strassen} />}
 
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} weite={weite} />
+      {[{ props: hofBaeume.rest, hofBaum: false, milbingerBaum: false }, { props: hofBaeume.lokaleBaeume, hofBaum: true, milbingerBaum: false },
+        { props: hofBaeume.milbingerBaeume, hofBaum: true, milbingerBaum: true }]
+        .filter(g => g.props.length > 0).map(g => <Props key={g.milbingerBaum ? 'milbinger' : String(g.hofBaum)}
+          props={g.props} hofBaum={g.hofBaum} milbingerBaum={g.milbingerBaum}
+          wind={wind.material} farnWind={farnWind.material}
+          baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material}
+          baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={weite} />)}
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
-      {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite} />}
+      {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite}
+        strassenmaske={strassenmaske} wiesenbereich={wiesenbereich} />}
+      {GEWAESSER_ECHT && <Spiegelung feld={feld} />}
     </group>
   );
+}
+
+function Strassenkulissen({ welt, feld, abschnitte }: {
+  welt: Weltdaten; feld: HoehenFeld; abschnitte: readonly Strassenkulisse[];
+}) {
+  const kulissen = useMemo(() => baueStrassenkulissen(welt, feld, abschnitte), [welt, feld, abschnitte]);
+  useEffect(() => () => { for (const s of kulissen) s.entsorge(); }, [kulissen]);
+  useFrame(({ camera }) => {
+    const { x, z } = camera.position;
+    for (const { gruppe, grenzen } of kulissen) {
+      const dx = Math.max(0, grenzen.min.x - x, x - grenzen.max.x);
+      const dz = Math.max(0, grenzen.min.z - z, z - grenzen.max.z);
+      gruppe.visible = dx * dx + dz * dz < 240 * 240;
+    }
+  });
+  return <>{kulissen.map(({ gruppe }) => <primitive key={gruppe.uuid} object={gruppe} />)}</>;
 }
 
 /**
@@ -622,21 +820,32 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
  * nächsten Bild nachgezogen.
  */
 function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
-                     wegMaterial, wasserMaterial, fallMaterial, hausMaterial, senke }: {
+                     wegMaterial, wasserMaterial, fallMaterial, hausMaterial, senke, nachlauf }: {
   senke: Pegelsenke | null;
   welt: Weltdaten; feld: HoehenFeld; satz: Bandsatz; kacheln: Kachel[];
   ziel: React.RefObject<THREE.Object3D | null>;
   boden: ReturnType<typeof aufsatzboden>;
   wegMaterial: THREE.Material; wasserMaterial: THREE.Material;
   fallMaterial: THREE.Material; hausMaterial: THREE.Material;
+  nachlauf: Kachelnachlauf;
 }) {
   const cache = useRef(new Map<string, THREE.BufferGeometry | null>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  const hausPuffer = useRef<Kachelpuffer>(new Map());
+  /** D358: Efeukarten je Hauskachel; `stand` zählt Änderungen, die Schicht baut danach neu. */
+  const efeuKarten = useRef({ je: new Map<string, EfeuKarte[]>(), stand: 0 });
+  const bandPuffer = useRef(new Map<string, { quellen: THREE.BufferGeometry[]; geometrien: THREE.BufferGeometry[] }>());
   const [teile, setTeile] = useState<{ weg: THREE.BufferGeometry[];
                                        wasser: THREE.BufferGeometry[];
                                        fall: THREE.BufferGeometry[];
                                        haus: THREE.BufferGeometry[] }>(
     { weg: [], wasser: [], fall: [], haus: [] });
+  const angezeigt = useRef(teile);
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    entsorgeErsetzteKacheln(Object.values(angezeigt.current).flat(), Object.values(teile).flat());
+    angezeigt.current = teile;
+  }, [teile]);
 
   /**
    * Häuser einer Kachel. Sie hängen nicht an der LOD-Stufe — ein Haus ist ein
@@ -644,14 +853,51 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
    * darum geht es: 214.000 Dreiecke lagen vorher in einem Mesh, das gezeichnet
    * wurde, sobald ein Zipfel der Region im Bild war.
    */
+  /**
+   * D289: Bewohnte Orte (Bewohner und Zufluchten aus `content/orte`) in Weltmetern — um sie herum stehen die Häuser
+   * in Verfallsstufe 0 (Bauwelt D287). Aus den Inhalten, nicht hartkodiert.
+   */
+  const bewohnt = useMemo(() => [...ORTE.values()]
+    .filter(o => o.art === 'bewohner' || o.art === 'zuflucht')
+    .map(o => nachMetern(o.ort, welt.bbox)), [welt]);
+  const fassaden = useMemo(() => [...FASSADEN.values()].filter(f => f.region === 'oental'), []);
+  const hausnutzung = useMemo(() => WESTVERFALL_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.hausnutzung
+    : undefined, [welt]);
+  const hofHaeuser = useMemo(() => HOF_HAEUSER_AN
+    ? bestimmeHofhaeuser(welt, boden, bestimmeHof(welt, boden)) : null, [welt, boden]);
+  const hofbauRegion = useMemo(() => HOFBAU_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.id : undefined, [welt]);
+  const hofbauErsetzt = useMemo(() => hofbauRegion ? ersetzteGebaeude(hofbauRegion) : new Set<number>(), [hofbauRegion]);
   const hausKachel = useMemo(() => (
     _feld: HoehenFeld, s: Bandsatz, k: Kachel, _lod: number,
   ) => {
     if (istAus('haeuser')) return null;
-    const indizes = s.gebaeude.get(`${k.ix}:${k.iz}`);
+    const alle = s.gebaeude.get(`${k.ix}:${k.iz}`);
+    // D363: Gebäude mit Hof-Baukasten-Modell baut das Spiel nicht selbst.
+    const indizes = hofbauErsetzt.size ? alle?.filter(i => !hofbauErsetzt.has(i)) : alle;
     if (!indizes?.length) return null;
-    return baueGebaeude(welt, boden, indizes.map(i => welt.gebaeude[i]));
-  }, [welt, boden]);
+    // D290: LoD2-Silhouette je Gebäude (gleiche Reihenfolge wie `welt.gebaeude`; nur für die Region, zu der die Datei passt).
+    const lod2 = LOD2_DATEN.length === welt.gebaeude.length ? LOD2_DATEN : null;
+    const karten: EfeuKarte[] = [];
+    if (EFEUKARTEN_AN) setzeEfeuSammler(kk => { karten.push(kk); });
+    const geb = baueGebaeude(welt, boden, indizes.map(i => {
+      const g = welt.gebaeude[i];
+      // D291: Fassaden-Steckbrief, dessen Punkt im Grundriss liegt.
+      const fassade = fassaden.find(f => imPolygon(f.ort, g.punkte)) ?? null;
+      const nutzung = hausnutzung?.find(n => imPolygon(n.ort, g.punkte));
+      return lod2 || fassade || nutzung ? { ...g, lod2: lod2 ? lod2[i] : g.lod2, fassade, hausnutzung: nutzung } : g;
+    }), bewohnt, hofHaeuser ?? (REFERENZHAUS_AN && HOF_UNIFORM.bereit.value ? {
+      mitte: HOF_UNIFORM.mitte.value.toArray(),
+      vorne: [-HOF_UNIFORM.achse.value.y, HOF_UNIFORM.achse.value.x],
+    } : undefined));
+    if (EFEUKARTEN_AN) {
+      setzeEfeuSammler(null);
+      efeuKarten.current.je.set(`${k.ix}:${k.iz}`, karten);
+      efeuKarten.current.stand++;
+    }
+    return geb;
+  }, [welt, boden, bewohnt, fassaden, hausnutzung, hofHaeuser, hofbauErsetzt]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
   const wasserKachel = useMemo(() => (
@@ -662,55 +908,113 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
   }, [senke]);
   const pegel = senke ? `:${senke.x}:${senke.z}` : '';
   // Pegel gewechselt (Heilung): sofort neu sammeln, nicht erst nach dem nächsten Schritt.
-  useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [pegel]);
+  useEffect(() => {
+    letzte.current.set(NaN, NaN, NaN);
+    if (nachlauf.baenderFertig) nachlauf.pegelNeu = true;
+  }, [pegel, nachlauf]);
 
-  useFrame(() => {
-    const p = ziel.current?.position;
-    if (!p) return;
-    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
-    letzte.current.copy(p);
-
+  const baue: BereiteKacheln = function* (auswahl, gestaffelt, anker, vorladen) {
     let budget = 12;
+    const hausGruppen: Kachelsammlung = new Map();
     const sammeln = { weg: [] as THREE.BufferGeometry[],
                       wasser: [] as THREE.BufferGeometry[],
                       fall: [] as THREE.BufferGeometry[],
                       haus: [] as THREE.BufferGeometry[] };
-    for (const k of kacheln) {
-      const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
-      if (d > TERRAIN_SICHT) continue;
-      const lod = lodFuerAbstand(d);
-      for (const [art, bauen] of [
-        ['weg', baueWegKachel], ['wasser', wasserKachel], ['fall', baueFallKachel],
-        ['haus', hausKachel], ['garten', baueGartenKachel],
-      ] as const) {
-        if (art === 'wasser' && istAus('wasser')) continue;
-        const schluessel = `${art}:${k.ix}:${k.iz}:${lod}${art === 'wasser' ? pegel : ''}`;
+    // D289: nächste Kacheln zuerst. In Rasterreihenfolge kamen die Kacheln am Spieler bei wenigen Bildern je Sekunde
+    // als letzte an die Reihe (Budget 12 je Bild) — Häuser und Wege vor der Nase fehlten minutenlang, ferne standen.
+    const arten = [
+      ['weg', baueWegKachel], ['wasser', wasserKachel], ['fall', baueFallKachel],
+      ['haus', hausKachel], ['garten', baueGartenKachel],
+    ] as const;
+    const ohneWasser = istAus('wasser'), ohneWege = istAus('wege');
+    for (const { kachel: k, lod } of auswahl) {
+      const id = `${k.ix}:${k.iz}`;
+      for (const [art, bauen] of arten) {
+        if (art === 'wasser' && ohneWasser) continue;
+        if (art === 'weg' && ohneWege) continue;
+        const stufe = HOF_KACHELPUFFER_AN && art === 'haus' ? 0 : lod;
+        const schluessel = `${art}:${id}:${stufe}${art === 'wasser' ? pegel : ''}`;
         let g = cache.current.get(schluessel);
         if (g === undefined) {
           // `null` heißt „hier liegt nichts" und wird genauso gemerkt wie eine
           // Geometrie — sonst probiert jede Neubewertung die leeren Kacheln erneut,
           // und das sind die meisten.
-          if (budget-- <= 0) { letzte.current.set(NaN, NaN, NaN); continue; }
+          if (gestaffelt) {
+            const hatQuelle = art === 'weg' ? satz.wege.has(id)
+              : art === 'wasser' ? satz.baeche.has(id) || satz.teiche.has(id)
+              : art === 'fall' ? satz.faelle.has(id)
+              : art === 'haus' ? satz.gebaeude.has(id) : satz.gaerten.has(id);
+            if (!hatQuelle) continue;
+          } else if (budget-- <= 0) continue;
           g = bauen(feld, satz, k, lod);
+          // Vor dem Cache, auch für Gärten: mergeGeometries verlangt einheitliche Indizes.
+          // Normalen sind bereits fertig; nur vollständig identische Eckattribute teilen Speicher.
+          if (g && HAUS_KOMPAKT_AN && (art === 'haus' || art === 'garten')) {
+            const roh=g;g=indexiereHausGeometrie(roh);if(g!==roh)roh.dispose();
+          }
           cache.current.set(schluessel, g);
+          if (gestaffelt && g) yield;
         }
         // Gärten teilen sich das Material mit den Häusern: beides Vertexfarbe,
         // beides undurchsichtig, beides derselbe Draw Call je Kachelgruppe.
-        if (g) sammeln[art === 'garten' ? 'haus' : art].push(g);
+        if (!g) continue;
+        // Gartenhöhen wechseln mit dem Gelände-LOD. Feste Häuser behalten ihren
+        // GPU-Puffer auch dann, wenn nur die Zaun- und Beetgeometrie ersetzt wird.
+        if (HOF_KACHELPUFFER_AN && (art === 'haus' || art === 'garten')) {
+          sammleKachel(hausGruppen, k, g, HOF_BILDFLUSS_AN ? art : 'haus');
+        }
+        else sammeln[art === 'garten' ? 'haus' : art].push(g);
       }
     }
 
-    if (budget >= 0) meldeFertig('baender');
+    if (budget >= 0) { meldeFertig('baender'); nachlauf.baenderFertig = true; }
 
     const fassen = (gs: THREE.BufferGeometry[]) =>
       gs.length ? [mergeGeometries(gs, false)].filter(Boolean) as THREE.BufferGeometry[] : [];
-    const neu = { weg: fassen(sammeln.weg), wasser: fassen(sammeln.wasser),
-                  fall: fassen(sammeln.fall), haus: fassen(sammeln.haus) };
-    setTeile(vorher => {
-      for (const liste of [vorher.weg, vorher.wasser, vorher.fall, vorher.haus])
-        liste.forEach(g => g.dispose());
-      return neu;
-    });
+    const hausNeu = !HOF_KACHELPUFFER_AN ? hausPuffer.current
+      : gestaffelt ? yield* bereiteKachelpuffer(hausPuffer.current, hausGruppen, vorladen, HOF_BILDSPITZEN_AN)
+      : aktualisiereKachelpuffer(hausPuffer.current, hausGruppen);
+    const haus = HOF_KACHELPUFFER_AN ? geometrienAusKachelpuffern(hausNeu) : fassen(sammeln.haus);
+    const baenderNeu = new Map<string, { quellen: THREE.BufferGeometry[]; geometrien: THREE.BufferGeometry[] }>();
+    const neu = { weg: [] as THREE.BufferGeometry[], wasser: [] as THREE.BufferGeometry[],
+                  fall: [] as THREE.BufferGeometry[], haus };
+    for (const art of ['weg', 'wasser', 'fall'] as const) {
+      const quellen = sammeln[art];
+      const alt = bandPuffer.current.get(art);
+      // Die Reihenfolge gehört zum Puffer: Transparente Bänder behalten die bisherige Dreieckfolge.
+      const gleich = KACHELNACHLAUF_AN && alt && alt.quellen.length === quellen.length
+        && quellen.every((g, i) => g === alt.quellen[i]);
+      const geometrien = gleich ? alt.geometrien : fassen(quellen);
+      neu[art] = geometrien;
+      baenderNeu.set(art, { quellen, geometrien });
+      if (gestaffelt && !gleich && geometrien.length) {
+        yield;
+        if (vorladen?.(geometrien[0])) yield;
+      }
+    }
+    return () => {
+      letzte.current.copy(anker);
+      if (budget < 0) letzte.current.set(NaN, NaN, NaN);
+      hausPuffer.current = hausNeu;
+      bandPuffer.current = baenderNeu;
+      if (KACHELNACHLAUF_AN) setTeile(neu);
+      else setTeile(vorher => {
+        entsorgeErsetzteKacheln(Object.values(vorher).flat(), Object.values(neu).flat());
+        return neu;
+      });
+    };
+  };
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    nachlauf.baender = baue;
+    return () => { if (nachlauf.baender === baue) nachlauf.baender = undefined; };
+  }, [nachlauf, baue]);
+
+  useFrame(() => {
+    if (KACHELNACHLAUF_AN && nachlauf.bodenFertig && nachlauf.baenderFertig && nachlauf.baender) return;
+    const p = ziel.current?.position;
+    if (!p || letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+    fülleKachelbau(baue(kachelauswahl(kacheln, p), false, p), Infinity)?.();
   });
 
   return <>
@@ -720,7 +1024,112 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     {teile.haus.map((g, i) => (
       <mesh key={`h${i}`} geometry={g} material={hausMaterial} castShadow receiveShadow />
     ))}
+    {EFEUKARTEN_AN && <EfeuKartenSchicht quelle={efeuKarten} />}
+    {hofbauRegion && <HofbauSchicht region={hofbauRegion} welt={welt} boden={boden} />}
   </>;
+}
+
+/** D363: Höfe aus dem Hof-Baukasten (`content/hofbauten.json`) an ihren Grundrissen. */
+function HofbauSchicht({ region, welt, boden }: { region: string; welt: Weltdaten; boden: ReturnType<typeof aufsatzboden> }) {
+  const gruppe = useRef<THREE.Group>(null);
+  useEffect(() => {
+    if (!gruppe.current) return;
+    return ladeHofbauten(hofbauLagen(region, welt, boden), gruppe.current);
+  }, [region, welt, boden]);
+  return <group ref={gruppe} />;
+}
+
+/** D361: Bodenstreu-Karten im Umkreis von 45 m; neu gelegt, wenn die Figur 15 m gewandert ist. */
+const STREU_RADIUS = 45, STREU_NEU_AB = 15;
+let streuMaterial: THREE.MeshStandardMaterial | null = null;
+
+function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
+  hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
+  ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
+}) {
+  // D362/D366: Bäume legen unter ihrer Krone eine geschlossene Decke ihrer Art.
+  const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
+  const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
+  const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
+  const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
+  useEffect(() => () => geometrien.forEach(g => g.dispose()), [geometrien]);
+  if (!streuMaterial) {
+    streuMaterial = kartenMaterial('streu', 0.55, true);
+    // D362: weicher Rand statt Ausstanzkante — mit MSAA wird die Deckung über die Abtastpunkte verteilt.
+    streuMaterial.alphaToCoverage = true;
+  }
+  useFrame(() => {
+    const p = ziel.current?.position, jetzt = performance.now();
+    if (!p || jetzt - zuletzt.current < 500) return;
+    zuletzt.current = jetzt;
+    if (mitte.current && mitte.current.distanceTo(new THREE.Vector2(p.x, p.z)) < STREU_NEU_AB) return;
+    mitte.current = new THREE.Vector2(p.x, p.z);
+    setMatrizen(streuMatrizen(p.x, p.z, STREU_RADIUS, hoeheAn, biomAn, baeume));
+  });
+  return <>{matrizen.map((liste, i) => liste.length > 0 && (
+    <instancedMesh key={`${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[i], streuMaterial!, liste.length]}
+      receiveShadow frustumCulled={false}
+      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  ))}</>;
+}
+
+/**
+ * D366: Bodenpflanzen-Karten (Sauerklee, Waldmeister, Moos, Kräuter liegend; Brombeere, Jungwuchs stehend) im
+ * Nahbereich. Gebaut bis `BODEN_NAH` + 8 m, neu gelegt nach 8 m Weg — die Ausblendung im Shader (ab 75 % von
+ * `BODEN_NAH`) liegt damit immer innerhalb des gebauten Kreises.
+ */
+let bodenFlachMaterial: THREE.MeshStandardMaterial | null = null;
+let bodenBuschMaterial: THREE.MeshStandardMaterial | null = null;
+
+function BodenSchicht({ hoeheAn, biomAn, ziel, props }: {
+  hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
+  ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
+}) {
+  const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
+  const [matrizen, setMatrizen] = useState<BodenMatrizen>({ flach: [[], [], [], []], busch: [[], [], [], []] });
+  const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
+  const geometrien = useMemo(() => ({ flach: [0, 1, 2, 3].map(flachGeometrie), busch: [0, 1, 2, 3].map(buschGeometrie) }), []);
+  useEffect(() => () => [...geometrien.flach, ...geometrien.busch].forEach(g => g.dispose()), [geometrien]);
+  bodenFlachMaterial ??= bodenMaterial('bodenflach');
+  bodenBuschMaterial ??= bodenMaterial('bodenbusch');
+  useFrame(() => {
+    const p = ziel.current?.position, jetzt = performance.now();
+    if (!p || jetzt - zuletzt.current < 500) return;
+    zuletzt.current = jetzt;
+    if (mitte.current && mitte.current.distanceTo(new THREE.Vector2(p.x, p.z)) < 8) return;
+    mitte.current = new THREE.Vector2(p.x, p.z);
+    setMatrizen(bodenMatrizen(p.x, p.z, BODEN_NAH + 8, hoeheAn, biomAn, baeume));
+  });
+  const schicht = (art: 'flach' | 'busch', material: THREE.MeshStandardMaterial) => matrizen[art].map((liste, i) => liste.length > 0 && (
+    <instancedMesh key={`${art}${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[art][i], material, liste.length]}
+      receiveShadow frustumCulled={false}
+      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  ));
+  return <>{schicht('flach', bodenFlachMaterial)}{schicht('busch', bodenBuschMaterial)}</>;
+}
+
+/**
+ * D358: Efeukarten aller gebauten Hauskacheln als vier InstancedMesh (eine je Atlas-Kachel). Neu gebaut wird nur,
+ * wenn eine Hauskachel Karten gemeldet hat — geprüft alle 0,5 s (nach Zeit, nicht nach Bildern: bei niedriger
+ * Bildrate kam eine Bildzählung zu spät).
+ */
+function EfeuKartenSchicht({ quelle }: { quelle: React.RefObject<{ je: Map<string, EfeuKarte[]>; stand: number }> }) {
+  const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
+  const gesehen = useRef(-1), zuletzt = useRef(0);
+  const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
+  useEffect(() => () => geometrien.forEach(g => g.dispose()), [geometrien]);
+  useFrame(() => {
+    const jetzt = performance.now();
+    if (jetzt - zuletzt.current < 500 || !quelle.current || quelle.current.stand === gesehen.current) return;
+    zuletzt.current = jetzt;
+    gesehen.current = quelle.current.stand;
+    setMatrizen(kartenMatrizen([...quelle.current.je.values()].flat()));
+  });
+  return <>{matrizen.map((liste, i) => liste.length > 0 && (
+    <instancedMesh key={`${i}:${liste.length}`} args={[geometrien[i], efeuKartenMaterial(), liste.length]} receiveShadow
+      castShadow customDepthMaterial={efeuKartenTiefe()} frustumCulled={false}
+      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  ))}</>;
 }
 
 /**
@@ -735,7 +1144,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
-type FernGruppe = { art: PropArt; variante: number; instanzen: PropInstanz[]; zelle?: string };
+type FernGruppe = { art: PropArt; variante: number; instanzen: PropInstanz[]; zelle?: string; hofStrauch?: boolean; hofSchatten?: boolean };
 
 /** EZ-Test: Fernbaeume raeumlich gruppieren, damit Frustum-Culling sie nicht alle zeichnet. */
 function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
@@ -753,16 +1162,20 @@ function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
   return ergebnis;
 }
 
-function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; weite: number }) {
+function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, buschWind, weite }: { props: PropInstanz[]; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial; weite: number }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
   const [fern, setFern] = useState<FernGruppe[]>([]);
+  /** D367: Mittelstufen-Bäume im Übergabeband — stehen zusätzlich als Impostor (komplementäres Raster). */
+  const [band, setBand] = useState<FernGruppe[]>([]);
+  useEffect(() => { BAUM_UEBERBLEND.value.set(ATTRAPPE_AB * weite, UEBERBLEND_BAND); }, [weite]);
   // Messbarer Standard der EZ-Probe; ?ezcluster=0 erhaelt den A/B-Rueckweg.
-  const ezZellen = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1' && new URLSearchParams(location.search).get('ezcluster') !== '0';
+  const ezZellen = typeof location !== 'undefined' && (new URLSearchParams(location.search).get('ezbaum') === '1' || (HOF_GRUEN_AN && hofBaum)) && new URLSearchParams(location.search).get('ezcluster') !== '0';
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
   const letzteFern = useRef(new THREE.Vector3(NaN, NaN, NaN));
   /** Kacheln, die im vorigen Durchlauf Attrappen waren — siehe `waehleProps` (D164). */
   const vorigeAttrappen = useRef<ReadonlySet<string> | undefined>(undefined);
+  const propAnker = useRef<PropAnkerCache>({ fernschluesselBeiBedarf: HOF_KACHELNACHLAUF_AN });
   // Neue Sichtweite (D247): beide Listen sofort neu, statt auf die nächsten 8/60 m Lauf zu warten.
   useEffect(() => { letzte.current.set(NaN, NaN, NaN); letzteFern.current.set(NaN, NaN, NaN); }, [weite]);
 
@@ -789,15 +1202,31 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
     // `vorigeAttrappen` sind die Kacheln, die beim **letzten** Durchlauf Attrappen waren.
     // Sie zwingen die Kette über die Mittelstufe, statt vom Kegel aufs volle Modell zu
     // springen — gemessen 6 solcher Sprünge in 24 s Lauf (D164, `propauswahl.ts`).
-    const { nah, buendel, buendelKacheln } = waehleProps(
-      chunks, [p.x, p.z], anker, fernNeu, vorigeAttrappen.current, weite);
-    vorigeAttrappen.current = buendelKacheln;
+    const auswahl = waehleProps(chunks, [p.x, p.z], anker, fernNeu,
+      HOF_KACHELNACHLAUF_AN ? undefined : vorigeAttrappen.current, weite,
+      HOF_BILDRUHE_AN ? propAnker.current : undefined);
+    const { nah, buendel } = auswahl;
+    if (!HOF_KACHELNACHLAUF_AN) vorigeAttrappen.current = auswahl.buendelKacheln;
 
     // Ein neuer Fernanker verschiebt auch die Grenze zwischen Chunk und Bündel.
     // Deshalb beide Listen gemeinsam ersetzen, selbst wenn die letzte 8-m-
     // Nahbewertung erst ein Bild zuvor lief; sonst steht ein Randchunk kurz doppelt.
     if (nahNeu || fernNeu) {
       letzte.current.copy(p);
+      // Band: alle Bäume der Mittelstufe, die bis zur nächsten Neubewertung ins Band laufen können.
+      const bandAb = ATTRAPPE_AB * weite - UEBERBLEND_BAND - PROP_NEUBEWERTUNG;
+      const jeVariante = new Map<string, FernGruppe>();
+      for (const { c, stufe } of nah) {
+        if (stufe !== 'mittel' || (c.art !== 'laubbaum' && c.art !== 'nadelbaum')) continue;
+        for (const q of c.instanzen) {
+          if (Math.hypot(q.position[0] - p.x, q.position[2] - p.z) < bandAb) continue;
+          const k = `${c.art}:${c.variante}`;
+          let g = jeVariante.get(k);
+          if (!g) jeVariante.set(k, g = { art: c.art, variante: c.variante, instanzen: [] });
+          g.instanzen.push(q);
+        }
+      }
+      setBand([...jeVariante.values()]);
       setSichtbar(nah.map(({ c, stufe }) => ({
         // Die Stufe gehört in den Schlüssel: Seit die Mittelstufe ihre Varianten
         // zusammenlegt (D100), tragen alle zusammengelegten Chunks `variante 0`,
@@ -810,9 +1239,9 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
       const gruppen = buendleFernProps(buendel);
       if (!ezZellen) setFern(gruppen);
       else setFern(alt => {
-        const vorher = new Map(alt.map(g => [`${g.art}:${g.variante}:${g.zelle ?? ''}`, g]));
+        const vorher = new Map(alt.map(g => [`${g.art}:${g.variante}:${g.zelle ?? ''}:${!!g.hofStrauch}:${!!g.hofSchatten}`, g]));
         return zellteileFern(gruppen).map(g => {
-          const v = vorher.get(`${g.art}:${g.variante}:${g.zelle ?? ''}`);
+          const v = vorher.get(`${g.art}:${g.variante}:${g.zelle ?? ''}:${!!g.hofStrauch}:${!!g.hofSchatten}`);
           return v && v.instanzen.length === g.instanzen.length && v.instanzen.every((p, i) => p === g.instanzen[i]) ? v : g;
         });
       });
@@ -826,11 +1255,15 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
           ausblendet. Bereits geladene Gruppen bleiben sichtbar. */}
       {sichtbar.map(({ c, stufe, id }) =>
         <Suspense key={id} fallback={null}>
-          <PropChunkMesh chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={baumWind} baumTiefe={baumTiefe} />
+          <PropChunkMesh chunk={c} stufe={stufe} hofBaum={hofBaum} milbingerBaum={milbingerBaum} wind={wind} farnWind={farnWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
         </Suspense>)}
-      {fern.map(({ art, variante, instanzen, zelle }) =>
-        <Suspense key={`${art}:${variante}:${zelle ?? ''}`} fallback={null}>
-          <PropFernMesh art={art} variante={variante} instanzen={instanzen} baumWind={baumWind} zellCulling={zelle !== undefined} />
+      {fern.map(({ art, variante, instanzen, zelle, hofStrauch, hofSchatten }) =>
+        <Suspense key={`${art}:${variante}:${zelle ?? ''}:${hofStrauch ? 'hof' : ''}:${hofSchatten ? 'schatten' : ''}`} fallback={null}>
+          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} milbingerBaum={milbingerBaum} hofStrauch={hofStrauch} hofSchatten={hofSchatten} instanzen={instanzen} zellCulling={zelle !== undefined} />
+        </Suspense>)}
+      {band.map(({ art, variante, instanzen }) =>
+        <Suspense key={`band:${art}:${variante}`} fallback={null}>
+          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} milbingerBaum={milbingerBaum} instanzen={instanzen} zellCulling={false} band />
         </Suspense>)}
     </>
   );
@@ -869,32 +1302,33 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
  * `InstancedMesh` neu auf, und das ist genau der Fall, den `PropChunkMesh` im
  * Kommentar als teuer beschreibt.
  */
-function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling }: { art: PropArt; variante: number; instanzen: PropInstanz[]; baumWind: THREE.MeshStandardMaterial; zellCulling: boolean }) {
-  // Dieselbe Baumvariante in allen Stufen; die Fernstufe reduziert nur Dreiecke.
+function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, milbingerBaum = false, hofStrauch = false, hofSchatten = false, band = false }: { art: PropArt; variante: number; instanzen: PropInstanz[]; zellCulling: boolean; hofBaum?: boolean; milbingerBaum?: boolean; hofStrauch?: boolean; hofSchatten?: boolean; band?: boolean }) {
+  // D367: Die Fernstufe der Blender-Bäume ist ein Impostor desselben Nahbaums (acht gebackene Ansichten, zwei
+  // Dreiecke je Baum) statt der dezimierten Krone; ohne Registereintrag bleibt die Attrappe.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   const blender = eigen ? blenderBaum(eigen, variante, 'fern') : null;
-  const { scene } = useGLTF(propPfad(blender ? blender.datei : VARIANTEN.busch[0].datei));
+  const rahmen = blender?.impostor ?? null;
   const geo = useMemo(() => {
-    if (!blender) return attrappeGeometrie(art);
-    let g: THREE.BufferGeometry | null = null;
-    scene.updateMatrixWorld(true);
-    scene.traverse(o => {
-      if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry.clone().applyMatrix4(o.matrixWorld);
-    });
-    if (g) {
-      const geometrie = g as THREE.BufferGeometry;
-      const gewicht = geometrie.getAttribute('_wind');
-      if (gewicht) geometrie.setAttribute('aWind', gewicht);
-    }
-    return (g ?? attrappeGeometrie(art)) as THREE.BufferGeometry;
-  }, [art, blender, scene]);
+    if (hofStrauch) return hofStrauchGeometrie(variante, VARIANTEN.busch[variante]?.hoehe ?? 1.2);
+    if (!rahmen) return attrappeGeometrie(art);
+    return impostorGeometrie(rahmen);
+  }, [art, rahmen, hofStrauch, variante]);
+  useEffect(() => () => { if (rahmen) geo.dispose(); }, [geo, rahmen]);
+  const impMaterial = useMemo(() => blender && rahmen ? impostorMaterial(blender.datei, rahmen, BAUM_UEBERBLEND) : null, [blender, rahmen]);
+  const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
   const ref = useRef<THREE.InstancedMesh>(null);
   const [kapazitaet, setKapazitaet] = useState(() => Math.ceil(instanzen.length * 1.4) + 64);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
     ref.current = mesh;
-    if (mesh && !mesh.instanceColor) mesh.count = 0; // Vor dem ersten Befuellen keine Identitaetsmatrizen zeichnen.
-    if (mesh && blender && istEzProbeBereit()) mesh.visible = false;
-  }, [blender]);
+    if (mesh && !mesh.instanceColor) {
+      mesh.count = 0;
+      // Auch bei count=0 wählt three.js ein Shaderprogramm. Ein leeres Bündel
+      // würde dabei die Variante ohne Instanzfarben erstmals kompilieren.
+      if (HOF_BILDFLUSS_AN) mesh.visible = false;
+    }
+    if (mesh) { mesh.userData.hofGruen = hofBaum; mesh.userData.milbingerBaum = milbingerBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = variante; }
+    if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
+  }, [blender, hofBaum, milbingerBaum, hofStrauch, variante]);
 
   useEffect(() => {
     if (instanzen.length > kapazitaet) {
@@ -903,7 +1337,9 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling }: { art
     }
     const m = ref.current;
     if (!m) return;
-    if (blender && istEzProbeBereit()) m.visible = false;
+    const ezErsetzt = blender && istEzProbeBereit(hofBaum);
+    const anfang = !m.instanceColor;
+    if (ezErsetzt) m.visible = false;
     const hilfe = new THREE.Object3D();
     const ton = new THREE.Color();
     instanzen.forEach((p, i) => {
@@ -918,17 +1354,26 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling }: { art
     m.count = instanzen.length;
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
-    if (zellCulling) m.computeBoundingSphere();
-  }, [instanzen, kapazitaet, zellCulling]);
+    if (rahmen) {
+      // D367: 1 = Instanz im Übergabeband (zeichnet nur das Gegenraster zur Mittelstufe)
+      let a = geo.getAttribute('aUeberblend') as THREE.InstancedBufferAttribute | undefined;
+      if (!a || a.count < kapazitaet) geo.setAttribute('aUeberblend', a = new THREE.InstancedBufferAttribute(new Float32Array(kapazitaet), 1));
+      (a.array as Float32Array).fill(band ? 1 : 0);
+      a.needsUpdate = true;
+    }
+    if (zellCulling || hofStrauch) m.computeBoundingSphere();
+    if (HOF_BILDFLUSS_AN && anfang && m.count > 0 && !ezErsetzt) m.visible = true;
+  }, [instanzen, kapazitaet, zellCulling, hofBaum, hofStrauch, rahmen, geo, band]);
 
   return (
     <instancedMesh
       ref={setzeMesh} args={[undefined, undefined, kapazitaet]}
-      name={blender ? `baum:${art}:${variante}:fern` : `prop:${art}:fern`}
-      geometry={geo} material={blender ? baumWind : FERN_MATERIAL}
+      name={blender ? `baum:${art}:${variante}:fern${band ? ':band' : ''}` : `prop:${art}:fern${hofStrauch ? `:hof:${variante}` : ''}`}
+      geometry={geo} material={impMaterial ?? strauchMaterial ?? FERN_MATERIAL}
+      receiveShadow={hofStrauch && hofSchatten}
       // Der Bündel umspannt den ganzen Sichtring; ein Frustum-Test daran wäre
       // immer wahr und damit verlorene Zeit.
-      frustumCulled={zellCulling}
+      frustumCulled={zellCulling || hofStrauch}
     />
   );
 }
@@ -967,6 +1412,7 @@ function scanBasis(textur: string, art: PropArt, alpha: boolean): THREE.MeshStan
   };
   m.map = karte(`${textur}-farbe`);
   m.normalMap = karte(`${textur}-normal`);
+  if (HOF_AN && ['fels-moos-1', 'fels-moos-2', 'farn'].includes(textur)) richteHofPropEin(m, textur);
   return m;
 }
 
@@ -1015,64 +1461,78 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
   // Auch der prozedurale Fallback braucht einen unbedingten Lade-Hook.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   // Blender-Baum (D155), wenn das Register einen hat — sonst der prozedurale (D40)
-  const blender = eigen ? blenderBaum(eigen, variante, stufe) : null;
+  // D367: Die Fernstufe ist ein Impostor ohne Netz; ein Chunk in Fernstufe zeigt die Mittelstufe.
+  const blender = eigen ? blenderBaum(eigen, variante, stufe === 'fern' ? 'mittel' : stufe) : null;
   const pfad = propPfad(blender ? blender.datei : ((liste[variante] ?? liste[0])?.datei ?? VARIANTEN.busch[0].datei));
   const { scene } = useGLTF(pfad);
-  return useMemo(() => {
-    if (eigen && !blender) return { geo: baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel'), blender: false };
+  const normalisiert = useMemo(() => {
     let geo: THREE.BufferGeometry | null = null;
-    // Der Blender-Ursprung kann am Kronenzentrum liegen. Beim Herausloesen
-    // muss die Knotenmatrix mit: sonst versinkt etwa Fichte 0 um 10,25 m.
-    scene.updateMatrixWorld(true);
-    scene.traverse(o => {
-      if (!geo && (o as THREE.Mesh).isMesh) geo = (o as THREE.Mesh).geometry.clone().applyMatrix4(o.matrixWorld);
-    });
-    if (!eigen && geo) {
-      // D229/D230: Scan-Props bringen ihr Windgewicht als `_WIND` mit; vorher standen Farne still.
-      const w = (geo as THREE.BufferGeometry).getAttribute('_wind');
-      if (w) (geo as THREE.BufferGeometry).setAttribute('aWind', w);
-    }
-    if (eigen && geo) {
-      // Windgewicht aus der Datei (`_WIND` → `_wind`), sonst aus der Hoehe; Laubmaske steht in COLOR_0.a
-      const g = geo as THREE.BufferGeometry;
-      const w = g.getAttribute('_wind');
-      if (w) g.setAttribute('aWind', w); else windAusHoehe(g, g.boundingBox?.max.y ?? 20);
-    }
-    // Keine Normierung mehr. Die Höhe steht in `VARIANTEN` und ist beim Bauen in
-    // die Datei eingerechnet — sie hier erneut auf eine Zielhöhe je Art zu ziehen,
-    // hätte alle sechs Grasvarianten wieder auf dieselben 0,35 m gestreckt.
-    return { geo: (geo ?? propGeometrie(art)) as THREE.BufferGeometry, blender: !!(eigen && blender) };
+    return () => {
+      if (geo) return geo;
+      if (eigen && !blender) return geo = baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel');
+      // Der Blender-Ursprung kann am Kronenzentrum liegen. Beim Herausloesen
+      // muss die Knotenmatrix mit: sonst versinkt etwa Fichte 0 um 10,25 m.
+      scene.updateMatrixWorld(true);
+      const mesh = scene.getObjectByProperty('isMesh', true) as THREE.Mesh | undefined;
+      if (!mesh) return geo = propGeometrie(art);
+      geo = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
+      // Scan-Props und Blender-Bäume bringen ihr Windgewicht als `_WIND` mit.
+      const w = geo.getAttribute('_wind');
+      if (w) geo.setAttribute('aWind', w);
+      else if (eigen) windAusHoehe(geo, geo.boundingBox?.max.y ?? 20);
+      // Die Höhe steht in VARIANTEN und ist bereits in die Datei eingerechnet.
+      return geo;
+    };
   }, [scene, art, eigen, blender, variante, stufe]);
+  return { normalisiert, blender: !!(eigen && blender) };
 }
 
 const LEER: ReadonlySet<string> = new Set();
+const LEERES_PROP_NETZ = new THREE.BufferGeometry();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe }: {
-  chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
-  farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial;
-  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial;
+function PropChunkMesh({ chunk, stufe, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, buschWind }: {
+  chunk: PropChunk; stufe: PropStufe; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial;
+  farnWind: THREE.MeshStandardMaterial;
+  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial;
 }) {
   const fern = stufe === 'fern';
-  const { geo, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
-  const fernGeo = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
+  const { normalisiert, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
+  const ezOriginal = HOF_BILDSPITZEN_AN && blender && uebernimmtEzVariante(chunk.variante, hofBaum) ? normalisiert : undefined;
+  const hofStrauch = HOF_GRUEN_AN && chunk.art === 'busch' && istHofBusch(chunk.mitte, chunk.radius);
+  const strauchBleibt = HOF_STRAUCH_WEIT && hofStrauch;
+  const strauchGeo = useMemo(() => hofStrauch ? hofStrauchGeometrie(chunk.variante, VARIANTEN.busch[chunk.variante]?.hoehe ?? 1.2) : null, [hofStrauch, chunk.variante]);
+  const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
+  const attrappe = fern && !blender && !strauchBleibt;
+  const fernGeo = useMemo(() => !HOF_BILDSPITZEN_AN || attrappe ? attrappeGeometrie(chunk.art) : null, [attrappe, chunk.art]);
+  const geo = ezOriginal ? LEERES_PROP_NETZ : normalisiert();
+  const netz = strauchBleibt ? strauchGeo! : attrappe ? fernGeo! : strauchGeo ?? geo;
   // Nur was sich biegen kann, bekommt das Windmaterial. Findlinge und Totholz
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
   // als bewegtes Laub aufbaut.
   const biegsam = chunk.art === 'nadelbaum' || chunk.art === 'laubbaum' || chunk.art === 'busch';
   /** D230: Scan-Props tragen ihren Textursatz in `VARIANTEN`. */
   const textur = VARIANTEN[chunk.art][chunk.variante]?.textur;
-  const gras = chunk.art === 'grasbuschel' || chunk.art === 'farn';
   const ref = useRef<THREE.InstancedMesh>(null);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
     ref.current = mesh;
-    if (mesh && !mesh.instanceColor) mesh.count = 0; // Bereits befuellte Meshes beim erneuten Anhaengen erhalten.
-    if (mesh && blender && istEzProbeBereit()) mesh.visible = false;
-  }, [blender]);
+    if (mesh && !mesh.instanceColor) {
+      mesh.count = 0;
+      if (HOF_BILDFLUSS_AN) mesh.visible = false;
+    }
+    if (mesh) {
+      mesh.userData.hofGruen = hofBaum; mesh.userData.milbingerBaum = milbingerBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = chunk.variante;
+      mesh.userData.ezOriginalGeometrie = ezOriginal;
+    }
+    if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
+  }, [blender, ezOriginal, hofBaum, milbingerBaum, hofStrauch, chunk.variante]);
 
   useEffect(() => {
-    if (!ref.current) return;
-    if (blender && istEzProbeBereit()) ref.current.visible = false;
+    const mesh = ref.current;
+    if (!mesh) return;
+    const ezErsetzt = blender && istEzProbeBereit(hofBaum);
+    const anfang = !mesh.instanceColor;
+    if (ezErsetzt) mesh.visible = false;
     const m = new THREE.Object3D();
     const ton = new THREE.Color();
     chunk.instanzen.forEach((p, i) => {
@@ -1080,22 +1540,28 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
       m.rotation.y = p.drehung;
       m.scale.setScalar(p.skalierung);
       m.updateMatrix();
-      ref.current!.setMatrixAt(i, m.matrix);
+      mesh.setMatrixAt(i, m.matrix);
       // Farbe je Instanz (D79). `setRGB` ohne Farbraum schreibt direkt in den
       // Arbeitsraum — die Werte sind Faktoren um 1,0, keine Farben, und dürfen
       // deshalb nicht durch die sRGB-Umrechnung.
       const [r, g, b] = propTon(p.art, p.variante, p.drehung);
-      ref.current!.setColorAt(i, ton.setRGB(r, g, b));
+      mesh.setColorAt(i, ton.setRGB(r, g, b));
     });
-    ref.current.instanceMatrix.needsUpdate = true;
-    if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
-    ref.current.count = chunk.instanzen.length;
-    ref.current.computeBoundingSphere();
-  }, [chunk]);
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.count = chunk.instanzen.length;
+    if (!HOF_BILDSPITZEN_AN) mesh.computeBoundingSphere();
+    if (HOF_BILDFLUSS_AN && anfang && mesh.count > 0 && !ezErsetzt) mesh.visible = true;
+  }, [chunk, hofBaum]);
 
   // Der Umriss ändert sich beim Wechsel auf die Attrappe; ohne Neuberechnung
   // schneidet das Frustum-Culling falsch.
-  useEffect(() => { ref.current?.computeBoundingSphere(); }, [fern]);
+  useEffect(() => {
+    if (!HOF_BILDSPITZEN_AN) ref.current?.computeBoundingSphere();
+  }, [fern]);
+  useEffect(() => {
+    if (HOF_BILDSPITZEN_AN && !ezOriginal) ref.current?.computeBoundingSphere();
+  }, [chunk, ezOriginal, netz]);
 
   // Kein useFrame mehr in dieser Komponente. Sichtbarkeit und Attrappen-Entscheidung
   // trifft die Verwaltung — bei 16.663 Chunks wären 16.663 Callbacks je Bild der
@@ -1110,12 +1576,12 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
     <instancedMesh
       ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
-      geometry={fern && !blender ? fernGeo : geo}
-      material={blender ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
-        : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
-        : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
+      geometry={netz}
+      material={blender ? baumWind : strauchMaterial && (!fern || strauchBleibt) ? strauchMaterial : buschWind && chunk.art === 'busch' && !fern ? buschWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
+        : textur ? statischesScanMaterial(textur, chunk.art)
+        : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
-      castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
+      castShadow={grossesTeil && !fern} receiveShadow={(!fern || strauchBleibt) && (grossesTeil || (HOF_AN && HOF_UNIFORM.bereit.value > 0 && Math.hypot(chunk.mitte[0] - HOF_UNIFORM.mitte.value.x, chunk.mitte[1] - HOF_UNIFORM.mitte.value.y) < 60))}
     />
   );
 }
@@ -1714,6 +2180,42 @@ export interface Ortsmarke {
 }
 
 /**
+ * D285 (`?umlicht=1`): Umgebungslicht aus dem eigenen Himmel. Eine Kopie der Himmelskugel und eine Bodenscheibe
+ * im Hemisphären-Bodenton (Gegenlicht vom Gelände statt Himmel von unten) werden einmal je Stimmung in eine
+ * PMREM-Karte gerendert und als `scene.environment` gesetzt. Die Hemisphäre bleibt mit 35 % für die eigenen
+ * Shader, die keine Umgebungskarte lesen.
+ */
+function HimmelLicht({ s }: { s: Stimmung }) {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    const werte = {
+      zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
+      sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
+      atmosphaere: s.atmosphaere,
+    };
+    const himmel = baueHimmel(werte);
+    setzeHimmel(himmel, werte);
+    const boden = new THREE.Mesh(new THREE.CircleGeometry(400, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN).multiplyScalar(0.6), fog: false }));
+    boden.position.y = -2;
+    const fang = new THREE.Scene();
+    fang.add(himmel, boden);
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const karte = pmrem.fromScene(fang, 0.02, 0.1, 2000).texture;
+    scene.environment = karte;
+    scene.environmentIntensity = UMLICHT_STAERKE;
+    console.info('[umlicht] Himmel als Umgebungslicht, Stärke', UMLICHT_STAERKE);
+    return () => {
+      if (scene.environment === karte) scene.environment = null;
+      karte.dispose(); pmrem.dispose();
+      himmel.geometry.dispose(); (himmel.material as THREE.Material).dispose();
+      boden.geometry.dispose(); (boden.material as THREE.Material).dispose();
+    };
+  }, [gl, scene, s]);
+  return null;
+}
+
+/**
  * Weg B (D265, `?hdri=1`): Himmelsfoto als Umgebungslicht. PMREM gefiltert, als `scene.environment`
  * für jedes Standardmaterial; die Hemisphäre bleibt mit einem Viertel als Grundlicht für die
  * eigenen Shader, die keine Umgebungskarte lesen. Sonne und Schatten bleiben, wie sie sind.
@@ -1776,7 +2278,7 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
           {b.dateien.map(teil => (
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
-                ? <BauwerkWasser bauwerk={b} />
+                ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
                 : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
           ))}
@@ -1806,6 +2308,14 @@ function BauwerkWeiher({ bauwerk, hoeheAn }: { bauwerk: Bauwerk; hoeheAn: (x: nu
     return w;
   }, [scene, bauwerk, hoeheAn]);
   useEffect(() => () => { weiher?.geometrie.dispose(); material.dispose(); }, [weiher, material]);
+  // D280: Spiegelebene anmelden (Welt: Gruppenraum + Ursprung + h0).
+  useEffect(() => {
+    if (!weiher || !GEWAESSER_ECHT) return;
+    weiher.geometrie.computeBoundingSphere();
+    const k = weiher.geometrie.boundingSphere!;
+    return meldeSpiegelflaeche({ x: k.center.x + bauwerk.ursprung.x, z: k.center.z + bauwerk.ursprung.z,
+      hoehe: weiher.spiegel + bauwerk.h0, radius: k.radius });
+  }, [weiher, bauwerk]);
   return weiher ? <mesh geometry={weiher.geometrie} material={material} renderOrder={1} /> : null;
 }
 
@@ -2080,6 +2590,9 @@ function Klippen({ klippen, ziel, material }: {
         if (n >= liste.length) break;
       }
       m.count = n;
+      // Außerhalb der Reichweite bleiben manche Varianten leer. Kein erster
+      // Shader-Einsatz beim Schwenk auf ein leeres Instanz-Mesh.
+      if (HOF_BILDFLUSS_AN) m.visible = n > 0;
       m.instanceMatrix.needsUpdate = true;
       m.computeBoundingSphere();
     });
@@ -2106,6 +2619,8 @@ function Klippen({ klippen, ziel, material }: {
  * groß wie jede Kreatur, und der Kampf beginnt nicht von selbst. Ein Bosskampf, der
  * einen im Vorbeigehen erwischt, ist ein Unfall, kein Höhepunkt.
  */
+/** D290: LoD2-Silhouetten (`tools/lod2import.py`), Reihenfolge wie `welt.gebaeude` des Œntals. */
+const LOD2_DATEN = LOD2_ROH as (NonNullable<Weltdaten['gebaeude'][number]['lod2']> | null)[];
 const REGENT_HOEHE = 4.2;
 /**
  * Das Modell (D241) ist 1,6 Einheiten lang statt der 1,2 der Silhouette: 3,8 ergibt gut sechs
@@ -2206,11 +2721,28 @@ function Regentenort({ ort, kreatur, gestalt, ziel, onNah }: {
   );
 }
 
-function Beleuchtung({ s, ziel }: {
-  s: Stimmung; ziel: React.RefObject<THREE.Object3D | null>;
+function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial, geheilt }: {
+  s: Stimmung; ziel: React.RefObject<THREE.Object3D | null>; wiesenbereich?: Wiesenbereich;
+  fernMaterial: THREE.ShaderMaterial; geheilt: boolean;
 }) {
   const { scene, gl } = useThree();
   const sonne = useRef<THREE.DirectionalLight>(null);
+  const halbkugel = useRef<THREE.HemisphereLight>(null);
+  const ortslicht = MILBINGERLICHT_AN && wiesenbereich;
+  const wolkendecke = !geheilt && !MILBINGERKLAR_AN;
+  const tageslicht = wolkendecke ? MILBINGER_WOLKENLICHT : MILBINGER_TAGESLICHT;
+  const ortsfoto = ortslicht ? (wolkendecke ? 'bedeckt' : 'klar') : undefined;
+  const bodenfarbe = HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN;
+  const fuelllicht = (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? .25 : UMLICHT_AN ? .35 : 1);
+  const direktlicht = SONNE_MESSLAUF ?? s.sonneStaerke;
+  const umfeldlicht = HDRI_AN ? HDRI_STAERKE : UMLICHT_STAERKE;
+  const schatten = SCHATTEN_MESSLAUF ?? s.schatten ?? 1;
+  const belichtung = BELICHTUNG_MESSLAUF ?? s.belichtung;
+  const lichtbasis = useMemo(() => ortslicht ? {
+    sonne: new THREE.Color(s.sonne), himmel: new THREE.Color(s.umgebung),
+    erde: new THREE.Color(bodenfarbe), nebel: new THREE.Color(s.nebel),
+    horizont: new THREE.Color(s.horizont), zenit: new THREE.Color(s.zenit),
+  } : null, [ortslicht, s, bodenfarbe]);
   const [takramBereit, setzeTakramBereit] = useState(false);
   const takramAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('takram') === '1';
 
@@ -2230,7 +2762,8 @@ function Beleuchtung({ s, ziel }: {
   const himmel = useMemo(() => baueHimmel({
     zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
     sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
-  }), [s]);
+    atmosphaere: s.atmosphaere,
+  }, ortsfoto), [s, ortsfoto]);
   useEffect(() => {
     setzeHimmel(himmel, {
       zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
@@ -2251,8 +2784,8 @@ function Beleuchtung({ s, ziel }: {
    */
   useEffect(() => {
     gl.toneMapping = KURVE_MESSLAUF ?? KURVE_VORGABE;
-    gl.toneMappingExposure = BELICHTUNG_MESSLAUF ?? s.belichtung;
-  }, [gl, s]);
+    gl.toneMappingExposure = belichtung;
+  }, [gl, belichtung]);
   // Himmelsanteil im Fülllicht je Stimmung (D170) — ein Uniform für alle Set-Pieces.
   useEffect(() => { setzeHimmelStaerke(s.himmelAnteil ?? 0.7); }, [s.himmelAnteil]);
 
@@ -2274,9 +2807,62 @@ function Beleuchtung({ s, ziel }: {
     const p = ziel.current?.position;
     const l = sonne.current;
     if (!p || !l) return;
-    l.position.set(p.x + s.sonnenstand[0], p.y + s.sonnenstand[1], p.z + s.sonnenstand[2]);
+    const ort = ortslicht ? milbingerLichtanteil(ortslicht.rahmen, p.x, p.z, s.sonneStaerke) : 0;
+    const misch = THREE.MathUtils.lerp;
+    l.position.set(p.x + misch(s.sonnenstand[0], tageslicht.sonnenstand.x, ort),
+      p.y + misch(s.sonnenstand[1], tageslicht.sonnenstand.y, ort), p.z + misch(s.sonnenstand[2], tageslicht.sonnenstand.z, ort));
     l.target.position.copy(p);
     l.target.updateMatrixWorld();
+    if (HOF_LICHT_AN) {
+      const mitte = HOF_UNIFORM.mitte.value;
+      const hofAnteil = HOF_UNIFORM.bereit.value
+        * (1 - THREE.MathUtils.smoothstep(Math.hypot(p.x - mitte.x, p.z - mitte.y), 44, 65));
+      l.shadow.radius = misch(1 + 1.9 * hofAnteil, wolkendecke ? 2.7 : 1.75, ort);
+    }
+    if (lichtbasis) {
+      // Licht, Horizont und Nebel folgen demselben ortsfesten Übergang. Keine
+      // Lichtquellen oder Renderpässe wechseln beim Überschreiten einer Kachel.
+      const h = halbkugel.current;
+      if (h) {
+        h.color.lerpColors(lichtbasis.himmel, tageslicht.himmel, ort);
+        h.groundColor.lerpColors(lichtbasis.erde, tageslicht.erde, ort);
+        h.intensity = misch(fuelllicht, tageslicht.hemisphaere, ort);
+      }
+      l.color.lerpColors(lichtbasis.sonne, tageslicht.sonne, ort);
+      l.intensity = misch(direktlicht, tageslicht.direkt, ort);
+      l.shadow.intensity = misch(schatten, tageslicht.schatten, ort);
+      l.shadow.normalBias = .035 * ort;
+      const zoom = misch(1, 1.56, ort);
+      if (l.shadow.camera.zoom !== zoom) {
+        l.shadow.camera.zoom = zoom;
+        l.shadow.camera.updateProjectionMatrix();
+      }
+      gl.toneMappingExposure = misch(belichtung, tageslicht.belichtung, ort);
+      if (HDRI_AN || UMLICHT_AN) scene.environmentIntensity = misch(umfeldlicht, tageslicht.umfeld, ort);
+      if (scene.fog instanceof THREE.Fog) {
+        scene.fog.color.lerpColors(lichtbasis.nebel, tageslicht.dunst, ort);
+        scene.fog.near = misch(s.nebelNah, tageslicht.nebelNah, ort);
+        scene.fog.far = misch(s.nebelFern, tageslicht.nebelFern, ort);
+      }
+      const u = (himmel.material as THREE.ShaderMaterial).uniforms;
+      const richtung: THREE.Vector3 = u.sonnenrichtung.value;
+      richtung.copy(l.position).sub(p).normalize();
+      u.sonnenfarbe.value.copy(l.color);
+      u.zenit.value.lerpColors(lichtbasis.zenit, tageslicht.himmel, ort);
+      u.horizont.value.lerpColors(lichtbasis.horizont, tageslicht.dunst, ort);
+      u.dunst.value.lerpColors(lichtbasis.nebel, tageslicht.dunst, ort);
+      const versatz: THREE.Vector3 | undefined = fernMaterial.uniforms.uDunstversatz?.value;
+      versatz?.set(tageslicht.dunst.r - lichtbasis.horizont.r, tageslicht.dunst.g - lichtbasis.horizont.g,
+        tageslicht.dunst.b - lichtbasis.horizont.b).multiplyScalar(ort);
+      const fern = fernMaterial.uniforms;
+      if (fern.uFernDunst) {
+        fern.uFernDunst.value.copy(u.horizont.value);
+        fern.uFernSonne.value.copy(richtung);
+        fern.uFernDirekt.value.copy(l.color).multiplyScalar(l.intensity / Math.PI);
+        if (h) fern.uFernUmfeld.value.copy(h.color).multiplyScalar(h.intensity / Math.PI);
+      }
+      himmel.userData.ortsfotoAnteil = ort;
+    }
   });
 
   return (
@@ -2285,17 +2871,18 @@ function Beleuchtung({ s, ziel }: {
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       {!takramBereit && <primitive object={himmel} />}
       {takramAn && <TakramProbe sonnenstand={s.sonnenstand} meldeBereit={setzeTakramBereit} />}
-      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? 0.25 : 1)]} />
+      <hemisphereLight ref={halbkugel} args={[s.umgebung, bodenfarbe, fuelllicht]} />
       {HDRI_AN && <HdriLicht />}
+      {UMLICHT_AN && <HimmelLicht s={s} />}
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
-        color={s.sonne} intensity={SONNE_MESSLAUF ?? s.sonneStaerke}
+        color={s.sonne} intensity={direktlicht}
         castShadow shadow-mapSize={[SCHATTENKARTE.aufloesung, SCHATTENKARTE.aufloesung]}
         shadow-camera-left={-SCHATTENKARTE.halb} shadow-camera-right={SCHATTENKARTE.halb}
         shadow-camera-top={SCHATTENKARTE.halb} shadow-camera-bottom={-SCHATTENKARTE.halb}
         shadow-camera-far={700} shadow-bias={-0.0008}
-        shadow-intensity={SCHATTEN_MESSLAUF ?? s.schatten ?? 1}
+        shadow-intensity={schatten}
       />
     </>
   );
@@ -2304,26 +2891,71 @@ function Beleuchtung({ s, ziel }: {
 /**
  * Einzelhalme im Nahbereich, auf der GPU (D211, `world/grasteppich.ts`). `?aus=teppich` schaltet ab.
  */
-function Grasteppich({ welt, feld, ziel, dichte, weite }: {
+/**
+ * Spiegelbild auf stillem Wasser (D280, `world/spiegelbild.ts`): meldet die Teiche des Höhenfelds als
+ * Spiegelebenen an und rechnet je Bild das Spiegelbild des nächsten — vor dem Hauptbild (Priorität 0,5,
+ * `Kontur` zeichnet mit 1).
+ */
+function Spiegelung({ feld }: { feld: HoehenFeld }) {
+  const { gl, scene, camera } = useThree();
+  const spiegel = useMemo(() => new Spiegelbild(), []);
+  useEffect(() => () => spiegel.dispose(), [spiegel]);
+  useEffect(() => {
+    const ab = feld.teiche.map((t) => {
+      let x = 0, z = 0, hoehe = Infinity;
+      // Dieselbe Höhe wie die gezeichnete Teichfläche (`baender.ts`: tiefster Uferpunkt auf dem Netz).
+      for (const [px, pz] of t.punkte) { x += px; z += pz; hoehe = Math.min(hoehe, spiegelAufFlaeche(feld, px, pz)); }
+      x /= t.punkte.length; z /= t.punkte.length;
+      const radius = Math.max(...t.punkte.map(([px, pz]) => Math.hypot(px - x, pz - z)));
+      return meldeSpiegelflaeche({ x, z, hoehe, radius });
+    });
+    return () => ab.forEach((f) => f());
+  }, [feld]);
+  useFrame(() => spiegel.aktualisiere(gl, scene, camera as THREE.PerspectiveCamera), 0.5);
+  return null;
+}
+
+function Grasteppich({ welt, feld, ziel, dichte, weite, strassenmaske, wiesenbereich }: {
   welt: Weltdaten; feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number; weite: number;
+  strassenmaske?: QuerschnittGrasmaske;
+  wiesenbereich?: Wiesenbereich;
 }) {
   const aufWeg = useMemo(() => wegTest(welt, feld), [welt, feld]);
-  const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
+  const lokal = GRAS_FEIN ? undefined : wiesenbereich;
+  const fotoWeg = useMemo(() => lokal?.kontakt
+    ? wegTest(welt, feld, undefined, lokal.kontakt.freigabe) : aufWeg, [welt, feld, lokal, aufWeg]);
+  const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte, undefined, undefined, 0, 1, strassenmaske, lokal),
+    [feld, aufWeg, dichte, strassenmaske, lokal]);
   // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
   const nah = useMemo(() => (dichte >= 1 && !istAus('nahgras')
-    ? (GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT)
-      : baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE)) : null), [feld, aufWeg, dichte]);
+    ? (GRAS_FEIN ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_FEIN, 0, 1, strassenmaske)
+      : GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT, 0, 1, strassenmaske, lokal)
+      : baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE, 0, 1, strassenmaske, lokal)) : null),
+    [feld, aufWeg, dichte, strassenmaske, lokal]);
   // D247: Fernring hinter dem Teppich, nur bei Sichtweite „weit“; `?aus=ferngras` schaltet ab.
   const fern = useMemo(() => (weite > 1 && dichte > 0 && !istAus('ferngras')
-    ? baueGrasteppich(feld, aufWeg, dichte, Math.round(TEPPICH_HALB * 1.5 * weite), FERN_ZELLE, TEPPICH_HALB, 3)
-    : null), [feld, aufWeg, dichte, weite]);
-  useEffect(() => () => { teppich.dispose(); nah?.dispose(); fern?.dispose(); }, [teppich, nah, fern]);
+    ? baueGrasteppich(feld, aufWeg, dichte, Math.round(TEPPICH_HALB * 1.5 * weite), FERN_ZELLE, TEPPICH_HALB, 3, strassenmaske)
+    : null), [feld, aufWeg, dichte, weite, strassenmaske]);
+  const fotoWiese = useMemo(() => lokal && dichte > 0
+    ? baueGrasteppich(feld, fotoWeg, dichte, TEPPICH_HALB, TEPPICH_ZELLE_FEIN, 0, 1, strassenmaske, lokal, true)
+    : null, [feld, fotoWeg, dichte, strassenmaske, lokal]);
+  useEffect(() => () => { teppich.dispose(); nah?.dispose(); fern?.dispose(); fotoWiese?.dispose(); },
+    [teppich, nah, fern, fotoWiese]);
+  useEffect(() => {
+    const vorlauf = fotoWiese?.vorlauf;
+    if (!vorlauf) return;
+    vorlauf.onAfterRender = () => {
+      // Licht, Nebel und Tonwertkurve können während des Aufbaus wechseln.
+      if (ladezeit() !== null) vorlauf.visible = false;
+    };
+  }, [fotoWiese]);
   const erstesBild = useRef(true);
-  useEffect(() => { erstesBild.current = true; }, [teppich, nah, fern]);
+  useEffect(() => { erstesBild.current = true; }, [teppich, nah, fern, fotoWiese]);
   useFrame(({ clock }) => {
     teppich.setzeZeit(clock.elapsedTime);
     nah?.setzeZeit(clock.elapsedTime);
     fern?.setzeZeit(clock.elapsedTime);
+    fotoWiese?.setzeZeit(clock.elapsedTime);
     const p = ziel.current?.position;
     // G-141: Alle drei Ringe teilen sich je Bild eine Frist für das Nachziehen, statt ~55 + ~30 ms
     // in einem Bild (D247). Das allererste Füllen läuft ohne Frist, sonst fehlt der Rasen anfangs.
@@ -2331,71 +2963,64 @@ function Grasteppich({ welt, feld, ziel, dichte, weite }: {
       const frist = erstesBild.current ? Infinity : performance.now() + TEPPICH_FRIST_MS;
       erstesBild.current = false;
       teppich.ziehNach(p.x, p.z, frist); nah?.ziehNach(p.x, p.z, frist); fern?.ziehNach(p.x, p.z, frist);
+      if (fotoWiese && lokal) {
+        const r = lokal.rahmen;
+        fotoWiese.mesh.visible = p.x > r.x - TEPPICH_HALB && p.x < r.z + TEPPICH_HALB
+          && p.z > r.y - TEPPICH_HALB && p.z < r.w + TEPPICH_HALB;
+        if (fotoWiese.mesh.visible) fotoWiese.ziehNach(p.x, p.z, frist);
+      }
     }
   });
-  return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}{fern && <primitive object={fern.mesh} />}</>;
+  return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}{fern && <primitive object={fern.mesh} />}
+    {fotoWiese && <primitive object={fotoWiese.mesh} />}
+    {fotoWiese?.vorlauf && <primitive object={fotoWiese.vorlauf} />}</>;
 }
 
 /**
- * Bodendecker im Nahbereich.
+ * Steine und Äste im Nahbereich.
  *
  * Wird beim Gehen nachgezogen statt einmalig verteilt: 30.000 Props über 16 km²
  * lassen den Boden direkt vor dem Spieler leer, und genau dort schaut man hin.
+ * D366: Die Grasbüschel dieser Schicht sind entfernt (siehe `streuung.ts`).
  */
 function Streuschicht({ feld, ziel, dichte }: {
   feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number;
 }) {
-  const grasGeo = useMemo(() => baueBueschelGeometrie(), []);
   const kleinGeo = useMemo(() => baueKleinzeugGeometrie(), []);
-  const gras = useMemo(() => baueStreuMaterial(), []);
   // Steine und Äste bewegen sich nicht — eigenes Material ohne Wind.
   const kleinMaterial = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
   }), []);
 
   // Kein Schattenwurf und kein Schattenempfang: Ein Shadow-Texel ist bei ±250 m
-  // Schattenkamera und 2048² rund 24 cm — die Büschel sind kleiner als ein Texel.
+  // Schattenkamera und 2048² rund 24 cm — Steine und Äste sind kleiner als ein Texel.
   // Sie würden sich selbst beschatten und schwarz rendern.
-  const grasMesh = useRef<THREE.InstancedMesh>(null);
   const kleinMesh = useRef<THREE.InstancedMesh>(null);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
 
   // Dichteänderung erzwingt ein Nachziehen beim nächsten Bild.
   useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [dichte]);
 
-  useFrame(({ clock }) => {
-    gras.setzeZeit(clock.elapsedTime);
-
+  useFrame(() => {
     const p = ziel.current?.position;
     if (!p) return;
     if (letzte.current.distanceTo(p) < STREU_NACHZIEHEN) return;
     letzte.current.copy(p);
 
-    const g = grasMesh.current;
-    if (g) {
-      g.count = streueUmgebung(feld, p.x, p.z, g, dichte);
-      g.instanceMatrix.needsUpdate = true;
-      g.computeBoundingSphere();
-    }
     const k = kleinMesh.current;
     if (k) {
       k.count = streueKleinzeug(feld, p.x, p.z, k, dichte);
       k.instanceMatrix.needsUpdate = true;
+      if (k.instanceColor) k.instanceColor.needsUpdate = true;
       k.computeBoundingSphere();
     }
   });
 
   return (
-    <>
-      <instancedMesh
-        ref={grasMesh} args={[grasGeo, gras.material, STREU_MAX]}
-        frustumCulled={false} receiveShadow={false} castShadow={false}
-      />
-      <instancedMesh
-        ref={kleinMesh} args={[kleinGeo, kleinMaterial, KLEIN_MAX]}
-        frustumCulled={false} receiveShadow={false} castShadow={false}
-      />
-    </>
+    <instancedMesh
+      ref={kleinMesh} args={[kleinGeo, kleinMaterial, KLEIN_MAX]}
+      frustumCulled={false} receiveShadow={false} castShadow={false}
+    />
   );
 }
 
@@ -3132,7 +3757,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
   // D213: Saum für die neuen Gestalten aus derselben Randfarbe wie Kreaturen und alte Figur.
   useEffect(() => { setzeFigurSaum(rand.farbe, rand.staerke); }, [rand]);
   useEffect(() => {
-    if (held) { legeWahlAn(scene, wahl!); setzeFigurUmgebung(scene, himmelKarte); return; }
+    if (held) { legeWahlAn(scene, wahl!, MILBINGERLICHT_AN); setzeFigurUmgebung(scene, himmelKarte); return; }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
@@ -3717,6 +4342,9 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   return null;
 }
 
+/** D350: Ringtiefe ab Regionskante, bis zu der das DGM1-Fernrelief mit ~31 m Linienabstand bleibt. */
+const FERN_FEIN_BIS_M = 1000;
+
 /**
  * `?kamera=x,y,z,tx,ty,tz` stellt die Kamera fest (Weltmeter, y absolut) und `?fov=42.6`
  * setzt das senkrechte Sichtfeld — Messparameter fuer den Vergleich Spielbild gegen
@@ -3739,6 +4367,12 @@ const FOV_MESSLAUF: number | null = (() => {
 // Alle Prop-Modelle vorladen — sonst poppen sie im ersten Bild nach.
 for (const varianten of Object.values(VARIANTEN))
   for (const v of varianten) useGLTF.preload(propPfad(v.datei));
+// Die Nahstufe verwendet das Blender-Register. Ohne Vorbereitung begann ihr
+// Laden und Dekodieren am ersten LOD-Wechsel während der Hofroute.
+if (HOF_BILDTAKT_AN) {
+  for (const baum of BLENDER_BAEUME)
+    if (baum.stufe === 'nah') useGLTF.preload(propPfad(baum.datei));
+}
 
 /** Was die Szene je halbe Sekunde über sich meldet. */
 export interface Messwerte {
@@ -3768,7 +4402,10 @@ function Messung({ melde }: { melde?: (m: Messwerte) => void }) {
   const stand = useRef({ bilder: 0, zeit: 0 });
   // Messlauf-Sonde (D155): der Szenengraph fuer `.cache/mess/sonde.mjs` — welche Instanzbuendel zeichnen
   // mit welcher Geometrie und welchem Material. Ohne das ist „welcher Baum ist das im Bild" Raten.
-  useEffect(() => { (window as unknown as { __szene?: THREE.Scene }).__szene = scene; }, [scene]);
+  useEffect(() => {
+    (window as unknown as { __szene?: THREE.Scene }).__szene = scene;
+    if (HOF_AN) scene.userData.hofProbe = HOF_UNIFORM;
+  }, [scene]);
   useFrame((_, dt) => {
     if (!melde) return;
     const s = stand.current;
@@ -3945,6 +4582,8 @@ export interface RegionsSzeneProps {
   waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Begegnung bei Nacht (D179). */
   kampfNacht?: boolean;
+  /** D355: Richtungskampf an/aus aus dem Spielstand. */
+  kampfRichtung?: boolean;
   /** Spieler versetzen (D179, Aufwachen in der Zuflucht). */
   spielerSprung?: React.RefObject<[number, number, number?] | null>;
   /** Stand für die Kampfanzeige im DOM, wie `ausdauer` als Ref. */
@@ -3956,7 +4595,7 @@ export function RegionsSzene({
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, geheilt, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, spielerSprung, kampfStand, lagerstellen,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, kampfRichtung, spielerSprung, kampfStand, lagerstellen,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -3973,7 +4612,10 @@ export function RegionsSzene({
   // hängt an einem Regler und nicht an der Bildrate.
   const s = useMemo(() => {
     const basis = STIMMUNG_MESSLAUF ?? stimmungBei(tageszeit);
-    return geheilt || GEHEILT_ANSICHT ? heileStimmung(basis) : basis;
+    const gemischt = geheilt || GEHEILT_ANSICHT ? heileStimmung(basis) : basis;
+    // D368: Farben von Nebel, Fernland, Sonne und Fülllicht aus dem physikalischen Himmel; alle
+    // Stärken bleiben die der Stimmung. Ohne `?himmel=physik` unverändert.
+    return HIMMEL_PHYSIK_AN ? koppleStimmung(gemischt) : gemischt;
   }, [tageszeit, geheilt]);
   const neigung = useRef(NEIGUNG_START);
   const schritt = useRef({ phase: 0, tempo: 0 });
@@ -3989,15 +4631,45 @@ export function RegionsSzene({
   // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
   // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
   const terrain = useMemo(() => baueTerrain(welt), [welt]);
+  const regionsinhalt = useMemo(() => STRASSENVERFALL_AN || MILBINGERMASSE_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))
+    : undefined, [welt]);
 
   // Höhenfeld mit Mikrorelief — die gemeinsame Wahrheit für Boden, Props und Spawn.
-  const feld = useMemo(() => baueHoehenfeld(welt, MIKRO_MESSLAUF ?? undefined), [welt]);
+  const nahhoehen = MILBINGERMASSE_AN ? regionsinhalt?.nahhoehen : undefined;
+  const feld = useMemo(() => baueHoehenfeld(welt, MIKRO_MESSLAUF ?? undefined, undefined, nahhoehen), [welt, nahhoehen]);
+  useMemo(() => { if (HOF_AN) waehleHof(welt, feld); }, [welt, feld]);
   const kacheln = useMemo(() => baueKachelraster(feld), [feld]);
+  const strassen = STRASSENVERFALL_AN ? regionsinhalt?.strassenkulisse : undefined;
+  const strassenmaske = useMemo(() => {
+    if (!WOHNWEGQUERSCHNITT_AN || !strassen) return undefined;
+    const masken = strassen.flatMap(abschnitt => abschnitt.wege.flatMap(({ osmWeg, querschnitt }) => {
+      if (!querschnitt) return [];
+      const weg = welt.wege.find(w => w.quelle?.osmId === osmWeg);
+      return weg ? [querschnittFreihaltung(weg.punkte.map(p => nachMetern(p, welt.bbox)), querschnitt, weg.breite)] : [];
+    }));
+    return baueQuerschnittGrasmaske(masken);
+  }, [welt, strassen]);
+  useEffect(() => () => { strassenmaske?.textur.dispose(); }, [strassenmaske]);
+  const wiesenbereich = useMemo(() => {
+    if (!MILBINGERMASSE_AN || !strassenmaske) return undefined;
+    const hofkarte = HOF_UNIFORM.kontakt.value;
+    const kontakt = MILBINGERBODEN_AN && LOD2_AN && !istAus('haeuser') && LOD2_DATEN.length === welt.gebaeude.length
+      ? baueWiesenHauskontakt(welt, LOD2_DATEN, ort => nachMetern(ort, welt.bbox),
+        hofkarte instanceof THREE.DataTexture ? hofkarte : undefined) : undefined;
+    return baueWiesenbereich(strassenmaske.rahmen, kontakt);
+  }, [welt, strassenmaske, feld]);
+  useEffect(() => () => { wiesenbereich?.kontakt?.textur.dispose(); }, [wiesenbereich]);
+  const sandkasten = useMemo(() => MILBINGERSUBSTANZ_AN && strassenmaske
+    ? baueMilbingerSandkasten(welt, (x, z) => hoeheAufFlaeche(feld, x, z), strassenmaske.enthaelt)
+    : undefined, [welt, feld, strassenmaske]);
+  useEffect(() => () => sandkasten?.entsorge(), [sandkasten]);
 
   // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben
   // Positionen. Zweimal verteilen hieße, gegen unsichtbare Bäume zu laufen.
   // D232: dieselbe Funktion wie die Werkzeuge (`szenenprops.ts`).
-  const props = useMemo(() => propsWieSzene(welt, terrain, feld), [welt, terrain, feld]);
+  const props = useMemo(() => propsWieSzene(welt, terrain, feld, strassenmaske?.enthaelt,
+    LOD2_AN && LOD2_DATEN.length === welt.gebaeude.length ? LOD2_DATEN : undefined), [welt, terrain, feld, strassenmaske]);
   const kollision = useMemo(
     () => baueKollision(props, welt, feld.breiteMeter, feld.tiefeMeter),
     [props, welt, feld],
@@ -4076,10 +4748,17 @@ export function RegionsSzene({
       dunst: s.horizont, sonne: s.sonne, sonneStaerke: s.sonneStaerke,
       umgebung: s.umgebung, umgebungStaerke: s.umgebungStaerke,
       sonnenstand: s.sonnenstand,
-    }) : null),
+      beweglicherDunst: MILBINGERLICHT_AN,
+    }, FERNHALB_AN ? FERN_FEIN_BIS_M : Infinity) : null),
     [fernland, welt, s],
   );
-  const fernMaterial = useMemo(() => baueFernlandMaterial(), []);
+  const fernDetail = !!fernland?.detail;
+  const fernMaterial = useMemo(() => baueFernlandMaterial(MILBINGERLICHT_AN, fernDetail), [fernDetail]);
+  useEffect(() => stelleReliefLicht(fernMaterial, {
+    dunst: s.horizont, sonne: s.sonne, sonneStaerke: s.sonneStaerke,
+    umgebung: s.umgebung, umgebungStaerke: s.umgebungStaerke, sonnenstand: s.sonnenstand,
+  }), [fernMaterial, s]);
+  useEffect(() => () => fernMaterial.dispose(), [fernMaterial]);
   useEffect(() => () => { fernGeo?.dispose(); }, [fernGeo]);
 
   return (
@@ -4093,16 +4772,19 @@ export function RegionsSzene({
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
       <WasserUmgebung werte={{ zenit: s.zenit, horizont: s.horizont, dunst: s.nebel,
-        sonne: s.sonne, sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof }}>
-      <Beleuchtung s={s} ziel={ref} />
+        sonne: s.sonne, sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof,
+        atmosphaere: s.atmosphaere }}>
+      <Beleuchtung s={s} ziel={ref} wiesenbereich={wiesenbereich} fernMaterial={fernMaterial} geheilt={!!geheilt || GEHEILT_ANSICHT} />
       {!istAus('kulisse') && fernGeo && (
         <mesh geometry={fernGeo} material={fernMaterial} frustumCulled={false} renderOrder={-500} />
       )}
       <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} senke={senke}
+               strassen={strassen} strassenmaske={strassenmaske} wiesenbereich={wiesenbereich}
                props={istAus('baeume') ? LEERE_PROPS : props}
                dichte={istAus('gras') ? 0 : qualitaet.gras} weite={qualitaet.weite}
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
                fenster={s.fenster ?? 0} />
+      {sandkasten && <primitive object={sandkasten.gruppe} />}
       {(felsArt === 'ki' || felsArt === 'scan') && <Suspense fallback={null}>
         <FelsVergleich art={felsArt} position={[felsX, hoeheAufFlaeche(feld, felsX, felsZ), felsZ]} />
       </Suspense>}
@@ -4127,7 +4809,7 @@ export function RegionsSzene({
         <Suspense fallback={null}>
           <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
                       ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} waffenStufen={waffenStufen} nacht={kampfNacht}
+                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} waffenStufen={waffenStufen} nacht={kampfNacht} richtung={kampfRichtung}
                       key={kampfEnde ? `welt-${kampfAufstellung?.join(',')}` : 'platz'} />
         </Suspense>
       )}
@@ -4156,7 +4838,7 @@ export function RegionsSzene({
                    hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} kollision={kollision} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
-      <EzBaumProbe ziel={ref} />
+      <EzBaumProbe ziel={ref} lokal={HOF_GRUEN_AN} milbinger={MILBINGERLICHT_AN && !!wiesenbereich} />
       {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
       <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
               bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />

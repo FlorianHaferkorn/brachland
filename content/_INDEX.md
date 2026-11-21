@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-10-18
+last-reviewed: 2026-11-21
 shelf-life-days: 90
 owns: *.json
 ---
@@ -21,6 +21,7 @@ owns: *.json
 | Eine Region anlegen | `regions/oental.json` als Muster; `nachbarn` beidseitig, danach `npm run world <id> 384` und `npm run fernland <id>` (ADR-0014) |
 | Einen Gegner nachstellen | `gegner/_INDEX.md` → `../tests/echtzeit.test.ts` |
 | Eine Waffe oder einen Schlag ändern | `waffen/_INDEX.md` → `../docs/adr/0008-waffenwerk-zwei-klassen.md` |
+| Eine Hausfassade nach Foto anlegen | `fassaden/_INDEX.md` → `../docs/design/BRACHLAND_Fassaden_Fotoliste_v1.md` |
 | Verstehen, was geprüft wird | `../src/data/schema.ts`, `../tools/quality.ts` |
 
 ## Register
@@ -31,7 +32,11 @@ owns: *.json
 | `creatures/trafomarder.json` | Trafomarder (Basis Baummarder, alt-tech + faeulnis, Trafostation-Verwachsung). Spawn an `power=substation`, Budget 4.000 Tris |
 | `regenten/flussvater.json` | Der Flussvater — Regent von Œntal, Riesenwels mit Kläranlagen-Organik. **Drei Phasen** (wasser → faeulnis → alt-tech/stein), 480 KP. Der Grund, warum Wechseln Pflicht ist |
 | `regenten/brutmutter.json` | Die Brutmutter — Regent von Fahlmoos, Kreuzotter mit Inkubator. Drei Phasen (faeulnis → sporen → faeulnis/wasser), 500 KP, Frost als Engpass (D246). **Noch nicht im Spiel:** Region `fahlmoos` fehlt (G-140) |
-| `regions/oental.json` | Œntal = Inntal-Süd (Brannenburg/Wendelstein-Fuß). BBox, Regent, Traversal „Klettern", Zielspielzeit 6 Std |
+| `regions/oental.json` | Œntal = Inntal-Süd (Brannenburg/Wendelstein-Fuß). BBox, Regent, Traversal „Klettern", Zielspielzeit 6 Std. D329: Nutzungszustände der drei Referenzhäuser an der Weststraße. D333: Straßenverfall anhand der OSM-Weg-ID sowie Ortstafel und Laternen anhand der OSM-Knoten-ID. |
+| `milbinger-substanz.json` | D347: Gartensäume entlang der im DOP20 erkennbaren Pflanzstreifen und örtliche Verfallsstufen der LoD2-Häuser. Dachschäden und Relikte gehören zur Spielwelt. |
+| `massstab.json` | D352: reale Referenzmaße mit Quelle (Efeublatt, Figur, Bordhöhe, Baumhöhen), Schema `MassReferenz`; `../tools/massstab.ts` prüft die gebaute Geometrie dagegen, `../src/world/hausbewuchs.ts` liest die Efeugrösse daraus. Neue Zeile: Spanne, Quelle, `belegt`. |
+| `hofbaukasten.json` | D360: Maße, Farben und Verfallswerte des Inntaler Einfirsthofs für `../tools/hofbaukasten.py`, Schema `Hofbaukasten`. Jede Zahl mit Quelle (Bauwelt-Notiz, Ledger) oder `annahme: true`; `npm run validate` lehnt eine Zahl ohne Beleg und ohne Kennzeichnung ab. |
+| `hofbauten.json` | D363: welche OSM-Gebäude (Index in `welt.gebaeude` je Region) ein Hof-Baukasten-Modell ersetzt, mit Saat, Stufe und Grund; Schema `Hofbauten`, `npm run validate` prüft, dass `public/bauten/<modell>.glb` existiert. |
 | `regions/fahlmoos.json` | Fahlmoos = Kollerfilze und Rosenheimer Becken (Raubling/Kolbermoor), eigene Karte nach ADR-0014. Regent Brutmutter, 6 Œntal-Arten als Platzhalter (G-144), Traversal „Wasser“ (UNKLAR), `nachbarn`: Œntal im Süden |
 | `creatures/nebelgams.json` | Nebelgams (Gams, Stein, Silikat-Hufe). 2 Stufen, `natural=scrub`, schnellster Steinträger |
 | `creatures/kiemenbiber.json` | Kiemenbiber (Biber, Wasser, Filterkiemen-Kragen). 3 Stufen, `waterway=stream` — im 96er-Raster praktisch nicht vorhanden, siehe Ledger G-22 |

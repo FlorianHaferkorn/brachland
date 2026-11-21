@@ -18,8 +18,14 @@
  */
 import * as THREE from 'three';
 import { HIMMEL_UNIFORM } from './windmaterial.js';
+import { hofTextur, hofUniforms, HOF_BODEN_PARS, HOF_BODEN_FARBE, HOF_BODEN_NORMAL } from './hofmaterial.js';
+import { HOF_UNIFORM } from './hofplatz.js';
+import HOF_KIES from '../../public/material/hof-kies.json';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT } from './echt.js';
+import { WIESENBEREICH_GLSL, wiesenKontaktGlsl, WIESENWUCHS_GLSL, type Wiesenbereich } from './wiesenbereich.js';
+import { MILBINGERDETAIL_AN, MILBINGERSUBSTANZ_AN } from './echt.js';
+import { OBERFLAECHEN_GLSL } from './oberflaechen.js';
+import { GEWAESSER_ECHT, GRAS_ECHT, GRAS_VIEL, HOF_AN, HOF_BODEN_AN, HOF_GRAS_AN, HOF_ORTSALTERUNG_AN, HOF_ZIELTREUE_AN, HOF_VERFALLVERLAUF_AN } from './echt.js';
 
 /**
  * Himmelsanteil des Geländes um ein Set-Piece (D171, `tools/himmelboden.ts`): ein Raster von
@@ -255,6 +261,87 @@ const SCAN_GLSL = /* glsl */ `
   // und der Rasen las als einzelne Sprossen (Stauwehr, 12.11.2026).
   diffuseColor.rgb *= mix(vec3(1.0), vec3(0.5, 0.64, 0.36), scanGewicht.x * 0.85);
 #endif
+#ifdef WIESENBEREICH
+  float wiesenanteil = wiesenbereichGewicht(vWeltPos.xz) * scanGewicht.x;
+  // In der Siedlung mischt der Wiesenscan die trockene Grundfarbe in kürzere grüne Weide.
+  diffuseColor.rgb *= mix(vec3(1.0), vec3(.94, 1.11, .83), wiesenanteil * .82);
+#endif
+#if defined(GRAS_VIEL) || defined(WIESENBEREICH)
+  // D272 (?gras=3): Zwischen den Büscheln liegt nasser Boden. Dasselbe Rauschen wie die Lücken im
+  // Grasteppich (halmRauschen(ort * 0.8 + 71)), damit freier Boden und fehlende Büschel zusammenfallen.
+  {
+    vec2 lp = mod(vWeltPos.xz * 0.8 + 71.0, 4096.0);
+    vec2 li = floor(lp), lf = fract(lp); lf = lf * lf * (3.0 - 2.0 * lf);
+    float l00 = fract(sin(dot(mod(li, 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float l10 = fract(sin(dot(mod(li + vec2(1.0, 0.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float l01 = fract(sin(dot(mod(li + vec2(0.0, 1.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float l11 = fract(sin(dot(mod(li + vec2(1.0, 1.0), 4096.0), vec2(12.9898, 78.233))) * 43758.5453);
+    float luecke = 1.0 - smoothstep(0.3, 0.55, mix(mix(l00, l10, lf.x), mix(l01, l11, lf.x), lf.y));
+    // D282: Flo 14.11.2026 „komische bräunliche Flächen“ — als Flatfarbe lagen die Lücken als runde, gleichmässig
+    // braune Ovale auf der Wiese. Jetzt: Rand von feinerem Rauschen zerfranst, und der Scan-Boden bleibt sichtbar,
+    // nur dunkler und erdiger (Erde zwischen Gras ist kein Farbfleck, sondern abgedunkelter Boden mit Streu).
+    float fransen = smoothstep(0.35, 0.65, bodenRauschen(vWeltPos.xz * 2.7 + 13.0));
+    float erde = luecke * mix(0.35, 1.0, fransen) * scanGewicht.x * 0.7;
+#if defined(WIESENBEREICH) && !defined(GRAS_VIEL)
+    erde *= wiesenbereichGewicht(vWeltPos.xz);
+#endif
+    diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.62, 0.52, 0.4) + vec3(0.02, 0.015, 0.008), erde);
+  }
+#endif
+`;
+
+const MILBINGER_BODEN = /* glsl */ `
+  float milbingerStreu = 0.0;
+  vec2 milbingerWuchs = vec2(0.0);
+  if (wiesenanteil > 0.0) {
+    milbingerWuchs = wiesenWuchs(vWeltPos.xz);
+    milbingerStreu = wiesenanteil * (1.0 - smoothstep(.13,.49,milbingerWuchs.x - .19*milbingerWuchs.y))
+      * smoothstep(.23,.75,sWald.a*.56 + sSchutt.a*.44 + fein*.36);
+    vec3 streu = vec3(.102,.072,.043) * (sWald.rgb*1.14 + sSchutt.rgb*.73 + .12);
+    vec3 gruen = diffuseColor.rgb * mix(vec3(.66,.83,.61),vec3(1.0,.86,.64),milbingerWuchs.y);
+    diffuseColor.rgb = mix(diffuseColor.rgb, mix(gruen,streu,milbingerStreu), wiesenanteil*.94);
+  }
+`;
+
+const SOCKELBODEN = /* glsl */ `
+  float mauerfuss = wiesenHauskontakt(vWeltPos.xz).r;
+  if (mauerfuss > 0.0) {
+    // Zwischen Fundament, ausgewaschenem Kies und Gras bleibt ein löchriger Streusaum.
+    float fleck = .58*fein + .42*bodenRauschen(vWeltPos.xz * 2.96);
+    float saum = smoothstep(.17,.87,mauerfuss * (.63 + .74*fleck));
+    float lager = smoothstep(.42,.73,sSchutt.a*.72 + fleck*.39);
+    vec3 humus = vec3(.122,.086,.054) * (sWald.rgb * 1.59 + .24);
+    vec3 riesel = vec3(.154,.139,.113) * (sSchutt.rgb * 1.72 + .22);
+    vec3 auflage = mix(humus,riesel,lager*(.48 + .39*fleck));
+    diffuseColor.rgb = mix(diffuseColor.rgb,auflage,saum*.78);
+    diffuseColor.rgb *= 1.0 - smoothstep(.88,.999,mauerfuss) * (.16 + .08*fleck);
+  }
+`;
+
+const SUBSTRAT_BODEN = /* glsl */ `
+  float substratAnteil = wiesenbereichGewicht(vWeltPos.xz) * (1.0 - .96 * scanGewicht.w);
+  vec2 substratOrt = vWeltPos.xz;
+  float substratPixel = max(length(dFdx(substratOrt)), length(dFdy(substratOrt)));
+  float substratHoehe = 0.0;
+  float substratRauheit = .95;
+  if (substratAnteil > 0.0) {
+    float offeneErde = max(milbingerStreu, (1.0 - smoothstep(.08,.52,milbingerWuchs.x - .21*milbingerWuchs.y))*.82);
+    float senke = substratRauschen(substratOrt*1.48);
+    float feuchteErde = smoothstep(.34,.71,senke*.67 + vNass*.45);
+    float klumpen = .64*substratKorn(substratOrt,substratPixel,5.9)
+      + .36*mix(.5,sWald.a,substratDetail(substratPixel,12.0));
+    float wurzelfilz = .55*substratKorn(substratOrt,substratPixel,2.8)
+      + .45*mix(.5,sWiese.a,substratDetail(substratPixel,10.0));
+    float feinkorn = substratKorn(substratOrt,substratPixel,24.0);
+    float erdRelief = .043*(klumpen-.5) + .009*(feinkorn-.5);
+    float wiesenRelief = .046*(wurzelfilz-.5) + .024*(senke-.5);
+    substratHoehe = mix(wiesenRelief,erdRelief*(1.0-.28*feuchteErde),offeneErde)*substratAnteil;
+    vec3 erdFarbe = mix(vec3(.132,.098,.065),vec3(.060,.045,.031),feuchteErde);
+    erdFarbe *= .45 + 1.16*klumpen + .28*feinkorn;
+    vec3 wiesenFarbe = diffuseColor.rgb * mix(vec3(.72,.73,.53),vec3(1.19,1.21,.96),wurzelfilz);
+    diffuseColor.rgb = mix(diffuseColor.rgb,mix(wiesenFarbe,erdFarbe,offeneErde*.82),substratAnteil);
+    substratRauheit = mix(.97,mix(.94,.76,feuchteErde),offeneErde);
+  }
 `;
 
 const DETAIL_GLSL = /* glsl */ `
@@ -346,12 +433,39 @@ const BODEN_KANTIG: boolean = (() => {
 const MIT_UFER: boolean = typeof location === 'undefined'
   || new URLSearchParams(location.search).get('ufer') !== '0';
 
-export function baueBodenMaterial(): THREE.MeshStandardMaterial {
+export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStandardMaterial {
+  const milbinger = MILBINGERDETAIL_AN && wiesenbereich;
+  const substrat = MILBINGERSUBSTANZ_AN && !!milbinger;
+  const kontakt = wiesenbereich?.kontakt;
+  const hofTeil = HOF_AN && HOF_BODEN_AN ? kontakt?.hofTeil : undefined;
+  const hofFarben = hofTeil ? HOF_BODEN_FARBE.replace('texture2D(uHofKontakt, kontaktUv).r',
+    'kontaktAtlas(uHofKontakt, kontaktUv, uHofKontaktTeil).r') : HOF_BODEN_FARBE;
   const material = new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: BODEN_KANTIG, roughness: 0.95, metalness: 0,
   });
 
   material.onBeforeCompile = (shader) => {
+    if (wiesenbereich) shader.uniforms.uWiesenbereich = { value: wiesenbereich.rahmen };
+    if (HOF_AN) Object.assign(shader.uniforms, hofUniforms(), {
+      uHofBodenFarbe: { value: hofTextur('kies-farbe', true) },
+      uHofBodenNormal: { value: hofTextur('kies-normal') },
+      uHofBodenArm: { value: hofTextur('kies-arm') },
+      uHofBodenMeter: { value: HOF_KIES.meter },
+    });
+    if (HOF_ZIELTREUE_AN) Object.assign(shader.uniforms, {
+      uHofZielVorfeld: HOF_UNIFORM.zielVorfeld,
+      uHofZielHalb: HOF_UNIFORM.zielHalb,
+    });
+    if (kontakt) {
+      shader.uniforms.uWiesenKontaktRahmen = { value: kontakt.rahmen };
+      shader.uniforms.uWiesenKontaktTeil = { value: kontakt.wiesenTeil };
+      if (hofTeil) {
+        // Desktop-WebGL stellt hier 16 Fragment-Sampler bereit. Beide R8-Raster
+        // teilen den bestehenden Hof-Slot, ihre Weltkoordinaten bleiben getrennt.
+        shader.uniforms.uHofKontakt = { value: kontakt.textur };
+        shader.uniforms.uHofKontaktTeil = { value: hofTeil };
+      } else shader.uniforms.uWiesenKontakt = { value: kontakt.textur };
+    }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWeltPos;\nvarying vec3 vWeltNormal;\nattribute float nass;\nvarying float vNass;')
       .replace(
@@ -360,13 +474,24 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
       );
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL)
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (MIT_UFER ? NASS_GLSL : ''))
+      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL + (wiesenbereich ? WIESENBEREICH_GLSL : '') + (milbinger ? WIESENWUCHS_GLSL : '') + (HOF_AN ? HOF_BODEN_PARS : '') + (kontakt ? wiesenKontaktGlsl(!!hofTeil) : ''))
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (milbinger ? MILBINGER_BODEN : '') + (kontakt ? SOCKELBODEN : '') + (MIT_UFER ? NASS_GLSL : '') + (HOF_AN ? hofFarben : ''))
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n'
-        + (MIT_UFER ? '  roughnessFactor = mix(roughnessFactor, 0.55, nassAnteil);\n' : ''))
-      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL)
+        // D281 (`?gewaesser=1`): 0,55 spiegelte den hellen Himmel als weissen Reif-Streifen am Ufer; nasse Erde ist
+        // dunkel und matter, glänzend nur der dünne Wasserfilm direkt an der Linie.
+        + (milbinger ? 'roughnessFactor = mix(roughnessFactor, .78, milbingerStreu * .68);\n' : '')
+        + (substrat ? 'roughnessFactor = mix(roughnessFactor, substratRauheit, substratAnteil);\n' : '')
+        + (HOF_AN ? 'roughnessFactor = mix(roughnessFactor, clamp(hofBodenArm.g, 0.6, 1.0), hofBodenAnteil);\n' : '')
+        + (MIT_UFER ? `  roughnessFactor = mix(roughnessFactor, ${GEWAESSER_ECHT ? 'mix(0.85, 0.5, smoothstep(0.85, 1.0, vNass))' : '0.55'}, nassAnteil);\n` : ''))
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n' + RELIEF_GLSL + DETAIL_GLSL + (HOF_AN ? HOF_BODEN_NORMAL : ''))
       .replace('#include <common>', '#include <common>\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\nuniform float uHimmel;')
-      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL);
+      .replace('#include <aomap_fragment>', '#include <aomap_fragment>\n' + HIMMEL_GLSL + (HOF_AN ? 'reflectedLight.indirectDiffuse *= mix(1.0, hofBodenArm.r, hofBodenAnteil * 0.5);' : ''));
+    if (substrat) shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\n' + OBERFLAECHEN_GLSL)
+      .replace('#include <roughnessmap_fragment>', SUBSTRAT_BODEN + '\n#include <roughnessmap_fragment>')
+      .replace('#include <normal_fragment_maps>', /* glsl */ `#include <normal_fragment_maps>
+        normal = substratNormale(normal, vViewPosition,
+          substratHoehe * (1.0 - smoothstep(11.0,38.0,length(vViewPosition))), faceDirection);`);
     shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
     shader.uniforms.uBodenRahmen = BODEN_HIMMEL.rahmen;
     shader.uniforms.uHimmel = HIMMEL_UNIFORM;
@@ -388,7 +513,14 @@ export function baueBodenMaterial(): THREE.MeshStandardMaterial {
   // Ohne eigenen Cache-Schlüssel teilt three das kompilierte Programm mit anderen
   // MeshStandardMaterials gleicher Konfiguration — und die hätten das Rauschen nicht.
   if (GRAS_ECHT) material.defines = { ...material.defines, GRAS_ECHT: '' };
-  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken');
+  if (GRAS_VIEL) material.defines = { ...material.defines, GRAS_VIEL: '' };
+  if (wiesenbereich) material.defines = { ...material.defines, WIESENBEREICH: '' };
+  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken') + (HOF_AN ? '-scanhof' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? (HOF_GRAS_AN ? '-ortsalterung-pfad' : '-ortsalterung') : '') + (wiesenbereich ? '-wiesenbereich' : '');
 
+  if (milbinger) {
+    const basis = material.customProgramCacheKey;
+    material.customProgramCacheKey = () => basis() + (hofTeil ? '-kontaktatlas' : kontakt ? '-milbingerkontakt' : '-milbingerdetail')
+      + (substrat ? '-substrat' : '');
+  }
   return material;
 }

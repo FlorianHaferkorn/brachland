@@ -25,6 +25,9 @@
  * Rendering wäre das ein Baum, der für ein paar Schritte weg ist, und darauf
  * fällt niemand rechtzeitig herein.
  */
+import { HOF_GRUEN_AN, HOF_STRAUCH_WEIT } from '../world/echt.js';
+import { HOF_UNIFORM } from '../world/hofplatz.js';
+import { istHofBusch } from '../world/hofgruenwahl.js';
 import type { PropArt, PropChunk, PropInstanz } from '../world/props.js';
 import { ATTRAPPE_AB, MITTEL_AB, FERN_NEUBEWERTUNG, PROP_NEUBEWERTUNG, TERRAIN_SICHT } from './sichtweiten.js';
 
@@ -89,6 +92,35 @@ export interface Auswahl {
   buendelKacheln: Set<string>;
 }
 
+interface PropAnkerstand {
+  quelle: readonly PropChunk[];
+  x: number;
+  z: number;
+  weite: number;
+  kandidaten: PropChunk[];
+  buendelKacheln?: Set<string>;
+}
+
+/** Nahkandidaten und Fernzuordnung bleiben zwischen zwei Fernankern gleich. */
+export interface PropAnkerCache {
+  stand?: PropAnkerstand;
+  /** Die Szene fragt die letzte Zuordnung aus dem Anker ab. Die vollständige Schlüsselliste bleibt abrufbar. */
+  fernschluesselBeiBedarf?: boolean;
+}
+
+function fernschluessel(stand: PropAnkerstand): Set<string> {
+  if (stand.buendelKacheln) return stand.buendelKacheln;
+  const liste = new Set<string>();
+  const ab = ATTRAPPE_AB * stand.weite;
+  for (const c of stand.quelle) {
+    if (Math.hypot(stand.x - c.mitte[0], stand.z - c.mitte[1]) > ab) {
+      liste.add(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`);
+    }
+  }
+  stand.buendelKacheln = liste;
+  return liste;
+}
+
 /**
  * Welche der zwei verschieden getakteten Listen neu gebaut werden muss.
  * Ein neuer Fernanker erzwingt die Nahliste mit: Er verschiebt ihre gemeinsame
@@ -112,26 +144,43 @@ export function propListenNeu(nahAbstand: number, fernAbstand: number): { nah: b
 export function waehleProps(
   chunks: readonly PropChunk[], p: readonly [number, number],
   anker: readonly [number, number], bauBuendel: boolean,
-  warGebuendelt?: ReadonlySet<string>, weite = 1,
+  warGebuendelt?: ReadonlySet<string>, weite = 1, cache?: PropAnkerCache,
 ): Auswahl {
   const attrappeAb = ATTRAPPE_AB * weite, mittelAb = MITTEL_AB * weite;
   const sicht = (c: PropChunk) => KLEINKRAM.has(c.art) ? c.sichtweite : Math.min(TERRAIN_SICHT, c.sichtweite * weite);
   const nah: { c: PropChunk; stufe: PropStufe }[] = [];
   const buendel = new Map<PropArt, PropChunk[]>();
-  const buendelKacheln = new Set<string>();
+  const stand = cache?.stand;
+  const bekannt = !bauBuendel && stand !== undefined && stand.quelle === chunks
+    && stand.x === anker[0] && stand.z === anker[1] && stand.weite === weite;
+  const fernBeiBedarf = cache?.fernschluesselBeiBedarf === true;
+  const buendelKacheln = bekannt ? stand.buendelKacheln : fernBeiBedarf ? undefined : new Set<string>();
+  const alterAnker = fernBeiBedarf && !warGebuendelt ? stand : undefined;
+  const alteSchluessel = warGebuendelt ?? (alterAnker && alterAnker.quelle !== chunks ? fernschluessel(alterAnker) : undefined);
+  const kandidaten: PropChunk[] | null = cache && !bekannt ? [] : null;
 
-  for (const c of chunks) {
-    const vomAnker = Math.hypot(anker[0] - c.mitte[0], anker[1] - c.mitte[1]);
-    if (vomAnker > attrappeAb) {
-      buendelKacheln.add(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`);
-      // Sichtweite um die Ankerstrecke erweitert: Was in den nächsten 60 m in
-      // Reichweite gerät, ist schon drin, statt später hineinzupoppen.
-      if (bauBuendel && vomAnker - c.radius <= sicht(c) + FERN_NEUBEWERTUNG) {
-        let ziel = buendel.get(c.art);
-        if (!ziel) { ziel = []; buendel.set(c.art, ziel); }
-        ziel.push(c);
+  for (const c of bekannt ? stand.kandidaten : chunks) {
+    if (!bekannt) {
+      const dx = anker[0] - c.mitte[0], dz = anker[1] - c.mitte[1];
+      if (fernBeiBedarf) {
+        // Der Abstand auf einer Achse unterschätzt den tatsächlichen Abstand.
+        // Nur sicher unsichtbare Fern-Props vor der exakten Prüfung auslassen.
+        const achse = Math.max(Math.abs(dx), Math.abs(dz));
+        if (achse > attrappeAb && (!bauBuendel || achse - c.radius > sicht(c) + FERN_NEUBEWERTUNG)) continue;
       }
-      continue;
+      const vomAnker = Math.hypot(dx, dz);
+      if (vomAnker > attrappeAb) {
+        buendelKacheln?.add(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`);
+        // Sichtweite um die Ankerstrecke erweitert: Was in den nächsten 60 m in
+        // Reichweite gerät, ist schon drin, statt später hineinzupoppen.
+        if (bauBuendel && vomAnker - c.radius <= sicht(c) + FERN_NEUBEWERTUNG) {
+          let ziel = buendel.get(c.art);
+          if (!ziel) { ziel = []; buendel.set(c.art, ziel); }
+          ziel.push(c);
+        }
+        continue;
+      }
+      kandidaten?.push(c);
     }
     const mitte = Math.hypot(p[0] - c.mitte[0], p[1] - c.mitte[1]);
     // Sichtbarkeit über den **nächsten Rand**: Ein Chunk, von dem eine Ecke in
@@ -205,7 +254,9 @@ export function waehleProps(
      * Schritt lang — und ein Baum auf Mittelstufe statt Nahstufe für 8 m Weg ist
      * unsichtbar gegen einen Kegel, der zum Baum wird.
      */
-    const kamAusDemBuendel = warGebuendelt?.has(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`) ?? false;
+    const kamAusDemBuendel = alteSchluessel?.has(`${c.art}|${c.mitte[0]}|${c.mitte[1]}`)
+      ?? (alterAnker !== undefined
+        && Math.hypot(alterAnker.x - c.mitte[0], alterAnker.z - c.mitte[1]) > ATTRAPPE_AB * alterAnker.weite);
     if (kamAusDemBuendel) { nah.push({ c, stufe: 'mittel' }); continue; }
     if (BAUM.has(c.art) && Math.abs(mitte - mittelAb) < c.radius && c.instanzen.length > 0) {
       const nahe: PropInstanz[] = [], mittlere: PropInstanz[] = [];
@@ -229,7 +280,12 @@ export function waehleProps(
     }
     nah.push({ c, stufe: mitte > mittelAb ? 'mittel' : 'nah' });
   }
-  return { nah: legeMittelZusammen(nah), buendel, buendelKacheln };
+  const neu = bekannt ? stand : { quelle: chunks, x: anker[0], z: anker[1], weite, kandidaten: kandidaten ?? [], buendelKacheln };
+  if (cache && kandidaten) cache.stand = neu;
+  return {
+    nah: legeMittelZusammen(nah), buendel,
+    get buendelKacheln() { return fernschluessel(neu); },
+  };
 }
 
 /**
@@ -249,7 +305,7 @@ function legeMittelZusammen(
   const zusammen = new Map<string, PropChunk>();
   for (const e of eintraege) {
     // Baumvarianten behalten dieselbe Silhouette auf jeder Stufe (D157).
-    if (e.stufe !== 'mittel' || FORM_BEHALTEN.has(e.c.art)) { heraus.push(e); continue; }
+    if (e.stufe !== 'mittel' || FORM_BEHALTEN.has(e.c.art) || (HOF_GRUEN_AN && e.c.art === 'busch' && istHofBusch(e.c.mitte, e.c.radius))) { heraus.push(e); continue; }
     const c = e.c;
     const schluessel = `${c.art}|${c.mitte[0]}|${c.mitte[1]}`;
     const da = zusammen.get(schluessel);
@@ -267,19 +323,31 @@ function legeMittelZusammen(
   return heraus;
 }
 
-/** Fernbaeume nach Variante buendeln: wenige Aufrufe, ohne beim LOD-Wechsel die Form zu tauschen. */
+/** Lokale Hofsträucher behalten neben den Baumvarianten auch ihre bisherige Schattenklasse. */
 export function buendleFernProps(chunks: ReadonlyMap<PropArt, PropChunk[]>): {
-  art: PropArt; variante: number; instanzen: PropInstanz[];
+  art: PropArt; variante: number; instanzen: PropInstanz[]; hofStrauch?: boolean; hofSchatten?: boolean;
 }[] {
-  const gruppen = new Map<string, { art: PropArt; variante: number; instanzen: PropInstanz[] }>();
+  const gruppen = new Map<string, {
+    art: PropArt; variante: number; instanzen: PropInstanz[]; hofStrauch?: boolean; hofSchatten?: boolean;
+  }>();
   for (const [art, teile] of chunks) {
     const baum = art === 'nadelbaum' || art === 'laubbaum';
-    for (const c of teile) for (const p of c.instanzen) {
-      const variante = baum ? p.variante : 0;
-      const id = `${art}:${variante}`;
-      let gruppe = gruppen.get(id);
-      if (!gruppe) { gruppe = { art, variante, instanzen: [] }; gruppen.set(id, gruppe); }
-      gruppe.instanzen.push(p);
+    for (const c of teile) {
+      const hofStrauch = HOF_STRAUCH_WEIT && art === 'busch' && istHofBusch(c.mitte, c.radius);
+      const hofSchatten = hofStrauch && HOF_UNIFORM.bereit.value > 0
+        && Math.hypot(c.mitte[0] - HOF_UNIFORM.mitte.value.x, c.mitte[1] - HOF_UNIFORM.mitte.value.y) < 60;
+      for (const p of c.instanzen) {
+        const variante = baum || hofStrauch ? p.variante : 0;
+        const id = `${art}:${variante}${hofStrauch ? `:hof:${hofSchatten ? 1 : 0}` : ''}`;
+        let gruppe = gruppen.get(id);
+        if (!gruppe) {
+          gruppe = { art, variante, instanzen: [] };
+          if (hofStrauch) gruppe.hofStrauch = true;
+          if (hofSchatten) gruppe.hofSchatten = true;
+          gruppen.set(id, gruppe);
+        }
+        gruppe.instanzen.push(p);
+      }
     }
   }
   return [...gruppen.values()];

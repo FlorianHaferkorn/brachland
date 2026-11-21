@@ -89,6 +89,11 @@ export interface Spielstand {
    */
   auftraege: Record<string, 'angenommen' | 'abgeholt'>;
   /**
+   * D355: Richtungskampf (ADR-0009) an oder aus — eine Spieleinstellung, kein Weltzustand. Ohne
+   * Versionssprung ergänzt (Standard an, wie bisher), siehe `orte`.
+   */
+  richtungskampf: boolean;
+  /**
    * Die Hauptfigur aus dem Charakter-Editor (D175). `null` heisst: noch nicht gewählt — dann zeigt
    * das Spiel den Editor vor dem ersten Schritt. Ohne Versionssprung (siehe `orte`).
    */
@@ -123,6 +128,7 @@ export const LEERER_STAND: Spielstand = {
   regenten: [],
   geheilt: [],
   auftraege: {},
+  richtungskampf: true,
 };
 
 const DB = 'brachland';

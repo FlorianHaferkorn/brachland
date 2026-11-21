@@ -5,6 +5,45 @@ owns: []
 
 # Herkunft der Fremdmodelle
 
+## Efeukarten (D358)
+
+| Datei unter `public/material/` | Inhalt | Herkunft |
+|---|---|---|
+| `efeu-karten-farbe.webp` | Vier Efeufelder 1 × 1 m als 2 × 2-Atlas, Grundfarbe und Deckung, 2048 × 2048 | Projektintern prozedural in Blender 5.3 erzeugt (`tools/efeukarten.py`, `tools/efeukarten_pack.py`), Blattgrösse nach `content/massstab.json`. Eigene Arbeit, CC0. |
+| `efeu-karten-normal.webp` | Normale im Tangentenraum und Wandabstand (Alpha) derselben Felder | wie oben, gleicher Lauf |
+| `streu-karten-farbe.webp` | D361: vier Bodenstreu-Felder 1 × 1 m als 2 × 2-Atlas, Grundfarbe und Deckung | Projektintern prozedural in Blender 5.3 (`tools/streukarten.py`), Grössen nach `content/massstab.json`. Eigene Arbeit, CC0. |
+| `streu-karten-normal.webp` | Normale und Höhe über Grund derselben Felder | wie oben |
+| `bodenflach-karten-farbe.webp`, `bodenflach-karten-normal.webp` | D366: vier Bodenpflanzen-Felder 1 × 1 m (Sauerklee, Moospolster, Waldmeister, Kräuter/Keimlinge) als 2 × 2-Atlas, Farbe + Deckung, Normale + Höhe | Projektintern prozedural in Blender 5.3 (`tools/bodenkarten.py`), Grössen nach `content/massstab.json`. Eigene Arbeit, CC0. |
+| `bodenbusch-karten-farbe.webp`, `bodenbusch-karten-normal.webp`, `boden-karten.json` | D366: vier Büschel 0,8 × 0,8 m von der Seite (Waldmeister, junge Brombeere, Jungbuche, Jungfichte) und das Kachelregister | wie oben |
+
+## Eigenes Material für Haus 308 (D317)
+
+| Datei unter `public/material/` | Inhalt | Herkunft |
+|---|---|---|
+| `hof-ziel-farbe.webp` | Farbwerte für Kalkputz, Holzschalung, Dachschindeln und Feldsteinsockel | Projektintern mit ImageGen aus dem [eigenen Hof-Zielbild](../docs/bilder/d315-hof-einsturz.webp) erzeugt. [Prompt und Aufbereitung](../docs/HOF_ZIELBILDER.md#spielbare-fassung-von-haus-308-d317). |
+| `hof-ziel-normal.webp` | Relief derselben vier Materialien | Projektintern aus den Helligkeitsgradienten der Farbkarte abgeleitet. |
+| `hof-efeu-farbe.webp` | Farbkarte für die modellierten Efeublätter an Haus 308, 512 × 512 | D320, eigenes [Hof-Zielbild](../docs/bilder/d315-hof-einsturz.webp) als Referenz für das eingebaute ImageGen. [Prompt](../docs/HOF_ZIELBILDER.md#ausarbeitung-am-zielbild-d320). |
+| `hof-himmel-farbe.webp` | Panoramakarte für Wolken über der Hofruine, 1280 × 640 | D320, mit dem eingebauten ImageGen nach der Wolkendecke aus dem [eigenen Hof-Zielbild](../docs/bilder/d315-hof-einsturz.webp) erzeugt. [Prompt](../docs/HOF_ZIELBILDER.md#ausarbeitung-am-zielbild-d320). |
+
+D299: Die Hofvegetation nutzt den bereits eingebundenen MIT-Generator EZ-Tree mit den hier
+nachgewiesenen CC0-Ersatzkarten. Neue Mehrstamm-Sträucher werden in `src/world/hofstrauch.ts`
+aus dem Seed erzeugt und verwenden den vorhandenen CC0-Atlas `laub-bueschel.webp`.
+Keine neuen Fremdmodelle oder Texturdateien; keine Bibliotheks-Bilder ungeklärter Herkunft.
+
+## Milbinger Wolkenaufnahme (D344)
+
+| Datei unter `public/material/` | Inhalt | Herkunft |
+|---|---|---|
+| `milbinger-wolkendecke.webp` | Fotografierte obere Himmelshalbkugel für Milbinger vor der Heilung, 1024 × 256 | D344, CC0. [Overcast Soil (Pure Sky)](https://polyhaven.com/a/overcast_soil_puresky) von Sergej Majboroda (Foto) und Jarod Guest (Himmelsbearbeitung). 1K-Radiance-Quelle, Belichtung auf den oberen Himmel normiert, danach sRGB-WebP. |
+
+## Straßenmobiliar (D347)
+
+| Datei unter `public/` | Rolle | Autor | Lizenz | Quelle |
+|---|---|---|---|---|
+| `bauten/milbinger-kleinwagen.glb` | Verlassener Kompaktwagen | tevy | CC0 1.0 | [Five-Door Hatchback](https://tevy.dev/models/hatchback), v1 LOD1. Quelle mit `tools/kompaktwagen-pack.mjs` für WebGL gepackt. Rost, Schmutz und veränderte Glasoberflächen entstehen im Spiel. |
+
+Laternen, Schilder, Reifen, Spielzeug und Sandrahmen sind eigene prozedurale Modelle.
+
 ## Vergleichsmodell D250
 
 `public/vergleich/triposr-fels-d250.glb` wurde mit dem MIT-lizenzierten
@@ -120,6 +159,9 @@ Herkunft trotzdem, damit niemand rätseln muss. Lizenz geprüft am 15.10.2026 au
 | schutt-farbe.webp, schutt-normal.webp | Schutt am Hangfuss, planar | Rob Tuytel | CC0-1.0 | Poly Haven `rocks_ground_01` (2 × 2 m) |
 | fels-farbe.webp, fels-normal.webp | Fels an steilen Hängen, triplanar | Rob Tuytel | CC0-1.0 | Poly Haven `mossy_rock` (3 × 3 m) |
 | rinde-farbe.webp | Rinde der Blender-Bäume (D224), nur Farbe + Höhe, Relief im Shader | Dimitrios Savva | CC0-1.0 | Poly Haven `knotted_pine_bark` (1,7 × 1,7 m), Lizenz geprüft 15.10.2026 |
+| rinde-buche-farbe.webp, rinde-buche-normal.webp | Buchenrinde (D364): Albedo + Höhe (A), Normale OpenGL + Rauheit (A), 1024 × 2048; Farbe um 45 % entsättigt und leicht kühler (Rotbuche silbergrau), `tools/baumkarten_pack.py` | Charlotte Baglioni | CC0-1.0 | Poly Haven [`chinese_hackberry_bark`](https://polyhaven.com/a/chinese_hackberry_bark) (1,8 × 3,6 m), 2K-JPG, Lizenz geprüft 21.11.2026 |
+| rinde-fichte-farbe.webp, rinde-fichte-normal.webp | Fichtenrinde (D364): Albedo + Höhe (A), Normale OpenGL + Rauheit (A), 1024²; unverändert, `tools/baumkarten_pack.py` | Dimitrios Savva | CC0-1.0 | Poly Haven [`pine_bark`](https://polyhaven.com/a/pine_bark) (2 × 2 m), 2K-JPG, Lizenz geprüft 21.11.2026 |
+| baum-buche-0-fern-farbe.webp, baum-buche-0-fern-normal.webp, baum-buche-1-fern-farbe.webp, baum-buche-1-fern-normal.webp, baum-buche-2-fern-farbe.webp, baum-buche-2-fern-normal.webp, baum-buche-3-fern-farbe.webp, baum-buche-3-fern-normal.webp, baum-fichte-0-fern-farbe.webp, baum-fichte-0-fern-normal.webp, baum-fichte-1-fern-farbe.webp, baum-fichte-1-fern-normal.webp, baum-fichte-2-fern-farbe.webp, baum-fichte-2-fern-normal.webp, baum-fichte-3-fern-farbe.webp, baum-fichte-3-fern-normal.webp | Baum-Impostoren (D367): je Baum acht orthografische Ansichten 256 × 512 als Atlas 2048 × 512, Farbe + Deckung bzw. Objektnormale; gerendert aus den eigenen Blender-Bäumen (`tools/baumbau.py`), Holz mit den beiden Rinden-Scans oben | eigene Arbeit (Rinde: Charlotte Baglioni, Dimitrios Savva) | CC0-1.0 | `tools/baumbau.py` + `tools/baumkarten_pack.py`, 21.11.2026 |
 | ez-nadel-cc0-v5.webp | EZ-Tree-Nadelkarte: Ausschnitt aus Farb- und Alphakarte, 512², mit eigener Randmaske | Rob Tuytel, Rico Cilliers | CC0-1.0 | Poly Haven [`pine_tree_01`](https://polyhaven.com/a/pine_tree_01), offizielle `twig_diff`/`twig_alpha` 1K-Modelltexturen; erzeugt mit `tools/eztexturen.mjs`, geprüft 08.11.2026 |
 | ez-laub-cc0-v5.webp | EZ-Tree-Laubkarte: Ausschnitt aus Farb- und Alphakarte, 512², mit eigener Randmaske | Rico Cilliers | CC0-1.0 | Poly Haven [`tree_small_02`](https://polyhaven.com/a/tree_small_02), offizielle `leaves_diff`/`leaves_alpha` 1K-Modelltexturen; erzeugt mit `tools/eztexturen.mjs`, geprüft 08.11.2026 |
 | farn-farbe.webp, farn-normal.webp, ../props/farn_scan_a–d.glb | Scan-Farne (D229): vier Varianten, Modulation + Alpha, Normale; ×1,6 skaliert, Windgewicht ergänzt (`tools/farnscan.ts`) | Rob Tuytel (Scan), Rico Cilliers (Modell) | CC0-1.0 | Poly Haven Modell `fern_02`, 1K-glTF, Lizenz geprüft 17.10.2026 |
@@ -131,7 +173,18 @@ Herkunft trotzdem, damit niemand rätseln muss. Lizenz geprüft am 15.10.2026 au
 | wurzelstock-farbe.webp, wurzelstock-normal.webp, ../props/totholz_scan_wurzelstock.glb | Wurzelstock (D233), 225.261 → 2.389 Dreiecke | Jenelle van Heerden, Rico Cilliers | CC0-1.0 | Poly Haven Modell `root_cluster_01`, Lizenz geprüft 17.10.2026 |
 | wurzelstrang-farbe.webp, wurzelstrang-normal.webp, ../props/totholz_scan_wurzelstrang.glb | Wurzelstrang (D233), 213.939 → 2.400 Dreiecke | Jenelle van Heerden | CC0-1.0 | Poly Haven Modell `root_cluster_02` (Teil `_a`), Lizenz geprüft 17.10.2026 |
 | wurzel-einzel-farbe.webp, wurzel-einzel-normal.webp, ../props/totholz_scan_wurzel_einzel.glb | Einzelwurzel (D233), 61.027 → 1.799 Dreiecke | Jenelle van Heerden | CC0-1.0 | Poly Haven Modell `single_root`, Lizenz geprüft 17.10.2026 |
-| gras-farbe.webp, gras-normal.webp, ../props/gras_scan_a–f.glb | Grasbüschel (D234), Blattkarten mit Alpha, nicht reduziert, auf 0,18–0,85 m skaliert | Rico Cilliers | CC0-1.0 | Poly Haven Modell `grass_medium_02`, Lizenz geprüft 17.10.2026 |
+| gras-horste.webp, gras-horste.json | Foto-Büschel und -Kräuter für den Grasteppich (D272, `?gras=3`): 22 Kacheln à 384² (7 grün, 5 trocken, 4 Kraut, 3 Blüten, 3 Halme mit Samenständen), Alpha aus der Silhouette, Farbe unter dem Rand nach aussen gefüllt; je Kachel Rechteck und Kantenlänge in Metern in der JSON. Gerendert, nicht fotografiert: jedes Scan-Netz seitlich orthografisch (`tools/grashorste/bake.mjs`, `pack.py`) | Rob Tuytel (Foto), Rico Cilliers (Modell), Jenelle van Heerden und weitere laut Poly-Haven-Seite des jeweiligen Assets | CC0-1.0 | Poly Haven [`grass_medium_01`](https://polyhaven.com/a/grass_medium_01) (Kacheln 0, 1, 2, 3, 4, 5, 6, 7, 9, 10), [`grass_medium_02`](https://polyhaven.com/a/grass_medium_02) (0–4), [`weed_plant_02`](https://polyhaven.com/a/weed_plant_02) (0, 1), [`nettle_plant`](https://polyhaven.com/a/nettle_plant) (4), [`shrub_sorrel_01`](https://polyhaven.com/a/shrub_sorrel_01) (4), [`dandelion_01`](https://polyhaven.com/a/dandelion_01) (0, 1), [`periwinkle_plant`](https://polyhaven.com/a/periwinkle_plant) (0); 2K-glTF, Lizenz geprüft 13.11.2026 (<https://polyhaven.com/license>, CC0). Autoren der vier neuen Assets: UNKLAR, nicht einzeln nachgesehen — CC0 verlangt keine Nennung |
+| laub-bueschel.webp | Laubbüschel für die Laubkarten (D282, `?laub=2`): 16 Kacheln à 512², je ein 1-m-Ausschnitt der Aussenkrone, Alpha aus der Silhouette, Farbe unter dem Rand gefüllt und je Kanal auf das Mittel von `ez-laub-cc0-v5.webp` gebracht. Gerendert, nicht fotografiert: echte Blattgeometrie der Modelle orthografisch mit Tiefenabdunklung (`tools/laubbueschel/bake.mjs`, `pack.py`) | Rico Cilliers (`tree_small_02`), Rob Tuytel + Rico Cilliers (`island_tree_02`) | CC0-1.0 | Poly Haven [`tree_small_02`](https://polyhaven.com/a/tree_small_02) (12 Kacheln), [`island_tree_02`](https://polyhaven.com/a/island_tree_02) (4 Kacheln), glTF 1K, geprüft 14.11.2026 |
+| nadel-bueschel.webp | Nadelbüschel für die Nadelkarten (D282, `?laub=2`): 16 Kacheln à 512², je ein 0,8-m-Ausschnitt der Aussenkrone, Alpha aus der Silhouette, Farbe unter dem Rand gefüllt und je Kanal auf das Mittel von `ez-nadel-cc0-v5.webp` gebracht. Gerendert: echte Nadelgeometrie orthografisch mit Tiefenabdunklung (`tools/laubbueschel/bake.mjs`, `pack.py nadel`) | Rob Tuytel (Foto), Rico Cilliers (Modell) | CC0-1.0 | Poly Haven [`pine_sapling_small`](https://polyhaven.com/a/pine_sapling_small) (12 Kacheln), [`fir_sapling`](https://polyhaven.com/a/fir_sapling) (4 Kacheln), glTF 1K, geprüft 14.11.2026 |
+| weide-bueschel.webp | Weidenruten für die Hängekarten der Weide (D283, `?laub=2`): 16 Kacheln à 256 × 768 (0,3 × 0,9 m), lanzettliche Blätter mit silbriger Unterseite an gebogenen Ruten, Farbe je Kanal auf das Mittel von `ez-laub-cc0-v5.webp` gebracht | eigene Arbeit | CC0 | prozedural mit `tools/laubbueschel/weide.html` gerendert (`bake.mjs weide`, `pack.py weide`); kein Fremdmodell, keine Fremdtextur |
+| hof-scans.webp, hof-scans-nor.webp, hof-scans-arm.webp, hof-scans.json | D298: Original-sRGB-Albedo, OpenGL-Normalen, AO/Rauheit; 2×2-Atlas mit 1008² Innenfläche und 8px Rand je1024²-Kachel; `tools/hofscans.mjs`, Quellen/Hashes in JSON | siehe Quelle | CC0-1.0 | Poly Haven [plastered_wall_03](https://polyhaven.com/a/plastered_wall_03), [weathered_planks](https://polyhaven.com/a/weathered_planks), grey_roof_tiles und old_stone_wall. Autoren Rob Tuytel, Dario Barresi/Dimitrios Savva, Charlotte Baglioni. [Lizenz](https://polyhaven.com/license), geprüft 17.11.2026 |
+| hof-kies-farbe.webp, hof-kies-normal.webp, hof-kies-arm.webp, hof-kies.json | D298 Endfassung: heller Kies, originaler Farbraum, 1024²; `tools/hofscans.mjs kies` | Jenelle van Heerden, Dimitrios Savva | CC0-1.0 | Poly Haven [gravel_floor_02](https://polyhaven.com/a/gravel_floor_02), 2m; [Lizenz](https://polyhaven.com/license), geprüft 17.11.2026 |
+| hof-boden-farbe.webp, hof-boden-normal.webp, hof-boden-arm.webp | D298 Erstversuch roter Erdboden (Endfassung ungenutzt, kein Precache), originaler Farbraum, 1024²; `tools/hofscans.mjs` | Amal Kumar | CC0-1.0 | Poly Haven [gravel_road](https://polyhaven.com/a/gravel_road), 2m Wiederholung; [Lizenz](https://polyhaven.com/license), geprüft 17.11.2026 |
+| hof-fels-moos-1-farbe.webp, hof-fels-moos-1-normal.webp, hof-fels-moos-1-arm.webp, hof-fels-moos-2-farbe.webp, hof-fels-moos-2-normal.webp, hof-fels-moos-2-arm.webp, hof-props.json | D298 Originalkarten für bestehende Scanstein-UV; neue Normalen nur Quellenbeleg, Laufzeit nutzt bestehende Normalen; 1024²; `tools/hofscans.mjs props`, Quellen/Hashes in JSON | Kless Gyzen | CC0-1.0 | Poly Haven [rock_moss_set_01](https://polyhaven.com/a/rock_moss_set_01) und [rock_moss_set_02](https://polyhaven.com/a/rock_moss_set_02); [Lizenz](https://polyhaven.com/license), geprüft 17.11.2026 |
+| hof-farn-farbe.webp, hof-farn-normal.webp, hof-farn-arm.webp | D298 Originalfarben für bestehende Pflanzen-UV (die Gras-Sätze `hof-gras-*` mit den Grasbüschel-Props in D366 entfernt); neue Normalen nur Quellenbeleg, Laufzeit nutzt bestehende Normalen; Alpha pixelgenau aus Quelle erhalten, 1024²; `tools/hofscans.mjs props` | Rob Tuytel (Farnscan), Rico Cilliers (Modelle) | CC0-1.0 | Poly Haven [fern_02](https://polyhaven.com/a/fern_02); [Lizenz](https://polyhaven.com/license), geprüft 17.11.2026 |
+| haus-scans.webp, haus-scans-nor.webp, haus-scans.json | Hausscans (D284, `?haus=1`/`?echt=1`): 2 × 2-Atlas 512² je Kachel, Farbe als Modulation (je Kanal durch das Mittel geteilt, Mittel 0,5), Normale OpenGL; erzeugt mit `tools/hausscans.py` | siehe Quelle | CC0-1.0 | Poly Haven [`grey_plaster_02`](https://polyhaven.com/a/grey_plaster_02) (putz, 1.0 m, Rob Tuytel), [`old_planks_02`](https://polyhaven.com/a/old_planks_02) (schalung, 2.0 m, Rob Tuytel), [`grey_roof_tiles`](https://polyhaven.com/a/grey_roof_tiles) (dach, 3.0 m, Rob Tuytel), [`old_stone_wall`](https://polyhaven.com/a/old_stone_wall) (sockel, 2.0 m, Charlotte Baglioni), Texturen 1K, geprüft 14.11.2026 |
+| haus-scans-hoehe.webp, hof-scans-hoehe.webp, hof-ziel-hoehe.webp, hoehe.json | D365: Höhenkarten für Parallax Occlusion Mapping an den Hauswänden (`src/world/hauspom.ts`), Graustufen, Weiß = oben, je Kachel auf 1.–99. Perzentil gestreckt, Layout wie die zugehörigen Farb-/Normalatlanten in halber Auflösung (512², 1024², 640²); erzeugt mit `tools/hoehenkarten.py`, Belege (URL, Bytes, SHA-256) in `hoehe.json` | siehe Quelle | CC0-1.0 | Poly-Haven-Displacement (1k PNG) derselben Scans wie `haus-scans` ([`grey_plaster_02`](https://polyhaven.com/a/grey_plaster_02), [`old_planks_02`](https://polyhaven.com/a/old_planks_02), [`grey_roof_tiles`](https://polyhaven.com/a/grey_roof_tiles), [`old_stone_wall`](https://polyhaven.com/a/old_stone_wall)) und `hof-scans` ([`plastered_wall_03`](https://polyhaven.com/a/plastered_wall_03), [`weathered_planks`](https://polyhaven.com/a/weathered_planks), `grey_roof_tiles`, `old_stone_wall`); [Lizenz](https://polyhaven.com/license), geprüft 21.11.2026. `hof-ziel-hoehe.webp` projektintern aus der Helligkeit von `hof-ziel-farbe.webp` (Hochpass), wie `hof-ziel-normal.webp` |
+| weg-scans.webp, weg-scans-nor.webp, weg-scans.json | Wegscans (D285, `?belag=1`/`?echt=1`): 2 × 2-Atlas 512² je Kachel, Farbe als Modulation; erzeugt mit `tools/hausscans.py weg` | siehe Quelle | CC0-1.0 | Poly Haven [`worn_asphalt`](https://polyhaven.com/a/worn_asphalt) (asphalt, 2.0 m, Amal Kumar), [`gravel_road`](https://polyhaven.com/a/gravel_road) (schotter, 2.0 m, Amal Kumar), [`stony_dirt_path`](https://polyhaven.com/a/stony_dirt_path) (erdpfad, 2.17 m, eye-candy.xyz), [`grass_path_2`](https://polyhaven.com/a/grass_path_2) (graspfad, 1.0 m, Rob Tuytel), Texturen 1K, geprüft 15.11.2026 |
 | wurzel-a-farbe.webp, wurzel-a-normal.webp, wurzel-b-farbe.webp, wurzel-b-normal.webp, ../props/totholz_scan_wurzel.glb, ../props/totholz_scan_wurzel2.glb | Wurzelteller (D230), je ~81k → 2.400 Dreiecke | Rob Tuytel | CC0-1.0 | Poly Haven Modell `pine_roots`, Lizenz geprüft 17.10.2026 |
 
 Bis D222 lagen hier zwei Detailnormalen aus npm `@pmndrs/assets` 1.7.0 (`normals/0005`, `0015`,
@@ -142,6 +195,22 @@ Poimandres, CC0-1.0); D223 hat sie ersetzt.
 | Datei | Was | Urheber | Lizenz | Quelle |
 |---|---|---|---|---|
 | alps_field_1k.hdr | Himmelsfoto (HDRI, 1k, Radiance) als Umgebungslicht der Probe `?hdri=1` und der WebGPU-Probe | Andreas Mischok | CC0-1.0 | Poly Haven [`alps_field`](https://polyhaven.com/a/alps_field) |
+
+## Weltdaten (`public/world`, D290)
+
+| Datei | Rolle | Urheber | Lizenz | Quelle |
+|---|---|---|---|---|
+| `oental-lod2.json` | Gebäudedachmaße aus CityGML, auf Trauf- und Firsthöhe, Dachform und Firstrichtung verdichtet und den OSM-Grundrissen zugeordnet. D331 ergänzt die aus Firstendpunkten berechnete Richtung für 508, 510 und 512 sowie die Dachkörpermaße für 512. D340 übernimmt die Dachflächen und Teilbauten für 410, 413, 444, 506, 507, 509, 511 und 513 aus Kachel 732_5290. Die Dachfarben stammen aus Dachpixeln der Orthophotos (D291). `tools/lod2import.py` erzeugt die Daten. | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de | CC BY 4.0 | 3D-Gebäudemodelle LoD2 (OpenData), Kacheln 728–732 / 5288–5292 (UTM 32), abgerufen 15.11.2026, für D331 Kachel 732_5290 am 19.11.2026. Digitale Orthophotos DOP20 (WMS `by_dop20c`, OpenData), 121 Kacheln à 256 m, abgerufen 15.11.2026 |
+| `content/regions/oental.json`, `nahhoehen` | D340. DGM1-Kachel 732_5290, ins lokale Spielraster resampelt, in Zentimetern relativ zum lokalen Datum gespeichert | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet | [DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1) |
+| `oental-fern-sued.json` | D345. 25 DGM1-Kacheln zum Fernraster des südöstlichen Hangs resampelt und auf Meter gerundet. Erzeugt mit `npm run fernland -- oental --dgm1-sued`. | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet | [DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1) |
+| `oental-fern-ring.json` | D349. 100 DGM1-Kacheln (E 726–735, N 5286–5295) auf 277² Punkte im Fernraster-Ring resampelt und auf Meter gerundet, 0 % Lücken. Erzeugt mit `npm run fernland -- oental --dgm1-ring`. | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet | [DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1) |
+| `fahlmoos-fern-ring.json` | D351. 100 DGM1-Kacheln (E 724–733, N 5292–5301) auf 277² Punkte im Fernraster-Ring resampelt und auf Meter gerundet, 0 % Lücken. Erzeugt mit `npm run fernland -- fahlmoos --dgm1-ring`. | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet | [DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1) |
+
+## Hof-Baukasten (D363)
+
+| Datei | Was | Urheber | Lizenz | Quelle |
+|---|---|---|---|---|
+| `bauten/hof-708.glb` | Inntaler Einfirsthof, Verfallsstufe 1, für Gebäude 708 (Œntal) | BRACHLAND (prozedural) | eigenes Werk | `tools/hofbaukasten.py` Saat 708 Stufe 1, Masse 36 × 14,7 m aus dem OSM-Grundriss; Materialien prozedural in Blender gebacken, gepackt mit `tools/hofbau_pack.mjs`. Keine Fremdtexturen. |
 
 ## Was im Spiel stehen muss
 

@@ -21,7 +21,9 @@
  * je Hülle. Renderfrei gilt hier nicht: Das ist Welt-Code und kennt three.js.
  */
 import * as THREE from 'three';
-import { MSAA } from './echt.js';
+import { LAUB_FEIN, MIPS_ERHALT, MSAA, PINSEL_AN } from './echt.js';
+import { ladeRgba, leereKarte, setzeAlphaMips } from './alphamips.js';
+import { pinselTextur, PINSEL_BAND_GLSL } from './pinsel.js';
 
 export type KartenArt = 'laub' | 'nadel' | 'weide';
 
@@ -45,12 +47,50 @@ interface ArtWerte {
    * standen als Streifen in der Krone.
    */
   kacheln: [number, number];
+  /** Nur `PINSEL_AN`: Grundfarbe der Striche (die Textur trägt nur Grau und Alpha). */
+  grundfarbe?: string;
+  /** D282: Atlas mit Spalten × Zeilen Büschelkacheln; je Karte eine zufällige Kachel. */
+  atlas?: [number, number];
 }
 
 const ARTEN: Record<KartenArt, ArtWerte> = {
   laub: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 7.5, groesse: [0.6, 0.6], streuung: 0.9, haengend: false, durchlass: 0.6, kacheln: [2, 2] },
   nadel: { textur: '/material/ez-nadel-cc0-v5.webp', dichte: 6.5, groesse: [0.8, 0.55], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: [1, 1] },
-  weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 22, groesse: [0.2, 0.6], streuung: 0.35, haengend: true, durchlass: 0.65, kacheln: [1, 2] },
+  // D274: Durchlass 0,65 → 0,4: Die schmalen Weidenstreifen leuchteten im Gegenlicht vor hellem Himmel weiss-grau.
+  // D276: Dichte 22 → 34 (+55 %, ~+35.000 Karten): Zwischen den Streifen schien der helle Hintergrund (Teich, Himmel)
+  // als weiss-graue Flecken durch — die Weide hat keinen deckenden Kern.
+  weide: { textur: '/material/ez-laub-cc0-v5.webp', dichte: 34, groesse: [0.2, 0.6], streuung: 0.35, haengend: true, durchlass: 0.4, kacheln: [1, 2] },
+};
+
+/**
+ * D282 (`?laub=2`): Laub aus gebackenen Büscheln (`tools/laubbueschel/`): je Kachel ein 1-m-Ausschnitt der
+ * Aussenkrone eines Poly-Haven-Baums (12 × `tree_small_02`, 4 × `island_tree_02`, CC0) mit echten Blättern in 3D,
+ * hintere Blätter im Büschel dunkler. Eine Kachel deckt ~20 %; 8 Karten à 0,9 m je m² geben ~1,3 Blattlagen (das
+ * Zweigfoto: 7,5 × 0,6² × 0,42 ≈ 1,1) — etwa gleich viele Karten, keine Wiederholung im Bild.
+ * Nadel ebenso (Kiefer/Tanne), Weide aus prozeduralen Hängeruten (D283).
+ */
+const ARTEN_FEIN: Record<KartenArt, ArtWerte> = {
+  ...ARTEN,
+  laub: { textur: '/material/laub-bueschel.webp', dichte: 8, groesse: [0.9, 0.9], streuung: 0.9, haengend: false, durchlass: 0.45, kacheln: [1, 1], atlas: [4, 4] },
+  // Nadel: Das alte Zweigfoto war ein auf das Quadrat gestreckter Ausschnitt (150 × 380 px → 512²) — Nadeln ~3× zu
+  // dick, aus der Ferne dunkle eckige Blöcke (Flo 14.11.2026: „komische Rechtecke“). Büschel aus `pine_sapling_small`
+  // (12) und `fir_sapling` (4) decken ~13 %: 12 Karten à 0,8 m je m² ≈ 1,0 Lagen wie zuvor (6,5 × 0,8 × 0,55 × 0,35).
+  // D283: Weide aus prozedural gebackenen Hängeruten (`tools/laubbueschel/weide.html`; Poly Haven hat keine Weide):
+  // lanzettliche Blätter mit silbriger Unterseite statt des Buchenzweigs. Kachel 0,3 × 0,9 m deckt ~15 %; 40 Karten
+  // je m² ≈ 1,6 Lagen wie zuvor (34 × 0,2 × 0,6 × 0,42 ≈ 1,7).
+  weide: { textur: '/material/weide-bueschel.webp', dichte: 40, groesse: [0.3, 0.9], streuung: 0.35, haengend: true, durchlass: 0.4, kacheln: [1, 1], atlas: [8, 2] },
+  nadel: { textur: '/material/nadel-bueschel.webp', dichte: 12, groesse: [0.8, 0.8], streuung: 0.5, haengend: false, durchlass: 0.3, kacheln: [1, 1], atlas: [4, 4] },
+};
+
+/**
+ * Pinsel-Fassung (D269, `?malerei=1`): grosse, wenige Striche statt vieler kleiner Blätter — der Strich
+ * ist die Einheit, nicht das Blatt. ~3× so gross wie ein Blatt, ~40 % der Dichte, Grundfarben als
+ * Ölfarbe (gelblicher als das Foto-Laub, die Bänder in `pinsel.ts` machen Licht und Schatten).
+ */
+const ARTEN_PINSEL: Record<KartenArt, ArtWerte> = {
+  laub: { textur: '', dichte: 3.0, groesse: [1.1, 1.1], streuung: 0.9, haengend: false, durchlass: 0.35, kacheln: [1, 1], grundfarbe: '#6f9a3c' },
+  nadel: { textur: '', dichte: 3.4, groesse: [1.2, 0.9], streuung: 0.5, haengend: false, durchlass: 0.2, kacheln: [1, 1], grundfarbe: '#3f6b48' },
+  weide: { textur: '', dichte: 9, groesse: [0.45, 0.9], streuung: 0.35, haengend: true, durchlass: 0.45, kacheln: [1, 1], grundfarbe: '#8fae4a' },
 };
 
 /**
@@ -93,12 +133,25 @@ export function kartenArtFuer(name: string): KartenArt | null {
   return null;
 }
 
+/** Alpha-Schwelle der Blattkarten (Material) — die Mip-Kette erhält die Deckung für genau sie. */
+const KARTEN_SCHWELLE = 0.45;
 const texturen = new Map<string, THREE.Texture>();
 function textur(pfad: string, kacheln: [number, number]): THREE.Texture {
   const schluessel = pfad + '×' + kacheln.join('×');
   let t = texturen.get(schluessel);
   if (!t) {
-    t = new THREE.TextureLoader().load(pfad);
+    if (MIPS_ERHALT || LAUB_FEIN) {
+      // D273: Mip-Kette mit Deckungserhalt (`alphamips.ts`); bis das Bild da ist, durchsichtig.
+      const d = leereKarte();
+      t = d;
+      void ladeRgba(pfad).then((b) => {
+        setzeAlphaMips(d, b.data, b.b, b.h, { schwelle: KARTEN_SCHWELLE, spiegelY: true, ...(LAUB_FEIN ? { stufen: 6 } : {}) });
+        d.colorSpace = THREE.SRGBColorSpace;
+        d.flipY = false;
+      });
+    } else {
+      t = new THREE.TextureLoader().load(pfad);
+    }
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 4;
     if (kacheln[0] * kacheln[1] > 1) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(kacheln[0], kacheln[1]); }
@@ -107,10 +160,17 @@ function textur(pfad: string, kacheln: [number, number]): THREE.Texture {
   return t;
 }
 
+/** D283: Büschelatlas für die Kronen der Blender-Bäume (`windmaterial.ts` `bueschel`), geteilt mit den Karten. */
+export function bueschelTextur(art: 'laub' | 'nadel'): THREE.Texture {
+  return textur(ARTEN_FEIN[art].textur, [1, 1]);
+}
+
 function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
   const m = new THREE.MeshStandardMaterial({
-    map: textur(art.textur, art.kacheln), alphaTest: 0.45, side: THREE.DoubleSide,
-    roughness: 0.75, metalness: 0,
+    map: PINSEL_AN ? pinselTextur() : textur(art.textur, art.kacheln), alphaTest: KARTEN_SCHWELLE, side: THREE.DoubleSide,
+    ...(PINSEL_AN && art.grundfarbe ? { color: art.grundfarbe } : {}),
+    // D282: Blätter matt — mit Hüllnormale glänzte jede Karte am Kronenrand im flachen Winkel weiss (Fresnel).
+    roughness: LAUB_FEIN ? 0.95 : 0.75, metalness: 0,
     // Weiche Blattränder statt Treppen — wirkt nur mit MSAA im Zielbild (`echt.ts` MSAA).
     alphaToCoverage: MSAA > 0,
   });
@@ -118,7 +178,11 @@ function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uDurchlass = uDurchlass;
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute vec3 aHuelle;')
+      .replace('#include <common>', '#include <common>\nattribute vec3 aHuelle;' + (art.atlas ? '\nattribute float aKachel;' : ''))
+      // D282: Kachel des Büschelatlas je Instanz.
+      .replace('#include <uv_vertex>', art.atlas
+        ? `#include <uv_vertex>\n  vMapUv = (vMapUv + vec2(mod(aKachel, ${art.atlas[0]}.0), floor(aKachel / ${art.atlas[0]}.0))) / vec2(${art.atlas[0]}.0, ${art.atlas[1]}.0);`
+        : '#include <uv_vertex>')
       // Hüllnormale, schon in den Kartenraum zurückgedreht (CPU), damit `instanceMatrix` sie wieder
       // auf die Hülle bringt.
       .replace('#include <beginnormal_vertex>', 'vec3 objectNormal = aHuelle;\n#ifdef USE_TANGENT\n  vec3 objectTangent = vec3(1.0, 0.0, 0.0);\n#endif');
@@ -126,17 +190,24 @@ function baueKartenMaterial(art: ArtWerte): THREE.MeshStandardMaterial {
       .replace('#include <common>', '#include <common>\nuniform float uDurchlass;')
       // Beide Kartenseiten schattieren wie die Hülle: three dreht die Normale der Rückseite um.
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);')
+      // D282: Ab ~15 m zerfallen die Blätter unter Pixelgrösse und der Alpha-Test krisselt; dort die Deckung
+      // anheben (Krone schliesst sich) und weniger Durchlicht (kein heller Himmel durch die Lücken).
+      .replace('#include <alphatest_fragment>', LAUB_FEIN
+        ? 'float fern = smoothstep(15.0, 45.0, length(vViewPosition));\n  diffuseColor.a = min(1.0, diffuseColor.a * mix(1.0, 1.7, fern));\n#include <alphatest_fragment>'
+        : '#include <alphatest_fragment>')
+      // D269: Farbbänder statt weichem Verlauf (nach allen Lichtern, vor der Ausgabe).
+      .replace('#include <opaque_fragment>', PINSEL_AN ? PINSEL_BAND_GLSL + '\n#include <opaque_fragment>' : '#include <opaque_fragment>')
       .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
 #if NUM_DIR_LIGHTS > 0
   {
     vec3 sonne = directionalLights[ 0 ].direction;
     float rueck = saturate(-dot(normal, sonne));
     float gegen = saturate(dot(-normalize(vViewPosition), sonne));
-    reflectedLight.directDiffuse += diffuseColor.rgb * directionalLights[ 0 ].color * uDurchlass * rueck * (0.35 + 0.65 * gegen);
+    reflectedLight.directDiffuse += diffuseColor.rgb * directionalLights[ 0 ].color * uDurchlass * rueck * (0.35 + 0.65 * gegen)${LAUB_FEIN ? ' * mix(1.0, 0.45, fern)' : ''};
   }
-#endif`);
+#endif${LAUB_FEIN ? '\n  reflectedLight.directSpecular *= 0.15;\n  reflectedLight.indirectSpecular *= 0.15;' : ''}`);
   };
-  m.customProgramCacheKey = () => 'brachland-laubkarten-v1';
+  m.customProgramCacheKey = () => 'brachland-laubkarten-v1' + (PINSEL_AN ? '-pinsel' : '') + (LAUB_FEIN ? '-fein' + (art.atlas ?? []).join('x') : '');
   return m;
 }
 
@@ -166,7 +237,7 @@ export function baueLaubkarten(
    */
   skala = 1,
 ): Laubkarten {
-  const art = ARTEN[artName];
+  const art = (PINSEL_AN ? ARTEN_PINSEL : LAUB_FEIN ? ARTEN_FEIN : ARTEN)[artName];
   const pos = geo.getAttribute('position') as THREE.BufferAttribute;
   let nor = geo.getAttribute('normal') as THREE.BufferAttribute | undefined;
   if (!nor) { geo.computeVertexNormals(); nor = geo.getAttribute('normal') as THREE.BufferAttribute; }
@@ -191,6 +262,7 @@ export function baueLaubkarten(
   const matrizen = new Float32Array(anzahl * 16);
   const farben = new Float32Array(anzahl * 3);
   const huelle = new Float32Array(anzahl * 3);
+  const kachel = new Float32Array(anzahl);
   const farbe = new THREE.Color();
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), qInv = new THREE.Quaternion();
   const p = new THREE.Vector3(), n = new THREE.Vector3(), s = new THREE.Vector3();
@@ -247,6 +319,7 @@ export function baueLaubkarten(
     const h = (0.85 + zuf() * 0.25) * ao;
     farbe.setRGB(h * (0.95 + zuf() * 0.1), h, h * (0.85 + zuf() * 0.1));
     farbe.toArray(farben, i * 3);
+    if (art.atlas) kachel[i] = Math.floor(zuf() * art.atlas[0] * art.atlas[1]);
   }
 
   /**
@@ -269,12 +342,15 @@ export function baueLaubkarten(
   for (const liste of eimer.values()) {
     const geo = KARTE.clone();
     const h = new Float32Array(liste.length * 3);
+    const kl = new Float32Array(liste.length);
     const feld = new THREE.InstancedMesh(geo, material, liste.length);
     liste.forEach((i, j) => {
       m.fromArray(matrizen, i * 16); feld.setMatrixAt(j, m);
       farbe.fromArray(farben, i * 3); feld.setColorAt(j, farbe);
       h[j * 3] = huelle[i * 3]; h[j * 3 + 1] = huelle[i * 3 + 1]; h[j * 3 + 2] = huelle[i * 3 + 2];
+      kl[j] = kachel[i];
     });
+    if (art.atlas) geo.setAttribute('aKachel', new THREE.InstancedBufferAttribute(kl, 1));
     // Eigene Geometrie je Netz: `aHuelle` ist je Instanz verschieden.
     geo.setAttribute('aHuelle', new THREE.InstancedBufferAttribute(h, 3));
     feld.instanceMatrix.needsUpdate = true;

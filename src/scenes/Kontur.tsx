@@ -43,7 +43,9 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { MSAA, ABGLEICH_AN, AO_RUHIG, TAA_AN } from '../world/echt.js';
+import { MSAA, ABGLEICH_AN, AO_RUHIG, TAA_AN, KUWAHARA_AN, BLATTVERLAUF_AN } from '../world/echt.js';
+import { AO_NORMAL_GLSL } from '../world/aonormale.js';
+import { TAA_MASKE_GLSL } from '../world/taamaske.js';
 
 const KONTUR_ADRESSE: boolean | null = (() => {
   if (typeof location === 'undefined') return null;
@@ -126,6 +128,8 @@ const AO_FRAGMENT = /* glsl */`
   uniform vec2 uTanHalb;
   uniform float uRadius;
   uniform float uRuhig;
+  uniform float uFrame;   // D275: 0…15, mit TAA je Bild weitergedreht (sonst 0)
+  uniform vec2 uAOTexel;
   varying vec2 vUv;
 
   // Sichtraumposition: uv → Sichtstrahl mal Tiefe. z zeigt nach hinten (negativ).
@@ -134,10 +138,12 @@ const AO_FRAGMENT = /* glsl */`
     return vec3((uv * 2.0 - 1.0) * uTanHalb * z, -z);
   }
 
+  __AO_FLAECHE__
+
   void main() {
     vec3 P = sicht(vUv);
     if (-P.z > uFern * 0.95) { gl_FragColor = vec4(1.0); return; }   // Himmel
-    vec3 N = normalize(cross(dFdx(P), dFdy(P)));
+    __AO_NORMALE__
     // Halbkugel um N: Basis aus einem je Pixel gedrehten Zufallsvektor
     float w = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
     // D263 (\`?echt=1\`): statt weissem Rauschen ein 4×4-Bayer-Muster. Jede Drehung kommt in jedem
@@ -148,6 +154,10 @@ const AO_FRAGMENT = /* glsl */`
       vec2 fein = mod(q, 2.0), grob = floor(q / 2.0);
       // 2×2-Bayer (0 2 / 3 1) zweimal geschachtelt: 16 verschiedene Werte je 4×4-Block.
       float b = 4.0 * mod(2.0 * fein.x + 3.0 * fein.y, 4.0) + mod(2.0 * grob.x + 3.0 * grob.y, 4.0);
+      // D275: Das Muster rotiert je Bild durch alle 16 Werte. Ohne das blieb im Zielbild ein regelmässiges
+      // Punktraster (Periode 8 px) auf Laub und Gras stehen: Dort springt die Tiefe so stark, dass die
+      // tiefengewichtete Weichzeichnung kaum Nachbarn zählt, und die TAA mittelte ein festes Muster nie weg.
+      b = mod(b + uFrame, 16.0);
       w = (b + 0.5) / 16.0;
     }
     vec3 zufall = vec3(cos(w * 6.2832), sin(w * 6.2832), 0.37);
@@ -169,6 +179,7 @@ const AO_FRAGMENT = /* glsl */`
       verdeckt += (dz > 0.03 ? 1.0 : 0.0) * reichweite;
     }
     float ao = 1.0 - verdeckt / 12.0;
+    __AO_GUELTIGKEIT__
     // In der Ferne ausblenden: Dort ist die Tiefe zu grob, und die Verdeckung wird zu Streifen
     // (gesehen an der Kulisse, D155). Verdeckung ist ohnehin ein Nahfeld-Mass.
     ao = mix(ao, 1.0, smoothstep(120.0, 350.0, -P.z));
@@ -253,7 +264,33 @@ const FRAGMENT = /* glsl */`
   uniform vec3 uSchacht;
   uniform float uAbgleich;
   uniform float uRuhig;
+  uniform float uKuwahara;
   varying vec2 vUv;
+
+  /* Malfilter (D269): Kuwahara mit vier Sektoren. Gemittelt wird in Karis-Stauchung (c / (1 + c)),
+   * damit helle Pixel die Varianz nicht dominieren; Schrittweite = Pixelverhältnis, sonst wäre der
+   * Strich auf einem 2×-Schirm halb so gross. 4 × 16 Proben je Pixel. */
+  vec3 kuwahara(vec2 uv) {
+    vec3 mittel[4]; float var[4];
+    for (int q = 0; q < 4; q++) { mittel[q] = vec3(0.0); var[q] = 0.0; }
+    vec2 schritt = uTexel * uKuwahara;
+    for (int q = 0; q < 4; q++) {
+      vec2 richtung = vec2((q == 1 || q == 2) ? -1.0 : 1.0, (q >= 2) ? -1.0 : 1.0);
+      vec3 summe = vec3(0.0); float lSumme = 0.0, l2 = 0.0;
+      for (int j = 0; j < 4; j++) for (int i = 0; i < 4; i++) {
+        vec3 c = texture2D(tFarbe, uv + vec2(float(i), float(j)) * richtung * schritt).rgb;
+        c = c / (1.0 + c);
+        float l = dot(c, vec3(0.299, 0.587, 0.114));
+        summe += c; lSumme += l; l2 += l * l;
+      }
+      mittel[q] = summe / 16.0;
+      float lm = lSumme / 16.0;
+      var[q] = l2 / 16.0 - lm * lm;
+    }
+    vec3 best = mittel[0]; float vMin = var[0];
+    for (int q = 1; q < 4; q++) if (var[q] < vMin) { vMin = var[q]; best = mittel[q]; }
+    return best / max(1.0 - best, vec3(1e-3));
+  }
 
   /* Farbabgleich (D262, \`?abgleich=1\` / \`?echt=1\`): linear, vor dem Tonemapping.
    * 1. Weissabgleich: ein Teil des Sepiastichs raus, Helligkeit bleibt (Luminanz wieder hergestellt).
@@ -270,7 +307,7 @@ const FRAGMENT = /* glsl */`
   }
 
   void main() {
-    vec4 farbe = texture2D(tFarbe, vUv);
+    vec4 farbe = uKuwahara > 0.0 ? vec4(kuwahara(vUv), 1.0) : texture2D(tFarbe, vUv);
     float z = meter(vUv);
     float zl = meter(vUv - vec2(uTexel.x, 0.0));
     float zr = meter(vUv + vec2(uTexel.x, 0.0));
@@ -305,7 +342,9 @@ const FRAGMENT = /* glsl */`
       // Kante (Mauerfuss, Stamm vor Boden) nur in eine. Wo beide Achsen springen, verdeckt jeder Halm
       // seinen Nachbarn, und die Verdeckung wurde zu schwarzen Stoppeln (Wiese, 08.10.2026).
       float rauh = min(abs(zl - z) + abs(zr - z), abs(zu - z) + abs(zo - z)) / z;
-      ao = mix(ao, 1.0, smoothstep(0.004, 0.03, rauh) * 0.85);
+      // Bei gemischten Tiefen gibt es keine belastbare Fläche für Bildschirm-Verdeckung.
+      // Der Scan behält seine gebackene Verdeckung; nur der falsche Bildschirmanteil entfällt.
+      ao = mix(ao, 1.0, smoothstep(0.004, 0.03, rauh) * __AO_FEINANTEIL__);
     }
     vec3 rgb = farbe.rgb * ao * (1.0 - uStaerke * kante);
     if (uBloom > 0.0) rgb += texture2D(tBloom, vUv).rgb * uBloom;
@@ -337,18 +376,23 @@ const TAA_FRAGMENT = /* glsl */`
   uniform float uMischung;
   varying vec2 vUv;
 
+  __TAA_MASKE__
+
   vec3 stauche(vec3 c) { return c / (1.0 + max(max(c.r, c.g), c.b)); }
   vec3 entstauche(vec3 c) { return c / max(1.0 - max(max(c.r, c.g), c.b), 1e-3); }
 
   void main() {
     vec3 mitte = stauche(texture2D(tAktuell, vUv).rgb);
     vec3 lo = mitte, hi = mitte;
+    vec3 integriert = mitte * 4.0;
     for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) {
       if (i == 0 && j == 0) continue;
       vec3 c = stauche(texture2D(tAktuell, vUv + vec2(float(i), float(j)) * uTexel).rgb);
       lo = min(lo, c); hi = max(hi, c);
+      integriert += c * ((i == 0 || j == 0) ? 2.0 : 1.0);
     }
     float z = meter(vUv);
+    __TAA_FEIN__
     vec4 welt = uKameraWelt * vec4((vUv * 2.0 - 1.0) * uTanHalb * z, -z, 1.0);
     vec4 vor = uVorherVP * welt;
     vec2 vorUv = vor.xy / max(vor.w, 1e-4) * 0.5 + 0.5;
@@ -427,7 +471,8 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
 
   const quad = useMemo(() => {
     const material = new THREE.ShaderMaterial({
-      vertexShader: SCHEITEL, fragmentShader: FRAGMENT.replace('__TIEFE__', TIEFE_GLSL),
+      vertexShader: SCHEITEL, fragmentShader: FRAGMENT.replace('__TIEFE__', TIEFE_GLSL)
+        .replace('__AO_FEINANTEIL__', BLATTVERLAUF_AN ? '1.0' : '0.85'),
       uniforms: {
         tFarbe: { value: null }, tTiefe: { value: null }, tAO: { value: null },
         uTexel: { value: new THREE.Vector2() }, uTexelAO: { value: new THREE.Vector2() },
@@ -436,15 +481,21 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
         tBloom: { value: null }, tSchacht: { value: null },
         uBloom: { value: 0 }, uSchacht: { value: new THREE.Color(0, 0, 0) },
         uAbgleich: { value: ABGLEICH_AN ? 1 : 0 }, uRuhig: { value: AO_RUHIG ? 1 : 0 },
+        uKuwahara: { value: KUWAHARA_AN ? Math.max(1, dpr) : 0 },
       },
       depthTest: false, depthWrite: false,
     });
     const aoMaterial = new THREE.ShaderMaterial({
-      vertexShader: SCHEITEL, fragmentShader: AO_FRAGMENT.replace('__TIEFE__', TIEFE_GLSL),
+      vertexShader: SCHEITEL, fragmentShader: AO_FRAGMENT.replace('__TIEFE__', TIEFE_GLSL)
+        .replace('__AO_FLAECHE__', BLATTVERLAUF_AN ? AO_NORMAL_GLSL : '')
+        .replace('__AO_NORMALE__', BLATTVERLAUF_AN
+          ? 'vec4 flaeche = aoFlaeche(vUv, P, uAOTexel); if (flaeche.a == 0.0) { gl_FragColor = vec4(1.0); return; } vec3 N = flaeche.xyz;'
+          : 'vec3 N = normalize(cross(dFdx(P), dFdy(P)));')
+        .replace('__AO_GUELTIGKEIT__', BLATTVERLAUF_AN ? 'ao = mix(1.0, ao, flaeche.a);' : ''),
       uniforms: {
         tTiefe: { value: null }, uNah: { value: 0.2 }, uFern: { value: 1000 },
         uTanHalb: { value: new THREE.Vector2(1, 1) }, uRadius: { value: aoRadius },
-        uRuhig: { value: AO_RUHIG ? 1 : 0 },
+        uRuhig: { value: AO_RUHIG ? 1 : 0 }, uFrame: { value: 0 }, uAOTexel: { value: new THREE.Vector2(1, 1) },
       },
       depthTest: false, depthWrite: false,
     });
@@ -475,7 +526,17 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
     const aoBild = new THREE.Scene(); const aoMesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), aoMaterial); aoMesh.frustumCulled = false; aoBild.add(aoMesh);
     const kam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     const taaMaterial = TAA_AN ? new THREE.ShaderMaterial({
-      vertexShader: SCHEITEL, fragmentShader: TAA_FRAGMENT.replace('__TIEFE__', TIEFE_GLSL),
+      vertexShader: SCHEITEL, fragmentShader: TAA_FRAGMENT.replace('__TIEFE__', TIEFE_GLSL)
+        .replace('__TAA_MASKE__', BLATTVERLAUF_AN ? TAA_MASKE_GLSL : '')
+        .replace('__TAA_FEIN__', BLATTVERLAUF_AN ? /* glsl */ `
+          float zl = meter(vUv - vec2(uTexel.x, 0.0)), zr = meter(vUv + vec2(uTexel.x, 0.0));
+          float zu = meter(vUv - vec2(0.0, uTexel.y)), zo = meter(vUv + vec2(0.0, uTexel.y));
+          float zlu = meter(vUv + uTexel * vec2(-1.0, -1.0)), zru = meter(vUv + uTexel * vec2(1.0, -1.0));
+          float zlo = meter(vUv + uTexel * vec2(-1.0, 1.0)), zro = meter(vUv + uTexel * vec2(1.0, 1.0));
+          // Das Umfeld hält die Kante auch bei wechselnder MSAA-Tiefenprobe fest.
+          // Gleichmässige Tiefenneigungen lösen keine zusätzliche Filterung aus.
+          mitte = mix(mitte, integriert / 16.0, taaKantenUmfeld(z, zl, zr, zu, zo, zlu, zru, zlo, zro));
+        ` : ''),
       uniforms: {
         tAktuell: { value: null }, tVerlauf: { value: null }, tTiefe: { value: null },
         uNah: { value: 0.2 }, uFern: { value: 1000 }, uTexel: { value: new THREE.Vector2() },
@@ -492,7 +553,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       hellBild: vollbild(hellMaterial), schachtBild: vollbild(schachtMaterial), weichBild: vollbild(weichMaterial), kam,
       taaMaterial, ausgabeMaterial,
       taaBild: taaMaterial ? vollbild(taaMaterial) : null, ausgabeBild: ausgabeMaterial ? vollbild(ausgabeMaterial) : null };
-  }, [an, staerke, schwelle, ao, aoRadius]);
+  }, [an, staerke, schwelle, ao, aoRadius, dpr]);
   useEffect(() => () => {
     quad.material.dispose(); quad.aoMaterial.dispose();
     quad.hellMaterial.dispose(); quad.schachtMaterial.dispose(); quad.weichMaterial.dispose();
@@ -524,6 +585,8 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       const ua = quad.aoMaterial.uniforms;
       ua.tTiefe.value = ziel.rt.depthTexture;
       ua.uNah.value = k.near; ua.uFern.value = k.far;
+      ua.uFrame.value = taaAn ? taa.bild % 16 : 0;
+      ua.uAOTexel.value.set(1 / ziel.aoZiel.width, 1 / ziel.aoZiel.height);
       const th = Math.tan(k.fov * Math.PI / 360);
       ua.uTanHalb.value.set(th * k.aspect, th);
       gl.setRenderTarget(ziel.aoZiel);

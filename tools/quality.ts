@@ -22,6 +22,14 @@ type Befund = { schwere: 'stop' | 'warnung'; bereich: string; text: string };
 const befunde: Befund[] = [];
 const stop = (bereich: string, text: string) => befunde.push({ schwere: 'stop', bereich, text });
 const warn = (bereich: string, text: string) => befunde.push({ schwere: 'warnung', bereich, text });
+/**
+ * D286: Budgetgrenzen aufgehoben (Flo 15.11.2026: „Budgetgrenzen sind erstmal aufgehoben“, ADR-0016: Zielgerät
+ * ist der neue Laptop, nicht mehr M1/Handy). Grössen-Budgets (Kreatur-GLB, Gesamtpaket, Materialien, Dreiecke je
+ * Kreatur) melden nur noch als Warnung, damit die Zahl sichtbar bleibt; Herkunft und Lizenz bleiben hart.
+ * Zurück: `BUDGET_HART = true`.
+ */
+const BUDGET_HART = false;
+const budget = (bereich: string, text: string) => (BUDGET_HART ? stop : warn)(bereich, text);
 
 // ---------------------------------------------------------------- Schwellen
 const BUDGET = {
@@ -121,7 +129,7 @@ for (const { f, k } of kreaturen) {
   if (/TODO|TBD|xxx|placeholder/i.test(JSON.stringify(k)))
     stop('Inhalt', `${f}: enthält Platzhalter-Marker`);
   if ((k.zielTris ?? 4000) > BUDGET.trisMax)
-    stop('Assets', `${f}: zielTris ${k.zielTris} über Budget ${BUDGET.trisMax}`);
+    budget('Assets', `${f}: zielTris ${k.zielTris} über Budget ${BUDGET.trisMax}`);
 
   // Werteprogression: Zuwachs je Stufe muss im Korridor liegen
   for (let i = 1; i < k.stufen.length; i++) {
@@ -216,10 +224,10 @@ if (existsSync('public/creatures')) {
   for (const f of readdirSync('public/creatures').filter(f => f.endsWith('.glb'))) {
     const kb = statSync(join('public/creatures', f)).size / 1024;
     gesamt += kb;
-    if (kb > BUDGET.glbKB) stop('Assets', `${f}: ${kb.toFixed(0)} KB über Budget ${BUDGET.glbKB} KB`);
+    if (kb > BUDGET.glbKB) budget('Assets', `${f}: ${kb.toFixed(0)} KB über Budget ${BUDGET.glbKB} KB`);
   }
   if (gesamt / 1024 > BUDGET.paketMB)
-    stop('Assets', `Gesamtpaket ${(gesamt / 1024).toFixed(1)} MB über ${BUDGET.paketMB} MB — Offline-Cache gefährdet`);
+    budget('Assets', `Gesamtpaket ${(gesamt / 1024).toFixed(1)} MB über ${BUDGET.paketMB} MB — Offline-Cache gefährdet`);
 } else warn('Assets', 'kein Kreaturenmodell — offener Posten, nicht mehr Absicht: ADR-0002 ist seit dem '
   + '16.08.2026 erfüllt und die Stilreferenz steht. Es fehlen Rohmodelle (G-119, G-120)');
 
@@ -316,7 +324,7 @@ if (existsSync('public/material')) {
   const ohne = dateien.filter(f => !herkunft.includes(f));
   if (ohne.length) stop('Materialien', `ohne Herkunftsangabe: ${ohne.join(', ')}`);
   const gesamt = dateien.reduce((s, f) => s + statSync(join('public/material', f)).size, 0) / 1024;
-  if (gesamt > 12 * 1024) stop('Materialien', `${(gesamt / 1024).toFixed(1)} MB über Budget 12 MB`);
+  if (gesamt > 12 * 1024) budget('Materialien', `${(gesamt / 1024).toFixed(1)} MB über Budget 12 MB`);
   if (!ohne.length)
     console.log(`  · [Materialien] ${dateien.length} Bilder mit Herkunft, zusammen ${(gesamt / 1024).toFixed(1)} MB`);
 }

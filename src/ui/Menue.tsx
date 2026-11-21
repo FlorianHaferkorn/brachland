@@ -59,6 +59,9 @@ export interface MenueProps {
   onSchliessen: () => void;
   /** Charakter-Editor öffnen (D175). */
   onFigur?: () => void;
+  /** D355: Richtungskampf (vier Linien) an oder aus. */
+  richtung?: boolean;
+  onRichtung?: (an: boolean) => void;
 }
 
 const FARBE = {
@@ -132,12 +135,17 @@ export function Menue(p: MenueProps) {
               color: reiter === id ? FARBE.akzent : FARBE.matt,
             }}>{text}</button>
         ))}
-        {p.onFigur && <button onClick={p.onFigur} style={{
+        {p.onRichtung && <button onClick={() => p.onRichtung!(!p.richtung)}
+          title="Richtungskampf: Block und Angriff in vier Linien (ADR-0009)" style={{
           minHeight: 34, padding: '4px 11px', borderRadius: 7, fontSize: 12, marginLeft: 'auto',
+          background: 'transparent', border: `1px solid ${FARBE.rand}`, color: p.richtung ? FARBE.akzent : FARBE.matt,
+        }}>Richtung {p.richtung ? 'an' : 'aus'}</button>}
+        {p.onFigur && <button onClick={p.onFigur} style={{
+          minHeight: 34, padding: '4px 11px', borderRadius: 7, fontSize: 12, marginLeft: p.onRichtung ? 0 : 'auto',
           background: 'transparent', border: '1px solid transparent', color: FARBE.matt,
         }}>Figur</button>}
         <button onClick={p.onSchliessen} style={{
-          marginLeft: p.onFigur ? 0 : 'auto', minHeight: 34, minWidth: 44, borderRadius: 7,
+          marginLeft: p.onFigur || p.onRichtung ? 0 : 'auto', minHeight: 34, minWidth: 44, borderRadius: 7,
           background: 'transparent', border: `1px solid ${FARBE.rand}`,
           color: FARBE.text, fontSize: 15,
         }}>✕</button>

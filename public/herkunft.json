@@ -243,5 +243,47 @@
   "autor": "Quaternius",
   "lizenz": "CC0",
   "quelle": "Teile aus poly.pizza qJ2gsTUBHL (Rumpf, Beine, Füße) und ZwF0K7WBmu (Kopf, „Adventurer“), Ultimate Modular Women"
+ },
+ {
+  "datei": "oental-lod2.json",
+  "rolle": "Gebäudedachmaße aus CityGML, auf Trauf- und Firsthöhe, Dachform und Firstrichtung verdichtet und den OSM-Grundrissen zugeordnet. D331 ergänzt die aus Firstendpunkten berechnete Richtung für 508, 510 und 512 sowie die Dachkörpermaße für 512. D340 übernimmt die Dachflächen und Teilbauten für 410, 413, 444, 506, 507, 509, 511 und 513 aus Kachel 732_5290. Die Dachfarben stammen aus Dachpixeln der Orthophotos (D291). tools/lod2import.py erzeugt die Daten.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "CC BY 4.0",
+  "quelle": "3D-Gebäudemodelle LoD2 (OpenData), Kacheln 728–732 / 5288–5292 (UTM 32), abgerufen 15.11.2026, für D331 Kachel 732_5290 am 19.11.2026. Digitale Orthophotos DOP20 (WMS by_dop20c, OpenData), 121 Kacheln à 256 m, abgerufen 15.11.2026"
+ },
+ {
+  "datei": "content/regions/oental.json, nahhoehen",
+  "rolle": "D340. DGM1-Kachel 732_5290, ins lokale Spielraster resampelt, in Zentimetern relativ zum lokalen Datum gespeichert",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
+  "datei": "oental-fern-sued.json",
+  "rolle": "D345. 25 DGM1-Kacheln zum Fernraster des südöstlichen Hangs resampelt und auf Meter gerundet. Erzeugt mit npm run fernland -- oental --dgm1-sued.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
+  "datei": "oental-fern-ring.json",
+  "rolle": "D349. 100 DGM1-Kacheln (E 726–735, N 5286–5295) auf 277² Punkte im Fernraster-Ring resampelt und auf Meter gerundet, 0 % Lücken. Erzeugt mit npm run fernland -- oental --dgm1-ring.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
+  "datei": "fahlmoos-fern-ring.json",
+  "rolle": "D351. 100 DGM1-Kacheln (E 724–733, N 5292–5301) auf 277² Punkte im Fernraster-Ring resampelt und auf Meter gerundet, 0 % Lücken. Erzeugt mit npm run fernland -- fahlmoos --dgm1-ring.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
+  "datei": "bauten/milbinger-kleinwagen.glb",
+  "rolle": "Verlassener Kompaktwagen",
+  "autor": "tevy",
+  "lizenz": "CC0 1.0",
+  "quelle": "[Five-Door Hatchback](https://tevy.dev/models/hatchback), v1 LOD1. Quelle mit tools/kompaktwagen-pack.mjs für WebGL gepackt. Rost, Schmutz und veränderte Glasoberflächen entstehen im Spiel."
  }
 ]

@@ -20,16 +20,19 @@
  * nach Entfernung ausgeblendet.
  */
 import * as THREE from 'three';
+import { HAUSFRONT_AN, STRASSENPROFIL_AN, STRASSENVERFALL_AN, WOHNWEGQUERSCHNITT_AN } from './echt.js';
+import type { Strassenkulisse, WohnwegQuerschnitt } from '../data/schema.js';
 import { PALETTE } from './palette.js';
 import type { Weltdaten } from './osm.js';
 import { MASSSTAB, WEG_TEILUNG, orientierteHuelle } from './terrain.js';
+import { istHofZielhaus } from './hofplatz.js';
+import { querschnittGrenzen, querschnittKanten, WEG_UEBER_GRUND } from './strassenquerschnitt.js';
 import { KACHEL, LOD_STUFEN, hoeheAufFlaeche, spiegelAufFlaeche,
          type HoehenFeld, type Kachel } from './lod.js';
 
 /** Wie hoch die Wasserfläche über dem Gelände liegt. */
 const WASSER_UEBER_GRUND = 0.06;
-/** Wie hoch das Wegband über dem Gelände liegt, damit nichts durchblitzt. */
-const WEG_UEBER_GRUND = 0.12;
+export { WEG_UEBER_GRUND };
 
 /**
  * Ab diesem Gefälle je Teilstück wird aus dem liegenden Band eine stehende Fläche.
@@ -55,6 +58,8 @@ export interface Bandstueck {
   v1: number; v2: number;
   /** Steht dieses Stück als Wasserfall? Einmal entschieden, nie neu. */
   fall: boolean;
+  /** Für Flächenfreihaltung erhalten, durch die Querschnittprobe gezeichnet. */
+  querschnitt?: true;
   /** Belag des Wegs — Farbe und Oberfläche. Bei Gewässern undefiniert. */
   belag?: Wegbelag;
 }
@@ -79,6 +84,8 @@ export interface Wegbelag {
   rinne: number;
   /** Wie stark der Rand ausfranst. Asphalt hat eine Kante, ein Pfad nicht. */
   franse: number;
+  /** Straßenverfall des gewählten OSM-Abschnitts. */
+  verfall?: number;
 }
 
 export const WEGBELAG: Record<string, Wegbelag> = {
@@ -124,6 +131,8 @@ export interface Garten {
   ecken: [number, number][];
   /** Richtung der Beetreihen — dieselbe Achse wie der First des Hauses. */
   achse: number;
+  /** Das Vorfeld der Einsturzspur hat seinen eigenen, aufgelassenen Garten. */
+  verwildert?: true;
 }
 
 /** Alles, was auf dem Gelände aufliegt, nach Kachel sortiert. */
@@ -166,7 +175,9 @@ function einsortieren<T>(karte: Map<string, T[]>, ix: number, iz: number, wert: 
  * weit in die Nachbarkachel ragen; bei 4 m Teilung und 64 m Kacheln sind das
  * höchstens 2 m, und die Naht behandelt die Schürze.
  */
-export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
+export function zerlegeBaender(
+  welt: Weltdaten, feld: HoehenFeld, strassen?: ReadonlyMap<number, Strassenkulisse['wege'][number]>,
+): Bandsatz {
   const [sued, west, nord, ost] = welt.bbox;
   const zuWelt = (lat: number, lon: number): [number, number] => [
     ((lon - west) / (ost - west) - 0.5) * feld.breiteMeter,
@@ -180,21 +191,33 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
   const zerlegen = (
     punkte: readonly [number, number][], breite: number,
     ziel: Map<string, Bandstueck[]>, fallZiel: Map<string, Bandstueck[]> | null,
-    belag?: Wegbelag,
+    belag?: Wegbelag, versatz = 0, profil?: WohnwegQuerschnitt,
   ) => {
     const halbe = breite / (2 * MASSSTAB.stauchung);
     const halbeFall = Math.max(0.8, halbe);
+    const grenzen = profil && querschnittGrenzen(profil);
+    const querKanten = profil && querschnittKanten(profil, breite);
     let laengs = 0;
     for (let k = 0; k < punkte.length - 1; k++) {
       const [ax, az] = zuWelt(...punkte[k]);
       const [bx, bz] = zuWelt(...punkte[k + 1]);
       const dx = bx - ax, dz = bz - az;
       const len = Math.hypot(dx, dz) || 1;
+      const querX = -dz / len * versatz, querZ = dx / len * versatz;
       const teile = Math.max(1, Math.ceil(len / WEG_TEILUNG));
-      for (let t = 0; t < teile; t++) {
-        const t1 = t / teile, t2 = (t + 1) / teile;
-        const x1 = ax + dx * t1, z1 = az + dz * t1;
-        const x2 = ax + dx * t2, z2 = az + dz * t2;
+      const schnitte = grenzen && Array.from({ length: teile + 1 }, (_, i) => i / teile);
+      if (schnitte && grenzen) {
+        for (const s of grenzen) {
+          const t = (s - laengs) / len;
+          if (t > 0 && t < 1 && !schnitte.some(a => Math.abs(a - t) < 1e-8)) schnitte.push(t);
+        }
+        schnitte.sort((a, b) => a - b);
+      }
+      const stuecke = schnitte ? schnitte.length - 1 : teile;
+      for (let i = 0; i < stuecke; i++) {
+        const t1 = schnitte?.[i] ?? i / teile, t2 = schnitte?.[i + 1] ?? (i + 1) / teile;
+        const x1 = ax + dx * t1 + querX, z1 = az + dz * t1 + querZ;
+        const x2 = ax + dx * t2 + querX, z2 = az + dz * t2 + querZ;
         // Der Wasserfall wird auf der feinen Fläche entschieden — der einen, die
         // sich mit der Kameraentfernung nicht ändert.
         const fall = fallZiel !== null
@@ -206,6 +229,16 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
           nx: (-dz / len) * b, nz: (dx / len) * b,
           v1: laengs + len * t1, v2: laengs + len * t2, fall, belag,
         };
+        const station = (stueck.v1 + stueck.v2) / 2;
+        if (grenzen && querKanten && profil && station >= grenzen[0] && station <= grenzen[1]) {
+          stueck.querschnitt = true;
+          // Der Gartenabgleich behält einen konservativen Korridor.
+          const ausladung = Math.max(...[querKanten(stueck.v1), querKanten(stueck.v2)].flat().map(Math.abs))
+            + Math.max(0, ...[...profil.gehwege, ...profil.zufahrten]
+              .filter(r => r.von <= stueck.v2 && r.bis >= stueck.v1).map(r => 'breite' in r ? r.breite : r.tiefe));
+          stueck.nx = -dz/len * ausladung;
+          stueck.nz = dx/len * ausladung;
+        }
         const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2;
         /**
          * **Was ausserhalb der Region liegt, wird nicht gebaut** (D162).
@@ -237,7 +270,14 @@ export function zerlegeBaender(welt: Weltdaten, feld: HoehenFeld): Bandsatz {
   };
 
   for (const linie of welt.linien) zerlegen(linie.punkte, linie.breite, satz.baeche, satz.faelle);
-  for (const weg of welt.wege) zerlegen(weg.punkte, weg.breite, satz.wege, null, belagFuer(weg.art));
+  for (const weg of welt.wege) {
+    const belag = belagFuer(weg.art);
+    const zustand = weg.quelle && strassen?.get(weg.quelle.osmId);
+    const profil = STRASSENPROFIL_AN ? zustand?.profil : undefined;
+    zerlegen(weg.punkte, profil?.breite ?? weg.breite, satz.wege, null,
+      zustand ? { ...belag, verfall: zustand.verfall } : belag, profil?.versatz,
+      WOHNWEGQUERSCHNITT_AN ? zustand?.querschnitt : undefined);
+  }
 
   // Nach den Wegen, weil die Gartenprüfung sie braucht: Ein Beet auf der
   // Dorfstraße ist schlimmer als kein Beet.
@@ -374,7 +414,9 @@ function gebaeudeUndGaerten(
       }
       if (hoch - tief > GARTEN_STEIGUNG) continue;
 
-      einsortieren(satz.gaerten, kx, kz, { ecken, achse: hu.achse });
+      const garten: Garten = { ecken, achse: hu.achse };
+      if (istHofZielhaus(i, h.p)) garten.verwildert = true;
+      einsortieren(satz.gaerten, kx, kz, garten);
       return;
     }
   });
@@ -478,6 +520,7 @@ function belagSchreiben(st: Bandstueck, n: number, farben: number[], belaege: nu
   for (let i = 0; i < n; i++) {
     farben.push(f[0], f[1], f[2]);
     belaege.push(b.rinne, b.franse);
+    if (STRASSENVERFALL_AN) belaege.push(b.verfall ?? 0);
   }
 }
 
@@ -498,12 +541,13 @@ export function baueWegKachel(
   if (!stuecke) return null;
   const positionen: number[] = [], uvs: number[] = [];
   const farben: number[] = [], belaege: number[] = [];
-  liegendesBand(feld, stuecke, lod, WEG_UEBER_GRUND, hoeheAufFlaeche, false,
+  liegendesBand(feld, WOHNWEGQUERSCHNITT_AN ? stuecke.filter(s => !s.querschnitt) : stuecke,
+                lod, WEG_UEBER_GRUND, hoeheAufFlaeche, false,
                 positionen, uvs, farben, belaege);
   const g = fertig(positionen, uvs);
   if (!g) return null;
   g.setAttribute('color', new THREE.Float32BufferAttribute(farben, 3));
-  g.setAttribute('belag', new THREE.Float32BufferAttribute(belaege, 2));
+  g.setAttribute('belag', new THREE.Float32BufferAttribute(belaege, STRASSENVERFALL_AN ? 3 : 2));
   return g;
 }
 
@@ -781,11 +825,53 @@ export function baueGartenKachel(
   };
 
   const zaunF = linearAus(ZAUN), erdeF = linearAus(ERDE), krautF = linearAus(KRAUT);
+  const altholz = [linearAus([99, 96, 84]), linearAus([117, 112, 99]), linearAus([78, 74, 65])];
 
   for (const garten of gaerten) {
     const cos = Math.cos(garten.achse), sin = Math.sin(garten.achse);
     const e = garten.ecken;
     const boden = (x: number, z: number) => hoeheAufFlaeche(feld, x, z, s);
+
+    if (garten.verwildert) {
+      // Nur ein Teil der Garteneinfassung steht noch. Material und Kachelbatch bleiben dieselben.
+      for (let seite = 0; seite < 4; seite++) {
+        const [ax, az] = e[seite], [bx, bz] = e[(seite + 1) % 4];
+        const len = Math.hypot(bx - ax, bz - az), tx = (bx - ax) / len, tz = (bz - az) / len;
+        const punkt = (u: number, y: number, sperre = 0): [number, number, number] => {
+          const x = ax + u * tx - sperre * tz, z = az + u * tz + sperre * tx;
+          return [x, boden(x, z) + y, z];
+        };
+        const zaun = (a: [number, number, number], b: [number, number, number],
+          c: [number, number, number], d: [number, number, number], ton: number) => {
+          flaeche(a, b, c, d, altholz[ton]);
+          flaeche(b, a, d, c, altholz[ton]);
+        };
+        const felder = Math.ceil(len / 2.35);
+        for (let k = 0; k < felder; k++) {
+          const u = k / felder * len, v = (k + 1) / felder * len;
+          const [px, py, pz] = punkt(u, -.025);
+          kasten(px, pz, py, .048, .055, .47 + ((k + seite * 5) % 7) * .065, cos, sin, altholz[(k + 1) % 3]);
+          if ((k * 3 + seite) % 5 !== 3) {
+            const ab = .06 + (k + seite * 7) % 3 * .05, bis = v - ((k + seite) % 3 === 1 ? .36 : .05);
+            const y1 = .28 + (k + 2 * seite) % 4 * .047, y2 = y1 + ((k * 5 + seite) % 7 - 3) * .049;
+            zaun(punkt(u + ab, y1), punkt(bis, y2), punkt(bis - .02, y2 + .11), punkt(u + ab, y1 + .11), (k + 2) % 3);
+          }
+        }
+        const latten = Math.floor(len / .37);
+        for (let k = 1; k < latten; k++) {
+          const seed = (k * 37 + seite * 19) % 53;
+          if (seed < 16 || (seite === 1 && k <= 2)) continue;
+          const u = k / latten * len + (seed % 11 - 5) * .014;
+          const h = .44 + (seed % 23) * .016, breite = .064 + (seed % 7) * .011;
+          const neigung = (seed % 17 - 8) * .019;
+          const a = punkt(u - breite, .035, -.033), b = punkt(u + breite, .01, -.033);
+          const c = punkt(u + neigung + breite * .85, h - .025, seed * .002 - .038);
+          const d = punkt(u + neigung - breite, h, seed * .002 - .04);
+          zaun(a, b, c, d, seed % 3);
+        }
+      }
+      continue;
+    }
 
     // Zaun: Pfosten alle 2,4 m, zwei Riegel dazwischen.
     for (let i = 0; i < 4; i++) {
@@ -853,6 +939,10 @@ export function baueGartenKachel(
   // `mergeGeometries` verlangt dieselben Attribute: Ein Beet hat keine Fenster,
   // also Glut 0 (D134). Ohne die Zeile fiel die ganze Hauskachel still aus dem Bild.
   g.setAttribute('glut', new THREE.Float32BufferAttribute(new Float32Array(positionen.length / 3), 1));
+  // D284: dieselbe Pflicht für die Materialrolle der Hausscans — Beete sind „keine“ (4).
+  g.setAttribute('rolle', new THREE.Float32BufferAttribute(new Float32Array(positionen.length / 3).fill(4), 1));
+  g.setAttribute('zustand', new THREE.Float32BufferAttribute(new Float32Array(positionen.length / 3 * 2), 2));
+  if (HAUSFRONT_AN) g.setAttribute('raumUv', new THREE.Float32BufferAttribute(new Float32Array(positionen.length), 3));
   g.computeVertexNormals();
   g.computeBoundingSphere();
   return g;

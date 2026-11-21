@@ -1,10 +1,10 @@
 ---
-last-reviewed: 2026-10-07
+last-reviewed: 2026-11-21
 shelf-life-days: 365
 ---
 # ADR-0004 — Scope: episodisch bauen, nicht 40–50 Stunden planen
 
-**Status:** Accepted · 2026-08-16 · erweitert ADR-0001 · Park-Punkt „Soulslike-Combat“ teilweise abgelöst durch ADR-0007 (Nachtrag D196)
+**Status:** Accepted · 2026-08-16 · erweitert ADR-0001 · Park-Punkt „Soulslike-Combat“ teilweise abgelöst durch ADR-0007 (Nachtrag D196) · Park-Punkt „Photoreal“: **abgelöst durch ADR-0016** (angenommen 21.11.2026, D357)
 
 ## Kontext
 

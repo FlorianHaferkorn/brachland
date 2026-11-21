@@ -270,7 +270,13 @@ type PlatzProps = {
   waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Nachts stärker (D179, `naechtlich`). */
   nacht?: boolean;
+  /** D355: Richtungskampf an (Vorgabe) oder aus. `?richtung=0` schaltet ihn für Messläufe ab. */
+  richtung?: boolean;
 };
+
+/** D355: Adressschalter für Messläufe und Kampfbot-Ansicht; die Einstellung im Menü gilt sonst. */
+const RICHTUNG_ADRESSE: boolean | undefined = typeof location === 'undefined' ? undefined
+  : new URLSearchParams(location.search).get('richtung') === '0' ? false : undefined;
 
 const VORGABE: readonly GegnerArt[] = ['keiler', 'grathorn'];
 
@@ -429,7 +435,7 @@ function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeome
   return { obj, koerper: koerper as THREE.SkinnedMesh | null, material, rig, setzeZeit: w.setzeZeit };
 }
 
-function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber, rigs, onEnde, waffenStufen, nacht }:
+function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber, rigs, onEnde, waffenStufen, nacht, richtung }:
   PlatzProps & { leiber: Partial<Record<GegnerArt, Leib | null>>; rigs: Partial<Record<GegnerArt, RigVorlage>> }) {
   const aufKey = aufstellung.join(',');
   const welt = useRef<Kampfwelt | null>(null);
@@ -635,6 +641,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     const jetzt = performance.now();
     if (!welt.current) {
       welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht); welt.current.spielerin.ausdauerFremd = true;
+      welt.current.richtung = RICHTUNG_ADRESSE ?? richtung;
       welt.current.friedlich = GALERIE;
       if (GALERIE) {
         // Die Gegner nah heran (2,4 m vor die Figur — in Reichweite jedes Schlags, D190, nebeneinander), damit Gegneransicht und Treffer zu sehen sind.
@@ -775,6 +782,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     if (!onEnde && ende.current !== null && jetzt - ende.current > NEUSTART * 1000) {
       welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht);
       welt.current.spielerin.ausdauerFremd = true;
+      welt.current.richtung = RICHTUNG_ADRESSE ?? richtung;
       ruesteAus(welt.current.spielerin, waffeWahl.current);
       ende.current = null;
       melde('neue Runde');
@@ -834,7 +842,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         ruhig: !los.current,
         getroffen: zaehler.current.getroffen,
         schlag: s.phase === 'vorlauf' || s.phase === 'aktiv' || s.phase === 'erholung' ? s.schlag.name ?? '' : '',
-        linien: zk?.werte.mensch || zk?.werte.linien ? {
+        linien: welt.current?.richtung !== false && (zk?.werte.mensch || zk?.werte.linien) ? {
           eigen: s.linie, deckung: zk.deckung,
           kommt: zk.phase === 'vorlauf' || zk.phase === 'aktiv' ? zk.schlagLinie : undefined,
           parade: zk.phase === 'vorlauf' && zk.schlag.vorlauf - zk.zeit <= PARADE,

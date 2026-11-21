@@ -1,0 +1,55 @@
+{
+ "quelle": "tools/bodenkarten.py (D366)",
+ "bodenflach": [
+  {
+   "kachel": 0,
+   "name": "sauerklee",
+   "kante": 1.0,
+   "hoehe": 0.137
+  },
+  {
+   "kachel": 1,
+   "name": "moospolster",
+   "kante": 1.0,
+   "hoehe": 0.062
+  },
+  {
+   "kachel": 2,
+   "name": "waldmeister",
+   "kante": 1.0,
+   "hoehe": 0.232
+  },
+  {
+   "kachel": 3,
+   "name": "kraeuter",
+   "kante": 1.0,
+   "hoehe": 0.128
+  }
+ ],
+ "bodenbusch": [
+  {
+   "kachel": 0,
+   "name": "waldmeister",
+   "kante": 0.8,
+   "hoehe": 0.249
+  },
+  {
+   "kachel": 1,
+   "name": "brombeere-jung",
+   "kante": 0.8,
+   "hoehe": 0.484
+  },
+  {
+   "kachel": 2,
+   "name": "jungwuchs-buche",
+   "kante": 0.8,
+   "hoehe": 0.335
+  },
+  {
+   "kachel": 3,
+   "name": "jungwuchs-fichte",
+   "kante": 0.8,
+   "hoehe": 0.546
+  }
+ ]
+}

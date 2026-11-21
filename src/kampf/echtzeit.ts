@@ -497,6 +497,8 @@ export interface Kaempfer {
   stoss?: { x: number; z: number; rest: number } | null;
   /** Gewählte Linie (D174): Pfeiltasten der Spielerin — für Angriff und Block. */
   linie?: Linie;
+  /** D355: Richtungskampf ausgeschaltet — Schläge tragen keine Linie, jeder frontale Block hält voll. */
+  ohneLinien?: boolean;
   /** Linie des laufenden Schlags, beim Ansetzen festgelegt. */
   schlagLinie?: Linie;
   /** Gedeckte Linie eines Menschen (D174). */
@@ -563,6 +565,7 @@ export function setzeSchlagAn(k: Kaempfer, s: Schlag = k.werte.schlag): boolean 
 
 /** Die Linie, aus der `k` den Schlag `s` jetzt führt (D174). */
 function linieFuer(k: Kaempfer, s: Schlag): Linie | undefined {
+  if (k.ohneLinien) return undefined;
   const m = k.werte.mensch;
   if (m) return m.linienFolge[k.schwung % m.linienFolge.length];
   const t = k.werte.linien;
@@ -1106,6 +1109,11 @@ export interface Kampfwelt {
   uebrig?: number;
   /** D187: Galerie — die Gegner stehen nur da, denken nicht, greifen nicht an. */
   friedlich?: boolean;
+  /**
+   * D355: Richtungskampf (ADR-0009) an oder aus; ohne Angabe an wie bisher. Aus heisst: keine Linien,
+   * keine Deckung der Menschen, kein Lesen — Block und Parade wie in Stufe 1 (D173).
+   */
+  richtung?: boolean;
   /** Wer im letzten Teilschritt angreifen durfte — nur zum Ansehen (`kampf.mjs`). */
   recht?: string | null;
   /** Restzeit des Trefferstopps (D171). */
@@ -1128,6 +1136,8 @@ export interface Kampfwelt {
  * und soll das spüren.
  */
 export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer[] {
+  const ohne = w.richtung === false;
+  for (const k of [w.spielerin, ...w.gegner]) k.ohneLinien = ohne;
   const ereignisse: Treffer[] = [];
   w.uebrig = (w.uebrig ?? 0) + Math.max(0, dt);
   while (w.uebrig >= SCHRITT - 1e-12) {

@@ -55,7 +55,7 @@ for (const [name, g] of [...bandteile, ['gebaeude', baueGebaeude(welt, boden)]] 
 const props = propsWieSzene(welt, baueTerrain(welt), feld) // D232
   .filter(p => Math.hypot(p.position[0] - SP[0], p.position[2] - SP[1]) < 260);
 for (const p of props) dump.props.push([p.art, p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2], p.drehung, p.skalierung]);
-dump.farben = { nadelbaum:'#20351f', laubbaum:'#3a4d2c', busch:'#3f4f33', findling:'#6e7276', totholz:'#4a4239', grasbuschel:'#5c6b45' };
+dump.farben = { nadelbaum:'#20351f', laubbaum:'#3a4d2c', busch:'#3f4f33', findling:'#6e7276', totholz:'#4a4239' };
 dump.spieler = SP;
 writeFileSync('.cache/lodscene.json', JSON.stringify(dump));
 console.log(`Terrain-Dreiecke im Umkreis 400 m: ${tris.toLocaleString('de')} · Props: ${props.length}`);

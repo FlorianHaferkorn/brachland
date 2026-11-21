@@ -727,3 +727,265 @@ Kampfbot 60 Kämpfe je Zeile, Profil `parierend` (Block 0,09 s vor dem Aktiven, 
 | Gams | 100 % / 40,0 s | 100 % / 5,5 s | 97 % / 54,1 s | 100 % / 20,7 s |
 
 Nebelmorgen nach D173 (Bildtor): Felsflanke Median 0,146 (vorher 0,140), Grashang 0,102 (0,099), Felsmulde 0,059 mit 22,2 % dunkel (18,0 %).
+
+## Scan-Hof D298
+
+`?scanhof=1` aktiviert die zusammenhängende Scanprobe am Wohnhaus nahe1433/434 und schliesst `echt` sowie D297-Hausfront ein. Der direkte Gegenlauf verwendet deshalb `echt=1&hausfront=1&scanhof=0`. Tag/Stimmung, Sonne, Kamera und Bildgrösse bleiben gleich; Windphase und umhergehende Figuren sind nicht eingefroren. Neue Texturen werden nur im Probepfad als Materialien gebunden, gehören wie andere verwendete Materialbilder zum Offline-Precache. Verworfener Erdboden und redundante neue Prop-Normalen sind ausgenommen.
+
+Neue, noch nicht vorhandene Assets bauen:
+
+```bash
+node tools/hofscans.mjs
+node tools/hofscans.mjs props
+node tools/hofscans.mjs kies
+```
+
+Die Ausgaben sind append-only: vorhandene Dateien führen zum Abbruch. Quellen, Autoren, Lizenzprüfung und SHA-256 sind in `public/material/hof-scans.json` beziehungsweise `hof-props.json` beziehungsweise `hof-kies.json` festgehalten.
+
+Feste Vergleichskamera: `absetzen=1441,418,0`, `kamera=1440,36.8,421,1433,37.8,434`, `fov=60`, `stimmung=zielbild`. Gleiches Prüflicht auf beiden Seiten: `umgebung=6&sonne=0.8&umlichtstaerke=1.2&schatten=0.4`. Die zusätzliche Strassenansicht behält die ursprünglichen Lichtwerte; beide Varianten je Ansicht identisch. Kosten mit `tools/mess/vergleich.mjs` in isolierten Läufen (12s, 960×540), Reihenfolge Vorgabe/Probe/Probe/Vorgabe; keine Bildaufnahmen während des Zeitfensters. Für Bewegung `tools/mess/lodlauf.mjs` ohne feste `kamera` verwenden, damit die Kamera tatsächlich mitläuft. Zahlen und Grenzen im Ledger D298.
+
+`node tools/mess/hofladen.mjs <neuer-name> <0|1>` misst einen neuen Browserkontext ohne Service Worker: unmittelbare HTTP-Dateibytes, neue Hofkarten, Beobachtungsdauer bis Lade-HUD plus15sNachladefenster und Netzruhe. Das trennt den unmittelbar benötigten Datenumfang vom grösseren Offline-Precache. Lokaler HTTP-Server, keine Aussage über Internetbandbreite oder M1/Safari-Abnahme.
+
+Die direkte Hof-Bewegung verwendet `absetzen=1444,419,150`: Blick0° bedeutet −Z und führt vom Hof weg. Galerie/Spiel-Link starten deshalb nach150°. Endstandberichte: `.cache/mess/d298-ende-{1,2,3,4}`, Ladeberichte `.cache/mess/d298-hofdaten-{0,1}`, Laufvideo `.cache/mess/d298-hof-bewegung`. Aus diesen Dateien baut `node tools/mess/hofgalerie.mjs <neuer-ordnername>` eine eigenständige HTML-Galerie mit eingebettetem Video und eine PNG-Tafel; bestehende Ordner werden nicht überschrieben.
+
+## Hofvegetation D299
+
+`scanhof=1&hofgruen=0` ist der D298-Gegenlauf, `hofgruen=1` die lokale Vegetationsprobe. Dieselben Hof-/Strassenkameras wie D298 verwenden. Die neue Probe trennt Bauminstanzen vor dem Chunking; ein einfaches Filtern im EZ-Renderer würde Aussengruppen mitverbergen und ist ausdrücklich ausgeschlossen. `ezbaum=1` bleibt der globale Gegenversuch.
+
+```bash
+node tools/mess/hofgruen.mjs neuer_hof_audit 1
+node tools/mess/hofladen.mjs neuer_hof_datenlauf 1 hofgruen
+```
+
+Der Audit prüft nicht nur sichtbare EZ-Meshes, sondern lokale Originale, unveränderte Aussengruppen, fertige Deckungs-Mips und gemeinsame Farb-/Tiefenkarten. Kosten separat in der Folge0/1/1/0 mit `vergleich.mjs`, keine Video-/Szenensonden währenddessen. Blattkarten/Geometrien gehören zu vorhandenen Quellen; neue Strauchformen werden deterministisch erzeugt. Für Bewegung `1444,419,150`,12s mit Schwenk und `ezdiagnose=1` verwenden. Eine bestandene Verwaltungssonde belegt keine flimmerfreien Kartenränder.
+
+Schnelle Mehrfachwechsel im lokalen Modus lassen sich mit dem optionalen URL-Parameter reproduzieren:
+
+```bash
+node tools/mess/ezdreifach.mjs neuer_hof_dreifach 'absetzen=1444,419,150&ezbaum=0&hofgruen=1'
+node tools/mess/hofgalerie.mjs neuer_hofvergleich tools/mess/hofgruen-vergleich.json
+```
+
+Die Galerie-Konfiguration verweist auf die abgeschlossenen D299-Berichte/Bilder. Für neue Reihen die Konfiguration auf neue Dateinamen umstellen. Das eingebettete Video beginnt automatisch beim letzten12,7s-Ausschnitt der Aufzeichnung; Ladephase und historische Originalvideos bleiben erhalten.
+
+## Blattkanten D300
+
+Historischer D300-Vergleich: Seit D301 zusätzlich `blattverlauf=0` setzen, um diesen Stand wiederherzustellen.
+
+`hofgruen=1&blattruhe=0` ist der D299-Gegenlauf; `hofgruen=1` nutzt zentrierte Alpha-to-Coverage-Kanten bei aktivem MSAA und vollständige Mips der EZ-Einzelkarten. `msaa=0` nimmt nur die Sample-Deckung heraus; `mips=0` behält die bisherige Sechsstufenkette. Strauchatlas, TAA, Geometrien, Wind und LOD-Abstände bleiben unverändert. Schattenkarten sind nicht multisampelt: `onBeforeShadow` bewahrt die Quellschwelle auch nach der three.js-Vorbereitung (Nadeln0,3 statt pauschal0,5).
+
+```bash
+node tools/mess/blattlauf.mjs neuer_blatt_vor 0 taa
+node tools/mess/blattlauf.mjs neuer_blatt_nach 1 taa
+node tools/mess/hofgruen.mjs neuer_blatt_audit 1
+node tools/mess/hofgruen.mjs neuer_blatt_ohne_msaa 1 'msaa=0'
+node tools/mess/blattlauf.mjs neue_kronenfahrt_vor 0 fahrt
+node tools/mess/blattlauf.mjs neue_kronenfahrt_nach 1 fahrt
+node tools/mess/blattgalerie.mjs neuer_blattvergleich .cache/mess/neuer_blatt_vor .cache/mess/neuer_blatt_nach .cache/mess/lauf_vor .cache/mess/lauf_nach .cache/mess/neue_kronenfahrt_vor .cache/mess/neue_kronenfahrt_nach
+```
+
+Die isolierte Blattprobe hält Kamera und Winduniformen fest und zeichnet nach48Aufwärmbildern24einzelne TAA-Bilder. Sie misst den mittleren absoluten Abstand vom zeitlichen Pixelmittel in einem vorher festgelegten Kronenfeld (x20/y25/550×240, Bild960×540, RGB0–255). Kein FPS-Lauf und kein Beweis für ruhigen Wind oder alle Entfernungen. Der Standardmodus `subpixel` verschiebt stattdessen ohne TAA die Projektion0…1…0Pixel; sein bilinearer Restfehler ist eine andere Diagnose und nicht mit der TAA-Schwankung vergleichbar. Das Messwerkzeug setzt die Windzeit hinter alte Blendbeginne, damit keine abgeschlossene LOD-Blende zurückgespult wird; die Zeitsteuerung gilt nur im Messbrowser.
+
+Bewegung wieder mit `lodlauf.mjs`, Start1444,419,150,12s, denselben Lichtwerten und `schwenk-dialog` auf beiden Seiten; nur `blattruhe=0|1` variieren. Wind und Figuren laufen dabei unabhängig. Bildzeiten separat mit `vergleich.mjs`, vier isolierte Läufe0/1/1/0. Die Videos/Szenensonden belasten den Renderer und taugen nicht als Kostenvergleich. Neue Ergebnisordner erhalten; keine D299-Baseline ersetzen.
+
+Der ergänzende Modus `fahrt` hält die Kronen im Blick:96Einzelbilder mit aktiver TAA, Kamera entlang4mStrasse plus1,2mSeitwärtsbogen und gleiche Windphase je Bildnummer (4sSpielzeit mit24Schritten/s). Das ist eine geskriptete Rendererfahrt; der unabhängige Spiellauf prüft zusätzlich Bewegung und LOD-Verwaltung. Die Galerie zeigt diese Fahrt bei halber Geschwindigkeit sowie eine zweifache Detail-Zeitlupe und den normalen Hoflauf. Detail-/Kronenvideos mit verlustfreier VP9-Quantisierung und voller Farbauflösung, damit die Kompression feine Pixelwechsel nicht verschluckt; RGB→YUV-Farbraumwandlung bleibt. Bestehende Ordner werden verweigert. Werkzeugvoraussetzungen: Playwright wie die übrigen Messläufe sowie `ffmpeg`/`ffprobe` zum Zusammenstellen.
+
+
+## Blattverlauf D301
+
+Gegenprobe `hofgruen=1&blattruhe=1&blattverlauf=0` ist D300, die neue Probe nimmt `blattverlauf=1`. Ohne Hofprobe greift die Änderung nicht; `blattruhe=0` erhält auch weiterhin den D299-Rückfall. Kameras, Licht, Wind, Texturen, Geometrien und LOD-Abstände bleiben identisch.
+
+Die Verdeckung nutzt vier Tiefennachbarn statt Bildschirm-Ableitungen über Blatt-/Himmelsprünge. Nicht verlässlich rekonstruierbare Flächen erhalten dort keine zusätzliche Bildschirm-Verdeckung; gebackene AO und Sonnenschatten bleiben bestehen. Die Degenerationsprüfung skaliert mit dem Flächenmaß, damit kleine nahe Flächen bei hoher Auflösung erhalten bleiben. Das direkte Phong-Glanzglied entfällt bei den EZ-Blattkarten: schwarze Glanzfarbe allein entfernt den Fresnel-Glanz im Streiflicht nicht.
+
+Die TAA integriert das aktuelle Farbsample an Tiefenkanten mit einem 3×3-Binomialkern (Mitte4/Achsen2/Ecken1, Summe16) in derselben Karis-Stauchung wie die bestehende History. Das verwendet die vorhandenen neun Farbabfragen, zusätzlich die neun Tiefenwerte des Umfelds. Die Maske nimmt das Maximum sechs relativer zweiter Tiefendifferenzen im 3×3-Feld; lineare Tiefenneigungen ergeben0. Das ist eine Tiefenkantenkennung, keine sichere Laubsegmentierung: auch Silhouetten anderer Objekte können lokal geglättet werden. Die ursprünglichen Farbgrenzen, Reprojektion und History-Mischung bleiben erhalten. In der Bildprüfung deshalb Zweige, Dach-/Fensterkanten, Halos und lokale Unschärfe gegen D300 prüfen.
+
+```bash
+node tools/mess/aonormale.mjs
+node tools/mess/blattglanz.mjs
+node tools/mess/taamaske.mjs
+node tools/mess/blattlauf.mjs neuer_d300 1 taa 'blattverlauf=0'
+node tools/mess/blattlauf.mjs neuer_d301 1 taa 'blattverlauf=1'
+node tools/mess/blattlauf.mjs neue_fahrt_d300 1 fahrt 'blattverlauf=0'
+node tools/mess/blattlauf.mjs neue_fahrt_d301 1 fahrt 'blattverlauf=1'
+```
+
+Die GPU-Regressionen führen den tatsächlich exportierten GLSL-Helfer beziehungsweise den transpilierten Material-Hook mit dem echten three.js-Renderer aus; kein Vergleich mit Quelltextmustern. Für die ruhende TAA-Probe zeichnet `blattlauf.mjs` seit D301 nach96Aufwärmbildern48Bilder, also drei vollständige16er-AO-Zyklen. Direkte Prozentvergleiche nur innerhalb derselben neuen Reihe; alte24-Bilder-Berichte aus D300 bleiben historische Belege. `extra`/`parameter` speichern die tatsächlich angefragten Schalter. `messglanz=0` ist eine lokale Diagnose des Messwerkzeugs, kein Spielschalter.
+
+Die geskriptete96-Bilder-Kronenfahrt und der normale12s-Hoflauf bleiben getrennte Belege. Galerie mit vier oder optional sechs Eingabeordnern wie D300, zusätzlich `--staende=D300,D301`; sie übernimmt24oder48Bilder aus den Berichten und prüft gleiche Anzahlen. Bestehende Ausgaben werden verweigert. Bildzeiten weiterhin separat ohne Video/Sonden und ohne parallel laufende Renderer messen.
+
+
+## Restflimmern D301
+
+Seit D302 für historische D301-/D300-/D299-Gegenläufe zusätzlich `strauchweit=0` setzen.
+
+`hofgruen=1&blattruhe=1&blattverlauf=0` stellt D300 wieder her. `blattverlauf=1` nutzt die D301-Probe: AO-Flächen aus verträglichen Tiefennachbarn, vollständige Herausnahme unzuverlässiger Bildschirm-AO an Feinstruktur, matte EZ-Blätter einschließlich Fresnel-Anteil und ein tiefenkantengeführter TAA-Vorfilter. `blattruhe=0` bleibt D299; ohne Hofprobe gilt der bisherige Spielpfad.
+
+Der Vorfilter integriert die vorhandenen neun Farbproben mit Gewichten4/2/1 in der Karis-Stauchung. Die Kantenmaske verwendet sechs relative zweite Tiefendifferenzen im3×3Umfeld statt einer sprunghaften Mittelpunktklassifizierung. Das ist keine sichere Laubsegmentierung: Auch Silhouetten anderer Objekte können reagieren. Geschichte, Reprojektion, TAA-Mischgewicht, Licht, Wind, LOD-Abstände und Texturen bleiben unverändert. Die räumliche Integration beruhigt Kanten auf Kosten sichtbar weicherer Feinstruktur; deshalb nicht nur den Schwankungswert beurteilen, sondern Blätter, Zweige, Gras, Materialdetails und mögliche Farbsäume in Bewegung vergleichen.
+
+```bash
+node tools/mess/aonormale.mjs
+node tools/mess/taamaske.mjs
+node tools/mess/blattglanz.mjs
+node tools/mess/blattlauf.mjs neue_d301_vor 1 taa 'blattverlauf=0'
+node tools/mess/blattlauf.mjs neue_d301_nach 1 taa 'blattverlauf=1'
+node tools/mess/blattlauf.mjs neue_d301_fahrt_vor 1 fahrt 'blattverlauf=0'
+node tools/mess/blattlauf.mjs neue_d301_fahrt_nach 1 fahrt 'blattverlauf=1'
+node tools/mess/blattgalerie.mjs neuer_d301_vergleich .cache/mess/neue_d301_vor .cache/mess/neue_d301_nach .cache/mess/lauf_d300 .cache/mess/lauf_d301 .cache/mess/neue_d301_fahrt_vor .cache/mess/neue_d301_fahrt_nach --staende=D300,D301
+```
+
+Die GPU-Proben führen echte Produktionsfunktionen aus: AO auf Float-Tiefentexturen (auch kleine nahe Flächen), Kantenmaske auf Tiefenfeldern und der originale Three-Phong-Hook bei schwarzer Diffus-/Glanzfarbe unter Streiflicht. Phong zeigt dort trotz schwarzer Glanzfarbe ein helles Fresnel-Signal; der matte Shader muss schwarz bleiben. Keine Code-Textvergleiche als Ersatz für Zeichentests.
+
+D301 verlängert die statische Blattprobe auf48Bilder nach96Aufwärmbildern: drei vollständige16erAO-Musterzyklen statt der älteren24Bilder. Vergleiche nur neue Reihen mit gleicher Bildanzahl; alte D300-Werte nicht direkt dagegen rechnen. Das Spiel-Bundle wird in den neueren Berichten unter `programme` mitgeführt. Diagnosen `ao=0`, `schatten=0` und der rein im Messbrowser wirkende Zusatz `messglanz=0` bleiben Untersuchungen, keine veröffentlichte Qualitätsstufe.
+
+
+## Strauch-Fernwechsel D302
+
+`hofgruen=1&strauchweit=0` ist D301, `strauchweit=1` behält die lokalen Hof-Strauchformen auch fern. Der Strauch hat bereits760Dreiecke; statt einer neuen Reduktionsform wird die vorhandene Geometrie und das Material aus dem Cache über beide Verwaltungen geteilt. Varianten und Schattenempfang werden im Fernbündel getrennt, Transformationen und Farben bleiben aus denselben Instanzen. Keine neue Textur oder globale Busch-Übernahme: die Auswahl bleibt der D299-Schnitt von Chunk-Hüllkreis und100mHofkreis, kein exakter100mInstanzschnitt.
+
+```bash
+node tools/mess/strauchlauf.mjs neue_strauch_vor 0
+node tools/mess/strauchlauf.mjs neue_strauch_nach 1
+node tools/mess/strauchlauf.mjs neue_strauch_detail_vor 0 freigestellt
+node tools/mess/strauchlauf.mjs neue_strauch_detail_nach 1 freigestellt
+node tools/mess/strauchgalerie.mjs neuer_strauchvergleich .cache/mess/neue_strauch_detail_vor .cache/mess/neue_strauch_detail_nach .cache/mess/normalspiel
+```
+
+Die Probe verfolgt denselben vorhandenen Strauch1437,6501/424,8656 in120Einzelbildern mit gleicher Windphase: erhöhte10Grad-Telekamera, XZ-Abstand235→100→235m, Höhe99m, Blickziel35,5m. Das XZ-Verwaltungslimit und der tatsächliche Abstand zum Strauch sind wegen der70mChunks und des60mFernankers verschieden. Deshalb echte Verwaltungsstufen aus den Mesheinträgen erfassen, nicht allein eine vermeintliche110/176mSchwelle behaupten. JSON speichert auch Geometrie-/Materialidentität und die Kombination aus Matrix, Farbe, Schattenempfang. NeueProbe fordert durchgängig ein Ziel, eine Geometrie, ein Material, identische Eigenschaften sowie mindestens Mittel- und Fernverwaltung.
+
+Im normalen Fernblick wird der kleine Strauch häufig von Gebäuden und Kronen verdeckt. `freigestellt` blendet nur im Messbrowser große Prop-Bäume einschließlich ihrer Schatten aus; das muss die Galerie ausdrücklich nennen und ist keine Gesamtbild-Abnahme. Normaler Spielclip separat ohne diese Freistellung. Galerie: synchrones10sVideo bei halber Geschwindigkeit,4facherDetailausschnitt mit nächster Nachbarschaft, zusätzliche normale12,7sSpielaufnahme. Die Bildtafel wählt die nächste noch gemeinsame Fernprobe und die engste Annäherung, nicht beliebige Framezahlen. Neue Dateinamen erhalten; keine alten Ausgaben überschreiben.
+
+Kosten mit `vergleich.mjs` ohne Screenshots/Video/Szenensonden im12sZeitfenster, vollständige Szene und gleiche erhöhte Fernkamera10Grad, Reihenfolge0/1/1/0. Keine FPS-Aussage aus dem schrittweise aufgenommenen Tele-Video: dort bremsen die Bildschirmfotos die Anzeige. Auch eine ruhige Form belegt keine allgemeine Blattflimmerfreiheit; D301 bleibt unverändert.
+
+
+## D303 — Referenzhaus im vollständigen Hof
+
+Gegenprobe ist D302 (`hofgruen=1&referenzhaus=0`), Kandidat
+`hofgruen=1&referenzhaus=1`. Nur Gebäude297 wird geändert. Beide verwenden
+`zielbild`, Zeit0,26 und dieselben angeglichenen Lichtwerte der Hofprobe
+(Umgebung6, Sonne0,8, Umlicht1,2, Schatten0,4); kein neues Lichtprofil.
+
+## Referenzhaus am Hof (D303)
+
+```bash
+node tools/mess/hauslauf.mjs <neuer-vorher-name> 0 fahrt
+node tools/mess/hauslauf.mjs <neuer-nachher-name> 1 fahrt
+node tools/mess/hausgalerie.mjs <neuer-galeriename> <vorher-name> <nachher-name> [spieltest.webm]
+```
+
+144Bilder bei1280×720/DPR1 und60Grad Blickfeld:96Bilder Annäherung vom
+Hofweg mit normaler Verfolgerkamerahöhe, dann Schnitt zu48Bildern am Eingang
+auf Augenhöhe. Beide Seiten mit identischer Kamera- und Shader-Windfolge;
+Figuren bewegen sich unabhängig. Keine Bäume oder Nachbarhäuser ausgeblendet.
+Die enge Eingangsansicht liegt unter dem bestehenden Dach des Vorderhauses;
+das ist reale Verdeckung und wird nicht für den Vergleich entfernt. Der Schnitt
+ist kein LOD-Wechsel.32Aufwärmbilder am Schnitt vermeiden Kamerageschichte im TAA.
+Die verlustfreien VP9-Clips sind eine reproduzierbare Qualitätsprobe, kein
+Geschwindigkeitsbeleg. Ein separater Lauf ohne feste Kamera prüft die normale
+Spielsteuerung. FPS mit `vergleich.mjs` separat ohne Video/Bildsonden messen.
+Historische Ausgaben bleiben erhalten; bestehende Zielnamen werden abgewiesen.
+
+
+## D304 — Bauteile auf das Hofensemble übertragen
+
+Gegenprobe `hofgruen=1&referenzhaus=1&hofhaeuser=0` zeigt D303 mit nur einem
+Referenzhaus. Kandidat `hofgruen=1&referenzhaus=1&hofhaeuser=1` überträgt die
+Bauteile auf acht Wohnhäuser in35m um den Hof (297/301/307/308/320/344/345/346).
+Garagen bleiben bei ihrer bisherigen Ausführung; alle Grundrisse werden für
+freie Eingänge berücksichtigt. Der verdeckte D303-Eingang an297 wird dabei auf
+eine freie Straßenfassade verlegt. Auswahl nur beim Weltaufbau, keine Erzeugung
+von Bauteilen pro Frame; Häuser bleiben im vorhandenen Kachelmesh/Material.
+
+```bash
+node tools/mess/hauslauf.mjs <neuer-vorher-name> 0 fahrt hof
+node tools/mess/hauslauf.mjs <neuer-nachher-name> 1 fahrt hof
+node tools/mess/hausgalerie.mjs <neue-galerie> <vorher-name> <nachher-name> [spieltest.webm]
+```
+
+Profil `hof`:216Bilder/9s bei24Bildern/s,1280×720/DPR1, drei identische
+Kamerafahrten mit je72Bildern und60Grad Blickfeld. Erste Ansicht wie D303 vom
+Hofweg; zweite von1447/430→1447/436 auf die gegenüberliegenden Häuser; dritte
+von1454/447→1457/453 auf320/344. Kamerahöhen36,4–36,8m in Weltkoordinaten,
+keine Telekamera oder freigestellten Objekte.32Aufwärmbilder an jedem Schnitt,
+gleiche Shader-Windphase je Bild; Figuren laufen unabhängig. `stand hof` dient
+nur der Vorprüfung; die endgültige Bildfolge bleibt ein eigener neuer Lauf.
+Normales Spiel ohne feste Kamera und FPS separat ohne Video/Bildsonden prüfen.
+
+D304-Endstand: `.cache/mess/d304-hof-vor` / `d304-hof-nach`; Galerie
+`.cache/bilder/d304-hofvergleich-final-v2/vergleich.html`. Normaler Spieltest
+`d304-spieltest`, Start1447/430/200 ohne feste Kamera,12s/25Sonden,94Baumwechsel,
+0Browser-/Duplikat-/Blend-/Wartefehler. Kosten `d304-kosten-{1,2,3,4}`
+mit gleicher Kamera1447/36,4/436→1457/38/432 und60Grad,960×540:0/1/1/0
+26,44/23,06/23,08/25,11FPS; p9583,4/100,7/115,7/99,9ms. Lokal rund10,5%
+weniger FPS, kein allgemeiner Benchmark und kein Geschwindigkeitsvorteil.
+
+Der Galerie-Spiel-Link startet frei auf1447/430/200. Der ursprüngliche stationäre
+Aufnahmeanker1432/423 liegt in Garage352; die Kamerafahrten selbst liegen außerhalb
+der Grundrisse. Die getrennte Aufnahme mit echter Spielsteuerung startet ebenfalls
+auf dem freien Weg1447/430/200.
+
+## D305 — gleiche Hofhäuser mit geteilten Eckpunkten und gesparter Materialarbeit
+
+Gegenprobe `hofgruen=1&hofhaeuser=1&hauskompakt=0`, Kandidat
+`hofgruen=1&hofhaeuser=1&hauskompakt=1`. Beide enthalten sämtliche D304-Bauteile
+und korrigierten Eingänge. `hausshader=0` bei Kandidat1 isoliert die
+Geometrieindexierung; der vollständig überlagerte Farbstapel bleibt dann aktiv.
+Für historische D304-Rezepte `hauskompakt=0` ergänzen.
+
+```bash
+node tools/mess/hauslauf.mjs <neuer-vorher-name> 0 fahrt kompakt
+node tools/mess/hauslauf.mjs <neuer-nachher-name> 1 fahrt kompakt
+node tools/mess/hausgalerie.mjs <neue-galerie> <vorher-name> <nachher-name> [spieltest.webm]
+```
+
+Gleiche216Bild-Folge wie D304, drei72Bild-Ansichten,32Aufwärmbilder an den
+Schnitten. Berichte enthalten zusätzlich die geladenen Haus-/Gartenpuffer
+(Vertexeinträge, Dreiecke, Attribut-/Indexbytes). Diese zählen keine Texturen
+und sind keine Messung des gesamten GPU-Speichers. Durch die unabhängigen
+Figuren und Windschatten sind Rendererbilder kein bitgleicher Datenbeweis;
+der kommt aus den Dreiecks-/Attributtests. Kein Bauteil für die Aufnahme
+ausgeblendet. Separater Spiellauf und isolierte Kostenmessungen bleiben nötig.
+
+Endstand: `.cache/mess/d305-hof-vor`/`d305-hof-nach`; Galerie
+`.cache/bilder/d305-hofvergleich-final/vergleich.html`. Haus-/Gartenpuffer
+69.911.040→54.551.712Byte,Vertexeinträge1.092.360→784.098,364.120Dreiecke
+unverändert. Kein Gesamt-GPU-Speicherwert. Normaler12s-Lauf `d305-spieltest`
+mit25Sonden/90Baumwechseln,0Browser-/Duplikat-/Blend-/Wartefehler.
+
+Vier isolierte12s-Kostenläufe0/1/1/0 (`d305-kosten-{1,2,3,4}`) unter derselben
+D304-Straßenkamera960×540:24,11/26,54/28,51/25,61FPS,
+p95100,5/84,4/67,7/85,2ms. Mittel24,86→27,53FPS, lokal+10,7%.
+AlleMediane33,3ms; Systemlast und kleine Stichprobe begrenzen die Aussage.
+Dreiecke/Renderaufrufe jeweils7.644.993/656 einschließlich Renderpässen.
+
+## D306 — Hoflauben und Pflanzkästen
+
+Beide Varianten enthalten D305 (`hofgruen=1&hofhaeuser=1&hauskompakt=1`),
+nur `hoflauben=0/1` unterscheidet sie. Keine neue Beleuchtung und keine
+globale Balkonänderung. Das bisherige rote/grüne Quaderband wird an vorhandenen
+Hoflauben durch getrennte Kästen und körperliche Brüstungsbretter ersetzt.
+
+```bash
+node tools/mess/hauslauf.mjs <neuer-vorher-name> 0 fahrt lauben
+node tools/mess/hauslauf.mjs <neuer-nachher-name> 1 fahrt lauben
+node tools/mess/hausgalerie.mjs <neue-galerie> <vorher-name> <nachher-name> [spieltest.webm]
+```
+
+Gleiche216Bild-Kamerafolge und60Grad wie D304/D305. Drei normale Ansichten,
+keine Telekamera, keine freigestellten Bäume oder Nachbarhäuser. Die letzte
+Ansicht zeigt die Laube am unteren Hof. Vorherige Detail-Entwürfe bleiben
+als `d306-hof-stand1`(kantigeres Laub) und `d306-hof-stand2`(runde Endform)
+erhalten. Endaufnahme/Performance getrennt durchführen; die Anzahl zusätzlicher
+Dreiecke allein ist keine Aussage über den FPS-Mehrpreis.
+
+D306-Endstand: `.cache/mess/d306-hof-vor` / `d306-hof-nach`, Galerie
+`.cache/bilder/d306-hofvergleich-final/vergleich.html`, separater Spiellauf
+`d306-spieltest` ab1447/430/200 (12s,25Sonden/90Baumwechsel,0Fehler).
+Sieben vorhandene Lauben mit29getrennten Kästen; Haus320 bleibt ohne Balkon.
+Haus-/Gartendreiecke364.120→374.100, Puffer54.551.712→56.409.584Byte.
+
+Vier isolierte12s-Läufe0/1/1/0 (`d306-kosten-{1,2,3,4}`) unter derselben
+D304/D305-Straßenkamera960×540:30,88/31,41/28,84/31,00FPS,
+p9566,6/66,7/83,3/66,7ms. Mittel30,94→30,13FPS, lokal−2,6%;
+kleine Stichprobe und Systemlast, kein allgemeiner Gerätebenchmark.
+Renderaufrufe656jeweils; gezählte Dreiecke einschließlich Renderpässen
+7.644.993→7.664.953.
