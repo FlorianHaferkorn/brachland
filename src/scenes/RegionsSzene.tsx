@@ -43,6 +43,7 @@ import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
+import { efeuKartenMaterial, kachelGeometrie, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
@@ -53,7 +54,7 @@ import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } fr
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
 import { baueStrassenkulissen } from '../world/strassenkulisse.js';
-import { FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { EFEUKARTEN_AN, FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WESTANSCHLUSS_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
 import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
@@ -857,6 +858,8 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
   const cache = useRef(new Map<string, THREE.BufferGeometry | null>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
   const hausPuffer = useRef<Kachelpuffer>(new Map());
+  /** D358: Efeukarten je Hauskachel; `stand` zählt Änderungen, die Schicht baut danach neu. */
+  const efeuKarten = useRef({ je: new Map<string, EfeuKarte[]>(), stand: 0 });
   const bandPuffer = useRef(new Map<string, { quellen: THREE.BufferGeometry[]; geometrien: THREE.BufferGeometry[] }>());
   const [teile, setTeile] = useState<{ weg: THREE.BufferGeometry[];
                                        wasser: THREE.BufferGeometry[];
@@ -897,7 +900,9 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     if (!indizes?.length) return null;
     // D290: LoD2-Silhouette je Gebäude (gleiche Reihenfolge wie `welt.gebaeude`; nur für die Region, zu der die Datei passt).
     const lod2 = LOD2_DATEN.length === welt.gebaeude.length ? LOD2_DATEN : null;
-    return baueGebaeude(welt, boden, indizes.map(i => {
+    const karten: EfeuKarte[] = [];
+    if (EFEUKARTEN_AN) setzeEfeuSammler(kk => { karten.push(kk); });
+    const geb = baueGebaeude(welt, boden, indizes.map(i => {
       const g = welt.gebaeude[i];
       // D291: Fassaden-Steckbrief, dessen Punkt im Grundriss liegt.
       const fassade = fassaden.find(f => imPolygon(f.ort, g.punkte)) ?? null;
@@ -907,6 +912,12 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       mitte: HOF_UNIFORM.mitte.value.toArray(),
       vorne: [-HOF_UNIFORM.achse.value.y, HOF_UNIFORM.achse.value.x],
     } : undefined));
+    if (EFEUKARTEN_AN) {
+      setzeEfeuSammler(null);
+      efeuKarten.current.je.set(`${k.ix}:${k.iz}`, karten);
+      efeuKarten.current.stand++;
+    }
+    return geb;
   }, [welt, boden, bewohnt, fassaden, hausnutzung, hofHaeuser]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
@@ -1034,7 +1045,32 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     {teile.haus.map((g, i) => (
       <mesh key={`h${i}`} geometry={g} material={hausMaterial} castShadow receiveShadow />
     ))}
+    {EFEUKARTEN_AN && <EfeuKartenSchicht quelle={efeuKarten} />}
   </>;
+}
+
+/**
+ * D358: Efeukarten aller gebauten Hauskacheln als vier InstancedMesh (eine je Atlas-Kachel). Neu gebaut wird nur,
+ * wenn eine Hauskachel Karten gemeldet hat — geprüft alle 0,5 s (nach Zeit, nicht nach Bildern: bei niedriger
+ * Bildrate kam eine Bildzählung zu spät).
+ */
+function EfeuKartenSchicht({ quelle }: { quelle: React.RefObject<{ je: Map<string, EfeuKarte[]>; stand: number }> }) {
+  const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
+  const gesehen = useRef(-1), zuletzt = useRef(0);
+  const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
+  useEffect(() => () => geometrien.forEach(g => g.dispose()), [geometrien]);
+  useFrame(() => {
+    const jetzt = performance.now();
+    if (jetzt - zuletzt.current < 500 || !quelle.current || quelle.current.stand === gesehen.current) return;
+    zuletzt.current = jetzt;
+    gesehen.current = quelle.current.stand;
+    setMatrizen(kartenMatrizen([...quelle.current.je.values()].flat()));
+  });
+  return <>{matrizen.map((liste, i) => liste.length > 0 && (
+    <instancedMesh key={`${i}:${liste.length}`} args={[geometrien[i], efeuKartenMaterial(), liste.length]} receiveShadow
+      frustumCulled={false}
+      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  ))}</>;
 }
 
 /**

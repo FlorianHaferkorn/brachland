@@ -83,6 +83,8 @@ export const MILBINGERFERN_AN = MILBINGERLICHT_AN && suche.get('milbingerfern') 
 export const FERNRING_AN = (MILBINGERFERN_AN && suche.get('fernring') !== '0') || an('fernring');
 /** D350: Ring jenseits 1 km Ringtiefe mit halber Linienzahl. `fernhalb=0` zeigt den vollen Ring. */
 export const FERNHALB_AN = FERNRING_AN && suche.get('fernhalb') !== '0';
+/** D358: Efeu als gebackene Karten in echter Blattgrösse; Einzelblätter nur noch am Rand. */
+export const EFEUKARTEN_AN = an('efeukarten');
 /** D346: ausgebrochener Gehwegrand und zusammenhängende Verwitterung am Milbinger Weg. */
 export const MILBINGERRAND_AN = MILBINGERBODEN_AN && an('milbingerrand');
 /** D347: Materialtiefe und fortgeschrittene Übernahme an der Milbinger Straße. */

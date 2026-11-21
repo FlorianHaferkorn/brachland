@@ -56,6 +56,10 @@ GPL bei Add-ons betrifft das Werkzeug, nicht die erzeugten Modelle.
 | [BlenderKit](https://www.blendkit.com/docs/licenses/) | CC0 oder „Royalty Free“ | nur die CC0-Assets: Royalty Free verlangt, dass Modelle nicht direkt extrahierbar sind |
 | Megascans über Fab | kostenlos seit 11/2026, [Fab Standard License](https://www.fab.com/eula) | **⚠️ UNKLAR / eher nein**: Die EULA verlangt laut Forenzitat, dass Endnutzer nichts extrahieren können; eine Anfrage zu Web-Apps blieb unbeantwortet ([Forum](https://forums.unrealengine.com/t/can-i-use-3d-assets-from-fab-s-standard-license-in-a-revenue-generating-web-app/2453541)) |
 
+## Erster Fall umgesetzt: Efeukarten (D358)
+
+`tools/efeukarten.py` → `tools/efeukarten_pack.py` → `public/material/efeu-karten-*.webp` → `src/world/efeukarten.ts` (`?efeukarten=1`). Vorher/Nachher unter `.cache/bilder/d358-efeukarten/`.
+
 ## Vorgeschlagener Ablauf
 
 1. **Version:** Blender 5.2 LTS oder 5.3 festlegen. Aufruf immer

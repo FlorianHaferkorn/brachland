@@ -5,6 +5,13 @@ owns: []
 
 # Herkunft der Fremdmodelle
 
+## Efeukarten (D358)
+
+| Datei unter `public/material/` | Inhalt | Herkunft |
+|---|---|---|
+| `efeu-karten-farbe.webp` | Vier Efeufelder 1 × 1 m als 2 × 2-Atlas, Grundfarbe und Deckung, 2048 × 2048 | Projektintern prozedural in Blender 5.3 erzeugt (`tools/efeukarten.py`, `tools/efeukarten_pack.py`), Blattgrösse nach `content/massstab.json`. Eigene Arbeit, CC0. |
+| `efeu-karten-normal.webp` | Normale im Tangentenraum und Wandabstand (Alpha) derselben Felder | wie oben, gleicher Lauf |
+
 ## Eigenes Material für Haus 308 (D317)
 
 | Datei unter `public/material/` | Inhalt | Herkunft |

@@ -1,6 +1,7 @@
 import { CatmullRomCurve3, Color, Vector3 } from 'three';
 import { mulberry } from './props.js';
-import { HOF_ORTSALTERUNG_AN, HOF_VERFALLVERLAUF_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import { EFEUKARTEN_AN, HOF_ORTSALTERUNG_AN, HOF_VERFALLVERLAUF_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import { meldeEfeuKarte } from './efeukarten.js';
 import massstab from '../../content/massstab.json';
 
 /**
@@ -10,7 +11,8 @@ import massstab from '../../content/massstab.json';
  */
 const EFEU = massstab.referenzen.find(r => r.id === 'efeublatt')!;
 /** Kleinere Blätter brauchen mehr Blätter je Büschel, sonst zerfällt die Deckung in Punkte. */
-const EFEU_DICHTE = 5;
+/** D358: Mit Efeukarten trägt die Karte die Masse; Einzelblätter bleiben für Rand und Silhouette. */
+const EFEU_DICHTE = EFEUKARTEN_AN ? 2 : 5;
 /** Die verholzte Efeukrone (Haus 308) ist schon dicht; mehr sprengt das Hausbudget aus D318. */
 const EFEU_DICHTE_KRONE = 3;
 /** D354: Wölbung der Efeupolster in Metern je Stufe (1, 2, dicht). */
@@ -122,6 +124,11 @@ export function baueHausbewuchs(
 
   const polster = (punkt: Wandpunkt, richtung: number, dichte: number, breite: number) => {
     const palette = farben.blaetter.length;
+    if (EFEUKARTEN_AN && passt(punkt[0], punkt[1], .1)) {
+      const kuppel = EFEU_KUPPEL[dicht ? 3 : stufe] ?? .14;
+      meldeEfeuKarte({ ort: welt([punkt[0], punkt[1], 0]), normal: aussen, vorstand: punkt[2] + kuppel,
+        groesse: 1.5 * breite, saat: Math.floor(zufall() * 0x7fffffff) });
+    }
     const ton = Math.floor(zufall() * palette);
     for (let i = 0; i < dichte; i++) {
       const winkel = zufall() * 2 * Math.PI;
@@ -429,6 +436,12 @@ function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: n
     const fuelle = dichte * (.78 + .22 * Math.sin(anteil * 28) ** 2);
     const breite = .19 + .69 * fuelle;
     const zahl = Math.round((2 + 6 * fuelle) * EFEU_DICHTE);
+    // D358: jeder vierte Abschnitt meldet eine Karte auf dem Polster um den Trieb.
+    if (EFEUKARTEN_AN && i % 4 === 0 && fuelle > .25 && Math.abs(normal.y) < .6) {
+      const n = new Vector3(normal.x, 0, normal.z).normalize();
+      meldeEfeuKarte({ ort: [ort.x, ort.y, ort.z], normal: [n.x, n.z], vorstand: .06 + EFEU_KUPPEL[2] * fuelle,
+        groesse: 1.3 * breite, saat: Math.floor(zufall() * 0x7fffffff) });
+    }
     const hauptseite = i % 2 ? 1 : -1;
     const ast = ort.clone().addScaledVector(quer, breite * .72 * hauptseite).addScaledVector(normal, .10);
     const astKante = laubHoch.clone().multiplyScalar(.016 * hauptseite);
