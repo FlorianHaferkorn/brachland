@@ -43,10 +43,35 @@ function zellHash(ix: number, iz: number, salz: number): number {
   return (h ^ (h >>> 15)) >>> 0;
 }
 
+/** Ein Baum für die Streu: Ort und ob Nadelbaum (D362). */
+export interface StreuBaum { x: number; z: number; nadel: boolean }
+
+/** Baumraster für schnelle Nachbarsuche (8-m-Zellen). */
+export function baumRaster(baeume: readonly StreuBaum[]): Map<string, StreuBaum[]> {
+  const raster = new Map<string, StreuBaum[]>();
+  for (const b of baeume) {
+    const k = `${Math.floor(b.x / 8)}:${Math.floor(b.z / 8)}`;
+    const l = raster.get(k); if (l) l.push(b); else raster.set(k, [b]);
+  }
+  return raster;
+}
+
+function naechsterBaum(raster: Map<string, StreuBaum[]>, x: number, z: number): { d: number; nadel: boolean } | null {
+  const cx = Math.floor(x / 8), cz = Math.floor(z / 8);
+  let best: { d: number; nadel: boolean } | null = null;
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const b of raster.get(`${cx + i}:${cz + j}`) ?? []) {
+    const d = Math.hypot(b.x - x, b.z - z);
+    if (!best || d < best.d) best = { d, nadel: b.nadel };
+  }
+  return best;
+}
+
 /** Instanzmatrizen je Atlas-Kachel im Quadrat um (mx, mz). */
 export function streuMatrizen(
   mx: number, mz: number, radius: number,
   hoeheAn: (x: number, z: number) => number, biomAn: (x: number, z: number) => Biom,
+  /** D362: Bäume steuern Dichte (unter der Krone viel, im Offenen wenig) und Art (Laub oder Nadel). */
+  baeume?: Map<string, StreuBaum[]>,
 ): THREE.Matrix4[][] {
   const kacheln: THREE.Matrix4[][] = [[], [], [], []];
   const z = new THREE.Vector3(0, 0, 1), n = new THREE.Vector3(), q = new THREE.Quaternion(), dreh = new THREE.Quaternion();
@@ -61,7 +86,12 @@ export function streuMatrizen(
     if (!regel) continue;
     // Inseln: zwei Rauschlagen (9 m und 3 m), die Biomdichte bleibt im Mittel erhalten.
     const insel = 0.65 * haeufung(x, zz, 9) + 0.35 * haeufung(x, zz, 3);
-    if (wurf() > regel.p * Math.min(1, Math.max(0, (insel - 0.32) * 2.6))) continue;
+    const baum = baeume ? naechsterBaum(baeume, x, zz) : null;
+    // Unter der Krone (≤ 5 m) dichter, bis 10 m wie das Biom, im Offenen ein Drittel.
+    const kronenFaktor = !baeume ? 1 : !baum || baum.d > 10 ? 0.33 : baum.d < 5 ? 1.6 : 1;
+    // Unter einer Krone fällt immer Streu: der Baum bildet seine eigene Insel, unabhängig vom Rauschen.
+    const inselAnteil = Math.max(Math.min(1, Math.max(0, (insel - 0.32) * 2.6)), baum && baum.d < 5 ? 1 - baum.d / 6 : 0);
+    if (wurf() > Math.min(0.95, regel.p * kronenFaktor) * inselAnteil) continue;
     const e = 0.4;
     n.set(hoeheAn(x - e, zz) - hoeheAn(x + e, zz), 2 * e, hoeheAn(x, zz - e) - hoeheAn(x, zz + e)).normalize();
     q.setFromUnitVectors(z, n);
@@ -70,7 +100,11 @@ export function streuMatrizen(
     p.set(x, hoeheAn(x, zz) + 0.015, zz);
     // Gestreckt statt rund: ±25 % je Achse, die Teile bleiben in der Toleranz der Referenz.
     s.set(kante * (0.8 + 0.45 * wurf()), kante * (0.75 + 0.3 * wurf()), 1);
-    kacheln[regel.arten[Math.floor(wurf() * regel.arten.length)]].push(new THREE.Matrix4().compose(p, q.clone().multiply(dreh), s));
+    // Unter einem Baum fällt dessen Streu: Laub unter Laubbäumen, Nadeln unter Nadelbäumen (Zweige bleiben möglich).
+    const artWurf = wurf();
+    const art = baum && baum.d < 6 && artWurf < 0.8 ? (baum.nadel ? NADEL : LAUB)
+      : regel.arten[Math.floor(artWurf * regel.arten.length) % regel.arten.length];
+    kacheln[art].push(new THREE.Matrix4().compose(p, q.clone().multiply(dreh), s));
   }
   return kacheln;
 }

@@ -43,7 +43,7 @@ import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel } from '../world/himmel.js';
 import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
-import { streuMatrizen } from '../world/streukarten.js';
+import { baumRaster, streuMatrizen } from '../world/streukarten.js';
 import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
 import { PALETTE } from '../world/palette.js';
@@ -791,7 +791,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     <group>
       {wasserProbe && reflexMitte && <WasserSzeneProbe probe={wasserProbe} mitte={reflexMitte} ziel={ziel} />}
       <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} wiesenbereich={wiesenbereich} />
-      {STREU_AN && <StreuSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} />}
+      {STREU_AN && <StreuSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} props={props} />}
 
       <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf}
                   boden={aufBoden}
@@ -1055,22 +1055,29 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
 const STREU_RADIUS = 45, STREU_NEU_AB = 15;
 let streuMaterial: THREE.MeshStandardMaterial | null = null;
 
-function StreuSchicht({ hoeheAn, biomAn, ziel }: {
+function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
   hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
-  ziel: React.RefObject<THREE.Object3D | null>;
+  ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
 }) {
+  // D362: Bäume steuern Dichte und Art der Streu.
+  const baeume = useMemo(() => baumRaster(props.filter(p => p.art === 'laubbaum' || p.art === 'nadelbaum')
+    .map(p => ({ x: p.position[0], z: p.position[2], nadel: p.art === 'nadelbaum' }))), [props]);
   const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
   const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
   const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
   useEffect(() => () => geometrien.forEach(g => g.dispose()), [geometrien]);
-  streuMaterial ??= kartenMaterial('streu', 0.55, true);
+  if (!streuMaterial) {
+    streuMaterial = kartenMaterial('streu', 0.55, true);
+    // D362: weicher Rand statt Ausstanzkante — mit MSAA wird die Deckung über die Abtastpunkte verteilt.
+    streuMaterial.alphaToCoverage = true;
+  }
   useFrame(() => {
     const p = ziel.current?.position, jetzt = performance.now();
     if (!p || jetzt - zuletzt.current < 500) return;
     zuletzt.current = jetzt;
     if (mitte.current && mitte.current.distanceTo(new THREE.Vector2(p.x, p.z)) < STREU_NEU_AB) return;
     mitte.current = new THREE.Vector2(p.x, p.z);
-    setMatrizen(streuMatrizen(p.x, p.z, STREU_RADIUS, hoeheAn, biomAn));
+    setMatrizen(streuMatrizen(p.x, p.z, STREU_RADIUS, hoeheAn, biomAn, baeume));
   });
   return <>{matrizen.map((liste, i) => liste.length > 0 && (
     <instancedMesh key={`${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[i], streuMaterial!, liste.length]}

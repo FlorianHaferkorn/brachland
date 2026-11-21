@@ -2,6 +2,9 @@
 import assert from 'node:assert/strict';
 import { wachseEfeu, type Oeffnung } from '../src/world/efeuwuchs.js';
 import { mulberry } from '../src/world/props.js';
+import { Color } from 'three';
+import { baueHausbewuchs } from '../src/world/hausbewuchs.js';
+import { setzeEfeuSammler, type EfeuKarte } from '../src/world/efeukarten.js';
 
 const fenster: Oeffnung[] = [
   { u0: 1.6, u1: 2.5, y0: 1.05, y1: 2.2 }, { u0: 4.6, u1: 5.5, y0: 1.05, y1: 2.2 },
@@ -43,4 +46,16 @@ assert.ok(oben < unten, `oben ${oben} nicht lichter als unten ${unten}`);
 const hoechster = (staerke: number) => Math.max(...Array.from({ length: 20 }, (_, i) =>
   Math.max(...wachseEfeu({ ...basis, staerke, ueberwaechst: false, zufall: mulberry(i + 5) }).knoten.map(k => k.y))));
 assert.ok(hoechster(0.5) <= hoechster(1) + 1e-9, 'schwacher Bewuchs wächst höher als starker');
-console.log(`efeuwuchs: ${pruefungen} Knoten geprüft, unten ${unten} / oben ${oben}`);
+// D362: Kartenbüschel (~0,42 × Kante um die Mitte) ragen nicht in Fenster — die Karte rückt weg oder entfällt.
+const karten: EfeuKarte[] = [];
+setzeEfeuSammler(k => { karten.push(k); });
+for (let saat = 1; saat <= 30; saat++) baueHausbewuchs(() => {}, [0, 0], [7, 0], [0, 1], () => 0, 6, 2, saat * 101, null,
+  { blaetter: [new Color('#303722')], trieb: new Color('#4e4233') }, false, fenster);
+setzeEfeuSammler(null);
+const inFenster = karten.filter(k => {
+  const r = 0.42 * Math.min(1.1, Math.max(0.6, k.groesse));
+  return fenster.some(o => k.ort[0] + r > o.u0 && k.ort[0] - r < o.u1 && k.ort[1] + r > o.y0 && k.ort[1] - r < o.y1);
+});
+assert.ok(karten.length > 500, `zu wenig Karten (${karten.length})`);
+assert.equal(inFenster.length, 0, `${inFenster.length} Karten ragen in Fenster`);
+console.log(`efeuwuchs: ${karten.length} Karten, keine im Fenster; ${pruefungen} Knoten geprüft, unten ${unten} / oben ${oben}`);

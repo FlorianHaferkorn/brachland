@@ -143,10 +143,23 @@ export function baueHausbewuchs(
     knoten.forEach((k, i) => {
       // Karten: jeder dritte Knoten der Haupt- und Seitentriebe; alt = gross und weit vor der Wand.
       if (k.ordnung < 2 && i % 3 === 0 && k.alter > .08) {
-        const seit = (zufall() - .5) * .16;
-        meldeEfeuKarte({ ort: welt([k.u + seit, k.y, 0]), normal: aussen,
-          vorstand: .04 + .22 * k.alter * staerke, groesse: .6 + .45 * k.alter,
-          winkel: Math.atan2(-umlauf * k.du, k.dy), saat: Math.floor(zufall() * 0x7fffffff) });
+        const groesse = .6 + .45 * k.alter;
+        let u = k.u + (zufall() - .5) * .16;
+        // D362: Das Blattbüschel einer Karte reicht ~0,42 × Kante um die Mitte. Ragt es in ein Fenster, rückt die
+        // Karte seitlich weg (höchstens 0,3 m); passt sie dann nicht, entfällt sie und Einzelblätter treten an.
+        const radius = .42 * Math.min(1.1, Math.max(.6, groesse));
+        const stoesst = (uu: number) => loecher.find(o => uu + radius > o.u0 - .03 && uu - radius < o.u1 + .03
+          && k.y + radius > o.y0 - .03 && k.y - radius < o.y1 + .03);
+        const o = stoesst(u);
+        if (o) u = Math.abs(u - o.u0) < Math.abs(o.u1 - u) ? o.u0 - .03 - radius : o.u1 + .03 + radius;
+        if (!o || (Math.abs(u - k.u) <= .3 && !stoesst(u) && u > radius * .5 && u < laenge - radius * .5)) {
+          meldeEfeuKarte({ ort: welt([u, k.y, 0]), normal: aussen,
+            vorstand: .04 + .22 * k.alter * staerke, groesse,
+            winkel: Math.atan2(-umlauf * k.du, k.dy), saat: Math.floor(zufall() * 0x7fffffff) });
+        } else for (let j = 0; j < 6; j++) {
+          blatt(k.u + (zufall() - .5) * .22, k.y + (zufall() - .5) * .2, .04 + zufall() * .1, efeuLaenge(zufall, .8) / SPANNE_BLATTFORM,
+            Math.atan2(k.du, k.dy) + (zufall() - .5) * 1.6, Math.floor(zufall() * farben.blaetter.length), .4 + .4 * zufall(), .8 + .2 * zufall());
+        }
       }
       // Spitzen: einzelne Blätter, damit der Rand aus Blättern besteht, nicht aus einer Kartenkante.
       if (k.alter < .22) for (let j = 0; j < 3; j++) {

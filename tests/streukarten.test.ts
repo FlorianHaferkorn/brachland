@@ -1,6 +1,6 @@
 /** D361: Bodenstreu — deterministisch, Dichte nach Biom, Wasser frei, Karten liegen auf dem Gelände. */
 import assert from 'node:assert/strict';
-import { streuMatrizen } from '../src/world/streukarten.js';
+import { baumRaster, streuMatrizen } from '../src/world/streukarten.js';
 import type { Biom } from '../src/world/osm.js';
 import { Vector3, Quaternion } from 'three';
 
@@ -30,4 +30,19 @@ for (const m of streuMatrizen(0, 0, 60, hoehe, () => 'wald').flat()) {
 const werte = [...felder.values()], mittel = werte.reduce((a, b) => a + b, 0) / werte.length;
 const vk = Math.sqrt(werte.reduce((a, b) => a + (b - mittel) ** 2, 0) / werte.length) / mittel;
 assert.ok(vk > 0.45, `zu gleichmässig verteilt (Variationskoeffizient ${vk.toFixed(2)})`);
-console.log(`streukarten: Häufung VK ${vk.toFixed(2)}, Wald ${wald}, Wiese ${wiese}, Wasser ${wasser} Karten im 30-m-Kreis`);
+// D362: Bäume — unter der Krone dichter als im Offenen, Art folgt dem Baum.
+const raster = baumRaster([{ x: 0, z: 0, nadel: true }, { x: 30, z: 0, nadel: false }]);
+const mitBaum = streuMatrizen(0, 0, 45, hoehe, () => 'wald', raster);
+let nah = 0, fern = 0, nadelNah = 0, laubNah = 0;
+mitBaum.forEach((liste, art) => liste.forEach(m => {
+  m.decompose(p, q, s);
+  const d0 = Math.hypot(p.x, p.z), d1 = Math.hypot(p.x - 30, p.z);
+  if (d0 < 4) { nah++; if (art === 1) nadelNah++; }
+  if (d1 < 4 && art === 0) laubNah++;
+  if (Math.min(d0, d1) > 15) fern++;
+}));
+const flaecheNah = Math.PI * 16, flaecheFern = Math.PI * 45 * 45 - 2 * Math.PI * 15 * 15;
+assert.ok(nah / flaecheNah > 2 * (fern / flaecheFern), `unter der Krone nicht dichter (${nah} gegen ${fern})`);
+assert.ok(nadelNah > nah * 0.5, 'unter dem Nadelbaum keine Nadelstreu');
+assert.ok(laubNah > 0, 'unter dem Laubbaum kein Laub');
+console.log(`streukarten: Krone ${(nah / flaecheNah).toFixed(2)}/m² gegen offen ${(fern / flaecheFern).toFixed(2)}/m², Häufung VK ${vk.toFixed(2)}, Wald ${wald}, Wiese ${wiese}, Wasser ${wasser} Karten im 30-m-Kreis`);
