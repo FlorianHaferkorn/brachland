@@ -18,7 +18,8 @@ import { BAUWELT_AN, HAUS_ECHT, HAUSFRONT_AN, HOF_AN, HAUS_SHADER_SPAR_AN, HOF_B
 import { bueschelTextur } from './laubkarten.js';
 import { HAUSFRONT_PARS, HAUSFRONT_FARBE } from './hausfront.js';
 import { hofTextur, hofUniforms, HOF_HAUS_PARS, HOF_HAUS_FARBE, HOF_HAUS_NORMAL } from './hofmaterial.js';
-import { MILBINGERDETAIL_AN, MILBINGERSUBSTANZ_AN } from './echt.js';
+import { MILBINGERDETAIL_AN, MILBINGERSUBSTANZ_AN, POM_AN } from './echt.js';
+import { pomPars, pomWahl, POM_FUGE } from './hauspom.js';
 import { OBERFLAECHEN_GLSL } from './oberflaechen.js';
 import type { Wiesenbereich } from './wiesenbereich.js';
 import HOF_SCANS from '../../public/material/hof-scans.json';
@@ -35,7 +36,9 @@ const SCAN_TEXTUREN = (() => {
     t.colorSpace = THREE.NoColorSpace; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.anisotropy = 8;
     return t;
   };
-  return { farbe: lade('/material/haus-scans.webp'), normal: lade('/material/haus-scans-nor.webp') };
+  return { farbe: lade('/material/haus-scans.webp'), normal: lade('/material/haus-scans-nor.webp'),
+    // D365: Höhe für POM (`hauspom.ts`, `tools/hoehenkarten.py`), dasselbe Atlaslayout in halber Auflösung.
+    hoehe: POM_AN ? lade('/material/haus-scans-hoehe.webp') : null };
 })();
 const SCAN_METER = new THREE.Vector4(...(SCANS as { rollen: { meter: number }[] }).rollen.map(r => r.meter) as [number, number, number, number]);
 
@@ -594,6 +597,9 @@ export function baueHausMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStand
       // An den Milbinger Putzwänden bilden die räumlichen Ranken die Blattdeckung.
       if (vZustand.x < 24.0 && zielHaus < .5) mass *= 1.0 - milbingerHausGewicht(vHausPos.xz);
       if (mass > 0.01`) : VERFALL_FARBE;
+  // D365: POM verschiebt die Weltlage in der Wandebene; die flache Normale bleibt aus der unverschobenen Lage.
+  const scanPars = POM_AN ? SCAN_PARS.replace('varying vec3 vHausPos;', 'varying vec3 vHausPos;' + pomPars(HOF_AN, HOF_ZIEL_AN))
+    .replace('cross(dFdx(vHausPos), dFdy(vHausPos))', 'cross(dFdx(hausPosRoh()), dFdy(hausPosRoh()))') : SCAN_PARS;
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uGlut = glut;
     if (SCAN_TEXTUREN) {
@@ -616,8 +622,13 @@ export function baueHausMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStand
         uHofZielNormal: { value: hofTextur('ziel-normal') },
       });
       if (HOF_ZIELTREUE_AN) shader.uniforms.uHofEfeuFarbe = { value: hofTextur('efeu-farbe', true) };
+      if (POM_AN) {
+        shader.uniforms.uPomHaus = { value: SCAN_TEXTUREN.hoehe };
+        if (HOF_AN) shader.uniforms.uPomHof = { value: hofTextur('scans-hoehe') };
+        if (HOF_ZIEL_AN) shader.uniforms.uPomZiel = { value: hofTextur('ziel-hoehe') };
+      }
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\n' + SCAN_PARS + (BAUWELT_AN ? VERFALL_PARS : '') + (HAUSFRONT_AN ? HAUSFRONT_PARS : '') + (HOF_AN ? HOF_HAUS_PARS : '')
+        .replace('#include <common>', '#include <common>\n' + scanPars + (BAUWELT_AN ? VERFALL_PARS : '') + (HAUSFRONT_AN ? HAUSFRONT_PARS : '') + (HOF_AN ? HOF_HAUS_PARS : '')
           + (HOF_ZIEL_AN ? /* glsl */ `
 uniform sampler2D uHofZielFarbe, uHofZielNormal;
 float zielMassstab(float r) { return r < .5 ? 1.0 : r < 1.5 ? .92 : r < 2.5 ? 1.18 : .82; }
@@ -626,6 +637,7 @@ float zielMassstab(float r) { return r < .5 ? 1.0 : r < 1.5 ? .92 : r < 2.5 ? 1.
         .replace('#include <color_fragment>', `#include <color_fragment>
   float scanR = floor(vRolle + 0.5);
   ${HOF_ZIEL_AN ? `float zielHaus = step(4.0, ${HOF_ORTSALTERUNG_AN ? 'mod(vZustand.x,8.0)' : 'vZustand.x'}); if (scanR >= 6.0) scanR = 4.0;` : ''}
+  ${POM_AN ? pomWahl({ hof: HOF_AN, ziel: HOF_ZIEL_AN, west: WESTDETAIL_AN, milbinger: !!milbinger, normale: HAUSFRONT_AN }) : ''}
   vec2 scanP = vec2(0.0);
   ${HAUS_SHADER_SPAR_AN ? `${anteilZeile}\n  bool hofVoll = scanR < 3.5 && hofHausAnteil == 1.0;` : ''}
   if (scanR < 3.5) {
@@ -642,7 +654,8 @@ ${HOF_ZIEL_AN ? HOF_ZIEL_FARBE : ''}
 ${HOF_ORTSALTERUNG_AN ? ORTSALTERUNG_FARBE : ''}
 ${WESTVERFALL_AN ? 'if (vZustand.x >= 24.0 && vStufe > 1.5 && scanR > 4.5) diffuseColor.rgb *= .51;' : ''}
 ${WESTDETAIL_AN ? WESTDETAIL_FARBE : ''}
-${milbinger ? milbingerFarbe(substrat) : ''}`)
+${milbinger ? milbingerFarbe(substrat) : ''}
+${POM_AN ? POM_FUGE : ''}`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   if (scanR < 3.5${HAUS_SHADER_SPAR_AN ? ' && !hofVoll' : ''}${WESTDETAIL_AN ? ' && !westMaterial' : ''}) {
     vec3 sn = ${HAUS_SHADER_SPAR_AN ? 'scanLiesGrad(uScanNormal, scanP, scanR, scanGradX, scanGradY)' : 'scanLies(uScanNormal, scanP, scanR)'}.xyz * 2.0 - 1.0;
@@ -700,7 +713,7 @@ ${HOF_ZIELTREUE_AN ? /* glsl */ `
   totalEmissiveRadiance += uGlutFarbe * (vGlut * uGlut);
 `);
   };
-  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? '-ortsalterung' : '') + (WESTVERFALL_AN ? '-westverfall' : '') + (WESTDETAIL_AN ? '-westdetail' : '') + (WESTFASSADE_AN ? '-westfassade' : '') + (WESTANSCHLUSS_AN ? '-westanschluss' : '');
+  material.customProgramCacheKey = () => 'brachland-haus-glut-v2' + (SCAN_TEXTUREN ? '-scans' : '') + (POM_AN && SCAN_TEXTUREN ? '-pom' : '') + (BAUWELT_AN ? '-verfall' : '') + (HAUSFRONT_AN ? '-hausfront' : '') + (HOF_AN ? '-scanhof' : '') + (HAUS_SHADER_SPAR_AN ? '-spar' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_VERFALL_AN ? '-hofverfall' : '') + (HOF_ZIEL_AN ? '-hofziel' : '') + (HOF_DACHBRUCH_AN ? '-hofdachbruch' : '') + (HOF_LICHT_AN ? '-hoflicht' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? '-ortsalterung' : '') + (WESTVERFALL_AN ? '-westverfall' : '') + (WESTDETAIL_AN ? '-westdetail' : '') + (WESTFASSADE_AN ? '-westfassade' : '') + (WESTANSCHLUSS_AN ? '-westanschluss' : '');
   if (milbinger) {
     const basis = material.customProgramCacheKey;
     material.customProgramCacheKey = () => basis() + '-milbingerdetail' + (substrat ? '-substrat' : '');
