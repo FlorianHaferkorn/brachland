@@ -377,15 +377,6 @@ function halm(n: Netz, s: { fuss: V3; winkel: number; neigung: number; hoehe: nu
   n.richte(ab, () => [s.fuss[0] - d[0], s.fuss[1], s.fuss[2] - d[2]]);
 }
 
-function grasbuschel(n: Netz, w: () => number, s: { halme: number; hoehe: number; breite: number; neigung: number; fussR: number }) {
-  for (let i = 0; i < s.halme; i++) {
-    const a = w() * Math.PI * 2, r = Math.sqrt(w()) * s.fussR;
-    halm(n, { fuss: [Math.cos(a) * r, 0, Math.sin(a) * r], winkel: a + (w() - 0.5) * 0.6, neigung: s.neigung * (0.6 + 0.8 * w()),
-              hoehe: s.hoehe * (0.55 + 0.45 * w()), breite: s.breite * (0.7 + 0.6 * w()),
-              fussFarbe: mal(F.grasFuss, 0.9 + 0.2 * w()), spitzenFarbe: mal(F.grasSpitze, 0.9 + 0.2 * w()), biegung: 0.2 });
-  }
-}
-
 /**
  * Farn (D212): Wedel aus einer gebogenen Mittelrippe mit Fiederpaaren, die zur Spitze kürzer
  * werden. Ein Wedel steigt steil auf und hängt aussen über — die Silhouette, an der man Farn
@@ -523,20 +514,6 @@ const BAUPLAN: Record<string, Bauplan> = {
     stamm(n, w, { laenge: 1.8, r: 0.3, biegung: 0, aeste: 0, lage: [1.3, 0, 0.4], drehung: 0.5 });
   },
 
-  // Halme breiter als echte: Ein Halm von 6 mm ist auf 10 m ein Subpixel, und
-  // ein Büschel aus Subpixeln ist unsichtbar (G-117, G-125). 12–20 % der Höhe.
-  // Erster Lauf im Spiel: Halme mit Neigung 0,35–1,3 lasen sich von oben als
-  // Seesterne. Jetzt aufrechter und halb so breit gestreut. Farbverlauf wie die
-  // Streuung (`streu.grasFuss` → `grasSpitze`), damit Büschel und gestreutes
-  // Gras dieselbe Pflanze sind — zwei Grüntöne nebeneinander lesen sich als
-  // zwei Systeme.
-  gras_matte:  (n, w) => grasbuschel(n, w, { halme: 30, hoehe: 1, breite: 0.16, neigung: 0.9, fussR: 0.35 }),
-  gras_kurz:   (n, w) => grasbuschel(n, w, { halme: 26, hoehe: 1, breite: 0.13, neigung: 0.35, fussR: 0.2 }),
-  gras_halme:  (n, w) => grasbuschel(n, w, { halme: 28, hoehe: 1, breite: 0.10, neigung: 0.28, fussR: 0.16 }),
-  gras_hoch:   (n, w) => grasbuschel(n, w, { halme: 26, hoehe: 1, breite: 0.10, neigung: 0.25, fussR: 0.16 }),
-  gras_blatt:  (n, w) => grasbuschel(n, w, { halme: 20, hoehe: 1, breite: 0.18, neigung: 0.45, fussR: 0.16 }),
-  gras_staude: (n, w) => grasbuschel(n, w, { halme: 30, hoehe: 1, breite: 0.11, neigung: 0.22, fussR: 0.2 }),
-
   // D212: Farn im Waldunterwuchs. Wurmfarn steht 0,5–1,2 m, Adlerfarn bis 1,5 m.
   farn_klein:  (n, w) => farn(n, w, { wedel: 8, laenge: 1, fiedern: 10, breite: 0.2, steil: 1.1 }),
   farn_mittel: (n, w) => farn(n, w, { wedel: 9, laenge: 1, fiedern: 10, breite: 0.21, steil: 1.25 }),
@@ -617,11 +594,9 @@ for (const [art, varianten] of Object.entries(VARIANTEN) as [PropArt, typeof VAR
       .setAttribute('POSITION', raus.createAccessor().setType('VEC3').setArray(new Float32Array(pos)).setBuffer(puffer))
       .setAttribute('COLOR_0', raus.createAccessor().setType('VEC3').setArray(new Float32Array(farbe)).setBuffer(puffer))
       .setMaterial(raus.createMaterial('prop').setBaseColorFactor([1, 1, 1, 1]).setRoughnessFactor(1).setMetallicFactor(0));
-    // Gras bekommt Normalen senkrecht nach oben (D121), wie die Streuung: Ein
-    // Halm mit seiner Flächennormale steht halb im Eigenschatten und war im
-    // Bild dunkler als das gestreute Gras daneben — dieselbe Pflanze in zwei
-    // Helligkeiten. Die Szene zeichnet Gras deshalb glatt statt flach schattiert.
-    if (art === 'grasbuschel' || art === 'farn') {
+    // Farn bekommt Normalen senkrecht nach oben (D121), wie die Streuung: Ein
+    // Wedel mit seiner Flächennormale steht halb im Eigenschatten. Die Grasbüschel sind seit D366 entfernt.
+    if (art === 'farn') {
       const hoch = new Float32Array(pos.length);
       for (let i = 1; i < hoch.length; i += 3) hoch[i] = 1;
       prim.setAttribute('NORMAL', raus.createAccessor().setType('VEC3').setArray(hoch).setBuffer(puffer));

@@ -179,7 +179,6 @@ async function props() {
     ['rock_moss_set_01', 'fels-moos-1', false, ['findling_scan_d', 'findling_scan_e', 'findling_scan_f']],
     ['rock_moss_set_02', 'fels-moos-2', false, ['findling_scan_a', 'findling_scan_b', 'findling_scan_c']],
     ['fern_02', 'farn', true, ['farn_scan_a', 'farn_scan_b', 'farn_scan_c', 'farn_scan_d']],
-    ['grass_medium_02', 'gras', true, ['gras_scan_a', 'gras_scan_b', 'gras_scan_c', 'gras_scan_d', 'gras_scan_e', 'gras_scan_f']],
   ];
   const namen = ['hof-props.json', ...satz.flatMap(([, name]) =>
     ['farbe', 'normal', 'arm'].map(k => `hof-${name}-${k}.webp`))];

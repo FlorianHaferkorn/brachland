@@ -265,8 +265,9 @@ export const MassReferenz = z.object({
   ziel: z.number().positive(),
   quelle: z.string().min(3),
   url: z.union([z.string().url(), z.literal('')]),
-  /** `streu`: Eingabe für `tools/streukarten.py` (D361), im Tor nur aufgelistet. */
-  messung: z.enum(['hausbewuchs', 'figur', 'bordstein', 'baum', 'streu']),
+  /** `streu`: Eingabe für `tools/streukarten.py` (D361), im Tor nur aufgelistet. `boden` (D366): Bodenpflanzen-Karten
+   *  (`tools/bodenkarten.py`), das Tor misst die aufgestellten Pflanzenhöhen aus `src/world/bodenpflanzen.ts`. */
+  messung: z.enum(['hausbewuchs', 'figur', 'bordstein', 'baum', 'streu', 'boden']),
   belegt: z.boolean(),
 }).refine(r => r.min <= r.ziel && r.ziel <= r.max, 'ziel liegt nicht zwischen min und max');
 export const Massstab = z.object({ referenzen: z.array(MassReferenz).min(1) });

@@ -182,82 +182,6 @@
         }
       ],
       "uvKompatibilitaet": "Unveränderte volle 1K-Bildfläche, keine Drehung/Spiegelung/Beschneidung; UV direkt übernommen in tools/phprops.ts bzw. tools/farnscan.ts."
-    },
-    {
-      "name": "gras",
-      "quelle": "grass_medium_02",
-      "quelleUrl": "https://polyhaven.com/a/grass_medium_02",
-      "autoren": {
-        "Rico Cilliers": "All"
-      },
-      "lizenz": "CC0-1.0",
-      "lizenzUrl": "https://polyhaven.com/license",
-      "alpha": true,
-      "karten": [
-        {
-          "art": "Diffuse",
-          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_02/grass_medium_02_diff_1k.jpg",
-          "bytes": 161235,
-          "sha256": "91ae99005b449011aceb207a68a937258fd9bfd66ff367d344c50398b1df389c"
-        },
-        {
-          "art": "nor_gl",
-          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_02/grass_medium_02_nor_gl_1k.jpg",
-          "bytes": 118146,
-          "sha256": "0b464550366ed72a6cad9c357e19ac4c83fc9adc87272771479138129853b300"
-        },
-        {
-          "art": "AO",
-          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_02/grass_medium_02_ao_1k.jpg",
-          "bytes": 88210,
-          "sha256": "8a87b0c2cdda07f166551e9950074a7af6ed2ca4ef4b2042cbca0f78f6072d74"
-        },
-        {
-          "art": "Rough",
-          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_02/grass_medium_02_rough_1k.jpg",
-          "bytes": 184910,
-          "sha256": "1ccf7d18f9c468ab43cb1995db54883ba55493b9d9952a4d5c16c8b9f14608c3"
-        },
-        {
-          "art": "Alpha",
-          "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/grass_medium_02/grass_medium_02_alpha_1k.jpg",
-          "bytes": 114863,
-          "sha256": "5d832bb55433c8f401b314d5b7676b427e86ed74f4feb124bfae1581e38a772c"
-        }
-      ],
-      "uvBelege": [
-        {
-          "datei": "public/props/gras_scan_a.glb",
-          "ecken": 645,
-          "uvSha256": "8b5fcc67f416cb3328adbb4720b5e9c6278cbd0f9b4b5e81fbebdbc4f8b08dc7"
-        },
-        {
-          "datei": "public/props/gras_scan_b.glb",
-          "ecken": 1575,
-          "uvSha256": "8a610a95c531787e7d48da97bcc6859e92abf43ae791ac897743bb75d2e00d1c"
-        },
-        {
-          "datei": "public/props/gras_scan_c.glb",
-          "ecken": 1072,
-          "uvSha256": "ac36c135badd51e3f44cbac1b51db0cb7211db8408afa1f30b1cc51b022cea9e"
-        },
-        {
-          "datei": "public/props/gras_scan_d.glb",
-          "ecken": 2197,
-          "uvSha256": "b26967daf594f20fc67fb4ec48656466005bf28888550c6e9b76e7fa4e428de0"
-        },
-        {
-          "datei": "public/props/gras_scan_e.glb",
-          "ecken": 1542,
-          "uvSha256": "fd4d290218420d0e916fb3e29c83fe0619dbeb042ef0749553a11c9ffe0098a3"
-        },
-        {
-          "datei": "public/props/gras_scan_f.glb",
-          "ecken": 1542,
-          "uvSha256": "fd4d290218420d0e916fb3e29c83fe0619dbeb042ef0749553a11c9ffe0098a3"
-        }
-      ],
-      "uvKompatibilitaet": "Unveränderte volle 1K-Bildfläche, keine Drehung/Spiegelung/Beschneidung; UV direkt übernommen in tools/phprops.ts bzw. tools/farnscan.ts."
     }
   ],
   "ausgaben": {
@@ -296,18 +220,6 @@
     "hof-farn-arm.webp": {
       "bytes": 109260,
       "sha256": "35db0fd809f822d604e9e8e90aaf50386a1b8c5e9a95c2de6a39a08906df6e42"
-    },
-    "hof-gras-farbe.webp": {
-      "bytes": 123616,
-      "sha256": "8f4fb8f9b5523f76ecb781daa54531ad8e0c975d2b281b8b7a91139a2c46b6a9"
-    },
-    "hof-gras-normal.webp": {
-      "bytes": 39096,
-      "sha256": "6e4ca5a11d3ba25a513cbc512f2828c043b7d6e030b98f1400356cbd4f160fdc"
-    },
-    "hof-gras-arm.webp": {
-      "bytes": 77046,
-      "sha256": "35ad5bb5e1c0f965b5a9c61f38390a7a9d2003f5c6561fc354eee11cc69a8c36"
     }
   }
 }

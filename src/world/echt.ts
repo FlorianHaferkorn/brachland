@@ -89,6 +89,8 @@ export const EFEUKARTEN_AN = suche.get('efeukarten') !== '0';
 export const HOFBAU_AN = an('hofbau');
 /** D361: Bodenstreu als gebackene Karten (Laub, Nadeln, Kies, Zweige) um die Spielfigur; `streu=0` schaltet ab. */
 export const STREU_AN = suche.get('streu') !== '0';
+/** D366: Bodenpflanzen (Sauerklee, Waldmeister, Moos, Brombeere, Jungwuchs) als gebackene Karten; `boden=0` schaltet ab. */
+export const BODEN_AN = suche.get('boden') !== '0';
 /** D346: ausgebrochener Gehwegrand und zusammenhängende Verwitterung am Milbinger Weg. */
 export const MILBINGERRAND_AN = MILBINGERBODEN_AN && an('milbingerrand');
 /** D347: Materialtiefe und fortgeschrittene Übernahme an der Milbinger Straße. */

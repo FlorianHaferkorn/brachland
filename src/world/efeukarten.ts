@@ -91,6 +91,9 @@ export function kartenMaterial(art: string, tief: number, dämpfen = false): THR
 diffuseColor.rgb *= mix(${tief.toFixed(2)}, 1.0, texture2D(normalMap, vNormalMapUv).a);
 ${dämpfen ? 'diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(.2126,.7152,.0722))), diffuseColor.rgb, .62) * .78;' : ''}`);
   };
+  // D366: Der Programm-Cache von three.js unterscheidet sonst nur nach dem Quelltext von `onBeforeCompile` — Efeu,
+  // Streu und Bodenpflanzen mit verschiedenem `tief`/`dämpfen` könnten sich ein Programm teilen.
+  m.customProgramCacheKey = () => `karten-${art}-${tief}-${dämpfen}`;
   return m;
 }
 
