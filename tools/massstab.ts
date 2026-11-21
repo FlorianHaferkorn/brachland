@@ -155,6 +155,19 @@ async function hauptlauf() {
     if (r.id === 'moospolster') { console.log(`  · [${r.id}] Polsterbreite, in tools/bodenkarten.py gesetzt (nicht gemessen)`); continue; }
     zeile(r, 'Bodenpflanzen-Karten (Probewald)', werte, cm);
   }
+  // D364: Stammdurchmesser in Brusthöhe (1,3 m) am gebauten Netz — Anlauf und Wülste reichen bis dorthin
+  const mitBhd = register.baeume as { art: string; stufe: string; bhd?: number }[];
+  for (const r of ref('stamm')) {
+    const art = r.id.replace(/^bhd-/, '');
+    zeile(r, `baeume.json ${art} BHD (Nahstufe, unskaliert)`,
+      mitBhd.filter(b => b.art === art && b.stufe === 'nah' && b.bhd).map(b => b.bhd!), cm);
+  }
+  // D364: Rinden-Scans im Weltmass — Kachelbreite im Shader gleich der Scanbreite
+  const { RINDE_KACHEL } = await import('../src/world/windmaterial.js');
+  for (const r of ref('rinde')) {
+    const art = r.id.replace(/^rinde-/, '') as keyof typeof RINDE_KACHEL;
+    zeile(r, `RINDE_KACHEL.${art} Breite`, RINDE_KACHEL[art] ? [RINDE_KACHEL[art][0]] : [], m => `${m.toFixed(2)} m`);
+  }
 
   console.log(verstoesse ? `\n${verstoesse} Verstoss/Verstösse gegen belegte Referenzen` : '\n0 Verstösse');
   process.exit(verstoesse ? 1 : 0);

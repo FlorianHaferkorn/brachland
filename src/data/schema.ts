@@ -266,8 +266,9 @@ export const MassReferenz = z.object({
   quelle: z.string().min(3),
   url: z.union([z.string().url(), z.literal('')]),
   /** `streu`: Eingabe für `tools/streukarten.py` (D361), im Tor nur aufgelistet. `boden` (D366): Bodenpflanzen-Karten
-   *  (`tools/bodenkarten.py`), das Tor misst die aufgestellten Pflanzenhöhen aus `src/world/bodenpflanzen.ts`. */
-  messung: z.enum(['hausbewuchs', 'figur', 'bordstein', 'baum', 'streu', 'boden']),
+   *  (`tools/bodenkarten.py`), das Tor misst die aufgestellten Pflanzenhöhen aus `src/world/bodenpflanzen.ts`.
+   *  `stamm` (D364): BHD aus `baeume.json`; `rinde` (D364): Kachelmass der Rinden-Scans (`RINDE_KACHEL`) gegen die Scangrösse. */
+  messung: z.enum(['hausbewuchs', 'figur', 'bordstein', 'baum', 'streu', 'boden', 'stamm', 'rinde']),
   belegt: z.boolean(),
 }).refine(r => r.min <= r.ziel && r.ziel <= r.max, 'ziel liegt nicht zwischen min und max');
 export const Massstab = z.object({ referenzen: z.array(MassReferenz).min(1) });

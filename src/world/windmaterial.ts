@@ -80,8 +80,14 @@ export interface WindMaterialWerte {
    * vereinigten Waldstämme der Blender-Szenen (`WaldHolz`) tragen nur drei Farbkanäle. Dann gibt
    * `rindeMeter` an, wie viele Meter eine Modelleinheit ist (quantisierte glTF-Positionen).
    */
-  rinde?: boolean | 'ganz';
+  rinde?: boolean | 'ganz' | RindenArt;
   rindeMeter?: number;
+  /**
+   * D367: Weiche Übergabe an die Impostor-Fernstufe. `x` = Entfernung (m), ab der die Instanz ganz Impostor ist,
+   * `y` = Breite des Bandes davor. Im Band verwirft das Netz Fragmente nach einem Bildschirmraster, der
+   * Impostor (`src/world/impostor.ts`) zeichnet genau die übrigen — dasselbe Raster, komplementär.
+   */
+  ueberblend?: { value: THREE.Vector2 };
   /**
    * Stammfuss (D262): Die Geometrie trägt `_fuss` (0 am Boden, 1 ab ~1,2 m darüber,
    * `stammfuss.ts`). Dort wird das Holz dunkler — die Verdeckung durch Boden, Streu und Gras, die
@@ -97,6 +103,106 @@ export interface WindMaterialWerte {
    */
   bueschel?: THREE.Texture;
 }
+
+/** D364: Rinden-Scans je Art. */
+export type RindenArt = 'buche' | 'fichte';
+/**
+ * D364: Kachelmass der Rinden-Scans in Metern (Breite, Höhe) — die Scangrösse laut Poly Haven (`dimensions`),
+ * Höhe nach den Bildseiten. Buche: `chinese_hackberry_bark` 1,8 × 3,6 m, Fichte: `pine_bark` 2,0 × 2,0 m
+ * (`assets/HERKUNFT.md`). Gelesen in Modellmetern × Instanzskala, also im Weltmass.
+ */
+export const RINDE_KACHEL: Record<RindenArt, [number, number]> = { buche: [1.8, 3.6], fichte: [2.0, 2.0] };
+/** Moos/Algen an der Wetterseite (D364): Richtung in Weltlage (West = −X) und Farbe (linear). */
+const RINDE_WETTER = new THREE.Vector3(-1, 0, -0.25).normalize();
+const RINDE_MOOS = new THREE.Color(0.055, 0.085, 0.018);
+const RINDE_ART = new Map<RindenArt, { farbe: { value: THREE.Texture }; normal: { value: THREE.Texture } }>();
+function rindenArt(art: RindenArt) {
+  let r = RINDE_ART.get(art);
+  if (r) return r;
+  const neutral = (n: boolean) => {
+    const t = new THREE.DataTexture(new Uint8Array(n ? [128, 128, 255, 230] : [110, 104, 96, 128]), 1, 1, THREE.RGBAFormat, THREE.UnsignedByteType);
+    if (!n) t.colorSpace = THREE.SRGBColorSpace;
+    t.needsUpdate = true;
+    return t as THREE.Texture;
+  };
+  r = { farbe: { value: neutral(false) }, normal: { value: neutral(true) } };
+  RINDE_ART.set(art, r);
+  if (typeof document !== 'undefined' && new URLSearchParams(location.search).get('detail') !== '0') {
+    const lader = new THREE.TextureLoader();
+    for (const karte of ['farbe', 'normal'] as const) {
+      lader.load(`/material/rinde-${art}-${karte}.webp`, (t) => {
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.colorSpace = karte === 'farbe' ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+        t.anisotropy = 8;
+        r![karte].value = t;
+      });
+    }
+  }
+  return r;
+}
+
+/**
+ * D364: Rinde je Art. Farbe ist **Albedo** (sRGB, A = Höhe), nicht mehr Modulation; `COLOR_0.rgb` am Holz ist
+ * nur noch ein Faktor (Erdkontakt dunkler, `tools/baumbau.py`). Normale (RGB, OpenGL) und Rauheit (A) aus dem
+ * zweiten Bild, zweiachsig projiziert und per Whiteout in Modelllage gemischt (keine UV, keine Tangenten).
+ * Moos an der Wetterseite und am Fuss: Weltnormale gegen Westen, nach oben ausdünnend, zuerst in den Ritzen.
+ */
+const RINDE_ART_PARS_GLSL = /* glsl */ `
+uniform sampler2D uRindeFarbe;
+uniform sampler2D uRindeNormal;
+uniform vec2 uRindeKachel;
+uniform vec3 uRindeWetter;
+uniform vec3 uRindeMoos;
+varying vec3 vRindePos;
+varying vec3 vRindeNormal;
+varying vec3 vRindeWeltN;
+varying mat3 vRindeZuSicht;
+`;
+const RINDE_ART_FARBE_GLSL = /* glsl */ `
+  #ifdef USE_COLOR_ALPHA
+  float istHolz = 1.0 - step(0.5, vColor.a);
+  vec3 rN = normalize(vRindeNormal);
+  vec2 rw = pow(abs(rN.xz) + 1e-3, vec2(4.0)); rw /= (rw.x + rw.y);
+  vec2 uvA = vec2(vRindePos.z, vRindePos.y) / uRindeKachel;
+  vec2 uvB = vec2(vRindePos.x, vRindePos.y) / uRindeKachel + 0.5;
+  vec4 rindeScan = texture2D(uRindeFarbe, uvA) * rw.x + texture2D(uRindeFarbe, uvB) * rw.y;
+  vec4 rnA = texture2D(uRindeNormal, uvA), rnB = texture2D(uRindeNormal, uvB);
+  float rindeRau = rnA.a * rw.x + rnB.a * rw.y;
+  float rHoehe = vRindePos.y;
+  float west = dot(normalize(vRindeWeltN), uRindeWetter);
+  float moosW = (1.0 - smoothstep(0.3, 1.6 + 2.2 * max(west, 0.0), rHoehe)) * smoothstep(-0.2, 0.55, west);
+  float moosF = 0.6 * (1.0 - smoothstep(0.04, 0.5, rHoehe));
+  float moos = clamp(max(moosW, moosF) * 1.5 - (rindeScan.a - 0.35) * 1.2, 0.0, 1.0);
+  vec3 holz = mix(rindeScan.rgb, uRindeMoos * (0.8 + 0.4 * rindeScan.a), moos);
+  diffuseColor.rgb *= mix(vec3(1.0), holz, istHolz);
+  #endif
+`;
+const RINDE_ART_RELIEF_GLSL = /* glsl */ `
+  #ifdef USE_COLOR_ALPHA
+  {
+    vec3 tA = rnA.xyz * 2.0 - 1.0, tB = rnB.xyz * 2.0 - 1.0;
+    vec3 nA = vec3(tA.xy + rN.zy, abs(tA.z) * rN.x);
+    vec3 nB = vec3(tB.xy + rN.xy, abs(tB.z) * rN.z);
+    vec3 nm = normalize(nA.zyx * rw.x + nB * rw.y);
+    float st = istHolz * (1.0 - smoothstep(30.0, 55.0, length(vViewPosition)));
+    normal = normalize(mix(normal, normalize(vRindeZuSicht * nm) * faceDirection, st));
+  }
+  #endif
+`;
+const RINDE_ART_RAUHEIT_GLSL = /* glsl */ `
+  #ifdef USE_COLOR_ALPHA
+  roughnessFactor = mix(roughnessFactor, mix(rindeRau, 0.95, moos), istHolz);
+  #endif
+`;
+
+/**
+ * D367: Bildschirmraster der Überblendung (Interleaved Gradient Noise). Netz verwirft `< f`, Impostor `>= f`.
+ */
+export const UEBERBLEND_GLSL = /* glsl */ `
+float ueberblendRaster() {
+  return fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+}
+`;
 
 /**
  * D224: Rinden-Scan (Poly Haven `knotted_pine_bark`, CC0, Dimitrios Savva; `assets/HERKUNFT.md`).
@@ -551,7 +657,33 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
         .replace('#include <color_fragment>', '#include <color_fragment>' + BUESCHEL_FARBE_GLSL)
         .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + BUESCHEL_RAND_GLSL);
     }
-    if (w.rinde) {
+    if (w.rinde === 'buche' || w.rinde === 'fichte') {
+      const r = rindenArt(w.rinde);
+      shader.uniforms.uRindeFarbe = r.farbe;
+      shader.uniforms.uRindeNormal = r.normal;
+      shader.uniforms.uRindeKachel = { value: new THREE.Vector2(...RINDE_KACHEL[w.rinde]) };
+      shader.uniforms.uRindeWetter = { value: RINDE_WETTER };
+      shader.uniforms.uRindeMoos = { value: RINDE_MOOS };
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vRindePos;\nvarying vec3 vRindeNormal;\nvarying vec3 vRindeWeltN;\nvarying mat3 vRindeZuSicht;')
+        // Vor dem Wind: Modelllage in Ruhe, × Instanzskala = Weltmass.
+        .replace('#include <begin_vertex>', `#include <begin_vertex>
+#ifdef USE_INSTANCING
+float rSkala = length(instanceMatrix[0].xyz);
+mat3 rInst = mat3(instanceMatrix) / rSkala;
+#else
+float rSkala = 1.0; mat3 rInst = mat3(1.0);
+#endif
+vRindePos = position * rSkala;
+vRindeNormal = objectNormal;
+vRindeZuSicht = normalMatrix * rInst;
+vRindeWeltN = normalize(mat3(modelMatrix) * rInst * objectNormal);`);
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\n' + RINDE_ART_PARS_GLSL)
+        .replace('#include <color_fragment>', '#include <color_fragment>' + RINDE_ART_FARBE_GLSL)
+        .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>' + RINDE_ART_RAUHEIT_GLSL)
+        .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>' + RINDE_ART_RELIEF_GLSL);
+    } else if (w.rinde) {
       shader.uniforms.uRinde = RINDE;
       shader.uniforms.uRindeMeter = { value: w.rindeMeter ?? 1 };
       if (w.rinde === 'ganz') shader.fragmentShader = '#define RINDE_GANZ\n' + shader.fragmentShader;
@@ -563,6 +695,15 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
         .replace('#include <common>', '#include <common>\n' + RINDE_PARS_GLSL)
         .replace('#include <color_fragment>', '#include <color_fragment>' + RINDE_FARBE_GLSL)
         .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>' + RINDE_RELIEF_GLSL);
+    }
+    if (w.ueberblend) {
+      shader.uniforms.uUeberblend = w.ueberblend;
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying float vUeberblendD;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\n#ifdef USE_INSTANCING\nvUeberblendD = distance((modelMatrix * instanceMatrix[3]).xyz, cameraPosition);\n#else\nvUeberblendD = 0.0;\n#endif');
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vUeberblendD;\nuniform vec2 uUeberblend;' + UEBERBLEND_GLSL)
+        .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n{ float uf = smoothstep(uUeberblend.x - uUeberblend.y, uUeberblend.x, vUeberblendD); if (uf > 0.0 && ueberblendRaster() < uf) discard; }');
     }
     if (w.fuss) {
       shader.vertexShader = shader.vertexShader
@@ -604,8 +745,8 @@ export function baueWindMaterial(w: WindMaterialWerte, basis?: THREE.Material): 
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>' + LOECHER_GLSL)
       .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>' + RAND_GLSL + DURCHLASS_GLSL);
   };
-  material.customProgramCacheKey = () => hofSchluessel + 'brachland-wind-rand-v16' + (w.himmel ? '-himmel' : '') + (w.rinde ? '-rinde' + (w.rinde === 'ganz' ? '-ganz' : '') : '') + (w.fuss ? '-fuss' : '') + (w.bueschel ? '-bueschel-' + w.bueschel.uuid : '');
-  if (w.rinde) ladeRinde();
+  material.customProgramCacheKey = () => hofSchluessel + 'brachland-wind-rand-v16' + (w.himmel ? '-himmel' : '') + (w.rinde ? '-rinde' + (w.rinde === true ? '' : '-' + w.rinde) : '') + (w.ueberblend ? '-ueberblend' : '') + (w.fuss ? '-fuss' : '') + (w.bueschel ? '-bueschel-' + w.bueschel.uuid : '');
+  if (w.rinde === true || w.rinde === 'ganz') ladeRinde();
 
   // Tiefenmaterial mit denselben Loechern: sonst wirft eine Krone den Schatten eines vollen Klumpens
   let tiefe: THREE.MeshDepthMaterial | undefined;
