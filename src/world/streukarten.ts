@@ -26,6 +26,16 @@ const STREU: Partial<Record<Biom, { p: number; arten: readonly number[] }>> = {
   acker: { p: 0.05, arten: [ZWEIGE, KIES] },
 };
 
+/** Weiches Wertrauschen (0…1) auf `zelle` Metern — Streu liegt in Inseln, nicht gleichmässig (D361, Tupfenmuster). */
+function haeufung(x: number, z: number, zelle: number): number {
+  const gx = x / zelle, gz = z / zelle, ix = Math.floor(gx), iz = Math.floor(gz);
+  const fx = gx - ix, fz = gz - iz, sx = fx * fx * (3 - 2 * fx), sz = fz * fz * (3 - 2 * fz);
+  const w = (a: number, b: number) => zellHash(a, b, 977) / 0xffffffff;
+  const o = w(ix, iz) + (w(ix + 1, iz) - w(ix, iz)) * sx;
+  const u = w(ix, iz + 1) + (w(ix + 1, iz + 1) - w(ix, iz + 1)) * sx;
+  return o + (u - o) * sz;
+}
+
 /** Ganzzahl-Hash einer Zelle — dieselbe Zelle gibt immer dieselbe Streu. */
 function zellHash(ix: number, iz: number, salz: number): number {
   let h = (ix * 73856093) ^ (iz * 19349663) ^ (salz * 83492791);
@@ -48,14 +58,18 @@ export function streuMatrizen(
     const x = ix + wurf(), zz = iz + wurf();
     if ((x - mx) ** 2 + (zz - mz) ** 2 > radius * radius) continue;
     const regel = STREU[biomAn(x, zz)];
-    if (!regel || wurf() > regel.p) continue;
+    if (!regel) continue;
+    // Inseln: zwei Rauschlagen (9 m und 3 m), die Biomdichte bleibt im Mittel erhalten.
+    const insel = 0.65 * haeufung(x, zz, 9) + 0.35 * haeufung(x, zz, 3);
+    if (wurf() > regel.p * Math.min(1, Math.max(0, (insel - 0.32) * 2.6))) continue;
     const e = 0.4;
     n.set(hoeheAn(x - e, zz) - hoeheAn(x + e, zz), 2 * e, hoeheAn(x, zz - e) - hoeheAn(x, zz + e)).normalize();
     q.setFromUnitVectors(z, n);
     dreh.setFromAxisAngle(z, wurf() * Math.PI * 2);
     const kante = 0.9 + 0.2 * wurf();          // 0,9–1,1 m: die Grössen im Feld bleiben echt
     p.set(x, hoeheAn(x, zz) + 0.015, zz);
-    s.set(kante, kante, 1);
+    // Gestreckt statt rund: ±25 % je Achse, die Teile bleiben in der Toleranz der Referenz.
+    s.set(kante * (0.8 + 0.45 * wurf()), kante * (0.75 + 0.3 * wurf()), 1);
     kacheln[regel.arten[Math.floor(wurf() * regel.arten.length)]].push(new THREE.Matrix4().compose(p, q.clone().multiply(dreh), s));
   }
   return kacheln;

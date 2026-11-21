@@ -71,9 +71,9 @@ export function kachelGeometrie(kachel: number): THREE.PlaneGeometry {
 
 /**
  * D361: gebackene Karte (Farbe + Deckung, Normale + Abstand/Höhe in Alpha) als Material — für Efeu und Streu.
- * `tief` ist die Helligkeit der tiefsten Lage (Alpha 0).
+ * `tief` ist die Helligkeit der tiefsten Lage (Alpha 0). `dämpfen`: entsättigt und dunkler (Streu las im Spiel zu rot, D361).
  */
-export function kartenMaterial(art: string, tief: number): THREE.MeshStandardMaterial {
+export function kartenMaterial(art: string, tief: number, dämpfen = false): THREE.MeshStandardMaterial {
   const lade = (name: string, farbe: boolean) => {
     const t = new THREE.TextureLoader().load(`/material/${art}-karten-${name}.webp`);
     t.colorSpace = farbe ? THREE.SRGBColorSpace : THREE.NoColorSpace;
@@ -88,7 +88,8 @@ export function kartenMaterial(art: string, tief: number): THREE.MeshStandardMat
     shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', /* glsl */ `
 #include <normal_fragment_maps>
 // Abstand/Höhe (A der Normalenkarte): tiefe Lagen liegen im Schatten der oberen.
-diffuseColor.rgb *= mix(${tief.toFixed(2)}, 1.0, texture2D(normalMap, vNormalMapUv).a);`);
+diffuseColor.rgb *= mix(${tief.toFixed(2)}, 1.0, texture2D(normalMap, vNormalMapUv).a);
+${dämpfen ? 'diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(.2126,.7152,.0722))), diffuseColor.rgb, .62) * .78;' : ''}`);
   };
   return m;
 }

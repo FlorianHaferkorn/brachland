@@ -1063,7 +1063,7 @@ function StreuSchicht({ hoeheAn, biomAn, ziel }: {
   const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
   const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
   useEffect(() => () => geometrien.forEach(g => g.dispose()), [geometrien]);
-  streuMaterial ??= kartenMaterial('streu', 0.55);
+  streuMaterial ??= kartenMaterial('streu', 0.55, true);
   useFrame(() => {
     const p = ziel.current?.position, jetzt = performance.now();
     if (!p || jetzt - zuletzt.current < 500) return;
