@@ -6,6 +6,8 @@ type Punkt = [number, number, number];
 export type QuerschnittVerwitterung = NonNullable<WohnwegQuerschnitt['verwitterung']>;
 export const WEG_UEBER_GRUND = .12;
 export const BORD_ABSENKUNG = .025;
+/** Sichtbare Bordhöhe ohne Absenkung; `tools/massstab.ts` prüft sie gegen `content/massstab.json`. */
+export const BORD_HOEHE = BORD_ABSENKUNG + .085;
 export const DECKE_UEBER_GRUND = .018;
 export const ZUFAHRT_UEBER_GRUND = .009;
 export const GEHWEG_RANDABTRAG = .18;
@@ -98,7 +100,7 @@ export function querschnittSaum(punkte: readonly Ort[], profil: WohnwegQuerschni
 function bordhoehe(s: number, seite: number, profil: WohnwegQuerschnitt) {
   const abstand = Math.min(.7, ...profil.zufahrten.filter(z => z.seite === seite)
     .map(z => Math.max(z.von - s, 0, s - z.bis)));
-  return BORD_ABSENKUNG + .085 * THREE.MathUtils.smoothstep(abstand, 0, .7);
+  return BORD_ABSENKUNG + (BORD_HOEHE - BORD_ABSENKUNG) * THREE.MathUtils.smoothstep(abstand, 0, .7);
 }
 
 const grautoene = ['#565654', '#a6a59e', '#c4c0b6', '#85847f'].map(ton => new THREE.Color(ton));

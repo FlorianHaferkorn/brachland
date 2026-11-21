@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten, Fassade,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten, Fassade, Massstab,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -36,6 +36,11 @@ console.log('\nOrte:');
 const orte = pruefe<any>('content/orte', Ort);
 console.log('\nFassaden:');
 pruefe<any>('content/fassaden', Fassade);
+{
+  const r = Massstab.safeParse(JSON.parse(readFileSync('content/massstab.json', 'utf8')));
+  if (!r.success) { console.log('  ✗ content/massstab.json', JSON.stringify(r.error.issues)); fehler++; }
+  else ok++;
+}
 console.log('\nAufträge:');
 const auftraege = pruefe<any>('content/auftraege', Auftrag);
 console.log('\nRegionen:');

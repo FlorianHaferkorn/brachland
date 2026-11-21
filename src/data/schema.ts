@@ -252,6 +252,25 @@ export type Fragment = z.infer<typeof Fragment>;
  * Fassade nach Bautyp.
  */
 const Hex = z.string().regex(/^#[0-9a-f]{6}$/i);
+/**
+ * D352: Referenzmaße der Welt. Jede Zeile nennt eine reale Spanne mit Quelle; `tools/massstab.ts`
+ * misst die gebaute Geometrie dagegen (`messung`). `belegt: false` heisst: Spanne ohne geprüfte
+ * Quelle, das Tor warnt dann nur.
+ */
+export const MassReferenz = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  was: z.string().min(3),
+  min: z.number().positive(),
+  max: z.number().positive(),
+  ziel: z.number().positive(),
+  quelle: z.string().min(3),
+  url: z.union([z.string().url(), z.literal('')]),
+  messung: z.enum(['hausbewuchs', 'figur', 'bordstein', 'baum']),
+  belegt: z.boolean(),
+}).refine(r => r.min <= r.ziel && r.ziel <= r.max, 'ziel liegt nicht zwischen min und max');
+export const Massstab = z.object({ referenzen: z.array(MassReferenz).min(1) });
+export type MassReferenz = z.infer<typeof MassReferenz>;
+
 export const Fassade = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   region: z.string(),

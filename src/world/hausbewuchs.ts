@@ -1,6 +1,29 @@
 import { CatmullRomCurve3, Color, Vector3 } from 'three';
 import { mulberry } from './props.js';
 import { HOF_ORTSALTERUNG_AN, HOF_VERFALLVERLAUF_AN, HOF_ZIELTREUE_AN } from './echt.js';
+import massstab from '../../content/massstab.json';
+
+/**
+ * D353: Efeublätter in echter Grösse. Bis D352 waren die Blattgrössen je Bauer von Hand gesetzt und lagen
+ * im Median bei 17–31 cm, einzeln bis 49 cm (`npm run massstab`); echter Efeu hat 4–12 cm. Die Länge kommt
+ * jetzt aus `content/massstab.json`, die Form wird auf diese Länge skaliert.
+ */
+const EFEU = massstab.referenzen.find(r => r.id === 'efeublatt')!;
+/** Kleinere Blätter brauchen mehr Blätter je Büschel, sonst zerfällt die Deckung in Punkte. */
+const EFEU_DICHTE = 3;
+
+/** Blattlänge in Metern. `jung` 0…1 verkleinert Triebspitzen und Ränder; Median ≈ `EFEU.ziel` bei `jung` = 1. */
+function efeuLaenge(zufall: () => number, jung = 1): number {
+  const t = zufall() ** 1.6 * (.55 + .45 * Math.max(0, Math.min(1, jung)));
+  return EFEU.min + (EFEU.max - EFEU.min) * t;
+}
+
+/** Grösste Ausdehnung einer Blattform in Formeinheiten — Länge eines Blatts der Grösse 1. */
+function spanne(form: readonly (readonly [number, number, number])[]): number {
+  let groesste = 0;
+  for (const a of form) for (const b of form) groesste = Math.max(groesste, Math.hypot(a[0]-b[0], a[1]-b[1], a[2]-b[2]));
+  return groesste;
+}
 
 type Punkt = [number, number, number];
 type Wandkante = readonly [number, number];
@@ -10,11 +33,12 @@ type Dreieck = (a: Punkt, b: Punkt, c: Punkt, farbe: Color, blatt?: BlattKoordin
 type Rankenfarben = { blaetter: readonly Color[]; trieb: Color };
 export type Rankenpunkt = { ort: Punkt; aussen: Punkt };
 
-const DREIECKE_JE_WAND = 1980;
+const DREIECKE_JE_WAND = 1980 * 2;
 const BLATTFORM: readonly Wandpunkt[] = [
   [0, -0.46, 0], [-0.41, -0.28, 0.03], [-0.28, 0.06, -0.16],
   [0, 0.57, 0.11], [0.33, 0.10, -0.12], [0.43, -0.23, 0.04],
 ];
+const SPANNE_BLATTFORM = spanne(BLATTFORM);
 
 /** Kletterefeu in der Fassadengeometrie. Türposition in Metern längs der Wand, Traufe in Weltkoordinaten. */
 export function baueHausbewuchs(
@@ -37,7 +61,7 @@ export function baueHausbewuchs(
     && (tuerU === null || Math.abs(u - tuerU) > 0.85 + radius || y - radius >= tuerOberkante);
 
   let anzahl = 0;
-  const dreieckgrenze = dicht ? 3300 : DREIECKE_JE_WAND;
+  const dreieckgrenze = dicht ? 3300 * 2 : DREIECKE_JE_WAND;
   const flaeche = (a: Wandpunkt, b: Wandpunkt, c: Wandpunkt, farbe: Color, blatt?: BlattKoordinaten) => {
     const kreuz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
     if (kreuz * umlauf > 0) dreieck(welt(a), welt(b), welt(c), farbe, blatt);
@@ -97,7 +121,7 @@ export function baueHausbewuchs(
       const u = punkt[0] + Math.cos(winkel) * radius;
       const y = punkt[1] + Math.sin(winkel) * radius * 0.78;
       const tiefe = Math.max(0.095, Math.min(0.30, punkt[2] + (zufall() - 0.22) * 0.13));
-      const groesse = dicht ? .20 + zufall() * .19 : stufe === 2 ? .15 + zufall() * .14 : .105 + zufall() * .11;
+      const groesse = efeuLaenge(zufall, dicht ? 1 : stufe === 2 ? .8 : .6) / SPANNE_BLATTFORM;
       const blattTon = zufall() < 0.78 ? ton : Math.floor(zufall() * palette);
       blatt(u, y, tiefe, groesse, richtung * 0.7 + (zufall() - 0.5) * 3.6, blattTon);
     }
@@ -120,7 +144,7 @@ export function baueHausbewuchs(
     const drift = (zufall() - 0.5) * Math.min(2.6, laenge * 0.19);
     const schwung = zufall() * Math.PI * 2;
     const abschnitte = Math.max(3, Math.min(stufe === 2 ? 16 : 8, Math.ceil((y1 - y0) / 0.38)));
-    const dichte = dicht ? Math.floor(33 / wurzeln) : stufe === 2 ? Math.floor(19 / wurzeln) : 6;
+    const dichte = EFEU_DICHTE * (dicht ? Math.floor(33 / wurzeln) : stufe === 2 ? Math.floor(19 / wurzeln) : 6);
     let unten: Wandpunkt = [u, y0, 0.018];
     for (let i = 1; i <= abschnitte; i++) {
       const t = i / abschnitte;
@@ -197,11 +221,11 @@ export function baueRankenkurve(
     const astA = ort.clone().sub(triebKante), astB = ort.clone().add(triebKante);
     flaeche(seite === 1 ? astB : astA, seite === 1 ? astA : astB, triebEnde, farben.trieb);
 
-    for (let j = 0; j < 5; j++) {
-      const seitlich = j < 3 ? seite * (.14 + zufall() * .86) : (zufall() - .5) * .48;
+    for (let j = 0; j < 5 * EFEU_DICHTE; j++) {
+      const seitlich = j % 5 < 3 ? seite * (.14 + zufall() * .86) : (zufall() - .5) * .48;
       const mitte = ort.clone().addScaledVector(quer, seitlich * ausladung)
         .addScaledVector(blattVor, (zufall() - .42) * .44).addScaledVector(normal, .10 + zufall() * .24);
-      const groesse = (.14 + zufall() * .24) * (.68 + .32 * fuelle);
+      const groesse = efeuLaenge(zufall, fuelle) / SPANNE_BLATTFORM;
       const winkel = seite * .7 + (zufall() - .5) * 3.3;
       const cos = Math.cos(winkel), sin = Math.sin(winkel);
       const stiel = blattVor.clone().multiplyScalar(cos).addScaledVector(quer, sin);
@@ -223,9 +247,10 @@ const EFEUBLATT: readonly Wandpunkt[] = [
   [0, -.44, 0], [-.32, -.38, -.04], [-.45, -.15, -.11], [-.56, .13, -.10], [-.24, .16, -.05],
   [0, .68, -.09], [.23, .18, -.07], [.55, .20, -.10], [.43, -.15, -.13], [.29, -.40, -.03],
 ];
+const SPANNE_EFEUBLATT = spanne(EFEUBLATT);
 const EFEULAUB = ['#303722', '#3b462a', '#434c30', '#4c5435', '#595d3c', '#656347']
   .map(ton => new Color(ton));
-const EFEURINDE = ['#4e4233', '#62503d', '#705b43'].map(ton => new Color(ton));
+export const EFEURINDE = ['#4e4233', '#62503d', '#705b43'].map(ton => new Color(ton));
 
 // Der Rand behält die Spitzen, die dazwischenliegenden Bögen runden die fünf Lappen ab.
 const KRONENBLATT: readonly Wandpunkt[] = [
@@ -235,10 +260,17 @@ const KRONENBLATT: readonly Wandpunkt[] = [
   [.38,.24,-.04], [.565,.19,-.08], [.385,-.08,-.043], [.37,-.25,-.033],
   [.29,-.43,-.015], [.15,-.47,.005],
 ];
+/**
+ * D353: Bei 4–12 cm Blattlänge tragen die Lappenspitzen und jeder zweite Bogenpunkt die Form; 12 statt 18 Dreiecke
+ * je Blatt halten die dreifache Blattzahl im Hauspuffer (Budget aus D318).
+ */
+// Die Lappenspitzen (5, 9, 13) bleiben immer, sonst verliert das Blatt seine Form.
+const KRONENBLATT_KLEIN: readonly Wandpunkt[] = KRONENBLATT.filter((_, i) => i % 2 === 0 || i === 5 || i === 9 || i === 13);
+const SPANNE_KRONENBLATT = spanne(KRONENBLATT_KLEIN);
 const KRONENLAUB = ['#39462b', '#414b32', '#485336', '#535c3b', '#5c6241', '#686c48', '#78784c']
   .map(ton => new Color(ton));
 const SCHATTENLAUB = KRONENLAUB.map(ton => ton.clone().multiplyScalar(.64));
-const KRONENRINDE = ['#47382b', '#584836', '#5d4d38', '#63533d', '#514537']
+export const KRONENRINDE = ['#47382b', '#584836', '#5d4d38', '#63533d', '#514537']
   .map(ton => new Color(ton));
 
 type VektorDreieck = (a: Vector3, b: Vector3, c: Vector3, farbe: Color, blatt?: BlattKoordinaten) => void;
@@ -268,7 +300,7 @@ function baueKronenblaetter(
     const breit = quer.clone().multiplyScalar(cos).addScaledVector(hoch, -sin);
     const blattKnick = (zufall() - .28) * .58, rollung = (zufall() - .5) * .83;
     const blattBreite = gross * (.8 + zufall() * .36);
-    const rand = KRONENBLATT.map(([x, y, w]) => ziel.clone()
+    const rand = KRONENBLATT_KLEIN.map(([x, y, w]) => ziel.clone()
       .addScaledVector(breit, x * blattBreite)
       .addScaledVector(laengs, y * gross)
       .addScaledVector(normal, gross * (w + x * rollung + y * blattKnick)));
@@ -279,18 +311,18 @@ function baueKronenblaetter(
     flaeche(ansatz.clone().add(stielKante), ansatz.clone().sub(stielKante), rand[0], KRONENRINDE[1]);
     for (let k = 0; k < rand.length; k++) {
       const l = (k + 1) % rand.length;
-      flaeche(falz, rand[l], rand[k], ton, [[0, 0], [KRONENBLATT[l][0], KRONENBLATT[l][1]], [KRONENBLATT[k][0], KRONENBLATT[k][1]]]);
+      flaeche(falz, rand[l], rand[k], ton, [[0, 0], [KRONENBLATT_KLEIN[l][0], KRONENBLATT_KLEIN[l][1]], [KRONENBLATT_KLEIN[k][0], KRONENBLATT_KLEIN[k][1]]]);
     }
   };
 
   // Tiefe in der Krone kommt von der dunklen wandnahen Lage.
-  for (let k = 0; k < Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 4 : 3)); k++) {
+  for (let k = 0; k < Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 4 : 3) * EFEU_DICHTE); k++) {
     const ziel = ort.clone().addScaledVector(quer, (zufall() - .5) * halbeBreite * .81)
       .addScaledVector(hoch, (zufall() - .5) * .30)
       .addScaledVector(normal, .04 + zufall() * .105);
-    fieder(ort, ziel, (zufall() - .5) * 1.2, .19 + zufall() * .17, k !== 0);
+    fieder(ort, ziel, (zufall() - .5) * 1.2, efeuLaenge(zufall, dichte) / SPANNE_KRONENBLATT, k !== 0);
   }
-  const seitentriebe = Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 6 : 5));
+  const seitentriebe = Math.ceil(dichte * (HOF_ZIELTREUE_AN ? 6 : 5) * EFEU_DICHTE);
   const seite = (Math.floor(lauf * 17) % 2 ? 1 : -1);
   for (const richtung of [-1, 1]) {
     // Seitentriebe laufen in versetzten Inseln aus, auch am Übergang um die Ecke.
@@ -311,7 +343,7 @@ function baueKronenblaetter(
       const ziel = ast(fortschritt).addScaledVector(hoch, (zufall() - .48) * .35)
         .addScaledVector(normal, .028 + zufall() * .085);
       const blattEnde = HOF_VERFALLVERLAUF_AN ? 1.15 - .61 * fortschritt * fortschritt : .9 + .24 * (1 - fortschritt);
-      const groesse = (.17 + zufall() * .15) * blattEnde * (.77 + .23 * dichte);
+      const groesse = efeuLaenge(zufall, blattEnde * dichte) / SPANNE_KRONENBLATT;
       fieder(ansatz, ziel, richtung, groesse, richtung === dunkleSeite && j === 0);
     }
   }
@@ -383,7 +415,7 @@ function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: n
       : Math.min(1, (anteil - .085) * 5.5);
     const fuelle = dichte * (.78 + .22 * Math.sin(anteil * 28) ** 2);
     const breite = .19 + .69 * fuelle;
-    const zahl = Math.round(2 + 6 * fuelle);
+    const zahl = Math.round((2 + 6 * fuelle) * EFEU_DICHTE);
     const hauptseite = i % 2 ? 1 : -1;
     const ast = ort.clone().addScaledVector(quer, breite * .72 * hauptseite).addScaledVector(normal, .10);
     const astKante = laubHoch.clone().multiplyScalar(.016 * hauptseite);
@@ -395,7 +427,7 @@ function baueEfeukurve(dreieck: Dreieck, punkte: readonly Rankenpunkt[], saat: n
       const mitte = ort.clone().addScaledVector(quer, ausladung)
         .addScaledVector(laubHoch, (zufall() - .48) * .38)
         .addScaledVector(normal, .10 + zufall() * .14);
-      const groesse = (.14 + zufall() * .19) * (HOF_VERFALLVERLAUF_AN ? .27 + .66 * fuelle : .58 + .42 * fuelle);
+      const groesse = efeuLaenge(zufall, HOF_VERFALLVERLAUF_AN ? fuelle : .5 + .5 * fuelle) / SPANNE_EFEUBLATT;
       const winkel = seite * .75 + (zufall() - .5) * 2.25;
       const cos = Math.cos(winkel), sin = Math.sin(winkel);
       const stiel = laubHoch.clone().multiplyScalar(cos).addScaledVector(quer, sin);

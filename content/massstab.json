@@ -1,0 +1,59 @@
+{
+  "referenzen": [
+    {
+      "id": "efeublatt",
+      "was": "Blattlänge Efeu (Hedera helix), Spreite ohne Stiel",
+      "min": 0.04,
+      "max": 0.12,
+      "ziel": 0.07,
+      "quelle": "VicFlora, Hedera helix: Blätter nicht blühender Triebe 4–12 cm lang, 4–7 cm breit; NYBG EcoQuest 2018: juvenile Blätter 4–10 cm",
+      "url": "https://vicflora.rbg.vic.gov.au/flora/taxon/c4a3febc-0516-4d68-83ff-3712dd984839",
+      "messung": "hausbewuchs",
+      "belegt": true
+    },
+    {
+      "id": "figur",
+      "was": "Körpergröße der Spielfigur (erwachsener Mensch)",
+      "min": 1.6,
+      "max": 1.95,
+      "ziel": 1.8,
+      "quelle": "Destatis, Der Durchschnittsmensch (Mikrozensus 2025, Selbstauskunft): Frauen 1,66 m, Männer 1,79 m",
+      "url": "https://www.destatis.de/DE/Im-Fokus/Durchschnittsmensch/_inhalt.html",
+      "messung": "figur",
+      "belegt": true
+    },
+    {
+      "id": "bordstein",
+      "was": "Sichtbare Bordhöhe an der Fahrbahn (Hochbord)",
+      "min": 0.08,
+      "max": 0.15,
+      "ziel": 0.12,
+      "quelle": "OSM-Wiki DE:Key:kerb: übliche Höhen in Deutschland 12 cm Hochbord, 3 cm abgesenkt",
+      "url": "https://wiki.openstreetmap.org/wiki/DE:Key:kerb",
+      "messung": "bordstein",
+      "belegt": true
+    },
+    {
+      "id": "baum-buche",
+      "was": "Höhe ausgewachsene Rotbuche (Fagus sylvatica)",
+      "min": 20,
+      "max": 45,
+      "ziel": 30,
+      "quelle": "SDW Faltblatt Buche: bis über 40 m; Untergrenze 20 m für jüngere und freistehende Bäume ist eigene Annahme",
+      "url": "https://www.sdw.de/fileadmin/Bundesverband/01_Dateien/Infoblätter/Faltblatt_Buche.pdf",
+      "messung": "baum",
+      "belegt": true
+    },
+    {
+      "id": "baum-fichte",
+      "was": "Höhe ausgewachsene Fichte (Picea abies)",
+      "min": 20,
+      "max": 50,
+      "ziel": 35,
+      "quelle": "UNKLAR: Spanne 20–50 m nicht belegt, Recherche 21.11.2026 ohne Primärquelle",
+      "url": "",
+      "messung": "baum",
+      "belegt": false
+    }
+  ]
+}

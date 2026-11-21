@@ -45,6 +45,10 @@ jobs:
       - name: Tests
         run: npm run test
 
+      # D352: reale Maße (Efeu, Figur, Bord, Bäume) gegen content/massstab.json.
+      - name: Maßstab-Tor
+        run: npm run massstab
+
       - name: Build + Budget
         run: npm run build
 

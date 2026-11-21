@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-10-18
+last-reviewed: 2026-11-21
 shelf-life-days: 90
 owns: *.json
 ---
@@ -34,6 +34,7 @@ owns: *.json
 | `regenten/brutmutter.json` | Die Brutmutter — Regent von Fahlmoos, Kreuzotter mit Inkubator. Drei Phasen (faeulnis → sporen → faeulnis/wasser), 500 KP, Frost als Engpass (D246). **Noch nicht im Spiel:** Region `fahlmoos` fehlt (G-140) |
 | `regions/oental.json` | Œntal = Inntal-Süd (Brannenburg/Wendelstein-Fuß). BBox, Regent, Traversal „Klettern", Zielspielzeit 6 Std. D329: Nutzungszustände der drei Referenzhäuser an der Weststraße. D333: Straßenverfall anhand der OSM-Weg-ID sowie Ortstafel und Laternen anhand der OSM-Knoten-ID. |
 | `milbinger-substanz.json` | D347: Gartensäume entlang der im DOP20 erkennbaren Pflanzstreifen und örtliche Verfallsstufen der LoD2-Häuser. Dachschäden und Relikte gehören zur Spielwelt. |
+| `massstab.json` | D352: reale Referenzmaße mit Quelle (Efeublatt, Figur, Bordhöhe, Baumhöhen), Schema `MassReferenz`; `../tools/massstab.ts` prüft die gebaute Geometrie dagegen, `../src/world/hausbewuchs.ts` liest die Efeugrösse daraus. Neue Zeile: Spanne, Quelle, `belegt`. |
 | `regions/fahlmoos.json` | Fahlmoos = Kollerfilze und Rosenheimer Becken (Raubling/Kolbermoor), eigene Karte nach ADR-0014. Regent Brutmutter, 6 Œntal-Arten als Platzhalter (G-144), Traversal „Wasser“ (UNKLAR), `nachbarn`: Œntal im Süden |
 | `creatures/nebelgams.json` | Nebelgams (Gams, Stein, Silikat-Hufe). 2 Stufen, `natural=scrub`, schnellster Steinträger |
 | `creatures/kiemenbiber.json` | Kiemenbiber (Biber, Wasser, Filterkiemen-Kragen). 3 Stufen, `waterway=stream` — im 96er-Raster praktisch nicht vorhanden, siehe Ledger G-22 |

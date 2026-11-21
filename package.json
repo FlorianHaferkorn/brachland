@@ -39,6 +39,7 @@
     "rigs": "node tools/rigbau.mjs assets/rigs",
     "bildtor": "node tools/bildtor.mjs",
     "geometrie": "tsx tools/geometrie.ts",
+    "massstab": "tsx tools/massstab.ts",
     "palette": "tsx tools/palettecheck.ts"
   },
   "dependencies": {
