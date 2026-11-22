@@ -48,7 +48,7 @@ Kürzester Weg über das OSM-Wegenetz von 0/0 zum Wirt (696 / −657), nur Knote
 | 793–1.060 | Fussweg nach Norden, **Furt** bei 939 m, erste Häuser ab 1.040 m | `footway` | 542 → 529 → 532 | Bachgraben (Bach 502 / −341 → 578 / −382), 17 % zum Bach hinunter |
 | 1.060–1.329 | Wohnstrasse in die Enklave: Magd bei 1.182 m, Saal und Wirt bei 1.316–1.329 m | `residential` | 530 → 513 | Siedlung |
 
-**Gehzeit** (Tempi aus `src/spieler/tempo.ts`): bis zur Magd 4,7 min im Gehen (4,2 m/s), 1,8 min im Rennen (11 m/s),
+**Gehzeit** (Tempi aus `src/spieler/tempo.ts`; gegen Realwerte geprüft in `BRACHLAND_Physik-Pruefung_v1.md`, D408): bis zur Magd 4,7 min im Gehen (4,2 m/s), 1,8 min im Rennen (11 m/s),
 ohne Ausdauerpausen gerechnet. Kämpfe nach Bot (§4): 106 s, wenn alles getötet, 141 s, wenn alles gereinigt wird.
 Erster Durchgang mit Lesen, Sterben und Umsehen geschätzt 15–25 min — **Annahme, nicht gemessen**.
 

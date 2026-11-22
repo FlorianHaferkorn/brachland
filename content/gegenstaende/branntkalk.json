@@ -1,0 +1,13 @@
+{
+  "id": "branntkalk",
+  "name": "Branntkalk",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "geraet"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Ein Säckchen aus dem Ofen am Bruch, staubtrocken zu halten. Auf nasser Haut wird es heiss, bevor man es merkt.",
+  "gewicht": 0.5,
+  "traglast": 4
+}

@@ -506,6 +506,9 @@ die schiessen, sind eine eigene Aufgabe und hier nicht entworfen.
 
 ## 13. „Gibt es sowas wie Magie?“
 
+> **Abgelöst durch D409/D410** (unten, §16–§23): Flo will keine Marken-Fähigkeiten als Magie, sondern Geräte mit
+> Elementangriffen. Der Abschnitt bleibt als Beleg stehen; von den sieben Wirken gelten nur noch Lesen und Rufen.
+
 **Antwort: Nein — und es sollte keine geben. Aber es gibt die Marke, und sie kann mehr als reinigen.**
 
 Die Welt hat keine Magie und braucht keine: VERIDIA ist ein Betrieb, der Faulbrand ein Protokoll, die Marke eine
@@ -594,3 +597,219 @@ nicht geändert**; das ist Flos Entscheidung (A-32). Der Test hält fest, was be
 - ⚠️ Recherche zu Magie in anderen Spielen: bis auf Sekiro nicht belegt.
 - ⚠️ Die von D404 verlangte Nachmessung „Haltungsbruch mit Reinigen und gegen Menschen“ ist **nicht** Teil dieser
   Arbeit; sie ist Schritt 1 in §9 und Voraussetzung für Schlägel und Budget.
+
+---
+
+# Fortschreibung D410: Geräte mit Elementangriffen statt Magie
+
+> **Entwurf, nichts verdrahtet, kein Kampfwert geändert.** Löst §13 („Wirken der Marke“ als Magie-Ersatz) ab.
+> Flo, 22.11.2026 (D409): „Magie ersetzen durch tools die Elementattacken ausführen können was dann wie Magie ist.
+> Ähnlich wie bei Elden Ring mit Siegeln“. Daten: `content/geraete.json`, vier Betriebsstoffe in
+> `content/gegenstaende/`, `content/wirken.json` (fünf Einträge als ersetzt markiert). Regeln:
+> `src/kampf/geraete.ts`. Fragen für Flo: Ledger **A-35**. Seit D406 gilt: Fernkampf erst nach Kapitel 1; Kapitel 1 =
+> Klinge, Axt, Saufeder, Hirschfänger, Langes Messer; Befallskräfte geparkt.
+
+## 16. Bestand: das Elementsystem
+
+| Was | Wo | Befund |
+|---|---|---|
+| Acht Elemente | `src/data/schema.ts:13` `ELEMENTE` | holz, stein, alt-tech, sporen, wasser, brand, frost, faeulnis — in dieser Reihenfolge |
+| Der Kreis | `schema.ts:24` `effektivitaet` | Zirkulant: Element i schlägt i+1 und i+2 (×2,0), wird von i−1 und i−2 geschlagen (×0,5), sonst ×1,0. Erzeugt, nicht gepflegt: jedes Element zwei Stärken, zwei Schwächen, drei neutral (Selbsttest in `tools/validate.ts`) |
+| Doppeltyp | `schema.ts:35` `schadensfaktor` | Faktoren multiplizieren sich: 4 / 2 / 1 / 0,5 / 0,25 |
+| Rundenkampf | `src/engine/battle.ts:245`, Moves, Kreaturen, Regenten (`content/moves/`, `creatures/`, `regenten/`) | voll genutzt — dafür wurde der Kreis gebaut. Der Flussvater wechselt wasser → faeulnis → alt-tech + stein |
+| **Echtzeitkampf** | `src/kampf/echtzeit.ts:113` `KampfWerte.elemente`, `content/gegner/*.json` Zeile 3 | **kennt Elemente der Tiere:** Keiler holz, Grathorn und Gams stein, Fuchs alt-tech, Wolf alt-tech + frost. Menschen haben keins |
+| Kernfunke | `echtzeit.ts:230` (`Element = 'wasser' \| 'stein'`), `:244` `funkenFaktor`, Entladung `:782–827` | **Das Vorbild im eigenen Haus:** Der schwere Schlag mit voller Ladung trägt ein Element; der Kreis gilt **gedämpft mit der Wurzel** (×1,41 / ×1 / ×0,71), weil er ein Zuschlag ist, kein Ersatz für den Hieb (D189). Bisher nur Wasser (Flutstoss) umgesetzt |
+
+Der Kreis in Worten: holz › stein, alt-tech · stein › alt-tech, sporen · alt-tech › sporen, wasser · sporen › wasser,
+brand · wasser › brand, frost · brand › frost, faeulnis · frost › faeulnis, holz · faeulnis › holz, stein.
+
+**Folge:** Die Geräte brauchen kein neues System. Sie tragen ein Element aus `ELEMENTE` und rechnen wie der Kernfunke
+(`elementFaktor` in `src/kampf/geraete.ts` ist dieselbe Wurzel; als Test gegen `funkenFaktor` gebunden).
+
+## 17. Wie das Vorbild funktioniert
+
+| Spiel | Handwerk | Gelobt | Kritisiert | Für uns |
+|---|---|---|---|---|
+| Elden Ring | Ein **Katalysator** in der Hand (Stab oder Siegel) ist Bedingung; die Zauber selbst werden an der Rast in eine begrenzte Zahl Plätze gelegt (zwei zu Beginn, bis zwölf), manche kosten mehrere; jeder Einsatz kostet aus einer Leiste; die Stärke kommt vom Katalysator und von Werten [EM1][EM2] | Trennung von Träger und Ladung: Ein besserer Katalysator hebt alles, was man hat | „some abilities are somewhat overpowered“ [EM3]; *dass Fernzauber Bosse trivialisieren, ist in dieser Recherche nicht belegt* | Gerät = Katalysator, Aufsatz = Ladung, gewechselt an der Rast. **Keine** Fernwirkung, **keine** Skalierung über Werte |
+| Sekiro | Werkzeuge am Arm, gespeist aus einem Verbrauchsvorrat [S3] | Werkzeuge öffnen Fenster, statt den Kampf zu ersetzen | der Verbrauchsvorrat; besser ein Vorrat je Rast [S3] | Geräte öffnen Fenster (Griff, Haltung); Betriebsstoff füllt sich beim Tausch, nicht beim Töten |
+| Bloodborne (Jägerwerkzeuge gegen Kugeln), Lies of P (Legionsarm) | *nicht belegt* | — | — | — |
+
+[EM1] https://eldenring.wiki.fextralife.com/Memory+Slots · [EM2] https://eldenring.wiki.gg/wiki/Spells ·
+[EM3] https://www.pcgamesn.com/elden-ring/spell-incantation-sorcery-best · [S3] siehe §11.1
+
+## 18. Die Geräte
+
+Sechs Geräte, je ein Element, alle aus Hof, Wirtshaus, Weide, Imkerei, Bruch — Technik, die im Inntal real
+herumsteht. Keine fremden Namen, keine fremden Formen (ADR-0004). Alle Wirkzahlen sind **Entwurf und ungemessen**;
+`schaden` und `haltung` zählen in leichten Klingenhieben (22 / 34), bevor der Kreis greift.
+
+| Gerät | Element | Was es real ist | Stark gegen (Kapitel 1) | Status |
+|---|---|---|---|---|
+| **Abflammgerät** | brand | Unkrautbrenner mit Stechkartusche, Flamme um 1.800 °C | Wolf (frost) | Kapitel 1 |
+| **Kohlensäurelöscher** | frost | CO₂-Handlöscher, 2 kg, Schnee von −78 °C | Keiler (holz) | Kapitel 1 |
+| **Weidezaungerät** | alt-tech | Impulsgerät, 5–10 kV, höchstens 5 J | — (Flussvater Phase 1, wasser) | Kapitel 1 |
+| **Räucherkanne** | holz | Smoker der Imker mit Blasebalg | Grathorn, Gams (stein), Fuchs (alt-tech) | Kapitel 1 |
+| **Kalkstreuer** | stein | Streubüchse mit Branntkalk | Fuchs, Wolf (alt-tech) | Kapitel 2 |
+| **Sporenbalg** | sporen | erfunden (Stäubebalg mit Sporen) | — | geparkt mit den Befallskräften (D406) |
+
+Wasser bleibt beim Kernfunken (Flutstoss); für faeulnis gibt es bewusst kein Gerät — sie ist das, was man bekämpft.
+
+### Aufsätze (das Austauschbare — an der Rast gewechselt, einer ist eingesetzt)
+
+| Gerät | Aufsatz | Form, Reichweite | Schaden / Haltung | Zustand | Verbrauch |
+|---|---|---|---|---|---|
+| Abflammgerät | Breitbrenner | Kegel 2,0 m | 0,8 / 0,4 | brennt 4 s | 1 von 6 |
+| | Stichflamme | Stoss 2,5 m | 1,4 / 1,0 | brennt 2 s | 2 |
+| | Glutnest | Fläche 1,5 m | 0,5 / 0,2 | brennt 6 s (am Boden) | 2 |
+| Kohlensäurelöscher | Schneerohr | Kegel 2,5 m | **0** / 0,8 | verlangsamt 3 s | 1 von 5 |
+| | Stossdüse | Stoss 2,0 m | **0** / 1,6 | verlangsamt 1 s, wirft | 1 |
+| | Reifhaut | Berührung 1,0 m | 0,6 / 0,6 | verlangsamt 5 s | 2 |
+| Weidezaungerät | Treibstab | Berührung 1,2 m | 0,2 / 0,6 | zuckt 0,6 s | 1 von 10 |
+| | Litze | Linie 4,0 m am Boden | 0,1 / 0,4 | zuckt 0,6 s | 2 |
+| | Speicherschlag | Stoss 1,5 m | 0,9 / 1,4 | zuckt 1,2 s | 3 |
+| Räucherkanne | Harzrauch | Fläche 3,0 m | **0 / 0** | ruhig 6 s | 1 von 4 |
+| | Rainfarn | Kegel 2,5 m | **0** / 0,3 | ruhig 3 s, Tiere weichen | 1 |
+| | Nasses Laub | Fläche 3,5 m | **0 / 0** | geblendet 5 s — alle, auch der Träger | 2 |
+| Kalkstreuer | Branntkalk | Kegel 2,5 m | 0,5 / 0,5 | geblendet 4 s | 1 von 6 |
+| | Steinmehl | Kegel 2,5 m | **0** / 0,3 | geblendet 3 s | 1 |
+
+- **Nahbereich:** Kein Aufsatz reicht weiter als 4,0 m — das ist die Reichweite des weitesten Speerstosses (Test).
+  Geräte ergänzen den Nahkampf; sie sind kein Fernkampf durch die Hintertür (D406).
+- **Kein Aufsatz trifft härter als 1,5 leichte Hiebe.** Mit dem Kreis höchstens 1,4 × 1,41 ≈ 2,0 — ein schwerer Hieb.
+- **Ein Geräteplatz.** Das Gerät hängt am Gurt und wird mit der freien Hand geführt. Mit einhändiger Waffe (Klinge,
+  Hirschfänger, Axt) bleibt die Waffe in der Hand; mit zweihändiger (Saufeder, Langes Messer) muss sie erst weg —
+  doppelter Vorlauf. Das ist der Preis der Reichweite.
+- **Clips:** Kein Clip ist für Geräte gebaut. Tragen kann `Klinge_Stich` (Arm nach vorn) als Sprühhaltung und
+  `Speer_Stoss` für den Treibstab; es fehlen drei: `Geraet_Spruehen` (Schleife), `Geraet_Wurf` (Streuen),
+  `Geraet_Auslegen` (Litze). Selbst zu bauen wie Axt und Speer (`tools/waffenclips.py`).
+
+### Physik (D398): was stimmt, was nicht
+
+| Gerät | Stimmt | Abweichung, benannt | Risiko für den Träger |
+|---|---|---|---|
+| Abflammgerät (1,6 kg) | offene Flamme, zündet Trockenes | Flamme real 0,5–1 m, im Spiel bis 2,5 m; eine Kartusche brennt real rund eine Stunde, im Spiel sechs Stösse | zündet Gras und Laub — die Fläche brennt weiter und trifft auch ihn; **ein verbranntes Revier wird nie ruhig** |
+| Kohlensäurelöscher (5,0 kg) | 2 kg CO₂ sind in 8–10 s leer: fünf Stösse zu zwei Sekunden passen genau; −78 °C | dass Kälte ein Tier sekundenlang lähmt, ist Spielwert | CO₂ sammelt sich in Mulden und Stollen: Ausdauer sinkt; das Horn friert an |
+| Weidezaungerät (3,5 kg) | 5–10 kV, höchstens 5 J: schmerzt, lässt zucken, tötet nicht | eine Batterie hält real Wochen, im Spiel zehn Einheiten; ein 140-kg-Tier stoppt real kaum | im Wasser und bei Regen trifft es den Träger |
+| Räucherkanne (1,2 kg) | Zunderschwamm ist realer Räucherstoff und glimmt lange; Rauch beruhigt **Bienen** | **Säugetiere beruhigt Rauch nicht.** Im Spiel beruhigt er den Befall — Fiktion der Welt | Wind dreht: Husten, langsamere Erholung |
+| Kalkstreuer (2,0 kg) | Branntkalk ätzt, wird mit Wasser über 100 °C heiss, Stallhygiene seit jeher | **Kalk hilft real gegen Fäulnis; der Kreis sagt das Gegenteil** (faeulnis schlägt stein). Der Kreis gilt | Wind und Regen tragen ihn zurück; nie im Bach |
+| Sporenbalg | — | ganz Fiktion | Preis am eigenen Körper, nicht entworfen |
+
+### Erwerb (wie D391: nie bloss abgelegt)
+
+| Gerät | Wo | Wie |
+|---|---|---|
+| Abflammgerät | Geräteschuppen eines Hofs in der Flutzone | hinter einem verplombten Spind (Plombenzange, D393) |
+| Kohlensäurelöscher | Schankraum des Wirts | Nebenaufgabe; er füllt danach gegen Tausch nach |
+| Weidezaungerät | Stadel am Hangweg | Rätsel mit der Litze: welcher Pfahl hat noch Strom |
+| Räucherkanne | Bienenstand am Waldrand | die Magd gibt sie für einen Schwarm, den man zurückbringt |
+| Kalkstreuer | Wart vom Bruch | Kapitel 2, wenn der Ofen am Kalkbruch wieder brennt |
+
+Orte und Aufträge sind **Vorschläge ohne Koordinaten**; keine Quest-Datei ist angefasst.
+
+## 19. Womit gespeist
+
+**Empfehlung (a): Betriebsstoff je Gerät.** Gaskartusche, Kohlensäureflasche, Zaunbatterie, Branntkalk — und für die
+Räucherkanne der **Zunder**, den es schon gibt.
+
+| Betriebsstoff | Gewicht | Traglast | Füllung reicht für | Woher |
+|---|---|---|---|---|
+| Gaskartusche | 0,35 kg | 3 | 6 Einheiten | **Altbestand** — Funde in Höfen und Werk, endlich |
+| Kohlensäureflasche | 3,0 kg | 2 | 5 | **Altbestand** — der Wirt füllt nach, solange die grosse Flasche Druck hat |
+| Zaunbatterie | 1,2 kg | 2 | 10 | **Altbestand** — lädt am Solarmodul beim Stadel, in zwei Tagen (im Spiel: je Rast in Brannburg) |
+| Zunder | 0,05 kg | 4 | 4 | **nachwachsend** — Baumschwamm, Tausch beim Wirt (D393) |
+| Branntkalk | 0,5 kg | 4 | 6 | **nachwachsend** — aus dem Bruch gebrannt |
+
+Warum (a): Es ist die einzige Speisung, die zur Welt und zur Ökonomie passt. D393 trennt, was knapp ist (Altbestand),
+von dem, was nachwächst — und genau so fällt es hier: **Was töten kann, läuft auf Altbestand; was nicht töten kann,
+wächst nach** (Test). Eine Leiste (b) wäre eine Zauberleiste unter anderem Namen. Die Ladungen der Marke (c) würden
+die Geräte wieder an die Marke binden — das hat D409 gerade aufgelöst.
+
+**Alternative (c): Ladungen der Marke.** Einfacher (kein Betriebsstoff, keine Traglast), und die Geräte stünden wie
+das alte Wirken in Konkurrenz zum Reinigen. Preis: Der Schlächter, der nie reinigt, hätte sie umsonst.
+
+## 20. Verhältnis zum Reinigen und zum Zähler
+
+- **Brand tötet und zählt voll.** Das Abflammgerät hat keinen Aufsatz ohne Schaden. Wer damit ein Revier leert, hat
+  es verbrannt: nie ruhig, voller Zähler, Verhärtung (D400).
+- **Frost, Rauch, Steinmehl öffnen das Griff-Fenster, ohne zu töten.** „Verlangsamt“, „ruhig“ und „geblendet“ sind
+  Zustände, in denen die Marke greifen kann — neben betäubt, Erholung und lauernd (Reinigen v1 §2). Das sind die
+  **Geräte des Heilers**; sie ersetzen den Haltungsbruch, den seine schwache Waffe nicht liefert.
+- **Ein Aufsatz ohne Schaden kann nicht töten** und zählt beim Zähler nicht. Erst der Griff zählt (ein Viertel).
+- **„Die Marke heilt“ bleibt unberührt:** Kein Gerät reinigt. Reinigen aus der Ferne (der alte „Nachhall“) entfällt.
+
+**Schwächen der fünf Tiere** — abgeleitet aus `content/gegner/*.json`, nichts gesetzt (Test):
+
+| Tier | Elemente | stark (×1,41) | schwach (×0,71) | Gerät der Wahl in Kapitel 1 |
+|---|---|---|---|---|
+| Keiler | holz | frost, faeulnis | stein, alt-tech | **Löscher** — das zäheste Tier beim Reinigen bekommt sein Fenster |
+| Grathorn | stein | holz, faeulnis | alt-tech, sporen | **Räucherkanne** |
+| Gams | stein | holz, faeulnis | alt-tech, sporen | **Räucherkanne** — das heikelste Tier der Messreihe (Reinigen v1 §6) wird ruhiger |
+| Fuchs | alt-tech | holz, stein | sporen, wasser | Räucherkanne |
+| Wolf | alt-tech + frost | stein, brand | faeulnis, sporen | **Abflammgerät** — nur Töten wirkt stark; für den Heiler bleibt der Wolf schwer |
+
+Gegen jedes der fünf Tiere wirkt in Kapitel 1 ein Gerät stark, keines gegen alle (Test). Der Flussvater: Phase 1
+(wasser) Weidezaungerät, Phase 2 (faeulnis) Abflammgerät und Löscher, Phase 3 (alt-tech + stein) Räucherkanne ×2,0.
+
+**Rechnung der vier Spielweisen** (`npx tsx tools/oekonomiesim.ts`). Die Kontroll-Wirken sind weg; für Lesen und
+Rufen bleiben gesetzt 0 / 5 / 5 / 15 % der Ladungen.
+
+| | Schlächter | Gemischt | Heiler | Umgeher |
+|---|---|---|---|---|
+| Ladungen ins Wirken (D405 → D410) | 50 → **0** | 17 → 6 | 27 → 9 | 38 → 14 |
+| Tiere gereinigt (D405 → D410) | 0 | 90 → 100 | 138 → 158 | 32 → 32 |
+| Stand beim Zähler, gewichtet (Schwelle 40) | 291 | 214 | **41** | 8 |
+| Hauptwaffe / Markenstufe | 3 / 1 | 2 / 3 | 1 / 4 | 0 / 2 |
+
+- **Der Heiler liegt wieder genau an der Schwelle** (41 gegen 40): Ohne die Kontroll-Wirken reinigt er mehr. Nach der
+  Zwei-Stufen-Regel aus D406 ist er damit knapp nicht mehr „geduldet“. Die Zahl hängt an einer einzigen Annahme
+  (5 % der Ladungen für Lesen und Rufen) und ist nicht belastbar.
+- **Die Geräte ändern die Rechnung sonst nicht** — sie kosten Betriebsstoff, keine Ladungen. Was sie am Kampf ändern
+  (Kampfdauer, Reinigungsquote, erlittener Schaden), kann nur der Kampfbot sagen, und der kennt keine Geräte.
+- **Der Schlächter hat die Marke wieder nur als Zähler.** Dafür hat er Brand und Strom.
+
+## 21. Was aus dem Wirken der Marke wird
+
+**Empfehlung:** Die Marke zaubert nicht — sie **misst und ruft**. Zwei Wirken bleiben als Funktion der Armklammer
+(Sensor, kein Angriff), fünf entfallen. In `content/wirken.json` ist nichts gelöscht: Jeder Eintrag trägt `status`
+und, wenn ersetzt, `ersetztDurch`. Das Schema lässt ein geltendes Wirken mit Kampfwert nicht mehr zu.
+
+| Wirken | Status | Was daraus wird |
+|---|---|---|
+| **Lesen** | gilt | Funktion der Klammer: zeigt Befallene und ihren Zustand (1 Ladung) |
+| **Rufen** | gilt | Funktion der Klammer: ruft ein gereinigtes Tier, mit Halfter das Reittier (1 Ladung) |
+| Stillen | ersetzt | Räucherkanne, Harzrauch |
+| Stoss | ersetzt | Kohlensäurelöscher, Stossdüse |
+| Binden | ersetzt | Kohlensäurelöscher, Schneerohr |
+| Schirm | ersetzt | entfällt — kein Gerät schützt im Griff |
+| Nachhall | ersetzt | entfällt — Reinigen braucht Nähe, ohne Ausnahme |
+
+**Alternative:** Auch Lesen und Rufen streichen; Lesen wird eine Technik (Fährte und Wundblick decken es halb ab),
+Rufen eine Eigenschaft des Halfters. Dann kostet die Marke nur noch fürs Reinigen — sauberer, aber die Klammer wäre
+ein reines Werkzeug ohne eigene Stimme, und ihr Geheimnis (Typ B aus dem Werk, Quests v1) hätte nichts mehr zu zeigen.
+
+## 22. Messbedarf und Aufwand
+
+| Was | Womit | Grösse |
+|---|---|---|
+| Zustände „brennt“, „verlangsamt“, „ruhig“, „geblendet“ in den Kampfregeln („zuckt“ gibt es als Phase) | `src/kampf/echtzeit.ts`, renderfrei | M |
+| Geräteeinsatz als Handlung (Vorlauf, Form, Kegel gegen Kapsel wie der Trefferbogen) | ebd. | M |
+| Kampfbot mit Gerät: Kampfdauer, erlittener Schaden, im Rudel | `tools/kampfbot.ts` | M |
+| Reinigen mit Löscher und Räucherkanne: Quote und Dauer gegen Keiler und Gams | `tools/reinigensim.ts` (D407 arbeitet dort) | S, nach D407 |
+| Brand im Gelände (Fläche brennt weiter) | Welt, Props | L — getrennt entscheiden |
+| Modelle (5), Clips (3), Effekte (Flamme, Schnee, Rauch, Staub, Funke) | Blender, Shader | L |
+| Geräteplatz in Ausrüstung und Schmiede/Rast-Fenster | UI nach Menü v1 | M |
+
+Vor dem ersten Fremdtest sinnvoll: **ein** Gerät des Heilers (Räucherkanne — kein Schaden, ein Zustand, nachwachsender
+Stoff) als Probe, ob das Prinzip trägt.
+
+## 23. Unklar (D410)
+
+- ⚠️ Keine Wirkzahl ist gemessen. Der Echtzeitkampf kennt weder Geräte noch die Zustände ausser „zuckt“.
+- ⚠️ Gewichte, Entleerzeiten, Spannungen sind Allgemeinwissen ohne Quelle.
+- ⚠️ Dass Rauch den Befall beruhigt, ist eine neue Setzung über die Welt (der Symbiont antwortet wie ein Bienenvolk).
+  Sie steht in keiner Bibel und müsste dorthin, wenn Flo sie annimmt.
+- ⚠️ Kalk gegen Fäulnis: Physik und Elementkreis widersprechen sich. Gewählt ist der Kreis.
+- ⚠️ Der Wolf hat kein Gerät des Heilers, das stark wirkt. Ob das eine gewollte Härte ist, ist offen.
+- ⚠️ Brand im Gelände ist ein eigenes, grosses Thema (Performance, Weltzustand) und hier nur als Risiko benannt.
+- ⚠️ Fundorte ohne Koordinaten; Bloodborne und Lies of P nicht belegt.
+- ⚠️ `tools/baukastensim.ts`, `content/waffenteile.json` und Reinigen v1 §6 sind nicht angefasst (D407).

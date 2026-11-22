@@ -350,6 +350,9 @@ Die Texte stehen als `beschreibung` in den Daten.
 
 ## 11. Physik (D398): was stimmt, was nicht, und wo das Spiel abweicht
 
+> **Bewegungs- und Weltwerte** (Tempo, Tauchen, Luftvorrat mit Arbeit und Reserve, Gleitzahl, Reittier, Fallhöhe)
+> sind in `BRACHLAND_Physik-Pruefung_v1.md` geprüft (D408); dort auch die Liste der benannten Abweichungen.
+
 Flo, 22.11.2026 (D398): Physik muss stimmen; Abweichungen zugunsten des Spiels werden benannt, nie still gemacht.
 Gewichte stehen als `gewicht` (kg) an jedem Gegenstand, `validate` verlangt sie. Zahlen sind Überschläge aus
 Dichte × Volumen oder aus üblichen Gerätegewichten, **nicht gewogen**.

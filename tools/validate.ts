@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
+import { Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -285,6 +285,15 @@ const auftragIds = new Set(auftraege.map((a: any) => a.id));
       }
       const k1 = wf.data.familien.filter(x => x.kapitel === 1 && x.status !== 'zurueckgestellt').length;
       if (k1 < 4 || k1 > 6) meldeB(`waffenfamilien.json: ${k1} Familien in Kapitel 1, vorgesehen sind etwa fünf (D404)`);
+    }
+    // D410: Geräte — Betriebsstoff gibt es als Gegenstand, Nahbereich, je Element eines.
+    const ge = Geraete.safeParse(JSON.parse(readFileSync('content/geraete.json', 'utf8')));
+    if (!ge.success) meldeB(`geraete.json: ${ge.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    else for (const g of ge.data.filter(x => x.status !== 'geparkt')) {
+      kenne(`geraete ${g.id}`, [g.betriebsstoff.gegenstand]);
+      const stoff = gegenstaende.find((x: any) => x.id === g.betriebsstoff.gegenstand);
+      if (stoff && stoff.traglast === undefined) meldeB(`geraete.json: Betriebsstoff '${stoff.id}' von '${g.id}' hat keine Traglast`);
+      for (const a of g.aufsaetze) if (a.verbrauch > g.betriebsstoff.jeFuellung) meldeB(`geraete.json: ${g.id}/${a.id} verbraucht mehr als eine Füllung`);
     }
     const wk = Wirken.safeParse(JSON.parse(readFileSync('content/wirken.json', 'utf8')));
     if (!wk.success) meldeB(`wirken.json: ${wk.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);

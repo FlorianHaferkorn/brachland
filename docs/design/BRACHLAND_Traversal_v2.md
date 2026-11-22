@@ -10,6 +10,10 @@ shelf-life-days: 180
 > „öffnet Gelände, das vorher zu war“. Entwurf vom 22.11.2026 (D388); Flo hat die fünf Fragen dazu am selben Tag
 > entschieden (A-25, D391) — Abschnitt 5 und 6 gelten. Offen/erledigt steht im Ledger, nicht hier.
 > **Nichts davon ist gebaut** — Abschnitt 8 ist die Umsetzungsliste.
+>
+> **Physik (D408):** Tauchtempo, Tauchweg, Reittier, Gleiter und Klettertempo sind gegen Realwerte geprüft in
+> `BRACHLAND_Physik-Pruefung_v1.md` — der gerade Tauchweg (1.586 m) liegt auf dem Trockenen, „rund 6 m/s“ ist ein
+> Fehler, D380 trägt als Umgehung, nicht als Abkürzung. Hier noch nicht umgeschrieben (A-34).
 
 Koordinaten in Metern wie in `BRACHLAND_Enklave_Lage_v2.md` (Mitte 0/0 = Spielstart, x Osten, z Süden). Höhen aus
 `public/world/oental.json`, Flutlinie 499 m aus `content/regions/oental.json` (`flutlinie`). Alle Strecken, Flüge und
