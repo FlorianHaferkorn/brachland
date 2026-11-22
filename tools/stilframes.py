@@ -60,7 +60,8 @@ from mathutils import Vector, Matrix, Euler, noise
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 MODUS = ARGS[0] if ARGS else ''
-R4 = MODUS == 'zielbild4' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild4')   # Runde 4 (D386), baut auf Runde 3 auf
+R5 = MODUS == 'zielbild5' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild5')   # Runde 5 (D418): Tümpel mit natürlichem Ufer, baut auf Runde 4 auf
+R4 = R5 or MODUS == 'zielbild4' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild4')   # Runde 4 (D386), baut auf Runde 3 auf
 R3 = R4 or MODUS == 'zielbild3' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild3')   # Runde 3 (D382)
 SIGNAL = (0.62, 0.81, 0.89)   # '#cfe9f2' linear grob
 AFRAME_EV = float(os.environ.get('AFRAME_EV', '0.2'))   # Belichtung im Stil aframe (EV), die Anzeige-Belichtung ist im Compositor fest
@@ -1174,10 +1175,126 @@ def plattenhof_ziel(name, ort, groesse, mat, saat, loch=None):
     return sb.fertig(name, bm, ort, mat)
 
 
+# ───────────────────────────── Runde 5 (D418): Tümpel statt Becken ─────────────────────────────
+# Flo 22.11.2026 zur Freigabe von D386: „das Wasser davor müsste noch etwas natürlich wirken gerade die übergänge am
+# Rand“. Das Becken war ein Rechteck mit Steinkranz, die Wasserfläche eine Platte 11 cm ÜBER dem Boden. Jetzt ist es
+# eine Senke im Gelände: das Wasser steht dort, wo der Boden unter dem Spiegel liegt (D398, Physik) — die Uferlinie
+# entsteht aus dem Gelände und ist deshalb unregelmässig. Umriss: Ellipse mit drei Wellen, überall dieselbe Formel
+# (Gelände, Wasser, Bodenmaterial, Bewuchs).
+TUEMPEL = {'x': -2.5, 'y': -3.0, 'ax': 3.8, 'ay': 5.4, 'tief': 0.42, 'spiegel': 0.045, 'aussen': 1.3,
+           'wellen': ((2, 0.16, 1.3), (3, 0.10, 4.1), (5, 0.06, 0.7))}
+
+
+def tuempel_n(x, y):
+    """Normierter Abstand von der Tümpelmitte: 1 = Umriss (≈ Uferlinie), 0 = Mitte."""
+    dx, dy = (x - TUEMPEL['x']) / (TUEMPEL['ax'] / 2), (y - TUEMPEL['y']) / (TUEMPEL['ay'] / 2)
+    th = math.atan2(dy, dx)
+    return math.hypot(dx, dy) / (1.0 + sum(a * math.sin(k * th + ph) for k, a, ph in TUEMPEL['wellen']))
+
+
+def tuempel_tiefe(x, y):
+    """Wie weit das Gelände an (x, y) abgesenkt ist (m); der Wasserspiegel liegt `spiegel` unter dem alten Boden."""
+    t = min(1.0, tuempel_n(x, y) / TUEMPEL['aussen'])
+    return TUEMPEL['tief'] * (1.0 - t * t * (3 - 2 * t)) ** 1.3
+
+
+def tuempel_n_knoten(nt, x, y):
+    """`tuempel_n` als Knoten (x, y: Sockel in Weltkoordinaten) — für Boden und Wasser dieselbe Formel."""
+    T = TUEMPEL
+    ux = M_(nt, 'DIVIDE', M_(nt, 'SUBTRACT', x, T['x']), T['ax'] / 2); uy = M_(nt, 'DIVIDE', M_(nt, 'SUBTRACT', y, T['y']), T['ay'] / 2)
+    th = M_(nt, 'ARCTAN2', uy, ux); form = None
+    for k_, a_, ph_ in T['wellen']:
+        w_ = M_(nt, 'MULTIPLY', M_(nt, 'SINE', M_(nt, 'MULTIPLY_ADD', th, float(k_), ph_)), a_)
+        form = w_ if form is None else M_(nt, 'ADD', form, w_)
+    return M_(nt, 'DIVIDE', M_(nt, 'SQRT', M_(nt, 'ADD', M_(nt, 'MULTIPLY', ux, ux), M_(nt, 'MULTIPLY', uy, uy))), M_(nt, 'ADD', form, 1.0))
+
+
+def mat_wasser5():
+    """Stehendes, klares Wasser: Spiegelung nach Fresnel (flach gesehen spiegelt es Himmel und Mauer, steil gesehen
+    sieht man den Grund), kaum Wellen, leicht grünbraun getönt. Schattenstrahlen gehen durch — der Grund liegt in der
+    Sonne, wo das Ufer sie durchlässt."""
+    m, nt, out = neues_material('Wasser5')
+    b = N(nt, 'ShaderNodeBsdfPrincipled'); b.inputs['Base Color'].default_value = (0.62, 0.66, 0.52, 1); b.inputs['Roughness'].default_value = 0.015
+    b.inputs['Transmission Weight'].default_value = 1.0; b.inputs['IOR'].default_value = 1.333
+    tc = N(nt, 'ShaderNodeTexCoord')
+    bump = N(nt, 'ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.035; bump.inputs['Distance'].default_value = 0.02
+    L(nt, RAU(nt, tc.outputs['Object'], 3.2, 0.0, 2.0), bump.inputs['Height']); L(nt, bump.outputs['Normal'], b.inputs['Normal'])
+    tp = N(nt, 'ShaderNodeBsdfTransparent'); tp.inputs['Color'].default_value = (0.82, 0.86, 0.74, 1)
+    lp = N(nt, 'ShaderNodeLightPath'); mx = N(nt, 'ShaderNodeMixShader')
+    L(nt, lp.outputs['Is Shadow Ray'], mx.inputs['Fac']); L(nt, b.outputs[0], mx.inputs[1]); L(nt, tp.outputs[0], mx.inputs[2])
+    # Nur innerhalb der Uferlinie (n ≈ 0,96): draussen sackt der verschobene Boden in Mulden unter den Spiegel und das
+    # Wasser stand dort als heller Film über dem Sand (Uferkamera, linker Rand, D418)
+    sep = N(nt, 'ShaderNodeSeparateXYZ'); L(nt, tc.outputs['Object'], sep.inputs[0])
+    un = tuempel_n_knoten(nt, sep.outputs['X'], sep.outputs['Y'])
+    drin = R_(nt, un, 1.0, 0.96)
+    # Flacher Rand trüb und matt (D419): wenige Zentimeter tiefes Wasser über hellem Grund spiegelte als glatter heller Film
+    # (Strahl durch die Flecken: Wasser 3 cm über dem Boden, innerhalb der Uferlinie — physikalisch richtig, aber zu sauber).
+    # In der Natur ist der Rand von Schwebstoff, Pollen und Staub belegt: rauer, bräunlicher, die Spiegelung wird weich.
+    rand = R_(nt, M_(nt, 'ADD', un, M_(nt, 'MULTIPLY', M_(nt, 'SUBTRACT', RAU(nt, tc.outputs['Object'], 2.5, 0.0, 3.0), 0.5), 0.12)), 0.62, 0.90)
+    L(nt, F_(nt, rand, 0.015, 0.22), b.inputs['Roughness'])
+    L(nt, X_(nt, rand, (0.62, 0.66, 0.52), (0.40, 0.36, 0.26)), b.inputs['Base Color'])
+    leer = N(nt, 'ShaderNodeBsdfTransparent'); mx2 = N(nt, 'ShaderNodeMixShader')
+    L(nt, drin, mx2.inputs['Fac']); L(nt, leer.outputs[0], mx2.inputs[1]); L(nt, mx.outputs[0], mx2.inputs[2]); L(nt, mx2.outputs[0], out.inputs['Surface'])
+    return m
+
+
+def tuempel(name, ort, mat, saat):
+    import szenenbau as sb
+    rnd = random.Random(saat * 17 + 5); T = TUEMPEL
+    ter = sb.GELAENDE['obj'] or next(o for o in bpy.data.objects if o.name.startswith('terrain'))
+    mi = ter.matrix_world.inverted(); n_ab = 0
+    # Das Gelände ist ein 1-m-Raster: abgesenkt würde die Uferlinie ein Vieleck. Um den Tümpel lokal auf 25 cm verfeinern.
+    bm = bmesh.new(); bm.from_mesh(ter.data); Mw = ter.matrix_world
+    im_feld = lambda v: abs((Mw @ v.co).x - T['x']) < T['ax'] * 0.95 and abs((Mw @ v.co).y - T['y']) < T['ay'] * 0.95
+    kanten = list({e for f in bm.faces if all(im_feld(v) for v in f.verts) for e in f.edges})
+    bmesh.ops.subdivide_edges(bm, edges=kanten, cuts=3, use_grid_fill=True)
+    bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
+    bm.to_mesh(ter.data); bm.free()
+    for v in ter.data.vertices:   # Senke ins Gelände (Raster 1 m): Mitte 42 cm, am Umriss ~3 cm, bei 1,3 × Umriss null
+        w = ter.matrix_world @ v.co
+        if abs(w.x - T['x']) > T['ax'] or abs(w.y - T['y']) > T['ay']: continue
+        d = tuempel_tiefe(w.x, w.y)
+        if d > 1e-4: w.z -= d; v.co = mi @ w; n_ab += 1
+    ter.data.update(); bpy.context.view_layer.update()
+    # Wasserspiegel: etwas grösser als die Uferlinie (n ≈ 0,96), der Rand verschwindet im Gelände; weiter draussen
+    # würde er in Mulden der Bodenverschiebung als Film über dem Sand stehen — die Uferlinie ist der Schnitt mit dem Boden
+    bm = bmesh.new(); z = ort[2] - T['spiegel']; rand = []
+    for i in range(72):
+        th = i / 72 * 6.283; f = 1.08 * (1.0 + sum(a * math.sin(k * th + ph) for k, a, ph in T['wellen']))
+        rand.append(bm.verts.new((T['x'] + math.cos(th) * f * T['ax'] / 2, T['y'] + math.sin(th) * f * T['ay'] / 2, z)))
+    bm.faces.new(rand); me = bpy.data.meshes.new(name + '_Wasser'); bm.to_mesh(me); bm.free()
+    w = bpy.data.objects.new(name + '_Wasser', me); bpy.context.collection.objects.link(w); sb.setze(w, mat_wasser5())
+    # Steine: keine Einfassung, sondern drei lockere Gruppen am Ufer und ein paar im flachen Wasser
+    steine = vorlagen('rock_moss_set_02'); k = 0
+    def punkt(th, n):
+        f = n * (1.0 + sum(a * math.sin(kk * th + ph) for kk, a, ph in T['wellen']))
+        return T['x'] + math.cos(th) * f * T['ax'] / 2, T['y'] + math.sin(th) * f * T['ay'] / 2
+    for th0, anz in ((0.4, 5), (2.5, 4), (4.3, 6)):
+        for _ in range(anz):
+            x, y = punkt(th0 + rnd.gauss(0, 0.28), rnd.uniform(0.86, 1.14)); g = rnd.uniform(0.35, 0.95)
+            setze_scan(sb, steine[rnd.randrange(len(steine))], '%s_Rand%d' % (name, k), x, y, g, saat * 131 + k, rnd.uniform(0.25, 0.45)); k += 1
+    for _ in range(4):
+        x, y = punkt(rnd.uniform(0, 6.283), rnd.uniform(0.35, 0.75)); g = rnd.uniform(0.3, 0.6)
+        setze_scan(sb, steine[rnd.randrange(len(steine))], '%s_Rand%d' % (name, k), x, y, g, saat * 131 + k, rnd.uniform(0.3, 0.5)); k += 1
+    # Uferbewuchs: Grasbüschel dicht an der Wasserlinie, dahinter Farn — nicht ringsum, das Ufer bleibt stellenweise offen
+    gras = pflanzen('grass_medium_02', 0.4); farn = pflanzen('fern_02', 0.45); kb = 0
+    for _ in range(46):
+        th = rnd.uniform(0, 6.283)
+        if math.sin(th * 2 + 0.6) < -0.35: continue          # offene Uferstellen (Schlamm, Feinkies)
+        x, y = punkt(th, rnd.uniform(0.98, 1.22))
+        setze_scan(sb, gras[rnd.randrange(len(gras))], '%s_Ufergras%d' % (name, kb), x, y, rnd.uniform(0.45, 0.85), saat * 977 + kb, 0.03); kb += 1
+    for _ in range(9):
+        th = rnd.uniform(0, 6.283); x, y = punkt(th, rnd.uniform(1.12, 1.45))
+        setze_scan(sb, farn[rnd.randrange(len(farn))], '%s_Uferfarn%d' % (name, kb), x, y, rnd.uniform(0.6, 1.0), saat * 977 + kb, 0.03); kb += 1
+    print('ZIELBILD Tümpel: %d Geländepunkte abgesenkt, %d Steine, %d Uferpflanzen' % (n_ab, k, kb))
+    return w
+
+
 def steinbecken_ziel(name, ort, aussen, tiefe, mat, mat_wasser, saat):
     """Ersatz für `szenenbau.steinbecken` (gleiche Signatur): der Rand ist kein gemauerter Klotzkranz mehr, sondern
     ein Kranz aus Feldsteinen (Scan-Steine, dicht an dicht, halb eingesunken, hier und da ein zweiter obenauf)."""
     import szenenbau as sb
+    if R5: return tuempel(name, ort, mat, saat)
     rnd = random.Random(saat * 13 + 1); steine = vorlagen('rock_moss_set_02'); ax, ay = aussen; k = 0
     umfang = [(-ax / 2, -ay / 2, ax, 0), (ax / 2, -ay / 2, 0, ay), (ax / 2, ay / 2, -ax, 0), (-ax / 2, ay / 2, 0, -ay)]
     for (x0, y0, dx, dy) in umfang:
@@ -1230,7 +1347,7 @@ def mat_boden_ziel(alt, r3=False):
     kontakt = R_(nt, ao.outputs['AO'], 0.90, 0.50)
     sep = N(nt, 'ShaderNodeSeparateXYZ'); L(nt, P, sep.inputs[0])
     yc = M_(nt, 'ADD', M_(nt, 'MULTIPLY_ADD', M_(nt, 'SUBTRACT', sep.outputs['X'], 4.4), -0.136, -1.5), M_(nt, 'MULTIPLY', M_(nt, 'SINE', M_(nt, 'MULTIPLY', sep.outputs['X'], 0.55)), 0.35))
-    pfad = M_(nt, 'MULTIPLY', R_(nt, M_(nt, 'ABSOLUTE', M_(nt, 'SUBTRACT', sep.outputs['Y'], yc)), (0.66 if R4 else 0.50) if r3 else 1.0, (0.30 if R4 else 0.14) if r3 else 0.25),   # Runde 3: Trampelpfad schmal (~0,6 m)
+    pfad = M_(nt, 'MULTIPLY', R_(nt, M_(nt, 'ABSOLUTE', M_(nt, 'SUBTRACT', sep.outputs['Y'], yc)), (0.80 if R5 else 0.66 if R4 else 0.50) if r3 else 1.0, (0.30 if R4 else 0.14) if r3 else 0.25),   # Runde 3: Trampelpfad schmal (~0,6 m)
                   M_(nt, 'MULTIPLY', R_(nt, sep.outputs['X'], -19.0, -16.0), R_(nt, sep.outputs['X'], 10.5, 8.5)))
     pfad = M_(nt, 'MULTIPLY', pfad, R_(nt, RAU(nt, P, 0.5, 7.0), 0.25, 0.55, 0.85 if R4 else 0.55, 1.0))
     m_moos = R_(nt, M_(nt, 'ADD', M_(nt, 'MULTIPLY_ADD', kontakt, 0.5, RAU(nt, P, 0.22, 2.0, 4.0)), M_(nt, 'MULTIPLY', pfad, -0.45)), 0.44 if r3 else 0.50, 0.58 if r3 else 0.64)
@@ -1242,7 +1359,26 @@ def mat_boden_ziel(alt, r3=False):
     farbe = X_(nt, 1.0, s[0], X_(nt, RAU(nt, P, 0.07, 5.0, 2.0), (0.72, 0.72, 0.70), (1.12, 1.10, 1.05)), 'MULTIPLY')
     farbe = X_(nt, M_(nt, 'MULTIPLY', kontakt, 0.75), farbe, X_(nt, 1.0, farbe, (0.50, 0.55, 0.42), 'MULTIPLY'))
     if R4:   # Trittspur: festgetretene, hellere Erde mit Steinchen — liest sich als Weg, weil sie glatter und heller ist als die Streu daneben
-        farbe = X_(nt, M_(nt, 'MULTIPLY', pfad, 0.9), farbe, X_(nt, 1.0, erde[0], X_(nt, RAU(nt, P, 1.6, 9.0, 3.0), (0.50, 0.40, 0.30), (0.74, 0.60, 0.44)), 'MULTIPLY'))
+        hell = ((0.66, 0.54, 0.40), (0.95, 0.78, 0.58)) if R5 else ((0.50, 0.40, 0.30), (0.74, 0.60, 0.44))   # Runde 5: Pfad war schwach lesbar
+        farbe = X_(nt, M_(nt, 'MULTIPLY', pfad, 1.0 if R5 else 0.9), farbe, X_(nt, 1.0, erde[0], X_(nt, RAU(nt, P, 1.6, 9.0, 3.0), hell[0], hell[1]), 'MULTIPLY'))
+    ufer = None
+    if R5:   # Ufer des Tümpels: dieselbe Formel wie `tuempel_tiefe`, im Material gerechnet
+        T = TUEMPEL
+        un = tuempel_n_knoten(nt, sep.outputs['X'], sep.outputs['Y'])
+        ut = R_(nt, un, 0.0, T['aussen']); ss = M_(nt, 'MULTIPLY', M_(nt, 'MULTIPLY', ut, ut), M_(nt, 'SUBTRACT', 3.0, M_(nt, 'MULTIPLY', ut, 2.0)))
+        tiefe_ = M_(nt, 'MULTIPLY', M_(nt, 'POWER', M_(nt, 'SUBTRACT', 1.0, ss), 1.3), T['tief'])
+        hw_ = M_(nt, 'ADD', M_(nt, 'SUBTRACT', tiefe_, T['spiegel']), M_(nt, 'MULTIPLY', M_(nt, 'SUBTRACT', RAU(nt, P, 1.7, 11.0, 3.0), 0.5), 0.022))   # > 0: unter Wasser
+        unter = R_(nt, hw_, -0.004, 0.02)                                  # Grund
+        saum = M_(nt, 'MULTIPLY', R_(nt, hw_, -0.040, -0.006), R_(nt, un, T['aussen'] * 1.02, T['aussen'] * 0.9))   # nasser Saum über der Wasserlinie, ~0,5 m breit, läuft aus
+        kies = M_(nt, 'MULTIPLY', R_(nt, M_(nt, 'ABSOLUTE', M_(nt, 'ADD', hw_, 0.004)), 0.022, 0.004), R_(nt, RAU(nt, P, 0.9, 5.0), 0.40, 0.62))   # Feinkiesband genau an der Linie, in Flecken
+        vo = N(nt, 'ShaderNodeTexVoronoi'); vo.inputs['Scale'].default_value = 85.0; L(nt, P, vo.inputs['Vector'])
+        steinchen = X_(nt, R_(nt, vo.outputs['Distance'], 0.25, 0.05), (0.10, 0.09, 0.075), X_(nt, vo.outputs['Color'], (0.20, 0.18, 0.15), (0.42, 0.39, 0.33)))
+        schlamm = X_(nt, 1.0, nass[0], (0.42, 0.36, 0.29), 'MULTIPLY')                 # nass = dunkler und satter, nicht grau
+        farbe = X_(nt, M_(nt, 'MULTIPLY', saum, 0.92), farbe, schlamm)
+        grund = X_(nt, R_(nt, hw_, 0.02, 0.30), X_(nt, 1.0, erde[0], (0.36, 0.33, 0.24), 'MULTIPLY'), (0.050, 0.055, 0.035))   # flach: Schlick mit Steinchen sichtbar, tief: dunkelgrün
+        farbe = X_(nt, unter, farbe, grund)
+        farbe = X_(nt, kies, farbe, steinchen)
+        ufer = M_(nt, 'MAXIMUM', saum, unter)
     # Nahmaske wie D371: um den Hof voll Scan, ab ~30 m Biomfarbe
     flach = N(nt, 'ShaderNodeCombineXYZ'); L(nt, sep.outputs['X'], flach.inputs['X']); L(nt, sep.outputs['Y'], flach.inputs['Y'])
     ab = N(nt, 'ShaderNodeVectorMath', operation='DISTANCE'); L(nt, flach.outputs[0], ab.inputs[0]); ab.inputs[1].default_value = (-3.0, 0.0, 0.0)
@@ -1250,12 +1386,15 @@ def mat_boden_ziel(alt, r3=False):
     mix = X_(nt, fern, farbe, alt_farbe if alt_farbe is not None else (0.16, 0.12, 0.07))
     L(nt, mix, bsdf.inputs['Base Color'])
     feucht = M_(nt, 'MAXIMUM', M_(nt, 'MULTIPLY', m_nass, M_(nt, 'SUBTRACT', 1.0, m_erde)), M_(nt, 'MULTIPLY', kontakt, 0.6))
-    L(nt, F_(nt, feucht, 0.93, 0.50), bsdf.inputs['Roughness'])
+    rau_ = F_(nt, feucht, 0.93, 0.50)
+    if ufer is not None: rau_ = F_(nt, ufer, rau_, 0.16)   # nasser Schlamm glänzt
+    L(nt, rau_, bsdf.inputs['Roughness'])
     bump = N(nt, 'ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.5; bump.inputs['Distance'].default_value = 0.02
     L(nt, s[1], bump.inputs['Height']); L(nt, bump.outputs['Normal'], bsdf.inputs['Normal'])
     nah = M_(nt, 'SUBTRACT', 1.0, fern)
     hges = M_(nt, 'ADD', M_(nt, 'MULTIPLY', s[1], nah), M_(nt, 'MULTIPLY', fern, 0.5))
     hges = M_(nt, 'ADD', hges, M_(nt, 'MULTIPLY', pfad, -0.5 if R4 else -0.25))   # der Pfad ist ausgetreten: knapp 2 cm tiefer
+    if ufer is not None: hges = F_(nt, M_(nt, 'MULTIPLY', ufer, 0.7), hges, 0.5)   # Schlamm und Grund sind glatt gespült
     dsp = N(nt, 'ShaderNodeDisplacement'); dsp.inputs['Midlevel'].default_value = 0.5; dsp.inputs['Scale'].default_value = 0.09
     L(nt, hges, dsp.inputs['Height']); L(nt, dsp.outputs[0], out.inputs['Displacement'])
     return m
@@ -1713,10 +1852,12 @@ def moospolster(saat=386):
         me = bpy.data.meshes.new('Moospolster%d' % v); bm.to_mesh(me); bm.free(); me.materials.append(m); vorl.append(me)
     n = 0
     for (p, q, t, mname) in MAUERKRONE:
-        for _ in range(1 if mname == 'Stuetzmauer' else 3):
+        for _ in range((4 if mname == 'Stuetzmauer' else 12) if R5 else (1 if mname == 'Stuetzmauer' else 3)):
             if rnd.random() > 0.72: continue
-            tang = Vector((-q.y, q.x, 0)); g = rnd.uniform(0.40, 1.05) * min(1.0, t / 0.9 + 0.2)
-            ort = p + q * rnd.uniform(-0.42, 0.42) * t + tang * rnd.uniform(-0.3, 0.3) + Vector((0, 0, rnd.uniform(-0.03, 0.05)))
+            tang = Vector((-q.y, q.x, 0)); g = (rnd.uniform(0.20, 0.55) if R5 else rnd.uniform(0.40, 1.05)) * min(1.0, t / 0.9 + 0.2)
+            # Runde 5: die Polster wirkten als aufgelegte Scheiben — jetzt viele kleine, in die Kronensteine eingesunken:
+            # Moos sitzt in den Fugen und Mulden, die Steinköpfe ragen dazwischen heraus
+            ort = p + q * rnd.uniform(-0.45, 0.45) * t + tang * rnd.uniform(-0.3, 0.3) + Vector((0, 0, rnd.uniform(-0.03, 0.02) if R5 else rnd.uniform(-0.03, 0.05)))
             o = setze_frei(vorl[rnd.randrange(3)], 'Kronmoos%d' % n, ort, g, (rnd.uniform(-0.12, 0.12), rnd.uniform(-0.12, 0.12), rnd.random() * 6.283))
             o.scale = (g * rnd.uniform(0.8, 1.3), g * rnd.uniform(0.8, 1.3), g * rnd.uniform(0.6, 1.5)); n += 1
     print('ZIELBILD Moospolster auf den Kronen:', n)
@@ -1828,7 +1969,7 @@ def zielbild():
             x, y = o.location.x, o.location.y; g = max(o.dimensions.x, o.dimensions.y)
             bpy.data.objects.remove(o)
             setze_scan(sb, klein[i % len(klein)], 'Stein%d' % i, x, y, g * 1.1, 700 + i, 0.45)
-        im_becken = lambda x, y: -4.85 < x < -0.15 and -6.15 < y < 0.15
+        im_becken = (lambda x, y: tuempel_n(x, y) < 0.9) if R5 else (lambda x, y: -4.85 < x < -0.15 and -6.15 < y < 0.15)   # Runde 5: Bewuchs und Laub bis an die Wasserlinie
         felsen = [(o.location.x, o.location.y, max(o.dimensions.x, o.dimensions.y) / 2) for o in bpy.data.objects if o.name.startswith('Fels')]
         if R3:
             # Masse rechts (Gegengewicht zum Laubdach links): Felsblöcke am rechten Bildrand vorn, halb eingesunken
@@ -2058,6 +2199,9 @@ def zielbild():
             ko = lambda t, n: tuple(float(x) for x in os.environ.get(n, t).split(','))
             einst[0] = ('ziel', (-11.0, 2.2, 1.9), ko('5.0,-1.0,2.45', 'ZIELBILD_BLICK'), 24)
             einst[2] = ('boden', ko('-5.4,2.6,1.05', 'ZIELBILD_BODEN_ORT'), ko('-1.2,-0.6,0.1', 'ZIELBILD_BODEN_BLICK'), 30)
+        if R5:   # Runde 5: Blick 1,2° höher als R4 (Himmel 7 % war knapp), dazu eine Kamera aufs Ufer des Tümpels
+            einst[0] = ('ziel', (-11.0, 2.2, 1.9), ko('5.0,-1.0,2.8', 'ZIELBILD_BLICK'), 24)
+            einst.append(('ufer', ko('-6.2,0.6,1.35', 'ZIELBILD_UFER_ORT'), ko('-2.2,-3.4,-0.05', 'ZIELBILD_UFER_BLICK'), 30))
         for kname, ort, ziel, brenn in einst:
             k = sb.kamera((ort[0], ort[1], zt + ort[2]), (ziel[0], ziel[1], zt + ziel[2]), brenn); k.name = 'Kamera_' + kname; kams[kname] = k
             if R3: k.data.clip_end = 20000.0   # der fernste Rücken steht bei 8 km
@@ -2369,7 +2513,7 @@ def knoten(g, typ, ort, **eing):
 
 def stil():
     ein, art, aus = ARGS[1], ARGS[2], ARGS[3]
-    if art == 'zielbild4': art = 'zielbild3'   # Runde 4: derselbe Stil, andere Vorgaben (R4)
+    if art in ('zielbild4', 'zielbild5'): art = 'zielbild3'   # Runde 4: derselbe Stil, andere Vorgaben (R4)
     sc = bpy.context.scene
     for o in list(bpy.data.objects):
         if o.type != 'CAMERA': bpy.data.objects.remove(o)
@@ -2565,4 +2709,4 @@ def stil():
 
 
 if __name__ == '__main__':
-    {'render': render, 'aframe': aframe, 'zielbild': zielbild, 'zielbild3': zielbild, 'zielbild4': zielbild, 'scanblend': scanblend, 'alphakarten': alphakarten, 'ortframe': ortframe}.get(MODUS, stil)()
+    {'render': render, 'aframe': aframe, 'zielbild': zielbild, 'zielbild3': zielbild, 'zielbild4': zielbild, 'zielbild5': zielbild, 'scanblend': scanblend, 'alphakarten': alphakarten, 'ortframe': ortframe}.get(MODUS, stil)()
