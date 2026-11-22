@@ -7,7 +7,8 @@
     "einsicht": 1,
     "beruehrt": "anzeige",
     "wirkung": "Zwanzig Sekunden lang zeigt sich jeder Befallene im Umkreis von vierzig Metern durch Gelände und Laub, mit seinem Zustand: befallen, wund, verhärtet.",
-    "werk": "Feldabgleich: die Klammer fragt jeden Symbionten in Reichweite nach seiner Kennung."
+    "werk": "Feldabgleich: die Klammer fragt jeden Symbionten in Reichweite nach seiner Kennung.",
+    "status": "gilt"
   },
   {
     "id": "rufen",
@@ -17,7 +18,8 @@
     "einsicht": 1,
     "beruehrt": "welt",
     "wirkung": "Ein gereinigtes Tier des Reviers kommt heran und bleibt eine Weile. Mit Halfter: das gebundene Reittier, von überall im Revier.",
-    "werk": "Rückruf: für Tiere gedacht, die das Werk selbst ausgesetzt hat."
+    "werk": "Rückruf: für Tiere gedacht, die das Werk selbst ausgesetzt hat.",
+    "status": "gilt"
   },
   {
     "id": "stillen",
@@ -28,7 +30,9 @@
     "beruehrt": "kampfwert",
     "wirkung": "Ein befallenes Tier in sechs Metern hält drei Sekunden inne, wenn es nicht gerade ausholt. Verhärtete und Menschen nicht.",
     "werk": "Ruhigstellen vor dem Eingriff, Wartungsblatt K7 Punkt 4.",
-    "messung": "tools/reinigensim.ts und Kampfbot: neues Griff-Fenster ohne Haltungsbruch"
+    "messung": "tools/reinigensim.ts und Kampfbot: neues Griff-Fenster ohne Haltungsbruch",
+    "status": "ersetzt",
+    "ersetztDurch": "Räucherkanne, Aufsatz Harzrauch (ruhig)"
   },
   {
     "id": "stoss",
@@ -39,7 +43,9 @@
     "beruehrt": "kampfwert",
     "wirkung": "Wirft alles Befallene in zweieinhalb Metern drei Meter zurück und nimmt ihm Haltung. Kein Schaden.",
     "werk": "Abstandsimpuls: Schutz des Bedieners, wenn ein Tier beim Abgleich durchgeht.",
-    "messung": "tools/kampfbot.ts gegen Rudel (zwei und drei Tiere); Werte wie der Flutstoss ohne Element (FLUT in echtzeit.ts)"
+    "messung": "tools/kampfbot.ts gegen Rudel (zwei und drei Tiere); Werte wie der Flutstoss ohne Element (FLUT in echtzeit.ts)",
+    "status": "ersetzt",
+    "ersetztDurch": "Kohlensäurelöscher, Aufsatz Stossdüse"
   },
   {
     "id": "binden",
@@ -50,7 +56,9 @@
     "beruehrt": "kampfwert",
     "wirkung": "Ein gegriffenes Tier bleibt zwei Sekunden länger am Boden.",
     "werk": "Haltestrom verlängern — auf dem Typenschild als „nur kurzzeitig“ vermerkt.",
-    "messung": "tools/reinigensim.ts 1000 gegner: content/reinigen.json halten (heute 1,2 s)"
+    "messung": "tools/reinigensim.ts 1000 gegner: content/reinigen.json halten (heute 1,2 s)",
+    "status": "ersetzt",
+    "ersetztDurch": "Kohlensäurelöscher, Aufsatz Schneerohr (verlangsamt)"
   },
   {
     "id": "schirm",
@@ -61,7 +69,9 @@
     "beruehrt": "kampfwert",
     "wirkung": "Vier Sekunden lang macht der Griff nicht verwundbarer als sonst (×1,0 statt ×1,25).",
     "werk": "Eigenschutz des Trägers; zieht Strom, den die Reinigung dann nicht hat.",
-    "messung": "tools/reinigensim.ts empfohlen: content/reinigen.json verwundbar"
+    "messung": "tools/reinigensim.ts empfohlen: content/reinigen.json verwundbar",
+    "status": "ersetzt",
+    "ersetztDurch": "entfällt — kein Gerät schützt im Griff"
   },
   {
     "id": "nachhall",
@@ -72,6 +82,8 @@
     "beruehrt": "kampfwert",
     "wirkung": "Reinigt ein wundes gewöhnliches Tier aus sechs Metern, ohne Griff. Drei Ladungen statt einer.",
     "werk": "Fernabgleich. Im Aushang durchgestrichen: „nicht freigegeben“.",
-    "messung": "tools/reinigensim.ts und oekonomiesim: Reinigen ohne Fenster — nur als letzte Stufe und nur teuer vertretbar"
+    "messung": "tools/reinigensim.ts und oekonomiesim: Reinigen ohne Fenster — nur als letzte Stufe und nur teuer vertretbar",
+    "status": "ersetzt",
+    "ersetztDurch": "entfällt — Reinigen braucht Nähe, ohne Ausnahme"
   }
 ]

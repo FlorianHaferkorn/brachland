@@ -46,6 +46,7 @@ owns: *.json
 | `mark.json` · `abwurf.json` | **Bossteile** (D400): was ein Verhärteter oder Regent hinterlässt — getötet Mark (nur Marksud), gereinigt Abwurf (beide Sude) |
 | `fichtenspitzen.json` · `baldrianwurzel.json` · `schafgarbe.json` · `birkenporling.json` | **Beigaben** (D400, Wirkung `zutat` für `beigabe`): eine je Rast in die Sudflasche, wirkt bis zur nächsten Rast. Wirkwerte in `../oekonomie.json` `brauen.beigaben`, Entwurf |
 | `einsicht.json` | **Einsicht** (D400, Wirkung `erfahrung`, Kategorie `erfahrung`): aus Aufträgen, Linien und Orten, nie aus Kämpfen; bezahlt Techniken (`../techniken.json`). Wiegt nichts |
+| `gaskartusche.json` · `kohlensaeure.json` · `zaunbatterie.json` · `branntkalk.json` | **Betriebsstoffe der Geräte** (D410, Wirkung `zutat` für `geraet`, mit Traglast): Gas, Kohlensäure und Batterie sind Altbestand, Branntkalk wächst nach; die Räucherkanne brennt den vorhandenen `zunder`. Welche Füllung wie weit reicht, steht in `../geraete.json` |
 
 ## Regeln
 

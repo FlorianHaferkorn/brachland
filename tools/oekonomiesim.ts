@@ -55,7 +55,7 @@ JSON.stringify(lies('content/wanderfiguren/zaehler.json'), (_k, v) => {
   if (v && typeof v === 'object' && v.art === 'eingriffe' && typeof v.anzahl === 'number') { moenchsSchwelle = v.anzahl; if (v.gewichte) gewichte = v.gewichte; }
   return v;
 });
-const wirken = Wirken.parse(lies('content/wirken.json'));
+const wirken = Wirken.parse(lies('content/wirken.json')).filter(x => x.status === 'gilt');
 const wirkenKosten = wirken.reduce((n, x) => n + x.einsicht, 0);
 const stand = (b: typeof zeilen[number]) => zaehlerStand(b, gewichte);
 console.log(`\nFortschritt der Spielfigur (D400/D405) — Techniken: ${techniken.length} für ${technikKosten} Einsicht, Wirken: ${wirken.length} für ${wirkenKosten}; Zähler: Schwelle ${moenchsSchwelle}, getötet × ${gewichte.getoetet}, gereinigt × ${gewichte.gereinigt}\n`);

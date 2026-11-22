@@ -636,7 +636,9 @@ export const GegenstandWirkung = z.discriminatedUnion('art', [
   /** Zutat, die ein Bewohner verarbeitet: `flasche` (Schlucke/Stärke des Suds) oder `reinkultur`. */
   z.object({ art: z.literal('zutat'), fuer: z.enum(['flasche', 'reinkultur',
     // D400: `dauersud` = Bruchstück oder Bossteil eines dauerhaften Suds, `beigabe` = Kraut für die Flasche bis zur nächsten Rast.
-    'dauersud', 'beigabe']) }),
+    'dauersud', 'beigabe',
+    // D410: Betriebsstoff eines Geräts (Gas, Kohlensäure, Batterie, Kalk).
+    'geraet']) }),
   /** D400: Einsicht — Erfahrung aus Aufträgen, Linien und Orten, nie aus Kämpfen. Wird für Techniken ausgegeben. */
   z.object({ art: z.literal('erfahrung'), punkte: z.number().int().min(1).max(3) }),
   /** Kleidung, **ein** Platz. Seitwärts statt aufwärts: jedes Stück hat einen Preis. Werte sind Entwurf. */
@@ -939,9 +941,60 @@ export const Wirken = z.array(z.object({
   werk: z.string().max(160),
   beruehrt: z.enum(['anzeige', 'welt', 'traversal', 'oekonomie', 'kampfwert']),
   messung: z.string().max(160).optional(),
-}).strict().refine(w => ['anzeige', 'welt'].includes(w.beruehrt) || !!w.messung, 'wer einen geprüften Wert berührt, nennt die Messung'))
+  /**
+   * D409/D410: Die Marke zaubert nicht. `gilt` = bleibt als Funktion der Klammer (Sensor, Rückruf);
+   * `ersetzt` = entfällt als Wirken, `ersetztDurch` nennt das Gerät oder sagt „entfällt“.
+   */
+  status: z.enum(['gilt', 'ersetzt']).default('gilt'),
+  ersetztDurch: z.string().max(120).optional(),
+}).strict().refine(w => ['anzeige', 'welt'].includes(w.beruehrt) || !!w.messung, 'wer einen geprüften Wert berührt, nennt die Messung')
+  .refine(w => (w.status === 'ersetzt') === !!w.ersetztDurch, 'ersetzt ⇔ ersetztDurch')
+  .refine(w => w.status === 'ersetzt' || ['anzeige', 'welt'].includes(w.beruehrt), 'ein geltendes Wirken berührt keinen Kampfwert (D409: keine Magie)'))
   .min(1).refine(a => new Set(a.map(w => w.id)).size === a.length, 'Wirken-IDs sind eindeutig');
 export type Wirken = z.infer<typeof Wirken>;
+
+// ------------------------------------------------------- Geräte mit Elementangriffen (D410, Entwurf)
+
+/**
+ * Geräte (D409/D410): Technik der Welt, die ein Element aus `ELEMENTE` trägt. Das Gerät in der Hand bestimmt,
+ * was man ausführen kann; die **Aufsätze** sind das Austauschbare. Alle Wirkwerte sind Entwurf und ungemessen;
+ * `schaden` und `haltung` zählen in Einheiten des leichten Klingenhiebs, bevor der Elementkreis greift.
+ */
+export const Geraete = z.array(z.object({
+  id: Kennung, name: z.string().max(40),
+  element: Element,
+  status: z.enum(['kapitel-1', 'kapitel-2', 'geparkt']),
+  /** Was das Ding real ist und wie es real wirkt (D398). */
+  real: z.string().max(320),
+  /** Wo das Spiel von der Wirklichkeit abweicht — benannt, nie still. */
+  abweichung: z.string().max(260),
+  betriebsstoff: z.object({
+    gegenstand: Kennung,
+    jeFuellung: z.number().int().min(1).max(20).describe('Einheiten je voller Füllung'),
+    nachschub: z.enum(['altbestand', 'nachwachsend']),
+    real: z.string().max(200),
+  }),
+  risiko: z.string().max(260),
+  erwerb: z.string().max(200),
+  masse: z.number().positive().max(15).describe('Kilogramm, betriebsbereit'),
+  aufsaetze: z.array(z.object({
+    id: Kennung, name: z.string().max(40),
+    form: z.enum(['kegel', 'stoss', 'flaeche', 'beruehrung', 'linie']),
+    /** Meter. Geräte sind Nahbereich: Fernkampf ist bis nach Kapitel 1 zurückgestellt (D406). */
+    reichweite: z.number().positive().max(4),
+    schaden: z.number().min(0).max(3),
+    haltung: z.number().min(0).max(3),
+    zustand: z.enum(['brennt', 'verlangsamt', 'zuckt', 'ruhig', 'geblendet']).optional(),
+    dauerSek: z.number().min(0).max(20),
+    verbrauch: z.number().int().min(1).max(10),
+    wirkung: z.string().max(200),
+  }).strict().refine(a => !!a.zustand === a.dauerSek > 0, 'Zustand ⇔ Dauer')).min(2).max(3),
+  clips: z.object({ vorhanden: z.array(z.string()), fehlen: z.array(z.string()) }),
+  messung: z.string().max(200),
+}).strict()).min(5).max(7)
+  .refine(a => new Set(a.map(g => g.id)).size === a.length, 'Geräte-IDs sind eindeutig')
+  .refine(a => new Set(a.map(g => g.element)).size === a.length, 'je Element höchstens ein Gerät');
+export type Geraete = z.infer<typeof Geraete>;
 
 /**
  * Techniken (D400): was der Brachgänger **gelernt** hat. Bezahlt mit Einsicht, an der Rast. Keine Technik

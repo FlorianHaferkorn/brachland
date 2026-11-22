@@ -116,7 +116,10 @@ export interface Spielweise {
   findet: number;
   /** D400: abgeschlossene Figurenlinien — wem man traut, schliesst ab; wer Figuren tötet, verliert die Linie (D399). */
   linien: number;
-  /** D405: Anteil der Markenladungen, der ins Wirken geht statt ins Reinigen (0…1). */
+  /**
+   * D405: Anteil der Markenladungen, der ins Wirken geht statt ins Reinigen (0…1). Seit D410 nur noch
+   * Lesen und Rufen — die Kontroll-Wirken sind Geräte geworden und kosten Betriebsstoff, keine Ladungen.
+   */
   wirken: number;
 }
 
@@ -293,8 +296,8 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
  * (zu viele Eingriffe); der Umgeher hat nur sie.
  */
 export const SPIELWEISEN: readonly Spielweise[] = [
-  { name: 'Schlächter', kaempft: 1, reinigtBisAnteil: 0, toetetRest: true, verhaerteteToeten: 99, regent: 'toeten', menschenToeten: 99, findet: 1, linien: 1, wirken: 0.5 },
-  { name: 'Gemischt', kaempft: 1, reinigtBisAnteil: 0.4, toetetRest: true, verhaerteteToeten: 3, regent: 'heilen', menschenToeten: 2, findet: 1, linien: 2, wirken: 0.15 },
-  { name: 'Heiler', kaempft: 1, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 1, linien: 2, wirken: 0.15 },
-  { name: 'Umgeher', kaempft: 0.12, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 0.6, linien: 1, wirken: 0.4 },
+  { name: 'Schlächter', kaempft: 1, reinigtBisAnteil: 0, toetetRest: true, verhaerteteToeten: 99, regent: 'toeten', menschenToeten: 99, findet: 1, linien: 1, wirken: 0 },
+  { name: 'Gemischt', kaempft: 1, reinigtBisAnteil: 0.4, toetetRest: true, verhaerteteToeten: 3, regent: 'heilen', menschenToeten: 2, findet: 1, linien: 2, wirken: 0.05 },
+  { name: 'Heiler', kaempft: 1, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 1, linien: 2, wirken: 0.05 },
+  { name: 'Umgeher', kaempft: 0.12, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 0.6, linien: 1, wirken: 0.15 },
 ];

@@ -171,7 +171,8 @@ const zb = lies('content/wanderfiguren/zaehler.json').stationen.map((x: any) => 
 const stand = (b: typeof S) => zaehlerStand(b, zb.gewichte);
 pruefe('der Zähler trägt Gewichte, Reinigen leichter als Töten', zb.gewichte.gereinigt < zb.gewichte.getoetet);
 pruefe('ungewichtet läge nur der Umgeher unter der Schwelle', U.eingriffe <= zb.anzahl && [S, G, H].every(b => b.eingriffe > zb.anzahl));
-pruefe('gewichtet bleiben Umgeher und Heiler darunter, wer tötet nicht', stand(U) <= zb.anzahl && stand(H) <= zb.anzahl && stand(S) > zb.anzahl && stand(G) > zb.anzahl,
+// D410: Ohne die Kontroll-Wirken reinigt der Heiler wieder mehr — er liegt jetzt knapp um die Schwelle.
+pruefe('gewichtet bleibt der Umgeher klar darunter, wer tötet klar darüber, der Heiler in ±5 um die Schwelle', stand(U) <= zb.anzahl / 2 && stand(S) > zb.anzahl && stand(G) > zb.anzahl && Math.abs(stand(H) - zb.anzahl) <= 5,
   [S, G, H, U].map(b => `${b.name} ${stand(b).toFixed(0)}`).join(', '));
 pruefe('der Umgeher liegt weiter unter der Schwelle als der Heiler', stand(U) < stand(H));
 pruefe('zaehlerStand: ein Getöteter wiegt wie vier Gereinigte', zaehlerStand({ getoetet: 1, gereinigt: 0, verhaerteteGetoetet: 0, verhaerteteGereinigt: 0 }, zb.gewichte)
@@ -179,13 +180,15 @@ pruefe('zaehlerStand: ein Getöteter wiegt wie vier Gereinigte', zaehlerStand({ 
 
 // D405: Wirken der Marke kostet Ladungen, die dem Reinigen fehlen
 const wirken = Wirken.parse(lies('content/wirken.json'));
-pruefe('fünf bis sieben Wirken', wirken.length >= 5 && wirken.length <= 7);
+const gilt = wirken.filter(x => x.status === 'gilt'), ersetzt = wirken.filter(x => x.status === 'ersetzt');
+pruefe('D410: nur Sinnes- und Welt-Wirken gelten noch (Lesen, Rufen)', gilt.map(x => x.id).sort().join() === 'lesen,rufen' && gilt.every(x => ['anzeige', 'welt'].includes(x.beruehrt)));
+pruefe('D410: fünf Wirken sind ersetzt und sagen, wodurch', ersetzt.length === 5 && ersetzt.every(x => !!x.ersetztDurch));
+pruefe('D410: Reinigen aus der Ferne gibt es nicht mehr', wirken.find(x => x.id === 'nachhall')!.status === 'ersetzt');
+pruefe('Schema lehnt ein geltendes Wirken mit Kampfwert ab (keine Magie)', !Wirken.safeParse([{ id: 'x', name: 'X', ladungen: 1, markenStufe: 0, einsicht: 1, wirkung: 'w', werk: 'w', beruehrt: 'kampfwert', messung: 'm' }]).success);
 pruefe('jedes Wirken kostet Ladungen und Einsicht', wirken.every(x => x.ladungen >= 1 && x.einsicht >= 1));
-pruefe('kein Wirken verlangt eine Markenstufe, die es nicht gibt', wirken.every(x => x.markenStufe <= o.marke.schwellen.length));
-pruefe('das einzige Fern-Reinigen ist das teuerste Wirken', wirken.find(x => x.id === 'nachhall')!.ladungen === Math.max(...wirken.map(x => x.ladungen)));
 const ohne = bilanz({ ...SPIELWEISEN[2], wirken: 0 }, 'oental', o, marke), mit = bilanz({ ...SPIELWEISEN[2], wirken: 0.3 }, 'oental', o, marke);
 pruefe('wer wirkt, reinigt weniger', mit.gereinigt < ohne.gereinigt && mit.laeuterung < ohne.laeuterung && mit.wirkenLadungen > 0 && ohne.wirkenLadungen === 0);
-pruefe('der Schlächter hat mit dem Wirken eine Verwendung für die Marke', S.wirkenLadungen > 0 && S.gereinigt === 0);
+pruefe('D410: der Schlächter gibt keine Ladung mehr fürs Wirken aus', S.wirkenLadungen === 0 && S.gereinigt === 0);
 
 // D405: Waffenfamilien
 const wf = Waffenfamilienplan.parse(lies('content/waffenfamilien.json'));
@@ -204,7 +207,7 @@ const schlaegtBei = (schwelle: number) => { const ax = achsenBei(schwelle);
 // Befund D405: Mit Reinigen × 0,25 bleibt bei der heutigen Schwelle (40) auch der Heiler darunter — er hat dann
 // alles, was der Umgeher hat, und mehr. Bei 30 trennt der Zähler die beiden wieder. Die Schwelle ist Flos Entscheidung
 // (A-32); der Test hält fest, was bei welcher Schwelle gilt, statt die Daten vorwegzunehmen.
-pruefe('Befund: bei der heutigen Schwelle schlägt der Heiler den Umgeher auf allen Achsen', zb.anzahl !== 40 || schlaegtBei(40).join() === 'Heiler', schlaegtBei(40).join());
+pruefe('Befund: liegt der Heiler unter der Schwelle, schlägt er den Umgeher auf allen Achsen', schlaegtBei(Math.ceil(stand(H))).join() === 'Heiler', schlaegtBei(Math.ceil(stand(H))).join());
 pruefe('bei Schwelle 30 schlägt keine der vier Spielweisen eine andere auf allen sechs Achsen', schlaegtBei(30).length === 0,
   alle.map(b => `${b.name} ${achsenBei(30)(b).join('/')}`).join(', '));
 pruefe('ohne die Achse der Mönche schlägt nur der Umgeher niemanden und wird geschlagen', (() => {

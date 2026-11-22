@@ -1,0 +1,359 @@
+[
+  {
+    "id": "abflammgeraet",
+    "name": "Abflammgerät",
+    "element": "brand",
+    "status": "kapitel-1",
+    "real": "Unkrautbrenner mit Stechkartusche: offene Flamme um 1.800 °C, halber bis ein Meter lang, für Wege und Hofpflaster. Brennt eine Kartusche in rund einer Stunde leer.",
+    "abweichung": "Flamme im Spiel bis 2,5 m und sechs Stösse je Kartusche statt einer Stunde Dauerbetrieb — zugunsten des Spiels verkürzt und verknappt.",
+    "betriebsstoff": {
+      "gegenstand": "gaskartusche",
+      "jeFuellung": 6,
+      "nachschub": "altbestand",
+      "real": "190-g-Kartusche; Gas hält Jahrzehnte, Dichtungen nicht"
+    },
+    "risiko": "Zündet trockenes Gras und Laub: Die Fläche brennt weiter und trifft auch den Träger. Ein verbranntes Revier wird nie ruhig. Wer damit tötet, tötet.",
+    "erwerb": "Geräteschuppen eines Hofs in der Flutzone, hinter einem verplombten Spind (Plombenzange)",
+    "masse": 1.6,
+    "aufsaetze": [
+      {
+        "id": "breitbrenner",
+        "name": "Breitbrenner",
+        "form": "kegel",
+        "reichweite": 2.0,
+        "schaden": 0.8,
+        "haltung": 0.4,
+        "zustand": "brennt",
+        "dauerSek": 4,
+        "verbrauch": 1,
+        "wirkung": "Breiter Flammenkegel. Was getroffen ist, brennt nach."
+      },
+      {
+        "id": "stichflamme",
+        "name": "Stichflamme",
+        "form": "stoss",
+        "reichweite": 2.5,
+        "schaden": 1.4,
+        "haltung": 1.0,
+        "zustand": "brennt",
+        "dauerSek": 2,
+        "verbrauch": 2,
+        "wirkung": "Schmaler, heisser Stoss. Bricht Chitin auf."
+      },
+      {
+        "id": "glutnest",
+        "name": "Glutnest",
+        "form": "flaeche",
+        "reichweite": 1.5,
+        "schaden": 0.5,
+        "haltung": 0.2,
+        "zustand": "brennt",
+        "dauerSek": 6,
+        "verbrauch": 2,
+        "wirkung": "Legt Glut auf den Boden: eine Stelle, über die nichts gern geht."
+      }
+    ],
+    "clips": {
+      "vorhanden": [
+        "Klinge_Stich (Arm vor, als Sprühhaltung)"
+      ],
+      "fehlen": [
+        "Geraet_Spruehen (Schleife, einhändig)"
+      ]
+    },
+    "messung": "Kampfbot: Brand über Zeit ist ein neuer Zustand in echtzeit.ts; Messung gegen alle fünf Tiere und im Rudel"
+  },
+  {
+    "id": "loescher",
+    "name": "Kohlensäurelöscher",
+    "element": "frost",
+    "status": "kapitel-1",
+    "real": "CO₂-Handlöscher, zwei Kilo: bläst acht bis zehn Sekunden lang Kohlensäureschnee von −78 °C, zwei bis drei Meter weit. Erschreckt, kühlt, nimmt in Senken die Luft.",
+    "abweichung": "Fünf Stösse zu je rund zwei Sekunden — das entspricht der echten Entleerzeit. Dass Kälte ein Tier sekundenlang lähmt, ist Spielwert.",
+    "betriebsstoff": {
+      "gegenstand": "kohlensaeure",
+      "jeFuellung": 5,
+      "nachschub": "altbestand",
+      "real": "2-kg-Füllung, 8–10 s Dauerstrahl"
+    },
+    "risiko": "In Mulden, Stollen und unter Wasserlinie sammelt sich das Gas: Der Träger verliert Ausdauer. Am Horn friert die Hand an, wenn man zu lange hält.",
+    "erwerb": "Schankraum des Wirts — nach einer Nebenaufgabe; er füllt gegen Tausch nach",
+    "masse": 5.0,
+    "aufsaetze": [
+      {
+        "id": "schneerohr",
+        "name": "Schneerohr",
+        "form": "kegel",
+        "reichweite": 2.5,
+        "schaden": 0.0,
+        "haltung": 0.8,
+        "zustand": "verlangsamt",
+        "dauerSek": 3,
+        "verbrauch": 1,
+        "wirkung": "Kältewolke. Was darin steht, wird langsam — lang genug für einen Griff."
+      },
+      {
+        "id": "stossduese",
+        "name": "Stossdüse",
+        "form": "stoss",
+        "reichweite": 2.0,
+        "schaden": 0.0,
+        "haltung": 1.6,
+        "zustand": "verlangsamt",
+        "dauerSek": 1,
+        "verbrauch": 1,
+        "wirkung": "Kurzer harter Stoss: wirft zurück und nimmt Haltung, ohne zu verletzen."
+      },
+      {
+        "id": "reifhaut",
+        "name": "Reifhaut",
+        "form": "beruehrung",
+        "reichweite": 1.0,
+        "schaden": 0.6,
+        "haltung": 0.6,
+        "zustand": "verlangsamt",
+        "dauerSek": 5,
+        "verbrauch": 2,
+        "wirkung": "Aus nächster Nähe auf die Platten: Sie werden spröde, der nächste Hieb nimmt mehr Haltung."
+      }
+    ],
+    "clips": {
+      "vorhanden": [
+        "Klinge_Stich (Arm vor, als Sprühhaltung)"
+      ],
+      "fehlen": [
+        "Geraet_Spruehen (zweihändig, Löscher vor der Brust)"
+      ]
+    },
+    "messung": "tools/reinigensim.ts: neues Griff-Fenster „verlangsamt“; Kampfbot gegen Rudel für die Stossdüse"
+  },
+  {
+    "id": "zaungeraet",
+    "name": "Weidezaungerät",
+    "element": "alt-tech",
+    "status": "kapitel-1",
+    "real": "Batterie-Weidezaungerät: Impulse von fünf bis zehn Kilovolt und höchstens fünf Joule, etwa einer je Sekunde. Schmerzhaft, lässt zucken, tötet nicht.",
+    "abweichung": "Eine Batterie hält real Wochen; im Spiel dreissig Schläge. Dass ein Impuls ein 140-kg-Tier eine halbe Sekunde stoppt, ist grosszügig.",
+    "betriebsstoff": {
+      "gegenstand": "zaunbatterie",
+      "jeFuellung": 10,
+      "nachschub": "altbestand",
+      "real": "9-V-Batterie oder Akku mit Solarmodul"
+    },
+    "risiko": "Im Wasser und bei Regen trifft der Schlag auch den Träger. Gegen Tiere mit alt-tech im Leib wirkt er nur neutral.",
+    "erwerb": "Stadel am Hangweg, hinter einem Rätsel mit der Litze (welcher Pfahl noch Strom hat)",
+    "masse": 3.5,
+    "aufsaetze": [
+      {
+        "id": "treibstab",
+        "name": "Treibstab",
+        "form": "beruehrung",
+        "reichweite": 1.2,
+        "schaden": 0.2,
+        "haltung": 0.6,
+        "zustand": "zuckt",
+        "dauerSek": 0.6,
+        "verbrauch": 1,
+        "wirkung": "Zwei Zinken an einem Stab. Was er berührt, zuckt und verliert seinen Ansatz."
+      },
+      {
+        "id": "litze",
+        "name": "Litze",
+        "form": "linie",
+        "reichweite": 4.0,
+        "schaden": 0.1,
+        "haltung": 0.4,
+        "zustand": "zuckt",
+        "dauerSek": 0.6,
+        "verbrauch": 2,
+        "wirkung": "Vier Meter Litze am Boden. Wer darüber läuft, zuckt. Bleibt liegen, bis man sie holt."
+      },
+      {
+        "id": "speicherschlag",
+        "name": "Speicherschlag",
+        "form": "stoss",
+        "reichweite": 1.5,
+        "schaden": 0.9,
+        "haltung": 1.4,
+        "zustand": "zuckt",
+        "dauerSek": 1.2,
+        "verbrauch": 3,
+        "wirkung": "Ein Kondensator, zwei Sekunden geladen, ein Schlag. Der einzige Aufsatz, der wirklich weh tut."
+      }
+    ],
+    "clips": {
+      "vorhanden": [
+        "Klinge_Stich (Arm vor, als Sprühhaltung)",
+        "Speer_Stoss (für den Treibstab)"
+      ],
+      "fehlen": [
+        "Geraet_Auslegen (Litze)"
+      ]
+    },
+    "messung": "Kampfbot: „zuckt“ gibt es schon als Phase (echtzeit.ts) — Dauer und Unterbrechung des Vorlaufs messen"
+  },
+  {
+    "id": "raeucherkanne",
+    "name": "Räucherkanne",
+    "element": "holz",
+    "status": "kapitel-1",
+    "real": "Smoker der Imker: glimmender Zunderschwamm, Rainfarn oder Harzspäne im Blechtopf mit Blasebalg. Der Rauch beruhigt Bienen, weil sie sich mit Honig vollsaugen.",
+    "abweichung": "Auf Säugetiere wirkt Rauch real als Reiz, nicht als Beruhigung. Im Spiel beruhigt er den Befall — der Symbiont antwortet wie ein Bienenvolk. Das ist Fiktion der Welt, benannt.",
+    "betriebsstoff": {
+      "gegenstand": "zunder",
+      "jeFuellung": 4,
+      "nachschub": "nachwachsend",
+      "real": "eine Handvoll Zunderschwamm glimmt eine halbe Stunde"
+    },
+    "risiko": "Dreht der Wind, hustet der Träger: Die Ausdauer erholt sich langsamer. Die Glut zündet nichts — aber sie verrät einen bei Nacht.",
+    "erwerb": "Bienenstand am Waldrand; die Magd gibt sie für einen Schwarm, den man ihr zurückbringt",
+    "masse": 1.2,
+    "aufsaetze": [
+      {
+        "id": "harzrauch",
+        "name": "Harzrauch",
+        "form": "flaeche",
+        "reichweite": 3.0,
+        "schaden": 0.0,
+        "haltung": 0.0,
+        "zustand": "ruhig",
+        "dauerSek": 6,
+        "verbrauch": 1,
+        "wirkung": "Dichte Wolke. Befallene darin greifen seltener an und lassen sich länger halten."
+      },
+      {
+        "id": "rainfarn",
+        "name": "Rainfarn",
+        "form": "kegel",
+        "reichweite": 2.5,
+        "schaden": 0.0,
+        "haltung": 0.3,
+        "zustand": "ruhig",
+        "dauerSek": 3,
+        "verbrauch": 1,
+        "wirkung": "Beissender Rauch nach vorn: Tiere weichen aus der Richtung. Öffnet einen Weg."
+      },
+      {
+        "id": "nasses-laub",
+        "name": "Nasses Laub",
+        "form": "flaeche",
+        "reichweite": 3.5,
+        "schaden": 0.0,
+        "haltung": 0.0,
+        "zustand": "geblendet",
+        "dauerSek": 5,
+        "verbrauch": 2,
+        "wirkung": "Weisser Qualm, in dem keiner etwas sieht — der Träger auch nicht."
+      }
+    ],
+    "clips": {
+      "vorhanden": [
+        "Klinge_Stich (Arm vor, als Sprühhaltung)"
+      ],
+      "fehlen": [
+        "Geraet_Blasebalg (Schleife)"
+      ]
+    },
+    "messung": "tools/reinigensim.ts: „ruhig“ verlängert Fenster und senkt die Angriffsrate — beides neue Grössen der Gegner-KI"
+  },
+  {
+    "id": "kalkstreuer",
+    "name": "Kalkstreuer",
+    "element": "stein",
+    "status": "kapitel-2",
+    "real": "Branntkalk (Calciumoxid) aus der Streubüchse: ätzt Augen und Schleimhäute, wird mit Wasser über hundert Grad heiss. Im Stall seit jeher gegen Fäulnis und Seuchen gestreut.",
+    "abweichung": "Real hilft Kalk gerade gegen Fäulnis. Der Elementkreis sagt das Gegenteil (Fäulnis schlägt Stein). Der Kreis gilt — benannt, nicht still.",
+    "betriebsstoff": {
+      "gegenstand": "branntkalk",
+      "jeFuellung": 6,
+      "nachschub": "nachwachsend",
+      "real": "gebrannt im Ofen am Kalkbruch aus dem Stein, der dort liegt"
+    },
+    "risiko": "Wind und Regen tragen ihn zurück: Auf nasser Haut und im Wasser verbrennt er den Träger. Niemals im Bach.",
+    "erwerb": "Wart vom Bruch, Region Œntal West — Kapitel 2, wenn der Ofen wieder brennt",
+    "masse": 2.0,
+    "aufsaetze": [
+      {
+        "id": "branntkalk",
+        "name": "Branntkalk",
+        "form": "kegel",
+        "reichweite": 2.5,
+        "schaden": 0.5,
+        "haltung": 0.5,
+        "zustand": "geblendet",
+        "dauerSek": 4,
+        "verbrauch": 1,
+        "wirkung": "Eine Handvoll in die Augen. Das Tier schlägt daneben; ist es nass, frisst der Kalk."
+      },
+      {
+        "id": "steinmehl",
+        "name": "Steinmehl",
+        "form": "kegel",
+        "reichweite": 2.5,
+        "schaden": 0.0,
+        "haltung": 0.3,
+        "zustand": "geblendet",
+        "dauerSek": 3,
+        "verbrauch": 1,
+        "wirkung": "Gemahlener Kalkstein, harmlos. Blendet nur. Der Zähler sieht keinen Unterschied, das Tier schon."
+      }
+    ],
+    "clips": {
+      "vorhanden": [],
+      "fehlen": [
+        "Geraet_Wurf (Streuen aus der Hand)"
+      ]
+    },
+    "messung": "Kampfbot: „geblendet“ = Nachdrehen und Trefferbogen des Gegners sinken — neue Grösse"
+  },
+  {
+    "id": "sporenbalg",
+    "name": "Sporenbalg",
+    "element": "sporen",
+    "status": "geparkt",
+    "real": "Erfunden: ein Blasebalg der Mönche, gefüllt mit Sporen vom Befall. Nächste reale Entsprechung ist der Stäubebalg der Winzer für Schwefel.",
+    "abweichung": "Vollständig Fiktion der Welt. Geparkt mit den Befallskräften (D406).",
+    "betriebsstoff": {
+      "gegenstand": "reinprobe",
+      "jeFuellung": 3,
+      "nachschub": "nachwachsend",
+      "real": "—"
+    },
+    "risiko": "Der Träger atmet mit. Preis am eigenen Körper — Teil der Linie der Mönche, nicht entworfen.",
+    "erwerb": "Linie der Mönche ab Region 2 — geparkt",
+    "masse": 1.0,
+    "aufsaetze": [
+      {
+        "id": "staub",
+        "name": "Sporenstaub",
+        "form": "kegel",
+        "reichweite": 2.5,
+        "schaden": 0.3,
+        "haltung": 0.3,
+        "zustand": "verlangsamt",
+        "dauerSek": 3,
+        "verbrauch": 1,
+        "wirkung": "Nicht entworfen."
+      },
+      {
+        "id": "saat",
+        "name": "Saat",
+        "form": "flaeche",
+        "reichweite": 2.0,
+        "schaden": 0.0,
+        "haltung": 0.0,
+        "zustand": "ruhig",
+        "dauerSek": 4,
+        "verbrauch": 2,
+        "wirkung": "Nicht entworfen."
+      }
+    ],
+    "clips": {
+      "vorhanden": [],
+      "fehlen": [
+        "wie Räucherkanne"
+      ]
+    },
+    "messung": "—"
+  }
+]
