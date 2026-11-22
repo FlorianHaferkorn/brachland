@@ -47,6 +47,8 @@ Auftrag nicht fertig wird.
 | `was-unter-dem-torf-bruetet.json` | Torfstecherin, nach dem Gelege: Brutmutter besiegen → `torfkern`. Damit sind alle drei Reinkulturen der Brutmutter erreichbar |
 | `was-danach-waechst.json` | werk-schichtbuch | **Zielart `heile`** (D240), nach `was-im-stau-liegt`: die drei Komponenten am Regentenort einsetzen. Schliesst den Heilungs-Loop (Story-Bibel §6: besiegen → umschreiben → Wandel) |
 | `harz-fuer-die-esse.json` | Die Schmiedin (D177): zwei Trafomarder besiegen → zwei Harzverbände, genug für die erste Waffenstufe |
+| `was-noch-drin-liegt.json` | steinbruch-wart | **Vorbereitet für das Kletterzeug (D391).** Fundstück `stollenmund` lesen (389 m Fußweg vom Start). Entwurf in `docs/design/BRACHLAND_Traversal_v2.md` §5: Die Stange für die Mauer hat die „Klinge am Bruchweg“ (`lager-bruchweg`). **Platzhalter:** Ziel ist nur das Lesen, Belohnung ein Harzverband — Lager als Ziel, Mauer und das Werkzeug als Gegenstand sind nicht gebaut |
+| `ein-schwieriger-nachbar.json` | dorf-foerster | **Vorbereitet für das Reittier (D391).** 3 Wurzelkeiler **reinigen**, erst nach `bis-zur-kante`. Entwurf ebd.: Der Förster gibt danach das Halfter, mit dem sich **ein** gereinigter Vierbeiner binden lässt. **Platzhalter:** Belohnung zwei Kräutersud — Halfter und Bindung sind nicht gebaut |
 
 ## Die fünf Zielarten
 

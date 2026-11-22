@@ -54,7 +54,7 @@ owns: *.json
 | `fragmente/` | Fundstücke an OSM-Orten mit eigenem Index — die Geschichte der Region, ohne Sprecher. Siehe `fragmente/_INDEX.md` |
 | `orte/` | Zufluchten und Bewohner an OSM-Gebäuden; seit D375 die Enklave auf der Hangterrasse und Zufluchten in Ringen darum. Siehe `orte/_INDEX.md` |
 | `wanderfiguren/` | **Fraktionsfiguren mit Stationen** (D375, Story-Bibel v2 §5): je Fraktion eine je Region, drei bis fünf Stationen, zieht mit dem Weltzustand weiter. Siehe `wanderfiguren/_INDEX.md` |
-| `auftraege/` | 17 Aufträge — der kritische Pfad bis zur Heilung (D240); Zielart `reinige` statt `fange` seit D375. Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
+| `auftraege/` | 19 Aufträge (D391: zwei Nebenaufgaben für Kletterzeug und Reittier vorbereitet, Platzhalter-Belohnung) — der kritische Pfad bis zur Heilung (D240); Zielart `reinige` statt `fange` seit D375. Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
 | `waffen/` | 3 Waffen des Echtzeitkampfs (Klinge, Axt, Speer) — Phasen, Bogen, Wirkung je Schlag (ADR-0008, D191). Siehe `waffen/_INDEX.md` |
 | `gegner/` | 9 Gegner des Echtzeitkampfs (Übungsgegner, 5 Tiere, 3 Menschen) — Schlag, Kette, Linien, Leben, Haltung, Körper (ADR-0007, D194). Siehe `gegner/_INDEX.md` |
 | `creatures/alpenmurmel.json` | Alpenmurmel (Alpenmurmeltier, Stein, Erdpilz-Rückenpolster). 3 Stufen, `landuse=meadow` ab 700 m |
