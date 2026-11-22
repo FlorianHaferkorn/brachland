@@ -149,7 +149,8 @@ export function pomWahl(o: { hof: boolean; ziel: boolean; west: boolean; milbing
   if (scanR < 3.5) {
     float r = scanR;
     int q = 0;
-    vec3 n = normalize(cross(pomDx, pomDy));
+    // D387: Normale aus dem Eckenattribut — aus dFdx der Weltlage ist sie je Pixelblock verrauscht (hausmaterial.ts).
+    vec3 n = normalize(vHausNormal);
     vec3 o = vec3(0.0);
     float m = r < 0.5 ? uScanMeter.x : r < 1.5 ? uScanMeter.y : r < 2.5 ? uScanMeter.z : uScanMeter.w;
     ${o.hof ? /* glsl */ `

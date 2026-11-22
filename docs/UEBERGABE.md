@@ -51,10 +51,18 @@ Stand holen: `git pull` auf `claude/epic-planck-86z6fy` (PR #16). Nächste freie
    mit Gewichtsverlagerung, Boden mit Ort. Befall wächst entlang der Hautspannung, Porlinge haben Poren, keine
    Lamellen. Gras mit Alpha-Masken (Punkt 1). Bildpaar Foto │ Modell je Tier an Flo. Der Wurzelkeiler ist am
    weitesten und als Ausgang brauchbar. Offen dazu: A-30.
+2b. **Zielbild Menschen, Runde 2 — nach echten Fotos** (Flo 22.11.2026, D404). Runde 1 (D383,
+   `tools/menschenframe.py`, `bilder/zielbild/d383-zielbild-menschen.jpg`) ist **nicht freigegeben**: Kleidung
+   (Stoffsimulation, Schichten) und Silhouetten tragen, die MakeHuman-Köpfe sind puppenhaft (glatte Haut, starrer
+   Blick, Haar als Platte), die Haltung steif. Runde 2: Köpfe nach echten Porträtfotos (Wikimedia Commons, freie
+   Lizenz, Quellen mitführen; keine erkennbaren lebenden Personen nachbauen — Merkmale mischen): Hautfarbe mit
+   Rötung, Poren, Falten, Bartschatten, echtes Haar (Strähnen/Karten mit Alpha), Augen mit Feuchte und Lidschatten;
+   natürliche Posen mit Gewichtsverlagerung; Stoff mit Struktur schon in der Totalen; Schuhe mit Sohle; Pflanzen
+   mit Alpha-Masken. Bildpaar Foto │ Figur je Kopf an Flo. Vor Übernahme ins Spiel die Lizenz von MPFB-Rig und
+   -Körperzielen prüfen (im GPL-Paket ohne eigenen CC0-Vermerk).
 3. **Physik muss stimmen** (D398, steht in `CLAUDE.md`): gilt für jedes Bild und jeden Wert. Abweichungen zugunsten
    des Spiels benennen und begründen.
-4. **Ab jetzt rendert nur noch der M1.** Die Cloud-Sitzung startet keine neuen Render-Aufträge mehr; dort läuft nur
-   noch das Zielbild Menschen (D383) zu Ende.
+4. **Ab jetzt rendert nur noch der M1.** Die Cloud-Sitzung startet keine neuen Render-Aufträge mehr; dort laufen keine Render mehr.
 
 **Seit dem Stand unten dazugekommen** (alles im Ledger, Tabelle B): D381 Start draussen, Weg zur Enklave als
 Lehrstrecke · D382/D386 Felsmulde Runde 3 und 4 · D385 Menschen nicht reinigbar · D388/D391 Traversal v2 und
@@ -68,8 +76,10 @@ Aufwertung, D394 Menü und Einstellungen.
    (SwiftShader, Standbilder) geprüft — „Nicht am M1 gesehen“ steht an jeder Zeile. Befunde je D-Nummer ins Ledger.
    Besonders: Efeu-Karten und Schatten, Streudecke unter Kronen (wirkt sie wie ein harter Teppich?), Bodenpflanzen
    (liest man sie neben dem Grasteppich?), Rinde/Wurzeln, Impostor-Übergang (Flimmern?), Parallax am Sockel.
-2. **Putzkorn finden** (D365-Befund): grobes Pixelrauschen auf Putzflächen, vermutlich eine Verfalls-/Moosschicht im
-   Hausmaterial ohne Filterung. Nach ADR-0018 Punkt 3 ein Fehler. Am M1 prüfen, ob es echt ist, dann beheben.
+2. **Putzkorn: behoben (D387), am M1 gegenprüfen.** Ursache war keine ungefilterte Schicht, sondern zwei Rechenfehler im
+   Hausmaterial (Wandnormale aus Ableitungen der 32-Bit-Weltlage; Flächenart ungerundet verglichen). Die Wände zeigen Scan,
+   Flecken und Efeu jetzt an der richtigen Stelle — das ist ein neues Bild, in Bewegung ansehen. Offen: Blattkrisseln des
+   flachen Wandefeus in 5–15 m, `substratKorn` 31/m (ADR-0018 Punkt 3?). Details Ledger D387.
 3. **Zielbilder mit GPU neu rendern** (Metal; in der Cloud nur CPU, 1280×720): `tools/stilframes.py` Modus `aframe`,
    danach D372/D373. Scans von Poly Haven (CC0) neu laden — Liste im Ledger D371/D372/D373, Ablage `.cache/cc0/`.
    Flo entscheidet am Bild, ob das Zielbild gilt.

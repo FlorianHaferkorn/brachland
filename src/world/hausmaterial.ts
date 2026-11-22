@@ -60,6 +60,14 @@ float verfallRauschen(vec2 p) {
   vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(verfallHash(i), verfallHash(i + vec2(1.0, 0.0)), f.x), mix(verfallHash(i + vec2(0.0, 1.0)), verfallHash(i + vec2(1.0, 1.0)), f.x), f.y);
 }
+// D387: Bandbegrenzung. verfallPixel ist die Pixelgrösse auf der Fläche in Metern (aus der unverschobenen
+// Sichtlage, nicht aus der POM-Lage), dichte die Zellen je Meter. Unter vier Pixeln je Zelle geht das Rauschen
+// in seinen Mittelwert über, statt hinter den Schwellen der Verfallsschichten als Pixelkorn stehen zu bleiben
+// (Schwellen wie substratDetail, oberflaechen.ts).
+float verfallPixel = 0.0;
+float verfallFein(vec2 p, float dichte) {
+  return mix(verfallRauschen(p), 0.5, smoothstep(0.26, 0.78, verfallPixel * dichte));
+}
 `;
 const VERFALL_FARBE = /* glsl */ `
   float vStufe = ${HOF_ORTSALTERUNG_AN ? 'floor(mod(vZustand.x,4.0))' : HOF_ZIEL_AN ? 'vZustand.x - 4.0 * zielHaus' : 'vZustand.x'}, vHoehe = vZustand.y;
@@ -119,9 +127,14 @@ uniform sampler2D uScanNormal;
 uniform vec4 uScanMeter;
 varying float vRolle;
 varying vec3 vHausPos;
+varying vec3 vHausNormal;
 vec3 scanT, scanB, scanN;
 vec2 scanUv(float r) {
-  scanN = normalize(cross(dFdx(vHausPos), dFdy(vHausPos)));
+  // D387: Normale aus dem Eckenattribut (je Dreieck konstant), nicht aus dFdx/dFdy der Weltlage. Die Weltlage hat
+  // bei x um 1400 m nur 0,12 mm Auflösung; ihre Ableitung über ein Pixel kippte die Normale je Pixelblock, und weil
+  // unten die absolute Lage mit der Tangente verrechnet wird, sprang die Wandkoordinate um Dezimeter bis Meter
+  // (tests/wandlage.test.ts) — Scan, Flecken und Efeu lasen in jedem Block eine andere Stelle: Pixelkorn.
+  scanN = normalize(vHausNormal);
   vec3 hoch = vec3(0.0, 1.0, 0.0);
   scanT = abs(scanN.y) > 0.97 ? vec3(1.0, 0.0, 0.0) : normalize(cross(hoch, scanN));
   scanB = cross(scanN, scanT);
@@ -150,7 +163,7 @@ const HOF_VERFALL_FARBE = /* glsl */ `
       vec3 entlang = abs(nn.y) > 0.97 ? vec3(1,0,0) : normalize(cross(nn,vec3(0,1,0)));
       vec2 pVerfall = vec2(dot(vHausPos,entlang),vHausPos.y);
       float flecken = verfallRauschen(pVerfall * vec2(.78,.91));
-      float rand = verfallRauschen(pVerfall * 5.2);
+      float rand = verfallFein(pVerfall * 5.2, 5.2);
       float laeufer = verfallRauschen(pVerfall * vec2(2.3,.22));
       vec3 alt = diffuseColor.rgb;
       if (scanR < 0.5) {
@@ -191,7 +204,7 @@ const HOF_ZIEL_FARBE = /* glsl */ `
     vec2 wand = vec2(dot(ecke,vec2(.468,.884)),dot(ecke,vec2(.884,-.468)));
     vec2 p = vec2(wand.x + wand.y * .67,vHausPos.y);
     float fleck = verfallRauschen(p * vec2(1.33,1.58));
-    float schlieren = verfallRauschen(p * vec2(5.4,.63));
+    float schlieren = verfallFein(p * vec2(5.4,.63), 5.4);
     float bruch = (1.0 - smoothstep(1.55,3.68,abs(wand.x - 3.18)))
       * (1.0 - smoothstep(.52,1.92,abs(wand.y)));
     float spuelfront = 1.3 + .84 * fleck + .55 * schlieren;
@@ -214,7 +227,7 @@ const HOF_ZIEL_FARBE = /* glsl */ `
       float grau = dot(farbe, vec3(.2126,.7152,.0722));
       if (scanR < .5) {
         // Ausbrüche konzentrieren sich am feuchten Mauerfuß und unter den Tropfkanten.
-        float scholle = verfallRauschen(ort * vec2(1.1,1.54)) + .32 * verfallRauschen(ort * 5.5);
+        float scholle = verfallRauschen(ort * vec2(1.1,1.54)) + .32 * verfallFein(ort * 5.5, 5.5);
         float alt = smoothstep(.53,.95,scholle + .53 * nass);
         vec3 kalk = mix(farbe, vec3(grau), .69) * vec3(.91,.89,.84);
         farbe = mix(kalk, kalk * vec3(.43,.47,.43), alt);
@@ -227,12 +240,12 @@ const HOF_ZIEL_FARBE = /* glsl */ `
       if (scanR < .5 || scanR > 2.5) {
         // Feuchte und Moos steigen in ungleichen Flecken aus den Sockelfugen.
         float feuchte = 1.0 - smoothstep(.22,1.34,vHoehe + (wasser - .44) * .85);
-        float fleck = verfallRauschen(ort * vec2(5.0,6.1)) * .62 + wasser * .66;
+        float fleck = verfallFein(ort * vec2(5.0,6.1), 6.1) * .62 + wasser * .66;
         float moos = smoothstep(.46,.83,fleck) * feuchte;
         if (scanR > 2.5) farbe = mix(farbe,vec3(grau) * vec3(.88,.89,.84),.70);
         farbe = mix(farbe, farbe * vec3(.54,.69,.37), moos * .86);
       } else if (scanR > 1.5 && hofN.y > .50) {
-        float fugen = verfallRauschen(ort * vec2(3.7,13.2));
+        float fugen = verfallFein(ort * vec2(3.7,13.2), 13.2);
         float moos = smoothstep(.54,.82,wasser * .69 + fugen * .53);
         farbe = mix(farbe, mix(farbe,vec3(.085,.09,.044),.78), moos * .63);
       }
@@ -241,7 +254,7 @@ const HOF_ZIEL_FARBE = /* glsl */ `
       // Unregelmäßige Feuchte folgt Fugen, Verfärbung und Holzfasern derselben Flächen.
       float ruecksprung = verfallRauschen(ort * vec2(1.7,3.5));
       if (scanR < .5) {
-        float laeufer = verfallRauschen(ort * vec2(14.0,0.42));
+        float laeufer = verfallFein(ort * vec2(14.0,0.42), 14.0);
         float feuchteRand = 1.0 - smoothstep(.19,1.13,vHoehe + (ruecksprung - .5) * .71);
         float schollen = smoothstep(.51,.76,ruecksprung + .31 * laeufer);
         farbe = mix(farbe * .80, vec3(.145,.124,.094), .26);
@@ -249,7 +262,7 @@ const HOF_ZIEL_FARBE = /* glsl */ `
         farbe = mix(farbe,bodenmoos,feuchteRand * schollen * .86);
         farbe *= 1.0 - .17 * schollen;
       } else if (scanR < 1.5 && abs(hofN.y) < .48) {
-        float leiste = verfallRauschen(vec2(ort.x * 10.6, ort.y * .39));
+        float leiste = verfallFein(vec2(ort.x * 10.6, ort.y * .39), 10.6);
         farbe *= .67 + .55 * leiste + .12 * ruecksprung;
       } else if (scanR > 1.5 && scanR < 2.5 && hofN.y > .35) {
         float moos = smoothstep(.48,.78,ruecksprung);
@@ -278,14 +291,14 @@ const HOF_ZIEL_FARBE = /* glsl */ `
     // Maserung und ausgewaschene Farbe auf Rahmen und Fensterläden.
     vec3 n = abs(normalize(vHausNormal));
     float u = mix(vHausPos.x, vHausPos.z, step(n.z, n.x));
-    float korn = verfallRauschen(vec2(u * 42.0, vHausPos.y * 1.45));
-    float regen = verfallRauschen(vec2(u * 12.2, vHausPos.y * .45));
+    float korn = verfallFein(vec2(u * 42.0, vHausPos.y * 1.45), 42.0);
+    float regen = verfallFein(vec2(u * 12.2, vHausPos.y * .45), 12.2);
     float grau = dot(diffuseColor.rgb, vec3(.2126,.7152,.0722));
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(grau) * vec3(1.04,.98,.88), .52);
     diffuseColor.rgb *= (.89 + .16 * korn) * (.70 + .40 * regen);
     ${HOF_ZIELTREUE_AN ? /* glsl */ `
     // Verbleibende Farbe bricht in Inseln auf und gibt dunkleres Holz frei.
-    float faser = verfallRauschen(vec2(u * 158.0, vHausPos.y * 3.2));
+    float faser = verfallFein(vec2(u * 158.0, vHausPos.y * 3.2), 158.0);
     float abplatzer = smoothstep(.51,.75,regen * .62 + korn * .28 + faser * .37)
       ${WESTDETAIL_AN ? '* (vZustand.x >= 24.0 ? (.28 + .36*vStufe) : 1.0)' : ''};
     vec3 altHolz = vec3(.119,.099,.074) * (.53 + .63 * faser);
@@ -348,7 +361,7 @@ const ORTSALTERUNG_FARBE = /* glsl */ `
     if (scanR < .5 && wandAnteil > .5) {
       // Unter dem ausgewaschenen Putz kommt körniges, dunkleres Mauerwerk zum Vorschein.
       float ausbruch = smoothstep(.67,.97,fleck*.56 + laeufer*.24 + bewittert*.47 + nass*.55);
-      float korn = verfallRauschen(wand * 5.4);
+      float korn = verfallFein(wand * 5.4, 5.4);
       vec3 stein = vec3(.123,.109,.089) * (.62 + .48*korn + .41*fleck);
       ${WESTVERFALL_AN ? /* glsl */ `
       // Sockel und Ablaufspuren bestimmen, wo die Schicht großflächig abgeplatzt ist.
@@ -392,6 +405,10 @@ const WESTDETAIL_FARBE = /* glsl */ `
   vec2 detailUv = vec2(0.0), detailStein = vec2(0.0);
   vec3 detailT = vec3(1.0,0.0,0.0), detailB = vec3(0.0,1.0,0.0);
   float detailAusbruch = 0.0, detailNass = 0.0;
+  // D387: Die Flächenart (0 Wand, 1 Regenlauf, 2 Wand am Anschluss, 3 beides) ist je Dreieck konstant, kommt aber
+  // interpoliert an: aus 2.0 wird in einzelnen Pixeln 1.9999999. Ohne Runden kippten dort beide Abfragen — die Wand
+  // galt pixelweise als Regenlauf, wurde nass und platzte ab: dunkle Einzelpixel über die ganze Putzfläche.
+  float raumArt = floor(vRaumUv.z + .5);
   if (westMaterial) {
     detailT = abs(detailN.y) > .97 ? vec3(1,0,0) : normalize(cross(vec3(0,1,0),detailN));
     detailB = cross(detailN,detailT);
@@ -403,13 +420,13 @@ const WESTDETAIL_FARBE = /* glsl */ `
     float feuchte = floor(floor(fract(vZustand.x)*4096.0+.5)/64.0)/63.0;
     float schaden = vStufe*.5;
     float wolke = verfallRauschen(p*vec2(1.2,1.85));
-    float lauf = verfallRauschen(p*vec2(7.6,.43));
-    float rand = verfallRauschen(p*8.7);
+    float lauf = verfallFein(p*vec2(7.6,.43), 7.6);
+    float rand = verfallFein(p*8.7, 8.7);
     float sockel = 1.0 - smoothstep(.07, .8 + feuchte*(.76+lauf*.7), vHoehe+rand*.39);
     detailNass = feuchte * (.64 + .32*max(0.0,-detailN.z))
       * max(sockel*.92, schaden*lauf*wolke*.76);
     ${WESTFASSADE_AN ? /* glsl */ `
-    if (scanR < .5 && ${WESTANSCHLUSS_AN ? 'mod(vRaumUv.z, 2.0)' : 'vRaumUv.z'} > .5) {
+    if (scanR < .5 && ${WESTANSCHLUSS_AN ? 'mod(raumArt, 2.0)' : 'raumArt'} > .5) {
       // Aus dem Bruchrand läuft Wasser über die erhaltene Mauer.
       float spur = 1.0 - smoothstep(.05, .43, abs(vRaumUv.x + .21*(lauf-.5)));
       float ablauf = 1.0 - smoothstep(.14, 2.45, max(0.0, -vRaumUv.y + wolke*.39));
@@ -418,7 +435,7 @@ const WESTDETAIL_FARBE = /* glsl */ `
     ` : ''}
     ${WESTANSCHLUSS_AN ? /* glsl */ `
     float spritzwasser = 0.0;
-    if (vRaumUv.z >= 2.0) {
+    if (raumArt >= 2.0) {
       float randhoehe = .17 + schaden*.30 + wolke*.24 + lauf*.29;
       float flecken = smoothstep(.30,.70,wolke*.50 + lauf*.29 + rand*.21);
       spritzwasser = (1.0 - smoothstep(.04,randhoehe,vHoehe)) * flecken;
@@ -444,7 +461,7 @@ const WESTDETAIL_FARBE = /* glsl */ `
     } else if (scanR < 2.5) {
       float moos = smoothstep(.46,.84,wolke*.56 + lauf*.28 + .31*feuchte);
       farbe = mix(farbe*.81,farbe*vec3(.65,.74,.42),moos*feuchte);
-    }${WESTANSCHLUSS_AN ? ' else if (vRaumUv.z >= 2.0) { farbe *= mix(vec3(1.0), vec3(.76,.77,.63), spritzwasser); }' : ''}
+    }${WESTANSCHLUSS_AN ? ' else if (raumArt >= 2.0) { farbe *= mix(vec3(1.0), vec3(.76,.77,.63), spritzwasser); }' : ''}
     farbe *= mix(vec3(1.0),vec3(.56,.63,.45),detailNass);
     if (scanR < 1.5) farbe = mix(farbe,efeuFarbe,efeuDeckung*.78);
     diffuseColor.rgb = mix(diffuseColor.rgb,farbe,.93);
@@ -491,8 +508,8 @@ const milbingerFarbe = (substrat: boolean) => /* glsl */ `
     float alter = clamp(.54 + .22 * vStufe, .52, .98);
     float wetter = .74 + .22 * max(0.0, -altN.z);
     float putzfleck = verfallRauschen(altOrt * vec2(.66,1.01));
-    float laeufer = verfallRauschen(altOrt * vec2(4.8,.38));
-    float korn = verfallRauschen(altOrt * 7.5);
+    float laeufer = verfallFein(altOrt * vec2(4.8,.38), 4.8);
+    float korn = verfallFein(altOrt * 7.5, 7.5);
     float sockel = (1.0 - smoothstep(.08, 1.42 + 1.05 * putzfleck, vHoehe))
       * smoothstep(.24,.76, .71 * putzfleck + .29 * laeufer);
     float auswaschung = smoothstep(.46,.83, laeufer * .71 + putzfleck * .29);
@@ -597,9 +614,10 @@ export function baueHausMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStand
       // An den Milbinger Putzwänden bilden die räumlichen Ranken die Blattdeckung.
       if (vZustand.x < 24.0 && zielHaus < .5) mass *= 1.0 - milbingerHausGewicht(vHausPos.xz);
       if (mass > 0.01`) : VERFALL_FARBE;
-  // D365: POM verschiebt die Weltlage in der Wandebene; die flache Normale bleibt aus der unverschobenen Lage.
+  // D365: POM verschiebt die Weltlage in der Wandebene. D387: Die Wandnormale kommt aus dem Eckenattribut und
+  // hängt damit nicht mehr an der (verschobenen oder unverschobenen) Lage.
   const scanPars = POM_AN ? SCAN_PARS.replace('varying vec3 vHausPos;', 'varying vec3 vHausPos;' + pomPars(HOF_AN, HOF_ZIEL_AN))
-    .replace('cross(dFdx(vHausPos), dFdy(vHausPos))', 'cross(dFdx(hausPosRoh()), dFdy(hausPosRoh()))') : SCAN_PARS;
+    : SCAN_PARS;
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uGlut = glut;
     if (SCAN_TEXTUREN) {
@@ -614,8 +632,8 @@ export function baueHausMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStand
         uHofMeter: { value: new THREE.Vector4(...HOF_SCANS.rollen.map(r => r.meter) as [number, number, number, number]) },
       });
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nattribute float rolle;\nvarying float vRolle;\nvarying vec3 vHausPos;' + (BAUWELT_AN ? '\nattribute vec2 zustand;\nvarying vec2 vZustand;' : '') + (HAUSFRONT_AN ? '\nattribute vec3 raumUv;\nvarying vec3 vRaumUv;\nvarying vec3 vHausNormal;' : ''))
-        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n  vRolle = rolle;\n  vHausPos = (modelMatrix * vec4(transformed, 1.0)).xyz;' + (BAUWELT_AN ? '\n  vZustand = zustand;' : '') + (HAUSFRONT_AN ? '\n  vRaumUv = raumUv; vHausNormal = normalize(mat3(modelMatrix) * objectNormal);' : ''));
+        .replace('#include <common>', '#include <common>\nattribute float rolle;\nvarying float vRolle;\nvarying vec3 vHausPos;' + (BAUWELT_AN ? '\nattribute vec2 zustand;\nvarying vec2 vZustand;' : '') + '\nvarying vec3 vHausNormal;' + (HAUSFRONT_AN ? '\nattribute vec3 raumUv;\nvarying vec3 vRaumUv;' : ''))
+        .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n  vRolle = rolle;\n  vHausPos = (modelMatrix * vec4(transformed, 1.0)).xyz;' + (BAUWELT_AN ? '\n  vZustand = zustand;' : '') + '\n  vHausNormal = normalize(mat3(modelMatrix) * objectNormal);' + (HAUSFRONT_AN ? '\n  vRaumUv = raumUv;' : ''));
       if (BAUWELT_AN) shader.uniforms.uEfeu = { value: bueschelTextur('laub') };
       if (HOF_ZIEL_AN) Object.assign(shader.uniforms, {
         uHofZielFarbe: { value: hofTextur('ziel-farbe', true) },
@@ -636,6 +654,7 @@ float zielMassstab(float r) { return r < .5 ? 1.0 : r < 1.5 ? .92 : r < 2.5 ? 1.
           + (substrat ? OBERFLAECHEN_GLSL : ''))
         .replace('#include <color_fragment>', `#include <color_fragment>
   float scanR = floor(vRolle + 0.5);
+  ${BAUWELT_AN ? 'verfallPixel = max(length(dFdx(vViewPosition)), length(dFdy(vViewPosition)));' : ''}
   ${HOF_ZIEL_AN ? `float zielHaus = step(4.0, ${HOF_ORTSALTERUNG_AN ? 'mod(vZustand.x,8.0)' : 'vZustand.x'}); if (scanR >= 6.0) scanR = 4.0;` : ''}
   ${POM_AN ? pomWahl({ hof: HOF_AN, ziel: HOF_ZIEL_AN, west: WESTDETAIL_AN, milbinger: !!milbinger, normale: HAUSFRONT_AN }) : ''}
   vec2 scanP = vec2(0.0);

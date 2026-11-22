@@ -1,0 +1,77 @@
+[
+  {
+    "id": "lesen",
+    "name": "Lesen",
+    "ladungen": 1,
+    "markenStufe": 0,
+    "einsicht": 1,
+    "beruehrt": "anzeige",
+    "wirkung": "Zwanzig Sekunden lang zeigt sich jeder Befallene im Umkreis von vierzig Metern durch Gelände und Laub, mit seinem Zustand: befallen, wund, verhärtet.",
+    "werk": "Feldabgleich: die Klammer fragt jeden Symbionten in Reichweite nach seiner Kennung."
+  },
+  {
+    "id": "rufen",
+    "name": "Rufen",
+    "ladungen": 1,
+    "markenStufe": 1,
+    "einsicht": 1,
+    "beruehrt": "welt",
+    "wirkung": "Ein gereinigtes Tier des Reviers kommt heran und bleibt eine Weile. Mit Halfter: das gebundene Reittier, von überall im Revier.",
+    "werk": "Rückruf: für Tiere gedacht, die das Werk selbst ausgesetzt hat."
+  },
+  {
+    "id": "stillen",
+    "name": "Stillen",
+    "ladungen": 1,
+    "markenStufe": 1,
+    "einsicht": 2,
+    "beruehrt": "kampfwert",
+    "wirkung": "Ein befallenes Tier in sechs Metern hält drei Sekunden inne, wenn es nicht gerade ausholt. Verhärtete und Menschen nicht.",
+    "werk": "Ruhigstellen vor dem Eingriff, Wartungsblatt K7 Punkt 4.",
+    "messung": "tools/reinigensim.ts und Kampfbot: neues Griff-Fenster ohne Haltungsbruch"
+  },
+  {
+    "id": "stoss",
+    "name": "Stoss",
+    "ladungen": 1,
+    "markenStufe": 2,
+    "einsicht": 2,
+    "beruehrt": "kampfwert",
+    "wirkung": "Wirft alles Befallene in zweieinhalb Metern drei Meter zurück und nimmt ihm Haltung. Kein Schaden.",
+    "werk": "Abstandsimpuls: Schutz des Bedieners, wenn ein Tier beim Abgleich durchgeht.",
+    "messung": "tools/kampfbot.ts gegen Rudel (zwei und drei Tiere); Werte wie der Flutstoss ohne Element (FLUT in echtzeit.ts)"
+  },
+  {
+    "id": "binden",
+    "name": "Binden",
+    "ladungen": 2,
+    "markenStufe": 2,
+    "einsicht": 3,
+    "beruehrt": "kampfwert",
+    "wirkung": "Ein gegriffenes Tier bleibt zwei Sekunden länger am Boden.",
+    "werk": "Haltestrom verlängern — auf dem Typenschild als „nur kurzzeitig“ vermerkt.",
+    "messung": "tools/reinigensim.ts 1000 gegner: content/reinigen.json halten (heute 1,2 s)"
+  },
+  {
+    "id": "schirm",
+    "name": "Schirm",
+    "ladungen": 2,
+    "markenStufe": 3,
+    "einsicht": 3,
+    "beruehrt": "kampfwert",
+    "wirkung": "Vier Sekunden lang macht der Griff nicht verwundbarer als sonst (×1,0 statt ×1,25).",
+    "werk": "Eigenschutz des Trägers; zieht Strom, den die Reinigung dann nicht hat.",
+    "messung": "tools/reinigensim.ts empfohlen: content/reinigen.json verwundbar"
+  },
+  {
+    "id": "nachhall",
+    "name": "Nachhall",
+    "ladungen": 3,
+    "markenStufe": 4,
+    "einsicht": 3,
+    "beruehrt": "kampfwert",
+    "wirkung": "Reinigt ein wundes gewöhnliches Tier aus sechs Metern, ohne Griff. Drei Ladungen statt einer.",
+    "werk": "Fernabgleich. Im Aushang durchgestrichen: „nicht freigegeben“.",
+    "messung": "tools/reinigensim.ts und oekonomiesim: Reinigen ohne Fenster — nur als letzte Stufe und nur teuer vertretbar"
+  }
+]

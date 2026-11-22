@@ -27,7 +27,7 @@ entsprechend für unsere Story anpassen.“
 | **1 verlassen, intakt** | Ortsränder, Höfe in Einzellage | Dach geschlossen, Moos und Gras auf der Dachhaut, Efeu/Waldrebe an der Wetterseite, Fenster blind, Läden schief, Lauben morsch, Gras und Birken im Hof. |
 | **2 verfallen** | Talboden, Hanglagen | Dach eingesunken (Teilfläche fehlt, Sparren sichtbar), Laube abgestürzt, Blockbau-OG dunkel verwittert, Birken/Holunder im Haus, Wände stark überwachsen. |
 | **3 Ruine** | einzelne Orte der Story (Altstollen, Ruine) | nur Erdgeschoss-Mauerwerk aus Nagelfluh/Feldstein, Bäume darin, kein Dach. |
-| **Befall** | überall möglich, aber mit **Quellen**: Infrastruktur (Trafo, Kläranlage, Stollen, Werk) sind die Herde, von dort breitet er sich aus (Flo 22.11.2026, Ledger D409) | an den Quellen dicht mit Verwachsenen (Tier × Infrastruktur); abseits davon als Ausläufer: bleiches Geflecht, das sich als Band ausbreitet, hinten alt und tot, vorn frisch und eisblau pulsierend. Die **eine** Signalfarbe (ADR-0002) bleibt. |
+| **Befall** | überall möglich, aber mit **Quellen**: Infrastruktur (Trafo, Kläranlage, Stollen, Werk) sind die Herde, von dort breitet er sich aus (Flo 22.11.2026, Ledger D417) | an den Quellen dicht mit Verwachsenen (Tier × Infrastruktur); abseits davon als Ausläufer: bleiches Geflecht, das sich als Band ausbreitet, hinten alt und tot, vorn frisch und eisblau pulsierend. Die **eine** Signalfarbe (ADR-0002) bleibt. |
 
 Zuweisung im Generator: aus Lage (Abstand zur Enklave, Einzellage, Höhe), Grundfläche und einem Würfel je Gebäude —
 deterministisch (Seed), nicht gespeichert (CLAUDE.md, Performance-Invarianten).
@@ -145,7 +145,7 @@ Reihenfolge nach Wirkung:
 3. **Verfallsstufen** wie oben, inklusive Bewuchs als Blattkarten (Technik D282) und Moos-/Feuchtemaske im Material.
 4. **Sonderbauten:** Kirchen nach Tabelle (Turmform je Ort), Kapellen/Marterl, Stadel, Almkaser am Hang.
 5. **Infrastruktur:** Bahn Rosenheim–Kufstein, Wendelsteinbahn-Talstation Waching, Steinbruch (3× `landuse=quarry`),
-   A93 — als Ruinen/Trassen; hier liegen die Quellen des Befalls (Ausläufer überall, Ledger D409).
+   A93 — als Ruinen/Trassen; hier liegen die Quellen des Befalls (Ausläufer überall, Ledger D417).
 
 Richtwerte (Neigung, Überstand, Ladenfarbe) sind nicht belegt (UNKLAR) — vor Festschreibung gegen Fotos der
 Denkmalliste oder Glentleiten prüfen.

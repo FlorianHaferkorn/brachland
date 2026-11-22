@@ -58,7 +58,22 @@ pruefe('Schema verlangt mindestens drei Stationen',
 console.log('\nZähler der Mönche (D385, D392):');
 {
   const w: Weltstand = { ...LEER, besiegt: ['wurzelkeiler:1:1', 'regent:flussvater'], gereinigt: ['spuerfuchs:2:2', 'spuerfuchs:2:3'] };
-  pruefe('Töten und Reinigen zählen gleich, der Regent nicht', eingriffe(w) === 3, String(eingriffe(w)));
+  pruefe('Ohne Gewichte zählen Töten und Reinigen gleich, der Regent nicht', eingriffe(w) === 3, String(eingriffe(w)));
+  const G = { getoetet: 1, gereinigt: 0.25 };
+  pruefe('Mit Gewichten (D404): ein Getöteter 1, zwei Gereinigte je ein Viertel', eingriffe(w, G) === 1.5, String(eingriffe(w, G)));
+  pruefe('Erst gereinigt, dann getötet: zählt einmal, und zwar voll', eingriffe({ besiegt: ['a:1:1'], gereinigt: ['a:1:1'] }, G) === 1);
+  pruefe('Vier Gereinigte wiegen wie ein Getöteter', eingriffe({ gereinigt: ['a:1:1', 'a:1:2', 'a:1:3', 'a:1:4'] }, G) === eingriffe({ besiegt: ['b:1:1'] }, G));
+  pruefe('Die Schwelle rechnet mit den Gewichten der Station',
+         !gilt({ art: 'eingriffe', anzahl: 2, gewichte: G }, w) && gilt({ art: 'eingriffe', anzahl: 2 }, w)
+         && gilt({ art: 'eingriffe', anzahl: 1, gewichte: G }, w));
+  pruefe('Schema nimmt die Gewichte an und lehnt negative ab',
+         Wanderfigur.safeParse({ ...F, stationen: [{ ...F.stationen[0], bis: { art: 'eingriffe', anzahl: 3, gewichte: G } }, ...F.stationen.slice(1)] }).success
+         && !Wanderfigur.safeParse({ ...F, stationen: [{ ...F.stationen[0], bis: { art: 'eingriffe', anzahl: 3, gewichte: { getoetet: -1, gereinigt: 0 } } }, ...F.stationen.slice(1)] }).success);
+  {
+    const z = JSON.parse(readFileSync('content/wanderfiguren/zaehler.json', 'utf8'));
+    const b = z.stationen.map((x: any) => x.bis).find((x: any) => x?.art === 'eingriffe');
+    pruefe('Der Zähler im Inhalt wiegt Reinigen leichter als Töten', !!b?.gewichte && b.gewichte.gereinigt < b.gewichte.getoetet, JSON.stringify(b));
+  }
   pruefe('Dasselbe Vorkommen zählt einmal', eingriffe({ besiegt: ['a:1:1'], gereinigt: ['a:1:1'] }) === 1);
   pruefe('Ohne Listen (alter Aufruf): null Eingriffe', eingriffe(LEER) === 0);
   pruefe('`eingriffe` gilt ab der Schwelle, nicht davor',

@@ -252,5 +252,11 @@
   "toeten": {
     "leerAb": 0.6,
     "verhaertungJeLeeremRevier": 0.5
+  },
+  "baukasten": {
+    "umbau": {
+      "chitinspan": 2,
+      "federstahl": 2
+    }
   }
 }

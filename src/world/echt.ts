@@ -131,7 +131,7 @@ export const HAUS_SHADER_SPAR_AN = HAUS_KOMPAKT_AN && suche.get('hausshader') !=
 export const REFERENZHAUS_AN = HOF_GRUEN_AN && an('referenzhaus');
 export const HOF_AN = an('scanhof') || HOF_GRUEN_AN;
 /**
- * A-Frame-Darstellung (D402, ADR-0018, Rezept aus `tools/stilframes.py` Stil `aframe`): `?aframe=1` = `?echt=1`
+ * A-Frame-Darstellung (D410, ADR-0018, Rezept aus `tools/stilframes.py` Stil `aframe`): `?aframe=1` = `?echt=1`
  * plus tiefengewichteter Malfilter (nah unberührt, Ferne/Kronen/Himmel zu Flächen) und Temperaturtrennung
  * (Schatten kühl, Licht warm) nach der Tonwertkurve. Ersetzt den globalen Filter aus D269 nicht, steht daneben.
  */

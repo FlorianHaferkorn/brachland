@@ -252,7 +252,7 @@ def mat_kern_scan():
     dif = kachel(nt, mp.outputs[0], scan('forest_leaves_04', 'diff'), True, (-400, 200))
     hoe = kachel(nt, mp.outputs[0], scan('forest_leaves_04', 'disp'), False, (-400, -200))
     mul = N(nt, 'ShaderNodeMix', (-100, 200), data_type='RGBA', blend_type='MULTIPLY'); mul.inputs[0].default_value = 1.0
-    L(nt, dif.outputs['Color'], mul.inputs[6]); mul.inputs[7].default_value = (0.34, 0.31, 0.27, 1)   # D403: Kalkmörtelreste und Erde, nicht schwarz
+    L(nt, dif.outputs['Color'], mul.inputs[6]); mul.inputs[7].default_value = (0.34, 0.31, 0.27, 1)   # D411: Kalkmörtelreste und Erde, nicht schwarz
     hs = N(nt, 'ShaderNodeHueSaturation', (100, 200)); hs.inputs['Saturation'].default_value = 0.45; L(nt, mul.outputs[2], hs.inputs['Color'])
     b = N(nt, 'ShaderNodeBsdfPrincipled', (300, 0)); L(nt, hs.outputs[0], b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.95
     bump = N(nt, 'ShaderNodeBump', (0, -200)); bump.inputs['Strength'].default_value = 0.8; L(nt, hoe.outputs['Color'], bump.inputs['Height']); L(nt, bump.outputs[0], b.inputs['Normal'])
@@ -479,14 +479,14 @@ def stein_bruch(ziel, groesse, matrix, saat, rauheit=0.06, rund=0.35):
         # Bruchebene schräg zur Ansichtsfläche (y = Mauertiefe klein): der Umriss wird vieleckig, nicht nur die Ecke stumpf
         nrm = Vector((rnd.choice((-1, 1)) * rnd.uniform(0.3, 1), rnd.choice((-1, 1)) * rnd.uniform(0.0, 0.5), rnd.choice((-1, 1)) * rnd.uniform(0.3, 1))).normalized()
         ecke = 0.5 * (abs(nrm.x) + abs(nrm.y) + abs(nrm.z))
-        d = ecke * rnd.uniform(0.74, 0.95)   # D403: nur Ecken und Kanten ab, die Ansichtsfläche bleibt gross
+        d = ecke * rnd.uniform(0.74, 0.95)   # D411: nur Ecken und Kanten ab, die Ansichtsfläche bleibt gross
         res = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=nrm * d, plane_no=nrm, clear_outer=True)
         rand = [e for e in res['geom_cut'] if isinstance(e, bmesh.types.BMEdge) and e.is_boundary]
         if rand: bmesh.ops.holes_fill(bm, edges=rand, sides=0)
     off = Vector((rnd.random() * 60, rnd.random() * 60, rnd.random() * 60))
     # Form-Varianz: nicht jeder Stein füllt seinen Platz — schmaler, niedriger, verkantet, vor- oder zurückgesetzt.
     # Das öffnet Fugen mit Tiefe (dahinter der dunkle Kern) und bricht die Reihen.
-    # D403 (Flo 22.11.2026: „Verhältnis Steine zu Füllmaterial passt nicht“): vorher 0,82–1,0 × 0,68–1,0 plus tiefe
+    # D411 (Flo 22.11.2026: „Verhältnis Steine zu Füllmaterial passt nicht“): vorher 0,82–1,0 × 0,68–1,0 plus tiefe
     # Bruchebenen — der Stein füllte nur gut die Hälfte seines Platzes. Bruchsteinmauerwerk zeigt 1–4 cm Fuge.
     gx, gz = groesse[0] * rnd.uniform(0.95, 1.04), groesse[2] * rnd.uniform(0.92, 1.05)
     for v in bm.verts:
@@ -2062,7 +2062,7 @@ def zielbild():
             k = sb.kamera((ort[0], ort[1], zt + ort[2]), (ziel[0], ziel[1], zt + ziel[2]), brenn); k.name = 'Kamera_' + kname; kams[kname] = k
             if R3: k.data.clip_end = 20000.0   # der fernste Rücken steht bei 8 km
         sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
-        if os.environ.get('BRACHLAND_CPU') != '1':   # D405: am M1 Metal-GPU (Übergabe D377), in der Cloud `BRACHLAND_CPU=1`
+        if os.environ.get('BRACHLAND_CPU') != '1':   # D413: am M1 Metal-GPU (Übergabe D377), in der Cloud `BRACHLAND_CPU=1`
             try:
                 prefs = bpy.context.preferences.addons['cycles'].preferences
                 prefs.compute_device_type = 'METAL'; prefs.get_devices()
@@ -2104,7 +2104,7 @@ def zielbild():
     sb.bauen()
 
 # =====================================================================================================================
-# Orts-Frame (D404, Ledger A-25): A-Frame an einem echten Ort aus den massstäblichen Spielnetzen
+# Orts-Frame (D412, Ledger A-25): A-Frame an einem echten Ort aus den massstäblichen Spielnetzen
 # =====================================================================================================================
 def ortframe():
     """A-Frame an einem vermessenen Ort (zuerst Milbinger Straße): Häuser (OSM-Grundriss, amtliche LoD2-Dächer,

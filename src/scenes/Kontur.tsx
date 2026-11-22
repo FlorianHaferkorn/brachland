@@ -265,7 +265,7 @@ const FRAGMENT = /* glsl */`
   uniform float uAbgleich;
   uniform float uRuhig;
   uniform float uKuwahara;
-  uniform float uAFrame;   // D402: 0 = aus, sonst Bildbreite / 1280 (Strichgrösse folgt der Auflösung)
+  uniform float uAFrame;   // D410: 0 = aus, sonst Bildbreite / 1280 (Strichgrösse folgt der Auflösung)
   varying vec2 vUv;
 
   /* Malfilter (D269): Kuwahara mit vier Sektoren. Gemittelt wird in Karis-Stauchung (c / (1 + c)),
@@ -310,7 +310,7 @@ const FRAGMENT = /* glsl */`
     float z = meter(vUv);
     vec4 farbe = texture2D(tFarbe, vUv);
     if (uAFrame > 0.0) {
-      // D402 (ADR-0018, Zielbild D371): Pinselflächen nur im Grossen. „Nebel“ wie im Blender-Pass linear
+      // D410 (ADR-0018, Zielbild D371): Pinselflächen nur im Grossen. „Nebel“ wie im Blender-Pass linear
       // 0 bei 3 m, 1 bei 150 m; Strichradius 0 bis 9 px (bei 1280 Breite) zwischen 0,10 und 0,65, darunter
       // exakt das Original — die Substanz im Nahbereich bleibt lesbar, Kronen, Ferne und Himmel laufen zu.
       float nebel = clamp((z - 3.0) / 147.0, 0.0, 1.0);
@@ -418,7 +418,7 @@ const TAA_FRAGMENT = /* glsl */`
 `;
 
 
-/** D402: Temperaturtrennung des A-Frames im Anzeigeraum (Blender-Farbbalance Lift/Gain, dann Sättigung 1,08):
+/** D410: Temperaturtrennung des A-Frames im Anzeigeraum (Blender-Farbbalance Lift/Gain, dann Sättigung 1,08):
  * Schatten kühl-violett, Licht warm. Nur im letzten Pass, der auf den Bildschirm schreibt. */
 const AFRAME_TON = /* glsl */`
     {

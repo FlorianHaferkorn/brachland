@@ -491,8 +491,10 @@ export const Stationsbedingung = z.discriminatedUnion('art', [
   /**
    * Der Zähler der Mönche (D385, D392): wahr, sobald der Brachgänger so oft eingegriffen hat — getötet **oder**
    * gereinigt, beides zählt. Wie alle Bedingungen hier nur in eine Richtung: einmal wahr, immer wahr.
+   * `gewichte` (D404/D405): wie schwer ein Eingriff wiegt. Ohne Angabe zählt beides voll (wie vor D405).
    */
-  z.object({ art: z.literal('eingriffe'), anzahl: z.number().int().min(1).max(500) }),
+  z.object({ art: z.literal('eingriffe'), anzahl: z.number().int().min(1).max(500),
+    gewichte: z.object({ getoetet: z.number().min(0).max(2), gereinigt: z.number().min(0).max(2) }).optional() }),
 ]);
 export type Stationsbedingung = z.infer<typeof Stationsbedingung>;
 
@@ -791,6 +793,8 @@ export const Oekonomie = z.object({
     /** Verhärtung: so viele neue Verhärtete je leergetötetem Revier wandern nach (Vorschlag). */
     verhaertungJeLeeremRevier: z.number().min(0).max(1),
   }),
+  /** D403 — Baukasten: was ein Umbau (anderer Kopf und anderer Schaft) im Mittel kostet. Vorschlag. */
+  baukasten: z.object({ umbau: Preis }).optional(),
   /** Überschlagsrechnung je Region: Umfang (Annahmen) und was einmalig in der Welt liegt. */
   regionen: z.record(Kennung, z.object({
     annahmen: z.object({
@@ -802,6 +806,142 @@ export const Oekonomie = z.object({
   })),
 });
 export type Oekonomie = z.infer<typeof Oekonomie>;
+
+// ------------------------------------------------------- Waffen-Baukasten (D403, Entwurf)
+
+/**
+ * Ein Teil des Baukastens. Masse und Abmessung sind echte Grössen (kg, m) — daraus rechnet
+ * `src/kampf/baukasten.ts` Trägheit, Schlagzeit, Wucht. `kraft`, `wendig`, `schneide`, `wucht` sind
+ * **nicht** abgeleitet, sondern gesetzt (Zweihandgriff, Gegengewicht, Schneidenform); jedes Teil, das
+ * einen davon ändert, sagt in `text`, warum.
+ */
+export const Waffenteil = z.object({
+  id: Kennung,
+  name: z.string().max(40),
+  masse: z.number().positive().max(5).describe('Kilogramm'),
+  laenge: z.number().positive().max(3).describe('Meter; Kopf: von der Schaftspitze bis zur Spitze/Schneide'),
+  schwerpunkt: z.number().min(-0.2).max(1).default(0).describe('nur Kopf: Schwerpunkt vor der Schaftspitze, Meter'),
+  kraft: z.number().min(0.8).max(1.3).default(1),
+  wendig: z.number().min(0.8).max(1.3).default(1),
+  schneide: z.number().min(0.7).max(1.3).default(1),
+  wucht: z.number().min(0.7).max(1.3).default(1),
+  /** Was das Teil kostet (Gegenstand → Anzahl). */
+  preis: z.record(Kennung, z.number().int().min(1).max(40)),
+  /** Woher Masse und Länge stammen — Quelle oder „Überschlag“. */
+  anker: z.string().max(280),
+  text: z.string().max(200),
+  /** Braucht eine eigene Pose oder einen eigenen Clip (z. B. zweite Hand am Griff). */
+  brauchtPose: z.boolean().default(false),
+}).strict();
+export type Waffenteil = z.infer<typeof Waffenteil>;
+
+const Waffenfamilie = z.object({
+  bewegung: z.enum(['schwung', 'stoss']),
+  /** Anteil des Schafts vor der Griffhand (Klinge 0: der Griff *ist* die Hand; Axt 0,85; Speer 0,67). */
+  vorHand: z.number().min(0).max(1),
+  kopf: z.array(Waffenteil).min(2).max(5),
+  schaft: z.array(Waffenteil).min(2).max(4),
+  /** Der Bau, der die heutige Waffe ergibt. */
+  referenz: z.object({ kopf: Kennung, schaft: Kennung }),
+}).refine(f => f.kopf.some(t => t.id === f.referenz.kopf) && f.schaft.some(t => t.id === f.referenz.schaft), 'Referenzteile gibt es');
+
+export const Waffenbaukasten = z.object({
+  physik: z.object({
+    armTraegheit: z.number().positive().describe('kg·m², Arm um die Schulter'),
+    armMasse: z.number().positive().describe('kg, was beim Stoss mitbewegt wird'),
+    anteilEnergie: z.number().min(0).max(1).describe('Anteil der Schlagenergie an den Ausdauerkosten; der Rest ist Tragen'),
+  }),
+  familien: z.object({ klinge: Waffenfamilie, axt: Waffenfamilie, speer: Waffenfamilie }),
+  /** Materialgüte: ersetzt die Waffenstufen (D177/D393). `guete` = Faktor auf Schaden und Haltungsschaden. */
+  material: z.array(z.object({
+    id: Kennung, name: z.string().max(40), stufe: z.number().int().min(0).max(4),
+    guete: z.number().min(1).max(1.6), preis: z.record(Kennung, z.number().int().min(1).max(40)), text: z.string().max(200),
+  })).min(2).refine(a => a.filter(m => m.guete === 1).length === 1, 'genau ein Material der Güte 1 (der heutige Stahl)'),
+  /** Härtung: verschiebt zwischen Schneide und Wucht, ohne Summe zu heben. */
+  haertung: z.array(z.object({
+    id: Kennung, name: z.string().max(40), schneide: z.number().min(0.9).max(1.1), wucht: z.number().min(0.9).max(1.1), text: z.string().max(200),
+  })).min(1).refine(a => a.filter(h => h.schneide === 1 && h.wucht === 1).length === 1, 'genau eine neutrale Härtung'),
+  /** Zeug nach demselben Aufbau: Grundstück × Material × Futter. Nur Entwurf, keine Ableitung. */
+  zeug: z.object({
+    grundstuecke: z.array(z.object({ id: Kennung, gegenstand: Kennung, masse: z.number().positive().max(10), vorteil: z.string().max(120), nachteil: z.string().max(120) })).min(1),
+    materialien: z.array(z.object({ id: Kennung, name: z.string().max(40), masseFaktor: z.number().min(0.5).max(2), vorteil: z.string().max(120), nachteil: z.string().max(120) })).min(1),
+    futter: z.array(z.object({ id: Kennung, name: z.string().max(40), masse: z.number().min(0).max(3), vorteil: z.string().max(120), nachteil: z.string().max(120) })).min(1),
+  }),
+  /** Stufe 1, Gestalten: rein kosmetisch, ändert keinen Wert. */
+  gestalten: z.array(z.object({ id: Kennung, name: z.string().max(40), ort: z.enum(['griff', 'schaft', 'kopf', 'zeug']), preis: z.record(Kennung, z.number().int().min(1).max(9)).optional(), text: z.string().max(160) })).min(1),
+}).strict();
+export type Waffenbaukasten = z.infer<typeof Waffenbaukasten>;
+
+// ------------------------------------------------------- Waffenfamilien und Wirken (D405, Entwurf)
+
+/**
+ * Plan der Waffenfamilien (D404/D405): was es gibt, was kommen soll, und was dafür fehlt. **Keine Kampfwerte**
+ * — die stehen für den Bestand in `content/waffen/`, für neue Familien gibt es sie erst nach der Messung.
+ */
+export const Waffenfamilienplan = z.object({
+  familien: z.array(z.object({
+    id: Kennung, name: z.string().max(40),
+    status: z.enum(['bestand', 'entwurf', 'zurueckgestellt']),
+    kapitel: z.number().int().min(1).max(5).optional(),
+    art: z.enum(['nah', 'fern']),
+    gefuehl: z.string().max(160),
+    trennt: z.string().max(260),
+    reinigen: z.string().max(200),
+    /** Echtes Gewicht und Länge als Anker (D398) — mit Quelle oder „Überschlag“. */
+    anker: z.object({ masse: z.string().max(40), laenge: z.string().max(40), quelle: z.string().max(260) }),
+    /** Abweichung von der realen Vorlage, falls das Werkzeug real eine schlechte Waffe ist. */
+    abweichung: z.string().max(260).optional(),
+    clips: z.object({ vorhanden: z.array(z.string()), fehlen: z.array(z.string()) }),
+    messung: z.string().max(200),
+    erwerb: z.string().max(200),
+    aufwand: z.enum(['S', 'M', 'L']),
+    /** Baukasten-Familie, deren Formel und Teile sie teilt (`content/waffenteile.json`), falls es eine gibt. */
+    baukasten: z.enum(['klinge', 'axt', 'speer']).optional(),
+  }).strict()).min(3),
+  /** Fernkampf als Entwurf: alle Zahlen ungeprüft, real verankert, Abweichung benannt (ADR-0019 Proposed). */
+  fernkampf: z.object({
+    waffen: z.array(z.object({
+      id: Kennung, name: z.string().max(40),
+      spannen: z.number().positive().describe('Sekunden bis schussbereit'),
+      spannenReal: z.string().max(120),
+      haltenJeSek: z.number().nonnegative().describe('Ausdauer je Sekunde im gespannten Zustand'),
+      kosten: z.number().nonnegative().describe('Ausdauer je Schuss'),
+      tempo: z.number().positive().describe('m/s Abgang'),
+      schaden: z.number().positive(), haltungsschaden: z.number().nonnegative(),
+      inBewegung: z.boolean(),
+    }).strict()).min(1),
+    geschosse: z.array(z.object({
+      id: Kennung, name: z.string().max(40), fuer: z.array(Kennung).min(1),
+      masse: z.number().positive().describe('Gramm'),
+      schaden: z.number().min(0).max(2).describe('Faktor auf den Schaden der Waffe'),
+      haltung: z.number().min(0).max(3).describe('Faktor auf den Haltungsschaden der Waffe'),
+      traglast: z.number().int().min(1).max(40),
+      wiederfinden: z.number().min(0).max(1),
+      preis: z.record(Kennung, z.number().int().min(1).max(9)), ergibt: z.number().int().min(1).max(12),
+      text: z.string().max(200),
+    }).strict()).min(1),
+    regeln: z.array(z.string().max(260)).min(3),
+  }),
+}).strict();
+export type Waffenfamilienplan = z.infer<typeof Waffenfamilienplan>;
+
+/**
+ * Wirken der Marke (D405, Entwurf): keine Zauber, sondern Funktionen der Armklammer. Jedes Wirken kostet
+ * Ladungen — dieselben, die das Reinigen braucht. Freigeschaltet über Markenstufe und Einsicht.
+ */
+export const Wirken = z.array(z.object({
+  id: Kennung, name: z.string().max(40),
+  ladungen: z.number().int().min(1).max(4),
+  markenStufe: z.number().int().min(0).max(6),
+  einsicht: z.number().int().min(1).max(3),
+  wirkung: z.string().max(200),
+  /** Wie das Werk es genannt hätte — die Erklärung aus der Technik der Welt. */
+  werk: z.string().max(160),
+  beruehrt: z.enum(['anzeige', 'welt', 'traversal', 'oekonomie', 'kampfwert']),
+  messung: z.string().max(160).optional(),
+}).strict().refine(w => ['anzeige', 'welt'].includes(w.beruehrt) || !!w.messung, 'wer einen geprüften Wert berührt, nennt die Messung'))
+  .min(1).refine(a => new Set(a.map(w => w.id)).size === a.length, 'Wirken-IDs sind eindeutig');
+export type Wirken = z.infer<typeof Wirken>;
 
 /**
  * Techniken (D400): was der Brachgänger **gelernt** hat. Bezahlt mit Einsicht, an der Rast. Keine Technik

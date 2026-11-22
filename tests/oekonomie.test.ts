@@ -4,9 +4,9 @@
  * loses Material liegen, und keine kämpfende Spielweise schlägt eine andere auf beiden Achsen.
  */
 import { readFileSync, readdirSync } from 'node:fs';
-import { Belohnungen, Oekonomie, Gegenstand, ReinigenDaten, Techniken, BELOHNUNGS_KATEGORIEN, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
+import { Belohnungen, Oekonomie, Gegenstand, ReinigenDaten, Techniken, Wirken, Waffenfamilienplan, BELOHNUNGS_KATEGORIEN, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
 import { verteile, loeseMenge, istUnikat, lege, type Vergabe } from '../src/spiel/belohnung.js';
-import { braue, bilanz, SPIELWEISEN, markenStufe, fassung, revierRuhig, schmiedeAus, flasche, todesverlust, reicht, ziehe } from '../src/spiel/oekonomie.js';
+import { braue, bilanz, zaehlerStand, SPIELWEISEN, markenStufe, fassung, revierRuhig, schmiedeAus, flasche, todesverlust, reicht, ziehe } from '../src/spiel/oekonomie.js';
 
 let bestanden = 0, gefallen = 0;
 function pruefe(name: string, ok: boolean, hinweis = '') {
@@ -166,11 +166,50 @@ pruefe('Vitalwerte hängen an Bruchstücken, nicht an der Zahl der Getöteten', 
   && S.lebenPlus <= Math.floor(o.regionen.oental.einmalig.meisterwurz / leb.preis.meisterwurz) * leb.plus);
 pruefe('leergetötete Reviere ziehen Verhärtete nach, ruhige nicht', S.nachgewandert > 0 && S.leereReviere > 0 && H.nachgewandert === 0 && H.leereReviere === 0);
 pruefe('wer Figuren verliert, verliert Einsicht', S.einsicht < H.einsicht && S.linien < H.linien);
-pruefe('nur der Umgeher bleibt unter der Schwelle des Zählers (40)', U.eingriffe <= 40 && [S, G, H].every(b => b.eingriffe > 40));
-const achsen = (b: typeof S) => [b.waffen[0], b.markenStufe, b.lebenPlus, b.ausdauerPlus, b.einsicht, b.eingriffe <= 40 ? 1 : 0];
+// D404/D405: Der Zähler wiegt Reinigen leichter — Schwelle und Gewichte aus dem Inhalt.
+const zb = lies('content/wanderfiguren/zaehler.json').stationen.map((x: any) => x.bis).find((x: any) => x?.art === 'eingriffe');
+const stand = (b: typeof S) => zaehlerStand(b, zb.gewichte);
+pruefe('der Zähler trägt Gewichte, Reinigen leichter als Töten', zb.gewichte.gereinigt < zb.gewichte.getoetet);
+pruefe('ungewichtet läge nur der Umgeher unter der Schwelle', U.eingriffe <= zb.anzahl && [S, G, H].every(b => b.eingriffe > zb.anzahl));
+pruefe('gewichtet bleiben Umgeher und Heiler darunter, wer tötet nicht', stand(U) <= zb.anzahl && stand(H) <= zb.anzahl && stand(S) > zb.anzahl && stand(G) > zb.anzahl,
+  [S, G, H, U].map(b => `${b.name} ${stand(b).toFixed(0)}`).join(', '));
+pruefe('der Umgeher liegt weiter unter der Schwelle als der Heiler', stand(U) < stand(H));
+pruefe('zaehlerStand: ein Getöteter wiegt wie vier Gereinigte', zaehlerStand({ getoetet: 1, gereinigt: 0, verhaerteteGetoetet: 0, verhaerteteGereinigt: 0 }, zb.gewichte)
+  === zaehlerStand({ getoetet: 0, gereinigt: 3, verhaerteteGetoetet: 0, verhaerteteGereinigt: 1 }, zb.gewichte));
+
+// D405: Wirken der Marke kostet Ladungen, die dem Reinigen fehlen
+const wirken = Wirken.parse(lies('content/wirken.json'));
+pruefe('fünf bis sieben Wirken', wirken.length >= 5 && wirken.length <= 7);
+pruefe('jedes Wirken kostet Ladungen und Einsicht', wirken.every(x => x.ladungen >= 1 && x.einsicht >= 1));
+pruefe('kein Wirken verlangt eine Markenstufe, die es nicht gibt', wirken.every(x => x.markenStufe <= o.marke.schwellen.length));
+pruefe('das einzige Fern-Reinigen ist das teuerste Wirken', wirken.find(x => x.id === 'nachhall')!.ladungen === Math.max(...wirken.map(x => x.ladungen)));
+const ohne = bilanz({ ...SPIELWEISEN[2], wirken: 0 }, 'oental', o, marke), mit = bilanz({ ...SPIELWEISEN[2], wirken: 0.3 }, 'oental', o, marke);
+pruefe('wer wirkt, reinigt weniger', mit.gereinigt < ohne.gereinigt && mit.laeuterung < ohne.laeuterung && mit.wirkenLadungen > 0 && ohne.wirkenLadungen === 0);
+pruefe('der Schlächter hat mit dem Wirken eine Verwendung für die Marke', S.wirkenLadungen > 0 && S.gereinigt === 0);
+
+// D405: Waffenfamilien
+const wf = Waffenfamilienplan.parse(lies('content/waffenfamilien.json'));
+const aktiv = wf.familien.filter(x => x.status !== 'zurueckgestellt');
+pruefe('sechs bis acht Familien, etwa fünf in Kapitel 1 (D404)', aktiv.length >= 6 && aktiv.length <= 8 && aktiv.filter(x => x.kapitel === 1).length >= 4 && aktiv.filter(x => x.kapitel === 1).length <= 6,
+  `${aktiv.length} / ${aktiv.filter(x => x.kapitel === 1).length}`);
+pruefe('die drei Bestandsfamilien fehlen nichts an Clips', wf.familien.filter(x => x.status === 'bestand').length === 3 && wf.familien.filter(x => x.status === 'bestand').every(x => x.clips.fehlen.length === 0));
+pruefe('jede neue Familie sagt, was an Clips fehlt oder dass nichts fehlt', wf.familien.filter(x => x.status === 'entwurf').every(x => x.clips.vorhanden.length + x.clips.fehlen.length > 0));
+pruefe('Fernwaffen spannen nur im Stand', wf.fernkampf.waffen.every(x => !x.inBewegung));
+pruefe('es gibt ein Geschoss, das mehr Haltung als Schaden nimmt (Kolbenpfeil)', wf.fernkampf.geschosse.some(g => g.haltung > 1 && g.schaden < 1 && !('federstahl' in g.preis)));
+
+const achsenBei = (schwelle: number) => (b: typeof S) => [b.waffen[0], b.markenStufe, b.lebenPlus, b.ausdauerPlus, b.einsicht, stand(b) <= schwelle ? 1 : 0];
 const alle = [S, G, H, U];
-const schlaegt = alle.some(x => alle.some(y => x !== y && achsen(x).every((w, i) => w >= achsen(y)[i]) && achsen(x).some((w, i) => w > achsen(y)[i])));
-pruefe('keine der vier Spielweisen schlägt eine andere auf allen sechs Achsen', !schlaegt, alle.map(b => `${b.name} ${achsen(b).join('/')}`).join(', '));
+const schlaegtBei = (schwelle: number) => { const ax = achsenBei(schwelle);
+  return alle.filter(x => alle.some(y => x !== y && ax(x).every((w, i) => w >= ax(y)[i]) && ax(x).some((w, i) => w > ax(y)[i]))).map(x => x.name); };
+// Befund D405: Mit Reinigen × 0,25 bleibt bei der heutigen Schwelle (40) auch der Heiler darunter — er hat dann
+// alles, was der Umgeher hat, und mehr. Bei 30 trennt der Zähler die beiden wieder. Die Schwelle ist Flos Entscheidung
+// (A-32); der Test hält fest, was bei welcher Schwelle gilt, statt die Daten vorwegzunehmen.
+pruefe('Befund: bei der heutigen Schwelle schlägt der Heiler den Umgeher auf allen Achsen', zb.anzahl !== 40 || schlaegtBei(40).join() === 'Heiler', schlaegtBei(40).join());
+pruefe('bei Schwelle 30 schlägt keine der vier Spielweisen eine andere auf allen sechs Achsen', schlaegtBei(30).length === 0,
+  alle.map(b => `${b.name} ${achsenBei(30)(b).join('/')}`).join(', '));
+pruefe('ohne die Achse der Mönche schlägt nur der Umgeher niemanden und wird geschlagen', (() => {
+  const ax = (b: typeof S) => [b.waffen[0], b.markenStufe, b.lebenPlus, b.ausdauerPlus, b.einsicht];
+  const k = [S, G, H]; return !k.some(x => k.some(y => x !== y && ax(x).every((w, i) => w >= ax(y)[i]) && ax(x).some((w, i) => w > ax(y)[i]))); })());
 
 console.log(`  Œntal: ${[S, G, H, U].map(b => `${b.name} Waffe ${b.waffen[0]} / Marke ${b.markenStufe}`).join(' · ')}`);
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);

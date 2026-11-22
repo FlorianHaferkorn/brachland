@@ -116,6 +116,8 @@ export interface Spielweise {
   findet: number;
   /** D400: abgeschlossene Figurenlinien — wem man traut, schliesst ab; wer Figuren tötet, verliert die Linie (D399). */
   linien: number;
+  /** D405: Anteil der Markenladungen, der ins Wirken geht statt ins Reinigen (0…1). */
+  wirken: number;
 }
 
 export interface Bilanz {
@@ -139,6 +141,16 @@ export interface Bilanz {
   lebenPlus: number; ausdauerPlus: number;
   einsicht: number;
   linien: number;
+  /** D405: Ladungen, die über das Kapitel ins Wirken gingen. */
+  wirkenLadungen: number;
+  /** D403: Hat das Material für einen Umbau der Hauptwaffe (anderer Kopf, anderer Schaft) gereicht? */
+  umbau: boolean;
+}
+
+/** D404/D405: Stand beim Zähler der Mönche — Getötete und Gereinigte mit den Gewichten der Station. */
+export function zaehlerStand(b: Pick<Bilanz, 'getoetet' | 'gereinigt' | 'verhaerteteGetoetet' | 'verhaerteteGereinigt'>,
+  gewichte: { getoetet: number; gereinigt: number }): number {
+  return (b.getoetet + b.verhaerteteGetoetet) * gewichte.getoetet + (b.gereinigt + b.verhaerteteGereinigt) * gewichte.gereinigt;
 }
 
 /**
@@ -193,7 +205,7 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
   // Verhärtete stehen verteilt, einer je so vielen Abschnitten.
   const verhAlle = a.verhaertete > 0 ? Math.floor(a.rasten / a.verhaertete) : 0;
   let verhOffen = a.verhaertete, zuToeten = Math.min(w.verhaerteteToeten, a.verhaertete);
-  let rG = 0, rT = 0, rB = 0, letztesRuhig = false, leer = 0;
+  let rG = 0, rT = 0, rB = 0, letztesRuhig = false, leer = 0, wirkenLadungen = 0;
   const schliesseRevier = () => {
     letztesRuhig = revierRuhig(rG, rT, rB, o);
     if (rB > 0 && rT / rB >= o.toeten.leerAb - 1e-9) leer++;
@@ -204,6 +216,8 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
     if (s > 0 && revierVon(s) !== revierVon(s - 1)) schliesseRevier();
     // Volle Marke an der Rast; liegt ein ruhiges Revier im Rücken, dort noch einmal anteilig (Rast ohne Zuflucht).
     let ladung = fassung(laeuterung, 0, marke, o) * (letztesRuhig ? 1 + o.marke.ruhigeRast : 1);
+    // D405: Wer wirkt, hat diese Ladungen nicht mehr zum Reinigen.
+    wirkenLadungen += ladung * w.wirken; ladung *= 1 - w.wirken;
     if (verhOffen > 0 && verhAlle > 0 && s % verhAlle === verhAlle - 1) {
       verhOffen--; rB += 1;
       const kulturen = (vorrat.reinkultur ?? 0) + Math.floor((vorrat.reinprobe ?? 0) / 2);
@@ -248,7 +262,10 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
 
   const sud = flasche(vorrat, o);
   const gebraut = braue(sud.rest, o);
-  const geschmiedet = schmiedeAus(gebraut.rest, o);
+  // D403: erst die eigene Form (ein Umbau), dann die Güte.
+  const umbauPreis = o.baukasten?.umbau;
+  const umbau = !!umbauPreis && reicht(umbauPreis, gebraut.rest);
+  const geschmiedet = schmiedeAus(umbau ? ziehe(umbauPreis!, gebraut.rest) : gebraut.rest, o);
   const eingriffe = getoetet + gereinigt + verhGetoetet + verhGereinigt;
   const rund = (x: number) => Math.round(x);
   return {
@@ -266,7 +283,7 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
     eingriffe: rund(eingriffe), leereReviere: leer, nachgewandert,
     mark: bossGetoetet, abwurf: bossGereinigt,
     lebenPlus: gebraut.plus.leben, ausdauerPlus: gebraut.plus.ausdauer,
-    einsicht: rund(einsicht), linien,
+    einsicht: rund(einsicht), linien, umbau, wirkenLadungen: rund(wirkenLadungen),
   };
 }
 
@@ -276,8 +293,8 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
  * (zu viele Eingriffe); der Umgeher hat nur sie.
  */
 export const SPIELWEISEN: readonly Spielweise[] = [
-  { name: 'Schlächter', kaempft: 1, reinigtBisAnteil: 0, toetetRest: true, verhaerteteToeten: 99, regent: 'toeten', menschenToeten: 99, findet: 1, linien: 1 },
-  { name: 'Gemischt', kaempft: 1, reinigtBisAnteil: 0.4, toetetRest: true, verhaerteteToeten: 3, regent: 'heilen', menschenToeten: 2, findet: 1, linien: 2 },
-  { name: 'Heiler', kaempft: 1, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 1, linien: 2 },
-  { name: 'Umgeher', kaempft: 0.12, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 0.6, linien: 1 },
+  { name: 'Schlächter', kaempft: 1, reinigtBisAnteil: 0, toetetRest: true, verhaerteteToeten: 99, regent: 'toeten', menschenToeten: 99, findet: 1, linien: 1, wirken: 0.5 },
+  { name: 'Gemischt', kaempft: 1, reinigtBisAnteil: 0.4, toetetRest: true, verhaerteteToeten: 3, regent: 'heilen', menschenToeten: 2, findet: 1, linien: 2, wirken: 0.15 },
+  { name: 'Heiler', kaempft: 1, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 1, linien: 2, wirken: 0.15 },
+  { name: 'Umgeher', kaempft: 0.12, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 0.6, linien: 1, wirken: 0.4 },
 ];
