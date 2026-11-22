@@ -4,7 +4,7 @@ BRACHLAND — Stil-Frames (D369): dieselbe Einstellung der Felsmulde (Zielbild, 
     # 1) Szene bauen und einmal rendern, Pässe als Multilayer-EXR (Bild, Tiefe, Normale, Nebel, Objektindex):
     blender --background --python tools/stilframes.py -- render <objdir> <aus.exr> [breite hoehe samples]
     # 2) Stil im Compositor aus demselben EXR (schnell, keine Szene):
-    blender --background --factory-startup --python tools/stilframes.py -- stil <ein.exr> <roh|gemalt|grafisch|reduziert|aframe|zielbild|zielbild3> <aus.png> [breite hoehe]
+    blender --background --factory-startup --python tools/stilframes.py -- stil <ein.exr> <roh|gemalt|grafisch|reduziert|aframe|zielbild|zielbild3|zielbild4> <aus.png> [breite hoehe]
 
 Ein Render, drei Stile: der Vergleich zeigt nur den Stil, nicht Unterschiede in Geometrie oder Licht. Grundlage ist
 `tools/szenenbau.py` (Terrain aus `tools/terrainexport.ts`, Motive prozedural). Befall-Punkte in der Signalfarbe
@@ -40,8 +40,19 @@ auch in der Ferne, Efeu aus Blattgeometrie (`hausframe.efeublatt`/`streu_gn`), M
     blender --background --factory-startup --python tools/stilframes.py -- stil <ein.exr> zielbild3 <aus.png> [breite hoehe]
     #    zusätzlich: ZIELBILD_SICHT (Sichtweite der Luftschichten in m), ZIELBILD_DUNST (Dunstfarbe r,g,b)
 
+Zielbild Runde 4 (D386): baut auf Runde 3 auf — Alpha-Karten der Pflanzen-Scans (behebt die „schwarzen Halme“: das
+glTF von Poly Haven hat ein Farbbild ohne Alphakanal), Bergrücken mit Kronen-Silhouette und Wald/Wiese/Fels-Flecken in
+vier festen Höhenbändern, Blick 3° tiefer und höhere Kronen (weniger Himmel), Mauer dunkler, Moos auf den Kronen als
+Polster-Geometrie, Mauerrest rechts als Ruine mit Versturz, Trittspur über Erde statt Platten —
+
+    # 8) einmalig die Alpha-Karten laden, dann wie 7) mit Modus und Stil `zielbild4`:
+    blender --background --factory-startup --python tools/stilframes.py -- alphakarten
+    blender --background --python tools/stilframes.py -- zielbild4 <objdir> <aus-praefix> [breite hoehe samples kameras]
+    blender --background --factory-startup --python tools/stilframes.py -- stil <ein.exr> zielbild4 <aus.png> [breite hoehe]
+    #    zusätzlich: ZIELBILD_BLICK (Blickpunkt Hauptkamera x,y,z), ZIELBILD_BODEN_ORT / ZIELBILD_BODEN_BLICK (Nahaufnahme)
+
 Scans (Poly Haven, CC0) liegen nicht im Repo, sondern unter `.cache/cc0/<name>/` (Umgebung `BRACHLAND_CC0` oder
-der nächste Elternordner mit `.cache/cc0`); welche, steht im Ledger D371, D372 und D382. Die Bäume sind die Spielbäume
+der nächste Elternordner mit `.cache/cc0`); welche, steht im Ledger D371, D372, D382 und D386. Die Bäume sind die Spielbäume
 (`public/props/baum-*-nah|mittel.glb`, Rinde `public/material/rinde-*`), damit das Zielbild zeigt, was das Spiel zeigt.
 """
 import bpy, bmesh, sys, os, math, random, json
@@ -49,7 +60,8 @@ from mathutils import Vector, Matrix, Euler, noise
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 MODUS = ARGS[0] if ARGS else ''
-R3 = MODUS == 'zielbild3' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild3')   # Runde 3 (D382)
+R4 = MODUS == 'zielbild4' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild4')   # Runde 4 (D386), baut auf Runde 3 auf
+R3 = R4 or MODUS == 'zielbild3' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild3')   # Runde 3 (D382)
 SIGNAL = (0.62, 0.81, 0.89)   # '#cfe9f2' linear grob
 AFRAME_EV = float(os.environ.get('AFRAME_EV', '0.2'))   # Belichtung im Stil aframe (EV), die Anzeige-Belichtung ist im Compositor fest
 
@@ -644,7 +656,7 @@ FARNE = []
 
 def farn_scan(sb, name, x, y, saat, groesse):
     """Wurmfarn-Horst aus dem Scan (`fern_02`, Poly Haven) statt Blattklumpen."""
-    if not FARNE: FARNE.extend(scan_modelle('fern_02'))
+    if not FARNE: FARNE.extend(pflanzen('fern_02', 0.45) if R4 else scan_modelle('fern_02'))
     rnd = random.Random(saat)
     me = FARNE[saat % len(FARNE)]
     o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
@@ -965,10 +977,11 @@ def mat_mauer_ziel(name, art='broken_wall', kachel_m=3.0, tiefe=0.13, moos=1.0):
     # Moos: Krone, Fuss, Fugen und alles, was nach oben schaut (Simse der vorstehenden Steine)
     sep = N(nt, 'ShaderNodeSeparateXYZ'); L(nt, geo.outputs['Normal'], sep.inputs[0])
     oben = R_(nt, sep.outputs['Z'], 0.45, 0.9)
-    wo = M_(nt, 'MAXIMUM', M_(nt, 'MAXIMUM', M_(nt, 'MULTIPLY', krone, 1.15), M_(nt, 'MULTIPLY', fuss, 0.85)), M_(nt, 'MAXIMUM', M_(nt, 'MULTIPLY', fuge, 0.62), oben))
+    # Runde 4: das Kronenmoos ist Geometrie (`moospolster`), der Anstrich darunter nur noch dünn
+    wo = M_(nt, 'MAXIMUM', M_(nt, 'MAXIMUM', M_(nt, 'MULTIPLY', krone, 0.55 if R4 else 1.15), M_(nt, 'MULTIPLY', fuss, 0.85)), M_(nt, 'MAXIMUM', M_(nt, 'MULTIPLY', fuge, 0.62), oben))
     wo = M_(nt, 'ADD', wo, M_(nt, 'MULTIPLY', aus, 0.25))
     mm = R_(nt, M_(nt, 'MULTIPLY', M_(nt, 'MULTIPLY', wo, R_(nt, RAU(nt, P, 1.3, 6.0, 5.0, 0.6), 0.30, 0.70)), 1.5 * moos), 0.42, 0.62)
-    if R3: farbe = X_(nt, 1.0, farbe, (0.74, 0.67, 0.58), 'MULTIPLY')   # Runde 3: im vollen Seitenlicht ist der Scan kalkweiss — auf verwitterten Stein gedeckt
+    if R3: farbe = X_(nt, 1.0, farbe, (0.58, 0.51, 0.43) if R4 else (0.74, 0.67, 0.58), 'MULTIPLY')   # Runde 3: im vollen Seitenlicht ist der Scan kalkweiss — auf verwitterten Stein gedeckt
     farbe = X_(nt, mm, farbe, moosfarbe(nt, P))
     b = N(nt, 'ShaderNodeBsdfPrincipled'); L(nt, farbe, b.inputs['Base Color'])
     rg = F_(nt, M_(nt, 'MULTIPLY', fahne, 0.5), rau, M_(nt, 'MULTIPLY', rau, 0.55))
@@ -1071,7 +1084,7 @@ def mauer_scan(name, ort, laenge, hoehe, dicke, achse, saat, mat, mat_kern, hmin
                 if not halten(i + di, j + dj):
                     bm.faces.new((ecke(*a, -1), ecke(*b2, -1), ecke(*b2, 1), ecke(*a, 1)))
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    art = 'castle_wall_slates' if name in ('MauerC', 'Stuetzmauer') else 'broken_wall'
+    art = 'castle_wall_slates' if name in (('Stuetzmauer',) if R4 else ('MauerC', 'Stuetzmauer')) else 'broken_wall'   # Runde 4: Mauerrest aus demselben Bruchstein
     if art not in MAUERMAT:
         MAUERMAT[art] = mat_mauer_ziel('Mauerwerk_' + art, art, 3.0 if art == 'broken_wall' else 2.5, 0.13 if art == 'broken_wall' else 0.10, 0.6 if R3 and art != 'broken_wall' else 1.0)
     rot = (lehne if achse == 'x' else 0.0, lehne if achse == 'y' else 0.0, 0.0)
@@ -1138,6 +1151,7 @@ def plattenhof_ziel(name, ort, groesse, mat, saat, loch=None):
             p = 0.08 + 0.75 * max(0.0, 1.0 - rand / 2.0)
             p += 0.7 * max(0.0, noise.noise(Vector((xc * 0.22, yc * 0.22, saat * 1.7))) * 2.2)   # überwachsene Inseln
             if loch is not None and abs(xc - loch[0]) < loch[2] and abs(yc - loch[1]) < loch[3]: p = 1.0
+            if R4 and abs(ort[1] + yc - pfadmitte(ort[0] + xc)) < 0.55 + sy * 0.35: p = 1.0   # Runde 4: der Trampelpfad läuft über Erde, die Platten sind dort längst herausgetreten
             if rnd.random() > p:
                 tief = -0.085 + rnd.uniform(-0.045, 0.02)
                 if rnd.random() < 0.33:
@@ -1213,9 +1227,9 @@ def mat_boden_ziel(alt, r3=False):
     kontakt = R_(nt, ao.outputs['AO'], 0.90, 0.50)
     sep = N(nt, 'ShaderNodeSeparateXYZ'); L(nt, P, sep.inputs[0])
     yc = M_(nt, 'ADD', M_(nt, 'MULTIPLY_ADD', M_(nt, 'SUBTRACT', sep.outputs['X'], 4.4), -0.136, -1.5), M_(nt, 'MULTIPLY', M_(nt, 'SINE', M_(nt, 'MULTIPLY', sep.outputs['X'], 0.55)), 0.35))
-    pfad = M_(nt, 'MULTIPLY', R_(nt, M_(nt, 'ABSOLUTE', M_(nt, 'SUBTRACT', sep.outputs['Y'], yc)), 0.50 if r3 else 1.0, 0.14 if r3 else 0.25),   # Runde 3: Trampelpfad schmal (~0,6 m)
+    pfad = M_(nt, 'MULTIPLY', R_(nt, M_(nt, 'ABSOLUTE', M_(nt, 'SUBTRACT', sep.outputs['Y'], yc)), (0.66 if R4 else 0.50) if r3 else 1.0, (0.30 if R4 else 0.14) if r3 else 0.25),   # Runde 3: Trampelpfad schmal (~0,6 m)
                   M_(nt, 'MULTIPLY', R_(nt, sep.outputs['X'], -19.0, -16.0), R_(nt, sep.outputs['X'], 10.5, 8.5)))
-    pfad = M_(nt, 'MULTIPLY', pfad, R_(nt, RAU(nt, P, 0.5, 7.0), 0.25, 0.55, 0.55, 1.0))
+    pfad = M_(nt, 'MULTIPLY', pfad, R_(nt, RAU(nt, P, 0.5, 7.0), 0.25, 0.55, 0.85 if R4 else 0.55, 1.0))
     m_moos = R_(nt, M_(nt, 'ADD', M_(nt, 'MULTIPLY_ADD', kontakt, 0.5, RAU(nt, P, 0.22, 2.0, 4.0)), M_(nt, 'MULTIPLY', pfad, -0.45)), 0.44 if r3 else 0.50, 0.58 if r3 else 0.64)
     s = hmisch(nt, m_moos, laub, (X_(nt, 1.0, moos[0], (0.58, 0.80, 0.42) if r3 else (0.80, 0.86, 0.72), 'MULTIPLY'), moos[1]))
     m_nass = R_(nt, M_(nt, 'ADD', RAU(nt, P, 0.13, 3.0), M_(nt, 'MULTIPLY', kontakt, 0.12)), 0.58, 0.70)
@@ -1224,6 +1238,8 @@ def mat_boden_ziel(alt, r3=False):
     s = hmisch(nt, m_erde, s, (X_(nt, 1.0, erde[0], (0.30, 0.25, 0.20) if r3 else (0.50, 0.46, 0.40), 'MULTIPLY'), erde[1]))   # Runde 3: dunkle Erde, kein Sand
     farbe = X_(nt, 1.0, s[0], X_(nt, RAU(nt, P, 0.07, 5.0, 2.0), (0.72, 0.72, 0.70), (1.12, 1.10, 1.05)), 'MULTIPLY')
     farbe = X_(nt, M_(nt, 'MULTIPLY', kontakt, 0.75), farbe, X_(nt, 1.0, farbe, (0.50, 0.55, 0.42), 'MULTIPLY'))
+    if R4:   # Trittspur: festgetretene, hellere Erde mit Steinchen — liest sich als Weg, weil sie glatter und heller ist als die Streu daneben
+        farbe = X_(nt, M_(nt, 'MULTIPLY', pfad, 0.9), farbe, X_(nt, 1.0, erde[0], X_(nt, RAU(nt, P, 1.6, 9.0, 3.0), (0.50, 0.40, 0.30), (0.74, 0.60, 0.44)), 'MULTIPLY'))
     # Nahmaske wie D371: um den Hof voll Scan, ab ~30 m Biomfarbe
     flach = N(nt, 'ShaderNodeCombineXYZ'); L(nt, sep.outputs['X'], flach.inputs['X']); L(nt, sep.outputs['Y'], flach.inputs['Y'])
     ab = N(nt, 'ShaderNodeVectorMath', operation='DISTANCE'); L(nt, flach.outputs[0], ab.inputs[0]); ab.inputs[1].default_value = (-3.0, 0.0, 0.0)
@@ -1236,7 +1252,7 @@ def mat_boden_ziel(alt, r3=False):
     L(nt, s[1], bump.inputs['Height']); L(nt, bump.outputs['Normal'], bsdf.inputs['Normal'])
     nah = M_(nt, 'SUBTRACT', 1.0, fern)
     hges = M_(nt, 'ADD', M_(nt, 'MULTIPLY', s[1], nah), M_(nt, 'MULTIPLY', fern, 0.5))
-    hges = M_(nt, 'ADD', hges, M_(nt, 'MULTIPLY', pfad, -0.25))   # der Pfad ist ausgetreten: knapp 2 cm tiefer
+    hges = M_(nt, 'ADD', hges, M_(nt, 'MULTIPLY', pfad, -0.5 if R4 else -0.25))   # der Pfad ist ausgetreten: knapp 2 cm tiefer
     dsp = N(nt, 'ShaderNodeDisplacement'); dsp.inputs['Midlevel'].default_value = 0.5; dsp.inputs['Scale'].default_value = 0.09
     L(nt, hges, dsp.inputs['Height']); L(nt, dsp.outputs[0], out.inputs['Displacement'])
     return m
@@ -1253,6 +1269,11 @@ def durchscheinend(mat, anteil=0.4):
     farbe = b.inputs['Base Color'].links[0].from_socket
     alpha = b.inputs['Alpha'].links[0].from_socket if b.inputs['Alpha'].links else None
     if alpha is not None: nt.links.remove(b.inputs['Alpha'].links[0]); b.inputs['Alpha'].default_value = 1.0
+    if R4:
+        # D386: der Alphakanal des glTF-Farbbilds ist leer (JPG) — die echte Maske liegt als eigene Karte daneben.
+        # Ohne sie zeigen Blattkarten neben dem Blatt den schwarzen Atlasgrund: die „schwarzen Halme“ aus D372/D382.
+        echte = alpha_karte(mat)
+        if echte is not None: alpha = echte
     tr = N(nt, 'ShaderNodeBsdfTranslucent'); L(nt, farbe, tr.inputs['Color'])
     if b.inputs['Normal'].links: L(nt, b.inputs['Normal'].links[0].from_socket, tr.inputs['Normal'])
     mx = N(nt, 'ShaderNodeMixShader'); mx.inputs['Fac'].default_value = anteil; L(nt, b.outputs[0], mx.inputs[1]); L(nt, tr.outputs[0], mx.inputs[2])
@@ -1391,7 +1412,7 @@ def himmel_haus(el_grad, az_grad, u_sonne=0.6035):
     L(nt, tc.outputs['Generated'], mp.inputs['Vector']); L(nt, mp.outputs[0], env.inputs['Vector'])
     g = N(nt, 'ShaderNodeGamma'); g.inputs['Gamma'].default_value = 1.7; L(nt, env.outputs['Color'], g.inputs['Color'])
     sicht = N(nt, 'ShaderNodeBackground'); sicht.inputs['Strength'].default_value = float(os.environ.get('ZIELBILD_HIMMEL', '0.115'))
-    L(nt, X_(nt, 1.0, g.outputs[0], (1.17, 0.96, 0.76), 'MULTIPLY'), sicht.inputs['Color'])   # Haus: 1,10/0,96/0,82 — hier steht mehr Blau im Bild, etwas wärmer
+    L(nt, X_(nt, 1.0, g.outputs[0], (1.24, 0.96, 0.70) if R4 else (1.17, 0.96, 0.76), 'MULTIPLY'), sicht.inputs['Color'])   # Haus: 1,10/0,96/0,82 — hier steht mehr Blau im Bild, etwas wärmer
     licht = N(nt, 'ShaderNodeBackground'); licht.inputs['Strength'].default_value = float(os.environ.get('ZIELBILD_FUELL', '0.42'))
     L(nt, X_(nt, 0.40, env.outputs['Color'], (0.27, 0.27, 0.28)), licht.inputs['Color'])
     lp = N(nt, 'ShaderNodeLightPath')
@@ -1495,8 +1516,9 @@ def laubstreu(ter, dichte, gebiet=(-14.0, 7.0, -11.0, 10.0), saat=382):
     bm = bmesh.new()
     umriss = [(0.0, 0.0), (1.6, -1.2), (2.2, -3.4), (1.3, -5.6), (0.0, -7.2)]
     pts = umriss + [(-x, y) for x, y in reversed(umriss[1:-1])]
-    # ein Büschel aus neun Blättern mit eigener Richtung, Lage und Grösse: die Streu-Knoten drehen Instanzen sichtbar
-    # nicht um die Hochachse (alle Blätter zeigten in eine Richtung) — die Unordnung steckt deshalb im Mesh
+    # ein Büschel aus neun Blättern mit eigener Richtung, Lage und Grösse: Blätter liegen in Häufchen, nicht einzeln.
+    # (D386 nachgeprüft: die Streu-Knoten drehen Instanzen sehr wohl um die Hochachse; dass in D382 alle Blätter in
+    # eine Richtung zu zeigen schienen, war die perspektivische Verkürzung flach liegender Ovale.)
     rb = random.Random(saat + 7)
     for _ in range(9):
         M = Matrix.Translation((rb.uniform(-0.24, 0.24), rb.uniform(-0.24, 0.24), rb.uniform(0.0, 0.012))) @ Euler((rb.uniform(-0.35, 0.35), rb.uniform(-0.35, 0.35), rb.uniform(0, 6.283))).to_matrix().to_4x4() @ Matrix.Scale(rb.uniform(0.75, 1.35), 4)
@@ -1558,6 +1580,7 @@ def baeume3(sb, ter, ferne):
             ('b', -14.5, -12.0, 11.0, 2.7),   # Rückenbaum: legt den Vordergrund in Schatten (Rahmen), der Hof bleibt im Licht
             ('a', -9.6, -9.4, 9.5, 5.1),      # Schattenbaum ausserhalb des Bildes: sein Kronenschatten fällt über den Vordergrund (dunkler Rahmen, Lichtflecken)
             ('k', 7.2, 2.8, 5.5, 1.0), ('k', -9.8, 9.8, 5.0, 2.2), ('k', 2.8, 9.9, 4.5, 3.9), ('k', 12.5, 0.5, 6.0, 0.2))):
+        if R4: h = {0: 16.0, 2: 19.0, 3: 18.0, 4: 13.5, 5: 17.5}.get(i, h)   # Runde 4: Kronen schliessen den Himmel links und rechts, über dem Bogen bleibt ein Fenster
         setz(art[a], 'Baum3_%d' % i, x, y, h, rot)
     # Sträucher: am Mauerrest rechts, am Felsblock vorn rechts, an den Hofecken
     straeucher = []
@@ -1570,6 +1593,144 @@ def baeume3(sb, ter, ferne):
         zr = random.Random(saat); me, f = ((isl1, 0.62), (isl2, 0.45), (klein, 0.5))[saat % 3]
         setz(me, 'Wald3_%d' % i, x, y, h * f * zr.uniform(0.85, 1.15), zr.random() * 6.283)
     print('ZIELBILD Runde 3: Waldbäume aus Scans', len(ferne), '| Sträucher', len(straeucher), 'Vorlagen')
+
+
+# ------------------------------------------------------------------- Zielbild Runde 4 (D386)
+ALPHA_PFLANZEN = ('grass_medium_01', 'grass_medium_02', 'celandine_01', 'periwinkle_plant', 'nettle_plant', 'weed_plant_02', 'dandelion_01', 'fern_02',
+                  'shrub_sorrel_01', 'moss_01', 'fir_sapling', 'shrub_01', 'shrub_02', 'shrub_03', 'shrub_04', 'island_tree_01', 'island_tree_02')
+
+
+def alphakarten():
+    """`-- alphakarten [name,…]`: lädt zu den Pflanzen-Scans die Alpha-Karten von Poly Haven nach (`<scan>/textures/
+    *_alpha_*.png`). Grund (D386, „schwarze Halme“): das glTF von Poly Haven nennt sein Farbbild zwar
+    `<name>_diff-<name>_alpha`, liefert aber ein JPG ohne Alphakanal — jede Blattkarte ist damit deckend, und wo ihre UV
+    neben dem Blatt liegen, zeigt sie den schwarzen Atlasgrund. Die Alpha-Karte gibt es nur als eigene Datei."""
+    import urllib.request
+    namen = ARGS[1].split(',') if len(ARGS) > 1 else ALPHA_PFLANZEN
+    for name in namen:
+        rq = urllib.request.Request('https://api.polyhaven.com/files/' + name, headers={'User-Agent': 'asset-fetch'})
+        dateien = json.load(urllib.request.urlopen(rq, timeout=120)); o = os.path.join(cc0_ordner(), name, 'textures')
+        stufe = next((f.split('_')[-1].split('.')[0] for f in sorted(os.listdir(o)) if '_diff_' in f), '1k')
+        for k, v in dateien.items():
+            if not k.lower().endswith('alpha') or stufe not in v or 'png' not in v[stufe]: continue
+            url = v[stufe]['png']['url']; pfad = os.path.join(o, os.path.basename(url))
+            if not (os.path.exists(pfad) and os.path.getsize(pfad) > 0):
+                daten = urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'asset-fetch'}), timeout=120).read()
+                with open(pfad + '.teil', 'wb') as f: f.write(daten)
+                os.replace(pfad + '.teil', pfad)
+            print('ALPHA', name, os.path.basename(pfad), os.path.getsize(pfad) // 1024, 'kB')
+
+
+def alpha_karte(mat):
+    """Alpha-Karte zum Farbbild eines Scan-Materials suchen (`…_diff_…` → `…_alpha_….png` im selben Ordner) und als
+    Bildknoten mit denselben Koordinaten anlegen. Gibt den Ausgang zurück oder None, wenn es keine Karte gibt."""
+    nt = mat.node_tree
+    b = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+    if b is None or not b.inputs['Base Color'].links: return None
+    dif = b.inputs['Base Color'].links[0].from_node
+    if dif.type != 'TEX_IMAGE' or dif.image is None: return None
+    pfad = bpy.path.abspath(dif.image.filepath, library=dif.image.library)
+    if '_diff_' not in os.path.basename(pfad): return None
+    ap = os.path.join(os.path.dirname(pfad), os.path.splitext(os.path.basename(pfad).replace('_diff_', '_alpha_'))[0] + '.png')
+    if not os.path.exists(ap): return None
+    t = N(nt, 'ShaderNodeTexImage'); t.image = bild(ap, False); t.interpolation = dif.interpolation; t.extension = dif.extension
+    if dif.inputs['Vector'].links: L(nt, dif.inputs['Vector'].links[0].from_socket, t.inputs['Vector'])
+    return t.outputs['Color']
+
+
+def bergruecken4(zt, saat=386):
+    """Runde 4: vier Rücken mit Substanz statt khaki Flächen. Jeder Rücken hält ein eigenes Höhenband (vom Hof aus
+    −0,5…1,5° / 2,0…3,2° / 3,6…5,0° / 5,4…7,0°), damit überall — auch im Bogen — vier Stufen übereinander stehen.
+    Kamm: Kronen-Silhouette (nah einzelne Buckel, fern nur Zahnung, ganz hinten Felsgrat). Fläche: Wald dunkel,
+    Wiesen hell in Flecken, Fels an den hohen Graten, dazu Runsen als Hell-Dunkel — gemalt, nicht simuliert."""
+    m, nt, out = neues_material('Bergruecken4')
+    b = N(nt, 'ShaderNodeBsdfPrincipled'); b.inputs['Roughness'].default_value = 1.0
+    uv = N(nt, 'ShaderNodeUVMap').outputs['UV']                      # u entlang des Rückens, v Höhe, beide in Zehnteln der Entfernung
+    ho = N(nt, 'ShaderNodeAttribute'); ho.attribute_name = 'h'       # 1 am Kamm, 0 am Hangfuss
+    wald = X_(nt, RAU(nt, uv, 26.0, 1.0, 4.0, 0.6), (0.004, 0.009, 0.003), (0.014, 0.024, 0.008))
+    wiese = X_(nt, RAU(nt, uv, 9.0, 2.0, 3.0), (0.065, 0.078, 0.022), (0.115, 0.108, 0.032))
+    m_wiese = M_(nt, 'MULTIPLY', R_(nt, RAU(nt, uv, 3.2, 3.0, 4.0, 0.55, (1.0, 2.2, 1.0)), 0.50, 0.55), R_(nt, ho.outputs['Fac'], 0.95, 0.55))
+    farbe = X_(nt, m_wiese, wald, wiese)
+    fels = X_(nt, RAU(nt, uv, 14.0, 4.0, 5.0, 0.7), (0.06, 0.055, 0.05), (0.19, 0.175, 0.155))
+    m_fels = M_(nt, 'MULTIPLY', M_(nt, 'MULTIPLY', R_(nt, RAU(nt, uv, 5.0, 5.0, 5.0, 0.65, (1.0, 0.45, 1.0)), 0.46, 0.56), R_(nt, ho.outputs['Fac'], 0.25, 0.85)), N(nt, 'ShaderNodeAttribute', attribute_name='fels').outputs['Fac'])
+    farbe = X_(nt, m_fels, farbe, fels)
+    runse = R_(nt, RAU(nt, uv, 2.4, 6.0, 4.0, 0.6, (3.0, 0.35, 1.0)), 0.30, 0.72, 0.25, 1.6)   # Runsen und Rippen: senkrecht gestreckt
+    L(nt, X_(nt, 1.0, farbe, X_(nt, runse, (0, 0, 0), (1, 1, 1)), 'MULTIPLY'), b.inputs['Base Color'])
+    L(nt, b.outputs[0], out.inputs['Surface'])
+    tan = lambda grad: math.tan(math.radians(grad))
+    # (Entfernung, Kammhöhe von/bis in Grad über dem Hof, Kronenbuckel Höhe/Breite in m, Schrittweite, Felsanteil)
+    for k, (dist, e0, e1, buckel, breite, schritt, felsig) in enumerate(((700.0, -0.5, 1.5, 11.0, 14.0, 2.0, 0.0), (1800.0, 2.0, 3.2, 15.0, 32.0, 4.0, 0.0),
+                                                                        (4000.0, 3.6, 5.0, 22.0, 80.0, 12.0, 0.6), (8000.0, 5.4, 7.0, 60.0, 260.0, 40.0, 1.0))):
+        bm = bmesh.new(); uvl = bm.loops.layers.uv.new('UVMap'); hl = bm.verts.layers.float.new('h'); fl = bm.verts.layers.float.new('fels')
+        n = int(dist * 3.2 / schritt); reihen = []
+        for i in range(n + 1):
+            y = (i / n - 0.5) * dist * 3.2; t = i / n
+            f = 0.6 * noise.noise(Vector((t * 5.0 + k * 3.1, k * 1.7, saat))) + 0.4 * noise.noise(Vector((t * 17.0 + k, 2.0, saat)))
+            x = dist * (1.0 + 0.06 * noise.noise(Vector((t * 3.0 + k * 5.0, 1.0, saat))))
+            kamm = 1.9 + x * (tan(e0) + (tan(e1) - tan(e0)) * max(0.0, min(1.0, 0.5 + 1.1 * f)))
+            kamm += buckel * (abs(noise.noise(Vector((y / breite, k * 9.0, saat)))) * 1.7 - 0.35) + 0.4 * buckel * noise.noise(Vector((y / (breite * 4.0), 3.0, saat)))
+            fuss = kamm - 0.09 * dist
+            reihe = []
+            for z, hw in ((zt - 900.0, -1.0), (zt + fuss, 0.0), (zt + kamm, 1.0)):
+                v = bm.verts.new((x, y, z)); v[hl] = hw; v[fl] = felsig; reihe.append((v, (y / dist * 10.0, (z - zt) / dist * 10.0)))
+            reihen.append(reihe)
+        for r0, r1 in zip(reihen[:-1], reihen[1:]):
+            for j in range(2):
+                fa = bm.faces.new((r0[j][0], r1[j][0], r1[j + 1][0], r0[j + 1][0]))
+                for lp, q in zip(fa.loops, (r0[j], r1[j], r1[j + 1], r0[j + 1])): lp[uvl].uv = q[1]
+        me = bpy.data.meshes.new('Ruecken4_%d' % k); bm.to_mesh(me); bm.free(); me.materials.append(m)
+        bpy.context.collection.objects.link(bpy.data.objects.new('Ruecken4_%d' % k, me))
+
+
+def moospolster(saat=386):
+    """Moos auf den Mauerkronen als Polster mit Dicke: flache, buckelige Körper (drei Vorlagen), die über die
+    Kronensteine greifen und an den Kanten überhängen — unregelmässiger Rand, Schlagschatten, kein Anstrich."""
+    rnd = random.Random(saat)
+    m, nt, out = neues_material('Moospolster')
+    b = N(nt, 'ShaderNodeBsdfPrincipled'); b.inputs['Roughness'].default_value = 1.0
+    try: b.inputs['Sheen Weight'].default_value = 0.6; b.inputs['Sheen Roughness'].default_value = 0.6; b.inputs['Sheen Tint'].default_value = (0.55, 0.75, 0.25, 1)
+    except Exception as e: print('Sheen', e)
+    P = N(nt, 'ShaderNodeTexCoord').outputs['Object']; zuf = N(nt, 'ShaderNodeObjectInfo').outputs['Random']
+    r = N(nt, 'ShaderNodeValToRGB'); e = r.color_ramp.elements
+    e[0].position = 0.25; e[0].color = (0.012, 0.026, 0.006, 1); e[1].position = 0.8; e[1].color = (0.045, 0.072, 0.016, 1)
+    L(nt, M_(nt, 'ADD', RAU(nt, P, 9.0, 1.0, 4.0, 0.6), M_(nt, 'MULTIPLY_ADD', zuf, 0.3, -0.15)), r.inputs['Fac'])
+    L(nt, X_(nt, R_(nt, RAU(nt, P, 3.0, 5.0, 2.0), 0.62, 0.74), r.outputs[0], (0.085, 0.075, 0.030)), b.inputs['Base Color'])   # vertrocknete Stellen
+    bump = N(nt, 'ShaderNodeBump'); bump.inputs['Strength'].default_value = 0.8; bump.inputs['Distance'].default_value = 0.012
+    L(nt, RAU(nt, P, 140.0, 2.0, 3.0, 0.7), bump.inputs['Height']); L(nt, bump.outputs['Normal'], b.inputs['Normal']); L(nt, b.outputs[0], out.inputs['Surface'])
+    vorl = []
+    for v in range(3):
+        bm = bmesh.new(); bmesh.ops.create_icosphere(bm, subdivisions=3, radius=0.5)
+        off = Vector((v * 7.3, saat, v * 1.9))
+        for q in bm.verts:
+            d = q.co.normalized()
+            lappen = 0.75 + 0.30 * noise.noise(d * 1.6 + off) + 0.16 * noise.noise(d * 4.5 + off)      # gelappter Umriss
+            kissen = 0.07 * noise.noise(Vector((q.co.x * 9.0, q.co.y * 9.0, v)) + off)                 # Buckel
+            q.co = Vector((q.co.x * lappen, q.co.y * lappen, (max(q.co.z, 0.0) * 0.32 + min(q.co.z, 0.0) * 0.10) * (0.8 + 0.5 * lappen) + (kissen if q.co.z > 0 else 0.0)))
+        for f in bm.faces: f.smooth = True
+        me = bpy.data.meshes.new('Moospolster%d' % v); bm.to_mesh(me); bm.free(); me.materials.append(m); vorl.append(me)
+    n = 0
+    for (p, q, t, mname) in MAUERKRONE:
+        for _ in range(1 if mname == 'Stuetzmauer' else 3):
+            if rnd.random() > 0.72: continue
+            tang = Vector((-q.y, q.x, 0)); g = rnd.uniform(0.40, 1.05) * min(1.0, t / 0.9 + 0.2)
+            ort = p + q * rnd.uniform(-0.42, 0.42) * t + tang * rnd.uniform(-0.3, 0.3) + Vector((0, 0, rnd.uniform(-0.03, 0.05)))
+            o = setze_frei(vorl[rnd.randrange(3)], 'Kronmoos%d' % n, ort, g, (rnd.uniform(-0.12, 0.12), rnd.uniform(-0.12, 0.12), rnd.random() * 6.283))
+            o.scale = (g * rnd.uniform(0.8, 1.3), g * rnd.uniform(0.8, 1.3), g * rnd.uniform(0.6, 1.5)); n += 1
+    print('ZIELBILD Moospolster auf den Kronen:', n)
+
+
+def versturz(sb, ter, mitte, radius, anzahl, hoch, saat):
+    """Versturzhaufen: herausgebrochene Steine (Scan) als Kegel am Mauerende — innen gestapelt und gross, aussen
+    einzeln und klein, halb im Boden."""
+    rnd = random.Random(saat); steine = vorlagen('rock_moss_set_02')
+    for i in range(anzahl):
+        r = abs(rnd.gauss(0.0, radius * 0.5)); a = rnd.random() * 6.283
+        x, y = mitte[0] + math.cos(a) * r, mitte[1] + math.sin(a) * r * 0.75
+        z = bodenz(ter, x, y)
+        if z is None or r > radius * 1.6: continue
+        me = steine[rnd.randrange(len(steine))]; g = rnd.uniform(0.22, 0.6) * (1.25 - 0.5 * min(1.0, r / radius))
+        h = hoch * math.exp(-(r / (radius * 0.55)) ** 2) * rnd.uniform(0.35, 1.0)
+        setze_frei(me, 'Versturz%d_%d' % (saat, i), (x, y, z + h - 0.12 * g), g / ausdehnung(me), (rnd.uniform(-0.6, 0.6), rnd.uniform(-0.6, 0.6), rnd.random() * 6.283))
 
 
 def zielbild():
@@ -1598,6 +1759,7 @@ def zielbild():
     def mauer3(name, ort, laenge, hoehe, dicke, achse, saat, mat, mat_kern, hmin, **k):
         # Runde 3: der Mauerrest rechts (MauerC) wird Masse als Gegengewicht zum Bogen — länger, höher, weniger eingestürzt
         if R3 and name == 'MauerC': ort, laenge, hoehe, hmin = (ort[0] - 0.6, ort[1], ort[2]), 6.6, 3.5, 1.3
+        if R4 and name == 'MauerC': hoehe, hmin = 3.6, 0.35   # Ruine: die Krone bricht bis fast auf den Boden ein, der Versturz liegt davor
         return mauer_scan(name, ort, laenge, hoehe, dicke, achse, saat, mat, mat_kern, hmin, **k)
     sb.mauer = mauer3
     sb.plattenhof = plattenhof_ziel
@@ -1759,13 +1921,14 @@ def zielbild():
                 for fx, fy, fr in felsen:
                     a = math.hypot(x - fx, y - fy) - fr * 0.8
                     if -0.15 < a < 0.8: k = max(k, 1.0 - max(0.0, a) / 0.8)
+                if R4 and -17.0 < x < 9.5: k = max(k, 0.85 * max(0.0, 1.0 - abs(abs(y - pfadmitte(x)) - 0.85) / 0.35))   # Krautsaum beidseits der Trittspur
                 k *= 1.0 - 0.85 * max(0.0, min(1.0, (0.55 - abs(y - pfadmitte(x))) / 0.3))
                 return k * (0.35 + 0.65 * polster(x, y, 0.7, 31.0))
             gras2 = pflanzen('grass_medium_02', 0.45)
             streue(ter, gras + gras2, 1500, d_kante, (1.0, 2.0), 3821, 'Kantengras')
             streue(ter, pflanzen('weed_plant_02', 0.4) + pflanzen('nettle_plant', 0.45), 500, d_kante, (1.4, 2.6), 3822, 'Kantenkraut', 0.08)   # kein Immergrün: seine rosa Blüten wären ein zweiter Akzent
             streue(ter, pflanzen('shrub_sorrel_01', 0.4), 260, lambda x, y: max(d_kante(x, y), 0.5 * d_fuss(x, y)), (1.4, 2.6), 3823, 'Sauerklee', 0.06)
-            moos_s = vorlagen('moss_01'); gm = 0.32 / max(0.01, max(ausdehnung(me) for me in moos_s))
+            moos_s = pflanzen('moss_01', 0.3) if R4 else vorlagen('moss_01'); gm = 0.32 / max(0.01, max(ausdehnung(me) for me in moos_s))
             streue(ter, moos_s, 900, lambda x, y: max(d_kante(x, y), 0.7 * d_fuss(x, y)), (gm * 0.7, gm * 1.8), 3824, 'Moospolster', 0.05, 0.25)
             streue(ter, gras2, 500, d_gras, (1.6, 2.8), 3825, 'Gras2')
             # Fallaub als Einzelblätter: überall ausser Becken, Pfadmitte und Mauer; dichter in Senken und am Mauerfuss
@@ -1775,6 +1938,9 @@ def zielbild():
                 f *= 1.0 - 0.8 * max(0.0, min(1.0, (0.5 - abs(y - pfadmitte(x))) / 0.3))
                 return min(1.0, f + 0.5 * math.exp(-max(0.0, mauerabstand(x, y)[0] - 0.5) / 0.6))
             laubstreu(ter, d_laub)
+        if R4:
+            moospolster()
+            versturz(sb, ter, (-2.3, -7.6), 1.5, 46, 0.95, 3861); versturz(sb, ter, (1.6, -7.1), 1.0, 20, 0.6, 3862)   # vor dem Mauerrest rechts
         # Wald um den Hof: Farn und Jungwuchs zwischen den Stämmen (bis 34 m), nur grob — das ist Mittelgrund
         def d_wald(x, y):
             r = math.hypot(x + 2.0, y + 1.0)
@@ -1843,7 +2009,7 @@ def zielbild():
             # Runde 3: kein Talnebel-Volumen (das war das helle Band unter dem Himmel) — vier Rücken, die der Stil aus der
             # Tiefe staffelt; nur der Hof hat Dunst als Volumen (Lichtbahnen), Werte wie im Haus-Bild
             for o in [o for o in bpy.data.objects if o.name.startswith('Fernkulisse')]: bpy.data.objects.remove(o)
-            bergruecken(zt)
+            (bergruecken4 if R4 else bergruecken)(zt)
             # dünner und kleiner als am Haus (dort 0,0026 auf 150 m): hier schaut die Kamera durch den Dunst in die Ferne — der
             # vom Himmel beleuchtete Schleier (~0,045) läge sonst über den dunklen Rücken und machte sie zu einem Band
             sb.dunst('Hofdunst', 100.0, zt - 8.0, zt + 26.0, float(os.environ.get('ZIELBILD_HOFDUNST', '0.0009')), 12.0, (1.0, 0.88, 0.70), 0.5)
@@ -1863,7 +2029,7 @@ def zielbild():
         # Sonnenprobe (Regel 6 der Spielereferenz: 10–20 % des Bodens besonnt): Strahlen vom Hof zur Sonne, wer steht im Weg?
         el, az = math.radians(EL), math.radians(AZ)
         zs = Vector((math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)))
-        dg = bpy.context.evaluated_depsgraph_get(); frei = 0; ges = 0; wer = {}
+        dg = bpy.context.evaluated_depsgraph_get(); frei = 0; ges = 0; wer = {}; karte = {}
         for ix in range(-9, 5):
             for iy in range(-7, 7):
                 ges += 1
@@ -1874,13 +2040,22 @@ def zielbild():
                     p0 = ort_h + zs * 0.02
                 if not hit: frei += 1
                 else: wer[obj.name.rstrip('0123456789')] = wer.get(obj.name.rstrip('0123456789'), 0) + 1
+                karte[(ix, iy)] = '#' if not hit else '.'
+        for iy in range(6, -8, -1): print('ZIELBILD Sonnenkarte y=%+.1f  x=-8.5…+4.5  %s' % (iy + 0.5, ''.join(karte[(ix, iy)] for ix in range(-9, 5))))
         print('ZIELBILD Sonnenprobe: %d %% des Hofs besonnt (Geometrie ohne Blattlücken); im Weg:' % (100 * frei / ges), sorted(wer.items(), key=lambda t: -t[1])[:6])
         if R3: himmel_haus(EL, AZ)
         else: himmel_foto('evening_road_01_puresky', EL, AZ, 0.6035, float(os.environ.get('ZIELBILD_HIMMEL', '0.08')), 1.5, float(os.environ.get('ZIELBILD_HIMMELDREH', '35')))
         # ---- Kameras
         kams = {'bogen': sc.camera}
-        for kname, ort, ziel, brenn in (('ziel', (-11.0, 2.2, 1.9), (5.0, -1.0, 3.3), 24), ('mauer', (-1.5, 4.8, 1.8), (4.6, 2.6, 2.6), 28),
-                                        ('boden', (-7.2, 2.2, 1.15), (-3.4, -0.4, 0.1), 30), ('nah', (-5.6, 2.3, 1.45), (-1.4, -1.0, 0.25), 28)):
+        einst = [('ziel', (-11.0, 2.2, 1.9), (5.0, -1.0, 3.3), 24), ('mauer', (-1.5, 4.8, 1.8), (4.6, 2.6, 2.6), 28),
+                 ('boden', (-7.2, 2.2, 1.15), (-3.4, -0.4, 0.1), 30), ('nah', (-5.6, 2.3, 1.45), (-1.4, -1.0, 0.25), 28)]
+        if R4:
+            # Runde 4: Standort wie D372/D382, Blick 3° tiefer (weniger Himmel, mehr Vordergrund und Pfad); die Nahaufnahme
+            # Boden liegt an der Schattengrenze auf der Trittspur (Lichtfleck und Kronenschatten im selben Bild)
+            ko = lambda t, n: tuple(float(x) for x in os.environ.get(n, t).split(','))
+            einst[0] = ('ziel', (-11.0, 2.2, 1.9), ko('5.0,-1.0,2.45', 'ZIELBILD_BLICK'), 24)
+            einst[2] = ('boden', ko('-5.4,2.6,1.05', 'ZIELBILD_BODEN_ORT'), ko('-1.2,-0.6,0.1', 'ZIELBILD_BODEN_BLICK'), 30)
+        for kname, ort, ziel, brenn in einst:
             k = sb.kamera((ort[0], ort[1], zt + ort[2]), (ziel[0], ziel[1], zt + ziel[2]), brenn); k.name = 'Kamera_' + kname; kams[kname] = k
             if R3: k.data.clip_end = 20000.0   # der fernste Rücken steht bei 8 km
         sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
@@ -1890,7 +2065,7 @@ def zielbild():
         sc.cycles.transmission_bounces = 4; sc.cycles.volume_bounces = 0; sc.cycles.transparent_max_bounces = 32
         sc.cycles.sample_clamp_indirect = 4.0; sc.cycles.caustics_reflective = sc.cycles.caustics_refractive = False
         sc.cycles.volume_step_rate = 4.0; sc.cycles.volume_max_steps = 64
-        sc.cycles.dicing_rate = 1.0; sc.cycles.offscreen_dicing_scale = 16.0 if R3 else 8.0; sc.cycles.max_subdivisions = 9
+        sc.cycles.dicing_rate = float(os.environ.get('ZIELBILD_DICING', '1.0')); sc.cycles.offscreen_dicing_scale = 16.0 if R3 else 8.0   # ZIELBILD_DICING > 1 spart Speicher (Nahaufnahmen); sc.cycles.max_subdivisions = 9
         sc.render.use_simplify = True; sc.cycles.texture_limit_render = os.environ.get('ZIELBILD_TEXTUR', '1024' if R3 else '2048')   # Speicher
         sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage = breite, hoehe, 100
         sc.view_settings.view_transform = 'AgX'
@@ -1927,6 +2102,7 @@ def knoten(g, typ, ort, **eing):
 
 def stil():
     ein, art, aus = ARGS[1], ARGS[2], ARGS[3]
+    if art == 'zielbild4': art = 'zielbild3'   # Runde 4: derselbe Stil, andere Vorgaben (R4)
     sc = bpy.context.scene
     for o in list(bpy.data.objects):
         if o.type != 'CAMERA': bpy.data.objects.remove(o)
@@ -2013,14 +2189,15 @@ def stil():
                     if isinstance(w_, float): n_.inputs[i_].default_value = w_
                     else: L(w_, n_.inputs[i_])
                 return n_.outputs[0]
-            sichtweite = float(os.environ.get('ZIELBILD_SICHT', '5000'))
+            sichtweite = float(os.environ.get('ZIELBILD_SICHT', '5200' if R4 else '5000'))
             weg = rechne('MULTIPLY', rechne('MAXIMUM', rechne('SUBTRACT', tiefe, 45.0), 0.0), -1.0 / sichtweite)
             menge = rechne('MULTIPLY', rechne('SUBTRACT', 1.0, rechne('EXPONENT', weg)), rechne('LESS_THAN', tiefe, 1.0e6))
             wm = knoten(g, 'CompositorNodeBlur', (-600, 0)); L(menge, wm.inputs['Image'])   # Tiefe ist je Pixel ein Treffer: Laub flimmert sonst
             try: wm.inputs['Size'].default_value = (2.5 * skala, 2.5 * skala)
             except Exception as e: print('Blur', e)
             # knapp unter dem Himmel am Horizont (szenenlinear ~0,06/0,08/0,08 quer zur Sonne), warm verschoben: Regel 4
-            dunstfarbe = tuple(float(x) for x in os.environ.get('ZIELBILD_DUNST', '0.058,0.062,0.064').split(','))
+            # Runde 4: Dunst in Himmelsfarbe — der Horizonthimmel quer zur Sonne misst szenenlinear ~0,073 / 0,076 / 0,063
+            dunstfarbe = tuple(float(x) for x in os.environ.get('ZIELBILD_DUNST', '0.070,0.074,0.066' if R4 else '0.058,0.062,0.064').split(','))
             luft = mix(farbe, dunstfarbe, rechne('MULTIPLY', wm.outputs[0], 0.94), ort=(-500, 200))
         else: luft = mix(farbe, (0.88, 0.74, 0.58), kurve(nebel, 0.35, 1.0, hoch=0.10 if art == 'zielbild' else 0.22), ort=(-500, 200))
         gr = g.nodes.new('ShaderNodeMapRange'); gr.location = (-500, 0); L(nebel, gr.inputs[0])
@@ -2121,4 +2298,4 @@ def stil():
 
 
 if __name__ == '__main__':
-    {'render': render, 'aframe': aframe, 'zielbild': zielbild, 'zielbild3': zielbild, 'scanblend': scanblend}.get(MODUS, stil)()
+    {'render': render, 'aframe': aframe, 'zielbild': zielbild, 'zielbild3': zielbild, 'zielbild4': zielbild, 'scanblend': scanblend, 'alphakarten': alphakarten}.get(MODUS, stil)()
