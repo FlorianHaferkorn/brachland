@@ -266,7 +266,7 @@ def laden(achse, ebene, innen, ua, ub, za, zb, wand_d):
         schwenk, kipp = 0.0, 0.0
         if wahr(VERFALL['laeden_schief']):
             schwenk = math.radians(zr.uniform(25, 100))    # vom Wind halb zugeschlagen
-            kipp = math.radians(abs(zr.uniform(-14, 14))) if wahr(0.5) else 0.0   # obere Angel gebrochen: Flügel dreht um die untere Angel, das freie Ende sinkt (D416)
+            kipp = math.radians(abs(zr.uniform(-14, 14))) if wahr(0.5) else 0.0   # obere Angel gebrochen: Flügel dreht um die untere Angel, das freie Ende sinkt (D432)
         # Lokales System des Flügels: Angel ist die Drehachse (z), Flügel liegt flach an der Wand nach aussen.
         richtung = seite                       # entlang u weg von der Öffnung
         unten = Vector((0, 0, -(hoehe / 2 - 0.12)))   # Lage der unteren Angel

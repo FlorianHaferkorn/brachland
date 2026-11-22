@@ -43,7 +43,7 @@ def lade(url, pfad):
 
 
 def alpha_karten(ziel):
-    """Alpha-Karten der Pflanzen-Scans nachladen (D417, Befund D386): das glTF von Poly Haven liefert sein Farbbild als
+    """Alpha-Karten der Pflanzen-Scans nachladen (D433, Befund D386): das glTF von Poly Haven liefert sein Farbbild als
     JPG ohne Alphakanal, die Maske liegt als eigene PNG-Datei daneben. Ohne sie sind alle Blattkarten deckend.
     Dazu der zweite Laubbaum `jacaranda_tree`, der eine Ebene höher im Cache liegt (aus D372)."""
     summe = 0

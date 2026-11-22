@@ -60,7 +60,7 @@ from mathutils import Vector, Matrix, Euler, noise
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 MODUS = ARGS[0] if ARGS else ''
-R5 = MODUS == 'zielbild5' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild5')   # Runde 5 (D418): Tümpel mit natürlichem Ufer, baut auf Runde 4 auf
+R5 = MODUS == 'zielbild5' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild5')   # Runde 5 (D434): Tümpel mit natürlichem Ufer, baut auf Runde 4 auf
 R4 = R5 or MODUS == 'zielbild4' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild4')   # Runde 4 (D386), baut auf Runde 3 auf
 R3 = R4 or MODUS == 'zielbild3' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild3')   # Runde 3 (D382)
 SIGNAL = (0.62, 0.81, 0.89)   # '#cfe9f2' linear grob
@@ -253,7 +253,7 @@ def mat_kern_scan():
     dif = kachel(nt, mp.outputs[0], scan('forest_leaves_04', 'diff'), True, (-400, 200))
     hoe = kachel(nt, mp.outputs[0], scan('forest_leaves_04', 'disp'), False, (-400, -200))
     mul = N(nt, 'ShaderNodeMix', (-100, 200), data_type='RGBA', blend_type='MULTIPLY'); mul.inputs[0].default_value = 1.0
-    L(nt, dif.outputs['Color'], mul.inputs[6]); mul.inputs[7].default_value = (0.34, 0.31, 0.27, 1)   # D411: Kalkmörtelreste und Erde, nicht schwarz
+    L(nt, dif.outputs['Color'], mul.inputs[6]); mul.inputs[7].default_value = (0.34, 0.31, 0.27, 1)   # D427: Kalkmörtelreste und Erde, nicht schwarz
     hs = N(nt, 'ShaderNodeHueSaturation', (100, 200)); hs.inputs['Saturation'].default_value = 0.45; L(nt, mul.outputs[2], hs.inputs['Color'])
     b = N(nt, 'ShaderNodeBsdfPrincipled', (300, 0)); L(nt, hs.outputs[0], b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.95
     bump = N(nt, 'ShaderNodeBump', (0, -200)); bump.inputs['Strength'].default_value = 0.8; L(nt, hoe.outputs['Color'], bump.inputs['Height']); L(nt, bump.outputs[0], b.inputs['Normal'])
@@ -480,14 +480,14 @@ def stein_bruch(ziel, groesse, matrix, saat, rauheit=0.06, rund=0.35):
         # Bruchebene schräg zur Ansichtsfläche (y = Mauertiefe klein): der Umriss wird vieleckig, nicht nur die Ecke stumpf
         nrm = Vector((rnd.choice((-1, 1)) * rnd.uniform(0.3, 1), rnd.choice((-1, 1)) * rnd.uniform(0.0, 0.5), rnd.choice((-1, 1)) * rnd.uniform(0.3, 1))).normalized()
         ecke = 0.5 * (abs(nrm.x) + abs(nrm.y) + abs(nrm.z))
-        d = ecke * rnd.uniform(0.74, 0.95)   # D411: nur Ecken und Kanten ab, die Ansichtsfläche bleibt gross
+        d = ecke * rnd.uniform(0.74, 0.95)   # D427: nur Ecken und Kanten ab, die Ansichtsfläche bleibt gross
         res = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=nrm * d, plane_no=nrm, clear_outer=True)
         rand = [e for e in res['geom_cut'] if isinstance(e, bmesh.types.BMEdge) and e.is_boundary]
         if rand: bmesh.ops.holes_fill(bm, edges=rand, sides=0)
     off = Vector((rnd.random() * 60, rnd.random() * 60, rnd.random() * 60))
     # Form-Varianz: nicht jeder Stein füllt seinen Platz — schmaler, niedriger, verkantet, vor- oder zurückgesetzt.
     # Das öffnet Fugen mit Tiefe (dahinter der dunkle Kern) und bricht die Reihen.
-    # D411 (Flo 22.11.2026: „Verhältnis Steine zu Füllmaterial passt nicht“): vorher 0,82–1,0 × 0,68–1,0 plus tiefe
+    # D427 (Flo 22.11.2026: „Verhältnis Steine zu Füllmaterial passt nicht“): vorher 0,82–1,0 × 0,68–1,0 plus tiefe
     # Bruchebenen — der Stein füllte nur gut die Hälfte seines Platzes. Bruchsteinmauerwerk zeigt 1–4 cm Fuge.
     gx, gz = groesse[0] * rnd.uniform(0.95, 1.04), groesse[2] * rnd.uniform(0.92, 1.05)
     for v in bm.verts:
@@ -1175,7 +1175,7 @@ def plattenhof_ziel(name, ort, groesse, mat, saat, loch=None):
     return sb.fertig(name, bm, ort, mat)
 
 
-# ───────────────────────────── Runde 5 (D418): Tümpel statt Becken ─────────────────────────────
+# ───────────────────────────── Runde 5 (D434): Tümpel statt Becken ─────────────────────────────
 # Flo 22.11.2026 zur Freigabe von D386: „das Wasser davor müsste noch etwas natürlich wirken gerade die übergänge am
 # Rand“. Das Becken war ein Rechteck mit Steinkranz, die Wasserfläche eine Platte 11 cm ÜBER dem Boden. Jetzt ist es
 # eine Senke im Gelände: das Wasser steht dort, wo der Boden unter dem Spiegel liegt (D398, Physik) — die Uferlinie
@@ -1223,11 +1223,11 @@ def mat_wasser5():
     lp = N(nt, 'ShaderNodeLightPath'); mx = N(nt, 'ShaderNodeMixShader')
     L(nt, lp.outputs['Is Shadow Ray'], mx.inputs['Fac']); L(nt, b.outputs[0], mx.inputs[1]); L(nt, tp.outputs[0], mx.inputs[2])
     # Nur innerhalb der Uferlinie (n ≈ 0,96): draussen sackt der verschobene Boden in Mulden unter den Spiegel und das
-    # Wasser stand dort als heller Film über dem Sand (Uferkamera, linker Rand, D418)
+    # Wasser stand dort als heller Film über dem Sand (Uferkamera, linker Rand, D434)
     sep = N(nt, 'ShaderNodeSeparateXYZ'); L(nt, tc.outputs['Object'], sep.inputs[0])
     un = tuempel_n_knoten(nt, sep.outputs['X'], sep.outputs['Y'])
     drin = R_(nt, un, 1.0, 0.96)
-    # Flacher Rand trüb und matt (D419): wenige Zentimeter tiefes Wasser über hellem Grund spiegelte als glatter heller Film
+    # Flacher Rand trüb und matt (D435): wenige Zentimeter tiefes Wasser über hellem Grund spiegelte als glatter heller Film
     # (Strahl durch die Flecken: Wasser 3 cm über dem Boden, innerhalb der Uferlinie — physikalisch richtig, aber zu sauber).
     # In der Natur ist der Rand von Schwebstoff, Pollen und Staub belegt: rauer, bräunlicher, die Spiegelung wird weich.
     rand = R_(nt, M_(nt, 'ADD', un, M_(nt, 'MULTIPLY', M_(nt, 'SUBTRACT', RAU(nt, tc.outputs['Object'], 2.5, 0.0, 3.0), 0.5), 0.12)), 0.62, 0.90)
@@ -2206,7 +2206,7 @@ def zielbild():
             k = sb.kamera((ort[0], ort[1], zt + ort[2]), (ziel[0], ziel[1], zt + ziel[2]), brenn); k.name = 'Kamera_' + kname; kams[kname] = k
             if R3: k.data.clip_end = 20000.0   # der fernste Rücken steht bei 8 km
         sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
-        if os.environ.get('BRACHLAND_CPU') != '1':   # D413: am M1 Metal-GPU (Übergabe D377), in der Cloud `BRACHLAND_CPU=1`
+        if os.environ.get('BRACHLAND_CPU') != '1':   # D429: am M1 Metal-GPU (Übergabe D377), in der Cloud `BRACHLAND_CPU=1`
             try:
                 prefs = bpy.context.preferences.addons['cycles'].preferences
                 prefs.compute_device_type = 'METAL'; prefs.get_devices()
@@ -2248,7 +2248,7 @@ def zielbild():
     sb.bauen()
 
 # =====================================================================================================================
-# Orts-Frame (D412, Ledger A-25): A-Frame an einem echten Ort aus den massstäblichen Spielnetzen
+# Orts-Frame (D428, Ledger A-25): A-Frame an einem echten Ort aus den massstäblichen Spielnetzen
 # =====================================================================================================================
 def ortframe():
     """A-Frame an einem vermessenen Ort (zuerst Milbinger Straße): Häuser (OSM-Grundriss, amtliche LoD2-Dächer,
