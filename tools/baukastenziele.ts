@@ -23,7 +23,7 @@
  * `suche` geht für jedes Teil die Stufen `STUFEN` durch und nimmt die, mit der seine Formen im Mittel der Ziele
  * am nächsten an der Referenzdauer liegen (`suche()`); das Ergebnis ist ein Vorschlag für `ausgleich` in den Daten.
  *
- * Messwerkzeug, nicht im Gate. Tabellen: `docs/design/BRACHLAND_Waffen-Baukasten_v1.md` §24.
+ * Messwerkzeug, nicht im Gate. Tabellen: `docs/design/BRACHLAND_Waffen-Baukasten_v1.md` §31.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { Waffenbaukasten, WaffenDaten } from '../src/data/schema.js';

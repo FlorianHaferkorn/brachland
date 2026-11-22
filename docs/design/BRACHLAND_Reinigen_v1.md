@@ -561,7 +561,7 @@ unten hält; Fortschritt = Anteil der Reinigung, den der Griff brachte.
   planvoll auf die Schwelle legt, ist nicht gebaut (UNKLAR, ob ein Mensch das tut).
 
 Für den Baukasten heisst das: Haltungsschaden ist beim Reinigen **nicht** das, was der Hammerkopf braucht, um einen
-Zweck zu bekommen — siehe Waffen-Baukasten §24 (Rangfolge beim Reinigen und gegen Menschen).
+Zweck zu bekommen — siehe Waffen-Baukasten §31 (Rangfolge beim Reinigen und gegen Menschen).
 
 #### 4. In der Gruppe, mit dem Heiler (Rudel und Ausdauer)
 
