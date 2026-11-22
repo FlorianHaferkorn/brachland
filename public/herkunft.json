@@ -49,6 +49,13 @@
   "quelle": "Medieval Weapons Pack („Sword“, „Axe“, OBJ), gedreht, skaliert und im Griff zentriert mit tools/waffenbau.py"
  },
  {
+  "datei": "kampf/waffen.glb (Knoten Hirschfaenger, Messer, Raeucherkanne)",
+  "rolle": "Hirschfänger, Langes Messer, Räucherkanne (D414)",
+  "autor": "eigene Arbeit (BRACHLAND)",
+  "lizenz": "CC0",
+  "quelle": "aus Grundformen gebaut mit tools/waffenmodelle.py, in die Datei gelegt mit tools/waffenmodelle_pack.mjs; keine fremde Vorlage, keine Textur"
+ },
+ {
   "datei": "held/m-waldlaeufer.glb, held/m-bauer.glb, held/w-waldlaeufer.glb, held/w-bauer.glb",
   "rolle": "Hauptfigur-Gestalten (D175)",
   "autor": "Quaternius",
@@ -61,6 +68,13 @@
   "autor": "Quaternius",
   "lizenz": "CC0",
   "quelle": "Universal Animation Library 2 (Schwertkombos, Block, Rückstoss, Taumeln) und die Clips der alten Wanderin (Quaternius-Rig, eigene Waffenclips), übertragen mit tools/heldbau.py"
+ },
+ {
+  "datei": "held/held-clips.glb (Clips Messer_*, Geraet_Blasebalg)",
+  "rolle": "Langes Messer und Räucherkanne (D414)",
+  "autor": "eigene Arbeit (BRACHLAND), Rig Quaternius",
+  "lizenz": "CC0",
+  "quelle": "Schlüsselbilder in tools/waffenclips.py auf der alten Wanderin (public/figuren/wanderin.glb), über die Weltformel auf die Hauptfigur mit tools/clipnachbau.py, eingefügt mit tools/clipnachbau.mjs"
  },
  {
   "datei": "held/m-waldlaeufer-leicht.glb, held/m-bauer-leicht.glb, held/w-waldlaeufer-leicht.glb, held/w-bauer-leicht.glb",
