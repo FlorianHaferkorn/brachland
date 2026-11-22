@@ -167,7 +167,7 @@ pruefe('Vitalwerte hängen an Bruchstücken, nicht an der Zahl der Getöteten', 
 pruefe('leergetötete Reviere ziehen Verhärtete nach, ruhige nicht', S.nachgewandert > 0 && S.leereReviere > 0 && H.nachgewandert === 0 && H.leereReviere === 0);
 pruefe('wer Figuren verliert, verliert Einsicht', S.einsicht < H.einsicht && S.linien < H.linien);
 // D404/D405: Der Zähler wiegt Reinigen leichter — Schwelle und Gewichte aus dem Inhalt.
-const zb = lies('content/wanderfiguren/zaehler.json').stationen.map((x: any) => x.bis).find((x: any) => x?.art === 'eingriffe');
+const zb = lies('content/wanderfiguren/zaehler.json').stationen.map((x: any) => x.bis).find((x: any) => x?.art === 'eingriffe' || x?.art === 'misstraut');
 const stand = (b: typeof S) => zaehlerStand(b, zb.gewichte);
 pruefe('der Zähler trägt Gewichte, Reinigen leichter als Töten', zb.gewichte.gereinigt < zb.gewichte.getoetet);
 pruefe('ungewichtet läge nur der Umgeher unter der Schwelle', U.eingriffe <= zb.anzahl && [S, G, H].every(b => b.eingriffe > zb.anzahl));

@@ -10,8 +10,9 @@
  * die Rasterweite. Der Test hier hält fest, dass das Feld die **Linienbreite**
  * benutzt, also 4 m für einen `stream`, und nicht irgendeine Rasterzahl.
  */
-import { besteReittier, traegt, warumNicht, REITEN_AB_MUTATION,
+import { besteReittier, traegt, traegtAlteRegel, tragfaehig, warumNicht, REITEN_AB_MUTATION,
          type Reitkandidat } from '../src/spiel/reiten.js';
+import { BEWEGUNG } from '../src/spieler/tempo.js';
 import { baueWasserfeld } from '../src/world/wasserfeld.js';
 import { senkePegel } from '../src/world/baender.js';
 import * as THREE from 'three';
@@ -26,39 +27,59 @@ function pruefe(was: string, bedingung: boolean, notiz = '') {
 const k = (platz: number, basisRig: string, mutation: number, name = `T${platz}`): Reitkandidat =>
   ({ platz, kreatur: 'x', name, basisRig, mutation });
 
-console.log('Reiten — Bauform und Mutationsstufe\n');
+console.log('Reiten — seit D413 nach Tragfähigkeit; alte Regel nur hinter ?reitprobe=1\n');
 
-// ---- Bedingungen ----------------------------------------------------------
-pruefe('Vierbeiner auf Mutationsstufe 2 trägt', traegt('quadruped', 1));
-pruefe('Vierbeiner auf Stufe 1 trägt NICHT', !traegt('quadruped', 0));
-pruefe('Kleiner Vierbeiner trägt nie', !traegt('quadruped_small', 2));
-pruefe('Vogel trägt nie', !traegt('biped_bird', 2));
-pruefe('Schlange trägt nie', !traegt('serpent', 2));
-
-// ---- Auswahl im Team ------------------------------------------------------
+// ---- D413: nur das Tragtier trägt -------------------------------------------
 {
-  pruefe('Leeres Team: kein Reittier', besteReittier([]) === null);
+  const tier = BEWEGUNG.tragtier;
+  const tragtier = { platz: 0, kreatur: tier.id, name: 'Tragtier', basisRig: 'quadruped', mutation: 0 };
+  pruefe('Das Tragtier des Försterhofs ist tragfähig', tragfaehig(tier));
+  pruefe('Das Tragtier trägt, ohne Mutationsstufe', traegt(tragtier, false));
+  pruefe('Ein Vierbeiner auf Stufe 3 trägt NICHT mehr', !traegt(k(0, 'quadruped', 2, 'Keiler'), false));
+  pruefe('Ohne Probe: kein Wildtier im Team trägt',
+         besteReittier([k(0, 'quadruped', 2), k(1, 'quadruped', 1)], false) === null);
+  pruefe('Ohne Probe: das Tragtier im Team trägt', besteReittier([k(0, 'quadruped', 2), tragtier], false)?.kreatur === tier.id);
+  // Physik (D398): Ein Keiler von 140 kg trüge bei 20 % 28 kg, nicht 90.
+  pruefe('Ein 140-kg-Tier wäre nicht tragfähig',
+         !tragfaehig({ ...tier, masse: { ...tier.masse, min: 140, max: 140 } }));
+  pruefe('Ein zu leichtes Tragtier trägt auch mit seiner id nicht',
+         !traegt(tragtier, false, { ...tier, masse: { ...tier.masse, min: 300 } }));
+  const warum = warumNicht([k(0, 'quadruped', 2, 'Keiler')], false);
+  pruefe('Ohne Probe sagt die Erklärung, dass kein Tier trägt', warum?.includes('trägt') === true, warum ?? '');
+  pruefe('Probe gilt im Test nicht (keine Adresse)', besteReittier([k(0, 'quadruped', 2)]) === null);
+}
+
+// ---- Alte Regel (bis D413), heute nur hinter ?reitprobe=1 --------------------
+pruefe('Probe: Vierbeiner auf Mutationsstufe 2 trägt', traegtAlteRegel('quadruped', 1) && traegt(k(0, 'quadruped', 1), true));
+pruefe('Probe: Vierbeiner auf Stufe 1 trägt NICHT', !traegtAlteRegel('quadruped', 0));
+pruefe('Probe: kleiner Vierbeiner trägt nie', !traegtAlteRegel('quadruped_small', 2));
+pruefe('Probe: Vogel trägt nie', !traegtAlteRegel('biped_bird', 2));
+pruefe('Probe: Schlange trägt nie', !traegtAlteRegel('serpent', 2));
+
+// ---- Auswahl im Team (Probe) --------------------------------------------------
+{
+  pruefe('Leeres Team: kein Reittier', besteReittier([], true) === null);
   pruefe('Nur ungeeignete: kein Reittier',
-         besteReittier([k(0, 'biped_bird', 2), k(1, 'serpent', 2)]) === null);
+         besteReittier([k(0, 'biped_bird', 2), k(1, 'serpent', 2)], true) === null);
 
   const team = [k(0, 'quadruped', 1, 'Alt'), k(1, 'quadruped', 2, 'Groß'), k(2, 'biped_bird', 2)];
-  pruefe('Höchste Mutation gewinnt', besteReittier(team)?.name === 'Groß');
+  pruefe('Höchste Mutation gewinnt', besteReittier(team, true)?.name === 'Groß');
 
   // Bei Gleichstand entscheidet die Teamordnung — das ist die Aussage des Spielers.
   const gleich = [k(0, 'quadruped', 1, 'Vorne'), k(1, 'quadruped', 1, 'Hinten')];
-  pruefe('Bei Gleichstand der vordere Platz', besteReittier(gleich)?.name === 'Vorne');
+  pruefe('Bei Gleichstand der vordere Platz', besteReittier(gleich, true)?.name === 'Vorne');
 }
 
-// ---- Die Erklärung, wenn es nicht geht ------------------------------------
+// ---- Die Erklärung, wenn es nicht geht (Probe) ---------------------------------
 {
-  pruefe('Kein Team → sagt das', warumNicht([]) === 'Kein Team.');
+  pruefe('Kein Team → sagt das', warumNicht([], true) === 'Kein Team.');
   pruefe('Nur Vögel → nennt die Bauform',
-         warumNicht([k(0, 'biped_bird', 2)])?.includes('Vierbeiner') === true);
-  const zuKlein = warumNicht([k(0, 'quadruped', 0, 'Grathorn')]);
+         warumNicht([k(0, 'biped_bird', 2)], true)?.includes('Vierbeiner') === true);
+  const zuKlein = warumNicht([k(0, 'quadruped', 0, 'Grathorn')], true);
   pruefe('Zu kleine Mutation → nennt Namen und Schwelle',
          zuKlein?.includes('Grathorn') === true && zuKlein.includes(String(REITEN_AB_MUTATION + 1)),
          zuKlein ?? '');
-  pruefe('Mit Reittier keine Erklärung', warumNicht([k(0, 'quadruped', 1)]) === null);
+  pruefe('Mit Reittier keine Erklärung', warumNicht([k(0, 'quadruped', 1)], true) === null);
 }
 
 // ---- Wasserfeld -----------------------------------------------------------

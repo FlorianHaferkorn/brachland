@@ -8,11 +8,12 @@
  *
  * Was hier bewusst fehlt: ob man die Figur an einer Station angesprochen hat, ob sie einem traut,
  * ob sie scheitert. Das sind Spielmechaniken, die noch nicht gebaut sind (Entwurf: `docs/design/BRACHLAND_Quests_v1.md`, D392).
- * Seit D392 kennt eine Station den Zähler der Mönche (`eingriffe`).
+ * Seit D392 kennt eine Station den Zähler der Mönche (`eingriffe`), seit D416 seine Stufe „vertraut“ (`misstraut`).
  *
  * Reines Modul ohne three.js und React (`tests/wanderfiguren.test.ts`).
  */
 import type { Stationsbedingung, Wanderfigur } from '../data/schema.js';
+import type { Begegnung } from './reviere.js';
 
 /** Der Teil des Spielstands, den die Auswertung braucht. */
 export interface Weltstand {
@@ -28,6 +29,13 @@ export interface Weltstand {
   besiegt?: readonly string[];
   /** IDs über die Marke gereinigter Vorkommen. Fehlt in alten Aufrufen: leer. */
   gereinigt?: readonly string[];
+  /** D416: was der Kampf je Begegnung gemeldet hat (`spiel/reviere.ts` `vermerkeBegegnung`). Fehlt: leer. */
+  begegnungen?: readonly Begegnung[];
+  /**
+   * D416: Anteil unberührter Reviere der Region (0…1, `spiel/reviere.ts` `unberuehrtAnteil`). Fehlt er, gilt 1 —
+   * dann entscheidet beim Zähler allein der gewichtete Stand, wie vor D416.
+   */
+  unberuehrtAnteil?: number;
 }
 
 /** Wie schwer ein Eingriff beim Zähler wiegt (D404). Ohne Angabe zählt beides voll, wie vor D405. */
@@ -41,12 +49,18 @@ export const GLEICH_SCHWER: EingriffGewichte = { getoetet: 1, gereinigt: 1 };
  * mit dem schwereren Gewicht, falls es in beiden Listen steht. Der Regent zählt nicht mit; über ihn urteilt die
  * Station selbst (`regent`/`heile`). Abgeleitet, nicht mitgeschrieben, wie der Auftragsfortschritt.
  */
-export function eingriffe(w: Pick<Weltstand, 'besiegt' | 'gereinigt'>, gewichte: EingriffGewichte = GLEICH_SCHWER): number {
+export function eingriffe(w: Pick<Weltstand, 'besiegt' | 'gereinigt' | 'begegnungen'>, gewichte: EingriffGewichte = GLEICH_SCHWER): number {
   const tiere = (ids: readonly string[] = []) => ids.filter(id => !id.startsWith('regent:'));
   const je = new Map<string, number>();
   for (const id of tiere(w.gereinigt)) je.set(id, gewichte.gereinigt);
   for (const id of tiere(w.besiegt)) je.set(id, Math.max(je.get(id) ?? 0, gewichte.getoetet));
+  // D416: Gemeldete Begegnungen zählen je Meldung — ein Lager ist nach seiner Ruhe wieder besetzt, dieselbe
+  // Gegner-ID heisst dann ein anderes Tier. Steht die ID schon oben (Bestand), zählt sie dort, nicht doppelt.
   let summe = 0;
+  for (const b of w.begegnungen ?? []) {
+    if (b.art === 'umgangen' || je.has(b.gegnerId) || b.gegnerId.startsWith('regent:')) continue;
+    summe += b.art === 'getoetet' ? gewichte.getoetet : gewichte.gereinigt;
+  }
   for (const g of je.values()) summe += g;
   return summe;
 }
@@ -58,6 +72,9 @@ export function gilt(b: Stationsbedingung, w: Weltstand): boolean {
     case 'heile':   return w.geheilt.includes(b.regent);
     case 'auftrag': return w.auftraege[b.auftrag] === 'abgeholt';
     case 'eingriffe': return eingriffe(w, b.gewichte) >= b.anzahl - 1e-9;
+    // D406/D416: nicht mehr „vertraut“ — über der Schwelle (nicht mehr geduldet) oder zu wenige Reviere unberührt.
+    case 'misstraut': return eingriffe(w, b.gewichte) > b.anzahl + 1e-9
+      || (w.unberuehrtAnteil ?? 1) < b.unberuehrtMindestens - 1e-9;
   }
 }
 

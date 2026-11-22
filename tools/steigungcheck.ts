@@ -23,13 +23,14 @@
 import { readFileSync } from 'node:fs';
 import { entpackeWelt } from '../src/world/osm.js';
 import { baueHoehenfeld, hoeheAufFlaeche } from '../src/world/lod.js';
+import { BEWEGUNG } from '../src/spieler/tempo.js';
 
 /** Aus `RegionsSzene.tsx` — bewusst hier gespiegelt, weil das Modul React lädt. */
 const GEHEN_MAX_GRAD = 40;
 const STEIGUNG_MAX = Math.tan(GEHEN_MAX_GRAD * Math.PI / 180);
 const TAST_WEITE = 1.4;
-/** Aus `ausdauer.ts`: 100 Punkte / 16 je Sekunde × 2,2 m/s. */
-const KLETTERHOEHE = (100 / 16) * 2.2;
+/** Kletterreichweite aus voller Ausdauer, seit D412 aus `content/bewegung.json` (13,75 m, unverändert). */
+const KLETTERHOEHE = BEWEGUNG.klettern.reichweite;
 
 const roh = JSON.parse(readFileSync('public/world/oental.json', 'utf8'));
 const welt = entpackeWelt(roh.welt);

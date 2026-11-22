@@ -23,6 +23,10 @@
  * Dreiviertel der Regionsbreite in einen einzigen Flug; dann ist der Rest der
  * Karte Kulisse. **3:1** liegt dazwischen und ist deshalb gesetzt.
  *
+ * Nachmessung D412 mit dem neuen Renntempo 8,5 m/s (`npm run gleit`, Gegenprobe):
+ * Ersparnis 12,5 s (2:1), 51,9 s (3:1), 108,3 s (4:1) — der Gleiter wird deutlicher
+ * zur Abkürzung, an der Wahl von 3:1 ändert das nichts.
+ *
  * ## Warum es keinen eigenen Knopf gibt
  *
  * Der naheliegende Entwurf wäre „Sprungtaste halten". Er scheitert am Zielgerät:
@@ -38,19 +42,28 @@
  *
  * Reines Modul ohne three.js und React (`tests/gleiten.test.ts`).
  */
-import { SCHWERKRAFT } from './tempo.js';
+import { BEWEGUNG, SCHWERKRAFT } from './tempo.js';
 
 /**
- * Horizontal zu vertikal. Aus der Messung (siehe Kopf).
+ * Horizontal zu vertikal. Aus der Messung (siehe Kopf); seit D412 in
+ * `content/bewegung.json` (`gleiter`), Wert unverändert.
  *
- * Bei `GLEIT_SINKEN` von 4,0 m/s heißt 3:1 ein Vorwärtstempo von 12,0 m/s — knapp
- * über den 11,0 m/s Rennen. Das ist Absicht: Gleiten soll sich schneller anfühlen
- * als Rennen, aber nicht wie ein anderes Spiel.
+ * Bei `GLEIT_SINKEN` von 4,0 m/s heißt 3:1 ein Vorwärtstempo von 12,0 m/s — über dem
+ * Rennen (bis D412 11,0, seither 8,5 m/s). Das ist Absicht: Gleiten soll sich
+ * schneller anfühlen als Rennen, aber nicht wie ein anderes Spiel.
+ *
+ * **Warum nur ein Drittel eines echten Schirms** (9,3 : 1): Seit D411 ist der Gleiter
+ * aus geborgenen Leinen und Gurtzeug vom Grathorn und einer in der Enklave neu
+ * genähten Kappe aus gewachstem Leinen — ein Schirm, der schlecht gleitet und schnell
+ * sinkt (Physik-Prüfung v1 §4.3; ob Leinen genau diese Werte gibt: nicht belegt).
  */
-export const GLEIT_VERHAELTNIS = 3;
+export const GLEIT_VERHAELTNIS = BEWEGUNG.gleiter.verhaeltnis;
 
-/** Sinkgeschwindigkeit am Gleiter, m/s. Ohne ihn fällt man mit bis zu 50 m/s. */
-export const GLEIT_SINKEN = 4.0;
+/**
+ * Sinkgeschwindigkeit am Gleiter, m/s. Ohne ihn fällt man bis zur Endgeschwindigkeit
+ * (`fall.endgeschwindigkeit`, 53 m/s, `spieler/bewegung.ts`).
+ */
+export const GLEIT_SINKEN = BEWEGUNG.gleiter.sinken;
 
 /** Vorwärtsgeschwindigkeit am Gleiter, m/s. Folgt aus Verhältnis und Sinkrate. */
 export const GLEIT_TEMPO = GLEIT_SINKEN * GLEIT_VERHAELTNIS;
@@ -171,8 +184,15 @@ export function flugdauer(hoehe: number): number {
 
 /**
  * Freier Fall aus derselben Höhe, zum Vergleich — die Zahl, die den Gleiter
- * begründet. Ohne ihn schlägt man aus 200 m mit 63 m/s auf.
+ * begründet.
+ *
+ * Seit D412 mit Endgeschwindigkeit: Bis D412 kam hier `√(2gh)` ohne Grenze heraus
+ * (aus 200 m 63 m/s, aus 400 m 89 m/s), während der Kommentar 50 m/s nannte
+ * (Physik-Prüfung v1 Zeile 7). Jetzt höchstens `fall.endgeschwindigkeit` (53 m/s),
+ * dieselbe harte Grenze wie in der Bildschleife. Real nähert sich der Fall ihr nur an;
+ * der Luftwiderstand davor ist nicht nachgebildet (benannte Vereinfachung: unter rund
+ * 140 m ist der Fall hier etwas zu schnell, darüber gleich).
  */
 export function fallgeschwindigkeit(hoehe: number): number {
-  return Math.sqrt(2 * SCHWERKRAFT * Math.max(0, hoehe));
+  return Math.min(BEWEGUNG.fall.endgeschwindigkeit, Math.sqrt(2 * SCHWERKRAFT * Math.max(0, hoehe)));
 }

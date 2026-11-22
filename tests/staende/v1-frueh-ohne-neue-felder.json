@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "team": [
+    { "kreatur": "grathorn", "stufe": 3, "erfahrung": 0, "kp": 0 }
+  ],
+  "gefangen": [],
+  "besiegt": ["oental-sporenhahn-2"],
+  "position": [12.5, -40.25],
+  "gesehen": ["grathorn", "sporenhahn"]
+}

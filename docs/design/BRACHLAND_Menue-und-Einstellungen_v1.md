@@ -6,6 +6,10 @@
 > Gebaut ist nur das Schema `Einstellung` mit den 18 einfachen M-Einträgen (`content/einstellungen.json`, §6, §8.2).
 > Zielgerät: Desktop-Browser, M1 als Mess-Referenz (ADR-0006/0016), WebGL heute, WebGPU als Qualitätspfad (ADR-0015).
 > Handy nachrangig. Stil: gemalter Realismus (ADR-0018).
+>
+> **Stand D415 (22.11.2026):** Phase 0 teilweise gebaut, ohne Oberfläche — Speicherformat mit Migration, Einstellungs-
+> Speicher mit Qualitätsvorschlag, Eingabeschicht mit Gamepad, Spielphasen als Regel. Was erledigt und was offen ist,
+> steht in §9.1; §1 bleibt der Bestand vor D415 (Datei:Zeile von `2b80c8a`).
 
 ## 0. Antwort auf „jetzt oder später?“
 
@@ -404,6 +408,22 @@ gespielt; die heutige J/I/K/L/U-Belegung bleibt als Vorlage „Nur Tastatur“ e
 „Blick senken/heben“ auf R/F und „drehen“ auf Q/E entfallen in der Mausvorlage (die Maus schaut) und ziehen in der
 Tastaturvorlage auf die Pfeiltasten um — damit sind beide Kollisionen aus §1.4 aufgelöst.
 
+**Gebaut ist anders (D415, `content/belegung.json`):** Die Standardbelegung ist der **Bestand** (Auftrag: Spielgefühl
+nicht ändern), die Mausvorlage dieser Tabelle bleibt Vorschlag für Phase 1. Die Pfeile taugen nicht als Ausweichort:
+Sie wählen im Kampf schon die Linie (D174) und gehen zugleich. Aufgelöst ist deshalb so:
+
+- **Q/E** bleiben Drehen **und** Zielwechsel, aber in getrennten Spielzuständen: Drehen gilt ohne aufgeschaltetes Ziel
+  (`frei`), Zielwechsel nur mit Ziel (`ziel`). Genau so verhielt sich das Spiel seit D168 schon (die Szene dreht nicht,
+  solange ein Ziel aufgeschaltet ist); jetzt steht es als Regel in den Daten, und die Kollisionsprüfung kennt sie.
+- **F** wird Reinigen (Kampf) und Ansprechen/Aufheben (Welt) — ebenfalls getrennte Zustände. **Blick heben/senken zieht
+  von R/F auf T/G** (dieselbe senkrechte Lage, eine Spalte weiter); das ist die einzige geänderte Taste. R ist damit
+  frei und trägt das **Gerät** (D410). Folge für den Vorschlag oben: G für den Kernfunken in der Mausvorlage ist belegt.
+- Die **vier Pfeile** (gehen/drehen und Linie) bleiben als geduldete Überschneidung mit Begründung (`geteilt`) —
+  auflösen erst mit der Mausvorlage, sonst ändert sich das Gefühl für Pfeil-Geher.
+- **Gamepad:** Grundbelegung fest wie in der Tabelle; Rennen auf **L3 und B halten**, Rolle auf **B tippen** (Schwelle
+  0,3 s, die Rolle kommt beim Loslassen — bis zu 0,3 s später als auf der Tastatur), Zielwechsel per Stickruck rechts.
+  Linie per rechtem Stick, Gürtel, Buch/Karte und Menü öffnen sind nicht belegt (§9.1).
+
 ### 6.5 Spiel
 
 | Einstellung | Werte | Standard | heute | Prio |
@@ -567,6 +587,11 @@ Kein Konto, keine Cloud: ADR-0004 schliesst Online aus, und ein Server wäre ein
 - **Rangfolge beim Lesen:** URL-Parameter (Entwickler) › gespeicherter Wert › Stufenwert der gewählten
   Qualitätsstufe › `standard`. Die URL-Schalter bleiben damit, was sie sind: Übersteuerung für Messläufe, nie
   gespeichert. Übersteuerte Zeilen sind im Menü markiert („durch Adresse gesetzt“).
+- **Gebaut (D415, `src/spiel/einstellungen.ts`):** genau diese Rangfolge. Befund dabei: Von den vier `url`-Angaben aus
+  D394 meinte nur `?weite=` denselben Wert; `?schatten=` ist die Schattenstärke 0–1, `?gras=` ein Realismusschalter,
+  `?belichtung=` die absolute Belichtung (nicht EV um den Standard). Die drei `url`-Felder sind entfernt, `sichtweite`
+  übersetzt über `urlWerte` (1/1.6/2). Die URL-Schalter selbst lesen weiter direkt aus der Adresse; sie gewinnen damit
+  schon heute über jeden gespeicherten Wert.
 - **Lesen ohne React-Rerender:** `wert('sichtweite')` + `abonniere(id, fn)`; die Szene liest in `useFrame` aus einer
   Ref, Menüs über `useSyncExternalStore`. Kein Zustands-Paket nötig.
 - **Sofort oder Neustart:** Heute sind die Schalter Modulkonstanten (`echt.ts`). Schritt 1 lässt das so und markiert
@@ -652,6 +677,20 @@ Aufwand grob: **S** = bis 2 Tage, **M** = 3–6 Tage, **L** = über 6 Tage (eine
 Summe grob 4–5 Wochen. Reihenfolge: 0.1 → 0.4 und 0.3 parallel → 0.5 → 0.2, 0.7 → Rest. 0.4 zuerst, wenn D392/D393
 vorher Felder in den Stand schreiben wollen.
 
+#### 9.1.1 Stand nach D415 (22.11.2026)
+
+| # | Gebaut (renderfrei, mit Test) | Verdrahtet | Offen |
+|---|---|---|---|
+| 0.4 | **Speicherformat** `src/spiel/speicherformat.ts`: Hülle, Migrationskette (1 → 2 = Hülle), drei Plätze × `aktuell`/`rast`, Unlesbares und Neueres unter `sicherung/` aufbewahrt und gemeldet, ungültiger Stand wird nicht geschrieben, Export/Import mit Prüfsumme, „Neues Spiel“ ohne Löschen; Laufzeit-Schema `SpielstandDaten`/`SpielstandHuelle` (`tests/speicherformat.test.ts`, zwei v1-Beispiele unter `tests/staende/`) | `ladeStand`/`speichereStand` laufen darüber (alter Schlüssel `aktuell` wird für Platz 1 gelesen, migriert, nie gelöscht); Rast schreibt die Rast-Fassung; Meldung beim Laden als Hinweis; Sichern bei Tab verborgen, `pagehide` und alle 60 s (nie im Kampf, nie bei Messadressen) | Platzwahl und Export/Import im Menü (Funktionen stehen: `waehlePlatz`, `exportiereStand`, `importiereStand`, `exportiereSicherung`, `beginneNeuesSpiel`); `navigator.storage.persist()`; Speicher voll; nach einem Ende den Stand davor ladbar halten (A-29 (7)); Felder für v3 (`KOMMT_MIT_V3`) |
+| 0.1 | **Einstellungs-Speicher** `src/spiel/einstellungen.ts`: Rangfolge Adresse › gespeichert › Stufe › Standard, `localStorage` getrennt vom Spielstand, Meldung bei Änderung, Zurücksetzen je id/Gruppe, persönliche Werte für den Export (`tests/einstellungen.test.ts`) | `mausempfindlichkeit`, `blick-y-umkehren`, `rennen-modus` (Halten/Umschalten), neu `blocken-modus` und `gamepad-totzone-*` — alle mit dem Standard von heute, also ohne spürbare Änderung | `Qualitaet` und `richtungskampf` ziehen noch nicht hinein (`richtungskampf` steht im Spielstand — Umzug ist eine Migration); `helligkeit`, `hud-skala`, `textgroesse`, `signalfarbe`, `lautstaerke-gesamt` (verdrahtet hiesse der Standard 80 % leiser als heute, wo kein Gesamtregler den Ton skaliert), `vollbild`, `eingabesymbole`, `lehrhinweise`, `stumm-im-hintergrund` haben keinen Leser |
+| 0.2 | **Qualitätsvorschlag** `src/spiel/qualitaetsvorschlag.ts`: Startstufe aus Renderer-Name, WebGPU-Pfad, Kernen, Handy; Anpassung nach p95; Regeln in `einstellungen.json` `automatik` | nein — die Standardstufe „Automatisch“ würde sonst sofort andere Grafikwerte setzen als heute (sichtbare Änderung ohne Messlauf) | Messlauf am M1 für die Zuordnung; Ladebildschirm mit Vorwärmung; die fünf Grafikwerte zur Laufzeit |
+| 0.3 | **Eingabeschicht** `src/spieler/eingabe.ts`, `src/spieler/gamepad.ts`, Daten `content/belegung.json`: Aktionen mit Kontext, Kollisionsprüfung, freie Belegung mit Meldung, Halten/Umschalten, Gamepad (Totzone, B tippen/halten, Stickruck) (`tests/eingabe.test.ts`) | `steuerung.ts`, `Kampfplatz.tsx`, `RegionsSzene.tsx` (C/V), `Menue.tsx` (Esc/Start schliesst) fragen Aktionen; Gamepad-Knöpfe kommen als Tastenereignisse, Sticks über `padAchsen()`; Touch unverändert | `reinigen`, `interagieren`, `geraet` ohne Handlung im Code; Linie per Stick; Menü per Start öffnen; Pointer Lock; Tastenbeschriftung nach Layout (`getLayoutMap`); Belegungs-Bildschirm |
+| 0.5 | **Spielphasen** `src/spiel/spielphase.ts`: Phasen und Pausengründe, Tab verborgen pausiert und bleibt pausiert bis „Fortsetzen“, Kontextverlust nicht wegklickbar, `sollSichern` (`tests/spielphase.test.ts`) | Sichern beim Verbergen; Meldung bei `webglcontextlost`/`-restored` (three.js stellt selbst wieder her) | **die Pause selbst** — ohne Pausenbildschirm mit „Fortsetzen“ stünde das Spiel nach jedem Tab-Wechsel still; die zehn Wahrheitswerte in `main.tsx` zusammenziehen; Gamepad getrennt → Pause; Ton stumm im Hintergrund |
+| 0.6–0.9 | — | — | Texte auslagern, HUD-Raster, Tonbusse, Signalfarbe zur Laufzeit: unverändert offen |
+
+Reihenfolge danach: **0.5 mit dem Pausenbildschirm** (Phase 1.1 zieht ihn ohnehin) → Platzwahl/Export im Menü
+(Fremdtest braucht den Export als Fehlerprotokoll, §6.7) → 0.2 nach dem Messlauf → 0.6, 0.7.
+
 ### 9.2 Phase 1 — vor dem ersten Fremdtest
 
 | # | Baustein | Aufwand | Hängt ab von |
@@ -719,6 +758,6 @@ Entscheidungsfragen für Flo stehen im Ledger unter **A-29** (sieben Punkte, je 
 | Reiter „Team“ | stammt aus dem Creature-Collector-Stand; Story-Bibel v2 ist ein Action-RPG. Ob Team, Fangen und der Rundenkampf-Bildschirm bleiben, entscheidet nicht dieses Dokument |
 | Hilfen und Enden | D385 zählt jeden Eingriff für die Enden; ob eine Schadens-Hilfe diese Zählung verzerrt (weniger Tode → andere Wege), ist nicht untersucht |
 | Tausch ohne Geld, Truhe in der Zuflucht | Annahmen im Rahmen; D393 entscheidet |
-| Gamepad API, `visibilitychange`, Kontextverlust | Verhalten aus dem Stand der Technik beschrieben, in dieser Runde nicht an MDN nachgeschlagen und nicht im Spiel erprobt |
+| Gamepad API, `visibilitychange`, Kontextverlust | Verhalten aus dem Stand der Technik beschrieben, nicht an MDN nachgeschlagen. Seit D415 gebaut, aber **nicht an einem echten Gamepad, nicht in Safari und ohne echten Kontextverlust erprobt** |
 | Vorwärmung mit `compileAsync` | für den WebGL-Pfad von three beschrieben; ob sie mit den eigenen `ShaderMaterial`s (Kontur, AO) und im WebGPU-Pfad alle Ruckler nimmt, ist nicht gemessen |
 | Ton | es gibt eine Tonquelle; Gruppen (Effekte, Umgebung, Musik, Stimmen) sind Planung ohne Bestand |

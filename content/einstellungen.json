@@ -23,7 +23,7 @@
       "stufen": { "niedrig": 1, "mittel": 1.5, "hoch": 2, "ultra": 2 }
     },
     {
-      "id": "schatten", "gruppe": "grafik", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet", "url": "schatten",
+      "id": "schatten", "gruppe": "grafik", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet",
       "name": "Schatten",
       "hilfe": "Auflösung der Schattenkarte. „Aus“ nimmt dem Bild Tiefe und ist nur für sehr schwache Geräte gedacht.",
       "werte": [
@@ -35,7 +35,7 @@
       "stufen": { "niedrig": "aus", "mittel": "2048", "hoch": "4096", "ultra": "4096" }
     },
     {
-      "id": "vegetationsdichte", "gruppe": "grafik", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet", "url": "gras",
+      "id": "vegetationsdichte", "gruppe": "grafik", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet",
       "name": "Vegetationsdichte",
       "hilfe": "Gras und Kleinzeug am Boden. Bäume und Büsche bleiben immer stehen, weil sie Deckung und Sichtlinien bestimmen.",
       "werte": [
@@ -48,6 +48,7 @@
     },
     {
       "id": "sichtweite", "gruppe": "grafik", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet", "url": "weite",
+      "urlWerte": { "1": "nah", "1.6": "weit", "2": "sehr-weit" },
       "name": "Sichtweite",
       "hilfe": "Wie weit Bäume, Büsche und Gras in voller Stufe gezeichnet werden. Das Gelände selbst reicht immer bis zum Horizont.",
       "werte": [
@@ -65,7 +66,7 @@
       "standard": false
     },
     {
-      "id": "helligkeit", "gruppe": "anzeige", "art": "regler", "prioritaet": "M", "wirkt": "geraet", "url": "belichtung",
+      "id": "helligkeit", "gruppe": "anzeige", "art": "regler", "prioritaet": "M", "wirkt": "geraet",
       "name": "Helligkeit",
       "hilfe": "Verschiebt die Belichtung in Blendenstufen, ohne die Lichtstimmung zu ändern. Eingestellt wird am Kalibrierbild beim ersten Start.",
       "min": -1, "max": 1, "schritt": 0.1, "standard": 0, "einheit": "EV"
@@ -109,6 +110,28 @@
         { "id": "umschalten", "name": "Umschalten" }
       ],
       "standard": "halten"
+    },
+    {
+      "id": "blocken-modus", "gruppe": "steuerung", "art": "auswahl", "prioritaet": "S", "wirkt": "spieler",
+      "name": "Blocken",
+      "hilfe": "Halten: deckt, solange die Taste gedrückt ist. Umschalten: ein Druck hebt die Deckung, der nächste senkt sie.",
+      "werte": [
+        { "id": "halten", "name": "Halten" },
+        { "id": "umschalten", "name": "Umschalten" }
+      ],
+      "standard": "halten"
+    },
+    {
+      "id": "gamepad-totzone-links", "gruppe": "steuerung", "art": "regler", "prioritaet": "S", "wirkt": "geraet",
+      "name": "Totzone linker Stick",
+      "hilfe": "Wie weit der Stick ausschlagen muss, bevor die Figur geht. Abgenutzte Sticks brauchen mehr.",
+      "min": 0, "max": 40, "schritt": 5, "standard": 15, "einheit": "%"
+    },
+    {
+      "id": "gamepad-totzone-rechts", "gruppe": "steuerung", "art": "regler", "prioritaet": "S", "wirkt": "geraet",
+      "name": "Totzone rechter Stick",
+      "hilfe": "Wie weit der Stick ausschlagen muss, bevor der Blick dreht.",
+      "min": 0, "max": 40, "schritt": 5, "standard": 15, "einheit": "%"
     },
     {
       "id": "eingabesymbole", "gruppe": "steuerung", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet",
@@ -156,5 +179,21 @@
       "hilfe": "Skaliert alle Texte in Menüs, Hinweisen und Untertiteln.",
       "min": 100, "max": 150, "schritt": 25, "standard": 100, "einheit": "%"
     }
-  ]
+  ],
+  "automatik": {
+    "regeln": [
+      { "muster": "swiftshader|llvmpipe|softpipe|software|microsoft basic", "stufe": "niedrig", "warum": "Software-Rasterung ohne Grafikkarte" },
+      { "muster": "intel.*(hd|uhd) graphics|mali|adreno [1-6]|powervr", "stufe": "niedrig", "warum": "ältere eingebaute oder Handy-Grafik" },
+      { "muster": "intel.*iris|radeon(tm)? graphics|radeon vega", "stufe": "mittel", "warum": "neuere eingebaute Grafik" },
+      { "muster": "apple m[1-9]|apple gpu", "stufe": "hoch", "warum": "Apple Silicon — der M1 ist die Mess-Referenz für Hoch (Doc §6.1)" },
+      { "muster": "rtx|gtx 1[06-9]|radeon rx|arc a[0-9]", "stufe": "ultra", "warum": "eigene Grafikkarte; Ultra nur mit WebGPU-Pfad, sonst Hoch" }
+    ],
+    "ohneTreffer": "mittel",
+    "mobilHoechstens": "mittel",
+    "wenigKerneHoechstens": { "kerne": 4, "stufe": "mittel" },
+    "ultraBrauchtWebgpu": true,
+    "zielBildzeitMs": { "niedrig": 33, "mittel": 16.7, "hoch": 16.7, "ultra": 16.7 },
+    "runterAbAnteil": 1.15,
+    "hochUnterAnteil": 0.6
+  }
 }

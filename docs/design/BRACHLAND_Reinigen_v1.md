@@ -199,7 +199,9 @@ hart — siehe Ledger A-24.2.
   (D177: je Waffe 6 Harz + 3 Herzfunken bis Stufe 3, +12 % Schaden je Stufe).
 - **A5 Läuterung** (Markenfortschritt, Vorschlag): 1 je gereinigtem Tier, 5 je Verhärtetem, 15 je Regent. Markenstufen
   bei 25 / 60 / 110 / 170: je **+1 Fassung**; Stufe 2 zusätzlich `halten` +0,2 s, Stufe 4 Verhärtete nur noch ×1,5.
-- **A6 Reviergunst** (Vorschlag): Ein Revier, in dem ≥ 60 % der Begegneten gereinigt sind, ist **ruhig**: Die Tiere
+- **A6 Reviergunst** (Vorschlag; **seit D399 gilt** „≥ 60 % der Eingriffe und ≥ 25 % der Tiere des Reviers“, **seit D416**
+  als Daten und Logik — `content/reviere/oental.json`, `src/spiel/reviere.ts`, Gegenstände v1 §14): Ein Revier, in dem
+  ≥ 60 % der Begegneten gereinigt sind, ist **ruhig**: Die Tiere
   greifen nicht mehr an (Bibel §2), die Witterung zeigt dort einen verborgenen Ort oder ein Fundstück, und eine Rast im
   Revier füllt die Marke **ohne Zuflucht**. Ein leergetötetes Revier ist ebenfalls still, gibt aber nichts.
 

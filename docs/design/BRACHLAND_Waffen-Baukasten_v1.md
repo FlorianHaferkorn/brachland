@@ -9,6 +9,8 @@ shelf-life-days: 180
 > Daten: `content/waffenteile.json`. Ableitung: `src/kampf/baukasten.ts`. Messung: `npx tsx tools/baukastensim.ts`.
 > Fragen für Flo: Ledger **A-31**. Offen/erledigt steht im Ledger, nicht hier.
 > **Fortgeschrieben mit D405** (unten, §11–§15): Waffenfamilien, Bogen und Armbrust, „Magie“, Zähler der Mönche.
+> **Fortgeschrieben mit D420** (unten, §24–§30): Gewicht spürbar machen — Recherche, Befund je Waffe, Gewichtsmodul
+> (`src/kampf/gewicht.ts`, `content/gewicht.json`), Nachschwung der Messer-Clips, Einhängepunkte, Vorschläge an Kampfwerten.
 >
 > Anlass (Flo, 22.11.2026): ob jeder aus Material eigene Waffen und Ausrüstung schmieden, herstellen und gestalten
 > können soll — „Das wäre doch ein innovativer Ansatz oder nicht?“ —, dazu der Nachtrag: „ja ich meinte auch ob man
@@ -439,10 +441,10 @@ mit Saufeder und Sapie.
 
 | Familie | Vorhandene Clips nutzbar | Fehlen |
 |---|---|---|
-| Hirschfänger | alle sieben der Klinge (einhändig, kürzere Reichweite) | **keine** — nur ein Modell |
+| Hirschfänger | alle sieben der Klinge (einhändig, kürzere Reichweite) | **keine** — nur ein Modell. **D414:** Modell gebaut; Griff und Handlage in den Klingenclips geprüft (`.cache/bilder/D414/hirschfaenger_in_klingenclips.png`) |
 | Schlägel | `Axt_Stand`, `Axe_Overhead`, `Axt_Schwer`, `Axt_Block` | 2: zweihändiger Stand, tiefer Querschlag |
 | Sapie | `Speer_Stand`, `Speer_Block` | 3: Hieb über Kopf, Zug, Lauf |
-| Langes Messer | `Klinge_U_C` (Zweihandhieb) | 5: Stand, zwei Querhiebe, Lauf, Block |
+| Langes Messer | ~~`Klinge_U_C` (Zweihandhieb)~~ — **D414:** taugt nicht (Sprung, linke Hand nicht am Griff) | ~~5: Stand, zwei Querhiebe, Lauf, Block~~ **D414 gebaut, sechs:** `Messer_Stand`, `Messer_Quer_A`, `Messer_Quer_B`, `Messer_Lauf`, `Messer_Block` und `Messer_Schwer` statt `Klinge_U_C` |
 | Bogen und Armbrust | keine | 6: je Stand/Anlegen, Spannen/Laden, Lösen/Schuss |
 
 [UAL] https://quaternius.itch.io/universal-animation-library-2 · https://80.lv/articles/get-this-animation-asset-library-with-over-130-diverse-items
@@ -451,10 +453,10 @@ mit Saufeder und Sapie.
 
 | Familie | Real | Anker | Abweichung |
 |---|---|---|---|
-| Hirschfänger | jagdliche Seitenwaffe, Klinge 40–70 cm | 0,6–0,8 kg — **Überschlag** | keine |
+| Hirschfänger | jagdliche Seitenwaffe, Klinge 40–70 cm (DHM W 70/71: 49,5 / 62,5 cm) | ~~0,6–0,8 kg~~ **0,4–0,6 kg** — Überschlag; Modell 0,59 kg aus Volumen × Dichte (D414) | keine |
 | Schlägel | Vorschlaghammer real 3–5 kg, zum Kämpfen zu träge | 2–3 kg — **Überschlag** | gemeint ist ein leichter Schlägel am langen Stiel; benannt |
 | Sapie | Forstwerkzeug zum Ziehen und Wenden von Stämmen, 1,2–1,6 m, kopflastig | 1,5–2,5 kg — **Überschlag** | keine: Sie bleibt, was sie ist — langsam, zieht |
-| Langes Messer | zweihändiges Kriegsmesser, süddeutsch | 1,2–1,8 kg, 1,1–1,3 m — **Überschlag** | keine |
+| Langes Messer | zweihändiges Kriegsmesser, süddeutsch (Nachbau 15. Jh.: Klinge 82, gesamt 111 cm) | 1,2–1,6 kg, 1,1–1,2 m — Überschlag; Modell 1,39 kg, 1,17 m, Trägheit um die Hand 0,23 kg·m² (D414) | keine |
 | Bogen | Jagdbogen 20–25 kg Zuggewicht, Pfeil um 30 g, 50–60 m/s | **Überschlag** | Spannen 0,9 s statt 1–2 s |
 | Armbrust | Spannen mit Hebel 15–20 s, mit Winde 30–60 s | **Überschlag** | **6 s im Spiel** — grösste Abweichung, benannt |
 
@@ -608,6 +610,13 @@ nicht geändert**; das ist Flos Entscheidung (A-32). Der Test hält fest, was be
 > `content/gegenstaende/`, `content/wirken.json` (fünf Einträge als ersetzt markiert). Regeln:
 > `src/kampf/geraete.ts`. Fragen für Flo: Ledger **A-35**. Seit D406 gilt: Fernkampf erst nach Kapitel 1; Kapitel 1 =
 > Klinge, Axt, Saufeder, Hirschfänger, Langes Messer; Befallskräfte geparkt.
+>
+> **Entschieden (Flo, 22.11.2026, „ja“, D411; nachgezogen D412):** alle fünf Empfehlungen aus A-35 gelten — vier Geräte
+> in Kapitel 1 (Abflammgerät, Kohlensäurelöscher, Weidezaungerät, Räucherkanne), die **Räucherkanne als erste Probe**
+> vor dem Fremdtest; Kalkstreuer Kapitel 2; Sporenbalg geparkt; **Betriebsstoff je Gerät**; **Rauch beruhigt den
+> Befall** als Setzung über die Welt (Story-Bibel v2 §2); die Marke behält nur **Orten und Rufen**; Brand im Gelände
+> als Regel, als gebaute Mechanik erst nach Kapitel 1. Unten sind die Stellen markiert; ersetzter Wortlaut ist
+> durchgestrichen. Kein Wirkwert ist gemessen, nichts gebaut.
 
 ## 16. Bestand: das Elementsystem
 
@@ -643,14 +652,14 @@ Sechs Geräte, je ein Element, alle aus Hof, Wirtshaus, Weide, Imkerei, Bruch �
 herumsteht. Keine fremden Namen, keine fremden Formen (ADR-0004). Alle Wirkzahlen sind **Entwurf und ungemessen**;
 `schaden` und `haltung` zählen in leichten Klingenhieben (22 / 34), bevor der Kreis greift.
 
-| Gerät | Element | Was es real ist | Stark gegen (Kapitel 1) | Status |
+| Gerät | Element | Was es real ist | Stark gegen (Kapitel 1) | Status (entschieden D411) |
 |---|---|---|---|---|
-| **Abflammgerät** | brand | Unkrautbrenner mit Stechkartusche, Flamme um 1.800 °C | Wolf (frost) | Kapitel 1 |
-| **Kohlensäurelöscher** | frost | CO₂-Handlöscher, 2 kg, Schnee von −78 °C | Keiler (holz) | Kapitel 1 |
-| **Weidezaungerät** | alt-tech | Impulsgerät, 5–10 kV, höchstens 5 J | — (Flussvater Phase 1, wasser) | Kapitel 1 |
-| **Räucherkanne** | holz | Smoker der Imker mit Blasebalg | Grathorn, Gams (stein), Fuchs (alt-tech) | Kapitel 1 |
-| **Kalkstreuer** | stein | Streubüchse mit Branntkalk | Fuchs, Wolf (alt-tech) | Kapitel 2 |
-| **Sporenbalg** | sporen | erfunden (Stäubebalg mit Sporen) | — | geparkt mit den Befallskräften (D406) |
+| **Abflammgerät** | brand | Unkrautbrenner mit Stechkartusche, Flamme um 1.800 °C | Wolf (frost) | **Kapitel 1** |
+| **Kohlensäurelöscher** | frost | CO₂-Handlöscher, 2 kg, Schnee von −78 °C | Keiler (holz) | **Kapitel 1** |
+| **Weidezaungerät** | alt-tech | Impulsgerät, 5–10 kV, höchstens 5 J | — (Flussvater Phase 1, wasser) | **Kapitel 1** |
+| **Räucherkanne** | holz | Smoker der Imker mit Blasebalg | Grathorn, Gams (stein), Fuchs (alt-tech) | **Kapitel 1, erste Probe vor dem Fremdtest** |
+| **Kalkstreuer** | stein | Streubüchse mit Branntkalk | Fuchs, Wolf (alt-tech) | **Kapitel 2** |
+| **Sporenbalg** | sporen | erfunden (Stäubebalg mit Sporen) | — | **geparkt** mit den Befallskräften (D406) |
 
 Wasser bleibt beim Kernfunken (Flutstoss); für faeulnis gibt es bewusst kein Gerät — sie ist das, was man bekämpft.
 
@@ -679,7 +688,9 @@ Wasser bleibt beim Kernfunken (Flutstoss); für faeulnis gibt es bewusst kein Ge
 - **Ein Geräteplatz.** Das Gerät hängt am Gurt und wird mit der freien Hand geführt. Mit einhändiger Waffe (Klinge,
   Hirschfänger, Axt) bleibt die Waffe in der Hand; mit zweihändiger (Saufeder, Langes Messer) muss sie erst weg —
   doppelter Vorlauf. Das ist der Preis der Reichweite.
-- **Clips:** Kein Clip ist für Geräte gebaut. Tragen kann `Klinge_Stich` (Arm nach vorn) als Sprühhaltung und
+- **Clips (D414):** Für die Räucherkanne gebaut: `Geraet_Blasebalg` (Schleife, 1 s, zwei Stösse; linke Hand führt Kanne
+  und Balg, rechte hält die einhändige Waffe tief) — er trägt Kegel und Fläche; Auslegen braucht kein Aufsatz der Kanne.
+  ~~Kein Clip ist für Geräte gebaut.~~ Tragen kann `Klinge_Stich` (Arm nach vorn) als Sprühhaltung und
   `Speer_Stoss` für den Treibstab; es fehlen drei: `Geraet_Spruehen` (Schleife), `Geraet_Wurf` (Streuen),
   `Geraet_Auslegen` (Litze). Selbst zu bauen wie Axt und Speer (`tools/waffenclips.py`).
 
@@ -687,10 +698,10 @@ Wasser bleibt beim Kernfunken (Flutstoss); für faeulnis gibt es bewusst kein Ge
 
 | Gerät | Stimmt | Abweichung, benannt | Risiko für den Träger |
 |---|---|---|---|
-| Abflammgerät (1,6 kg) | offene Flamme, zündet Trockenes | Flamme real 0,5–1 m, im Spiel bis 2,5 m; eine Kartusche brennt real rund eine Stunde, im Spiel sechs Stösse | zündet Gras und Laub — die Fläche brennt weiter und trifft auch ihn; **ein verbranntes Revier wird nie ruhig** |
+| Abflammgerät (1,6 kg) | offene Flamme, zündet Trockenes | Flamme real 0,5–1 m, im Spiel bis 2,5 m; eine Kartusche brennt real rund eine Stunde, im Spiel sechs Stösse | zündet Gras und Laub — die Fläche brennt weiter und trifft auch ihn; **ein verbranntes Revier wird nie ruhig**. **Entschieden (D411):** gilt als Regel; gebaut erst nach Kapitel 1 — bis dahin brennt nur das Getroffene (benannte Abweichung) |
 | Kohlensäurelöscher (5,0 kg) | 2 kg CO₂ sind in 8–10 s leer: fünf Stösse zu zwei Sekunden passen genau; −78 °C | dass Kälte ein Tier sekundenlang lähmt, ist Spielwert | CO₂ sammelt sich in Mulden und Stollen: Ausdauer sinkt; das Horn friert an |
 | Weidezaungerät (3,5 kg) | 5–10 kV, höchstens 5 J: schmerzt, lässt zucken, tötet nicht | eine Batterie hält real Wochen, im Spiel zehn Einheiten; ein 140-kg-Tier stoppt real kaum | im Wasser und bei Regen trifft es den Träger |
-| Räucherkanne (1,2 kg) | Zunderschwamm ist realer Räucherstoff und glimmt lange; Rauch beruhigt **Bienen** | **Säugetiere beruhigt Rauch nicht.** Im Spiel beruhigt er den Befall — Fiktion der Welt | Wind dreht: Husten, langsamere Erholung |
+| Räucherkanne (~~1,2~~ 0,8 kg, D414: leer 0,73 kg nach Herstellerangabe eines 4 × 7-Zoll-Smokers) | Zunderschwamm ist realer Räucherstoff und glimmt lange; Rauch beruhigt **Bienen** | **Säugetiere beruhigt Rauch nicht.** Im Spiel beruhigt er den Befall — Fiktion der Welt, seit D411 **Setzung in der Story-Bibel v2 §2** („Rauch beruhigt den Befall“: der Symbiont antwortet wie ein Bienenvolk) | Wind dreht: Husten, langsamere Erholung |
 | Kalkstreuer (2,0 kg) | Branntkalk ätzt, wird mit Wasser über 100 °C heiss, Stallhygiene seit jeher | **Kalk hilft real gegen Fäulnis; der Kreis sagt das Gegenteil** (faeulnis schlägt stein). Der Kreis gilt | Wind und Regen tragen ihn zurück; nie im Bach |
 | Sporenbalg | — | ganz Fiktion | Preis am eigenen Körper, nicht entworfen |
 
@@ -708,8 +719,8 @@ Orte und Aufträge sind **Vorschläge ohne Koordinaten**; keine Quest-Datei ist 
 
 ## 19. Womit gespeist
 
-**Empfehlung (a): Betriebsstoff je Gerät.** Gaskartusche, Kohlensäureflasche, Zaunbatterie, Branntkalk — und für die
-Räucherkanne der **Zunder**, den es schon gibt.
+~~**Empfehlung (a)**~~ **Entschieden (D411): (a) Betriebsstoff je Gerät.** Gaskartusche, Kohlensäureflasche,
+Zaunbatterie, Branntkalk — und für die Räucherkanne der **Zunder**, den es schon gibt.
 
 | Betriebsstoff | Gewicht | Traglast | Füllung reicht für | Woher |
 |---|---|---|---|---|
@@ -724,7 +735,7 @@ von dem, was nachwächst — und genau so fällt es hier: **Was töten kann, lä
 wächst nach** (Test). Eine Leiste (b) wäre eine Zauberleiste unter anderem Namen. Die Ladungen der Marke (c) würden
 die Geräte wieder an die Marke binden — das hat D409 gerade aufgelöst.
 
-**Alternative (c): Ladungen der Marke.** Einfacher (kein Betriebsstoff, keine Traglast), und die Geräte stünden wie
+**Alternative (c), nicht gewählt (D411): Ladungen der Marke.** Einfacher (kein Betriebsstoff, keine Traglast), und die Geräte stünden wie
 das alte Wirken in Konkurrenz zum Reinigen. Preis: Der Schlächter, der nie reinigt, hätte sie umsonst.
 
 ## 20. Verhältnis zum Reinigen und zum Zähler
@@ -769,21 +780,22 @@ Rufen bleiben gesetzt 0 / 5 / 5 / 15 % der Ladungen.
 
 ## 21. Was aus dem Wirken der Marke wird
 
-**Empfehlung:** Die Marke zaubert nicht — sie **misst und ruft**. Zwei Wirken bleiben als Funktion der Armklammer
+~~**Empfehlung:**~~ **Entschieden (D411):** Die Marke zaubert nicht — sie **ortet und ruft** (bisher „misst und ruft“).
+Als eigene Wirkung behält sie nur diese beiden. Zwei Wirken bleiben als Funktion der Armklammer
 (Sensor, kein Angriff), fünf entfallen. In `content/wirken.json` ist nichts gelöscht: Jeder Eintrag trägt `status`
 und, wenn ersetzt, `ersetztDurch`. Das Schema lässt ein geltendes Wirken mit Kampfwert nicht mehr zu.
 
 | Wirken | Status | Was daraus wird |
 |---|---|---|
 | **Lesen** | gilt | Funktion der Klammer: zeigt Befallene und ihren Zustand (1 Ladung) |
-| **Rufen** | gilt | Funktion der Klammer: ruft ein gereinigtes Tier, mit Halfter das Reittier (1 Ladung) |
+| **Rufen** | gilt | Funktion der Klammer: ruft ein gereinigtes Tier, mit Halfter das Reittier — seit D411 das Tragtier des Försterhofs (1 Ladung) |
 | Stillen | ersetzt | Räucherkanne, Harzrauch |
 | Stoss | ersetzt | Kohlensäurelöscher, Stossdüse |
 | Binden | ersetzt | Kohlensäurelöscher, Schneerohr |
 | Schirm | ersetzt | entfällt — kein Gerät schützt im Griff |
 | Nachhall | ersetzt | entfällt — Reinigen braucht Nähe, ohne Ausnahme |
 
-**Alternative:** Auch Lesen und Rufen streichen; Lesen wird eine Technik (Fährte und Wundblick decken es halb ab),
+**Alternative, nicht gewählt (D411):** Auch Lesen und Rufen streichen; Lesen wird eine Technik (Fährte und Wundblick decken es halb ab),
 Rufen eine Eigenschaft des Halfters. Dann kostet die Marke nur noch fürs Reinigen — sauberer, aber die Klammer wäre
 ein reines Werkzeug ohne eigene Stimme, und ihr Geheimnis (Typ B aus dem Werk, Quests v1) hätte nichts mehr zu zeigen.
 
@@ -795,21 +807,207 @@ ein reines Werkzeug ohne eigene Stimme, und ihr Geheimnis (Typ B aus dem Werk, Q
 | Geräteeinsatz als Handlung (Vorlauf, Form, Kegel gegen Kapsel wie der Trefferbogen) | ebd. | M |
 | Kampfbot mit Gerät: Kampfdauer, erlittener Schaden, im Rudel | `tools/kampfbot.ts` | M |
 | Reinigen mit Löscher und Räucherkanne: Quote und Dauer gegen Keiler und Gams | `tools/reinigensim.ts` (D407 arbeitet dort) | S, nach D407 |
-| Brand im Gelände (Fläche brennt weiter) | Welt, Props | L — getrennt entscheiden |
+| Brand im Gelände (Fläche brennt weiter) | Welt, Props | L — ~~getrennt entscheiden~~ **entschieden (D411):** Regel ja, Mechanik nach Kapitel 1; bis dahin brennt nur das Getroffene |
 | Modelle (5), Clips (3), Effekte (Flamme, Schnee, Rauch, Staub, Funke) | Blender, Shader | L |
 | Geräteplatz in Ausrüstung und Schmiede/Rast-Fenster | UI nach Menü v1 | M |
 
 Vor dem ersten Fremdtest sinnvoll: **ein** Gerät des Heilers (Räucherkanne — kein Schaden, ein Zustand, nachwachsender
-Stoff) als Probe, ob das Prinzip trägt.
+Stoff) als Probe, ob das Prinzip trägt. **So entschieden (D411).**
 
 ## 23. Unklar (D410)
 
 - ⚠️ Keine Wirkzahl ist gemessen. Der Echtzeitkampf kennt weder Geräte noch die Zustände ausser „zuckt“.
 - ⚠️ Gewichte, Entleerzeiten, Spannungen sind Allgemeinwissen ohne Quelle.
-- ⚠️ Dass Rauch den Befall beruhigt, ist eine neue Setzung über die Welt (der Symbiont antwortet wie ein Bienenvolk).
-  Sie steht in keiner Bibel und müsste dorthin, wenn Flo sie annimmt.
+- ~~⚠️ Dass Rauch den Befall beruhigt, ist eine neue Setzung über die Welt (der Symbiont antwortet wie ein Bienenvolk).
+  Sie steht in keiner Bibel und müsste dorthin, wenn Flo sie annimmt.~~ **Erledigt:** Flo hat sie angenommen (D411);
+  sie steht seit D412 in der Story-Bibel v2 §2.
 - ⚠️ Kalk gegen Fäulnis: Physik und Elementkreis widersprechen sich. Gewählt ist der Kreis.
 - ⚠️ Der Wolf hat kein Gerät des Heilers, das stark wirkt. Ob das eine gewollte Härte ist, ist offen.
-- ⚠️ Brand im Gelände ist ein eigenes, grosses Thema (Performance, Weltzustand) und hier nur als Risiko benannt.
+- ⚠️ Brand im Gelände ist ein eigenes, grosses Thema (Performance, Weltzustand) ~~und hier nur als Risiko benannt~~ —
+  entschieden als Regel (D411), die Mechanik kommt nach Kapitel 1; Performance und Weltzustand bleiben offen.
 - ⚠️ Fundorte ohne Koordinaten; Bloodborne und Lies of P nicht belegt.
 - ⚠️ `tools/baukastensim.ts`, `content/waffenteile.json` und Reinigen v1 §6 sind nicht angefasst (D407).
+
+---
+
+# Fortschreibung D420: Gewicht spürbar machen
+
+> **Darstellung gebaut, kein Kampfwert geändert, nichts im Spiel verdrahtet.** Flo, 22.11.2026: „Das Gewicht der
+> Waffen muss man ihnen anmerken.“ Grundsatz D419: Darstellung (Trefferstopp, Kamera, Reaktion, Ton, Nachschwung) darf
+> frei der Masse folgen; Zeitfenster und Schaden sind geprüfte Kampfwerte und ändern sich nur mit Bot-Messung.
+> Daten: `content/gewicht.json` (Schema `Gewicht`). Ableitung: `src/kampf/gewicht.ts`. Tests: `tests/gewicht.test.ts`,
+> `tests/waffenclips.test.ts` (Nachschwung). Clips: `tools/waffenclips.py` (`Messer_*`), Vorschlag für den Bestand:
+> `tools/gewichtvorschlag.py`. Prüfbilder: `/home/user/brachland/.cache/bilder/D420/`. Fragen für Flo: Ledger **A-40**.
+> Parallel liefen D407 (Kampf-Nachmessung), D416 (Reviere), D417 (Reinigen im Kampf) — deren Dateien
+> (`src/kampf/echtzeit.ts`, `Kampfplatz.tsx`, Kampfteile von `src/main.tsx`, `tools/kampfbot.ts`,
+> `tools/baukastensim.ts`, `content/waffenteile.json`) sind nur gelesen; die Einhängepunkte stehen in §27.
+
+## 24. Wie gelobte Spiele Gewicht zeigen (Recherche)
+
+Kurz recherchiert, Quellen unten. Entwicklerquellen gibt es nur für Monster Hunter (Hitstop), God of War (Axt-Rückruf),
+For Honor (Begriffe) und Kingdom Come (Anspruch, Bewegungsaufnahme). Für Elden Ring, Mordhau und Sekiro stützt sich
+die Beschreibung auf Wikis und Foren — so markiert.
+
+| # | Mittel | Wer (Beleg) | Wirkung | Kosten | Für uns |
+|---|---|---|---|---|---|
+| 1 | **Trefferstopp nach Wucht** — die Welt hält im Treffer kurz an | Monster Hunter: in der Beta von Wilds verringert, nach Rückmeldung der Spieler zurückgeholt [MH1][MH2]. Dass der Stopp je Waffe mit der Wucht wächst: *nicht belegt* (Entwicklerquelle fehlt) | Widerstand, den die Hand spürt; der Treffer „sitzt“ | über ~120 ms wirkt es wie Ruckeln [HS]; verlängert die Kampfzeit; bei Treffern auf mehrere Ziele zählt er einmal | **gebaut** (`trefferstopp`, 36–120 ms statt 60 ms für alle), Einhängen §27 |
+| 2 | **Kamerastoss in Schlagrichtung**, Abklingen nach Masse | Vlambeer „Art of Screenshake“: Treffpause, Kameraruck, Wackeln als Bausteine [VL]; God of War: kleiner Kameraruck beim Fangen der Axt [GW] | Wucht im Bild, auch ohne Ton | Unruhe, Lesbarkeit; muss abschaltbar sein (Einstellungen) | **gebaut** (`kameraGesetzt`/`kameraErlitten`), Einhängen §27 |
+| 3 | **Ton am Objekt**, Tonhöhe nach Grösse, Schwung nach Tempo | God of War: Tonquelle an der Axt, an ihre Drehgeschwindigkeit gekoppelt [GW]; Sekiro: lauter, scharfer Klang bei gelungener Abwehr [SK2, Fan-Wiki] | Masse hört man, bevor man sie sieht | **es gibt keinen Kampfton** — Quelle nötig (A-40) | **Parameter gebaut** (`toene`), Ton fehlt |
+| 4 | **Rumpeln** in drei Teilen (Auslösen, Flug, Fangen) | God of War [GW] | Hand spürt das Gewicht | Gamepad-Vibration im Browser nur teilweise; Zielgerät Desktop (ADR-0006) | nachrangig, nicht gebaut |
+| 5 | **Reaktion des Getroffenen nach Impuls** | Kingdom Come: „You should feel the weight of your weapon and every hit you land“ [KC] (ohne Angabe, wie) | Wirkung am Gegenüber zeigt Masse am deutlichsten | ehrliche Physik: ein Keiler (100 kg) bewegt sich unter einer Klinge kaum (1,9°) | **gebaut** (`reaktion`, Δv = J/m, nur der Leib, nicht die Kapsel) |
+| 6 | **Nachschwung und Erholung**: der Körper folgt der Masse | Gattung allgemein; Kingdom Come: Bewegungsaufnahme mit Fechtexperten, Darsteller je Waffe gewählt [KC] | Masse ohne neue Regel | nur Clips; Fenster unberührt | **gebaut** für `Messer_*`, Vorschlag für den Bestand (§26) |
+| 7 | **Bindung im Schwung** — kein Abbruch, späterer Abbruchpunkt | Souls-Gattung (*nicht belegt* mit Entwicklerquelle); For Honor: „Uninterruptible Stance … cannot be stopped“ [FH1] | wer ausholt, hat sich festgelegt | Kampfwert, Bot | **gilt schon** (kein Abbruch in Vorlauf/Aktiv, `echtzeit.ts:654`); je Waffe als Vorschlag §28 |
+| 8 | **Hyperrüstung / Standfest** für schwere Schläge, ab Mitte des Clips | Elden Ring: Hyperrüstung kommt aus dem Angriff, schwere Waffen am meisten [ER1, Wiki]; For Honor: setzt meist mitten im Clip ein, Beispiel 400 ms [FH1][FH2] | schwere Waffe tauscht Treffer | Kampfwert | Axt hat `standfest` (D181); Messer schwer als Vorschlag §28 |
+| 9 | **Drehbremse im Schlag** (Trägheit beim Drehen) | Mordhau „turn cap“: begrenzt die Drehung während des Schlags; „drags/accels“ als Folge [MO, Community-Wiki/Foren] | schwere Waffe lässt sich nicht herumreissen | Kampfwert (`nachdrehen`) | heute Klinge 6 rad/s, Axt 3 — Vorschlag nach Trägheit §28 |
+| 10 | **Ausdauer nach Masse** | Kingdom Come (Anspruch [KC]); Baukasten §3.2 | schwere Waffe ermüdet | Kampfwert | Vorschlag §28 |
+| 11 | **Haltungsschaden nach Impuls**, Haltungsbruch als Belohnung | Sekiro: Abwehr zehrt die Haltung schneller als Angriff [SK1]; Elden Ring: schwere Sprung- und Ladeangriffe brechen Haltung [ER2, Wiki] | Wucht hat eine Regel | Kampfwert | gilt schon (Baukasten §3.2, Haltungsschaden ∝ Impuls) |
+| 12 | **Fangen ohne Übergang** — gesetzte Bilder, kein Weichzeichnen im Moment der Kraft | God of War: „specifically placed frames and 0 tween time“ beim Fangen [GW] | Kraftmoment liest sich hart | Übergänge werden ruckig, wenn falsch gesetzt | Hinweis für Runde 2: Überblendung in den Treffer-Clip (`RegionsSzene.tsx` `blende` 0,06–0,12 s) nicht verlängern |
+
+Quellen: [MH1] https://www.pcgamer.com/games/rpg/monster-hunter-wilds-game-director-says-the-betas-missing-hitstop-has-already-been-tweaked-thanks-to-very-positive-feedback-from-hitstop-hungry-veteran-hunters ·
+[MH2] https://gamingbolt.com/monster-hunter-wilds-weapon-hitstops-will-be-closer-to-what-people-are-looking-forward-to/amp ·
+[HS] https://dev.to/saltmire/godot-4-screen-shake-and-hit-stop-in-one-script-11eh (Faustregel 60–120 ms, keine Studie) ·
+[VL] https://medienwissenschaft.uni-bayreuth.de/wp-content/uploads/GxD-10-Game-Feel.pdf (Liste aus Nijmans Vortrag 2013) ·
+[GW] https://gamedeveloper.com/design/recalling-the-leviathan-axe (Vince Napoli, Santa Monica) ·
+[KC] https://wccftech.com/kingdom-come-deliverance-2-dev-says-combat-will-be-more-accessible-explains-why-the-game-still-uses-cryengine/ ·
+https://www.deepsilver.com/games/kingdom-come-deliverance-ii/news/weapons-and-combat-mechanics-in-kingdom-come-deliverance-2
+(welche der beiden den Satz trägt, ist aus der Suchzusammenfassung nicht sicher) ·
+[FH1] https://www.ubisoft.com/en-us/game/for-honor/news-updates/6XEM2qUiwcokp753uCzgkz/for-honor-terminology-guide ·
+[FH2] https://www.ubisoft.com/en-us/game/for-honor/news-updates/6T6aUuLTvJZ4Tj7EmZ28wf/patch-notes-2281-for-honor ·
+[ER1] https://eldenring.wiki.gg/wiki/Hyperarmor · [ER2] https://eldenring.wiki.fextralife.com/Stance ·
+[MO] https://mordhau.fandom.com/wiki/Combat?oldid=3196 · https://www.ludo.guide/guide/mordhau/getting-started/core-mechanics-explained/weapon-swing-mechanics ·
+[SK1] https://news.xbox.com/en-us/2019/03/19/sekiro-shadows-die-twice-interview/ · [SK2] https://sekiro-shadows-die-twice.fandom.com/wiki/Unseen_Aid ·
+Massen der Tiere: https://www.jagdverband.de/sites/default/files/Faehrten-und-Spuren_2015_RZ-vs.pdf.
+**Nicht belegt:** Monster Hunters „Engagement“ (kein Beleg gefunden, was damit gemeint ist), Funken in Sekiro, Gewicht
+in For Honors Animation, Zahlen zu Mordhaus Drehbremse.
+
+## 25. Befund je Waffe heute
+
+Physik nach `src/kampf/gewicht.ts` (konstante Leistung 600 W einhändig, ×1,4 zweihändig, 120° Bogen — Überschläge,
+`content/gewicht.json`). Regel: `content/waffen/*.json`. Clipbilder 24/s; „Dehnung“ = Regelzeit / Clipzeit.
+
+| Waffe | Masse, Trägheit | Schlag aus voller Leistung | Impuls → Stopp | Regel (erster leichter, s) | Clip: Scheitel/Durchzug/Ende, Dehnung | Zeigt Gewicht | Zeigt es nicht |
+|---|---|---|---|---|---|---|---|
+| **Klinge** | 1,10 kg, 0,109 kg·m² | 0,171 s, Spitze 13,8 m/s | 6,5 N·s → 47 ms | Hieb 0,18 / 0,12 / 0,32 | `Klinge_U_A` 6/9 (UAL2), Vorlauf ×0,72; `Klinge_Stich` 9/13/30, Erholung ×0,64 | Vorschritt 0,3–1,4 m (`echtzeit.ts:909`), Kette, Rückhand mit Schritt | Stich: Nachschwung 3°, Halt 41 % der Erholung (Soll 18° / 47 %, Test-Befund) |
+| **Axt** | 1,85 kg, 0,651 kg·m² | 0,189 s, Kopf 12,1 m/s | 16,6 N·s → 87 ms (Spalthieb 25,6 → 120) | Axthieb 0,37 / 0,16 / 0,55 | `Axt_Quer` 10/15/30, Vorlauf ×0,72, Erholung ×0,67; `Axt_Schwer` 20/25/40 | langer Vorlauf (2,1× Klinge), `standfest`, `wirft` (D181), Rückstoss 0,3–0,6 m, Spalthieb bleibt im Boden | `Axt_Quer`/`Axt_Lauf` kehren früh zurück: Halt 40 % (Soll 62 %), `Axt_Lauf` Nachschwung 26° (Soll 43°) |
+| **Saufeder** | 1,44 kg (Stoss) | 0,153 s, 5,9 m/s | 8,5 N·s → 55 ms (Weitstoss 21,2 → 105) | Stoss 0,26 / 0,12 / 0,45 | `Speer_Stoss` 9/13/24 — kein Schlüssel zwischen Durchzug und Haltung | weiter Rückstoss 0,9–1,4 m, Ausfallschritt | zieht im Durchzug sofort zurück (Halt 0 %, Soll 54 %) |
+| **Hirschfänger** | 0,59 kg, 0,046 kg·m² | 0,165 s, Spitze 10,5 m/s | 3,5 N·s → 36 ms | **keine Kampfwerte** (D414, nicht wählbar) | nutzt die Klingenclips | Modell, Länge | alles Übrige — ohne Werte keine Darstellung im Spiel |
+| **Langes Messer** | 1,39 kg, 0,231 kg·m² | 0,163 s, Spitze 17,8 m/s | 11,7 N·s → 68 ms | **keine Kampfwerte** (D414) | `Messer_Quer_A` 9/13/30, `_B` 8/12/28, `_Schwer` 12/17/36, `_Lauf` 7/11/26 | Hüfte führt, Füsse stehen, Gewicht wandert vor (D414-Test) | vor D420: Rückkehr ab 29–40 % der Erholung, schwerer Hieb ohne Nachschwung (6°) |
+
+**Für alle gleich, also ohne Gewicht:** Trefferstopp 60 ms (`echtzeit.ts:312`, gesetzt in `:1409`), Kameraruck 0,035 m
+beim eigenen und 0,09 m beim erlittenen Treffer, Abklingen 0,12 s (`RegionsSzene.tsx:4244–4248`), Aufblitzen 120 ms
+(`Kampfplatz.tsx:995`), Treffer-Clip nach Seite (`Kampfplatz.tsx:1030`), Rückstoss über 0,15 s (`echtzeit.ts:314`),
+Abbruch der Erholung ab 35 % (`KOMBO_AB`, `echtzeit.ts:308`), kein Ton. **Bewegung im Schlag:** Die Figur ist während
+Schlag und Rolle gesperrt (`RegionsSzene.tsx:3235`, `kampfSperre`); ihr einziger Weg im Schlag ist `schritt`, ein
+Kampfwert. Eine „Bewegungsbremse“ hat also nichts zu bremsen — und 1–2 kg in der Hand bremsen das Gehen real nicht
+messbar; sie ist deshalb **nicht** gebaut und nicht vorgeschlagen.
+
+**Was die Physik über die Regel sagt:** Nach der Baukasten-Formel braucht die Axt nur 10 % länger zum Treffer als die
+Klinge (die Armträgheit dämpft); die Regel gibt ihr 2,1× so viel Vorlauf und die Hälfte der Drehrate. Die Langsamkeit der
+Axt ist also schon heute ein **Spielwert über der Physik** — gewollt (Rolle der Klasse, ADR-0008), aber zu benennen. Das
+Lange Messer ist mit zwei Händen physikalisch so schnell wie die Klinge (0,95×); langsamer wird es nur über den
+weiteren Bogen (Scheitel 8–9 statt 6 Bilder).
+
+## 26. Was gebaut ist
+
+**a) Gewichtsmodul (`src/kampf/gewicht.ts`, renderfrei, 105 Prüfungen in `tests/gewicht.test.ts`).** Es nimmt Masse und
+Trägheit aus dem Baukasten (`koerper` des Referenzbaus — dieselben Teile, derselbe Steinersche Satz) oder für Hirschfänger
+und Messer aus dem Modell (D414), rechnet die Baukasten-Schlagzeit absolut (konstante Leistung; die Proportion
+t ∝ (I_Arm + I)^⅓ stimmt im Test mit `faktoren` für jeden Bau ohne Kraftteil überein) und leitet daraus ab:
+
+| Funktion | Ergebnis | Klinge | Axt | Messer |
+|---|---|---|---|---|
+| `trefferstopp(J, lage)` | linear 30–120 ms zwischen 2 und 25 N·s; +20 ms Haltungsbruch, +30 ms tödlich (darf über 120), Block ×0,5 | 47 ms | 87 ms (Spalthieb 120) | 68 ms |
+| `kameraGesetzt(J, richtung)` | Stärke 0,012 + 0,0025·J m (≤ 0,08), Abklingen 0,08 + 0,004·J s (≤ 0,2), 60 % in Schlagrichtung (`schlagRichtung`: Hieb von rechts zieht nach links, von oben nach unten, Stoss nach vorn) | 0,028 m / 0,106 s | 0,054 / 0,147 | 0,041 / 0,127 |
+| `kameraErlitten(schaden)` | 0,06 + 0,0015·Schaden m (≤ 0,12) — Gegner tragen keine Waffenmasse in den Daten | | | |
+| `reaktion(J, ziel, gebrochen)` | Δv = J / Masse des Ziels (`ziele` in kg, Quelle Jagdverband); Neigung 30°/(m/s) ≤ 25°, Versatz des Leibs ≤ 0,25 m über 0,22 s, Taumeln 8° + 40°/(m/s) ≤ 35° nur nach Haltungsbruch | Wolf 4,8°, Keiler 1,9° | Wolf 12,5°, Keiler 5,0° | Wolf 8,8°, Keiler 3,5° |
+| `toene(waffe)` | Schwung: Pegel 0,25 + 0,04·v_Spitze, Tonhöhe ∝ v / Masse^⅓; Treffer: Pegel 0,5 + 0,15 je Oktave Impuls, Tonhöhe ∝ Masse^−⅓ (Klinge = 1) | 1,00 | Treffer 0,84, lauter | Treffer 0,92 |
+| `nachschwung(waffe)` | Bremsweg = Energie / Bremsmoment (60 N·m je Hand) in Grad; Halt = 0,25 + 0,2·Masse der Erholung im Clip (≤ 0,7) | 18° / 47 % | 43° / 62 % | 21° / 53 % |
+| `trefferBild(e)` | alles zusammen für ein Ereignis — die eine Funktion für Runde 2 | | | |
+
+Alle Kennzahlen als Daten in `content/gewicht.json` mit `real`/`warum`/`quelle` (D398), Schema `Gewicht`
+(`src/data/schema.ts`); `npm run validate` prüft die Querverweise (Waffenfamilie, Baukasten-Familie, Gegner,
+Tonreferenz). **Benannte Abweichungen:** Leistung, Zweihandfaktor, Bremsmoment und Schwungwinkel sind Überschläge; der
+Impuls zählt nur die Waffe, nicht den Arm dahinter; die Wucht eines Schlags gegen den ersten leichten derselben Waffe
+kommt aus dem Verhältnis der Haltungsschäden der Regel (Baukasten: Haltungsschaden ∝ Impuls) — gelesen, nicht geändert.
+
+**b) Clips.** `Messer_Quer_A`, `Messer_Quer_B`, `Messer_Lauf`, `Messer_Schwer` haben nach dem Durchzug je zwei
+Schlüssel statt einem: Die Klinge läuft weiter (80–82° bei den Querhieben, 31° im Lauf), das Becken bremst gegen die
+Drehung (`huefte` mit umgekehrtem Vorzeichen), das Gewicht bleibt tief auf dem vorderen Fuss, die Füsse rutschen nicht;
+die Rückkehr beginnt erst bei 56–60 % der Erholung (vorher 29–40 %). Der schwere Hieb endet am Boden — dort fangen die
+Beine die Masse (Becken 6 cm tiefer, Spitze 17–19 cm über dem Boden). **Scheitel, Durchzug und Clipdauer sind
+unverändert** (Dauern nachgemessen: 1,25 / 1,17 / 1,08 / 1,50 s wie D414). Die Posen auf den Schlüsselbildern Scheitel
+und Durchzug sind gleich (in Blender nachgemessen, 0,00°); die Bilder **zwischen** Scheitel und Durchzug weichen um
+bis zu 5,5° (Lauf, Handgelenk) bzw. 8,4° (Schwer, linker Oberarm) ab, weil Blenders Kurven am Durchzug ihre Tangente aus
+dem nächsten Schlüssel nehmen. Der erste Schlüssel nach dem Durchzug liegt deshalb auf der Linie, auf der die Hand vorher
+weiterlief — sonst dreht sich auch das Handgelenk im Durchzug (gemessen bis 6,6°). Übertragen wie D414 (`clipnachbau.py`
+auf `w-waldlaeufer`; Formprüfung: Klinge ≤ 3° neben `richt`, linkes Handgelenk ≤ 1,6 cm neben der Griffachse), in die
+`held-clips.glb` von D189 eingefügt, wie `clipnachbau.mjs` es verlangt (785 KB, Budget 800; die übrigen 29 Clips
+gleich — ein Einfügen in die schon bearbeitete Datei ergab 865 KB). Test (`waffenclips.test.ts` 95 → 130 Prüfungen):
+mindestens zwei Nachschwung-Schlüssel, Bremsweg, Hüfte bremst, Gewicht vorn, Füsse stehen, Spitze über dem Boden,
+Halt ≥ Soll; für den Bestand meldet er den Befund aus §25, ohne zu fallen. Die Messer-Clips trägt noch keine Waffe im
+Spiel (keine Kampfwerte) — sichtbar wird das erst mit D407.
+
+**Bestand nur als Vorschlag** (`tools/gewichtvorschlag.py`, gebaut mit `VORSCHLAG=1 … clipnachbau.py`, verglichen
+Nachbau gegen Nachbau, weil der Nachbau 10–35 cm vom Ausgelieferten abweicht, D414): `Axt_Quer` hält bis Bild 25 (67 %),
+das Becken bremst, das Gewicht bleibt auf dem rechten Fuss; `Speer_Stoss` trägt 4 cm weiter und zieht erst ab Bild 20
+zurück; `Klinge_Stich` hält den Ausfall bis Bild 17, Rückkehr ab 22. Nicht eingefügt. Befund dabei: Im Nachbau steht die
+linke Hand schon in den **Bestands**schlüsseln 7–15 cm (Axt) bzw. 5–17 cm (Speer) neben der Griffachse — ein Grund mehr,
+den Bestand nicht auf diesem Weg zu ersetzen; im Speer-Vorschlag selbst sind es 18–26 cm (Bild 17/20), der Vorschlag
+braucht dort eine eigene linke Hand.
+
+**Prüfbilder** (Formprüfung, keine Look-Abnahme, Bewegung nur am M1; Cycles CPU ohne Spiel-Shader; gleiche Kamera,
+gleiche Bilder vorher/nachher), `/home/user/brachland/.cache/bilder/D420/`: `messer_{quer_a,quer_b,lauf,schwer}_{vorher,nachher}.png`
+(schräg vorn), `oben_messer_*_{vorher,nachher}.png` (von schräg oben — dort sieht man die Klinge hinter dem Körper),
+`vorschlag_{axt_quer,speer_stoss,klinge_stich}_{vorher,nachher}.png`.
+
+## 27. Einhängepunkte für Runde 2 (nach D417)
+
+| Was | Datei, Stelle | Ereignis | Einhängen |
+|---|---|---|---|
+| Impuls am Treffer | `src/kampf/echtzeit.ts` `loeseTreffer` (`raus.push` am Ende, `:846`) und `interface Treffer` (`:735`) | jeder Treffer mit Schaden | `Treffer` um `waffe?: WaffenArt` und `wucht?: number` erweitern; dort `wucht: schlagWucht(s, WAFFEN[a.waffe].leicht[0])`, nur wenn `a.waffe` gesetzt ist (Spielerin). Additiv, das Kampftor bleibt |
+| Trefferstopp | `echtzeit.ts` `simuliere`, `:1409` (`w.stopp = TREFFERSTOPP`) | `neu.some(e => e.schaden > 0)` | `w.stopp = Math.max(...neu.filter(e => e.schaden > 0).map(e => e.waffe ? trefferstopp(trefferImpuls(e.waffe, e.wucht), e) : TREFFERSTOPP))` — Gegnertreffer behalten 60 ms. `gewicht.ts` ist renderfrei und importiert aus `echtzeit.ts` nur Typen (kein Kreis zur Laufzeit) |
+| Kamerastoss eigener Treffer | `src/kampf/Kampfplatz.tsx:794` (`zaehler.current.gesetzt++`) und `interface KampfFigur` (`:155–183`) | `e.von === 'spielerin' && e.schaden > 0` | `KampfFigur` um `stoss: Kamerastoss` erweitern, hier `= trefferBild({ waffe: e.waffe, wucht: e.wucht, ziel, linie: e.linie, gebrochen: e.gebrochen, toedlich: e.toedlich }).kamera`; bei mehreren Treffern im selben Bild der stärkste |
+| Kamerastoss erlitten | `Kampfplatz.tsx:770` (`zaehler.current.getroffen++`) | `e.auf === 'spielerin'` mit Schaden | `stoss = kameraErlitten(e.schaden)` |
+| Kamera selbst | `src/scenes/RegionsSzene.tsx` `Kamera`, `:4244–4255` (`ruck`, `wackle`) | Zählerwechsel `gesetzt`/`getroffen` | feste 0,035 / 0,09 m und τ 0,12 s durch `kf.stoss.staerke`/`abklingen` ersetzen; in `wackle` den Anteil `anteil` als Stoss entlang `richtung` (Kameraraum → Welt über `camera.quaternion`), den Rest wie heute als Zittern. Schalter in den Einstellungen (D415) vorsehen |
+| Reaktion des Getroffenen | `Kampfplatz.tsx:789` (`zeichnung.puppen[i].blitz = jetzt`) und `zeichnePuppe` (`:885`; der Leib `l = pu.leib` wird je Bild auf 0 gesetzt, `:894`) | Treffer auf Gegner `i`, nicht ausgewichen | `puppen[i].reaktion = { ...trefferBild(…).reaktion, seit: jetzt, von: [s.x, s.z] }`; in `zeichnePuppe` nach der Phasenpose Neigung und Versatz vom Angreifer weg im Raum der Gruppe aufaddieren, über `dauer` ausklingend; im Taumeln (Phase `betaeubt`) den Ausschlag mit `taumel` skalieren. Die Kapsel (`g.x/g.z`) bewegt weiter nur der Rückstoss der Regel. Ziel-Id: Bauplan des Gegners (`content/gegner/<id>.json`), nicht die laufende Kämpfer-Id |
+| Ton | neues Modul `kampfton.ts` unter `src/ton/` (WebAudio wie `lagerton.ts`, Autoplay-Regel) | Schwung: Wechsel `s.schwung` beim Eintritt in `aktiv` (`Kampfplatz.tsx`, Rechnen-Abschnitt nach `simuliere`, `:756`); Treffer: `:794` | `toene(waffe, wucht)` → Pegel, Abspielrate; stumm nach `spielphase.tonStumm` (D415). Quelle offen (A-40) |
+| Clips | — | — | nichts: Die Messer-Clips liegen in `held-clips.glb`; sie werden benutzt, sobald es Messer-Kampfwerte gibt (D407) |
+
+**Achtung für D407:** Ein Trefferstopp je Waffe verlängert die gemessene Kampfdauer in Sekunden (die Welt steht für
+alle gleich, Siegquoten bleiben); grob ±0,3 s auf 10–15 s je Kampf. Im Spiel erholt `Spieler` die Ausdauer in echter
+Zeit (`ausdauerFremd`) auch während des Stopps — ein Vorteil von höchstens 120 ms je Treffer.
+
+## 28. Vorschläge an Kampfwerten (nicht angewendet — nach D407 messen)
+
+| # | Vorschlag | Zahlen (Baukasten-Physik, `gewicht.ts`) | Messbedarf |
+|---|---|---|---|
+| 1 | **Abbruchpunkt der Erholung je Waffe** statt `KOMBO_AB` 0,35 für alle | Drehimpuls L = I·ω: Hirschfänger 0,88, Klinge 2,0, Messer 4,5, Axt 10,8 N·m·s. Setzung 0,35 · (L / L_Klinge)^¼ → Hirschfänger 0,28, Klinge 0,35, Messer 0,43, Axt 0,53, Saufeder 0,35. **Ehrlich:** Die reine Bremszeit (L / Bremsmoment) ist für jede Waffe kürzer als die heutigen 35 % (Axt 90 ms von 0,55 s) — die Physik verlangt es nicht, es ist ein Spielmittel für „schwer bindet“ | Kampfbot, fünf Tiere einzeln und Rudel (2/3), drei Profile, 1.500 Kämpfe je Waffe, gleiche Saat; Siegquote, Kampfdauer, Treffer erlitten in der Erholung |
+| 2 | **Leichte Waffen dürfen den Vorlauf abbrechen** (Finte, For Honor), schwere nie | Klinge, Hirschfänger (I < 0,15 kg·m²): Abbruch in die Rolle bis 50 % des Vorlaufs (Hieb 0,09 s); Axt, Messer, Saufeder: kein Abbruch wie heute | wie 1, zusätzlich Menschen (Linien, Deckung), weil eine Finte das Lesen (D174) unterläuft |
+| 3 | **Ausdauerkosten nach Masse** | Physik (0,7·E + 0,3·M, Baukasten) gäbe der Axt 3,9× die Kosten der Klinge (heute 1,67×) — unspielbar. Vorschlag: Axthieb 30 → 36, Spalthieb 42 → 48; Messer leicht 24–28 (zwischen Klinge 18 und Axt) | Kampfbot „müde“-Profil, D403-Messreihe je Familie; Grenze: Siegquote müde ≥ 80 % |
+| 4 | **Fenster des Langen Messers** (es hat keine) aus den Clips, mit der Dehnung des Bestands (Vorlauf ×0,7, Erholung ×0,67) | Quer A 0,26 / 0,17 / 0,48; Quer B 0,23 / 0,17 / 0,45; Schwer 0,50 / 0,21 / 0,60 (Dehnung ×1,0 wie der Spalthieb); Lauf 0,20 / 0,17 / 0,55. Physik allein: so schnell wie die Klinge (0,95×) — langsamer nur über den Bogen | Kampfbot gegen Rudel (zwei, drei Tiere), wie `waffenfamilien.json` `messung` verlangt |
+| 5 | **Hyperrüstung für den schweren Messerhieb** erst ab dem Scheitel (For Honor: Rüstung setzt mitten im Clip ein) | heute gilt `standfest` in Vorlauf **und** Aktiv; Vorschlag: neues Feld „standfest ab Anteil des Vorlaufs“, Messer schwer 1,0 (ab Scheitel), Axt bleibt 0 | Kampftor-Test für das neue Feld; Bot gegen Wolf (Doppelbiss) und Rudel |
+| 6 | **Nachdrehen nach Trägheit** | Physik: Drehrate ∝ 1 / Schlagzeit → Axt 0,9× Klinge; heute 0,5× (3 gegen 6 rad/s). Vorschlag: nichts senken; Messer 4 rad/s (zweihändig, weiter Bogen) | mit 4 messen |
+| 7 | **Trefferstopp für Gegnertreffer** nach ihrem Schaden statt fest 60 ms | linear wie der eigene, mit `schaden / 3` als Ersatzimpuls (Keiler-Ramme 30 → 10 N·s → 65 ms) | nur Kampfdauer, keine Siegquote |
+
+Alle sieben ändern geprüfte Werte oder Regeln und brauchen die Messung **nach** D407 (Kampf-Nachmessung), weil D407
+den Bot und die Baukasten-Messung gerade nachzieht.
+
+## 29. Am M1 in Bewegung zu prüfen
+
+Trefferstopp 36–120 ms (zäh oder satt? stört er die Kette?), Kamerastoss in Schlagrichtung (Unruhe, Lesbarkeit des
+Ziels, Stärke im Verhältnis zum Zittern), Neigung der Gegner (liest man 2° am Keiler überhaupt?), Nachschwung der
+Messerhiebe (wirkt die Rückkehr ab 56–60 % der Erholung schwer oder träge; schliesst `Messer_Quer_B` aus dem Nachschwung
+von `Quer_A` flüssig an — die Kette bricht bei 35 % der Erholung ab, da steht die Klinge noch links hinten), Vorschläge
+für den Bestand (schneller Rückweg der Axt in den letzten fünf Bildern). Nichts davon ist am M1 gesehen.
+
+## 30. Unklar (D420)
+
+- ⚠️ Leistung (600 W), Zweihandfaktor (1,4), Bremsmoment (60 N·m), Schwungwinkel (120°) sind Überschläge — sie setzen
+  die absoluten Werte; Reihenfolge und Verhältnis der Waffen hängen nur schwach daran.
+- ⚠️ Kopfabstand und Spitze von Hirschfänger und Messer sind aus der Klingenlänge geschätzt, nicht aus dem Modell gemessen.
+- ⚠️ Die Bilder zwischen Scheitel und Durchzug der Messerhiebe weichen bis 8,4° (Oberarm) ab (§26 b) — die Fenster
+  nicht, und die Treffer rechnet die Regel ohnehin gegen die Kapsel.
+- ⚠️ Der Speer-Vorschlag hat die linke Hand bis 26 cm neben dem Schaft; die Bestandsclips im Nachbau ebenfalls (D414).
+- ⚠️ Kampfton: Es gibt keinen; ob er aus WebAudio entsteht (wie der Lagerton) oder aus CC0-Aufnahmen, ist offen (A-40).
+- ⚠️ `ziele.fuchs` (7 kg) und `grathorn` (60 kg) sind Annahmen; Menschen 70–85 kg ebenso.
+- ⚠️ Monster Hunters „Engagement“ ist nicht belegt; was gemeint war, blieb unklar.

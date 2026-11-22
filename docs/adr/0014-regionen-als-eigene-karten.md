@@ -4,7 +4,7 @@ shelf-life-days: 365
 ---
 # ADR-0014 — Regionen als eigene Karten mit Übergang an der Kante
 
-**Status:** Proposed (umgesetzt) · 2026-10-18 · ADR-0004 (episodisch), ADR-0005 (Qualitätsanspruch) und ADR-0006 (Zielgerät) gelten unverändert · offene Bestätigung durch Flo: Ledger A-14
+**Status:** Superseded durch [ADR-0020](0020-zusammenhaengende-welt-mit-nachladen.md) (22.11.2026, D418) · vorher Proposed (umgesetzt) · 2026-10-18 · ADR-0004 (episodisch), ADR-0005 (Qualitätsanspruch) und ADR-0006 (Zielgerät) gelten unverändert · offene Bestätigung durch Flo: Ledger A-14
 
 ## Kontext
 

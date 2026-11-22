@@ -20,7 +20,8 @@ import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
 import { mkdirSync, statSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-const WAFFENCLIP = /^(Klinge|Axt|Speer|Kampf)_/;
+// D414: dazu Langes Messer und Geräte.
+const WAFFENCLIP = /^(Klinge|Axt|Speer|Messer|Geraet|Kampf)_/;
 const QUELLE = 'public/figuren/wanderin.glb';
 const ZIEL = 'public/figuren/kampf/wanderin-waffen.glb';
 

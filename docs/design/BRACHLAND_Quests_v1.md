@@ -156,20 +156,27 @@ urteilt die Station selbst). Abgeleitet aus dem Spielstand (`src/spiel/wanderfig
 > **Nachgeprüft in `BRACHLAND_Physik-Pruefung_v1.md` (D408):** Die Wegzeiten macht das Rennen (11 m/s), nicht die
 > 4,2 m/s; Steigung bremst im Code nicht; Punkt 3 ist zu streng begründet (bekleidet in 12 °C sind real rund 800 m
 > schwimmbar); die Luft aus Punkt 2 reicht für Abstiege, nicht für die Strecke.
+>
+> **Entschieden und nachgezogen (D411/D412, 22.11.2026):** Rennen ~~11~~ **8,5** m/s (Laufschritt 4,2 bleibt), der
+> Wasserweg zum Wehr heisst **„der Weg ohne Kampf“**, Tauchen 2,25 m/s mit Luft als Vorrat für Abstiege, Kälteuhr im
+> tiefen Wasser (Leben sinkt nach rund 4 min, leer nach rund 10), Gleiter aus geborgenen Leinen mit neu genähter Kappe.
+> Werte in `../../content/bewegung.json`; Ersetztes unten durchgestrichen.
 
 Flo, 22.11.2026: Physik muss stimmen. Geprüft sind die Questabläufe dieses Dokuments; Strecken und Höhen aus
 `tools/traversal_wege.py` (D388, D391) und der Lage v2. Echte Zeit: Gehen 4 km/h in der Ebene, 300 Höhenmeter je
 Stunde im Anstieg, der kleinere Wert halb gezählt (Wanderformel DIN 33466). Spielzeit: Die Lehrstrecke rechnet
 1.182 m in 4,7 min (D390), also rund 4,2 m/s — Dauerlauf.
 
-| Weg | Strecke / Anstieg | Echt zu Fuß | Im Spiel (4,2 m/s, ohne Kämpfe) |
-|---|---|---|---|
-| Start → Magd (Lehrstrecke) | 1.182 m / 11 m auf, 127 m ab | 18 min | 4,7 min |
-| Brannburg → Wehr, Uferweg | 1.681 m / 10 m | 25 min | 6,7 min |
-| Brannburg → Absetzbecken, Hangweg | 1.096 m / 18 m, dann 21 m Wasser | 17 min + 1 min schwimmen | 4,3 min |
-| Brannburg → Oberstollen, Almweg | 2.097 m / 451 m | 1 h 45 min | 8,3 min ⚠️ |
-| Brannburg → Saatkammer | 1.856 m / 99 m | 38 min | 7,4 min |
-| Start → Quelltopf | 1.959 m / 343 m | 1 h 25 min | 7,8 min ⚠️ |
+| Weg | Strecke / Anstieg | Echt zu Fuß | Im Spiel (4,2 m/s, ohne Kämpfe) | Rennen 8,5 m/s (D412; bis D412 11) |
+|---|---|---|---|---|
+| Start → Magd (Lehrstrecke) | 1.182 m / 11 m auf, 127 m ab | 18 min | 4,7 min | 2,3 min (~~1,8~~) |
+| Brannburg → Wehr, Uferweg | 1.681 m / 10 m | 25 min | 6,7 min | 3,3 min (~~2,5~~) |
+| Brannburg → Absetzbecken, Hangweg | 1.096 m / 18 m, dann 21 m Wasser | 17 min + 1 min schwimmen | 4,3 min | 2,1 min + 0,3 min schwimmen |
+| Brannburg → Oberstollen, Almweg | 2.097 m / 451 m | 1 h 45 min | 8,3 min ⚠️ | 4,1 min (~~3,2~~) ⚠️ |
+| Brannburg → Saatkammer | 1.856 m / 99 m | 38 min | 7,4 min | 3,6 min (~~2,8~~) |
+| Start → Quelltopf | 1.959 m / 343 m | 1 h 25 min | 7,8 min ⚠️ | 3,8 min (~~3,0~~) ⚠️ |
+
+Rennen-Spalte: Strecke durch 8,5 m/s, ohne Umwegfaktor, wie die Physik-Prüfung v1 §4.7 rechnet.
 
 **Abweichungen, benannt:**
 
@@ -177,15 +184,24 @@ Stunde im Anstieg, der kleinere Wert halb gezählt (Wanderformel DIN 33466). Spi
    eben (⚠️ ob Steigung bremst, ist im Code nicht geprüft). Begründung: Spielfluss; die **Strecken** sind echt. Folge
    für die Quests: Kein Text nennt Minuten oder Stunden als Maß — die Figuren sagen „auf halbem Weg“, „eine Wand hoch“.
    Der Almweg ist ein halber Tag; die Linie F9 behandelt ihn so (keine Rückkehr „eben schnell“).
-2. **Tauchen kürzt nicht über Tempo ab.** Mit Flossen 1–1,5 m/s: Der Tauchweg zum Wehr (1.586 m) dauert echt 18–26 min
-   und ist damit **nicht schneller** als der Uferweg. Er kürzt ab, weil er die drei Engstellen umgeht. Das Tauchtempo
-   6 m/s aus Traversal v2 wird geprüft; keine Quest hier hängt daran. Ein Atemgerät der Wartung hält in 10 m Tiefe
-   grob eine Viertelstunde — der Weg zum Wehr geht nur in Etappen mit Auftauchen (Dächer, Kirchturm). Das passt zur
-   Linie: Der Kirchturm ist die Rast auf halbem Weg.
+2. **Tauchen kürzt nicht über Tempo ab.** Mit Flossen ~~1–1,5 m/s~~ 0,5–1,0 m/s (Physik-Prüfung v1 Q9): Der Tauchweg zum Wehr (~~1.586 m~~ — eine Luftlinie
+   über Land; durchs Wasser 1.863 m am Ufer, 2.364 m über den Kirchturm, Physik-Prüfung v1 §4.1) dauert echt
+   ~~18–26 min~~ 31–79 min und ist damit **nicht schneller** als der Uferweg. Er ~~kürzt ab, weil er~~ umgeht die drei
+   Engstellen. ~~Das Tauchtempo 6 m/s aus Traversal v2 wird geprüft~~ **Entschieden (D411):** Tauchtempo 2,25 m/s
+   (Faktor 3 auf 0,75 m/s), der Wasserweg heisst **„der Weg ohne Kampf“** — länger, keine Begegnung, Kirchturm als
+   Rast, Ankunft am Schieberhaus; keine Quest hier hängt am Tempo. ~~Ein Atemgerät der Wartung hält in 10 m Tiefe grob
+   eine Viertelstunde~~ Ein Atemgerät der Wartung (2 l, 200 bar, 50 bar Reserve) hält bei Arbeit in 10 m Tiefe rund
+   vier Minuten, am Kirchturmgrund knapp drei — **Luft ist ein Vorrat für Abstiege**, an der Oberfläche schwimmt und
+   atmet man. ~~— der Weg zum Wehr geht nur in Etappen mit Auftauchen (Dächer, Kirchturm).~~ Das passt zur Linie: Der
+   Kirchturm ist die Rast auf halbem Weg.
 3. **Warum man nicht einfach schwimmt.** Stauwasser eines Alpenflusses im Frühjahr hat 8–12 °C; ohne Kälteschutz
-   endet Schwimmen nach Minuten, nicht nach Metern. Die Grenze der Grundbewegung (17,8 m je Leiste) ist damit
-   plausibel, die 380-m-Querung zur Kapelle ohne Werkzeug nicht (D391 lässt sie richtig erst nach dem Wandel zu).
-   **Folge für D393:** Das Tauchzeug ist Atemgerät **und** Anzug.
+   endet Schwimmen ~~nach Minuten, nicht nach Metern~~ nach Minuten bis einer halben Stunde (Physik-Prüfung v1 §4.4:
+   bekleidet in 12 °C im Mittel 815 m in 39 min — die Begründung hier war zu streng). Die Grenze der Grundbewegung
+   (17,8 m je Leiste) ist damit plausibel, die 380-m-Querung zur Kapelle ohne Werkzeug ~~nicht~~ real machbar und
+   gefährlich (D391 lässt sie als Weg erst nach dem Wandel zu). **Seit D412 im Spiel:** die **Kälteuhr** — im tiefen
+   Wasser sinkt das Leben nach rund 4 min und ist nach rund 10 min aufgebraucht (reale rund 30 min durch den Faktor 3);
+   die Kapelle (8,6 min) wird knapp, der Kirchturm (10,1 min) geht ohne Anzug nicht.
+   **Folge für D393:** Das Tauchzeug ist Atemgerät **und** Anzug — es hält die Kälteuhr an (D411, `content/bewegung.json`).
 4. **Warum der Pegel steht.** Das Wasser ist an der Wehrkrone (499 m) angekommen und läuft über. Die Latte kann seit
    neunzehn Tagen nicht mehr steigen — die Lüge der Pegelwartin (F1) ist an der Latte und am Geräusch des Überlaufs
    prüfbar. Die Flut „seit dem Frühjahr“ ist plausibel schnell gekommen: Ein Fluss dieser Größe füllt den Talboden
@@ -201,7 +217,9 @@ Stunde im Anstieg, der kleinere Wert halb gezählt (Wanderformel DIN 33466). Spi
    läuten; bis Brannburg sind es 1.000 m, der Schlag kommt dort nach drei Sekunden an.
 9. **Nicht von hier, aber im Weg:** Ein Gleitschirm, der achtzehn Jahre im Freien hing, trägt niemanden mehr
    (UV zersetzt das Tuch in wenigen Jahren). Der Gleiter aus D391 braucht eine Begründung (im Geweih eingewachsen und
-   vom Pilzfächer überdeckt? neues Tuch aus der Hütte?) — ⚠️ UNKLAR, gehört zu D391/D393. Ebenso die Mauer am
+   vom Pilzfächer überdeckt? neues Tuch aus der Hütte?) — ~~⚠️ UNKLAR, gehört zu D391/D393~~ **entschieden (D411):**
+   Leinen und Gurtzeug vom Grathorn, die Kappe in der Enklave neu genäht aus gewachstem Leinen; das begründet zugleich
+   Gleitzahl 3 und 4 m/s Sinken (Text in `content/gegenstaende/gleiter.json`). Ebenso die Mauer am
    Stollenmund: Eine vermörtelte Bruchsteinmauer öffnet einer allein mit einer Stange nur am lose gesetzten
    Schlussstein, so wie D391 es beschreibt.
 
