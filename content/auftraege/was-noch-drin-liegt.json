@@ -1,0 +1,14 @@
+{
+  "id": "was-noch-drin-liegt",
+  "region": "oental",
+  "geber": "steinbruch-wart",
+  "titel": "Was noch drin liegt",
+  "text": "Im unteren Stollen liegt unser Geschirr, Seil und Eisen, hinter der Mauer. Die Stange für den Schlussstein hat der, der jetzt am Bruchweg sitzt und Wegzoll nimmt. Er war mein Vorarbeiter. Sehen Sie nach, ob die Mauer noch hält.",
+  "ziel": {
+    "art": "finde",
+    "fragment": "stollenmund"
+  },
+  "belohnung": {
+    "harzverband": 1
+  }
+}

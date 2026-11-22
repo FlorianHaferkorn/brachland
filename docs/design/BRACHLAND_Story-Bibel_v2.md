@@ -30,7 +30,7 @@ Regenten liest er mehr vom Protokoll. Am Ende entscheidet er, wem das geheilte L
   (`BRACHLAND_Kernfunken_v1.md`), und ein weiteres Stück lesbares Protokoll.
 - **Gewicht:** Reinigen ist die Handlung der Enklaven-Erzählung („zurückverwandeln“). Mit dem Twist wird sie
   zweideutig: Wer reinigt, nimmt dem Land seine Therapie. Die Grünen Mönche zählen mit.
-- Fangen, Team und Training aus v1 entfallen. Reiten bleibt als Bindung **eines** gereinigten Tieres (Traversal v1).
+- Fangen, Team und Training aus v1 entfallen. Reiten bleibt als Bindung **eines** gereinigten Tieres (`BRACHLAND_Traversal_v2.md` §5).
 
 ⚠️ UNKLAR (Balance, nicht Story): Belohnung für Reinigen gegen Töten, damit beides eine echte Wahl bleibt. Vorschlag:
 Töten gibt Material (Schmiede), Reinigen gibt Markenfortschritt und Reviergunst.
@@ -57,8 +57,9 @@ beschwerlichen Lösungsweg ohne.“
   Enklave, je weiter draussen, desto seltener.
 - **Führung:** Witterungsanzeige und Blickachsen, kein Auftragslog mit Kartenmarken (Story-Struktur v1 bleibt hier
   gültig).
-- Traversal v1 §„Reihenfolge und Freischaltung“ wird dadurch zur Tabelle der **Werkzeugwege**, nicht der Verbote:
-  Klettern ist ab Start in Grenzen möglich (kurze Wände, hohe Ausdauerkosten), das Werkzeug macht es billig und hoch.
+- **Werkzeuge** (D388, D391, `BRACHLAND_Traversal_v2.md`): Schwimmen und Klettern sind ab Start in Grenzen möglich
+  (17,8 m Wasser, kurze Wände); Tauchzeug, Kletterzeug, Gleiter und Reittier heben die Grenze auf. Keines liegt beim
+  Regenten und keines einfach herum: jedes hinter einem optionalen Boss, einem Rätsel oder einer Nebenaufgabe.
 
 ## 4. Œntal: Flut und Enklave (D374, schliesst A-21 Punkt 2 und 3)
 
@@ -80,11 +81,13 @@ beschwerlichen Lösungsweg ohne.“
 | Ziel | Werkzeugweg | Beschwerlicher Weg |
 |---|---|---|
 | Flussvater am Wehr (Westufer; D380) | durch die versunkene Stadt schwimmen/tauchen, am verborgenen Kirchturm vorbei — wenige Minuten | **der Uferweg** (≈ 1,7 km, fast eben, trocken): drei Engstellen mit je einem Verhärteten oder Rudel, unterspülte Abschnitte (Schlamm kostet Ausdauer, Einsturz zwingt an den Hang), keine Zuflucht bis hinter das Wehr |
-| Reinkultur Nord (Absetzbecken) | Bachlauf schwimmen | Waldrücken umgehen |
-| Reinkultur West (Stollen, hoch am Hang) | Wand klettern | alter Almweg mit Lawinenstrich |
-| Reinkultur Süd/Ost (neu zu setzen, nicht am Start) | Gleiten von der Terrasse | Abstieg durch den Hangwald |
+| Reinkultur Nord (Absetzbecken) | mit Tauchzeug vom Abstieg durch die Flut ans Nordufer (1.079 m, kein Landgegner) | Hangweg über Feldscheune und Schuppen (1.082 m), dann 21 m ohne Werkzeug schwimmen — das Fundstück liegt auf dem Grund |
+| Reinkultur West (Oberstollen, 963 m) | mit Kletterzeug die Stufe unter dem Grat | alter Almweg mit Lawinenstrich (2.097 m, 451 Höhenmeter) |
+| Reinkultur Süd (Saatkammer, 601 m) | mit Gleiter vom Westhang (Absprung um −896 / 916, 1.330 m Flug) — erst West, dann segeln | Uferweg über den Stadel am Hangweg, dann bergauf (1.856 m, 99 Höhenmeter) |
+| Kapelle auf der Insel, Kirchturm im Wasser | mit Tauchzeug (380 m Querung, 447 m vom Ufer) | erst der Flussvater: Das Wasser sinkt, beides fällt trocken |
 
-Die Westhälfte bekommt damit Zweck; die versunkene Stadt wird das Erkundungsgebiet des Kapitels.
+Von der Terrasse selbst lässt sich nicht gleiten (höchstens 26 m über der Flutlinie); Gleiten gehört den Westhängen
+(D391). Die Westhälfte bekommt damit Zweck; die versunkene Stadt wird das Erkundungsgebiet des Kapitels.
 
 **Zugang zum Flussvater (Flo, 22.11.2026, D380):** Das Gelände gibt keinen Weg „über Flutgrund“ her — das Wehr liegt am
 Westufer, und von der Enklave führt ein trockener Uferweg hin (`BRACHLAND_Enklave_Lage_v2.md`). Entschieden: Der
@@ -144,4 +147,4 @@ man weiterspielen kann.
 2. `flutlinie` in die Regionsdaten, Verfallsregel ADR-0017 daran hängen.
 3. Aufträge und Fundtexte gegen Zeitlinie und neue Lage prüfen (17 Aufträge, 14 Fundstücke).
 4. Reinigen als Kampfhandlung entwerfen (Kampfsystem, ADR-0007) und simulieren.
-5. Traversal v1 auf „Werkzeugweg statt Verbot“ umstellen.
+5. Traversal v1 auf „Werkzeugweg statt Verbot“ umstellen — `BRACHLAND_Traversal_v2.md` (D388, D391).

@@ -232,3 +232,50 @@ for name in ('Saatkammer', 'Enklave (Wirt)'):
         print(f'Absprung nach {name}: keiner')
 print(f'Terrasse: höchstens {525 - FLUT:.0f} m über der Flutlinie → höchstens {(525 - FLUT) * GLEIT_VERHAELTNIS:.0f} m Flug aufs Wasser '
       f'(Wirt {hoehe(ZIELE["Enklave (Wirt)"]):.0f} m, Abstieg {hoehe(ZIELE["Abstieg (Bursche)"]):.0f} m)')
+
+# ---- 4. Zu Fuß erreichbar? (D391: Verstecke der Werkzeuge) --------------------
+# Kürzester Weg über das Raster ohne Werkzeug: kein Schritt steiler als die Gehgrenze
+# (darüber wäre es Klettern), keine Zelle unter der Flutlinie (wäre Schwimmen).
+GEHEN_MAX_GRAD = 40        # src/scenes/RegionsSzene.tsx
+GRENZE = math.tan(GEHEN_MAX_GRAD * math.pi / 180)
+ZB, ZT = BREITE / (N - 1), TIEFE / (N - 1)
+
+
+def fusswege(start):
+    weit = np.full((N, N), np.inf)
+    i0, j0 = zelle(*start)
+    weit[i0, j0] = 0.0
+    offen = [(0.0, i0, j0)]
+    while offen:
+        d, i, j = heapq.heappop(offen)
+        if d > weit[i, j]:
+            continue
+        for a in (-1, 0, 1):
+            for b in (-1, 0, 1):
+                k, l = i + a, j + b
+                if (a or b) and 0 <= k < N and 0 <= l < N and H[k, l] >= FLUT:
+                    schritt = math.hypot(a * ZT, b * ZB)
+                    if abs(H[k, l] - H[i, j]) / schritt <= GRENZE and d + schritt < weit[k, l]:
+                        weit[k, l] = d + schritt
+                        heapq.heappush(offen, (d + schritt, k, l))
+    return weit
+
+
+VERSTECKE = {
+    'Enklave (Wirt)': ENKLAVE,
+    'Schuppen am Nordufer (Tauchzeug)': inhalt('orte', 'schuppen-nordufer'),
+    'Absetzbecken (Tafel, dazu 21 m Schwimmen)': ZIELE['Absetzbecken'],
+    'Wart vom Bruch (Kletterzeug, Geber)': inhalt('orte', 'steinbruch-wart'),
+    'Stollenmund (Kletterzeug)': inhalt('fragmente', 'stollenmund'),
+    'Quelltopf (Gleiter)': ZIELE['Quelltopf'],
+    'Förster (Reittier, Geber)': inhalt('orte', 'dorf-foerster'),
+    'Felsband (Reittier, Vorauftrag)': inhalt('fragmente', 'felsband'),
+    'Oberstollen (zum Vergleich)': ZIELE['Oberstollen'],
+    'Saatkammer (zum Vergleich)': ZIELE['Saatkammer'],
+}
+vom_start, von_enklave = fusswege((0.0, 0.0)), fusswege(ENKLAVE)
+print(f'\nZu Fuß ohne Werkzeug (kein Rasterschritt über {GEHEN_MAX_GRAD}°, nichts unter der Flutlinie; Klippen-Instanzen fehlen im Raster):')
+print('| Ort | x | z | Höhe | Fußweg ab Start m | Fußweg ab Enklave m |\n|---|---|---|---|---|---|')
+for name, p in VERSTECKE.items():
+    weg = lambda w: f'{w:.0f}' if math.isfinite(w) else 'kein Weg'
+    print(f'| {name} | {p[0]:.0f} | {p[1]:.0f} | {hoehe(p):.0f} | {weg(vom_start[zelle(*p)])} | {weg(von_enklave[zelle(*p)])} |')

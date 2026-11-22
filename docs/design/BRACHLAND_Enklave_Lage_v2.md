@@ -55,7 +55,8 @@ und „nicht im Grundriss“ steht in `tools/validate.ts`.
 
 Dichte grob 2 je km² im inneren Ring, 0,5 im mittleren, 0,3 aussen. **Die Kapelle liegt auf einer Insel**: Der
 Kalkbruch-Rücken ist bei 499 m ringsum von Wasser umgeben (kürzeste Querung 396 m, bis 9,9 m tief, kein Watweg im
-Raster). Sie ist vor dem Wandel nur schwimmend erreichbar.
+Raster). Vor dem Wandel erreicht man sie mit dem Tauchzeug; ohne Werkzeug erst nach dem Flussvater, wenn das Wasser gesunken
+ist (D391, `BRACHLAND_Traversal_v2.md` §6c).
 
 ### Drei Reinkulturen in drei Richtungen
 
@@ -64,9 +65,9 @@ Reinkultur-Ort ist das Fundstück, auf das der Auftrag zeigt, der die Komponente
 
 | Richtung | Fundstück → Komponente | x | z | Höhe | zur Enklave | zum Start | Geber | Werkzeugweg | Beschwerlicher Weg |
 |---|---|---|---|---|---|---|---|---|---|
-| Nord (329°) | `absetzbecken` → `wasserprobe-quell` | 170 | −1534 | 502 | 1.023 | 1.543 | Wirt | am Ufer entlang schwimmen, gerade Linie | Hangweg über Feldscheune und Schuppen am Nordufer, 1.082 m bis ans Ufer, 18 m Anstieg |
-| West (251°) | `oberstollen` (neu) → `katalysator-v3` | −1031 | −47 | 963 | 1.832 | 1.032 | Wart vom Bruch | die Stufe unter dem Grat klettern (Raster: bis 60° im 40-m-Umkreis) | OSM-Pfad 5 m neben dem Mundloch („alter Almweg“); ab Enklave 2.097 m und 451 Höhenmeter |
-| Süd (189°) | `saatkammer` (neu) → `saatgut-rein` | 421 | 1104 | 601 | 1.783 | 1.182 | Magd | Reiten auf dem Uferweg; Gleiten nur von den Westhängen, nicht von der Terrasse | Uferweg über den Stadel am Hangweg, dann bergauf: 1.856 m, 99 Höhenmeter |
+| Nord (329°) | `absetzbecken` → `wasserprobe-quell` | 170 | −1534 | 502 | 1.023 | 1.543 | Wirt | mit Tauchzeug vom Abstieg an der Ostkante durch die Flut ans Nordufer, 1.079 m | Hangweg über Feldscheune und Schuppen am Nordufer, 1.082 m bis ans Ufer, 18 m Anstieg; dann 21 m ohne Werkzeug schwimmen |
+| West (251°) | `oberstollen` (neu) → `katalysator-v3` | −1031 | −47 | 963 | 1.832 | 1.032 | Wart vom Bruch | mit Kletterzeug die Stufe unter dem Grat (Raster: bis 60° im 40-m-Umkreis) | OSM-Pfad 5 m neben dem Mundloch („alter Almweg“); ab Enklave 2.097 m und 451 Höhenmeter |
+| Süd (189°) | `saatkammer` (neu) → `saatgut-rein` | 421 | 1104 | 601 | 1.783 | 1.182 | Magd | mit Gleiter vom Westhang: Absprung um −896 / 916 (975 m), 1.330 m Flug; Reiten auf dem Uferweg macht ihn nur schneller | Uferweg über den Stadel am Hangweg, dann bergauf: 1.856 m, 99 Höhenmeter |
 
 `stollenmund` (387 m vom Start) und `silo-hof` (314 m) bleiben als Fundstücke liegen, sind aber keine Reinkultur-Orte
 mehr. Der untere Stollen ist „zugemauert“ — das trägt jetzt den Verweis nach oben.
@@ -81,7 +82,8 @@ Kein Auftrag und kein Bewohner nennt sie (`validate` lehnt einen Auftrag ab, der
 | Hütte im Bannwald (`jagdhuette`) | −746 | −649 | 704 | 1.443 | Wurzelkeiler | Gelände: einzige Hütte im Westwald, kein Nachbar in 70 m |
 | Quelltopf unter der Grenze (`quelltopf`) | −1683 | 650 | 971 | 2.715 | Grathorn | Gelände: Bachlauf bis zur Quelle folgen, knapp unter 1.000 m |
 
-Der Kirchturm ist vor dem Wandel nur schwimmend oder tauchend zu erreichen und fällt danach trocken.
+Der Kirchturm ist vor dem Wandel nur mit dem Tauchzeug zu erreichen (447 m vom Ufer) und fällt danach trocken — das
+ist sein beschwerlicher Weg (D391).
 
 ### Drei Fraktionsfiguren
 
@@ -127,9 +129,11 @@ Dorf. Die Köder und Netzschlingen (Fanghilfe) bleiben als Gegenstände und Belo
    Wasser ist 1.573 m. „1,4 km über Flutgrund“ (Bibel §4) stimmt also nur als Luftlinie, und der Werkzeugweg
    (schwimmen) spart nichts. Der „Osthang mit Kalkbruch-Kante“ ist eine Insel und liegt nicht auf dem Weg.
 2. **Von der Terrasse lässt sich nicht gleiten.** Sie liegt auf 505–525 m, alles Trockene im Süden liegt höher.
-   Gleiten ist im Œntal eine Fähigkeit der Westhänge (Traversal v1, Nachtrag).
+   Gleiten ist im Œntal eine Fähigkeit der Westhänge (Traversal v1, Nachtrag). **Entschieden (D391):** Der
+   Werkzeugweg nach Süd beginnt im Westen.
 3. **Das Fundstück im Absetzbecken liegt auf dem Grund**, 30 m vom Ufer, Auslöser 9 m. Ohne Schwimmen ist es nicht
-   lesbar — die Reinkultur Nord hat damit keinen beschwerlichen Weg ohne Werkzeug.
+   lesbar — **aufgelöst (D388, D391):** Schwimmen ist Grundbewegung ab Start (17,8 m je Ausdauerleiste, im Code nie
+   gesperrt); die 21 m zum Fundstück sind der beschwerliche Weg.
 4. **Das 10-m-Raster sieht keine Wände.** Die 4.031 Klippen sind Instanzen; „klettern oder aussen herum“ ist am
    Oberstollen plausibel (60° im Umkreis, Pfad daneben), aber nicht gemessen.
 
