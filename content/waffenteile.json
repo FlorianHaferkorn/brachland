@@ -1,0 +1,466 @@
+{
+  "physik": {
+    "armTraegheit": 0.5,
+    "armMasse": 6,
+    "anteilEnergie": 0.7
+  },
+  "familien": {
+    "klinge": {
+      "bewegung": "schwung",
+      "vorHand": 0,
+      "kopf": [
+        {
+          "id": "gerade",
+          "name": "Gerades Blatt",
+          "masse": 0.75,
+          "laenge": 0.75,
+          "schwerpunkt": 0.31,
+          "preis": {
+            "federstahl": 1
+          },
+          "anker": "Einhandschwert im Mittel 1,1 kg bei 90 cm Gesamtlänge und 75 cm Klinge (Wikipedia „Knightly sword“; thearma.org „What did Historical Swords Weigh?“)",
+          "text": "Das Blatt, das heute geführt wird. Schwerpunkt eine Handbreit vor dem Griff."
+        },
+        {
+          "id": "kurz",
+          "name": "Kurzes Blatt",
+          "masse": 0.6,
+          "laenge": 0.6,
+          "schwerpunkt": 0.24,
+          "preis": {
+            "federstahl": 1
+          },
+          "anker": "Hauswehr/Bauernwehr, Klinge um 60 cm — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Schnell und nah. Wer damit trifft, steht schon im Bogen des Tiers."
+        },
+        {
+          "id": "lang",
+          "name": "Langes Blatt",
+          "masse": 0.85,
+          "laenge": 0.92,
+          "schwerpunkt": 0.39,
+          "preis": {
+            "federstahl": 2
+          },
+          "anker": "lange Einhandklingen bis 1,5 kg gesamt (thearma.org) — Länge Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Reicht eine Hand weiter. Die Spitze kommt später an, als man denkt."
+        },
+        {
+          "id": "wuchtig",
+          "name": "Hiebblatt",
+          "masse": 0.95,
+          "laenge": 0.72,
+          "schwerpunkt": 0.37,
+          "wucht": 1.05,
+          "preis": {
+            "federstahl": 2
+          },
+          "anker": "Hiebmesser mit breitem Ort — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Vorn breit und schwer. Schneidet nicht besser, schlägt aber durch."
+        }
+      ],
+      "schaft": [
+        {
+          "id": "einhand",
+          "name": "Einhandgriff",
+          "masse": 0.35,
+          "laenge": 0.12,
+          "preis": {
+            "chitinspan": 1
+          },
+          "anker": "Einhandschwert im Mittel 1,1 kg bei 90 cm Gesamtlänge und 75 cm Klinge (Wikipedia „Knightly sword“; thearma.org „What did Historical Swords Weigh?“) — Griff mit Knauf und Parierstange 0,35 kg angesetzt",
+          "text": "Griff, Knauf, Parierstange. Was heute dran ist."
+        },
+        {
+          "id": "langgriff",
+          "name": "Langer Griff",
+          "masse": 0.45,
+          "laenge": 0.2,
+          "kraft": 1.08,
+          "brauchtPose": true,
+          "preis": {
+            "chitinspan": 2
+          },
+          "anker": "Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Platz für die zweite Hand am Knauf. Mehr Kraft im Hieb, mehr Gewicht am Gürtel."
+        },
+        {
+          "id": "knaufschwer",
+          "name": "Schwerer Knauf",
+          "masse": 0.55,
+          "laenge": 0.12,
+          "wendig": 1.1,
+          "preis": {
+            "chitinspan": 1,
+            "federstahl": 1
+          },
+          "anker": "Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Ein Gegengewicht hinter der Hand. Die Spitze folgt dem Handgelenk schneller."
+        }
+      ],
+      "referenz": {
+        "kopf": "gerade",
+        "schaft": "einhand"
+      }
+    },
+    "axt": {
+      "bewegung": "schwung",
+      "vorHand": 0.85,
+      "kopf": [
+        {
+          "id": "spaltkopf",
+          "name": "Spaltkopf",
+          "masse": 1.4,
+          "laenge": 0.05,
+          "schwerpunkt": -0.03,
+          "preis": {
+            "federstahl": 1
+          },
+          "anker": "Spaltaxt, Kopf um 1,4 kg — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Keilförmig, schwer, zum Holzmachen geschmiedet. Der Kopf der heutigen Axt."
+        },
+        {
+          "id": "bartaxt",
+          "name": "Bartaxt",
+          "masse": 0.85,
+          "laenge": 0.08,
+          "schwerpunkt": -0.02,
+          "schneide": 1.05,
+          "preis": {
+            "federstahl": 1
+          },
+          "anker": "Bartaxt, Kopf 0,6–0,9 kg — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Dünnes Blatt mit langem Bart. Leicht am Stiel, lang an der Schneide."
+        },
+        {
+          "id": "hammerkopf",
+          "name": "Hammerkopf",
+          "masse": 1.6,
+          "laenge": 0.03,
+          "schwerpunkt": -0.03,
+          "schneide": 0.85,
+          "wucht": 1.12,
+          "preis": {
+            "federstahl": 2
+          },
+          "anker": "Vorschlaghammer klein, Kopf 1,5–2 kg — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Keine Schneide. Bricht, was eine Schneide nur ritzt."
+        },
+        {
+          "id": "breitbeil",
+          "name": "Breitbeil",
+          "masse": 1.8,
+          "laenge": 0.06,
+          "schwerpunkt": -0.03,
+          "schneide": 1.05,
+          "preis": {
+            "federstahl": 2,
+            "chitinspan": 2
+          },
+          "anker": "Zimmermanns-Breitbeil, Kopf 1,5–2 kg — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Breite Schneide, viel Eisen. Wer es schwingt, hat sich festgelegt."
+        }
+      ],
+      "schaft": [
+        {
+          "id": "kurz",
+          "name": "Kurzer Stiel",
+          "masse": 0.34,
+          "laenge": 0.6,
+          "preis": {
+            "chitinspan": 1
+          },
+          "anker": "Esche 700 kg/m³, Ø 3,2 cm = 0,56 kg/m — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Ein Handbeil. Nah dran, schnell wieder oben."
+        },
+        {
+          "id": "mittel",
+          "name": "Stiel",
+          "masse": 0.45,
+          "laenge": 0.8,
+          "preis": {
+            "chitinspan": 1
+          },
+          "anker": "Esche 700 kg/m³, Ø 3,2 cm = 0,56 kg/m — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Der Stiel der heutigen Axt, achtzig Zentimeter Esche."
+        },
+        {
+          "id": "lang",
+          "name": "Langer Stiel",
+          "masse": 0.56,
+          "laenge": 1.0,
+          "preis": {
+            "chitinspan": 2
+          },
+          "anker": "Esche 700 kg/m³, Ø 3,2 cm = 0,56 kg/m — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Ein Meter Hebel. Der Kopf ist lange unterwegs und kommt hart an."
+        }
+      ],
+      "referenz": {
+        "kopf": "spaltkopf",
+        "schaft": "mittel"
+      }
+    },
+    "speer": {
+      "bewegung": "stoss",
+      "vorHand": 0.67,
+      "kopf": [
+        {
+          "id": "saufeder",
+          "name": "Saufederblatt",
+          "masse": 0.45,
+          "laenge": 0.3,
+          "schwerpunkt": 0.12,
+          "preis": {
+            "federstahl": 1
+          },
+          "anker": "Saufeder, Blatt mit Knebel um 0,45 kg — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Blatt mit Knebel. Der Knebel hält draussen, was nicht stehen bleibt."
+        },
+        {
+          "id": "nadel",
+          "name": "Nadelspitze",
+          "masse": 0.25,
+          "laenge": 0.25,
+          "schwerpunkt": 0.1,
+          "schneide": 0.92,
+          "preis": {
+            "federstahl": 1
+          },
+          "anker": "Pfriemspitze — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Vierkantig, schmal. Geht tief und macht eine kleine Wunde."
+        },
+        {
+          "id": "breitblatt",
+          "name": "Breitblatt",
+          "masse": 0.65,
+          "laenge": 0.35,
+          "schwerpunkt": 0.14,
+          "schneide": 1.08,
+          "preis": {
+            "federstahl": 2
+          },
+          "anker": "Blattspitze breit — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Handbreit, zweischneidig. Schwer an einem langen Hebel."
+        }
+      ],
+      "schaft": [
+        {
+          "id": "kurz",
+          "name": "Kurzer Schaft",
+          "masse": 0.79,
+          "laenge": 1.6,
+          "preis": {
+            "chitinspan": 1
+          },
+          "anker": "Esche 700 kg/m³, Ø 3 cm = 0,49 kg/m — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Mannshoch. Führt sich wie ein Stock."
+        },
+        {
+          "id": "mittel",
+          "name": "Schaft",
+          "masse": 0.99,
+          "laenge": 2.0,
+          "preis": {
+            "chitinspan": 1
+          },
+          "anker": "Saufeder um 2 m — Esche 700 kg/m³, Ø 3 cm = 0,49 kg/m — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Zwei Meter Esche. Der Schaft des heutigen Speers."
+        },
+        {
+          "id": "lang",
+          "name": "Langer Schaft",
+          "masse": 1.19,
+          "laenge": 2.4,
+          "preis": {
+            "chitinspan": 2
+          },
+          "anker": "Esche 700 kg/m³, Ø 3 cm = 0,49 kg/m — Überschlag aus Dichte × Volumen, nicht belegt",
+          "text": "Weiter draussen als alles, was beisst. Im Wald bleibt er hängen."
+        }
+      ],
+      "referenz": {
+        "kopf": "saufeder",
+        "schaft": "mittel"
+      }
+    }
+  },
+  "material": [
+    {
+      "id": "altstahl",
+      "name": "Altstahl",
+      "stufe": 0,
+      "guete": 1,
+      "preis": {
+        "chitinspan": 2
+      },
+      "text": "Was die Esse aus dem macht, was herumliegt. Der Stahl der heutigen Waffen."
+    },
+    {
+      "id": "einsatzgehaertet",
+      "name": "Einsatzgehärtet",
+      "stufe": 1,
+      "guete": 1.12,
+      "preis": {
+        "chitinspan": 8
+      },
+      "text": "Die Schneide im Chitinkohle-Kasten geglüht. Aussen hart, innen zäh."
+    },
+    {
+      "id": "federstahl",
+      "name": "Federstahl",
+      "stufe": 2,
+      "guete": 1.24,
+      "preis": {
+        "chitinspan": 14,
+        "federstahl": 3
+      },
+      "text": "Schneide aus Blattfeder angeschweisst. Besseren Stahl macht hier keiner mehr."
+    },
+    {
+      "id": "haertlingsschneide",
+      "name": "Härtlingsschneide",
+      "stufe": 3,
+      "guete": 1.36,
+      "preis": {
+        "chitinspan": 22,
+        "federstahl": 4,
+        "haertling": 3
+      },
+      "text": "Ein Härtling in die Schneide gesetzt. Drei Verhärtete haben dafür ihr Leben gelassen."
+    }
+  ],
+  "haertung": [
+    {
+      "id": "zaeh",
+      "name": "Zäh angelassen",
+      "schneide": 1,
+      "wucht": 1,
+      "text": "Die übliche Härtung. Verzeiht einen schlechten Treffer."
+    },
+    {
+      "id": "hart",
+      "name": "Hart",
+      "schneide": 1.04,
+      "wucht": 0.96,
+      "text": "Schneidet länger, federt weniger. Am Knochen bricht eher die Schneide als die Haltung."
+    },
+    {
+      "id": "federnd",
+      "name": "Federnd",
+      "schneide": 0.96,
+      "wucht": 1.04,
+      "text": "Weicher angelassen. Die Waffe gibt den Schlag weiter, statt ihn zu schneiden."
+    }
+  ],
+  "zeug": {
+    "grundstuecke": [
+      {
+        "id": "weste",
+        "gegenstand": "chitinweste",
+        "masse": 2.0,
+        "vorteil": "deckt Rumpf und Schultern",
+        "nachteil": "sitzt schwer, kostet Ausdauer-Erholung"
+      },
+      {
+        "id": "kittel",
+        "gegenstand": "wachstuchkittel",
+        "masse": 1.2,
+        "vorteil": "knielang, im Griff weniger verwundbar",
+        "nachteil": "schützt nicht gegen Hiebe"
+      },
+      {
+        "id": "kutte",
+        "gegenstand": "flechtenkutte",
+        "masse": 1.5,
+        "vorteil": "Tiere bemerken einen später",
+        "nachteil": "dünn; die Terrasse misstraut"
+      },
+      {
+        "id": "kluft",
+        "gegenstand": "werkskluft",
+        "masse": 1.0,
+        "vorteil": "Leitbahnen: der Kernfunke lädt schneller",
+        "nachteil": "im Griff verwundbarer"
+      }
+    ],
+    "materialien": [
+      {
+        "id": "leinen",
+        "name": "Leinen",
+        "masseFaktor": 1,
+        "vorteil": "leicht, trocknet schnell",
+        "nachteil": "hält keinen Biss"
+      },
+      {
+        "id": "leder",
+        "name": "Leder",
+        "masseFaktor": 1.5,
+        "vorteil": "hält Bisse und Dornen ab",
+        "nachteil": "schwerer; Leder braucht ein totes Tier"
+      },
+      {
+        "id": "chitinplatten",
+        "name": "Chitinplatten auf Leder",
+        "masseFaktor": 2,
+        "vorteil": "hält Hiebe ab",
+        "nachteil": "am schwersten; die Tiere riechen, woraus es ist"
+      }
+    ],
+    "futter": [
+      {
+        "id": "ohne",
+        "name": "ungefüttert",
+        "masse": 0,
+        "vorteil": "nichts wiegt mit",
+        "nachteil": "kalt über 900 m"
+      },
+      {
+        "id": "loden",
+        "name": "Loden",
+        "masse": 0.8,
+        "vorteil": "warm und leise",
+        "nachteil": "saugt sich im Wasser voll"
+      },
+      {
+        "id": "wachs",
+        "name": "Wachstuch",
+        "masse": 0.4,
+        "vorteil": "bleibt im Wasser leicht",
+        "nachteil": "raschelt"
+      }
+    ]
+  },
+  "gestalten": [
+    {
+      "id": "wicklung",
+      "name": "Griffwicklung",
+      "ort": "griff",
+      "preis": {
+        "zunder": 1
+      },
+      "text": "Leder, Schnur oder Kabel. Ändert, wie die Waffe aussieht und klingt, nicht, wie sie trifft."
+    },
+    {
+      "id": "gravur",
+      "name": "Kerbe und Zeichen",
+      "ort": "kopf",
+      "text": "Was man in den Stahl schlägt: ein Hofzeichen, eine Zahl, eine Kerbe je Regent."
+    },
+    {
+      "id": "brennen",
+      "name": "Brandmuster",
+      "ort": "schaft",
+      "text": "Der Schaft über der Flamme gezeichnet. Ringe, Bänder, eine Spirale."
+    },
+    {
+      "id": "faerbung",
+      "name": "Färbung",
+      "ort": "zeug",
+      "preis": {
+        "schafgarbe": 1
+      },
+      "text": "Mit Schafgarbe gelb, mit Walnuss braun, mit Eisen und Eichenrinde schwarz."
+    }
+  ]
+}

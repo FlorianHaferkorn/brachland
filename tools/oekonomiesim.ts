@@ -37,6 +37,7 @@ spalte('Tiere getötet / gereinigt / umgangen', b => `${b.getoetet} / ${b.gerein
 spalte('Verhärtete getötet / gereinigt', b => `${b.verhaerteteGetoetet} / ${b.verhaerteteGereinigt}`);
 spalte('Chitinspan / Federstahl / Härtling / Kernschlacke', b => `${b.vorrat.chitinspan ?? 0} / ${b.vorrat.federstahl ?? 0} / ${b.vorrat.haertling ?? 0} / ${b.vorrat.kernschlacke ?? 0}`);
 spalte('Waffenstufen (Haupt / zweite / dritte)', b => b.waffen.join(' / '));
+spalte('Umbau der Hauptwaffe bezahlt (D403)', b => b.umbau ? 'ja' : 'nein');
 spalte('Waffenschaden Hauptwaffe', b => `+${Math.round(b.waffen[0] * JE_STUFE * 100)} %`);
 spalte('Läuterung → Markenstufe', b => `${b.laeuterung} → ${b.markenStufe}`);
 spalte('Fassung nach dem Regenten', b => `${b.fassung}`);

@@ -139,6 +139,8 @@ export interface Bilanz {
   lebenPlus: number; ausdauerPlus: number;
   einsicht: number;
   linien: number;
+  /** D403: Hat das Material für einen Umbau der Hauptwaffe (anderer Kopf, anderer Schaft) gereicht? */
+  umbau: boolean;
 }
 
 /**
@@ -248,7 +250,10 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
 
   const sud = flasche(vorrat, o);
   const gebraut = braue(sud.rest, o);
-  const geschmiedet = schmiedeAus(gebraut.rest, o);
+  // D403: erst die eigene Form (ein Umbau), dann die Güte.
+  const umbauPreis = o.baukasten?.umbau;
+  const umbau = !!umbauPreis && reicht(umbauPreis, gebraut.rest);
+  const geschmiedet = schmiedeAus(umbau ? ziehe(umbauPreis!, gebraut.rest) : gebraut.rest, o);
   const eingriffe = getoetet + gereinigt + verhGetoetet + verhGereinigt;
   const rund = (x: number) => Math.round(x);
   return {
@@ -266,7 +271,7 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
     eingriffe: rund(eingriffe), leereReviere: leer, nachgewandert,
     mark: bossGetoetet, abwurf: bossGereinigt,
     lebenPlus: gebraut.plus.leben, ausdauerPlus: gebraut.plus.ausdauer,
-    einsicht: rund(einsicht), linien,
+    einsicht: rund(einsicht), linien, umbau,
   };
 }
 

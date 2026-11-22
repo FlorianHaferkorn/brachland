@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Belohnungen, Oekonomie, Techniken, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
+import { Belohnungen, Oekonomie, Techniken, Waffenbaukasten, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -262,6 +262,16 @@ const auftragIds = new Set(auftraege.map((a: any) => a.id));
       const g = gegenstaende.find((x: any) => x.id === bg.gegenstand);
       if (g && !(g.wirkung.art === 'zutat' && g.wirkung.fuer === 'beigabe')) meldeB(`brauen.beigaben: '${bg.gegenstand}' ist keine Beigabe`);
     }
+    // D403: Baukasten — Schema, Preise, Zeug-Grundstücke.
+    const wb = Waffenbaukasten.safeParse(JSON.parse(readFileSync('content/waffenteile.json', 'utf8')));
+    if (!wb.success) meldeB(`waffenteile.json: ${wb.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    else {
+      for (const [fam, f] of Object.entries(wb.data.familien)) for (const t of [...f.kopf, ...f.schaft]) kenne(`waffenteile ${fam}/${t.id}`, Object.keys(t.preis));
+      for (const m of wb.data.material) kenne(`waffenteile material ${m.id}`, Object.keys(m.preis));
+      kenne('waffenteile zeug', wb.data.zeug.grundstuecke.map(g => g.gegenstand));
+      for (const g of wb.data.gestalten) kenne(`waffenteile gestalten ${g.id}`, Object.keys(g.preis ?? {}));
+    }
+    if (d.baukasten) kenne('baukasten.umbau', Object.keys(d.baukasten.umbau));
     const tk = Techniken.safeParse(JSON.parse(readFileSync('content/techniken.json', 'utf8')));
     if (!tk.success) meldeB(`techniken.json: ${tk.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
     for (const [region, r] of Object.entries(d.regionen)) {
