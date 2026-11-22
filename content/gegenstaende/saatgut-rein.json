@@ -6,5 +6,6 @@
   },
   "imKampf": false,
   "beuteChance": 0,
-  "beschreibung": "Ein Beutel Körner von vor dem Befall, trocken gelagert. Was daraus wächst, erinnert sich an nichts."
+  "beschreibung": "Ein Beutel Körner von vor dem Befall, trocken gelagert. Was daraus wächst, erinnert sich an nichts.",
+  "gewicht": 0.5
 }

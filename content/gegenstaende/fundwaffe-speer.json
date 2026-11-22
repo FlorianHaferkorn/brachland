@@ -1,0 +1,13 @@
+{
+  "id": "fundwaffe-speer",
+  "name": "Saufeder",
+  "wirkung": {
+    "art": "waffe",
+    "waffe": "speer"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Jagdspiess mit Knebel, aus dem Gewehrschrank des Forsthauses. Der Knebel hält auf Abstand, was nicht stehen bleibt.",
+  "einmalig": true,
+  "gewicht": 1.8
+}

@@ -1,0 +1,16 @@
+{
+  "id": "werkskluft",
+  "name": "Werkskluft",
+  "wirkung": {
+    "art": "zeug",
+    "werte": {
+      "funkeLadezeit": -0.2,
+      "verwundbarImGriff": 0.1
+    }
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Jacke mit eingewebten Leitbahnen, Brustschild VERIDIA. Der Kern lädt schneller. Wer sie trägt, wird für jemanden gehalten.",
+  "einmalig": true,
+  "gewicht": 1.0
+}

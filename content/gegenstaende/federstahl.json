@@ -1,0 +1,14 @@
+{
+  "id": "federstahl",
+  "name": "Federstahl",
+  "wirkung": {
+    "art": "material",
+    "stufe": 2
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Blattfeder von einem Hänger, der seit vierzig Jahren steht. Besseren Stahl macht hier keiner mehr. Es gibt, was noch da ist.",
+  "liegtBeiTod": true,
+  "gewicht": 1.0,
+  "traglast": 6
+}

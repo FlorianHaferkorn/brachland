@@ -1,0 +1,16 @@
+{
+  "id": "flechtenkutte",
+  "name": "Flechtenkutte",
+  "wirkung": {
+    "art": "zeug",
+    "werte": {
+      "bemerktAbstand": -0.3,
+      "schadenErlitten": 0.1
+    }
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Grobes Tuch, von Flechten überwachsen. Die Tiere sehen einen später. Die Leute auf der Terrasse früher.",
+  "einmalig": true,
+  "gewicht": 1.5
+}

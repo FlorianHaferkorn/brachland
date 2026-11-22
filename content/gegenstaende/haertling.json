@@ -1,0 +1,12 @@
+{
+  "id": "haertling",
+  "name": "Härtling",
+  "wirkung": {
+    "art": "material",
+    "stufe": 3
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Der Kern eines Verhärteten, faustgross, noch warm. Wer ihn in der Hand hat, hat sich entschieden.",
+  "gewicht": 0.6
+}

@@ -1,0 +1,13 @@
+{
+  "id": "halfter",
+  "name": "Halfter",
+  "wirkung": {
+    "art": "werkzeug",
+    "faehigkeit": "reiten"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Hing im Stall am Haken, seit es keine Pferde mehr gibt. Bindet ein Tier, das geblieben ist. Eines, nicht zwei.",
+  "einmalig": true,
+  "gewicht": 0.5
+}

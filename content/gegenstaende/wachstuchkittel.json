@@ -1,0 +1,15 @@
+{
+  "id": "wachstuchkittel",
+  "name": "Wachstuchkittel",
+  "wirkung": {
+    "art": "zeug",
+    "werte": {
+      "verwundbarImGriff": -0.15
+    }
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Kittel der Hebamme von Brannburg, gewachst, knielang. Gemacht für Arbeit, bei der man stillhält, während etwas um sich schlägt.",
+  "einmalig": true,
+  "gewicht": 1.2
+}

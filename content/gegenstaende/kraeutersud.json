@@ -7,5 +7,6 @@
   },
   "imKampf": true,
   "beuteChance": 0.3,
-  "beschreibung": "Aufguss aus Bergkräutern. Wirkt schnell, aber nicht tief — für zwischendurch."
+  "beschreibung": "Aufguss aus Bergkräutern. Wirkt schnell, aber nicht tief — für zwischendurch.",
+  "gewicht": 0.2
 }

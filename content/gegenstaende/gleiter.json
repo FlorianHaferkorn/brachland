@@ -1,0 +1,13 @@
+{
+  "id": "gleiter",
+  "name": "Gleiter",
+  "wirkung": {
+    "art": "werkzeug",
+    "faehigkeit": "gleiten"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Ein Schirm, der lange in einem Geweih hing. Die Nähte halten. Jemand wollte damit über die Grenze und kam bis zur Quelle.",
+  "einmalig": true,
+  "gewicht": 8.0
+}

@@ -1,0 +1,130 @@
+/**
+ * BRACHLAND — Belohnungen und Aufwertungs-Ökonomie (D393). Geprüft wird die Regel, nicht die Zahl:
+ * Jede Kategorie des Vertrags löst sich auf, kein Unikat wird zweimal vergeben, beim Tod bleibt nur
+ * loses Material liegen, und keine kämpfende Spielweise schlägt eine andere auf beiden Achsen.
+ */
+import { readFileSync, readdirSync } from 'node:fs';
+import { Belohnungen, Oekonomie, Gegenstand, ReinigenDaten, BELOHNUNGS_KATEGORIEN, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
+import { verteile, loeseMenge, istUnikat, lege, type Vergabe } from '../src/spiel/belohnung.js';
+import { bilanz, SPIELWEISEN, markenStufe, fassung, revierRuhig, schmiedeAus, flasche, todesverlust, reicht, ziehe } from '../src/spiel/oekonomie.js';
+
+let bestanden = 0, gefallen = 0;
+function pruefe(name: string, ok: boolean, hinweis = '') {
+  if (ok) { bestanden++; return; }
+  gefallen++; console.log(`  ✗ ${name}${hinweis ? ` — ${hinweis}` : ''}`);
+}
+const lies = (p: string) => JSON.parse(readFileSync(p, 'utf8'));
+const t = Belohnungen.parse(lies('content/belohnungen.json'));
+const o = Oekonomie.parse(lies('content/oekonomie.json'));
+const rein = ReinigenDaten.parse(lies('content/reinigen.json'));
+const gegenstaende = readdirSync('content/gegenstaende').filter(f => f.endsWith('.json'))
+  .map(f => Gegenstand.parse(lies(`content/gegenstaende/${f}`)));
+const marke = { start: rein.fassung.start, jeRegent: rein.fassung.jeRegent, ladung: rein.ladung, ladungVerhaertet: rein.verhaertet.ladung };
+
+// --- Vertrag mit D392: jede Kategorie löst sich auf mindestens einer Sprosse auf
+for (const k of BELOHNUNGS_KATEGORIEN) {
+  const irgendwo = BELOHNUNGS_RAENGE.some(rang =>
+    verteile(t, [{ schluessel: 'probe', kategorie: k, rang, region: 'oental' }])[0].ok);
+  pruefe(`Kategorie ${k} löst sich auf`, irgendwo);
+}
+const v = (schluessel: string, kategorie: Vergabe['kategorie'], rang: Vergabe['rang'], wunsch?: string): Vergabe =>
+  ({ schluessel, kategorie, rang, region: 'oental', wunsch });
+
+// --- Mengenware
+const span = loeseMenge(t, v('a', 'aufwertung-1', 'nebenaufgabe'));
+pruefe('aufwertung-1 gibt Chitinspan', !!span && span.chitinspan === 3, JSON.stringify(span));
+pruefe('Stufe 3 liegt nicht an kleinen Entdeckungen', loeseMenge(t, v('a', 'aufwertung-3', 'entdeckung')) === null);
+pruefe('Stufe 4 gibt nur der Regent', BELOHNUNGS_RAENGE.filter(r => loeseMenge(t, v('a', 'aufwertung-4', r))).join() === 'regent');
+const zweimal = [loeseMenge(t, v('die-runde', 'verbrauch', 'nebenaufgabe')), loeseMenge(t, v('die-runde', 'verbrauch', 'nebenaufgabe'))];
+pruefe('derselbe Schlüssel gibt dasselbe', JSON.stringify(zweimal[0]) === JSON.stringify(zweimal[1]));
+const sorten = new Set(Array.from({ length: 40 }, (_, i) => Object.keys(loeseMenge(t, v(`auftrag-${i}`, 'verbrauch', 'nebenaufgabe'))!)[0]));
+pruefe('verschiedene Schlüssel geben nicht alle dasselbe', sorten.size >= 3, [...sorten].join());
+pruefe('Wunsch wird erfüllt, wenn die Sprosse ihn hergibt', loeseMenge(t, v('x', 'verbrauch', 'figurenlinie', 'herzfunke'))?.herzfunke === 1);
+pruefe('Wunsch ausserhalb der Sprosse gibt nichts', loeseMenge(t, v('x', 'verbrauch', 'entdeckung', 'herzfunke')) === null);
+
+// --- Unikate: nie zweimal
+const vier = verteile(t, ['d', 'b', 'a', 'c'].map(s => v(s, 'werkzeug', 'nebenaufgabe')));
+const stuecke = vier.flatMap(a => a.ok ? Object.keys(a.belohnung) : []);
+pruefe('vier Werkzeuge, vier verschiedene', stuecke.length === 4 && new Set(stuecke).size === 4, stuecke.join());
+pruefe('Ergebnis in der Reihenfolge der Anfrage', vier.map(a => a.schluessel).join() === 'd,b,a,c');
+const fuenf = verteile(t, ['a', 'b', 'c', 'd', 'e'].map(s => v(s, 'werkzeug', 'nebenaufgabe')));
+pruefe('das fünfte Werkzeug gibt es nicht', fuenf.filter(a => !a.ok).length === 1 && !fuenf[4].ok);
+const gewuenscht = verteile(t, [v('a', 'werkzeug', 'nebenaufgabe'), v('z', 'werkzeug', 'nebenaufgabe', 'kletterzeug')]);
+pruefe('der Wunsch geht vor', gewuenscht[1].ok && gewuenscht[1].belohnung.kletterzeug === 1
+  && gewuenscht[0].ok && !('kletterzeug' in gewuenscht[0].belohnung));
+const doppelt = verteile(t, [v('a', 'werkzeug', 'nebenaufgabe', 'gleiter'), v('b', 'werkzeug', 'optionaler-boss', 'gleiter')]);
+pruefe('derselbe Wunsch zweimal ist ein Fehler', doppelt.filter(a => a.ok).length === 1);
+pruefe('schon Vergebenes kommt nicht wieder', verteile(t, [v('a', 'waffe', 'nebenaufgabe')], ['fundwaffe-axt'])[0]
+  .ok && 'fundwaffe-speer' in (verteile(t, [v('a', 'waffe', 'nebenaufgabe')], ['fundwaffe-axt'])[0] as any).belohnung);
+pruefe('fremde Region hat keinen Vorrat', !verteile(t, [{ ...v('a', 'zugang', 'nebenaufgabe'), region: 'fahlmoos' }])[0].ok);
+pruefe('Unikat und Mengenware sind getrennt', istUnikat(t, 'ruestung') && !istUnikat(t, 'marke'));
+pruefe('lege summiert', JSON.stringify(lege({ a: 1, b: 2 }, { b: 1 })) === '{"a":1,"b":3}');
+
+// --- Die zwei Werkzeug-Aufträge aus D391 tragen echte Werkzeuge
+for (const [auftrag, werkzeug] of [['was-noch-drin-liegt', 'kletterzeug'], ['ein-schwieriger-nachbar', 'halfter']] as const) {
+  const a = lies(`content/auftraege/${auftrag}.json`);
+  pruefe(`${auftrag} gibt ${werkzeug}`, a.belohnung[werkzeug] === 1 && gegenstaende.find(g => g.id === werkzeug)?.wirkung.art === 'werkzeug');
+}
+
+// --- Marke
+pruefe('Markenstufe zählt erreichte Schwellen', markenStufe(0, o) === 0 && markenStufe(o.marke.schwellen[0], o) === 1
+  && markenStufe(1e6, o) === o.marke.schwellen.length);
+pruefe('Fassung: Grundwert + Regenten + Stufen', fassung(0, 0, marke, o) === 4 && fassung(0, 1, marke, o) === 6
+  && fassung(o.marke.schwellen[1], 1, marke, o) === 8);
+pruefe('leergetötet ist nicht ruhig', !revierRuhig(0, 20, 20, o));
+pruefe('ein einzelner Griff befriedet nichts', !revierRuhig(1, 0, 20, o));
+pruefe('überwiegend gereinigt ist ruhig', revierRuhig(6, 2, 20, o));
+pruefe('überwiegend getötet ist nicht ruhig', !revierRuhig(6, 8, 20, o));
+
+// --- Schmiede und Flasche
+pruefe('reicht/ziehe', reicht({ a: 2 }, { a: 2 }) && !reicht({ a: 3 }, { a: 2 }) && ziehe({ a: 2 }, { a: 5, b: 1 }).a === 3);
+const s1 = o.schmiede[0].preis, s2 = o.schmiede[1].preis;
+pruefe('ohne Material keine Stufe', schmiedeAus({}, o).stufen.join() === '0,0,0');
+pruefe('genau Stufe 1', schmiedeAus(s1, o).stufen[0] === 1 && Object.values(schmiedeAus(s1, o).rest).every(n => n === 0));
+pruefe('Stufe 3 braucht Härtlinge', schmiedeAus({ chitinspan: 99, federstahl: 99 }, o).stufen[0] === 2);
+pruefe('Vorschlagsstufe zählt nur auf Wunsch', schmiedeAus({ chitinspan: 99, federstahl: 99, haertling: 99, kernschlacke: 9 }, o).stufen[0] === 3
+  && schmiedeAus({ chitinspan: 99, federstahl: 99, haertling: 99, kernschlacke: 9 }, o, 1, true).stufen[0] === 4);
+pruefe('Stufen werden teurer', Object.values(s2).reduce((a, b) => a + b, 0) > Object.values(s1).reduce((a, b) => a + b, 0));
+const f0 = flasche({}, o), fVoll = flasche({ setzling: 99, quellwasser: 99 }, o);
+pruefe('Flasche beginnt mit den Startwerten', f0.schlucke === o.flasche.schlucke.start && f0.staerke === o.flasche.staerke.start);
+pruefe('Flasche ist gedeckelt', fVoll.schlucke === o.flasche.schlucke.max
+  && Math.abs(fVoll.staerke - (o.flasche.staerke.start + o.flasche.staerke.stufen * o.flasche.staerke.jeStufe)) < 1e-9);
+
+// --- Tod: nur loses Material bleibt liegen
+const tod = todesverlust({ chitinspan: 7, federstahl: 2, haertling: 1, kletterzeug: 1, harzverband: 2, unbekannt: 3, leer: 0 }, gegenstaende);
+pruefe('Bündel = Span und Federstahl', JSON.stringify(tod.buendel) === '{"chitinspan":7,"federstahl":2}', JSON.stringify(tod.buendel));
+pruefe('Härtling, Werkzeug, Vorrat und Unbekanntes bleiben', tod.behalten.haertling === 1 && tod.behalten.kletterzeug === 1
+  && tod.behalten.harzverband === 2 && tod.behalten.unbekannt === 3 && !('leer' in tod.behalten));
+pruefe('kein Einmaliges kann verloren gehen', gegenstaende.every(g => !(g.einmalig && g.liegtBeiTod)));
+
+// --- Physik (D398): jedes Stück wiegt etwas, und was man an losem Material tragen darf, bleibt tragbar
+pruefe('jeder Gegenstand hat ein Gewicht', gegenstaende.every(g => g.gewicht !== undefined && g.gewicht > 0));
+const lose = gegenstaende.filter(g => g.liegtBeiTod);
+pruefe('loses Material hat eine Traglast', lose.length > 0 && lose.every(g => g.traglast !== undefined));
+const buendelKg = lose.reduce((kg, g) => kg + g.gewicht! * g.traglast!, 0);
+pruefe('ein volles Bündel wiegt höchstens 10 kg', buendelKg <= 10 + 1e-9, `${buendelKg} kg`);
+const weste = o.tausch.find(x => 'chitinweste' in x.gibt)!;
+pruefe('die Weste wiegt mindestens ihr Material', gegenstaende.find(g => g.id === 'chitinweste')!.gewicht!
+  >= weste.nimmt.chitinspan * gegenstaende.find(g => g.id === 'chitinspan')!.gewicht! - 1e-9);
+
+// --- Überschlag Œntal: beide Achsen tragen, keine Spielweise dominiert
+const z = Object.fromEntries(SPIELWEISEN.map(w => [w.name, bilanz(w, 'oental', o, marke)]));
+const S = z['Schlächter'], G = z['Gemischt'], H = z['Heiler'], U = z['Umgeher'];
+pruefe('Schlächter: Hauptwaffe am weitesten, Marke am schwächsten', S.waffen[0] > G.waffen[0] && S.markenStufe < G.markenStufe);
+pruefe('Heiler: Marke am weitesten, Waffe am schwächsten der drei', H.markenStufe > G.markenStufe && H.waffen[0] < G.waffen[0]);
+pruefe('Heiler kommt trotzdem zu einer Waffenstufe', H.waffen[0] >= 1);
+pruefe('Schlächter kommt trotzdem zu einer Markenstufe', S.markenStufe >= 1);
+pruefe('nur der Heiler hat ruhige Reviere', H.ruhigeReviere > 0 && S.ruhigeReviere === 0 && G.ruhigeReviere === 0 && U.ruhigeReviere === 0);
+pruefe('Material nur von Getöteten', (H.vorrat.haertling ?? 0) === 0 && (H.vorrat.kernschlacke ?? 0) === 0
+  && (H.vorrat.chitinspan ?? 0) === Math.floor(o.regionen.oental.einmalig.chitinspan));
+const kaempfer = [S, G, H];
+const dominiert = kaempfer.some(x => kaempfer.some(y => x !== y && x.waffen[0] >= y.waffen[0] && x.markenStufe >= y.markenStufe
+  && (x.waffen[0] > y.waffen[0] || x.markenStufe > y.markenStufe)));
+pruefe('keine kämpfende Spielweise schlägt eine andere auf beiden Achsen', !dominiert,
+  kaempfer.map(b => `${b.name} ${b.waffen[0]}/${b.markenStufe}`).join(', '));
+pruefe('Bilanz geht auf', [S, G, H, U].every(b => Math.abs(b.getoetet + b.gereinigt + b.umgangen - o.regionen.oental.annahmen.tiere) <= 2));
+pruefe('der Heiler kann jeden Verhärteten reinigen', H.verhaerteteGereinigt === o.regionen.oental.annahmen.verhaertete);
+
+console.log(`  Œntal: ${[S, G, H, U].map(b => `${b.name} Waffe ${b.waffen[0]} / Marke ${b.markenStufe}`).join(' · ')}`);
+console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
+if (gefallen) process.exit(1);

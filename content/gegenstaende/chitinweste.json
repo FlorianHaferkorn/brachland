@@ -1,0 +1,16 @@
+{
+  "id": "chitinweste",
+  "name": "Chitinweste",
+  "wirkung": {
+    "art": "zeug",
+    "werte": {
+      "schadenErlitten": -0.15,
+      "ausdauerErholung": -0.1
+    }
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Platten auf Leder genietet. Hält ab, was beisst, und wiegt, was sie hält. Die Tiere riechen, woraus sie ist.",
+  "einmalig": true,
+  "gewicht": 4.0
+}

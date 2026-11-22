@@ -7,5 +7,7 @@
   },
   "imKampf": true,
   "beuteChance": 0.22,
-  "beschreibung": "Riecht nach dem, was hier oben selten geworden ist. Macht zutraulich."
+  "beschreibung": "Riecht nach dem, was hier oben selten geworden ist. Macht zutraulich.",
+  "gewicht": 0.15,
+  "traglast": 4
 }

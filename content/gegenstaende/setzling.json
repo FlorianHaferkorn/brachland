@@ -1,0 +1,12 @@
+{
+  "id": "setzling",
+  "name": "Setzling",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "flasche"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Bergkraut mit Wurzelballen, in feuchtes Moos geschlagen. Wächst nur, wo niemand mehr etwas aufreisst.",
+  "gewicht": 0.15
+}
