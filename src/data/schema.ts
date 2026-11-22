@@ -671,9 +671,9 @@ export type Gegenstand = z.infer<typeof Gegenstand>;
  * Vertrag mit den Aufträgen (D392): Story und Quests vergeben Belohnungen als **Kategorie**,
  * `content/belohnungen.json` löst sie in Gegenstand und Menge auf (`spiel/belohnung.ts`).
  */
-export const BELOHNUNGS_KATEGORIEN = ['aufwertung-1', 'aufwertung-2', 'aufwertung-3', 'aufwertung-4',
-  'verbrauch', 'werkzeug', 'waffe', 'ruestung', 'marke', 'wissen', 'zugang'] as const;
-export type BelohnungsKategorie = typeof BELOHNUNGS_KATEGORIEN[number];
+// Eine Liste, zwei Namen: der Auftrag (`lohn`, D392) und die Auflösung (D393) teilen sich LOHNKATEGORIEN.
+export const BELOHNUNGS_KATEGORIEN = LOHNKATEGORIEN;
+export type BelohnungsKategorie = Lohnkategorie;
 
 /** Die Sprossen der Belohnungsleiter, klein nach gross. */
 export const BELOHNUNGS_RAENGE = ['entdeckung', 'verborgener-ort', 'nebenaufgabe', 'figurenlinie',
