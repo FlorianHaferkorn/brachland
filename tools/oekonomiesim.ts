@@ -9,10 +9,17 @@
  *   npx tsx tools/oekonomiesim.ts [region]
  *
  * Tabelle in `docs/design/BRACHLAND_Gegenstaende-und-Aufwertung_v1.md` §3.
+ *
+ * Seit D416 über die **echten Reviere** (`content/reviere/<region>.json`) statt über `annahmen.reviere` gleich grosse:
+ * Begegnungen nach dem Bestand je Revier, Reviere in der Reihenfolge ihres Abstands vom Start, ruhig/leer nach
+ * `reviere.bezug` — und zum Vergleich mit dem anderen Bezug und der alten Annahme. Der Zähler in drei Stufen
+ * (abgewandt / geduldet / vertraut, D406).
  */
 import { readFileSync } from 'node:fs';
-import { Oekonomie, ReinigenDaten, Belohnungen, Techniken, Wirken, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
-import { bilanz, SPIELWEISEN, zaehlerStand } from '../src/spiel/oekonomie.js';
+import { existsSync } from 'node:fs';
+import { Oekonomie, ReinigenDaten, Belohnungen, Techniken, Wirken, Revierkarte, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
+import { bilanz, bilanzMitRevieren, SPIELWEISEN, zaehlerStand, type Bilanz, type SimRevier, type RevierBilanz } from '../src/spiel/oekonomie.js';
+import { bestand, regelnAus, zaehlerStufe, type Zaehlerstufe } from '../src/spiel/reviere.js';
 import { JE_STUFE } from '../src/spiel/schmiede.js';
 
 const lies = (p: string) => JSON.parse(readFileSync(p, 'utf8'));
@@ -28,7 +35,24 @@ console.log(`Region ${region} — Annahmen: ${a.begegnungen} Begegnungen, ${a.ti
 console.log(`Schmiede: ${o.schmiede.map(s => `Stufe ${s.stufe}${s.vorschlag ? ' (Vorschlag)' : ''} = ${Object.entries(s.preis).map(([g, n]) => `${n} ${g}`).join(' + ')}`).join('; ')}`);
 console.log(`Marke: Schwellen ${o.marke.schwellen.join(' / ')}, Fassung ${marke.start} + ${marke.jeRegent} je Regent + ${o.marke.fassungJeStufe} je Stufe\n`);
 
-const zeilen = SPIELWEISEN.map(w => bilanz(w, region, o, marke));
+// D416: die echten Reviere, in der Reihenfolge ihres Abstands vom Start (Annahme: man arbeitet sich von innen nach aussen).
+const pfad = `content/reviere/${region}.json`;
+if (!existsSync(pfad)) { console.error(`${pfad} fehlt — erst \`npx tsx tools/reviere.ts ${region} --schreiben\``); process.exit(1); }
+const karte = Revierkarte.parse(lies(pfad));
+/** Verhärtete: je verborgenem Ort einer (Lage v2), der Rest der Annahme an den Engstellen des Uferwegs (D393). */
+const ENGSTELLEN = 'oental-uferweg';
+const simReviere: SimRevier[] = [...karte.reviere]
+  .sort((x, y) => Math.hypot(...x.kern) - Math.hypot(...y.kern))
+  .map(r => ({ id: r.id, bestand: bestand(r), verhaertete: r.verborgeneOrte.length }));
+const rest = a.verhaertete - simReviere.reduce((n, r) => n + r.verhaertete, 0);
+const eng = simReviere.find(r => r.id === ENGSTELLEN);
+if (eng && rest > 0) eng.verhaertete += rest;
+const regeln = regelnAus(o);
+const anders = regeln.bezug === 'bestand' ? 'begegnet' : 'bestand';
+console.log(`Reviere (D416): ${karte.reviere.length} echte statt ${a.reviere} angenommene, Bestand ${simReviere.reduce((n, r) => n + r.bestand, 0)} Tiere, davon ${a.tiere} begegnet; Reihenfolge ${simReviere.map(r => r.id.replace(/^[a-z]+-/, '')).join(' → ')}; Verhärtete ${simReviere.filter(r => r.verhaertete).map(r => `${r.id.replace(/^[a-z]+-/, '')} ${r.verhaertete}`).join(', ')}; Bezug „${regeln.bezug}“ (Daten), zum Vergleich „${anders}“\n`);
+const zeilen: RevierBilanz[] = SPIELWEISEN.map(w => bilanzMitRevieren(w, region, o, marke, simReviere, regeln));
+const zeilenAnders = SPIELWEISEN.map(w => bilanzMitRevieren(w, region, o, marke, simReviere, { ...regeln, bezug: anders }));
+const zeilenAlt = SPIELWEISEN.map(w => bilanz(w, region, o, marke));
 const spalte = (titel: string, f: (b: typeof zeilen[number]) => string) =>
   console.log(`| ${titel} | ${zeilen.map(f).join(' | ')} |`);
 console.log(`| | ${zeilen.map(z => z.name).join(' | ')} |`);
@@ -41,7 +65,10 @@ spalte('Umbau der Hauptwaffe bezahlt (D403)', b => b.umbau ? 'ja' : 'nein');
 spalte('Waffenschaden Hauptwaffe', b => `+${Math.round(b.waffen[0] * JE_STUFE * 100)} %`);
 spalte('Läuterung → Markenstufe', b => `${b.laeuterung} → ${b.markenStufe}`);
 spalte('Fassung nach dem Regenten', b => `${b.fassung}`);
-spalte('ruhige Reviere', b => `${b.ruhigeReviere} von ${a.reviere}`);
+spalte('ruhige Reviere', b => `${b.ruhigeReviere} von ${b.reviere}`);
+spalte('leere Reviere', b => `${b.leereReviere} von ${b.reviere}`);
+spalte('unberührte Reviere', b => `${b.unberuehrt} von ${b.reviere}`);
+spalte('nachgewachsen bis Kapitelende (D399)', b => `${b.nachgewachsen}`);
 spalte('Flasche (Schlucke × Stärke)', b => `${b.schlucke} × ${Math.round(b.staerke * 100)} %`);
 spalte('Reinkulturen übrig', b => `${b.reinkulturenUebrig}`);
 spalte('Anteil gereinigt an den Eingriffen', b => `${Math.round(b.anteilGereinigt * 100)} %`);
@@ -50,20 +77,26 @@ spalte('Anteil gereinigt an den Eingriffen', b => `${Math.round(b.anteilGereinig
 const techniken = Techniken.parse(lies('content/techniken.json'));
 const technikKosten = techniken.reduce((n, t) => n + t.kosten, 0);
 // Schwelle und Gewichte des Zählers: die `eingriffe`-Bedingung in seinen Stationen (D404: Reinigen wiegt leichter).
-let moenchsSchwelle = Infinity, gewichte = { getoetet: 1, gereinigt: 1 };
+let moenchsSchwelle = Infinity, gewichte = { getoetet: 1, gereinigt: 1 }, unberuehrtMindestens = 0;
 JSON.stringify(lies('content/wanderfiguren/zaehler.json'), (_k, v) => {
-  if (v && typeof v === 'object' && v.art === 'eingriffe' && typeof v.anzahl === 'number') { moenchsSchwelle = v.anzahl; if (v.gewichte) gewichte = v.gewichte; }
+  if (v && typeof v === 'object' && (v.art === 'eingriffe' || v.art === 'misstraut') && typeof v.anzahl === 'number') {
+    moenchsSchwelle = v.anzahl; if (v.gewichte) gewichte = v.gewichte;
+    if (v.art === 'misstraut') unberuehrtMindestens = v.unberuehrtMindestens;
+  }
   return v;
 });
+const regelZaehler = { anzahl: moenchsSchwelle, unberuehrtMindestens };
+const stufeVon = (b: RevierBilanz): Zaehlerstufe => zaehlerStufe(zaehlerStand(b, gewichte), b.unberuehrt / b.reviere, regelZaehler);
+const STUFENWERT: Record<Zaehlerstufe, number> = { abgewandt: 0, geduldet: 1, vertraut: 2 };
 const wirken = Wirken.parse(lies('content/wirken.json')).filter(x => x.status === 'gilt');
 const wirkenKosten = wirken.reduce((n, x) => n + x.einsicht, 0);
-const stand = (b: typeof zeilen[number]) => zaehlerStand(b, gewichte);
-console.log(`\nFortschritt der Spielfigur (D400/D405) — Techniken: ${techniken.length} für ${technikKosten} Einsicht, Wirken: ${wirken.length} für ${wirkenKosten}; Zähler: Schwelle ${moenchsSchwelle}, getötet × ${gewichte.getoetet}, gereinigt × ${gewichte.gereinigt}\n`);
+const stand = (b: Bilanz) => zaehlerStand(b, gewichte);
+console.log(`\nFortschritt der Spielfigur (D400/D405) — Techniken: ${techniken.length} für ${technikKosten} Einsicht, Wirken: ${wirken.length} für ${wirkenKosten}; Zähler: geduldet bis ${moenchsSchwelle}, getötet × ${gewichte.getoetet}, gereinigt × ${gewichte.gereinigt}; vertraut ab ${Math.round(unberuehrtMindestens * 100)} % unberührter Reviere\n`);
 console.log(`| | ${zeilen.map(z => z.name).join(' | ')} |`);
 console.log(`|---|${zeilen.map(() => '---').join('|')}|`);
 spalte('Eingriffe ungewichtet (vor D405)', b => `${b.eingriffe}`);
 spalte('Stand beim Zähler (gewichtet)', b => `${stand(b).toFixed(0)}`);
-spalte('Mönche trauen', b => stand(b) <= moenchsSchwelle ? 'ja' : 'nein');
+spalte('Zähler (D406): Stufe', b => stufeVon(b));
 spalte('Ladungen ins Wirken (D405)', b => `${b.wirkenLadungen}`);
 spalte('leere Reviere → nachgewanderte Verhärtete', b => `${b.leereReviere} → ${b.nachgewandert}`);
 spalte('Bossteile Mark / Abwurf', b => `${b.mark} / ${b.abwurf}`);
@@ -73,19 +106,35 @@ spalte('Einsicht (von ' + (technikKosten + wirkenKosten) + ' für alle Techniken
 
 // Dominanzprüfung über alle Achsen: Waffe, Marke, Leben, Ausdauer, Einsicht, Vertrauen der Mönche.
 // Keine Spielweise darf eine andere auf jeder Achse erreichen und auf einer übertreffen.
-console.log('\nDominanz (Waffe, Marke, Leben, Ausdauer, Einsicht, Mönche):');
-const achsen = (b: typeof zeilen[number]) => [b.waffen[0], b.markenStufe, b.lebenPlus, b.ausdauerPlus, b.einsicht, stand(b) <= moenchsSchwelle ? 1 : 0];
-let dominiert = 0;
-for (const x of zeilen) for (const y of zeilen) if (x !== y) {
-  const ax = achsen(x), ay = achsen(y);
-  if (ax.every((v, i) => v >= ay[i]) && ax.some((v, i) => v > ay[i])) {
-    dominiert++; console.log(`  ✗ ${x.name} schlägt ${y.name} auf allen Achsen (${ax.join('/')} gegen ${ay.join('/')})`);
+console.log('\nDominanz (Waffe, Marke, Leben, Ausdauer, Einsicht, Zähler-Stufe 0/1/2):');
+const achsen = (b: RevierBilanz) => [b.waffen[0], b.markenStufe, b.lebenPlus, b.ausdauerPlus, b.einsicht, STUFENWERT[stufeVon(b)]];
+const dominanz = (liste: RevierBilanz[], titel: string) => {
+  let n = 0;
+  for (const x of liste) for (const y of liste) if (x !== y) {
+    const ax = achsen(x), ay = achsen(y);
+    if (ax.every((v, i) => v >= ay[i]) && ax.some((v, i) => v > ay[i])) {
+      n++; console.log(`  ✗ ${titel}: ${x.name} schlägt ${y.name} auf allen Achsen (${ax.join('/')} gegen ${ay.join('/')})`);
+    }
   }
-}
-if (!dominiert) console.log('  ✓ keine Spielweise schlägt eine andere auf allen Achsen');
-else console.log('  (Befund D405: mit Reinigen × 0,25 bleibt bei Schwelle 40 auch der Heiler unter dem Zähler; bei 30 trennt er Heiler und Umgeher wieder — A-32)');
+  if (!n) console.log(`  ✓ ${titel}: keine Spielweise schlägt eine andere auf allen Achsen`);
+  return n;
+};
+const dominiert = dominanz(zeilen, `Bezug „${regeln.bezug}“ (Daten)`);
+dominanz(zeilenAnders, `Bezug „${anders}“ (Vergleich)`);
 console.log(`  Schwellenprobe: unter 30 bleiben ${zeilen.filter(z => stand(z) <= 30).map(z => z.name).join(', ') || 'niemand'}; unter 40 ${zeilen.filter(z => stand(z) <= 40).map(z => z.name).join(', ') || 'niemand'}; unter 50 ${zeilen.filter(z => stand(z) <= 50).map(z => z.name).join(', ') || 'niemand'}; unter 60 ${zeilen.filter(z => stand(z) <= 60).map(z => z.name).join(', ') || 'niemand'}`);
 for (const z of zeilen) console.log(`    ${z.name.padEnd(11)} ${achsen(z).join(' / ')}`);
+
+console.log(`\nVergleich — was sich mit den echten Revieren verschiebt (Waffe / Marke / ruhig / leer → Verhärtete / Zähler):`);
+console.log(`| | ${zeilen.map(z => z.name).join(' | ')} |`);
+console.log(`|---|${zeilen.map(() => '---').join('|')}|`);
+const kurz = (b: Pick<RevierBilanz, 'waffen' | 'markenStufe' | 'ruhigeReviere' | 'leereReviere' | 'nachgewandert'>, n: number, st: string) =>
+  `${b.waffen[0]} / ${b.markenStufe} / ${b.ruhigeReviere} von ${n} / ${b.leereReviere} → ${b.nachgewandert} / ${st}`;
+console.log(`| Annahme D393 (${a.reviere} gleiche Reviere) | ${zeilenAlt.map(b => kurz(b, a.reviere, stand(b) <= moenchsSchwelle ? 'geduldet' : 'abgewandt')).join(' | ')} |`);
+console.log(`| echte Reviere, Bezug „${regeln.bezug}“ | ${zeilen.map(b => kurz(b, b.reviere, stufeVon(b))).join(' | ')} |`);
+console.log(`| echte Reviere, Bezug „${anders}“ | ${zeilenAnders.map(b => kurz(b, b.reviere, stufeVon(b))).join(' | ')} |`);
+console.log('\nJe Revier (Heiler, Bezug Daten): getötet / gereinigt / begegnet');
+for (const r of zeilen[2].je) console.log(`  ${r.id.padEnd(18)} ${r.getoetet} / ${r.gereinigt} / ${r.begegnet}${r.ruhig ? '  ruhig' : ''}${r.leer ? '  leer' : ''}`);
+if (dominiert) process.exitCode = 0; // Messwerkzeug: der Befund steht in der Ausgabe, der Test in tests/oekonomie.test.ts
 
 console.log('\nBelohnungsleiter (Mengenware je Sprosse):');
 for (const rang of BELOHNUNGS_RAENGE) {

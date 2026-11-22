@@ -18,10 +18,11 @@ import { AKTUELLE_VERSION, PLAETZE, beginneNeu, exportiere, importiere, ladePlat
 import type { Zustand } from '../engine/battle.js';
 import type { HeldWahl } from '../spieler/held.js';
 import type { WaffenStufen } from './schmiede.js';
+import { LEERER_REVIERSTAND, type Begegnung, type Revierstand } from './reviere.js';
 
 /**
- * Version des Speicherformats (D415): 2 = Stand in der Hülle (`spiel/speicherformat.ts`). Version 1 war
- * der nackte Stand bis D415; er wird beim Laden migriert, nicht verworfen.
+ * Version des Speicherformats (D415): 2 = Stand in der Hülle (`spiel/speicherformat.ts`), 3 = mit Revieren (D416).
+ * Version 1 war der nackte Stand bis D415; er wird beim Laden migriert, nicht verworfen.
  */
 export const SPIELSTAND_VERSION = AKTUELLE_VERSION;
 
@@ -113,6 +114,13 @@ export interface Spielstand {
   lagerSieg: Record<string, number>;
   /** Zuletzt benutzte Zuflucht (D179): Dort wacht man nach einer Niederlage auf. */
   letzteZuflucht?: string;
+  /**
+   * D416 (Version 3): was der Kampf je Begegnung gemeldet hat — getötet, gereinigt, umgangen, mit Lage. Das Revier
+   * folgt aus der Lage (`spiel/reviere.ts`), es wird nicht gespeichert. Geschrieben von `vermerkeBegegnung`.
+   */
+  begegnungen: Begegnung[];
+  /** D416 (Version 3): was Rasten an den Revieren entschieden haben (Verhärtung, Nachwachsen, Zahl der Rasten). */
+  reviere: Revierstand;
 }
 
 export const LEERER_STAND: Spielstand = {
@@ -135,6 +143,8 @@ export const LEERER_STAND: Spielstand = {
   geheilt: [],
   auftraege: {},
   richtungskampf: true,
+  begegnungen: [],
+  reviere: LEERER_REVIERSTAND,
 };
 
 /**
@@ -149,6 +159,8 @@ export function ergaenzeStand(roh: Record<string, unknown>): Spielstand {
     orte: roh.orte ?? [],
     regenten: roh.regenten ?? [],
     auftraege: roh.auftraege ?? {},
+    begegnungen: roh.begegnungen ?? [],
+    reviere: roh.reviere ?? LEERER_REVIERSTAND,
   } as Spielstand;
 }
 

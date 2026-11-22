@@ -3,7 +3,8 @@
  *
  * **Hülle** `{ format, version, geschrieben, spiel }` um den Spielstand. Version 1 ist der Stand bis
  * D415 **ohne** Hülle (das nackte Objekt mit `version: 1`, so wie `speichereStand` ihn schrieb);
- * Version 2 ist derselbe Stand in der Hülle.
+ * Version 2 ist derselbe Stand in der Hülle. Version 3 (D416) bringt die Reviere: `begegnungen` (was der Kampf je
+ * Begegnung meldet) und `reviere` (was Rasten an den Revieren entschieden haben, `spiel/reviere.ts`).
  *
  * **Migration statt Verwerfen.** `MIGRATIONEN[n]` hebt Version n auf n + 1; geladen wird über die ganze
  * Kette. Bis D415 verwarf `ladeStand` bei jeder anderen Version den ganzen Stand — deshalb kamen neue
@@ -28,7 +29,7 @@ import { SpielstandDaten, SpielstandHuelle } from '../data/schema.js';
 import type { Spielstand } from './spielstand.js';
 
 export const FORMAT = 'brachland-spielstand';
-export const AKTUELLE_VERSION = 2;
+export const AKTUELLE_VERSION = 3;
 export const PLAETZE = [1, 2, 3] as const;
 export type Platz = typeof PLAETZE[number];
 export type Fassung = 'aktuell' | 'rast';
@@ -36,18 +37,19 @@ export type Fassung = 'aktuell' | 'rast';
 export const ALTER_SCHLUESSEL = 'aktuell';
 
 /**
- * Felder, die D392/D393/D400/D412 brauchen werden, die der Code aber **noch nicht schreibt** — sie kommen
- * mit Migration v3, wenn der erste davon geschrieben wird (Doc §7.2 „Neu im Stand“). Bis dahin gilt:
+ * Felder, die D392/D393/D400/D412 brauchen werden, die der Code aber **noch nicht schreibt** — sie kommen mit der
+ * nächsten Migration (v4), wenn der erste davon geschrieben wird (Doc §7.2 „Neu im Stand“). Bis dahin gilt:
  * Das Heft (D392) leitet sich aus `fragmente`/`orte`/`auftraege` ab, die Kälteuhr (D412) lebt in der
  * Szene und beginnt nach dem Laden neu, Bruchstücke (D400) liegen als Gegenstände im `beutel`.
+ * Mit v3 (D416) erledigt: die Eingriffe beim Zähler (`begegnungen` und, abgeleitet, `besiegt`/`gefangen`).
  */
-export const KOMMT_MIT_V3 = [
+export const KOMMT_SPAETER = [
   'heft: eigene Vermerke (D392) — heute nur abgeleitet, nichts zu speichern',
   'einsicht (D400) — kein Code schreibt sie',
-  'markenLadung, markenFassung (D393) — Entwurf in spiel/oekonomie.ts, nicht im Spiel',
+  'markenLadung, markenFassung (D393) — Entwurf in spiel/oekonomie.ts, nicht im Spiel; das Aufladen nach Revier steht in spiel/reviere.ts (D416)',
   'ausruestung (D393) — kein Code schreibt sie',
   'begehung (Kartenraster, A-29 (2)) und eigene Kartenzeichen',
-  'lehrhinweiseGesehen, spielzeit, eingriffe (Zähler D385/D405)',
+  'lehrhinweiseGesehen, spielzeit',
   'kaelteuhr (D412) — bewusst nicht: Ufer und Laden setzen sie zurück',
 ] as const;
 
@@ -80,6 +82,17 @@ export const MIGRATIONEN: Record<number, (alt: unknown, jetzt: Date) => unknown>
   /** 1 → 2: Hülle um den nackten Stand. Am Inhalt ändert sich nichts. */
   1: (alt, jetzt) => ({ format: FORMAT, version: 2, geschrieben: jetzt.toISOString(),
     spiel: { ...(alt as object), version: 2 } }),
+  /**
+   * 2 → 3 (D416): Reviere. Neu sind `begegnungen` (leer — was vorher geschah, steht schon in `besiegt`/`gefangen`
+   * und wird daraus abgeleitet, nicht kopiert) und `reviere` (noch keine Rast ausgewertet). Sonst bleibt alles.
+   */
+  2: alt => {
+    const h = alt as Record<string, unknown>;
+    const spiel = (h.spiel ?? {}) as Record<string, unknown>;
+    return { ...h, version: 3, spiel: { ...spiel, version: 3,
+      begegnungen: Array.isArray(spiel.begegnungen) ? spiel.begegnungen : [],
+      reviere: spiel.reviere && typeof spiel.reviere === 'object' ? spiel.reviere : { rasten: 0, leerFolge: [], je: {} } } };
+  },
 };
 
 export type Oeffnung =

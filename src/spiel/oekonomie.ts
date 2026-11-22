@@ -121,6 +121,11 @@ export interface Spielweise {
    * Lesen und Rufen — die Kontroll-Wirken sind Geräte geworden und kosten Betriebsstoff, keine Ladungen.
    */
   wirken: number;
+  /**
+   * D416: Anteil der Reviere, in denen diese Spielweise **nie** eingreift (sie geht hindurch und umgeht alles). Ihre
+   * Kämpfe ballen sich dann in den übrigen. Nur `bilanzMitRevieren` liest es; ohne Angabe 0.
+   */
+  meidet?: number;
 }
 
 export interface Bilanz {
@@ -240,6 +245,22 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
     laeuterung += rein * o.marke.laeuterung.tier;
   }
   schliesseRevier();
+  return abschluss(w, o, { vorrat, plus, laeuterung, getoetet, gereinigt, umgangen, ruhig, verhGetoetet, verhGereinigt,
+    leer, wirkenLadungen, menschen: a.menschen }, marke);
+}
+
+/** Zwischenstand einer Überschlagsrechnung, bevor Verhärtung, Beute, Flasche, Sude und Schmiede folgen. */
+interface Zwischenstand {
+  vorrat: Record<string, number>; plus: (g: string, n: number) => void;
+  laeuterung: number; getoetet: number; gereinigt: number; umgangen: number; ruhig: number;
+  verhGetoetet: number; verhGereinigt: number; leer: number; wirkenLadungen: number; menschen: number;
+}
+
+/** Gemeinsamer Schluss von `bilanz` und `bilanzMitRevieren` (D416): ab der Verhärtung gleich gerechnet. */
+function abschluss(w: Spielweise, o: Oekonomie, st: Zwischenstand,
+  marke: { start: number; jeRegent: number; ladung: number; ladungVerhaertet: number }): Bilanz {
+  const { vorrat, plus, getoetet, gereinigt, umgangen, ruhig, leer, wirkenLadungen } = st;
+  let { laeuterung, verhGetoetet, verhGereinigt } = st;
   // D400, Verhärtung: In leergetötete Reviere wandert Befall nach und bringt neue Verhärtete mit.
   const nachgewandert = Math.floor(leer * o.toeten.verhaertungJeLeeremRevier + 1e-9);
   for (let i = 0; i < nachgewandert; i++) {
@@ -259,7 +280,7 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
   const einsicht = (vorrat.einsicht ?? 0) + linien * o.erfahrung.jeLinie + regentEinsicht;
   delete vorrat.einsicht;
   plus(o.beute.tier.gegenstand, Math.round(getoetet * o.beute.tier.chance));
-  plus(o.beute.mensch.gegenstand, Math.min(w.menschenToeten, a.menschen) * o.beute.mensch.menge);
+  plus(o.beute.mensch.gegenstand, Math.min(w.menschenToeten, st.menschen) * o.beute.mensch.menge);
   if (w.regent === 'toeten') plus(o.beute.regent.gegenstand, o.beute.regent.menge);
   else laeuterung += o.marke.laeuterung.regent;
 
@@ -290,6 +311,128 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
   };
 }
 
+// ------------------------------------------------------------------ D416: mit den echten Revieren
+
+/** Ein Revier, wie die Überschlagsrechnung es braucht — in der Reihenfolge, in der man es betritt. */
+export interface SimRevier {
+  id: string;
+  /** Erwartete Tiere aus dem Vorkommen (`content/reviere/`). */
+  bestand: number;
+  /** Verhärtete, die dort stehen (Annahme der Rechnung). */
+  verhaertete: number;
+}
+
+/** Was `bilanzMitRevieren` zusätzlich weiss. */
+export interface RevierBilanz extends Bilanz {
+  reviere: number;
+  unberuehrt: number;
+  /** Tiere, die bis zum Ende des Kapitels in leere oder angetastete Reviere nachgewachsen wären (D393/D399). */
+  nachgewachsen: number;
+  /** Je Revier: getötet / gereinigt / begegnet, gerundet. */
+  je: { id: string; getoetet: number; gereinigt: number; begegnet: number; ruhig: boolean; leer: boolean }[];
+}
+
+/**
+ * Überschlagsrechnung wie `bilanz`, aber über die **echten Reviere** (D416) statt über `annahmen.reviere` gleich
+ * grosse. Die Begegnungen (`annahmen.tiere`) verteilen sich nach dem Bestand der Reviere; man betritt sie in der
+ * übergebenen Reihenfolge, Rasten liegen wie bisher alle `tiere / rasten` Begegnungen. Ruhig und leer nach
+ * `regeln` (`reviere.bezug`: Bestand oder Begegnete). Die Rast im ruhigen Revier gibt `ruhigeRast` der Fassung dazu,
+ * wenn das Revier, in dem man rastet, oder das zuletzt verlassene ruhig ist.
+ */
+export function bilanzMitRevieren(w: Spielweise, region: string, o: Oekonomie,
+  marke: { start: number; jeRegent: number; ladung: number; ladungVerhaertet: number },
+  reviere: readonly SimRevier[],
+  regeln: { ruhigAb: number; ruhigMindestens: number; ruhigeRast: number; leerAb: number; bezug: 'bestand' | 'begegnet';
+    mindestBestand: number; nachwachsen: { abRasten: number; anteil: number; jeRast: number } }): RevierBilanz {
+  const r = o.regionen[region];
+  if (!r) throw new Error(`Region '${region}' fehlt in oekonomie.json`);
+  const a = r.annahmen;
+  const fund = (g: string) => Math.floor((r.einmalig[g] ?? 0) * w.findet + 1e-9);
+  const vorrat: Record<string, number> = {};
+  const plus = (g: string, n: number) => { if (n) vorrat[g] = (vorrat[g] ?? 0) + n; };
+  for (const g of Object.keys(r.einmalig)) plus(g, fund(g));
+  let laeuterung = (vorrat.eichsiegel ?? 0) * 5;
+  delete vorrat.eichsiegel;
+
+  const summeBestand = reviere.reduce((n, x) => n + x.bestand, 0);
+  const anteilBegegnet = a.tiere / summeBestand;
+  // Wer meidet, greift in den äussersten Revieren der Reihenfolge nie ein (aufgerundet: bei 13 Revieren und 0,5 sind
+  // es 7) und kämpft in den übrigen so viel dichter, dass sein Anteil an allen Begegnungen gleich bleibt.
+  const meidet = w.meidet ?? 0;
+  const gemiedenAb = reviere.length - Math.ceil(reviere.length * meidet - 1e-9);
+  const gemieden = (i: number) => meidet > 0 && i >= gemiedenAb;
+  const bestandOffen = reviere.reduce((n, x, i) => n + (gemieden(i) ? 0 : x.bestand), 0);
+  const kaempftIn = (i: number) => gemieden(i) ? 0 : Math.min(1, w.kaempft * summeBestand / Math.max(1, bestandOffen));
+
+  let getoetet = 0, gereinigt = 0, umgangen = 0, ruhig = 0, leer = 0, unberuehrt = 0, wirkenLadungen = 0;
+  let verhGetoetet = 0, verhGereinigt = 0, nachgewachsen = 0, verhNachholen = 0;
+  const abschnitt = a.tiere / a.rasten;
+  let rast = 0, rest = abschnitt, ladung = 0, letztesRuhig = false;
+  const je: RevierBilanz['je'] = [];
+  const raste = (hierRuhig: boolean) => {
+    ladung = fassung(laeuterung, 0, marke, o) * (hierRuhig || letztesRuhig ? 1 + regeln.ruhigeRast : 1);
+    wirkenLadungen += ladung * w.wirken; ladung *= 1 - w.wirken;
+  };
+  const istRuhig = (g: number, t: number, bezug: number) => g + t > 0 && bezug > 0
+    && g / (g + t) >= regeln.ruhigAb - 1e-9 && g / bezug >= regeln.ruhigMindestens - 1e-9;
+  raste(false);
+  reviere.forEach((rv, i) => {
+    const begegnet = rv.bestand * anteilBegegnet;
+    const k = kaempftIn(i);
+    let rG = 0, rT = 0;
+    const bezug = () => regeln.bezug === 'bestand' ? rv.bestand : Math.max(begegnet + rv.verhaertete, rv.bestand * regeln.mindestBestand);
+    // Verhärtete stehen am Eingang des Reviers.
+    for (let v = 0; v < rv.verhaertete; v++) {
+      const kulturen = (vorrat.reinkultur ?? 0) + Math.floor((vorrat.reinprobe ?? 0) / 2);
+      const toete = () => { verhGetoetet++; rT += 1; plus(o.beute.verhaerteter.gegenstand, o.beute.verhaerteter.menge); };
+      if (gemieden(i)) continue;
+      if (verhGetoetet < w.verhaerteteToeten) toete();
+      else if (w.reinigtBisAnteil > 0 && kulturen > 0 && ladung >= marke.ladungVerhaertet) {
+        if ((vorrat.reinkultur ?? 0) > 0) vorrat.reinkultur--; else vorrat.reinprobe -= 2;
+        ladung -= marke.ladungVerhaertet; verhGereinigt++; laeuterung += o.marke.laeuterung.verhaerteter; rG += 1;
+      } else if (w.toetetRest) toete();
+      else if (w.reinigtBisAnteil > 0) verhNachholen++; // keine Ladung oder Kultur: später wiederkommen
+    }
+    let offen = begegnet;
+    while (offen > 1e-9) {
+      const t = Math.min(offen, rest);
+      const gekaempft = t * k;
+      const rein = Math.min(gekaempft * w.reinigtBisAnteil, ladung / marke.ladung);
+      const tot = w.toetetRest ? gekaempft - rein : 0;
+      ladung -= rein * marke.ladung;
+      gereinigt += rein; getoetet += tot; umgangen += t - rein - tot;
+      rG += rein; rT += tot; laeuterung += rein * o.marke.laeuterung.tier;
+      offen -= t; rest -= t;
+      if (rest <= 1e-9 && rast < a.rasten - 1) { rast++; rest = abschnitt; raste(istRuhig(rG, rT, bezug())); }
+    }
+    const istR = istRuhig(rG, rT, bezug());
+    const istL = rT > 0 && rT / bezug() >= regeln.leerAb - 1e-9;
+    if (istR) { ruhig++; for (const [g, n] of Object.entries(o.marke.ruhigesRevier)) plus(g, n); }
+    if (istL) leer++;
+    if (rG + rT < 0.5) unberuehrt++;
+    letztesRuhig = istR;
+    // Nachwachsen bis zum Ende des Kapitels: nach `abRasten` Rasten je Rast `jeRast`, bis zur Hälfte der Getöteten.
+    if (rT > 0 && !istR) {
+      const rastenDanach = a.rasten - 1 - rast;
+      const n = regeln.nachwachsen;
+      const moeglich = Math.max(0, rastenDanach - n.abRasten + 1) * n.jeRast;
+      nachgewachsen += Math.min(moeglich, Math.floor(rT * n.anteil + 1e-9), Math.floor(rv.bestand * n.anteil + 1e-9));
+    }
+    je.push({ id: rv.id, getoetet: Math.round(rT), gereinigt: Math.round(rG), begegnet: Math.round(begegnet + rv.verhaertete), ruhig: istR, leer: istL });
+  });
+  // Wer reinigt, holt stehen gebliebene Verhärtete mit voller Marke nach, solange Reinkulturen reichen (D393: der
+  // Heiler reinigt alle fünf). Ins Revier zählt das nicht mehr — es ist schon bewertet.
+  for (; verhNachholen > 0; verhNachholen--) {
+    if ((vorrat.reinkultur ?? 0) > 0) vorrat.reinkultur--;
+    else if ((vorrat.reinprobe ?? 0) >= 2) vorrat.reinprobe -= 2;
+    else break;
+    verhGereinigt++; laeuterung += o.marke.laeuterung.verhaerteter;
+  }
+  const b = abschluss(w, o, { vorrat, plus, laeuterung, getoetet, gereinigt, umgangen, ruhig, verhGetoetet, verhGereinigt,
+    leer, wirkenLadungen, menschen: a.menschen }, marke);
+  return { ...b, reviere: reviere.length, unberuehrt, nachgewachsen, je };
+}
+
 /**
  * Die drei Spielweisen aus Reinigen v1 §4, dazu der Umgeher (D385: dritter Stil). `linien` nach der
  * Vertrauenstabelle dort: dem Schlächter traut nur das Erbe; Gemischt und Heiler verlieren die Mönche
@@ -299,5 +442,6 @@ export const SPIELWEISEN: readonly Spielweise[] = [
   { name: 'Schlächter', kaempft: 1, reinigtBisAnteil: 0, toetetRest: true, verhaerteteToeten: 99, regent: 'toeten', menschenToeten: 99, findet: 1, linien: 1, wirken: 0 },
   { name: 'Gemischt', kaempft: 1, reinigtBisAnteil: 0.4, toetetRest: true, verhaerteteToeten: 3, regent: 'heilen', menschenToeten: 2, findet: 1, linien: 2, wirken: 0.05 },
   { name: 'Heiler', kaempft: 1, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 1, linien: 2, wirken: 0.05 },
-  { name: 'Umgeher', kaempft: 0.12, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 0.6, linien: 1, wirken: 0.15 },
+  // D416: Der Umgeher meidet die Hälfte der Reviere ganz — sonst wäre er bei echten Revieren nie „vertraut“ (D406).
+  { name: 'Umgeher', kaempft: 0.12, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 0.6, linien: 1, wirken: 0.15, meidet: 0.5 },
 ];

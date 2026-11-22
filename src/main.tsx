@@ -17,9 +17,10 @@ import type { Stoecke } from './spieler/steuerung.js';
 import { neueAusdauer, type Ausdauer } from './spieler/ausdauer.js';
 import type { Vorkommen } from './world/vorkommen.js';
 import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNENDE, REGIONEN, WANDERFIGUREN,
-         baueKaempfer, baueRegent, regentOrt, nachMetern, regionsMasse, ausKaempferId } from './data/inhalte.js';
+         REVIERWELT, REVIERREGELN, baueKaempfer, baueRegent, regentOrt, nachMetern, regionsMasse, ausKaempferId } from './data/inhalte.js';
 import { NARBE, type Ort } from './data/schema.js';
 import { stationVon } from './spiel/wanderfiguren.js';
+import { unberuehrtAnteilVon, vermerkeBegegnung, werteRastAus, type Begegnung } from './spiel/reviere.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
 import { Stube } from './ui/Stube.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
@@ -410,12 +411,13 @@ function App() {
    * Speichern, und jede neue Liste baut die Marken der Szene neu.
    */
   const figurOrte = useMemo<Ort[]>(() => (stand ? HIESIGE_WANDERFIGUREN.flatMap(f => {
-    const i = stationVon(f, { ...stand, gereinigt: stand.gefangen });
+    // D416: Der Zähler „vertraut“ nur, solange genug Reviere unberührt sind (`misstraut` an seiner Station).
+    const i = stationVon(f, { ...stand, gereinigt: stand.gefangen, unberuehrtAnteil: unberuehrtAnteilVon(REVIERWELT, stand) });
     if (i === null) return [];
     const s = f.stationen[i];
     return [{ id: `wanderfigur-${f.id}`, region: f.region, art: 'bewohner' as const, name: f.name,
               ort: s.ort, text: s.text, figur: f.figur, blick: s.blick, farben: f.farben }];
-  }) : []), [stand?.fragmente, stand?.regenten, stand?.geheilt, stand?.auftraege, stand?.besiegt, stand?.gefangen]);
+  }) : []), [stand?.fragmente, stand?.regenten, stand?.geheilt, stand?.auftraege, stand?.besiegt, stand?.gefangen, stand?.begegnungen]);
   /** Ort oder Wanderfigur zu einer ID aus der Szene. */
   const ortVon = (id: string | null): Ort | undefined =>
     (id ? ORTE.get(id) ?? figurOrte.find(o => o.id === id) : undefined);
@@ -679,6 +681,20 @@ function App() {
   }, [standMit]);
   sichereRef.current = sichere;
   /**
+   * D416 → D417, **Haken für den Kampf:** je Tier am Ende einer Begegnung `meldeBegegnungRef.current({ art: 'getoetet' |
+   * 'gereinigt' | 'umgangen', gegnerId, region, x, z, zeit })` rufen. Schreibt die Meldung in `stand.begegnungen`
+   * (`spiel/reviere.ts` `vermerkeBegegnung`); das Revier folgt aus der Lage. Dieselbe Meldung zweimal zählt einmal —
+   * der Updater darf unter StrictMode doppelt laufen. Ruft heute niemand: Der Echtzeitkampf kennt noch keinen Ausgang
+   * je Tier (D417).
+   */
+  const meldeBegegnungRef = useRef<(e: Begegnung) => void>(() => {});
+  meldeBegegnungRef.current = (e: Begegnung) => setStand(alt => {
+    if (!alt) return alt;
+    const neu = vermerkeBegegnung(alt, e);
+    if (neu !== alt) void speichereStand(neu);
+    return neu;
+  });
+  /**
    * D415: Nur schreiben, ohne React-Zustand — für das Sichern beim Verbergen und alle 60 s. Über
    * `setStand` liefe jedes Mal die ganze Szene mit neuen Props durch (`verbraucht`, Aufträge …); die
    * Position steht ohnehin bei jeder nächsten Tat neu im Stand.
@@ -723,7 +739,7 @@ function App() {
       // D392: Bei einer Wanderfigur zusätzlich die Station vermerken (`wanderfigur-<id>:<n>`) — das Heft
       // (`spiel/notizbuch.ts`) hält fest, was sie **dort** gesagt hat, auch wenn sie längst weitergezogen ist.
       const figur = HIESIGE_WANDERFIGUREN.find(f => `wanderfigur-${f.id}` === id);
-      const station = figur ? stationVon(figur, { ...alt, gereinigt: alt.gefangen }) : null;
+      const station = figur ? stationVon(figur, { ...alt, gereinigt: alt.gefangen, unberuehrtAnteil: unberuehrtAnteilVon(REVIERWELT, alt) }) : null;
       const dazu = [id, ...(station === null ? [] : [`${id}:${station}`])].filter(x => !alt.orte.includes(x));
       if (dazu.length === 0) return alt;
       const neu = { ...alt, orte: [...alt.orte, ...dazu] };
@@ -906,7 +922,10 @@ function App() {
     // D179: Hier wacht man auf, wenn ein Wegelager einen schlägt.
     const hier = ortOffen;
     setOrtOffen(null);
-    sichere(hier ? { letzteZuflucht: hier } : {}, voll, true);
+    // D416: Die Rast wertet die Reviere aus (leergetötet, Verhärtung, Nachwachsen) und hält das Ergebnis im Stand.
+    // In der Welt setzt es noch niemand um — `verteileKreaturen` hat keinen Haken für Zuwanderer und Verhärtete.
+    const rast = werteRastAus(REVIERWELT, stand, REVIERREGELN, { geheilt: !!stand.geheilt?.includes(REGENT_ID) });
+    sichere({ reviere: rast.reviere, ...(hier ? { letzteZuflucht: hier } : {}) }, voll, true);
   }, [stand, team, sichere, ortOffen]);
 
   /** Was der Spieler getan hat — die einzige Quelle für den Auftragsfortschritt. */

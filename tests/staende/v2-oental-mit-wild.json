@@ -1,0 +1,27 @@
+{
+  "format": "brachland-spielstand",
+  "version": 2,
+  "geschrieben": "2026-11-22T09:30:00.000Z",
+  "spiel": {
+    "version": 2,
+    "held": { "name": "Mara", "geschlecht": "w", "koerper": "w", "kleid": "waldlaeufer", "haar": "Buns", "bart": false, "haut": 0.35, "haarfarbe": "#5a3b25", "kleidfarbe": "#6b5a43" },
+    "waffenStufen": { "klinge": 1, "axt": 0, "speer": 0, "funke": "wasser" },
+    "lagerSieg": { "lager-bruchweg": 1795694400000 },
+    "team": [
+      { "kreatur": "grathorn", "stufe": 7, "erfahrung": 412, "kp": 96, "zustand": "rein" }
+    ],
+    "gefangen": ["alpenmurmel:72:56"],
+    "besiegt": ["myzelmolch:130:232", "sporenhahn:75:169", "regent:flussvater"],
+    "position": [690.5, -660.2],
+    "region": "oental",
+    "gesehen": ["grathorn", "alpenmurmel", "myzelmolch", "sporenhahn"],
+    "beutel": { "kraeutersud": 1, "chitinspan": 3 },
+    "fragmente": ["stauwehr"],
+    "orte": ["terrasse-saal", "wanderfigur-zaehler", "wanderfigur-zaehler:0"],
+    "regenten": ["flussvater"],
+    "geheilt": [],
+    "auftraege": { "das-stehende-wasser": "abgeholt" },
+    "richtungskampf": true,
+    "letzteZuflucht": "terrasse-saal"
+  }
+}

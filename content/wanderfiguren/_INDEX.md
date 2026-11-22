@@ -23,7 +23,7 @@ owns: *.json
 | Datei | Fraktion | Weg |
 |---|---|---|
 | `pegelwartin.json` | Enklave | Die Pegelwartin — will den Flussvater tot. Pegel unter der Terrasse → Bahnhof am Wehr → altes Dorf (trockengefallen) → Terrasse |
-| `zaehler.json` | Grüne Mönche | Der Zähler — „Er reinigt nur.“ Hof am Stau → Ufer am Absetzbecken → Hof am Stau → Wehrkrone (nur wenn die Region geheilt wurde, und nur bis 40 Eingriffe) → Kirche am Nordhang, Stufe (D392: wer zu oft eingegriffen hat, findet ihn abgewandt; Schwelle ist Annahme, `docs/design/BRACHLAND_Quests_v1.md` §2.6) |
+| `zaehler.json` | Grüne Mönche | Der Zähler — „Er reinigt nur.“ Hof am Stau → Ufer am Absetzbecken → Hof am Stau → Wehrkrone (nur wenn die Region geheilt wurde, und nur bis 40 Eingriffe) → Kirche am Nordhang, Stufe (D392: wer zu oft eingegriffen hat, findet ihn abgewandt; Schwelle ist Annahme, `docs/design/BRACHLAND_Quests_v1.md` §2.6) **D416:** Die Krone hält er nur, solange er *vertraut* (`bis: misstraut` — gewichtet ≤ 40 **und** mindestens die Hälfte der Reviere unberührt, D406); wer wenig, aber überall eingreift, findet ihn an der Kirche. |
 | `bote-erbe.json` | Das Erbe | Der Bote — erscheint erst nach dem Wandel, mit einem Handel. Bahnhof → Silo drei (trockengefallen) → Hof über dem Nordufer, am Weg ins Fahlmoos |
 
 ## Was eine Station ist

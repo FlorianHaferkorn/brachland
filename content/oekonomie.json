@@ -253,6 +253,15 @@
     "leerAb": 0.6,
     "verhaertungJeLeeremRevier": 0.5
   },
+  "reviere": {
+    "bezug": "begegnet",
+    "mindestBestand": 0.25,
+    "nachwachsen": {
+      "abRasten": 3,
+      "anteil": 0.5,
+      "jeRast": 2
+    }
+  },
   "baukasten": {
     "umbau": {
       "chitinspan": 2,
