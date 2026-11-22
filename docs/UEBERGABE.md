@@ -23,7 +23,7 @@ shelf-life-days: 30
 | **Welt im Spiel** | D363–D368: Hof-Baukasten (`?hofbau=1`), Efeu-Karten, Streudecke, Bodenpflanzen, Bäume mit Wurzeln/Rinde, Fern-Impostoren, Wand-Parallax (`?pom=0`), Himmel-Prototyp (`?himmel=physik`) | Ledger Tabelle B |
 
 D372, D373, D375, D376 sind zum Zeitpunkt dieser Datei in Arbeit; ob sie gemergt sind, zeigt `git log` und das Ledger.
-**Neue Ledger-Nummern auf dem M1 ab D380** (bis die vier gemergt sind), danach normal `make ledger-ids`.
+**Stand 22.11.2026 abends:** D372, D373, D375, D376 sind gemergt; dazu D378 (Zielbild Haus freigegeben, Enklave heisst Brannburg), D379 (Reinigen bestätigt), D380 (Zugang zum Flussvater). Neue Nummern normal über `make ledger-ids` (nächste frei: D381).
 
 ## 2. Was auf dem M1 als Erstes zu tun ist (Reihenfolge)
 

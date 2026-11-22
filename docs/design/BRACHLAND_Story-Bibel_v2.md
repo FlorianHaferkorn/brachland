@@ -79,12 +79,18 @@ beschwerlichen Lösungsweg ohne.“
 
 | Ziel | Werkzeugweg | Beschwerlicher Weg |
 |---|---|---|
-| Flussvater am Wehr (≈ 1,4 km über Flutgrund) | durch die versunkene Stadt schwimmen/tauchen | über den Osthang und die Kalkbruch-Kante, an Verhärteten vorbei |
+| Flussvater am Wehr (Westufer; D380) | durch die versunkene Stadt schwimmen/tauchen, am verborgenen Kirchturm vorbei — wenige Minuten | **der Uferweg** (≈ 1,7 km, fast eben, trocken): drei Engstellen mit je einem Verhärteten oder Rudel, unterspülte Abschnitte (Schlamm kostet Ausdauer, Einsturz zwingt an den Hang), keine Zuflucht bis hinter das Wehr |
 | Reinkultur Nord (Absetzbecken) | Bachlauf schwimmen | Waldrücken umgehen |
 | Reinkultur West (Stollen, hoch am Hang) | Wand klettern | alter Almweg mit Lawinenstrich |
 | Reinkultur Süd/Ost (neu zu setzen, nicht am Start) | Gleiten von der Terrasse | Abstieg durch den Hangwald |
 
 Die Westhälfte bekommt damit Zweck; die versunkene Stadt wird das Erkundungsgebiet des Kapitels.
+
+**Zugang zum Flussvater (Flo, 22.11.2026, D380):** Das Gelände gibt keinen Weg „über Flutgrund“ her — das Wehr liegt am
+Westufer, und von der Enklave führt ein trockener Uferweg hin (`BRACHLAND_Enklave_Lage_v2.md`). Entschieden: Der
+Uferweg bleibt offen und **ist** der beschwerliche Weg; der Regent rückt nicht ins Wasser. Wer sich durchbeisst, steht
+früh vor dem Flussvater — das ist gewollt (siehe §6: besiegbar ohne Reinkulturen, das Tal fällt dann trocken, bleibt
+aber befallen).
 
 ## 5. Fraktionen und die drei Enden (D374)
 
