@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
+import { baueRevierwelt, masseAus } from '../src/spiel/reviere.js';
 import { join } from 'node:path';
-import { Bewegung, Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung,
+import { Bewegung, Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung, Revierkarte,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -722,6 +723,93 @@ console.log(auftragsfehler === 0
   ? `  ✓ ${auftraege.length} Aufträge und ${orte.length} Orte hängen zusammen (${zufluchten} Zufluchten)`
   : `  ${auftragsfehler} Fehler in Aufträgen und Orten`);
 fehler += auftragsfehler;
+
+// D416: Reviere — Raster lückenlos (jede Zelle genau ein bekanntes Revier, also auch keine Überlappung), jedes Revier
+// zusammenhängend, Nachbarschaft symmetrisch und gleich der Zellkante, jede Zuflucht in genau einem Revier.
+console.log('\nReviere (D416):');
+{
+  let rf = 0;
+  const melde = (was: string) => { console.log(`  ✗ ${was}`); rf++; };
+  const karten = existsSync('content/reviere') ? pruefe<any>('content/reviere', Revierkarte) : [];
+  const alleIds = new Map<string, any>();
+  for (const k of karten) for (const r of k.reviere) alleIds.set(r.id, r);
+  for (const k of karten) {
+    const region = regionen.find((r: any) => r.id === k.region);
+    if (!region) { melde(`reviere/${k.region}: Region gibt es nicht`); continue; }
+    const { spalten, zeilen, karte, vorkommenRaster } = k.raster;
+    const welt = existsSync(`public/world/${k.region}.json`) ? JSON.parse(readFileSync(`public/world/${k.region}.json`, 'utf8')).welt : null;
+    if (welt && welt.aufloesung !== vorkommenRaster) melde(`reviere/${k.region}: vorkommenRaster ${vorkommenRaster} ≠ Weltraster ${welt.aufloesung}`);
+    const nachZeichen = new Map<string, any>(k.reviere.map((r: any) => [r.zeichen, r]));
+    const zellen = new Map<string, number>(), kante = new Map<string, Set<string>>();
+    for (let i = 0; i < zeilen; i++) for (let j = 0; j < spalten; j++) {
+      const ch = karte[i][j];
+      if (!nachZeichen.has(ch)) { melde(`reviere/${k.region}: Zelle ${i}/${j} '${ch}' gehört keinem Revier (Lücke)`); continue; }
+      zellen.set(ch, (zellen.get(ch) ?? 0) + 1);
+      for (const [di, dj] of [[1, 0], [0, 1]]) {
+        const ni = i + di, nj = j + dj;
+        if (ni >= zeilen || nj >= spalten || karte[ni][nj] === ch || !nachZeichen.has(karte[ni][nj])) continue;
+        const a = nachZeichen.get(ch).id, b = nachZeichen.get(karte[ni][nj]).id;
+        (kante.get(a) ?? kante.set(a, new Set()).get(a)!).add(b);
+        (kante.get(b) ?? kante.set(b, new Set()).get(b)!).add(a);
+      }
+    }
+    const { breite, tiefe } = masseAus(region.bbox);
+    const zellKm2 = breite * tiefe / (spalten * zeilen) / 1e6;
+    const kreaturIds = new Set(kreaturen.map((x: any) => x.id));
+    for (const r of k.reviere) {
+      if (!r.id.startsWith(`${k.region}-`)) melde(`Revier '${r.id}': ID ohne Vorsilbe '${k.region}-' (ADR-0020: Nachbarn über die Grenze)`);
+      const n = zellen.get(r.zeichen) ?? 0;
+      if (!n) { melde(`Revier '${r.id}': keine Zelle im Raster`); continue; }
+      // Zusammenhang: Flutfüllung von der ersten Zelle.
+      const start = karte.flatMap((z: string, i: number) => [...z].map((c, j) => [c, i, j] as const)).find(([c]: readonly [string, number, number]) => c === r.zeichen)!;
+      const gesehen = new Set<string>([`${start[1]}/${start[2]}`]);
+      const offen: [number, number][] = [[start[1], start[2]]];
+      while (offen.length) {
+        const [i, j] = offen.pop()!;
+        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const ni = i + di, nj = j + dj, s = `${ni}/${nj}`;
+          if (ni < 0 || nj < 0 || ni >= zeilen || nj >= spalten || gesehen.has(s) || karte[ni][nj] !== r.zeichen) continue;
+          gesehen.add(s); offen.push([ni, nj]);
+        }
+      }
+      if (gesehen.size !== n) melde(`Revier '${r.id}': zerfällt in Teile (${gesehen.size} von ${n} Zellen zusammenhängend)`);
+      if (Math.abs(r.flaecheKm2 - n * zellKm2) > 0.011) melde(`Revier '${r.id}': flaecheKm2 ${r.flaecheKm2} ≠ ${(n * zellKm2).toFixed(2)} aus dem Raster`);
+      const soll = [...(kante.get(r.id) ?? [])].sort();
+      const hier = r.nachbarn.filter((id: string) => alleIds.has(id) && id.startsWith(`${k.region}-`)).sort();
+      if (soll.join() !== hier.join()) melde(`Revier '${r.id}': Nachbarn ${hier.join(',')} ≠ Zellkante ${soll.join(',')}`);
+      for (const id of r.nachbarn) {
+        const nb = alleIds.get(id);
+        if (!nb) melde(`Revier '${r.id}': Nachbar '${id}' gibt es nicht`);
+        else if (!nb.nachbarn.includes(r.id)) melde(`Revier '${r.id}': Nachbarschaft zu '${id}' nicht symmetrisch`);
+      }
+      for (const kr of Object.keys(r.tiere)) if (!kreaturIds.has(kr)) melde(`Revier '${r.id}': Kreatur '${kr}' gibt es nicht`);
+    }
+    // Jede Zuflucht und jeder verborgene Ort der Region in genau einem Revier — und zwar in dem, in dessen Zellen er liegt.
+    const rw = baueRevierwelt([k], [{ id: k.region, bbox: region.bbox }]);
+    const pruefeOrt = (id: string, ort: [number, number], feld: 'zufluchten' | 'verborgeneOrte') => {
+      const in_ = k.reviere.filter((r: any) => r[feld].includes(id));
+      const [sued, west, nord, ost] = region.bbox;
+      const x = ((ort[1] - west) / (ost - west) - 0.5) * breite, z = ((nord - ort[0]) / (nord - sued) - 0.5) * tiefe;
+      const da = rw.revierAn(k.region, x, z);
+      if (in_.length !== 1) melde(`reviere/${k.region}: '${id}' steht in ${in_.length} Revieren (${feld}), nicht in genau einem`);
+      else if (da?.id !== in_[0].id) melde(`reviere/${k.region}: '${id}' liegt in '${da?.id}', steht aber bei '${in_[0].id}'`);
+    };
+    for (const o of orte.filter((o: any) => o.region === k.region && o.art === 'zuflucht')) pruefeOrt(o.id, o.ort, 'zufluchten');
+    for (const v of region.verborgeneOrte ?? []) pruefeOrt(v.id, v.ort, 'verborgeneOrte');
+    const bekannt = new Set([...orte.filter((o: any) => o.region === k.region && o.art === 'zuflucht').map((o: any) => o.id), ...(region.verborgeneOrte ?? []).map((v: any) => v.id)]);
+    for (const r of k.reviere) for (const id of [...r.zufluchten, ...r.verborgeneOrte]) if (!bekannt.has(id)) melde(`Revier '${r.id}': '${id}' ist keine Zuflucht/kein verborgener Ort der Region`);
+    if (!rf) {
+      const tiere = k.reviere.reduce((n: number, r: any) => n + Object.values(r.tiere as Record<string, number>).reduce((a, b) => a + b, 0), 0);
+      console.log(`  ✓ ${k.region}: ${k.reviere.length} Reviere, ${spalten}×${zeilen} Zellen lückenlos, zusammenhängend, Nachbarn symmetrisch, ${bekannt.size} Zufluchten/Orte je in genau einem, ${tiere} Tiere`);
+      ok++;
+    }
+  }
+  // Die Regel am Zähler (`misstraut`) braucht Reviere in ihrer Region.
+  for (const f of wanderfiguren) for (const s of f.stationen) for (const b of [s.ab, s.bis]) {
+    if (b?.art === 'misstraut' && !karten.some((k: any) => k.region === f.region)) melde(`Wanderfigur '${f.id}': 'misstraut' ohne Reviere in '${f.region}'`);
+  }
+  fehler += rf;
+}
 
 console.log(`\n${ok} gültig, ${fehler} fehlerhaft\n`);
 

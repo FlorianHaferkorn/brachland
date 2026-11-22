@@ -495,6 +495,16 @@ export const Stationsbedingung = z.discriminatedUnion('art', [
    */
   z.object({ art: z.literal('eingriffe'), anzahl: z.number().int().min(1).max(500),
     gewichte: z.object({ getoetet: z.number().min(0).max(2), gereinigt: z.number().min(0).max(2) }).optional() }),
+  /**
+   * D406/D416: Der Zähler **vertraut** nicht mehr — wahr, sobald der gewichtete Stand über `anzahl` liegt (nicht mehr
+   * *geduldet*) **oder** weniger als `unberuehrtMindestens` der Reviere der Region unberührt sind. Beides wächst nur in
+   * eine Richtung (Eingriffe kommen dazu, berührte Reviere werden nie wieder unberührt), also gilt die Regel oben.
+   * Ohne Revierangabe im Weltstand zählt nur die erste Hälfte (wie `eingriffe`, aber mit „über“ statt „ab“: D406
+   * sagt geduldet = ≤ 40).
+   */
+  z.object({ art: z.literal('misstraut'), anzahl: z.number().int().min(1).max(500),
+    gewichte: z.object({ getoetet: z.number().min(0).max(2), gereinigt: z.number().min(0).max(2) }).optional(),
+    unberuehrtMindestens: z.number().min(0).max(1) }),
 ]);
 export type Stationsbedingung = z.infer<typeof Stationsbedingung>;
 
@@ -795,6 +805,33 @@ export const Oekonomie = z.object({
     /** Verhärtung: so viele neue Verhärtete je leergetötetem Revier wandern nach (Vorschlag). */
     verhaertungJeLeeremRevier: z.number().min(0).max(1),
   }),
+  /**
+   * D416 — Regeln, die an den Revieren hängen (`src/spiel/reviere.ts`). Die Schwellen für ruhig/leer stehen weiter
+   * in `marke` und `toeten`; hier nur, was die Reviere zusätzlich brauchen.
+   */
+  reviere: z.object({
+    /**
+     * Wogegen „≥ `ruhigMindestens` der Tiere des Reviers“ und „leer ab `leerAb`“ gemessen werden: `bestand` = die
+     * erwarteten Tiere des Reviers aus dem Vorkommen (`content/reviere/`), `begegnet` = die Tiere, denen man dort
+     * begegnet ist (getötet + gereinigt + umgangen; so rechnete D393). Arbeitswert, Frage an Flo (A-38).
+     */
+    bezug: z.enum(['bestand', 'begegnet']),
+    /**
+     * Bei `begegnet`: Der Nenner ist mindestens dieser Anteil des Bestands. Ohne Boden machte ein einziger Griff ein
+     * Revier ruhig und ein einziger Tod es leer (D393 hat genau das verworfen) — mit 0,25 braucht ein Revier mit 93
+     * Tieren 6 Reinigungen für ruhig und 14 Getötete für leer.
+     */
+    mindestBestand: z.number().min(0).max(1).default(0),
+    /** D393/D399: Nachwachsen aus Nachbarrevieren, solange die Region nicht geheilt ist. Nie im selben Revier. */
+    nachwachsen: z.object({
+      /** So viele Rasten, nachdem im Revier getötet wurde, bis die ersten Tiere aus der Nachbarschaft kommen. */
+      abRasten: z.number().int().min(1).max(20),
+      /** Höchstens dieser Anteil der Getöteten kommt wieder („bis zur Hälfte“) — und nie mehr als dieser Anteil des Bestands. */
+      anteil: z.number().gt(0).max(1),
+      /** So viele Tiere je Rast und Revier, wenn eines nachwachsen darf. */
+      jeRast: z.number().int().min(1).max(20),
+    }),
+  }).optional(),
   /** D403 — Baukasten: was ein Umbau (anderer Kopf und anderer Schaft) im Mittel kostet. Vorschlag. */
   baukasten: z.object({ umbau: Preis }).optional(),
   /** Überschlagsrechnung je Region: Umfang (Annahmen) und was einmalig in der Welt liegt. */
@@ -808,6 +845,55 @@ export const Oekonomie = z.object({
   })),
 });
 export type Oekonomie = z.infer<typeof Oekonomie>;
+
+// ------------------------------------------------------- Reviere (D416)
+
+/**
+ * Ein Revier (D416): ein Stück Region, an dem ruhig/leer, das Aufladen der Marke an der Rast, die Stufe „vertraut“ des
+ * Zählers, die Verhärtung und das Nachwachsen hängen. Die Fläche steht als Zellen im Revierraster der Karte
+ * (`Revierkarte.raster`, ein Zeichen je Zelle). Erzeugt von `tools/reviere.ts`: Kerne von Hand, Grenzen gerechnet
+ * (Weg mit Steigung nach Naismith, Wasser unter der Flutlinie langsamer). `tiere`, `flaecheKm2`, `hoehe`, `unterFlut`,
+ * `zufluchten`, `verborgeneOrte`, `nachbarn` sind abgeleitet und werden von `validate` gegen das Raster geprüft.
+ */
+export const Revier = z.object({
+  id: Kennung.describe('regionsweit eindeutig, mit Regionsvorsilbe (ADR-0020: Nachbarschaft darf über die Regionsgrenze gehen)'),
+  zeichen: z.string().regex(/^[A-Za-z]$/).describe('Zeichen im Revierraster'),
+  name: z.string().min(1).max(40),
+  kern: z.tuple([z.number(), z.number()]).describe('Kern der Rechnung, Meter der Region (x Ost, z Süd)'),
+  begruendung: z.string().min(1).max(400).describe('warum hier ein Revier: Tal, Hangstufe, Weg, Flutlinie'),
+  zufluchten: z.array(Kennung).describe('Zufluchten (Orte mit `art: zuflucht`) in der Fläche'),
+  verborgeneOrte: z.array(Kennung),
+  flaecheKm2: z.number().positive(),
+  unterFlut: z.number().min(0).max(1).describe('Anteil der Fläche unter der Flutlinie'),
+  hoehe: z.tuple([z.number(), z.number()]).describe('kleinste und grösste Zellhöhe, m ü. NN'),
+  tiere: z.record(Kennung, z.number().int().min(0)).describe('erwartete Tiere je Kreatur aus `verteileKreaturen` (Seed 7)'),
+  nachbarn: z.array(Kennung).min(1).describe('Reviere mit gemeinsamer Kante; später auch über die Regionsgrenze (ADR-0020)'),
+}).strict();
+export type Revier = z.infer<typeof Revier>;
+
+export const Revierkarte = z.object({
+  region: Kennung,
+  erzeugt: z.string().min(1),
+  raster: z.object({
+    spalten: z.number().int().min(4).max(256),
+    zeilen: z.number().int().min(4).max(256),
+    /** Auflösung des Weltrasters, in dessen Zellen die Vorkommen-IDs (`kreatur:i:j`) stehen. */
+    vorkommenRaster: z.number().int().min(2),
+    /** Zeile für Zeile von Nord nach Süd, Zeichen von West nach Ost. */
+    karte: z.array(z.string()),
+  }).strict(),
+  reviere: z.array(Revier).min(1),
+}).strict().superRefine((k, ctx) => {
+  if (k.raster.karte.length !== k.raster.zeilen) ctx.addIssue({ code: 'custom', path: ['raster', 'karte'], message: `${k.raster.karte.length} Zeilen statt ${k.raster.zeilen}` });
+  k.raster.karte.forEach((z, i) => { if (z.length !== k.raster.spalten) ctx.addIssue({ code: 'custom', path: ['raster', 'karte', i], message: `${z.length} Zeichen statt ${k.raster.spalten}` }); });
+  const zeichen = new Set<string>(), ids = new Set<string>();
+  k.reviere.forEach((r, i) => {
+    if (zeichen.has(r.zeichen)) ctx.addIssue({ code: 'custom', path: ['reviere', i, 'zeichen'], message: `Zeichen '${r.zeichen}' doppelt` });
+    if (ids.has(r.id)) ctx.addIssue({ code: 'custom', path: ['reviere', i, 'id'], message: `Revier '${r.id}' doppelt` });
+    zeichen.add(r.zeichen); ids.add(r.id);
+  });
+});
+export type Revierkarte = z.infer<typeof Revierkarte>;
 
 // ------------------------------------------------------- Waffen-Baukasten (D403, Entwurf)
 
@@ -1619,6 +1705,22 @@ export const SpielstandDaten = z.object({
   waffenStufen: z.object({ klinge: z.number(), axt: z.number() }).passthrough(),
   lagerSieg: z.record(z.string(), z.number().finite()),
   letzteZuflucht: z.string().optional(),
+  /** D416 (v3): gemeldete Begegnungen mit Lage; das Revier folgt aus der Lage. */
+  begegnungen: z.array(z.object({
+    art: z.enum(['getoetet', 'gereinigt', 'umgangen']),
+    gegnerId: kennung, region: kennung,
+    x: z.number().finite(), z: z.number().finite(), zeit: z.number().finite(),
+  }).passthrough()),
+  /** D416 (v3): was Rasten an den Revieren entschieden haben. */
+  reviere: z.object({
+    rasten: z.number().int().min(0),
+    leerFolge: z.array(kennung),
+    je: z.record(z.string(), z.object({
+      verhaertet: z.number().int().min(0).optional(),
+      zugewandert: z.number().int().min(0).optional(),
+      wartet: z.number().int().min(0).optional(),
+    }).passthrough()),
+  }).passthrough(),
 }).passthrough();
 
 /** Die Hülle um den Stand (D415): trägt, was eine Platzliste zeigt, ohne `spiel` zu lesen. */

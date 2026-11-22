@@ -1,0 +1,459 @@
+{
+  "region": "oental",
+  "erzeugt": "npx tsx tools/reviere.ts oental --schreiben (D416): Kerne von Hand, Grenzen nach Weg (Naismith 8.3 m je Höhenmeter, Wasser ×4, Ufer 20000 m), Tiere aus verteileKreaturen Seed 7",
+  "raster": {
+    "spalten": 64,
+    "zeilen": 64,
+    "vorkommenRaster": 384,
+    "karte": [
+      "DDDDDDDDCCCCCCCCCCCCCCCCCCCLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDCCCCCCCCCCCCCCCCCCCCLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDCCCCCCCCCCCCCCCCCCCCCLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDCCCCCCCCCCCCCCCCCCCCLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDCCCCCCCCCCCCCCCCCCCLLCLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDCCCCCCCCCCCCCCCCCCCCCCLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDDCCCCCCCCCCCCCCCCCCCCLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDDDEECCCCCCCCCCCCCCCCBLLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDDDEEEECCCCCCCCCCCCCBBBLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDDDEEEEECCCCCCCCCCBBBBBLLLLLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDDDDEEEEEEECCCCCBBBBBBBBBBBLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDDDDDEEEEEEECCCCBBBBBBBBBBBLLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDDDDDEEEEEEEECCBBBBBBBBBBBBALLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDDDDDDEEEEEEECCBBBBBBBBBBBAALLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDDDDDEEEEEEEEEEEBBBBBBBBBBALLLLLLLLLLLLLLLLLLLLLLLL",
+      "DDDDDDDDDDDDDDDDDDEEEEEEEEEEEBBBBBBBBBBAALLLLLLLLLLLLLLLLLLLLLLL",
+      "GGGDDDDDDDDDDDDDDEEEEEEEEEEEEBBBBBBBBBBAAALLLLLLLLLLLLLLLLLLLLLL",
+      "GGGGDDDDDDDDDDDDEEEEEEEEEEEEEBBBBBBBBBBBAAAAALLLLLLLLLLLLLLLLLLL",
+      "GGGGEEDDDDDDDDDEEEEEEEEEEEEEBBBBBBBBBBBBAAAAAALLLLLLLLLLLLLLLLLL",
+      "GGGGGEEEEEEEEEEEEEEEEEEEEEEEBBBBBBBBBBBBAAAAAALLLLLLLLLLLLLLLLLL",
+      "GGGGGGEEEEEEEEEEEEEEEEEEEEEEBBBBBBBBBBBAAAAAAAALLLLLLLLLLLLLLLLL",
+      "GGGGGGEEEEEEEEEEEEEEEEEEEEEEEBBBBBBBBBAAAAAAAAALLLLLLLLLLLLLLLLL",
+      "GGGGGGEEEEEEEEEEEEEEEEEEEEEEEFBBBBBBBBAAAAAAAAAALLLLLLLLLLLLLLLL",
+      "GGGGGGGGEEEEEEEEEEEEEEEEEEEEFFFFFFFFBAAAAAAAAAAALLLLLLLLLLLLLLLL",
+      "GGGGGGGGGGEEEEEEEEEEEEEEEEFFFFFFFFFFFAAAAAAAAAAAALLLLLLLLLLLLLLL",
+      "IGGGGGGGGGGEEEEEEEEEEEEEEEFFFFFFFFFFFFAAAAAAAAAAALLLLLLLLLLLLLLL",
+      "IIIGGGGGGGGEEEEEEEEEEEEEEEEFFFFFFFFFFFAAAAAAAAAAAALLLLLLLLLLLLLL",
+      "IIIIGGGGGGGGEEEEEEEEEEEEEEEFFFFFFFFFFFFAAAAAAAAAAALLLLLLLLLLLLLL",
+      "IIIIIIGGGGGGGGEGGGGGEEEEEEEFFFFFFFFFFFFFAAAAAAAAAALLLLLLLLLLLLLL",
+      "IIIIIIIGGGGGGGGGGGGGGEEEEEEHFFFFFFFFFFFFFAAAAAAAAAALLLLLLLLLLLLL",
+      "IIIIIIIGGGGGGGGGGGGGGEEEEEHHHFFFFFFFFFFFFAAAAKKKKKKKLLLLLLLLLLLL",
+      "IIIIIIIIGGGGGGGGGGGGGGEEEHHHHHFFFFFFFFFFFKKKKKKKKKKMMMMMMLLLLLLL",
+      "IIIIIIIIIGGGGGGGGGGGGEEEHHHHHHHHFFFFFFFFFKKKKKKKKKKMMMMMMMMLLLLL",
+      "IIIIIIIIIGGGGGGGGGGGEEHHHHHHHHHHHFFFFFFFFKKKKKKKKKKMMMMMMMMMLLLL",
+      "IIIIIIIIIIGGGGGGGGGGGGHHHHHHHHHHHFFFFFFFFKKKKKKKKKMMMMMMMMMMMMLL",
+      "IIIIIIIIIIGGGGGGGGGGGGHHHHHHHHHHHHFFFFFFFKKKKKKKKKMMMMMMMMMMMMLL",
+      "IIIIIIIIIIIGGGGGGGGGGGHHHHHHHHHHHHHFFFFFFKKKKKKKKKMMMMMMMMMMMMLL",
+      "IIIIIIIIIIIIGGGGGGGGGGHHHHHHHHHHHHHHFFFFFKKKKKKKKKMMMMMMMMMMMLLL",
+      "IIIIIIIIIIIIIIIGGGGGGGHHHHHHHHHHHHHHHFFFKKKKKKKKKKMMMMMMMMMMMMLL",
+      "IIIIIIIIIIIIIIIGGGGGGGHHHHHHHHHHHHHHHHHFKKKKKKKKKKMMMMMMMMMMMMLL",
+      "IIIIIIIIIIIIIIGGGGGGGGHHHHHHHHHHHHHHHHHJJKKKKKKKKMMMMMMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIGGGGGGGHHHHHHHHHHHHHHHHHJJKKKKKKKKMMMMMMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIGGGGGGGHHHHHHHHHHHHHHHHJJJJKKKKKKKKMMMMMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIGGGGGGHHHHHHHHHHHHHHHHJJJJKKKKKKKKKMMMMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIGGGGGHHHHHHHHHHHHHHHHJJJJJKKKKKKKKMMMMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIGGGGHHHHHHHHHHHHHHHJJJJJJKKKKKKKKMMMMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIIGGHHHHHHHHHHHHHHHJJJJJJJKKKKKKKKKMMMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIIGGHHHHHHHHHHHHHJJJJJJJJJKKKKKKKKKMMMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIIGGHHHHHHHHHHHHJJJJJJJJJJKKKKKKKKKKMMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIIGGHHHHHHHHHHJJJJJJJJJJJJKKKKKKKKKKKMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIGGGHHHHHHHHHJJJJJJJJJJJJJKKKKKKKKKKKMMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIGGHHHHHHHHHHJJJJJJJJJJJJJKKKKKKKKKKKKMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIGGHHHHHHHHHJJJJJJJJJJJJJJJKKKKKKKKKKKMMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIGGHHHHHHHHJJJJJJJJJJJJJJJJJKKKKKKKKKKKMMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIIGGHHHHHHJJJJJJJJJJJJJJJJJJJKKKKKKKKKKKMMMMMMM",
+      "IIIIIIIIIIIIIIIIIIIIGHHHHHJJJJJJJJJJJJJJJJJJJJJKKKKKKKKKKKKKKKKK",
+      "IIIIIIIIIIIIIIIIIIIIHHHHHJJJJJJJJJJJJJJJJJJJJJJJKKKKKKKKKKKKKKKK",
+      "IIIIIIIIIIIIIIIIIIIHHHHHJJJJJJJJJJJJJJJJJJJJJJJJJJJJKKKKKKKKKKKK",
+      "IIIIIIIIIIIIIIIIIIHHHHHJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJKKKKKKKKKK",
+      "IIIIIIIIIIIIIIIIIIHHHHJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJKKKKKKKKK",
+      "IIIIIIIIIIIIIIIIIHHHHJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJKKKKKKKK",
+      "IIIIIIIIIIIIIIIIHHHHJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJKKKKKKK",
+      "IIIIIIIIIIIIIIIHHHHJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJKKKKKK",
+      "IIIIIIIIIIIJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJKKKKK"
+    ]
+  },
+  "reviere": [
+    {
+      "id": "oental-terrasse",
+      "zeichen": "A",
+      "name": "Terrasse von Brannburg",
+      "kern": [690, -660],
+      "begruendung": "Hangterrasse 505–525 m über der Flut mit der Enklave; nach Osten die Flutlinie, nach Westen der Hangwald. Das Revier um die Menschen.",
+      "zufluchten": [
+        "terrasse-saal"
+      ],
+      "verborgeneOrte": [],
+      "flaecheKm2": 0.52,
+      "unterFlut": 0,
+      "hoehe": [499, 557],
+      "tiere": {
+        "moderotter": 1,
+        "myzelmolch": 5,
+        "sporenhahn": 3,
+        "spuerfuchs": 8,
+        "wurzelkeiler": 4
+      },
+      "nachbarn": [
+        "oental-nordufer",
+        "oental-seeboden",
+        "oental-steig",
+        "oental-uferweg"
+      ]
+    },
+    {
+      "id": "oental-nordufer",
+      "zeichen": "B",
+      "name": "Waldrand am Nordufer",
+      "kern": [200, -1100],
+      "begruendung": "Hangfuss nördlich der Terrasse vom Waldrand (Feldscheune, 600 m) hinunter zum Nordufer (Schuppen) — der trockene Weg zum Absetzbecken (Reinkultur Nord). Grenze: Flutlinie, Nordhang, Bannwald.",
+      "zufluchten": [
+        "feldscheune-waldrand",
+        "schuppen-nordufer"
+      ],
+      "verborgeneOrte": [],
+      "flaecheKm2": 0.57,
+      "unterFlut": 0,
+      "hoehe": [500, 685],
+      "tiere": {
+        "kiemenbiber": 1,
+        "moderotter": 1,
+        "myzelmolch": 1,
+        "sporenhahn": 10,
+        "spuerfuchs": 2,
+        "wurzelkeiler": 21
+      },
+      "nachbarn": [
+        "oental-bannwald",
+        "oental-nordhang",
+        "oental-seeboden",
+        "oental-steig",
+        "oental-terrasse"
+      ]
+    },
+    {
+      "id": "oental-nordhang",
+      "zeichen": "C",
+      "name": "Nordhang unter der Kirche",
+      "kern": [-300, -1700],
+      "begruendung": "Hang am Nordrand mit der Kirche am Nordhang (578 m); eigener Talzug, vom Nordufer durch die Geländestufe getrennt.",
+      "zufluchten": [
+        "kirche-nordhang"
+      ],
+      "verborgeneOrte": [],
+      "flaecheKm2": 0.75,
+      "unterFlut": 0,
+      "hoehe": [499, 789],
+      "tiere": {
+        "moderotter": 2,
+        "myzelmolch": 16,
+        "sporenhahn": 35,
+        "spuerfuchs": 2,
+        "wurzelkeiler": 7
+      },
+      "nachbarn": [
+        "oental-alm",
+        "oental-bannwald",
+        "oental-nordufer",
+        "oental-seeboden"
+      ]
+    },
+    {
+      "id": "oental-alm",
+      "zeichen": "D",
+      "name": "Alm unter dem Grat",
+      "kern": [-1450, -1400],
+      "begruendung": "Hochlage im Nordwesten um die Almhütte (1.055 m), über der Befallsgrenze; Almweg. 500 m über dem Tal — die Steigung trennt sie.",
+      "zufluchten": [
+        "almhuette"
+      ],
+      "verborgeneOrte": [],
+      "flaecheKm2": 1.05,
+      "unterFlut": 0,
+      "hoehe": [758, 1113],
+      "tiere": {
+        "alpenmurmel": 3,
+        "firnhase": 2,
+        "grathorn": 11,
+        "linsenuhu": 5,
+        "myzelmolch": 13,
+        "nebelgams": 5,
+        "schneehuhn": 8,
+        "sporenhahn": 36,
+        "wurzelkeiler": 1
+      },
+      "nachbarn": [
+        "oental-bannwald",
+        "oental-grat",
+        "oental-nordhang"
+      ]
+    },
+    {
+      "id": "oental-bannwald",
+      "zeichen": "E",
+      "name": "Bannwald",
+      "kern": [-750, -650],
+      "begruendung": "Westlicher Talzug mit der Hütte im Bannwald (verborgener Ort, 704 m); Bach hinunter zur Terrasse. Keine Zuflucht — das Revier des Försters.",
+      "zufluchten": [],
+      "verborgeneOrte": [
+        "jagdhuette"
+      ],
+      "flaecheKm2": 1.17,
+      "unterFlut": 0,
+      "hoehe": [638, 912],
+      "tiere": {
+        "alpenmurmel": 5,
+        "kiemenbiber": 1,
+        "linsenuhu": 3,
+        "myzelmolch": 19,
+        "sporenhahn": 51,
+        "spuerfuchs": 1,
+        "wurzelkeiler": 3
+      },
+      "nachbarn": [
+        "oental-alm",
+        "oental-graben",
+        "oental-grat",
+        "oental-nordhang",
+        "oental-nordufer",
+        "oental-steig"
+      ]
+    },
+    {
+      "id": "oental-steig",
+      "zeichen": "F",
+      "name": "Steig und Talweg",
+      "kern": [200, -60],
+      "begruendung": "Mittlere Hangstufe um den Spielstart: Remise am Steig und Unterstand am Talweg, der Steig hinauf zur Terrasse. Hier liegen die ersten Begegnungen.",
+      "zufluchten": [
+        "remise-am-steig"
+      ],
+      "verborgeneOrte": [],
+      "flaecheKm2": 0.59,
+      "unterFlut": 0,
+      "hoehe": [542, 661],
+      "tiere": {
+        "kiemenbiber": 2,
+        "myzelmolch": 3,
+        "sporenhahn": 6,
+        "spuerfuchs": 1,
+        "wurzelkeiler": 14
+      },
+      "nachbarn": [
+        "oental-bannwald",
+        "oental-graben",
+        "oental-nordufer",
+        "oental-suedhang",
+        "oental-terrasse",
+        "oental-uferweg"
+      ]
+    },
+    {
+      "id": "oental-grat",
+      "zeichen": "G",
+      "name": "Grat am Oberstollen",
+      "kern": [-1050, -50],
+      "begruendung": "Hochstufe unter dem Grat mit dem Oberstollen (963 m, Reinkultur West); Kletterwand oder alter Almweg. Grenze nach Osten: der Steilhang.",
+      "zufluchten": [],
+      "verborgeneOrte": [],
+      "flaecheKm2": 1.06,
+      "unterFlut": 0,
+      "hoehe": [787, 1022],
+      "tiere": {
+        "alpenmurmel": 9,
+        "firnhase": 1,
+        "grathorn": 2,
+        "linsenuhu": 3,
+        "myzelmolch": 13,
+        "nebelgams": 4,
+        "schneehuhn": 1,
+        "sporenhahn": 33,
+        "wurzelkeiler": 2
+      },
+      "nachbarn": [
+        "oental-alm",
+        "oental-bannwald",
+        "oental-graben",
+        "oental-quelltopf"
+      ]
+    },
+    {
+      "id": "oental-graben",
+      "zeichen": "H",
+      "name": "Grabenweg und Bruch",
+      "kern": [50, 480],
+      "begruendung": "Talzug am Grabenweg mit Heustadel, Tremmel und dem Wart am Bruch (630 m); eigener Bach, durch einen Rücken vom Steig getrennt.",
+      "zufluchten": [
+        "heustadel-graben",
+        "unterstand-mitte"
+      ],
+      "verborgeneOrte": [],
+      "flaecheKm2": 1.3,
+      "unterFlut": 0,
+      "hoehe": [592, 883],
+      "tiere": {
+        "kiemenbiber": 3,
+        "moderotter": 1,
+        "myzelmolch": 23,
+        "nebelgams": 1,
+        "sporenhahn": 52,
+        "spuerfuchs": 2,
+        "trafomarder": 1,
+        "wurzelkeiler": 10
+      },
+      "nachbarn": [
+        "oental-bannwald",
+        "oental-grat",
+        "oental-quelltopf",
+        "oental-steig",
+        "oental-suedhang"
+      ]
+    },
+    {
+      "id": "oental-quelltopf",
+      "zeichen": "I",
+      "name": "Quellhang",
+      "kern": [-1600, 750],
+      "begruendung": "Südwestliche Hochlage um den Quelltopf (verborgener Ort, 971 m) knapp unter der Grenze; Bachlauf bis zur Quelle. Keine Zuflucht.",
+      "zufluchten": [],
+      "verborgeneOrte": [
+        "quelltopf"
+      ],
+      "flaecheKm2": 2.11,
+      "unterFlut": 0,
+      "hoehe": [846, 1139],
+      "tiere": {
+        "alpenmurmel": 11,
+        "firnhase": 8,
+        "grathorn": 23,
+        "kiemenbiber": 2,
+        "linsenuhu": 7,
+        "myzelmolch": 20,
+        "nebelgams": 36,
+        "schneehuhn": 11,
+        "sporenhahn": 52,
+        "wurzelkeiler": 8
+      },
+      "nachbarn": [
+        "oental-graben",
+        "oental-grat",
+        "oental-suedhang"
+      ]
+    },
+    {
+      "id": "oental-suedhang",
+      "zeichen": "J",
+      "name": "Südhang mit Saatkammer",
+      "kern": [420, 1150],
+      "begruendung": "Südhang über dem Wehr mit der Saatkammer (601 m, Reinkultur Süd); Gleiterweg vom Westhang endet hier. Grenze im Norden: der Graben.",
+      "zufluchten": [],
+      "verborgeneOrte": [],
+      "flaecheKm2": 1.68,
+      "unterFlut": 0,
+      "hoehe": [517, 837],
+      "tiere": {
+        "k7-wolf": 1,
+        "kiemenbiber": 3,
+        "linsenuhu": 2,
+        "moderotter": 1,
+        "myzelmolch": 23,
+        "nebelgams": 3,
+        "sporenhahn": 41,
+        "spuerfuchs": 4,
+        "wurzelkeiler": 40
+      },
+      "nachbarn": [
+        "oental-graben",
+        "oental-quelltopf",
+        "oental-steig",
+        "oental-uferweg"
+      ]
+    },
+    {
+      "id": "oental-uferweg",
+      "zeichen": "K",
+      "name": "Uferweg zum Wehr",
+      "kern": [880, 450],
+      "begruendung": "Trockener Uferweg vom Stadel am Hangweg zum Wehr und zum Bahnhof (D380: der beschwerliche Weg zum Flussvater); schmal zwischen Hang und Flutlinie.",
+      "zufluchten": [
+        "stadel-hangweg"
+      ],
+      "verborgeneOrte": [],
+      "flaecheKm2": 1.27,
+      "unterFlut": 0,
+      "hoehe": [499, 831],
+      "tiere": {
+        "kiemenbiber": 1,
+        "linsenuhu": 1,
+        "myzelmolch": 6,
+        "sporenhahn": 24,
+        "spuerfuchs": 4,
+        "wurzelkeiler": 39
+      },
+      "nachbarn": [
+        "oental-seeboden",
+        "oental-stau",
+        "oental-steig",
+        "oental-suedhang",
+        "oental-terrasse"
+      ]
+    },
+    {
+      "id": "oental-seeboden",
+      "zeichen": "L",
+      "name": "Seeboden vor der Terrasse",
+      "kern": [1500, -700],
+      "begruendung": "Flut vor der Terrasse bis zum Absetzbecken (Reinkultur Nord liegt auf dem Grund) mit dem Kirchturm im Wasser: die versunkene Stadt. Nur mit Tauchzeug oder nach dem Wandel.",
+      "zufluchten": [],
+      "verborgeneOrte": [
+        "kirchturm"
+      ],
+      "flaecheKm2": 2.8,
+      "unterFlut": 1,
+      "hoehe": [465, 499],
+      "tiere": {
+        "k7-wolf": 5,
+        "kiemenbiber": 2,
+        "moderotter": 2,
+        "myzelmolch": 2,
+        "nebelgams": 1,
+        "sporenhahn": 6,
+        "spuerfuchs": 25,
+        "wurzelkeiler": 75
+      },
+      "nachbarn": [
+        "oental-nordhang",
+        "oental-nordufer",
+        "oental-stau",
+        "oental-terrasse",
+        "oental-uferweg"
+      ]
+    },
+    {
+      "id": "oental-stau",
+      "zeichen": "M",
+      "name": "Stau am Kalkbruch",
+      "kern": [1450, 650],
+      "begruendung": "Stauwasser vor dem Wehr mit der Kalkbruch-Insel und der Kapelle (vor dem Wandel nur mit Tauchzeug, D391). Grenze zum Seeboden: die Engstelle vor dem Bahnhof.",
+      "zufluchten": [
+        "kapelle-kalkbruch"
+      ],
+      "verborgeneOrte": [],
+      "flaecheKm2": 1.03,
+      "unterFlut": 0.89,
+      "hoehe": [482, 529],
+      "tiere": {
+        "kiemenbiber": 1,
+        "linsenuhu": 1,
+        "moderotter": 2,
+        "myzelmolch": 1,
+        "sporenhahn": 6,
+        "spuerfuchs": 7,
+        "wurzelkeiler": 39
+      },
+      "nachbarn": [
+        "oental-seeboden",
+        "oental-uferweg"
+      ]
+    }
+  ]
+}

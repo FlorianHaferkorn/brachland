@@ -71,7 +71,7 @@ console.log('\nZähler der Mönche (D385, D392):');
          && !Wanderfigur.safeParse({ ...F, stationen: [{ ...F.stationen[0], bis: { art: 'eingriffe', anzahl: 3, gewichte: { getoetet: -1, gereinigt: 0 } } }, ...F.stationen.slice(1)] }).success);
   {
     const z = JSON.parse(readFileSync('content/wanderfiguren/zaehler.json', 'utf8'));
-    const b = z.stationen.map((x: any) => x.bis).find((x: any) => x?.art === 'eingriffe');
+    const b = z.stationen.map((x: any) => x.bis).find((x: any) => x?.art === 'eingriffe' || x?.art === 'misstraut');
     pruefe('Der Zähler im Inhalt wiegt Reinigen leichter als Töten', !!b?.gewichte && b.gewichte.gereinigt < b.gewichte.getoetet, JSON.stringify(b));
   }
   pruefe('Dasselbe Vorkommen zählt einmal', eingriffe({ besiegt: ['a:1:1'], gereinigt: ['a:1:1'] }) === 1);
@@ -86,6 +86,24 @@ console.log('\nZähler der Mönche (D385, D392):');
   const geheilt = { ...LEER, regenten: ['flussvater'], geheilt: ['flussvater'] };
   pruefe('Geheilt und zurückhaltend: Er steht auf der Krone', stationVon(moench, { ...geheilt, besiegt: ['a:1:1'] }) === 1);
   pruefe('Geheilt, aber zu oft eingegriffen: Er hat sich abgewandt', stationVon(moench, { ...geheilt, besiegt: w.besiegt, gereinigt: w.gereinigt }) === 2);
+  // D416: „vertraut“ — geduldet und genug Reviere unberührt (`misstraut` an der Station).
+  const vertrauen: Wanderfigur = { ...moench, stationen: [moench.stationen[0],
+    { ...moench.stationen[1], bis: { art: 'misstraut', anzahl: 3, unberuehrtMindestens: 0.5 } }, moench.stationen[2]] };
+  pruefe('D416: geduldet und die Hälfte der Reviere unberührt: auf der Krone',
+         stationVon(vertrauen, { ...geheilt, besiegt: ['a:1:1'], unberuehrtAnteil: 0.5 }) === 1);
+  pruefe('D416: geduldet, aber zu viele Reviere berührt: abgewandt',
+         stationVon(vertrauen, { ...geheilt, besiegt: ['a:1:1'], unberuehrtAnteil: 0.49 }) === 2);
+  pruefe('D416: geduldet heisst ≤ Schwelle (D406), nicht < Schwelle',
+         !gilt({ art: 'misstraut', anzahl: 3, unberuehrtMindestens: 0 }, { ...LEER, besiegt: ['a:1:1', 'a:1:2', 'a:1:3'] })
+         && gilt({ art: 'misstraut', anzahl: 3, unberuehrtMindestens: 0 }, { ...LEER, besiegt: ['a:1:1', 'a:1:2', 'a:1:3', 'a:1:4'] }));
+  pruefe('D416: ohne Revierangabe entscheidet allein der Stand (wie vor D416)',
+         !gilt({ art: 'misstraut', anzahl: 3, unberuehrtMindestens: 0.5 }, { ...LEER, besiegt: ['a:1:1'] }));
+  const gemeldet = { ...LEER, besiegt: ['a:1:1'], begegnungen: [
+    { art: 'gereinigt' as const, gegnerId: 'lager-x:0', region: 'oental', x: 0, z: 0, zeit: 1 },
+    { art: 'getoetet' as const, gegnerId: 'lager-x:0', region: 'oental', x: 0, z: 0, zeit: 2 },
+    { art: 'getoetet' as const, gegnerId: 'a:1:1', region: 'oental', x: 0, z: 0, zeit: 3 },
+    { art: 'umgangen' as const, gegnerId: 'b:1:1', region: 'oental', x: 0, z: 0, zeit: 4 }] };
+  pruefe('D416: gemeldete Begegnungen zählen je Meldung, Bestand nicht doppelt, Umgehen nie', eingriffe(gemeldet, G) === 2.25, String(eingriffe(gemeldet, G)));
   pruefe('Getötet, nicht geheilt, zurückhaltend: Er ist nirgends',
          stationVon(moench, { ...LEER, regenten: ['flussvater'], besiegt: ['a:1:1'] }) === null);
 }
@@ -115,6 +133,7 @@ function staende(f: Wanderfigur): Weltstand[] {
       if (b.art === 'heile') w.geheilt.push(b.regent);
       if (b.art === 'auftrag') w.auftraege[b.auftrag] = 'abgeholt';
       if (b.art === 'eingriffe') for (let n = w.besiegt.length; n < b.anzahl; n++) w.besiegt.push(`probe:0:${n}`);
+      if (b.art === 'misstraut') for (let n = w.besiegt.length; n <= b.anzahl; n++) w.besiegt.push(`probe:0:${n}`);
     });
     if (w.geheilt.every(r => w.regenten.includes(r))) raus.push(w);
   }
