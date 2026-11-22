@@ -8,6 +8,7 @@ shelf-life-days: 180
 > (`content/waffen/`) sind unverändert und kommen als Referenzbau bitgleich aus dem Baukasten heraus (Test).
 > Daten: `content/waffenteile.json`. Ableitung: `src/kampf/baukasten.ts`. Messung: `npx tsx tools/baukastensim.ts`.
 > Fragen für Flo: Ledger **A-31**. Offen/erledigt steht im Ledger, nicht hier.
+> **Fortgeschrieben mit D405** (unten, §11–§15): Waffenfamilien, Bogen und Armbrust, „Magie“, Zähler der Mönche.
 >
 > Anlass (Flo, 22.11.2026): ob jeder aus Material eigene Waffen und Ausrüstung schmieden, herstellen und gestalten
 > können soll — „Das wäre doch ein innovativer Ansatz oder nicht?“ —, dazu der Nachtrag: „ja ich meinte auch ob man
@@ -368,3 +369,228 @@ genug, um sich eine eigene Waffe zu wünschen, und zu wenig, um den ersten Test 
 - ⚠️ Der Budgetvorschlag ist aus einer Messrunde abgelesen und nicht gegengemessen.
 - ⚠️ Zeug: nichts abgeleitet, nichts gemessen.
 - ⚠️ Monster Hunter, Tinkers' Construct, Vintage Story, Kenshi, Mordhau und jede echte Freiform sind nicht belegt.
+
+---
+
+# Fortschreibung D405: Waffenfamilien, Fernkampf, „Magie“, Zähler
+
+> **Entwurf, nichts verdrahtet — mit einer Ausnahme:** `eingriffe()` in `src/spiel/wanderfiguren.ts` liest seit D405
+> die Gewichte des Zählers aus den Daten (§14). Sonst: `content/waffenfamilien.json` (Plan, keine Kampfwerte),
+> `content/wirken.json`, ADR-0019 (**Proposed**). Fragen für Flo: Ledger **A-32**.
+> Entschieden und nicht neu aufgerollt (D404): 6–8 Familien gestaffelt, Kapitel 1 mit etwa fünf; Ausgleichsfaktor je
+> Teil; Schärfe senkt die Reinigungsquote und wird ausgesprochen; Aussehen erst auswählen; Bogen und Armbrust gewollt;
+> Reinigen zählt beim Zähler deutlich weniger als Töten.
+
+## 11. Waffenfamilien
+
+### 11.1 Wie andere Vielfalt schaffen
+
+| Spiel | Wie | Gelobt | Kritisiert | Für uns |
+|---|---|---|---|---|
+| Elden Ring / Dark Souls | viele Waffenklassen, je Klasse ein gemeinsamer Satz Schläge, dazu Skalierung und Sonderangriff | Breite; für jeden Stil etwas | viele Waffen tragen nicht durchs ganze Spiel [ER6]; Bögen gelten als schwache Hauptwaffe, gut nur als Ergänzung [ER7] — eine Besprechung des Ablegers nennt ihn „the first FromSoftware game where bows don't suck“ [ER8]. *Dass gleiche Schlagsätze die Vielfalt entwerten, ist in dieser Recherche nicht belegt* | Familie = eigener Schlagsatz; Vielfalt **innerhalb** kommt aus dem Baukasten, nicht aus weiteren Familien |
+| Bloodborne | wenige Waffen, jede anders, jede mit zwei Formen | „each weapon feels different, vital, hand-crafted“ [B1] | weniger Auswahl [B5] | die Messlatte: lieber acht Familien, die sich anders spielen, als dreissig, die sich gleichen |
+| Sekiro | eine Waffe, dazu Werkzeuge am Arm mit knappem Vorrat [S3] | Tiefe statt Breite | Werkzeuge über einen Verbrauchsvorrat [S3] | Vorbild für das Wirken der Marke (§13), nicht für die Waffen |
+| Lies of P | Klinge × Griff [LP1][LP2] | siehe §2 | — | Baukasten |
+| Nioh | *nicht belegt* | — | — | — |
+
+Neue Quellen: [ER6] https://www.gamedeveloper.com/game-platforms/the-cracks-in-elden-ring-s-combat-design ·
+[ER7] https://mobalytics.gg/gamebase/guides/elden-ring-bow-build ·
+[ER8] https://gamesradar.com/games/action-rpg/new-elden-ring-nightreign-trailer-is-all-about-the-archer-class-that-wasnt-in-the-beta-and-this-might-be-the-first-fromsoftware-game-where-bows-dont-suck ·
+[B1] https://kotaku.com/bloodbornes-biggest-problems-have-been-fixed-1749281059 ·
+[B5] https://fextralife.com/bloodborne-the-best-rpg-of-its-generation ·
+[S3] https://www.gamedeveloper.com/design/how-i-broke-sekiro-shadows-die-twice
+
+### 11.2 Acht Familien für BRACHLAND
+
+Aus der Welt: Forst, Jagd, Steinbruch, Hof, Werk. Keine fremden Motive (ADR-0004) — jede Waffe ist ein Werkzeug, das
+im Inntal real herumliegt. Daten: `content/waffenfamilien.json`. **Für die fünf neuen gibt es keine Kampfwerte** —
+die entstehen erst mit der Messung.
+
+| # | Familie | Kapitel | Spielgefühl | Was sie trennt | Verhältnis zum Reinigen | Aufwand |
+|---|---|---|---|---|---|---|
+| 1 | **Klinge** (Bestand) | 1 | schnell angesetzt, lang erholt | drei Linien, höchster Schaden je Sekunde | mit Güte sinkt die Reinigungsquote (D403) | — |
+| 2 | **Axt** (Bestand) | 1 | langer Vorlauf, der durchgeht | standfest, wirft, bricht Haltung | öffnet Griff-Fenster, tötet Kleines mit einem Hieb | — |
+| 3 | **Saufeder** (Bestand) | 1 | Abstand statt Wucht | 3,1–4,0 m, schmal, weiter Rückstoss | hält auf Abstand — die Marke braucht Nähe | — |
+| 4 | **Hirschfänger** | 1 | nah und schnell | kürzeste Reichweite und Fenster, wenig Schaden je Treffer | **Waffe des Heilers:** bringt an die Schwelle, ohne darüber zu tragen | **S** |
+| 5 | **Schlägel** | 1 | stumpf und schwer | zweihändig, höchster Haltungsschaden, niedrigster Schaden | bricht die Haltung, ohne zu töten; gegen Menschen endet der Kampf so (D385) | **M** |
+| 6 | **Bogen und Armbrust** | 1 (Bogen), später (Armbrust) | der erste Treffer gehört dir | einzige Familie auf Distanz (§12) | schwächt, reinigt nie | **L** |
+| 7 | **Sapie** | 2 | Haken an der Stange | zieht heran und aus der Haltung | schliesst als einzige Waffe den Abstand für die Marke | **M** |
+| 8 | **Langes Messer** | 2 | zwei Hände, weiter Bogen | breiteste Bögen, die Antwort aufs Rudel | schlecht: trifft auch, was man schonen wollte | **L** |
+
+**Zurückgestellt, mit Grund:** **Kriegsflegel** — ein Dreschflegel ist real schwer zu führen und gefährdet den
+Träger; gemeint wäre die Kriegsform mit Beschlag, sie braucht ein Gelenk im Modell, einen ganzen Clipsatz und eine
+neue Regel („umgeht Block“): Aufwand L für eine Nische. **Kriegssense** — eine Mähsense ist real eine schlechte
+Waffe (Schneide quer zum Stiel, nach innen); nur die umgeschmiedete Kriegssense taugt, und die deckt sich im Spiel
+mit Saufeder und Sapie.
+
+### 11.3 Clips: was da ist, was fehlt (nachgesehen)
+
+| Quelle | Was sie hergibt | Stand |
+|---|---|---|
+| `tools/ual2uebertrag.py` (UAL2, Quaternius, CC0, freie Fassung) | sieben Clips übertragen: `Sword_Regular_A/B/C`, `Sword_Dash`, `Sword_Block`, `Hit_Knockback`, `Idle_Shield_Break` | Klinge |
+| `tools/waffenclips.py` (selbst gebaut, Schlüsselbilder) | 13 Clips: `Klinge_Stand`, `Klinge_Stich`, `Axt_Stand/Block/Quer/Schwer/Lauf`, `Speer_Stand/Stoss/Weit/Lauf/Block` | Axt und Speer komplett eigen |
+| Paket der Figur | `Sword_Slash`, `Axe_Overhead` | Bestand |
+
+- **Die UAL2-Datei liegt auf dieser Maschine nicht** (`.cache/ual2/` fehlt). Welche weiteren Clips ihre freie Fassung
+  enthält — Bogen, Zweihand, Hammer —, liess sich deshalb **nicht nachsehen**. Belegt ist nur: rund 130 Animationen,
+  darunter „melee and armed combos“, die freie Fassung umfasst etwa 70 % [UAL]. Vor dem Bau am M1 nachsehen.
+- **Der sichere Weg ist der, den Axt und Speer gegangen sind:** Clips aus Schlüsselbildern in `waffenclips.py`.
+  Der Speer brauchte fünf (D184).
+
+| Familie | Vorhandene Clips nutzbar | Fehlen |
+|---|---|---|
+| Hirschfänger | alle sieben der Klinge (einhändig, kürzere Reichweite) | **keine** — nur ein Modell |
+| Schlägel | `Axt_Stand`, `Axe_Overhead`, `Axt_Schwer`, `Axt_Block` | 2: zweihändiger Stand, tiefer Querschlag |
+| Sapie | `Speer_Stand`, `Speer_Block` | 3: Hieb über Kopf, Zug, Lauf |
+| Langes Messer | `Klinge_U_C` (Zweihandhieb) | 5: Stand, zwei Querhiebe, Lauf, Block |
+| Bogen und Armbrust | keine | 6: je Stand/Anlegen, Spannen/Laden, Lösen/Schuss |
+
+[UAL] https://quaternius.itch.io/universal-animation-library-2 · https://80.lv/articles/get-this-animation-asset-library-with-over-130-diverse-items
+
+### 11.4 Physik (D398)
+
+| Familie | Real | Anker | Abweichung |
+|---|---|---|---|
+| Hirschfänger | jagdliche Seitenwaffe, Klinge 40–70 cm | 0,6–0,8 kg — **Überschlag** | keine |
+| Schlägel | Vorschlaghammer real 3–5 kg, zum Kämpfen zu träge | 2–3 kg — **Überschlag** | gemeint ist ein leichter Schlägel am langen Stiel; benannt |
+| Sapie | Forstwerkzeug zum Ziehen und Wenden von Stämmen, 1,2–1,6 m, kopflastig | 1,5–2,5 kg — **Überschlag** | keine: Sie bleibt, was sie ist — langsam, zieht |
+| Langes Messer | zweihändiges Kriegsmesser, süddeutsch | 1,2–1,8 kg, 1,1–1,3 m — **Überschlag** | keine |
+| Bogen | Jagdbogen 20–25 kg Zuggewicht, Pfeil um 30 g, 50–60 m/s | **Überschlag** | Spannen 0,9 s statt 1–2 s |
+| Armbrust | Spannen mit Hebel 15–20 s, mit Winde 30–60 s | **Überschlag** | **6 s im Spiel** — grösste Abweichung, benannt |
+
+Belegt ist in diesem Dokument nur das Einhandschwert (§3.1). Alle neuen Anker sind Allgemeinwissen ohne Quelle.
+
+### 11.5 Staffelung und Reihenfolge
+
+Kapitel 1: **Klinge, Axt, Saufeder, Hirschfänger, Schlägel** — dazu der Bogen als sechste, wenn ADR-0019 angenommen
+wird. Reihenfolge nach Aufwand und Nutzen:
+
+1. **Hirschfänger** (S): kein Clip, ein Modell, eigene Fenster, eine Messrunde. Und er löst das Problem aus D403:
+   Der Heiler bekommt eine Waffe, die für ihn gebaut ist.
+2. **Schlägel** (M): zwei Clips, Messung mit Reinigen und gegen Menschen — dieselbe Messung, die D404 für das Budget
+   ohnehin verlangt.
+3. **Bogen** (L): braucht Regeln (ADR-0019), sechs Clips, Zielen, KI-Reaktion.
+4. Kapitel 2: **Sapie** (M, neue Wirkung „zieht heran“), **Langes Messer** (L, fünf Clips, Rudelmessung), **Armbrust**.
+
+## 12. Bogen und Armbrust
+
+Entwurf zu ADR-0019 (Proposed). Zahlen in `content/waffenfamilien.json` `fernkampf` sind **ungeprüft**.
+
+1. **Zielen.** Halten (rechte Maustaste) schaltet auf die Schulterkamera, die es für die Zielaufschaltung schon gibt
+   (Versatz 0,85 m, `src/kampf/sichtlinie.ts`); die Maus ist im Kampf bereits gefangen (Pointer Lock,
+   `src/kampf/Kampfplatz.tsx`). Aufgeschaltet zielt der Schuss auf die Kapselmitte, frei dorthin, wohin man sieht.
+   Kein Kopftreffer, kein Schadensbonus für Distanz.
+2. **Spannen und Laden mit Gewicht.** Bogen: 0,9 s bis schussbereit, gespannt halten zehrt 14 Ausdauer je Sekunde
+   (20–25 kg Zuggewicht hält niemand lange). Armbrust: 6 s laden, bleibt dann geladen, ein Schuss. **Beides nur im
+   Stand** — wer sich bewegt, entspannt. Das ist die Regel, die Rückwärtslaufen-und-Schiessen verhindert.
+3. **Munition ist Material.** Jagdpfeil (Spitze aus Federstahl, 12 tragbar, jeder zweite wiederzufinden), Bolzen
+   (6 tragbar), **Kolbenpfeil** (stumpfer Holzkopf, wie man ihn real für Vögel schnitzt: 30 % Schaden, 2,2-facher
+   Haltungsschaden, kostet nur Span) — die Munition des Heilers.
+4. **Die Tiere antworten.** Ein Pfeil trifft wie ein leichter Hieb der Klinge (24), ein Bolzen wie ein schwerer (46).
+   Ein Keiler hat 140 Leben und überbrückt acht Meter in rund drei Sekunden: Das sind ein bis zwei Schüsse, dann
+   Nahkampf. Beschossene Befallene gehen an; scheue reine Tiere fliehen — und was ausser Sicht flieht, ist fort,
+   ohne Material und ohne Reinigung.
+5. **Verhältnis zum Reinigen.** Die Marke greift in 1,8 m. Ein Geschoss kann ein Tier wund machen (unter 35 %),
+   **nie reinigen**. Aus der Ferne getötet zählt beim Zähler voll. Der Bogen eröffnet also; beenden muss man selbst.
+
+**Was Engine und Regelwerk brauchen:** Geschoss als Daten (Abgangstempo, Fall, Radius, Wirkung), Flug in denselben
+Teilschritten gegen die Kapseln der Kämpfer, Sicht gegen das Kollisionsfeld (`sichtFrei`, schon rein und getestet),
+Zustand „gespannt“ am Kämpfer, KI-Reaktion „beschossen“ (angehen oder fliehen). `echtzeit.ts` bleibt renderfrei.
+**Bot-Messbedarf:** ein Fernprofil für den Kampfbot — wie viele Schüsse vor dem Kontakt, Kampfdauer und erlittener
+Schaden gegen Nahkampf allein, Anteil geflohener Tiere, Reinigungsquote mit Kolbenpfeil.
+
+**Risiken:** (1) Töten wird bequem — dagegen stehen Stand-Regel, knappe Munition, der Zähler und dass Fliehende
+verloren sind. (2) Die Gams ist heute das schwierigste Tier (Reinigen v1 §6); ein Bogen könnte genau dieses Problem
+wegnehmen statt es zu lösen. (3) Sechs Clips, Zielkamera, Geschossregeln: der grösste Posten der Liste. (4) Gegner,
+die schiessen, sind eine eigene Aufgabe und hier nicht entworfen.
+
+## 13. „Gibt es sowas wie Magie?“
+
+**Antwort: Nein — und es sollte keine geben. Aber es gibt die Marke, und sie kann mehr als reinigen.**
+
+Die Welt hat keine Magie und braucht keine: VERIDIA ist ein Betrieb, der Faulbrand ein Protokoll, die Marke eine
+Armklammer Typ B aus dem Werk, elf ausgegeben, zehn zurück (Quests v1). Was wie Zauber aussähe, ist hier Technik,
+deren Bedienungsanleitung fehlt.
+
+| | (a) **Wirken der Marke** | (b) Befallskräfte der Fraktionen | (c) Klassische Zauber |
+|---|---|---|---|
+| Was | wenige Funktionen der Klammer; jede kostet **Ladungen** — dieselben, die das Reinigen braucht | vom Befall Geliehenes (Mönche), mit Preis am Körper | Zauber mit eigener Leiste |
+| Passt zur Welt | **ja** — erklärt aus dem Werk; jedes Wirken hat einen Namen im Wartungsblatt | ja, erzählerisch stark; macht den Twist (der Brachgänger als Prototyp) früh sichtbar | **nein** — widerspricht „Technik, kein Zauber“ und ADR-0004 (fremde Motive) |
+| Gleichgewicht | bindet sich selbst: Wer wirkt, reinigt weniger | eine dritte Ressource; berührt die drei Enden | zweite Kampfart neben dem Nahkampf, zweite Leiste, neue Messreihen |
+| Aufwand | **M** — sieben Einträge, zwei davon ohne Kampfwert | **L** — Figuren, Folgen, Körperveränderung | **L** und dauerhaft |
+| Andere | Werkzeuge am Arm mit knappem Vorrat [S3]; kritisiert wird dort der Verbrauchsvorrat — besser ein Vorrat, der sich an der Rast füllt [S3] | *nicht belegt* | Zauber und Anrufungen (Elden Ring), Zauber aus gesammelter Kraft (Hollow Knight), Jägerwerkzeuge (Bloodborne): *in dieser Recherche nicht belegt* |
+
+**Empfehlung: (a).** Alternative: (a) jetzt und (b) als Linie der Mönche ab Region 2 — dann als Erzählung mit Preis,
+nicht als Fähigkeitenbaum.
+
+### Sieben Wirken (`content/wirken.json`)
+
+| Wirken | Ladungen | ab Markenstufe | Einsicht | Was es tut | Im Werk hiess es | Berührt |
+|---|---|---|---|---|---|---|
+| **Lesen** | 1 | 0 | 1 | 20 s lang zeigt sich jeder Befallene in 40 m durch Gelände, mit Zustand | Feldabgleich | Anzeige |
+| **Rufen** | 1 | 1 | 1 | ein gereinigtes Tier des Reviers kommt; mit Halfter das Reittier | Rückruf | Welt |
+| **Stillen** | 1 | 1 | 2 | ein Befallener in 6 m hält 3 s inne, wenn er nicht gerade ausholt | Ruhigstellen vor dem Eingriff | **Kampfwert** |
+| **Stoss** | 1 | 2 | 2 | wirft Befallene in 2,5 m drei Meter zurück, nimmt Haltung, kein Schaden | Abstandsimpuls | **Kampfwert** |
+| **Binden** | 2 | 2 | 3 | ein gegriffenes Tier bleibt 2 s länger am Boden | Haltestrom verlängern | **Kampfwert** |
+| **Schirm** | 2 | 3 | 3 | 4 s lang macht der Griff nicht verwundbarer | Eigenschutz des Trägers | **Kampfwert** |
+| **Nachhall** | 3 | 4 | 3 | reinigt ein wundes gewöhnliches Tier aus 6 m, ohne Griff | Fernabgleich, „nicht freigegeben“ | **Kampfwert** |
+
+Zusammen 15 Einsicht; mit den Techniken (22) sind es 37 gegen höchstens 13 je Kapitel. Zwei Wirken (Lesen, Rufen)
+berühren keinen geprüften Wert; fünf brauchen eine Messung, die in den Daten steht. **Nachhall ist das riskanteste
+Stück:** Er hebt die Regel „Reinigen braucht Nähe“ auf — nur vertretbar als letzte Stufe, zu dreifachem Preis.
+Kein Wirken macht Schaden.
+
+### In der Rechnung der vier Spielweisen
+
+Angenommen (gesetzt, nicht gemessen): Der Schlächter gibt die Hälfte seiner Ladungen fürs Wirken aus (er reinigt ja
+nicht), der Umgeher 40 % (Lesen, Rufen, Stillen), Gemischt und Heiler 15 %.
+
+| | Schlächter | Gemischt | Heiler | Umgeher |
+|---|---|---|---|---|
+| Ladungen ins Wirken | 50 | 17 | 27 | 38 |
+| Tiere gereinigt (vorher) | 0 | 90 (104) | 138 (171) | 32 (33) |
+| Läuterung → Markenstufe (vorher) | 25 → 1 | 145 → 3 (154) | 203 → 4 (236) | 67 → 2 |
+
+**Das Wirken gibt dem Schlächter zum ersten Mal einen Grund, die Marke zu benutzen** — und es kostet den Heiler ein
+Fünftel seiner Reinigungen. Die Markenstufen bleiben, wo sie waren.
+
+## 14. Der Zähler der Mönche: Reinigen wiegt ein Viertel
+
+**Umgesetzt** (die eine erlaubte Änderung an Spiellogik): Die Gewichte stehen als Daten an der Station des Zählers,
+`content/wanderfiguren/zaehler.json` → `bis: { art: "eingriffe", anzahl: 40, gewichte: { getoetet: 1, gereinigt: 0.25 } }`
+(Schema `Stationsbedingung`). `eingriffe(w, gewichte)` in `src/spiel/wanderfiguren.ts` rechnet damit; ohne Gewichte
+zählt beides voll wie vor D405. Ein Vorkommen zählt einmal — erst gereinigt, dann getötet zählt als getötet.
+
+| | Schlächter | Gemischt | Heiler | Umgeher |
+|---|---|---|---|---|
+| Eingriffe ungewichtet (vor D405) | 291 | 291 | 143 | 33 |
+| **Stand beim Zähler (gewichtet)** | **291** | **221** | **36** | **8** |
+| Unter der Schwelle 40 | nein | nein | **ja** | ja |
+
+**Befund, und er ist nicht harmlos:** Mit dem Viertel bleibt bei Schwelle 40 auch der **Heiler** unter dem Zähler
+(36). Damit hat er alles, was der Umgeher hat, und mehr — der Umgeher verliert sein einziges Eigenes und wird auf
+allen sechs Achsen geschlagen (1 / 4 / +10 / +10 / 11 / ja gegen 0 / 2 / +5 / +5 / 7 / ja). Der dritte Spielstil
+(D385) wäre damit nur noch ein schwächerer Heiler.
+
+| Schwelle | darunter bleiben | Wer trennt sich |
+|---|---|---|
+| 30 | nur der Umgeher (8) | Heiler (36) und Umgeher wieder getrennt; kein Stil schlägt einen anderen auf allen Achsen (Test) |
+| **40 (heute)** | Heiler (36), Umgeher (8) | Heiler schlägt Umgeher |
+| 50–60 | Heiler, Umgeher | dasselbe |
+
+**Vorschlag: Schwelle 30.** Dann darf man rund 120 Tiere reinigen oder 30 töten, bevor die Mönche sich abwenden: Der
+gründliche Heiler (138) verliert sie knapp, ein zurückhaltender behält sie. Der Heiler liegt bei 36 nur sechs
+Punkte darüber — die Zahl hängt an der Annahme, wie viel er wirkt (ohne Wirken: 44). **Die Schwelle in den Daten ist
+nicht geändert**; das ist Flos Entscheidung (A-32). Der Test hält fest, was bei 40 und was bei 30 gilt.
+
+## 15. Unklar (D405)
+
+- ⚠️ Kein Kampfwert für Hirschfänger, Schlägel, Sapie, Langes Messer, Bogen, Armbrust; die Fernkampf-Zahlen sind
+  gesetzt und ungemessen.
+- ⚠️ Die UAL2-Datei war nicht einsehbar; welche Clips die freie Bibliothek für Zweihand, Hammer oder Bogen hergibt,
+  ist offen.
+- ⚠️ Alle neuen Gewichtsanker sind Überschläge ohne Quelle.
+- ⚠️ Der Anteil der Ladungen, der ins Wirken geht (50 / 15 / 15 / 40 %), ist gesetzt.
+- ⚠️ Recherche zu Magie in anderen Spielen: bis auf Sekiro nicht belegt.
+- ⚠️ Die von D404 verlangte Nachmessung „Haltungsbruch mit Reinigen und gegen Menschen“ ist **nicht** Teil dieser
+  Arbeit; sie ist Schritt 1 in §9 und Voraussetzung für Schlägel und Budget.

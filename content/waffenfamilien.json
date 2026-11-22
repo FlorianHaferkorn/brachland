@@ -1,0 +1,388 @@
+{
+  "familien": [
+    {
+      "id": "klinge",
+      "name": "Klinge",
+      "status": "bestand",
+      "kapitel": 1,
+      "art": "nah",
+      "baukasten": "klinge",
+      "gefuehl": "Schnell angesetzt, lang erholt: Timing statt Tastenrhythmus.",
+      "trennt": "Drei Linien in der Kette, mittlere Reichweite (2,4 m), höchster Schaden je Sekunde, wenig Haltungsschaden.",
+      "reinigen": "Mit steigender Güte sinkt die Reinigungsquote (90 → 70 %, D403): Sie trägt das Tier über die Schwelle.",
+      "anker": {
+        "masse": "1,1 kg",
+        "laenge": "0,90 m",
+        "quelle": "Einhandschwert im Mittel 1,1 kg, 90 cm, Klinge 75 cm (Wikipedia „Knightly sword“; thearma.org)"
+      },
+      "clips": {
+        "vorhanden": [
+          "Klinge_Stand",
+          "Klinge_U_A",
+          "Klinge_U_B",
+          "Klinge_Stich",
+          "Klinge_U_C",
+          "Klinge_U_Lauf",
+          "Klinge_U_Block"
+        ],
+        "fehlen": []
+      },
+      "messung": "gemessen (Kampfbot D171, Baukasten D403)",
+      "erwerb": "Startwaffe",
+      "aufwand": "S"
+    },
+    {
+      "id": "axt",
+      "name": "Axt",
+      "status": "bestand",
+      "kapitel": 1,
+      "art": "nah",
+      "baukasten": "axt",
+      "gefuehl": "Langer Vorlauf, der durchgeht: wer ausholt, zuckt nicht.",
+      "trennt": "Standfest, wirft, bricht Haltung; langsam; breiter Querhieb gegen Überzahl.",
+      "reinigen": "Bricht die Haltung und öffnet damit Griff-Fenster; tötet kleine Tiere aber mit einem Hieb.",
+      "anker": {
+        "masse": "1,85 kg",
+        "laenge": "0,80 m",
+        "quelle": "Spaltaxt, Kopf um 1,4 kg, Stiel 80 cm Esche — Überschlag, nicht belegt"
+      },
+      "clips": {
+        "vorhanden": [
+          "Axt_Stand",
+          "Axe_Overhead",
+          "Axt_Quer",
+          "Axt_Schwer",
+          "Axt_Lauf",
+          "Axt_Block"
+        ],
+        "fehlen": []
+      },
+      "messung": "gemessen (Kampfbot D171, Baukasten D403)",
+      "erwerb": "Fundwaffe „Spaltaxt vom Bruch“ (D393)",
+      "aufwand": "S"
+    },
+    {
+      "id": "speer",
+      "name": "Saufeder",
+      "status": "bestand",
+      "kapitel": 1,
+      "art": "nah",
+      "baukasten": "speer",
+      "gefuehl": "Abstand statt Wucht: hält draussen, was anspringt.",
+      "trennt": "Weiteste Reichweite (3,1–4,0 m), schmaler Stich, weiter Rückstoss, wenig Schaden je Sekunde; gegen drei fehlt der Bogen.",
+      "reinigen": "Hält auf Abstand — die Marke braucht 1,8 m Nähe: Man muss den Abstand selbst wieder aufgeben.",
+      "anker": {
+        "masse": "1,44 kg",
+        "laenge": "2,0 m",
+        "quelle": "Saufeder um 2 m mit Knebel — Überschlag, nicht belegt"
+      },
+      "clips": {
+        "vorhanden": [
+          "Speer_Stand",
+          "Speer_Stoss",
+          "Speer_Weit",
+          "Speer_Lauf",
+          "Speer_Block"
+        ],
+        "fehlen": []
+      },
+      "messung": "gemessen (Kampfbot D171, Baukasten D403)",
+      "erwerb": "Fundwaffe „Saufeder“ aus dem Forsthaus (D393)",
+      "aufwand": "S"
+    },
+    {
+      "id": "hirschfaenger",
+      "name": "Hirschfänger",
+      "status": "entwurf",
+      "kapitel": 1,
+      "art": "nah",
+      "baukasten": "klinge",
+      "gefuehl": "Nah und schnell: man steht im Bogen des Tiers, bevor man trifft.",
+      "trennt": "Kürzeste Reichweite, kürzeste Fenster, wenig Schaden je Treffer, geringe Kosten; kein schwerer Hieb, dafür ein Stich mit kurzem Vorlauf.",
+      "reinigen": "Die Waffe des Heilers: Kleine Treffer bringen ein Tier an die Schwelle, ohne es darüber zu tragen (D403: kurzes Blatt 88 % gereinigt, Zweck dort aber ungenutzt).",
+      "anker": {
+        "masse": "0,6–0,8 kg",
+        "laenge": "0,55–0,70 m",
+        "quelle": "Hirschfänger, jagdliche Seitenwaffe mit 40–70 cm Klinge — Überschlag, nicht belegt"
+      },
+      "clips": {
+        "vorhanden": [
+          "Klinge_Stand",
+          "Klinge_U_A",
+          "Klinge_U_B",
+          "Klinge_Stich",
+          "Klinge_U_C",
+          "Klinge_U_Lauf",
+          "Klinge_U_Block"
+        ],
+        "fehlen": []
+      },
+      "messung": "Kampfbot wie D403 mit eigenen Fenstern; als Näherung liegt „kurzes Blatt“ vor (+11 % Kampfdauer, 97 % Siege)",
+      "erwerb": "Förster, nach `bis-zur-kante` — oder von Beginn an als Zweitwaffe am Gürtel (zu entscheiden)",
+      "aufwand": "S"
+    },
+    {
+      "id": "schlaegel",
+      "name": "Schlägel",
+      "status": "entwurf",
+      "kapitel": 1,
+      "art": "nah",
+      "baukasten": "axt",
+      "gefuehl": "Stumpf und schwer: bricht die Haltung, nicht die Haut.",
+      "trennt": "Zweihändig, höchster Haltungsschaden, niedrigster Schaden; längster Vorlauf; standfest; kein Laufangriff.",
+      "reinigen": "Bringt ein Tier zum Taumeln, ohne es zu töten — der andere Weg des Heilers. Gegen Menschen endet der Kampf mit dem Haltungsbruch (D385).",
+      "anker": {
+        "masse": "2–3 kg",
+        "laenge": "0,8–0,9 m",
+        "quelle": "Steinbruch-Schlägel/Fäustel am langen Stiel; Vorschlaghammer real 3–5 kg — Überschlag, nicht belegt"
+      },
+      "abweichung": "Ein Vorschlaghammer von 4–5 kg ist real zu träge für einen Kampf. Gemeint ist ein leichterer Schlägel (2–3 kg); benannt zugunsten des Spiels.",
+      "clips": {
+        "vorhanden": [
+          "Axt_Stand",
+          "Axe_Overhead",
+          "Axt_Schwer",
+          "Axt_Block"
+        ],
+        "fehlen": [
+          "Schlaegel_Quer (zweihändig, tief)",
+          "Schlaegel_Stand (zweihändig)"
+        ]
+      },
+      "messung": "Kampfbot mit Reinigen und gegen Menschen — D403 mass den Hammerkopf nur im Tötungsmodus (+23 … +42 %, „nutzlos“)",
+      "erwerb": "Wart vom Bruch (Steinbruch), als zweiter Lohn seiner Linie",
+      "aufwand": "M"
+    },
+    {
+      "id": "sapie",
+      "name": "Sapie",
+      "status": "entwurf",
+      "kapitel": 2,
+      "art": "nah",
+      "baukasten": "speer",
+      "gefuehl": "Haken an der Stange: zieht heran, was ausweichen will.",
+      "trennt": "Stangenreichweite wie der Speer, aber Hieb mit Haken statt Stich: zieht das Ziel heran und aus der Haltung; langsam im Zurückholen.",
+      "reinigen": "Zieht ein wundes Tier in Griffweite — die einzige Waffe, die den Abstand für die Marke schliesst.",
+      "anker": {
+        "masse": "1,5–2,5 kg",
+        "laenge": "1,2–1,6 m",
+        "quelle": "Sapie/Sappel, Forstwerkzeug zum Ziehen und Wenden von Stämmen — Überschlag, nicht belegt"
+      },
+      "abweichung": "Die Sapie ist ein Werkzeug, keine Waffe: schwer am Kopf, träge. Wir meinen sie so, wie sie ist — als langsames Zugwerkzeug, nicht als Hellebarde.",
+      "clips": {
+        "vorhanden": [
+          "Speer_Stand",
+          "Speer_Block"
+        ],
+        "fehlen": [
+          "Sapie_Hieb (über Kopf, Haken voran)",
+          "Sapie_Zug (heranreissen)",
+          "Sapie_Lauf"
+        ]
+      },
+      "messung": "neue Wirkung „zieht heran“ in den Regeln (wie `wirft`), dann Kampfbot; Reinigen-Messung zwingend",
+      "erwerb": "Region 2 oder Hütte im Bannwald (Forst)",
+      "aufwand": "M"
+    },
+    {
+      "id": "kriegsmesser",
+      "name": "Langes Messer",
+      "status": "entwurf",
+      "kapitel": 2,
+      "art": "nah",
+      "baukasten": "klinge",
+      "gefuehl": "Zwei Hände, weiter Bogen: Platz schaffen.",
+      "trennt": "Zweihändig, breiteste Bögen, mehr Reichweite und Wucht als die Klinge, langsamer, teurer in der Ausdauer; die Antwort auf das Rudel.",
+      "reinigen": "Schlecht: breite Hiebe treffen auch das Tier, das man schonen wollte.",
+      "anker": {
+        "masse": "1,2–1,8 kg",
+        "laenge": "1,1–1,3 m",
+        "quelle": "Kriegsmesser/Langes Messer, zweihändig, süddeutsch, 15.–16. Jh. — Überschlag, nicht belegt"
+      },
+      "clips": {
+        "vorhanden": [
+          "Klinge_U_C"
+        ],
+        "fehlen": [
+          "Messer_Stand (zweihändig)",
+          "Messer_Quer_A",
+          "Messer_Quer_B",
+          "Messer_Lauf",
+          "Messer_Block"
+        ]
+      },
+      "messung": "Kampfbot gegen Rudel (zwei und drei Tiere) — dort liegt ihr Zweck",
+      "erwerb": "Region 2, Linie des Erbes",
+      "aufwand": "L"
+    },
+    {
+      "id": "bogen",
+      "name": "Bogen und Armbrust",
+      "status": "entwurf",
+      "kapitel": 1,
+      "art": "fern",
+      "gefuehl": "Der erste Treffer gehört dir, der zweite dem Tier.",
+      "trennt": "Einzige Familie auf Distanz: eröffnet den Kampf, beendet ihn selten. Stehen zum Spannen, knappe Munition.",
+      "reinigen": "Kann schwächen, nie reinigen (die Marke braucht 1,8 m). Aus der Ferne getötet zählt beim Zähler voll.",
+      "anker": {
+        "masse": "Bogen 0,7 kg, Armbrust 3–4 kg",
+        "laenge": "Bogen 1,7 m, Armbrust 0,8 m",
+        "quelle": "Jagdbogen 20–25 kg Zuggewicht, Pfeil um 30 g; Jagdarmbrust mit Hebel — Überschlag, nicht belegt"
+      },
+      "abweichung": "Eine Armbrust zu spannen dauert real 15–60 s je nach Spannhilfe; im Spiel 6 s. Benannt zugunsten des Spiels.",
+      "clips": {
+        "vorhanden": [],
+        "fehlen": [
+          "Bogen_Stand",
+          "Bogen_Spannen",
+          "Bogen_Loesen",
+          "Armbrust_Anlegen",
+          "Armbrust_Laden",
+          "Armbrust_Schuss"
+        ]
+      },
+      "messung": "Regeln für Geschosse fehlen (ADR-0019 Proposed); danach Kampfbot mit Fernprofil: Wie viele Schüsse vor dem Nahkampf, wie oft flieht das Tier",
+      "erwerb": "Bogen: Förster (Jagd). Armbrust: Werk, Wachschrank — später",
+      "aufwand": "L"
+    },
+    {
+      "id": "dreschflegel",
+      "name": "Kriegsflegel",
+      "status": "zurueckgestellt",
+      "art": "nah",
+      "gefuehl": "Kommt um die Deckung herum und nicht mehr zurück.",
+      "trennt": "Gelenk am Stiel: umgeht Block, eigener Rhythmus, langes Nachschwingen.",
+      "reinigen": "unklar",
+      "anker": {
+        "masse": "2–2,5 kg",
+        "laenge": "1,5 m + 0,4 m Schlagholz",
+        "quelle": "Dreschflegel; als Kriegsflegel mit Eisenbeschlag historisch belegt (Bauernaufstände, Hussiten) — Überschlag, nicht belegt"
+      },
+      "abweichung": "Ein Dreschflegel ist real schwer zu führen und gefährdet den Träger. Gemeint wäre die Kriegsform mit Beschlag.",
+      "clips": {
+        "vorhanden": [],
+        "fehlen": [
+          "ganzer Satz, dazu ein bewegliches Gelenk im Modell"
+        ]
+      },
+      "messung": "neue Regel „umgeht Block“ und ein Schlag mit zwei Trefferzeitpunkten",
+      "erwerb": "—",
+      "aufwand": "L"
+    },
+    {
+      "id": "kriegssense",
+      "name": "Kriegssense",
+      "status": "zurueckgestellt",
+      "art": "nah",
+      "gefuehl": "Eine Klinge am falschen Ende eines langen Stiels.",
+      "trennt": "Stangenwaffe mit Schnitt statt Stich.",
+      "reinigen": "unklar",
+      "anker": {
+        "masse": "2–3 kg",
+        "laenge": "2,0–2,5 m",
+        "quelle": "aufrecht geschmiedete Sensenklinge am Schaft, Bauernheere bis ins 19. Jh. — Überschlag, nicht belegt"
+      },
+      "abweichung": "Eine Mähsense ist real eine schlechte Waffe: Die Schneide steht quer zum Stiel und zeigt nach innen. Nur die umgeschmiedete Kriegssense taugt — und die deckt sich im Spiel mit Speer und Sapie.",
+      "clips": {
+        "vorhanden": [
+          "Speer_Stand"
+        ],
+        "fehlen": [
+          "ganzer Satz"
+        ]
+      },
+      "messung": "—",
+      "erwerb": "—",
+      "aufwand": "L"
+    }
+  ],
+  "fernkampf": {
+    "waffen": [
+      {
+        "id": "bogen",
+        "name": "Jagdbogen",
+        "spannen": 0.9,
+        "spannenReal": "1–2 s Ausziehen und Zielen; geübt 6–10 Schuss je Minute",
+        "haltenJeSek": 14,
+        "kosten": 18,
+        "tempo": 55,
+        "schaden": 24,
+        "haltungsschaden": 14,
+        "inBewegung": false
+      },
+      {
+        "id": "armbrust",
+        "name": "Armbrust",
+        "spannen": 6,
+        "spannenReal": "15–20 s mit Hebel, 30–60 s mit Winde",
+        "haltenJeSek": 0,
+        "kosten": 10,
+        "tempo": 65,
+        "schaden": 46,
+        "haltungsschaden": 40,
+        "inBewegung": false
+      }
+    ],
+    "geschosse": [
+      {
+        "id": "jagdpfeil",
+        "name": "Jagdpfeil",
+        "fuer": [
+          "bogen"
+        ],
+        "masse": 30,
+        "schaden": 1,
+        "haltung": 1,
+        "traglast": 12,
+        "wiederfinden": 0.5,
+        "preis": {
+          "federstahl": 1,
+          "chitinspan": 1
+        },
+        "ergibt": 6,
+        "text": "Hasel, Gänsefeder, Spitze aus einem Sägeblatt. Jeder zweite steckt danach noch irgendwo."
+      },
+      {
+        "id": "kolbenpfeil",
+        "name": "Kolbenpfeil",
+        "fuer": [
+          "bogen"
+        ],
+        "masse": 40,
+        "schaden": 0.3,
+        "haltung": 2.2,
+        "traglast": 8,
+        "wiederfinden": 0.8,
+        "preis": {
+          "chitinspan": 1
+        },
+        "ergibt": 4,
+        "text": "Stumpfer Holzkopf, wie man ihn für Vögel schnitzt. Wirft um, was er trifft, und lässt es leben."
+      },
+      {
+        "id": "bolzen",
+        "name": "Bolzen",
+        "fuer": [
+          "armbrust"
+        ],
+        "masse": 70,
+        "schaden": 1,
+        "haltung": 1,
+        "traglast": 6,
+        "wiederfinden": 0.5,
+        "preis": {
+          "federstahl": 1
+        },
+        "ergibt": 3,
+        "text": "Kurz, schwer, vierkantig. Geht durch Chitin. Sechs davon sind eine Tasche voll."
+      }
+    ],
+    "regeln": [
+      "Spannen und Laden nur im Stand; wer sich bewegt, entspannt. Gespannt halten zehrt Ausdauer (Bogen), die Armbrust bleibt geladen, bis sie schiesst.",
+      "Ein Schuss trifft höchstens so hart wie ein leichter (Bogen) oder schwerer (Armbrust) Hieb der Klinge; kein Schadensbonus für Distanz, kein Kopftreffer.",
+      "Beschossene Befallene gehen an, scheue reine Tiere fliehen. Ein Tier, das ausser Sicht flieht, ist fort: kein Material, keine Reinigung.",
+      "Die Marke greift nur in 1,8 m: Ein Geschoss kann ein Tier wund machen, nie reinigen. Aus der Ferne getötet zählt beim Zähler wie jeder Getötete.",
+      "Munition ist Material: Spitzen aus Federstahl, also aus Getöteten oder dem Altbestand. Der Kolbenpfeil kostet nur Span und ist die Munition des Heilers."
+    ]
+  }
+}

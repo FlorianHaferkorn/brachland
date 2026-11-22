@@ -11,8 +11,8 @@
  * Tabelle in `docs/design/BRACHLAND_Gegenstaende-und-Aufwertung_v1.md` §3.
  */
 import { readFileSync } from 'node:fs';
-import { Oekonomie, ReinigenDaten, Belohnungen, Techniken, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
-import { bilanz, SPIELWEISEN } from '../src/spiel/oekonomie.js';
+import { Oekonomie, ReinigenDaten, Belohnungen, Techniken, Wirken, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
+import { bilanz, SPIELWEISEN, zaehlerStand } from '../src/spiel/oekonomie.js';
 import { JE_STUFE } from '../src/spiel/schmiede.js';
 
 const lies = (p: string) => JSON.parse(readFileSync(p, 'utf8'));
@@ -49,28 +49,32 @@ spalte('Anteil gereinigt an den Eingriffen', b => `${Math.round(b.anteilGereinig
 // --- D400: Fortschritt der Spielfigur
 const techniken = Techniken.parse(lies('content/techniken.json'));
 const technikKosten = techniken.reduce((n, t) => n + t.kosten, 0);
-// Schwelle des Zählers: die grösste `eingriffe`-Bedingung in seinen Stationen.
-const schwellen: number[] = [];
+// Schwelle und Gewichte des Zählers: die `eingriffe`-Bedingung in seinen Stationen (D404: Reinigen wiegt leichter).
+let moenchsSchwelle = Infinity, gewichte = { getoetet: 1, gereinigt: 1 };
 JSON.stringify(lies('content/wanderfiguren/zaehler.json'), (_k, v) => {
-  if (v && typeof v === 'object' && v.art === 'eingriffe' && typeof v.anzahl === 'number') schwellen.push(v.anzahl);
+  if (v && typeof v === 'object' && v.art === 'eingriffe' && typeof v.anzahl === 'number') { moenchsSchwelle = v.anzahl; if (v.gewichte) gewichte = v.gewichte; }
   return v;
 });
-const moenchsSchwelle = schwellen.length ? Math.max(...schwellen) : Infinity;
-console.log(`\nFortschritt der Spielfigur (D400) — Techniken: ${techniken.length} für zusammen ${technikKosten} Einsicht; Zähler der Mönche: höchstens ${moenchsSchwelle} Eingriffe\n`);
+const wirken = Wirken.parse(lies('content/wirken.json'));
+const wirkenKosten = wirken.reduce((n, x) => n + x.einsicht, 0);
+const stand = (b: typeof zeilen[number]) => zaehlerStand(b, gewichte);
+console.log(`\nFortschritt der Spielfigur (D400/D405) — Techniken: ${techniken.length} für ${technikKosten} Einsicht, Wirken: ${wirken.length} für ${wirkenKosten}; Zähler: Schwelle ${moenchsSchwelle}, getötet × ${gewichte.getoetet}, gereinigt × ${gewichte.gereinigt}\n`);
 console.log(`| | ${zeilen.map(z => z.name).join(' | ')} |`);
 console.log(`|---|${zeilen.map(() => '---').join('|')}|`);
-spalte('Eingriffe (getötet + gereinigt)', b => `${b.eingriffe}`);
-spalte('Mönche trauen', b => b.eingriffe <= moenchsSchwelle ? 'ja' : 'nein');
+spalte('Eingriffe ungewichtet (vor D405)', b => `${b.eingriffe}`);
+spalte('Stand beim Zähler (gewichtet)', b => `${stand(b).toFixed(0)}`);
+spalte('Mönche trauen', b => stand(b) <= moenchsSchwelle ? 'ja' : 'nein');
+spalte('Ladungen ins Wirken (D405)', b => `${b.wirkenLadungen}`);
 spalte('leere Reviere → nachgewanderte Verhärtete', b => `${b.leereReviere} → ${b.nachgewandert}`);
 spalte('Bossteile Mark / Abwurf', b => `${b.mark} / ${b.abwurf}`);
 spalte('Dauersude: Leben / Ausdauer', b => `+${b.lebenPlus} / +${b.ausdauerPlus}`);
 spalte('Figurenlinien abgeschlossen', b => `${b.linien} von ${o.erfahrung.linien}`);
-spalte('Einsicht (von ' + technikKosten + ' für alle Techniken)', b => `${b.einsicht}`);
+spalte('Einsicht (von ' + (technikKosten + wirkenKosten) + ' für alle Techniken und alles Wirken)', b => `${b.einsicht}`);
 
 // Dominanzprüfung über alle Achsen: Waffe, Marke, Leben, Ausdauer, Einsicht, Vertrauen der Mönche.
 // Keine Spielweise darf eine andere auf jeder Achse erreichen und auf einer übertreffen.
 console.log('\nDominanz (Waffe, Marke, Leben, Ausdauer, Einsicht, Mönche):');
-const achsen = (b: typeof zeilen[number]) => [b.waffen[0], b.markenStufe, b.lebenPlus, b.ausdauerPlus, b.einsicht, b.eingriffe <= moenchsSchwelle ? 1 : 0];
+const achsen = (b: typeof zeilen[number]) => [b.waffen[0], b.markenStufe, b.lebenPlus, b.ausdauerPlus, b.einsicht, stand(b) <= moenchsSchwelle ? 1 : 0];
 let dominiert = 0;
 for (const x of zeilen) for (const y of zeilen) if (x !== y) {
   const ax = achsen(x), ay = achsen(y);
@@ -79,6 +83,8 @@ for (const x of zeilen) for (const y of zeilen) if (x !== y) {
   }
 }
 if (!dominiert) console.log('  ✓ keine Spielweise schlägt eine andere auf allen Achsen');
+else console.log('  (Befund D405: mit Reinigen × 0,25 bleibt bei Schwelle 40 auch der Heiler unter dem Zähler; bei 30 trennt er Heiler und Umgeher wieder — A-32)');
+console.log(`  Schwellenprobe: unter 30 bleiben ${zeilen.filter(z => stand(z) <= 30).map(z => z.name).join(', ') || 'niemand'}; unter 40 ${zeilen.filter(z => stand(z) <= 40).map(z => z.name).join(', ') || 'niemand'}; unter 50 ${zeilen.filter(z => stand(z) <= 50).map(z => z.name).join(', ') || 'niemand'}; unter 60 ${zeilen.filter(z => stand(z) <= 60).map(z => z.name).join(', ') || 'niemand'}`);
 for (const z of zeilen) console.log(`    ${z.name.padEnd(11)} ${achsen(z).join(' / ')}`);
 
 console.log('\nBelohnungsleiter (Mengenware je Sprosse):');

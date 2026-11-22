@@ -30,14 +30,25 @@ export interface Weltstand {
   gereinigt?: readonly string[];
 }
 
+/** Wie schwer ein Eingriff beim Zähler wiegt (D404). Ohne Angabe zählt beides voll, wie vor D405. */
+export interface EingriffGewichte { getoetet: number; gereinigt: number }
+export const GLEICH_SCHWER: EingriffGewichte = { getoetet: 1, gereinigt: 1 };
+
 /**
- * Wie oft der Brachgänger eingegriffen hat (D385): Die Mönche zählen ein gereinigtes Tier wie ein getötetes —
- * beides nimmt dem Land etwas. Der Regent zählt nicht mit; über ihn urteilt die Station selbst (`regent`/`heile`).
- * Abgeleitet, nicht mitgeschrieben, wie der Auftragsfortschritt.
+ * Wie viel der Brachgänger eingegriffen hat (D385): Die Mönche zählen jedes Tier, das er angefasst hat —
+ * beides nimmt dem Land etwas. Seit D404 wiegt Reinigen leichter als Töten; **wie viel**, steht als Daten an
+ * der Station (`bis.gewichte` in `content/wanderfiguren/`), nicht hier. Ein Vorkommen zählt einmal, und zwar
+ * mit dem schwereren Gewicht, falls es in beiden Listen steht. Der Regent zählt nicht mit; über ihn urteilt die
+ * Station selbst (`regent`/`heile`). Abgeleitet, nicht mitgeschrieben, wie der Auftragsfortschritt.
  */
-export function eingriffe(w: Pick<Weltstand, 'besiegt' | 'gereinigt'>): number {
+export function eingriffe(w: Pick<Weltstand, 'besiegt' | 'gereinigt'>, gewichte: EingriffGewichte = GLEICH_SCHWER): number {
   const tiere = (ids: readonly string[] = []) => ids.filter(id => !id.startsWith('regent:'));
-  return new Set([...tiere(w.besiegt), ...tiere(w.gereinigt)]).size;
+  const je = new Map<string, number>();
+  for (const id of tiere(w.gereinigt)) je.set(id, gewichte.gereinigt);
+  for (const id of tiere(w.besiegt)) je.set(id, Math.max(je.get(id) ?? 0, gewichte.getoetet));
+  let summe = 0;
+  for (const g of je.values()) summe += g;
+  return summe;
 }
 
 export function gilt(b: Stationsbedingung, w: Weltstand): boolean {
@@ -46,7 +57,7 @@ export function gilt(b: Stationsbedingung, w: Weltstand): boolean {
     case 'regent':  return w.regenten.includes(b.regent);
     case 'heile':   return w.geheilt.includes(b.regent);
     case 'auftrag': return w.auftraege[b.auftrag] === 'abgeholt';
-    case 'eingriffe': return eingriffe(w) >= b.anzahl;
+    case 'eingriffe': return eingriffe(w, b.gewichte) >= b.anzahl - 1e-9;
   }
 }
 

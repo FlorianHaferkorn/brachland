@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Belohnungen, Oekonomie, Techniken, Waffenbaukasten, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
+import { Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -272,6 +272,23 @@ const auftragIds = new Set(auftraege.map((a: any) => a.id));
       for (const g of wb.data.gestalten) kenne(`waffenteile gestalten ${g.id}`, Object.keys(g.preis ?? {}));
     }
     if (d.baukasten) kenne('baukasten.umbau', Object.keys(d.baukasten.umbau));
+    // D405: Waffenfamilien (Plan), Fernkampf-Entwurf, Wirken der Marke.
+    const wf = Waffenfamilienplan.safeParse(JSON.parse(readFileSync('content/waffenfamilien.json', 'utf8')));
+    if (!wf.success) meldeB(`waffenfamilien.json: ${wf.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    else {
+      for (const fam of wf.data.familien.filter(x => x.status === 'bestand'))
+        if (!existsSync(`content/waffen/${fam.id}.json`)) meldeB(`waffenfamilien.json: Bestandsfamilie '${fam.id}' hat keine Datei in content/waffen/`);
+      const fernIds = new Set(wf.data.fernkampf.waffen.map(x => x.id));
+      for (const g of wf.data.fernkampf.geschosse) {
+        kenne(`waffenfamilien fernkampf ${g.id}`, Object.keys(g.preis));
+        for (const w of g.fuer) if (!fernIds.has(w)) meldeB(`waffenfamilien.json: Geschoss '${g.id}' nennt die Fernwaffe '${w}', die es nicht gibt`);
+      }
+      const k1 = wf.data.familien.filter(x => x.kapitel === 1 && x.status !== 'zurueckgestellt').length;
+      if (k1 < 4 || k1 > 6) meldeB(`waffenfamilien.json: ${k1} Familien in Kapitel 1, vorgesehen sind etwa fünf (D404)`);
+    }
+    const wk = Wirken.safeParse(JSON.parse(readFileSync('content/wirken.json', 'utf8')));
+    if (!wk.success) meldeB(`wirken.json: ${wk.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    else for (const w of wk.data) if (w.markenStufe > d.marke.schwellen.length) meldeB(`wirken.json: '${w.id}' verlangt Markenstufe ${w.markenStufe}, es gibt nur ${d.marke.schwellen.length}`);
     const tk = Techniken.safeParse(JSON.parse(readFileSync('content/techniken.json', 'utf8')));
     if (!tk.success) meldeB(`techniken.json: ${tk.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
     for (const [region, r] of Object.entries(d.regionen)) {

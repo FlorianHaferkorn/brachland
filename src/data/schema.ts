@@ -491,8 +491,10 @@ export const Stationsbedingung = z.discriminatedUnion('art', [
   /**
    * Der Zähler der Mönche (D385, D392): wahr, sobald der Brachgänger so oft eingegriffen hat — getötet **oder**
    * gereinigt, beides zählt. Wie alle Bedingungen hier nur in eine Richtung: einmal wahr, immer wahr.
+   * `gewichte` (D404/D405): wie schwer ein Eingriff wiegt. Ohne Angabe zählt beides voll (wie vor D405).
    */
-  z.object({ art: z.literal('eingriffe'), anzahl: z.number().int().min(1).max(500) }),
+  z.object({ art: z.literal('eingriffe'), anzahl: z.number().int().min(1).max(500),
+    gewichte: z.object({ getoetet: z.number().min(0).max(2), gereinigt: z.number().min(0).max(2) }).optional() }),
 ]);
 export type Stationsbedingung = z.infer<typeof Stationsbedingung>;
 
@@ -869,6 +871,77 @@ export const Waffenbaukasten = z.object({
   gestalten: z.array(z.object({ id: Kennung, name: z.string().max(40), ort: z.enum(['griff', 'schaft', 'kopf', 'zeug']), preis: z.record(Kennung, z.number().int().min(1).max(9)).optional(), text: z.string().max(160) })).min(1),
 }).strict();
 export type Waffenbaukasten = z.infer<typeof Waffenbaukasten>;
+
+// ------------------------------------------------------- Waffenfamilien und Wirken (D405, Entwurf)
+
+/**
+ * Plan der Waffenfamilien (D404/D405): was es gibt, was kommen soll, und was dafür fehlt. **Keine Kampfwerte**
+ * — die stehen für den Bestand in `content/waffen/`, für neue Familien gibt es sie erst nach der Messung.
+ */
+export const Waffenfamilienplan = z.object({
+  familien: z.array(z.object({
+    id: Kennung, name: z.string().max(40),
+    status: z.enum(['bestand', 'entwurf', 'zurueckgestellt']),
+    kapitel: z.number().int().min(1).max(5).optional(),
+    art: z.enum(['nah', 'fern']),
+    gefuehl: z.string().max(160),
+    trennt: z.string().max(260),
+    reinigen: z.string().max(200),
+    /** Echtes Gewicht und Länge als Anker (D398) — mit Quelle oder „Überschlag“. */
+    anker: z.object({ masse: z.string().max(40), laenge: z.string().max(40), quelle: z.string().max(260) }),
+    /** Abweichung von der realen Vorlage, falls das Werkzeug real eine schlechte Waffe ist. */
+    abweichung: z.string().max(260).optional(),
+    clips: z.object({ vorhanden: z.array(z.string()), fehlen: z.array(z.string()) }),
+    messung: z.string().max(200),
+    erwerb: z.string().max(200),
+    aufwand: z.enum(['S', 'M', 'L']),
+    /** Baukasten-Familie, deren Formel und Teile sie teilt (`content/waffenteile.json`), falls es eine gibt. */
+    baukasten: z.enum(['klinge', 'axt', 'speer']).optional(),
+  }).strict()).min(3),
+  /** Fernkampf als Entwurf: alle Zahlen ungeprüft, real verankert, Abweichung benannt (ADR-0019 Proposed). */
+  fernkampf: z.object({
+    waffen: z.array(z.object({
+      id: Kennung, name: z.string().max(40),
+      spannen: z.number().positive().describe('Sekunden bis schussbereit'),
+      spannenReal: z.string().max(120),
+      haltenJeSek: z.number().nonnegative().describe('Ausdauer je Sekunde im gespannten Zustand'),
+      kosten: z.number().nonnegative().describe('Ausdauer je Schuss'),
+      tempo: z.number().positive().describe('m/s Abgang'),
+      schaden: z.number().positive(), haltungsschaden: z.number().nonnegative(),
+      inBewegung: z.boolean(),
+    }).strict()).min(1),
+    geschosse: z.array(z.object({
+      id: Kennung, name: z.string().max(40), fuer: z.array(Kennung).min(1),
+      masse: z.number().positive().describe('Gramm'),
+      schaden: z.number().min(0).max(2).describe('Faktor auf den Schaden der Waffe'),
+      haltung: z.number().min(0).max(3).describe('Faktor auf den Haltungsschaden der Waffe'),
+      traglast: z.number().int().min(1).max(40),
+      wiederfinden: z.number().min(0).max(1),
+      preis: z.record(Kennung, z.number().int().min(1).max(9)), ergibt: z.number().int().min(1).max(12),
+      text: z.string().max(200),
+    }).strict()).min(1),
+    regeln: z.array(z.string().max(260)).min(3),
+  }),
+}).strict();
+export type Waffenfamilienplan = z.infer<typeof Waffenfamilienplan>;
+
+/**
+ * Wirken der Marke (D405, Entwurf): keine Zauber, sondern Funktionen der Armklammer. Jedes Wirken kostet
+ * Ladungen — dieselben, die das Reinigen braucht. Freigeschaltet über Markenstufe und Einsicht.
+ */
+export const Wirken = z.array(z.object({
+  id: Kennung, name: z.string().max(40),
+  ladungen: z.number().int().min(1).max(4),
+  markenStufe: z.number().int().min(0).max(6),
+  einsicht: z.number().int().min(1).max(3),
+  wirkung: z.string().max(200),
+  /** Wie das Werk es genannt hätte — die Erklärung aus der Technik der Welt. */
+  werk: z.string().max(160),
+  beruehrt: z.enum(['anzeige', 'welt', 'traversal', 'oekonomie', 'kampfwert']),
+  messung: z.string().max(160).optional(),
+}).strict().refine(w => ['anzeige', 'welt'].includes(w.beruehrt) || !!w.messung, 'wer einen geprüften Wert berührt, nennt die Messung'))
+  .min(1).refine(a => new Set(a.map(w => w.id)).size === a.length, 'Wirken-IDs sind eindeutig');
+export type Wirken = z.infer<typeof Wirken>;
 
 /**
  * Techniken (D400): was der Brachgänger **gelernt** hat. Bezahlt mit Einsicht, an der Rast. Keine Technik
