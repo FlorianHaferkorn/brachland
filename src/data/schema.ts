@@ -882,3 +882,36 @@ export const GegnerDaten = z.object({
   mensch: z.object({ linienFolge: z.array(KampfLinie).min(1), deckung: KampfLinie }).strict().optional(),
 }).strict().refine(g => !(g.mensch && g.linien), 'Menschen schlagen nach linienFolge, nicht nach linien');
 export type GegnerDaten = z.infer<typeof GegnerDaten>;
+
+// --------------------------------------------------------------- Reinigen (Marke, D376)
+
+/**
+ * Reinigen als Kampfhandlung (Story-Bibel v2 §2, D374/D376): Die Marke bindet einen niedergerungenen
+ * Befallenen und reinigt ihn, statt ihn zu töten. Werte in `content/reinigen.json`, Regeln in
+ * `src/kampf/echtzeit.ts` (`setzeReinigenAn`, `schrittReinigen`), Herleitung und Messreihe in
+ * `docs/design/BRACHLAND_Reinigen_v1.md`. Zeiten in Sekunden, Strecken in Metern.
+ */
+export const ReinigenDaten = z.object({
+  reichweite: z.number().positive().max(4).describe('Meter, Mitte Spielerin bis Rand Ziel'),
+  grunddauer: z.number().nonnegative().describe('Sekunden, die jede Reinigung mindestens kanalisiert'),
+  lebenJeSekunde: z.number().positive().describe('so viel vom vollen Leben des Ziels arbeitet die Marke je Sekunde ab'),
+  schwelle: z.number().gt(0).max(1).describe('Lebensanteil, über dem die Marke nicht greift (1 = keine Schwelle)'),
+  wundAb: z.number().min(0).max(1).describe('Lebensanteil, ab dem das Ziel auch in der Erholung greifbar ist'),
+  halten: z.number().nonnegative().describe('Sekunden, die die Marke ein gegriffenes Ziel am Boden hält (Betäubte zusätzlich den Rest ihrer Betäubung)'),
+  loesen: z.number().nonnegative().describe('Sekunden vom Entschluss zu lösen bis die Spielerin frei ist'),
+  nachhall: z.number().nonnegative().describe('Sekunden, die ein gehaltenes Ziel nach einem Abbruch höchstens noch benommen bleibt'),
+  behaltBeiTreffer: z.number().min(0).max(1).describe('Anteil des Fortschritts, der einen Treffer übersteht'),
+  verfallJeSekunde: z.number().nonnegative().describe('Fortschritt (0…1), der je Sekunde ohne Kanal verfällt'),
+  verwundbar: z.number().min(1).max(3).describe('Schadensfaktor auf die kanalisierende Spielerin'),
+  ausdauer: z.number().nonnegative().describe('Ausdauer beim Ansetzen'),
+  ladung: z.number().nonnegative().describe('Markenladung je gelungener Reinigung'),
+  verhaertet: z.object({
+    dauerFaktor: z.number().min(1),
+    ladung: z.number().nonnegative(),
+  }).strict().describe('Verhärtete: nur mit Reinkultur, länger und teurer'),
+  fassung: z.object({
+    start: z.number().int().positive(),
+    jeRegent: z.number().int().nonnegative(),
+  }).strict().describe('Fassungsvermögen der Marke in Ladungen; füllt sich bei der Rast'),
+}).strict();
+export type ReinigenDaten = z.infer<typeof ReinigenDaten>;

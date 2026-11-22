@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, WaffenDaten, GegnerDaten, Fassade, Massstab, Hofbauten, Hofbaukasten,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -89,6 +89,13 @@ pruefe<any>('content/gegner', GegnerDaten);
 for (const f of readdirSync('content/gegner').filter(f => f.endsWith('.json'))) {
   const id = JSON.parse(readFileSync(join('content/gegner', f), 'utf8')).id;
   if (`${id}.json` !== f) { console.log(`  ✗ ${f} trägt id '${id}'`); fehler++; }
+}
+
+console.log('\nReinigen (D376):');
+{
+  const r = ReinigenDaten.safeParse(JSON.parse(readFileSync('content/reinigen.json', 'utf8')));
+  if (r.success) { console.log('  ✓ reinigen.json'); ok++; }
+  else { console.log(`  ✗ reinigen.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++; }
 }
 
 // Querverweise: jede referenzierte Move-ID muss es geben. Ohne diese Pruefung
