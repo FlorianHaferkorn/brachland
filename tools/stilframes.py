@@ -4,7 +4,7 @@ BRACHLAND — Stil-Frames (D369): dieselbe Einstellung der Felsmulde (Zielbild, 
     # 1) Szene bauen und einmal rendern, Pässe als Multilayer-EXR (Bild, Tiefe, Normale, Nebel, Objektindex):
     blender --background --python tools/stilframes.py -- render <objdir> <aus.exr> [breite hoehe samples]
     # 2) Stil im Compositor aus demselben EXR (schnell, keine Szene):
-    blender --background --factory-startup --python tools/stilframes.py -- stil <ein.exr> <roh|gemalt|grafisch|reduziert|aframe|zielbild> <aus.png> [breite hoehe]
+    blender --background --factory-startup --python tools/stilframes.py -- stil <ein.exr> <roh|gemalt|grafisch|reduziert|aframe|zielbild|zielbild3> <aus.png> [breite hoehe]
 
 Ein Render, drei Stile: der Vergleich zeigt nur den Stil, nicht Unterschiede in Geometrie oder Licht. Grundlage ist
 `tools/szenenbau.py` (Terrain aus `tools/terrainexport.ts`, Motive prozedural). Befall-Punkte in der Signalfarbe
@@ -29,8 +29,19 @@ Bewuchs in Polstern, Scan-Bäume im Nahbereich, Wolkenhimmel, Bergkulissen —
     #    Stellschrauben (Umgebung): ZIELBILD_AZ/EL (Sonne), ZIELBILD_SONNE/FUELL/HIMMEL (Stärken), ZIELBILD_HIMMELDREH,
     #    ZIELBILD_EV (Belichtung im Stil), ZIELBILD_TEXTUR (Texturgrenze), ZIELBILD_KRONE=0 (ohne Scan-Bäume, wenig Speicher)
 
+Zielbild Runde 3 (D382, Flo: „noch eine Runde Felsmulde“ auf dem Niveau des Haus-Bildes D373): gleiche Mauer und
+Kamera wie D372, aber Licht/Himmel/Stil nach `hausframe.py` (Sonne 14° hoch, ~100° zur Blickrichtung, HDRI füllt und
+ist sichtbar, Luftschichten aus der Tiefe im Stil statt Talnebel-Volumen), vier gestaffelte Bergrücken, dunkler
+Mischboden mit Streu aus Geometrie (Laub, Äste, Wurzeln, Rinde), Scan-Bäume `island_tree_01/02` und `tree_small_02`
+auch in der Ferne, Efeu aus Blattgeometrie (`hausframe.efeublatt`/`streu_gn`), Masse rechts —
+
+    # 7) wie 6), Modus und Stil heissen `zielbild3`:
+    blender --background --python tools/stilframes.py -- zielbild3 <objdir> <aus-praefix> [breite hoehe samples kameras]
+    blender --background --factory-startup --python tools/stilframes.py -- stil <ein.exr> zielbild3 <aus.png> [breite hoehe]
+    #    zusätzlich: ZIELBILD_SICHT (Sichtweite der Luftschichten in m), ZIELBILD_DUNST (Dunstfarbe r,g,b)
+
 Scans (Poly Haven, CC0) liegen nicht im Repo, sondern unter `.cache/cc0/<name>/` (Umgebung `BRACHLAND_CC0` oder
-der nächste Elternordner mit `.cache/cc0`); welche, steht im Ledger D371 und D372. Die Bäume sind die Spielbäume
+der nächste Elternordner mit `.cache/cc0`); welche, steht im Ledger D371, D372 und D382. Die Bäume sind die Spielbäume
 (`public/props/baum-*-nah|mittel.glb`, Rinde `public/material/rinde-*`), damit das Zielbild zeigt, was das Spiel zeigt.
 """
 import bpy, bmesh, sys, os, math, random, json
@@ -38,6 +49,7 @@ from mathutils import Vector, Matrix, Euler, noise
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 MODUS = ARGS[0] if ARGS else ''
+R3 = MODUS == 'zielbild3' or (MODUS == 'stil' and len(ARGS) > 2 and ARGS[2] == 'zielbild3')   # Runde 3 (D382)
 SIGNAL = (0.62, 0.81, 0.89)   # '#cfe9f2' linear grob
 AFRAME_EV = float(os.environ.get('AFRAME_EV', '0.2'))   # Belichtung im Stil aframe (EV), die Anzeige-Belichtung ist im Compositor fest
 
@@ -202,7 +214,7 @@ def mat_stein_scan(name, art='mossy_rock', skala=1.4, versatz=0.035, moos=1.0, h
     # Moosfarbe: zwei Grüntöne, Rauschen grob genug, dass es nicht flimmert (Kissen, keine Pixel)
     mf = N(nt, 'ShaderNodeTexNoise', (-700, -1400)); mf.inputs['Scale'].default_value = 18.0; mf.inputs['Detail'].default_value = 3; L(nt, tc.outputs['Object'], mf.inputs['Vector'])
     mr2 = N(nt, 'ShaderNodeValToRGB', (-500, -1400)); e = mr2.color_ramp.elements
-    e[0].position = 0.3; e[0].color = (0.055, 0.085, 0.022, 1); e[1].position = 0.75; e[1].color = (0.20, 0.25, 0.06, 1)
+    e[0].position = 0.3; e[0].color = (0.055, 0.085, 0.022, 1); e[1].position = 0.75; e[1].color = (0.085, 0.115, 0.028, 1) if R3 else (0.20, 0.25, 0.06, 1)   # Runde 3: im Sonnenlicht kein Neongrün
     L(nt, mf.outputs['Fac'], mr2.inputs['Fac'])
     dunkel = N(nt, 'ShaderNodeMix', (-250, 300), data_type='RGBA', blend_type='MULTIPLY'); L(nt, hoehl.outputs[0], dunkel.inputs[0])
     L(nt, hellk.outputs[2], dunkel.inputs[6]); dunkel.inputs[7].default_value = (0.45, 0.42, 0.38, 1)
@@ -907,7 +919,7 @@ def hmisch(nt, maske, a, b, weich=0.12, gewicht=0.35):
 def moosfarbe(nt, vec, skala=20.0):
     """Zwei Grüntöne in Kissen (grobes Rauschen, flimmert nicht)."""
     r = N(nt, 'ShaderNodeValToRGB'); e = r.color_ramp.elements
-    e[0].position = 0.3; e[0].color = (0.035, 0.060, 0.014, 1); e[1].position = 0.75; e[1].color = (0.15, 0.20, 0.045, 1)
+    e[0].position = 0.3; e[0].color = (0.035, 0.060, 0.014, 1); e[1].position = 0.75; e[1].color = (0.075, 0.105, 0.026, 1) if R3 else (0.15, 0.20, 0.045, 1)
     L(nt, RAU(nt, vec, skala, 11.0, 3.0), r.inputs['Fac'])
     return r.outputs[0]
 
@@ -956,6 +968,7 @@ def mat_mauer_ziel(name, art='broken_wall', kachel_m=3.0, tiefe=0.13, moos=1.0):
     wo = M_(nt, 'MAXIMUM', M_(nt, 'MAXIMUM', M_(nt, 'MULTIPLY', krone, 1.15), M_(nt, 'MULTIPLY', fuss, 0.85)), M_(nt, 'MAXIMUM', M_(nt, 'MULTIPLY', fuge, 0.62), oben))
     wo = M_(nt, 'ADD', wo, M_(nt, 'MULTIPLY', aus, 0.25))
     mm = R_(nt, M_(nt, 'MULTIPLY', M_(nt, 'MULTIPLY', wo, R_(nt, RAU(nt, P, 1.3, 6.0, 5.0, 0.6), 0.30, 0.70)), 1.5 * moos), 0.42, 0.62)
+    if R3: farbe = X_(nt, 1.0, farbe, (0.74, 0.67, 0.58), 'MULTIPLY')   # Runde 3: im vollen Seitenlicht ist der Scan kalkweiss — auf verwitterten Stein gedeckt
     farbe = X_(nt, mm, farbe, moosfarbe(nt, P))
     b = N(nt, 'ShaderNodeBsdfPrincipled'); L(nt, farbe, b.inputs['Base Color'])
     rg = F_(nt, M_(nt, 'MULTIPLY', fahne, 0.5), rau, M_(nt, 'MULTIPLY', rau, 0.55))
@@ -1024,7 +1037,7 @@ def mauer_scan(name, ort, laenge, hoehe, dicke, achse, saat, mat, mat_kern, hmin
     while u < laenge / 2:
         b = min(rnd.uniform(0.32, 0.95), laenge / 2 - u + 0.01); um = u + b / 2
         h = sb.hoehenprofil(um, hmin, hoehe, saat, schutz) + rnd.uniform(-0.38, 0.08)
-        ende = laenge / 2 - abs(um)
+        ende = max(0.0, laenge / 2 - abs(um))
         if ende < 2.4: h = min(h, hmin * 0.3 + (h - hmin * 0.3) * (ende / 2.4) ** 0.75 + rnd.uniform(-0.22, 0.18))
         if schutz is not None and abs(um - schutz[0]) < schutz[1] + 0.5: h = max(h, schutz[2] - 0.25)
         absch.append((u, u + b, max(0.3, h))); u += b
@@ -1060,7 +1073,7 @@ def mauer_scan(name, ort, laenge, hoehe, dicke, achse, saat, mat, mat_kern, hmin
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     art = 'castle_wall_slates' if name in ('MauerC', 'Stuetzmauer') else 'broken_wall'
     if art not in MAUERMAT:
-        MAUERMAT[art] = mat_mauer_ziel('Mauerwerk_' + art, art, 3.0 if art == 'broken_wall' else 2.5, 0.13 if art == 'broken_wall' else 0.10)
+        MAUERMAT[art] = mat_mauer_ziel('Mauerwerk_' + art, art, 3.0 if art == 'broken_wall' else 2.5, 0.13 if art == 'broken_wall' else 0.10, 0.6 if R3 and art != 'broken_wall' else 1.0)
     rot = (lehne if achse == 'x' else 0.0, lehne if achse == 'y' else 0.0, 0.0)
     o = sb.fertig(name, bm, ort, MAUERMAT[art], False, rot)
     ca = o.data.color_attributes.new('Wetter', 'FLOAT_COLOR', 'POINT')
@@ -1173,7 +1186,7 @@ def pfadmitte(x):
     return -1.5 - 0.136 * (x - 4.4) + 0.35 * math.sin(0.55 * x)
 
 
-def mat_boden_ziel(alt):
+def mat_boden_ziel(alt, r3=False):
     """Waldboden als Mischung statt als ein Laubteppich: Laubstreu (zwei Scans), Erde mit Steinchen (Pfad und
     Flecken), bemooste Erde (Polster, und überall, wo etwas aufliegt), nasse dunkle Erde. Gemischt wird nach Maske
     **und** Höhe (`hmisch`). Kontakt aus Umgebungsverdeckung: an Mauerfuss, Platten- und Steinrändern wird der Boden
@@ -1194,20 +1207,21 @@ def mat_boden_ziel(alt):
     laub1 = schicht('forest_leaves_02', 'diffuse', 3.0, 0.0); laub2 = schicht('forest_leaves_04', 'diff', 1.5, 0.7)
     erde = schicht('forest_ground_04', 'diff', 3.1, 1.9); moos = schicht('brown_mud_leaves_01', 'diff', 2.1, 2.6); nass = schicht('mud_forest', 'diff', 2.35, 4.1)
     laub = hmisch(nt, R_(nt, RAU(nt, P, 0.18, 1.0), 0.42, 0.60), laub1, laub2)
-    lt = N(nt, 'ShaderNodeHueSaturation'); lt.inputs['Value'].default_value = 0.68; lt.inputs['Saturation'].default_value = 0.75; L(nt, laub[0], lt.inputs['Color'])
+    lt = N(nt, 'ShaderNodeHueSaturation'); lt.inputs['Value'].default_value = 0.50 if r3 else 0.68; lt.inputs['Saturation'].default_value = 0.85 if r3 else 0.75; L(nt, laub[0], lt.inputs['Color'])
     laub = (lt.outputs[0], laub[1])
     ao = N(nt, 'ShaderNodeAmbientOcclusion'); ao.inputs['Distance'].default_value = 0.55; ao.samples = 6
     kontakt = R_(nt, ao.outputs['AO'], 0.90, 0.50)
     sep = N(nt, 'ShaderNodeSeparateXYZ'); L(nt, P, sep.inputs[0])
     yc = M_(nt, 'ADD', M_(nt, 'MULTIPLY_ADD', M_(nt, 'SUBTRACT', sep.outputs['X'], 4.4), -0.136, -1.5), M_(nt, 'MULTIPLY', M_(nt, 'SINE', M_(nt, 'MULTIPLY', sep.outputs['X'], 0.55)), 0.35))
-    pfad = M_(nt, 'MULTIPLY', R_(nt, M_(nt, 'ABSOLUTE', M_(nt, 'SUBTRACT', sep.outputs['Y'], yc)), 1.0, 0.25), M_(nt, 'MULTIPLY', R_(nt, sep.outputs['X'], -19.0, -16.0), R_(nt, sep.outputs['X'], 10.5, 8.5)))
+    pfad = M_(nt, 'MULTIPLY', R_(nt, M_(nt, 'ABSOLUTE', M_(nt, 'SUBTRACT', sep.outputs['Y'], yc)), 0.50 if r3 else 1.0, 0.14 if r3 else 0.25),   # Runde 3: Trampelpfad schmal (~0,6 m)
+                  M_(nt, 'MULTIPLY', R_(nt, sep.outputs['X'], -19.0, -16.0), R_(nt, sep.outputs['X'], 10.5, 8.5)))
     pfad = M_(nt, 'MULTIPLY', pfad, R_(nt, RAU(nt, P, 0.5, 7.0), 0.25, 0.55, 0.55, 1.0))
-    m_moos = R_(nt, M_(nt, 'ADD', M_(nt, 'MULTIPLY_ADD', kontakt, 0.5, RAU(nt, P, 0.22, 2.0, 4.0)), M_(nt, 'MULTIPLY', pfad, -0.45)), 0.50, 0.64)
-    s = hmisch(nt, m_moos, laub, (X_(nt, 1.0, moos[0], (0.80, 0.86, 0.72), 'MULTIPLY'), moos[1]))
+    m_moos = R_(nt, M_(nt, 'ADD', M_(nt, 'MULTIPLY_ADD', kontakt, 0.5, RAU(nt, P, 0.22, 2.0, 4.0)), M_(nt, 'MULTIPLY', pfad, -0.45)), 0.44 if r3 else 0.50, 0.58 if r3 else 0.64)
+    s = hmisch(nt, m_moos, laub, (X_(nt, 1.0, moos[0], (0.58, 0.80, 0.42) if r3 else (0.80, 0.86, 0.72), 'MULTIPLY'), moos[1]))
     m_nass = R_(nt, M_(nt, 'ADD', RAU(nt, P, 0.13, 3.0), M_(nt, 'MULTIPLY', kontakt, 0.12)), 0.58, 0.70)
     s = hmisch(nt, m_nass, s, (X_(nt, 1.0, nass[0], (0.85, 0.80, 0.74), 'MULTIPLY'), nass[1]))
     m_erde = R_(nt, M_(nt, 'MULTIPLY_ADD', RAU(nt, P, 0.30, 4.0), 0.5, M_(nt, 'MULTIPLY', pfad, 0.6)), 0.42, 0.62)
-    s = hmisch(nt, m_erde, s, (X_(nt, 1.0, erde[0], (0.50, 0.46, 0.40), 'MULTIPLY'), erde[1]))
+    s = hmisch(nt, m_erde, s, (X_(nt, 1.0, erde[0], (0.30, 0.25, 0.20) if r3 else (0.50, 0.46, 0.40), 'MULTIPLY'), erde[1]))   # Runde 3: dunkle Erde, kein Sand
     farbe = X_(nt, 1.0, s[0], X_(nt, RAU(nt, P, 0.07, 5.0, 2.0), (0.72, 0.72, 0.70), (1.12, 1.10, 1.05)), 'MULTIPLY')
     farbe = X_(nt, M_(nt, 'MULTIPLY', kontakt, 0.75), farbe, X_(nt, 1.0, farbe, (0.50, 0.55, 0.42), 'MULTIPLY'))
     # Nahmaske wie D371: um den Hof voll Scan, ab ~30 m Biomfarbe
@@ -1353,6 +1367,211 @@ def himmel_foto(name, el_grad, az_grad, u_sonne, staerke=1.0, gamma=1.35, dreh_g
     return w
 
 
+# ------------------------------------------------------------------- Zielbild Runde 3 (D382)
+def meshhoehe(me):
+    """Höhe eines Scan-Meshes (einmal gemessen, am Mesh gemerkt) — Bäume werden auf Zielhöhe skaliert."""
+    if 'hoehe' not in me:
+        import numpy as np
+        k = np.empty(len(me.vertices) * 3, dtype=np.float32); me.vertices.foreach_get('co', k)
+        me['hoehe'] = float(k[2::3].max() - k[2::3].min())
+    return me['hoehe']
+
+
+def himmel_haus(el_grad, az_grad, u_sonne=0.6035):
+    """Himmel und Füllen wie im Haus-Bild (`hausframe.himmel`, D373/D378 freigegeben): das Abendhimmel-HDRI ist für
+    die Kamera sichtbar (Wolken plastischer, warm), und es beleuchtet die Szene halb entsättigt — Schatten
+    neutral-warm, nicht blau und nicht schwarz. Gedreht, bis die Fotosonne auf dem Azimut der Sonnenlampe steht."""
+    w = bpy.data.worlds.new('Zielbild3'); bpy.context.scene.world = w; w.use_nodes = True; nt = w.node_tree; nt.nodes.clear()
+    out = N(nt, 'ShaderNodeOutputWorld'); tc = N(nt, 'ShaderNodeTexCoord')
+    o = os.path.join(cc0_ordner(), 'evening_road_01_puresky')
+    env = N(nt, 'ShaderNodeTexEnvironment'); env.image = bpy.data.images.load(os.path.join(o, next(f for f in sorted(os.listdir(o)) if f.endswith('.hdr'))), check_existing=True)
+    phi = 2 * math.pi * (u_sonne - 0.5)
+    w_foto = math.atan2(math.sin(phi), -math.cos(phi)); az = math.radians(az_grad); w_ziel = math.atan2(math.cos(az), math.sin(az))
+    mp = N(nt, 'ShaderNodeMapping'); mp.inputs['Rotation'].default_value = (0, 0, w_foto - w_ziel + math.radians(float(os.environ.get('ZIELBILD_HIMMELDREH', '0'))))
+    L(nt, tc.outputs['Generated'], mp.inputs['Vector']); L(nt, mp.outputs[0], env.inputs['Vector'])
+    g = N(nt, 'ShaderNodeGamma'); g.inputs['Gamma'].default_value = 1.7; L(nt, env.outputs['Color'], g.inputs['Color'])
+    sicht = N(nt, 'ShaderNodeBackground'); sicht.inputs['Strength'].default_value = float(os.environ.get('ZIELBILD_HIMMEL', '0.115'))
+    L(nt, X_(nt, 1.0, g.outputs[0], (1.17, 0.96, 0.76), 'MULTIPLY'), sicht.inputs['Color'])   # Haus: 1,10/0,96/0,82 — hier steht mehr Blau im Bild, etwas wärmer
+    licht = N(nt, 'ShaderNodeBackground'); licht.inputs['Strength'].default_value = float(os.environ.get('ZIELBILD_FUELL', '0.42'))
+    L(nt, X_(nt, 0.40, env.outputs['Color'], (0.27, 0.27, 0.28)), licht.inputs['Color'])
+    lp = N(nt, 'ShaderNodeLightPath')
+    mx = N(nt, 'ShaderNodeMixShader'); L(nt, lp.outputs['Is Camera Ray'], mx.inputs['Fac']); L(nt, licht.outputs[0], mx.inputs[1]); L(nt, sicht.outputs[0], mx.inputs[2])
+    L(nt, mx.outputs[0], out.inputs['Surface'])
+    return w
+
+
+def bergruecken(zt, saat=382):
+    """Vier klar gestaffelte Bergrücken im Osten (0,7 / 1,8 / 4 / 8 km): der nächste bewaldet und niedrig, der fernste
+    hoch. Reine Silhouetten in Waldgrün; die Tonstufen (jeder Rücken heller und blasser) legt der Stil aus der Tiefe."""
+    m, nt, out = neues_material('Bergruecken')
+    b = N(nt, 'ShaderNodeBsdfPrincipled'); b.inputs['Roughness'].default_value = 1.0
+    tc = N(nt, 'ShaderNodeTexCoord')
+    L(nt, X_(nt, RAU(nt, tc.outputs['Object'], 0.012, 3.0, 4.0), (0.006, 0.012, 0.005), (0.018, 0.026, 0.011)), b.inputs['Base Color'])
+    L(nt, b.outputs[0], out.inputs['Surface'])
+    for k, (dist, lo, hi, zacke) in enumerate(((700.0, -40.0, 42.0, 5.0), (1800.0, 30.0, 190.0, 9.0), (4000.0, 190.0, 520.0, 14.0), (8000.0, 560.0, 1250.0, 0.0))):
+        bm = bmesh.new(); unten = []; oben = []; n = 420
+        for i in range(n + 1):
+            t = i / n; y = (t - 0.5) * dist * 3.2
+            f = 0.55 * noise.noise(Vector((t * 4.0 + k * 3.1, k * 1.7, saat))) + 0.30 * noise.noise(Vector((t * 11.0 + k, 2.0, saat))) + 0.15 * noise.noise(Vector((t * 31.0, k, saat)))
+            grat = 1.0 - abs(noise.noise(Vector((t * 7.0 + k * 7.0, 5.0, saat))))
+            h = lo + (hi - lo) * max(0.0, min(1.0, 0.5 + 1.0 * f)) * (0.50 + 0.50 * grat) + zacke * noise.noise(Vector((t * 260.0, k, saat)))   # Baumkante
+            x = dist * (1.0 + 0.10 * noise.noise(Vector((t * 3.0 + k * 5.0, 1.0, saat))))
+            unten.append(bm.verts.new((x, y, zt - 900.0))); oben.append(bm.verts.new((x, y, zt + h)))
+        for i in range(n): bm.faces.new((unten[i], unten[i + 1], oben[i + 1], oben[i]))
+        me = bpy.data.meshes.new('Ruecken%d' % k); bm.to_mesh(me); bm.free(); me.materials.append(m)
+        bpy.context.collection.objects.link(bpy.data.objects.new('Ruecken%d' % k, me))
+
+
+def efeu_geometrie(zt, saat=382):
+    """Efeu aus Blattgeometrie wie am Haus (D373): Träger ist ein welliges Netz 10–35 cm vor der Mauerfläche, darauf
+    ~2.000 Hedera-Blätter je m² (Blatt und Streu-Knoten aus `hausframe.py`). Fächer wachsen vom Mauerfuss (unten
+    schmal und licht, oben breit, Oberkante ausgefranst), Vorhänge hängen von der Krone."""
+    import hausframe as hf
+    rnd = random.Random(saat); ph = [rnd.uniform(0, 6.28) for _ in range(8)]
+    bm = bmesh.new(); dl = bm.verts.layers.float.new('d')
+
+    def flaeche(P, u0, u1, z0, z1, form, schritt=0.14):
+        nu, nz = max(2, int((u1 - u0) / schritt)), max(2, int((z1 - z0) / schritt)); vs = {}
+        for i in range(nu + 1):
+            for j in range(nz + 1):
+                u, z = u0 + (u1 - u0) * i / nu, z0 + (z1 - z0) * j / nz
+                f = form(u, z)
+                if f <= 0.02: continue
+                dick = 0.04 + 0.22 * f * (0.6 + 0.4 * math.sin(u * 3.1 + ph[0]) * math.sin(z * 2.7 + ph[1])) + rnd.uniform(-0.03, 0.03)
+                q = bm.verts.new(P(u + rnd.uniform(-0.03, 0.03), z + rnd.uniform(-0.03, 0.03), dick)); q[dl] = min(1.0, f * 1.6)
+                vs[(i, j)] = q
+        for i in range(nu):
+            for j in range(nz):
+                e = [vs.get(key) for key in ((i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1))]
+                if all(e): bm.faces.new(e)
+
+    def faecher(u, z, b0, b1, hoehe, kahl=0.6):
+        t = z / hoehe
+        if t > 1.25 or z < 0.03: return 0.0
+        halb = (b0 + (b1 - b0) * min(1, t) ** 0.8) / 2 * (1 + 0.18 * math.sin(z * 4.0 + ph[2]))
+        rand = 1 - abs(u + 0.25 * math.sin(z * 1.3 + ph[6])) / max(0.05, halb)
+        franse = hoehe * (1 + 0.16 * math.sin(u * 2.3 + ph[3]) + 0.10 * math.sin(u * 6.1 + ph[4]))
+        return max(0.0, min(1.0, rand * 2.2, (franse - z) / 0.5)) * (0.3 if z < kahl else 1.0)
+    # (Mauerlinie, Stelle entlang der Linie in m, Seite, Breite unten, Breite oben, Höhe, Vorneigung der Mauer je m Höhe)
+    # an der Bogenmauer bewusst schmal: das Mauerwerk aus D372 trägt das Bild und bleibt sichtbar
+    for li, uu, seite, b0, b1, h, lehne in ((0, 11.9, 1, 0.7, 2.7, 4.2, 0.026), (0, 2.0, 1, 0.5, 1.7, 3.6, 0.026), (0, 8.6, 1, 0.4, 1.2, 2.2, 0.026),
+                                            (1, 2.2, -1, 0.8, 4.2, 3.4, 0.0), (1, 8.2, -1, 0.6, 2.6, 2.8, 0.0), (2, 4.4, 1, 0.9, 5.0, 3.3, 0.0), (2, 1.2, 1, 0.5, 2.0, 2.0, 0.0)):
+        if li >= len(MAUERLINIEN): continue
+        a, b, luecke, hoch, laenge = MAUERLINIEN[li]
+        ri = Vector((b[0] - a[0], b[1] - a[1], 0)).normalized(); q = Vector((-ri.y, ri.x, 0)) * seite; A = Vector((a[0], a[1], zt - 0.05))
+        torhoehe = (5.5, 3.2, 0.0, 0.0)[li]
+        def P(u, z, ab, A=A, ri=ri, q=q, lehne=lehne): return A + ri * u + q * (0.60 + ab + lehne * z) + Vector((0, 0, z))
+        def form(u, z, uu=uu, b0=b0, b1=b1, h=h, luecke=luecke, hoch=hoch, laenge=laenge, torhoehe=torhoehe):
+            if not 0.1 < u < laenge - 0.1: return 0.0
+            if luecke is not None and luecke[0] - 0.25 < u < luecke[1] + 0.25 and z < torhoehe: return 0.0
+            if z + 0.30 > hoch(u - laenge / 2) + 0.20: return 0.0
+            return faecher(u - uu, z, b0, b1, h)
+        flaeche(P, uu - b1 / 2 - 0.6, uu + b1 / 2 + 0.6, 0.0, h * 1.25, form)
+    n_vorhang = 0
+    for (p, qv, t, mname) in MAUERKRONE:
+        if mname == 'Stuetzmauer': continue
+        for seite in (-1, 1):
+            if rnd.random() > 0.20: continue
+            br, lg = rnd.uniform(0.6, 1.5), rnd.uniform(0.5, 1.9); tang = Vector((-qv.y, qv.x, 0)); nrm = qv * seite; phase = rnd.uniform(0, 6.28)
+            vor = t / 2 + 0.14 + (0.16 if mname == 'MauerA' and nrm.x < 0 else 0.0)
+            def P(u, z, ab, p=p, tang=tang, nrm=nrm, vor=vor): return p + tang * u + nrm * (vor + ab * 0.7) + Vector((0, 0, z))
+            def form(u, z, br=br, lg=lg, phase=phase): return max(0.0, min(1.0, (1 - abs(u) / (br / 2)) * 2.0, (z + lg * (0.7 + 0.3 * math.sin(u * 5.0 + phase))) / 0.3))
+            flaeche(P, -br / 2, br / 2, -lg * 1.05, 0.12, form); n_vorhang += 1
+    bm.normal_update()
+    flaeche_m2 = sum(f.calc_area() for f in bm.faces)
+    me = bpy.data.meshes.new('Efeutraeger'); bm.to_mesh(me); bm.free()
+    o = bpy.data.objects.new('Efeu3', me); bpy.context.collection.objects.link(o)
+    dichte = float(os.environ.get('ZIELBILD_EFEU', '2000'))
+    mod = o.modifiers.new('Blaetter', 'NODES')
+    mod.node_group = hf.streu_gn('Efeublaetter', hf.efeublatt(), 'd', dichte, 0.7, 1.4, 5, 0.9, True, True)
+    print('ZIELBILD Efeu: Träger %.0f m², %d Vorhänge, Dichte %.0f Blätter/m²' % (flaeche_m2, n_vorhang, dichte))
+    return o
+
+
+def laubstreu(ter, dichte, gebiet=(-14.0, 7.0, -11.0, 10.0), saat=382):
+    """Fallaub als Geometrie: gewölbte Blätter (6–9 cm) liegen auf dem Boden, Dichte nach `dichte(x, y)` (0…1,
+    × 17 Büschel zu neun Blättern je m²), jedes mit eigenem Braun/Ocker. Der Scan-Boden trägt die Fläche, das hier die lesbaren Einzelblätter."""
+    import hausframe as hf
+    bm = bmesh.new()
+    umriss = [(0.0, 0.0), (1.6, -1.2), (2.2, -3.4), (1.3, -5.6), (0.0, -7.2)]
+    pts = umriss + [(-x, y) for x, y in reversed(umriss[1:-1])]
+    # ein Büschel aus neun Blättern mit eigener Richtung, Lage und Grösse: die Streu-Knoten drehen Instanzen sichtbar
+    # nicht um die Hochachse (alle Blätter zeigten in eine Richtung) — die Unordnung steckt deshalb im Mesh
+    rb = random.Random(saat + 7)
+    for _ in range(9):
+        M = Matrix.Translation((rb.uniform(-0.24, 0.24), rb.uniform(-0.24, 0.24), rb.uniform(0.0, 0.012))) @ Euler((rb.uniform(-0.35, 0.35), rb.uniform(-0.35, 0.35), rb.uniform(0, 6.283))).to_matrix().to_4x4() @ Matrix.Scale(rb.uniform(0.75, 1.35), 4)
+        c = bm.verts.new(M @ Vector((0, -0.035, 0.010))); vs = [bm.verts.new(M @ Vector((x * 0.01, y * 0.01, abs(x) * 0.004))) for x, y in pts]
+        for i in range(len(vs)): bm.faces.new((c, vs[i], vs[(i + 1) % len(vs)]))
+    bm.normal_update(); blatt_me = bpy.data.meshes.new('Fallaub'); bm.to_mesh(blatt_me); bm.free()
+    m, nt, out = neues_material('Fallaub')
+    b = N(nt, 'ShaderNodeBsdfPrincipled'); b.inputs['Roughness'].default_value = 0.7
+    zuf = N(nt, 'ShaderNodeObjectInfo').outputs['Random']
+    r = N(nt, 'ShaderNodeValToRGB'); e = r.color_ramp.elements
+    e[0].position = 0.0; e[0].color = (0.030, 0.016, 0.008, 1); e[1].position = 1.0; e[1].color = (0.19, 0.105, 0.034, 1)
+    for pos, col in ((0.45, (0.065, 0.034, 0.014, 1)), (0.80, (0.12, 0.058, 0.020, 1))): e.new(pos).color = col
+    insel = N(nt, 'ShaderNodeNewGeometry').outputs['Random Per Island']   # je Blatt im Büschel ein eigener Ton
+    L(nt, M_(nt, 'FRACT', M_(nt, 'ADD', zuf, insel)), r.inputs['Fac']); L(nt, r.outputs[0], b.inputs['Base Color']); L(nt, b.outputs[0], out.inputs['Surface'])
+    blatt_me.materials.append(m)
+    blatt = bpy.data.objects.new('Fallaub', blatt_me)
+    bm = bmesh.new(); dl = bm.verts.layers.float.new('d'); schritt = 0.4; vs = {}
+    nx, ny = int((gebiet[1] - gebiet[0]) / schritt), int((gebiet[3] - gebiet[2]) / schritt)
+    for i in range(nx + 1):
+        for j in range(ny + 1):
+            x, y = gebiet[0] + i * schritt, gebiet[2] + j * schritt
+            f = dichte(x, y); z = bodenz(ter, x, y)
+            if f <= 0.01 or z is None: continue
+            q = bm.verts.new((x, y, z + 0.04)); q[dl] = f; vs[(i, j)] = q
+    for i in range(nx):
+        for j in range(ny):
+            e4 = [vs.get(k) for k in ((i, j), (i + 1, j), (i + 1, j + 1), (i, j + 1))]
+            if all(e4): bm.faces.new(e4)
+    bm.normal_update(); me = bpy.data.meshes.new('Laubstreutraeger'); bm.to_mesh(me); bm.free()
+    o = bpy.data.objects.new('Laubstreu', me); bpy.context.collection.objects.link(o)
+    mod = o.modifiers.new('Laub', 'NODES'); mod.node_group = hf.streu_gn('Laubstreu', blatt, 'd', 17.0, 0.8, 1.3, saat, 0.12, True, True)
+    print('ZIELBILD Laubstreu: Träger', len(me.polygons), 'Flächen')
+    return o
+
+
+def baeume3(sb, ter, ferne):
+    """Bäume der Runde 3: die Laubbaum-Scans des Haus-Bildes (`island_tree_01`, `island_tree_02`) statt Jacaranda
+    mit Fiederblatt — rundes, einfaches Blatt, krumme Stämme, liest sich heimisch (Obstbaum/Hainbuche). Wenige
+    Charaktere von Hand gesetzt (Rahmen links, Masse rechts hinter der Mauer, Schattenbäume ausserhalb des Bildes);
+    der Wald dahinter sind dieselben Scans als Instanzen — kein Spielbaum mehr im Bild. Zwei Meshes (2,7 Mio.
+    Dreiecke); `ZIELBILD_BAUM3=1` nimmt `tree_small_02` als dritte Form dazu (+2,1 Mio., Speicherspitze dann 8,3 GB)."""
+    isl1 = pflanzen('island_tree_01', 0.4, 'leaves')[0]; isl2 = pflanzen('island_tree_02', 0.4, 'leaves')[0]
+    klein = pflanzen('tree_small_02', 0.4, 'leaves')[0] if os.environ.get('ZIELBILD_BAUM3') == '1' else isl2
+    art = {'a': isl1, 'b': isl2, 'k': klein}
+
+    def setz(me, name, x, y, hoehe, rot):
+        z = bodenz(ter, x, y)
+        if z is None: return
+        setze_frei(me, name, (x, y, z - 0.025 * hoehe), hoehe / meshhoehe(me), (0, 0, rot))
+    # (Art, x, y, Höhe, Drehung) — Sonne steht bei Azimut 200°, Schatten laufen nach Nordnordost (+0,34 / +0,94)
+    for i, (a, x, y, h, rot) in enumerate((
+            ('a', -6.5, 7.4, 15.0, 0.6),      # Kronendach links: Rahmen, von der Sonne angestrahlt
+            ('b', -1.0, 11.6, 12.0, 2.0),     # hinter der Nordmauer
+            ('a', 8.5, 10.5, 17.0, 3.1),      # hinter der Mauerecke links
+            ('a', 15.0, 5.0, 15.0, 4.4),      # jenseits der Mauer links vom Bogen: Krone über der Mauerkrone
+            ('b', 10.5, -7.8, 10.0, 1.2),     # rechts vom Bogen hinter der Mauer
+            ('a', 9.5, -11.8, 14.0, 5.0),     # Masse rechts hinter dem Mauerrest
+            ('k', 6.6, -10.2, 7.0, 0.4),
+            ('b', -14.5, -12.0, 11.0, 2.7),   # Rückenbaum: legt den Vordergrund in Schatten (Rahmen), der Hof bleibt im Licht
+            ('a', -9.6, -9.4, 9.5, 5.1),      # Schattenbaum ausserhalb des Bildes: sein Kronenschatten fällt über den Vordergrund (dunkler Rahmen, Lichtflecken)
+            ('k', 7.2, 2.8, 5.5, 1.0), ('k', -9.8, 9.8, 5.0, 2.2), ('k', 2.8, 9.9, 4.5, 3.9), ('k', 12.5, 0.5, 6.0, 0.2))):
+        setz(art[a], 'Baum3_%d' % i, x, y, h, rot)
+    # Sträucher: am Mauerrest rechts, am Felsblock vorn rechts, an den Hofecken
+    straeucher = []
+    for n in ('shrub_01', 'shrub_02', 'shrub_03', 'shrub_04'): straeucher += pflanzen(n, 0.4)
+    for i, (x, y, g) in enumerate(((-1.9, -8.9, 2.2), (5.6, -8.7, 1.9), (0.6, -6.9, 1.3), (-6.9, -3.9, 1.5), (-5.0, -5.4, 1.1), (4.0, 6.4, 1.7), (-4.2, 8.2, 1.6),
+                                   (-9.5, -4.4, 1.4), (-8.7, 6.2, 1.3), (6.2, -5.2, 1.6), (3.9, -5.9, 1.0), (-11.6, 4.2, 1.2), (8.0, -2.0, 1.8), (-2.6, 6.6, 1.0))):
+        me = straeucher[i % len(straeucher)]; z = bodenz(ter, x, y)
+        if z is not None: setze_frei(me, 'Strauch%d' % i, (x, y, z - 0.03), g / max(0.05, ausdehnung(me)), (0, 0, i * 2.3))
+    for i, (name, x, y, h, saat) in enumerate(ferne):
+        zr = random.Random(saat); me, f = ((isl1, 0.62), (isl2, 0.45), (klein, 0.5))[saat % 3]
+        setz(me, 'Wald3_%d' % i, x, y, h * f * zr.uniform(0.85, 1.15), zr.random() * 6.283)
+    print('ZIELBILD Runde 3: Waldbäume aus Scans', len(ferne), '| Sträucher', len(straeucher), 'Vorlagen')
+
+
 def zielbild():
     """Felsmulde als Zielbild Runde 2 (D372): Aufbau wie `aframe`, aber Mauer, Boden, Bewuchs und Himmel neu."""
     objdir, praefix = ARGS[1], ARGS[2]
@@ -1366,7 +1585,7 @@ def zielbild():
     t_start = time.time()
 
     alt_boden = sb.mat_boden
-    sb.mat_boden = lambda wiese=None: mat_boden_ziel(alt_boden(wiese))
+    sb.mat_boden = lambda wiese=None: mat_boden_ziel(alt_boden(wiese), R3)
     def fels(name='Fels', moos=1.3, hoehe=None):
         if name == 'Stein': return mat_stein_scan('Stein', 'mossy_rock', 1.4, 0.03, 1.0, 0.95, 0.6)
         if name == 'Platte': return mat_stein_scan('Platte', 'mossy_rock', 1.8, 0.025, 0.5, 0.8, 0.9)
@@ -1376,20 +1595,33 @@ def zielbild():
     sb.farn = lambda name, x, y, mat, saat, groesse=1.0: farn_scan(sb, name, x, y, saat, groesse)
     sb.efeu = lambda name, flecken, mat, saat: None          # Efeu kommt unten aus den Kronenpunkten
     sb.stein_bm = stein_verwittert
-    sb.mauer = mauer_scan
+    def mauer3(name, ort, laenge, hoehe, dicke, achse, saat, mat, mat_kern, hmin, **k):
+        # Runde 3: der Mauerrest rechts (MauerC) wird Masse als Gegengewicht zum Bogen — länger, höher, weniger eingestürzt
+        if R3 and name == 'MauerC': ort, laenge, hoehe, hmin = (ort[0] - 0.6, ort[1], ort[2]), 6.6, 3.5, 1.3
+        return mauer_scan(name, ort, laenge, hoehe, dicke, achse, saat, mat, mat_kern, hmin, **k)
+    sb.mauer = mauer3
     sb.plattenhof = plattenhof_ziel
     sb.steinbecken = steinbecken_ziel
     # Bäume im Nahbereich: Scan-Bäume statt Spielbäume (Befund D371: Spielkronen zu licht, Stämme wie Stangen).
     # Ein Scan-Laubbaum und eine Scan-Jungtanne, jeweils instanziert und skaliert; die Ferne bleibt bei den Spielbäumen.
-    AZ = float(os.environ.get('ZIELBILD_AZ', '112'))
+    # Runde 3 (D382): Sonne nach dem Prinzip des Haus-Bildes — von rechts, quer zur Blickrichtung (Blick ~101°, Sonne
+    # 194° → 93°): Streiflicht längs der Mauerfläche, das Laubdach links wird angestrahlt statt abzusaufen. Der Hang im
+    # Südwesten steht von der Terrasse aus bei Azimut 194° 23° hoch (`fern_terrain`, bei 200° schon 26,5°): 14° wie am
+    # Haus liegen hier im Bergschatten, deshalb 24,5° — die tiefste Sonne, die den Hof von dieser Seite erreicht.
+    AZ = float(os.environ.get('ZIELBILD_AZ', '194' if R3 else '112'))
     scanbaum = os.environ.get('ZIELBILD_KRONE', '1') == '1'
-    helden = []; tannen = []
+    helden = []; tannen = []; ferne = []
     def zur_sonne(x, y):
         """Schneise zur Sonne: was vom Hof aus im Sonnenazimut steht, würde die Lichtbahnen schlucken."""
         w = math.degrees(math.atan2(x + 2.0, y + 1.0)) % 360.0
         ab = abs((w - AZ + 180.0) % 360.0 - 180.0); r = math.hypot(x + 2.0, y + 1.0)
+        if R3: return (ab < 15.0 and r < 190.0) or (ab < 38.0 and r < 34.0)   # Waldbäume auf dem Hang zur Sonne nähmen dem Hof das Licht
         return (ab < 16.0 and r < 70.0) or (ab < 42.0 and r < 30.0)
     def laubbaum(name, x, y, h, mr, ml, saat, fein=True, **k):
+        if R3:
+            # kein Spielbaum mehr im Bild: Heldenbäume sind unten von Hand gesetzt, der Wald wird aus Scan-Bäumen instanziert
+            if not name.startswith('Held') and not zur_sonne(x, y): ferne.append((name, x, y, h, saat))
+            return None
         if scanbaum and fein:
             if not zur_sonne(x, y): helden.append((name, x, y, h, saat))
             return None
@@ -1397,6 +1629,7 @@ def zielbild():
     def nadelbaum(name, x, y, h, mr, mn, saat, fein=True, **k):
         # Nadelbäume fallen im Zielbild weg: die Spielfichte liest sich vor dem Himmel als Stange mit Quirlen, eine
         # hochskalierte Scan-Jungtanne als Riesenfarn — beides schlechter als kein Baum (Engine-Folge im Ledger D372)
+        if R3 and not name.startswith('Held') and not zur_sonne(x, y): ferne.append((name, x, y, h * 0.8, saat))   # Runde 3: Waldplatz bleibt besetzt (Laubbaum-Scan)
         return None
     sb.laubbaum2 = laubbaum
     sb.fichte = nadelbaum
@@ -1431,6 +1664,13 @@ def zielbild():
             bpy.data.objects.remove(o)
             setze_scan(sb, klein[i % len(klein)], 'Stein%d' % i, x, y, g * 1.1, 700 + i, 0.45)
         im_becken = lambda x, y: -4.85 < x < -0.15 and -6.15 < y < 0.15
+        felsen = [(o.location.x, o.location.y, max(o.dimensions.x, o.dimensions.y) / 2) for o in bpy.data.objects if o.name.startswith('Fels')]
+        if R3:
+            # Masse rechts (Gegengewicht zum Laubdach links): Felsblöcke am rechten Bildrand vorn, halb eingesunken
+            for i, (x, y, g, mi) in enumerate(((-6.4, -3.1, 2.1, 1), (-5.3, -4.4, 1.2, 2), (-8.3, -3.6, 1.0, 0))):
+                fo = setze_scan(sb, gross[mi % len(gross)].copy(), 'FelsR%d' % i, x, y, g, 640 + i, 0.32)
+                fo.data.materials.clear(); fo.data.materials.append(bpy.data.materials['Fels']); adaptiv(fo, 1.5)
+                felsen.append((x, y, g / 2))
         for i in range(26):
             x, y = rnd.uniform(-12.0, 4.0), rnd.uniform(-8.0, 7.0)
             if im_becken(x, y): continue
@@ -1448,6 +1688,23 @@ def zielbild():
             if im_becken(x, y): continue
             z = bodenz(ter, x, y)
             setze_frei(aeste[i % len(aeste)], 'Ast%d' % i, (x, y, z + 0.01), rnd.uniform(0.8, 1.5), (0, 0, rnd.random() * 6.283))
+        if R3:
+            # Streu als Geometrie (Scans): Zweige, Rindenstücke, Wurzeln — der Boden ist keine bemalte Fläche
+            r3 = random.Random(3820)
+            rinde_s = vorlagen('bark_debris_01'); wurzel_s = vorlagen('single_root') + vorlagen('pine_roots'); stock = vorlagen('root_cluster_01')
+            for i in range(110):
+                x, y = r3.uniform(-13.5, 4.2), r3.uniform(-9.5, 9.0)
+                if im_becken(x, y) or mauerabstand(x, y)[0] < 0.6: continue
+                if abs(y - pfadmitte(x)) < 0.45 and r3.random() < 0.8: continue   # der Pfad ist freigetreten
+                z = bodenz(ter, x, y)
+                if i % 3: setze_frei(aeste[r3.randrange(len(aeste))], 'Zweig%d' % i, (x, y, z + 0.012), r3.uniform(0.35, 1.1), (r3.uniform(-0.05, 0.05), r3.uniform(-0.05, 0.05), r3.random() * 6.283))
+                else: setze_frei(rinde_s[r3.randrange(len(rinde_s))], 'Rindenstreu%d' % i, (x, y, z + 0.005), r3.uniform(0.5, 1.0), (0, 0, r3.random() * 6.283))
+            # Wurzeln: vom Baum links über den Hof (ersetzt die prozeduralen Wurzeln aus D369), dazu einzelne im Boden
+            for i, (x, y, g, dreh_) in enumerate(((-6.9, 6.2, 1.0, 0.4), (-5.2, 5.9, 0.7, 2.6))):
+                setze_frei(stock[i % len(stock)], 'Wurzelstock%d' % i, (x, y, bodenz(ter, x, y) - 0.10 * g), g, (0, 0, dreh_))
+            for i, (x, y, g) in enumerate(((-7.6, 4.4, 1.5), (-5.6, 3.9, 1.3), (-8.9, 5.4, 1.2), (-4.4, 5.2, 1.1), (-9.3, -3.2, 1.2), (3.4, 4.6, 1.0), (2.9, -6.4, 1.2), (-10.4, 0.7, 1.3))):
+                me_w = wurzel_s[i % len(wurzel_s)]
+                setze_frei(me_w, 'Wurzel3_%d' % i, (x, y, bodenz(ter, x, y) - 0.04 * g), g, (0, 0, math.atan2(y - 7.4, x + 6.5) + r3.uniform(-0.4, 0.4)))
         stubben = vorlagen('tree_stump_01')
         for i, (x, y, g) in enumerate(((-9.6, -4.6, 1.0), (7.6, 4.2, 0.9))):
             setze_frei(stubben[0], 'Stubben%d' % i, (x, y, bodenz(ter, x, y) - 0.05), g, (0, 0, i * 2.1))
@@ -1461,7 +1718,7 @@ def zielbild():
             d, tor = mauerabstand(x, y)
             if d < 0.5: return 0.0, d
             f = 1.0
-            if -17.0 < x < 9.5: f *= 1.0 - 0.93 * max(0.0, min(1.0, (1.45 - abs(y - pfadmitte(x))) / 0.9))
+            if -17.0 < x < 9.5: f *= 1.0 - 0.93 * max(0.0, min(1.0, ((0.80 if R3 else 1.45) - abs(y - pfadmitte(x))) / (0.5 if R3 else 0.9)))
             if tor: f *= 0.1
             if auf_platte(x, y): f *= 0.06
             return f, d
@@ -1480,15 +1737,44 @@ def zielbild():
             return f * max(0.0, min(1.0, (hof - 0.75) * 2.5)) * (0.3 + 0.7 * polster(x, y, 0.3, 13.0))
         gras = pflanzen('grass_medium_01', 0.45)
         gras_gross = [me for me in gras if ausdehnung(me) > 0.17]
-        streue(ter, gras, 2600, d_gras, (1.5, 2.6), 3721, 'Gras')
-        streue(ter, pflanzen('celandine_01', 0.4), 1700, d_kraut, (1.6, 2.8), 3722, 'Kraut', 0.08)
-        streue(ter, pflanzen('periwinkle_plant', 0.4), 320, lambda x, y: 0.6 * d_kraut(x, y) + 0.4 * d_fuss(x, y), (0.9, 1.6), 3723, 'Immergruen')
+        streue(ter, gras, 1500 if R3 else 2600, d_gras, (1.5, 2.6), 3721, 'Gras')   # Runde 3: Boden bleibt sichtbar (Regel 7)
+        streue(ter, pflanzen('celandine_01', 0.4), 350 if R3 else 1700, d_kraut, (1.6, 2.8), 3722, 'Kraut', 0.08)   # Runde 3: wenig Gelb — die Signalfarbe bleibt der einzige Akzent
+        streue(ter, pflanzen('periwinkle_plant', 0.4), 60 if R3 else 320, lambda x, y: 0.6 * d_kraut(x, y) + 0.4 * d_fuss(x, y), (0.9, 1.6), 3723, 'Immergruen')
         streue(ter, pflanzen('nettle_plant', 0.45), 300, lambda x, y: max(d_fuss(x, y), 0.6 * d_rand(x, y)), (3.2, 5.4), 3724, 'Nessel', 0.1)
         streue(ter, pflanzen('weed_plant_02', 0.4), 240, lambda x, y: max(0.7 * d_fuss(x, y), 0.5 * d_kraut(x, y)), (1.6, 3.2), 3725, 'Ampfer', 0.06)
         streue(ter, pflanzen('dandelion_01', 0.4), 130, lambda x, y: 0.5 * d_gras(x, y), (1.2, 2.0), 3726, 'Loewenzahn', 0.05)
         farne = pflanzen('fern_02', 0.45)
         streue(ter, farne, 170, lambda x, y: max(d_fuss(x, y), d_rand(x, y)), (0.9, 1.9), 3727, 'FarnZ', 0.1, 0.03)
         streue(ter, pflanzen('fir_sapling', 0.2), 18, d_rand, (0.9, 1.7), 3728, 'Jungfichte', 0.04, 0.02)
+        if R3:
+            # Krautpolster an allen Kanten: Plattenränder und -fugen, Beckenrand, Felsfüsse — kein Übergang ist eine Linie
+            def d_kante(x, y):
+                if im_becken(x, y) or mauerabstand(x, y)[0] < 0.5: return 0.0
+                k = 0.0
+                for px, py, hx, hy in PLATTEN:
+                    a = max(abs(x - px) - hx, abs(y - py) - hy)
+                    if abs(a) < 0.16: k = max(k, 1.0 - abs(a) / 0.16)
+                a = max(abs(x + 2.5) - 2.35, abs(y + 3.0) - 3.15)
+                if 0.0 < a < 0.9: k = max(k, 1.0 - a / 0.9)
+                for fx, fy, fr in felsen:
+                    a = math.hypot(x - fx, y - fy) - fr * 0.8
+                    if -0.15 < a < 0.8: k = max(k, 1.0 - max(0.0, a) / 0.8)
+                k *= 1.0 - 0.85 * max(0.0, min(1.0, (0.55 - abs(y - pfadmitte(x))) / 0.3))
+                return k * (0.35 + 0.65 * polster(x, y, 0.7, 31.0))
+            gras2 = pflanzen('grass_medium_02', 0.45)
+            streue(ter, gras + gras2, 1500, d_kante, (1.0, 2.0), 3821, 'Kantengras')
+            streue(ter, pflanzen('weed_plant_02', 0.4) + pflanzen('nettle_plant', 0.45), 500, d_kante, (1.4, 2.6), 3822, 'Kantenkraut', 0.08)   # kein Immergrün: seine rosa Blüten wären ein zweiter Akzent
+            streue(ter, pflanzen('shrub_sorrel_01', 0.4), 260, lambda x, y: max(d_kante(x, y), 0.5 * d_fuss(x, y)), (1.4, 2.6), 3823, 'Sauerklee', 0.06)
+            moos_s = vorlagen('moss_01'); gm = 0.32 / max(0.01, max(ausdehnung(me) for me in moos_s))
+            streue(ter, moos_s, 900, lambda x, y: max(d_kante(x, y), 0.7 * d_fuss(x, y)), (gm * 0.7, gm * 1.8), 3824, 'Moospolster', 0.05, 0.25)
+            streue(ter, gras2, 500, d_gras, (1.6, 2.8), 3825, 'Gras2')
+            # Fallaub als Einzelblätter: überall ausser Becken, Pfadmitte und Mauer; dichter in Senken und am Mauerfuss
+            def d_laub(x, y):
+                if im_becken(x, y) or mauerabstand(x, y)[0] < 0.45: return 0.0
+                f = 0.25 + 0.75 * polster(x, y, 0.4, 41.0)
+                f *= 1.0 - 0.8 * max(0.0, min(1.0, (0.5 - abs(y - pfadmitte(x))) / 0.3))
+                return min(1.0, f + 0.5 * math.exp(-max(0.0, mauerabstand(x, y)[0] - 0.5) / 0.6))
+            laubstreu(ter, d_laub)
         # Wald um den Hof: Farn und Jungwuchs zwischen den Stämmen (bis 34 m), nur grob — das ist Mittelgrund
         def d_wald(x, y):
             r = math.hypot(x + 2.0, y + 1.0)
@@ -1496,9 +1782,10 @@ def zielbild():
         streue(ter, farne, 420, d_wald, (1.2, 2.4), 3729, 'FarnW', 0.1, 0.03, (-30.0, 34.0, -34.0, 34.0))
         streue(ter, gras_gross, 700, d_wald, (2.2, 3.6), 3730, 'GrasW', 0.1, 0.02, (-30.0, 34.0, -34.0, 34.0))
         # Rahmenpflanzen im Vordergrund (grosse Blätter) und am Mauerfuss — gesetzt, nicht gestreut
-        blatt = pflanzen('anthurium_botany_01', 0.45)
+        # Runde 3: heimisch — Farn und Ampfer statt der tropischen Blattpflanze
+        blatt = (farne[:2] + pflanzen('weed_plant_02', 0.4)[:1]) if R3 else pflanzen('anthurium_botany_01', 0.45)
         for i, (x, y, g) in enumerate(((-11.4, 3.6, 1.5), (-11.0, -0.9, 1.3), (-10.2, 4.6, 1.2), (-11.9, -2.2, 1.1), (-8.9, -2.4, 0.9), (3.9, 2.4, 1.1), (3.8, 5.6, 1.2), (4.0, -4.6, 1.0), (-0.9, 6.5, 1.0), (-6.9, 5.6, 1.0), (6.3, -0.2, 0.9))):
-            setze_frei(blatt[i % 3], 'Blattpflanze%d' % i, (x, y, bodenz(ter, x, y) - 0.03), g, (0, 0, i * 1.9))
+            setze_frei(blatt[i % 3], 'Blattpflanze%d' % i, (x, y, bodenz(ter, x, y) - 0.03), g * (1.3 if R3 else 1.0), (0, 0, i * 1.9))
         # ---- Mauerkrone: Gras, Kraut und Farn in den Lücken, Efeu hängt über die Kante und steigt vom Fuss
         kraut = pflanzen('celandine_01'); efeu_a = {}
         for k, (p, q, t, mname) in enumerate(MAUERKRONE):
@@ -1520,12 +1807,15 @@ def zielbild():
                 for seite in (-1, 1):
                     if rnd.random() < 0.6:
                         efeu_a.setdefault('Fuss', []).append((Vector((a[0], a[1], zt - 0.35 + zz)) + ri * uu + q * seite * 0.47, q * seite, rr))
-        for i, (mname, flecken) in enumerate(efeu_a.items()): efeu_karten('Efeu_' + mname, flecken, 372 + i)
+        if R3: efeu_geometrie(zt)   # Blattgeometrie wie am Haus statt Karten
+        else:
+            for i, (mname, flecken) in enumerate(efeu_a.items()): efeu_karten('Efeu_' + mname, flecken, 372 + i)
         print('ZIELBILD Efeuflecken', sum(len(v) for v in efeu_a.values()))
         # ---- Büsche und junge Bäume: hinter der Mauer, an den Hofecken; ein Scan-Laubbaum als dichte Krone
         # Speicher: ein Scan-Laubbaum (3,9 Mio. Dreiecke) für alles — als Heldenbaum gross, als Jungwuchs und Busch klein
         # instanziert. Mehr verschiedene Scan-Bäume sprengen den Arbeitsspeicher der Cloud-Maschine (geteilt, 14 GB).
-        if os.environ.get('ZIELBILD_KRONE', '1') == '1':
+        if R3: baeume3(sb, ter, ferne)
+        elif os.environ.get('ZIELBILD_KRONE', '1') == '1':
             krone = pflanzen('jacaranda_tree', 0.4, 'leaves')
             for i, (name, x, y, h, saat) in enumerate(helden):
                 zr = random.Random(saat)
@@ -1545,20 +1835,31 @@ def zielbild():
         for o in list(bpy.data.objects):
             if o.type != 'MESH' or not o.data.materials: continue
             if o.name in ('MauerA', 'MauerB', 'MauerC', 'Stuetzmauer', 'MauerA_Bogen', 'MauerB_Bogen', 'Hof', 'Becken'): adaptiv(o, 1.0)
-        adaptiv(ter, 2.0)
+        adaptiv(ter, 3.0 if R3 else 2.0)   # Runde 3: Speicher (drei Baum-Scans statt einem)
         # ---- Tal: gestaffelte Kulissen; Dunst gedeckelt (Talnebel unten, dünne Luft bis 90 m über der Terrasse)
-        bergkulissen(zt)
         for n in ('Dunst', 'Bodennebel'):
             if n in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects[n])
-        sb.dunst('Talnebel', 20000.0, zt - 470.0, zt - 30.0, 0.0013, 105.0, (0.96, 0.84, 0.70), 0.2)
-        sb.dunst('Luft', 20000.0, zt - 470.0, zt + 90.0, 0.00006, 2000.0, (0.95, 0.82, 0.66), 0.2)
-        sb.dunst('Hofdunst', 160.0, zt - 6.0, zt + 40.0, 0.0003, 22.0, (1.0, 0.88, 0.72), 0.35)
+        if R3:
+            # Runde 3: kein Talnebel-Volumen (das war das helle Band unter dem Himmel) — vier Rücken, die der Stil aus der
+            # Tiefe staffelt; nur der Hof hat Dunst als Volumen (Lichtbahnen), Werte wie im Haus-Bild
+            for o in [o for o in bpy.data.objects if o.name.startswith('Fernkulisse')]: bpy.data.objects.remove(o)
+            bergruecken(zt)
+            # dünner und kleiner als am Haus (dort 0,0026 auf 150 m): hier schaut die Kamera durch den Dunst in die Ferne — der
+            # vom Himmel beleuchtete Schleier (~0,045) läge sonst über den dunklen Rücken und machte sie zu einem Band
+            sb.dunst('Hofdunst', 100.0, zt - 8.0, zt + 26.0, float(os.environ.get('ZIELBILD_HOFDUNST', '0.0009')), 12.0, (1.0, 0.88, 0.70), 0.5)
+        else: bergkulissen(zt)
+        if not R3: sb.dunst('Talnebel', 20000.0, zt - 470.0, zt - 30.0, 0.0013, 105.0, (0.96, 0.84, 0.70), 0.2)
+        if not R3: sb.dunst('Luft', 20000.0, zt - 470.0, zt + 90.0, 0.00006, 2000.0, (0.95, 0.82, 0.66), 0.2)
+        if not R3: sb.dunst('Hofdunst', 160.0, zt - 6.0, zt + 40.0, 0.0003, 22.0, (1.0, 0.88, 0.72), 0.35)
         # ---- Licht: Sonne tief hinter der Mauer rechts vom Bogen (Gegenlicht), Himmel aus dem Foto
         for o in [o for o in bpy.data.objects if o.type == 'LIGHT']: bpy.data.objects.remove(o)
-        EL = float(os.environ.get('ZIELBILD_EL', '18'))
+        EL = float(os.environ.get('ZIELBILD_EL', '24.5' if R3 else '18'))
         # Sonne deutlich über dem Füllen (D371 war flau: Boden bekam vom Himmel fast so viel wie von der tiefen Sonne)
-        sonne, _ = sb.sonne(EL, AZ, (1.0, 0.74, 0.48), float(os.environ.get('ZIELBILD_SONNE', '11')))
-        sonne.data.angle = math.radians(2.0)
+        if R3:   # Werte des Haus-Bildes: Sonne 3,8 gegen HDRI-Füllen 0,42 — golden, Schatten bleiben lesbar
+            sonne, _ = sb.sonne(EL, AZ, (1.0, 0.66, 0.38), float(os.environ.get('ZIELBILD_SONNE', '3.8'))); sonne.data.angle = math.radians(1.6)
+        else:
+            sonne, _ = sb.sonne(EL, AZ, (1.0, 0.74, 0.48), float(os.environ.get('ZIELBILD_SONNE', '11')))
+            sonne.data.angle = math.radians(2.0)
         # Sonnenprobe (Regel 6 der Spielereferenz: 10–20 % des Bodens besonnt): Strahlen vom Hof zur Sonne, wer steht im Weg?
         el, az = math.radians(EL), math.radians(AZ)
         zs = Vector((math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)))
@@ -1569,17 +1870,19 @@ def zielbild():
                 p0 = Vector((ix + 0.5, iy + 0.5, zt + 0.4))
                 for _ in range(12):   # Dunstkästen und Efeukarten (Alpha) zählen nicht: dahinter weiter
                     hit, ort_h, _n, _i, obj, _m = sc.ray_cast(dg, p0, zs)
-                    if not hit or not obj.name.startswith(('Hofdunst', 'Luft', 'Talnebel', 'Efeu')): break
+                    if not hit or not obj.name.startswith(('Hofdunst', 'Luft', 'Talnebel', 'Efeu', 'Laubstreu')): break
                     p0 = ort_h + zs * 0.02
                 if not hit: frei += 1
                 else: wer[obj.name.rstrip('0123456789')] = wer.get(obj.name.rstrip('0123456789'), 0) + 1
         print('ZIELBILD Sonnenprobe: %d %% des Hofs besonnt (Geometrie ohne Blattlücken); im Weg:' % (100 * frei / ges), sorted(wer.items(), key=lambda t: -t[1])[:6])
-        himmel_foto('evening_road_01_puresky', EL, AZ, 0.6035, float(os.environ.get('ZIELBILD_HIMMEL', '0.08')), 1.5, float(os.environ.get('ZIELBILD_HIMMELDREH', '35')))
+        if R3: himmel_haus(EL, AZ)
+        else: himmel_foto('evening_road_01_puresky', EL, AZ, 0.6035, float(os.environ.get('ZIELBILD_HIMMEL', '0.08')), 1.5, float(os.environ.get('ZIELBILD_HIMMELDREH', '35')))
         # ---- Kameras
         kams = {'bogen': sc.camera}
         for kname, ort, ziel, brenn in (('ziel', (-11.0, 2.2, 1.9), (5.0, -1.0, 3.3), 24), ('mauer', (-1.5, 4.8, 1.8), (4.6, 2.6, 2.6), 28),
                                         ('boden', (-7.2, 2.2, 1.15), (-3.4, -0.4, 0.1), 30), ('nah', (-5.6, 2.3, 1.45), (-1.4, -1.0, 0.25), 28)):
             k = sb.kamera((ort[0], ort[1], zt + ort[2]), (ziel[0], ziel[1], zt + ziel[2]), brenn); k.name = 'Kamera_' + kname; kams[kname] = k
+            if R3: k.data.clip_end = 20000.0   # der fernste Rücken steht bei 8 km
         sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
         sc.cycles.samples = samples; sc.cycles.use_adaptive_sampling = True; sc.cycles.adaptive_threshold = 0.025
         sc.cycles.use_denoising = True; sc.cycles.denoiser = 'OPENIMAGEDENOISE'
@@ -1587,8 +1890,8 @@ def zielbild():
         sc.cycles.transmission_bounces = 4; sc.cycles.volume_bounces = 0; sc.cycles.transparent_max_bounces = 32
         sc.cycles.sample_clamp_indirect = 4.0; sc.cycles.caustics_reflective = sc.cycles.caustics_refractive = False
         sc.cycles.volume_step_rate = 4.0; sc.cycles.volume_max_steps = 64
-        sc.cycles.dicing_rate = 1.0; sc.cycles.offscreen_dicing_scale = 8.0; sc.cycles.max_subdivisions = 9
-        sc.render.use_simplify = True; sc.cycles.texture_limit_render = os.environ.get('ZIELBILD_TEXTUR', '2048')   # Speicher
+        sc.cycles.dicing_rate = 1.0; sc.cycles.offscreen_dicing_scale = 16.0 if R3 else 8.0; sc.cycles.max_subdivisions = 9
+        sc.render.use_simplify = True; sc.cycles.texture_limit_render = os.environ.get('ZIELBILD_TEXTUR', '1024' if R3 else '2048')   # Speicher
         sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage = breite, hoehe, 100
         sc.view_settings.view_transform = 'AgX'
         try: sc.view_settings.look = 'AgX - Medium High Contrast'
@@ -1688,7 +1991,7 @@ def stil():
         return n.outputs[0]
 
     signal = maske_befall()
-    if art in ('aframe', 'zielbild'):
+    if art in ('aframe', 'zielbild', 'zielbild3'):
         # D371 / ADR-0018: Pinselflächen nur im Grossen. Die Kuwahara-Grösse folgt dem Nebelpass (linear, 0 bei 3 m,
         # 1 bei 150 m): nah bleibt die Substanz der Scans unberührt, Kronen, Ferne und Himmel laufen zu Flächen.
         # Kein Korn, kein Schärfen — das Bild ist entrauscht (OIDN), der Filter glättet nur, er erfindet nichts.
@@ -1699,7 +2002,27 @@ def stil():
             hk = float(os.environ.get('ZIELBILD_HIMMELSTIL', '0.72'))
             hg = g.nodes.new('ShaderNodeGamma'); hg.inputs['Gamma'].default_value = 1.3; L(farbe, hg.inputs['Color'])
             farbe = mix(farbe, mix(hg.outputs[0], (hk, hk, hk * 1.06), 1.0, 'MULTIPLY'), kurve(tiefe, 30000.0, 90000.0), ort=(-650, 200))
-        luft = mix(farbe, (0.88, 0.74, 0.58), kurve(nebel, 0.35, 1.0, hoch=0.10 if art == 'zielbild' else 0.22), ort=(-500, 200))
+        if art == 'zielbild3':
+            # Runde 3 (D382): Luftschichten aus der Tiefe wie im Haus-Bild — Menge = 1 − exp(−Weg / Sichtweite). Jeder
+            # Bergrücken steht eine Tonstufe heller und blasser als der davor; der Himmel bleibt unberührt und damit
+            # heller als das Tal (kein Nebelband). Dunstfarbe = Himmelsfarbe zur Sonne, gedeckt.
+            def rechne(op, a, b=None):
+                n_ = g.nodes.new('ShaderNodeMath'); n_.operation = op
+                for i_, w_ in enumerate((a, b)):
+                    if w_ is None: continue
+                    if isinstance(w_, float): n_.inputs[i_].default_value = w_
+                    else: L(w_, n_.inputs[i_])
+                return n_.outputs[0]
+            sichtweite = float(os.environ.get('ZIELBILD_SICHT', '5000'))
+            weg = rechne('MULTIPLY', rechne('MAXIMUM', rechne('SUBTRACT', tiefe, 45.0), 0.0), -1.0 / sichtweite)
+            menge = rechne('MULTIPLY', rechne('SUBTRACT', 1.0, rechne('EXPONENT', weg)), rechne('LESS_THAN', tiefe, 1.0e6))
+            wm = knoten(g, 'CompositorNodeBlur', (-600, 0)); L(menge, wm.inputs['Image'])   # Tiefe ist je Pixel ein Treffer: Laub flimmert sonst
+            try: wm.inputs['Size'].default_value = (2.5 * skala, 2.5 * skala)
+            except Exception as e: print('Blur', e)
+            # knapp unter dem Himmel am Horizont (szenenlinear ~0,06/0,08/0,08 quer zur Sonne), warm verschoben: Regel 4
+            dunstfarbe = tuple(float(x) for x in os.environ.get('ZIELBILD_DUNST', '0.058,0.062,0.064').split(','))
+            luft = mix(farbe, dunstfarbe, rechne('MULTIPLY', wm.outputs[0], 0.94), ort=(-500, 200))
+        else: luft = mix(farbe, (0.88, 0.74, 0.58), kurve(nebel, 0.35, 1.0, hoch=0.10 if art == 'zielbild' else 0.22), ort=(-500, 200))
         gr = g.nodes.new('ShaderNodeMapRange'); gr.location = (-500, 0); L(nebel, gr.inputs[0])
         gr.inputs[1].default_value = 0.10; gr.inputs[2].default_value = 0.65; gr.inputs[3].default_value = 0.0
         gr.inputs[4].default_value = 9.0 * skala; gr.clamp = True
@@ -1708,7 +2031,7 @@ def stil():
         L(luft, kw.inputs['Image']); L(gr.outputs[0], kw.inputs['Size'])
         # Übergang weich: unter 0,06 Nebel exakt das Original (keine Pinselspuren auf Mauer und Boden)
         pinsel = mix(luft, kw.outputs[0], kurve(nebel, 0.06, 0.16), ort=(0, 200))
-        bel = g.nodes.new('CompositorNodeExposure'); bel.location = (100, 200); bel.inputs['Exposure'].default_value = float(os.environ.get('ZIELBILD_EV', '-0.12')) if art == 'zielbild' else AFRAME_EV
+        bel = g.nodes.new('CompositorNodeExposure'); bel.location = (100, 200); bel.inputs['Exposure'].default_value = float(os.environ.get('ZIELBILD_EV', '-0.15' if art == 'zielbild3' else '-0.12')) if art != 'aframe' else AFRAME_EV
         L(pinsel, bel.inputs['Image'])
         gl = knoten(g, 'CompositorNodeGlare', (250, 200), Threshold=2.5, Strength=0.25, Size=0.8)
         gl.inputs['Type'].default_value = 'Bloom'
@@ -1717,10 +2040,11 @@ def stil():
         cb = g.nodes.new('CompositorNodeColorBalance'); cb.location = (550, 200)
         L(disp, cb.inputs['Image'])
         try:   # Lift kühl-violett (Schatten), Gain warm (Licht) — die gestaltete Temperaturtrennung
-            if art == 'zielbild': cb.inputs[4].default_value = (1.0, 0.999, 0.994, 1); cb.inputs[8].default_value = (1.05, 1.0, 0.93, 1)   # Schatten nicht blau
+            if art == 'zielbild3': cb.inputs[4].default_value = (1.0, 0.998, 1.003, 1); cb.inputs[8].default_value = (1.08, 1.0, 0.88, 1)   # wie Haus-Bild: Lichter warm, Schatten neutral-warm
+            elif art == 'zielbild': cb.inputs[4].default_value = (1.0, 0.999, 0.994, 1); cb.inputs[8].default_value = (1.05, 1.0, 0.93, 1)   # Schatten nicht blau
             else: cb.inputs[4].default_value = (0.97, 0.975, 1.05, 1); cb.inputs[8].default_value = (1.04, 1.0, 0.94, 1)
         except Exception as e: print('Balance', e)
-        hs = knoten(g, 'CompositorNodeHueSat', (750, 200), Saturation=float(os.environ.get('ZIELBILD_SATT', '0.86')) if art == 'zielbild' else 1.08)
+        hs = knoten(g, 'CompositorNodeHueSat', (750, 200), Saturation=float(os.environ.get('ZIELBILD_SATT', '1.0' if art == 'zielbild3' else '0.86')) if art != 'aframe' else 1.08)
         L(cb.outputs[0], hs.inputs['Image']); ende = hs.outputs[0]
     elif art == 'gemalt':
         # Soulframe-Linie: Formen vereinfacht zu Pinselflächen (anisotroper Kuwahara), warmes Licht, Luftschichten, Glühen.
@@ -1797,4 +2121,4 @@ def stil():
 
 
 if __name__ == '__main__':
-    {'render': render, 'aframe': aframe, 'zielbild': zielbild, 'scanblend': scanblend}.get(MODUS, stil)()
+    {'render': render, 'aframe': aframe, 'zielbild': zielbild, 'zielbild3': zielbild, 'scanblend': scanblend}.get(MODUS, stil)()
