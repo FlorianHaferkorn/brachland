@@ -1035,3 +1035,93 @@ export const ReinigenDaten = z.object({
     .describe('D379/D389: Band der Griffzahl je Gegner (`ceil(dauer / halten)`); `npm run validate` prüft jeden Gegner dagegen'),
 }).strict();
 export type ReinigenDaten = z.infer<typeof ReinigenDaten>;
+
+// --------------------------------------------------------------- Einstellungen (D394)
+
+/**
+ * Einstellungen als Daten (D394, `docs/design/BRACHLAND_Menue-und-Einstellungen_v1.md` §6/§8): Jede
+ * Einstellung ist ein Eintrag in `content/einstellungen.json`, kein Feld im Code. Der Store (noch nicht
+ * gebaut) liest Standard und Wertebereich von hier, die Oberfläche baut ihre Zeilen daraus, und die
+ * URL-Schalter aus `src/world/echt.ts` bleiben als Entwickler-Übersteuerung darüber liegen (`url`).
+ *
+ * `prioritaet`: M = muss vor dem ersten Fremdtest, S = soll vor Veröffentlichung, K = kann.
+ * `wirkt`: `geraet` gilt für diesen Rechner (Grafik, Anzeige, Ton, Belegung), `spieler` für die Person
+ * (Hilfen, Zugänglichkeit) — beim Export wandern nur `spieler`-Werte mit dem Spielstand mit.
+ */
+export const EINSTELLUNGS_GRUPPEN = ['grafik', 'anzeige', 'ton', 'steuerung', 'spiel', 'zugaenglichkeit', 'daten'] as const;
+export const QUALITAETSSTUFEN = ['niedrig', 'mittel', 'hoch', 'ultra'] as const;
+
+const einstellungsKopf = {
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  gruppe: z.enum(EINSTELLUNGS_GRUPPEN),
+  name: z.string().min(1).describe('Anzeigename, deutsch (Lokalisierung: Doc §8.3)'),
+  hilfe: z.string().min(1).describe('ein Satz, was die Einstellung tut und was sie kostet'),
+  prioritaet: z.enum(['M', 'S', 'K']),
+  wirkt: z.enum(['geraet', 'spieler']),
+  url: z.string().regex(/^[a-z0-9]+$/).optional().describe('heutiger URL-Schalter (ohne Fragezeichen), der denselben Wert übersteuert'),
+  neustart: z.boolean().optional().describe('wirkt erst nach Neuladen der Seite'),
+};
+
+export const Einstellung = z.discriminatedUnion('art', [
+  z.object({
+    ...einstellungsKopf,
+    art: z.literal('schalter'),
+    standard: z.boolean(),
+    stufen: z.record(z.enum(QUALITAETSSTUFEN), z.boolean()).optional(),
+  }).strict(),
+  z.object({
+    ...einstellungsKopf,
+    art: z.literal('auswahl'),
+    werte: z.array(z.object({ id: z.string().regex(/^[a-z0-9-]+$/), name: z.string().min(1) }).strict()).min(2),
+    standard: z.string(),
+    stufen: z.record(z.enum(QUALITAETSSTUFEN), z.string()).optional(),
+  }).strict(),
+  z.object({
+    ...einstellungsKopf,
+    art: z.literal('regler'),
+    min: z.number(),
+    max: z.number(),
+    schritt: z.number().positive(),
+    standard: z.number(),
+    einheit: z.string().optional(),
+    stufen: z.record(z.enum(QUALITAETSSTUFEN), z.number()).optional(),
+  }).strict(),
+]);
+export type Einstellung = z.infer<typeof Einstellung>;
+
+/** Liegt ein Wert im Bereich der Einstellung? Auch der Store prüft damit geladene und importierte Werte. */
+export function einstellungsWertGueltig(e: Einstellung, wert: unknown): boolean {
+  if (e.art === 'schalter') return typeof wert === 'boolean';
+  if (e.art === 'auswahl') return typeof wert === 'string' && e.werte.some(w => w.id === wert);
+  if (typeof wert !== 'number' || !Number.isFinite(wert) || wert < e.min - 1e-9 || wert > e.max + 1e-9) return false;
+  const schritte = (wert - e.min) / e.schritt;
+  return Math.abs(schritte - Math.round(schritte)) < 1e-6;
+}
+
+export const Einstellungen = z.object({
+  version: z.number().int().positive().describe('Version des Einstellungssatzes; steigt, wenn eine id entfällt oder ihre Bedeutung wechselt'),
+  einstellungen: z.array(Einstellung).min(1),
+}).strict().superRefine((d, ctx) => {
+  const gesehen = new Set<string>();
+  d.einstellungen.forEach((e, i) => {
+    if (gesehen.has(e.id)) ctx.addIssue({ code: 'custom', path: ['einstellungen', i, 'id'], message: `id '${e.id}' doppelt` });
+    gesehen.add(e.id);
+    if (e.art === 'regler' && e.max <= e.min) ctx.addIssue({ code: 'custom', path: ['einstellungen', i, 'max'], message: 'max nicht über min' });
+    if (e.art === 'auswahl' && new Set(e.werte.map(w => w.id)).size !== e.werte.length) {
+      ctx.addIssue({ code: 'custom', path: ['einstellungen', i, 'werte'], message: 'Wert-id doppelt' });
+    }
+    if (!einstellungsWertGueltig(e, e.standard)) {
+      ctx.addIssue({ code: 'custom', path: ['einstellungen', i, 'standard'], message: 'Standard liegt nicht im Wertebereich' });
+    }
+    for (const [stufe, wert] of Object.entries(e.stufen ?? {})) {
+      if (!einstellungsWertGueltig(e, wert)) {
+        ctx.addIssue({ code: 'custom', path: ['einstellungen', i, 'stufen', stufe], message: 'Stufenwert liegt nicht im Wertebereich' });
+      }
+    }
+    // Nur Grafik hängt an Qualitätsstufen — sonst würde „Hoch“ still die Lautstärke ändern.
+    if (e.stufen && e.gruppe !== 'grafik') {
+      ctx.addIssue({ code: 'custom', path: ['einstellungen', i, 'stufen'], message: 'Stufenwerte nur in der Gruppe grafik' });
+    }
+  });
+});
+export type Einstellungen = z.infer<typeof Einstellungen>;

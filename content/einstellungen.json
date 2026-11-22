@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "einstellungen": [
+    {
+      "id": "qualitaetsstufe", "gruppe": "grafik", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet",
+      "name": "Qualitätsstufe",
+      "hilfe": "Setzt alle Grafikwerte auf einmal. „Automatisch“ misst beim Laden und wählt die höchste Stufe, die flüssig läuft.",
+      "werte": [
+        { "id": "automatisch", "name": "Automatisch" },
+        { "id": "niedrig", "name": "Niedrig" },
+        { "id": "mittel", "name": "Mittel" },
+        { "id": "hoch", "name": "Hoch" },
+        { "id": "ultra", "name": "Ultra" },
+        { "id": "eigen", "name": "Eigene Werte" }
+      ],
+      "standard": "automatisch"
+    },
+    {
+      "id": "aufloesungsskala", "gruppe": "grafik", "art": "regler", "prioritaet": "M", "wirkt": "geraet",
+      "name": "Auflösung",
+      "hilfe": "Obergrenze des Pixelverhältnisses. 2 heißt vierfache Pixelzahl gegenüber 1 — der stärkste einzelne Hebel für die Bildrate.",
+      "min": 0.75, "max": 2, "schritt": 0.25, "standard": 2, "einheit": "×",
+      "stufen": { "niedrig": 1, "mittel": 1.5, "hoch": 2, "ultra": 2 }
+    },
+    {
+      "id": "schatten", "gruppe": "grafik", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet", "url": "schatten",
+      "name": "Schatten",
+      "hilfe": "Auflösung der Schattenkarte. „Aus“ nimmt dem Bild Tiefe und ist nur für sehr schwache Geräte gedacht.",
+      "werte": [
+        { "id": "aus", "name": "Aus" },
+        { "id": "2048", "name": "Mittel (2048)" },
+        { "id": "4096", "name": "Hoch (4096)" }
+      ],
+      "standard": "2048",
+      "stufen": { "niedrig": "aus", "mittel": "2048", "hoch": "4096", "ultra": "4096" }
+    },
+    {
+      "id": "vegetationsdichte", "gruppe": "grafik", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet", "url": "gras",
+      "name": "Vegetationsdichte",
+      "hilfe": "Gras und Kleinzeug am Boden. Bäume und Büsche bleiben immer stehen, weil sie Deckung und Sichtlinien bestimmen.",
+      "werte": [
+        { "id": "aus", "name": "Aus" },
+        { "id": "normal", "name": "Normal" },
+        { "id": "dicht", "name": "Dicht" }
+      ],
+      "standard": "normal",
+      "stufen": { "niedrig": "aus", "mittel": "normal", "hoch": "normal", "ultra": "dicht" }
+    },
+    {
+      "id": "sichtweite", "gruppe": "grafik", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet", "url": "weite",
+      "name": "Sichtweite",
+      "hilfe": "Wie weit Bäume, Büsche und Gras in voller Stufe gezeichnet werden. Das Gelände selbst reicht immer bis zum Horizont.",
+      "werte": [
+        { "id": "nah", "name": "Nah (1,0)" },
+        { "id": "weit", "name": "Weit (1,6)" },
+        { "id": "sehr-weit", "name": "Sehr weit (2,0)" }
+      ],
+      "standard": "weit",
+      "stufen": { "niedrig": "nah", "mittel": "weit", "hoch": "weit", "ultra": "sehr-weit" }
+    },
+    {
+      "id": "vollbild", "gruppe": "anzeige", "art": "schalter", "prioritaet": "M", "wirkt": "geraet",
+      "name": "Vollbild",
+      "hilfe": "Der Browser verlangt dafür einen Klick oder Tastendruck; Esc verlässt das Vollbild und öffnet die Pause.",
+      "standard": false
+    },
+    {
+      "id": "helligkeit", "gruppe": "anzeige", "art": "regler", "prioritaet": "M", "wirkt": "geraet", "url": "belichtung",
+      "name": "Helligkeit",
+      "hilfe": "Verschiebt die Belichtung in Blendenstufen, ohne die Lichtstimmung zu ändern. Eingestellt wird am Kalibrierbild beim ersten Start.",
+      "min": -1, "max": 1, "schritt": 0.1, "standard": 0, "einheit": "EV"
+    },
+    {
+      "id": "hud-skala", "gruppe": "anzeige", "art": "regler", "prioritaet": "M", "wirkt": "geraet",
+      "name": "Größe der Anzeigen",
+      "hilfe": "Skaliert Leben, Ausdauer, Marke, Zielanzeige und Hinweise gemeinsam.",
+      "min": 80, "max": 150, "schritt": 10, "standard": 100, "einheit": "%"
+    },
+    {
+      "id": "lautstaerke-gesamt", "gruppe": "ton", "art": "regler", "prioritaet": "M", "wirkt": "geraet",
+      "name": "Gesamtlautstärke",
+      "hilfe": "Wirkt auf alles. 0 ist stumm.",
+      "min": 0, "max": 100, "schritt": 5, "standard": 80, "einheit": "%"
+    },
+    {
+      "id": "stumm-im-hintergrund", "gruppe": "ton", "art": "schalter", "prioritaet": "M", "wirkt": "geraet",
+      "name": "Stumm, wenn der Tab im Hintergrund liegt",
+      "hilfe": "Beim Tab-Wechsel pausiert das Spiel immer; dieser Schalter legt fest, ob dann auch der Ton schweigt.",
+      "standard": true
+    },
+    {
+      "id": "mausempfindlichkeit", "gruppe": "steuerung", "art": "regler", "prioritaet": "M", "wirkt": "geraet",
+      "name": "Mausempfindlichkeit",
+      "hilfe": "Faktor auf die Blickdrehung je Mausweg.",
+      "min": 0.2, "max": 3, "schritt": 0.1, "standard": 1, "einheit": "×"
+    },
+    {
+      "id": "blick-y-umkehren", "gruppe": "steuerung", "art": "schalter", "prioritaet": "M", "wirkt": "geraet",
+      "name": "Blick hoch/runter umkehren",
+      "hilfe": "Maus oder rechter Stick nach vorn senkt den Blick.",
+      "standard": false
+    },
+    {
+      "id": "rennen-modus", "gruppe": "steuerung", "art": "auswahl", "prioritaet": "M", "wirkt": "spieler",
+      "name": "Rennen",
+      "hilfe": "Halten: rennt, solange die Taste gedrückt ist. Umschalten: ein Druck beginnt, der nächste beendet.",
+      "werte": [
+        { "id": "halten", "name": "Halten" },
+        { "id": "umschalten", "name": "Umschalten" }
+      ],
+      "standard": "halten"
+    },
+    {
+      "id": "eingabesymbole", "gruppe": "steuerung", "art": "auswahl", "prioritaet": "M", "wirkt": "geraet",
+      "name": "Tastensymbole",
+      "hilfe": "Welche Symbole Hinweise und Menüs zeigen. „Automatisch“ folgt dem Gerät, das zuletzt eine Eingabe gemacht hat.",
+      "werte": [
+        { "id": "automatisch", "name": "Automatisch" },
+        { "id": "tastatur", "name": "Tastatur und Maus" },
+        { "id": "gamepad-abxy", "name": "Gamepad (A B X Y)" },
+        { "id": "gamepad-formen", "name": "Gamepad (Formen)" }
+      ],
+      "standard": "automatisch"
+    },
+    {
+      "id": "lehrhinweise", "gruppe": "spiel", "art": "auswahl", "prioritaet": "M", "wirkt": "spieler",
+      "name": "Lehrhinweise",
+      "hilfe": "Zeigt beim ersten Mal das Tastensymbol zu einer Handlung. „Nur Symbol“ lässt den Text weg.",
+      "werte": [
+        { "id": "an", "name": "Symbol und Text" },
+        { "id": "symbol", "name": "Nur Symbol" },
+        { "id": "aus", "name": "Aus" }
+      ],
+      "standard": "an"
+    },
+    {
+      "id": "richtungskampf", "gruppe": "spiel", "art": "schalter", "prioritaet": "M", "wirkt": "spieler",
+      "name": "Richtungskampf",
+      "hilfe": "Block und Angriff in vier Linien (ADR-0009). Aus heißt: Der Block deckt jede Linie.",
+      "standard": true
+    },
+    {
+      "id": "signalfarbe", "gruppe": "zugaenglichkeit", "art": "auswahl", "prioritaet": "M", "wirkt": "spieler",
+      "name": "Signalfarbe für Befall",
+      "hilfe": "Tauscht die eine Signalfarbe gegen eine, die sich bei Farbfehlsichtigkeit besser vom Land abhebt. Es bleibt immer genau eine.",
+      "werte": [
+        { "id": "standard", "name": "Standard (Türkisgrün)" },
+        { "id": "blau", "name": "Hellblau" },
+        { "id": "magenta", "name": "Magenta" }
+      ],
+      "standard": "standard"
+    },
+    {
+      "id": "textgroesse", "gruppe": "zugaenglichkeit", "art": "regler", "prioritaet": "M", "wirkt": "spieler",
+      "name": "Textgröße",
+      "hilfe": "Skaliert alle Texte in Menüs, Hinweisen und Untertiteln.",
+      "min": 100, "max": 150, "schritt": 25, "standard": 100, "einheit": "%"
+    }
+  ]
+}
