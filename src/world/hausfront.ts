@@ -3,7 +3,6 @@ import { FENSTERRAUM_GLSL } from './fensterraum.js';
 
 export const HAUSFRONT_PARS = /* glsl */ `
 varying vec3 vRaumUv;
-varying vec3 vHausNormal;
 ${FENSTERRAUM_GLSL}
 float hausfrontHash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
