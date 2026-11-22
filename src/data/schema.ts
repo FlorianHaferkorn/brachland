@@ -759,7 +759,8 @@ export const Region = z.object({
   regent: z.string(),
   kreaturen: z.array(z.string()),
   konzentrate: z.array(Konzentrat).max(2),
-  traversal: z.string().describe('Fähigkeit, die diese Region freischaltet'),
+  /** Seit Traversal v2 (D388) kein Schlüssel mehr: Das Werkzeug kürzt Wege ab, gesperrt ist nichts. Von keinem Code gelesen. */
+  traversal: z.string().describe('Werkzeug, dessen Werkzeugwege diese Region einführt (Traversal v2: kürzt ab, sperrt nichts)'),
   zielSpielzeit: z.number().describe('Stunden'),
   hausnutzung: z.array(Hausnutzung).optional(),
   strassenkulisse: z.array(Strassenkulisse).optional(),
