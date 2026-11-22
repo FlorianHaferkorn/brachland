@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-11-21
+last-reviewed: 2026-11-22
 shelf-life-days: 180
 owns: *.md
 ---
@@ -18,14 +18,14 @@ owns: *.md
 | Deine Aufgabe ist … | Lies |
 |---|---|
 | Welt, Ton, Fraktionen, Erzählung verstehen | `BRACHLAND_Kernfunken_v1.md` | D188: Elementarangriffe im Echtzeitkampf — Direktivkerne der Regenten, Laden/Entladen, Wasserfunke umgesetzt, weitere als Entwurf |
-| `BRACHLAND_Story-Bibel_v1.md` |
+| `BRACHLAND_Story-Bibel_v2.md` (v1 nur noch für Vorgeschichte, Regenten, Namensschema) |
 | Kampflogik ändern oder Werte balancieren | `BRACHLAND_Kampfsystem_v2.md` |
 | Einen Move anlegen oder ändern | `BRACHLAND_Move-System_v1.md` |
 | Eine Kreatur anlegen | `BRACHLAND_Roster-Struktur_v1.md` → `BRACHLAND_Roster_Kapitel1.md` |
 | Wissen, was in Kapitel 1 vorkommt | `BRACHLAND_Roster_Kapitel1.md` |
 | Modelle beschaffen und aufbereiten | `BRACHLAND_Asset-Workflow_v1.md` → `../WORKFLOW.md` |
 | Gebäude, Siedlungen, Bauwerke bauen oder beurteilen | `BRACHLAND_Bauwelt_v1.md` (realer Bestand Inntal-Süd + Verfallsstufen nach dem Kollaps) |
-| Entscheiden, wo Enklave und Zufluchten liegen (Erkundung, Flut, Story) | `BRACHLAND_Enklave_Lage_v1.md` (Entwurf, A-21) |
+| Entscheiden, wo Enklave und Zufluchten liegen (Erkundung, Flut, Story) | `BRACHLAND_Story-Bibel_v2.md` §4 (entschieden: Hangterrasse, D374) → `BRACHLAND_Enklave_Lage_v1.md` (Bestandsaufnahme, Koordinaten) |
 | Ein Kreaturenmodell bauen oder beurteilen | `BRACHLAND_Creature-Bible_v1.1.md` → für Wildlinge zusätzlich `BRACHLAND_Stilreferenz_v1.md` |
 | Wissen, was Zustände, Narben oder Herkünfte mechanisch tun | `BRACHLAND_Creature-Bible_v1.1.md` → `../../src/engine/battle.ts` |
 | Bewegung, Klettern, Reiten, Gleiten planen | `BRACHLAND_Traversal_v1.md` |
@@ -35,7 +35,8 @@ owns: *.md
 
 | Doc | Inhalt |
 |---|---|
-| `BRACHLAND_Story-Bibel_v1.md` | Arbeitstitel, Genre, Ton (dunkel, wortkarg — Fragmente statt Cutscenes), Welt, Fraktionen |
+| `BRACHLAND_Story-Bibel_v2.md` | **Gültige Fassung seit 22.11.2026 (D374).** Echtzeit-Action-RPG statt Creature-Collector; Messlatte Erlebnis Elden Ring. Marke heilt statt tötet; offene Welt mit zwei Wegen zu jedem Ziel (Werkzeugweg oder beschwerlicher Weg); Œntal: Flut vom Stauwehr (Flutlinie 499 m), Enklave auf der Hangterrasse, versunkene Stadt; drei Enden nach Fraktion über Figuren mit eigenem Weg; Bogen Kapitel 1 |
+| `BRACHLAND_Story-Bibel_v1.md` | **Vorgänger, überholt durch v2** in Genre, Marke, Weltstruktur, Kapitelbogen. Weiter gültig: Vorgeschichte VERIDIA/Faulbrand (§2), Regenten (§5), Namensschema (§8), Kapitel-Template (§10) |
 | `BRACHLAND_Kampfsystem_v2.md` | **Gültige Fassung (v2.4).** 1v1 nach Pokémon-Schema, Team von 6, Wechsel kostet den Zug; Doppel-Elemente, Fundstücke, Konzentrate — alles simulationsgeprüft |
 | `BRACHLAND_Kampfsystem_und_Roster_v1.md` | Vorgänger. Kampfteil **überholt** durch v2; Rosterteil weiter gültig |
 | `BRACHLAND_Move-System_v1.md` | Move-System v1.1: planbarer Kern, dynamischer Rand |

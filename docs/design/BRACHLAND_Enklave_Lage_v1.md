@@ -4,7 +4,7 @@ shelf-life-days: 90
 ---
 # BRACHLAND — Lage der Enklave und der Zufluchten im Œntal (Entwurf v1)
 
-**Status:** Entwurf, Entscheidung offen (Ledger A-21, ADR-0017). Bestandsaufnahme vom 21.11.2026 aus Story-Bibel,
+**Status:** Entschieden am 22.11.2026 (Flo, D374): **Option 2 „Hangterrasse“**, Flut vom Stauwehr, Flutlinie 499 m (Arbeitswert) — siehe `BRACHLAND_Story-Bibel_v2.md` §4. Dieses Dokument bleibt Bestandsaufnahme; die Fragen unten stehen im Ledger (A-21, A-24). Bestandsaufnahme vom 21.11.2026 aus Story-Bibel,
 Story-Struktur, Traversal, Bauwelt, `content/orte`, `content/auftraege`, `content/fragmente`, `content/regenten` und
 dem Höhenraster `public/world/oental.json`. Nichts davon ist umgesetzt.
 
