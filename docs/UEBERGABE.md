@@ -40,10 +40,21 @@ Stand holen: `git pull` auf `claude/epic-planck-86z6fy` (PR #16). Nächste freie
    Feinkies, Übergangszone statt harter Kante, flaches Wasser mit sichtbarem Grund, Uferbewuchs, Laub an der
    Wasserlinie, Spiegelung nach Fresnel. Dabei nachziehen: Moospolster (wirken als Scheiben), Pfad (schwach lesbar),
    Himmel (7 %, eher knapp), volle Auflösung. Modus `zielbild4` als Ausgang, neuer Modus statt Überschreiben.
+2a. **Zielbild Tiere, Runde 2 — nach echten Tierfotos nachbauen** (Flo 22.11.2026, D401). Runde 1 (D384,
+   `tools/tierframe.py`, `bilder/zielbild/d384-zielbild-tiere.jpg`) ist **nicht freigegeben**: prozedural geloftet
+   statt geformt, der Fuchs wirkt wie ein Spielzeug, das Grathorn wollig wie ein Schaf, keine Gesichter, steife
+   Haltung. Vorgehen: je Tier zuerst echte Fotos holen (Wikimedia Commons, freie Lizenz; Quellen und Lizenzen in
+   `referenz/tiere-quellen.json` fortschreiben, Befunde in `referenz/REFERENZ_TIERE.md`) — Seitenansicht,
+   Dreiviertel, Kopf nah, Läufe/Hufe bzw. Pfoten, Fell nah, dazu ein Skelett- oder Muskelbild. Dann **am Foto
+   nachbauen**: Proportionen in der Seitenansicht deckungsgleich aufs Foto legen (Messblatt als Beleg), Kopf mit
+   Lidern, Nüstern, Lefzen, Tasthaaren, Muskeln über dem Skelett, Fell mit Unterwolle und Strich, natürliche Pose
+   mit Gewichtsverlagerung, Boden mit Ort. Befall wächst entlang der Hautspannung, Porlinge haben Poren, keine
+   Lamellen. Gras mit Alpha-Masken (Punkt 1). Bildpaar Foto │ Modell je Tier an Flo. Der Wurzelkeiler ist am
+   weitesten und als Ausgang brauchbar. Offen dazu: A-30.
 3. **Physik muss stimmen** (D398, steht in `CLAUDE.md`): gilt für jedes Bild und jeden Wert. Abweichungen zugunsten
    des Spiels benennen und begründen.
-4. **Ab jetzt rendert nur noch der M1.** Die Cloud-Sitzung startet keine neuen Render-Aufträge mehr; dort laufen nur
-   noch die Zielbilder Menschen (D383) und Tiere (D384) zu Ende.
+4. **Ab jetzt rendert nur noch der M1.** Die Cloud-Sitzung startet keine neuen Render-Aufträge mehr; dort läuft nur
+   noch das Zielbild Menschen (D383) zu Ende.
 
 **Seit dem Stand unten dazugekommen** (alles im Ledger, Tabelle B): D381 Start draussen, Weg zur Enklave als
 Lehrstrecke · D382/D386 Felsmulde Runde 3 und 4 · D385 Menschen nicht reinigbar · D388/D391 Traversal v2 und
