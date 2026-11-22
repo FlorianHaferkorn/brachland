@@ -11,8 +11,9 @@
  *   Das Revier wird beim Lesen aus der Lage bestimmt, nicht gespeichert; ändern sich die Grenzen in den Daten, folgt
  *   der Zustand.
  * - `besiegt` / `gefangen` (Bestand): Vorkommen-IDs `kreatur:i:j` tragen ihre Zelle im Weltraster — daraus folgt das
- *   Revier. `gefangen` zählt als gereinigt, bis die Kampfhandlung Reinigen einen eigenen Eintrag schreibt (D375,
- *   dieselbe Regel wie `main.tsx` `taten`). Eine ID, die schon in `begegnungen` steht, zählt nicht zweimal.
+ *   Revier. Gereinigt zählt seit D417 `gereinigt` (Migration v4 hat die alten `gefangen` übernommen); ein Stand ohne
+ *   das Feld fällt auf `gefangen` zurück (D375). Eine ID, die schon in `begegnungen` steht, zählt nicht zweimal —
+ *   der Echtzeitkampf meldet dieselbe ID dort und in `gereinigt`/`besiegt`.
  * - `reviere` (seit v3): nur, was Regeln an der Rast entschieden haben und nicht ableitbar ist — Zahl der Rasten,
  *   Reihenfolge der leergetöteten Reviere, nachgezogene Verhärtete, zugewanderte Tiere.
  *
@@ -66,6 +67,8 @@ export interface StandMitRevieren {
   region: string;
   besiegt: readonly string[];
   gefangen: readonly string[];
+  /** D417: gereinigte IDs; ohne das Feld (Stand vor v4, Tests) zählt `gefangen` als gereinigt. */
+  gereinigt?: readonly string[];
   begegnungen?: readonly Begegnung[];
   reviere?: Revierstand;
 }
@@ -257,7 +260,7 @@ export function revierZustaende(welt: Revierwelt, stand: StandMitRevieren,
   const schon = new Set<string>();
   // Getötet zuerst: erst gefangen, dann getötet (gibt es nicht, aber eingriffe() nimmt dann auch das schwerere).
   zaehle(stand.besiegt, 'getoetet', schon);
-  zaehle(stand.gefangen, 'gereinigt', schon);
+  zaehle(stand.gereinigt ?? stand.gefangen, 'gereinigt', schon);
   for (const e of raus.values()) {
     e.eingriffe = e.getoetet + e.gereinigt;
     e.begegnet = e.eingriffe + e.umgangen;

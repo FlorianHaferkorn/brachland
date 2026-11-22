@@ -26,7 +26,7 @@
     { "id": "waffe_axt", "name": "Axt", "kontext": "kampf", "tasten": ["Digit2"], "pad": [], "verdrahtet": true },
     { "id": "waffe_speer", "name": "Speer", "kontext": "kampf", "tasten": ["Digit3"], "pad": [], "verdrahtet": true },
     { "id": "waffe_tausch", "name": "Nächste Waffe", "kontext": "kampf", "tasten": ["Tab"], "pad": ["Pad:Y"], "verdrahtet": true },
-    { "id": "reinigen", "name": "Reinigen (Markengriff)", "kontext": "kampf", "tasten": ["KeyF"], "pad": ["Pad:X"], "verdrahtet": false },
+    { "id": "reinigen", "name": "Reinigen (Markengriff)", "kontext": "kampf", "tasten": ["KeyF"], "pad": ["Pad:X"], "verdrahtet": true },
     { "id": "interagieren", "name": "Ansprechen, aufheben, öffnen", "kontext": "welt", "tasten": ["KeyF"], "pad": ["Pad:X"], "verdrahtet": false },
     { "id": "geraet", "name": "Gerät einsetzen", "kontext": "immer", "tasten": ["KeyR"], "pad": ["Pad:LT"], "verdrahtet": false },
     { "id": "umschau", "name": "Kamera: Umschau", "kontext": "immer", "tasten": ["KeyC"], "pad": [], "verdrahtet": true },

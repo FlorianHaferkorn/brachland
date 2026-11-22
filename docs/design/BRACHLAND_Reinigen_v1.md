@@ -6,8 +6,9 @@ shelf-life-days: 180
 
 > Entwurf mit Regelkern zu Story-Bibel v2 §2 (D374): Die Marke heilt statt zu töten. Der Regelkern liegt in
 > `src/kampf/echtzeit.ts` hinter dem Schalter `Kampfwelt.marke`, die Werte in `content/reinigen.json`, die Dauer je Tier
-> seit D389 in `content/gegner/` (§6 — die Dauern in §2 und die Tabelle in §3 sind der Stand davor). **Nicht gebaut:**
-> Eingabe, Animation, Anzeige, Belohnung, Weltfolgen. Offen/erledigt steht im Ledger (`docs/_INDEX.md` A-24.2), nicht hier.
+> seit D389 in `content/gegner/` (§6 — die Dauern in §2 und die Tabelle in §3 sind der Stand davor). **Seit D417 im Spiel:**
+> Eingabe (F / Gamepad X), Anzeige, Kampfende getötet/gereinigt, Marke im Spielstand, Folgen (§7). **Nicht gebaut:** eigene
+> Griff-Animation, Touch-Knopf. Offen/erledigt steht im Ledger (`docs/_INDEX.md` A-24.2, A-39), nicht hier.
 
 **Frage:** Wie wird Reinigen eine Kampfhandlung, die langsamer und riskanter ist als Töten, aber nie aussichtslos — und
 was bekommt man dafür, damit beides eine Wahl bleibt?
@@ -259,8 +260,8 @@ Sie zählen **Eingriffe**, nicht Tote.
 | `tests/reinigen.test.ts` | 115 Prüfungen (D389: Daten je Gegner, Griffband, Schema, Auswertung) | `npm run test` |
 | `content/gegner/*.json` `reinigen`, `GegnerReinigen` in `src/data/schema.ts` | D389: Kanaldauer und Griffdauer je Tier; `freiwillig` für den befallenen Menschen (D385) | `npm run validate` (jedes Tier trägt den Block, Griffzahl im Band) |
 
-`phase === 'gefallen'` heisst seit D376 „aus dem Kampf“; ob besiegt oder gereinigt, steht in `Kaempfer.ausgang`. Die
-Szene (`Kampfplatz.tsx`) kennt das noch nicht — sie setzt keine Marke und ist unverändert.
+`phase === 'gefallen'` heisst seit D376 „aus dem Kampf“; ob besiegt oder gereinigt, steht in `Kaempfer.ausgang`. Seit
+D417 liest die Szene das (§7).
 
 **Vorschlag für die Auftragsdaten (nicht angelegt, `content/auftraege` gehört gerade einem anderen Umbau):** ein
 Auftragsziel `{ "art": "reinige", "kreatur": "<id>", "anzahl": n }` neben `besiege`, und für die Fraktionsfiguren
@@ -388,3 +389,36 @@ nicht neu gerechnet.
 5. Regenten und der freiwillig befallene Mönch: keine Werte, weil es beide im Echtzeitkampf nicht gibt.
 
 Alle Werte sind Bot-Messung, nichts davon am Gerät gespielt.
+
+## 7. Umsetzung im Spiel (D417)
+
+Die Regeln aus §2/§6 sind **unverändert** (`src/kampf/echtzeit.ts`, Kampfbot D407 liest dieselben). Neu ist nur die
+Anbindung — renderfrei geprüft in `tests/markengriff.test.ts`.
+
+**Aus Spielersicht:** (1) Ein Tier auf 35 % Leben bringen — am Boden um das Tier erscheint ein schwacher Ring in der
+Signalfarbe, unten „niedergerungen“. (2) Steht es offen (betäubt, in der Erholung, lauernd) und ist man auf 1,8 m heran,
+wird der Ring deutlicher, unten „F — greifen“. (3) **F** (Gamepad **X**) greift: die Figur dreht sich zum Tier und hält
+(Block-Haltung), ein Bogen im Ring und ein dünner Balken unten füllen sich; **K** löst (0,2 s) und rollt. Ein Treffer
+bricht den Griff („Griff gebrochen“, Fortschritt halbiert). (4) Nach 3–6 Griffen ist das Tier gereinigt: „gereinigt —
+es geht ruhig ab“, es fällt nicht, steht kurz und geht im Schritt davon; eine Raute der Markenreihe ist leer. (5) Am
+Ende eines Wegelagers zählt es als gereinigt (Aufträge `reinige`, Läuterung, Zähler ¼, Reviere), sein Anteil an der
+Schmiedewährung bleibt liegen; die Rast in der Zuflucht füllt die Marke.
+
+| Teil | Wo | Was |
+|---|---|---|
+| Eingabe | `src/kampf/markengriff.ts` `drueckeReinigen`, `rolleImGriff`; `content/belegung.json` `reinigen` (verdrahtet) | F / Pad X greift, wenn `setzeReinigenAn` es erlaubt; sonst eine Meldung mit Grund (erst niederringen, zu weit, Marke leer, auf die Lücke warten, erst ausschwingen, greift nicht bei Menschen, verhärtet). Aufgeschaltet ist ein Mensch → die Marke nimmt das greifbare Tier daneben |
+| Anzeige | `reinigenLage`; `src/kampf/Kampfplatz.tsx` (Ring, Bogen), `src/ui/Kampfanzeige.tsx` (Rauten, Balken, Hinweis) | eine Farbe: `PALETTE.befall.signal` `#cfe9f2` — dieselbe wie Zielmarke und Marke am Unterarm (D383); am Boden, nicht am Tier. Kein Blinken. Kein neues HUD-Element ausser der Rautenreihe unter dem Lebensbalken |
+| Griff-Clip | `src/scenes/RegionsSzene.tsx` | **offen:** Es gibt keinen Griff-Clip; die Figur steht in der Block-Haltung ihrer Waffe. Neue Clips sind D414 |
+| Gereinigter | `Kampfplatz.tsx` `zeichnePuppe`/`spieleRig` | kein Sturz: 0,9 s stehen, dann im Schritt (1,1 m/s, Clip `Walk`) weg — nur gezeichnet, in der Kampfwelt bleibt es „aus dem Kampf“ |
+| Kampfende | `src/kampf/kampfende.ts` `kampfbericht` | je Gegner getötet / gereinigt / steht, Kreatur der Welt hinter der Art (`wolf` → `k7-wolf`), Markenladung am Ende; gilt auch bei Niederlage |
+| Stand | `src/spiel/marke.ts`, `src/spiel/spielstand.ts`, Migration **v3 → v4** (`src/spiel/speicherformat.ts` `MIGRATIONEN[3]`) | gespeichert nur `gereinigt` (IDs) und `marke.ladung`; Läuterung, Markenstufe und Fassung (4 + 2 je Regent + 1 je Stufe, D393) abgeleitet. Migration: `gereinigt` = alte `gefangen` (ohne Doppel), Marke voll; idempotent, läuft auch in `ergaenzeStand` |
+| Folgen | `src/spiel/begegnungen.ts` `folgenDerBegegnung`, `teileBeute`; `src/main.tsx` `kampfVorbei`, `raste` | gereinigte Tiere → `gereinigt`, getötete Tiere → `besiegt` (Menschen in keiner Liste, D385), IDs `<kreatur>:<lager>:<platz>:<zeit>`; je Gegner eine `Begegnung` an `meldeBegegnungRef` → `vermerkeBegegnung` (D416, gleiche ID, Reviere zählen sie einmal); Beute: Schmiedewährung und Wirkung `material` nur im Anteil der Getöteten, abgerundet (Arbeitsregel); Rast in der Zuflucht füllt die Marke (`ladungNachRast`) |
+| Aufträge, Zähler, Reviere | `main.tsx` `taten`, `stationVon`; `src/spiel/reviere.ts` | `reinige` zählt `gereinigt` statt `gefangen`; `eingriffe()` sieht `gereinigt` mit den Gewichten der Station (¼); Reviere zählen `gereinigt` (ohne das Feld weiter `gefangen`) |
+| Übungsplatz | `?kampf=fuchs` u. a. | Marke voll, jede Runde neu; nichts wird gespeichert. Messadresse `?reinigprobe=1`: erster Gegner niedergerungen und betäubt schräg vor der Figur, Platz friedlich (Bildpaar) |
+
+**Nicht gebaut:** Touch — es gibt im Echtzeitkampf noch keinen Kampfknopf-Bereich (Touch folgt „mit Stufe 2“,
+`Kampfplatz.tsx` Kopf); auf die Umsetzungsliste: ein Knopf „Reinigen“ neben Rolle/Schlag, sobald es die gibt. Eigener
+Griff-Clip (D414). Das ruhige Revier lädt die Marke im Freien (`ladungNachRast` mit `ruhig`) — es gibt noch keine Rast
+ausserhalb der Zuflucht. Wilde Tiere der Welt kämpfen weiter im Rundenkampf; dort gibt es kein Reinigen, nur Aufnehmen
+(A-39 (1)).
+

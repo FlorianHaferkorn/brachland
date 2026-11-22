@@ -89,6 +89,7 @@ import { meldeSpiegelflaeche, Spiegelbild } from '../world/spiegelbild.js';
 import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
+import type { Kampfbericht } from '../kampf/kampfende.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
 import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
@@ -4031,9 +4032,10 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
       }
       if (k.phase === 'gefallen') {
         ziel = clips.tod; blende = 0.15;
-      } else if (k.phase === 'block' && aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)) {
+      } else if ((k.phase === 'block' || k.phase === 'reinigen') && aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)) {
         // D173: Deckung heben und halten — der Clip bleibt auf seinem letzten Bild stehen. D174: die Axt
-        // hat ihren eigenen (Stiel quer, `waffenclips.py`).
+        // hat ihren eigenen (Stiel quer, `waffenclips.py`). D417: Auch der Markengriff steht so — es gibt
+        // keinen Griff-Clip (offen, D414); der gehobene Arm ist die nächste vorhandene Haltung.
         const b = aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)!;
         b.clampWhenFinished = true; b.timeScale = 2;
         ziel = b; blende = 0.06;
@@ -4621,8 +4623,10 @@ export interface RegionsSzeneProps {
   kampfplatz?: boolean;
   /** Wer auf dem Platz steht (D169/D170): zwei Arten, je Platz eine. */
   kampfAufstellung?: readonly GegnerArt[];
-  /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen. */
-  kampfEnde?: (sieg: boolean) => void;
+  /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen; seit D417 mit Bericht je Gegner. */
+  kampfEnde?: (sieg: boolean, bericht: Kampfbericht) => void;
+  /** D417: Marke aus dem Spielstand (Ladungen, Fassung, Reinkultur) — ohne Angabe eine volle (Übungsplatz). */
+  kampfMarke?: { ladung: number; fassung: number; reinkultur?: boolean };
   /** Schmiedestufen der Waffen (D177). */
   waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Begegnung bei Nacht (D179). */
@@ -4640,7 +4644,7 @@ export function RegionsSzene({
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
   regent, geheilt, onRegentNah, gleiterFrei, onGleiten, anzug, onKoerper, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, kampfRichtung, spielerSprung, kampfStand, lagerstellen,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, kampfMarke, waffenStufen, kampfNacht, kampfRichtung, spielerSprung, kampfStand, lagerstellen,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -4857,7 +4861,7 @@ export function RegionsSzene({
         <Suspense fallback={null}>
           <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
                       ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} waffenStufen={waffenStufen} nacht={kampfNacht} richtung={kampfRichtung}
+                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} marke={kampfMarke} waffenStufen={waffenStufen} nacht={kampfNacht} richtung={kampfRichtung}
                       key={kampfEnde ? `welt-${kampfAufstellung?.join(',')}` : 'platz'} />
         </Suspense>
       )}

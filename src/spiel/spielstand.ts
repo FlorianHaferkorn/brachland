@@ -19,6 +19,7 @@ import type { Zustand } from '../engine/battle.js';
 import type { HeldWahl } from '../spieler/held.js';
 import type { WaffenStufen } from './schmiede.js';
 import { LEERER_REVIERSTAND, type Begegnung, type Revierstand } from './reviere.js';
+import { fuelleMarke, hebeMarke } from './marke.js';
 
 /**
  * Version des Speicherformats (D415): 2 = Stand in der Hülle (`spiel/speicherformat.ts`), 3 = mit Revieren (D416).
@@ -52,8 +53,22 @@ export interface Spielstand {
   team: TeamEintrag[];
   /** IDs bereits gefangener Vorkommen — die stehen nicht mehr in der Welt. */
   gefangen: string[];
-  /** IDs besiegter Vorkommen. Kommen später wieder, aber nicht in derselben Sitzung. */
+  /**
+   * IDs besiegter Vorkommen. Kommen später wieder, aber nicht in derselben Sitzung. Seit D417 auch die im
+   * Echtzeitkampf **getöteten Tiere** (`<kreatur>:<lager>:<platz>:<zeit>`, `spiel/begegnungen.ts`).
+   */
   besiegt: string[];
+  /**
+   * D417: IDs der mit der Marke **gereinigten** Tiere, Format wie `besiegt`. Aufträge mit Ziel `reinige`,
+   * die Läuterung (`spiel/marke.ts`) und der Zähler der Mönche (¼) lesen diese Liste. Migration v3 übernimmt
+   * die alten `gefangen` (bis D417 zählte das Aufnehmen als Reinigen, D375).
+   */
+  gereinigt: string[];
+  /**
+   * D417: die Marke — nur die Ladungen jetzt. Fassung, Läuterung und Stufe folgen aus `gereinigt` und
+   * `regenten` (`spiel/marke.ts`), werden also nicht gespeichert.
+   */
+  marke: { ladung: number };
   position: [number, number];
   /**
    * Region, in deren Metern `position` steht (ADR-0014). Alte Stände kennen das Feld nicht und
@@ -131,6 +146,9 @@ export const LEERER_STAND: Spielstand = {
   team: [],
   gefangen: [],
   besiegt: [],
+  gereinigt: [],
+  // Die Marke startet voll: Fassung ohne Regent und ohne Läuterung (`content/reinigen.json`, heute 4).
+  marke: fuelleMarke({ gereinigt: [], regenten: [] }),
   position: [0, 0],
   region: 'oental',
   gesehen: [],
@@ -152,6 +170,9 @@ export const LEERER_STAND: Spielstand = {
  * verlorener Spielstand ist schlimmer als ein leerer Beutel. Läuft nach jeder Migration (D415).
  */
 export function ergaenzeStand(roh: Record<string, unknown>): Spielstand {
+  // D417: Felder der Marke aus dem alten Stand ableiten (idempotent, wie Migration v3) — nicht aus
+  // `LEERER_STAND`, sonst begänne `gereinigt` leer und alte `gefangen` verlören ihren Auftragsfortschritt.
+  roh = hebeMarke(roh);
   return {
     ...LEERER_STAND, ...roh,
     beutel: roh.beutel ?? {},

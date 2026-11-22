@@ -99,7 +99,8 @@ pruefe('Und startet ohne einen', LEERER_STAND.orte.length === 0);
 // Das Feld kam ohne Versionssprung dazu — bis D415 verwarf ein Sprung in `ladeStand` jeden
 // bestehenden Stand. Seit D415 springt die Version (1 → 2, Hülle), aber über eine Migration; der Schutz,
 // den dieser Test hielt, steht jetzt in `tests/speicherformat.test.ts` (v1 lädt ohne Verlust).
-pruefe('Versionssprung nur mit Migration (D415, D416)', LEERER_STAND.version === 3 && typeof MIGRATIONEN[1] === 'function' && typeof MIGRATIONEN[2] === 'function',
+pruefe('Versionssprung nur mit Migration (D415, D416, D417)', LEERER_STAND.version >= 4
+  && Array.from({ length: LEERER_STAND.version - 1 }, (_, i) => i + 1).every(n => typeof MIGRATIONEN[n] === 'function'),
   `Version ${LEERER_STAND.version}`);
 
 // ---- Zustand im Team lesbar (D244) ----------------------------------------

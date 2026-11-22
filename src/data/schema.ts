@@ -1771,6 +1771,10 @@ export const SpielstandDaten = z.object({
   }).passthrough()),
   gefangen: z.array(kennung),
   besiegt: z.array(kennung),
+  /** D417 (Migration v3): gereinigte Tiere, Format wie `besiegt`. */
+  gereinigt: z.array(kennung),
+  /** D417: nur die Ladungen jetzt; Fassung, Läuterung, Stufe sind abgeleitet (`src/spiel/marke.ts`). */
+  marke: z.object({ ladung: z.number().finite().min(0) }).passthrough(),
   position: z.tuple([z.number().finite(), z.number().finite()]),
   region: kennung,
   gesehen: z.array(kennung),

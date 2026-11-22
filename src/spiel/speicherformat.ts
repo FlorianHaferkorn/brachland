@@ -4,7 +4,7 @@
  * **Hülle** `{ format, version, geschrieben, spiel }` um den Spielstand. Version 1 ist der Stand bis
  * D415 **ohne** Hülle (das nackte Objekt mit `version: 1`, so wie `speichereStand` ihn schrieb);
  * Version 2 ist derselbe Stand in der Hülle. Version 3 (D416) bringt die Reviere: `begegnungen` (was der Kampf je
- * Begegnung meldet) und `reviere` (was Rasten an den Revieren entschieden haben, `spiel/reviere.ts`).
+ * Begegnung meldet) und `reviere` (was Rasten an den Revieren entschieden haben, `spiel/reviere.ts`). Version 4 (D417) trägt die Marke: `gereinigt` und `marke`.
  *
  * **Migration statt Verwerfen.** `MIGRATIONEN[n]` hebt Version n auf n + 1; geladen wird über die ganze
  * Kette. Bis D415 verwarf `ladeStand` bei jeder anderen Version den ganzen Stand — deshalb kamen neue
@@ -27,9 +27,14 @@
  */
 import { SpielstandDaten, SpielstandHuelle } from '../data/schema.js';
 import type { Spielstand } from './spielstand.js';
+import { hebeMarke } from './marke.js';
 
 export const FORMAT = 'brachland-spielstand';
-export const AKTUELLE_VERSION = 3;
+/**
+ * 4 seit D417 (Marke: `gereinigt`, `marke.ladung`), nach 3 aus D416 (Reviere). `hebeMarke` läuft zusätzlich in
+ * `ergaenzeStand` und ist idempotent — ein Stand, der die Felder schon trägt, bleibt, wie er ist.
+ */
+export const AKTUELLE_VERSION = 4;
 export const PLAETZE = [1, 2, 3] as const;
 export type Platz = typeof PLAETZE[number];
 export type Fassung = 'aktuell' | 'rast';
@@ -38,7 +43,7 @@ export const ALTER_SCHLUESSEL = 'aktuell';
 
 /**
  * Felder, die D392/D393/D400/D412 brauchen werden, die der Code aber **noch nicht schreibt** — sie kommen mit der
- * nächsten Migration (v4), wenn der erste davon geschrieben wird (Doc §7.2 „Neu im Stand“). Bis dahin gilt:
+ * nächsten Migration (v5; v4 war D417, die Marke), wenn der erste davon geschrieben wird (Doc §7.2 „Neu im Stand“). Bis dahin gilt:
  * Das Heft (D392) leitet sich aus `fragmente`/`orte`/`auftraege` ab, die Kälteuhr (D412) lebt in der
  * Szene und beginnt nach dem Laden neu, Bruchstücke (D400) liegen als Gegenstände im `beutel`.
  * Mit v3 (D416) erledigt: die Eingriffe beim Zähler (`begegnungen` und, abgeleitet, `besiegt`/`gefangen`).
@@ -46,7 +51,6 @@ export const ALTER_SCHLUESSEL = 'aktuell';
 export const KOMMT_SPAETER = [
   'heft: eigene Vermerke (D392) — heute nur abgeleitet, nichts zu speichern',
   'einsicht (D400) — kein Code schreibt sie',
-  'markenLadung, markenFassung (D393) — Entwurf in spiel/oekonomie.ts, nicht im Spiel; das Aufladen nach Revier steht in spiel/reviere.ts (D416)',
   'ausruestung (D393) — kein Code schreibt sie',
   'begehung (Kartenraster, A-29 (2)) und eigene Kartenzeichen',
   'lehrhinweiseGesehen, spielzeit',
@@ -92,6 +96,16 @@ export const MIGRATIONEN: Record<number, (alt: unknown, jetzt: Date) => unknown>
     return { ...h, version: 3, spiel: { ...spiel, version: 3,
       begegnungen: Array.isArray(spiel.begegnungen) ? spiel.begegnungen : [],
       reviere: spiel.reviere && typeof spiel.reviere === 'object' ? spiel.reviere : { rasten: 0, leerFolge: [], je: {} } } };
+  },
+  /**
+   * 3 → 4 (D417): die Marke. `gereinigt` übernimmt alle `gefangen` (bis D417 zählten Aufträge `reinige` und die
+   * Reviere das Aufnehmen als Reinigen — so verliert niemand Fortschritt), `marke.ladung` startet voll.
+   * `hebeMarke` (`marke.ts`), idempotent. `begegnungen` bleibt, wie es ist: Die Reviere zählen eine ID, die dort
+   * steht, nicht zweimal.
+   */
+  3: alt => {
+    const h = alt as Record<string, unknown>;
+    return { ...h, version: 4, spiel: { ...hebeMarke((h.spiel ?? {}) as Record<string, unknown>), version: 4 } };
   },
 };
 

@@ -55,8 +55,8 @@ pruefe('Kollision 2: F = Reinigen (Kampf) und Ansprechen (Welt)', hat('reinigen'
 pruefe('Alle Aktionen aus dem Auftrag vorhanden',
   ['angriff_leicht', 'angriff_schwer', 'rolle', 'block', 'zielen', 'reinigen', 'rennen', 'springen', 'interagieren', 'menue', 'geraet']
     .every(a => a in karte));
-pruefe('Noch nicht verdrahtet: reinigen, interagieren, geraet',
-  BELEGUNG_DATEN.aktionen.filter(a => !a.verdrahtet).map(a => a.id).sort().join() === 'geraet,interagieren,reinigen');
+pruefe('Noch nicht verdrahtet: interagieren, geraet (reinigen seit D417)',
+  BELEGUNG_DATEN.aktionen.filter(a => !a.verdrahtet).map(a => a.id).sort().join() === 'geraet,interagieren');
 
 // ---- 2. Kollisionen
 const k = kollisionen(karte);
