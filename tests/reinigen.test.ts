@@ -12,15 +12,21 @@
  *   * Das Band aus `tools/reinigensim.ts`: Reinigen ist langsamer und im Rudel teurer, aber nie
  *     aussichtslos. Die volle Messreihe (1.000 Kämpfe je Zeile) steht im Entwurf
  *     `docs/design/BRACHLAND_Reinigen_v1.md`; hier läuft ein kleines Band als Tor.
+ *   * D389 — Dauer je Gegner: Jedes Tier in `content/gegner/` trägt `reinigen` (Kanaldauer, Griffdauer),
+ *     die Griffzahl bleibt im Band aus `content/reinigen.json`, die Regeln lesen die Werte des Gegners
+ *     und fallen ohne sie auf die Grössenformel zurück. Menschen nie — ausser freiwillig befallen (D385).
  */
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
-  SPIELERIN, FUCHS, WOLF, KEILER, WEGELAGERER, REINIGEN, SCHRITT,
+  SPIELERIN, FUCHS, WOLF, KEILER, GAMS, WEGELAGERER, UEBUNGSGEGNER, REINIGEN, SCHRITT,
   neuerKaempfer, blickAuf, simuliere, puffere, angriffsrecht,
-  neueMarke, kannReinigen, setzeReinigenAn, loeseReinigen, reinigungsDauer, reinigungsLadung, istBefallen,
+  neueMarke, kannReinigen, setzeReinigenAn, loeseReinigen, reinigungsDauer, reinigungsHalten, reinigungsGriffe, reinigungsLadung, istBefallen,
   type Kaempfer, type Kampfwelt, type KampfWerte,
 } from '../src/kampf/echtzeit.js';
-import { ReinigenDaten } from '../src/data/schema.js';
-import { simuliereZeile } from '../tools/reinigensim.js';
+import { ReinigenDaten, GegnerDaten } from '../src/data/schema.js';
+import { simuliereZeile, simuliereGegner, bewerte, ohneEigeneWerte, TIERE, ZIELKORRIDOR, type SimZeile } from '../tools/reinigensim.js';
+import { PROFILE } from '../tools/kampfbot.js';
 
 let bestanden = 0, gefallen = 0;
 function pruefe(name: string, ok: boolean, hinweis = '') {
@@ -53,7 +59,7 @@ const laufe = (w: Kampfwelt, sekunden: number) => { for (let t = 0; t < sekunden
 // ---------------------------------------------------------------- Daten
 pruefe('content/reinigen.json besteht das Schema', ReinigenDaten.safeParse(W).success);
 pruefe('die Marke hält kürzer, als die kleinste Reinigung dauert (mehr als ein Griff)',
-  W.halten < W.grunddauer + FUCHS.lebenMax / W.lebenJeSekunde, `${W.halten} s gegen ${(W.grunddauer + FUCHS.lebenMax / W.lebenJeSekunde).toFixed(2)} s`);
+  Object.values(TIERE).every(t => { const k = neuerKaempfer('x', t, 0, 0); return reinigungsHalten(W, k) < reinigungsDauer(W, k); }));
 pruefe('wund liegt nicht über der Schwelle', W.wundAb <= W.schwelle);
 pruefe('Lösen ist schneller als jeder Vorlauf, aber nicht umsonst', W.loesen > 0 && W.loesen < FUCHS.schlag.vorlauf);
 
@@ -218,7 +224,94 @@ pruefe('die Dauer hängt an der Grösse des Tiers, nicht am Restleben',
   pruefe('selbst gelöst heisst gelöst, nicht getroffen', w.marke!.ereignisse.at(-1)?.art === 'geloest');
 }
 
+// ---------------------------------------------------------------- Dauer je Gegner (D389)
+{
+  const ORDNER = 'content/gegner';
+  const dateien = readdirSync(ORDNER).filter(f => f.endsWith('.json'))
+    .map(f => GegnerDaten.parse(JSON.parse(readFileSync(join(ORDNER, f), 'utf8'))));
+  const tiere = dateien.filter(g => g.elemente?.length && !g.mensch), menschen = dateien.filter(g => g.mensch);
+  pruefe('jedes Tier in content/gegner trägt eigene Reinigungswerte', tiere.length > 0 && tiere.every(g => !!g.reinigen),
+    tiere.filter(g => !g.reinigen).map(g => g.id).join(', '));
+  pruefe('kein Mensch in content/gegner ist reinigbar (D385)', menschen.length > 0 && menschen.every(g => !g.reinigen));
+  pruefe('wer weder Tier noch Mensch ist (Übungsgegner), trägt keine', dateien.filter(g => !g.elemente && !g.mensch).every(g => !g.reinigen));
+  pruefe('die Messreihe kennt genau die reinigbaren Tiere', tiere.map(g => g.id).sort().join() === Object.keys(TIERE).sort().join(),
+    `${tiere.map(g => g.id).sort()} gegen ${Object.keys(TIERE).sort()}`);
+  for (const g of tiere) {
+    const k = neuerKaempfer(g.id, TIERE[g.id], 0, 0);
+    pruefe(`${g.id}: die Regeln rechnen mit der Dauer aus den Daten`, reinigungsDauer(W, k) === g.reinigen!.dauer);
+    pruefe(`${g.id}: die Griffdauer kommt vom Gegner, sonst aus den Markenwerten`, reinigungsHalten(W, k) === (g.reinigen!.halten ?? W.halten));
+    const griffe = reinigungsGriffe(W, k);
+    pruefe(`${g.id}: Griffzahl im Band ${W.griffe.min}–${W.griffe.max} (D379)`, griffe >= W.griffe.min && griffe <= W.griffe.max, `${griffe}`);
+    pruefe(`${g.id}: ein Griff allein reinigt nicht`, reinigungsHalten(W, k) < reinigungsDauer(W, k));
+  }
+  // Ohne eigene Werte gilt die Grössenformel (Regenten, Testgegner, Stand D376).
+  const nackt = neuerKaempfer('n', ohneEigeneWerte(KEILER), 0, 0);
+  pruefe('ohne eigene Werte: Dauer nach der Grösse', nah(reinigungsDauer(W, nackt), W.grunddauer + KEILER.lebenMax / W.lebenJeSekunde, 1e-9)
+    && reinigungsHalten(W, nackt) === W.halten);
+  const hart = neuerKaempfer('h', KEILER, 0, 0); hart.zustand = 'verhaertet';
+  pruefe('verhärtet vervielfacht die eigene Dauer', nah(reinigungsDauer(W, hart), KEILER.reinigen!.dauer * W.verhaertet.dauerFaktor, 1e-9));
+
+  // Das Schema: reinigen nur bei Tieren — oder bei Menschen, die den Befall gewählt haben.
+  const rohMensch = JSON.parse(readFileSync(join(ORDNER, 'wegelagerer.json'), 'utf8'));
+  const rohTier = JSON.parse(readFileSync(join(ORDNER, 'fuchs.json'), 'utf8'));
+  const rohUebung = JSON.parse(readFileSync(join(ORDNER, 'uebungsgegner.json'), 'utf8'));
+  pruefe('Schema: Mensch mit reinigen wird abgelehnt', !GegnerDaten.safeParse({ ...rohMensch, reinigen: { dauer: 4 } }).success);
+  pruefe('Schema: freiwillig befallener Mensch wird angenommen (D385)', GegnerDaten.safeParse({ ...rohMensch, reinigen: { dauer: 4, freiwillig: true } }).success);
+  pruefe('Schema: ein Tier ist nie „freiwillig“', !GegnerDaten.safeParse({ ...rohTier, reinigen: { dauer: 3, freiwillig: true } }).success);
+  pruefe('Schema: ohne Element kein reinigen', !GegnerDaten.safeParse({ ...rohUebung, reinigen: { dauer: 3 } }).success);
+  pruefe('Schema: Dauer muss positiv sein', !GegnerDaten.safeParse({ ...rohTier, reinigen: { dauer: 0 } }).success);
+  pruefe('Schema: unbekannte Felder im Block werden abgelehnt', !GegnerDaten.safeParse({ ...rohTier, reinigen: { dauer: 3, griffe: 3 } }).success);
+  pruefe('der Übungsgegner ist nicht befallen', !istBefallen(neuerKaempfer('u', UEBUNGSGEGNER, 0, 0)));
+}
+{
+  // D385: Der freiwillig Befallene (Mönch im Endstadium) ist der einzige Mensch, den die Marke greift.
+  const moench: KampfWerte = { ...WEGELAGERER, reinigen: { dauer: 4, freiwillig: true } };
+  const { w, g } = lage(moench);
+  pruefe('freiwillig befallener Mensch: befallen', istBefallen(g));
+  g.phase = 'betaeubt'; g.zeit = 0;
+  pruefe('… aber wie jedes Ziel erst unter der Schwelle', W.schwelle >= 1 || !kannReinigen(w, g));
+  wund(g);
+  pruefe('… wund und betäubt: greifbar', kannReinigen(w, g));
+}
+{
+  // Die Griffdauer je Gegner wirkt im Kampf: Die Gams liegt so lange, wie ihre Daten sagen.
+  const { w, s, g } = lage(GAMS);
+  const halten = reinigungsHalten(W, g);
+  wund(g); inErholung(g);
+  setzeReinigenAn(w);
+  laufe(w, halten - 0.05);
+  pruefe('ein Tier mit eigener Griffdauer liegt bis kurz vor ihrem Ende', s.phase === 'reinigen' && g.phase === 'betaeubt', `${s.phase}/${g.phase}`);
+  laufe(w, 0.1);
+  pruefe('… und steht danach wieder', s.phase === 'bereit' && g.phase !== 'betaeubt');
+  pruefe('… mit halten/dauer Fortschritt', nah(g.reinigung ?? 0, halten / reinigungsDauer(W, g), 0.03), `${(g.reinigung ?? 0).toFixed(3)}`);
+}
+{
+  // Die Auswertung der Messreihe (tools/reinigensim.ts `bewerte`) — Korridor aus D376, Obergrenze als Annahme D389.
+  const z = (siege: number, zeit: number, erlitten: number): SimZeile =>
+    ({ aufstellung: 'x', modus: 'immer', siege, zeit, erlitten, gereinigt: 1, gebrochen: 0, geloest: 0, kanaele: 4 });
+  const [lo, hi] = ZIELKORRIDOR.zeit, auf = PROFILE[0].name, muede = PROFILE[1].name;
+  pruefe('Auswertung: mitten im Korridor ohne Befund', bewerte(auf, z(1, 10, 10), z(1, 10 * (lo + hi) / 2, 12)).length === 0);
+  pruefe('Auswertung: schneller als der Korridor heisst zu leicht', bewerte(auf, z(1, 10, 10), z(1, 10 * lo - 0.5, 12)).some(b => b.startsWith('zu leicht')));
+  pruefe('Auswertung: über der Obergrenze heisst zu lang — für jedes Profil', bewerte(muede, z(1, 10, 10), z(1, 10 * ZIELKORRIDOR.zeitHoechstens + 0.5, 12)).some(b => b.startsWith('zu lang')));
+  pruefe('Auswertung: der Richtwert gilt nur dem Aufmerksamen', bewerte(muede, z(1, 10, 10), z(1, 10 * hi + 0.5, 12)).length === 0);
+  pruefe('Auswertung: brechen die Siege ein, ist es zu hart', bewerte(muede, z(0.8, 10, 10), z(0.8 - ZIELKORRIDOR.siegeVerlust - 0.05, 12.5, 30)).some(b => b.startsWith('zu hart')));
+  pruefe('Auswertung: wer fast nie reinigt, wird als solcher benannt',
+    bewerte(auf, z(1, 10, 10), { ...z(1, 13, 12), gereinigt: 0.1 }).some(b => b.startsWith('selten gereinigt')));
+  pruefe('Auswertung: weniger Schaden als Töten heisst nicht riskanter', bewerte(auf, z(1, 10, 10), z(1, 13, 7)).some(b => b.startsWith('nicht riskanter')));
+}
+
 // ---------------------------------------------------------------- Das Band (klein; voll in tools/reinigensim.ts)
+{
+  // D389: Keiler und Fuchs lagen mit der Grössenformel über dem Richtwert — mit eigenen Werten darunter.
+  const n = 40;
+  for (const tier of ['keiler', 'fuchs']) {
+    const z = simuliereGegner(tier, n, PROFILE[0]), v = simuliereGegner(tier, n, PROFILE[0], 'klinge', true);
+    pruefe(`${tier}: mit eigener Dauer höchstens ${ZIELKORRIDOR.zeitHoechstens}× der Tötungszeit`, z.zeitFaktor <= ZIELKORRIDOR.zeitHoechstens, z.zeitFaktor.toFixed(2));
+    pruefe(`${tier}: kürzer als mit der Grössenformel, aber weiter langsamer als Töten`, z.zeitFaktor < v.zeitFaktor && z.zeitFaktor > 1.05,
+      `${z.zeitFaktor.toFixed(2)} gegen ${v.zeitFaktor.toFixed(2)}`);
+    pruefe(`${tier}: gelingt und reinigt (≥ 90 %)`, z.reinigen.siege >= 0.9 && z.reinigen.gereinigt >= 0.9);
+  }
+}
 {
   const n = 40;
   const pct = (x: number) => `${Math.round(x * 100)} %`;

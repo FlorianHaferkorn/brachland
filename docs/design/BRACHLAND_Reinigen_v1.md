@@ -5,7 +5,8 @@ shelf-life-days: 180
 # BRACHLAND — Reinigen v1 (D376)
 
 > Entwurf mit Regelkern zu Story-Bibel v2 §2 (D374): Die Marke heilt statt zu töten. Der Regelkern liegt in
-> `src/kampf/echtzeit.ts` hinter dem Schalter `Kampfwelt.marke`, die Werte in `content/reinigen.json`. **Nicht gebaut:**
+> `src/kampf/echtzeit.ts` hinter dem Schalter `Kampfwelt.marke`, die Werte in `content/reinigen.json`, die Dauer je Tier
+> seit D389 in `content/gegner/` (§6 — die Dauern in §2 und die Tabelle in §3 sind der Stand davor). **Nicht gebaut:**
 > Eingabe, Animation, Anzeige, Belohnung, Weltfolgen. Offen/erledigt steht im Ledger (`docs/_INDEX.md` A-24.2), nicht hier.
 
 **Frage:** Wie wird Reinigen eine Kampfhandlung, die langsamer und riskanter ist als Töten, aber nie aussichtslos — und
@@ -56,7 +57,7 @@ kommt der nächste Angriff nach rund 1,5 s — der Kanal reisst immer. Nur viele
 | `schwelle` / `wundAb` | 0,35 | Ohne Schwelle ist Reinigen schneller als Töten (Variante C); bei 25 % (Variante A) stirbt der Fuchs meist am Schlag, der ihn unter die Schwelle bringen soll (15 % gereinigt). Bei 35 % bleibt das Risiko am kleinsten Tier: Fuchs 21 von 60 Leben, ein Klingenhieb macht 22–26 |
 | `reichweite` | 1,8 m | näher als die Klinge (2,4 m): man muss heran. 1,6 m und 2,0 m gemessen (Schritt 4 der Kurve), der Unterschied war klein; 1,8 m ist die Mitte |
 | `halten` | 1,2 s | passt in die Atempause der Meute (1,0 s) plus Anlauf des Nächsten. Mit 2,0–2,5 s war Reinigen einzeln so schnell wie Töten (Schritt 4) |
-| `grunddauer` + `lebenMax / lebenJeSekunde` | 0,5 s + L / 24 | Fuchs 3,0 s · Wolf 4,3 s · Gams 4,7 s · Grathorn 5,5 s · Keiler 6,3 s — also 3 bis 6 Griffe |
+| `grunddauer` + `lebenMax / lebenJeSekunde` | 0,5 s + L / 24 | Fuchs 3,0 s · Wolf 4,3 s · Gams 4,7 s · Grathorn 5,5 s · Keiler 6,3 s — also 3 bis 6 Griffe. **Seit D389 nur noch Rückfall:** Jedes Tier trägt seine Dauer selbst (§6: Fuchs 2,5 · Gams 4,0 · Wolf 4,25 · Keiler 5,4 · Grathorn 5,5 s) |
 | `loesen` | 0,2 s | macht den Kanal im Rudel zum Wagnis; ohne ihn (0 s) kostete „immer reinigen“ gegen zwei Wölfe keinen Schaden mehr als Töten (Schritt 6) |
 | `nachhall` | 0,4 s | so lange bleibt das Tier nach einem Abbruch noch benommen — Zeit für die Rolle, nicht für einen Schlag |
 | `behaltBeiTreffer` | 0,5 | ein Treffer tut weh, aber die Reinigung ist nicht verloren (Variante A: 0 → Rudel aussichtslos) |
@@ -253,7 +254,8 @@ Sie zählen **Eingriffe**, nicht Tote.
 | `content/reinigen.json`, `ReinigenDaten` in `src/data/schema.ts` | alle Werte | `npm run validate` |
 | `tools/kampfbot.ts` | Bot mit Marke (`MarkenSpiel`: `immer`/`sicher`) | letzter Parameter von `kampf()`; ohne ihn unverändert |
 | `tools/reinigensim.ts` | Messreihe und die drei Varianten | — |
-| `tests/reinigen.test.ts` | 63 Prüfungen | `npm run test` |
+| `tests/reinigen.test.ts` | 115 Prüfungen (D389: Daten je Gegner, Griffband, Schema, Auswertung) | `npm run test` |
+| `content/gegner/*.json` `reinigen`, `GegnerReinigen` in `src/data/schema.ts` | D389: Kanaldauer und Griffdauer je Tier; `freiwillig` für den befallenen Menschen (D385) | `npm run validate` (jedes Tier trägt den Block, Griffzahl im Band) |
 
 `phase === 'gefallen'` heisst seit D376 „aus dem Kampf“; ob besiegt oder gereinigt, steht in `Kaempfer.ausgang`. Die
 Szene (`Kampfplatz.tsx`) kennt das noch nicht — sie setzt keine Marke und ist unverändert.
@@ -261,3 +263,126 @@ Szene (`Kampfplatz.tsx`) kennt das noch nicht — sie setzt keine Marke und ist 
 **Vorschlag für die Auftragsdaten (nicht angelegt, `content/auftraege` gehört gerade einem anderen Umbau):** ein
 Auftragsziel `{ "art": "reinige", "kreatur": "<id>", "anzahl": n }` neben `besiege`, und für die Fraktionsfiguren
 `{ "art": "bilanz", "mindestensGereinigt": 0.5 }`.
+
+## 6. Dauer je Gegner (D389)
+
+D379 liess offen, ob jedes Tier eine eigene Reinigungsdauer bekommt (genannt: Gams, Keiler). Seit D389 trägt jedes
+reinigbare Tier in `content/gegner/<id>.json` einen Block `reinigen` (Schema `GegnerReinigen`): `dauer` ist der Kanal
+über alle Griffe, `halten` die Dauer eines Griffs (ohne Angabe 1,2 s aus `content/reinigen.json`). Die Griffzahl folgt
+daraus (`ceil(dauer / halten)`) und muss im bestätigten Band 3–6 liegen (`griffe` in `reinigen.json`, geprüft von
+`npm run validate`). Die Grössenformel aus §2 gilt nur noch für Gegner ohne Block.
+
+**Nicht reinigbar** bleiben Menschen (D385) und der Übungsgegner; das Schema lehnt `reinigen` bei ihnen ab. Die Ausnahme
+aus D385 ist im Schema angelegt: `reinigen.freiwillig: true` an einem Menschen (Mönch im Endstadium). Einen solchen
+Gegner gibt es in `content/gegner/` noch nicht; seine Dauer ist nicht gemessen.
+
+**Regenten** haben keine Werte bekommen: `content/regenten/` beschreibt sie für den Rundenkampf (KP, Phasen, Moves), im
+Echtzeitkampf gibt es keinen Regenten, an dem sich etwas messen liesse (§2 „Regenten (Entwurf, nicht gebaut)“).
+
+### Werte und Herleitung
+
+| Tier | Angriff (Vorlauf / Erholung / Schaden je Runde) | Tempo | `dauer` | `halten` | Griffe | vorher (Formel) | Warum |
+|---|---|---|---|---|---|---|---|
+| Keiler | 0,85 s / 1,0 s / 28, geht durch jeden Block | 2,4 m/s | **5,4 s** | 1,2 s | 5 | 6,33 s, 6 Griffe | Das schwerste Tier, aber das lesbarste: langer Vorlauf, lange Erholung. Mit 6,33 s kostete es +49 % Kampfdauer (über dem Richtwert), mit 5,0 s nur noch +23 % — 5,4 s hält es mit +34 % das teuerste Tier im Korridor |
+| Grathorn | 0,60 s / 0,8 s / 24 | 2,4 m/s | **5,5 s** | 1,2 s | 5 | 5,50 s, 5 Griffe | Die Formel traf den Richtwert schon (+21 %); 6,0 s brächte +22 % bei mehr Schaden für den Müden. Unverändert, jetzt als Datum |
+| Wolf | 0,50 s + Nachbiss 0,10 s / 0,9 s / 14 + 16 | 4,0 m/s | **4,25 s** | 1,2 s | 4 | 4,25 s, 4 Griffe | +22 % beim Aufmerksamen. Kürzer (3,6 s) fällt unter den Richtwert (+15 %), länger (4,8 s) kostet den Müden zehn Punkte Siegquote. Unverändert, jetzt als Datum |
+| Fuchs | 0,40 s / 0,95 s / 10 | 4,5 m/s | **2,5 s** | 1,2 s | 3 | 3,00 s, 3 Griffe | Das kleinste und schnellste Tier: Jede Runde ist die am schwersten zu lesende, also so wenige wie das Band erlaubt. 3,0 s lagen mit +45 % über dem Richtwert; 2,5 s geben +37 % und dem Müden zwei statt drei Kanäle |
+| Gams | 0,45 s / 0,7 s / 18, Rückstoss 0,9 m | 3,5 m/s | **4,0 s** | **1,6 s** | 3 | 4,67 s, 4 Griffe | Kürzeste Erholung aller Tiere und ein Stoss, der aus der Griffweite wirft: Das Fenster ist das engste, jede weitere Runde die teuerste. Deshalb wenige lange Griffe statt vieler kurzer — einziges Tier mit eigener Griffdauer. Müde 34 → 58 % Siege |
+
+Tempo ohne Angabe in den Daten ist `GEGNER_KI.tempo` (Keiler, Grathorn). Die Kurve zu den Werten (je 150–200 Kämpfe, Klinge, Saat 5000…):
+Keiler 6,33 / 5,4 / 5,0 / 4,5 s → +50 / +34 / +23 / +20 %; Fuchs 3,0 / 2,6 / 2,5 / 2,4 s → +45 / +39 / +38 / +38 %;
+Gams mit 1,2-s-Griffen 3,6 / 4,67 / 6,0 s → −12 / −5 / +2 % (aufmerksam) bei 45 / 36 / 5 % Siegen (müde) — an der Gams
+verschiebt die Dauer den Aufmerksamen kaum und den Müden stark.
+
+### Messung
+
+`npx tsx tools/reinigensim.ts 1000 gegner` — Kampfbot D171, Klinge, jedes Tier einzeln, Start 8 m, „immer reinigen“
+gegen „töten“, **1.000 Kämpfe je Zelle, Saat 5000 + Kampfnummer** (Töten und Reinigen mit denselben Würfen),
+22.11.2026. Spielerprofile sind die drei des Kampfbots: **aufmerksam** (Reaktion 0,25 s, 10 % Patzer), **müde**
+(0,40 s, 25 %), **parierend** (0,25 s, 10 %, pariert statt zu rollen). „vorher“: dieselben Kämpfe mit der Grössenformel.
+
+**Zielkorridor** (`ZIELKORRIDOR` in `tools/reinigensim.ts`): Kampfdauer **+20 … +40 %** für den Aufmerksamen (Richtwert
+aus D376); **Annahme D389, nicht von Flo bestätigt:** höchstens 1,5× der Tötungszeit für jedes Profil, und Reinigen darf
+gegenüber Töten höchstens 15 Punkte Siegquote kosten (riskanter, nicht aussichtslos).
+
+| Tier | Profil | Siege töten → reinigen | Zeit töten → reinigen | gegen Töten | Schaden töten → reinigen | gereinigt | Kanäle | vorher (Formel) | Befund |
+|---|---|---|---|---|---|---|---|---|---|
+| Keiler | aufmerksam | 100 → 100 % | 17,9 → 24,0 s | +34 % | 10 → 12 (+3) | 100 % | 5,9 | +49 % | im Korridor |
+| Keiler | müde | 100 → 99 % | 15,8 → 23,1 s | +46 % | 19 → 27 (+8) | 99 % | 5,4 | +64 %, Siege 98 % | im Korridor |
+| Keiler | parierend | 100 → 100 % | 17,6 → 23,8 s | +36 % | 10 → 12 (+3) | 100 % | 5,8 | +51 % | im Korridor |
+| Grathorn | aufmerksam | 100 → 100 % | 24,5 → 29,6 s | +21 % | 14 → 16 (+2) | 100 % | 5,7 | gleich | im Korridor |
+| Grathorn | müde | 100 → 97 % | 18,0 → 24,7 s | +37 % | 43 → 54 (+11) | 97 % | 5,2 | gleich | im Korridor |
+| Grathorn | parierend | 100 → 100 % | 11,5 → 15,9 s | +39 % | 37 → 41 (+4) | 100 % | 4,1 | gleich | im Korridor |
+| Wolf | aufmerksam | 100 → 100 % | 15,7 → 19,2 s | +22 % | 16 → 17 (+1) | 88 % | 3,5 | gleich | im Korridor |
+| Wolf | müde | 97 → 78 % | 9,1 → 11,5 s | +26 % | 46 → 58 (+12) | 34 % | 1,9 | gleich | **zu hart**; selten gereinigt |
+| Wolf | parierend | 100 → 100 % | 5,6 → 5,6 s | ±0 % | 25 → 25 (±0) | 0 % | 0,0 | gleich | **nie gereinigt** (der Bot tötet vorher) |
+| Fuchs | aufmerksam | 100 → 100 % | 11,5 → 15,9 s | +37 % | 8 → 12 (+4) | 100 % | 2,7 | +45 % | im Korridor |
+| Fuchs | müde | 100 → 100 % | 4,1 → 6,7 s | +64 % | 12 → 19 (+7) | 100 % | 2,0 | +99 % | **über 1,5×** (absolut +2,6 s) |
+| Fuchs | parierend | 100 → 100 % | 4,7 → 7,2 s | +55 % | 6 → 9 (+3) | 100 % | 2,0 | +72 % | **über 1,5×** (absolut +2,5 s) |
+| Gams | aufmerksam | 100 → 100 % | 40,7 → 34,6 s | −15 % | 38 → 32 (−6) | 100 % | 3,0 | −6 % | **zu leicht**, nicht riskanter |
+| Gams | müde | 77 → 58 % | 11,4 → 15,1 s | +32 % | 67 → 81 (+14) | 58 % | 2,3 | +42 %, Siege 34 % | **zu hart** (−19 Punkte) |
+| Gams | parierend | 100 → 100 % | 9,1 → 11,5 s | +26 % | 26 → 24 (−2) | 100 % | 2,6 | +42 % | nicht riskanter (Schaden −2) |
+
+Die Befundspalte folgt `bewerte` in `tools/reinigensim.ts`; die Regel „selten gereinigt“ kam nach dem Lauf dazu und ist
+an denselben Zahlen abgelesen.
+
+**Ergebnis.** Aufmerksam liegen vier von fünf Tieren im Richtwert (+21 … +37 %, vorher zwei); das Mittel über alle
+fünf ist +20 % (vorher +26 %, getragen von Keiler und Fuchs über dem Band). Keiler, Grathorn und Fuchs werden in allen
+drei Profilen zu 97–100 % gereinigt.
+
+### Ausreisser
+
+- **Gams — zugleich zu leicht und zu hart, und die Dauer ist nicht die Ursache.** Der aufmerksame Bot braucht zum
+  Töten 40,7 s, der müde 11,4 s, der parierende 9,1 s: Wer sauber rollt, bringt in 0,7 s Erholung kaum einen Schlag an,
+  wer Treffer nimmt oder pariert, schon. Gegen diese 40,7 s ist jede Reinigung „schneller als Töten“ (−15 %; mit
+  7,2 s Kanal +2 %, dann gewinnt der Müde noch 20 %). Für den Müden ist die Gams das gefährlichste Einzeltier
+  (Vorlauf 0,45 s gegen 0,40 s Reaktion): Jede weitere Runde kostet ihn oft einen Treffer von 18, deshalb drei lange Griffe. Das hebt
+  ihn von 34 auf 58 % — gegen 77 % beim Töten bleibt es zu hart. Gegen die beiden anderen Profile (+32 %, +26 %) sitzt
+  der Wert. **Der Hebel liegt an der Tötungszeit der Gams (Erholung 0,7 s) oder am Bot, nicht an `reinigen`** — beides
+  sind geprüfte Kampfwerte und hier nicht angefasst.
+- **Wolf — für den Müden zu hart, und kaum eine Reinigung:** 97 → 78 % Siege, nur 34 % gereinigt; der parierende Bot
+  reinigt nie (0 Kanäle, der Wolf ist nach 5,6 s tot). Kürzere Dauer hilft wenig (3,6 s: 82 % Siege, 38 % gereinigt).
+  Vermutete Ursache, nicht einzeln nachgewiesen: der Doppelbiss und der Schlag, der den Wolf über die Schwelle hinweg
+  tötet (D376: „versehentlich getötet 12 %“ schon beim Aufmerksamen) — ein Thema der Schwelle oder des Bots, nicht
+  der Dauer.
+- **Fuchs — relativ zu lang für Müde und Parierende** (+64 %, +55 %), absolut 2,5 s und 3–7 Leben: Diese Profile töten
+  ihn in 4–5 s, und zwei Kanäle sind das Minimum, das drei Griffe erlauben. Unter 1,5× käme er nur mit zwei Griffen —
+  ausserhalb des bestätigten Bands.
+- **Keiler — vorher der Ausreisser nach oben (+49 %), jetzt im Korridor.** Er bleibt mit 5,9 Kanälen das Tier mit den
+  meisten Runden.
+
+### In der Gruppe
+
+`npx tsx tools/reinigensim.ts 300 empfohlen` (300 Kämpfe je Zeile, aufmerksam, Klinge, Saat 5000…) gegen die Zeilen
+aus §3 (1.000 Kämpfe, Grössenformel — heute `… 1000 formel`):
+
+| Aufstellung | Modus | Siege | Zeit gegen Töten | Schaden gegen Töten | gebrochen | vorher (§3) |
+|---|---|---|---|---|---|---|
+| wolf+fuchs | immer | 96 % | +22 % | +27 | 8 % | 95 %, +28 %, +32, 9 % |
+| wolf+fuchs | gemischt | 100 % | +20 % | +3 | 0 % | 100 %, +20 %, +3 |
+| gams+gams | immer | 100 % | −21 % | +14 | 12 % | 99 %, +17 %, +6, 1 % |
+| gams+gams | gemischt | 100 % | −16 % | −6 | 0 % | 99 %, −5 %, −2 |
+| keiler+grathorn | immer | 99 % | +66 % | +9 | 0 % | 99 %, +92 %, +13 |
+| keiler+grathorn | gemischt | 100 % | +19 % | +3 | 0 % | 100 %, +18 %, +3 |
+| wolf+fuchs+fuchs | immer | 93 % | +4 % | +27 | 14 % | 90 %, +12 %, +32, 15 % |
+| wolf+fuchs+fuchs | gemischt | 95 % | +10 % | +2 | 0 % | 95 %, +11 %, +2 |
+
+Wolf-Rudel ohne Fuchs sind unverändert (gleiche Werte; 300 Kämpfe: zwei Wölfe 91 %, drei 70 % Siege bei „immer“).
+**Keiler + Grathorn** fällt von +92 % auf +66 % (14 statt 17 Kanäle) und bleibt die längste Zeile. **Zwei Gämsen**
+zeigen die Kehrseite des langen Griffs: 12 % der Kanäle bricht jetzt ein Treffer (vorher 1 %), der Mehrschaden steigt
+von +6 auf +14 — im Rudel ist die Gams damit riskanter als vorher, die Zeit bleibt wegen der Tötungszeit des Bots
+unter null. Kein Rudel wird aussichtslos (Siege „immer“ 91–100 % zu zweit, 70–93 % zu dritt).
+
+Die Tabelle in §3 und die Belohnungsrechnung in §4 (Annahme A2) stehen auf dem Stand D376 (Grössenformel) und sind
+nicht neu gerechnet.
+
+### Offen (Ledger A-24)
+
+1. Gams: 4,0 s in drei Griffen zu 1,6 s (gesetzt) oder die alte Formel (4,67 s, vier Griffe zu 1,2 s) — und ob die
+   Gams selbst nachgemessen wird (Tötungszeit 40,7 s gegen 9–11 s je nach Profil).
+2. Fuchs: bei drei Griffen bleiben (gesetzt) oder zwei erlauben.
+3. Zielkorridor: Obergrenze 1,5× und „höchstens 15 Punkte Siegquote“ sind Annahmen.
+4. Wolf und Müde: Schwelle oder Bot, nicht Dauer.
+5. Regenten und der freiwillig befallene Mönch: keine Werte, weil es beide im Echtzeitkampf nicht gibt.
+
+Alle Werte sind Bot-Messung, nichts davon am Gerät gespielt.

@@ -96,6 +96,24 @@ console.log('\nReinigen (D376):');
   const r = ReinigenDaten.safeParse(JSON.parse(readFileSync('content/reinigen.json', 'utf8')));
   if (r.success) { console.log('  ✓ reinigen.json'); ok++; }
   else { console.log(`  ✗ reinigen.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++; }
+  // D389: Jedes Tier trägt seine eigene Reinigungsdauer, kein Mensch eine (ausser freiwillig befallen,
+  // D385); die Griffzahl `ceil(dauer / halten)` bleibt im bestätigten Band (D379).
+  if (r.success) {
+    const band = r.data.griffe;
+    let gut = 0;
+    for (const f of readdirSync('content/gegner').filter(f => f.endsWith('.json'))) {
+      const g = GegnerDaten.safeParse(JSON.parse(readFileSync(join('content/gegner', f), 'utf8')));
+      if (!g.success) continue;
+      const tier = !!g.data.elemente?.length && !g.data.mensch;
+      if (tier && !g.data.reinigen) { console.log(`  ✗ ${f}: Tier ohne \`reinigen\` (D389)`); fehler++; continue; }
+      if (!g.data.reinigen) continue;
+      const griffe = Math.ceil(g.data.reinigen.dauer / (g.data.reinigen.halten ?? r.data.halten) - 1e-9);
+      if (griffe < band.min || griffe > band.max) {
+        console.log(`  ✗ ${f}: ${griffe} Griffe, erlaubt ${band.min}–${band.max} (reinigen.json griffe)`); fehler++;
+      } else gut++;
+    }
+    console.log(`  ✓ ${gut} Gegner mit eigener Reinigungsdauer, Griffzahl ${band.min}–${band.max}`); ok++;
+  }
 }
 
 // Querverweise: jede referenzierte Move-ID muss es geben. Ohne diese Pruefung

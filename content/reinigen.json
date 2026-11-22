@@ -13,5 +13,6 @@
   "ausdauer": 0,
   "ladung": 1,
   "verhaertet": { "dauerFaktor": 2, "ladung": 3 },
-  "fassung": { "start": 4, "jeRegent": 2 }
+  "fassung": { "start": 4, "jeRegent": 2 },
+  "griffe": { "min": 3, "max": 6 }
 }

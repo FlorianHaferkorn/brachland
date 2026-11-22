@@ -20,7 +20,7 @@ owns: *.md
 | Welt, Ton, Fraktionen, Erzählung verstehen | `BRACHLAND_Kernfunken_v1.md` | D188: Elementarangriffe im Echtzeitkampf — Direktivkerne der Regenten, Laden/Entladen, Wasserfunke umgesetzt, weitere als Entwurf |
 | `BRACHLAND_Story-Bibel_v2.md` (v1 nur noch für Vorgeschichte, Regenten, Namensschema) |
 | Kampflogik ändern oder Werte balancieren | `BRACHLAND_Kampfsystem_v2.md` |
-| Reinigen statt Töten: Regeln, Werte, Messreihe, Belohnung | `BRACHLAND_Reinigen_v1.md` → `../../content/reinigen.json` → `../../tools/reinigensim.ts` |
+| Reinigen statt Töten: Regeln, Werte, Messreihe, Belohnung, Dauer je Gegner | `BRACHLAND_Reinigen_v1.md` (§6 je Gegner) → `../../content/reinigen.json`, `../../content/gegner/` → `../../tools/reinigensim.ts` |
 | Einen Move anlegen oder ändern | `BRACHLAND_Move-System_v1.md` |
 | Eine Kreatur anlegen | `BRACHLAND_Roster-Struktur_v1.md` → `BRACHLAND_Roster_Kapitel1.md` |
 | Wissen, was in Kapitel 1 vorkommt | `BRACHLAND_Roster_Kapitel1.md` |
@@ -37,7 +37,7 @@ owns: *.md
 | Doc | Inhalt |
 |---|---|
 | `BRACHLAND_Story-Bibel_v2.md` | **Gültige Fassung seit 22.11.2026 (D374).** Echtzeit-Action-RPG statt Creature-Collector; Messlatte Erlebnis Elden Ring. Marke heilt statt tötet; offene Welt mit zwei Wegen zu jedem Ziel (Werkzeugweg oder beschwerlicher Weg); Œntal: Flut vom Stauwehr (Flutlinie 499 m), Enklave auf der Hangterrasse, versunkene Stadt; drei Enden nach Fraktion über Figuren mit eigenem Weg; Bogen Kapitel 1 |
-| `BRACHLAND_Reinigen_v1.md` | **D376, Entwurf mit Regelkern.** Reinigen als Kampfhandlung zur Story-Bibel v2 §2: drei Varianten (Gnadengriff, Greifen in Fenstern, Binden ab dem ersten Bruch), Empfehlung B mit Werten, Messreihe über 1.000 Kämpfe je Zeile (töten / immer reinigen / gemischt, einzeln und zu zweit/dritt), Belohnungsökonomie über ein Kapitel und Wirkung auf die drei Enden. Regelkern in `src/kampf/echtzeit.ts` hinter `Kampfwelt.marke`; Szene, Eingabe und Belohnung nicht gebaut |
+| `BRACHLAND_Reinigen_v1.md` | **D376, Entwurf mit Regelkern.** Reinigen als Kampfhandlung zur Story-Bibel v2 §2: drei Varianten (Gnadengriff, Greifen in Fenstern, Binden ab dem ersten Bruch), Empfehlung B mit Werten, Messreihe über 1.000 Kämpfe je Zeile (töten / immer reinigen / gemischt, einzeln und zu zweit/dritt), Belohnungsökonomie über ein Kapitel und Wirkung auf die drei Enden. Regelkern in `src/kampf/echtzeit.ts` hinter `Kampfwelt.marke`; Szene, Eingabe und Belohnung nicht gebaut. **D389 (§6 „Dauer je Gegner“):** Kanaldauer und Griffdauer je Tier als Daten in `content/gegner/`, Messreihe je Gegner und Spielerprofil gegen den Zielkorridor, Ausreisser Gams und Wolf |
 | `BRACHLAND_Story-Bibel_v1.md` | **Vorgänger, überholt durch v2** in Genre, Marke, Weltstruktur, Kapitelbogen. Weiter gültig: Vorgeschichte VERIDIA/Faulbrand (§2), Regenten (§5), Namensschema (§8), Kapitel-Template (§10) |
 | `BRACHLAND_Kampfsystem_v2.md` | **Gültige Fassung (v2.4).** 1v1 nach Pokémon-Schema, Team von 6, Wechsel kostet den Zug; Doppel-Elemente, Fundstücke, Konzentrate — alles simulationsgeprüft |
 | `BRACHLAND_Kampfsystem_und_Roster_v1.md` | Vorgänger. Kampfteil **überholt** durch v2; Rosterteil weiter gültig |

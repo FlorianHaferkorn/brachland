@@ -20,5 +20,6 @@
   "betaeubt": 0.9,
   "radius": 0.3,
   "hoehe": 1.3,
-  "halbLaenge": 0.45
+  "halbLaenge": 0.45,
+  "reinigen": { "dauer": 5.5 }
 }

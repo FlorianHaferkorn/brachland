@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-11-21
+last-reviewed: 2026-11-22
 shelf-life-days: 90
 owns: *.json
 ---
@@ -20,7 +20,7 @@ owns: *.json
 | Einen Gegenstand anlegen | `gegenstaende/kraeutersud.json` als Muster → `../src/data/schema.ts` (`GegenstandWirkung`) |
 | Eine Region anlegen | `regions/oental.json` als Muster; `nachbarn` beidseitig, danach `npm run world <id> 384` und `npm run fernland <id>` (ADR-0014) |
 | Einen Gegner nachstellen | `gegner/_INDEX.md` → `../tests/echtzeit.test.ts` |
-| Reinigen (Marke) nachstellen: Schwelle, Griffdauer, Risiko | `reinigen.json` → `../docs/design/BRACHLAND_Reinigen_v1.md` → `npx tsx tools/reinigensim.ts` |
+| Reinigen (Marke) nachstellen: Schwelle, Griffdauer, Risiko, Dauer je Gegner | `reinigen.json`, `gegner/*.json` (`reinigen`) → `../docs/design/BRACHLAND_Reinigen_v1.md` → `npx tsx tools/reinigensim.ts` |
 | Eine Waffe oder einen Schlag ändern | `waffen/_INDEX.md` → `../docs/adr/0008-waffenwerk-zwei-klassen.md` |
 | Eine Hausfassade nach Foto anlegen | `fassaden/_INDEX.md` → `../docs/design/BRACHLAND_Fassaden_Fotoliste_v1.md` |
 | Verstehen, was geprüft wird | `../src/data/schema.ts`, `../tools/quality.ts` |
@@ -36,7 +36,7 @@ owns: *.json
 | `regions/oental.json` | Œntal = Inntal-Süd (Brannenburg/Wendelstein-Fuß). BBox, Regent, Traversal „Klettern", Zielspielzeit 6 Std. D329: Nutzungszustände der drei Referenzhäuser an der Weststraße. D333: Straßenverfall anhand der OSM-Weg-ID sowie Ortstafel und Laternen anhand der OSM-Knoten-ID. **D375:** `flutlinie` 499 m (nur Datum, ADR-0017), `enklave` (Name vorläufig „Die Terrasse“, Bezugspunkt der Abstandsprüfung in `validate`), `verborgeneOrte` (drei, je mit Verhärtetem — nur Datum; Lage und Wege in `../docs/design/BRACHLAND_Enklave_Lage_v2.md`) |
 | `milbinger-substanz.json` | D347: Gartensäume entlang der im DOP20 erkennbaren Pflanzstreifen und örtliche Verfallsstufen der LoD2-Häuser. Dachschäden und Relikte gehören zur Spielwelt. |
 | `massstab.json` | D352: reale Referenzmaße mit Quelle (Efeublatt, Figur, Bordhöhe, Baumhöhen), Schema `MassReferenz`; `../tools/massstab.ts` prüft die gebaute Geometrie dagegen, `../src/world/hausbewuchs.ts` liest die Efeugrösse daraus. Neue Zeile: Spanne, Quelle, `belegt`. |
-| `reinigen.json` | D376: Werte der Kampfhandlung „Reinigen“ (Story-Bibel v2 §2) — Reichweite, Schwelle/wund, Griffdauer (`halten`), Kanaldauer nach Tiergrösse, Lösen, Verfall, Verwundbarkeit, Markenladung und Fassung, Verhärtete; Schema `ReinigenDaten`. Hinter dem Schalter `Kampfwelt.marke`, im Spiel noch nicht verdrahtet. Messreihe: `../docs/design/BRACHLAND_Reinigen_v1.md` |
+| `reinigen.json` | D376: Werte der Kampfhandlung „Reinigen“ (Story-Bibel v2 §2) — Reichweite, Schwelle/wund, Griffdauer (`halten`), Kanaldauer nach Tiergrösse, Lösen, Verfall, Verwundbarkeit, Markenladung und Fassung, Verhärtete, Band der Griffzahl (`griffe`, D389); Schema `ReinigenDaten`. Die Dauer je Tier steht seit D389 in `gegner/*.json` (`reinigen`), die Grössenformel hier gilt nur noch für Gegner ohne eigenen Block. Hinter dem Schalter `Kampfwelt.marke`, im Spiel noch nicht verdrahtet. Messreihe: `../docs/design/BRACHLAND_Reinigen_v1.md` |
 | `hofbaukasten.json` | D360: Maße, Farben und Verfallswerte des Inntaler Einfirsthofs für `../tools/hofbaukasten.py`, Schema `Hofbaukasten`. Jede Zahl mit Quelle (Bauwelt-Notiz, Ledger) oder `annahme: true`; `npm run validate` lehnt eine Zahl ohne Beleg und ohne Kennzeichnung ab. |
 | `hofbauten.json` | D363: welche OSM-Gebäude (Index in `welt.gebaeude` je Region) ein Hof-Baukasten-Modell ersetzt, mit Saat, Stufe und Grund; Schema `Hofbauten`, `npm run validate` prüft, dass `public/bauten/<modell>.glb` existiert. |
 | `regions/fahlmoos.json` | Fahlmoos = Kollerfilze und Rosenheimer Becken (Raubling/Kolbermoor), eigene Karte nach ADR-0014. Regent Brutmutter, 6 Œntal-Arten als Platzhalter (G-144), Traversal „Wasser“ (UNKLAR), `nachbarn`: Œntal im Süden |

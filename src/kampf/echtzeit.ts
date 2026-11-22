@@ -150,6 +150,12 @@ export interface KampfWerte {
    * Fuchs von unten, Grathorn und Gams von oben, der Wolf dreht den Kopf (links, dann rechts).
    */
   linien?: readonly Linie[];
+  /**
+   * D389: eigene Reinigungswerte (`content/gegner/*.json` `reinigen`) — Kanaldauer über alle Griffe,
+   * Griffdauer, und `freiwillig` für den Menschen, der den Befall gewählt hat (D385). Ohne den Block
+   * rechnet `reinigungsDauer` nach der Grösse (`content/reinigen.json`).
+   */
+  reinigen?: { dauer: number; halten?: number; freiwillig?: true };
 }
 
 const GRAD = Math.PI / 180;
@@ -1155,8 +1161,10 @@ export interface Kampfwelt {
  * Fortschritt bleibt am Tier und verfällt langsam. Eine Reinigung braucht also meist mehrere Griffe,
  * und vor jedem steht ein Angriff, dem man ausweichen muss.
  *
- * Greifbar ist ein Tier erst, wenn es niedergerungen ist: Leben höchstens `schwelle`. Die Dauer hängt
- * an seiner Grösse: `grunddauer + lebenMax / lebenJeSekunde`. Währenddessen kann die Spielerin
+ * Greifbar ist ein Tier erst, wenn es niedergerungen ist: Leben höchstens `schwelle`. Die Dauer trägt
+ * seit D389 jeder Gegner selbst (`content/gegner/*.json` `reinigen`: Kanaldauer und Griffdauer, gemessen
+ * je Tier); ohne den Block hängt sie an der Grösse: `grunddauer + lebenMax / lebenJeSekunde`. Menschen
+ * greift die Marke nicht (D385) — ausser `reinigen.freiwillig`. Währenddessen kann die Spielerin
  * nichts — nicht rollen, nicht blocken — und nimmt `verwundbar`-fachen Schaden. Ein Treffer bricht ab
  * und kostet einen Teil des Fortschritts; wer selbst löst (`loeseReinigen`, dann rollen), behält ihn.
  *
@@ -1191,9 +1199,13 @@ export function neueMarke(regenten = 0, werte: ReinigenWerte = REINIGEN): Marke 
   return { werte, ladung: werte.fassung.start + werte.fassung.jeRegent * regenten, ziel: null, ereignisse: [] };
 }
 
-/** Befallen ist ein Tier (Gegner mit Element), das noch im Kampf und noch nicht gereinigt ist. Menschen nie. */
+/**
+ * Befallen ist ein Tier (Gegner mit Element), das noch im Kampf und noch nicht gereinigt ist. Menschen
+ * nie — ausser sie haben den Befall gewählt (D385, `reinigen.freiwillig` in den Gegnerdaten).
+ */
 export function istBefallen(k: Kaempfer): boolean {
-  return !!k.werte.elemente?.length && !k.werte.mensch && k.zustand !== 'rueckgefuehrt' && k.phase !== 'gefallen';
+  const reinigbar = k.werte.mensch ? k.werte.reinigen?.freiwillig === true : !!k.werte.elemente?.length;
+  return reinigbar && k.zustand !== 'rueckgefuehrt' && k.phase !== 'gefallen';
 }
 
 /** Abstand von `a` bis zum Rand der Pille von `z`. */
@@ -1205,11 +1217,23 @@ export function randAbstand(a: Kaempfer, z: Kaempfer): number {
 }
 
 /**
- * Wie lange der Kanal für dieses Tier insgesamt dauert, Sekunden — nach seinem vollen Leben, nicht
- * nach dem Rest: Ein Keiler ist mehr Arbeit als ein Fuchs, egal wie wund er ist.
+ * Wie lange der Kanal für dieses Tier insgesamt dauert, Sekunden. Seit D389 trägt jeder Gegner seinen
+ * eigenen Wert (`reinigen.dauer`); wer keinen hat, wird nach seinem vollen Leben gerechnet, nicht nach
+ * dem Rest: Ein Keiler ist mehr Arbeit als ein Fuchs, egal wie wund er ist.
  */
 export function reinigungsDauer(werte: ReinigenWerte, z: Kaempfer): number {
-  return (werte.grunddauer + z.werte.lebenMax / werte.lebenJeSekunde) * (z.zustand === 'verhaertet' ? werte.verhaertet.dauerFaktor : 1);
+  const grund = z.werte.reinigen?.dauer ?? werte.grunddauer + z.werte.lebenMax / werte.lebenJeSekunde;
+  return grund * (z.zustand === 'verhaertet' ? werte.verhaertet.dauerFaktor : 1);
+}
+
+/** Wie lange ein Griff dieses Tier hält, Sekunden (D389: je Gegner, sonst `halten` aus den Markenwerten). */
+export function reinigungsHalten(werte: ReinigenWerte, z: Kaempfer): number {
+  return z.werte.reinigen?.halten ?? werte.halten;
+}
+
+/** Wie viele volle Griffe eine Reinigung dieses Tiers mindestens braucht (ohne Treffer, ohne Verfall, ohne Betäubungsrest). */
+export function reinigungsGriffe(werte: ReinigenWerte, z: Kaempfer): number {
+  return Math.ceil(reinigungsDauer(werte, z) / reinigungsHalten(werte, z) - 1e-9);
 }
 
 /** Was eine Reinigung dieses Ziels an Markenladung kostet. */
@@ -1265,7 +1289,7 @@ export function setzeReinigenAn(w: Kampfwelt, zielId: string | null = w.ziel): b
   m.ziel = z.id; m.loest = undefined;
   // Die Marke hält das Tier `halten` s unten — ein schon Betäubtes zusätzlich den Rest seiner Betäubung.
   const rest = z.phase === 'betaeubt' ? Math.max(0, (z.betaeubtFuer ?? z.werte.betaeubt) - z.zeit) : 0;
-  z.phase = 'betaeubt'; z.zeit = 0; z.folge = []; z.betaeubtFuer = rest + m.werte.halten;
+  z.phase = 'betaeubt'; z.zeit = 0; z.folge = []; z.betaeubtFuer = rest + reinigungsHalten(m.werte, z);
   m.ereignisse.push({ art: 'begonnen', ziel: z.id });
   return true;
 }

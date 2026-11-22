@@ -859,6 +859,19 @@ export const WaffenDaten = z.object({
 export type WaffenDaten = z.infer<typeof WaffenDaten>;
 
 /**
+ * Reinigungswerte je Gegner (D389) — abgeleitet aus Angriffsmuster, Tempo und Gefährlichkeit, gemessen
+ * mit `tools/reinigensim.ts` (Tabelle in `docs/design/BRACHLAND_Reinigen_v1.md` §6). Die Griffzahl
+ * folgt aus beiden Werten: `ceil(dauer / halten)`; `npm run validate` hält sie im Band `griffe` aus
+ * `content/reinigen.json`.
+ */
+export const GegnerReinigen = z.object({
+  dauer: z.number().positive().describe('Sekunden Kanal bis gereinigt, über alle Griffe'),
+  halten: z.number().positive().optional().describe('Sekunden, die ein Griff dieses Tier hält; ohne Angabe `halten` aus reinigen.json'),
+  freiwillig: z.literal(true).optional().describe('Mensch, der den Befall gewählt hat (D385) — nur dann greift die Marke bei einem Menschen'),
+}).strict();
+export type GegnerReinigen = z.infer<typeof GegnerReinigen>;
+
+/**
  * Gegner des Echtzeitkampfs (D194) — Tiere und Menschen, `content/gegner/`. Ohne Rolle: Gegner
  * weichen nicht aus, `echtzeit.ts` setzt eine leere. Elemente nur bei Tieren; `npm run validate`
  * prüft sie gegen die Kreatur gleichen Elements nicht, das tut `tests/echtzeit.test.ts` (D189).
@@ -880,7 +893,16 @@ export const GegnerDaten = z.object({
   halbLaenge: z.number().nonnegative().optional(),
   zucken: z.number().nonnegative().optional(),
   mensch: z.object({ linienFolge: z.array(KampfLinie).min(1), deckung: KampfLinie }).strict().optional(),
-}).strict().refine(g => !(g.mensch && g.linien), 'Menschen schlagen nach linienFolge, nicht nach linien');
+  /**
+   * D389: Reinigungswerte dieses Gegners — nur, wer reinigbar ist. Tiere (mit `elemente`) sind es;
+   * Menschen nicht (D385), ausser `freiwillig`: wer den Befall gewählt hat (Grüne Mönche im Endstadium).
+   * Ohne den Block gilt die Grössenformel aus `content/reinigen.json` (Regenten, Testgegner).
+   */
+  reinigen: GegnerReinigen.optional(),
+}).strict().refine(g => !(g.mensch && g.linien), 'Menschen schlagen nach linienFolge, nicht nach linien')
+  .refine(g => !g.reinigen || (g.mensch ? g.reinigen.freiwillig === true : !!g.elemente?.length),
+    'reinigen nur bei Tieren (mit elemente) oder freiwillig befallenen Menschen (D385)')
+  .refine(g => !g.reinigen?.freiwillig || !!g.mensch, 'freiwillig befallen sind nur Menschen (D385)');
 export type GegnerDaten = z.infer<typeof GegnerDaten>;
 
 // --------------------------------------------------------------- Reinigen (Marke, D376)
@@ -913,5 +935,10 @@ export const ReinigenDaten = z.object({
     start: z.number().int().positive(),
     jeRegent: z.number().int().nonnegative(),
   }).strict().describe('Fassungsvermögen der Marke in Ladungen; füllt sich bei der Rast'),
+  griffe: z.object({
+    min: z.number().int().positive(),
+    max: z.number().int().positive(),
+  }).strict().refine(g => g.max >= g.min, 'max unter min')
+    .describe('D379/D389: Band der Griffzahl je Gegner (`ceil(dauer / halten)`); `npm run validate` prüft jeden Gegner dagegen'),
 }).strict();
 export type ReinigenDaten = z.infer<typeof ReinigenDaten>;
