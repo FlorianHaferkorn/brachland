@@ -23,7 +23,33 @@ shelf-life-days: 30
 | **Welt im Spiel** | D363–D368: Hof-Baukasten (`?hofbau=1`), Efeu-Karten, Streudecke, Bodenpflanzen, Bäume mit Wurzeln/Rinde, Fern-Impostoren, Wand-Parallax (`?pom=0`), Himmel-Prototyp (`?himmel=physik`) | Ledger Tabelle B |
 
 D372, D373, D375, D376 sind zum Zeitpunkt dieser Datei in Arbeit; ob sie gemergt sind, zeigt `git log` und das Ledger.
-**Stand 22.11.2026 abends:** D372, D373, D375, D376 sind gemergt; dazu D378 (Zielbild Haus freigegeben, Enklave heisst Brannburg), D379 (Reinigen bestätigt), D380 (Zugang zum Flussvater). Neue Nummern normal über `make ledger-ids` (nächste frei: D381).
+**Stand 22.11.2026 abends:** D372, D373, D375, D376 sind gemergt; dazu D378 (Zielbild Haus freigegeben, Enklave heisst Brannburg), D379 (Reinigen bestätigt), D380 (Zugang zum Flussvater). Neue Nummern normal über `make ledger-ids`.
+
+## 0. Aufträge von Flo an die M1-Sitzung (22.11.2026, D397/D398) — zuerst lesen
+
+Stand holen: `git pull` auf `claude/epic-planck-86z6fy` (PR #16). Nächste freie Ledger-Nummer: `make ledger-ids`.
+
+1. **Haus-Zielbild D373 mit Alpha-Masken neu rendern.** Befund D386: Die Pflanzen- und Baum-Scans von Poly Haven
+   liefern ihr Farbbild als JPG ohne Alphakanal, die Maske liegt dort als eigene Datei. Alle Blatt- und Graskarten
+   waren deckend (schwarze Halme, zu dichte Kronen). `tools/stilframes.py -- alphakarten` lädt die Masken für 16 Scans
+   nach, Modus `zielbild4` hängt sie ein. `tools/hausframe.py` lädt dieselben glTF noch **ohne** Maske — dort dieselbe
+   Einhängung nachziehen, dann D373 neu rendern und Flo als Bildpaar vorlegen (das Bild ist freigegeben, D378; die
+   Kronen werden lichter).
+2. **Felsmulde: Wasser und Ufer natürlicher.** Flo hat D386 als Zielbild freigegeben, mit der Auflage: „das Wasser
+   davor müsste noch etwas natürlich wirken gerade die übergänge am Rand“. Also nasser, dunkler Saum, Schlamm und
+   Feinkies, Übergangszone statt harter Kante, flaches Wasser mit sichtbarem Grund, Uferbewuchs, Laub an der
+   Wasserlinie, Spiegelung nach Fresnel. Dabei nachziehen: Moospolster (wirken als Scheiben), Pfad (schwach lesbar),
+   Himmel (7 %, eher knapp), volle Auflösung. Modus `zielbild4` als Ausgang, neuer Modus statt Überschreiben.
+3. **Physik muss stimmen** (D398, steht in `CLAUDE.md`): gilt für jedes Bild und jeden Wert. Abweichungen zugunsten
+   des Spiels benennen und begründen.
+4. **Ab jetzt rendert nur noch der M1.** Die Cloud-Sitzung startet keine neuen Render-Aufträge mehr; dort laufen nur
+   noch die Zielbilder Menschen (D383) und Tiere (D384) zu Ende.
+
+**Seit dem Stand unten dazugekommen** (alles im Ledger, Tabelle B): D381 Start draussen, Weg zur Enklave als
+Lehrstrecke · D382/D386 Felsmulde Runde 3 und 4 · D385 Menschen nicht reinigbar · D388/D391 Traversal v2 und
+Werkzeug-Verstecke · D389/D395 Reinigungsdauer je Gegner · D390/D396 Lehrstrecke als Daten · D397 Freigabe
+Felsmulde. In Arbeit in der Cloud: D383 Menschen, D384 Tiere, D387 Putzkorn, D392 Quests, D393 Gegenstände und
+Aufwertung, D394 Menü und Einstellungen.
 
 ## 2. Was auf dem M1 als Erstes zu tun ist (Reihenfolge)
 
@@ -49,10 +75,10 @@ D372, D373, D375, D376 sind zum Zeitpunkt dieser Datei in Arbeit; ob sie gemergt
 
 | Was | Wo |
 |---|---|
-| Zielbild freigeben (Felsmulde D372, Haus D373) — Kamera, Himmel, Vegetationsdichte | Ledger D371–D373 |
+| ~~Zielbild freigeben~~ — erledigt: Haus D373 (D378), Felsmulde D386 (D397), je mit Auflagen | Ledger D378, D397 |
 | Grasbüschel vor den Höfen sind mit D366 weggefallen — so lassen? Grasteppich unter Kronen zurücknehmen? | D366 |
-| Name der Enklave, Spielstart an der Enklave, Belohnung Reinigen gegen Töten | A-24 |
-| ADR-0017 (Verfall erzählt Zeit, Flut, Bewohnung) bestätigen | A-21 |
+| ~~Name der Enklave, Spielstart, Belohnung Reinigen gegen Töten~~ — erledigt (Brannburg D378, D379, D381) | A-24 |
+| ~~ADR-0017 bestätigen~~ — erledigt (D381) | A-21 |
 | Engine-Frage: Wenn das Zielbild im Browser am M1 nicht erreichbar ist, ist Unreal die ehrliche Alternative | ADR-0018 Kontext, D369 |
 
 ## 4. Was nicht im Repo liegt (nur in der Cloud-Sitzung, `.cache/` ist gitignored)

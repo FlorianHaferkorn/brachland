@@ -139,6 +139,11 @@ ADR-0006 erlaubt, die Tagesstimmung ist `zielbild` (warm, Goldnebel). Ein Gegene
 Palette liegt als ADR-0011 **Proposed** vor (Ledger A-9). Die Werte in
 `src/scenes/RegionsSzene.tsx` sind erarbeitet; nicht ohne Grund daran drehen.
 
+### Physik muss stimmen
+Flo, 22.11.2026 (D398): Gemalt ist die Darstellung, nicht das Verhalten. Licht, Wasser, Gewicht, Wuchs, Statik,
+Anatomie und Bewegung sowie Spielwerte (Tempo, Reichweite, Fallhöhe, Gleiten, Schwimmen, Tauchen) folgen der
+Wirklichkeit. Abweichungen zugunsten des Spiels sind erlaubt, aber benannt und begründet — nie still.
+
 ### Performance-Invarianten
 Props **immer** als `InstancedMesh` (40.000 Einzelobjekte erledigen jedes Handy).
 Positionen aus einem **Seed** erzeugen, nie speichern. Das Precache-Budget von 60 MB
