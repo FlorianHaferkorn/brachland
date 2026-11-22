@@ -26,6 +26,12 @@ export interface Eingabe {
   rennen: boolean;
   /** Einmaliger Sprungwunsch. Wird beim Verbrauchen zurückgesetzt. */
   springen: boolean;
+  /**
+   * D413: Zeitpunkt (`performance.now()`, ms) des letzten Drucks auf die Rolltaste K. Der Kampf
+   * liest K selbst (`kampf/Kampfplatz.tsx`); hier wird sie nur gemerkt, damit eine Rolle kurz vor
+   * dem Aufsetzen den Fallschaden halbiert (`spieler/bewegung.ts` `gerolltBeiLandung`).
+   */
+  rolleUm: number;
 }
 
 /** Wie weit der Daumen wandern muss, bis der Stock voll ausschlägt. */
@@ -58,7 +64,7 @@ export function benutzeSteuerung(
 ): RefObject<Eingabe> {
   const eingabe = useRef<Eingabe>({
     vor: 0, seit: 0, drehRate: 0, drehDelta: 0, neigRate: 0, neigDelta: 0,
-    rennen: false, springen: false,
+    rennen: false, springen: false, rolleUm: -Infinity,
   });
 
   useEffect(() => {
@@ -80,6 +86,7 @@ export function benutzeSteuerung(
       if (ev.target instanceof HTMLInputElement) return;
       // Leertaste scrollt sonst die Seite — auf dem Laptop sofort spuerbar.
       if (ev.code === 'Space') { ev.preventDefault(); e.springen = true; }
+      if (ev.code === 'KeyK' && !ev.repeat) e.rolleUm = performance.now();
       tasten.add(ev.code); ausTasten();
     };
     const hoch = (ev: KeyboardEvent) => { tasten.delete(ev.code); ausTasten(); };

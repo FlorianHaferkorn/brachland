@@ -455,6 +455,9 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
   // D184: Messadresse `?waffe=axt|speer` — mit dieser Waffe in den Kampf (Bildprüfung).
   const waffeWahl = useRef<WaffenArt>(WAFFE_START);
   useEffect(() => () => { if (zielt) zielt.current = false; }, [zielt]);
+  // D413: Endet der Kampf von aussen (tödlicher Sturz, Kälte) mitten in Schlag oder Rolle, darf die
+  // Sperre nicht stehen bleiben — sonst wacht die Figur in der Zuflucht auf und kann nicht laufen.
+  useEffect(() => () => { gesperrt.current = false; }, [gesperrt]);
   const tasten = useRef(new Set<string>());
   const meldung = useRef({ text: '', seit: 0 });
   /** Ist ein Ziel aufgeschaltet? Die Maus wählt dann die Linie (D175). */

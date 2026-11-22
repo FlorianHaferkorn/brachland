@@ -12,7 +12,8 @@
  *    Schalter `?renntempo=` lässt nur die Probewerte zu.
  */
 import {
-  FALL_MAX, begrenzeFall, fallhoeheAus, fallschaden, kaelteLeben, kaelteSchritt, neueKaelte, type Kaelte,
+  FALL_MAX, begrenzeFall, fallhoeheAus, fallschaden, gerolltBeiLandung, kaelteLeben, kaelteSchritt, koerperFolge,
+  neueKaelte, type Kaelte,
 } from '../src/spieler/bewegung.js';
 import { ABSPRUNG, BEWEGUNG, GEHEN, KLETTERN_TEMPO, RENNEN, SCHWERKRAFT, SPRUNGHOEHE, renntempoAusAdresse } from '../src/spieler/tempo.js';
 import { GLEIT_SINKEN, GLEIT_TEMPO } from '../src/spieler/gleiten.js';
@@ -62,6 +63,29 @@ console.log('Bewegung — Fall, Kälte, Tempi (D412)\n');
   // Die Folge, die die Prüfung genannt hat: Wer in 13 m Höhe an der Wand erschöpft, fällt fast tödlich.
   pruefe('Erschöpft in 13 m Höhe ist fast tödlich', fallschaden(aus(13)) > 0.8, `${fallschaden(aus(13)).toFixed(2)}`);
   pruefe('Negative Geschwindigkeit ist kein Aufprall', fallschaden(-20) === 0);
+}
+
+// ---- D413: Rolle in der Landung ----------------------------------------------
+{
+  const f = BEWEGUNG.fall.rolleFenster;
+  pruefe('Rollfenster 0,3 s', f === 0.3);
+  pruefe('Taste 0,1 s vor dem Aufsetzen zählt', gerolltBeiLandung(1000, 1100));
+  pruefe('Taste genau am Rand zählt', gerolltBeiLandung(1000, 1000 + f * 1000));
+  pruefe('Taste 0,5 s vorher zählt nicht', !gerolltBeiLandung(1000, 1500));
+  pruefe('Nie gedrückt zählt nicht', !gerolltBeiLandung(-Infinity, 1000));
+  pruefe('Taste nach dem Aufsetzen zählt nicht', !gerolltBeiLandung(1200, 1100));
+  // Zusammen: 9,75 m mit Taste kurz vorher kostet ein Viertel statt der Hälfte.
+  pruefe('Mit Taste halbiert sich der Schaden',
+         Math.abs(fallschaden(aus(9.75), gerolltBeiLandung(1000, 1200)) - 0.25) < 1e-9);
+}
+
+// ---- D413: Folge im und ausserhalb des Kampfs -----------------------------------
+{
+  pruefe('Leben übrig: nur Hinweis, auch im Kampf', koerperFolge(0.4, 'welt') === 'hinweis' && koerperFolge(0.4, null) === 'hinweis');
+  pruefe('Tödlich ohne Kampf: Aufwachen in der Zuflucht', koerperFolge(0, null) === 'aufwachen');
+  pruefe('Tödlich im Kampf in der Welt: Niederlage, kein Versetzen', koerperFolge(0, 'welt') === 'niederlage');
+  pruefe('Tödlich auf dem Übungsplatz: nur Hinweis', koerperFolge(0, 'platz') === 'hinweis');
+  pruefe('Ein tödlicher Sturz im Kampf ist tödlich genug', koerperFolge(1 - fallschaden(aus(20)), 'welt') === 'niederlage');
 }
 
 // ---- Endgeschwindigkeit -------------------------------------------------------

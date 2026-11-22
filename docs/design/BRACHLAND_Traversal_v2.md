@@ -127,7 +127,7 @@ billiger zu machen“). Keines liegt beim Regenten; wie man jedes bekommt, steht
 | Kosten ohne | Zeit |
 | Wo | Förster (401 / −813), Nebenaufgabe über Reinigen; gebunden wird ~~**ein** gereinigter Vierbeiner (Bibel §2)~~ **das letzte verwilderte Tragtier des Försterhofs** (Bergpferd oder Maultier, befallen, zu reinigen; D411) — Abschnitt 5 |
 | Wer trägt (D411) | Ein Reittier trägt rund 20 % seiner Masse; 90 kg Reiter mit Zeug verlangen 450 kg Tier. Kein Wildtier des Œntals trägt in echter Grösse einen Erwachsenen — der 140-kg-Keiler aus D391 trüge 28 kg (Physik-Prüfung v1 §4.2). Entwurf `content/bewegung.json` `tragtier`, ohne Kampfwerte |
-| Stand | Im Code hängt Reiten am Team (`besteReittier` in `src/main.tsx`); ohne Team ist es unerreichbar |
+| Stand | Im Code hängt Reiten am Team (`besteReittier` in `src/main.tsx`); ohne Team ist es unerreichbar. **Seit D413** trägt nur noch das Tragtier aus den Daten (`traegt()` nach Tragfähigkeit) — bis es gebaut ist, ist Reiten im Spiel nicht möglich; `?reitprobe=1` setzt die alte Regel (Vierbeiner ab Mutation 2) für den Test am M1 ein |
 
 ### Sichere Rast
 
@@ -357,8 +357,8 @@ Spielmechanik und ist deshalb hier Liste, nicht Änderung:
 | 13 | Gleiter: Gegnerwerte für Verhärtete (Bedarf: **verhärtetes Grathorn**), Verhärtete an den verborgenen Orten aufstellen, Spur am Bach | `content/gegner/`, `Region.verborgeneOrte` | 2, Reinigen im Spiel |
 | 14 | Zählweise `reinige`: zählt bis zur Kampfhandlung das alte Aufnehmen (Lage v2 §2) — `ein-schwieriger-nachbar` ist erst danach, was er sagt | `src/spiel/auftraege.ts` | D379 |
 | 15 | Leben ausserhalb des Kampfs: Fallschaden und Kälteuhr (D412) rechnen einen Anteil, aber nur „aufgebraucht“ hat eine Folge (Aufwachen in der Zuflucht); Teilschaden ist ein Hinweis | `src/main.tsx` `koerperFolge`, Spielstand | D412 |
-| 16 | Rolle bei der Landung (halbiert den Fallschaden): ausserhalb des Kampfs gibt es keine Rolle | `src/spieler/steuerung.ts`, `RegionsSzene.tsx` | ADR-0007 |
-| 17 | Feuer und Rast setzen die Kälteuhr zurück (Physik-Prüfung §4.4) — heute nur das Ufer | `src/spieler/bewegung.ts`, Zufluchten | D412 |
+| 16 | ~~Rolle bei der Landung (halbiert den Fallschaden): ausserhalb des Kampfs gibt es keine Rolle~~ **erledigt D413:** die Rolltaste K in den letzten 0,3 s vor dem Aufsetzen halbiert den Schaden; offen bleibt ein Clip für die Landerolle (die Figur rollt nicht sichtbar) und eine Rolle auf dem Handy | `src/spieler/steuerung.ts`, `RegionsSzene.tsx` | ADR-0007 |
+| 17 | Feuer und Rast setzen die Kälteuhr zurück (Physik-Prüfung §4.4) — heute nur das Ufer, und zwar sofort. D413: Rasten gibt es (`raste` in `src/main.tsx`), aber nur an Land, wo die Uhr schon auf null steht; ein Feuer-Ereignis gibt es nicht. Wirkung erst, wenn das Aufwärmen am Ufer langsam wird | `src/spieler/bewegung.ts`, Zufluchten | D412, D413 |
 
 ## 9. Messung
 

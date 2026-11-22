@@ -1516,7 +1516,8 @@ export type Einstellungen = z.infer<typeof Einstellungen>;
  * Bewegungswerte der Figur (D412, Entscheidungen D411 auf die Physik-Prüfung, `content/bewegung.json`).
  * Jeder Block nennt, was real gilt, warum das Spiel abweicht und wo es steht — „benannt und begründet, nie
  * still“ (D398). Gelesen von `src/spieler/tempo.ts`, `ausdauer.ts`, `gleiten.ts`, `bewegung.ts` und
- * `src/spiel/reiten.ts`; `tauchen` und `tragtier` sind Entwurf, kein Code liest sie. Zeiten in Sekunden,
+ * `src/spiel/reiten.ts`; `tauchen` und `tragtier` sind Entwurf — `tauchen` liest kein Code, vom Tragtier liest
+ * `reiten.ts` seit D413 Masse und Traglast (`traegt`), das Tier selbst gibt es nicht. Zeiten in Sekunden,
  * Strecken in Metern, Tempi in m/s.
  */
 const Benannt = {
@@ -1547,6 +1548,7 @@ export const Bewegung = z.object({
     schadlosBis: z.number().positive(),
     toedlichAb: z.number().positive(),
     rolle: z.number().min(0).max(1).describe('Faktor auf den Schaden bei einer Rolle in der Landung'),
+    rolleFenster: z.number().positive().max(1).describe('Sekunden vor dem Aufsetzen, in denen die Rolltaste als Rolle zählt (D413)'),
     endgeschwindigkeit: Tempo,
     ...Benannt,
   }).strict().refine(f => f.schadlosBis < f.toedlichAb, 'schadlosBis muss unter toedlichAb liegen'),

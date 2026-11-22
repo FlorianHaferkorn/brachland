@@ -96,7 +96,7 @@ Tauchen und Tragtier in `content/bewegung.json`; die Spalte „Urteil“ nennt d
 | 39 | Tauchtempo | ~~rund 6 m/s~~ **2,25 m/s** (Entwurf) | Traversal v2 §4; seit D412 `content/bewegung.json` `tauchen` | Taucher mit Gerät 0,26–0,5 m/s, im Versuch höchstens 1,0 m/s (1,9 kn) [Q9] | **Fehler**, ×12–23 → **behoben (D412)**, Faktor 3 auf 0,75 m/s; Tauchen gibt es im Code nicht | §4.1: 2,25 m/s (0,75 m/s × Faktor 3) |
 | 40 | Tauchweg zum Wehr | ~~„1.586 m direkt“~~ **1.863–2.364 m, „der Weg ohne Kampf“** | Traversal v2 §4, §7; D388 | die Gerade Abstieg → Wehr liegt zu 97 % auf dem Trockenen; der kürzeste Weg durchs Wasser misst 1.863 m (am Ufer entlang), über den Kirchturm 2.364 m | **Fehler** (Luftlinie statt Wasserweg) → **behoben (D412)** in Traversal v2 §4, §6, §7, Bibel §4, Quests §2.7 | §4.1 |
 | 41 | Luftvorrat | „rund 13 Minuten“ → Vorrat für Abstiege | Gegenstände v1 §11; seit D412 `content/bewegung.json` `tauchen` | 2 l × 200 bar = 400 l; 20–25 l/min in Ruhe [Q10]. Mit 50 bar Reserve und Arbeit (40 l/min): 5,0 min in 5 m, 2,9 min am Kirchturm | **Fehler** in der Annahme (Ruhe, keine Reserve) — die Rechnung selbst stimmt → **behoben (D412)** in Gegenstände v1 §11 und den Daten | §4.1: Luft ist ein Vorrat für Abstiege, nicht für die Strecke |
-| 42 | Reittier | ~~gereinigter Wurzelkeiler, 140 kg~~ **das letzte verwilderte Tragtier des Försterhofs, 450–500 kg** (Entwurf) | D391, Traversal v2 §5; seit D412 `content/bewegung.json` `tragtier` | trägt bei 20 % 28 kg; Reiter mit Zeug 90 kg verlangen 450 kg [Q14] | **Fehler** → **behoben im Entwurf (D412)**; `validate` prüft die Traglast. Im Code trägt weiter jeder Vierbeiner ab Mutation 2 | §4.2 |
+| 42 | Reittier | ~~gereinigter Wurzelkeiler, 140 kg~~ **das letzte verwilderte Tragtier des Försterhofs, 450–500 kg** (Entwurf) | D391, Traversal v2 §5; seit D412 `content/bewegung.json` `tragtier` | trägt bei 20 % 28 kg; Reiter mit Zeug 90 kg verlangen 450 kg [Q14] | **Fehler** → **behoben im Entwurf (D412)**; `validate` prüft die Traglast. ~~Im Code trägt weiter jeder Vierbeiner ab Mutation 2~~ **Seit D413 auch im Code:** `traegt()` lässt nur das tragfähige Tragtier tragen; die alte Regel nur hinter `?reitprobe=1` | §4.2 |
 | 43 | Gleitschirm | hing 18 Jahre in einem Geweih, „die Nähte halten“ → Leinen geborgen, Kappe neu genäht | D391, `content/gegenstaende/gleiter.json` | UV und Wetter machen das Tuch durchlässig und schwach; Wartung nach 100 Stunden Sonne empfohlen [Q13] | **Fehler** → **behoben (D412)**, Text nach §5 (b) | §4.3 |
 | 44 | Gerätegewichte | Tauchzeug 5,0 · Kletterzeug 4,5 · Gleiter 8,0 · Halfter 0,5 kg | `content/gegenstaende/*.json` (`gewicht`) | plausibel, nicht belegt | **offen** | — |
 | 45 | Traglast | rund 36 kg, Werkzeuge wiegen im Spiel nichts | Gegenstände v1 §11 | Gefechtslast 22 kg (30 % des Körpergewichts), Marschlast 33 kg (45 %) [Q19] | **bewusst**, benannt — 36 kg sind eine Marschlast, kein Zustand zum Fechten und Rollen | — |
@@ -119,7 +119,7 @@ Jeder Wert steht mit `real` und `warum` auch in `content/bewegung.json`.
 | Kletterausdauer | ~~6,25 s~~ **13,75 s** je Leiste, 13,75 m Wand | keine Entsprechung | — | höchste Klippe (14 m) soll gerade nicht in einem Zug gehen | Code, D388; Reichweite unverändert seit D412 in den Daten |
 | Schwimmtempo | 1,6 m/s | 0,35–0,8 m/s | 2–4,6 | Faktor 3 | D408 |
 | Schwimmstrecke | 17,8 m je Leiste | Hunderte Meter | 1/46 | Grundbewegung in Grenzen, das Werkzeug hebt sie auf | Traversal v2 §3 |
-| Kein Ertrinken, ~~keine Kälte~~ **Kälteuhr** | Treiben ohne Ende; **seit D412:** Leben sinkt nach 4 min im tiefen Wasser, leer nach 10 min | Schwimmversagen nach Minuten bis einer halben Stunde; Bewusstlosigkeit nach rund 1 h | ~~—~~ **1/3** (10 gegen rund 30 min) | „Ertrinken bestraft Erkundung“ — ertrinken weiter nicht, auskühlen schon; Zeitfaktor 3 | Code — ~~Kälte offen (A-34)~~ **D411, umgesetzt D412** |
+| Kein Ertrinken, ~~keine Kälte~~ **Kälteuhr** | Treiben ohne Ende; **seit D412:** Leben sinkt nach 4 min im tiefen Wasser, leer nach 10 min; das Ufer setzt sie **sofort** zurück (real dauert Aufwärmen, benannt D413) | Schwimmversagen nach Minuten bis einer halben Stunde; Bewusstlosigkeit nach rund 1 h | ~~—~~ **1/3** (10 gegen rund 30 min) | „Ertrinken bestraft Erkundung“ — ertrinken weiter nicht, auskühlen schon; Zeitfaktor 3 | Code — ~~Kälte offen (A-34)~~ **D411, umgesetzt D412** |
 | Gleitzahl und Sinkrate | 3 : 1, 4,0 m/s | 9,3 : 1, 1,1 m/s (heiler Schirm) | 1/3 | bei 4 : 1 trägt ein Flug die halbe Region (D71); **seit D411 begründet in der Welt:** geborgene Leinen, Kappe neu genäht aus gewachstem Leinen — gleitet schlecht, sinkt schnell (ob genau diese Werte: nicht belegt) | D71, Gegenstände v1 §11, D411 |
 | Gleiter öffnet im Fall | ab 3 m, von selbst | Start nur mit aufgezogener Kappe | — | kein eigener Knopf (Handy-Bedienung, D71) | D71 |
 | Reittempo | ~~17~~ **13** m/s auf Dauer, Schritt 5 m/s | Sprint 11–13 m/s | ~~1,3–1,5~~ **1,0–1,2** | spürbar schneller als Rennen (×1,53) | D408 — folgt dem Renntempo, **umgesetzt D412** |
@@ -226,7 +226,9 @@ Kein Wildtier des Œntals trägt in seiner echten Grösse einen Erwachsenen. Die
 
 - **Entschieden (D411): Option A.** Umgesetzt als Entwurf in `content/bewegung.json` `tragtier` (450–500 kg, kein
   Kampfwert; `validate` prüft, dass das leichteste Tier 90 kg bei 20 % trägt), Auftragstext und Halfter neu. Nicht
-  gebaut: Modell, Ort, Bindung — im Code trägt weiter jeder Vierbeiner ab Mutation 2.
+  gebaut: Modell, Ort, Bindung — ~~im Code trägt weiter jeder Vierbeiner ab Mutation 2~~. **D413:** `traegt()`
+  (`src/spiel/reiten.ts`) bindet das Tragen an die Daten (leichteste Masse × Traglastanteil ≥ 90 kg); weil nur das
+  Tragtier eine Masse hat, trägt im Spiel heute kein Tier. `?reitprobe=1` setzt die alte Regel für den Test am M1 ein.
 - **Option A (Empfehlung) — ein verwildertes Tragtier.** Im Stall des Försters hing das Halfter, „seit es keine
   Pferde mehr gibt“ — ein Halfter ist Pferdezeug. Ein verwildertes Bergpferd oder Maultier (rund 400–500 kg, Masse
   hier nicht belegt) trägt 90 kg bei 20 %. Die Nebenaufgabe bleibt, wie sie ist (drei Keiler reinigen, D391); der
@@ -293,7 +295,10 @@ gefährlich, nicht unmöglich.
 
 - **Entschieden (D411), umgesetzt (D412):** `src/spieler/bewegung.ts` (`kaelteSchritt`, `kaelteLeben`), Werte in
   `content/bewegung.json` `kaelte`. Gebaut ist nur das Ufer als Rücksetzer — Feuer und Rast setzen die Uhr noch nicht
-  zurück; und weil es ausserhalb des Kampfs kein Leben gibt, hat nur „aufgebraucht“ eine Folge (Aufwachen in der
+  zurück (**D413 geprüft:** Rasten gibt es als Ereignis, aber nur an Land in der Zuflucht, wo das Ufer die Uhr schon auf
+  null gesetzt hat — ein Rücksetzen dort änderte nichts; ein Ereignis „am Feuer“ gibt es nicht. Erst wenn das Aufwärmen
+  am Ufer langsam wird, wie es real wäre, bekommen Feuer und Rast eine Wirkung — Traversal v2 §8 Punkt 17. **Benannte
+  Abweichung:** Das Ufer wärmt sofort); und weil es ausserhalb des Kampfs kein Leben gibt, hat nur „aufgebraucht“ eine Folge (Aufwachen in der
   Zuflucht), „sinkt“ ist ein Hinweis.
 - **Empfehlung — die Kälte als Uhr.** Im tiefen Wasser läuft eine Kälteuhr: nach rund 4 min sinkt das Leben, nach
   rund 10 min ist es aufgebraucht (reale 30 min durch den Faktor 3; **Arbeitswerte, ungemessen**). Ufer, Feuer und
@@ -336,7 +341,10 @@ erschöpft, „fällt aus der erreichten Höhe“ (Kommentar `:3376`) ohne Folge
 - **Entschieden (D411), umgesetzt (D412):** `src/spieler/bewegung.ts` `fallschaden`, Werte in `content/bewegung.json`
   `fall`. Gemessen wird der **Aufprall** (gleichwertige Höhe v²/2g), nicht die Höhe des Falls — sonst nähme der
   Gleiter nach 300 m Flug Schaden. Die Rolle halbiert nur den Schaden unter 15 m; ausserhalb des Kampfs gibt es keine
-  Rolle, die Funktion kennt sie, die Szene übergibt sie nicht. Folge heute nur bei „tödlich“.
+  Rolle, ~~die Funktion kennt sie, die Szene übergibt sie nicht~~ **seit D413** zählt die Rolltaste K in den letzten
+  0,3 s vor dem Aufsetzen (`gerolltBeiLandung`, `fall.rolleFenster`) — ohne Clip, die Figur rollt nicht sichtbar.
+  Folge heute nur bei „tödlich“; seit D413 endet ein tödlicher Sturz in einem laufenden Kampf als Niederlage dieses
+  Kampfs (`koerperFolge`), statt die Figur aus dem Kampf in die Zuflucht zu versetzen.
 - **Empfehlung — Fallschaden mit dem Faktor der Beine.** Schadlos bis **4,5 m** (reale 1,5 m × Faktor 3 — dieselbe
   Figur springt 1,49 m hoch und landet jedes Mal daraus), darüber linear, **tödlich ab 15 m** (real, kein Faktor:
   Knochen haben keinen). Rolle bei der Landung halbiert. Folgen: Der Gleiter öffnet ab 3 m und liegt damit immer

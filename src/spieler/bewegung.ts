@@ -64,6 +64,41 @@ export function fallschaden(aufprall: number, gerollt = false): number {
   return gerollt ? roh * FALL.rolle : roh;
 }
 
+/**
+ * Zählt eine Rolltaste als Rolle in der Landung? (D413)
+ *
+ * `rolleUm` und `jetzt` sind Zeitstempel in Millisekunden (`performance.now()`); die Taste muss in
+ * den letzten `fall.rolleFenster` Sekunden **vor** dem Aufsetzen gedrückt worden sein. Erkannt wird
+ * die Kampftaste K (`spieler/steuerung.ts` merkt sie sich auch ausserhalb des Kampfs). Einen Clip
+ * für die Landerolle gibt es ausserhalb des Kampfs nicht: Der Schaden halbiert sich, die Figur
+ * rollt nicht sichtbar.
+ */
+export function gerolltBeiLandung(rolleUm: number, jetzt: number, fenster = FALL.rolleFenster): boolean {
+  const vorher = (jetzt - rolleUm) / 1000;
+  return vorher >= 0 && vorher <= fenster;
+}
+
+/** Was ein Sturz oder die Kälte zur Folge hat (D412/D413). */
+export type KoerperFolge = 'hinweis' | 'aufwachen' | 'niederlage';
+
+/**
+ * Die Folge für den Körper, abhängig davon, ob gerade gekämpft wird (D413).
+ *
+ * - Leben bleibt übrig → `hinweis` (Leben ausserhalb des Kampfs gibt es nicht).
+ * - Aufgebraucht, kein Kampf → `aufwachen` in der letzten Zuflucht (D179).
+ * - Aufgebraucht **in einem Kampf in der Welt** → `niederlage`: Der Kampf endet auf demselben Weg
+ *   wie eine Niederlage im Kampf (`kampfVorbei`), statt dass die Figur mitten aus dem laufenden
+ *   Kampf in die Zuflucht springt.
+ * - Aufgebraucht auf dem Übungsplatz (`?kampfplatz`) → nur `hinweis`: Der Platz fängt von selbst
+ *   neu an und kennt keine Zuflucht.
+ */
+export function koerperFolge(leben: number, kampf: 'welt' | 'platz' | null): KoerperFolge {
+  if (leben > 0) return 'hinweis';
+  if (kampf === 'welt') return 'niederlage';
+  if (kampf === 'platz') return 'hinweis';
+  return 'aufwachen';
+}
+
 /** Laufender Zustand der Kälteuhr: Sekunden am Stück im tiefen Wasser. */
 export interface Kaelte {
   sekunden: number;

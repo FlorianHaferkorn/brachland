@@ -118,7 +118,7 @@ import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
 import { REITEN_GEHEN, REITEN_RENNEN, REIT_MAX_GRAD } from '../spiel/reiten.js';
 import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG, KLETTERN_TEMPO } from '../spieler/tempo.js';
-import { begrenzeFall, fallschaden, kaelteLeben, kaelteSchritt, neueKaelte } from '../spieler/bewegung.js';
+import { begrenzeFall, fallschaden, gerolltBeiLandung, kaelteLeben, kaelteSchritt, neueKaelte } from '../spieler/bewegung.js';
 import { GLEIT_TEMPO, bremse, gleitSchritt, neuerFall, type Fall } from '../spieler/gleiten.js';
 
 
@@ -3405,8 +3405,8 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       p.y += steigen.current * dt;
       if (p.y <= boden) {
         // D412: Fallschaden am Aufprall, nicht an der Höhe — der Gleiter landet mit 4 m/s
-        // schadlos. Eine Rolle in der Landung gibt es ausserhalb des Kampfs noch nicht.
-        const schaden = fallschaden(-steigen.current, false);
+        // schadlos. D413: Rolltaste K kurz vor dem Aufsetzen halbiert ihn (ohne Clip).
+        const schaden = fallschaden(-steigen.current, gerolltBeiLandung(e0.rolleUm, performance.now()));
         if (schaden > 0) onKoerper?.('sturz', 1 - schaden);
         p.y = boden; steigen.current = 0;
       }

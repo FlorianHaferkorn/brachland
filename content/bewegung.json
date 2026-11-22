@@ -26,9 +26,10 @@
     "schadlosBis": 4.5,
     "toedlichAb": 15,
     "rolle": 0.5,
+    "rolleFenster": 0.3,
     "endgeschwindigkeit": 53,
     "real": "Stürze über 1,5 m vervierfachen das Verletzungsrisiko; halbe Sterblichkeit bei 12-15 m; Endgeschwindigkeit in Bauchlage 50-55 m/s (nicht belegt)",
-    "warum": "schadlos bis 1,5 m x Faktor 3 der Beine (die Figur springt 1,49 m hoch und landet daraus); tödlich ab 15 m ohne Faktor (Knochen haben keinen). Gemessen wird die Aufprallgeschwindigkeit als gleichwertige Fallhöhe v²/2g, damit der Gleiter (4 m/s = 0,82 m) nie Schaden nimmt. Rolle halbiert den Schaden darunter, nicht den Tod darüber",
+    "warum": "schadlos bis 1,5 m x Faktor 3 der Beine (die Figur springt 1,49 m hoch und landet daraus); tödlich ab 15 m ohne Faktor (Knochen haben keinen). Gemessen wird die Aufprallgeschwindigkeit als gleichwertige Fallhöhe v²/2g, damit der Gleiter (4 m/s = 0,82 m) nie Schaden nimmt. Rolle halbiert den Schaden darunter, nicht den Tod darüber. Als Rolle zählt die Rolltaste (K) in den letzten 0,3 s vor dem Aufsetzen (D413; Gattungswert, real nicht belegt; ausserhalb des Kampfs ohne Clip)",
     "quelle": "Physik-Prüfung v1 Q5, §4.6, §5 (a)"
   },
   "kaelte": {

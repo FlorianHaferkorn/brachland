@@ -29,6 +29,7 @@ import { verschiebe, zustandsAnzeige } from './spiel/team.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
 import { gleiterFrei as gleiterOffen, GLEIT_VERHAELTNIS } from './spieler/gleiten.js';
 import { BEWEGUNG } from './spieler/tempo.js';
+import { koerperFolge } from './spieler/bewegung.js';
 import { reitsitz } from './world/kreaturgestalt.js';
 import { erfahrungAusSieg, gutschrift, mutationBei } from './spiel/fortschritt.js';
 import { beute } from './spiel/gegenstaende.js';
@@ -489,32 +490,19 @@ function App() {
     setHinweis(`${zusatz}Du wachst in ${z.name} auf. Irgendwer hat dich hergebracht.`);
     return true;
   }, []);
-  /**
-   * D412: Folgen für den Körper aus der Bewegung (`spieler/bewegung.ts`) — Sturz und Kälte. Leben
-   * gibt es ausserhalb des Kampfs noch nicht; deshalb hat nur „aufgebraucht“ eine Folge (Aufwachen
-   * wie nach einer Niederlage), alles darunter ist ein Hinweis. Arbeitswerte, nicht am M1 gespielt.
-   */
-  const koerperFolge = useCallback((art: 'sturz' | 'kaelte', leben: number) => {
-    if (leben <= 0) {
-      if (!wacheAuf(art === 'sturz' ? 'Der Sturz war zu tief. ' : 'Das Wasser hat dich ausgekühlt. ')) {
-        setHinweis(art === 'sturz' ? 'Der Sturz war zu tief.' : 'Das Wasser hat dich ausgekühlt.');
-      }
-    } else if (art === 'sturz') {
-      setHinweis(leben < 0.5 ? 'Hart aufgekommen. Das hat geschadet.' : 'Hart aufgekommen.');
-    } else {
-      setHinweis('Die Kälte zieht in die Glieder. Raus aus dem tiefen Wasser.');
-    }
-  }, [wacheAuf]);
-  const kampfVorbei = useCallback((sieg: boolean) => {
+  const kampfVorbei = useCallback((sieg: boolean, zusatz = '') => {
     // Aus einer Ref gelesen, nicht im Updater: StrictMode ruft Updater doppelt — Beute und
     // `besiegt` kämen sonst zweimal in den Stand.
     const alt = weltKampfRef.current;
+    // D413: Ref sofort leeren — ein zweiter Ruf vor dem nächsten Rendern (Sturz und Kampfende im
+    // selben Augenblick) findet dann keinen Kampf mehr und tut nichts.
+    weltKampfRef.current = null;
     setWeltKampf(null);
     if (!alt) return;
     if (!sieg) {
       lagerRuhe.current.add(alt.id);
       // D179: Niederlage heisst Aufwachen in der letzten Zuflucht — mit vollem Leben, ohne Beute.
-      if (!wacheAuf()) setHinweis('Zurückgeschlagen — sie warten noch.');
+      if (!wacheAuf(zusatz)) setHinweis(`${zusatz}Zurückgeschlagen — sie warten noch.`);
       return;
     }
     const st = standRef.current;
@@ -545,6 +533,23 @@ function App() {
     const liste = Object.entries(alt.beute).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n * mal}`).join(', ');
     setHinweis(`Das Lager ist still. Du nimmst: ${liste}.${stufenText}`);
   }, [wacheAuf]);
+  /**
+   * D412: Folgen für den Körper aus der Bewegung (`spieler/bewegung.ts`) — Sturz und Kälte. Leben
+   * gibt es ausserhalb des Kampfs noch nicht; deshalb hat nur „aufgebraucht“ eine Folge, alles
+   * darunter ist ein Hinweis. D413: In einem laufenden Kampf in der Welt endet er als Niederlage
+   * über `kampfVorbei` (die Figur springt nicht mitten aus dem Kampf in die Zuflucht); auf dem
+   * Übungsplatz bleibt es beim Hinweis. Entschieden von `koerperFolge` in `spieler/bewegung.ts`.
+   * Arbeitswerte, nicht am M1 gespielt.
+   */
+  const koerperFolgeMelden = useCallback((art: 'sturz' | 'kaelte', leben: number) => {
+    const grund = art === 'sturz' ? 'Der Sturz war zu tief.' : 'Das Wasser hat dich ausgekühlt.';
+    const folge = koerperFolge(leben, weltKampfRef.current ? 'welt' : KAMPFPLATZ ? 'platz' : null);
+    if (folge === 'niederlage') kampfVorbei(false, `${grund} `);
+    else if (folge === 'aufwachen') { if (!wacheAuf(`${grund} `)) setHinweis(grund); }
+    else if (leben <= 0) setHinweis(grund);
+    else if (art === 'sturz') setHinweis(leben < 0.5 ? 'Hart aufgekommen. Das hat geschadet.' : 'Hart aufgekommen.');
+    else setHinweis('Die Kälte zieht in die Glieder. Raus aus dem tiefen Wasser.');
+  }, [wacheAuf, kampfVorbei]);
 
   /**
    * Das Team als Reitkandidaten — Bauform und Mutation je Platz.
@@ -964,7 +969,7 @@ function App() {
         gleiterFrei={gleiterFrei}
         onGleiten={setGleitet}
         anzug={(stand.beutel[BEWEGUNG.kaelte.anzug] ?? 0) > 0}
-        onKoerper={koerperFolge}
+        onKoerper={koerperFolgeMelden}
         fundstellen={fundstellen}
         gelesen={gelesen}
         onFund={findeFragment}
