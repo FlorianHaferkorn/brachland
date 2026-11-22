@@ -31,7 +31,7 @@ shelf-life-days: 180
 | Treffer | `echtzeit.ts:706` ff. (Bogen gegen Kapsel), `loeseTreffer` `:767` | Reichweite bis zum **Rand** der Zielkapsel, Winkel plus halber Sichtwinkel der Kapsel. Kein Raycast am Modell — die sichtbare Waffe trifft nichts |
 | Clip je Schlag | `clip`, `hieb.scheitel`, `hieb.durchzug` (Clipbilder, 24/s) | Die Figur **spielt den Clip nicht ab, sie setzt die Clipzeit je Bild** (`src/scenes/RegionsSzene.tsx:4026–4031`): Vorlauf liegt auf 0 … Scheitel, Aktiv auf Scheitel … Durchzug, Erholung auf dem Rest |
 | Clips und Regeln zusammenhalten | `tests/waffenclips.test.ts` | prüft, dass Scheitel und Durchzug auf Schlüsselbildern liegen und die Clips gebaut sind (`tools/waffenclips.py`, `tools/ual2uebertrag.py`) |
-| Waffenmodelle | `public/figuren/kampf/waffen.glb` (79 kB), geladen `src/kampf/Kampfplatz.tsx:320`, Objekte `Klinge`, `Axt` | ein Modell je Waffe, fest |
+| Waffenmodelle | `public/figuren/kampf/waffen.glb` (79 kB), geladen `src/kampf/Kampfplatz.tsx:320`, Objekte `Klinge`, `Axt` | ein Modell je Waffe, fest. **D429:** Die Axt ist eine Zweihand-Fällaxt — Kopf 1,41 kg, Stiel 0,68 kg, gesamt 2,09 kg, 1,00 m; zwei Griffpunkte (Ursprung = rechte Hand vorn am Stiel, `griff_links` am Stielende); die Szene lässt den Stiel durch die rechte Hand gleiten (`gleiteAmStiel`, `src/kampf/waffenhand.ts`) — an Clip **und** Modell gebunden: Wo die Hände am Stiel sitzen, steht in den Clips (`tools/waffenclips.py` `griff`), wo das Stielende ist, im Modell |
 | Schmiede | `src/spiel/schmiede.ts:16` `MAX_STUFE` 3, `:17` `JE_STUFE` 0,12, `:44` `schadenFaktor` | ein Faktor auf Schaden und Haltungsschaden der ganzen Waffe |
 
 **Was daraus folgt — und es ist günstiger als befürchtet:**
@@ -1377,5 +1377,39 @@ seltener). Ein neuer Ausgleich ist nicht gesucht (Flo: Arbeitswert bis nach den 
   anfühlen, weiss niemand.
 - ⚠️ Die Tiere sind im Kampf drei- bis fünfmal langsamer als real (Physik-Prüfung v1 §4.8, zur Kenntnis, nicht geändert);
   alle Zahlen hier gelten für diese Tiere. Mit realem Tempo wären Reichweite und Rolle anders gewichtet.
-- ⚠️ Der Spaltkopf trägt seit D407 1,65 kg statt 1,40 kg (Modell D421: 1,71 kg, dort als schwerer als das Vorbild benannt);
-  die Klinge bleibt bei 1,10 kg, obwohl ihr Modell 1,21 kg wiegt — nicht angeglichen, weil nicht verlangt.
+- ⚠️ ~~Der Spaltkopf trägt seit D407 1,65 kg statt 1,40 kg (Modell D421: 1,71 kg)~~ — **behoben D429** (§31.8: Kopf 1,40,
+  Stiel 0,70 kg wie das Modell). Die Klinge bleibt bei 1,10 kg, obwohl ihr Modell 1,21 kg wiegt — nicht angeglichen, weil
+  nicht verlangt.
+
+### 31.8 D429: Teilmassen der Axt wie das Modell der Zweihand-Fällaxt
+
+Flo 22.11.2026 (D429 (3)): Kopfgewicht widersprüchlich — Modell 1,71 kg, Baukasten 1,65 kg, Vorbild 1,4 kg. **Jetzt:** Modell
+(`tools/waffenmodelle.py`) Kopf **1,41 kg** (schlanker, Schneide 9,5 statt 11,5 cm hoch), Hickorystiel **0,68 kg**
+(Ersatzstiele 36 Zoll 0,61–0,68 kg, Händlerangaben Link Handles und Garant; Hickory 0,81 g/cm³ als Überschlag), gesamt
+**2,09 kg**, 1,00 m. `content/waffenteile.json`: Spaltkopf 1,65 → **1,40 kg**, Stiel 0,45 → **0,70 kg**, langer Stiel
+0,56 → **0,87 kg** (derselbe Querschnitt, Überschlag). Die Masse des Referenzbaus bleibt 2,10 kg; der Referenzbau ergibt die
+Axt weiter bitgleich (`tests/baukasten.test.ts`, der Baukasten rechnet relativ). Die Rechenlänge des Stiels (0,8 m,
+`vorHand` 0,85) bleibt — das Modell misst 0,9 m; angeglichen ist nur die Masse.
+
+**Was sich verschiebt** (Physik des Referenzbaus, absolut, `src/kampf/gewicht.ts`): Bei gleicher Masse liegt mehr davon im
+Stiel — Trägheit um die Hand 0,757 → **0,684 kg·m²**, Schwerpunkt 0,57 → 0,53 m vor der Hand, Impuls am Kopf 18,8 →
+**17,3 N·s**, Kopftempo 11,8 → 12,0 m/s, Bremsweg (Soll Nachschwung) 47 → **44°**. Trefferstopp (D427, verdrahtet): Axthieb
+96 → **90 ms**, Querhieb 87 → 82, Laufhieb 100 → 94, Spalthieb 120 (Obergrenze); Kamerastoss 5,9 → 5,5 cm; Neigung des
+Keilers 5,6 → 5,2°. Kampfwerte unverändert; im Kampfbot verschiebt sich nur die Zeit (Fingerabdruck D171 4800,475 →
+4799,392 s über 384 Kämpfe), Kampftor grün.
+
+**Faktoren der übrigen Axtbauten** (relativ zum neuen Referenzbau; der Ausgleich ist Arbeitswert, nicht neu gesucht):
+
+| Bau | Zeit vorher → nachher | Schaden | Haltungsschaden | Kosten |
+|---|---|---|---|---|
+| spaltkopf + lang | 1,111 → 1,110 | 1,167 → 1,166 | 1,116 → 1,123 | 1,094 → 1,102 |
+| bartaxt + mittel | 0,905 → 0,933 | 1,092 → 1,127 | 0,812 → 0,900 | 0,819 → 0,875 |
+| bartaxt + lang | 0,985 → 1,022 | 1,249 → 1,296 | 0,903 → 1,011 | 0,891 → 0,961 |
+| hammerkopf + mittel | 0,994 → 1,023 | 0,887 → 0,913 | 1,156 → 1,261 | 0,989 → 1,045 |
+| hammerkopf + lang | 1,104 → 1,140 | 1,035 → 1,069 | 1,290 → 1,416 | 1,081 → 1,151 |
+| breitbeil + mittel | 1,017 → 1,046 | 1,067 → 1,098 | 1,050 → 1,142 | 1,033 → 1,089 |
+| breitbeil + lang | 1,133 → 1,169 | 1,249 → 1,288 | 1,173 → 1,283 | 1,130 → 1,200 |
+
+Der leichtere Referenzkopf macht die schweren Köpfe relativ schwerer (Hammerkopf, Breitbeil: Haltung +9 … +13 Punkte) und
+die Bartaxt relativ weniger leicht. **Die Messung 31.7 gilt damit nicht mehr genau** — `baukastenziele.ts` neu laufen
+lassen, bevor der Ausgleich gesucht wird (D423). Das Spiel liest den Baukasten nicht; im Kampf zählt `content/waffen/axt.json`.

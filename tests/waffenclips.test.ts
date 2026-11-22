@@ -107,6 +107,12 @@ const treffer = new Map<string, [number, number]>(
 pruefe('TREFFER: vier Messerhiebe', ['Messer_Quer_A', 'Messer_Quer_B', 'Messer_Schwer', 'Messer_Lauf'].every(n => treffer.has(n)),
   [...treffer.keys()].join(','));
 const neueClips = [...clips.keys()].filter(n => /^(Messer|Geraet)_/.test(n));
+// D429: Die Axtclips sind seit D429 aus Schlüsselbildern gebaut (Zweihand-Fällaxt) und stehen mit in `TREFFER`.
+const AXTCLIPS = ['Axt_Hieb', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf'];
+pruefe('D429: TREFFER trägt die vier Axtschläge', AXTCLIPS.every(n => treffer.has(n)), [...treffer.keys()].join(','));
+// Hiebe von oben (kein Querbogen) und Hiebe, die am Boden enden (die Beine fangen die Masse statt eines Bremswegs).
+const VON_OBEN = new Set(['Messer_Schwer', 'Axt_Hieb', 'Axt_Schwer']);
+const AM_BODEN = new Set(['Messer_Schwer', 'Axt_Schwer']);
 pruefe('D414: sieben neue Clips (sechs Messer, ein Gerät)', neueClips.length === 7, neueClips.join(','));
 for (const n of ['Messer_Stand', 'Geraet_Blasebalg']) {
   const b = clips.get(n)?.bilder ?? [];
@@ -136,7 +142,7 @@ for (const [n, [s, d]] of treffer) {
   pruefe(`${n}: Gewicht wandert nach vorn (koerper v ${vS} → ${vD})`, vD > vS + 0.1);
   // Die Hüfte führt: Im Scheitel ist das Becken schon in Schlagrichtung gedreht (Querhiebe und Lauf).
   const rS = feld(k.get(s), 'rumpf')?.[0] ?? 0, rD = feld(k.get(d), 'rumpf')?.[0] ?? 0;
-  if (n !== 'Messer_Schwer') {
+  if (!VON_OBEN.has(n)) {
     const h = feld(k.get(s), 'huefte')?.[0] ?? 0;
     pruefe(`${n}: Hüfte führt (huefte ${h} in Richtung der Drehung ${rS} → ${rD})`, h !== 0 && Math.sign(h) === Math.sign(rD - rS));
     pruefe(`${n}: breiter Bogen — der Rumpf dreht ≥ 60° vom Scheitel zum Durchzug`, Math.abs(rD - rS) >= 60, `${rD - rS}`);
@@ -144,7 +150,7 @@ for (const [n, [s, d]] of treffer) {
   // Masse (1,4 kg, 0,23 kg·m² um die Hand): holt länger aus als die Klinge, nicht länger als die Axt.
   if (n === 'Messer_Schwer') {
     pruefe(`${n}: Ausholen zwischen leichtem Messerhieb und Spalthieb der Axt (${s})`, s > 9 && s <= axtSchwer, `${axtSchwer}`);
-  } else if (n !== 'Messer_Lauf') {
+  } else if (n !== 'Messer_Lauf' && n.startsWith('Messer_')) {
     pruefe(`${n}: Ausholen länger als die Klinge (${klingeLeicht}), höchstens wie die Axt (${axtQuer}): ${s}`,
       s > klingeLeicht && s <= axtQuer);
   }
@@ -173,23 +179,28 @@ function nachDemDurchzug(n: string, d: number) {
 }
 const MESSER = waffenkoerper('kriegsmesser');
 const sollMesser = nachschwung('kriegsmesser');
+const sollAxt = nachschwung('axt');
+// D429: Spitze der Axt vor dem rechten Handgelenk — 0,35 m bei der rechten Hand an der vorderen Griffstelle
+// (`tools/waffenmodelle.py`), dazu, was die Hand zum Stielende gleitet (`griff` −0,62 … −0,11).
+const axtSpitze = (text: string | undefined) => 0.35 + 0.62 + (feld(text, 'griff')?.[0] ?? -0.42);
 const befund: string[] = [];
 for (const [n, [s, d]] of treffer) {
   const b = nachDemDurchzug(n, d);
+  const soll = n.startsWith('Axt_') ? sollAxt : sollMesser;
   befund.push(`${n}: ${b.winkel.toFixed(0)}° / ${(b.halt * 100).toFixed(0)} %`);
   const rS = feld(b.k.get(s), 'rumpf')?.[0] ?? 0, rD = feld(b.k.get(d), 'rumpf')?.[0] ?? 0;
   pruefe(`${n}: Nachschwung mit mindestens zwei Schlüsseln (weiterlaufen, halten)`, b.nach.length >= 2, b.nach.join(','));
-  if (n === 'Messer_Schwer') {
+  if (AM_BODEN.has(n)) {
     // Der Hieb von oben endet am Boden: Die Masse fangen die Beine — das Becken sinkt (E = 43 J ≈ 70 kg · g · 6 cm).
     const hD = feld(b.k.get(d), 'koerper')?.[1] ?? 0;
     const tiefst = Math.min(...b.nach.map(x => feld(b.k.get(x), 'koerper')?.[1] ?? 0));
     pruefe(`${n}: die Beine fangen die Masse (Becken ≥ 4 cm tiefer als im Durchzug)`, tiefst <= hD - 0.04, `${hD} → ${tiefst}`);
   } else {
-    pruefe(`${n}: Klinge läuft ≥ ${sollMesser.winkel.toFixed(0)}° weiter (Bremsweg)`, b.winkel >= sollMesser.winkel, b.winkel.toFixed(0));
+    pruefe(`${n}: Klinge läuft ≥ ${soll.winkel.toFixed(0)}° weiter (Bremsweg)`, b.winkel >= soll.winkel, b.winkel.toFixed(0));
     // Das Becken bremst: im Nachschwung gegen die Drehung des Schlags gestellt.
     pruefe(`${n}: Hüfte bremst gegen die Drehung`, b.nach.some(x => Math.sign(feld(b.k.get(x), 'huefte')?.[0] ?? 0) === -Math.sign(rD - rS)));
   }
-  pruefe(`${n}: Körper folgt der Masse bis ≥ ${(sollMesser.halt * 100).toFixed(0)} % der Erholung`, b.halt >= sollMesser.halt - 1e-9,
+  pruefe(`${n}: Körper folgt der Masse bis ≥ ${(soll.halt * 100).toFixed(0)} % der Erholung`, b.halt >= soll.halt - 1e-9,
     `${(b.halt * 100).toFixed(0)} %`);
   const vD = feld(b.k.get(d), 'koerper')?.[0] ?? 0, vN = feld(b.k.get(b.nach[0]), 'koerper')?.[0] ?? 0;
   pruefe(`${n}: Gewicht bleibt auf dem vorderen Fuss (koerper v ${vD} → ${vN})`, vN >= vD - 0.02);
@@ -199,17 +210,17 @@ for (const [n, [s, d]] of treffer) {
   }
   for (const x of b.nach) {
     const h = feld(b.k.get(x), 'hand')?.[2] ?? 1, r = feld(b.k.get(x), 'richt')!;
-    const spitze = h + MESSER.spitze * r[2] / Math.hypot(...r);
+    const spitze = h + (n.startsWith('Axt_') ? axtSpitze(b.k.get(x)) : MESSER.spitze) * r[2] / Math.hypot(...r);
     pruefe(`${n} Bild ${x}: Spitze über dem Boden (${(spitze * 100).toFixed(0)} cm)`, spitze >= 0.05);
   }
 }
 // Befund an den Bestandsclips (nicht geändert, D414: ihr Nachbau weicht 10–35 cm ab) — nur gemeldet, Vorschlag in
 // `tools/gewichtvorschlag.py`.
-console.log(`  D420 Langes Messer (Soll ${sollMesser.winkel.toFixed(0)}° / ${(sollMesser.halt * 100).toFixed(0)} %): ${befund.splice(0).join('; ')}`);
+console.log(`  D420/D429 Langes Messer (Soll ${sollMesser.winkel.toFixed(0)}° / ${(sollMesser.halt * 100).toFixed(0)} %), Axt (Soll ${sollAxt.winkel.toFixed(0)}° / ${(sollAxt.halt * 100).toFixed(0)} %): ${befund.splice(0).join('; ')}`);
 for (const [art, id] of [['axt', 'axt'], ['speer', 'speer'], ['klinge', 'klinge']] as const) {
   const w = WAFFEN[art], soll = nachschwung(id);
   for (const sch of [...w.leicht, w.schwer, w.lauf]) {
-    if (!sch.clip || !sch.hieb || !clips.has(sch.clip) || befund.some(x => x.startsWith(sch.clip + ':'))) continue;
+    if (!sch.clip || !sch.hieb || !clips.has(sch.clip) || treffer.has(sch.clip) || befund.some(x => x.startsWith(sch.clip + ':'))) continue;
     const b = nachDemDurchzug(sch.clip, Math.round(sch.hieb.durchzug * 24));
     befund.push(`${sch.clip}: Nachschwung ${b.winkel.toFixed(0)}° (Soll ${soll.winkel.toFixed(0)}°), Halt ${(b.halt * 100).toFixed(0)} % (Soll ${(soll.halt * 100).toFixed(0)} %)`);
   }
@@ -219,8 +230,9 @@ console.log(`  Befund D420 (Bestand, nur gemeldet): ${befund.join('; ')}`);
 // Ausgeliefert: Clips der Hauptfigur, Modelle, Daten.
 if (existsSync('public/figuren/held/held-clips.glb')) {
   const held = new Set(animationen('public/figuren/held/held-clips.glb'));
-  const fehlt = neueClips.filter(n => !held.has(n));
-  pruefe('held-clips.glb trägt alle neuen Clips', fehlt.length === 0, fehlt.join(', '));
+  const fehlt = [...neueClips, ...AXTCLIPS, 'Axt_Stand', 'Axt_Block'].filter(n => !held.has(n));
+  pruefe('held-clips.glb trägt alle neuen Clips (D414, D429)', fehlt.length === 0, fehlt.join(', '));
+  pruefe('D429: held-clips.glb trägt Axe_Overhead nicht mehr (ersetzt durch Axt_Hieb)', !held.has('Axe_Overhead'));
 }
 {
   const buf = readFileSync('public/figuren/kampf/waffen.glb');
@@ -246,7 +258,10 @@ const WAFFENDATEI = 'public/figuren/kampf/wanderin-waffen.glb';
 pruefe('Waffenclips-Datei ist da', existsSync(WAFFENDATEI));
 if (existsSync(WAFFENDATEI)) {
   const drin = new Set(animationen(WAFFENDATEI));
-  const fehlt = gebraucht.filter(n => !drin.has(n));
+  // D429: `Axt_Hieb` gibt es nur für die Hauptfigur (`held-clips.glb`, oben geprüft) — die alte Wanderin (`?figur=alt`)
+  // hat keine Quelle mehr (D414) und schlägt mit ihrem `Axe_Overhead` (Rückfall in `RegionsSzene`, unten geprüft).
+  const NUR_HELD = new Set(['Axt_Hieb']);
+  const fehlt = gebraucht.filter(n => !drin.has(n) && !NUR_HELD.has(n));
   pruefe('jeder gebrauchte Clip steckt in der Waffendatei', fehlt.length === 0, fehlt.join(', '));
 }
 const figur = animationen('public/figuren/wanderin.glb');

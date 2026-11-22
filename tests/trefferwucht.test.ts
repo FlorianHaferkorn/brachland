@@ -63,8 +63,10 @@ pruefe('Klinge hält kürzer an als die 60 ms von D171', stoppJe.klinge < TREFFE
 pruefe('Axt hält länger an als die 60 ms von D171', stoppJe.axt > TREFFERSTOPP, ms(stoppJe.axt));
 pruefe('Reihenfolge nach Masse: Klinge < Saufeder < Axt', stoppJe.klinge < stoppJe.speer && stoppJe.speer < stoppJe.axt,
   `${ms(stoppJe.klinge)} / ${ms(stoppJe.speer)} / ${ms(stoppJe.axt)}`);
-// Der Pfosten bricht unter dem ersten Axthieb (Haltung 50): +20 ms — ohne Bruch 96 ms nach den Modellmassen von D421 (D407).
-pruefe('Axthieb ohne Bruch 96 ms (D407), Saufeder 58 ms', Math.round(trefferstopp(trefferImpuls('axt')) * 1000) === 96
+// Der Pfosten bricht unter dem ersten Axthieb (Haltung 50): +20 ms — ohne Bruch 90 ms nach den Teilmassen von D429 (Kopf 1,40,
+// Stiel 0,70 kg wie das Modell; bis D429 96 ms mit Kopf 1,65 / Stiel 0,45 kg, D407): Bei gleicher Masse liegt mehr davon im
+// Stiel, die Trägheit um die Hand sinkt 0,757 → 0,684 kg·m², der Impuls 18,8 → 17,3 N·s.
+pruefe('Axthieb ohne Bruch 90 ms (D429), Saufeder 58 ms', Math.round(trefferstopp(trefferImpuls('axt')) * 1000) === 90
   && Math.round(trefferstopp(trefferImpuls('speer')) * 1000) === 58, ms(trefferstopp(trefferImpuls('axt'))));
 {
   const leicht = ersterTreffer('axt'), schwer = ersterTreffer('axt', w => w.schwer);

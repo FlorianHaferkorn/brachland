@@ -29,7 +29,11 @@ from weltformel import ALT_KARTE, FINGER, GRIFF_ZWEI, uebertrage
 
 ARGS = sys.argv[sys.argv.index('--') + 1:]
 FIGUR, AUS = ARGS[0], ARGS[1]
-NEU = [n for n in NAMEN if n.startswith(('Messer_', 'Geraet_'))]
+NEU = [n for n in NAMEN if n.startswith(('Messer_', 'Geraet_', 'Axt_'))]
+# D429: Seit D429 sind auch die Axtclips aus Schlüsselbildern gebaut (Zweihand-Fällaxt). `NUR=Axt_` gibt nur sie aus —
+# so wird `held-clips.glb` in der Fassung aus git nur um diese Clips ergänzt, die übrigen bleiben bitgleich.
+if os.environ.get('NUR'):
+    NEU = [n for n in NEU if n.startswith(tuple(os.environ['NUR'].split(',')))]
 # D420: `VORSCHLAG=1` baut stattdessen die Vorschläge aus `gewichtvorschlag.py` (nur für Prüfbilder) und gibt die
 # nachgebauten Originale als `<Name>_Nachbau` mit aus — nie in `held-clips.glb` einfügen.
 VORSCHLAG = bool(os.environ.get('VORSCHLAG'))
@@ -40,7 +44,8 @@ if VORSCHLAG:
     waffenclips.NAMEN = tuple(waffenclips.CLIPS)
     NEU = list(_V)
 # Idle prüft die Übertragung allein (hart, `GRENZE`), die drei Waffenclips den ganzen Weg (nur gemeldet, s. o.).
-PRUEFE = ['Idle', 'Axt_Quer', 'Speer_Stoss', 'Klinge_Stich']
+# D429: `Axt_Quer` ist seit D429 selbst neu gebaut — die Gegenprobe läuft nur noch an Speer und Klinge.
+PRUEFE = ['Idle', 'Speer_Stoss', 'Klinge_Stich']
 GRENZE = 0.01   # Meter
 MESSPUNKTE = ['hand_r', 'hand_l', 'foot_l', 'foot_r', 'Head']
 
@@ -120,8 +125,21 @@ print(f'  VERSATZ am Idle: {tuple(round(x * 100, 1) for x in versatz)} cm')
 bpy.data.actions.remove(probe['Idle'])
 for tr in list(held.animation_data.nla_tracks):
     held.animation_data.nla_tracks.remove(tr)
+# D429: Fällaxt — die linke Hand sitzt je Schlüssel an der Stelle `griff` des Stiels (dazwischen linear), genau auf
+# der Stielachse; 'stand' ist der erste Schlüssel der Grundhaltung.
+def _stielgriff(n):
+    grund, _, schluessel = CLIPS[n]
+    aus = []
+    for bild, pose in schluessel:
+        if pose == 'stand':
+            pose = CLIPS[grund][2][0][1] if grund in CLIPS else {}
+        aus.append((bild, pose.get('griff', GRIFF['axt'])))
+    return aus
+
+
+STIEL = {n: _stielgriff(n) for n in NEU if n.startswith('Axt_')}
 gebaut = uebertrage(alt, held, {n: [(n, 1, None)] for n in NEU + PRUEFE}, ALT_KARTE, ('Body', 'pelvis'), griff,
-                    seiten=SEITEN, versatz=versatz)
+                    seiten=SEITEN, versatz=versatz, stiel=STIEL)
 
 # 4. Gegenprobe gegen die ausgelieferten Clips.
 schlecht = []
@@ -170,6 +188,10 @@ for n in NEU:
             # linke Hand (Handgelenk) zur Griffachse durch die rechte — wie `greife_links` misst
             g = _p('hand_r'); d = _p('hand_l') - g
             links = max(links, (d - klinge * d.dot(klinge)).length)
+            if pose.get('zwei') == 'axt':
+                # D429: wo die linke Hand am Stiel sitzt (Soll `griff`, negativ = zum Ende) — die Szene legt das Ende hinein
+                print(f'    GRIFF {n} Bild {bild}: links {d.dot(klinge):+.3f} m (Soll {pose.get("griff", GRIFF["axt"]):+.2f}), '
+                      f'{(d - klinge * d.dot(klinge)).length * 100:.1f} cm neben der Achse')
             if VORSCHLAG:
                 print(f'    FORM {n} Bild {bild}: linkes Handgelenk {(d - klinge * d.dot(klinge)).length * 100:.1f} cm neben der Griffachse')
     print(f'  FORM {n}: Klinge höchstens {schlimm[0]:.1f}° neben `richt` (Bild {schlimm[1]})' +

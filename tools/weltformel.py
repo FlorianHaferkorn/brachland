@@ -46,11 +46,19 @@ GRIFF_ZWEI = {}
 GREIF_FEHLER = []
 
 
-def greife_links(quelle, ziel, s):
+def greife_links(quelle, ziel, s, entlang=None):
+    """`entlang` (D429, Fällaxt): Lage der linken Hand am Stiel von der rechten aus, Meter der Quelle (negativ = zum
+    Stielende). Dann liegt das Ziel genau auf der Stielachse durch das rechte Handgelenk — die Achse ist die Klinge der
+    Quelle (−X von `Wrist.R`, wie `waffenclips.py` sie legt) —, statt wo die Quelle die linke Hand zwischen zwei
+    Schlüsseln gerade hinträgt (gemessen: bis 12 cm neben dem Stiel)."""
     bpy.context.view_layer.update()
     zw, qw = ziel.matrix_world, quelle.matrix_world
     zpb, qpb = ziel.pose.bones, quelle.pose.bones
-    soll = zw @ zpb['hand_r'].head + (qw @ qpb['Wrist.L'].head - qw @ qpb['Wrist.R'].head) * s
+    if entlang is None:
+        soll = zw @ zpb['hand_r'].head + (qw @ qpb['Wrist.L'].head - qw @ qpb['Wrist.R'].head) * s
+    else:
+        achse = -((qw.to_3x3().normalized() @ qpb['Wrist.R'].matrix.to_3x3()).col[0]).normalized()
+        soll = zw @ zpb['hand_r'].head + achse * (entlang * s)
     ua, la, ha = zpb['upperarm_l'], zpb['lowerarm_l'], zpb['hand_l']
     vorher = (zw @ ha.head - soll).length
     hand_rot = (zw @ ha.matrix).to_3x3().normalized()
@@ -97,11 +105,22 @@ def greife_links(quelle, ziel, s):
     GREIF_FEHLER.append((vorher, (p_ - u * p_.dot(u)).length if t0 > 1e-6 else (zw @ ha.head - soll).length))
 
 
-def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None, versatz=None):
+def _verlauf(punkte, bild):
+    """Linear zwischen Schlüsseln [(Bild, Wert)], ausserhalb der erste/letzte Wert."""
+    if bild <= punkte[0][0]:
+        return punkte[0][1]
+    for (b0, w0), (b1, w1) in zip(punkte, punkte[1:]):
+        if bild <= b1:
+            return w0 + (w1 - w0) * (bild - b0) / (b1 - b0)
+    return punkte[-1][1]
+
+
+def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None, versatz=None, stiel=None):
     """Weltformel wie in ual2uebertrag.py, allgemein: `clips` = {Name: [(Action, f0, f1)]},
     `karte` = [(Quellknochen, Zielknochen)] Eltern zuerst, `becken` = (Quelle, Ziel) für die
     Verschiebung. `griff` = {Fingerknochen: Quaternion} bleibt in jedem Bild stehen. `versatz` (Welt, Meter)
-    wird dem Becken zugeschlagen — `clipnachbau.py` gleicht damit die Höhe am ausgelieferten Idle an (D414)."""
+    wird dem Becken zugeschlagen — `clipnachbau.py` gleicht damit die Höhe am ausgelieferten Idle an (D414).
+    `stiel` = {Clip: [(Bild, Meter)]} (D429): wo die linke Hand am Stiel sitzt, je Schlüssel — dazwischen linear."""
     qad = quelle.animation_data
     zad = ziel.animation_data or ziel.animation_data_create()
     zpb, qpb = ziel.pose.bones, quelle.pose.bones
@@ -173,7 +192,7 @@ def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None, vers
                     for k, qq in GRIFF_ZWEI.items():
                         zpb[k].rotation_mode = 'QUATERNION'; zpb[k].rotation_quaternion = qq
                 if name.startswith(ZWEIHAND) and 'Wrist.L' in qpb:
-                    greife_links(quelle, ziel, s)
+                    greife_links(quelle, ziel, s, _verlauf(stiel[name], f) if stiel and name in stiel else None)
                 for kn in zpb:
                     if kn.rotation_mode != 'QUATERNION': kn.rotation_mode = 'QUATERNION'
                     qq = kn.rotation_quaternion.copy()

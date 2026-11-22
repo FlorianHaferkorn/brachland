@@ -83,6 +83,8 @@ export function pronomen(g: Geschlecht): { er: string; sein: string } {
 /** Knochen des neuen Skeletts für Sitzpose und Waffen (UE-Mannequin). */
 export const HELD_KNOCHEN = {
   hand: 'hand_r',
+  // D429: die linke Hand — an der Fällaxt hält sie das Stielende (`gleiteAmStiel`, `src/kampf/waffenhand.ts`).
+  handL: 'hand_l',
   ol: 'thigh_l', or: 'thigh_r', ul: 'calf_l', ur: 'calf_r', fl: 'foot_l', fr: 'foot_r',
   al: 'upperarm_l', ar: 'upperarm_r', el: 'lowerarm_l', er: 'lowerarm_r',
 } as const;

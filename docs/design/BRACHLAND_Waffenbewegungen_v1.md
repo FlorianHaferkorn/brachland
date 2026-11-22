@@ -6,6 +6,9 @@ shelf-life-days: 180
 
 # BRACHLAND — Waffenbewegungen aus freien Quellen v1 (D428)
 
+> **D429 (22.11.2026):** Die Axt ist jetzt eine Zweihand-Fällaxt nach *An Ax to Grind* — Widersprüche 2, 3 und 5 (Axt)
+> aus §5 sind behoben, Ausführung und Messwerte in §5.1.
+>
 > **Recherche und Probe, nichts verdrahtet.** Kein Clip in `public/figuren/held/held-clips.glb` geändert, keiner
 > Waffe zugewiesen, kein Kampfwert berührt (D423: Bestandsclips erst nach der Messung). Offene Fragen an Flo:
 > Ledger **A-43**. Prüfbilder unter `.cache/bilder/D428/` (Formprüfung in Blender Cycles, keine Look-Abnahme,
@@ -298,12 +301,12 @@ Trefferfenster sitzen auf den Schlüsselbildern.
    einhändig nach Lecküchner, Modell kürzer (Klinge um 70 cm, *Anker nicht belegt*), linke Hand frei — sie passt dann
    zum Wirken der Marke und zum Greifen (Reinigen, D417); oder (b) zweihändig lassen und als Kriegsmesser benennen,
    Vorlage dann die Leger des Langen Schwerts (§4.2). → **A-43 (1)**.
-2. **Axt: Hände vertauscht** (`zwei='axt'`: rechte Hand am Stielende, linke 0,22 m darüber; `Axt_*`) — Handwerk:
+2. ~~**Axt: Hände vertauscht**~~ — **behoben D429** (§5.1). (`zwei='axt'`: rechte Hand am Stielende, linke 0,22 m darüber; `Axt_*`) — Handwerk:
    linke Hand fest am Ende, rechte gleitet, Hieb über die **rechte** Schulter (§4.3). Mit der rechten Hand am Ende ist
    die natürliche Ausholseite die linke. Vorschlag: Waffe an die linke Hand (Ende) hängen, rechte Hand per IK am Stiel
    gleiten lassen (Ausholen ¾ oben, Treffen am Ende) — braucht eine Lage der Waffe an der linken Hand
    (`WAFFE_AN_HELD_HAND`, `src/kampf/waffenhand.ts`) und eine Gleit-IK in `weltformel.greife_links`. → A-43 (2).
-3. **`Axe_Overhead` einhändig, ohne Körper, Nacken voran** (erster leichter Axthieb, `content/waffen/axt.json`
+3. ~~**`Axe_Overhead` einhändig, ohne Körper, Nacken voran**~~ — **behoben D429** (§5.1, ersetzt durch `Axt_Hieb`). (erster leichter Axthieb, `content/waffen/axt.json`
    `leicht[0]`): linke Hand 34 cm (bis 72) vom Stiel, Schultern und Becken bewegen sich **gar nicht** (0°, 0 cm,
    Gewicht fest 0,60), die Schneide steht im Scheitel 119° zur Schlagrichtung. Widerspricht D419/D421 und dem
    Handwerk. Vorschlag: durch einen eigenen zweihändigen Vorhandhieb aus `waffenclips.py` ersetzen (Vorgabe §4.3),
@@ -311,7 +314,8 @@ Trefferfenster sitzen auf den Schlüsselbildern.
 4. **Schneide immer in Schlagrichtung** — richtig für Axt (15–30°) und für die langen Messerhiebe (18–36°); bei
    Lecküchners Wecker/Entrüsthau/Schielhau führt aber die **kurze** oder stumpfe Schneide. Vorschlag: Posenfeld
    `kurz=True` in `waffenclips.py` (Handgelenk um 180° um die Klingenachse), erst wenn ein solcher Hieb gebaut wird.
-5. **Kein Nachschwung bei `Axt_Schwer`, `Axt_Lauf`, `Klinge_U_A`, `Klinge_U_Lauf`** (Spitze steht unmittelbar nach
+5. **Kein Nachschwung bei `Axt_Schwer`, `Axt_Lauf`, `Klinge_U_A`, `Klinge_U_Lauf`** — für die Axt **behoben D429** (§5.1),
+   die Klinge bleibt offen. (Spitze steht unmittelbar nach
    dem Durchzug) — bekannt aus D420/D423 („Bestandsclips nach der Messung“). Handwerk: Kopf folgt bis ins Holz,
    beide Hände am Ende. Keine neue Erkenntnis, hier nur gemessen.
 6. **Standbein:** `Klinge_Stand` und `Speer_Stand` stehen mit dem **rechten** Fuss vor. Liechtenauer (Ochs, Pflug,
@@ -325,6 +329,51 @@ Trefferfenster sitzen auf den Schlüsselbildern.
 8. **Kommentar in `tools/heldbau.py`** (D188: Fingergriff links „aus TreeChopping_Loop (Axt mit beiden Händen)“) —
    der Clip ist einhändig (§3). Der Griff selbst taugt; nur die Begründung stimmt nicht. Bei der nächsten Arbeit an
    `heldbau.py` korrigieren (die Datei gehört nicht zu diesem Auftrag).
+
+### 5.1 D429: die Zweihand-Fällaxt — ausgeführt
+
+Flo 22.11.2026 (Ledger D429): vier Fehler an der Axt, alle bestätigt. Gebaut nach §4.3 (Forsthandbuch), geprüft an den
+ausgelieferten Dateien (`tests/axtgriff.test.ts`: three.js spielt `held-clips.glb` und `waffen.glb` ab wie das Spiel).
+
+**Wie die Hände halten.** Das Modell hängt weiter an `hand_r` (Spielhand). Sein Ursprung ist die **vordere** Griffstelle
+(¾ den Stiel hinauf, 65 cm vor dem Ende), das Stielende liegt als `griff_links` 0,62 m dahinter (3 cm vor dem Ende, der
+kleine Finger auf dem Knauf). Die Clips legen die linke Hand je Bild auf die Stielachse an die Stelle `griff`
+(`tools/waffenclips.py` Posenfeld, `tools/weltformel.py` `stiel`); die Szene schiebt das Modell nach jedem Mixer-Schritt
+entlang seiner Achse, bis das Stielende in der linken Hand liegt (`gleiteAmStiel`, `src/kampf/waffenhand.ts`; Spielerin und
+Axtmann). So **gleitet die rechte Hand**, wie das Handbuch es verlangt: in der Hut 40 cm vom Ende, beim Ausholen 63 cm (zum
+Kopf), im Treffen 14 cm (beide Hände am Ende); die linke verlässt das Ende nie. Liegt die linke Hand nicht am Stiel (Rolle,
+Gang, Treffer), hält die rechte die Axt allein an der vorderen Griffstelle.
+
+**Clips** (alle aus Schlüsselbildern, Hüfte führt, Gewicht nach vorn, Füsse stehen vom Scheitel bis zum Durchzug,
+Nachschwung nach D420 — Soll Axt seit D429 44° / 67 %):
+
+| Clip | Dauer | Scheitel / Durchzug | Schneide ↔ Bahn im Scheitel / Durchzug (vorher) | rechte Hand vom Stielende Scheitel → Durchzug | Nachschwung / Halt |
+|---|---|---|---|---|---|
+| `Axt_Hieb` (statt `Axe_Overhead`) | 1,417 s | 12 / 16 | **19° / 6°** (160° / 60°) | 63 → 14 cm | 49° / 72 % |
+| `Axt_Quer` | 1,250 s | 10 / 15 | **4° / 2°** (8° / 16°) | 63 → 14 cm | 86° / 73 % |
+| `Axt_Schwer` | 1,667 s | 20 / 25 | **1° / 4°** (108° / 5°) | 44 → 14 cm | endet am Boden, Becken −5 cm / 73 % |
+| `Axt_Lauf` | 1,083 s | 7 / 11 | **10° / 5°** (43° / 26°) | 63 → 14 cm | 53° / 73 % |
+| `Axt_Stand`, `Axt_Block` | 2,042 / 0,333 s | — | — | Hut 40 cm, Block 60 cm | — |
+
+Dauer, Scheitel und Durchzug **wie vor D429** (Test). Schneide gemessen als Winkel zwischen Schneide und Bahn der Kopfmitte
+quer zum Stiel, im Scheitel die Richtung des beginnenden Schlags, im Durchzug die, aus der er kommt; dazwischen bis 4° (Lauf
+19°). Vorher = dieselbe Messung an der Fassung aus git (Axt starr an der rechten Hand). Die Schneide führt, weil das
+Handgelenk jetzt nach der Bahn des **Kopfs** gedreht wird (vorher nach der der Hand) und schon beim Ausholen in die künftige
+Schlagrichtung steht. Das Modell legt die Schneide nach −X — wie `waffenclips.py` annimmt (Test `waffenmodelle.test.ts`).
+
+**Abweichungen, benannt:** (1) Im Spalthieb reicht die rechte Hand im Scheitel nur 44 cm vom Ende hinauf (nicht ¾): Hängt
+der Kopf tiefer hinter dem Rücken, reicht der linke Arm nicht mehr ans Stielende (geprüft: die Hand verliesse den Stiel um
+13 cm) — der Scheitel liegt deshalb mit waagrechtem Stiel über dem Kopf. (2) Auch in der Hut rückt die linke Hand 5 cm zur
+rechten (Arm zu kurz für 0,42 m). (3) Der Querhieb und der Laufhieb sind Kampfhiebe; das Forsthandbuch kennt nur den Hieb über
+die rechte Schulter (Vor- und Rückhand) — die Griffregel gilt für alle, die Bahn nicht.
+
+**Timing — Vorschlag, nicht angewendet** (Kampfwerte, Messbedarf Kampfbot D407 mit Siegquoten gegen Menschen): Der Kopf
+schwingt im Aktivfenster 165° (Hieb), 170° (Quer), 137° (Spalthieb), 172° (Lauf). Aus voller Leistung (zwei Hände,
+`content/gewicht.json`: 840 W, Trägheit 0,68 kg·m² + Arm 0,5) braucht 120° 0,19 s, also t = 0,19 s · (θ/120°)^⅔: Axthieb
+**0,23 s** (Regel 0,16), Querhieb **0,24 s** (0,20), Spalthieb **0,21 s** (0,18), Laufhieb **0,24 s** (0,16). Die Regel
+ist 15–50 % schneller als die Physik (Überschlag — Leistung und Zweihandfaktor sind nicht belegt). Ein längeres Aktivfenster
+heisst aber auch länger treffen; die Physik verlangt eigentlich den **Schwung**, nicht das Fenster. Vorschlag: Aktiv wie oben,
+dafür Vorlauf um dieselbe Zeit kürzen (Axthieb 0,37 → 0,30 s), damit die Schlagzeit gleich bleibt — erst messen.
 
 ## 6. Unklar
 

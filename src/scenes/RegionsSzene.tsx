@@ -92,7 +92,7 @@ import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import type { Kampfbericht } from '../kampf/kampfende.js';
-import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
+import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer, gleiteAmStiel, AXT_URSPRUNG_VOR_D429 } from '../kampf/waffenhand.js';
 import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
 /** `?fuesse=0` schaltet die Fussanpassung ab (D214). */
@@ -3888,15 +3888,39 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
           });
           gruppe.add(teil);
         }
+        // D429: Zweihand-Fällaxt — der Ursprung liegt an der vorderen Griffstelle, die linke Hand hält das Stielende
+        // (`griff_links` aus `tools/waffenmodelle.py`); die Szene lässt den Stiel je Bild durch die rechte Hand gleiten.
+        // Die alte Wanderin spielt noch die alten Clips (rechte Hand am Ende): ihr Modell sitzt wie vor D429.
+        const griffLinks = (m.userData as { griff_links?: number }).griff_links;
+        if (name === 'Axt' && typeof griffLinks === 'number') {
+          if (held) gruppe.userData.griffLinks = griffLinks;
+          else for (const c of gruppe.children) c.position.y += AXT_URSPRUNG_VOR_D429;
+        }
         // D185: Die Kopie am Körper bekommt dasselbe Modell (Materialien geteilt — die Schmiedestufe
-        // färbt beide), statt der Kästen.
+        // färbt beide), statt der Kästen. D429: Die Axt am Rücken sitzt wie vor D429 (Versatz des Ursprungs).
         const koerper = waffen.ruecken[name === 'Klinge' ? 'klinge' : name === 'Axt' ? 'axt' : 'speer'];
-        if (koerper) { koerper.clear(); for (const c of gruppe.children) koerper.add(c.clone()); }
+        if (koerper) {
+          koerper.clear();
+          for (const c of gruppe.children) {
+            const k = c.clone();
+            if (name === 'Axt' && held && typeof griffLinks === 'number') k.position.y += AXT_URSPRUNG_VOR_D429;
+            koerper.add(k);
+          }
+        }
       }
       setWaffenGeladen(true);
     }).catch(() => { /* Rückfall: Kästen */ });
     return () => { lebt = false; };
-  }, [waffen]);
+  }, [waffen, held]);
+  /** D429: Die Fällaxt gleitet durch die rechte Hand, die linke hält das Stielende — nach jedem Mixer-Schritt. */
+  const stielHaende = useMemo(() => {
+    const r = scene.getObjectByName(HELD_KNOCHEN.hand), l = scene.getObjectByName(HELD_KNOCHEN.handL);
+    return r && l ? { r, l } : null;
+  }, [scene]);
+  const gleiteAxt = () => {
+    const links = waffen.axt.userData.griffLinks as number | undefined;
+    if (held && stielHaende && waffen.axt.visible && typeof links === 'number') gleiteAmStiel(waffen.axt, stielHaende.r, stielHaende.l, links);
+  };
   // D178: Aussehen nach Schmiedestufe. Stufe 1/2: Stahl heller und glänzender (geschliffen, gehärtet),
   // Stufe 3: das meisterliche Modell statt des einfachen.
   const [waffenGeladen, setWaffenGeladen] = useState(false);
@@ -3984,6 +4008,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
         if (!a.isRunning()) { mixer.stopAllAction(); a.play(); }
         a.paused = false; a.time = a.getClip().duration * anteil; a.timeScale = 0; a.weight = 1;
         mixer.update(0);
+        gleiteAxt();
       }
       if (gruppe.current) gruppe.current.rotation.y = gier.current;
       return;
@@ -4119,6 +4144,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     }
     // D214: Füsse auf den Boden, nach Clip und Sitzpose. `?fuesse=0` zum Vergleich.
     if (hoeheAn && FUESSE_AN) setzeFuesse(beine, scene, hoeheAn, fuss.current, dt, held && sitz.current < 0.01);
+    gleiteAxt();
 
     if (reittier) {
       const hoehe = (mitModell ? sitzHoehe.current?.hoehe : null) ?? reittier.hoehe;

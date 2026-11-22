@@ -50,7 +50,7 @@ import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { kreaturGeometrie, baueAnbau, saatAusId } from '../world/kreaturgestalt.js';
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
-import { haengeAnHand, baueSpeer } from './waffenhand.js';
+import { haengeAnHand, baueSpeer, gleiteAmStiel } from './waffenhand.js';
 import { kameraZustand, kampfUhr, ZEITLUPE } from './kamerazustand.js';
 import { baueSpritzer, SPRITZER_FARBE } from './spritzer.js';
 import { schadenFaktor } from '../spiel/schmiede.js';
@@ -147,6 +147,8 @@ interface Rig {
   /** Zuletzt gesehener Schwung — ein neuer startet den Angriff von vorn. */
   schwung: number;
   treffer: number;
+  /** D429: Die Fällaxt gleitet durch die rechte Hand, die linke hält das Stielende — nach jedem Mixer-Schritt. */
+  gleite?: () => void;
 }
 
 /** Ein Körper aus der Welt: Geometrie plus ein Material je Tier (der Gang ist ein Uniform). */
@@ -440,13 +442,25 @@ function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeome
       const n = m.geometry.attributes.position.count;
       if (n > groesse) { groesse = n; koerper = m; if (v.wahl) material = (Array.isArray(m.material) ? m.material[0] : m.material) as THREE.MeshStandardMaterial; }
     });
-    haengeAnHand(obj, v.waffe.clone());
+    // D429: in eine eigene Gruppe — der Knoten aus `waffen.glb` trägt die Lage der Quantisierung (Verschiebung und
+    // Massstab, z. B. Axt ×0,50); `haengeAnHand` überschrieb sie seit D421 mit der Lage an der Hand (Waffe in falscher
+    // Grösse und versetzt). Die Gruppe nimmt die Lage an der Hand, das Modell behält seine.
+    const waffe = new THREE.Group();
+    waffe.add(v.waffe.clone());
+    waffe.userData.griff_links = (v.waffe.userData as { griff_links?: number }).griff_links;
+    haengeAnHand(obj, waffe);
     const mixer = new THREE.AnimationMixer(obj);
     const cache = new Map<string, THREE.AnimationAction | null>();
     const rig: Rig = { mixer, aktiv: null, schwung: -1, treffer: -1, aktion(name) {
       if (!cache.has(name)) { const c = v.clips.find(x => x.name === name); cache.set(name, c ? mixer.clipAction(c) : null); }
       return cache.get(name)!;
     } };
+    // D429: Der Axtmann führt die Fällaxt wie die Spielerin — linke Hand am Stielende (`griff_links` aus dem Modell).
+    const griffLinks = (waffe.userData as { griff_links?: number }).griff_links;
+    const handR = obj.getObjectByName('hand_r'), handL = obj.getObjectByName('hand_l');
+    if (typeof griffLinks === 'number' && handR && handL && waffe.parent === handR) {
+      rig.gleite = () => { gleiteAmStiel(waffe, handR, handL, griffLinks); };
+    }
     return { obj, koerper: koerper as THREE.SkinnedMesh | null, material: material!, rig, setzeZeit: (_t: number) => {} };
   }
   const w = baueWindMaterial({ amplitude: 0, randFarbe: new THREE.Color('#8a9a9c'), randStaerke: 0.2, randSchaerfe: 1.6 });
@@ -1229,4 +1243,5 @@ function spieleRig(pu: Puppe, g: Kaempfer, v: number, jetzt: number, dt: number)
   }
   if (zeit !== null) { ziel.timeScale = 0; ziel.time = zeit; }
   r.mixer.update(Math.min(dt, 0.1));
+  r.gleite?.();
 }
