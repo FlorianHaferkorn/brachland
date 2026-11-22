@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -84,7 +84,9 @@ const waffen = pruefe<any>('content/waffen', WaffenDaten);
   else console.log(`  ✓ ${namen.length} Schlagnamen eindeutig`);
 }
 console.log('\nGegner:');
-pruefe<any>('content/gegner', GegnerDaten);
+const gegnerDaten = pruefe<any>('content/gegner', GegnerDaten);
+console.log('\nStrecken:');
+const strecken = pruefe<any>('content/strecken', Strecke);
 // Wie bei den Waffen: Dateiname = id, `echtzeit.ts` importiert über den Namen.
 for (const f of readdirSync('content/gegner').filter(f => f.endsWith('.json'))) {
   const id = JSON.parse(readFileSync(join('content/gegner', f), 'utf8')).id;
@@ -462,8 +464,65 @@ if (orte.length && existsSync(`public/world/${region.id}.json`)) {
     if (enklave) for (const fr of ['enklave', 'moenche', 'erbe'])
       if (hiesigeFiguren.filter((f: any) => f.fraktion === fr).length !== 1) meldeL(`${region.id}: genau eine Wanderfigur der Fraktion '${fr}' erwartet (Story-Bibel v2 §5)`);
     if (hiesigeFiguren.length) console.log(`  ✓ ${region.id}: ${hiesigeFiguren.length} Wanderfiguren mit ${hiesigeFiguren.reduce((a: number, f: any) => a + f.stationen.length, 0)} Stationen`);
+
+    // Lehrstrecken (D381, D390): Lage, Verweise, Lektionen. Schwellen sind Entwurfsregeln wie oben, keine Spielwerte.
+    /** So nah an der Station liegen ihr Fundstück und ihre Zuflucht (Fundradius 9 m, Ortsradius 7 m, dazu Spielraum). */
+    const STATION_NAH = 40;
+    for (const s of strecken.filter((x: any) => x.region === region.id)) {
+      const meldeS = (was: string) => meldeL(`Strecke '${s.id}': ${was}`);
+      const imGrundriss = ([lat, lon]: number[]) => welt.gebaeude.some((g: any) => { const q: number[][] = g.punkte; let c = false;
+        for (let i = 0; i < q.length - 1; i++) { const [y1, x1] = q[i], [y2, x2] = q[i + 1];
+          if ((y1 > lat) !== (y2 > lat) && lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1) c = !c; }
+        return c; });
+      const ziel = hiesige.find((o: any) => o.id === s.ankunft.bewohner);
+      if (!ziel || ziel.art !== 'bewohner') meldeS(`Ankunft '${s.ankunft.bewohner}' ist kein Bewohner in ${region.id}`);
+      else if (enklave && weite(ziel.ort, enklave.ort) > 600) meldeS(`Ankunft '${ziel.id}' liegt ${weite(ziel.ort, enklave.ort).toFixed(0)} m von der Enklave — das ist nicht die Enklave`);
+      if (!hiesige.some((o: any) => o.id === s.ankunft.zuflucht && o.art === 'zuflucht')) meldeS(`Ankunfts-Zuflucht '${s.ankunft.zuflucht}' gibt es in ${region.id} nicht`);
+      if (weite(s.start.ort, s.stationen[0].ort) > STATION_NAH) meldeS(`die erste Station liegt ${weite(s.start.ort, s.stationen[0].ort).toFixed(0)} m vom Start`);
+      const gelehrt = new Set<string>();
+      let davor = Infinity, luftlinie = 0;
+      s.stationen.forEach((st: any, i: number) => {
+        const wo = `Station „${st.name}“`;
+        const [lat, lon] = st.ort;
+        if (lat < sued || lat > nord || lon < west || lon > ost) meldeS(`${wo} liegt ausserhalb der Bbox`);
+        if (flut !== undefined && hoehe(st.ort) <= flut) meldeS(`${wo} liegt auf ${hoehe(st.ort)} m unter der Flutlinie`);
+        if (imGrundriss(st.ort)) meldeS(`${wo} steht im Grundriss`);
+        // Jede Station führt näher ans Ziel — sonst ist es keine Strecke, sondern eine Liste von Orten.
+        if (ziel) { const d = weite(st.ort, ziel.ort); if (d >= davor) meldeS(`${wo} liegt nicht näher an der Ankunft als die Station davor`); davor = d; }
+        if (i > 0) luftlinie += weite(s.stationen[i - 1].ort, st.ort);
+        st.lehrt.forEach((l: string) => gelehrt.add(l));
+        const arten = st.gegner.map((g: any) => gegnerDaten.find((x: any) => x.id === g.art));
+        st.gegner.forEach((g: any, k: number) => {
+          if (!arten[k]) meldeS(`${wo}: Gegner '${g.art}' gibt es nicht in content/gegner`);
+          else if (!arten[k].linien && !arten[k].mensch) meldeS(`${wo}: '${g.art}' ist der Platzhalter ohne Körperbau, kein Gegner für die Welt`);
+        });
+        // Die Marke greift nur bei Befallenen (D385): Reinigen lernt man an einem Tier.
+        if (st.lehrt.includes('reinigen') && !arten.some((a: any) => a && !a.mensch)) meldeS(`${wo} lehrt Reinigen, hat aber kein Tier`);
+        const kampf = ['leichter-angriff', 'ausdauer', 'rolle', 'block', 'parade', 'lock-on', 'haltung', 'reinigen'];
+        if (st.lehrt.some((l: string) => kampf.includes(l)) && !st.gegner.length) meldeS(`${wo} lehrt eine Kampfhandlung ohne Gegner`);
+        if (st.lehrt.includes('lock-on') && st.gegner.reduce((a: number, g: any) => a + g.anzahl, 0) < 2) meldeS(`${wo} lehrt den Zielwechsel an weniger als zwei Gegnern`);
+        if (st.lehrt.includes('rast') && !st.zuflucht) meldeS(`${wo} lehrt die Rast ohne Zuflucht`);
+        if (st.fragment) {
+          const f = fragmente.find((x: any) => x.id === st.fragment && x.region === region.id);
+          if (!f) meldeS(`${wo}: Fundstück '${st.fragment}' gibt es in ${region.id} nicht`);
+          else if (weite(f.ort, st.ort) > STATION_NAH) meldeS(`${wo}: Fundstück '${f.id}' liegt ${weite(f.ort, st.ort).toFixed(0)} m entfernt`);
+          if ((region.verborgeneOrte ?? []).some((v: any) => v.fragment === st.fragment)) meldeS(`${wo} zeigt auf das Fundstück eines verborgenen Orts`);
+        }
+        if (st.zuflucht) {
+          const z = hiesige.find((o: any) => o.id === st.zuflucht && o.art === 'zuflucht');
+          if (!z) meldeS(`${wo}: Zuflucht '${st.zuflucht}' gibt es in ${region.id} nicht`);
+          else if (weite(z.ort, st.ort) > STATION_NAH) meldeS(`${wo}: Zuflucht '${z.id}' liegt ${weite(z.ort, st.ort).toFixed(0)} m entfernt`);
+        }
+      });
+      const fehlt = LEKTIONEN.filter(l => !gelehrt.has(l));
+      if (fehlt.length) meldeS(`lehrt nicht: ${fehlt.join(', ')}`);
+      if (ziel) luftlinie += weite(s.stationen[s.stationen.length - 1].ort, ziel.ort);
+      console.log(`  ✓ ${region.id}: Strecke „${s.name}“ — ${s.stationen.length} Stationen, ${luftlinie.toFixed(0)} m von Station zu Station bis zur Ankunft, `
+        + `${s.stationen.reduce((a: number, st: any) => a + st.gegner.reduce((b: number, g: any) => b + g.anzahl, 0), 0)} Gegner, ${gelehrt.size} von ${LEKTIONEN.length} Lektionen`);
+    }
   }
   for (const f of wanderfiguren) if (!regionen.some((r: any) => r.id === f.region)) meldeL(`Wanderfigur '${f.id}' nennt eine Region, die es nicht gibt`);
+  for (const s of strecken) if (!regionen.some((r: any) => r.id === s.region)) meldeL(`Strecke '${s.id}' nennt eine Region, die es nicht gibt`);
 }
 
 const zufluchten = orte.filter((o: any) => o.art === 'zuflucht').length;

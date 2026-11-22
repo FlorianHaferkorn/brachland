@@ -42,10 +42,11 @@ und „nicht im Grundriss“ steht in `tools/validate.ts`.
 
 | Ring | Zuflucht | x | z | Höhe | zur Enklave | neu |
 |---|---|---|---|---|---|---|
-| ≤ 800 m (4) | Saal auf der Terrasse (`terrasse-saal`) | 657 | −694 | 514 | 54 | ja |
+| ≤ 800 m (5) | Saal auf der Terrasse (`terrasse-saal`) | 657 | −694 | 514 | 54 | ja |
 | | Feldscheune am Waldrand (`feldscheune-waldrand`) | 146 | −946 | 600 | 622 | ja |
 | | Schuppen am Nordufer (`schuppen-nordufer`) | 438 | −1243 | 508 | 641 | ja |
 | | Stadel am Hangweg (`stadel-hangweg`) | 814 | 112 | 519 | 778 | ja |
+| | Remise am Steig (`remise-am-steig`) — Nachtrag D390, Lehrstrecke (`BRACHLAND_Weg-nach-Brannburg_v1.md`) | 344 | −160 | 559 | 609 | D390 |
 | 800–1.400 m (2) | Unterstand am Talweg | −7 | 87 | 639 | 1.023 | |
 | | Heustadel am Grabenweg | 107 | 461 | 631 | 1.263 | |
 | > 1.400 m (3) | Kirche am Nordhang (`kirche-nordhang`) | −284 | −1784 | 578 | 1.494 | ja |

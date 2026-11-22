@@ -26,6 +26,7 @@ owns: *.json
 | `terrasse-saal.json` | zuflucht | **Enklave** (D375): Saal auf der Hangterrasse, 54 m vom Wirt. Innerer Ring |
 | `feldscheune-waldrand.json` · `schuppen-nordufer.json` · `stadel-hangweg.json` | zuflucht | Innerer Ring um die Enklave (D375): West 622 m, Nord 641 m (Weg zum Absetzbecken), Süd 778 m (Uferweg zum Wehr) |
 | `kirche-nordhang.json` · `kapelle-kalkbruch.json` | zuflucht | Äusserer Ring (D375): Kirche im Norden (1.494 m, 578 m hoch) und Kapelle auf dem Kalkbruch-Rücken (1.724 m). **Die Kapelle steht auf einer Insel** — bei Flutlinie 499 m nur schwimmend erreichbar |
+| `remise-am-steig.json` | zuflucht | **Lehrstrecke** (D390): Remise am Fuß des Steigs, 560 Wegmeter vom Start und 594 m von der Enklave — die erste Rast auf dem Weg nach Brannburg, nach dem ersten Reinigen (`../strecken/weg-nach-brannburg.json`). Freistehend (kein Nachbar in 70 m), Aufwachpunkt 5 m vor der Ostwand am Weg. Fünfte Zuflucht im inneren Ring |
 | `unterstand-mitte.json` | zuflucht | Geräteschuppen 88 m von der Regionsmitte. Die erste Rast, die man findet, ohne sie zu suchen |
 | `heustadel-graben.json` | zuflucht | Heustadel zwischen Bruchweg (≈ 170 m) und Hofgraben (≈ 360 m), D183 — kurzer Rückweg nach einer Niederlage an den unteren Lagern |
 | `almhuette.json` | zuflucht | Hütte 2 km draußen auf 1000 m. Die Rast für den zweiten Teil der Region — der Weg dorthin ist ihr Preis |
