@@ -42,15 +42,8 @@
   "quelle": "dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Deer“: Idle, Walk, Gallop, Attack_Headbutt, HitReact links/rechts, Death)"
  },
  {
-  "datei": "kampf/waffen.glb",
-  "rolle": "Schwert und Axt der Wanderin (D173)",
-  "autor": "Quaternius",
-  "lizenz": "CC0",
-  "quelle": "Medieval Weapons Pack („Sword“, „Axe“, OBJ), gedreht, skaliert und im Griff zentriert mit tools/waffenbau.py"
- },
- {
-  "datei": "kampf/waffen.glb (Knoten Hirschfaenger, Messer, Raeucherkanne)",
-  "rolle": "Hirschfänger, Langes Messer, Räucherkanne (D414)",
+  "datei": "kampf/waffen.glb (alle Knoten: Klinge, Klinge3, Axt, Axt3, Speer, Speer3 seit D421; Hirschfaenger, Messer, Raeucherkanne seit D414)",
+  "rolle": "Waffenmodelle der Hauptfigur und der Gegner (D414, D421)",
   "autor": "eigene Arbeit (BRACHLAND)",
   "lizenz": "CC0",
   "quelle": "aus Grundformen gebaut mit tools/waffenmodelle.py, in die Datei gelegt mit tools/waffenmodelle_pack.mjs; keine fremde Vorlage, keine Textur"

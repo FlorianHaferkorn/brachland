@@ -67,8 +67,43 @@ def speer():
     return schaft
 
 
-waffen['Speer'] = speer()
-modell['Speer'] = Matrix.Identity(4)
+def speer3():
+    """Der meisterliche Speer aus `baueSpeer` (D186): dunkler Schaft 2,05 m, breites Blatt (Oktaeder 0,1 × 3,2),
+    Knebel, Schuh — nur für das Vorher-Bild, solange `waffen.glb` keinen `Speer3` trägt (vor D421)."""
+    holz = bpy.data.materials.new('Speer3Holz'); holz.use_nodes = True
+    holz.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.045, 0.025, 0.014, 1)
+    messing = bpy.data.materials.new('Speer3Messing'); messing.use_nodes = True
+    messing.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.43, 0.26, 0.05, 1)
+    stahl = bpy.data.materials.new('Speer3Stahl'); stahl.use_nodes = True
+    stahl.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.58, 0.6, 0.63, 1)
+    teile = []
+    bpy.ops.mesh.primitive_cone_add(vertices=10, radius1=0.023, radius2=0.019, depth=2.05, location=(0, 0, -0.57))
+    teile.append((bpy.context.object, holz))
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=0.1, location=(0, 0, -1.78))
+    o = bpy.context.object; o.scale = (0.75, 0.22, 3.2); teile.append((o, stahl))
+    bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, -1.5)); o = bpy.context.object; o.scale = (0.22, 0.03, 0.03)
+    teile.append((o, messing))
+    bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.026, radius2=0.0, depth=0.1, location=(0, 0, 0.5))
+    teile.append((bpy.context.object, messing))
+    for o, m in teile:
+        o.data.materials.append(m)
+    bpy.ops.object.select_all(action='DESELECT')
+    for o, _ in teile:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = teile[0][0]
+    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    bpy.ops.object.join()
+    s3 = bpy.context.object; s3.name = 'Speer3'; s3.hide_render = True
+    return s3
+
+
+# Vor D421 war der Speer Code; seit D421 steht die Saufeder in `waffen.glb` — dann gilt die Datei.
+if 'Speer' not in waffen:
+    waffen['Speer'] = speer()
+    modell['Speer'] = Matrix.Identity(4)
+if 'Speer3' not in waffen:
+    waffen['Speer3'] = speer3()
+    modell['Speer3'] = Matrix.Identity(4)
 
 s = bpy.context.scene
 s.render.engine = 'CYCLES'
@@ -196,12 +231,12 @@ for reihe in auftrag.get('reihen', []):
         dreh = Matrix.Rotation(math.pi, 4, 'X')        # Klinge (−Z) nach oben
         # Die Kamera schaut der Figur ins Gesicht: ihr rechts ist im Bild links — also von rechts nach links legen,
         # damit die Reihe im Bild von links nach rechts liest. Dann auf den Boden stellen (tiefster Punkt z = 0).
-        o.matrix_world = Matrix.Translation(mitte - rechts * (-1.4 + 0.4 * i)) @ dreh @ modell[name]
+        o.matrix_world = Matrix.Translation(mitte - rechts * (reihe.get("start", -1.4) + 0.4 * i)) @ dreh @ modell[name]
         bpy.context.view_layer.update()
         unten = min((o.matrix_world @ Vector(b)).z for b in o.bound_box)
         o.matrix_world = Matrix.Translation((0, 0, -unten)) @ o.matrix_world
         o.hide_render = False
-    kamera(0, 3.8, 1.12, 960, 600)
+    kamera(0, reihe.get('breite', 3.8), reihe.get('mitte', 1.12), 960, 600)
     s.render.filepath = os.path.join(AUSDIR, f"{reihe['name']}.png")
     bpy.ops.render.render(write_still=True)
     print('  BILD', s.render.filepath)

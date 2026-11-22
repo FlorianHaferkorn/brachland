@@ -3860,13 +3860,14 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     }
     return { ...w, ruecken: trageAmKoerper(scene, w) };
   }, [scene]);
-  // D173: die Modelle aus dem Medieval Weapons Pack (CC0, `tools/waffenbau.py`) ersetzen die Kästen,
-  // sobald die Datei geladen ist. Ohne Datei bleiben die Kästen.
+  // D173: die Modelle aus `waffen.glb` ersetzen die Kästen, sobald die Datei geladen ist. Ohne Datei bleiben die
+  // Kästen. D421: eigene, realistische Modelle (`tools/waffenmodelle.py`) statt des Medieval Weapons Pack, und der
+  // Speer kommt jetzt auch aus der Datei (Saufeder, `Speer`/`Speer3`) statt aus `baueSpeer` — Länge und Griff gleich.
   useEffect(() => {
     let lebt = true;
     new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(WAFFENMODELLE).then(g => {
       if (!lebt) return;
-      for (const [name, gruppe] of [['Klinge', waffen.klinge], ['Axt', waffen.axt]] as const) {
+      for (const [name, gruppe] of [['Klinge', waffen.klinge], ['Axt', waffen.axt], ['Speer', waffen.speer]] as const) {
         const m = g.scene.getObjectByName(name);
         if (!m) continue;
         gruppe.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
@@ -3886,7 +3887,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
         }
         // D185: Die Kopie am Körper bekommt dasselbe Modell (Materialien geteilt — die Schmiedestufe
         // färbt beide), statt der Kästen.
-        const koerper = waffen.ruecken[name === 'Klinge' ? 'klinge' : 'axt'];
+        const koerper = waffen.ruecken[name === 'Klinge' ? 'klinge' : name === 'Axt' ? 'axt' : 'speer'];
         if (koerper) { koerper.clear(); for (const c of gruppe.children) koerper.add(c.clone()); }
       }
       setWaffenGeladen(true);

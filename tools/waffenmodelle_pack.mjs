@@ -2,9 +2,9 @@
 //
 //   node tools/waffenmodelle_pack.mjs .cache/d414/waffen-neu.glb public/figuren/kampf/waffen.glb
 //
-// Die Paketwaffen (Klinge, Axt, Stufe 3; `tools/waffenbau.py`, Medieval Weapons Pack) bleiben unverändert drin —
-// ihre Quelle liegt nicht auf jeder Maschine. Gleichnamige Modelle werden ersetzt, Materialien gleichen Namens
-// zusammengelegt (die Szene tönt `Steel` nach Schmiedestufe). Gepackt wie bisher: Quantisierung, Meshopt.
+// Knoten, die die neue Datei nicht hat, bleiben unverändert drin; gleichnamige werden ersetzt (seit D421 ersetzt
+// `tools/waffenmodelle.py` alle — die Paketwaffen aus `tools/waffenbau.py` sind damit raus). Materialien gleichen
+// Namens werden zusammengelegt (die Szene tönt `Steel` nach Schmiedestufe). Gepackt wie bisher: Quantisierung, Meshopt.
 // Keine Texturen: Die Waffen tragen Materialfarben wie die Paketmodelle (kein WebP nötig).
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
@@ -24,6 +24,9 @@ const neu = await io.read(neuPfad);
 await ziel.transform(dequantize());
 const namen = new Set(neu.getRoot().listNodes().map(n => n.getName()));
 for (const n of ziel.getRoot().listNodes()) if (namen.has(n.getName())) { n.getMesh()?.dispose(); n.dispose(); }
+// D421: Erst aufräumen, was die ersetzten Knoten trugen — sonst gewönnen beim Zusammenlegen nach Namen die alten
+// Materialien (gleicher Name `Steel`, andere Farbe).
+await ziel.transform(prune());
 const szene = ziel.getRoot().getDefaultScene() ?? ziel.getRoot().listScenes()[0];
 const karte = mergeDocuments(ziel, neu);
 for (const s of neu.getRoot().listScenes()) {
