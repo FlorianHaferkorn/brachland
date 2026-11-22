@@ -6,7 +6,7 @@ shelf-life-days: 180
 
 > Entwurf mit Regelkern zu Story-Bibel v2 §2 (D374): Die Marke heilt statt zu töten. Der Regelkern liegt in
 > `src/kampf/echtzeit.ts` hinter dem Schalter `Kampfwelt.marke`, die Werte in `content/reinigen.json`, die Dauer je Tier
-> seit D389 in `content/gegner/` (§6 — die Dauern in §2 und die Tabelle in §3 sind der Stand davor). **Seit D417 im Spiel:**
+> seit D389 in `content/gegner/` (§6 — die Dauern in §2 und die Tabelle in §3 sind der Stand davor; §6 „Nachmessung D407“ misst mit dem korrigierten Bot nach). **Seit D417 im Spiel:**
 > Eingabe (F / Gamepad X), Anzeige, Kampfende getötet/gereinigt, Marke im Spielstand, Folgen (§7). **Nicht gebaut:** eigene
 > Griff-Animation, Touch-Knopf. Offen/erledigt steht im Ledger (`docs/_INDEX.md` A-24.2, A-39), nicht hier.
 
@@ -379,13 +379,226 @@ unter null. Kein Rudel wird aussichtslos (Siege „immer“ 91–100 % zu zweit,
 Die Tabelle in §3 und die Belohnungsrechnung in §4 (Annahme A2) stehen auf dem Stand D376 (Grössenformel) und sind
 nicht neu gerechnet.
 
+### Nachmessung D407: Gams, Wolf, Haltungsbruch
+
+Auftrag aus D395 („Gams und Bot nachmessen“, „Wolf für Müde: Schwelle oder Bot prüfen“) und D404 („Haltungsbruch mit
+Reinigen nachmessen“). Werkzeug: `tools/kampfprotokoll.ts` — druckt einen Kampf Ereignis für Ereignis (`kampf`) und zählt
+über viele Kämpfe aus, woran Fenster scheitern (`fenster`), woran „immer reinigen“ scheitert (`wolf`), woher jeder Griff
+sein Fenster hatte (`griffe`) und was Menschen tun (`menschen`). Alle Zahlen: **1.000 Kämpfe je Zelle, Klinge, Saat
+5000 + Kampfnummer**, 22.11.2026, wenn nicht anders angegeben. **Kein Spielwert ist geändert** — weder Gegner noch
+Waffen noch `content/reinigen.json`; was unten als „Probe“ steht, gilt nur in der Messung.
+
+#### 1. Gams: der Bot, nicht die Gams — zur Hälfte
+
+**Protokoll** (`npx tsx tools/kampfprotokoll.ts kampf gams klinge aufmerksam 5000`, gekürzt):
+
+```
+  1,67 s  g0 holt aus (Kopfstoss) → Bot rollt bei 1,90 s
+  1,91 s  Bot rollt seitwärts (Abstand 2,20 m)
+  2,93 s  Fenster g0 zu (erholung, 0,70 s): 0 Hieb(e) — 0,05 s zu spät gewesen
+  …       (18-mal hintereinander dasselbe: rollen, 0,02–0,19 s zu spät, kein Hieb)
+```
+
+Der Bot rollt 3,8 m quer aus 2,2 m Abstand und steht danach 4,4 m weg. Bis er die Klinge (2,4 m, er rechnet mit 90 %)
+angesetzt hat, sind 0,47 s Erholung um — er kommt um ein, zwei Zehntel zu spät und wartet aufs nächste Telegraf. Die
+D171-Fassung zählt den **Vorschritt** des eigenen Hiebs (Klinge 0,3–0,6 m, `schritt` in `content/waffen/klinge.json`)
+nicht mit; ein Mensch weiss nach zehn Minuten, wie weit sein Hieb trägt. Bei keinem anderen Tier fällt das ins
+Gewicht: Ihre Erholung ist 0,8–1,0 s lang (Wolf: Kette, der Bot rollt gerade zurück).
+
+**Auszählung** (`… fenster gams klinge 1000 [Schalter]`; „Fenster“ = eine Erholung der Gams):
+
+| Bot | Profil | Siege | Zeit | Fenster/Kampf | genutzt | Ausdauer fehlt | zu spät | davon < 0,15 s | Einschläge/Kampf |
+|---|---|---|---|---|---|---|---|---|---|
+| D171 | aufmerksam | 100 % | 40,7 s | 20,6 | 12 % | 20 % | 67 % | 62 % | 2,1 |
+| D171 | müde | 77 % | 11,4 s | 4,7 | 34 % | 30 % | 19 % | 8 % | 3,9 |
+| D171 | parierend | 100 % | 9,1 s | 1,4 | 99 % | 1 % | 0 % | 0 % | 1,4 |
+| D171 + `abbruch` | aufmerksam | 100 % | 40,6 s | 20,5 | 12 % | 20 % | 67 % | 62 % | 2,1 |
+| D171 + `lauf` (Laufangriff, 11 m/s) | aufmerksam | 100 % | 32,1 s | 16,7 | 19 % | 61 % | 19 % | 19 % | 1,8 |
+| **D407** (`reichweite: 'schritt'`) | aufmerksam | 100 % | **27,3 s** | 13,5 | 22 % | **52 %** | 26 % | 23 % | 1,4 |
+| **D407** | müde | **98 %** | 8,6 s | 2,6 | 52 % | 23 % | 25 % | 9 % | 2,4 |
+| **D407** | parierend | 100 % | 9,1 s | 1,4 | 99 % | 1 % | 0 % | 0 % | 1,4 |
+| D407 + `lauf` | aufmerksam | 100 % | 28,4 s | 14,5 | 22 % | 64 % | 14 % | 14 % | 1,5 |
+
+**Warum der Müde schneller tötet:** Er rollt zu spät oder gar nicht, wird getroffen (3,9 Einschläge, 67 Schaden) und
+steht danach **vor** der Gams — in Schlagweite ihrer Erholung. Der Parierende pariert, die Gams steht 0,45 s betäubt
+vor ihm (99 % der Fenster genutzt). Der Aufmerksame rollt sauber weg und kommt nicht mehr heran.
+
+**Zwei Ursachen, getrennt:**
+1. **Bot-Fehler (Reichweite ohne Vorschritt): 62 % aller Fenster scheiterten um weniger als 0,15 s.** Korrigiert als
+   `BotOptionen.reichweite = 'schritt'` (im Bot `BOT_D407`): Der Vorschritt zählt mit, ausser gegen ein lauerndes Tier
+   in der Atempause — dort trug er den Bot in den Ring der Meute (Probe ohne diese Ausnahme: drei Wölfe mit Klinge
+   92 → 12 % Siege, zwei Wölfe 99 → 70 %). Gams aufmerksam **40,7 → 27,3 s**, müde **77 → 98 % Siege**.
+2. **Eigenschaft der Gams und der Ausdauer: Nach der Korrektur scheitert die Hälfte der Fenster an der Ausdauer.** Die
+   Gams greift alle ~1,8 s an; Rolle (24) und Hieb (18) kosten 42, die Ausdauer kommt erst 0,7 s nach dem letzten
+   Verbrauch mit 26/s zurück (`src/spieler/ausdauer.ts`). Wer jeden Angriff rollt, kann nicht jede Erholung schlagen.
+   Das ist Physik des Spiels, kein Bot-Fehler; der Parierende (Parade kostet nichts) umgeht es.
+
+Verworfen (Bot): `abbruch` (Rolle fallen lassen, wenn der Angriff geplatzt ist) ändert nichts; `lauf` (rennen und
+Laufangriff) hilft, aber mit 11 m/s, die D408 als Faktor 7,9 über real ausweist, und kostet Ausdauer; „schräg vorbei
+rollen“ (Rolle endet im alten Abstand, 300 Kämpfe) machte es schlimmer: Gams 46 s, Grathorn aufmerksam 9 % Siege.
+Der Code dafür ist wieder entfernt.
+
+**Belegt, dass sonst nichts kippt** (`npx tsx tools/kampfbot.ts 1000 alt` gegen `… 1000 schritt`, alle 117 Zeilen:
+13 Aufstellungen × 3 Waffen × 3 Profile, Saat 1000…): 20 Zeilen verschieben sich um ≥ 3 Punkte Siege oder ≥ 5 % Zeit,
+**alle in Richtung schneller oder mehr Siege**, keine schlechter. Die grössten: Gams/Klinge aufmerksam −31 %, müde
+77 → 98 %; Gams/Speer aufmerksam −13 %; Kapsel/Klinge −13 %; Fuchs/Axt −13 %; zwei Gämsen/Klinge müde 35 → 61 %;
+Keiler/Speer −7 %; Wolf/Klinge aufmerksam −6 %; im Rudel Keiler + Grathorn −5 %. Menschen und Axt fast unverändert
+(±2 %). Das Kampftor
+(`tests/kampfbot.test.ts`) prüft sein Band seit D407 mit beiden Bots; beide bestehen. `kampf()` ohne Optionen ist weiter
+der Bot von D171, Kampf für Kampf (Fingerabdruck in `tests/kampfprotokoll.test.ts`, 4.212 Kämpfe gegen die Fassung
+`fce9a34` verglichen: 0 abweichend) — die Tabellen bis D406 bleiben nachrechenbar.
+
+**Reinigungsdauer mit dem korrigierten Bot** (`npx tsx tools/reinigensim.ts 1000 gegner bot=d407`; „Heiler“ =
+`bot=heiler`, siehe 2.):
+
+| Tier | Profil | D389 (Bot D171): Zeit töten → reinigen, Siege | D407-Bot | Heiler | Befund D407 |
+|---|---|---|---|---|---|
+| Keiler | aufmerksam | 17,9 → 24,0 s (+34 %), 100 → 100 % | 17,7 → 23,8 s (+34 %) | gleich | im Korridor |
+| Keiler | müde | +46 %, 100 → 99 % | +50 % | gleich | an der Grenze 1,5× |
+| Grathorn | aufmerksam | +21 % | 24,3 → 30,9 s (+27 %) | gleich | im Korridor |
+| Wolf | aufmerksam | +22 %, 88 % gereinigt | 14,8 → 19,8 s (+34 %), 94 % | +38 %, 100 % | im Korridor |
+| Wolf | müde | +26 %, 97 → 78 %, 34 % gereinigt | +48 %, 98 → 78 %, 48 % | +89 %, 98 → 75 %, 75 % | zu hart (siehe 2.) |
+| Wolf | parierend | ±0 %, 0 % gereinigt | ±0 %, 0 % | +122 %, 97 % | Heiler reinigt, braucht doppelt so lang |
+| Fuchs | aufmerksam | +37 % | 10,9 → 13,5 s (+24 %) | gleich | im Korridor |
+| Gams | aufmerksam | 40,7 → 34,6 s (**−15 %**) | 27,3 → 25,3 s (**−7 %**) | gleich | zu leicht |
+| Gams | müde | +32 %, 77 → 58 % | +65 %, **98 → 85 %** | gleich | Siegquote im Korridor (−13), Zeit über 1,5× |
+| Gams | parierend | +26 % | +26 % | gleich | im Korridor |
+
+Mittel der fünf Tiere, aufmerksam: **+22 %** (D389: +20 %). Keiler, Grathorn, Fuchs liegen fast wie in D389; der
+Fuchs fällt von +37 auf +24 %, weil der Bot ihn jetzt schneller tötet.
+
+**Gams bleibt zu leicht — und keine geprüfte Stellschraube holt sie in den Korridor** (Proben, Heiler, gegen den
+D407-Bot beim Töten mit derselben Probe):
+
+| Probe (nur Messung) | Töten aufm. / müde | Reinigen aufm. / müde | gegen Töten aufm. / müde | Siege müde töten → reinigen |
+|---|---|---|---|---|
+| heute (Erholung 0,7 s, 4,0 s / 3 Griffe) | 27,3 / 8,6 s | 25,3 / 14,1 s | −7 % / +64 % | 98 → 85 % |
+| Gams-Erholung 0,85 s | 22,1 / 8,2 s | 22,2 / 13,3 s | ±0 % / +62 % | 99 → 95 % |
+| Gams-Erholung 1,0 s | 17,0 / 8,0 s | 16,1 / 13,1 s | −5 % / +64 % | 100 → 97 % |
+| `reinigen.dauer` 4,8 s (3 Griffe) | 27,3 / 8,6 s | 27,3 / 14,6 s | ±0 % / +70 % | 98 → 70 % |
+| `reinigen.dauer` 5,6 s (4 Griffe) | 27,3 / 8,6 s | 28,9 / 17,1 s | +6 % / +99 % | 98 → 64 % |
+| Griff kostet 8 Ausdauer | 27,3 / 8,6 s | 25,9 / 14,1 s | −5 % / +64 % | 98 → 84 % |
+
+Grund: Ein Hieb kostet 18 Ausdauer und muss **treffen**, ein Griff kostet nichts und muss nur **beginnen** (1,8 m).
+Gegen das Tier, bei dem die Ausdauer der Engpass ist, ist der Griff deshalb fast so schnell wie das Töten der letzten
+35 % Leben. Längere Dauer trifft den Müden (98 → 64 %), nicht den Aufmerksamen. **Vorschlag: nichts ändern** — die
+Gams ist das Tier, bei dem Reinigen für den Aufmerksamen nichts kostet, und das ist benannt; die Erholung 0,85 s wäre
+die einzige Probe, die den Müden entlastet (99 → 95 %) und die Tötungszeit auf Grathorn-Mass (22 s) bringt — sie ist
+ein geprüfter Kampfwert und steht hier nur als Zahl. Ledger A-33 (1).
+
+#### 2. Wolf, müdes Profil: der Schlag über die Schwelle — und der Doppelbiss bei den Niederlagen
+
+`npx tsx tools/kampfprotokoll.ts wolf 1000 [Schalter]` — je Kampf eine Ursache:
+
+| Bot | gereinigt | tot: Schlag über die Schwelle | verloren | Zeit bis Sieg |
+|---|---|---|---|---|
+| D171 | 34 % | **44 %** (alle: Zweihandhieb nach Haltungsbruch) | **22 %** | 11,5 s |
+| D407 | 48 % | 30 % | 22 % | 13,2 s |
+
+**Ursache 1 — zwei Drittel der nicht gereinigten Wölfe:** Hieb (22) und Rückhand (26) brechen die Haltung (55) bei
+42 von 90 Leben, also **47 %** — über der Schwelle von 35 %. Der Bot schlägt ein betäubtes Tier schwer (D171), der
+Zweihandhieb (48) tötet. Der Wolf stirbt am Schlag, der ihn „unter die Schwelle bringen“ sollte. Deshalb hilft eine
+Schwelle von 45 % nichts (gemessen: Kampf für Kampf gleich), erst 50 %.
+
+**Ursache 2 — die Niederlagen:** Schaden je verlorenem Kampf (D171): **Nachbiss** 44 · erster Biss 42 · Biss in der zu
+späten Rolle 18. Der Müde rollt in 25 % der Angriffe zu spät oder gar nicht; dann trifft der erste Biss (14), er zuckt
+und steht beim Nachbiss (16) noch da. Der Doppelbiss verdoppelt den Preis jedes Patzers, und Reinigen verlängert den
+Kampf um zwei, drei Bissrunden. **43 % des Schadens in verlorenen Kämpfen kommt vom Nachbiss.**
+
+**Optionen, gemessen (müde, D407-Bot beim Töten: 98 % Siege, 8,9 s):**
+
+| Option | gereinigt | Siege | Zeit bis Sieg | gegen Töten |
+|---|---|---|---|---|
+| D407-Bot (heute) | 48 % | 78 % | 13,2 s | +48 % |
+| Schwelle 45 % | 48 % | 78 % | 13,2 s | +48 % |
+| Schwelle 50 % (Probe) | 79 % | 79 % | 16,2 s | +82 % |
+| Griff des Wolfs hält 1,5 s statt 1,2 s (Probe, 3 Griffe) | 57 % | 87 % | 12,8 s | +44 % |
+| Wolf `reinigen.dauer` 3,6 s (3 Griffe, Probe) | 53 % | 83 % | 12,3 s | +38 % |
+| **Heiler** (Bot: kein tödlicher Schlag am befallenen Tier) | **75 %** | 75 % | 16,7 s | +88 % |
+| Heiler + Griff des Wolfs hält 1,5 s (Probe) | **87 %** | **87 %** | 15,2 s | +71 % |
+
+Der **Heiler** ist eine Spielweise, kein Wert: `BotOptionen.sanft` führt den Schlag nicht, der das Tier tötet (statt
+schwer leicht; mitten in der Kette lieber warten). Er löst Ursache 1 ganz (0 % über die Schwelle) und macht aus dem
+toten Wolf einen Kampf mehr — den der Müde zu 25 % verliert (Ursache 2). Aufmerksam reinigt der Heiler den Wolf zu
+100 % (+38 %), parierend zu 97 % (+122 %, vorher nie). Was den Müden wirklich entlastet, sind **weniger Bissrunden**:
+ein Wolf-Griff von 1,5 s (drei statt vier Griffe, im Band 3–6) bringt 75 → 87 % Siege. **Vorschlag (A-33 (2)):**
+Wolf `reinigen.halten` 1,5 s wie die Gams ihre 1,6 s hat — eine Zahl in `content/gegner/wolf.json`, nicht gesetzt,
+weil D395 die Dauer bestätigt hat. Der Zielkorridor „höchstens 1,5×“ bleibt für den Müden trotzdem gerissen (+71 %).
+
+#### 3. Was ist ein Haltungsbruch fürs Reinigen wert?
+
+`npx tsx tools/kampfprotokoll.ts griffe 1000 <waffe> heiler` — jeder Griff nach seinem Fenster: **Bruch** (betäubt durch
+einen Haltungsbruch der Spielerin), Parade/Wurf, Nachhall, Erholung, lauernd. Haltezeit = was die Marke das Tier
+unten hält; Fortschritt = Anteil der Reinigung, den der Griff brachte.
+
+| Waffe | Tier | Profil | Brüche/Kampf | davon zum Griff genutzt | Griffe: Bruch · Parade/Wurf · Erholung | Haltezeit Bruch / Erholung | Fortschritt Bruch / Erholung |
+|---|---|---|---|---|---|---|---|
+| Klinge | Keiler | aufmerksam | 1,0 | 27 % | 0,27 · 0 · 5,46 | 1,73 / 1,20 s | 32 / 19 % |
+| Klinge | Grathorn | parierend | 2,0 | 49 % | 0,96 · 1,80 · 1,33 | 1,81 / 1,20 s | 33 / 20 % |
+| Klinge | Wolf | müde | 0,8 | 85 % | 0,65 · 0 · 3,00 | 1,52 / 1,20 s | 36 / 26 % |
+| Klinge | Fuchs | müde | 1,0 | 100 % | 0,98 · 0 · 1,04 | 1,77 / 1,20 s | 71 / 31 % |
+| Klinge | Gams | aufmerksam | 0,7 | 60 % | 0,42 · 0 · 2,58 | 2,13 / 1,60 s | 53 / 33 % |
+| Axt | Keiler | aufmerksam | 1,0 | **0 %** | 0 · 0 · 5,98 | – / 1,20 s | – / 19 % |
+| Axt | Wolf | parierend | 1,0 | 100 % | 1,00 · 1,28 · 0,88 | 1,65 / 1,20 s | 39 / 26 % |
+| Axt | Fuchs | alle | 1,0 | 0 % | — | — | **0 % gereinigt** |
+| Axt | Gams | müde | 0,8 | 58 % | 0,49 · 0,01 · 2,33 | 1,75 / 1,60 s | 44 / 35 % |
+| Speer | alle Tiere | aufmerksam | 0,0–0,1 | — | fast nur Erholung | 1,3–1,7 / 1,2–1,6 s | 25–56 / 19–35 % |
+
+**Befund:**
+- **Ein Griff aus dem Haltungsbruch ist 1,3- bis 2,3-mal so viel wert** wie einer aus der Erholung: Die Marke hält den
+  Rest der Betäubung obendrauf (+0,3–0,6 s), der Fortschritt steigt von 19–35 % auf 32–71 % je Griff.
+- **Er kommt selten:** 0,1–1,0 Bruchgriffe je Kampf, 5–50 % aller Griffe. Die Haltung erholt sich zwischen zwei
+  Fenstern ganz (18–25/s nach 1,0–1,6 s Ruhe), ein Hieb allein bricht kein Tier — gebrochen wird mitten in einer
+  Kette, und das ist meist **vor** der Schwelle.
+- **Die Axt bricht die Haltung zu früh:** einmal je Kampf, immer über 35 % Leben (Keiler 140 → 70 nach zwei Hieben,
+  Schwelle 49) — 0 % der Brüche werden zum Griff. Den **Fuchs reinigt die Axt nie**: 60 → 24 Leben nach einem Hieb
+  (Schwelle 21), der zweite tötet; der Heiler wartet und schlägt am Ende doch, weil es keinen schwächeren Schlag gibt.
+  Das erklärt das „springt zwischen 80 und 100 % ohne Ordnung“ aus D403.
+- **Der Speer bricht fast nie** (Haltungsschaden 18–20); gegen die Gams verliert der müde Heiler mit dem Speer 89 %
+  der Kämpfe (11 % Siege; töten 94 %).
+- Die Option `haltung` des Heilers (ein wundes Tier doch schlagen, wenn der Schlag die Haltung bricht und nicht tötet)
+  greift deshalb kaum: Heiler und D407-Bot sind ausser beim Wolf Kampf für Kampf gleich. Ein Heiler, der den Bruch
+  planvoll auf die Schwelle legt, ist nicht gebaut (UNKLAR, ob ein Mensch das tut).
+
+Für den Baukasten heisst das: Haltungsschaden ist beim Reinigen **nicht** das, was der Hammerkopf braucht, um einen
+Zweck zu bekommen — siehe Waffen-Baukasten §31 (Rangfolge beim Reinigen und gegen Menschen).
+
+#### 4. In der Gruppe, mit dem Heiler (Rudel und Ausdauer)
+
+`npx tsx tools/reinigensim.ts 300 empfohlen bot=heiler` (300 Kämpfe je Zeile, Klinge, aufmerksam; Töten mit dem D407-Bot)
+gegen „In der Gruppe“ oben (D389, Bot D171):
+
+| Aufstellung | Modus | Siege | Zeit gegen Töten | Schaden gegen Töten | gebrochen | D389 |
+|---|---|---|---|---|---|---|
+| wolf+fuchs | immer | 96 % | +17 % | +33 | 15 % | 96 %, +22 %, +27, 8 % |
+| wolf+wolf | immer | 89 % | +15 % | +24 | 3 % | 91 % |
+| gams+gams | immer | 100 % | −15 % | +18 | 13 % | 100 %, −21 %, +14, 12 % |
+| keiler+grathorn | immer | 99 % | +76 % | +10 | 0 % | 99 %, +66 %, +9 |
+| wolf+wolf+wolf | immer | 62 % | +25 % | +27 | 2 % | 70 % |
+| wolf+fuchs+fuchs | immer | 90 % | +8 % | +36 | 17 % | 93 %, +4 %, +27, 14 % |
+| alle sechs | gemischt | 89–100 % | −7 … +20 % | −1 … +4 | 0 % | wie D389 |
+
+Der Heiler verliert im Rudel ein paar Punkte gegenüber dem Bot von D171 (drei Wölfe 70 → 62 %), weil er nicht mehr
+versehentlich tötet; kein Rudel wird für den Aufmerksamen aussichtslos. **Müde** im Rudel ist „immer reinigen“
+verloren (zwei Wölfe 3 %, zwei Gämsen 5 %, drei Wölfe 0 %; töten 54 / 62 / 4 %) — wie schon in §3, jetzt ohne den
+Rettungsanker „versehentlich getötet“.
+
+**Ausdauer im Rudel** (`… fenster <rudel> klinge 300 d407`, töten): Von den Erholungsfenstern der Gegner scheitern
+**47 %** (Wolf + Fuchs), **51 %** (Keiler + Grathorn), **61 %** (zwei Gämsen), **76 %** (zwei Wölfe) und **84 %** (drei
+Wölfe) an der Ausdauer — zu spät kommt der Bot nur noch in 1–21 %. Im Rudel ist die Ausdauer der Engpass, nicht die
+Reichweite; einzeln war sie es nur bei der Gams. Der Griff kostet keine Ausdauer (`ausdauer: 0`, bewusst, §2) und
+nimmt der Rolle deshalb nichts weg — das ist der Grund, warum „immer reinigen“ im Rudel nicht zusammenbricht.
+
 ### Offen (Ledger A-24)
 
-1. Gams: 4,0 s in drei Griffen zu 1,6 s (gesetzt) oder die alte Formel (4,67 s, vier Griffe zu 1,2 s) — und ob die
-   Gams selbst nachgemessen wird (Tötungszeit 40,7 s gegen 9–11 s je nach Profil).
+1. Gams: 4,0 s in drei Griffen zu 1,6 s (bestätigt, D395). **D407:** Die Tötungszeit 40,7 s war zur Hälfte ein
+   Bot-Fehler (jetzt 27,3 s); Reinigen bleibt für den Aufmerksamen so schnell wie Töten (−7 %), keine Probe ändert das
+   (A-33 (1)).
 2. Fuchs: bei drei Griffen bleiben (gesetzt) oder zwei erlauben.
 3. Zielkorridor: Obergrenze 1,5× und „höchstens 15 Punkte Siegquote“ sind Annahmen.
-4. Wolf und Müde: Schwelle oder Bot, nicht Dauer.
+4. Wolf und Müde: Schwelle oder Bot, nicht Dauer. **D407:** von den 66 % nicht gereinigten Wölfen starben 44 Punkte am
+   Schlag über die Schwelle (Bot — der Heiler löst es), 22 Punkte sind Niederlagen, in denen der Nachbiss 43 % des
+   Schadens macht; Vorschlag Wolf-Griff 1,5 s (A-33 (2)).
 5. Regenten und der freiwillig befallene Mönch: keine Werte, weil es beide im Echtzeitkampf nicht gibt.
 
 Alle Werte sind Bot-Messung, nichts davon am Gerät gespielt.

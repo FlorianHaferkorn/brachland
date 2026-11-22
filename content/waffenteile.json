@@ -27,6 +27,7 @@
           "masse": 0.6,
           "laenge": 0.6,
           "schwerpunkt": 0.24,
+          "ausgleich": 1.05,
           "preis": {
             "federstahl": 1
           },
@@ -110,13 +111,13 @@
         {
           "id": "spaltkopf",
           "name": "Spaltkopf",
-          "masse": 1.4,
+          "masse": 1.65,
           "laenge": 0.05,
           "schwerpunkt": -0.03,
           "preis": {
             "federstahl": 1
           },
-          "anker": "Spaltaxt, Kopf um 1,4 kg — Überschlag aus Dichte × Volumen, nicht belegt",
+          "anker": "Seit D407 wie das Modell aus D421 (Axt 2,10 kg, Kopf netto 1,71 kg — schwerer als das Vorbild Fällaxt mit Kopf um 1,4 kg, dort benannt); hier 1,65 kg, damit Kopf + Stiel 2,10 kg ergeben",
           "text": "Keilförmig, schwer, zum Holzmachen geschmiedet. Der Kopf der heutigen Axt."
         },
         {
@@ -126,6 +127,7 @@
           "laenge": 0.08,
           "schwerpunkt": -0.02,
           "schneide": 1.05,
+          "ausgleich": 1.15,
           "preis": {
             "federstahl": 1
           },
@@ -140,6 +142,7 @@
           "schwerpunkt": -0.03,
           "schneide": 0.85,
           "wucht": 1.12,
+          "ausgleich": 1.05,
           "preis": {
             "federstahl": 2
           },
@@ -167,6 +170,7 @@
           "name": "Kurzer Stiel",
           "masse": 0.34,
           "laenge": 0.6,
+          "ausgleich": 1.1,
           "preis": {
             "chitinspan": 1
           },
@@ -189,6 +193,7 @@
           "name": "Langer Stiel",
           "masse": 0.56,
           "laenge": 1.0,
+          "ausgleich": 1.05,
           "preis": {
             "chitinspan": 2
           },
@@ -208,13 +213,13 @@
         {
           "id": "saufeder",
           "name": "Saufederblatt",
-          "masse": 0.45,
+          "masse": 0.58,
           "laenge": 0.3,
           "schwerpunkt": 0.12,
           "preis": {
             "federstahl": 1
           },
-          "anker": "Saufeder, Blatt mit Knebel um 0,45 kg — Überschlag aus Dichte × Volumen, nicht belegt",
+          "anker": "Seit D407 wie das Modell aus D421 (Saufeder 1,57 kg mit Knebel aus Horn, Tülle und Lederwicklungen): 1,57 − 0,99 kg Schaft = 0,58 kg; vorher 0,45 kg Überschlag, nicht belegt",
           "text": "Blatt mit Knebel. Der Knebel hält draussen, was nicht stehen bleibt."
         },
         {
@@ -224,6 +229,7 @@
           "laenge": 0.25,
           "schwerpunkt": 0.1,
           "schneide": 0.92,
+          "ausgleich": 1.1,
           "preis": {
             "federstahl": 1
           },
@@ -237,6 +243,7 @@
           "laenge": 0.35,
           "schwerpunkt": 0.14,
           "schneide": 1.08,
+          "ausgleich": 0.95,
           "preis": {
             "federstahl": 2
           },
@@ -250,6 +257,7 @@
           "name": "Kurzer Schaft",
           "masse": 0.79,
           "laenge": 1.6,
+          "ausgleich": 1.05,
           "preis": {
             "chitinspan": 1
           },

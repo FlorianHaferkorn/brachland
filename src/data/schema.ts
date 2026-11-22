@@ -913,6 +913,11 @@ export const Waffenteil = z.object({
   wendig: z.number().min(0.8).max(1.3).default(1),
   schneide: z.number().min(0.7).max(1.3).default(1),
   wucht: z.number().min(0.7).max(1.3).default(1),
+  /**
+   * D407: Ausgleichsfaktor auf Schaden und Haltungsschaden — **Spielausgleich, keine Physik** (D404: Bestformen auf
+   * ±5 % der Referenz-Kampfdauer). Gerechnet wie Schneide: Kopf × Schaft gegen die Referenzteile, die 1 tragen.
+   */
+  ausgleich: z.number().min(0.7).max(1.4).default(1),
   /** Was das Teil kostet (Gegenstand → Anzahl). */
   preis: z.record(Kennung, z.number().int().min(1).max(40)),
   /** Woher Masse und Länge stammen — Quelle oder „Überschlag“. */
@@ -931,7 +936,10 @@ const Waffenfamilie = z.object({
   schaft: z.array(Waffenteil).min(2).max(4),
   /** Der Bau, der die heutige Waffe ergibt. */
   referenz: z.object({ kopf: Kennung, schaft: Kennung }),
-}).refine(f => f.kopf.some(t => t.id === f.referenz.kopf) && f.schaft.some(t => t.id === f.referenz.schaft), 'Referenzteile gibt es');
+}).refine(f => f.kopf.some(t => t.id === f.referenz.kopf) && f.schaft.some(t => t.id === f.referenz.schaft), 'Referenzteile gibt es')
+  // D407: Der Ausgleich ist gegen die Referenz gerechnet — die Referenzteile tragen keinen, sonst wäre die heutige Waffe verschoben.
+  .refine(f => f.kopf.every(t => t.id !== f.referenz.kopf || t.ausgleich === 1) && f.schaft.every(t => t.id !== f.referenz.schaft || t.ausgleich === 1),
+    'Referenzteile tragen den Ausgleich 1');
 
 export const Waffenbaukasten = z.object({
   physik: z.object({

@@ -14,10 +14,23 @@
  * davor. Wer an einem `reinigen`-Block dreht, rechnet hier nach:
  *
  *   npx tsx tools/reinigensim.ts [kämpfe=1000] gegner [waffe=klinge]
+ *
+ * D407: Als letztes Wort `bot=d407` oder `bot=heiler` misst mit dem korrigierten Bot bzw. dem Heiler (`BOT`).
  */
 import { KEILER, GRATHORN, WOLF, FUCHS, GAMS, REINIGEN, neuerKaempfer, reinigungsDauer, reinigungsHalten, reinigungsGriffe,
   type KampfWerte, type ReinigenWerte, type WaffenArt } from '../src/kampf/echtzeit.js';
-import { kampf, PROFILE, type MarkenSpiel, type Profil } from './kampfbot.js';
+import { kampf, PROFILE, BOT_D407, HEILER, type BotOptionen, type MarkenSpiel, type Profil } from './kampfbot.js';
+
+/**
+ * D407: Mit welchem Bot gemessen wird — getrennt für Töten und Reinigen. Ohne Angabe der Bot von D171
+ * (die Tabellen in Reinigen v1 §3 und §6 bis D389). `bot=d407`: der korrigierte Bot für beides;
+ * `bot=heiler`: korrigiert beim Töten, der Heiler (`HEILER`) beim Reinigen.
+ */
+export const BOT: { toeten: BotOptionen; reinigen: BotOptionen } = { toeten: {}, reinigen: {} };
+export function waehleBot(wahl: 'd171' | 'd407' | 'heiler'): void {
+  BOT.toeten = wahl === 'd171' ? {} : BOT_D407;
+  BOT.reinigen = wahl === 'd171' ? {} : wahl === 'heiler' ? HEILER : BOT_D407;
+}
 
 /** Jedes reinigbare Tier aus `content/gegner/` (der Test hält die Liste gegen den Ordner). Menschen fehlen: Die Marke greift bei ihnen nicht (D385). */
 export const TIERE: Record<string, KampfWerte> = { keiler: KEILER, grathorn: GRATHORN, wolf: WOLF, fuchs: FUCHS, gams: GAMS };
@@ -70,7 +83,7 @@ function messe(name: string, aufstellung: KampfWerte[], modus: SimZeile['modus']
   const spiel: MarkenSpiel | undefined = modus === 'töten' ? undefined : { modus: modus === 'immer' ? 'immer' : 'sicher', werte };
   let siege = 0, zeit = 0, erlitten = 0, gereinigt = 0, kanaele = 0, gebrochen = 0, geloest = 0;
   for (let i = 0; i < n; i++) {
-    const e = kampf(aufstellung, waffe, profil, saat0 + i, undefined, 1, undefined, spiel);
+    const e = kampf(aufstellung, waffe, profil, saat0 + i, undefined, 1, undefined, spiel, modus === 'töten' ? BOT.toeten : BOT.reinigen);
     if (e.sieg) { siege++; zeit += e.zeit; }
     erlitten += e.erlitten;
     gereinigt += e.gereinigt ?? 0; kanaele += e.kanaele ?? 0; gebrochen += e.gebrochen ?? 0; geloest += e.geloest ?? 0;
@@ -162,6 +175,8 @@ function druckeGegner(n: number, waffe: WaffenArt): void {
 }
 
 if (process.argv[1]?.endsWith('reinigensim.ts')) {
+  const botWahl = process.argv.find(a => a.startsWith('bot='))?.slice(4) as 'd171' | 'd407' | 'heiler' | undefined;
+  if (botWahl) { waehleBot(botWahl); process.argv.splice(process.argv.indexOf(`bot=${botWahl}`), 1); console.log(`Bot: ${botWahl}`); }
   const n = Number(process.argv[2] ?? 1000);
   const welche = process.argv[3] ?? 'empfohlen';
   const waffe = (process.argv[4] ?? 'klinge') as WaffenArt;

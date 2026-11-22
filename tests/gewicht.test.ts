@@ -41,7 +41,11 @@ for (const fam of ['klinge', 'axt', 'speer'] as const) {
   pruefe(`${fam}: Masse und Trägheit aus dem Referenzbau`, nah(w.masse, b.masse) && nah(w.traegheit, b.traegheit), `${w.masse} ${b.masse}`);
   const anker = plan.familien.find(f => f.id === fam)!.anker.masse;
   const ankerKg = Number(anker.match(/[\d,]+/)![0].replace(',', '.'));
-  pruefe(`${fam}: Masse ${w.masse.toFixed(2)} kg = Anker ${anker}`, nah(w.masse, ankerKg, 0.005));
+  // D407: Seit D421 steht im Anker auch die Masse des Modells („Modell 2,10 kg“); der Referenzbau trägt sie (Axt, Speer)
+  // oder die reale Angabe davor (Klinge 1,1 kg; Modell 1,21 kg).
+  const modell = anker.match(/Modell ([\d,]+) kg/);
+  const modellKg = modell ? Number(modell[1].replace(',', '.')) : NaN;
+  pruefe(`${fam}: Masse ${w.masse.toFixed(2)} kg = Anker ${anker}`, nah(w.masse, ankerKg, 0.005) || nah(w.masse, modellKg, 0.005));
   const ref = schwung(w);
   for (const bau of alleBauten(k, fam)) {
     const kb = koerper(k, fam, bau);

@@ -238,6 +238,9 @@ nichts ablesen. Belegt ist damit nur für die Klinge: **Der Heiler will keine H�
 
 Nicht in den Daten umgesetzt — erst nach Flos Entscheidung und dann mit einer zweiten Messrunde.
 
+> **D407:** Entschieden (D404: Ausgleich je Teil) und gemessen — gegen vier Ziele statt nur Töten, mit dem korrigierten
+> Bot, als `ausgleich` in den Daten: §31. Die Tabelle unten ist der Vorschlag von D403.
+
 | Massnahme | Wirkung, erwartet |
 |---|---|
 | **Ausgleichsfaktor je Kopf auf den Schaden**, aus der Messung: langes Blatt −8 %, kurzes Blatt +8 %, Bartaxt −5 % (Schneide ×1,00 statt ×1,05), Breitblatt −5 %, Nadelspitze +8 % | holt jede Form in ±5 % der Referenz-Kampfdauer; benannt als Spielausgleich, nicht als Physik |
@@ -348,7 +351,7 @@ Einsatzhärtung (2 + 8). Die Reihenfolge der Spielweisen und der Dominanztest (D
 
 | # | Schritt | Grösse | Vor dem ersten Fremdtest? |
 |---|---|---|---|
-| 1 | Budget nach §4 setzen, zweite Messrunde, dazu Rudel, Menschen, Reinigen | S | **ja** — ohne das ist alles Weitere auf Sand |
+| 1 | Budget nach §4 setzen, zweite Messrunde, dazu Rudel, Menschen, Reinigen — **D407: gesetzt und gemessen (§31); Klinge und Speer im Band, die Axt nicht** | S | **ja** — ohne das ist alles Weitere auf Sand |
 | 2 | Waffe im Spielstand als Bau statt als Stufe; `WAFFEN` aus dem Bau ableiten | M | nein |
 | 3 | Modelle: 10 Köpfe, 9 Schäfte, im Rig an Kopf- und Griffpunkt zusammengesetzt | M | nein |
 | 4 | Schmiede-Fenster nach Menü v1 (Rahmen „Aufwertung“): links die Waffe, vier Plätze, rechts Vorher/Nachher als Zahlen; ein gebauter Entwurf bleibt als Vorlage | M | nein |
@@ -1011,3 +1014,277 @@ für den Bestand (schneller Rückweg der Axt in den letzten fünf Bildern). Nich
 - ⚠️ Kampfton: Es gibt keinen; ob er aus WebAudio entsteht (wie der Lagerton) oder aus CC0-Aufnahmen, ist offen (A-40).
 - ⚠️ `ziele.fuchs` (7 kg) und `grathorn` (60 kg) sind Annahmen; Menschen 70–85 kg ebenso.
 - ⚠️ Monster Hunters „Engagement“ ist nicht belegt; was gemeint war, blieb unklar.
+
+---
+
+# Fortschreibung D407: Nachmessung und Budget
+
+> Auftrag aus D404 (A-31 (2)): „Ausgleichsfaktor je Teil, Bestformen auf ±5 % der Referenz-Kampfdauer, vorher
+> Haltungsbruch mit Reinigen und gegen Menschen nachmessen“. Die Messung in §4 sah nur Töten gegen einzelne Tiere mit dem
+> Bot von D171. Hier: vier Ziele, korrigierter Bot, und der Ausgleich als Daten. Die Befunde zum Reinigen selbst (Gams,
+> Wolf, was ein Haltungsbruch beim Reinigen wert ist) stehen in [Reinigen v1](BRACHLAND_Reinigen_v1.md) §6 „Nachmessung
+> D407“. **Kein geprüfter Kampfwert ist geändert:** `content/waffen/`, `content/gegner/`, `WAFFEN` sind unberührt; der
+> Referenzbau jeder Familie ergibt die heutige Waffe weiter bitgleich (Test). Neu in den Daten ist nur `ausgleich` an den
+> Teilen, die keine Referenz sind.
+>
+> **Referenzmassen nach D421:** Die Modelle wiegen seit D421 Axt 2,10 kg und Saufeder 1,57 kg (`content/waffenfamilien.json`).
+> Der Referenzbau ergab 1,85 und 1,44 kg; seit D407 trägt er die Modellmassen — Spaltkopf 1,40 → **1,65 kg**,
+> Saufederblatt mit Knebel 0,45 → **0,58 kg**, Stiel und Schaft wie zuvor (Physik je Meter). Die übrigen Köpfe behalten
+> ihre Anker (Bartaxt 0,85, Hammer 1,60, Breitbeil 1,80 kg). Der Referenzbau bleibt bitgleich die heutige Waffe (die
+> Faktoren sind relativ zu ihm), aber jede andere Form verschiebt sich: Der Hammer ist jetzt leichter als der Spaltkopf
+> (am mittleren Stiel Haltungsschaden +20 → +10 %, ohne Ausgleich), die Bartaxt fällt weiter ab (−23 → −29 %), das
+> Breitblatt des Speers +7 → +2 %. Alle Zahlen für Axt und Speer in §31 sind mit
+> den neuen Massen gemessen, die der Klinge sind unverändert. Folge für die Darstellung (D420, `src/kampf/gewicht.ts`):
+> Trefferstopp der Axt 87 → 96 ms, des Speers 55 → 58 ms — sichtbar, nicht am M1 gesehen, kein Bildpaar.
+
+## 31. Nachmessung: vier Ziele
+
+### 31.1 Wie gemessen wird
+
+`npx tsx tools/baukastenziele.ts <n> alle ziele=toeten,reinigen,menschen,rudel` — jede Form gegen:
+
+| Ziel | Aufstellung | Bot | Ende |
+|---|---|---|---|
+| töten | Keiler, Grathorn, Wolf, Fuchs, Gams einzeln | `BOT_D407` (D171, kennt den Vorschritt seines Hiebs) | Tier tot |
+| reinigen | dieselben | `HEILER` (D407 + kein tödlicher Schlag am befallenen Tier + Haltung nutzen), „immer reinigen“ | Tier gereinigt (oder doch getötet) |
+| Menschen | Wegelagerer, Speermann, Axtmann einzeln | `BOT_D407` + `aufgabe` | **erster Haltungsbruch** (D385: Flucht oder Aufgabe — im Spiel noch nicht gebaut, hier Messannahme) |
+| Rudel | Wolf+Fuchs, zwei Wölfe, zwei Gämsen, Keiler+Grathorn, drei Wölfe, Wolf+zwei Füchse | `BOT_D407` | alle tot |
+
+Je Ziel drei Profile (aufmerksam, müde, parierend), dieselben Würfe für jede Form (Saat 7000 + Kampfnummer). „Zeit“ =
+mittlere Dauer gewonnener Kämpfe gegen den Referenzbau; *dominant*/*nutzlos* wie in §4 (schlägt bzw. wird von der
+Hälfte der Familie geschlagen, über dem Rauschen von 2 Punkten Siege, 3 % Zeit, 1 Schaden). **Vorn/hinten in allen
+drei** = in töten, reinigen und Menschen jeweils mehr als 3 % schneller (bzw. langsamer oder 2 Punkte weniger Siege)
+als die Referenz. Rudel steht daneben und geht nicht ins Mittel ein (D404 nennt drei Ziele).
+
+### 31.2 Ohne Ausgleich (Teile wie D403, Referenzmassen nach D421, korrigierter Bot) — 200 Kämpfe je Aufstellung und Profil
+
+Je Form 3.000 Kämpfe töten, 3.000 reinigen, 1.800 Menschen, 1.200 Rudel.
+
+**klinge** (Referenz gerade + einhand: toeten 13,1 s / 100 %, reinigen 18,0 s / 97 %, menschen 14,8 s / 89 %, rudel 25,8 s / 80 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | Befund |
+|---|---|---|---|---|---|---|---|
+| gerade | einhand | — · *dominant* | — · 100 % ger. · *dominant* | — · 89 % S. | — · 80 % S. · *dominant* | — | Referenz |
+| gerade | langgriff | −6 % · *dominant* | ±0 % · 100 % ger. · *dominant* | −6 % · 90 % S. · *dominant* | −6 % · 80 % S. · *dominant* | −4 % |  |
+| gerade | knaufschwer | +4 % · *nutzlos* | +1 % · 100 % ger. · *dominant* | +1 % · 89 % S. | +2 % · 79 % S. | +2 % |  |
+| kurz | einhand | +6 % · *nutzlos* | +9 % · 100 % ger. · *nutzlos* | +12 % · 86 % S. · *nutzlos* | +8 % · 78 % S. · *nutzlos* | +9 % | **hinten in allen drei** |
+| kurz | langgriff | +1 % · *nutzlos* | +3 % · 100 % ger. | +3 % · 89 % S. · *nutzlos* | +1 % · 78 % S. · *nutzlos* | +2 % |  |
+| kurz | knaufschwer | +11 % · *nutzlos* | +11 % · 100 % ger. · *nutzlos* | +16 % · 86 % S. · *nutzlos* | +10 % · 77 % S. · *nutzlos* | +12 % | **hinten in allen drei** |
+| lang | einhand | −5 % · *dominant* | −2 % · 100 % ger. · *dominant* | +1 % · 90 % S. | −22 % · 83 % S. · *dominant* | −2 % |  |
+| lang | langgriff | −6 % · *dominant* | +5 % · 100 % ger. · *nutzlos* | ±0 % · 90 % S. · *dominant* | −22 % · 83 % S. · *dominant* | −1 % |  |
+| lang | knaufschwer | −3 % · *dominant* | +1 % · 100 % ger. | +3 % · 89 % S. · *nutzlos* | −19 % · 83 % S. · *dominant* | ±0 % |  |
+| wuchtig | einhand | +2 % · *nutzlos* | +4 % · 100 % ger. | ±0 % · 91 % S. · *dominant* | +8 % · 78 % S. · *nutzlos* | +2 % |  |
+| wuchtig | langgriff | −2 % · *dominant* | +3 % · 100 % ger. | −11 % · 91 % S. · *dominant* | −1 % · 78 % S. | −3 % |  |
+| wuchtig | knaufschwer | +4 % · *nutzlos* | +4 % · 100 % ger. | +2 % · 91 % S. · *dominant* | +11 % · 77 % S. · *nutzlos* | +3 % |  |
+
+klinge: 10 von 12 im Mittel in ±5 %; vorn in allen drei: 0; hinten in allen drei: 2.
+
+**axt** (Referenz spaltkopf + mittel: toeten 9,4 s / 100 %, reinigen 16,3 s / 98 %, menschen 4,6 s / 96 %, rudel 19,6 s / 84 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | Befund |
+|---|---|---|---|---|---|---|---|
+| spaltkopf | kurz | +10 % · *nutzlos* | +10 % · 79 % ger. · *nutzlos* | +119 % · 93 % S. · *nutzlos* | +5 % · 86 % S. · *nutzlos* | +46 % | **hinten in allen drei** |
+| spaltkopf | mittel | — · *dominant* | — · 80 % ger. · *dominant* | — · 96 % S. · *dominant* | — · 84 % S. · *nutzlos* | — | Referenz |
+| spaltkopf | lang | +19 % · *nutzlos* | +13 % · 100 % ger. · *nutzlos* | +11 % · 97 % S. · *dominant* | −8 % · 87 % S. · *dominant* | +14 % | **hinten in allen drei** |
+| bartaxt | kurz | −11 % · *dominant* | +1 % · 79 % ger. | +144 % · 89 % S. · *nutzlos* | −7 % · 86 % S. · *dominant* | +45 % |  |
+| bartaxt | mittel | −6 % · *dominant* | +2 % · 80 % ger. · *dominant* | +66 % · 96 % S. · *nutzlos* | −12 % · 87 % S. · *dominant* | +21 % |  |
+| bartaxt | lang | −8 % · *dominant* | +6 % · 80 % ger. · *dominant* | +56 % · 96 % S. · *nutzlos* | −26 % · 87 % S. · *dominant* | +18 % |  |
+| hammerkopf | kurz | +43 % · *nutzlos* | +25 % · 100 % ger. · *nutzlos* | +102 % · 94 % S. · *nutzlos* | +31 % · 86 % S. · *nutzlos* | +57 % | **hinten in allen drei** |
+| hammerkopf | mittel | +34 % · *nutzlos* | +17 % · 100 % ger. · *nutzlos* | +2 % · 96 % S. · *dominant* | +17 % · 88 % S. | +18 % |  |
+| hammerkopf | lang | +43 % · *nutzlos* | +17 % · 80 % ger. · *nutzlos* | −11 % · 97 % S. · *dominant* | −1 % · 86 % S. | +16 % |  |
+| breitbeil | kurz | +3 % · *dominant* | +3 % · 80 % ger. · *dominant* | +112 % · 96 % S. · *nutzlos* | +2 % · 87 % S. · *nutzlos* | +40 % | **hinten in allen drei** |
+| breitbeil | mittel | +4 % · *dominant* | +10 % · 80 % ger. | +8 % · 96 % S. · *dominant* | +4 % · 84 % S. · *nutzlos* | +7 % | **hinten in allen drei** |
+| breitbeil | lang | +19 % · *nutzlos* | +2 % · 100 % ger. · *dominant* | +42 % · 96 % S. · *dominant* | −8 % · 86 % S. · *dominant* | +21 % |  |
+
+axt: 1 von 12 im Mittel in ±5 %; vorn in allen drei: 0; hinten in allen drei: 5.
+
+**speer** (Referenz saufeder + mittel: toeten 15,8 s / 99 %, reinigen 21,4 s / 88 %, menschen 20,6 s / 68 %, rudel 27,9 s / 76 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | Befund |
+|---|---|---|---|---|---|---|---|
+| saufeder | kurz | +13 % · *nutzlos* | +1 % · 100 % ger. · *nutzlos* | +2 % · 68 % S. | +9 % · 74 % S. · *nutzlos* | +6 % |  |
+| saufeder | mittel | — | — · 100 % ger. | — · 68 % S. | — · 76 % S. | — | Referenz |
+| saufeder | lang | −3 % · *dominant* | ±0 % · 100 % ger. | +2 % · 69 % S. · *dominant* | −1 % · 75 % S. | −1 % |  |
+| nadel | kurz | +16 % · *nutzlos* | +9 % · 100 % ger. · *nutzlos* | +19 % · 67 % S. · *nutzlos* | +17 % · 71 % S. · *nutzlos* | +15 % | **hinten in allen drei** |
+| nadel | mittel | +11 % · *nutzlos* | +7 % · 100 % ger. · *nutzlos* | +9 % · 64 % S. · *nutzlos* | +6 % · 73 % S. · *nutzlos* | +9 % | **hinten in allen drei** |
+| nadel | lang | +9 % · *nutzlos* | +6 % · 100 % ger. · *nutzlos* | +12 % · 64 % S. · *nutzlos* | +2 % · 74 % S. | +9 % | **hinten in allen drei** |
+| breitblatt | kurz | −3 % · *dominant* | −2 % · 100 % ger. | ±0 % · 66 % S. | −4 % · 78 % S. · *dominant* | −2 % |  |
+| breitblatt | mittel | −6 % · *dominant* | −2 % · 100 % ger. | +2 % · 68 % S. | −8 % · 78 % S. · *dominant* | −2 % |  |
+| breitblatt | lang | −8 % · *dominant* | −4 % · 100 % ger. · *dominant* | −4 % · 70 % S. · *dominant* | −9 % · 77 % S. · *dominant* | −5 % | **vorn in allen drei** |
+
+speer: 4 von 9 im Mittel in ±5 %; vorn in allen drei: 1; hinten in allen drei: 3.
+
+**Was sich an der Rangfolge gegenüber §4 ändert** (§4: nur töten, Bot D171):
+
+- **Töten** sieht mit dem korrigierten Bot aus wie in §4: langes Blatt, Bartaxt, Breitblatt (Speer) vorn; kurzes Blatt,
+  Hammerkopf, langer Axtstiel, Nadelspitze hinten. Der lange Griff bleibt in drei von vier Zielen vorn (−6 %, beim Reinigen ±0): zu billig, wie §4 sagt.
+- **Reinigen** staucht die Unterschiede (Klinge −2 … +11 %, Speer −4 … +9 %), weil die letzten 35 % Leben nicht mehr
+  geschlagen, sondern gegriffen werden. Der **Hammerkopf bleibt nutzlos** (+17 … +25 %): Seine Wucht bricht die
+  Haltung früher, aber über der Schwelle (Reinigen v1 §6 „Nachmessung D407“, 3.) — der Bruch ist dort nichts wert.
+  Langer Axtstiel, Hammer am kurzen und mittleren Stiel und das Breitbeil am langen reinigen den Fuchs (100 % statt
+  80 % „gereinigt“): Ihr erster Hieb bringt ihn unter die Schwelle (21 von 60), der Referenzbau lässt 24 übrig, und
+  der zweite tötet. **Mehr Schaden kann hier mehr Reinigungen bedeuten** — die Umkehrung von §4 „Was baut der
+  Heiler?“, nur beim Fuchs und nur mit der Axt.
+- **Gegen Menschen zählt die Haltung** (31.3): Hammerkopf am langen Stiel −11 %, Hiebblatt am langen Griff −11 %,
+  langer Axtstiel und Hammer sind hier *dominant* statt *nutzlos*. Die Bartaxt (Haltungsschaden −18 … −22 %) fällt
+  gegen Menschen zurück (+56 … +144 %). Der kurze Axtstiel wird gegen Menschen unbrauchbar (+102 … +144 %, 89–96 %
+  Siege): 0,17 m weniger Reichweite gegen Speermann und Wegelagerer.
+- **Im Rudel** gewinnt die Reichweite: langes Blatt −18 … −21 %, langer Axtstiel −1 … −26 %; der Speer ist flach
+  (−9 … +17 %, die Nadel hinten).
+- **Der schwere Knauf bleibt wirkungslos**: Er kostet gegenüber dem Einhandgriff am selben Blatt 0 … +5 % in jedem
+  Ziel. Die Nadelspitze ist an jedem Schaft hinten in allen drei.
+
+### 31.3 Gegen Menschen: zählt Haltung dort mehr?
+
+`npx tsx tools/kampfprotokoll.ts menschen 1000 d407` — die drei Waffen (Referenzbau) gegen die drei Menschen einzeln,
+1.000 Kämpfe je Zeile, bis zum Tod gegen „Aufgabe beim ersten Haltungsbruch“ (D385, Messannahme):
+
+| Waffe | Gegner | Profil | bis zum Tod: Siege · Zeit | mit Aufgabe: Siege · Zeit | aufgegeben |
+|---|---|---|---|---|---|
+| Klinge | Wegelagerer | aufmerksam | 100 % · 16,6 s | 100 % · 16,0 s | 26 % |
+| Klinge | Wegelagerer | parierend | 94 % · 13,1 s | 98 % · 9,9 s | 98 % |
+| Klinge | Axtmann | aufmerksam | 99 % · 32,6 s | 99 % · 30,9 s | 11 % |
+| Klinge | Axtmann | müde | 47 % · 36,0 s | 52 % · 30,5 s | 15 % |
+| **Axt** | Wegelagerer | aufmerksam | 100 % · 10,5 s | 100 % · **4,9 s** | 95 % |
+| **Axt** | Speermann | aufmerksam | 100 % · 5,0 s | 100 % · **2,2 s** | 100 % |
+| **Axt** | Axtmann | aufmerksam | 99 % · 15,5 s | 99 % · **5,4 s** | 90 % |
+| **Axt** | Axtmann | müde | 68 % · 21,6 s | 75 % · 11,5 s | 51 % |
+| Speer | alle drei | alle | 22–100 % · 13,7–33,4 s | **gleich** | **0 %** |
+
+**Ja — gegen Menschen zählt Haltung mehr als alles andere, sobald D385 gebaut ist.** Die Axt halbiert bis drittelt die
+Kampfdauer (der Axtmann 15,5 → 5,4 s), weil sie die Haltung (60–75) in zwei Hieben bricht. Die Klinge bricht sie nur
+im Parieren verlässlich (98 % aufgegeben, Wegelagerer 13,1 → 9,9 s); rollend kaum (11–26 %). **Der Speer bricht nie
+eine Haltung** (Haltungsschaden 18–20 gegen 50–75, die Haltung erholt sich dazwischen) und gewinnt gegen Menschen nur,
+indem er tötet — müde und parierend oft nicht (22–62 %). Wer D385 baut, macht die Axt zur Waffe gegen Menschen und den
+Speer gegen sie schwach; das steht so in keiner Entscheidung und ist eine Frage an Flo (A-33 (3)).
+
+### 31.4 Rudel und Ausdauer
+
+Rudel (Spalte „rudel“ oben, 1.200 Kämpfe je Form): Die Siegquote der Referenz liegt bei 80 % (Klinge), 84 % (Axt),
+76 % (Speer) über alle Profile; die Form verschiebt sie um höchstens ±5 Punkte. **Ausdauer:** Im Rudel scheitern
+55 % (Klinge), 86 % (Axt) und 45 % (Speer) der Erholungsfenster an der Ausdauer (Referenz; ohne Ausdauer = weder
+Hieb noch genug für Hieb und Rolle). Leichte Köpfe senken das nicht (Bartaxt 86–89 %), der lange Axtstiel
+(Kosten +9 %) sogar auf 75–76 %, weil er weniger Hiebe braucht. Der Baukasten verschiebt die Ausdauer nicht spürbar —
+die Kosten der Teile (±20 %, §3.3) sind gegen Rolle (24) und Erholung (26/s) klein. Was die Messung nicht sieht:
+Ausdauer über mehrere Kämpfe hintereinander (der Bot beginnt jeden Kampf voll).
+
+### 31.5 Ausgleich je Teil (Budget, D404)
+
+**Was er ist:** `ausgleich` an jedem Teil in `content/waffenteile.json` (Schema `Waffenteil`, Spanne 0,7–1,4), gerechnet
+wie die Güte: Kopf × Schaft gegen die Referenzteile auf **Schaden und Haltungsschaden**, nichts sonst — Tempo, Kosten,
+Reichweite und Rückstoss bleiben, wie die Physik sie ableitet (Test). Damit bleibt der Charakter einer Form (das
+Verhältnis Schneide zu Wucht, schnell oder weit) erhalten; nur ihre Stärke wird angeglichen. **Benannt als
+Spielausgleich, nicht als Physik (D398):** Ein kurzes Blatt schneidet real nicht 5 % besser, weil es kurz ist. Die
+Referenzteile tragen 1 (das Schema lehnt etwas anderes ab), der Referenzbau ergibt die heutige Waffe weiter bitgleich.
+
+**Wie er gefunden wurde:** `npx tsx tools/baukastenziele.ts suche <familie> 60` — für jedes Teil vom Startwert in
+Schritten von 0,05 in die bessere Richtung, bis es nicht besser wird; Fehler = mittlere quadrierte Abweichung jeder Form
+mit diesem Teil von der Referenzdauer, **je Ziel** (töten, reinigen, Menschen). Eine erste Fassung mass nur die
+Abweichung des **Mittels** der drei Ziele; sie kaufte bei der Axt ein Ziel mit einem anderen frei (Bartaxt am kurzen
+Stiel −46 % töten gegen +94 % Menschen, Ausgleich bis 1,3) und ist verworfen. Die Fehlerkurven sind eingipflig
+(gemessen über 0,75–1,4 an Bartaxt, kurzem Blatt, Nadelspitze). Gegengemessen mit 500 Kämpfen je Aufstellung und
+Profil (je Form 7.500 töten, 7.500 reinigen, 4.500 Menschen, 3.000 Rudel).
+
+| Familie | gesetzt | Formen im Mittel in ±5 % (vorher) | vorn in allen drei (vorher) | hinten in allen drei (vorher) |
+|---|---|---|---|---|
+| Klinge | kurzes Blatt **1,05**; alles andere 1 | **12 von 12** (10) | 0 (0) | 0 (2) |
+| Speer | Nadelspitze **1,10**, Breitblatt **0,95**, kurzer Schaft **1,05** | **9 von 9** (4) | 0 (1) | 0 (3) |
+| Axt | Bartaxt **1,15**, Hammerkopf **1,05**, kurzer Stiel **1,10**, langer Stiel **1,05**; Breitbeil 1 | 3 von 12 (1) | 0 (0) | 4 (5) |
+
+„vorher“ = dieselbe Messung ohne Ausgleich (31.2, 200 Kämpfe, Massen nach D421). Die vollständigen Tabellen mit Ausgleich:
+
+**klinge** (Referenz gerade + einhand: toeten 13,2 s / 100 %, reinigen 18,1 s / 96 %, menschen 15,1 s / 89 %, rudel 25,4 s / 81 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | vorher (ohne Ausgleich) | Befund |
+|---|---|---|---|---|---|---|---|---|
+| gerade | einhand | — · *nutzlos* | — · 100 % ger. · *dominant* | — · 89 % S. · *nutzlos* | — · 81 % S. · *dominant* | — | — | Referenz |
+| gerade | langgriff | −6 % · *dominant* | ±0 % · 100 % ger. · *dominant* | −7 % · 90 % S. · *dominant* | −6 % · 80 % S. · *dominant* | −4 % | −4 % |  |
+| gerade | knaufschwer | +3 % · *nutzlos* | +1 % · 100 % ger. | +2 % · 88 % S. · *nutzlos* | +3 % · 80 % S. | +2 % | +2 % |  |
+| kurz | einhand | −1 % · *nutzlos* | +1 % · 100 % ger. | +1 % · 89 % S. · *nutzlos* | +6 % · 80 % S. · *nutzlos* | ±0 % | +9 % |  |
+| kurz | langgriff | −5 % · *dominant* | ±0 % · 100 % ger. · *dominant* | −4 % · 90 % S. · *dominant* | +1 % · 79 % S. | −3 % | +2 % |  |
+| kurz | knaufschwer | +3 % · *nutzlos* | +3 % · 100 % ger. | +4 % · 89 % S. · *nutzlos* | +9 % · 78 % S. · *nutzlos* | +3 % | +12 % |  |
+| lang | einhand | −5 % · *dominant* | −2 % · 100 % ger. · *dominant* | ±0 % · 90 % S. · *nutzlos* | −21 % · 84 % S. · *dominant* | −2 % | −2 % |  |
+| lang | langgriff | −6 % · *dominant* | +5 % · 100 % ger. · *nutzlos* | −2 % · 90 % S. · *dominant* | −21 % · 84 % S. · *dominant* | −1 % | −1 % |  |
+| lang | knaufschwer | −3 % · *dominant* | +1 % · 100 % ger. | +2 % · 89 % S. · *nutzlos* | −18 % · 84 % S. · *dominant* | ±0 % | ±0 % |  |
+| wuchtig | einhand | +2 % · *nutzlos* | +4 % · 100 % ger. · *nutzlos* | −2 % · 91 % S. · *dominant* | +8 % · 78 % S. · *nutzlos* | +1 % | +2 % |  |
+| wuchtig | langgriff | −3 % · *dominant* | +3 % · 100 % ger. | −12 % · 91 % S. · *dominant* | ±0 % · 79 % S. | −4 % | −3 % |  |
+| wuchtig | knaufschwer | +4 % · *nutzlos* | +4 % · 100 % ger. · *nutzlos* | −1 % · 90 % S. · *dominant* | +13 % · 77 % S. · *nutzlos* | +2 % | +3 % |  |
+
+klinge: 12 von 12 im Mittel in ±5 %; vorn in allen drei: 0; hinten in allen drei: 0.
+
+**axt** (Referenz spaltkopf + mittel: toeten 9,4 s / 100 %, reinigen 16,3 s / 98 %, menschen 4,7 s / 96 %, rudel 19,8 s / 84 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | vorher (ohne Ausgleich) | Befund |
+|---|---|---|---|---|---|---|---|---|
+| spaltkopf | kurz | −9 % · *dominant* | +4 % · 80 % ger. | +109 % · 95 % S. · *nutzlos* | −5 % · 87 % S. · *nutzlos* | +35 % | +46 % |  |
+| spaltkopf | mittel | — | — · 80 % ger. · *dominant* | — · 96 % S. · *dominant* | — · 84 % S. · *nutzlos* | — | — | Referenz |
+| spaltkopf | lang | +15 % · *nutzlos* | +11 % · 100 % ger. · *nutzlos* | +9 % · 96 % S. | −10 % · 87 % S. | +12 % | +14 % | **hinten in allen drei** |
+| bartaxt | kurz | −25 % · *dominant* | −9 % · 100 % ger. · *dominant* | +110 % · 94 % S. · *nutzlos* | −16 % · 89 % S. · *dominant* | +25 % | +45 % |  |
+| bartaxt | mittel | −14 % · *dominant* | −6 % · 100 % ger. · *dominant* | +11 % · 98 % S. · *dominant* | −16 % · 88 % S. · *dominant* | −3 % | +21 % |  |
+| bartaxt | lang | −16 % · *dominant* | +4 % · 100 % ger. · *dominant* | +14 % · 97 % S. · *nutzlos* | −28 % · 87 % S. · *dominant* | +1 % | +18 % |  |
+| hammerkopf | kurz | +3 % | +9 % · 80 % ger. | +79 % · 97 % S. · *nutzlos* | +6 % · 88 % S. · *nutzlos* | +31 % | +57 % | **hinten in allen drei** |
+| hammerkopf | mittel | +16 % · *nutzlos* | +17 % · 79 % ger. · *nutzlos* | −17 % · 98 % S. · *dominant* | +12 % · 86 % S. · *nutzlos* | +5 % | +18 % |  |
+| hammerkopf | lang | +25 % · *nutzlos* | +15 % · 80 % ger. · *nutzlos* | −13 % · 97 % S. · *dominant* | −8 % · 87 % S. · *dominant* | +9 % | +16 % |  |
+| breitbeil | kurz | −10 % · *dominant* | −2 % · 80 % ger. · *dominant* | +110 % · 95 % S. · *nutzlos* | −2 % · 88 % S. | +33 % | +40 % |  |
+| breitbeil | mittel | +4 % · *nutzlos* | +9 % · 80 % ger. · *nutzlos* | +5 % · 96 % S. · *dominant* | +3 % · 84 % S. · *nutzlos* | +6 % | +7 % | **hinten in allen drei** |
+| breitbeil | lang | +15 % · *nutzlos* | +12 % · 100 % ger. · *nutzlos* | +15 % · 97 % S. | −10 % · 87 % S. | +14 % | +21 % | **hinten in allen drei** |
+
+axt: 3 von 12 im Mittel in ±5 %; vorn in allen drei: 0; hinten in allen drei: 4.
+
+**speer** (Referenz saufeder + mittel: toeten 15,8 s / 99 %, reinigen 21,4 s / 87 %, menschen 20,8 s / 69 %, rudel 27,7 s / 77 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | vorher (ohne Ausgleich) | Befund |
+|---|---|---|---|---|---|---|---|---|
+| saufeder | kurz | −2 % | −2 % · 100 % ger. | ±0 % · 67 % S. | ±0 % · 75 % S. | −1 % | +6 % |  |
+| saufeder | mittel | — · *nutzlos* | — · 100 % ger. | — · 69 % S. | — · 77 % S. | — | — | Referenz |
+| saufeder | lang | −3 % · *dominant* | ±0 % · 100 % ger. | +1 % · 68 % S. | −1 % · 76 % S. · *nutzlos* | −1 % | −1 % |  |
+| nadel | kurz | −3 % | −3 % · 100 % ger. | +6 % · 72 % S. | −3 % · 76 % S. | ±0 % | +15 % |  |
+| nadel | mittel | +8 % · *nutzlos* | ±0 % · 100 % ger. | −1 % · 68 % S. | −2 % · 78 % S. | +2 % | +9 % |  |
+| nadel | lang | −3 % | −1 % · 100 % ger. | ±0 % · 68 % S. | −5 % · 77 % S. · *dominant* | −1 % | +9 % |  |
+| breitblatt | kurz | −3 % | −2 % · 100 % ger. | ±0 % · 67 % S. | −4 % · 78 % S. · *dominant* | −2 % | −2 % |  |
+| breitblatt | mittel | −3 % | −2 % · 100 % ger. | +1 % · 68 % S. | −2 % · 77 % S. | −1 % | −2 % |  |
+| breitblatt | lang | −6 % · *dominant* | −1 % · 100 % ger. | ±0 % · 68 % S. | −7 % · 75 % S. · *dominant* | −2 % | −5 % |  |
+
+speer: 9 von 9 im Mittel in ±5 %; vorn in allen drei: 0; hinten in allen drei: 0.
+
+**Was aufgeht:** Klinge und Speer liegen mit drei bzw. einer Zahl ganz im Band, keine Form ist in allen drei Zielen
+vorn oder hinten, und die Spannweite der Formen schrumpft beim Speer von −9 … +19 % auf −7 … +8 % je Ziel. Die Klinge
+brauchte fast nichts: Mit dem korrigierten Bot und den drei Zielen gleicht sich das lange Blatt (töten −5 %) über
+reinigen und Menschen selbst aus — ohne Budget war sie schon zu 10 von 12 im Band.
+
+**Was nicht aufgeht — ehrlich:**
+1. **Die Axt lässt sich mit einem Schadensfaktor nicht ins Band holen.** Ihre Kampfdauer hängt an **Treffern bis zum
+   Tod** (Keiler 4, Grathorn 4, Wolf 3, Fuchs 2, Gams 3 Axthiebe) und an der **Reichweite** — beides sind Stufen, kein
+   Kontinuum. +10 % Schaden an der Referenz ändern die Kampfdauer um −1 … +2 % (Elastizität ≈ 0; Klinge −1,1,
+   Speer −0,8; Probe mit den Massen vor D421); erst ab +13 % fällt beim Grathorn ein Hieb weg (drei statt vier), ab +29 % beim Wolf — dann springt es. Der **kurze Stiel** verliert gegen Menschen
+   +79 … +110 % (0,17 m weniger Reichweite gegen Speermann und Wegelagerer) — das ist kein Schadensproblem.
+   Gesetzt ist, was die Suche fand, mit einer Ausnahme: Für das Breitbeil fand sie 1,10; gegengemessen ist das Breitbeil damit am mittleren und langen Stiel in allen drei Zielen vorn (−4 … −19 %), bei 1,00 an beiden hinten (+4 … +15 %) — eine Stufe dazwischen trägt nicht (1,05 war mit den Massen vor D421 schon „vorn in allen drei“). Gesetzt ist 1,00: lieber eine Form ohne Zweck als eine, die alle anderen schlägt. **Die Axt bleibt ausserhalb des Budgets** (3 von 12 im Band, vier Formen hinten in allen drei: Spaltkopf und Breitbeil am langen Stiel, Hammer am kurzen, Breitbeil am mittleren) — Vorschlag A-33 (4).
+2. **Rangfolge statt Mittel:** Auch im Band bleibt innerhalb einer Familie meist eine Form *dominant* in einem Ziel
+   (Klinge: gerades Blatt am langen Griff, *dominant* in allen vier Zielen bei ±0 … −7 % Zeit; Speer: Breitblatt am
+   langen Schaft in töten und Rudel). Der lange Griff ist weiter zu billig (§4: Kraft ×1,08 für 100 g); der Ausgleich am Griff würde das
+   kurze und das wuchtige Blatt mit ihm schwächen, die Suche liess ihn bei 1. **Vorschlag, nicht gesetzt:** Kraft des
+   langen Griffs 1,03 (wie §4), dann neu suchen.
+3. **Der schwere Knauf bleibt wirkungslos** (0 … +5 % gegen den Einhandgriff am selben Blatt, in jedem Ziel). Kein
+   Faktor macht ein Teil sinnvoll, das der Kampf nicht sieht (§4: streichen oder Parierstange mit Blockkosten).
+4. **Der Bot ist der Massstab.** Er reinigt nach festen Regeln, rollt jeden Angriff und spielt den Laufangriff nicht;
+   was ein Mensch mit Reichweite und Wucht anders macht, sieht die Messung nicht (§4 „Was die Messung nicht sieht“).
+   Menschen geben in der Messung beim ersten Haltungsbruch auf — im Spiel ist das noch nicht gebaut (D385).
+5. **Material und Härtung** sind nicht neu gemessen; der Ausgleich multipliziert sich mit der Güte.
+
+**Physik (D398):** Masse, Trägheit, Tempo, Kosten und Reichweite folgen weiter allein aus den Teilen (§3.2). Der
+Ausgleich ist die einzige Zahl ohne physikalischen Grund und steht als solche im Schema-Kommentar und in diesem
+Abschnitt. Die Spanne 0,7–1,4 begrenzt ihn; gesetzt sind 0,95–1,15.
+
+### 31.6 Unklar (D407)
+
+- ⚠️ Gegengemessen nur mit 500 Kämpfen je Aufstellung und Profil (nicht 1.000), gesucht mit 60. Bei den Zellen im Band
+  liegt das Rauschen bei 1–2 %; „im Band“ an der Grenze (±4–5 %) ist nicht sicher.
+- ⚠️ Menschen geben beim Haltungsbruch auf (Messannahme D385) — ohne diese Regel ist das Ziel „Menschen“ ein zweites
+  „töten“, und die Axt verliert dort ihren Vorsprung (31.3).
+- ⚠️ Rudel geht nicht ins Mittel ein; der lange Axtstiel und das lange Blatt sind dort Bestformen (−19 … −25 %).
+- ⚠️ Nicht am M1 gesehen, nichts gespielt: Ob 5–10 % Schaden mehr am kurzen Blatt oder an der Nadelspitze sich anders
+  anfühlen, weiss niemand.
+- ⚠️ Die Tiere sind im Kampf drei- bis fünfmal langsamer als real (Physik-Prüfung v1 §4.8, zur Kenntnis, nicht geändert);
+  alle Zahlen hier gelten für diese Tiere. Mit realem Tempo wären Reichweite und Rolle anders gewichtet.
+- ⚠️ Der Spaltkopf trägt seit D407 1,65 kg statt 1,40 kg (Modell D421: 1,71 kg, dort als schwerer als das Vorbild benannt);
+  die Klinge bleibt bei 1,10 kg, obwohl ihr Modell 1,21 kg wiegt — nicht angeglichen, weil nicht verlangt.
