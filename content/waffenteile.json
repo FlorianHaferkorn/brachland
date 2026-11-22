@@ -166,18 +166,6 @@
       ],
       "schaft": [
         {
-          "id": "kurz",
-          "name": "Kurzer Stiel",
-          "masse": 0.34,
-          "laenge": 0.6,
-          "ausgleich": 1.1,
-          "preis": {
-            "chitinspan": 1
-          },
-          "anker": "Esche 700 kg/m³, Ø 3,2 cm = 0,56 kg/m — Überschlag aus Dichte × Volumen, nicht belegt",
-          "text": "Ein Handbeil. Nah dran, schnell wieder oben."
-        },
-        {
           "id": "mittel",
           "name": "Stiel",
           "masse": 0.45,

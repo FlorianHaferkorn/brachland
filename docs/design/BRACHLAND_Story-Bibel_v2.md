@@ -136,6 +136,8 @@ Am Werksleib (Aschefeld) entscheidet der Brachgänger, was mit dem Protokoll ges
   Schlächter und Heiler.
 - **Menschen sind nicht reinigbar (D385).** Sie sind nicht befallen. Gegen menschliche Gegner endet der Kampf mit dem
   Haltungsbruch: Sie fliehen oder ergeben sich, und der Brachgänger entscheidet — töten, vertreiben, verschonen.
+  (Gebaut seit D426: Aufgabe beim ersten Haltungsbruch, töten oder verschonen — [Reinigen v1 §6](BRACHLAND_Reinigen_v1.md);
+  Flucht/vertreiben noch nicht.)
   **Ausnahme:** Menschen, die sich dem Befall freiwillig ausgesetzt haben (Mönche im Endstadium), sind reinigbar. Dort
   ist Reinigen ein Übergriff gegen den Willen des anderen.
 - **Kapitel 1 setzt die drei Figuren:** eine aus der Enklave (will den Flussvater tot), einen Mönch am Stau („Er

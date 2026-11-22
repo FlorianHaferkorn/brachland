@@ -40,6 +40,10 @@ pruefe('der Speer hat die grösste Trägheit', sp.traegheit > ax.traegheit);
 // --- Physik: Richtung jeder Ableitung (ohne den Spielausgleich aus D407 — der ist ausdrücklich keine Physik)
 const kPhysik = structuredClone(k);
 for (const f of FAMILIEN) for (const t of [...kPhysik.familien[f].kopf, ...kPhysik.familien[f].schaft]) t.ausgleich = 1;
+// D426: Der kurze Axtstiel ist gestrichen (gegen Menschen +79 … +110 %, A-33 (4)). Die Richtung der Ableitung prüfen wir
+// trotzdem — mit dem Teil, wie es bis D426 in den Daten stand, nur hier in der Probe.
+kPhysik.familien.axt.schaft.unshift({ ...kPhysik.familien.axt.schaft.find(t => t.id === 'mittel')!, id: 'kurz', name: 'Kurzer Stiel (Probe)', masse: 0.34, laenge: 0.6 });
+pruefe('D426: die Axt hat keinen kurzen Stiel mehr (Stiel, langer Stiel)', k.familien.axt.schaft.map(t => t.id).join() === 'mittel,lang');
 const bau = (f: Familie, kopf: string, schaft: string) => ({ ...referenzBau(k, f), kopf, schaft });
 const axLang = faktoren(kPhysik, 'axt', bau('axt', 'spaltkopf', 'lang')), axKurz = faktoren(kPhysik, 'axt', bau('axt', 'spaltkopf', 'kurz'));
 pruefe('langer Stiel: langsamer, weiter, härter, teurer', axLang.zeit > 1 && axLang.reichweite > 0 && axLang.haltungsschaden > 1 && axLang.kosten > 1 && axLang.nachdrehen < 1);
@@ -73,7 +77,7 @@ pruefe('jeder abgeleitete Bau besteht das Waffenschema', FAMILIEN.every(f => all
 
 // --- Der Spielraum bleibt im Band, das die Clips vertragen (Entwurf: ±25 % Tempo, ±0,35 m)
 const alle = FAMILIEN.flatMap(f => alleBauten(k, f).map(b => ({ f, b, fa: faktoren(k, f, b) })));
-pruefe('33 Kombinationen Kopf × Schaft', alle.length === 33, `${alle.length}`);
+pruefe('29 Kombinationen Kopf × Schaft (seit D426 ohne kurzen Axtstiel: Klinge 12, Axt 8, Speer 9)', alle.length === 29, `${alle.length}`);
 pruefe('Tempo aller Bauten innerhalb ±25 %', alle.every(x => x.fa.zeit > 0.75 && x.fa.zeit < 1.25 && x.fa.drehZeit > 0.75 && x.fa.drehZeit < 1.25),
   alle.filter(x => !(x.fa.drehZeit > 0.75 && x.fa.drehZeit < 1.25)).map(x => `${x.f} ${x.b.kopf}+${x.b.schaft} ${x.fa.drehZeit.toFixed(2)}`).join(', '));
 pruefe('Reichweite aller Bauten innerhalb ±0,35 m', alle.every(x => Math.abs(x.fa.reichweite) <= 0.35));

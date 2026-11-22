@@ -133,7 +133,7 @@ trotzdem sagt ihm niemand, wohin.
 | Flussvater besiegt | Wasser sinkt (ein Weltzustand); versunkene Stadt, Kirchturm, Kapelle fallen trocken | Datum `flutlinie`, kein Wasser gebaut |
 | Region geheilt (drei Reinkulturen eingesetzt) | Rückkehrer (D241); Pegelwartin, Zähler, Bote wechseln die Station | gebaut (Stationen), Rückkehrer Bestand |
 | Auftrag einer Bewohnerin erfüllt | sie zieht um oder ändert den Tageslauf (Magd geht den Uferweg wieder; Bursche verlässt die Wache) | fehlt (§9.4) |
-| Mensch verschont / vertrieben / getötet | Lager leer, besetzt von anderen, oder er steht später woanders | fehlt (D385 nicht gebaut) |
+| Mensch verschont / vertrieben / getötet | Lager leer, besetzt von anderen, oder er steht später woanders | Kampf **gebaut** (D426: Aufgabe beim Haltungsbruch, Begegnung `verschont`/`getoetet` im Stand — [Reinigen v1 §6 „Nachmessung D426“](BRACHLAND_Reinigen_v1.md)); vertreiben und die Folge am Lager fehlen |
 | Jeder Eingriff | ein Kiesel in der Reihe des Zählers | **gebaut** als Bedingung `eingriffe`, die Reihe als Bild fehlt |
 
 ### 2.6 Der Zähler der Mönche
@@ -459,7 +459,8 @@ zerstört. „Daten“ nennt, was davon in `content/` steht; alles andere ist En
   **vertrieben** → Stange liegt im Lager, er taucht am Uferweg als dritte Engstelle wieder auf. Mensch **getötet** →
   Stange liegt im Lager; der Wart fragt nie wieder nach ihm und gibt den West-Auftrag nicht mehr (die Tafel am
   Oberstollen bleibt lesbar, die Reinkultur liegt dann im Regal statt beim Wart — §2.4 Regel 5).
-- **Daten:** Bestand (zwei Aufträge). Menschen als Gegner mit Aufgabe/Flucht fehlen (D385, §9.5).
+- **Daten:** Bestand (zwei Aufträge). Aufgabe beim Haltungsbruch und „verschont“ im Stand seit D426 (Reinigen v1 §6);
+  Flucht/vertreiben und der Ausgang am Lager fehlen (§9.5).
 
 ## 6. Wirkung auf die drei Enden
 
@@ -573,7 +574,7 @@ Netzschlinge (Fanghilfe) sind Altbestand aus dem Creature-Collector und sollten 
 | 2 | Stationsbedingungen `anteil-gereinigt` (Enklave) und `staerke` (Erbe); UND-Verknüpfung | F1, F3, §6 | klein; `eingriffe` ist das Muster |
 | 3 | Wanderfiguren mit Gabe und mit Auftrag; mehr als eine Figur je Fraktion (`validate` verlangt genau eine); Nebenfiguren ohne Fraktion (Bruder, Vorarbeiter, Verkeilter) | F2–F4, F8, F9 | mittel |
 | 4 | Verzweigte Ausgänge: Eine Linie endet je nach Tat anders; Bewohner ziehen um oder ändern den Satz nach einem Auftrag | alle Linien | mittel; als Zustandsliste je Ort (`textNach: { bedingung, text }[]`), kein Skript |
-| 5 | Menschen als Gegner mit Aufgabe/Flucht; töten/vertreiben/verschonen als Eintrag im Spielstand | F3, F9 | fehlt in `echtzeit.ts` (D385) |
+| 5 | Menschen als Gegner mit Aufgabe/Flucht; töten/vertreiben/verschonen als Eintrag im Spielstand | F3, F9 | **Aufgabe, töten/verschonen gebaut (D426**, `echtzeit.ts`, Begegnung `verschont`); Flucht/vertreiben fehlt |
 | 6 | Beobachtungen: Tiere, die eine Spur laufen; Spuren an verlassenen Stationen | F4, §2.4 Regel 4 | mittel; Spur als Dekal an der Station mit `bis` |
 | 7 | `validate`: Auftragstext nennt eine Richtung oder einen Anblick; jede Linie hat eine zweite Quelle | §2.1, §2.2 | klein |
 | 8 | Reviere als Datum (Fläche, Bilanz gereinigt/getötet) und ihre Darstellung | §2.5, W2 | groß; Entwurf Reinigen v1 |

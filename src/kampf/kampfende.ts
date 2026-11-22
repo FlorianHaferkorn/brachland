@@ -1,7 +1,7 @@
 /**
  * BRACHLAND — Kampfende: getötet oder gereinigt (D417)
  *
- * Seit D376 heisst `phase === 'gefallen'` „aus dem Kampf“; ob besiegt oder gereinigt, steht in
+ * Seit D376 heisst `phase === 'gefallen'` „aus dem Kampf“; ob besiegt, gereinigt oder (D426) verschont, steht in
  * `Kaempfer.ausgang`. Bis D417 kannte die Szene nur „Sieg oder Niederlage“. Hier wird aus der Kampfwelt
  * ein **Bericht** je Gegner, den `main.tsx` in den Spielstand übersetzt (`spiel/begegnungen.ts`):
  * Getötete Tiere geben Material und zählen voll beim Zähler, Gereinigte geben Läuterung und zählen ¼
@@ -19,11 +19,15 @@ export const KREATUR_DER_ART: Readonly<Record<string, string>> = {
   keiler: 'wurzelkeiler', grathorn: 'grathorn', wolf: 'k7-wolf', fuchs: 'spuerfuchs', gams: 'nebelgams',
 };
 
-/** Wie ein Gegner aus dem Kampf ging. `steht`: noch im Kampf, als er endete (Niederlage der Spielerin). */
-export type GegnerAusgang = 'getoetet' | 'gereinigt' | 'steht';
+/**
+ * Wie ein Gegner aus dem Kampf ging. `steht`: noch im Kampf, als er endete (Niederlage der Spielerin). `verschont`
+ * (D426): ein Mensch, der beim Haltungsbruch aufgab und ging, ohne getötet zu werden.
+ */
+export type GegnerAusgang = 'getoetet' | 'gereinigt' | 'verschont' | 'steht';
 
 export function ausgangVon(k: Kaempfer): GegnerAusgang {
   if (k.ausgang === 'gereinigt') return 'gereinigt';
+  if (k.ausgang === 'verschont') return 'verschont';
   return k.phase === 'gefallen' ? 'getoetet' : 'steht';
 }
 
@@ -38,6 +42,8 @@ export interface GegnerBericht {
   /** Platz in der Aufstellung, ab 1. */
   platz: number;
   ausgang: GegnerAusgang;
+  /** D426: Er hatte aufgegeben — bei `getoetet` heisst das: nach der Aufgabe getötet. */
+  aufgegeben: boolean;
   x: number; z: number;
 }
 
@@ -50,13 +56,13 @@ export interface Kampfbericht {
 
 /**
  * Bericht über eine Kampfwelt. `aufstellung[i]` ist die Art von `w.gegner[i]` (so baut `Kampfplatz` sie).
- * Sieg heisst: Die Spielerin steht, und kein Gegner steht mehr — gleich, ob getötet oder gereinigt.
+ * Sieg heisst: Die Spielerin steht, und kein Gegner steht mehr — gleich, ob getötet, gereinigt oder verschont.
  */
 export function kampfbericht(w: Kampfwelt, aufstellung: readonly string[]): Kampfbericht {
   const gegner = w.gegner.map((g, i): GegnerBericht => {
     const art = aufstellung[i] ?? g.id.replace(/-\d+$/, '');
     return { id: g.id, art, kreatur: KREATUR_DER_ART[art] ?? art, mensch: !!g.werte.mensch, platz: i + 1,
-             ausgang: ausgangVon(g), x: g.x, z: g.z };
+             ausgang: ausgangVon(g), aufgegeben: g.aufgegeben !== undefined, x: g.x, z: g.z };
   });
   return {
     sieg: w.spielerin.phase !== 'gefallen' && gegner.every(g => g.ausgang !== 'steht'),

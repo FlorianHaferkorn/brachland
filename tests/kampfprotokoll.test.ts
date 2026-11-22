@@ -9,7 +9,7 @@
  *     schlägt aus grösserem Abstand.
  *   * Das Protokoll zählt richtig: jeder Griff hat genau eine Quelle, jeder Fortschritt liegt in 0…1.
  */
-import { REINIGEN, WEGELAGERER, GAMS, WOLF } from '../src/kampf/echtzeit.js';
+import { REINIGEN, WEGELAGERER, GAMS, WOLF, FUCHS, type KampfWerte } from '../src/kampf/echtzeit.js';
 import { kampf, GEGNER, PROFILE, BOT_D171, BOT_D407, HEILER, type BotEreignis } from '../tools/kampfbot.js';
 import { zaehleGriffe, zaehleWolf, zaehleFenster, leseSchalter } from '../tools/kampfprotokoll.js';
 
@@ -20,13 +20,18 @@ function pruefe(name: string, ok: boolean, hinweis = '') {
 }
 
 // --- Fingerabdruck des Bots von D171 (gerechnet mit tools/kampfbot.ts aus fce9a34, 22.11.2026)
+// Er prüft den Bot, nicht die Daten: Gegner mit den Werten jener Fassung. Seit D426 trägt die Gams 0,85 s Erholung
+// (vorher 0,7 s) und der Wolf einen Griff von 1,5 s — hier stehen die alten Zahlen, damit der Abdruck vergleichbar bleibt.
 const FINGERABDRUCK_D171 = { treffer: 1239, zeit: 4797.008, erlitten: 10681.5, siege: 269, rein: 97 };
+const GAMS_D407: KampfWerte = { ...GAMS, schlag: { ...GAMS.schlag, erholung: 0.7 } };
+const WOLF_D407: KampfWerte = { ...WOLF, reinigen: { dauer: 4.25 } };
+const ALT: Record<string, KampfWerte[]> = { wolf: [WOLF_D407], gams: [GAMS_D407], wegelagerer: GEGNER.wegelagerer, 'wolf+fuchs': [WOLF_D407, FUCHS] };
 type K = typeof kampf;
 function abdruck(k: (...a: Parameters<K>) => ReturnType<K>) {
   let treffer = 0, zeit = 0, erlitten = 0, siege = 0, rein = 0;
   for (const name of ['wolf', 'gams', 'wegelagerer', 'wolf+fuchs']) for (const waffe of ['klinge', 'axt', 'speer'] as const) for (const p of PROFILE)
     for (const spiel of [undefined, { modus: 'immer' as const, werte: REINIGEN }]) for (let i = 0; i < 4; i++) {
-      const e = k(GEGNER[name], waffe, p, 4000 + i, undefined, 1, undefined, spiel);
+      const e = k(ALT[name], waffe, p, 4000 + i, undefined, 1, undefined, spiel);
       treffer += e.treffer; zeit += e.zeit; erlitten += e.erlitten; siege += e.sieg ? 1 : 0; rein += e.gereinigt ?? 0;
     }
   return { treffer, zeit: Math.round(zeit * 1000) / 1000, erlitten: Math.round(erlitten * 1000) / 1000, siege, rein };
@@ -48,7 +53,7 @@ pruefe('Bot D407 setzt Hiebe aus weiterem Abstand als D171', ersterHieb(BOT_D407
   `${ersterHieb(BOT_D407).toFixed(2)} gegen ${ersterHieb(BOT_D171).toFixed(2)} m`);
 pruefe('… und kein Hieb aus weiter als Reichweite + Vorschritt', ersterHieb(BOT_D407) <= (2.8 + 0.6) * 0.9 + 1e-9);
 
-// --- aufgabe: Menschen geben beim Haltungsbruch auf, Tiere nicht
+// --- aufgabe: Menschen geben beim Haltungsbruch auf, Tiere nicht (seit D426 die Regel aus echtzeit.ts, der Bot verschont)
 let aufg = 0, kuerzer = 0;
 for (let i = 0; i < 30; i++) {
   const mit = kampf([WEGELAGERER], 'axt', PROFILE[0], 5000 + i, undefined, 1, undefined, undefined, { aufgabe: true });

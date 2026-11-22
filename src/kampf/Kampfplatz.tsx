@@ -992,7 +992,7 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
   l.position.set(0, 0, 0); l.rotation.set(0, 0, 0);
   pu.gruppe.visible = true;
   pu.kranz.visible = false;
-  if (g.ausgang !== 'gereinigt') pu.abgang = 0; // neue Runde auf dem Übungsplatz
+  if (!g.ausgang) pu.abgang = 0; // neue Runde auf dem Übungsplatz
   const uhr = jetzt / 1000;
   pu.zeit?.(uhr);
   // Gang aus der tatsächlichen Bewegung — der Shader-Gang (D138) läuft, solange er läuft.
@@ -1078,7 +1078,7 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
     pu.kranz.visible = true;
     pu.kranz.rotation.y = uhr * 4;
     pu.kranz.position.y = g.werte.hoehe + 0.3 + Math.sin(uhr * 6) * 0.04;
-  } else if (g.phase === 'gefallen' && g.ausgang === 'gereinigt') {
+  } else if (g.phase === 'gefallen' && g.ausgang) { // D426: verschont geht ab wie gereinigt
     // D417: gereinigt — kein Sturz. Es steht kurz, wendet sich ab und geht im Schritt davon. Nur die
     // Zeichnung bewegt sich; in der Kampfwelt bleibt es, wo es war (aus dem Kampf, `ausgang`).
     if (g.zeit > ABGANG.warten) pu.abgang = Math.min(ABGANG.weit, pu.abgang + ABGANG.tempo * dt);
@@ -1112,7 +1112,7 @@ function spieleRig(pu: Puppe, g: Kaempfer, v: number, jetzt: number, dt: number)
   const r = pu.rig!, cfg = RIG[pu.art]!;
   const s = g.schlag;
   let ziel: THREE.AnimationAction | null = null, blende = 0.2, neu = false, zeit: number | null = null;
-  if (g.phase === 'gefallen' && g.ausgang === 'gereinigt') {
+  if (g.phase === 'gefallen' && g.ausgang) {
     // D417: kein eigener Clip — stehen, dann der Gang der Welt (Walk), wie ein Tier, das nichts mehr will.
     const geht = g.zeit > ABGANG.warten && pu.abgang < ABGANG.weit;
     ziel = geht ? r.aktion('Walk') ?? r.aktion('Idle') : r.aktion('Idle');

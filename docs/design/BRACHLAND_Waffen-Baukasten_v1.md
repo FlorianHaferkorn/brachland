@@ -1047,7 +1047,7 @@ für den Bestand (schneller Rückweg der Axt in den letzten fünf Bildern). Nich
 |---|---|---|---|
 | töten | Keiler, Grathorn, Wolf, Fuchs, Gams einzeln | `BOT_D407` (D171, kennt den Vorschritt seines Hiebs) | Tier tot |
 | reinigen | dieselben | `HEILER` (D407 + kein tödlicher Schlag am befallenen Tier + Haltung nutzen), „immer reinigen“ | Tier gereinigt (oder doch getötet) |
-| Menschen | Wegelagerer, Speermann, Axtmann einzeln | `BOT_D407` + `aufgabe` | **erster Haltungsbruch** (D385: Flucht oder Aufgabe — im Spiel noch nicht gebaut, hier Messannahme) |
+| Menschen | Wegelagerer, Speermann, Axtmann einzeln | `BOT_D407` + `aufgabe` | **erster Haltungsbruch** (D385: Aufgabe — bis D426 Messannahme, seit D426 die Regel in `echtzeit.ts`; Zahlen gleich, 31.7) |
 | Rudel | Wolf+Fuchs, zwei Wölfe, zwei Gämsen, Keiler+Grathorn, drei Wölfe, Wolf+zwei Füchse | `BOT_D407` | alle tot |
 
 Je Ziel drei Profile (aufmerksam, müde, parierend), dieselben Würfe für jede Form (Saat 7000 + Kampfnummer). „Zeit“ =
@@ -1156,7 +1156,8 @@ Kampfdauer (der Axtmann 15,5 → 5,4 s), weil sie die Haltung (60–75) in zwei 
 im Parieren verlässlich (98 % aufgegeben, Wegelagerer 13,1 → 9,9 s); rollend kaum (11–26 %). **Der Speer bricht nie
 eine Haltung** (Haltungsschaden 18–20 gegen 50–75, die Haltung erholt sich dazwischen) und gewinnt gegen Menschen nur,
 indem er tötet — müde und parierend oft nicht (22–62 %). Wer D385 baut, macht die Axt zur Waffe gegen Menschen und den
-Speer gegen sie schwach; das steht so in keiner Entscheidung und ist eine Frage an Flo (A-33 (3)).
+Speer gegen sie schwach; das steht so in keiner Entscheidung und ist eine Frage an Flo (A-33 (3)). **D426:** so
+entschieden und gebaut — die **Schere: Axt gegen Menschen, Speer gegen Tiere** (31.7).
 
 ### 31.4 Rudel und Ausdauer
 
@@ -1190,6 +1191,7 @@ Profil (je Form 7.500 töten, 7.500 reinigen, 4.500 Menschen, 3.000 Rudel).
 | Klinge | kurzes Blatt **1,05**; alles andere 1 | **12 von 12** (10) | 0 (0) | 0 (2) |
 | Speer | Nadelspitze **1,10**, Breitblatt **0,95**, kurzer Schaft **1,05** | **9 von 9** (4) | 0 (1) | 0 (3) |
 | Axt | Bartaxt **1,15**, Hammerkopf **1,05**, kurzer Stiel **1,10**, langer Stiel **1,05**; Breitbeil 1 | 3 von 12 (1) | 0 (0) | 4 (5) |
+| Axt seit D426 | kurzer Stiel **gestrichen**; sonst wie oben, Ausgleich bleibt Arbeitswert | siehe 31.7 | | |
 
 „vorher“ = dieselbe Messung ohne Ausgleich (31.2, 200 Kämpfe, Massen nach D421). Die vollständigen Tabellen mit Ausgleich:
 
@@ -1268,19 +1270,59 @@ reinigen und Menschen selbst aus — ohne Budget war sie schon zu 10 von 12 im B
    Faktor macht ein Teil sinnvoll, das der Kampf nicht sieht (§4: streichen oder Parierstange mit Blockkosten).
 4. **Der Bot ist der Massstab.** Er reinigt nach festen Regeln, rollt jeden Angriff und spielt den Laufangriff nicht;
    was ein Mensch mit Reichweite und Wucht anders macht, sieht die Messung nicht (§4 „Was die Messung nicht sieht“).
-   Menschen geben in der Messung beim ersten Haltungsbruch auf — im Spiel ist das noch nicht gebaut (D385).
+   Menschen geben in der Messung beim ersten Haltungsbruch auf — seit D426 auch im Spiel (31.7).
 5. **Material und Härtung** sind nicht neu gemessen; der Ausgleich multipliziert sich mit der Güte.
 
 **Physik (D398):** Masse, Trägheit, Tempo, Kosten und Reichweite folgen weiter allein aus den Teilen (§3.2). Der
 Ausgleich ist die einzige Zahl ohne physikalischen Grund und steht als solche im Schema-Kommentar und in diesem
 Abschnitt. Die Spanne 0,7–1,4 begrenzt ihn; gesetzt sind 0,95–1,15.
 
+### 31.7 D426: kurzer Axtstiel gestrichen, Aufgabe gebaut, Schere benannt
+
+Flo 22.11.2026 (A-33 (3), (4)). **Gestrichen:** der kurze Axtstiel (`content/waffenteile.json`, Axt hat jetzt Stiel und
+langen Stiel — 8 Formen statt 12, alle Familien 29 statt 33). Der Ausgleich der übrigen Axtteile bleibt **Arbeitswert**
+(Bartaxt 1,15, Hammerkopf 1,05, langer Stiel 1,05), neu zu suchen nach den Axt-Clips (D423). Der Referenzbau ergibt die
+Axt weiter bitgleich (`tests/baukasten.test.ts`); die Physik des kürzeren Hebels prüft der Test weiter an dem alten Teil,
+nur in der Probe. **Gebaut:** die Aufgabe der Menschen beim ersten Haltungsbruch (`src/kampf/echtzeit.ts`, Regel und
+Zählweise: [Reinigen v1 §6 „Nachmessung D426“](BRACHLAND_Reinigen_v1.md)) — das Ziel „Menschen“ dieser Messung ist damit
+keine Annahme mehr; gegen die drei Menschen einzeln liefert die gebaute Regel dieselben Zahlen wie die Annahme (31.3,
+27 Zeilen à 1.000 Kämpfe gleich). Seit D426 trägt auch die Gams 0,85 s Erholung (Reinigen v1 §6) — das verschiebt das
+Ziel „töten“ für alle Familien.
+
+**Die Schere, benannt: Axt gegen Menschen, Speer gegen Tiere.** Die Axt bricht eine menschliche Haltung in zwei Hieben,
+und der Kampf ist aus (Axtmann 15,5 → 5,4 s, 90–100 % aufgegeben); der Speer bricht nie eine (0 %), hält aber Tiere auf
+Abstand (Rudel, zwei Gämsen müde: Speer 79 %, Klinge 75 %, Axt 96 % — die Axt ist auch dort stark, weil sie Tiere
+mit wenigen Hieben tötet). Die Klinge liegt dazwischen und bricht gegen Menschen nur parierend verlässlich (98 %).
+
+**Nachgerechnet** (`npx tsx tools/baukastenziele.ts 500 axt ziele=toeten,reinigen,menschen`, Saat 7000…, Ausgleich an;
+Klinge und Speer mit 200 Kämpfen) — Zeit gegen die Referenz, Mittel der drei Ziele:
+
+| Axt | töten | reinigen | Menschen | Mittel der drei | D407 (31.5, mit kurzem Stiel, Gams 0,7 s) | Befund |
+|---|---|---|---|---|---|---|
+| spaltkopf + mittel (Referenz) | 9,2 s · 100 % | 16,3 s · 99 % | 4,7 s · 96 % | — | 9,4 / 16,3 / 4,7 s | Referenz |
+| spaltkopf + lang | +1 % | +4 % | +9 % | **+5 %** | +12 %, hinten in allen drei | im Band (Grenze) |
+| bartaxt + mittel | −13 % | −6 % | +11 % | −3 % | −3 % | im Band |
+| bartaxt + lang | −16 % | +4 % | +14 % | +1 % | +1 % | im Band |
+| hammerkopf + mittel | +15 % | +15 % | −17 % | +4 % | +5 % | im Band |
+| hammerkopf + lang | +10 % | +7 % | −13 % | +1 % | +9 % | im Band |
+| breitbeil + mittel | +4 % | +10 % | +5 % | +6 % | +6 %, hinten in allen drei | **hinten in allen drei** |
+| breitbeil + lang | ±0 % | +5 % | +15 % | +7 % | +14 %, hinten in allen drei | ausser Band |
+| *gestrichen:* die vier Formen am kurzen Stiel | | | | | +25 … +35 %, Menschen +79 … +110 % | — |
+
+**Axt: 5 von 7 Formen im Mittel in ±5 %** (D407: 3 von 11), vorn in allen drei keine, **hinten in allen drei eine**
+(Breitbeil am Stiel; D407: vier). Zwei Ursachen, getrennt: Das Streichen nimmt die vier Formen, die gegen Menschen
++79 … +110 % verloren; die **Gams-Erholung** holt die langen Stiele beim Töten heran (Spaltkopf am langen Stiel +15 → +1 %,
+Breitbeil am langen +15 → ±0 %) — der langsame lange Hieb passt jetzt in ihr Fenster. Klinge **12 von 12**, Speer **9 von 9**
+im Band, wie in 31.5. **Was nicht aufgeht:** Das Breitbeil bleibt ohne Zweck (am Stiel in allen drei Zielen hinten, am
+langen +15 % gegen Menschen), die Bartaxt bleibt gegen Menschen schwach (+11 … +14 %, 54 % aufgegeben — ihr Bruch kommt
+seltener). Ein neuer Ausgleich ist nicht gesucht (Flo: Arbeitswert bis nach den Axt-Clips, D423).
+
 ### 31.6 Unklar (D407)
 
 - ⚠️ Gegengemessen nur mit 500 Kämpfen je Aufstellung und Profil (nicht 1.000), gesucht mit 60. Bei den Zellen im Band
   liegt das Rauschen bei 1–2 %; „im Band“ an der Grenze (±4–5 %) ist nicht sicher.
-- ⚠️ Menschen geben beim Haltungsbruch auf (Messannahme D385) — ohne diese Regel ist das Ziel „Menschen“ ein zweites
-  „töten“, und die Axt verliert dort ihren Vorsprung (31.3).
+- ⚠️ Menschen geben beim Haltungsbruch auf (Messannahme D385, seit D426 gebaut) — ohne diese Regel ist das Ziel
+  „Menschen“ ein zweites „töten“, und die Axt verliert dort ihren Vorsprung (31.3).
 - ⚠️ Rudel geht nicht ins Mittel ein; der lange Axtstiel und das lange Blatt sind dort Bestformen (−19 … −25 %).
 - ⚠️ Nicht am M1 gesehen, nichts gespielt: Ob 5–10 % Schaden mehr am kurzen Blatt oder an der Nadelspitze sich anders
   anfühlen, weiss niemand.

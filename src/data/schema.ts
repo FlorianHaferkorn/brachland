@@ -1543,7 +1543,15 @@ export const GegnerDaten = z.object({
   hoehe: z.number().positive(),
   halbLaenge: z.number().nonnegative().optional(),
   zucken: z.number().nonnegative().optional(),
-  mensch: z.object({ linienFolge: z.array(KampfLinie).min(1), deckung: KampfLinie }).strict().optional(),
+  mensch: z.object({
+    linienFolge: z.array(KampfLinie).min(1), deckung: KampfLinie,
+    /**
+     * D426: Gibt er beim ersten Haltungsbruch auf (Waffe fallen lassen, Hände heben, zurückweichen — `echtzeit.ts`
+     * `gibtAuf`)? Ohne Angabe ja. `false` für die, die nicht aufgeben (Anführer). Das Feld steht im Block `mensch`,
+     * damit kein Tier es tragen kann: Tiere geben nie auf.
+     */
+    gibtAuf: z.boolean().optional(),
+  }).strict().optional(),
   /**
    * D389: Reinigungswerte dieses Gegners — nur, wer reinigbar ist. Tiere (mit `elemente`) sind es;
    * Menschen nicht (D385), ausser `freiwillig`: wer den Befall gewählt hat (Grüne Mönche im Endstadium).
@@ -1555,6 +1563,19 @@ export const GegnerDaten = z.object({
     'reinigen nur bei Tieren (mit elemente) oder freiwillig befallenen Menschen (D385)')
   .refine(g => !g.reinigen?.freiwillig || !!g.mensch, 'freiwillig befallen sind nur Menschen (D385)');
 export type GegnerDaten = z.infer<typeof GegnerDaten>;
+
+/**
+ * D426: Aufgabe menschlicher Gegner beim ersten Haltungsbruch (`content/aufgabe.json`, gelesen von
+ * `src/kampf/echtzeit.ts`). Wer aufgibt, greift nicht mehr an und weicht zurück; die Spielerin kann ihn bis zum Ende
+ * der Frist noch töten, danach geht er (verschont). Ob ein Mensch aufgibt, steht am Gegner (`mensch.gibtAuf`).
+ */
+export const AufgabeDaten = z.object({
+  rueckzug: z.number().positive().max(2).describe('m/s, mit denen er rückwärts von der Spielerin weg geht'),
+  abstand: z.number().positive().max(15).describe('Meter bis zum Rand der Spielerin, bis zu denen er zurückweicht'),
+  frist: z.number().positive().max(15).describe('Sekunden ab dem Haltungsbruch, bis er den Kampf verlässt (verschont)'),
+  warum: z.string().optional(),
+}).strict();
+export type AufgabeDaten = z.infer<typeof AufgabeDaten>;
 
 // --------------------------------------------------------------- Reinigen (Marke, D376)
 
@@ -1799,9 +1820,11 @@ export const SpielstandDaten = z.object({
   letzteZuflucht: z.string().optional(),
   /** D416 (v3): gemeldete Begegnungen mit Lage; das Revier folgt aus der Lage. */
   begegnungen: z.array(z.object({
-    art: z.enum(['getoetet', 'gereinigt', 'umgangen']),
+    art: z.enum(['getoetet', 'gereinigt', 'umgangen', 'verschont']),
     gegnerId: kennung, region: kennung,
     x: z.number().finite(), z: z.number().finite(), zeit: z.number().finite(),
+    /** D426: Mensch statt Tier — zählt in keinem Revier, getötet beim Zähler der Mönche voll. */
+    mensch: z.literal(true).optional(),
   }).passthrough()),
   /** D416 (v3): was Rasten an den Revieren entschieden haben. */
   reviere: z.object({

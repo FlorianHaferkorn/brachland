@@ -38,6 +38,8 @@ import GAMS_ROH from '../../content/gegner/gams.json';
 import WEGELAGERER_ROH from '../../content/gegner/wegelagerer.json';
 import SPEERMANN_ROH from '../../content/gegner/speermann.json';
 import AXTMANN_ROH from '../../content/gegner/axtmann.json';
+import AUFGABE_ROH from '../../content/aufgabe.json';
+import { AufgabeDaten } from '../data/schema.js';
 import { neueAusdauer, reicht, schritt as ausdauerSchritt, verbrauche, type Ausdauer } from '../spieler/ausdauer.js';
 
 export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen'
@@ -144,7 +146,9 @@ export interface KampfWerte {
    * Mensch (D174): schlägt in Linien (`linienFolge`, reihum nach Schwung), deckt eine Linie und liest
    * die Spielerin — dreimal dieselbe Linie getroffen, dann deckt er sie.
    */
-  mensch?: { linienFolge: readonly Linie[]; deckung: Linie };
+  mensch?: { linienFolge: readonly Linie[]; deckung: Linie;
+    /** D426: gibt beim ersten Haltungsbruch auf (ohne Angabe ja) — `false` für die, die nicht aufgeben. */
+    gibtAuf?: boolean };
   /**
    * Linien eines Tiers (ADR-0009 Stufe 3, D175) — aus dem Körperbau, reihum nach Schwung: Keiler und
    * Fuchs von unten, Grathorn und Gams von oben, der Wolf dreht den Kopf (links, dann rechts).
@@ -529,9 +533,11 @@ export interface Kaempfer {
   reinigung?: number;
   /**
    * D376: Wie einer aus dem Kampf ging. `phase === 'gefallen'` heisst seit D376 „aus dem Kampf“;
-   * gereinigt steht hier. Ohne Angabe: besiegt, wie bisher.
+   * gereinigt steht hier. Ohne Angabe: besiegt, wie bisher. D426: `verschont` — ein Mensch, der aufgab und ging.
    */
-  ausgang?: 'gereinigt';
+  ausgang?: 'gereinigt' | 'verschont';
+  /** D426: Sekunden seit der Aufgabe (erster Haltungsbruch eines Menschen); ohne Angabe kämpft er. */
+  aufgegeben?: number;
 }
 
 export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: number, blick = 0, y = 0): Kaempfer {
@@ -817,7 +823,7 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     z.haltung -= s.haltungsschaden * f * (stein ? BRUCH.haltung : 1);
     if (stein && z.werte.mensch) { z.deckung = undefined; z.gelesen = []; }
     // D174: Ein Mensch liest — dreimal dieselbe Linie, dann deckt er sie; sonst wechselt er weg.
-    if (z.werte.mensch && linie) {
+    if (z.werte.mensch && linie && z.aufgegeben === undefined) {
       z.gelesen = [...(z.gelesen ?? []), linie].slice(-3);
       z.deckung = z.gelesen.length === 3 && z.gelesen.every(l => l === linie) ? linie : andereLinie(z.deckung, linie);
     }
@@ -954,6 +960,7 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
  */
 export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schieber, darf = true, platz?: number): void {
   if (g.phase === 'gefallen' || s.phase === 'gefallen') return;
+  if (g.aufgegeben !== undefined) { weicheZurueck(g, s, dt, schiebe); return; }
   const dx = s.x - g.x, dz = s.z - g.z;
   const d = Math.hypot(dx, dz);
   if (d > GEGNER_KI.wachAb) return;
@@ -1028,7 +1035,7 @@ function warte(g: Kaempfer, s: Kaempfer, dx: number, dz: number, d: number, halt
 export function wartePlaetze(w: Kampfwelt): Map<string, number> {
   const s = w.spielerin;
   const winkel = (g: Kaempfer) => Math.atan2(g.x - s.x, g.z - s.z);
-  const lebend = w.gegner.filter(g => g.phase !== 'gefallen');
+  const lebend = w.gegner.filter(imKampf);
   const angreifer = lebend.find(g => g.id === w.recht);
   const wartend = lebend.filter(g => g !== angreifer);
   const plaetze = new Map<string, number>();
@@ -1062,7 +1069,7 @@ export function angriffsrecht(w: Kampfwelt): string | null {
   if (dran) return dran.id;
   let beste: Kaempfer | null = null;
   for (const g of w.gegner) {
-    if (g.phase !== 'bereit') continue;
+    if (g.phase !== 'bereit' || g.aufgegeben !== undefined) continue;
     const d = Math.hypot(g.x - s.x, g.z - s.z);
     if (d > GEGNER_KI.wachAb) continue;
     if (!beste || g.seitSchlag > beste.seitSchlag + 1e-9
@@ -1147,6 +1154,11 @@ export interface Kampfwelt {
    * Kampf rechnet Teilschritt für Teilschritt wie vor D376 (`tests/reinigen.test.ts` prüft das).
    */
   marke?: Marke;
+  /**
+   * D426: Menschen geben beim ersten Haltungsbruch auf (`gibtAuf`). Ohne Angabe an — so spielt das Spiel; `false`
+   * rechnet wie vor D426 (der Kampfbot ohne `aufgabe`, damit ältere Tabellen nachrechenbar bleiben).
+   */
+  aufgabe?: boolean;
 }
 
 // ------------------------------------------------------------------ Reinigen (D376)
@@ -1356,6 +1368,65 @@ function schrittReinigen(w: Kampfwelt, m: Marke, dt: number): void {
   m.ereignisse.push({ art: 'gereinigt', ziel: z.id });
 }
 
+// ------------------------------------------------------------------ Aufgabe (D426)
+
+/**
+ * Aufgabe menschlicher Gegner (D385/D426): Menschen sind nicht reinigbar; ihr Kampf endet mit dem **ersten
+ * Haltungsbruch**, den die Spielerin setzt. Dann lässt er die Waffe fallen, hebt die Hände (im Bild noch nicht — der
+ * Clip fehlt, Reinigen v1 §6 „Nachmessung D426“) und weicht zurück — er
+ * greift nicht mehr an, deckt keine Linie mehr und liest die Spielerin nicht mehr. Bis `frist` s nach dem Bruch kann sie
+ * ihn trotzdem töten (Schaden wie immer, er wehrt sich nicht); danach geht er und ist aus dem Kampf: `ausgang`
+ * `verschont`. Tiere geben nie auf; ein Mensch mit `mensch.gibtAuf: false` (Anführer) auch nicht.
+ *
+ * Warum der Bruch und nicht das Leben: Die Haltung ist das, was ein Mensch im Kampf aufrecht hält — wer sie verliert,
+ * steht betäubt und weiss, dass der nächste Hieb sitzt. Folge, benannt (A-33 (3)): Die Axt bricht Haltung, der Speer
+ * kaum — gegen Menschen ist die Axt die Waffe, gegen Tiere der Speer.
+ *
+ * Werte: `content/aufgabe.json`, Schema `AufgabeDaten`. Getötet oder verschont liest `kampf/kampfende.ts`.
+ */
+export const AUFGABE: AufgabeDaten = AufgabeDaten.parse(AUFGABE_ROH);
+
+/** Gibt dieser Gegner beim ersten Haltungsbruch auf? Nur Menschen, und nur ohne `gibtAuf: false`. */
+export function gibtAuf(werte: KampfWerte): boolean {
+  return !!werte.mensch && werte.mensch.gibtAuf !== false;
+}
+
+/** Kämpft er noch — nicht gefallen, nicht aufgegeben? Wer aufgab, steht noch, zählt aber für Meute und Angriffsrecht nicht. */
+export function imKampf(k: Kaempfer): boolean {
+  return k.phase !== 'gefallen' && k.aufgegeben === undefined;
+}
+
+/** Aufgeben: keine Kette, keine Deckung, kein Lesen mehr. Die Betäubung aus dem Bruch läuft weiter. */
+export function gibAuf(k: Kaempfer): void {
+  k.aufgegeben = 0; k.folge = []; k.deckung = undefined; k.gelesen = []; k.puffer = null;
+}
+
+/** Wer aufgab, weicht zurück, die Spielerin im Blick, bis er `abstand` m von ihrem Rand steht. */
+function weicheZurueck(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schieber): void {
+  if (g.phase !== 'bereit') return;
+  const dx = s.x - g.x, dz = s.z - g.z, d = Math.hypot(dx, dz);
+  if (d < 1e-6) return;
+  drehe(g, blickAuf(g.x, g.z, s.x, s.z), GEGNER_KI.drehrate, dt);
+  const rand = d - s.werte.radius;
+  if (rand >= AUFGABE.abstand) return;
+  const w = Math.min(AUFGABE.rueckzug * dt, AUFGABE.abstand - rand);
+  geheUm(g, -dx / d * w, -dz / d * w, schiebe);
+}
+
+/** Ein Teilschritt der Aufgabe — nach den Treffern: Uhr der Aufgegebenen, dann gibt auf, wessen Haltung eben brach. */
+function schrittAufgabe(w: Kampfwelt, neu: readonly Treffer[], h: number): void {
+  for (const g of w.gegner) {
+    if (g.aufgegeben === undefined || g.phase === 'gefallen') continue;
+    g.aufgegeben += h;
+    if (g.aufgegeben >= AUFGABE.frist - 1e-9 && g.phase === 'bereit') { g.phase = 'gefallen'; g.zeit = 0; g.ausgang = 'verschont'; }
+  }
+  for (const e of neu) {
+    if (e.von !== w.spielerin.id || !e.gebrochen || e.toedlich || e.geblockt) continue;
+    const g = w.gegner.find(x => x.id === e.auf);
+    if (g && g.aufgegeben === undefined && g.phase !== 'gefallen' && gibtAuf(g.werte)) gibAuf(g);
+  }
+}
+
 /**
  * Die Welt um `dt` weiterrechnen, in **festen** Teilschritten von `SCHRITT`.
  *
@@ -1380,7 +1451,7 @@ export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer
     if ((w.stopp ?? 0) > 1e-9) { w.stopp = Math.max(0, (w.stopp ?? 0) - h); continue; }
     verarbeitePuffer(w.spielerin);
     const dran = w.gegner.some(g => g.phase === 'vorlauf' || g.phase === 'aktiv' || g.phase === 'erholung');
-    if (w.warDran && !dran && w.gegner.filter(g => g.phase !== 'gefallen').length > 1) w.atem = GEGNER_KI.atempause;
+    if (w.warDran && !dran && w.gegner.filter(imKampf).length > 1) w.atem = GEGNER_KI.atempause;
     w.warDran = dran;
     const atmet = (w.atem ?? 0) > 1e-9;
     if (atmet) w.atem = Math.max(0, (w.atem ?? 0) - h);
@@ -1395,6 +1466,8 @@ export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer
     const neu = loeseTreffer(w.spielerin, w.gegner);
     const kanal = !!w.marke && w.spielerin.phase === 'reinigen';
     for (const g of w.gegner) neu.push(...loeseTreffer(g, [w.spielerin]));
+    // D426: Menschen geben beim ersten Haltungsbruch auf; wer aufgab und nicht getötet wird, geht nach der Frist.
+    if (w.aufgabe !== false) schrittAufgabe(w, neu, h);
     if (w.marke) {
       // D376: Wer kanalisiert, steht offen — der Treffer wiegt `verwundbar`-fach.
       if (kanal) for (const e of neu) {

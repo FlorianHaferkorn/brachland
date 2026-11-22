@@ -58,7 +58,8 @@ export function eingriffe(w: Pick<Weltstand, 'besiegt' | 'gereinigt' | 'begegnun
   // Gegner-ID heisst dann ein anderes Tier. Steht die ID schon oben (Bestand), zählt sie dort, nicht doppelt.
   let summe = 0;
   for (const b of w.begegnungen ?? []) {
-    if (b.art === 'umgangen' || je.has(b.gegnerId) || b.gegnerId.startsWith('regent:')) continue;
+    // D426: Verschont ist kein Eingriff (wie umgangen); ein getöteter Mensch zählt voll wie ein getötetes Tier.
+    if (b.art === 'umgangen' || b.art === 'verschont' || je.has(b.gegnerId) || b.gegnerId.startsWith('regent:')) continue;
     summe += b.art === 'getoetet' ? gewichte.getoetet : gewichte.gereinigt;
   }
   for (const g of je.values()) summe += g;

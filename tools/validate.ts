@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { baueRevierwelt, masseAus } from '../src/spiel/reviere.js';
 import { join } from 'node:path';
-import { Bewegung, Gewicht, Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung, Revierkarte,
+import { AufgabeDaten, Bewegung, Gewicht,Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung, Revierkarte,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -117,6 +117,13 @@ console.log('\nReinigen (D376):');
     }
     console.log(`  ✓ ${gut} Gegner mit eigener Reinigungsdauer, Griffzahl ${band.min}–${band.max}`); ok++;
   }
+}
+
+console.log('\nAufgabe (D426):');
+{
+  const r = AufgabeDaten.safeParse(JSON.parse(readFileSync('content/aufgabe.json', 'utf8')));
+  if (r.success) { console.log('  ✓ aufgabe.json'); ok++; }
+  else { console.log(`  ✗ aufgabe.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++; }
 }
 
 console.log('\nEinstellungen (D394):');
