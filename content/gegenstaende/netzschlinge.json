@@ -7,5 +7,7 @@
   },
   "imKampf": true,
   "beuteChance": 0.06,
-  "beschreibung": "Aus Kabelresten geflochten. Wer darin hängt, wehrt sich kürzer."
+  "beschreibung": "Aus Kabelresten geflochten. Wer darin hängt, wehrt sich kürzer.",
+  "gewicht": 0.6,
+  "traglast": 2
 }

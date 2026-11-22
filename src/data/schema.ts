@@ -600,6 +600,23 @@ export const GegenstandWirkung = z.discriminatedUnion('art', [
    * Regentenort eingesetzt, wenn er besiegt ist (`spiel/heilung.ts`).
    */
   z.object({ art: z.literal('komponente') }),
+  // ---- D393: Gegenstände, die nicht auf einen Kämpfer wirken (Gegenstände-und-Aufwertung v1) ----
+  /** Aufwertungsmaterial der Schmiede, Stufe 1–4 (Vertrag `aufwertung-1..4`). */
+  z.object({ art: z.literal('material'), stufe: z.number().int().min(1).max(4) }),
+  /** Werkzeug der Fortbewegung (Traversal v2 §4, D391): hebt eine Grenze auf, sperrt nichts. */
+  z.object({ art: z.literal('werkzeug'), faehigkeit: z.enum(['tauchen', 'klettern', 'gleiten', 'reiten']) }),
+  /** Stärkt die Marke ausserhalb des Reinigens: so viel Läuterung beim Einsetzen an der Rast. */
+  z.object({ art: z.literal('marke'), laeuterung: z.number().int().min(1).max(15) }),
+  /** Zutat, die ein Bewohner verarbeitet: `flasche` (Schlucke/Stärke des Suds) oder `reinkultur`. */
+  z.object({ art: z.literal('zutat'), fuer: z.enum(['flasche', 'reinkultur']) }),
+  /** Kleidung, **ein** Platz. Seitwärts statt aufwärts: jedes Stück hat einen Preis. Werte sind Entwurf. */
+  z.object({ art: z.literal('zeug'), werte: z.record(z.string(), z.number()) }),
+  /** Fundwaffe: schaltet eine Waffe aus `content/waffen/` frei, ändert keinen Kampfwert. */
+  z.object({ art: z.literal('waffe'), waffe: z.enum(['klinge', 'axt', 'speer']) }),
+  /** Wissen mit Nutzen: Rezept, Karte, Schrift. `schaltet` nennt, was es öffnet (Tausch, Anzeige). */
+  z.object({ art: z.literal('wissen'), form: z.enum(['rezept', 'karte', 'schrift']), schaltet: z.string().max(60) }),
+  /** Schlüsselgegenstand: öffnet einen Ort oder eine Art von Verschluss. */
+  z.object({ art: z.literal('zugang'), oeffnet: z.string().max(60) }),
 ]);
 
 export const Gegenstand = z.object({
@@ -611,8 +628,117 @@ export const Gegenstand = z.object({
   /** Wie häufig er als Beute nach einem Sieg anfällt, 0…1. */
   beuteChance: z.number().min(0).max(1).default(0),
   beschreibung: z.string().max(200),
-});
+  /** D393: Es gibt ihn je Spielstand genau einmal (Werkzeug, Zeug, Wissen, Zugang, Fundwaffe). */
+  einmalig: z.boolean().default(false),
+  /** D393: Bleibt beim Tod als Bündel am Ort liegen (`spiel/oekonomie.ts` `todesverlust`). */
+  liegtBeiTod: z.boolean().default(false),
+  /** D393: Höchstens so viele im Beutel; ohne Angabe unbegrenzt. */
+  traglast: z.number().int().min(1).max(99).optional(),
+  /** D398: Gewicht eines Stücks in Kilogramm — Herleitung in Gegenstände-und-Aufwertung v1 §11. */
+  gewicht: z.number().min(0).max(30).optional(),
+}).refine(g => !(g.einmalig && g.liegtBeiTod), 'Einmaliges geht beim Tod nicht verloren')
+  .refine(g => !['werkzeug', 'zeug', 'waffe', 'wissen', 'zugang'].includes(g.wirkung.art) || g.einmalig,
+    'Werkzeug, Zeug, Fundwaffe, Wissen und Zugang sind einmalig')
+  .refine(g => ['heilung', 'wiederbelebung', 'reinigung', 'fanghilfe', 'fokus'].includes(g.wirkung.art) || !g.imKampf,
+    'nur Verbrauchsgüter sind im Kampf benutzbar');
 export type Gegenstand = z.infer<typeof Gegenstand>;
+
+// ------------------------------------------------- Belohnungen und Ökonomie (D393)
+
+/**
+ * Vertrag mit den Aufträgen (D392): Story und Quests vergeben Belohnungen als **Kategorie**,
+ * `content/belohnungen.json` löst sie in Gegenstand und Menge auf (`spiel/belohnung.ts`).
+ */
+export const BELOHNUNGS_KATEGORIEN = ['aufwertung-1', 'aufwertung-2', 'aufwertung-3', 'aufwertung-4',
+  'verbrauch', 'werkzeug', 'waffe', 'ruestung', 'marke', 'wissen', 'zugang'] as const;
+export type BelohnungsKategorie = typeof BELOHNUNGS_KATEGORIEN[number];
+
+/** Die Sprossen der Belohnungsleiter, klein nach gross. */
+export const BELOHNUNGS_RAENGE = ['entdeckung', 'verborgener-ort', 'nebenaufgabe', 'figurenlinie',
+  'optionaler-boss', 'regent'] as const;
+export type BelohnungsRang = typeof BELOHNUNGS_RAENGE[number];
+
+const Kennung = z.string().regex(/^[a-z0-9-]+$/);
+const MengeJeRang = z.record(z.enum(BELOHNUNGS_RAENGE), z.number().int().min(0).max(12));
+
+export const Belohnungen = z.object({
+  /** Mengenware: ein Gegenstand, die Menge hängt an der Sprosse (0 = auf dieser Sprosse nicht vergeben). */
+  mengen: z.record(z.enum(BELOHNUNGS_KATEGORIEN), z.array(z.object({
+    gegenstand: Kennung,
+    menge: MengeJeRang,
+  })).min(1)),
+  /** Unikate: je Region ein Vorrat, aus dem jedes Stück höchstens einmal vergeben wird. */
+  unikate: z.record(z.enum(BELOHNUNGS_KATEGORIEN), z.record(Kennung, z.array(Kennung).min(1))),
+  /** Was eine Sprosse bringt — Lesetabelle für Menschen und Prüfgrundlage für `validate`. */
+  leiter: z.array(z.object({
+    rang: z.enum(BELOHNUNGS_RAENGE),
+    was: z.string().max(120),
+    wiederholbar: z.boolean(),
+    /** Mindestens ein Unikat? Dann gibt es dort nie nur Mengenware. */
+    unikat: z.boolean(),
+    kategorien: z.array(z.enum(BELOHNUNGS_KATEGORIEN)).min(1),
+    regel: z.string().max(260),
+  })).length(BELOHNUNGS_RAENGE.length),
+}).refine(b => BELOHNUNGS_KATEGORIEN.every(k => (k in b.mengen) !== (k in b.unikate)),
+  'jede Kategorie steht genau einmal: unter `mengen` oder unter `unikate`');
+export type Belohnungen = z.infer<typeof Belohnungen>;
+
+const Preis = z.record(Kennung, z.number().int().min(1).max(40));
+
+/**
+ * Die Aufwertungs-Ökonomie als Daten (D393, `docs/design/BRACHLAND_Gegenstaende-und-Aufwertung_v1.md`).
+ * **Entwurf:** Das Spiel liest sie noch nicht; die Schmiede rechnet weiter nach D177
+ * (`spiel/schmiede.ts`). `tools/oekonomiesim.ts` rechnet die Überschlagsrechnung daraus.
+ */
+export const Oekonomie = z.object({
+  /** Achse Stahl: Kosten je Waffenstufe. Wirkung je Stufe bleibt `schmiede.ts` (`JE_STUFE`). */
+  schmiede: z.array(z.object({ stufe: z.number().int().min(1).max(4), preis: Preis, vorschlag: z.boolean().default(false) })).min(3),
+  /** Was ein Getöteter hinterlässt (D379: Material nur von Getöteten). */
+  beute: z.object({
+    tier: z.object({ gegenstand: Kennung, chance: z.number().min(0).max(1) }),
+    mensch: z.object({ gegenstand: Kennung, menge: z.number().int().min(0).max(3) }),
+    verhaerteter: z.object({ gegenstand: Kennung, menge: z.number().int().min(1).max(3) }),
+    regent: z.object({ gegenstand: Kennung, menge: z.number().int().min(1).max(3) }),
+  }),
+  /** Achse Marke: Läuterung je Gereinigtem und die Stufen (Reinigen v1 §4, A5). */
+  marke: z.object({
+    laeuterung: z.object({ tier: z.number().int().min(1), verhaerteter: z.number().int().min(1), regent: z.number().int().min(1) }),
+    schwellen: z.array(z.number().int().positive()).min(1).max(6)
+      .refine(a => a.every((x, i) => i === 0 || x > a[i - 1]), 'Schwellen steigen'),
+    fassungJeStufe: z.number().int().min(1).max(2),
+    /** Ein Revier gilt als ruhig, wenn dieser Anteil der Eingriffe Reinigungen sind (A6) … */
+    ruhigAb: z.number().gt(0).max(1),
+    /** … und mindestens dieser Anteil der Tiere des Reviers gereinigt ist (D393: sonst unerreichbar oder geschenkt). */
+    ruhigMindestens: z.number().gt(0).max(1),
+    /** Rast im ruhigen Revier (ohne Zuflucht): füllt diesen Anteil der Fassung. */
+    ruhigeRast: z.number().gt(0).max(1),
+    /** Was ein ruhiges Revier einmalig hergibt. */
+    ruhigesRevier: Preis,
+  }),
+  /** Die Sudflasche: füllt sich an der Rast, wächst über Zutaten. */
+  flasche: z.object({
+    schlucke: z.object({ start: z.number().int().min(1), max: z.number().int().min(1), preis: Preis }),
+    staerke: z.object({ start: z.number().gt(0).max(1), jeStufe: z.number().gt(0).max(0.3), stufen: z.number().int().min(1).max(4), preis: Preis }),
+  }).refine(f => f.schlucke.max >= f.schlucke.start, 'max ≥ start'),
+  /** Rezepte und Tausch in der Enklave: wer macht was woraus. */
+  tausch: z.array(z.object({
+    bei: Kennung.describe('Ort-ID eines Bewohners'),
+    gibt: Preis, nimmt: Preis,
+    /** Wissensgegenstand, der den Tausch erst öffnet. */
+    braucht: Kennung.optional(),
+    jeRast: z.boolean().default(false).describe('höchstens einmal je Rast in der Enklave'),
+  })),
+  /** Überschlagsrechnung je Region: Umfang (Annahmen) und was einmalig in der Welt liegt. */
+  regionen: z.record(Kennung, z.object({
+    annahmen: z.object({
+      begegnungen: z.number().int().positive(), tiere: z.number().int().positive(),
+      rasten: z.number().int().positive(), verhaertete: z.number().int().nonnegative(),
+      menschen: z.number().int().nonnegative(), reviere: z.number().int().positive(),
+    }),
+    einmalig: Preis,
+  })),
+});
+export type Oekonomie = z.infer<typeof Oekonomie>;
 
 // ----------------------------------------------------------------- Regenten
 

@@ -1,0 +1,14 @@
+{
+  "id": "lieferbuch-esse",
+  "name": "Lieferbuch der Esse",
+  "wirkung": {
+    "art": "wissen",
+    "form": "schrift",
+    "schaltet": "tausch-federstahl"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Wer was gebracht hat und wo es herkam: Hof, Flurstück, Zahl der Federn. Die letzte Seite ist die Karte, die keiner gezeichnet hat.",
+  "einmalig": true,
+  "gewicht": 0.4
+}

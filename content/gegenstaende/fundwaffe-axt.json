@@ -1,0 +1,13 @@
+{
+  "id": "fundwaffe-axt",
+  "name": "Spaltaxt vom Bruch",
+  "wirkung": {
+    "art": "waffe",
+    "waffe": "axt"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Zum Holzmachen geschmiedet, zum Steinebrechen benutzt. Der Stiel ist neu, das Blatt älter als der Befall.",
+  "einmalig": true,
+  "gewicht": 2.0
+}

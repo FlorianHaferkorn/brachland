@@ -1,0 +1,13 @@
+{
+  "id": "tauchzeug",
+  "name": "Tauchzeug",
+  "wirkung": {
+    "art": "werkzeug",
+    "faehigkeit": "tauchen"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Atemgerät der Klärwerkswartung, dazu eine Leine. Der Zettel im Spind trägt dieselbe Zahl in einer anderen Handschrift.",
+  "einmalig": true,
+  "gewicht": 5.0
+}

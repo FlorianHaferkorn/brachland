@@ -1,0 +1,12 @@
+{
+  "id": "eichsiegel",
+  "name": "Eichsiegel",
+  "wirkung": {
+    "art": "marke",
+    "laeuterung": 5
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Prüfplombe aus einem Werkskoffer, Aufdruck VERIDIA Feldabgleich. Die Marke nimmt sie an wie eine Hand ein Werkzeug.",
+  "gewicht": 0.02
+}

@@ -1,0 +1,13 @@
+{
+  "id": "plombenzange",
+  "name": "Plombenzange",
+  "wirkung": {
+    "art": "zugang",
+    "oeffnet": "werksspind"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Werkseigentum. Öffnet, was mit Draht und Blei verschlossen wurde. Davon gibt es mehr, als man denkt.",
+  "einmalig": true,
+  "gewicht": 0.4
+}

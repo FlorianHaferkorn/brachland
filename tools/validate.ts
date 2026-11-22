@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten,
+import { Belohnungen, Oekonomie, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -178,6 +178,63 @@ const kreaturIds = new Set(kreaturen.map((k: any) => k.id));
 const fragmentIds = new Set(fragmente.map((f: any) => f.id));
 const regentIds = new Set(regenten.map((r: any) => r.id));
 const auftragIds = new Set(auftraege.map((a: any) => a.id));
+
+// Belohnungen und Ökonomie (D393): Jede Kategorie des Vertrags mit D392 löst sich in vorhandene
+// Gegenstände der passenden Art auf; Unikate sind einmalig und liegen in genau einem Vorrat.
+{
+  const meldeB = (was: string) => { console.log(`  ✗ Belohnungen: ${was}`); auftragsfehler++; };
+  const art = (id: string) => gegenstaende.find((g: any) => g.id === id)?.wirkung.art;
+  const einmalig = (id: string) => gegenstaende.find((g: any) => g.id === id)?.einmalig === true;
+  const b = Belohnungen.safeParse(JSON.parse(readFileSync('content/belohnungen.json', 'utf8')));
+  if (!b.success) meldeB(b.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; '));
+  else {
+    for (const k of BELOHNUNGS_KATEGORIEN) if (!(k in b.data.mengen) && !(k in b.data.unikate)) meldeB(`Kategorie '${k}' fehlt`);
+    for (const [k, liste] of Object.entries(b.data.mengen)) for (const e of liste!) {
+      if (!gegenstandIds.has(e.gegenstand)) { meldeB(`${k}: '${e.gegenstand}' gibt es nicht`); continue; }
+      if (einmalig(e.gegenstand)) meldeB(`${k}: '${e.gegenstand}' ist einmalig und keine Mengenware`);
+      const stufe = /^aufwertung-(\d)$/.exec(k)?.[1];
+      const g = gegenstaende.find((x: any) => x.id === e.gegenstand);
+      if (stufe && !(g.wirkung.art === 'material' && g.wirkung.stufe === Number(stufe))) meldeB(`${k}: '${e.gegenstand}' ist kein Material der Stufe ${stufe}`);
+      if (k === 'marke' && g.wirkung.art !== 'marke') meldeB(`marke: '${e.gegenstand}' stärkt die Marke nicht`);
+    }
+    const ARTEN: Record<string, string> = { werkzeug: 'werkzeug', waffe: 'waffe', ruestung: 'zeug', wissen: 'wissen', zugang: 'zugang' };
+    const gesehen = new Set<string>();
+    for (const [k, jeRegion] of Object.entries(b.data.unikate)) for (const [region, vorrat] of Object.entries(jeRegion!)) {
+      if (!regionen.some((r: any) => r.id === region)) meldeB(`${k}: Region '${region}' gibt es nicht`);
+      for (const id of vorrat) {
+        if (!gegenstandIds.has(id)) { meldeB(`${k}: '${id}' gibt es nicht`); continue; }
+        if (!einmalig(id)) meldeB(`${k}: '${id}' ist nicht einmalig`);
+        if (ARTEN[k] && art(id) !== ARTEN[k]) meldeB(`${k}: '${id}' hat Art '${art(id)}', erwartet '${ARTEN[k]}'`);
+        if (gesehen.has(id)) meldeB(`'${id}' liegt in zwei Vorräten — das wäre eine Kopier-Belohnung`);
+        gesehen.add(id);
+      }
+    }
+    for (const g of gegenstaende) if (g.gewicht === undefined) meldeB(`'${g.id}' hat kein Gewicht (D398)`);
+    for (const g of gegenstaende) if (g.einmalig && !gesehen.has(g.id)) meldeB(`'${g.id}' ist einmalig, liegt aber in keinem Vorrat`);
+    for (const sprosse of b.data.leiter) if (sprosse.unikat && !sprosse.kategorien.some(k => k in b.data.unikate))
+      meldeB(`Sprosse '${sprosse.rang}' verspricht ein Unikat, nennt aber keine Unikat-Kategorie`);
+  }
+  const o = Oekonomie.safeParse(JSON.parse(readFileSync('content/oekonomie.json', 'utf8')));
+  if (!o.success) meldeB(`oekonomie.json: ${o.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+  else {
+    const d = o.data;
+    const kenne = (wo: string, ids: string[]) => { for (const id of ids) if (!gegenstandIds.has(id)) meldeB(`oekonomie.json ${wo}: '${id}' gibt es nicht`); };
+    d.schmiede.forEach(s => kenne(`schmiede Stufe ${s.stufe}`, Object.keys(s.preis)));
+    if (d.schmiede.some((s, i) => s.stufe !== i + 1)) meldeB('oekonomie.json schmiede: Stufen lückenlos ab 1');
+    kenne('beute', [d.beute.tier.gegenstand, d.beute.mensch.gegenstand, d.beute.verhaerteter.gegenstand, d.beute.regent.gegenstand]);
+    kenne('marke.ruhigesRevier', Object.keys(d.marke.ruhigesRevier));
+    kenne('flasche', [...Object.keys(d.flasche.schlucke.preis), ...Object.keys(d.flasche.staerke.preis)]);
+    for (const t of d.tausch) {
+      if (!bewohner.has(t.bei)) meldeB(`oekonomie.json tausch: '${t.bei}' ist kein Bewohner-Ort`);
+      kenne(`tausch bei ${t.bei}`, [...Object.keys(t.gibt), ...Object.keys(t.nimmt), ...(t.braucht ? [t.braucht] : [])]);
+      if (t.braucht && art(t.braucht) !== 'wissen') meldeB(`oekonomie.json tausch: '${t.braucht}' ist kein Wissen`);
+    }
+    for (const [region, r] of Object.entries(d.regionen)) {
+      if (!regionen.some((x: any) => x.id === region)) meldeB(`oekonomie.json: Region '${region}' gibt es nicht`);
+      kenne(`regionen.${region}.einmalig`, Object.keys(r.einmalig));
+    }
+  }
+}
 
 for (const a of auftraege) {
   if (!bewohner.has(a.geber)) meldeA(a.id, `Geber '${a.geber}' ist kein Bewohner-Ort`);

@@ -1,0 +1,12 @@
+{
+  "id": "kernschlacke",
+  "name": "Kernschlacke",
+  "wirkung": {
+    "art": "material",
+    "stufe": 4
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Was von einem Direktivkern bleibt, wenn man ihn nicht liest, sondern zerschlägt. Schwer, glasig, in einem Stück.",
+  "gewicht": 2.5
+}

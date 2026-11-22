@@ -1,0 +1,14 @@
+{
+  "id": "wartungsblatt-k7",
+  "name": "Wartungsblatt K7",
+  "wirkung": {
+    "art": "wissen",
+    "form": "schrift",
+    "schaltet": "anzeige-griff-k7"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Prüfschritte für Wachtiere, Baureihe K7. Punkt 4: Ruhigstellen am Nackenschild, erst nach dem zweiten Ansatz.",
+  "einmalig": true,
+  "gewicht": 0.005
+}

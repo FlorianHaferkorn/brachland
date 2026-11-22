@@ -1,0 +1,255 @@
+{
+  "mengen": {
+    "aufwertung-1": [
+      {
+        "gegenstand": "chitinspan",
+        "menge": {
+          "entdeckung": 2,
+          "verborgener-ort": 4,
+          "nebenaufgabe": 3,
+          "figurenlinie": 4
+        }
+      }
+    ],
+    "aufwertung-2": [
+      {
+        "gegenstand": "federstahl",
+        "menge": {
+          "entdeckung": 1,
+          "verborgener-ort": 2,
+          "nebenaufgabe": 2,
+          "figurenlinie": 2,
+          "optionaler-boss": 2
+        }
+      }
+    ],
+    "aufwertung-3": [
+      {
+        "gegenstand": "haertling",
+        "menge": {
+          "figurenlinie": 1,
+          "optionaler-boss": 1
+        }
+      }
+    ],
+    "aufwertung-4": [
+      {
+        "gegenstand": "kernschlacke",
+        "menge": {
+          "regent": 1
+        }
+      }
+    ],
+    "verbrauch": [
+      {
+        "gegenstand": "harzverband",
+        "menge": {
+          "entdeckung": 1,
+          "verborgener-ort": 2,
+          "nebenaufgabe": 2,
+          "figurenlinie": 2,
+          "optionaler-boss": 2,
+          "regent": 3
+        }
+      },
+      {
+        "gegenstand": "koeder",
+        "menge": {
+          "entdeckung": 2,
+          "nebenaufgabe": 2
+        }
+      },
+      {
+        "gegenstand": "zunder",
+        "menge": {
+          "entdeckung": 1,
+          "verborgener-ort": 2,
+          "nebenaufgabe": 2
+        }
+      },
+      {
+        "gegenstand": "netzschlinge",
+        "menge": {
+          "verborgener-ort": 1,
+          "nebenaufgabe": 1,
+          "figurenlinie": 1
+        }
+      },
+      {
+        "gegenstand": "setzling",
+        "menge": {
+          "verborgener-ort": 1,
+          "nebenaufgabe": 1,
+          "figurenlinie": 1
+        }
+      },
+      {
+        "gegenstand": "reinprobe",
+        "menge": {
+          "verborgener-ort": 1,
+          "nebenaufgabe": 1,
+          "figurenlinie": 2
+        }
+      },
+      {
+        "gegenstand": "reinkultur",
+        "menge": {
+          "figurenlinie": 1,
+          "optionaler-boss": 1
+        }
+      },
+      {
+        "gegenstand": "quellwasser",
+        "menge": {
+          "verborgener-ort": 1,
+          "optionaler-boss": 1
+        }
+      },
+      {
+        "gegenstand": "herzfunke",
+        "menge": {
+          "figurenlinie": 1,
+          "optionaler-boss": 1,
+          "regent": 1
+        }
+      }
+    ],
+    "marke": [
+      {
+        "gegenstand": "eichsiegel",
+        "menge": {
+          "verborgener-ort": 1,
+          "nebenaufgabe": 1,
+          "figurenlinie": 1,
+          "optionaler-boss": 1
+        }
+      }
+    ]
+  },
+  "unikate": {
+    "werkzeug": {
+      "oental": [
+        "kletterzeug",
+        "halfter",
+        "tauchzeug",
+        "gleiter"
+      ]
+    },
+    "waffe": {
+      "oental": [
+        "fundwaffe-axt",
+        "fundwaffe-speer"
+      ]
+    },
+    "ruestung": {
+      "oental": [
+        "wachstuchkittel",
+        "flechtenkutte",
+        "werkskluft",
+        "chitinweste"
+      ]
+    },
+    "wissen": {
+      "oental": [
+        "zettel-harz-auf-leinen",
+        "lieferbuch-esse",
+        "flurkarte-west",
+        "pegelbuch",
+        "wartungsblatt-k7"
+      ]
+    },
+    "zugang": {
+      "oental": [
+        "schlussstein-stange",
+        "plombenzange",
+        "schluessel-schieberhaus"
+      ]
+    }
+  },
+  "leiter": [
+    {
+      "rang": "entdeckung",
+      "was": "Kleine Entdeckung: Spind, Hochsitz, Wagen abseits des Wegs",
+      "wiederholbar": false,
+      "unikat": false,
+      "kategorien": [
+        "aufwertung-1",
+        "aufwertung-2",
+        "verbrauch"
+      ],
+      "regel": "Eine Sorte, kleine Menge, dazu immer ein Bild oder ein Satz. Nie Stufe 3 oder höher, nie ein Unikat: Das Kleine darf man verpassen."
+    },
+    {
+      "rang": "verborgener-ort",
+      "was": "Verborgener Ort mit eigenem Verhärteten",
+      "wiederholbar": false,
+      "unikat": true,
+      "kategorien": [
+        "wissen",
+        "zugang",
+        "ruestung",
+        "waffe",
+        "marke",
+        "aufwertung-2",
+        "verbrauch"
+      ],
+      "regel": "Ein Unikat, das nur hier liegt, plus Mengenware. Der Verhärtete selbst zählt als optionaler Boss und zahlt je nach Ausgang."
+    },
+    {
+      "rang": "nebenaufgabe",
+      "was": "Nebenaufgabe eines Bewohners",
+      "wiederholbar": false,
+      "unikat": false,
+      "kategorien": [
+        "werkzeug",
+        "wissen",
+        "zugang",
+        "waffe",
+        "marke",
+        "aufwertung-1",
+        "aufwertung-2",
+        "verbrauch"
+      ],
+      "regel": "Das Ende einer Kette trägt ein Unikat oder ein Eichsiegel; Zwischenschritte Mengenware. Kein Auftrag endet nur mit einem Sud."
+    },
+    {
+      "rang": "figurenlinie",
+      "was": "Abschluss einer Fraktionsfigur (3–5 Stationen)",
+      "wiederholbar": false,
+      "unikat": true,
+      "kategorien": [
+        "ruestung",
+        "wissen",
+        "marke",
+        "aufwertung-3",
+        "verbrauch"
+      ],
+      "regel": "Das Zeug der Fraktion und eine Gabe in ihrer Währung: Enklave Eichsiegel, Erbe Härtling, Mönche Wissen. Stationen davor: Mengenware."
+    },
+    {
+      "rang": "optionaler-boss",
+      "was": "Verhärteter am Weg oder am verborgenen Ort",
+      "wiederholbar": false,
+      "unikat": false,
+      "kategorien": [
+        "aufwertung-3",
+        "marke",
+        "aufwertung-2",
+        "verbrauch"
+      ],
+      "regel": "Getötet: ein Härtling. Gereinigt: Läuterung, das Tier bleibt, das Revier zählt als ruhig. Was er bewacht hat, liegt in beiden Fällen da."
+    },
+    {
+      "rang": "regent",
+      "was": "Regent der Region",
+      "wiederholbar": false,
+      "unikat": true,
+      "kategorien": [
+        "aufwertung-4",
+        "wissen",
+        "verbrauch"
+      ],
+      "regel": "Immer: +2 Fassung, Direktivkern, ein Stück Protokoll. Getötet zusätzlich Kernschlacke; geheilt zusätzlich Läuterung und überall ruhige Reviere."
+    }
+  ]
+}

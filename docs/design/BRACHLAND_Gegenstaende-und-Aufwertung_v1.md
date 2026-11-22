@@ -1,0 +1,403 @@
+---
+last-reviewed: 2026-11-22
+shelf-life-days: 180
+---
+# BRACHLAND — Gegenstände, Belohnungen und Aufwertung v1
+
+> **Entwurf (D393), nichts davon ist im Spiel verdrahtet.** Daten: `content/gegenstaende/` (25 neu),
+> `content/belohnungen.json`, `content/oekonomie.json`. Regeln: `src/spiel/belohnung.ts`, `src/spiel/oekonomie.ts`.
+> Rechnung: `npx tsx tools/oekonomiesim.ts`. Entscheidungen für Flo: Ledger **A-28**. Offen/erledigt steht im Ledger.
+>
+> Auftrag (Flo, 22.11.2026): „mach weiter mit der Story, Quests, Items und Belohnung, Upgrade Materialien etc.
+> orientiere dich auch hier einfach daran wie es andere Spiele in dem Genre machen die in den Disziplinen dafür gelobt
+> wurden und versuche es noch besser zu machen und passend zu unserer Welt.“
+>
+> Nicht neu aufgerollt: Marke heilt statt tötet (D374), Belohnungsregel (D379), Fassung 4 + 2 je Regent, Verhärtete
+> nur mit Reinkultur, Werkzeuge hinter Rätsel/Nebenaufgabe/Boss (D391), Handwerk ja, Motive nein (ADR-0004).
+> Kein Kampfwert wurde geändert; die Schmiede rechnet weiter nach D177.
+
+## 1. Was gelobte Genre-Titel tun — elf Regeln
+
+Übernommen wird die Bauweise, nie Name, Gegenstand oder Gestalt. „Nicht belegt“ heisst: in dieser Recherche keine
+Quelle gefunden; die Aussage steht dann als Annahme da.
+
+| # | Befund (Quelle) | So setzen wir es um | So machen wir es besser |
+|---|---|---|---|
+| 1 | **Heilung füllt sich an der Rast, statt gesammelt zu werden.** Die Flasche mit festen Schlucken gilt als der Zug, der den Abnutzungskrieg beendet hat [E1][E2]; gesammelte Heilmittel gelten als die feindseligste Entscheidung des Nachfolgers [B4]. | **Sudflasche**: 3 Schlucke Kräutersud, voll an jeder Rast (§5.2). | Schlucke wachsen über **Setzlinge**, die nur in ruhigen Revieren stehen: Wer heilt, bekommt mehr Heilung — aus der Welt begründet, nicht aus einem Menü. |
+| 2 | **Zu viele Materialstufen, zu knapp dosiert.** Neun Varianten je Sorte; Beute gibt „ein, zwei Steine“; man kann erst experimentieren, wenn das Spiel fast vorbei ist [ER1][ER2]. | **Vier** Stufen für das ganze Spiel, drei Waffenstufen (D177 bleibt). | Stufe 1 ist nie der Engpass: nach dem Lieferbuch tauscht die Schmiedin Span gegen Federstahl (§7). Eng ist nur, was eine Entscheidung trägt (Härtling). |
+| 3 | **Nachkaufbares Grundmaterial über einen Fund** (Glockenkugel-Prinzip) löst die Knappheit, kommt im Vorbild aber spät [ER3]. | Ein Wissensgegenstand öffnet einen Tausch (`lieferbuch-esse`, `zettel-harz-auf-leinen`). | Er liegt in Region 1, nicht im Endspiel, und er ist ein Buch mit einer Geschichte, kein Zahlenschlüssel. |
+| 4 | **Wenige Waffen, jede anders, schlägt viele gleiche** [B1]. Das oberste Material einmal je Durchlauf wurde nachträglich gelockert [B2][B3]. | Drei Waffen mit eigenen Fenstern (ADR-0008); zwei davon als **Fundwaffen** (§5.5). | Kein Einmal-je-Durchlauf-Flaschenhals auf dem Hauptweg: fünf Härtlinge im Tal, drei braucht die Stufe 3. Die Knappheit ist eine Wahl (töten oder reinigen), kein Zufall. |
+| 5 | **Fortschritt über Fundstücke und Bosse statt über Stufen**: vier Perlen ergeben ein Stück Leben; Kürbiskerne mehr Schlucke [S1][S2]. | Der Brachgänger hat **keine Stufe**. Er wächst über Waffe, Marke, Flasche, Werkzeug, Zeug. | Die Marke wächst aus dem, was man **tut** (Läuterung je Gereinigtem), nicht nur aus dem, was man findet. |
+| 6 | **Verbrauchsmittel als Währung für Werkzeuge werden gehortet**; besser ein Vorrat, der sich an der Rast füllt [S3]. | Markenladungen und Schlucke füllen sich an der Rast; Verbrauchsgüter haben eine Traglast. | Harzverband und Herzfunke hören auf, Schmiedewährung zu sein (heute D177): Niemand soll zwischen Heilen und Schmieden wählen müssen. |
+| 7 | **Wenige Plätze, jeder Bonus mit Preis**: Kerben-Budget von 3 bis 11, „Bonus mit Nachteil“, Überladen als bewusstes Risiko [HK1]. | **Zeug**: ein Platz, vier Stücke, jedes mit Vor- und Nachteil (§5.6). | Jedes Stück gehört zu einer Fraktion und einer Spielweise; es färbt, wie man gesehen wird, nicht nur, was man aushält. |
+| 8 | **Waffen aus Teilen zusammensetzen** ist das meistgelobte Eigene eines jüngeren Genre-Titels [LP1][LP2]. | **Nicht übernommen.** Jede Kombination bräuchte geprüfte Kampfwerte und Clips. | Statt Teiletausch der Kernfunke (D188): ein Elementkern, der in jede Waffe passt — schon gebaut. |
+| 9 | **Material kommt aus dem Gegner, den man dafür gejagt hat** (Jagdspiel-Prinzip). *Quelle in dieser Recherche nicht belegt.* | Span vom Tier, Härtling vom Verhärteten, Kernschlacke vom Regenten — nur wenn getötet (D379). | Das Vorbild kennt nur den Jäger. Hier gibt derselbe Gegner dem Heiler etwas anderes; die Beute ist eine Aussage über den Spieler. |
+| 10 | **Die liegengebliebene Währung** macht den Tod zum Einsatz; der zweite Tod löscht alles [E3]. Kritisiert: derselbe Anlauf wieder und wieder [E3]; ein Titel nimmt nur die Hälfte [S4]. | **Das Bündel**: loses Material bleibt am Ort (§8). | Nichts geht endgültig verloren. Beim zweiten Tod nimmt der Befall das Bündel auf — ein Tier trägt es, und es lässt los, wenn man es reinigt. |
+| 11 | **Kopier-Belohnungen** in Nebenorten entwerten das Erkunden. *Als Kritik am Vorbild in dieser Recherche nicht belegt* (die Treffer waren Ratgeber) — als Annahme geführt. | Belohnungsleiter (§6): Jeder verborgene Ort und jede Figurenlinie trägt ein **Unikat**. | Das Gate erzwingt es: `validate` lehnt ein Unikat in zwei Vorräten ab, `verteile` gibt kein Stück zweimal aus. |
+
+**Soulframe:** belegt sind schmiedbare Barren zum Aufwerten und Beute, die man sofort trägt oder zu Material zerlegt
+(Preludes 15) [SF1][SF2]; Gewichtung und Kritik daran: nicht belegt. Wir zerlegen keine Beute — es gibt keine
+Ausrüstungsbeute. **The Blood of Dawnwalker:** belegt (Ratgeber gemischter Güte) sind getrennte Systeme für
+Verbrauchsgüter (Rezept + Zutat) und Aufwertung beim Schmied, und dass das beste Stück als Auftragslohn geschmiedet
+statt hochgestuft wird [DW1][DW2]; Lob oder Kritik dazu: nicht belegt. Übernommen: Unikate kommen aus Aufträgen und
+Figurenlinien. **Dark Souls 1–3:** belegt ist nur die Flasche [E1][E2]; Aufwertungspfade und Materialfülle der
+einzelnen Teile: nicht belegt. **Hollow Knight:** Nagel-Aufwertung über seltenes Erz: nicht belegt.
+
+Quellen:
+[E1] https://pressstarttodiscuss.blogspot.com/2015/06/92-dark-souls-use-of-estus.html ·
+[E2] https://stiemannkj1.gitlab.io/the-de-evolution-of-the-estus-flask ·
+[E3] https://www.gamedeveloper.com/design/the-design-lessons-designers-fail-to-learn-from-dark-souls ·
+[ER1] https://gamesradar.com/games/action-rpg/elden-ring-shadow-of-the-erdtree-makes-one-change-to-weapon-upgrading-thats-so-good-i-want-fromsoftware-to-patch-it-into-the-base-game-immediately ·
+[ER2] https://eldenring.wiki.gg/wiki/Smithing_Stones ·
+[ER3] https://www.windowscentral.com/elden-ring-list-smithing-stone-and-bell-bearing-locations ·
+[B1] https://kotaku.com/bloodbornes-biggest-problems-have-been-fixed-1749281059 ·
+[B2] https://gameinformer.com/b/news/archive/2015/12/21/new-bloodborne-update-eases-weapon-upgrading.aspx ·
+[B3] https://gamesradar.com/buy-blood-rocks-bloodborne-and-get-all-your-weapons-10 ·
+[B4] https://www.patreon.com/ProblemMachine/posts/bloodborne-55421950 ·
+[S1] https://gameinformer.com/exclusive-feature/2019/01/08/how-character-progression-works-in-sekiro-shadows-die-twice ·
+[S2] https://godisageek.com/reviews/sekiro-shadows-die-twice-review/ ·
+[S3] https://www.gamedeveloper.com/design/how-i-broke-sekiro-shadows-die-twice ·
+[S4] https://www.pcgamer.com/is-sekiro-too-hard/ ·
+[HK1] https://saschb2b.github.io/game-mechanics/games/hollow-knight/charms-and-notches ·
+[LP1] https://pcgamer.com/lies-of-p-review · [LP2] https://gamesradar.com/lies-of-p-review ·
+[SF1] https://gamespace.com/all-articles/news/soulframes-preludes-15-gods-ghosts-overhauls-loot-builds-and-social-play/ ·
+[SF2] https://www.pcgamesn.com/soulframe/preludes-13-virtue-prisms ·
+[DW1] https://timesaver.gg/blog/blood-of-dawnwalker-crafting-upgrade-guide ·
+[DW2] https://mobalytics.gg/gamebase/guides/the-blood-of-dawnwalker-legendary-gear
+
+## 2. Bestandsaufnahme (Stand vor D393)
+
+| Was | Wo | Befund |
+|---|---|---|
+| 14 Gegenstände, sechs Wirkungen | `content/gegenstaende/`, Schema `GegenstandWirkung` | Für den Rundenkampf gebaut: Heilung in Anteilen der KP (`kraeutersud` 35 %, `harzverband` 70 %, `quellwasser` 100 %), `herzfunke` (Wiederbelebung), `reinkultur`, `zunder` (Fokus), `koeder`/`netzschlinge` (Fangchance — Fangen ist seit D374 entfallen), sechs Reinkultur-Komponenten |
+| Beute | `beuteChance` je Gegenstand, `beute()` in `src/spiel/gegenstaende.ts` | Ein Wurf je Kampf, höchstens ein Fund; gilt für **jeden** Sieg, auch den, der reinigt. D379 („Material nur von Getöteten, Raten halbiert“) ist nicht gebaut |
+| Schmiede | `src/spiel/schmiede.ts` (D177), `tests/schmiede.test.ts` | Drei Stufen je Waffe, +12 % Schaden und Haltungsschaden je Stufe. Preis in **Heilmitteln**: 1 / 2 / 3 Harzverband, ab Stufe 2 dazu 1 / 2 Herzfunken. Kernfunke einsetzen: 2 Harzverband (D188) |
+| Waffen | `content/waffen/` (Klinge, Axt, Speer), `Spielstand.waffenStufen` | Alle drei von Anfang an im Besitz; keine Rüstung, kein Zeug |
+| Fortschritt | `src/spiel/fortschritt.ts`, `tests/fortschritt.test.ts` | Stufe 1–40, Erfahrung, Mutation — für **Kreaturen im Team**. Das Team ist entfallen (Bibel v2 §2); der Brachgänger selbst hat keine Stufe (`SPIELERIN.lebenMax` 100, fest) |
+| Marke | `content/reinigen.json` (`fassung`: 4 + 2 je Regent, `ladung` 1, Verhärtete 3) | Als Regelkern hinter Schalter (D376); Läuterung, Markenstufen, Reviergunst nur gerechnet (Reinigen v1 §4, A5/A6) |
+| Heilung im Echtzeitkampf | `src/kampf/echtzeit.ts` | **Gibt es nicht.** Kein Schluck, kein Verband im Echtzeitkampf |
+| Aufträge | `content/auftraege/` (19), `Auftrag.belohnung` = Gegenstand → Anzahl | Belohnungen fast durchweg Sud/Harz/Köder; zwei Werkzeug-Aufträge mit Platzhalter (D391) |
+| Startbeutel | `LEERER_STAND.beutel` | 2 Kräutersud, 1 Köder |
+| Tod | `Spielstand.letzteZuflucht` | Niederlage heilt voll, nichts geht verloren |
+
+Drei Dinge passen nicht mehr zur Bibel v2: Heilmittel sind Schmiedewährung; Beute fällt auch beim Reinigen; die halbe
+Gegenstandsliste dient einem Fangen, das es nicht mehr gibt.
+
+## 3. Die Kernspannung als Ökonomie: zwei Achsen
+
+**Töten gibt Stahl. Reinigen gibt Marke.** Beides wächst, aber nicht aus demselben Topf, und kein Tausch führt von
+einem in den anderen.
+
+| | Achse **Stahl** | Achse **Marke** |
+|---|---|---|
+| Wächst aus | dem, was Getötete hinterlassen (D379) | dem, was man reinigt: **Läuterung** |
+| Wer nimmt es | die Schmiedin am Nordende der Terrasse | niemand — die Marke selbst, an der Rast |
+| Einheit | Chitinspan (1), Federstahl (2), Härtling (3), Kernschlacke (4) | 1 je Tier, 5 je Verhärtetem, 15 je geheiltem Regenten |
+| Stufen | Waffe 1 / 2 / 3: 8 Span · 14 Span + 3 Federstahl · 22 Span + 4 Federstahl + 3 Härtlinge | Schwellen 25 / 60 / 110 / 170: je +1 Fassung; Stufe 2 Griff +0,2 s, Stufe 4 Verhärtete ×1,5 statt ×2 (Reinigen v1 A5) |
+| Wirkung | +12 % Schaden und Haltungsschaden je Stufe (D177, unverändert) | mehr Reinigungen zwischen zwei Rasten |
+| Eigene Schleife | leere Reviere: keine Kämpfe mehr, aber auch nichts mehr zu holen | ruhige Reviere: Rast ohne Zuflucht, Setzlinge, Reinproben (§5.3) |
+| Wer darauf schaut (D385) | das Erbe (Macht) | die Enklave (Anteil gereinigt) |
+
+**Wo sie sich kreuzen** — vier Stellen, an denen eine Entscheidung liegt:
+
+1. **Der Verhärtete.** Getötet gibt er einen Härtling; gereinigt 5 Läuterung, er bleibt, das Revier zählt. Die
+   Waffenstufe 3 kostet drei Härtlinge: **Wer die Hauptwaffe ausschmiedet, hat drei von fünf Verhärteten getötet.**
+2. **Der Regent.** Getötet: Kernschlacke. Geheilt: 15 Läuterung und überall ruhige Reviere. Beide Male +2 Fassung,
+   Kernfunke, Protokoll (entschieden).
+3. **Die kleine Gegengabe.** Was einmalig in der Welt liegt, gibt jeder Spielweise ein Stück der anderen Achse:
+   10 Span und 6 Federstahl in Spinden und Wagen (der Heiler kommt auf Waffenstufe 1), 5 Eichsiegel zu je 5 Läuterung
+   (der Schlächter kommt auf Markenstufe 1).
+4. **Die Flasche.** Beide brauchen sie. Schlucke kommen aus Setzlingen (ruhige Reviere und vier Fundorte), Stärke aus
+   Quellwasser (drei Fundorte über dem Befall, beschwerlicher Weg).
+
+### Überschlagsrechnung Œntal
+
+`npx tsx tools/oekonomiesim.ts` — Erwartungswerte, kein Kampf. **Annahmen** (Reinigen v1 §4 A1/A3, keine gemessen):
+180 Begegnungen mit 280 Tieren, 20 Rasten, dazu **angenommen** 5 Verhärtete (3 verborgene Orte + 2 Engstellen am
+Uferweg), 4 menschliche Gegner, 12 Reviere. Span 15 % je getötetem Tier, 1 Federstahl je getötetem Menschen. Alle
+Spielweisen finden alles Einmalige ausser dem Umgeher (60 %).
+
+| | Schlächter | Gemischt | Heiler | Umgeher |
+|---|---|---|---|---|
+| Tiere getötet / gereinigt / umgangen | 280 / 0 / 0 | 176 / 104 / 0 | 0 / 171 / 110 | 0 / 54 / 226 |
+| Verhärtete getötet / gereinigt | 5 / 0 | 3 / 2 | 0 / 5 | 0 / 1 |
+| Chitinspan / Federstahl / Härtling / Kernschlacke | 52 / 10 / 5 / 1 | 36 / 8 / 3 / 0 | 10 / 6 / 0 / 0 | 6 / 3 / 0 / 0 |
+| Waffenstufen (Haupt / zweite / dritte) | 3 / 1 / 0 | 2 / 1 / 0 | 1 / 0 / 0 | 0 / 0 / 0 |
+| Waffenschaden Hauptwaffe | +36 % | +24 % | +12 % | +0 % |
+| Läuterung → Markenstufe | 25 → 1 | 154 → 3 | 236 → 4 | 89 → 2 |
+| Fassung nach dem Regenten | 7 | 9 | 10 | 8 |
+| ruhige Reviere | 0 von 12 | 0 von 12 | 12 von 12 | 0 von 12 |
+| Flasche (Schlucke × Stärke) | 5 × 55 % | 5 × 55 % | 6 × 55 % | 4 × 45 % |
+| Anteil gereinigt an den Eingriffen | 0 % | 37 % | 100 % | 100 % |
+
+**Befunde:**
+
+1. **Keine der drei kämpfenden Spielweisen schlägt eine andere auf beiden Achsen** (3/1, 2/3, 1/4; als Test
+   festgehalten). Der Umgeher verzichtet auf beides; sein Lohn ist das Vertrauen der Mönche und die Flechtenkutte.
+2. **Gemischt liegt 16 Läuterung unter der vierten Schwelle** (154 gegen 170). Fände er ein sechstes Eichsiegel oder
+   reinigte er einen dritten Verhärteten, bliebe es bei 3 — aber die Spanne ist schmal. Die Schwellen sind die
+   empfindlichste Zahl dieser Tabelle.
+3. **Die Regel für das ruhige Revier aus Reinigen v1 (A6, „≥ 60 % der Begegneten gereinigt“) ist wörtlich nicht
+   erreichbar:** Zwischen zwei Rasten liegen 14 Tiere, die Marke fasst 4–8. Wörtlich gerechnet hat der Heiler null
+   ruhige Reviere und wird von Gemischt dominiert (2/3 gegen 1/3) — der Befund 2 aus Reinigen v1 §4, jetzt gerechnet.
+   Gesetzt als Arbeitswert: ruhig, wenn ≥ 60 % der **Eingriffe** Reinigungen sind **und** ≥ 25 % der Tiere des Reviers
+   gereinigt wurden (`ruhigAb`, `ruhigMindestens`). Zu bestätigen (A-28.3).
+4. **Die Rast im ruhigen Revier ist der stärkste Hebel der ganzen Rechnung.** Mit voller Aufladung reinigt der Heiler
+   231 Tiere (Läuterung 296), mit halber (`ruhigeRast` 0,5, gesetzt) 171. Die Schwellen 25 / 60 / 110 / 170 wären damit
+   **im ersten von fünf Kapiteln** ausgeschöpft — sie stammen aus einer Rechnung mit 100 Reinigungen. Für das ganze
+   Spiel braucht es weitere Schwellen oder einen flacheren Ertrag (A-28.4).
+5. **Der Heiler ist durchspielbar gerechnet, nicht gemessen:** +12 % Waffe, Fassung 10, sechs Schlucke, vier
+   Reinkulturen übrig. Ob das gegen den Flussvater reicht, weiss niemand — es gibt im Echtzeitkampf keinen Regenten.
+6. Gegenüber Reinigen v1 §4: Der Schlächter bringt die Zweitwaffe auf Stufe 1 statt 2, Gemischt bleibt bei Stufe 2,
+   der Heiler kommt sicher auf Stufe 1 (dort „+0 … +12 %“). Die Reihenfolge der Spielweisen ist dieselbe.
+
+## 4. Stufenzahl: warum vier und drei
+
+Vier Materialstufen für **fünf Regionen**, drei Waffenstufen (D177). Regel 2: neun Varianten je Sorte machen aus
+Schmieden Buchhaltung; Regel 4: wenige Stufen, jede spürbar. +12 % je Stufe ist im Echtzeitkampf geprüft
+(`tests/schmiede.test.ts`) — eine vierte Stufe wäre +48 % und ungeprüft. Deshalb ist Stufe 4 in den Daten ein
+**Vorschlag** (`vorschlag: true`, zählt in keiner Rechnung): die Kernschlacke eines getöteten Regenten, je Region eine,
+für genau eine Waffe (A-28.2).
+
+## 5. Gegenstandsklassen
+
+### 5.1 Aufwertungsmaterial (Achse Stahl)
+
+| Stufe | Gegenstand | Herkunft in der Welt | Knapp oder nachwachsend | Beim Tod |
+|---|---|---|---|---|
+| 1 | **Chitinspan** | aus dem Befall: Platten getöteter Tiere (15 % je Tier); 10 einmalig in Spinden und Wagen | fliesst, solange man tötet; Tausch 5 Span → 1 Federstahl nach dem Lieferbuch | bleibt liegen |
+| 2 | **Federstahl** | Altbestand der Betriebe: Blattfedern, Sägeblätter — 6 Fundorte; 1 je getötetem Menschen (sie tragen ihn als Werkzeug) | endlich in der Welt, über Tausch streckbar | bleibt liegen |
+| 3 | **Härtling** | der Kern eines **getöteten** Verhärteten | 5 im Tal, dazu 1 aus der Linie des Erbes; nie nachwachsend | bleibt beim Träger |
+| 4 | **Kernschlacke** | der zerschlagene Direktivkern eines **getöteten** Regenten | 1 je Region | bleibt beim Träger |
+
+Ob getötete Tiere nachwachsen, ist offen (A-28.5). Die Rechnung nimmt an: nein.
+
+### 5.2 Verbrauchsgüter und die Flasche
+
+| Gegenstand | Heute | Vorschlag Echtzeit | Aufwertung |
+|---|---|---|---|
+| **Kräutersud** | Heilung 35 %, Beute 30 % | Inhalt der **Sudflasche**: 3 Schlucke zu 35 % Leben, voll an jeder Rast | Schlucke 3 → 6: je 2 Setzlinge bei der Magd (ein Beet). Stärke 35 → 45 → 55 %: je 1 Quellwasser im Ansatz |
+| **Harzverband** | Heilung 70 %, Beute 10 %, Schmiedewährung | starker, langsamer Verband; Traglast 3; kein Schmiedepreis mehr | mit dem Zettel „Harz auf Leinen“ je Rast in Brannburg einer gegen Zunder |
+| **Quellwasser** | Heilung 100 %, Beute 2 % | volle Heilung **oder** in die Flasche geben — drei im Tal | — (ist selbst die Aufwertung) |
+| **Herzfunke** | Wiederbelebung 50 %, Schmiedewährung | einmal aufstehen mit halbem Leben, dann verbraucht; Traglast 1 | — |
+| **Zunder** | Fokus +4 | lädt den Kernfunken sofort (D188) | — |
+| **Köder** | Fangchance +15 | lockt Tiere von einer Stelle weg — das Werkzeug des Umgehers (D385) | — |
+| **Netzschlinge** | Fangchance +35 | hält ein niedergerungenes Tier für einen Griff: ein sicheres Fenster zum Reinigen | — |
+
+Die Wirkungen in den Dateien sind **nicht** geändert (Rundenkampf-Tests hängen daran); die rechte Spalte ist Entwurf.
+Jede Echtzeitwirkung ist ein Kampfwert und braucht Messung (Kampfbot), bevor sie gilt.
+
+### 5.3 Reinkulturen
+
+- **Die drei Komponenten des Regenten** (Saatgut, Katalysator, Wasserprobe; D240) bleiben, wie sie sind.
+- **Die Reinkultur für Verhärtete** (`reinkultur`) fällt nicht mehr aus Getöteten. Die Alte setzt sie aus zwei
+  **Reinproben** an — Erde aus einem ruhigen Revier (eine je Revier, einmalig), zwei liegen in der Welt, zwei
+  fertige Kulturen sind Belohnungen. Damit kann auch der Schlächter zwei Verhärtete reinigen, wenn er will; der
+  Heiler alle fünf.
+- **Ein ruhiges Revier gibt einmalig:** 1 Setzling, 1 Reinprobe, und es ist ein Rastplatz ohne Zuflucht.
+
+### 5.4 Werkzeuge und Zugang
+
+| Gegenstand | Art | Wo (D391) |
+|---|---|---|
+| **Tauchzeug** | Werkzeug `tauchen` | Spind unter dem Boot, Schuppen am Nordufer (Rätsel, Zahl von der Tafel im Absetzbecken) |
+| **Kletterzeug** | Werkzeug `klettern` | Auftrag `was-noch-drin-liegt` (Wart vom Bruch) — Belohnung in den Daten gesetzt |
+| **Gleiter** | Werkzeug `gleiten` | verhärtetes Grathorn am Quelltopf (optionaler Boss) |
+| **Halfter** | Werkzeug `reiten` | Auftrag `ein-schwieriger-nachbar` (Förster) — Belohnung in den Daten gesetzt |
+| **Brechstange vom Bruch** | Zugang `stollenmauer` | der Vorarbeiter am Bruchweg — wenn man ihn verschont oder besiegt |
+| **Plombenzange** | Zugang `werksspind` | öffnet alle verplombten Werksspinde: ein Grund, an bekannte Orte zurückzukehren |
+| **Schlüssel zum Schieberhaus** | Zugang `schieberhaus` | Abkürzung am Wehr; liegt hinter dem Flussvater oder am Ende des Tauchwegs |
+
+Die Zahl 09/41 ist **kein** Gegenstand: Ein Rätsel, dessen Lösung im Beutel liegt, ist keines.
+
+### 5.5 Waffen
+
+Keine neuen Waffen — jede bräuchte geprüfte Kampfwerte und Clips. Vorschlag: Man beginnt mit der **Klinge**; Axt und
+Speer sind Fundwaffen (`fundwaffe-axt` „Spaltaxt vom Bruch“, `fundwaffe-speer` „Saufeder“). Eine Waffe zu finden ist
+im Vorbild die meistgeliebte Belohnung, und hier kostet sie nichts ausser einer Zeile im Spielstand (A-28.6).
+
+### 5.6 Zeug (Rüstung)
+
+Ein Platz. Kein Stück ist „besser“; jedes verschiebt. **Alle Werte sind Entwurf und nicht simuliert.**
+
+| Stück | Gibt | Nimmt | Herkunft |
+|---|---|---|---|
+| Lodenmantel (Start, kein Gegenstand) | — | — | — |
+| **Chitinweste** | −15 % erlittener Schaden | −10 % Ausdauer-Erholung; „die Tiere riechen, woraus sie ist“ | Schmiedin: 20 Span + 2 Federstahl (§11) |
+| **Wachstuchkittel** | im Griff ×1,10 statt ×1,25 verwundbar | — (nur im Griff wirksam) | Figurenlinie der Enklave |
+| **Flechtenkutte** | Tiere bemerken einen 30 % später | +10 % erlittener Schaden; die Terrasse misstraut | Figurenlinie der Mönche |
+| **Werkskluft** | Kernfunke lädt 20 % schneller | im Griff ×1,35 verwundbar; „wird für jemanden gehalten“ | Figurenlinie des Erbes |
+
+### 5.7 Marke
+
+Fassung 4, +2 je Regent (entschieden), +1 je Markenstufe. Läuterung entsteht beim Reinigen. **Eichsiegel** (5 im Tal,
+je 5 Läuterung) sind die Gegengabe für den, der nicht reinigt; sie werden an der Rast eingesetzt.
+
+### 5.8 Wissen
+
+Wissen ist nur dann ein Gegenstand, wenn es etwas **öffnet**. Fundtexte ohne Nutzen bleiben Fragmente.
+
+| Gegenstand | Form | Öffnet |
+|---|---|---|
+| **Lieferbuch der Esse** | Schrift | Tausch 5 Span → 1 Federstahl; die letzte Seite nennt die Höfe, an denen noch Federn liegen |
+| **Zettel: Harz auf Leinen** | Rezept | Harzverband je Rast bei der Magd |
+| **Flurkarte, Blatt West** | Karte | zeigt den alten Almweg als Zeichnung im Beutel — keine Marke auf dem Bildschirm (Story-Struktur v1) |
+| **Pegelbuch** | Schrift | nennt, was bei welchem Wasserstand herausschaut: Vorschau auf den Wandel nach dem Flussvater |
+| **Wartungsblatt K7** | Schrift | zeigt beim K7-Wolf das Griff-Fenster an (Anzeige, kein Kampfwert) |
+
+## 6. Belohnungsleiter
+
+Alles ist **einmalig**. Wiederholbar sind nur drei Dinge: Beute von Getöteten, Läuterung von Gereinigten, Tausch je Rast.
+
+| Sprosse | Was | Unikat | Mengenware (eine Sorte je Stelle) | Regel |
+|---|---|---|---|---|
+| Kleine Entdeckung | Spind, Hochsitz, Wagen abseits | nie | 2 Span **oder** 1 Federstahl **oder** 1 Harzverband / 2 Köder / 1 Zunder | dazu immer ein Bild oder ein Satz; nie Stufe 3 |
+| Verborgener Ort | mit eigenem Verhärteten | **immer eines** (Wissen, Zugang, Zeug, Fundwaffe) | 4 Span, 2 Federstahl, 1 Eichsiegel, 1 Setzling / Reinprobe / Quellwasser | der Verhärtete zahlt zusätzlich wie ein optionaler Boss |
+| Nebenaufgabe | Auftrag eines Bewohners | am Ende einer Kette: Werkzeug, Wissen, Zugang oder Fundwaffe | 3 Span, 2 Federstahl, 1 Eichsiegel, 2 Verbrauch | kein Auftrag endet nur mit einem Sud |
+| Figurenlinie | Abschluss nach 3–5 Stationen | **das Zeug der Fraktion** | Enklave: 1 Eichsiegel · Erbe: 1 Härtling · Mönche: Wissen; dazu 1 Reinkultur oder Herzfunke | Stationen davor: Mengenware der Sprosse „Nebenaufgabe“ |
+| Optionaler Boss | Verhärteter | nie (das Unikat liegt am Ort, nicht im Tier) | **getötet:** 1 Härtling · **gereinigt:** 5 Läuterung, Tier bleibt | was er bewacht, liegt in beiden Fällen da |
+| Regent | — | Direktivkern, Protokoll | **getötet:** 1 Kernschlacke · **geheilt:** 15 Läuterung, ruhige Reviere | immer +2 Fassung |
+
+**Gegen Kopier-Belohnungen:** Unikate liegen je Region in einem Vorrat (`content/belohnungen.json` `unikate`);
+`verteile()` gibt jedes Stück höchstens einmal aus und meldet einen leeren Vorrat als Fehler. Œntal hat 4 Werkzeuge,
+2 Fundwaffen, 4 Zeug, 5 Wissen, 3 Zugänge = **18 Unikate** — genug für 3 verborgene Orte, 3 Figurenlinien und rund
+ein Dutzend Auftragsenden.
+
+**Vertrag mit D392:** Ein Auftrag nennt Kategorie und Sprosse; `verteile(tabelle, stellen)` liefert Gegenstand und
+Menge. Bei `verbrauch` entscheidet die Auftrags-ID über die Sorte (derselbe Auftrag gibt immer dasselbe), ein
+`wunsch` legt sie fest. `Auftrag.belohnung` (Gegenstand → Anzahl) bleibt das Format im Spiel.
+
+## 7. Tausch in Brannburg, Rast und Aufladen
+
+Kein Geld. Jeder Bewohner tauscht, was er kann, gegen das, was ihm fehlt (`content/oekonomie.json` `tausch`).
+
+| Wer | Gibt | Nimmt | Bedingung |
+|---|---|---|---|
+| Schmiedin | Waffenstufen | Span, Federstahl, Härtling | — |
+| Schmiedin | 1 Federstahl | 5 Chitinspan | Lieferbuch der Esse |
+| Schmiedin | Chitinweste | 20 Span + 2 Federstahl | einmalig |
+| Magd | +1 Schluck | 2 Setzlinge | bis 6 Schlucke |
+| Magd | Sud eine Stufe stärker | 1 Quellwasser | zweimal |
+| Magd | 1 Harzverband | 1 Zunder | Zettel; einmal je Rast |
+| Alte | 1 Reinkultur | 2 Reinproben | — |
+| Förster | 2 Köder | 1 Chitinspan | einmal je Rast |
+| Wirt | 2 Zunder | 1 Köder | einmal je Rast |
+
+| Rast | Marke | Flasche | Sonst |
+|---|---|---|---|
+| Zuflucht | voll | voll | speichern; Schmiede nur, wo ein Mensch lebt (Bibel §3) |
+| **Ruhiges Revier** (Achse Marke) | halbe Fassung (`ruhigeRast`) | — | einmalig Setzling und Reinprobe |
+| Leeres Revier (leergetötet) | — | — | nichts; es ist nur still |
+
+## 8. Tod und Verlust
+
+**Empfehlung — das Bündel.** Wer fällt, wacht an der letzten Zuflucht auf. Am Ort bleibt ein Bündel mit dem **losen
+Material** (Chitinspan, Federstahl). Alles andere bleibt am Körper: Werkzeug, Zeug, Wissen, Härtlinge, Verbrauchsgüter,
+Läuterung. Holt man das Bündel, ist nichts verloren. Fällt man vorher noch einmal, **nimmt der Befall es auf**: Das
+nächste befallene Tier am Ort trägt es eingewachsen, sichtbar in der Signalfarbe. Getötet oder gereinigt gibt es das
+Bündel zurück.
+
+- **Aus der Welt:** „Der Befall nimmt auf, was Menschen liegen lassen“ (Traversal v2 §5, das Grathorn mit dem Schirm).
+  Die Marke bringt ihren Träger zurück — er ist der Prototyp (Bibel v1 §3).
+- **Aus der Recherche (Regel 10):** Der Einsatz bleibt, der endgültige Verlust nicht; statt desselben Anlaufs noch
+  einmal gibt es eine neue kleine Begegnung.
+- **Asymmetrie, gewollt:** Der Heiler trägt wenig loses Material und verliert wenig. Reinigen ist im Kampf das
+  grössere Risiko (Reinigen v1 §3); der Tod kostet dafür den Schlächter mehr.
+
+**Alternative — nichts bleibt liegen.** Der Tod kostet nur den Weg; dafür erholt sich das Revier (Verwundete sind
+wieder heil, Gereinigte bleiben rein). Einfacher zu bauen, kein Einsatz, kein Genre-Moment.
+
+## 9. Itemtexte als Erzählträger
+
+Regel: zwei bis drei Sätze, einer nennt die Sache, einer einen Menschen oder eine Zahl. Kein Adjektiv, das wertet.
+Die Texte stehen als `beschreibung` in den Daten.
+
+1. **Chitinspan** — „Platte von einem, der nicht mehr aufsteht. Leicht wie Horn, hart wie Blech. Die Schmiedin nimmt sie, ohne zu fragen, woher.“
+2. **Federstahl** — „Blattfeder von einem Hänger, der seit vierzig Jahren steht. Besseren Stahl macht hier keiner mehr. Es gibt, was noch da ist.“
+3. **Härtling** — „Der Kern eines Verhärteten, faustgross, noch warm. Wer ihn in der Hand hat, hat sich entschieden.“
+4. **Kernschlacke** — „Was von einem Direktivkern bleibt, wenn man ihn nicht liest, sondern zerschlägt. Schwer, glasig, in einem Stück.“
+5. **Eichsiegel** — „Prüfplombe aus einem Werkskoffer, Aufdruck VERIDIA Feldabgleich. Die Marke nimmt sie an wie eine Hand ein Werkzeug.“
+6. **Setzling** — „Bergkraut mit Wurzelballen, in feuchtes Moos geschlagen. Wächst nur, wo niemand mehr etwas aufreisst.“
+7. **Reinprobe** — „Ein Glas Erde aus einem Revier, das zur Ruhe gekommen ist. Zwei davon, und die Alte setzt eine Kultur an.“
+8. **Kletterzeug** — „Geschirr, Seil und Eisen aus dem Bruch. Vierzehn Jahre benutzt, dann eingemauert. Wer zumauert, will nicht wiederkommen.“
+9. **Gleiter** — „Ein Schirm, der lange in einem Geweih hing. Die Nähte halten. Jemand wollte damit über die Grenze und kam bis zur Quelle.“
+10. **Halfter** — „Hing im Stall am Haken, seit es keine Pferde mehr gibt. Bindet ein Tier, das geblieben ist. Eines, nicht zwei.“
+11. **Flechtenkutte** — „Grobes Tuch, von Flechten überwachsen. Die Tiere sehen einen später. Die Leute auf der Terrasse früher.“
+12. **Werkskluft** — „Jacke mit eingewebten Leitbahnen, Brustschild VERIDIA. Der Kern lädt schneller. Wer sie trägt, wird für jemanden gehalten.“
+13. **Zettel: Harz auf Leinen** — „Drei Zeilen in Bleistift. Fichte, nicht Kiefer. Warm auftragen, kalt binden. Darunter: Hat bei Sepp nicht mehr gereicht.“
+14. **Pegelbuch** — „Jeden Morgen eine Zahl, seit dem Frühjahr. Am Rand, mit anderem Stift: was bei welchem Stand wieder herausschaut.“
+15. **Brechstange vom Bruch** — „Sechskant, ein Ende flachgeschmiedet. Der Vorarbeiter hat sie mitgenommen, damit die Mauer zubleibt.“
+
+## 10. Umsetzungsliste — was Schema und Code noch nicht können
+
+| # | Was fehlt | Wo |
+|---|---|---|
+| 1 | Schmiede auf Material umstellen (`angebot()` liest `oekonomie.json`); `tests/schmiede.test.ts` prüft heute den Harzpreis | `src/spiel/schmiede.ts` |
+| 2 | Beute nur von Getöteten, je Gegnerart (`oekonomie.json` `beute`); `beuteChance` der Altgegenstände auf 0 | `src/spiel/gegenstaende.ts`, Kampfplatz |
+| 3 | Läuterung, Markenstufe, Eichsiegel im Spielstand; Wirkung der Stufen 2 und 4 im Regelkern | `Spielstand`, `src/kampf/echtzeit.ts` |
+| 4 | **Reviere gibt es nicht als Daten** — Grenzen, Zählung gereinigt/getötet, Zustand ruhig/leer | Schema `Region`, Spielstand |
+| 5 | Heilung im Echtzeitkampf: Flasche, Verband, Herzfunke — jede Wirkung ein Kampfwert, erst messen | `src/kampf/echtzeit.ts`, `tools/kampfbot.ts` |
+| 6 | Tod: Bündel am Ort, Aufnahme durch den Befall | Spielstand, Kampfplatz |
+| 7 | Tausch-Fenster je Bewohner; „je Rast“ zählen | `src/ui/`, `Ort.dienst` kennt nur die Schmiede |
+| 8 | Werkzeuge wirken: Klettern-Grundwert, Tauchen, Gleiter-Schalter, Bindung (Traversal v2 §8) | `src/world/`, `src/spiel/reiten.ts` |
+| 9 | Fundwaffen: Besitz je Waffe im Spielstand (heute alle drei ab Start) | `Spielstand.waffenStufen` |
+| 10 | Zeug: Platz im Spielstand, Werte im Kampf — jede Zahl ungeprüft | Schema, `echtzeit.ts` |
+| 11 | Aufträge mit Kategorie statt Gegenstand (D392); Auftragsziel „Lager“ und „Mensch verschont“ fehlen — `was-noch-drin-liegt` gibt das Kletterzeug deshalb schon fürs Lesen des Fundstücks | Schema `Auftrag`, `Auftragsziel` |
+| 12 | Fundorte der einmaligen Dinge (10 Span, 6 Federstahl, 5 Eichsiegel, 4 Setzlinge, 3 Quellwasser …) als Daten mit Koordinaten | `content/fragmente/` oder neue Art „Fund“ |
+| 13 | Fortschritt `fortschritt.ts` (Stufe, Mutation der Kreaturen) hat seit dem Wegfall des Teams keinen Nutzer | entscheiden: entfernen oder für Reittier nutzen |
+
+## 11. Physik (D398): was stimmt, was nicht, und wo das Spiel abweicht
+
+Flo, 22.11.2026 (D398): Physik muss stimmen; Abweichungen zugunsten des Spiels werden benannt, nie still gemacht.
+Gewichte stehen als `gewicht` (kg) an jedem Gegenstand, `validate` verlangt sie. Zahlen sind Überschläge aus
+Dichte × Volumen oder aus üblichen Gerätegewichten, **nicht gewogen**.
+
+### Material und Verarbeitung
+
+| Schritt | Was real geht | Im Spiel | Abweichung |
+|---|---|---|---|
+| **Chitinspan** (0,1 kg; Platte etwa 12 × 15 cm, 4 mm, Dichte ≈ 1,35 g/cm³) | Chitin schmilzt nicht und lässt sich **nicht schmieden**; es verkohlt. Verkohltes Horn, Huf und Knochen sind aber das klassische Mittel zum **Einsatzhärten**: Eisen im dichten Kasten in stickstoff- und kohlenstoffreicher Kohle glühen, die Randschicht nimmt Kohlenstoff auf | Stufe 1 = Schneide im Chitinkohle-Kasten einsatzgehärtet; 8 Span = 0,8 kg Packung | keine in der Art; in der Wirkung: Härten hält die Schneide länger scharf, macht den Hieb aber nicht 12 % stärker — **+12 % ist Spielwert** (D177) |
+| **Federstahl** (1,0 kg; ein abgelängtes Blatt) | Blattfedern sind Federstahl (Typ 55Si7/5160) und das übliche Ausgangsmaterial für Klingen aus Altbestand; mit Holzkohle-Esse schmied- und in Öl härtbar. Neuen Stahl erschmelzen kann eine Dorfesse nicht | Stufe 2 = neue Schneide aus Federstahl angeschweisst; 3 Stück = 3 kg für Klinge samt Abbrand, bei der Axt reichlich | keine; „Besseren Stahl macht hier keiner mehr“ stimmt |
+| **Härtling** (0,6 kg, faustgross ≈ 250 cm³) | **erfunden** — ein Symbiontenkern hat keine reale Entsprechung | Stufe 3 | benannt: Fiktion der Welt. Gedacht als harter Einsatz in der Schneide (wie ein Hartmetallplättchen), nicht als Legierung |
+| **Kernschlacke** (2,5 kg, ein Liter Glas) | Schlacke und Glas sind spröde; als Schneide unbrauchbar | nur Vorschlag (Stufe 4) | spricht **gegen** die vierte Waffenstufe (A-28.2) — physikalisch wäre sie ein Rückschritt |
+| **Chitinweste** (4,0 kg) | Rumpf vorn und Schultern ≈ 0,37 m² × 4 mm × 1,35 = 2,0 kg Platten, dazu 2 kg Leder und Nieten | 20 Span + 2 Federstahl (für Nieten und Schliessen reichlich) | Preis von 10 auf 20 Span gehoben, damit die Fläche stimmt |
+| **Beute 15 % je Tier** | Ein Keiler mit Wurzelpanzer trüge etliche Kilo Platten | ein brauchbarer Span von jedem siebten Tier | **zugunsten des Spiels**: brauchbar ist nur die Platte, die der Kampf heil gelassen hat. Real wäre nach wenigen Tieren genug da |
+| **Harzverband** (80 g) | Fichtenharzsalbe ist ein überliefertes Wundmittel mit nachgewiesener keimhemmender Wirkung; Zunderschwamm wurde als blutstillende Auflage genutzt — daher der Tausch Zunder gegen Verband | Heilung 70 % | **Wirkdauer:** real Tage, im Spiel sofort. Benannt, Genre-Regel |
+| **Kräutersud / Flasche** | 3 Schlucke ≈ 0,5 l, 6 Schlucke ≈ 1 l (1,2 kg mit Flasche) | 35–55 % Leben je Schluck | sofortige Wirkung: Spielwert. Ein Beet aus zwei Setzlingen trägt real erst nach einer Saison — im Spiel ab der nächsten Rast |
+| **Quellwasser im Ansatz** | Wasser macht einen Aufguss nicht stärker | +10 Punkte Stärke | **Fiktion der Welt** (unbefallenes Wasser), nicht Physik |
+| **Reinkultur aus zwei Reinproben** | Eine Kultur anzusetzen dauert Tage bis Wochen | sofort bei der Alten | zugunsten des Spiels; Vorschlag: fertig erst nach der nächsten Rast |
+
+### Werkzeuge
+
+| Werkzeug | Gewicht | Was real gilt | Abweichung |
+|---|---|---|---|
+| **Tauchzeug** | 5,0 kg (kleine Flasche, Regler, Leine) | 2 l bei 200 bar = 400 l Luft; in 5 m Tiefe (1,5 bar) bei 20 l/min rund **13 Minuten**. Gummi und Membranen halten keine 40–60 Jahre, eine Flasche ohne Prüfung ist ein Risiko, und ohne Kompressor füllt sie niemand | Zustand und Nachfüllen sind **zugunsten des Spiels** übergangen. Die 380-m-Querung zur Kapelle (Traversal v2) passt in 13 Minuten; „Tauchen ohne Grenze“ passt nicht — eine Luftanzeige wäre ehrlicher |
+| **Kletterzeug** | 4,5 kg (Gurt 0,5; 40 m Seil zu 65 g/m = 2,6; Haken und Karabiner 1,4) | Ein vierzehn Jahre benutztes und dann eingemauertes Kunstfaserseil würde niemand mehr belasten; Eisen überdauert | benannt. Stimmiger wäre: Eisen und Geschirr aus dem Stollen, das Seil neu geschlagen (Hanf, Enklave) |
+| **Gleiter** | 8,0 kg (Schirm 5, Gurtzeug 3) | Gleitzahl real 8–9; verlangt sind 1.330 m Strecke auf 374 m Höhe = **3,6** — weit im Möglichen. Tuch, das jahrelang im Freien hing, wird luftdurchlässig und trägt nicht mehr | Zustand des Tuchs zugunsten des Spiels übergangen; die Flugstrecke selbst stimmt |
+| **Halfter / Reiten** | 0,5 kg | Faustregel: ein Reittier trägt etwa 20 % seines Gewichts. Ein Keiler von 140 kg trüge 28 kg, ein Steinbock um 100 kg noch weniger — **keinen Erwachsenen** | ⚠️ grösste Abweichung der Liste, gehört zu D391: Reiten geht nur auf einem durch den Befall deutlich vergrösserten Tier. Das müsste die Welt zeigen (Schulterhöhe, Masse) |
+
+### Traglast
+
+| Posten | Gewicht |
+|---|---|
+| Loses Material, volle Traglast (40 Span, 6 Federstahl) | 4,0 + 6,0 = **10 kg** — das ist das Bündel |
+| Vier Werkzeuge | 18,0 kg |
+| Drei Waffen (Klinge ≈ 1,2, Axt 2,0, Speer 1,8) | 5,0 kg |
+| Flasche, Verbände, Kleinzeug | ≈ 3 kg |
+| **Summe** | **≈ 36 kg** |
+
+Real sind zum Marschieren 20–25 kg tragbar (rund 30 % des Körpergewichts), zum Rollen und Fechten deutlich weniger.
+**Benannte Abweichung zugunsten des Spiels:** Werkzeuge und Zweitwaffen wiegen im Spiel nichts. Begrenzt wird nur, was
+eine Entscheidung trägt: loses Material (`traglast` 40 Span, 6 Federstahl — der Rest liegt bei der Schmiedin) und
+Verbrauchsgüter (Harzverband 3, Herzfunke 1). Die Rechnung in §3 ist davon nicht berührt: Sie zählt, was anfällt,
+nicht, was man auf einmal trägt.
+
+## 12. Unklar
+
+- ⚠️ Zahl der Verhärteten (5), der Menschen (4) und der Reviere (12) im Œntal ist **angenommen**; belegt sind nur drei
+  verborgene Orte und „drei Engstellen mit je einem Verhärteten oder Rudel“.
+- ⚠️ Alle Zeug-Werte, die Flaschenwerte und jede Echtzeitwirkung der Verbrauchsgüter: nicht simuliert.
+- ⚠️ Ob der Heiler mit +12 % den Flussvater niederringt: nicht messbar, solange es ihn im Echtzeitkampf nicht gibt.
+- ⚠️ Gewichte und Verarbeitungsschritte in §11 sind Überschläge aus Allgemeinwissen, nicht recherchiert und nicht gewogen.
+- ⚠️ Die Recherche stützt sich auf Suchtreffer-Zusammenfassungen, nicht auf gelesene Volltexte; vier Punkte sind als
+  „nicht belegt“ markiert.

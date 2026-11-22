@@ -6,5 +6,6 @@
   },
   "imKampf": false,
   "beuteChance": 0,
-  "beschreibung": "Eine Steckkarte aus dem Brutschrank, Werkseinstellung. Sie kennt nur eine Temperatur, und die ist richtig."
+  "beschreibung": "Eine Steckkarte aus dem Brutschrank, Werkseinstellung. Sie kennt nur eine Temperatur, und die ist richtig.",
+  "gewicht": 0.05
 }

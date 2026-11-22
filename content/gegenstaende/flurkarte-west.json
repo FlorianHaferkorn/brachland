@@ -1,0 +1,14 @@
+{
+  "id": "flurkarte-west",
+  "name": "Flurkarte, Blatt West",
+  "wirkung": {
+    "art": "wissen",
+    "form": "karte",
+    "schaltet": "weg-almweg"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Katasterblatt mit dem alten Almweg, von Hand nachgezogen. Am Lawinenstrich ein Kreuz und ein Jahr.",
+  "einmalig": true,
+  "gewicht": 0.05
+}

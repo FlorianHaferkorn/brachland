@@ -1,0 +1,12 @@
+{
+  "id": "reinprobe",
+  "name": "Reinprobe",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "reinkultur"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Ein Glas Erde aus einem Revier, das zur Ruhe gekommen ist. Zwei davon, und die Alte setzt eine Kultur an.",
+  "gewicht": 0.4
+}

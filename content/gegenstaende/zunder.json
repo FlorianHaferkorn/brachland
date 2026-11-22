@@ -7,5 +7,7 @@
   },
   "imKampf": true,
   "beuteChance": 0.12,
-  "beschreibung": "Trockener Baumschwamm, glimmt lange. Sammelt den Kopf für den nächsten Zug."
+  "beschreibung": "Trockener Baumschwamm, glimmt lange. Sammelt den Kopf für den nächsten Zug.",
+  "gewicht": 0.05,
+  "traglast": 4
 }
