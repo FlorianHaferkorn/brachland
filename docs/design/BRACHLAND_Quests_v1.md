@@ -153,6 +153,10 @@ urteilt die Station selbst). Abgeleitet aus dem Spielstand (`src/spiel/wanderfig
 
 ### 2.7 Physik (D398): was die Abläufe voraussetzen
 
+> **Nachgeprüft in `BRACHLAND_Physik-Pruefung_v1.md` (D408):** Die Wegzeiten macht das Rennen (11 m/s), nicht die
+> 4,2 m/s; Steigung bremst im Code nicht; Punkt 3 ist zu streng begründet (bekleidet in 12 °C sind real rund 800 m
+> schwimmbar); die Luft aus Punkt 2 reicht für Abstiege, nicht für die Strecke.
+
 Flo, 22.11.2026: Physik muss stimmen. Geprüft sind die Questabläufe dieses Dokuments; Strecken und Höhen aus
 `tools/traversal_wege.py` (D388, D391) und der Lage v2. Echte Zeit: Gehen 4 km/h in der Ebene, 300 Höhenmeter je
 Stunde im Anstieg, der kleinere Wert halb gezählt (Wanderformel DIN 33466). Spielzeit: Die Lehrstrecke rechnet
