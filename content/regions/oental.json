@@ -29,7 +29,7 @@
   "traversal": "Klettern",
   "zielSpielzeit": 6,
   "flutlinie": 499,
-  "enklave": { "name": "Die Terrasse", "ort": [47.7389, 12.0908] },
+  "enklave": { "name": "Brannburg", "ort": [47.7389, 12.0908] },
   "verborgeneOrte": [
     { "id": "kirchturm", "name": "Kirchturm im Wasser", "ort": [47.73585, 12.10339], "verhaerteter": "kiemenbiber", "spur": "licht", "fragment": "kirchturm" },
     { "id": "jagdhuette", "name": "Hütte im Bannwald", "ort": [47.73883, 12.07153], "verhaerteter": "wurzelkeiler", "spur": "gelaende", "fragment": "jagdhuette" },

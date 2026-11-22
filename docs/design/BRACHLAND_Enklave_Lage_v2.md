@@ -19,7 +19,7 @@ Spiel (Terrasse, altes Dorf) gibt es noch nicht; der Umzug ist im Spiel ungesehe
 | | Wert | Wo |
 |---|---|---|
 | `flutlinie` | **499 m** (Wehrkrone) | `content/regions/oental.json`, Schema `Region.flutlinie` |
-| Enklave | Bezugspunkt = Wirt, 696 / −657, 514 m; Name vorläufig **„Die Terrasse“** | `Region.enklave` |
+| Enklave | Bezugspunkt = Wirt, 696 / −657, 514 m; Name **Brannburg** (Flo, 22.11.2026, D378) | `Region.enklave` |
 | Unter der Flutlinie | 3,73 km² von 15,9 km²; 1.448 von 2.033 Gebäuden (unter 495 m: 1.312) | `npm run validate` |
 
 ### Bewohner der Enklave
@@ -143,7 +143,7 @@ Die Terrasse ist der hochgelegene Ortskern von Brannenburg; Degerndorf liegt im 
 | **Dernhof** | Degerndorf | klingt nach Hof und Enklave | Degerndorf ist real der Talort, also die versunkene Stadt — der Name gehörte eher dorthin |
 | **Flinsach** | Flintsbach | eigenständigster Klang | Flintsbach liegt südlich ausserhalb der Region |
 
-Bis Flo entscheidet, heisst sie in den Daten **„Die Terrasse“**. „Mildorf“ stand in keinem Inhalt, nur in der
+Entschieden 22.11.2026 (D378): Die Enklave heisst **Brannburg**; in den Daten stand bis dahin „Die Terrasse“. „Mildorf“ stand in keinem Inhalt, nur in der
 Bauwelt-Notiz (dort ersetzt) und in der abgelösten Story-Bibel v1.
 
 ## 5. Spielstart an der Enklave — was es kosten würde
