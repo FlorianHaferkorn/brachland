@@ -11,7 +11,7 @@
  * Tabelle in `docs/design/BRACHLAND_Gegenstaende-und-Aufwertung_v1.md` §3.
  */
 import { readFileSync } from 'node:fs';
-import { Oekonomie, ReinigenDaten, Belohnungen, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
+import { Oekonomie, ReinigenDaten, Belohnungen, Techniken, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
 import { bilanz, SPIELWEISEN } from '../src/spiel/oekonomie.js';
 import { JE_STUFE } from '../src/spiel/schmiede.js';
 
@@ -45,17 +45,40 @@ spalte('Flasche (Schlucke × Stärke)', b => `${b.schlucke} × ${Math.round(b.st
 spalte('Reinkulturen übrig', b => `${b.reinkulturenUebrig}`);
 spalte('Anteil gereinigt an den Eingriffen', b => `${Math.round(b.anteilGereinigt * 100)} %`);
 
-// Dominanzprüfung: Keine der kämpfenden Spielweisen darf eine andere auf beiden Achsen schlagen.
-// Der Umgeher steht daneben: Er verzichtet auf beides, sein Lohn ist das Vertrauen der Mönche (D385).
-console.log('\nDominanz (Hauptwaffe und Markenstufe, ohne Umgeher):');
+// --- D400: Fortschritt der Spielfigur
+const techniken = Techniken.parse(lies('content/techniken.json'));
+const technikKosten = techniken.reduce((n, t) => n + t.kosten, 0);
+// Schwelle des Zählers: die grösste `eingriffe`-Bedingung in seinen Stationen.
+const schwellen: number[] = [];
+JSON.stringify(lies('content/wanderfiguren/zaehler.json'), (_k, v) => {
+  if (v && typeof v === 'object' && v.art === 'eingriffe' && typeof v.anzahl === 'number') schwellen.push(v.anzahl);
+  return v;
+});
+const moenchsSchwelle = schwellen.length ? Math.max(...schwellen) : Infinity;
+console.log(`\nFortschritt der Spielfigur (D400) — Techniken: ${techniken.length} für zusammen ${technikKosten} Einsicht; Zähler der Mönche: höchstens ${moenchsSchwelle} Eingriffe\n`);
+console.log(`| | ${zeilen.map(z => z.name).join(' | ')} |`);
+console.log(`|---|${zeilen.map(() => '---').join('|')}|`);
+spalte('Eingriffe (getötet + gereinigt)', b => `${b.eingriffe}`);
+spalte('Mönche trauen', b => b.eingriffe <= moenchsSchwelle ? 'ja' : 'nein');
+spalte('leere Reviere → nachgewanderte Verhärtete', b => `${b.leereReviere} → ${b.nachgewandert}`);
+spalte('Bossteile Mark / Abwurf', b => `${b.mark} / ${b.abwurf}`);
+spalte('Dauersude: Leben / Ausdauer', b => `+${b.lebenPlus} / +${b.ausdauerPlus}`);
+spalte('Figurenlinien abgeschlossen', b => `${b.linien} von ${o.erfahrung.linien}`);
+spalte('Einsicht (von ' + technikKosten + ' für alle Techniken)', b => `${b.einsicht}`);
+
+// Dominanzprüfung über alle Achsen: Waffe, Marke, Leben, Ausdauer, Einsicht, Vertrauen der Mönche.
+// Keine Spielweise darf eine andere auf jeder Achse erreichen und auf einer übertreffen.
+console.log('\nDominanz (Waffe, Marke, Leben, Ausdauer, Einsicht, Mönche):');
+const achsen = (b: typeof zeilen[number]) => [b.waffen[0], b.markenStufe, b.lebenPlus, b.ausdauerPlus, b.einsicht, b.eingriffe <= moenchsSchwelle ? 1 : 0];
 let dominiert = 0;
-const kaempfer = zeilen.filter(z => z.name !== 'Umgeher');
-for (const x of kaempfer) for (const y of kaempfer) if (x !== y) {
-  const besser = x.waffen[0] >= y.waffen[0] && x.markenStufe >= y.markenStufe
-    && (x.waffen[0] > y.waffen[0] || x.markenStufe > y.markenStufe);
-  if (besser) { dominiert++; console.log(`  ✗ ${x.name} schlägt ${y.name} auf beiden Achsen (${x.waffen[0]}/${x.markenStufe} gegen ${y.waffen[0]}/${y.markenStufe})`); }
+for (const x of zeilen) for (const y of zeilen) if (x !== y) {
+  const ax = achsen(x), ay = achsen(y);
+  if (ax.every((v, i) => v >= ay[i]) && ax.some((v, i) => v > ay[i])) {
+    dominiert++; console.log(`  ✗ ${x.name} schlägt ${y.name} auf allen Achsen (${ax.join('/')} gegen ${ay.join('/')})`);
+  }
 }
-if (!dominiert) console.log('  ✓ keine Spielweise schlägt eine andere auf beiden Achsen');
+if (!dominiert) console.log('  ✓ keine Spielweise schlägt eine andere auf allen Achsen');
+for (const z of zeilen) console.log(`    ${z.name.padEnd(11)} ${achsen(z).join(' / ')}`);
 
 console.log('\nBelohnungsleiter (Mengenware je Sprosse):');
 for (const rang of BELOHNUNGS_RAENGE) {

@@ -449,6 +449,8 @@ export type Auftragsziel = z.infer<typeof Auftragsziel>;
 export const LOHNKATEGORIEN = [
   'aufwertung-1', 'aufwertung-2', 'aufwertung-3', 'aufwertung-4',
   'verbrauch', 'werkzeug', 'waffe', 'ruestung', 'marke', 'wissen', 'zugang',
+  // D400: Fortschritt der Spielfigur — Bruchstück für einen Dauersud (Leben, Ausdauer) und Einsicht (Techniken).
+  'vital', 'erfahrung',
 ] as const;
 export const Lohnkategorie = z.enum(LOHNKATEGORIEN);
 export type Lohnkategorie = z.infer<typeof Lohnkategorie>;
@@ -630,7 +632,11 @@ export const GegenstandWirkung = z.discriminatedUnion('art', [
   /** Stärkt die Marke ausserhalb des Reinigens: so viel Läuterung beim Einsetzen an der Rast. */
   z.object({ art: z.literal('marke'), laeuterung: z.number().int().min(1).max(15) }),
   /** Zutat, die ein Bewohner verarbeitet: `flasche` (Schlucke/Stärke des Suds) oder `reinkultur`. */
-  z.object({ art: z.literal('zutat'), fuer: z.enum(['flasche', 'reinkultur']) }),
+  z.object({ art: z.literal('zutat'), fuer: z.enum(['flasche', 'reinkultur',
+    // D400: `dauersud` = Bruchstück oder Bossteil eines dauerhaften Suds, `beigabe` = Kraut für die Flasche bis zur nächsten Rast.
+    'dauersud', 'beigabe']) }),
+  /** D400: Einsicht — Erfahrung aus Aufträgen, Linien und Orten, nie aus Kämpfen. Wird für Techniken ausgegeben. */
+  z.object({ art: z.literal('erfahrung'), punkte: z.number().int().min(1).max(3) }),
   /** Kleidung, **ein** Platz. Seitwärts statt aufwärts: jedes Stück hat einen Preis. Werte sind Entwurf. */
   z.object({ art: z.literal('zeug'), werte: z.record(z.string(), z.number()) }),
   /** Fundwaffe: schaltet eine Waffe aus `content/waffen/` frei, ändert keinen Kampfwert. */
@@ -750,6 +756,41 @@ export const Oekonomie = z.object({
     braucht: Kennung.optional(),
     jeRast: z.boolean().default(false).describe('höchstens einmal je Rast in der Enklave'),
   })),
+  /**
+   * D400 — Brauen: dauerhafte Sude heben einen Vitalwert, Beigaben färben die Flasche bis zur nächsten Rast.
+   * Alle Wirkwerte sind Entwurf und berühren Kampfwerte; sie gelten erst nach Messung (Kampfbot).
+   */
+  brauen: z.object({
+    /** Was ein Boss hinterlässt — je nach Ausgang ein anderes Stück. */
+    bossteil: z.object({ getoetet: Kennung, gereinigt: Kennung }),
+    dauersude: z.array(z.object({
+      id: Kennung, name: z.string().max(40),
+      wert: z.enum(['leben', 'ausdauer']),
+      plus: z.number().int().min(1).max(20),
+      /** Höchstens so viele im ganzen Spiel. */
+      hoechstens: z.number().int().min(1).max(20),
+      preis: Preis,
+      /** Welche Bossteile taugen. */
+      bossteile: z.array(Kennung).min(1),
+    })).min(1),
+    beigaben: z.array(z.object({
+      gegenstand: Kennung,
+      wirkung: z.string().max(120),
+      werte: z.record(z.string(), z.number()),
+      dauerSek: z.number().int().min(10).max(900),
+    })),
+    /** Plätze für Beigaben in der Flasche (eine Technik kann einen zweiten öffnen). */
+    beigabePlaetze: z.number().int().min(1).max(2),
+  }),
+  /** D400 — Erfahrung: Einsicht aus Figurenlinien; alles andere über die Belohnungsleiter. */
+  erfahrung: z.object({ jeLinie: z.number().int().min(1).max(4), linien: z.number().int().min(1).max(5) }),
+  /** D400 — Folgen des Tötens, die über die Beute hinausgehen. */
+  toeten: z.object({
+    /** Ab diesem Anteil getöteter Tiere gilt ein Revier als leer. */
+    leerAb: z.number().gt(0).max(1),
+    /** Verhärtung: so viele neue Verhärtete je leergetötetem Revier wandern nach (Vorschlag). */
+    verhaertungJeLeeremRevier: z.number().min(0).max(1),
+  }),
   /** Überschlagsrechnung je Region: Umfang (Annahmen) und was einmalig in der Welt liegt. */
   regionen: z.record(Kennung, z.object({
     annahmen: z.object({
@@ -761,6 +802,30 @@ export const Oekonomie = z.object({
   })),
 });
 export type Oekonomie = z.infer<typeof Oekonomie>;
+
+/**
+ * Techniken (D400): was der Brachgänger **gelernt** hat. Bezahlt mit Einsicht, an der Rast. Keine Technik
+ * schaltet ein Grundverb frei (ADR-0007: Ausdauer, Rolle, Parade, Lock-On, Haltung sind ab Start da).
+ * `beruehrt` sagt, was die Technik anfasst — und damit, was vor dem Bau gemessen werden muss.
+ */
+export const Technik = z.object({
+  id: Kennung,
+  name: z.string().max(40),
+  zweig: z.enum(['kampf', 'reinigen', 'bewegung']),
+  kosten: z.number().int().min(1).max(3),
+  wirkung: z.string().max(200),
+  /** `anzeige`/`welt`: kein geprüfter Wert berührt. `traversal`/`oekonomie`/`kampfwert`: erst messen. */
+  beruehrt: z.enum(['anzeige', 'welt', 'traversal', 'oekonomie', 'kampfwert']),
+  /** Womit gemessen wird, bevor die Technik gilt. Pflicht, wenn ein geprüfter Wert berührt ist. */
+  messung: z.string().max(160).optional(),
+  /** Der berührte Wert, falls es ihn schon gibt (Datei und Feld). */
+  wert: z.string().max(120).optional(),
+  vorher: Kennung.optional(),
+}).refine(t => ['anzeige', 'welt'].includes(t.beruehrt) || !!t.messung, 'wer einen geprüften Wert berührt, nennt die Messung');
+export const Techniken = z.array(Technik).min(1)
+  .refine(a => new Set(a.map(t => t.id)).size === a.length, 'Technik-IDs sind eindeutig')
+  .refine(a => a.every(t => !t.vorher || a.some(x => x.id === t.vorher)), '`vorher` zeigt auf eine Technik');
+export type Technik = z.infer<typeof Technik>;
 
 // ----------------------------------------------------------------- Regenten
 

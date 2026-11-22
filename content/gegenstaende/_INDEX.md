@@ -42,6 +42,10 @@ owns: *.json
 | `fundwaffe-axt.json` · `fundwaffe-speer.json` | **Fundwaffen** (Wirkung `waffe`, einmalig): schalten Axt und Speer aus `../waffen/` frei, ändern keinen Kampfwert. Vorschlag (Ledger A-28) — heute besitzt man alle drei ab Start |
 | `lieferbuch-esse.json` · `zettel-harz-auf-leinen.json` · `flurkarte-west.json` · `pegelbuch.json` · `wartungsblatt-k7.json` | **Wissen** (Wirkung `wissen`, einmalig): öffnet einen Tausch oder eine Anzeige (`schaltet`) |
 | `schlussstein-stange.json` · `schluessel-schieberhaus.json` · `plombenzange.json` | **Zugang** (Wirkung `zugang`, einmalig): öffnet einen Ort oder eine Art Verschluss (`oeffnet`) |
+| `meisterwurz.json` · `enzianwurzel.json` | **Bruchstücke** (D400, Wirkung `zutat` für `dauersud`, Kategorie `vital`): drei davon und ein Bossteil ergeben einen Dauersud — Meisterwurz Leben, Enzianwurzel Ausdauer. Nur einmalig, nie Beute |
+| `mark.json` · `abwurf.json` | **Bossteile** (D400): was ein Verhärteter oder Regent hinterlässt — getötet Mark (nur Marksud), gereinigt Abwurf (beide Sude) |
+| `fichtenspitzen.json` · `baldrianwurzel.json` · `schafgarbe.json` · `birkenporling.json` | **Beigaben** (D400, Wirkung `zutat` für `beigabe`): eine je Rast in die Sudflasche, wirkt bis zur nächsten Rast. Wirkwerte in `../oekonomie.json` `brauen.beigaben`, Entwurf |
+| `einsicht.json` | **Einsicht** (D400, Wirkung `erfahrung`, Kategorie `erfahrung`): aus Aufträgen, Linien und Orten, nie aus Kämpfen; bezahlt Techniken (`../techniken.json`). Wiegt nichts |
 
 ## Regeln
 

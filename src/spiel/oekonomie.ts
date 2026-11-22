@@ -114,6 +114,8 @@ export interface Spielweise {
   menschenToeten: number;
   /** Anteil des einmalig in der Welt Liegenden, den diese Spielweise findet. */
   findet: number;
+  /** D400: abgeschlossene Figurenlinien — wem man traut, schliesst ab; wer Figuren tötet, verliert die Linie (D399). */
+  linien: number;
 }
 
 export interface Bilanz {
@@ -127,6 +129,40 @@ export interface Bilanz {
   schlucke: number; staerke: number;
   reinkulturenUebrig: number;
   anteilGereinigt: number;
+  // --- D400: Fortschritt der Spielfigur
+  /** Alle Eingriffe, getötet wie gereinigt — das zählt der Mönch. */
+  eingriffe: number;
+  leereReviere: number;
+  /** Verhärtete, die in leergetötete Reviere nachgewandert sind (Verhärtung). */
+  nachgewandert: number;
+  mark: number; abwurf: number;
+  lebenPlus: number; ausdauerPlus: number;
+  einsicht: number;
+  linien: number;
+}
+
+/**
+ * Dauerhafte Sude aus dem Vorrat (D400). Jeder Sud braucht seine Bruchstücke und **ein** Bossteil;
+ * zuerst wird gebraut, was die wenigsten Bossteile annimmt, damit kein Abwurf an einen Sud geht,
+ * den auch Mark getragen hätte.
+ */
+export function braue(vorrat: Vorrat, o: Oekonomie): { plus: Record<'leben' | 'ausdauer', number>; anzahl: Record<string, number>; rest: Record<string, number> } {
+  let rest: Record<string, number> = { ...vorrat };
+  const plus = { leben: 0, ausdauer: 0 };
+  const anzahl: Record<string, number> = {};
+  const reihenfolge = [...o.brauen.dauersude].sort((x, y) => x.bossteile.length - y.bossteile.length);
+  for (const sud of reihenfolge) {
+    anzahl[sud.id] = 0;
+    // Mark vor Abwurf: das Stück nehmen, das sonst am wenigsten taugt.
+    const teile = [...sud.bossteile].sort((x, y) => Number(x === o.brauen.bossteil.gereinigt) - Number(y === o.brauen.bossteil.gereinigt));
+    while (anzahl[sud.id] < sud.hoechstens && reicht(sud.preis, rest)) {
+      const teil = teile.find(t => (rest[t] ?? 0) > 0);
+      if (!teil) break;
+      rest = ziehe(sud.preis, rest); rest[teil] -= 1;
+      anzahl[sud.id]++; plus[sud.wert] += sud.plus;
+    }
+  }
+  return { plus, anzahl, rest };
 }
 
 /**
@@ -157,9 +193,10 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
   // Verhärtete stehen verteilt, einer je so vielen Abschnitten.
   const verhAlle = a.verhaertete > 0 ? Math.floor(a.rasten / a.verhaertete) : 0;
   let verhOffen = a.verhaertete, zuToeten = Math.min(w.verhaerteteToeten, a.verhaertete);
-  let rG = 0, rT = 0, rB = 0, letztesRuhig = false;
+  let rG = 0, rT = 0, rB = 0, letztesRuhig = false, leer = 0;
   const schliesseRevier = () => {
     letztesRuhig = revierRuhig(rG, rT, rB, o);
+    if (rB > 0 && rT / rB >= o.toeten.leerAb - 1e-9) leer++;
     if (letztesRuhig) { ruhig++; for (const [g, n] of Object.entries(o.marke.ruhigesRevier)) plus(g, n); }
     rG = 0; rT = 0; rB = 0;
   };
@@ -186,13 +223,32 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
     laeuterung += rein * o.marke.laeuterung.tier;
   }
   schliesseRevier();
+  // D400, Verhärtung: In leergetötete Reviere wandert Befall nach und bringt neue Verhärtete mit.
+  const nachgewandert = Math.floor(leer * o.toeten.verhaertungJeLeeremRevier + 1e-9);
+  for (let i = 0; i < nachgewandert; i++) {
+    const kulturen = (vorrat.reinkultur ?? 0) + Math.floor((vorrat.reinprobe ?? 0) / 2);
+    if (w.verhaerteteToeten < 99 && w.reinigtBisAnteil > 0 && kulturen > 0) {
+      if ((vorrat.reinkultur ?? 0) > 0) vorrat.reinkultur--; else vorrat.reinprobe -= 2;
+      verhGereinigt++; laeuterung += o.marke.laeuterung.verhaerteter;
+    } else if (w.toetetRest) { verhGetoetet++; plus(o.beute.verhaerteter.gegenstand, o.beute.verhaerteter.menge); }
+  }
+  const bossGetoetet = verhGetoetet + (w.regent === 'toeten' ? 1 : 0);
+  const bossGereinigt = verhGereinigt + (w.regent === 'heilen' ? 1 : 0);
+  plus(o.brauen.bossteil.getoetet, bossGetoetet);
+  plus(o.brauen.bossteil.gereinigt, bossGereinigt);
+  // Einsicht: was in der Welt liegt (schon im Vorrat), die Linien, der Regent — nie ein Kampf.
+  const regentEinsicht = 2;
+  const linien = Math.min(w.linien, o.erfahrung.linien);
+  const einsicht = (vorrat.einsicht ?? 0) + linien * o.erfahrung.jeLinie + regentEinsicht;
+  delete vorrat.einsicht;
   plus(o.beute.tier.gegenstand, Math.round(getoetet * o.beute.tier.chance));
   plus(o.beute.mensch.gegenstand, Math.min(w.menschenToeten, a.menschen) * o.beute.mensch.menge);
   if (w.regent === 'toeten') plus(o.beute.regent.gegenstand, o.beute.regent.menge);
   else laeuterung += o.marke.laeuterung.regent;
 
   const sud = flasche(vorrat, o);
-  const geschmiedet = schmiedeAus(sud.rest, o);
+  const gebraut = braue(sud.rest, o);
+  const geschmiedet = schmiedeAus(gebraut.rest, o);
   const eingriffe = getoetet + gereinigt + verhGetoetet + verhGereinigt;
   const rund = (x: number) => Math.round(x);
   return {
@@ -207,13 +263,21 @@ export function bilanz(w: Spielweise, region: string, o: Oekonomie,
     schlucke: sud.schlucke, staerke: sud.staerke,
     reinkulturenUebrig: (geschmiedet.rest.reinkultur ?? 0) + Math.floor((geschmiedet.rest.reinprobe ?? 0) / 2),
     anteilGereinigt: eingriffe > 0 ? (gereinigt + verhGereinigt) / eingriffe : 0,
+    eingriffe: rund(eingriffe), leereReviere: leer, nachgewandert,
+    mark: bossGetoetet, abwurf: bossGereinigt,
+    lebenPlus: gebraut.plus.leben, ausdauerPlus: gebraut.plus.ausdauer,
+    einsicht: rund(einsicht), linien,
   };
 }
 
-/** Die drei Spielweisen aus Reinigen v1 §4, dazu der Umgeher (D385: dritter Stil). */
+/**
+ * Die drei Spielweisen aus Reinigen v1 §4, dazu der Umgeher (D385: dritter Stil). `linien` nach der
+ * Vertrauenstabelle dort: dem Schlächter traut nur das Erbe; Gemischt und Heiler verlieren die Mönche
+ * (zu viele Eingriffe); der Umgeher hat nur sie.
+ */
 export const SPIELWEISEN: readonly Spielweise[] = [
-  { name: 'Schlächter', kaempft: 1, reinigtBisAnteil: 0, toetetRest: true, verhaerteteToeten: 99, regent: 'toeten', menschenToeten: 99, findet: 1 },
-  { name: 'Gemischt', kaempft: 1, reinigtBisAnteil: 0.4, toetetRest: true, verhaerteteToeten: 3, regent: 'heilen', menschenToeten: 2, findet: 1 },
-  { name: 'Heiler', kaempft: 1, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 1 },
-  { name: 'Umgeher', kaempft: 0.2, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 0.6 },
+  { name: 'Schlächter', kaempft: 1, reinigtBisAnteil: 0, toetetRest: true, verhaerteteToeten: 99, regent: 'toeten', menschenToeten: 99, findet: 1, linien: 1 },
+  { name: 'Gemischt', kaempft: 1, reinigtBisAnteil: 0.4, toetetRest: true, verhaerteteToeten: 3, regent: 'heilen', menschenToeten: 2, findet: 1, linien: 2 },
+  { name: 'Heiler', kaempft: 1, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 1, linien: 2 },
+  { name: 'Umgeher', kaempft: 0.12, reinigtBisAnteil: 1, toetetRest: false, verhaerteteToeten: 0, regent: 'heilen', menschenToeten: 0, findet: 0.6, linien: 1 },
 ];

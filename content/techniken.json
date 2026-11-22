@@ -1,0 +1,106 @@
+[
+  {
+    "id": "linie-lesen",
+    "name": "Linie lesen",
+    "zweig": "kampf",
+    "kosten": 2,
+    "beruehrt": "anzeige",
+    "wirkung": "Bei einer Tierart, die man schon gereinigt oder getötet hat, zeigt sich die Angriffslinie mit dem Vorlauf statt erst im Schlag."
+  },
+  {
+    "id": "nachsetzen",
+    "name": "Nachsetzen",
+    "zweig": "kampf",
+    "kosten": 3,
+    "beruehrt": "kampfwert",
+    "wirkung": "Nach einer Parade trifft der nächste leichte Schlag die Haltung härter.",
+    "messung": "tools/kampfbot.ts, Profil parierend, alle Gegner, 1.000 Kämpfe je Zeile",
+    "wert": "src/kampf/echtzeit.ts Parade (D173)"
+  },
+  {
+    "id": "wechsel-im-fluss",
+    "name": "Wechsel im Fluss",
+    "zweig": "kampf",
+    "kosten": 2,
+    "beruehrt": "kampfwert",
+    "vorher": "linie-lesen",
+    "wirkung": "Die zweite Waffe lässt sich in der Erholung eines Schlags ziehen statt nur im Stand.",
+    "messung": "tools/kampfbot.ts mit Waffenwechsel, je Waffenpaar",
+    "wert": "content/waffen/*.json erholung (unverändert, neues Fenster)"
+  },
+  {
+    "id": "wundblick",
+    "name": "Wundblick",
+    "zweig": "reinigen",
+    "kosten": 1,
+    "beruehrt": "anzeige",
+    "wirkung": "Man sieht am Tier, wann es wund genug für die Marke ist (Schwelle), ohne es zu versuchen."
+  },
+  {
+    "id": "ruhige-hand",
+    "name": "Ruhige Hand",
+    "zweig": "reinigen",
+    "kosten": 3,
+    "beruehrt": "kampfwert",
+    "vorher": "wundblick",
+    "wirkung": "Ein Treffer im Griff nimmt weniger vom Fortschritt.",
+    "messung": "tools/reinigensim.ts 1000 gegner und empfohlen",
+    "wert": "content/reinigen.json behaltBeiTreffer (heute 0,5)"
+  },
+  {
+    "id": "zweiter-griff",
+    "name": "Zweiter Griff",
+    "zweig": "reinigen",
+    "kosten": 2,
+    "beruehrt": "kampfwert",
+    "wirkung": "Der Fortschritt am Tier verfällt nicht mehr, solange der Kampf dauert.",
+    "messung": "tools/reinigensim.ts 1000 gegner, Profil müde",
+    "wert": "content/reinigen.json verfallJeSekunde (heute 0,02)"
+  },
+  {
+    "id": "faehrte",
+    "name": "Fährte",
+    "zweig": "bewegung",
+    "kosten": 1,
+    "beruehrt": "anzeige",
+    "wirkung": "Die Witterung zeigt, wo ein Revier endet und ob es befallen, ruhig oder leer ist."
+  },
+  {
+    "id": "sammlerblick",
+    "name": "Sammlerblick",
+    "zweig": "bewegung",
+    "kosten": 1,
+    "beruehrt": "anzeige",
+    "wirkung": "Kräuter, Pilze und Wurzeln, die man schon einmal gebraut hat, fallen in der Witterung auf."
+  },
+  {
+    "id": "leiser-tritt",
+    "name": "Leiser Tritt",
+    "zweig": "bewegung",
+    "kosten": 2,
+    "beruehrt": "welt",
+    "vorher": "faehrte",
+    "wirkung": "Im Gehen bemerken einen Tiere später. Im Laufen nicht."
+  },
+  {
+    "id": "langer-atem",
+    "name": "Langer Atem",
+    "zweig": "bewegung",
+    "kosten": 2,
+    "beruehrt": "traversal",
+    "wirkung": "Schwimmen und Klettern zehren weniger Ausdauer.",
+    "messung": "tools/traversal_wege.py Teil 4 neu rechnen (Grundgrenzen 17,8 m Wasser, Wandhöhe)",
+    "wert": "src/spieler/ausdauer.ts KLETTERN_JE_SEK, Schwimmen 9/s"
+  },
+  {
+    "id": "zweite-beigabe",
+    "name": "Zweite Beigabe",
+    "zweig": "bewegung",
+    "kosten": 3,
+    "beruehrt": "oekonomie",
+    "vorher": "sammlerblick",
+    "wirkung": "Die Flasche trägt zwei Beigaben statt einer.",
+    "messung": "tools/oekonomiesim.ts und Kampfbot mit den Beigabe-Werten",
+    "wert": "content/oekonomie.json brauen.beigabePlaetze"
+  }
+]

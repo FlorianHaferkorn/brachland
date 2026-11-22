@@ -1,0 +1,12 @@
+{
+  "id": "enzianwurzel",
+  "name": "Enzianwurzel",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "dauersud"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Armdick, gelb im Bruch, bitter schon am Finger. Der Stock war älter als der Befall. An der Stelle wächst so bald nichts nach.",
+  "gewicht": 0.08
+}

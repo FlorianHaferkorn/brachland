@@ -112,6 +112,34 @@
           "optionaler-boss": 1,
           "regent": 1
         }
+      },
+      {
+        "gegenstand": "fichtenspitzen",
+        "menge": {
+          "entdeckung": 2,
+          "nebenaufgabe": 2
+        }
+      },
+      {
+        "gegenstand": "schafgarbe",
+        "menge": {
+          "entdeckung": 2,
+          "nebenaufgabe": 2
+        }
+      },
+      {
+        "gegenstand": "baldrianwurzel",
+        "menge": {
+          "entdeckung": 1,
+          "nebenaufgabe": 2
+        }
+      },
+      {
+        "gegenstand": "birkenporling",
+        "menge": {
+          "entdeckung": 1,
+          "verborgener-ort": 2
+        }
       }
     ],
     "marke": [
@@ -122,6 +150,35 @@
           "nebenaufgabe": 1,
           "figurenlinie": 1,
           "optionaler-boss": 1
+        }
+      }
+    ],
+    "vital": [
+      {
+        "gegenstand": "meisterwurz",
+        "menge": {
+          "verborgener-ort": 1,
+          "nebenaufgabe": 1,
+          "figurenlinie": 1
+        }
+      },
+      {
+        "gegenstand": "enzianwurzel",
+        "menge": {
+          "verborgener-ort": 1,
+          "nebenaufgabe": 1,
+          "figurenlinie": 1
+        }
+      }
+    ],
+    "erfahrung": [
+      {
+        "gegenstand": "einsicht",
+        "menge": {
+          "verborgener-ort": 1,
+          "nebenaufgabe": 1,
+          "figurenlinie": 2,
+          "regent": 2
         }
       }
     ]
@@ -177,7 +234,7 @@
         "aufwertung-2",
         "verbrauch"
       ],
-      "regel": "Eine Sorte, kleine Menge, dazu immer ein Bild oder ein Satz. Nie Stufe 3 oder höher, nie ein Unikat: Das Kleine darf man verpassen."
+      "regel": "Eine Sorte, kleine Menge, dazu immer ein Bild oder ein Satz. Nie Stufe 3, nie ein Unikat, nie Bruchstück oder Einsicht: Das Kleine darf man verpassen."
     },
     {
       "rang": "verborgener-ort",
@@ -191,7 +248,9 @@
         "waffe",
         "marke",
         "aufwertung-2",
-        "verbrauch"
+        "verbrauch",
+        "vital",
+        "erfahrung"
       ],
       "regel": "Ein Unikat, das nur hier liegt, plus Mengenware. Der Verhärtete selbst zählt als optionaler Boss und zahlt je nach Ausgang."
     },
@@ -208,7 +267,9 @@
         "marke",
         "aufwertung-1",
         "aufwertung-2",
-        "verbrauch"
+        "verbrauch",
+        "vital",
+        "erfahrung"
       ],
       "regel": "Das Ende einer Kette trägt ein Unikat oder ein Eichsiegel; Zwischenschritte Mengenware. Kein Auftrag endet nur mit einem Sud."
     },
@@ -222,7 +283,9 @@
         "wissen",
         "marke",
         "aufwertung-3",
-        "verbrauch"
+        "verbrauch",
+        "vital",
+        "erfahrung"
       ],
       "regel": "Das Zeug der Fraktion und eine Gabe in ihrer Währung: Enklave Eichsiegel, Erbe Härtling, Mönche Wissen. Stationen davor: Mengenware."
     },
@@ -237,7 +300,7 @@
         "aufwertung-2",
         "verbrauch"
       ],
-      "regel": "Getötet: ein Härtling. Gereinigt: Läuterung, das Tier bleibt, das Revier zählt als ruhig. Was er bewacht hat, liegt in beiden Fällen da."
+      "regel": "Getötet: Härtling und Mark. Gereinigt: Läuterung und Abwurf, das Tier bleibt, das Revier zählt als ruhig. Was er bewacht hat, liegt in beiden Fällen da."
     },
     {
       "rang": "regent",
@@ -247,9 +310,10 @@
       "kategorien": [
         "aufwertung-4",
         "wissen",
-        "verbrauch"
+        "verbrauch",
+        "erfahrung"
       ],
-      "regel": "Immer: +2 Fassung, Direktivkern, ein Stück Protokoll. Getötet zusätzlich Kernschlacke; geheilt zusätzlich Läuterung und überall ruhige Reviere."
+      "regel": "Immer: +2 Fassung, Direktivkern, Protokoll, 2 Einsicht. Getötet: Kernschlacke und Mark; geheilt: Läuterung, Abwurf und überall ruhige Reviere."
     }
   ]
 }

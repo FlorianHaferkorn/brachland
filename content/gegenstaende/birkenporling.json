@@ -1,0 +1,13 @@
+{
+  "id": "birkenporling",
+  "name": "Birkenporling",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "beigabe"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Ein Pilz wie ein Hufpolster, nur an toten Birken. Der Sud schmeckt nach Galle. Was im Bauch nicht hingehört, mag ihn auch nicht.",
+  "gewicht": 0.1,
+  "traglast": 4
+}

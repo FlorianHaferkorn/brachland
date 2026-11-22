@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Belohnungen, Oekonomie, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
+import { Belohnungen, Oekonomie, Techniken, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -247,6 +247,23 @@ const auftragIds = new Set(auftraege.map((a: any) => a.id));
       kenne(`tausch bei ${t.bei}`, [...Object.keys(t.gibt), ...Object.keys(t.nimmt), ...(t.braucht ? [t.braucht] : [])]);
       if (t.braucht && art(t.braucht) !== 'wissen') meldeB(`oekonomie.json tausch: '${t.braucht}' ist kein Wissen`);
     }
+    // D400: Brauen und Techniken.
+    kenne('brauen.bossteil', [d.brauen.bossteil.getoetet, d.brauen.bossteil.gereinigt]);
+    for (const sud of d.brauen.dauersude) {
+      kenne(`brauen.${sud.id}`, [...Object.keys(sud.preis), ...sud.bossteile]);
+      for (const id of [...Object.keys(sud.preis), ...sud.bossteile]) {
+        const g = gegenstaende.find((x: any) => x.id === id);
+        if (g && !(g.wirkung.art === 'zutat' && g.wirkung.fuer === 'dauersud')) meldeB(`brauen.${sud.id}: '${id}' ist keine Zutat für Dauersude`);
+      }
+      if (!sud.bossteile.every(t => t === d.brauen.bossteil.getoetet || t === d.brauen.bossteil.gereinigt)) meldeB(`brauen.${sud.id}: unbekanntes Bossteil`);
+    }
+    for (const bg of d.brauen.beigaben) {
+      kenne('brauen.beigaben', [bg.gegenstand]);
+      const g = gegenstaende.find((x: any) => x.id === bg.gegenstand);
+      if (g && !(g.wirkung.art === 'zutat' && g.wirkung.fuer === 'beigabe')) meldeB(`brauen.beigaben: '${bg.gegenstand}' ist keine Beigabe`);
+    }
+    const tk = Techniken.safeParse(JSON.parse(readFileSync('content/techniken.json', 'utf8')));
+    if (!tk.success) meldeB(`techniken.json: ${tk.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
     for (const [region, r] of Object.entries(d.regionen)) {
       if (!regionen.some((x: any) => x.id === region)) meldeB(`oekonomie.json: Region '${region}' gibt es nicht`);
       kenne(`regionen.${region}.einmalig`, Object.keys(r.einmalig));

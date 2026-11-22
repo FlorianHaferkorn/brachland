@@ -7,6 +7,8 @@ shelf-life-days: 180
 > **Entwurf (D393), nichts davon ist im Spiel verdrahtet.** Daten: `content/gegenstaende/` (25 neu),
 > `content/belohnungen.json`, `content/oekonomie.json`. Regeln: `src/spiel/belohnung.ts`, `src/spiel/oekonomie.ts`.
 > Rechnung: `npx tsx tools/oekonomiesim.ts`. Entscheidungen für Flo: Ledger **A-28**. Offen/erledigt steht im Ledger.
+> **Fortgeschrieben mit D400:** §13 „Fortschritt der Spielfigur“ (Vitalwerte, Erfahrung, Brauen, Töten als Abkürzung).
+> §5.8 „kein Stufensystem“ und A-28 (8) sind dadurch abgelöst; die Zahlen in §3 gelten weiter, §13.3 ergänzt sie.
 >
 > Auftrag (Flo, 22.11.2026): „mach weiter mit der Story, Quests, Items und Belohnung, Upgrade Materialien etc.
 > orientiere dich auch hier einfach daran wie es andere Spiele in dem Genre machen die in den Disziplinen dafür gelobt
@@ -401,3 +403,236 @@ nicht, was man auf einmal trägt.
 - ⚠️ Gewichte und Verarbeitungsschritte in §11 sind Überschläge aus Allgemeinwissen, nicht recherchiert und nicht gewogen.
 - ⚠️ Die Recherche stützt sich auf Suchtreffer-Zusammenfassungen, nicht auf gelesene Volltexte; vier Punkte sind als
   „nicht belegt“ markiert.
+
+## 13. Fortschritt der Spielfigur (D400)
+
+> **Fortschreibung zu §3–§5, Entwurf, nichts verdrahtet.** Anlass: Flo hat A-28 (8) „kein Stufensystem“ nicht
+> bestätigt, sondern am 22.11.2026 geantwortet (D399): „Kombination aus Waffe und Marke sowie Erfahrung durch Quests.
+> Töten könnte eine Abkürzung sein aber das muss ziemliche Folgen haben. Ggf. könnte man das auch irgendwie koppeln mit
+> erhöhung der vitalwerte durch bestimmte items oder Besiegen von Bossen oder sowas. Wie machen es andere? Oder man
+> muss sich bestimmte Potions brauen und die Ingredients sind verstreut.“
+> Daten: `content/techniken.json`, `content/oekonomie.json` (`brauen`, `erfahrung`, `toeten`), neun Gegenstände,
+> Kategorien `vital` und `erfahrung`. Rechnung: `npx tsx tools/oekonomiesim.ts`. Fragen: Ledger A-28 (8).
+> **Leben (100) und Ausdauer (100) sind geprüfte Kampfwerte und unverändert.**
+
+### 13.1 Wie machen es andere?
+
+| Spiel | Woher die Stärke kommt | Was Töten gibt | Vorteil | Nachteil | Was wir übernehmen |
+|---|---|---|---|---|---|
+| Dark Souls / Elden Ring | Währung aus jedem getöteten Gegner → Stufen; liegt beim Tod am Ort [E3]. Flasche: Saat = mehr Schlucke, Träne = stärkerer Schluck; dazu ein mischbares Fläschchen aus zwei von 32 Tränen [ER4][ER5] | alles: jeder Kill ist Fortschritt | Abfarmen als Notausgang, jeder Kampf lohnt | Töten ist die einzige Sprache; wer ausweicht, bleibt schwach | Die drei Flaschen-Regler (Zahl, Stärke, Mischung). **Nicht** die Kill-Währung — sie widerspräche der Marke |
+| Sekiro | keine Stufen. Leben: vier Perlen von Zwischenbossen = ein Stück [S1]; Angriff: Erinnerung je Hauptboss, an der Rast eingesetzt [S5]; Fertigkeitspunkte aus Kampferfahrung, beim Tod die Hälfte des Angesparten weg [S5] | Fertigkeitspunkte, Geld | Stärke ist ein Ort und ein Sieg, kein Balken; nicht abfarmbar | Fertigkeitspunkte doch wieder aus Kills | Vitalwert aus vier Teilen, einer davon vom Boss; Techniken statt Zahlen. Punkte **nicht** aus Kills |
+| Hollow Knight | Maskensplitter und Gefässfragmente, verstreut und schwer zu finden; genug Stücke ergeben ein Ganzes [HK2] | Geld | Erkunden ist Wachsen | Stücke sind austauschbar, erzählen nichts | Bruchstück-Prinzip — bei uns ist jedes Stück eine Pflanze mit Fundort |
+| Zelda BotW | vier Zeichen aus Rätselorten = ein Herz **oder** ein Stück Ausdauer, wählbar [Z1]. Kritik: langsam, begrenzter Ertrag [Z2] | Material, Waffen | Wahl zwischen Leben und Ausdauer | über hundert gleichartige Quellen | Die Wahl Leben/Ausdauer — bei uns hängt sie am Ausgang des Bosskampfs |
+| The Witcher 3 | Erfahrung fast nur aus Aufträgen: „mainly … from quests“, Monster geben wenig, damit der Held kein Schlächter um des Gewinns willen wird [W1] | wenig Erfahrung, Zutaten | Geschichten sind der Fortschritt | Stufenzahlen sperren Gebiete | Erfahrung aus Aufträgen. **Keine** Gegnerstufen |
+| Witcher-Alchemie | *in dieser Recherche nicht belegt* | Zutaten aus Monstern | Vorbereitung als Spiel | Menüarbeit | Vorbereitung an der Rast, eine Beigabe statt eines Tränkeschranks |
+| Bloodborne, Lies of P | Kill-Währung → Stufen wie oben; *Einzelheiten nicht belegt* | alles | — | — | nichts Eigenes |
+| Soulframe | Tugenden nach Waffenart, Stufen der Waffen [SF2]; *Lob/Kritik nicht belegt* | *nicht belegt* | — | — | nichts |
+| Blood of Dawnwalker | *Fortschritt der Figur nicht belegt* | — | — | — | nichts |
+
+Quellen (neu; die übrigen in §1): [W1] https://gamesradar.com/witcher-3s-world-building-and-quest-design-explained-cd-projekt-red-2 ·
+[S5] https://www.gamepressure.com/sekiro-shadows-die-twice/character-development/z8c1a3 ·
+[HK2] https://gamespot.com/hollow-knight/user-reviews/2200-12808571/ ·
+[ER4] https://www.gamespot.com/articles/elden-ring-golden-seed-and-sacred-tear-locations/1100-6501100/ ·
+[ER5] https://pcgamer.com/elden-ring-tears-locations-sacred-crystal-flask-of-wondrous-physick ·
+[Z1] https://www.zeldadungeon.net/wiki/Spirit_Orb ·
+[Z2] https://www.giantbomb.com/profile/gamer_152/blog/korok-seeds-meaningful-play-in-the-legend-of-zelda/264957/
+
+**Was daraus folgt:** Kein gelobtes Vorbild trennt Töten sauber vom Wachsen — selbst der Titel ohne Stufen zahlt
+Fertigkeitspunkte aus Kills. Das ist die Stelle, an der BRACHLAND es anders machen muss, weil seine Hauptfigur heilt.
+
+### 13.2 Der Entwurf in fünf Punkten
+
+**1. Stahl und Marke bleiben** (§3). Sie sind die zwei Achsen der Wahl.
+
+**2. Vitalwerte wachsen durch Dauersude — vier Teile, einer vom Boss.** Die vorgeschlagenen „Bruchstücke“ und das
+Brauen sind **ein** System, nicht zwei nebeneinander: Die Bruchstücke *sind* die Zutaten.
+
+| Dauersud | Hebt | Braucht | Bossteil |
+|---|---|---|---|
+| **Marksud** | Leben +5 | 3 Meisterwurz | Mark **oder** Abwurf |
+| **Bittersud** | Ausdauer +5 | 3 Enzianwurzel | **nur** Abwurf |
+
+- **Bruchstücke** (Kategorie `vital`): Meisterwurz und Enzianwurzel. Je 6 im Œntal, alle einmalig, alle an Sprossen
+  ab „verborgener Ort“ (§6) — nie an kleinen Entdeckungen, nie als Beute. Ein Kapitel trägt damit höchstens zwei
+  Sude je Wert (+10 / +10). Höchstens zehn je Wert im ganzen Spiel (Leben 150, Ausdauer 150).
+- **Bossteil**: was ein Verhärteter oder Regent hinterlässt. Getötet **Mark**, gereinigt **Abwurf**.
+- **Nie über gewöhnliche Tiere.** Kein Kill und keine Reinigung eines Gewöhnlichen hebt einen Vitalwert.
+- Gebraut wird bei der Alten oder an jeder Zuflucht mit Feuerstelle. Jeder Sud ist ein Kampfwert: **+5 gilt erst
+  nach Messung** (Kampfbot, alle Gegner, drei Profile).
+
+**3. Erfahrung kommt aus Aufträgen, nicht aus Kämpfen — und sie ist etwas Gelerntes.** Die Einheit heisst
+**Einsicht** (Kategorie `erfahrung`): 1 je Nebenaufgabe mit Gewicht und je verborgenem Ort, 2 je Figurenlinie und
+je Regent. Im Œntal 5 + 3 Linien × 2 + 2 = höchstens 13. Ausgegeben wird sie an der Rast für **Techniken**
+(`content/techniken.json`):
+
+| Technik | Zweig | Kosten | Was sie tut | Berührt |
+|---|---|---|---|---|
+| Linie lesen | Kampf | 2 | Angriffslinie bekannter Tierarten zeigt sich schon im Vorlauf | Anzeige |
+| Nachsetzen | Kampf | 3 | nach einer Parade trifft der nächste leichte Schlag die Haltung härter | **Kampfwert** — Kampfbot, Profil parierend |
+| Wechsel im Fluss | Kampf | 2 | zweite Waffe in der Erholung ziehen | **Kampfwert** — Kampfbot je Waffenpaar |
+| Wundblick | Reinigen | 1 | man sieht, wann ein Tier wund genug für die Marke ist | Anzeige |
+| Ruhige Hand | Reinigen | 3 | Treffer im Griff nimmt weniger Fortschritt (`behaltBeiTreffer`) | **Kampfwert** — `reinigensim` |
+| Zweiter Griff | Reinigen | 2 | Fortschritt am Tier verfällt nicht (`verfallJeSekunde`) | **Kampfwert** — `reinigensim`, Profil müde |
+| Fährte | Bewegung | 1 | Witterung zeigt Reviergrenze und Zustand (befallen, ruhig, leer) | Anzeige |
+| Sammlerblick | Bewegung | 1 | bekannte Kräuter, Pilze, Wurzeln fallen in der Witterung auf | Anzeige |
+| Leiser Tritt | Bewegung | 2 | im Gehen bemerken einen Tiere später | Welt (Wahrnehmung, kein Kampfwert) |
+| Langer Atem | Bewegung | 2 | Schwimmen und Klettern zehren weniger | **Traversal** — `traversal_wege.py` neu |
+| Zweite Beigabe | Bewegung | 3 | die Flasche trägt zwei Beigaben | **Ökonomie** — Sim und Kampfbot |
+
+Elf Techniken, 22 Einsicht. **Fünf berühren keinen geprüften Wert** und sind ohne Messung baubar (Linie lesen,
+Wundblick, Fährte, Sammlerblick, Leiser Tritt); sechs brauchen eine Messung, die in den Daten steht (`messung`).
+**ADR-0007:** Das Regelwerk der Gattung (Ausdauer, Rolle, Parade, Lock-On, Haltung) ist ab Start vollständig da —
+keine Technik schaltet ein Grundverb frei. Das passt; es wäre verletzt, sobald etwa die Parade eine Technik würde.
+
+**4. Brauen und Flasche sind eins.** Die Sudflasche (§5.2) hat drei Regler, alle an der Rast:
+
+| Regler | Womit | Dauer |
+|---|---|---|
+| Schlucke 3 → 6 | Setzlinge (§5.2) | dauerhaft |
+| Stärke 35 → 55 % | Quellwasser (§5.2) | dauerhaft |
+| **Beigabe** (ein Platz) | ein Kraut aus dem Beutel | bis zur nächsten Rast |
+
+| Beigabe | Wirkung (5 Minuten nach dem Schluck) | Wofür |
+|---|---|---|
+| Fichtenspitzen | Ausdauer erholt sich 15 % schneller | lange Wege, Rudel |
+| Baldrianwurzel | im Griff 10 Punkte weniger verwundbar, Ausdauer erholt sich 10 % langsamer | Reinigen |
+| Schafgarbe | jeder Schluck heilt zehn Sekunden nach (+10 %) | lange Kämpfe |
+| Birkenporling | Befallswirkungen halten 30 % kürzer | Regent, Verhärtete |
+
+Beigaben wachsen an Sammelstellen nach und sind Mengenware der kleinen Sprossen. Die Dauersude nutzen denselben
+Kessel und dieselbe Alte wie die Reinkultur (§5.3). Ein Tränkeschrank entsteht nicht: Es gibt **eine** Flasche.
+
+**5. Töten ist die Abkürzung — mit Folgen, die vorher ausgesprochen werden.**
+
+| Töten gibt schneller | | Töten kostet dauerhaft | Wer es vorher sagt |
+|---|---|---|---|
+| Material sofort (Span, Federstahl) | | das Revier wird **nie ruhig**: keine Rast im Freien, kein Setzling, keine Reinprobe | der Förster („der Wald merkt sich das“, Auftragstext) |
+| den Härtling — Waffenstufe 3 | | **Verhärtung** (neu, Vorschlag): In ein leergetötetes Revier wandert Befall nach (D399) und bringt in jedem zweiten einen neuen Verhärteten mit | der Zähler an Station 1; das erste nachgewanderte Tier steht sichtbar in der Signalfarbe |
+| das Bossteil ohne Reinkultur und ohne drei Ladungen: **Mark** | | Mark trägt nur den Marksud. **Ausdauer wächst nur aus Abwurf** — wer nie reinigt, hebt sie nie | die Alte, wenn man ihr das erste Mark bringt |
+| Zeit: Reinigen dauert +20 … +40 % (Reinigen v1) | | jeder Eingriff ist ein Kiesel beim Zähler (Schwelle 40, `content/wanderfiguren/zaehler.json`) — das gilt auch fürs Reinigen | der Zähler; die Reihe liegt sichtbar |
+| den Regenten ohne drei Reinkulturen | | das Tal fällt trocken, bleibt aber befallen (Bibel §6); keine ruhigen Reviere | der Mönch am Stau |
+| Federstahl von Menschen | | getötete Figuren schliessen ihre Linie (D399): kein Zeug der Fraktion, 2 Einsicht weniger, ein Ende weniger | — die Tat selbst; das Heft hält sie fest |
+
+Die Folge steht nie in einem Menü. Sie wird gesagt, bevor man es das erste Mal tut, und sie ist danach zu sehen.
+
+### 13.3 Rechnung der vier Spielweisen (Œntal)
+
+`npx tsx tools/oekonomiesim.ts`; Annahmen wie §3, dazu: 6 Meisterwurz, 6 Enzianwurzel, 5 Einsicht einmalig; drei
+Figurenlinien zu 2 Einsicht; Verhärtung 0,5 je leerem Revier (leer ab 60 % getötet). Abgeschlossene Linien nach der
+Vertrauenstabelle aus Reinigen v1 §4: Schlächter 1 (Erbe), Gemischt 2, Heiler 2, Umgeher 1 (Mönche). Der Umgeher
+kämpft hier nur noch 12 % der Begegnungen (in §3: 20 %), sonst läge er über der Schwelle des Zählers.
+
+| | Schlächter | Gemischt | Heiler | Umgeher |
+|---|---|---|---|---|
+| Hauptwaffe / Markenstufe | 3 / 1 | 2 / 3 | 1 / 4 | 0 / 2 |
+| Eingriffe (Zähler: höchstens 40) | 291 | 291 | 176 | 34 |
+| Mönche trauen | nein | nein | nein | **ja** |
+| leere Reviere → neue Verhärtete | 12 → 6 | 12 → 6 | 0 → 0 | 0 → 0 |
+| Verhärtete getötet / gereinigt | 11 / 0 | 8 / 3 | 0 / 5 | 0 / 1 |
+| Bossteile Mark / Abwurf | 12 / 0 | 8 / 4 | 0 / 6 | 0 / 2 |
+| Dauersude Leben / Ausdauer | +10 / **+0** | +10 / +10 | +10 / +10 | +5 / +5 |
+| Figurenlinien | 1 von 3 | 2 von 3 | 2 von 3 | 1 von 3 |
+| Einsicht (22 für alle Techniken) | 9 | 11 | 11 | 7 |
+| ruhige Reviere | 0 | 0 | 12 | 0 |
+
+**Befunde:**
+
+1. **Keine der vier Spielweisen schlägt eine andere auf allen sechs Achsen** (Waffe, Marke, Leben, Ausdauer,
+   Einsicht, Mönche) — als Test festgehalten. Der Umgeher ist jetzt nicht mehr „dominiert“: Er hat als Einziger die Mönche.
+2. **Vitalwerte hängen an den Bruchstücken, nicht an den Kills.** Der Schlächter hat 12 Mark und braut davon zwei
+   Sude — mehr Meisterwurz gibt es nicht. Zehn Mark bleiben liegen. Das ist die Regel „nie über Töten“ als Zahl.
+3. **Der Schlächter hebt die Ausdauer nie.** Das ist die härteste ausgesprochene Folge und zugleich die riskanteste
+   Zahl: Ob +36 % Schaden und +10 Leben das aufwiegen, ist nicht gemessen.
+4. **Gemischt und Heiler sind bei Leben, Ausdauer und Einsicht gleich.** Die neuen Achsen trennen den Schlächter und
+   den Umgeher von der Mitte, aber nicht die Mitte vom Heiler; dessen Vorsprung bleibt Marke, ruhige Reviere und
+   Flasche (§3). Wer das schärfen will, bindet einen dritten Dauersud je Kapitel an ein ruhiges Revier.
+5. **Die Verhärtung trifft Gemischt so hart wie den Schlächter** (63 % getötet = jedes Revier leer). Gemischt kann
+   die Nachgewanderten aber reinigen, solange Reinkulturen reichen (hier 1 von 6).
+6. **Der Heiler verliert die Mönche deutlich** (176 Eingriffe gegen 40). Das ist D385 („jeder Eingriff zählt“) in
+   Zahlen und gewollt — sollte aber einmal gespielt werden, bevor die Schwelle steht.
+
+### 13.4 Wo die vorgeschlagene Richtung nicht trägt
+
+- **Bruchstücke und Brauen getrennt** wären zwei Sammelsysteme für denselben Zweck. Zusammengelegt (Punkt 2).
+- **„Ein Vital-Bruchstück vom Boss sofort beim Töten“** trägt nur mit Preis: Das Mark kommt sofort, taugt aber nur
+  für Leben. Ohne diese Schranke wäre Töten auch hier der schnellere *und* gleich gute Weg.
+- **Erfahrung als Fertigkeitspunkte** trägt, solange kein Grundverb dahinter liegt. Sechs der elf Techniken ändern
+  aber geprüfte Werte; bis zur Messung sind nur fünf baubar — das sind die leiseren.
+- **Vitalwerte überhaupt:** Leben und Ausdauer sind die Grundlage jeder Messreihe (Kampfsystem v2, Reinigen v1 §3/§6).
+  Jede Erhöhung verschiebt alle Tabellen. +5 ist bewusst klein; trotzdem gilt: erst messen.
+- **`src/spiel/fortschritt.ts` lässt sich dafür nicht wiederverwenden.** Es rechnet eine Erfahrungskurve
+  (Exponent 2,3) gegen Siege und daraus Stufe und Mutation einer Kreatur. Einsicht ist eine kleine ganze Zahl ohne
+  Kurve und kommt nie aus Siegen. Brauchbar bleibt nur `wildStufe` (Stärke folgt der Entfernung), das
+  `src/world/vorkommen.ts` nutzt; `gutschrift`, `erfahrungAusSieg` und `werteBei` hängen am entfallenen Team
+  (`src/main.tsx`, `src/data/inhalte.ts`) und sollten mit ihm gehen.
+
+### 13.5 Physik (D398)
+
+| Zutat | Real | Im Spiel | Abweichung |
+|---|---|---|---|
+| **Meisterwurz** (*Peucedanum ostruthium*) | Doldenblütler der Hochstaudenfluren, in den Alpen vor allem subalpin; der Wurzelstock galt in der Volksmedizin als Allheilmittel, als Abkochung oder Ansatz | Bruchstück für den Marksud, „von oberhalb der Grenze“ | Standort passt zur Befallsgrenze; **dauerhaft +5 Leben ist Fiktion** |
+| **Gelber Enzian** (*Gentiana lutea*) | Kalkmagerrasen und Almen; die Wurzel ist ein klassisches Bittermittel (Magen, Appetit). Der Stock braucht viele Jahre und ist geschützt | Bruchstück für den Bittersud; „an der Stelle wächst so bald nichts nach“ | Knappheit ist real begründet; dauerhaft +5 Ausdauer ist Fiktion |
+| **Mark** | Knochenmark ist Fett und nahrhaft; eine Markbrühe kocht Stunden | Bossteil, getötet | Kochzeit passt zur Rast; Wirkung Fiktion |
+| **Abwurf** | **erfunden**; nächste reale Entsprechung sind Geweihbast und abgeworfene Stangen (Hirschhorn wurde zu Arznei verkocht) | Bossteil, gereinigt | benannt: Fiktion der Welt |
+| **Fichtenspitzen** | junge Triebe, reich an Vitamin C, als Sirup oder Tee; nur im Mai/Juni | Beigabe | **Jahreszeit übergangen** — im Spiel jederzeit |
+| **Baldrian** (*Valeriana officinalis*) | feuchte Wiesen, Ufer; die Wurzel beruhigt, wirkt aber erst nach längerer Einnahme deutlich | Beigabe: ruhige Hand, langsamere Ausdauer | Richtung stimmt (ruhiger, träger), Sofortwirkung ist Spielwert |
+| **Schafgarbe** (*Achillea millefolium*) | Wiesen, Wegränder; überliefert blutstillend | Beigabe: Nachheilung | Richtung stimmt, Stärke ist Spielwert |
+| **Birkenporling** (*Fomitopsis betulina*) | nur an toten Birken; bitter, im Labor keimhemmend; der Mann vom Tisenjoch trug ihn bei sich | Beigabe gegen Befallswirkungen | Wirkung gegen einen erfundenen Befall ist Fiktion |
+
+Zubereitung, wie sie real wäre: Wurzeln als Abkochung (20 Minuten), Kraut als Aufguss (10 Minuten), der Pilz lange
+gekocht. Eine Rast trägt das. Drei Meisterwurz ≈ 150 g frisch — genug für einen Topf. Gewichte stehen an den Gegenständen.
+
+### 13.6 Belohnungsleiter und Auftragsvertrag
+
+Kategorien `vital` und `erfahrung` sind in `LOHNKATEGORIEN` und `content/belohnungen.json` ergänzt:
+
+| Sprosse | `vital` | `erfahrung` |
+|---|---|---|
+| Kleine Entdeckung | — | — |
+| Verborgener Ort | 1 Bruchstück | 1 Einsicht |
+| Nebenaufgabe | 1 Bruchstück | 1 Einsicht |
+| Figurenlinie | 1 Bruchstück | 2 Einsicht |
+| Optionaler Boss | — (er gibt das Bossteil) | — |
+| Regent | — (er gibt das Bossteil) | 2 Einsicht |
+
+**Zeilen in Quests v1 §8, die umgehängt werden sollten** (nur Liste; die Quest-Dateien sind nicht angefasst —
+`Auftrag.lohn` fasst höchstens drei Kategorien):
+
+| Quest | Heute | Vorschlag |
+|---|---|---|
+| `das-stehende-wasser` (H2) | `verbrauch`, `wissen` | + `erfahrung` |
+| `was-im-stau-liegt` (H5) | `marke`, `aufwertung-3` | + `erfahrung` (Regent: 2) |
+| `was-danach-waechst` (H7) | `marke`, `zugang`, `aufwertung-3` | `aufwertung-3` → `vital` |
+| F1 Ausgang a, F2 Wehrkrone, F3 Handel (Linienenden) | `ruestung` / `marke` / `waffe` | je + `erfahrung` (2) und `vital` |
+| `was-im-heft-steht` (F5) | `marke`, `wissen` | + `erfahrung` |
+| `bis-zur-kante` (F8) | `verbrauch`, `wissen` | `verbrauch` → `vital` (Felsband 853 m, Enzian) |
+| `eine-fuer-den-hof` (N1) | `aufwertung-1`, `zugang` | `aufwertung-1` → `vital` (Almweg, Meisterwurz) |
+| `die-runde` (N2) | `aufwertung-2` | + `erfahrung` |
+| Glocke (N6) | `wissen` | + `erfahrung` |
+| Kirchturm, Hütte, Quelltopf (verborgene Orte) | `aufwertung-3`, `ruestung` u. a. | je + `vital` und `erfahrung` |
+| Brett beim Wirt (W2, wiederholbar) | `aufwertung-1` oder `verbrauch` | **bleibt** — nie `vital`, nie `erfahrung` |
+
+Das wären 6 Bruchstücke aus Aufträgen und Orten; die übrigen 6 liegen in der Welt (oberhalb der Grenze, am Almweg).
+
+### 13.7 Umsetzungsliste (Ergänzung zu §10)
+
+| # | Was fehlt | Wo |
+|---|---|---|
+| 14 | Leben und Ausdauer als veränderliche Werte der Spielfigur (`SPIELERIN.lebenMax`, `AUSDAUER_MAX` sind Konstanten) | `src/kampf/echtzeit.ts`, `src/spieler/ausdauer.ts` |
+| 15 | Kampfbot-Messung für +5 / +10 Leben und Ausdauer und für jede Beigabe | `tools/kampfbot.ts` |
+| 16 | Einsicht und gelernte Techniken im Spielstand; Technik-Fenster an der Rast | `Spielstand`, `src/ui/` |
+| 17 | Die fünf messfreien Techniken: Anzeige der Linie im Vorlauf, Wundanzeige, Reviergrenzen, Sammelstellen, Wahrnehmungsabstand | `src/kampf/`, `src/world/` |
+| 18 | Sammelstellen für Beigaben (nachwachsend) und Fundorte der zwölf Bruchstücke als Daten mit Koordinaten | `content/` |
+| 19 | Bossteil je Ausgang; Brauen bei der Alten | Kampfplatz, `Ort.dienst` |
+| 20 | Verhärtung: leere Reviere, Nachwandern, neuer Verhärteter — hängt an den Revieren (§10 Punkt 4) | Schema `Region`, Spielstand |
+| 21 | `fortschritt.ts` aufräumen, sobald das Team aus `main.tsx` und `inhalte.ts` entfernt ist | `src/spiel/` |
+
+### 13.8 Unklar
+
+- ⚠️ Kein Wert dieses Abschnitts ist gemessen: +5 je Sud, jede Beigabe, sechs Techniken.
+- ⚠️ Zahl der Bruchstücke (6 + 6) und der Einsicht (höchstens 13) im Œntal sind gesetzt, nicht aus der Ortsliste gezählt.
+- ⚠️ Die Verhärtung ist eine neue Mechanik ohne Vorlage in der Bibel; sie ist mein Vorschlag, nicht Flos Entscheidung.
+- ⚠️ Ob der Schlächter ohne Ausdauerzuwachs im dritten Kapitel noch besteht, lässt sich erst sagen, wenn die
+  Gegner späterer Regionen stehen.
+- ⚠️ Standorte und Wirkungen der Pflanzen in 13.5 sind Allgemeinwissen, nicht recherchiert; Witcher-Alchemie,
+  Bloodborne, Lies of P, Soulframe und Dawnwalker sind für diese Frage nicht belegt.

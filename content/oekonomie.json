@@ -167,8 +167,90 @@
         "reinprobe": 2,
         "reinkultur": 2,
         "quellwasser": 3,
-        "herzfunke": 2
+        "herzfunke": 2,
+        "meisterwurz": 6,
+        "enzianwurzel": 6,
+        "einsicht": 5
       }
     }
+  },
+  "brauen": {
+    "bossteil": {
+      "getoetet": "mark",
+      "gereinigt": "abwurf"
+    },
+    "dauersude": [
+      {
+        "id": "lebenssud",
+        "name": "Marksud",
+        "wert": "leben",
+        "plus": 5,
+        "hoechstens": 10,
+        "preis": {
+          "meisterwurz": 3
+        },
+        "bossteile": [
+          "mark",
+          "abwurf"
+        ]
+      },
+      {
+        "id": "atemsud",
+        "name": "Bittersud",
+        "wert": "ausdauer",
+        "plus": 5,
+        "hoechstens": 10,
+        "preis": {
+          "enzianwurzel": 3
+        },
+        "bossteile": [
+          "abwurf"
+        ]
+      }
+    ],
+    "beigaben": [
+      {
+        "gegenstand": "fichtenspitzen",
+        "wirkung": "Ausdauer erholt sich schneller",
+        "werte": {
+          "ausdauerErholung": 0.15
+        },
+        "dauerSek": 300
+      },
+      {
+        "gegenstand": "baldrianwurzel",
+        "wirkung": "ruhige Hand: im Griff weniger verwundbar, Ausdauer erholt sich langsamer",
+        "werte": {
+          "verwundbarImGriff": -0.1,
+          "ausdauerErholung": -0.1
+        },
+        "dauerSek": 300
+      },
+      {
+        "gegenstand": "schafgarbe",
+        "wirkung": "jeder Schluck heilt über zehn Sekunden nach",
+        "werte": {
+          "nachheilung": 0.1
+        },
+        "dauerSek": 300
+      },
+      {
+        "gegenstand": "birkenporling",
+        "wirkung": "Befallswirkungen (Fäulnis, Sporen) halten kürzer",
+        "werte": {
+          "zustandDauer": -0.3
+        },
+        "dauerSek": 300
+      }
+    ],
+    "beigabePlaetze": 1
+  },
+  "erfahrung": {
+    "jeLinie": 2,
+    "linien": 3
+  },
+  "toeten": {
+    "leerAb": 0.6,
+    "verhaertungJeLeeremRevier": 0.5
   }
 }

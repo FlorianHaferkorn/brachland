@@ -4,9 +4,9 @@
  * loses Material liegen, und keine kämpfende Spielweise schlägt eine andere auf beiden Achsen.
  */
 import { readFileSync, readdirSync } from 'node:fs';
-import { Belohnungen, Oekonomie, Gegenstand, ReinigenDaten, BELOHNUNGS_KATEGORIEN, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
+import { Belohnungen, Oekonomie, Gegenstand, ReinigenDaten, Techniken, BELOHNUNGS_KATEGORIEN, BELOHNUNGS_RAENGE } from '../src/data/schema.js';
 import { verteile, loeseMenge, istUnikat, lege, type Vergabe } from '../src/spiel/belohnung.js';
-import { bilanz, SPIELWEISEN, markenStufe, fassung, revierRuhig, schmiedeAus, flasche, todesverlust, reicht, ziehe } from '../src/spiel/oekonomie.js';
+import { braue, bilanz, SPIELWEISEN, markenStufe, fassung, revierRuhig, schmiedeAus, flasche, todesverlust, reicht, ziehe } from '../src/spiel/oekonomie.js';
 
 let bestanden = 0, gefallen = 0;
 function pruefe(name: string, ok: boolean, hinweis = '') {
@@ -98,7 +98,8 @@ pruefe('Härtling, Werkzeug, Vorrat und Unbekanntes bleiben', tod.behalten.haert
 pruefe('kein Einmaliges kann verloren gehen', gegenstaende.every(g => !(g.einmalig && g.liegtBeiTod)));
 
 // --- Physik (D398): jedes Stück wiegt etwas, und was man an losem Material tragen darf, bleibt tragbar
-pruefe('jeder Gegenstand hat ein Gewicht', gegenstaende.every(g => g.gewicht !== undefined && g.gewicht > 0));
+pruefe('jeder Gegenstand hat ein Gewicht (nur Einsicht wiegt nichts)', gegenstaende.every(g => g.gewicht !== undefined
+  && (g.gewicht > 0 || g.wirkung.art === 'erfahrung')));
 const lose = gegenstaende.filter(g => g.liegtBeiTod);
 pruefe('loses Material hat eine Traglast', lose.length > 0 && lose.every(g => g.traglast !== undefined));
 const buendelKg = lose.reduce((kg, g) => kg + g.gewicht! * g.traglast!, 0);
@@ -124,6 +125,52 @@ pruefe('keine kämpfende Spielweise schlägt eine andere auf beiden Achsen', !do
   kaempfer.map(b => `${b.name} ${b.waffen[0]}/${b.markenStufe}`).join(', '));
 pruefe('Bilanz geht auf', [S, G, H, U].every(b => Math.abs(b.getoetet + b.gereinigt + b.umgangen - o.regionen.oental.annahmen.tiere) <= 2));
 pruefe('der Heiler kann jeden Verhärteten reinigen', H.verhaerteteGereinigt === o.regionen.oental.annahmen.verhaertete);
+
+// --- D400: Fortschritt der Spielfigur — Vitalwerte über Sude, Erfahrung über Aufträge, nie über Kämpfe
+pruefe('vital und erfahrung sind Mengenware', !istUnikat(t, 'vital') && !istUnikat(t, 'erfahrung'));
+pruefe('kein Bruchstück und keine Einsicht an kleinen Entdeckungen oder vom Boss selbst',
+  (['entdeckung', 'optionaler-boss'] as const).every(r => !loeseMenge(t, v('a', 'vital', r)) && !loeseMenge(t, v('a', 'erfahrung', r))));
+pruefe('eine Figurenlinie gibt mehr Einsicht als eine Nebenaufgabe',
+  loeseMenge(t, v('a', 'erfahrung', 'figurenlinie'))!.einsicht > loeseMenge(t, v('a', 'erfahrung', 'nebenaufgabe'))!.einsicht);
+pruefe('kein Gegenstand mit Einsicht fällt als Beute', gegenstaende.filter(g => g.wirkung.art === 'erfahrung').every(g => g.beuteChance === 0)
+  && ![o.beute.tier, o.beute.mensch, o.beute.verhaerteter, o.beute.regent].some(b => b.gegenstand === 'einsicht'));
+const leb = o.brauen.dauersude.find(d => d.wert === 'leben')!, atem = o.brauen.dauersude.find(d => d.wert === 'ausdauer')!;
+const voll = { meisterwurz: 99, enzianwurzel: 99 };
+pruefe('ohne Bossteil kein Dauersud', braue(voll, o).plus.leben === 0 && braue(voll, o).plus.ausdauer === 0);
+pruefe('ohne Bruchstücke kein Dauersud', braue({ mark: 9, abwurf: 9 }, o).plus.leben === 0);
+pruefe('Mark trägt nur den Lebenssud', braue({ ...voll, mark: 2 }, o).plus.leben === 2 * leb.plus && braue({ ...voll, mark: 2 }, o).plus.ausdauer === 0);
+pruefe('Abwurf trägt beide', braue({ ...voll, abwurf: 1 }, o).plus.ausdauer === atem.plus
+  && braue({ meisterwurz: 99, abwurf: 1 }, o).plus.leben === leb.plus);
+const beides = braue({ ...voll, mark: 1, abwurf: 1 }, o);
+pruefe('Mark geht in den Lebenssud, Abwurf bleibt für die Ausdauer', beides.plus.leben === leb.plus && beides.plus.ausdauer === atem.plus);
+pruefe('Dauersude sind gedeckelt', braue({ ...voll, abwurf: 99, mark: 99 }, o).anzahl[leb.id] === leb.hoechstens);
+pruefe('ein Sud kostet drei Bruchstücke und ein Bossteil — vier Teile', Object.values(leb.preis).reduce((a, b) => a + b, 0) + 1 === 4);
+pruefe('Beigaben sind Zutaten mit Traglast', o.brauen.beigaben.every(b => {
+  const g = gegenstaende.find(x => x.id === b.gegenstand);
+  return !!g && g.wirkung.art === 'zutat' && g.wirkung.fuer === 'beigabe' && g.traglast !== undefined;
+}));
+
+const techniken = Techniken.parse(lies('content/techniken.json'));
+pruefe('acht bis zwölf Techniken in drei Zweigen', techniken.length >= 8 && techniken.length <= 12
+  && new Set(techniken.map(x => x.zweig)).size === 3);
+pruefe('wer einen geprüften Wert berührt, nennt die Messung', techniken.every(x => ['anzeige', 'welt'].includes(x.beruehrt) || !!x.messung));
+pruefe('mindestens vier Techniken berühren keinen geprüften Wert', techniken.filter(x => ['anzeige', 'welt'].includes(x.beruehrt)).length >= 4);
+pruefe('Schema lehnt eine Kampfwert-Technik ohne Messung ab', !Techniken.safeParse([{ id: 'x', name: 'X', zweig: 'kampf', kosten: 1, wirkung: 'w', beruehrt: 'kampfwert' }]).success);
+const technikKosten = techniken.reduce((n, x) => n + x.kosten, 0);
+pruefe('ein Kapitel kauft nicht alle Techniken', [S, G, H, U].every(b => b.einsicht < technikKosten), `${technikKosten}`);
+pruefe('jede Spielweise kann sich mindestens drei Techniken leisten', [S, G, H, U].every(b => b.einsicht >= 5));
+
+pruefe('Töten gibt die Bossteile sofort, aber nur Mark', S.mark > 0 && S.abwurf === 0 && S.ausdauerPlus === 0 && S.lebenPlus > 0);
+pruefe('wer reinigt, kann beide Vitalwerte heben', H.ausdauerPlus > 0 && H.lebenPlus > 0 && H.mark === 0);
+pruefe('Vitalwerte hängen an Bruchstücken, nicht an der Zahl der Getöteten', S.lebenPlus <= H.lebenPlus + H.ausdauerPlus
+  && S.lebenPlus <= Math.floor(o.regionen.oental.einmalig.meisterwurz / leb.preis.meisterwurz) * leb.plus);
+pruefe('leergetötete Reviere ziehen Verhärtete nach, ruhige nicht', S.nachgewandert > 0 && S.leereReviere > 0 && H.nachgewandert === 0 && H.leereReviere === 0);
+pruefe('wer Figuren verliert, verliert Einsicht', S.einsicht < H.einsicht && S.linien < H.linien);
+pruefe('nur der Umgeher bleibt unter der Schwelle des Zählers (40)', U.eingriffe <= 40 && [S, G, H].every(b => b.eingriffe > 40));
+const achsen = (b: typeof S) => [b.waffen[0], b.markenStufe, b.lebenPlus, b.ausdauerPlus, b.einsicht, b.eingriffe <= 40 ? 1 : 0];
+const alle = [S, G, H, U];
+const schlaegt = alle.some(x => alle.some(y => x !== y && achsen(x).every((w, i) => w >= achsen(y)[i]) && achsen(x).some((w, i) => w > achsen(y)[i])));
+pruefe('keine der vier Spielweisen schlägt eine andere auf allen sechs Achsen', !schlaegt, alle.map(b => `${b.name} ${achsen(b).join('/')}`).join(', '));
 
 console.log(`  Œntal: ${[S, G, H, U].map(b => `${b.name} Waffe ${b.waffen[0]} / Marke ${b.markenStufe}`).join(' · ')}`);
 console.log(`\n${bestanden} bestanden, ${gefallen} fehlgeschlagen`);
