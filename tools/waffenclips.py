@@ -171,8 +171,15 @@ CLIPS = {
                   koerper=(0.08, -0.12), fuss_l=(0.3, -0.04), fuss_r=(-0.12, 0.05))),
         (13, dict(hand=(-0.28, 0.4, 1.1), richt=(-0.8, 0.58, -0.12), zwei='messer', rumpf=(38, 12), huefte=4,
                   koerper=(0.14, -0.12), fuss_l=(0.3, -0.04), fuss_r=(-0.12, 0.05))),
-        (18, dict(hand=(-0.34, 0.18, 1.06), richt=(-0.75, -0.4, -0.3), zwei='messer', rumpf=(52, 10), koerper=(0.12, -0.1),
-                  fuss_l=(0.3, -0.04), fuss_r=(-0.12, 0.05))),
+        # D420: Der erste Schlüssel nach dem Durchzug setzt die Hand auf die Linie, auf der sie vorher weiterlief — die Lage
+        # des Handgelenks im Durchzug folgt dieser Richtung (`_pose` `bewegung`), so bleibt die Pose im Treffer gleich.
+        # D420 Nachschwung: Die Masse läuft weiter (Klinge 82° über den Durchzug, Bremsweg ≥ 21°), die Brust
+        # wird mitgezogen, das Becken bremst schon zurück (`huefte` gegen die Drehung), das Gewicht bleibt tief auf
+        # dem vorderen Fuss. Erst ab Bild 23 (53 % der Erholung, `nachschwung`) hebt sie die Klinge zurück.
+        (17, dict(hand=(-0.34, 0.18, 1.06), richt=(-0.62, -0.7, -0.36), zwei='messer', rumpf=(56, 14), huefte=-8,
+                  koerper=(0.17, -0.14), fuss_l=(0.3, -0.04), fuss_r=(-0.12, 0.05))),
+        (23, dict(hand=(-0.3, 0.14, 0.98), richt=(-0.55, -0.45, -0.7), zwei='messer', rumpf=(46, 12), huefte=-4,
+                  koerper=(0.13, -0.12), fuss_l=(0.3, -0.04), fuss_r=(-0.12, 0.05))),
         (30, 'stand'),
     ]),
     # Rückhand, von links nach rechts, mit dem Schritt des rechten Fusses: die zweite Hälfte der Kette.
@@ -186,8 +193,11 @@ CLIPS = {
                   koerper=(0.08, -0.12), fuss_l=(0.14, -0.02), fuss_r=(0.22, 0.06))),
         (12, dict(hand=(0.42, 0.32, 1.1), richt=(0.82, 0.55, -0.12), zwei='messer', rumpf=(-36, 10), huefte=-4,
                   koerper=(0.13, -0.12), fuss_l=(0.14, -0.02), fuss_r=(0.22, 0.06))),
-        (17, dict(hand=(0.48, 0.05, 1.05), richt=(0.75, -0.45, -0.3), zwei='messer', rumpf=(-48, 8), koerper=(0.1, -0.1),
-                  fuss_l=(0.14, -0.02), fuss_r=(0.22, 0.06))),
+        # D420 Nachschwung gespiegelt zu `Quer_A`: weiter nach rechts hinten, Becken bremst, Gewicht vorn; zurück ab Bild 21.
+        (16, dict(hand=(0.48, 0.05, 1.05), richt=(0.62, -0.68, -0.38), zwei='messer', rumpf=(-54, 12), huefte=8,
+                  koerper=(0.16, -0.14), fuss_l=(0.14, -0.02), fuss_r=(0.22, 0.06))),
+        (21, dict(hand=(0.42, 0.1, 1.0), richt=(0.55, -0.45, -0.7), zwei='messer', rumpf=(-44, 10), huefte=4,
+                  koerper=(0.12, -0.12), fuss_l=(0.14, -0.02), fuss_r=(0.22, 0.06))),
         (28, 'stand'),
     ]),
     # Laufhieb: aus dem Lauf hoch rechts ausholen, der rechte Fuss setzt im Scheitel weit vor und trägt den
@@ -202,8 +212,12 @@ CLIPS = {
                  koerper=(0.3, -0.15), fuss_r=(0.5, 0.02))),
         (11, dict(hand=(-0.25, 0.42, 0.92), richt=(-0.55, 0.6, -0.58), zwei='messer', rumpf=(35, 28), huefte=2,
                   koerper=(0.36, -0.18), fuss_r=(0.5, 0.02))),
-        (17, dict(hand=(-0.28, 0.3, 0.9), richt=(-0.7, 0.2, -0.68), zwei='messer', rumpf=(40, 26), koerper=(0.32, -0.16),
-                  fuss_r=(0.5, 0.02))),
+        # D420 Nachschwung: tief links unten aus (Spitze knapp 20 cm über dem Boden), das Becken bremst, der Körper bleibt
+        # im Ausfall auf dem rechten Fuss; zurück ab Bild 20.
+        (15, dict(hand=(-0.3015, 0.2925, 0.874), richt=(-0.7, 0.1, -0.7), zwei='messer', rumpf=(46, 30), huefte=-8,
+                  koerper=(0.38, -0.2), fuss_r=(0.5, 0.02))),
+        (20, dict(hand=(-0.25, 0.32, 0.88), richt=(-0.62, 0.18, -0.76), zwei='messer', rumpf=(38, 24), huefte=-3,
+                  koerper=(0.33, -0.17), fuss_r=(0.5, 0.02))),
         (26, 'stand'),
     ]),
     # Schwerer Hieb von oben (D414, sechster Clip): `Klinge_U_C` aus der UAL2 taugt dafür nicht — im Prüfbild
@@ -220,7 +234,11 @@ CLIPS = {
                   fuss_l=(0.32, -0.04), fuss_r=(-0.12, 0.05))),
         (17, dict(hand=(0.03, 0.55, 0.98), richt=(0.0, 0.6, -0.8), zwei='messer', rumpf=(0, 30), koerper=(0.16, -0.19),
                   fuss_l=(0.32, -0.04), fuss_r=(-0.12, 0.05))),
-        (24, dict(hand=(0.03, 0.5, 0.9), richt=(0.0, 0.5, -0.86), zwei='messer', rumpf=(0, 32), koerper=(0.15, -0.19),
+        # D420 Nachschwung: Der Hieb von oben endet am Boden — die Masse fangen die Beine (Becken 6 cm tiefer, Hände
+        # 24 cm), die Spitze bleibt 17–19 cm über dem Boden. Zurück ab Bild 28 (53 % der Erholung).
+        (21, dict(hand=(0.0225, 0.54, 0.745), richt=(0.02, 0.8, -0.6), zwei='messer', rumpf=(0, 38), koerper=(0.19, -0.25),
+                  fuss_l=(0.32, -0.04), fuss_r=(-0.12, 0.05))),
+        (28, dict(hand=(0.05, 0.46, 0.78), richt=(0.03, 0.75, -0.66), zwei='messer', rumpf=(0, 34), koerper=(0.17, -0.23),
                   fuss_l=(0.32, -0.04), fuss_r=(-0.12, 0.05))),
         (36, 'stand'),
     ]),

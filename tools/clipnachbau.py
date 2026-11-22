@@ -30,6 +30,15 @@ from weltformel import ALT_KARTE, FINGER, GRIFF_ZWEI, uebertrage
 ARGS = sys.argv[sys.argv.index('--') + 1:]
 FIGUR, AUS = ARGS[0], ARGS[1]
 NEU = [n for n in NAMEN if n.startswith(('Messer_', 'Geraet_'))]
+# D420: `VORSCHLAG=1` baut stattdessen die Vorschläge aus `gewichtvorschlag.py` (nur für Prüfbilder) und gibt die
+# nachgebauten Originale als `<Name>_Nachbau` mit aus — nie in `held-clips.glb` einfügen.
+VORSCHLAG = bool(os.environ.get('VORSCHLAG'))
+if VORSCHLAG:
+    import waffenclips
+    from gewichtvorschlag import VORSCHLAG as _V
+    waffenclips.CLIPS.update(_V)
+    waffenclips.NAMEN = tuple(waffenclips.CLIPS)
+    NEU = list(_V)
 # Idle prüft die Übertragung allein (hart, `GRENZE`), die drei Waffenclips den ganzen Weg (nur gemeldet, s. o.).
 PRUEFE = ['Idle', 'Axt_Quer', 'Speer_Stoss', 'Klinge_Stich']
 GRENZE = 0.01   # Meter
@@ -161,6 +170,8 @@ for n in NEU:
             # linke Hand (Handgelenk) zur Griffachse durch die rechte — wie `greife_links` misst
             g = _p('hand_r'); d = _p('hand_l') - g
             links = max(links, (d - klinge * d.dot(klinge)).length)
+            if VORSCHLAG:
+                print(f'    FORM {n} Bild {bild}: linkes Handgelenk {(d - klinge * d.dot(klinge)).length * 100:.1f} cm neben der Griffachse')
     print(f'  FORM {n}: Klinge höchstens {schlimm[0]:.1f}° neben `richt` (Bild {schlimm[1]})' +
           (f', linkes Handgelenk bis {links * 100:.1f} cm neben der Griffachse' if links else ''))
 setze_aktion(held, None)
@@ -173,6 +184,9 @@ for tr in list(held.animation_data.nla_tracks):
     held.animation_data.nla_tracks.remove(tr)
 for a in list(bpy.data.actions):
     if a.name.startswith('ZIEL__') and a.name[len('ZIEL__'):] in NEU:
+        continue
+    if VORSCHLAG and a.name.startswith('ZIEL__') and a.name[len('ZIEL__'):] in PRUEFE[1:]:
+        a.name = a.name + '_Nachbau'
         continue
     bpy.data.actions.remove(a)
 for a in list(bpy.data.actions):

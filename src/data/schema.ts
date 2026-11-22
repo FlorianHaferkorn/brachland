@@ -1013,6 +1013,86 @@ export const Waffenfamilienplan = z.object({
 }).strict();
 export type Waffenfamilienplan = z.infer<typeof Waffenfamilienplan>;
 
+// ------------------------------------------------------- Gewicht spürbar machen (D420, nur Darstellung)
+
+/**
+ * D420: Kennzahlen, mit denen `src/kampf/gewicht.ts` aus Masse, Trägheit und Treffer-Impuls einer Waffe die
+ * **Darstellung** ableitet — Trefferstopp, Kameraimpuls, Reaktion des Getroffenen, Ton, Nachschwung im Clip.
+ * **Kein Kampfwert:** Fenster, Schaden, Haltungsschaden, Kosten, Rückstoss der Regel bleiben in
+ * `content/waffen/` (D419). Jeder Block nennt `real` (mit „nicht belegt“, wo die Quelle fehlt), `warum` und
+ * `quelle` (D398). Zeiten in Sekunden, Strecken in Metern, Massen in kg, Impulse in N·s.
+ */
+const GewichtBenannt = {
+  real: z.string().min(1),
+  warum: z.string().min(1),
+  quelle: z.string().min(1),
+};
+const GewichtWaffe = z.union([
+  /** Familie des Baukastens: Masse und Trägheit aus ihrem Referenzbau (`content/waffenteile.json`). */
+  z.object({ baukasten: z.enum(['klinge', 'axt', 'speer']), zweihand: z.boolean() }).strict(),
+  /** Ohne Baukastenteile: Werte aus dem Modell (`tools/waffenmodelle.py`, D414). */
+  z.object({
+    masse: z.number().positive().max(10),
+    traegheit: z.number().positive().max(5).describe('kg·m² um die Griffhand'),
+    kopfAbstand: z.number().positive().max(2).describe('Schwerpunkt des Blatts vor der Hand, m — Hebel des Impulses'),
+    spitze: z.number().positive().max(3).describe('Spitze vor der Hand, m'),
+    bewegung: z.enum(['schwung', 'stoss']),
+    zweihand: z.boolean(),
+    quelle: z.string().min(1),
+  }).strict(),
+]);
+export const Gewicht = z.object({
+  stand: z.string(),
+  /** Wie der Arm die Waffe beschleunigt — die Baukasten-Formel (§3.2) in absoluten Einheiten. */
+  physik: z.object({
+    leistung: z.number().positive().max(3000).describe('W, einhändig'),
+    zweihand: z.number().min(1).max(2).describe('Faktor auf die Leistung mit zwei Händen'),
+    bogenGrad: z.number().positive().max(360).describe('Schwungwinkel bis zum Treffer'),
+    stossWeg: z.number().positive().max(2).describe('m, Weg der Hände im Stoss'),
+    bremsmoment: z.number().positive().max(500).describe('N·m, mit dem eine Hand die Waffe nach dem Treffer abfängt'),
+    unterarm: z.number().positive().max(1).describe('m, Hebel, über den das Bremsmoment einen Stoss als Kraft abfängt'),
+    ...GewichtBenannt,
+  }).strict(),
+  /** Je Waffenfamilie (`content/waffenfamilien.json`) der Körper der Waffe. */
+  waffen: z.record(Kennung, GewichtWaffe),
+  /** Masse der Getroffenen in kg (für die Reaktion: Δv = Impuls / Masse); `standard` für alles Ungenannte. */
+  ziele: z.object({ standard: z.number().positive().max(2000), je: z.record(Kennung, z.number().positive().max(2000)), ...GewichtBenannt }).strict(),
+  trefferstopp: z.object({
+    min: z.number().min(0).max(0.2), max: z.number().min(0).max(0.2),
+    impulsVon: z.number().nonnegative(), impulsBis: z.number().positive(),
+    gebrochen: z.number().min(0).max(0.1).describe('s dazu, wenn die Haltung bricht'),
+    toedlich: z.number().min(0).max(0.1).describe('s dazu beim tödlichen Treffer'),
+    geblockt: z.number().min(0).max(1).describe('Faktor, wenn ein Block den Schlag fängt'),
+    ...GewichtBenannt,
+  }).strict().refine(t => t.min <= t.max, 'trefferstopp.min über max').refine(t => t.impulsVon < t.impulsBis, 'impulsVon nicht unter impulsBis'),
+  kamera: z.object({
+    gesetzt: z.object({ grund: z.number().nonnegative().max(0.2), jeImpuls: z.number().nonnegative().max(0.05), max: z.number().positive().max(0.3) }).strict(),
+    erlitten: z.object({ grund: z.number().nonnegative().max(0.2), jeSchaden: z.number().nonnegative().max(0.05), max: z.number().positive().max(0.3) }).strict(),
+    abklingen: z.object({ grund: z.number().positive().max(0.5), jeImpuls: z.number().nonnegative().max(0.05), max: z.number().positive().max(1) }).strict(),
+    /** Anteil des Ausschlags in Schlagrichtung; der Rest ist Zittern wie bisher (D171). */
+    richtung: z.number().min(0).max(1),
+    ...GewichtBenannt,
+  }).strict(),
+  reaktion: z.object({
+    neigungJeMps: z.number().nonnegative().max(200), neigungMax: z.number().nonnegative().max(60),
+    versatzMax: z.number().nonnegative().max(0.5), dauer: z.number().positive().max(1),
+    taumelGrund: z.number().nonnegative().max(45), taumelJeMps: z.number().nonnegative().max(200), taumelMax: z.number().nonnegative().max(60),
+    ...GewichtBenannt,
+  }).strict(),
+  ton: z.object({
+    referenz: Kennung.describe('Waffe mit Tonhöhe 1 und Pegel aus dem Grundwert'),
+    schwungGrund: z.number().min(0).max(1), schwungJeMps: z.number().min(0).max(0.2),
+    trefferGrund: z.number().min(0).max(1), trefferJeOktave: z.number().min(0).max(0.5),
+    ...GewichtBenannt,
+  }).strict(),
+  /** Nachschwung und Erholung im Clip (Prüfung `tests/waffenclips.test.ts`): wie lange der Körper der Masse folgt. */
+  clips: z.object({
+    haltGrund: z.number().min(0).max(1), haltJeKg: z.number().min(0).max(1), haltMax: z.number().min(0).max(1),
+    ...GewichtBenannt,
+  }).strict(),
+}).strict();
+export type Gewicht = z.infer<typeof Gewicht>;
+
 /**
  * Wirken der Marke (D405, Entwurf): keine Zauber, sondern Funktionen der Armklammer. Jedes Wirken kostet
  * Ladungen — dieselben, die das Reinigen braucht. Freigeschaltet über Markenstufe und Einsicht.
