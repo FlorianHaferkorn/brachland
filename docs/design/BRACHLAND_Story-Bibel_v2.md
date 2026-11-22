@@ -108,6 +108,14 @@ Am Werksleib (Aschefeld) entscheidet der Brachgänger, was mit dem Protokoll ges
   reinigen, töten, verschweigen).
 - **Das Verhalten zählt mit:** Reinigen/Töten-Bilanz und der Umgang mit den Regenten (nach dem Sieg ansprechbar)
   färben, welche Figuren einem trauen.
+- **Wer worauf schaut (D385):** Die Enklave schaut auf den Anteil der Gereinigten (geheilt oder geschlachtet?). Das
+  Erbe schaut auf Macht (Waffe, Marke). Die Mönche zählen **jeden Eingriff** — ein gereinigtes Tier nimmt dem Land
+  genauso etwas wie ein getötetes; ihr Vertrauen gewinnt, wer ausweicht und umgeht. Das ist der dritte Spielstil neben
+  Schlächter und Heiler.
+- **Menschen sind nicht reinigbar (D385).** Sie sind nicht befallen. Gegen menschliche Gegner endet der Kampf mit dem
+  Haltungsbruch: Sie fliehen oder ergeben sich, und der Brachgänger entscheidet — töten, vertreiben, verschonen.
+  **Ausnahme:** Menschen, die sich dem Befall freiwillig ausgesetzt haben (Mönche im Endstadium), sind reinigbar. Dort
+  ist Reinigen ein Übergriff gegen den Willen des anderen.
 - **Kapitel 1 setzt die drei Figuren:** eine aus der Enklave (will den Flussvater tot), einen Mönch am Stau („Er
   reinigt nur“), einen Boten des Erbes (erscheint nach dem Wandel mit einem Handel).
 
