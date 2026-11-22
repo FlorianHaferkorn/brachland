@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { baueRevierwelt, masseAus } from '../src/spiel/reviere.js';
 import { join } from 'node:path';
-import { AufgabeDaten, Bewegung, Gewicht,Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung, Revierkarte,
+import { AufgabeDaten, Bewegung, Gewicht, Kampfton,Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung, Revierkarte,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -208,6 +208,30 @@ console.log('\nGewicht (D420, nur Darstellung):');
       console.log(`  ✓ gewicht.json: ${Object.keys(g.waffen).length} Waffen, ${Object.keys(g.ziele.je).length} Ziele, Trefferstopp ${g.trefferstopp.min * 1000}–${g.trefferstopp.max * 1000} ms`);
       ok++;
     }
+  }
+}
+
+console.log('\nKampfton (D427):');
+{
+  // Jede Datei liegt unter public/<ordner>/ und steht mit Namen in assets/HERKUNFT.md (ADR-0013); jede Oberfläche
+  // gehört zu einem Gegner; jede Waffe, die einen Klang braucht, hat Masse in gewicht.json.
+  const r = Kampfton.safeParse(JSON.parse(readFileSync('content/kampfton.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ kampfton.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const k = r.data, fehlt: string[] = [];
+    const herkunft = existsSync('assets/HERKUNFT.md') ? readFileSync('assets/HERKUNFT.md', 'utf8') : '';
+    let dateien = 0;
+    for (const [band, b] of Object.entries(k.baender)) for (const f of b.dateien) {
+      dateien++;
+      if (!existsSync(join('public', k.ordner, f))) fehlt.push(`${band}: public/${k.ordner}/${f} fehlt`);
+      if (!herkunft.includes(f)) fehlt.push(`${band}: ${f} ohne Herkunft in assets/HERKUNFT.md`);
+    }
+    for (const id of Object.keys(k.oberflaechen.je)) if (!existsSync(join('content/gegner', `${id}.json`))) fehlt.push(`oberflaechen.${id} ist kein Gegner`);
+    for (const o of new Set([k.oberflaechen.standard, k.oberflaechen.spielerin, k.oberflaechen.gedeckt, ...Object.values(k.oberflaechen.je)]))
+      if (!(`treffer-${o}` in k.baender)) fehlt.push(`Oberfläche '${o}' hat kein Band treffer-${o}`);
+    if (fehlt.length) { for (const f of fehlt) console.log(`  ✗ kampfton.json: ${f}`); fehler += fehlt.length; }
+    else { console.log(`  ✓ kampfton.json: ${Object.keys(k.baender).length} Bänder, ${dateien} Dateien mit Herkunft`); ok++; }
   }
 }
 

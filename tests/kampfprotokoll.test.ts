@@ -22,10 +22,17 @@ function pruefe(name: string, ok: boolean, hinweis = '') {
 // --- Fingerabdruck des Bots von D171 (gerechnet mit tools/kampfbot.ts aus fce9a34, 22.11.2026)
 // Er prüft den Bot, nicht die Daten: Gegner mit den Werten jener Fassung. Seit D426 trägt die Gams 0,85 s Erholung
 // (vorher 0,7 s) und der Wolf einen Griff von 1,5 s — hier stehen die alten Zahlen, damit der Abdruck vergleichbar bleibt.
-const FINGERABDRUCK_D171 = { treffer: 1239, zeit: 4797.008, erlitten: 10681.5, siege: 269, rein: 97 };
+// D427: Trefferstopp nach Wucht — nur die Zeit verschiebt sich (4797,008 → 4800,475 s über 384 Kämpfe, +9 ms je
+// Kampf); Treffer, erlittener Schaden, Siege und Reinigungen sind die von fce9a34 (geprüft unten).
+const FINGERABDRUCK_D171 = { treffer: 1239, zeit: 4800.475, erlitten: 10681.5, siege: 269, rein: 97 };
 const GAMS_D407: KampfWerte = { ...GAMS, schlag: { ...GAMS.schlag, erholung: 0.7 } };
 const WOLF_D407: KampfWerte = { ...WOLF, reinigen: { dauer: 4.25 } };
 const ALT: Record<string, KampfWerte[]> = { wolf: [WOLF_D407], gams: [GAMS_D407], wegelagerer: GEGNER.wegelagerer, 'wolf+fuchs': [WOLF_D407, FUCHS] };
+{
+  const { zeit: _z, ...ohneZeit } = abdruck(kampf);
+  pruefe('D427: ohne die Zeit derselbe Fingerabdruck wie fce9a34', JSON.stringify(ohneZeit)
+    === JSON.stringify({ treffer: 1239, erlitten: 10681.5, siege: 269, rein: 97 }), JSON.stringify(ohneZeit));
+}
 type K = typeof kampf;
 function abdruck(k: (...a: Parameters<K>) => ReturnType<K>) {
   let treffer = 0, zeit = 0, erlitten = 0, siege = 0, rein = 0;

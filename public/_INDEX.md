@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-10-18
+last-reviewed: 2026-11-22
 shelf-life-days: 90
 ---
 # public — Was der Service Worker ausliefert (_INDEX)
@@ -31,6 +31,7 @@ shelf-life-days: 90
 | `creatures/kampf/*.glb` + `register.json` | D172: K7-Wolf und Grathorn mit Skin und sieben Clips der Quelle (Idle, Walk, Gallop, Angriff, zwei Treffer, Tod), aus `tools/kampftierbau.py` + `kampftierpack.ts`; Wolf 256 KB, Grathorn 205 KB, Budget 300 KB in `tools/quality.ts`. Nur mit Kampfplatz geladen |
 | `bauten/<name>-himmel.bin` + `.json` | D171: Himmelsanteil des Geländes um das Set-Piece, 0,5-m-Raster, 8 Bit (156 KB je Set-Piece), aus `tools/himmelboden.ts`; der Bodenshader liest es als Datentextur |
 | `himmel/alps_field_1k.hdr` | D265: CC0-Himmelsfoto (Poly Haven) als Umgebungslicht für die Proben `?hdri=1` und WebGPU; nicht im Precache (`.hdr` fehlt in `globPatterns`) |
+| `ton/kampf/*.ogg` | D427: Kampfton, 31 kurze CC0-Aufnahmen (Opus in Ogg, mono, zusammen 63 KB): Schwung leicht/schwer, Treffer auf Fell/Rinde/Stoff/Metall, Block, Parade, Rolle, Schritt, Reinigen-Griff; Zuordnung `../content/kampfton.json`, geschnitten mit `../tools/kampftonbau.py`, gespielt von `../src/ton/kampfton.ts`. Im Precache (`ogg` im Workbox-Glob). [Herkunft](../assets/HERKUNFT.md#kampfton-d427) |
 | `material/*.webp` | D223: vier gescannte Bodenschichten (Wiese, Waldboden, Schutt, Fels) je `-farbe` (Modulation + Höhe in A) und `-normal`, 1024², zusammen 5,1 MB, CC0 von Poly Haven; gelesen von `src/world/bodenmaterial.ts`; Herkunft in `../assets/HERKUNFT.md`. Im Precache (`webp` im Workbox-Glob) |
 | `material/hof-ziel-farbe.webp`, `material/hof-ziel-normal.webp` | D317: Farb- und Reliefatlas für Kalkputz, Holzschalung, Schindeln und Feldsteine an Haus 308. 1280², zusammen rund 1,2 MB. [Herkunft](../assets/HERKUNFT.md#eigenes-material-für-haus-308-d317). |
 | `material/haus-scans-hoehe.webp`, `material/hof-scans-hoehe.webp`, `material/hof-ziel-hoehe.webp`, `material/hoehe.json` | D365: Höhenkarten (Graustufen, Weiß = oben) für das Parallax Occlusion Mapping der Hauswände (`src/world/hauspom.ts`, `?pom=0` schaltet ab), Layout wie die Farb-/Normalatlanten in halber Auflösung, zusammen ~390 KiB. Erzeugt mit `../tools/hoehenkarten.py`. [Herkunft](../assets/HERKUNFT.md). |

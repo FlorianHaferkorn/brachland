@@ -90,6 +90,12 @@
       "standard": true
     },
     {
+      "id": "lautstaerke-effekte", "gruppe": "ton", "art": "regler", "prioritaet": "S", "wirkt": "geraet",
+      "name": "Effekte",
+      "hilfe": "Kampfton: Schwung, Treffer, Block, Rolle, Griff (D427). Wirkt unter der Gesamtlautstärke.",
+      "min": 0, "max": 100, "schritt": 5, "standard": 100, "einheit": "%"
+    },
+    {
       "id": "mausempfindlichkeit", "gruppe": "steuerung", "art": "regler", "prioritaet": "M", "wirkt": "geraet",
       "name": "Mausempfindlichkeit",
       "hilfe": "Faktor auf die Blickdrehung je Mausweg.",
@@ -178,6 +184,12 @@
       "name": "Textgröße",
       "hilfe": "Skaliert alle Texte in Menüs, Hinweisen und Untertiteln.",
       "min": 100, "max": 150, "schritt": 25, "standard": 100, "einheit": "%"
+    },
+    {
+      "id": "kamerawackeln", "gruppe": "zugaenglichkeit", "art": "regler", "prioritaet": "S", "wirkt": "spieler", "url": "wackeln",
+      "name": "Kamerawackeln",
+      "hilfe": "Stoss und Zittern der Kamera bei Treffern (D427). 0 % aus, 50 % gering, 100 % voll — für Bewegungsempfindliche.",
+      "min": 0, "max": 100, "schritt": 50, "standard": 100, "einheit": "%"
     }
   ],
   "automatik": {

@@ -35,9 +35,11 @@ import * as THREE from 'three';
 import {
   SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, FUCHS, GAMS, WEGELAGERER, SPEERMANN, AXTMANN, PARADE, naechtlich, ZIELEN, vorwaerts, type Linie, type KampfWerte, type Schlag,
   neuerKaempfer, puffere, setzeBlockAn, loeseBlock, naechsterSchlag, simuliere, waehleZiel, drehe, blickAuf, frei,
-  WAFFEN, ruesteAus, wechsleZiel, type WaffenArt,
+  WAFFEN, ruesteAus, wechsleZiel, type WaffenArt, istSchwer,
   type Kampfwelt, type Kaempfer, type Treffer, neueMarke,
 } from './echtzeit.js';
+import { kameraErlitten, reaktionsVerlauf, schlagWucht, trefferBild, wegVomAngreifer, type Kamerastoss } from './gewicht.js';
+import { KAMPFTON, ladeKampfton, spieleKampfton } from '../ton/kampfton.js';
 import { drueckeReinigen, rolleImGriff, reinigenLage, GRIFF_MELDUNG } from './markengriff.js';
 import { kampfbericht, KREATUR_DER_ART, type Kampfbericht } from './kampfende.js';
 import { PALETTE } from '../world/palette.js';
@@ -49,7 +51,7 @@ import { kreaturGeometrie, baueAnbau, saatAusId } from '../world/kreaturgestalt.
 import { clone as klonSkelett } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { baueWindMaterial } from '../world/windmaterial.js';
 import { haengeAnHand, baueSpeer } from './waffenhand.js';
-import { kameraZustand } from './kamerazustand.js';
+import { kameraZustand, kampfUhr, ZEITLUPE } from './kamerazustand.js';
 import { baueSpritzer, SPRITZER_FARBE } from './spritzer.js';
 import { schadenFaktor } from '../spiel/schmiede.js';
 import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
@@ -185,6 +187,12 @@ export interface KampfFigur {
   haltung: string;
   /** Zählt Treffer, die die Spielerin gesetzt hat — die Kamera ruckt mit (D171). */
   gesetzt: number;
+  /**
+   * D427: Kamerastoss der Treffer dieses Bilds nach Wucht (`gewicht.ts` `trefferBild().kamera`) bzw. nach
+   * Schaden (`kameraErlitten`) — der stärkste im Bild; die Kamera nimmt ihn, wenn `gesetzt`/`getroffen` steigt.
+   */
+  stossGesetzt: Kamerastoss | null;
+  stossErlitten: Kamerastoss | null;
 }
 
 /** Nach so vielen Sekunden steht der Übungsplatz wieder — nach einem Sieg wie nach einer Niederlage. */
@@ -252,7 +260,16 @@ interface Puppe {
   vorher: { x: number; z: number };
   /** D417: wie weit ein Gereinigter schon ruhig abgegangen ist, Meter. */
   abgang: number;
+  /**
+   * D427: Antwort des Leibs auf den letzten Treffer (`gewicht.ts` `reaktion`, Δv = Impuls / Masse) — Neigung
+   * und Versatz vom Angreifer weg, Taumeln nach Haltungsbruch. Nur die Zeichnung; die Kapsel bewegt der
+   * Rückstoss der Regel.
+   */
+  reaktion?: { neigung: number; versatz: number; dauer: number; taumel: number; seit: number; vonX: number; vonZ: number };
 }
+
+/** Bauplan des Gegners (`content/gegner/<id>.json`) zur Art des Platzes — Masse und Oberfläche hängen daran. */
+const bauplan = (art: GegnerArt): string => (art === 'kapsel' ? 'uebungsgegner' : art);
 
 function baueWelt(x: number, z: number, blick: number, aufstellung: readonly GegnerArt[], nacht = false): Kampfwelt {
   const spielerin = neuerKaempfer('spielerin', SPIELERIN, x, z, blick);
@@ -483,6 +500,9 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
   const welt = useRef<Kampfwelt | null>(null);
   const zaehler = useRef({ rollen: 0, getroffen: 0, gesetzt: 0, phase: 'bereit' as Kaempfer['phase'] });
   useEffect(() => () => { if (figur) figur.current = null; }, [figur]);
+  /** D427: zuletzt vertonter Schwung und Phase der Spielerin (Rolle beginnt, Schwung wird aktiv). */
+  const tonZustand = useRef({ schwung: -1, phase: 'bereit' as Kaempfer['phase'] });
+  useEffect(() => { ladeKampfton(); }, []);
   const ende = useRef<number | null>(null);
   const absicht = useRef({ schlag: null as 'leicht' | 'schwer' | null, rolle: false, zielen: false, wechsel: 0 as -1 | 0 | 1,
                            waffe: null as WaffenArt | 'tausch' | null, linie: null as Linie | null, reinigen: false });
@@ -715,8 +735,8 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
     if (!p) return;
-    const dt = Math.min(rohDt, 0.1);
-    const jetzt = performance.now();
+    const dt = Math.min(rohDt, 0.1) * ZEITLUPE;
+    const jetzt = kampfUhr(dt);
     if (!welt.current) {
       welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht); welt.current.spielerin.ausdauerFremd = true;
       welt.current.richtung = RICHTUNG_ADRESSE ?? richtung;
@@ -733,7 +753,9 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
           g.blick = blickAuf(g.x, g.z, sp.x, sp.z);
         });
       }
-      if (waffeWahl.current !== 'klinge') ruesteAus(welt.current.spielerin, waffeWahl.current);
+      // D427: auch die Klinge ausrüsten (wie beim Neustart) — sonst trägt `waffe` nichts, und der Trefferstopp
+      // der Klinge bliebe bei den 60 ms der Gegner.
+      ruesteAus(welt.current.spielerin, waffeWahl.current);
       if (REINIG_PROBE && !onEnde && welt.current.gegner[0]) {
         const sp = welt.current.spielerin, g = welt.current.gegner[0], [fx, fz] = vorwaerts(sp.blick);
         welt.current.friedlich = true; los.current = true;
@@ -805,7 +827,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     if (a.reinigen) {
       a.reinigen = false;
       const antwort = drueckeReinigen(w);
-      if (antwort === 'begonnen') gier.current = s.blick; // der Griff dreht sie zum Tier
+      if (antwort === 'begonnen') { gier.current = s.blick; spieleKampfton({ art: 'griff' }); } // der Griff dreht sie zum Tier
       if (GRIFF_MELDUNG[antwort]) melde(GRIFF_MELDUNG[antwort]);
     }
 
@@ -845,9 +867,19 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       w.marke.ereignisse.length = 0;
     }
 
+    // D427: Kamerastoss und Ton nach Wucht (`gewicht.ts`); der stärkste Stoss im Bild zählt.
+    let stossGesetzt: Kamerastoss | null = null, stossErlitten: Kamerastoss | null = null;
+    const staerker = (a: Kamerastoss | null, b: Kamerastoss) => (!a || b.staerke > a.staerke ? b : a);
+    const eigeneWaffe = s.waffe ?? 'klinge';
     for (const e of ereignisse) {
       if (e.auf === 'spielerin') {
-        if (!e.ausgewichen && e.schaden > 0) zaehler.current.getroffen++;
+        if (!e.ausgewichen && e.schaden > 0) {
+          zaehler.current.getroffen++;
+          stossErlitten = staerker(stossErlitten, kameraErlitten(e.schaden));
+          spieleKampfton({ art: 'erlitten', schaden: e.schaden });
+        }
+        if (e.pariert) spieleKampfton({ art: 'parade', waffe: eigeneWaffe });
+        else if (e.geblockt && !e.ausgewichen) spieleKampfton({ art: 'block', waffe: eigeneWaffe });
         if (e.ausgewichen) melde('ausgewichen');
         else if (e.pariert) melde('pariert');
         else if (e.falscheLinie) melde('falsche Linie');
@@ -866,10 +898,22 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
           }
         }
         if (i >= 0 && !e.ausgewichen) {
-          zeichnung.puppen[i].blitz = jetzt;
+          const pu = zeichnung.puppen[i];
+          pu.blitz = jetzt;
           // Seite des Angreifers im Blick des Getroffenen: rechts ist (−vz, vx) zur Vorwärtsrichtung.
           const g = w.gegner[i], [fx, fz] = vorwaerts(g.blick);
-          zeichnung.puppen[i].seite = (s.x - g.x) * -fz + (s.z - g.z) * fx > 0 ? 'Right' : 'Left';
+          pu.seite = (s.x - g.x) * -fz + (s.z - g.z) * fx > 0 ? 'Right' : 'Left';
+          if (e.von === 'spielerin' && (e.schaden > 0 || e.geblockt)) {
+            // D427: Bild des Treffers nach Wucht — Reaktion des Leibs, Kamerastoss, Ton.
+            const ziel = bauplan(pu.art);
+            const bild = trefferBild({ waffe: e.waffe ?? eigeneWaffe, wucht: e.wucht, ziel, linie: e.linie,
+              gebrochen: e.gebrochen, toedlich: e.toedlich, geblockt: e.geblockt });
+            pu.reaktion = { ...bild.reaktion, seit: jetzt, vonX: s.x, vonZ: s.z };
+            if (e.schaden > 0) {
+              stossGesetzt = staerker(stossGesetzt, bild.kamera);
+              spieleKampfton({ art: 'treffer', waffe: e.waffe ?? eigeneWaffe, wucht: e.wucht, ziel });
+            } else spieleKampfton({ art: e.gedeckt ? 'gedeckt' : 'block', waffe: eigeneWaffe, wucht: e.wucht });
+          }
         }
         if (e.von === 'spielerin' && e.schaden > 0) zaehler.current.gesetzt++;
         if (e.von === 'spielerin' && e.gedeckt) melde('gedeckt');
@@ -877,6 +921,19 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         else if (e.gebrochen) melde('er taumelt');
       }
     }
+
+    // D427: Schwung hörbar, sobald er aktiv wird; Rolle mit Fussaufsatz gegen Ende.
+    const tz = tonZustand.current;
+    if (s.phase === 'aktiv' && s.schwung !== tz.schwung) {
+      tz.schwung = s.schwung;
+      spieleKampfton({ art: 'schwung', waffe: eigeneWaffe, schwer: istSchwer(s.schlag),
+        wucht: schlagWucht(s.schlag, WAFFEN[eigeneWaffe].leicht[0]) });
+    }
+    if (s.phase === 'rolle' && tz.phase !== 'rolle') {
+      spieleKampfton({ art: 'rolle' });
+      spieleKampfton({ art: 'schritt' }, s.werte.rolle.dauer * KAMPFTON.schrittNachRolle);
+    }
+    tz.phase = s.phase;
 
     // ---- Übungsplatz neu aufstellen
     // D187: In der Galerie fällt niemand — Leben zurück, bevor das Ende zählt.
@@ -945,6 +1002,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         vorlauf: sl.vorlauf, aktiv: sl.aktiv, erholung: sl.erholung,
         waffe: s.waffe ?? 'klinge',
         clip: sl.clip ?? 'Sword_Slash', hieb: sl.hieb ?? null, haltung: waffe.haltung, gesetzt: z.gesetzt,
+        stossGesetzt, stossErlitten,
       };
     }
 
@@ -1072,7 +1130,11 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
     const t = g.zeit;
     const abkling = Math.max(0.35, 1 - t / Math.max(0.01, g.werte.betaeubt));
     m.emissive.copy(FARBE.taumeln).multiplyScalar(0.35);
-    l.rotation.z = Math.sin(t * 9) * 0.22 * abkling;
+    // D427: Nach einem Haltungsbruch schwingt das Taumeln mit der Wucht des brechenden Schlags aus
+    // (`gewicht.ts` `reaktion().taumel`, Grad); ohne solchen Schlag (Parade, Wurf) 0,22 rad wie D169.
+    const taumel = pu.reaktion && pu.reaktion.taumel > 0 && pu.reaktion.seit >= jetzt - t * 1000 - 300
+      ? pu.reaktion.taumel * Math.PI / 180 : 0.22;
+    l.rotation.z = Math.sin(t * 9) * taumel * abkling;
     l.rotation.x = tier ? 0.1 : 0.18;
     l.position.y = tier ? -0.06 : 0;
     pu.kranz.visible = true;
@@ -1095,6 +1157,19 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
     } else {
       l.rotation.x = t * Math.PI / 2;
       l.position.y = -t * 0.35;
+    }
+  }
+  // D427: Antwort des Leibs auf den Treffer nach Impuls (Δv = J / m): kippt und gibt vom Angreifer weg nach,
+  // schnell (ein Viertel der Dauer) und klingt aus. Auf die Pose der Phase addiert, im Raum der Gruppe.
+  const re = pu.reaktion;
+  if (re && g.phase !== 'gefallen') {
+    const k = reaktionsVerlauf((jetzt - re.seit) / 1000 / re.dauer);
+    if (k > 0) {
+      const [lx, lz] = wegVomAngreifer(g.x - re.vonX, g.z - re.vonZ, g.blick);
+      const a = re.neigung * Math.PI / 180 * k;
+      l.position.x += lx * re.versatz * k; l.position.z += lz * re.versatz * k;
+      // Drehung um x hebt die Spitze nach +z, um z nach −x (kleine Winkel, Euler-Reihenfolge egal).
+      l.rotation.x += a * lz; l.rotation.z -= a * lx;
     }
   }
   // Aufblitzen beim Treffer — 120 ms, über allem anderen.

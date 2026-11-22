@@ -1102,6 +1102,46 @@ export const Gewicht = z.object({
 export type Gewicht = z.infer<typeof Gewicht>;
 
 /**
+ * D427: Kampfton (D423: freie Aufnahmen, CC0, ADR-0013) — welche Dateien unter `public/ton/kampf/` zu welchem
+ * Ereignis gehören, wie laut ein Band im Grund ist und wie weit Tonhöhe und Pegel je Anschlag streuen (gegen
+ * Wiederholung). Tonhöhe und Pegel **nach Masse** kommen nicht von hier, sondern aus `content/gewicht.json`
+ * `ton` über `toene()` in `src/kampf/gewicht.ts`. Gelesen von `src/ton/kampfton.ts`; `npm run validate` prüft,
+ * dass jede Datei liegt und in `assets/HERKUNFT.md` steht.
+ */
+export const KAMPFTON_BAENDER = ['schwung-leicht', 'schwung-schwer', 'treffer-fell', 'treffer-rinde', 'treffer-stoff',
+  'treffer-metall', 'block', 'parade', 'rolle', 'schritt', 'griff'] as const;
+export const KAMPFTON_OBERFLAECHEN = ['fell', 'rinde', 'stoff', 'metall'] as const;
+export const Kampfton = z.object({
+  stand: z.string(),
+  ordner: z.string().regex(/^[a-z0-9/-]+$/).describe('unter public/, ohne Schrägstrich vorn und hinten'),
+  baender: z.record(z.enum(KAMPFTON_BAENDER), z.object({
+    dateien: z.array(z.string().regex(/^[a-z0-9-]+\.ogg$/)).min(1),
+    pegel: z.number().min(0).max(1).describe('Grundpegel des Bands, 0…1 vor Masse und Bus'),
+    streuPegel: z.number().min(0).max(0.5).describe('± Anteil zufällig je Anschlag'),
+    streuHalbton: z.number().min(0).max(4).describe('± Halbtöne zufällig je Anschlag'),
+  }).strict()),
+  /** Was ein Treffer der Spielerin am Getroffenen trifft — Bauplan des Gegners (`content/gegner/<id>.json`). */
+  oberflaechen: z.object({
+    standard: z.enum(KAMPFTON_OBERFLAECHEN),
+    je: z.record(Kennung, z.enum(KAMPFTON_OBERFLAECHEN)),
+    /** Die Spielerin selbst (erlittene Treffer). */
+    spielerin: z.enum(KAMPFTON_OBERFLAECHEN),
+    /** In die gedeckte Linie eines Menschen geschlagen: Waffe auf Waffe. */
+    gedeckt: z.enum(KAMPFTON_OBERFLAECHEN),
+  }).strict(),
+  /** Erlittene Treffer: Pegel nach Schaden (der Gegner trägt keine Waffenmasse in den Daten). */
+  erlitten: z.object({ grund: z.number().min(0).max(1), jeSchaden: z.number().min(0).max(0.05) }).strict(),
+  /** Abspielrate höchstens so weit von 1 — weiter verstimmt klingt eine Aufnahme nach Band statt nach Masse. */
+  rate: z.object({ min: z.number().positive().max(1), max: z.number().min(1).max(4) }).strict(),
+  /** Nach dem Beginn der Rolle der Fussaufsatz, als Anteil der Rollendauer. */
+  schrittNachRolle: z.number().min(0).max(1),
+  real: z.string().min(1),
+  warum: z.string().min(1),
+  quelle: z.string().min(1),
+}).strict().refine(k => k.rate.min <= k.rate.max, 'rate.min über rate.max');
+export type Kampfton = z.infer<typeof Kampfton>;
+
+/**
  * Wirken der Marke (D405, Entwurf): keine Zauber, sondern Funktionen der Armklammer. Jedes Wirken kostet
  * Ladungen — dieselben, die das Reinigen braucht. Freigeschaltet über Markenstufe und Einsicht.
  */

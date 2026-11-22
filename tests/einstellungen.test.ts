@@ -27,8 +27,9 @@ console.log('Einstellungen — Speicher, Rangfolge, Qualitätsvorschlag\n');
 const ids = EINSTELLUNGS_DATEN.einstellungen.map(e => e.id);
 pruefe('Daten laden, alle Standards gültig', EINSTELLUNGS_DATEN.einstellungen.every(e => einstellungsWertGueltig(e, e.standard)), `${ids.length} Einstellungen`);
 pruefe('Neu (D415): blocken-modus, Totzonen links/rechts', ['blocken-modus', 'gamepad-totzone-links', 'gamepad-totzone-rechts'].every(i => ids.includes(i)));
-pruefe('URL-Schalter nur, wo sie dasselbe meinen (nur sichtweite → weite)',
-  EINSTELLUNGS_DATEN.einstellungen.filter(e => e.url).map(e => e.id).join() === 'sichtweite');
+// D427: `?wackeln=` meint genau die Einstellung `kamerawackeln` (0/50/100) — für Messläufe am M1.
+pruefe('URL-Schalter nur, wo sie dasselbe meinen (sichtweite → weite, kamerawackeln → wackeln)',
+  EINSTELLUNGS_DATEN.einstellungen.filter(e => e.url).map(e => e.id).join() === 'sichtweite,kamerawackeln');
 
 // ---- Standard, ohne Speicher
 const leer = erzeugeSpeicher();
