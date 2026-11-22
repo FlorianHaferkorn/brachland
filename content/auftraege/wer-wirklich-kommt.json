@@ -1,0 +1,11 @@
+{
+  "id": "wer-wirklich-kommt",
+  "region": "oental",
+  "geber": "dorf-bursche",
+  "titel": "Wer wirklich kommt",
+  "text": "Mein Bruder ist den Uferweg hinunter, mit dem Spieß vom Vater. Die Füchse sind seiner Spur nachgegangen, nicht unserer. Am Hangweg steht ein Stadel, auf halbem Weg zum Wehr. Sehen Sie nach, ob im Heu einer gelegen hat.",
+  "ziel": {"art": "finde", "fragment": "mulde-im-heu"},
+  "belohnung": {"harzverband": 1, "kraeutersud": 1},
+  "vorher": "schritte-auf-der-strasse",
+  "lohn": ["aufwertung-1", "wissen"]
+}

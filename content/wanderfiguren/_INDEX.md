@@ -23,7 +23,7 @@ owns: *.json
 | Datei | Fraktion | Weg |
 |---|---|---|
 | `pegelwartin.json` | Enklave | Die Pegelwartin — will den Flussvater tot. Pegel unter der Terrasse → Bahnhof am Wehr → altes Dorf (trockengefallen) → Terrasse |
-| `zaehler.json` | Grüne Mönche | Der Zähler — „Er reinigt nur.“ Hof am Stau → Ufer am Absetzbecken → Hof am Stau → Wehrkrone (nur wenn die Region geheilt wurde) |
+| `zaehler.json` | Grüne Mönche | Der Zähler — „Er reinigt nur.“ Hof am Stau → Ufer am Absetzbecken → Hof am Stau → Wehrkrone (nur wenn die Region geheilt wurde, und nur bis 40 Eingriffe) → Kirche am Nordhang, Stufe (D392: wer zu oft eingegriffen hat, findet ihn abgewandt; Schwelle ist Annahme, `docs/design/BRACHLAND_Quests_v1.md` §2.6) |
 | `bote-erbe.json` | Das Erbe | Der Bote — erscheint erst nach dem Wandel, mit einem Handel. Bahnhof → Silo drei (trockengefallen) → Hof über dem Nordufer, am Weg ins Fahlmoos |
 
 ## Was eine Station ist
@@ -32,6 +32,7 @@ owns: *.json
 
 - **`bis`** — tritt das ein, zieht die Figur weiter. Jede Station ausser der letzten braucht es.
 - **`ab`** — erst dann steht sie an dieser Station; vorher ist sie nirgends.
+- **`eingriffe`** (D392) — Bedingung neben `finde`/`regent`/`heile`/`auftrag`: wahr ab so vielen getöteten **oder** gereinigten Vorkommen (D385, der Zähler der Mönche). Der Regent zählt nicht mit.
 
 Bedingungen sind eine geschlossene Liste gegen den Spielstand, wie bei den Aufträgen: `finde` (Fundstück gelesen),
 `regent` (besiegt), `heile` (Region geheilt), `auftrag` (Belohnung abgeholt).
@@ -48,8 +49,9 @@ Bedingungen sind eine geschlossene Liste gegen den Spielstand, wie bei den Auftr
 ## Was das Spiel damit tut — und was nicht
 
 Es zeigt die Figur an ihrer Station und ihren Satz beim Ansprechen; wer sie anspricht, steht als `wanderfigur-<id>`
-in `stand.orte`. **Nicht gebaut:** ob sie einem traut, scheitert, stirbt oder ein Ende öffnet (Ledger A-24), und an
-welcher Station man sie getroffen hat.
+in `stand.orte`, seit D392 zusätzlich mit der Station (`wanderfigur-<id>:<n>`) — daraus liest das Heft
+(`src/spiel/notizbuch.ts`) ihren Satz, auch wenn sie weitergezogen ist. **Nicht gebaut:** ob sie einem traut,
+scheitert, stirbt oder ein Ende öffnet (Entwurf `docs/design/BRACHLAND_Quests_v1.md` §5–§6, Ledger A-27).
 
 ## Definition of Done
 

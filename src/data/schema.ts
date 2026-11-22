@@ -442,6 +442,17 @@ export const Auftragsziel = z.discriminatedUnion('art', [
 ]);
 export type Auftragsziel = z.infer<typeof Auftragsziel>;
 
+/**
+ * Kategorien einer Belohnung — der Vertrag zwischen Quest-Entwurf (D392) und Gegenständen (D393). Der
+ * Auftrag sagt nur Art und Stufe; welcher Gegenstand das ist, entscheidet die Gegenstandsliste.
+ */
+export const LOHNKATEGORIEN = [
+  'aufwertung-1', 'aufwertung-2', 'aufwertung-3', 'aufwertung-4',
+  'verbrauch', 'werkzeug', 'waffe', 'ruestung', 'marke', 'wissen', 'zugang',
+] as const;
+export const Lohnkategorie = z.enum(LOHNKATEGORIEN);
+export type Lohnkategorie = z.infer<typeof Lohnkategorie>;
+
 export const Auftrag = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   region: z.string(),
@@ -455,6 +466,12 @@ export const Auftrag = z.object({
   belohnung: z.record(z.string(), z.number().int().min(1).max(9)),
   /** Vorher zu erledigender Auftrag. Leer heißt: von Anfang an offen. */
   vorher: z.string().optional(),
+  /**
+   * Belohnungsvertrag (D392, `docs/design/BRACHLAND_Quests_v1.md` §8): was dieser Auftrag der Art nach geben
+   * soll. **Solange das Feld gesetzt ist, ist `belohnung` ein Platzhalter** aus vorhandenen Gegenständen —
+   * die echten Gegenstände setzt D393 und nimmt das Feld dann heraus.
+   */
+  lohn: z.array(Lohnkategorie).min(1).max(3).optional(),
 });
 export type Auftrag = z.infer<typeof Auftrag>;
 
@@ -469,6 +486,11 @@ export const Stationsbedingung = z.discriminatedUnion('art', [
   z.object({ art: z.literal('regent'),  regent: z.string() }),
   z.object({ art: z.literal('heile'),   regent: z.string() }),
   z.object({ art: z.literal('auftrag'), auftrag: z.string() }),
+  /**
+   * Der Zähler der Mönche (D385, D392): wahr, sobald der Brachgänger so oft eingegriffen hat — getötet **oder**
+   * gereinigt, beides zählt. Wie alle Bedingungen hier nur in eine Richtung: einmal wahr, immer wahr.
+   */
+  z.object({ art: z.literal('eingriffe'), anzahl: z.number().int().min(1).max(500) }),
 ]);
 export type Stationsbedingung = z.infer<typeof Stationsbedingung>;
 
