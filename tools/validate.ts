@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Bewegung, Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
+import { Bewegung, Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -134,6 +134,27 @@ console.log('\nEinstellungen (D394):');
     }
     if (!luecken) { console.log(`  ✓ einstellungen.json: ${r.data.einstellungen.length} Einstellungen, Stufenwerte vollständig`); ok++; }
   }
+}
+
+console.log('\nBelegung (D415):');
+{
+  // Das Schema prüft ids, Sperrliste und die Verweise in `geteilt`. Hier zusätzlich: Die Automatik der
+  // Einstellungen hat Zielbildzeiten für alle vier Stufen, und keine ungeduldete Kollision steht in der
+  // Standardbelegung (die Kontextregel steht in `src/spieler/eingabe.ts`, getestet in `tests/eingabe.test.ts`).
+  const r = Belegung.safeParse(JSON.parse(readFileSync('content/belegung.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ belegung.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const { kollisionen, standardKarte } = await import('../src/spieler/eingabe.js');
+    const offen = kollisionen(standardKarte()).filter(k => !k.geduldet);
+    if (offen.length) { for (const k of offen) console.log(`  ✗ belegung.json: ${k.taste} doppelt (${k.aktionen.join(' / ')}) in ${k.zustaende.join(', ')}`); fehler += offen.length; }
+    else { console.log(`  ✓ belegung.json: ${r.data.aktionen.length} Aktionen, ${r.data.geteilt.length} geduldete Überschneidungen, keine Kollision`); ok++; }
+  }
+  const e = Einstellungen.safeParse(JSON.parse(readFileSync('content/einstellungen.json', 'utf8')));
+  const z = e.success ? e.data.automatik?.zielBildzeitMs : undefined;
+  const fehltZiel = z ? QUALITAETSSTUFEN.filter(s => !(s in z)) : ['automatik fehlt'];
+  if (fehltZiel.length) { console.log(`  ✗ einstellungen.json automatik: Zielbildzeit fehlt für ${fehltZiel.join(', ')}`); fehler++; }
+  else { console.log('  ✓ einstellungen.json automatik: Zielbildzeiten für alle vier Stufen'); ok++; }
 }
 
 console.log('\nBewegung (D412):');

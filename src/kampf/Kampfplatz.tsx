@@ -49,6 +49,14 @@ import { kameraZustand } from './kamerazustand.js';
 import { baueSpritzer, SPRITZER_FARBE } from './spritzer.js';
 import { schadenFaktor } from '../spiel/schmiede.js';
 import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
+import { aktionenVon, aktiv, halteZustand, tastenVon, umgeschaltet, type Haltemodus } from '../spieler/eingabe.js';
+import { einstellungen } from '../spiel/einstellungen.js';
+
+/**
+ * D415: Pfeile, die im Kampf die Linie wählen (Bestand D174), zählen nicht als Richtung für Rolle und
+ * Laufangriff — vor D415 las der Kampf dafür nur W/A/S/D. So bleibt das Gefühl gleich.
+ */
+const LINIEN_TASTEN = () => new Set(['linie_oben', 'linie_unten', 'linie_links', 'linie_rechts'].flatMap(tastenVon));
 /** Aussehen des Wegelagerers (D175). */
 const WEGELAGERER_WAHL: HeldWahl = {
   name: 'Wegelagerer', geschlecht: 'm', koerper: 'm', kleid: 'bauer', haar: 'Buzzed', bart: true,
@@ -487,34 +495,47 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     return () => { lebt = false; };
   }, []);
   useEffect(() => {
-    const runter = (ev: KeyboardEvent) => {
-      if (ev.target instanceof HTMLInputElement || ev.repeat) {
-        if (!ev.repeat) return;
-      }
-      tasten.current.add(ev.code);
-      if (ev.repeat) return;
+    // D415: Aktionen statt fester Tasten (`spieler/eingabe.ts`); die Standardbelegung ist die bisherige
+    // (J/I/K/L/U, Pfeile, Q/E, 1/2/3, Tab, rechte Maustaste). Gamepad-Knöpfe kommen als `Pad:…`-Codes.
+    // Zielwechsel liegt auf Q/E wie Drehen — der Wechsel wirkt nur mit Ziel, das Drehen nur ohne.
+    const druck = (code: string, ev?: Event) => {
       los.current = true;
       const a = absicht.current;
-      if (ev.code === 'KeyJ') a.schlag = 'leicht';
-      if (ev.code === 'KeyI') a.schlag = 'schwer';
-      if (ev.code === 'KeyK') a.rolle = true;
-      if (ev.code === 'KeyL') a.zielen = true;
-      // D174: Pfeiltasten wählen die Linie für Angriff und Block (ADR-0009 Stufe 2).
-      const linie = ({ ArrowUp: 'oben', ArrowDown: 'unten', ArrowLeft: 'links', ArrowRight: 'rechts' } as const)[ev.code as 'ArrowUp'];
-      if (linie) { a.linie = linie; ev.preventDefault(); }
-      if (ev.code === 'KeyQ') a.wechsel = -1;
-      if (ev.code === 'KeyE') a.wechsel = 1;
-      if (ev.code === 'Digit1') a.waffe = 'klinge';
-      if (ev.code === 'Digit2') a.waffe = 'axt';
-      if (ev.code === 'Digit3') a.waffe = 'speer';
-      if (ev.code === 'Tab') { a.waffe = 'tausch'; ev.preventDefault(); }
+      for (const aktion of aktionenVon(code)) {
+        if (aktion === 'angriff_leicht') a.schlag = 'leicht';
+        if (aktion === 'angriff_schwer') a.schlag = 'schwer';
+        if (aktion === 'rolle') a.rolle = true;
+        if (aktion === 'zielen') a.zielen = true;
+        // D174: Pfeiltasten wählen die Linie für Angriff und Block (ADR-0009 Stufe 2).
+        const linie = ({ linie_oben: 'oben', linie_unten: 'unten', linie_links: 'links', linie_rechts: 'rechts' } as const)[aktion as 'linie_oben'];
+        if (linie) { a.linie = linie; ev?.preventDefault(); }
+        if (aktion === 'zielwechsel_links') a.wechsel = -1;
+        if (aktion === 'zielwechsel_rechts') a.wechsel = 1;
+        if (aktion === 'waffe_klinge') a.waffe = 'klinge';
+        if (aktion === 'waffe_axt') a.waffe = 'axt';
+        if (aktion === 'waffe_speer') a.waffe = 'speer';
+        if (aktion === 'waffe_tausch') { a.waffe = 'tausch'; ev?.preventDefault(); }
+        // Umschalten (Einstellung `blocken-modus`): der Kampf ist der einzige Besitzer des Blocks.
+        if (aktion === 'block' && einstellungen().wert('blocken-modus') === 'umschalten') {
+          umgeschaltet.blocken = halteZustand('umschalten', umgeschaltet.blocken, true, true);
+        }
+      }
+    };
+    const runter = (ev: KeyboardEvent) => {
+      if (ev.target instanceof HTMLInputElement && !ev.repeat) return;
+      tasten.current.add(ev.code);
+      if (ev.repeat) return;
+      druck(ev.code, ev);
     };
     const beruehrt = (ev: PointerEvent) => {
       los.current = true;
-      // D174: rechte Maustaste halten = Block, wie U (ADR-0009, offene Frage 1: beides).
-      if (ev.button === 2) tasten.current.add('Maus2');
+      // D174: rechte Maustaste halten = Block, wie U (ADR-0009, offene Frage 1: beides). Seit D415 als
+      // Code `Maus<n>` in der Belegung — nur echte Mäuse, ein Finger ist keine Maustaste.
+      if (ev.pointerType !== 'mouse') return;
+      const code = `Maus${ev.button}`;
+      tasten.current.add(code); druck(code);
     };
-    const losgelassen = (ev: PointerEvent) => { if (ev.button === 2) tasten.current.delete('Maus2'); };
+    const losgelassen = (ev: PointerEvent) => { if (ev.pointerType === 'mouse') tasten.current.delete(`Maus${ev.button}`); };
     // D175 (ADR-0009, Frage 1): Mit aufgeschaltetem Ziel wählt die Maus die Linie — ein Zug von
     // 40 px in eine Richtung, die stärkere Achse gewinnt. Die Kamera rahmt dann ohnehin das Ziel.
     const zug = { x: 0, y: 0 };
@@ -691,17 +712,21 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     if (zielt) zielt.current = w.ziel !== null;
     aufgeschaltet.current = w.ziel !== null;
     const t = tasten.current;
-    const vor = (t.has('KeyW') ? 1 : 0) - (t.has('KeyS') ? 1 : 0);
-    const seit = (t.has('KeyD') ? 1 : 0) - (t.has('KeyA') ? 1 : 0);
-    // Rennen wie in `steuerung.ts`: Shift und eine Richtung. Dann wird J zum Laufangriff.
-    s.rennt = (t.has('ShiftLeft') || t.has('ShiftRight')) && (vor !== 0 || seit !== 0);
+    const ohneLinie = LINIEN_TASTEN();
+    const r = (aktion: string) => (aktiv(aktion, t, ohneLinie) ? 1 : 0);
+    const vor = r('vor') - r('zurueck');
+    const seit = r('rechts') - r('links');
+    // Rennen wie in `steuerung.ts`: Rennen und eine Richtung. Dann wird J zum Laufangriff.
+    const rennt = einstellungen().wert('rennen-modus') as Haltemodus === 'umschalten' ? umgeschaltet.rennen : aktiv('rennen', t);
+    s.rennt = rennt && (vor !== 0 || seit !== 0);
     // Gepuffert (D171): ausgeführt im nächsten Teilschritt, in dem es geht — auch aus der Erholung.
     if (a.linie) { s.linie = a.linie; a.linie = null; }
     s.schadenFaktor = schadenFaktor(waffenStufen?.[s.waffe ?? 'klinge'] ?? 0);
     s.element = waffenStufen?.funke ?? FUNKE_PROBE;
     if (a.schlag) { puffere(s, a.schlag); a.schlag = null; }
     // Block (ADR-0009 Stufe 1, D173): U halten. Heben im ersten Moment vor dem Treffer pariert.
-    if (t.has('KeyU') || t.has('Maus2')) { if (s.phase !== 'block') setzeBlockAn(s); } else loeseBlock(s);
+    const blockt = einstellungen().wert('blocken-modus') === 'umschalten' ? umgeschaltet.blocken : aktiv('block', t);
+    if (blockt) { if (s.phase !== 'block') setzeBlockAn(s); } else loeseBlock(s);
     if (a.rolle) {
       a.rolle = false;
       const g = s.blick;

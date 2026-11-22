@@ -33,6 +33,7 @@ import { KREATUREN, GEGENSTAENDE, FRAGMENTE, ORTE, ausKaempferId, nachMetern }
 import { wendeAn, wirktAuf } from '../spiel/gegenstaende.js';
 import { verschiebe, zustandsAnzeige } from '../spiel/team.js';
 import { zeichneKarte, zeichneMarken, type Kartenmarke } from './karte.js';
+import { aktionenVon } from '../spieler/eingabe.js';
 
 export type Reiter = 'karte' | 'beutel' | 'team' | 'verzeichnis';
 
@@ -93,7 +94,8 @@ export function Menue(p: MenueProps) {
   const [wartetAufZiel, setWartetAufZiel] = useState<Gegenstand | null>(null);
 
   useEffect(() => {
-    const auf = (e: KeyboardEvent) => { if (e.key === 'Escape') p.onSchliessen(); };
+    // D415: Aktion `menue` (Esc, Gamepad Start) aus `spieler/eingabe.ts`; `key` bleibt als Rückfall.
+    const auf = (e: KeyboardEvent) => { if (e.key === 'Escape' || aktionenVon(e.code).includes('menue')) p.onSchliessen(); };
     window.addEventListener('keydown', auf);
     return () => window.removeEventListener('keydown', auf);
   }, [p.onSchliessen]);

@@ -42,8 +42,9 @@ import { GALERIE, galerieAuto } from './kampf/Kampfplatz.js';
 import { angebot, bezahlbar, bezahle, KEINE_STUFEN, FUNKE_PREIS, FUNKE_REGENT } from './spiel/schmiede.js';
 import type { GegnerArt } from './kampf/Kampfplatz.js';
 import { setzeHeldWahl, STANDARD_HELD } from './spieler/held.js';
-import { ladeStand, speichereStand, LEERER_STAND,
+import { ladeStand, speichereStand, LEERER_STAND, letzteMeldungen,
          type Spielstand, type TeamEintrag } from './spiel/spielstand.js';
+import { MELDUNG_KONTEXT, MELDUNG_KONTEXT_ZURUECK, sollSichern } from './spiel/spielphase.js';
 import { benutzeBildrate } from './spiel/bildrate.js';
 import { AKTIVE_REGION, adresseFuer, ankunft, inRegion, nachbarAn, type Seite } from './spiel/region.js';
 
@@ -301,6 +302,8 @@ function App() {
     let abgebrochen = false;
     ladeStand().then(geladen => {
       if (abgebrochen) return;
+      // D415: Migriert, Rückfall auf die Rast, Sicherung aufbewahrt, Speicher gesperrt — nie mehr still.
+      if (letzteMeldungen.length) setHinweis(letzteMeldungen[0]);
       const s = geladen ?? {
         ...LEERER_STAND,
         team: [{ kreatur: START_KREATUR, stufe: 3, erfahrung: 0, kp: 0 }],
@@ -470,9 +473,42 @@ function App() {
   const spielerSprung = useRef<[number, number, number?] | null>(null);
   const tageszeitRef = useRef(tageszeit); tageszeitRef.current = tageszeit;
   const teamRef = useRef(team); teamRef.current = team;
-  const sichereRef = useRef<((a: Partial<Spielstand>, t: Kaempfer[]) => void) | null>(null);
+  const sichereRef = useRef<((a: Partial<Spielstand>, t: Kaempfer[], rast?: boolean) => void) | null>(null);
   const weltKampfRef = useRef(weltKampf);
   weltKampfRef.current = weltKampf;
+  /** Läuft irgendein Kampf? Für das Sichern beim Verbergen (D415: nie im Kampf, Doc §7.1). */
+  const kampfLaeuftRef = useRef(false);
+  const sichereStillRef = useRef<(() => void) | null>(null);
+  kampfLaeuftRef.current = begegnung !== null || regentKampf !== null || weltKampf !== null;
+
+  // D415: Sichern bei `visibilitychange → hidden` und `pagehide` (letzte Gelegenheit vor dem Schliessen)
+  // und alle 60 s die Position — nie im Kampf, nie bei Messadressen (die setzen die Figur von Hand ab).
+  // Die echte Pause beim Verbergen ist entschieden (A-29 (1)), aber nicht verdrahtet: Ohne
+  // Pausenbildschirm mit „Fortsetzen“ stünde das Spiel danach still (`spiel/spielphase.ts`). Die
+  // Bildschleife hält der Browser in einem verborgenen Tab ohnehin an.
+  useEffect(() => {
+    if (MESSADRESSE) return;
+    const jetztSichern = (anlass: 'verborgen' | 'pagehide' | 'zeit') => {
+      if (!standRef.current || !sollSichern(anlass, kampfLaeuftRef.current)) return;
+      sichereStillRef.current?.();
+    };
+    const sicht = () => { if (document.visibilityState === 'hidden') jetztSichern('verborgen'); };
+    const weg = () => jetztSichern('pagehide');
+    const takt = setInterval(() => jetztSichern('zeit'), 60_000);
+    document.addEventListener('visibilitychange', sicht);
+    window.addEventListener('pagehide', weg);
+    return () => { clearInterval(takt); document.removeEventListener('visibilitychange', sicht); window.removeEventListener('pagehide', weg); };
+  }, []);
+  // D415: Verlorener WebGL-Kontext wird gemeldet statt still zu sterben. three.js ruft selbst
+  // `preventDefault()` und baut nach `webglcontextrestored` wieder auf; hier nur die Meldung. Die
+  // Ereignisse steigen nicht auf — die Erfassungsphase am `window` sieht sie trotzdem.
+  useEffect(() => {
+    const verloren = () => setHinweis(MELDUNG_KONTEXT);
+    const zurueck = () => setHinweis(MELDUNG_KONTEXT_ZURUECK);
+    window.addEventListener('webglcontextlost', verloren, true);
+    window.addEventListener('webglcontextrestored', zurueck, true);
+    return () => { window.removeEventListener('webglcontextlost', verloren, true); window.removeEventListener('webglcontextrestored', zurueck, true); };
+  }, []);
   /**
    * D179: Aufwachen in der letzten Zuflucht — mit vollem Leben, ohne Beute. Seit D412 auch nach
    * einem tödlichen Sturz oder wenn die Kälte im tiefen Wasser das Leben aufgebraucht hat; gibt
@@ -610,11 +646,10 @@ function App() {
     [stand],
   );
 
-  const sichere = useCallback((aenderung: Partial<Spielstand>, teamJetzt: Kaempfer[]) => {
-    setStand(alt => {
-      if (!alt) return alt;
+  /** Stand mit Änderung, aktueller Position und dem Team in Speicherform. */
+  const standMit = useCallback((alt: Spielstand, aenderung: Partial<Spielstand>, teamJetzt: Kaempfer[]): Spielstand => {
       const p = spielerRef.current?.position;
-      const neu: Spielstand = {
+      return {
         ...alt,
         ...aenderung,
         position: p ? [p.x, p.z] : alt.position,
@@ -632,11 +667,26 @@ function App() {
           };
         }),
       };
-      void speichereStand(neu);
+  }, []);
+  /** `rast` (D415, A-29 (7)): auch die Fassung der letzten Rast schreiben, auf die das Laden zurückfällt. */
+  const sichere = useCallback((aenderung: Partial<Spielstand>, teamJetzt: Kaempfer[], rast = false) => {
+    setStand(alt => {
+      if (!alt) return alt;
+      const neu = standMit(alt, aenderung, teamJetzt);
+      void speichereStand(neu, { rast });
       return neu;
     });
-  }, []);
+  }, [standMit]);
   sichereRef.current = sichere;
+  /**
+   * D415: Nur schreiben, ohne React-Zustand — für das Sichern beim Verbergen und alle 60 s. Über
+   * `setStand` liefe jedes Mal die ganze Szene mit neuen Props durch (`verbraucht`, Aufträge …); die
+   * Position steht ohnehin bei jeder nächsten Tat neu im Stand.
+   */
+  sichereStillRef.current = () => {
+    const alt = standRef.current;
+    if (alt) void speichereStand(standMit(alt, {}, teamRef.current));
+  };
 
   /** Schmiede (D177): Beute aus dem Beutel gegen die nächste Waffenstufe. */
   const schmiede = useCallback((waffe: 'klinge' | 'axt' | 'speer') => {
@@ -856,7 +906,7 @@ function App() {
     // D179: Hier wacht man auf, wenn ein Wegelager einen schlägt.
     const hier = ortOffen;
     setOrtOffen(null);
-    sichere(hier ? { letzteZuflucht: hier } : {}, voll);
+    sichere(hier ? { letzteZuflucht: hier } : {}, voll, true);
   }, [stand, team, sichere, ortOffen]);
 
   /** Was der Spieler getan hat — die einzige Quelle für den Auftragsfortschritt. */

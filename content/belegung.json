@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "aktionen": [
+    { "id": "vor", "name": "Vorwärts", "kontext": "immer", "tasten": ["KeyW", "ArrowUp"], "pad": [], "verdrahtet": true },
+    { "id": "zurueck", "name": "Rückwärts", "kontext": "immer", "tasten": ["KeyS", "ArrowDown"], "pad": [], "verdrahtet": true },
+    { "id": "links", "name": "Seitwärts links", "kontext": "immer", "tasten": ["KeyA"], "pad": [], "verdrahtet": true },
+    { "id": "rechts", "name": "Seitwärts rechts", "kontext": "immer", "tasten": ["KeyD"], "pad": [], "verdrahtet": true },
+    { "id": "drehen_links", "name": "Nach links drehen", "kontext": "frei", "tasten": ["KeyQ", "ArrowLeft"], "pad": [], "verdrahtet": true },
+    { "id": "drehen_rechts", "name": "Nach rechts drehen", "kontext": "frei", "tasten": ["KeyE", "ArrowRight"], "pad": [], "verdrahtet": true },
+    { "id": "blick_heben", "name": "Blick heben", "kontext": "immer", "tasten": ["KeyT"], "pad": [], "verdrahtet": true },
+    { "id": "blick_senken", "name": "Blick senken", "kontext": "immer", "tasten": ["KeyG"], "pad": [], "verdrahtet": true },
+    { "id": "rennen", "name": "Rennen", "kontext": "immer", "tasten": ["ShiftLeft", "ShiftRight"], "pad": ["Pad:L3", "Pad:B:halten"], "verdrahtet": true },
+    { "id": "springen", "name": "Springen", "kontext": "immer", "tasten": ["Space"], "pad": ["Pad:A"], "verdrahtet": true },
+    { "id": "rolle", "name": "Rolle", "kontext": "immer", "tasten": ["KeyK"], "pad": ["Pad:B:tippen"], "verdrahtet": true },
+    { "id": "angriff_leicht", "name": "Leichter Angriff", "kontext": "kampf", "tasten": ["KeyJ"], "pad": ["Pad:RB"], "verdrahtet": true },
+    { "id": "angriff_schwer", "name": "Schwerer Angriff", "kontext": "kampf", "tasten": ["KeyI"], "pad": ["Pad:RT"], "verdrahtet": true },
+    { "id": "block", "name": "Block", "kontext": "kampf", "tasten": ["KeyU", "Maus2"], "pad": ["Pad:LB"], "verdrahtet": true },
+    { "id": "zielen", "name": "Ziel aufschalten", "kontext": "kampf", "tasten": ["KeyL"], "pad": ["Pad:R3"], "verdrahtet": true },
+    { "id": "zielwechsel_links", "name": "Ziel wechseln, links", "kontext": "ziel", "tasten": ["KeyQ"], "pad": ["Pad:RS-Links"], "verdrahtet": true },
+    { "id": "zielwechsel_rechts", "name": "Ziel wechseln, rechts", "kontext": "ziel", "tasten": ["KeyE"], "pad": ["Pad:RS-Rechts"], "verdrahtet": true },
+    { "id": "linie_oben", "name": "Linie oben", "kontext": "kampf", "tasten": ["ArrowUp"], "pad": [], "verdrahtet": true },
+    { "id": "linie_unten", "name": "Linie unten", "kontext": "kampf", "tasten": ["ArrowDown"], "pad": [], "verdrahtet": true },
+    { "id": "linie_links", "name": "Linie links", "kontext": "kampf", "tasten": ["ArrowLeft"], "pad": [], "verdrahtet": true },
+    { "id": "linie_rechts", "name": "Linie rechts", "kontext": "kampf", "tasten": ["ArrowRight"], "pad": [], "verdrahtet": true },
+    { "id": "waffe_klinge", "name": "Klinge", "kontext": "kampf", "tasten": ["Digit1"], "pad": [], "verdrahtet": true },
+    { "id": "waffe_axt", "name": "Axt", "kontext": "kampf", "tasten": ["Digit2"], "pad": [], "verdrahtet": true },
+    { "id": "waffe_speer", "name": "Speer", "kontext": "kampf", "tasten": ["Digit3"], "pad": [], "verdrahtet": true },
+    { "id": "waffe_tausch", "name": "Nächste Waffe", "kontext": "kampf", "tasten": ["Tab"], "pad": ["Pad:Y"], "verdrahtet": true },
+    { "id": "reinigen", "name": "Reinigen (Markengriff)", "kontext": "kampf", "tasten": ["KeyF"], "pad": ["Pad:X"], "verdrahtet": false },
+    { "id": "interagieren", "name": "Ansprechen, aufheben, öffnen", "kontext": "welt", "tasten": ["KeyF"], "pad": ["Pad:X"], "verdrahtet": false },
+    { "id": "geraet", "name": "Gerät einsetzen", "kontext": "immer", "tasten": ["KeyR"], "pad": ["Pad:LT"], "verdrahtet": false },
+    { "id": "umschau", "name": "Kamera: Umschau", "kontext": "immer", "tasten": ["KeyC"], "pad": [], "verdrahtet": true },
+    { "id": "ansicht", "name": "Kamera: Abstand", "kontext": "immer", "tasten": ["KeyV"], "pad": [], "verdrahtet": true },
+    { "id": "menue", "name": "Menü schliessen", "kontext": "immer", "tasten": ["Escape"], "pad": ["Pad:Start"], "fest": true, "verdrahtet": true }
+  ],
+  "geteilt": [
+    { "aktionen": ["vor", "linie_oben"], "taste": "ArrowUp", "warum": "Bestand seit D174: Im Kampf wählt der Pfeil die Linie und geht zugleich — wer mit WASD geht, merkt nichts. Auflösen erst mit der Mausvorlage (Doc §6.4.1), sonst ändert sich das Spielgefühl für Pfeil-Geher." },
+    { "aktionen": ["zurueck", "linie_unten"], "taste": "ArrowDown", "warum": "wie ArrowUp (D174)" },
+    { "aktionen": ["drehen_links", "linie_links"], "taste": "ArrowLeft", "warum": "wie ArrowUp; mit aufgeschaltetem Ziel dreht der Pfeil ohnehin nicht (D168), nur ohne Ziel tut er beides" },
+    { "aktionen": ["drehen_rechts", "linie_rechts"], "taste": "ArrowRight", "warum": "wie ArrowLeft" }
+  ],
+  "sperre": ["F5", "F11", "F12", "MetaLeft", "MetaRight", "ContextMenu"],
+  "doppel": [
+    { "knopf": "Pad:B", "tippen": "Pad:B:tippen", "halten": "Pad:B:halten", "schwelleS": 0.3 }
+  ]
+}

@@ -10,6 +10,10 @@
  */
 import { useEffect, useRef, type RefObject } from 'react';
 
+import { aktionenVon, aktiv, halteZustand, umgeschaltet, type Haltemodus } from './eingabe.js';
+import { padAchsen, starteGamepad } from './gamepad.js';
+import { einstellungen } from '../spiel/einstellungen.js';
+
 export interface Eingabe {
   /** Vorwärts/rückwärts, -1 … 1 */
   vor: number;
@@ -27,9 +31,10 @@ export interface Eingabe {
   /** Einmaliger Sprungwunsch. Wird beim Verbrauchen zurückgesetzt. */
   springen: boolean;
   /**
-   * D413: Zeitpunkt (`performance.now()`, ms) des letzten Drucks auf die Rolltaste K. Der Kampf
-   * liest K selbst (`kampf/Kampfplatz.tsx`); hier wird sie nur gemerkt, damit eine Rolle kurz vor
-   * dem Aufsetzen den Fallschaden halbiert (`spieler/bewegung.ts` `gerolltBeiLandung`).
+   * D413: Zeitpunkt (`performance.now()`, ms) des letzten Drucks auf die Rolltaste (Aktion `rolle`,
+   * Standard K). Der Kampf liest die Aktion selbst (`kampf/Kampfplatz.tsx`); hier wird sie nur
+   * gemerkt, damit eine Rolle kurz vor dem Aufsetzen den Fallschaden halbiert
+   * (`spieler/bewegung.ts` `gerolltBeiLandung`).
    */
   rolleUm: number;
 }
@@ -51,7 +56,7 @@ const ZEIGER_DREHRATE = 2.4;
 const ZEIGER_NEIGRATE = 1.1;
 /** Drehgeschwindigkeit der Tastatur. */
 const TASTEN_DREHRATE = 1.8;
-/** Neigegeschwindigkeit der Tastatur (R/F). */
+/** Neigegeschwindigkeit der Tastatur (Aktionen `blick_heben`/`blick_senken`, seit D415 T/G statt R/F). */
 const TASTEN_NEIGRATE = 1.2;
 
 /** Ein sichtbarer Knüppel: Ansetzpunkt in Bildschirmpixeln plus Ausschlag −1…1. */
@@ -72,25 +77,59 @@ export function benutzeSteuerung(
     const e = eingabe.current;
     const tasten = new Set<string>();
 
+    // D415: Aktionen statt fester Tasten (`spieler/eingabe.ts`, `content/belegung.json`). Die
+    // Standardbelegung ist die bisherige — bis auf Blick heben/senken, das von R/F auf T/G zog (F ist
+    // Reinigen/Ansprechen). Q/E drehen weiter; mit aufgeschaltetem Ziel nimmt die Szene die Drehung weg
+    // und der Kampf liest dieselben Tasten als Zielwechsel (Kontext `frei`/`ziel`, wie seit D168).
+    const rennModus = () => einstellungen().wert('rennen-modus') as Haltemodus;
     const ausTasten = () => {
-      e.vor = (tasten.has('KeyW') || tasten.has('ArrowUp') ? 1 : 0)
-            - (tasten.has('KeyS') || tasten.has('ArrowDown') ? 1 : 0);
-      e.seit = (tasten.has('KeyD') ? 1 : 0) - (tasten.has('KeyA') ? 1 : 0);
-      e.drehRate = ((tasten.has('KeyQ') || tasten.has('ArrowLeft') ? 1 : 0)
-                  - (tasten.has('KeyE') || tasten.has('ArrowRight') ? 1 : 0)) * TASTEN_DREHRATE;
-      e.neigRate = ((tasten.has('KeyR') ? 1 : 0) - (tasten.has('KeyF') ? 1 : 0)) * TASTEN_NEIGRATE;
-      e.rennen = tasten.has('ShiftLeft') || tasten.has('ShiftRight');
+      const t = (a: string) => (aktiv(a, tasten) ? 1 : 0);
+      e.vor = t('vor') - t('zurueck');
+      e.seit = t('rechts') - t('links');
+      e.drehRate = (t('drehen_links') - t('drehen_rechts')) * TASTEN_DREHRATE;
+      e.neigRate = (t('blick_heben') - t('blick_senken')) * TASTEN_NEIGRATE;
+      e.rennen = rennModus() === 'umschalten' ? umgeschaltet.rennen : aktiv('rennen', tasten);
     };
 
     const runter = (ev: KeyboardEvent) => {
       if (ev.target instanceof HTMLInputElement) return;
+      const aktionen = aktionenVon(ev.code);
       // Leertaste scrollt sonst die Seite — auf dem Laptop sofort spuerbar.
-      if (ev.code === 'Space') { ev.preventDefault(); e.springen = true; }
-      if (ev.code === 'KeyK' && !ev.repeat) e.rolleUm = performance.now();
+      if (ev.code === 'Space') ev.preventDefault();
+      if (aktionen.includes('springen')) e.springen = true;
+      if (aktionen.includes('rolle') && !ev.repeat) e.rolleUm = performance.now();
+      // Umschalten (Einstellung `rennen-modus`): genau hier, einmal je Druck — der Kampf liest den Zustand mit.
+      if (aktionen.includes('rennen') && !ev.repeat && !tasten.has(ev.code) && rennModus() === 'umschalten') {
+        umgeschaltet.rennen = halteZustand('umschalten', umgeschaltet.rennen, true, true);
+      }
       tasten.add(ev.code); ausTasten();
     };
     const hoch = (ev: KeyboardEvent) => { tasten.delete(ev.code); ausTasten(); };
-    const verlassen = () => { tasten.clear(); ausTasten(); };
+    const verlassen = () => { tasten.clear(); umgeschaltet.rennen = false; ausTasten(); };
+
+    // ---- Gamepad (D415): Knöpfe kommen als Tastenereignisse (`Pad:…`), die Sticks hier je Bild.
+    // Nur solange ein Pad verbunden ist; ein Stick in der Ruhe gibt Tastatur und Touch die Felder zurück.
+    starteGamepad(() => ({
+      totzoneLinks: (einstellungen().wert('gamepad-totzone-links') as number) / 100,
+      totzoneRechts: (einstellungen().wert('gamepad-totzone-rechts') as number) / 100,
+    }));
+    let padLinks = false, padRechts = false, padBild = 0;
+    const padSchritt = () => {
+      padBild = requestAnimationFrame(padSchritt);
+      const a = padAchsen();
+      if (!a.verbunden && !padLinks && !padRechts) return;
+      const links = a.lx !== 0 || a.ly !== 0, rechts = a.rx !== 0 || a.ry !== 0;
+      if (links) { e.seit = a.lx; e.vor = -a.ly; }
+      if (rechts) {
+        const y = einstellungen().wert('blick-y-umkehren') ? -1 : 1;
+        e.drehRate = -a.rx * ZEIGER_DREHRATE;
+        e.neigRate = -a.ry * y * ZEIGER_NEIGRATE;
+      }
+      // Stick zurück in die Ruhe: Felder wieder aus den Tasten, sonst bliebe der letzte Ausschlag stehen.
+      if ((padLinks && !links) || (padRechts && !rechts)) ausTasten();
+      padLinks = links; padRechts = rechts;
+    };
+    padBild = requestAnimationFrame(padSchritt);
 
     // Wischen darf die Seite nicht scrollen oder zoomen — auf dem Handy sonst
     // unbenutzbar, weil jeder Blickwechsel am Seitenrand zieht.
@@ -201,9 +240,13 @@ export function benutzeSteuerung(
         // Bewegungsstock, sonst muss man beim Wechseln der Hand umdenken.
         e.neigRate = -ay * ZEIGER_NEIGRATE;
       } else {
-        // Maus: Ziehen wie bisher, über die Strecke statt über den Ausschlag.
-        e.drehDelta -= (ev.clientX - z.letzte[0]) / PIXEL_JE_RADIANT;
-        e.neigDelta -= (ev.clientY - z.letzte[1]) / PIXEL_JE_RADIANT;
+        // Maus: Ziehen wie bisher, über die Strecke statt über den Ausschlag. D415: Faktor
+        // `mausempfindlichkeit` (Standard 1 = wie bisher) und `blick-y-umkehren` (Standard aus).
+        const st = einstellungen();
+        const faktor = st.wert('mausempfindlichkeit') as number;
+        const y = st.wert('blick-y-umkehren') ? -1 : 1;
+        e.drehDelta -= (ev.clientX - z.letzte[0]) / PIXEL_JE_RADIANT * faktor;
+        e.neigDelta -= (ev.clientY - z.letzte[1]) / PIXEL_JE_RADIANT * faktor * y;
       }
       z.letzte = [ev.clientX, ev.clientY];
       meldeStoecke();
@@ -240,6 +283,7 @@ export function benutzeSteuerung(
     window.addEventListener('pointercancel', zeigerHoch);
 
     return () => {
+      cancelAnimationFrame(padBild);
       window.removeEventListener('keydown', runter);
       window.removeEventListener('keyup', hoch);
       window.removeEventListener('blur', verlassen);

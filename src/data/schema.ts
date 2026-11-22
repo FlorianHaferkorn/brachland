@@ -1443,6 +1443,11 @@ const einstellungsKopf = {
   prioritaet: z.enum(['M', 'S', 'K']),
   wirkt: z.enum(['geraet', 'spieler']),
   url: z.string().regex(/^[a-z0-9]+$/).optional().describe('heutiger URL-Schalter (ohne Fragezeichen), der denselben Wert übersteuert'),
+  /**
+   * D415: Wie der URL-Text in einen Wert dieser Einstellung übersetzt wird (`?weite=1.6` → `weit`). Ohne
+   * Angabe gilt: Schalter `1`/`0`, Auswahl die Wert-id, Regler die Zahl — jeweils nur, wenn gültig.
+   */
+  urlWerte: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   neustart: z.boolean().optional().describe('wirkt erst nach Neuladen der Seite'),
 };
 
@@ -1482,9 +1487,31 @@ export function einstellungsWertGueltig(e: Einstellung, wert: unknown): boolean 
   return Math.abs(schritte - Math.round(schritte)) < 1e-6;
 }
 
+/**
+ * D415: Vorschlag der Qualitätsstufe aus Geräte-Kennwerten (`src/spiel/qualitaetsvorschlag.ts`). Die
+ * Regeln sind **Arbeitswerte ohne Messlauf** (Doc §6.1) — sie wählen eine Startstufe, die Bildzeit beim
+ * Vorwärmen korrigiert sie. Erste passende Regel gewinnt.
+ */
+export const QualitaetsAutomatik = z.object({
+  regeln: z.array(z.object({
+    muster: z.string().min(1).describe('regulärer Ausdruck, ohne Gross-/Kleinschreibung, gegen den Renderer-Namen'),
+    stufe: z.enum(QUALITAETSSTUFEN),
+    warum: z.string().min(1),
+  }).strict()),
+  ohneTreffer: z.enum(QUALITAETSSTUFEN).describe('Stufe, wenn keine Regel greift oder der Name fehlt'),
+  mobilHoechstens: z.enum(QUALITAETSSTUFEN).describe('Handy/Tablet (grober Zeiger) nie darüber — ADR-0006: das Handy ist eine spätere eigene Stufe'),
+  wenigKerneHoechstens: z.object({ kerne: z.number().int().positive(), stufe: z.enum(QUALITAETSSTUFEN) }).strict(),
+  ultraBrauchtWebgpu: z.boolean().describe('Ultra nur, wenn der WebGPU-Pfad das Spiel trägt (Doc §6.1, ADR-0015)'),
+  zielBildzeitMs: z.record(z.enum(QUALITAETSSTUFEN), z.number().positive()),
+  runterAbAnteil: z.number().positive().describe('p95 über Ziel × Anteil → eine Stufe runter'),
+  hochUnterAnteil: z.number().positive().describe('p95 unter Ziel × Anteil → eine Stufe hoch'),
+}).strict();
+export type QualitaetsAutomatik = z.infer<typeof QualitaetsAutomatik>;
+
 export const Einstellungen = z.object({
   version: z.number().int().positive().describe('Version des Einstellungssatzes; steigt, wenn eine id entfällt oder ihre Bedeutung wechselt'),
   einstellungen: z.array(Einstellung).min(1),
+  automatik: QualitaetsAutomatik.optional(),
 }).strict().superRefine((d, ctx) => {
   const gesehen = new Set<string>();
   d.einstellungen.forEach((e, i) => {
@@ -1509,6 +1536,100 @@ export const Einstellungen = z.object({
   });
 });
 export type Einstellungen = z.infer<typeof Einstellungen>;
+
+// ------------------------------------------------------- Belegung (D415)
+
+/**
+ * Eingabe als Aktionen (D415, Doc §6.4.1/§8.4): Der Code fragt Aktionen, nie Tasten. Tasten stehen als
+ * `KeyboardEvent.code` (Lage, nicht Beschriftung), Maustasten als `Maus0`–`Maus2`, Gamepad-Knöpfe als
+ * `Pad:<Name>` nach der Standardzuordnung der Gamepad API.
+ *
+ * **Kontext** sagt, in welchem Spielzustand eine Aktion gilt. Zwei Aktionen auf derselben Taste sind nur
+ * dann eine Kollision, wenn sich ihre Kontexte überschneiden: `frei` (kein Ziel aufgeschaltet) und `ziel`
+ * (Ziel aufgeschaltet) schliessen sich aus — so teilen sich Drehen und Zielwechsel Q/E, wie seit D168.
+ */
+export const EINGABE_KONTEXTE = ['immer', 'welt', 'kampf', 'frei', 'ziel'] as const;
+export const Belegung = z.object({
+  version: z.number().int().positive(),
+  aktionen: z.array(z.object({
+    id: z.string().regex(/^[a-z_]+$/),
+    name: z.string().min(1),
+    kontext: z.enum(EINGABE_KONTEXTE),
+    tasten: z.array(z.string().min(1)).max(4).describe('Tastatur und Maus, Standardbelegung'),
+    pad: z.array(z.string().regex(/^Pad:/)).max(2).describe('Gamepad-Grundbelegung, fest (A-29 (5))'),
+    fest: z.boolean().optional().describe('nicht frei belegbar (Esc löst im Browser ohnehin den Zeiger)'),
+    verdrahtet: z.boolean().describe('liest der Code die Aktion schon? Sonst nur vorgesehen'),
+  }).strict()).min(1),
+  geteilt: z.array(z.object({
+    aktionen: z.tuple([z.string(), z.string()]),
+    taste: z.string().min(1),
+    warum: z.string().min(1),
+  }).strict()).describe('bewusst geduldete Überschneidungen im Bestand, mit Begründung'),
+  sperre: z.array(z.string().min(1)).describe('Tasten, die der Browser für sich behält'),
+  doppel: z.array(z.object({
+    knopf: z.string().regex(/^Pad:/),
+    tippen: z.string().min(1),
+    halten: z.string().min(1),
+    schwelleS: z.number().positive(),
+  }).strict()).describe('ein Knopf, zwei Aktionen nach Druckdauer (Gattung: B tippen = Rolle, halten = Rennen)'),
+}).strict().superRefine((d, ctx) => {
+  const ids = new Set<string>();
+  d.aktionen.forEach((a, i) => {
+    if (ids.has(a.id)) ctx.addIssue({ code: 'custom', path: ['aktionen', i, 'id'], message: `Aktion '${a.id}' doppelt` });
+    ids.add(a.id);
+    for (const t of a.tasten) if (d.sperre.includes(t)) ctx.addIssue({ code: 'custom', path: ['aktionen', i, 'tasten'], message: `${t} ist gesperrt` });
+  });
+  d.geteilt.forEach((g, i) => g.aktionen.forEach(a => {
+    if (!ids.has(a)) ctx.addIssue({ code: 'custom', path: ['geteilt', i], message: `unbekannte Aktion '${a}'` });
+  }));
+});
+export type Belegung = z.infer<typeof Belegung>;
+
+// ------------------------------------------------------- Spielstand (D415)
+
+/**
+ * Laufzeit-Schema des Spielstands (D415, Doc §7.2): Laden und Import prüfen dagegen. **Bewusst
+ * nachsichtig** — es prüft die Form der Felder, die das Spiel liest, und lässt unbekannte Felder durch
+ * (`passthrough`). Ein zu strenges Schema wäre selbst ein Datenverlust: Was es ablehnt, lädt nicht.
+ * Fehlende Felder ergänzt `ergaenzeStand` vorher aus `LEERER_STAND` (der Weg „ohne Versionssprung“).
+ */
+const kennung = z.string().min(1);
+export const SpielstandDaten = z.object({
+  version: z.number().int().positive(),
+  team: z.array(z.object({
+    kreatur: kennung,
+    stufe: z.number().int().min(1),
+    erfahrung: z.number().finite(),
+    kp: z.number().finite(),
+    zustand: z.enum(['rein', 'befallen', 'verhaertet', 'rueckgefuehrt']).optional(),
+  }).passthrough()),
+  gefangen: z.array(kennung),
+  besiegt: z.array(kennung),
+  position: z.tuple([z.number().finite(), z.number().finite()]),
+  region: kennung,
+  gesehen: z.array(kennung),
+  beutel: z.record(z.string(), z.number().finite()),
+  fragmente: z.array(kennung),
+  orte: z.array(kennung),
+  regenten: z.array(kennung),
+  geheilt: z.array(kennung),
+  auftraege: z.record(z.string(), z.enum(['angenommen', 'abgeholt'])),
+  richtungskampf: z.boolean(),
+  held: z.object({ name: z.string() }).passthrough().nullable(),
+  waffenStufen: z.object({ klinge: z.number(), axt: z.number() }).passthrough(),
+  lagerSieg: z.record(z.string(), z.number().finite()),
+  letzteZuflucht: z.string().optional(),
+}).passthrough();
+
+/** Die Hülle um den Stand (D415): trägt, was eine Platzliste zeigt, ohne `spiel` zu lesen. */
+export const SpielstandHuelle = z.object({
+  format: z.literal('brachland-spielstand'),
+  version: z.number().int().positive(),
+  geschrieben: z.string().min(1).describe('ISO-Zeit des Schreibens'),
+  spiel: z.unknown(),
+  pruefsumme: z.string().regex(/^[0-9a-f]{8}$/).optional().describe('FNV-1a über `spiel` (stabil sortiert), nur im Export'),
+  einstellungen: z.record(z.string(), z.unknown()).optional().describe('nur Export: persönliche Einstellungen (`wirkt: spieler`)'),
+}).passthrough();
 
 // ------------------------------------------------------- Bewegung (D412)
 

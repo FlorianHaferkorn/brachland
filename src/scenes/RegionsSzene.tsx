@@ -30,6 +30,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, spiegelAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung, type Stoecke } from '../spieler/steuerung.js';
+import { aktionenVon } from '../spieler/eingabe.js';
 import { peilung } from '../spieler/peilung.js';
 import { baueKleinzeugGeometrie, streueKleinzeug, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
@@ -4211,7 +4212,9 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   useEffect(() => {
     const taste = (e: KeyboardEvent) => {
       if (e.repeat || e.target instanceof HTMLInputElement) return;
-      if (e.code === 'KeyC') {
+      // D415: Aktionen `umschau` (C) und `ansicht` (V) aus `spieler/eingabe.ts`.
+      const aktionen = aktionenVon(e.code);
+      if (aktionen.includes('umschau')) {
         if (gegnerSicht.current) { gegnerSicht.current = false; umschauZiel.current = 0; return; }
         const stufen = [0, Math.PI, Math.PI / 2];
         const i = stufen.findIndex(x => Math.abs(x - umschauZiel.current) < 0.01);
@@ -4220,7 +4223,7 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
         umschauZiel.current = stufen[(i + 1) % stufen.length];
         return;
       }
-      if (e.code !== 'KeyV') return;
+      if (!aktionen.includes('ansicht')) return;
       zoomZiel.current = zoomZiel.current > 0.8 ? 0.6 : zoomZiel.current > 0.5 ? 0.4 : 1;
     };
     const rad = (e: WheelEvent) => {
