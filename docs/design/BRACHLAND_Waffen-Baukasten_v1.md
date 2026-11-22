@@ -439,10 +439,10 @@ mit Saufeder und Sapie.
 
 | Familie | Vorhandene Clips nutzbar | Fehlen |
 |---|---|---|
-| Hirschfänger | alle sieben der Klinge (einhändig, kürzere Reichweite) | **keine** — nur ein Modell |
+| Hirschfänger | alle sieben der Klinge (einhändig, kürzere Reichweite) | **keine** — nur ein Modell. **D414:** Modell gebaut; Griff und Handlage in den Klingenclips geprüft (`.cache/bilder/D414/hirschfaenger_in_klingenclips.png`) |
 | Schlägel | `Axt_Stand`, `Axe_Overhead`, `Axt_Schwer`, `Axt_Block` | 2: zweihändiger Stand, tiefer Querschlag |
 | Sapie | `Speer_Stand`, `Speer_Block` | 3: Hieb über Kopf, Zug, Lauf |
-| Langes Messer | `Klinge_U_C` (Zweihandhieb) | 5: Stand, zwei Querhiebe, Lauf, Block |
+| Langes Messer | ~~`Klinge_U_C` (Zweihandhieb)~~ — **D414:** taugt nicht (Sprung, linke Hand nicht am Griff) | ~~5: Stand, zwei Querhiebe, Lauf, Block~~ **D414 gebaut, sechs:** `Messer_Stand`, `Messer_Quer_A`, `Messer_Quer_B`, `Messer_Lauf`, `Messer_Block` und `Messer_Schwer` statt `Klinge_U_C` |
 | Bogen und Armbrust | keine | 6: je Stand/Anlegen, Spannen/Laden, Lösen/Schuss |
 
 [UAL] https://quaternius.itch.io/universal-animation-library-2 · https://80.lv/articles/get-this-animation-asset-library-with-over-130-diverse-items
@@ -451,10 +451,10 @@ mit Saufeder und Sapie.
 
 | Familie | Real | Anker | Abweichung |
 |---|---|---|---|
-| Hirschfänger | jagdliche Seitenwaffe, Klinge 40–70 cm | 0,6–0,8 kg — **Überschlag** | keine |
+| Hirschfänger | jagdliche Seitenwaffe, Klinge 40–70 cm (DHM W 70/71: 49,5 / 62,5 cm) | ~~0,6–0,8 kg~~ **0,4–0,6 kg** — Überschlag; Modell 0,59 kg aus Volumen × Dichte (D414) | keine |
 | Schlägel | Vorschlaghammer real 3–5 kg, zum Kämpfen zu träge | 2–3 kg — **Überschlag** | gemeint ist ein leichter Schlägel am langen Stiel; benannt |
 | Sapie | Forstwerkzeug zum Ziehen und Wenden von Stämmen, 1,2–1,6 m, kopflastig | 1,5–2,5 kg — **Überschlag** | keine: Sie bleibt, was sie ist — langsam, zieht |
-| Langes Messer | zweihändiges Kriegsmesser, süddeutsch | 1,2–1,8 kg, 1,1–1,3 m — **Überschlag** | keine |
+| Langes Messer | zweihändiges Kriegsmesser, süddeutsch (Nachbau 15. Jh.: Klinge 82, gesamt 111 cm) | 1,2–1,6 kg, 1,1–1,2 m — Überschlag; Modell 1,39 kg, 1,17 m, Trägheit um die Hand 0,23 kg·m² (D414) | keine |
 | Bogen | Jagdbogen 20–25 kg Zuggewicht, Pfeil um 30 g, 50–60 m/s | **Überschlag** | Spannen 0,9 s statt 1–2 s |
 | Armbrust | Spannen mit Hebel 15–20 s, mit Winde 30–60 s | **Überschlag** | **6 s im Spiel** — grösste Abweichung, benannt |
 
@@ -686,7 +686,9 @@ Wasser bleibt beim Kernfunken (Flutstoss); für faeulnis gibt es bewusst kein Ge
 - **Ein Geräteplatz.** Das Gerät hängt am Gurt und wird mit der freien Hand geführt. Mit einhändiger Waffe (Klinge,
   Hirschfänger, Axt) bleibt die Waffe in der Hand; mit zweihändiger (Saufeder, Langes Messer) muss sie erst weg —
   doppelter Vorlauf. Das ist der Preis der Reichweite.
-- **Clips:** Kein Clip ist für Geräte gebaut. Tragen kann `Klinge_Stich` (Arm nach vorn) als Sprühhaltung und
+- **Clips (D414):** Für die Räucherkanne gebaut: `Geraet_Blasebalg` (Schleife, 1 s, zwei Stösse; linke Hand führt Kanne
+  und Balg, rechte hält die einhändige Waffe tief) — er trägt Kegel und Fläche; Auslegen braucht kein Aufsatz der Kanne.
+  ~~Kein Clip ist für Geräte gebaut.~~ Tragen kann `Klinge_Stich` (Arm nach vorn) als Sprühhaltung und
   `Speer_Stoss` für den Treibstab; es fehlen drei: `Geraet_Spruehen` (Schleife), `Geraet_Wurf` (Streuen),
   `Geraet_Auslegen` (Litze). Selbst zu bauen wie Axt und Speer (`tools/waffenclips.py`).
 
@@ -697,7 +699,7 @@ Wasser bleibt beim Kernfunken (Flutstoss); für faeulnis gibt es bewusst kein Ge
 | Abflammgerät (1,6 kg) | offene Flamme, zündet Trockenes | Flamme real 0,5–1 m, im Spiel bis 2,5 m; eine Kartusche brennt real rund eine Stunde, im Spiel sechs Stösse | zündet Gras und Laub — die Fläche brennt weiter und trifft auch ihn; **ein verbranntes Revier wird nie ruhig**. **Entschieden (D411):** gilt als Regel; gebaut erst nach Kapitel 1 — bis dahin brennt nur das Getroffene (benannte Abweichung) |
 | Kohlensäurelöscher (5,0 kg) | 2 kg CO₂ sind in 8–10 s leer: fünf Stösse zu zwei Sekunden passen genau; −78 °C | dass Kälte ein Tier sekundenlang lähmt, ist Spielwert | CO₂ sammelt sich in Mulden und Stollen: Ausdauer sinkt; das Horn friert an |
 | Weidezaungerät (3,5 kg) | 5–10 kV, höchstens 5 J: schmerzt, lässt zucken, tötet nicht | eine Batterie hält real Wochen, im Spiel zehn Einheiten; ein 140-kg-Tier stoppt real kaum | im Wasser und bei Regen trifft es den Träger |
-| Räucherkanne (1,2 kg) | Zunderschwamm ist realer Räucherstoff und glimmt lange; Rauch beruhigt **Bienen** | **Säugetiere beruhigt Rauch nicht.** Im Spiel beruhigt er den Befall — Fiktion der Welt, seit D411 **Setzung in der Story-Bibel v2 §2** („Rauch beruhigt den Befall“: der Symbiont antwortet wie ein Bienenvolk) | Wind dreht: Husten, langsamere Erholung |
+| Räucherkanne (~~1,2~~ 0,8 kg, D414: leer 0,73 kg nach Herstellerangabe eines 4 × 7-Zoll-Smokers) | Zunderschwamm ist realer Räucherstoff und glimmt lange; Rauch beruhigt **Bienen** | **Säugetiere beruhigt Rauch nicht.** Im Spiel beruhigt er den Befall — Fiktion der Welt, seit D411 **Setzung in der Story-Bibel v2 §2** („Rauch beruhigt den Befall“: der Symbiont antwortet wie ein Bienenvolk) | Wind dreht: Husten, langsamere Erholung |
 | Kalkstreuer (2,0 kg) | Branntkalk ätzt, wird mit Wasser über 100 °C heiss, Stallhygiene seit jeher | **Kalk hilft real gegen Fäulnis; der Kreis sagt das Gegenteil** (faeulnis schlägt stein). Der Kreis gilt | Wind und Regen tragen ihn zurück; nie im Bach |
 | Sporenbalg | — | ganz Fiktion | Preis am eigenen Körper, nicht entworfen |
 

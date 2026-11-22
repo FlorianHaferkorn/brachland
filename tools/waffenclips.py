@@ -31,6 +31,7 @@ from mathutils import Vector, Matrix
 #   zwei                linke Hand an die Waffe                   links (r, v, h) linke Hand frei
 #   rumpf (dreh, neig)  Grad                                       koerper (v, h)  Meter
 #   fuss_r / fuss_l (v, r)  Meter                                 pol (r, v, h)   Ellbogen rechts
+#   huefte              Grad, Becken dreht vor der Brust (D414: die Hüfte führt den Schlag)
 # 'stand' heisst: die Grundhaltung unverändert.
 KLINGE_BASIS = 'Klinge_Stand'
 CLIPS = {
@@ -139,11 +140,126 @@ CLIPS = {
         (5, dict(hand=(0.3, 0.3, 1.32), richt=(-1, 0.08, 0.12), zwei='speer', rumpf=(-6, 6), koerper=(-0.03, -0.08), fuss_l=(-0.12, -0.03))),
         (8, dict(hand=(0.3, 0.31, 1.31), richt=(-1, 0.08, 0.12), zwei='speer', rumpf=(-6, 7), koerper=(-0.03, -0.09), fuss_l=(-0.12, -0.03))),
     ]),
+    # D414: Das Lange Messer (Hauswehr, zweihändig, 1,1 m, um 1,3 kg). Die rechte Hand sitzt unter dem Gehilz,
+    # die linke 0,13 m dahinter am Knauf (`GRIFF['messer']`). Trägheit um die rechte Hand 0,23 kg·m² (aus dem
+    # Modell, `tools/waffenmodelle.py`), grob 0,15 bei der Klinge (einhändig) und um 1,0 bei der Axt (Kopf 0,8 m
+    # vor der Hand) — Überschläge. Zwei Hände geben mehr Kraft als eine; darum holt es länger aus als die Klinge
+    # (Scheitel 8–9 statt 6 Bilder) und kürzer als die Axt (10), und der Durchzug läuft nach dem Treffer weiter.
+    # Physik (D398), in jedem Hieb gleich: Ausholen = Gewicht auf den hinteren Fuss, der vordere setzt auf
+    # und steht vom Scheitel bis zum Durchzug (`fuss_*` gleich, Test). Die Hüfte führt: `huefte` dreht das
+    # Becken (und den unteren Rücken) schon in Schlagrichtung, während die Brust noch zurück ist — die
+    # Schultern folgen, die Klinge zuletzt. Das Gewicht wandert im Schlag nach vorn (`koerper` v steigt).
+    'Messer_Stand': ('Idle', 'schleife', [
+        # Beidhändig vor dem Bauch, die Spitze auf Gesichtshöhe des Gegners; linker Fuss vor (rechte Hand
+        # oben), Knie leicht gebeugt.
+        (1, dict(hand=(0.1, 0.32, 1.1), richt=(-0.05, 0.7, 0.71), zwei='messer', rumpf=(-10, 4), koerper=(0, -0.07),
+                 fuss_l=(0.14, -0.02), fuss_r=(-0.1, 0.04))),
+        (25, dict(hand=(0.1, 0.33, 1.08), richt=(-0.05, 0.72, 0.69), zwei='messer', rumpf=(-11, 6), koerper=(0, -0.085),
+                  fuss_l=(0.14, -0.02), fuss_r=(-0.1, 0.04))),
+        (49, dict(hand=(0.1, 0.32, 1.1), richt=(-0.05, 0.7, 0.71), zwei='messer', rumpf=(-10, 4), koerper=(0, -0.07),
+                  fuss_l=(0.14, -0.02), fuss_r=(-0.1, 0.04))),
+    ]),
+    # Vorhand, waagrecht von rechts nach links — der breite Bogen gegen das Rudel. Ausholen auf den rechten
+    # Fuss, der linke tritt im Scheitel vor und steht; das Becken dreht vor, die Klinge folgt.
+    'Messer_Quer_A': ('Messer_Stand', 'einmal', [
+        (1, 'stand'),
+        (5, dict(hand=(0.3, 0.12, 1.2), richt=(0.75, -0.4, 0.5), zwei='messer', rumpf=(-28, 2), koerper=(-0.03, -0.08),
+                 fuss_l=(0.14, -0.02), fuss_r=(-0.1, 0.04), pol=(0.5, -0.2, -0.8))),
+        (9, dict(hand=(0.36, -0.06, 1.22), richt=(0.62, -0.75, 0.22), zwei='messer', rumpf=(-48, 0), huefte=14,
+                 koerper=(-0.04, -0.1), fuss_l=(0.3, -0.04), fuss_r=(-0.12, 0.05), pol=(0.5, -0.3, -0.8))),
+        (11, dict(hand=(0.18, 0.46, 1.16), richt=(0.25, 0.97, 0.0), zwei='messer', rumpf=(-8, 8), huefte=12,
+                  koerper=(0.08, -0.12), fuss_l=(0.3, -0.04), fuss_r=(-0.12, 0.05))),
+        (13, dict(hand=(-0.28, 0.4, 1.1), richt=(-0.8, 0.58, -0.12), zwei='messer', rumpf=(38, 12), huefte=4,
+                  koerper=(0.14, -0.12), fuss_l=(0.3, -0.04), fuss_r=(-0.12, 0.05))),
+        (18, dict(hand=(-0.34, 0.18, 1.06), richt=(-0.75, -0.4, -0.3), zwei='messer', rumpf=(52, 10), koerper=(0.12, -0.1),
+                  fuss_l=(0.3, -0.04), fuss_r=(-0.12, 0.05))),
+        (30, 'stand'),
+    ]),
+    # Rückhand, von links nach rechts, mit dem Schritt des rechten Fusses: die zweite Hälfte der Kette.
+    'Messer_Quer_B': ('Messer_Stand', 'einmal', [
+        (1, 'stand'),
+        (5, dict(hand=(-0.18, 0.12, 1.22), richt=(-0.7, -0.4, 0.55), zwei='messer', rumpf=(25, 4), koerper=(-0.03, -0.08),
+                 fuss_l=(0.14, -0.02), fuss_r=(-0.1, 0.04), pol=(0.3, -0.4, -0.8))),
+        (8, dict(hand=(-0.26, -0.02, 1.25), richt=(-0.6, -0.72, 0.3), zwei='messer', rumpf=(42, 2), huefte=-14,
+                 koerper=(-0.04, -0.1), fuss_l=(0.14, -0.02), fuss_r=(0.22, 0.06), pol=(0.3, -0.4, -0.8))),
+        (10, dict(hand=(0.1, 0.48, 1.16), richt=(-0.2, 0.98, 0.0), zwei='messer', rumpf=(5, 8), huefte=-12,
+                  koerper=(0.08, -0.12), fuss_l=(0.14, -0.02), fuss_r=(0.22, 0.06))),
+        (12, dict(hand=(0.42, 0.32, 1.1), richt=(0.82, 0.55, -0.12), zwei='messer', rumpf=(-36, 10), huefte=-4,
+                  koerper=(0.13, -0.12), fuss_l=(0.14, -0.02), fuss_r=(0.22, 0.06))),
+        (17, dict(hand=(0.48, 0.05, 1.05), richt=(0.75, -0.45, -0.3), zwei='messer', rumpf=(-48, 8), koerper=(0.1, -0.1),
+                  fuss_l=(0.14, -0.02), fuss_r=(0.22, 0.06))),
+        (28, 'stand'),
+    ]),
+    # Laufhieb: aus dem Lauf hoch rechts ausholen, der rechte Fuss setzt im Scheitel weit vor und trägt den
+    # Körper hinein; schräg nach links unten durch.
+    'Messer_Lauf': ('Messer_Stand', 'einmal', [
+        (1, dict(hand=(0.28, 0.04, 1.45), richt=(0.4, -0.35, 0.85), zwei='messer', rumpf=(-25, 12), koerper=(0.05, -0.06))),
+        (4, dict(hand=(0.3, 0.0, 1.5), richt=(0.45, -0.5, 0.75), zwei='messer', rumpf=(-32, 10), koerper=(0.08, -0.06),
+                 pol=(0.6, 0.1, -0.6))),
+        (7, dict(hand=(0.3, -0.04, 1.54), richt=(0.4, -0.7, 0.6), zwei='messer', rumpf=(-40, 10), huefte=12,
+                 koerper=(0.15, -0.1), fuss_r=(0.5, 0.02), pol=(0.6, 0.1, -0.6))),
+        (9, dict(hand=(0.15, 0.45, 1.42), richt=(0.3, 0.85, 0.42), zwei='messer', rumpf=(-5, 20), huefte=10,
+                 koerper=(0.3, -0.15), fuss_r=(0.5, 0.02))),
+        (11, dict(hand=(-0.25, 0.42, 0.92), richt=(-0.55, 0.6, -0.58), zwei='messer', rumpf=(35, 28), huefte=2,
+                  koerper=(0.36, -0.18), fuss_r=(0.5, 0.02))),
+        (17, dict(hand=(-0.28, 0.3, 0.9), richt=(-0.7, 0.2, -0.68), zwei='messer', rumpf=(40, 26), koerper=(0.32, -0.16),
+                  fuss_r=(0.5, 0.02))),
+        (26, 'stand'),
+    ]),
+    # Schwerer Hieb von oben (D414, sechster Clip): `Klinge_U_C` aus der UAL2 taugt dafür nicht — im Prüfbild
+    # (`.cache/bilder/D414/messer_mit_klinge_u_c.png`) springt die Figur, und die linke Hand ist nicht am Griff.
+    # Hoch über den Kopf ausholen (Gewicht hinten, der linke Fuss tritt vor und steht), dann mit dem ganzen
+    # Körper nach vorn unten durch: Das Becken schiebt vor (`koerper` v), der Rumpf beugt sich mit.
+    'Messer_Schwer': ('Messer_Stand', 'einmal', [
+        (1, 'stand'),
+        (6, dict(hand=(0.14, 0.18, 1.42), richt=(0.05, 0.2, 0.98), zwei='messer', rumpf=(-10, 0), koerper=(-0.02, -0.06),
+                 fuss_l=(0.14, -0.02), fuss_r=(-0.1, 0.04))),
+        (12, dict(hand=(0.1, 0.0, 1.66), richt=(0.05, -0.75, 0.66), zwei='messer', rumpf=(-12, -8), koerper=(-0.06, -0.05),
+                  fuss_l=(0.32, -0.04), fuss_r=(-0.12, 0.05), pol=(0.7, 0.2, -0.3))),
+        (14, dict(hand=(0.06, 0.34, 1.52), richt=(0.0, 0.95, 0.3), zwei='messer', rumpf=(-4, 10), koerper=(0.06, -0.08),
+                  fuss_l=(0.32, -0.04), fuss_r=(-0.12, 0.05))),
+        (17, dict(hand=(0.03, 0.55, 0.98), richt=(0.0, 0.6, -0.8), zwei='messer', rumpf=(0, 30), koerper=(0.16, -0.19),
+                  fuss_l=(0.32, -0.04), fuss_r=(-0.12, 0.05))),
+        (24, dict(hand=(0.03, 0.5, 0.9), richt=(0.0, 0.5, -0.86), zwei='messer', rumpf=(0, 32), koerper=(0.15, -0.19),
+                  fuss_l=(0.32, -0.04), fuss_r=(-0.12, 0.05))),
+        (36, 'stand'),
+    ]),
+    # Block: die Klinge schräg vor Kopf und linker Seite, beide Hände vor der Brust, die rechte oben — die Arme
+    # kreuzen nicht. Gehalten wird das letzte Bild (wie `Axt_Block`).
+    'Messer_Block': ('Messer_Stand', 'einmal', [
+        (1, 'stand'),
+        (4, dict(hand=(0.06, 0.32, 1.3), richt=(-0.62, 0.15, 0.77), zwei='messer', rumpf=(-6, 4), koerper=(-0.03, -0.08),
+                 fuss_l=(0.14, -0.02), fuss_r=(-0.12, 0.05), pol=(0.6, -0.3, -0.6))),
+        (8, dict(hand=(0.07, 0.34, 1.33), richt=(-0.65, 0.15, 0.74), zwei='messer', rumpf=(-6, 6), koerper=(-0.04, -0.1),
+                 fuss_l=(0.14, -0.02), fuss_r=(-0.12, 0.05), pol=(0.6, -0.3, -0.6))),
+    ]),
+    # D414: Räucherkanne (Imker-Smoker, Baukasten §18) — die linke Hand hält die Kanne am Blasebalg und
+    # drückt ihn, die rechte hält die einhändige Waffe tief rechts vorn — die Klinge kreuzt nicht vor der Kanne
+    # (erste Fassung aus Klinge_Stand: im Prüfbild kreuzte sie). Ein Smoker wird
+    # real mit einer Hand geführt: Balg in der Hand, Kanne daneben. Zwei Stösse je Sekunde; die Hand schiebt
+    # dabei ein wenig vor und sinkt (Druck auf den Balg). Schleife, 1 s.
+    'Geraet_Blasebalg': (KLINGE_BASIS, 'schleife', [
+        (1, dict(hand=(0.3, 0.26, 1.05), richt=(0.1, 0.8, 0.59), rumpf=(-6, 6), koerper=(0, -0.07),
+                 fuss_r=(0.14, 0.04), fuss_l=(-0.12, -0.03), links=(-0.14, 0.4, 1.24))),
+        (7, dict(hand=(0.3, 0.26, 1.04), richt=(0.1, 0.8, 0.59), rumpf=(-6, 7), koerper=(0, -0.075),
+                 fuss_r=(0.14, 0.04), fuss_l=(-0.12, -0.03), links=(-0.14, 0.44, 1.21))),
+        (13, dict(hand=(0.3, 0.26, 1.05), richt=(0.1, 0.8, 0.59), rumpf=(-6, 6), koerper=(0, -0.07),
+                  fuss_r=(0.14, 0.04), fuss_l=(-0.12, -0.03), links=(-0.14, 0.4, 1.24))),
+        (19, dict(hand=(0.3, 0.26, 1.04), richt=(0.1, 0.8, 0.59), rumpf=(-6, 7), koerper=(0, -0.075),
+                  fuss_r=(0.14, 0.04), fuss_l=(-0.12, -0.03), links=(-0.14, 0.44, 1.21))),
+        (25, dict(hand=(0.3, 0.26, 1.05), richt=(0.1, 0.8, 0.59), rumpf=(-6, 6), koerper=(0, -0.07),
+                  fuss_r=(0.14, 0.04), fuss_l=(-0.12, -0.03), links=(-0.14, 0.4, 1.24))),
+    ]),
 }
+# D414: Treffer-Scheitel und Durchzug der Messerhiebe in Bildern (24/s), solange es keine Kampfwerte gibt —
+# die Regel (`content/waffen/`, `hieb`) übernimmt sie, sobald D407 misst (`tests/waffenclips.test.ts` prüft).
+TREFFER = {'Messer_Quer_A': (9, 13), 'Messer_Quer_B': (8, 12), 'Messer_Schwer': (12, 17), 'Messer_Lauf': (7, 11)}
 NAMEN = tuple(CLIPS)
 ACHSE = {'Klinge_Stand': 'klinge', 'Klinge_Stich': 'klinge',
          'Axt_Stand': 'axt', 'Axt_Block': 'axt', 'Axt_Quer': 'axt', 'Axt_Schwer': 'axt', 'Axt_Lauf': 'axt',
-         'Speer_Stand': 'speer', 'Speer_Stoss': 'speer', 'Speer_Weit': 'speer', 'Speer_Lauf': 'speer', 'Speer_Block': 'speer'}
+         'Speer_Stand': 'speer', 'Speer_Stoss': 'speer', 'Speer_Weit': 'speer', 'Speer_Lauf': 'speer', 'Speer_Block': 'speer',
+         'Messer_Stand': 'messer', 'Messer_Quer_A': 'messer', 'Messer_Quer_B': 'messer', 'Messer_Lauf': 'messer',
+         'Messer_Schwer': 'messer', 'Messer_Block': 'messer', 'Geraet_Blasebalg': 'klinge'}
 
 
 class Rig:
@@ -261,7 +377,7 @@ class Rig:
 
 
 RUMPF = (('Hips', 0.25), ('Abdomen', 0.25), ('Torso', 0.25), ('Chest', 0.25))
-GRIFF = {'axt': 0.22, 'klinge': -0.09, 'speer': 0.5}   # linke Hand entlang der Klinge/des Stiels, Meter
+GRIFF = {'axt': 0.22, 'klinge': -0.09, 'speer': 0.5, 'messer': -0.13}   # linke Hand entlang der Klinge/des Stiels, Meter
 POL_R = (0.6, -0.2, -0.8)
 POL_L = (-0.6, -0.2, -0.8)
 
@@ -294,11 +410,18 @@ def _pose(rig, basis, pose, bewegung):
     v, h = pose.get('koerper', (0, 0))
     if v or h:
         rig.schiebe('Body', rig.vorn * v + rig.oben * h)
+    # D414: Die Hüfte führt — das Becken (Body, samt Rücken) dreht vor, die Brust wird um dasselbe
+    # zurückgedreht: Die Schultern stehen, wo `rumpf` sie hinstellt, das Becken ist schon weiter.
+    huefte = pose.get('huefte', 0)
+    if huefte:
+        rig.drehe('Body', rig.oben, huefte)
     dreh, neig = pose.get('rumpf', (0, 0))
     for name, anteil in RUMPF:
         if name in rig.pb:
             if dreh: rig.drehe(name, rig.oben, dreh * anteil)
             if neig: rig.drehe(name, rig.rechts, -neig * anteil)
+    if huefte:
+        rig.drehe('Chest', rig.oben, -huefte)
     # Der Kopf dreht gegen: Der Blick bleibt beim Gegner.
     if dreh:
         rig.drehe('Neck', rig.oben, -0.4 * dreh)
@@ -322,8 +445,9 @@ def _pose(rig, basis, pose, bewegung):
         y = bewegung - klinge * bewegung.dot(klinge)
         if y.length < 0.05:
             y = unterarm - klinge * unterarm.dot(klinge)
-        elif pose.get('zwei') not in ('axt', 'speer') and y.dot(unterarm) < 0:
+        elif pose.get('zwei') not in ('axt', 'speer', 'messer') and y.dot(unterarm) < 0:
             y = -y   # die Klinge hat zwei Schneiden: das Handgelenk knickt nicht nach hinten
+            # (Messer und Axt haben eine: Die Schneide führt, auch wenn der Unterarm dafür drehen muss.)
         rig.lage('Wrist.R', -klinge, y)
         if pose.get('zwei'):
             hand = rig.w('Wrist.R')

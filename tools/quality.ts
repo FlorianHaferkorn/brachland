@@ -379,7 +379,7 @@ if (existsSync('public/figuren/kampf')) {
 
 /**
  * Hauptfigur (D175, `tools/heldbau.py`): eine Datei je Gestalt, texturiert, plus gemeinsame Clips.
- * Budget 1,3 MB je Gestalt (lädt einmal, nur die gewählte) und 700 KB für die Clips (seit D184).
+ * Budget 1,3 MB je Gestalt (lädt einmal, nur die gewählte) und 800 KB für die Clips (seit D414, vorher 700).
  */
 if (existsSync('public/figuren/held')) {
   const herkunft = readFileSync('assets/HERKUNFT.md', 'utf8');
@@ -387,7 +387,8 @@ if (existsSync('public/figuren/held')) {
     const kb = statSync(join('public/figuren/held', f)).size / 1024;
     if (!herkunft.includes(f)) stop('Held', `${f} ohne Herkunftsangabe`);
     // D184: Clips 600 → 700 KB für die fünf Speerclips (+89 KB).
-    const grenze = f === 'held-clips.glb' ? 700 : f.includes('-leicht') ? 650 : 1300;
+    // D414: 700 → 800 KB für sechs Messerclips und Geraet_Blasebalg (+128 KB, 657 → 785). Lädt einmal, mit der Figur.
+    const grenze = f === 'held-clips.glb' ? 800 : f.includes('-leicht') ? 650 : 1300;
     if (kb > grenze) stop('Held', `${f}: ${kb.toFixed(0)} KB über Budget ${grenze} KB`);
     console.log(`  · [Held] ${f}: ${kb.toFixed(0)} KB`);
   }

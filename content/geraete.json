@@ -197,7 +197,7 @@
     "name": "Räucherkanne",
     "element": "holz",
     "status": "kapitel-1",
-    "real": "Smoker der Imker: glimmender Zunderschwamm, Rainfarn oder Harzspäne im Blechtopf mit Blasebalg. Der Rauch beruhigt Bienen, weil sie sich mit Honig vollsaugen.",
+    "real": "Smoker der Imker: glimmender Zunderschwamm, Rainfarn oder Harzspäne im Blechtopf mit Blasebalg. Der Rauch beruhigt Bienen, weil sie sich mit Honig vollsaugen. Leer 0,73 kg (4 × 7 Zoll, Herstellerangabe Little Giant SM7); mit Zunder 0,8 kg (Modell D414).",
     "abweichung": "Auf Säugetiere wirkt Rauch real als Reiz, nicht als Beruhigung. Im Spiel beruhigt er den Befall — der Symbiont antwortet wie ein Bienenvolk. Das ist Fiktion der Welt, benannt.",
     "betriebsstoff": {
       "gegenstand": "zunder",
@@ -207,7 +207,7 @@
     },
     "risiko": "Dreht der Wind, hustet der Träger: Die Ausdauer erholt sich langsamer. Die Glut zündet nichts — aber sie verrät einen bei Nacht.",
     "erwerb": "Bienenstand am Waldrand; die Magd gibt sie für einen Schwarm, den man ihr zurückbringt",
-    "masse": 1.2,
+    "masse": 0.8,
     "aufsaetze": [
       {
         "id": "harzrauch",
@@ -248,11 +248,9 @@
     ],
     "clips": {
       "vorhanden": [
-        "Klinge_Stich (Arm vor, als Sprühhaltung)"
+        "Geraet_Blasebalg"
       ],
-      "fehlen": [
-        "Geraet_Blasebalg (Schleife)"
-      ]
+      "fehlen": []
     },
     "messung": "tools/reinigensim.ts: „ruhig“ verlängert Fenster und senkt die Angriffsrate — beides neue Grössen der Gegner-KI"
   },
