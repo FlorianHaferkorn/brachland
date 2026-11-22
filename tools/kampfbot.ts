@@ -18,8 +18,17 @@
 import {
   SPIELERIN, KEILER, GRATHORN, WOLF, FUCHS, GAMS, WEGELAGERER, andereLinie, UEBUNGSGEGNER, SCHRITT, WAFFEN,
   neuerKaempfer, blickAuf, puffere, setzeBlockAn, loeseBlock, ruesteAus, simuliere, frei, naechsterSchlag,
-  type KampfWerte, type Kampfwelt, type WaffenArt,
+  neueMarke, istBefallen, kannReinigen, setzeReinigenAn, loeseReinigen, randAbstand, reinigenFenster, REINIGEN,
+  type KampfWerte, type Kampfwelt, type WaffenArt, type ReinigenWerte,
 } from '../src/kampf/echtzeit.js';
+
+/**
+ * D376: Wie der Bot mit der Marke umgeht. `immer`: jedes Tier reinigen, auch mitten im Rudel —
+ * er löst und rollt, wenn er einen Angriff kommen sieht (oder patzt und wird getroffen). `sicher`:
+ * töten, solange noch ein anderer steht, und nur den Letzten reinigen. Ohne Angabe: keine Marke,
+ * der Bot spielt wie vor D376.
+ */
+export interface MarkenSpiel { modus: 'immer' | 'sicher'; werte?: ReinigenWerte; zustand?: 'befallen' | 'verhaertet'; reinkultur?: boolean }
 
 /** `parade` (D173): pariert statt zu rollen — hebt den Block kurz vor dem Aktiven; nur der Rammstoss wird gerollt. */
 export interface Profil { name: string; reaktion: number; streuung: number; patzer: number; parade?: boolean }
@@ -43,13 +52,15 @@ function zufall(saat: number) {
   return { r, normal };
 }
 
-export interface Ergebnis { sieg: boolean; zeit: number; erlitten: number; treffer: number; paraden: number; blocks: number }
+export interface Ergebnis { sieg: boolean; zeit: number; erlitten: number; treffer: number; paraden: number; blocks: number;
+  /** D376, nur mit Marke: gereinigte und getötete Tiere, begonnene Kanäle, davon durch Treffer gebrochen bzw. selbst gelöst. */
+  gereinigt?: number; getoetet?: number; kanaele?: number; gebrochen?: number; geloest?: number }
 
 /** Wer traf die Spielerin, in welcher ihrer Phasen, mit welchem Schlag — für die Diagnose. */
 export interface Einschlag { von: string; phase: string; schlag: string; rand: number }
 
 export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, saat: number,
-                      beobachte?: (e: Einschlag) => void, schadenFaktor = 1, element?: 'wasser' | 'stein'): Ergebnis {
+                      beobachte?: (e: Einschlag) => void, schadenFaktor = 1, element?: 'wasser' | 'stein', markenSpiel?: MarkenSpiel): Ergebnis {
   const z = zufall(saat);
   const s = neuerKaempfer('s', SPIELERIN, 0, 0, 0);
   ruesteAus(s, waffe);
@@ -62,6 +73,12 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     return k;
   });
   const w: Kampfwelt = { spielerin: s, gegner: alle, ziel: null };
+  let kanaele = 0, gebrochen = 0, geloest = 0;
+  if (markenSpiel) {
+    // Die Ladung ist hier nicht die Frage (die rechnet die Ökonomie) — genug für jeden im Kampf.
+    w.marke = { ...neueMarke(0, markenSpiel.werte ?? REINIGEN), ladung: 99, reinkultur: markenSpiel.reinkultur };
+    if (markenSpiel.zustand) for (const g of alle) g.zustand = markenSpiel.zustand;
+  }
   let t = 0, rolleUm = Infinity, blockUm = Infinity, paraden = 0, blocks = 0, treffer = 0, kette = false, angreifer = '', zweite = false, seite = 1;
   const gesehen = alle.map(g => g.schwung);
   while (t < 120 && s.phase !== 'gefallen' && alle.some(g => g.phase !== 'gefallen')) {
@@ -95,6 +112,11 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     const rand = d - g.werte.radius - (g.werte.halbLaenge ?? 0) * 0.5;
     const a = alle.find(k => k.id === angreifer) ?? g;
     const ax = a.x - s.x, az = a.z - s.z, ad = Math.hypot(ax, az) || 1;
+    // D376: Im Kanal sieht er den Angriff kommen — lösen, dann greift die Rolle unten.
+    if (w.marke && s.phase === 'reinigen' && t >= rolleUm) loeseReinigen(w);
+    // D376: Will er dieses Tier reinigen? `sicher` nur den Letzten.
+    const will = (k: typeof g) => !!w.marke && istBefallen(k) && (k.zustand !== 'verhaertet' || !!w.marke.reinkultur)
+      && (markenSpiel!.modus === 'immer' || lebend.length === 1);
     if (t >= blockUm) {
       // Linie lesen (D174): Der Bot deckt die Linie, aus der der Mensch kommt.
       if (a.schlagLinie) s.linie = a.schlagLinie;
@@ -120,6 +142,19 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     } else if (zweite && s.phase === 'rolle' && s.zeit > s.werte.rolle.dauer - 0.1) {
       puffere(s, 'rolle', (-az / ad) * seite, (ax / ad) * seite);
       zweite = false;
+    } else if (w.marke && (frei(s) || s.phase === 'erholung') && lebend.some(k => will(k) && kannReinigen(w, k))
+        && s.ausdauer.wert - w.marke.werte.ausdauer >= s.werte.rolle.kosten
+        && !lebend.some(k => k.phase === 'vorlauf' || k.phase === 'aktiv')) {
+      // D376: Greifbar und niemand holt gerade aus — die Marke auflegen.
+      const k = lebend.filter(k => will(k) && kannReinigen(w, k)).reduce((a, b) => randAbstand(s, a) <= randAbstand(s, b) ? a : b);
+      // Kam das Telegraf von eben diesem Tier, ist es erledigt: Es liegt.
+      if (setzeReinigenAn(w, k.id) && angreifer === k.id && k.phase === 'betaeubt') rolleUm = Infinity;
+    } else if (w.marke && will(g) && reinigenFenster(w.marke.werte, g, lauert) && (!frei(s) || randAbstand(s, g) > w.marke.werte.reichweite)) {
+      // D376: Offen für die Marke, aber zu weit (oder noch in der eigenen Erholung) — herangehen statt zuschlagen.
+      if (frei(s)) {
+        s.blick = blickAuf(s.x, s.z, g.x, g.z);
+        const v = Math.min(4.5 * SCHRITT, randAbstand(s, g) - w.marke.werte.reichweite + 0.05); s.x += dx / d * v; s.z += dz / d * v;
+      }
     } else if (frei(s) || s.phase === 'erholung') {
       if (frei(s)) s.blick = blickAuf(s.x, s.z, g.x, g.z);
       const offen = g.phase === 'erholung' && g.folge.length === 0 || g.phase === 'betaeubt' || (lauert && g.phase === 'bereit');
@@ -149,13 +184,22 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
       const reicht = reserve && (durch ? restD > naechster.vorlauf : rest > weg + naechster.vorlauf);
       // D174: In die freie Linie schlagen; müde trifft öfter die gedeckte.
       if (g.deckung) s.linie = z.r() < (p.name === 'müde' ? 0.3 : 0.05) ? g.deckung : andereLinie(g.deckung);
-      if ((offen || durch) && reicht && rand <= reich) puffere(s, art);
+      // D376: Wer reinigen will, schlägt ein wundes Tier nicht weiter — er greift es im nächsten Fenster.
+      const schont = !!w.marke && will(g) && g.leben <= w.marke.werte.wundAb * g.werte.lebenMax;
+      if (schont) { /* warten, bis es sich verausgabt hat — dann greift der Zweig oben */ }
+      else if ((offen || durch) && reicht && rand <= reich) puffere(s, art);
       else if (!frei(s)) { /* in der Erholung: nicht nachsetzen, sie läuft aus */ }
       // Nachsetzen, wenn er offen steht; sonst stehen und auf das Telegraf warten. (Zurückweichen
       // gab es in der ersten Fassung — der Gegner rückte nach, schlug nie, 90 s Patt.)
       else if (offen && reicht && frei(s)) { const v = 4.5 * SCHRITT; s.x += dx / d * v; s.z += dz / d * v; }
     }
     const phaseVorher = s.phase;
+    if (w.marke) {
+      for (const e of w.marke.ereignisse) {
+        if (e.art === 'begonnen') kanaele++; else if (e.art === 'getroffen') gebrochen++; else if (e.art === 'geloest') geloest++;
+      }
+      w.marke.ereignisse.length = 0;
+    }
     for (const e of simuliere(w, SCHRITT)) {
       if (e.von === 's' && e.schaden > 0) treffer++;
       if (e.auf === 's' && e.pariert) paraden++;
@@ -168,7 +212,16 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     }
     t += SCHRITT;
   }
-  return { sieg: alle.every(g => g.phase === 'gefallen'), zeit: t, erlitten: s.werte.lebenMax - s.leben, treffer, paraden, blocks };
+  const raus: Ergebnis = { sieg: alle.every(g => g.phase === 'gefallen'), zeit: t, erlitten: s.werte.lebenMax - s.leben, treffer, paraden, blocks };
+  if (w.marke) {
+    for (const e of w.marke.ereignisse) {
+      if (e.art === 'begonnen') kanaele++; else if (e.art === 'getroffen') gebrochen++; else if (e.art === 'geloest') geloest++;
+    }
+    raus.gereinigt = alle.filter(g => g.ausgang === 'gereinigt').length;
+    raus.getoetet = alle.filter(g => g.phase === 'gefallen' && g.ausgang !== 'gereinigt').length;
+    raus.kanaele = kanaele; raus.gebrochen = gebrochen; raus.geloest = geloest;
+  }
+  return raus;
 }
 
 export interface Zeile { gegner: string; waffe: WaffenArt; profil: string; siege: number; zeit: number; erlitten: number; paraden: number; blocks: number }

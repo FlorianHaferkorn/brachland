@@ -24,7 +24,8 @@
  * das könnte ein langsames Bild (100 ms) das aktive Fenster eines Schlags (120 ms) überspringen,
  * und ob ein Treffer zählt, hinge an der Bildrate statt am Spiel.
  */
-import { schadensfaktor, GegnerDaten, WaffenDaten, type Element as ElementName, type SchlagDaten } from '../data/schema.js';
+import { schadensfaktor, GegnerDaten, WaffenDaten, ReinigenDaten, type Element as ElementName, type SchlagDaten } from '../data/schema.js';
+import REINIGEN_ROH from '../../content/reinigen.json';
 import KLINGE_ROH from '../../content/waffen/klinge.json';
 import AXT_ROH from '../../content/waffen/axt.json';
 import SPEER_ROH from '../../content/waffen/speer.json';
@@ -39,7 +40,9 @@ import SPEERMANN_ROH from '../../content/gegner/speermann.json';
 import AXTMANN_ROH from '../../content/gegner/axtmann.json';
 import { neueAusdauer, reicht, schritt as ausdauerSchritt, verbrauche, type Ausdauer } from '../spieler/ausdauer.js';
 
-export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen';
+export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen'
+  /** D376: Die Spielerin kanalisiert die Marke auf einen gebundenen Gegner — nur mit `Kampfwelt.marke`. */
+  | 'reinigen';
 
 /**
  * Linien (ADR-0009 Stufe 2, D174): woher ein Schlag kommt. Block und Deckung gelten je Linie — gegen
@@ -511,6 +514,18 @@ export interface Kaempfer {
   betaeubtFuer?: number;
   /** D182: Sekunden seit dem letzten Wurf (`wirft`) — darunter `WURF_SPERRE` wirft ihn nichts. */
   seitWurf?: number;
+  /**
+   * D376: Zustand nach der Creature-Bible §3. Ohne Angabe gilt ein Tier (Gegner mit `elemente`) als
+   * befallen; `verhaertet` lässt sich nur mit Reinkultur reinigen, `rueckgefuehrt` ist gereinigt.
+   */
+  zustand?: 'befallen' | 'verhaertet' | 'rueckgefuehrt';
+  /** D376: Fortschritt der Reinigung, 0…1 — bleibt am Tier, verfällt ohne Kanal. */
+  reinigung?: number;
+  /**
+   * D376: Wie einer aus dem Kampf ging. `phase === 'gefallen'` heisst seit D376 „aus dem Kampf“;
+   * gereinigt steht hier. Ohne Angabe: besiegt, wie bisher.
+   */
+  ausgang?: 'gereinigt';
 }
 
 export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: number, blick = 0, y = 0): Kaempfer {
@@ -1121,6 +1136,200 @@ export interface Kampfwelt {
   /** Restzeit der Atempause und ob im letzten Teilschritt jemand angriff (D172). */
   atem?: number;
   warDran?: boolean;
+  /**
+   * D376: Die Marke — der Schalter für das Reinigen. Ohne sie gibt es die Handlung nicht, und der
+   * Kampf rechnet Teilschritt für Teilschritt wie vor D376 (`tests/reinigen.test.ts` prüft das).
+   */
+  marke?: Marke;
+}
+
+// ------------------------------------------------------------------ Reinigen (D376)
+
+/**
+ * Reinigen (Story-Bibel v2 §2, D374/D376): Die Marke heilt statt zu töten.
+ *
+ * Ein niedergerungenes Tier — betäubt durch Haltungsbruch, Parade, Wurf oder Flutstoss, oder wund
+ * und in der Erholung — wird in Reichweite mit **einer** Eingabe gegriffen und kanalisiert. Die Marke
+ * hält es `halten` s am Boden; ein schon Betäubtes zusätzlich den Rest seiner Betäubung — das ist
+ * der Lohn des Haltungsbruchs. Dann steht das Tier wieder auf und der Kanal löst sich; der
+ * Fortschritt bleibt am Tier und verfällt langsam. Eine Reinigung braucht also meist mehrere Griffe,
+ * und vor jedem steht ein Angriff, dem man ausweichen muss.
+ *
+ * Greifbar ist ein Tier erst, wenn es niedergerungen ist: Leben höchstens `schwelle`. Die Dauer hängt
+ * an seiner Grösse: `grunddauer + lebenMax / lebenJeSekunde`. Währenddessen kann die Spielerin
+ * nichts — nicht rollen, nicht blocken — und nimmt `verwundbar`-fachen Schaden. Ein Treffer bricht ab
+ * und kostet einen Teil des Fortschritts; wer selbst löst (`loeseReinigen`, dann rollen), behält ihn.
+ *
+ * Werte: `content/reinigen.json`, Schema `ReinigenDaten`. Herleitung, Varianten und Messreihe:
+ * `docs/design/BRACHLAND_Reinigen_v1.md`, nachrechenbar mit `tools/reinigensim.ts`.
+ */
+export type ReinigenWerte = ReinigenDaten;
+export const REINIGEN: ReinigenWerte = ReinigenDaten.parse(REINIGEN_ROH);
+
+export interface MarkenEreignis {
+  /** `getroffen`: ein Treffer hat den Kanal gebrochen; `geloest`: die Spielerin hat selbst gelöst. */
+  art: 'begonnen' | 'gereinigt' | 'getroffen' | 'geloest';
+  ziel: string;
+}
+
+export interface Marke {
+  werte: ReinigenWerte;
+  /** Ladungen in der Marke; eine gelungene Reinigung verbraucht `werte.ladung`. */
+  ladung: number;
+  /** Trägt die Spielerin die Reinkultur dieser Region? Ohne sie greift die Marke bei Verhärteten nicht. */
+  reinkultur?: boolean;
+  /** Wen die Marke gerade bindet. */
+  ziel: string | null;
+  /** Restzeit des Lösens (`werte.loesen`) — so lange hängt die Spielerin noch am Tier. */
+  loest?: number;
+  /** Was geschah — die Szene (oder der Bot) liest und leert die Liste. */
+  ereignisse: MarkenEreignis[];
+}
+
+/** Eine volle Marke: Fassung nach der Zahl der gereinigten oder besiegten Regenten. */
+export function neueMarke(regenten = 0, werte: ReinigenWerte = REINIGEN): Marke {
+  return { werte, ladung: werte.fassung.start + werte.fassung.jeRegent * regenten, ziel: null, ereignisse: [] };
+}
+
+/** Befallen ist ein Tier (Gegner mit Element), das noch im Kampf und noch nicht gereinigt ist. Menschen nie. */
+export function istBefallen(k: Kaempfer): boolean {
+  return !!k.werte.elemente?.length && !k.werte.mensch && k.zustand !== 'rueckgefuehrt' && k.phase !== 'gefallen';
+}
+
+/** Abstand von `a` bis zum Rand der Pille von `z`. */
+export function randAbstand(a: Kaempfer, z: Kaempfer): number {
+  const h = z.werte.halbLaenge ?? 0;
+  const [bx, bz] = vorwaerts(z.blick);
+  const t = Math.max(-h, Math.min(h, (a.x - z.x) * bx + (a.z - z.z) * bz));
+  return Math.hypot(z.x + bx * t - a.x, z.z + bz * t - a.z) - z.werte.radius;
+}
+
+/**
+ * Wie lange der Kanal für dieses Tier insgesamt dauert, Sekunden — nach seinem vollen Leben, nicht
+ * nach dem Rest: Ein Keiler ist mehr Arbeit als ein Fuchs, egal wie wund er ist.
+ */
+export function reinigungsDauer(werte: ReinigenWerte, z: Kaempfer): number {
+  return (werte.grunddauer + z.werte.lebenMax / werte.lebenJeSekunde) * (z.zustand === 'verhaertet' ? werte.verhaertet.dauerFaktor : 1);
+}
+
+/** Was eine Reinigung dieses Ziels an Markenladung kostet. */
+export function reinigungsLadung(werte: ReinigenWerte, z: Kaempfer): number {
+  return z.zustand === 'verhaertet' ? werte.verhaertet.ladung : werte.ladung;
+}
+
+/**
+ * Steht das Ziel so, dass die Marke greifen kann? Niedergerungen (Leben ≤ `schwelle`) und betäubt —
+ * oder wund (≤ `wundAb`) und offen: in der Erholung nach seinem letzten Schlag, oder lauernd, während
+ * die Meute Atem holt (`lauert`, D172 — wer wartet, steht offen; allein lauert keiner).
+ */
+export function reinigenFenster(werte: ReinigenWerte, z: Kaempfer, lauert = false): boolean {
+  if (z.leben > werte.schwelle * z.werte.lebenMax + 1e-9) return false;
+  if (z.phase === 'betaeubt') return true;
+  if (z.leben > werte.wundAb * z.werte.lebenMax + 1e-9) return false;
+  return (z.phase === 'erholung' && z.folge.length === 0) || (lauert && z.phase === 'bereit');
+}
+
+/** Holt die Meute gerade Atem (D172)? Dann sind die Wartenden greifbar. */
+export function meuteAtmet(w: Kampfwelt): boolean {
+  return (w.atem ?? 0) > 1e-9;
+}
+
+/** Darf die Spielerin die Marke jetzt auf `z` legen? */
+export function kannReinigen(w: Kampfwelt, z: Kaempfer): boolean {
+  const m = w.marke, s = w.spielerin;
+  if (!m || !istBefallen(z)) return false;
+  const abbrechbar = s.phase === 'erholung' && s.zeit >= s.schlag.erholung * KOMBO_AB;
+  if (s.phase !== 'bereit' && !abbrechbar) return false;
+  if (z.zustand === 'verhaertet' && !m.reinkultur) return false;
+  if (m.ladung < reinigungsLadung(m.werte, z) - 1e-9) return false;
+  if (m.werte.ausdauer > 0 && !reicht(s.ausdauer, m.werte.ausdauer)) return false;
+  if (randAbstand(s, z) > m.werte.reichweite) return false;
+  return reinigenFenster(m.werte, z, meuteAtmet(w));
+}
+
+/**
+ * Die eine Eingabe: Marke auf das aufgeschaltete Ziel, sonst auf das nächste, das greifbar ist.
+ * `true`, wenn der Kanal begann.
+ */
+export function setzeReinigenAn(w: Kampfwelt, zielId: string | null = w.ziel): boolean {
+  const m = w.marke, s = w.spielerin;
+  if (!m) return false;
+  let z = zielId ? w.gegner.find(g => g.id === zielId && kannReinigen(w, g)) : undefined;
+  if (!z) {
+    for (const g of w.gegner) if (kannReinigen(w, g) && (!z || randAbstand(s, g) < randAbstand(s, z))) z = g;
+  }
+  if (!z) return false;
+  if (m.werte.ausdauer > 0) s.ausdauer = verbrauche(s.ausdauer, m.werte.ausdauer);
+  s.phase = 'reinigen'; s.zeit = 0; s.puffer = null; s.kombo = 0; s.komboOffen = 0;
+  s.blick = blickAuf(s.x, s.z, z.x, z.z);
+  m.ziel = z.id; m.loest = undefined;
+  // Die Marke hält das Tier `halten` s unten — ein schon Betäubtes zusätzlich den Rest seiner Betäubung.
+  const rest = z.phase === 'betaeubt' ? Math.max(0, (z.betaeubtFuer ?? z.werte.betaeubt) - z.zeit) : 0;
+  z.phase = 'betaeubt'; z.zeit = 0; z.folge = []; z.betaeubtFuer = rest + m.werte.halten;
+  m.ereignisse.push({ art: 'begonnen', ziel: z.id });
+  return true;
+}
+
+/** Das gehaltene Ziel freigeben: Es bleibt höchstens noch `nachhall` s benommen, dann steht es wieder. */
+function gibFrei(m: Marke, z: Kaempfer | undefined): void {
+  if (z && z.phase === 'betaeubt') {
+    z.betaeubtFuer = Math.min(m.werte.nachhall, Math.max(0, (z.betaeubtFuer ?? z.werte.betaeubt) - z.zeit)); z.zeit = 0;
+  }
+  m.ziel = null;
+}
+
+/**
+ * Selbst lösen (vor der Rolle): Der Fortschritt bleibt am Tier und verfällt von da an. Die Marke
+ * reisst nicht sofort ab — erst nach `loesen` s ist die Spielerin frei. Das ist der Preis des
+ * Kanals im Rudel: Wer den Biss kommen sieht, ist gegen die Schnellen trotzdem zu spät.
+ */
+export function loeseReinigen(w: Kampfwelt): void {
+  const m = w.marke;
+  if (!m || w.spielerin.phase !== 'reinigen' || m.loest !== undefined) return;
+  m.loest = m.werte.loesen;
+  if (m.loest <= 0) beendeReinigen(w, m);
+}
+
+/** Der Kanal endet ohne Treffer: frei, das Tier kommt hoch, der Fortschritt bleibt. */
+function beendeReinigen(w: Kampfwelt, m: Marke): void {
+  const s = w.spielerin, id = m.ziel;
+  s.phase = 'bereit'; s.zeit = 0;
+  m.loest = undefined;
+  gibFrei(m, w.gegner.find(g => g.id === id));
+  if (id) m.ereignisse.push({ art: 'geloest', ziel: id });
+}
+
+/** Ein Teilschritt der Marke — nach den Treffern, damit ein Treffer im selben Schritt den Kanal bricht. */
+function schrittReinigen(w: Kampfwelt, m: Marke, dt: number): void {
+  const s = w.spielerin;
+  for (const g of w.gegner) {
+    if (g.id !== m.ziel && (g.reinigung ?? 0) > 0) g.reinigung = Math.max(0, (g.reinigung ?? 0) - m.werte.verfallJeSekunde * dt);
+  }
+  if (m.ziel === null) return;
+  const z = w.gegner.find(g => g.id === m.ziel);
+  if (s.phase !== 'reinigen') {
+    // Ein Treffer hat sie herausgerissen (Zucken, Betäubung, Sturz): Der Kanal bricht, ein Teil bleibt.
+    const id = m.ziel;
+    if (z) z.reinigung = (z.reinigung ?? 0) * m.werte.behaltBeiTreffer;
+    m.loest = undefined;
+    gibFrei(m, z);
+    m.ereignisse.push({ art: 'getroffen', ziel: id });
+    return;
+  }
+  // Der Kanal hält nur, solange die Marke das Tier unten hält — steht es wieder, löst er sich von selbst.
+  if (!z || z.phase !== 'betaeubt') { beendeReinigen(w, m); return; }
+  z.reinigung = (z.reinigung ?? 0) + dt / reinigungsDauer(m.werte, z);
+  if (z.reinigung < 1 - 1e-9) {
+    if (m.loest !== undefined && (m.loest -= dt) <= 1e-9) beendeReinigen(w, m);
+    return;
+  }
+  m.loest = undefined;
+  m.ladung = Math.max(0, m.ladung - reinigungsLadung(m.werte, z));
+  z.reinigung = 1; z.zustand = 'rueckgefuehrt'; z.ausgang = 'gereinigt';
+  z.phase = 'gefallen'; z.zeit = 0; z.folge = []; z.betaeubtFuer = undefined;
+  s.phase = 'bereit'; s.zeit = 0;
+  m.ziel = null;
+  m.ereignisse.push({ art: 'gereinigt', ziel: z.id });
 }
 
 /**
@@ -1160,7 +1369,19 @@ export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer
     schrittKaempfer(w.spielerin, h, schiebe);
     for (const g of w.gegner) schrittKaempfer(g, h, schiebe);
     const neu = loeseTreffer(w.spielerin, w.gegner);
+    const kanal = !!w.marke && w.spielerin.phase === 'reinigen';
     for (const g of w.gegner) neu.push(...loeseTreffer(g, [w.spielerin]));
+    if (w.marke) {
+      // D376: Wer kanalisiert, steht offen — der Treffer wiegt `verwundbar`-fach.
+      if (kanal) for (const e of neu) {
+        if (e.auf !== w.spielerin.id || e.schaden <= 0) continue;
+        const mehr = e.schaden * (w.marke.werte.verwundbar - 1);
+        w.spielerin.leben = Math.max(0, w.spielerin.leben - mehr);
+        e.schaden += mehr;
+        if (w.spielerin.leben <= 0) { w.spielerin.phase = 'gefallen'; w.spielerin.zeit = 0; e.toedlich = true; }
+      }
+      schrittReinigen(w, w.marke, h);
+    }
     if (neu.some(e => e.schaden > 0)) w.stopp = TREFFERSTOPP;
     ereignisse.push(...neu);
     if (w.ziel && w.gegner.find(g => g.id === w.ziel)?.phase === 'gefallen') w.ziel = null;
