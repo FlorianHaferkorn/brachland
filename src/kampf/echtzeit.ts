@@ -39,6 +39,8 @@ import WEGELAGERER_ROH from '../../content/gegner/wegelagerer.json';
 import SPEERMANN_ROH from '../../content/gegner/speermann.json';
 import AXTMANN_ROH from '../../content/gegner/axtmann.json';
 import { neueAusdauer, reicht, schritt as ausdauerSchritt, verbrauche, type Ausdauer } from '../spieler/ausdauer.js';
+// D427: Trefferstopp nach Wucht. `gewicht.ts` nimmt aus diesem Modul nur Typen — kein Kreis zur Laufzeit.
+import { schlagWucht, trefferImpuls, trefferstopp } from './gewicht.js';
 
 export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen'
   /** D376: Die Spielerin kanalisiert die Marke auf einen gebundenen Gegner — nur mit `Kampfwelt.marke`. */
@@ -308,7 +310,10 @@ export const WURF_SPERRE = 2.0;
 export const KOMBO_AB = 0.35;
 /** So lange nach dem Ende eines Schlags setzt der nächste leichte die Kette fort (D171). */
 export const KOMBO_FENSTER = 0.45;
-/** Trefferstopp (D171): Nach einem Treffer steht die Welt so lange still. */
+/**
+ * Trefferstopp (D171): Nach einem Treffer steht die Welt so lange still. Seit D427 (D423) gilt das nur noch für
+ * Treffer **ohne Waffenmasse** (Gegner); ein Treffer der Spielerin hält nach seiner Wucht an (`trefferstoppVon`).
+ */
 export const TREFFERSTOPP = 0.06;
 /** Über so viele Sekunden läuft ein Rückstoss aus (D171) — ein Ruck statt eines Sprungs. */
 export const STOSS_DAUER = 0.15;
@@ -755,6 +760,29 @@ export interface Treffer {
   falscheLinie?: boolean;
   /** Linie des Schlags. */
   linie?: Linie;
+  /** D427: Waffe der Spielerin, die getroffen hat (Gegner führen keine). */
+  waffe?: WaffenArt;
+  /** D427: Wucht des Schlags gegen den ersten leichten derselben Waffe (`gewicht.ts` `schlagWucht`). */
+  wucht?: number;
+}
+
+/** Impuls je Waffe beim ersten leichten Schlag, einmal gerechnet (`gewicht.ts`). */
+const IMPULS: Partial<Record<WaffenArt, number>> = {};
+
+/**
+ * D427 (D423): Trefferstopp nach Wucht — der stärkste Treffer mit Schaden in diesem Teilschritt zählt
+ * (`trefferstopp(trefferImpuls(waffe, wucht))`, 30–120 ms, +Haltungsbruch, +tödlich, höchstens 150 ms).
+ * Treffer ohne Waffe (Gegner) behalten `TREFFERSTOPP` (60 ms) bis zur Messung (Baukasten §28 Nr. 7). 0 = kein Stopp.
+ */
+export function trefferstoppVon(neu: readonly Treffer[]): number {
+  let s = 0;
+  for (const e of neu) {
+    if (e.schaden <= 0) continue;
+    if (!e.waffe) { s = Math.max(s, TREFFERSTOPP); continue; }
+    const j = (IMPULS[e.waffe] ??= trefferImpuls(e.waffe)) * (e.wucht ?? 1);
+    s = Math.max(s, trefferstopp(j, e));
+  }
+  return s;
 }
 
 /**
@@ -844,6 +872,7 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       if (wasser && !gebrochen) betaeube(z, (z.werte.mensch ? FLUT.betaeubtMensch : FLUT.betaeubt) * ef);
     }
     raus.push({ von: a.id, auf: z.id, schaden, gebrochen, toedlich, ausgewichen: false,
+      ...(a.waffe ? { waffe: a.waffe, wucht: schlagWucht(s, WAFFEN[a.waffe].leicht[0]) } : {}),
       ...(f < 1 ? { falscheLinie: true } : {}), ...(flut ? { element: a.element, wirkung: ef > 1.05 ? 'stark' as const : ef < 0.95 ? 'schwach' as const : undefined } : {}), linie });
   }
   return raus;
@@ -1406,7 +1435,9 @@ export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer
       }
       schrittReinigen(w, w.marke, h);
     }
-    if (neu.some(e => e.schaden > 0)) w.stopp = TREFFERSTOPP;
+    // D427: nach Wucht statt einheitlich 60 ms (D423).
+    const stopp = trefferstoppVon(neu);
+    if (stopp > 0) w.stopp = stopp;
     ereignisse.push(...neu);
     if (w.ziel && w.gegner.find(g => g.id === w.ziel)?.phase === 'gefallen') w.ziel = null;
   }

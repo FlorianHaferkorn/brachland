@@ -1,0 +1,29 @@
+{
+  "stand": "D427, 22.11.2026 — 31 Aufnahmen, alle CC0 (Herkunft je Datei in assets/HERKUNFT.md). Ausgewählt nach Messung der Hüllkurve und Klangmitte, nicht nach Gehör (in der Cloud ohne Lautsprecher) — am M1 anhören.",
+  "ordner": "ton/kampf",
+  "baender": {
+    "schwung-leicht": { "dateien": ["schwung-leicht-1.ogg", "schwung-leicht-2.ogg", "schwung-leicht-3.ogg"], "pegel": 0.45, "streuPegel": 0.15, "streuHalbton": 1.0 },
+    "schwung-schwer": { "dateien": ["schwung-schwer-1.ogg", "schwung-schwer-2.ogg", "schwung-schwer-3.ogg"], "pegel": 0.55, "streuPegel": 0.12, "streuHalbton": 0.8 },
+    "treffer-fell": { "dateien": ["treffer-fell-1.ogg", "treffer-fell-2.ogg", "treffer-fell-3.ogg"], "pegel": 0.55, "streuPegel": 0.12, "streuHalbton": 1.0 },
+    "treffer-rinde": { "dateien": ["treffer-rinde-1.ogg", "treffer-rinde-2.ogg", "treffer-rinde-3.ogg"], "pegel": 0.55, "streuPegel": 0.12, "streuHalbton": 1.0 },
+    "treffer-stoff": { "dateien": ["treffer-stoff-1.ogg", "treffer-stoff-2.ogg", "treffer-stoff-3.ogg"], "pegel": 0.5, "streuPegel": 0.12, "streuHalbton": 1.0 },
+    "treffer-metall": { "dateien": ["treffer-metall-1.ogg", "treffer-metall-2.ogg", "treffer-metall-3.ogg"], "pegel": 0.45, "streuPegel": 0.1, "streuHalbton": 0.7 },
+    "block": { "dateien": ["block-1.ogg", "block-2.ogg", "block-3.ogg"], "pegel": 0.45, "streuPegel": 0.1, "streuHalbton": 0.8 },
+    "parade": { "dateien": ["parade-1.ogg", "parade-2.ogg", "parade-3.ogg"], "pegel": 0.55, "streuPegel": 0.08, "streuHalbton": 0.5 },
+    "rolle": { "dateien": ["rolle-1.ogg", "rolle-2.ogg"], "pegel": 0.35, "streuPegel": 0.15, "streuHalbton": 1.5 },
+    "schritt": { "dateien": ["schritt-1.ogg", "schritt-2.ogg", "schritt-3.ogg"], "pegel": 0.35, "streuPegel": 0.2, "streuHalbton": 1.5 },
+    "griff": { "dateien": ["griff-1.ogg", "griff-2.ogg"], "pegel": 0.18, "streuPegel": 0.1, "streuHalbton": 1.0 }
+  },
+  "oberflaechen": {
+    "standard": "fell",
+    "je": { "keiler": "rinde", "wolf": "fell", "fuchs": "fell", "gams": "fell", "grathorn": "fell", "uebungsgegner": "rinde", "wegelagerer": "stoff", "speermann": "stoff", "axtmann": "stoff" },
+    "spielerin": "stoff",
+    "gedeckt": "metall"
+  },
+  "erlitten": { "grund": 0.45, "jeSchaden": 0.008 },
+  "rate": { "min": 0.6, "max": 1.6 },
+  "schrittNachRolle": 0.75,
+  "real": "Ein Treffer klingt nach dem, was er trifft (Fell und Fleisch dumpf, Rinde und Chitin trocken und hart, Stoff gedämpft, Metall hell) und nach der Waffe: tiefer mit ihrer Grösse, lauter mit ihrer Energie (content/gewicht.json `ton`). Welche Oberfläche ein Gegner hat, ist eine Setzung: der Wurzelkeiler trägt einen Panzer aus Wurzelwerk („Der Panzer wächst aus dem Boden nach“, content/creatures/wurzelkeiler.json) und klingt deshalb wie Rinde, der Grathorn (Steinbock) wie Fell; der Übungsgegner ist ein Holzpfosten; Menschen tragen Stoff und Leder, Rüstung ist nicht beschrieben.",
+  "warum": "D423: freie Aufnahmen statt Synthese, nach Masse gesteuert. Drei Dateien je Band, zufällig gewählt (nie zweimal dieselbe hintereinander), dazu ± Pegel und ± Halbtöne — gegen den Maschinengewehr-Effekt. Abspielrate auf 0,6…1,6 begrenzt: Die Axt (Tonhöhe 0,81) und der Hirschfänger (1,23) liegen innen. Grundpegel der Treffer 0,45–0,55, damit der Spalthieb der Axt (rund 1,65 × Klinge) unter 1 bleibt. Erlitten nach Schaden, wie die Kamera (kameraErlitten).",
+  "quelle": "Aufnahmen: assets/HERKUNFT.md Abschnitt „Kampfton (D427)“ (OpenGameArt, CC0). Tonhöhe und Pegel nach Masse: src/kampf/gewicht.ts `toene`. Variation gegen Wiederholung: übliche Praxis, Zahlen nicht belegt (Setzung)."
+}

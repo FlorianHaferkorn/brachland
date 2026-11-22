@@ -70,7 +70,8 @@ export default defineConfig({
         // Service-Worker-Kontrolle steht (G-100). Zuständig ist jetzt
         // `src/world/weltladen.ts`, das die Cache-API direkt bedient.
         // D206/D223: `webp` für die Bodenscans unter `material/` (5,1 MB) — ohne sie offline flacher Boden.
-        globPatterns: ['**/*.{js,css,html,glb,webp}'],
+        // D427: `ogg` für den Kampfton unter `ton/kampf/` (31 Dateien, 63 KB) — ohne sie offline stumm.
+        globPatterns: ['**/*.{js,css,html,glb,webp,ogg}'],
         // **Bauwerke (Blender-Szenen) stehen nicht im Precache** (D155): zwei Szenen wiegen
         // schon 40 MB, und mit Stufe 3 werden es Dutzende. Sie werden geladen, wenn der
         // Spieler in ihre Nähe kommt, und dann von der Laufzeitregel unten behalten —

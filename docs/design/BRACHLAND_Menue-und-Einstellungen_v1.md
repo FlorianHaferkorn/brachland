@@ -347,7 +347,7 @@ und urteilt über ein Bild, das es nicht gibt.
 |---|---|---|---|---|
 | ✦ `lautstaerke-gesamt` | 0–100 % | 80 % | – | M |
 | ✦ `stumm-im-hintergrund` | An / Aus | An | – | M |
-| `lautstaerke-effekte` | 0–100 % | 100 % | – | S |
+| `lautstaerke-effekte` | 0–100 % | 100 % | seit D427 im Speicher; Effekte-Bus des Kampftons (`src/ton/kampfton.ts`) unter `lautstaerke-gesamt` — der Kampfton ist die erste Quelle am Bus, der Lagerton hängt noch direkt am Ausgang | S |
 | `lautstaerke-umgebung` | 0–100 % | 100 % | – | S |
 | `lautstaerke-musik` | 0–100 % | 80 % | – | S |
 | `lautstaerke-stimmen` | 0–100 % | 100 % | – | S |
@@ -479,7 +479,7 @@ Eigenes Menü, vom Titel und aus der Pause direkt erreichbar, und Teil des erste
 | `hoher-kontrast-ui` | An / Aus (deckende Felder, hellere Schrift, dickere Striche) | Aus | – | S |
 | `signal-verstaerken` | An / Aus (Befall mit Umrisslinie und Puls) | Aus | – | S |
 | `blitzen-reduzieren` | An / Aus (kein Vollbildblitz, Bloom gedeckelt) | folgt `prefers-reduced-motion` | – | S |
-| `kamerawackeln` | 0–100 % | 100 % | gibt es nicht — nur einführen mit Regler | S |
+| `kamerawackeln` | 0–100 % | 100 % | seit D427 im Speicher, Regler in 50er-Schritten (0 aus, 50 gering, 100 voll), `?wackeln=`; skaliert Kamerastoss und Zittern bei Treffern (`src/kampf/kamerastoss.ts`) | S |
 | `bewegung-reduzieren` | An / Aus (Menüs ohne Animation, Kamera ohne Nachschwingen) | folgt `prefers-reduced-motion` | – | S |
 | `ton-sichtbar` | An / Aus (Richtungsanzeige für Angriffe und Geräusche ausserhalb des Bildes) | Aus | Witterung zeigt Tiere | S |
 | `halten-vermeiden` | An / Aus (setzt alle Halten-Aktionen auf Umschalten, Reinigen-Griff läuft nach einem Druck von selbst) | Aus | – | S |

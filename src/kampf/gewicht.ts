@@ -17,8 +17,9 @@
  * t ∝ (I_Arm + I)^⅓ ist genau die Schlagzeit des Baukastens; nur die Konstanten (P, θ, s, Bremsmoment) sind neu
  * und stehen mit „nicht belegt“ in `content/gewicht.json`.
  *
- * Rein, ohne three.js und React (`tests/gewicht.test.ts`). Verdrahtet ist es noch nicht — die Einhängepunkte
- * in Kampfplatz, Kamera und Ton stehen im Baukasten-Dokument, Abschnitt „Gewicht spürbar machen (D420)“.
+ * Rein, ohne three.js und React (`tests/gewicht.test.ts`). Seit D427 verdrahtet (Baukasten §27): Trefferstopp
+ * in `echtzeit.ts` `simuliere`, Kamerastoss über `kamerastoss.ts` in der Kamera, Reaktion des Leibs in
+ * `Kampfplatz.tsx` `zeichnePuppe`, Ton in `src/ton/kampfton.ts`.
  */
 import GEWICHT_ROH from '../../content/gewicht.json';
 import WAFFENTEILE_ROH from '../../content/waffenteile.json';
@@ -189,6 +190,26 @@ export function reaktion(impuls: number, ziel: string, gebrochen = false, g: Gew
     dauer: r.dauer,
     taumel: gebrochen ? Math.min(r.taumelMax, r.taumelGrund + r.taumelJeMps * dv) : 0,
   };
+}
+
+/**
+ * D427: Verlauf der Reaktion über ihre Dauer, `u` = Zeit / `dauer`: in einem Viertel voll ausgeschlagen, dann
+ * quadratisch zurück — ein Ruck, kein Schweben. Ausserhalb 0…1 null.
+ */
+export function reaktionsVerlauf(u: number): number {
+  if (!(u >= 0 && u < 1)) return 0;
+  return u < 0.25 ? u / 0.25 : (1 - (u - 0.25) / 0.75) ** 2;
+}
+
+/**
+ * D427: Richtung vom Angreifer weg im Raum des Getroffenen (dessen Gruppe dreht um `blick`, wie
+ * `rotation.y` in three.js): Welt (dx, dz) um −blick gedreht, Einheitslänge; (0, 0), wenn beide aufeinander stehen.
+ */
+export function wegVomAngreifer(dx: number, dz: number, blick: number): [number, number] {
+  const d = Math.hypot(dx, dz);
+  if (d < 1e-9) return [0, 0];
+  const c = Math.cos(blick), sn = Math.sin(blick);
+  return [(dx * c - dz * sn) / d, (dx * sn + dz * c) / d];
 }
 
 /** Pegel 0…1 und Tonhöhe als Abspielrate (Referenzwaffe = 1). */

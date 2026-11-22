@@ -213,6 +213,31 @@ Poimandres, CC0-1.0); D223 hat sie ersetzt.
 |---|---|---|---|---|
 | `bauten/hof-708.glb` | Inntaler Einfirsthof, Verfallsstufe 1, für Gebäude 708 (Œntal) | BRACHLAND (prozedural) | eigenes Werk | `tools/hofbaukasten.py` Saat 708 Stufe 1, Masse 36 × 14,7 m aus dem OSM-Grundriss; Materialien prozedural in Blender gebacken, gepackt mit `tools/hofbau_pack.mjs`. Keine Fremdtexturen. |
 
+## Kampfton (D427)
+
+Alle Dateien unter `public/ton/kampf/`, **CC0 1.0** (ADR-0013), geladen am 22.11.2026 von OpenGameArt; Lizenz je
+Seite geprüft (einzige Lizenz „CC0“, bei Kenney zusätzlich `license.txt` im Paket, bei qubodup und remaxim
+`*.txt` im Paket: „public domain, Gemeindegut, cc0-licensed or WTFPL“). Bearbeitung je Datei mit `tools/kampftonbau.py`: Stille vorn weg, Ende nach der Hüllkurve (höchstens 0,3–0,6 s), 25 ms Abblende, Spitze auf −1 dBFS,
+mono 48 kHz, Opus 48 kbit/s in Ogg. Zusammen 63 KB. Zuordnung zu Ereignis und Oberfläche: `content/kampfton.json`.
+**Ausgewählt nach Messung** (Hüllkurve, Anstieg, Klangmitte), **nicht nach Gehör** — am M1 anhören.
+
+| Datei | Rolle | Urheber | Quelle (Seite → Datei im Paket) |
+|---|---|---|---|
+| `schwung-leicht-1.ogg`, `schwung-leicht-2.ogg`, `schwung-leicht-3.ogg` | Schwung leicht | qubodup (Iwan Gabovitch) | [Swish – bamboo stick weapon swhoshes](https://opengameart.org/content/swish-bamboo-stick-weapon-swhoshes) → `swosh-09`, `-02`, `-21` |
+| `schwung-schwer-1.ogg`, `schwung-schwer-2.ogg`, `schwung-schwer-3.ogg` | Schwung schwer (tiefer, länger) | qubodup | dieselbe Seite → `swosh-43`, `-36`, `-40` |
+| `treffer-fell-1.ogg` | Treffer Fell/Fleisch | qubodup | [Impact](https://opengameart.org/content/impact) → `qubodupImpactMeat02` |
+| `treffer-fell-2.ogg`, `treffer-fell-3.ogg` | Treffer Fell/Fleisch | remaxim (nach qubodup) | [3 melee sounds](https://opengameart.org/content/3-melee-sounds) → `animal melee sound`, `melee sound` |
+| `treffer-rinde-1.ogg` | Treffer Rinde/Holz | qubodup | [Impact](https://opengameart.org/content/impact) → `qubodupImpactWood` |
+| `treffer-rinde-2.ogg`, `treffer-rinde-3.ogg` | Treffer Rinde/Holz | rubberduck | [75 CC0 breaking/falling/hit sfx](https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx) → `bfh1_wood_hit_02`, `_03` |
+| `treffer-stoff-1.ogg`, `treffer-stoff-2.ogg`, `treffer-stoff-3.ogg` | Treffer Stoff (Menschen, die Spielerin) | qubodup | [Punch](https://opengameart.org/content/punch) → `qubodupPunch02`, `03`, `04` |
+| `treffer-metall-1.ogg` | Treffer Metall (Waffe auf Waffe, gedeckte Linie) | qubodup | [Impact](https://opengameart.org/content/impact) → `qubodupImpactMetal` |
+| `treffer-metall-2.ogg`, `treffer-metall-3.ogg` | Treffer Metall | rubberduck | [75 CC0 breaking/falling/hit sfx](https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx) → `bfh1_metal_hit_02`, `_04` |
+| `block-1.ogg`, `block-2.ogg`, `block-3.ogg` | Block | StarNinjas | [10 Impact/Shield Blocks](https://opengameart.org/content/10-impactshield-blocks) → `impact.2`, `.8`, `.10` |
+| `parade-1.ogg`, `parade-2.ogg`, `parade-3.ogg` | Parade (hell, scharf) | StarNinjas | [20 Sword Sound Effects (Attacks and Clashes)](https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes) → `sword_clash.2`, `.5`, `.8` |
+| `rolle-1.ogg`, `rolle-2.ogg` | Rolle (Kleidung) | Kenney (Kenney Vleugels) | [50 RPG sound effects](https://opengameart.org/content/50-rpg-sound-effects) (RPG Audio) → `cloth1`, `cloth3` |
+| `schritt-1.ogg`, `schritt-2.ogg`, `schritt-3.ogg` | Fussaufsatz nach der Rolle | Kenney | dieselbe Seite → `footstep00`, `05`, `06` |
+| `griff-1.ogg`, `griff-2.ogg` | Reinigen-Griff (leise) | Kenney | dieselbe Seite → `cloth4`, `handleSmallLeather` |
+
 ## Was im Spiel stehen muss
 
 Für CC BY reicht die Nennung in einer mitgelieferten Datei; ein Impressum im

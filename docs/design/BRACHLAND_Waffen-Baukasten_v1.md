@@ -11,6 +11,8 @@ shelf-life-days: 180
 > **Fortgeschrieben mit D405** (unten, §11–§15): Waffenfamilien, Bogen und Armbrust, „Magie“, Zähler der Mönche.
 > **Fortgeschrieben mit D420** (unten, §24–§30): Gewicht spürbar machen — Recherche, Befund je Waffe, Gewichtsmodul
 > (`src/kampf/gewicht.ts`, `content/gewicht.json`), Nachschwung der Messer-Clips, Einhängepunkte, Vorschläge an Kampfwerten.
+> **Fortgeschrieben mit D427** (§27.1, §29, §30): Runde 2 verdrahtet — Trefferstopp nach Wucht, Kamerastoss,
+> Reaktion des Getroffenen, Einstellung Kamerawackeln, Kampfton aus CC0-Aufnahmen.
 >
 > Anlass (Flo, 22.11.2026): ob jeder aus Material eigene Waffen und Ausrüstung schmieden, herstellen und gestalten
 > können soll — „Das wäre doch ein innovativer Ansatz oder nicht?“ —, dazu der Nachtrag: „ja ich meinte auch ob man
@@ -980,6 +982,33 @@ gleiche Bilder vorher/nachher), `/home/user/brachland/.cache/bilder/D420/`: `mes
 alle gleich, Siegquoten bleiben); grob ±0,3 s auf 10–15 s je Kampf. Im Spiel erholt `Spieler` die Ausdauer in echter
 Zeit (`ausdauerFremd`) auch während des Stopps — ein Vorteil von höchstens 120 ms je Treffer.
 
+### 27.1 Runde 2 erledigt (D427, 22.11.2026)
+
+Entscheidung D423: Trefferstopp nach Wucht, Kampfton aus freien Aufnahmen (CC0) nach Masse. **Kein Kampfwert
+geändert** (Fenster, Schaden, Abbruchpunkt, Ausdauer wie `content/waffen/`); die vier Gewichts-Kampfwerte aus §28
+bleiben bei der eigenen Messung.
+
+| Mittel | Wo | Was jetzt gilt |
+|---|---|---|
+| Treffer mit Waffe und Wucht | `echtzeit.ts` `interface Treffer`, `loeseTreffer` (letzter `raus.push`) | `waffe` und `wucht = schlagWucht(s, WAFFEN[waffe].leicht[0])`, nur wenn der Angreifer eine Waffe führt (die Spielerin). Der Kampfplatz rüstet seitdem auch die Klinge aus — vorher trug sie `waffe` nicht |
+| Trefferstopp je Waffe | `echtzeit.ts` `trefferstoppVon`, gerufen in `simuliere` statt `w.stopp = TREFFERSTOPP` | der stärkste Treffer mit Schaden im Teilschritt: `trefferstopp(trefferImpuls(waffe) · wucht, lage)`. Klinge Hieb 47 ms, Rückhand 44, Zweihandhieb 67; Saufeder Stoss 58, Weitstoss 112; Axt Axthieb 96, Querhieb 87, Spalthieb 120; +20 ms bei Haltungsbruch (bis 120), +30 ms tödlich — **Obergrenze 150 ms**. Gegner ohne Waffe behalten 60 ms (§28 Nr. 7 offen) |
+| Kamerastoss eigener Treffer | `Kampfplatz.tsx` (Treffer-Schleife) → `KampfFigur.stossGesetzt` → `RegionsSzene.tsx` `Kamera` | `trefferBild(…).kamera`: Klinge 2,8 cm / 106 ms, Saufeder 3,5 / 117, Axthieb 5,9 / 155, Spalthieb 8,0 / 196 (vorher 3,5 cm / 120 ms für alles); 60 % als Stoss in Schlagrichtung (Kameraraum, über `camera.quaternion` in die Welt), der Rest Zittern wie D171 |
+| Kamerastoss erlitten | dieselbe Schleife → `KampfFigur.stossErlitten` | `kameraErlitten(schaden)`: Wolfsbiss 14 → 8,1 cm, Keiler-Ramme 28 → 10,2 cm (vorher 9 cm für alles), Abklingen 80 ms, nur Zittern |
+| Kamera selbst | `src/kampf/kamerastoss.ts` (neu, rein) | `stosse` (der stärkere im Bild gewinnt, keine Summe), `klingeAb` (e-fach), `stossVersatz` (unter 2 mm nichts). Einstellung **`kamerawackeln`** (Zugänglichkeit, 0/50/100 % = aus/gering/voll, Standard 100 % wie Menü-Dokument §6.6, `?wackeln=`) skaliert alles; 0 schaltet ab |
+| Reaktion des Getroffenen | `Kampfplatz.tsx` `Puppe.reaktion`, `zeichnePuppe` nach der Phasenpose; `gewicht.ts` `reaktionsVerlauf`, `wegVomAngreifer` | Neigung und Versatz des **Leibs** vom Angreifer weg (im Raum der Gruppe), voll nach einem Viertel der Dauer (0,22 s), dann quadratisch zurück: Klinge am Keiler 1,9° / 0,7 cm, Axthieb am Keiler 5,6° / 2 cm, am Wolf 14,1°. Nach Haltungsbruch schwingt das Taumeln mit `reaktion().taumel` (Klinge am Keiler 10,6°, Axt am Wolf rund 27°) statt fest 12,6°. Die Kapsel bewegt weiter nur der Rückstoss der Regel. Ziel ist der Bauplan (`kapsel` → `uebungsgegner`). Menschen-Rigs (Wegelagerer, Speermann, Axtmann) bekommen die Neigung auf den Leib wie die Tiere |
+| Ton | `src/ton/kampfton.ts` (neu), `content/kampfton.json` (neu), `public/ton/kampf/` (31 Dateien, 63 KB) | Schwung leicht/schwer (beim Eintritt in `aktiv`), Treffer nach Oberfläche (Tiere Fell, Wurzelkeiler und Pfosten Rinde, Menschen Stoff, gedeckte Linie Metall), erlitten (Stoff, Pegel nach Schaden), Block, Parade, Rolle mit Fussaufsatz nach 75 % der Rollendauer, Reinigen-Griff (leise). **Tonhöhe und Pegel aus `toene()`**: Treffer Axt Rate 0,81 und 1,45-fach lauter als die Klinge, Saufeder 0,89, Hirschfänger 1,23 und leiser; Schwung Axt 0,69, Saufeder 0,38 → auf 0,6 begrenzt. Gegen Wiederholung: drei Aufnahmen je Band, nie zweimal dieselbe, ± Pegel, ± 0,5–1,5 Halbtöne. Effekte-Bus `lautstaerke-gesamt` × `lautstaerke-effekte` (neu), stumm im Hintergrund nach `tonStumm`. Herkunft je Datei `assets/HERKUNFT.md` |
+| Clips | — | unverändert (Messer-Clips warten auf Messer-Kampfwerte; Bestandsclips nach der Kampf-Messung, D423 (3)) |
+
+**Nachweis am Kampftor** (D420: nur die Kampfdauer darf sich verschieben, ±0,3 s je Kampf, Siegquoten gleich): Kampfbot
+`messe(200)` vor und nach der Änderung, 117 Zeilen je Bot (D171 und D407), gleiche Saat. **Siegquoten:** keine Zeile
+verschiebt sich um 3 Punkte oder mehr; Mittel −0,02 Punkte, grösste −2,5 (Wegelagerer, Axt, müde: 85,5 → 83,0 % — fünf
+von 200 Kämpfen). **Zeit bis Sieg:** Klinge −0,04 s im Mittel (−0,13 … +0,01; der kürzere Stopp), Saufeder −0,03 s
+(−0,07 … +0,03), Axt +0,13 s (+0,02 … +0,36); 115 von 117 Zeilen in ±0,3 s, die beiden darüber sind lange Axtkämpfe
+(Keiler + Grathorn 25 s, drei Wölfe 33 s und parierend 14 s: +0,26 … +0,36 s, rund 1–2,5 %). Beide Bots gleich. Das
+Kampftor (`tests/kampfbot.test.ts`, 60 Kämpfe je Zeile) bleibt grün.
+
+**Messbild** (SwiftShader, Formvergleich, keine Look-Abnahme): `.cache/bilder/D427/` — siehe Ledger D427.
+
 ## 28. Vorschläge an Kampfwerten (nicht angewendet — nach D407 messen)
 
 | # | Vorschlag | Zahlen (Baukasten-Physik, `gewicht.ts`) | Messbedarf |
@@ -1003,6 +1032,16 @@ Messerhiebe (wirkt die Rückkehr ab 56–60 % der Erholung schwer oder träge; s
 von `Quer_A` flüssig an — die Kette bricht bei 35 % der Erholung ab, da steht die Klinge noch links hinten), Vorschläge
 für den Bestand (schneller Rückweg der Axt in den letzten fünf Bildern). Nichts davon ist am M1 gesehen.
 
+**Seit D427 im Spiel und dort zu prüfen** (Übungsplatz `?kampf=keiler`, `?kampf=wolf`, `?kampf=wegelagerer`, je mit
+`?waffe=axt|speer`): Stopp der Axt (96–150 ms) satt oder ruckelnd, Klinge (44–67 ms) noch spürbar; Kamerastoss in
+Schlagrichtung gegen Zittern, Stoss bei 50 % (`?wackeln=50`) und aus (`?wackeln=0`); liest man die Neigung am Keiler
+(Axt 5,6°, Klinge 1,9°) und am Wolf (Axt 14°)? wirkt das stärkere Taumeln nach Bruch überzogen? **Kampfton anhören** —
+ausgewählt nach Messung, nicht nach Gehör: Passen Fell/Rinde/Stoff/Metall zum Bild, klingt die Axt tiefer und satter,
+nicht verstimmt; ist der Speer-Schwung (Rate auf 0,6 begrenzt) zu dumpf; stören Wiederholungen in einer Kette; ist der
+Griff leise genug; Lautstärke gegen den Lagerton (der hängt nicht am Gesamtregler). Safari: spielt er Ogg-Opus ab?
+Zum langsamen Ansehen: `?zeitlupe=0.2` (Messadresse, `kamerazustand.ts`) — Kampf und Kamerastoss je Bild höchstens
+20 ms; für das Urteil über das Gefühl gilt nur die echte Geschwindigkeit.
+
 ## 30. Unklar (D420)
 
 - ⚠️ Leistung (600 W), Zweihandfaktor (1,4), Bremsmoment (60 N·m), Schwungwinkel (120°) sind Überschläge — sie setzen
@@ -1011,7 +1050,14 @@ für den Bestand (schneller Rückweg der Axt in den letzten fünf Bildern). Nich
 - ⚠️ Die Bilder zwischen Scheitel und Durchzug der Messerhiebe weichen bis 8,4° (Oberarm) ab (§26 b) — die Fenster
   nicht, und die Treffer rechnet die Regel ohnehin gegen die Kapsel.
 - ⚠️ Der Speer-Vorschlag hat die linke Hand bis 26 cm neben dem Schaft; die Bestandsclips im Nachbau ebenfalls (D414).
-- ⚠️ Kampfton: Es gibt keinen; ob er aus WebAudio entsteht (wie der Lagerton) oder aus CC0-Aufnahmen, ist offen (A-40).
+- ~~⚠️ Kampfton: Es gibt keinen; ob er aus WebAudio entsteht (wie der Lagerton) oder aus CC0-Aufnahmen, ist offen (A-40).~~
+  Entschieden D423 (CC0-Aufnahmen), gebaut D427.
+- ⚠️ D427: Die Aufnahmen sind nach Hüllkurve und Klangmitte gewählt, **nicht gehört** (Cloud ohne Lautsprecher).
+- ⚠️ D427: Ogg-Opus dekodiert Safari erst ab 18.4 sicher; ein älteres Safari bleibt stumm (kein Fehler). Nicht geprüft.
+- ⚠️ D427: Der Schwung der Saufeder rechnet `toene()` auf Rate 0,38 (langsame Spitze im Stoss) — begrenzt auf 0,6; ob ein
+  Stoss überhaupt ein Schwunggeräusch braucht, ist offen.
+- ⚠️ D427: Gegner-Schwünge (Menschen mit Waffen) sind stumm; ihr Treffer auf die Spielerin klingt nach Stoff und Schaden,
+  nicht nach ihrer Waffe — die Gegner tragen keine Waffenmasse in den Daten.
 - ⚠️ `ziele.fuchs` (7 kg) und `grathorn` (60 kg) sind Annahmen; Menschen 70–85 kg ebenso.
 - ⚠️ Monster Hunters „Engagement“ ist nicht belegt; was gemeint war, blieb unklar.
 

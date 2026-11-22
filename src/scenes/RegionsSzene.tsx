@@ -63,8 +63,10 @@ import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasm
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { lagerTon } from '../ton/lagerton.js';
-import { kameraZustand } from '../kampf/kamerazustand.js';
+import { kameraZustand, ZEITLUPE } from '../kampf/kamerazustand.js';
 import { armMitSicht, sichtFrei, ZIEL_RAND, type Versperrt } from '../kampf/sichtlinie.js';
+import { klingeAb, neuerStoss, stosse, stossVersatz } from '../kampf/kamerastoss.js';
+import { einstellungen } from '../spiel/einstellungen.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
 import { BLENDER_BAEUME, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
@@ -4190,8 +4192,12 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   const blickZiel = useRef(new THREE.Vector3());
   /** Arm der Schulterkamera nach Sichtprüfung (D192): zieht hart ein, fährt weich aus. */
   const schulterArm = useRef<number>(GROESSE.kameraAbstand);
-  /** Ruck bei Treffern (D171): Stärke in Metern, klingt in ~0,12 s ab. */
-  const ruck = useRef({ getroffen: -1, gesetzt: -1, staerke: 0, uhr: 0 });
+  /**
+   * Ruck bei Treffern (D171), seit D427 nach Wucht: Stärke, Abklingen und Richtung je Treffer aus
+   * `kampf/gewicht.ts` (über `KampfFigur.stoss`), skaliert mit der Einstellung `kamerawackeln`.
+   */
+  const ruck = useRef({ getroffen: -1, gesetzt: -1, stoss: neuerStoss() });
+  const versatz = useRef(new THREE.Vector3());
   /**
    * Nahkamera (D179): V schaltet durch drei Abstände (voll, 60 %, 40 %), das Mausrad stellt stufenlos
    * zwischen 35 % und 100 %. Im Kampf liest man so Waffe, Pose und Linie; beim Wandern bleibt es aus.
@@ -4240,21 +4246,25 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     const p = ziel.current?.position ?? new THREE.Vector3();
     const fokus = kampf?.current?.fokus ?? null;
     const kf = kampf?.current ?? null, rk = ruck.current;
-    rk.uhr += dt;
     if (kf) {
       // Eingesteckt ruckt es stärker als ausgeteilt — der eigene Treffer soll Gewicht haben, der
-      // fremde soll wehtun.
-      if (rk.getroffen >= 0 && kf.getroffen > rk.getroffen) rk.staerke = Math.max(rk.staerke, 0.09);
-      if (rk.gesetzt >= 0 && kf.gesetzt > rk.gesetzt) rk.staerke = Math.max(rk.staerke, 0.035);
+      // fremde soll wehtun. D427: Stärke nach Wucht bzw. Schaden (`kf.stossGesetzt`/`stossErlitten`,
+      // `kampf/gewicht.ts`), der eigene in Schlagrichtung; ohne Angabe die festen Werte von D171.
+      const faktor = Number(einstellungen().wert('kamerawackeln')) / 100;
+      if (rk.getroffen >= 0 && kf.getroffen > rk.getroffen)
+        stosse(rk.stoss, kf.stossErlitten ?? { staerke: 0.09, abklingen: 0.12, richtung: null, anteil: 0 }, faktor);
+      if (rk.gesetzt >= 0 && kf.gesetzt > rk.gesetzt)
+        stosse(rk.stoss, kf.stossGesetzt ?? { staerke: 0.035, abklingen: 0.12, richtung: null, anteil: 0 }, faktor);
       rk.getroffen = kf.getroffen; rk.gesetzt = kf.gesetzt;
     }
-    rk.staerke *= Math.exp(-dt / 0.12);
+    klingeAb(rk.stoss, ZEITLUPE === 1 ? dt : Math.min(dt, 0.1) * ZEITLUPE);
     const wackle = () => {
-      if (rk.staerke < 0.002) return;
-      const u = rk.uhr;
-      camera.position.x += rk.staerke * Math.sin(u * 71);
-      camera.position.y += rk.staerke * Math.sin(u * 83 + 1.3);
-      camera.position.z += rk.staerke * Math.sin(u * 59 + 2.1);
+      const [x, y, z] = stossVersatz(rk.stoss);
+      if (x === 0 && y === 0 && z === 0) return;
+      // Kameraraum → Welt: x rechts, y oben, z vor (three.js schaut entlang −Z). Nach `lookAt`, damit die
+      // Ausrichtung des Bildes gilt; der Blick selbst dreht nicht mit, nur die Kamera rückt.
+      versatz.current.set(x, y, -z).applyQuaternion(camera.quaternion);
+      camera.position.add(versatz.current);
     };
     schulter.current += ((fokus ? 1 : 0) - schulter.current) * Math.min(1, dt / SCHULTER.blende);
     if (fokus) blickZiel.current.set(fokus.x, fokus.y, fokus.z);
