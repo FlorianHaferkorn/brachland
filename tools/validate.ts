@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Bewegung, Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung,
+import { Bewegung, Gewicht, Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -173,6 +173,31 @@ console.log('\nBewegung (D412):');
     if (fehlt.length) { for (const f of fehlt) console.log(`  ✗ bewegung.json: ${f}`); fehler += fehlt.length; }
     else {
       console.log(`  ✓ bewegung.json: Rennen ${b.laufen.rennen} m/s (Probe ${b.laufen.rennenProbe.join(' / ')}), Reiten ${b.reiten.gehen} / ${b.reiten.rennen}, Klettern ${b.klettern.tempo}, Fall ${b.fall.schadlosBis}–${b.fall.toedlichAb} m; Tauchen und Tragtier Entwurf`);
+      ok++;
+    }
+  }
+}
+
+console.log('\nGewicht (D420, nur Darstellung):');
+{
+  // Schema: Grenzen und Reihenfolge der Schwellen. Hier die Querverweise: jede Waffe ist eine Waffenfamilie, jede
+  // Baukasten-Familie gibt es in waffenteile.json, jedes Ziel ist ein Gegner, die Tonreferenz ist eine der Waffen.
+  const r = Gewicht.safeParse(JSON.parse(readFileSync('content/gewicht.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ gewicht.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const g = r.data, fehlt: string[] = [];
+    const familien = (JSON.parse(readFileSync('content/waffenfamilien.json', 'utf8')).familien as { id: string }[]).map(f => f.id);
+    const teile = JSON.parse(readFileSync('content/waffenteile.json', 'utf8')).familien as Record<string, unknown>;
+    for (const [id, w] of Object.entries(g.waffen)) {
+      if (!familien.includes(id)) fehlt.push(`waffen.${id} ist keine Waffenfamilie`);
+      if ('baukasten' in w && !(w.baukasten in teile)) fehlt.push(`waffen.${id}.baukasten '${w.baukasten}' fehlt in waffenteile.json`);
+    }
+    for (const id of Object.keys(g.ziele.je)) if (!existsSync(join('content/gegner', `${id}.json`))) fehlt.push(`ziele.${id} ist kein Gegner`);
+    if (!(g.ton.referenz in g.waffen)) fehlt.push(`ton.referenz '${g.ton.referenz}' ist keine der Waffen`);
+    if (fehlt.length) { for (const f of fehlt) console.log(`  ✗ gewicht.json: ${f}`); fehler += fehlt.length; }
+    else {
+      console.log(`  ✓ gewicht.json: ${Object.keys(g.waffen).length} Waffen, ${Object.keys(g.ziele.je).length} Ziele, Trefferstopp ${g.trefferstopp.min * 1000}–${g.trefferstopp.max * 1000} ms`);
       ok++;
     }
   }
