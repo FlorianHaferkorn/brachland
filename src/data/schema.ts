@@ -505,6 +505,76 @@ export const Wanderfigur = z.object({
   'Jede Station ausser der letzten braucht `bis` — sonst zieht die Figur nie weiter.');
 export type Wanderfigur = z.infer<typeof Wanderfigur>;
 
+// ------------------------------------------------------------- Strecken
+
+/**
+ * Was eine Station einer Lehrstrecke lehrt (D390). Geschlossene Liste: Es sind die Handlungen, die der
+ * Echtzeitkampf (ADR-0007/0009), die Marke (D376) und die Rast kennen — `validate` verlangt, dass eine
+ * Strecke jede mindestens einmal trägt.
+ */
+export const LEKTIONEN = [
+  'bewegen', 'kamera', 'leichter-angriff', 'ausdauer', 'rolle', 'block', 'parade', 'lock-on', 'haltung',
+  'reinigen', 'rast',
+] as const;
+export const Lektion = z.enum(LEKTIONEN);
+export type Lektion = z.infer<typeof Lektion>;
+
+/**
+ * Ein Weg zwischen dieser und der nächsten Station (Story-Bibel v2 §3, D374): der beschwerliche ohne
+ * Werkzeug, oder die Abkürzung mit einem. `werkzeug` nur beim Werkzeugweg.
+ */
+const StreckenWeg = z.object({
+  art: z.enum(['beschwerlich', 'werkzeug']),
+  werkzeug: z.enum(['klettern', 'schwimmen', 'gleiten', 'reiten']).optional(),
+  text: z.string().max(240),
+}).strict().refine(w => (w.art === 'werkzeug') === (w.werkzeug !== undefined),
+  'Ein Werkzeugweg nennt sein Werkzeug, ein beschwerlicher Weg keins');
+
+const StreckenStation = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  name: z.string().max(40),
+  /** Wo die Station liegt (lat, lon) — dort stehen ihre Gegner. */
+  ort: z.tuple([z.number(), z.number()]),
+  lehrt: z.array(Lektion).min(1).max(3),
+  /** Wer hier steht: ID aus `content/gegner/` und Zahl. Leer heisst: kein Kampf. */
+  gegner: z.array(z.object({ art: z.string(), anzahl: z.number().int().min(1).max(3) }).strict()).max(3).default([]),
+  /** Was man hier sieht — ein Bild, kein Text im Spiel. Vorgabe für Szene und Set-Piece. */
+  bild: z.string().max(240).optional(),
+  /** Fundstück der Station (`content/fragmente/`). */
+  fragment: z.string().optional(),
+  /** Zuflucht der Station (`content/orte/`, `art: zuflucht`). */
+  zuflucht: z.string().optional(),
+  /** Wege von hier zur nächsten Station; ohne Angabe gibt es nur den einen. */
+  wege: z.array(StreckenWeg).max(3).optional(),
+}).strict().refine(s => s.bild !== undefined || s.fragment !== undefined,
+  'Jede Station erzählt etwas: ein Bild oder ein Fundstück');
+
+/**
+ * Eine Lehrstrecke (D381, D390): der Weg vom Spielbeginn zur Enklave, als Folge von Stationen. Jede lehrt eine
+ * Handlung an einem Gegner, ohne Texttafel — die Welt lehrt (Story-Bibel v2 §6 Schritt 0).
+ *
+ * **Nur Datum.** Das Spiel liest die Strecke noch nicht: Es stellt weder die Gegner auf noch setzt es den
+ * Spielbeginn um. `start` ist der vorbereitete Spielbeginn; der wirksame steht weiter in
+ * `LEERER_STAND.position` (`src/spiel/spielstand.ts`). `tools/validate.ts` prüft Lage, Verweise und dass
+ * jede Lektion vorkommt; `tools/streckensim.ts` spielt die Aufstellungen mit dem Kampfbot durch.
+ */
+export const Strecke = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  region: z.string(),
+  name: z.string().max(40),
+  /** Vorbereiteter Spielbeginn: Ort (lat, lon) und Blick in Grad wie `?absetzen=` (0 = Nord, positiv nach links). */
+  start: z.object({ ort: z.tuple([z.number(), z.number()]), blick: z.number() }).strict(),
+  stationen: z.array(StreckenStation).min(5).max(8),
+  /**
+   * Ankunft: der Bewohner, den man als Ersten trifft, sein Satz beim ersten Mal (statt `Ort.text`) und die
+   * Zuflucht, in der die Strecke endet.
+   */
+  ankunft: z.object({ bewohner: z.string(), text: z.string().max(240), zuflucht: z.string() }).strict(),
+}).strict()
+  .refine(s => s.stationen[0].gegner.length === 0, 'Die erste Station ist kampffrei — dort lernt man gehen')
+  .refine(s => new Set(s.stationen.map(x => x.id)).size === s.stationen.length, 'Stations-IDs sind eindeutig');
+export type Strecke = z.infer<typeof Strecke>;
+
 // ------------------------------------------------------------ Gegenstände
 
 /**

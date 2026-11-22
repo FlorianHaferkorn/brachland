@@ -45,6 +45,10 @@ Felsgrate. Die Welt liefert die Orte umsonst; sie mussten nur belegt werden.
 | `jagdhuette.json` | hof | 47.73883, 12.07153 | **Hütte im Bannwald** — D375, **verborgener Ort** im Westwald |
 | `quelltopf.json` | bach | 47.72716, 12.05902 | **Am Quelltopf** — D375, **verborgener Ort**: Bachquelle auf 971 m |
 | `alter-tresen.json` | hof | 47.72839, 12.09938 | **Am alten Tresen** — D375: das geräumte Dorf, 493 m, unter der Flutlinie |
+| `hoftor-fahrweg.json` | hof | 47.73280, 12.08381 | **Am Hoftor** — D390, Lehrstrecke Station 2: Hofpaar am Fahrweg, 222 Wegmeter vom Start |
+| `halle-gabelung.json` | ruine | 47.73462, 12.08791 | **Am Rolltor** — D390, Lehrstrecke Station 6: Halle an der Gabelung von Fahrweg und Fussweg; die Kreide nennt den Weg |
+| `steg-an-der-furt.json` | bach | 47.73641, 12.08902 | **Am Steg** — D390, Lehrstrecke Station 7: Bachquerung des Fussweges, 313 m vor der Enklave |
+| `erstes-haus.json` | hof | 47.73713, 12.08845 | **Am ersten Haus** — D390, Lehrstrecke Station 8: das erste Haus der Terrasse am Fussweg |
 
 ## Regeln
 

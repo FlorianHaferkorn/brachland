@@ -20,6 +20,7 @@ owns: *.json
 | Einen Gegenstand anlegen | `gegenstaende/kraeutersud.json` als Muster → `../src/data/schema.ts` (`GegenstandWirkung`) |
 | Eine Region anlegen | `regions/oental.json` als Muster; `nachbarn` beidseitig, danach `npm run world <id> 384` und `npm run fernland <id>` (ADR-0014) |
 | Einen Gegner nachstellen | `gegner/_INDEX.md` → `../tests/echtzeit.test.ts` |
+| Die Lehrstrecke zur Enklave ändern (Stationen, Gegner, Start) | `strecken/_INDEX.md` → `../docs/design/BRACHLAND_Weg-nach-Brannburg_v1.md` → `npx tsx tools/streckensim.ts` |
 | Reinigen (Marke) nachstellen: Schwelle, Griffdauer, Risiko, Dauer je Gegner | `reinigen.json`, `gegner/*.json` (`reinigen`) → `../docs/design/BRACHLAND_Reinigen_v1.md` → `npx tsx tools/reinigensim.ts` |
 | Eine Waffe oder einen Schlag ändern | `waffen/_INDEX.md` → `../docs/adr/0008-waffenwerk-zwei-klassen.md` |
 | Eine Hausfassade nach Foto anlegen | `fassaden/_INDEX.md` → `../docs/design/BRACHLAND_Fassaden_Fotoliste_v1.md` |
@@ -54,6 +55,7 @@ owns: *.json
 | `fragmente/` | Fundstücke an OSM-Orten mit eigenem Index — die Geschichte der Region, ohne Sprecher. Siehe `fragmente/_INDEX.md` |
 | `orte/` | Zufluchten und Bewohner an OSM-Gebäuden; seit D375 die Enklave auf der Hangterrasse und Zufluchten in Ringen darum. Siehe `orte/_INDEX.md` |
 | `wanderfiguren/` | **Fraktionsfiguren mit Stationen** (D375, Story-Bibel v2 §5): je Fraktion eine je Region, drei bis fünf Stationen, zieht mit dem Weltzustand weiter. Siehe `wanderfiguren/_INDEX.md` |
+| `strecken/` | **Lehrstrecken** (D390, Story-Bibel v2 §6 Schritt 0): der Weg vom Spielbeginn zur Enklave als Folge von Stationen — Lektion, Gegner (Art und Zahl aus `gegner/`), Bild oder Fundstück, Zuflucht, Wege. Nur Daten, das Spiel liest sie noch nicht. Siehe `strecken/_INDEX.md` |
 | `auftraege/` | 17 Aufträge — der kritische Pfad bis zur Heilung (D240); Zielart `reinige` statt `fange` seit D375. Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
 | `waffen/` | 3 Waffen des Echtzeitkampfs (Klinge, Axt, Speer) — Phasen, Bogen, Wirkung je Schlag (ADR-0008, D191). Siehe `waffen/_INDEX.md` |
 | `gegner/` | 9 Gegner des Echtzeitkampfs (Übungsgegner, 5 Tiere, 3 Menschen) — Schlag, Kette, Linien, Leben, Haltung, Körper (ADR-0007, D194). Siehe `gegner/_INDEX.md` |
