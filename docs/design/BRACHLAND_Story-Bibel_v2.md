@@ -28,9 +28,21 @@ Regenten liest er mehr vom Protokoll. Am Ende entscheidet er, wem das geheilte L
 - **Verhärtete** (Endstadium) lassen sich nur mit Reinkulturen reinigen — das sind die optionalen Bosse.
 - **Die Marke wächst** mit jedem Regenten: mehr Fassungsvermögen, ein Direktivkern als Elementarangriff
   (`BRACHLAND_Kernfunken_v1.md`), und ein weiteres Stück lesbares Protokoll.
+  **Seit D411:** Als eigene Wirkung behält die Marke nur **Orten und Rufen** (Sensor, Rückruf); Elementangriffe kommen
+  aus **Geräten** des Altbestands (Abflammgerät, Kohlensäurelöscher, Weidezaungerät, Räucherkanne in Kapitel 1,
+  Kalkstreuer in Kapitel 2), die über denselben Elementkreis wirken (`BRACHLAND_Waffen-Baukasten_v1.md` §16–§23).
 - **Gewicht:** Reinigen ist die Handlung der Enklaven-Erzählung („zurückverwandeln“). Mit dem Twist wird sie
   zweideutig: Wer reinigt, nimmt dem Land seine Therapie. Die Grünen Mönche zählen mit.
-- Fangen, Team und Training aus v1 entfallen. Reiten bleibt als Bindung **eines** gereinigten Tieres (`BRACHLAND_Traversal_v2.md` §5).
+- Fangen, Team und Training aus v1 entfallen. Reiten bleibt als Bindung **eines** ~~gereinigten Tieres~~ Tieres: seit
+  D411 **des letzten verwilderten Tragtiers des Försterhofs** (Bergpferd oder Maultier), befallen und zu reinigen —
+  kein Wildtier des Œntals trägt in echter Grösse einen Erwachsenen (`BRACHLAND_Traversal_v2.md` §5,
+  `BRACHLAND_Physik-Pruefung_v1.md` §4.2).
+- **Setzung über die Welt (Flo, 22.11.2026, D411): Rauch beruhigt den Befall.** Real beruhigt Rauch nur Bienen: Er
+  überdeckt den Alarmduft, das Volk frisst sich voll und wird träge. Im Spiel antwortet der Symbiont des Faulbrands auf
+  Rauch **wie ein Bienenvolk** — Befallene werden ruhig und lassen sich von der Marke greifen (Zustand „ruhig“,
+  Griff-Fenster ohne Schaden), sterben davon aber nicht und werden davon nicht rein. Das ist eine **benannte Abweichung** (D398), keine Physik: Sie gibt dem
+  Heiler sein Gerät (die Räucherkanne öffnet das Griff-Fenster ohne Schaden) und der Imkerei der Enklave einen Platz.
+  Was Rauch nicht tut: töten und heilen — das Heilen bleibt bei der Marke.
 
 ⚠️ UNKLAR (Balance, nicht Story): Belohnung für Reinigen gegen Töten, damit beides eine echte Wahl bleibt. Vorschlag:
 Töten gibt Material (Schmiede), Reinigen gibt Markenfortschritt und Reviergunst.
@@ -80,7 +92,7 @@ beschwerlichen Lösungsweg ohne.“
 
 | Ziel | Werkzeugweg | Beschwerlicher Weg |
 |---|---|---|
-| Flussvater am Wehr (Westufer; D380) | durch die versunkene Stadt schwimmen/tauchen, am verborgenen Kirchturm vorbei — wenige Minuten | **der Uferweg** (≈ 1,7 km, fast eben, trocken): drei Engstellen mit je einem Verhärteten oder Rudel, unterspülte Abschnitte (Schlamm kostet Ausdauer, Einsturz zwingt an den Hang), keine Zuflucht bis hinter das Wehr |
+| Flussvater am Wehr (Westufer; D380) | durch die versunkene Stadt schwimmen/tauchen, am verborgenen Kirchturm vorbei — ~~wenige Minuten~~ **„der Weg ohne Kampf“** (D411): länger als der Uferweg (1,9–2,4 km Wasser), keine Begegnung, der Kirchturm als Rast, Ankunft am Schieberhaus | **der Uferweg** (≈ 1,7 km, fast eben, trocken): drei Engstellen mit je einem Verhärteten oder Rudel, unterspülte Abschnitte (Schlamm kostet Ausdauer, Einsturz zwingt an den Hang), keine Zuflucht bis hinter das Wehr |
 | Reinkultur Nord (Absetzbecken) | mit Tauchzeug vom Abstieg durch die Flut ans Nordufer (1.079 m, kein Landgegner) | Hangweg über Feldscheune und Schuppen (1.082 m), dann 21 m ohne Werkzeug schwimmen — das Fundstück liegt auf dem Grund |
 | Reinkultur West (Oberstollen, 963 m) | mit Kletterzeug die Stufe unter dem Grat | alter Almweg mit Lawinenstrich (2.097 m, 451 Höhenmeter) |
 | Reinkultur Süd (Saatkammer, 601 m) | mit Gleiter vom Westhang (Absprung um −896 / 916, 1.330 m Flug) — erst West, dann segeln | Uferweg über den Stadel am Hangweg, dann bergauf (1.856 m, 99 Höhenmeter) |
@@ -94,6 +106,13 @@ Westufer, und von der Enklave führt ein trockener Uferweg hin (`BRACHLAND_Enkla
 Uferweg bleibt offen und **ist** der beschwerliche Weg; der Regent rückt nicht ins Wasser. Wer sich durchbeisst, steht
 früh vor dem Flussvater — das ist gewollt (siehe §6: besiegbar ohne Reinkulturen, das Tal fällt dann trocken, bleibt
 aber befallen).
+
+**Der Weg zum Flussvater, nachgeschärft (Flo, 22.11.2026, D411):** Der Wasserweg ist **keine Abkürzung** — er ist länger
+als der Uferweg und Wasser ist bei jedem ehrlichen Tempo langsamer (`BRACHLAND_Physik-Pruefung_v1.md` §4.1). Er heisst
+deshalb **„der Weg ohne Kampf“**: wer das Tauchzeug hat, schwimmt an der Oberfläche durch die versunkene Stadt, rastet am
+Kirchturm, taucht nur für das, was unten liegt, und kommt am Wehr von der Wasserseite an — am Schieberhaus, wo der
+Schlüssel liegt. Der Uferweg ist der kurze, harte Weg mit drei Engstellen. D380 gilt im Ziel (zwei Wege, keiner
+verschlossen, D374) und ändert sich in der Begründung: Der eine Weg kostet Kämpfe, der andere Zeit.
 
 ## 5. Fraktionen und die drei Enden (D374)
 

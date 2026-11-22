@@ -202,13 +202,13 @@ Jede Echtzeitwirkung ist ein Kampfwert und braucht Messung (Kampfbot), bevor sie
 
 | Gegenstand | Art | Wo (D391) |
 |---|---|---|
-| **Tauchzeug** | Werkzeug `tauchen` | Spind unter dem Boot, Schuppen am Nordufer (Rätsel, Zahl von der Tafel im Absetzbecken) |
+| **Tauchzeug** | Werkzeug `tauchen` | Spind unter dem Boot, Schuppen am Nordufer (Rätsel, Zahl von der Tafel im Absetzbecken). Seit D411 **auch Anzug**: hält die Kälteuhr im tiefen Wasser an |
 | **Kletterzeug** | Werkzeug `klettern` | Auftrag `was-noch-drin-liegt` (Wart vom Bruch) — Belohnung in den Daten gesetzt |
-| **Gleiter** | Werkzeug `gleiten` | verhärtetes Grathorn am Quelltopf (optionaler Boss) |
-| **Halfter** | Werkzeug `reiten` | Auftrag `ein-schwieriger-nachbar` (Förster) — Belohnung in den Daten gesetzt |
+| **Gleiter** | Werkzeug `gleiten` | verhärtetes Grathorn am Quelltopf (optionaler Boss) — seit D411 nur Leinen und Gurtzeug; die Kappe näht die Enklave neu aus gewachstem Leinen |
+| **Halfter** | Werkzeug `reiten` | Auftrag `ein-schwieriger-nachbar` (Förster) — Belohnung in den Daten gesetzt. Seit D411 bindet es **das letzte verwilderte Tragtier des Försterhofs** (befallen, erst zu reinigen), nicht einen gereinigten Keiler |
 | **Brechstange vom Bruch** | Zugang `stollenmauer` | der Vorarbeiter am Bruchweg — wenn man ihn verschont oder besiegt |
 | **Plombenzange** | Zugang `werksspind` | öffnet alle verplombten Werksspinde: ein Grund, an bekannte Orte zurückzukehren |
-| **Schlüssel zum Schieberhaus** | Zugang `schieberhaus` | Abkürzung am Wehr; liegt hinter dem Flussvater oder am Ende des Tauchwegs |
+| **Schlüssel zum Schieberhaus** | Zugang `schieberhaus` | Abkürzung am Wehr; liegt hinter dem Flussvater oder am Ende ~~des Tauchwegs~~ **des Wegs ohne Kampf** (D411) |
 
 Die Zahl 09/41 ist **kein** Gegenstand: Ein Rätsel, dessen Lösung im Beutel liegt, ist keines.
 
@@ -322,8 +322,11 @@ Die Texte stehen als `beschreibung` in den Daten.
 6. **Setzling** — „Bergkraut mit Wurzelballen, in feuchtes Moos geschlagen. Wächst nur, wo niemand mehr etwas aufreisst.“
 7. **Reinprobe** — „Ein Glas Erde aus einem Revier, das zur Ruhe gekommen ist. Zwei davon, und die Alte setzt eine Kultur an.“
 8. **Kletterzeug** — „Geschirr, Seil und Eisen aus dem Bruch. Vierzehn Jahre benutzt, dann eingemauert. Wer zumauert, will nicht wiederkommen.“
-9. **Gleiter** — „Ein Schirm, der lange in einem Geweih hing. Die Nähte halten. Jemand wollte damit über die Grenze und kam bis zur Quelle.“
-10. **Halfter** — „Hing im Stall am Haken, seit es keine Pferde mehr gibt. Bindet ein Tier, das geblieben ist. Eines, nicht zwei.“
+9. **Gleiter** — ~~„Ein Schirm, der lange in einem Geweih hing. Die Nähte halten. Jemand wollte damit über die Grenze und kam bis zur Quelle.“~~
+   **seit D412:** „Leinen und Gurte aus einem Geweih, die Kappe neu genäht aus gewachstem Leinen. Sinkt schneller, als sein Vorbild es tat. Jemand wollte damit über die Grenze und kam bis zur Quelle.“ (Physik-Prüfung v1 §5 (b))
+10. **Halfter** — ~~„Hing im Stall am Haken, seit es keine Pferde mehr gibt. Bindet ein Tier, das geblieben ist. Eines, nicht zwei.“~~
+   **seit D412:** „Hing im Stall am Haken, seit es keine Pferde mehr gibt. Eines ist geblieben: das letzte Tragtier des Hofs, verwildert und befallen. Erst reinigen, dann anlegen. Eines, nicht zwei.“
+- **Tauchzeug** (Text seit D412, vorher ohne Anzug): „Atemgerät der Klärwerkswartung, Anzug und Leine. Der Anzug hält die Kälte ab, die Flasche reicht für Abstiege, nicht für Strecken. Auf dem Zettel im Spind dieselbe Zahl, andere Handschrift.“
 11. **Flechtenkutte** — „Grobes Tuch, von Flechten überwachsen. Die Tiere sehen einen später. Die Leute auf der Terrasse früher.“
 12. **Werkskluft** — „Jacke mit eingewebten Leitbahnen, Brustschild VERIDIA. Der Kern lädt schneller. Wer sie trägt, wird für jemanden gehalten.“
 13. **Zettel: Harz auf Leinen** — „Drei Zeilen in Bleistift. Fichte, nicht Kiefer. Warm auftragen, kalt binden. Darunter: Hat bei Sepp nicht mehr gereicht.“
@@ -352,6 +355,9 @@ Die Texte stehen als `beschreibung` in den Daten.
 
 > **Bewegungs- und Weltwerte** (Tempo, Tauchen, Luftvorrat mit Arbeit und Reserve, Gleitzahl, Reittier, Fallhöhe)
 > sind in `BRACHLAND_Physik-Pruefung_v1.md` geprüft (D408); dort auch die Liste der benannten Abweichungen.
+> **Entschieden D411, nachgezogen D412:** Tauchzeug ist auch Anzug und Luft ein Vorrat für Abstiege; der Gleiter ist aus
+> geborgenen Leinen mit neu genähter Kappe; das Halfter bindet das letzte Tragtier des Försterhofs. Die Zeilen unten
+> sind entsprechend markiert.
 
 Flo, 22.11.2026 (D398): Physik muss stimmen; Abweichungen zugunsten des Spiels werden benannt, nie still gemacht.
 Gewichte stehen als `gewicht` (kg) an jedem Gegenstand, `validate` verlangt sie. Zahlen sind Überschläge aus
@@ -376,10 +382,10 @@ Dichte × Volumen oder aus üblichen Gerätegewichten, **nicht gewogen**.
 
 | Werkzeug | Gewicht | Was real gilt | Abweichung |
 |---|---|---|---|
-| **Tauchzeug** | 5,0 kg (kleine Flasche, Regler, Leine) | 2 l bei 200 bar = 400 l Luft; in 5 m Tiefe (1,5 bar) bei 20 l/min rund **13 Minuten**. Gummi und Membranen halten keine 40–60 Jahre, eine Flasche ohne Prüfung ist ein Risiko, und ohne Kompressor füllt sie niemand | Zustand und Nachfüllen sind **zugunsten des Spiels** übergangen. Die 380-m-Querung zur Kapelle (Traversal v2) passt in 13 Minuten; „Tauchen ohne Grenze“ passt nicht — eine Luftanzeige wäre ehrlicher |
+| **Tauchzeug** | 5,0 kg (kleine Flasche, Regler, Leine; seit D411 auch Anzug — Gewicht ⚠️ nicht nachgerechnet) | 2 l bei 200 bar = 400 l Luft; in 5 m Tiefe (1,5 bar) bei 20 l/min rund **13 Minuten** (in Ruhe, ohne Reserve — Nachtrag D412); **mit 50 bar Reserve und Arbeit (40 l/min) 5,0 min in 5 m, 2,9 min am Kirchturm** (Physik-Prüfung v1 §4.1). Gummi und Membranen halten keine 40–60 Jahre, eine Flasche ohne Prüfung ist ein Risiko, und ohne Kompressor füllt sie niemand | Zustand und Nachfüllen sind **zugunsten des Spiels** übergangen (Nachfüllen an der Rast, benannt). ~~Die 380-m-Querung zur Kapelle (Traversal v2) passt in 13 Minuten; „Tauchen ohne Grenze“ passt nicht — eine Luftanzeige wäre ehrlicher~~ **Seit D411:** Luft ist ein Vorrat für Abstiege, nicht für Strecken — an der Oberfläche schwimmt und atmet man, der Anzug hält die Kälteuhr an. Werte in `content/bewegung.json` `tauchen` (Entwurf) |
 | **Kletterzeug** | 4,5 kg (Gurt 0,5; 40 m Seil zu 65 g/m = 2,6; Haken und Karabiner 1,4) | Ein vierzehn Jahre benutztes und dann eingemauertes Kunstfaserseil würde niemand mehr belasten; Eisen überdauert | benannt. Stimmiger wäre: Eisen und Geschirr aus dem Stollen, das Seil neu geschlagen (Hanf, Enklave) |
-| **Gleiter** | 8,0 kg (Schirm 5, Gurtzeug 3) | Gleitzahl real 8–9; verlangt sind 1.330 m Strecke auf 374 m Höhe = **3,6** — weit im Möglichen. Tuch, das jahrelang im Freien hing, wird luftdurchlässig und trägt nicht mehr | Zustand des Tuchs zugunsten des Spiels übergangen; die Flugstrecke selbst stimmt |
-| **Halfter / Reiten** | 0,5 kg | Faustregel: ein Reittier trägt etwa 20 % seines Gewichts. Ein Keiler von 140 kg trüge 28 kg, ein Steinbock um 100 kg noch weniger — **keinen Erwachsenen** | ⚠️ grösste Abweichung der Liste, gehört zu D391: Reiten geht nur auf einem durch den Befall deutlich vergrösserten Tier. Das müsste die Welt zeigen (Schulterhöhe, Masse) |
+| **Gleiter** | 8,0 kg (Schirm 5, Gurtzeug 3; die neu genähte Kappe aus gewachstem Leinen wäre schwerer — ⚠️ nicht nachgerechnet) | Gleitzahl real 8–9; verlangt sind 1.330 m Strecke auf 374 m Höhe = **3,6** — weit im Möglichen. Tuch, das jahrelang im Freien hing, wird luftdurchlässig und trägt nicht mehr | ~~Zustand des Tuchs zugunsten des Spiels übergangen~~ **Seit D411 keine Abweichung mehr im Tuch:** Leinen und Gurtzeug sind geborgen, die Kappe ist neu genäht; sie gleitet schlecht (3 : 1) und sinkt schnell (4 m/s) — ob gewachstes Leinen genau diese Werte gibt, ist nicht belegt; die Flugstrecke selbst stimmt |
+| **Halfter / Reiten** | 0,5 kg | Faustregel: ein Reittier trägt etwa 20 % seines Gewichts. Ein Keiler von 140 kg trüge 28 kg, ein Steinbock um 100 kg noch weniger — **keinen Erwachsenen** | ~~⚠️ grösste Abweichung der Liste, gehört zu D391: Reiten geht nur auf einem durch den Befall deutlich vergrösserten Tier. Das müsste die Welt zeigen (Schulterhöhe, Masse)~~ **Behoben (D411):** Das Reittier ist das letzte verwilderte Tragtier des Försterhofs (Bergpferd oder Maultier, 450–500 kg, trägt 90 kg bei 20 %; Masse nicht belegt). Entwurf `content/bewegung.json` `tragtier`, ohne Kampfwerte |
 
 ### Traglast
 

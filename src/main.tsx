@@ -28,6 +28,7 @@ import { Menue } from './ui/Menue.js';
 import { verschiebe, zustandsAnzeige } from './spiel/team.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
 import { gleiterFrei as gleiterOffen, GLEIT_VERHAELTNIS } from './spieler/gleiten.js';
+import { BEWEGUNG } from './spieler/tempo.js';
 import { reitsitz } from './world/kreaturgestalt.js';
 import { erfahrungAusSieg, gutschrift, mutationBei } from './spiel/fortschritt.js';
 import { beute } from './spiel/gegenstaende.js';
@@ -471,6 +472,39 @@ function App() {
   const sichereRef = useRef<((a: Partial<Spielstand>, t: Kaempfer[]) => void) | null>(null);
   const weltKampfRef = useRef(weltKampf);
   weltKampfRef.current = weltKampf;
+  /**
+   * D179: Aufwachen in der letzten Zuflucht — mit vollem Leben, ohne Beute. Seit D412 auch nach
+   * einem tödlichen Sturz oder wenn die Kälte im tiefen Wasser das Leben aufgebraucht hat; gibt
+   * zurück, ob es eine Zuflucht gab.
+   */
+  const wacheAuf = useCallback((zusatz = '') => {
+    const zid = standRef.current?.letzteZuflucht ?? ZUFLUCHT_PROBE;
+    const z = zid ? ORTE.get(zid) : undefined;
+    const wd = weltRef.current;
+    if (!z || !wd) return false;
+    const [x, zz] = nachMetern(z.ort, wd.bbox);
+    const [ax, az] = z.aufwachen ?? [2, 2];
+    // D183: Blick zur Hütte — wer aufwacht, sieht zuerst, wo er ist (0 = −Z, positiv nach links).
+    spielerSprung.current = [x + ax, zz + az, Math.atan2(ax, az)];
+    setHinweis(`${zusatz}Du wachst in ${z.name} auf. Irgendwer hat dich hergebracht.`);
+    return true;
+  }, []);
+  /**
+   * D412: Folgen für den Körper aus der Bewegung (`spieler/bewegung.ts`) — Sturz und Kälte. Leben
+   * gibt es ausserhalb des Kampfs noch nicht; deshalb hat nur „aufgebraucht“ eine Folge (Aufwachen
+   * wie nach einer Niederlage), alles darunter ist ein Hinweis. Arbeitswerte, nicht am M1 gespielt.
+   */
+  const koerperFolge = useCallback((art: 'sturz' | 'kaelte', leben: number) => {
+    if (leben <= 0) {
+      if (!wacheAuf(art === 'sturz' ? 'Der Sturz war zu tief. ' : 'Das Wasser hat dich ausgekühlt. ')) {
+        setHinweis(art === 'sturz' ? 'Der Sturz war zu tief.' : 'Das Wasser hat dich ausgekühlt.');
+      }
+    } else if (art === 'sturz') {
+      setHinweis(leben < 0.5 ? 'Hart aufgekommen. Das hat geschadet.' : 'Hart aufgekommen.');
+    } else {
+      setHinweis('Die Kälte zieht in die Glieder. Raus aus dem tiefen Wasser.');
+    }
+  }, [wacheAuf]);
   const kampfVorbei = useCallback((sieg: boolean) => {
     // Aus einer Ref gelesen, nicht im Updater: StrictMode ruft Updater doppelt — Beute und
     // `besiegt` kämen sonst zweimal in den Stand.
@@ -480,16 +514,7 @@ function App() {
     if (!sieg) {
       lagerRuhe.current.add(alt.id);
       // D179: Niederlage heisst Aufwachen in der letzten Zuflucht — mit vollem Leben, ohne Beute.
-      const zid = standRef.current?.letzteZuflucht ?? ZUFLUCHT_PROBE;
-      const z = zid ? ORTE.get(zid) : undefined;
-      const wd = weltRef.current;
-      if (z && wd) {
-        const [x, zz] = nachMetern(z.ort, wd.bbox);
-        const [ax, az] = z.aufwachen ?? [2, 2];
-        // D183: Blick zur Hütte — wer aufwacht, sieht zuerst, wo er ist (0 = −Z, positiv nach links).
-        spielerSprung.current = [x + ax, zz + az, Math.atan2(ax, az)];
-        setHinweis(`Du wachst in ${z.name} auf. Irgendwer hat dich hergebracht.`);
-      } else setHinweis('Zurückgeschlagen — sie warten noch.');
+      if (!wacheAuf()) setHinweis('Zurückgeschlagen — sie warten noch.');
       return;
     }
     const st = standRef.current;
@@ -519,7 +544,7 @@ function App() {
     sichereRef.current?.({ lagerSieg: { ...(st.lagerSieg ?? {}), [alt.id]: Date.now() }, beutel }, teamNeu);
     const liste = Object.entries(alt.beute).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n * mal}`).join(', ');
     setHinweis(`Das Lager ist still. Du nimmst: ${liste}.${stufenText}`);
-  }, []);
+  }, [wacheAuf]);
 
   /**
    * Das Team als Reitkandidaten — Bauform und Mutation je Platz.
@@ -938,6 +963,8 @@ function App() {
         onRegentNah={setRegentNah}
         gleiterFrei={gleiterFrei}
         onGleiten={setGleitet}
+        anzug={(stand.beutel[BEWEGUNG.kaelte.anzug] ?? 0) > 0}
+        onKoerper={koerperFolge}
         fundstellen={fundstellen}
         gelesen={gelesen}
         onFund={findeFragment}

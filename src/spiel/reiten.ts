@@ -19,6 +19,7 @@
  *
  * Reines Modul (`tests/reiten.test.ts`).
  */
+import { BEWEGUNG } from '../spieler/tempo.js';
 
 /** Bauformen, die tragen können. Widerrist unter 1 m trägt keinen Menschen. */
 export const TRAEGT: readonly string[] = ['quadruped'];
@@ -32,9 +33,22 @@ export const TRAEGT: readonly string[] = ['quadruped'];
  */
 export const REITEN_AB_MUTATION = 1;
 
-/** Tempo zu Pferd. Knapp doppelt so schnell wie zu Fuß, siehe Kopfkommentar. */
-export const REITEN_GEHEN = 7.5;
-export const REITEN_RENNEN = 17.0;
+/**
+ * Tempo im Sattel, Schritt und Galopp.
+ *
+ * Bis D412 7,5 / 17,0 m/s — 61 km/h auf Dauer, über dem Sprint jedes Tiers der Welt
+ * (Physik-Prüfung v1 Zeile 22). Seit D411/D412 **5 / 13 m/s** aus
+ * `content/bewegung.json` (`reiten`): folgt dem Renntempo (8,5), bleibt rund ×1,5
+ * schneller. Der `?renntempo=`-Schalter verschiebt nur das Rennen zu Fuss, nicht das
+ * Reiten.
+ *
+ * **Wer trägt, ändert sich mit D411 im Entwurf, nicht hier:** Das Reittier ist das letzte
+ * verwilderte Tragtier des Försterhofs (`bewegung.json` `tragtier`, Entwurf), nicht mehr
+ * ein gereinigter Keiler. `traegt()` lässt bis zum Bau des Tiers weiter jeden Vierbeiner
+ * ab Mutationsstufe 2 tragen — die Regel im Code ist älter als die Entscheidung.
+ */
+export const REITEN_GEHEN = BEWEGUNG.reiten.gehen;
+export const REITEN_RENNEN = BEWEGUNG.reiten.rennen;
 
 /**
  * Steigungsgrenze im Sattel, in Grad.

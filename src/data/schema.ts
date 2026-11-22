@@ -1509,3 +1509,82 @@ export const Einstellungen = z.object({
   });
 });
 export type Einstellungen = z.infer<typeof Einstellungen>;
+
+// ------------------------------------------------------- Bewegung (D412)
+
+/**
+ * Bewegungswerte der Figur (D412, Entscheidungen D411 auf die Physik-Prüfung, `content/bewegung.json`).
+ * Jeder Block nennt, was real gilt, warum das Spiel abweicht und wo es steht — „benannt und begründet, nie
+ * still“ (D398). Gelesen von `src/spieler/tempo.ts`, `ausdauer.ts`, `gleiten.ts`, `bewegung.ts` und
+ * `src/spiel/reiten.ts`; `tauchen` und `tragtier` sind Entwurf, kein Code liest sie. Zeiten in Sekunden,
+ * Strecken in Metern, Tempi in m/s.
+ */
+const Benannt = {
+  real: z.string().min(1).describe('was in der Wirklichkeit gilt, mit „nicht belegt“, wo die Quelle fehlt'),
+  warum: z.string().min(1).describe('warum das Spiel davon abweicht'),
+  quelle: z.string().min(1),
+};
+const Tempo = z.number().positive().max(60);
+export const Bewegung = z.object({
+  stand: z.string(),
+  laufen: z.object({
+    gehen: Tempo,
+    rennen: Tempo,
+    /** Werte, die `?renntempo=` am M1 zulässt; der Standard muss darunter sein. */
+    rennenProbe: z.array(Tempo).min(1),
+    ...Benannt,
+  }).strict().refine(l => l.rennen > l.gehen, 'Rennen muss schneller sein als der Laufschritt')
+    .refine(l => l.rennenProbe.includes(l.rennen), 'rennenProbe enthält den Standard nicht')
+    .refine(l => l.rennenProbe.every(r => r > l.gehen), 'ein Probewert liegt nicht über dem Laufschritt'),
+  reiten: z.object({ gehen: Tempo, rennen: Tempo, ...Benannt }).strict()
+    .refine(r => r.rennen > r.gehen, 'Reiten im Galopp muss schneller sein als im Schritt'),
+  klettern: z.object({
+    tempo: Tempo,
+    reichweite: z.number().positive().describe('Meter Wand aus voller Ausdauer'),
+    ...Benannt,
+  }).strict(),
+  fall: z.object({
+    schadlosBis: z.number().positive(),
+    toedlichAb: z.number().positive(),
+    rolle: z.number().min(0).max(1).describe('Faktor auf den Schaden bei einer Rolle in der Landung'),
+    endgeschwindigkeit: Tempo,
+    ...Benannt,
+  }).strict().refine(f => f.schadlosBis < f.toedlichAb, 'schadlosBis muss unter toedlichAb liegen'),
+  kaelte: z.object({
+    sinktNach: z.number().positive(),
+    leerNach: z.number().positive(),
+    anzug: z.string().regex(/^[a-z0-9-]+$/).describe('Gegenstand, der die Kälteuhr anhält'),
+    ...Benannt,
+  }).strict().refine(k => k.sinktNach < k.leerNach, 'sinktNach muss vor leerNach liegen'),
+  tauchen: z.object({
+    status: z.literal('entwurf'),
+    tempo: Tempo,
+    flascheLiter: z.number().positive(),
+    fuelldruckBar: z.number().positive(),
+    reserveBar: z.number().nonnegative(),
+    verbrauchArbeit: z.number().positive().describe('l/min an der Oberfläche bei Arbeit'),
+    zeitfaktor: z.number().positive(),
+    ...Benannt,
+  }).strict().refine(t => t.reserveBar < t.fuelldruckBar, 'Reserve über dem Fülldruck'),
+  gleiter: z.object({ verhaeltnis: z.number().positive(), sinken: Tempo, ...Benannt }).strict(),
+  tragtier: z.object({
+    status: z.literal('entwurf'),
+    id: z.string().regex(/^[a-z0-9-]+$/),
+    name: z.string(),
+    arten: z.array(z.string()).min(1),
+    zustand: Zustand,
+    masse: z.object({ min: z.number().positive(), max: z.number().positive(), belegt: z.boolean(), notiz: z.string().optional() }).strict(),
+    traglastAnteil: z.number().positive().max(0.3),
+    reiterLast: z.number().positive(),
+    auftrag: z.string().regex(/^[a-z0-9-]+$/),
+    /** Kein Gegner: Das Tier wird gereinigt, nicht bekämpft. Kampfwerte erst, wenn es je als Gegner dient. */
+    kampfwerte: z.null(),
+    text: z.string().max(400),
+    real: z.string().min(1),
+    quelle: z.string().min(1),
+  }).strict()
+    .refine(t => t.masse.min <= t.masse.max, 'masse.min über masse.max')
+    // Physik (D398): Das leichteste Tier dieser Art muss den Reiter beim Traglastanteil tragen.
+    .refine(t => t.masse.min * t.traglastAnteil >= t.reiterLast - 1e-9, 'das leichteste Tier trägt den Reiter nicht'),
+}).strict();
+export type Bewegung = z.infer<typeof Bewegung>;

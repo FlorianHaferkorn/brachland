@@ -23,6 +23,9 @@ import base64, heapq, json, math
 import numpy as np
 
 # ---- Spielwerte (abgeschrieben) -------------------------------------------------
+# Stand D408 (vor D412). Seit D412 gelten Rennen 8,5, Reiten 5 / 13, Klettern 1,0 m/s bei 13,75 m Reichweite,
+# Tauchen 2,25 m/s (Entwurf) — content/bewegung.json. Die Werte hier bleiben, damit die Rechnung der Prüfung
+# nachvollziehbar bleibt; §4.7 rechnet 8,5 und 7,0 ohnehin daneben.
 GEHEN, RENNEN = 4.2, 11.0             # src/spieler/tempo.ts
 SCHWERKRAFT, ABSPRUNG = 9.81, 5.4     # ebd.
 AUSDAUER_MAX = 100                    # src/spieler/ausdauer.ts

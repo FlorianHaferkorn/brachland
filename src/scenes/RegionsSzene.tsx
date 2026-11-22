@@ -117,7 +117,8 @@ import { verteileKreaturen, rueckkehrVorkommen, type Vorkommen, type KreaturSpaw
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
 import { REITEN_GEHEN, REITEN_RENNEN, REIT_MAX_GRAD } from '../spiel/reiten.js';
-import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG } from '../spieler/tempo.js';
+import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG, KLETTERN_TEMPO } from '../spieler/tempo.js';
+import { begrenzeFall, fallschaden, kaelteLeben, kaelteSchritt, neueKaelte } from '../spieler/bewegung.js';
 import { GLEIT_TEMPO, bremse, gleitSchritt, neuerFall, type Fall } from '../spieler/gleiten.js';
 
 
@@ -3035,8 +3036,9 @@ function Streuschicht({ feld, ziel, dichte }: {
  * masstab` beschrieb dadurch einen Fußgänger, den es im Spiel nicht gibt. Ein
  * reines Modul können die Werkzeuge importieren, eine `.tsx` mit React nicht.
  *
- * 4,2 und 11,0 m/s sind schneller als der Mensch: eine bewusste Abweichung vom
- * 1:1-Maßstab an genau einer Stelle (Ledger G-27, D18). 9,81 m/s² und 5,4 m/s
+ * 4,2 und 8,5 m/s (bis D412 11,0; seither `content/bewegung.json`) sind schneller als
+ * der Mensch: eine bewusste Abweichung vom 1:1-Maßstab an genau einer Stelle (Ledger
+ * G-27, D18). 9,81 m/s² und 5,4 m/s
  * Absprung ergeben knapp 1,5 m Sprunghöhe und 1,1 s in der Luft — genug für
  * Geländestufen, zu wenig für Felswände. Genau so gemeint.
  */
@@ -3064,8 +3066,10 @@ const BODEN_TOLERANZ = 0.12;
  * Was das Klettern begrenzt, ist die Ausdauer (`src/spieler/ausdauer.ts`), nicht
  * eine Regel darüber, wo geklettert werden darf. Deshalb gibt es keine
  * ausgewiesenen Kletterstellen: Jede Wand geht, solange der Vorrat reicht.
+ *
+ * Das Klettertempo (`KLETTERN_TEMPO`) stand hier bis D412 als 2,2 m/s; seither 1,0 m/s
+ * aus `content/bewegung.json`, gelesen über `spieler/tempo.ts`.
  */
-const KLETTERN_TEMPO = 2.2;
 /** Vortrieb in die Wand beim Klettern. Trägt am Ende über die Kante. */
 const KLETTERN_VOR = 0.55;
 /**
@@ -3160,7 +3164,7 @@ export const NEIGUNG_START = 0.32;
  * Look beurteilbar machen soll.
  */
 function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet,
-                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt, sprung }: {
+                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt, sprung, anzug, onKoerper }: {
   feld: HoehenFeld;
   /** Versetzen (D179): Liegt hier ein Punkt, steht die Figur im nächsten Bild dort, auf dem Boden. */
   /** Versetzen (D179), optional mit Blick (D183: Aufwachen schaut zur Zuflucht). */
@@ -3179,6 +3183,13 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   gleiterFrei?: React.RefObject<boolean>;
   /** Meldet, ob gerade geglitten wird — für die Anzeige. Nur bei Änderung. */
   onGleiten?: (gleitet: boolean) => void;
+  /** D412: Trägt die Figur einen Anzug (Tauchzeug)? Dann läuft die Kälteuhr nicht. */
+  anzug?: React.RefObject<boolean>;
+  /**
+   * D412: Sturz und Kälte (`spieler/bewegung.ts`). `leben` ist, was davon übrig bleibt (0 … 1).
+   * Sturz bei jedem Aufprall mit Schaden, Kälte nur beim Übergang „sinkt“ und „aufgebraucht“.
+   */
+  onKoerper?: (art: 'sturz' | 'kaelte', leben: number) => void;
   /** Wird in jedem Bild gerufen, in dem an der Regionsgrenze geklemmt wird. */
   meldeRand?: (seite: Seite | null) => void;
   /** Zustand der beiden Daumenknüppel — die Anzeige liegt im DOM und liest ihn. */
@@ -3198,6 +3209,9 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   const fall = useRef<Fall>(neuerFall(0));
   /** Letzter gemeldeter Gleitzustand — damit nur Änderungen nach oben gehen. */
   const gleitetVor = useRef(false);
+  /** D412: Kälteuhr im tiefen Wasser und die zuletzt gemeldete Stufe (0 warm, 1 sinkt, 2 leer). */
+  const kaelte = useRef(neueKaelte());
+  const kaelteStufe = useRef(0);
 
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
@@ -3208,6 +3222,7 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       if (sb !== undefined) gier.current = sb;
       p.set(sx, hoeheAufFlaeche(feld, sx, sz), sz);
       steigen.current = 0; fall.current = neuerFall(p.y);
+      kaelte.current = neueKaelte(); kaelteStufe.current = 0;
     }
     // Nach einem Tab-Wechsel kommt ein riesiges dt — sonst teleportiert man.
     const dt = Math.min(rohDt, 0.1);
@@ -3382,17 +3397,36 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       p.y = boden;
       steigen.current = 0;
     } else {
-      steigen.current -= SCHWERKRAFT * dt;
+      // D412: höchstens mit Endgeschwindigkeit (53 m/s) — bis dahin ohne Grenze.
+      steigen.current = begrenzeFall(steigen.current - SCHWERKRAFT * dt);
       // Erst fallen lassen, dann bremsen — sonst frisst die Schwerkraft des
       // nächsten Bildes die Bremsung wieder auf und die Sinkrate driftet nach oben.
       if (gleitet) steigen.current = bremse(steigen.current);
       p.y += steigen.current * dt;
-      if (p.y <= boden) { p.y = boden; steigen.current = 0; }
+      if (p.y <= boden) {
+        // D412: Fallschaden am Aufprall, nicht an der Höhe — der Gleiter landet mit 4 m/s
+        // schadlos. Eine Rolle in der Landung gibt es ausserhalb des Kampfs noch nicht.
+        const schaden = fallschaden(-steigen.current, false);
+        if (schaden > 0) onKoerper?.('sturz', 1 - schaden);
+        p.y = boden; steigen.current = 0;
+      }
     }
     // Nie unter das Gelände: Beim Klettern über eine Kante liegt der Boden am
     // neuen Standort sonst über der Figur. Beim Schwimmen gilt das nicht — dort
     // IST die Figur über der Sohle, nur eben im Wasser.
     if (!schwimmt && p.y < boden) p.y = boden;
+
+    // D412: Kälteuhr. Läuft nur im tiefen Wasser (ab Schwimmtiefe), steht am Ufer wieder
+    // auf null, hält mit Anzug an. Gemeldet wird nur der Übergang, nicht jedes Bild.
+    kaelte.current = kaelteSchritt(kaelte.current, dt, schwimmt, anzug?.current ?? false);
+    const warm = kaelteLeben(kaelte.current);
+    const stufeK = warm <= 0 ? 2 : warm < 1 ? 1 : 0;
+    if (stufeK !== kaelteStufe.current) {
+      kaelteStufe.current = stufeK;
+      if (stufeK > 0) onKoerper?.('kaelte', warm);
+      // Wer ausgekühlt aufwacht, fängt warm an — das Versetzen setzt die Uhr ohnehin zurück.
+      if (stufeK === 2) kaelte.current = neueKaelte();
+    }
 
     // Waten zehrt nur, wenn man sich auch bewegt: Im Bach zu stehen ist keine
     // Anstrengung, gegen die Strömung zu gehen schon. Schwimmen zehrt immer —
@@ -4504,6 +4538,10 @@ export interface RegionsSzeneProps {
   gleiterFrei?: boolean;
   /** Meldet den Wechsel in den und aus dem Gleitflug. Für die Anzeige. */
   onGleiten?: (gleitet: boolean) => void;
+  /** D412: Anzug an (das Tauchzeug im Beutel) — hält die Kälteuhr an. */
+  anzug?: boolean;
+  /** D412: Folgen von Sturz und Kälte, `leben` 0 … 1 (`spieler/bewegung.ts`). */
+  onKoerper?: (art: 'sturz' | 'kaelte', leben: number) => void;
   /** Fundstellen in Weltkoordinaten (x, z) — die Szene kennt keine Texte. */
   fundstellen?: { id: string; ort: [number, number] }[];
   gelesen?: ReadonlySet<string>;
@@ -4596,7 +4634,7 @@ export interface RegionsSzeneProps {
 export function RegionsSzene({
   welt, tageszeit = 0.26, spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
-  regent, geheilt, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
+  regent, geheilt, onRegentNah, gleiterFrei, onGleiten, anzug, onKoerper, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
   fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, kampfRichtung, spielerSprung, kampfStand, lagerstellen,
 }: RegionsSzeneProps) {
@@ -4630,6 +4668,8 @@ export function RegionsSzene({
   // einmal je Spielstand ändert, soll keine Bildschleife neu aufsetzen.
   const gleiterRef = useRef(false);
   gleiterRef.current = gleiterFrei ?? false;
+  const anzugRef = useRef(false);
+  anzugRef.current = anzug ?? false;
 
   // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
   // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
@@ -4805,6 +4845,7 @@ export function RegionsSzene({
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}
                reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten}
+               anzug={anzugRef} onKoerper={onKoerper}
                meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} kampfZielt={kampfZielt}
                sprung={spielerSprung} />
       {kampfplatz && (

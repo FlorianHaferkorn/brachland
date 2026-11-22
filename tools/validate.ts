@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
+import { Bewegung, Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -133,6 +133,27 @@ console.log('\nEinstellungen (D394):');
       if (fehlt.length) { console.log(`  ✗ ${e.id}: Stufenwert fehlt für ${fehlt.join(', ')}`); fehler++; luecken++; }
     }
     if (!luecken) { console.log(`  ✓ einstellungen.json: ${r.data.einstellungen.length} Einstellungen, Stufenwerte vollständig`); ok++; }
+  }
+}
+
+console.log('\nBewegung (D412):');
+{
+  // Das Schema prüft Grenzen, Reihenfolge der Schwellen und dass das leichteste Tragtier den Reiter
+  // bei seinem Traglastanteil trägt (D398). Hier zusätzlich die Querverweise: Der Anzug der Kälteuhr
+  // ist ein Gegenstand, der Auftrag des Tragtiers gibt es.
+  const r = Bewegung.safeParse(JSON.parse(readFileSync('content/bewegung.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ bewegung.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const b = r.data;
+    const fehlt: string[] = [];
+    if (!existsSync(join('content/gegenstaende', `${b.kaelte.anzug}.json`))) fehlt.push(`kaelte.anzug '${b.kaelte.anzug}' ist kein Gegenstand`);
+    if (!existsSync(join('content/auftraege', `${b.tragtier.auftrag}.json`))) fehlt.push(`tragtier.auftrag '${b.tragtier.auftrag}' fehlt`);
+    if (fehlt.length) { for (const f of fehlt) console.log(`  ✗ bewegung.json: ${f}`); fehler += fehlt.length; }
+    else {
+      console.log(`  ✓ bewegung.json: Rennen ${b.laufen.rennen} m/s (Probe ${b.laufen.rennenProbe.join(' / ')}), Reiten ${b.reiten.gehen} / ${b.reiten.rennen}, Klettern ${b.klettern.tempo}, Fall ${b.fall.schadlosBis}–${b.fall.toedlichAb} m; Tauchen und Tragtier Entwurf`);
+      ok++;
+    }
   }
 }
 
