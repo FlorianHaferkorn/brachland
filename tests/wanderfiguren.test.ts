@@ -14,7 +14,7 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { Wanderfigur } from '../src/data/schema.js';
-import { gilt, stationVon, type Weltstand } from '../src/spiel/wanderfiguren.js';
+import { eingriffe, gilt, stationVon, type Weltstand } from '../src/spiel/wanderfiguren.js';
 
 let ok = 0, fehler = 0;
 function pruefe(was: string, bedingung: boolean, notiz = '') {
@@ -55,6 +55,26 @@ pruefe('Schema lehnt eine Zwischenstation ohne `bis` ab',
 pruefe('Schema verlangt mindestens drei Stationen',
        !Wanderfigur.safeParse({ ...F, stationen: F.stationen.slice(1) }).success);
 
+console.log('\nZähler der Mönche (D385, D392):');
+{
+  const w: Weltstand = { ...LEER, besiegt: ['wurzelkeiler:1:1', 'regent:flussvater'], gereinigt: ['spuerfuchs:2:2', 'spuerfuchs:2:3'] };
+  pruefe('Töten und Reinigen zählen gleich, der Regent nicht', eingriffe(w) === 3, String(eingriffe(w)));
+  pruefe('Dasselbe Vorkommen zählt einmal', eingriffe({ besiegt: ['a:1:1'], gereinigt: ['a:1:1'] }) === 1);
+  pruefe('Ohne Listen (alter Aufruf): null Eingriffe', eingriffe(LEER) === 0);
+  pruefe('`eingriffe` gilt ab der Schwelle, nicht davor',
+         !gilt({ art: 'eingriffe', anzahl: 4 }, w) && gilt({ art: 'eingriffe', anzahl: 3 }, w));
+  const moench: Wanderfigur = { ...F, fraktion: 'moenche', stationen: [
+    { wo: 'eins', ort: ORT, text: '', bis: { art: 'regent', regent: 'flussvater' } },
+    { wo: 'krone', ort: ORT, text: '', ab: { art: 'heile', regent: 'flussvater' }, bis: { art: 'eingriffe', anzahl: 3 } },
+    { wo: 'abgewandt', ort: ORT, text: '' },
+  ] };
+  const geheilt = { ...LEER, regenten: ['flussvater'], geheilt: ['flussvater'] };
+  pruefe('Geheilt und zurückhaltend: Er steht auf der Krone', stationVon(moench, { ...geheilt, besiegt: ['a:1:1'] }) === 1);
+  pruefe('Geheilt, aber zu oft eingegriffen: Er hat sich abgewandt', stationVon(moench, { ...geheilt, besiegt: w.besiegt, gereinigt: w.gereinigt }) === 2);
+  pruefe('Getötet, nicht geheilt, zurückhaltend: Er ist nirgends',
+         stationVon(moench, { ...LEER, regenten: ['flussvater'], besiegt: ['a:1:1'] }) === null);
+}
+
 console.log('\nInhalte (content/wanderfiguren):');
 const ordner = 'content/wanderfiguren';
 const figuren = readdirSync(ordner).filter(f => f.endsWith('.json'))
@@ -71,13 +91,15 @@ function staende(f: Wanderfigur): Weltstand[] {
   const eindeutig = [...new Map(bed.map(b => [JSON.stringify(b), b])).values()];
   const raus: Weltstand[] = [];
   for (let m = 0; m < 1 << eindeutig.length; m++) {
-    const w = { fragmente: [] as string[], regenten: [] as string[], geheilt: [] as string[], auftraege: {} as Record<string, string> };
+    const w = { fragmente: [] as string[], regenten: [] as string[], geheilt: [] as string[], auftraege: {} as Record<string, string>,
+                besiegt: [] as string[] };
     eindeutig.forEach((b, i) => {
       if (!(m >> i & 1)) return;
       if (b.art === 'finde') w.fragmente.push(b.fragment);
       if (b.art === 'regent') w.regenten.push(b.regent);
       if (b.art === 'heile') w.geheilt.push(b.regent);
       if (b.art === 'auftrag') w.auftraege[b.auftrag] = 'abgeholt';
+      if (b.art === 'eingriffe') for (let n = w.besiegt.length; n < b.anzahl; n++) w.besiegt.push(`probe:0:${n}`);
     });
     if (w.geheilt.every(r => w.regenten.includes(r))) raus.push(w);
   }

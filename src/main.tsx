@@ -405,12 +405,12 @@ function App() {
    * Speichern, und jede neue Liste baut die Marken der Szene neu.
    */
   const figurOrte = useMemo<Ort[]>(() => (stand ? HIESIGE_WANDERFIGUREN.flatMap(f => {
-    const i = stationVon(f, stand);
+    const i = stationVon(f, { ...stand, gereinigt: stand.gefangen });
     if (i === null) return [];
     const s = f.stationen[i];
     return [{ id: `wanderfigur-${f.id}`, region: f.region, art: 'bewohner' as const, name: f.name,
               ort: s.ort, text: s.text, figur: f.figur, blick: s.blick, farben: f.farben }];
-  }) : []), [stand?.fragmente, stand?.regenten, stand?.geheilt, stand?.auftraege]);
+  }) : []), [stand?.fragmente, stand?.regenten, stand?.geheilt, stand?.auftraege, stand?.besiegt, stand?.gefangen]);
   /** Ort oder Wanderfigur zu einer ID aus der Szene. */
   const ortVon = (id: string | null): Ort | undefined =>
     (id ? ORTE.get(id) ?? figurOrte.find(o => o.id === id) : undefined);
@@ -639,8 +639,14 @@ function App() {
   const oeffneOrt = useCallback((id: string) => {
     setOrtOffen(id);
     setStand(alt => {
-      if (!alt || alt.orte.includes(id)) return alt;
-      const neu = { ...alt, orte: [...alt.orte, id] };
+      if (!alt) return alt;
+      // D392: Bei einer Wanderfigur zusätzlich die Station vermerken (`wanderfigur-<id>:<n>`) — das Heft
+      // (`spiel/notizbuch.ts`) hält fest, was sie **dort** gesagt hat, auch wenn sie längst weitergezogen ist.
+      const figur = HIESIGE_WANDERFIGUREN.find(f => `wanderfigur-${f.id}` === id);
+      const station = figur ? stationVon(figur, { ...alt, gereinigt: alt.gefangen }) : null;
+      const dazu = [id, ...(station === null ? [] : [`${id}:${station}`])].filter(x => !alt.orte.includes(x));
+      if (dazu.length === 0) return alt;
+      const neu = { ...alt, orte: [...alt.orte, ...dazu] };
       void speichereStand(neu);
       return neu;
     });

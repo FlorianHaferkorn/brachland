@@ -49,6 +49,13 @@ Felsgrate. Die Welt liefert die Orte umsonst; sie mussten nur belegt werden.
 | `halle-gabelung.json` | ruine | 47.73462, 12.08791 | **Am Rolltor** — D390, Lehrstrecke Station 6: Halle an der Gabelung von Fahrweg und Fussweg; die Kreide nennt den Weg |
 | `steg-an-der-furt.json` | bach | 47.73641, 12.08902 | **Am Steg** — D390, Lehrstrecke Station 7: Bachquerung des Fussweges, 313 m vor der Enklave |
 | `erstes-haus.json` | hof | 47.73713, 12.08845 | **Am ersten Haus** — D390, Lehrstrecke Station 8: das erste Haus der Terrasse am Fussweg |
+| `pegellatte.json` | bach | 47.73872, 12.09362 | **An der Pegellatte** — D392, Linie F1: neunzehn Kerben auf derselben Höhe. Ziel von `die-letzte-kerbe` |
+| `mulde-im-heu.json` | hof | 47.73203, 12.09243 | **Im Heu** — D392, Linie F4, im Stadel am Hangweg: Mulde, durchgebissener Spieß, vier Fuchsfährten. Ziel von `wer-wirklich-kommt` |
+| `boot-kieloben.json` | hof | 47.74414, 12.08741 | **Unter dem Boot** — D392, Rätsel zum Tauchzeug (Traversal v2 §5): Spind mit vier Zahlenrädern im Schuppen am Nordufer; die Zahl steht auf `absetzbecken`. Kein Auftrag zeigt darauf, das Schloss selbst ist nicht gebaut |
+| `opferstock.json` | ruine | 47.74906, 12.07765 | **Das Heft im Opferstock** — D392, Linien F2/F5, Kirche am Nordhang: die Zählung der Mönche in einem Satz. Ziel von `was-im-heft-steht` |
+| `huettenbuch.json` | hof | 47.74568, 12.06186 | **Hüttenbuch** — D392, Almhütte: Spur zum verborgenen Ort Quelltopf (Gleiter, Traversal v2 §5). Kein Auftrag zeigt darauf |
+| `werkstor-aushang.json` | ruine | 47.72228, 12.09905 | **Aushang am Werkstor** — D392, Linien F3/F6: Ausgabeliste Armklammer Typ B, elf aus, zehn zurück. Ziel von `was-am-werkstor-haengt` |
+| `tuer-im-schlamm.json` | hof | 47.72950, 12.09940 | **An der Haustür** — D392, Linie F1, altes Dorf unter der Flutlinie: Der Mann der Pegelwartin ist geblieben. Vor dem Wandel nur mit Tauchzeug gedacht; solange die Flut nicht gebaut ist, liegt es offen |
 
 ## Regeln
 

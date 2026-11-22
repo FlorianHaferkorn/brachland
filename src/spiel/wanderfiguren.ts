@@ -7,7 +7,8 @@
  * (`spiel/auftraege.ts`): kein eigener Zähler, kein Skript.
  *
  * Was hier bewusst fehlt: ob man die Figur an einer Station angesprochen hat, ob sie einem traut,
- * ob sie scheitert. Das sind Spielmechaniken, die noch nicht entworfen sind (Ledger A-24).
+ * ob sie scheitert. Das sind Spielmechaniken, die noch nicht gebaut sind (Entwurf: `docs/design/BRACHLAND_Quests_v1.md`, D392).
+ * Seit D392 kennt eine Station den Zähler der Mönche (`eingriffe`).
  *
  * Reines Modul ohne three.js und React (`tests/wanderfiguren.test.ts`).
  */
@@ -23,6 +24,20 @@ export interface Weltstand {
   geheilt: readonly string[];
   /** Aufträge mit Stand; nur `abgeholt` zählt als erledigt. */
   auftraege: Readonly<Record<string, string>>;
+  /** IDs getöteter Vorkommen (`kreatur:i:j`) und der Regenten (`regent:<id>`). Fehlt in alten Aufrufen: leer. */
+  besiegt?: readonly string[];
+  /** IDs über die Marke gereinigter Vorkommen. Fehlt in alten Aufrufen: leer. */
+  gereinigt?: readonly string[];
+}
+
+/**
+ * Wie oft der Brachgänger eingegriffen hat (D385): Die Mönche zählen ein gereinigtes Tier wie ein getötetes —
+ * beides nimmt dem Land etwas. Der Regent zählt nicht mit; über ihn urteilt die Station selbst (`regent`/`heile`).
+ * Abgeleitet, nicht mitgeschrieben, wie der Auftragsfortschritt.
+ */
+export function eingriffe(w: Pick<Weltstand, 'besiegt' | 'gereinigt'>): number {
+  const tiere = (ids: readonly string[] = []) => ids.filter(id => !id.startsWith('regent:'));
+  return new Set([...tiere(w.besiegt), ...tiere(w.gereinigt)]).size;
 }
 
 export function gilt(b: Stationsbedingung, w: Weltstand): boolean {
@@ -31,6 +46,7 @@ export function gilt(b: Stationsbedingung, w: Weltstand): boolean {
     case 'regent':  return w.regenten.includes(b.regent);
     case 'heile':   return w.geheilt.includes(b.regent);
     case 'auftrag': return w.auftraege[b.auftrag] === 'abgeholt';
+    case 'eingriffe': return eingriffe(w) >= b.anzahl;
   }
 }
 

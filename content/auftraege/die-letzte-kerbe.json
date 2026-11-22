@@ -1,0 +1,10 @@
+{
+  "id": "die-letzte-kerbe",
+  "region": "oental",
+  "geber": "dorf-wirt",
+  "titel": "Die letzte Kerbe",
+  "text": "Die Pegelwartin schreibt jeden Morgen eine höhere Zahl an die Wand. Ich stehe jeden Morgen am selben Fenster und sehe dieselbe Stufe nass. Lesen Sie die Latte selbst, unten am Mast. Und sagen Sie es mir, nicht dem Saal.",
+  "ziel": {"art": "finde", "fragment": "pegellatte"},
+  "belohnung": {"kraeutersud": 2},
+  "lohn": ["verbrauch", "wissen"]
+}

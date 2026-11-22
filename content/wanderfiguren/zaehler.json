@@ -31,7 +31,14 @@
       "ort": [47.72527, 12.09552],
       "blick": -110,
       "text": "Er steht auf der Krone über dem leeren Stau. Die Kiesel hat er ins Wasser geworfen, alle. Er sagt: Jetzt fehlt nur noch, dass es einer aushält. Dabei sieht er auf Ihren Arm, nicht in Ihr Gesicht.",
-      "ab": { "art": "heile", "regent": "flussvater" }
+      "ab": { "art": "heile", "regent": "flussvater" },
+      "bis": { "art": "eingriffe", "anzahl": 40 }
+    },
+    {
+      "wo": "Kirche am Nordhang, Stufe",
+      "ort": [47.74882, 12.07798],
+      "blick": 160,
+      "text": "Er sitzt auf der Kirchenstufe und hat das Heft zugeklappt. Die Schrauben im Opferstock reichen für Sie nicht mehr. Er sagt: Sie meinen es gut. Das Land merkt den Unterschied nicht. Dann sieht er hinunter aufs Moos."
     }
   ]
 }

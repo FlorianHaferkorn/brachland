@@ -1,0 +1,11 @@
+{
+  "id": "was-am-werkstor-haengt",
+  "region": "oental",
+  "geber": "dorf-schmied",
+  "titel": "Was am Werkstor hängt",
+  "text": "Mein Vater hat für das Werk Klammern geschmiedet, elf Stück, für Arme. Am Tor hängt die Ausgabeliste noch im Kasten. Sehen Sie nach, wie viele zurückgekommen sind. Wenn es zehn sind, weiß ich, was Sie tragen.",
+  "ziel": {"art": "finde", "fragment": "werkstor-aushang"},
+  "belohnung": {"harzverband": 2},
+  "vorher": "harz-fuer-die-esse",
+  "lohn": ["aufwertung-2", "wissen"]
+}

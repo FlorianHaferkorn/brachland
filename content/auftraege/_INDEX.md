@@ -49,6 +49,10 @@ Auftrag nicht fertig wird.
 | `harz-fuer-die-esse.json` | Die Schmiedin (D177): zwei Trafomarder besiegen → zwei Harzverbände, genug für die erste Waffenstufe |
 | `was-noch-drin-liegt.json` | steinbruch-wart | **Vorbereitet für das Kletterzeug (D391).** Fundstück `stollenmund` lesen (389 m Fußweg vom Start). Entwurf in `docs/design/BRACHLAND_Traversal_v2.md` §5: Die Stange für die Mauer hat die „Klinge am Bruchweg“ (`lager-bruchweg`). **Platzhalter:** Ziel ist nur das Lesen, Belohnung ein Harzverband — Lager als Ziel, Mauer und das Werkzeug als Gegenstand sind nicht gebaut |
 | `ein-schwieriger-nachbar.json` | dorf-foerster | **Vorbereitet für das Reittier (D391).** 3 Wurzelkeiler **reinigen**, erst nach `bis-zur-kante`. Entwurf ebd.: Der Förster gibt danach das Halfter, mit dem sich **ein** gereinigter Vierbeiner binden lässt. **Platzhalter:** Belohnung zwei Kräutersud — Halfter und Bindung sind nicht gebaut |
+| `die-letzte-kerbe.json` | dorf-wirt | **D392, Linie F1 (Pegelwartin).** Fundstück `pegellatte` lesen, von Anfang an offen. Die Latte zeigt seit neunzehn Tagen dieselbe Höhe — die Zahlen an der Wand steigen trotzdem. `lohn`: verbrauch, wissen; `belohnung` ist Platzhalter (`docs/design/BRACHLAND_Quests_v1.md` §8) |
+| `wer-wirklich-kommt.json` | dorf-bursche | **D392, Linie F4.** Fundstück `mulde-im-heu` im Stadel am Hangweg lesen, nach `schritte-auf-der-strasse`. Der Bruder des Burschen hat dort umgedreht. `lohn`: aufwertung-1, wissen; Platzhalter |
+| `was-im-heft-steht.json` | dorf-alte | **D392, Linie F5.** Fundstück `opferstock` in der Kirche am Nordhang lesen, nach `die-zahl-am-morgen`. Die Alte zählt für die Mönche. `lohn`: marke, wissen; Platzhalter |
+| `was-am-werkstor-haengt.json` | dorf-schmied | **D392, Linie F6.** Fundstück `werkstor-aushang` lesen, nach `harz-fuer-die-esse`. Elf Armklammern, zehn zurück: woher die Marke kommt. `lohn`: aufwertung-2, wissen; Platzhalter |
 
 ## Die fünf Zielarten
 
