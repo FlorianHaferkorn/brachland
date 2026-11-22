@@ -441,6 +441,9 @@ mit Saufeder und Sapie.
 - **Die UAL2-Datei liegt auf dieser Maschine nicht** (`.cache/ual2/` fehlt). Welche weiteren Clips ihre freie Fassung
   enthält — Bogen, Zweihand, Hammer —, liess sich deshalb **nicht nachsehen**. Belegt ist nur: rund 130 Animationen,
   darunter „melee and armed combos“, die freie Fassung umfasst etwa 70 % [UAL]. Vor dem Bau am M1 nachsehen.
+  **D428 (22.11.2026): nachgesehen** — die freie Fassung hat 43 Clips, zehn davon mit Waffe, alle einhändig (Schwert,
+  Wurf, Schild, Hacke); kein Bogen, kein Zweihandhieb, kein Speer. Liste, Probe und Fechtbuch-Vorgaben:
+  `BRACHLAND_Waffenbewegungen_v1.md`.
 - **Der sichere Weg ist der, den Axt und Speer gegangen sind:** Clips aus Schlüsselbildern in `waffenclips.py`.
   Der Speer brauchte fünf (D184).
 
