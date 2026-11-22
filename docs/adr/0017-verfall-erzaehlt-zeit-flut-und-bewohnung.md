@@ -4,9 +4,9 @@ shelf-life-days: 365
 ---
 # ADR-0017 — Verfall erzählt: Zeit, Flut und Bewohnung als eine Regel für alles Gebaute
 
-**Status:** Proposed · 2026-11-21 · erweitert [Bauwelt v1](../design/BRACHLAND_Bauwelt_v1.md) (D287/D289) von Gebäuden
+**Status:** Accepted · 2026-11-22 (Flo, D381) · vorgeschlagen 2026-11-21 · erweitert [Bauwelt v1](../design/BRACHLAND_Bauwelt_v1.md) (D287/D289) von Gebäuden
 auf Straßenraum, Fahrzeuge, Mobiliar und Gelände; erweitert [ADR-0005](0005-qualitaetsanspruch-die-welt-haelt-ueberall.md)
-(die Welt hält überall) · Bestätigung durch Flo offen (Ledger A-21)
+(die Welt hält überall) · Flutlinie 499 m und Enklave auf der Hangterrasse: D374/D375
 
 ## Kontext
 

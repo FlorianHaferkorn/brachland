@@ -113,6 +113,9 @@ Am Werksleib (Aschefeld) entscheidet der Brachgänger, was mit dem Protokoll ges
 
 ## 6. Kapitel 1 — „Œntal“ (Bogen, ersetzt v1 §9)
 
+0. **Der Weg nach Brannburg (D381).** Das Spiel beginnt draussen im Brachland, rund einen Kilometer von der Enklave.
+   Man kämpft sich hin: Bewegung, erster Kampf, erstes Reinigen, erste Zuflucht, ein harter Gegner vor dem Tor. Das
+   ist die Lehrstrecke — ohne Texttafeln, die Welt lehrt.
 1. **Ankunft auf der Terrasse.** Die Enklave misstraut der Marke. Unten liegt die versunkene Stadt.
 2. **Das stehende Wasser.** Die Enklave will den Flussvater tot; der Mönch warnt. Erste Reinigung als Lehrstück.
 3. **Drei Reinkulturen in drei Richtungen**, in beliebiger Reihenfolge, je mit Werkzeugweg und beschwerlichem Weg.
