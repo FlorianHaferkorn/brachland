@@ -60,7 +60,7 @@ export function messe(familie: Familie, bau: Bau, kaempfe: number): Messung {
 }
 
 /** A schlägt B, wenn A nirgends schlechter und irgendwo deutlich besser ist (über dem Rauschen). */
-export function schlaegt(a: Messung, b: Messung, rauschen = { siege: 0.02, zeit: 0.03, erlitten: 1 }): boolean {
+export function schlaegt(a: Pick<Messung, 'siege' | 'zeit' | 'erlitten'>, b: Pick<Messung, 'siege' | 'zeit' | 'erlitten'>, rauschen = { siege: 0.02, zeit: 0.03, erlitten: 1 }): boolean {
   const nichtSchlechter = a.siege >= b.siege - rauschen.siege && a.zeit <= b.zeit * (1 + rauschen.zeit) && a.erlitten <= b.erlitten + rauschen.erlitten;
   const besser = a.siege > b.siege + rauschen.siege || a.zeit < b.zeit * (1 - rauschen.zeit) || a.erlitten < b.erlitten - rauschen.erlitten;
   return nichtSchlechter && besser;

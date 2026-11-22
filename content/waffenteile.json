@@ -27,6 +27,7 @@
           "masse": 0.6,
           "laenge": 0.6,
           "schwerpunkt": 0.24,
+          "ausgleich": 1.05,
           "preis": {
             "federstahl": 1
           },
@@ -126,6 +127,7 @@
           "laenge": 0.08,
           "schwerpunkt": -0.02,
           "schneide": 1.05,
+          "ausgleich": 1.1,
           "preis": {
             "federstahl": 1
           },
@@ -140,6 +142,7 @@
           "schwerpunkt": -0.03,
           "schneide": 0.85,
           "wucht": 1.12,
+          "ausgleich": 1.1,
           "preis": {
             "federstahl": 2
           },
@@ -153,6 +156,7 @@
           "laenge": 0.06,
           "schwerpunkt": -0.03,
           "schneide": 1.05,
+          "ausgleich": 1.1,
           "preis": {
             "federstahl": 2,
             "chitinspan": 2
@@ -167,6 +171,7 @@
           "name": "Kurzer Stiel",
           "masse": 0.34,
           "laenge": 0.6,
+          "ausgleich": 1.1,
           "preis": {
             "chitinspan": 1
           },
@@ -224,6 +229,7 @@
           "laenge": 0.25,
           "schwerpunkt": 0.1,
           "schneide": 0.92,
+          "ausgleich": 1.1,
           "preis": {
             "federstahl": 1
           },
@@ -237,6 +243,7 @@
           "laenge": 0.35,
           "schwerpunkt": 0.14,
           "schneide": 1.08,
+          "ausgleich": 0.95,
           "preis": {
             "federstahl": 2
           },
@@ -250,6 +257,7 @@
           "name": "Kurzer Schaft",
           "masse": 0.79,
           "laenge": 1.6,
+          "ausgleich": 1.05,
           "preis": {
             "chitinspan": 1
           },

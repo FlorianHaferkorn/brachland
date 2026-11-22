@@ -54,6 +54,10 @@ function zufall(saat: number) {
 }
 
 export interface Ergebnis { sieg: boolean; zeit: number; erlitten: number; treffer: number; paraden: number; blocks: number;
+  /** D407: Haltungsbrüche, die die Spielerin gesetzt hat (ohne tödliche Treffer). */
+  brueche: number;
+  /** D407, nur mit `BotOptionen.aufgabe`: Menschen, die beim Haltungsbruch aufgaben (D385). */
+  aufgegeben?: number;
   /** D376, nur mit Marke: gereinigte und getötete Tiere, begonnene Kanäle, davon durch Treffer gebrochen bzw. selbst gelöst. */
   gereinigt?: number; getoetet?: number; kanaele?: number; gebrochen?: number; geloest?: number }
 
@@ -76,7 +80,7 @@ export interface Einschlag { von: string; phase: string; schlag: string; rand: n
  */
 export type BotEreignis = { t: number } & (
   | { art: 'telegraf'; von: string; schlag: string; rolleUm: number; parade: boolean }
-  | { art: 'rolle'; richtung: 'zurück' | 'seitwärts' | 'vorbei'; rand: number }
+  | { art: 'rolle'; richtung: 'zurück' | 'seitwärts'; rand: number }
   | { art: 'hieb'; schlag: string; schwer: boolean; rand: number; rest: number; zielPhase: string; lauf: boolean }
   | { art: 'treffer'; auf: string; schlag: string; schaden: number; leben: number; lebenMax: number; gebrochen: boolean; toedlich: boolean }
   | { art: 'einschlag'; von: string; schlag: string; schaden: number; phase: string; kette: boolean }
@@ -114,10 +118,30 @@ export interface BotOptionen {
    * Haltung bricht — dann liegt es betäubt, und der Griff hält den Rest der Betäubung obendrauf.
    */
   haltung?: boolean;
+  /**
+   * Seine Reichweite richtig einschätzen: Der Bot von D171 rechnet mit 90 % der Reichweite und ohne den
+   * Vorschritt des Schlags (`schritt`, Klinge 0,3–0,6 m, D171). `schritt`: Der Vorschritt zählt mit
+   * (zu 90 % wie die Reichweite) — wer zehn Minuten spielt, weiss, wie weit der eigene Hieb trägt. Nicht
+   * gegen einen Lauernden in der Atempause: Dort trüge der Schritt ihn in den Ring der Meute (gemessen:
+   * drei Wölfe mit Klinge 92 → 12 % Siege, wenn der Schritt auch dort zählt).
+   */
+  reichweite?: 'schritt';
+  /**
+   * Messannahme nach D385, **nicht** in `echtzeit.ts` gebaut: Ein Mensch gibt beim ersten Haltungsbruch auf
+   * (Flucht oder Aufgabe) und ist aus dem Kampf. Tiere kämpfen weiter wie bisher.
+   */
+  aufgabe?: boolean;
 }
 
 /** Der Bot von D171/D376 ohne die Zusätze aus D407 — für Vergleiche davor/danach. */
 export const BOT_D171: BotOptionen = {};
+/**
+ * D407: der korrigierte Bot — kennt die Reichweite seines Hiebs samt Vorschritt (Reinigen v1 §6 „Nachmessung
+ * D407“). Spielt sonst wie D171. Die Messwerkzeuge aus D407 spielen mit ihm; `kampf()` ohne Optionen bleibt D171.
+ */
+export const BOT_D407: BotOptionen = { reichweite: 'schritt' };
+/** D407: der Heiler — Bot D407, der den tödlichen Schlag an einem befallenen Tier schont und die Haltung nutzt. */
+export const HEILER: BotOptionen = { ...BOT_D407, sanft: true, haltung: true };
 
 export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, saat: number,
                       beobachte?: (e: Einschlag) => void, schadenFaktor = 1, element?: 'wasser' | 'stein', markenSpiel?: MarkenSpiel,
@@ -134,7 +158,7 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     return k;
   });
   const w: Kampfwelt = { spielerin: s, gegner: alle, ziel: null };
-  let kanaele = 0, gebrochen = 0, geloest = 0;
+  let kanaele = 0, gebrochen = 0, geloest = 0, brueche = 0, aufgegeben = 0;
   if (markenSpiel) {
     // Die Ladung ist hier nicht die Frage (die rechnet die Ökonomie) — genug für jeden im Kampf.
     w.marke = { ...neueMarke(0, markenSpiel.werte ?? REINIGEN), ladung: 99, reinkultur: markenSpiel.reinkultur };
@@ -278,7 +302,7 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
         if (toetet('leicht') && naechsterSchlag(s, 'leicht').kombo !== 0) wartet = true;
       }
       const naechster = naechsterSchlag(s, art).schlag;
-      const reich = naechster.reichweite * 0.9;
+      const reich = (naechster.reichweite + (opt.reichweite === 'schritt' && !(lauert && g.phase === 'bereit') ? naechster.schritt ?? 0 : 0)) * 0.9;
       const weg = Math.max(0, rand - reich) / 4.5;
       // Ausdauer für eine Rolle bleibt übrig — wer sie verschlägt, steht beim nächsten Angriff blank
       // (D172: die Klinge verlor zu zweit, weil der Bot ihre Kette bis zur Neige schlug).
@@ -337,6 +361,11 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
           opt.ereignis!({ t, art: 'einschlag', von: e.von, schlag: a.schlag.name ?? '', schaden: e.schaden, phase: phaseVorher, kette: a.schlag !== a.werte.schlag }); }
       }
       if (e.von === 's' && e.schaden > 0) treffer++;
+      if (e.von === 's' && e.gebrochen) {
+        brueche++;
+        const z = alle.find(k => k.id === e.auf);
+        if (opt.aufgabe && z?.werte.mensch && z.phase !== 'gefallen') { z.phase = 'gefallen'; z.zeit = 0; z.folge = []; aufgegeben++; }
+      }
       if (e.auf === 's' && e.pariert) paraden++;
       else if (e.auf === 's' && e.geblockt) blocks++;
       if (e.auf === 's' && e.schaden > 0 && beobachte) {
@@ -347,7 +376,8 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     }
     t += SCHRITT;
   }
-  const raus: Ergebnis = { sieg: alle.every(g => g.phase === 'gefallen'), zeit: t, erlitten: s.werte.lebenMax - s.leben, treffer, paraden, blocks };
+  const raus: Ergebnis = { sieg: alle.every(g => g.phase === 'gefallen'), zeit: t, erlitten: s.werte.lebenMax - s.leben, treffer, paraden, blocks, brueche };
+  if (opt.aufgabe) raus.aufgegeben = aufgegeben;
   if (w.marke) {
     for (const e of w.marke.ereignisse) {
       if (e.art === 'begonnen') kanaele++; else if (e.art === 'getroffen') gebrochen++; else if (e.art === 'geloest') geloest++;
@@ -384,7 +414,8 @@ if (process.argv[1]?.endsWith('kampfbot.ts')) {
   // D407: `alt` misst mit dem Bot von D171 (geht nur, kein Laufangriff) — für den Vergleich davor/danach.
   const w = (process.argv[3] ?? '').split(',');
   const opt: BotOptionen | undefined = !process.argv[3] ? undefined : w.includes('alt') ? BOT_D171
-    : { ...(w.includes('lauf') ? { nachsetzen: 'lauf' as const } : {}), ...(w.includes('abbruch') ? { abbruch: true } : {}) };
+    : { ...(w.includes('lauf') ? { nachsetzen: 'lauf' as const } : {}), ...(w.includes('abbruch') ? { abbruch: true } : {}),
+        ...(w.includes('schritt') ? { reichweite: 'schritt' as const } : {}) };
   console.log(`Kampfbot — ${n} Kämpfe je Zeile, Start 8 m${process.argv[3] ? `, Bot: ${process.argv[3]}` : ''}`);
   console.log('Gegner           Waffe   Profil       Siege   Zeit bis Sieg   Schaden erlitten');
   for (const z of messe(n, opt)) {

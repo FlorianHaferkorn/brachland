@@ -7,48 +7,62 @@
  *
  *   npx tsx tools/kampfprotokoll.ts kampf   <gegner> [waffe=klinge] [profil=aufmerksam] [saat=5000] [schalter…]
  *   npx tsx tools/kampfprotokoll.ts fenster <gegner|alle> [waffe=klinge] [kämpfe=1000] [schalter…]
- *   npx tsx tools/kampfprotokoll.ts wolf    [kämpfe=1000] [waffe=klinge] [schalter…]
+ *   npx tsx tools/kampfprotokoll.ts wolf    [kämpfe=1000] [waffe=klinge] [gegner=wolf] [schalter…]
+ *   npx tsx tools/kampfprotokoll.ts griffe  [gegner…] [kämpfe=1000] [waffe=klinge] [schalter…]
+ *   npx tsx tools/kampfprotokoll.ts menschen [kämpfe=1000] [schalter…]
  *
- * Schalter: `reinigen` (Bot reinigt immer), `lauf` (rennt nach und setzt den Laufangriff), `sanft`, `haltung`
- * (Spielweisen des Heilers), `schwelle=0.4`, `halten=1.5`, `loesen=0.1` (Markenwerte nur für diese Messung),
- * `g.erholung=0.85` (ein Feld des Gegnerschlags nur für diese Messung — `content/gegner/` bleibt unberührt).
+ * Schalter: `reinigen` (Bot reinigt immer); Bot: `d407` (korrigierter Bot, `BOT_D407`), `heiler` (`HEILER`),
+ * einzeln `schritt`, `lauf` (rennt nach und setzt den Laufangriff), `abbruch`, `sanft`, `haltung`, `aufgabe`;
+ * ohne Bot-Schalter spielt der Bot von D171. `schwelle=0.4`, `halten=1.5`, `loesen=0.1`, `ausdauer=8`
+ * (Markenwerte), `g.erholung=0.85` (ein Feld des Gegnerschlags), `r.dauer=4.8`, `r.halten=1.6`
+ * (Reinigungsblock des Gegners) — alles nur für diese Messung, `content/` bleibt unberührt.
  *
  * `fenster`: je Gegner und Profil — wie viele Erholungen des Gegners der Bot zum Schlag nutzte, und woran
- * die anderen scheiterten. `wolf`: woran „immer reinigen“ beim Wolf scheitert, einzeln ausgezählt (D389/D395).
+ * die anderen scheiterten. `wolf`: woran „immer reinigen“ beim Wolf scheitert, einzeln ausgezählt (D389/D395). `griffe`: woher jeder
+ * Griff sein Fenster hatte (Haltungsbruch, Parade/Wurf, Nachhall, Erholung, lauernd), wie lange er hielt und was er brachte.
+ * `menschen`: die drei Waffen gegen Wegelagerer, Speermann, Axtmann — bis zum Tod gegen „Aufgabe beim Haltungsbruch“ (D385).
  *
- * Messwerkzeug, nicht im Gate. Befunde: `docs/design/BRACHLAND_Reinigen_v1.md` §7.
+ * Messwerkzeug, nicht im Gate. Befunde: `docs/design/BRACHLAND_Reinigen_v1.md` §6 „Nachmessung D407“.
  */
-import { REINIGEN, type KampfWerte, type ReinigenWerte, type WaffenArt } from '../src/kampf/echtzeit.js';
-import { kampf, GEGNER, PROFILE, type BotEreignis, type BotOptionen, type Ergebnis, type MarkenSpiel, type Profil } from './kampfbot.js';
+import { REINIGEN, WEGELAGERER, SPEERMANN, AXTMANN, type KampfWerte, type ReinigenWerte, type WaffenArt } from '../src/kampf/echtzeit.js';
+import { kampf, GEGNER, PROFILE, BOT_D407, HEILER, type BotEreignis, type BotOptionen, type Ergebnis, type MarkenSpiel, type Profil } from './kampfbot.js';
 
 export interface Schalter { opt: BotOptionen; spiel?: MarkenSpiel; werte: ReinigenWerte;
   /** Nur für diese Messung: Felder des Gegnerschlags überschreiben (`g.erholung=0.85`). Die Daten bleiben unberührt. */
-  gegnerSchlag?: Record<string, number> }
+  gegnerSchlag?: Record<string, number>;
+  /** Nur für diese Messung: den Reinigungsblock des Gegners überschreiben (`r.dauer=4.8`, `r.halten=1.6`). */
+  gegnerReinigen?: { dauer?: number; halten?: number } }
 
 /** Die Aufstellung mit den Probewerten aus den Schaltern — eine Kopie, `content/gegner/` bleibt, wie es ist. */
 export function aufstellung(name: string, sch: Schalter): KampfWerte[] {
-  if (!sch.gegnerSchlag) return GEGNER[name];
-  return GEGNER[name].map(w => ({ ...w, schlag: { ...w.schlag, ...sch.gegnerSchlag } }));
+  if (!sch.gegnerSchlag && !sch.gegnerReinigen) return GEGNER[name];
+  return GEGNER[name].map(w => ({ ...w, schlag: { ...w.schlag, ...sch.gegnerSchlag },
+    ...(sch.gegnerReinigen && w.reinigen ? { reinigen: { ...w.reinigen, ...sch.gegnerReinigen } } : {}) }));
 }
 
 /** Schalter von der Befehlszeile lesen (siehe Kopf). Unbekannte Wörter bleiben liegen. */
 export function leseSchalter(woerter: readonly string[]): Schalter {
   const opt: BotOptionen = {};
   let werte: ReinigenWerte = REINIGEN, reinigen = false, gegnerSchlag: Record<string, number> | undefined;
+  let gegnerReinigen: Schalter['gegnerReinigen'];
   for (const w of woerter) {
-    if (w === 'lauf') opt.nachsetzen = 'lauf';
+    if (w === 'd407') Object.assign(opt, BOT_D407);
+    else if (w === 'heiler') Object.assign(opt, HEILER);
+    else if (w === 'lauf') opt.nachsetzen = 'lauf';
     else if (w === 'abbruch') opt.abbruch = true;
     else if (w === 'sanft') opt.sanft = true;
     else if (w === 'haltung') opt.haltung = true;
+    else if (w === 'schritt') opt.reichweite = 'schritt';
+    else if (w === 'aufgabe') opt.aufgabe = true;
     else if (w === 'reinigen') reinigen = true;
-    else if (w === 'alt') Object.assign(opt, { nachsetzen: undefined });
     else if (/^g\.[a-z]+=/.test(w)) { const [k, v] = w.slice(2).split('='); gegnerSchlag = { ...gegnerSchlag, [k]: Number(v) }; }
-    else if (/^(schwelle|halten|loesen|nachhall)=/.test(w)) {
+    else if (/^r\.(dauer|halten)=/.test(w)) { const [k, v] = w.slice(2).split('='); gegnerReinigen = { ...gegnerReinigen, [k]: Number(v) }; }
+    else if (/^(schwelle|halten|loesen|nachhall|ausdauer)=/.test(w)) {
       const [k, v] = w.split('=');
       werte = { ...werte, [k]: Number(v), ...(k === 'schwelle' ? { wundAb: Number(v) } : {}) };
     }
   }
-  return { opt, werte, gegnerSchlag, spiel: reinigen ? { modus: 'immer', werte } : undefined };
+  return { opt, werte, gegnerSchlag, gegnerReinigen, spiel: reinigen ? { modus: 'immer', werte } : undefined };
 }
 
 /** Ein Kampf mit allen Ereignissen. */
@@ -158,10 +172,59 @@ export function zaehleWolf(n: number, waffe: WaffenArt, p: Profil, sch: Schalter
   return z;
 }
 
+/** Woher ein Griff sein Fenster hatte (D407, Messung 3). */
+export type GriffQuelle = 'Haltungsbruch' | 'Parade/Wurf' | 'Nachhall' | 'Erholung' | 'lauernd';
+export interface GriffZaehlung {
+  n: number; siege: number; zeit: number; gereinigt: number; erlitten: number; brueche: number;
+  /** je Quelle: Griffe je Kampf, mittlere Haltezeit (s), mittlerer Fortschritt je Griff (Anteil der Reinigung). */
+  quellen: Record<GriffQuelle, { griffe: number; haelt: number; fortschritt: number }>;
+  /** Anteil der (nicht tödlichen) Haltungsbrüche, deren Betäubung in einen Griff mündete. */
+  bruchGenutzt: number;
+}
+
+/**
+ * Wofür ein Haltungsbruch beim Reinigen gut ist: Jeder Griff wird nach seinem Fenster einsortiert —
+ * betäubt nach einem Haltungsbruch der Spielerin (innerhalb der Betäubung, ohne Griff dazwischen), betäubt
+ * im Nachhall eines eben gelösten Griffs, betäubt sonst (Parade, Wurf der Axt), in der Erholung, lauernd.
+ */
+export function zaehleGriffe(aufst: KampfWerte[], waffe: WaffenArt, p: Profil, n: number, sch: Schalter, saat0 = 5000): GriffZaehlung {
+  const leer = () => ({ griffe: 0, haelt: 0, fortschritt: 0 });
+  const z: GriffZaehlung = { n, siege: 0, zeit: 0, gereinigt: 0, erlitten: 0, brueche: 0, bruchGenutzt: 0,
+    quellen: { Haltungsbruch: leer(), 'Parade/Wurf': leer(), Nachhall: leer(), Erholung: leer(), lauernd: leer() } };
+  const spiel: MarkenSpiel = sch.spiel ?? { modus: 'immer', werte: sch.werte };
+  const mw = spiel.werte ?? REINIGEN;
+  let alleBrueche = 0, genutzteBrueche = 0;
+  for (let i = 0; i < n; i++) {
+    const { ergebnis, ereignisse } = protokolliere(aufst, waffe, p, saat0 + i, { ...sch, spiel });
+    if (ergebnis.sieg) { z.siege++; z.zeit += ergebnis.zeit; }
+    z.gereinigt += (ergebnis.gereinigt ?? 0) / aufst.length; z.erlitten += ergebnis.erlitten; z.brueche += ergebnis.brueche;
+    const bruch = new Map<string, number>(), ende = new Map<string, number>();
+    const offen = new Map<string, { q: GriffQuelle; vor: number }>();
+    for (const e of ereignisse) {
+      if (e.art === 'treffer' && e.gebrochen && !e.toedlich) { bruch.set(e.auf, e.t); alleBrueche++; } else if (e.art === 'griff') {
+        const b = bruch.get(e.ziel) ?? -Infinity, k = ende.get(e.ziel) ?? -Infinity;
+        const q: GriffQuelle = e.aus === 'erholung' ? 'Erholung' : e.aus === 'bereit' ? 'lauernd'
+          : b > k && e.t - b < 1.0 ? 'Haltungsbruch' : e.t - k <= mw.nachhall + 0.05 ? 'Nachhall' : 'Parade/Wurf';
+        if (q === 'Haltungsbruch') { genutzteBrueche++; bruch.delete(e.ziel); }
+        z.quellen[q].griffe++; z.quellen[q].haelt += e.haelt;
+        offen.set(e.ziel, { q, vor: e.reinigung });
+      } else if (e.art === 'kanal') {
+        ende.set(e.ziel, e.t);
+        const o = offen.get(e.ziel);
+        if (o) { z.quellen[o.q].fortschritt += Math.max(0, (e.ende === 'gereinigt' ? 1 : e.reinigung) - o.vor); offen.delete(e.ziel); }
+      }
+    }
+  }
+  for (const q of Object.values(z.quellen)) { if (q.griffe) { q.haelt /= q.griffe; q.fortschritt /= q.griffe; } q.griffe /= n; }
+  z.zeit = z.siege ? z.zeit / z.siege : NaN; z.siege /= n; z.gereinigt /= n; z.erlitten /= n; z.brueche /= n;
+  z.bruchGenutzt = alleBrueche ? genutzteBrueche / alleBrueche : NaN;
+  return z;
+}
+
 if (process.argv[1]?.endsWith('kampfprotokoll.ts')) {
   const [modus = 'kampf', ...rest] = process.argv.slice(2);
   const sch = leseSchalter(rest);
-  const schalterText = rest.filter(w => /^(alt|lauf|abbruch|sanft|haltung|reinigen|g\.[a-z]+=.*|(schwelle|halten|loesen|nachhall)=.*)$/.test(w)).join(' ') || 'keine';
+  const schalterText = rest.filter(w => /^(lauf|abbruch|sanft|haltung|schritt|d407|heiler|aufgabe|reinigen|g\.[a-z]+=.*|r\.(dauer|halten)=.*|(schwelle|halten|loesen|nachhall|ausdauer)=.*)$/.test(w)).join(' ') || 'keine';
   if (modus === 'kampf') {
     const [gegner = 'gams', waffe = 'klinge', profil = 'aufmerksam', saat = '5000'] = rest;
     const p = PROFILE.find(x => x.name === profil) ?? PROFILE[0];
@@ -180,6 +243,37 @@ if (process.argv[1]?.endsWith('kampfprotokoll.ts')) {
       const z = zaehleFenster(name, waffe as WaffenArt, p, Number(n), sch);
       const a = (x: number) => pct(z.fenster ? x / z.fenster : 0);
       console.log(`| ${name} | ${p.name} | ${pct(z.siege)} | ${k1(z.zeit)} s | ${k1(z.telegrafe)} | ${k1(z.fenster)} | ${a(z.genutzt)} | ${a(z.nieFrei)} | ${a(z.ausdauer)} | ${a(z.zuSpaet)} | ${a(z.knapp)} | ${k1(z.treffer)} | ${k1(z.einschlaege)} |`);
+    }
+  } else if (modus === 'griffe') {
+    const zahl = rest.find(w => /^\d+$/.test(w)), waffe = (rest.find(w => ['klinge', 'axt', 'speer'].includes(w)) ?? 'klinge') as WaffenArt;
+    const namen = rest.filter(w => w in GEGNER);
+    const n = Number(zahl ?? 1000);
+    console.log(`Griffe nach Fenster — „immer reinigen“, ${waffe}, ${n} Kämpfe je Zeile, Saat 5000…, Schalter: ${schalterText}\n`);
+    console.log('| Aufstellung | Profil | Siege | Zeit | gereinigt | Haltungsbrüche/Kampf | davon zum Griff genutzt | Griffe/Kampf: Bruch · Parade/Wurf · Nachhall · Erholung · lauernd | Haltezeit Bruch / Erholung | Fortschritt je Griff Bruch / Erholung |');
+    console.log('|---|---|---|---|---|---|---|---|---|---|');
+    for (const name of namen.length ? namen : ['keiler', 'grathorn', 'wolf', 'fuchs', 'gams']) for (const p of PROFILE) {
+      const z = zaehleGriffe(aufstellung(name, sch), waffe, p, n, sch);
+      const q = z.quellen;
+      console.log(`| ${name} | ${p.name} | ${pct(z.siege)} | ${k1(z.zeit)} s | ${pct(z.gereinigt)} | ${k1(z.brueche)} | ${Number.isNaN(z.bruchGenutzt) ? '–' : pct(z.bruchGenutzt)} | `
+        + `${(['Haltungsbruch', 'Parade/Wurf', 'Nachhall', 'Erholung', 'lauernd'] as const).map(k => k2(q[k].griffe)).join(' · ')} | `
+        + `${k2(q.Haltungsbruch.haelt)} / ${k2(q.Erholung.haelt)} s | ${pct(q.Haltungsbruch.fortschritt)} / ${pct(q.Erholung.fortschritt)} |`);
+    }
+  } else if (modus === 'menschen') {
+    // D407, Messung 4: gegen Menschen bis zum Tod gegen „Aufgabe beim Haltungsbruch“ (D385, Messannahme).
+    const zahl = rest.find(w => /^\d+$/.test(w)), n = Number(zahl ?? 1000);
+    const menschen: Record<string, KampfWerte[]> = { wegelagerer: [WEGELAGERER], speermann: [SPEERMANN], axtmann: [AXTMANN] };
+    console.log(`Menschen — ${n} Kämpfe je Zeile, Saat 5000…, Bot: ${schalterText}; „Aufgabe“: der Kampf endet beim ersten Haltungsbruch (D385, Messannahme)\n`);
+    console.log('| Waffe | Gegner | Profil | bis zum Tod: Siege · Zeit · erlitten | mit Aufgabe: Siege · Zeit · erlitten | aufgegeben | Haltungsbrüche bis zum Tod |');
+    console.log('|---|---|---|---|---|---|---|');
+    for (const waffe of ['klinge', 'axt', 'speer'] as const) for (const [name, aufst] of Object.entries(menschen)) for (const p of PROFILE) {
+      let s1 = 0, z1 = 0, e1 = 0, b1 = 0, s2 = 0, z2 = 0, e2 = 0, a2 = 0;
+      for (let i = 0; i < n; i++) {
+        const x = kampf(aufst, waffe, p, 5000 + i, undefined, 1, undefined, undefined, sch.opt);
+        const y = kampf(aufst, waffe, p, 5000 + i, undefined, 1, undefined, undefined, { ...sch.opt, aufgabe: true });
+        if (x.sieg) { s1++; z1 += x.zeit; } e1 += x.erlitten; b1 += x.brueche;
+        if (y.sieg) { s2++; z2 += y.zeit; } e2 += y.erlitten; a2 += y.aufgegeben ?? 0;
+      }
+      console.log(`| ${waffe} | ${name} | ${p.name} | ${pct(s1 / n)} · ${k1(z1 / (s1 || 1))} s · ${(e1 / n).toFixed(0)} | ${pct(s2 / n)} · ${k1(z2 / (s2 || 1))} s · ${(e2 / n).toFixed(0)} | ${pct(a2 / n)} | ${k1(b1 / n)} |`);
     }
   } else if (modus === 'wolf') {
     const zahl = rest.find(w => /^\d+$/.test(w)), waffe = (rest.find(w => ['klinge', 'axt', 'speer'].includes(w)) ?? 'klinge') as WaffenArt;
