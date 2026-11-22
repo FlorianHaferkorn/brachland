@@ -130,7 +130,13 @@ export const HAUS_SHADER_SPAR_AN = HAUS_KOMPAKT_AN && suche.get('hausshader') !=
 /** D303: nur das ausgewählte Hofhaus, expliziter Vorher/Nachher-Schalter. */
 export const REFERENZHAUS_AN = HOF_GRUEN_AN && an('referenzhaus');
 export const HOF_AN = an('scanhof') || HOF_GRUEN_AN;
-export const ECHT = an('echt') || MALEREI || HOF_AN;
+/**
+ * A-Frame-Darstellung (D402, ADR-0018, Rezept aus `tools/stilframes.py` Stil `aframe`): `?aframe=1` = `?echt=1`
+ * plus tiefengewichteter Malfilter (nah unberührt, Ferne/Kronen/Himmel zu Flächen) und Temperaturtrennung
+ * (Schatten kühl, Licht warm) nach der Tonwertkurve. Ersetzt den globalen Filter aus D269 nicht, steht daneben.
+ */
+export const AFRAME_AN = an('aframe');
+export const ECHT = an('echt') || MALEREI || HOF_AN || AFRAME_AN;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */
 const teil = (name: string) => (suche.get(name) === '0' ? false : ECHT || an(name));
 /** Foto-Blattkarten auf den Kronen der Blender-Szenen (`laubkarten.ts`). */

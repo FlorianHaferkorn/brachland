@@ -43,7 +43,7 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { useFrame, useThree } from '@react-three/fiber';
-import { MSAA, ABGLEICH_AN, AO_RUHIG, TAA_AN, KUWAHARA_AN, BLATTVERLAUF_AN } from '../world/echt.js';
+import { MSAA, ABGLEICH_AN, AO_RUHIG, TAA_AN, KUWAHARA_AN, BLATTVERLAUF_AN, AFRAME_AN } from '../world/echt.js';
 import { AO_NORMAL_GLSL } from '../world/aonormale.js';
 import { TAA_MASKE_GLSL } from '../world/taamaske.js';
 
@@ -265,15 +265,15 @@ const FRAGMENT = /* glsl */`
   uniform float uAbgleich;
   uniform float uRuhig;
   uniform float uKuwahara;
+  uniform float uAFrame;   // D402: 0 = aus, sonst Bildbreite / 1280 (Strichgrösse folgt der Auflösung)
   varying vec2 vUv;
 
   /* Malfilter (D269): Kuwahara mit vier Sektoren. Gemittelt wird in Karis-Stauchung (c / (1 + c)),
    * damit helle Pixel die Varianz nicht dominieren; Schrittweite = Pixelverhältnis, sonst wäre der
    * Strich auf einem 2×-Schirm halb so gross. 4 × 16 Proben je Pixel. */
-  vec3 kuwahara(vec2 uv) {
+  vec3 kuwahara(vec2 uv, vec2 schritt) {
     vec3 mittel[4]; float var[4];
     for (int q = 0; q < 4; q++) { mittel[q] = vec3(0.0); var[q] = 0.0; }
-    vec2 schritt = uTexel * uKuwahara;
     for (int q = 0; q < 4; q++) {
       vec2 richtung = vec2((q == 1 || q == 2) ? -1.0 : 1.0, (q >= 2) ? -1.0 : 1.0);
       vec3 summe = vec3(0.0); float lSumme = 0.0, l2 = 0.0;
@@ -307,8 +307,19 @@ const FRAGMENT = /* glsl */`
   }
 
   void main() {
-    vec4 farbe = uKuwahara > 0.0 ? vec4(kuwahara(vUv), 1.0) : texture2D(tFarbe, vUv);
     float z = meter(vUv);
+    vec4 farbe = texture2D(tFarbe, vUv);
+    if (uAFrame > 0.0) {
+      // D402 (ADR-0018, Zielbild D371): Pinselflächen nur im Grossen. „Nebel“ wie im Blender-Pass linear
+      // 0 bei 3 m, 1 bei 150 m; Strichradius 0 bis 9 px (bei 1280 Breite) zwischen 0,10 und 0,65, darunter
+      // exakt das Original — die Substanz im Nahbereich bleibt lesbar, Kronen, Ferne und Himmel laufen zu.
+      float nebel = clamp((z - 3.0) / 147.0, 0.0, 1.0);
+      float gewicht = smoothstep(0.06, 0.16, nebel);
+      if (gewicht > 0.0) {
+        float radius = 9.0 * uAFrame * clamp((nebel - 0.10) / 0.55, 0.0, 1.0);
+        farbe.rgb = mix(farbe.rgb, kuwahara(vUv, uTexel * max(radius / 3.0, 0.5)), gewicht);
+      }
+    } else if (uKuwahara > 0.0) farbe = vec4(kuwahara(vUv, uTexel * uKuwahara), 1.0);
     float zl = meter(vUv - vec2(uTexel.x, 0.0));
     float zr = meter(vUv + vec2(uTexel.x, 0.0));
     float zu = meter(vUv - vec2(0.0, uTexel.y));
@@ -353,6 +364,7 @@ const FRAGMENT = /* glsl */`
     gl_FragColor = vec4(rgb, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
+    __AFRAME_TON__
   }
 `;
 
@@ -405,6 +417,18 @@ const TAA_FRAGMENT = /* glsl */`
   }
 `;
 
+
+/** D402: Temperaturtrennung des A-Frames im Anzeigeraum (Blender-Farbbalance Lift/Gain, dann Sättigung 1,08):
+ * Schatten kühl-violett, Licht warm. Nur im letzten Pass, der auf den Bildschirm schreibt. */
+const AFRAME_TON = /* glsl */`
+    {
+      vec3 t = (gl_FragColor.rgb - 1.0) * vec3(1.03, 1.025, 0.95) + 1.0;
+      t *= vec3(1.04, 1.0, 0.94);
+      float tl = dot(t, vec3(0.2126, 0.7152, 0.0722));
+      gl_FragColor.rgb = clamp(mix(vec3(tl), t, 1.08), 0.0, 1.0);
+    }
+`;
+
 /** Letzter Pass mit TAA: Verlauf auf den Bildschirm, mit Tone Mapping und Ausgabefarbraum. */
 const TAA_AUSGABE = /* glsl */`
   #include <common>
@@ -414,6 +438,7 @@ const TAA_AUSGABE = /* glsl */`
     gl_FragColor = vec4(texture2D(tQuelle, vUv).rgb, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
+    __AFRAME_TON__
   }
 `;
 
@@ -472,7 +497,8 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
   const quad = useMemo(() => {
     const material = new THREE.ShaderMaterial({
       vertexShader: SCHEITEL, fragmentShader: FRAGMENT.replace('__TIEFE__', TIEFE_GLSL)
-        .replace('__AO_FEINANTEIL__', BLATTVERLAUF_AN ? '1.0' : '0.85'),
+        .replace('__AO_FEINANTEIL__', BLATTVERLAUF_AN ? '1.0' : '0.85')
+        .replace('__AFRAME_TON__', AFRAME_AN && !TAA_AN ? AFRAME_TON : ''),
       uniforms: {
         tFarbe: { value: null }, tTiefe: { value: null }, tAO: { value: null },
         uTexel: { value: new THREE.Vector2() }, uTexelAO: { value: new THREE.Vector2() },
@@ -481,7 +507,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
         tBloom: { value: null }, tSchacht: { value: null },
         uBloom: { value: 0 }, uSchacht: { value: new THREE.Color(0, 0, 0) },
         uAbgleich: { value: ABGLEICH_AN ? 1 : 0 }, uRuhig: { value: AO_RUHIG ? 1 : 0 },
-        uKuwahara: { value: KUWAHARA_AN ? Math.max(1, dpr) : 0 },
+        uKuwahara: { value: KUWAHARA_AN ? Math.max(1, dpr) : 0 }, uAFrame: { value: 0 },
       },
       depthTest: false, depthWrite: false,
     });
@@ -546,7 +572,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       depthTest: false, depthWrite: false,
     }) : null;
     const ausgabeMaterial = TAA_AN ? new THREE.ShaderMaterial({
-      vertexShader: SCHEITEL, fragmentShader: TAA_AUSGABE, uniforms: { tQuelle: { value: null } },
+      vertexShader: SCHEITEL, fragmentShader: TAA_AUSGABE.replace('__AFRAME_TON__', AFRAME_AN ? AFRAME_TON : ''), uniforms: { tQuelle: { value: null } },
       depthTest: false, depthWrite: false,
     }) : null;
     return { material, aoMaterial, hellMaterial, schachtMaterial, weichMaterial, bild, aoBild,
@@ -635,6 +661,7 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
     u.tAO.value = aoAn ? ziel.aoZiel.texture : null;
     u.uAO.value = aoAn ? ao : 0;
     u.uTexel.value.set(1 / ziel.rt.width, 1 / ziel.rt.height);
+    u.uAFrame.value = AFRAME_AN ? ziel.rt.width / 1280 : 0;
     u.uTexelAO.value.set(1 / ziel.aoZiel.width, 1 / ziel.aoZiel.height);
     u.uNah.value = k.near; u.uFern.value = k.far;
     gl.render(quad.bild, quad.kam);

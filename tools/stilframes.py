@@ -252,7 +252,7 @@ def mat_kern_scan():
     dif = kachel(nt, mp.outputs[0], scan('forest_leaves_04', 'diff'), True, (-400, 200))
     hoe = kachel(nt, mp.outputs[0], scan('forest_leaves_04', 'disp'), False, (-400, -200))
     mul = N(nt, 'ShaderNodeMix', (-100, 200), data_type='RGBA', blend_type='MULTIPLY'); mul.inputs[0].default_value = 1.0
-    L(nt, dif.outputs['Color'], mul.inputs[6]); mul.inputs[7].default_value = (0.16, 0.15, 0.14, 1)
+    L(nt, dif.outputs['Color'], mul.inputs[6]); mul.inputs[7].default_value = (0.34, 0.31, 0.27, 1)   # D403: Kalkmörtelreste und Erde, nicht schwarz
     hs = N(nt, 'ShaderNodeHueSaturation', (100, 200)); hs.inputs['Saturation'].default_value = 0.45; L(nt, mul.outputs[2], hs.inputs['Color'])
     b = N(nt, 'ShaderNodeBsdfPrincipled', (300, 0)); L(nt, hs.outputs[0], b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.95
     bump = N(nt, 'ShaderNodeBump', (0, -200)); bump.inputs['Strength'].default_value = 0.8; L(nt, hoe.outputs['Color'], bump.inputs['Height']); L(nt, bump.outputs[0], b.inputs['Normal'])
@@ -475,22 +475,24 @@ def stein_bruch(ziel, groesse, matrix, saat, rauheit=0.06, rund=0.35):
     rnd = random.Random(saat)
     bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1.0)
     bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=2, use_grid_fill=True)
-    for _ in range(rnd.choice((1, 2, 2, 3, 3, 4))):
+    for _ in range(rnd.choice((0, 1, 1, 2, 2, 3))):
         # Bruchebene schräg zur Ansichtsfläche (y = Mauertiefe klein): der Umriss wird vieleckig, nicht nur die Ecke stumpf
         nrm = Vector((rnd.choice((-1, 1)) * rnd.uniform(0.3, 1), rnd.choice((-1, 1)) * rnd.uniform(0.0, 0.5), rnd.choice((-1, 1)) * rnd.uniform(0.3, 1))).normalized()
         ecke = 0.5 * (abs(nrm.x) + abs(nrm.y) + abs(nrm.z))
-        d = ecke * rnd.uniform(0.52, 0.82)
+        d = ecke * rnd.uniform(0.74, 0.95)   # D403: nur Ecken und Kanten ab, die Ansichtsfläche bleibt gross
         res = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=nrm * d, plane_no=nrm, clear_outer=True)
         rand = [e for e in res['geom_cut'] if isinstance(e, bmesh.types.BMEdge) and e.is_boundary]
         if rand: bmesh.ops.holes_fill(bm, edges=rand, sides=0)
     off = Vector((rnd.random() * 60, rnd.random() * 60, rnd.random() * 60))
     # Form-Varianz: nicht jeder Stein füllt seinen Platz — schmaler, niedriger, verkantet, vor- oder zurückgesetzt.
     # Das öffnet Fugen mit Tiefe (dahinter der dunkle Kern) und bricht die Reihen.
-    gx, gz = groesse[0] * rnd.uniform(0.82, 1.0), groesse[2] * rnd.uniform(0.68, 1.0)
+    # D403 (Flo 22.11.2026: „Verhältnis Steine zu Füllmaterial passt nicht“): vorher 0,82–1,0 × 0,68–1,0 plus tiefe
+    # Bruchebenen — der Stein füllte nur gut die Hälfte seines Platzes. Bruchsteinmauerwerk zeigt 1–4 cm Fuge.
+    gx, gz = groesse[0] * rnd.uniform(0.95, 1.04), groesse[2] * rnd.uniform(0.92, 1.05)
     for v in bm.verts:
         p = v.co.copy()
         ecke = (abs(p.x) + abs(p.y) + abs(p.z)) / 1.5
-        f = 1.0 - rund * 0.6 * max(0.0, ecke - 0.6)
+        f = 1.0 - rund * 0.4 * max(0.0, ecke - 0.6)
         n = noise.noise(p * 1.8 + off) * rauheit * 2.2 + noise.noise(p * 5.0 + off) * rauheit * 0.7
         v.co = Vector((p.x * gx, p.y * groesse[1], p.z * gz)) * (f + n)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
@@ -817,6 +819,7 @@ def aframe():
     sb.bauen()
 
 
+# ==============================================================================================================# Zielbild Runde 2 (D372): verwittert und überwachsen
 # =====================================================================================================================
 # Zielbild Runde 2 (D372): verwittert und überwachsen
 # =====================================================================================================================
@@ -2059,6 +2062,14 @@ def zielbild():
             k = sb.kamera((ort[0], ort[1], zt + ort[2]), (ziel[0], ziel[1], zt + ziel[2]), brenn); k.name = 'Kamera_' + kname; kams[kname] = k
             if R3: k.data.clip_end = 20000.0   # der fernste Rücken steht bei 8 km
         sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
+        if os.environ.get('BRACHLAND_CPU') != '1':   # D405: am M1 Metal-GPU (Übergabe D377), in der Cloud `BRACHLAND_CPU=1`
+            try:
+                prefs = bpy.context.preferences.addons['cycles'].preferences
+                prefs.compute_device_type = 'METAL'; prefs.get_devices()
+                for d in prefs.devices: d.use = True
+                if any(d.type == 'METAL' for d in prefs.devices): sc.cycles.device = 'GPU'
+            except Exception as e: print('GPU', e)
+        print('GERAET', sc.cycles.device)
         sc.cycles.samples = samples; sc.cycles.use_adaptive_sampling = True; sc.cycles.adaptive_threshold = 0.025
         sc.cycles.use_denoising = True; sc.cycles.denoiser = 'OPENIMAGEDENOISE'
         sc.cycles.max_bounces = 5; sc.cycles.diffuse_bounces = 2; sc.cycles.glossy_bounces = 1
@@ -2091,6 +2102,262 @@ def zielbild():
             print('ZIELBILD', k, 'Renderzeit %.0f s' % (time.time() - t0), 'Speicherspitze %.1f GB' % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1048576.0), sc.render.filepath)
     sb.rendern = rendern
     sb.bauen()
+
+# =====================================================================================================================
+# Orts-Frame (D404, Ledger A-25): A-Frame an einem echten Ort aus den massstäblichen Spielnetzen
+# =====================================================================================================================
+def ortframe():
+    """A-Frame an einem vermessenen Ort (zuerst Milbinger Straße): Häuser (OSM-Grundriss, amtliche LoD2-Dächer,
+    Fassadenbauteile), vermessener Strassenquerschnitt und DGM1-Gelände kommen unverändert aus dem Spiel
+    (Export-JSON: `punkte`, `flaechen`, `rollen` je Netz, Blender-Achsen). Hier kommt nur dazu, was ADR-0018 verlangt:
+    Scan-Oberflächen, Verwitterung nach Story v2 (Brache in der Flutzone, D374) und gestaltetes Licht.
+    Verwitterung ist Material, nicht Geometrie: Flutmarke und Schlick am Wandfuss, Algenläufe, Moos auf Dach und in
+    Rissen, Laubstreu auf dem Asphalt, hohes Gras und Aufwuchs. Einsturz kommt aus den Verfallsstufen des Spiels."""
+    from mathutils.bvhtree import BVHTree
+    quelle, scans, praefix = ARGS[1], ARGS[2], ARGS[3]
+    breite, hoehe, samples = (int(ARGS[4]), int(ARGS[5]), int(ARGS[6])) if len(ARGS) > 6 else (1280, 720, 48)
+    kameras = ARGS[7].split(',') if len(ARGS) > 7 else ['strasse', 'haus']
+    FLUT = float(os.environ.get('ORT_FLUT', '1.1'))   # Flutmarke in m über dem Wandfuss — gestaltet, kein Messwert
+    sys.argv = [sys.argv[0], '--', os.path.dirname(quelle), '/tmp/claude-0/ort.blend', '/tmp/claude-0/ort.png', 'schnell', 'felsmulde']
+    sys.path.insert(0, HIER)
+    import szenenbau as sb
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    sc = bpy.context.scene
+    daten = json.load(open(quelle))
+    rnd = random.Random(377)
+
+    def hofscan(name, karte): return os.path.join(scans, '%s-%s.jpg' % (name, karte))
+
+    def mat_ort(name, scanname, ton, meter, flut=0.0, algen=0.0, moos=0.0, glanz=None):
+        """Scan (Farbe, Normale, Rauheit) im Metermass, darüber die Verwitterung."""
+        m, nt, out = neues_material(name)
+        b = N(nt, 'ShaderNodeBsdfPrincipled', (900, 0)); L(nt, b.outputs[0], out.inputs['Surface'])
+        uv = N(nt, 'ShaderNodeUVMap', (-1400, 0)); uv.uv_map = 'Meter'
+        mp = N(nt, 'ShaderNodeMapping', (-1200, 0)); mp.inputs['Scale'].default_value = (1 / meter,) * 3; L(nt, uv.outputs[0], mp.inputs['Vector'])
+        dif = N(nt, 'ShaderNodeTexImage', (-900, 300)); dif.image = bild(hofscan(scanname, 'Diffuse')); L(nt, mp.outputs[0], dif.inputs['Vector'])
+        rau = N(nt, 'ShaderNodeTexImage', (-900, 0)); rau.image = bild(hofscan(scanname, 'Rough'), False); L(nt, mp.outputs[0], rau.inputs['Vector'])
+        nor = N(nt, 'ShaderNodeTexImage', (-900, -300)); nor.image = bild(hofscan(scanname, 'nor_gl'), False); L(nt, mp.outputs[0], nor.inputs['Vector'])
+        nm = N(nt, 'ShaderNodeNormalMap', (-600, -300)); nm.inputs['Strength'].default_value = 1.2; L(nt, nor.outputs['Color'], nm.inputs['Color'])
+        L(nt, nm.outputs[0], b.inputs['Normal'])
+        farbe = N(nt, 'ShaderNodeMix', (-600, 300), data_type='RGBA', blend_type='MULTIPLY'); farbe.inputs[0].default_value = 0.7
+        L(nt, dif.outputs['Color'], farbe.inputs[6]); farbe.inputs[7].default_value = (*ton, 1)
+        aus_f, aus_r = farbe.outputs[2], rau.outputs['Color']
+        tc = N(nt, 'ShaderNodeTexCoord', (-1400, -600))
+        geo = N(nt, 'ShaderNodeNewGeometry', (-1400, -900)); sepn = N(nt, 'ShaderNodeSeparateXYZ', (-1200, -900)); L(nt, geo.outputs['Normal'], sepn.inputs[0])
+
+        def ueber(fac, ziel, x):
+            nonlocal aus_f
+            mx = N(nt, 'ShaderNodeMix', (x, 300), data_type='RGBA'); L(nt, fac, mx.inputs[0]); L(nt, aus_f, mx.inputs[6]); mx.inputs[7].default_value = (*ziel, 1)
+            aus_f = mx.outputs[2]
+        if algen > 0:
+            # Algen- und Schmutzläufe: Rauschen in der Senkrechten gestreckt, unter Traufen und Bänken dichter
+            ma = N(nt, 'ShaderNodeMapping', (-1200, -600)); ma.inputs['Scale'].default_value = (3.5, 3.5, 0.22); L(nt, tc.outputs['Object'], ma.inputs['Vector'])
+            na = N(nt, 'ShaderNodeTexNoise', (-1000, -600)); na.inputs['Scale'].default_value = 1.0; na.inputs['Detail'].default_value = 5; L(nt, ma.outputs[0], na.inputs['Vector'])
+            ra = N(nt, 'ShaderNodeMapRange', (-800, -600)); ra.inputs['From Min'].default_value = 0.42; ra.inputs['From Max'].default_value = 0.66; ra.inputs['To Max'].default_value = algen; L(nt, na.outputs['Fac'], ra.inputs['Value'])
+            ueber(ra.outputs[0], (0.085, 0.10, 0.055), -300)
+        if flut > 0:
+            # Flutmarke: unter der Linie Schlick und abgeplatzte Farbe, darüber ein heller Salz-/Kalkrand
+            att = N(nt, 'ShaderNodeAttribute', (-1400, -1200)); att.attribute_name = 'grund'
+            nf = N(nt, 'ShaderNodeTexNoise', (-1200, -1200)); nf.inputs['Scale'].default_value = 0.9; nf.inputs['Detail'].default_value = 4; L(nt, tc.outputs['Object'], nf.inputs['Vector'])
+            hh = N(nt, 'ShaderNodeMath', (-1000, -1200), operation='MULTIPLY_ADD'); hh.inputs[1].default_value = 0.5; L(nt, nf.outputs['Fac'], hh.inputs[0]); L(nt, att.outputs['Fac'], hh.inputs[2])
+            unter = N(nt, 'ShaderNodeMapRange', (-800, -1200)); unter.inputs['From Min'].default_value = FLUT + 0.33; unter.inputs['From Max'].default_value = FLUT + 0.17
+            unter.inputs['To Max'].default_value = flut; L(nt, hh.outputs[0], unter.inputs['Value'])
+            rand = N(nt, 'ShaderNodeMapRange', (-800, -1450)); rand.inputs['From Min'].default_value = FLUT + 0.55; rand.inputs['From Max'].default_value = FLUT + 0.33
+            rand.inputs['To Max'].default_value = 0.35 * flut; L(nt, hh.outputs[0], rand.inputs['Value'])
+            ueber(rand.outputs[0], (0.62, 0.58, 0.50), -150)
+            ueber(unter.outputs[0], (0.115, 0.095, 0.065), 0)
+        if moos > 0:
+            # Moos, wo Wasser steht: Flächen nach oben, in Flecken
+            nmo = N(nt, 'ShaderNodeTexNoise', (-1000, -1700)); nmo.inputs['Scale'].default_value = 1.3; nmo.inputs['Detail'].default_value = 6; L(nt, tc.outputs['Object'], nmo.inputs['Vector'])
+            rm = N(nt, 'ShaderNodeMapRange', (-800, -1700)); rm.inputs['From Min'].default_value = 0.47; rm.inputs['From Max'].default_value = 0.62; L(nt, nmo.outputs['Fac'], rm.inputs['Value'])
+            ob = N(nt, 'ShaderNodeMapRange', (-800, -1950)); ob.inputs['From Min'].default_value = 0.15; ob.inputs['From Max'].default_value = 0.55; L(nt, sepn.outputs['Z'], ob.inputs['Value'])
+            mm = N(nt, 'ShaderNodeMath', (-600, -1700), operation='MULTIPLY'); L(nt, rm.outputs[0], mm.inputs[0]); L(nt, ob.outputs[0], mm.inputs[1])
+            ms = N(nt, 'ShaderNodeMath', (-400, -1700), operation='MULTIPLY'); ms.inputs[1].default_value = moos; L(nt, mm.outputs[0], ms.inputs[0])
+            ueber(ms.outputs[0], (0.10, 0.15, 0.04), 150)
+        L(nt, aus_f, b.inputs['Base Color'])
+        if glanz is None: L(nt, aus_r, b.inputs['Roughness'])
+        else: b.inputs['Roughness'].default_value = glanz
+        return m
+
+    def mat_farbe(name, rauheit, dunkel=1.0):
+        m, nt, out = neues_material(name)
+        b = N(nt, 'ShaderNodeBsdfPrincipled', (300, 0)); L(nt, b.outputs[0], out.inputs['Surface'])
+        v = N(nt, 'ShaderNodeVertexColor', (-300, 0)); v.layer_name = 'Spielpalette'
+        mx = N(nt, 'ShaderNodeMix', (0, 0), data_type='RGBA', blend_type='MULTIPLY'); mx.inputs[0].default_value = 1.0
+        L(nt, v.outputs['Color'], mx.inputs[6]); mx.inputs[7].default_value = (dunkel, dunkel, dunkel, 1)
+        L(nt, mx.outputs[2], b.inputs['Base Color']); b.inputs['Roughness'].default_value = rauheit
+        return m
+
+    LAND = []
+    def netz(name, dat, mats, meter):
+        me = bpy.data.meshes.new(name); me.from_pydata(dat['punkte'], [], dat['flaechen']); me.update()
+        o = bpy.data.objects.new(name, me); sc.collection.objects.link(o)
+        for m in mats: me.materials.append(m)
+        if dat.get('farben'):
+            ca = me.color_attributes.new(name='Spielpalette', type='FLOAT_COLOR', domain='POINT')
+            ca.data.foreach_set('color', [w for rgb in dat['farben'] for w in (*rgb, 1.0)])
+        # Höhe über dem Gelände (nicht über dem tiefsten Punkt: die Hausnetze reichen als Schürze in den Boden)
+        gr = me.attributes.new(name='grund', type='FLOAT', domain='POINT')
+        def ueber_grund(q):
+            t = LAND[0].ray_cast((q[0], q[1], 60), (0, 0, -1), 120)[0] if LAND else None
+            return q[2] - t.z if t is not None else 0.0
+        gr.data.foreach_set('value', [ueber_grund(q) for q in dat['punkte']])
+        uv = me.uv_layers.new(name='Meter')
+        rollen = dat.get('rollen') or [0] * len(me.polygons)
+        for pl, r in zip(me.polygons, rollen):
+            pl.material_index = min(r, len(mats) - 1)
+            u = Vector((0, 0, 1)).cross(pl.normal).normalized() if abs(pl.normal.z) < 0.98 else Vector((1, 0, 0))
+            v = pl.normal.cross(u)
+            for i in pl.loop_indices:
+                q = me.vertices[me.loops[i].vertex_index].co
+                uv.data[i].uv = (u.dot(q), v.dot(q))
+        return o
+
+    # Gelände: Laubstreu-Scan, grün überwachsen in Flecken
+    mb, ntb, outb = neues_material('Boden')
+    bb = N(ntb, 'ShaderNodeBsdfPrincipled', (600, 0)); L(ntb, bb.outputs[0], outb.inputs['Surface']); bb.inputs['Roughness'].default_value = 0.95
+    tcb = N(ntb, 'ShaderNodeTexCoord', (-900, 0)); mpb = N(ntb, 'ShaderNodeMapping', (-700, 0)); mpb.inputs['Scale'].default_value = (1 / 1.8,) * 3; L(ntb, tcb.outputs['Object'], mpb.inputs['Vector'])
+    lb = kachel(ntb, mpb.outputs[0], scan('forest_leaves_02', 'diffuse'), True, (-400, 200))
+    hb = kachel(ntb, mpb.outputs[0], scan('forest_leaves_02', 'disp'), False, (-400, -200))
+    nb = N(ntb, 'ShaderNodeTexNoise', (-700, 400)); nb.inputs['Scale'].default_value = 0.25; nb.inputs['Detail'].default_value = 4; L(ntb, tcb.outputs['Object'], nb.inputs['Vector'])
+    rb = N(ntb, 'ShaderNodeMapRange', (-400, 450)); rb.inputs['From Min'].default_value = 0.38; rb.inputs['From Max'].default_value = 0.62; L(ntb, nb.outputs['Fac'], rb.inputs['Value'])
+    gb = N(ntb, 'ShaderNodeMix', (0, 200), data_type='RGBA'); L(ntb, rb.outputs[0], gb.inputs[0]); L(ntb, lb.outputs['Color'], gb.inputs[6]); gb.inputs[7].default_value = (0.07, 0.11, 0.03, 1)
+    L(ntb, gb.outputs[2], bb.inputs['Base Color'])
+    bu = N(ntb, 'ShaderNodeBump', (300, -200)); bu.inputs['Strength'].default_value = 0.9; bu.inputs['Distance'].default_value = 0.05; L(ntb, hb.outputs['Color'], bu.inputs['Height']); L(ntb, bu.outputs[0], bb.inputs['Normal'])
+    terrain = netz('terrain', daten['terrain'], [mb], None)
+
+    LAND.append(BVHTree.FromPolygons([v.co for v in terrain.data.vertices], [pl.vertices[:] for pl in terrain.data.polygons]))
+    # Häuser: Rollen 0 Putz, 1 Holz, 2 Dach, 3 Sockel, 4 Rahmen, 5 Glas, 6/7 Bauteile (wie `terrain.ts`)
+    putz = mat_ort('Kalkputz', 'plastered_wall_03', (0.86, 0.82, 0.70), 0.9, flut=0.95, algen=0.8)
+    holz = mat_ort('Schalung', 'weathered_planks', (0.50, 0.46, 0.40), 2.1, flut=0.85, algen=0.6)
+    dach = mat_ort('Dachziegel', 'grey_roof_tiles', (0.62, 0.42, 0.30), 2.8, moos=0.85)
+    sockel = mat_ort('Sockel', 'old_stone_wall', (0.62, 0.58, 0.50), 1.7, flut=0.9, moos=0.5)
+    rahmen = mat_farbe('Rahmenholz', 0.8, 0.8); glas = mat_farbe('Glas', 0.12, 0.35)
+    for h in daten['haeuser']:
+        netz('Haus_%d' % h['id'], h, [putz, holz, dach, sockel, rahmen, glas, rahmen, rahmen], None)
+    # Strasse: Rollen 0 Fahrbahn, 1 Bord, 2 Gehweg, 3 Zufahrt — Laubstreu und Moos liegen in Flecken und am Rand
+    asphalt = mat_ort('Asphalt', 'gravel_road', (0.20, 0.20, 0.19), 2.2, moos=0.9)
+    beton = mat_ort('Bord', 'plastered_wall_03', (0.55, 0.56, 0.52), 1.3, moos=0.7)
+    kies = mat_ort('Zufahrt', 'gravel_floor_02', (0.60, 0.52, 0.40), 2.0, moos=0.8)
+    weg = netz('Strasse', daten['strasse'], [asphalt, beton, beton, kies], None)
+    # Laubstreu auf dem Asphalt (Scan `forest_leaves_04`, D371): nach 50 Jahren liegt die Fahrbahn halb unter Streu
+    nt = asphalt.node_tree; b = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'); vor = b.inputs['Base Color'].links[0].from_socket
+    tc = N(nt, 'ShaderNodeTexCoord', (0, 900)); mp = N(nt, 'ShaderNodeMapping', (200, 900)); mp.inputs['Scale'].default_value = (1 / 1.5,) * 3; L(nt, tc.outputs['Object'], mp.inputs['Vector'])
+    laub = kachel(nt, mp.outputs[0], scan('forest_leaves_04', 'diff'), True, (400, 900))
+    nl = N(nt, 'ShaderNodeTexNoise', (200, 1200)); nl.inputs['Scale'].default_value = 0.35; nl.inputs['Detail'].default_value = 5; L(nt, tc.outputs['Object'], nl.inputs['Vector'])
+    rl = N(nt, 'ShaderNodeMapRange', (400, 1200)); rl.inputs['From Min'].default_value = 0.46; rl.inputs['From Max'].default_value = 0.60; rl.inputs['To Max'].default_value = 0.92; L(nt, nl.outputs['Fac'], rl.inputs['Value'])
+    ml = N(nt, 'ShaderNodeMix', (700, 600), data_type='RGBA'); L(nt, rl.outputs[0], ml.inputs[0]); L(nt, vor, ml.inputs[6]); L(nt, laub.outputs['Color'], ml.inputs[7])
+    L(nt, ml.outputs[2], b.inputs['Base Color'])
+    def bvh(o): return BVHTree.FromPolygons([v.co for v in o.data.vertices], [pl.vertices[:] for pl in o.data.polygons])
+    land, strasse = LAND[0], bvh(weg)
+    def probe(baum, x, y):
+        t = baum.ray_cast((x, y, 60), (0, 0, -1), 120)[0]
+        return t
+    kasten = daten['ausschluss']
+    def im_haus(x, y, rand=0.1): return any(a - rand < x < c + rand and b - rand < y < d + rand for a, b, c, d in kasten)
+    # Strassenachse (Mittel der Fahrbahnpunkte je 4-m-Band entlang y) für Kamera und Aufwuchs
+    fahr = {}
+    for fl, r in zip(daten['strasse']['flaechen'], daten['strasse']['rollen']):
+        if r == 0:
+            for i in fl:
+                q = daten['strasse']['punkte'][i]; fahr.setdefault(round(q[1] / 4), []).append(q)
+    achse = {k: (sum(q[0] for q in v) / len(v), k * 4.0, sum(q[2] for q in v) / len(v)) for k, v in fahr.items() if len(v) > 6}
+    def mitte(y): return achse[min(achse, key=lambda k: abs(k * 4.0 - y))]
+
+    # Hohes Gras und Samenstände: überall ausser Fahrbahnkern und Haus, am Strassenrand in die Fahrbahn hinein
+    gras = []
+    for ton in ((0.13, 0.20, 0.05), (0.34, 0.28, 0.11), (0.44, 0.36, 0.17)):
+        gm, gnt, gout = neues_material('Gras'); gbs = N(gnt, 'ShaderNodeBsdfPrincipled', (0, 0)); gbs.inputs['Base Color'].default_value = (*ton, 1); gbs.inputs['Roughness'].default_value = 0.8
+        L(gnt, gbs.outputs[0], gout.inputs['Surface']); gras.append(gm)
+    pk, fl, ro = [], [], []
+    for _ in range(420000):
+        x, y = rnd.uniform(-45, 55), rnd.uniform(-75, 40)
+        fleck = noise.noise(Vector((x * 0.3, y * 0.3, 4.1)))
+        auf_str = probe(strasse, x, y) is not None
+        if auf_str and (fleck < 0.18 or rnd.random() < 0.6): continue
+        if not auf_str and fleck < -0.35: continue
+        if im_haus(x, y): continue
+        pt = probe(land, x, y)
+        if pt is None: continue
+        for _ in range(rnd.randint(3, 6)):
+            a = rnd.random() * math.tau; w = rnd.uniform(0.004, 0.009); bx, by = math.cos(a) * w, math.sin(a) * w
+            hh = rnd.uniform(0.25, 0.95) * (0.75 + fleck) * (0.5 if auf_str else 1.0)
+            i = len(pk); z = pt.z + (0.02 if auf_str else -0.01)
+            # Halm: schmale Basis, Mitte halb so breit und geneigt, Spitze — Breite bleibt Halmbreite, nicht Neigung
+            nx, ny = by / w * hh * rnd.uniform(0.05, 0.3), -bx / w * hh * rnd.uniform(0.05, 0.3)
+            pk.extend([(x - bx, y - by, z), (x + bx, y + by, z),
+                       (x - bx * 0.6 + nx * 0.4, y - by * 0.6 + ny * 0.4, z + hh * 0.55), (x + bx * 0.6 + nx * 0.4, y + by * 0.6 + ny * 0.4, z + hh * 0.55),
+                       (x + nx, y + ny, z + hh)])
+            fl.extend([(i, i + 1, i + 2), (i + 1, i + 3, i + 2), (i + 2, i + 3, i + 4)])
+            k = 0 if fleck > 0.2 or rnd.random() < 0.5 else 1 if rnd.random() < 0.85 else 2
+            ro.extend([k, k, k])
+    netz('Gras', {'punkte': pk, 'flaechen': fl, 'rollen': ro}, gras, None)
+    print('ORT Halme', len(fl) // 3)
+
+    # Aufwuchs: Spielbäume (ADR-0018: das Zielbild zeigt, was das Spiel zeigt). Jungwuchs im Strassenraum und in den
+    # Gärten (50 Jahre ohne Pflege), dahinter hohe Bäume als Kulisse.
+    class Grund:
+        @staticmethod
+        def bodenhoehe(x, y):
+            t = probe(land, x, y); return t.z if t is not None else 0.0
+    n = 0
+    for _ in range(4000):
+        if n >= 70: break
+        x, y = rnd.uniform(-45, 55), rnd.uniform(-75, 40)
+        mx = mitte(y)[0]
+        if im_haus(x, y, 2.5) or abs(x - mx) < 1.6: continue
+        nah = abs(x - mx) < 9
+        if nah and rnd.random() < 0.35: continue
+        hoch = rnd.uniform(6, 13) if nah else rnd.uniform(16, 27)
+        spielbaum(Grund, rnd.choice(('buche', 'buche', 'fichte')), 'Baum_%d' % n, x, y, hoch, rnd.randrange(1000), y > -45)
+        n += 1
+    gruppen = {art: kronendichte(art, 2.4 if art == 'buche' else 3.0) for art in ('buche', 'fichte')}
+    for o, art in KRONEN:
+        mod = o.modifiers.new('Krone', 'NODES'); mod.node_group = gruppen[art]
+    print('ORT Bäume', n, 'mit Kartenkrone', len(KRONEN))
+
+    # Licht wie im A-Frame der Felsmulde: tiefe warme Sonne schräg von vorn, kühles Füllen, warmer Dunst
+    a0, a1 = mitte(18.0), mitte(-26.0)
+    blick = math.degrees(math.atan2(a1[0] - a0[0], a1[1] - a0[1]))
+    EL, AZ = 15.0, blick + 28.0
+    sonne, _ = sb.sonne(EL, AZ, (1.0, 0.72, 0.48), 5.0); sonne.data.angle = math.radians(1.2)
+    himmel_gemalt(EL, AZ)
+    zs = a0[2]
+    sb.dunst('Ortsdunst', 400.0, zs - 6.0, zs + 60.0, 0.0016, 24.0, (1.0, 0.86, 0.68), 0.4)
+    kams = {}
+    kams['strasse'] = sb.kamera((a0[0] + 0.6, a0[1], a0[2] + 1.6), (a1[0], a1[1], a1[2] + 2.6), 26); kams['strasse'].name = 'KameraStrasse'
+    hk = next(k for k in reversed(daten['kameras']) if k['name'] == 'hausverfall-strasse')
+    kams['haus'] = sb.kamera(hk['ort'], hk['ziel'], 24); kams['haus'].name = 'KameraHaus'
+    sc.render.engine = 'CYCLES'
+    try:
+        prefs = bpy.context.preferences.addons['cycles'].preferences
+        prefs.compute_device_type = 'METAL'; prefs.get_devices()
+        for d in prefs.devices: d.use = True
+        sc.cycles.device = 'GPU'
+    except Exception as e: print('GPU', e); sc.cycles.device = 'CPU'
+    sc.cycles.samples = samples; sc.cycles.use_adaptive_sampling = True; sc.cycles.adaptive_threshold = 0.025
+    sc.cycles.use_denoising = True; sc.cycles.denoiser = 'OPENIMAGEDENOISE'
+    sc.cycles.max_bounces = 5; sc.cycles.diffuse_bounces = 2; sc.cycles.glossy_bounces = 1
+    sc.cycles.transmission_bounces = 4; sc.cycles.volume_bounces = 0; sc.cycles.transparent_max_bounces = 16
+    sc.cycles.sample_clamp_indirect = 4.0; sc.cycles.caustics_reflective = sc.cycles.caustics_refractive = False
+    sc.cycles.volume_step_rate = 4.0; sc.cycles.volume_max_steps = 64
+    sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage = breite, hoehe, 100
+    sc.view_settings.view_transform = 'AgX'
+    try: sc.view_settings.look = 'AgX - Medium High Contrast'
+    except Exception: pass
+    sc.view_settings.exposure = 1.0
+    vl = sc.view_layers[0]
+    vl.use_pass_z = vl.use_pass_normal = vl.use_pass_mist = vl.use_pass_object_index = True
+    sc.world.mist_settings.start = 3.0; sc.world.mist_settings.depth = 150.0; sc.world.mist_settings.falloff = 'LINEAR'
+    try: sc.render.image_settings.media_type = 'MULTI_LAYER_IMAGE'
+    except Exception as e: print('media_type', e)
+    sc.render.image_settings.file_format = 'OPEN_EXR_MULTILAYER'; sc.render.image_settings.color_depth = '16'
+    if os.environ.get('AFRAME_BLEND'): bpy.ops.wm.save_as_mainfile(filepath=os.environ['AFRAME_BLEND'])
+    import time
+    for k in kameras:
+        sc.camera = kams[k]; sc.render.filepath = os.path.abspath('%s-%s.exr' % (praefix, k))
+        t0 = time.time(); bpy.ops.render.render(write_still=True)
+        print('ORT', k, 'Renderzeit %.0f s' % (time.time() - t0), sc.render.filepath)
 
 
 def knoten(g, typ, ort, **eing):
@@ -2298,4 +2565,4 @@ def stil():
 
 
 if __name__ == '__main__':
-    {'render': render, 'aframe': aframe, 'zielbild': zielbild, 'zielbild3': zielbild, 'zielbild4': zielbild, 'scanblend': scanblend, 'alphakarten': alphakarten}.get(MODUS, stil)()
+    {'render': render, 'aframe': aframe, 'zielbild': zielbild, 'zielbild3': zielbild, 'zielbild4': zielbild, 'scanblend': scanblend, 'alphakarten': alphakarten, 'ortframe': ortframe}.get(MODUS, stil)()

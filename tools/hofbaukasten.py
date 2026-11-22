@@ -266,19 +266,20 @@ def laden(achse, ebene, innen, ua, ub, za, zb, wand_d):
         schwenk, kipp = 0.0, 0.0
         if wahr(VERFALL['laeden_schief']):
             schwenk = math.radians(zr.uniform(25, 100))    # vom Wind halb zugeschlagen
-            kipp = math.radians(zr.uniform(-14, 14)) if wahr(0.5) else 0.0   # obere Angel gebrochen
+            kipp = math.radians(abs(zr.uniform(-14, 14))) if wahr(0.5) else 0.0   # obere Angel gebrochen: Flügel dreht um die untere Angel, das freie Ende sinkt (D408)
         # Lokales System des Flügels: Angel ist die Drehachse (z), Flügel liegt flach an der Wand nach aussen.
         richtung = seite                       # entlang u weg von der Öffnung
+        unten = Vector((0, 0, -(hoehe / 2 - 0.12)))   # Lage der unteren Angel
         aus = 0.025
         if achse == 'x':
             ang = Vector((angel, ebene - innen * aus, (za + zb) / 2))
             # flach an der Wand: Flügel entlang +u*richtung; Schwenk dreht um z zur Öffnung hin
             winkel = -innen * richtung * schwenk
-            M = Matrix.Translation(ang) @ drehung('Z', winkel) @ drehung('Y', kipp) @ Matrix.Translation((richtung * breite / 2, -innen * 0.02, 0))
+            M = Matrix.Translation(ang) @ drehung('Z', winkel) @ Matrix.Translation(unten) @ drehung('Y', richtung * kipp) @ Matrix.Translation(-unten) @ Matrix.Translation((richtung * breite / 2, -innen * 0.02, 0))
         else:
             ang = Vector((ebene - innen * aus, angel, (za + zb) / 2))
             winkel = innen * richtung * schwenk
-            M = Matrix.Translation(ang) @ drehung('Z', winkel) @ drehung('X', kipp) @ Matrix.Translation((-innen * 0.02, richtung * breite / 2, 0))
+            M = Matrix.Translation(ang) @ drehung('Z', winkel) @ Matrix.Translation(unten) @ drehung('X', -richtung * kipp) @ Matrix.Translation(-unten) @ Matrix.Translation((-innen * 0.02, richtung * breite / 2, 0))
         g = (breite, 0.04, hoehe) if achse == 'x' else (0.04, breite, hoehe)
         quader_m('laeden', M, g)
 

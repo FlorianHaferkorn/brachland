@@ -42,6 +42,22 @@ def lade(url, pfad):
     return len(daten)
 
 
+def alpha_karten(ziel):
+    """Alpha-Karten der Pflanzen-Scans nachladen (D409, Befund D386): das glTF von Poly Haven liefert sein Farbbild als
+    JPG ohne Alphakanal, die Maske liegt als eigene PNG-Datei daneben. Ohne sie sind alle Blattkarten deckend.
+    Dazu der zweite Laubbaum `jacaranda_tree`, der eine Ebene höher im Cache liegt (aus D372)."""
+    summe = 0
+    for name, o in [(n, os.path.join(ziel, n)) for n in MODELLE] + [('jacaranda_tree', os.path.join(os.path.dirname(ziel), 'jacaranda_tree'))]:
+        tex = os.path.join(o, 'textures')
+        if not os.path.isdir(tex): continue
+        stufe = next((f.split('_')[-1].split('.')[0] for f in sorted(os.listdir(tex)) if '_diff_' in f), '1k')
+        for k, v in hole('https://api.polyhaven.com/files/' + name, True).items():
+            if not k.lower().endswith('alpha') or stufe not in v or 'png' not in v[stufe]: continue
+            url = v[stufe]['png']['url']; summe += lade(url, os.path.join(tex, os.path.basename(url)))
+            print('alpha', name, os.path.basename(url))
+    return summe
+
+
 def main():
     ziel = cache(); os.makedirs(ziel, exist_ok=True)
     herkunft = {}; summe = 0
@@ -65,6 +81,7 @@ def main():
         herkunft[name] = {'autoren': sorted(info.get('authors', {}).keys()), 'lizenz': 'CC0', 'mass_mm': info.get('dimensions'),
                           'quelle': 'https://polyhaven.com/a/' + name}
         print('ok', name)
+    summe += alpha_karten(ziel)
     json.dump(herkunft, open(os.path.join(ziel, 'herkunft.json'), 'w'), indent=1, ensure_ascii=False)
     print('geladen %.1f MiB nach %s' % (summe / 2 ** 20, ziel))
 

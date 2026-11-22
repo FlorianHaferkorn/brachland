@@ -29,6 +29,7 @@ SIGNAL = (0.62, 0.81, 0.89)                 # '#cfe9f2' linear
 SAAT = int(os.environ.get('HAUS_SAAT', '708'))
 LAENGE, BREITE = 30.0, 12.5                 # innerhalb der Spannen aus content/hofbaukasten.json
 SCHNELL = os.environ.get('HAUS_SCHNELL') == '1'
+SCHNEISE = tuple(float(x) for x in os.environ.get('HAUS_SCHNEISE', '-4,17,90').split(','))   # Grad von, bis; Tiefe in m (D408)
 OHNE = set(os.environ.get('HAUS_OHNE', '').split(','))   # Prüfläufe: pflanzen, dunst
 SONNE_EL, SONNE_AZ = 14.0, 195.0            # tief, von rechts leicht hinter der Kamera (≈ 100° zur Blickrichtung): Streiflicht auf dem Giebel, Traufseite im Schatten
 # Lage: Mitte und Achse von Gebäude 708 (terrainexport um 238/231, Grundriss 36 × 14,7 m, Achse 30° gegen Ost)
@@ -159,7 +160,9 @@ def abschluss(k, b, out, farbe, rau, hoehe, versatz, bump=0.4, mitte=0.5):
         k.setze(d.inputs['Height'], hoehe); k.nt.links.new(d.outputs[0], out.inputs['Displacement'])
 
 
-def adaptiv(o, pixel=1.0, glatt=False):
+def adaptiv(o, pixel=1.0, glatt=False, fase=0.0):
+    if fase:   # gebrochene Kanten (D407): Balken und Bretter sind gefast, nicht messerscharf
+        bv = o.modifiers.new('Fase', 'BEVEL'); bv.width = fase; bv.segments = 1; bv.limit_method = 'ANGLE'; bv.angle_limit = math.radians(40)
     m = o.modifiers.new('Adaptiv', 'SUBSURF'); m.subdivision_type = 'SIMPLE'
     m.use_adaptive_subdivision = True; m.adaptive_pixel_size = pixel * (2.0 if SCHNELL else 1.0)
     m.levels = 0; m.render_levels = 1
@@ -206,11 +209,47 @@ def wuerfel_dazu(o, liste):
     bm.to_mesh(o.data); bm.free()
 
 
+def laden_aus_brettern(o, rnd, G):
+    """Jeden Ladenflügel (ein Quader aus dem Baukasten) durch stehende Bretter mit Fugen und zwei Querleisten ersetzen
+    (D406): Bretter ungleich dick und lang, einzelne unten abgefault oder ganz herausgefallen."""
+    bm = bmesh.new(); bm.from_mesh(o.data); bm.verts.ensure_lookup_table()
+    lage = bm.faces.layers.float.get('ton')
+    gesehen, liste = set(), []
+    for v0 in bm.verts:
+        if v0.index in gesehen: continue
+        teil = [v0]; gesehen.add(v0.index); i = 0
+        while i < len(teil):
+            for e in teil[i].link_edges:
+                w = e.other_vert(teil[i])
+                if w.index not in gesehen: gesehen.add(w.index); teil.append(w)
+            i += 1
+        k = sorted(((e.other_vert(v0).co - v0.co) for e in v0.link_edges), key=lambda d: -d.length)
+        if len(k) < 3: continue
+        H, W, T = (x.normalized() for x in k[:3]); hl, wl, tl = (x.length for x in k[:3])
+        if H.z < 0: H = -H
+        mitte = sum((v.co for v in teil), Vector()) / len(teil)
+        if T.dot(mitte - Vector((G['L'] / 2, 0, mitte.z))) < 0: T = -T   # T zeigt vom Haus weg: Querleisten liegen sichtbar aussen
+        ton = v0.link_faces[0][lage] if lage else 0.5
+        R = Matrix((W, T, H)).transposed().to_4x4(); R.translation = mitte
+        n = max(2, round(wl / 0.115)); bb = wl / n
+        for j in range(n):
+            if rnd.random() < 0.05: continue                      # Brett fehlt
+            kurz = rnd.uniform(0.08, 0.3) * hl if rnd.random() < 0.18 else rnd.uniform(0.0, 0.015)   # unten abgefault
+            M = R @ Matrix.Translation(((j + 0.5) * bb - wl / 2, rnd.uniform(-0.004, 0.004), kurz / 2)) @ Matrix.Rotation(math.radians(rnd.uniform(-0.7, 0.7)), 4, 'Y')
+            liste.append((M, (bb - rnd.uniform(0.003, 0.007), tl * rnd.uniform(0.6, 0.72), hl - kurz), min(1.0, max(0.0, ton + rnd.uniform(-0.25, 0.25)))))
+        for zq in (-0.31, 0.31):                                  # Querleisten (Einschubleisten), Faser quer
+            M = R @ Matrix.Translation((0, tl * 0.42, zq * hl)) @ Matrix.Rotation(math.radians(rnd.uniform(-1.2, 1.2)), 4, 'Y')
+            liste.append((M, (wl - 0.012, 0.02, 0.085), rnd.random()))
+    bmesh.ops.delete(bm, geom=list(bm.verts), context='VERTS'); bm.to_mesh(o.data); bm.free()
+    wuerfel_dazu(o, liste)
+
+
 def holz_uv(o, skala, rnd, schief=0.0, haengen=0.0):
     """Je Quader eine UV entlang der längsten Kante (Faser = V), zufällig versetzt — kein Brett gleicht dem Nachbarn.
     `schief`: kleine Verdrehung je Brett (Grad), `haengen`: Anteil langer senkrechter Bretter, die an einem Nagel hängen."""
     bm = bmesh.new(); bm.from_mesh(o.data); bm.verts.ensure_lookup_table()
     uvl = bm.loops.layers.uv.new('UVMap')
+    hirn = bm.faces.layers.float.new('hirn')
     gesehen = set()
     for v0 in bm.verts:
         if v0.index in gesehen: continue
@@ -229,15 +268,19 @@ def holz_uv(o, skala, rnd, schief=0.0, haengen=0.0):
             R = Matrix.Rotation(math.radians(rnd.uniform(-schief, schief)), 4, kanten[-1].normalized())
             if haengen and abs(U.z) > 0.9 and lang > 1.2 and rnd.random() < haengen:   # hängt am oberen Nagel
                 oben = mitte + Vector((0, 0, lang / 2 - 0.1))
-                R = Matrix.Translation(oben) @ Matrix.Rotation(math.radians(rnd.choice((-1, 1)) * rnd.uniform(6, 24)), 4, kanten[-1].normalized()) @ Matrix.Translation(-oben)
+                # D408: ein Brett an einem Nagel hängt lotrecht — es ist abgerutscht und pendelt kaum aus, nicht schräg im Raum
+                R = Matrix.Translation((0, 0, -rnd.uniform(0.04, 0.22))) @ Matrix.Translation(oben) @ Matrix.Rotation(math.radians(rnd.choice((-1, 1)) * rnd.uniform(0.5, 2.5)), 4, kanten[-1].normalized()) @ Matrix.Translation(-oben)
             else:
                 R = Matrix.Translation(mitte) @ R @ Matrix.Translation(-mitte)
             for v in teil: v.co = R @ v.co
             U = (R.to_3x3() @ U).normalized()
         ou, ov = rnd.random() * 7.0, rnd.random() * 7.0
+        stumpf = lang < 0.6 and len(kanten) > 1 and lang < 1.8 * kanten[1].length
         for f in {f for v in teil for f in v.link_faces}:
             nrm = f.normal
+            if stumpf: f[hirn] = 0.8   # Balkenkopf: kurzer Klotz, ringsum nachgedunkelt
             if abs(nrm.dot(U)) > 0.9:   # Hirnholz: quer abgebildet
+                f[hirn] = 1.0
                 a = kanten[1].normalized() if len(kanten) > 1 else Vector((0, 0, 1)); b_ = nrm.cross(a)
                 for lp in f.loops: lp[uvl].uv = (lp.vert.co.dot(a) / skala + ou, lp.vert.co.dot(b_) / skala + ov)
             else:
@@ -396,7 +439,7 @@ def bewitterung(k, obj, G):
     return w, nz, z
 
 
-def mat_holz(name, G, dunkel=(0.105, 0.052, 0.028), anstrich=None, moos=1.0, versatz=0.010):
+def mat_holz(name, G, dunkel=(0.105, 0.052, 0.028), anstrich=None, moos=1.0, versatz=0.010, halt=0.72, bleich=None):
     """Holz aus dem Scan `rough_wood` (Faser entlang V der Quader-UV, zwei Abgriffe gegen Wiederholung): unter dem
     Dach schwarzbraun, bewittert silbergrau (Befund Fotos), Oberseiten und Spritzzone vermoost/veralgt.
     `anstrich`: Farbe, die nur noch in Resten sitzt (Läden, Fensterstöcke)."""
@@ -410,6 +453,17 @@ def mat_holz(name, G, dunkel=(0.105, 0.052, 0.028), anstrich=None, moos=1.0, ver
     r = k.tex(uv, scan('rough_wood', 'rough'), False, False)
     w, nz, z = bewitterung(k, obj, G)
     ton = k.attr('ton')
+    # Holz verwittert schneller als Stein und Putz (D406): auch unter dem Dach ist es angegriffen, frei bewittert ganz
+    w = k.bereich(w, 0.0, 0.7, 0.22, 1.0)
+    # Substanz aus der Faser: Jahrringrippen (weiches Frühholz ausgewaschen), Schwundrisse längs, Wurmgänge
+    rippe = k.rauschen(k.abbild(uv, (95.0, 1.1, 1)), 1.0, 3, 0.55)
+    riss = k.bereich(k.rauschen(k.abbild(uv, (21.0, 0.55, 1), (3.1, 1.7, 0)), 1.0, 2, 0.6), 0.615, 0.66)
+    riss = k.math('MULTIPLY', riss, k.bereich(w, 0.0, 1.0, 0.45, 1.0))
+    wurm = k.bereich(k.rauschen(obj, 85.0, 1, 0.3), 0.74, 0.78)
+    wurm = k.math('MULTIPLY', wurm, k.bereich(k.rauschen(obj, 3.5, 2), 0.5, 0.62))
+    rippe_w = k.math('MULTIPLY', k.math('SUBTRACT', rippe, 0.5), k.bereich(w, 0.0, 1.0, 0.35, 0.9))
+    h = k.math('ADD', k.math('MULTIPLY', h, 0.55), k.math('ADD', 0.22, k.math('MULTIPLY', rippe_w, 0.55)))
+    h = k.math('SUBTRACT', h, k.math('ADD', k.math('MULTIPLY', riss, 0.42), k.math('MULTIPLY', wurm, 0.3)), None, True)
     lum = k.grau(d)
     braun = k.mix(1.0, k.math('MULTIPLY', lum, 1.25), dunkel, 'MULTIPLY')
     braun = k.mix(1.0, braun, k.mix(ton, (0.55, 0.52, 0.50), (1.25, 1.2, 1.15)), 'MULTIPLY')   # jeder Balken ein eigener Ton
@@ -417,14 +471,36 @@ def mat_holz(name, G, dunkel=(0.105, 0.052, 0.028), anstrich=None, moos=1.0, ver
     grau = k.mix(1.0, grau, k.mix(ton, (0.30, 0.285, 0.275), (0.48, 0.45, 0.42)), 'MULTIPLY')
     f = k.mix(w, braun, grau)
     if anstrich is not None:
-        rest = k.bereich(k.math('ADD', k.rauschen(obj, 14.0, 4, 0.7), k.math('MULTIPLY', h, 0.5)), 0.52, 0.62)
-        rest = k.math('MULTIPLY', rest, k.math('SUBTRACT', 1.0, k.math('MULTIPLY', w, 0.75)))
-        f = k.mix(rest, f, k.mix(1.0, anstrich, k.math('ADD', 0.6, lum), 'MULTIPLY'))
+        # Farbe blättert in Faserrichtung ab und hält sich nur in den Tälern und im Regenschatten
+        schuppe = k.math('ADD', k.rauschen(k.abbild(uv, (7.0, 0.9, 1)), 1.0, 4, 0.7), k.math('MULTIPLY', k.math('SUBTRACT', rippe, 0.5), 0.35))
+        rest = k.bereich(schuppe, 0.45, 0.51)
+        rest = k.math('MULTIPLY', rest, k.math('SUBTRACT', 1.0, k.math('MULTIPLY', w, halt)))
+        rest = k.math('MULTIPLY', rest, k.math('SUBTRACT', 1.0, riss))
+        farbe = k.mix(1.0, k.farbton(anstrich, 1.0, 0.7), k.math('ADD', 0.55, lum), 'MULTIPLY')   # ausgekreidet
+        f = k.mix(rest, f, farbe)
+        h = k.math('ADD', h, k.math('MULTIPLY', rest, 0.06))      # Farbschicht steht leicht auf
+    # Faser sichtbar machen: Rippen hell/dunkel, Risse und Wurmlöcher dunkel, Hirnholz saugt und dunkelt nach
+    f = k.mix(1.0, f, k.mix(k.bereich(rippe_w, -0.3, 0.3), (0.72, 0.70, 0.68), (1.22, 1.20, 1.16)), 'MULTIPLY')
+    f = k.mix(k.math('MAXIMUM', riss, wurm), f, (0.012, 0.009, 0.007))
+    f = k.mix(k.math('MULTIPLY', k.attr('hirn'), 0.88), f, (0.03, 0.022, 0.016))
+    # Fäule: Spritzzone und Wasserfahnen unter Oberkanten dunkeln schwarzbraun
+    faul = k.math('MULTIPLY', k.bereich(z, 1.1, 0.1), k.bereich(k.rauschen(obj, 2.6, 4, 0.65), 0.38, 0.62))
+    fahne = k.math('MULTIPLY', w, k.bereich(k.rauschen(k.abbild(uv, (5.0, 0.35, 1), (1.3, 0.4, 0)), 1.0, 3), 0.58, 0.72))
+    f = k.mix(k.math('MULTIPLY', k.math('MAXIMUM', faul, fahne), 0.6), f, (0.035, 0.026, 0.02))
+    if bleich is not None:   # D409: wo der Befall arbeitet, ist das Holz ausgelaugt — bleich, mürbe, ohne Moos
+        bx, by, bz = k.xyz(obj)
+        dx = k.math('SUBTRACT', bx, bleich[0]); dy = k.math('SUBTRACT', by, bleich[1])
+        dist = k.math('SQRT', k.math('ADD', k.math('ADD', k.math('MULTIPLY', dx, dx), k.math('MULTIPLY', dy, dy)), k.math('MULTIPLY', bz, bz)))
+        dist = k.math('ADD', dist, k.math('MULTIPLY', k.math('SUBTRACT', k.rauschen(obj, 2.4, 4, 0.65), 0.5), 1.1))
+        aus = k.bereich(dist, bleich[2], bleich[2] * 0.3, weich=True)
+        f = k.mix(k.math('MULTIPLY', aus, 0.55), f, k.mix(1.0, (0.50, 0.49, 0.44), k.math('ADD', 0.55, lum), 'MULTIPLY'))
+        moos_aus = k.math('SUBTRACT', 1.0, aus)
+    else: moos_aus = 1.0
     md = k.tex(k.abbild(obj, (1.0,) * 3), scan('moss_wood', 'diff'))
     gruen = k.math('MULTIPLY', k.math('MULTIPLY', w, moos), k.bereich(k.math('ADD', k.rauschen(obj, 2.2, 4, 0.65), k.math('MULTIPLY', k.bereich(nz, 0.3, 0.9), 0.35)), 0.55, 0.75))
     gruen = k.math('MAXIMUM', gruen, k.math('MULTIPLY', k.math('MULTIPLY', k.bereich(z, 0.7, 0.0), w), k.bereich(k.rauschen(obj, 3.0, 3), 0.45, 0.7)))
-    f = k.mix(k.math('MULTIPLY', gruen, 0.85), f, k.farbton(md, 0.55, 0.85))
-    abschluss(k, b, out, f, k.math('MAXIMUM', r, 0.6), h, versatz, bump=0.8)
+    f = k.mix(k.math('MULTIPLY', k.math('MULTIPLY', gruen, moos_aus), 0.85), f, k.farbton(md, 0.55, 0.85))
+    abschluss(k, b, out, f, k.math('MAXIMUM', r, 0.6), h, versatz, bump=1.0)
     return m
 
 
@@ -499,7 +575,7 @@ def dachhaut(G, sack, rng):
     kleinen Fehlstellen, Rand sackt ab. Attribut `moos` je Vertex. Dazu die Schalung unter den Ziegeln (Bretter
     quer zu den Sparren) — von unten sieht man am Giebelüberstand Holz, nicht Ziegelrücken."""
     X0, X1, VLEN, DACHD, LOCH, SH = G['X0'], G['X1'], G['VLEN'], G['DACHD'], G['LOCH'], G['SH']
-    if LOCH is not None: LOCH = (LOCH[0], LOCH[1], LOCH[2] * 0.5, LOCH[3] * 0.8)   # der Baukasten reisst ein Sechstel der Fläche auf — für „Haus steht“ zu viel
+    if LOCH is not None: LOCH = (LOCH[0], LOCH[1], LOCH[2] * 0.72, LOCH[3] * 0.92)   # D407: 0,5/0,8 las sich aus der Hauptkamera nicht als Loch   # der Baukasten reisst ein Sechstel der Fläche auf — für „Haus steht“ zu viel
     schritt = 0.25
     nx, nv = int((X1 - X0) / schritt), int((VLEN + 0.12) / schritt)
     bm = bmesh.new(); uvl = bm.loops.layers.uv.new('UVMap'); ml = bm.verts.layers.float.new('moos')
@@ -548,6 +624,39 @@ def dachhaut(G, sack, rng):
                     M = Matrix.Translation(O + Vector((xm, 0, 0)) + v * vv + w * 0.012) @ R
                     bretter.append((M, (lang - 0.01, VLEN / nb - 0.008, 0.024), rng.random()))
                 x += lang
+    # Randziegel (D407): Traufe und Ortgang zeigen einzelne Ziegel statt einer Schnittkante — an der Traufe die
+    # unterste Reihe mit verrutschten und fehlenden Platten, am Ortgang überlappende Ortgangziegel.
+    def klotz(M, g, u_, v_):
+        erg = bmesh.ops.create_cube(bm, size=1.0, matrix=M @ Matrix.Diagonal((*g, 1)))
+        for f in {f for q in erg['verts'] for f in q.link_faces}:
+            for lp in f.loops: lp[uvl].uv = (u_ + rng.uniform(-0.004, 0.004), v_ + rng.uniform(-0.004, 0.004))
+        for q in erg['verts']: q[ml] = 0.45 + rng.uniform(-0.15, 0.25)
+    zier = []
+    for s in (-1, 1):
+        O, v, w, R = G['dachrahmen'](s)
+        x = X0
+        while x < X1 - 0.05:
+            bz = 0.215
+            if rng.random() > 0.05:
+                rutsch = rng.uniform(0.0, 0.05) if rng.random() < 0.3 else 0.0
+                M = Matrix.Translation(O + Vector((x + bz / 2, 0, 0)) + v * (VLEN + 0.10 + rutsch) + w * (DACHD * 0.6 + 0.012)) @ R @ Matrix.Rotation(rng.uniform(-0.05, 0.09), 4, 'X')
+                klotz(M, (bz - 0.012, 0.16, 0.034), x / 4.0, -(VLEN / 4.0) + rng.uniform(0, 0.02))
+            x += bz
+        for xr in (X0 + 0.04, X1 - 0.04):
+            vv = 0.1
+            while vv < VLEN:
+                if rng.random() > 0.04:
+                    M = Matrix.Translation(O + Vector((xr, 0, 0)) + v * (vv + 0.17) + w * (DACHD * 0.6 + 0.02)) @ R @ Matrix.Rotation(-0.07, 4, 'X')
+                    klotz(M, (0.11, 0.36, 0.03), xr / 4.0, -vv / 4.0)
+                vv += 0.33
+        # Zierkante unter dem Ortgangbrett am Wohngiebel: Reihe auf die Spitze gestellter Brettchen
+        vv = 0.25
+        while vv < VLEN - 0.1:
+            if rng.random() > 0.08:
+                M = Matrix.Translation(O + Vector((X0 - 0.02, 0, 0)) + v * vv - w * (SH + 0.04)) @ R @ Matrix.Rotation(math.radians(45 + rng.uniform(-4, 4)), 4, 'X')
+                zier.append((M, (0.022, 0.095, 0.095), rng.random()))
+            vv += 0.15
+    bretter += zier
     for q in [q for q in bm.verts if not q.link_faces]: bm.verts.remove(q)
     bm.normal_update()
     me = bpy.data.meshes.new('dach'); bm.to_mesh(me); bm.free()
@@ -847,6 +956,35 @@ def mat_fern():
 
 
 # ───────────────────────────── Pflanzen, Bäume ─────────────────────────────
+def scan_alpha(me, ordner):
+    """Alpha-Karte der Scan-Materialien einhängen (D409, Befund D386 aus `stilframes.py`): das glTF-Farbbild von Poly Haven
+    ist ein JPG ohne Alphakanal, die Maske liegt als `…_alpha_….png` daneben (`tools/hausframe_scans.py` lädt sie).
+    Ohne sie sind Blatt- und Graskarten deckend — schwarze Halme, zu dichte Kronen."""
+    for mat in me.materials:
+        if mat is None or mat.get('alpha_drin') or not mat.use_nodes: continue
+        nt = mat.node_tree
+        b = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None); out = next((n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL'), None)
+        if b is None or out is None or not b.inputs['Base Color'].links: continue
+        dif = b.inputs['Base Color'].links[0].from_node
+        if dif.type != 'TEX_IMAGE' or dif.image is None: continue
+        datei = os.path.basename(dif.image.filepath.replace('\\', '/'))   # der Bildpfad ist im Renderlauf relativ (`//textures/…`): Ordner kommt vom Aufrufer
+        if '_diff_' not in datei: continue
+        ap = os.path.join(ordner, 'textures', os.path.splitext(datei.replace('_diff_', '_alpha_'))[0] + '.png')
+        if not os.path.exists(ap): continue
+        t = nt.nodes.new('ShaderNodeTexImage'); t.image = bild(ap, False); t.interpolation = dif.interpolation; t.extension = dif.extension
+        if dif.inputs['Vector'].links: nt.links.new(dif.inputs['Vector'].links[0].from_socket, t.inputs['Vector'])
+        for l_ in list(b.inputs['Alpha'].links): nt.links.remove(l_)
+        b.inputs['Alpha'].default_value = 1.0
+        gt = nt.nodes.new('ShaderNodeMath'); gt.operation = 'GREATER_THAN'; gt.inputs[1].default_value = 0.4; nt.links.new(t.outputs['Color'], gt.inputs[0])
+        tp = nt.nodes.new('ShaderNodeBsdfTransparent'); mx = nt.nodes.new('ShaderNodeMixShader')
+        quelle = out.inputs['Surface'].links[0].from_socket
+        nt.links.new(gt.outputs[0], mx.inputs[0]); nt.links.new(tp.outputs[0], mx.inputs[1]); nt.links.new(quelle, mx.inputs[2]); nt.links.new(mx.outputs[0], out.inputs['Surface'])
+        mat['alpha_drin'] = 1; ALPHA_GEZAEHLT.add(mat.name)
+
+
+ALPHA_GEZAEHLT = set()
+
+
 def scan_modelle(name):
     """glTF-Scan importieren, Objekte entfernen, Netze (Ursprung in der Grundfläche, mittig) zurückgeben."""
     o = scan_ordner(name)
@@ -862,8 +1000,31 @@ def scan_modelle(name):
     for me in meshes:
         co = np.zeros(len(me.vertices) * 3); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
         me.transform(Matrix.Translation((-(co[:, 0].min() + co[:, 0].max()) / 2, -(co[:, 1].min() + co[:, 1].max()) / 2, -co[:, 2].min())))
-        me['hoehe'] = float(co[:, 2].max() - co[:, 2].min())
+        me['hoehe'] = float(co[:, 2].max() - co[:, 2].min()); scan_alpha(me, o)
     return meshes
+
+
+def scan_baum(name):
+    """Baum-Scan, dessen glTF aus mehreren Netzen besteht (Stamm, Laub), zu einem Netz verbinden (D407)."""
+    o = scan_ordner(name)
+    pfad = os.path.join(o, next(f for f in os.listdir(o) if f.endswith('.gltf')))
+    vorher = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=pfad)
+    neu = [x for x in bpy.data.objects if x not in vorher]; netze = [x for x in neu if x.type == 'MESH']
+    with bpy.context.temp_override(active_object=netze[0], selected_objects=netze, selected_editable_objects=netze, object=netze[0]):
+        if len(netze) > 1: bpy.ops.object.join()
+    dz = netze[0].modifiers.new('Duenn', 'DECIMATE'); dz.ratio = float(os.environ.get('HAUS_BAUM2_ANTEIL', '0.3'))   # 3,9 Mio. Dreiecke sprengen den Grafikspeicher des M1
+    with bpy.context.temp_override(active_object=netze[0], object=netze[0], selected_objects=[netze[0]]):
+        bpy.ops.object.modifier_apply(modifier=dz.name)
+    me = netze[0].data; me.transform(netze[0].matrix_world)
+    for x in list(bpy.data.objects):
+        if x not in vorher: bpy.data.objects.remove(x)
+    co = np.zeros(len(me.vertices) * 3); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+    me.transform(Matrix.Translation((-(co[:, 0].min() + co[:, 0].max()) / 2, -(co[:, 1].min() + co[:, 1].max()) / 2, -co[:, 2].min())))
+    me['hoehe'] = float(co[:, 2].max() - co[:, 2].min())
+    scan_alpha(me, o)
+    print('HAUSFRAME Baum %s: %d Dreiecke, %.1f m' % (name, len(me.polygons), me['hoehe']))
+    return me
 
 
 def sammlung(name, meshes):
@@ -966,8 +1127,9 @@ def bau():
     # Zutaten in Holz: Schalung, angelehnte Haustür, Bretterstapel am Wandfuss
     extra = list(schalung)
     tb, th = G['TB'], G['TH']
+    lehn = math.radians(11)   # D408: Türblatt lehnt an der Giebelwand — Unterkante ganz am Boden, Oberkante an der Wand
     for i in range(5):   # Türblatt aus den Angeln, lehnt links neben der Öffnung
-        M = Matrix.Translation((-0.42, -tb / 2 - 0.75, th / 2 - 0.03)) @ Matrix.Rotation(math.radians(-17), 4, 'Y') @ Matrix.Rotation(math.radians(8), 4, 'X') @ Matrix.Translation((0, (i - 2) * tb / 5, 0))
+        M = Matrix.Translation((-0.05 - th / 2 * math.sin(lehn), -tb / 2 - 0.75, th / 2 * math.cos(lehn) - 0.03)) @ Matrix.Rotation(lehn, 4, 'Y') @ Matrix.Translation((0, (i - 2) * tb / 5, 0))
         extra.append((M, (0.045, tb / 5 - 0.006, th), rnd.random()))
     for i in range(9):   # abgefallene Bretter vor der Traufseite
         M = Matrix.Translation((rnd.uniform(LW, L_ - 1), -B_ / 2 - rnd.uniform(0.3, 1.6), 0.05 + 0.03 * i * 0.3)) @ Matrix.Rotation(rnd.uniform(-0.5, 0.5), 4, 'Z') @ Matrix.Rotation(rnd.uniform(-0.12, 0.12), 4, 'Y')
@@ -978,34 +1140,116 @@ def bau():
     putz_uv(ob['putz'], G, wm, hr)
     holz_uv(ob['holz_block'], 0.8, rnd, 0.25)
     holz_uv(ob['holz_brett'], 0.7, rnd, 1.1, 0.07)
+    if 'laeden' in ob: laden_aus_brettern(ob['laeden'], rnd, G)
     for n_ in ('rahmen', 'laeden'):
         if n_ in ob: holz_uv(ob[n_], 0.6, rnd, 0.6)
     for n_ in ('putz', 'stein', 'holz_block', 'holz_brett', 'rahmen', 'laeden', 'glas', 'dunkel'):
         if n_ in ob: verformen(ob[n_], sack)
-    mats = {'putz': mat_putz(maske), 'stein': mat_sockel(), 'holz_block': mat_holz('HolzBlock', G), 'holz_brett': mat_holz('HolzBrett', G, (0.13, 0.078, 0.048), None, 1.2, 0.008),
-            'rahmen': mat_holz('HolzRahmen', G, (0.16, 0.12, 0.09), (0.78, 0.76, 0.70), 0.5, 0.004), 'laeden': mat_holz('HolzLaden', G, (0.12, 0.09, 0.06), (0.075, 0.20, 0.10), 0.5, 0.004),
+    tor = next(o for o in G['OEFF']['sued']['eg'] if o[4] == 'tor')
+    # Befall (D409): kommt über den Hof auf den Wohngiebel zu — dort sehen ihn Haupt- und Nahkamera. Am Tennentor (vorher)
+    # verdeckten Hangkante und Bäume den Wandfuss.
+    SPUR = (Vector((-8.5, -10.5, 0)), Vector((-0.45, -3.0, 0)))   # Weg des Befalls über den Hof zur Giebelwand
+    herd = (0.0, SPUR[1].y, 2.3)   # Front am Wandfuss: Mitte und Wirkradius der Bleiche
+    mats = {'putz': mat_putz(maske), 'stein': mat_sockel(), 'holz_block': mat_holz('HolzBlock', G, bleich=herd), 'holz_brett': mat_holz('HolzBrett', G, (0.13, 0.078, 0.048), None, 1.2, 0.008, bleich=herd),
+            'rahmen': mat_holz('HolzRahmen', G, (0.16, 0.12, 0.09), (0.78, 0.76, 0.70), 0.5, 0.006, 0.42), 'laeden': mat_holz('HolzLaden', G, (0.12, 0.09, 0.06), (0.075, 0.20, 0.10), 0.5, 0.007),
             'glas': mat_glas(), 'dunkel': mat_einfach('Dunkel', (0.006, 0.005, 0.005), 1.0)}
     for n_, mt in mats.items():
         if n_ in ob: ob[n_].data.materials.clear(); ob[n_].data.materials.append(mt)
     dach.data.materials.append(mat_dach())
     sol = dach.modifiers.new('Dicke', 'SOLIDIFY'); sol.thickness = 0.03; sol.offset = -1.0
-    for n_, px_ in (('putz', 1.5), ('stein', 2.5), ('holz_block', 3.0), ('holz_brett', 4.0)):   # Pixel je Mikrodreieck: feiner sprengt den Speicher (15 GiB)
-        if n_ in ob: adaptiv(ob[n_], px_)
+    for n_, px_, fs_ in (('putz', 1.5, 0), ('stein', 2.5, 0), ('holz_block', 3.0, 0.009), ('holz_brett', 4.0, 0.003), ('rahmen', 3.0, 0.004), ('laeden', 3.0, 0.003)):   # Pixel je Mikrodreieck: feiner sprengt den Speicher (15 GiB)
+        if n_ in ob: adaptiv(ob[n_], px_, False, fs_)
     adaptiv(dach, 1.5)
     haus = [o for o in ob.values()] + [dach]
     blatt = efeublatt()
     haus += efeu(G, rnd, blatt)
-    # Befall: wenige Punkte der Signalfarbe im dunklen Tennentor (Pass-Index 7)
-    tor = next(o for o in G['OEFF']['sued']['eg'] if o[4] == 'tor')
-    mb = mat_einfach('Befall', (0.02, 0.03, 0.03), 0.5, SIGNAL, 14.0)
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1); kugel = bpy.context.object.data; bpy.data.objects.remove(bpy.context.object); kugel.materials.append(mb)
-    for _ in range(26):
-        o = bpy.data.objects.new('Befall', kugel); sc.collection.objects.link(o); r = rnd.uniform(0.018, 0.05)
-        seite = rnd.choice((tor[0] + rnd.uniform(0.1, 0.5), tor[1] - rnd.uniform(0.1, 0.5), rnd.uniform(tor[0], tor[1])))
-        o.scale = (r, r, r * 0.7); o.location = (seite, -B_ / 2 + rnd.uniform(-0.5, 0.5), abs(rnd.gauss(0, 0.45)) + 0.03); o.pass_index = 7
-        haus.append(o)
-    bl = bpy.data.lights.new('Befallschein', 'POINT'); bl.color = SIGNAL; bl.energy = 40.0; bl.shadow_soft_size = 0.4
-    bo = bpy.data.objects.new('Befallschein', bl); sc.collection.objects.link(bo); bo.location = ((tor[0] + tor[1]) / 2, -B_ / 2 + 0.3, 0.5); haus.append(bo)
+    # D409: Der Befall ist Biotechnik, die arbeitet (Story-Bibel §1: Bodensanierung) — ein Geflecht, das aus dem Boden
+    # kommt, über die Schwelle kriecht und am Wandfuss hochwächst. Der Körper ist bleich und leuchtet nicht; nur die
+    # wachsenden Spitzen glimmen in der Signalfarbe (Pass-Index 7). Holz am Herd ist ausgebleicht (`mat_holz` `bleich`),
+    # der Boden darum kahl (`d_*` weiter unten).
+    # Die Fäden leben (Flo 22.11.2026: „lumineszierender und lebendiger“): hinten alt, grau und fast dunkel; zur Front
+    # hin leuchten sie von innen, in unregelmässigen Abschnitten heller — als wandere etwas durch sie hindurch.
+    mg, kg, bg, _ = neues_material('Geflecht', False)
+    go_ = kg.n('ShaderNodeTexCoord').outputs['Object']; gx, gy, gz = kg.xyz(go_)
+    ach_ = SPUR[1] - SPUR[0]
+    t_s = kg.math('DIVIDE', kg.math('ADD', kg.math('MULTIPLY', kg.math('SUBTRACT', gx, SPUR[0].x), ach_.x), kg.math('MULTIPLY', kg.math('SUBTRACT', gy, SPUR[0].y), ach_.y)), ach_.length_squared)
+    jung = kg.bereich(t_s, 0.25, 0.95, weich=True)
+    puls = kg.bereich(kg.rauschen(go_, 6.5, 2, 0.5), 0.54, 0.70, weich=True)
+    ader = kg.bereich(kg.rauschen(go_, 38.0, 1, 0.3), 0.35, 0.7)
+    kraft = kg.math('MULTIPLY', jung, kg.math('ADD', 0.05, kg.math('MULTIPLY', kg.math('MULTIPLY', puls, ader), float(os.environ.get('HAUS_BEFALL_LICHT', '1.3')))))
+    kg.setze(bg.inputs['Base Color'], kg.mix(jung, (0.17, 0.175, 0.15), (0.10, 0.17, 0.19)))
+    bg.inputs['Roughness'].default_value = 0.45
+    bg.inputs['Emission Color'].default_value = (*SIGNAL, 1); kg.setze(bg.inputs['Emission Strength'], kraft)
+    mb = mat_einfach('Befall', (0.02, 0.05, 0.06), 0.3, SIGNAL, 2.6)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=1); kugel = bpy.context.object.data; bpy.data.objects.remove(bpy.context.object); kugel.materials.append(mb)
+    DICHT = int(os.environ.get('HAUS_BEFALL', '60'))   # Stränge im Band (Flo 22.11.2026: dichter; vorher 30)
+    cu = bpy.data.curves.new('Geflecht', 'CURVE'); cu.dimensions = '3D'; cu.bevel_depth = 1.0; cu.bevel_resolution = 1; cu.use_fill_caps = True
+    cu.materials.append(mg)
+    # Gerechnet wird in Wandkoordinaten (u längs der Giebelwand, n Abstand davor ≤ 0, z); `haus_k` tauscht u/n zurück.
+    ya = -0.075; oeff = (-G['TB'] / 2 - 0.1, G['TB'] / 2 + 0.1); spitzen = []   # Haustür: dort gibt es keine Wand
+    haus_k = lambda v_: Vector((v_.y, v_.x, v_.z)); spur_w = (haus_k(SPUR[0]), haus_k(SPUR[1]))
+
+    def strang(ort, richt, radius, wand, tiefe=0, frisch=True):
+        pts = [(ort.copy(), radius)]; schritte = rnd.randint(14, 44) if tiefe == 0 else rnd.randint(6, 20)
+        for i_ in range(schritte):
+            richt = (richt + Vector((rnd.gauss(0, 0.33), rnd.gauss(0, 0.33) * (0 if wand else 1), rnd.gauss(0, 0.33) * (1 if wand else 0)))).normalized()
+            ort = ort + richt * 0.045
+            offen = oeff[0] < ort.x < oeff[1]   # in der Toröffnung gibt es keine Wand
+            if wand:
+                ort.y = ya - 0.002 * tiefe; ort.z = max(ort.z, 0.01)
+                if offen: ort.x = oeff[0] if ort.x - oeff[0] < oeff[1] - ort.x else oeff[1]; richt.x = 0.0
+            else:
+                ort.z = 0.012 + 0.003 * tiefe
+                if ort.y > ya - 0.05 and not offen:   # an der Wand angekommen: wächst dort hoch (durch das offene Tor kriecht es weiter)
+                    wand = True; richt = Vector((richt.x * 0.5, 0, 1)).normalized()
+            if wand and ort.z > 0.85: break   # bleibt unter den Fensterbänken
+            r_ = radius * (1 - 0.8 * (i_ + 1) / schritte)
+            pts.append((ort.copy(), r_))
+            if tiefe < 3 and rnd.random() < 0.13:
+                quer = Vector((-richt.z, 0, richt.x)) if wand else Vector((-richt.y, richt.x, 0))
+                strang(ort.copy(), (richt + quer * rnd.choice((-1, 1)) * rnd.uniform(0.5, 1.2)).normalized(), r_ * 0.7, wand, tiefe + 1, frisch)
+        sp = cu.splines.new('POLY'); sp.points.add(len(pts) - 1)
+        for q, (o_, r_) in zip(sp.points, pts): q.co = (*haus_k(o_), 1); q.radius = r_
+        if (frisch or wand) and rnd.random() < 0.09: spitzen.append((haus_k(pts[-1][0]), max(pts[-1][1] * 1.6, 0.004)))   # nur die Front glimmt, alte Stränge sind tot
+
+    # Ausbreitung (Flo 22.11.2026: „es sollte schon was sein, was sich ausbreitet“): ein Band kommt von aussen über den
+    # Hof auf das Tor zu. Hinten alt — dicke, tote Stränge ohne Glimmen; vorn an der Schwelle die Front — dünn, frisch.
+    for i_ in range(DICHT):
+        t_ = ((i_ + rnd.random()) / DICHT) ** 0.75   # zur Front hin dichter
+        achse = spur_w[1] - spur_w[0]; quer_ = Vector((-achse.y, achse.x, 0)).normalized()
+        start = spur_w[0] + achse * t_ + quer_ * rnd.gauss(0, 0.32 + 0.25 * t_); start.z = 0.012
+        strang(start, (achse.normalized() + quer_ * rnd.gauss(0, 0.5)).normalized(), 0.017 - 0.010 * t_, False, 0, t_ > 0.6)
+    for _ in range(DICHT // 3):   # am Wandfuss hoch, um die Stelle, an der das Band ankommt
+        strang(Vector((spur_w[1].x + rnd.gauss(0, 0.8), ya, 0.02)), Vector((rnd.uniform(-0.4, 0.4), 0, 1)).normalized(), rnd.uniform(0.006, 0.011), True)
+    go = bpy.data.objects.new('Geflecht', cu); sc.collection.objects.link(go); haus.append(go)
+    glimmer = []
+    for ort, r in spitzen:
+        o = bpy.data.objects.new('Befall', kugel); sc.collection.objects.link(o); haus.append(o); o.pass_index = 7
+        o.location = ort; o.scale = (r, r, r); glimmer.append(o)
+    # Spur am Boden: wo das Geflecht durchgezogen ist, ist der Boden ausgelaugt — ein fahles, kühles Band, das auch aus
+    # der Ferne lesbar bleibt, wenn die Stränge selbst unter die Pixelgrösse fallen. Fleckig über Rauschen, Ränder weich.
+    bm = bmesh.new(); ach = SPUR[1] - SPUR[0]; qu = Vector((-ach.y, ach.x, 0)).normalized(); nl, nq = 40, 10
+    gitter = [[bm.verts.new(SPUR[0] + ach * (i_ / nl * 1.04) + qu * ((j_ / nq - 0.5) * 2 * (1.0 + 0.9 * i_ / nl)) + Vector((0, 0, 0.02))) for j_ in range(nq + 1)] for i_ in range(nl + 1)]
+    uvl = bm.loops.layers.uv.new('UVMap')
+    for i_ in range(nl):
+        for j_ in range(nq):
+            f_ = bm.faces.new((gitter[i_][j_], gitter[i_ + 1][j_], gitter[i_ + 1][j_ + 1], gitter[i_][j_ + 1]))
+            for lp, (a_, b_2) in zip(f_.loops, ((i_, j_), (i_ + 1, j_), (i_ + 1, j_ + 1), (i_, j_ + 1))): lp[uvl].uv = (a_ / nl, b_2 / nq)
+    sme = bpy.data.meshes.new('Befallspur'); bm.to_mesh(sme); bm.free()
+    msp = bpy.data.materials.new('Befallspur'); msp.use_nodes = True; nt = msp.node_tree; nt.nodes.clear(); ks = K(nt)
+    aus_ = nt.nodes.new('ShaderNodeOutputMaterial'); pb = nt.nodes.new('ShaderNodeBsdfPrincipled'); tr = nt.nodes.new('ShaderNodeBsdfTransparent'); mx = nt.nodes.new('ShaderNodeMixShader')
+    pb.inputs['Base Color'].default_value = (0.30, 0.33, 0.32, 1); pb.inputs['Roughness'].default_value = 0.9
+    pb.inputs['Emission Color'].default_value = (*SIGNAL, 1); pb.inputs['Emission Strength'].default_value = 0.03
+    uvs = ks.xyz(ks.n('ShaderNodeUVMap').outputs['UV']); tco = ks.n('ShaderNodeTexCoord').outputs['Object']
+    rand_ = ks.math('MULTIPLY', ks.bereich(ks.math('ABSOLUTE', ks.math('SUBTRACT', uvs[1], 0.5)), 0.5, 0.18, weich=True), ks.math('MULTIPLY', ks.bereich(uvs[0], 0.0, 0.2, weich=True), ks.bereich(uvs[0], 1.0, 0.93)))
+    fleck = ks.bereich(ks.rauschen(tco, 3.0, 6, 0.75), 0.42, 0.66)
+    ks.setze(mx.inputs[0], ks.math('MULTIPLY', ks.math('MULTIPLY', rand_, fleck), 0.38))
+    nt.links.new(tr.outputs[0], mx.inputs[1]); nt.links.new(pb.outputs[0], mx.inputs[2]); nt.links.new(mx.outputs[0], aus_.inputs['Surface'])
+    sme.materials.append(msp); spur_o = bpy.data.objects.new('Befallspur', sme); sc.collection.objects.link(spur_o); haus.append(spur_o)
+    spur_o.visible_shadow = False
+    print('HAUSFRAME Geflecht %d Stränge' % len(cu.splines))
+    bl = bpy.data.lights.new('Befallschein', 'POINT'); bl.color = SIGNAL; bl.energy = 3.0; bl.shadow_soft_size = 0.3
+    bo = bpy.data.objects.new('Befallschein', bl); sc.collection.objects.link(bo); bo.location = (SPUR[1].x - 0.1, SPUR[1].y, 0.3); haus.append(bo)
 
     # Lage in der Welt: gespiegelt (y → −y), gedreht, auf den Grundriss von 708 gesetzt
     dvek = Vector((math.cos(HOF_WINKEL), math.sin(HOF_WINKEL), 0))
@@ -1030,6 +1274,8 @@ def bau():
     kam = {'haus': kamera('KameraHaus', kp, hw(9.5, -1.0, 3.4), 30)}
     np_ = boden(-5.2, -B_ / 2 - 1.2); np_.z += 1.55
     kam['nah'] = kamera('KameraNah', np_, hw(0.0, -B_ / 2 + 2.6, 1.75), 35)
+    tp_ = boden(-3.6, -6.6); tp_.z += 1.05
+    kam['befall'] = kamera('KameraBefall', tp_, hw(-0.3, -3.2, 0.3), 35)   # D409: Befall aus der Nähe
     print('HAUSFRAME Kamera', tuple(round(x, 2) for x in kp), 'über Terrasse %.2f m' % (kp.z - pad))
 
     # Trittweg: von der Kamera zur Haustür und weiter zum Tennentor
@@ -1045,6 +1291,14 @@ def bau():
     gel.co[:, 2] -= 0.07 * weich(0.2, 1.0, weg)
     gel.co[:, 2] += (n2d - 0.5) * 0.10 * weich(0.5, 4.0, gel.d_haus)       # Buckel im Hofraum
     gel.schreiben()
+    # D409: Befall auf das Gelände setzen — der Hof ist nicht eben, das Geflecht wurde bei z ≈ 0 gebaut
+    def auf_boden(x, y): return gel.hoehe(*hw(x, y).xy) - hw(x, y, 0.0).z
+    for sp in go.data.splines:
+        for q in sp.points:
+            if q.co.z < 0.04: q.co.z += auf_boden(q.co.x, q.co.y)
+    for o in glimmer:
+        if o.location.z < 0.04: o.location.z += auf_boden(o.location.x, o.location.y)
+    for v_ in spur_o.data.vertices: v_.co.z += auf_boden(v_.co.x, v_.co.y)
     dkam = np.hypot(gel.co[:, 0] - kp.x, gel.co[:, 1] - kp.y)
     dmit = np.hypot(gel.co[:, 0] - hw(L_ / 2, 0).x, gel.co[:, 1] - hw(L_ / 2, 0).y)
     nah = 1 - weich(55.0, 85.0, dmit)
@@ -1065,11 +1319,19 @@ def bau():
     entlang = gel.hx * sh.x + gel.hy * sh.y; quer = np.abs(gel.hx * sh.y - gel.hy * sh.x)
     gasse = (entlang > -5) & (quer < 18 + 0.2 * np.maximum(entlang, 0))
     reich = (1 - weich(40.0, 75.0, dkam)) * keil
+    sa, sb = SPUR[0], SPUR[1] - SPUR[0]; st = np.clip(((gel.hx - sa.x) * sb.x + (gel.hy - sa.y) * sb.y) / sb.length_squared, 0, 1)
+    kahl = weich(0.7, 2.0 + 0.8 * st, np.hypot(gel.hx - sa.x - st * sb.x, gel.hy - sa.y - st * sb.y))   # D409: entlang der Spur des Befalls wächst nichts, am Tor breiter
+    frei = frei * kahl; hoch = hoch * kahl
     attribut(ter, 'd_gras', frei * reich * (0.35 + 0.65 * (1 - klump)) * (1 - 0.6 * wandfuss))
     attribut(ter, 'd_nessel', hoch * reich * np.clip(wandfuss * 1.4 + 1.0 * weich(0.62, 0.8, n2e) * weich(0.4, 0.7, n2d), 0, 1.5))
     attribut(ter, 'd_staude', hoch * reich * np.clip(0.9 * weich(0.58, 0.8, 1 - n2e) * weich(0.5, 0.75, n2d) + 0.4 * wandfuss, 0, 1.3))
     attribut(ter, 'd_strauch', hoch * reich * weich(0.6, 0.85, n2e) * weich(1.5, 4.0, gel.d_haus) * (dkam > 7.0))
-    attribut(ter, 'd_wald', wald * (gel.d_haus > 22) * (dkam > 14) * (~gasse))
+    # Sichtschneise (D408): links am Wirtschaftsteil vorbei bleibt der Blick ins Tal frei — dort staffeln sich die
+    # Waldränder des Talbodens und der Höhenzug dahinter im Dunst. Winkel um die Kamera in Hauskoordinaten.
+    def schneise(hx, hy):
+        w_ = np.degrees(np.arctan2(hy + 17.5, hx + 16.0)); d_ = np.hypot(hx + 16.0, hy + 17.5)
+        return (w_ > SCHNEISE[0]) & (w_ < SCHNEISE[1]) & (d_ < SCHNEISE[2])
+    attribut(ter, 'd_wald', wald * (gel.d_haus > 22) * (dkam > 14) * (~gasse) * (~schneise(gel.hx, gel.hy)))
     attribut(ter, 'streu', np.clip(0.25 + 0.6 * wandfuss + 0.5 * klump, 0, 1))
     ter.data.materials.clear(); ter.data.materials.append(mat_gelaende())
     adaptiv(ter, 3.0, True)
@@ -1077,7 +1339,8 @@ def bau():
     fern = obj_laden(os.path.join(objdir, 'fern_terrain.obj'), 'fern_terrain'); loch(fern, 159.5)
     fern.data.materials.clear(); fern.data.materials.append(mat_fern())
     fco = koord(fern); fcol = np.zeros(len(fco) * 4, np.float32); fern.data.attributes['Color'].data.foreach_get('color', fcol); fcol = fcol.reshape(-1, 4)
-    attribut(fern, 'd_wald', (fcol[:, 1] < 0.45) * (np.hypot(fco[:, 0], fco[:, 1]) < 750))
+    fh = np.c_[fco[:, 0], fco[:, 1], np.zeros(len(fco)), np.ones(len(fco))] @ np.array(M.inverted()).T
+    attribut(fern, 'd_wald', (fcol[:, 1] < 0.45) * (np.hypot(fco[:, 0], fco[:, 1]) < 750) * (~schneise(fh[:, 0], fh[:, 1])))
     h0 = json.load(open(os.path.join(objdir, 'terrain.json')))['h0']
     weit = weitblick(h0); weit.data.materials.append(mat_fern())
     wco = koord(weit); wf = weit.data.attributes.new('Color', 'FLOAT_COLOR', 'POINT')
@@ -1101,17 +1364,20 @@ def bau():
         # Mittelgrund als Klumpen auf kahlen Stangen (Probelauf) — hier stehen deshalb skalierte Scan-Bäume. Ein Laubbaum-Scan
         # in vielen Grössen statt mehrerer Arten: jeder weitere Scan kostet ~1 GiB, die Maschine hat 16 für alle.
         isl1 = scan_modelle('island_tree_01'); isl2 = scan_modelle('island_tree_02'); jung = isl1; tanne = scan_modelle('fir_sapling_medium')[1:]   # zwei der drei Tannen genügen (Speicher)
-        col_l = sammlung('S_laubwald', isl1); col_n = sammlung('S_nadelwald', tanne)
+        zweit = scan_baum('jacaranda_tree') if 'zweitbaum' not in OHNE else isl1[0]   # zweiter Laubbaum-Scan (D378/D407)
+        if zweit is not isl1[0]:   # auf die Höhe des ersten Scans bringen: die Streuung skaliert beide mit denselben Faktoren
+            fz = isl1[0]['hoehe'] / zweit['hoehe']; zweit.transform(Matrix.Diagonal((fz, fz, fz, 1))); zweit['hoehe'] = isl1[0]['hoehe']
+        col_l = sammlung('S_laubwald', isl1 + [zweit]); col_n = sammlung('S_nadelwald', tanne)
         for traeger, dichte, saat in ((ter, 0.010, 21), (fern, 0.008, 22)):
             for col, anteil, smin, smax in ((col_l, 0.45, 2.6, 4.4), (col_n, 0.55, 2.0, 3.4)):
                 o = bpy.data.objects.new('Wald_%s_%s' % (traeger.name, col.name), traeger.data); sc.collection.objects.link(o)
                 mod = o.modifiers.new('Wald', 'NODES'); mod.node_group = streu_gn('GN_%s_%s' % (col.name, traeger.name), col, 'd_wald', dichte * anteil, smin, smax, saat + len(col.name), 0.04)
         b_ = lambda x, y, tief=0.15: boden(x, y) - Vector((0, 0, tief))
         # Baumcharaktere: wenige, mit Masse
-        setze(isl1[0], 'Linde', b_(4.0, 16.5, 0.5), hoehe=17.0, rot=0.6, rnd=rnd)                      # alte Hoflinde hinter dem Giebel, neben der Sonnenbahn
+        setze(zweit, 'Linde', b_(4.0, 16.5, 0.5), hoehe=17.0, rot=0.6, rnd=rnd)                      # alte Hoflinde hinter dem Giebel, neben der Sonnenbahn
         setze(jung[0], 'Schattenbaum', b_(-11.0, 13.0, 0.2), hoehe=12.5, rot=1.1, rnd=rnd)             # in der Sonnengasse: Lichtflecken statt Flächenlicht auf dem Giebel
         setze(isl1[0], 'Rueckenbaum', b_(-25.0, 0.0, 0.4), hoehe=14.0, rot=3.3, rnd=rnd)              # hinter der Kamera zur Sonne: legt den Vordergrund in Schatten (Rahmen)
-        setze(jung[0], 'Hofbaum', b_(L_ + 5.0, -B_ / 2 - 8.0, 0.3), hoehe=19.0, rot=2.2, rnd=rnd)      # hinter dem Wirtschaftsteil
+        setze(zweit, 'Hofbaum', b_(L_ + 7.0, 9.0, 0.3), hoehe=19.0, rot=2.2, rnd=rnd)      # hinter dem Wirtschaftsteil
         setze(isl1[0], 'Obstbaum', b_(17.0, -B_ / 2 - 8.5), hoehe=5.6, rot=2.1, rnd=rnd)               # Obstbaum im Hofraum
         setze(isl2[0], 'Rahmenbaum', b_(-8.4, -19.0, 0.75), hoehe=float(os.environ.get('HAUS_RAHMEN_H', '7.5')), rot=float(os.environ.get('HAUS_RAHMEN_ROT', '4.2')), rnd=rnd)   # rahmt, Äste über dem Bild
         for i, (x, y, h_) in enumerate(((2.5, -B_ / 2 - 1.3, 3.2), (9.0, -B_ / 2 - 2.2, 4.6), (LW + 1.0, -B_ / 2 - 1.0, 2.2), (-2.2, -B_ / 2 - 2.6, 2.6), (L_ - 4, -B_ / 2 - 3, 6.5),
@@ -1155,6 +1421,7 @@ def bau():
     Gz = dict(G); Gz['X0'] = 1e4; Gz['X1'] = -1e4   # im Freien: immer bewittert
     zaun_me.materials.append(mat_holz('HolzZaun', Gz, moos=1.5)); adaptiv(zaun, 3.0)
 
+    print('HAUSFRAME Alpha-Karten eingehängt:', len(ALPHA_GEZAEHLT), sorted(ALPHA_GEZAEHLT)[:6])
     himmel()
     mitte = hw(L_ / 2, 0)
     if 'dunst' not in OHNE:
@@ -1163,6 +1430,14 @@ def bau():
         dunst('Hofdunst', (mitte.x, mitte.y), 150.0, pad - 8.0, pad + 26.0, 0.0026, 12.0, (1.0, 0.88, 0.70), 0.5)
 
     sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
+    if os.environ.get('BRACHLAND_CPU') != '1':   # D405: am M1 Metal-GPU (Übergabe D377), in der Cloud `BRACHLAND_CPU=1`
+        try:
+            prefs = bpy.context.preferences.addons['cycles'].preferences
+            prefs.compute_device_type = 'METAL'; prefs.get_devices()
+            for d in prefs.devices: d.use = True
+            if any(d.type == 'METAL' for d in prefs.devices): sc.cycles.device = 'GPU'
+        except Exception as e: print('GPU', e)
+    print('GERAET', sc.cycles.device)
     sc.cycles.samples = samples; sc.cycles.use_adaptive_sampling = True; sc.cycles.adaptive_threshold = 0.025
     sc.cycles.use_denoising = True; sc.cycles.denoiser = 'OPENIMAGEDENOISE'
     sc.cycles.max_bounces = 5; sc.cycles.diffuse_bounces = 2; sc.cycles.glossy_bounces = 1
@@ -1240,7 +1515,7 @@ def stil():
     roh = os.environ.get('HAUS_ROH') == '1'
     # Luftschichten: Dunst als Bodenschicht in der Farbe des Himmels zur Sonne. Menge = 1 − exp(−Weg/Reichweite · Höhenfaktor),
     # Höhenfaktor fällt mit der Höhe des getroffenen Punkts über dem Hof (Pass Position) — das Tal säuft ab, Grate bleiben stehen.
-    z0 = float(os.environ.get('HAUS_BODEN', '0.42')); reichweite = float(os.environ.get('HAUS_SICHT', '1100'))
+    z0 = float(os.environ.get('HAUS_BODEN', '0.42')); reichweite = float(os.environ.get('HAUS_SICHT', '450'))
     tiefe = so['Depth']; pz = g.nodes.new('ShaderNodeSeparateXYZ'); V(so['Position'], pz.inputs[0])
     def rechne(op, a, b=None):
         n_ = g.nodes.new('ShaderNodeMath'); n_.operation = op
@@ -1258,7 +1533,7 @@ def stil():
     except Exception as e: print('Blur', e)
     menge = wm_.outputs[0]
     dunstfarbe = tuple(float(x) for x in os.environ.get('HAUS_DUNST', '0.58,0.47,0.35').split(','))
-    luft = mix(farbe, dunstfarbe, rechne('MULTIPLY', menge, 0.96))
+    luft = mix(farbe, dunstfarbe, rechne('MULTIPLY', menge, float(os.environ.get('HAUS_DUNSTMAX', '0.85'))))
     gr = g.nodes.new('ShaderNodeMapRange'); V(nebel, gr.inputs[0])
     gr.inputs[1].default_value = 0.08; gr.inputs[2].default_value = 0.60; gr.inputs[3].default_value = 0.0; gr.inputs[4].default_value = 9.0 * skala; gr.clamp = True
     kw = knoten('CompositorNodeKuwahara', Uniformity=4, Sharpness=0.6, Eccentricity=0.9); kw.inputs['Type'].default_value = 'Anisotropic'
@@ -1267,9 +1542,9 @@ def stil():
     # Befall: Maske (Pass-Index 7) weich aufgeblasen, in der Signalfarbe addiert
     idm = g.nodes.new('CompositorNodeIDMask'); V(index, idm.inputs[0]); idm.inputs['Index'].default_value = 7
     bl = knoten('CompositorNodeBlur'); V(idm.outputs[0], bl.inputs['Image'])
-    try: bl.inputs['Size'].default_value = (14 * skala, 14 * skala)
+    try: bl.inputs['Size'].default_value = (6 * skala, 6 * skala)   # D409: enger Schein, kein Fleck
     except Exception as e: print('Blur', e)
-    schein = mix((0, 0, 0), tuple(x * 2.5 for x in SIGNAL), bl.outputs[0])
+    schein = mix((0, 0, 0), tuple(x * 1.0 for x in SIGNAL), bl.outputs[0])
     pinsel = mix(pinsel, schein, 1.0, 'ADD')
     bel = g.nodes.new('CompositorNodeExposure'); bel.inputs['Exposure'].default_value = ev; V(pinsel, bel.inputs['Image'])
     gl = knoten('CompositorNodeGlare', Threshold=2.5, Strength=0.25, Size=0.8); gl.inputs['Type'].default_value = 'Bloom'
