@@ -4,17 +4,31 @@ BRACHLAND — Stil-Frames (D369): dieselbe Einstellung der Felsmulde (Zielbild, 
     # 1) Szene bauen und einmal rendern, Pässe als Multilayer-EXR (Bild, Tiefe, Normale, Nebel, Objektindex):
     blender --background --python tools/stilframes.py -- render <objdir> <aus.exr> [breite hoehe samples]
     # 2) Stil im Compositor aus demselben EXR (schnell, keine Szene):
-    blender --background --factory-startup --python tools/stilframes.py -- stil <ein.exr> <roh|gemalt|grafisch|reduziert> <aus.png> [breite hoehe]
+    blender --background --factory-startup --python tools/stilframes.py -- stil <ein.exr> <roh|gemalt|grafisch|reduziert|aframe> <aus.png> [breite hoehe]
 
 Ein Render, drei Stile: der Vergleich zeigt nur den Stil, nicht Unterschiede in Geometrie oder Licht. Grundlage ist
 `tools/szenenbau.py` (Terrain aus `tools/terrainexport.ts`, Motive prozedural). Befall-Punkte in der Signalfarbe
 (`palette.ts` befall.signal) liegen am Mauerfuss, weil die Art Direction genau eine Signalfarbe für Befall vorsieht.
+
+A-Frame (D371, ADR-0018 „Substanz real, Darstellung gemalt“): dieselbe Felsmulde, aber mit realer Substanz —
+
+    # 3) A-Frame: Szene mit Scans, Spielbäumen und gestaltetem Licht, je Kamera ein Multilayer-EXR:
+    blender --background --python tools/stilframes.py -- aframe <objdir> <aus-praefix> [breite hoehe samples kameras]
+    #    kameras = bogen,nah (bogen = Einstellung aus D369, nah = Becken und Platten in der Lichtbahn des Bogens)
+    # 4) Darstellung: Pinselflächen nach Tiefe gewichtet (nah lesbar, fern Flächen), Tonkurve, Bloom:
+    blender --background --factory-startup --python tools/stilframes.py -- stil <ein.exr> aframe <aus.png> [breite hoehe]
+
+Scans (Poly Haven, CC0) liegen nicht im Repo, sondern unter `.cache/cc0/<name>/` (Umgebung `BRACHLAND_CC0` oder
+der nächste Elternordner mit `.cache/cc0`); welche, steht im Ledger D371. Die Bäume sind die Spielbäume
+(`public/props/baum-*-nah|mittel.glb`, Rinde `public/material/rinde-*`), damit das Zielbild zeigt, was das Spiel zeigt.
 """
-import bpy, sys, os, math, random
+import bpy, bmesh, sys, os, math, random, json
+from mathutils import Vector, Matrix, Euler, noise
 
 ARGS = sys.argv[sys.argv.index('--') + 1:]
 MODUS = ARGS[0]
 SIGNAL = (0.62, 0.81, 0.89)   # '#cfe9f2' linear grob
+AFRAME_EV = float(os.environ.get('AFRAME_EV', '0.2'))   # Belichtung im Stil aframe (EV), die Anzeige-Belichtung ist im Compositor fest
 
 
 def befall(zt):
@@ -63,6 +77,704 @@ def render():
         sc.render.image_settings.file_format = 'OPEN_EXR_MULTILAYER'; sc.render.image_settings.color_depth = '16'
         sc.render.filepath = os.path.abspath(aus)
         bpy.ops.render.render(write_still=True)
+    sb.rendern = rendern
+    sb.bauen()
+
+
+# =====================================================================================================================
+# A-Frame (D371): reale Substanz
+# =====================================================================================================================
+HIER = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(HIER)
+
+
+def cc0_ordner():
+    """Scans liegen ausserhalb des Repos (gross, nicht versioniert): `BRACHLAND_CC0` oder der nächste `.cache/cc0`
+    aufwärts — so findet ein Worktree unter `.claude/worktrees/` den Cache des Haupt-Repos."""
+    if os.environ.get('BRACHLAND_CC0'):
+        return os.environ['BRACHLAND_CC0']
+    p = REPO
+    while True:
+        k = os.path.join(p, '.cache', 'cc0')
+        if os.path.isdir(k): return k
+        if os.path.dirname(p) == p: raise SystemExit('kein .cache/cc0 gefunden — Scans laden (Ledger D371)')
+        p = os.path.dirname(p)
+
+
+def scan(name, karte):
+    """Pfad einer Scan-Karte: `.cache/cc0/<name>/<name>_<karte>_2k.jpg` (Poly-Haven-Namensschema)."""
+    o = os.path.join(cc0_ordner(), name)
+    for f in sorted(os.listdir(o)):
+        if f.startswith(name + '_' + karte) and f.endswith('.jpg'): return os.path.join(o, f)
+    raise SystemExit('Karte fehlt: %s %s' % (name, karte))
+
+
+def bild(pfad, farbe=True, packung=False):
+    im = bpy.data.images.load(pfad, check_existing=True)
+    if not farbe: im.colorspace_settings.name = 'Non-Color'
+    if packung: im.alpha_mode = 'CHANNEL_PACKED'   # Alpha trägt Höhe/Rauheit, keine Deckkraft
+    return im
+
+
+def N(nt, typ, ort=(0, 0), **eing):
+    n = nt.nodes.new(typ); n.location = ort
+    for k, v in eing.items():
+        if k in n.inputs: n.inputs[k].default_value = v
+        else: setattr(n, k, v)
+    return n
+
+
+def L(nt, a, b):
+    nt.links.new(a, b)
+
+
+def kachel(nt, vec, pfad, farbe=True, ort=(0, 0), blend=0.3, packung=False):
+    """Bildtextur mit Box-Projektion (keine UV nötig: Steine, Bäume und Boden haben keine)."""
+    t = N(nt, 'ShaderNodeTexImage', ort); t.image = bild(pfad, farbe, packung)
+    t.projection = 'BOX'; t.projection_blend = blend; t.interpolation = 'Cubic'
+    L(nt, vec, t.inputs['Vector'])
+    return t
+
+
+def neues_material(name):
+    m = bpy.data.materials.new(name); m.use_nodes = True; nt = m.node_tree; nt.nodes.clear()
+    out = N(nt, 'ShaderNodeOutputMaterial', (1400, 0))
+    return m, nt, out
+
+
+def mat_stein_scan(name, art='mossy_rock', skala=1.4, versatz=0.035, moos=1.0, hell=1.0, moos_oben=0.55):
+    """Feldstein aus dem Scan: Farbe, Rauheit und Höhe (echte Verschiebung, adaptive Unterteilung) je Stein
+    versetzt (Random per Island), damit kein Stein den Nachbarn wiederholt. Kanten abgenutzt (heller, aus Bevel
+    gegen Normale), Moos oben und in den Höhlungen (AO lokal) — dort, wo Wasser steht und Erde liegt."""
+    m, nt, out = neues_material(name)
+    m.displacement_method = 'BOTH'
+    tc = N(nt, 'ShaderNodeTexCoord', (-1800, 0)); geo = N(nt, 'ShaderNodeNewGeometry', (-1800, -300))
+    komb = N(nt, 'ShaderNodeCombineXYZ', (-1700, -200)); L(nt, geo.outputs['Random Per Island'], komb.inputs['X'])
+    m2 = N(nt, 'ShaderNodeMath', (-1800, -150), operation='MULTIPLY', ); m2.inputs[1].default_value = 7.3; L(nt, geo.outputs['Random Per Island'], m2.inputs[0]); L(nt, m2.outputs[0], komb.inputs['Y'])
+    m3 = N(nt, 'ShaderNodeMath', (-1800, -100), operation='MULTIPLY', ); m3.inputs[1].default_value = 3.1; L(nt, geo.outputs['Random Per Island'], m3.inputs[0]); L(nt, m3.outputs[0], komb.inputs['Z'])
+    sk = N(nt, 'ShaderNodeVectorMath', (-1550, -150), operation='SCALE'); sk.inputs['Scale'].default_value = 13.0; L(nt, komb.outputs[0], sk.inputs[0])
+    mp = N(nt, 'ShaderNodeMapping', (-1400, 0)); mp.inputs['Scale'].default_value = (1 / skala,) * 3
+    L(nt, tc.outputs['Object'], mp.inputs['Vector']); L(nt, sk.outputs[0], mp.inputs['Location'])
+    dif = kachel(nt, mp.outputs[0], scan(art, 'diff'), True, (-1100, 300))
+    rau = kachel(nt, mp.outputs[0], scan(art, 'rough'), False, (-1100, 0))
+    hoe = kachel(nt, mp.outputs[0], scan(art, 'disp'), False, (-1100, -300))
+    # Farbvarianz je Stein: Helligkeit ±15 %, Ton leicht wärmer/kühler
+    hs = N(nt, 'ShaderNodeHueSaturation', (-800, 300)); L(nt, dif.outputs['Color'], hs.inputs['Color'])
+    mr = N(nt, 'ShaderNodeMapRange', (-1000, 500)); mr.inputs['To Min'].default_value = 0.82 * hell; mr.inputs['To Max'].default_value = 1.12 * hell
+    L(nt, geo.outputs['Random Per Island'], mr.inputs['Value']); L(nt, mr.outputs[0], hs.inputs['Value'])
+    mh = N(nt, 'ShaderNodeMapRange', (-1000, 650)); mh.inputs['To Min'].default_value = 0.485; mh.inputs['To Max'].default_value = 0.515
+    L(nt, m3.outputs[0], mh.inputs['Value']); mh.inputs['From Max'].default_value = 3.1; L(nt, mh.outputs[0], hs.inputs['Hue'])
+    hs.inputs['Saturation'].default_value = 0.85
+    # Kantenabnutzung: Bevel-Normale weicht an Kanten von der Flächennormale ab
+    bev = N(nt, 'ShaderNodeBevel', (-1100, -600)); bev.inputs['Radius'].default_value = 0.035; bev.samples = 4
+    dot = N(nt, 'ShaderNodeVectorMath', (-900, -600), operation='DOT_PRODUCT'); L(nt, bev.outputs[0], dot.inputs[0]); L(nt, geo.outputs['Normal'], dot.inputs[1])
+    kante = N(nt, 'ShaderNodeMapRange', (-700, -600)); kante.inputs['From Min'].default_value = 0.985; kante.inputs['From Max'].default_value = 0.88
+    L(nt, dot.outputs['Value'], kante.inputs['Value'])
+    kn = N(nt, 'ShaderNodeTexNoise', (-900, -800)); kn.inputs['Scale'].default_value = 9.0; kn.inputs['Detail'].default_value = 4; L(nt, tc.outputs['Object'], kn.inputs['Vector'])
+    km = N(nt, 'ShaderNodeMath', (-500, -650), operation='MULTIPLY'); L(nt, kante.outputs[0], km.inputs[0])
+    kr = N(nt, 'ShaderNodeMapRange', (-700, -800)); kr.inputs['From Min'].default_value = 0.4; kr.inputs['From Max'].default_value = 0.6; L(nt, kn.outputs['Fac'], kr.inputs['Value']); L(nt, kr.outputs[0], km.inputs[1])
+    hellk = N(nt, 'ShaderNodeMix', (-500, 300), data_type='RGBA', blend_type='SCREEN'); L(nt, km.outputs[0], hellk.inputs[0])
+    hellk.inputs[0].default_value = 0.0; L(nt, hs.outputs[0], hellk.inputs[6]); hellk.inputs[7].default_value = (0.30, 0.28, 0.25, 1)
+    # Höhlungen: lokale Umgebungsverdeckung — Fugen und Bruchkanten werden dunkel und moosig
+    ao = N(nt, 'ShaderNodeAmbientOcclusion', (-1100, -1000)); ao.inputs['Distance'].default_value = 0.22; ao.only_local = True; ao.samples = 8
+    hoehl = N(nt, 'ShaderNodeMapRange', (-900, -1000)); hoehl.inputs['From Min'].default_value = 0.85; hoehl.inputs['From Max'].default_value = 0.35
+    L(nt, ao.outputs['AO'], hoehl.inputs['Value'])
+    sep = N(nt, 'ShaderNodeSeparateXYZ', (-1100, -1200)); L(nt, geo.outputs['Normal'], sep.inputs[0])
+    oben = N(nt, 'ShaderNodeMapRange', (-900, -1200)); oben.inputs['From Min'].default_value = moos_oben; oben.inputs['From Max'].default_value = 0.95
+    L(nt, sep.outputs['Z'], oben.inputs['Value'])
+    mn = N(nt, 'ShaderNodeTexNoise', (-1100, -1400)); mn.inputs['Scale'].default_value = 2.2; mn.inputs['Detail'].default_value = 6; mn.inputs['Roughness'].default_value = 0.65; L(nt, tc.outputs['Object'], mn.inputs['Vector'])
+    mmax = N(nt, 'ShaderNodeMath', (-700, -1100), operation='MAXIMUM'); L(nt, hoehl.outputs[0], mmax.inputs[0]); L(nt, oben.outputs[0], mmax.inputs[1])
+    mmul = N(nt, 'ShaderNodeMath', (-550, -1100), operation='MULTIPLY'); L(nt, mmax.outputs[0], mmul.inputs[0]); L(nt, mn.outputs['Fac'], mmul.inputs[1])
+    mskal = N(nt, 'ShaderNodeMath', (-400, -1100), operation='MULTIPLY'); mskal.inputs[1].default_value = 1.7 * moos; L(nt, mmul.outputs[0], mskal.inputs[0])
+    mkante = N(nt, 'ShaderNodeMapRange', (-250, -1100)); mkante.inputs['From Min'].default_value = 0.42; mkante.inputs['From Max'].default_value = 0.62
+    L(nt, mskal.outputs[0], mkante.inputs['Value'])
+    # Moosfarbe: zwei Grüntöne, Rauschen grob genug, dass es nicht flimmert (Kissen, keine Pixel)
+    mf = N(nt, 'ShaderNodeTexNoise', (-700, -1400)); mf.inputs['Scale'].default_value = 18.0; mf.inputs['Detail'].default_value = 3; L(nt, tc.outputs['Object'], mf.inputs['Vector'])
+    mr2 = N(nt, 'ShaderNodeValToRGB', (-500, -1400)); e = mr2.color_ramp.elements
+    e[0].position = 0.3; e[0].color = (0.055, 0.085, 0.022, 1); e[1].position = 0.75; e[1].color = (0.20, 0.25, 0.06, 1)
+    L(nt, mf.outputs['Fac'], mr2.inputs['Fac'])
+    dunkel = N(nt, 'ShaderNodeMix', (-250, 300), data_type='RGBA', blend_type='MULTIPLY'); L(nt, hoehl.outputs[0], dunkel.inputs[0])
+    L(nt, hellk.outputs[2], dunkel.inputs[6]); dunkel.inputs[7].default_value = (0.45, 0.42, 0.38, 1)
+    farbe = N(nt, 'ShaderNodeMix', (0, 300), data_type='RGBA'); L(nt, mkante.outputs[0], farbe.inputs[0]); L(nt, dunkel.outputs[2], farbe.inputs[6]); L(nt, mr2.outputs[0], farbe.inputs[7])
+    b = N(nt, 'ShaderNodeBsdfPrincipled', (600, 0)); L(nt, farbe.outputs[2], b.inputs['Base Color'])
+    rmix = N(nt, 'ShaderNodeMix', (300, 0)); rmix.data_type = 'FLOAT'; L(nt, mkante.outputs[0], rmix.inputs[0]); L(nt, rau.outputs['Color'], rmix.inputs[2]); rmix.inputs[3].default_value = 1.0
+    L(nt, rmix.outputs[0], b.inputs['Roughness'])
+    # Feinform als Bump (unter der Dicing-Rate), Grobform als echte Verschiebung
+    bump = N(nt, 'ShaderNodeBump', (300, -300)); bump.inputs['Strength'].default_value = 0.5; bump.inputs['Distance'].default_value = 0.01
+    L(nt, hoe.outputs['Color'], bump.inputs['Height']); L(nt, bump.outputs['Normal'], b.inputs['Normal'])
+    hsum = N(nt, 'ShaderNodeMath', (600, -500), operation='MULTIPLY_ADD'); L(nt, mkante.outputs[0], hsum.inputs[0]); hsum.inputs[1].default_value = 0.18; L(nt, hoe.outputs['Color'], hsum.inputs[2])
+    dsp = N(nt, 'ShaderNodeDisplacement', (900, -400)); dsp.inputs['Midlevel'].default_value = 0.5; dsp.inputs['Scale'].default_value = versatz
+    L(nt, hsum.outputs[0], dsp.inputs['Height'])
+    L(nt, b.outputs[0], out.inputs['Surface']); L(nt, dsp.outputs[0], out.inputs['Displacement'])
+    return m
+
+
+def mat_kern_scan():
+    """Mauerkern hinter den Fugen: Erde und Mörtelreste, dunkel, mit Laubstreu-Form statt glattem Kasten."""
+    m, nt, out = neues_material('Kern')
+    tc = N(nt, 'ShaderNodeTexCoord', (-900, 0)); mp = N(nt, 'ShaderNodeMapping', (-700, 0)); mp.inputs['Scale'].default_value = (1 / 1.5,) * 3
+    L(nt, tc.outputs['Object'], mp.inputs['Vector'])
+    dif = kachel(nt, mp.outputs[0], scan('forest_leaves_04', 'diff'), True, (-400, 200))
+    hoe = kachel(nt, mp.outputs[0], scan('forest_leaves_04', 'disp'), False, (-400, -200))
+    mul = N(nt, 'ShaderNodeMix', (-100, 200), data_type='RGBA', blend_type='MULTIPLY'); mul.inputs[0].default_value = 1.0
+    L(nt, dif.outputs['Color'], mul.inputs[6]); mul.inputs[7].default_value = (0.16, 0.15, 0.14, 1)
+    hs = N(nt, 'ShaderNodeHueSaturation', (100, 200)); hs.inputs['Saturation'].default_value = 0.45; L(nt, mul.outputs[2], hs.inputs['Color'])
+    b = N(nt, 'ShaderNodeBsdfPrincipled', (300, 0)); L(nt, hs.outputs[0], b.inputs['Base Color']); b.inputs['Roughness'].default_value = 0.95
+    bump = N(nt, 'ShaderNodeBump', (0, -200)); bump.inputs['Strength'].default_value = 0.8; L(nt, hoe.outputs['Color'], bump.inputs['Height']); L(nt, bump.outputs[0], b.inputs['Normal'])
+    L(nt, b.outputs[0], out.inputs['Surface'])
+    return m
+
+
+def mat_boden_scan(alt):
+    """Waldboden: Laubstreu-Scans (zwei, nach Rauschen gemischt) mit echter Verschiebung im Nahbereich;
+    nach aussen läuft die Biomfarbe des Spiels (`alt`, Vertexfarbe) weiter — Ferne ist Fläche, nicht Scan."""
+    m = alt; nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED')
+    out = next(n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL')
+    alt_farbe = bsdf.inputs['Base Color'].links[0].from_socket if bsdf.inputs['Base Color'].links else None
+    alt_norm = bsdf.inputs['Normal'].links[0].from_socket if bsdf.inputs['Normal'].links else None
+    m.displacement_method = 'BOTH'
+    x0 = -2600
+    tc = N(nt, 'ShaderNodeTexCoord', (x0, -1400))
+    mp = N(nt, 'ShaderNodeMapping', (x0 + 200, -1400)); mp.inputs['Scale'].default_value = (1 / 3.0,) * 3; L(nt, tc.outputs['Object'], mp.inputs['Vector'])
+    mp2 = N(nt, 'ShaderNodeMapping', (x0 + 200, -1800)); mp2.inputs['Scale'].default_value = (1 / 1.5,) * 3; mp2.inputs['Rotation'].default_value = (0, 0, 0.7)
+    L(nt, tc.outputs['Object'], mp2.inputs['Vector'])
+    d1 = kachel(nt, mp.outputs[0], scan('forest_leaves_02', 'diffuse'), True, (x0 + 450, -1300), 0.2)
+    h1 = kachel(nt, mp.outputs[0], scan('forest_leaves_02', 'disp'), False, (x0 + 450, -1550), 0.2)
+    d2 = kachel(nt, mp2.outputs[0], scan('forest_leaves_04', 'diff'), True, (x0 + 450, -1800), 0.2)
+    h2 = kachel(nt, mp2.outputs[0], scan('forest_leaves_04', 'disp'), False, (x0 + 450, -2050), 0.2)
+    wn = N(nt, 'ShaderNodeTexNoise', (x0 + 450, -2300)); wn.inputs['Scale'].default_value = 0.18; wn.inputs['Detail'].default_value = 3; L(nt, tc.outputs['Object'], wn.inputs['Vector'])
+    wm = N(nt, 'ShaderNodeMapRange', (x0 + 700, -2300)); wm.inputs['From Min'].default_value = 0.42; wm.inputs['From Max'].default_value = 0.6; L(nt, wn.outputs['Fac'], wm.inputs['Value'])
+    fm = N(nt, 'ShaderNodeMix', (x0 + 900, -1500), data_type='RGBA'); L(nt, wm.outputs[0], fm.inputs[0]); L(nt, d1.outputs['Color'], fm.inputs[6]); L(nt, d2.outputs['Color'], fm.inputs[7])
+    hm = N(nt, 'ShaderNodeMix', (x0 + 900, -1900)); hm.data_type = 'FLOAT'; L(nt, wm.outputs[0], hm.inputs[0]); L(nt, h1.outputs['Color'], hm.inputs[2]); L(nt, h2.outputs['Color'], hm.inputs[3])
+    # Nahmaske: um den Hof (Kamera bei −10/0,5) voll Scan, ab 30 m Biomfarbe
+    ab = N(nt, 'ShaderNodeVectorMath', (x0 + 450, -2550), operation='DISTANCE'); L(nt, tc.outputs['Object'], ab.inputs[0]); ab.inputs[1].default_value = (-3.0, 0.0, 0.0)
+    sepz = N(nt, 'ShaderNodeSeparateXYZ', (x0 + 250, -2700)); L(nt, tc.outputs['Object'], sepz.inputs[0])
+    flach = N(nt, 'ShaderNodeCombineXYZ', (x0 + 450, -2700)); L(nt, sepz.outputs['X'], flach.inputs['X']); L(nt, sepz.outputs['Y'], flach.inputs['Y'])
+    ab2 = N(nt, 'ShaderNodeVectorMath', (x0 + 650, -2700), operation='DISTANCE'); L(nt, flach.outputs[0], ab2.inputs[0]); ab2.inputs[1].default_value = (-3.0, 0.0, 0.0)
+    fern = N(nt, 'ShaderNodeMapRange', (x0 + 900, -2600)); fern.inputs['From Min'].default_value = 26.0; fern.inputs['From Max'].default_value = 55.0
+    L(nt, ab2.outputs['Value'], fern.inputs['Value'])
+    # Scanfarbe leicht an die Szene gebracht (warm, etwas dunkler), Biom aussen
+    tn = N(nt, 'ShaderNodeHueSaturation', (x0 + 1100, -1500)); tn.inputs['Value'].default_value = 0.85; tn.inputs['Saturation'].default_value = 0.9; L(nt, fm.outputs[2], tn.inputs['Color'])
+    mix = N(nt, 'ShaderNodeMix', (200, 300), data_type='RGBA'); L(nt, fern.outputs[0], mix.inputs[0]); L(nt, tn.outputs[0], mix.inputs[6])
+    if alt_farbe is not None: L(nt, alt_farbe, mix.inputs[7])
+    L(nt, mix.outputs[2], bsdf.inputs['Base Color'])
+    bump = N(nt, 'ShaderNodeBump', (200, -400)); bump.inputs['Strength'].default_value = 0.55; bump.inputs['Distance'].default_value = 0.02
+    L(nt, hm.outputs[0], bump.inputs['Height'])
+    if alt_norm is not None: L(nt, alt_norm, bump.inputs['Normal'])
+    L(nt, bump.outputs['Normal'], bsdf.inputs['Normal'])
+    nah = N(nt, 'ShaderNodeMath', (x0 + 1100, -2600), operation='SUBTRACT'); nah.inputs[0].default_value = 1.0; L(nt, fern.outputs[0], nah.inputs[1])
+    hh = N(nt, 'ShaderNodeMath', (x0 + 1300, -2200), operation='MULTIPLY'); L(nt, hm.outputs[0], hh.inputs[0]); L(nt, nah.outputs[0], hh.inputs[1])
+    hmid = N(nt, 'ShaderNodeMath', (x0 + 1300, -2400), operation='MULTIPLY'); hmid.inputs[1].default_value = 0.5; L(nt, fern.outputs[0], hmid.inputs[0])
+    hges = N(nt, 'ShaderNodeMath', (x0 + 1500, -2300), operation='ADD'); L(nt, hh.outputs[0], hges.inputs[0]); L(nt, hmid.outputs[0], hges.inputs[1])
+    dsp = N(nt, 'ShaderNodeDisplacement', (900, -600)); dsp.inputs['Midlevel'].default_value = 0.5; dsp.inputs['Scale'].default_value = 0.06
+    L(nt, hges.outputs[0], dsp.inputs['Height']); L(nt, dsp.outputs[0], out.inputs['Displacement'])
+    bsdf.inputs['Roughness'].default_value = 0.92
+    return m
+
+
+def mat_rinde_scan(art='buche', name=None, vcol=True, skala=1.0):
+    """Rinde wie im Spiel (D364): `rinde-<art>-farbe.webp` = Albedo + Höhe (A), Vertexfarbe ist nur Faktor.
+    `skala` < 1 für Wurzeln: dünne Stränge brauchen feinere Borke als der Stamm."""
+    m, nt, out = neues_material(name or 'Rinde_' + art)
+    tc = N(nt, 'ShaderNodeTexCoord', (-1200, 0))
+    mp = N(nt, 'ShaderNodeMapping', (-1000, 0))
+    g = (1.8, 1.8, 3.6) if art == 'buche' else (2.0, 2.0, 2.0)
+    mp.inputs['Scale'].default_value = tuple(1 / (k * skala) for k in g)
+    L(nt, tc.outputs['Object'], mp.inputs['Vector'])
+    t = kachel(nt, mp.outputs[0], os.path.join(REPO, 'public', 'material', 'rinde-%s-farbe.webp' % art), True, (-700, 0), 0.4, True)
+    b = N(nt, 'ShaderNodeBsdfPrincipled', (300, 0)); b.inputs['Roughness'].default_value = 0.85
+    if vcol:
+        va = N(nt, 'ShaderNodeVertexColor', (-700, 300)); va.layer_name = 'Color'
+        mul = N(nt, 'ShaderNodeMix', (-300, 200), data_type='RGBA', blend_type='MULTIPLY'); mul.inputs[0].default_value = 1.0
+        L(nt, t.outputs['Color'], mul.inputs[6]); L(nt, va.outputs['Color'], mul.inputs[7]); farbe = mul.outputs[2]
+    else:
+        farbe = t.outputs['Color']
+    L(nt, farbe, b.inputs['Base Color'])
+    bump = N(nt, 'ShaderNodeBump', (0, -300)); bump.inputs['Strength'].default_value = 0.9; bump.inputs['Distance'].default_value = 0.03
+    L(nt, t.outputs['Alpha'], bump.inputs['Height']); L(nt, bump.outputs[0], b.inputs['Normal'])
+    L(nt, b.outputs[0], out.inputs['Surface'])
+    return m, nt, b, out, farbe
+
+
+def mat_baum(art, loecher=True):
+    """Ein Material für den Spielbaum: Holz (COLOR_0.a < 0,5) Rinde, Laub (≥ 0,5) Vertexfarbe mit Durchlass und
+    Löchern — dasselbe Rezept wie `windmaterial.ts`, damit Spiel und Zielbild dieselbe Krone zeigen."""
+    m, nt, b, out, _ = mat_rinde_scan(art, 'Baum_%s_%s' % (art, 'nah' if loecher else 'mittel'))
+    va = N(nt, 'ShaderNodeVertexColor', (-700, 600)); va.layer_name = 'Color'
+    tc = nt.nodes['Texture Coordinate']
+    ln = N(nt, 'ShaderNodeTexNoise', (-700, 900)); ln.inputs['Scale'].default_value = 1.6; ln.inputs['Detail'].default_value = 3; L(nt, tc.outputs['Object'], ln.inputs['Vector'])
+    lf = N(nt, 'ShaderNodeMapRange', (-500, 900)); lf.inputs['To Min'].default_value = 0.75; lf.inputs['To Max'].default_value = 1.25; L(nt, ln.outputs['Fac'], lf.inputs['Value'])
+    lfarbe = N(nt, 'ShaderNodeMix', (-300, 700), data_type='RGBA', blend_type='MULTIPLY'); lfarbe.inputs[0].default_value = 1.0
+    L(nt, va.outputs['Color'], lfarbe.inputs[6]); L(nt, lf.outputs[0], lfarbe.inputs[7])
+    dif = N(nt, 'ShaderNodeBsdfDiffuse', (0, 700)); L(nt, lfarbe.outputs[2], dif.inputs['Color'])
+    tr = N(nt, 'ShaderNodeBsdfTranslucent', (0, 550)); L(nt, lfarbe.outputs[2], tr.inputs['Color'])
+    lmix = N(nt, 'ShaderNodeMixShader', (250, 650)); lmix.inputs['Fac'].default_value = 0.45 if art == 'buche' else 0.3
+    L(nt, dif.outputs[0], lmix.inputs[1]); L(nt, tr.outputs[0], lmix.inputs[2])
+    # Löcher im Laub (wie uLoecher): Rauschen > Schwelle → durchsichtig
+    hn = N(nt, 'ShaderNodeTexNoise', (-300, 1000)); hn.inputs['Scale'].default_value = 7.0; hn.inputs['Detail'].default_value = 4; L(nt, tc.outputs['Object'], hn.inputs['Vector'])
+    hsw = N(nt, 'ShaderNodeMath', (0, 1000), operation='GREATER_THAN'); hsw.inputs[1].default_value = 0.6 if loecher else 2.0; L(nt, hn.outputs['Fac'], hsw.inputs[0])
+    trans = N(nt, 'ShaderNodeBsdfTransparent', (250, 900))
+    loch = N(nt, 'ShaderNodeMixShader', (500, 750)); L(nt, hsw.outputs[0], loch.inputs['Fac']); L(nt, lmix.outputs[0], loch.inputs[1]); L(nt, trans.outputs[0], loch.inputs[2])
+    maske = N(nt, 'ShaderNodeMath', (500, 300), operation='GREATER_THAN'); maske.inputs[1].default_value = 0.5; L(nt, va.outputs['Alpha'], maske.inputs[0])
+    holz = b.outputs[0]
+    alle = N(nt, 'ShaderNodeMixShader', (900, 200)); L(nt, maske.outputs[0], alle.inputs['Fac']); L(nt, holz, alle.inputs[1]); L(nt, loch.outputs[0], alle.inputs[2])
+    L(nt, alle.outputs[0], out.inputs['Surface'])
+    return m
+
+
+def mat_karte(art):
+    """Laubbüschel-Karte (Atlas 4 × 4 aus `public/material/<laub|nadel>-bueschel.webp`, echte Blattgeometrie)."""
+    m, nt, out = neues_material('Karte_' + art)
+    uv = N(nt, 'ShaderNodeUVMap', (-900, 0))
+    t = N(nt, 'ShaderNodeTexImage', (-700, 0)); t.image = bild(os.path.join(REPO, 'public', 'material', ('laub' if art == 'buche' else 'nadel') + '-bueschel.webp'))
+    t.interpolation = 'Cubic'; L(nt, uv.outputs['UV'], t.inputs['Vector'])
+    geo = N(nt, 'ShaderNodeObjectInfo', (-900, 300))
+    tint = N(nt, 'ShaderNodeMix', (-400, 100), data_type='RGBA', blend_type='MULTIPLY'); tint.inputs[0].default_value = 1.0
+    L(nt, t.outputs['Color'], tint.inputs[6]); tint.inputs[7].default_value = (0.62, 0.62, 0.42, 1) if art == 'buche' else (0.45, 0.55, 0.40, 1)
+    dif = N(nt, 'ShaderNodeBsdfDiffuse', (-100, 200)); L(nt, tint.outputs[2], dif.inputs['Color'])
+    tr = N(nt, 'ShaderNodeBsdfTranslucent', (-100, 50)); L(nt, tint.outputs[2], tr.inputs['Color'])
+    mx = N(nt, 'ShaderNodeMixShader', (150, 100)); mx.inputs['Fac'].default_value = 0.4; L(nt, dif.outputs[0], mx.inputs[1]); L(nt, tr.outputs[0], mx.inputs[2])
+    trans = N(nt, 'ShaderNodeBsdfTransparent', (150, -100))
+    a = N(nt, 'ShaderNodeMath', (0, -200), operation='GREATER_THAN'); a.inputs[1].default_value = 0.5; L(nt, t.outputs['Alpha'], a.inputs[0])
+    end = N(nt, 'ShaderNodeMixShader', (400, 0)); L(nt, a.outputs[0], end.inputs['Fac']); L(nt, trans.outputs[0], end.inputs[1]); L(nt, mx.outputs[0], end.inputs[2])
+    L(nt, end.outputs[0], out.inputs['Surface'])
+    return m
+
+
+BAEUME = {}
+
+
+def baumvorlage(art, variante, stufe):
+    """Spielbaum als Mesh-Datenblock (einmal importiert, danach geteilt)."""
+    schluessel = (art, variante, stufe)
+    if schluessel in BAEUME: return BAEUME[schluessel]
+    pfad = os.path.join(REPO, 'public', 'props', 'baum-%s-%d-%s.glb' % (art, variante, stufe))
+    vorher = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=pfad)
+    neu = [o for o in bpy.data.objects if o not in vorher]
+    me = next(o.data for o in neu if o.type == 'MESH')
+    for o in neu: bpy.data.objects.remove(o)
+    # Fernbäume ohne Löcher: im Spiel übernimmt dort der Impostor, im Frame lasen sie sich sonst als Stecken
+    if (art, stufe) not in BAUMMAT: BAUMMAT[(art, stufe)] = mat_baum(art, stufe == 'nah')
+    me.materials.clear(); me.materials.append(BAUMMAT[(art, stufe)])
+    reg = json.load(open(os.path.join(REPO, 'public', 'props', 'baeume.json')))['baeume']
+    h = next(r['hoehe'] for r in reg if r['art'] == art and r['variante'] == variante and r['stufe'] == stufe)
+    BAEUME[schluessel] = (me, h)
+    return BAEUME[schluessel]
+
+
+BAUMMAT = {}
+KRONEN = []
+
+
+def spielbaum(sb, art, name, x, y, hoehe, saat, fein):
+    rnd = random.Random(saat)
+    me, h = baumvorlage(art, saat % 4, 'nah' if fein else 'mittel')
+    o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
+    s = hoehe / h
+    o.scale = (s, s, s); o.rotation_euler = (0, 0, rnd.random() * 6.283)
+    o.location = (x, y, sb.bodenhoehe(x, y) - 0.25)
+    if fein: KRONEN.append((o, art))
+    return o
+
+
+def kartenvorlagen(art):
+    """16 Karten (je eine Atlaskachel, 1 × 1 m) in einer nicht gerenderten Sammlung — Instanzquelle für die Kronen."""
+    col = bpy.data.collections.new('Karten_' + art); bpy.context.scene.collection.children.link(col)
+    mat = mat_karte(art)
+    for i in range(16):
+        bm = bmesh.new(); uvl = bm.loops.layers.uv.new('UVMap')
+        vs = [bm.verts.new(p) for p in ((-0.5, -0.5, 0), (0.5, -0.5, 0), (0.5, 0.5, 0), (-0.5, 0.5, 0))]
+        f = bm.faces.new(vs)
+        u0, v0 = (i % 4) / 4, 1 - (i // 4 + 1) / 4
+        for lp, (du, dv) in zip(f.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
+            lp[uvl].uv = (u0 + du * 0.25, v0 + dv * 0.25)
+        me = bpy.data.meshes.new('Karte_%s_%d' % (art, i)); bm.to_mesh(me); bm.free(); me.materials.append(mat)
+        o = bpy.data.objects.new(me.name, me); col.objects.link(o)
+    bpy.context.view_layer.layer_collection.children[col.name].exclude = True
+    return col
+
+
+def kronendichte(art, dichte):
+    """Geometry Nodes: Laubkarten auf die Blattflächen des Spielbaums (COLOR_0.a > 0,5), entlang der Normale,
+    zufällig gedreht und skaliert. Befund D364: die Spielkronen sind zu licht — im Frame wird hier verdichtet."""
+    col = kartenvorlagen(art)
+    ng = bpy.data.node_groups.new('Krone_' + art, 'GeometryNodeTree')
+    ng.interface.new_socket('Geometry', in_out='INPUT', socket_type='NodeSocketGeometry')
+    ng.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
+    n = ng.nodes; l = ng.links.new
+    ein = n.new('NodeGroupInput'); aus = n.new('NodeGroupOutput')
+    attr = n.new('GeometryNodeInputNamedAttribute'); attr.data_type = 'FLOAT_COLOR'; attr.inputs['Name'].default_value = 'Color'
+    sep = n.new('FunctionNodeSeparateColor'); l(attr.outputs['Attribute'], sep.inputs['Color'])
+    gt = n.new('FunctionNodeCompare'); gt.data_type = 'FLOAT'; gt.operation = 'GREATER_THAN'; gt.inputs['B'].default_value = 0.5
+    l(sep.outputs['Alpha'], gt.inputs['A'])
+    dist = n.new('GeometryNodeDistributePointsOnFaces'); dist.distribute_method = 'RANDOM'
+    dist.inputs['Density'].default_value = dichte
+    l(ein.outputs['Geometry'], dist.inputs['Mesh']); l(gt.outputs['Result'], dist.inputs['Selection'])
+    ci = n.new('GeometryNodeCollectionInfo'); ci.inputs['Collection'].default_value = col
+    ci.inputs['Separate Children'].default_value = True; ci.inputs['Reset Children'].default_value = True
+    inst = n.new('GeometryNodeInstanceOnPoints'); inst.inputs['Pick Instance'].default_value = True
+    zi = n.new('FunctionNodeRandomValue'); zi.data_type = 'INT'
+    for s in zi.inputs:
+        if s.type == 'INT' and s.name == 'Min': s.default_value = 0
+        if s.type == 'INT' and s.name == 'Max': s.default_value = 15
+    zs = n.new('FunctionNodeRandomValue'); zs.data_type = 'FLOAT'
+    for s in zs.inputs:
+        if s.type == 'VALUE' and s.name == 'Min': s.default_value = 0.85 if art == 'buche' else 0.9
+        if s.type == 'VALUE' and s.name == 'Max': s.default_value = 1.5 if art == 'buche' else 1.4
+    l(dist.outputs['Points'], inst.inputs['Points']); l(dist.outputs['Rotation'], inst.inputs['Rotation'])
+    l(ci.outputs[0], inst.inputs['Instance'])
+    l(next(s for s in zi.outputs if s.type == 'INT'), inst.inputs['Instance Index'])
+    l(next(s for s in zs.outputs if s.type == 'VALUE'), inst.inputs['Scale'])
+    join = n.new('GeometryNodeJoinGeometry')
+    l(ein.outputs['Geometry'], join.inputs['Geometry']); l(inst.outputs['Instances'], join.inputs['Geometry'])
+    l(join.outputs['Geometry'], aus.inputs['Geometry'])
+    return ng
+
+
+# ------------------------------------------------------------------- Steine mit Brüchen
+def stein_bruch(ziel, groesse, matrix, saat, rauheit=0.06, rund=0.35):
+    """Wie `szenenbau.stein_bm`, aber mit 0–3 Bruchflächen: Ebenen schneiden Ecken und Kanten ab (Abplatzungen,
+    gespaltene Feldsteine), die Form streut stärker. Die Oberfläche bekommt danach der Scan (Verschiebung)."""
+    rnd = random.Random(saat)
+    bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.subdivide_edges(bm, edges=bm.edges[:], cuts=2, use_grid_fill=True)
+    for _ in range(rnd.choice((1, 2, 2, 3, 3, 4))):
+        # Bruchebene schräg zur Ansichtsfläche (y = Mauertiefe klein): der Umriss wird vieleckig, nicht nur die Ecke stumpf
+        nrm = Vector((rnd.choice((-1, 1)) * rnd.uniform(0.3, 1), rnd.choice((-1, 1)) * rnd.uniform(0.0, 0.5), rnd.choice((-1, 1)) * rnd.uniform(0.3, 1))).normalized()
+        ecke = 0.5 * (abs(nrm.x) + abs(nrm.y) + abs(nrm.z))
+        d = ecke * rnd.uniform(0.52, 0.82)
+        res = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=nrm * d, plane_no=nrm, clear_outer=True)
+        rand = [e for e in res['geom_cut'] if isinstance(e, bmesh.types.BMEdge) and e.is_boundary]
+        if rand: bmesh.ops.holes_fill(bm, edges=rand, sides=0)
+    off = Vector((rnd.random() * 60, rnd.random() * 60, rnd.random() * 60))
+    # Form-Varianz: nicht jeder Stein füllt seinen Platz — schmaler, niedriger, verkantet, vor- oder zurückgesetzt.
+    # Das öffnet Fugen mit Tiefe (dahinter der dunkle Kern) und bricht die Reihen.
+    gx, gz = groesse[0] * rnd.uniform(0.82, 1.0), groesse[2] * rnd.uniform(0.68, 1.0)
+    for v in bm.verts:
+        p = v.co.copy()
+        ecke = (abs(p.x) + abs(p.y) + abs(p.z)) / 1.5
+        f = 1.0 - rund * 0.6 * max(0.0, ecke - 0.6)
+        n = noise.noise(p * 1.8 + off) * rauheit * 2.2 + noise.noise(p * 5.0 + off) * rauheit * 0.7
+        v.co = Vector((p.x * gx, p.y * groesse[1], p.z * gz)) * (f + n)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    lage = Matrix.Translation(Vector((0, rnd.uniform(-0.045, 0.045), rnd.uniform(-0.03, 0.0)))) @ Matrix.Rotation(rnd.uniform(-0.11, 0.11), 4, 'Y')
+    bmesh.ops.transform(bm, matrix=matrix @ lage, verts=bm.verts[:])
+    me = bpy.data.meshes.new('stein'); bm.to_mesh(me); bm.free()
+    ziel.from_mesh(me); bpy.data.meshes.remove(me)
+
+
+def adaptiv(o, pixel=1.0):
+    """Echte Verschiebung: adaptive Unterteilung (Cycles), fein nur wo die Kamera nah ist."""
+    m = o.modifiers.new('Adaptiv', 'SUBSURF'); m.subdivision_type = 'SIMPLE'
+    m.use_adaptive_subdivision = True; m.adaptive_pixel_size = pixel
+    m.levels = 0; m.render_levels = 1
+    return m
+
+
+# ------------------------------------------------------------------- Holz, Scans
+def balken(name, ort, laenge, quer, rot, mat, saat):
+    """Entrindeter Balken: Kasten mit gebrochenen Enden (schräge Bruchflächen), UV entlang der Faser."""
+    rnd = random.Random(saat)
+    bm = bmesh.new(); bmesh.ops.create_cube(bm, size=1.0)
+    bmesh.ops.scale(bm, vec=(laenge, quer[0], quer[1]), verts=bm.verts[:])
+    bmesh.ops.subdivide_edges(bm, edges=[e for e in bm.edges if abs(e.verts[0].co.x - e.verts[1].co.x) > 0.5], cuts=12)
+    for s in (-1, 1):
+        for _ in range(2):
+            nrm = Vector((s, rnd.uniform(-0.8, 0.8), rnd.uniform(-0.6, 0.6))).normalized()
+            res = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=Vector((s * laenge * rnd.uniform(0.40, 0.47), 0, 0)), plane_no=nrm, clear_outer=True)
+            rand = [e for e in res['geom_cut'] if isinstance(e, bmesh.types.BMEdge) and e.is_boundary]
+            if rand: bmesh.ops.holes_fill(bm, edges=rand, sides=0)
+    for v in bm.verts:   # leicht verzogen, nicht sägefrisch
+        v.co.y += 0.012 * noise.noise(Vector((v.co.x * 0.7, 3.1, saat)))
+        v.co.z += 0.015 * noise.noise(Vector((v.co.x * 0.5, 7.7, saat)))
+    uvl = bm.loops.layers.uv.new('UVMap'); bm.normal_update()
+    for f in bm.faces:
+        n = f.normal
+        for lp in f.loops:
+            p = lp.vert.co
+            quer_k = p.y if abs(n.z) > abs(n.y) else p.z
+            lp[uvl].uv = (quer_k / 0.5 + (0.37 if abs(n.z) > abs(n.y) else 0.0), p.x / 0.5) if abs(n.x) < 0.7 else (p.y / 0.5, p.z / 0.5)
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free()
+    o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
+    o.location = ort; o.rotation_euler = rot; me.materials.append(mat)
+    return o
+
+
+def mat_holz_scan():
+    """Rohes, verwittertes Holz (Scan `rough_wood`, 0,5 m): Maserung, Risse und Faser als echte Verschiebung."""
+    m, nt, out = neues_material('Holz_Scan'); m.displacement_method = 'BOTH'
+    uv = N(nt, 'ShaderNodeUVMap', (-900, 0))
+    dif = N(nt, 'ShaderNodeTexImage', (-600, 200)); dif.image = bild(scan('rough_wood', 'diff')); L(nt, uv.outputs[0], dif.inputs['Vector'])
+    rau = N(nt, 'ShaderNodeTexImage', (-600, -50)); rau.image = bild(scan('rough_wood', 'rough'), False); L(nt, uv.outputs[0], rau.inputs['Vector'])
+    hoe = N(nt, 'ShaderNodeTexImage', (-600, -300)); hoe.image = bild(scan('rough_wood', 'disp'), False); L(nt, uv.outputs[0], hoe.inputs['Vector'])
+    hs = N(nt, 'ShaderNodeHueSaturation', (-300, 200)); hs.inputs['Value'].default_value = 0.9; hs.inputs['Saturation'].default_value = 0.8; L(nt, dif.outputs['Color'], hs.inputs['Color'])
+    b = N(nt, 'ShaderNodeBsdfPrincipled', (200, 0)); L(nt, hs.outputs[0], b.inputs['Base Color']); L(nt, rau.outputs['Color'], b.inputs['Roughness'])
+    bump = N(nt, 'ShaderNodeBump', (-100, -300)); bump.inputs['Strength'].default_value = 0.6; bump.inputs['Distance'].default_value = 0.006
+    L(nt, hoe.outputs['Color'], bump.inputs['Height']); L(nt, bump.outputs[0], b.inputs['Normal'])
+    dsp = N(nt, 'ShaderNodeDisplacement', (500, -300)); dsp.inputs['Scale'].default_value = 0.018; L(nt, hoe.outputs['Color'], dsp.inputs['Height'])
+    L(nt, b.outputs[0], out.inputs['Surface']); L(nt, dsp.outputs[0], out.inputs['Displacement'])
+    return m
+
+
+def scan_modelle(name):
+    """glTF-Scan importieren (mit eigenen Texturen), Objekte verstecken, Meshes zurückgeben."""
+    o = os.path.join(cc0_ordner(), name)
+    pfad = os.path.join(o, next(f for f in os.listdir(o) if f.endswith('.gltf')))
+    vorher = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=pfad)
+    neu = [x for x in bpy.data.objects if x not in vorher]
+    meshes = []
+    for x in neu:
+        if x.type == 'MESH':
+            x.data.transform(x.matrix_world); meshes.append(x.data)
+    for x in neu: bpy.data.objects.remove(x)
+    for me in meshes:   # Ursprung in die Grundfläche, Mitte in xy
+        xs = [v.co.x for v in me.vertices]; ys = [v.co.y for v in me.vertices]; zs = [v.co.z for v in me.vertices]
+        me.transform(Matrix.Translation(Vector((-(min(xs) + max(xs)) / 2, -(min(ys) + max(ys)) / 2, -min(zs)))))
+    return meshes
+
+
+def setze_scan(sb, me, name, x, y, groesse, saat, sinken=0.3, rot_z=None):
+    """Scan-Stein/-Stamm setzen: auf `groesse` (grösste Ausdehnung) skaliert, um `sinken` × Höhe eingesunken."""
+    rnd = random.Random(saat)
+    xs = [v.co.x for v in me.vertices]; ys = [v.co.y for v in me.vertices]; zs = [v.co.z for v in me.vertices]
+    s = groesse / max(max(xs) - min(xs), max(ys) - min(ys))
+    o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
+    o.scale = (s, s, s); o.rotation_euler = (0, 0, rot_z if rot_z is not None else rnd.random() * 6.283)
+    o.location = (x, y, sb.bodenhoehe(x, y) - sinken * max(zs) * s)
+    return o
+
+
+# ------------------------------------------------------------------- Licht, Himmel
+def himmel_gemalt(el_grad, az_grad):
+    """Himmel gestaltet, nicht simuliert (ADR-0018 Punkt 2): warmer Horizont zur Sonne, gedecktes blau-violettes
+    Zenit, Wolkenbänke als grosse Massen (flache Schicht, nach Sonne beleuchtet). Was die Kamera sieht und was die
+    Szene beleuchtet, ist getrennt: als Licht wirkt nur ein kühles, leicht violettes Füllen — kühle Schatten."""
+    w = bpy.data.worlds.new('Zielbild'); bpy.context.scene.world = w; w.use_nodes = True; nt = w.node_tree; nt.nodes.clear()
+    out = N(nt, 'ShaderNodeOutputWorld', (1600, 0))
+    tc = N(nt, 'ShaderNodeTexCoord', (-1600, 0))
+    dirn = N(nt, 'ShaderNodeVectorMath', (-1400, 0), operation='NORMALIZE'); L(nt, tc.outputs['Generated'], dirn.inputs[0])
+    sep = N(nt, 'ShaderNodeSeparateXYZ', (-1200, 0)); L(nt, dirn.outputs[0], sep.inputs[0])
+    el, az = math.radians(el_grad), math.radians(az_grad)
+    sd = (math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el))
+    dot = N(nt, 'ShaderNodeVectorMath', (-1200, -300), operation='DOT_PRODUCT'); dot.inputs[1].default_value = sd; L(nt, dirn.outputs[0], dot.inputs[0])
+    zur = N(nt, 'ShaderNodeMapRange', (-1000, -300)); zur.inputs['From Min'].default_value = -0.2; L(nt, dot.outputs['Value'], zur.inputs['Value'])
+    hoehe = N(nt, 'ShaderNodeMapRange', (-1000, 0)); hoehe.inputs['From Min'].default_value = -0.02; hoehe.inputs['From Max'].default_value = 0.55; L(nt, sep.outputs['Z'], hoehe.inputs['Value'])
+    # Grundverlauf: Horizont golden (zur Sonne) bzw. rosa-grau (abgewandt), Zenit blau-violett gedeckt
+    hor = N(nt, 'ShaderNodeMix', (-800, -300), data_type='RGBA'); L(nt, zur.outputs[0], hor.inputs[0])
+    hor.inputs[6].default_value = (0.42, 0.36, 0.38, 1); hor.inputs[7].default_value = (1.0, 0.66, 0.34, 1)
+    ver = N(nt, 'ShaderNodeMix', (-600, 0), data_type='RGBA'); L(nt, hoehe.outputs[0], ver.inputs[0])
+    hk = N(nt, 'ShaderNodeMath', (-800, 100), operation='POWER'); hk.inputs[1].default_value = 0.7; L(nt, hoehe.outputs[0], hk.inputs[0]); L(nt, hk.outputs[0], ver.inputs[0])
+    L(nt, hor.outputs[2], ver.inputs[6]); ver.inputs[7].default_value = (0.19, 0.22, 0.40, 1)
+    # Wolkenschicht: Richtung auf eine Ebene projiziert (xy / z), grosse Formen, weiche Ränder
+    zz = N(nt, 'ShaderNodeMath', (-1000, 300), operation='ADD'); zz.inputs[1].default_value = 0.08; L(nt, sep.outputs['Z'], zz.inputs[0])
+    px = N(nt, 'ShaderNodeMath', (-800, 400), operation='DIVIDE'); L(nt, sep.outputs['X'], px.inputs[0]); L(nt, zz.outputs[0], px.inputs[1])
+    py = N(nt, 'ShaderNodeMath', (-800, 300), operation='DIVIDE'); L(nt, sep.outputs['Y'], py.inputs[0]); L(nt, zz.outputs[0], py.inputs[1])
+    ebene = N(nt, 'ShaderNodeCombineXYZ', (-600, 350)); L(nt, px.outputs[0], ebene.inputs['X']); L(nt, py.outputs[0], ebene.inputs['Y']); ebene.inputs['Z'].default_value = 3.7
+    mpw = N(nt, 'ShaderNodeMapping', (-450, 350)); mpw.inputs['Scale'].default_value = (0.55, 1.3, 1.0); L(nt, ebene.outputs[0], mpw.inputs['Vector'])
+    wn = N(nt, 'ShaderNodeTexNoise', (-300, 350)); wn.inputs['Scale'].default_value = 0.45; wn.inputs['Detail'].default_value = 3; wn.inputs['Roughness'].default_value = 0.5; wn.inputs['Distortion'].default_value = 0.6
+    L(nt, mpw.outputs[0], wn.inputs['Vector'])
+    dichte = N(nt, 'ShaderNodeMapRange', (-100, 350)); dichte.inputs['From Min'].default_value = 0.44; dichte.inputs['From Max'].default_value = 0.58; L(nt, wn.outputs['Fac'], dichte.inputs['Value'])
+    # Binnenform der Wolke: ein zweites, gröberes Rauschen schattiert die Masse (Unterseite dunkler, Ränder licht)
+    wi = N(nt, 'ShaderNodeTexNoise', (-300, 600)); wi.inputs['Scale'].default_value = 1.1; wi.inputs['Detail'].default_value = 2; L(nt, mpw.outputs[0], wi.inputs['Vector'])
+    wis = N(nt, 'ShaderNodeMapRange', (-100, 600)); wis.inputs['From Min'].default_value = 0.35; wis.inputs['From Max'].default_value = 0.65; L(nt, wi.outputs['Fac'], wis.inputs['Value'])
+    horiz = N(nt, 'ShaderNodeMapRange', (-100, 150)); horiz.inputs['From Min'].default_value = 0.0; horiz.inputs['From Max'].default_value = 0.05; L(nt, sep.outputs['Z'], horiz.inputs['Value'])
+    wolke = N(nt, 'ShaderNodeMath', (100, 300), operation='MULTIPLY'); L(nt, dichte.outputs[0], wolke.inputs[0]); L(nt, horiz.outputs[0], wolke.inputs[1])
+    # Wolkenfarbe: zur Sonne hin goldene Ränder, abgewandt violett-grau
+    licht_w = N(nt, 'ShaderNodeMath', (0, 500), operation='MULTIPLY'); L(nt, zur.outputs[0], licht_w.inputs[0]); L(nt, wis.outputs[0], licht_w.inputs[1])
+    wf = N(nt, 'ShaderNodeMix', (100, 0), data_type='RGBA'); L(nt, licht_w.outputs[0], wf.inputs[0])
+    wf.inputs[6].default_value = (0.24, 0.21, 0.29, 1); wf.inputs[7].default_value = (1.25, 0.80, 0.46, 1)
+    himmel = N(nt, 'ShaderNodeMix', (350, 100), data_type='RGBA'); L(nt, wolke.outputs[0], himmel.inputs[0]); L(nt, ver.outputs[2], himmel.inputs[6]); L(nt, wf.outputs[2], himmel.inputs[7])
+    # Sonnenhof
+    pos = N(nt, 'ShaderNodeMath', (-1000, -550), operation='MAXIMUM'); pos.inputs[1].default_value = 0.0; L(nt, dot.outputs['Value'], pos.inputs[0])
+    hof = N(nt, 'ShaderNodeMath', (-800, -550), operation='POWER'); hof.inputs[1].default_value = 24.0; L(nt, pos.outputs[0], hof.inputs[0])
+    hofw = N(nt, 'ShaderNodeMix', (550, -200), data_type='RGBA', blend_type='ADD'); L(nt, hof.outputs[0], hofw.inputs[0])
+    L(nt, himmel.outputs[2], hofw.inputs[6]); hofw.inputs[7].default_value = (1.6, 1.0, 0.5, 1)
+    sicht = N(nt, 'ShaderNodeBackground', (900, 100)); sicht.inputs['Strength'].default_value = 0.95; L(nt, hofw.outputs[2], sicht.inputs['Color'])
+    licht = N(nt, 'ShaderNodeBackground', (900, -150)); licht.inputs['Color'].default_value = (0.20, 0.22, 0.34, 1); licht.inputs['Strength'].default_value = 1.0
+    lp = N(nt, 'ShaderNodeLightPath', (900, 400))
+    mx = N(nt, 'ShaderNodeMixShader', (1300, 0)); L(nt, lp.outputs['Is Camera Ray'], mx.inputs['Fac']); L(nt, licht.outputs[0], mx.inputs[1]); L(nt, sicht.outputs[0], mx.inputs[2])
+    L(nt, mx.outputs[0], out.inputs['Surface'])
+    return w
+
+
+def dunst_farbe(name, farbe, dichte_faktor=1.0, aniso=None):
+    """Dunst des Szenenbaus umfärben und ausdünnen. Weniger Vorwärtsstreuung: Der Blick geht fast in die Sonne,
+    mit 0,55 lief der ganze Himmel cremeweiss zu — das Glühen soll im Bogen sitzen, nicht überall."""
+    m = bpy.data.materials.get(name)
+    if not m: return
+    for n in m.node_tree.nodes:
+        if n.type == 'PRINCIPLED_VOLUME':
+            n.inputs['Color'].default_value = (*farbe, 1)
+            if aniso is not None: n.inputs['Anisotropy'].default_value = aniso
+        if n.type == 'MATH' and n.operation == 'MULTIPLY' and n.inputs[1].default_value > 0 and n.inputs[1].default_value < 1:
+            n.inputs[1].default_value *= dichte_faktor
+
+
+FARNE = []
+
+
+def farn_scan(sb, name, x, y, saat, groesse):
+    """Wurmfarn-Horst aus dem Scan (`fern_02`, Poly Haven) statt Blattklumpen."""
+    if not FARNE: FARNE.extend(scan_modelle('fern_02'))
+    rnd = random.Random(saat)
+    me = FARNE[saat % len(FARNE)]
+    o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
+    s = 1.35 * groesse * rnd.uniform(0.85, 1.15)
+    o.scale = (s, s, s); o.rotation_euler = (0, 0, rnd.random() * 6.283)
+    o.location = (x, y, sb.bodenhoehe(x, y) - 0.03)
+    return o
+
+
+def mat_efeu():
+    """Efeukarten wie im Spiel (D358): Atlas 2 × 2, je Kachel 1 × 1 m Efeufeld in echter Blattgrösse."""
+    m, nt, out = neues_material('Efeu_Karte')
+    uv = N(nt, 'ShaderNodeUVMap', (-900, 0))
+    t = N(nt, 'ShaderNodeTexImage', (-700, 0)); t.image = bild(os.path.join(REPO, 'public', 'material', 'efeu-karten-farbe.webp'))
+    t.interpolation = 'Cubic'; L(nt, uv.outputs['UV'], t.inputs['Vector'])
+    dif = N(nt, 'ShaderNodeBsdfPrincipled', (-100, 200)); L(nt, t.outputs['Color'], dif.inputs['Base Color']); dif.inputs['Roughness'].default_value = 0.55
+    tr = N(nt, 'ShaderNodeBsdfTranslucent', (-100, 0)); L(nt, t.outputs['Color'], tr.inputs['Color'])
+    mx = N(nt, 'ShaderNodeMixShader', (150, 100)); mx.inputs['Fac'].default_value = 0.25; L(nt, dif.outputs[0], mx.inputs[1]); L(nt, tr.outputs[0], mx.inputs[2])
+    trans = N(nt, 'ShaderNodeBsdfTransparent', (150, -100))
+    a = N(nt, 'ShaderNodeMath', (0, -200), operation='GREATER_THAN'); a.inputs[1].default_value = 0.5; L(nt, t.outputs['Alpha'], a.inputs[0])
+    end = N(nt, 'ShaderNodeMixShader', (400, 0)); L(nt, a.outputs[0], end.inputs['Fac']); L(nt, trans.outputs[0], end.inputs[1]); L(nt, mx.outputs[0], end.inputs[2])
+    L(nt, end.outputs[0], out.inputs['Surface'])
+    return m
+
+
+def efeu_karten(name, flecken, saat):
+    """Efeu an der Mauer als Karten (statt Blattklumpen): je Fleck eine grosse Karte und zwei kleinere darunter
+    (der Efeu wächst von unten), 14 cm vor der Steinfläche, damit die Verschiebung der Steine sie nicht durchsticht."""
+    rnd = random.Random(saat); bm = bmesh.new(); uvl = bm.loops.layers.uv.new('UVMap')
+    for mitte, normale, r in flecken:
+        n = normale.normalized(); u = n.cross(Vector((0, 0, 1))).normalized(); w = Vector((0, 0, 1))
+        teile = [(mitte, r * 2.3, 0.12)] + [(mitte + u * rnd.uniform(-r, r) - w * r * rnd.uniform(1.0, 1.9), r * rnd.uniform(1.1, 1.6), 0.15 + 0.02 * j) for j in range(2)]
+        for p, g, ab in teile:
+            k = rnd.randrange(4); a = rnd.uniform(-0.5, 0.5)
+            ca, sa = math.cos(a), math.sin(a)
+            vs = []
+            for dx, dy in ((-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)):
+                vs.append(bm.verts.new(p + n * ab + (u * ca + w * sa) * dx * g + (-u * sa + w * ca) * dy * g))
+            f = bm.faces.new(vs)
+            u0, v0 = (k % 2) / 2, 1 - (k // 2 + 1) / 2
+            for lp, (du, dv) in zip(f.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
+                lp[uvl].uv = (u0 + du * 0.5, v0 + dv * 0.5)
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free(); me.materials.append(mat_efeu())
+    o = bpy.data.objects.new(name, me); bpy.context.collection.objects.link(o)
+    return o
+
+
+def aframe():
+    """Felsmulde als A-Frame (D371): `szenenbau.bauen()` mit ausgetauschten Bausteinen, danach Substanz und Licht."""
+    objdir, praefix = ARGS[1], ARGS[2]
+    breite, hoehe, samples = (int(ARGS[3]), int(ARGS[4]), int(ARGS[5])) if len(ARGS) > 5 else (1280, 720, 32)
+    kameras = (ARGS[6] if len(ARGS) > 6 else 'bogen').split(',')
+    sys.argv = [sys.argv[0], '--', objdir, '/tmp/claude-0/aframe.blend', '/tmp/claude-0/aframe-roh.png', 'voll', 'felsmulde']
+    sys.path.insert(0, HIER)
+    import szenenbau as sb
+
+    # Materialfabriken des Szenenbaus durch Scans ersetzen (bauen() ruft sie auf)
+    alt_boden = sb.mat_boden
+    sb.mat_boden = lambda wiese=None: mat_boden_scan(alt_boden(wiese))
+    def fels(name='Fels', moos=1.3, hoehe=None):
+        if name == 'Stein': return mat_stein_scan('Stein', 'mossy_rock', 1.4, 0.035, 0.8, 1.0, 0.7)
+        if name == 'Platte': return mat_stein_scan('Platte', 'mossy_rock', 1.8, 0.03, 0.6, 0.9, 0.8)
+        return mat_stein_scan(name, 'lichen_rock', 1.6, 0.04, moos, 1.1)
+    sb.mat_fels = fels
+    sb.mat_rinde = lambda: mat_rinde_scan('fichte', 'Rinde', False, 0.35)[0]   # nur noch Wurzeln
+    sb.farn = lambda name, x, y, mat, saat, groesse=1.0: farn_scan(sb, name, x, y, saat, groesse)
+    sb.efeu = lambda name, flecken, mat, saat: efeu_karten(name, flecken, saat)
+    sb.stein_bm = stein_bruch
+    sb.laubbaum2 = lambda name, x, y, h, mr, ml, saat, fein=True, **k: spielbaum(sb, 'buche', name, x, y, h, saat, fein)
+    sb.fichte = lambda name, x, y, h, mr, mn, saat, fein=True, **k: spielbaum(sb, 'fichte', name, x, y, h, saat, fein)
+    sb.gras = lambda *a, **k: None   # keine Grasbüschel (Blattkarten): Boden trägt der Scan
+    sb.wurzel = lambda *a, **k: None   # Schlauchwurzeln entfallen: die Spielbäume haben eigene Wurzelanläufe (D364)
+
+    def rendern(sc, _b, _h, _s, _p):
+        zt = sb.bodenhoehe(-2.0, -1.0)
+        befall(zt)
+        ter = bpy.data.objects['terrain']
+        # Substanz: echte Verschiebung auf Steinbau und Boden
+        for o in list(bpy.data.objects):
+            if o.type != 'MESH' or not o.data.materials: continue
+            mn = o.data.materials[0].name if o.data.materials[0] else ''
+            if mn in ('Stein', 'Platte') or o.name.startswith(('Mauer', 'Stuetzmauer', 'Hof', 'Becken')):
+                if not o.name.endswith('_Kern') and not o.name.endswith('_Wasser'): adaptiv(o, 1.0)
+        adaptiv(ter, 1.5)
+        kern = mat_kern_scan()
+        for o in bpy.data.objects:
+            if o.name.endswith('_Kern'): o.data.materials.clear(); o.data.materials.append(kern)
+        # Moosblöcke und Geröll → Scan-Felsen (rock_moss_set), halb eingesunken
+        gross = scan_modelle('rock_moss_set_01'); klein = scan_modelle('rock_moss_set_02')
+        for i, o in enumerate([o for o in bpy.data.objects if o.name.startswith('Moosblock')]):
+            x, y = o.location.x, o.location.y; g = max(o.dimensions.x, o.dimensions.y)
+            bpy.data.objects.remove(o)
+            setze_scan(sb, gross[i % len(gross)], 'Fels%d' % i, x, y, g * 1.05, 600 + i, 0.3)
+        for i, o in enumerate([o for o in bpy.data.objects if o.name.startswith('Geroell')]):
+            x, y = o.location.x, o.location.y; g = max(o.dimensions.x, o.dimensions.y)
+            bpy.data.objects.remove(o)
+            setze_scan(sb, klein[i % len(klein)], 'Stein%d' % i, x, y, g * 1.1, 700 + i, 0.4)
+        # Zusätzliche halb versunkene Steine auf dem Hof und am Mauerfuss
+        rnd = random.Random(371)
+        for i in range(14):
+            x, y = rnd.uniform(-8.5, 3.8), rnd.uniform(-7.0, 6.5)
+            if -4.6 < x < -0.4 and -5.9 < y < -0.1: continue   # Becken
+            setze_scan(sb, klein[(i + 3) % len(klein)], 'Kiesel%d' % i, x, y, rnd.uniform(0.18, 0.5), 800 + i, 0.45)
+        # Holz: umgestürzter, teils entrindeter Stamm (Scan) und ein Balken mit Maserung und Rissen
+        stamm = scan_modelle('dead_tree_trunk_02')
+        setze_scan(sb, stamm[0], 'Totholz', -5.6, 3.6, 3.6, 371, 0.18, math.radians(-25))
+        holz = mat_holz_scan()
+        b1 = balken('Balken', (-5.0, 0.2, zt + 0.12), 2.9, (0.24, 0.2), (0.0, 0.03, math.radians(25)), holz, 1)
+        b2 = balken('Torpfosten', (4.55, -2.75, zt + 0.85), 2.3, (0.26, 0.24), (0.0, math.radians(-84), 0.08), holz, 2)
+        for b in (b1, b2): adaptiv(b, 1.0)
+        # Kronen verdichten (nur Nahbäume): Laubkarten aus dem Spielatlas
+        gruppen = {art: kronendichte(art, 2.4 if art == 'buche' else 3.0) for art in ('buche', 'fichte')}
+        print('AFRAME Nahbäume mit Kartenkrone', len(KRONEN))
+        for o, art in KRONEN:
+            mod = o.modifiers.new('Krone', 'NODES'); mod.node_group = gruppen[art]
+        # Licht: Sonne tief und warm fast in Blickrichtung hinter Mauer A — Gegenlicht im Bogen, durch den Bogen
+        # fällt eine Lichtbahn über Hof und Becken (Streiflicht zeigt Verschiebung), der Rest liegt im kühlen Schatten
+        for o in [o for o in bpy.data.objects if o.type == 'LIGHT']: bpy.data.objects.remove(o)
+        EL, AZ = 13.0, 100.0
+        sonne, _ = sb.sonne(EL, AZ, (1.0, 0.70, 0.45), 5.0)
+        sonne.data.angle = math.radians(1.2)
+        himmel_gemalt(EL, AZ)
+        dunst_farbe('Dunst', (0.95, 0.80, 0.62), 0.2, 0.3)
+        dunst_farbe('Bodennebel', (0.95, 0.84, 0.70), 0.3, 0.3)
+        sb.dunst('Hofdunst', 160.0, zt - 6.0, zt + 40.0, 0.0012, 22.0, (1.0, 0.86, 0.68), 0.5)
+        # Kameras
+        kams = {'bogen': sc.camera}
+        kn = sb.kamera((-5.6, 2.3, zt + 1.45), (-1.4, -1.0, zt + 0.25), 28); kn.name = 'KameraNah'
+        kams['nah'] = kn
+        sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
+        sc.cycles.samples = samples; sc.cycles.use_adaptive_sampling = True; sc.cycles.adaptive_threshold = 0.025
+        sc.cycles.use_denoising = True; sc.cycles.denoiser = 'OPENIMAGEDENOISE'
+        sc.cycles.max_bounces = 5; sc.cycles.diffuse_bounces = 2; sc.cycles.glossy_bounces = 1
+        sc.cycles.transmission_bounces = 4; sc.cycles.volume_bounces = 0; sc.cycles.transparent_max_bounces = 16
+        sc.cycles.sample_clamp_indirect = 4.0; sc.cycles.caustics_reflective = sc.cycles.caustics_refractive = False
+        sc.cycles.volume_step_rate = 4.0; sc.cycles.volume_max_steps = 64
+        sc.cycles.dicing_rate = 1.0; sc.cycles.offscreen_dicing_scale = 6.0; sc.cycles.max_subdivisions = 10
+        sc.render.resolution_x, sc.render.resolution_y, sc.render.resolution_percentage = breite, hoehe, 100
+        sc.view_settings.view_transform = 'AgX'
+        try: sc.view_settings.look = 'AgX - Medium High Contrast'
+        except Exception: pass
+        sc.view_settings.exposure = 1.0
+        vl = sc.view_layers[0]
+        vl.use_pass_z = vl.use_pass_normal = vl.use_pass_mist = vl.use_pass_object_index = True
+        sc.world.mist_settings.start = 3.0; sc.world.mist_settings.depth = 150.0; sc.world.mist_settings.falloff = 'LINEAR'
+        try: sc.render.image_settings.media_type = 'MULTI_LAYER_IMAGE'
+        except Exception as e: print('media_type', e)
+        sc.render.image_settings.file_format = 'OPEN_EXR_MULTILAYER'; sc.render.image_settings.color_depth = '16'
+        if os.environ.get('AFRAME_BLEND'): bpy.ops.wm.save_as_mainfile(filepath=os.environ['AFRAME_BLEND'])
+        import time
+        for k in kameras:
+            sc.camera = kams[k]
+            sc.render.filepath = os.path.abspath('%s-%s.exr' % (praefix, k))
+            t0 = time.time()
+            bpy.ops.render.render(write_still=True)
+            print('AFRAME', k, 'Renderzeit %.0f s' % (time.time() - t0), sc.render.filepath)
     sb.rendern = rendern
     sb.bauen()
 
@@ -129,18 +841,45 @@ def stil():
         L(kurve(nebel, 0.35, 0.05), nah.inputs[1])
         return nah.outputs[0]
 
-    def agx(src, ort):
+    def agx(src, ort, belichtung=1.3):
         n = g.nodes.new('CompositorNodeConvertToDisplay'); n.location = ort
         L(src, n.inputs[0])
         try:
             n.display_settings.display_device = 'sRGB'
             n.view_settings.view_transform = 'AgX'; n.view_settings.look = 'AgX - Medium High Contrast'
-            n.view_settings.exposure = 1.3   # wie szenenbau.rendern
+            n.view_settings.exposure = belichtung   # 1,3 wie szenenbau.rendern
         except Exception as e: print('Anzeige', e)
         return n.outputs[0]
 
     signal = maske_befall()
-    if art == 'gemalt':
+    if art == 'aframe':
+        # D371 / ADR-0018: Pinselflächen nur im Grossen. Die Kuwahara-Grösse folgt dem Nebelpass (linear, 0 bei 3 m,
+        # 1 bei 150 m): nah bleibt die Substanz der Scans unberührt, Kronen, Ferne und Himmel laufen zu Flächen.
+        # Kein Korn, kein Schärfen — das Bild ist entrauscht (OIDN), der Filter glättet nur, er erfindet nichts.
+        skala = breite / 1280.0
+        luft = mix(farbe, (0.88, 0.74, 0.58), kurve(nebel, 0.35, 1.0, hoch=0.22), ort=(-500, 200))
+        gr = g.nodes.new('ShaderNodeMapRange'); gr.location = (-500, 0); L(nebel, gr.inputs[0])
+        gr.inputs[1].default_value = 0.10; gr.inputs[2].default_value = 0.65; gr.inputs[3].default_value = 0.0
+        gr.inputs[4].default_value = 9.0 * skala; gr.clamp = True
+        kw = knoten(g, 'CompositorNodeKuwahara', (-250, 200), Uniformity=4, Sharpness=0.6, Eccentricity=0.9)
+        kw.inputs['Type'].default_value = 'Anisotropic'
+        L(luft, kw.inputs['Image']); L(gr.outputs[0], kw.inputs['Size'])
+        # Übergang weich: unter 0,06 Nebel exakt das Original (keine Pinselspuren auf Mauer und Boden)
+        pinsel = mix(luft, kw.outputs[0], kurve(nebel, 0.06, 0.16), ort=(0, 200))
+        bel = g.nodes.new('CompositorNodeExposure'); bel.location = (100, 200); bel.inputs['Exposure'].default_value = AFRAME_EV
+        L(pinsel, bel.inputs['Image'])
+        gl = knoten(g, 'CompositorNodeGlare', (250, 200), Threshold=2.5, Strength=0.25, Size=0.8)
+        gl.inputs['Type'].default_value = 'Bloom'
+        L(bel.outputs[0], gl.inputs['Image'])
+        disp = agx(gl.outputs[0], (350, 200))
+        cb = g.nodes.new('CompositorNodeColorBalance'); cb.location = (550, 200)
+        L(disp, cb.inputs['Image'])
+        try:   # Lift kühl-violett (Schatten), Gain warm (Licht) — die gestaltete Temperaturtrennung
+            cb.inputs[4].default_value = (0.97, 0.975, 1.05, 1); cb.inputs[8].default_value = (1.04, 1.0, 0.94, 1)
+        except Exception as e: print('Balance', e)
+        hs = knoten(g, 'CompositorNodeHueSat', (750, 200), Saturation=1.08)
+        L(cb.outputs[0], hs.inputs['Image']); ende = hs.outputs[0]
+    elif art == 'gemalt':
         # Soulframe-Linie: Formen vereinfacht zu Pinselflächen (anisotroper Kuwahara), warmes Licht, Luftschichten, Glühen.
         lin = farbe
         tief = mix(lin, (0.80, 0.70, 0.56), kurve(nebel, 0.25, 0.95, hoch=0.45), ort=(-400, 200))
@@ -214,4 +953,4 @@ def stil():
     print('STIL', art, aus)
 
 
-render() if MODUS == 'render' else stil()
+{'render': render, 'aframe': aframe}.get(MODUS, stil)()
