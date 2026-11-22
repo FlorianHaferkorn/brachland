@@ -27,8 +27,9 @@ import type { Oekonomie, Revier, Revierkarte } from '../data/schema.js';
 
 // ------------------------------------------------------------------ Typen
 
-export type BegegnungsArt = 'getoetet' | 'gereinigt' | 'umgangen';
-export const BEGEGNUNGSARTEN: readonly BegegnungsArt[] = ['getoetet', 'gereinigt', 'umgangen'];
+/** D426: `verschont` — ein Mensch gab beim Haltungsbruch auf und ging; kein Eingriff (wie umgangen). */
+export type BegegnungsArt = 'getoetet' | 'gereinigt' | 'umgangen' | 'verschont';
+export const BEGEGNUNGSARTEN: readonly BegegnungsArt[] = ['getoetet', 'gereinigt', 'umgangen', 'verschont'];
 
 /**
  * Was der Kampf je Begegnung meldet (Schnittstelle zu D417): wie sie ausging, wer, wo (Meter der Region, x Ost,
@@ -41,6 +42,11 @@ export interface Begegnung {
   x: number;
   z: number;
   zeit: number;
+  /**
+   * D426: ein Mensch (Wegelagerer …), kein Tier. Die Reviere zählen ihn nicht — sie messen den Tierbestand (ruhig,
+   * leergetötet, Verhärtung, Nachwachsen); der Zähler der Mönche zählt einen getöteten Menschen voll (`eingriffe`).
+   */
+  mensch?: true;
 }
 
 /** Was eine Rast je Revier entschieden hat. Fehlende Felder heissen 0. */
@@ -193,7 +199,8 @@ export function vermerkeBegegnung<T extends { begegnungen?: readonly Begegnung[]
     || !Number.isFinite(e.x) || !Number.isFinite(e.z) || !Number.isFinite(e.zeit)) return stand;
   const alt = stand.begegnungen ?? [];
   if (alt.some(b => b.gegnerId === e.gegnerId && b.zeit === e.zeit && b.art === e.art)) return stand;
-  const neu: Begegnung = { art: e.art, gegnerId: e.gegnerId, region: e.region, x: rund(e.x), z: rund(e.z), zeit: e.zeit };
+  const neu: Begegnung = { art: e.art, gegnerId: e.gegnerId, region: e.region, x: rund(e.x), z: rund(e.z), zeit: e.zeit,
+    ...(e.mensch === true ? { mensch: true as const } : {}) };
   return { ...stand, begegnungen: [...alt, neu] };
 }
 
@@ -238,6 +245,8 @@ export function revierZustaende(welt: Revierwelt, stand: StandMitRevieren,
   const umgangenGezaehlt = new Set<string>();
   for (const b of stand.begegnungen ?? []) {
     gemeldet.add(b.gegnerId);
+    // D426: Menschen gehören nicht zum Bestand eines Reviers; vorher zählte ein getöteter Wegelagerer als getötetes Tier.
+    if (b.mensch || b.art === 'verschont') continue;
     const r = welt.revierAn(b.region, b.x, b.z);
     if (!r) continue;
     const e = z(r), schluessel = `${b.region}|${b.gegnerId}`;

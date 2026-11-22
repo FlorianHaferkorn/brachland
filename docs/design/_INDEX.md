@@ -20,7 +20,7 @@ owns: *.md
 | Welt, Ton, Fraktionen, Erzählung verstehen | `BRACHLAND_Kernfunken_v1.md` | D188: Elementarangriffe im Echtzeitkampf — Direktivkerne der Regenten, Laden/Entladen, Wasserfunke umgesetzt, weitere als Entwurf |
 | `BRACHLAND_Story-Bibel_v2.md` (v1 nur noch für Vorgeschichte, Regenten, Namensschema) |
 | Kampflogik ändern oder Werte balancieren | `BRACHLAND_Kampfsystem_v2.md` |
-| Reinigen statt Töten: Regeln, Werte, Messreihe, Belohnung, Dauer je Gegner, Umsetzung im Spiel | `BRACHLAND_Reinigen_v1.md` (§6 je Gegner und „Nachmessung D407“: Gams, Wolf, Haltungsbruch, Rudel; §7 im Spiel, D417) → `../../content/reinigen.json`, `../../content/gegner/` → `../../tools/reinigensim.ts`, `../../tools/kampfprotokoll.ts` |
+| Reinigen statt Töten: Regeln, Werte, Messreihe, Belohnung, Dauer je Gegner, Umsetzung im Spiel | `BRACHLAND_Reinigen_v1.md` (§6 je Gegner, „Nachmessung D407“: Gams, Wolf, Haltungsbruch, Rudel, „Nachmessung D426“: Gams 0,85 s, Wolf-Griff 1,5 s, Aufgabe der Menschen mit Zählweise; §7 im Spiel, D417) → `../../content/reinigen.json`, `../../content/gegner/` → `../../tools/reinigensim.ts`, `../../tools/kampfprotokoll.ts` |
 | Einen Move anlegen oder ändern | `BRACHLAND_Move-System_v1.md` |
 | Eine Kreatur anlegen | `BRACHLAND_Roster-Struktur_v1.md` → `BRACHLAND_Roster_Kapitel1.md` |
 | Wissen, was in Kapitel 1 vorkommt | `BRACHLAND_Roster_Kapitel1.md` |
@@ -30,7 +30,7 @@ owns: *.md
 | Den Spielbeginn und die Lehrstrecke zur Enklave planen oder umbesetzen | `BRACHLAND_Weg-nach-Brannburg_v1.md` → `../../content/strecken/weg-nach-brannburg.json` → `../../tools/streckensim.ts` |
 | Menü, HUD, Einstellungen, Speichern, Tastenbelegung planen oder bauen; wissen, was davon jetzt nötig ist | `BRACHLAND_Menue-und-Einstellungen_v1.md` (§0 Antwort, §9 Phasenplan) → `../../content/einstellungen.json` → `../../src/data/schema.ts` (`Einstellung`) |
 | Gegenstände, Belohnungen, Aufwertung, Tausch, Tod und Verlust planen; eine Belohnungs-Kategorie in einen Gegenstand auflösen | `BRACHLAND_Gegenstaende-und-Aufwertung_v1.md` → `../../content/belohnungen.json`, `../../content/oekonomie.json`, `../../content/gegenstaende/` → `../../tools/oekonomiesim.ts` |
-| Waffen aus Teilen bauen, Form gegen Werte rechnen, Kombinationen messen, Aussehen gestalten | `BRACHLAND_Waffen-Baukasten_v1.md` (§31 Ausgleich je Teil, vier Ziele, D407) → `../../content/waffenteile.json` → `../../src/kampf/baukasten.ts` → `../../tools/baukastensim.ts`, `../../tools/baukastenziele.ts` |
+| Waffen aus Teilen bauen, Form gegen Werte rechnen, Kombinationen messen, Aussehen gestalten | `BRACHLAND_Waffen-Baukasten_v1.md` (§31 Ausgleich je Teil, vier Ziele, D407; §31.7 ohne kurzen Axtstiel, Schere Axt/Speer, D426) → `../../content/waffenteile.json` → `../../src/kampf/baukasten.ts` → `../../tools/baukastensim.ts`, `../../tools/baukastenziele.ts` |
 | Gewicht der Waffen spürbar machen: Trefferstopp, Kamera, Reaktion, Ton, Nachschwung; Einhängepunkte; Vorschläge an Kampfwerten (D420) | `BRACHLAND_Waffen-Baukasten_v1.md` §24–§30 → `../../content/gewicht.json` → `../../src/kampf/gewicht.ts` |
 | Ein Kreaturenmodell bauen oder beurteilen | `BRACHLAND_Creature-Bible_v1.1.md` → für Wildlinge zusätzlich `BRACHLAND_Stilreferenz_v1.md` |
 | Wissen, was Zustände, Narben oder Herkünfte mechanisch tun | `BRACHLAND_Creature-Bible_v1.1.md` → `../../src/engine/battle.ts` |

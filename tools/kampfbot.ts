@@ -19,8 +19,8 @@ import { RENNEN } from '../src/spieler/tempo.js';
 import {
   SPIELERIN, KEILER, GRATHORN, WOLF, FUCHS, GAMS, WEGELAGERER, andereLinie, UEBUNGSGEGNER, SCHRITT, WAFFEN,
   neuerKaempfer, blickAuf, puffere, setzeBlockAn, loeseBlock, ruesteAus, simuliere, frei, naechsterSchlag,
-  neueMarke, istBefallen, kannReinigen, setzeReinigenAn, loeseReinigen, randAbstand, reinigenFenster, REINIGEN,
-  type KampfWerte, type Kampfwelt, type WaffenArt, type ReinigenWerte,
+  neueMarke, istBefallen, kannReinigen, setzeReinigenAn, loeseReinigen, randAbstand, reinigenFenster, REINIGEN, imKampf, AUFGABE, GEGNER_KI,
+  type KampfWerte, type Kampfwelt, type Kaempfer, type WaffenArt, type ReinigenWerte,
 } from '../src/kampf/echtzeit.js';
 
 /**
@@ -56,8 +56,10 @@ function zufall(saat: number) {
 export interface Ergebnis { sieg: boolean; zeit: number; erlitten: number; treffer: number; paraden: number; blocks: number;
   /** D407: Haltungsbrüche, die die Spielerin gesetzt hat (ohne tödliche Treffer). */
   brueche: number;
-  /** D407, nur mit `BotOptionen.aufgabe`: Menschen, die beim Haltungsbruch aufgaben (D385). */
+  /** D407, nur mit `BotOptionen.aufgabe`: Menschen, die beim Haltungsbruch aufgaben (D385, seit D426 die Regel aus `echtzeit.ts`). */
   aufgegeben?: number;
+  /** D426, nur mit `aufgabe`: davon gegangen (verschont) — mit `gnadenlos` die, die er in der Frist nicht mehr erwischte. */
+  verschont?: number;
   /** D376, nur mit Marke: gereinigte und getötete Tiere, begonnene Kanäle, davon durch Treffer gebrochen bzw. selbst gelöst. */
   gereinigt?: number; getoetet?: number; kanaele?: number; gebrochen?: number; geloest?: number }
 
@@ -127,10 +129,14 @@ export interface BotOptionen {
    */
   reichweite?: 'schritt';
   /**
-   * Messannahme nach D385, **nicht** in `echtzeit.ts` gebaut: Ein Mensch gibt beim ersten Haltungsbruch auf
-   * (Flucht oder Aufgabe) und ist aus dem Kampf. Tiere kämpfen weiter wie bisher.
+   * D407 als Messannahme, seit D426 die Regel in `echtzeit.ts` (`Kampfwelt.aufgabe`): Ein Mensch gibt beim ersten
+   * Haltungsbruch auf. Der Bot verschont ihn — der Kampf ist für ihn aus, sobald jeder Gegner gefallen ist oder
+   * aufgegeben hat (gemessen wird also bis zur Aufgabe, wie in D407). Ohne die Option rechnet die Kampfwelt ohne die
+   * Regel (`aufgabe: false`), damit alle Tabellen bis D426 nachrechenbar bleiben. Tiere geben nie auf.
    */
   aufgabe?: boolean;
+  /** D426, nur mit `aufgabe`: Der Bot tötet auch den, der aufgab — der Kampf endet erst, wenn alle gefallen sind. */
+  gnadenlos?: boolean;
 }
 
 /** Der Bot von D171/D376 ohne die Zusätze aus D407 — für Vergleiche davor/danach. */
@@ -157,8 +163,10 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     k.blick = blickAuf(k.x, k.z, 0, 0);
     return k;
   });
-  const w: Kampfwelt = { spielerin: s, gegner: alle, ziel: null };
-  let kanaele = 0, gebrochen = 0, geloest = 0, brueche = 0, aufgegeben = 0;
+  const w: Kampfwelt = { spielerin: s, gegner: alle, ziel: null, aufgabe: !!opt.aufgabe };
+  // D426: Wer noch zu bekämpfen ist. Ohne `aufgabe` (oder `gnadenlos`) jeder, der nicht gefallen ist — wie vor D426.
+  const kaempft = opt.aufgabe && !opt.gnadenlos ? imKampf : (g: Kaempfer) => g.phase !== 'gefallen';
+  let kanaele = 0, gebrochen = 0, geloest = 0, brueche = 0;
   if (markenSpiel) {
     // Die Ladung ist hier nicht die Frage (die rechnet die Ökonomie) — genug für jeden im Kampf.
     w.marke = { ...neueMarke(0, markenSpiel.werte ?? REINIGEN), ladung: 99, reinkultur: markenSpiel.reinkultur };
@@ -186,7 +194,7 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
       if (spiel > f.spiel) { f.spiel = spiel; f.reserve = s.ausdauer.wert - n.kosten >= s.werte.rolle.kosten; }
     }
   };
-  while (t < 120 && s.phase !== 'gefallen' && alle.some(g => g.phase !== 'gefallen')) {
+  while (t < 120 && s.phase !== 'gefallen' && alle.some(kaempft)) {
     // Wahrnehmen: ein neuer Angriff (erster Schlag, nicht die Kette) → Rolle nach der Reaktionszeit.
     alle.forEach((g, i) => {
       if (g.schwung === gesehen[i]) return;
@@ -208,7 +216,7 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
       gesehen[i] = g.schwung;
     });
     // Ziel: wer gerade angreift, sonst der nächste Lebende.
-    const lebend = alle.filter(g => g.phase !== 'gefallen');
+    const lebend = alle.filter(kaempft);
     if (opt.nachsetzen) s.rennt = false;
     if (opt.ereignis) fuehreFenster(lebend);
     const naechster = lebend.reduce((a, b) =>
@@ -273,16 +281,23 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
         s.blick = blickAuf(s.x, s.z, g.x, g.z);
         const v = Math.min(4.5 * SCHRITT, randAbstand(s, g) - w.marke.werte.reichweite + 0.05); s.x += dx / d * v; s.z += dz / d * v;
       }
+    } else if (opt.aufgabe && frei(s) && d > GEGNER_KI.wachAb) {
+      // D426: Haben die Menschen aufgegeben, kann der letzte Gegner (Wolf im Almsteig) noch schlafend am Rand stehen —
+      // der Bot von D171 wartete dort bis zur Zeitgrenze. Hingehen, wie ein Mensch es täte. Nur mit `aufgabe`.
+      s.blick = blickAuf(s.x, s.z, g.x, g.z);
+      s.x += dx / d * 4.5 * SCHRITT; s.z += dz / d * 4.5 * SCHRITT;
     } else if (frei(s) || s.phase === 'erholung') {
       if (frei(s)) s.blick = blickAuf(s.x, s.z, g.x, g.z);
-      const offen = g.phase === 'erholung' && g.folge.length === 0 || g.phase === 'betaeubt' || (lauert && g.phase === 'bereit');
+      // D426 `gnadenlos`: Wer aufgab, wehrt sich nicht — er steht offen, bis er geht.
+      const ergeben = g.aufgegeben !== undefined && g.phase === 'bereit';
+      const offen = g.phase === 'erholung' && g.folge.length === 0 || g.phase === 'betaeubt' || (lauert && g.phase === 'bereit') || ergeben;
       // D181: Mit einem standfesten Schlag (Axt) greift er auch an, wenn der Gegner gerade ausholt und
       // der eigene Hieb vorher ankommt — der Treffer wirft ihn aus dem Vorlauf.
       const vorher = naechsterSchlag(s, 'leicht').schlag;
       const durch = !!vorher.standfest && !!vorher.wirft && g.phase === 'vorlauf' && g.schlag.vorlauf - g.zeit > vorher.vorlauf + 0.05;
       // Wie lange er noch offen steht — ein Mensch schlägt nur, wenn der Schlag vorher ankommt.
       const rest = !offen ? 0 : g.phase === 'erholung' ? g.schlag.erholung - g.zeit
-        : g.phase === 'betaeubt' ? (g.betaeubtFuer ?? g.werte.betaeubt) - g.zeit : (w.atem ?? 0);
+        : g.phase === 'betaeubt' ? (g.betaeubtFuer ?? g.werte.betaeubt) - g.zeit : ergeben ? AUFGABE.frist - (g.aufgegeben ?? 0) : (w.atem ?? 0);
       const restD = durch ? g.schlag.vorlauf - g.zeit : rest;
       // D189: Mit vollem Funken schlägt er schwer, sobald der Schlag ins Fenster passt (Flutstoss).
       // D189: Mit vollem Funken schwer — aber nur, wenn der schwere Schlag ins Fenster passt; sonst leicht
@@ -302,11 +317,13 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
         if (toetet('leicht') && naechsterSchlag(s, 'leicht').kombo !== 0) wartet = true;
       }
       const naechster = naechsterSchlag(s, art).schlag;
-      const reich = (naechster.reichweite + (opt.reichweite === 'schritt' && !(lauert && g.phase === 'bereit') ? naechster.schritt ?? 0 : 0)) * 0.9;
+      const reich = (naechster.reichweite + (opt.reichweite === 'schritt' && !(lauert && g.phase === 'bereit') ? naechster.schritt ?? 0 : 0)) * (ergeben ? 0.7 : 0.9); // D426: wer zurückweicht, ist beim Treffen weiter weg
       const weg = Math.max(0, rand - reich) / 4.5;
       // Ausdauer für eine Rolle bleibt übrig — wer sie verschlägt, steht beim nächsten Angriff blank
       // (D172: die Klinge verlor zu zweit, weil der Bot ihre Kette bis zur Neige schlug).
-      const reserve = s.ausdauer.wert - naechster.kosten >= s.werte.rolle.kosten;
+      // D426 `gnadenlos`: Steht nur noch, wer aufgab, braucht er keine Rolle mehr in Reserve.
+      const reserve = s.ausdauer.wert - naechster.kosten >= s.werte.rolle.kosten
+        || (!!opt.gnadenlos && lebend.every(k => k.aufgegeben !== undefined) && (naechster.kosten <= 0 || s.ausdauer.wert >= naechster.kosten));
       const reicht = reserve && (durch ? restD > naechster.vorlauf : rest > weg + naechster.vorlauf);
       // D174: In die freie Linie schlagen; müde trifft öfter die gedeckte.
       if (g.deckung) s.linie = z.r() < (p.name === 'müde' ? 0.3 : 0.05) ? g.deckung : andereLinie(g.deckung);
@@ -361,11 +378,7 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
           opt.ereignis!({ t, art: 'einschlag', von: e.von, schlag: a.schlag.name ?? '', schaden: e.schaden, phase: phaseVorher, kette: a.schlag !== a.werte.schlag }); }
       }
       if (e.von === 's' && e.schaden > 0) treffer++;
-      if (e.von === 's' && e.gebrochen) {
-        brueche++;
-        const z = alle.find(k => k.id === e.auf);
-        if (opt.aufgabe && z?.werte.mensch && z.phase !== 'gefallen') { z.phase = 'gefallen'; z.zeit = 0; z.folge = []; aufgegeben++; }
-      }
+      if (e.von === 's' && e.gebrochen) brueche++;
       if (e.auf === 's' && e.pariert) paraden++;
       else if (e.auf === 's' && e.geblockt) blocks++;
       if (e.auf === 's' && e.schaden > 0 && beobachte) {
@@ -376,15 +389,18 @@ export function kampf(aufstellung: KampfWerte[], waffe: WaffenArt, p: Profil, sa
     }
     t += SCHRITT;
   }
-  const raus: Ergebnis = { sieg: alle.every(g => g.phase === 'gefallen'), zeit: t, erlitten: s.werte.lebenMax - s.leben, treffer, paraden, blocks, brueche };
-  if (opt.aufgabe) raus.aufgegeben = aufgegeben;
+  const raus: Ergebnis = { sieg: !alle.some(kaempft), zeit: t, erlitten: s.werte.lebenMax - s.leben, treffer, paraden, blocks, brueche };
+  if (opt.aufgabe) {
+    raus.aufgegeben = alle.filter(g => g.aufgegeben !== undefined).length;
+    raus.verschont = alle.filter(g => g.ausgang === 'verschont').length;
+  }
   if (w.marke) {
     for (const e of w.marke.ereignisse) {
       if (e.art === 'begonnen') kanaele++; else if (e.art === 'getroffen') gebrochen++; else if (e.art === 'geloest') geloest++;
       if (e.art !== 'begonnen') opt.ereignis?.({ t, art: 'kanal', ziel: e.ziel, ende: e.art, reinigung: alle.find(k => k.id === e.ziel)?.reinigung ?? 0 });
     }
     raus.gereinigt = alle.filter(g => g.ausgang === 'gereinigt').length;
-    raus.getoetet = alle.filter(g => g.phase === 'gefallen' && g.ausgang !== 'gereinigt').length;
+    raus.getoetet = alle.filter(g => g.phase === 'gefallen' && !g.ausgang).length;
     raus.kanaele = kanaele; raus.gebrochen = gebrochen; raus.geloest = geloest;
   }
   return raus;

@@ -545,7 +545,9 @@ function App() {
     // Marke ist verbraucht. Jedes Ende geht als Begegnung an die Reviere (D416, `meldeBegegnungRef`, unten).
     const st0 = standRef.current;
     const folgen = st0 && bericht ? folgenDerBegegnung(st0, bericht, { begegnung: alt.id, region: AKTIVE_REGION, zeit: Date.now() }) : null;
-    const reinText = folgen?.gereinigt ? ` ${folgen.gereinigt === 1 ? 'Ein Tier ist' : `${folgen.gereinigt} Tiere sind`} gereinigt.` : '';
+    const reinText = (folgen?.gereinigt ? ` ${folgen.gereinigt === 1 ? 'Ein Tier ist' : `${folgen.gereinigt} Tiere sind`} gereinigt.` : '')
+      // D426: wer aufgab und ging
+      + (folgen?.verschont ? ` ${folgen.verschont === 1 ? 'Einer hat aufgegeben und ist gegangen' : `${folgen.verschont} haben aufgegeben und sind gegangen`}.` : '');
     if (!sieg) {
       lagerRuhe.current.add(alt.id);
       if (folgen) {
