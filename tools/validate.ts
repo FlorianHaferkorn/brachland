@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -115,6 +115,24 @@ console.log('\nReinigen (D376):');
       } else gut++;
     }
     console.log(`  ✓ ${gut} Gegner mit eigener Reinigungsdauer, Griffzahl ${band.min}–${band.max}`); ok++;
+  }
+}
+
+console.log('\nEinstellungen (D394):');
+{
+  // Das Schema prüft Eindeutigkeit, Standard und Stufenwerte im Wertebereich. Hier zusätzlich: Eine
+  // Grafik-Einstellung mit Stufenwerten nennt alle vier Stufen — sonst bliebe beim Wechsel der
+  // Qualitätsstufe ein Wert der alten Stufe stehen.
+  const r = Einstellungen.safeParse(JSON.parse(readFileSync('content/einstellungen.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ einstellungen.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    let luecken = 0;
+    for (const e of r.data.einstellungen) {
+      const fehlt = e.stufen ? QUALITAETSSTUFEN.filter(s => !(s in e.stufen!)) : [];
+      if (fehlt.length) { console.log(`  ✗ ${e.id}: Stufenwert fehlt für ${fehlt.join(', ')}`); fehler++; luecken++; }
+    }
+    if (!luecken) { console.log(`  ✓ einstellungen.json: ${r.data.einstellungen.length} Einstellungen, Stufenwerte vollständig`); ok++; }
   }
 }
 
