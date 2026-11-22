@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-10-18
+last-reviewed: 2026-11-22
 shelf-life-days: 180
 owns: *.json
 ---
@@ -14,7 +14,7 @@ owns: *.json
 | Deine Aufgabe ist … | Lies |
 |---|---|
 | Ein Fundstück anlegen | eine bestehende `.json` → `../../src/data/schema.ts` (`Fragment`) |
-| Den Ton treffen | `../../docs/design/BRACHLAND_Story-Bibel_v1.md` |
+| Den Ton treffen | `../../docs/design/BRACHLAND_Story-Bibel_v2.md` (Ton: v1 §8) |
 | Verstehen, wie die Story aufgebaut ist | `../../docs/design/BRACHLAND_Story-Struktur_v1.md` |
 | Sehen, wie ein Fund im Spiel wirkt | `../../src/scenes/RegionsSzene.tsx` (`Fundstellen`) |
 
@@ -39,6 +39,12 @@ Felsgrate. Die Welt liefert die Orte umsonst; sie mussten nur belegt werden.
 | `absetzbecken.json` | **weiher** | 47.74678, 12.08377 | **Auf dem Grund** — liegt auf der Sohle des größten Weihers (62 × 71 m, 2,40 m tief), rund 30 m vom Ufer. Der Auslöser misst waagerecht 9 m; erreichbar ist das nur schwimmend. Das erste Fundstück, das eine Fähigkeit voraussetzt |
 | `diensthuette-hochrunst.json` | **hof** | 47.79671, 12.05471 | **Dienstvorschrift, dritte Fassung** — Fahlmoos (D248), an der realen Diensthütte Hochrunstfilze (1910). Die Brutanlage hinter der Brutmutter; Ziel von `die-karte-hinter-glas` |
 | `stollenmund.json` | ruine | 47.73038, 12.07810 | **Am Stollenmund** |
+| `oberstollen.json` | ruine | 47.73342, 12.06773 | **Am oberen Mundloch** — D375, Reinkultur West: 963 m hoch unter dem Grat, Ziel von `was-am-stollen-steht` |
+| `saatkammer.json` | hof | 47.72308, 12.08712 | **In der Saatkammer** — D375, Reinkultur Süd: Hof am Südhang, Ziel von `nach-vorher-schmecken` |
+| `kirchturm.json` | ruine | 47.73585, 12.10339 | **Im Glockenstuhl** — D375, **verborgener Ort**: Kirche der versunkenen Stadt, 15,6 m unter der Flutlinie |
+| `jagdhuette.json` | hof | 47.73883, 12.07153 | **Hütte im Bannwald** — D375, **verborgener Ort** im Westwald |
+| `quelltopf.json` | bach | 47.72716, 12.05902 | **Am Quelltopf** — D375, **verborgener Ort**: Bachquelle auf 971 m |
+| `alter-tresen.json` | hof | 47.72839, 12.09938 | **Am alten Tresen** — D375: das geräumte Dorf, 493 m, unter der Flutlinie |
 
 ## Regeln
 
@@ -46,6 +52,10 @@ Felsgrate. Die Welt liefert die Orte umsonst; sie mussten nur belegt werden.
   ist keins.
 - **Kein Sprecher.** Wer das geschrieben hat, steht nie dabei. Das ist der Ton.
 - **Keine Erklärung.** Ein Fragment stellt fest, es deutet nicht.
+- **Auf ein Fundstück an einem verborgenen Ort zeigt kein Auftrag** (D375, `verborgeneOrte` in der Region) —
+  `npm run validate` lehnt das ab.
+- **Zeiten folgen der lokalen Linie** (D375): Kollaps vor 40–60 Jahren, Befall im Tal seit achtzehn Jahren,
+  Flut seit dem Frühjahr. Beleg: `../../docs/design/BRACHLAND_Enklave_Lage_v2.md` §6.
 - **Nicht zwei am selben Ort** — `npm run validate` prüft das, weil der zweite
   Auslöser sonst nie feuern würde.
 

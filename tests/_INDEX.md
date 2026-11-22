@@ -89,7 +89,8 @@ owns: *.test.ts
 | `staemme.test.ts` | G-136: Jede Blender-Szene hat Stämme im Kollisionsfeld (≥ 100, alle im Freihalte-Radius, also richtige Achsenlage), der Stauwehr-Stamm aus dem Lock-On-Video ist bekannt und verdeckt die Sicht, `public/bauten/staemme.json` passt zu den GLB |
 | `fortschritt.test.ts` | 20 Tests. Anlass: Die erste Kurve machte Kreaturen bei der Mutation **schwächer** (L13 = 184 KP, L14 = 162 KP). Hält jetzt Monotonie und die Zahl der Kämpfe je Mutation fest |
 | `ausdauer.test.ts` | 20 Tests. Hält die Kletterhöhe als **Rechnung** fest (16/s × 2,2 m/s = 13,8 m gegen 14 m Klippe) und die Hysterese am Nullpunkt |
-| `auftraege.test.ts` | 25 Tests. Der Fortschritt wird abgeleitet, nicht gezählt — geprüft wird unter anderem, dass `schneehuhn` nicht `schneehuhn-alt` mitzählt |
+| `wanderfiguren.test.ts` | 17 Tests (D375). Station einer Fraktionsfigur aus dem Weltstand: weiterziehen, verpassen, `ab` vor dem Erscheinen, fort nach der letzten; über die echten Dateien: jede Station ist in irgendeinem Verlauf erreichbar |
+| `auftraege.test.ts` | 28 Tests. Der Fortschritt wird abgeleitet, nicht gezählt — geprüft wird unter anderem, dass `schneehuhn` nicht `schneehuhn-alt` mitzählt |
 | `heilung.test.ts` | 15 Tests (D240, D241 `wildZustand`): unbesiegt oder unvollständig heilt nicht, je eine Komponente verbraucht, Eingabe unverändert, zweimal heilen geht nicht |
 | `stube.test.ts` | 40 Tests (D242): jede Raumart ohne NaN, in ihren Wänden, Anker (Fenster, Glut, Figur, Kamera) am richtigen Ort, fest je Id |
 | `region.test.ts` | 21 Tests (D248, ADR-0014): Region aus der Adresse, Kante aus der Position (Nord ist −z), Nachbarn aus `content/regions/`, Ankunft an der Gegenkante, andere Schalter bleiben beim Hinübergehen erhalten; ohne Adresse behält das Œntal seine Blender-Szenen |

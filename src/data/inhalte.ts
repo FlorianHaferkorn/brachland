@@ -9,7 +9,7 @@
  * Solange beides dasselbe ist, kostet die zweite Prüfung nur Millisekunden; sobald es
  * auseinanderläuft, fällt es beim Start auf statt mitten im Kampf.
  */
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, NARBE, Fassade } from './schema.js';
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, NARBE, Fassade, Wanderfigur } from './schema.js';
 import { erstelle, type Kaempfer, type MoveDef, type Band } from '../engine/battle.js';
 import { mutationBei, werteBei, STUFE_MAX } from '../spiel/fortschritt.js';
 
@@ -24,6 +24,7 @@ const ortRoh = import.meta.glob('../../content/orte/*.json', { eager: true, impo
 const fassadeRoh = import.meta.glob('../../content/fassaden/*.json', { eager: true, import: 'default' }) as Roh;
 const auftragRoh = import.meta.glob('../../content/auftraege/*.json', { eager: true, import: 'default' }) as Roh;
 const regionRoh = import.meta.glob('../../content/regions/*.json', { eager: true, import: 'default' }) as Roh;
+const wanderfigurRoh = import.meta.glob('../../content/wanderfiguren/*.json', { eager: true, import: 'default' }) as Roh;
 
 function lade<T>(roh: Roh, schema: { parse: (x: unknown) => T }, was: string): Map<string, T> {
   const karte = new Map<string, T>();
@@ -48,6 +49,8 @@ export const ORTE = lade(ortRoh, Ort, 'Ort');
 export const FASSADEN = lade(fassadeRoh, Fassade, 'Fassade');
 export const AUFTRAEGE = [...lade(auftragRoh, Auftrag, 'Auftrag').values()];
 export const REGIONEN = lade(regionRoh, Region, 'Region');
+/** D375: Fraktionsfiguren mit Stationen (Story-Bibel v2 §5). Wo sie steht, sagt `spiel/wanderfiguren.ts`. */
+export const WANDERFIGUREN = [...lade(wanderfigurRoh, Wanderfigur, 'Wanderfigur').values()];
 
 /**
  * Alles, was streift — daraus werden Begegnungen gebaut.

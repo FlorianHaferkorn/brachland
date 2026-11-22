@@ -4,13 +4,10 @@
   "innen": "stube",
   "art": "bewohner",
   "name": "Der Bursche",
-  "ort": [
-    47.72874,
-    12.09983
-  ],
-  "text": "Er wartet auf jemanden, der vor drei Tagen zurück sein sollte. Er sagt es nicht, aber er schaut jedes Mal die Straße hinunter, wenn Schritte kommen.",
+  "ort": [47.73929, 12.09287],
+  "text": "Er wartet auf jemanden, der vor drei Tagen zurück sein sollte. Er sagt es nicht, aber er schaut jedes Mal zum Wasser hinunter, wenn dort etwas schlägt.",
   "figur": "bursche",
-  "blick": -57,
+  "blick": -34,
   "gang": 4,
-  "textAbend": "Er hat die Strasse heute zweimal abgelaufen und will das jedem sagen, der zuhört."
+  "textAbend": "Er hat die Wasserkante heute zweimal abgelaufen und will das jedem sagen, der vorbeikommt."
 }

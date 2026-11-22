@@ -1,0 +1,30 @@
+{
+  "id": "bote-erbe",
+  "region": "oental",
+  "fraktion": "erbe",
+  "name": "Der Bote",
+  "figur": "arbeiter",
+  "stationen": [
+    {
+      "wo": "Bahnhof, nach dem Wandel",
+      "ort": [47.7253, 12.0927],
+      "blick": 151,
+      "text": "Er kam über das erste trockene Gleis und trägt saubere Stiefel. Er kennt das Zeichen an Ihrem Arm beim Namen. Sein Handel: Die drei Dinge bleiben, wo sie sind, und dafür hört hier wieder etwas auf Sie.",
+      "ab": { "art": "regent", "regent": "flussvater" },
+      "bis": { "art": "heile", "regent": "flussvater" }
+    },
+    {
+      "wo": "Silo drei, trockengefallen",
+      "ort": [47.73821, 12.09526],
+      "blick": 90,
+      "text": "Er misst mit einem Stab, was aus dem Silo gewachsen ist, und schreibt nichts auf. Sie haben es zu Ende geschrieben, sagt er. Das war nicht der Handel. Er klingt nicht verärgert. Er klingt, als hätte er Zeit.",
+      "bis": { "art": "auftrag", "auftrag": "was-danach-waechst" }
+    },
+    {
+      "wo": "Hof über dem Nordufer",
+      "ort": [47.74477, 12.07729],
+      "blick": -69,
+      "text": "Er wartet am Weg ins Moos und hat die Stiefel noch immer sauber. Im Fahlmoos, sagt er, liegt eine, die brütet. Der Handel gilt dort weiter. Dann nennt er eine Zahl, die Sie nicht einordnen können."
+    }
+  ]
+}

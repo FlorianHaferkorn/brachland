@@ -3,7 +3,10 @@
   "region": "oental",
   "geber": "steinbruch-wart",
   "titel": "Was am Stollen steht",
-  "text": "Am Stollenmund ist eine Tafel. Ich habe sie nie gelesen, ich war zu nah dran. Lesen Sie sie und kommen Sie zurück. Ich will nicht wissen, was drauf steht — ich will wissen, ob es noch lesbar ist.",
-  "ziel": { "art": "finde", "fragment": "stollenmund" },
-  "belohnung": { "harzverband": 2, "katalysator-v3": 1 }
+  "text": "Den unteren Stollen haben wir zugemauert. Den oberen nicht. Der liegt unter dem Grat, eine Wand hoch oder den alten Almweg außen herum. Dort hängt eine Tafel. Ich will nicht wissen, was drauf steht — ich will wissen, ob sie noch lesbar ist.",
+  "ziel": { "art": "finde", "fragment": "oberstollen" },
+  "belohnung": {
+    "harzverband": 2,
+    "katalysator-v3": 1
+  }
 }

@@ -2177,6 +2177,8 @@ export interface Ortsmarke {
   gang?: number;
   /** Laufzeitfarben je Slot (D146). */
   farben?: Partial<Record<RollenSlot, string>>;
+  /** Tagesroutine (D177/D375): ID des Orts, zu dem der Bewohner abends geht. */
+  abends?: string;
 }
 
 /**
@@ -2488,14 +2490,15 @@ function Orte({ orte, ziel, onNah, rand, hoeheAn, tageszeit = 0.39 }: {
   const gemeldet = useRef<string | null>(null);
   /** Wo die Bewohner gerade stehen (D178) — Ansprechen folgt der Figur, auch ins Wirtshaus. */
   const lage = useRef(new Map<string, [number, number]>());
-  // D177, Tagesroutine: Abends (Abendrot bis vor der Dämmerung) gehen die Dorfbewohner ins Wirtshaus
-  // und stehen im Halbkreis vor dem Tresen; morgens gehen sie zurück. Der Wirt und die Schmiedin
-  // bleiben, wo sie arbeiten.
+  // D177, Tagesroutine: Abends (Abendrot bis vor der Dämmerung) gehen Bewohner ins Wirtshaus und
+  // stehen im Halbkreis vor dem Tresen; morgens gehen sie zurück. Wer geht und wohin, steht seit
+  // D375 im Ort (`abends`) statt im Namen — die Enklave liegt über die Terrasse verteilt, und der
+  // Weg ist eine Gerade: Die Wache am Abstieg und der Förster bleiben, wo sie sind.
   const abends = tageszeit >= 0.74 || tageszeit < 0.2;
-  const wirt = orte.find(o => o.id === 'dorf-wirt');
-  const gaeste = orte.filter(o => o.id.startsWith('dorf-') && o.id !== 'dorf-wirt' && o.id !== 'dorf-schmied' && o.figur);
   const abendZiel = (o: Ortsmarke): [number, number] | undefined => {
+    const wirt = o.abends ? orte.find(z => z.id === o.abends) : undefined;
     if (!wirt) return undefined;
+    const gaeste = orte.filter(g => g.abends === wirt.id && g.figur);
     const i = gaeste.indexOf(o);
     if (i < 0) return undefined;
     const w = THREE.MathUtils.degToRad(wirt.blick ?? 0) + (i - (gaeste.length - 1) / 2) * 0.55;
@@ -4507,7 +4510,7 @@ export interface RegionsSzeneProps {
   onFund?: (id: string) => void;
   /** Zufluchten und Bewohner in Weltkoordinaten (x, z). */
   orte?: { id: string; art: OrtsArt; ort: [number, number]; figur?: string; blick?: number;
-           gang?: number; farben?: Partial<Record<RollenSlot, string>> }[];
+           gang?: number; farben?: Partial<Record<RollenSlot, string>>; abends?: string }[];
   /** ID des nächsten Ortes in Reichweite, oder null. Nur bei Wechsel gerufen. */
   onOrtNah?: (id: string | null) => void;
   /** Startposition; ohne Angabe die Regionsmitte. Der Spielstand setzt sie. */
@@ -4719,7 +4722,7 @@ export function RegionsSzene({
 
   const ortsmarken = useMemo<Ortsmarke[]>(
     () => (orte ?? []).map(o => ({
-      id: o.id, art: o.art, figur: o.figur, blick: o.blick, gang: o.gang, farben: o.farben,
+      id: o.id, art: o.art, figur: o.figur, blick: o.blick, gang: o.gang, farben: o.farben, abends: o.abends,
       position: [o.ort[0], hoeheAufFlaeche(feld, o.ort[0], o.ort[1]), o.ort[1]],
     })),
     [orte, feld],

@@ -22,7 +22,7 @@ function pruefe(was: string, bedingung: boolean, notiz = '') {
   bedingung ? ok++ : fehler++;
 }
 
-const LEER: Taten = { besiegt: [], gefangen: [], fragmente: [], regenten: [], geheilt: [] };
+const LEER: Taten = { besiegt: [], gefangen: [], gereinigt: [], fragmente: [], regenten: [], geheilt: [] };
 
 const A1: Auftrag = {
   id: 'a1', region: 'oental', geber: 'hof', titel: 'Drei', text: '',
@@ -31,7 +31,7 @@ const A1: Auftrag = {
 };
 const A2: Auftrag = {
   id: 'a2', region: 'oental', geber: 'hof', titel: 'Danach', text: '',
-  ziel: { art: 'fange', kreatur: 'alpenmurmel', anzahl: 1 },
+  ziel: { art: 'reinige', kreatur: 'alpenmurmel', anzahl: 1 },
   belohnung: { koeder: 1 }, vorher: 'a1',
 };
 const A3: Auftrag = {
@@ -62,12 +62,12 @@ console.log('Aufträge — Fortschritt wird abgeleitet, nicht mitgeschrieben\n')
   pruefe('Ähnlicher Name zählt NICHT mit', werteZiel(A1.ziel, t).ist === 0);
 }
 {
-  // Fangen und Besiegen sind verschiedene Listen — ein besiegtes Murmel erfüllt
-  // keinen Fangauftrag.
+  // Reinigen und Besiegen sind verschiedene Listen (Story-Bibel v2 §2: heilen statt töten) —
+  // ein besiegtes Murmel erfüllt keinen Reinigungsauftrag.
   const t: Taten = { ...LEER, besiegt: ['alpenmurmel:1:1'] };
-  pruefe('Besiegt erfüllt keinen Fangauftrag', !werteZiel(A2.ziel, t).erfuellt);
-  const t2: Taten = { ...LEER, gefangen: ['alpenmurmel:1:1'] };
-  pruefe('Gefangen erfüllt ihn', werteZiel(A2.ziel, t2).erfuellt);
+  pruefe('Besiegt erfüllt keinen Reinigungsauftrag', !werteZiel(A2.ziel, t).erfuellt);
+  const t2: Taten = { ...LEER, gereinigt: ['alpenmurmel:1:1'] };
+  pruefe('Gereinigt erfüllt ihn', werteZiel(A2.ziel, t2).erfuellt);
 }
 {
   pruefe('Fragment ungelesen', !werteZiel(A3.ziel, LEER).erfuellt);
@@ -127,7 +127,7 @@ console.log('Aufträge — Fortschritt wird abgeleitet, nicht mitgeschrieben\n')
     ziel: { art: 'besiege', kreatur: 'grathorn', anzahl: 2 }, belohnung: { zunder: 1 },
   };
   const beides = beiGeber([A1, A2, A3, A4], 'hof', { a1: 'abgeholt', a2: 'angenommen' }, {
-    ...drei, gefangen: ['alpenmurmel:5:5'],
+    ...drei, gereinigt: ['alpenmurmel:5:5'],
   });
   pruefe('Abholbereites steht über Neuem',
          beides.length === 2 && beides[0].auftrag.id === 'a2' && beides[0].lage === 'erfuellt'
