@@ -409,6 +409,12 @@ export const Ort = z.object({
   innen: z.enum(['stube', 'wirtsstube', 'stadel', 'schuppen', 'werkstatt']).optional(),
   /** Was der Bewohner abends im Wirtshaus sagt (D178). Ohne Angabe gilt `text`. */
   textAbend: z.string().max(240).optional(),
+  /**
+   * Tagesroutine (D177, als Datum seit D375): ID des Orts, zu dem der Bewohner abends geht. Bis D375
+   * hing das am Namen (`dorf-…` ging zu `dorf-wirt`); seit die Enklave über die Terrasse verteilt ist,
+   * gehen nur die, die nah genug wohnen. `validate` prüft Ziel, Region und Weglänge.
+   */
+  abends: z.string().optional(),
 });
 export type Ort = z.infer<typeof Ort>;
 
@@ -417,14 +423,18 @@ export type Ort = z.infer<typeof Ort>;
 /**
  * Was ein Auftrag verlangt.
  *
- * Alle vier Bedingungen sind aus dem **Spielstand allein** prüfbar — besiegte und
- * gefangene Vorkommen, gelesene Fragmente, besiegte Regenten stehen dort ohnehin.
+ * Alle Bedingungen sind aus dem **Spielstand allein** prüfbar — besiegte und
+ * gereinigte Vorkommen, gelesene Fragmente, besiegte Regenten stehen dort ohnehin.
  * Das ist Absicht: Ein Auftragssystem, das eigene Zähler mitschreibt, hat ab dem
  * ersten Tag zwei Wahrheiten über denselben Sachverhalt, und die driften.
  */
 export const Auftragsziel = z.discriminatedUnion('art', [
   z.object({ art: z.literal('besiege'), kreatur: z.string(), anzahl: z.number().int().min(1).max(20) }),
-  z.object({ art: z.literal('fange'),   kreatur: z.string(), anzahl: z.number().int().min(1).max(6) }),
+  /**
+   * Befallene über die Marke reinigen (Story-Bibel v2 §2, D375) — ersetzt `fange`: Fangen, Team und
+   * Besitz gibt es in der Erzählung nicht mehr. Gezählt wird `Taten.gereinigt`.
+   */
+  z.object({ art: z.literal('reinige'), kreatur: z.string(), anzahl: z.number().int().min(1).max(6) }),
   z.object({ art: z.literal('finde'),   fragment: z.string() }),
   z.object({ art: z.literal('regent'),  regent: z.string() }),
   /** Region geheilt: Regent besiegt **und** seine Reinkultur-Komponenten eingesetzt (D240). */
@@ -447,6 +457,53 @@ export const Auftrag = z.object({
   vorher: z.string().optional(),
 });
 export type Auftrag = z.infer<typeof Auftrag>;
+
+// ------------------------------------------------------- Wanderfiguren
+
+/**
+ * Wann eine Wanderfigur eine Station erreicht oder verlässt — dieselbe geschlossene Liste von Prüfungen gegen den
+ * Spielstand wie bei den Aufträgen, kein Skript. `auftrag` heisst: Belohnung abgeholt.
+ */
+export const Stationsbedingung = z.discriminatedUnion('art', [
+  z.object({ art: z.literal('finde'),   fragment: z.string() }),
+  z.object({ art: z.literal('regent'),  regent: z.string() }),
+  z.object({ art: z.literal('heile'),   regent: z.string() }),
+  z.object({ art: z.literal('auftrag'), auftrag: z.string() }),
+]);
+export type Stationsbedingung = z.infer<typeof Stationsbedingung>;
+
+/**
+ * Eine Figur mit eigenem Weg (Story-Bibel v2 §5, D375): je Fraktion eine je Region, drei bis fünf Stationen. Sie
+ * steht an der ersten Station, deren `bis` noch nicht eingetreten ist, und nur, wenn deren `ab` gilt — wer zu spät
+ * kommt, trifft sie dort nicht mehr. Kein Dialogbaum: ein Satz je Station, wie bei jedem Ort.
+ *
+ * Kein `Ort`, damit sie weder den Bewohnt-Radius der Häuser (D289) verschiebt noch einen Auftrag braucht.
+ */
+export const Wanderfigur = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  region: z.string(),
+  fraktion: z.enum(['enklave', 'moenche', 'erbe']),
+  name: z.string().max(40),
+  figur: z.string().refine(f => (FIGUREN_REGISTER.figuren as string[]).includes(f),
+    f => ({ message: `Figur „${f}“ steht nicht in public/figuren/register.json` })).optional(),
+  farben: z.record(
+    z.enum(['haut', 'haar', 'oberteil', 'hose', 'stiefel', 'kopf', 'riemen', 'hemd']),
+    z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  ).optional(),
+  stationen: z.array(z.object({
+    /** Wo das ist, in zwei, drei Worten — für Notiz und Prüfausgabe, nicht für eine Kartenmarke. */
+    wo: z.string().max(40),
+    ort: z.tuple([z.number(), z.number()]),
+    text: z.string().max(240),
+    blick: z.number().optional(),
+    /** Erst ab hier steht die Figur an dieser Station; vorher ist sie nirgends. */
+    ab: Stationsbedingung.optional(),
+    /** Tritt das ein, zieht sie weiter. Nur die letzte Station darf ohne sein. */
+    bis: Stationsbedingung.optional(),
+  }).strict()).min(3).max(5),
+}).strict().refine(f => f.stationen.slice(0, -1).every(s => s.bis),
+  'Jede Station ausser der letzten braucht `bis` — sonst zieht die Figur nie weiter.');
+export type Wanderfigur = z.infer<typeof Wanderfigur>;
 
 // ------------------------------------------------------------ Gegenstände
 
@@ -677,6 +734,23 @@ export const Nahhoehen = z.object({
 }), 'Das Höhenraster braucht je Stützpunkt zwei Bytes.');
 export type Nahhoehen = z.infer<typeof Nahhoehen>;
 
+/**
+ * Ein verborgener Ort (Story-Bibel v2 §3, D375): kein Auftrag nennt ihn, kein Bewohner erwähnt ihn. Man findet ihn
+ * über Gelände, Licht oder ein Fundstück. **Nur Datum** — das Spiel setzt den Verhärteten noch nicht; das Fundstück
+ * (`fragment`) liegt wie jedes andere in der Welt.
+ */
+const VerborgenerOrt = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  name: z.string().max(40),
+  ort: z.tuple([z.number(), z.number()]),
+  /** Kreatur, die hier im Endstadium sitzt (nur mit Reinkulturen zu reinigen). */
+  verhaerteter: z.string(),
+  /** Woran man den Ort findet. */
+  spur: z.enum(['gelaende', 'licht', 'fundstueck']),
+  /** Fundstück am Ort. `validate` lehnt ab, wenn ein Auftrag darauf zeigt. */
+  fragment: z.string().optional(),
+}).strict();
+
 export const Region = z.object({
   id: z.string(),
   name: z.string(),
@@ -690,6 +764,15 @@ export const Region = z.object({
   hausnutzung: z.array(Hausnutzung).optional(),
   strassenkulisse: z.array(Strassenkulisse).optional(),
   nahhoehen: Nahhoehen.optional(),
+  /**
+   * Flutlinie in m ü. NN (ADR-0017, Story-Bibel v2 §4, D375): Was darunter liegt, steht unter Wasser, solange der
+   * Regent staut. **Nur Datum** — Darstellung und Verfallsregel hängen noch nicht daran. `validate` prüft, dass
+   * kein Bewohner und keine Zuflucht darunter liegt.
+   */
+  flutlinie: z.number().optional(),
+  /** Die Enklave der Region (D375): Name und Bezugspunkt, gegen den `validate` die Abstände der Reinkultur-Orte misst. */
+  enklave: z.object({ name: z.string().max(40), ort: z.tuple([z.number(), z.number()]) }).strict().optional(),
+  verborgeneOrte: z.array(VerborgenerOrt).optional(),
   /**
    * Übergänge an der Regionsgrenze (ADR-0014): Jede Region ist eine eigene Karte. Wer an der
    * genannten Kante steht, kann hinüber; die Karte der Nachbarregion wird dann geladen.

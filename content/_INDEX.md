@@ -32,7 +32,7 @@ owns: *.json
 | `creatures/trafomarder.json` | Trafomarder (Basis Baummarder, alt-tech + faeulnis, Trafostation-Verwachsung). Spawn an `power=substation`, Budget 4.000 Tris |
 | `regenten/flussvater.json` | Der Flussvater — Regent von Œntal, Riesenwels mit Kläranlagen-Organik. **Drei Phasen** (wasser → faeulnis → alt-tech/stein), 480 KP. Der Grund, warum Wechseln Pflicht ist |
 | `regenten/brutmutter.json` | Die Brutmutter — Regent von Fahlmoos, Kreuzotter mit Inkubator. Drei Phasen (faeulnis → sporen → faeulnis/wasser), 500 KP, Frost als Engpass (D246). **Noch nicht im Spiel:** Region `fahlmoos` fehlt (G-140) |
-| `regions/oental.json` | Œntal = Inntal-Süd (Brannenburg/Wendelstein-Fuß). BBox, Regent, Traversal „Klettern", Zielspielzeit 6 Std. D329: Nutzungszustände der drei Referenzhäuser an der Weststraße. D333: Straßenverfall anhand der OSM-Weg-ID sowie Ortstafel und Laternen anhand der OSM-Knoten-ID. |
+| `regions/oental.json` | Œntal = Inntal-Süd (Brannenburg/Wendelstein-Fuß). BBox, Regent, Traversal „Klettern", Zielspielzeit 6 Std. D329: Nutzungszustände der drei Referenzhäuser an der Weststraße. D333: Straßenverfall anhand der OSM-Weg-ID sowie Ortstafel und Laternen anhand der OSM-Knoten-ID. **D375:** `flutlinie` 499 m (nur Datum, ADR-0017), `enklave` (Name vorläufig „Die Terrasse“, Bezugspunkt der Abstandsprüfung in `validate`), `verborgeneOrte` (drei, je mit Verhärtetem — nur Datum; Lage und Wege in `../docs/design/BRACHLAND_Enklave_Lage_v2.md`) |
 | `milbinger-substanz.json` | D347: Gartensäume entlang der im DOP20 erkennbaren Pflanzstreifen und örtliche Verfallsstufen der LoD2-Häuser. Dachschäden und Relikte gehören zur Spielwelt. |
 | `massstab.json` | D352: reale Referenzmaße mit Quelle (Efeublatt, Figur, Bordhöhe, Baumhöhen), Schema `MassReferenz`; `../tools/massstab.ts` prüft die gebaute Geometrie dagegen, `../src/world/hausbewuchs.ts` liest die Efeugrösse daraus. Neue Zeile: Spanne, Quelle, `belegt`. |
 | `hofbaukasten.json` | D360: Maße, Farben und Verfallswerte des Inntaler Einfirsthofs für `../tools/hofbaukasten.py`, Schema `Hofbaukasten`. Jede Zahl mit Quelle (Bauwelt-Notiz, Ledger) oder `annahme: true`; `npm run validate` lehnt eine Zahl ohne Beleg und ohne Kennzeichnung ab. |
@@ -49,9 +49,10 @@ owns: *.json
 | `creatures/firnhase.json` | Firnhase (Schneehase, Frost, Frostkristall-Fell). 2 Stufen, `natural=scree` ab 1000 m. Einziger Frost-Konter gegen Flussvater-Phase 2 |
 | `moves/` | 53 Moves mit eigenem Index — Aufbau, Bänder und Zuordnung zu den Linien stehen in `moves/_INDEX.md` |
 | `gegenstaende/` | 11 Gegenstände mit eigenem Index — Heilung, Wiederbelebung, Reinigung, Fanghilfen, Fokus, Reinkultur-Komponenten (D240). Siehe `gegenstaende/_INDEX.md` |
-| `fragmente/` | 12 Fundstücke an OSM-Orten mit eigenem Index — die Geschichte der Region, ohne Sprecher. Siehe `fragmente/_INDEX.md` |
-| `orte/` | 2 Zufluchten und 3 Bewohner auf freistehenden OSM-Gebäuden. Siehe `orte/_INDEX.md` |
-| `auftraege/` | 14 Aufträge — der kritische Pfad bis zur Heilung (D240). Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
+| `fragmente/` | Fundstücke an OSM-Orten mit eigenem Index — die Geschichte der Region, ohne Sprecher. Siehe `fragmente/_INDEX.md` |
+| `orte/` | Zufluchten und Bewohner an OSM-Gebäuden; seit D375 die Enklave auf der Hangterrasse und Zufluchten in Ringen darum. Siehe `orte/_INDEX.md` |
+| `wanderfiguren/` | **Fraktionsfiguren mit Stationen** (D375, Story-Bibel v2 §5): je Fraktion eine je Region, drei bis fünf Stationen, zieht mit dem Weltzustand weiter. Siehe `wanderfiguren/_INDEX.md` |
+| `auftraege/` | 17 Aufträge — der kritische Pfad bis zur Heilung (D240); Zielart `reinige` statt `fange` seit D375. Fortschritt wird aus dem Spielstand abgeleitet, nicht mitgeschrieben. Siehe `auftraege/_INDEX.md` |
 | `waffen/` | 3 Waffen des Echtzeitkampfs (Klinge, Axt, Speer) — Phasen, Bogen, Wirkung je Schlag (ADR-0008, D191). Siehe `waffen/_INDEX.md` |
 | `gegner/` | 9 Gegner des Echtzeitkampfs (Übungsgegner, 5 Tiere, 3 Menschen) — Schlag, Kette, Linien, Leben, Haltung, Körper (ADR-0007, D194). Siehe `gegner/_INDEX.md` |
 | `creatures/alpenmurmel.json` | Alpenmurmel (Alpenmurmeltier, Stein, Erdpilz-Rückenpolster). 3 Stufen, `landuse=meadow` ab 700 m |

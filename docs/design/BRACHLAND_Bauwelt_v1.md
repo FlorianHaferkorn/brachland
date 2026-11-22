@@ -23,7 +23,7 @@ entsprechend für unsere Story anpassen.“
 ## Zustand nach dem Kollaps — Regeln
 | Stufe | Wo | Bild |
 |---|---|---|
-| **0 bewohnt** | Enklave Mildorf, wenige Einzelhöfe | Bestand geflickt: Bretter vor Fensterlöchern, Wellblech auf Dachschäden, Gärten statt Rasen, Rauch, Fensterlicht (Glut D134), Wäsche, Brennholz. Kein Befall. |
+| **0 bewohnt** | Enklave auf der Hangterrasse (Name offen, A-24; vorläufig „Die Terrasse“, D375), wenige Einzelhöfe | Bestand geflickt: Bretter vor Fensterlöchern, Wellblech auf Dachschäden, Gärten statt Rasen, Rauch, Fensterlicht (Glut D134), Wäsche, Brennholz. Kein Befall. |
 | **1 verlassen, intakt** | Ortsränder, Höfe in Einzellage | Dach geschlossen, Moos und Gras auf der Dachhaut, Efeu/Waldrebe an der Wetterseite, Fenster blind, Läden schief, Lauben morsch, Gras und Birken im Hof. |
 | **2 verfallen** | Talboden, Hanglagen | Dach eingesunken (Teilfläche fehlt, Sparren sichtbar), Laube abgestürzt, Blockbau-OG dunkel verwittert, Birken/Holunder im Haus, Wände stark überwachsen. |
 | **3 Ruine** | einzelne Orte der Story (Altstollen, Ruine) | nur Erdgeschoss-Mauerwerk aus Nagelfluh/Feldstein, Bäume darin, kein Dach. |

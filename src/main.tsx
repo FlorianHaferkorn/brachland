@@ -16,9 +16,10 @@ import { abgeschaltet } from './scenes/abschalter.js';
 import type { Stoecke } from './spieler/steuerung.js';
 import { neueAusdauer, type Ausdauer } from './spieler/ausdauer.js';
 import type { Vorkommen } from './world/vorkommen.js';
-import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNENDE, REGIONEN,
+import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNENDE, REGIONEN, WANDERFIGUREN,
          baueKaempfer, baueRegent, regentOrt, nachMetern, regionsMasse, ausKaempferId } from './data/inhalte.js';
-import { NARBE } from './data/schema.js';
+import { NARBE, type Ort } from './data/schema.js';
+import { stationVon } from './spiel/wanderfiguren.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
 import { Stube } from './ui/Stube.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
@@ -65,6 +66,7 @@ const HIESIGE_KREATUREN = STREUNENDE.filter(k => REGION?.kreaturen.includes(k.id
 const HIESIGE_FRAGMENTE = inRegion(FRAGMENTE.values(), AKTIVE_REGION);
 const HIESIGE_ORTE = inRegion(ORTE.values(), AKTIVE_REGION);
 const HIESIGE_AUFTRAEGE = inRegion(AUFTRAEGE, AKTIVE_REGION);
+const HIESIGE_WANDERFIGUREN = inRegion(WANDERFIGUREN, AKTIVE_REGION);
 /**
  * Kampf Stufe 1 (ADR-0007): `?kampf=1` stellt zwei Übungsgegner vor den
  * Startpunkt. Hinter einem Schalter, bis Fassade und Gegnerbestand stehen.
@@ -394,6 +396,26 @@ function App() {
   );
 
   /**
+   * Wanderfiguren (D375, Story-Bibel v2 §5): Jede steht an der Station, die der Spielstand ergibt
+   * (`spiel/wanderfiguren.ts`), und wird dort wie ein Bewohner gezeigt und angesprochen — ein Satz,
+   * kein Auftrag. Mehr tut das Spiel mit ihnen noch nicht. Bewusst keine `ORTE`: Sie verschieben
+   * weder den Bewohnt-Radius der Häuser (D289) noch erscheinen sie auf der Karte.
+   *
+   * Abhängig nur von den vier Feldern, an denen eine Station hängt — `stand` wechselt bei jedem
+   * Speichern, und jede neue Liste baut die Marken der Szene neu.
+   */
+  const figurOrte = useMemo<Ort[]>(() => (stand ? HIESIGE_WANDERFIGUREN.flatMap(f => {
+    const i = stationVon(f, stand);
+    if (i === null) return [];
+    const s = f.stationen[i];
+    return [{ id: `wanderfigur-${f.id}`, region: f.region, art: 'bewohner' as const, name: f.name,
+              ort: s.ort, text: s.text, figur: f.figur, blick: s.blick, farben: f.farben }];
+  }) : []), [stand?.fragmente, stand?.regenten, stand?.geheilt, stand?.auftraege]);
+  /** Ort oder Wanderfigur zu einer ID aus der Szene. */
+  const ortVon = (id: string | null): Ort | undefined =>
+    (id ? ORTE.get(id) ?? figurOrte.find(o => o.id === id) : undefined);
+
+  /**
    * Zufluchten und Bewohner in Weltkoordinaten.
    *
    * Beide sind dasselbe für die Szene: ein Punkt mit einer Marke und einem Radius.
@@ -402,9 +424,9 @@ function App() {
    */
   const ortsmarken = useMemo(
     () => (welt
-      ? HIESIGE_ORTE.map(o => ({ id: o.id, art: o.art, ort: nachMetern(o.ort, welt.bbox), figur: o.figur, blick: o.blick, gang: o.gang, farben: o.farben }))
+      ? [...HIESIGE_ORTE, ...figurOrte].map(o => ({ id: o.id, art: o.art, ort: nachMetern(o.ort, welt.bbox), figur: o.figur, blick: o.blick, gang: o.gang, farben: o.farben, abends: o.abends }))
       : []),
-    [welt],
+    [welt, figurOrte],
   );
 
   /**
@@ -629,7 +651,7 @@ function App() {
    *
    * Genommen wird der **erste angenommene** Auftrag mit einem Ziel, das einen Ort
    * in der Welt hat — heute sind das `finde` (Fundstück) und `regent`. `besiege`
-   * und `fange` bekommen keine Marke: Kreaturen stehen nicht still, und eine
+   * und `reinige` bekommen keine Marke: Kreaturen stehen nicht still, und eine
    * Marke, die ins Leere zeigt, ist schlimmer als keine.
    */
   const auftragsziel = useMemo(() => {
@@ -805,6 +827,10 @@ function App() {
   const taten = useMemo<Taten>(() => ({
     besiegt: stand?.besiegt ?? [],
     gefangen: stand?.gefangen ?? [],
+    // D375: Aufträge zählen „gereinigt“ (Story-Bibel v2 §2). Bis die Kampfhandlung dafür steht und
+    // einen eigenen Eintrag schreibt, gilt das alte Aufnehmen als Reinigung — sonst wären die
+    // Aufträge der Alten, der Tremmel und am Werkstor unerfüllbar.
+    gereinigt: stand?.gefangen ?? [],
     fragmente: stand?.fragmente ?? [],
     regenten: stand?.regenten ?? [],
     geheilt: stand?.geheilt ?? [],
@@ -885,7 +911,7 @@ function App() {
 
   const imKampf = begegnung !== null || regentKampf !== null;
   // Raum hinter dem Ortsfenster (D242): Solange er offen ist, steht die Welt.
-  const innenOrt = ortOffen ? ORTE.get(ortOffen) : undefined;
+  const innenOrt = ortVon(ortOffen);
   const drinnen = !!innenOrt?.innen;
   const kampfTeam: Team = { kaempfer: team, aktiv: Math.max(0, team.findIndex(k => k.kp > 0)) };
 
@@ -1115,21 +1141,21 @@ function App() {
           )}
 
           {/* Ort in Reichweite. Ein Knopf, kein Automatismus — siehe `Orte` in der Szene. */}
-          {ortNah && !ortOffen && ORTE.get(ortNah) && (
+          {ortNah && !ortOffen && ortVon(ortNah) && (
             <button onClick={() => oeffneOrt(ortNah)} style={{
               position: 'fixed', left: '50%', transform: 'translateX(-50%)',
               bottom: 'calc(env(safe-area-inset-bottom, 8px) + 76px)', zIndex: 20,
               minHeight: 40, padding: '0 18px', borderRadius: 9, fontSize: 13,
               background: '#131c19ee', border: '1px solid #3fd9a0', color: '#3fd9a0',
             }}>
-              {ORTE.get(ortNah)!.art === 'zuflucht' ? 'Rasten' : 'Ansprechen'}
+              {ortVon(ortNah)!.art === 'zuflucht' ? 'Rasten' : 'Ansprechen'}
             </button>
           )}
 
           {innenOrt?.innen && <Stube ort={innenOrt} tageszeit={tageszeit} />}
-          {ortOffen && ORTE.get(ortOffen) && (
+          {ortOffen && ortVon(ortOffen) && (
             <Ortsfenster
-              ort={ORTE.get(ortOffen)!}
+              ort={ortVon(ortOffen)!}
               innen={drinnen}
               auftraege={beiGeber(AUFTRAEGE, ortOffen, stand.auftraege, taten)}
               onRasten={raste}

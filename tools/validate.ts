@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten, Fassade, Massstab, Hofbauten, Hofbaukasten,
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, WaffenDaten, GegnerDaten, Fassade, Massstab, Hofbauten, Hofbaukasten,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -66,6 +66,8 @@ console.log('\nAufträge:');
 const auftraege = pruefe<any>('content/auftraege', Auftrag);
 console.log('\nRegionen:');
 const regionen = pruefe<any>('content/regions', Region);
+console.log('\nWanderfiguren:');
+const wanderfiguren = pruefe<any>('content/wanderfiguren', Wanderfigur);
 console.log('\nWaffen:');
 const waffen = pruefe<any>('content/waffen', WaffenDaten);
 {
@@ -157,7 +159,7 @@ for (const a of auftraege) {
   for (const g of Object.keys(a.belohnung))
     if (!gegenstandIds.has(g)) meldeA(a.id, `Belohnung '${g}' gibt es nicht`);
   const z = a.ziel;
-  if ((z.art === 'besiege' || z.art === 'fange') && !kreaturIds.has(z.kreatur))
+  if ((z.art === 'besiege' || z.art === 'reinige') && !kreaturIds.has(z.kreatur))
     meldeA(a.id, `Ziel-Kreatur '${z.kreatur}' gibt es nicht`);
   if (z.art === 'finde' && !fragmentIds.has(z.fragment))
     meldeA(a.id, `Ziel-Fragment '${z.fragment}' gibt es nicht`);
@@ -331,6 +333,130 @@ if (orte.length && existsSync(`public/world/${region.id}.json`)) {
   const schlimmster = nachbarn.reduce((a, b) => (b.n > a.n ? b : a));
   console.log(`  ✓ ${region.id}: ${orte.length} Orte freistehend: höchstens ${schlimmster.n} Nachbargebäude `
     + `im 70-m-Umkreis (${schlimmster.id}), ${nachbarn.filter(x => x.n === 0).length} ganz allein`);
+}
+
+/**
+ * Lage der Enklave, Flut und Wege (Story-Bibel v2 §3–§5, D375).
+ *
+ * Alles hier misst gegen das Höhenraster der Region. Die Schwellen sind Entwurfsregeln aus der Story-Bibel, keine
+ * Spielwerte: Sie entscheiden nicht, was im Spiel passiert, sondern ob die Ortsliste noch zu dem passt, was
+ * entschieden wurde.
+ */
+{
+  /** Reinkultur-Orte: Mindestabstand zur Enklave und zur Regionsmitte (Spielstart), Story-Bibel v2 §4 / D375. */
+  const REINKULTUR_FERN = 900;
+  /** „In drei Himmelsrichtungen“: Zwei Reinkultur-Orte liegen von der Enklave aus mindestens so weit auseinander. */
+  const REINKULTUR_WINKEL = 45;
+  /** Der Abendweg (D177) ist eine Gerade durch alles, was im Weg steht — länger soll sie nicht sein. */
+  const ABENDWEG_MAX = 150;
+  const meldeL = (was: string) => { console.log(`  ✗ ${was}`); auftragsfehler++; };
+  for (const region of regionen) {
+    if (!existsSync(`public/world/${region.id}.json`)) continue;
+    const welt = JSON.parse(readFileSync(`public/world/${region.id}.json`, 'utf8')).welt;
+    const [sued, west, nord, ost] = region.bbox as number[];
+    const n: number = welt.aufloesung;
+    const roh = Buffer.from(welt.hoehenB64, 'base64');
+    const breite = (ost - west) * 111_320 * Math.cos((sued + nord) / 2 * Math.PI / 180), tiefe = (nord - sued) * 111_320;
+    /** Wie `nachMetern` (`src/data/inhalte.ts`) und `weltZuRaster` (`src/world/terrain.ts`). */
+    const meter = ([lat, lon]: number[]): [number, number] =>
+      [((lon - west) / (ost - west) - 0.5) * breite, ((nord - lat) / (nord - sued) - 0.5) * tiefe];
+    const hoehe = (ort: number[]) => {
+      const [x, z] = meter(ort);
+      const i = Math.max(0, Math.min(n - 1, Math.round((z / tiefe + 0.5) * (n - 1))));
+      const j = Math.max(0, Math.min(n - 1, Math.round((x / breite + 0.5) * (n - 1))));
+      return roh.readInt16LE((i * n + j) * 2) / 10;
+    };
+    const weite = (a: number[], b: number[]) => { const p = meter(a), q = meter(b); return Math.hypot(p[0] - q[0], p[1] - q[1]); };
+    const hiesige = alleOrte.filter((o: any) => o.region === region.id);
+
+    // Tagesroutine: Ziel gibt es, ist ein Bewohner derselben Region, und der Weg ist kurz.
+    for (const o of hiesige.filter((x: any) => x.abends)) {
+      const zielOrt = hiesige.find((x: any) => x.id === o.abends);
+      if (!zielOrt || zielOrt.art !== 'bewohner') meldeL(`${o.id}: Abendziel '${o.abends}' ist kein Bewohner in ${region.id}`);
+      else if (weite(o.ort, zielOrt.ort) > ABENDWEG_MAX)
+        meldeL(`${o.id}: Abendweg ${weite(o.ort, zielOrt.ort).toFixed(0)} m zu '${o.abends}' — höchstens ${ABENDWEG_MAX} m`);
+    }
+
+    const flut: number | undefined = region.flutlinie;
+    if (flut !== undefined) {
+      if (flut <= welt.hoeheMin || flut >= welt.hoeheMax) meldeL(`${region.id}: Flutlinie ${flut} m liegt ausserhalb des Geländes`);
+      // Wer wohnt oder rastet, tut es über dem Wasser.
+      const nass = hiesige.filter((o: any) => hoehe(o.ort) <= flut);
+      nass.forEach((o: any) => meldeL(`${o.id}: liegt auf ${hoehe(o.ort)} m unter der Flutlinie ${flut} m`));
+      const unter = welt.gebaeude.filter((g: any) => hoehe(g.punkte[0]) < flut).length;
+      if (!nass.length) console.log(`  ✓ ${region.id}: Flutlinie ${flut} m — ${hiesige.length} Orte darüber, ${unter} von ${welt.gebaeude.length} Gebäuden darunter`);
+    }
+
+    const enklave = region.enklave;
+    if (enklave) {
+      if (flut !== undefined && hoehe(enklave.ort) <= flut + 3) meldeL(`${region.id}: Enklave „${enklave.name}“ liegt nicht über der Flut`);
+      // Keine Nabe (Story-Struktur v1): nicht die Mehrheit der Enklaven-Bewohner in einem 80-m-Kreis.
+      const nah = hiesige.filter((o: any) => o.art === 'bewohner' && weite(o.ort, enklave.ort) < 600);
+      const dichtester = Math.max(0, ...nah.map((a: any) => nah.filter((b: any) => weite(a.ort, b.ort) <= 80).length));
+      if (nah.length >= 4 && dichtester > nah.length / 2) meldeL(`${region.id}: ${dichtester} von ${nah.length} Enklaven-Bewohnern in einem 80-m-Kreis — das ist eine Nabe`);
+      // Reinkulturen: fern von Enklave und Start, und nicht alle in einer Richtung.
+      const regent = regenten.find((r: any) => r.id === region.regent);
+      const stellen: { k: string; ort: number[] }[] = [];
+      for (const k of regent?.reinkulturen ?? []) {
+        const a = auftraege.find((x: any) => k in x.belohnung && x.ziel.art === 'finde');
+        const f = a && fragmente.find((x: any) => x.id === a.ziel.fragment);
+        if (f) stellen.push({ k, ort: f.ort });
+      }
+      const peil = (ort: number[]) => { const p = meter(ort), e = meter(enklave.ort); return Math.atan2(p[0] - e[0], -(p[1] - e[1])) * 180 / Math.PI; };
+      for (const st of stellen) {
+        const zurEnklave = weite(st.ort, enklave.ort), zumStart = Math.hypot(...meter(st.ort));
+        if (zurEnklave < REINKULTUR_FERN || zumStart < REINKULTUR_FERN)
+          meldeL(`${region.id}: Reinkultur '${st.k}' liegt ${zurEnklave.toFixed(0)} m von der Enklave und ${zumStart.toFixed(0)} m vom Start — mindestens ${REINKULTUR_FERN} m`);
+      }
+      for (let i = 0; i < stellen.length; i++) for (let j = i + 1; j < stellen.length; j++) {
+        const d = Math.abs(((peil(stellen[i].ort) - peil(stellen[j].ort) + 540) % 360) - 180);
+        if (d < REINKULTUR_WINKEL) meldeL(`${region.id}: Reinkulturen '${stellen[i].k}' und '${stellen[j].k}' liegen in derselben Richtung (${d.toFixed(0)}°)`);
+      }
+      console.log(`  ✓ ${region.id}: Enklave „${enklave.name}“ auf ${hoehe(enklave.ort)} m, ${nah.length} Bewohner (dichtester 80-m-Kreis: ${dichtester}), ${stellen.length} Reinkultur-Orte: `
+        + stellen.map(st => `${st.k} ${weite(st.ort, enklave.ort).toFixed(0)} m/${((peil(st.ort) + 360) % 360).toFixed(0)}°`).join(', '));
+    }
+
+    // Verborgene Orte: Die Kreatur lebt hier, das Fundstück gibt es, und kein Auftrag zeigt darauf.
+    for (const v of region.verborgeneOrte ?? []) {
+      const [lat, lon] = v.ort;
+      if (lat < sued || lat > nord || lon < west || lon > ost) meldeL(`${region.id}: verborgener Ort '${v.id}' liegt ausserhalb der Bbox`);
+      if (!region.kreaturen.includes(v.verhaerteter)) meldeL(`${region.id}: verborgener Ort '${v.id}' nennt '${v.verhaerteter}', das hier nicht lebt`);
+      const f = v.fragment ? fragmente.find((x: any) => x.id === v.fragment) : undefined;
+      if (v.fragment && !f) meldeL(`${region.id}: verborgener Ort '${v.id}' nennt ein Fundstück '${v.fragment}', das es nicht gibt`);
+      if (f && weite(f.ort, v.ort) > 30) meldeL(`${region.id}: Fundstück '${f.id}' liegt ${weite(f.ort, v.ort).toFixed(0)} m vom verborgenen Ort '${v.id}'`);
+      const verraeter = auftraege.find((a: any) => a.ziel.art === 'finde' && a.ziel.fragment === v.fragment);
+      if (verraeter) meldeL(`${region.id}: Auftrag '${verraeter.id}' zeigt auf den verborgenen Ort '${v.id}' — dann ist er nicht verborgen`);
+    }
+    if (region.verborgeneOrte?.length) console.log(`  ✓ ${region.id}: ${region.verborgeneOrte.length} verborgene Orte, von keinem Auftrag genannt`);
+
+    // Wanderfiguren: Bedingungen zeigen auf Vorhandenes; unter der Flutlinie steht niemand, solange der Regent staut.
+    const hiesigeFiguren = wanderfiguren.filter((f: any) => f.region === region.id);
+    for (const f of hiesigeFiguren) {
+      let trocken = false;          // ab hier ist der Regent sicher besiegt
+      for (const st of f.stationen) {
+        for (const b of [st.ab, st.bis].filter(Boolean)) {
+          if (b.art === 'finde' && !fragmente.some((x: any) => x.id === b.fragment && x.region === region.id)) meldeL(`Wanderfigur '${f.id}': Fundstück '${b.fragment}' gibt es in ${region.id} nicht`);
+          if ((b.art === 'regent' || b.art === 'heile') && b.regent !== region.regent) meldeL(`Wanderfigur '${f.id}': Regent '${b.regent}' ist nicht der von ${region.id}`);
+          if (b.art === 'auftrag' && !auftraege.some((x: any) => x.id === b.auftrag)) meldeL(`Wanderfigur '${f.id}': Auftrag '${b.auftrag}' gibt es nicht`);
+        }
+        const [lat, lon] = st.ort;
+        if (lat < sued || lat > nord || lon < west || lon > ost) meldeL(`Wanderfigur '${f.id}': Station „${st.wo}“ liegt ausserhalb der Bbox`);
+        if (st.ab && (st.ab.art === 'regent' || st.ab.art === 'heile')) trocken = true;
+        if (flut !== undefined && !trocken && hoehe(st.ort) <= flut) meldeL(`Wanderfigur '${f.id}': Station „${st.wo}“ liegt auf ${hoehe(st.ort)} m unter der Flutlinie, bevor das Wasser sinkt`);
+        // Im Grundriss stünde sie in der Wand.
+        const drin = welt.gebaeude.some((g: any) => { const q: number[][] = g.punkte; let c = false;
+          for (let i = 0; i < q.length - 1; i++) { const [y1, x1] = q[i], [y2, x2] = q[i + 1];
+            if ((y1 > lat) !== (y2 > lat) && lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1) c = !c; }
+          return c; });
+        if (drin) meldeL(`Wanderfigur '${f.id}': Station „${st.wo}“ steht im Grundriss`);
+        if (st.bis && (st.bis.art === 'regent' || st.bis.art === 'heile')) trocken = true;
+      }
+    }
+    if (enklave) for (const fr of ['enklave', 'moenche', 'erbe'])
+      if (hiesigeFiguren.filter((f: any) => f.fraktion === fr).length !== 1) meldeL(`${region.id}: genau eine Wanderfigur der Fraktion '${fr}' erwartet (Story-Bibel v2 §5)`);
+    if (hiesigeFiguren.length) console.log(`  ✓ ${region.id}: ${hiesigeFiguren.length} Wanderfiguren mit ${hiesigeFiguren.reduce((a: number, f: any) => a + f.stationen.length, 0)} Stationen`);
+  }
+  for (const f of wanderfiguren) if (!regionen.some((r: any) => r.id === f.region)) meldeL(`Wanderfigur '${f.id}' nennt eine Region, die es nicht gibt`);
 }
 
 const zufluchten = orte.filter((o: any) => o.art === 'zuflucht').length;

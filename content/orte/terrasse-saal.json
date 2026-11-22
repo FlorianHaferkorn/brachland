@@ -1,0 +1,10 @@
+{
+  "id": "terrasse-saal",
+  "region": "oental",
+  "innen": "stube",
+  "art": "zuflucht",
+  "name": "Saal auf der Terrasse",
+  "ort": [47.73923, 12.09028],
+  "aufwachen": [12.3, 1.0],
+  "text": "Pritschen in zwei Reihen, wo einmal Stühle standen. An der Tür hängt eine Liste, wer wann am Wasser wacht. Ein Platz ist frei. Niemand fragt, für wie lange."
+}

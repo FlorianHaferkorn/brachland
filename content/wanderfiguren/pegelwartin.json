@@ -1,0 +1,36 @@
+{
+  "id": "pegelwartin",
+  "region": "oental",
+  "fraktion": "enklave",
+  "name": "Die Pegelwartin",
+  "figur": "baeuerin",
+  "stationen": [
+    {
+      "wo": "Pegel unter der Terrasse",
+      "ort": [47.73887, 12.09337],
+      "blick": -53,
+      "text": "Sie liest jeden Morgen die Latte ab und schreibt die Zahl an die Hauswand. Die Wand ist fast voll. Sie sagt: Solange das im Wehr liegt, schreibe ich weiter. Machen Sie, dass ich aufhören kann.",
+      "bis": { "art": "finde", "fragment": "stauwehr" }
+    },
+    {
+      "wo": "Bahnhof am Wehr",
+      "ort": [47.72535, 12.09296],
+      "blick": -119,
+      "text": "Sie ist Ihnen vorausgegangen und steht am Gleis, das ins Wasser führt. Von hier sieht man den Rücken, wenn er sich dreht. Sie sagt: Nicht heilen. Was man heilt, kommt wieder.",
+      "bis": { "art": "regent", "regent": "flussvater" }
+    },
+    {
+      "wo": "Altes Dorf, trockengefallen",
+      "ort": [47.72943, 12.09923],
+      "blick": 76,
+      "text": "Sie steht im Schlamm vor einem Haus und hat die Tür noch nicht aufgemacht. Die Wasserlinie geht ihr bis zur Schulter. Sie sagt: Es ist weg. Mehr wollte ich nicht. Fragen Sie mich nicht, was jetzt wächst.",
+      "bis": { "art": "heile", "regent": "flussvater" }
+    },
+    {
+      "wo": "Terrasse, letzte Zahl",
+      "ort": [47.73889, 12.09322],
+      "blick": 37,
+      "text": "Sie hat die letzte Zahl an die Wand geschrieben und einen Strich darunter gezogen. Sie grüßt, aber sie bleibt nicht stehen. Unten wird das Wasser klar, und sie sieht nicht hin."
+    }
+  ]
+}
