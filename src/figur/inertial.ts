@@ -149,6 +149,16 @@ export function starteUebergang(
 }
 
 /**
+ * D461: Den Versatz eines Knochens streichen — er wechselt **hart**. Für Knochen, deren Sprung im Raum des
+ * Elternknochens gewollt ist und in der Welt keiner: Beim Wenden im Stand dreht die Figurgruppe um 90°, der Clip
+ * beginnt um 90° zurückgedreht; die Wurzel springt im eigenen Raum, das Bild steht.
+ */
+export function loescheVersatz(z: Traegheit, i: number): void {
+  z.kurve.fill(0, i * JE, (i + 1) * JE);
+  z.lagekurve.fill(0, i * JE, (i + 1) * JE);
+}
+
+/**
  * Den abklingenden Versatz auf die Pose des Zielclips legen (an Ort und Stelle). `dt` rückt die Uhr vor.
  * Gibt zurück, ob noch etwas abklingt.
  */

@@ -21,7 +21,7 @@
 import type { Figurlaufzeit } from '../data/schema.js';
 
 /** Was die Figur gerade zeigt — bestimmt die Dauer des Übergangs. */
-export type Bewegungsart = 'stand' | 'gang' | 'hut' | 'hieb' | 'block' | 'rolle' | 'treffer' | 'fall' | 'landung';
+export type Bewegungsart = 'stand' | 'gang' | 'hut' | 'hieb' | 'block' | 'rolle' | 'treffer' | 'fall' | 'landung' | 'luft' | 'wende';
 
 /**
  * Dauer, über die der Versatz beim Wechsel `von` → `nach` abklingt, aus den Daten. `gleicheArt` meint einen
@@ -32,6 +32,10 @@ export function uebergangsDauer(von: Bewegungsart, nach: Bewegungsart, u: Figurl
   if (nach === 'treffer') return u.treffer;
   // D458: in die Landung so schnell wie in einen Treffer — der Aufprall wartet nicht; heraus wie aus dem Treffer.
   if (nach === 'landung') return u.treffer;
+  // D461: in die Luft (Absprung, Fall über eine Kante) und zwischen Abdruck und Flughaltung.
+  if (nach === 'luft') return u.luft;
+  // D461: Wendeclip im Stand — der Oberkörper klingt aus, die Beine wechseln hart (`laufzeit.ts` `wechsel(…, hart)`).
+  if (nach === 'wende') return u.standard;
   if (nach === 'rolle') return u.rolle;
   if (nach === 'block') return u.block;
   if (nach === 'hieb') return von === 'hieb' ? u.kette : u.hutHieb;
@@ -39,6 +43,8 @@ export function uebergangsDauer(von: Bewegungsart, nach: Bewegungsart, u: Figurl
   if (von === 'hieb') return u.hiebHut;
   if (von === 'rolle') return u.rolleEnde;
   if (von === 'treffer' || von === 'landung') return u.trefferEnde;
+  // D461: aus der Luft ohne Landeclip (Absatz unter `landung.merklichAb`).
+  if (von === 'luft') return u.luft;
   if (von === 'block') return u.abbruch;
   if (von === 'gang' || nach === 'gang') return u.gang;
   return u.standard;

@@ -889,7 +889,7 @@ wie ein Mensch schneller läuft): bei 4,2 m/s `Run` mit Frequenz ×1,45 (174 Sch
 **Rennen 8,5 m/s deckt auch das nicht:** Frequenz und Weite schlagen an (×2,2 / ×1,4), rund **25 % gleiten weiter**.
 Dafür braucht es einen **Sprintclip** (Standphase ≥ 4 m/s bei Rate 1) und besser einen Laufschritt-Clip mit ~3 m/s —
 Sache von D456; die Kopplung misst neu, sobald die Clips da sind. **Nachtrag D460:** `Run` ist seit D460 ein Laufschritt mit 4,2 m/s
-bei Rate 1 (die Laufzeit misst 4,04), der Sprintclip liegt als `Koerper_Sprint` bereit (§10.3, §10.4). Gehen und Rennen werden im selben Schritt gemischt
+bei Rate 1 (die Laufzeit misst 4,04), der Sprintclip liegt als `Koerper_Sprint` bereit (§10.3, §10.4). **Nachtrag D461:** Die Spielfigur mischt jetzt drei Gangarten (Gang / Laufschritt / Sprint) und misst am Aufstandspunkt — bei 8,5 m/s spielt der Sprint bei Rate 1 (§10.6). Gehen und Rennen werden im selben Schritt gemischt
 (die Clips beginnen 0,32 Zyklen versetzt; gemessen, ausgeglichen).
 
 Dazu: **Kurvenlage** atan(v·ω/g) × 0,4, höchstens 10°; **Anlaufen/Abstoppen** atan(a/g) × 0,5, höchstens 6° (das Tempo
@@ -1034,7 +1034,7 @@ und im Posenblick des Figureneditors) — **nicht entfernt**, das Entfernen geh�
 Fallhöhe v²/2g): unter 0,6 m nichts, bis zur schadlosen Höhe (4,5 m, D412) `Koerper_Landung_Weich`, darüber
 `Koerper_Landung_Hart`, mit der Rolltaste (D413) die vorhandene Rolle (`Roll`, auf 0,75 s gestaucht), bis es einen
 eigenen Clip gibt. Im Stand der ganze Clip, in Bewegung federt nur der Oberkörper nach (55 % des Clips) und die
-Beine laufen. **Kein Spielwert:** Die Landung sperrt keine Eingabe. *Vorschlag (nicht gebaut, wäre eine Regel):*
+Beine laufen. **Nachtrag D461:** Die Lande-Rolle ist `Koerper_Rolle` ab Bild 5 bei Rate 1, und vor der Landung liegt der Sprung (`Koerper_Sprung_Ab`, `_Flug`) — §10.6. **Kein Spielwert:** Die Landung sperrt keine Eingabe. *Vorschlag (nicht gebaut, wäre eine Regel):*
 nach hartem Aufprall 0,4–0,6 s Landestarre, damit die Hocke nicht über laufenden Beinen liegt.
 
 **8. Kosten.** `npx tsx tools/figurbank.ts`, sechs Gegner gleichzeitig an echten Skeletten (zwei Wölfe, Fuchs,
@@ -1274,6 +1274,8 @@ für Vergleich und Rückweg.
 
 ### 10.4 Was Code braucht (nächste Runde, `src/figur/` und `RegionsSzene.tsx` — hier nicht angefasst)
 
+> **Stand D461 (23.11.2026):** Punkte 1, 2, 3, 4, 6 (im Stand) und 9 sind gebaut — §10.6. Offen: 5, 7, 8; der Stand lebt im Ledger (`../_INDEX.md` A-54).
+
 1. **Drei Gangclips statt zwei** (`RegionsSzene.tsx` `SpielerFigur`, dort wo `gehClip`/`laufClip` aus `'Walk'`/`'Run'`
    gesucht und `geh = teil('Walk')`, `lauf = teil('Run')` gebaut werden; `gangMischung` in `src/figur/fortbewegung.ts`):
    `Koerper_Gang` (1,4) ↔ `Koerper_Laufschritt` (4,2) ↔ `Koerper_Sprint` (8,5), je zwei benachbarte gemischt. Dann laufen
@@ -1317,3 +1319,97 @@ Prüfbilder (Formprüfung, keine Look-Abnahme, Bewegung nur am M1; vorher │ na
 Bodenlinie und Fussspur — Knöchelbahn beider Füsse, links liegt unter rechts): `.cache/bilder/D460/gang_vorher_nachher.png`,
 `.cache/bilder/D460/laufschritt_vorher_nachher.png`, `.cache/bilder/D460/sprint_vorher_nachher.png`,
 `.cache/bilder/D460/rolle_vorher_nachher.png`, `.cache/bilder/D460/uebrige_nachher.png`.
+
+### 10.6 D461: die Fortbewegungs-Clips in der Laufzeit — ausgeführt
+
+Auftrag D461 (23.11.2026): die Anschlüsse aus §10.4 verdrahten. Gebaut hinter dem Schalter `figurfein` (D457); mit
+`?figurfein=0` läuft unverändert der Weg von vor D457. **Nicht am M1 in Bewegung gesehen** (ADR-0005) — Formeln und
+Clips ohne Renderer geprüft (`tests/gangclips.test.ts`, 72 Prüfungen, an der ausgelieferten `held-clips.glb`), Form im
+SwiftShader-Standbild. Kein Kampfwert, kein Tempo, keine Regel geändert; `echtzeit.ts`, `content/bewegung.json` und
+`held-clips.glb` sind nicht angefasst. `Walk` bleibt für Gegner und Bewohner, wie es ist.
+
+| §10.4 | Stand | Wo |
+|---|---|---|
+| 1 Drei Gangclips | **gebaut** | `gangStufen` (`src/figur/fortbewegung.ts`), `SpielerFigur` in `src/scenes/RegionsSzene.tsx`, `content/figurlaufzeit.json` `gang.stufen` |
+| 2 Tempo richtig messen | **gebaut** (Aufstandspunkt) | `aufstandsTempo`, `kontaktMitte`, `messeGang` mit `Sohlenmessung` (`src/figur/laufzeit.ts`), `gang.sohle` |
+| 3 Lande-Rolle | **gebaut** | `landung.clipRolle` = `Koerper_Rolle`, `landung.rolleAb` |
+| 4 Sprung | **gebaut** | `src/figur/sprung.ts`, Daten `sprung` |
+| 5 Klettern, Schwimmen | nicht gebaut (nicht Teil von D461) | offen, A-54 |
+| 6 Wenden | **gebaut im Stand**, aus dem Lauf weggelassen (Grund unten) | `src/figur/wende.ts`, Daten `wenden` |
+| 7 Trage-Huten | nicht gebaut (nicht Teil von D461) | offen, A-54 |
+| 8 Anlauf/Abstoppen | nicht gebaut — die Regel springt das Tempo, der Standfuss glitte | offen, braucht eine Regel |
+| 9 Rückfallwerte | **nachgezogen** | `gang.rennen` 2,07 → 4,04; `gang.stufen` 1,40 / 4,19 / 8,49 |
+
+**1. Drei Gangarten.** Die Spielfigur mischt `Koerper_Gang` ↔ `Koerper_Laufschritt` ↔ `Koerper_Sprint`, je die zwei
+Nachbarn, zwischen deren Tempi sie läuft (`gangStufen` ruft dafür `gangMischung` von D457: Strecke je Zyklus gemischt,
+der Rest auf Frequenz und Weite). Alle drei laufen an derselben Stelle des Schritts: Versatz der **Kontaktmitten** des
+ersten Fusses gegen den Gang (Laufschritt 0,86, Sprint 0,80 Zyklen; an der Sohle gelesen, nicht an der Knöchelhöhe —
+beim Abrollen steigt der Knöchel, lange bevor der Ballen abhebt). Fehlt einer der drei Clips in der Datei, gilt das
+Paar `Walk`/`Run` von D457. Gemessen (`BERICHT=1 npx tsx tests/gangclips.test.ts`):
+
+| Tempo | vorher (Stand D460, `figurfein` an) | nachher (D461) |
+|---|---|---|
+| 1,4 m/s | `Walk`/`Run` 88 : 12 gemischt, Rate ×1,17, Weite ×1,08, Restgleiten nicht bestimmbar (`Walk` rollt nicht ab) | `Koerper_Gang` allein, Rate ×1,001, Weite ×1,001, Restgleiten 0,0 % |
+| 4,2 m/s (Laufschritt) | `Run`, Rate ×1,02, Weite ×1,02, **Füsse 3,8 % schneller als der Boden** | `Koerper_Laufschritt` allein, Rate ×1,001, Weite ×1,000, 0,0 % |
+| 8,5 m/s (Rennen) | `Run`, Rate ×1,50, Weite ×1,40 (Schritt per IK gestreckt), Füsse 3,8 % schneller als der Boden | `Koerper_Sprint` allein, Rate ×1,002, Weite ×1,002, 0,0 % |
+
+„Rate“ ist die Abspielrate gegen den Clip, der am meisten trägt; „Restgleiten“ der Anteil des Tempos, den die Füsse
+nicht decken (negativ: sie laufen dem Boden voraus), gerechnet mit dem Tempo am Aufstandspunkt. Die −3,8 % vorher sind
+die Messabweichung von Punkt 2: Die Laufzeit hielt `Run` für 4,04 m/s und stellte Rate × Weite auf 4,2 / 4,04 — der
+Clip deckt aber 4,19. **Die Null nachher ist gerechnet**, auf die Genauigkeit der Messung (Sprint 8,47 statt 8,49 m/s
+aus §10.2: 0,2 %); was die Fuss-IK am Hang daraus macht, zeigt nur der M1.
+
+**2. Tempo am Aufstandspunkt.** `aufstandsTempo` zählt je Fuss nur den Punkt, der in zwei aufeinanderfolgenden Proben
+aufliegt — den Ballen, sonst die Fersenkante (höchstens 6 mm über dem tiefsten Punkt, wie `tests/clipguete.test.ts`) —
+und mittelt den Weg als Vektor. Die Sohle (Fersenkante und Ballen gegen Knöchel und Ballenknochen) steht in den Daten
+(`gang.sohle`, dieselben Masse wie `tools/waffenclips.py`); der Rigplan nennt den Ballenknochen (`ballen`). 64 Proben
+je Zyklus, weil der Sprint nur 0,10 s am Boden steht. Ergebnis: **1,40 / 4,19 / 8,47 m/s** (Soll 1,40 / 4,19 / 8,49;
+die Knöchelmessung liest 1,23 / 4,04 / 8,02). Rollt ein Clip nicht ab (`Walk`), gilt weiter die Knöchelmessung;
+`natuerlichesTempo` selbst ist unverändert, weil Tiere und Gegner (D458) darauf geeicht sind.
+
+**3. Lande-Rolle.** Mit der Rolltaste im Fenster (D413) spielt die Landung `Koerper_Rolle` ab Bild 5 (4/24 s:
+gestreckt in der Luft — Tiefgehen und Abdruck davor entfallen) bei Rate 1 bis zum Clipende (0,58 s), statt `Roll`
+auf 0,75 s gestaucht. **Benannt:** Die Regel sperrt in der Landung nichts; steht die Figur dabei, rollt sie auf der
+Stelle (der Clip trägt keinen Weg, die Regel bewegt). Eine Landerolle mit Weg wäre eine Regel.
+
+**4. Sprung.** Die Bewegung meldet je Bild, ob die Figur in der Luft ist und ob sie abgesprungen ist (`meldeLuft`;
+nicht am Gleiter, im Wasser, am Fels, im Sattel). Nach dem Absprung einmal `Koerper_Sprung_Ab` (0,33 s), dann
+`Koerper_Sprung_Flug` bis zum Aufsetzen; über eine Kante ohne Absprung die Flughaltung erst nach 0,15 s (ein Absatz
+ist kein Flug). Das Aufsetzen ist die Landung von D458 (`Koerper_Landung_Weich` beim eigenen Sprung, 1,49 m).
+**Benannte Abweichung (D398):** Die Regel hebt im Bild des Tastendrucks ab; der Abdruck läuft, während die Figur
+schon steigt. Ein echtes Beugen und Strecken am Boden (0,2–0,3 s) hiesse den Sprung verzögern — Spielwert, nicht gebaut.
+
+**5. Wenden im Stand.** Die Blickrichtung dreht stufenlos (Maus, Tasten); folgte ihr die Hüfte wie bisher, drehten die
+Füsse auf dem Boden mit. Im **freien Stand** (kein Kampf, kein Tempo, nicht im Sattel, keine Landung) gilt jetzt:
+
+- Die Hüfte hält ihre Standrichtung; Rumpf (60 %) und Hals (40 %) drehen zum Blick (`drehSchritt` mit `Standdrehung`).
+- Ab 60° Abstand tritt die Figur mit `Koerper_Wenden_*` um 90° um, ab 135° mit `Koerper_Kehrt_*` um 180° (Schwellen aus
+  §10.4). Die Hüfte springt im selben Bild um **genau den Clipwinkel**, der Clip beginnt um ihn zurückgedreht. Wurzel
+  und Beine wechseln dabei hart (`PosenTraegheit.wechsel(…, hart)`): Ein abklingender Versatz liesse den Körper kreiseln.
+- Die Clips drehen um die Mitte des Stands, die Figur um ihren Ursprung (6 cm daneben). Die Standmitte bleibt deshalb
+  in der Welt liegen (`standVersatz`): Die Figur wird bis zu 13 cm gegen den Ort der Regel versetzt gezeichnet, beim
+  Losgehen klingt das ab (Halbwert 0,12 s).
+
+Am echten Skelett, verdrahtet wie in der Szene (ohne Fuss-IK): Der Körper endet bei ±90° / 180°, die Hüftlinie dreht
+höchstens 6,7° je Bild (das Tempo des Clips), ein stehender Fuss wandert höchstens **3,3 mm je Bild** — einmal je
+Wende, im Bild des Wechsels (der Stand `Idle` wiegt, der Clip beginnt in dessen erstem Bild). **Aus dem Lauf
+weggelassen:** Die Figur schaut immer in Blickrichtung und geht seitwärts und rückwärts, ohne sich zu drehen — ihre
+Richtung springt im Lauf nie; und die Clips enden im Stand, während die Regel das Tempo hält (bei 4,2 m/s glitten die
+Füsse über 0,5–0,75 s rund 2–3 m). **Im Kampf nicht:** Mit aufgeschaltetem Ziel soll der Körper dorthin zeigen, wohin
+die Regel schlägt. `wenden.an = false` stellt den Stand von vor D461 her (Hüfte folgt dem Blick).
+
+**Am M1 messen:** `window.__figurfein` trägt jetzt `clips`, `tempi` (gemessen, m/s), `amAufstand`, `knoechel`, und im
+Bild `stufe`, `anteil`, `clipRate`, `weite`, `gleiten`, `wenden`.
+
+**Was Standbilder nicht zeigen, am M1 zu prüfen:** ob der Sprint bei Rate 1 als Rennen liest; ob der Wechsel
+Laufschritt ↔ Sprint (das Tempo springt, die Mischung springt mit, der Versatz klingt 0,25 s ab) ohne Hüpfer läuft; ob
+der verdrehte Stand (Hüfte hält, Schultern bis 36°, Kopf weitere 24°) natürlich oder verrenkt wirkt und ob das
+Umtreten bei 60° zu spät oder zu oft kommt; ob Abdruck und Flughaltung über 1,1 s Sprung tragen; ob die Lande-Rolle
+im Stand (auf der Stelle) stört.
+
+**UNKLAR:** (a) ob das Umtreten im Stand gewollt ist oder die Figur wie bisher starr dem Blick folgen soll — es
+ändert, was man bei jeder Kameradrehung im Stand sieht; (b) ob die 13 cm Versatz um die Standmitte an Wänden auffallen;
+(c) Gegner und Bewohner spielen weiter `Walk` und `Run` — sollen sie auf die neuen Clips (Frage aus A-54, bleibt).
+
+Prüfbilder (SwiftShader 640×360, Formprüfung, keine Look-Abnahme; gleiche Kamera, „vorher“ derselbe Build mit
+`?figurfein=0`): `.cache/bilder/D461/rennen_vorher_nachher.png` (Rennen 8,5 m/s, je drei Bilder), `.cache/bilder/D461/sprung_vorher_nachher.png` (Sprung aus Rennen und Stand: Abdruck und Flughaltung statt Gang/Stand in der Luft), `.cache/bilder/D461/wenden_vorher_nachher.png` (Q gehalten im Stand: Füsse bleiben stehen und treten um, drei Wenden in der Folge). Die Bilder sind nicht bildgenau synchron (rund 1 Bild/s, Phase des Schritts zufällig).

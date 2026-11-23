@@ -1175,6 +1175,7 @@ export const Figurlaufzeit = z.object({
   uebergang: z.object({
     standard: sek(0.5), gang: sek(0.5), hutHieb: sek(0.3), kette: sek(0.3), hiebHut: sek(0.5), abbruch: sek(0.3),
     rolle: sek(0.3), rolleEnde: sek(0.5), treffer: sek(0.3), trefferEnde: sek(0.5), block: sek(0.3), fall: sek(0.5),
+    luft: sek(0.3),
   }).strict(),
   gang: z.object({
     gehen: z.number().positive().max(4).describe('m/s des Geh-Clips bei Rate 1, Rückfall, wenn die Messung am Clip nichts ergibt'),
@@ -1183,6 +1184,19 @@ export const Figurlaufzeit = z.object({
     weiteMin: z.number().positive().max(1).describe('kleinste Schrittweite gegen den Clip'),
     weiteMax: z.number().min(1).max(2).describe('grösste Schrittweite gegen den Clip — darüber reicht das Bein nicht'),
     standHoehe: z.number().positive().max(0.2).describe('m über dem tiefsten Punkt der Fussbahn, bis zu denen ein Fuss als stehend gilt'),
+    /** D461: Gangarten der Spielfigur, aufsteigend — je zwei Nachbarn werden nach Tempo gemischt (`gangStufen`). */
+    stufen: z.array(z.object({
+      clip: z.string().min(1),
+      tempo: z.number().positive().max(12).describe('m/s bei Rate 1, Rückfall, wenn die Messung am Clip nichts ergibt'),
+    }).strict()).min(2).max(4).refine(s => s.every((x, i) => i === 0 || x.tempo > s[i - 1].tempo), 'Gangarten aufsteigend nach Tempo'),
+    /** D461: Sohle der Hauptfigur im Rahmen Knöchel → Ballen (vor) und senkrecht dazu (hoch), für die Messung am Aufstandspunkt. */
+    sohle: z.object({
+      ferseVor: z.number().min(-0.2).max(0.2), ferseHoch: z.number().min(-0.2).max(0),
+      ballenVor: z.number().min(-0.2).max(0.2), ballenHoch: z.number().min(-0.2).max(0),
+      toleranz: z.number().positive().max(0.03).describe('m über dem tiefsten Punkt, bis zu denen ein Aufstandspunkt als aufliegend gilt'),
+    }).strict(),
+    wechselAb: z.number().positive().max(1).describe('D461: springt die Mischung der Gangarten in einem Bild um mehr als diesen Anteil (das Tempo der Regel springt), klingt der Wechsel als Übergang ab'),
+    warum: z.string().min(1),
   }).strict().refine(g => g.gehen < g.rennen, 'gehen muss langsamer sein als rennen'),
   fuss: z.object({
     standHoehe: z.number().positive().max(0.2), haltMax: z.number().positive().max(0.3),
@@ -1214,9 +1228,29 @@ export const Figurlaufzeit = z.object({
     merklichAb: z.number().positive().max(3).describe('m gleichwertige Fallhöhe, ab der ein Landeclip spielt'),
     gehtAb: z.number().positive().max(1).describe('Anteil des Clips, nach dem er in Bewegung dem Gang weicht'),
     clipWeich: z.string().min(1), clipHart: z.string().min(1), clipRolle: z.string().min(1),
-    uebergang: sek(0.5), rolleDauer: z.number().positive().max(2),
+    uebergang: sek(0.5),
+    rolleAb: z.number().min(0).max(1).describe('D461: Clipsekunde, bei der die Lande-Rolle in `clipRolle` einsteigt (D460: Bild 5 = 4/24 s)'),
     warum: z.string().min(1),
   }).strict(),
+  /** D461: Sprung der Spielfigur als Bild (`src/figur/sprung.ts`) — Absprungtempo und Höhe sind `content/bewegung.json`. */
+  sprung: z.object({
+    clipAb: z.string().min(1), clipFlug: z.string().min(1),
+    fallAb: sek(1).describe('s in der Luft ohne Absprung, bevor die Flughaltung kommt'),
+    warum: z.string().min(1),
+  }).strict(),
+  /** D461: Wenden im freien Stand (`src/figur/wende.ts`) — nur wohin der Körper zeigt; der Blick bleibt die Regel. */
+  wenden: z.object({
+    an: z.boolean(),
+    abGrad: z.number().min(20).max(89).describe('Blick − Hüfte, ab dem die Figur um 90° umtritt'),
+    kehrtAbGrad: z.number().min(91).max(179).describe('ab dem sie kehrtmacht (180°)'),
+    rumpfAnteil: z.number().min(0).max(1).describe('Anteil des Winkels in der Wirbelsäule, der Rest im Hals'),
+    versatzHalbwert: sek(1).describe('so schnell klingt der Versatz um die Standmitte ab, wenn die Figur losgeht'),
+    clips: z.object({
+      wendenLinks: z.string().min(1), wendenRechts: z.string().min(1), kehrtLinks: z.string().min(1), kehrtRechts: z.string().min(1),
+    }).strict(),
+    stand: z.string().min(1).describe('Clip des Stands, an dem die Standmitte gelesen wird'),
+    warum: z.string().min(1),
+  }).strict().refine(w => w.abGrad < 90 && w.kehrtAbGrad > w.abGrad, 'Wenden vor Kehrt'),
 }).strict();
 export type Figurlaufzeit = z.infer<typeof Figurlaufzeit>;
 

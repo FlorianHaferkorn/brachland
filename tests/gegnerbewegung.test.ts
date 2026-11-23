@@ -297,8 +297,9 @@ const gemessen: string[] = [];
   for (let v = 2; v <= 20; v += 0.25) { const h = fallhoeheAus(v), art = landeArt(h, schadlos, false, lw); if (art && (art === 'hart') !== (fallschaden(v) > 0)) gleich = false; }
   pruefe('hart genau dann, wenn der Aufprall Schaden macht (D412)', gleich);
   pruefe('Rolltaste (D413): Rolle statt Hocke — nur bei merklichem Fall', landeArt(6, schadlos, true, lw) === 'rolle' && landeArt(1.5, schadlos, true, lw) === 'rolle' && landeArt(0.2, schadlos, true, lw) === null);
-  pruefe('Clips: weich/hart von D456, Rolle bis zu einem eigenen Clip die vorhandene',
-    landeClip('weich', lw) === 'Koerper_Landung_Weich' && landeClip('hart', lw) === 'Koerper_Landung_Hart' && landeClip('rolle', lw) === 'Roll');
+  // D461: Der eigene Clip ist da — die Lande-Rolle spielt `Koerper_Rolle` (D460) ab `rolleAb` statt `Roll` gestaucht.
+  pruefe('Clips: weich/hart von D456, Rolle die Hechtrolle von D460',
+    landeClip('weich', lw) === 'Koerper_Landung_Weich' && landeClip('hart', lw) === 'Koerper_Landung_Hart' && landeClip('rolle', lw) === 'Koerper_Rolle');
   const marken = (CLIPMARKEN as { clips: Record<string, unknown> }).clips;
   pruefe('die Landeclips stehen in den Clipmarken von D456', !!marken[lw.clipWeich] && !!marken[lw.clipHart]);
   const l = neueLandung(), nr = () => l.nr;

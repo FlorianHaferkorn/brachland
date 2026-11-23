@@ -26,15 +26,15 @@
  * Läufen** (Gewicht zurück heisst: die Füsse bleiben), beim Menschen Wirbelsäule und Kopf.
  */
 import * as THREE from 'three';
-import { neueTraegheit, starteUebergang, wendeAn, type Traegheit } from './inertial.js';
+import { loescheVersatz, neueTraegheit, starteUebergang, wendeAn, type Traegheit } from './inertial.js';
 import { teileSpuren, type Rigplan } from './ebenen.js';
 import { paarHoehe, rumpfLage, seitLage, type Rumpflage, type RumpfWerte } from './vierbeiner.js';
 import type { Zusatz } from './ansage.js';
 import type { Figurlaufzeit } from '../data/schema.js';
 import { beckenSenkung, begrenzeNormale, bodenNormale, fuehreStandfuss, neuerStandfuss, type Standfuss } from './fussboden.js';
 import {
-  atemSchritt, blickWinkel, drehSchritt, kurvenNeigung, natuerlichesTempo, neueDrehkette, neuerAtem, schubNeigung, standMitte,
-  type Atem, type Bahnpunkt, type Drehkette,
+  atemSchritt, aufstandsTempo, blickWinkel, drehSchritt, kontaktMitte, kurvenNeigung, natuerlichesTempo, neueDrehkette, neuerAtem, schubNeigung,
+  sohlenpunkte, standMitte, type Atem, type Bahnpunkt, type Drehkette, type Sohlenbahn, type Sohlenmass, type Standdrehung,
 } from './fortbewegung.js';
 import { federSchritt, klemme, neueFeder, type Feder } from './feder.js';
 import { neueTrefferantwort, stosseFigur, stosseGrad, trefferSchritt, type Trefferantwort } from './trefferantwort.js';
@@ -58,6 +58,7 @@ export class PosenTraegheit {
   private lroh: Float64Array; private lvorher: Float64Array; private ldavor: Float64Array; private lschluss: Float64Array;
   private dtVor = 0;
   private offen = -1;
+  private hart: ReadonlySet<string> | null = null;
   private bereit = false;
 
   constructor(knochen: THREE.Object3D[]) {
@@ -68,8 +69,12 @@ export class PosenTraegheit {
     this.lroh = new Float64Array(3 * n); this.lvorher = new Float64Array(3 * n); this.ldavor = new Float64Array(3 * n); this.lschluss = new Float64Array(3 * n);
   }
 
-  /** Vor einem harten Clipwechsel: Der Versatz zur neuen Pose klingt über `dauer` Sekunden ab. */
-  wechsel(dauer: number): void { this.offen = Math.max(this.offen, dauer); }
+  /**
+   * Vor einem harten Clipwechsel: Der Versatz zur neuen Pose klingt über `dauer` Sekunden ab. D461, `hart`: Knochen
+   * (nach Namen), die **ohne** Versatz wechseln — beim Wenden im Stand springt die Wurzel im Raum der Figur um den
+   * Winkel, um den die Figurgruppe gegenläufig springt; ein abklingender Versatz liesse den Körper sichtbar kreiseln.
+   */
+  wechsel(dauer: number, hart?: ReadonlySet<string>): void { this.offen = Math.max(this.offen, dauer); if (hart) this.hart = hart; }
 
   /** Klingt gerade etwas ab? */
   get laeuft(): boolean { return this.z.laeuft; }
@@ -96,8 +101,9 @@ export class PosenTraegheit {
     }
     if (this.offen >= 0 && this.bereit) {
       starteUebergang(this.z, this.vorher, this.davor, roh, this.dtVor, this.offen, this.lvorher, this.ldavor, lroh);
+      if (this.hart) for (let i = 0; i < n; i++) if (this.hart.has(knochen[i].name)) loescheVersatz(this.z, i);
     }
-    this.offen = -1;
+    this.offen = -1; this.hart = null;
     // Gezeigte Pose = Rohpose + Versatz. `vorher` wird zum Arbeitsfeld für dieses Bild.
     const t = this.davor; this.davor = this.vorher; this.vorher = t;
     const lt = this.ldavor; this.ldavor = this.lvorher; this.lvorher = lt;
@@ -145,36 +151,55 @@ export function teileClip(clip: THREE.AnimationClip, ober: ReadonlySet<string>):
 }
 
 const _mv = new THREE.Vector3();
+/** D461: Sohle für `messeGang` — Ballenknochen je Fuss (Reihenfolge wie `fuesse`) und die Masse der Sohle. */
+export interface Sohlenmessung { ballen: readonly THREE.Object3D[]; mass: Sohlenmass }
 /**
  * Einen Gangclip am Skelett vermessen: der Clip wird einmal in `proben` Schritten durchgestellt und die Bahn
  * jedes Fusses im Raum der Figur gelesen. `tempo`: wie schnell der Clip bei Rate 1 über den Boden kommt
  * (`natuerlichesTempo`, Mittel über die Füsse; `null`, wenn keiner steht). `tief`: die tiefste Höhe jedes
  * Fussknochens — so hoch sitzt er über dem Boden, wenn der Fuss steht. `standMitte`: wo im Zyklus der erste Fuss
  * steht (zum Abgleich zweier Gangclips). Einmal beim Laden, nie im Bild.
+ *
+ * **D461, mit `sohle`:** Tempo am **Aufstandspunkt** (`aufstandsTempo`: Fersenkante oder Ballen, solange er aufliegt)
+ * und die Mitte des Bodenkontakts an der Sohle (`kontaktMitte`) — für Clips, die abrollen, liest die Knöchelbahn
+ * zu langsam. Rollt der Clip nicht ab (kein Punkt liegt zweimal hintereinander auf), gilt weiter die Knöchelmessung;
+ * `amAufstand` sagt, welche griff, `tempoKnoechel` trägt die alte Messung zum Vergleich. Ohne `sohle` unverändert
+ * (Tiere und Gegner, D458).
  */
-export function messeGang(wurzel: THREE.Object3D, clip: THREE.AnimationClip, fuesse: readonly THREE.Object3D[], standHoehe: number, proben = 32):
-  { tempo: number | null; tief: number[]; standMitte: number | null } {
-  if (!fuesse.length || !(clip.duration > 0)) return { tempo: null, tief: [], standMitte: null };
+export function messeGang(wurzel: THREE.Object3D, clip: THREE.AnimationClip, fuesse: readonly THREE.Object3D[], standHoehe: number, proben = 32,
+  sohle?: Sohlenmessung): { tempo: number | null; tief: number[]; standMitte: number | null; tempoKnoechel: number | null; amAufstand: boolean } {
+  if (!fuesse.length || !(clip.duration > 0)) return { tempo: null, tief: [], standMitte: null, tempoKnoechel: null, amAufstand: false };
   const mixer = new THREE.AnimationMixer(wurzel);
   const a = mixer.clipAction(clip);
   a.play();
   const bahnen: Bahnpunkt[][] = fuesse.map(() => []);
+  const sohlen: Sohlenbahn[] | null = sohle && sohle.ballen.length === fuesse.length ? fuesse.map(() => ({ ferse: [], ballen: [] })) : null;
   for (let i = 0; i <= proben; i++) {
     a.time = Math.min(clip.duration * 0.9999, (clip.duration * i) / proben);
     mixer.update(0);
     wurzel.updateMatrixWorld(true);
+    const t = (clip.duration * i) / proben;
     fuesse.forEach((f, k) => {
       wurzel.worldToLocal(f.getWorldPosition(_mv));
-      bahnen[k].push({ t: (clip.duration * i) / proben, x: _mv.x, y: _mv.y, z: _mv.z });
+      const kn: Bahnpunkt = { t, x: _mv.x, y: _mv.y, z: _mv.z };
+      bahnen[k].push(kn);
+      if (sohlen) {
+        wurzel.worldToLocal(sohle!.ballen[k].getWorldPosition(_mv));
+        const s = sohlenpunkte(kn, { t, x: _mv.x, y: _mv.y, z: _mv.z }, sohle!.mass);
+        sohlen[k].ferse.push(s.ferse); sohlen[k].ballen.push(s.ballen);
+      }
     });
   }
   mixer.stopAllAction();
   mixer.uncacheRoot(wurzel);
   const werte = bahnen.map(b => natuerlichesTempo(b, standHoehe)).filter((v): v is number => v !== null);
+  const knoechel = werte.length ? werte.reduce((s, v) => s + v, 0) / werte.length : null;
+  const aufstand = sohlen ? aufstandsTempo(sohlen, sohle!.mass.toleranz) : null;
   return {
-    tempo: werte.length ? werte.reduce((s, v) => s + v, 0) / werte.length : null,
+    tempo: aufstand ?? knoechel,
     tief: bahnen.map(b => b.reduce((m, p) => Math.min(m, p.y), Infinity)),
-    standMitte: standMitte(bahnen[0], standHoehe),
+    standMitte: (aufstand !== null ? kontaktMitte(sohlen![0], sohle!.mass.toleranz) : null) ?? standMitte(bahnen[0], standHoehe),
+    tempoKnoechel: knoechel, amAufstand: aufstand !== null,
   };
 }
 
@@ -246,6 +271,11 @@ export interface FeinEingabe {
   weite: number;
   /** D458: Körpersprache über dem Clip (`ansage.ts`) — Ansage, Taumeln, Schütteln. */
   zusatz?: Zusatz;
+  /**
+   * D461, freier Stand (`wende.ts`): Blick − Standrichtung der Hüfte in rad. Gesetzt hält die Hüfte ihre
+   * Standrichtung, Rumpf und Kopf drehen zum Blick; `undefined` = die Hüfte folgt dem Blick wie bisher.
+   */
+  standAbstand?: number;
 }
 
 export interface FeinAusgabe {
@@ -293,6 +323,9 @@ export class Koerperfein {
   private nickVier = 0; private rollVier = 0;
   private paarV: number[] = []; private paarH: number[] = [];
   private lage: Rumpflage = { hub: 0, nick: 0 };
+  /** D461: Gier der Hüftlinie (Oberschenkel links → rechts) im Raum der Wurzel in der Ruhelage — Nullpunkt für `clipGier`. */
+  private hueftRuhe = 0; private standVor = false; private koerperVor = 0;
+  private stand: Standdrehung = { abstand: 0, koerper: 0, blickMax: FIGUR.blick.gierMaxGrad * GRAD, rumpfAnteil: FIGUR.wenden.rumpfAnteil };
 
   /**
    * `wurzel`: Wurzel des Modells (wird um die Beckensenkung verschoben, wie `setzeFuesse` es tut).
@@ -323,7 +356,25 @@ export class Koerperfein {
     this.paarV = this.beine.filter(b => b.paar === 'vorn').map(() => 0);
     this.paarH = this.beine.filter(b => b.paar === 'hinten').map(() => 0);
     if (opt?.vier && this.paarV.length && this.paarH.length) this.vier = opt.vier;
+    this.hueftRuhe = this.hueftGier();
   }
+
+  /** D461: Gier der Hüftlinie im Raum der Wurzel (rad, positiv links); 0 ohne zwei Beine. */
+  private hueftGier(): number {
+    if (this.beine.length !== 2) return 0;
+    this.wurzel.worldToLocal(this.beine[0].ober.getWorldPosition(_v));
+    this.wurzel.worldToLocal(this.beine[1].ober.getWorldPosition(_ziel));
+    return Math.atan2(-(_ziel.z - _v.z), _ziel.x - _v.x);
+  }
+
+  /** D461: Nullpunkt für die Gier des Clips neu lesen — rufen, während das Skelett im Stand steht (Szene, beim Laden). */
+  eicheHuefte(): void { this.hueftRuhe = this.hueftGier(); }
+
+  /**
+   * D461: Die Hüfte um `winkel` springen lassen (rad) — im selben Bild, in dem ein Wendeclip beginnt, der um
+   * diesen Winkel zurückgedreht anfängt (`wende.ts`). Vor `schritt` rufen.
+   */
+  dreheHuefte(winkel: number): void { this.kette.huefte.x += winkel; }
 
   /** Erlittener Treffer: Richtung vom Angreifer weg im Raum der Figur (`wegVomAngreifer`), Wucht = Schaden. */
   stoss(wegX: number, wegZ: number, schaden: number, faktor = 1): void {
@@ -342,7 +393,7 @@ export class Koerperfein {
   ruhe(): void {
     this.begonnen = false; this.kette = neueDrehkette(); this.treffer = neueTrefferantwort();
     this.rollen = neueFeder(); this.nicken = neueFeder(); this.blickG = neueFeder(); this.blickN = neueFeder();
-    this.becken = 0; this.an = 0; this.nickVier = 0; this.rollVier = 0;
+    this.becken = 0; this.an = 0; this.nickVier = 0; this.rollVier = 0; this.standVor = false;
     this.wurzel.position.copy(this.grundP); this.wurzel.quaternion.copy(this.grundQ);
     for (const b of this.beine) { b.halt = neuerStandfuss(); b.versatz = 0; }
   }
@@ -356,7 +407,24 @@ export class Koerperfein {
     if (!this.begonnen) { this.begonnen = true; this.gierVor = e.gier; this.tempoGlatt.x = e.tempo; }
     // Straffheit weich führen: Springt sie (Hut → Hieb), holte die Hüfte ihren Rückstand sonst in einem Bild auf.
     const straff = klemme(federSchritt(this.straff, e.straff, 0.04, d), 0, 1);
-    const k = drehSchritt(this.kette, e.gier, d, this.drehen, straff);
+    // D461: Im freien Stand hält die Hüfte ihre Standrichtung; wie weit der Clip den Körper dagegen dreht (Wendeclip),
+    // steht in den Knochen und wird dort gelesen.
+    let stand: Standdrehung | undefined;
+    if (e.standAbstand !== undefined) {
+      stand = this.stand;
+      stand.abstand = e.standAbstand;
+      let kg = this.hueftGier() - this.hueftRuhe;
+      // Der Körper (Hüfte + Clip) dreht in der Welt stetig — auch wenn die Hüfte springt (`dreheHuefte`) und der Clip
+      // gegenläufig beginnt. Der Winkel des Clips wird deshalb auf den Umlauf gelegt, der dem letzten Bild am nächsten ist
+      // (ein Kehrt beginnt bei ±180°, das Vorzeichen stünde sonst auf der Rundung).
+      const h = this.kette.huefte.x;
+      if (this.standVor) kg += Math.round((this.koerperVor - (h + kg)) / (2 * Math.PI)) * 2 * Math.PI;
+      else kg -= Math.round(kg / (2 * Math.PI)) * 2 * Math.PI;
+      stand.koerper = kg;
+    }
+    this.standVor = !!stand;
+    const k = drehSchritt(this.kette, e.gier, d, this.drehen, straff, stand);
+    if (stand) this.koerperVor = k.huefte + stand.koerper;
     // Drehrate und Beschleunigung aus dem, was die Regel tut; geglättet, weil beides von Bild zu Bild springt.
     let dg = e.gier - this.gierVor;
     dg -= Math.round(dg / (2 * Math.PI)) * 2 * Math.PI;

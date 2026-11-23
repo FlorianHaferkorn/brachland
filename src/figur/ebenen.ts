@@ -13,6 +13,8 @@
 
 export interface BeinPlan {
   ober: string; unter: string; fuss: string;
+  /** D461: Ballenknochen unter dem Fuss — mit ihm misst `messeGang` das Tempo am Aufstandspunkt statt am Knöchel. */
+  ballen?: string;
   /** D458, Vierbeiner: zu welchem Gürtel das Bein gehört. Mit Paaren trägt jedes Paar seinen Gürtel (`vierbeiner.ts`). */
   paar?: 'vorn' | 'hinten';
   /**
@@ -42,8 +44,8 @@ export const RIG_MENSCH: Rigplan = {
   hals: 'neck_01',
   kopf: 'Head',
   beine: [
-    { ober: 'thigh_l', unter: 'calf_l', fuss: 'foot_l' },
-    { ober: 'thigh_r', unter: 'calf_r', fuss: 'foot_r' },
+    { ober: 'thigh_l', unter: 'calf_l', fuss: 'foot_l', ballen: 'ball_l' },
+    { ober: 'thigh_r', unter: 'calf_r', fuss: 'foot_r', ballen: 'ball_r' },
   ],
   oberAb: 'spine_01',
 };

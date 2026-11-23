@@ -9,8 +9,8 @@
  * - unter `merklichAb` (ein Absatz, eine Bordsteinkante): **nichts** — die Füsse folgen dem Boden ohnehin;
  * - bis zur schadlosen Höhe (`fall.schadlosBis`): **weich**;
  * - darüber: **hart**;
- * - Rolltaste im Fenster (D413) und der Fall war merklich: **rolle** — bis es einen eigenen Clip gibt, die
- *   vorhandene Rolle aus dem Kampf (`Roll`).
+ * - Rolltaste im Fenster (D413) und der Fall war merklich: **rolle** — seit D461 die Hechtrolle von D460
+ *   (`Koerper_Rolle`) ab `rolleAb` (Bild 5: gestreckt in der Luft; Tiefgehen und Abdruck davor entfallen), bei Rate 1.
  *
  * **Kein Spielwert:** Die Landung sperrt keine Eingabe und kostet keine Zeit; bewegt sich die Figur weiter, federt
  * nur der Oberkörper nach, die Beine laufen (Ebenen, D457). Eine Landestarre nach hartem Fall wäre eine Regel —
