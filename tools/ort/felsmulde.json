@@ -1,0 +1,55 @@
+{
+  "id": "felsmulde",
+  "name": "Felsmulde",
+  "region": "oental",
+  "ursprung": { "x": -800, "z": 600 },
+  "h0": 452.91191750150034,
+  "hoehenversatz": 0.2,
+  "zielbild": {
+    "freigabe": "D397",
+    "werkzeug": "tools/stilframes.py",
+    "modus": "zielbild4",
+    "bild": "docs/bilder/zielbild/d386-zielbild.jpg",
+    "blend": ".cache/blender/felsmulde/zielbild4.blend",
+    "terrain": ".cache/blender/felsmulde",
+    "hinweis": "Der Pfad der .blend ist ein Vorschlag (D459): in D448 lag die Datei im Scratchpad und ist nicht belegt. Erzeugen am M1: AFRAME_BLEND=<pfad> BRACHLAND_CPU=1 blender --background --python tools/stilframes.py -- zielbild4 .cache/blender/felsmulde <präfix> 1920 1080 48 ziel. Messkamera ist Runde 4 (Blick z 2,45); Runde 5 (D441/D442, Tümpel) ist noch nicht übertragen."
+  },
+  "kameras": [
+    { "name": "ziel", "ort": [-11.0, 2.2, 1.9], "blick": [5.0, -1.0, 2.45], "brennweite": 24, "sensor": 36 },
+    { "name": "boden", "ort": [-5.4, 2.6, 1.05], "blick": [-1.2, -0.6, 0.1], "brennweite": 30, "sensor": 36 }
+  ],
+  "sonne": { "azimut": 194, "hoehe": 24.5 },
+  "spiel": {
+    "stimmung": "zielbildfels",
+    "schalterVorher": ["echt=1"],
+    "schalterNachher": ["echt=1", "lookfels=1"],
+    "ordner": "bauten-ziel"
+  },
+  "bauteile": [
+    { "id": "mauern", "art": "wand", "weg": "szenenexport", "datei": "felsmulde-bauten.glb", "hinweis": "Bruchsteinmauern A–C, Stützmauer, Bogen, Kronsteine, Schutt; Relief von hoch nach niedrig gebacken (D450)" },
+    { "id": "felsen", "art": "fels", "weg": "szenenexport", "datei": "felsmulde-bauten.glb", "hinweis": "Scan-Felsen, Steine, Kiesel, Versturz" },
+    { "id": "streu", "art": "streu", "weg": "szenenexport", "datei": "felsmulde-bauten.glb", "hinweis": "Balken, Äste, Zweige, Rindenstreu, Wurzeln, Stubben, Moos" },
+    { "id": "teich", "art": "wasser", "weg": "szenenexport", "datei": "felsmulde-wasser.glb", "hinweis": "Becken der Runde 4; der Tümpel der Runde 5 (D441) ist noch nicht übertragen" },
+    { "id": "boden", "art": "boden", "weg": "bodenexport", "datei": "felsmulde-boden.glb", "hinweis": "25-cm-Raster, Radius 30 m, Spielboden mit Loch 24 m (D448)" },
+    { "id": "pflanzen", "art": "pflanzen", "weg": "pflanzenexport", "datei": "felsmulde-pflanzen.glb", "hinweis": "6 676 Lagen aus 69 Vorlagen, Efeu, Laubstreu" },
+    { "id": "kronen", "art": "kronen", "weg": "engine", "hinweis": "src/scenes/Rahmenkronen.tsx (D446): 13 Bäume des Renders als Kartenkronen, fest im Code — für einen neuen Ort Eskalation" },
+    { "id": "ferne", "art": "ferne", "weg": "engine", "hinweis": "Fernberge und Dunst sind Engine (fernland.ts, Stimmung), nicht übertragen" }
+  ],
+  "quellen": [
+    { "name": "Poly Haven (Scans, HDRI)", "lizenz": "CC0", "imSpiel": true },
+    { "name": "ambientCG", "lizenz": "CC0", "imSpiel": true },
+    { "name": "Quixel Megascans (Fab)", "lizenz": "Fab Standard License — nur Zielbild, ADR-0021", "imSpiel": false }
+  ],
+  "abnahme": {
+    "toleranz": { "mittel": 0.05, "unter02": 0.10, "ueber07": 0.05, "rb_licht": 0.08, "rb_schatten": 0.05, "saett": 0.08, "himmel": 0.05 },
+    "bildrate": { "min": 30, "format": "1600x900", "dpr": 1 },
+    "budget": { "dateienMB": 60, "dreieckeMio": 1.3, "aufrufe": 2000 }
+  },
+  "protokoll": [
+    { "ledger": "D445", "stand": "Zielbild Runde 4, 1920 × 1080", "werte": { "mittel": 0.27, "unter02": 0.41, "ueber07": 0.005, "rb_licht": 0.13, "rb_schatten": 0.01, "saett": 0.46, "himmel": 0.049 } },
+    { "ledger": "D445", "stand": "Spiel vorher (echt=1, Sonne des Renders)", "werte": { "mittel": 0.36, "unter02": 0.36, "ueber07": 0.027, "rb_licht": 0.06, "rb_schatten": 0.01, "saett": 0.28, "himmel": 0.289 } },
+    { "ledger": "D446", "stand": "Spiel nach Look-Durchgang (lookfels=1)", "werte": { "mittel": 0.24, "unter02": 0.55, "ueber07": 0.065, "rb_licht": -0.07, "saett": 0.43, "himmel": 0.015 } },
+    { "ledger": "D448", "stand": "Spiel mit übertragener Szene", "werte": { "mittel": 0.21, "unter02": 0.68, "ueber07": 0.075, "saett": 0.45, "himmel": 0.016 }, "bildrate": 13 },
+    { "ledger": "D450", "stand": "Spiel nach Bildraten-Durchgang, 1600 × 900, Pixeldichte 1", "werte": { "mittel": 0.23, "unter02": 0.64 }, "bildrate": 30 }
+  ]
+}

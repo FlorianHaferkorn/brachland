@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-11-22
+last-reviewed: 2026-11-23
 shelf-life-days: 30
 ---
 # Übergabe Cloud → M1 (22.11.2026)
@@ -79,6 +79,10 @@ Stand holen: `git pull` auf `claude/epic-planck-86z6fy` (PR #16). Nächste freie
 3. **Physik muss stimmen** (D398, steht in `CLAUDE.md`): gilt für jedes Bild und jeden Wert. Abweichungen zugunsten
    des Spiels benennen und begründen.
 4. **Ab jetzt rendert nur noch der M1.** Die Cloud-Sitzung startet keine neuen Render-Aufträge mehr; dort laufen keine Render mehr.
+5. **Verfahren Ort für Ort** (Flo 23.11.2026, D459): `VERFAHREN_ORT.md`, Akte `../tools/ort/felsmulde.json`, `make ort ORT=felsmulde`,
+   Agent `../.claude/agents/ort-verfahren.md`. Bitte am nächsten Ort einmal mit Sonnet durchspielen und Lücken zurückmelden
+   — zuerst an der Felsmulde selbst (zweite Kamera `boden` oder Runde 5), weil Engine und Export nur dort schon passen;
+   die Schritte 4, 6, 7, 8 sind in dieser Form am M1 noch nicht gelaufen. Offen dazu: A-52 (Toleranzen), A-53 (Lücken L1–L4).
 
 **Seit dem Stand unten dazugekommen** (alles im Ledger, Tabelle B): D381 Start draussen, Weg zur Enklave als
 Lehrstrecke · D382/D386 Felsmulde Runde 3 und 4 · D385 Menschen nicht reinigbar · D388/D391 Traversal v2 und
