@@ -67,13 +67,7 @@ def leuchtdichte(c):
 # es kostete 17 KB und hielt die Wanderin über dem Budget von 250 KB.
 # D171: das Moveset je Waffe (`tools/waffenclips.py`). Es wird mitgebaut und danach von
 # `tools/waffenteilen.ts` in eine eigene Datei ohne Netz verschoben — die Wanderin bleibt im Budget.
-ANIM_WAFFEN = ('Klinge_Stand', 'Klinge_Stich',
-               # D429: Axt_Hieb — Zweihand-Fällaxt, ersetzt Axe_Overhead als Axthieb
-               'Axt_Stand', 'Axt_Block', 'Axt_Hieb', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf',
-               # D184: der Speer
-               'Speer_Stand', 'Speer_Stoss', 'Speer_Weit', 'Speer_Lauf', 'Speer_Block',
-               # D414: Langes Messer, zweihändig, und die Räucherkanne in der linken Hand
-               'Messer_Stand', 'Messer_Quer_A', 'Messer_Quer_B', 'Messer_Schwer', 'Messer_Lauf', 'Messer_Block', 'Geraet_Blasebalg')
+ANIM_WAFFEN = ('Klinge_Stand', 'Klinge_Hieb_A', 'Klinge_Hieb_B', 'Klinge_Stich', 'Klinge_Schwer', 'Klinge_Lauf', 'Klinge_Block', 'Axt_Stand', 'Axt_Block', 'Axt_Hieb', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf', 'Speer_Stand', 'Speer_Stoss', 'Speer_Weit', 'Speer_Lauf', 'Speer_Block', 'Messer_Stand', 'Messer_Quer_A', 'Messer_Quer_B', 'Messer_Lauf', 'Messer_Schwer', 'Messer_Block', 'Hirsch_Stand', 'Hirsch_Hieb_A', 'Hirsch_Hieb_B', 'Hirsch_Stich', 'Koerper_Landung_Weich', 'Koerper_Landung_Hart', 'Koerper_Griff', 'Koerper_Aufgabe', 'Geraet_Blasebalg')
 # D173: Schwertkombos, Block und Treffer aus der UAL2 (CC0), per `tools/ual2uebertrag.py` übertragen.
 ANIM_UAL2 = ('Klinge_U_A', 'Klinge_U_B', 'Klinge_U_C', 'Klinge_U_Lauf', 'Klinge_U_Block',
              'Kampf_Rueckstoss', 'Kampf_Taumeln')
