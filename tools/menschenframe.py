@@ -45,7 +45,7 @@ ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:]
 MODUS = ARGS[0] if ARGS else ''
 
 MPFB_URL = 'https://extensions.blender.org/download/sha256:c075b3e9b94b8e5556a5f03f4653602d02ea306de08126e8f55ed6dee28a2dad/add-on-mpfb-v2.0.18.zip'
-ASSETS_URL = 'https://files2.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip'
+ASSETS_URL = 'https://files.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip'
 SCANS = ['caban', 'rough_linen', 'hessian_380', 'wool_boucle', 'brown_leather', 'fabric_leather_02', 'rusty_metal_02', 'poly_wool_herringbone']
 KARTEN = ['Diffuse', 'Displacement', 'Rough', 'nor_gl']
 
@@ -157,7 +157,7 @@ if __name__ == '__main__' and MODUS == 'blatt':
 
 
 # ═════════════════════════════ ab hier Blender ═════════════════════════════
-if MODUS in ('bau', 'vorher', 'stil', 'schatten'):
+if MODUS in ('bau', 'vorher', 'stil', 'schatten', 'kopf3'):
     import bpy, bmesh
     import numpy as np
     from mathutils import Vector, Matrix, Euler, Quaternion
@@ -170,6 +170,7 @@ SIGNAL = (0.62, 0.81, 0.89)                     # '#cfe9f2' linear — einziger 
 SAAT = int(os.environ.get('MENSCH_SAAT', '383'))
 SCHNELL = os.environ.get('MENSCH_SCHNELL') == '1'
 KURZ = SCHNELL                                  # kurze Stoffsimulation (30 Bilder, Güte 5); je Figur über `kurz` erzwungen
+R2 = os.environ.get('MENSCH_RUNDE', '2') != '1'      # Runde 2 (D404): Köpfe nach Fotos, Haar als Kurven, Haltung; `MENSCH_RUNDE=1` = Stand D383
 OHNE = set(os.environ.get('MENSCH_OHNE', '').split(','))   # Prüfläufe: kraut, dunst
 SONNE_EL, SONNE_AZ = 15.0, 248.0                # tief von links, leicht von vorn: Streiflicht über die Mauer, Gesichter im Dreiviertellicht
 MAUER_Y = 1.6
@@ -299,7 +300,7 @@ def render_einstellungen(breite, hoehe, samples):
 def rendern(praefix, kam, namen):
     sc = bpy.context.scene
     for name in namen:
-        if int(open('/proc/meminfo').read().split('MemAvailable:')[1].split()[0]) < 3.5 * 2 ** 20:
+        if os.path.exists('/proc/meminfo') and int(open('/proc/meminfo').read().split('MemAvailable:')[1].split()[0]) < 3.5 * 2 ** 20:   # nur Linux (Cloud); am M1 regelt die Blender-Sperre
             raise SystemExit('MENSCHENFRAME zu wenig freier Speicher (< 3,5 GiB) — nicht gerendert')
         sc.camera = kam[name]; sc.cycles.dicing_camera = kam[name]
         sc.render.filepath = os.path.abspath('%s-%s.exr' % (praefix, name))
@@ -460,7 +461,7 @@ def gelenke(rig):
     return {pb.name: (rig.matrix_world @ pb.head).copy() for pb in rig.pose.bones} | {pb.name + '.ende': (rig.matrix_world @ pb.tail).copy() for pb in rig.pose.bones}
 
 
-def mat_haut(name, textur, ton=(0.84, 0.78, 0.73), wetter=0.35, schmutz=0.25, bart=0.0, leder=0.25, falten=0.0):
+def mat_haut(name, textur, ton=(0.84, 0.78, 0.73), wetter=0.35, schmutz=0.25, bart=0.0, leder=0.25, falten=0.0, roetung=0.55, poren=0.5):
     """Haut: MakeHuman-Farbkarte, Streuung unter der Oberfläche, Rauheit und feines Relief aus der Karte selbst.
     Wetter: gerötet und gebräunt, wo Rauschen und Karte es zulassen; Schmutz in grossen Flecken. Kein Porenrauschen."""
     m, k, b, out = neues_material(name, False)
@@ -470,7 +471,11 @@ def mat_haut(name, textur, ton=(0.84, 0.78, 0.73), wetter=0.35, schmutz=0.25, ba
     gross = k.rauschen(tc.outputs['Object'], 9.0, 3.0, 0.6)
     f = k.mix(k.math('MULTIPLY', k.bereich(gross, 0.35, 0.75), wetter), f, k.mix(1.0, f, (0.80, 0.62, 0.54), 'MULTIPLY'))
     f = k.mix(k.math('MULTIPLY', k.bereich(k.rauschen(tc.outputs['Object'], 23.0, 4.0, 0.7), 0.52, 0.80), schmutz), f, (0.20, 0.15, 0.11))
-    if bart: f = k.mix(k.math('MULTIPLY', k.attr('bart'), bart), f, (0.16, 0.14, 0.13))      # Bartschatten
+    if bart: f = k.mix(k.math('MULTIPLY', k.attr('bart'), bart * 0.55), f, (0.20, 0.17, 0.16))      # Bartschatten (Runde 2: schwächer, die Stoppeln sind jetzt Haar)
+    if R2:   # Runde 2: Blut unter der Haut — Wangen, Nase, Ohren, Kinn fleckig gerötet; Lidrand dunkler und röter
+        fleckig = k.bereich(k.rauschen(tc.outputs['Object'], 60.0, 3.0, 0.6), 0.30, 0.75, 0.55, 1.0)
+        f = k.mix(k.math('MULTIPLY', k.math('MULTIPLY', k.attr('roetung'), fleckig), roetung), f, k.mix(1.0, f, (1.0, 0.60, 0.56), 'MULTIPLY'))
+        f = k.mix(k.math('MULTIPLY', k.attr('lid'), 0.40), f, k.mix(1.0, f, (0.74, 0.52, 0.52), 'MULTIPLY'))
     k.setze(b.inputs['Base Color'], f)
     g = k.grau(t.outputs['Color'])
     k.setze(b.inputs['Roughness'], k.bereich(g, 0.1, 0.8, 0.62, 0.46))
@@ -487,6 +492,11 @@ def mat_haut(name, textur, ton=(0.84, 0.78, 0.73), wetter=0.35, schmutz=0.25, ba
         knitter = k.bereich(vo.outputs['Distance'], 0.0, 0.06, 1.0, 0.0, True)
         hoehe = k.math('SUBTRACT', hoehe, k.math('MULTIPLY', k.math('ADD', k.math('MULTIPLY', quer, 0.9), k.math('MULTIPLY', knitter, 0.35)), falten))
         bp.inputs['Distance'].default_value = 0.0018
+    if R2 and poren:   # Poren: nur als Relief und Glanzbruch im Nahbild (Zellen 0,5 mm), keine Farbe — ADR-0018 bleibt gewahrt
+        vp = k.n('ShaderNodeTexVoronoi'); vp.feature = 'F1'; vp.inputs['Scale'].default_value = 1900.0; k.nt.links.new(tc.outputs['Object'], vp.inputs['Vector'])
+        hoehe = k.math('ADD', hoehe, k.math('MULTIPLY', k.bereich(vp.outputs['Distance'], 0.0, 0.5, -1.0, 0.0, True), 0.10 * poren))
+        b.inputs['Coat Weight'].default_value = 0.10; b.inputs['Coat Roughness'].default_value = 0.35      # Hautfett: weicher zweiter Glanz
+        b.inputs['Subsurface Scale'].default_value = 0.0030
     k.setze(bp.inputs['Height'], hoehe)
     k.nt.links.new(bp.outputs[0], b.inputs['Normal'])
     return m
@@ -508,7 +518,14 @@ def mat_auge(name):
     o = os.path.join(cache(), 'menschen', 'sysassets', 'eyes', 'materials')
     t = k.n('ShaderNodeTexImage'); t.image = hf.bild(os.path.join(o, 'brown_eye.png'))
     t.image.alpha_mode = 'CHANNEL_PACKED'
-    k.setze(b.inputs['Base Color'], k.mix(1.0, t.outputs['Color'], (0.80, 0.76, 0.72), 'MULTIPLY')); b.inputs['Roughness'].default_value = 0.12
+    f = k.mix(1.0, t.outputs['Color'], (0.80, 0.76, 0.72), 'MULTIPLY')
+    if R2:   # Runde 2: Lidschatten (das Lid nimmt dem Augapfel den Himmel), Äderchen zum Rand, nasse Hornhaut
+        ao = k.n('ShaderNodeAmbientOcclusion'); ao.inputs['Distance'].default_value = 0.014; ao.samples = 8
+        f = k.mix(1.0, f, k.mix(k.bereich(ao.outputs['AO'], 0.25, 0.95), (0.42, 0.33, 0.31), (1.0, 1.0, 1.0)), 'MULTIPLY')
+        tc = k.n('ShaderNodeTexCoord')
+        f = k.mix(k.math('MULTIPLY', k.bereich(k.rauschen(tc.outputs['Object'], 420.0, 2.0, 0.5), 0.56, 0.70), 0.22), f, (0.62, 0.20, 0.18))
+        b.inputs['Coat Weight'].default_value = 0.25; b.inputs['Coat Roughness'].default_value = 0.04      # 1,0 spiegelte den Himmel über die ganze Iris (erste Probe: blassblaue Augen)
+    k.setze(b.inputs['Base Color'], f); b.inputs['Roughness'].default_value = 0.22 if R2 else 0.12
     k.nt.links.new(t.outputs['Alpha'], b.inputs['Alpha'])     # die Hornhautschale liegt auf einem durchsichtigen Fleck der Karte
     return m
 
@@ -952,8 +969,26 @@ def schneidern(name):
     bart = np.clip((hz + 0.012 * m_ - c[:, 2]) / (0.02 * m_), 0, 1) * np.clip((-0.035 * m_ - c[:, 1]) / (0.03 * m_), 0, 1) * np.clip((c[:, 2] - (hz - 0.10 * m_)) / (0.025 * m_), 0, 1)
     bart[gruppe(b, 'lips')] = 0.0
     b.data.attributes.new('bart', 'FLOAT', 'POINT').data.foreach_set('value', bart.astype(np.float32))
+    # Runde 2 (D404, Flo: „Köpfe puppenhaft“): Zonen des Gesichts als Attribute aus der Ruhelage (Figur schaut nach −Y).
+    kopf = c[:, 2] > hz - 0.02 * m_
+    ns = int(np.argmin(np.where(kopf & (np.abs(c[:, 0]) < 0.01 * m_) & (c[:, 2] < hz + 0.09 * m_), c[:, 1], 9.0))); nase = c[ns]
+    def fleck(ort, r): return np.exp(-(((c - np.array(ort)) / (r * m_)) ** 2).sum(1))
+    ohr = np.clip((np.abs(c[:, 0]) - 0.066 * m_) / (0.012 * m_), 0, 1) * kopf
+    roet = (0.9 * fleck(nase, 0.016) + 0.75 * fleck(nase + np.array((0.048 * m_, 0.034 * m_, 0.004 * m_)), 0.030) + 0.75 * fleck(nase + np.array((-0.048 * m_, 0.034 * m_, 0.004 * m_)), 0.030)
+            + 0.6 * ohr + 0.3 * fleck(nase + np.array((0, 0.022 * m_, -0.062 * m_)), 0.022))
+    b.data.attributes.new('roetung', 'FLOAT', 'POINT').data.foreach_set('value', np.clip(roet, 0, 1).astype(np.float32))
+    ac = koord(teile['eyes']).astype(np.float64) if 'eyes' in teile else np.zeros((1, 3)); augen = [ac[ac[:, 0] > 0].mean(0), ac[ac[:, 0] < 0].mean(0)]
+    lid = sum(np.exp(-(((c - a_) / np.array((0.020 * m_, 0.030 * m_, 0.013 * m_))) ** 2).sum(1)) for a_ in augen)
+    b.data.attributes.new('lid', 'FLOAT', 'POINT').data.foreach_set('value', np.clip(lid, 0, 1).astype(np.float32))
+    hm = np.array((0.0, nase[1] + 0.105 * m_, nase[2] + 0.045 * m_)); d = c - hm; d /= np.maximum(np.linalg.norm(d, axis=1, keepdims=True), 1e-6)
+    grenze = -0.30 + 1.10 * np.clip((-d[:, 1] + 0.15) / 0.95, 0, 1)        # Haaransatz: Stirn hoch, Schläfe und Nacken tief
+    haut_k = np.clip((d[:, 2] - grenze) / 0.10, 0, 1) * kopf * (1 - ohr)
+    b.data.attributes.new('kopfhaut', 'FLOAT', 'POINT').data.foreach_set('value', haut_k.astype(np.float32))
     b.modifiers.new('ohne Helfer', 'MASK').vertex_group = 'body'
-    pose(rig, F['pose'])
+    # Runde 2 (Flo: „Haltung steif“): Gewichtsverlagerung — Becken kippt zum Spielbein, Schultern dagegen, Spielbein gebeugt.
+    # `haltung` = (vor der Pose: Becken, Rumpf; nach der Pose: Spielbein überschreibt die Richtungen der Pose)
+    vor_, nach_ = F.get('haltung', ([], [])) if R2 else ([], [])
+    pose(rig, list(vor_) + F['pose'] + list(nach_))
     rig.location = (PLATZ[name][0], PLATZ[name][1], 0); rig.rotation_euler.z = math.radians(F['drehung'])
     simuliere(stuecke, [b], 30 if KURZ else 46)
     G1 = {k: list(v) for k, v in gelenke(rig).items()}; G1['drehung'] = math.radians(F['drehung'])
@@ -1535,7 +1570,9 @@ def zubehoer_zaehler(name, T, G, W, m):
 
 
 FIGUREN = {
-    'brachgaenger': dict(zubehoer=zubehoer_brachgaenger, kurz=True,   # lange Simulation: die Kante des Wetterflecks schlägt vor dem Kinn um
+    'brachgaenger': dict(zubehoer=zubehoer_brachgaenger, kurz=True,
+        haltung=([('pelvis', 'Y', 4), ('spine_02', 'Y', -6), ('neck_01', 'Y', 2)],            # Standbein rechts, linke Hüfte sinkt, linke Schulter steigt
+                 [('thigh_l', (0.13, -0.24, -1.0)), ('calf_l', (0.05, 0.22, -1.0)), ('foot_l', (0.30, -0.85, -0.42))]),   # lange Simulation: die Kante des Wetterflecks schlägt vor dem Kinn um
          haar_ton=(0.10, 0.085, 0.07), hautwerte=dict(wetter=0.55, schmutz=0.3, bart=0.6, leder=0.4, falten=0.12),
         makro={'gender': 1.0, 'age': 0.68, 'muscle': 0.72, 'weight': 0.42, 'proportions': 0.55, 'height': 0.6},
         ziele={'head-rectangular': 0.5, 'nose-hump-incr': 0.6, 'nose-scale-vert-incr': 0.3, '*cheek-bones-incr': 0.6, '*cheek-volume-decr': 0.6, 'chin-width-incr': 0.4,
@@ -1548,7 +1585,8 @@ FIGUREN = {
               ('upperarm_l', (0.22, 0.12, -0.97)), ('lowerarm_l', (-0.49, -0.65, -0.58)), ('faust_l', 28),
               ('thigh_l', (0.10, -0.10, -1.0)), ('calf_l', (0.04, 0.07, -1.0)), ('foot_l', (0.20, -0.88, -0.44)),
               ('thigh_r', (-0.05, 0.0, -1.0)), ('calf_r', (-0.03, 0.0, -1.0)), ('foot_r', (-0.10, -0.89, -0.44))]),
-    'schmiedin': dict(zubehoer=zubehoer_schmiedin, haar_ton=(0.13, 0.075, 0.04), hautwerte=dict(wetter=0.5, schmutz=0.45, leder=0.3, falten=0.10),
+    'schmiedin': dict(zubehoer=zubehoer_schmiedin, haltung=([('pelvis', 'Y', -4), ('spine_02', 'Y', 5), ('neck_01', 'Y', -2)],
+                 [('thigh_r', (-0.15, -0.18, -1.0)), ('calf_r', (-0.04, 0.20, -1.0)), ('foot_r', (-0.32, -0.84, -0.42))]), haar_ton=(0.13, 0.075, 0.04), hautwerte=dict(wetter=0.5, schmutz=0.45, leder=0.3, falten=0.10),
         makro={'gender': 0.0, 'age': 0.60, 'muscle': 0.75, 'weight': 0.66, 'proportions': 0.35, 'height': 0.5, 'cupsize': 0.45, 'firmness': 0.4},
         ziele={'head-round': 0.4, 'nose-width1-incr': 0.4, 'nose-scale-horiz-incr': 0.3, '*cheek-volume-incr': 0.4, 'chin-width-incr': 0.5, 'chin-prominent-decr': 0.2,
                'mouth-scale-horiz-incr': 0.3, 'mouth-lowerlip-volume-decr': 0.3, '*eye-bag-incr': 0.4, 'head-age-incr': 0.5, 'neck-double-incr': 0.3,
@@ -1560,7 +1598,8 @@ FIGUREN = {
               ('upperarm_r', (-0.17, 0.04, -0.98)), ('lowerarm_r', (-0.08, -0.34, -0.94)), ('faust_r', 84, 40),
               ('thigh_l', (0.14, -0.02, -1.0)), ('calf_l', (0.05, 0.03, -1.0)), ('foot_l', (0.28, -0.85, -0.44)),
               ('thigh_r', (-0.12, 0.0, -1.0)), ('calf_r', (-0.04, 0.02, -1.0)), ('foot_r', (-0.22, -0.87, -0.44))]),
-    'zaehler': dict(zubehoer=zubehoer_zaehler, haar_ton=(0.8, 0.8, 0.8), hautwerte=dict(wetter=0.35, schmutz=0.5, bart=0.35, leder=0.45, ton=(0.80, 0.75, 0.71), falten=0.9),
+    'zaehler': dict(zubehoer=zubehoer_zaehler, haltung=([('pelvis', 'Y', -3), ('spine_02', 'Y', 3)],
+                 [('thigh_r', (-0.08, -0.14, -1.0)), ('calf_r', (-0.02, 0.18, -1.0)), ('foot_r', (-0.22, -0.87, -0.42))]), haar_ton=(0.8, 0.8, 0.8), hautwerte=dict(wetter=0.35, schmutz=0.5, bart=0.35, leder=0.45, ton=(0.80, 0.75, 0.71), falten=0.9),
         makro={'gender': 1.0, 'age': 0.92, 'muscle': 0.30, 'weight': 0.30, 'proportions': 0.45, 'height': 0.5},
         ziele={'head-oval': 0.5, 'nose-scale-vert-incr': 0.5, 'nose-point-down': 0.5, 'nose-hump-incr': 0.4, '*cheek-volume-decr': 0.9, '*cheek-bones-incr': 0.5,
                'chin-height-incr': 0.4, '*eye-bag-incr': 0.8, 'head-age-incr': 0.9, 'mouth-scale-horiz-decr': 0.2, 'mouth-upperlip-volume-decr': 0.5, 'mouth-lowerlip-volume-decr': 0.4,
@@ -1573,6 +1612,127 @@ FIGUREN = {
               ('thigh_l', (0.06, -0.03, -1.0)), ('calf_l', (0.03, 0.05, -1.0)), ('foot_l', (0.18, -0.88, -0.44)),
               ('thigh_r', (-0.06, 0.0, -1.0)), ('calf_r', (-0.02, 0.03, -1.0)), ('foot_r', (-0.16, -0.89, -0.44))]),
 }
+
+
+def mat_haar(name, melanin=0.6, rot=0.3, rau=0.32, streu=0.25):
+    """Runde 2: echtes Haar (Principled Hair, Melanin) für Kopfhaar, Brauen und Stoppeln."""
+    m = bpy.data.materials.new(name); m.use_nodes = True; nt = m.node_tree; nt.nodes.clear()
+    out = nt.nodes.new('ShaderNodeOutputMaterial'); h = nt.nodes.new('ShaderNodeBsdfHairPrincipled'); h.parametrization = 'MELANIN'
+    for n_, w in (('Melanin', melanin), ('Melanin Redness', rot), ('Roughness', rau), ('Radial Roughness', 0.6), ('Random Color', streu), ('Random Roughness', 0.3), ('Coat', 0.1)):
+        if n_ in h.inputs: h.inputs[n_].default_value = w
+    nt.links.new(h.outputs[0], out.inputs['Surface'])
+    return m
+
+
+def haarkurven(name, wurzeln, richtung, laenge, mat, punkte=8, dick=(45e-6, 12e-6), schwer=0.0, wirr=0.15, mitte=None, saat=1):
+    """Haarkurven aus Wurzeln (N, 3), Anfangsrichtung (N, 3) und Länge (N): je Schritt zieht die Schwerkraft (`schwer`),
+    Rauschen macht einzelne Haare abstehend (`wirr`); `mitte` = (Ort, …) hält die Haare ausserhalb ihres Wurzelabstands
+    zur Kopfmitte (sie liegen auf dem Schädel, statt hindurchzulaufen)."""
+    n = len(wurzeln)
+    if n == 0: return None
+    rs = np.random.RandomState(saat); pos = np.zeros((n, punkte, 3)); pos[:, 0] = wurzeln
+    d = richtung / np.maximum(np.linalg.norm(richtung, axis=1, keepdims=True), 1e-9); schritt = (laenge / (punkte - 1))[:, None]
+    abstand = np.linalg.norm(wurzeln - mitte, axis=1) if mitte is not None else None
+    eigen = rs.normal(0, 1, (n, 3)) * wirr * (rs.rand(n, 1) < 0.12) * 2.2 + rs.normal(0, 1, (n, 3)) * wirr * 0.5      # jedes achte Haar steht deutlich ab
+    for i in range(1, punkte):
+        d = d + np.array((0, 0, -schwer)) + eigen * 0.35 + rs.normal(0, 1, (n, 3)) * wirr * 0.25
+        d /= np.maximum(np.linalg.norm(d, axis=1, keepdims=True), 1e-9)
+        q = pos[:, i - 1] + d * schritt
+        if mitte is not None:
+            v = q - mitte; r = np.linalg.norm(v, axis=1); zu_tief = r < abstand + 0.0015
+            q[zu_tief] = (mitte + v / np.maximum(r, 1e-9)[:, None] * (abstand + 0.0015)[:, None])[zu_tief]
+            d[zu_tief] = (q - pos[:, i - 1])[zu_tief]; d /= np.maximum(np.linalg.norm(d, axis=1, keepdims=True), 1e-9)
+        pos[:, i] = q
+    cu = bpy.data.hair_curves.new(name); cu.add_curves([punkte] * n)
+    cu.attributes['position'].data.foreach_set('vector', pos.astype(np.float32).ravel())
+    t = np.linspace(0, 1, punkte)[None, :]; rad = (dick[0] * (1 - t) + dick[1] * t) * (0.8 + 0.4 * rs.rand(n, 1))
+    cu.attributes.new('radius', 'FLOAT', 'POINT').data.foreach_set('value', rad.astype(np.float32).ravel())
+    cu.materials.append(mat)
+    o = bpy.data.objects.new(name, cu); bpy.context.scene.collection.objects.link(o)
+    return o
+
+
+def streue_auf(o, gewicht, je_cm2, saat, schwelle=0.25, uv_alpha=None):
+    """Zufallspunkte auf dem Netz `o` (Weltkoordinaten), flächen- und gewichtsanteilig: Ort, Normale, Gewicht.
+    `gewicht`: Attributname oder None; `uv_alpha`: Bildpfad — Punkte nur, wo die Karte deckt (Brauen)."""
+    me = o.data; me.calc_loop_triangles(); nt_ = len(me.loop_triangles)
+    tri = np.zeros(nt_ * 3, np.int64); me.loop_triangles.foreach_get('vertices', tri); tri = tri.reshape(-1, 3)
+    co = koord(o).astype(np.float64); vn = np.zeros(len(me.vertices) * 3, np.float32); me.vertices.foreach_get('normal', vn); vn = vn.reshape(-1, 3)
+    if gewicht: w = np.zeros(len(me.vertices), np.float32); me.attributes[gewicht].data.foreach_get('value', w)
+    else: w = np.ones(len(me.vertices), np.float32)
+    A, B, C = co[tri[:, 0]], co[tri[:, 1]], co[tri[:, 2]]; fl = 0.5 * np.linalg.norm(np.cross(B - A, C - A), axis=1)
+    wt = w[tri].mean(1); wt = np.where(wt > schwelle, wt, 0.0); p = fl * wt
+    n = int(p.sum() * 1e4 * je_cm2)
+    if n < 1: return np.zeros((0, 3)), np.zeros((0, 3)), np.zeros(0)
+    rs = np.random.RandomState(saat); wahl = rs.choice(nt_, n, p=p / p.sum())
+    u, v = rs.rand(n), rs.rand(n); um = u + v > 1; u[um], v[um] = 1 - u[um], 1 - v[um]; bw = np.stack((1 - u - v, u, v), 1)
+    ort = (co[tri[wahl]] * bw[:, :, None]).sum(1); nor = (vn[tri[wahl]] * bw[:, :, None]).sum(1); nor /= np.maximum(np.linalg.norm(nor, axis=1, keepdims=True), 1e-9)
+    gw = (w[tri[wahl]] * bw).sum(1)
+    if uv_alpha:
+        tl = np.zeros(nt_ * 3, np.int64); me.loop_triangles.foreach_get('loops', tl); tl = tl.reshape(-1, 3)
+        uvs = np.zeros(len(me.loops) * 2, np.float32); me.uv_layers[0].data.foreach_get('uv', uvs); uvs = uvs.reshape(-1, 2)
+        uvp = (uvs[tl[wahl]] * bw[:, :, None]).sum(1)
+        im = hf.bild(uv_alpha); bw_, bh_ = im.size; px = np.zeros(bw_ * bh_ * 4, np.float32); im.pixels.foreach_get(px); al = px.reshape(bh_, bw_, 4)[:, :, 3]
+        ok = al[np.clip((uvp[:, 1] % 1.0 * bh_).astype(int), 0, bh_ - 1), np.clip((uvp[:, 0] % 1.0 * bw_).astype(int), 0, bw_ - 1)] > 0.25
+        ort, nor, gw = ort[ok], nor[ok], gw[ok]
+    return ort, nor, gw
+
+
+FRISUR = {   # Runde 2: Kopfhaar je Figur — Dichte je cm², Länge in m, Melanin, Rotanteil, Schwerkraft, Wirrheit
+    'brachgaenger': dict(dichte=170, laenge=(0.035, 0.075), melanin=0.93, rot=0.20, schwer=0.30, wirr=0.22, stoppel=(60, 0.0025, 0.006), braue=(0.008, 0.013)),
+    'schmiedin': dict(dichte=210, laenge=(0.04, 0.09), melanin=0.80, rot=0.55, schwer=0.22, wirr=0.07, seite=1.0, deckung=0.09, ohne_platte=True, stoppel=None, braue=(0.006, 0.010)),   # erste Probe: 16 cm lange Haare standen durchs Kopftuch
+    'zaehler': dict(dichte=70, laenge=(0.02, 0.05), melanin=0.06, rot=0.1, schwer=0.35, wirr=0.28, stoppel=(45, 0.003, 0.008), braue=(0.008, 0.013)),
+}
+
+
+def haare(name, koerper_o, T, G, andere):
+    """Runde 2 (D404, Flo: „Haar als Platte“): Kopfhaar, Brauen und Bartstoppeln als Haarkurven. Kopfhaar nur, wo die
+    Kopfhaut nicht unter Hut, Tuch oder Kapuze liegt (Strahl entlang der Normalen gegen die Kleidung)."""
+    from mathutils.bvhtree import BVHTree
+    S = FRISUR[name]; neu = []; saat = sum(map(ord, name))
+    vorn, links, oben = np.array(G['vorn']), np.array(G['links']), np.array((0, 0, 1.0))
+    kopf, ende = np.array(G['head']), np.array(G['head.ende']); mitte = kopf + (ende - kopf) * 0.52 - vorn * 0.012
+    hmat = mat_haar(name + '_haar', S['melanin'], S['rot'])
+    # Kleidung als Hindernis
+    vs, fs = [], []
+    for o in andere:
+        if o.type != 'MESH' or len(o.data.polygons) == 0: continue
+        off = len(vs); mw = o.matrix_world; vs += [mw @ v.co for v in o.data.vertices]; fs += [tuple(off + i for i in p_.vertices) for p_ in o.data.polygons]
+    bvh = BVHTree.FromPolygons(vs, fs) if fs else None
+    ort, nor, gw = streue_auf(koerper_o, 'kopfhaut', S['dichte'], saat)
+    if len(ort):
+        frei = np.array([bvh is None or bvh.ray_cast(Vector(p_) + Vector(n_) * 0.001, Vector(n_), S.get('deckung', 0.03))[0] is None for p_, n_ in zip(ort, nor)])
+        ort, nor = ort[frei], nor[frei]; rs = np.random.RandomState(saat + 1)
+        fluss = -oben * 1.0 - vorn * (0.6 + S.get('zurueck', 0.0))           # nach hinten unten gekämmt
+        if S.get('seite'): fluss = -oben * 0.55 + links * S['seite'] - vorn * 0.05      # Stirnhaar zur Seite gestrichen (unter dem Tuch hervor)
+        fluss = fluss - nor * (nor @ fluss)[:, None]; fluss /= np.maximum(np.linalg.norm(fluss, axis=1, keepdims=True), 1e-9)
+        ln = S['laenge'][0] + (S['laenge'][1] - S['laenge'][0]) * rs.rand(len(ort)) ** 1.5
+        o = haarkurven(name + '.kopfhaar', ort, nor * 0.45 + fluss, ln, hmat, 9, schwer=S['schwer'], wirr=S['wirr'], mitte=mitte, saat=saat + 2)
+        if o: neu.append(o)
+        print('MENSCHENFRAME %s: Kopfhaar %d Haare (%d Wurzeln lagen unter Kleidung)' % (name, len(ort), int((~frei).sum())))
+        if 'hair' in T: T['hair'].hide_render = True       # Haarplatte weg (bei der Schmiedin damit auch der Zopf unter dem Tuch)
+    if 'eyebrows' in T and S.get('braue'):
+        b_ = T['eyebrows']; ordner = os.path.dirname(asset('eyebrows', b_.get('asset_name', '')))
+        png = next((os.path.join(ordner, f) for f in sorted(os.listdir(ordner)) if f.endswith('.png') and 'normal' not in f), None)
+        ort, nor, _ = streue_auf(b_, None, 300, saat + 3, uv_alpha=png)
+        if len(ort):
+            seite = np.sign((ort - mitte) @ links)[:, None]; rs = np.random.RandomState(saat + 4)
+            d = links * seite * 1.0 + oben * (0.45 - 0.5 * rs.rand(len(ort), 1)) - vorn * 0.10
+            ln = S['braue'][0] + (S['braue'][1] - S['braue'][0]) * rs.rand(len(ort))
+            o = haarkurven(name + '.brauenhaar', ort, d, ln, mat_haar(name + '_braue', min(0.95, S['melanin'] + 0.25) if S['melanin'] > 0.2 else 0.12, S['rot'] * 0.6, 0.4), 5,
+                           dick=(38e-6, 10e-6), schwer=0.0, wirr=0.10, saat=saat + 5)
+            if o: neu.append(o); b_.hide_render = True
+            print('MENSCHENFRAME %s: Brauen %d Haare' % (name, len(ort)))
+    if S.get('stoppel'):
+        je, l0, l1 = S['stoppel']; ort, nor, gw = streue_auf(koerper_o, 'bart', je, saat + 6, schwelle=0.2)
+        if len(ort):
+            rs = np.random.RandomState(saat + 7); behalten = rs.rand(len(ort)) < np.clip(gw * 1.3, 0, 1); ort, nor = ort[behalten], nor[behalten]
+            ln = l0 + (l1 - l0) * rs.rand(len(ort))
+            o = haarkurven(name + '.stoppeln', ort, nor * 0.7 - oben * 0.5 + vorn * 0.1, ln, mat_haar(name + '_bart', min(0.98, S['melanin'] + 0.1) if S['melanin'] > 0.2 else 0.10, S['rot'], 0.45), 4,
+                           dick=(55e-6, 25e-6), schwer=0.05, wirr=0.18, saat=saat + 8)
+            if o: neu.append(o)
+            print('MENSCHENFRAME %s: Stoppeln %d Haare' % (name, len(ort)))
+    return neu
 
 
 def ausstatten(name, fest):
@@ -1593,6 +1753,9 @@ def ausstatten(name, fest):
     d = roh['drehung']; G['vorn'] = Vector((math.sin(d), -math.cos(d), 0)); G['links'] = Vector((math.cos(d), math.sin(d), 0)); G['oben'] = Vector((0, 0, 1))
     neu = F['zubehoer'](name, T, G, W, m)
     for o in neu: o.name = name + '.' + o.name
+    if R2 and 'haar' not in OHNE:
+        kleidung = [o for k, o in T.items() if k not in ('koerper', 'eyes', 'eyebrows', 'eyelashes', 'teeth', 'hair', 'tongue')] + neu
+        neu = neu + haare(name, fest[name], T, G, kleidung)
     return list(T.values()) + neu
 
 
@@ -1606,7 +1769,7 @@ def bau():
     szene(rnd)
     for name, fest in figuren.items():
         teile = ausstatten(name, fest); bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get()
-        tri = {o.name.split('.', 1)[-1]: sum(len(p_.vertices) - 2 for p_ in o.data.polygons) for o in teile}
+        tri = {o.name.split('.', 1)[-1]: sum(len(p_.vertices) - 2 for p_ in o.data.polygons) for o in teile if o.type == 'MESH'}
         print('MENSCHENFRAME %s: %d Teile, %d Dreiecke im Arbeitsnetz (ohne Render-Unterteilung, ohne Stoffdicke); grösste: %s' % (
             name, len(teile), sum(tri.values()), ', '.join('%s %d' % kv for kv in sorted(tri.items(), key=lambda kv: -kv[1])[:6])))
     kam = kameras(); render_einstellungen(breite, hoehe, samples)
@@ -1639,5 +1802,170 @@ def stil():
     hf.stil()
 
 
-if __name__ == '__main__' and MODUS in ('vorher', 'stil', 'bau', 'schatten'):
-    {'vorher': vorher, 'stil': stil, 'bau': bau, 'schatten': bau}[MODUS]()
+# ───────────────────────────── Runde 3: Kopf aus einer freien Vorlage (D460 → Runde 3) ─────────────────────────────
+# Flo 23.11.2026 zu Runde 2: „Menschen sehen aus wie Knete … Alterszeichen fehlen, Bart nicht richtig platziert, Haare
+# unnatürlich.“ Die MakeHuman-Köpfe tragen kein echtes Gesicht. Der Zähler bekommt deshalb einen Kopf, der von **Einar**
+# abgeleitet ist (Blender Studio, „Charge“, CC-BY 4.0 — Namensnennung Pflicht; lokal unter
+# `.cache/referenz/menschen-modelle/blender-studio-einar/`, nichts davon im Repo). Aufruf **in** der Einar-Datei, ohne
+# deren eingebettete Skripte:
+#   blender --background --disable-autoexec <einar_release_v1.blend> --python tools/menschenframe.py -- kopf3 zaehler <aus.png> [b h spp] [kamera]
+# Abgeleitet heisst verändert (Einar ist als Filmfigur erkennbar): hager (Formschlüssel `Zaehler_hager`: Wangen und
+# Schläfen eingefallen, Kiefer und Hals schmal, Nase länger, Ohren grösser), Mütze, Blut und Schmutz weg, Vollbart zu
+# weissen Stoppeln gekürzt (Bartgrenze bleibt die gewachsene), Haupthaar weiss, ausgedünnt mit Geheimratsecken,
+# Altersflecken und Äderchen über der Hautfarbe, Blick leicht zur Seite. Kameras: `gesicht`, `profil`, `dreiviertel`.
+# `KOPF3_ORIGINAL=1` rendert Einar unverändert (nur Mütze und Blut aus) für den Vergleich; `KOPF3_BLEND=<pfad>` sichert die Szene.
+KOPF3_BLEIBT = ('GEO-einar_head', 'GEO-eye.L', 'GEO-eye.R', 'GEO-eye.cornea.L', 'GEO-eye.cornea.R', 'GEO-eye.meniscus.L', 'GEO-eye.meniscus.R',
+                'GEO-eye.plica_semilunaris.L', 'GEO-eye.plica_semilunaris.R', 'GEO-einar_teeth_lower', 'GEO-einar_teeth_upper', 'GEO-einar_tongue',
+                'GEO-einar_eyebrows', 'GEO-einar_eyelashes', 'GEO-einar_hair', 'GEO-einar_hair.messy', 'GEO-einar_hair_ears', 'GEO-einar_hair_nose',
+                'GEO-einar_beard', 'GEO-einar_mustache')
+
+
+def kopf3_kuerze(o, laenge, anteil, rnd, dick=None, halte=lambda w: 1.0):
+    """Haarkurven auf `laenge` kürzen (Punkte zur Wurzel ziehen) und auf `anteil` ausdünnen; `halte(wurzel)` 0…1 dünnt örtlich."""
+    c = o.data; n = len(c.curves); pos = np.zeros(len(c.points) * 3, np.float32); c.attributes['position'].data.foreach_get('vector', pos); pos = pos.reshape(-1, 3)
+    start = np.zeros(n, np.int32); c.curves.foreach_get('first_point_index', start); zahl = np.zeros(n, np.int32); c.curves.foreach_get('points_length', zahl)
+    weg = []
+    for i in range(n):
+        a, e = start[i], start[i] + zahl[i]; w = pos[a].copy()
+        if rnd.random() > anteil * halte(w): weg.append(i); continue
+        if laenge is not None:
+            ist = float(np.linalg.norm(np.diff(pos[a:e], axis=0), axis=1).sum()) or 1e-6
+            f = min(1.0, laenge * rnd.uniform(0.6, 1.3) / ist); pos[a:e] = w + (pos[a:e] - w) * f
+    c.attributes['position'].data.foreach_set('vector', pos.reshape(-1))
+    if dick is not None and 'radius' in c.attributes:
+        r = np.zeros(len(c.points), np.float32); c.attributes['radius'].data.foreach_get('value', r); c.attributes['radius'].data.foreach_set('value', np.minimum(r, dick) if laenge is None else np.full_like(r, dick))
+    if weg: c.remove_curves(indices=weg)
+    c.update_tag(); print('KOPF3 %s: %d → %d Haare' % (o.name, n, len(c.curves)))
+
+
+def kopf3_hager(kopf):
+    """Formschlüssel `Zaehler_hager` auf dem Kopfnetz: eigene Proportionen statt Einars (stämmig, breit)."""
+    me = kopf.data; basis = me.shape_keys.key_blocks['Basis']
+    sk = kopf.shape_key_add(name='Zaehler_hager', from_mix=False); sk.value = 1.0
+    co = np.zeros(len(me.vertices) * 3, np.float32); basis.data.foreach_get('co', co); co = co.reshape(-1, 3)
+    no = np.zeros(len(me.vertices) * 3, np.float32); me.vertices.foreach_get('normal', no); no = no.reshape(-1, 3)
+    mw = np.array(kopf.matrix_world); w = co @ mw[:3, :3].T + mw[:3, 3]
+    x, y, z = w[:, 0], w[:, 1], w[:, 2]; neu = w.copy()
+    g = lambda cx, cy, cz, r: np.exp(-(((np.abs(x) - cx) / r) ** 2 + ((y - cy) / r) ** 2 + ((z - cz) / r) ** 2))
+    weich = lambda v, a, b: np.clip((v - a) / (b - a), 0, 1) ** 2 * (3 - 2 * np.clip((v - a) / (b - a), 0, 1))
+    # Achse des Gesichts: Augenhöhe ~1,685, Mund ~1,60, Kinn ~1,545; Gesicht schaut nach −y
+    unten = 1 - weich(z, 1.60, 1.69)                   # 1 unter dem Jochbein, 0 ab Augenhöhe
+    neu[:, 0] *= 1 - 0.10 * unten * weich(-y, -0.04, 0.06)       # Kiefer und Wangen schmaler (vorn), Hinterkopf bleibt
+    hals = 1 - weich(z, 1.47, 1.545)
+    neu[:, 0] *= 1 - 0.14 * hals; neu[:, 1] = neu[:, 1] + (0.0 - y) * 0.0 - 0.012 * hals * (y > -0.02)   # Hals schmal, Nacken etwas vor
+    einzug = lambda staerke, m: staerke * m[:, None] * (no @ mw[:3, :3].T)
+    neu -= einzug(0.011, g(0.058, -0.075, 1.615, 0.030))       # Wangen hohl
+    neu -= einzug(0.006, g(0.068, -0.045, 1.735, 0.028))       # Schläfen
+    neu -= einzug(0.004, g(0.030, -0.110, 1.655, 0.016))       # unter dem Auge (Tränensack-Rinne)
+    neu += einzug(0.004, g(0.060, -0.085, 1.662, 0.018))       # Jochbein tritt vor
+    nase = np.exp(-((x / 0.022) ** 2 + ((z - 1.635) / 0.030) ** 2)) * weich(-y, 0.10, 0.14)
+    neu[:, 1] -= 0.006 * nase; neu[:, 2] -= 0.005 * nase       # Nase länger, Spitze tiefer
+    ohr = weich(np.abs(x), 0.078, 0.095) * np.exp(-((z - 1.665) / 0.05) ** 2)
+    neu[:, 2] += (z - 1.675) * 0.14 * ohr; neu[:, 0] += np.sign(x) * 0.004 * ohr   # Ohren grösser (wachsen im Alter), stehen etwas ab
+    kinn = np.exp(-((x / 0.035) ** 2 + ((z - 1.548) / 0.022) ** 2)) * weich(-y, 0.06, 0.10)
+    neu[:, 1] += 0.004 * kinn; neu[:, 2] += 0.003 * kinn        # Kinn zurück, kleiner
+    lok = (neu - mw[:3, 3]) @ np.linalg.inv(mw[:3, :3]).T
+    sk.data.foreach_set('co', lok.astype(np.float32).reshape(-1)); me.update()
+    print('KOPF3 hager: grösste Verschiebung %.1f mm' % (float(np.abs(neu - w).max()) * 1000))
+
+
+def kopf3_haut(alter=1.0):
+    """Altersflecken, Äderchen und fahler Ton über Einars Hautfarbe; Blutergüsse und Schmutz aus."""
+    m = bpy.data.materials['einar.skin']; nt = m.node_tree
+    for n in nt.nodes:
+        if n.type == 'TEX_IMAGE' and n.image and ('bruises' in n.image.name or 'dirt' in n.image.name):
+            for l in list(n.outputs['Color'].links) + list(n.outputs['Alpha'].links):
+                ziel = l.to_socket; nt.links.remove(l)
+                if hasattr(ziel, 'default_value'):
+                    try: ziel.default_value = (0, 0, 0, 1) if len(ziel.default_value) == 4 else ziel.default_value
+                    except TypeError: ziel.default_value = 0.0
+    haut = [n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED' and n.inputs['Subsurface Weight'].default_value > 0.5 or (n.type == 'BSDF_PRINCIPLED' and n.inputs['Subsurface Weight'].is_linked)]
+    for b in haut:
+        s = b.inputs['Base Color']
+        if not s.is_linked: continue
+        quelle = s.links[0].from_socket
+        tc = nt.nodes.new('ShaderNodeTexCoord')
+        fl = nt.nodes.new('ShaderNodeTexNoise'); fl.inputs['Scale'].default_value = 95.0; fl.inputs['Detail'].default_value = 2.0; nt.links.new(tc.outputs['Object'], fl.inputs['Vector'])
+        gr = nt.nodes.new('ShaderNodeTexNoise'); gr.inputs['Scale'].default_value = 14.0; nt.links.new(tc.outputs['Object'], gr.inputs['Vector'])
+        r1 = nt.nodes.new('ShaderNodeMapRange'); r1.inputs[1].default_value = 0.66; r1.inputs[2].default_value = 0.74; nt.links.new(fl.outputs['Fac'], r1.inputs[0])
+        r2 = nt.nodes.new('ShaderNodeMapRange'); r2.inputs[1].default_value = 0.45; r2.inputs[2].default_value = 0.65; nt.links.new(gr.outputs['Fac'], r2.inputs[0])
+        mu = nt.nodes.new('ShaderNodeMath'); mu.operation = 'MULTIPLY'; nt.links.new(r1.outputs[0], mu.inputs[0]); nt.links.new(r2.outputs[0], mu.inputs[1])
+        mx = nt.nodes.new('ShaderNodeMix'); mx.data_type = 'RGBA'; mx.blend_type = 'MULTIPLY'; mx.inputs[7].default_value = (0.62, 0.44, 0.30, 1)
+        st = nt.nodes.new('ShaderNodeMath'); st.operation = 'MULTIPLY'; st.inputs[1].default_value = 0.55 * alter; nt.links.new(mu.outputs[0], st.inputs[0])
+        nt.links.new(st.outputs[0], mx.inputs[0]); nt.links.new(quelle, mx.inputs[6])
+        ad = nt.nodes.new('ShaderNodeTexVoronoi'); ad.feature = 'DISTANCE_TO_EDGE'; ad.inputs['Scale'].default_value = 60.0; nt.links.new(tc.outputs['Object'], ad.inputs['Vector'])
+        r3 = nt.nodes.new('ShaderNodeMapRange'); r3.inputs[1].default_value = 0.0; r3.inputs[2].default_value = 0.012; r3.inputs[3].default_value = 1.0; r3.inputs[4].default_value = 0.0; nt.links.new(ad.outputs['Distance'], r3.inputs[0])
+        r4 = nt.nodes.new('ShaderNodeMapRange'); r4.inputs[1].default_value = 0.55; r4.inputs[2].default_value = 0.75; nt.links.new(gr.outputs['Fac'], r4.inputs[0])
+        m2 = nt.nodes.new('ShaderNodeMath'); m2.operation = 'MULTIPLY'; nt.links.new(r3.outputs[0], m2.inputs[0]); nt.links.new(r4.outputs[0], m2.inputs[1])
+        s2 = nt.nodes.new('ShaderNodeMath'); s2.operation = 'MULTIPLY'; s2.inputs[1].default_value = 0.30 * alter; nt.links.new(m2.outputs[0], s2.inputs[0])
+        mv = nt.nodes.new('ShaderNodeMix'); mv.data_type = 'RGBA'; mv.blend_type = 'MULTIPLY'; mv.inputs[7].default_value = (0.80, 0.42, 0.48, 1)   # Äderchen rötlich-violett
+        nt.links.new(s2.outputs[0], mv.inputs[0]); nt.links.new(mx.outputs[2], mv.inputs[6])
+        fahl = nt.nodes.new('ShaderNodeHueSaturation'); fahl.inputs['Saturation'].default_value = 0.86; fahl.inputs['Value'].default_value = 1.05; nt.links.new(mv.outputs[2], fahl.inputs['Color'])
+        nt.links.new(fahl.outputs['Color'], s)
+
+
+def kopf3():
+    figur_, aus = ARGS[1], ARGS[2]
+    breite, hoehe, samples = (int(ARGS[3]), int(ARGS[4]), int(ARGS[5])) if len(ARGS) > 5 else (700, 700, 48)
+    ansicht = ARGS[6] if len(ARGS) > 6 else 'gesicht'
+    original = os.environ.get('KOPF3_ORIGINAL') == '1'
+    sc = bpy.context.scene; rnd = random.Random(SAAT + 3)
+    for o in sc.objects:
+        if o.type in ('MESH', 'CURVES', 'CURVE', 'LIGHT', 'VOLUME', 'POINTCLOUD'): o.hide_render = o.name not in KOPF3_BLEIBT
+    kopf = bpy.data.objects['GEO-einar_head']
+    for m in kopf.modifiers:                            # Render-Qualität: Verschiebung an, Unterteilung begrenzt (8 GB)
+        if m.type == 'SUBSURF': m.render_levels = min(m.render_levels, int(os.environ.get('KOPF3_STUFEN', '3'))); m.levels = 1
+    if not original:
+        kopf3_hager(kopf); kopf3_haut()
+        weiss = mat_haar('Zaehler_Haar', melanin=0.035, rot=0.1, rau=0.38, streu=0.5)
+        stoppel = mat_haar('Zaehler_Stoppel', melanin=0.07, rot=0.1, rau=0.45, streu=0.6)
+        braue = mat_haar('Zaehler_Braue', melanin=0.10, rot=0.1, rau=0.4, streu=0.6)
+        mwk = np.array(kopf.matrix_world)
+        # Haupthaar: schütter, Geheimratsecken (vorn-seitlich über der Stirn fast kahl), Oberkopf dünn, Seiten und Nacken voller
+        def haupthaar(w):
+            x, y, z = abs(w[0]), w[1], w[2]
+            ecke = math.exp(-(((x - 0.055) / 0.03) ** 2 + ((y + 0.075) / 0.04) ** 2)) if z > 1.74 else 0.0
+            oben = max(0.0, min(1.0, (z - 1.76) / 0.03)) * 0.55
+            return max(0.05, 1.0 - 0.95 * ecke - oben)
+        for n_, laenge, anteil, mat_, dick, halte in (('GEO-einar_hair', None, 0.62, weiss, 32e-6, haupthaar), ('GEO-einar_hair.messy', None, 0.8, weiss, 26e-6, haupthaar),
+                                                   ('GEO-einar_beard', 0.0045, 0.55, stoppel, 38e-6, lambda w: 1.0), ('GEO-einar_mustache', 0.006, 0.6, stoppel, 38e-6, lambda w: 1.0),
+                                                   ('GEO-einar_eyebrows', None, 1.0, braue, None, lambda w: 1.0), ('GEO-einar_hair_ears', None, 1.0, weiss, None, lambda w: 1.0),
+                                                   ('GEO-einar_hair_nose', None, 1.0, braue, None, lambda w: 1.0)):
+            o = bpy.data.objects[n_]
+            if laenge is not None or anteil < 1.0 or dick: kopf3_kuerze(o, laenge, anteil, rnd, dick, halte)
+            o.data.materials.clear(); o.data.materials.append(mat_)
+        # Blick leicht zur Seite: Zielknochen der Augen verschieben
+        rig = bpy.data.objects['RIG-einar']
+        for b in rig.pose.bones:
+            if b.name in ('MSTR-TGT-Eyes', 'TGT-Eyes') or (b.name.endswith('TGT-Eyes') and 'MSTR' in b.name):
+                b.location.x += 0.10; print('KOPF3 Blick über', b.name)
+    hf.SONNE_EL, hf.SONNE_AZ = SONNE_EL, SONNE_AZ; hf.himmel()
+    az, el = math.radians(SONNE_AZ), math.radians(SONNE_EL)
+    sd = bpy.data.lights.new('Sonne3', 'SUN'); sd.energy = 3.2; sd.color = (1.0, 0.86, 0.70); sd.angle = math.radians(2.5)
+    so = bpy.data.objects.new('Sonne3', sd); sc.collection.objects.link(so)
+    richt = Vector((math.sin(az) * math.cos(el), math.cos(az) * math.cos(el), math.sin(el)))      # zur Sonne
+    so.rotation_euler = (-richt).to_track_quat('-Z', 'Y').to_euler()
+    fd = bpy.data.lights.new('Fuell3', 'AREA'); fd.energy = 18.0; fd.size = 1.2; fd.color = (0.80, 0.86, 1.0)
+    fo = bpy.data.objects.new('Fuell3', fd); sc.collection.objects.link(fo); fo.location = (0.9, -1.2, 1.9)
+    fo.rotation_euler = (Vector((0, -0.07, 1.66)) - Vector(fo.location)).to_track_quat('-Z', 'Y').to_euler()
+    # Wand hinter dem Kopf wie in der Hofszene: dunkles, warmes Mauerwerk (schlicht)
+    wand = gitter('Wand3', (-2, 0.9, 0.6), (4, 0, 0), (0, 0, 2.4), 2, 2); wm = bpy.data.materials.new('Wand3'); wm.use_nodes = True
+    wb = wm.node_tree.nodes['Principled BSDF']; wb.inputs['Base Color'].default_value = (0.19, 0.15, 0.115, 1); wb.inputs['Roughness'].default_value = 0.95; wand.data.materials.append(wm)
+    blick = {'gesicht': ((0.10, -0.62, 1.675), (0.0, -0.06, 1.655), 85), 'profil': ((0.75, -0.10, 1.66), (0.0, -0.05, 1.655), 85),
+             'dreiviertel': ((0.36, -0.55, 1.68), (0.0, -0.05, 1.655), 85), 'brust': ((0.15, -1.25, 1.66), (0.0, -0.05, 1.60), 85)}[ansicht]
+    cd = bpy.data.cameras.new('Kamera3'); cd.lens = blick[2]; cd.dof.use_dof = True; cd.dof.aperture_fstop = 5.6
+    co_ = bpy.data.objects.new('Kamera3', cd); sc.collection.objects.link(co_); co_.location = blick[0]
+    co_.rotation_euler = (Vector(blick[1]) - Vector(blick[0])).to_track_quat('-Z', 'Y').to_euler(); cd.dof.focus_distance = (Vector(blick[1]) - Vector(blick[0])).length - 0.05
+    sc.camera = co_
+    render_einstellungen(breite, hoehe, samples)
+    sc.frame_set(sc.frame_current)
+    if os.environ.get('KOPF3_BLEND'): bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(os.environ['KOPF3_BLEND']), copy=True)
+    try: sc.render.image_settings.media_type = 'IMAGE'
+    except Exception as e_: print('media_type', e_)
+    sc.render.image_settings.file_format = 'PNG'; sc.render.filepath = os.path.abspath(aus)
+    t1 = time.time(); bpy.ops.render.render(write_still=True)
+    print('KOPF3 %s (%s%s) Renderzeit %.0f s, %s → %s' % (figur_, ansicht, ', Original' if original else '', time.time() - t1, hf.speicher(), sc.render.filepath))
+
+
+if __name__ == '__main__' and MODUS in ('vorher', 'stil', 'bau', 'schatten', 'kopf3'):
+    {'vorher': vorher, 'stil': stil, 'bau': bau, 'schatten': bau, 'kopf3': kopf3}[MODUS]()

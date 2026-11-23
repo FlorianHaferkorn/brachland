@@ -2,7 +2,7 @@
  * Bildrate an fester Kamera, mehrere Varianten nacheinander (D450): je Variante laden, warten bis die Dreieckszahl
  * steht, dann 10 s lang jede Sekunde die HUD-Werte lesen (B/s, Dreiecke, Aufrufe) und den Median nehmen.
  *   node tools/mess/bildrate.mjs "<basis-zusatz>" "<name>=<zusatz>" ["<name>=<zusatz>" …]
- *   MESS_URL=http://127.0.0.1:5174 MESS_FORMAT=1920x1080 MESS_DPR=1
+ *   MESS_URL=http://127.0.0.1:5174 MESS_FORMAT=1920x1080 MESS_DPR=1 [MESS_UNGEDECKELT=1]
  * Die Kamera steht fest (`&kamera=…` im Basis-Zusatz), die Figur 3 m dahinter; ein Lauf misst die GPU des Rechners,
  * auf dem er läuft — parallel laufende Blender-Renders verfälschen ihn.
  */
@@ -14,7 +14,9 @@ const BASIS = process.env.MESS_URL ?? 'http://127.0.0.1:4173';
 const [width, height] = (process.env.MESS_FORMAT ?? '1920x1080').split('x').map(Number);
 const dpr = Number(process.env.MESS_DPR ?? '1');
 const { chromium } = await playwright();
-const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist'] });
+// MESS_UNGEDECKELT=1: ohne Bildsynchronisation — zeigt, wie viel Luft über 60 B/s bleibt (D457)
+const frei = process.env.MESS_UNGEDECKELT === '1' ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : [];
+const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist', ...frei] });
 const median = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 const zahl = t => Number(String(t).replace(/\./g, '').replace(',', '.'));
 

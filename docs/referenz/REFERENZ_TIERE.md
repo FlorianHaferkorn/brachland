@@ -352,3 +352,34 @@ für die Haltung.
 | Grathorn | `grathorn-03.jpg` | rechtwinklig, alle vier Läufe, Horn ganz im Bild, stehend; Sommerfell — Winterfellvolumen aus `grathorn-04` |
 | Wurzelkeiler | `wurzelkeiler-03.jpg` | rechtwinklig, alle Läufe und Schalen frei; **junges Tier** — für den Keiler Rumpf tiefer und Läufe kürzer nach `wurzelkeiler-08` |
 | Spürfuchs | `spuerfuchs-07.jpg` | rechtwinklig, alle Läufe und Lunte frei; Fähe (Rüde etwas grösser, Literatur); Kopf zur Kamera gedreht (Kopflänge am Skelett `-09` nehmen); Sommerfell |
+
+## 7. Freie 3D-Modelle als Grundkörper (23.11.2026, D456)
+
+Anlass: Die prozeduralen Körper (Loft aus Querschnitten, Voxelnetz, Haarkurven) stoßen nach sechs Runden an eine
+Grenze — Gelenke, Lidränder und Übergänge verwischen (D455). Gesucht wurden freie, realistische Modelle, auf die
+unser Fell, Material und Befall kommen. Lizenz je Modellseite am 23.11.2026 geprüft (ADR-0013); Vorschaubilder
+und die volle Liste mit je fünf Kandidaten liegen lokal unter `.cache/referenz/tiere-modelle/` (nicht im Repo).
+
+| Tier | Grundkörper (Empfehlung) | Lizenz | Warum | Risiko |
+|---|---|---|---|---|
+| Steinbock | [„Goat Model“ – Lova Dahn](https://sketchfab.com/3d-models/3a4a2513f0624969a0b4be9bd686df91) | CC-BY | Handsculpt, 356 k, echte Muskulatur (Schulterblatt, Rippenbogen, Sprunggelenk), Bock, neutraler Stand | Hörner Fantasieform → eigene Säbelhörner (`tierframe.py`), Proportion auf Steinbock ziehen |
+| Steinbock (Form) | [„Alpine ibex Goat 3D Model“](https://sketchfab.com/3d-models/ae0234e8def04ddd807040e6618d105f) | CC-BY | einziger echter Alpensteinbock-Bock (Hörner, Bart, Fellbild) | KI-generiert (Meshy), Netz unbrauchbar — nur Formvorlage |
+| Keiler | [„Domestic Pig – male“ – Noa Seller](https://sketchfab.com/3d-models/3abdf13ff0c341078526d4a4a79560f5) | CC-BY | reine Quads, Eber, Gelenke und Hufe gut | Hausschwein-Proportion → zum Keiler umsculpten (Widerrist, Keilform, langer Kopf, Kamm) |
+| Keiler (Kopf) | [„Wild Boar (textured)“ – aellis43](https://sketchfab.com/3d-models/80e5db899a484938b88b9e16251bb5a0) — Präparat-Kopfscan | CC-BY | Rüssel, Hauer, Textur 8K | nur Kopf, 929 k |
+| Fuchs | [„Red Fox with fur and Rig“ – vasu1033](https://www.blendswap.com/blend/24920) | **CC-BY-SA** | Blender-Datei, Rigify, Haut und Partikelfell getrennt wie bei uns | Share-Alike: abgeleitetes Fuchsmodell wieder CC-BY-SA |
+| Fuchs (ohne SA) | [„Fox Anatomy“ – npbehunin](https://sketchfab.com/3d-models/bc5e3b0399784323a161005c74109578) | CC-BY | Skelett, Muskeln und Haut in einem Modell | Haut leicht stilisiert, mehr Eigenarbeit |
+
+**Ausgeschlossen:** alle „Realistic 3D Model (DEMO FREE)“ (WildMesh_3D, NC); Lizenzwäsche — „Wild Boar – Male / Pigs /
+Family“ (Kauf-Asset von Fab unter CC-BY neu hochgeladen), „Wild Boar“ und „wild boar from COTW game“ (Rips aus
+*theHunter: Call of the Wild*), „Fox-rigged“ (Rip-Verdacht), „IBEX STATUE“ (Herkunft unklar); MorphoSource (kommerziell
+verboten); TurboSquid/CGTrader free (Browser-Auslieferung nicht gedeckt); Free3D (realistisch nur gegen Geld);
+Poly Pizza/Quaternius (stilisiert). Viele „realistische“ Gratistiere von 2025/26 sind KI-generiert: als Formvorlage ja,
+als Grundkörper nur nach vollständiger Retopologie.
+
+**Fab:** „Animal Variety Pack“ (Protofactor, frei, Fab-Standardlizenz; Schwein und Fuchs mit Rig und Animationen) —
+nach ADR-0021 für Zielbilder sofort, im Spiel erst nach EULA-Prüfung.
+
+**Skelette/Schädel als Anatomievorlage:** CC0 nur Schädel eines Japanischen Wildschweins; CC-BY gute Schädel von
+Iberiensteinbock (mit Hornscheiden), Wildschwein und Rotfuchs.
+
+**Offen (A-51):** Download nur mit Konto (Sketchfab, BlendSwap, Fab) — die Sitzung loggt sich nicht ein.

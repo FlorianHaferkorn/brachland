@@ -45,7 +45,7 @@ export const Bauwerk = z.object({
     x: z.number(), z: z.number(),
     props: z.number().nonnegative(), streu: z.number().nonnegative(), haeuser: z.number().nonnegative().default(0),
   }).optional(),
-  dateien: z.array(z.enum(['bauten', 'gruen', 'wasser', 'boden', 'pflanzen'])),
+  dateien: z.array(z.enum(['bauten', 'gruen', 'wasser', 'boden', 'pflanzen', 'schatten'])),
   objekte: z.record(z.array(z.string())).optional(),
   /** Ordner unter `public/`: `bauten` (Szenenbau) oder `bauten-ziel` (Zielbild-Szene, D448, `?lookfels=1`). */
   ordner: z.enum(['bauten', 'bauten-ziel']).default('bauten'),
@@ -120,7 +120,7 @@ export function gesperrt(x: number, z: number, art: 'props' | 'streu' | 'haeuser
 }
 
 /** Pfad einer Bauwerksdatei — ein Ort fuer die Konvention, nicht drei. */
-export const bauwerkPfad = (b: Bauwerk, teil: 'bauten' | 'gruen' | 'wasser' | 'boden' | 'pflanzen') => `/${b.ordner}/${b.name}-${teil}.glb`;
+export const bauwerkPfad = (b: Bauwerk, teil: 'bauten' | 'gruen' | 'wasser' | 'boden' | 'pflanzen' | 'schatten') => `/${b.ordner}/${b.name}-${teil}.glb`;
 
 /**
  * Terrasse auf eine Hoehe anwenden: innen flach auf `zt`, bis `rAussen` weich ins Gelaende.

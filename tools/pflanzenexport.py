@@ -21,6 +21,18 @@ sc = bpy.context.scene
 pflanzen = [o for o in sc.objects if o.type == 'MESH' and MUSTER.match(o.name)]
 # Efeu und Laubstreu sind Geometrie-Knoten (Instanzen auf Mauer und Boden): ausrechnen, solange Mauer und Gelände noch da sind
 # (danach gelöscht: erster Lauf ergab 0 Flächen), sonst exportiert glTF nichts
+# D457: Fallaub-Vorlage kürzen, bevor sie 4 161-mal ausgerechnet wird — 72 Flächen je Blatt am Boden sind 0,3 Mio. Dreiecke
+# für Blätter von 5 cm; 12 tragen die Wölbung. Efeublatt 12 → 6: 57 651 Blätter waren 0,69 Mio. Dreiecke, der Umriss bleibt.
+for nm, ziel_fl in (('Fallaub', 12), ('Efeublatt', int(os.environ.get('EFEU_FLAECHEN', '6')))):
+    vo = bpy.data.objects.get(nm)
+    if vo and len(vo.data.polygons) > ziel_fl:
+        # Die Vorlage hängt in keiner Ansichtsebene: auf einem Hilfsobjekt mit Kopie kürzen, dann das Netz tauschen
+        tmp = bpy.data.objects.new('_vorlage', vo.data.copy()); sc.collection.objects.link(tmp)
+        bpy.ops.object.select_all(action='DESELECT'); tmp.select_set(True); bpy.context.view_layer.objects.active = tmp
+        dz = tmp.modifiers.new('Dez', 'DECIMATE'); dz.ratio = ziel_fl / len(tmp.data.polygons)
+        bpy.ops.object.modifier_apply(modifier=dz.name)
+        vo.data = tmp.data; bpy.data.objects.remove(tmp, do_unlink=True)
+        print('VORLAGE', nm, len(vo.data.polygons), 'Flächen', flush=True)
 # Die Knoten geben Instanzen aus (Efeu3: 57 651 Blätter); `convert` verwirft sie, also vorher einen Realize-Knoten anhängen
 for o in [o for o in pflanzen if o.modifiers]:
     for m in o.modifiers:
@@ -40,7 +52,7 @@ for o in [o for o in pflanzen if o.modifiers]:
     farben = [f for f in farben if max(f[:3]) <= 1.0]   # Durchscheinfarbe (1,6/2,0/0,9) ist keine Blattfarbe
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
     bpy.ops.object.convert(target='MESH')
-    je_blatt = 12 if 'Efeu' in o.name else 72   # Flächen der Vorlage `Efeublatt` / `Fallaub` (Blattprobe)
+    je_blatt = len(bpy.data.objects['Efeublatt' if 'Efeu' in o.name else 'Fallaub'].data.polygons)   # Flächen der Vorlage
     if farben:
         import random
         rnd = random.Random(441); me = o.data; n_ = len(me.polygons) // je_blatt

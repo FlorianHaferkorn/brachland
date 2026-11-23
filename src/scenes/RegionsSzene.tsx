@@ -82,7 +82,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { LOOK_FELS_AN, LOOK_FELS_DICHTE } from '../world/echt.js';
+import { LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE } from '../world/echt.js';
 import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
@@ -239,6 +239,12 @@ const SCHATTENKARTE = (() => {
   const roh = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('schattenkarte');
   const [a, h] = (roh ?? '').split(',').map(Number);
   return { aufloesung: Number.isFinite(a) && a >= 512 ? a : SCHATTEN_AUFLOESUNG, halb: Number.isFinite(h) && h >= 20 ? h : 250 };
+})();
+
+/** `?schattenart=basic|percentage|soft|variance` — Messparameter für den Schattenfilter (D457); Vorgabe `percentage`. */
+const SCHATTENART: 'basic' | 'percentage' | 'soft' | 'variance' = (() => {
+  const roh = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('schattenart');
+  return roh === 'basic' || roh === 'soft' || roh === 'variance' ? roh : 'percentage';
 })();
 
 /**
@@ -787,7 +793,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
           props={g.props} hofBaum={g.hofBaum} milbingerBaum={g.milbingerBaum}
           wind={wind.material} farnWind={farnWind.material}
           baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material}
-          baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={weite} />)}
+          baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={LOOK_FELS_AN ? Math.min(weite, LOOK_FELS_PROPWEITE) : weite} />)}
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
       {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite}
         strassenmaske={strassenmaske} wiesenbereich={wiesenbereich} />}
@@ -1171,7 +1177,7 @@ function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
 
 function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, buschWind, weite }: { props: PropInstanz[]; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial; weite: number }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
-  const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
+  const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string; ohneSchatten: boolean }[]>([]);
   const [fern, setFern] = useState<FernGruppe[]>([]);
   /** D367: Mittelstufen-Bäume im Übergabeband — stehen zusätzlich als Impostor (komplementäres Raster). */
   const [band, setBand] = useState<FernGruppe[]>([]);
@@ -1240,6 +1246,9 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, 
         // und ohne die Stufe könnte ein Nahchunk derselben Kachel mit Variante 0
         // denselben Schlüssel bekommen.
         c, stufe, id: `${c.art}:${c.variante}:${stufe}:${c.mitte[0]}:${c.mitte[1]}`,
+        // D457 (`?lookfels=1`): Mittelstufe jenseits von 110 m wirft keinen Schatten — an der Zielbild-Felsmulde waren das
+        // 0,58 Mio. Dreiecke im Schattenpass für Schatten hinter Mauern und Kronen. Hysterese über die 8-m-Neubewertung.
+        ohneSchatten: LOOK_FELS_AN && stufe !== 'nah' && Math.hypot(c.mitte[0] - p.x, c.mitte[1] - p.z) > ATTRAPPE_AB,
       })));
     }
     if (fernNeu) {
@@ -1260,9 +1269,9 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, 
       {/* Blender-Baumstufen werden bei Bedarf geladen. Eine eigene Grenze je
           Gruppe verhindert, dass React waehrenddessen Licht und ganze Szene
           ausblendet. Bereits geladene Gruppen bleiben sichtbar. */}
-      {sichtbar.map(({ c, stufe, id }) =>
+      {sichtbar.map(({ c, stufe, id, ohneSchatten }) =>
         <Suspense key={id} fallback={null}>
-          <PropChunkMesh chunk={c} stufe={stufe} hofBaum={hofBaum} milbingerBaum={milbingerBaum} wind={wind} farnWind={farnWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
+          <PropChunkMesh chunk={c} stufe={stufe} ohneSchatten={ohneSchatten} hofBaum={hofBaum} milbingerBaum={milbingerBaum} wind={wind} farnWind={farnWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
         </Suspense>)}
       {fern.map(({ art, variante, instanzen, zelle, hofStrauch, hofSchatten }) =>
         <Suspense key={`${art}:${variante}:${zelle ?? ''}:${hofStrauch ? 'hof' : ''}:${hofSchatten ? 'schatten' : ''}`} fallback={null}>
@@ -1498,8 +1507,8 @@ const LEER: ReadonlySet<string> = new Set();
 const LEERES_PROP_NETZ = new THREE.BufferGeometry();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, buschWind }: {
-  chunk: PropChunk; stufe: PropStufe; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial;
+function PropChunkMesh({ chunk, stufe, ohneSchatten = false, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, buschWind }: {
+  chunk: PropChunk; stufe: PropStufe; ohneSchatten?: boolean; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial;
   farnWind: THREE.MeshStandardMaterial;
   baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial;
 }) {
@@ -1588,7 +1597,7 @@ function PropChunkMesh({ chunk, stufe, hofBaum = false, milbingerBaum = false, w
         : textur ? statischesScanMaterial(textur, chunk.art)
         : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
-      castShadow={grossesTeil && !fern} receiveShadow={(!fern || strauchBleibt) && (grossesTeil || (HOF_AN && HOF_UNIFORM.bereit.value > 0 && Math.hypot(chunk.mitte[0] - HOF_UNIFORM.mitte.value.x, chunk.mitte[1] - HOF_UNIFORM.mitte.value.y) < 60))}
+      castShadow={grossesTeil && !fern && !ohneSchatten} receiveShadow={(!fern || strauchBleibt) && (grossesTeil || (HOF_AN && HOF_UNIFORM.bereit.value > 0 && Math.hypot(chunk.mitte[0] - HOF_UNIFORM.mitte.value.x, chunk.mitte[1] - HOF_UNIFORM.mitte.value.y) < 60))}
     />
   );
 }
@@ -2289,6 +2298,7 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
               {teil === 'wasser'
                 ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
                 : teil === 'boden' ? <BauwerkBoden bauwerk={b} />
+                : teil === 'schatten' ? <BauwerkSchatten bauwerk={b} />
                 : teil === 'pflanzen' ? (istAus('pflanzen') ? null : <BauwerkPflanzen bauwerk={b} />)
                 : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
@@ -2343,6 +2353,24 @@ function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
 }
 
 /**
+ * Schattenhülle (D457, `tools/schattenhuelle.mjs`): grobe Kopie der grossen Körper, die an ihrer Stelle den Schatten
+ * wirft. Im Bild unsichtbar — das Material schreibt weder Farbe noch Tiefe —, in der Schattenkarte voll da.
+ */
+function BauwerkSchatten({ bauwerk }: { bauwerk: Bauwerk }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'schatten'));
+  const objekt = useMemo(() => {
+    const klon = scene.clone(true);
+    const material = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false });
+    klon.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.material = material; o.castShadow = true; o.receiveShadow = false; o.renderOrder = -1;
+    });
+    return klon;
+  }, [scene]);
+  return <primitive object={objekt} />;
+}
+
+/**
  * Pflanzen des Zielbilds (D448, `tools/pflanzenexport.py`): Poly-Haven-Scans (Gras, Kraut, Farn, Nessel, Efeu …) mit
  * ihren Lagen als GPU-Instanzen (`EXT_mesh_gpu_instancing` → `InstancedMesh`). Blätter mit Alphatest und beidseitig,
  * Schatten werfend; ein Klon je Szene, Materialien geteilt.
@@ -2353,7 +2381,7 @@ function BauwerkPflanzen({ bauwerk }: { bauwerk: Bauwerk }) {
   const { objekt, felder } = useMemo(() => {
     const gruppe = new THREE.Group();
     const fertig = new Set<THREE.Material>();
-    const felder: { mesh: THREE.InstancedMesh; mitte: THREE.Vector3; anzahl: number }[] = [];
+    const felder: { mesh: THREE.InstancedMesh; mitte: THREE.Vector3; anzahl: number; basis: THREE.Matrix4[]; sortiert: boolean }[] = [];
     scene.updateMatrixWorld(true);
     const m4 = new THREE.Matrix4(), p = new THREE.Vector3();
     scene.traverse(o => {
@@ -2377,9 +2405,10 @@ function BauwerkPflanzen({ bauwerk }: { bauwerk: Bauwerk }) {
         // gemischt, damit eine gekürzte Anzahl (Ferne) gleichmässig ausdünnt statt eine Ecke zu leeren
         for (let k = idx.length - 1; k > 0; k--) { const j = (k * 7919 + 13) % (k + 1); [idx[k], idx[j]] = [idx[j], idx[k]]; }
         const feld = new THREE.InstancedMesh(o.geometry, o.material, idx.length);
-        idx.forEach((i, k) => { o.getMatrixAt(i, m4); feld.setMatrixAt(k, m4.premultiply(o.matrixWorld)); });
+        const basis = idx.map(i => { o.getMatrixAt(i, m4); return m4.premultiply(o.matrixWorld).clone(); });
+        basis.forEach((b, k) => feld.setMatrixAt(k, b));
         feld.computeBoundingSphere(); feld.castShadow = false; feld.receiveShadow = true;   // kleine Pflanzen werfen keinen Schatten (Schattenpass ×2)
-        gruppe.add(feld); felder.push({ mesh: feld, mitte: feld.boundingSphere!.center.clone(), anzahl: idx.length });
+        gruppe.add(feld); felder.push({ mesh: feld, mitte: feld.boundingSphere!.center.clone(), anzahl: idx.length, basis, sortiert: false });
       }
     });
     return { objekt: gruppe, felder };
@@ -2387,14 +2416,29 @@ function BauwerkPflanzen({ bauwerk }: { bauwerk: Bauwerk }) {
   // Ferne: ab 18 m auf ein Drittel ausgedünnt, ab 35 m ein Achtel — Halme sind dort kleiner als ein Pixel
   const letzte = useRef(new THREE.Vector3(Infinity, 0, 0));
   const welt = useRef(new THREE.Vector3());
+  const ort = useRef(new THREE.Vector3());
+  const invers = useRef(new THREE.Matrix4());
   useFrame(() => {
     if (letzte.current.distanceToSquared(camera.position) < 1) return;
     letzte.current.copy(camera.position);
+    // D457: Überdeckung sparen — Pflanzen nach Mauern und Boden zeichnen (renderOrder), Felder von nah nach fern, und in
+    // den vollen Nahfeldern die Lagen von vorn nach hinten. Verdeckte Pixel fallen dann am Tiefentest, vor dem Shader.
+    const lokal = welt.current.copy(camera.position).applyMatrix4(invers.current.copy(objekt.matrixWorld).invert()).clone();
+    const nachAbstand: { f: typeof felder[number]; d: number }[] = [];
     for (const f of felder) {
-      welt.current.copy(f.mitte).applyMatrix4(objekt.matrixWorld);
-      const d = welt.current.distanceTo(camera.position);
-      f.mesh.count = d < 18 ? f.anzahl : d < 35 ? Math.ceil(f.anzahl / 3) : Math.ceil(f.anzahl / 8);
+      const d = f.mitte.distanceTo(lokal);
+      const voll = d < 18;
+      f.mesh.count = voll ? f.anzahl : d < 35 ? Math.ceil(f.anzahl / 3) : Math.ceil(f.anzahl / 8);
+      if (voll) {
+        const ab = f.basis.map(b => ort.current.setFromMatrixPosition(b).distanceToSquared(lokal));
+        f.basis.map((_, i) => i).sort((x, y) => ab[x] - ab[y]).forEach((q, z) => f.mesh.setMatrixAt(z, f.basis[q]));
+        f.mesh.instanceMatrix.needsUpdate = true; f.sortiert = true;
+      } else if (f.sortiert) {   // gemischte Ordnung zurück, sonst dünnt die Ferne eine Ecke aus
+        f.basis.forEach((b, z) => f.mesh.setMatrixAt(z, b)); f.mesh.instanceMatrix.needsUpdate = true; f.sortiert = false;
+      }
+      nachAbstand.push({ f, d });
     }
+    nachAbstand.sort((x, y) => x.d - y.d).forEach(({ f }, i) => { f.mesh.renderOrder = 1 + i * 1e-4; });
   });
   return <primitive object={objekt} />;
 }
@@ -2458,7 +2502,8 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
       if (!(o instanceof THREE.Mesh)) return;
       // D450: In der Zielbild-Szene werfen nur grosse Körper Schatten — Streu, Kiesel, Moos und Schutt sind 2 Mio. Dreiecke
       // im Schattenpass und werfen Schatten unter einem Pixel der Schattenkarte (24 cm je Texel)
-      o.castShadow = bauwerk.ordner !== 'bauten-ziel' || /^(Mauer[ABC]|Stuetzmauer|Fels|Hof|Becken|Stein|Versturz|Wurzel|Stubben|Balken)(?!.*_Schutt)/.test(o.name); o.receiveShadow = true;
+      // D457: Bringt das Bauwerk eine Schattenhülle mit (`-schatten.glb`, 78 000 statt 981 000 Dreiecke), wirft nur sie.
+      o.castShadow = !bauwerk.dateien.includes('schatten') && (bauwerk.ordner !== 'bauten-ziel' || /^(Mauer[ABC]|Stuetzmauer|Fels|Hof|Becken|Stein|Versturz|Wurzel|Stubben|Balken)(?!.*_Schutt)/.test(o.name)); o.receiveShadow = true;
       // Ein vereinigtes Netz kann mit einem Material-Array kommen (erster Stauwehr-Export: 105 Kronen,
       // 105 Materialien). Alle Teile tragen dieselbe Vertexfarbe — das erste Material reicht als Basis,
       // und ein einzelnes Material zeichnet das ganze Netz. Vorher war die Basis das Array selbst: weiss.
@@ -4960,7 +5005,7 @@ export function RegionsSzene({
     <Canvas
       // ADR-0015: three r18x hat PCFSoftShadowMap entfernt (R3F-Vorgabe bei `true`) und fiel mit
       // Warnung auf PCFShadowMap zurück — die filtert jetzt selbst weich (Vogel-Disk). Ausdrücklich.
-      shadows={qualitaet.schatten && !istAus('schatten') ? 'percentage' : false}
+      shadows={qualitaet.schatten && !istAus('schatten') ? SCHATTENART : false}
       frameloop={angehalten ? 'never' : 'always'}
       dpr={LOOK_FELS_DICHTE !== null ? LOOK_FELS_DICHTE : [1, qualitaet.dpr]}
       camera={{ fov: 55, near: 0.2, far: KAMERA_FERN, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}

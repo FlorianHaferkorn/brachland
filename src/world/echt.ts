@@ -297,6 +297,13 @@ export const MSAA: number = (() => {
 })();
 
 /**
+ * Sichtweite der Props an der Zielbild-Felsmulde (D457): Bäume werden ab 110 m × 1,3 = 143 m zum Fernbild statt ab
+ * 176 m (Sichtweite „weit“ 1,6). Im Band 143–176 m standen 0,5 Mio. Dreiecke der Mittelstufe, dort ist ein Baum
+ * noch ~120 Pixel hoch — die Fernbilder (D367) sind für 110 m gebaut. `?propweite=1.6` stellt den alten Wert her.
+ */
+export const LOOK_FELS_PROPWEITE: number = Number(suche.get('propweite')) > 0 ? Number(suche.get('propweite')) : 1.3;
+
+/**
  * Pixeldichte der Zielbild-Felsmulde (D450): `?lookfels=1` rechnet mit 1 statt der Bildschirmdichte. Am M1 bei
  * 1440 × 900 gemessen: Dichte 2 → 15 B/s, Dichte 1 → 31 B/s; TAA und der Malfilter tragen die Kanten. `?dichte=2`
  * stellt die Bildschirmdichte wieder her.

@@ -21,7 +21,7 @@ import type { QuerschnittGrasmaske } from './strassenquerschnitt.js';
 import { WIESENBEREICH_GLSL, wiesenKontaktGlsl, WIESENWUCHS_GLSL, type Wiesenbereich } from './wiesenbereich.js';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN, MILBINGERDETAIL_AN } from './echt.js';
+import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN, MILBINGERDETAIL_AN, LOOK_FELS_AN } from './echt.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_BLUME, HORST_GRUEN, HORST_HALM, HORST_KRAUT, HORST_SCHWELLE, HORST_STROH, HORST_ZAHL } from './grashorst.js';
 import { HOF_UNIFORM } from './hofplatz.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
@@ -167,7 +167,9 @@ export function baueGrasteppich(
   const n = Math.ceil((2 * halb) / zelle);
   const halm = foto ? baueHorst() : baueHalm();
   // Foto-Büschel haben eigene, vom Atlas abhängige Ausdehnungen.
-  const kachelnAn = (HOF_BILDTAKT_AN && HOF_GRAS_AN && !foto) || nurWiesenbereich;
+  // D457: auch an der Zielbild-Felsmulde in Kacheln — dort ist der ganze 30-m-Teppich freigehalten (Dichte 0), und
+  // ohne Kacheln liefen trotzdem 1,9 Mio. Dreiecke durch den Vertex-Shader (8 ms je Bild am M1, nichts davon sichtbar).
+  const kachelnAn = (HOF_BILDTAKT_AN && HOF_GRAS_AN && !foto) || nurWiesenbereich || LOOK_FELS_AN;
   const kachelZellen = kachelnAn ? Math.ceil(8 / zelle) : n;
 
   const daten = new Float32Array(FELD_TEXEL * FELD_TEXEL * 4);
@@ -514,12 +516,16 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       const i1 = Math.min(FELD_TEXEL - 1, texelIndex(z1, lauf.z0) + 2);
       const j0 = Math.max(0, texelIndex(x0, lauf.x0) - 1);
       const j1 = Math.min(FELD_TEXEL - 1, texelIndex(x1, lauf.x0) + 2);
-      let tief = Infinity, hoch = -Infinity;
+      let tief = Infinity, hoch = -Infinity, dicht = 0;
       for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+        dicht = Math.max(dicht, daten[(i * FELD_TEXEL + j) * 4 + 1]!);
         const h = daten[(i * FELD_TEXEL + j) * 4]!;
         tief = Math.min(tief, h);
         hoch = Math.max(hoch, h);
       }
+      // D457: Kachel ohne einen Halm (Dichte überall 0: Freihaltung, Wasser, Weg, Fels) gar nicht zeichnen
+      if (!wiesenbereich) mesh.visible = dicht > 0;
+      if (dicht <= 0) { mesh.visible = false; continue; }
       box.min.set(x0 - ueberstand, tief - 0.01, z0 - ueberstand);
       box.max.set(x1 + ueberstand, hoch + ueberstand, z1 + ueberstand);
       box.getBoundingSphere(mesh.geometry.boundingSphere!);

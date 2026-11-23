@@ -18,7 +18,8 @@
     "bauten",
     "wasser",
     "boden",
-    "pflanzen"
+    "pflanzen",
+    "schatten"
    ],
    "objekte": {
     "bauten": [

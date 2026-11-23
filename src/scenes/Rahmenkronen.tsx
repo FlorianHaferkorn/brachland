@@ -14,8 +14,8 @@
  * Werte sind Messaufbau aus dem Render, keine Spielwerte — deshalb hier und nicht in `content/`; bevor das
  * zur Vorgabe wird, gehören die Kronen als Bauminhalt in die Daten (ADR-0004).
  */
-import { useMemo } from 'react';
-import { useLoader } from '@react-three/fiber';
+import { useMemo, useRef } from 'react';
+import { useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
 
 type Art = 'a' | 'b' | 'k';
@@ -32,7 +32,7 @@ function zufall(saat: number) { let s = saat >>> 0; return () => { s = (s * 1664
 
 export function Rahmenkronen({ hoeheAn }: { hoeheAn: (x: number, z: number) => number }) {
   const textur = useLoader(THREE.TextureLoader, '/material/laub-bueschel.webp');
-  const { karten, staemme } = useMemo(() => {
+  const { karten, staemme, matrizen, kachel, ton } = useMemo(() => {
     textur.colorSpace = THREE.SRGBColorSpace; textur.anisotropy = 4;
     const r = zufall(439);
     // Karte: Quadrat mit Atlas-Kachel als Attribut (4 × 4)
@@ -94,7 +94,22 @@ export function Rahmenkronen({ hoeheAn }: { hoeheAn: (x: number, z: number) => n
     stamm = new THREE.BufferGeometry(); stamm.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); stamm.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); stamm.setIndex(idx);
     const stMesh = new THREE.Mesh(stamm, new THREE.MeshStandardMaterial({ color: '#4a3f35', roughness: 0.95 }));
     stMesh.castShadow = true; stMesh.receiveShadow = true;
-    return { karten, staemme: stMesh };
+    return { karten, staemme: stMesh, matrizen, kachel, ton };
   }, [textur, hoeheAn]);
+  // D457: Karten von vorn nach hinten zeichnen. Die Kronen sind tausende sich überdeckende Karten mit Alphatest; in
+  // Bauordnung wurde jede Lage voll schattiert, bevor die nächste sie verdeckte (~1,5 ms je Bild am M1). Sortiert
+  // verwirft der Tiefentest die verdeckten Pixel vor dem Shader — dasselbe Bild. Neu sortiert alle 6 m Kameraweg.
+  const sortiertBei = useRef(new THREE.Vector3(Infinity, 0, 0));
+  useFrame(({ camera }) => {
+    if (sortiertBei.current.distanceToSquared(camera.position) < 36) return;
+    sortiertBei.current.copy(camera.position);
+    const p = new THREE.Vector3();
+    const abstand = matrizen.map(m => p.setFromMatrixPosition(m).distanceToSquared(camera.position));
+    const ordnung = matrizen.map((_, i) => i).sort((a, b) => abstand[a] - abstand[b]);
+    const k = karten.geometry.getAttribute('kachel') as THREE.InstancedBufferAttribute;
+    const t = karten.geometry.getAttribute('ton') as THREE.InstancedBufferAttribute;
+    ordnung.forEach((quelle, ziel) => { karten.setMatrixAt(ziel, matrizen[quelle]); k.setX(ziel, kachel[quelle]); t.setX(ziel, ton[quelle]); });
+    karten.instanceMatrix.needsUpdate = true; k.needsUpdate = true; t.needsUpdate = true;
+  });
   return <group><primitive object={karten} /><primitive object={staemme} /></group>;
 }
