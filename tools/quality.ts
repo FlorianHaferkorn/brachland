@@ -402,7 +402,12 @@ if (existsSync('public/figuren/held')) {
     if (!herkunft.includes(f)) stop('Held', `${f} ohne Herkunftsangabe`);
     // D184: Clips 600 → 700 KB für die fünf Speerclips (+89 KB).
     // D414: 700 → 800 KB für sechs Messerclips und Geraet_Blasebalg (+128 KB, 657 → 785). Lädt einmal, mit der Figur.
-    const grenze = f === 'held-clips.glb' ? 800 : f.includes('-leicht') ? 650 : 1300;
+    // D456: 800 → 1100 KB (789 → 1024). 33 Clips sind neu aus Schlüsselbildern gebaut, davon 17 zusätzlich (fünf Klinge,
+    // vier Hirschfänger, vier Körper; die vier UAL2-Klingenhiebe bleiben für den Wegelagerer), und jeder trägt jetzt
+    // jedes Bild statt nur der Schlüssel (Bögen, Überlappung, stehende Füsse — `tests/clipguete.test.ts`). Das
+    // Gesamtbudget ist seit D286 nur Warnung; sparen liesse sich mit den UAL2-Hieben (rund 60 KB), sobald der
+    // Wegelagerer die eigenen Clips spielt.
+    const grenze = f === 'held-clips.glb' ? 1100 : f.includes('-leicht') ? 650 : 1300;
     if (kb > grenze) stop('Held', `${f}: ${kb.toFixed(0)} KB über Budget ${grenze} KB`);
     console.log(`  · [Held] ${f}: ${kb.toFixed(0)} KB`);
   }

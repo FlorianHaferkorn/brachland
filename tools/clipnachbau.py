@@ -24,12 +24,14 @@ import bpy, sys, os, math
 from mathutils import Matrix, Vector, Quaternion
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import waffenclips
 from waffenclips import baue_waffenclips, NAMEN, CLIPS, GRIFF
 from weltformel import ALT_KARTE, FINGER, GRIFF_ZWEI, uebertrage
 
 ARGS = sys.argv[sys.argv.index('--') + 1:]
 FIGUR, AUS = ARGS[0], ARGS[1]
-NEU = [n for n in NAMEN if n.startswith(('Messer_', 'Geraet_', 'Axt_'))]
+# D456: alle Clips aus Schlüsselbildern — auch Klinge, Speer, Hirschfänger und die Körperclips.
+NEU = list(NAMEN)
 # D429: Seit D429 sind auch die Axtclips aus Schlüsselbildern gebaut (Zweihand-Fällaxt). `NUR=Axt_` gibt nur sie aus —
 # so wird `held-clips.glb` in der Fassung aus git nur um diese Clips ergänzt, die übrigen bleiben bitgleich.
 if os.environ.get('NUR'):
@@ -64,7 +66,7 @@ if PROBE:
     waffenclips.NAMEN = tuple(waffenclips.CLIPS)
 # Idle prüft die Übertragung allein (hart, `GRENZE`), die drei Waffenclips den ganzen Weg (nur gemeldet, s. o.).
 # D429: `Axt_Quer` ist seit D429 selbst neu gebaut — die Gegenprobe läuft nur noch an Speer und Klinge.
-PRUEFE = ['Idle', 'Speer_Stoss', 'Klinge_Stich']
+PRUEFE = ['Idle']   # D456: Speer und Klinge sind selbst neu gebaut — die Gegenprobe läuft nur noch am Idle
 GRENZE = 0.01   # Meter
 MESSPUNKTE = ['hand_r', 'hand_l', 'foot_l', 'foot_r', 'Head']
 
@@ -147,6 +149,9 @@ for tr in list(held.animation_data.nla_tracks):
 # D429: Fällaxt — die linke Hand sitzt je Schlüssel an der Stelle `griff` des Stiels (dazwischen linear), genau auf
 # der Stielachse; 'stand' ist der erste Schlüssel der Grundhaltung.
 def _stielgriff(n):
+    # D456: `waffenclips.baue_clip` rechnet den Griff je Bild (Kurve durch die Schlüssel) — dieselben Werte hier.
+    if n in waffenclips.GRIFFVERLAUF:
+        return waffenclips.GRIFFVERLAUF[n]
     grund, _, schluessel = CLIPS[n]
     aus = []
     for bild, pose in schluessel:
@@ -156,9 +161,11 @@ def _stielgriff(n):
     return aus
 
 
-STIEL = {n: _stielgriff(n) for n in NEU if n.startswith('Axt_')}
+# D456: auch Saufeder und Langes Messer — die linke Hand liegt je Bild genau auf der Achse (Speer vorher bis 10 cm daneben).
+STIEL = {n: _stielgriff(n) for n in NEU if n.startswith('Axt_') or n in waffenclips.GRIFFVERLAUF}
 gebaut = uebertrage(alt, held, {n: [(n, 1, None)] for n in NEU + PRUEFE}, ALT_KARTE, ('Body', 'pelvis'), griff,
-                    seiten=SEITEN, versatz=versatz, stiel=STIEL)
+                    seiten=SEITEN, versatz=versatz, stiel=STIEL,
+                    fuesse={n: 'stand' if n.startswith('Koerper_') else 'gerade' for n in NEU})
 
 # 4. Gegenprobe gegen die ausgelieferten Clips.
 schlecht = []

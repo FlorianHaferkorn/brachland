@@ -3,7 +3,7 @@ BRACHLAND — Prüfbilder für Clips und Waffenmodelle (D414): Einzelbilder je P
 
   blender --background --factory-startup --python tools/kontaktbogen.py -- <figur-roh.glb> <waffen-roh.glb> <ausdir> <auftrag.json>
 
-`auftrag.json`: {"posen": [{"clip", "waffe", "links"?, "bilder": [..]}], "reihen": [{"name", "waffen": [..]}]}.
+`auftrag.json`: {"posen": [{"clip", "waffe", "links"?, "bilder": [..], "blick"?, "breite"?, "oben"?}], "reihen": [{"name", "waffen": [..]}]}.
 Die Figur (Gestalt mit allen Clips, `tools/clipnachbau.mjs figur`) bekommt die Waffe an `hand_r` wie im Spiel
 (`WAFFE_AN_HELD_HAND`, `src/kampf/waffenhand.ts`). Die Räucherkanne hängt an `hand_l`: Die Lage legt dieses Skript
 im ersten Bild von `Geraet_Blasebalg` fest (Kanne aufrecht, Tülle nach vorn, Balg in der Handfläche) und hält sie
@@ -151,12 +151,22 @@ fuss = (welt_pkt('foot_l') + welt_pkt('foot_r')) / 2
 mitte = Vector((fuss.x, fuss.y, 0))
 
 
-def kamera(blick_grad, breite, hoehe_mitte, b, h, erhoehung=0.6, ziel=None):
+def kamera(blick_grad, breite, hoehe_mitte, b, h, erhoehung=0.6, ziel=None, oben=False):
     """Blick von vorn-rechts (`blick_grad` um die Hochachse aus der Blickrichtung der Figur), orthografisch.
-    `ziel` (Welt, D429): Bildmitte statt über dem Standpunkt — fürs Nahbild der Hände."""
+    `ziel` (Welt, D429): Bildmitte statt über dem Standpunkt — fürs Nahbild der Hände. `oben` (D456): senkrecht von
+    oben, die Blickrichtung der Figur zeigt im Bild nach oben (Fussarbeit, Bogen der Waffe, Drehung der Schultern)."""
     r = math.radians(blick_grad)
     richtung = (vorn * math.cos(r) + rechts * math.sin(r)).normalized()
     ziel = ziel if ziel is not None else mitte + Vector((0, 0, hoehe_mitte))
+    if oben:
+        ziel = mitte + vorn * 0.35
+        cam.location = ziel + Vector((0, 0, 6))
+        # Bild-oben = vorn, Bild-rechts = rechts der Figur
+        cam.rotation_euler = Matrix((rechts, vorn, Vector((0, 0, 1)))).transposed().to_euler()
+        cam.data.ortho_scale = breite
+        s.render.resolution_x, s.render.resolution_y = b, h
+        sonne.rotation_euler = (vorn * 0.5 + rechts * -0.6 + Vector((0, 0, 1.4))).to_track_quat('Z', 'Y').to_euler()
+        return
     cam.location = ziel + richtung * 6 + Vector((0, 0, erhoehung))
     cam.rotation_euler = (ziel - cam.location).to_track_quat('-Z', 'Y').to_euler()
     cam.data.ortho_scale = breite
@@ -230,7 +240,7 @@ def zeige(waffe, links):
 for job in auftrag.get('posen', []):
     if job.get('links'):
         lege_links(job['links'])
-    kamera(job.get('blick', 35), job.get('breite', 2.6), 0.95, 300, 420, job.get('erhoehung', 0.6))
+    kamera(job.get('blick', 35), job.get('breite', 2.6), 0.95, 300, 420, job.get('erhoehung', 0.6), oben=job.get('oben', False))
     for bild in job['bilder']:
         setze(job['clip'], bild)
         zeige(job.get('waffe'), job.get('links'))

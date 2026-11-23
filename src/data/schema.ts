@@ -1101,6 +1101,62 @@ export const Gewicht = z.object({
 }).strict();
 export type Gewicht = z.infer<typeof Gewicht>;
 
+// ------------------------------------------------------- Clipmarken (D456, nur Darstellung)
+
+/**
+ * D456: Marken in den Clips der Spielfigur für Übergänge und Ketten (`content/clipmarken.json`) — gelesen von der
+ * Laufzeit (D457) und von `tests/clipguete.test.ts`. **Kein Kampfwert:** Scheitel und Durchzug stehen hier nur noch
+ * einmal neben `hieb` in `content/waffen/` (der Test hält beide gleich). Alle Zahlen sind **Bildnummern** bei
+ * `bildrate` Bildern je Sekunde, gezählt wie die Schlüsselbilder in `tools/waffenclips.py` (Bild 1 = erstes Bild,
+ * Clipzeit = Bild / `bildrate`).
+ */
+const Clipname = z.string().regex(/^[A-Z][A-Za-z0-9]*(_[A-Za-z0-9]+)+$/);
+const Bild = z.number().int().min(1).max(400);
+export const Clipmarke = z.object({
+  /** Schlüssel aus `hut`, oder `koerper` für Clips ohne Waffenbezug. */
+  waffe: z.string().regex(/^[a-z0-9-]+$/),
+  art: z.enum(['hut', 'hieb', 'stoss', 'block', 'geraet', 'koerper']),
+  /** `hut`: Bild 1 ist genau die Hut (Pose und Fusslage). `anlauf`: beginnt in einer Anlaufpose. `frei`: eigener Anfang. */
+  beginn: z.enum(['hut', 'anlauf', 'frei']),
+  /** `hut`: letztes Bild ist die Hut. `gehalten`: letztes Bild wird gehalten. `schleife`: Schleife. `liegt`: endet am Boden. */
+  ende: z.enum(['hut', 'gehalten', 'schleife', 'liegt']),
+  /** Letztes Bild des Clips. */
+  bilder: Bild,
+  /** Bild im Ausholen, ab dem ein geketteter Schlag beginnen darf (aus der Kettenpose des vorigen, ohne Hut). */
+  einstieg: Bild.optional(),
+  scheitel: Bild.optional(),
+  durchzug: Bild.optional(),
+  /** Kettenpose: erstes Schlüsselbild nach dem Durchzug — frühester Absprung in den nächsten Schlag. */
+  kette: Bild.optional(),
+  /** Letztes Schlüsselbild vor der Rückkehr in die Hut — bis hierher folgt der Körper der Masse. */
+  halt: Bild.optional(),
+  /** Welcher Fuss in der Kettenpose vorn steht. */
+  vorn: z.enum(['links', 'rechts', 'gleich']).optional(),
+}).strict().superRefine((m, ctx) => {
+  const schlag = m.art === 'hieb' || m.art === 'stoss';
+  for (const f of ['einstieg', 'scheitel', 'durchzug', 'kette', 'halt', 'vorn'] as const) {
+    if (schlag && m[f] === undefined) ctx.addIssue({ code: 'custom', message: `${m.art} braucht ${f}`, path: [f] });
+    if (!schlag && m[f] !== undefined) ctx.addIssue({ code: 'custom', message: `${f} nur bei hieb und stoss`, path: [f] });
+  }
+  if (m.art === 'hut' && (m.beginn !== 'hut' || m.ende !== 'schleife')) ctx.addIssue({ code: 'custom', message: 'eine Hut beginnt als hut und endet als schleife' });
+});
+export const Clipmarken = z.object({
+  stand: z.string().min(1),
+  lies: z.string().min(1).describe('das Format in Worten — für Menschen und für die Laufzeit-Sitzung'),
+  bildrate: z.number().int().positive(),
+  /** Die eine Grundhaltung je Waffe (Schleifenclip). */
+  hut: z.record(z.string().regex(/^[a-z0-9-]+$/), Clipname),
+  clips: z.record(Clipname, Clipmarke),
+}).strict().superRefine((d, ctx) => {
+  for (const [w, h] of Object.entries(d.hut)) {
+    if (d.clips[h]?.art !== 'hut') ctx.addIssue({ code: 'custom', message: `Hut ${h} von ${w} fehlt in clips oder ist keine hut`, path: ['hut', w] });
+  }
+  for (const [n, c] of Object.entries(d.clips)) {
+    if (c.waffe !== 'koerper' && !d.hut[c.waffe]) ctx.addIssue({ code: 'custom', message: `Waffe ${c.waffe} hat keine Hut`, path: ['clips', n, 'waffe'] });
+  }
+});
+export type Clipmarken = z.infer<typeof Clipmarken>;
+
 /**
  * D427: Kampfton (D423: freie Aufnahmen, CC0, ADR-0013) — welche Dateien unter `public/ton/kampf/` zu welchem
  * Ereignis gehören, wie laut ein Band im Grund ist und wie weit Tonhöhe und Pegel je Anschlag streuen (gegen

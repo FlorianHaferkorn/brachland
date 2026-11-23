@@ -2,10 +2,14 @@
 last-reviewed: 2026-11-23
 shelf-life-days: 180
 ---
-<!-- BRACHLAND — Waffenbewegungen aus freien Quellen (D428, D430, D452). Stand 23.11.2026. -->
+<!-- BRACHLAND — Waffenbewegungen aus freien Quellen (D428, D430, D452, D456). Stand 23.11.2026. -->
 
 # BRACHLAND — Waffenbewegungen aus freien Quellen v1 (D428)
 
+> **D456 (23.11.2026):** Alle Waffenclips der Spielfigur neu gebaut (jedes Bild gerechnet: Bögen, Überlappung, stehende Füsse,
+> Blick, eine Hut je Waffe mit dem linken Fuss vor), Klinge mit eigenen Hieben statt der UAL2-Drehungen, Saufeder nach Meyer,
+> Hirschfänger mit eigenen Clips, vier Körperclips, Marken für Ketten — §9; Widersprüche 5, 6, 7 aus §5 behoben. Fragen: **A-51**.
+>
 > **D452 (23.11.2026):** Körper von `Axt_Hieb` und `Axt_Schwer` nach dem Spaltvideo nachgezogen (tieferes Becken, Hüftknick,
 > Schwerpunkt über den Füssen), Trefferfenster A gegen B mit dem Kampfbot gemessen — A übernommen, B Vorschlag (§5.2, A-49).
 > **D453 (23.11.2026):** Fertige Bewegungsquellen (Mocap, Animationspakete, Datensätze, KI, Werkzeuge) mit
@@ -324,14 +328,16 @@ Trefferfenster sitzen auf den Schlüsselbildern.
    Lecküchners Wecker/Entrüsthau/Schielhau führt aber die **kurze** oder stumpfe Schneide. Vorschlag: Posenfeld
    `kurz=True` in `waffenclips.py` (Handgelenk um 180° um die Klingenachse), erst wenn ein solcher Hieb gebaut wird.
 5. **Kein Nachschwung bei `Axt_Schwer`, `Axt_Lauf`, `Klinge_U_A`, `Klinge_U_Lauf`** — für die Axt **behoben D429** (§5.1),
-   die Klinge bleibt offen. (Spitze steht unmittelbar nach
+   für die Klinge **behoben D456** (§9: eigene Hiebe mit Nachschwung 46°, Halt 53 %). (Spitze steht unmittelbar nach
    dem Durchzug) — bekannt aus D420/D423 („Bestandsclips nach der Messung“). Handwerk: Kopf folgt bis ins Holz,
    beide Hände am Ende. Keine neue Erkenntnis, hier nur gemessen.
-6. **Standbein:** `Klinge_Stand` und `Speer_Stand` stehen mit dem **rechten** Fuss vor. Liechtenauer (Ochs, Pflug,
+6. **Standbein** — **behoben D456** (§9.1: linker Fuss vor in jeder Hut, gemessen 21–33 cm; dabei gefunden, dass der Schritt des
+   `Idle` jede Hut verschob). `Klinge_Stand` und `Speer_Stand` stehen mit dem **rechten** Fuss vor. Liechtenauer (Ochs, Pflug,
    Vom Tag), Lecküchner (alle Leger) und Meyer (Ober-, Unter-, Mittelhut der Stange, die linke Hand vorn) stellen den
    **linken** Fuss vor. Bei der Saufeder ist das deutlich: vordere Hand links, vorderer Fuss rechts dreht den Rumpf
    gegen die Waffe. Vorschlag: linker Fuss vor, Stoss mit Nachtritt rechts. `Messer_Stand` stimmt (links vor).
-7. **Ganze Drehungen in den UAL2-Klingenhieben** (`Klinge_U_A/B/C`: Schulterlinie dreht bis ±180°, Ausfall bis
+7. **Ganze Drehungen in den UAL2-Klingenhieben** — **behoben D456** für die Spielfigur (§9.2: `Klinge_Hieb_A/B`, `Klinge_Schwer`,
+   `Klinge_Lauf` mit Schritt, Rumpf 64–66°; der Wegelagerer spielt die UAL2-Clips noch). (`Klinge_U_A/B/C`: Schulterlinie dreht bis ±180°, Ausfall bis
    30 cm, Füsse nah am Boden bis 6 m/s) — in den hier gelesenen Stellen von Lecküchner und Ringeck schlägt man mit
    Schritt oder Sprung zur Seite, eine Drehung um die eigene Achse kommt dort nicht vor (eine Gradzahl für die
    Rumpfdrehung nennen die Quellen nicht). Gehört zur Klingen-Überarbeitung nach D423, nicht jetzt.
@@ -800,3 +806,127 @@ das als Weichzeichnen, Füsse rutschen. Was die Vorbilder (D432) flüssig macht,
 - **UNKLAR:** Inhalt der UAL2-Source-Clips nur nach Namen bekannt (wie §6).
 - Die CMU-Lizenz verlangt keine Namensnennung; ein Eintrag in `assets/HERKUNFT.md` wäre trotzdem fällig, sobald ein
   CMU-abgeleiteter Clip ausgeliefert wird (ADR-0013 Punkt 3).
+
+## 9. D456: alle Clips der Spielfigur nach den Handwerksregeln — ausgeführt
+
+Flo 23.11.2026 (D455): „Optimiere alle Bewegungen und mach sie AAA Niveau like ohne dass ich was machen oder hochladen
+muss.“ Messlatte D432 als Qualität (Gewicht, lesbares Ausholen, Fluss, Richtungsführung), nicht als Kopie (D431); nichts
+gekauft (D454), keine fremde Animation ausser den schon ausgelieferten CC0-Clips. **Ehrliche Grenze:** kein Motion
+Capture, kein GPU-Blick — die Prüfbilder sind Formprüfung, was „AAA“ ist, entscheidet sich am M1 in Bewegung (ADR-0005).
+Gemessen wird an der ausgelieferten Datei (`tests/clipguete.test.ts`, three.js spielt `held-clips.glb` wie das Spiel).
+
+### 9.1 Was am Bau anders ist (`tools/waffenclips.py`, `tools/weltformel.py`)
+
+| Regel | bis D455 | D456 | Prüfung |
+|---|---|---|---|
+| Zwischenbilder | nur Schlüssel; Blender mischte jede Knochendrehung für sich | **jedes Bild** aus den Posenfeldern gerechnet und per IK gestellt | — |
+| Bögen | gerade Stücke von Schlüssel zu Schlüssel | Hand auf einer Kurve durch die Schlüssel (Hermite), Anfang und Ende mit Tangente null | Handbahn im Hieb ≥ 6 % der Sehne neben der Sehne (gemessen 18–43 %) |
+| Überlappung | alle Ebenen im selben Bild | Becken 1,5 Bilder, Schwerpunkt 1, Füsse 1,5, Rumpf 0,75 Bilder **vor** der Hand; die Waffe hängt 0,5 Bilder nach (im Durchzug steht sie genau), die freie Hand 1 Bild | Tempospitze des Beckens vor der der Waffenspitze, nicht nach der der Hand |
+| kein gemeinsamer Halt | alle Gelenke hielten am Schlüssel | folgt aus dem Versatz | Becken/Brust/Hand/Spitze fallen nicht im selben Bild unter ¼ ihres Spitzentempos |
+| Füsse | FK zwischen den Schlüsseln, am Ziel dazu der Fehler der Übertragung | IK je Bild in der Quelle **und** am Ziel (`stelle_fuesse`); reicht ein Bein nicht, sinkt das Becken nach; ein Schritt hebt den Fuss (⅓ der Schrittlänge, 3–10 cm) | stehender Fuss ≤ 2 cm je Bild (vorher bis 14 cm), beide Füsse vom Scheitel bis zum Durchzug ≤ 1,5 cm, Schritt hebt ≥ 2 cm |
+| Blick | Kopf drehte ¾ gegen den Rumpf | ganz (Hals ≤ 35°, Kopf ≤ 40°), beim Vorbeugen hebt er vier Fünftel zurück | Kopf bis zum Durchzug ≤ 25° neben geradeaus (gemessen 0–3°, vorher 5–15°) |
+| Ellbogen | Pol je Schlüssel von Hand | ein Feld über die Armrichtung (`_pol`): hängt in Brusthöhe, weicht über dem Kopf nach aussen | Zwischenbilder treu |
+| Verdrehung der Arme | kleinste Drehung aus der Grundhaltung — kippte, wenn der Arm ihr entgegen zeigte | aus der Gelenkebene (Schulter–Ellbogen–Hand), an einer gebeugten Pose geeicht | **Zwischenbilder treu:** Hand, Ellbogen, Spitze im halben Bild ≤ 3 cm neben dem Bogen (vorher `Axt_Lauf` 18,5 cm) |
+| Schneide | Axt nach der Bahn des Kopfs (D429), Messer nach der Bahn der Hand, Klinge schlug um | alle Hiebe nach der Bahn des Schlagpunkts; zwischen den Schlüsseln mit der Klinge mitgeführt; beide Hände greifen in jedem Bild gleich um die Waffe | Langes Messer ≤ 20° im Scheitel und Durchzug (gemessen 3–6° / 1–3°; vorher bis 90° / 35°) |
+| eine Hut je Waffe | Speerclips auf dem Stand gebaut, Laufclips ohne festes Ende | jeder Clip beginnt (ausser Lauf: Anlaufpose) und endet in Bild 1 der Hut | jeder Knochen ≤ 2°, Füsse und Becken ≤ 1,5 cm |
+
+**Zwei Befunde am Bestand, beide behoben:** (1) Der Stand der Hauptfigur (`Idle`) steht am Ziel 22 cm im Schritt (rechter
+Fuss vor), obwohl die Quelle gleichauf steht — die Beine beider Skelette ruhen verschieden. Jede Hut erbte das: `Messer_Stand`
+und `Axt_Stand` („linker Fuss vor“) standen gleichauf (1 cm, −2 cm), `Klinge_Stand` und `Speer_Stand` mit dem rechten Fuss
+55 und 53 cm vor. Jetzt gemessen linker Fuss vor: Klinge 28, Axt 21, Saufeder 33, Messer 23, Hirschfänger 27 cm (Widerspruch 6
+aus §5 damit erst wirklich behoben; `Idle` selbst ist nicht angefasst — A-51 (3)). (2) Die Arme sprangen in ihrer Verdrehung von
+Bild zu Bild um bis 180°; im Standbild unsichtbar, zwischen den Bildern (60 Bilder/s, Trefferstopp, jede Überblendung) fliegt
+die Hand aus der Bahn.
+
+### 9.2 Je Waffe
+
+Alle Werte an der ausgelieferten Datei, vorher → nachher; „—“ = Clip gab es nicht. Nachschwung/Halt aus den Schlüsseln
+(`tests/waffenclips.test.ts`, Soll `gewicht.ts`).
+
+| Clip | Bilder, Scheitel/Durchzug | Becken vor / tiefer cm | Schritt (Hub) cm | Gleiten cm/Bild | Blick ° | Nachschwung / Halt (Soll) |
+|---|---|---|---|---|---|---|
+| `Klinge_Hieb_A` (statt `Klinge_U_A`) | 26, 6/9 | 15 / 11 | 42 (7,9) | 0,8 | 1 | 46° / 53 % (18° / 47 %) |
+| `Klinge_Hieb_B` (statt `Klinge_U_B`) | 28, 6/9 | 11 / 11 | 21 (5,9) | 0,3 | 0 | 46° / 53 % |
+| `Klinge_Stich` | 30, 9/13 | 1 → 22 / 0 → 14 | 4 → 29 (8,0) | 1,3 → 0,5 | 10 → 1 | Halt 53 % |
+| `Klinge_Schwer` (statt `Klinge_U_C`) | 40, 14/18 | 18 / 24 | 44 (8,0) | 0,4 | 1 | endet tief, Becken −5 cm / 50 % |
+| `Klinge_Lauf` (statt `Klinge_U_Lauf`) | 30, 7/11 | 18 / 15 | 59 (9,6) | 0,9 | 2 | Halt 53 % |
+| `Axt_Hieb` | 34, 12/16 | 12 → 10 / 24 | 6 → 10 | 3,1 → 0,4 | 10 → 1 | 46° / 72 % (44° / 67 %) |
+| `Axt_Quer` | 30, 10/15 | 15 → 13 / 12 | 11 → 15 | 2,7 → 0,9 | 15 → 1 | 86° / 73 % |
+| `Axt_Schwer` | 40, 20/25 | 13 → 11 / 29 | 8 → 12 | 0,2 → 0,7 | 5 → 0 | am Boden / 73 % |
+| `Axt_Lauf` | 26, 7/11 | 17 → 12 / 12 | 42 → 43 (4,6 → 9,6) | **14,0 → 0,2** | 13 → 3 | 53° / 73 % |
+| `Speer_Stoss` | 24 → 27, 9/13 | 0 → 18 / 0 → 13 | 16 → 25 (1,0 → 7,0) | 5,2 → 1,1 | 6 → 0 | Halt 57 % (56 %) |
+| `Speer_Weit` | 30 → 33, 14/18 | 0 → 25 / 0 → 20 | 24 → 38 | 2,2 → 1,1 | 7 → 1 | Halt 60 % |
+| `Speer_Lauf` | 22 → 28, 7/11 | 0 → 16 / 0 → 18 | 27 → 53 | 2,0 → 1,1 | 5 → 1 | Halt 59 % |
+| `Messer_Quer_A` | 30, 9/13 | 17 → 14 / 13 | 25 → 29 | 4,8 → 0,6 | 15 → 1 | 82° / 59 % (21° / 53 %) |
+| `Messer_Quer_B` | 28, 8/12 | 16 → 12 / 13 | 20 → 22 | **8,3 → 0,5** | 12 → 1 | 80° / 56 % |
+| `Messer_Schwer` | 36, 12/17 | 21 → 17 / 24 | 28 → 31 | 4,2 → 0,5 | 6 → 0 | am Boden / 58 % |
+| `Messer_Lauf` | 26, 7/11 | 20 → 14 / 13 | 46 → 48 | 0,6 → 1,4 | 13 → 3 | 31° / 60 % |
+| `Hirsch_Hieb_A` / `_B` / `_Stich` (neu) | 20/20/21, 5/8, 5/8, 6/9 | 8 / 8, 7 / 8, 16 / 11 | 13, 13, 23 | 0,4–0,7 | 0 | 18° / 21° / — , Halt 50 % (8° / 37 %) |
+
+- **Klinge:** Hut ist der Pflug rechts, linker Fuss vor (§4.2). `Klinge_Hieb_A` ist ein Oberhau von der rechten Schulter mit dem
+  Schritt des rechten Fusses, `Klinge_Hieb_B` die Rückhand mit Vorrücken des linken, `Klinge_Schwer` der Hieb von oben mit beiden
+  Händen (die linke kommt an den Knauf), `Klinge_Lauf` ein Laufstich. Der Rumpf dreht 66° / 64° statt der ganzen Drehung der
+  UAL2-Clips (Schulterlinie ±178°, Widerspruch 7); die freie Hand arbeitet 43–75 cm gegen die Brust. Die Regel
+  (`content/waffen/klinge.json`) nennt nur die neuen **Clipnamen**; Scheitel/Durchzug 6/9, 6/9, 9/13, 14/18, 7/11 unverändert.
+  Die UAL2-Clips `Klinge_U_A/B/C/Lauf/Block` bleiben in der Datei: Der Wegelagerer (`Kampfplatz.tsx`) und der Block
+  (`BLOCKCLIP` in `RegionsSzene.tsx`) spielen sie noch — A-51 (1). `Klinge_Block` aus Schlüsselbildern liegt bereit.
+- **Saufeder:** Mittelhut nach Meyer, linker Fuss vor, hinteres Ende an der rechten Hüfte. Die hintere Hand führt: Der Abstand
+  der Hände sinkt im Stoss von 0,55 auf 0,2 m (der Schaft läuft durch die vordere Hand), der Stoss kommt aus dem Ausfallschritt
+  (Becken 18–25 cm vor, 13–20 cm tiefer; vorher 0 / 0), wird gestreckt gehalten und erst nach 57–60 % der Erholung gelöst. Die linke
+  Hand liegt jetzt je Bild auf der Schaftachse (vorher bis 10 cm daneben). Clips 3–6 Bilder länger, Scheitel/Durchzug gleich.
+- **Langes Messer:** bleibt zweihändig (D406, A-43 offen). Schlüssel unverändert bis auf `Messer_Lauf` (die Hände lagen im Schlag
+  am Leib; 21–24 cm weiter vor). Schneide 2°/7°, 90°/5°, 25°/14°, 24°/35° → **5°/1°, 3°/3°, 3°/3°, 6°/1°** (Quer_A, Quer_B, Schwer,
+  Lauf; Scheitel/Durchzug).
+- **Hirschfänger:** geprüft — nach `gewicht.ts` schlägt er nur 4 % schneller als die Klinge (0,165 gegen 0,171 s; der Arm
+  bestimmt die Zeit), bremst aber auf 8° statt 17,5° und hält 37 % statt 47 %. Darum eigene, engere Clips (`Hirsch_Stand`,
+  `Hirsch_Hieb_A/B`, `Hirsch_Stich`): Hut tiefer und dichter, Rumpf dreht 46° / 44°, Schritt 13 cm. **Keine Kampfwerte**; die
+  Fenster 5/8, 5/8, 6/9 sind Vorschlag (A-51 (2)).
+- **Axt:** Schlüssel von `Axt_Hieb`, `Axt_Quer`, `Axt_Schwer` unverändert (D452), `Axt_Lauf` mit den Händen 10–24 cm weiter vor
+  (wie `Messer_Lauf`). Alle vier gewinnen über den Bau: Füsse stehen, der Schritt hebt, der Blick hält, der linke Arm springt
+  nicht mehr. Schneide 5–6° / 0–1° (`tests/axtgriff.test.ts` 53/53).
+- **Axt und Variante B (D454):** geprüft — die Clips passen. Die Szene legt jede Phase der Regel auf ihren Clipabschnitt
+  (Vorlauf → Bild 1 bis Scheitel, Aktiv → Scheitel bis Durchzug); mit B läuft der Schlag von `Axt_Hieb` in 0,23 s statt 0,16 s
+  über dieselben vier Bilder (165° Kopfbogen — das ist die Physik aus §5.1), das Ausholen in 0,30 s über elf. Nichts
+  nachzuziehen, solange `hieb` bleibt. **Vorschlag, nicht angewendet:** Wer die Clips im eigenen Tempo abspielen will (ohne
+  Strecken), bräuchte `hieb` 7/13 statt 12/16 für den Axthieb — das wäre ein Kampfwert-Wechsel ohne sichtbaren Gewinn.
+
+### 9.3 Marken für Übergänge und Ketten (`content/clipmarken.json`)
+
+Schema `Clipmarken` in `src/data/schema.ts`, geprüft von `npm run validate` und `tests/clipguete.test.ts`. Alle Zahlen sind
+Bildnummern bei 24 Bildern/s wie in `waffenclips.py` (Clipzeit = Bild / 24). `hut` je Waffe; je Clip `waffe`, `art`, `beginn`
+(`hut` | `anlauf` | `frei`), `ende` (`hut` | `gehalten` | `schleife` | `liegt`), `bilder`; je Hieb und Stoss `einstieg` (ab hier darf
+ein geketteter Schlag beginnen), `scheitel`, `durchzug`, `kette` (Kettenpose: erstes Schlüsselbild nach dem Durchzug), `halt`
+(letztes vor der Rückkehr), `vorn` (Fuss in der Kettenpose). **Nur Darstellung:** Ab wann die Regel ketten oder abbrechen
+lässt, ist ein Kampfwert und gehört in `content/waffen/` (D457).
+
+### 9.4 Fortbewegung und Körper — Sichtung
+
+| Clip in `held-clips.glb` | Herkunft | Befund | D456 |
+|---|---|---|---|
+| `Idle`, `Walk`, `Run`, `Roll`, `Death`, `HitRecieve` | Quaternius (alte Wanderin, übertragen D175) | `Idle` steht 22 cm im Schritt; `Roll` 1,67 s auf 0,55 s gestaucht (Szene) — liest sich als Wischer; Gehen/Laufen tragen die Waffe starr in der rechten Hand, die linke schwingt leer (Zweihandwaffen einhändig) | nicht geändert — Gang und Rolle sind Paketclips ohne Schlüssel; sie umzubauen hiesse sie ersetzen |
+| `Kampf_Rueckstoss`, `Kampf_Taumeln`, `Idle_Ruhig`, `Gruss`, `Klinge_U_*` | UAL2 (CC0, D173) | passen nicht an die Huten an (eigene Anfangspose) | nicht geändert |
+| Sprung, Landung, Klettern, Schwimmen, Gleiten, Wenden, Anlaufen/Abstoppen, Rast | **fehlen** | die Laufzeit zeigt dafür Stand/Lauf | **neu:** `Koerper_Landung_Weich` (16 Bilder, federt 22 cm), `Koerper_Landung_Hart` (30 Bilder, Hocke 45 cm, linke Hand am Boden, hält) |
+| Griff fürs Reinigen (D417) | fehlte (Block-Clip als Ersatz) | — | **neu:** `Koerper_Griff` (12 Bilder, Schritt links, linke Hand greift vor, gehalten) |
+| „aufgegeben“ (D426) | fehlte | — | **neu:** `Koerper_Aufgabe` (16 Bilder, auf das rechte Knie, Hände offen gehoben, gehalten) |
+
+Die vier Körperclips sind **nicht verdrahtet** (Laufzeit D457) und nur als Formprüfung gesehen. **Nicht geschafft:** Wenden auf
+der Stelle, Anlaufen/Abstoppen, Rolle mit Gewicht, Rolle bei der Landung (D413), Sprung/Absprung, Klettern, Schwimmen, Tauchen,
+Gleiten, Rast, ein Tragen der Zweihandwaffen im Gehen und Laufen (beide Hände am Schaft) — die Posenfelder können den Körper
+nicht um die eigene Achse drehen oder legen (Rolle, Schwimmen), und Gang/Lauf brauchen einen Zyklus mit Fussabrollen, den es
+hier nicht gibt. Treffer, Taumeln und Tod (Paket/UAL2) nicht angefasst.
+
+### 9.5 Offen und am M1 zu prüfen
+
+- Lesen sich die Klingenhiebe mit Schritt als Gewicht oder als Stolpern (der Schritt von 42 cm liegt im Vorlauf von 0,18 s)?
+- Wirkt der Versatz (Hüfte vor Hand, Waffe nach) als Fluss oder als Gummi? Stellschrauben: `VORAUS` in `waffenclips.py`.
+- Greift die linke Hand im `Klinge_Schwer` sichtbar an den Knauf (keine IK am Ziel, nur Übertragung)?
+- Stehen die Huten mit dem linken Fuss vor gut im Übergang aus Gehen und Laufen (deren Clips beginnen anders)?
+- Ellbogen: Das Feld ersetzt die Pole von Hand — über dem Kopf stehen sie jetzt etwas weiter hinten-aussen.
+- Budget: `held-clips.glb` 789 → **1024 KB** (Grenze in `tools/quality.ts` 800 → 1100, begründet dort).
+- **UNKLAR:** Ob der Schritt des `Idle` (22 cm) gewollt ist; ob die Saufeder in der Mittelhut das Ende an der Hüfte oder in der
+  Hand trägt (Meyer nennt die Hüfte für die Unterhut, für die Mittelhut nur „gerade Versatzung“).
+
+Prüfbilder (Formprüfung, keine Look-Abnahme, Bewegung nur am M1; vorher │ nachher, gleiche Kamera, von vorn und von oben):
+`.cache/bilder/D456/klinge_vorher_nachher.png`, `.cache/bilder/D456/axt_vorher_nachher.png`,
+`.cache/bilder/D456/speer_vorher_nachher.png`, `.cache/bilder/D456/messer_vorher_nachher.png`,
+`.cache/bilder/D456/hirschfaenger_nachher.png`, `.cache/bilder/D456/koerper_nachher.png`, `.cache/bilder/D456/hut_je_waffe.png`.

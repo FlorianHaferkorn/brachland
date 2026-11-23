@@ -15,7 +15,7 @@
       "haltungsschaden": 34,
       "kosten": 18,
       "nachdrehen": 6,
-      "clip": "Klinge_U_A",
+      "clip": "Klinge_Hieb_A",
       "hieb": { "scheitel": 6, "durchzug": 9 },
       "schritt": 0.3
     },
@@ -31,7 +31,7 @@
       "haltungsschaden": 30,
       "kosten": 16,
       "nachdrehen": 6,
-      "clip": "Klinge_U_B",
+      "clip": "Klinge_Hieb_B",
       "hieb": { "scheitel": 6, "durchzug": 9 },
       "schritt": 0.35
     },
@@ -65,7 +65,7 @@
     "haltungsschaden": 60,
     "kosten": 30,
     "nachdrehen": 4,
-    "clip": "Klinge_U_C",
+    "clip": "Klinge_Schwer",
     "hieb": { "scheitel": 14, "durchzug": 18 },
     "schritt": 0.4,
     "rueckstoss": 0.45
@@ -82,7 +82,7 @@
     "haltungsschaden": 40,
     "kosten": 22,
     "nachdrehen": 3,
-    "clip": "Klinge_U_Lauf",
+    "clip": "Klinge_Lauf",
     "hieb": { "scheitel": 7, "durchzug": 11 },
     "schritt": 1.4,
     "rueckstoss": 0.4
