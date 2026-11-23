@@ -378,6 +378,28 @@ STIMMUNG.zielbild = {
   // Azimut 42° von Nord im Uhrzeigersinn, Hoehe 13°: (sin·cos, sin, −cos·cos)
   sonnenstand: [65.2, 22.5, -72.4] as const,
 };
+/**
+ * D442: `zielbildfels` — Messstimmung für das Messbild Spiel │ Zielbild Felsmulde (UEBERGABE 2d, D425). Wie `zielbild`,
+ * aber mit der Sonne des freigegebenen Felsmulde-Renders (`tools/stilframes.py` Runde 3/4: Azimut 194°, Höhe 24,5°;
+ * dort gewählt, weil der Hang im Südwesten tiefere Sonne abschattet). Nur per `?stimmung=zielbildfels`.
+ */
+STIMMUNG.zielbildfels = {
+  ...STIMMUNG.zielbild,
+  sonnenstand: [-22.0, 41.5, 88.3] as const,
+  // D443 Look-Durchgang, Schritt 1 Licht und Tonwert (Messbild D442: Spiel 0,36 hell, Lichter weiss R−B +0,06,
+  // Sättigung 0,28 — Render 0,27, +0,13, 0,46): Sonne warm und kräftig, Fülllicht schwächer und warm-neutral,
+  // Belichtung runter, Himmel blau im Zenit und golden am Horizont wie das HDRI des Renders, Dunst golden.
+  sonne: '#ffbf7a', sonneStaerke: 3.8,
+  umgebung: '#6f6252', umgebungStaerke: 1.7,
+  belichtung: 1.95,
+  // Horizont ist zugleich die Dunstfarbe der Fernberge (`fernland.ts`): kühl grauoliv wie die Luftschichten des Renders
+  // (Dunst 0,070/0,074/0,066 linear), sonst stehen die Berge als beige Fläche.
+  zenit: '#3a5478', horizont: '#b3ab98', himmel: '#7a6a58', wolken: 0.6,
+  // Schritt 2 Luftschichten: Nebel reicht weiter, damit die Berge Form behalten und sich nach hinten aufhellen,
+  // statt als eine beige Fläche zu stehen; Dunstfarbe kühler, näher am Horizont des Renders.
+  nebel: '#8a8478', nebelNah: 60, nebelFern: 2400,
+  randFarbe: '#ffd29a', randStaerke: 0.45,
+};
 /** D317: bewölktes, leicht warmes Licht der Hofreferenz als eigene Messstimmung. */
 STIMMUNG.hofziel = {
   ...STIMMUNG.zielbild, himmel: '#705e54', nebel: '#837363', nebelNah: 17, nebelFern: 142,

@@ -80,13 +80,13 @@ export default defineConfig({
         // zweiten Besuch aus dem Cache. Wer das Spiel einmal offline nehmen will, laeuft
         // vorher einmal an den Bauwerken vorbei; ein eigener Vorlader ist Stufe-3-Arbeit.
         // D175: Die Gestalten der Hauptfigur (je ~1 MB) auch nicht — gebraucht wird nur die gewählte.
-        globIgnores: ['**/bauten/*.glb', '**/figuren/held/*.glb',
+        globIgnores: ['**/bauten/*.glb', '**/bauten-ziel/*.glb', '**/figuren/held/*.glb',   // D445: Zielbild-Felsmulde (104 MB, nur ?lookfels=1)
           // D298: verworfener Erdboden und redundante Prop-Normalen sind Quellenbelege,
           // werden von keinem Material verwendet und gehören deshalb nicht in den Offline-Download.
           '**/material/hof-boden-*.webp', '**/material/hof-farn-normal.webp',
           '**/material/hof-fels-moos-*-normal.webp'],
         runtimeCaching: [{
-          urlPattern: ({ url }) => url.pathname.startsWith('/bauten/'),
+          urlPattern: ({ url }) => url.pathname.startsWith('/bauten/') || url.pathname.startsWith('/bauten-ziel/'),
           handler: 'CacheFirst',
           options: { cacheName: 'brachland-bauten', expiration: { maxEntries: 60 } },
         }, {

@@ -252,3 +252,13 @@ Abschnitt „Herkunft" hat.
 | `Rabbit` (`mKev485XTR`) | Quaternius | CC0 | Ein Cartoon-Hase in T-Pose mit Armen — eine Figur, kein Tier (07.09.2026 gerendert und verworfen; der CC-BY-Jackrabbit ist ein Hase) |
 | `Pheasant` (`1wqLCnNFCgv`) | Poly by Google | CC BY 3.0 | Geladen als Alternative zur Wachtel, nicht gebraucht |
 | Medieval Weapons Pack („Sword“, „Axe“, „Sword_Golden“, „Axe_Double“; `tools/waffenbau.py`) | Quaternius | CC0 | Von D173 bis D421 in `kampf/waffen.glb` ausgeliefert (Klinge, Axt, Stufe 3); seit D421 durch eigene, realistische Modelle ersetzt — Fantasy-Formen (gezackte Doppelaxt, goldene Klinge) passten nicht zum gemalten Realismus (ADR-0018) |
+
+## Zielbild Felsmulde im Spiel (D445)
+
+`public/bauten-ziel/felsmulde-*.glb` sind aus der Zielbild-Szene (`tools/stilframes.py` Runde 4) gebacken. Alle Oberflächen
+stammen aus Poly-Haven-Scans, CC0 1.0 (keine Nennung nötig, hier zur Nachverfolgung): Mauerwerk `broken_wall`,
+`castle_wall_slates`; Boden `forest_leaves_02`, `forest_leaves_04`, `forest_ground_04`, `brown_mud_leaves_01`, `mud_forest`;
+Felsen und Steine `rock_moss_set_01`, `rock_moss_set_02`; Moos `moss_01`; Pflanzen `grass_medium_01`, `grass_medium_02`,
+`celandine_01`, `periwinkle_plant`, `nettle_plant`, `weed_plant_02`, `dandelion_01`, `fern_02`, `fir_sapling`,
+`shrub_sorrel_01`. Efeu, Laub, Balken und Mauerformen sind prozedural (eigene Werkzeuge). Lizenz: polyhaven.com/license (CC0).
+

@@ -17,8 +17,10 @@
  */
 import { z } from 'zod';
 import REGISTER from '../../public/bauten/register.json';
+import ZIEL_REGISTER from '../../public/bauten-ziel/register.json';
 import STAEMME from '../../public/bauten/staemme.json';
 import { AKTIVE_REGION } from '../spiel/region.js';
+import { LOOK_FELS_AN } from './echt.js';
 
 export const Terrasse = z.object({ x: z.number(), z: z.number(), rInnen: z.number().positive(), rAussen: z.number().positive() });
 export type Terrasse = z.infer<typeof Terrasse>;
@@ -43,13 +45,35 @@ export const Bauwerk = z.object({
     x: z.number(), z: z.number(),
     props: z.number().nonnegative(), streu: z.number().nonnegative(), haeuser: z.number().nonnegative().default(0),
   }).optional(),
-  dateien: z.array(z.enum(['bauten', 'gruen', 'wasser'])),
+  dateien: z.array(z.enum(['bauten', 'gruen', 'wasser', 'boden', 'pflanzen'])),
   objekte: z.record(z.array(z.string())).optional(),
+  /** Ordner unter `public/`: `bauten` (Szenenbau) oder `bauten-ziel` (Zielbild-Szene, D445, `?lookfels=1`). */
+  ordner: z.enum(['bauten', 'bauten-ziel']).default('bauten'),
+  /**
+   * Aus dem Zielbild gebackener Boden (D445, `tools/bodenexport.py`): Kreis um `mitte` (Blender-Meter X, Y) mit
+   * `radius`, Terrassenhöhe `zt` im Render. Das Spiel setzt das ganze Bauwerk so, dass `zt` auf seiner eigenen
+   * Terrassenhöhe liegt — Render- und Spielgelände stammen aus verschiedenen Exporten (h0 452,91 gegen 453,12).
+   */
+  boden: z.object({ mitte: z.object({ x: z.number(), y: z.number() }), radius: z.number().positive(), zt: z.number() }).optional(),
 });
 export type Bauwerk = z.infer<typeof Bauwerk>;
 
 /** Nur die Szenen der geladenen Region — sonst stünde das Stauwehr in Œntal-Metern mitten im Moor. */
-export const BAUWERKE: Bauwerk[] = z.object({ bauwerke: z.array(Bauwerk) }).parse(REGISTER).bauwerke
+const SZENENBAU: Bauwerk[] = z.object({ bauwerke: z.array(Bauwerk) }).parse(REGISTER).bauwerke;
+/**
+ * D445 (`?lookfels=1`): die Felsmulde aus der Zielbild-Szene (`stilframes.py` Runde 4, `SZENE_ZIEL=1`) statt aus dem
+ * Szenenbau — Bruchsteinmauern, Scan-Felsen, Streu und Boden so, wie das Zielbild sie zeigt. Terrasse und
+ * Freihaltung bleiben die des Szenenbaus (gleiche Scheibe im Hang); die Streuschicht der Engine weicht dem
+ * gebackenen Boden ganz.
+ */
+const ZIELBAU: Bauwerk[] = LOOK_FELS_AN
+  ? z.object({ bauwerke: z.array(Bauwerk) }).parse(ZIEL_REGISTER).bauwerke.map(b => {
+    const alt = SZENENBAU.find(a => a.name === b.name);
+    const frei = alt?.frei && b.boden ? { ...alt.frei, streu: b.boden.radius } : alt?.frei;
+    return { ...b, ordner: 'bauten-ziel' as const, terrasse: alt?.terrasse ?? b.terrasse, frei };
+  })
+  : [];
+export const BAUWERKE: Bauwerk[] = SZENENBAU.map(b => ZIELBAU.find(ziel => ziel.name === b.name) ?? b)
   .filter(b => b.region === AKTIVE_REGION);
 
 /**
@@ -59,9 +83,10 @@ export const BAUWERKE: Bauwerk[] = z.object({ bauwerke: z.array(Bauwerk) }).pars
  */
 const Kreis = z.tuple([z.number(), z.number(), z.number().positive()]);
 const STAEMME_JE_SZENE = z.record(z.array(Kreis)).parse(STAEMME);
-export const SZENEN_STAEMME: readonly (readonly [number, number, number])[] =
-  BAUWERKE.flatMap(b => STAEMME_JE_SZENE[b.name] ?? []);
-export const staemmeVon = (name: string) => STAEMME_JE_SZENE[name] ?? [];
+// Die Zielbild-Szene (D445) bringt keine Bäume mit (Kronen: `Rahmenkronen.tsx`), also auch keine Stämme zum Anstossen.
+const staemmeVonBau = (b: Bauwerk) => (b.ordner === 'bauten' ? STAEMME_JE_SZENE[b.name] ?? [] : []);
+export const SZENEN_STAEMME: readonly (readonly [number, number, number])[] = BAUWERKE.flatMap(staemmeVonBau);
+export const staemmeVon = (name: string) => { const b = BAUWERKE.find(x => x.name === name); return b ? staemmeVonBau(b) : STAEMME_JE_SZENE[name] ?? []; };
 
 /**
  * Der Nebel endet je Stimmung spaetestens bei rund 420 m. Mit 650 m wird eine
@@ -95,7 +120,7 @@ export function gesperrt(x: number, z: number, art: 'props' | 'streu' | 'haeuser
 }
 
 /** Pfad einer Bauwerksdatei — ein Ort fuer die Konvention, nicht drei. */
-export const bauwerkPfad = (b: Bauwerk, teil: 'bauten' | 'gruen' | 'wasser') => `/bauten/${b.name}-${teil}.glb`;
+export const bauwerkPfad = (b: Bauwerk, teil: 'bauten' | 'gruen' | 'wasser' | 'boden' | 'pflanzen') => `/${b.ordner}/${b.name}-${teil}.glb`;
 
 /**
  * Terrasse auf eine Hoehe anwenden: innen flach auf `zt`, bis `rAussen` weich ins Gelaende.

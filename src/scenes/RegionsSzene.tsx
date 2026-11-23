@@ -21,6 +21,7 @@ import { MIT_MODELL, reitsitz, kreaturGeometrie }
 import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
 import { WasserUmgebung, WasserSzeneProbe, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
 import { EzBaumProbe, istEzProbeBereit, uebernimmtEzVariante } from './EzBaumProbe.js';
+import { Rahmenkronen } from './Rahmenkronen.js';
 import { TakramProbe } from './TakramProbe.js';
 import { STIMMUNG, HEMI_BODEN, heileStimmung, type Stimmung } from '../world/stimmung.js';
 export { STIMMUNG, HEMI_BODEN, HEMI_BODEN_TAG, type Stimmung, type StimmungsName } from '../world/stimmung.js';
@@ -33,7 +34,7 @@ import { benutzeSteuerung, type Stoecke } from '../spieler/steuerung.js';
 import { aktionenVon } from '../spieler/eingabe.js';
 import { peilung } from '../spieler/peilung.js';
 import { baueKleinzeugGeometrie, streueKleinzeug, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
-import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
+import { baueBodenMaterial, setzeBodenHimmel, BODEN_LOCH } from '../world/bodenmaterial.js';
 import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
 import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
 import { baueMilbingerSandkasten } from '../world/milbingersubstanz.js';
@@ -81,6 +82,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
+import { LOOK_FELS_AN } from '../world/echt.js';
 import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
@@ -2278,7 +2280,7 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
   return (
     <>
       {sichtbar.map(b => (
-        <group key={b.name} position={[b.ursprung.x, b.h0, b.ursprung.z]}>
+        <group key={b.name} position={[b.ursprung.x, bauwerkHoehe(b, hoeheAn), b.ursprung.z]}>
           {WEIHER_AN && b.dateien.includes('bauten') && (
             <Suspense fallback={null}><BauwerkWeiher bauwerk={b} hoeheAn={hoeheAn} /></Suspense>
           )}
@@ -2286,6 +2288,8 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
                 ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
+                : teil === 'boden' ? <BauwerkBoden bauwerk={b} />
+                : teil === 'pflanzen' ? <BauwerkPflanzen bauwerk={b} />
                 : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
           ))}
@@ -2293,6 +2297,73 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
       ))}
     </>
   );
+}
+
+/**
+ * Höhe der Bauwerksgruppe. Szenenbau: `h0` aus dem Terrainexport. Zielbild-Szene (D445): so, dass die Terrasse des
+ * Renders (`boden.zt`) auf der Terrasse des Spiels liegt — beide Gelände kommen aus verschiedenen Exporten, und eine
+ * Mauer, die 20 cm schwebt oder versinkt, ist im Spiel sofort zu sehen.
+ */
+function bauwerkHoehe(b: Bauwerk, hoeheAn: (x: number, z: number) => number): number {
+  if (!b.boden) return b.h0;
+  return hoeheAn(b.ursprung.x + b.boden.mitte.x, b.ursprung.z - b.boden.mitte.y) - b.boden.zt;
+}
+
+/**
+ * Boden aus dem Zielbild (D445, `tools/bodenexport.py`): Scan-Mischmaterial des Renders als Farbe, Normale und
+ * Rauheit gebacken, auf einem 25-cm-Raster. Darunter schneidet `BODEN_LOCH` den Spielboden aus; die äusseren 6 m
+ * blenden mit Rauschtransparenz (alphaHash, keine Sortierung) über dem Spielboden aus, 2 cm darüber.
+ */
+function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'boden'));
+  const b = bauwerk.boden!;
+  const objekt = useMemo(() => {
+    const klon = scene.clone(true);
+    klon.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.receiveShadow = true; o.castShadow = false;
+      const m = (o.material as THREE.MeshStandardMaterial).clone();
+      m.alphaHash = true; m.metalness = 0;
+      const innen = 1 - 6 / b.radius;
+      m.onBeforeCompile = sh => {
+        sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>',
+          `#include <map_fragment>\n  diffuseColor.a *= 1.0 - smoothstep(${innen.toFixed(4)}, 1.0, length(vMapUv * 2.0 - 1.0));`);
+      };
+      o.material = m;
+    });
+    klon.position.y = 0.02;
+    return klon;
+  }, [scene, b.radius]);
+  useEffect(() => {
+    // Loch: so weit, wie der Boden deckend ist (Rand 6 m bleibt über dem Spielboden)
+    BODEN_LOCH.value.set(bauwerk.ursprung.x + b.mitte.x, bauwerk.ursprung.z - b.mitte.y, b.radius - 6, 0);
+    return () => { BODEN_LOCH.value.set(0, 0, 0, 0); };
+  }, [bauwerk, b]);
+  return <primitive object={objekt} />;
+}
+
+/**
+ * Pflanzen des Zielbilds (D445, `tools/pflanzenexport.py`): Poly-Haven-Scans (Gras, Kraut, Farn, Nessel, Efeu …) mit
+ * ihren Lagen als GPU-Instanzen (`EXT_mesh_gpu_instancing` → `InstancedMesh`). Blätter mit Alphatest und beidseitig,
+ * Schatten werfend; ein Klon je Szene, Materialien geteilt.
+ */
+function BauwerkPflanzen({ bauwerk }: { bauwerk: Bauwerk }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'pflanzen'));
+  const objekt = useMemo(() => {
+    const klon = scene.clone(true);
+    const fertig = new Set<THREE.Material>();
+    klon.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.castShadow = true; o.receiveShadow = true; o.frustumCulled = !(o instanceof THREE.InstancedMesh);
+      for (const m of (Array.isArray(o.material) ? o.material : [o.material]) as THREE.MeshStandardMaterial[]) {
+        if (fertig.has(m)) continue; fertig.add(m);
+        m.side = THREE.DoubleSide;
+        if (m.transparent || m.alphaTest > 0 || m.map) { m.transparent = false; m.alphaTest = Math.max(m.alphaTest, 0.5); m.depthWrite = true; }
+      }
+    });
+    return klon;
+  }, [scene]);
+  return <primitive object={objekt} />;
 }
 
 /**
@@ -4901,6 +4972,7 @@ export function RegionsSzene({
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
       <EzBaumProbe ziel={ref} lokal={HOF_GRUEN_AN} milbinger={MILBINGERLICHT_AN && !!wiesenbereich} />
+      {LOOK_FELS_AN && <Suspense fallback={null}><Rahmenkronen hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} /></Suspense>}
       {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
       <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
               bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />

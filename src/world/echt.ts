@@ -136,6 +136,8 @@ export const HOF_AN = an('scanhof') || HOF_GRUEN_AN;
  * (Schatten kühl, Licht warm) nach der Tonwertkurve. Ersetzt den globalen Filter aus D269 nicht, steht daneben.
  */
 export const AFRAME_AN = an('aframe');
+/** D443: Look-Durchgang Felsmulde nach dem Messbild D442 — Rahmenkronen (`scenes/Rahmenkronen.tsx`); mit `?stimmung=zielbildfels`. */
+export const LOOK_FELS_AN = an('lookfels');
 export const ECHT = an('echt') || MALEREI || HOF_AN || AFRAME_AN;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */
 const teil = (name: string) => (suche.get(name) === '0' ? false : ECHT || an(name));

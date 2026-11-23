@@ -433,6 +433,13 @@ const BODEN_KANTIG: boolean = (() => {
 const MIT_UFER: boolean = typeof location === 'undefined'
   || new URLSearchParams(location.search).get('ufer') !== '0';
 
+/**
+ * Loch im Spielboden (D445, `?lookfels=1`): (x, z, Radius) in Weltmetern — dort liegt der aus dem Zielbild gebackene
+ * Boden (`BauwerkBoden` in `RegionsSzene.tsx`); dessen Rand blendet über dem Spielboden aus. z ≤ 0: kein Loch.
+ * Nur das Bild: Höhe, Kollision und Figuren lesen weiter das Spielgelände.
+ */
+export const BODEN_LOCH = { value: new THREE.Vector4(0, 0, 0, 0) };
+
 export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStandardMaterial {
   const milbinger = MILBINGERDETAIL_AN && wiesenbereich;
   const substrat = MILBINGERSUBSTANZ_AN && !!milbinger;
@@ -473,8 +480,10 @@ export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStan
         '#include <begin_vertex>\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n  vWeltNormal = normalize(mat3(modelMatrix) * objectNormal);\n  vNass = nass;',
       );
 
+    shader.uniforms.uBodenLoch = BODEN_LOCH;
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL + (wiesenbereich ? WIESENBEREICH_GLSL : '') + (milbinger ? WIESENWUCHS_GLSL : '') + (HOF_AN ? HOF_BODEN_PARS : '') + (kontakt ? wiesenKontaktGlsl(!!hofTeil) : ''))
+      .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n  if (uBodenLoch.z > 0.0 && distance(vWeltPos.xz, uBodenLoch.xy) < uBodenLoch.z) discard;')
+      .replace('#include <common>', '#include <common>\nuniform vec4 uBodenLoch;\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL + (wiesenbereich ? WIESENBEREICH_GLSL : '') + (milbinger ? WIESENWUCHS_GLSL : '') + (HOF_AN ? HOF_BODEN_PARS : '') + (kontakt ? wiesenKontaktGlsl(!!hofTeil) : ''))
       .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (milbinger ? MILBINGER_BODEN : '') + (kontakt ? SOCKELBODEN : '') + (MIT_UFER ? NASS_GLSL : '') + (HOF_AN ? hofFarben : ''))
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n'
         // D281 (`?gewaesser=1`): 0,55 spiegelte den hellen Himmel als weissen Reif-Streifen am Ufer; nasse Erde ist
