@@ -1122,6 +1122,11 @@ export const Clipmarke = z.object({
   ende: z.enum(['hut', 'gehalten', 'schleife', 'liegt']),
   /** Letztes Bild des Clips. */
   bilder: Bild,
+  /**
+   * D460: eigene Bildrate eines gerechneten Clips (Gang, Lauf, Rolle …). Ein Clip mit diesem Feld beginnt bei 0 s:
+   * Bild b liegt bei (b − 1) / bildrate — Schleifen ohne gehaltenes erstes Bild, schnelle Zyklen mit 48 Bildern/s.
+   */
+  bildrate: z.number().int().positive().max(120).optional(),
   /** Bild im Ausholen, ab dem ein geketteter Schlag beginnen darf (aus der Kettenpose des vorigen, ohne Hut). */
   einstieg: Bild.optional(),
   scheitel: Bild.optional(),

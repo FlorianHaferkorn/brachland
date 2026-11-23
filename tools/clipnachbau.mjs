@@ -32,25 +32,34 @@ function entpacke(doc) {
   }
 }
 
-/** Animationen aus `von` nach `nach` kopieren, Kanäle über die Knotennamen gebunden. */
-function kopiereClips(von, nach, namen = null) {
+/**
+ * Animationen aus `von` nach `nach` kopieren, Kanäle über die Knotennamen gebunden.
+ * D460: `takt` = Map Clip → Bilder je Sekunde. Blender exportiert mit 24 Bildern/s und legt Bild 1 auf 1/24 s; ein Clip
+ * mit eigenem Takt beginnt bei 0 s und läuft mit seiner Rate (Bild b liegt bei (b − 1) / Takt) — Schleifen ohne das
+ * gehaltene erste Vierundzwanzigstel, Lauf und Sprint mit 48 Bildern/s. `als` = Map Clip → Name der Kopie.
+ */
+function kopiereClips(von, nach, namen = null, takt = null, als = null) {
   const knoten = new Map(nach.getRoot().listNodes().map(n => [n.getName(), n]));
   const puffer = nach.getRoot().listBuffers()[0] ?? nach.createBuffer();
   const neu = [];
   for (const a of von.getRoot().listAnimations()) {
     if (namen && !namen.has(a.getName())) continue;
-    const b = nach.createAnimation(a.getName());
+    const b = nach.createAnimation(als?.get(a.getName()) ?? a.getName());
+    const rate = takt?.get(a.getName());
+    let t0 = Infinity;
+    if (rate) for (const s of a.listSamplers()) t0 = Math.min(t0, s.getInput().getMin([])[0]);
     for (const c of a.listChannels()) {
       const ziel = knoten.get(c.getTargetNode()?.getName() ?? '');
       const s = c.getSampler();
       if (!ziel || !s) continue;
       // Immer als Float32: Meshopt legt Quaternionen normalisiert als Int16 ab, `getElement` rechnet zurück.
-      const acc = (x) => {
+      const acc = (x, zeit = false) => {
         const n = x.getCount(), g = x.getElementSize(), f = new Float32Array(n * g), e = [];
         for (let i = 0; i < n; i++) { x.getElement(i, e); for (let j = 0; j < g; j++) f[i * g + j] = e[j]; }
+        if (zeit && rate) for (let i = 0; i < f.length; i++) f[i] = Math.max(0, (f[i] - t0) * 24 / rate);
         return nach.createAccessor().setType(x.getType()).setArray(f).setBuffer(puffer);
       };
-      const sn = nach.createAnimationSampler().setInput(acc(s.getInput())).setOutput(acc(s.getOutput()))
+      const sn = nach.createAnimationSampler().setInput(acc(s.getInput(), true)).setOutput(acc(s.getOutput()))
         .setInterpolation(s.getInterpolation());
       b.addSampler(sn).addChannel(nach.createAnimationChannel().setTargetNode(ziel).setTargetPath(c.getTargetPath()).setSampler(sn));
     }
@@ -97,6 +106,21 @@ if (modus === 'roh') {
   }
   const namen = new Set(neu.getRoot().listAnimations().map(a => a.getName()));
   const weg = new Set((arg.find(a => a.startsWith('--weg='))?.slice(6) ?? '').split(',').filter(Boolean));
+  // D460: `--takt=Clip:48,…` (Bilder je Sekunde, Beginn bei 0 s), `--um=Alt:Neu,…` (Bestandsclip umbenennen, bevor ein
+  // neuer seinen Namen bekommt), `--auch=Clip:Name,…` (den neuen Clip zusätzlich unter einem Bestandsnamen ausliefern —
+  // die Laufzeit greift ihn dann ohne Codeänderung; die Daten liegen nur einmal in der Datei, `dedup`).
+  const paare = (schalter) => new Map((arg.find(a => a.startsWith(`--${schalter}=`))?.slice(schalter.length + 3) ?? '')
+    .split(',').filter(Boolean).map(p => p.split(':')));
+  const takt = new Map([...paare('takt')].map(([n, r]) => [n, Number(r)]));
+  const um = paare('um'), auch = paare('auch');
+  for (const a of ziel.getRoot().listAnimations()) {
+    const neuerName = um.get(a.getName());
+    if (!neuerName) continue;
+    if (ziel.getRoot().listAnimations().some(x => x.getName() === neuerName)) { console.error(`--um: ${neuerName} gibt es schon`); process.exit(1); }
+    console.log(`  umbenannt: ${a.getName()} → ${neuerName}`);
+    a.setName(neuerName);
+  }
+  for (const n of auch.values()) weg.add(n);
   // D429: Kanäle und Sampler mit wegwerfen — sonst halten die Sampler ihre Zugriffe fest, `prune` lässt sie stehen,
   // und die Datei trägt die Daten der ersetzten Clips weiter (gemessen: 367 tote Zugriffe, rund 70 KB).
   for (const a of ziel.getRoot().listAnimations()) {
@@ -109,7 +133,13 @@ if (modus === 'roh') {
   // D429: nur die neuen Clips ausdünnen — `resample` über die ganze Datei nahm bei jedem Einfügen den Bestand noch einmal
   // mit (gemessen: Messer_Quer_B verlor einen Schlüssel); so bleiben die übrigen Clips Wert für Wert gleich.
   await neu.transform(resample({ tolerance: 5e-4 }));
-  const drin = kopiereClips(neu, ziel, namen);
+  const drin = kopiereClips(neu, ziel, namen, takt);
+  for (const [quelle, name] of auch) {
+    if (!namen.has(quelle)) { console.error(`--auch: ${quelle} ist nicht unter den neuen Clips`); process.exit(1); }
+    kopiereClips(neu, ziel, new Set([quelle]), takt, new Map([[quelle, name]]));
+    namen.add(name);
+    console.log(`  ${quelle} auch als ${name}`);
+  }
   let leer = 0;
   for (const a of ziel.getRoot().listAnimations()) {
     if (!namen.has(a.getName())) continue;

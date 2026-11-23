@@ -888,7 +888,8 @@ wie ein Mensch schneller läuft): bei 4,2 m/s `Run` mit Frequenz ×1,45 (174 Sch
 (die Fuss-IK setzt den Fuss in Laufrichtung weiter von der Hüfte) — rechnerisch **kein Gleiten bis 5,5 m/s**.
 **Rennen 8,5 m/s deckt auch das nicht:** Frequenz und Weite schlagen an (×2,2 / ×1,4), rund **25 % gleiten weiter**.
 Dafür braucht es einen **Sprintclip** (Standphase ≥ 4 m/s bei Rate 1) und besser einen Laufschritt-Clip mit ~3 m/s —
-Sache von D456; die Kopplung misst neu, sobald die Clips da sind. Gehen und Rennen werden im selben Schritt gemischt
+Sache von D456; die Kopplung misst neu, sobald die Clips da sind. **Nachtrag D460:** `Run` ist seit D460 ein Laufschritt mit 4,2 m/s
+bei Rate 1 (die Laufzeit misst 4,04), der Sprintclip liegt als `Koerper_Sprint` bereit (§10.3, §10.4). Gehen und Rennen werden im selben Schritt gemischt
 (die Clips beginnen 0,32 Zyklen versetzt; gemessen, ausgeglichen).
 
 Dazu: **Kurvenlage** atan(v·ω/g) × 0,4, höchstens 10°; **Anlaufen/Abstoppen** atan(a/g) × 0,5, höchstens 6° (das Tempo
@@ -1024,7 +1025,8 @@ Die vier Körperclips sind **nicht verdrahtet** (Laufzeit D457) und nur als Form
 der Stelle, Anlaufen/Abstoppen, Rolle mit Gewicht, Rolle bei der Landung (D413), Sprung/Absprung, Klettern, Schwimmen, Tauchen,
 Gleiten, Rast, ein Tragen der Zweihandwaffen im Gehen und Laufen (beide Hände am Schaft) — die Posenfelder können den Körper
 nicht um die eigene Achse drehen oder legen (Rolle, Schwimmen), und Gang/Lauf brauchen einen Zyklus mit Fussabrollen, den es
-hier nicht gibt. Treffer, Taumeln und Tod (Paket/UAL2) nicht angefasst.
+hier nicht gibt. Treffer, Taumeln und Tod (Paket/UAL2) nicht angefasst. **Nachtrag D460:** Wenden, Anlauf/Abstoppen, Rolle, Sprung, Klettern, Schwimmen,
+Trage-Huten und die Gangzyklen sind in §10 gebaut (Rast, Tauchen, Gleiten weiter offen).
 
 ### 9.5 Offen und am M1 zu prüfen
 
@@ -1041,3 +1043,149 @@ Prüfbilder (Formprüfung, keine Look-Abnahme, Bewegung nur am M1; vorher │ na
 `.cache/bilder/D456/klinge_vorher_nachher.png`, `.cache/bilder/D456/axt_vorher_nachher.png`,
 `.cache/bilder/D456/speer_vorher_nachher.png`, `.cache/bilder/D456/messer_vorher_nachher.png`,
 `.cache/bilder/D456/hirschfaenger_nachher.png`, `.cache/bilder/D456/koerper_nachher.png`, `.cache/bilder/D456/hut_je_waffe.png`.
+
+## 10. D460: Fortbewegung der Spielfigur als Clips — ausgeführt
+
+Auftrag D455 (Flo, 23.11.2026), der Teil, den D456 offen liess (§9.4) und den D457 als Lücke gemessen hat (§8.6 Nr. 5):
+Gehen, Laufschritt, Sprint, Anlauf, Abstoppen, Wenden, Rolle, Sprung, dazu Klettern, Schwimmen und Trage-Huten für die
+Zweihandwaffen. **Ehrliche Grenze:** Das sind gerechnete Zyklen, kein Motion Capture — sie stimmen in Tempo, Kontakt,
+Abrollen und Gegenschwung, aber ihnen fehlt, was eine Aufnahme mitbringt (Asymmetrie, Nachfedern von Weichteilen, kleine
+Unregelmässigkeit von Schritt zu Schritt). Gesehen nur als Standbild-Reihe (Formprüfung); **am M1 in Bewegung prüfen**
+(ADR-0005). Kein Kampfwert, kein Tempo, keine Regel geändert; `src/` nicht angefasst ausser dem Schema der Marken.
+
+### 10.1 Bauweg (`tools/waffenclips.py` Abschnitt „D460“, `tools/weltformel.py`, `tools/clipnachbau.py`/`.mjs`)
+
+D456 rechnete jedes Bild aus wenigen Schlüsseln. Ein Zyklus hat keine Schlüssel — hier kommt die Pose **je Bild aus einer
+Funktion** (`RECHNE`, `_melde`), und `_pose` kennt dafür neue Felder:
+
+| Feld | Was | Wofür |
+|---|---|---|
+| `fuss_*` 4. Wert | Abrollwinkel des Fusses, Grad (+ Zehen hoch) | Ferse → Sohle → Ballen |
+| `fuss_*` 5. Wert, `('kreis', Grad, Hub)` | Fuss um die Hochachse; `kreis` stellt ihn um die Mitte des Stands (Quelle und Ziel getrennt gerechnet) | Wenden |
+| `koerper` 3. Wert, `kippe` | Becken seitlich; Becken um die Längsachse gekippt, die Wirbelsäule richtet sich darüber auf | Beckenbahn |
+| `arm_r`, `arm_l`, `arm_w` | Handziel von der Schulter aus im Rahmen der Brust; Gewicht 0…1 gegen die Grundhaltung | Armschwung, weich aus dem Stand |
+| `gier` | ganzer Körper um die Hochachse durch das Becken | Wenden |
+| `lage` (`nick`, `roll`, `gier`, `um`, `schub`) | den fertig gestellten Körper samt Füssen starr drehen und versetzen | Rolle, Schwimmen |
+| `kopf`, `knie` | Kopf zusätzlich; Knie gespreizt | Blick voraus, Hocke, Froschbeine |
+
+**Gangmodell** (`_gangpose`, `_fussbahn`, `_becken`): Der Standfuss liegt in der Welt fest — im Raum der Figur wandert sein
+Aufstandspunkt mit genau dem Tempo nach hinten. Er steht erst auf der Fersenkante (Drehpunkt Ferse), dann flach, dann auf
+dem Ballen (Drehpunkt Ballen; am Ziel biegen die Zehen auf und bleiben liegen — `ZEHEN`, die Quelle hat keine Zehen). Im
+Schwung läuft er nach dem Abdruck noch mit dem Boden zurück, schwingt vor und hat **beim Aufsetzen wieder das Tempo des
+Bodens** (kein Bremsstoss). Das Becken: im Gehen ein umgekehrtes Pendel (hoch über dem Standbein, tief im Doppelstand); im
+Laufen Feder und Wurf — Einfederung D = g·t_f·t_c / 2π, Steighöhe g·t_f² / 8, damit das Steigtempo am Absprung stetig
+ist (D398). Es pendelt über den Standfuss, die Schwungseite sinkt, die Seite des Schwungbeins dreht vor; die Schultern
+drehen dagegen, die Arme schwingen gegengleich (im Lauf ist der Arm vorn, wenn das Gegenbein abdrückt). Die Grundhöhe des
+Beckens wird so gelegt, dass kein Bein über seine Länge muss (`_beckenbasis`): Das Knie ist am Aufsetzen und am Abdruck
+fast gestreckt und beugt dazwischen. Am Ziel stehen die Füsse dafür eben und gleichauf (`fuesse='eben'`; der Stand trägt
+den rechten Fuss 22 cm vor und 8 mm tiefer).
+
+**Takt:** `clipnachbau.mjs einfuegen --takt=Clip:48` — ein Clip mit eigener `bildrate` beginnt bei 0 s (Bild b bei
+(b − 1) / Rate; Schleifen ohne das gehaltene erste Vierundzwanzigstel), Lauf und Sprint mit 48 Bildern/s (im Sprint
+steht der Fuss 0,10 s — bei 24/s wären das 2,4 Bilder). `--um=Alt:Neu` benennt einen Bestandsclip um, `--auch=Clip:Name`
+liefert einen neuen zusätzlich unter einem Bestandsnamen (dieselben Daten, `dedup`).
+
+**Realwerte als Anker (D398).** „belegt“ = am 23.11.2026 nachgeschlagen; „Gedächtnis“ = aus der Fachliteratur zitiert,
+von hier nicht im Volltext geprüft; „Überschlag“ = eigene Rechnung.
+
+| Grösse | Real | Clip | Quelle, Stand |
+|---|---|---|---|
+| Gehen: Tempo | 1,30–1,46 m/s frei gewählt | 1,40 | belegt: [Normal Gait, Univ. of Missouri](https://medicine.missouri.edu/sites/default/files/pm-r/Normal_Gait.pdf), [Kinematic analyses of gait, OUHSC](https://ouhsc.edu/bserdac/dthompso/web/gait/knmatics/gait.htm) |
+| Gehen: Schritte/min, Schrittlänge | 100–115 (Quellen streuen 80–120); 0,68–0,85 m | 120; 0,70 m | belegt (ebd.). **Benannt:** obere Kante der Frequenz, untere der Länge — die Figur hat 0,87 m Beinlänge |
+| Gehen: Standphase, Doppelstand | 60 %; 10 % je Seite | 62 %; 12 % | belegt (ebd.) |
+| Gehen: Hub des Schwerpunkts | rund 5 cm | Becken 3,9 cm | belegt für den Schwerpunkt (Perry, ebd.); fürs Becken Gedächtnis (Saunders, Inman & Eberhart 1953: 4–5 cm) |
+| Gehen: seitlich, Beckendrehung, Kippen | ±2 cm; ±4°; 4–5° | ±2 cm; ±4°; 4° | Gedächtnis (Saunders/Inman/Eberhart 1953; Perry & Burnfield, *Gait Analysis*, 2010) — **nicht belegt** |
+| Laufen 4,2 m/s: Schritte/min, Kontakt, Flug | 165–180; 0,21–0,24 s; 0,10–0,13 s | 180; 0,21 s; 0,125 s | Gedächtnis (Cavanagh & Kram 1989; [Dorn, Schache & Pandy 2012](https://pubmed.ncbi.nlm.nih.gov/22573774/), J Exp Biol 215:1944 — Arbeit belegt, die Tabellenwerte von hier nicht abrufbar) |
+| Laufen: Hub | 6–10 cm | 6,0 cm | Überschlag aus t_c, t_f (Feder + Wurf); reale Spanne Gedächtnis |
+| Sprint 8,5 m/s: Schritte/min, Schrittlänge, Kontakt, Flug | 250–280; 1,9–2,2 m; 0,10–0,12 s; 0,12–0,13 s | 262; 1,95 m; 0,10 s; 0,13 s | Gedächtnis (Weyand et al. 2000, J Appl Physiol 89:1991; Dorn et al. 2012: über 7 m/s steigt vor allem die Frequenz — das belegt). **Benannt:** Kontakt an der kurzen Kante, weil das Bein der Figur (0,87 m) den Körper nicht über 0,93 m Standweg trägt |
+| Anlauf 6,3 m/s², Abstoppen 8,4 m/s² | Antritt aus dem Stand 4–6 m/s² über die ersten Schritte | 0 → 4,2 m/s in 0,67 s; 4,2 → 0 in 0,5 s | Überschlag — **nicht belegt**, scharf gewählt (Spiel) |
+
+### 10.2 Clips und Messwerte
+
+Gemessen an der ausgelieferten Datei (`BERICHT=1 npx tsx tests/clipguete.test.ts`). „Aufstandspunkt“ = Fersenkante oder
+Ballen, solange er aufliegt; „Laufzeit“ = die Messung von D457 (`natuerlichesTempo`: Mittel der Knöchelbahn, solange der
+Knöchel tief steht) — sie stellt Frequenz und Weite danach.
+
+| Clip | Bilder, Rate, Dauer | deckt bei Rate 1 (Aufstandspunkt) | Laufzeit misst | Schritt, Frequenz | Kontakt, Flug | Fussgleiten | Becken auf/ab, seitlich |
+|---|---|---|---|---|---|---|---|
+| `Walk` (Paket, unverändert) | 40, 24/s, 1,67 s | — (kein Abrollen, Sohle nicht bestimmbar) | 1,03 m/s | 0,86 m, 72/min | — | — | 0,0 cm, 0,0 cm |
+| `Run_Paket` (bis D460 `Run`) | 24, 24/s, 1,0 s | — | 2,07 m/s | 1,04 m, 120/min | — | — | 0,3 cm, 0,0 cm |
+| `Koerper_Gang` | 25, 24/s, 1,0 s | **1,40 m/s** | 1,23 m/s (−12 %, siehe 10.4) | 0,70 m, 120/min | 0,62 s, kein Flug | 0,0 cm je Bild | 3,9 cm, 4,0 cm |
+| `Koerper_Laufschritt` = **`Run`** | 33, 48/s, 0,667 s | **4,19 m/s** | 4,04 m/s (−4 %) | 1,40 m, 180/min | 0,21 s, 0,125 s (im Raster der Bilder 0,23 / 0,10) | 0,1 cm je Bild | 6,0 cm, 2,4 cm |
+| `Koerper_Sprint` | 23, 48/s, 0,458 s | **8,49 m/s** | 8,19 m/s (−4 %) | 1,95 m, 262/min | 0,10 s, 0,13 s | 0,0 cm je Bild | 4,0 cm, 1,6 cm |
+
+| Clip | Bilder (24/s) | Was |
+|---|---|---|
+| `Koerper_Anlauf` | 17 (0,67 s) | Stand → Laufschritt in zwei Schritten: tief, 30° Vorlage, endet in Phase 0,53 des Laufschritts. Füsse stehen in der Welt, **wenn** der Körper gleichmässig beschleunigt |
+| `Koerper_Abstoppen` | 13 (0,5 s) | Laufschritt (Phase 0,5) → Stand: linker Fuss stemmt mit der Ferse vor, Rumpf 9° zurück, Becken 13 cm tief, rechter zieht nach |
+| `Koerper_Wenden_Links` / `_Rechts` | 13 (0,5 s) | 90° auf der Stelle: beginnt in der alten Richtung, **endet im Stand** — die Regel dreht sofort, der Clip holt nach; Kopf voraus, zwei Tritte |
+| `Koerper_Kehrt_Links` / `_Rechts` | 19 (0,75 s) | 180°, vier Tritte |
+| `Koerper_Rolle` = **`Roll`** | 19 (0,75 s) | Hechtrolle mit Gewicht: tief, Abdruck, gestreckt, linke Hand fängt ab, über linke Schulter und Rücken, auf die Füsse bei Bild 14 (0,54 s = Ende der Regel), Aufstehen aus der Hocke. Liegt auf (tiefster Punkt je Bild gemessen, `TIEF=Koerper_Rolle`). Ab Bild 5 als **Lande-Rolle** (D413) nutzbar |
+| `Koerper_Sprung_Ab`, `Koerper_Sprung_Flug` | 8; 25 (Schleife) | Abdruck gestreckt → Flughaltung; Flughaltung mit kleinem Wiegen. Landung: `Koerper_Landung_Weich` / `_Hart` (D456) |
+| `Koerper_Klettern` | 25 (Schleife, 1 s = 1 m) | diagonal, greifende Hand und Fuss wandern mit 1 m/s nach unten (`klettern.tempo`) |
+| `Koerper_Schwimmen` | 33 (Schleife, 1,33 s) | Brustschwimmen, Körper liegt 78° |
+| `Axt_Trage`, `Speer_Trage`, `Messer_Trage` | 25 (Schleife) | Trage-Hut: Waffe quer und tief vor dem Leib, beide Hände am Holz — für den Oberkörper über dem Gang |
+
+`held-clips.glb` 1024 → **1339 KB** (49 → 68 Clips; Budget in `tools/quality.ts` 1100 → 1400, begründet dort). Die fünf
+UAL2-Klingenclips sind **nicht** entfernt (D458 stellt die Gegner um); `Run_Paket` und `Roll_Paket` (rund 30 KB) bleiben
+für Vergleich und Rückweg.
+
+### 10.3 Was ohne Codeänderung greift
+
+- **`Run` ist jetzt der Laufschritt.** Nur die Spielfigur spielt `Run` (`RegionsSzene.tsx` `SpielerFigur`); die Laufzeit
+  misst beim Laden neu: 4,04 statt 2,07 m/s. Bei Laufschritt 4,2 m/s läuft der Clip mit Rate ×1,02 und Weite ×1,02 statt
+  ×1,45 / ×1,4 — **keine Schrittweiten-Streckung mehr**. Bei Rennen 8,5 m/s: Rate ×1,5 (270 Schritte/min), Weite ×1,4,
+  rechnerisch kein Gleiten mehr (vorher 25 %) — aber noch der gestreckte Laufschritt, nicht der Sprint.
+- **`Roll` ist jetzt die Hechtrolle.** Die Szene spielt ihn über 0,75 s — genau seine Länge (Rate 1, vorher ×2,2).
+- **Nicht ersetzt: `Walk`.** Ihn spielen auch die menschlichen Gegner und Bewohner mit einer auf 1,1 m/s geeichten Rate
+  (`Kampfplatz.tsx` `timeScale = v / 1.1`, `RegionsSzene.tsx` Bewohner) — ein Clip mit 1,4 m/s liesse ihre Füsse 27 % zu
+  schnell laufen, und D458 arbeitet dort gerade. Die alte Figur (`?figur=alt`) lädt `wanderin.glb` und ist unberührt.
+- Weg ohne feine Laufzeit (`figurfein` aus): `run.timeScale = tempo / 6,5` deckt bei 8,5 m/s jetzt 5,5 statt 2,7 m/s;
+  der Schrittabgleich Gehen ↔ Laufen (D217) nimmt denselben Anfangsfuss an — `Run` beginnt jetzt mit dem linken Aufsetzen,
+  dort kann ein Hüpfer entstehen (nicht gemessen).
+
+### 10.4 Was Code braucht (nächste Runde, `src/figur/` und `RegionsSzene.tsx` — hier nicht angefasst)
+
+1. **Drei Gangclips statt zwei** (`RegionsSzene.tsx` `SpielerFigur`, dort wo `gehClip`/`laufClip` aus `'Walk'`/`'Run'`
+   gesucht und `geh = teil('Walk')`, `lauf = teil('Run')` gebaut werden; `gangMischung` in `src/figur/fortbewegung.ts`):
+   `Koerper_Gang` (1,4) ↔ `Koerper_Laufschritt` (4,2) ↔ `Koerper_Sprint` (8,5), je zwei benachbarte gemischt. Dann laufen
+   beide Spieltempi bei Rate 1.
+2. **Tempo am Median messen** (`natuerlichesTempo` in `fortbewegung.ts`): Ein Fuss, der abrollt, lässt den Knöchel dem
+   Boden ein Stück vorauslaufen; das Mittel liest `Koerper_Gang` 12 % zu langsam (1,23 statt 1,40 m/s). Der Median der
+   Standbilder läge näher (Überschlag 1,3–1,4); genau ist die Messung am Aufstandspunkt (`messeGangclip` in
+   `tests/clipguete.test.ts`). Lauf und Sprint setzen deshalb fast flach auf (−4 %).
+3. **Rolle:** `clips.rolle = einmal('Roll')` greift schon. Für die Lande-Rolle (D413): beim Aufsetzen mit `gerolltBeiLandung`
+   `Koerper_Rolle` ab Clipzeit 4 / 24 s spielen; sonst `Koerper_Landung_Weich`/`_Hart` (braucht einen Landezustand).
+4. **Sprung:** in der Luft (`!amBoden`, nicht gleitend) `Koerper_Sprung_Ab` einmal, dann `Koerper_Sprung_Flug`.
+5. **Klettern, Schwimmen:** `klettert` → `Koerper_Klettern` mit Rate = Steigtempo / 1,0 m/s; `schwimmt` →
+   `Koerper_Schwimmen`, Figur an die Wasserlinie setzen (der Clip liegt in Beckenhöhe über der Wurzel).
+6. **Wenden:** bei einem Sprung der Blickrichtung im Stand (> 60° → `Koerper_Wenden_*`, > 135° → `Koerper_Kehrt_*`,
+   Seite nach Vorzeichen) den Clip ab dem Sprung spielen und die Drehkette (`drehSchritt`) für seine Dauer straff stellen
+   — sonst dreht die Figur doppelt.
+7. **Trage-Hut:** ausserhalb des Kampfs mit Axt, Saufeder oder Langem Messer im Gang `oben = teil('<Waffe>_Trage').ober`
+   (dieselbe Stelle, an der kampfbereit `teil(k.haltung)` gesetzt wird).
+8. **Anlauf/Abstoppen** brauchen eine Regel, die das Tempo über 0,67 / 0,5 s fährt (heute springt es — Spielwert, D457
+   §8.6). Ohne das gleitet ihr Standfuss; **nicht verdrahten, solange das Tempo springt**.
+9. `content/figurlaufzeit.json` `gang.rennen` (Rückfall 2,07) auf 4,04 nachziehen, wenn dort ohnehin gearbeitet wird.
+
+### 10.5 Wo es hölzern bleibt, offen
+
+- **Gang und Lauf sind spiegelgleich und periodisch** — links und rechts dieselbe Kurve, jeder Schritt gleich. Am M1 liest
+  sich das vermutlich sauber, aber mechanisch; die Paketclips hatten Handschrift, dafür weder Beckenhub noch Abrollen.
+- **Rumpf:** eine feste Vorlage und eine Sinusdrehung; kein Nachgeben der Wirbelsäule beim Aufsetzen, Kopf sehr ruhig.
+- **Arme:** Ellbogenwinkel fast fest, Handgelenk starr; die Waffe zeigt im Lauf starr nach aussen-unten.
+- **Rolle:** Die Körperlage stimmt je Bild (liegt auf, taucht nicht ein), aber Schulter und Rücken rollen nicht über eine
+  durchgehende Auflagelinie ab — die Höhe ist je Bild nachgestellt. Die Füsse laufen beim Abdruck dem Becken bis 8 cm
+  davon (das Becken wird nachgezogen). 3,8 m in 0,55 s (Regel) sind 6,9 m/s: schneller als ein Mensch hechtet (benannt).
+- **Klettern, Schwimmen, Sprung:** je ein einfacher Zyklus bzw. zwei Haltungen; Hände und Füsse greifen in die Luft (keine
+  Wand im Clip), die Waffe bleibt in der Hand. Als Platzhalter besser als Stand/Lauf, nicht mehr.
+- **Trage-Huten:** drei Haltungen mit kleinem Wiegen; die linke Hand liegt bei der Axt 2 cm neben der Stielachse.
+- **Wenden:** der Fuss dreht auf einem Kreis um die Standmitte; ein Mensch dreht auf dem Ballen des Standfusses.
+- **UNKLAR:** ob `Run` als Laufschritt am M1 besser liest als der Paketclip (Rückweg: `Run_Paket` → `Run` umbenennen); ob
+  die Hechtrolle zur Ausweichrolle der Regel passt oder eine seitliche Rolle gebraucht wird (`rolleX/Z` kann seitlich
+  sein — der Clip rollt immer nach vorn, die Szene dreht die Figur in Rollrichtung); Schwimmtempo ist kein Datum.
+
+Prüfbilder (Formprüfung, keine Look-Abnahme, Bewegung nur am M1; vorher │ nachher, gleiche Kamera von der Seite, mit
+Bodenlinie und Fussspur — Knöchelbahn beider Füsse, links liegt unter rechts): `.cache/bilder/D460/gang_vorher_nachher.png`,
+`.cache/bilder/D460/laufschritt_vorher_nachher.png`, `.cache/bilder/D460/sprint_vorher_nachher.png`,
+`.cache/bilder/D460/rolle_vorher_nachher.png`, `.cache/bilder/D460/uebrige_nachher.png`.

@@ -25,6 +25,16 @@
  *      Hand, Ellbogen und Waffenspitze liegen im halben Bild höchstens 3 cm weiter von der Sehne als ein Kreisbogen
  *      es erlaubt (0,6 × Sehne).
  *
+ *  13. **Fortbewegung (D460):** Gang, Laufschritt und Sprint sind Schleifen (letztes Bild = erstes), decken ihr Tempo
+ *      bei Rate 1 (Aufstandspunkt wandert im Raum der Figur mit dem Tempo zurück; dazu die Messung der Laufzeit,
+ *      `natuerlichesTempo` aus `src/figur/fortbewegung.ts`), der **Standfuss gleitet nicht** (Aufstandspunkt — Fersenkante
+ *      oder Ballen — weicht je Bild höchstens 1,5 cm von der geraden Bahn ab und taucht nicht unter den Boden), der Gang
+ *      hat immer einen Fuss am Boden, Lauf und Sprint haben eine Flugphase, das Becken geht auf und ab, die Arme
+ *      schwingen gegengleich zu den Beinen, die Schultern drehen gegen das Becken. `Run` und `Roll` der Laufzeit sind
+ *      dieselben Daten wie `Koerper_Laufschritt` und `Koerper_Rolle`.
+ *
+ * Clips mit eigener `bildrate` in den Marken (D460) beginnen bei 0 s: Bild b liegt bei (b − 1) / bildrate.
+ *
  * `GLB=<datei>` misst eine andere Datei (Vorher/Nachher), `BERICHT=1` druckt alle Messwerte.
  */
 import { readFileSync } from 'node:fs';
@@ -35,6 +45,7 @@ import { MeshoptDecoder } from 'meshoptimizer';
 import { legeAnHeldHand } from '../src/kampf/waffenhand.js';
 import { WAFFEN } from '../src/kampf/echtzeit.js';
 import { Clipmarken } from '../src/data/schema.js';
+import { natuerlichesTempo, type Bahnpunkt } from '../src/figur/fortbewegung.js';
 
 let bestanden = 0, gefallen = 0;
 function pruefe(name: string, ok: boolean, hinweis = '') {
@@ -52,6 +63,8 @@ const RATE = marken.bildrate;
 // ---- Schlüsselbilder aus waffenclips.py
 const py = readFileSync('tools/waffenclips.py', 'utf8');
 const schluessel = new Map<string, number[]>();
+/** D460: Clips, deren Pose je Bild aus einer Funktion kommt (`_melde`, `_gang`) — sie haben keine Schlüsselbilder. */
+const gerechnet = new Set([...py.matchAll(/^_(?:melde|gang)\('(\w+)'/gm)].map(x => x[1]));
 {
   let jetzt: string | null = null;
   for (const z of py.split('\n')) {
@@ -97,7 +110,7 @@ const handR = objekte.get('hand_r')!;
 const waffe = new THREE.Group();
 handR.add(waffe); legeAnHeldHand(waffe);
 const mixer = new THREE.AnimationMixer(wurzel);
-const KNOCHEN = ['pelvis', 'spine_03', 'Head', 'hand_r', 'hand_l', 'foot_l', 'foot_r', 'upperarm_l', 'upperarm_r', 'lowerarm_l', 'lowerarm_r'] as const;
+const KNOCHEN = ['pelvis', 'spine_03', 'Head', 'hand_r', 'hand_l', 'foot_l', 'foot_r', 'ball_l', 'ball_r', 'thigh_l', 'thigh_r', 'upperarm_l', 'upperarm_r', 'lowerarm_l', 'lowerarm_r'] as const;
 type Lage = Record<(typeof KNOCHEN)[number] | 'spitze' | 'schlagpunkt', THREE.Vector3> & {
   kopfQ: THREE.Quaternion; alle: Map<string, THREE.Quaternion>; schneide: THREE.Vector3; achse: THREE.Vector3;
 };
@@ -106,10 +119,12 @@ const WAFFE_MASS: Record<string, { spitze: number; schlag: number }> = {
   klinge: { spitze: 0.75, schlag: 0.5 }, kriegsmesser: { spitze: 0.92, schlag: 0.6 }, axt: { spitze: 0.35, schlag: 0.3 },
   speer: { spitze: 1.81, schlag: 1.81 }, hirschfaenger: { spitze: 0.55, schlag: 0.35 }, koerper: { spitze: 0.1, schlag: 0.1 },
 };
-function stelle(clip: THREE.AnimationClip, bild: number, mass: { spitze: number; schlag: number }): Lage {
+/** Clipzeit eines Bilds: Bild / 24, bei Clips mit eigener `bildrate` (D460) (Bild − 1) / bildrate. */
+const zeitVon = (bild: number, rate?: number) => rate ? (bild - 1) / rate : bild / RATE;
+function stelle(clip: THREE.AnimationClip, bild: number, mass: { spitze: number; schlag: number }, rate?: number): Lage {
   mixer.stopAllAction();
   const a = mixer.clipAction(clip);
-  a.reset().play(); a.timeScale = 0; a.time = Math.min(bild / RATE, clip.duration); mixer.update(0);
+  a.reset().play(); a.timeScale = 0; a.time = Math.min(zeitVon(bild, rate), clip.duration); mixer.update(0);
   wurzel.updateMatrixWorld(true);
   const aus = {} as Lage;
   for (const k of KNOCHEN) aus[k] = objekte.get(k)!.getWorldPosition(new THREE.Vector3());
@@ -156,14 +171,16 @@ for (const [name, m] of Object.entries(marken.clips)) {
   const clip = clips.get(name);
   if (!clip) continue;
   const mass = WAFFE_MASS[m.waffe] ?? WAFFE_MASS.koerper;
-  const bilder = schluessel.get(name);
-  pruefe(`${name}: aus Schlüsselbildern in waffenclips.py`, !!bilder);
+  const bilder = gerechnet.has(name) ? undefined : schluessel.get(name);
+  pruefe(`${name}: aus Schlüsselbildern oder gerechnet in waffenclips.py`, !!bilder || gerechnet.has(name));
   if (bilder) pruefe(`${name}: bilder ${m.bilder} = letztes Schlüsselbild`, Math.max(...bilder) === m.bilder, `${Math.max(...bilder)}`);
-  pruefe(`${name}: Clipdauer ${(m.bilder / RATE).toFixed(3)} s`, Math.abs(clip.duration - m.bilder / RATE) < 1e-3, `${clip.duration.toFixed(3)}`);
+  pruefe(`${name}: gerechnete Clips tragen ihre bildrate und beginnen bei 0 s`, gerechnet.has(name) === (m.bildrate !== undefined));
+  const dauer = zeitVon(m.bilder, m.bildrate);
+  pruefe(`${name}: Clipdauer ${dauer.toFixed(3)} s`, Math.abs(clip.duration - dauer) < 1e-3, `${clip.duration.toFixed(3)}`);
   const hutName = m.waffe === 'koerper' ? 'Idle' : marken.hut[m.waffe];   // ohne Waffe ist die „Hut“ der Stand aus dem Paket
   const hut = hutName && clips.get(hutName) ? stelle(clips.get(hutName)!, 1, mass) : null;
   const L = new Map<number, Lage>();
-  const bei = (f: number) => { if (!L.has(f)) L.set(f, stelle(clip, f, mass)); return L.get(f)!; };
+  const bei = (f: number) => { if (!L.has(f)) L.set(f, stelle(clip, f, mass, m.bildrate)); return L.get(f)!; };
   const gleich = (a: Lage, b: Lage) => {
     let w = 0, wo = '';
     for (const [k, q] of a.alle) { const x = grad(q.angleTo(b.alle.get(k)!)); if (x > w) { w = x; wo = k; } }
@@ -184,6 +201,10 @@ for (const [name, m] of Object.entries(marken.clips)) {
   if (hut && (m.ende === 'hut' || m.ende === 'schleife' && m.art === 'hut')) {
     const g = gleich(bei(m.bilder), hut);
     pruefe(`${name}: endet in der Hut ${hutName} (Knochen ≤ 2°, Füsse und Becken ≤ 1,5 cm)`, g.w <= 2 && g.fuss <= 0.015, `${g.w.toFixed(1)}° ${g.wo}, ${(g.fuss * 100).toFixed(1)} cm`);
+  }
+  if (m.ende === 'schleife' && m.art === 'koerper') {
+    const g = gleich(bei(m.bilder), bei(1));
+    pruefe(`${name}: Schleife schliesst (Knochen ≤ 1°, Füsse und Becken ≤ 0,5 cm)`, g.w <= 1 && g.fuss <= 0.005, `${g.w.toFixed(1)}° ${g.wo}, ${(g.fuss * 100).toFixed(1)} cm`);
   }
   // 12. Zwischenbilder
   {
@@ -303,6 +324,147 @@ for (const [name, m] of Object.entries(marken.clips)) {
     `Gleiten ${(gleiten * 100).toFixed(1)} cm, Schritt ${(schritt * 100).toFixed(0)} cm Hub ${(hub * 100).toFixed(1)} cm, Blick ${blick.toFixed(0)}°, ` +
     `Becken vor ${(vorB * 100).toFixed(0)} cm tiefer ${(tiefB * 100).toFixed(0)} cm, Spitze ${pW.v.toFixed(1)} m/s` +
     (frei ? `, freie Hand ${(frei * 100).toFixed(0)} cm` : '') + `, Schneide ${wS.toFixed(0)}°/${wD.toFixed(0)}°`);
+}
+
+// `TIEF=<Clip>` druckt je Bild den tiefsten Knochen über dem Boden des Stands (Rolle, Landung: liegt der Körper auf?).
+if (process.env.TIEF && clips.get(process.env.TIEF)) {
+  const c = clips.get(process.env.TIEF)!, m = marken.clips[process.env.TIEF];
+  for (let b = 1; b <= (m?.bilder ?? Math.round(c.duration * RATE)); b++) {
+    stelle(c, b, WAFFE_MASS.koerper, m?.bildrate);
+    let tief = Infinity, wo = '';
+    for (const [n, o] of objekte) { const y = o.getWorldPosition(new THREE.Vector3()).y; if (n && n !== 'root' && n !== 'Held' && !/leaf|index|middle|ring|pinky|thumb/.test(n) && y < tief) { tief = y; wo = n; } }
+    const p = objekte.get('pelvis')!.getWorldPosition(new THREE.Vector3()), k = objekte.get('Head')!.getWorldPosition(new THREE.Vector3());
+    console.log(`    TIEF ${c.name} ${String(b).padStart(2)}: ${((tief - BODEN) * 100).toFixed(0).padStart(4)} cm (${wo}), Becken hoch ${(p.y * 100).toFixed(0)} vor ${(p.dot(VORN) * 100).toFixed(0)}, Kopf hoch ${(k.y * 100).toFixed(0)} vor ${(k.dot(VORN) * 100).toFixed(0)}`);
+  }
+}
+
+// ---- 13. Fortbewegung (D460): Gang, Laufschritt, Sprint — gemessen wie die Laufzeit misst, dazu am Aufstandspunkt
+const STANDHOEHE = (JSON.parse(readFileSync('content/figurlaufzeit.json', 'utf8')) as { gang: { standHoehe: number } }).gang.standHoehe;
+const LAUFEN = (JSON.parse(readFileSync('content/bewegung.json', 'utf8')) as { laufen: { gehen: number; rennen: number } }).laufen;
+// Fuss der Hauptfigur im Rahmen Knöchel → Ballen (e1) und senkrecht dazu nach oben (e2), Meter — wie `tools/waffenclips.py`
+// (`FUSS_VOR` 0,14, `SOHLE` 0,08, `FERSE_HINTER` 0,05; der Ballenknochen liegt 0,056 unter dem Knöchel).
+const FERSE = { e1: -0.0167, e2: -0.0928 }, BALLEN = { e1: 0.0089, e2: -0.0223 };
+function aufstand(l: Lage, seite: 'l' | 'r') {
+  const kn = l[`foot_${seite}`], ba = l[`ball_${seite}`];
+  const e1 = ba.clone().sub(kn).normalize();
+  const e2 = OBEN.clone().addScaledVector(e1, -OBEN.dot(e1)).normalize();
+  return {
+    ferse: kn.clone().addScaledVector(e1, FERSE.e1).addScaledVector(e2, FERSE.e2),
+    ballen: ba.clone().addScaledVector(e1, BALLEN.e1).addScaledVector(e2, BALLEN.e2),
+  };
+}
+interface Gangmessung {
+  tempo: number; gleiten: number; laufzeit: number | null; schritt: number; jeMin: number; kontakt: number; flug: number;
+  immerBoden: boolean; hub: number; seit: number; arme: number; schultern: number; tiefster: number;
+}
+const korrelation = (a: number[], b: number[]) => {
+  const ma = a.reduce((s, v) => s + v, 0) / a.length, mb = b.reduce((s, v) => s + v, 0) / b.length;
+  let ab = 0, aa = 0, bb = 0;
+  for (let i = 0; i < a.length; i++) { ab += (a[i] - ma) * (b[i] - mb); aa += (a[i] - ma) ** 2; bb += (b[i] - mb) ** 2; }
+  return ab / Math.max(1e-12, Math.sqrt(aa * bb));
+};
+/** Ein Gangzyklus, abgetastet in `n` gleichen Schritten (das letzte Bild ist das erste und zählt nicht doppelt). */
+function messeGangclip(clip: THREE.AnimationClip, n: number): Gangmessung {
+  const dt = clip.duration / n;
+  const rate = 1 / dt;
+  const L: Lage[] = Array.from({ length: n + 1 }, (_, i) => stelle(clip, i + 1, WAFFE_MASS.koerper, rate));
+  const pkt = L.map(l => ({ l: aufstand(l, 'l'), r: aufstand(l, 'r') }));
+  const boden = Math.min(...pkt.flatMap(p => [p.l.ferse.y, p.l.ballen.y, p.r.ferse.y, p.r.ballen.y]));
+  const TOL = 0.006;
+  if (process.env.SPUR === clip.name) for (let i = 0; i <= n; i++) {
+    const z = (v: number) => (v * 100).toFixed(1).padStart(6);
+    console.log(`    SPUR ${clip.name} ${String(i + 1).padStart(2)}: Knöchel l vor ${z(L[i].foot_l.dot(VORN))} hoch ${z(L[i].foot_l.y)}  Ferse ${z(pkt[i].l.ferse.y - boden)} Ballen ${z(pkt[i].l.ballen.y - boden)} Ballen vor ${z(pkt[i].l.ballen.dot(VORN))} | Becken hoch ${z(L[i].pelvis.y)} seit ${z(L[i].pelvis.dot(RECHTS))}`);
+  }
+  const weg: number[] = [], quer: number[] = [];
+  const steht = (i: number, s: 'l' | 'r') => Math.min(pkt[i][s].ferse.y, pkt[i][s].ballen.y) <= boden + TOL;
+  for (const s of ['l', 'r'] as const) for (let i = 0; i < n; i++) {
+    // derselbe Punkt muss in beiden Bildern aufliegen: der Ballen, sonst die Ferse
+    for (const punkt of ['ballen', 'ferse'] as const) {
+      const a = pkt[i][s][punkt], b = pkt[i + 1][s][punkt];
+      if (a.y > boden + TOL || b.y > boden + TOL) continue;
+      const d = b.clone().sub(a);
+      weg.push(-d.dot(VORN)); quer.push(Math.abs(d.dot(RECHTS)));
+      break;
+    }
+  }
+  const mittel = weg.reduce((x, v) => x + v, 0) / Math.max(1, weg.length);
+  const gleiten = Math.max(0, ...weg.map(w => Math.abs(w - mittel)), ...quer);
+  let kontakt = 0, flug = 0, immer = true;
+  for (let i = 0; i < n; i++) {
+    const l = steht(i, 'l'), r = steht(i, 'r');
+    if (l) kontakt++;
+    if (!l && !r) { flug++; immer = false; }
+  }
+  // wie `messeGang` in `src/figur/laufzeit.ts`: Knöchelbahn im Raum der Figur, 32 Proben
+  const proben = 32, werte: number[] = [];
+  for (const k of ['foot_l', 'foot_r'] as const) {
+    const bahn: Bahnpunkt[] = [];
+    for (let i = 0; i <= proben; i++) {
+      const p = stelle(clip, 1 + (Math.min(clip.duration * 0.9999, clip.duration * i / proben)) * rate, WAFFE_MASS.koerper, rate)[k];
+      bahn.push({ t: clip.duration * i / proben, x: p.x, y: p.y, z: p.z });
+    }
+    const v = natuerlichesTempo(bahn, STANDHOEHE);
+    if (v !== null) werte.push(v);
+  }
+  const reihe = (f: (l: Lage) => number) => L.slice(0, n).map(f);
+  const gier = (a: THREE.Vector3, b: THREE.Vector3) => { const d = flach(a.clone().sub(b)); return Math.atan2(d.dot(VORN), d.dot(RECHTS)); };
+  const beckenY = reihe(l => l.pelvis.y), beckenX = reihe(l => l.pelvis.dot(RECHTS));
+  return {
+    tempo: mittel * rate, gleiten, laufzeit: werte.length ? werte.reduce((x, v) => x + v, 0) / werte.length : null,
+    schritt: mittel * rate * clip.duration / 2, jeMin: 120 / clip.duration, kontakt: kontakt * dt, flug: flug * dt / 2, immerBoden: immer,
+    hub: Math.max(...beckenY) - Math.min(...beckenY), seit: Math.max(...beckenX) - Math.min(...beckenX),
+    arme: korrelation(reihe(l => l.hand_r.clone().sub(l.hand_l).dot(VORN)), reihe(l => l.foot_l.clone().sub(l.foot_r).dot(VORN))),
+    schultern: korrelation(reihe(l => gier(l.upperarm_r, l.upperarm_l)), reihe(l => gier(l.thigh_r, l.thigh_l))),
+    tiefster: Math.min(...L.flatMap(l => [l.ball_l.y, l.ball_r.y])) - boden,
+  };
+}
+const zeigeGang = (name: string, g: Gangmessung) => `${name}: deckt ${g.tempo.toFixed(2)} m/s bei Rate 1 (Laufzeit-Messung ${g.laufzeit?.toFixed(2) ?? '—'}), ` +
+  `Schritt ${g.schritt.toFixed(2)} m, ${g.jeMin.toFixed(0)} Schritte/min, Kontakt ${g.kontakt.toFixed(3)} s, Flug ${g.flug.toFixed(3)} s, ` +
+  `Fussgleiten ${(g.gleiten * 100).toFixed(1)} cm je Bild, Beckenhub ${(g.hub * 100).toFixed(1)} cm, seitlich ${(g.seit * 100).toFixed(1)} cm, ` +
+  `Arme↔Beine r=${g.arme.toFixed(2)}, Schultern↔Becken r=${g.schultern.toFixed(2)}`;
+// Soll: Tempo (Gehen 1,4 m/s — Perry & Burnfield; Laufschritt und Rennen sind die Spielwerte aus `content/bewegung.json`),
+// Flugphase, Beckenhub von–bis in Metern (Gehen 4–5 cm; Laufen Feder + Flug, siehe `tools/waffenclips.py`).
+// `laufzeit`: wie weit die Messung der Laufzeit (Mittel der Knöchelbahn, solange der Knöchel tief steht) vom Tempo am
+// Aufstandspunkt abweichen darf. Lauf und Sprint setzen fast flach auf — sie liest sie auf 4 % genau. Der Gang rollt über
+// die Ferse ab und drückt über den Ballen ab; dabei läuft der Knöchel dem Boden ein Stück voraus, das Mittel liest
+// 12 % zu wenig (1,23 statt 1,40 m/s). Wer `Koerper_Gang` verdrahtet, misst am Median oder am Aufstandspunkt (D460).
+const GAENGE: Record<string, { tempo: number; flug: boolean; hub: [number, number]; laufzeit: number }> = {
+  Koerper_Gang: { tempo: 1.4, flug: false, hub: [0.025, 0.06], laufzeit: 0.15 },
+  Koerper_Laufschritt: { tempo: LAUFEN.gehen, flug: true, hub: [0.04, 0.11], laufzeit: 0.06 },
+  Koerper_Sprint: { tempo: LAUFEN.rennen, flug: true, hub: [0.025, 0.08], laufzeit: 0.06 },
+};
+for (const [name, soll] of Object.entries(GAENGE)) {
+  const clip = clips.get(name), m = marken.clips[name];
+  if (!FREMD) pruefe(`${name}: ausgeliefert und mit Marken`, !!clip && !!m);
+  if (!clip || !m) continue;
+  pruefe(`${name}: Schleife`, m.ende === 'schleife');
+  const g = messeGangclip(clip, m.bilder - 1);
+  zeilen.push(zeigeGang(name, g));
+  pruefe(`${name}: deckt ${soll.tempo} m/s bei Rate 1 (Aufstandspunkt ${g.tempo.toFixed(2)} m/s, ±4 %)`, Math.abs(g.tempo / soll.tempo - 1) <= 0.04);
+  pruefe(`${name}: die Laufzeit misst ${g.laufzeit?.toFixed(2)} m/s (±${soll.laufzeit * 100} %)`,
+    g.laufzeit !== null && Math.abs(g.laufzeit / soll.tempo - 1) <= soll.laufzeit);
+  pruefe(`${name}: Standfuss gleitet nicht (${(g.gleiten * 100).toFixed(1)} cm je Bild ≤ 1,5)`, g.gleiten <= 0.015);
+  pruefe(`${name}: Ballen taucht nicht unter den Boden (${(g.tiefster * 100).toFixed(1)} cm über der Sohle ≥ 1)`, g.tiefster >= 0.01);
+  if (soll.flug) pruefe(`${name}: Flugphase (${g.flug.toFixed(3)} s je Schritt ≥ 0,06)`, g.flug >= 0.06);
+  else pruefe(`${name}: immer ein Fuss am Boden`, g.immerBoden);
+  pruefe(`${name}: Beckenhub ${(g.hub * 100).toFixed(1)} cm in ${soll.hub[0] * 100}–${soll.hub[1] * 100}`, g.hub >= soll.hub[0] && g.hub <= soll.hub[1]);
+  pruefe(`${name}: Becken pendelt seitlich (${(g.seit * 100).toFixed(1)} cm ≥ 1)`, g.seit >= 0.01);
+  pruefe(`${name}: Arme schwingen gegengleich zu den Beinen (r = ${g.arme.toFixed(2)} ≥ 0,6)`, g.arme >= 0.6);
+  pruefe(`${name}: Schultern drehen gegen das Becken (r = ${g.schultern.toFixed(2)} ≤ −0,5)`, g.schultern <= -0.5);
+}
+// Zum Vergleich die Paketclips (nur Bericht): 40 und 24 Bilder bei 24/s.
+for (const [name, n] of [['Walk', 40], ['Run_Paket', 24], ['Run', 24]] as const) {
+  const clip = clips.get(name);
+  if (clip && BERICHT && (name !== 'Run' || !clips.has('Run_Paket'))) zeilen.push('(Bestand) ' + zeigeGang(name, messeGangclip(clip, n)));
+}
+// Was die Laufzeit heute unter Bestandsnamen spielt, sind dieselben Daten wie die neuen Clips.
+if (!FREMD) for (const [alt, neu] of [['Run', 'Koerper_Laufschritt'], ['Roll', 'Koerper_Rolle']] as const) {
+  const a = clips.get(alt), b = clips.get(neu);
+  pruefe(`${alt} ist ${neu}`, !!a && !!b && Math.abs(a.duration - b.duration) < 1e-6 && [0.1, 0.45, 0.8].every(u => {
+    const rate = marken.clips[neu].bildrate!, bild = 1 + u * b.duration * rate;
+    const x = stelle(a, bild, WAFFE_MASS.koerper, rate), y = stelle(b, bild, WAFFE_MASS.koerper, rate);
+    return [...x.alle].every(([k, q]) => q.angleTo(y.alle.get(k)!) < 1e-3) && x.pelvis.distanceTo(y.pelvis) < 1e-4;
+  }));
 }
 if (BERICHT) console.log('  ' + zeilen.join('\n  '));
 void BODEN;

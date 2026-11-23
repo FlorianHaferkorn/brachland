@@ -3,7 +3,8 @@ BRACHLAND — Prüfbilder für Clips und Waffenmodelle (D414): Einzelbilder je P
 
   blender --background --factory-startup --python tools/kontaktbogen.py -- <figur-roh.glb> <waffen-roh.glb> <ausdir> <auftrag.json>
 
-`auftrag.json`: {"posen": [{"clip", "waffe", "links"?, "bilder": [..], "blick"?, "breite"?, "oben"?}], "reihen": [{"name", "waffen": [..]}]}.
+`auftrag.json`: {"posen": [{"clip", "waffe", "links"?, "bilder": [..], "blick"?, "breite"?, "oben"?, "spur"?}], "reihen": [{"name", "waffen": [..]}]}.
+`spur` (D460): Bodenlinie und Fussspur (Knöchelbahn beider Füsse über den ganzen Clip) — für Gangzyklen von der Seite (`blick` 90, `erhoehung` 0).
 Die Figur (Gestalt mit allen Clips, `tools/clipnachbau.mjs figur`) bekommt die Waffe an `hand_r` wie im Spiel
 (`WAFFE_AN_HELD_HAND`, `src/kampf/waffenhand.ts`). Die Räucherkanne hängt an `hand_l`: Die Lage legt dieses Skript
 im ersten Bild von `Geraet_Blasebalg` fest (Kanne aufrecht, Tülle nach vorn, Balg in der Handfläche) und hält sie
@@ -237,9 +238,55 @@ def zeige(waffe, links):
         o.hide_render = False
 
 
+SPUR = []
+
+
+def fussspur(clip):
+    """D460: Bodenlinie und Fussspur für Gangzyklen von der Seite — die Knöchelbahn beider Füsse über den ganzen Clip als
+    Punktreihe (links warm, rechts kalt; wo der Fuss am Boden ist, liegen die Punkte auf einer Geraden) und ein dunkler
+    Strich auf Höhe der Sohle (tiefster Ballen des Clips). Der Boden der Szene liegt bei Blick von der Seite auf Kante."""
+    for o in SPUR:
+        bpy.data.objects.remove(o, do_unlink=True)
+    SPUR.clear()
+    akt = acts[clip]
+    f0, f1 = (int(round(x)) for x in akt.frame_range)
+    farben = {'foot_l': (0.9, 0.35, 0.05), 'foot_r': (0.05, 0.3, 0.9)}
+    mats = {}
+    for k, f in farben.items():
+        m = bpy.data.materials.new('Spur_' + k); m.use_nodes = True
+        bsdf = m.node_tree.nodes['Principled BSDF']
+        bsdf.inputs['Base Color'].default_value = (*f, 1)
+        bsdf.inputs['Emission Color'].default_value = (*f, 1)
+        bsdf.inputs['Emission Strength'].default_value = 1.5
+        mats[k] = m
+    tief = 1e9
+    for i in range((f1 - f0) * 2 + 1):
+        bild = f0 + i / 2
+        s.frame_set(int(bild), subframe=bild - int(bild))
+        bpy.context.view_layer.update()
+        tief = min(tief, welt_pkt('ball_l').z, welt_pkt('ball_r').z)
+        for k in farben:
+            bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=0.012, location=welt_pkt(k) + rechts * 0.25)
+            o = bpy.context.object; o.data.materials.append(mats[k]); SPUR.append(o)
+    dunkel = bpy.data.materials.new('Bodenlinie'); dunkel.use_nodes = True
+    dunkel.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.02, 0.02, 0.02, 1)
+    bpy.ops.mesh.primitive_cube_add(size=1, location=mitte + rechts * 0.3 + Vector((0, 0, tief - 0.024 - 0.006)))
+    o = bpy.context.object
+    o.scale = (abs(vorn.x) * 4 + abs(rechts.x) * 0.9 + 0.001, abs(vorn.y) * 4 + abs(rechts.y) * 0.9 + 0.001, 0.012)
+    o.data.materials.append(dunkel); SPUR.append(o)
+    boden.hide_render = True
+
+
 for job in auftrag.get('posen', []):
     if job.get('links'):
         lege_links(job['links'])
+    boden.hide_render = False
+    for o in SPUR:
+        bpy.data.objects.remove(o, do_unlink=True)
+    SPUR.clear()
+    if job.get('spur'):
+        setze(job['clip'], 1)
+        fussspur(job['clip'])
     kamera(job.get('blick', 35), job.get('breite', 2.6), 0.95, 300, 420, job.get('erhoehung', 0.6), oben=job.get('oben', False))
     for bild in job['bilder']:
         setze(job['clip'], bild)

@@ -105,12 +105,16 @@ def greife_links(quelle, ziel, s, entlang=None):
     GREIF_FEHLER.append((vorher, (p_ - u * p_.dot(u)).length if t0 > 1e-6 else (zw @ ha.head - soll).length))
 
 
-def stelle_fuesse(quelle, ziel, s, ruhe_q, ruhe_z):
+def stelle_fuesse(quelle, ziel, s, ruhe_q, ruhe_z, kreis=None, zehen=None):
     """D456: Die Weltformel überträgt Drehungen — bei anderen Beinlängen landet der Fuss dann neben der Stelle, an der
     er in der Quelle steht, und wandert mit jeder Bewegung des Beckens (gemessen an den Clips aus D429/D452: 2–5 cm je
     Bild zwischen Scheitel und Durchzug, obwohl die Schlüssel ihn stehen lassen). Also nach jedem Bild: Knöchel per
     Zwei-Knochen-IK dorthin, wo er in der Quelle gegenüber seiner Ruhelage steht (mit der Körpergrösse skaliert), die
-    Knieebene und die Weltdrehung des Fusses bleiben. Ein Fuss, der in der Quelle steht, steht dann auch am Ziel."""
+    Knieebene und die Weltdrehung des Fusses bleiben. Ein Fuss, der in der Quelle steht, steht dann auch am Ziel.
+    D460: `kreis` = {'l'|'r': (Grad, Hub)} stellt einen Fuss statt dessen um die Hochachse durch die Mitte beider Füsse
+    des Stands (Wenden auf der Stelle — so ist die gedrehte Anfangspose genau der gedrehte Stand, auch wenn die Füsse
+    am Ziel anders stehen als in der Quelle). `zehen` = (Grad links, Grad rechts): so weit biegen die Zehen auf, wenn
+    die Ferse abhebt — die Quelle hat keine Zehen, am Ziel stächen sie sonst beim Abdruck durch den Boden."""
     bpy.context.view_layer.update()
     zw, qw = ziel.matrix_world, quelle.matrix_world
     zpb, qpb = ziel.pose.bones, quelle.pose.bones
@@ -126,6 +130,11 @@ def stelle_fuesse(quelle, ziel, s, ruhe_q, ruhe_z):
     # Reicht ein Bein nicht bis zu seiner Stelle (tiefer Ausfall, Gewicht ganz hinten), sinkt das Becken ihr entgegen —
     # um genau das, was fehlt. So bleibt der Fuss stehen, statt dem Becken nachzurutschen.
     soll_je = {seite: ruhe_z[seite] + (qw @ qpb[qn].head - ruhe_q[seite]) * s for seite, qn in (('l', 'Foot.L'), ('r', 'Foot.R'))}
+    if kreis:
+        mitte = (ruhe_z['l'] + ruhe_z['r']) / 2
+        for seite, (grad, hub) in kreis.items():
+            arm = ruhe_z[seite] - mitte
+            soll_je[seite] = mitte + Matrix.Rotation(math.radians(grad), 3, 'Z') @ arm + Vector((0, 0, hub * s))
     for _ in range(4):
         zug = Vector((0, 0, 0))
         for seite in 'lr':
@@ -164,6 +173,19 @@ def stelle_fuesse(quelle, ziel, s, ruhe_q, ruhe_z):
         fu.matrix = Matrix.Translation(kopf) @ (rot_w.inverted() @ fuss_rot).to_4x4()
         bpy.context.view_layer.update()
         FUSS_FEHLER.append((zw @ fu.head - soll).length)
+    if zehen:
+        for seite, grad in zip('lr', zehen):
+            if grad <= 0.01 or 'ball_' + seite not in zpb:
+                continue
+            ba = zpb['ball_' + seite]
+            d = (zw @ ba.tail - zw @ ba.head).normalized()
+            achse = d.cross(Vector((0, 0, 1)))
+            if achse.length < 1e-4:
+                continue
+            r_a = rot_w.inverted() @ Matrix.Rotation(math.radians(grad), 3, achse.normalized()) @ rot_w
+            kopf = ba.matrix.to_translation()
+            ba.matrix = Matrix.Translation(kopf) @ r_a.to_4x4() @ Matrix.Translation(-kopf) @ ba.matrix
+            bpy.context.view_layer.update()
 
 
 FUSS_FEHLER = []
@@ -180,14 +202,16 @@ def _verlauf(punkte, bild):
     return punkte[-1][1]
 
 
-def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None, versatz=None, stiel=None, fuesse=None):
+def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None, versatz=None, stiel=None, fuesse=None,
+               zehen=None, kreis=None):
     """Weltformel wie in ual2uebertrag.py, allgemein: `clips` = {Name: [(Action, f0, f1)]},
     `karte` = [(Quellknochen, Zielknochen)] Eltern zuerst, `becken` = (Quelle, Ziel) für die
     Verschiebung. `griff` = {Fingerknochen: Quaternion} bleibt in jedem Bild stehen. `versatz` (Welt, Meter)
     wird dem Becken zugeschlagen — `clipnachbau.py` gleicht damit die Höhe am ausgelieferten Idle an (D414).
     `stiel` = {Clip: [(Bild, Meter)]} (D429): wo die linke Hand am Stiel sitzt, je Schlüssel — dazwischen linear.
-    `fuesse` = {Clipname: 'gerade' | 'stand'} (D456): Füsse nach dem Übertragen per IK an die Stelle der Quelle
-    (`stelle_fuesse`) — nur für Clips aus Schlüsselbildern; Gang und Lauf aus den Paketen bleiben, wie sie sind."""
+    `fuesse` = {Clipname: 'gerade' | 'stand' | 'eben'} (D456, D460): Füsse nach dem Übertragen per IK an die Stelle der Quelle
+    (`stelle_fuesse`) — nur für Clips aus Schlüsselbildern; Gang und Lauf aus den Paketen bleiben, wie sie sind.
+    `zehen` = {Clip: {Bild: (Grad l, Grad r)}}, `kreis` = {Clip: {Bild: {'l'|'r': (Grad, Hub)}}} (D460, siehe dort)."""
     qad = quelle.animation_data
     zad = ziel.animation_data or ziel.animation_data_create()
     zpb, qpb = ziel.pose.bones, quelle.pose.bones
@@ -255,6 +279,10 @@ def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None, vers
         schritt_z = (ruhe_z['r'] - ruhe_z['l']).dot(vor) - (ruhe_q['r'] - ruhe_q['l']).dot(vor) * s
         ruhe_gerade = {'l': ruhe_z['l'] + vor * (schritt_z / 2), 'r': ruhe_z['r'] - vor * (schritt_z / 2)}
         print(f'  Stand am Ziel: rechter Fuss {schritt_z * 100:.0f} cm weiter vor als in der Quelle — für Huten herausgerechnet')
+        # D460: `'eben'` — wie `'gerade'`, dazu beide Füsse auf derselben Höhe (der Stand trägt den rechten Knöchel 8 mm
+        # tiefer als den linken; in einem Gangzyklus stünde ein Fuss im Boden oder der andere in der Luft).
+        hoehe = (ruhe_gerade['l'].z + ruhe_gerade['r'].z) / 2
+        ruhe_eben = {x: Vector((ruhe_gerade[x].x, ruhe_gerade[x].y, hoehe)) for x in 'lr'}
         qad.action = None
         for b in zpb: b.matrix_basis = Matrix()
     gebaut = {}
@@ -285,7 +313,8 @@ def uebertrage(quelle, ziel, clips, karte, becken, griff=None, seiten=None, vers
                 if os.environ.get('SPUR') and f in (f0, f0 + 5) and karte[0][0] == 'Body':
                     print('    ZIEL', [round(x, 3) for x in zpb['thigh_l'].rotation_quaternion], zpb['thigh_l'].rotation_mode, len(zad.nla_tracks))
                 if fuesse and name in fuesse:
-                    stelle_fuesse(quelle, ziel, s, ruhe_q, ruhe_gerade if fuesse[name] == 'gerade' else ruhe_z)
+                    stelle_fuesse(quelle, ziel, s, ruhe_q, {'gerade': ruhe_gerade, 'eben': ruhe_eben}.get(fuesse[name], ruhe_z),
+                                  kreis=(kreis or {}).get(name, {}).get(f), zehen=(zehen or {}).get(name, {}).get(f))
                 if griff:
                     for k, qq in griff.items():
                         zpb[k].rotation_mode = 'QUATERNION'; zpb[k].rotation_quaternion = qq

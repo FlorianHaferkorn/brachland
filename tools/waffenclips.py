@@ -23,6 +23,9 @@ D456: Zwischen den Schlüsseln wird **jedes Bild** aus den Posenfeldern gerechne
 siehe „Zwischenbilder“ vor `baue_clip`); jede Waffe hat eine Hut, in der ihre Clips beginnen und enden. Marken für
 Übergänge und Ketten: `content/clipmarken.json`; gemessen wird an der ausgelieferten Datei in `tests/clipguete.test.ts`.
 
+D460: Die **Fortbewegung** (Gang, Laufschritt, Sprint, Anlauf, Abstoppen, Wenden, Rolle, Sprung, Klettern, Schwimmen) ist
+kein Satz von Schlüsseln, sondern je Bild gerechnet — Abschnitt „D460: Fortbewegung“ weiter unten (`RECHNE`).
+
 Jedes Bild setzt alle Knochen (three.js lässt ungenannte stehen), Quaternionen werden auf
 Stetigkeit gedreht (q und −q sind dieselbe Drehung, aber nicht für Blenders Interpolation je
 Komponente), und kein Abschnitt dreht einen Knochen über ~100°.
@@ -590,6 +593,25 @@ CLIPS = {
     # (erste Fassung aus Klinge_Stand: im Prüfbild kreuzte sie). Ein Smoker wird
     # real mit einer Hand geführt: Balg in der Hand, Kanne daneben. Zwei Stösse je Sekunde; die Hand schiebt
     # dabei ein wenig vor und sinkt (Druck auf den Balg). Schleife, 1 s.
+    # D460 — Trage-Huten der Zweihandwaffen fürs Gehen und Laufen ausserhalb des Kampfs (Laufzeit D457: Oberkörper aus
+    # diesem Clip über die Beine des Gangs). Die Kampf-Huten halten die Waffe hoch und zum Gegner — im Rennen falsch; und
+    # der Paketgang trägt jede Waffe einhändig. Hier liegt sie quer und tief vor dem Leib, beide Hände am Holz, wie man
+    # ein Werkzeug über Strecke trägt. Schleife mit kleinem Wiegen (die Beine und das Becken bringt der Gang).
+    'Axt_Trage': ('Idle', 'schleife', [
+        (1, dict(hand=(0.24, 0.2, 1.1), richt=(0.93, 0.25, 0.12), zwei='axt', griff=-0.4, rumpf=(0, 5))),
+        (13, dict(hand=(0.24, 0.21, 1.085), richt=(0.93, 0.26, 0.1), zwei='axt', griff=-0.4, rumpf=(0, 6))),
+        (25, dict(hand=(0.24, 0.2, 1.1), richt=(0.93, 0.25, 0.12), zwei='axt', griff=-0.4, rumpf=(0, 5))),
+    ]),
+    'Speer_Trage': ('Idle', 'schleife', [
+        (1, dict(hand=(0.24, 0.05, 1.02), richt=(-0.6, 0.6, 0.5), zwei='speer', griff=0.32, rumpf=(-6, 5))),
+        (13, dict(hand=(0.24, 0.06, 1.005), richt=(-0.6, 0.61, 0.48), zwei='speer', griff=0.32, rumpf=(-6, 6))),
+        (25, dict(hand=(0.24, 0.05, 1.02), richt=(-0.6, 0.6, 0.5), zwei='speer', griff=0.32, rumpf=(-6, 5))),
+    ]),
+    'Messer_Trage': ('Idle', 'schleife', [
+        (1, dict(hand=(-0.02, 0.26, 1.04), richt=(-0.25, 0.5, -0.83), zwei='messer', rumpf=(0, 5))),
+        (13, dict(hand=(-0.02, 0.27, 1.025), richt=(-0.25, 0.52, -0.81), zwei='messer', rumpf=(0, 6))),
+        (25, dict(hand=(-0.02, 0.26, 1.04), richt=(-0.25, 0.5, -0.83), zwei='messer', rumpf=(0, 5))),
+    ]),
     'Geraet_Blasebalg': (KLINGE_BASIS, 'schleife', [
         (1, dict(hand=(0.3, 0.26, 1.05), richt=(0.1, 0.8, 0.59), rumpf=(10, 1), koerper=(0, 0),
                  links=(-0.14, 0.4, 1.24))),
@@ -623,7 +645,8 @@ ACHSE = {'Klinge_Stand': 'klinge', 'Klinge_Stich': 'klinge', 'Klinge_Hieb_A': 'k
          'Axt_Stand': 'axt', 'Axt_Block': 'axt', 'Axt_Hieb': 'axt', 'Axt_Quer': 'axt', 'Axt_Schwer': 'axt', 'Axt_Lauf': 'axt',
          'Speer_Stand': 'speer', 'Speer_Stoss': 'speer', 'Speer_Weit': 'speer', 'Speer_Lauf': 'speer', 'Speer_Block': 'speer',
          'Messer_Stand': 'messer', 'Messer_Quer_A': 'messer', 'Messer_Quer_B': 'messer', 'Messer_Lauf': 'messer',
-         'Messer_Schwer': 'messer', 'Messer_Block': 'messer', 'Geraet_Blasebalg': 'klinge'}
+         'Messer_Schwer': 'messer', 'Messer_Block': 'messer', 'Geraet_Blasebalg': 'klinge',
+         'Axt_Trage': 'axt', 'Speer_Trage': 'speer', 'Messer_Trage': 'messer'}
 
 
 def _rahmen(laengs, quer):
@@ -864,9 +887,20 @@ def _pose(rig, basis, pose, bewegung, schneide=None, winkel=None, fest=False):
     # Endpunkte der Glieder im Raum des unteren Knochens: Knöchel, Handgelenke.
     ende = {s: rig.lokal('LowerLeg.' + s, knoechel[s]) for s in 'LR'}
     hand_ende = {s: rig.lokal('LowerArm.' + s, rig.w('Wrist.' + s)) for s in 'LR'}
-    v, h = pose.get('koerper', (0, 0))
-    if v or h:
-        rig.schiebe('Body', rig.vorn * v + rig.oben * h)
+    if pose.get('gier'):
+        # D460 (Wenden): der ganze Körper um die Hochachse durch das Becken (+ = nach links); die Füsse stellt `'kreis'`.
+        rig.drehe('Body', rig.oben, pose['gier'])
+    koerper = pose.get('koerper', (0, 0))
+    v, h = koerper[0], koerper[1]
+    seit = koerper[2] if len(koerper) > 2 else 0   # D460: das Becken pendelt über den Standfuss
+    if v or h or seit:
+        rig.schiebe('Body', rig.vorn * v + rig.oben * h + rig.rechts * seit)
+    # D460: Das Becken kippt um die Längsachse (+ = rechte Hüfte tiefer — im Gang sinkt die Schwungseite); die
+    # Wirbelsäule richtet sich darüber wieder auf (Gegendrehung an `Hips`), die Schultern bleiben waagerecht.
+    kippe = pose.get('kippe', 0)
+    if kippe:
+        rig.drehe('Body', rig.vorn, kippe)
+        rig.drehe('Hips', rig.vorn, -kippe)
     # D414: Die Hüfte führt — das Becken (Body, samt Rücken) dreht vor, die Brust wird um dasselbe
     # zurückgedreht: Die Schultern stehen, wo `rumpf` sie hinstellt, das Becken ist schon weiter.
     huefte = pose.get('huefte', 0)
@@ -890,22 +924,63 @@ def _pose(rig, basis, pose, bewegung, schneide=None, winkel=None, fest=False):
     if neig:
         rig.drehe('Neck', rig.rechts, max(-20.0, min(20.0, 0.3 * neig)))
         rig.drehe('Head', rig.rechts, max(-30.0, min(30.0, 0.5 * neig)))
+    if pose.get('kopf'):
+        # D460: Kopf zusätzlich (dreh + = nach links wie `rumpf`, nick + = Kinn zur Brust) — Blick voraus beim Wenden,
+        # Kinn an die Brust in der Rolle.
+        kd, kn = pose['kopf']
+        for kname in ('Neck', 'Head'):
+            if kd: rig.drehe(kname, rig.oben, kd / 2)
+            if kn: rig.drehe(kname, rig.rechts, -kn / 2)
     for s, feld, seite in (('R', 'fuss_r', 1), ('L', 'fuss_l', -1)):
         fuss = pose.get(feld, (0, 0))
-        fv, fr = fuss[0], fuss[1]
-        delta = rig.vorn * fv + rig.rechts * fr
-        if len(fuss) > 2:
-            delta = delta + rig.oben * fuss[2]   # D456: der Fuss hebt im Schritt ab
+        nick = gier = 0.0
+        if fuss and fuss[0] == 'kreis':
+            # D460 (Wenden): Der Fuss steht um `grad` um die Hochachse durch den Standpunkt gedreht (+ = nach links, wie
+            # die Regel den Blick zählt), `hub` Meter gehoben — die Übertragung stellt ihn am Ziel genauso um die Mitte
+            # der Füsse des ausgelieferten Stands (`weltformel.stelle_fuesse`, `kreis`).
+            _, kgrad, khub = fuss
+            arm_ = knoechel[s] - rig.standpunkt
+            arm_.z = 0
+            delta = Matrix.Rotation(math.radians(kgrad), 3, rig.oben) @ arm_ - arm_ + rig.oben * khub
+            gier = kgrad
+        else:
+            fv, fr = fuss[0], fuss[1]
+            delta = rig.vorn * fv + rig.rechts * fr
+            if len(fuss) > 2:
+                delta = delta + rig.oben * fuss[2]   # D456: der Fuss hebt im Schritt ab
+            if len(fuss) > 3:
+                nick = fuss[3]                       # D460: Fussabrollen — Grad, + = Zehen hoch (Fersenauftritt)
+            if len(fuss) > 4:
+                gier = fuss[4]
         if delta.length > 1e-6:
             rig.schiebe('Foot.' + s, delta)
             if 'PT.' + s in rig.pb:
                 rig.schiebe('PT.' + s, delta)
-        rig.zwei('UpperLeg.' + s, 'LowerLeg.' + s, knoechel[s] + delta, rig.vorn + rig.rechts * 0.15 * seite, ende[s])
+        if nick:
+            rig.drehe('Foot.' + s, rig.rechts, nick)
+        if gier:
+            rig.drehe('Foot.' + s, rig.oben, gier)
+        # Knie nach vorn; `knie` (D460) spreizt sie (Hocke in der Rolle, Froschbeine beim Schwimmen).
+        knie = Matrix.Rotation(math.radians(gier), 3, rig.oben) @ (rig.vorn + rig.rechts * pose.get('knie', 0.15) * seite)
+        rig.zwei('UpperLeg.' + s, 'LowerLeg.' + s, knoechel[s] + delta, knie, ende[s])
 
-    if 'hand' in pose:
-        ziel = rig.punkt(*pose['hand'])
+    if 'arm_r' in pose or 'arm_l' in pose:
+        # D460: Handziele von der Schulter aus, im Rahmen der Brust (sie dreht und neigt mit dem Rumpf) — so schwingen
+        # die Arme am Körper, wohin der auch pendelt. Meter des Quellskeletts (Arm 0,45 m).
+        brust = (rig.rot @ rig.pb['Chest'].matrix.to_3x3()).normalized() @ rig.brust0.inverted()
+        aus_schulter = lambda sn, a: rig.w('UpperArm.' + sn) + brust @ (rig.rechts * a[0] + rig.vorn * a[1] + rig.oben * a[2])
+    # D460: `arm_w` 0…1 mischt die Arme zwischen der Grundhaltung (wo sie nach Rumpf und Becken hängen) und den Zielen —
+    # so kommen Clips weich aus dem Stand und kehren in ihn zurück.
+    aw = pose.get('arm_w', 1.0) if 'arm_r' in pose or 'arm_l' in pose else 1.0
+    if 'hand' in pose or ('arm_r' in pose and aw > 1e-4):
+        ziel = aus_schulter('R', pose['arm_r']) if 'arm_r' in pose else rig.punkt(*pose['hand'])
+        if aw < 1:
+            ziel = rig.w('Wrist.R').lerp(ziel, aw)
+            jetzt_ = -((rig.rot @ rig.pb['Wrist.R'].matrix.to_3x3()).normalized().col[0])
         rig.zwei('UpperArm.R', 'LowerArm.R', ziel, _pol(rig, 1, ziel), hand_ende['R'])
         klinge = rig.richtung(*pose['richt'])
+        if aw < 1:
+            klinge = jetzt_.lerp(klinge, aw).normalized()
         unterarm = (rig.w('Wrist.R') - rig.w('LowerArm.R')).normalized()
         y = bewegung - klinge * bewegung.dot(klinge)
         hoch = rig.oben - klinge * rig.oben.dot(klinge)
@@ -946,6 +1021,26 @@ def _pose(rig, basis, pose, bewegung, schneide=None, winkel=None, fest=False):
                 rig.lage('Wrist.L', -klinge, ua - klinge * ua.dot(klinge) if abs(ua.dot(klinge)) < 0.95 else y)
     if pose.get('links') is not None:
         rig.zwei('UpperArm.L', 'LowerArm.L', rig.punkt(*pose['links']), _pol(rig, -1, rig.punkt(*pose['links'])), hand_ende['L'])
+    if 'arm_l' in pose and aw > 1e-4:
+        zl = rig.w('Wrist.L').lerp(aus_schulter('L', pose['arm_l']), aw)
+        rig.zwei('UpperArm.L', 'LowerArm.L', zl, _pol(rig, -1, zl), hand_ende['L'])
+    lage = pose.get('lage')
+    if lage:
+        # D460: den ganzen Körper legen und drehen — was die Posenfelder bis D456 nicht konnten (Rolle, Wenden,
+        # Schwimmen). `nick` (+ = vornüber), `roll` (+ = rechte Seite tiefer), `gier` (+ = nach links) in Grad um den
+        # Punkt `um` (rechts, vorn, hoch vom Standpunkt), danach `schub` (Meter). Alles davor ist aufrecht gestellt
+        # (Füsse, Hände im Rahmen des Körpers) und dreht starr mit: Becken samt Rumpf und Beinen, dazu die Füsse (sie
+        # hängen im Quellskelett an der Wurzel, nicht am Bein).
+        um = rig.punkt(*lage.get('um', (0, 0, 0.9)))
+        dreh_ = (Matrix.Rotation(math.radians(lage.get('gier', 0)), 4, rig.oben)
+                 @ Matrix.Rotation(math.radians(-lage.get('nick', 0)), 4, rig.rechts)
+                 @ Matrix.Rotation(math.radians(lage.get('roll', 0)), 4, rig.vorn))
+        sch = lage.get('schub', (0, 0, 0))
+        m4 = (Matrix.Translation(rig.rechts * sch[0] + rig.vorn * sch[1] + rig.oben * sch[2])
+              @ Matrix.Translation(um) @ dreh_ @ Matrix.Translation(-um))
+        for kname in ('Body', 'Foot.L', 'Foot.R', 'PT.L', 'PT.R'):
+            if kname in rig.pb:
+                rig.weltdrehung(kname, m4)
 
 
 def _handpunkt(rig, basis, pose):
@@ -1077,6 +1172,8 @@ def _voll(rig, basis, pose, grundpose):
 
 def baue_clip(rig, ad, name, basis):
     grund, art, schluessel = CLIPS[name]
+    if art == 'gerechnet':
+        return baue_gerechnet(rig, ad, name, basis)     # D460
     akt = bpy.data.actions.new(name)
     ad.action = akt
     vorige = {}
@@ -1229,6 +1326,554 @@ def baue_clip(rig, ad, name, basis):
         st.action_slot = akt.slots[0]
     tr.mute = True
     print(f'  Waffenclip {name}: {len(schluessel)} Schlüssel, Bild 1–{schluessel[-1][0]} ({art}, aus {grund})')
+    return akt
+
+
+# ---- D460: Fortbewegung — gerechnete Clips ------------------------------------------------------------------------
+# D456 baute Hiebe aus wenigen Schlüsseln; Gang, Lauf und Rolle gingen so nicht: „die Posenfelder können den Körper nicht
+# legen oder um sich drehen, und für einen Gangzyklus fehlt das Fussabrollen“ (Waffenbewegungen §9.4). Hier wird die Pose
+# **je Bild aus einer Funktion** gerechnet (`RECHNE`), und `_pose` kennt dafür neue Felder: Fuss mit Abrollwinkel und
+# Drehung (`fuss_*` 4./5. Wert, `'kreis'`), Becken seitlich und gekippt (`koerper` 3. Wert, `kippe`), Arme von der
+# Schulter aus (`arm_r`, `arm_l`), den ganzen Körper gedreht und gelegt (`gier`, `lage`), Kopf (`kopf`).
+#
+# **Der Gangzyklus** (`_gangpose`) ist ein Modell, kein Mocap: Der Standfuss liegt in der Welt fest — im Raum der Figur
+# wandert sein Aufstandspunkt mit genau dem Tempo `v` nach hinten —, rollt von der Ferse (Drehpunkt Fersenkante) über die
+# Sohle auf den Ballen (Drehpunkt Ballen, die Zehen bleiben liegen: `ZEHEN`) und schwingt auf einer Kurve wieder vor. Das
+# Becken folgt der Physik des Schritts: im Gehen ein umgekehrtes Pendel (hoch über dem Standbein, tief im Doppelstand),
+# im Laufen Feder und Flug (tief in der Standmitte, Wurfparabel in der Flugphase — Einfederung D = g·t_f·t_c / 2π, damit
+# das Tempo am Absprung stetig ist, Steighöhe g·t_f² / 8). Es pendelt über den Standfuss, kippt zur Schwungseite und
+# dreht mit dem Schwungbein vor; die Schultern drehen dagegen, die Arme schwingen gegengleich. Die Beckenhöhe wird so
+# gelegt, dass kein Bein über seine Länge hinaus muss (`_beckenbasis`) — das Knie streckt sich am Fersenauftritt und
+# am Abdruck fast ganz und beugt dazwischen, wie am Menschen.
+#
+# **Anker (D398)** mit Quelle je Wert: `docs/design/BRACHLAND_Waffenbewegungen_v1.md` §10.1.
+# Alle Längen dieses Abschnitts sind **Meter der Hauptfigur** (Ziel), nicht des Quellskeletts: `MASS` rechnet um.
+MASS = 0.96            # Zielmeter je Quellmeter (Beckenhöhe); `clipnachbau.py` setzt den gemessenen Wert
+G_ERDE = 9.81
+# Fuss der Hauptfigur: Knöchel → Ballen waagerecht, Sohle unter dem Knöchel, Fersenkante hinter dem Knöchel, Ballen → Zehenspitze
+FUSS_VOR, SOHLE, FERSE_HINTER, ZEHE = 0.14, 0.08, 0.05, 0.13
+# Bein der Hauptfigur: Hüftgelenk → Knöchel höchstens / im Stand senkrecht; Hüftgelenk seitlich der Mitte
+BEIN_MAX, BEIN_STAND, HUEFTE_SEIT = 0.858, 0.84, 0.11
+RECHNE = {}            # Clip → dict(bilder, rate, fn(bild) → Pose, fuesse)
+ZEHEN = {}             # Clip → {Bild: (Grad links, Grad rechts)}: so weit biegen die Zehen auf (Ferse gehoben)
+KREIS = {}             # Clip → {Bild: {'l'|'r': (Grad, Hub)}}: Fuss um die Hochachse gestellt (Wenden)
+GANGMASS = {}          # Clip → Kennwerte des Modells (Tempo, Schrittlänge, Frequenz, Kontakt), für Test und Doku
+
+
+def _k(tab, t):
+    """Wert einer kleinen Tabelle [(t, wert | tupel)] zur Zeit t — monoton verbunden (`_kurve`)."""
+    werte = [w if isinstance(w, tuple) else (w,) for _, w in tab]
+    aus = _kurve([float(z) for z, _ in tab], werte, float(t))
+    return aus if isinstance(tab[0][1], tuple) else aus[0]
+
+
+def _fuss_stand(xb, nick):
+    """Knöchel (vor dem Standpunkt, über seiner Standhöhe) eines aufgesetzten Fusses: `xb` = wo der Ballen aufliegt,
+    `nick` Grad (+ = Zehen hoch: der Fuss steht auf der Fersenkante; − = Ferse hoch: er steht auf dem Ballen)."""
+    w = math.radians(abs(nick))
+    c, s_ = math.cos(w), math.sin(w)
+    if nick >= 0:
+        return xb - FUSS_VOR - FERSE_HINTER + FERSE_HINTER * c - SOHLE * s_, FERSE_HINTER * s_ + SOHLE * c - SOHLE
+    return xb - FUSS_VOR * c + SOHLE * s_, FUSS_VOR * s_ + SOHLE * c - SOHLE
+
+
+def _fussbahn(p, G):
+    """Ein Fuss im Zyklus, `p` = 0…1 ab seinem Aufsetzen → (Knöchel vor, hoch, Nick Grad, Zehen Grad, steht)."""
+    d = G['duty']
+    lc = G['v'] * G['T'] * d                    # Weg des Körpers über dem stehenden Fuss
+
+    def stand(u):
+        n = _k(G['abrollen'], u)
+        x, h = _fuss_stand(G['vorn'] - lc * u, n)
+        return x, h, n
+    if p < d:
+        x, h, n = stand(p / d)
+        return x, h, n, max(0.0, -n), True
+    w = (p - d) / (1 - d)
+    x1, h1, n1 = stand(1.0)
+    x0, h0, n0 = stand(0.0)
+    # Vor: Der Fuss läuft nach dem Abdruck noch mit dem Boden zurück und bremst (Anteil `nach` des Schwungs), schwingt
+    # weich vor bis etwas über die Aufsetzstelle hinaus und kommt dem Boden im letzten Stück (`vorab`) wieder entgegen —
+    # beim Aufsetzen hat er genau das Tempo des Bodens (kein Bremsstoss, kein Scharren; und die Laufzeit, die das Tempo
+    # eines Clips an der tiefen Knöchelbahn misst, liest auch in diesen Bildern das richtige Tempo).
+    na, vb, weg = G['nach'], G['vorab'], G['v'] * (1 - d) * G['T']
+    mit = G.get('mit', 0.04)                     # letztes Stück des Schwungs: der Fuss läuft schon genau mit dem Boden
+    xa, xe = x1 - weg * na / 2, x0 + weg * mit + weg * vb / 2
+    if w < na:
+        x = x1 - weg * (w - w * w / (2 * na))
+    elif w > 1 - mit:
+        x = x0 + weg * (1 - w)
+    elif w > 1 - mit - vb:
+        r = 1 - mit - w
+        x = x0 + weg * mit + weg * (r - r * r / (2 * vb))
+    else:
+        u = (w - na) / (1 - na - vb - mit)
+        x = xa + (xe - xa) * (u * u * u * (u * (6 * u - 15) + 10))
+    n = _k([(0.0, n1)] + G['schwung'] + [(1.0, n0)], w)
+    h = h1 + (h0 - h1) * _weich(w) + G['hub'] * math.sin(math.pi * w ** G.get('hubform', 1.0))
+    # Die Zehen strecken sich nach dem Abdruck über das erste Drittel des Schwungs.
+    zehen = max(0.0, min(-n, -n1 * (1 - w / 0.3)))
+    # Bodenfreiheit: Zehenspitze (Fuss nach unten geneigt) oder Fersenkante (Zehen hoch) bleiben über dem Boden.
+    frei = 0.012 * min(1.0, w / 0.12, (1 - w) / 0.12)
+    if n < 0:
+        b = math.radians(-n)
+        noetig = FUSS_VOR * math.sin(b) + SOHLE * math.cos(b) - SOHLE + ZEHE * math.sin(math.radians(max(0.0, -n - zehen)))
+    else:
+        a = math.radians(n)
+        noetig = FERSE_HINTER * math.sin(a) + SOHLE * math.cos(a) - SOHLE
+    return x, max(h, noetig + frei), n, zehen, False
+
+
+def _beckenform(p, G):
+    """Auf und Ab des Beckens über den Zyklus, Meter um seine Grundhöhe."""
+    d, T = G['duty'], G['T']
+    if d >= 0.5:
+        # Gehen: umgekehrtes Pendel — am tiefsten in der Mitte des Doppelstands, am höchsten über dem Standbein.
+        return -G['hub_becken'] * (1 + math.cos(4 * math.pi * (p - (d - 0.5) / 2))) / 2
+    # Laufen: Feder im Stand, Wurf im Flug.
+    tc, tf = d * T, (0.5 - d) * T
+    q = p % 0.5
+    if q < d:
+        return -(G_ERDE * tf * tc / (2 * math.pi)) * math.sin(math.pi * q / d)
+    tau = (q - d) * T
+    return G_ERDE / 2 * tau * (tf - tau)
+
+
+def _becken(p, G):
+    """(vor, hoch ohne Grundhöhe, seitlich, Gier Grad, Kippen Grad) des Beckens."""
+    mitte = (G['duty'] - 0.5) / 2 if G['duty'] >= 0.5 else G['duty'] / 2 - 0.25      # Phase, in der das Gewicht mittig liegt
+    w = 2 * math.pi * (p - mitte)
+    # links steht ab p = 0: Das Becken pendelt nach links (−), die rechte Hüfte (Schwungseite) sinkt (+) …
+    seit = -G['seit'] * math.sin(w)
+    kippe = G['kippe'] * math.sin(w)
+    # … und die Seite des Schwungbeins dreht vor: am Aufsetzen des linken Fusses ist die linke Hüfte vorn (Gier −).
+    gier = -G['gier_becken'] * math.cos(2 * math.pi * (p - G.get('gier_nach', 0.0)))
+    return G.get('koerper_vor', 0.0), _beckenform(p, G), seit, gier, kippe
+
+
+def _beckenbasis(G):
+    """Die höchste Grundhöhe des Beckens, bei der in keinem Augenblick ein Bein über seine Länge hinaus müsste."""
+    if 'basis' in G:
+        return G['basis']
+    basis = 1e9
+    for i in range(240):
+        p = i / 240
+        vor, hoch, seit, gier, kippe = _becken(p, G)
+        for seite, versatz in ((-1, 0.0), (1, 0.5)):
+            x, h, n, z, steht = _fussbahn((p + versatz) % 1, G)
+            hx = vor + seite * HUEFTE_SEIT * math.sin(math.radians(gier))      # Hüftgelenk vor/zurück durch die Beckendrehung
+            hz = -seite * HUEFTE_SEIT * math.sin(math.radians(kippe))          # und tiefer/höher durch das Kippen
+            quer = BEIN_MAX ** 2 - (x - hx) ** 2
+            grenze = (h + math.sqrt(quer) - BEIN_STAND - hz) if quer > 0 else -1.0
+            basis = min(basis, grenze - hoch)
+    G['basis'] = min(basis, G.get('basis_max', -0.01))
+    return G['basis']
+
+
+def _gangpose(p, G):
+    """Die ganze Pose bei Phase p (0 = der linke Fuss setzt auf)."""
+    basis = _beckenbasis(G)
+    vor, hoch, seit, gier, kippe = _becken(p, G)
+    xl, hl, nl, zl, _ = _fussbahn(p % 1, G)
+    xr, hr, nr, zr, _ = _fussbahn((p + 0.5) % 1, G)
+    spur = G.get('spur', 0.0)       # die Füsse setzen näher an der Mittellinie auf als im Stand
+    c = math.cos(2 * math.pi * (p - G.get('arm_nach', 0.03)))    # +1: rechter Arm vorn (linker Fuss setzt auf)
+    a = G['arm']
+    return dict(
+        koerper=(vor, basis + hoch, seit), huefte=gier, kippe=kippe,
+        rumpf=(G['gier_schulter'] * math.cos(2 * math.pi * p), G['neig']),
+        fuss_l=(xl, spur, hl, nl), fuss_r=(xr, -spur, hr, nr), zehen=(zl, zr),
+        arm_r=(a['aus'] - a['ein'] * max(0.0, c), a['vor'] + a['schwung'] * c * a.get('rechts', 1.0),
+               a['hoch'] + a['hub'] * c * a.get('rechts', 1.0) + a.get('heben', 0.0) * abs(c)),
+        arm_l=(-a['aus'] + a['ein'] * max(0.0, -c), a['vor'] - a['schwung'] * c, a['hoch'] - a['hub'] * c + a.get('heben', 0.0) * abs(c)),
+        richt=(a['waffe'][0], a['waffe'][1], a['waffe'][2] + a['waffe'][3] * c),      # die Waffe zeigt nach aussen-unten, weg von den Beinen
+    )
+
+
+def _melde(name, bilder, rate, fn, fuesse='stand'):
+    """Einen gerechneten Clip anmelden: `fn(bild)` → Pose (Zielmeter) oder 'stand'; Bild 1…`bilder` bei `rate` Bildern/s."""
+    RECHNE[name] = dict(bilder=bilder, rate=rate, fuesse=fuesse, fn=fn)
+    CLIPS[name] = ('Idle', 'gerechnet', [])
+
+
+def _gang(name, G, bilder, rate):
+    """Einen Gangzyklus anmelden: `bilder` Bilder je Zyklus bei `rate` Bildern/s (das letzte Bild ist wieder das erste)."""
+    G['T'] = bilder / rate
+    GANGMASS[name] = dict(tempo=G['v'], zyklus=G['T'], schrittlaenge=G['v'] * G['T'] / 2, schritte_je_min=120 / G['T'],
+                          kontakt=G['duty'] * G['T'], flug=max(0.0, 0.5 - G['duty']) * G['T'], standanteil=G['duty'])
+    _melde(name, bilder + 1, rate, lambda bild: _gangpose((bild - 1) / bilder, G), fuesse='eben')
+
+
+# Gehen, 1,4 m/s. Fersenauftritt mit 18° gehobenen Zehen, Sohle flach nach 12 % der Standphase, Ferse löst sich ab der
+# Hälfte, Abdruck mit 52°. Im Schwung hebt der Knöchel 4–5 cm über seine Standhöhe — etwas mehr als auf ebenem Boden
+# (Zehenfreiheit beim Menschen 1–2 cm): Die Figur geht über Wiese und Waldboden, und die Laufzeit erkennt den Schwung so
+# sicher als Schwung (`figurlaufzeit.json` `gang.standHoehe` 4 cm).
+GANG = dict(v=1.4, spur=0.04, duty=0.62, vorn=0.44, nach=0.10, vorab=0.14, hub=0.045, hubform=0.8,
+            abrollen=[(0.0, 18.0), (0.12, 0.0), (0.5, 0.0), (0.8, -22.0), (1.0, -52.0)],
+            schwung=[(0.35, -20.0), (0.8, 14.0)],
+            hub_becken=0.04, seit=0.02, kippe=4.0, gier_becken=4.0, gier_schulter=3.5, neig=2.0,
+            arm=dict(aus=0.07, ein=0.02, vor=0.03, schwung=0.15, hoch=-0.40, hub=0.0, heben=0.025, rechts=0.6,
+                     waffe=(0.5, -0.3, -0.8, 0.05)))
+_gang('Koerper_Gang', GANG, 24, 24)
+# Laufschritt, 4,2 m/s (das Tempo `laufen.gehen` aus `content/bewegung.json`): Mittelfussauftritt (fast flach — so liest
+# die Laufzeit an der Knöchelbahn dasselbe Tempo wie am Aufstandspunkt), Flugphase, Ferse schlägt im Schwung hoch,
+# Ellbogen rund 90°.
+LAUF = dict(v=4.2, spur=0.07, duty=0.3125, vorn=0.40, nach=0.10, vorab=0.12, hub=0.24, hubform=0.75, arm_nach=-0.15,
+            abrollen=[(0.0, 3.0), (0.1, 0.0), (0.55, 0.0), (0.8, -28.0), (1.0, -62.0)],
+            schwung=[(0.3, -55.0), (0.8, 6.0)],
+            seit=0.012, kippe=3.5, gier_becken=6.0, gier_schulter=10.0, neig=7.0, basis_max=-0.03,
+            arm=dict(aus=0.05, ein=0.09, vor=0.05, schwung=0.19, hoch=-0.19, hub=0.10, rechts=0.85,
+                     waffe=(0.55, -0.35, -0.75, 0.1)))
+_gang('Koerper_Laufschritt', LAUF, 32, 48)
+# Sprint, 8,5 m/s (`laufen.rennen`): Ballenlauf (die Ferse setzt nicht auf), Kontakt 0,10 s, hohe Ferse und hohes Knie im
+# Schwung, 12° Vorlage, grosser Armschwung.
+SPRINT = dict(v=8.5, spur=0.08, duty=0.218, vorn=0.33, nach=0.07, vorab=0.08, hub=0.42, hubform=0.7, arm_nach=-0.2,
+              abrollen=[(0.0, -12.0), (0.3, -6.0), (0.6, -22.0), (1.0, -68.0)],
+              schwung=[(0.3, -60.0), (0.8, -5.0)],
+              seit=0.008, kippe=3.0, gier_becken=8.0, gier_schulter=14.0, neig=12.0, basis_max=-0.03,
+              arm=dict(aus=0.05, ein=0.10, vor=0.04, schwung=0.27, hoch=-0.15, hub=0.15, rechts=0.8,
+                       waffe=(0.55, -0.35, -0.75, 0.12)))
+_gang('Koerper_Sprint', SPRINT, 22, 48)
+GAENGE = {'Koerper_Gang': GANG, 'Koerper_Laufschritt': LAUF, 'Koerper_Sprint': SPRINT}
+
+# @@EINMAL@@
+# ---- D460: Anlauf, Abstoppen, Wenden, Rolle, Sprung, Klettern, Schwimmen ------------------------------------------
+# Der ausgelieferte Stand (`Idle`) steht am Ziel im Schritt (rechter Fuss 22 cm vor, 8 mm tiefer; D456) — die Gangzyklen
+# stehen eben und gleichauf (`fuesse='eben'`). Clips, die im Stand beginnen oder enden, zählen ihre Füsse vom Stand aus
+# (`fuesse='stand'`); eine Gangpose rechnet `_gang_im_stand` dorthin um.
+STAND_SCHRITT, STAND_TIEFER = 0.218, 0.008
+
+
+def _misch(a, b, w):
+    """Zwei Posen mit denselben Zahlenfeldern mischen (w = 0: a, 1: b)."""
+    aus = {}
+    for f, x in a.items():
+        y = b.get(f, x)
+        aus[f] = tuple(p + (q - p) * w for p, q in zip(x, y)) if isinstance(x, tuple) else x + (y - x) * w
+    return aus
+
+
+def _gang_im_stand(pose):
+    aus = dict(pose)
+    l, r = pose['fuss_l'], pose['fuss_r']
+    aus['fuss_l'] = (l[0] + STAND_SCHRITT / 2, l[1], l[2] - STAND_TIEFER / 2) + tuple(l[3:])
+    aus['fuss_r'] = (r[0] - STAND_SCHRITT / 2, r[1], r[2] + STAND_TIEFER / 2) + tuple(r[3:])
+    return aus
+
+
+def _tritt(t, xk, tritte, start):
+    """Ein Fuss, der in der Welt steht, während der Körper nach `xk(t)` vorankommt. `tritte` = [(t_ab, t_auf, Ballen in
+    der Welt nach dem Aufsetzen, Hub)], `start` = Ballen in der Welt am Anfang. Er rollt vor dem Abheben auf den Ballen
+    (Ferse hebt über 0,14 s bis 50°) und setzt mit 10° gehobenen Zehen auf. → (Knöchel vor im Raum der Figur, hoch, Nick, Zehen)."""
+    ballen = start
+    for i, (ab, auf, ziel, hub) in enumerate(tritte):
+        if t <= ab:
+            n = -50.0 * _weich((t - (ab - 0.14)) / 0.14)
+            x, h = _fuss_stand(ballen, n)
+            return x - xk(t), h, n, -n
+        if t < auf:
+            w = (t - ab) / (auf - ab)
+            x1, h1 = _fuss_stand(ballen, -50.0)
+            x0, h0 = _fuss_stand(ziel, 10.0)
+            n = _k([(0.0, -50.0), (0.4, -30.0), (0.8, 8.0), (1.0, 10.0)], w)
+            g = w * w * w * (w * (6 * w - 15) + 10)
+            return x1 + (x0 - x1) * g - xk(t), h1 + (h0 - h1) * _weich(w) + hub * math.sin(math.pi * w ** 0.8), n, max(0.0, 50.0 * (1 - w / 0.3))
+        ballen = ziel
+        if i + 1 == len(tritte) or t < tritte[i + 1][0] - 0.14:
+            n = 10.0 * (1 - _weich((t - auf) / 0.06))
+            x, h = _fuss_stand(ballen, n)
+            return x - xk(t), h, n, 0.0
+    x, h = _fuss_stand(ballen, 0.0)
+    return x - xk(t), h, 0.0, 0.0
+
+
+# Anlauf: aus dem Stand in den Laufschritt, 0,67 s, zwei Schritte. Der Körper beschleunigt gleichmässig von 0 auf 4,2 m/s
+# (6,3 m/s² — ein scharfer Antritt; Sprinter erreichen aus dem Block 4 m/s nach rund 0,5 s, Überschlag) und legt dabei
+# 1,4 m zurück; die Füsse stehen in der Welt, im Raum der Figur wandern sie also nach hinten, wie der Körper vorankommt.
+# **Voraussetzung:** Die Regel müsste das Tempo über dieselbe Zeit hochfahren (heute springt es, `content/bewegung.json`) —
+# sonst gleitet der Standfuss. Endet in der Phase 0,53 des Laufschritts (rechter Fuss hat eben aufgesetzt).
+ANLAUF_T, ANLAUF_ENDE = 16 / 24, 0.531
+
+
+def _anlauf(bild):
+    if bild == 1:
+        return 'stand'
+    t = (bild - 1) / 24
+    a = LAUF['v'] / ANLAUF_T
+    xk = lambda z: a * z * z / 2
+    p = ANLAUF_ENDE - (ANLAUF_T - t) / LAUF['T']
+    gang = _gang_im_stand(_gangpose(p % 1, LAUF))
+    gang['arm_w'] = 1.0
+    b0 = FUSS_VOR                                        # Ballen unter dem stehenden Fuss (Knöchel bei 0)
+    # links: hebt sofort, setzt nach 0,25 s auf, drückt bis 0,52 s ab; rechts: drückt ab bis 0,30 s und schwingt durch.
+    xl, hl, nl, zl = _tritt(t, xk, [(0.04, 0.25, xk(0.25) + 0.26 + FUSS_VOR, 0.07), (0.52, 9.0, 9.0, 0.2)], b0 + STAND_SCHRITT / 2)
+    xr, hr, nr, zr = _tritt(t, xk, [(0.30, 0.66, xk(0.66) + 0.30 + FUSS_VOR, 0.22)], b0 - STAND_SCHRITT / 2)
+    eigen = dict(gang)
+    eigen.update(
+        koerper=(_k([(0.0, 0.0), (0.2, 0.06), (0.667, 0.0)], t), _k([(0.0, 0.0), (0.12, -0.10), (0.4, -0.09), (0.667, gang['koerper'][1])], t), 0.0),
+        rumpf=(gang['rumpf'][0], _k([(0.0, 0.0), (0.2, 30.0), (0.45, 18.0), (0.667, LAUF['neig'])], t)),
+        fuss_l=(xl, 0.0, hl, nl), fuss_r=(xr, 0.0, hr, nr), zehen=(zl, zr),
+        arm_w=_weich(t / 0.18))
+    return _misch(eigen, gang, _weich((t - 0.50) / (ANLAUF_T - 0.50)))
+
+
+_melde('Koerper_Anlauf', 17, 24, _anlauf)
+
+# Abstoppen: aus dem Laufschritt in den Stand, 0,5 s, zwei Bremsschritte (8,4 m/s², Weg 1,05 m — härter als der Antritt:
+# der Fuss stemmt vor dem Körper). Beginnt in der Phase 0,5 des Laufschritts (rechter Fuss setzt auf); der linke setzt
+# vor dem Körper mit der Ferse auf und trägt die Bremsung, der Rumpf lehnt zurück, das Becken geht tief; der rechte
+# zieht nach vorn in den Stand, der Körper richtet sich auf. **Voraussetzung** wie beim Anlauf: die Regel bremst über
+# dieselbe Zeit.
+STOPP_T = 12 / 24
+
+
+def _abstoppen(bild):
+    if bild == 13:
+        return 'stand'
+    t = (bild - 1) / 24
+    v, br = LAUF['v'], LAUF['v'] / STOPP_T
+    xk = lambda z: v * z - br * z * z / 2
+    gang = _gang_im_stand(_gangpose((0.5 + t / LAUF['T']) % 1, LAUF))
+    gang['arm_w'] = 1.0
+    xr0 = _fussbahn(0.0, LAUF)[0] + FUSS_VOR - STAND_SCHRITT / 2          # Ballen des rechten Fusses beim Aufsetzen
+    xr, hr, nr, zr = _tritt(t, xk, [(0.20, 0.42, xk(STOPP_T) + FUSS_VOR, 0.10)], xr0)
+    ziel = xk(STOPP_T) + FUSS_VOR                                         # der linke Fuss landet, wo er im Stand steht
+    if t < 0.20:
+        # der linke Fuss ist beim Beginn im Schwung: von dort zur Aufsetzstelle, Ferse voran
+        w = t / 0.20
+        g = _gang_im_stand(_gangpose(0.5, LAUF))['fuss_l']
+        x0, h0 = _fuss_stand(ziel, 14.0)
+        xl, hl, nl, zl = g[0] + (x0 - xk(0.20) - g[0]) * _weich(w), g[2] + (h0 - g[2]) * w * w, g[3] + (14.0 - g[3]) * _weich(w), 0.0
+    else:
+        nl = 14.0 * (1 - _weich((t - 0.20) / 0.07))
+        xl, hl = _fuss_stand(ziel, nl)
+        xl, zl = xl - xk(t), 0.0
+    eigen = dict(gang)
+    eigen.update(
+        koerper=(_k([(0.0, 0.0), (0.2, -0.07), (0.5, 0.0)], t), _k([(0.0, gang['koerper'][1]), (0.24, -0.13), (0.38, -0.07), (0.5, 0.0)], t), 0.0),
+        huefte=0.0, kippe=0.0,
+        rumpf=(_k([(0.0, gang['rumpf'][0]), (0.3, 0.0), (0.5, 0.0)], t), _k([(0.0, LAUF['neig']), (0.18, -9.0), (0.34, 6.0), (0.5, 0.0)], t)),
+        fuss_l=(xl, 0.0, hl, nl), fuss_r=(xr, 0.0, hr, nr), zehen=(zl, zr),
+        arm_r=(0.16, 0.10, -0.26), arm_l=(-0.20, 0.14, -0.22), richt=(0.3, 0.6, -0.74),
+        arm_w=1 - _weich((t - 0.26) / 0.22))
+    return _misch(gang, eigen, _weich(t / 0.10))
+
+
+_melde('Koerper_Abstoppen', 13, 24, _abstoppen)
+
+
+# Wenden auf der Stelle. Die Regel dreht die Figur sofort (`gier` springt); der Clip **beginnt** deshalb in der alten
+# Richtung (um den Winkel zurückgedreht) und **endet im Stand** in der neuen — die Laufzeit spielt ihn ab dem Augenblick
+# des Drehens, ohne die Wurzel zu führen. Der Kopf geht voran, die Schultern folgen, die Füsse setzen nacheinander um
+# (der Fuss der Drehseite zuerst; bei 180° zweimal), der jeweils andere trägt; die Füsse drehen um die Mitte des Stands.
+def _wenden(grad, schritte, bilder):
+    zeichen = 1 if grad > 0 else -1
+    erster, zweiter = ('l', 'r') if grad > 0 else ('r', 'l')
+    teil = abs(grad) / (len(schritte) / 2)
+
+    def fn(bild):
+        if bild == bilder:
+            return 'stand'
+        fuss = {'l': [-abs(grad), 0.0], 'r': [-abs(grad), 0.0]}     # (Grad vor dem Ziel, Hub)
+        last = 0.0                                                   # +1: der erste Fuss ist in der Luft, −1: der zweite
+        for i, (ab, auf) in enumerate(schritte):
+            s = erster if i % 2 == 0 else zweiter
+            if bild >= auf:
+                fuss[s][0] += teil
+            elif bild > ab:
+                w = (bild - ab) / (auf - ab)
+                fuss[s][0] += teil * (w * w * (3 - 2 * w))
+                fuss[s][1] = 0.07 * math.sin(math.pi * w)
+                last = (1 if s == erster else -1) * math.sin(math.pi * w)
+        e = _weich((bild - 1.5) / (bilder - 3.0))
+        gier = -abs(grad) * (1 - e) * zeichen
+        voraus = math.sin(math.pi * e)
+        r = math.radians(gier)
+        # Gewicht über den tragenden Fuss: hebt der erste (auf der Drehseite), lehnt das Becken zur anderen Seite.
+        seit = 0.035 * last * zeichen
+        return dict(gier=gier, koerper=(seit * math.sin(r), -(0.07 if abs(grad) > 90 else 0.05) * voraus, seit * math.cos(r)),
+                    rumpf=(8.0 * voraus * zeichen, 2.0 * voraus), kopf=(min(30.0, abs(grad) / 3) * voraus * zeichen * (1 - e), 0.0),
+                    fuss_l=('kreis', fuss['l'][0] * zeichen, fuss['l'][1]), fuss_r=('kreis', fuss['r'][0] * zeichen, fuss['r'][1]))
+    return fn
+
+
+_melde('Koerper_Wenden_Links', 13, 24, _wenden(90, [(2, 6), (6, 11)], 13))
+_melde('Koerper_Wenden_Rechts', 13, 24, _wenden(-90, [(2, 6), (6, 11)], 13))
+_melde('Koerper_Kehrt_Links', 19, 24, _wenden(180, [(2, 6), (6, 10), (10, 14), (14, 18)], 19))
+_melde('Koerper_Kehrt_Rechts', 19, 24, _wenden(-180, [(2, 6), (6, 10), (10, 14), (14, 18)], 19))
+
+
+# Rolle (Ausweichrolle der Regel: 3,8 m in 0,55 s, `echtzeit.ts`; die Szene spielt den Clip über 0,75 s). Eine Hechtrolle
+# mit Gewicht: tief gehen und abdrücken (die Füsse bleiben in der Welt stehen — im Raum der Figur laufen sie nach hinten
+# weg), gestreckt nach vorn, die linke Hand fängt ab, über die linke Schulter und den runden Rücken abrollen (Kinn an der
+# Brust, Knie am Leib), auf die Füsse kommen (Bild 14 = 0,54 s, das Ende der Regel) und aus der tiefen Hocke aufstehen.
+# Die Waffe liegt rechts aussen, weg vom Körper. Ab Bild 5 ist sie als **Lande-Rolle** (D413) nutzbar: Die Figur kommt
+# gestreckt von oben-hinten, die Hand fängt ab. Benannte Abweichung (D398): 3,8 m in 0,55 s sind 6,9 m/s — schneller als
+# ein Mensch aus dem Stand hechtet (Spielwert der Gattung, nicht geändert).
+def _rolle(bild):
+    if bild in (1, 19):
+        return 'stand'
+    b = float(bild)
+    asym = lambda tab, dv: [(z, (w[0] + dv * (1 if 4 <= z <= 13 else 0), w[1], w[2])) for z, w in tab]
+    fuss = [(1, (0.0, 0.0, 0.0)), (2, (-0.29, 0.05, -25.0)), (3, (-0.57, 0.08, -50.0)), (5, (-0.22, 0.0, -45.0)),
+            (7, (0.0, 0.12, -25.0)), (9, (0.10, 0.16, -5.0)), (12, (0.12, 0.10, 0.0)), (14, (0.10, 0.0, 0.0)),
+            (16, (0.04, 0.0, 0.0)), (19, (0.0, 0.0, 0.0))]
+    fl, fr = _k(asym(fuss, 0.04), b), _k(asym(fuss, -0.04), b)
+    return dict(
+        koerper=(_k([(1, 0.0), (3, 0.10), (5, 0.0), (14, 0.0), (15, 0.05), (19, 0.0)], b),
+                 _k([(1, 0.0), (2, -0.12), (3, -0.22), (5, -0.12), (7, -0.36), (9, -0.44), (12, -0.44), (14, -0.42), (16, -0.20), (19, 0.0)], b), 0.0),
+        rumpf=(0.0, _k([(1, 0.0), (2, 30.0), (3, 58.0), (5, 60.0), (9, 64.0), (12, 56.0), (14, 42.0), (16, 22.0), (19, 0.0)], b)),
+        kopf=(0.0, _k([(1, 0.0), (3, 10.0), (5, 35.0), (7, 55.0), (12, 45.0), (14, 10.0), (19, 0.0)], b)),
+        knie=_k([(1, 0.15), (7, 0.40), (14, 0.32), (19, 0.15)], b),
+        fuss_l=(fl[0], 0.0, fl[1], fl[2]), fuss_r=(fr[0], 0.0, fr[1], fr[2]),
+        arm_l=_k([(1, (-0.10, 0.20, -0.20)), (3, (-0.10, 0.36, 0.05)), (5, (-0.04, 0.34, 0.24)), (7, (-0.04, 0.30, 0.02)),
+                  (9, (-0.10, 0.28, -0.24)), (14, (-0.16, 0.30, -0.24)), (19, (-0.10, 0.10, -0.38))], b),
+        arm_r=_k([(1, (0.14, 0.14, -0.26)), (3, (0.26, 0.20, -0.10)), (5, (0.33, 0.14, 0.02)), (9, (0.31, 0.14, -0.14)),
+                  (14, (0.22, 0.24, -0.24)), (19, (0.10, 0.10, -0.38))], b),
+        richt=_k([(1, (0.3, 0.6, -0.7)), (4, (0.8, -0.2, -0.55)), (13, (0.8, -0.2, -0.55)), (19, (0.3, 0.6, -0.7))], b),
+        arm_w=_weich((b - 1) / 2.0) * _weich((19 - b) / 3.0),
+        lage=dict(nick=_k([(1, 0.0), (3, 0.0), (5, 55.0), (7, 125.0), (9, 205.0), (11, 275.0), (13, 335.0), (14, 360.0), (19, 360.0)], b),
+                  roll=_k([(1, 0.0), (5, 0.0), (7, -14.0), (10, -10.0), (13, 0.0), (19, 0.0)], b),
+                  gier=_k([(1, 0.0), (5, 0.0), (7, 10.0), (10, 6.0), (13, 0.0), (19, 0.0)], b),
+                  um=(0.0, 0.0, 0.50),
+                  # Höhe des Drehpunkts je Bild so, dass der tiefste Punkt aufliegt (an der ausgelieferten Datei gemessen,
+                  # `TIEF=Koerper_Rolle` in `tests/clipguete.test.ts`): über die Hand hoch, über den Rücken tief aufs Gesäss.
+                  schub=(0.0, 0.0, _k([(1, 0.0), (5, 0.0), (6, 0.06), (7, 0.11), (8, -0.01), (9, -0.20), (10, -0.39), (11, -0.43),
+                                       (12, -0.30), (13, -0.12), (14, 0.0), (19, 0.0)], b))))
+
+
+_melde('Koerper_Rolle', 19, 24, _rolle)
+
+
+# Sprung. Die Regel gibt dem Körper das Steigtempo im ersten Bild (kein Tiefgehen vorher) — `Koerper_Sprung_Ab` beginnt
+# deshalb in der vollen Streckung des Abdrucks (Zehen gestreckt, Arme hoch) und zieht in die Flughaltung;
+# `Koerper_Sprung_Flug` hält sie als Schleife (leicht gehockt, ein Bein vor, Arme zum Ausgleich offen). Die Landung
+# decken `Koerper_Landung_Weich` und `_Hart` (D456) — die Flughaltung endet mit gebeugten Knien, aus der die Landung beginnt.
+def _flug(s=0.0, c=1.0):
+    return dict(koerper=(0.0, 0.0, 0.0), rumpf=(0.0, 8.0 + 1.5 * s),
+                fuss_l=(0.20 + 0.02 * s, 0.0, 0.26 + 0.01 * c, -10.0), fuss_r=(-0.14 - 0.02 * s, 0.0, 0.16, -35.0),
+                arm_l=(-0.30, 0.14 + 0.02 * s, -0.06), arm_r=(0.28, 0.06 - 0.02 * s, -0.12), richt=(0.5, 0.5, -0.7), arm_w=1.0)
+
+
+def _sprung_ab(bild):
+    ab = dict(koerper=(0.0, 0.02, 0.0), rumpf=(0.0, -4.0), fuss_l=(-0.02, 0.0, 0.0, -45.0), fuss_r=(-0.06, 0.0, 0.0, -50.0),
+              arm_l=(-0.10, 0.25, 0.20), arm_r=(0.12, 0.20, 0.10), richt=(0.2, 0.6, 0.77), arm_w=1.0)
+    return _misch(ab, _flug(), _weich((bild - 1.5) / 5.5))
+
+
+_melde('Koerper_Sprung_Ab', 8, 24, _sprung_ab)
+_melde('Koerper_Sprung_Flug', 25, 24, lambda bild: _flug(math.sin(2 * math.pi * (bild - 1) / 24), math.cos(2 * math.pi * (bild - 1) / 24)))
+
+
+# Klettern (ein Zyklus, 1 s = 1 m: `klettern.tempo` 1,0 m/s). Die Wand steht 0,3 m vor der Brust; Hand und Fuss, die
+# greifen, stehen an der Wand — im Raum der Figur wandern sie mit 1 m/s nach unten, während der Körper steigt —, die
+# anderen lösen sich, schwingen von der Wand weg nach oben und greifen 0,5 m höher. Diagonal: rechte Hand mit linkem
+# Fuss. Das Becken pendelt über den tragenden Fuss, der Blick geht nach oben. Die Waffe bleibt in der Hand (die Figur hat
+# keine Scheide) — sie zeigt an der Wand nach oben.
+def _klettern(bild):
+    p = (bild - 1) / 24
+
+    def glied(q, oben, unten, weg):
+        """Phase q: erste Hälfte an der Wand von `oben` nach `unten`, zweite Hälfte gelöst zurück. → (hoch, von der Wand weg)"""
+        if q < 0.5:
+            return oben + (unten - oben) * q / 0.5, 0.0
+        w = (q - 0.5) / 0.5
+        return unten + (oben - unten) * (w * w * (3 - 2 * w)), weg * math.sin(math.pi * w)
+    hr, wr = glied(p % 1, 0.36, -0.14, 0.10)                  # rechte Hand, von der Schulter
+    hl, wl = glied((p + 0.5) % 1, 0.36, -0.14, 0.10)
+    fl, vl = glied(p % 1, 0.50, 0.0, 0.08)                    # linker Fuss greift mit der rechten Hand
+    fr, vr = glied((p + 0.5) % 1, 0.50, 0.0, 0.08)
+    s = math.sin(2 * math.pi * (p - 0.12))
+    return dict(koerper=(0.10, -0.11 + 0.015 * math.cos(4 * math.pi * p), -0.03 * s), rumpf=(5.0 * s, 8.0), kippe=4.0 * s,
+                kopf=(0.0, -24.0), knie=0.45,
+                fuss_l=(0.20 - vl, 0.0, fl, -18.0), fuss_r=(0.20 - vr, 0.0, fr, -18.0),
+                arm_r=(0.06, 0.30 - wr, hr), arm_l=(-0.06, 0.30 - wl, hl), richt=(0.1, 0.15, 0.98), arm_w=1.0)
+
+
+_melde('Koerper_Klettern', 25, 24, _klettern, fuesse='eben')
+
+
+# Schwimmen (Brustschwimmen, ein Zyklus 1,33 s): der Körper liegt (78° vornüber um das Becken), der Kopf bleibt über
+# Wasser. Armzug nach aussen und hinten, Hände unter dem Kinn zusammen, vorstossen und gleiten; Beine ziehen an (Fersen
+# zum Gesäss, Knie auseinander), stossen nach aussen-hinten und schliessen. Die Höhe über der Wurzel bleibt die des
+# Beckens im Stand — die Wasserlinie setzt die Laufzeit. Schwimmtempo ist kein Wert in `content/bewegung.json`
+# (Konstante der Szene); der Clip hat keinen Boden, an dem ein Tempo zu messen wäre.
+def _schwimmen(bild):
+    p = (bild - 1) / 32
+    arm = _k([(0.0, (0.03, 0.06, 0.42)), (0.25, (0.36, 0.10, 0.16)), (0.42, (0.07, 0.20, 0.06)), (0.62, (0.03, 0.08, 0.38)), (1.0, (0.03, 0.06, 0.42))], p)
+    bein = _k([(0.0, (0.0, 0.0, 0.02, -40.0)), (0.25, (0.0, 0.0, 0.03, -35.0)), (0.45, (-0.02, 0.10, 0.36, 15.0)),
+               (0.56, (-0.02, 0.26, 0.20, 15.0)), (0.70, (0.0, 0.03, 0.03, -30.0)), (1.0, (0.0, 0.0, 0.02, -40.0))], p)
+    knie = _k([(0.0, 0.15), (0.25, 0.15), (0.45, 0.9), (0.56, 0.8), (0.70, 0.2), (1.0, 0.15)], p)
+    nick = _k([(0.0, 78.0), (0.25, 71.0), (0.45, 74.0), (0.7, 80.0), (1.0, 78.0)], p)
+    return dict(koerper=(0.0, 0.0, 0.0), rumpf=(0.0, -14.0), kopf=(0.0, -60.0), knie=knie,
+                fuss_l=(bein[0], -bein[1] + 0.03, bein[2], bein[3]), fuss_r=(bein[0], bein[1] - 0.03, bein[2], bein[3]),
+                arm_r=(arm[0], arm[1], arm[2]), arm_l=(-arm[0], arm[1], arm[2]), richt=(0.1, 0.2, 0.97), arm_w=1.0,
+                lage=dict(nick=nick, um=(0.0, 0.0, 0.93), schub=(0.0, 0.0, 0.0)))
+
+
+_melde('Koerper_Schwimmen', 33, 24, _schwimmen, fuesse='eben')
+
+NAMEN = tuple(CLIPS)       # mit den gerechneten Clips
+
+
+def _in_quelle(pose):
+    """Pose in Zielmetern → Meter des Quellskeletts (Körper, Füsse, Lage); Arme stehen schon in Quellmetern."""
+    aus = dict(pose)
+    if 'koerper' in aus:
+        aus['koerper'] = tuple(x / MASS for x in aus['koerper'])
+    for f in ('fuss_l', 'fuss_r'):
+        if f in aus:
+            w = aus[f]
+            aus[f] = ('kreis', w[1], w[2] / MASS) if w[0] == 'kreis' else tuple(x / MASS for x in w[:3]) + tuple(w[3:])
+    if aus.get('lage'):
+        lg = dict(aus['lage'])
+        for f in ('um', 'schub'):
+            if f in lg:
+                lg[f] = tuple(x / MASS for x in lg[f])
+        aus['lage'] = lg
+    return aus
+
+
+def baue_gerechnet(rig, ad, name, basis):
+    """D460: ein Clip, dessen Pose je Bild aus einer Funktion kommt (`RECHNE`)."""
+    r = RECHNE[name]
+    akt = bpy.data.actions.new(name)
+    ad.action = akt
+    vorige = {}
+    ZEHEN[name], KREIS[name] = {}, {}
+    for bild in range(1, r['bilder'] + 1):
+        pose = r['fn'](bild)
+        if pose == 'stand':
+            _setze(rig, basis)
+        else:
+            _pose(rig, basis, _in_quelle(pose), Vector((0, 0, 0)))
+            if pose.get('zehen'):
+                ZEHEN[name][bild] = pose['zehen']
+            kreis = {s: (pose[f][1], pose[f][2]) for s, f in (('l', 'fuss_l'), ('r', 'fuss_r')) if f in pose and pose[f][0] == 'kreis'}
+            if kreis:
+                KREIS[name][bild] = kreis
+        for kn in rig.pb:
+            if kn.rotation_mode != 'QUATERNION':
+                kn.rotation_mode = 'QUATERNION'
+            q = kn.rotation_quaternion.copy()
+            if kn.name in vorige and q.dot(vorige[kn.name]) < 0:
+                q.negate()
+                kn.rotation_quaternion = q
+            vorige[kn.name] = q
+            kn.keyframe_insert('rotation_quaternion', frame=bild)
+            kn.keyframe_insert('location', frame=bild)
+    for fc in _fkurven(akt):
+        for kp in fc.keyframe_points:
+            kp.interpolation = 'LINEAR'
+    ad.action = None
+    tr = ad.nla_tracks.new()
+    tr.name = name
+    st = tr.strips.new(name, 1, akt)
+    if hasattr(st, 'action_slot') and akt.slots:
+        st.action_slot = akt.slots[0]
+    tr.mute = True
+    print(f'  Gerechneter Clip {name}: Bild 1–{r["bilder"]} bei {r["rate"]} Bildern/s' +
+          (f', Beckengrundhöhe {GAENGE[name]["basis"] * 100:+.1f} cm' if name in GAENGE else ''))
     return akt
 
 

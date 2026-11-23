@@ -206,7 +206,8 @@
           "Messer_Quer_B",
           "Messer_Schwer",
           "Messer_Lauf",
-          "Messer_Block"
+          "Messer_Block",
+          "Messer_Trage"
         ],
         "fehlen": []
       },

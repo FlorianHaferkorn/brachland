@@ -34,7 +34,10 @@ pruefe('waffenclips.py: Clips gefunden', clips.size >= 7, `${clips.size}`);
 // ---- menschbau.py baut genau diese Clips mit
 const mb = readFileSync('tools/menschbau.py', 'utf8').match(/ANIM_WAFFEN = \(([^)]*)\)/);
 const mbNamen = mb ? [...mb[1].matchAll(/'(\w+)'/g)].map(m => m[1]).sort() : [];
-pruefe('menschbau.ANIM_WAFFEN = waffenclips.CLIPS', mbNamen.join(',') === [...clips.keys()].sort().join(','),
+// D460: dazu die gerechneten Clips der Fortbewegung (`_melde`, `_gang` — sie stehen nicht als Schlüsselbilder in `CLIPS`).
+const gerechnet = [...py.matchAll(/^_(?:melde|gang)\('(\w+)'/gm)].map(x => x[1]);
+pruefe('D460: vierzehn gerechnete Clips der Fortbewegung', gerechnet.length === 14, gerechnet.join(','));
+pruefe('menschbau.ANIM_WAFFEN = waffenclips.CLIPS', mbNamen.join(',') === [...clips.keys(), ...gerechnet].sort().join(','),
   `${mbNamen.join(',')} gegen ${[...clips.keys()].sort().join(',')}`);
 
 // ---- Jede Waffe: Haltung als Schleife, jeder Schlag mit Scheitel und Durchzug auf Schlüsselbildern
@@ -113,7 +116,7 @@ pruefe('D429: TREFFER trägt die vier Axtschläge', AXTCLIPS.every(n => treffer.
 // Hiebe von oben (kein Querbogen) und Hiebe, die am Boden enden (die Beine fangen die Masse statt eines Bremswegs).
 const VON_OBEN = new Set(['Messer_Schwer', 'Axt_Hieb', 'Axt_Schwer']);
 const AM_BODEN = new Set(['Messer_Schwer', 'Axt_Schwer']);
-pruefe('D414: sieben neue Clips (sechs Messer, ein Gerät)', neueClips.length === 7, neueClips.join(','));
+pruefe('D414: sieben neue Clips (sechs Messer, ein Gerät; dazu seit D460 die Trage-Hut)', neueClips.filter(n => n !== 'Messer_Trage').length === 7, neueClips.join(','));
 for (const n of ['Messer_Stand', 'Geraet_Blasebalg']) {
   const b = clips.get(n)?.bilder ?? [];
   pruefe(`${n} ist eine Schleife, die endet, wie sie beginnt`, clips.get(n)?.art === 'schleife' && b[0] === 1 &&
