@@ -36,6 +36,25 @@ ADR-0004 sagt „fremdes IP tabu — eigene Kreaturen, Namen, Welt". Das gilt we
 - Die Wanderin (D126, Quaternius CC0) bleibt die Spielfigur und wird in diese Richtung
   **eigenständig** weiterentwickelt.
 
+**Nachtrag D431 (23.11.2026, Flo: „formuliere sie so, dass du keine falschen Begründungen abgibst“) — die
+Regel im genauen Wortlaut.** Sie heisst **„keine fremde Gestaltung übernehmen“** und betrifft das, was am
+Spiel als Werk geschützt sein kann oder es unverwechselbar macht:
+
+- *Nicht übernommen werden:* Figuren, Gegner- und Kreaturendesigns, Rüstungen, Waffenentwürfe, Wappen,
+  Namen und Begriffe, Texte, Oberflächen, Musik und Ton, die Gestaltung bestimmter Orte und Level, und
+  **unverwechselbare Bewegungsfolgen einer bestimmten Spielfigur** (eine markante Kombo, eine Signatur-
+  Animation).
+- *Begründung, genau:* (1) **Recht** — solche Gestaltung kann urheber-, marken- oder wettbewerbsrechtlich
+  geschützt sein; Spielregeln und Mechaniken grundsätzlich nicht (Ausnahme: einzelne Mechaniken können in
+  manchen Ländern patentiert sein — bei sehr spezifischen Mechaniken prüfen). (2) **Eigene Identität** — ein
+  Spiel mit fremden Gestalten wird als Nachahmung gelesen.
+- *Ausdrücklich erlaubt:* Regelwerk und Mechaniken; Handwerk (wie ein Spiel Gewicht, Licht, Quests löst);
+  fremde Spiele als Messlatte und Stimmungsreferenz; **reale Bewegungen und Techniken** (Fechtbücher, HEMA,
+  Holzfällerei, Jagd) — sie gehören niemandem.
+- *Nicht von dieser Regel erfasst:* ob ein bestimmtes **Bild, Video oder Modell** benutzt werden darf. Das
+  regeln die Rechte am Material und die Nutzungsbedingungen der Quelle (ADR-0013 Punkt 5), nicht diese
+  Regel. Wer Material ablehnt, nennt den richtigen Grund.
+
 ### 2. Was fällt, was bleibt, was fehlt
 
 **Fällt** (rund 1.950 Zeilen Code, davon 541 getestet, plus rund 695 Zeilen Entwurf):

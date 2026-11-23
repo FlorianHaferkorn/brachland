@@ -154,7 +154,10 @@ ADR-0004 parkt Party-Game (Photoreal seit ADR-0016/D357 nicht mehr geparkt; **St
 **eigenes späteres Projekt** und schließt Online-Multiplayer aus. Echtzeit-Nahkampf mit dem
 Regelwerk der Gattung (Ausdauer, Rolle, Parade, Lock-On, Haltung) ist seit ADR-0007
 entschieden und löst den Soulslike-Park-Punkt aus ADR-0004 für das Regelwerk ab (Nachtrag
-D196); die Gestalt fremder Vorbilder bleibt tabu. Anfragen in die geparkten Richtungen werden
+D196); **fremde Gestaltung wird nicht übernommen** (Figuren, Designs, Namen, Texte, UI, Musik, Orte,
+unverwechselbare Bewegungsfolgen) — Mechaniken, Handwerk und reale Techniken sind frei; Begründung und Grenze
+in ADR-0007 §1 (Nachtrag D431). Ob ein Bild oder Video benutzt werden darf, regelt ADR-0013 Punkt 5, nicht diese
+Regel. Anfragen in die geparkten Richtungen werden
 nicht still umgesetzt, erst ADR-0004 ablösen.
 
 ### Compliance-Check
