@@ -11,9 +11,9 @@
       "trennt": "Drei Linien in der Kette, mittlere Reichweite (2,4 m), höchster Schaden je Sekunde, wenig Haltungsschaden.",
       "reinigen": "Mit steigender Güte sinkt die Reinigungsquote (90 → 70 %, D403): Sie trägt das Tier über die Schwelle.",
       "anker": {
-        "masse": "1,1 kg",
+        "masse": "1,1 kg (Modell 1,21 kg)",
         "laenge": "0,90 m",
-        "quelle": "Einhandschwert im Mittel 1,1 kg, 90 cm, Klinge 75 cm (Wikipedia „Knightly sword“; thearma.org)"
+        "quelle": "Einhandschwert im Mittel 1,1 kg, 90 cm, Klinge 75 cm (Wikipedia „Knightly sword“; thearma.org). Modell seit D421: schlichtes Seitschwert, Klinge 68 cm, Gewicht aus Volumen × Dichte"
       },
       "clips": {
         "vorhanden": [
@@ -42,9 +42,9 @@
       "trennt": "Standfest, wirft, bricht Haltung; langsam; breiter Querhieb gegen Überzahl.",
       "reinigen": "Bricht die Haltung und öffnet damit Griff-Fenster; tötet kleine Tiere aber mit einem Hieb.",
       "anker": {
-        "masse": "1,85 kg",
-        "laenge": "0,80 m",
-        "quelle": "Spaltaxt, Kopf um 1,4 kg, Stiel 80 cm Esche — Überschlag, nicht belegt"
+        "masse": "1,8–2,6 kg (Modell 2,10 kg)",
+        "laenge": "1,00 m",
+        "quelle": "Fällaxt mit 90-cm-Stiel 2,2 kg gesamt, Kopf um 1,4 kg, Schneide 11,5 cm (Gränsfors American Felling Axe, Händlerangaben). Modell seit D421: Forstaxt, eine Schneide, Eschenstiel"
       },
       "clips": {
         "vorhanden": [
@@ -72,9 +72,9 @@
       "trennt": "Weiteste Reichweite (3,1–4,0 m), schmaler Stich, weiter Rückstoss, wenig Schaden je Sekunde; gegen drei fehlt der Bogen.",
       "reinigen": "Hält auf Abstand — die Marke braucht 1,8 m Nähe: Man muss den Abstand selbst wieder aufgeben.",
       "anker": {
-        "masse": "1,44 kg",
-        "laenge": "2,0 m",
-        "quelle": "Saufeder um 2 m mit Knebel — Überschlag, nicht belegt"
+        "masse": "1,3–2,2 kg (Modell 1,57 kg)",
+        "laenge": "2,26 m",
+        "quelle": "Saufeder Schloss Rheydt Inv. W 40+41 (1600–1800): 203 cm, Eisen 35,3 cm, kein Gewicht genannt → Überschlag. Modell seit D421: Blatt mit Grat, Knebel aus Horn, Eschenschaft"
       },
       "clips": {
         "vorhanden": [
@@ -101,9 +101,9 @@
       "trennt": "Kürzeste Reichweite, kürzeste Fenster, wenig Schaden je Treffer, geringe Kosten; kein schwerer Hieb, dafür ein Stich mit kurzem Vorlauf.",
       "reinigen": "Die Waffe des Heilers: Kleine Treffer bringen ein Tier an die Schwelle, ohne es darüber zu tragen (D403: kurzes Blatt 88 % gereinigt, Zweck dort aber ungenutzt).",
       "anker": {
-        "masse": "0,6–0,8 kg",
-        "laenge": "0,55–0,70 m",
-        "quelle": "Hirschfänger, jagdliche Seitenwaffe mit 40–70 cm Klinge — Überschlag, nicht belegt"
+        "masse": "0,4–0,6 kg (Modell 0,59 kg)",
+        "laenge": "0,62–0,65 m (Modell 0,65 m)",
+        "quelle": "DHM Inv. W 70/71: Klinge 49,5 cm, gesamt 62,5 cm (kein Gewicht genannt). Gewicht Überschlag; das Modell rechnet Volumen × Dichte (Stahl, Messing, Hirschhorn), tools/waffenmodelle.py, D414"
       },
       "clips": {
         "vorhanden": [
@@ -195,21 +195,20 @@
       "trennt": "Zweihändig, breiteste Bögen, mehr Reichweite und Wucht als die Klinge, langsamer, teurer in der Ausdauer; die Antwort auf das Rudel.",
       "reinigen": "Schlecht: breite Hiebe treffen auch das Tier, das man schonen wollte.",
       "anker": {
-        "masse": "1,2–1,8 kg",
-        "laenge": "1,1–1,3 m",
-        "quelle": "Kriegsmesser/Langes Messer, zweihändig, süddeutsch, 15.–16. Jh. — Überschlag, nicht belegt"
+        "masse": "1,2–1,6 kg (Modell 1,39 kg)",
+        "laenge": "1,1–1,2 m (Modell 1,17 m)",
+        "quelle": "Nachbau 15. Jh.: Klinge 82, gesamt 111 cm; einhändige Messer 0,9–1,1 kg bei 62 cm Klinge (Wikipedia „Messer (weapon)“). Gewicht Überschlag; Modell aus Volumen × Dichte, tools/waffenmodelle.py, D414"
       },
       "clips": {
         "vorhanden": [
-          "Klinge_U_C"
-        ],
-        "fehlen": [
-          "Messer_Stand (zweihändig)",
+          "Messer_Stand",
           "Messer_Quer_A",
           "Messer_Quer_B",
+          "Messer_Schwer",
           "Messer_Lauf",
           "Messer_Block"
-        ]
+        ],
+        "fehlen": []
       },
       "messung": "Kampfbot gegen Rudel (zwei und drei Tiere) — dort liegt ihr Zweck",
       "erwerb": "Region 2, Linie des Erbes",

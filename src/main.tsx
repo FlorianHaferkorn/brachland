@@ -17,9 +17,10 @@ import type { Stoecke } from './spieler/steuerung.js';
 import { neueAusdauer, type Ausdauer } from './spieler/ausdauer.js';
 import type { Vorkommen } from './world/vorkommen.js';
 import { KREATUREN, REGENTEN, GEGENSTAENDE, FRAGMENTE, ORTE, AUFTRAEGE, STREUNENDE, REGIONEN, WANDERFIGUREN,
-         baueKaempfer, baueRegent, regentOrt, nachMetern, regionsMasse, ausKaempferId } from './data/inhalte.js';
+         REVIERWELT, REVIERREGELN, baueKaempfer, baueRegent, regentOrt, nachMetern, regionsMasse, ausKaempferId } from './data/inhalte.js';
 import { NARBE, type Ort } from './data/schema.js';
 import { stationVon } from './spiel/wanderfiguren.js';
+import { ladungNachRast, unberuehrtAnteilVon, vermerkeBegegnung, werteRastAus, type Begegnung } from './spiel/reviere.js';
 import { Ortsfenster } from './ui/Ortsfenster.js';
 import { Stube } from './ui/Stube.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
@@ -28,6 +29,8 @@ import { Menue } from './ui/Menue.js';
 import { verschiebe, zustandsAnzeige } from './spiel/team.js';
 import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
 import { gleiterFrei as gleiterOffen, GLEIT_VERHAELTNIS } from './spieler/gleiten.js';
+import { BEWEGUNG } from './spieler/tempo.js';
+import { koerperFolge } from './spieler/bewegung.js';
 import { reitsitz } from './world/kreaturgestalt.js';
 import { erfahrungAusSieg, gutschrift, mutationBei } from './spiel/fortschritt.js';
 import { beute } from './spiel/gegenstaende.js';
@@ -39,9 +42,13 @@ import { HeldEditor } from './ui/HeldEditor.js';
 import { GALERIE, galerieAuto } from './kampf/Kampfplatz.js';
 import { angebot, bezahlbar, bezahle, KEINE_STUFEN, FUNKE_PREIS, FUNKE_REGENT } from './spiel/schmiede.js';
 import type { GegnerArt } from './kampf/Kampfplatz.js';
+import type { Kampfbericht } from './kampf/kampfende.js';
+import { folgenDerBegegnung, teileBeute, SCHMIEDE_WAEHRUNG } from './spiel/begegnungen.js';
+import { markenFassung, markenLadung } from './spiel/marke.js';
 import { setzeHeldWahl, STANDARD_HELD } from './spieler/held.js';
-import { ladeStand, speichereStand, LEERER_STAND,
+import { ladeStand, speichereStand, LEERER_STAND, letzteMeldungen,
          type Spielstand, type TeamEintrag } from './spiel/spielstand.js';
+import { MELDUNG_KONTEXT, MELDUNG_KONTEXT_ZURUECK, sollSichern } from './spiel/spielphase.js';
 import { benutzeBildrate } from './spiel/bildrate.js';
 import { AKTIVE_REGION, adresseFuer, ankunft, inRegion, nachbarAn, type Seite } from './spiel/region.js';
 
@@ -299,6 +306,8 @@ function App() {
     let abgebrochen = false;
     ladeStand().then(geladen => {
       if (abgebrochen) return;
+      // D415: Migriert, Rückfall auf die Rast, Sicherung aufbewahrt, Speicher gesperrt — nie mehr still.
+      if (letzteMeldungen.length) setHinweis(letzteMeldungen[0]);
       const s = geladen ?? {
         ...LEERER_STAND,
         team: [{ kreatur: START_KREATUR, stufe: 3, erfahrung: 0, kp: 0 }],
@@ -405,12 +414,14 @@ function App() {
    * Speichern, und jede neue Liste baut die Marken der Szene neu.
    */
   const figurOrte = useMemo<Ort[]>(() => (stand ? HIESIGE_WANDERFIGUREN.flatMap(f => {
-    const i = stationVon(f, { ...stand, gereinigt: stand.gefangen });
+    // D416: Der Zähler „vertraut“ nur, solange genug Reviere unberührt sind (`misstraut` an seiner Station).
+    // D417: `gereinigt` steht seit Migration v4 im Stand (vorher reichte `gefangen` durch, D375).
+    const i = stationVon(f, { ...stand, unberuehrtAnteil: unberuehrtAnteilVon(REVIERWELT, stand) });
     if (i === null) return [];
     const s = f.stationen[i];
     return [{ id: `wanderfigur-${f.id}`, region: f.region, art: 'bewohner' as const, name: f.name,
               ort: s.ort, text: s.text, figur: f.figur, blick: s.blick, farben: f.farben }];
-  }) : []), [stand?.fragmente, stand?.regenten, stand?.geheilt, stand?.auftraege, stand?.besiegt, stand?.gefangen]);
+  }) : []), [stand?.fragmente, stand?.regenten, stand?.geheilt, stand?.auftraege, stand?.besiegt, stand?.gefangen, stand?.gereinigt, stand?.begegnungen]);
   /** Ort oder Wanderfigur zu einer ID aus der Szene. */
   const ortVon = (id: string | null): Ort | undefined =>
     (id ? ORTE.get(id) ?? figurOrte.find(o => o.id === id) : undefined);
@@ -468,35 +479,94 @@ function App() {
   const spielerSprung = useRef<[number, number, number?] | null>(null);
   const tageszeitRef = useRef(tageszeit); tageszeitRef.current = tageszeit;
   const teamRef = useRef(team); teamRef.current = team;
-  const sichereRef = useRef<((a: Partial<Spielstand>, t: Kaempfer[]) => void) | null>(null);
+  const sichereRef = useRef<((a: Partial<Spielstand>, t: Kaempfer[], rast?: boolean) => void) | null>(null);
   const weltKampfRef = useRef(weltKampf);
   weltKampfRef.current = weltKampf;
-  const kampfVorbei = useCallback((sieg: boolean) => {
+  /** Läuft irgendein Kampf? Für das Sichern beim Verbergen (D415: nie im Kampf, Doc §7.1). */
+  const kampfLaeuftRef = useRef(false);
+  const sichereStillRef = useRef<(() => void) | null>(null);
+  kampfLaeuftRef.current = begegnung !== null || regentKampf !== null || weltKampf !== null;
+
+  // D415: Sichern bei `visibilitychange → hidden` und `pagehide` (letzte Gelegenheit vor dem Schliessen)
+  // und alle 60 s die Position — nie im Kampf, nie bei Messadressen (die setzen die Figur von Hand ab).
+  // Die echte Pause beim Verbergen ist entschieden (A-29 (1)), aber nicht verdrahtet: Ohne
+  // Pausenbildschirm mit „Fortsetzen“ stünde das Spiel danach still (`spiel/spielphase.ts`). Die
+  // Bildschleife hält der Browser in einem verborgenen Tab ohnehin an.
+  useEffect(() => {
+    if (MESSADRESSE) return;
+    const jetztSichern = (anlass: 'verborgen' | 'pagehide' | 'zeit') => {
+      if (!standRef.current || !sollSichern(anlass, kampfLaeuftRef.current)) return;
+      sichereStillRef.current?.();
+    };
+    const sicht = () => { if (document.visibilityState === 'hidden') jetztSichern('verborgen'); };
+    const weg = () => jetztSichern('pagehide');
+    const takt = setInterval(() => jetztSichern('zeit'), 60_000);
+    document.addEventListener('visibilitychange', sicht);
+    window.addEventListener('pagehide', weg);
+    return () => { clearInterval(takt); document.removeEventListener('visibilitychange', sicht); window.removeEventListener('pagehide', weg); };
+  }, []);
+  // D415: Verlorener WebGL-Kontext wird gemeldet statt still zu sterben. three.js ruft selbst
+  // `preventDefault()` und baut nach `webglcontextrestored` wieder auf; hier nur die Meldung. Die
+  // Ereignisse steigen nicht auf — die Erfassungsphase am `window` sieht sie trotzdem.
+  useEffect(() => {
+    const verloren = () => setHinweis(MELDUNG_KONTEXT);
+    const zurueck = () => setHinweis(MELDUNG_KONTEXT_ZURUECK);
+    window.addEventListener('webglcontextlost', verloren, true);
+    window.addEventListener('webglcontextrestored', zurueck, true);
+    return () => { window.removeEventListener('webglcontextlost', verloren, true); window.removeEventListener('webglcontextrestored', zurueck, true); };
+  }, []);
+  /**
+   * D179: Aufwachen in der letzten Zuflucht — mit vollem Leben, ohne Beute. Seit D412 auch nach
+   * einem tödlichen Sturz oder wenn die Kälte im tiefen Wasser das Leben aufgebraucht hat; gibt
+   * zurück, ob es eine Zuflucht gab.
+   */
+  const wacheAuf = useCallback((zusatz = '') => {
+    const zid = standRef.current?.letzteZuflucht ?? ZUFLUCHT_PROBE;
+    const z = zid ? ORTE.get(zid) : undefined;
+    const wd = weltRef.current;
+    if (!z || !wd) return false;
+    const [x, zz] = nachMetern(z.ort, wd.bbox);
+    const [ax, az] = z.aufwachen ?? [2, 2];
+    // D183: Blick zur Hütte — wer aufwacht, sieht zuerst, wo er ist (0 = −Z, positiv nach links).
+    spielerSprung.current = [x + ax, zz + az, Math.atan2(ax, az)];
+    setHinweis(`${zusatz}Du wachst in ${z.name} auf. Irgendwer hat dich hergebracht.`);
+    return true;
+  }, []);
+  const kampfVorbei = useCallback((sieg: boolean, zusatz = '', bericht?: Kampfbericht) => {
     // Aus einer Ref gelesen, nicht im Updater: StrictMode ruft Updater doppelt — Beute und
     // `besiegt` kämen sonst zweimal in den Stand.
     const alt = weltKampfRef.current;
+    // D413: Ref sofort leeren — ein zweiter Ruf vor dem nächsten Rendern (Sturz und Kampfende im
+    // selben Augenblick) findet dann keinen Kampf mehr und tut nichts.
+    weltKampfRef.current = null;
     setWeltKampf(null);
     if (!alt) return;
+    // D417: Wer getötet und wer gereinigt ist, gilt auch nach einer Niederlage — und die Ladung der
+    // Marke ist verbraucht. Jedes Ende geht als Begegnung an die Reviere (D416, `meldeBegegnungRef`, unten).
+    const st0 = standRef.current;
+    const folgen = st0 && bericht ? folgenDerBegegnung(st0, bericht, { begegnung: alt.id, region: AKTIVE_REGION, zeit: Date.now() }) : null;
+    const reinText = (folgen?.gereinigt ? ` ${folgen.gereinigt === 1 ? 'Ein Tier ist' : `${folgen.gereinigt} Tiere sind`} gereinigt.` : '')
+      // D426: wer aufgab und ging
+      + (folgen?.verschont ? ` ${folgen.verschont === 1 ? 'Einer hat aufgegeben und ist gegangen' : `${folgen.verschont} haben aufgegeben und sind gegangen`}.` : '');
     if (!sieg) {
       lagerRuhe.current.add(alt.id);
+      if (folgen) {
+        sichereRef.current?.({ gereinigt: folgen.stand.gereinigt, besiegt: folgen.stand.besiegt, marke: folgen.stand.marke }, teamRef.current);
+        for (const e of folgen.ereignisse) meldeBegegnungRef.current(e);
+      }
       // D179: Niederlage heisst Aufwachen in der letzten Zuflucht — mit vollem Leben, ohne Beute.
-      const zid = standRef.current?.letzteZuflucht ?? ZUFLUCHT_PROBE;
-      const z = zid ? ORTE.get(zid) : undefined;
-      const wd = weltRef.current;
-      if (z && wd) {
-        const [x, zz] = nachMetern(z.ort, wd.bbox);
-        const [ax, az] = z.aufwachen ?? [2, 2];
-        // D183: Blick zur Hütte — wer aufwacht, sieht zuerst, wo er ist (0 = −Z, positiv nach links).
-        spielerSprung.current = [x + ax, zz + az, Math.atan2(ax, az)];
-        setHinweis(`Du wachst in ${z.name} auf. Irgendwer hat dich hergebracht.`);
-      } else setHinweis('Zurückgeschlagen — sie warten noch.');
+      if (!wacheAuf(`${zusatz}${reinText.trim() ? `${reinText.trim()} ` : ''}`)) setHinweis(`${zusatz}Zurückgeschlagen — sie warten noch.${reinText}`);
       return;
     }
-    const st = standRef.current;
+    const st = folgen?.stand ?? st0;
     if (!st || !lagerOffen(st, alt.id)) return;
     const beutel = { ...st.beutel };
     const mal = alt.nacht ? 2 : 1;
-    for (const [g, n] of Object.entries(alt.beute)) beutel[g] = (beutel[g] ?? 0) + n * mal;
+    // D379: Material nur von Getöteten — was ein Gereinigter getragen hätte, bleibt bei ihm (`teileBeute`).
+    const doppelt = Object.fromEntries(Object.entries(alt.beute).map(([g, n]) => [g, n * mal]));
+    const istMaterial = (g: string) => SCHMIEDE_WAEHRUNG.has(g) || GEGENSTAENDE.get(g)?.wirkung.art === 'material';
+    const erbeutet = bericht ? teileBeute(doppelt, bericht, istMaterial) : doppelt;
+    for (const [g, n] of Object.entries(erbeutet)) beutel[g] = (beutel[g] ?? 0) + n;
     // D177: Erfahrung wie nach einem Kampf in der Welt — für den ersten stehenden Kämpfer im Team
     // (dieselbe Regel wie `belohne`: Wechseln hat seinen Preis). Wer mitgekommen ist, lernt zuzusehen.
     const tm = teamRef.current;
@@ -516,10 +586,36 @@ function App() {
         stufenText = auf.mutiert ? ` ${k.name} wird zu ${neu.name}.` : ` ${neu.name} erreicht Stufe ${auf.stufe}.`;
       }
     }
-    sichereRef.current?.({ lagerSieg: { ...(st.lagerSieg ?? {}), [alt.id]: Date.now() }, beutel }, teamNeu);
-    const liste = Object.entries(alt.beute).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n * mal}`).join(', ');
-    setHinweis(`Das Lager ist still. Du nimmst: ${liste}.${stufenText}`);
-  }, []);
+    sichereRef.current?.({ lagerSieg: { ...(st.lagerSieg ?? {}), [alt.id]: Date.now() }, beutel,
+      gereinigt: st.gereinigt, besiegt: st.besiegt, marke: st.marke }, teamNeu);
+    const liste = Object.entries(erbeutet).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n}`).join(', ');
+    // D416 → D417: je Gegner eine Begegnung an die Reviere — nach dem Sichern, damit die Updater aufeinander aufbauen.
+    for (const e of folgen?.ereignisse ?? []) meldeBegegnungRef.current(e);
+    setHinweis(`Das Lager ist still.${reinText} ${liste ? `Du nimmst: ${liste}.` : 'Es bleibt nichts zu nehmen.'}${stufenText}`);
+  }, [wacheAuf]);
+  /**
+   * D412: Folgen für den Körper aus der Bewegung (`spieler/bewegung.ts`) — Sturz und Kälte. Leben
+   * gibt es ausserhalb des Kampfs noch nicht; deshalb hat nur „aufgebraucht“ eine Folge, alles
+   * darunter ist ein Hinweis. D413: In einem laufenden Kampf in der Welt endet er als Niederlage
+   * über `kampfVorbei` (die Figur springt nicht mitten aus dem Kampf in die Zuflucht); auf dem
+   * Übungsplatz bleibt es beim Hinweis. Entschieden von `koerperFolge` in `spieler/bewegung.ts`.
+   * Arbeitswerte, nicht am M1 gespielt.
+   */
+  const koerperFolgeMelden = useCallback((art: 'sturz' | 'kaelte', leben: number) => {
+    const grund = art === 'sturz' ? 'Der Sturz war zu tief.' : 'Das Wasser hat dich ausgekühlt.';
+    const folge = koerperFolge(leben, weltKampfRef.current ? 'welt' : KAMPFPLATZ ? 'platz' : null);
+    if (folge === 'niederlage') kampfVorbei(false, `${grund} `);
+    else if (folge === 'aufwachen') { if (!wacheAuf(`${grund} `)) setHinweis(grund); }
+    else if (leben <= 0) setHinweis(grund);
+    else if (art === 'sturz') setHinweis(leben < 0.5 ? 'Hart aufgekommen. Das hat geschadet.' : 'Hart aufgekommen.');
+    else setHinweis('Die Kälte zieht in die Glieder. Raus aus dem tiefen Wasser.');
+  }, [wacheAuf, kampfVorbei]);
+  /** D417: Kampfende aus der Szene — mit Bericht je Gegner (getötet / gereinigt, Markenladung). */
+  const kampfEndeMelden = useCallback((sieg: boolean, bericht: Kampfbericht) => kampfVorbei(sieg, '', bericht), [kampfVorbei]);
+  /** D417: die Marke für den Kampf in der Welt; abgeleitet, nicht gespeichert (`spiel/marke.ts`). */
+  const kampfMarke = useMemo(() => (stand && weltKampf ? {
+    ladung: markenLadung(stand), fassung: markenFassung(stand), reinkultur: (stand.beutel.reinkultur ?? 0) > 0,
+  } : undefined), [stand, weltKampf]);
 
   /**
    * Das Team als Reitkandidaten — Bauform und Mutation je Platz.
@@ -580,11 +676,10 @@ function App() {
     [stand],
   );
 
-  const sichere = useCallback((aenderung: Partial<Spielstand>, teamJetzt: Kaempfer[]) => {
-    setStand(alt => {
-      if (!alt) return alt;
+  /** Stand mit Änderung, aktueller Position und dem Team in Speicherform. */
+  const standMit = useCallback((alt: Spielstand, aenderung: Partial<Spielstand>, teamJetzt: Kaempfer[]): Spielstand => {
       const p = spielerRef.current?.position;
-      const neu: Spielstand = {
+      return {
         ...alt,
         ...aenderung,
         position: p ? [p.x, p.z] : alt.position,
@@ -602,11 +697,40 @@ function App() {
           };
         }),
       };
-      void speichereStand(neu);
+  }, []);
+  /** `rast` (D415, A-29 (7)): auch die Fassung der letzten Rast schreiben, auf die das Laden zurückfällt. */
+  const sichere = useCallback((aenderung: Partial<Spielstand>, teamJetzt: Kaempfer[], rast = false) => {
+    setStand(alt => {
+      if (!alt) return alt;
+      const neu = standMit(alt, aenderung, teamJetzt);
+      void speichereStand(neu, { rast });
       return neu;
     });
-  }, []);
+  }, [standMit]);
   sichereRef.current = sichere;
+  /**
+   * D416 → D417, **Haken für den Kampf:** je Tier am Ende einer Begegnung `meldeBegegnungRef.current({ art: 'getoetet' |
+   * 'gereinigt' | 'umgangen', gegnerId, region, x, z, zeit })` rufen. Schreibt die Meldung in `stand.begegnungen`
+   * (`spiel/reviere.ts` `vermerkeBegegnung`); das Revier folgt aus der Lage. Dieselbe Meldung zweimal zählt einmal —
+   * der Updater darf unter StrictMode doppelt laufen. Seit D417 ruft `kampfVorbei` es je Gegner (`spiel/begegnungen.ts`
+   * `folgenDerBegegnung`, gleiche ID wie in `gereinigt`/`besiegt`).
+   */
+  const meldeBegegnungRef = useRef<(e: Begegnung) => void>(() => {});
+  meldeBegegnungRef.current = (e: Begegnung) => setStand(alt => {
+    if (!alt) return alt;
+    const neu = vermerkeBegegnung(alt, e);
+    if (neu !== alt) void speichereStand(neu);
+    return neu;
+  });
+  /**
+   * D415: Nur schreiben, ohne React-Zustand — für das Sichern beim Verbergen und alle 60 s. Über
+   * `setStand` liefe jedes Mal die ganze Szene mit neuen Props durch (`verbraucht`, Aufträge …); die
+   * Position steht ohnehin bei jeder nächsten Tat neu im Stand.
+   */
+  sichereStillRef.current = () => {
+    const alt = standRef.current;
+    if (alt) void speichereStand(standMit(alt, {}, teamRef.current));
+  };
 
   /** Schmiede (D177): Beute aus dem Beutel gegen die nächste Waffenstufe. */
   const schmiede = useCallback((waffe: 'klinge' | 'axt' | 'speer') => {
@@ -643,7 +767,7 @@ function App() {
       // D392: Bei einer Wanderfigur zusätzlich die Station vermerken (`wanderfigur-<id>:<n>`) — das Heft
       // (`spiel/notizbuch.ts`) hält fest, was sie **dort** gesagt hat, auch wenn sie längst weitergezogen ist.
       const figur = HIESIGE_WANDERFIGUREN.find(f => `wanderfigur-${f.id}` === id);
-      const station = figur ? stationVon(figur, { ...alt, gereinigt: alt.gefangen }) : null;
+      const station = figur ? stationVon(figur, { ...alt, unberuehrtAnteil: unberuehrtAnteilVon(REVIERWELT, alt) }) : null;
       const dazu = [id, ...(station === null ? [] : [`${id}:${station}`])].filter(x => !alt.orte.includes(x));
       if (dazu.length === 0) return alt;
       const neu = { ...alt, orte: [...alt.orte, ...dazu] };
@@ -826,17 +950,21 @@ function App() {
     // D179: Hier wacht man auf, wenn ein Wegelager einen schlägt.
     const hier = ortOffen;
     setOrtOffen(null);
-    sichere(hier ? { letzteZuflucht: hier } : {}, voll);
+    // D416: Die Rast wertet die Reviere aus (leergetötet, Verhärtung, Nachwachsen) und hält das Ergebnis im Stand.
+    // In der Welt setzt es noch niemand um — `verteileKreaturen` hat keinen Haken für Zuwanderer und Verhärtete.
+    const rast = werteRastAus(REVIERWELT, stand, REVIERREGELN, { geheilt: !!stand.geheilt?.includes(REGENT_ID) });
+    // D417 (Reinigen v1 §4 A3, D379): Die Rast in der Zuflucht füllt die Marke auf ihre Fassung (`ladungNachRast`, D416).
+    const marke = { ladung: ladungNachRast({ ladung: markenLadung(stand), fassung: markenFassung(stand), zuflucht: true, ruhig: false }, REVIERREGELN) };
+    sichere({ reviere: rast.reviere, marke, ...(hier ? { letzteZuflucht: hier } : {}) }, voll, true);
   }, [stand, team, sichere, ortOffen]);
 
   /** Was der Spieler getan hat — die einzige Quelle für den Auftragsfortschritt. */
   const taten = useMemo<Taten>(() => ({
     besiegt: stand?.besiegt ?? [],
     gefangen: stand?.gefangen ?? [],
-    // D375: Aufträge zählen „gereinigt“ (Story-Bibel v2 §2). Bis die Kampfhandlung dafür steht und
-    // einen eigenen Eintrag schreibt, gilt das alte Aufnehmen als Reinigung — sonst wären die
-    // Aufträge der Alten, der Tremmel und am Werkstor unerfüllbar.
-    gereinigt: stand?.gefangen ?? [],
+    // D417: echte Reinigungen aus dem Echtzeitkampf. Migration v3 hat die alten `gefangen` übernommen
+    // (bis D417 zählte das Aufnehmen, D375) — neues Aufnehmen im Rundenkampf zählt nicht mehr (A-39).
+    gereinigt: stand?.gereinigt ?? [],
     fragmente: stand?.fragmente ?? [],
     regenten: stand?.regenten ?? [],
     geheilt: stand?.geheilt ?? [],
@@ -938,6 +1066,8 @@ function App() {
         onRegentNah={setRegentNah}
         gleiterFrei={gleiterFrei}
         onGleiten={setGleitet}
+        anzug={(stand.beutel[BEWEGUNG.kaelte.anzug] ?? 0) > 0}
+        onKoerper={koerperFolgeMelden}
         fundstellen={fundstellen}
         gelesen={gelesen}
         onFund={findeFragment}
@@ -955,7 +1085,8 @@ function App() {
         kampfplatz={KAMPFPLATZ || !!weltKampf}
         kampfAufstellung={weltKampf?.aufstellung ?? KAMPF_AUFSTELLUNG}
         kampfStand={kampfStand}
-        kampfEnde={weltKampf ? kampfVorbei : undefined}
+        kampfEnde={weltKampf ? kampfEndeMelden : undefined}
+        kampfMarke={kampfMarke}
         kampfNacht={weltKampf?.nacht}
         kampfRichtung={stand.richtungskampf !== false}
         spielerSprung={spielerSprung}

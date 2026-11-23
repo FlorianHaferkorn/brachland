@@ -29,10 +29,12 @@ import { readFileSync } from 'node:fs';
 import { entpackeWelt } from '../src/world/osm.js';
 import { baueHoehenfeld, hoeheAufFlaeche } from '../src/world/lod.js';
 
+import { RENNEN } from '../src/spieler/tempo.js';
+
 /** Aus `RegionsSzene.tsx` — bewusst hier gespiegelt, weil das Modul React lädt. */
 const SCHWERKRAFT = 9.81;
 const ABSPRUNG = 5.4;
-const RENNEN = 11.0;
+/** Das Renntempo kommt seit D412 aus `content/bewegung.json` (über `tempo.ts`): 8,5 m/s, bis D412 11,0. */
 const GEHEN_MAX_GRAD = 40;
 /** Scheitelhöhe des Absprungs: v²/2g. Von dort beginnt der Flug. */
 const SPRUNGSCHEITEL = (ABSPRUNG * ABSPRUNG) / (2 * SCHWERKRAFT);
@@ -42,7 +44,7 @@ const SPRUNGSCHEITEL = (ABSPRUNG * ABSPRUNG) / (2 * SCHWERKRAFT);
 const SINKRATE = 4.0;
 /** Horizontal:vertikal. Ein 3:1-Gleiter kommt aus 100 m 300 m weit. */
 const VERHAELTNISSE = [2, 3, 4] as const;
-/** Renntempo für den Fußweg-Vergleich. Vorgabe; im Repo steht RENNEN = 11,0. */
+/** Renntempo für den Fußweg-Vergleich. Vorgabe dieser Messung (G-44); im Repo steht RENNEN (seit D412 8,5). */
 const RENNTEMPO = 7.0;
 /** Der Fußweg ist keine Gerade — Luftlinie mal Umwegfaktor. */
 const UMWEG = 1.4;
@@ -244,7 +246,7 @@ for (const v of VERHAELTNISSE) {
               `  (n=${b.length})`);
 }
 // Gegenprobe mit dem Tempo, das wirklich im Code steht.
-console.log(`   Gegenprobe mit RENNEN = ${RENNEN} m/s aus RegionsSzene.tsx:`);
+console.log(`   Gegenprobe mit RENNEN = ${RENNEN} m/s aus content/bewegung.json:`);
 for (const v of VERHAELTNISSE) {
   const b = besten.get(v)!.filter(x => x.weite > 0);
   const spar = b.map(x => (x.weite * UMWEG) / RENNEN - x.abstieg / SINKRATE);

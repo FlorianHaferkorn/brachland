@@ -9,6 +9,7 @@
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { WAFFEN } from '../src/kampf/echtzeit.js';
+import { nachschwung, waffenkoerper } from '../src/kampf/gewicht.js';
 
 let bestanden = 0, gefallen = 0;
 function pruefe(name: string, ok: boolean, hinweis = '') {
@@ -79,6 +80,160 @@ for (const [art, w] of Object.entries(WAFFEN)) {
     const ende = Math.max(...c.bilder);
     pruefe(`${art}/${s.name}: nach dem Durchzug bleibt Erholung im Clip (≥ 8 Bilder)`, ende - db >= 8, `${ende} - ${db}`);
   }
+}
+
+// ---- D414: Langes Messer und Räucherkanne. Es gibt noch keine Kampfwerte (D407 misst) — Scheitel und Durchzug
+// stehen deshalb in `TREFFER` in waffenclips.py, und die Physik der Hiebe (D398) wird an den Schlüsseln geprüft.
+const schluessel = new Map<string, Map<number, string>>();
+{
+  let clip: string | null = null, bild = 0;
+  for (const z of py.split('\n')) {
+    const kopf = z.match(/^ {4}'(\w+)': \((?:'\w+'|KLINGE_BASIS), '(\w+)', \[/);
+    if (kopf) { clip = kopf[1]; schluessel.set(clip, new Map()); continue; }
+    if (!clip) continue;
+    if (/^ {4}\]\),?$/.test(z) || /^\}/.test(z)) { clip = null; continue; }
+    const k = z.match(/^ {8}\((\d+), (.*)$/);
+    if (k) { bild = Number(k[1]); schluessel.get(clip)!.set(bild, k[2]); continue; }
+    if (bild && /^ {9,}\S/.test(z)) schluessel.get(clip)!.set(bild, schluessel.get(clip)!.get(bild) + ' ' + z.trim());
+  }
+}
+const feld = (text: string | undefined, name: string): number[] | null => {
+  const m = text?.match(new RegExp(`\\b${name}=\\(([^)]*)\\)`)) ?? text?.match(new RegExp(`\\b${name}=(-?[\\d.]+)`));
+  return m ? m[1].split(',').map(Number) : null;
+};
+const tm = py.match(/^TREFFER = \{([^}]*)\}/m);
+const treffer = new Map<string, [number, number]>(
+  tm ? [...tm[1].matchAll(/'(\w+)': \((\d+), (\d+)\)/g)].map(m => [m[1], [Number(m[2]), Number(m[3])]]) : []);
+pruefe('TREFFER: vier Messerhiebe', ['Messer_Quer_A', 'Messer_Quer_B', 'Messer_Schwer', 'Messer_Lauf'].every(n => treffer.has(n)),
+  [...treffer.keys()].join(','));
+const neueClips = [...clips.keys()].filter(n => /^(Messer|Geraet)_/.test(n));
+pruefe('D414: sieben neue Clips (sechs Messer, ein Gerät)', neueClips.length === 7, neueClips.join(','));
+for (const n of ['Messer_Stand', 'Geraet_Blasebalg']) {
+  const b = clips.get(n)?.bilder ?? [];
+  pruefe(`${n} ist eine Schleife, die endet, wie sie beginnt`, clips.get(n)?.art === 'schleife' && b[0] === 1 &&
+    schluessel.get(n)?.get(1)?.replace(/^dict\(/, '') === schluessel.get(n)?.get(Math.max(...b))?.replace(/^dict\(/, ''));
+}
+const scheitelVon = (art: string, name: string) => {
+  const w = WAFFEN[art as keyof typeof WAFFEN];
+  return 24 * ([...w.leicht, w.schwer, w.lauf].find(s => s.name === name)?.hieb?.scheitel ?? NaN);   // Regel in s, Clip in Bildern
+};
+const klingeLeicht = Math.max(scheitelVon('klinge', 'Hieb'), scheitelVon('klinge', 'Rückhand'));
+const axtQuer = scheitelVon('axt', 'Querhieb'), axtSchwer = scheitelVon('axt', 'Spalthieb');
+for (const [n, [s, d]] of treffer) {
+  const c = clips.get(n), k = schluessel.get(n);
+  pruefe(`${n}: gebaut`, !!c && !!k);
+  if (!c || !k) continue;
+  pruefe(`${n}: Scheitel ${s} und Durchzug ${d} liegen auf Schlüsseln`, c.bilder.includes(s) && c.bilder.includes(d), c.bilder.join(','));
+  pruefe(`${n}: nach dem Durchzug ≥ 8 Bilder Erholung`, Math.max(...c.bilder) - d >= 8);
+  // Füsse stehen: vom Scheitel bis zum Durchzug dieselben Fusslagen in jedem Schlüssel.
+  const imSchlag = c.bilder.filter(b => b >= s && b <= d);
+  for (const f of ['fuss_l', 'fuss_r']) {
+    const lagen = new Set(imSchlag.map(b => JSON.stringify(feld(k.get(b), f))));
+    pruefe(`${n}: ${f} steht vom Scheitel bis zum Durchzug`, lagen.size === 1, [...lagen].join(' | '));
+  }
+  // Gewicht verlagern: der Körper wandert im Schlag nach vorn.
+  const vS = feld(k.get(s), 'koerper')?.[0] ?? 0, vD = feld(k.get(d), 'koerper')?.[0] ?? 0;
+  pruefe(`${n}: Gewicht wandert nach vorn (koerper v ${vS} → ${vD})`, vD > vS + 0.1);
+  // Die Hüfte führt: Im Scheitel ist das Becken schon in Schlagrichtung gedreht (Querhiebe und Lauf).
+  const rS = feld(k.get(s), 'rumpf')?.[0] ?? 0, rD = feld(k.get(d), 'rumpf')?.[0] ?? 0;
+  if (n !== 'Messer_Schwer') {
+    const h = feld(k.get(s), 'huefte')?.[0] ?? 0;
+    pruefe(`${n}: Hüfte führt (huefte ${h} in Richtung der Drehung ${rS} → ${rD})`, h !== 0 && Math.sign(h) === Math.sign(rD - rS));
+    pruefe(`${n}: breiter Bogen — der Rumpf dreht ≥ 60° vom Scheitel zum Durchzug`, Math.abs(rD - rS) >= 60, `${rD - rS}`);
+  }
+  // Masse (1,4 kg, 0,23 kg·m² um die Hand): holt länger aus als die Klinge, nicht länger als die Axt.
+  if (n === 'Messer_Schwer') {
+    pruefe(`${n}: Ausholen zwischen leichtem Messerhieb und Spalthieb der Axt (${s})`, s > 9 && s <= axtSchwer, `${axtSchwer}`);
+  } else if (n !== 'Messer_Lauf') {
+    pruefe(`${n}: Ausholen länger als die Klinge (${klingeLeicht}), höchstens wie die Axt (${axtQuer}): ${s}`,
+      s > klingeLeicht && s <= axtQuer);
+  }
+  // Sobald eine Waffe den Clip trägt, muss ihre Regel dieselben Bilder nennen.
+  for (const [art, w] of Object.entries(WAFFEN)) for (const sch of [...w.leicht, w.schwer, w.lauf]) {
+    if (sch.clip === n) pruefe(`${art}/${sch.name}: hieb = TREFFER ${n}`, Math.abs((sch.hieb?.scheitel ?? -1) * 24 - s) < 1e-6 && Math.abs((sch.hieb?.durchzug ?? -1) * 24 - d) < 1e-6);
+  }
+}
+// ---- D420: Nachschwung und Erholung zeigen die Masse (Grundsatz D419). Scheitel, Durchzug und Clipdauer bleiben —
+// sie sind die Trefferfenster; geprüft wird nur, was danach kommt. Soll aus `src/kampf/gewicht.ts` `nachschwung`:
+// Die Klinge läuft mindestens um ihren Bremsweg weiter (Energie / Bremsmoment), und der letzte Schlüssel vor der
+// Rückkehr liegt bei mindestens (0,25 + 0,2 · Masse) der Erholung im Clip.
+const istStand = (t: string | undefined) => !t || t.startsWith("'stand'");
+const grad = (a: number[], b: number[]) => {
+  const d = a.reduce((s, v, i) => s + v * b[i], 0) / (Math.hypot(...a) * Math.hypot(...b));
+  return Math.acos(Math.max(-1, Math.min(1, d))) * 180 / Math.PI;
+};
+function nachDemDurchzug(n: string, d: number) {
+  const c = clips.get(n)!, k = schluessel.get(n)!;
+  const ende = Math.max(...c.bilder);
+  const nach = c.bilder.filter(b => b > d && b < ende && !istStand(k.get(b)));
+  const r0 = feld(k.get(d), 'richt');
+  const winkel = r0 ? Math.max(0, ...nach.map(b => { const r = feld(k.get(b), 'richt'); return r ? grad(r0, r) : 0; })) : 0;
+  const letzter = nach.length ? Math.max(...nach) : d;
+  return { k, ende, nach, winkel, halt: (letzter - d) / (ende - d) };
+}
+const MESSER = waffenkoerper('kriegsmesser');
+const sollMesser = nachschwung('kriegsmesser');
+const befund: string[] = [];
+for (const [n, [s, d]] of treffer) {
+  const b = nachDemDurchzug(n, d);
+  befund.push(`${n}: ${b.winkel.toFixed(0)}° / ${(b.halt * 100).toFixed(0)} %`);
+  const rS = feld(b.k.get(s), 'rumpf')?.[0] ?? 0, rD = feld(b.k.get(d), 'rumpf')?.[0] ?? 0;
+  pruefe(`${n}: Nachschwung mit mindestens zwei Schlüsseln (weiterlaufen, halten)`, b.nach.length >= 2, b.nach.join(','));
+  if (n === 'Messer_Schwer') {
+    // Der Hieb von oben endet am Boden: Die Masse fangen die Beine — das Becken sinkt (E = 43 J ≈ 70 kg · g · 6 cm).
+    const hD = feld(b.k.get(d), 'koerper')?.[1] ?? 0;
+    const tiefst = Math.min(...b.nach.map(x => feld(b.k.get(x), 'koerper')?.[1] ?? 0));
+    pruefe(`${n}: die Beine fangen die Masse (Becken ≥ 4 cm tiefer als im Durchzug)`, tiefst <= hD - 0.04, `${hD} → ${tiefst}`);
+  } else {
+    pruefe(`${n}: Klinge läuft ≥ ${sollMesser.winkel.toFixed(0)}° weiter (Bremsweg)`, b.winkel >= sollMesser.winkel, b.winkel.toFixed(0));
+    // Das Becken bremst: im Nachschwung gegen die Drehung des Schlags gestellt.
+    pruefe(`${n}: Hüfte bremst gegen die Drehung`, b.nach.some(x => Math.sign(feld(b.k.get(x), 'huefte')?.[0] ?? 0) === -Math.sign(rD - rS)));
+  }
+  pruefe(`${n}: Körper folgt der Masse bis ≥ ${(sollMesser.halt * 100).toFixed(0)} % der Erholung`, b.halt >= sollMesser.halt - 1e-9,
+    `${(b.halt * 100).toFixed(0)} %`);
+  const vD = feld(b.k.get(d), 'koerper')?.[0] ?? 0, vN = feld(b.k.get(b.nach[0]), 'koerper')?.[0] ?? 0;
+  pruefe(`${n}: Gewicht bleibt auf dem vorderen Fuss (koerper v ${vD} → ${vN})`, vN >= vD - 0.02);
+  for (const f of ['fuss_l', 'fuss_r']) {
+    const lagen = new Set([d, ...b.nach].map(x => JSON.stringify(feld(b.k.get(x), f))));
+    pruefe(`${n}: ${f} rutscht im Nachschwung nicht`, lagen.size === 1, [...lagen].join(' | '));
+  }
+  for (const x of b.nach) {
+    const h = feld(b.k.get(x), 'hand')?.[2] ?? 1, r = feld(b.k.get(x), 'richt')!;
+    const spitze = h + MESSER.spitze * r[2] / Math.hypot(...r);
+    pruefe(`${n} Bild ${x}: Spitze über dem Boden (${(spitze * 100).toFixed(0)} cm)`, spitze >= 0.05);
+  }
+}
+// Befund an den Bestandsclips (nicht geändert, D414: ihr Nachbau weicht 10–35 cm ab) — nur gemeldet, Vorschlag in
+// `tools/gewichtvorschlag.py`.
+console.log(`  D420 Langes Messer (Soll ${sollMesser.winkel.toFixed(0)}° / ${(sollMesser.halt * 100).toFixed(0)} %): ${befund.splice(0).join('; ')}`);
+for (const [art, id] of [['axt', 'axt'], ['speer', 'speer'], ['klinge', 'klinge']] as const) {
+  const w = WAFFEN[art], soll = nachschwung(id);
+  for (const sch of [...w.leicht, w.schwer, w.lauf]) {
+    if (!sch.clip || !sch.hieb || !clips.has(sch.clip) || befund.some(x => x.startsWith(sch.clip + ':'))) continue;
+    const b = nachDemDurchzug(sch.clip, Math.round(sch.hieb.durchzug * 24));
+    befund.push(`${sch.clip}: Nachschwung ${b.winkel.toFixed(0)}° (Soll ${soll.winkel.toFixed(0)}°), Halt ${(b.halt * 100).toFixed(0)} % (Soll ${(soll.halt * 100).toFixed(0)} %)`);
+  }
+}
+console.log(`  Befund D420 (Bestand, nur gemeldet): ${befund.join('; ')}`);
+
+// Ausgeliefert: Clips der Hauptfigur, Modelle, Daten.
+if (existsSync('public/figuren/held/held-clips.glb')) {
+  const held = new Set(animationen('public/figuren/held/held-clips.glb'));
+  const fehlt = neueClips.filter(n => !held.has(n));
+  pruefe('held-clips.glb trägt alle neuen Clips', fehlt.length === 0, fehlt.join(', '));
+}
+{
+  const buf = readFileSync('public/figuren/kampf/waffen.glb');
+  const g = JSON.parse(buf.subarray(20, 20 + buf.readUInt32LE(12)).toString('utf8'));
+  const knoten = new Set((g.nodes ?? []).map((n: { name: string }) => n.name));
+  for (const m of ['Klinge', 'Axt', 'Hirschfaenger', 'Messer', 'Raeucherkanne']) pruefe(`waffen.glb: Modell ${m}`, knoten.has(m));
+  const familien = JSON.parse(readFileSync('content/waffenfamilien.json', 'utf8')).familien as { id: string; clips: { vorhanden: string[]; fehlen: string[] } }[];
+  const messer = familien.find(f => f.id === 'kriegsmesser');
+  pruefe('waffenfamilien: Langes Messer führt alle Messer-Clips als vorhanden, keine fehlen',
+    !!messer && neueClips.filter(n => n.startsWith('Messer_')).every(n => messer.clips.vorhanden.includes(n)) && messer.clips.fehlen.length === 0);
+  const kanne = (JSON.parse(readFileSync('content/geraete.json', 'utf8')) as { id: string; clips: { vorhanden: string[] } }[])
+    .find(x => x.id === 'raeucherkanne');
+  pruefe('geraete: Räucherkanne führt Geraet_Blasebalg als vorhanden', !!kanne?.clips.vorhanden.includes('Geraet_Blasebalg'));
 }
 
 // ---- Die ausgelieferten Dateien

@@ -30,6 +30,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, spiegelAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung, type Stoecke } from '../spieler/steuerung.js';
+import { aktionenVon } from '../spieler/eingabe.js';
 import { peilung } from '../spieler/peilung.js';
 import { baueKleinzeugGeometrie, streueKleinzeug, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
@@ -62,8 +63,10 @@ import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasm
 import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { lagerTon } from '../ton/lagerton.js';
-import { kameraZustand } from '../kampf/kamerazustand.js';
+import { kameraZustand, ZEITLUPE } from '../kampf/kamerazustand.js';
 import { armMitSicht, sichtFrei, ZIEL_RAND, type Versperrt } from '../kampf/sichtlinie.js';
+import { klingeAb, neuerStoss, stosse, stossVersatz } from '../kampf/kamerastoss.js';
+import { einstellungen } from '../spiel/einstellungen.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
 import { BLENDER_BAEUME, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
@@ -88,6 +91,7 @@ import { meldeSpiegelflaeche, Spiegelbild } from '../world/spiegelbild.js';
 import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
+import type { Kampfbericht } from '../kampf/kampfende.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
 import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
@@ -117,7 +121,8 @@ import { verteileKreaturen, rueckkehrVorkommen, type Vorkommen, type KreaturSpaw
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
 import { REITEN_GEHEN, REITEN_RENNEN, REIT_MAX_GRAD } from '../spiel/reiten.js';
-import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG } from '../spieler/tempo.js';
+import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG, KLETTERN_TEMPO } from '../spieler/tempo.js';
+import { begrenzeFall, fallschaden, gerolltBeiLandung, kaelteLeben, kaelteSchritt, neueKaelte } from '../spieler/bewegung.js';
 import { GLEIT_TEMPO, bremse, gleitSchritt, neuerFall, type Fall } from '../spieler/gleiten.js';
 
 
@@ -3035,8 +3040,9 @@ function Streuschicht({ feld, ziel, dichte }: {
  * masstab` beschrieb dadurch einen Fußgänger, den es im Spiel nicht gibt. Ein
  * reines Modul können die Werkzeuge importieren, eine `.tsx` mit React nicht.
  *
- * 4,2 und 11,0 m/s sind schneller als der Mensch: eine bewusste Abweichung vom
- * 1:1-Maßstab an genau einer Stelle (Ledger G-27, D18). 9,81 m/s² und 5,4 m/s
+ * 4,2 und 8,5 m/s (bis D412 11,0; seither `content/bewegung.json`) sind schneller als
+ * der Mensch: eine bewusste Abweichung vom 1:1-Maßstab an genau einer Stelle (Ledger
+ * G-27, D18). 9,81 m/s² und 5,4 m/s
  * Absprung ergeben knapp 1,5 m Sprunghöhe und 1,1 s in der Luft — genug für
  * Geländestufen, zu wenig für Felswände. Genau so gemeint.
  */
@@ -3064,8 +3070,10 @@ const BODEN_TOLERANZ = 0.12;
  * Was das Klettern begrenzt, ist die Ausdauer (`src/spieler/ausdauer.ts`), nicht
  * eine Regel darüber, wo geklettert werden darf. Deshalb gibt es keine
  * ausgewiesenen Kletterstellen: Jede Wand geht, solange der Vorrat reicht.
+ *
+ * Das Klettertempo (`KLETTERN_TEMPO`) stand hier bis D412 als 2,2 m/s; seither 1,0 m/s
+ * aus `content/bewegung.json`, gelesen über `spieler/tempo.ts`.
  */
-const KLETTERN_TEMPO = 2.2;
 /** Vortrieb in die Wand beim Klettern. Trägt am Ende über die Kante. */
 const KLETTERN_VOR = 0.55;
 /**
@@ -3160,7 +3168,7 @@ export const NEIGUNG_START = 0.32;
  * Look beurteilbar machen soll.
  */
 function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet,
-                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt, sprung }: {
+                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt, sprung, anzug, onKoerper }: {
   feld: HoehenFeld;
   /** Versetzen (D179): Liegt hier ein Punkt, steht die Figur im nächsten Bild dort, auf dem Boden. */
   /** Versetzen (D179), optional mit Blick (D183: Aufwachen schaut zur Zuflucht). */
@@ -3179,6 +3187,13 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   gleiterFrei?: React.RefObject<boolean>;
   /** Meldet, ob gerade geglitten wird — für die Anzeige. Nur bei Änderung. */
   onGleiten?: (gleitet: boolean) => void;
+  /** D412: Trägt die Figur einen Anzug (Tauchzeug)? Dann läuft die Kälteuhr nicht. */
+  anzug?: React.RefObject<boolean>;
+  /**
+   * D412: Sturz und Kälte (`spieler/bewegung.ts`). `leben` ist, was davon übrig bleibt (0 … 1).
+   * Sturz bei jedem Aufprall mit Schaden, Kälte nur beim Übergang „sinkt“ und „aufgebraucht“.
+   */
+  onKoerper?: (art: 'sturz' | 'kaelte', leben: number) => void;
   /** Wird in jedem Bild gerufen, in dem an der Regionsgrenze geklemmt wird. */
   meldeRand?: (seite: Seite | null) => void;
   /** Zustand der beiden Daumenknüppel — die Anzeige liegt im DOM und liest ihn. */
@@ -3198,6 +3213,9 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   const fall = useRef<Fall>(neuerFall(0));
   /** Letzter gemeldeter Gleitzustand — damit nur Änderungen nach oben gehen. */
   const gleitetVor = useRef(false);
+  /** D412: Kälteuhr im tiefen Wasser und die zuletzt gemeldete Stufe (0 warm, 1 sinkt, 2 leer). */
+  const kaelte = useRef(neueKaelte());
+  const kaelteStufe = useRef(0);
 
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
@@ -3208,6 +3226,7 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       if (sb !== undefined) gier.current = sb;
       p.set(sx, hoeheAufFlaeche(feld, sx, sz), sz);
       steigen.current = 0; fall.current = neuerFall(p.y);
+      kaelte.current = neueKaelte(); kaelteStufe.current = 0;
     }
     // Nach einem Tab-Wechsel kommt ein riesiges dt — sonst teleportiert man.
     const dt = Math.min(rohDt, 0.1);
@@ -3382,17 +3401,36 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       p.y = boden;
       steigen.current = 0;
     } else {
-      steigen.current -= SCHWERKRAFT * dt;
+      // D412: höchstens mit Endgeschwindigkeit (53 m/s) — bis dahin ohne Grenze.
+      steigen.current = begrenzeFall(steigen.current - SCHWERKRAFT * dt);
       // Erst fallen lassen, dann bremsen — sonst frisst die Schwerkraft des
       // nächsten Bildes die Bremsung wieder auf und die Sinkrate driftet nach oben.
       if (gleitet) steigen.current = bremse(steigen.current);
       p.y += steigen.current * dt;
-      if (p.y <= boden) { p.y = boden; steigen.current = 0; }
+      if (p.y <= boden) {
+        // D412: Fallschaden am Aufprall, nicht an der Höhe — der Gleiter landet mit 4 m/s
+        // schadlos. D413: Rolltaste K kurz vor dem Aufsetzen halbiert ihn (ohne Clip).
+        const schaden = fallschaden(-steigen.current, gerolltBeiLandung(e0.rolleUm, performance.now()));
+        if (schaden > 0) onKoerper?.('sturz', 1 - schaden);
+        p.y = boden; steigen.current = 0;
+      }
     }
     // Nie unter das Gelände: Beim Klettern über eine Kante liegt der Boden am
     // neuen Standort sonst über der Figur. Beim Schwimmen gilt das nicht — dort
     // IST die Figur über der Sohle, nur eben im Wasser.
     if (!schwimmt && p.y < boden) p.y = boden;
+
+    // D412: Kälteuhr. Läuft nur im tiefen Wasser (ab Schwimmtiefe), steht am Ufer wieder
+    // auf null, hält mit Anzug an. Gemeldet wird nur der Übergang, nicht jedes Bild.
+    kaelte.current = kaelteSchritt(kaelte.current, dt, schwimmt, anzug?.current ?? false);
+    const warm = kaelteLeben(kaelte.current);
+    const stufeK = warm <= 0 ? 2 : warm < 1 ? 1 : 0;
+    if (stufeK !== kaelteStufe.current) {
+      kaelteStufe.current = stufeK;
+      if (stufeK > 0) onKoerper?.('kaelte', warm);
+      // Wer ausgekühlt aufwacht, fängt warm an — das Versetzen setzt die Uhr ohnehin zurück.
+      if (stufeK === 2) kaelte.current = neueKaelte();
+    }
 
     // Waten zehrt nur, wenn man sich auch bewegt: Im Bach zu stehen ist keine
     // Anstrengung, gegen die Strömung zu gehen schon. Schwimmen zehrt immer —
@@ -3825,13 +3863,14 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     }
     return { ...w, ruecken: trageAmKoerper(scene, w) };
   }, [scene]);
-  // D173: die Modelle aus dem Medieval Weapons Pack (CC0, `tools/waffenbau.py`) ersetzen die Kästen,
-  // sobald die Datei geladen ist. Ohne Datei bleiben die Kästen.
+  // D173: die Modelle aus `waffen.glb` ersetzen die Kästen, sobald die Datei geladen ist. Ohne Datei bleiben die
+  // Kästen. D421: eigene, realistische Modelle (`tools/waffenmodelle.py`) statt des Medieval Weapons Pack, und der
+  // Speer kommt jetzt auch aus der Datei (Saufeder, `Speer`/`Speer3`) statt aus `baueSpeer` — Länge und Griff gleich.
   useEffect(() => {
     let lebt = true;
     new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(WAFFENMODELLE).then(g => {
       if (!lebt) return;
-      for (const [name, gruppe] of [['Klinge', waffen.klinge], ['Axt', waffen.axt]] as const) {
+      for (const [name, gruppe] of [['Klinge', waffen.klinge], ['Axt', waffen.axt], ['Speer', waffen.speer]] as const) {
         const m = g.scene.getObjectByName(name);
         if (!m) continue;
         gruppe.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
@@ -3851,7 +3890,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
         }
         // D185: Die Kopie am Körper bekommt dasselbe Modell (Materialien geteilt — die Schmiedestufe
         // färbt beide), statt der Kästen.
-        const koerper = waffen.ruecken[name === 'Klinge' ? 'klinge' : 'axt'];
+        const koerper = waffen.ruecken[name === 'Klinge' ? 'klinge' : name === 'Axt' ? 'axt' : 'speer'];
         if (koerper) { koerper.clear(); for (const c of gruppe.children) koerper.add(c.clone()); }
       }
       setWaffenGeladen(true);
@@ -3995,9 +4034,10 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
       }
       if (k.phase === 'gefallen') {
         ziel = clips.tod; blende = 0.15;
-      } else if (k.phase === 'block' && aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)) {
+      } else if ((k.phase === 'block' || k.phase === 'reinigen') && aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)) {
         // D173: Deckung heben und halten — der Clip bleibt auf seinem letzten Bild stehen. D174: die Axt
-        // hat ihren eigenen (Stiel quer, `waffenclips.py`).
+        // hat ihren eigenen (Stiel quer, `waffenclips.py`). D417: Auch der Markengriff steht so — es gibt
+        // keinen Griff-Clip (offen, D414); der gehobene Arm ist die nächste vorhandene Haltung.
         const b = aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)!;
         b.clampWhenFinished = true; b.timeScale = 2;
         ziel = b; blende = 0.06;
@@ -4152,8 +4192,12 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   const blickZiel = useRef(new THREE.Vector3());
   /** Arm der Schulterkamera nach Sichtprüfung (D192): zieht hart ein, fährt weich aus. */
   const schulterArm = useRef<number>(GROESSE.kameraAbstand);
-  /** Ruck bei Treffern (D171): Stärke in Metern, klingt in ~0,12 s ab. */
-  const ruck = useRef({ getroffen: -1, gesetzt: -1, staerke: 0, uhr: 0 });
+  /**
+   * Ruck bei Treffern (D171), seit D427 nach Wucht: Stärke, Abklingen und Richtung je Treffer aus
+   * `kampf/gewicht.ts` (über `KampfFigur.stoss`), skaliert mit der Einstellung `kamerawackeln`.
+   */
+  const ruck = useRef({ getroffen: -1, gesetzt: -1, stoss: neuerStoss() });
+  const versatz = useRef(new THREE.Vector3());
   /**
    * Nahkamera (D179): V schaltet durch drei Abstände (voll, 60 %, 40 %), das Mausrad stellt stufenlos
    * zwischen 35 % und 100 %. Im Kampf liest man so Waffe, Pose und Linie; beim Wandern bleibt es aus.
@@ -4177,7 +4221,9 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   useEffect(() => {
     const taste = (e: KeyboardEvent) => {
       if (e.repeat || e.target instanceof HTMLInputElement) return;
-      if (e.code === 'KeyC') {
+      // D415: Aktionen `umschau` (C) und `ansicht` (V) aus `spieler/eingabe.ts`.
+      const aktionen = aktionenVon(e.code);
+      if (aktionen.includes('umschau')) {
         if (gegnerSicht.current) { gegnerSicht.current = false; umschauZiel.current = 0; return; }
         const stufen = [0, Math.PI, Math.PI / 2];
         const i = stufen.findIndex(x => Math.abs(x - umschauZiel.current) < 0.01);
@@ -4186,7 +4232,7 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
         umschauZiel.current = stufen[(i + 1) % stufen.length];
         return;
       }
-      if (e.code !== 'KeyV') return;
+      if (!aktionen.includes('ansicht')) return;
       zoomZiel.current = zoomZiel.current > 0.8 ? 0.6 : zoomZiel.current > 0.5 ? 0.4 : 1;
     };
     const rad = (e: WheelEvent) => {
@@ -4200,21 +4246,25 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     const p = ziel.current?.position ?? new THREE.Vector3();
     const fokus = kampf?.current?.fokus ?? null;
     const kf = kampf?.current ?? null, rk = ruck.current;
-    rk.uhr += dt;
     if (kf) {
       // Eingesteckt ruckt es stärker als ausgeteilt — der eigene Treffer soll Gewicht haben, der
-      // fremde soll wehtun.
-      if (rk.getroffen >= 0 && kf.getroffen > rk.getroffen) rk.staerke = Math.max(rk.staerke, 0.09);
-      if (rk.gesetzt >= 0 && kf.gesetzt > rk.gesetzt) rk.staerke = Math.max(rk.staerke, 0.035);
+      // fremde soll wehtun. D427: Stärke nach Wucht bzw. Schaden (`kf.stossGesetzt`/`stossErlitten`,
+      // `kampf/gewicht.ts`), der eigene in Schlagrichtung; ohne Angabe die festen Werte von D171.
+      const faktor = Number(einstellungen().wert('kamerawackeln')) / 100;
+      if (rk.getroffen >= 0 && kf.getroffen > rk.getroffen)
+        stosse(rk.stoss, kf.stossErlitten ?? { staerke: 0.09, abklingen: 0.12, richtung: null, anteil: 0 }, faktor);
+      if (rk.gesetzt >= 0 && kf.gesetzt > rk.gesetzt)
+        stosse(rk.stoss, kf.stossGesetzt ?? { staerke: 0.035, abklingen: 0.12, richtung: null, anteil: 0 }, faktor);
       rk.getroffen = kf.getroffen; rk.gesetzt = kf.gesetzt;
     }
-    rk.staerke *= Math.exp(-dt / 0.12);
+    klingeAb(rk.stoss, ZEITLUPE === 1 ? dt : Math.min(dt, 0.1) * ZEITLUPE);
     const wackle = () => {
-      if (rk.staerke < 0.002) return;
-      const u = rk.uhr;
-      camera.position.x += rk.staerke * Math.sin(u * 71);
-      camera.position.y += rk.staerke * Math.sin(u * 83 + 1.3);
-      camera.position.z += rk.staerke * Math.sin(u * 59 + 2.1);
+      const [x, y, z] = stossVersatz(rk.stoss);
+      if (x === 0 && y === 0 && z === 0) return;
+      // Kameraraum → Welt: x rechts, y oben, z vor (three.js schaut entlang −Z). Nach `lookAt`, damit die
+      // Ausrichtung des Bildes gilt; der Blick selbst dreht nicht mit, nur die Kamera rückt.
+      versatz.current.set(x, y, -z).applyQuaternion(camera.quaternion);
+      camera.position.add(versatz.current);
     };
     schulter.current += ((fokus ? 1 : 0) - schulter.current) * Math.min(1, dt / SCHULTER.blende);
     if (fokus) blickZiel.current.set(fokus.x, fokus.y, fokus.z);
@@ -4504,6 +4554,10 @@ export interface RegionsSzeneProps {
   gleiterFrei?: boolean;
   /** Meldet den Wechsel in den und aus dem Gleitflug. Für die Anzeige. */
   onGleiten?: (gleitet: boolean) => void;
+  /** D412: Anzug an (das Tauchzeug im Beutel) — hält die Kälteuhr an. */
+  anzug?: boolean;
+  /** D412: Folgen von Sturz und Kälte, `leben` 0 … 1 (`spieler/bewegung.ts`). */
+  onKoerper?: (art: 'sturz' | 'kaelte', leben: number) => void;
   /** Fundstellen in Weltkoordinaten (x, z) — die Szene kennt keine Texte. */
   fundstellen?: { id: string; ort: [number, number] }[];
   gelesen?: ReadonlySet<string>;
@@ -4579,8 +4633,10 @@ export interface RegionsSzeneProps {
   kampfplatz?: boolean;
   /** Wer auf dem Platz steht (D169/D170): zwei Arten, je Platz eine. */
   kampfAufstellung?: readonly GegnerArt[];
-  /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen. */
-  kampfEnde?: (sieg: boolean) => void;
+  /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen; seit D417 mit Bericht je Gegner. */
+  kampfEnde?: (sieg: boolean, bericht: Kampfbericht) => void;
+  /** D417: Marke aus dem Spielstand (Ladungen, Fassung, Reinkultur) — ohne Angabe eine volle (Übungsplatz). */
+  kampfMarke?: { ladung: number; fassung: number; reinkultur?: boolean };
   /** Schmiedestufen der Waffen (D177). */
   waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Begegnung bei Nacht (D179). */
@@ -4596,9 +4652,9 @@ export interface RegionsSzeneProps {
 export function RegionsSzene({
   welt, tageszeit = 0.26, spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
-  regent, geheilt, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
+  regent, geheilt, onRegentNah, gleiterFrei, onGleiten, anzug, onKoerper, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, kampfRichtung, spielerSprung, kampfStand, lagerstellen,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, kampfMarke, waffenStufen, kampfNacht, kampfRichtung, spielerSprung, kampfStand, lagerstellen,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -4630,6 +4686,8 @@ export function RegionsSzene({
   // einmal je Spielstand ändert, soll keine Bildschleife neu aufsetzen.
   const gleiterRef = useRef(false);
   gleiterRef.current = gleiterFrei ?? false;
+  const anzugRef = useRef(false);
+  anzugRef.current = anzug ?? false;
 
   // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
   // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
@@ -4805,6 +4863,7 @@ export function RegionsSzene({
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}
                reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten}
+               anzug={anzugRef} onKoerper={onKoerper}
                meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} kampfZielt={kampfZielt}
                sprung={spielerSprung} />
       {kampfplatz && (
@@ -4812,7 +4871,7 @@ export function RegionsSzene({
         <Suspense fallback={null}>
           <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
                       ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} waffenStufen={waffenStufen} nacht={kampfNacht} richtung={kampfRichtung}
+                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} marke={kampfMarke} waffenStufen={waffenStufen} nacht={kampfNacht} richtung={kampfRichtung}
                       key={kampfEnde ? `welt-${kampfAufstellung?.join(',')}` : 'platz'} />
         </Suspense>
       )}

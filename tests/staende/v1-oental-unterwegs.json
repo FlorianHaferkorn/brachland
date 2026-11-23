@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "held": { "name": "Mara", "geschlecht": "w", "koerper": "w", "kleid": "waldlaeufer", "haar": "Buns", "bart": false, "haut": 0.35, "haarfarbe": "#5a3b25", "kleidfarbe": "#6b5a43" },
+  "waffenStufen": { "klinge": 1, "axt": 0, "speer": 0, "funke": "wasser" },
+  "lagerSieg": { "lager-bruchweg": 1795694400000 },
+  "team": [
+    { "kreatur": "grathorn", "stufe": 7, "erfahrung": 412, "kp": 96, "zustand": "rein" },
+    { "kreatur": "spuerfuchs", "stufe": 4, "erfahrung": 88, "kp": 0, "zustand": "rueckgefuehrt" }
+  ],
+  "gefangen": ["oental-spuerfuchs-3"],
+  "besiegt": ["oental-sporenhahn-1", "oental-sporenhahn-4", "oental-k7-wolf-2"],
+  "position": [-412.6, 233.9],
+  "region": "oental",
+  "gesehen": ["grathorn", "spuerfuchs", "sporenhahn", "k7-wolf"],
+  "beutel": { "kraeutersud": 1, "koeder": 0, "chitinspan": 3 },
+  "fragmente": ["alter-tresen", "absetzbecken"],
+  "orte": ["remise-am-steig", "dorf-wirt", "dorf-schmied", "wanderfigur-zaehler", "wanderfigur-zaehler:0"],
+  "regenten": [],
+  "geheilt": [],
+  "auftraege": { "bis-zur-kante": "angenommen", "das-stehende-wasser": "abgeholt" },
+  "richtungskampf": true,
+  "letzteZuflucht": "remise-am-steig"
+}

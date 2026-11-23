@@ -14,6 +14,7 @@
  *   Schaden          × E · Schneide · Güte
  *   Haltungsschaden  × Impuls · Wucht · Güte;  Impuls ∝ √(E · I) / d  (Schwung), √(E · M) (Stoss)
  *   Ausdauerkosten   × a · E + (1 − a) · M
+ *   Ausgleich (D407) × Kopf · Schaft auf Schaden und Haltungsschaden — Spielausgleich, keine Physik
  *   Vorlauf × T;  Erholung × T (Stoss: × Dreh-T);  Nachdrehen × Wendigkeit / Dreh-T;  Reichweite + Δ Spitze
  * Unberührt bleiben Aktivfenster, Bogenwinkel, Linie, Clip, Schritt — sie hängen an der Animation.
  *
@@ -38,6 +39,8 @@ export interface Koerper {
   /** Schwerpunkt der ganzen Waffe vor der Griffhand, Meter. */
   schwerpunkt: number;
   kraft: number; wendig: number; schneide: number; wucht: number;
+  /** D407: Spielausgleich der beiden Teile (Kopf × Schaft), kein Physikwert. */
+  ausgleich: number;
 }
 
 /** Die Faktoren gegen den Referenzbau. Alle 1 (und `reichweite` 0) heisst: die heutige Waffe. */
@@ -69,6 +72,7 @@ export function koerper(k: Waffenbaukasten, familie: Familie, bau: Pick<Bau, 'ko
     schwerpunkt: (kopf.masse * kopfAbstand + schaft.masse * schaftMitte) / masse,
     kraft: kopf.kraft * schaft.kraft, wendig: kopf.wendig * schaft.wendig,
     schneide: kopf.schneide * schaft.schneide, wucht: kopf.wucht * schaft.wucht,
+    ausgleich: kopf.ausgleich * schaft.ausgleich,
   };
 }
 
@@ -88,10 +92,12 @@ export function faktoren(k: Waffenbaukasten, familie: Familie, bau: Bau): Faktor
   const impuls = f.bewegung === 'stoss'
     ? Math.sqrt(energie * (b.masse / r.masse))
     : Math.sqrt(energie * (b.traegheit / r.traegheit)) / (b.kopfAbstand / r.kopfAbstand);
+  // D407: Spielausgleich je Teil — wirkt wie die Güte auf Schaden und Haltungsschaden, nicht auf Tempo und Kosten.
+  const ausgleich = b.ausgleich / r.ausgleich;
   return {
     zeit, drehZeit, energie, impuls,
-    schaden: energie * (b.schneide / r.schneide) * material.guete * haertung.schneide,
-    haltungsschaden: impuls * (b.wucht / r.wucht) * material.guete * haertung.wucht,
+    schaden: energie * (b.schneide / r.schneide) * material.guete * haertung.schneide * ausgleich,
+    haltungsschaden: impuls * (b.wucht / r.wucht) * material.guete * haertung.wucht * ausgleich,
     kosten: p.anteilEnergie * energie + (1 - p.anteilEnergie) * (b.masse / r.masse),
     nachdrehen: (b.wendig / r.wendig) / drehZeit,
     reichweite: b.spitze - r.spitze,

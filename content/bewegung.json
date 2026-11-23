@@ -1,0 +1,77 @@
+{
+  "stand": "D412, 22.11.2026: Entscheidungen D411 (Flo, A-34). Arbeitswerte bis zum Lauf am M1, nichts davon gespielt. Herleitung docs/design/BRACHLAND_Physik-Pruefung_v1.md",
+  "laufen": {
+    "gehen": 4.2,
+    "rennen": 8.5,
+    "rennenProbe": [7.0, 8.5],
+    "real": "Gehen 1,2-1,4 m/s; 100-m-Weltrekord im Mittel 10,44 m/s",
+    "warum": "Laufschritt mit Faktor 3 (G-27, D18). Rennen 11 -> 8,5 (D411): unter dem Weltrekord, Faktor 2 zum Laufschritt, zehrt weiter nicht (D55). ?renntempo=7 schaltet zum Vergleich am M1 auf 7,0",
+    "quelle": "Physik-Prüfung v1 Q1, Q3, §4.7"
+  },
+  "reiten": {
+    "gehen": 5.0,
+    "rennen": 13.0,
+    "real": "Maultier unter Last 32 km am Tag; Sprint der Tiere 11-13 m/s; Pferdegalopp nicht belegt",
+    "warum": "folgt dem Renntempo (D411): Reiten bleibt rund x1,5 schneller als Rennen, 13 m/s liegt im Sprintbereich statt 17 m/s auf Dauer",
+    "quelle": "Physik-Prüfung v1 Q14, Q15, §4.7"
+  },
+  "klettern": {
+    "tempo": 1.0,
+    "reichweite": 13.75,
+    "real": "Weltrekord Speedklettern 3,2 m/s an genormter Wand; Seilschaft 0,02-0,03 m/s; freies Steigen nicht belegt",
+    "warum": "Faktor 3 auf rund 0,3 m/s (D411). Reichweite je voller Ausdauer bleibt 13,75 m (bisher 16/s bei 2,2 m/s): die höchste Klippe (14 m) geht weiter nicht in einem Zug. Die Halbierung aus D391 wartet auf die Messung der Wandhöhen",
+    "quelle": "Physik-Prüfung v1 Q8, §4.5"
+  },
+  "fall": {
+    "schadlosBis": 4.5,
+    "toedlichAb": 15,
+    "rolle": 0.5,
+    "rolleFenster": 0.3,
+    "endgeschwindigkeit": 53,
+    "real": "Stürze über 1,5 m vervierfachen das Verletzungsrisiko; halbe Sterblichkeit bei 12-15 m; Endgeschwindigkeit in Bauchlage 50-55 m/s (nicht belegt)",
+    "warum": "schadlos bis 1,5 m x Faktor 3 der Beine (die Figur springt 1,49 m hoch und landet daraus); tödlich ab 15 m ohne Faktor (Knochen haben keinen). Gemessen wird die Aufprallgeschwindigkeit als gleichwertige Fallhöhe v²/2g, damit der Gleiter (4 m/s = 0,82 m) nie Schaden nimmt. Rolle halbiert den Schaden darunter, nicht den Tod darüber. Als Rolle zählt die Rolltaste (K) in den letzten 0,3 s vor dem Aufsetzen (D413; Gattungswert, real nicht belegt; ausserhalb des Kampfs ohne Clip)",
+    "quelle": "Physik-Prüfung v1 Q5, §4.6, §5 (a)"
+  },
+  "kaelte": {
+    "sinktNach": 240,
+    "leerNach": 600,
+    "anzug": "tauchzeug",
+    "real": "Kaltwasser 1-10-1: Kälteschock rund 1 min, Schwimmversagen nach 2-30 min, Bewusstlosigkeit nach rund 1 h",
+    "warum": "reale rund 30 min durch den Zeitfaktor 3 (D411). Läuft nur im tiefen Wasser (ab Schwimmtiefe); das Ufer setzt sie zurück; das Tauchzeug ist auch Anzug und hält sie an",
+    "quelle": "Physik-Prüfung v1 Q6, Q7, §4.4"
+  },
+  "tauchen": {
+    "status": "entwurf",
+    "tempo": 2.25,
+    "flascheLiter": 2,
+    "fuelldruckBar": 200,
+    "reserveBar": 50,
+    "verbrauchArbeit": 40,
+    "zeitfaktor": 3,
+    "real": "Taucher mit Gerät 0,26-0,5 m/s, höchstens 1,0 m/s; Verbrauch 20-28 l/min in Ruhe an der Oberfläche, mal Umgebungsdruck",
+    "warum": "Tempo Faktor 3 auf 0,75 m/s statt 6 m/s. Luft ist ein Vorrat für Abstiege, nicht für die Strecke: 300 l nutzbar, am Kirchturm (2,56 bar) rund 1 min Grundzeit je Abstieg nach dem Zeitfaktor. Nachgefüllt an der Rast: benannte Abweichung, real braucht das einen Kompressor. Im Code gibt es kein Tauchen",
+    "quelle": "Physik-Prüfung v1 Q9, Q10, §4.1"
+  },
+  "gleiter": {
+    "verhaeltnis": 3,
+    "sinken": 4.0,
+    "real": "Freizeitschirm 9,3 : 1 bei rund 1,1 m/s Sinken; Wingsuit 2,5-3 : 1",
+    "warum": "gemessen gegen die Karte (D71: 4 : 1 macht sie zur Kulisse). Seit D411 begründet in der Welt: Leinen und Gurtzeug vom Grathorn, die Kappe in der Enklave neu genäht aus gewachstem Leinen, ein Schirm, der schlecht gleitet und schnell sinkt (ob Leinen genau diese Werte gibt: nicht belegt)",
+    "quelle": "Physik-Prüfung v1 Q11, Q12, Q13, §4.3"
+  },
+  "tragtier": {
+    "status": "entwurf",
+    "id": "tragtier-foersterhof",
+    "name": "Das letzte Tragtier des Försterhofs",
+    "arten": ["Bergpferd", "Maultier"],
+    "zustand": "befallen",
+    "masse": { "min": 450, "max": 500, "belegt": false, "notiz": "Physik-Prüfung §4.2 nennt rund 400-500 kg; unter 450 kg läge der Reiter über 20 % - deshalb gilt 450 als Untergrenze, für ein Maultier der obere Rand" },
+    "traglastAnteil": 0.2,
+    "reiterLast": 90,
+    "auftrag": "ein-schwieriger-nachbar",
+    "kampfwerte": null,
+    "text": "Verwildert, seit es auf dem Hof keine Menschen mehr gibt, und befallen. Wird gereinigt, nicht bekämpft, und dann mit dem Halfter gebunden. Ersetzt den gereinigten Keiler aus D391: Kein Wildtier des Œntals trägt in echter Grösse einen Erwachsenen",
+    "real": "ein Reittier trägt rund 20 % seiner Masse ohne messbare Belastung; 90 kg Reiter mit Zeug verlangen 450 kg Tier; Masse eines Bergpferds nicht belegt",
+    "quelle": "Physik-Prüfung v1 Q14, §4.2"
+  }
+}

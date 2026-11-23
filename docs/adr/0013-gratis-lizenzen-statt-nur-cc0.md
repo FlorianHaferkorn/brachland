@@ -4,7 +4,7 @@ shelf-life-days: 365
 ---
 # ADR-0013 — Assets: jede kostenlose Lizenz statt nur CC0
 
-**Status:** Accepted · 2026-10-09 · erweitert ADR-0002 (CC0) und ersetzt dessen Ausnahme „CC-BY nur für Kreaturen“ (`assets/HERKUNFT.md`, 31.08.2026) · ADR-0004, ADR-0006 und ADR-0012 gelten unverändert
+**Status:** Accepted · 2026-10-09 · erweitert durch [ADR-0021](0021-megascans-fuer-zielbilder.md) (22.11.2026: Megascans für Zielbilder, im Spiel nach Lizenzprüfung) · erweitert ADR-0002 (CC0) und ersetzt dessen Ausnahme „CC-BY nur für Kreaturen“ (`assets/HERKUNFT.md`, 31.08.2026) · ADR-0004, ADR-0006 und ADR-0012 gelten unverändert
 
 ## Kontext
 

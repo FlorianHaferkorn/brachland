@@ -11,6 +11,12 @@
  * Kein React-State je Bild.
  */
 import { useEffect, useRef } from 'react';
+import { PALETTE } from '../world/palette.js';
+
+/** D417: die eine Signalfarbe (ADR-0018) — dieselbe wie die Zielmarke und die Marke am Unterarm (D383). */
+const SIGNAL = PALETTE.befall.signal;
+/** So viele Rauten zeigt die Ladungsreihe höchstens (Fassung 4 + 2 je Regent + Stufen). */
+const RAUTEN = 12;
 
 export interface KampfStand {
   leben: number;
@@ -39,6 +45,12 @@ export interface KampfStand {
    * kommende Linie seines Schlags und ob gerade das Paradefenster offen ist. `null` ohne Menschenziel.
    */
   linien?: { eigen?: string; deckung?: string; kommt?: string; parade: boolean } | null;
+  /**
+   * D417: die Marke — Ladungen und Fassung, ob ein Griff möglich ist (`kampf/markengriff.ts` `reinigenLage`:
+   * `nah` niedergerungen und in Reichweite, `greifbar` F greift jetzt, `kanal` im Griff) und der Fortschritt
+   * am Tier 0…1. `null` ohne Marke.
+   */
+  marke?: { ladung: number; fassung: number; stufe: 'kanal' | 'greifbar' | 'nah' | 'aus'; fortschritt: number | null } | null;
 }
 
 /** So lange glüht der rote Rand nach einem Treffer nach (D171). */
@@ -67,6 +79,10 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
   const wurzel = useRef<HTMLDivElement>(null);
   const rand = useRef<HTMLDivElement>(null);
   const raute = useRef<HTMLDivElement>(null);
+  const markeReihe = useRef<HTMLDivElement>(null);
+  const markeFort = useRef<HTMLDivElement>(null);
+  const markeFortRahmen = useRef<HTMLDivElement>(null);
+  const markeHinweis = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let laeuft = true;
@@ -118,6 +134,25 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
             funke.current.style.background = l >= 1 ? '#7fd4ff' : '#3f86b8';
             funkeRahmen.current.style.boxShadow = l >= 1 ? '0 0 8px #7fd4ff' : 'none';
           }
+        }
+        // D417: Marke — Rauten für die Ladungen, ein dünner Balken für den Griff, ein leiser Hinweis.
+        const mk = s.marke;
+        if (markeReihe.current) {
+          markeReihe.current.style.display = mk ? 'flex' : 'none';
+          if (mk) (Array.from(markeReihe.current.children) as HTMLElement[]).forEach((r, i) => {
+            r.style.display = i < Math.min(RAUTEN, mk.fassung) ? 'block' : 'none';
+            r.style.background = i < Math.floor(mk.ladung + 1e-9) ? SIGNAL : 'transparent';
+          });
+        }
+        if (markeFortRahmen.current && markeFort.current) {
+          const f = mk?.fortschritt;
+          markeFortRahmen.current.style.opacity = f != null && (f > 0 || mk?.stufe === 'kanal') ? '1' : '0';
+          markeFort.current.style.width = `${(Math.min(1, f ?? 0) * 100).toFixed(1)}%`;
+        }
+        if (markeHinweis.current) {
+          const st = mk?.stufe ?? 'aus';
+          markeHinweis.current.textContent = st === 'kanal' ? 'im Griff — K löst' : st === 'greifbar' ? 'F — greifen' : st === 'nah' ? 'niedergerungen' : '';
+          markeHinweis.current.style.opacity = st === 'greifbar' || st === 'kanal' ? '0.95' : st === 'nah' ? '0.45' : '0';
         }
         if (zaehler.current) zaehler.current.textContent = `${s.gegnerUebrig}/${s.gegnerGesamt} · ${s.waffe}`;
         // Meldungszeit kommt aus der Canvas-Uhr, die Anzeige hat ihre eigene —
@@ -176,11 +211,29 @@ export function Kampfanzeige({ stand }: { stand: React.RefObject<KampfStand | nu
         bottom: 'calc(env(safe-area-inset-bottom, 8px) + 68px)',
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
       }}>
-        <div style={balken(132, 5)}><div ref={eigen} style={{ ...fuellung, background: '#9c7d62' }} /></div>
+        {/* D417: Die Marke liegt über dem Lebensbalken, nicht in der Spalte — nichts Bestehendes verrutscht.
+            Rauten rechts neben dem Balken (Ladungen), darüber Hinweis und Fortschritt des Griffs. Eine Farbe, nichts blinkt. */}
+        <div style={{ position: 'relative' }}>
+          <div style={balken(132, 5)}><div ref={eigen} style={{ ...fuellung, background: '#9c7d62' }} /></div>
+          <div ref={markeReihe} title="Marke — Ladungen; Rast füllt sie" style={{
+            position: 'absolute', left: 'calc(100% + 9px)', top: -2, display: 'none', gap: 5, height: 9, alignItems: 'center',
+          }}>
+            {Array.from({ length: RAUTEN }, (_, i) => (
+              <div key={i} style={{ width: 6, height: 6, transform: 'rotate(45deg)', border: `1px solid ${SIGNAL}`, opacity: 0.85 }} />
+            ))}
+          </div>
+          <div style={{
+            position: 'absolute', bottom: 'calc(100% + 5px)', left: '50%', transform: 'translateX(-50%)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, whiteSpace: 'nowrap',
+          }}>
+            <div ref={markeHinweis} style={{ ...text, color: SIGNAL, opacity: 0, transition: 'opacity 200ms ease' }} />
+            <div ref={markeFortRahmen} style={{ ...balken(132, 3), opacity: 0, transition: 'opacity 200ms ease' }}><div ref={markeFort} style={{ ...fuellung, width: '0%', background: SIGNAL }} /></div>
+          </div>
+        </div>
         {/* D188: Kernfunke — voll heisst: der nächste schwere Schlag (I) entlädt ihn */}
         <div ref={funkeRahmen} title="Wasserfunke — voll: I entlädt ihn" style={{ ...balken(132, 4), display: 'none' }}><div ref={funke} style={{ ...fuellung, background: '#3f86b8' }} /></div>
         <div style={{ ...text, opacity: 0.7, display: OHNE_HILFE ? 'none' : undefined }}>
-          J leicht · I schwer · Shift+J im Lauf · K Rolle · U/RMT Block · Pfeile/Maus Linie · L Ziel · V nah · C Ansicht · Q/E · 1/2/3 Waffe · <span ref={zaehler} />
+          J leicht · I schwer · Shift+J im Lauf · K Rolle · U/RMT Block · F Reinigen · Pfeile/Maus Linie · L Ziel · V nah · C Ansicht · Q/E · 1/2/3 Waffe · <span ref={zaehler} />
         </div>
       </div>
     </div>

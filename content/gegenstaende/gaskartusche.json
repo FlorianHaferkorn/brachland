@@ -1,0 +1,13 @@
+{
+  "id": "gaskartusche",
+  "name": "Gaskartusche",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "geraet"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Stechkartusche, Butan-Propan, 190 Gramm. Auf dem Boden der Dose ein Datum, das vierzig Jahre her ist. Sie zischt noch.",
+  "gewicht": 0.35,
+  "traglast": 3
+}

@@ -60,6 +60,22 @@ Stand holen: `git pull` auf `claude/epic-planck-86z6fy` (PR #16). Nächste freie
    natürliche Posen mit Gewichtsverlagerung; Stoff mit Struktur schon in der Totalen; Schuhe mit Sohle; Pflanzen
    mit Alpha-Masken. Bildpaar Foto │ Figur je Kopf an Flo. Vor Übernahme ins Spiel die Lizenz von MPFB-Rig und
    -Körperzielen prüfen (im GPL-Paket ohne eigenen CC0-Vermerk).
+2c. **Megascans für die Zielbilder** (ADR-0021, D424): Quixel Megascans sind seit 05.11.2026 kostenlos auf Fab. Für
+   Blender-Zielbilder (Felsmulde Wasser/Ufer, Haus mit Masken, Tiere und Menschen Runde 2) dürfen sie sofort genutzt
+   werden — lokal unter `.cache/`, nie ins Repo, Herkunft je Bild in der Ledgerzeile. Ins Spiel erst nach Prüfung des
+   vollen EULA-Texts (Frage: gilt Browser-Auslieferung als Einzelweitergabe?).
+2d. **Messbild Spiel │ Zielbild — Felsmulde** (Flo 22.11.2026, D425) — **vor** jeder weiteren Engine-Arbeit. Flo fragte, ob
+   die Zielbilder im Spiel 1:1 so aussehen; Antwort: nein, der Abstand ist heute gross und nur geschätzt. Also messen:
+   (a) die Kamera des freigegebenen Felsmulde-Zielbilds (D386, `tools/stilframes.py` Modus `zielbild4`, Kamera `ziel`;
+   Position, Blickrichtung, Brennweite aus dem Skript auslesen) ins Spiel übertragen (Felsmulde im Œntal um −800/600,
+   `?absetzen=` bzw. eine Messadresse mit fester Kamera, gleiche Tageszeit und Sonnenrichtung wie im Render);
+   (b) am M1 mit GPU, `?echt=1`, volle Qualität, nach Ladeende ein Standbild **und** 10 s Bewegung aufnehmen;
+   (c) Bildpaar Spiel │ Zielbild, gleiche Grösse, beschriftet, plus die Messwerte wie in D382/D386 (mittlere
+   Helligkeit, Fläche unter 0,2 / über 0,7, R−B Lichter/Schatten, Sättigung, Himmelsanteil) für beide Bilder, als
+   Tabelle; (d) je Abstand die Ursache benennen (Licht, Nebel, Geometrie, Material, Malfilter, Vegetation) und nach
+   ADR-0012 ordnen, welcher Hebel zuerst. Ablage `.cache/bilder/D425/`, Paar als JPG nach `bilder/zielbild/`.
+   Ergebnis an Flo. Das Paar wird zur Messlatte jeder folgenden Engine-Runde (gleiche Kamera, gleiche Werte). Wenn
+   der Abstand auch mit WebGPU-Pfad nicht schliessbar wirkt: Engine-Frage (ADR-0016) früh an Flo, nicht nach Monaten.
 3. **Physik muss stimmen** (D398, steht in `CLAUDE.md`): gilt für jedes Bild und jeden Wert. Abweichungen zugunsten
    des Spiels benennen und begründen.
 4. **Ab jetzt rendert nur noch der M1.** Die Cloud-Sitzung startet keine neuen Render-Aufträge mehr; dort laufen keine Render mehr.
@@ -119,7 +135,7 @@ Aufwertung, D394 Menü und Einstellungen.
   sind ohne GPU aber nur Form- und Grössenvergleich.
 - **Vorher-Builds prüfen:** `npx vite build` und den Bundle-Inhalt per grep bestätigen — ein stiller tsc-Fehler hat
   einmal alle „Vorher“-Bilder den neuen Stand zeigen lassen (D353).
-- **Kein Google Street View, kein Fab/Megascans, kein Instagram-Login.** Nur freie Lizenzen (ADR-0013); Spiel-Bilder
+- **Kein Google Street View, kein Instagram-Login.** Nur freie Lizenzen im Spiel (ADR-0013); **Megascans seit 22.11.2026 für Zielbilder erlaubt, im Spiel erst nach Lizenzprüfung (ADR-0021)** — Download über Flos Epic-Konto am M1; Spiel-Bilder
   nur als lokale Analysevorlage, Handwerk ja, Motive nein (ADR-0004).
 - **Eine Stelle fertig vor der Breite.** Die Wochen D353–D368 haben viele Features etwas besser gemacht und keine
   Stelle fertig — genau das hat zur Stilentscheidung geführt.

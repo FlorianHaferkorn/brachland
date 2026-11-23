@@ -82,9 +82,10 @@ und der ist auf beiden Rechnern nicht lauffähig (G-119).
 | `kampf/grathorn.glb` | Grathorn mit Rig für den Kampf (D172) | Quaternius | CC0 | dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Stag“: Idle, Walk, Gallop, Attack_Headbutt, HitReact, Death) |
 | `kampf/spuerfuchs.glb` | Spürfuchs mit Rig für den Kampf (D173) | Quaternius | CC0 | dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Fox“: Idle, Walk, Gallop, Attack, HitReact links/rechts, Death), `tools/kampftierbau.py` |
 | `kampf/nebelgams.glb` | Nebelgams mit Rig für den Kampf (D173) | Quaternius | CC0 | dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Deer“: Idle, Walk, Gallop, Attack_Headbutt, HitReact links/rechts, Death) |
-| `kampf/waffen.glb` | Schwert und Axt der Wanderin (D173) | Quaternius | CC0 | Medieval Weapons Pack („Sword“, „Axe“, OBJ), gedreht, skaliert und im Griff zentriert mit `tools/waffenbau.py` |
+| `kampf/waffen.glb` (alle Knoten: `Klinge`, `Klinge3`, `Axt`, `Axt3`, `Speer`, `Speer3` seit D421; `Hirschfaenger`, `Messer`, `Raeucherkanne` seit D414) | Waffenmodelle der Hauptfigur und der Gegner (D414, D421) | eigene Arbeit (BRACHLAND) | CC0 | aus Grundformen gebaut mit `tools/waffenmodelle.py`, in die Datei gelegt mit `tools/waffenmodelle_pack.mjs`; keine fremde Vorlage, keine Textur |
 | `held/m-waldlaeufer.glb`, `held/m-bauer.glb`, `held/w-waldlaeufer.glb`, `held/w-bauer.glb` | Hauptfigur-Gestalten (D175) | Quaternius | CC0 | Universal Base Characters (Standard: Kopf/Augen/Brauen der Superhero-Körper, Frisuren „Rigged to Head Bone") + Modular Character Outfits – Fantasy (Standard: Ranger, Peasant), zusammengesetzt mit `tools/heldbau.py`, gepackt mit `tools/heldpack.ts` |
 | `held/held-clips.glb` | Clips der Hauptfigur (D175, nur Knochen) | Quaternius | CC0 | Universal Animation Library 2 (Schwertkombos, Block, Rückstoss, Taumeln) und die Clips der alten Wanderin (Quaternius-Rig, eigene Waffenclips), übertragen mit `tools/heldbau.py` |
+| `held/held-clips.glb` (Clips `Messer_*`, `Geraet_Blasebalg`) | Langes Messer und Räucherkanne (D414) | eigene Arbeit (BRACHLAND), Rig Quaternius | CC0 | Schlüsselbilder in `tools/waffenclips.py` auf der alten Wanderin (`public/figuren/wanderin.glb`), über die Weltformel auf die Hauptfigur mit `tools/clipnachbau.py`, eingefügt mit `tools/clipnachbau.mjs` |
 | `held/m-waldlaeufer-leicht.glb`, `held/m-bauer-leicht.glb`, `held/w-waldlaeufer-leicht.glb`, `held/w-bauer-leicht.glb` | Leichte Gestalten für Bewohner (D176) | Quaternius | CC0 | wie die Hauptfigur-Gestalten, Kleidung 3 500 / Kopf 1 800 Dreiecke, Haare halbiert, Texturen 512 |
 | `grathorn.glb` | Grathorn | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Stag) |
 | `nebelgams.glb` | Nebelgams | Quaternius | CC0 | poly.pizza, Animated Animal Pack (Deer) |
@@ -212,6 +213,31 @@ Poimandres, CC0-1.0); D223 hat sie ersetzt.
 |---|---|---|---|---|
 | `bauten/hof-708.glb` | Inntaler Einfirsthof, Verfallsstufe 1, für Gebäude 708 (Œntal) | BRACHLAND (prozedural) | eigenes Werk | `tools/hofbaukasten.py` Saat 708 Stufe 1, Masse 36 × 14,7 m aus dem OSM-Grundriss; Materialien prozedural in Blender gebacken, gepackt mit `tools/hofbau_pack.mjs`. Keine Fremdtexturen. |
 
+## Kampfton (D427)
+
+Alle Dateien unter `public/ton/kampf/`, **CC0 1.0** (ADR-0013), geladen am 22.11.2026 von OpenGameArt; Lizenz je
+Seite geprüft (einzige Lizenz „CC0“, bei Kenney zusätzlich `license.txt` im Paket, bei qubodup und remaxim
+`*.txt` im Paket: „public domain, Gemeindegut, cc0-licensed or WTFPL“). Bearbeitung je Datei mit `tools/kampftonbau.py`: Stille vorn weg, Ende nach der Hüllkurve (höchstens 0,3–0,6 s), 25 ms Abblende, Spitze auf −1 dBFS,
+mono 48 kHz, Opus 48 kbit/s in Ogg. Zusammen 63 KB. Zuordnung zu Ereignis und Oberfläche: `content/kampfton.json`.
+**Ausgewählt nach Messung** (Hüllkurve, Anstieg, Klangmitte), **nicht nach Gehör** — am M1 anhören.
+
+| Datei | Rolle | Urheber | Quelle (Seite → Datei im Paket) |
+|---|---|---|---|
+| `schwung-leicht-1.ogg`, `schwung-leicht-2.ogg`, `schwung-leicht-3.ogg` | Schwung leicht | qubodup (Iwan Gabovitch) | [Swish – bamboo stick weapon swhoshes](https://opengameart.org/content/swish-bamboo-stick-weapon-swhoshes) → `swosh-09`, `-02`, `-21` |
+| `schwung-schwer-1.ogg`, `schwung-schwer-2.ogg`, `schwung-schwer-3.ogg` | Schwung schwer (tiefer, länger) | qubodup | dieselbe Seite → `swosh-43`, `-36`, `-40` |
+| `treffer-fell-1.ogg` | Treffer Fell/Fleisch | qubodup | [Impact](https://opengameart.org/content/impact) → `qubodupImpactMeat02` |
+| `treffer-fell-2.ogg`, `treffer-fell-3.ogg` | Treffer Fell/Fleisch | remaxim (nach qubodup) | [3 melee sounds](https://opengameart.org/content/3-melee-sounds) → `animal melee sound`, `melee sound` |
+| `treffer-rinde-1.ogg` | Treffer Rinde/Holz | qubodup | [Impact](https://opengameart.org/content/impact) → `qubodupImpactWood` |
+| `treffer-rinde-2.ogg`, `treffer-rinde-3.ogg` | Treffer Rinde/Holz | rubberduck | [75 CC0 breaking/falling/hit sfx](https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx) → `bfh1_wood_hit_02`, `_03` |
+| `treffer-stoff-1.ogg`, `treffer-stoff-2.ogg`, `treffer-stoff-3.ogg` | Treffer Stoff (Menschen, die Spielerin) | qubodup | [Punch](https://opengameart.org/content/punch) → `qubodupPunch02`, `03`, `04` |
+| `treffer-metall-1.ogg` | Treffer Metall (Waffe auf Waffe, gedeckte Linie) | qubodup | [Impact](https://opengameart.org/content/impact) → `qubodupImpactMetal` |
+| `treffer-metall-2.ogg`, `treffer-metall-3.ogg` | Treffer Metall | rubberduck | [75 CC0 breaking/falling/hit sfx](https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx) → `bfh1_metal_hit_02`, `_04` |
+| `block-1.ogg`, `block-2.ogg`, `block-3.ogg` | Block | StarNinjas | [10 Impact/Shield Blocks](https://opengameart.org/content/10-impactshield-blocks) → `impact.2`, `.8`, `.10` |
+| `parade-1.ogg`, `parade-2.ogg`, `parade-3.ogg` | Parade (hell, scharf) | StarNinjas | [20 Sword Sound Effects (Attacks and Clashes)](https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes) → `sword_clash.2`, `.5`, `.8` |
+| `rolle-1.ogg`, `rolle-2.ogg` | Rolle (Kleidung) | Kenney (Kenney Vleugels) | [50 RPG sound effects](https://opengameart.org/content/50-rpg-sound-effects) (RPG Audio) → `cloth1`, `cloth3` |
+| `schritt-1.ogg`, `schritt-2.ogg`, `schritt-3.ogg` | Fussaufsatz nach der Rolle | Kenney | dieselbe Seite → `footstep00`, `05`, `06` |
+| `griff-1.ogg`, `griff-2.ogg` | Reinigen-Griff (leise) | Kenney | dieselbe Seite → `cloth4`, `handleSmallLeather` |
+
 ## Was im Spiel stehen muss
 
 Für CC BY reicht die Nennung in einer mitgelieferten Datei; ein Impressum im
@@ -225,3 +251,4 @@ Abschnitt „Herkunft" hat.
 | `ibex` | Syl | CC BY 3.0 | Beine stehen in einer eingefrorenen Sprungpose schräg nach hinten weg — die Hörner stimmen, der Rest ist unbrauchbar (28.08.2026 gerendert und verworfen) |
 | `Rabbit` (`mKev485XTR`) | Quaternius | CC0 | Ein Cartoon-Hase in T-Pose mit Armen — eine Figur, kein Tier (07.09.2026 gerendert und verworfen; der CC-BY-Jackrabbit ist ein Hase) |
 | `Pheasant` (`1wqLCnNFCgv`) | Poly by Google | CC BY 3.0 | Geladen als Alternative zur Wachtel, nicht gebraucht |
+| Medieval Weapons Pack („Sword“, „Axe“, „Sword_Golden“, „Axe_Double“; `tools/waffenbau.py`) | Quaternius | CC0 | Von D173 bis D421 in `kampf/waffen.glb` ausgeliefert (Klinge, Axt, Stufe 3); seit D421 durch eigene, realistische Modelle ersetzt — Fantasy-Formen (gezackte Doppelaxt, goldene Klinge) passten nicht zum gemalten Realismus (ADR-0018) |

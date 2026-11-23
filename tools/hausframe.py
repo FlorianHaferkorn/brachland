@@ -29,7 +29,7 @@ SIGNAL = (0.62, 0.81, 0.89)                 # '#cfe9f2' linear
 SAAT = int(os.environ.get('HAUS_SAAT', '708'))
 LAENGE, BREITE = 30.0, 12.5                 # innerhalb der Spannen aus content/hofbaukasten.json
 SCHNELL = os.environ.get('HAUS_SCHNELL') == '1'
-SCHNEISE = tuple(float(x) for x in os.environ.get('HAUS_SCHNEISE', '-4,17,90').split(','))   # Grad von, bis; Tiefe in m (D432)
+SCHNEISE = tuple(float(x) for x in os.environ.get('HAUS_SCHNEISE', '-4,17,90').split(','))   # Grad von, bis; Tiefe in m (D436)
 OHNE = set(os.environ.get('HAUS_OHNE', '').split(','))   # Prüfläufe: pflanzen, dunst
 SONNE_EL, SONNE_AZ = 14.0, 195.0            # tief, von rechts leicht hinter der Kamera (≈ 100° zur Blickrichtung): Streiflicht auf dem Giebel, Traufseite im Schatten
 # Lage: Mitte und Achse von Gebäude 708 (terrainexport um 238/231, Grundriss 36 × 14,7 m, Achse 30° gegen Ost)
@@ -161,7 +161,7 @@ def abschluss(k, b, out, farbe, rau, hoehe, versatz, bump=0.4, mitte=0.5):
 
 
 def adaptiv(o, pixel=1.0, glatt=False, fase=0.0):
-    if fase:   # gebrochene Kanten (D431): Balken und Bretter sind gefast, nicht messerscharf
+    if fase:   # gebrochene Kanten (D435): Balken und Bretter sind gefast, nicht messerscharf
         bv = o.modifiers.new('Fase', 'BEVEL'); bv.width = fase; bv.segments = 1; bv.limit_method = 'ANGLE'; bv.angle_limit = math.radians(40)
     m = o.modifiers.new('Adaptiv', 'SUBSURF'); m.subdivision_type = 'SIMPLE'
     m.use_adaptive_subdivision = True; m.adaptive_pixel_size = pixel * (2.0 if SCHNELL else 1.0)
@@ -211,7 +211,7 @@ def wuerfel_dazu(o, liste):
 
 def laden_aus_brettern(o, rnd, G):
     """Jeden Ladenflügel (ein Quader aus dem Baukasten) durch stehende Bretter mit Fugen und zwei Querleisten ersetzen
-    (D430): Bretter ungleich dick und lang, einzelne unten abgefault oder ganz herausgefallen."""
+    (D434): Bretter ungleich dick und lang, einzelne unten abgefault oder ganz herausgefallen."""
     bm = bmesh.new(); bm.from_mesh(o.data); bm.verts.ensure_lookup_table()
     lage = bm.faces.layers.float.get('ton')
     gesehen, liste = set(), []
@@ -268,7 +268,7 @@ def holz_uv(o, skala, rnd, schief=0.0, haengen=0.0):
             R = Matrix.Rotation(math.radians(rnd.uniform(-schief, schief)), 4, kanten[-1].normalized())
             if haengen and abs(U.z) > 0.9 and lang > 1.2 and rnd.random() < haengen:   # hängt am oberen Nagel
                 oben = mitte + Vector((0, 0, lang / 2 - 0.1))
-                # D432: ein Brett an einem Nagel hängt lotrecht — es ist abgerutscht und pendelt kaum aus, nicht schräg im Raum
+                # D436: ein Brett an einem Nagel hängt lotrecht — es ist abgerutscht und pendelt kaum aus, nicht schräg im Raum
                 R = Matrix.Translation((0, 0, -rnd.uniform(0.04, 0.22))) @ Matrix.Translation(oben) @ Matrix.Rotation(math.radians(rnd.choice((-1, 1)) * rnd.uniform(0.5, 2.5)), 4, kanten[-1].normalized()) @ Matrix.Translation(-oben)
             else:
                 R = Matrix.Translation(mitte) @ R @ Matrix.Translation(-mitte)
@@ -453,7 +453,7 @@ def mat_holz(name, G, dunkel=(0.105, 0.052, 0.028), anstrich=None, moos=1.0, ver
     r = k.tex(uv, scan('rough_wood', 'rough'), False, False)
     w, nz, z = bewitterung(k, obj, G)
     ton = k.attr('ton')
-    # Holz verwittert schneller als Stein und Putz (D430): auch unter dem Dach ist es angegriffen, frei bewittert ganz
+    # Holz verwittert schneller als Stein und Putz (D434): auch unter dem Dach ist es angegriffen, frei bewittert ganz
     w = k.bereich(w, 0.0, 0.7, 0.22, 1.0)
     # Substanz aus der Faser: Jahrringrippen (weiches Frühholz ausgewaschen), Schwundrisse längs, Wurmgänge
     rippe = k.rauschen(k.abbild(uv, (95.0, 1.1, 1)), 1.0, 3, 0.55)
@@ -487,7 +487,7 @@ def mat_holz(name, G, dunkel=(0.105, 0.052, 0.028), anstrich=None, moos=1.0, ver
     faul = k.math('MULTIPLY', k.bereich(z, 1.1, 0.1), k.bereich(k.rauschen(obj, 2.6, 4, 0.65), 0.38, 0.62))
     fahne = k.math('MULTIPLY', w, k.bereich(k.rauschen(k.abbild(uv, (5.0, 0.35, 1), (1.3, 0.4, 0)), 1.0, 3), 0.58, 0.72))
     f = k.mix(k.math('MULTIPLY', k.math('MAXIMUM', faul, fahne), 0.6), f, (0.035, 0.026, 0.02))
-    if bleich is not None:   # D433: wo der Befall arbeitet, ist das Holz ausgelaugt — bleich, mürbe, ohne Moos
+    if bleich is not None:   # D437: wo der Befall arbeitet, ist das Holz ausgelaugt — bleich, mürbe, ohne Moos
         bx, by, bz = k.xyz(obj)
         dx = k.math('SUBTRACT', bx, bleich[0]); dy = k.math('SUBTRACT', by, bleich[1])
         dist = k.math('SQRT', k.math('ADD', k.math('ADD', k.math('MULTIPLY', dx, dx), k.math('MULTIPLY', dy, dy)), k.math('MULTIPLY', bz, bz)))
@@ -575,7 +575,7 @@ def dachhaut(G, sack, rng):
     kleinen Fehlstellen, Rand sackt ab. Attribut `moos` je Vertex. Dazu die Schalung unter den Ziegeln (Bretter
     quer zu den Sparren) — von unten sieht man am Giebelüberstand Holz, nicht Ziegelrücken."""
     X0, X1, VLEN, DACHD, LOCH, SH = G['X0'], G['X1'], G['VLEN'], G['DACHD'], G['LOCH'], G['SH']
-    if LOCH is not None: LOCH = (LOCH[0], LOCH[1], LOCH[2] * 0.72, LOCH[3] * 0.92)   # D431: 0,5/0,8 las sich aus der Hauptkamera nicht als Loch   # der Baukasten reisst ein Sechstel der Fläche auf — für „Haus steht“ zu viel
+    if LOCH is not None: LOCH = (LOCH[0], LOCH[1], LOCH[2] * 0.72, LOCH[3] * 0.92)   # D435: 0,5/0,8 las sich aus der Hauptkamera nicht als Loch   # der Baukasten reisst ein Sechstel der Fläche auf — für „Haus steht“ zu viel
     schritt = 0.25
     nx, nv = int((X1 - X0) / schritt), int((VLEN + 0.12) / schritt)
     bm = bmesh.new(); uvl = bm.loops.layers.uv.new('UVMap'); ml = bm.verts.layers.float.new('moos')
@@ -624,7 +624,7 @@ def dachhaut(G, sack, rng):
                     M = Matrix.Translation(O + Vector((xm, 0, 0)) + v * vv + w * 0.012) @ R
                     bretter.append((M, (lang - 0.01, VLEN / nb - 0.008, 0.024), rng.random()))
                 x += lang
-    # Randziegel (D431): Traufe und Ortgang zeigen einzelne Ziegel statt einer Schnittkante — an der Traufe die
+    # Randziegel (D435): Traufe und Ortgang zeigen einzelne Ziegel statt einer Schnittkante — an der Traufe die
     # unterste Reihe mit verrutschten und fehlenden Platten, am Ortgang überlappende Ortgangziegel.
     def klotz(M, g, u_, v_):
         erg = bmesh.ops.create_cube(bm, size=1.0, matrix=M @ Matrix.Diagonal((*g, 1)))
@@ -957,7 +957,7 @@ def mat_fern():
 
 # ───────────────────────────── Pflanzen, Bäume ─────────────────────────────
 def scan_alpha(me, ordner):
-    """Alpha-Karte der Scan-Materialien einhängen (D433, Befund D386 aus `stilframes.py`): das glTF-Farbbild von Poly Haven
+    """Alpha-Karte der Scan-Materialien einhängen (D437, Befund D386 aus `stilframes.py`): das glTF-Farbbild von Poly Haven
     ist ein JPG ohne Alphakanal, die Maske liegt als `…_alpha_….png` daneben (`tools/hausframe_scans.py` lädt sie).
     Ohne sie sind Blatt- und Graskarten deckend — schwarze Halme, zu dichte Kronen."""
     for mat in me.materials:
@@ -1005,7 +1005,7 @@ def scan_modelle(name):
 
 
 def scan_baum(name):
-    """Baum-Scan, dessen glTF aus mehreren Netzen besteht (Stamm, Laub), zu einem Netz verbinden (D431)."""
+    """Baum-Scan, dessen glTF aus mehreren Netzen besteht (Stamm, Laub), zu einem Netz verbinden (D435)."""
     o = scan_ordner(name)
     pfad = os.path.join(o, next(f for f in os.listdir(o) if f.endswith('.gltf')))
     vorher = set(bpy.data.objects)
@@ -1127,7 +1127,7 @@ def bau():
     # Zutaten in Holz: Schalung, angelehnte Haustür, Bretterstapel am Wandfuss
     extra = list(schalung)
     tb, th = G['TB'], G['TH']
-    lehn = math.radians(11)   # D432: Türblatt lehnt an der Giebelwand — Unterkante ganz am Boden, Oberkante an der Wand
+    lehn = math.radians(11)   # D436: Türblatt lehnt an der Giebelwand — Unterkante ganz am Boden, Oberkante an der Wand
     for i in range(5):   # Türblatt aus den Angeln, lehnt links neben der Öffnung
         M = Matrix.Translation((-0.05 - th / 2 * math.sin(lehn), -tb / 2 - 0.75, th / 2 * math.cos(lehn) - 0.03)) @ Matrix.Rotation(lehn, 4, 'Y') @ Matrix.Translation((0, (i - 2) * tb / 5, 0))
         extra.append((M, (0.045, tb / 5 - 0.006, th), rnd.random()))
@@ -1146,7 +1146,7 @@ def bau():
     for n_ in ('putz', 'stein', 'holz_block', 'holz_brett', 'rahmen', 'laeden', 'glas', 'dunkel'):
         if n_ in ob: verformen(ob[n_], sack)
     tor = next(o for o in G['OEFF']['sued']['eg'] if o[4] == 'tor')
-    # Befall (D433): kommt über den Hof auf den Wohngiebel zu — dort sehen ihn Haupt- und Nahkamera. Am Tennentor (vorher)
+    # Befall (D437): kommt über den Hof auf den Wohngiebel zu — dort sehen ihn Haupt- und Nahkamera. Am Tennentor (vorher)
     # verdeckten Hangkante und Bäume den Wandfuss.
     SPUR = (Vector((-8.5, -10.5, 0)), Vector((-0.45, -3.0, 0)))   # Weg des Befalls über den Hof zur Giebelwand
     herd = (0.0, SPUR[1].y, 2.3)   # Front am Wandfuss: Mitte und Wirkradius der Bleiche
@@ -1163,7 +1163,7 @@ def bau():
     haus = [o for o in ob.values()] + [dach]
     blatt = efeublatt()
     haus += efeu(G, rnd, blatt)
-    # D433: Der Befall ist Biotechnik, die arbeitet (Story-Bibel §1: Bodensanierung) — ein Geflecht, das aus dem Boden
+    # D437: Der Befall ist Biotechnik, die arbeitet (Story-Bibel §1: Bodensanierung) — ein Geflecht, das aus dem Boden
     # kommt, über die Schwelle kriecht und am Wandfuss hochwächst. Der Körper ist bleich und leuchtet nicht; nur die
     # wachsenden Spitzen glimmen in der Signalfarbe (Pass-Index 7). Holz am Herd ist ausgebleicht (`mat_holz` `bleich`),
     # der Boden darum kahl (`d_*` weiter unten).
@@ -1275,7 +1275,7 @@ def bau():
     np_ = boden(-5.2, -B_ / 2 - 1.2); np_.z += 1.55
     kam['nah'] = kamera('KameraNah', np_, hw(0.0, -B_ / 2 + 2.6, 1.75), 35)
     tp_ = boden(-3.6, -6.6); tp_.z += 1.05
-    kam['befall'] = kamera('KameraBefall', tp_, hw(-0.3, -3.2, 0.3), 35)   # D433: Befall aus der Nähe
+    kam['befall'] = kamera('KameraBefall', tp_, hw(-0.3, -3.2, 0.3), 35)   # D437: Befall aus der Nähe
     print('HAUSFRAME Kamera', tuple(round(x, 2) for x in kp), 'über Terrasse %.2f m' % (kp.z - pad))
 
     # Trittweg: von der Kamera zur Haustür und weiter zum Tennentor
@@ -1291,7 +1291,7 @@ def bau():
     gel.co[:, 2] -= 0.07 * weich(0.2, 1.0, weg)
     gel.co[:, 2] += (n2d - 0.5) * 0.10 * weich(0.5, 4.0, gel.d_haus)       # Buckel im Hofraum
     gel.schreiben()
-    # D433: Befall auf das Gelände setzen — der Hof ist nicht eben, das Geflecht wurde bei z ≈ 0 gebaut
+    # D437: Befall auf das Gelände setzen — der Hof ist nicht eben, das Geflecht wurde bei z ≈ 0 gebaut
     def auf_boden(x, y): return gel.hoehe(*hw(x, y).xy) - hw(x, y, 0.0).z
     for sp in go.data.splines:
         for q in sp.points:
@@ -1320,13 +1320,13 @@ def bau():
     gasse = (entlang > -5) & (quer < 18 + 0.2 * np.maximum(entlang, 0))
     reich = (1 - weich(40.0, 75.0, dkam)) * keil
     sa, sb = SPUR[0], SPUR[1] - SPUR[0]; st = np.clip(((gel.hx - sa.x) * sb.x + (gel.hy - sa.y) * sb.y) / sb.length_squared, 0, 1)
-    kahl = weich(0.7, 2.0 + 0.8 * st, np.hypot(gel.hx - sa.x - st * sb.x, gel.hy - sa.y - st * sb.y))   # D433: entlang der Spur des Befalls wächst nichts, am Tor breiter
+    kahl = weich(0.7, 2.0 + 0.8 * st, np.hypot(gel.hx - sa.x - st * sb.x, gel.hy - sa.y - st * sb.y))   # D437: entlang der Spur des Befalls wächst nichts, am Tor breiter
     frei = frei * kahl; hoch = hoch * kahl
     attribut(ter, 'd_gras', frei * reich * (0.35 + 0.65 * (1 - klump)) * (1 - 0.6 * wandfuss))
     attribut(ter, 'd_nessel', hoch * reich * np.clip(wandfuss * 1.4 + 1.0 * weich(0.62, 0.8, n2e) * weich(0.4, 0.7, n2d), 0, 1.5))
     attribut(ter, 'd_staude', hoch * reich * np.clip(0.9 * weich(0.58, 0.8, 1 - n2e) * weich(0.5, 0.75, n2d) + 0.4 * wandfuss, 0, 1.3))
     attribut(ter, 'd_strauch', hoch * reich * weich(0.6, 0.85, n2e) * weich(1.5, 4.0, gel.d_haus) * (dkam > 7.0))
-    # Sichtschneise (D432): links am Wirtschaftsteil vorbei bleibt der Blick ins Tal frei — dort staffeln sich die
+    # Sichtschneise (D436): links am Wirtschaftsteil vorbei bleibt der Blick ins Tal frei — dort staffeln sich die
     # Waldränder des Talbodens und der Höhenzug dahinter im Dunst. Winkel um die Kamera in Hauskoordinaten.
     def schneise(hx, hy):
         w_ = np.degrees(np.arctan2(hy + 17.5, hx + 16.0)); d_ = np.hypot(hx + 16.0, hy + 17.5)
@@ -1364,7 +1364,7 @@ def bau():
         # Mittelgrund als Klumpen auf kahlen Stangen (Probelauf) — hier stehen deshalb skalierte Scan-Bäume. Ein Laubbaum-Scan
         # in vielen Grössen statt mehrerer Arten: jeder weitere Scan kostet ~1 GiB, die Maschine hat 16 für alle.
         isl1 = scan_modelle('island_tree_01'); isl2 = scan_modelle('island_tree_02'); jung = isl1; tanne = scan_modelle('fir_sapling_medium')[1:]   # zwei der drei Tannen genügen (Speicher)
-        zweit = scan_baum('jacaranda_tree') if 'zweitbaum' not in OHNE else isl1[0]   # zweiter Laubbaum-Scan (D378/D431)
+        zweit = scan_baum('jacaranda_tree') if 'zweitbaum' not in OHNE else isl1[0]   # zweiter Laubbaum-Scan (D378/D435)
         if zweit is not isl1[0]:   # auf die Höhe des ersten Scans bringen: die Streuung skaliert beide mit denselben Faktoren
             fz = isl1[0]['hoehe'] / zweit['hoehe']; zweit.transform(Matrix.Diagonal((fz, fz, fz, 1))); zweit['hoehe'] = isl1[0]['hoehe']
         col_l = sammlung('S_laubwald', isl1 + [zweit]); col_n = sammlung('S_nadelwald', tanne)
@@ -1430,7 +1430,7 @@ def bau():
         dunst('Hofdunst', (mitte.x, mitte.y), 150.0, pad - 8.0, pad + 26.0, 0.0026, 12.0, (1.0, 0.88, 0.70), 0.5)
 
     sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'
-    if os.environ.get('BRACHLAND_CPU') != '1':   # D429: am M1 Metal-GPU (Übergabe D377), in der Cloud `BRACHLAND_CPU=1`
+    if os.environ.get('BRACHLAND_CPU') != '1':   # D433: am M1 Metal-GPU (Übergabe D377), in der Cloud `BRACHLAND_CPU=1`
         try:
             prefs = bpy.context.preferences.addons['cycles'].preferences
             prefs.compute_device_type = 'METAL'; prefs.get_devices()
@@ -1542,7 +1542,7 @@ def stil():
     # Befall: Maske (Pass-Index 7) weich aufgeblasen, in der Signalfarbe addiert
     idm = g.nodes.new('CompositorNodeIDMask'); V(index, idm.inputs[0]); idm.inputs['Index'].default_value = 7
     bl = knoten('CompositorNodeBlur'); V(idm.outputs[0], bl.inputs['Image'])
-    try: bl.inputs['Size'].default_value = (6 * skala, 6 * skala)   # D433: enger Schein, kein Fleck
+    try: bl.inputs['Size'].default_value = (6 * skala, 6 * skala)   # D437: enger Schein, kein Fleck
     except Exception as e: print('Blur', e)
     schein = mix((0, 0, 0), tuple(x * 1.0 for x in SIGNAL), bl.outputs[0])
     pinsel = mix(pinsel, schein, 1.0, 'ADD')

@@ -330,6 +330,20 @@ if (existsSync('public/material')) {
 }
 
 /**
+ * Kampfton (`public/ton`, D427, ADR-0013): Herkunft je Datei wie bei den Materialien, Budget 400 KB — kurze
+ * Opus-Aufnahmen, die im Precache stehen (`vite.config.ts`).
+ */
+if (existsSync('public/ton/kampf')) {
+  const dateien = readdirSync('public/ton/kampf').filter(f => f.endsWith('.ogg'));
+  const herkunft = existsSync('assets/HERKUNFT.md') ? readFileSync('assets/HERKUNFT.md', 'utf8') : '';
+  const ohne = dateien.filter(f => !herkunft.includes(f));
+  if (ohne.length) stop('Kampfton', `ohne Herkunftsangabe: ${ohne.join(', ')}`);
+  const gesamt = dateien.reduce((s, f) => s + statSync(join('public/ton/kampf', f)).size, 0) / 1024;
+  if (gesamt > 400) budget('Kampfton', `${gesamt.toFixed(0)} KB über Budget 400 KB`);
+  if (!ohne.length) console.log(`  · [Kampfton] ${dateien.length} Aufnahmen mit Herkunft, zusammen ${gesamt.toFixed(0)} KB`);
+}
+
+/**
  * Kampfclips (`public/figuren/kampf`, D171): nur Knochen und Animation, kein Netz. Eigene Datei,
  * weil die Wanderin mit ihnen über 250 KB läge — geladen wird sie nur mit Kampfplatz. Dasselbe
  * Budget, dieselbe Herkunftspflicht, und kein Netz: Wer hier eins mitbringt, lädt die Figur zweimal.
@@ -379,7 +393,7 @@ if (existsSync('public/figuren/kampf')) {
 
 /**
  * Hauptfigur (D175, `tools/heldbau.py`): eine Datei je Gestalt, texturiert, plus gemeinsame Clips.
- * Budget 1,3 MB je Gestalt (lädt einmal, nur die gewählte) und 700 KB für die Clips (seit D184).
+ * Budget 1,3 MB je Gestalt (lädt einmal, nur die gewählte) und 800 KB für die Clips (seit D414, vorher 700).
  */
 if (existsSync('public/figuren/held')) {
   const herkunft = readFileSync('assets/HERKUNFT.md', 'utf8');
@@ -387,7 +401,8 @@ if (existsSync('public/figuren/held')) {
     const kb = statSync(join('public/figuren/held', f)).size / 1024;
     if (!herkunft.includes(f)) stop('Held', `${f} ohne Herkunftsangabe`);
     // D184: Clips 600 → 700 KB für die fünf Speerclips (+89 KB).
-    const grenze = f === 'held-clips.glb' ? 700 : f.includes('-leicht') ? 650 : 1300;
+    // D414: 700 → 800 KB für sechs Messerclips und Geraet_Blasebalg (+128 KB, 657 → 785). Lädt einmal, mit der Figur.
+    const grenze = f === 'held-clips.glb' ? 800 : f.includes('-leicht') ? 650 : 1300;
     if (kb > grenze) stop('Held', `${f}: ${kb.toFixed(0)} KB über Budget ${grenze} KB`);
     console.log(`  · [Held] ${f}: ${kb.toFixed(0)} KB`);
   }

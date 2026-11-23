@@ -17,18 +17,24 @@
  * Reines Modul ohne three.js und ohne React — deshalb testbar (`tests/ausdauer.test.ts`).
  */
 
+import { BEWEGUNG, KLETTERN_TEMPO } from './tempo.js';
+
 /** Volle Ausdauer. Die Einheit ist willkürlich; die Zehrraten geben ihr Bedeutung. */
 export const AUSDAUER_MAX = 100;
 
 /**
  * Zehrung je Sekunde beim Klettern.
  *
- * 16/s heißt 6,25 s am Fels, bei 2,2 m/s Klettertempo also **13,8 m Wand** aus dem
- * Stand. Die höchsten Klippen im Œntal messen 14 m (`baueKlippen`, gedeckelt) —
- * die Zahl ist so gewählt, dass die höchste Wand gerade eben nicht in einem Zug
- * geht. Ein Absatz zum Verschnaufen wird damit zur Route, nicht zur Zierde.
+ * Gesetzt ist die **Reichweite**, nicht die Rate: 13,75 m Wand aus vollem Vorrat
+ * (`content/bewegung.json`, `klettern.reichweite`). Die höchsten Klippen im Œntal
+ * messen 14 m (`baueKlippen`, gedeckelt) — die höchste Wand geht gerade eben nicht in
+ * einem Zug. Ein Absatz zum Verschnaufen wird damit zur Route, nicht zur Zierde.
+ *
+ * Bis D412 stand hier 16/s bei 2,2 m/s Klettertempo (6,25 s am Fels). Seit D412
+ * steigt man mit 1,0 m/s, also rund 7,3/s und 13,75 s an derselben Wand — gleiche
+ * Reichweite, ehrlichere Bewegung (Physik-Prüfung v1 §4.5).
  */
-export const KLETTERN_JE_SEK = 16;
+export const KLETTERN_JE_SEK = (AUSDAUER_MAX * KLETTERN_TEMPO) / BEWEGUNG.klettern.reichweite;
 
 /** Ein Sprung. 12 Punkte heißen acht Sprünge hintereinander aus vollem Vorrat. */
 export const SPRUNG_KOSTEN = 12;

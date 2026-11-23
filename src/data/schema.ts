@@ -495,6 +495,16 @@ export const Stationsbedingung = z.discriminatedUnion('art', [
    */
   z.object({ art: z.literal('eingriffe'), anzahl: z.number().int().min(1).max(500),
     gewichte: z.object({ getoetet: z.number().min(0).max(2), gereinigt: z.number().min(0).max(2) }).optional() }),
+  /**
+   * D406/D416: Der Zähler **vertraut** nicht mehr — wahr, sobald der gewichtete Stand über `anzahl` liegt (nicht mehr
+   * *geduldet*) **oder** weniger als `unberuehrtMindestens` der Reviere der Region unberührt sind. Beides wächst nur in
+   * eine Richtung (Eingriffe kommen dazu, berührte Reviere werden nie wieder unberührt), also gilt die Regel oben.
+   * Ohne Revierangabe im Weltstand zählt nur die erste Hälfte (wie `eingriffe`, aber mit „über“ statt „ab“: D406
+   * sagt geduldet = ≤ 40).
+   */
+  z.object({ art: z.literal('misstraut'), anzahl: z.number().int().min(1).max(500),
+    gewichte: z.object({ getoetet: z.number().min(0).max(2), gereinigt: z.number().min(0).max(2) }).optional(),
+    unberuehrtMindestens: z.number().min(0).max(1) }),
 ]);
 export type Stationsbedingung = z.infer<typeof Stationsbedingung>;
 
@@ -636,7 +646,9 @@ export const GegenstandWirkung = z.discriminatedUnion('art', [
   /** Zutat, die ein Bewohner verarbeitet: `flasche` (Schlucke/Stärke des Suds) oder `reinkultur`. */
   z.object({ art: z.literal('zutat'), fuer: z.enum(['flasche', 'reinkultur',
     // D400: `dauersud` = Bruchstück oder Bossteil eines dauerhaften Suds, `beigabe` = Kraut für die Flasche bis zur nächsten Rast.
-    'dauersud', 'beigabe']) }),
+    'dauersud', 'beigabe',
+    // D410: Betriebsstoff eines Geräts (Gas, Kohlensäure, Batterie, Kalk).
+    'geraet']) }),
   /** D400: Einsicht — Erfahrung aus Aufträgen, Linien und Orten, nie aus Kämpfen. Wird für Techniken ausgegeben. */
   z.object({ art: z.literal('erfahrung'), punkte: z.number().int().min(1).max(3) }),
   /** Kleidung, **ein** Platz. Seitwärts statt aufwärts: jedes Stück hat einen Preis. Werte sind Entwurf. */
@@ -793,6 +805,33 @@ export const Oekonomie = z.object({
     /** Verhärtung: so viele neue Verhärtete je leergetötetem Revier wandern nach (Vorschlag). */
     verhaertungJeLeeremRevier: z.number().min(0).max(1),
   }),
+  /**
+   * D416 — Regeln, die an den Revieren hängen (`src/spiel/reviere.ts`). Die Schwellen für ruhig/leer stehen weiter
+   * in `marke` und `toeten`; hier nur, was die Reviere zusätzlich brauchen.
+   */
+  reviere: z.object({
+    /**
+     * Wogegen „≥ `ruhigMindestens` der Tiere des Reviers“ und „leer ab `leerAb`“ gemessen werden: `bestand` = die
+     * erwarteten Tiere des Reviers aus dem Vorkommen (`content/reviere/`), `begegnet` = die Tiere, denen man dort
+     * begegnet ist (getötet + gereinigt + umgangen; so rechnete D393). Arbeitswert, Frage an Flo (A-38).
+     */
+    bezug: z.enum(['bestand', 'begegnet']),
+    /**
+     * Bei `begegnet`: Der Nenner ist mindestens dieser Anteil des Bestands. Ohne Boden machte ein einziger Griff ein
+     * Revier ruhig und ein einziger Tod es leer (D393 hat genau das verworfen) — mit 0,25 braucht ein Revier mit 93
+     * Tieren 6 Reinigungen für ruhig und 14 Getötete für leer.
+     */
+    mindestBestand: z.number().min(0).max(1).default(0),
+    /** D393/D399: Nachwachsen aus Nachbarrevieren, solange die Region nicht geheilt ist. Nie im selben Revier. */
+    nachwachsen: z.object({
+      /** So viele Rasten, nachdem im Revier getötet wurde, bis die ersten Tiere aus der Nachbarschaft kommen. */
+      abRasten: z.number().int().min(1).max(20),
+      /** Höchstens dieser Anteil der Getöteten kommt wieder („bis zur Hälfte“) — und nie mehr als dieser Anteil des Bestands. */
+      anteil: z.number().gt(0).max(1),
+      /** So viele Tiere je Rast und Revier, wenn eines nachwachsen darf. */
+      jeRast: z.number().int().min(1).max(20),
+    }),
+  }).optional(),
   /** D403 — Baukasten: was ein Umbau (anderer Kopf und anderer Schaft) im Mittel kostet. Vorschlag. */
   baukasten: z.object({ umbau: Preis }).optional(),
   /** Überschlagsrechnung je Region: Umfang (Annahmen) und was einmalig in der Welt liegt. */
@@ -806,6 +845,55 @@ export const Oekonomie = z.object({
   })),
 });
 export type Oekonomie = z.infer<typeof Oekonomie>;
+
+// ------------------------------------------------------- Reviere (D416)
+
+/**
+ * Ein Revier (D416): ein Stück Region, an dem ruhig/leer, das Aufladen der Marke an der Rast, die Stufe „vertraut“ des
+ * Zählers, die Verhärtung und das Nachwachsen hängen. Die Fläche steht als Zellen im Revierraster der Karte
+ * (`Revierkarte.raster`, ein Zeichen je Zelle). Erzeugt von `tools/reviere.ts`: Kerne von Hand, Grenzen gerechnet
+ * (Weg mit Steigung nach Naismith, Wasser unter der Flutlinie langsamer). `tiere`, `flaecheKm2`, `hoehe`, `unterFlut`,
+ * `zufluchten`, `verborgeneOrte`, `nachbarn` sind abgeleitet und werden von `validate` gegen das Raster geprüft.
+ */
+export const Revier = z.object({
+  id: Kennung.describe('regionsweit eindeutig, mit Regionsvorsilbe (ADR-0020: Nachbarschaft darf über die Regionsgrenze gehen)'),
+  zeichen: z.string().regex(/^[A-Za-z]$/).describe('Zeichen im Revierraster'),
+  name: z.string().min(1).max(40),
+  kern: z.tuple([z.number(), z.number()]).describe('Kern der Rechnung, Meter der Region (x Ost, z Süd)'),
+  begruendung: z.string().min(1).max(400).describe('warum hier ein Revier: Tal, Hangstufe, Weg, Flutlinie'),
+  zufluchten: z.array(Kennung).describe('Zufluchten (Orte mit `art: zuflucht`) in der Fläche'),
+  verborgeneOrte: z.array(Kennung),
+  flaecheKm2: z.number().positive(),
+  unterFlut: z.number().min(0).max(1).describe('Anteil der Fläche unter der Flutlinie'),
+  hoehe: z.tuple([z.number(), z.number()]).describe('kleinste und grösste Zellhöhe, m ü. NN'),
+  tiere: z.record(Kennung, z.number().int().min(0)).describe('erwartete Tiere je Kreatur aus `verteileKreaturen` (Seed 7)'),
+  nachbarn: z.array(Kennung).min(1).describe('Reviere mit gemeinsamer Kante; später auch über die Regionsgrenze (ADR-0020)'),
+}).strict();
+export type Revier = z.infer<typeof Revier>;
+
+export const Revierkarte = z.object({
+  region: Kennung,
+  erzeugt: z.string().min(1),
+  raster: z.object({
+    spalten: z.number().int().min(4).max(256),
+    zeilen: z.number().int().min(4).max(256),
+    /** Auflösung des Weltrasters, in dessen Zellen die Vorkommen-IDs (`kreatur:i:j`) stehen. */
+    vorkommenRaster: z.number().int().min(2),
+    /** Zeile für Zeile von Nord nach Süd, Zeichen von West nach Ost. */
+    karte: z.array(z.string()),
+  }).strict(),
+  reviere: z.array(Revier).min(1),
+}).strict().superRefine((k, ctx) => {
+  if (k.raster.karte.length !== k.raster.zeilen) ctx.addIssue({ code: 'custom', path: ['raster', 'karte'], message: `${k.raster.karte.length} Zeilen statt ${k.raster.zeilen}` });
+  k.raster.karte.forEach((z, i) => { if (z.length !== k.raster.spalten) ctx.addIssue({ code: 'custom', path: ['raster', 'karte', i], message: `${z.length} Zeichen statt ${k.raster.spalten}` }); });
+  const zeichen = new Set<string>(), ids = new Set<string>();
+  k.reviere.forEach((r, i) => {
+    if (zeichen.has(r.zeichen)) ctx.addIssue({ code: 'custom', path: ['reviere', i, 'zeichen'], message: `Zeichen '${r.zeichen}' doppelt` });
+    if (ids.has(r.id)) ctx.addIssue({ code: 'custom', path: ['reviere', i, 'id'], message: `Revier '${r.id}' doppelt` });
+    zeichen.add(r.zeichen); ids.add(r.id);
+  });
+});
+export type Revierkarte = z.infer<typeof Revierkarte>;
 
 // ------------------------------------------------------- Waffen-Baukasten (D403, Entwurf)
 
@@ -825,6 +913,11 @@ export const Waffenteil = z.object({
   wendig: z.number().min(0.8).max(1.3).default(1),
   schneide: z.number().min(0.7).max(1.3).default(1),
   wucht: z.number().min(0.7).max(1.3).default(1),
+  /**
+   * D407: Ausgleichsfaktor auf Schaden und Haltungsschaden — **Spielausgleich, keine Physik** (D404: Bestformen auf
+   * ±5 % der Referenz-Kampfdauer). Gerechnet wie Schneide: Kopf × Schaft gegen die Referenzteile, die 1 tragen.
+   */
+  ausgleich: z.number().min(0.7).max(1.4).default(1),
   /** Was das Teil kostet (Gegenstand → Anzahl). */
   preis: z.record(Kennung, z.number().int().min(1).max(40)),
   /** Woher Masse und Länge stammen — Quelle oder „Überschlag“. */
@@ -843,7 +936,10 @@ const Waffenfamilie = z.object({
   schaft: z.array(Waffenteil).min(2).max(4),
   /** Der Bau, der die heutige Waffe ergibt. */
   referenz: z.object({ kopf: Kennung, schaft: Kennung }),
-}).refine(f => f.kopf.some(t => t.id === f.referenz.kopf) && f.schaft.some(t => t.id === f.referenz.schaft), 'Referenzteile gibt es');
+}).refine(f => f.kopf.some(t => t.id === f.referenz.kopf) && f.schaft.some(t => t.id === f.referenz.schaft), 'Referenzteile gibt es')
+  // D407: Der Ausgleich ist gegen die Referenz gerechnet — die Referenzteile tragen keinen, sonst wäre die heutige Waffe verschoben.
+  .refine(f => f.kopf.every(t => t.id !== f.referenz.kopf || t.ausgleich === 1) && f.schaft.every(t => t.id !== f.referenz.schaft || t.ausgleich === 1),
+    'Referenzteile tragen den Ausgleich 1');
 
 export const Waffenbaukasten = z.object({
   physik: z.object({
@@ -925,6 +1021,126 @@ export const Waffenfamilienplan = z.object({
 }).strict();
 export type Waffenfamilienplan = z.infer<typeof Waffenfamilienplan>;
 
+// ------------------------------------------------------- Gewicht spürbar machen (D420, nur Darstellung)
+
+/**
+ * D420: Kennzahlen, mit denen `src/kampf/gewicht.ts` aus Masse, Trägheit und Treffer-Impuls einer Waffe die
+ * **Darstellung** ableitet — Trefferstopp, Kameraimpuls, Reaktion des Getroffenen, Ton, Nachschwung im Clip.
+ * **Kein Kampfwert:** Fenster, Schaden, Haltungsschaden, Kosten, Rückstoss der Regel bleiben in
+ * `content/waffen/` (D419). Jeder Block nennt `real` (mit „nicht belegt“, wo die Quelle fehlt), `warum` und
+ * `quelle` (D398). Zeiten in Sekunden, Strecken in Metern, Massen in kg, Impulse in N·s.
+ */
+const GewichtBenannt = {
+  real: z.string().min(1),
+  warum: z.string().min(1),
+  quelle: z.string().min(1),
+};
+const GewichtWaffe = z.union([
+  /** Familie des Baukastens: Masse und Trägheit aus ihrem Referenzbau (`content/waffenteile.json`). */
+  z.object({ baukasten: z.enum(['klinge', 'axt', 'speer']), zweihand: z.boolean() }).strict(),
+  /** Ohne Baukastenteile: Werte aus dem Modell (`tools/waffenmodelle.py`, D414). */
+  z.object({
+    masse: z.number().positive().max(10),
+    traegheit: z.number().positive().max(5).describe('kg·m² um die Griffhand'),
+    kopfAbstand: z.number().positive().max(2).describe('Schwerpunkt des Blatts vor der Hand, m — Hebel des Impulses'),
+    spitze: z.number().positive().max(3).describe('Spitze vor der Hand, m'),
+    bewegung: z.enum(['schwung', 'stoss']),
+    zweihand: z.boolean(),
+    quelle: z.string().min(1),
+  }).strict(),
+]);
+export const Gewicht = z.object({
+  stand: z.string(),
+  /** Wie der Arm die Waffe beschleunigt — die Baukasten-Formel (§3.2) in absoluten Einheiten. */
+  physik: z.object({
+    leistung: z.number().positive().max(3000).describe('W, einhändig'),
+    zweihand: z.number().min(1).max(2).describe('Faktor auf die Leistung mit zwei Händen'),
+    bogenGrad: z.number().positive().max(360).describe('Schwungwinkel bis zum Treffer'),
+    stossWeg: z.number().positive().max(2).describe('m, Weg der Hände im Stoss'),
+    bremsmoment: z.number().positive().max(500).describe('N·m, mit dem eine Hand die Waffe nach dem Treffer abfängt'),
+    unterarm: z.number().positive().max(1).describe('m, Hebel, über den das Bremsmoment einen Stoss als Kraft abfängt'),
+    ...GewichtBenannt,
+  }).strict(),
+  /** Je Waffenfamilie (`content/waffenfamilien.json`) der Körper der Waffe. */
+  waffen: z.record(Kennung, GewichtWaffe),
+  /** Masse der Getroffenen in kg (für die Reaktion: Δv = Impuls / Masse); `standard` für alles Ungenannte. */
+  ziele: z.object({ standard: z.number().positive().max(2000), je: z.record(Kennung, z.number().positive().max(2000)), ...GewichtBenannt }).strict(),
+  trefferstopp: z.object({
+    min: z.number().min(0).max(0.2), max: z.number().min(0).max(0.2),
+    impulsVon: z.number().nonnegative(), impulsBis: z.number().positive(),
+    gebrochen: z.number().min(0).max(0.1).describe('s dazu, wenn die Haltung bricht'),
+    toedlich: z.number().min(0).max(0.1).describe('s dazu beim tödlichen Treffer'),
+    geblockt: z.number().min(0).max(1).describe('Faktor, wenn ein Block den Schlag fängt'),
+    ...GewichtBenannt,
+  }).strict().refine(t => t.min <= t.max, 'trefferstopp.min über max').refine(t => t.impulsVon < t.impulsBis, 'impulsVon nicht unter impulsBis'),
+  kamera: z.object({
+    gesetzt: z.object({ grund: z.number().nonnegative().max(0.2), jeImpuls: z.number().nonnegative().max(0.05), max: z.number().positive().max(0.3) }).strict(),
+    erlitten: z.object({ grund: z.number().nonnegative().max(0.2), jeSchaden: z.number().nonnegative().max(0.05), max: z.number().positive().max(0.3) }).strict(),
+    abklingen: z.object({ grund: z.number().positive().max(0.5), jeImpuls: z.number().nonnegative().max(0.05), max: z.number().positive().max(1) }).strict(),
+    /** Anteil des Ausschlags in Schlagrichtung; der Rest ist Zittern wie bisher (D171). */
+    richtung: z.number().min(0).max(1),
+    ...GewichtBenannt,
+  }).strict(),
+  reaktion: z.object({
+    neigungJeMps: z.number().nonnegative().max(200), neigungMax: z.number().nonnegative().max(60),
+    versatzMax: z.number().nonnegative().max(0.5), dauer: z.number().positive().max(1),
+    taumelGrund: z.number().nonnegative().max(45), taumelJeMps: z.number().nonnegative().max(200), taumelMax: z.number().nonnegative().max(60),
+    ...GewichtBenannt,
+  }).strict(),
+  ton: z.object({
+    referenz: Kennung.describe('Waffe mit Tonhöhe 1 und Pegel aus dem Grundwert'),
+    schwungGrund: z.number().min(0).max(1), schwungJeMps: z.number().min(0).max(0.2),
+    trefferGrund: z.number().min(0).max(1), trefferJeOktave: z.number().min(0).max(0.5),
+    ...GewichtBenannt,
+  }).strict(),
+  /** Nachschwung und Erholung im Clip (Prüfung `tests/waffenclips.test.ts`): wie lange der Körper der Masse folgt. */
+  clips: z.object({
+    haltGrund: z.number().min(0).max(1), haltJeKg: z.number().min(0).max(1), haltMax: z.number().min(0).max(1),
+    ...GewichtBenannt,
+  }).strict(),
+}).strict();
+export type Gewicht = z.infer<typeof Gewicht>;
+
+/**
+ * D427: Kampfton (D423: freie Aufnahmen, CC0, ADR-0013) — welche Dateien unter `public/ton/kampf/` zu welchem
+ * Ereignis gehören, wie laut ein Band im Grund ist und wie weit Tonhöhe und Pegel je Anschlag streuen (gegen
+ * Wiederholung). Tonhöhe und Pegel **nach Masse** kommen nicht von hier, sondern aus `content/gewicht.json`
+ * `ton` über `toene()` in `src/kampf/gewicht.ts`. Gelesen von `src/ton/kampfton.ts`; `npm run validate` prüft,
+ * dass jede Datei liegt und in `assets/HERKUNFT.md` steht.
+ */
+export const KAMPFTON_BAENDER = ['schwung-leicht', 'schwung-schwer', 'treffer-fell', 'treffer-rinde', 'treffer-stoff',
+  'treffer-metall', 'block', 'parade', 'rolle', 'schritt', 'griff'] as const;
+export const KAMPFTON_OBERFLAECHEN = ['fell', 'rinde', 'stoff', 'metall'] as const;
+export const Kampfton = z.object({
+  stand: z.string(),
+  ordner: z.string().regex(/^[a-z0-9/-]+$/).describe('unter public/, ohne Schrägstrich vorn und hinten'),
+  baender: z.record(z.enum(KAMPFTON_BAENDER), z.object({
+    dateien: z.array(z.string().regex(/^[a-z0-9-]+\.ogg$/)).min(1),
+    pegel: z.number().min(0).max(1).describe('Grundpegel des Bands, 0…1 vor Masse und Bus'),
+    streuPegel: z.number().min(0).max(0.5).describe('± Anteil zufällig je Anschlag'),
+    streuHalbton: z.number().min(0).max(4).describe('± Halbtöne zufällig je Anschlag'),
+  }).strict()),
+  /** Was ein Treffer der Spielerin am Getroffenen trifft — Bauplan des Gegners (`content/gegner/<id>.json`). */
+  oberflaechen: z.object({
+    standard: z.enum(KAMPFTON_OBERFLAECHEN),
+    je: z.record(Kennung, z.enum(KAMPFTON_OBERFLAECHEN)),
+    /** Die Spielerin selbst (erlittene Treffer). */
+    spielerin: z.enum(KAMPFTON_OBERFLAECHEN),
+    /** In die gedeckte Linie eines Menschen geschlagen: Waffe auf Waffe. */
+    gedeckt: z.enum(KAMPFTON_OBERFLAECHEN),
+  }).strict(),
+  /** Erlittene Treffer: Pegel nach Schaden (der Gegner trägt keine Waffenmasse in den Daten). */
+  erlitten: z.object({ grund: z.number().min(0).max(1), jeSchaden: z.number().min(0).max(0.05) }).strict(),
+  /** Abspielrate höchstens so weit von 1 — weiter verstimmt klingt eine Aufnahme nach Band statt nach Masse. */
+  rate: z.object({ min: z.number().positive().max(1), max: z.number().min(1).max(4) }).strict(),
+  /** Nach dem Beginn der Rolle der Fussaufsatz, als Anteil der Rollendauer. */
+  schrittNachRolle: z.number().min(0).max(1),
+  real: z.string().min(1),
+  warum: z.string().min(1),
+  quelle: z.string().min(1),
+}).strict().refine(k => k.rate.min <= k.rate.max, 'rate.min über rate.max');
+export type Kampfton = z.infer<typeof Kampfton>;
+
 /**
  * Wirken der Marke (D405, Entwurf): keine Zauber, sondern Funktionen der Armklammer. Jedes Wirken kostet
  * Ladungen — dieselben, die das Reinigen braucht. Freigeschaltet über Markenstufe und Einsicht.
@@ -939,9 +1155,60 @@ export const Wirken = z.array(z.object({
   werk: z.string().max(160),
   beruehrt: z.enum(['anzeige', 'welt', 'traversal', 'oekonomie', 'kampfwert']),
   messung: z.string().max(160).optional(),
-}).strict().refine(w => ['anzeige', 'welt'].includes(w.beruehrt) || !!w.messung, 'wer einen geprüften Wert berührt, nennt die Messung'))
+  /**
+   * D409/D410: Die Marke zaubert nicht. `gilt` = bleibt als Funktion der Klammer (Sensor, Rückruf);
+   * `ersetzt` = entfällt als Wirken, `ersetztDurch` nennt das Gerät oder sagt „entfällt“.
+   */
+  status: z.enum(['gilt', 'ersetzt']).default('gilt'),
+  ersetztDurch: z.string().max(120).optional(),
+}).strict().refine(w => ['anzeige', 'welt'].includes(w.beruehrt) || !!w.messung, 'wer einen geprüften Wert berührt, nennt die Messung')
+  .refine(w => (w.status === 'ersetzt') === !!w.ersetztDurch, 'ersetzt ⇔ ersetztDurch')
+  .refine(w => w.status === 'ersetzt' || ['anzeige', 'welt'].includes(w.beruehrt), 'ein geltendes Wirken berührt keinen Kampfwert (D409: keine Magie)'))
   .min(1).refine(a => new Set(a.map(w => w.id)).size === a.length, 'Wirken-IDs sind eindeutig');
 export type Wirken = z.infer<typeof Wirken>;
+
+// ------------------------------------------------------- Geräte mit Elementangriffen (D410, Entwurf)
+
+/**
+ * Geräte (D409/D410): Technik der Welt, die ein Element aus `ELEMENTE` trägt. Das Gerät in der Hand bestimmt,
+ * was man ausführen kann; die **Aufsätze** sind das Austauschbare. Alle Wirkwerte sind Entwurf und ungemessen;
+ * `schaden` und `haltung` zählen in Einheiten des leichten Klingenhiebs, bevor der Elementkreis greift.
+ */
+export const Geraete = z.array(z.object({
+  id: Kennung, name: z.string().max(40),
+  element: Element,
+  status: z.enum(['kapitel-1', 'kapitel-2', 'geparkt']),
+  /** Was das Ding real ist und wie es real wirkt (D398). */
+  real: z.string().max(320),
+  /** Wo das Spiel von der Wirklichkeit abweicht — benannt, nie still. */
+  abweichung: z.string().max(260),
+  betriebsstoff: z.object({
+    gegenstand: Kennung,
+    jeFuellung: z.number().int().min(1).max(20).describe('Einheiten je voller Füllung'),
+    nachschub: z.enum(['altbestand', 'nachwachsend']),
+    real: z.string().max(200),
+  }),
+  risiko: z.string().max(260),
+  erwerb: z.string().max(200),
+  masse: z.number().positive().max(15).describe('Kilogramm, betriebsbereit'),
+  aufsaetze: z.array(z.object({
+    id: Kennung, name: z.string().max(40),
+    form: z.enum(['kegel', 'stoss', 'flaeche', 'beruehrung', 'linie']),
+    /** Meter. Geräte sind Nahbereich: Fernkampf ist bis nach Kapitel 1 zurückgestellt (D406). */
+    reichweite: z.number().positive().max(4),
+    schaden: z.number().min(0).max(3),
+    haltung: z.number().min(0).max(3),
+    zustand: z.enum(['brennt', 'verlangsamt', 'zuckt', 'ruhig', 'geblendet']).optional(),
+    dauerSek: z.number().min(0).max(20),
+    verbrauch: z.number().int().min(1).max(10),
+    wirkung: z.string().max(200),
+  }).strict().refine(a => !!a.zustand === a.dauerSek > 0, 'Zustand ⇔ Dauer')).min(2).max(3),
+  clips: z.object({ vorhanden: z.array(z.string()), fehlen: z.array(z.string()) }),
+  messung: z.string().max(200),
+}).strict()).min(5).max(7)
+  .refine(a => new Set(a.map(g => g.id)).size === a.length, 'Geräte-IDs sind eindeutig')
+  .refine(a => new Set(a.map(g => g.element)).size === a.length, 'je Element höchstens ein Gerät');
+export type Geraete = z.infer<typeof Geraete>;
 
 /**
  * Techniken (D400): was der Brachgänger **gelernt** hat. Bezahlt mit Einsicht, an der Rast. Keine Technik
@@ -1316,7 +1583,15 @@ export const GegnerDaten = z.object({
   hoehe: z.number().positive(),
   halbLaenge: z.number().nonnegative().optional(),
   zucken: z.number().nonnegative().optional(),
-  mensch: z.object({ linienFolge: z.array(KampfLinie).min(1), deckung: KampfLinie }).strict().optional(),
+  mensch: z.object({
+    linienFolge: z.array(KampfLinie).min(1), deckung: KampfLinie,
+    /**
+     * D426: Gibt er beim ersten Haltungsbruch auf (Waffe fallen lassen, Hände heben, zurückweichen — `echtzeit.ts`
+     * `gibtAuf`)? Ohne Angabe ja. `false` für die, die nicht aufgeben (Anführer). Das Feld steht im Block `mensch`,
+     * damit kein Tier es tragen kann: Tiere geben nie auf.
+     */
+    gibtAuf: z.boolean().optional(),
+  }).strict().optional(),
   /**
    * D389: Reinigungswerte dieses Gegners — nur, wer reinigbar ist. Tiere (mit `elemente`) sind es;
    * Menschen nicht (D385), ausser `freiwillig`: wer den Befall gewählt hat (Grüne Mönche im Endstadium).
@@ -1328,6 +1603,19 @@ export const GegnerDaten = z.object({
     'reinigen nur bei Tieren (mit elemente) oder freiwillig befallenen Menschen (D385)')
   .refine(g => !g.reinigen?.freiwillig || !!g.mensch, 'freiwillig befallen sind nur Menschen (D385)');
 export type GegnerDaten = z.infer<typeof GegnerDaten>;
+
+/**
+ * D426: Aufgabe menschlicher Gegner beim ersten Haltungsbruch (`content/aufgabe.json`, gelesen von
+ * `src/kampf/echtzeit.ts`). Wer aufgibt, greift nicht mehr an und weicht zurück; die Spielerin kann ihn bis zum Ende
+ * der Frist noch töten, danach geht er (verschont). Ob ein Mensch aufgibt, steht am Gegner (`mensch.gibtAuf`).
+ */
+export const AufgabeDaten = z.object({
+  rueckzug: z.number().positive().max(2).describe('m/s, mit denen er rückwärts von der Spielerin weg geht'),
+  abstand: z.number().positive().max(15).describe('Meter bis zum Rand der Spielerin, bis zu denen er zurückweicht'),
+  frist: z.number().positive().max(15).describe('Sekunden ab dem Haltungsbruch, bis er den Kampf verlässt (verschont)'),
+  warum: z.string().optional(),
+}).strict();
+export type AufgabeDaten = z.infer<typeof AufgabeDaten>;
 
 // --------------------------------------------------------------- Reinigen (Marke, D376)
 
@@ -1390,6 +1678,11 @@ const einstellungsKopf = {
   prioritaet: z.enum(['M', 'S', 'K']),
   wirkt: z.enum(['geraet', 'spieler']),
   url: z.string().regex(/^[a-z0-9]+$/).optional().describe('heutiger URL-Schalter (ohne Fragezeichen), der denselben Wert übersteuert'),
+  /**
+   * D415: Wie der URL-Text in einen Wert dieser Einstellung übersetzt wird (`?weite=1.6` → `weit`). Ohne
+   * Angabe gilt: Schalter `1`/`0`, Auswahl die Wert-id, Regler die Zahl — jeweils nur, wenn gültig.
+   */
+  urlWerte: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   neustart: z.boolean().optional().describe('wirkt erst nach Neuladen der Seite'),
 };
 
@@ -1429,9 +1722,31 @@ export function einstellungsWertGueltig(e: Einstellung, wert: unknown): boolean 
   return Math.abs(schritte - Math.round(schritte)) < 1e-6;
 }
 
+/**
+ * D415: Vorschlag der Qualitätsstufe aus Geräte-Kennwerten (`src/spiel/qualitaetsvorschlag.ts`). Die
+ * Regeln sind **Arbeitswerte ohne Messlauf** (Doc §6.1) — sie wählen eine Startstufe, die Bildzeit beim
+ * Vorwärmen korrigiert sie. Erste passende Regel gewinnt.
+ */
+export const QualitaetsAutomatik = z.object({
+  regeln: z.array(z.object({
+    muster: z.string().min(1).describe('regulärer Ausdruck, ohne Gross-/Kleinschreibung, gegen den Renderer-Namen'),
+    stufe: z.enum(QUALITAETSSTUFEN),
+    warum: z.string().min(1),
+  }).strict()),
+  ohneTreffer: z.enum(QUALITAETSSTUFEN).describe('Stufe, wenn keine Regel greift oder der Name fehlt'),
+  mobilHoechstens: z.enum(QUALITAETSSTUFEN).describe('Handy/Tablet (grober Zeiger) nie darüber — ADR-0006: das Handy ist eine spätere eigene Stufe'),
+  wenigKerneHoechstens: z.object({ kerne: z.number().int().positive(), stufe: z.enum(QUALITAETSSTUFEN) }).strict(),
+  ultraBrauchtWebgpu: z.boolean().describe('Ultra nur, wenn der WebGPU-Pfad das Spiel trägt (Doc §6.1, ADR-0015)'),
+  zielBildzeitMs: z.record(z.enum(QUALITAETSSTUFEN), z.number().positive()),
+  runterAbAnteil: z.number().positive().describe('p95 über Ziel × Anteil → eine Stufe runter'),
+  hochUnterAnteil: z.number().positive().describe('p95 unter Ziel × Anteil → eine Stufe hoch'),
+}).strict();
+export type QualitaetsAutomatik = z.infer<typeof QualitaetsAutomatik>;
+
 export const Einstellungen = z.object({
   version: z.number().int().positive().describe('Version des Einstellungssatzes; steigt, wenn eine id entfällt oder ihre Bedeutung wechselt'),
   einstellungen: z.array(Einstellung).min(1),
+  automatik: QualitaetsAutomatik.optional(),
 }).strict().superRefine((d, ctx) => {
   const gesehen = new Set<string>();
   d.einstellungen.forEach((e, i) => {
@@ -1456,3 +1771,200 @@ export const Einstellungen = z.object({
   });
 });
 export type Einstellungen = z.infer<typeof Einstellungen>;
+
+// ------------------------------------------------------- Belegung (D415)
+
+/**
+ * Eingabe als Aktionen (D415, Doc §6.4.1/§8.4): Der Code fragt Aktionen, nie Tasten. Tasten stehen als
+ * `KeyboardEvent.code` (Lage, nicht Beschriftung), Maustasten als `Maus0`–`Maus2`, Gamepad-Knöpfe als
+ * `Pad:<Name>` nach der Standardzuordnung der Gamepad API.
+ *
+ * **Kontext** sagt, in welchem Spielzustand eine Aktion gilt. Zwei Aktionen auf derselben Taste sind nur
+ * dann eine Kollision, wenn sich ihre Kontexte überschneiden: `frei` (kein Ziel aufgeschaltet) und `ziel`
+ * (Ziel aufgeschaltet) schliessen sich aus — so teilen sich Drehen und Zielwechsel Q/E, wie seit D168.
+ */
+export const EINGABE_KONTEXTE = ['immer', 'welt', 'kampf', 'frei', 'ziel'] as const;
+export const Belegung = z.object({
+  version: z.number().int().positive(),
+  aktionen: z.array(z.object({
+    id: z.string().regex(/^[a-z_]+$/),
+    name: z.string().min(1),
+    kontext: z.enum(EINGABE_KONTEXTE),
+    tasten: z.array(z.string().min(1)).max(4).describe('Tastatur und Maus, Standardbelegung'),
+    pad: z.array(z.string().regex(/^Pad:/)).max(2).describe('Gamepad-Grundbelegung, fest (A-29 (5))'),
+    fest: z.boolean().optional().describe('nicht frei belegbar (Esc löst im Browser ohnehin den Zeiger)'),
+    verdrahtet: z.boolean().describe('liest der Code die Aktion schon? Sonst nur vorgesehen'),
+  }).strict()).min(1),
+  geteilt: z.array(z.object({
+    aktionen: z.tuple([z.string(), z.string()]),
+    taste: z.string().min(1),
+    warum: z.string().min(1),
+  }).strict()).describe('bewusst geduldete Überschneidungen im Bestand, mit Begründung'),
+  sperre: z.array(z.string().min(1)).describe('Tasten, die der Browser für sich behält'),
+  doppel: z.array(z.object({
+    knopf: z.string().regex(/^Pad:/),
+    tippen: z.string().min(1),
+    halten: z.string().min(1),
+    schwelleS: z.number().positive(),
+  }).strict()).describe('ein Knopf, zwei Aktionen nach Druckdauer (Gattung: B tippen = Rolle, halten = Rennen)'),
+}).strict().superRefine((d, ctx) => {
+  const ids = new Set<string>();
+  d.aktionen.forEach((a, i) => {
+    if (ids.has(a.id)) ctx.addIssue({ code: 'custom', path: ['aktionen', i, 'id'], message: `Aktion '${a.id}' doppelt` });
+    ids.add(a.id);
+    for (const t of a.tasten) if (d.sperre.includes(t)) ctx.addIssue({ code: 'custom', path: ['aktionen', i, 'tasten'], message: `${t} ist gesperrt` });
+  });
+  d.geteilt.forEach((g, i) => g.aktionen.forEach(a => {
+    if (!ids.has(a)) ctx.addIssue({ code: 'custom', path: ['geteilt', i], message: `unbekannte Aktion '${a}'` });
+  }));
+});
+export type Belegung = z.infer<typeof Belegung>;
+
+// ------------------------------------------------------- Spielstand (D415)
+
+/**
+ * Laufzeit-Schema des Spielstands (D415, Doc §7.2): Laden und Import prüfen dagegen. **Bewusst
+ * nachsichtig** — es prüft die Form der Felder, die das Spiel liest, und lässt unbekannte Felder durch
+ * (`passthrough`). Ein zu strenges Schema wäre selbst ein Datenverlust: Was es ablehnt, lädt nicht.
+ * Fehlende Felder ergänzt `ergaenzeStand` vorher aus `LEERER_STAND` (der Weg „ohne Versionssprung“).
+ */
+const kennung = z.string().min(1);
+export const SpielstandDaten = z.object({
+  version: z.number().int().positive(),
+  team: z.array(z.object({
+    kreatur: kennung,
+    stufe: z.number().int().min(1),
+    erfahrung: z.number().finite(),
+    kp: z.number().finite(),
+    zustand: z.enum(['rein', 'befallen', 'verhaertet', 'rueckgefuehrt']).optional(),
+  }).passthrough()),
+  gefangen: z.array(kennung),
+  besiegt: z.array(kennung),
+  /** D417 (Migration v3): gereinigte Tiere, Format wie `besiegt`. */
+  gereinigt: z.array(kennung),
+  /** D417: nur die Ladungen jetzt; Fassung, Läuterung, Stufe sind abgeleitet (`src/spiel/marke.ts`). */
+  marke: z.object({ ladung: z.number().finite().min(0) }).passthrough(),
+  position: z.tuple([z.number().finite(), z.number().finite()]),
+  region: kennung,
+  gesehen: z.array(kennung),
+  beutel: z.record(z.string(), z.number().finite()),
+  fragmente: z.array(kennung),
+  orte: z.array(kennung),
+  regenten: z.array(kennung),
+  geheilt: z.array(kennung),
+  auftraege: z.record(z.string(), z.enum(['angenommen', 'abgeholt'])),
+  richtungskampf: z.boolean(),
+  held: z.object({ name: z.string() }).passthrough().nullable(),
+  waffenStufen: z.object({ klinge: z.number(), axt: z.number() }).passthrough(),
+  lagerSieg: z.record(z.string(), z.number().finite()),
+  letzteZuflucht: z.string().optional(),
+  /** D416 (v3): gemeldete Begegnungen mit Lage; das Revier folgt aus der Lage. */
+  begegnungen: z.array(z.object({
+    art: z.enum(['getoetet', 'gereinigt', 'umgangen', 'verschont']),
+    gegnerId: kennung, region: kennung,
+    x: z.number().finite(), z: z.number().finite(), zeit: z.number().finite(),
+    /** D426: Mensch statt Tier — zählt in keinem Revier, getötet beim Zähler der Mönche voll. */
+    mensch: z.literal(true).optional(),
+  }).passthrough()),
+  /** D416 (v3): was Rasten an den Revieren entschieden haben. */
+  reviere: z.object({
+    rasten: z.number().int().min(0),
+    leerFolge: z.array(kennung),
+    je: z.record(z.string(), z.object({
+      verhaertet: z.number().int().min(0).optional(),
+      zugewandert: z.number().int().min(0).optional(),
+      wartet: z.number().int().min(0).optional(),
+    }).passthrough()),
+  }).passthrough(),
+}).passthrough();
+
+/** Die Hülle um den Stand (D415): trägt, was eine Platzliste zeigt, ohne `spiel` zu lesen. */
+export const SpielstandHuelle = z.object({
+  format: z.literal('brachland-spielstand'),
+  version: z.number().int().positive(),
+  geschrieben: z.string().min(1).describe('ISO-Zeit des Schreibens'),
+  spiel: z.unknown(),
+  pruefsumme: z.string().regex(/^[0-9a-f]{8}$/).optional().describe('FNV-1a über `spiel` (stabil sortiert), nur im Export'),
+  einstellungen: z.record(z.string(), z.unknown()).optional().describe('nur Export: persönliche Einstellungen (`wirkt: spieler`)'),
+}).passthrough();
+
+// ------------------------------------------------------- Bewegung (D412)
+
+/**
+ * Bewegungswerte der Figur (D412, Entscheidungen D411 auf die Physik-Prüfung, `content/bewegung.json`).
+ * Jeder Block nennt, was real gilt, warum das Spiel abweicht und wo es steht — „benannt und begründet, nie
+ * still“ (D398). Gelesen von `src/spieler/tempo.ts`, `ausdauer.ts`, `gleiten.ts`, `bewegung.ts` und
+ * `src/spiel/reiten.ts`; `tauchen` und `tragtier` sind Entwurf — `tauchen` liest kein Code, vom Tragtier liest
+ * `reiten.ts` seit D413 Masse und Traglast (`traegt`), das Tier selbst gibt es nicht. Zeiten in Sekunden,
+ * Strecken in Metern, Tempi in m/s.
+ */
+const Benannt = {
+  real: z.string().min(1).describe('was in der Wirklichkeit gilt, mit „nicht belegt“, wo die Quelle fehlt'),
+  warum: z.string().min(1).describe('warum das Spiel davon abweicht'),
+  quelle: z.string().min(1),
+};
+const Tempo = z.number().positive().max(60);
+export const Bewegung = z.object({
+  stand: z.string(),
+  laufen: z.object({
+    gehen: Tempo,
+    rennen: Tempo,
+    /** Werte, die `?renntempo=` am M1 zulässt; der Standard muss darunter sein. */
+    rennenProbe: z.array(Tempo).min(1),
+    ...Benannt,
+  }).strict().refine(l => l.rennen > l.gehen, 'Rennen muss schneller sein als der Laufschritt')
+    .refine(l => l.rennenProbe.includes(l.rennen), 'rennenProbe enthält den Standard nicht')
+    .refine(l => l.rennenProbe.every(r => r > l.gehen), 'ein Probewert liegt nicht über dem Laufschritt'),
+  reiten: z.object({ gehen: Tempo, rennen: Tempo, ...Benannt }).strict()
+    .refine(r => r.rennen > r.gehen, 'Reiten im Galopp muss schneller sein als im Schritt'),
+  klettern: z.object({
+    tempo: Tempo,
+    reichweite: z.number().positive().describe('Meter Wand aus voller Ausdauer'),
+    ...Benannt,
+  }).strict(),
+  fall: z.object({
+    schadlosBis: z.number().positive(),
+    toedlichAb: z.number().positive(),
+    rolle: z.number().min(0).max(1).describe('Faktor auf den Schaden bei einer Rolle in der Landung'),
+    rolleFenster: z.number().positive().max(1).describe('Sekunden vor dem Aufsetzen, in denen die Rolltaste als Rolle zählt (D413)'),
+    endgeschwindigkeit: Tempo,
+    ...Benannt,
+  }).strict().refine(f => f.schadlosBis < f.toedlichAb, 'schadlosBis muss unter toedlichAb liegen'),
+  kaelte: z.object({
+    sinktNach: z.number().positive(),
+    leerNach: z.number().positive(),
+    anzug: z.string().regex(/^[a-z0-9-]+$/).describe('Gegenstand, der die Kälteuhr anhält'),
+    ...Benannt,
+  }).strict().refine(k => k.sinktNach < k.leerNach, 'sinktNach muss vor leerNach liegen'),
+  tauchen: z.object({
+    status: z.literal('entwurf'),
+    tempo: Tempo,
+    flascheLiter: z.number().positive(),
+    fuelldruckBar: z.number().positive(),
+    reserveBar: z.number().nonnegative(),
+    verbrauchArbeit: z.number().positive().describe('l/min an der Oberfläche bei Arbeit'),
+    zeitfaktor: z.number().positive(),
+    ...Benannt,
+  }).strict().refine(t => t.reserveBar < t.fuelldruckBar, 'Reserve über dem Fülldruck'),
+  gleiter: z.object({ verhaeltnis: z.number().positive(), sinken: Tempo, ...Benannt }).strict(),
+  tragtier: z.object({
+    status: z.literal('entwurf'),
+    id: z.string().regex(/^[a-z0-9-]+$/),
+    name: z.string(),
+    arten: z.array(z.string()).min(1),
+    zustand: Zustand,
+    masse: z.object({ min: z.number().positive(), max: z.number().positive(), belegt: z.boolean(), notiz: z.string().optional() }).strict(),
+    traglastAnteil: z.number().positive().max(0.3),
+    reiterLast: z.number().positive(),
+    auftrag: z.string().regex(/^[a-z0-9-]+$/),
+    /** Kein Gegner: Das Tier wird gereinigt, nicht bekämpft. Kampfwerte erst, wenn es je als Gegner dient. */
+    kampfwerte: z.null(),
+    text: z.string().max(400),
+    real: z.string().min(1),
+    quelle: z.string().min(1),
+  }).strict()
+    .refine(t => t.masse.min <= t.masse.max, 'masse.min über masse.max')
+    // Physik (D398): Das leichteste Tier dieser Art muss den Reiter beim Traglastanteil tragen.
+    .refine(t => t.masse.min * t.traglastAnteil >= t.reiterLast - 1e-9, 'das leichteste Tier trägt den Reiter nicht'),
+}).strict();
+export type Bewegung = z.infer<typeof Bewegung>;

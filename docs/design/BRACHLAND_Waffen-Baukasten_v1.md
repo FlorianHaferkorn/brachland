@@ -9,6 +9,10 @@ shelf-life-days: 180
 > Daten: `content/waffenteile.json`. Ableitung: `src/kampf/baukasten.ts`. Messung: `npx tsx tools/baukastensim.ts`.
 > Fragen für Flo: Ledger **A-31**. Offen/erledigt steht im Ledger, nicht hier.
 > **Fortgeschrieben mit D405** (unten, §11–§15): Waffenfamilien, Bogen und Armbrust, „Magie“, Zähler der Mönche.
+> **Fortgeschrieben mit D420** (unten, §24–§30): Gewicht spürbar machen — Recherche, Befund je Waffe, Gewichtsmodul
+> (`src/kampf/gewicht.ts`, `content/gewicht.json`), Nachschwung der Messer-Clips, Einhängepunkte, Vorschläge an Kampfwerten.
+> **Fortgeschrieben mit D427** (§27.1, §29, §30): Runde 2 verdrahtet — Trefferstopp nach Wucht, Kamerastoss,
+> Reaktion des Getroffenen, Einstellung Kamerawackeln, Kampfton aus CC0-Aufnahmen.
 >
 > Anlass (Flo, 22.11.2026): ob jeder aus Material eigene Waffen und Ausrüstung schmieden, herstellen und gestalten
 > können soll — „Das wäre doch ein innovativer Ansatz oder nicht?“ —, dazu der Nachtrag: „ja ich meinte auch ob man
@@ -236,6 +240,9 @@ nichts ablesen. Belegt ist damit nur für die Klinge: **Der Heiler will keine H�
 
 Nicht in den Daten umgesetzt — erst nach Flos Entscheidung und dann mit einer zweiten Messrunde.
 
+> **D407:** Entschieden (D404: Ausgleich je Teil) und gemessen — gegen vier Ziele statt nur Töten, mit dem korrigierten
+> Bot, als `ausgleich` in den Daten: §31. Die Tabelle unten ist der Vorschlag von D403.
+
 | Massnahme | Wirkung, erwartet |
 |---|---|
 | **Ausgleichsfaktor je Kopf auf den Schaden**, aus der Messung: langes Blatt −8 %, kurzes Blatt +8 %, Bartaxt −5 % (Schneide ×1,00 statt ×1,05), Breitblatt −5 %, Nadelspitze +8 % | holt jede Form in ±5 % der Referenz-Kampfdauer; benannt als Spielausgleich, nicht als Physik |
@@ -346,7 +353,7 @@ Einsatzhärtung (2 + 8). Die Reihenfolge der Spielweisen und der Dominanztest (D
 
 | # | Schritt | Grösse | Vor dem ersten Fremdtest? |
 |---|---|---|---|
-| 1 | Budget nach §4 setzen, zweite Messrunde, dazu Rudel, Menschen, Reinigen | S | **ja** — ohne das ist alles Weitere auf Sand |
+| 1 | Budget nach §4 setzen, zweite Messrunde, dazu Rudel, Menschen, Reinigen — **D407: gesetzt und gemessen (§31); Klinge und Speer im Band, die Axt nicht** | S | **ja** — ohne das ist alles Weitere auf Sand |
 | 2 | Waffe im Spielstand als Bau statt als Stufe; `WAFFEN` aus dem Bau ableiten | M | nein |
 | 3 | Modelle: 10 Köpfe, 9 Schäfte, im Rig an Kopf- und Griffpunkt zusammengesetzt | M | nein |
 | 4 | Schmiede-Fenster nach Menü v1 (Rahmen „Aufwertung“): links die Waffe, vier Plätze, rechts Vorher/Nachher als Zahlen; ein gebauter Entwurf bleibt als Vorlage | M | nein |
@@ -434,15 +441,18 @@ mit Saufeder und Sapie.
 - **Die UAL2-Datei liegt auf dieser Maschine nicht** (`.cache/ual2/` fehlt). Welche weiteren Clips ihre freie Fassung
   enthält — Bogen, Zweihand, Hammer —, liess sich deshalb **nicht nachsehen**. Belegt ist nur: rund 130 Animationen,
   darunter „melee and armed combos“, die freie Fassung umfasst etwa 70 % [UAL]. Vor dem Bau am M1 nachsehen.
+  **D428 (22.11.2026): nachgesehen** — die freie Fassung hat 43 Clips, zehn davon mit Waffe, alle einhändig (Schwert,
+  Wurf, Schild, Hacke); kein Bogen, kein Zweihandhieb, kein Speer. Liste, Probe und Fechtbuch-Vorgaben:
+  `BRACHLAND_Waffenbewegungen_v1.md`.
 - **Der sichere Weg ist der, den Axt und Speer gegangen sind:** Clips aus Schlüsselbildern in `waffenclips.py`.
   Der Speer brauchte fünf (D184).
 
 | Familie | Vorhandene Clips nutzbar | Fehlen |
 |---|---|---|
-| Hirschfänger | alle sieben der Klinge (einhändig, kürzere Reichweite) | **keine** — nur ein Modell |
+| Hirschfänger | alle sieben der Klinge (einhändig, kürzere Reichweite) | **keine** — nur ein Modell. **D414:** Modell gebaut; Griff und Handlage in den Klingenclips geprüft (`.cache/bilder/D414/hirschfaenger_in_klingenclips.png`) |
 | Schlägel | `Axt_Stand`, `Axe_Overhead`, `Axt_Schwer`, `Axt_Block` | 2: zweihändiger Stand, tiefer Querschlag |
 | Sapie | `Speer_Stand`, `Speer_Block` | 3: Hieb über Kopf, Zug, Lauf |
-| Langes Messer | `Klinge_U_C` (Zweihandhieb) | 5: Stand, zwei Querhiebe, Lauf, Block |
+| Langes Messer | ~~`Klinge_U_C` (Zweihandhieb)~~ — **D414:** taugt nicht (Sprung, linke Hand nicht am Griff) | ~~5: Stand, zwei Querhiebe, Lauf, Block~~ **D414 gebaut, sechs:** `Messer_Stand`, `Messer_Quer_A`, `Messer_Quer_B`, `Messer_Lauf`, `Messer_Block` und `Messer_Schwer` statt `Klinge_U_C` |
 | Bogen und Armbrust | keine | 6: je Stand/Anlegen, Spannen/Laden, Lösen/Schuss |
 
 [UAL] https://quaternius.itch.io/universal-animation-library-2 · https://80.lv/articles/get-this-animation-asset-library-with-over-130-diverse-items
@@ -451,10 +461,10 @@ mit Saufeder und Sapie.
 
 | Familie | Real | Anker | Abweichung |
 |---|---|---|---|
-| Hirschfänger | jagdliche Seitenwaffe, Klinge 40–70 cm | 0,6–0,8 kg — **Überschlag** | keine |
+| Hirschfänger | jagdliche Seitenwaffe, Klinge 40–70 cm (DHM W 70/71: 49,5 / 62,5 cm) | ~~0,6–0,8 kg~~ **0,4–0,6 kg** — Überschlag; Modell 0,59 kg aus Volumen × Dichte (D414) | keine |
 | Schlägel | Vorschlaghammer real 3–5 kg, zum Kämpfen zu träge | 2–3 kg — **Überschlag** | gemeint ist ein leichter Schlägel am langen Stiel; benannt |
 | Sapie | Forstwerkzeug zum Ziehen und Wenden von Stämmen, 1,2–1,6 m, kopflastig | 1,5–2,5 kg — **Überschlag** | keine: Sie bleibt, was sie ist — langsam, zieht |
-| Langes Messer | zweihändiges Kriegsmesser, süddeutsch | 1,2–1,8 kg, 1,1–1,3 m — **Überschlag** | keine |
+| Langes Messer | zweihändiges Kriegsmesser, süddeutsch (Nachbau 15. Jh.: Klinge 82, gesamt 111 cm) | 1,2–1,6 kg, 1,1–1,2 m — Überschlag; Modell 1,39 kg, 1,17 m, Trägheit um die Hand 0,23 kg·m² (D414) | keine |
 | Bogen | Jagdbogen 20–25 kg Zuggewicht, Pfeil um 30 g, 50–60 m/s | **Überschlag** | Spannen 0,9 s statt 1–2 s |
 | Armbrust | Spannen mit Hebel 15–20 s, mit Winde 30–60 s | **Überschlag** | **6 s im Spiel** — grösste Abweichung, benannt |
 
@@ -505,6 +515,9 @@ wegnehmen statt es zu lösen. (3) Sechs Clips, Zielkamera, Geschossregeln: der g
 die schiessen, sind eine eigene Aufgabe und hier nicht entworfen.
 
 ## 13. „Gibt es sowas wie Magie?“
+
+> **Abgelöst durch D409/D410** (unten, §16–§23): Flo will keine Marken-Fähigkeiten als Magie, sondern Geräte mit
+> Elementangriffen. Der Abschnitt bleibt als Beleg stehen; von den sieben Wirken gelten nur noch Lesen und Rufen.
 
 **Antwort: Nein — und es sollte keine geben. Aber es gibt die Marke, und sie kann mehr als reinigen.**
 
@@ -594,3 +607,775 @@ nicht geändert**; das ist Flos Entscheidung (A-32). Der Test hält fest, was be
 - ⚠️ Recherche zu Magie in anderen Spielen: bis auf Sekiro nicht belegt.
 - ⚠️ Die von D404 verlangte Nachmessung „Haltungsbruch mit Reinigen und gegen Menschen“ ist **nicht** Teil dieser
   Arbeit; sie ist Schritt 1 in §9 und Voraussetzung für Schlägel und Budget.
+
+---
+
+# Fortschreibung D410: Geräte mit Elementangriffen statt Magie
+
+> **Entwurf, nichts verdrahtet, kein Kampfwert geändert.** Löst §13 („Wirken der Marke“ als Magie-Ersatz) ab.
+> Flo, 22.11.2026 (D409): „Magie ersetzen durch tools die Elementattacken ausführen können was dann wie Magie ist.
+> Ähnlich wie bei Elden Ring mit Siegeln“. Daten: `content/geraete.json`, vier Betriebsstoffe in
+> `content/gegenstaende/`, `content/wirken.json` (fünf Einträge als ersetzt markiert). Regeln:
+> `src/kampf/geraete.ts`. Fragen für Flo: Ledger **A-35**. Seit D406 gilt: Fernkampf erst nach Kapitel 1; Kapitel 1 =
+> Klinge, Axt, Saufeder, Hirschfänger, Langes Messer; Befallskräfte geparkt.
+>
+> **Entschieden (Flo, 22.11.2026, „ja“, D411; nachgezogen D412):** alle fünf Empfehlungen aus A-35 gelten — vier Geräte
+> in Kapitel 1 (Abflammgerät, Kohlensäurelöscher, Weidezaungerät, Räucherkanne), die **Räucherkanne als erste Probe**
+> vor dem Fremdtest; Kalkstreuer Kapitel 2; Sporenbalg geparkt; **Betriebsstoff je Gerät**; **Rauch beruhigt den
+> Befall** als Setzung über die Welt (Story-Bibel v2 §2); die Marke behält nur **Orten und Rufen**; Brand im Gelände
+> als Regel, als gebaute Mechanik erst nach Kapitel 1. Unten sind die Stellen markiert; ersetzter Wortlaut ist
+> durchgestrichen. Kein Wirkwert ist gemessen, nichts gebaut.
+
+## 16. Bestand: das Elementsystem
+
+| Was | Wo | Befund |
+|---|---|---|
+| Acht Elemente | `src/data/schema.ts:13` `ELEMENTE` | holz, stein, alt-tech, sporen, wasser, brand, frost, faeulnis — in dieser Reihenfolge |
+| Der Kreis | `schema.ts:24` `effektivitaet` | Zirkulant: Element i schlägt i+1 und i+2 (×2,0), wird von i−1 und i−2 geschlagen (×0,5), sonst ×1,0. Erzeugt, nicht gepflegt: jedes Element zwei Stärken, zwei Schwächen, drei neutral (Selbsttest in `tools/validate.ts`) |
+| Doppeltyp | `schema.ts:35` `schadensfaktor` | Faktoren multiplizieren sich: 4 / 2 / 1 / 0,5 / 0,25 |
+| Rundenkampf | `src/engine/battle.ts:245`, Moves, Kreaturen, Regenten (`content/moves/`, `creatures/`, `regenten/`) | voll genutzt — dafür wurde der Kreis gebaut. Der Flussvater wechselt wasser → faeulnis → alt-tech + stein |
+| **Echtzeitkampf** | `src/kampf/echtzeit.ts:113` `KampfWerte.elemente`, `content/gegner/*.json` Zeile 3 | **kennt Elemente der Tiere:** Keiler holz, Grathorn und Gams stein, Fuchs alt-tech, Wolf alt-tech + frost. Menschen haben keins |
+| Kernfunke | `echtzeit.ts:230` (`Element = 'wasser' \| 'stein'`), `:244` `funkenFaktor`, Entladung `:782–827` | **Das Vorbild im eigenen Haus:** Der schwere Schlag mit voller Ladung trägt ein Element; der Kreis gilt **gedämpft mit der Wurzel** (×1,41 / ×1 / ×0,71), weil er ein Zuschlag ist, kein Ersatz für den Hieb (D189). Bisher nur Wasser (Flutstoss) umgesetzt |
+
+Der Kreis in Worten: holz › stein, alt-tech · stein › alt-tech, sporen · alt-tech › sporen, wasser · sporen › wasser,
+brand · wasser › brand, frost · brand › frost, faeulnis · frost › faeulnis, holz · faeulnis › holz, stein.
+
+**Folge:** Die Geräte brauchen kein neues System. Sie tragen ein Element aus `ELEMENTE` und rechnen wie der Kernfunke
+(`elementFaktor` in `src/kampf/geraete.ts` ist dieselbe Wurzel; als Test gegen `funkenFaktor` gebunden).
+
+## 17. Wie das Vorbild funktioniert
+
+| Spiel | Handwerk | Gelobt | Kritisiert | Für uns |
+|---|---|---|---|---|
+| Elden Ring | Ein **Katalysator** in der Hand (Stab oder Siegel) ist Bedingung; die Zauber selbst werden an der Rast in eine begrenzte Zahl Plätze gelegt (zwei zu Beginn, bis zwölf), manche kosten mehrere; jeder Einsatz kostet aus einer Leiste; die Stärke kommt vom Katalysator und von Werten [EM1][EM2] | Trennung von Träger und Ladung: Ein besserer Katalysator hebt alles, was man hat | „some abilities are somewhat overpowered“ [EM3]; *dass Fernzauber Bosse trivialisieren, ist in dieser Recherche nicht belegt* | Gerät = Katalysator, Aufsatz = Ladung, gewechselt an der Rast. **Keine** Fernwirkung, **keine** Skalierung über Werte |
+| Sekiro | Werkzeuge am Arm, gespeist aus einem Verbrauchsvorrat [S3] | Werkzeuge öffnen Fenster, statt den Kampf zu ersetzen | der Verbrauchsvorrat; besser ein Vorrat je Rast [S3] | Geräte öffnen Fenster (Griff, Haltung); Betriebsstoff füllt sich beim Tausch, nicht beim Töten |
+| Bloodborne (Jägerwerkzeuge gegen Kugeln), Lies of P (Legionsarm) | *nicht belegt* | — | — | — |
+
+[EM1] https://eldenring.wiki.fextralife.com/Memory+Slots · [EM2] https://eldenring.wiki.gg/wiki/Spells ·
+[EM3] https://www.pcgamesn.com/elden-ring/spell-incantation-sorcery-best · [S3] siehe §11.1
+
+## 18. Die Geräte
+
+Sechs Geräte, je ein Element, alle aus Hof, Wirtshaus, Weide, Imkerei, Bruch — Technik, die im Inntal real
+herumsteht. Keine fremden Namen, keine fremden Formen (ADR-0004). Alle Wirkzahlen sind **Entwurf und ungemessen**;
+`schaden` und `haltung` zählen in leichten Klingenhieben (22 / 34), bevor der Kreis greift.
+
+| Gerät | Element | Was es real ist | Stark gegen (Kapitel 1) | Status (entschieden D411) |
+|---|---|---|---|---|
+| **Abflammgerät** | brand | Unkrautbrenner mit Stechkartusche, Flamme um 1.800 °C | Wolf (frost) | **Kapitel 1** |
+| **Kohlensäurelöscher** | frost | CO₂-Handlöscher, 2 kg, Schnee von −78 °C | Keiler (holz) | **Kapitel 1** |
+| **Weidezaungerät** | alt-tech | Impulsgerät, 5–10 kV, höchstens 5 J | — (Flussvater Phase 1, wasser) | **Kapitel 1** |
+| **Räucherkanne** | holz | Smoker der Imker mit Blasebalg | Grathorn, Gams (stein), Fuchs (alt-tech) | **Kapitel 1, erste Probe vor dem Fremdtest** |
+| **Kalkstreuer** | stein | Streubüchse mit Branntkalk | Fuchs, Wolf (alt-tech) | **Kapitel 2** |
+| **Sporenbalg** | sporen | erfunden (Stäubebalg mit Sporen) | — | **geparkt** mit den Befallskräften (D406) |
+
+Wasser bleibt beim Kernfunken (Flutstoss); für faeulnis gibt es bewusst kein Gerät — sie ist das, was man bekämpft.
+
+### Aufsätze (das Austauschbare — an der Rast gewechselt, einer ist eingesetzt)
+
+| Gerät | Aufsatz | Form, Reichweite | Schaden / Haltung | Zustand | Verbrauch |
+|---|---|---|---|---|---|
+| Abflammgerät | Breitbrenner | Kegel 2,0 m | 0,8 / 0,4 | brennt 4 s | 1 von 6 |
+| | Stichflamme | Stoss 2,5 m | 1,4 / 1,0 | brennt 2 s | 2 |
+| | Glutnest | Fläche 1,5 m | 0,5 / 0,2 | brennt 6 s (am Boden) | 2 |
+| Kohlensäurelöscher | Schneerohr | Kegel 2,5 m | **0** / 0,8 | verlangsamt 3 s | 1 von 5 |
+| | Stossdüse | Stoss 2,0 m | **0** / 1,6 | verlangsamt 1 s, wirft | 1 |
+| | Reifhaut | Berührung 1,0 m | 0,6 / 0,6 | verlangsamt 5 s | 2 |
+| Weidezaungerät | Treibstab | Berührung 1,2 m | 0,2 / 0,6 | zuckt 0,6 s | 1 von 10 |
+| | Litze | Linie 4,0 m am Boden | 0,1 / 0,4 | zuckt 0,6 s | 2 |
+| | Speicherschlag | Stoss 1,5 m | 0,9 / 1,4 | zuckt 1,2 s | 3 |
+| Räucherkanne | Harzrauch | Fläche 3,0 m | **0 / 0** | ruhig 6 s | 1 von 4 |
+| | Rainfarn | Kegel 2,5 m | **0** / 0,3 | ruhig 3 s, Tiere weichen | 1 |
+| | Nasses Laub | Fläche 3,5 m | **0 / 0** | geblendet 5 s — alle, auch der Träger | 2 |
+| Kalkstreuer | Branntkalk | Kegel 2,5 m | 0,5 / 0,5 | geblendet 4 s | 1 von 6 |
+| | Steinmehl | Kegel 2,5 m | **0** / 0,3 | geblendet 3 s | 1 |
+
+- **Nahbereich:** Kein Aufsatz reicht weiter als 4,0 m — das ist die Reichweite des weitesten Speerstosses (Test).
+  Geräte ergänzen den Nahkampf; sie sind kein Fernkampf durch die Hintertür (D406).
+- **Kein Aufsatz trifft härter als 1,5 leichte Hiebe.** Mit dem Kreis höchstens 1,4 × 1,41 ≈ 2,0 — ein schwerer Hieb.
+- **Ein Geräteplatz.** Das Gerät hängt am Gurt und wird mit der freien Hand geführt. Mit einhändiger Waffe (Klinge,
+  Hirschfänger, Axt) bleibt die Waffe in der Hand; mit zweihändiger (Saufeder, Langes Messer) muss sie erst weg —
+  doppelter Vorlauf. Das ist der Preis der Reichweite.
+- **Clips (D414):** Für die Räucherkanne gebaut: `Geraet_Blasebalg` (Schleife, 1 s, zwei Stösse; linke Hand führt Kanne
+  und Balg, rechte hält die einhändige Waffe tief) — er trägt Kegel und Fläche; Auslegen braucht kein Aufsatz der Kanne.
+  ~~Kein Clip ist für Geräte gebaut.~~ Tragen kann `Klinge_Stich` (Arm nach vorn) als Sprühhaltung und
+  `Speer_Stoss` für den Treibstab; es fehlen drei: `Geraet_Spruehen` (Schleife), `Geraet_Wurf` (Streuen),
+  `Geraet_Auslegen` (Litze). Selbst zu bauen wie Axt und Speer (`tools/waffenclips.py`).
+
+### Physik (D398): was stimmt, was nicht
+
+| Gerät | Stimmt | Abweichung, benannt | Risiko für den Träger |
+|---|---|---|---|
+| Abflammgerät (1,6 kg) | offene Flamme, zündet Trockenes | Flamme real 0,5–1 m, im Spiel bis 2,5 m; eine Kartusche brennt real rund eine Stunde, im Spiel sechs Stösse | zündet Gras und Laub — die Fläche brennt weiter und trifft auch ihn; **ein verbranntes Revier wird nie ruhig**. **Entschieden (D411):** gilt als Regel; gebaut erst nach Kapitel 1 — bis dahin brennt nur das Getroffene (benannte Abweichung) |
+| Kohlensäurelöscher (5,0 kg) | 2 kg CO₂ sind in 8–10 s leer: fünf Stösse zu zwei Sekunden passen genau; −78 °C | dass Kälte ein Tier sekundenlang lähmt, ist Spielwert | CO₂ sammelt sich in Mulden und Stollen: Ausdauer sinkt; das Horn friert an |
+| Weidezaungerät (3,5 kg) | 5–10 kV, höchstens 5 J: schmerzt, lässt zucken, tötet nicht | eine Batterie hält real Wochen, im Spiel zehn Einheiten; ein 140-kg-Tier stoppt real kaum | im Wasser und bei Regen trifft es den Träger |
+| Räucherkanne (~~1,2~~ 0,8 kg, D414: leer 0,73 kg nach Herstellerangabe eines 4 × 7-Zoll-Smokers) | Zunderschwamm ist realer Räucherstoff und glimmt lange; Rauch beruhigt **Bienen** | **Säugetiere beruhigt Rauch nicht.** Im Spiel beruhigt er den Befall — Fiktion der Welt, seit D411 **Setzung in der Story-Bibel v2 §2** („Rauch beruhigt den Befall“: der Symbiont antwortet wie ein Bienenvolk) | Wind dreht: Husten, langsamere Erholung |
+| Kalkstreuer (2,0 kg) | Branntkalk ätzt, wird mit Wasser über 100 °C heiss, Stallhygiene seit jeher | **Kalk hilft real gegen Fäulnis; der Kreis sagt das Gegenteil** (faeulnis schlägt stein). Der Kreis gilt | Wind und Regen tragen ihn zurück; nie im Bach |
+| Sporenbalg | — | ganz Fiktion | Preis am eigenen Körper, nicht entworfen |
+
+### Erwerb (wie D391: nie bloss abgelegt)
+
+| Gerät | Wo | Wie |
+|---|---|---|
+| Abflammgerät | Geräteschuppen eines Hofs in der Flutzone | hinter einem verplombten Spind (Plombenzange, D393) |
+| Kohlensäurelöscher | Schankraum des Wirts | Nebenaufgabe; er füllt danach gegen Tausch nach |
+| Weidezaungerät | Stadel am Hangweg | Rätsel mit der Litze: welcher Pfahl hat noch Strom |
+| Räucherkanne | Bienenstand am Waldrand | die Magd gibt sie für einen Schwarm, den man zurückbringt |
+| Kalkstreuer | Wart vom Bruch | Kapitel 2, wenn der Ofen am Kalkbruch wieder brennt |
+
+Orte und Aufträge sind **Vorschläge ohne Koordinaten**; keine Quest-Datei ist angefasst.
+
+## 19. Womit gespeist
+
+~~**Empfehlung (a)**~~ **Entschieden (D411): (a) Betriebsstoff je Gerät.** Gaskartusche, Kohlensäureflasche,
+Zaunbatterie, Branntkalk — und für die Räucherkanne der **Zunder**, den es schon gibt.
+
+| Betriebsstoff | Gewicht | Traglast | Füllung reicht für | Woher |
+|---|---|---|---|---|
+| Gaskartusche | 0,35 kg | 3 | 6 Einheiten | **Altbestand** — Funde in Höfen und Werk, endlich |
+| Kohlensäureflasche | 3,0 kg | 2 | 5 | **Altbestand** — der Wirt füllt nach, solange die grosse Flasche Druck hat |
+| Zaunbatterie | 1,2 kg | 2 | 10 | **Altbestand** — lädt am Solarmodul beim Stadel, in zwei Tagen (im Spiel: je Rast in Brannburg) |
+| Zunder | 0,05 kg | 4 | 4 | **nachwachsend** — Baumschwamm, Tausch beim Wirt (D393) |
+| Branntkalk | 0,5 kg | 4 | 6 | **nachwachsend** — aus dem Bruch gebrannt |
+
+Warum (a): Es ist die einzige Speisung, die zur Welt und zur Ökonomie passt. D393 trennt, was knapp ist (Altbestand),
+von dem, was nachwächst — und genau so fällt es hier: **Was töten kann, läuft auf Altbestand; was nicht töten kann,
+wächst nach** (Test). Eine Leiste (b) wäre eine Zauberleiste unter anderem Namen. Die Ladungen der Marke (c) würden
+die Geräte wieder an die Marke binden — das hat D409 gerade aufgelöst.
+
+**Alternative (c), nicht gewählt (D411): Ladungen der Marke.** Einfacher (kein Betriebsstoff, keine Traglast), und die Geräte stünden wie
+das alte Wirken in Konkurrenz zum Reinigen. Preis: Der Schlächter, der nie reinigt, hätte sie umsonst.
+
+## 20. Verhältnis zum Reinigen und zum Zähler
+
+- **Brand tötet und zählt voll.** Das Abflammgerät hat keinen Aufsatz ohne Schaden. Wer damit ein Revier leert, hat
+  es verbrannt: nie ruhig, voller Zähler, Verhärtung (D400).
+- **Frost, Rauch, Steinmehl öffnen das Griff-Fenster, ohne zu töten.** „Verlangsamt“, „ruhig“ und „geblendet“ sind
+  Zustände, in denen die Marke greifen kann — neben betäubt, Erholung und lauernd (Reinigen v1 §2). Das sind die
+  **Geräte des Heilers**; sie ersetzen den Haltungsbruch, den seine schwache Waffe nicht liefert.
+- **Ein Aufsatz ohne Schaden kann nicht töten** und zählt beim Zähler nicht. Erst der Griff zählt (ein Viertel).
+- **„Die Marke heilt“ bleibt unberührt:** Kein Gerät reinigt. Reinigen aus der Ferne (der alte „Nachhall“) entfällt.
+
+**Schwächen der fünf Tiere** — abgeleitet aus `content/gegner/*.json`, nichts gesetzt (Test):
+
+| Tier | Elemente | stark (×1,41) | schwach (×0,71) | Gerät der Wahl in Kapitel 1 |
+|---|---|---|---|---|
+| Keiler | holz | frost, faeulnis | stein, alt-tech | **Löscher** — das zäheste Tier beim Reinigen bekommt sein Fenster |
+| Grathorn | stein | holz, faeulnis | alt-tech, sporen | **Räucherkanne** |
+| Gams | stein | holz, faeulnis | alt-tech, sporen | **Räucherkanne** — das heikelste Tier der Messreihe (Reinigen v1 §6) wird ruhiger |
+| Fuchs | alt-tech | holz, stein | sporen, wasser | Räucherkanne |
+| Wolf | alt-tech + frost | stein, brand | faeulnis, sporen | **Abflammgerät** — nur Töten wirkt stark; für den Heiler bleibt der Wolf schwer |
+
+Gegen jedes der fünf Tiere wirkt in Kapitel 1 ein Gerät stark, keines gegen alle (Test). Der Flussvater: Phase 1
+(wasser) Weidezaungerät, Phase 2 (faeulnis) Abflammgerät und Löscher, Phase 3 (alt-tech + stein) Räucherkanne ×2,0.
+
+**Rechnung der vier Spielweisen** (`npx tsx tools/oekonomiesim.ts`). Die Kontroll-Wirken sind weg; für Lesen und
+Rufen bleiben gesetzt 0 / 5 / 5 / 15 % der Ladungen.
+
+| | Schlächter | Gemischt | Heiler | Umgeher |
+|---|---|---|---|---|
+| Ladungen ins Wirken (D405 → D410) | 50 → **0** | 17 → 6 | 27 → 9 | 38 → 14 |
+| Tiere gereinigt (D405 → D410) | 0 | 90 → 100 | 138 → 158 | 32 → 32 |
+| Stand beim Zähler, gewichtet (Schwelle 40) | 291 | 214 | **41** | 8 |
+| Hauptwaffe / Markenstufe | 3 / 1 | 2 / 3 | 1 / 4 | 0 / 2 |
+
+- **Der Heiler liegt wieder genau an der Schwelle** (41 gegen 40): Ohne die Kontroll-Wirken reinigt er mehr. Nach der
+  Zwei-Stufen-Regel aus D406 ist er damit knapp nicht mehr „geduldet“. Die Zahl hängt an einer einzigen Annahme
+  (5 % der Ladungen für Lesen und Rufen) und ist nicht belastbar.
+- **Die Geräte ändern die Rechnung sonst nicht** — sie kosten Betriebsstoff, keine Ladungen. Was sie am Kampf ändern
+  (Kampfdauer, Reinigungsquote, erlittener Schaden), kann nur der Kampfbot sagen, und der kennt keine Geräte.
+- **Der Schlächter hat die Marke wieder nur als Zähler.** Dafür hat er Brand und Strom.
+
+## 21. Was aus dem Wirken der Marke wird
+
+~~**Empfehlung:**~~ **Entschieden (D411):** Die Marke zaubert nicht — sie **ortet und ruft** (bisher „misst und ruft“).
+Als eigene Wirkung behält sie nur diese beiden. Zwei Wirken bleiben als Funktion der Armklammer
+(Sensor, kein Angriff), fünf entfallen. In `content/wirken.json` ist nichts gelöscht: Jeder Eintrag trägt `status`
+und, wenn ersetzt, `ersetztDurch`. Das Schema lässt ein geltendes Wirken mit Kampfwert nicht mehr zu.
+
+| Wirken | Status | Was daraus wird |
+|---|---|---|
+| **Lesen** | gilt | Funktion der Klammer: zeigt Befallene und ihren Zustand (1 Ladung) |
+| **Rufen** | gilt | Funktion der Klammer: ruft ein gereinigtes Tier, mit Halfter das Reittier — seit D411 das Tragtier des Försterhofs (1 Ladung) |
+| Stillen | ersetzt | Räucherkanne, Harzrauch |
+| Stoss | ersetzt | Kohlensäurelöscher, Stossdüse |
+| Binden | ersetzt | Kohlensäurelöscher, Schneerohr |
+| Schirm | ersetzt | entfällt — kein Gerät schützt im Griff |
+| Nachhall | ersetzt | entfällt — Reinigen braucht Nähe, ohne Ausnahme |
+
+**Alternative, nicht gewählt (D411):** Auch Lesen und Rufen streichen; Lesen wird eine Technik (Fährte und Wundblick decken es halb ab),
+Rufen eine Eigenschaft des Halfters. Dann kostet die Marke nur noch fürs Reinigen — sauberer, aber die Klammer wäre
+ein reines Werkzeug ohne eigene Stimme, und ihr Geheimnis (Typ B aus dem Werk, Quests v1) hätte nichts mehr zu zeigen.
+
+## 22. Messbedarf und Aufwand
+
+| Was | Womit | Grösse |
+|---|---|---|
+| Zustände „brennt“, „verlangsamt“, „ruhig“, „geblendet“ in den Kampfregeln („zuckt“ gibt es als Phase) | `src/kampf/echtzeit.ts`, renderfrei | M |
+| Geräteeinsatz als Handlung (Vorlauf, Form, Kegel gegen Kapsel wie der Trefferbogen) | ebd. | M |
+| Kampfbot mit Gerät: Kampfdauer, erlittener Schaden, im Rudel | `tools/kampfbot.ts` | M |
+| Reinigen mit Löscher und Räucherkanne: Quote und Dauer gegen Keiler und Gams | `tools/reinigensim.ts` (D407 arbeitet dort) | S, nach D407 |
+| Brand im Gelände (Fläche brennt weiter) | Welt, Props | L — ~~getrennt entscheiden~~ **entschieden (D411):** Regel ja, Mechanik nach Kapitel 1; bis dahin brennt nur das Getroffene |
+| Modelle (5), Clips (3), Effekte (Flamme, Schnee, Rauch, Staub, Funke) | Blender, Shader | L |
+| Geräteplatz in Ausrüstung und Schmiede/Rast-Fenster | UI nach Menü v1 | M |
+
+Vor dem ersten Fremdtest sinnvoll: **ein** Gerät des Heilers (Räucherkanne — kein Schaden, ein Zustand, nachwachsender
+Stoff) als Probe, ob das Prinzip trägt. **So entschieden (D411).**
+
+## 23. Unklar (D410)
+
+- ⚠️ Keine Wirkzahl ist gemessen. Der Echtzeitkampf kennt weder Geräte noch die Zustände ausser „zuckt“.
+- ⚠️ Gewichte, Entleerzeiten, Spannungen sind Allgemeinwissen ohne Quelle.
+- ~~⚠️ Dass Rauch den Befall beruhigt, ist eine neue Setzung über die Welt (der Symbiont antwortet wie ein Bienenvolk).
+  Sie steht in keiner Bibel und müsste dorthin, wenn Flo sie annimmt.~~ **Erledigt:** Flo hat sie angenommen (D411);
+  sie steht seit D412 in der Story-Bibel v2 §2.
+- ⚠️ Kalk gegen Fäulnis: Physik und Elementkreis widersprechen sich. Gewählt ist der Kreis.
+- ⚠️ Der Wolf hat kein Gerät des Heilers, das stark wirkt. Ob das eine gewollte Härte ist, ist offen.
+- ⚠️ Brand im Gelände ist ein eigenes, grosses Thema (Performance, Weltzustand) ~~und hier nur als Risiko benannt~~ —
+  entschieden als Regel (D411), die Mechanik kommt nach Kapitel 1; Performance und Weltzustand bleiben offen.
+- ⚠️ Fundorte ohne Koordinaten; Bloodborne und Lies of P nicht belegt.
+- ⚠️ `tools/baukastensim.ts`, `content/waffenteile.json` und Reinigen v1 §6 sind nicht angefasst (D407).
+
+---
+
+# Fortschreibung D420: Gewicht spürbar machen
+
+> **Darstellung gebaut, kein Kampfwert geändert, nichts im Spiel verdrahtet.** Flo, 22.11.2026: „Das Gewicht der
+> Waffen muss man ihnen anmerken.“ Grundsatz D419: Darstellung (Trefferstopp, Kamera, Reaktion, Ton, Nachschwung) darf
+> frei der Masse folgen; Zeitfenster und Schaden sind geprüfte Kampfwerte und ändern sich nur mit Bot-Messung.
+> Daten: `content/gewicht.json` (Schema `Gewicht`). Ableitung: `src/kampf/gewicht.ts`. Tests: `tests/gewicht.test.ts`,
+> `tests/waffenclips.test.ts` (Nachschwung). Clips: `tools/waffenclips.py` (`Messer_*`), Vorschlag für den Bestand:
+> `tools/gewichtvorschlag.py`. Prüfbilder: `/home/user/brachland/.cache/bilder/D420/`. Fragen für Flo: Ledger **A-40**.
+> Parallel liefen D407 (Kampf-Nachmessung), D416 (Reviere), D417 (Reinigen im Kampf) — deren Dateien
+> (`src/kampf/echtzeit.ts`, `Kampfplatz.tsx`, Kampfteile von `src/main.tsx`, `tools/kampfbot.ts`,
+> `tools/baukastensim.ts`, `content/waffenteile.json`) sind nur gelesen; die Einhängepunkte stehen in §27.
+
+## 24. Wie gelobte Spiele Gewicht zeigen (Recherche)
+
+Kurz recherchiert, Quellen unten. Entwicklerquellen gibt es nur für Monster Hunter (Hitstop), God of War (Axt-Rückruf),
+For Honor (Begriffe) und Kingdom Come (Anspruch, Bewegungsaufnahme). Für Elden Ring, Mordhau und Sekiro stützt sich
+die Beschreibung auf Wikis und Foren — so markiert.
+
+| # | Mittel | Wer (Beleg) | Wirkung | Kosten | Für uns |
+|---|---|---|---|---|---|
+| 1 | **Trefferstopp nach Wucht** — die Welt hält im Treffer kurz an | Monster Hunter: in der Beta von Wilds verringert, nach Rückmeldung der Spieler zurückgeholt [MH1][MH2]. Dass der Stopp je Waffe mit der Wucht wächst: *nicht belegt* (Entwicklerquelle fehlt) | Widerstand, den die Hand spürt; der Treffer „sitzt“ | über ~120 ms wirkt es wie Ruckeln [HS]; verlängert die Kampfzeit; bei Treffern auf mehrere Ziele zählt er einmal | **gebaut** (`trefferstopp`, 36–120 ms statt 60 ms für alle), Einhängen §27 |
+| 2 | **Kamerastoss in Schlagrichtung**, Abklingen nach Masse | Vlambeer „Art of Screenshake“: Treffpause, Kameraruck, Wackeln als Bausteine [VL]; God of War: kleiner Kameraruck beim Fangen der Axt [GW] | Wucht im Bild, auch ohne Ton | Unruhe, Lesbarkeit; muss abschaltbar sein (Einstellungen) | **gebaut** (`kameraGesetzt`/`kameraErlitten`), Einhängen §27 |
+| 3 | **Ton am Objekt**, Tonhöhe nach Grösse, Schwung nach Tempo | God of War: Tonquelle an der Axt, an ihre Drehgeschwindigkeit gekoppelt [GW]; Sekiro: lauter, scharfer Klang bei gelungener Abwehr [SK2, Fan-Wiki] | Masse hört man, bevor man sie sieht | **es gibt keinen Kampfton** — Quelle nötig (A-40) | **Parameter gebaut** (`toene`), Ton fehlt |
+| 4 | **Rumpeln** in drei Teilen (Auslösen, Flug, Fangen) | God of War [GW] | Hand spürt das Gewicht | Gamepad-Vibration im Browser nur teilweise; Zielgerät Desktop (ADR-0006) | nachrangig, nicht gebaut |
+| 5 | **Reaktion des Getroffenen nach Impuls** | Kingdom Come: „You should feel the weight of your weapon and every hit you land“ [KC] (ohne Angabe, wie) | Wirkung am Gegenüber zeigt Masse am deutlichsten | ehrliche Physik: ein Keiler (100 kg) bewegt sich unter einer Klinge kaum (1,9°) | **gebaut** (`reaktion`, Δv = J/m, nur der Leib, nicht die Kapsel) |
+| 6 | **Nachschwung und Erholung**: der Körper folgt der Masse | Gattung allgemein; Kingdom Come: Bewegungsaufnahme mit Fechtexperten, Darsteller je Waffe gewählt [KC] | Masse ohne neue Regel | nur Clips; Fenster unberührt | **gebaut** für `Messer_*`, Vorschlag für den Bestand (§26) |
+| 7 | **Bindung im Schwung** — kein Abbruch, späterer Abbruchpunkt | Souls-Gattung (*nicht belegt* mit Entwicklerquelle); For Honor: „Uninterruptible Stance … cannot be stopped“ [FH1] | wer ausholt, hat sich festgelegt | Kampfwert, Bot | **gilt schon** (kein Abbruch in Vorlauf/Aktiv, `echtzeit.ts:654`); je Waffe als Vorschlag §28 |
+| 8 | **Hyperrüstung / Standfest** für schwere Schläge, ab Mitte des Clips | Elden Ring: Hyperrüstung kommt aus dem Angriff, schwere Waffen am meisten [ER1, Wiki]; For Honor: setzt meist mitten im Clip ein, Beispiel 400 ms [FH1][FH2] | schwere Waffe tauscht Treffer | Kampfwert | Axt hat `standfest` (D181); Messer schwer als Vorschlag §28 |
+| 9 | **Drehbremse im Schlag** (Trägheit beim Drehen) | Mordhau „turn cap“: begrenzt die Drehung während des Schlags; „drags/accels“ als Folge [MO, Community-Wiki/Foren] | schwere Waffe lässt sich nicht herumreissen | Kampfwert (`nachdrehen`) | heute Klinge 6 rad/s, Axt 3 — Vorschlag nach Trägheit §28 |
+| 10 | **Ausdauer nach Masse** | Kingdom Come (Anspruch [KC]); Baukasten §3.2 | schwere Waffe ermüdet | Kampfwert | Vorschlag §28 |
+| 11 | **Haltungsschaden nach Impuls**, Haltungsbruch als Belohnung | Sekiro: Abwehr zehrt die Haltung schneller als Angriff [SK1]; Elden Ring: schwere Sprung- und Ladeangriffe brechen Haltung [ER2, Wiki] | Wucht hat eine Regel | Kampfwert | gilt schon (Baukasten §3.2, Haltungsschaden ∝ Impuls) |
+| 12 | **Fangen ohne Übergang** — gesetzte Bilder, kein Weichzeichnen im Moment der Kraft | God of War: „specifically placed frames and 0 tween time“ beim Fangen [GW] | Kraftmoment liest sich hart | Übergänge werden ruckig, wenn falsch gesetzt | Hinweis für Runde 2: Überblendung in den Treffer-Clip (`RegionsSzene.tsx` `blende` 0,06–0,12 s) nicht verlängern |
+
+Quellen: [MH1] https://www.pcgamer.com/games/rpg/monster-hunter-wilds-game-director-says-the-betas-missing-hitstop-has-already-been-tweaked-thanks-to-very-positive-feedback-from-hitstop-hungry-veteran-hunters ·
+[MH2] https://gamingbolt.com/monster-hunter-wilds-weapon-hitstops-will-be-closer-to-what-people-are-looking-forward-to/amp ·
+[HS] https://dev.to/saltmire/godot-4-screen-shake-and-hit-stop-in-one-script-11eh (Faustregel 60–120 ms, keine Studie) ·
+[VL] https://medienwissenschaft.uni-bayreuth.de/wp-content/uploads/GxD-10-Game-Feel.pdf (Liste aus Nijmans Vortrag 2013) ·
+[GW] https://gamedeveloper.com/design/recalling-the-leviathan-axe (Vince Napoli, Santa Monica) ·
+[KC] https://wccftech.com/kingdom-come-deliverance-2-dev-says-combat-will-be-more-accessible-explains-why-the-game-still-uses-cryengine/ ·
+https://www.deepsilver.com/games/kingdom-come-deliverance-ii/news/weapons-and-combat-mechanics-in-kingdom-come-deliverance-2
+(welche der beiden den Satz trägt, ist aus der Suchzusammenfassung nicht sicher) ·
+[FH1] https://www.ubisoft.com/en-us/game/for-honor/news-updates/6XEM2qUiwcokp753uCzgkz/for-honor-terminology-guide ·
+[FH2] https://www.ubisoft.com/en-us/game/for-honor/news-updates/6T6aUuLTvJZ4Tj7EmZ28wf/patch-notes-2281-for-honor ·
+[ER1] https://eldenring.wiki.gg/wiki/Hyperarmor · [ER2] https://eldenring.wiki.fextralife.com/Stance ·
+[MO] https://mordhau.fandom.com/wiki/Combat?oldid=3196 · https://www.ludo.guide/guide/mordhau/getting-started/core-mechanics-explained/weapon-swing-mechanics ·
+[SK1] https://news.xbox.com/en-us/2019/03/19/sekiro-shadows-die-twice-interview/ · [SK2] https://sekiro-shadows-die-twice.fandom.com/wiki/Unseen_Aid ·
+Massen der Tiere: https://www.jagdverband.de/sites/default/files/Faehrten-und-Spuren_2015_RZ-vs.pdf.
+**Nicht belegt:** Monster Hunters „Engagement“ (kein Beleg gefunden, was damit gemeint ist), Funken in Sekiro, Gewicht
+in For Honors Animation, Zahlen zu Mordhaus Drehbremse.
+
+## 25. Befund je Waffe heute
+
+Physik nach `src/kampf/gewicht.ts` (konstante Leistung 600 W einhändig, ×1,4 zweihändig, 120° Bogen — Überschläge,
+`content/gewicht.json`). Regel: `content/waffen/*.json`. Clipbilder 24/s; „Dehnung“ = Regelzeit / Clipzeit.
+
+| Waffe | Masse, Trägheit | Schlag aus voller Leistung | Impuls → Stopp | Regel (erster leichter, s) | Clip: Scheitel/Durchzug/Ende, Dehnung | Zeigt Gewicht | Zeigt es nicht |
+|---|---|---|---|---|---|---|---|
+| **Klinge** | 1,10 kg, 0,109 kg·m² | 0,171 s, Spitze 13,8 m/s | 6,5 N·s → 47 ms | Hieb 0,18 / 0,12 / 0,32 | `Klinge_U_A` 6/9 (UAL2), Vorlauf ×0,72; `Klinge_Stich` 9/13/30, Erholung ×0,64 | Vorschritt 0,3–1,4 m (`echtzeit.ts:909`), Kette, Rückhand mit Schritt | Stich: Nachschwung 3°, Halt 41 % der Erholung (Soll 18° / 47 %, Test-Befund) |
+| **Axt** | 1,85 kg, 0,651 kg·m² | 0,189 s, Kopf 12,1 m/s | 16,6 N·s → 87 ms (Spalthieb 25,6 → 120) | Axthieb 0,37 / 0,16 / 0,55 | `Axt_Quer` 10/15/30, Vorlauf ×0,72, Erholung ×0,67; `Axt_Schwer` 20/25/40 | langer Vorlauf (2,1× Klinge), `standfest`, `wirft` (D181), Rückstoss 0,3–0,6 m, Spalthieb bleibt im Boden | `Axt_Quer`/`Axt_Lauf` kehren früh zurück: Halt 40 % (Soll 62 %), `Axt_Lauf` Nachschwung 26° (Soll 43°) |
+| **Saufeder** | 1,44 kg (Stoss) | 0,153 s, 5,9 m/s | 8,5 N·s → 55 ms (Weitstoss 21,2 → 105) | Stoss 0,26 / 0,12 / 0,45 | `Speer_Stoss` 9/13/24 — kein Schlüssel zwischen Durchzug und Haltung | weiter Rückstoss 0,9–1,4 m, Ausfallschritt | zieht im Durchzug sofort zurück (Halt 0 %, Soll 54 %) |
+| **Hirschfänger** | 0,59 kg, 0,046 kg·m² | 0,165 s, Spitze 10,5 m/s | 3,5 N·s → 36 ms | **keine Kampfwerte** (D414, nicht wählbar) | nutzt die Klingenclips | Modell, Länge | alles Übrige — ohne Werte keine Darstellung im Spiel |
+| **Langes Messer** | 1,39 kg, 0,231 kg·m² | 0,163 s, Spitze 17,8 m/s | 11,7 N·s → 68 ms | **keine Kampfwerte** (D414) | `Messer_Quer_A` 9/13/30, `_B` 8/12/28, `_Schwer` 12/17/36, `_Lauf` 7/11/26 | Hüfte führt, Füsse stehen, Gewicht wandert vor (D414-Test) | vor D420: Rückkehr ab 29–40 % der Erholung, schwerer Hieb ohne Nachschwung (6°) |
+
+**Für alle gleich, also ohne Gewicht:** Trefferstopp 60 ms (`echtzeit.ts:312`, gesetzt in `:1409`), Kameraruck 0,035 m
+beim eigenen und 0,09 m beim erlittenen Treffer, Abklingen 0,12 s (`RegionsSzene.tsx:4244–4248`), Aufblitzen 120 ms
+(`Kampfplatz.tsx:995`), Treffer-Clip nach Seite (`Kampfplatz.tsx:1030`), Rückstoss über 0,15 s (`echtzeit.ts:314`),
+Abbruch der Erholung ab 35 % (`KOMBO_AB`, `echtzeit.ts:308`), kein Ton. **Bewegung im Schlag:** Die Figur ist während
+Schlag und Rolle gesperrt (`RegionsSzene.tsx:3235`, `kampfSperre`); ihr einziger Weg im Schlag ist `schritt`, ein
+Kampfwert. Eine „Bewegungsbremse“ hat also nichts zu bremsen — und 1–2 kg in der Hand bremsen das Gehen real nicht
+messbar; sie ist deshalb **nicht** gebaut und nicht vorgeschlagen.
+
+**Was die Physik über die Regel sagt:** Nach der Baukasten-Formel braucht die Axt nur 10 % länger zum Treffer als die
+Klinge (die Armträgheit dämpft); die Regel gibt ihr 2,1× so viel Vorlauf und die Hälfte der Drehrate. Die Langsamkeit der
+Axt ist also schon heute ein **Spielwert über der Physik** — gewollt (Rolle der Klasse, ADR-0008), aber zu benennen. Das
+Lange Messer ist mit zwei Händen physikalisch so schnell wie die Klinge (0,95×); langsamer wird es nur über den
+weiteren Bogen (Scheitel 8–9 statt 6 Bilder).
+
+## 26. Was gebaut ist
+
+**a) Gewichtsmodul (`src/kampf/gewicht.ts`, renderfrei, 105 Prüfungen in `tests/gewicht.test.ts`).** Es nimmt Masse und
+Trägheit aus dem Baukasten (`koerper` des Referenzbaus — dieselben Teile, derselbe Steinersche Satz) oder für Hirschfänger
+und Messer aus dem Modell (D414), rechnet die Baukasten-Schlagzeit absolut (konstante Leistung; die Proportion
+t ∝ (I_Arm + I)^⅓ stimmt im Test mit `faktoren` für jeden Bau ohne Kraftteil überein) und leitet daraus ab:
+
+| Funktion | Ergebnis | Klinge | Axt | Messer |
+|---|---|---|---|---|
+| `trefferstopp(J, lage)` | linear 30–120 ms zwischen 2 und 25 N·s; +20 ms Haltungsbruch, +30 ms tödlich (darf über 120), Block ×0,5 | 47 ms | 87 ms (Spalthieb 120) | 68 ms |
+| `kameraGesetzt(J, richtung)` | Stärke 0,012 + 0,0025·J m (≤ 0,08), Abklingen 0,08 + 0,004·J s (≤ 0,2), 60 % in Schlagrichtung (`schlagRichtung`: Hieb von rechts zieht nach links, von oben nach unten, Stoss nach vorn) | 0,028 m / 0,106 s | 0,054 / 0,147 | 0,041 / 0,127 |
+| `kameraErlitten(schaden)` | 0,06 + 0,0015·Schaden m (≤ 0,12) — Gegner tragen keine Waffenmasse in den Daten | | | |
+| `reaktion(J, ziel, gebrochen)` | Δv = J / Masse des Ziels (`ziele` in kg, Quelle Jagdverband); Neigung 30°/(m/s) ≤ 25°, Versatz des Leibs ≤ 0,25 m über 0,22 s, Taumeln 8° + 40°/(m/s) ≤ 35° nur nach Haltungsbruch | Wolf 4,8°, Keiler 1,9° | Wolf 12,5°, Keiler 5,0° | Wolf 8,8°, Keiler 3,5° |
+| `toene(waffe)` | Schwung: Pegel 0,25 + 0,04·v_Spitze, Tonhöhe ∝ v / Masse^⅓; Treffer: Pegel 0,5 + 0,15 je Oktave Impuls, Tonhöhe ∝ Masse^−⅓ (Klinge = 1) | 1,00 | Treffer 0,84, lauter | Treffer 0,92 |
+| `nachschwung(waffe)` | Bremsweg = Energie / Bremsmoment (60 N·m je Hand) in Grad; Halt = 0,25 + 0,2·Masse der Erholung im Clip (≤ 0,7) | 18° / 47 % | 43° / 62 % | 21° / 53 % |
+| `trefferBild(e)` | alles zusammen für ein Ereignis — die eine Funktion für Runde 2 | | | |
+
+Alle Kennzahlen als Daten in `content/gewicht.json` mit `real`/`warum`/`quelle` (D398), Schema `Gewicht`
+(`src/data/schema.ts`); `npm run validate` prüft die Querverweise (Waffenfamilie, Baukasten-Familie, Gegner,
+Tonreferenz). **Benannte Abweichungen:** Leistung, Zweihandfaktor, Bremsmoment und Schwungwinkel sind Überschläge; der
+Impuls zählt nur die Waffe, nicht den Arm dahinter; die Wucht eines Schlags gegen den ersten leichten derselben Waffe
+kommt aus dem Verhältnis der Haltungsschäden der Regel (Baukasten: Haltungsschaden ∝ Impuls) — gelesen, nicht geändert.
+
+**b) Clips.** `Messer_Quer_A`, `Messer_Quer_B`, `Messer_Lauf`, `Messer_Schwer` haben nach dem Durchzug je zwei
+Schlüssel statt einem: Die Klinge läuft weiter (80–82° bei den Querhieben, 31° im Lauf), das Becken bremst gegen die
+Drehung (`huefte` mit umgekehrtem Vorzeichen), das Gewicht bleibt tief auf dem vorderen Fuss, die Füsse rutschen nicht;
+die Rückkehr beginnt erst bei 56–60 % der Erholung (vorher 29–40 %). Der schwere Hieb endet am Boden — dort fangen die
+Beine die Masse (Becken 6 cm tiefer, Spitze 17–19 cm über dem Boden). **Scheitel, Durchzug und Clipdauer sind
+unverändert** (Dauern nachgemessen: 1,25 / 1,17 / 1,08 / 1,50 s wie D414). Die Posen auf den Schlüsselbildern Scheitel
+und Durchzug sind gleich (in Blender nachgemessen, 0,00°); die Bilder **zwischen** Scheitel und Durchzug weichen um
+bis zu 5,5° (Lauf, Handgelenk) bzw. 8,4° (Schwer, linker Oberarm) ab, weil Blenders Kurven am Durchzug ihre Tangente aus
+dem nächsten Schlüssel nehmen. Der erste Schlüssel nach dem Durchzug liegt deshalb auf der Linie, auf der die Hand vorher
+weiterlief — sonst dreht sich auch das Handgelenk im Durchzug (gemessen bis 6,6°). Übertragen wie D414 (`clipnachbau.py`
+auf `w-waldlaeufer`; Formprüfung: Klinge ≤ 3° neben `richt`, linkes Handgelenk ≤ 1,6 cm neben der Griffachse), in die
+`held-clips.glb` von D189 eingefügt, wie `clipnachbau.mjs` es verlangt (785 KB, Budget 800; die übrigen 29 Clips
+gleich — ein Einfügen in die schon bearbeitete Datei ergab 865 KB). Test (`waffenclips.test.ts` 95 → 130 Prüfungen):
+mindestens zwei Nachschwung-Schlüssel, Bremsweg, Hüfte bremst, Gewicht vorn, Füsse stehen, Spitze über dem Boden,
+Halt ≥ Soll; für den Bestand meldet er den Befund aus §25, ohne zu fallen. Die Messer-Clips trägt noch keine Waffe im
+Spiel (keine Kampfwerte) — sichtbar wird das erst mit D407.
+
+**Bestand nur als Vorschlag** (`tools/gewichtvorschlag.py`, gebaut mit `VORSCHLAG=1 … clipnachbau.py`, verglichen
+Nachbau gegen Nachbau, weil der Nachbau 10–35 cm vom Ausgelieferten abweicht, D414): `Axt_Quer` hält bis Bild 25 (67 %),
+das Becken bremst, das Gewicht bleibt auf dem rechten Fuss; `Speer_Stoss` trägt 4 cm weiter und zieht erst ab Bild 20
+zurück; `Klinge_Stich` hält den Ausfall bis Bild 17, Rückkehr ab 22. Nicht eingefügt. Befund dabei: Im Nachbau steht die
+linke Hand schon in den **Bestands**schlüsseln 7–15 cm (Axt) bzw. 5–17 cm (Speer) neben der Griffachse — ein Grund mehr,
+den Bestand nicht auf diesem Weg zu ersetzen; im Speer-Vorschlag selbst sind es 18–26 cm (Bild 17/20), der Vorschlag
+braucht dort eine eigene linke Hand.
+
+**Prüfbilder** (Formprüfung, keine Look-Abnahme, Bewegung nur am M1; Cycles CPU ohne Spiel-Shader; gleiche Kamera,
+gleiche Bilder vorher/nachher), `/home/user/brachland/.cache/bilder/D420/`: `messer_{quer_a,quer_b,lauf,schwer}_{vorher,nachher}.png`
+(schräg vorn), `oben_messer_*_{vorher,nachher}.png` (von schräg oben — dort sieht man die Klinge hinter dem Körper),
+`vorschlag_{axt_quer,speer_stoss,klinge_stich}_{vorher,nachher}.png`.
+
+## 27. Einhängepunkte für Runde 2 (nach D417)
+
+| Was | Datei, Stelle | Ereignis | Einhängen |
+|---|---|---|---|
+| Impuls am Treffer | `src/kampf/echtzeit.ts` `loeseTreffer` (`raus.push` am Ende, `:846`) und `interface Treffer` (`:735`) | jeder Treffer mit Schaden | `Treffer` um `waffe?: WaffenArt` und `wucht?: number` erweitern; dort `wucht: schlagWucht(s, WAFFEN[a.waffe].leicht[0])`, nur wenn `a.waffe` gesetzt ist (Spielerin). Additiv, das Kampftor bleibt |
+| Trefferstopp | `echtzeit.ts` `simuliere`, `:1409` (`w.stopp = TREFFERSTOPP`) | `neu.some(e => e.schaden > 0)` | `w.stopp = Math.max(...neu.filter(e => e.schaden > 0).map(e => e.waffe ? trefferstopp(trefferImpuls(e.waffe, e.wucht), e) : TREFFERSTOPP))` — Gegnertreffer behalten 60 ms. `gewicht.ts` ist renderfrei und importiert aus `echtzeit.ts` nur Typen (kein Kreis zur Laufzeit) |
+| Kamerastoss eigener Treffer | `src/kampf/Kampfplatz.tsx:794` (`zaehler.current.gesetzt++`) und `interface KampfFigur` (`:155–183`) | `e.von === 'spielerin' && e.schaden > 0` | `KampfFigur` um `stoss: Kamerastoss` erweitern, hier `= trefferBild({ waffe: e.waffe, wucht: e.wucht, ziel, linie: e.linie, gebrochen: e.gebrochen, toedlich: e.toedlich }).kamera`; bei mehreren Treffern im selben Bild der stärkste |
+| Kamerastoss erlitten | `Kampfplatz.tsx:770` (`zaehler.current.getroffen++`) | `e.auf === 'spielerin'` mit Schaden | `stoss = kameraErlitten(e.schaden)` |
+| Kamera selbst | `src/scenes/RegionsSzene.tsx` `Kamera`, `:4244–4255` (`ruck`, `wackle`) | Zählerwechsel `gesetzt`/`getroffen` | feste 0,035 / 0,09 m und τ 0,12 s durch `kf.stoss.staerke`/`abklingen` ersetzen; in `wackle` den Anteil `anteil` als Stoss entlang `richtung` (Kameraraum → Welt über `camera.quaternion`), den Rest wie heute als Zittern. Schalter in den Einstellungen (D415) vorsehen |
+| Reaktion des Getroffenen | `Kampfplatz.tsx:789` (`zeichnung.puppen[i].blitz = jetzt`) und `zeichnePuppe` (`:885`; der Leib `l = pu.leib` wird je Bild auf 0 gesetzt, `:894`) | Treffer auf Gegner `i`, nicht ausgewichen | `puppen[i].reaktion = { ...trefferBild(…).reaktion, seit: jetzt, von: [s.x, s.z] }`; in `zeichnePuppe` nach der Phasenpose Neigung und Versatz vom Angreifer weg im Raum der Gruppe aufaddieren, über `dauer` ausklingend; im Taumeln (Phase `betaeubt`) den Ausschlag mit `taumel` skalieren. Die Kapsel (`g.x/g.z`) bewegt weiter nur der Rückstoss der Regel. Ziel-Id: Bauplan des Gegners (`content/gegner/<id>.json`), nicht die laufende Kämpfer-Id |
+| Ton | neues Modul `kampfton.ts` unter `src/ton/` (WebAudio wie `lagerton.ts`, Autoplay-Regel) | Schwung: Wechsel `s.schwung` beim Eintritt in `aktiv` (`Kampfplatz.tsx`, Rechnen-Abschnitt nach `simuliere`, `:756`); Treffer: `:794` | `toene(waffe, wucht)` → Pegel, Abspielrate; stumm nach `spielphase.tonStumm` (D415). Quelle offen (A-40) |
+| Clips | — | — | nichts: Die Messer-Clips liegen in `held-clips.glb`; sie werden benutzt, sobald es Messer-Kampfwerte gibt (D407) |
+
+**Achtung für D407:** Ein Trefferstopp je Waffe verlängert die gemessene Kampfdauer in Sekunden (die Welt steht für
+alle gleich, Siegquoten bleiben); grob ±0,3 s auf 10–15 s je Kampf. Im Spiel erholt `Spieler` die Ausdauer in echter
+Zeit (`ausdauerFremd`) auch während des Stopps — ein Vorteil von höchstens 120 ms je Treffer.
+
+### 27.1 Runde 2 erledigt (D427, 22.11.2026)
+
+Entscheidung D423: Trefferstopp nach Wucht, Kampfton aus freien Aufnahmen (CC0) nach Masse. **Kein Kampfwert
+geändert** (Fenster, Schaden, Abbruchpunkt, Ausdauer wie `content/waffen/`); die vier Gewichts-Kampfwerte aus §28
+bleiben bei der eigenen Messung.
+
+| Mittel | Wo | Was jetzt gilt |
+|---|---|---|
+| Treffer mit Waffe und Wucht | `echtzeit.ts` `interface Treffer`, `loeseTreffer` (letzter `raus.push`) | `waffe` und `wucht = schlagWucht(s, WAFFEN[waffe].leicht[0])`, nur wenn der Angreifer eine Waffe führt (die Spielerin). Der Kampfplatz rüstet seitdem auch die Klinge aus — vorher trug sie `waffe` nicht |
+| Trefferstopp je Waffe | `echtzeit.ts` `trefferstoppVon`, gerufen in `simuliere` statt `w.stopp = TREFFERSTOPP` | der stärkste Treffer mit Schaden im Teilschritt: `trefferstopp(trefferImpuls(waffe) · wucht, lage)`. Klinge Hieb 47 ms, Rückhand 44, Zweihandhieb 67; Saufeder Stoss 58, Weitstoss 112; Axt Axthieb 96, Querhieb 87, Spalthieb 120; +20 ms bei Haltungsbruch (bis 120), +30 ms tödlich — **Obergrenze 150 ms**. Gegner ohne Waffe behalten 60 ms (§28 Nr. 7 offen) |
+| Kamerastoss eigener Treffer | `Kampfplatz.tsx` (Treffer-Schleife) → `KampfFigur.stossGesetzt` → `RegionsSzene.tsx` `Kamera` | `trefferBild(…).kamera`: Klinge 2,8 cm / 106 ms, Saufeder 3,5 / 117, Axthieb 5,9 / 155, Spalthieb 8,0 / 196 (vorher 3,5 cm / 120 ms für alles); 60 % als Stoss in Schlagrichtung (Kameraraum, über `camera.quaternion` in die Welt), der Rest Zittern wie D171 |
+| Kamerastoss erlitten | dieselbe Schleife → `KampfFigur.stossErlitten` | `kameraErlitten(schaden)`: Wolfsbiss 14 → 8,1 cm, Keiler-Ramme 28 → 10,2 cm (vorher 9 cm für alles), Abklingen 80 ms, nur Zittern |
+| Kamera selbst | `src/kampf/kamerastoss.ts` (neu, rein) | `stosse` (der stärkere im Bild gewinnt, keine Summe), `klingeAb` (e-fach), `stossVersatz` (unter 2 mm nichts). Einstellung **`kamerawackeln`** (Zugänglichkeit, 0/50/100 % = aus/gering/voll, Standard 100 % wie Menü-Dokument §6.6, `?wackeln=`) skaliert alles; 0 schaltet ab |
+| Reaktion des Getroffenen | `Kampfplatz.tsx` `Puppe.reaktion`, `zeichnePuppe` nach der Phasenpose; `gewicht.ts` `reaktionsVerlauf`, `wegVomAngreifer` | Neigung und Versatz des **Leibs** vom Angreifer weg (im Raum der Gruppe), voll nach einem Viertel der Dauer (0,22 s), dann quadratisch zurück: Klinge am Keiler 1,9° / 0,7 cm, Axthieb am Keiler 5,6° / 2 cm, am Wolf 14,1°. Nach Haltungsbruch schwingt das Taumeln mit `reaktion().taumel` (Klinge am Keiler 10,6°, Axt am Wolf rund 27°) statt fest 12,6°. Die Kapsel bewegt weiter nur der Rückstoss der Regel. Ziel ist der Bauplan (`kapsel` → `uebungsgegner`). Menschen-Rigs (Wegelagerer, Speermann, Axtmann) bekommen die Neigung auf den Leib wie die Tiere |
+| Ton | `src/ton/kampfton.ts` (neu), `content/kampfton.json` (neu), `public/ton/kampf/` (31 Dateien, 63 KB) | Schwung leicht/schwer (beim Eintritt in `aktiv`), Treffer nach Oberfläche (Tiere Fell, Wurzelkeiler und Pfosten Rinde, Menschen Stoff, gedeckte Linie Metall), erlitten (Stoff, Pegel nach Schaden), Block, Parade, Rolle mit Fussaufsatz nach 75 % der Rollendauer, Reinigen-Griff (leise). **Tonhöhe und Pegel aus `toene()`**: Treffer Axt Rate 0,81 und 1,45-fach lauter als die Klinge, Saufeder 0,89, Hirschfänger 1,23 und leiser; Schwung Axt 0,69, Saufeder 0,38 → auf 0,6 begrenzt. Gegen Wiederholung: drei Aufnahmen je Band, nie zweimal dieselbe, ± Pegel, ± 0,5–1,5 Halbtöne. Effekte-Bus `lautstaerke-gesamt` × `lautstaerke-effekte` (neu), stumm im Hintergrund nach `tonStumm`. Herkunft je Datei `assets/HERKUNFT.md` |
+| Clips | — | unverändert (Messer-Clips warten auf Messer-Kampfwerte; Bestandsclips nach der Kampf-Messung, D423 (3)) |
+
+**Nachweis am Kampftor** (D420: nur die Kampfdauer darf sich verschieben, ±0,3 s je Kampf, Siegquoten gleich): Kampfbot
+`messe(200)` vor und nach der Änderung, 117 Zeilen je Bot (D171 und D407), gleiche Saat. **Siegquoten:** keine Zeile
+verschiebt sich um 3 Punkte oder mehr; Mittel −0,02 Punkte, grösste −2,5 (Wegelagerer, Axt, müde: 85,5 → 83,0 % — fünf
+von 200 Kämpfen). **Zeit bis Sieg:** Klinge −0,04 s im Mittel (−0,13 … +0,01; der kürzere Stopp), Saufeder −0,03 s
+(−0,07 … +0,03), Axt +0,13 s (+0,02 … +0,36); 115 von 117 Zeilen in ±0,3 s, die beiden darüber sind lange Axtkämpfe
+(Keiler + Grathorn 25 s, drei Wölfe 33 s und parierend 14 s: +0,26 … +0,36 s, rund 1–2,5 %). Beide Bots gleich. Das
+Kampftor (`tests/kampfbot.test.ts`, 60 Kämpfe je Zeile) bleibt grün.
+
+**Messbild** (SwiftShader, Formvergleich, keine Look-Abnahme): `.cache/bilder/D427/` — siehe Ledger D427.
+
+## 28. Vorschläge an Kampfwerten (nicht angewendet — nach D407 messen)
+
+| # | Vorschlag | Zahlen (Baukasten-Physik, `gewicht.ts`) | Messbedarf |
+|---|---|---|---|
+| 1 | **Abbruchpunkt der Erholung je Waffe** statt `KOMBO_AB` 0,35 für alle | Drehimpuls L = I·ω: Hirschfänger 0,88, Klinge 2,0, Messer 4,5, Axt 10,8 N·m·s. Setzung 0,35 · (L / L_Klinge)^¼ → Hirschfänger 0,28, Klinge 0,35, Messer 0,43, Axt 0,53, Saufeder 0,35. **Ehrlich:** Die reine Bremszeit (L / Bremsmoment) ist für jede Waffe kürzer als die heutigen 35 % (Axt 90 ms von 0,55 s) — die Physik verlangt es nicht, es ist ein Spielmittel für „schwer bindet“ | Kampfbot, fünf Tiere einzeln und Rudel (2/3), drei Profile, 1.500 Kämpfe je Waffe, gleiche Saat; Siegquote, Kampfdauer, Treffer erlitten in der Erholung |
+| 2 | **Leichte Waffen dürfen den Vorlauf abbrechen** (Finte, For Honor), schwere nie | Klinge, Hirschfänger (I < 0,15 kg·m²): Abbruch in die Rolle bis 50 % des Vorlaufs (Hieb 0,09 s); Axt, Messer, Saufeder: kein Abbruch wie heute | wie 1, zusätzlich Menschen (Linien, Deckung), weil eine Finte das Lesen (D174) unterläuft |
+| 3 | **Ausdauerkosten nach Masse** | Physik (0,7·E + 0,3·M, Baukasten) gäbe der Axt 3,9× die Kosten der Klinge (heute 1,67×) — unspielbar. Vorschlag: Axthieb 30 → 36, Spalthieb 42 → 48; Messer leicht 24–28 (zwischen Klinge 18 und Axt) | Kampfbot „müde“-Profil, D403-Messreihe je Familie; Grenze: Siegquote müde ≥ 80 % |
+| 4 | **Fenster des Langen Messers** (es hat keine) aus den Clips, mit der Dehnung des Bestands (Vorlauf ×0,7, Erholung ×0,67) | Quer A 0,26 / 0,17 / 0,48; Quer B 0,23 / 0,17 / 0,45; Schwer 0,50 / 0,21 / 0,60 (Dehnung ×1,0 wie der Spalthieb); Lauf 0,20 / 0,17 / 0,55. Physik allein: so schnell wie die Klinge (0,95×) — langsamer nur über den Bogen | Kampfbot gegen Rudel (zwei, drei Tiere), wie `waffenfamilien.json` `messung` verlangt |
+| 5 | **Hyperrüstung für den schweren Messerhieb** erst ab dem Scheitel (For Honor: Rüstung setzt mitten im Clip ein) | heute gilt `standfest` in Vorlauf **und** Aktiv; Vorschlag: neues Feld „standfest ab Anteil des Vorlaufs“, Messer schwer 1,0 (ab Scheitel), Axt bleibt 0 | Kampftor-Test für das neue Feld; Bot gegen Wolf (Doppelbiss) und Rudel |
+| 6 | **Nachdrehen nach Trägheit** | Physik: Drehrate ∝ 1 / Schlagzeit → Axt 0,9× Klinge; heute 0,5× (3 gegen 6 rad/s). Vorschlag: nichts senken; Messer 4 rad/s (zweihändig, weiter Bogen) | mit 4 messen |
+| 7 | **Trefferstopp für Gegnertreffer** nach ihrem Schaden statt fest 60 ms | linear wie der eigene, mit `schaden / 3` als Ersatzimpuls (Keiler-Ramme 30 → 10 N·s → 65 ms) | nur Kampfdauer, keine Siegquote |
+
+Alle sieben ändern geprüfte Werte oder Regeln und brauchen die Messung **nach** D407 (Kampf-Nachmessung), weil D407
+den Bot und die Baukasten-Messung gerade nachzieht.
+
+## 29. Am M1 in Bewegung zu prüfen
+
+Trefferstopp 36–120 ms (zäh oder satt? stört er die Kette?), Kamerastoss in Schlagrichtung (Unruhe, Lesbarkeit des
+Ziels, Stärke im Verhältnis zum Zittern), Neigung der Gegner (liest man 2° am Keiler überhaupt?), Nachschwung der
+Messerhiebe (wirkt die Rückkehr ab 56–60 % der Erholung schwer oder träge; schliesst `Messer_Quer_B` aus dem Nachschwung
+von `Quer_A` flüssig an — die Kette bricht bei 35 % der Erholung ab, da steht die Klinge noch links hinten), Vorschläge
+für den Bestand (schneller Rückweg der Axt in den letzten fünf Bildern). Nichts davon ist am M1 gesehen.
+
+**Seit D427 im Spiel und dort zu prüfen** (Übungsplatz `?kampf=keiler`, `?kampf=wolf`, `?kampf=wegelagerer`, je mit
+`?waffe=axt|speer`): Stopp der Axt (96–150 ms) satt oder ruckelnd, Klinge (44–67 ms) noch spürbar; Kamerastoss in
+Schlagrichtung gegen Zittern, Stoss bei 50 % (`?wackeln=50`) und aus (`?wackeln=0`); liest man die Neigung am Keiler
+(Axt 5,6°, Klinge 1,9°) und am Wolf (Axt 14°)? wirkt das stärkere Taumeln nach Bruch überzogen? **Kampfton anhören** —
+ausgewählt nach Messung, nicht nach Gehör: Passen Fell/Rinde/Stoff/Metall zum Bild, klingt die Axt tiefer und satter,
+nicht verstimmt; ist der Speer-Schwung (Rate auf 0,6 begrenzt) zu dumpf; stören Wiederholungen in einer Kette; ist der
+Griff leise genug; Lautstärke gegen den Lagerton (der hängt nicht am Gesamtregler). Safari: spielt er Ogg-Opus ab?
+Zum langsamen Ansehen: `?zeitlupe=0.2` (Messadresse, `kamerazustand.ts`) — Kampf und Kamerastoss je Bild höchstens
+20 ms; für das Urteil über das Gefühl gilt nur die echte Geschwindigkeit.
+
+## 30. Unklar (D420)
+
+- ⚠️ Leistung (600 W), Zweihandfaktor (1,4), Bremsmoment (60 N·m), Schwungwinkel (120°) sind Überschläge — sie setzen
+  die absoluten Werte; Reihenfolge und Verhältnis der Waffen hängen nur schwach daran.
+- ⚠️ Kopfabstand und Spitze von Hirschfänger und Messer sind aus der Klingenlänge geschätzt, nicht aus dem Modell gemessen.
+- ⚠️ Die Bilder zwischen Scheitel und Durchzug der Messerhiebe weichen bis 8,4° (Oberarm) ab (§26 b) — die Fenster
+  nicht, und die Treffer rechnet die Regel ohnehin gegen die Kapsel.
+- ⚠️ Der Speer-Vorschlag hat die linke Hand bis 26 cm neben dem Schaft; die Bestandsclips im Nachbau ebenfalls (D414).
+- ~~⚠️ Kampfton: Es gibt keinen; ob er aus WebAudio entsteht (wie der Lagerton) oder aus CC0-Aufnahmen, ist offen (A-40).~~
+  Entschieden D423 (CC0-Aufnahmen), gebaut D427.
+- ⚠️ D427: Die Aufnahmen sind nach Hüllkurve und Klangmitte gewählt, **nicht gehört** (Cloud ohne Lautsprecher).
+- ⚠️ D427: Ogg-Opus dekodiert Safari erst ab 18.4 sicher; ein älteres Safari bleibt stumm (kein Fehler). Nicht geprüft.
+- ⚠️ D427: Der Schwung der Saufeder rechnet `toene()` auf Rate 0,38 (langsame Spitze im Stoss) — begrenzt auf 0,6; ob ein
+  Stoss überhaupt ein Schwunggeräusch braucht, ist offen.
+- ⚠️ D427: Gegner-Schwünge (Menschen mit Waffen) sind stumm; ihr Treffer auf die Spielerin klingt nach Stoff und Schaden,
+  nicht nach ihrer Waffe — die Gegner tragen keine Waffenmasse in den Daten.
+- ⚠️ `ziele.fuchs` (7 kg) und `grathorn` (60 kg) sind Annahmen; Menschen 70–85 kg ebenso.
+- ⚠️ Monster Hunters „Engagement“ ist nicht belegt; was gemeint war, blieb unklar.
+
+---
+
+# Fortschreibung D407: Nachmessung und Budget
+
+> Auftrag aus D404 (A-31 (2)): „Ausgleichsfaktor je Teil, Bestformen auf ±5 % der Referenz-Kampfdauer, vorher
+> Haltungsbruch mit Reinigen und gegen Menschen nachmessen“. Die Messung in §4 sah nur Töten gegen einzelne Tiere mit dem
+> Bot von D171. Hier: vier Ziele, korrigierter Bot, und der Ausgleich als Daten. Die Befunde zum Reinigen selbst (Gams,
+> Wolf, was ein Haltungsbruch beim Reinigen wert ist) stehen in [Reinigen v1](BRACHLAND_Reinigen_v1.md) §6 „Nachmessung
+> D407“. **Kein geprüfter Kampfwert ist geändert:** `content/waffen/`, `content/gegner/`, `WAFFEN` sind unberührt; der
+> Referenzbau jeder Familie ergibt die heutige Waffe weiter bitgleich (Test). Neu in den Daten ist nur `ausgleich` an den
+> Teilen, die keine Referenz sind.
+>
+> **Referenzmassen nach D421:** Die Modelle wiegen seit D421 Axt 2,10 kg und Saufeder 1,57 kg (`content/waffenfamilien.json`).
+> Der Referenzbau ergab 1,85 und 1,44 kg; seit D407 trägt er die Modellmassen — Spaltkopf 1,40 → **1,65 kg**,
+> Saufederblatt mit Knebel 0,45 → **0,58 kg**, Stiel und Schaft wie zuvor (Physik je Meter). Die übrigen Köpfe behalten
+> ihre Anker (Bartaxt 0,85, Hammer 1,60, Breitbeil 1,80 kg). Der Referenzbau bleibt bitgleich die heutige Waffe (die
+> Faktoren sind relativ zu ihm), aber jede andere Form verschiebt sich: Der Hammer ist jetzt leichter als der Spaltkopf
+> (am mittleren Stiel Haltungsschaden +20 → +10 %, ohne Ausgleich), die Bartaxt fällt weiter ab (−23 → −29 %), das
+> Breitblatt des Speers +7 → +2 %. Alle Zahlen für Axt und Speer in §31 sind mit
+> den neuen Massen gemessen, die der Klinge sind unverändert. Folge für die Darstellung (D420, `src/kampf/gewicht.ts`):
+> Trefferstopp der Axt 87 → 96 ms, des Speers 55 → 58 ms — sichtbar, nicht am M1 gesehen, kein Bildpaar.
+
+## 31. Nachmessung: vier Ziele
+
+### 31.1 Wie gemessen wird
+
+`npx tsx tools/baukastenziele.ts <n> alle ziele=toeten,reinigen,menschen,rudel` — jede Form gegen:
+
+| Ziel | Aufstellung | Bot | Ende |
+|---|---|---|---|
+| töten | Keiler, Grathorn, Wolf, Fuchs, Gams einzeln | `BOT_D407` (D171, kennt den Vorschritt seines Hiebs) | Tier tot |
+| reinigen | dieselben | `HEILER` (D407 + kein tödlicher Schlag am befallenen Tier + Haltung nutzen), „immer reinigen“ | Tier gereinigt (oder doch getötet) |
+| Menschen | Wegelagerer, Speermann, Axtmann einzeln | `BOT_D407` + `aufgabe` | **erster Haltungsbruch** (D385: Aufgabe — bis D426 Messannahme, seit D426 die Regel in `echtzeit.ts`; Zahlen gleich, 31.7) |
+| Rudel | Wolf+Fuchs, zwei Wölfe, zwei Gämsen, Keiler+Grathorn, drei Wölfe, Wolf+zwei Füchse | `BOT_D407` | alle tot |
+
+Je Ziel drei Profile (aufmerksam, müde, parierend), dieselben Würfe für jede Form (Saat 7000 + Kampfnummer). „Zeit“ =
+mittlere Dauer gewonnener Kämpfe gegen den Referenzbau; *dominant*/*nutzlos* wie in §4 (schlägt bzw. wird von der
+Hälfte der Familie geschlagen, über dem Rauschen von 2 Punkten Siege, 3 % Zeit, 1 Schaden). **Vorn/hinten in allen
+drei** = in töten, reinigen und Menschen jeweils mehr als 3 % schneller (bzw. langsamer oder 2 Punkte weniger Siege)
+als die Referenz. Rudel steht daneben und geht nicht ins Mittel ein (D404 nennt drei Ziele).
+
+### 31.2 Ohne Ausgleich (Teile wie D403, Referenzmassen nach D421, korrigierter Bot) — 200 Kämpfe je Aufstellung und Profil
+
+Je Form 3.000 Kämpfe töten, 3.000 reinigen, 1.800 Menschen, 1.200 Rudel.
+
+**klinge** (Referenz gerade + einhand: toeten 13,1 s / 100 %, reinigen 18,0 s / 97 %, menschen 14,8 s / 89 %, rudel 25,8 s / 80 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | Befund |
+|---|---|---|---|---|---|---|---|
+| gerade | einhand | — · *dominant* | — · 100 % ger. · *dominant* | — · 89 % S. | — · 80 % S. · *dominant* | — | Referenz |
+| gerade | langgriff | −6 % · *dominant* | ±0 % · 100 % ger. · *dominant* | −6 % · 90 % S. · *dominant* | −6 % · 80 % S. · *dominant* | −4 % |  |
+| gerade | knaufschwer | +4 % · *nutzlos* | +1 % · 100 % ger. · *dominant* | +1 % · 89 % S. | +2 % · 79 % S. | +2 % |  |
+| kurz | einhand | +6 % · *nutzlos* | +9 % · 100 % ger. · *nutzlos* | +12 % · 86 % S. · *nutzlos* | +8 % · 78 % S. · *nutzlos* | +9 % | **hinten in allen drei** |
+| kurz | langgriff | +1 % · *nutzlos* | +3 % · 100 % ger. | +3 % · 89 % S. · *nutzlos* | +1 % · 78 % S. · *nutzlos* | +2 % |  |
+| kurz | knaufschwer | +11 % · *nutzlos* | +11 % · 100 % ger. · *nutzlos* | +16 % · 86 % S. · *nutzlos* | +10 % · 77 % S. · *nutzlos* | +12 % | **hinten in allen drei** |
+| lang | einhand | −5 % · *dominant* | −2 % · 100 % ger. · *dominant* | +1 % · 90 % S. | −22 % · 83 % S. · *dominant* | −2 % |  |
+| lang | langgriff | −6 % · *dominant* | +5 % · 100 % ger. · *nutzlos* | ±0 % · 90 % S. · *dominant* | −22 % · 83 % S. · *dominant* | −1 % |  |
+| lang | knaufschwer | −3 % · *dominant* | +1 % · 100 % ger. | +3 % · 89 % S. · *nutzlos* | −19 % · 83 % S. · *dominant* | ±0 % |  |
+| wuchtig | einhand | +2 % · *nutzlos* | +4 % · 100 % ger. | ±0 % · 91 % S. · *dominant* | +8 % · 78 % S. · *nutzlos* | +2 % |  |
+| wuchtig | langgriff | −2 % · *dominant* | +3 % · 100 % ger. | −11 % · 91 % S. · *dominant* | −1 % · 78 % S. | −3 % |  |
+| wuchtig | knaufschwer | +4 % · *nutzlos* | +4 % · 100 % ger. | +2 % · 91 % S. · *dominant* | +11 % · 77 % S. · *nutzlos* | +3 % |  |
+
+klinge: 10 von 12 im Mittel in ±5 %; vorn in allen drei: 0; hinten in allen drei: 2.
+
+**axt** (Referenz spaltkopf + mittel: toeten 9,4 s / 100 %, reinigen 16,3 s / 98 %, menschen 4,6 s / 96 %, rudel 19,6 s / 84 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | Befund |
+|---|---|---|---|---|---|---|---|
+| spaltkopf | kurz | +10 % · *nutzlos* | +10 % · 79 % ger. · *nutzlos* | +119 % · 93 % S. · *nutzlos* | +5 % · 86 % S. · *nutzlos* | +46 % | **hinten in allen drei** |
+| spaltkopf | mittel | — · *dominant* | — · 80 % ger. · *dominant* | — · 96 % S. · *dominant* | — · 84 % S. · *nutzlos* | — | Referenz |
+| spaltkopf | lang | +19 % · *nutzlos* | +13 % · 100 % ger. · *nutzlos* | +11 % · 97 % S. · *dominant* | −8 % · 87 % S. · *dominant* | +14 % | **hinten in allen drei** |
+| bartaxt | kurz | −11 % · *dominant* | +1 % · 79 % ger. | +144 % · 89 % S. · *nutzlos* | −7 % · 86 % S. · *dominant* | +45 % |  |
+| bartaxt | mittel | −6 % · *dominant* | +2 % · 80 % ger. · *dominant* | +66 % · 96 % S. · *nutzlos* | −12 % · 87 % S. · *dominant* | +21 % |  |
+| bartaxt | lang | −8 % · *dominant* | +6 % · 80 % ger. · *dominant* | +56 % · 96 % S. · *nutzlos* | −26 % · 87 % S. · *dominant* | +18 % |  |
+| hammerkopf | kurz | +43 % · *nutzlos* | +25 % · 100 % ger. · *nutzlos* | +102 % · 94 % S. · *nutzlos* | +31 % · 86 % S. · *nutzlos* | +57 % | **hinten in allen drei** |
+| hammerkopf | mittel | +34 % · *nutzlos* | +17 % · 100 % ger. · *nutzlos* | +2 % · 96 % S. · *dominant* | +17 % · 88 % S. | +18 % |  |
+| hammerkopf | lang | +43 % · *nutzlos* | +17 % · 80 % ger. · *nutzlos* | −11 % · 97 % S. · *dominant* | −1 % · 86 % S. | +16 % |  |
+| breitbeil | kurz | +3 % · *dominant* | +3 % · 80 % ger. · *dominant* | +112 % · 96 % S. · *nutzlos* | +2 % · 87 % S. · *nutzlos* | +40 % | **hinten in allen drei** |
+| breitbeil | mittel | +4 % · *dominant* | +10 % · 80 % ger. | +8 % · 96 % S. · *dominant* | +4 % · 84 % S. · *nutzlos* | +7 % | **hinten in allen drei** |
+| breitbeil | lang | +19 % · *nutzlos* | +2 % · 100 % ger. · *dominant* | +42 % · 96 % S. · *dominant* | −8 % · 86 % S. · *dominant* | +21 % |  |
+
+axt: 1 von 12 im Mittel in ±5 %; vorn in allen drei: 0; hinten in allen drei: 5.
+
+**speer** (Referenz saufeder + mittel: toeten 15,8 s / 99 %, reinigen 21,4 s / 88 %, menschen 20,6 s / 68 %, rudel 27,9 s / 76 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | Befund |
+|---|---|---|---|---|---|---|---|
+| saufeder | kurz | +13 % · *nutzlos* | +1 % · 100 % ger. · *nutzlos* | +2 % · 68 % S. | +9 % · 74 % S. · *nutzlos* | +6 % |  |
+| saufeder | mittel | — | — · 100 % ger. | — · 68 % S. | — · 76 % S. | — | Referenz |
+| saufeder | lang | −3 % · *dominant* | ±0 % · 100 % ger. | +2 % · 69 % S. · *dominant* | −1 % · 75 % S. | −1 % |  |
+| nadel | kurz | +16 % · *nutzlos* | +9 % · 100 % ger. · *nutzlos* | +19 % · 67 % S. · *nutzlos* | +17 % · 71 % S. · *nutzlos* | +15 % | **hinten in allen drei** |
+| nadel | mittel | +11 % · *nutzlos* | +7 % · 100 % ger. · *nutzlos* | +9 % · 64 % S. · *nutzlos* | +6 % · 73 % S. · *nutzlos* | +9 % | **hinten in allen drei** |
+| nadel | lang | +9 % · *nutzlos* | +6 % · 100 % ger. · *nutzlos* | +12 % · 64 % S. · *nutzlos* | +2 % · 74 % S. | +9 % | **hinten in allen drei** |
+| breitblatt | kurz | −3 % · *dominant* | −2 % · 100 % ger. | ±0 % · 66 % S. | −4 % · 78 % S. · *dominant* | −2 % |  |
+| breitblatt | mittel | −6 % · *dominant* | −2 % · 100 % ger. | +2 % · 68 % S. | −8 % · 78 % S. · *dominant* | −2 % |  |
+| breitblatt | lang | −8 % · *dominant* | −4 % · 100 % ger. · *dominant* | −4 % · 70 % S. · *dominant* | −9 % · 77 % S. · *dominant* | −5 % | **vorn in allen drei** |
+
+speer: 4 von 9 im Mittel in ±5 %; vorn in allen drei: 1; hinten in allen drei: 3.
+
+**Was sich an der Rangfolge gegenüber §4 ändert** (§4: nur töten, Bot D171):
+
+- **Töten** sieht mit dem korrigierten Bot aus wie in §4: langes Blatt, Bartaxt, Breitblatt (Speer) vorn; kurzes Blatt,
+  Hammerkopf, langer Axtstiel, Nadelspitze hinten. Der lange Griff bleibt in drei von vier Zielen vorn (−6 %, beim Reinigen ±0): zu billig, wie §4 sagt.
+- **Reinigen** staucht die Unterschiede (Klinge −2 … +11 %, Speer −4 … +9 %), weil die letzten 35 % Leben nicht mehr
+  geschlagen, sondern gegriffen werden. Der **Hammerkopf bleibt nutzlos** (+17 … +25 %): Seine Wucht bricht die
+  Haltung früher, aber über der Schwelle (Reinigen v1 §6 „Nachmessung D407“, 3.) — der Bruch ist dort nichts wert.
+  Langer Axtstiel, Hammer am kurzen und mittleren Stiel und das Breitbeil am langen reinigen den Fuchs (100 % statt
+  80 % „gereinigt“): Ihr erster Hieb bringt ihn unter die Schwelle (21 von 60), der Referenzbau lässt 24 übrig, und
+  der zweite tötet. **Mehr Schaden kann hier mehr Reinigungen bedeuten** — die Umkehrung von §4 „Was baut der
+  Heiler?“, nur beim Fuchs und nur mit der Axt.
+- **Gegen Menschen zählt die Haltung** (31.3): Hammerkopf am langen Stiel −11 %, Hiebblatt am langen Griff −11 %,
+  langer Axtstiel und Hammer sind hier *dominant* statt *nutzlos*. Die Bartaxt (Haltungsschaden −18 … −22 %) fällt
+  gegen Menschen zurück (+56 … +144 %). Der kurze Axtstiel wird gegen Menschen unbrauchbar (+102 … +144 %, 89–96 %
+  Siege): 0,17 m weniger Reichweite gegen Speermann und Wegelagerer.
+- **Im Rudel** gewinnt die Reichweite: langes Blatt −18 … −21 %, langer Axtstiel −1 … −26 %; der Speer ist flach
+  (−9 … +17 %, die Nadel hinten).
+- **Der schwere Knauf bleibt wirkungslos**: Er kostet gegenüber dem Einhandgriff am selben Blatt 0 … +5 % in jedem
+  Ziel. Die Nadelspitze ist an jedem Schaft hinten in allen drei.
+
+### 31.3 Gegen Menschen: zählt Haltung dort mehr?
+
+`npx tsx tools/kampfprotokoll.ts menschen 1000 d407` — die drei Waffen (Referenzbau) gegen die drei Menschen einzeln,
+1.000 Kämpfe je Zeile, bis zum Tod gegen „Aufgabe beim ersten Haltungsbruch“ (D385, Messannahme):
+
+| Waffe | Gegner | Profil | bis zum Tod: Siege · Zeit | mit Aufgabe: Siege · Zeit | aufgegeben |
+|---|---|---|---|---|---|
+| Klinge | Wegelagerer | aufmerksam | 100 % · 16,6 s | 100 % · 16,0 s | 26 % |
+| Klinge | Wegelagerer | parierend | 94 % · 13,1 s | 98 % · 9,9 s | 98 % |
+| Klinge | Axtmann | aufmerksam | 99 % · 32,6 s | 99 % · 30,9 s | 11 % |
+| Klinge | Axtmann | müde | 47 % · 36,0 s | 52 % · 30,5 s | 15 % |
+| **Axt** | Wegelagerer | aufmerksam | 100 % · 10,5 s | 100 % · **4,9 s** | 95 % |
+| **Axt** | Speermann | aufmerksam | 100 % · 5,0 s | 100 % · **2,2 s** | 100 % |
+| **Axt** | Axtmann | aufmerksam | 99 % · 15,5 s | 99 % · **5,4 s** | 90 % |
+| **Axt** | Axtmann | müde | 68 % · 21,6 s | 75 % · 11,5 s | 51 % |
+| Speer | alle drei | alle | 22–100 % · 13,7–33,4 s | **gleich** | **0 %** |
+
+**Ja — gegen Menschen zählt Haltung mehr als alles andere, sobald D385 gebaut ist.** Die Axt halbiert bis drittelt die
+Kampfdauer (der Axtmann 15,5 → 5,4 s), weil sie die Haltung (60–75) in zwei Hieben bricht. Die Klinge bricht sie nur
+im Parieren verlässlich (98 % aufgegeben, Wegelagerer 13,1 → 9,9 s); rollend kaum (11–26 %). **Der Speer bricht nie
+eine Haltung** (Haltungsschaden 18–20 gegen 50–75, die Haltung erholt sich dazwischen) und gewinnt gegen Menschen nur,
+indem er tötet — müde und parierend oft nicht (22–62 %). Wer D385 baut, macht die Axt zur Waffe gegen Menschen und den
+Speer gegen sie schwach; das steht so in keiner Entscheidung und ist eine Frage an Flo (A-33 (3)). **D426:** so
+entschieden und gebaut — die **Schere: Axt gegen Menschen, Speer gegen Tiere** (31.7).
+
+### 31.4 Rudel und Ausdauer
+
+Rudel (Spalte „rudel“ oben, 1.200 Kämpfe je Form): Die Siegquote der Referenz liegt bei 80 % (Klinge), 84 % (Axt),
+76 % (Speer) über alle Profile; die Form verschiebt sie um höchstens ±5 Punkte. **Ausdauer:** Im Rudel scheitern
+55 % (Klinge), 86 % (Axt) und 45 % (Speer) der Erholungsfenster an der Ausdauer (Referenz; ohne Ausdauer = weder
+Hieb noch genug für Hieb und Rolle). Leichte Köpfe senken das nicht (Bartaxt 86–89 %), der lange Axtstiel
+(Kosten +9 %) sogar auf 75–76 %, weil er weniger Hiebe braucht. Der Baukasten verschiebt die Ausdauer nicht spürbar —
+die Kosten der Teile (±20 %, §3.3) sind gegen Rolle (24) und Erholung (26/s) klein. Was die Messung nicht sieht:
+Ausdauer über mehrere Kämpfe hintereinander (der Bot beginnt jeden Kampf voll).
+
+### 31.5 Ausgleich je Teil (Budget, D404)
+
+**Was er ist:** `ausgleich` an jedem Teil in `content/waffenteile.json` (Schema `Waffenteil`, Spanne 0,7–1,4), gerechnet
+wie die Güte: Kopf × Schaft gegen die Referenzteile auf **Schaden und Haltungsschaden**, nichts sonst — Tempo, Kosten,
+Reichweite und Rückstoss bleiben, wie die Physik sie ableitet (Test). Damit bleibt der Charakter einer Form (das
+Verhältnis Schneide zu Wucht, schnell oder weit) erhalten; nur ihre Stärke wird angeglichen. **Benannt als
+Spielausgleich, nicht als Physik (D398):** Ein kurzes Blatt schneidet real nicht 5 % besser, weil es kurz ist. Die
+Referenzteile tragen 1 (das Schema lehnt etwas anderes ab), der Referenzbau ergibt die heutige Waffe weiter bitgleich.
+
+**Wie er gefunden wurde:** `npx tsx tools/baukastenziele.ts suche <familie> 60` — für jedes Teil vom Startwert in
+Schritten von 0,05 in die bessere Richtung, bis es nicht besser wird; Fehler = mittlere quadrierte Abweichung jeder Form
+mit diesem Teil von der Referenzdauer, **je Ziel** (töten, reinigen, Menschen). Eine erste Fassung mass nur die
+Abweichung des **Mittels** der drei Ziele; sie kaufte bei der Axt ein Ziel mit einem anderen frei (Bartaxt am kurzen
+Stiel −46 % töten gegen +94 % Menschen, Ausgleich bis 1,3) und ist verworfen. Die Fehlerkurven sind eingipflig
+(gemessen über 0,75–1,4 an Bartaxt, kurzem Blatt, Nadelspitze). Gegengemessen mit 500 Kämpfen je Aufstellung und
+Profil (je Form 7.500 töten, 7.500 reinigen, 4.500 Menschen, 3.000 Rudel).
+
+| Familie | gesetzt | Formen im Mittel in ±5 % (vorher) | vorn in allen drei (vorher) | hinten in allen drei (vorher) |
+|---|---|---|---|---|
+| Klinge | kurzes Blatt **1,05**; alles andere 1 | **12 von 12** (10) | 0 (0) | 0 (2) |
+| Speer | Nadelspitze **1,10**, Breitblatt **0,95**, kurzer Schaft **1,05** | **9 von 9** (4) | 0 (1) | 0 (3) |
+| Axt | Bartaxt **1,15**, Hammerkopf **1,05**, kurzer Stiel **1,10**, langer Stiel **1,05**; Breitbeil 1 | 3 von 12 (1) | 0 (0) | 4 (5) |
+| Axt seit D426 | kurzer Stiel **gestrichen**; sonst wie oben, Ausgleich bleibt Arbeitswert | siehe 31.7 | | |
+
+„vorher“ = dieselbe Messung ohne Ausgleich (31.2, 200 Kämpfe, Massen nach D421). Die vollständigen Tabellen mit Ausgleich:
+
+**klinge** (Referenz gerade + einhand: toeten 13,2 s / 100 %, reinigen 18,1 s / 96 %, menschen 15,1 s / 89 %, rudel 25,4 s / 81 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | vorher (ohne Ausgleich) | Befund |
+|---|---|---|---|---|---|---|---|---|
+| gerade | einhand | — · *nutzlos* | — · 100 % ger. · *dominant* | — · 89 % S. · *nutzlos* | — · 81 % S. · *dominant* | — | — | Referenz |
+| gerade | langgriff | −6 % · *dominant* | ±0 % · 100 % ger. · *dominant* | −7 % · 90 % S. · *dominant* | −6 % · 80 % S. · *dominant* | −4 % | −4 % |  |
+| gerade | knaufschwer | +3 % · *nutzlos* | +1 % · 100 % ger. | +2 % · 88 % S. · *nutzlos* | +3 % · 80 % S. | +2 % | +2 % |  |
+| kurz | einhand | −1 % · *nutzlos* | +1 % · 100 % ger. | +1 % · 89 % S. · *nutzlos* | +6 % · 80 % S. · *nutzlos* | ±0 % | +9 % |  |
+| kurz | langgriff | −5 % · *dominant* | ±0 % · 100 % ger. · *dominant* | −4 % · 90 % S. · *dominant* | +1 % · 79 % S. | −3 % | +2 % |  |
+| kurz | knaufschwer | +3 % · *nutzlos* | +3 % · 100 % ger. | +4 % · 89 % S. · *nutzlos* | +9 % · 78 % S. · *nutzlos* | +3 % | +12 % |  |
+| lang | einhand | −5 % · *dominant* | −2 % · 100 % ger. · *dominant* | ±0 % · 90 % S. · *nutzlos* | −21 % · 84 % S. · *dominant* | −2 % | −2 % |  |
+| lang | langgriff | −6 % · *dominant* | +5 % · 100 % ger. · *nutzlos* | −2 % · 90 % S. · *dominant* | −21 % · 84 % S. · *dominant* | −1 % | −1 % |  |
+| lang | knaufschwer | −3 % · *dominant* | +1 % · 100 % ger. | +2 % · 89 % S. · *nutzlos* | −18 % · 84 % S. · *dominant* | ±0 % | ±0 % |  |
+| wuchtig | einhand | +2 % · *nutzlos* | +4 % · 100 % ger. · *nutzlos* | −2 % · 91 % S. · *dominant* | +8 % · 78 % S. · *nutzlos* | +1 % | +2 % |  |
+| wuchtig | langgriff | −3 % · *dominant* | +3 % · 100 % ger. | −12 % · 91 % S. · *dominant* | ±0 % · 79 % S. | −4 % | −3 % |  |
+| wuchtig | knaufschwer | +4 % · *nutzlos* | +4 % · 100 % ger. · *nutzlos* | −1 % · 90 % S. · *dominant* | +13 % · 77 % S. · *nutzlos* | +2 % | +3 % |  |
+
+klinge: 12 von 12 im Mittel in ±5 %; vorn in allen drei: 0; hinten in allen drei: 0.
+
+**axt** (Referenz spaltkopf + mittel: toeten 9,4 s / 100 %, reinigen 16,3 s / 98 %, menschen 4,7 s / 96 %, rudel 19,8 s / 84 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | vorher (ohne Ausgleich) | Befund |
+|---|---|---|---|---|---|---|---|---|
+| spaltkopf | kurz | −9 % · *dominant* | +4 % · 80 % ger. | +109 % · 95 % S. · *nutzlos* | −5 % · 87 % S. · *nutzlos* | +35 % | +46 % |  |
+| spaltkopf | mittel | — | — · 80 % ger. · *dominant* | — · 96 % S. · *dominant* | — · 84 % S. · *nutzlos* | — | — | Referenz |
+| spaltkopf | lang | +15 % · *nutzlos* | +11 % · 100 % ger. · *nutzlos* | +9 % · 96 % S. | −10 % · 87 % S. | +12 % | +14 % | **hinten in allen drei** |
+| bartaxt | kurz | −25 % · *dominant* | −9 % · 100 % ger. · *dominant* | +110 % · 94 % S. · *nutzlos* | −16 % · 89 % S. · *dominant* | +25 % | +45 % |  |
+| bartaxt | mittel | −14 % · *dominant* | −6 % · 100 % ger. · *dominant* | +11 % · 98 % S. · *dominant* | −16 % · 88 % S. · *dominant* | −3 % | +21 % |  |
+| bartaxt | lang | −16 % · *dominant* | +4 % · 100 % ger. · *dominant* | +14 % · 97 % S. · *nutzlos* | −28 % · 87 % S. · *dominant* | +1 % | +18 % |  |
+| hammerkopf | kurz | +3 % | +9 % · 80 % ger. | +79 % · 97 % S. · *nutzlos* | +6 % · 88 % S. · *nutzlos* | +31 % | +57 % | **hinten in allen drei** |
+| hammerkopf | mittel | +16 % · *nutzlos* | +17 % · 79 % ger. · *nutzlos* | −17 % · 98 % S. · *dominant* | +12 % · 86 % S. · *nutzlos* | +5 % | +18 % |  |
+| hammerkopf | lang | +25 % · *nutzlos* | +15 % · 80 % ger. · *nutzlos* | −13 % · 97 % S. · *dominant* | −8 % · 87 % S. · *dominant* | +9 % | +16 % |  |
+| breitbeil | kurz | −10 % · *dominant* | −2 % · 80 % ger. · *dominant* | +110 % · 95 % S. · *nutzlos* | −2 % · 88 % S. | +33 % | +40 % |  |
+| breitbeil | mittel | +4 % · *nutzlos* | +9 % · 80 % ger. · *nutzlos* | +5 % · 96 % S. · *dominant* | +3 % · 84 % S. · *nutzlos* | +6 % | +7 % | **hinten in allen drei** |
+| breitbeil | lang | +15 % · *nutzlos* | +12 % · 100 % ger. · *nutzlos* | +15 % · 97 % S. | −10 % · 87 % S. | +14 % | +21 % | **hinten in allen drei** |
+
+axt: 3 von 12 im Mittel in ±5 %; vorn in allen drei: 0; hinten in allen drei: 4.
+
+**speer** (Referenz saufeder + mittel: toeten 15,8 s / 99 %, reinigen 21,4 s / 87 %, menschen 20,8 s / 69 %, rudel 27,7 s / 77 %)
+
+| Kopf | Schaft | toeten | reinigen | menschen | rudel | Mittel der drei | vorher (ohne Ausgleich) | Befund |
+|---|---|---|---|---|---|---|---|---|
+| saufeder | kurz | −2 % | −2 % · 100 % ger. | ±0 % · 67 % S. | ±0 % · 75 % S. | −1 % | +6 % |  |
+| saufeder | mittel | — · *nutzlos* | — · 100 % ger. | — · 69 % S. | — · 77 % S. | — | — | Referenz |
+| saufeder | lang | −3 % · *dominant* | ±0 % · 100 % ger. | +1 % · 68 % S. | −1 % · 76 % S. · *nutzlos* | −1 % | −1 % |  |
+| nadel | kurz | −3 % | −3 % · 100 % ger. | +6 % · 72 % S. | −3 % · 76 % S. | ±0 % | +15 % |  |
+| nadel | mittel | +8 % · *nutzlos* | ±0 % · 100 % ger. | −1 % · 68 % S. | −2 % · 78 % S. | +2 % | +9 % |  |
+| nadel | lang | −3 % | −1 % · 100 % ger. | ±0 % · 68 % S. | −5 % · 77 % S. · *dominant* | −1 % | +9 % |  |
+| breitblatt | kurz | −3 % | −2 % · 100 % ger. | ±0 % · 67 % S. | −4 % · 78 % S. · *dominant* | −2 % | −2 % |  |
+| breitblatt | mittel | −3 % | −2 % · 100 % ger. | +1 % · 68 % S. | −2 % · 77 % S. | −1 % | −2 % |  |
+| breitblatt | lang | −6 % · *dominant* | −1 % · 100 % ger. | ±0 % · 68 % S. | −7 % · 75 % S. · *dominant* | −2 % | −5 % |  |
+
+speer: 9 von 9 im Mittel in ±5 %; vorn in allen drei: 0; hinten in allen drei: 0.
+
+**Was aufgeht:** Klinge und Speer liegen mit drei bzw. einer Zahl ganz im Band, keine Form ist in allen drei Zielen
+vorn oder hinten, und die Spannweite der Formen schrumpft beim Speer von −9 … +19 % auf −7 … +8 % je Ziel. Die Klinge
+brauchte fast nichts: Mit dem korrigierten Bot und den drei Zielen gleicht sich das lange Blatt (töten −5 %) über
+reinigen und Menschen selbst aus — ohne Budget war sie schon zu 10 von 12 im Band.
+
+**Was nicht aufgeht — ehrlich:**
+1. **Die Axt lässt sich mit einem Schadensfaktor nicht ins Band holen.** Ihre Kampfdauer hängt an **Treffern bis zum
+   Tod** (Keiler 4, Grathorn 4, Wolf 3, Fuchs 2, Gams 3 Axthiebe) und an der **Reichweite** — beides sind Stufen, kein
+   Kontinuum. +10 % Schaden an der Referenz ändern die Kampfdauer um −1 … +2 % (Elastizität ≈ 0; Klinge −1,1,
+   Speer −0,8; Probe mit den Massen vor D421); erst ab +13 % fällt beim Grathorn ein Hieb weg (drei statt vier), ab +29 % beim Wolf — dann springt es. Der **kurze Stiel** verliert gegen Menschen
+   +79 … +110 % (0,17 m weniger Reichweite gegen Speermann und Wegelagerer) — das ist kein Schadensproblem.
+   Gesetzt ist, was die Suche fand, mit einer Ausnahme: Für das Breitbeil fand sie 1,10; gegengemessen ist das Breitbeil damit am mittleren und langen Stiel in allen drei Zielen vorn (−4 … −19 %), bei 1,00 an beiden hinten (+4 … +15 %) — eine Stufe dazwischen trägt nicht (1,05 war mit den Massen vor D421 schon „vorn in allen drei“). Gesetzt ist 1,00: lieber eine Form ohne Zweck als eine, die alle anderen schlägt. **Die Axt bleibt ausserhalb des Budgets** (3 von 12 im Band, vier Formen hinten in allen drei: Spaltkopf und Breitbeil am langen Stiel, Hammer am kurzen, Breitbeil am mittleren) — Vorschlag A-33 (4).
+2. **Rangfolge statt Mittel:** Auch im Band bleibt innerhalb einer Familie meist eine Form *dominant* in einem Ziel
+   (Klinge: gerades Blatt am langen Griff, *dominant* in allen vier Zielen bei ±0 … −7 % Zeit; Speer: Breitblatt am
+   langen Schaft in töten und Rudel). Der lange Griff ist weiter zu billig (§4: Kraft ×1,08 für 100 g); der Ausgleich am Griff würde das
+   kurze und das wuchtige Blatt mit ihm schwächen, die Suche liess ihn bei 1. **Vorschlag, nicht gesetzt:** Kraft des
+   langen Griffs 1,03 (wie §4), dann neu suchen.
+3. **Der schwere Knauf bleibt wirkungslos** (0 … +5 % gegen den Einhandgriff am selben Blatt, in jedem Ziel). Kein
+   Faktor macht ein Teil sinnvoll, das der Kampf nicht sieht (§4: streichen oder Parierstange mit Blockkosten).
+4. **Der Bot ist der Massstab.** Er reinigt nach festen Regeln, rollt jeden Angriff und spielt den Laufangriff nicht;
+   was ein Mensch mit Reichweite und Wucht anders macht, sieht die Messung nicht (§4 „Was die Messung nicht sieht“).
+   Menschen geben in der Messung beim ersten Haltungsbruch auf — seit D426 auch im Spiel (31.7).
+5. **Material und Härtung** sind nicht neu gemessen; der Ausgleich multipliziert sich mit der Güte.
+
+**Physik (D398):** Masse, Trägheit, Tempo, Kosten und Reichweite folgen weiter allein aus den Teilen (§3.2). Der
+Ausgleich ist die einzige Zahl ohne physikalischen Grund und steht als solche im Schema-Kommentar und in diesem
+Abschnitt. Die Spanne 0,7–1,4 begrenzt ihn; gesetzt sind 0,95–1,15.
+
+### 31.7 D426: kurzer Axtstiel gestrichen, Aufgabe gebaut, Schere benannt
+
+Flo 22.11.2026 (A-33 (3), (4)). **Gestrichen:** der kurze Axtstiel (`content/waffenteile.json`, Axt hat jetzt Stiel und
+langen Stiel — 8 Formen statt 12, alle Familien 29 statt 33). Der Ausgleich der übrigen Axtteile bleibt **Arbeitswert**
+(Bartaxt 1,15, Hammerkopf 1,05, langer Stiel 1,05), neu zu suchen nach den Axt-Clips (D423). Der Referenzbau ergibt die
+Axt weiter bitgleich (`tests/baukasten.test.ts`); die Physik des kürzeren Hebels prüft der Test weiter an dem alten Teil,
+nur in der Probe. **Gebaut:** die Aufgabe der Menschen beim ersten Haltungsbruch (`src/kampf/echtzeit.ts`, Regel und
+Zählweise: [Reinigen v1 §6 „Nachmessung D426“](BRACHLAND_Reinigen_v1.md)) — das Ziel „Menschen“ dieser Messung ist damit
+keine Annahme mehr; gegen die drei Menschen einzeln liefert die gebaute Regel dieselben Zahlen wie die Annahme (31.3,
+27 Zeilen à 1.000 Kämpfe gleich). Seit D426 trägt auch die Gams 0,85 s Erholung (Reinigen v1 §6) — das verschiebt das
+Ziel „töten“ für alle Familien.
+
+**Die Schere, benannt: Axt gegen Menschen, Speer gegen Tiere.** Die Axt bricht eine menschliche Haltung in zwei Hieben,
+und der Kampf ist aus (Axtmann 15,5 → 5,4 s, 90–100 % aufgegeben); der Speer bricht nie eine (0 %), hält aber Tiere auf
+Abstand (Rudel, zwei Gämsen müde: Speer 79 %, Klinge 75 %, Axt 96 % — die Axt ist auch dort stark, weil sie Tiere
+mit wenigen Hieben tötet). Die Klinge liegt dazwischen und bricht gegen Menschen nur parierend verlässlich (98 %).
+
+**Nachgerechnet** (`npx tsx tools/baukastenziele.ts 500 axt ziele=toeten,reinigen,menschen`, Saat 7000…, Ausgleich an;
+Klinge und Speer mit 200 Kämpfen) — Zeit gegen die Referenz, Mittel der drei Ziele:
+
+| Axt | töten | reinigen | Menschen | Mittel der drei | D407 (31.5, mit kurzem Stiel, Gams 0,7 s) | Befund |
+|---|---|---|---|---|---|---|
+| spaltkopf + mittel (Referenz) | 9,2 s · 100 % | 16,3 s · 99 % | 4,7 s · 96 % | — | 9,4 / 16,3 / 4,7 s | Referenz |
+| spaltkopf + lang | +1 % | +4 % | +9 % | **+5 %** | +12 %, hinten in allen drei | im Band (Grenze) |
+| bartaxt + mittel | −13 % | −6 % | +11 % | −3 % | −3 % | im Band |
+| bartaxt + lang | −16 % | +4 % | +14 % | +1 % | +1 % | im Band |
+| hammerkopf + mittel | +15 % | +15 % | −17 % | +4 % | +5 % | im Band |
+| hammerkopf + lang | +10 % | +7 % | −13 % | +1 % | +9 % | im Band |
+| breitbeil + mittel | +4 % | +10 % | +5 % | +6 % | +6 %, hinten in allen drei | **hinten in allen drei** |
+| breitbeil + lang | ±0 % | +5 % | +15 % | +7 % | +14 %, hinten in allen drei | ausser Band |
+| *gestrichen:* die vier Formen am kurzen Stiel | | | | | +25 … +35 %, Menschen +79 … +110 % | — |
+
+**Axt: 5 von 7 Formen im Mittel in ±5 %** (D407: 3 von 11), vorn in allen drei keine, **hinten in allen drei eine**
+(Breitbeil am Stiel; D407: vier). Zwei Ursachen, getrennt: Das Streichen nimmt die vier Formen, die gegen Menschen
++79 … +110 % verloren; die **Gams-Erholung** holt die langen Stiele beim Töten heran (Spaltkopf am langen Stiel +15 → +1 %,
+Breitbeil am langen +15 → ±0 %) — der langsame lange Hieb passt jetzt in ihr Fenster. Klinge **12 von 12**, Speer **9 von 9**
+im Band, wie in 31.5. **Was nicht aufgeht:** Das Breitbeil bleibt ohne Zweck (am Stiel in allen drei Zielen hinten, am
+langen +15 % gegen Menschen), die Bartaxt bleibt gegen Menschen schwach (+11 … +14 %, 54 % aufgegeben — ihr Bruch kommt
+seltener). Ein neuer Ausgleich ist nicht gesucht (Flo: Arbeitswert bis nach den Axt-Clips, D423).
+
+### 31.6 Unklar (D407)
+
+- ⚠️ Gegengemessen nur mit 500 Kämpfen je Aufstellung und Profil (nicht 1.000), gesucht mit 60. Bei den Zellen im Band
+  liegt das Rauschen bei 1–2 %; „im Band“ an der Grenze (±4–5 %) ist nicht sicher.
+- ⚠️ Menschen geben beim Haltungsbruch auf (Messannahme D385, seit D426 gebaut) — ohne diese Regel ist das Ziel
+  „Menschen“ ein zweites „töten“, und die Axt verliert dort ihren Vorsprung (31.3).
+- ⚠️ Rudel geht nicht ins Mittel ein; der lange Axtstiel und das lange Blatt sind dort Bestformen (−19 … −25 %).
+- ⚠️ Nicht am M1 gesehen, nichts gespielt: Ob 5–10 % Schaden mehr am kurzen Blatt oder an der Nadelspitze sich anders
+  anfühlen, weiss niemand.
+- ⚠️ Die Tiere sind im Kampf drei- bis fünfmal langsamer als real (Physik-Prüfung v1 §4.8, zur Kenntnis, nicht geändert);
+  alle Zahlen hier gelten für diese Tiere. Mit realem Tempo wären Reichweite und Rolle anders gewichtet.
+- ⚠️ Der Spaltkopf trägt seit D407 1,65 kg statt 1,40 kg (Modell D421: 1,71 kg, dort als schwerer als das Vorbild benannt);
+  die Klinge bleibt bei 1,10 kg, obwohl ihr Modell 1,21 kg wiegt — nicht angeglichen, weil nicht verlangt.

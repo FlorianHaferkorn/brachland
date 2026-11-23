@@ -9,6 +9,8 @@ shelf-life-days: 180
 > Rechnung: `npx tsx tools/oekonomiesim.ts`. Entscheidungen für Flo: Ledger **A-28**. Offen/erledigt steht im Ledger.
 > **Fortgeschrieben mit D400:** §13 „Fortschritt der Spielfigur“ (Vitalwerte, Erfahrung, Brauen, Töten als Abkürzung).
 > §5.8 „kein Stufensystem“ und A-28 (8) sind dadurch abgelöst; die Zahlen in §3 gelten weiter, §13.3 ergänzt sie.
+> **Fortgeschrieben mit D416:** §14 „Reviere“ — Reviere als Daten (`content/reviere/oental.json`, 13 statt 12 angenommene)
+> und Logik (`src/spiel/reviere.ts`); die Rechnung aus §3/§13.3 ist dort mit den echten Revieren wiederholt.
 >
 > Auftrag (Flo, 22.11.2026): „mach weiter mit der Story, Quests, Items und Belohnung, Upgrade Materialien etc.
 > orientiere dich auch hier einfach daran wie es andere Spiele in dem Genre machen die in den Disziplinen dafür gelobt
@@ -114,6 +116,9 @@ einem in den anderen.
 
 ### Überschlagsrechnung Œntal
 
+> **Seit D416** rechnet `tools/oekonomiesim.ts` über die 13 echten Reviere (§14.4); die Tabelle hier ist der Stand mit 12
+> angenommenen gleich grossen Revieren und bleibt als Vergleich (die Funktion `bilanz` ist unverändert).
+
 `npx tsx tools/oekonomiesim.ts` — Erwartungswerte, kein Kampf. **Annahmen** (Reinigen v1 §4 A1/A3, keine gemessen):
 180 Begegnungen mit 280 Tieren, 20 Rasten, dazu **angenommen** 5 Verhärtete (3 verborgene Orte + 2 Engstellen am
 Uferweg), 4 menschliche Gegner, 12 Reviere. Span 15 % je getötetem Tier, 1 Federstahl je getötetem Menschen. Alle
@@ -202,13 +207,13 @@ Jede Echtzeitwirkung ist ein Kampfwert und braucht Messung (Kampfbot), bevor sie
 
 | Gegenstand | Art | Wo (D391) |
 |---|---|---|
-| **Tauchzeug** | Werkzeug `tauchen` | Spind unter dem Boot, Schuppen am Nordufer (Rätsel, Zahl von der Tafel im Absetzbecken) |
+| **Tauchzeug** | Werkzeug `tauchen` | Spind unter dem Boot, Schuppen am Nordufer (Rätsel, Zahl von der Tafel im Absetzbecken). Seit D411 **auch Anzug**: hält die Kälteuhr im tiefen Wasser an |
 | **Kletterzeug** | Werkzeug `klettern` | Auftrag `was-noch-drin-liegt` (Wart vom Bruch) — Belohnung in den Daten gesetzt |
-| **Gleiter** | Werkzeug `gleiten` | verhärtetes Grathorn am Quelltopf (optionaler Boss) |
-| **Halfter** | Werkzeug `reiten` | Auftrag `ein-schwieriger-nachbar` (Förster) — Belohnung in den Daten gesetzt |
+| **Gleiter** | Werkzeug `gleiten` | verhärtetes Grathorn am Quelltopf (optionaler Boss) — seit D411 nur Leinen und Gurtzeug; die Kappe näht die Enklave neu aus gewachstem Leinen |
+| **Halfter** | Werkzeug `reiten` | Auftrag `ein-schwieriger-nachbar` (Förster) — Belohnung in den Daten gesetzt. Seit D411 bindet es **das letzte verwilderte Tragtier des Försterhofs** (befallen, erst zu reinigen), nicht einen gereinigten Keiler |
 | **Brechstange vom Bruch** | Zugang `stollenmauer` | der Vorarbeiter am Bruchweg — wenn man ihn verschont oder besiegt |
 | **Plombenzange** | Zugang `werksspind` | öffnet alle verplombten Werksspinde: ein Grund, an bekannte Orte zurückzukehren |
-| **Schlüssel zum Schieberhaus** | Zugang `schieberhaus` | Abkürzung am Wehr; liegt hinter dem Flussvater oder am Ende des Tauchwegs |
+| **Schlüssel zum Schieberhaus** | Zugang `schieberhaus` | Abkürzung am Wehr; liegt hinter dem Flussvater oder am Ende ~~des Tauchwegs~~ **des Wegs ohne Kampf** (D411) |
 
 Die Zahl 09/41 ist **kein** Gegenstand: Ein Rätsel, dessen Lösung im Beutel liegt, ist keines.
 
@@ -322,8 +327,11 @@ Die Texte stehen als `beschreibung` in den Daten.
 6. **Setzling** — „Bergkraut mit Wurzelballen, in feuchtes Moos geschlagen. Wächst nur, wo niemand mehr etwas aufreisst.“
 7. **Reinprobe** — „Ein Glas Erde aus einem Revier, das zur Ruhe gekommen ist. Zwei davon, und die Alte setzt eine Kultur an.“
 8. **Kletterzeug** — „Geschirr, Seil und Eisen aus dem Bruch. Vierzehn Jahre benutzt, dann eingemauert. Wer zumauert, will nicht wiederkommen.“
-9. **Gleiter** — „Ein Schirm, der lange in einem Geweih hing. Die Nähte halten. Jemand wollte damit über die Grenze und kam bis zur Quelle.“
-10. **Halfter** — „Hing im Stall am Haken, seit es keine Pferde mehr gibt. Bindet ein Tier, das geblieben ist. Eines, nicht zwei.“
+9. **Gleiter** — ~~„Ein Schirm, der lange in einem Geweih hing. Die Nähte halten. Jemand wollte damit über die Grenze und kam bis zur Quelle.“~~
+   **seit D412:** „Leinen und Gurte aus einem Geweih, die Kappe neu genäht aus gewachstem Leinen. Sinkt schneller, als sein Vorbild es tat. Jemand wollte damit über die Grenze und kam bis zur Quelle.“ (Physik-Prüfung v1 §5 (b))
+10. **Halfter** — ~~„Hing im Stall am Haken, seit es keine Pferde mehr gibt. Bindet ein Tier, das geblieben ist. Eines, nicht zwei.“~~
+   **seit D412:** „Hing im Stall am Haken, seit es keine Pferde mehr gibt. Eines ist geblieben: das letzte Tragtier des Hofs, verwildert und befallen. Erst reinigen, dann anlegen. Eines, nicht zwei.“
+- **Tauchzeug** (Text seit D412, vorher ohne Anzug): „Atemgerät der Klärwerkswartung, Anzug und Leine. Der Anzug hält die Kälte ab, die Flasche reicht für Abstiege, nicht für Strecken. Auf dem Zettel im Spind dieselbe Zahl, andere Handschrift.“
 11. **Flechtenkutte** — „Grobes Tuch, von Flechten überwachsen. Die Tiere sehen einen später. Die Leute auf der Terrasse früher.“
 12. **Werkskluft** — „Jacke mit eingewebten Leitbahnen, Brustschild VERIDIA. Der Kern lädt schneller. Wer sie trägt, wird für jemanden gehalten.“
 13. **Zettel: Harz auf Leinen** — „Drei Zeilen in Bleistift. Fichte, nicht Kiefer. Warm auftragen, kalt binden. Darunter: Hat bei Sepp nicht mehr gereicht.“
@@ -337,7 +345,7 @@ Die Texte stehen als `beschreibung` in den Daten.
 | 1 | Schmiede auf Material umstellen (`angebot()` liest `oekonomie.json`); `tests/schmiede.test.ts` prüft heute den Harzpreis | `src/spiel/schmiede.ts` |
 | 2 | Beute nur von Getöteten, je Gegnerart (`oekonomie.json` `beute`); `beuteChance` der Altgegenstände auf 0 | `src/spiel/gegenstaende.ts`, Kampfplatz |
 | 3 | Läuterung, Markenstufe, Eichsiegel im Spielstand; Wirkung der Stufen 2 und 4 im Regelkern | `Spielstand`, `src/kampf/echtzeit.ts` |
-| 4 | **Reviere gibt es nicht als Daten** — Grenzen, Zählung gereinigt/getötet, Zustand ruhig/leer | Schema `Region`, Spielstand |
+| 4 | ~~**Reviere gibt es nicht als Daten** — Grenzen, Zählung gereinigt/getötet, Zustand ruhig/leer~~ **D416:** Daten (`content/reviere/`, Schema `Revierkarte`), Zählung und Zustand (`src/spiel/reviere.ts`), Spielstand v3; offen ist, was die Welt daraus macht (§14.6) | ~~Schema `Region`, Spielstand~~ §14 |
 | 5 | Heilung im Echtzeitkampf: Flasche, Verband, Herzfunke — jede Wirkung ein Kampfwert, erst messen | `src/kampf/echtzeit.ts`, `tools/kampfbot.ts` |
 | 6 | Tod: Bündel am Ort, Aufnahme durch den Befall | Spielstand, Kampfplatz |
 | 7 | Tausch-Fenster je Bewohner; „je Rast“ zählen | `src/ui/`, `Ort.dienst` kennt nur die Schmiede |
@@ -349,6 +357,12 @@ Die Texte stehen als `beschreibung` in den Daten.
 | 13 | Fortschritt `fortschritt.ts` (Stufe, Mutation der Kreaturen) hat seit dem Wegfall des Teams keinen Nutzer | entscheiden: entfernen oder für Reittier nutzen |
 
 ## 11. Physik (D398): was stimmt, was nicht, und wo das Spiel abweicht
+
+> **Bewegungs- und Weltwerte** (Tempo, Tauchen, Luftvorrat mit Arbeit und Reserve, Gleitzahl, Reittier, Fallhöhe)
+> sind in `BRACHLAND_Physik-Pruefung_v1.md` geprüft (D408); dort auch die Liste der benannten Abweichungen.
+> **Entschieden D411, nachgezogen D412:** Tauchzeug ist auch Anzug und Luft ein Vorrat für Abstiege; der Gleiter ist aus
+> geborgenen Leinen mit neu genähter Kappe; das Halfter bindet das letzte Tragtier des Försterhofs. Die Zeilen unten
+> sind entsprechend markiert.
 
 Flo, 22.11.2026 (D398): Physik muss stimmen; Abweichungen zugunsten des Spiels werden benannt, nie still gemacht.
 Gewichte stehen als `gewicht` (kg) an jedem Gegenstand, `validate` verlangt sie. Zahlen sind Überschläge aus
@@ -373,10 +387,10 @@ Dichte × Volumen oder aus üblichen Gerätegewichten, **nicht gewogen**.
 
 | Werkzeug | Gewicht | Was real gilt | Abweichung |
 |---|---|---|---|
-| **Tauchzeug** | 5,0 kg (kleine Flasche, Regler, Leine) | 2 l bei 200 bar = 400 l Luft; in 5 m Tiefe (1,5 bar) bei 20 l/min rund **13 Minuten**. Gummi und Membranen halten keine 40–60 Jahre, eine Flasche ohne Prüfung ist ein Risiko, und ohne Kompressor füllt sie niemand | Zustand und Nachfüllen sind **zugunsten des Spiels** übergangen. Die 380-m-Querung zur Kapelle (Traversal v2) passt in 13 Minuten; „Tauchen ohne Grenze“ passt nicht — eine Luftanzeige wäre ehrlicher |
+| **Tauchzeug** | 5,0 kg (kleine Flasche, Regler, Leine; seit D411 auch Anzug — Gewicht ⚠️ nicht nachgerechnet) | 2 l bei 200 bar = 400 l Luft; in 5 m Tiefe (1,5 bar) bei 20 l/min rund **13 Minuten** (in Ruhe, ohne Reserve — Nachtrag D412); **mit 50 bar Reserve und Arbeit (40 l/min) 5,0 min in 5 m, 2,9 min am Kirchturm** (Physik-Prüfung v1 §4.1). Gummi und Membranen halten keine 40–60 Jahre, eine Flasche ohne Prüfung ist ein Risiko, und ohne Kompressor füllt sie niemand | Zustand und Nachfüllen sind **zugunsten des Spiels** übergangen (Nachfüllen an der Rast, benannt). ~~Die 380-m-Querung zur Kapelle (Traversal v2) passt in 13 Minuten; „Tauchen ohne Grenze“ passt nicht — eine Luftanzeige wäre ehrlicher~~ **Seit D411:** Luft ist ein Vorrat für Abstiege, nicht für Strecken — an der Oberfläche schwimmt und atmet man, der Anzug hält die Kälteuhr an. Werte in `content/bewegung.json` `tauchen` (Entwurf) |
 | **Kletterzeug** | 4,5 kg (Gurt 0,5; 40 m Seil zu 65 g/m = 2,6; Haken und Karabiner 1,4) | Ein vierzehn Jahre benutztes und dann eingemauertes Kunstfaserseil würde niemand mehr belasten; Eisen überdauert | benannt. Stimmiger wäre: Eisen und Geschirr aus dem Stollen, das Seil neu geschlagen (Hanf, Enklave) |
-| **Gleiter** | 8,0 kg (Schirm 5, Gurtzeug 3) | Gleitzahl real 8–9; verlangt sind 1.330 m Strecke auf 374 m Höhe = **3,6** — weit im Möglichen. Tuch, das jahrelang im Freien hing, wird luftdurchlässig und trägt nicht mehr | Zustand des Tuchs zugunsten des Spiels übergangen; die Flugstrecke selbst stimmt |
-| **Halfter / Reiten** | 0,5 kg | Faustregel: ein Reittier trägt etwa 20 % seines Gewichts. Ein Keiler von 140 kg trüge 28 kg, ein Steinbock um 100 kg noch weniger — **keinen Erwachsenen** | ⚠️ grösste Abweichung der Liste, gehört zu D391: Reiten geht nur auf einem durch den Befall deutlich vergrösserten Tier. Das müsste die Welt zeigen (Schulterhöhe, Masse) |
+| **Gleiter** | 8,0 kg (Schirm 5, Gurtzeug 3; die neu genähte Kappe aus gewachstem Leinen wäre schwerer — ⚠️ nicht nachgerechnet) | Gleitzahl real 8–9; verlangt sind 1.330 m Strecke auf 374 m Höhe = **3,6** — weit im Möglichen. Tuch, das jahrelang im Freien hing, wird luftdurchlässig und trägt nicht mehr | ~~Zustand des Tuchs zugunsten des Spiels übergangen~~ **Seit D411 keine Abweichung mehr im Tuch:** Leinen und Gurtzeug sind geborgen, die Kappe ist neu genäht; sie gleitet schlecht (3 : 1) und sinkt schnell (4 m/s) — ob gewachstes Leinen genau diese Werte gibt, ist nicht belegt; die Flugstrecke selbst stimmt |
+| **Halfter / Reiten** | 0,5 kg | Faustregel: ein Reittier trägt etwa 20 % seines Gewichts. Ein Keiler von 140 kg trüge 28 kg, ein Steinbock um 100 kg noch weniger — **keinen Erwachsenen** | ~~⚠️ grösste Abweichung der Liste, gehört zu D391: Reiten geht nur auf einem durch den Befall deutlich vergrösserten Tier. Das müsste die Welt zeigen (Schulterhöhe, Masse)~~ **Behoben (D411):** Das Reittier ist das letzte verwilderte Tragtier des Försterhofs (Bergpferd oder Maultier, 450–500 kg, trägt 90 kg bei 20 %; Masse nicht belegt). Entwurf `content/bewegung.json` `tragtier`, ohne Kampfwerte |
 
 ### Traglast
 
@@ -624,7 +638,7 @@ Das wären 6 Bruchstücke aus Aufträgen und Orten; die übrigen 6 liegen in der
 | 17 | Die fünf messfreien Techniken: Anzeige der Linie im Vorlauf, Wundanzeige, Reviergrenzen, Sammelstellen, Wahrnehmungsabstand | `src/kampf/`, `src/world/` |
 | 18 | Sammelstellen für Beigaben (nachwachsend) und Fundorte der zwölf Bruchstücke als Daten mit Koordinaten | `content/` |
 | 19 | Bossteil je Ausgang; Brauen bei der Alten | Kampfplatz, `Ort.dienst` |
-| 20 | Verhärtung: leere Reviere, Nachwandern, neuer Verhärteter — hängt an den Revieren (§10 Punkt 4) | Schema `Region`, Spielstand |
+| 20 | Verhärtung: leere Reviere, Nachwandern, neuer Verhärteter — hängt an den Revieren (§10 Punkt 4) **D416:** als Regel an der Rast ausgewertet und im Stand gehalten (`werteRastAus`); in der Welt steht kein Verhärteter (§14.6) | ~~Schema `Region`, Spielstand~~ §14 |
 | 21 | `fortschritt.ts` aufräumen, sobald das Team aus `main.tsx` und `inhalte.ts` entfernt ist | `src/spiel/` |
 
 ### 13.8 Unklar
@@ -636,3 +650,153 @@ Das wären 6 Bruchstücke aus Aufträgen und Orten; die übrigen 6 liegen in der
   Gegner späterer Regionen stehen.
 - ⚠️ Standorte und Wirkungen der Pflanzen in 13.5 sind Allgemeinwissen, nicht recherchiert; Witcher-Alchemie,
   Bloodborne, Lies of P, Soulframe und Dawnwalker sind für diese Frage nicht belegt.
+
+## 14. Reviere (D416)
+
+> Auftrag (D416): Reviere als Daten und Logik — an ihnen hängen ruhige Reviere und das Aufladen der Marke an der Rast
+> (D379, D393, A-28 (3)), die Stufe „vertraut“ des Zählers (D406), die Verhärtung (D400/D402) und das Nachwachsen
+> (D393/D399). Seit ADR-0020 (D418) ist die Welt zusammenhängend: nichts hier nimmt „eine Region = ganze Welt“ an.
+
+### 14.1 Die Reviere des Œntals
+
+Erzeugt von `npx tsx tools/reviere.ts oental --schreiben`: **Kerne von Hand** (je einer, mit Begründung in den Daten),
+**Grenzen gerechnet** — jede Zelle des 64×64-Rasters (≈ 62 m) gehört zum Kern, den man von ihr mit dem geringsten Weg
+erreicht. Weg nach Naismith (1 Std. je 5 km + 1 Std. je 600 m Anstieg, also 1 Höhenmeter ≈ 8,3 m Strecke), Wasser unter
+der Flutlinie (499 m) ×4, Ein- und Ausstieg an der Flutlinie wie eine Wand. Grate und die Flutlinie werden so zu Grenzen.
+Dreizehn statt zwölf, weil die Flut (2,8 + 1,0 km²) als ein Revier ein Viertel der Region wäre.
+
+| | Revier | Fläche km² | Höhe m | Zuflucht | verborgen | Tiere (Bestand) | häufigste |
+|---|---|---|---|---|---|---|---|
+| A | Terrasse von Brannburg | 0,52 | 499–557 | Saal auf der Terrasse | — | 21 | Spürfuchs 8, Myzelmolch 5 |
+| B | Waldrand am Nordufer | 0,57 | 500–685 | Feldscheune, Schuppen am Nordufer | — | 36 | Wurzelkeiler 21, Sporenhahn 10 |
+| C | Nordhang unter der Kirche | 0,75 | 499–789 | Kirche am Nordhang | — | 62 | Sporenhahn 35, Myzelmolch 16 |
+| D | Alm unter dem Grat | 1,05 | 758–1.113 | Almhütte | — | 84 | Sporenhahn 36, Myzelmolch 13, Grathorn 11 |
+| E | Bannwald | 1,17 | 638–912 | — | Hütte im Bannwald | 83 | Sporenhahn 51, Myzelmolch 19 |
+| F | Steig und Talweg | 0,59 | 542–661 | Remise am Steig | — | 26 | Wurzelkeiler 14, Sporenhahn 6 |
+| G | Grat am Oberstollen | 1,06 | 787–1.022 | — | — | 68 | Sporenhahn 33, Myzelmolch 13 |
+| H | Grabenweg und Bruch | 1,30 | 592–883 | Heustadel, Unterstand am Talweg | — | 93 | Sporenhahn 52, Myzelmolch 23 |
+| I | Quellhang | 2,11 | 846–1.139 | — | Quelltopf | 178 | Sporenhahn 52, Nebelgams 36, Grathorn 23 |
+| J | Südhang mit Saatkammer | 1,68 | 517–837 | — | — | 118 | Sporenhahn 41, Wurzelkeiler 40 |
+| K | Uferweg zum Wehr | 1,27 | 499–831 | Stadel am Hangweg | — | 75 | Wurzelkeiler 39, Sporenhahn 24 |
+| L | Seeboden vor der Terrasse | 2,80 (100 % Flut) | 465–499 | — | Kirchturm | 118 | Wurzelkeiler 75, Spürfuchs 25 |
+| M | Stau am Kalkbruch | 1,03 (89 % Flut) | 482–529 | Kapelle über dem Kalkbruch (Insel) | — | 57 | Wurzelkeiler 39, Spürfuchs 7 |
+
+Zusammen 1.019 Tiere — der ganze Bestand aus `verteileKreaturen` (Seed 7), gezählt nach der Zelle der Vorkommen-ID, also
+so, wie der Spielstand sie später liest. **Befund:** Die Flutreviere tragen 175 Tiere, weil die Flut nur ein Datum ist
+(ADR-0017) — das Vorkommen kennt sie nicht. Sobald Wasser gebaut wird, ist der Bestand dort neu zu zählen. Fünf Reviere
+haben keine Zuflucht (E, G, I, J, L): Dort lädt die Marke nur, wenn das Revier ruhig ist. Eine Unschönheit der Rechnung:
+Die Terrasse greift mit einem ein bis zwei Zellen breiten Uferstreifen nach Norden (der flache Uferweg ist von ihr aus
+billiger als vom Hang); belassen, weil es dem Weg folgt.
+
+### 14.2 Logik (`src/spiel/reviere.ts`, renderfrei)
+
+- **Lage:** `baueRevierwelt(karten, regionen)` → `revierAn(region, x, z)`, `revierAnGeo(lat, lon)` (sucht erst die
+  Region, ADR-0020), `vorkommenLage(region, 'kreatur:i:j')`. Nachbarn dürfen Reviere anderer Regionen sein; `validate`
+  verlangt dann nur, dass es sie gibt und die Nachbarschaft symmetrisch ist.
+- **Zustand je Revier** (`revierZustaende`): getötet, gereinigt, umgangen, begegnet — aus `begegnungen` (seit v3, Revier
+  aus der Lage) und aus `besiegt`/`gefangen` über die Zelle der Vorkommen-ID. `gefangen` zählt als gereinigt, bis der
+  Kampf eigene Meldungen schreibt (D375). Eine ID zählt nie doppelt, der Regent nie, Umgehen berührt nicht.
+- **Ruhig:** ≥ 60 % der Eingriffe gereinigt **und** ≥ 25 % der „Tiere des Reviers“ gereinigt (A-28 (3)). **Leergetötet:**
+  ≥ 60 % der Tiere des Reviers getötet. **Unberührt:** kein Eingriff. Die „Tiere des Reviers“ sind die Begegneten
+  (`reviere.bezug: begegnet`, so rechnete D393), **mindestens aber ein Viertel des Bestands** (`mindestBestand: 0,25`) —
+  ohne diesen Boden machte im Spiel ein einziger Griff ein Revier ruhig und ein einziger Tod es leer (genau das hat D393
+  verworfen). Im Graben (93 Tiere) heisst das: 6 Reinigungen für ruhig, 14 Getötete für leer.
+- **Marke an der Rast** (`ladungNachRast`): Zuflucht voll; im Freien nur im ruhigen Revier, dann + ½ Fassung
+  (abgerundet, nie über die Fassung); im leeren oder befallenen Revier nichts (§7).
+- **Zähler** (`zaehlerStufe`, Bedingung `misstraut`): *geduldet* = gewichteter Stand ≤ 40; *vertraut* = geduldet **und**
+  ≥ 50 % der Reviere unberührt (D406). Werte an der Station in `content/wanderfiguren/zaehler.json`.
+- **Rast** (`werteRastAus`) gibt den neuen `Revierstand` und eine Liste von Änderungen zurück, statt sie in der Szene zu
+  verteilen: (1) Reviere, die die Rast als leer sieht, kommen in `leerFolge`; (2) das n-te leergetötete zieht
+  ⌊n·0,5⌋ − ⌊(n−1)·0,5⌋ Verhärtete nach — jedes zweite einen; (3) in ein Revier, in dem getötet wurde, wandern nach
+  `abRasten` = 3 Rasten je Rast 2 Tiere aus einem befallenen Nachbarn (weder ruhig noch leer) zu, bis zur Hälfte der
+  Getöteten und nie über die Hälfte des Bestands; nie in ein ruhiges Revier (die Gunst bleibt), nie aus ihm selbst.
+  (2) und (3) nur, solange die Region nicht geheilt ist. Ein leergetötetes Revier, in das die Hälfte nachgewachsen ist,
+  ist wieder befallen und damit selbst Quelle — Farmen gibt je Welle höchstens die Hälfte zurück.
+
+### 14.3 Schnittstelle zum Kampf (D417) und Spielstand v3
+
+Der Kampf meldet je Tier `{ art: 'getoetet' | 'gereinigt' | 'umgangen', gegnerId, region, x, z, zeit }`.
+`vermerkeBegegnung(stand, ereignis)` hängt sie an `stand.begegnungen` (Lage auf 10 cm gerundet; dieselbe Meldung zweimal
+zählt einmal; Ungültiges ändert nichts). In `main.tsx` liegt dafür der Haken `meldeBegegnungRef.current(ereignis)`; ihn
+ruft noch niemand. Gespeichert wird die Lage, nicht das Revier: Ändern sich die Grenzen in den Daten, folgt der Zustand.
+Der Zähler (`eingriffe`) zählt gemeldete Begegnungen je Meldung mit — ein Lager ist nach seiner Ruhe wieder besetzt,
+dieselbe Gegner-ID heisst dann ein anderes Tier.
+
+**Spielstand v3** (`MIGRATIONEN[2]`): `begegnungen: []` und `reviere: { rasten: 0, leerFolge: [], je: {} }`; ein v2-Stand
+behält jedes Feld und auch `geschrieben`; was vorher geschah, steht schon in `besiegt`/`gefangen` und wird abgeleitet,
+nicht kopiert (`tests/speicherformat.test.ts`, `tests/staende/v2-oental-mit-wild.json`). `KOMMT_MIT_V3` heisst jetzt
+`KOMMT_SPAETER` und nennt die Eingriffe nicht mehr.
+
+### 14.4 Rechnung mit den echten Revieren
+
+`npx tsx tools/oekonomiesim.ts` (`bilanzMitRevieren`). **Annahmen:** wie §3 (280 begegnete Tiere, 20 Rasten), jetzt nach
+dem Bestand auf die 13 Reviere verteilt (27 % je Revier); Reviere in der Reihenfolge ihres Abstands vom Start (Steig →
+Graben → Terrasse → Uferweg → Bannwald → Grat → Nordufer → Südhang → Stau → Seeboden → Nordhang → Quellhang → Alm);
+Verhärtete je verborgenem Ort einer, zwei an den Engstellen des Uferwegs; wer reinigt, holt stehen gebliebene Verhärtete
+später nach; **der Umgeher meidet die äussere Hälfte der Reviere ganz** (neu, `meidet: 0,5` — sonst wäre er nie
+„vertraut“) und kämpft in den übrigen so viel dichter, dass sein Anteil an allen Begegnungen gleich bleibt (12 %).
+
+| | Schlächter | Gemischt | Heiler | Umgeher |
+|---|---|---|---|---|
+| Tiere getötet / gereinigt / umgangen | 280 / 0 / 0 | 178 / 102 / 0 | 0 / 173 / 107 | 0 / 31 / 249 |
+| Verhärtete getötet / gereinigt | 11 / 0 | 8 / 3 | 0 / 5 | 0 / 3 |
+| Hauptwaffe / Markenstufe | 3 / 1 | 2 / 3 | 1 / 4 | 0 / 2 |
+| Läuterung | 25 | 157 | 238 | 76 |
+| ruhige / leere / unberührte Reviere (von 13) | 0 / 13 / 0 | 0 / 13 / 0 | 13 / 0 / 0 | 6 / 0 / 7 |
+| nachgewanderte Verhärtete | 6 | 6 | 0 | 0 |
+| bis Kapitelende nachgewachsen | 87 | 62 | 0 | 0 |
+| Stand beim Zähler (gewichtet) → Stufe | 291 → abgewandt | 212 → abgewandt | 45 → abgewandt | 9 → **vertraut** |
+| Leben / Ausdauer / Einsicht | +10 / +0 / 9 | +10 / +10 / 11 | +10 / +10 / 11 | +5 / +5 / 7 |
+
+**Dominanztest** (Waffe, Marke, Leben, Ausdauer, Einsicht, Zähler-Stufe 0/1/2): **grün** — keine Spielweise schlägt eine
+andere auf allen Achsen, mit beiden Bezügen (`tests/reviere.test.ts`).
+
+**Was sich gegenüber §3/§13.3 verschiebt (ehrlich):**
+
+1. **Der Heiler liegt jetzt klar über dem Zähler** (45 statt 41): Er holt alle fünf Verhärteten nach und bekommt in 13
+   statt 12 Revieren die ruhige Rast. Bei D406 („geduldet“ ≤ 40) ist er damit abgewandt — wie D385 es meint, aber nicht
+   mehr „knapp“. Wer als Heiler geduldet bleiben will, muss rund 20 Reinigungen weniger machen.
+2. **Der Umgeher hat jetzt ruhige Reviere** (6 von 13, Markenstufe 2 wie vorher): Weil er seine wenigen Eingriffe auf
+   die innere Hälfte ballt, reinigt er dort ein Drittel der Begegneten. Er ist der einzige, der „vertraut“ wird — sein
+   Eigenes, das ihm D405 genommen hatte, ist über die zweite Stufe zurück.
+3. **Schlächter und Gemischt leeren alle 13 Reviere** (vorher 12 von 12) und ziehen sechs Verhärtete nach — gleich.
+   Bis Kapitelende wüchsen beim Schlächter 87 Tiere nach (die Hälfte seiner Getöteten aus der ersten Hälfte des Wegs).
+4. **Mit Bezug „Bestand“** (die wörtliche Lesart „25 % der Tiere des Reviers“, alle 1.019 gezählt) wird in Kapitel 1
+   **kein** Revier ruhig und **keines** leer: 280 Begegnete sind 27 % des Bestands, die Schwellen liegen bei 25 %
+   gereinigt bzw. 60 % getötet. Der Heiler fällt auf Markenstufe 3, bleibt aber geduldet; der Test bleibt grün, doch die
+   Verhärtung und die ruhige Rast — die eigenen Schleifen beider Ränder — gibt es dann nicht. Deshalb steht in den Daten
+   „begegnet“ mit Boden (Frage an Flo: A-38).
+
+### 14.5 Was verdrahtet ist
+
+| Was | Wo | Sichtbar? |
+|---|---|---|
+| Reviere geladen und geprüft | `data/inhalte.ts` `REVIERWELT`, `REVIERREGELN`; `validate` | nein |
+| Rast wertet die Reviere aus und hält `reviere` im Stand | `main.tsx` `raste` | nein |
+| Zähler nutzt „vertraut“ | `zaehler.json` Station 4 `bis: misstraut`; `main.tsx` `figurOrte`, `oeffneOrt` | **im Ablauf ja:** Wer nach der Heilung ≤ 40 gewichtete Eingriffe hat, aber in mehr als der Hälfte der Reviere eingegriffen hat, findet den Zähler an der Kirche statt auf der Krone |
+| Haken für den Kampf | `main.tsx` `meldeBegegnungRef` | nein (ruft niemand) |
+
+Kein Bildpaar: Am Bild der Welt ändert sich nichts.
+
+### 14.6 Umsetzungsliste (Ergänzung zu §10 und §13.7)
+
+| # | Was fehlt | Wo |
+|---|---|---|
+| 22 | Die Marke steht nicht im Stand (`markenLadung`, `KOMMT_SPAETER`): `ladungNachRast` hat noch keinen Leser; eine Rast im Freien gibt es nicht (nur an Zufluchten) | `Spielstand`, `main.tsx` `raste`, Kampfplatz |
+| 23 | Nachwachsen und Verhärtung in der Welt: `verteileKreaturen` kennt nur „verbraucht“ (`besiegt` ∪ `gefangen`), keine Zuwanderer und keinen nachgezogenen Verhärteten; Verhärtete gibt es im Echtzeitkampf nicht | `src/world/vorkommen.ts`, `RegionsSzene.tsx` `Kreaturen` |
+| 24 | Der Kampf meldet keine Begegnung je Tier (`meldeBegegnungRef`): heute zählen nur `besiegt`/`gefangen` des Rundenkampfs | D417 |
+| 25 | Die einmalige Gabe des ruhigen Reviers (Setzling, Reinprobe) wird nicht vergeben | `main.tsx` `raste`, `oekonomie.json` `ruhigesRevier` |
+| 26 | Feste Vorkommen (`trafomarder:fest`) und Rückkehrer (`:heil:`) zählen keinem Revier, solange niemand `vorkommenLage` übergibt | `main.tsx` |
+| 27 | Technik „Fährte“ (Reviergrenze und Zustand in der Witterung) — die Daten wären jetzt da | `src/ui/`, `src/world/` |
+| 28 | Bestand der Flutreviere neu zählen, sobald die Flut gebaut ist | `tools/reviere.ts` |
+
+### 14.7 Unklar
+
+- ⚠️ Ob „Tiere des Reviers“ die Begegneten (mit Boden) oder der Bestand sind, ist eine Lesart von A-28 (3), keine
+  Entscheidung (A-38). Die Rechnung kippt daran (§14.4 Punkt 4).
+- ⚠️ Die Kosten im Weg (Naismith ×8,3, Wasser ×4, Ufer als Wand) sind gesetzt; die Grenzen sind am M1 nicht abgegangen.
+- ⚠️ `besiegt`/`gefangen` tragen keine Region. Ein Stand, der im Fahlmoos Vorkommen besiegt hat, zählt sie dem Œntal zu,
+  solange `begegnungen` sie nicht ersetzen. Mit ADR-0020 brauchen Vorkommen-IDs eine Regionsvorsilbe.
+- ⚠️ Die Reihenfolge der Reviere in der Rechnung (nach Abstand vom Start) und „Umgeher meidet die äussere Hälfte“ sind
+  Annahmen; die Spielweisen sind Rechnung, nicht gespielt.
+- ⚠️ `abRasten` 3, `jeRast` 2: „nach einigen Rasten“ (A-28 (5)) als Zahl gesetzt, nicht gemessen.

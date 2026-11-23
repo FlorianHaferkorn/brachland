@@ -12,11 +12,20 @@
  */
 import { openDB, type IDBPDatabase } from 'idb';
 
+import { AKTUELLE_VERSION, PLAETZE, beginneNeu, exportiere, importiere, ladePlatz, listePlaetze,
+         listeSicherungen, schreibePlatz, type Ablage, type Einfuhr, type Ladung, type Platz,
+         type PlatzKopf } from './speicherformat.js';
 import type { Zustand } from '../engine/battle.js';
 import type { HeldWahl } from '../spieler/held.js';
 import type { WaffenStufen } from './schmiede.js';
+import { LEERER_REVIERSTAND, type Begegnung, type Revierstand } from './reviere.js';
+import { fuelleMarke, hebeMarke } from './marke.js';
 
-export const SPIELSTAND_VERSION = 1;
+/**
+ * Version des Speicherformats (D415): 2 = Stand in der Hülle (`spiel/speicherformat.ts`), 3 = mit Revieren (D416).
+ * Version 1 war der nackte Stand bis D415; er wird beim Laden migriert, nicht verworfen.
+ */
+export const SPIELSTAND_VERSION = AKTUELLE_VERSION;
 
 export interface TeamEintrag {
   kreatur: string;
@@ -44,8 +53,22 @@ export interface Spielstand {
   team: TeamEintrag[];
   /** IDs bereits gefangener Vorkommen — die stehen nicht mehr in der Welt. */
   gefangen: string[];
-  /** IDs besiegter Vorkommen. Kommen später wieder, aber nicht in derselben Sitzung. */
+  /**
+   * IDs besiegter Vorkommen. Kommen später wieder, aber nicht in derselben Sitzung. Seit D417 auch die im
+   * Echtzeitkampf **getöteten Tiere** (`<kreatur>:<lager>:<platz>:<zeit>`, `spiel/begegnungen.ts`).
+   */
   besiegt: string[];
+  /**
+   * D417: IDs der mit der Marke **gereinigten** Tiere, Format wie `besiegt`. Aufträge mit Ziel `reinige`,
+   * die Läuterung (`spiel/marke.ts`) und der Zähler der Mönche (¼) lesen diese Liste. Migration v3 übernimmt
+   * die alten `gefangen` (bis D417 zählte das Aufnehmen als Reinigen, D375).
+   */
+  gereinigt: string[];
+  /**
+   * D417: die Marke — nur die Ladungen jetzt. Fassung, Läuterung und Stufe folgen aus `gereinigt` und
+   * `regenten` (`spiel/marke.ts`), werden also nicht gespeichert.
+   */
+  marke: { ladung: number };
   position: [number, number];
   /**
    * Region, in deren Metern `position` steht (ADR-0014). Alte Stände kennen das Feld nicht und
@@ -63,11 +86,10 @@ export interface Spielstand {
    * Ohne das Feld wäre die Karte entweder allwissend (verrät jede Zuflucht, bevor
    * man sie gefunden hat) oder leer. Beides wäre falsch.
    *
-   * **Ohne Versionssprung hinzugefügt**, und das ist Absicht: `ladeStand` verwirft
-   * bei abweichender Version den ganzen Stand (`roh.version !== SPIELSTAND_VERSION`),
-   * ergänzt aber fehlende Felder aus `LEERER_STAND`. Ein neues Feld mit sicherem
-   * Standardwert braucht also keinen Sprung — ein Sprung würde jedem Spieler
-   * sein Team kosten, damit die Kartenmarken stimmen.
+   * **Ohne Versionssprung hinzugefügt**, und das war Absicht: Bis D415 verwarf `ladeStand`
+   * bei abweichender Version den ganzen Stand, ergänzte aber fehlende Felder aus
+   * `LEERER_STAND`. Seit D415 gibt es eine Migrationskette (`spiel/speicherformat.ts`);
+   * ein neues Feld mit sicherem Standard braucht trotzdem keinen Sprung (`ergaenzeStand`).
    */
   orte: string[];
   /**
@@ -107,6 +129,13 @@ export interface Spielstand {
   lagerSieg: Record<string, number>;
   /** Zuletzt benutzte Zuflucht (D179): Dort wacht man nach einer Niederlage auf. */
   letzteZuflucht?: string;
+  /**
+   * D416 (Version 3): was der Kampf je Begegnung gemeldet hat — getötet, gereinigt, umgangen, mit Lage. Das Revier
+   * folgt aus der Lage (`spiel/reviere.ts`), es wird nicht gespeichert. Geschrieben von `vermerkeBegegnung`.
+   */
+  begegnungen: Begegnung[];
+  /** D416 (Version 3): was Rasten an den Revieren entschieden haben (Verhärtung, Nachwachsen, Zahl der Rasten). */
+  reviere: Revierstand;
 }
 
 export const LEERER_STAND: Spielstand = {
@@ -117,6 +146,9 @@ export const LEERER_STAND: Spielstand = {
   team: [],
   gefangen: [],
   besiegt: [],
+  gereinigt: [],
+  // Die Marke startet voll: Fassung ohne Regent und ohne Läuterung (`content/reinigen.json`, heute 4).
+  marke: fuelleMarke({ gereinigt: [], regenten: [] }),
   position: [0, 0],
   region: 'oental',
   gesehen: [],
@@ -129,53 +161,147 @@ export const LEERER_STAND: Spielstand = {
   geheilt: [],
   auftraege: {},
   richtungskampf: true,
+  begegnungen: [],
+  reviere: LEERER_REVIERSTAND,
 };
 
+/**
+ * Fehlende Felder älterer Stände aus `LEERER_STAND` ergänzen, statt den Stand zu verwerfen — ein
+ * verlorener Spielstand ist schlimmer als ein leerer Beutel. Läuft nach jeder Migration (D415).
+ */
+export function ergaenzeStand(roh: Record<string, unknown>): Spielstand {
+  // D417: Felder der Marke aus dem alten Stand ableiten (idempotent, wie Migration v3) — nicht aus
+  // `LEERER_STAND`, sonst begänne `gereinigt` leer und alte `gefangen` verlören ihren Auftragsfortschritt.
+  roh = hebeMarke(roh);
+  return {
+    ...LEERER_STAND, ...roh,
+    beutel: roh.beutel ?? {},
+    fragmente: roh.fragmente ?? [],
+    orte: roh.orte ?? [],
+    regenten: roh.regenten ?? [],
+    auftraege: roh.auftraege ?? {},
+    begegnungen: roh.begegnungen ?? [],
+    reviere: roh.reviere ?? LEERER_REVIERSTAND,
+  } as Spielstand;
+}
+
 const DB = 'brachland';
+/**
+ * Version der **Datenbank**, nicht des Speicherformats. Bis D415 hiessen beide `SPIELSTAND_VERSION`;
+ * getrennt, weil ein Formatsprung sonst ein IndexedDB-Upgrade auslöste und ein älterer Build die
+ * Datenbank danach nicht mehr öffnen könnte (`VersionError`).
+ */
+const DB_VERSION = 1;
 const LADEN = 'spielstand';
-const SCHLUESSEL = 'aktuell';
 
 let db: Promise<IDBPDatabase> | null = null;
 function hole() {
-  db ??= openDB(DB, SPIELSTAND_VERSION, {
+  db ??= openDB(DB, DB_VERSION, {
     upgrade(d) { if (!d.objectStoreNames.contains(LADEN)) d.createObjectStore(LADEN); },
   });
   return db;
 }
 
+/** IndexedDB als `Ablage` für `spiel/speicherformat.ts`. */
+const ablage: Ablage = {
+  lies: async k => (await hole()).get(LADEN, k),
+  schreibe: async (k, v) => { await (await hole()).put(LADEN, v, k); },
+  schluessel: async () => (await (await hole()).getAllKeys(LADEN)).map(String),
+};
+
+/** Gewählter Platz (1–3), in `localStorage` gemerkt; ohne Speicher Platz 1. */
+const PLATZ_SCHLUESSEL = 'brachland.platz';
+export function aktiverPlatz(): Platz {
+  try {
+    const n = Number(localStorage.getItem(PLATZ_SCHLUESSEL));
+    return (PLAETZE as readonly number[]).includes(n) ? n as Platz : 1;
+  } catch { return 1; }
+}
+export function waehlePlatz(platz: Platz): void {
+  try { localStorage.setItem(PLATZ_SCHLUESSEL, String(platz)); } catch { /* gilt für diese Sitzung nicht */ }
+}
+
+/**
+ * Meldungen der letzten Ladung (migriert, Rückfall auf die Rast, Sicherung aufbewahrt, Speicher gesperrt)
+ * — `main.tsx` zeigt die erste als Hinweis. Leer, wenn alles glatt ging.
+ */
+export let letzteMeldungen: string[] = [];
+
+/** Den gewählten Platz laden: `aktuell`, sonst `rast`, sonst der Stand vor D415 (migriert). */
 export async function ladeStand(): Promise<Spielstand | null> {
   try {
-    const roh = await (await hole()).get(LADEN, SCHLUESSEL);
-    if (!roh || roh.version !== SPIELSTAND_VERSION) return null;
-    // Fehlende Felder aus älteren Ständen ergänzen, statt den Stand zu verwerfen.
-    // Ein verlorener Spielstand ist schlimmer als ein leerer Beutel.
-    return {
-      ...LEERER_STAND, ...roh,
-      beutel: roh.beutel ?? {},
-      fragmente: roh.fragmente ?? [],
-      orte: roh.orte ?? [],
-      regenten: roh.regenten ?? [],
-      auftraege: roh.auftraege ?? {},
-    } as Spielstand;
+    const l: Ladung = await ladePlatz(ablage, aktiverPlatz(), ergaenzeStand);
+    letzteMeldungen = l.meldungen;
+    return l.art === 'geladen' ? l.stand : null;
   } catch {
-    // Privater Modus oder gesperrte Datenbank: lieber ohne Spielstand spielen als
-    // gar nicht starten.
+    // Privater Modus oder gesperrte Datenbank: lieber ohne Spielstand spielen als gar nicht starten —
+    // aber nicht mehr still (Doc §1.5).
+    letzteMeldungen = ['Der Browser lässt das Speichern nicht zu (privates Fenster?) — dieser Durchgang wird nicht gesichert.'];
     return null;
   }
 }
 
-export async function speichereStand(stand: Spielstand): Promise<void> {
+/**
+ * Den gewählten Platz schreiben. `rast` (D415, A-29 (7)) schreibt zusätzlich die Fassung der letzten
+ * Rast, auf die das Laden zurückfällt. Ein ungültiger Stand wird nicht geschrieben (`schreibePlatz`).
+ */
+export async function speichereStand(stand: Spielstand, opt: { rast?: boolean } = {}): Promise<void> {
   try {
-    await (await hole()).put(LADEN, stand, SCHLUESSEL);
+    const r = await schreibePlatz(ablage, aktiverPlatz(), stand, opt);
+    if (!r.ok) console.warn(`Spielstand nicht geschrieben, der letzte gute bleibt: ${r.grund}`);
   } catch {
     /* siehe ladeStand */
   }
 }
 
-export async function loescheStand(): Promise<void> {
+/** „Neues Spiel“ auf dem gewählten Platz: der alte Stand wandert unter `sicherung/`, gelöscht wird nichts. */
+export async function beginneNeuesSpiel(neu: Spielstand): Promise<boolean> {
+  try { return (await beginneNeu(ablage, aktiverPlatz(), neu)).ok; } catch { return false; }
+}
+
+/** Kopf der drei Plätze für die Platzliste des Menüs. */
+export async function plaetze(): Promise<PlatzKopf[]> {
+  try { return await listePlaetze(ablage); } catch { return []; }
+}
+
+/** Aufbewahrte Sicherungen (unlesbare, neuere, ersetzte Stände) — zum Herunterladen für die Fehlersuche. */
+export async function sicherungen(): Promise<string[]> {
+  try { return await listeSicherungen(ablage); } catch { return []; }
+}
+
+/** Eine Datei im Browser herunterladen lassen (`Blob` + Link). */
+function herunterladen(name: string, text: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const a = Object.assign(document.createElement('a'), { href: url, download: name });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Export als Datei (Doc §6.7 `spielstand-sichern`). Persönliche Einstellungen nur, wenn übergeben. */
+export function exportiereStand(stand: Spielstand, einstellungen?: Record<string, unknown>): void {
+  const d = exportiere(stand, { einstellungen });
+  herunterladen(d.name, d.text);
+}
+
+/** Eine aufbewahrte Sicherung unverändert als Datei herunterladen. */
+export async function exportiereSicherung(k: string): Promise<boolean> {
   try {
-    await (await hole()).delete(LADEN, SCHLUESSEL);
-  } catch {
-    /* siehe ladeStand */
-  }
+    const roh = await ablage.lies(k);
+    if (roh === undefined) return false;
+    herunterladen(`brachland-${k.replace(/[^a-z0-9-]/gi, '_')}.json`, JSON.stringify(roh, null, 2));
+    return true;
+  } catch { return false; }
+}
+
+/**
+ * Import einer Datei (Doc §6.7 `spielstand-laden`): geprüft, migriert, validiert. Gelingt es, wird der
+ * gewählte Platz wie bei „Neues Spiel“ ersetzt (alter Stand nach `sicherung/`). Das Menü lädt danach neu.
+ */
+export async function importiereStand(datei: Blob): Promise<Einfuhr> {
+  const r = importiere(await datei.text(), ergaenzeStand);
+  if (!r.ok) return r;
+  try {
+    const s = await beginneNeu(ablage, aktiverPlatz(), r.stand);
+    return s.ok ? r : { ok: false, grund: s.grund };
+  } catch { return { ok: false, grund: 'Der Browser lässt das Speichern nicht zu' }; }
 }
