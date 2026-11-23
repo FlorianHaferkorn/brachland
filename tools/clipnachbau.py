@@ -43,6 +43,25 @@ if VORSCHLAG:
     waffenclips.CLIPS.update(_V)
     waffenclips.NAMEN = tuple(waffenclips.CLIPS)
     NEU = list(_V)
+# D430: `PROBE=<name.json>[:Clip,…]` baut stattdessen die Clips aus Videoposen (`tools/videoposen.py erkennen`, Feld
+# `hiebe`) — nur Probe für Prüfbilder, **nie** in `held-clips.glb` einfügen, keiner Waffe zuweisen (Trefferfenster
+# sind Kampfwerte). Die Posenfelder sind dieselben wie in `CLIPS`; JSON-Listen werden wieder Tupel.
+PROBE = os.environ.get('PROBE')
+if PROBE:
+    import json
+    import waffenclips
+    _pfad, _, _nur = PROBE.partition(':')
+    NEU = []
+    for _c in json.load(open(_pfad))['hiebe']:
+        if _nur and _c['name'] not in _nur.split(','):
+            continue
+        waffenclips.CLIPS[_c['name']] = (_c['grund'], _c['art'], [
+            (b, {k: tuple(v) if isinstance(v, list) else v for k, v in p.items()}) for b, p in _c['schluessel']])
+        waffenclips.ACHSE[_c['name']] = _c['achse']
+        if _c['achse'] == 'axt':
+            waffenclips.TREFFER[_c['name']] = tuple(_c['treffer'])
+        NEU.append(_c['name'])
+    waffenclips.NAMEN = tuple(waffenclips.CLIPS)
 # Idle prüft die Übertragung allein (hart, `GRENZE`), die drei Waffenclips den ganzen Weg (nur gemeldet, s. o.).
 # D429: `Axt_Quer` ist seit D429 selbst neu gebaut — die Gegenprobe läuft nur noch an Speer und Klinge.
 PRUEFE = ['Idle', 'Speer_Stoss', 'Klinge_Stich']
