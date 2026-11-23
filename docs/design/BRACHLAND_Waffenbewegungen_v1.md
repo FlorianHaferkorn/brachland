@@ -1,19 +1,23 @@
 ---
-last-reviewed: 2026-11-22
+last-reviewed: 2026-11-23
 shelf-life-days: 180
 ---
-<!-- BRACHLAND — Waffenbewegungen aus freien Quellen (D428). Stand 22.11.2026. -->
+<!-- BRACHLAND — Waffenbewegungen aus freien Quellen (D428, D430). Stand 23.11.2026. -->
 
 # BRACHLAND — Waffenbewegungen aus freien Quellen v1 (D428)
 
+> **D430 (23.11.2026):** Bewegungen aus frei lizenzierten Videos — Quellen, Kette (`tools/videoposen.py`), Probeclip und
+> ehrliche Bewertung in §7; Fragen an Flo: Ledger **A-45**.
+>
 > **D429 (22.11.2026):** Die Axt ist jetzt eine Zweihand-Fällaxt nach *An Ax to Grind* — Widersprüche 2, 3 und 5 (Axt)
 > aus §5 sind behoben, Ausführung und Messwerte in §5.1.
 >
 > **Recherche und Probe, nichts verdrahtet.** Kein Clip in `public/figuren/held/held-clips.glb` geändert, keiner
 > Waffe zugewiesen, kein Kampfwert berührt (D423: Bestandsclips erst nach der Messung). Offene Fragen an Flo:
 > Ledger **A-43**. Prüfbilder unter `.cache/bilder/D428/` (Formprüfung in Blender Cycles, keine Look-Abnahme,
-> Bewegung nur am M1 — ADR-0005). Grundsatz: Handwerk ja, Motive fremder Spiele nein (ADR-0004); Physik nach D398,
-> Gewicht sichtbar nach D419.
+> Bewegung nur am M1 — ADR-0005). Grundsatz (D431): reale Techniken und Handwerk ja, fremde Gestaltung nein
+> (ADR-0007 §1 Nachtrag); ob Material benutzt werden darf, regelt ADR-0013 Punkt 5. Physik nach D398, Gewicht sichtbar
+> nach D419.
 
 **Kurzfassung.**
 1. **UAL2 geladen** (itch.io, Fassung vom 16.06.2026, und OpenGameArt, Fassung vom 23.01.2026), Lizenz in beiden
@@ -385,3 +389,158 @@ dafür Vorlauf um dieselbe Zeit kürzen (Axthieb 0,37 → 0,30 s), damit die Sch
 - **UNKLAR:** Saufeder in der Jagd (Phébus fol. 94r) nicht am Bild geprüft.
 - Die Messung „Fuss nah am Boden“ trennt Gleiten nicht von flachem Schritt; Urteil über Fussgleiten nur am M1 in
   Bewegung.
+
+## 7. Bewegungen aus Videos (D430)
+
+Flo 23.11.2026: „suche videos im Web und nimm die“ — nur frei lizenzierte (gemeinfrei, CC0, CC-BY, CC-BY-SA). Ob ein
+Video benutzt werden darf, regeln die Rechte am Material und die Nutzungsbedingungen der Plattform (ADR-0013 Punkt 5,
+D431); YouTube, Instagram, Vimeo und Spiel- oder Filmszenen ohne freie Lizenz sind deshalb nicht gesucht. Die Videos
+liegen **nur lokal** unter `.cache/videos-d430/` (nicht im Repo); abgeleitete Schlüsselposen sind eigene Arbeit mit
+Quellenangabe. **Nichts ausgeliefert:** kein Clip in `held-clips.glb`, keiner Waffe zugewiesen, kein Kampfwert berührt.
+
+### 7.1 Suche und Quellen
+
+Gesucht (23.11.2026) auf Wikimedia Commons (Volltextsuche `filemime:video` nach sword, fencing, longsword, axe, chopping,
+spear, halberd, reenactment fight, bayonet; Kategorien Historical European martial arts, Videos of fencing, Videos of
+martial arts, Videos of reenactments, Bastard swords, Wood chopping, Wood chopping sports, Wood cleaving, People with
+axes) und auf Archive.org (Suche nach axe, chopping, longsword, HEMA, fencing in den Prelinger-Filmen, sword mit freier
+Lizenz). Commons drosselte das Laden der Originale (HTTP 429); geladen sind die von Commons selbst erzeugten
+Umwandlungen (720p/1080p/480p, dieselbe Datei, dieselbe Lizenz). Bildrate und Auflösung unten = geladene Fassung.
+
+| Titel (Commons) | Lizenz, Urheber | Bilder/s | Auflösung | Blickwinkel | Bewegung | Eignung |
+|---|---|---|---|---|---|---|
+| [Wood cleaving - 2016](https://commons.wikimedia.org/wiki/File:Wood_cleaving_-_2016.webm) | CC BY-SA 4.0, Jarek Tuszyński (27.08.2015) | 29,97, **Zeitlupe** (Faktor geschätzt 4, §7.4) | 400 × 720 | seitlich (rechte Seite), ruhige Kamera, ganzer Körper | Spalten von oben, zweihändig, die obere Hand gleitet; zwei Hiebe | **gut** — bester Fund; Probeclip |
+| [Wood chopping competition (standing block cut)](https://commons.wikimedia.org/wiki/File:Wood_chopping_competition_(standing_block_cut).webm) | CC BY-SA 3.0, Kerry Raymond (Ekka Brisbane, 15.08.2015) | 30 | 1280 × 720 | erhöht, schräg von hinten, Zaun davor, fünf Holzfäller | Querhiebe am stehenden Block (Wettkampf, zweihändig) | **bedingt** — Körper gut, Hände im Schlag verdeckt und unscharf |
+| [Bucking, splitting and stacking logs for firewood in Kõrvemaa, Estonia (October 2022)](https://commons.wikimedia.org/wiki/File:Bucking,_splitting_and_stacking_logs_for_firewood_in_K%C3%B5rvemaa,_Estonia_(October_2022).webm) | CC BY-SA 4.0, Sillerkiil (04.10.2022) | 25 | 1280 × 720 | nah und tief, Person oft halb ausserhalb, Schnitte | Kettensäge, dann Spalten mit der Axt (ab 0:34) | **schlecht** — nur Zeitbezug in Echtzeit |
+| ["IMG 8252" Hand-and-a-half sword (Bastard sword) exercises](https://commons.wikimedia.org/wiki/File:%22IMG_8252%22_Hand-and-a-half_sword_(Bastard_sword)_exercises.webm) | CC BY-SA 4.0, Kuroczynski (02.09.2023) | 29,97 | 608 × 1080 (hochkant) | erst von hinten, nach einem Schnitt seitlich; ruhig | Übungen mit dem Anderthalbhänder, beidhändig: Ober- und Querhaue in die Luft | **bedingt** — einzige freie Fechtaufnahme; Klinge klein und unscharf |
+| [Jomvikings Winkinger Kampftraining](https://commons.wikimedia.org/wiki/File:Jomvikings_Winkinger_Kampftraining.webm) | CC BY-SA 3.0, HelgeRieder (02.11.2013) | 24 | 854 × 480 | Handkamera mitten in der Gruppe, Regen | Gruppenkampf (Schild, Speer, Axt) | **unbrauchbar** |
+| [Batalo per glavoj en la Abalaka amuzejo](https://commons.wikimedia.org/wiki/File:Batalo_per_glavoj_en_la_Abalaka_amuzejo.webm) | CC BY-SA 4.0, RG72 (30.07.2021) | 30 | 1280 × 720 | weit weg (Figur ~60 Bildpunkte) | Schwert und Schild, Schaukampf | **unbrauchbar** |
+| [Modern Sword Fighting Moscow VDNHA](https://commons.wikimedia.org/wiki/File:Modern_Sword_Fighting_Moscow_VDNHA.webm) | CC BY 4.0, Predatorsamsung (18.08.2025) | 59 | 270 × 480 | weit, Zuschauer davor | Rollenspiel-Schaukampf | **unbrauchbar** |
+
+**Nicht genommen:** *Felling a tree* (Commons, CC BY-SA 4.0) — Kettensäge; *Wood Chopping* (Commons, CC0, Uganda) —
+laut Beschreibung Kettensäge, nicht angesehen; *Cutting down an uprooted tree…* — Säge; *Renaissance Martial Arts – the
+Web Documentary* (Archive.org) — CC BY-ND 3.0, „keine Bearbeitungen“ ist keine der erlaubten Lizenzen; *Akademia
+Szermierzy … medieval longsword techniques* (Archive.org) — keine Lizenzangabe; Ausbildungsfilme der US-Armee mit
+Bajonettdrill (Commons, 1939/1943, Werke der US-Streitkräfte) — andere Waffe, nicht als Saufeder genommen; *Hand Tools for Wildfire*
+(US Forest Service, 1970er) — nur über einen kostenpflichtigen Archivhändler; einen Axt-Lehrfilm des US Forest Service
+führt der Katalog der National Agricultural Library (16 mm), ein Digitalisat war nicht zu finden.
+
+**Je Waffe:**
+
+| Waffe | Freie Videos | Bemerkung |
+|---|---|---|
+| Fällaxt (zweihändig) | Spalten (gut), Standing Block (bedingt), Kõrvemaa (schlecht) | Spalten ist ein Hieb von oben auf einen Block in Kniehöhe — näher am Spalthieb (`Axt_Schwer`) als am Fällhieb |
+| Langes Messer | **keins** | Ersatzweise der Anderthalbhänder (zweihändig wie unser Messer seit D414, A-43 (1) offen); ein Messer führt sich anders (eine Schneide, kürzer) |
+| Klinge (Seitschwert, einhändig) | **keins** brauchbar | Abalak: Schwert und Schild, zu weit |
+| Saufeder | **keins** | Nur Bajonettdrill (andere Waffe) — nicht ausgewichen |
+| Hirschfänger | **keins** | — |
+
+### 7.2 Kette (`tools/videoposen.py`, nicht im Gate)
+
+Video (OpenCV) → MediaPipe PoseLandmarker *heavy* (Apache 2.0, CPU, ~12 Bilder/s auf diesem Rechner) → 33 Punkte je
+Bild in 2D und als 3D-Weltschätzung → Median über 3 Bilder und Savitzky–Golay (5) → **Füsse am Boden**: MediaPipe
+legt jedes Bild auf die Hüftmitte; die Verschiebung des Körpers wird aus dem Fuss zurückgerechnet, der im Bild stillsteht
+→ Körperachsen aus der Ruhe, vertauschte Seiten (Ansicht von hinten) über die Zehen erkannt, Linkshänder gespiegelt →
+Maßstab je Glied auf die Wanderin (Becken und Füsse nach Beinlänge, ihr Rumpf, Arme nach Armlänge von ihren
+Schultern aus) → Phasen aus dem Tempo der Hände **im Bild** (Ausholbeginn, Ausholspitze, Scheitel als Umkehrpunkt,
+schnellstes Bild, Durchzug = letztes Bild ≥ 50 %, Halt < 20 %) → Schlüsselposen im Format der Posenfelder
+(`hand`, `richt`, `zwei`, `griff`, `rumpf`, `huefte`, `koerper`, `fuss_l`/`fuss_r`, `pol`/`pol_l`; Ramer–Douglas–Peucker,
+≤ 5 cm) in 24 Bildern/s Echtzeit. **Waffe nach Regel:** zwei sichtbare Hände geben die Achse; ist die ferne Hand verdeckt,
+gilt die Armflucht. Bei der Axt (`--regel`) folgen Stielwinkel und Griff dem Forsthandbuch (D429): angewinkelt beim
+Ausholen, spät gelöst im Schlag, im Durchzug in der Armflucht; `griff` −0,42 → −0,62 → −0,11. Bau des Probeclips:
+`PROBE=<name.json>:<Clip>` in `tools/clipnachbau.py`, dann `clipnachbau.mjs einfuegen` in eine **Kopie**,
+`kontaktbogen.py`. MediaPipe braucht zum Laden `libEGL`/`libGLESv2`; ohne Grafiktreiber genügen leere
+Ersatzbibliotheken (Docstring des Werkzeugs).
+
+### 7.3 Was die Erkennung leistet — gemessen
+
+| Video | Person erkannt | Zittern in Ruhe (Hand, 3D / 2D) | Unterarm in 3D (5.–95. Perzentil; ein starrer Knochen) | Handhöhe 2D minus 3D | Ferne Hand verdeckt (Sichtbarkeit < 0,5) |
+|---|---|---|---|---|---|
+| Spalten | 245 / 245 Bilder | 1,1 cm / 0,3 px | 17–26 cm | −8 … +27 cm | 55 % der Bilder |
+| Standing Block | 421 / 421 | 0,2 cm / 0,1 px | 15–26 cm | −10 … +1 cm | 98 % |
+| Anderthalbhänder | 539 / 539 | 0,8 cm / 1,1 px | 19–25 cm | −9 … +102 cm (Schnitt, Ansicht von hinten) | 69 % |
+
+### 7.4 Vergleich mit unseren Clips
+
+Bilder bei 24/s; Bestand aus `tools/waffenclips.py` gelesen (`videoposen.py vergleich`), Video aus den Schlüsselposen.
+`huefte` und Schultern in Grad wie die Posenfelder; Becken vor = Spanne von `koerper` v, auf/ab = Spanne von `koerper` h.
+
+| Clip | Scheitel / Durchzug | Ausholen | Schlag (Scheitel→Durchzug) | Nachschwung | `huefte` ° | Schultern ° | Becken vor (m) | Becken auf/ab (m) | Füsse |
+|---|---|---|---|---|---|---|---|---|---|
+| `Axt_Hieb` (D429) | 12 / 16 | 11 Bilder (0,46 s) | 4 Bilder (0,17 s) | bis Bild 29 (Halt 72 %) | −6 … 12 | −30 … 8 | −0,04 … 0,12 | 0,18 tiefer | stehen ab dem Scheitel |
+| `Axt_Schwer` (D429) | 20 / 25 | 19 (0,79 s) | 5 (0,21 s) | endet am Boden | 0 … 8 | −10 … 0 | −0,09 … 0,16 | 0,25 tiefer | stehen |
+| **Spalten** (Hieb 2, Zeitlupe ×4) | 16 / 23 | 15 (0,63 s) | **7 (0,28 s)** | 0,03 s — das Holz hält die Axt an | −16 … 23 | −35 … 59 ¹ | **−0,21 … 0,22** | **0,30** (+0,08 aufgerichtet im Scheitel, −0,21 im Treffen) | stehen (≤ 11 cm, Messfehler), 0,32 m auseinander; Rumpf bis **68°** vor |
+| `Axt_Quer` (D429) | 10 / 15 | 9 (0,38 s) | 5 (0,21 s) | 86°, Halt 73 % | −8 … 14 | −50 … 55 | −0,04 … 0,14 | 0,13 tiefer | linker Fuss tritt vor |
+| Standing Block (Hieb 2) ² | 33 / 37 | 32 (1,33 s) | 4 (0,17 s) | 0,37 s | −54 … −26 | −37 … −16 | −0,30 … −0,23 | 0,02 | Ausfallstellung 0,88 m vor/zurück, stehen |
+| `Messer_Quer_A` (D414/D420) | 9 / 13 | 8 (0,33 s) | 4 (0,17 s) | 82°, ab Bild 23 zurück | −8 … 14 | −48 … 56 | −0,04 … 0,17 | 0,14 tiefer | linker Fuss tritt vor |
+| `Messer_Schwer` | 12 / 17 | 11 (0,46 s) | 5 (0,21 s) | endet am Boden | 0 | −12 … 0 | −0,06 … 0,19 | 0,25 tiefer | linker Fuss tritt vor |
+| Anderthalbhänder (Hieb 13, Querhau) ³ | 15 / 25 | 14 (0,57 s) | 10 (0,43 s) | 0,1 s | −6 … 42 | 13 … 69 | −0,02 … 0,14 | 0,04 | Schrittstellung ~0,8 m, stehen |
+
+¹ Seitenansicht: Die Schulterlinie liegt in der Bildtiefe, ihre Drehung schätzt die 3D-Erkennung schlecht (94° Spanne in
+einem geraden Hieb von oben ist nicht glaubhaft). ² Hände in 98 % der Bilder verdeckt, die Phasen sind nicht verlässlich
+(Spitzentempo 1–3 m/s — die Unschärfe verschluckt den Schlag). ³ Übung in die Luft, langsam; kein Kampftempo.
+
+**Lesart.** (1) **Timing:** Das Spalten braucht vom Scheitel bis zum Durchzug 7 Bilder (0,28 s) gegen 4 bei `Axt_Hieb`
+und holt 4 Bilder länger aus. Das stützt den Vorschlag aus §5.1 (Physik: Aktiv 0,23 s statt Regel 0,16 s) — mit dem
+Vorbehalt, dass der Zeitlupenfaktor geschätzt ist (Faktor 3–5 gäbe 0,21–0,35 s; **UNKLAR**). Kampfwerte bleiben, wie sie
+sind (D423). (2) **Körper:** Im Video arbeitet der ganze Körper viel mehr als in unseren Clips — das Becken fällt 30 cm
+vom Scheitel zum Treffen, der Rumpf beugt sich bis 68° vor, das Gewicht wandert 0,43 m nach vorn; `Axt_Hieb`: 18 cm, 32°,
+0,16 m. Teils liegt das am Ziel (Spaltblock in Kniehöhe, Fällkerbe in Hüfthöhe), teils ist es genau das, was D419
+(Gewicht sichtbar) verlangt. (3) **Füsse:** stehen im Video während des Hiebs (USFS und D429 bestätigt); im Scheitel
+richtet sich der Körper auf (+8 cm), statt sich hinten hineinzulegen. (4) **Hüftdrehung:** aus einer Kamera nicht
+verlässlich messbar (¹); ob die Hüfte vor den Schultern dreht, ist aus diesen Videos **nicht** belegt.
+
+### 7.5 Probeclip und Prüfbilder
+
+**`Axt_Video_cleaving_2`** — aus Hieb 2 des Spaltvideos, 27 Bilder (1,13 s), 21 Schlüssel, Scheitel 16 / Durchzug 23,
+Grundhaltung `Idle`, Waffe nach Regel (`--regel`). Gebaut mit `PROBE=` über `clipnachbau.py` auf die Hauptfigur:
+Klinge ≤ 3° neben `richt`; die rechte Hand trifft ihr Ziel bis Bild 25 auf ≤ 3 cm, in Bild 26–27 (tiefstes Bücken)
+bis 8 cm daneben; die linke Hand liegt bis 25 cm neben der Stielachse, wo die Regel den Stiel anders legt, als der Arm
+der Figur reicht. Nur in einer Kopie von `held-clips.glb` (786 → 809 KB, Ruhelagen 66 Knoten gleich), **nicht**
+eingefügt, keiner Waffe zugewiesen. Datei `.cache/bilder/D430/probe_axt_video_cleaving_2.glb`. Zwei weitere Proben
+nur für die Bilder: `Axt_Video_standingblock_2`, `Messer_Video_langschwert_13`.
+
+Prüfbilder (Formprüfung in Blender Cycles, keine Look-Abnahme, Bewegung nur am M1 — ADR-0005; je Spalte oben das
+Videobild mit erkanntem Skelett, in der Mitte die 3D-Schätzung von der Seite mit der Waffe nach Regel, unten der
+Probeclip auf unserer Figur): `.cache/bilder/D430/axt_spalten_kontakt.png`, `.cache/bilder/D430/axt_quer_kontakt.png`,
+`.cache/bilder/D430/messer_langschwert_kontakt.png`; dazu der Bestand mit derselben Kamera:
+`.cache/bilder/D430/bestand_axt_hieb_kontakt.png`, `.cache/bilder/D430/bestand_axt_quer_kontakt.png`,
+`.cache/bilder/D430/bestand_messer_quer_kontakt.png`. Kein Vorher/Nachher-Paar, weil im Spiel nichts geändert ist.
+Im Spaltbogen folgt die Figur dem Video in Absenken, Aufrichten im Scheitel, Vorbeugen im Treffen; Querhieb und
+Anderthalbhänder zeigen eine stimmige Stellung, aber keine brauchbare Waffenführung.
+
+### 7.6 Bewertung — ehrlich
+
+- **2D gut, 3D schwach.** Die Person wird in jedem Bild gefunden, das 2D-Skelett sitzt. Die 3D-Schätzung aus einer
+  Kamera schwankt in der Tiefe: Ein starrer Unterarm misst 17–26 cm (±20 %), die Handhöhe weicht über dem Kopf bis
+  27 cm vom Bild ab, die Schulterdrehung in der Seitenansicht ist nicht zu gebrauchen. In Ruhe zittert es kaum (≤ 1 cm);
+  das Problem ist die Tiefe, nicht das Zittern.
+- **Bewegungsunschärfe.** Bei 30 Bildern/s springt das Treffbild (einzelne Bilder 2–3× schneller als die Nachbarn); das
+  Spitzentempo ist nicht messbar (Spalten mit Faktor 4: 19 m/s — Artefakt; Standing Block 1–3 m/s — verschluckt). Die
+  Phasengrenzen stimmen auf ±1 Bild (33 ms) — für Ausholen und Halt genug, für einen Schlag von 4–7 Bildern grob.
+- **Die verdeckte Hand.** Von der Seite oder von hinten ist die ferne Hand in 55–98 % der Bilder verdeckt; MediaPipe
+  rät sie. Damit fehlt die zweite Hand für die Waffenachse, und die Fingerpunkte (Hand ~20 Bildpunkte) lagen bis 125°
+  neben der wahren Stielrichtung. **Die Waffe ist reine Regel** — plausibel, aber erfunden.
+- **Was die Kette kann:** die Körperlinie realer Menschen — Gewichtsverlagerung, Absenken, Rumpfneigung, Fussstellung
+  und der Rhythmus Ausholen/Pause/Schlag/Halt. Genau das fehlt unseren Clips (§5, D419).
+- **Lohnt sie gegenüber Fechtbuch + Hand?** Als **Ergänzung ja** — für Körper und Timing einer Bewegung, für die es ein
+  gutes freies Video gibt (je Video etwa eine Stunde mit Prüfung). Als **Ersatz nein**: Für Langes Messer, Klinge,
+  Saufeder und Hirschfänger gibt es kein freies Video, die Waffe fehlt, und Tiefen- und Seitenfehler müssen von Hand
+  korrigiert werden. Fechtbuch und Forsthandbuch bleiben die Vorlage für Stellung und Waffenführung.
+- **Reicht das für die Messlatte D432 (Dawnwalker, Soulframe, For Honor)? Nein.** Gewicht, Lesbarkeit des Ausholens,
+  Fluss zwischen Hieben und Richtungsführung leben dort von sauber erfasster Bewegung samt Waffe (optisches Motion
+  Capture mit vielen Kameras, hohe Bildrate) und von Hand nachgearbeiteten Übergängen. Eine Kamera mit 30 Bildern/s ohne
+  Waffe liefert das nicht. Was es bräuchte: **eigene Aufnahmen** — eine Person, Übungswaffen in Länge und Gewicht
+  unserer Modelle mit zwei Farbmarken am Ende und an der Spitze, **2–3 Kameras** (seitlich, vorn, schräg) mit ≥ 120
+  Bildern/s und gemeinsamem Startsignal; dann Triangulation statt Schätzung (Tiefe und verdeckte Hand gelöst, Waffe aus
+  den Marken). Freie Werkzeuge dafür gibt es; ihre Lizenzen sind in dieser Arbeit **nicht geprüft** (**UNKLAR**). Ein
+  besseres 3D-Verfahren aus einer Kamera löst die Waffe nicht und braucht oft Körpermodelle mit nicht-kommerzieller
+  Lizenz (nicht im Einzelnen geprüft).
+
+### 7.7 Unklar (D430)
+
+- **UNKLAR:** Zeitlupenfaktor des Spaltvideos — geschätzt 4 (120 Bilder/s, aus der Dauer des Abwärtsschwungs, real
+  ~0,3 s); 8 (240 Bilder/s) gäbe einen Schlag von 0,14 s. Ein Messpunkt (Fallzeit eines Scheits) fehlt.
+- **UNKLAR:** Lizenzen freier Mehrkamera-Werkzeuge (Triangulation) — nicht geprüft.
+- Die Phasenerkennung braucht Hilfe (`--abwaerts`, `--hiebe`, `--ausschnitt`), sobald mehrere Personen im Bild sind oder
+  der Mensch zwischen den Hieben umhergeht (Kõrvemaa: 13 „Hiebe“, die meisten Gehen und Holz Legen).
