@@ -1,5 +1,5 @@
 """
-BRACHLAND — Zielboden (D445): das Gelände des Zielbilds als eigenes Stück fürs Spiel.
+BRACHLAND — Zielboden (D448): das Gelände des Zielbilds als eigenes Stück fürs Spiel.
 
     SZENE_TERRAIN=.cache/blender/felsmulde/terrain.json \\
     blender --background <zielbild.blend> --python tools/bodenexport.py -- public/bauten-ziel felsmulde [radius] [groesse]
@@ -30,7 +30,7 @@ SCHRITT = 0.25
 os.makedirs(ZIEL, exist_ok=True)
 sc = bpy.context.scene
 ter = bpy.data.objects['terrain']
-# Alles andere weg: das Backen liest nur das Material, und der Grafikspeicher ist knapp (8 GB, D445 Export 137)
+# Alles andere weg: das Backen liest nur das Material, und der Grafikspeicher ist knapp (8 GB, D448 Export 137)
 for o in [o for o in sc.objects if o is not ter and o.type in ('MESH', 'CURVE', 'CURVES', 'POINTCLOUD', 'VOLUME')]:
     bpy.data.objects.remove(o, do_unlink=True)
 for m in list(bpy.data.meshes):

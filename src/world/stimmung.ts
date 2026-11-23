@@ -379,14 +379,14 @@ STIMMUNG.zielbild = {
   sonnenstand: [65.2, 22.5, -72.4] as const,
 };
 /**
- * D442: `zielbildfels` — Messstimmung für das Messbild Spiel │ Zielbild Felsmulde (UEBERGABE 2d, D425). Wie `zielbild`,
+ * D445: `zielbildfels` — Messstimmung für das Messbild Spiel │ Zielbild Felsmulde (UEBERGABE 2d, D425). Wie `zielbild`,
  * aber mit der Sonne des freigegebenen Felsmulde-Renders (`tools/stilframes.py` Runde 3/4: Azimut 194°, Höhe 24,5°;
  * dort gewählt, weil der Hang im Südwesten tiefere Sonne abschattet). Nur per `?stimmung=zielbildfels`.
  */
 STIMMUNG.zielbildfels = {
   ...STIMMUNG.zielbild,
   sonnenstand: [-22.0, 41.5, 88.3] as const,
-  // D443 Look-Durchgang, Schritt 1 Licht und Tonwert (Messbild D442: Spiel 0,36 hell, Lichter weiss R−B +0,06,
+  // D446 Look-Durchgang, Schritt 1 Licht und Tonwert (Messbild D445: Spiel 0,36 hell, Lichter weiss R−B +0,06,
   // Sättigung 0,28 — Render 0,27, +0,13, 0,46): Sonne warm und kräftig, Fülllicht schwächer und warm-neutral,
   // Belichtung runter, Himmel blau im Zenit und golden am Horizont wie das HDRI des Renders, Dunst golden.
   sonne: '#ffbf7a', sonneStaerke: 3.8,

@@ -131,12 +131,12 @@ export const HAUS_SHADER_SPAR_AN = HAUS_KOMPAKT_AN && suche.get('hausshader') !=
 export const REFERENZHAUS_AN = HOF_GRUEN_AN && an('referenzhaus');
 export const HOF_AN = an('scanhof') || HOF_GRUEN_AN;
 /**
- * A-Frame-Darstellung (D430, ADR-0018, Rezept aus `tools/stilframes.py` Stil `aframe`): `?aframe=1` = `?echt=1`
+ * A-Frame-Darstellung (D433, ADR-0018, Rezept aus `tools/stilframes.py` Stil `aframe`): `?aframe=1` = `?echt=1`
  * plus tiefengewichteter Malfilter (nah unberührt, Ferne/Kronen/Himmel zu Flächen) und Temperaturtrennung
  * (Schatten kühl, Licht warm) nach der Tonwertkurve. Ersetzt den globalen Filter aus D269 nicht, steht daneben.
  */
 export const AFRAME_AN = an('aframe');
-/** D443: Look-Durchgang Felsmulde nach dem Messbild D442 — Rahmenkronen (`scenes/Rahmenkronen.tsx`); mit `?stimmung=zielbildfels`. */
+/** D446: Look-Durchgang Felsmulde nach dem Messbild D445 — Rahmenkronen (`scenes/Rahmenkronen.tsx`); mit `?stimmung=zielbildfels`. */
 export const LOOK_FELS_AN = an('lookfels');
 export const ECHT = an('echt') || MALEREI || HOF_AN || AFRAME_AN;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */

@@ -1,5 +1,5 @@
 /**
- * Messbild Spiel │ Zielbild (D442, UEBERGABE 2d / D425): Standbild an fester Kamera und 10 s Bewegung, mit echter GPU.
+ * Messbild Spiel │ Zielbild (D445, UEBERGABE 2d / D425): Standbild an fester Kamera und 10 s Bewegung, mit echter GPU.
  *   node tools/mess/messbild.mjs <ausordner> "<x,z,grad>" "<url-zusatz mit &kamera=…&fov=…>" [1920x1080]
  * Ausgabe: <ausordner>/spiel-standbild.png (feste Kamera aus dem Zusatz), <ausordner>/spiel-bewegung.webm
  * (Spielkamera ab <x,z,grad>, 10 s Taste W) und bericht.json (Ladezeit, Dreiecke, Bildrate aus dem HUD).
@@ -50,7 +50,7 @@ if (process.env.MESS_NUR_STAND !== '1') { // 10 s Bewegung mit der Spielkamera (
   const p = await ctx.newPage();
   await p.goto(`${BASIS}/?absetzen=${ort}${ohneKamera}`, { waitUntil: 'domcontentloaded' });
   bericht.bewegung = await bereit(p);
-  // Kein Mausklick: der setzt die Zeigersperre und kippt die Kamera (erster Lauf D442). Ausblenden als fester Knoten am
+  // Kein Mausklick: der setzt die Zeigersperre und kippt die Kamera (erster Lauf D445). Ausblenden als fester Knoten am
   // Ende von <body> und je Sekunde erneut, weil die Oberfläche Knoten neu einhängt.
   const blende = () => p.evaluate(css => { let s = document.getElementById('messbild'); if (!s) { s = document.createElement('style'); s.id = 'messbild'; s.textContent = css; } document.body.appendChild(s); }, NUR_LEINWAND);
   await blende(); await p.focus('canvas').catch(() => {}); await p.waitForTimeout(1500);

@@ -160,11 +160,11 @@ def bein(p, schritt):
 
 
 def bau_grathorn():
-    """Alpensteinbock, Bock — Runde 2 (D440): am Foto `grathorn-03.jpg` (rechtwinklige Seitenansicht) nachgebaut.
+    """Alpensteinbock, Bock — Runde 2 (D443): am Foto `grathorn-03.jpg` (rechtwinklige Seitenansicht) nachgebaut.
     Jeder Punkt ist dort abgenommen: X = (1120 − px) / 750, Z = (Boden(px) − py) / 750, Boden(px) = 1270 + 0,116·(px − 820)
     (der Bock steht am Hang; die Scherung stellt ihn gerade), Massstab 750 px/m aus Widerrist 0,95 m.
     Rumpf : Widerrist ≈ 1,2 : 1, Brust 58 % der Höhe tief, Rücken fällt zur Kruppe, Hals steil, Kopf schräg nach unten.
-    Runde 1 war 35 % zu lang, der Rücken flach und zu hoch, der Kopf waagrecht (Messblatt `.cache/bilder/D440/mb-r1-grathorn.jpg`).
+    Runde 1 war 35 % zu lang, der Rücken flach und zu hoch, der Kopf waagrecht (Messblatt `.cache/bilder/D443/mb-r1-grathorn.jpg`).
     Runde 4 (Flo: „zu grosser abgesackter Hintern“): Hinterkontur im Foto per Helligkeit abgenommen (Z 0,42–0,62 m) — das
     Modell lag dort 3–12 cm dahinter, die Keule hing als Kugel bis zum Knie. Keule kleiner und höher, Rumpfende flacher,
     Becken schmaler (Spur 24 statt 28 cm), Bauch in der Mitte tiefer und zur Kniefalte steigend; jetzt ±1–3 cm."""
@@ -172,7 +172,7 @@ def bau_grathorn():
     T['teile'].append(('rumpf', [(-0.468, 0, 0.688, 0.064, 0.05), (-0.400, 0, 0.685, 0.120, 0.085), (-0.307, 0, 0.668, 0.205, 0.145), (-0.107, 0, 0.628, 0.298, 0.215),
                                  (0.160, 0, 0.628, 0.310, 0.228), (0.360, 0, 0.660, 0.284, 0.22), (0.480, 0, 0.640, 0.262, 0.20), (0.565, 0, 0.590, 0.19, 0.16), (0.630, 0, 0.560, 0.125, 0.10)], (0, 1, 0), -1))   # Runde 4: Brust vorn voller, ohne Kugel unter dem Hals
     T['teile'].append(('hals', [(0.50, 0, 0.76, 0.19, 0.14), (0.60, 0, 0.72, 0.175, 0.13), (0.662, 0, 0.822, 0.150, 0.118), (0.742, 0, 0.935, 0.135, 0.100), (0.805, 0, 1.005, 0.100, 0.082)], (0, 1, 0), -1))
-    # Kopf kastig und tief, Schnauze stumpf mit grossem Nasenende (grathorn-05, D441) — Runde 2a lief spitz zu wie ein Schnabel
+    # Kopf kastig und tief, Schnauze stumpf mit grossem Nasenende (grathorn-05, D444) — Runde 2a lief spitz zu wie ein Schnabel
     T['teile'].append(('kopf', [(0.79, 0, 1.025, 0.088, 0.078), (0.840, 0, 0.990, 0.095, 0.074), (0.900, 0, 0.905, 0.080, 0.062), (0.955, 0, 0.840, 0.066, 0.054), (0.990, 0, 0.805, 0.058, 0.050), (1.012, 0, 0.785, 0.048, 0.044)], (0, 1, 0), -1, (0.9, 0.45)))
     vl, vr = bein([(0.48, 0.13, 0.50, 0.12, 0.08), (0.44, 0.14, 0.342, 0.075, 0.055), (0.415, 0.137, 0.22, 0.05, 0.042), (0.405, 0.136, 0.15, 0.040, 0.036), (0.400, 0.136, 0.09, 0.034, 0.030), (0.395, 0.136, 0.045, 0.035, 0.034)], 0.06)
     hl, hr = bein([(-0.27, 0.105, 0.63, 0.125, 0.066), (-0.205, 0.115, 0.44, 0.098, 0.054), (-0.32, 0.120, 0.32, 0.062, 0.042), (-0.400, 0.12, 0.23, 0.044, 0.034), (-0.375, 0.12, 0.13, 0.032, 0.027), (-0.355, 0.12, 0.075, 0.035, 0.030), (-0.34, 0.12, 0.04, 0.035, 0.032)], 0.02)   # Runde 4: Becken schmal, Spur eng (grathorn-09)
@@ -187,7 +187,7 @@ def bau_grathorn():
     T['horn'] = dict(basis=(0.867, 1.066), scheitel=(0.427, 1.630), spitze=(0.013, 1.491))    # am Foto: Basis (470|430), Scheitel (800|45), Spitze (1110|185)
     T['orte'] = dict(spiegel=(-0.47, 0, 0.72), muffel=(1.005, 0, 0.795), bart=(0.955, 0, 0.75), nase=(1.012, 0, 0.785), vorn=0.42, hinten=-0.40, brust=(0.40, 0.60))
     T['kamera'] = dict(abstand=16.8, hoehe=0.95, paar=1.08, staffel=0.50, fokus=0.74)
-    T['fell'] = dict(anzahl=300000, breite=0.0010, klump=45, staerke=0.30)   # D440: kurz und anliegend, kaum Locken — Runde 1 war „wollig wie ein Schaf“
+    T['fell'] = dict(anzahl=300000, breite=0.0010, klump=45, staerke=0.30)   # D443: kurz und anliegend, kaum Locken — Runde 1 war „wollig wie ein Schaf“
     # Runde 4 (Knete): grob und gesprenkelt wie grathorn-03 — Büschel mit eigener Richtung und eigenem Ton, hell gespitzte Grannen,
     # Furchen dunkel, graue Unterwolle in den Scheiteln. Weiter kurz (kein Schaf), aber nicht mehr gekämmt.
     T['fell'].update(anzahl=420000, breite=0.0009, klump=14, staerke=0.40, streu=0.10, wirbel=0.20, buesche=0.06, hebklump=0.03, tonklump=0.10,
@@ -202,7 +202,7 @@ def bau_grathorn():
 
 def bau_wurzelkeiler():
     """Wildschwein, Keiler: Widerrist 0,93 m, Keilkopf ein Drittel der Länge, hohe Schulter, abfallende Kruppe.
-    Runde 2 (D440): Messblatt gegen `wurzelkeiler-03.jpg` (gespiegelt) zeigte Runde 1 hinten rund 0,24 m zu lang mit
+    Runde 2 (D443): Messblatt gegen `wurzelkeiler-03.jpg` (gespiegelt) zeigte Runde 1 hinten rund 0,24 m zu lang mit
     hängendem Schwanz. Rumpf gekürzt (Rumpf : Widerrist ≈ 1,15 : 1), Bauch 5 cm tiefer, Läufe frei nur noch ≈ 28 %
     (`wurzelkeiler-08`, ausgewachsen im Winterfell: 20–25 % inkl. Borsten), Buckel über der Schulter aus den langen
     Dornfortsätzen (Skelett `wurzelkeiler-10/-11`). Kopf vorn unverändert, damit Hauer und Nüstern sitzen bleiben."""
@@ -219,7 +219,7 @@ def bau_wurzelkeiler():
                          ((0.74, s * 0.088, 0.615), (0.035, 0.022, 0.024)), ((0.90, s * 0.058, 0.43), (0.05, 0.025, 0.03))]
     T['klumpen'] += [((0.30, 0, 0.88), (0.20, 0.075, 0.08))]
     T['augen'] = dict(ort=(0.775, 0.092, 0.585), r=0.012, blick=(0.45, 1, 0.15), art='rund', iris=(0.10, 0.045, 0.02))
-    # Runde 2b (D440): Foto eines ausgewachsenen Keilers (iNaturalist 26, Kalabrien, CC BY-SA, Seitenansicht im Schritt)
+    # Runde 2b (D443): Foto eines ausgewachsenen Keilers (iNaturalist 26, Kalabrien, CC BY-SA, Seitenansicht im Schritt)
     # zeigt den Rumpf hinter dem Widerrist um gut ein Fünftel kürzer: hintere Hälfte (x < 0,22) mit 0,78 gestaucht,
     # höchster Punkt über der Schulter statt in der Rückenmitte.
     def kurz(x): return 0.22 + (x - 0.22) * 0.78 if x < 0.22 else x
@@ -254,7 +254,7 @@ def bau_wurzelkeiler():
 def bau_spuerfuchs():
     """Rotfuchs: Schulter 0,38 m, Rumpf 0,68 m, Lunte 0,40 m, schlanke Läufe, spitzer Fang, grosse Gehöre."""
     T = dict(name='spuerfuchs', voxel=0.003, glatt=8, teile=[], klumpen=[], widerrist=0.38)
-    # Runde 2 (D440), Messblatt gegen `spuerfuchs-07.jpg` (gespiegelt, am Vorderlauf ausgerichtet — der Kopf ist dort zur
+    # Runde 2 (D443), Messblatt gegen `spuerfuchs-07.jpg` (gespiegelt, am Vorderlauf ausgerichtet — der Kopf ist dort zur
     # Kamera gedreht): Rücken lag 4–5 cm zu hoch, Rumpf hinten ~8 cm zu lang, Läufe zu weit gespreizt, Gehöre doppelt
     # so lang wie im Foto. Rumpf : Schulter ≈ 1,0 : 1, Brust 44 % tief, Lunte hängt im Stand fast bis zum Boden.
     T['teile'].append(('rumpf', [(-0.20, 0, 0.318, 0.036, 0.036), (-0.14, 0, 0.318, 0.060, 0.055), (-0.04, 0, 0.325, 0.056, 0.056), (0.05, 0, 0.310, 0.068, 0.064), (0.16, 0, 0.292, 0.080, 0.066),
@@ -270,7 +270,7 @@ def bau_spuerfuchs():
         T['teile'].append(('ohr', [(0.345, s * 0.040, 0.452, 0.007, 0.030), (0.370, s * 0.050, 0.518, 0.005, 0.025), (0.398, s * 0.058, 0.572, 0.003, 0.006)], (1, 0, 0), 1))   # 9 cm, leicht nach vorn (Profilfoto)
         T['klumpen'] += [((0.358, s * 0.046, 0.382), (0.034, 0.020, 0.026)), ((0.20, s * 0.058, 0.30), (0.05, 0.028, 0.07)), ((-0.165, s * 0.052, 0.31), (0.048, 0.022, 0.052))]
     T['augen'] = dict(ort=(0.400, 0.037, 0.412), r=0.008, blick=(0.75, 1, 0.2), art='hoch', iris=(0.22, 0.11, 0.02))
-    dreh = math.radians(float(os.environ.get('TIER_KOPF_DREH', '0')))   # D440: Kopf zur Kamera (+Y) drehen wie in den Fotos — nur fürs Messblatt
+    dreh = math.radians(float(os.environ.get('TIER_KOPF_DREH', '0')))   # D443: Kopf zur Kamera (+Y) drehen wie in den Fotos — nur fürs Messblatt
     if dreh:
         px, py = 0.305, 0.0
         def d(x, y): return px + (x - px) * math.cos(dreh) - (y - py) * math.sin(dreh), py + (x - px) * math.sin(dreh) + (y - py) * math.cos(dreh)
@@ -292,12 +292,12 @@ def bau_spuerfuchs():
 
 
 def anatomie(T, A):
-    """D441: Muskeln und Gelenke über dem Skelett, als Wölbung der Haut. `A` sind Skelettpunkte (x, z) und die seitliche
+    """D444: Muskeln und Gelenke über dem Skelett, als Wölbung der Haut. `A` sind Skelettpunkte (x, z) und die seitliche
     Lage der Läufe; daraus entstehen die grossen Muskelzüge (Schulterblatt mit Grätenmuskeln, Trizeps, Armkopfmuskel,
     Unterarm, Kruppe, hintere Oberschenkelmuskeln, Quadrizeps, Wadenmuskel) und Gelenkhöcker. Sie werden nicht als eigene
-    Körper angesetzt — das ergab aufgesteckte Würste (Probe D441) —, sondern drücken nach dem Glätten die Haut entlang der
+    Körper angesetzt — das ergab aufgesteckte Würste (Probe D444) —, sondern drücken nach dem Glätten die Haut entlang der
     Normalen nach aussen: Höhe a, Breite r, gaussförmig um die Muskelachse. Massstab ist die Widerristhöhe S, Lage nach den
-    Skelettbildern (grathorn-10, wurzelkeiler-10/-11, spuerfuchs-09). Ohne sie war der Körper ein glatter Schlauch (D440)."""
+    Skelettbildern (grathorn-10, wurzelkeiler-10/-11, spuerfuchs-09). Ohne sie war der Körper ein glatter Schlauch (D443)."""
     S = T['widerrist']; yv, yh = A['yv'], A['yh']; feld = []
     def m(pkt, a, r, y): return [(x, y, z) for x, z in pkt], a * S, r * S
     def mitte(a, b, t=0.5, dx=0.0, dz=0.0): return (a[0] + (b[0] - a[0]) * t + dx * S, a[1] + (b[1] - a[1]) * t + dz * S)
@@ -483,7 +483,7 @@ def fell_grathorn(F, befall):
     farbe = mische(farbe, lin(0.22, 0.18, 0.13), F.nah(O['muffel'], 0.07) * 0.8)                                     # Muffel heller
     bart = kopf * F.nah(O['bart'], 0.06) * stufe(-F.N[:, 2], 0.3, 0.8)
     farbe = mische(farbe, lin(0.025, 0.018, 0.014), bart)
-    laenge = np.full(n, 0.024) * (0.75 + 0.5 * r2)   # D441 (Runde 4: 2,4 cm; die Körnung kommt aus Büscheln und Grannen, nicht aus Länge): 1,8 cm las sich als Samt; Herbstfell 2–3 cm, ungleich
+    laenge = np.full(n, 0.024) * (0.75 + 0.5 * r2)   # D444 (Runde 4: 2,4 cm; die Körnung kommt aus Büscheln und Grannen, nicht aus Länge): 1,8 cm las sich als Samt; Herbstfell 2–3 cm, ungleich
     laenge = np.where(lauf, 0.015 - 0.009 * stufe(F.t, 0.22, 0.55), laenge)   # Läufe schlank und anliegend (grathorn-03); Runde 4: Unterarm und Unterschenkel noch behaart wie der Rumpf, erst das Röhrbein kurz
     laenge = np.where(kopf, 0.012, laenge); laenge = np.where(F.ist('ohr'), 0.007, laenge)
     laenge = laenge * (1 - 0.35 * stufe(F.x, *O['brust']) * (~kopf))                # Hals und Brust kürzer: Bock, kein Schaf
@@ -553,7 +553,7 @@ def fell_spuerfuchs(F, befall):
     farbe = mische(farbe, lin(0.025, 0.018, 0.015), lunte * stufe(rausch(F.P, 40, 8), 0.42, 0.62) * 0.7)                           # schwarze Grannen in der Lunte
     farbe = mische(farbe, weiss, lunte * stufe(-F.x, 0.325, 0.350))                                                           # Blume
     laenge = np.full(n, 0.031) * (0.8 + 0.4 * r2) + F.nah((0.30, 0, 0.36), 0.10) * 0.012
-    laenge = np.where(lauf, 0.013 - 0.004 * stufe(F.t, 0.03, 0.25), laenge)   # D441: Läufe dicht kurz behaart, nicht kahl
+    laenge = np.where(lauf, 0.013 - 0.004 * stufe(F.t, 0.03, 0.25), laenge)   # D444: Läufe dicht kurz behaart, nicht kahl
     laenge = np.where(kopf, 0.022 - 0.013 * stufe(F.x, 0.365, 0.440), laenge)   # Schnauze 9 mm statt 4: sonst scheint die Haut durch; laenge = np.where(ohr, 0.006, laenge)
     laenge = np.where(lunte, 0.060 * (1 - 0.45 * stufe(-F.x, 0.31, 0.355)), laenge)
     # Backenbart und Halskrause (spuerfuchs-05/-06): der Kopf ist breit durchs Fell, nicht durch den Schädel — fehlte in Runde 1
@@ -834,7 +834,7 @@ def hart_grathorn(T, eltern, befall):
     for name, e in zip(T['teilnamen'], T['teile']):
         if name in ('vl', 'vr', 'hl', 'hr'):
             x, y, z = e[1][-1][:3]; klaue(eltern, (x + 0.005, y, 0), 0.075, 0.062, 0.05, huf)
-    # Runde 2 (D440): Bogen durch Basis, Scheitel und Spitze, am Foto abgenommen (T['horn'])
+    # Runde 2 (D443): Bogen durch Basis, Scheitel und Spitze, am Foto abgenommen (T['horn'])
     (bx, bz), (ax, az), (tx, tz) = T['horn']['basis'], T['horn']['scheitel'], T['horn']['spitze']
     d_ = 2 * (bx * (az - tz) + ax * (tz - bz) + tx * (bz - az))
     mx = ((bx * bx + bz * bz) * (az - tz) + (ax * ax + az * az) * (tz - bz) + (tx * tx + tz * tz) * (bz - az)) / d_
@@ -899,7 +899,7 @@ def augen(T, eltern, bvh, befall):
         V, F = kugel((0, 0, 0), (1, 1, 1), 20, 14)
         o = netz('Auge', V, F, eltern=eltern); o.scale = (a['r'],) * 3; o.location = ort
         o.rotation_euler = blick.to_track_quat('X', 'Z').to_euler(); o.data.materials.append(m)
-        if a.get('lider'):   # D440: Ober- und Unterlid als Schale über dem Augapfel — ohne sie starrt jedes Auge (Befund Runde 1)
+        if a.get('lider'):   # D443: Ober- und Unterlid als Schale über dem Augapfel — ohne sie starrt jedes Auge (Befund Runde 1)
             V2, F2 = kugel((0, 0, 0), (1.10, 1.10, 1.10), 20, 14); V2 = np.asarray(V2)
             oben, unten = a['lider']
             F2 = [f for f in F2 if V2[list(f), 2].mean() > oben or V2[list(f), 2].mean() < unten]
@@ -1383,7 +1383,7 @@ def modus_riss():
 
 
 def modus_foto():
-    """Bildpaar Foto │ Modell (D440): nur das reine Tier, Seitenansicht mit Kopf links wie die Messblatt-Fotos, Licht und
+    """Bildpaar Foto │ Modell (D443): nur das reine Tier, Seitenansicht mit Kopf links wie die Messblatt-Fotos, Licht und
     Boden des Haus-Bildes. `<tier> <aus.exr> [breite höhe samples]`."""
     name, aus = ARGS[1], ARGS[2]; b, h, s = masse(ARGS[3:], 1200, 860, 64)
     leere_szene(); rng = np.random.default_rng(384)
@@ -1400,13 +1400,13 @@ def modus_foto():
 
 
 def modus_umriss():
-    """Messblatt, Teil Blender (D439): Schattenriss des reinen Tiers ohne Fell, orthografisch von links, Kopf links —
+    """Messblatt, Teil Blender (D442): Schattenriss des reinen Tiers ohne Fell, orthografisch von links, Kopf links —
     wie die Seitenansichten der Referenzfotos. Schreibt die Maske als PNG und die Abbildung Pixel ↔ Meter als JSON;
     `python3 tools/tierframe.py messblatt …` legt sie aufs Foto."""
     name, aus = ARGS[1], ARGS[2]; b, h = 1600, 1000
     leere_szene(); T = BAU[name]()
     os.environ['TIER_POSE'] = '0'   # Messblatt: Läufe gerade, wie bisher gemessen
-    mit_fell = os.environ.get('TIER_UMRISS_FELL') == '1'   # D440: Kontur mit Fell — das Foto zeigt die Fellkante, nicht die Haut
+    mit_fell = os.environ.get('TIER_UMRISS_FELL') == '1'   # D443: Kontur mit Fell — das Foto zeigt die Fellkante, nicht die Haut
     OHNE.update({'szene'} if mit_fell else {'fell', 'szene'})
     tier(name, False, (0, 0, 0), kurs=0.0)
     S = {'spuerfuchs': 1.6}.get(name, 3.2); cx, cz = 0.0, S * h / b * 0.5 - 0.05
@@ -1427,7 +1427,7 @@ def modus_umriss():
 
 
 def modus_messblatt():
-    """Messblatt, Teil Python (D439): `python3 tools/tierframe.py messblatt <umriss-präfix> <foto> <aus.png> <boden_y> <widerrist_y> <nase_x>`.
+    """Messblatt, Teil Python (D442): `python3 tools/tierframe.py messblatt <umriss-präfix> <foto> <aus.png> <boden_y> <widerrist_y> <nase_x>`.
     Der Riss wird so skaliert, dass sein Widerrist (Bauwert `widerrist`) auf der Widerristhöhe des Fotos liegt, und an
     der Nasenspitze ausgerichtet. Rot = Umriss des Modells, darunter das Foto: wo die Linie vom Tier abweicht, weicht
     der Bau ab. Pixel des Fotos sind Augenmass (±1–2 % der Höhe)."""

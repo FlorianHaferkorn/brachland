@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Messwerte für das Messbild Spiel │ Zielbild (D442, UEBERGABE 2d) — dieselben Grössen wie in den Zielbild-Runden D382/D386:
+"""Messwerte für das Messbild Spiel │ Zielbild (D445, UEBERGABE 2d) — dieselben Grössen wie in den Zielbild-Runden D382/D386:
 mittlere Helligkeit, Fläche unter 0,2 und über 0,7, R−B in den Lichtern (hellste 10 %) und Schatten (dunkelste 10 %),
 mittlere Sättigung, Anteil der Signalfarbe, Himmelsanteil.
 

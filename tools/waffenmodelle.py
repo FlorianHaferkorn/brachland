@@ -28,8 +28,17 @@ und wird gegen den Anker geprüft (`ANKER`): fällt sie heraus, bricht der Bau a
   * Klinge: schlichtes Einhandschwert (Seitschwert, 16. Jh.) — zweischneidig, gerade Parierstange, Birnknauf,
     Lederwicklung. Anker 0,9–1,3 kg (Einhandschwert im Mittel 1,1 kg bei 90 cm, Wikipedia „Knightly sword“,
     thearma.org — wie `content/waffenfamilien.json`).
-  * Axt: Forst- und Fällaxt mit **einer** Schneide, leicht gebartet, Eschenstiel mit Knauf. Anker 1,8–2,6 kg
-    (Gränsfors American Felling Axe, 90 cm: 2,2 kg gesamt, Kopf um 1,4 kg, Schneide 11,5 cm — Händlerangaben).
+  * Axt: Forst- und Fällaxt mit **einer** Schneide, leicht gebartet, Hickorystiel mit Knauf. Anker 1,8–2,6 kg
+    (Gränsfors American Felling Axe, 90 cm: 2,2 kg gesamt, Kopf um 1,4 kg — Händlerangaben). **D429: Zweihand-Fällaxt**
+    nach *An Ax to Grind* (USDA Forest Service 1999): Kopf 1,40 kg (Anker 1,3–1,5), Höhe an der Schneide 9,5 cm statt
+    11,5 (schlanker, damit der Kopf das Vorbild wiegt — vorher 1,71 kg), Stiel 0,70 kg (Anker 0,6–0,8: Hickory-Ersatzstiel
+    36 Zoll 0,61–0,68 kg, Händlerangaben Link Handles/Garant; Hickory 0,81 g/cm³ = spezifisches Gewicht 0,72 × 1,12 bei
+    12 % Feuchte — Überschlag, die 0,72 aus einer Holztabelle der LSU, nicht am Wood Handbook geprüft; Esche wöge in
+    derselben Form rund 0,6 kg). **Zwei Griffpunkte:** Der Ursprung ist die rechte Hand an der **vorderen** Griffstelle
+    (¾ den Stiel hinauf, 65 cm vom Stielende — dort hält sie beim Ausholen), die linke Hand sitzt am Stielende
+    (`griff_links` 0,62 m hinter der rechten auf der Waffenachse, 3 cm vor dem Ende, der kleine Finger auf dem Knauf).
+    Wie weit die rechte Hand im Clip zum Ende gleitet, rechnet die Szene aus der linken Hand (`gleiteAmStiel`,
+    `src/kampf/waffenhand.ts`). Länge bleibt 1,00 m (Stufe 3: 1,05 m), nur der Ursprung wandert (vorher 8 cm vom Ende).
   * Saufeder: zweischneidiges Blatt mit Mittelgrat auf einer Tülle, Knebel aus Horn mit Lederriemen quer zum Blatt,
     Eschenschaft mit zwei Lederwicklungen. Vorbild Schloss Rheydt Inv. W 40+41 (1600–1800): 203 cm gesamt, Eisen
     35,3 cm, kein Gewicht genannt → Anker 1,3–2,2 kg, Überschlag.
@@ -41,7 +50,7 @@ import bpy, bmesh, sys, math, random
 from mathutils import Vector, Matrix
 
 AUS = sys.argv[sys.argv.index('--') + 1:][0]
-DICHTE = {'Steel': 7.85, 'Messing': 8.5, 'Hirschhorn': 1.5, 'DarkWood': 0.72, 'LightWood': 0.69, 'Leder': 0.9,
+DICHTE = {'Hickory': 0.81, 'HickoryGeoelt': 0.81, 'Steel': 7.85, 'Messing': 8.5, 'Hirschhorn': 1.5, 'DarkWood': 0.72, 'LightWood': 0.69, 'Leder': 0.9,
           'Blech': 7.9, 'DarkSteel': 7.85, 'Blank': 7.85, 'Schneide': 7.85, 'Geblaeut': 7.85, 'LederNeu': 0.9,
           'Esche': 0.69, 'EscheGeoelt': 0.69, 'Horn': 1.3}
 # Farben linear, im Ton der vorhandenen Waffen (matt, ohne Metallik — der Look kommt vom Schmiedestufen-Tönen).
@@ -51,15 +60,22 @@ FARBE = {'Steel': (0.301, 0.322, 0.352), 'DarkSteel': (0.213, 0.213, 0.179), 'Da
          # D421, Stufe 3: blank geschliffen, gehärtete Schneide heller, Beschläge gebläut, Griff gepflegt.
          'Blank': (0.42, 0.44, 0.47), 'Schneide': (0.60, 0.61, 0.62), 'Geblaeut': (0.05, 0.06, 0.09),
          'LederNeu': (0.21, 0.10, 0.045), 'Esche': (0.30, 0.20, 0.11), 'EscheGeoelt': (0.24, 0.12, 0.05),
-         'Horn': (0.09, 0.075, 0.06)}
+         'Horn': (0.09, 0.075, 0.06),
+         # D429: Hickory für den Axtstiel, im Ton der Esche (die Farbe zeigt das Holz, nicht die Art).
+         'Hickory': (0.30, 0.20, 0.11), 'HickoryGeoelt': (0.24, 0.12, 0.05)}
 RAUH = {'Blank': 0.35, 'Schneide': 0.3, 'Geblaeut': 0.4}
 ANKER = {'Hirschfaenger': (0.4, 0.6), 'Messer': (1.2, 1.6), 'Raeucherkanne': (0.6, 0.9),
          'Klinge': (0.9, 1.3), 'Klinge3': (0.9, 1.35), 'Axt': (1.8, 2.6), 'Axt3': (1.8, 2.7),
          'Speer': (1.3, 2.2), 'Speer3': (1.5, 2.6)}
 # D421: Lage der alten Modelle auf der Waffenachse (three y = Blender z), Meter — Spitze und Ende. Gemessen aus
 # `waffen.glb` vor D421 (Klinge, Axt, Stufe 3) und aus `baueSpeer` (`src/kampf/waffenhand.ts`) für den Speer.
-ALT = {'Klinge': (-0.765, 0.135), 'Klinge3': (-0.851, 0.099), 'Axt': (-0.920, 0.080), 'Axt3': (-0.938, 0.112),
+ALT = {'Klinge': (-0.765, 0.135), 'Klinge3': (-0.851, 0.099), 'Axt': (-0.350, 0.650), 'Axt3': (-0.400, 0.650),
        'Speer': (-1.81, 0.45), 'Speer3': (-2.10, 0.55)}
+# D429: Die Axt hat zwei Griffpunkte. Länge wie vor D429 (1,000 / 1,050 m, vorher −0,920…0,080 / −0,938…0,112), der
+# Ursprung liegt jetzt an der vorderen Griffstelle der rechten Hand; die linke sitzt `GRIFF_LINKS` dahinter (+Y three).
+GRIFF_LINKS = {'Axt': 0.62, 'Axt3': 0.62}
+# D429: Kopf und Stiel je für sich im Anker (Kopf: Vorbild Fällaxt 1,4 kg; Stiel: Hickory-Ersatzstiel 0,61–0,68 kg).
+TEILANKER = {'Axt': {'Kopf': (1.3, 1.5), 'Stiel': (0.6, 0.8)}, 'Axt3': {'Kopf': (1.3, 1.55), 'Stiel': (0.6, 0.85)}}
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 MAT = {}
@@ -294,8 +310,9 @@ netz('Raeucherkanne', 'Haken', 'DarkSteel', bm)
 
 
 # ---------------------------------------------------------------- D421: Klinge, Axt, Saufeder (je Stufe 1 und 3)
-GUETE = {1: dict(stahl='Steel', schneide=None, beschlag='DarkSteel', griff='Leder', holz='Esche'),
-         3: dict(stahl='Blank', schneide='Schneide', beschlag='Geblaeut', griff='LederNeu', holz='EscheGeoelt')}
+GUETE = {1: dict(stahl='Steel', schneide=None, beschlag='DarkSteel', griff='Leder', holz='Esche', stiel='Hickory'),
+         3: dict(stahl='Blank', schneide='Schneide', beschlag='Geblaeut', griff='LederNeu', holz='EscheGeoelt',
+                 stiel='HickoryGeoelt')}
 
 
 def zweischneidig(breite, dicke, fase=0.006, fasendicke=0.0012):
@@ -352,15 +369,17 @@ def schwert(name, guete):
 
 
 def axt(name, guete):
-    """Forst- und Fällaxt, eine Schneide nach −x, leicht gebartet; Kopf am Ende (−z), Stiel bis zum Knauf."""
+    """Forst- und Fällaxt, eine Schneide nach −x, leicht gebartet; Kopf am Ende (−z), Stiel bis zum Knauf.
+    D429: Ursprung = rechte Hand an der vorderen Griffstelle; Masse von Kopf und Stiel gegen `TEILANKER`."""
     oben, ende = ALT[name]
     g = GUETE[guete]
     modell(name)
     # Kopf als Loft entlang x (Nacken +x → Schneide −x); Schnitt in (y, z): halbe Dicke, Ober- und Unterkante.
-    # Oberkante = Ende der Waffe (`oben`), die Schneide ist 11,5 cm hoch (Vorbild), der Bart reicht zum Stiel hin.
-    stufen = [(0.034, 0.014, 0.008, 0.062), (0.02, 0.0155, 0.006, 0.066), (-0.028, 0.0145, 0.006, 0.068),
-              (-0.06, 0.0085, 0.004, 0.080), (-0.10, 0.0045, 0.002, 0.100), (-0.145, 0.0017, 0.0, 0.115),
-              (-0.158, 0.0004, 0.001, 0.114)]
+    # Oberkante = Ende der Waffe (`oben`). D429: schlanker — Schneide 9,5 cm hoch (vorher 11,5), Wangen dünner, damit
+    # der Kopf netto 1,40 kg wiegt wie das Vorbild (vorher 1,71 kg); der Bart reicht weniger weit zum Stiel hin.
+    stufen = [(0.034, 0.0132, 0.007, 0.060), (0.02, 0.0146, 0.0055, 0.062), (-0.028, 0.0136, 0.0055, 0.062),
+              (-0.06, 0.0080, 0.0035, 0.070), (-0.10, 0.0042, 0.0015, 0.084), (-0.145, 0.0016, 0.0, 0.095),
+              (-0.158, 0.0004, 0.001, 0.094)]
     schnitte = []
     for x, dy, unten_oben, hoehe in stufen:
         z_top = oben + 0.0005 + unten_oben
@@ -371,13 +390,16 @@ def axt(name, guete):
         v.co = Vector((v.co.z, v.co.x, v.co.y))
     netz(name, 'Kopf', g['stahl'], bm, zweit=g['schneide'])
     # Auge: der Stiel steckt im Kopf — dessen Volumen ist kein Stahl.
-    auge = 0.034 * 0.022 * math.pi / 4 * 0.066
+    auge = 0.034 * 0.022 * math.pi / 4 * 0.062
     TEILE[name].append(('Auge (Abzug)', g['stahl'], -auge * 7850))
-    # Stiel aus Esche: Knauf am Ende, Griffzone, schlanke Mitte, Schwellung unter dem Kopf.
-    zs = [(ende, 0.017, 0.012), (ende - 0.025, 0.0215, 0.0145), (ende - 0.06, 0.0175, 0.012), (0.0, 0.0172, 0.0118),
-          (-0.40, 0.0155, 0.0108), (oben + 0.16, 0.0175, 0.012), (oben + 0.075, 0.0185, 0.0125),
+    # Stiel aus Hickory: Knauf am Ende, Griffzone, schlanke Mitte, Schwellung unter dem Kopf. D429: Punkte vom Ende und
+    # vom Kopf aus gemessen (der Ursprung liegt jetzt mitten im Stiel); Querschnitt wie ein Ersatzstiel 36 Zoll
+    # (Griff 41 × 29 mm, Hals 38 × 26 mm, Schulter 44 × 30 mm, Knauf 50 × 35 mm — Überschlag, so gewählt, dass der Stiel
+    # den Ersatzstielen gleich wiegt; Masse aus dem Volumen).
+    zs = [(ende, 0.0195, 0.014), (ende - 0.025, 0.0248, 0.0173), (ende - 0.06, 0.0205, 0.0146), (ende - 0.30, 0.0203, 0.0144),
+          (oben + 0.36, 0.0189, 0.013), (oben + 0.16, 0.021, 0.0146), (oben + 0.075, 0.0221, 0.0151),
           (oben + 0.004, 0.017, 0.011)]
-    netz(name, 'Stiel', g['holz'], loft([(z, ring(rx, ry, 10)) for z, rx, ry in zs]))
+    netz(name, 'Stiel', g['stiel'], loft([(z, ring(rx, ry, 10)) for z, rx, ry in zs]))
     # Keil im Auge (Holz) und bei Stufe 3 ein Eisenkeil quer darüber.
     if guete == 3:
         netz(name, 'Keil', 'Geblaeut', kasten(-0.014, 0.014, -0.0015, 0.0015, oben + 0.0002, oben + 0.004))
@@ -445,12 +467,22 @@ for m, teile in TEILE.items():
     a, b = ANKER[m]
     if not a <= summe <= b:
         schlecht.append(f'{m} {summe:.2f} kg ausserhalb {a}–{b}')
+    for teil, (ta, tb) in TEILANKER.get(m, {}).items():
+        kg = sum(t[2] for t in teile if t[0] == teil or (teil == 'Kopf' and t[0].startswith('Auge')))
+        print(f'    TEIL {teil}: {kg:.3f} kg (Anker {ta}–{tb})')
+        obj[f'masse_{teil.lower()}_kg'] = round(kg, 3)
+        if not ta <= kg <= tb:
+            schlecht.append(f'{m} {teil} {kg:.2f} kg ausserhalb {ta}–{tb}')
+    if m in GRIFF_LINKS:
+        obj['griff_rechts'] = 0.0
+        obj['griff_links'] = GRIFF_LINKS[m]
+        print(f'    GRIFF rechts 0 (Ursprung), links {GRIFF_LINKS[m]} m dahinter, Ende bei {ALT[m][1]} m')
     if m in ALT and (abs(lo[2] - ALT[m][0]) > 0.01 or abs(hi[2] - ALT[m][1]) > 0.01):
         schlecht.append(f'{m} Achse {lo[2]:.3f}…{hi[2]:.3f} statt {ALT[m][0]}…{ALT[m][1]} (Länge und Griff müssen bleiben)')
     obj['masse_kg'] = round(summe, 3)
 if schlecht:
     raise SystemExit('Modell ausserhalb des Ankers: ' + '; '.join(schlecht))
-obj_masse = {m: bpy.data.objects[m]['masse_kg'] for m in TEILE}
+obj_masse = {m: {k: v for k, v in bpy.data.objects[m].items() if k.startswith(('masse', 'griff'))} for m in TEILE}
 # Teile je Modell zu einem Netz (eine Primitive je Material) — wie die Paketwaffen. Ohne Normalen: GLTFLoader
 # schattiert dann flach (wie die Paketwaffen, die flach gebaut sind), und gleiche Ecken lassen sich verschweissen —
 # die Datei bleibt halb so gross (D107: auch die Menschen tragen keine Normalen).
@@ -468,7 +500,8 @@ for m in TEILE:
     j.matrix_world = mw
     bpy.data.objects.remove(obj, do_unlink=True)
     j.name = j.data.name = m
-    j['masse_kg'] = obj_masse[m]
+    for k, v in obj_masse[m].items():
+        j[k] = v
 bpy.ops.export_scene.gltf(filepath=AUS, export_format='GLB', export_yup=True, export_materials='EXPORT',
                           export_normals=False, export_texcoords=False, export_extras=True)
 print('MODELLE geschrieben', AUS)

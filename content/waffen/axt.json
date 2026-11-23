@@ -15,7 +15,7 @@
       "haltungsschaden": 52,
       "kosten": 30,
       "nachdrehen": 3,
-      "clip": "Axe_Overhead",
+      "clip": "Axt_Hieb",
       "hieb": { "scheitel": 12, "durchzug": 16 },
       "schritt": 0.25,
       "rueckstoss": 0.3,

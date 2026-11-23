@@ -94,7 +94,7 @@ import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import type { Kampfbericht } from '../kampf/kampfende.js';
-import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
+import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer, gleiteAmStiel, AXT_URSPRUNG_VOR_D429 } from '../kampf/waffenhand.js';
 import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
 /** `?fuesse=0` schaltet die Fussanpassung ab (D214). */
@@ -2300,7 +2300,7 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
 }
 
 /**
- * Höhe der Bauwerksgruppe. Szenenbau: `h0` aus dem Terrainexport. Zielbild-Szene (D445): so, dass die Terrasse des
+ * Höhe der Bauwerksgruppe. Szenenbau: `h0` aus dem Terrainexport. Zielbild-Szene (D448): so, dass die Terrasse des
  * Renders (`boden.zt`) auf der Terrasse des Spiels liegt — beide Gelände kommen aus verschiedenen Exporten, und eine
  * Mauer, die 20 cm schwebt oder versinkt, ist im Spiel sofort zu sehen.
  */
@@ -2310,7 +2310,7 @@ function bauwerkHoehe(b: Bauwerk, hoeheAn: (x: number, z: number) => number): nu
 }
 
 /**
- * Boden aus dem Zielbild (D445, `tools/bodenexport.py`): Scan-Mischmaterial des Renders als Farbe, Normale und
+ * Boden aus dem Zielbild (D448, `tools/bodenexport.py`): Scan-Mischmaterial des Renders als Farbe, Normale und
  * Rauheit gebacken, auf einem 25-cm-Raster. Darunter schneidet `BODEN_LOCH` den Spielboden aus; die äusseren 6 m
  * blenden mit Rauschtransparenz (alphaHash, keine Sortierung) über dem Spielboden aus, 2 cm darüber.
  */
@@ -2343,7 +2343,7 @@ function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
 }
 
 /**
- * Pflanzen des Zielbilds (D445, `tools/pflanzenexport.py`): Poly-Haven-Scans (Gras, Kraut, Farn, Nessel, Efeu …) mit
+ * Pflanzen des Zielbilds (D448, `tools/pflanzenexport.py`): Poly-Haven-Scans (Gras, Kraut, Farn, Nessel, Efeu …) mit
  * ihren Lagen als GPU-Instanzen (`EXT_mesh_gpu_instancing` → `InstancedMesh`). Blätter mit Alphatest und beidseitig,
  * Schatten werfend; ein Klon je Szene, Materialien geteilt.
  */
@@ -3959,15 +3959,39 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
           });
           gruppe.add(teil);
         }
+        // D429: Zweihand-Fällaxt — der Ursprung liegt an der vorderen Griffstelle, die linke Hand hält das Stielende
+        // (`griff_links` aus `tools/waffenmodelle.py`); die Szene lässt den Stiel je Bild durch die rechte Hand gleiten.
+        // Die alte Wanderin spielt noch die alten Clips (rechte Hand am Ende): ihr Modell sitzt wie vor D429.
+        const griffLinks = (m.userData as { griff_links?: number }).griff_links;
+        if (name === 'Axt' && typeof griffLinks === 'number') {
+          if (held) gruppe.userData.griffLinks = griffLinks;
+          else for (const c of gruppe.children) c.position.y += AXT_URSPRUNG_VOR_D429;
+        }
         // D185: Die Kopie am Körper bekommt dasselbe Modell (Materialien geteilt — die Schmiedestufe
-        // färbt beide), statt der Kästen.
+        // färbt beide), statt der Kästen. D429: Die Axt am Rücken sitzt wie vor D429 (Versatz des Ursprungs).
         const koerper = waffen.ruecken[name === 'Klinge' ? 'klinge' : name === 'Axt' ? 'axt' : 'speer'];
-        if (koerper) { koerper.clear(); for (const c of gruppe.children) koerper.add(c.clone()); }
+        if (koerper) {
+          koerper.clear();
+          for (const c of gruppe.children) {
+            const k = c.clone();
+            if (name === 'Axt' && held && typeof griffLinks === 'number') k.position.y += AXT_URSPRUNG_VOR_D429;
+            koerper.add(k);
+          }
+        }
       }
       setWaffenGeladen(true);
     }).catch(() => { /* Rückfall: Kästen */ });
     return () => { lebt = false; };
-  }, [waffen]);
+  }, [waffen, held]);
+  /** D429: Die Fällaxt gleitet durch die rechte Hand, die linke hält das Stielende — nach jedem Mixer-Schritt. */
+  const stielHaende = useMemo(() => {
+    const r = scene.getObjectByName(HELD_KNOCHEN.hand), l = scene.getObjectByName(HELD_KNOCHEN.handL);
+    return r && l ? { r, l } : null;
+  }, [scene]);
+  const gleiteAxt = () => {
+    const links = waffen.axt.userData.griffLinks as number | undefined;
+    if (held && stielHaende && waffen.axt.visible && typeof links === 'number') gleiteAmStiel(waffen.axt, stielHaende.r, stielHaende.l, links);
+  };
   // D178: Aussehen nach Schmiedestufe. Stufe 1/2: Stahl heller und glänzender (geschliffen, gehärtet),
   // Stufe 3: das meisterliche Modell statt des einfachen.
   const [waffenGeladen, setWaffenGeladen] = useState(false);
@@ -4055,6 +4079,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
         if (!a.isRunning()) { mixer.stopAllAction(); a.play(); }
         a.paused = false; a.time = a.getClip().duration * anteil; a.timeScale = 0; a.weight = 1;
         mixer.update(0);
+        gleiteAxt();
       }
       if (gruppe.current) gruppe.current.rotation.y = gier.current;
       return;
@@ -4190,6 +4215,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     }
     // D214: Füsse auf den Boden, nach Clip und Sitzpose. `?fuesse=0` zum Vergleich.
     if (hoeheAn && FUESSE_AN) setzeFuesse(beine, scene, hoeheAn, fuss.current, dt, held && sitz.current < 0.01);
+    gleiteAxt();
 
     if (reittier) {
       const hoehe = (mitModell ? sitzHoehe.current?.hoehe : null) ?? reittier.hoehe;

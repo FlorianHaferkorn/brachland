@@ -7,14 +7,16 @@
 //
 //   node tools/clipnachbau.mjs roh <ein.glb> <aus.glb>                 Meshopt/Quantisierung entpacken (Blender liest sie nicht)
 //   node tools/clipnachbau.mjs figur <gestalt.glb> <clips.glb> <aus.glb>  Gestalt mit allen Clips (entpackt) — Skelett für Blender
-//   node tools/clipnachbau.mjs einfuegen <neu.glb> <held-clips.glb>     neue Clips (Blender-Export) nach Knotennamen einfügen
+//   node tools/clipnachbau.mjs einfuegen <neu.glb> <held-clips.glb> [--weg=A,B]   neue Clips (Blender-Export) nach Knotennamen
+//                                                                      einfügen; `--weg` nimmt ersetzte Clips heraus (D429: Axe_Overhead)
 //
 // `einfuegen` prüft zuerst, dass jeder Knoten in beiden Dateien dieselbe Ruhelage hat — sonst bedeuteten
 // dieselben Quaternionen eine andere Haltung, und der Clip wäre verdreht. Gleichnamige Clips werden ersetzt.
 // Danach wie `heldpack.ts`: konstante Skalen- und Verschiebungskanäle weg, `resample`, Meshopt.
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { dequantize, meshopt, prune, resample } from '@gltf-transform/functions';
+import { dedup, dequantize, meshopt, prune, resample } from '@gltf-transform/functions';
+import { PropertyType } from '@gltf-transform/core';
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
 import { statSync } from 'node:fs';
 
@@ -94,9 +96,21 @@ if (modus === 'roh') {
     process.exit(1);
   }
   const namen = new Set(neu.getRoot().listAnimations().map(a => a.getName()));
-  for (const a of ziel.getRoot().listAnimations()) if (namen.has(a.getName())) a.dispose();
+  const weg = new Set((arg.find(a => a.startsWith('--weg='))?.slice(6) ?? '').split(',').filter(Boolean));
+  // D429: Kanäle und Sampler mit wegwerfen — sonst halten die Sampler ihre Zugriffe fest, `prune` lässt sie stehen,
+  // und die Datei trägt die Daten der ersetzten Clips weiter (gemessen: 367 tote Zugriffe, rund 70 KB).
+  for (const a of ziel.getRoot().listAnimations()) {
+    if (!namen.has(a.getName()) && !weg.has(a.getName())) continue;
+    for (const c of a.listChannels()) c.dispose();
+    for (const s of a.listSamplers()) s.dispose();
+    a.dispose();
+  }
+  if (weg.size) console.log(`  heraus: ${[...weg].join(', ')}`);
+  // D429: nur die neuen Clips ausdünnen — `resample` über die ganze Datei nahm bei jedem Einfügen den Bestand noch einmal
+  // mit (gemessen: Messer_Quer_B verlor einen Schlüssel); so bleiben die übrigen Clips Wert für Wert gleich.
+  await neu.transform(resample({ tolerance: 5e-4 }));
   const drin = kopiereClips(neu, ziel, namen);
-  let weg = 0;
+  let leer = 0;
   for (const a of ziel.getRoot().listAnimations()) {
     if (!namen.has(a.getName())) continue;
     for (const c of a.listChannels()) {
@@ -106,13 +120,14 @@ if (modus === 'roh') {
       if (!out || !n) continue;
       const konstant = p === 'scale' ? [...out].every(v => Math.abs(v - 1) < 1e-4)
         : p === 'translation' ? [...out].every((v, i) => Math.abs(v - n.getTranslation()[i % 3]) < 1e-4) : false;
-      if (konstant) { c.getSampler()?.dispose(); c.dispose(); weg++; }
+      if (konstant) { c.getSampler()?.dispose(); c.dispose(); leer++; }
     }
   }
-  await ziel.transform(resample({ tolerance: 5e-4 }), prune({ keepLeaves: true }), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
+  // D429: gleiche Zugriffe (konstante Kanäle, gleiche Zeitachsen) zusammenlegen — wie in der Datei aus heldbau.py.
+  await ziel.transform(dedup({ propertyTypes: [PropertyType.ACCESSOR] }), prune({ keepLeaves: true }), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
   await io.write(arg[1], ziel);
   console.log(`${arg[1]}: ${geprueft} Knoten mit gleicher Ruhelage, ${drin.length} Clips eingefügt (${drin.join(', ')}), ` +
-    `${weg} konstante Kanäle weg, ${vorher.toFixed(0)} → ${(statSync(arg[1]).size / 1024).toFixed(0)} KB, ` +
+    `${leer} konstante Kanäle weg, ${vorher.toFixed(0)} → ${(statSync(arg[1]).size / 1024).toFixed(0)} KB, ` +
     `${ziel.getRoot().listAnimations().length} Clips`);
 } else {
   console.error('Aufruf: node tools/clipnachbau.mjs roh|figur|einfuegen …');

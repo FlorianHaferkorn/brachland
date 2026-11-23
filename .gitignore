@@ -55,6 +55,6 @@ raw/
 # Arbeitskopien von Hilfsagenten (Claude Code, isolation: worktree) — nie einchecken
 .claude/worktrees/
 
-# D445: Felsmulde aus der Zielbild-Szene (114 MB) — erzeugt von tools/szenenexport.py (SZENE_ZIEL=1), bodenexport.py,
+# D448: Felsmulde aus der Zielbild-Szene (114 MB) — erzeugt von tools/szenenexport.py (SZENE_ZIEL=1), bodenexport.py,
 # pflanzenexport.py; ob die Dateien ins Repo gehören, ist offen (Ledger A-46). Das Register ist eingecheckt.
 public/bauten-ziel/*.glb

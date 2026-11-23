@@ -434,7 +434,7 @@ const MIT_UFER: boolean = typeof location === 'undefined'
   || new URLSearchParams(location.search).get('ufer') !== '0';
 
 /**
- * Loch im Spielboden (D445, `?lookfels=1`): (x, z, Radius) in Weltmetern — dort liegt der aus dem Zielbild gebackene
+ * Loch im Spielboden (D448, `?lookfels=1`): (x, z, Radius) in Weltmetern — dort liegt der aus dem Zielbild gebackene
  * Boden (`BauwerkBoden` in `RegionsSzene.tsx`); dessen Rand blendet über dem Spielboden aus. z ≤ 0: kein Loch.
  * Nur das Bild: Höhe, Kollision und Figuren lesen weiter das Spielgelände.
  */

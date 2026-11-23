@@ -24,7 +24,9 @@ function pruefe(name: string, ok: boolean, hinweis = '') {
 // (vorher 0,7 s) und der Wolf einen Griff von 1,5 s — hier stehen die alten Zahlen, damit der Abdruck vergleichbar bleibt.
 // D427: Trefferstopp nach Wucht — nur die Zeit verschiebt sich (4797,008 → 4800,475 s über 384 Kämpfe, +9 ms je
 // Kampf); Treffer, erlittener Schaden, Siege und Reinigungen sind die von fce9a34 (geprüft unten).
-const FINGERABDRUCK_D171 = { treffer: 1239, zeit: 4800.475, erlitten: 10681.5, siege: 269, rein: 97 };
+// D429: Axtkopf 1,65 → 1,40 kg, Stiel 0,45 → 0,70 kg (wie das Modell) — der Axthieb hält 90 statt 96 ms an, die Zeit
+// 4800,475 → 4799,392 s (−3 ms je Kampf); sonst gleich.
+const FINGERABDRUCK_D171 = { treffer: 1239, zeit: 4799.392, erlitten: 10681.5, siege: 269, rein: 97 };
 const GAMS_D407: KampfWerte = { ...GAMS, schlag: { ...GAMS.schlag, erholung: 0.7 } };
 const WOLF_D407: KampfWerte = { ...WOLF, reinigen: { dauer: 4.25 } };
 const ALT: Record<string, KampfWerte[]> = { wolf: [WOLF_D407], gams: [GAMS_D407], wegelagerer: GEGNER.wegelagerer, 'wolf+fuchs': [WOLF_D407, FUCHS] };

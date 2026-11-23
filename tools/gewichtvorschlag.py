@@ -31,6 +31,9 @@ def _vorschlag(name, durchzug, danach):
 
 
 VORSCHLAG = {
+    # D429: Überholt — `Axt_Quer` ist seit D429 selbst aus Schlüsselbildern gebaut (Zweihand-Fällaxt) und hat seinen
+    # Nachschwung (86°, Halt 73 %). Der Eintrag bleibt als Beleg der Prüfbilder von D420; er setzt die alten Schlüssel
+    # nach dem Durchzug auf den neuen Clip und gehört nicht mehr gebaut.
     # Querhieb der Axt (1,85 kg, 0,65 kg·m²): Scheitel 10, Durchzug 15, Ende 30. Heute ist Bild 21 der letzte Schlüssel
     # (40 % der Erholung) — die Axt kehrt früh und gleichmässig zurück. Vorschlag: weiter links herum und tiefer, das
     # Becken bremst, das Gewicht bleibt auf dem rechten Fuss; zurück ab Bild 25 (67 %).

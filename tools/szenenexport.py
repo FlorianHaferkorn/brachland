@@ -23,8 +23,8 @@ GROESSE = int(ARGS[2]) if len(ARGS) > 2 else 512
 MARGIN = 24        # Pixel Bleed je UV-Insel (D159); 6 war zu wenig, das Schwarz dazwischen blutete ein
 os.makedirs(ZIEL, exist_ok=True)
 sc = bpy.context.scene
-# D445: Zielbild-Szene (`stilframes.py` Runde 4, gespeichert per `AFRAME_BLEND`) statt Szenenbau — Mauern, Steine, Felsen,
-# Moos und Streu aus Scans; Gras, Kraut und die Scan-Bäume bleiben draussen (Rahmenkronen, D443). `SZENE_ZIEL=1`.
+# D448: Zielbild-Szene (`stilframes.py` Runde 4, gespeichert per `AFRAME_BLEND`) statt Szenenbau — Mauern, Steine, Felsen,
+# Moos und Streu aus Scans; Gras, Kraut und die Scan-Bäume bleiben draussen (Rahmenkronen, D446). `SZENE_ZIEL=1`.
 ZIELSZENE = os.environ.get('SZENE_ZIEL') == '1'
 ZIEL_BAU = ('Stein', 'Fels', 'Versturz', 'Kiesel', 'Balken', 'Stubben', 'Kronmoos', 'Moospolster', 'Fallaub', 'Zweig', 'Rindenstreu', 'Ast')
 if ZIELSZENE:   # Schweres vor dem Backen löschen: die Bake-Strahlen sehen sonst Millionen Halme und vier Scan-Bäume (Grafikspeicher)
@@ -43,7 +43,7 @@ def ist_bau(o):
 
 def ist_gruen(o):
     n = o.name
-    if ZIELSZENE: return False   # D445: Pflanzen des Zielbilds mit ihren Scan-Texturen über `tools/pflanzenexport.py`
+    if ZIELSZENE: return False   # D448: Pflanzen des Zielbilds mit ihren Scan-Texturen über `tools/pflanzenexport.py`
     return (o.type == 'MESH' and (n.startswith(('Farn', 'Efeu', 'Schilf')) or (n.startswith(('Held', 'Wald', 'Weide')) and (n.endswith('_Krone') or n.endswith('_Nadeln'))))) \
         or (o.type == 'CURVE' and n.startswith('Wald')) \
         or (o.type == 'MESH' and n.startswith('Wald') and n.endswith('_Stamm'))   # Fichtenstamm ist ein Kegelnetz, kein Kurvenobjekt — fehlte im ersten Export (Nadeln schwebten)
@@ -109,7 +109,7 @@ def backe_bild(o, mat, art, groesse, dateiname):
     return img
 
 def verschiebe(o, mat, gr):
-    """D445: Verschiebung des Shaders als Geometrie. Die Mauern des Zielbilds sind grobe Körper (MauerA 6.500 Flächen),
+    """D448: Verschiebung des Shaders als Geometrie. Die Mauern des Zielbilds sind grobe Körper (MauerA 6.500 Flächen),
     das Bruchsteinrelief entsteht im Render durch adaptive Unterteilung mit echter Verschiebung — die der Export nicht
     anwenden kann („Modifier is disabled“). Ohne sie wäre die Wand im Spiel eine bemalte Fläche. Also: Höhe (Eingang des
     Displacement-Knotens) als Bild backen, einfach unterteilen bis ~400.000 Flächen, mit dem Bild verschieben (gleiche
@@ -195,7 +195,7 @@ def gruppe_von(name):
     if name.startswith('Wurzel'): return 'Wurzeln'
     if name.startswith('Moosblock'): return 'Moosbloecke'
     if name.startswith('Becken') and not name.endswith('_Wasser'): return 'Becken'
-    if ZIELSZENE and re.match(r'^(Fels|FelsR)\d+$', name): return name   # D445: Scan-Felsen einzeln (eigenes Material, Relief)
+    if ZIELSZENE and re.match(r'^(Fels|FelsR)\d+$', name): return name   # D448: Scan-Felsen einzeln (eigenes Material, Relief)
     if ZIELSZENE:   # alle Kleinteile je Gattung zu einem Objekt (900 Moospolster backt niemand einzeln)
         for p_ in ZIEL_BAU + ('MauerA_Kronstein', 'MauerB_Kronstein', 'MauerC_Kronstein', 'Stuetzmauer_Kronstein', 'MauerA_Schutt', 'MauerB_Schutt', 'MauerC_Schutt'):
             if name.startswith(p_): return p_
@@ -203,7 +203,7 @@ def gruppe_von(name):
 
 roh = [o for o in list(sc.objects) if ist_bau(o)]
 if ZIELSZENE:
-    # D445: Flächenbudget je Gattung. Die Zielbild-Szene hat an der Ruine 5,4 Mio. Flächen (Rindenstreu allein 1,5 Mio.,
+    # D448: Flächenbudget je Gattung. Die Zielbild-Szene hat an der Ruine 5,4 Mio. Flächen (Rindenstreu allein 1,5 Mio.,
     # Versturz 0,54 Mio.) — das Zusammenfügen sprengte den Speicher (Exit 137, dreimal), und im Spiel wäre es zu viel.
     # Die Mauern behalten ihre volle Auflösung (Flo: „die Wand muss 1:1 dem Zielbild entsprechen“), Kleinteile werden
     # auf das Budget reduziert (Decimate, Kollaps). Netze sind geteilt: je Netz einmal, als Kopie für alle Nutzer.
@@ -270,7 +270,7 @@ for o in zusammen:
     if not o.data.materials: continue
     mat = o.data.materials[0].copy(); o.data.materials[0] = mat
     uv(o)
-    if ZIELSZENE:   # D445: nur das gebackene Objekt rendern — sonst lädt Cycles je Bake alle Scans der Szene (8 GB, Exit 137)
+    if ZIELSZENE:   # D448: nur das gebackene Objekt rendern — sonst lädt Cycles je Bake alle Scans der Szene (8 GB, Exit 137)
         for a in sc.objects: a.hide_render = a is not o
         print('backe', o.name, len(o.data.polygons), gr, flush=True)
         if re.match(r'^(MauerA|MauerB|MauerC|Stuetzmauer)(_Bogen)?$|^(Fels|FelsR)\d+$|^(Hof|Balken)$', o.name): verschiebe(o, mat, gr)

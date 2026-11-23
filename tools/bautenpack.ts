@@ -8,7 +8,7 @@
  *   npx tsx tools/bautenpack.ts --verlustfrei --aus .cache/neuer-bau.glb public/bauten/stauwehr-gruen.glb
  * --verlustfrei: bestehende Attribute/Texturen nicht erneut quantisieren oder verlustbehaftet packen.
  * --aus: genau eine Eingabe in eine neue Datei schreiben, ohne die Quelle zu aendern.
- * --kante N: groesste Texturkante (Vorgabe 1024); 2048 fuer die Zielbild-Mauern (D445, gebacken mit 2048).
+ * --kante N: groesste Texturkante (Vorgabe 1024); 2048 fuer die Zielbild-Mauern (D448, gebacken mit 2048).
  */
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS, EXTMeshoptCompression } from '@gltf-transform/extensions';

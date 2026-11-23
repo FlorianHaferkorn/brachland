@@ -47,10 +47,10 @@ export const Bauwerk = z.object({
   }).optional(),
   dateien: z.array(z.enum(['bauten', 'gruen', 'wasser', 'boden', 'pflanzen'])),
   objekte: z.record(z.array(z.string())).optional(),
-  /** Ordner unter `public/`: `bauten` (Szenenbau) oder `bauten-ziel` (Zielbild-Szene, D445, `?lookfels=1`). */
+  /** Ordner unter `public/`: `bauten` (Szenenbau) oder `bauten-ziel` (Zielbild-Szene, D448, `?lookfels=1`). */
   ordner: z.enum(['bauten', 'bauten-ziel']).default('bauten'),
   /**
-   * Aus dem Zielbild gebackener Boden (D445, `tools/bodenexport.py`): Kreis um `mitte` (Blender-Meter X, Y) mit
+   * Aus dem Zielbild gebackener Boden (D448, `tools/bodenexport.py`): Kreis um `mitte` (Blender-Meter X, Y) mit
    * `radius`, Terrassenhöhe `zt` im Render. Das Spiel setzt das ganze Bauwerk so, dass `zt` auf seiner eigenen
    * Terrassenhöhe liegt — Render- und Spielgelände stammen aus verschiedenen Exporten (h0 452,91 gegen 453,12).
    */
@@ -61,7 +61,7 @@ export type Bauwerk = z.infer<typeof Bauwerk>;
 /** Nur die Szenen der geladenen Region — sonst stünde das Stauwehr in Œntal-Metern mitten im Moor. */
 const SZENENBAU: Bauwerk[] = z.object({ bauwerke: z.array(Bauwerk) }).parse(REGISTER).bauwerke;
 /**
- * D445 (`?lookfels=1`): die Felsmulde aus der Zielbild-Szene (`stilframes.py` Runde 4, `SZENE_ZIEL=1`) statt aus dem
+ * D448 (`?lookfels=1`): die Felsmulde aus der Zielbild-Szene (`stilframes.py` Runde 4, `SZENE_ZIEL=1`) statt aus dem
  * Szenenbau — Bruchsteinmauern, Scan-Felsen, Streu und Boden so, wie das Zielbild sie zeigt. Terrasse und
  * Freihaltung bleiben die des Szenenbaus (gleiche Scheibe im Hang); die Streuschicht der Engine weicht dem
  * gebackenen Boden ganz.
@@ -83,7 +83,7 @@ export const BAUWERKE: Bauwerk[] = SZENENBAU.map(b => ZIELBAU.find(ziel => ziel.
  */
 const Kreis = z.tuple([z.number(), z.number(), z.number().positive()]);
 const STAEMME_JE_SZENE = z.record(z.array(Kreis)).parse(STAEMME);
-// Die Zielbild-Szene (D445) bringt keine Bäume mit (Kronen: `Rahmenkronen.tsx`), also auch keine Stämme zum Anstossen.
+// Die Zielbild-Szene (D448) bringt keine Bäume mit (Kronen: `Rahmenkronen.tsx`), also auch keine Stämme zum Anstossen.
 const staemmeVonBau = (b: Bauwerk) => (b.ordner === 'bauten' ? STAEMME_JE_SZENE[b.name] ?? [] : []);
 export const SZENEN_STAEMME: readonly (readonly [number, number, number])[] = BAUWERKE.flatMap(staemmeVonBau);
 export const staemmeVon = (name: string) => { const b = BAUWERKE.find(x => x.name === name); return b ? staemmeVonBau(b) : STAEMME_JE_SZENE[name] ?? []; };

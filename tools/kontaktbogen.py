@@ -151,11 +151,12 @@ fuss = (welt_pkt('foot_l') + welt_pkt('foot_r')) / 2
 mitte = Vector((fuss.x, fuss.y, 0))
 
 
-def kamera(blick_grad, breite, hoehe_mitte, b, h, erhoehung=0.6):
-    """Blick von vorn-rechts (`blick_grad` um die Hochachse aus der Blickrichtung der Figur), orthografisch."""
+def kamera(blick_grad, breite, hoehe_mitte, b, h, erhoehung=0.6, ziel=None):
+    """Blick von vorn-rechts (`blick_grad` um die Hochachse aus der Blickrichtung der Figur), orthografisch.
+    `ziel` (Welt, D429): Bildmitte statt über dem Standpunkt — fürs Nahbild der Hände."""
     r = math.radians(blick_grad)
     richtung = (vorn * math.cos(r) + rechts * math.sin(r)).normalized()
-    ziel = mitte + Vector((0, 0, hoehe_mitte))
+    ziel = ziel if ziel is not None else mitte + Vector((0, 0, hoehe_mitte))
     cam.location = ziel + richtung * 6 + Vector((0, 0, erhoehung))
     cam.rotation_euler = (ziel - cam.location).to_track_quat('-Z', 'Y').to_euler()
     cam.data.ortho_scale = breite
@@ -187,6 +188,25 @@ def lege_links(name):
     return LINKS_LAGE
 
 
+def gleite(o, lage, modell_lage):
+    """D429: wie `gleiteAmStiel` (`src/kampf/waffenhand.ts`) — die Fällaxt so entlang ihrer Achse schieben, dass ihr
+    Stielende (`griff_links` hinter der rechten Hand) in der linken liegt. Gemessen im Raum des Modells in Metern
+    (`lage` = Hand · Lage, vor der Knotenlage des Modells, die die Quantisierung trägt); dort ist three +Y Blender +Z.
+    Rückgabe: Verschiebung in Metern des Modells."""
+    links = o.get('griff_links')
+    if links is None:
+        return 0.0
+    inv = lage.inverted()
+    r = inv @ (held.matrix_world @ held.pose.bones['hand_r'].head)
+    l = inv @ (held.matrix_world @ held.pose.bones['hand_l'].head)
+    entlang, quer = l.z - r.z, math.hypot(l.x - r.x, l.y - r.y)
+    fest, los, faeuste = 0.04, 0.1, 0.08
+    gefasst = min(1, max(0, (los - quer) / (los - fest))) * min(1, max(0, (entlang - faeuste / 2) / (faeuste / 2)))
+    t = gefasst * max(faeuste - links, min(0.0, entlang - links))
+    o.matrix_world = lage @ Matrix.Translation((0, 0, t)) @ modell_lage
+    return t
+
+
 def zeige(waffe, links):
     for o in waffen.values():
         o.hide_render = True
@@ -194,6 +214,10 @@ def zeige(waffe, links):
         o = waffen[waffe]
         hand = held.matrix_world @ held.pose.bones['hand_r'].matrix
         o.matrix_world = hand @ AN_HAND @ modell[waffe]
+        bpy.context.view_layer.update()
+        t = gleite(o, hand @ AN_HAND, modell[waffe])
+        if t:
+            print(f'  GLEITEN {waffe}: rechte Hand {-t * 100:.0f} cm zum Stielende')
         o.hide_render = False
     if links:
         o = waffen[links]
@@ -210,6 +234,10 @@ for job in auftrag.get('posen', []):
     for bild in job['bilder']:
         setze(job['clip'], bild)
         zeige(job.get('waffe'), job.get('links'))
+        if job.get('nah'):
+            # D429: Nahbild der Hände — Bildmitte zwischen beiden Händen
+            haende = (welt_pkt('hand_r') + welt_pkt('hand_l')) / 2
+            kamera(job.get('blick', 35), job.get('breite', 0.8), 0, 300, 420, job.get('erhoehung', 0.6), ziel=haende)
         held.hide_render = False
         for o in figur:
             if o.type == 'MESH' and not o.name.startswith(('Haar_', 'Icosphere')):

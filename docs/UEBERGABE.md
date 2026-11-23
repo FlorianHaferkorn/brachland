@@ -136,7 +136,8 @@ Aufwertung, D394 Menü und Einstellungen.
 - **Vorher-Builds prüfen:** `npx vite build` und den Bundle-Inhalt per grep bestätigen — ein stiller tsc-Fehler hat
   einmal alle „Vorher“-Bilder den neuen Stand zeigen lassen (D353).
 - **Kein Google Street View, kein Instagram-Login.** Nur freie Lizenzen im Spiel (ADR-0013); **Megascans seit 22.11.2026 für Zielbilder erlaubt, im Spiel erst nach Lizenzprüfung (ADR-0021)** — Download über Flos Epic-Konto am M1; Spiel-Bilder
-  nur als lokale Analysevorlage, Handwerk ja, Motive nein (ADR-0004).
+  nur als lokale Analysevorlage (Rechte am Material, ADR-0013 Punkt 5); keine fremde Gestaltung übernehmen,
+  Mechanik und Handwerk sind frei (ADR-0007 §1, Nachtrag D431).
 - **Eine Stelle fertig vor der Breite.** Die Wochen D353–D368 haben viele Features etwas besser gemacht und keine
   Stelle fertig — genau das hat zur Stilentscheidung geführt.
 - `git add` mit expliziten Pfaden; Worktrees von Agenten liegen unter `.claude/worktrees/` (gitignored), das

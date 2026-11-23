@@ -79,3 +79,50 @@ export function legeAnHeldHand(waffe: THREE.Object3D): void {
   waffe.quaternion.copy(WAFFE_AN_HELD_HAND.drehung);
   waffe.scale.setScalar(WAFFE_AN_HELD_HAND.massstab);
 }
+
+/**
+ * D429: Die Fällaxt gleitet durch die rechte Hand (USDA Forest Service, *An Ax to Grind*, 1999): Die linke Hand hält
+ * fest das Stielende, die rechte rutscht beim Ausholen zum Kopf hinauf und im Schlag zurück, im Treffen liegen beide am
+ * Ende. Das Modell hängt an `hand_r` mit dem Ursprung an der **vorderen** Griffstelle (`tools/waffenmodelle.py`); die
+ * Clips (`tools/waffenclips.py`, Posenfeld `griff`) legen die linke Hand dorthin, wo sie am Stiel sitzt. Hier wird das
+ * Modell nach jedem Mixer-Schritt entlang seiner Achse so verschoben, dass sein Stielende (`griffLinks` hinter dem
+ * Ursprung) in der linken Hand liegt.
+ *
+ * Gemessen wird wie in den Clips: das linke Handgelenk gegen das rechte, im Raum des Modells (Achse +Y = zum Ende).
+ * Liegt die linke Hand nicht am Stiel (Rolle, Gang, Treffer) — mehr als `GLEITEN.los` quer zur Achse oder vor der
+ * rechten —, bleibt die Waffe, wo die rechte Hand sie hält; dazwischen wird weich übergeblendet. Rückgabe: Verschiebung
+ * in Metern des Modells (≤ 0; 0 = rechte Hand an der vorderen Griffstelle).
+ */
+/**
+ * D429: Bis D429 lag der Ursprung der Axt 8 cm vor dem Stielende (rechte Hand am Ende, Hände vertauscht), seither an
+ * der vorderen Griffstelle 65 cm vor dem Ende. Wer noch die alten Clips spielt (die alte Wanderin, `?figur=alt`) und
+ * wer die Axt am Rücken trägt, legt sie um diese Strecke versetzt an — dort bleibt alles, wie es war.
+ */
+export const AXT_URSPRUNG_VOR_D429 = -0.57;
+export const GLEITEN = {
+  /** Quer zur Achse bis hierher voll gefasst, Meter. */
+  fest: 0.04,
+  /** Ab hier quer zur Achse nicht gefasst, Meter. */
+  los: 0.1,
+  /** Kleinster Abstand der Handgelenke entlang des Stiels (zwei Fäuste nebeneinander), Meter. */
+  faeuste: 0.08,
+};
+const _r = new THREE.Vector3(), _l = new THREE.Vector3(), _d = new THREE.Vector3();
+export function gleiteAmStiel(waffe: THREE.Object3D, handR: THREE.Object3D, handL: THREE.Object3D, griffLinks: number): number {
+  const basis = (waffe.userData.gleitBasis ??= waffe.position.clone()) as THREE.Vector3;
+  waffe.position.copy(basis);
+  handL.updateWorldMatrix(true, false);
+  waffe.updateWorldMatrix(true, false);
+  waffe.worldToLocal(handR.getWorldPosition(_r));
+  waffe.worldToLocal(handL.getWorldPosition(_l));
+  const entlang = _l.y - _r.y, quer = Math.hypot(_l.x - _r.x, _l.z - _r.z);
+  const gefasst = Math.min(1, Math.max(0, (GLEITEN.los - quer) / (GLEITEN.los - GLEITEN.fest)))
+    * Math.min(1, Math.max(0, (entlang - GLEITEN.faeuste / 2) / (GLEITEN.faeuste / 2)));
+  const t = gefasst * Math.max(GLEITEN.faeuste - griffLinks, Math.min(0, entlang - griffLinks));
+  if (t !== 0) {
+    _d.set(0, t, 0).multiply(waffe.scale).applyQuaternion(waffe.quaternion);
+    waffe.position.add(_d);
+    waffe.updateMatrixWorld(true);
+  }
+  return t;
+}

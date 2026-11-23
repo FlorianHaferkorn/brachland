@@ -111,13 +111,13 @@
         {
           "id": "spaltkopf",
           "name": "Spaltkopf",
-          "masse": 1.65,
+          "masse": 1.4,
           "laenge": 0.05,
           "schwerpunkt": -0.03,
           "preis": {
             "federstahl": 1
           },
-          "anker": "Seit D407 wie das Modell aus D421 (Axt 2,10 kg, Kopf netto 1,71 kg — schwerer als das Vorbild Fällaxt mit Kopf um 1,4 kg, dort benannt); hier 1,65 kg, damit Kopf + Stiel 2,10 kg ergeben",
+          "anker": "Seit D429 wie Modell und Vorbild: Kopf 1,41 kg im Modell (tools/waffenmodelle.py, schlanker, Schneide 9,5 cm hoch), Vorbild Fällaxt mit Kopf um 1,4 kg (Gränsfors American Felling Axe, Händlerangabe). Bis D429 1,65 kg bei einem Modellkopf von 1,71 kg — der Widerspruch D429 (3)",
           "text": "Keilförmig, schwer, zum Holzmachen geschmiedet. Der Kopf der heutigen Axt."
         },
         {
@@ -168,24 +168,24 @@
         {
           "id": "mittel",
           "name": "Stiel",
-          "masse": 0.45,
+          "masse": 0.7,
           "laenge": 0.8,
           "preis": {
             "chitinspan": 1
           },
-          "anker": "Esche 700 kg/m³, Ø 3,2 cm = 0,56 kg/m — Überschlag aus Dichte × Volumen, nicht belegt",
-          "text": "Der Stiel der heutigen Axt, achtzig Zentimeter Esche."
+          "anker": "Seit D429 wie das Modell: Hickorystiel 0,68 kg; Ersatzstiele 36 Zoll 0,61–0,68 kg (Händlerangaben Link Handles, Garant). 0,8 m ist die Rechenlänge des Baukastens, das Modell misst 0,9 m. Bis D429 0,45 kg (Esche, Überschlag)",
+          "text": "Der Stiel der heutigen Axt, zäher Hickory mit Knauf am Ende — dort hält die linke Hand."
         },
         {
           "id": "lang",
           "name": "Langer Stiel",
-          "masse": 0.56,
+          "masse": 0.87,
           "laenge": 1.0,
           "ausgleich": 1.05,
           "preis": {
             "chitinspan": 2
           },
-          "anker": "Esche 700 kg/m³, Ø 3,2 cm = 0,56 kg/m — Überschlag aus Dichte × Volumen, nicht belegt",
+          "anker": "Seit D429 derselbe Querschnitt wie der Stiel (0,70 kg auf 0,8 m, also 0,87 kg auf 1,0 m) — Überschlag, nicht belegt. Bis D429 0,56 kg",
           "text": "Ein Meter Hebel. Der Kopf ist lange unterwegs und kommt hart an."
         }
       ],

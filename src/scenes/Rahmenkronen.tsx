@@ -1,7 +1,7 @@
 /**
- * BRACHLAND — Rahmenkronen an der Felsmulde (D443, Look-Durchgang nach dem Messbild D442), `?lookfels=1`.
+ * BRACHLAND — Rahmenkronen an der Felsmulde (D446, Look-Durchgang nach dem Messbild D445), `?lookfels=1`.
  *
- * Befund D442: Im Spiel ist ein Viertel des Bildes flacher Himmel (28,9 %), im Zielbild 4,9 % — dort schliessen
+ * Befund D445: Im Spiel ist ein Viertel des Bildes flacher Himmel (28,9 %), im Zielbild 4,9 % — dort schliessen
  * breite, tief ansetzende Kronen den Himmel links und rechts, über dem Bogen bleibt ein Fenster. Die Bäume des
  * Spiels sind hochstämmige Waldbuchen mit der Krone weit oben; an der Felsmulde stehen davon nur Stangen im Bild.
  *

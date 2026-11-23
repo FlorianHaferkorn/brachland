@@ -42,7 +42,7 @@ passiert.
 - ~~Zelda-/Soulslike-Combat~~ — *Nachtrag D196 (07.10.2026):* Das **Regelwerk** (Echtzeit-Nahkampf,
   Ausdauer, Rolle, Parade, Lock-On, Haltung) ist durch ADR-0007 in BRACHLAND geholt und damit hier
   abgelöst. Weiter geparkt bleibt, was der Punkt ausserdem meinte: kein Umbau zu einem Spiel, das
-  primär aus Kampf besteht, und keine Gestalt fremder Vorbilder (ADR-0007 §1).
+  primär aus Kampf besteht, und keine fremde Gestaltung übernehmen — genauer Wortlaut, Begründung und Grenze in ADR-0007 §1, Nachtrag D431.
 - Ein Spiel, das primär von Grafik lebt (dann Unreal — ADR-0001, Grenze)
 - Party-Game im Schlag-den-Star-Format (anderer Anlass: Gemeinschaftsabend statt
   Reise-Downtime; ein Artefakt kann nicht beides)

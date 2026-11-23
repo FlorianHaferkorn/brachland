@@ -1,5 +1,5 @@
 """
-BRACHLAND — Pflanzen des Zielbilds fürs Spiel (D445).
+BRACHLAND — Pflanzen des Zielbilds fürs Spiel (D448).
 
     blender --background <zielbild.blend> --python tools/pflanzenexport.py -- public/bauten-ziel felsmulde
 

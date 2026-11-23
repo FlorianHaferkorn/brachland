@@ -68,7 +68,8 @@ def leuchtdichte(c):
 # D171: das Moveset je Waffe (`tools/waffenclips.py`). Es wird mitgebaut und danach von
 # `tools/waffenteilen.ts` in eine eigene Datei ohne Netz verschoben — die Wanderin bleibt im Budget.
 ANIM_WAFFEN = ('Klinge_Stand', 'Klinge_Stich',
-               'Axt_Stand', 'Axt_Block', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf',
+               # D429: Axt_Hieb — Zweihand-Fällaxt, ersetzt Axe_Overhead als Axthieb
+               'Axt_Stand', 'Axt_Block', 'Axt_Hieb', 'Axt_Quer', 'Axt_Schwer', 'Axt_Lauf',
                # D184: der Speer
                'Speer_Stand', 'Speer_Stoss', 'Speer_Weit', 'Speer_Lauf', 'Speer_Block',
                # D414: Langes Messer, zweihändig, und die Räucherkanne in der linken Hand
