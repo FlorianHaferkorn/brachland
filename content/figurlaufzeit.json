@@ -63,5 +63,15 @@
     "maxGrad": 14,
     "frequenz": 2.6,
     "daempfung": 0.55
+  },
+  "landung": {
+    "merklichAb": 0.6,
+    "gehtAb": 0.55,
+    "clipWeich": "Koerper_Landung_Weich",
+    "clipHart": "Koerper_Landung_Hart",
+    "clipRolle": "Roll",
+    "uebergang": 0.08,
+    "rolleDauer": 0.75,
+    "warum": "D458. merklichAb: gleichwertige Fallhöhe v²/2g, ab der die Landung einen Clip bekommt — darunter (Absatz, Kante) folgen die Füsse dem Boden; der eigene Sprung (1,49 m) landet weich. Die Grenze weich/hart ist `fall.schadlosBis` aus content/bewegung.json (D412), nicht hier. gehtAb: in Bewegung federt nur der Oberkörper und nur bis zu diesem Anteil des Clips. rolleDauer: so lang läuft die Rolle aus dem Kampf (`Roll`, 1,67 s Clip) als Landerolle, bis es einen eigenen Clip gibt. Kein Spielwert: die Landung sperrt nichts."
   }
 }

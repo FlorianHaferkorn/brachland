@@ -35,10 +35,10 @@ import * as THREE from 'three';
 import {
   SPIELERIN, UEBUNGSGEGNER, KEILER, GRATHORN, WOLF, FUCHS, GAMS, WEGELAGERER, SPEERMANN, AXTMANN, PARADE, naechtlich, ZIELEN, vorwaerts, type Linie, type KampfWerte, type Schlag,
   neuerKaempfer, puffere, setzeBlockAn, loeseBlock, naechsterSchlag, simuliere, waehleZiel, drehe, blickAuf, frei,
-  WAFFEN, ruesteAus, wechsleZiel, type WaffenArt, istSchwer,
+  WAFFEN, ruesteAus, wechsleZiel, type WaffenArt, istSchwer, KOMBO_AB,
   type Kampfwelt, type Kaempfer, type Treffer, neueMarke,
 } from './echtzeit.js';
-import { kameraErlitten, reaktionsVerlauf, schlagWucht, trefferBild, wegVomAngreifer, type Kamerastoss } from './gewicht.js';
+import { kameraErlitten, reaktionsVerlauf, schlagWucht, trefferBild, wegVomAngreifer, zielMasse, type Kamerastoss } from './gewicht.js';
 import { KAMPFTON, ladeKampfton, spieleKampfton } from '../ton/kampfton.js';
 import { drueckeReinigen, rolleImGriff, reinigenLage, GRIFF_MELDUNG } from './markengriff.js';
 import { kampfbericht, KREATUR_DER_ART, type Kampfbericht } from './kampfende.js';
@@ -57,8 +57,17 @@ import { schadenFaktor } from '../spiel/schmiede.js';
 import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
 import { aktionenVon, aktiv, halteZustand, tastenVon, umgeschaltet, type Haltemodus } from '../spieler/eingabe.js';
 import { einstellungen } from '../spiel/einstellungen.js';
-import { PosenTraegheit, sammleKnochen } from '../figur/laufzeit.js';
+import { Koerperfein, PosenTraegheit, elternkarte, fussKnoten, messeGang, sammleKnochen, teileClip, type FeinEingabe } from '../figur/laufzeit.js';
 import { figurfeinAn } from '../figur/schalter.js';
+import { nachfahren, RIG_MENSCH } from '../figur/ebenen.js';
+import { hangLage, RIG_VIERBEINER, tierGang } from '../figur/vierbeiner.js';
+import { ansagePose, leereZusatz, neuerZusatz, schuettelPose, sturzVerlauf, taumelPose, wendeSchritt, type Zusatz } from '../figur/ansage.js';
+import { ansageProfil, GEGNERBILD } from '../figur/gegnerwerte.js';
+import { hiebClipzeit, type Hiebmarken } from '../figur/kette.js';
+import { leseClipmarken } from '../figur/clipmarken.js';
+import type { Gang } from '../figur/fortbewegung.js';
+import { FIGUR, GRAD } from '../figur/werte.js';
+import CLIPMARKEN_ROH from '../../content/clipmarken.json';
 
 /**
  * D415: Pfeile, die im Kampf die Linie wählen (Bestand D174), zählen nicht als Richtung für Rolle und
@@ -107,23 +116,40 @@ interface RigCfg {
   stand?: string;
   /** Mensch (D174): Clip je Linie, Scheitel/Durchzug in Clipsekunden, wie bei der Spielerin. */
   linien?: Record<Linie, { clip: string; scheitel: number; durchzug: number }>;
+  /** D458: Deckung der Waffe — kurz gehoben, wenn ein Hieb der Spielerin in die gedeckte Linie geht (nur Bild). */
+  deckung?: string;
 }
+/**
+ * D458 (A-51 (1)): Scheitel und Durchzug eines Clips der Spielfigur aus den Clipmarken von D456
+ * (`content/clipmarken.json`, Bildnummern) in Clipsekunden; die Zahlen dahinter gelten, falls die Marke fehlt.
+ * **Nur Clipzuordnung** — Vorlauf, Aktiv und Erholung des Gegners stehen in `content/gegner/*.json`.
+ */
+const MARKEN_ROH = CLIPMARKEN_ROH as { bildrate: number; clips: Record<string, { scheitel?: number; durchzug?: number } | undefined> };
+const hiebAus = (clip: string, scheitel: number, durchzug: number) => {
+  const m = MARKEN_ROH.clips[clip], r = MARKEN_ROH.bildrate || 24;
+  return { clip, scheitel: (m?.scheitel ?? scheitel) / r, durchzug: (m?.durchzug ?? durchzug) / r };
+};
+/** D458: Kettenmarken (Einstieg, Kettenpose) wie bei der Spielfigur (`figur/kette.ts`). */
+const KETTENMARKEN = leseClipmarken(CLIPMARKEN_ROH);
 const RIG: Partial<Record<GegnerArt, RigCfg>> = {
-  // D174: der Wegelagerer — Figur `wanderer`, die Klingenclips der Wanderin (gleiches Rig).
-  wegelagerer: { datei: 'wanderer', angriff: 'Klinge_U_A', scheitel: 6 / 24, durchzug: 9 / 24, linien: {
-    rechts: { clip: 'Klinge_U_A', scheitel: 6 / 24, durchzug: 9 / 24 },
-    links: { clip: 'Klinge_U_B', scheitel: 6 / 24, durchzug: 9 / 24 },
-    oben: { clip: 'Klinge_U_C', scheitel: 14 / 24, durchzug: 18 / 24 },
-    unten: { clip: 'Klinge_Stich', scheitel: 9 / 24, durchzug: 13 / 24 },
+  // D174: der Wegelagerer. D458 (A-51 (1)): die eigenen Klingenclips von D456 statt der UAL2-Clips `Klinge_U_*` —
+  // sie beginnen und enden in der Hut `Klinge_Stand`, in der er steht. **Seite:** `rechts` ist die Seite, die die
+  // Spielerin rechts im Bild sieht, also die Linke des Angreifers — `Klinge_Hieb_B` holt nach links aus (`hand_r`
+  // am Scheitel 22 cm links des Beckens, gemessen), `Klinge_Hieb_A` nach rechts. So lag es auch mit `Klinge_U_A/B`.
+  wegelagerer: { datei: 'wanderer', ...hiebAus('Klinge_Hieb_A', 6, 9), angriff: 'Klinge_Hieb_A', deckung: 'Klinge_Block', linien: {
+    rechts: hiebAus('Klinge_Hieb_B', 6, 9),
+    links: hiebAus('Klinge_Hieb_A', 6, 9),
+    oben: hiebAus('Klinge_Schwer', 14, 18),
+    unten: hiebAus('Klinge_Stich', 9, 13),
   } },
   // D184: Speerfrau und Axtmann mit den Clips ihrer Waffe (gleiches Skelett wie die Hauptfigur).
-  speermann: { datei: 'wanderer', angriff: 'Speer_Stoss', scheitel: 9 / 24, durchzug: 13 / 24, stand: 'Speer_Stand', linien: {
+  speermann: { datei: 'wanderer', angriff: 'Speer_Stoss', scheitel: 9 / 24, durchzug: 13 / 24, stand: 'Speer_Stand', deckung: 'Speer_Block', linien: {
     rechts: { clip: 'Speer_Stoss', scheitel: 9 / 24, durchzug: 13 / 24 },
     links: { clip: 'Speer_Stoss', scheitel: 9 / 24, durchzug: 13 / 24 },
     oben: { clip: 'Speer_Weit', scheitel: 14 / 24, durchzug: 18 / 24 },
     unten: { clip: 'Speer_Stoss', scheitel: 9 / 24, durchzug: 13 / 24 },
   } },
-  axtmann: { datei: 'wanderer', angriff: 'Axt_Schwer', scheitel: 20 / 24, durchzug: 25 / 24, stand: 'Axt_Stand', linien: {
+  axtmann: { datei: 'wanderer', angriff: 'Axt_Schwer', scheitel: 20 / 24, durchzug: 25 / 24, stand: 'Axt_Stand', deckung: 'Axt_Block', linien: {
     rechts: { clip: 'Axt_Quer', scheitel: 10 / 24, durchzug: 15 / 24 },
     links: { clip: 'Axt_Quer', scheitel: 10 / 24, durchzug: 15 / 24 },
     oben: { clip: 'Axt_Schwer', scheitel: 20 / 24, durchzug: 25 / 24 },
@@ -153,6 +179,66 @@ interface Rig {
   gleite?: () => void;
   /** D457: Inertialisierung der Clipwechsel (menschliche Gegner), beim ersten Bild angelegt. */
   traegheit?: PosenTraegheit;
+  /** D458: die Waffe an der Hand und ihre Lage dort — wer aufgibt (D426), lässt sie fallen; die neue Runde hängt sie zurück. */
+  waffe?: { obj: THREE.Object3D; heim: THREE.Object3D; pos: THREE.Vector3; quat: THREE.Quaternion; skal: THREE.Vector3; liegt: boolean };
+}
+
+/**
+ * D458: Laufzeit der Bewegung je Gegner mit Skelett (`src/figur/`, Schalter `figurfein`): Übergänge mit
+ * Inertialisierung, Körper über den Clips (Drehkette, Blick, Atem, Trefferfeder, Füsse am Boden; Tiere mit
+ * Rumpflage je Beinpaar), Gang nach dem **gemessenen** Tempo der Clips. Beim Bau angelegt, im Bild ohne neue Objekte.
+ */
+interface PuppeFein {
+  koerper: Koerperfein; traegheit: PosenTraegheit; eingabe: FeinEingabe;
+  /** Schritt und Galopp (Mensch: Gehen und Laufen): Tempo am Clip gemessen, Dauer des Zyklus. */
+  schritt: Gang; galopp: Gang | null; imGalopp: boolean; gleiten: number;
+  aktiv: Set<THREE.AnimationAction>; schluessel: string; an: boolean;
+  /** Mensch: Ober- und Unterkörper eines Clips als eigene Aktionen (Ebenen, D457). */
+  teil(name: string, halten?: boolean): { ober: THREE.AnimationAction; unter: THREE.AnimationAction } | null;
+  /** Die Aufgabe-Haltung steht schon — ein Wechsel Stehen ↔ Zurückweichen hebt die Hände nicht neu. */
+  aufgabeSteht: boolean;
+  marke: Hiebmarken;
+}
+
+/** D458: Kosten der Gegner-Laufzeit je Bild — `window.__gegnerfein` in der Konsole (Mittel über 120 Bilder). */
+const gegnerMessung = { ms: 0, bilder: 0, msMittel: 0, gegner: 0, zaehler: 0, gleiten: [] as number[], gang: [] as string[] };
+if (typeof window !== 'undefined') (window as unknown as { __gegnerfein?: typeof gegnerMessung }).__gegnerfein = gegnerMessung;
+
+function baueFein(obj: THREE.Object3D, rig: Rig, clips: readonly THREE.AnimationClip[], mensch: boolean): PuppeFein | undefined {
+  const plan = mensch ? RIG_MENSCH : RIG_VIERBEINER, vw = GEGNERBILD.vierbeiner;
+  // In der Ruhelage, vor jedem Mixer-Schritt: Tierläufe bekommen hier ihre Sohlenpunkte.
+  const fuesse = fussKnoten(obj, plan);
+  const finde = (n: string) => clips.find(c => c.name === n);
+  const gehClip = finde('Walk'), schnellClip = finde(mensch ? 'Run' : 'Gallop');
+  if (!gehClip || fuesse.some(f => !f)) return undefined;
+  const ff = fuesse as THREE.Object3D[], standH = mensch ? FIGUR.gang.standHoehe : vw.gang.standHoehe;
+  const mg = messeGang(obj, gehClip, ff, standH), ms = schnellClip ? messeGang(obj, schnellClip, ff, standH) : null;
+  const schritt: Gang = { tempo: mg.tempo ?? (mensch ? FIGUR.gang.gehen : vw.gang.gehen), dauer: gehClip.duration };
+  const galopp: Gang | null = schnellClip
+    ? { tempo: Math.max(ms?.tempo ?? (mensch ? FIGUR.gang.rennen : vw.gang.galopp), schritt.tempo + 0.5), dauer: schnellClip.duration } : null;
+  const koerper = mensch ? new Koerperfein(obj, plan, mg.tief) : new Koerperfein(obj, plan, ff.map(() => 0), { drehen: vw.drehen, vier: vw });
+  const ober = mensch ? nachfahren(elternkarte(obj), plan.oberAb) : null;
+  const teile = new Map<string, { ober: THREE.AnimationAction; unter: THREE.AnimationAction } | null>();
+  return {
+    koerper, traegheit: new PosenTraegheit(sammleKnochen(obj)), schritt, galopp, imGalopp: false, gleiten: 0,
+    eingabe: { gier: 0, tempo: 0, rennen: 4, straff: 0, fokus: null, steht: true, hoeheAn: undefined, fuesse: true, halten: true, staerke: 1, weite: 1 },
+    aktiv: new Set(), schluessel: '', an: false, aufgabeSteht: false,
+    marke: { scheitel: 0, durchzug: 0, dauer: 0 },
+    teil(name, halten = false) {
+      if (!ober) return null;
+      if (!teile.has(name)) {
+        const c = finde(name);
+        if (!c) teile.set(name, null);
+        else {
+          const t = teileClip(c, ober);
+          const a = { ober: rig.mixer.clipAction(t.ober), unter: rig.mixer.clipAction(t.unter) };
+          if (halten) for (const x of [a.ober, a.unter]) { x.setLoop(THREE.LoopOnce, 1); x.clampWhenFinished = true; }
+          teile.set(name, a);
+        }
+      }
+      return teile.get(name)!;
+    },
+  };
 }
 
 /** Ein Körper aus der Welt: Geometrie plus ein Material je Tier (der Gang ist ein Uniform). */
@@ -277,6 +363,19 @@ interface Puppe {
    * Rückstoss der Regel.
    */
   reaktion?: { neigung: number; versatz: number; dauer: number; taumel: number; seit: number; vonX: number; vonZ: number };
+  /** D458: Laufzeit der Bewegung (nur mit Skelett) und die Körpersprache dieses Bilds (`figur/ansage.ts`). */
+  fein?: PuppeFein;
+  zusatz: Zusatz;
+  ansage: Zusatz & { spannung: number };
+  /** D458: starrer Leib am Hang (Keiler ohne Skelett): geglättete Lage. */
+  hang: { nick: number; roll: number; hub: number };
+  /** D458: Abgang — Blickrichtung beim Abwenden (null = noch nicht begonnen) und der Weg, den er dabei geht. */
+  wende: number | null;
+  weg: { x: number; z: number; v: number };
+  /** D458: wann zuletzt ein Hieb in seine Deckung ging; welche Reaktion schon in der Feder steckt. */
+  gedeckt: number;
+  stossSeit: number;
+  fokus: { x: number; y: number; z: number };
 }
 
 /** Bauplan des Gegners (`content/gegner/<id>.json`) zur Art des Platzes — Masse und Oberfläche hängen daran. */
@@ -431,6 +530,27 @@ const WAFFE_START: WaffenArt = (() => {
  */
 const REINIG_PROBE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('reinigprobe');
 
+/**
+ * D458: `?posenprobe=1` — Messadresse für Bildpaare der Körpersprache (Übungsplatz). Der Platz rechnet nicht; die
+ * Gegner stehen **im Profil** vor der Figur, der erste an der steilsten Stelle in der Nähe (Hang), und zeigen die
+ * Phase, die `window.__posenprobe = { phase, anteil, linie? }` nennt (`anteil` 0…1 der Phasendauer aus ihren Daten).
+ * So lässt sich eine Ansage Bild für Bild festhalten — auch unter SwiftShader, wo kein Bild pünktlich kommt.
+ */
+const POSEN_PROBE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('posenprobe');
+interface Posenprobe { phase?: Kaempfer['phase']; anteil?: number; linie?: Linie; ausgang?: 'gereinigt' | 'verschont' }
+
+/** Steilste Stelle links im Blickfeld (3,5–6 m voraus, 0,5–3 m links): Ort und Steigung quer zum Blick (m je m, + = nach rechts hoch). */
+function steilsteStelle(feld: HoehenFeld, x: number, z: number, blick: number): { x: number; z: number; quer: number } {
+  const [fx, fz] = vorwaerts(blick), rx = -fz, rz = fx;
+  let beste = { x: x + fx * 5, z: z + fz * 5, quer: 0 };
+  for (let d = 3.5; d <= 6; d += 0.5) for (let q = -3; q <= -0.5; q += 0.5) {
+    const px = x + fx * d + rx * q, pz = z + fz * d + rz * q;
+    const quer = (hoeheAufFlaeche(feld, px + rx * 0.6, pz + rz * 0.6) - hoeheAufFlaeche(feld, px - rx * 0.6, pz - rz * 0.6)) / 1.2;
+    if (Math.abs(quer) > Math.abs(beste.quer)) beste = { x: px, z: pz, quer };
+  }
+  return beste;
+}
+
 /** `?rig=0`: Tiere wie bis D171 als bewegte Körper — zum Vergleich. */
 const RIG_AUS = typeof location !== 'undefined' && new URLSearchParams(location.search).get('rig') === '0';
 
@@ -470,6 +590,7 @@ function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeome
     if (typeof griffLinks === 'number' && handR && handL && waffe.parent === handR) {
       rig.gleite = () => { gleiteAmStiel(waffe, handR, handL, griffLinks); };
     }
+    if (waffe.parent) rig.waffe = { obj: waffe, heim: waffe.parent, pos: waffe.position.clone(), quat: waffe.quaternion.clone(), skal: waffe.scale.clone(), liegt: false };
     return { obj, koerper: koerper as THREE.SkinnedMesh | null, material: material!, rig, setzeZeit: (_t: number) => {} };
   }
   const w = baueWindMaterial({ amplitude: 0, randFarbe: new THREE.Color('#8a9a9c'), randStaerke: 0.2, randSchaerfe: 1.6 });
@@ -527,6 +648,8 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
   const tonZustand = useRef({ schwung: -1, phase: 'bereit' as Kaempfer['phase'] });
   useEffect(() => { ladeKampfton(); }, []);
   const ende = useRef<number | null>(null);
+  /** D458: Standorte der Posenprobe (`?posenprobe=1`). */
+  const probe = useRef<{ x: number; z: number; blick: number }[] | null>(null);
   const absicht = useRef({ schlag: null as 'leicht' | 'schwer' | null, rolle: false, zielen: false, wechsel: 0 as -1 | 0 | 1,
                            waffe: null as WaffenArt | 'tausch' | null, linie: null as Linie | null, reinigen: false });
   /** D417: Fassung für die Anzeige (abgeleitet im Spielstand, `spiel/marke.ts`). */
@@ -674,12 +797,13 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       const leibGruppe = new THREE.Group();
       let koerper: THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
       let gang: ((g: number) => void) | undefined, zeit: ((t: number) => void) | undefined;
-      let rig: Rig | undefined;
+      let rig: Rig | undefined, fein: PuppeFein | undefined;
       const rl = vorlage && RIG[art] ? baueRigLeib(vorlage, RIG[art]!.datei, leib?.geometrie) : null;
       if (rl && rl.koerper) {
         koerper = rl.koerper as unknown as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>;
         leibGruppe.add(rl.obj);
         rig = rl.rig; zeit = rl.setzeZeit;
+        fein = baueFein(rl.obj, rl.rig, vorlage!.clips, !!RIG[art]!.linien);
       } else if (leib) {
         const m = leib.baue();
         koerper = new THREE.Mesh(leib.geometrie, m.material);
@@ -711,7 +835,9 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       kranz.visible = false;
       gruppe.add(leibGruppe, bogen, kranz);
       wurzel.add(gruppe);
-      puppen.push({ gruppe, leib: leibGruppe, koerper, bogen, kranz, blitz: -1, seite: 'Right', art, rig, gang, zeit, vorher: { x: NaN, z: NaN }, abgang: 0 });
+      puppen.push({ gruppe, leib: leibGruppe, koerper, bogen, kranz, blitz: -1, seite: 'Right', art, rig, gang, zeit, vorher: { x: NaN, z: NaN }, abgang: 0,
+        fein, zusatz: neuerZusatz(), ansage: { ...neuerZusatz(), spannung: 0 }, hang: { nick: 0, roll: 0, hub: 0 }, wende: null, weg: { x: 0, z: 0, v: 0 },
+        gedeckt: -1e9, stossSeit: -1, fokus: { x: 0, y: 0, z: 0 } });
     }
     // Der Fächer der Spielerin: sichtbar im Vorlauf blass, im Aktiven hell.
     const schwung = new THREE.Mesh(
@@ -755,6 +881,9 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     });
   }, [zeichnung, leiber]);
 
+  /** D458: Geländehöhe als eine Funktion je Platz — die Laufzeit der Gegner fragt sie je Fuss. */
+  const hoeheAn = useMemo(() => (x: number, z: number) => hoeheAufFlaeche(feld, x, z), [feld]);
+
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
     if (!p) return;
@@ -791,6 +920,33 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     // sie stehen dort, wo sie zuerst hingestellt wurden.
     const w = welt.current;
     const s = w.spielerin;
+    if (POSEN_PROBE && !onEnde) {
+      // D458: Messadresse — nichts rechnet, die Gegner zeigen die genannte Phase im Profil.
+      const pr = (window as unknown as { __posenprobe?: Posenprobe }).__posenprobe ?? {};
+      los.current = false; w.friedlich = true;
+      if (!probe.current) {
+        const ort = steilsteStelle(feld, p.x, p.z, gier.current), [fx, fz] = vorwaerts(gier.current);
+        // Bergauf schauen: quer zum Blick der Figur, nach der Seite, die höher liegt.
+        const hoch = gier.current + (ort.quer >= 0 ? -Math.PI / 2 : Math.PI / 2);
+        probe.current = w.gegner.map((_, i) => (i === 0 ? { x: ort.x, z: ort.z, blick: hoch }
+          : { x: p.x + fx * 3 - fz * (i === 1 ? 1.7 : 3.4), z: p.z + fz * 3 + fx * (i === 1 ? 1.7 : 3.4), blick: gier.current + Math.PI / 2 }));
+        (window as unknown as { __posenort?: unknown }).__posenort = { hang: ort, gradQuer: Math.atan(ort.quer) * 180 / Math.PI };
+      }
+      w.gegner.forEach((g, i) => {
+        const o = probe.current![i];
+        g.x = o.x; g.z = o.z; g.blick = o.blick;
+        const phase = pr.phase ?? 'bereit', sch = g.werte.schlag;
+        const dauer = phase === 'vorlauf' ? sch.vorlauf : phase === 'aktiv' ? sch.aktiv : phase === 'erholung' ? sch.erholung
+          : phase === 'betaeubt' ? g.werte.betaeubt : 1;
+        if (g.phase !== phase) { g.phase = phase; if (phase === 'vorlauf') g.schwung++; }
+        g.schlag = sch; g.folge = [];
+        g.zeit = dauer * Math.max(0, pr.anteil ?? 0);
+        g.schlagLinie = pr.linie ?? g.werte.linien?.[0] ?? g.werte.mensch?.linienFolge[0];
+        g.ausgang = phase === 'gefallen' ? pr.ausgang : undefined;
+        if (phase === 'gefallen' && pr.ausgang) g.zeit = pr.anteil ?? 0;
+        g.leben = g.werte.lebenMax;
+      });
+    }
 
     // ---- Abgleich: die Figur bewegt `Spieler`, der Kampf übernimmt nur, was er selbst tut.
     s.x = p.x; s.z = p.z; s.y = p.y;
@@ -942,7 +1098,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
           }
         }
         if (e.von === 'spielerin' && e.schaden > 0) zaehler.current.gesetzt++;
-        if (e.von === 'spielerin' && e.gedeckt) melde('gedeckt');
+        if (e.von === 'spielerin' && e.gedeckt) { melde('gedeckt'); if (i >= 0) zeichnung.puppen[i].gedeckt = jetzt; }
         if (e.toedlich) melde('besiegt');
         else if (e.gebrochen) melde('er taumelt');
       }
@@ -981,7 +1137,16 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     }
 
     // ---- Zeichnen
-    w.gegner.forEach((g, i) => zeichnePuppe(zeichnung.puppen[i], g, feld, jetzt, dt));
+    const t0 = performance.now();
+    w.gegner.forEach((g, i) => zeichnePuppe(zeichnung.puppen[i], g, feld, hoeheAn, jetzt, dt, s));
+    // D458: Kosten der Gegner je Bild (Zeichnen, Clips, Laufzeit der Bewegung) — `window.__gegnerfein`.
+    const gm = gegnerMessung;
+    gm.ms += performance.now() - t0; gm.bilder++; gm.zaehler++; gm.gegner = w.gegner.length;
+    if (gm.bilder >= 120) {
+      gm.msMittel = gm.ms / gm.bilder; gm.ms = 0; gm.bilder = 0;
+      gm.gleiten = zeichnung.puppen.map(pu => pu.fein?.gleiten ?? 0);
+      gm.gang = zeichnung.puppen.map(pu => (pu.fein ? `${pu.art}: Schritt ${pu.fein.schritt.tempo.toFixed(2)} m/s${pu.fein.galopp ? `, schnell ${pu.fein.galopp.tempo.toFixed(2)} m/s` : ''}` : `${pu.art}: ohne Skelett`));
+    }
     const sw = zeichnung.schwung;
     sw.position.set(s.x, hoeheAufFlaeche(feld, s.x, s.z) + 0.05, s.z);
     sw.rotation.y = s.blick;
@@ -1063,7 +1228,16 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
   return <primitive object={zeichnung.wurzel} />;
 }
 
-function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, dt: number): void {
+/**
+ * D458: Wie lange einer nach dem Ende seines Kampfs noch steht, bevor er abgeht (nur Bild). Tiere 0,9 s (D417) —
+ * in der Zeit schütteln sie sich; ein Mensch, der verschont wurde, hält mit der feinen Bewegung erst noch die Hände
+ * oben (`abgang.aufgabeHalten`).
+ */
+function abgangWarten(pu: Puppe, g: Kaempfer, fein: boolean): number {
+  return ABGANG.warten + (fein && pu.fein && g.ausgang === 'verschont' && RIG[pu.art]?.linien ? GEGNERBILD.abgang.aufgabeHalten : 0);
+}
+
+function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, hoeheAn: (x: number, z: number) => number, jetzt: number, dt: number, sp: Kaempfer): void {
   g.y = hoeheAufFlaeche(feld, g.x, g.z);
   pu.gruppe.position.set(g.x, g.y, g.z);
   pu.gruppe.rotation.y = g.blick;
@@ -1076,7 +1250,7 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
   l.position.set(0, 0, 0); l.rotation.set(0, 0, 0);
   pu.gruppe.visible = true;
   pu.kranz.visible = false;
-  if (!g.ausgang) pu.abgang = 0; // neue Runde auf dem Übungsplatz
+  if (!g.ausgang) { pu.abgang = 0; pu.wende = null; pu.weg.x = pu.weg.z = pu.weg.v = 0; } // neue Runde auf dem Übungsplatz
   const uhr = jetzt / 1000;
   pu.zeit?.(uhr);
   // Gang aus der tatsächlichen Bewegung — der Shader-Gang (D138) läuft, solange er läuft.
@@ -1089,6 +1263,15 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
   const tier = keiler || horn || wolf;
   /** Der zweite Biss einer Kette: kürzer, flacher, aus der Bewegung (D171). */
   const nachbiss = wolf && g.folge.length === 0 && s !== g.werte.schlag;
+  // ---- D458: Körpersprache über den Clips (`figur/ansage.ts`), hinter dem Schalter `figurfein`. Die Regel bleibt
+  // die Wahrheit: gelesen werden `phase`, `zeit` und der Schlag — kein Zeitpunkt ändert sich. Tiere mit Skelett
+  // bewegen den **Rumpf über stehenden Läufen** (`zusatz` → `Koerperfein`), Menschen Wirbelsäule und Kopf, ein
+  // starrer Leib (Keiler ohne Skelett, Kapsel) sich als Ganzes wie bisher.
+  const fein = figurfeinAn();
+  const mitRig = fein && !!pu.fein, vierRig = mitRig && !RIG[pu.art]?.linien, menschRig = mitRig && !vierRig;
+  const zu = leereZusatz(pu.zusatz);
+  const profil = fein ? ansageProfil(bauplan(pu.art)) : null;
+  const staerke = profil && s !== g.werte.schlag ? profil.ketteAnteil : 1;
 
   if (g.phase === 'vorlauf') {
     // Das Telegraf: Der Bogen am Boden füllt sich, der Körper glüht auf. Beides wächst mit dem
@@ -1099,7 +1282,15 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
     // Undurchdringlich blinkt der Bogen — man soll es aus dem Augenwinkel sehen, nicht erst lesen.
     pu.bogen.material.opacity = (0.08 + 0.32 * t) * (s.durch ? 0.7 + 0.3 * Math.sin(g.zeit * 30) : 1);
     m.emissive.copy(farbe).multiplyScalar(0.15 + 0.6 * t * t);
-    if (keiler) {
+    if (profil && !nachbiss) {
+      // D458: Die Ansage steht früh und hält (gespannter Bogen), statt gleichmässig zu wachsen; die Seite der Linie
+      // zeigt sie an Kopf und Schultern. Endwerte je Gegner in `content/figurgegner.json`.
+      const a = ansagePose(profil, 'vorlauf', g.zeit, s, g.schlagLinie, staerke, pu.ansage);
+      if (vierRig) { zu.rumpfZ = a.rumpfZ; zu.rumpfY = a.rumpfY; zu.rumpfNick = a.rumpfNick; zu.rumpfRoll = a.rumpfRoll; zu.rumpfGier = a.rumpfGier; }
+      else if (menschRig) { zu.rumpfNick = a.rumpfNick; zu.rumpfRoll = a.rumpfRoll; zu.rumpfGier = a.rumpfGier; }
+      else { l.position.z = a.rumpfZ; l.position.y = a.rumpfY; l.rotation.x = a.rumpfNick; l.rotation.z = a.rumpfRoll; }
+      zu.kopfNick = a.kopfNick; zu.kopfGier = a.kopfGier; zu.kopfRoll = a.kopfRoll;
+    } else if (keiler) {
       // Kopf runter, Gewicht nach hinten, scharren: der Körper sagt es, bevor die Farbe es sagt.
       l.position.z = 0.3 * t;
       l.rotation.x = -0.16 * t;
@@ -1120,6 +1311,11 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
         l.rotation.x = -0.1 * t;
         l.rotation.z = Math.sin(g.zeit * 22) * 0.02 * t;
       }
+    }
+    if (profil && nachbiss && mitRig) {
+      // Der Nachbiss kommt aus dem Satz (Leib wie D171); nur der Kopf zeigt ihn an, kleiner.
+      const a = ansagePose(profil, 'vorlauf', g.zeit, s, g.schlagLinie, profil.ketteAnteil, pu.ansage);
+      zu.kopfNick = a.kopfNick; zu.kopfGier = a.kopfGier; zu.kopfRoll = a.kopfRoll;
     }
   } else if (g.phase === 'aktiv') {
     pu.bogen.material.opacity = 0.65;
@@ -1143,6 +1339,18 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
       l.position.y = (nachbiss ? 0.1 : 0.14) * Math.sin(u * Math.PI);
       l.rotation.x = (nachbiss ? 0.06 : -0.1) + 0.22 * u;
     }
+    if (profil && !nachbiss) {
+      // D458: Die Spannung entlädt sich im Aktiv. Tier mit Skelett: Was vom Zurücklehnen übrig ist, trägt weiter der
+      // Rumpf über den Läufen; der Leib (mit den Läufen) macht nur den Satz selbst — Rumpf + Leib ergeben zusammen
+      // den Weg von D169–D171, und die Läufe springen beim Wechsel Vorlauf → Aktiv nicht.
+      const a = ansagePose(profil, 'aktiv', g.zeit, s, g.schlagLinie, staerke, pu.ansage);
+      if (vierRig) {
+        zu.rumpfZ = a.rumpfZ; zu.rumpfY = a.rumpfY; zu.rumpfNick = a.rumpfNick; zu.rumpfRoll = a.rumpfRoll; zu.rumpfGier = a.rumpfGier;
+        if (tier) { l.position.z -= a.rumpfZ; l.position.y -= a.rumpfY; l.rotation.x -= a.rumpfNick; }
+      } else if (menschRig) { zu.rumpfNick = a.rumpfNick; zu.rumpfRoll = a.rumpfRoll; zu.rumpfGier = a.rumpfGier; }
+      else if (!tier) { l.position.z = a.rumpfZ; l.position.y = a.rumpfY; l.rotation.x = a.rumpfNick; }
+      if (mitRig) { zu.kopfNick = a.kopfNick; zu.kopfGier = a.kopfGier; zu.kopfRoll = a.kopfRoll; }
+    }
   } else if (g.phase === 'erholung' && tier) {
     const u = Math.min(1, g.zeit / s.erholung);
     const r = 1 - (1 - u) * (1 - u);
@@ -1154,35 +1362,85 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
     // Taumeln (D169): Blau allein ging bei Tag unter. Jetzt schwankt der Körper sichtbar, und drei
     // Rauten kreisen über dem Kopf — das liest man auf jedem Untergrund und in jeder Stimmung.
     const t = g.zeit;
-    const abkling = Math.max(0.35, 1 - t / Math.max(0.01, g.werte.betaeubt));
     m.emissive.copy(FARBE.taumeln).multiplyScalar(0.35);
     // D427: Nach einem Haltungsbruch schwingt das Taumeln mit der Wucht des brechenden Schlags aus
     // (`gewicht.ts` `reaktion().taumel`, Grad); ohne solchen Schlag (Parade, Wurf) 0,22 rad wie D169.
-    const taumel = pu.reaktion && pu.reaktion.taumel > 0 && pu.reaktion.seit >= jetzt - t * 1000 - 300
-      ? pu.reaktion.taumel * Math.PI / 180 : 0.22;
-    l.rotation.z = Math.sin(t * 9) * taumel * abkling;
-    l.rotation.x = tier ? 0.1 : 0.18;
-    l.position.y = tier ? -0.06 : 0;
+    const mitWucht = !!pu.reaktion && pu.reaktion.taumel > 0 && pu.reaktion.seit >= jetzt - t * 1000 - 300;
+    if (fein) {
+      // D458: Taumeln mit Gewicht — Pendel nach Körperhöhe, der Schwerpunkt wandert, der Kopf hängt und kommt nach.
+      const tw = GEGNERBILD.taumel;
+      const T = taumelPose(t, g.betaeubtFuer ?? g.werte.betaeubt, (mitWucht ? pu.reaktion!.taumel : tw.grundGrad) * GRAD, g.werte.hoehe, tw);
+      if (vierRig) {
+        zu.rumpfRoll = T.roll; zu.rumpfX = -T.seit; zu.rumpfY = T.sinken; zu.rumpfNick = T.nick * 0.5;
+      } else if (menschRig) {
+        // Halb aus den Füssen (der ganze Körper schwankt), halb aus der Wirbelsäule (der Oberkörper knickt nach).
+        l.rotation.z = T.roll * 0.5; l.rotation.x = 0.1 + T.nick * 0.5;
+        zu.rumpfRoll = T.roll * 0.5; zu.rumpfNick = 0.08 + T.nick * 0.5;
+      } else {
+        l.rotation.z = T.roll; l.rotation.x = (tier ? 0.1 : 0.18) + T.nick;
+        l.position.y = (tier ? -0.06 : 0) + T.sinken; l.position.x = -T.seit * 0.5;
+      }
+      zu.kopfNick = T.kopfNick; zu.kopfRoll = T.kopfRoll;
+    } else {
+      const abkling = Math.max(0.35, 1 - t / Math.max(0.01, g.werte.betaeubt));
+      const taumel = mitWucht ? pu.reaktion!.taumel * Math.PI / 180 : 0.22;
+      l.rotation.z = Math.sin(t * 9) * taumel * abkling;
+      l.rotation.x = tier ? 0.1 : 0.18;
+      l.position.y = tier ? -0.06 : 0;
+    }
     pu.kranz.visible = true;
     pu.kranz.rotation.y = uhr * 4;
     pu.kranz.position.y = g.werte.hoehe + 0.3 + Math.sin(uhr * 6) * 0.04;
   } else if (g.phase === 'gefallen' && g.ausgang) { // D426: verschont geht ab wie gereinigt
     // D417: gereinigt — kein Sturz. Es steht kurz, wendet sich ab und geht im Schritt davon. Nur die
     // Zeichnung bewegt sich; in der Kampfwelt bleibt es, wo es war (aus dem Kampf, `ausgang`).
-    if (g.zeit > ABGANG.warten) pu.abgang = Math.min(ABGANG.weit, pu.abgang + ABGANG.tempo * dt);
-    const [fx, fz] = vorwaerts(g.blick);
-    pu.gruppe.position.set(g.x - fx * pu.abgang, hoeheAufFlaeche(feld, g.x - fx * pu.abgang, g.z - fz * pu.abgang), g.z - fz * pu.abgang);
-    if (g.zeit > ABGANG.warten) pu.gruppe.rotation.y = g.blick + Math.PI;
-    pu.gang?.(g.zeit > ABGANG.warten && pu.abgang < ABGANG.weit ? 0.7 : 0);
-  } else if (g.phase === 'gefallen') {
-    const t = Math.min(1, g.zeit / 0.6);
-    if (tier) {
-      l.rotation.z = t * Math.PI / 2;
-      l.position.y = -t * 0.1;
-      l.position.x = t * 0.35;
+    const warten = abgangWarten(pu, g, fein);
+    if (fein) {
+      // D458: Abwenden als Drehung, und es geht, wohin es schaut (anfangs im Bogen) — vorher sprang die Richtung
+      // um 180° und es ging rückwärts los. Das gereinigte Tier schüttelt sich, solange es steht.
+      if (pu.wende === null) pu.wende = g.blick;
+      pu.weg.v = 0;
+      if (g.zeit > warten && pu.abgang < ABGANG.weit) {
+        const soll = g.blick + Math.PI;
+        pu.wende = wendeSchritt(pu.wende, soll, GEGNERBILD.abgang.wendeGradJeS * GRAD, dt);
+        const rest = Math.atan2(Math.sin(soll - pu.wende), Math.cos(soll - pu.wende));
+        const schritt = ABGANG.tempo * dt * Math.max(0, Math.cos(rest));
+        const [wx, wz] = vorwaerts(pu.wende);
+        pu.weg.x += wx * schritt; pu.weg.z += wz * schritt; pu.abgang += schritt;
+        pu.weg.v = dt > 0 ? schritt / dt : 0;
+      }
+      const px = g.x + pu.weg.x, pz = g.z + pu.weg.z;
+      pu.gruppe.position.set(px, hoeheAufFlaeche(feld, px, pz), pz);
+      pu.gruppe.rotation.y = pu.wende;
+      if (g.ausgang === 'gereinigt') {
+        const sch = schuettelPose(g.zeit, zielMasse(bauplan(pu.art)), GEGNERBILD.schuetteln);
+        if (vierRig) { zu.kopfRoll = sch.kopfRoll; zu.rumpfRoll = sch.rumpfRoll; }
+        else if (!menschRig) l.rotation.z = sch.rumpfRoll;
+      }
+      pu.gang?.(Math.min(1, pu.weg.v / 1.6));
     } else {
-      l.rotation.x = t * Math.PI / 2;
-      l.position.y = -t * 0.35;
+      if (g.zeit > warten) pu.abgang = Math.min(ABGANG.weit, pu.abgang + ABGANG.tempo * dt);
+      const [fx, fz] = vorwaerts(g.blick);
+      pu.gruppe.position.set(g.x - fx * pu.abgang, hoeheAufFlaeche(feld, g.x - fx * pu.abgang, g.z - fz * pu.abgang), g.z - fz * pu.abgang);
+      if (g.zeit > warten) pu.gruppe.rotation.y = g.blick + Math.PI;
+      pu.gang?.(g.zeit > warten && pu.abgang < ABGANG.weit ? 0.7 : 0);
+    }
+  } else if (g.phase === 'gefallen') {
+    // D458: Tiere mit Skelett legt ihr `Death`-Clip selbst auf die Seite (gemessen: Rumpf-Querachse am Clipende
+    // senkrecht) — das starre Kippen obendrauf drehte sie auf den Rücken. Mit der feinen Bewegung entfällt es dort;
+    // der starre Leib (Keiler, Kapsel) und der Mensch (sein `Death` knickt nur, das Becken bleibt oben) kippen
+    // beschleunigt statt gleichmässig und federn einmal nach (`sturzVerlauf`).
+    if (!vierRig) {
+      const st = GEGNERBILD.sturz;
+      const t = fein ? sturzVerlauf(g.zeit, st.dauer, st.prall, st.nach) : Math.min(1, g.zeit / 0.6);
+      if (tier) {
+        l.rotation.z = t * Math.PI / 2;
+        l.position.y = -t * 0.1;
+        l.position.x = t * 0.35;
+      } else {
+        l.rotation.x = t * Math.PI / 2;
+        l.position.y = -t * 0.35;
+      }
     }
   }
   // D427: Antwort des Leibs auf den Treffer nach Impuls (Δv = J / m): kippt und gibt vom Angreifer weg nach,
@@ -1190,18 +1448,50 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, jetzt: number, d
   const re = pu.reaktion;
   if (re && g.phase !== 'gefallen') {
     const k = reaktionsVerlauf((jetzt - re.seit) / 1000 / re.dauer);
-    if (k > 0) {
-      const [lx, lz] = wegVomAngreifer(g.x - re.vonX, g.z - re.vonZ, g.blick);
+    const [lx, lz] = wegVomAngreifer(g.x - re.vonX, g.z - re.vonZ, g.blick);
+    if (mitRig) {
+      // D458: über die Laufzeit geführt — die Kippung ist ein Stoss in die Feder (einmal je Treffer; sie schwingt
+      // aus, statt nach 0,22 s abzubrechen) und geht beim Menschen in die Wirbelsäule, beim Tier in den Rumpf über
+      // stehenden Läufen. Der Versatz bleibt der von D427.
+      if (re.seit !== pu.stossSeit) { pu.stossSeit = re.seit; pu.fein!.koerper.stossGrad(lx, lz, re.neigung); }
+      if (k > 0) {
+        if (vierRig) { zu.rumpfX += lx * re.versatz * k; zu.rumpfZ += lz * re.versatz * k; }
+        else { l.position.x += lx * re.versatz * k; l.position.z += lz * re.versatz * k; }
+      }
+    } else if (k > 0) {
       const a = re.neigung * Math.PI / 180 * k;
       l.position.x += lx * re.versatz * k; l.position.z += lz * re.versatz * k;
       // Drehung um x hebt die Spitze nach +z, um z nach −x (kleine Winkel, Euler-Reihenfolge egal).
       l.rotation.x += a * lz; l.rotation.z -= a * lx;
     }
   }
+  // D458: Der starre Leib (Wurzelkeiler — Gang im Shader, kein Skelett) liegt auf dem Hang: Bug und Heck auf ihrer
+  // Höhe statt waagerecht auf der Höhe der Mitte (vorn in der Erde, hinten in der Luft). Benannt: Seine Läufe
+  // stehen damit senkrecht zum Hang, nicht lotrecht — das kann nur ein Skelett.
+  if (fein && !pu.rig && pu.gang) {
+    const h = hangLage(hoeheAn, pu.gruppe.position.x, pu.gruppe.position.z, pu.gruppe.rotation.y,
+      g.werte.halbLaenge ?? g.werte.radius, g.werte.radius, GEGNERBILD.vierbeiner, HANG);
+    const glatt = Math.min(1, dt * 12), ha = pu.hang;
+    ha.nick += (h.nick - ha.nick) * glatt; ha.roll += (h.roll - ha.roll) * glatt; ha.hub += (h.hub - ha.hub) * glatt;
+    if (!(g.phase === 'gefallen' && !g.ausgang)) { l.rotation.x += ha.nick; l.rotation.z += ha.roll; }
+    l.position.y += ha.hub;
+  }
   // Aufblitzen beim Treffer — 120 ms, über allem anderen.
   if (jetzt - pu.blitz < 120) m.emissive.copy(FARBE.treffer).multiplyScalar(0.9);
-  if (pu.rig) spieleRig(pu, g, v, jetzt, dt);
+  if (pu.rig) {
+    if (mitRig) spieleRigFein(pu, g, v, jetzt, dt, hoeheAn, sp);
+    else {
+      if (pu.fein?.an) {
+        // Schalter gerade umgelegt: Aktionen der feinen Laufzeit anhalten, Rumpf gerade stellen, Waffe zurück an die Hand.
+        const F = pu.fein;
+        F.an = false; pu.rig.mixer.stopAllAction(); F.aktiv.clear(); F.schluessel = ''; F.traegheit.ruhe(); F.koerper.ruhe();
+        pu.rig.aktiv = null; haengeWaffeZurueck(pu.rig);
+      }
+      spieleRig(pu, g, v, jetzt, dt);
+    }
+  }
 }
+const HANG = { hub: 0, nick: 0, roll: 0 };
 
 /**
  * Clip nach Phase (D172), wie bei der Spielerin: Der Angriff wird nicht abgespielt, sondern seine
@@ -1268,4 +1558,172 @@ function spieleRig(pu: Puppe, g: Kaempfer, v: number, jetzt: number, dt: number)
   r.mixer.update(Math.min(dt, 0.1));
   if (fein) { r.traegheit!.nachMixer(Math.min(dt, 0.1)); r.traegheit!.ende(); }
   r.gleite?.();
+}
+
+const _wv = new THREE.Vector3();
+/** D458: Menschen gehen mit den Grenzen der Spielfigur (`figurlaufzeit.json` `gang`) und der Hysterese der Tiere. */
+const GANG_MENSCH = { rateMin: FIGUR.gang.rateMin, rateMax: FIGUR.gang.rateMax, hysterese: GEGNERBILD.vierbeiner.gang.hysterese };
+
+/** D458: Wer aufgibt (D426), lässt die Waffe fallen — sie liegt dort am Boden, wo die Hand war. Nur Bild. */
+function legeWaffeAb(pu: Puppe, hoeheAn: (x: number, z: number) => number): void {
+  const w = pu.rig?.waffe, platz = pu.gruppe.parent;
+  if (!w || w.liegt || !platz) return;
+  platz.attach(w.obj);
+  w.obj.getWorldPosition(_wv);
+  // Flach hingelegt, die Richtung behält sie; knapp über dem Boden, damit sie nicht in der Fläche flimmert.
+  w.obj.rotation.set(Math.PI / 2, 0, pu.gruppe.rotation.y);
+  w.obj.position.y += hoeheAn(_wv.x, _wv.z) + 0.04 - _wv.y;
+  w.liegt = true;
+}
+
+/** D458: Die Waffe zurück an die Hand (neue Runde auf dem Übungsplatz, Schalter aus). */
+function haengeWaffeZurueck(rig: Rig): void {
+  const w = rig.waffe;
+  if (!w || !w.liegt) return;
+  w.heim.add(w.obj);
+  w.obj.position.copy(w.pos); w.obj.quaternion.copy(w.quat); w.obj.scale.copy(w.skal);
+  w.liegt = false;
+}
+
+/**
+ * D458: Clip nach Phase wie `spieleRig`, aber über die Laufzeit der Bewegung (`src/figur/`, Schalter `figurfein`):
+ *
+ * - **Übergänge** hart + abklingender Versatz (Inertialisierung, D457) statt Kreuzblende — jetzt auch für Tiere;
+ * - **Gang ans Tempo:** Schritt/Galopp (Mensch: Gehen/Laufen) nach dem am Clip **gemessenen** Tempo
+ *   (`tierGang`); vorher liefen alle Tiere mit `v / 1,1` und `v / 4`, gleich welches Tier;
+ * - **Menschen** gehen kampfbereit mit den Beinen des Gangs und dem Oberkörper in der Hut ihrer Waffe (Ebenen);
+ *   ihr Hieb folgt den Clipmarken von D456 (Folgeschlag steigt am Einstieg ein, die Erholung davor endet in der
+ *   Kettenpose); in die gedeckte Linie geschlagen heben sie kurz die Deckung; getroffen spielen sie `HitRecieve`
+ *   statt `Kampf_Rueckstoss` (der wirft die Figur zu Boden — gemessen: Becken nach 0,3 s auf 21 cm);
+ * - **Aufgabe (D426):** `Koerper_Aufgabe` — im Zurückweichen nur der Oberkörper (Hände gehoben) über rückwärts
+ *   gehenden Beinen, im Stand der ganze Clip (aufs Knie); die Waffe liegt am Boden. Verschont: aufstehen, abwenden, gehen;
+ * - **Körper über den Clips** (`Koerperfein`): Drehkette Kopf → Schulter → Becken, Blick zur Spielfigur, Atem,
+ *   Trefferfeder, Füsse am Boden — Tiere mit Rumpflage je Beinpaar — und der Zusatz dieses Bilds (Ansage, Taumeln,
+ *   Schütteln) aus `zeichnePuppe`.
+ *
+ * Die Zeit im Angriffsclip setzt weiter die Regel (Vorlauf → Scheitel, Aktiv → Durchzug, Erholung → Rest).
+ */
+function spieleRigFein(pu: Puppe, g: Kaempfer, v: number, jetzt: number, dt: number, hoeheAn: (x: number, z: number) => number, sp: Kaempfer): void {
+  const r = pu.rig!, cfg = RIG[pu.art]!, F = pu.fein!, s = g.schlag, mensch = !!cfg.linien, ub = GEGNERBILD.uebergang;
+  const dtK = Math.min(dt, 0.1);
+  if (!F.an) {
+    // Erstes Bild oder Schalter gerade eingeschaltet: was der alte Weg spielte, anhalten.
+    F.an = true; r.mixer.stopAllAction(); r.aktiv = null; r.traegheit = undefined;
+    F.aktiv.clear(); F.schluessel = ''; F.traegheit.ruhe(); F.koerper.ruhe();
+  }
+  let unten: THREE.AnimationAction | null = null, oben: THREE.AnimationAction | null = null;
+  let dauer = ub.standard, neu = false, zeit: number | null = null, rate = 1, schluessel = '';
+  let straff = 0, steht = false, halten = true, fuesse = true, tempo = v, blick = true, gier = g.blick;
+  const einmal = (a: THREE.AnimationAction | null, haelt = true) => { if (a) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = haelt; } return a; };
+  const schleife = (a: THREE.AnimationAction | null) => { if (a) { a.setLoop(THREE.LoopRepeat, Infinity); a.clampWhenFinished = false; } return a; };
+  const standClip = mensch ? cfg.stand ?? 'Klinge_Stand' : 'Idle';
+  const aufgegeben = g.aufgegeben !== undefined && mensch;
+  // Gang: Gangart und Rate aus dem gemessenen Tempo der Clips.
+  const gehe = (tempoJetzt: number, rueckwaerts = false): THREE.AnimationAction | null => {
+    const gw = GEGNERBILD.vierbeiner.gang;
+    const tg = tierGang(tempoJetzt, F.schritt, rueckwaerts ? null : F.galopp, F.imGalopp, mensch ? GANG_MENSCH : gw);
+    F.imGalopp = tg.galopp; F.gleiten = tg.gleiten;
+    rate = rueckwaerts ? -tg.rate : tg.rate;
+    halten = Math.abs(tg.gleiten) < 0.05;
+    const name = tg.galopp ? (mensch ? 'Run' : 'Gallop') : 'Walk';
+    schluessel = `gang:${name}`;
+    return schleife(mensch ? F.teil(name)?.unter ?? r.aktion(name) : r.aktion(name));
+  };
+
+  if (g.phase === 'gefallen' && g.ausgang) {
+    // Abgang (D417/D426): stehen (das Tier schüttelt sich, der Mensch hält die Hände oben), abwenden, gehen.
+    const geht = pu.weg.v > 0.05;
+    gier = pu.wende ?? g.blick; blick = false; tempo = pu.weg.v;
+    if (geht) { unten = schleife(r.aktion('Walk')); rate = Math.max(0.3, pu.weg.v / F.schritt.tempo); schluessel = 'abgang'; dauer = ub.abgang; F.gleiten = 0; }
+    else if (mensch && g.ausgang === 'verschont' && g.zeit <= abgangWarten(pu, g, true)) {
+      unten = einmal(r.aktion('Koerper_Aufgabe')) ?? r.aktion('Idle'); schluessel = 'aufgabe'; dauer = ub.aufgabe;
+    } else { unten = schleife(r.aktion('Idle')); schluessel = 'ruhe'; dauer = ub.abgang; steht = true; }
+  } else if (g.phase === 'gefallen') {
+    unten = einmal(r.aktion('Death') ?? r.aktion('Kampf_Taumeln')); schluessel = 'tod'; dauer = ub.tod;
+    fuesse = false; halten = false; straff = 1; blick = false;
+  } else if (g.phase === 'vorlauf' || g.phase === 'aktiv' || g.phase === 'erholung') {
+    // Mensch (D174): der Clip der Linie, aus der er schlägt.
+    const c = (g.schlagLinie && cfg.linien?.[g.schlagLinie]) || { clip: cfg.angriff, scheitel: cfg.scheitel, durchzug: cfg.durchzug };
+    unten = einmal(r.aktion(c.clip)); schluessel = `hieb:${c.clip}`; dauer = ub.angriff;
+    if (unten) {
+      const d = unten.getClip().duration, folge = s !== g.werte.schlag;
+      if (mensch) {
+        // Wie die Spielfigur (`figur/kette.ts`): Folgeschlag steigt am Einstieg ein; steht noch einer aus, endet die
+        // Erholung in der Kettenpose (die Kette eines Gegners beginnt erst nach der ganzen Erholung — Regel).
+        const km = KETTENMARKEN.get(c.clip), m = F.marke;
+        m.scheitel = c.scheitel; m.durchzug = c.durchzug; m.dauer = d; m.einstieg = km?.einstieg; m.kettenpose = km?.kettenpose;
+        zeit = hiebClipzeit(g.phase, g.zeit, s, m, folge, g.folge.length > 0 ? 0.999 : KOMBO_AB);
+      } else {
+        const start = folge ? c.scheitel * 0.5 : 0;
+        const u = g.phase === 'vorlauf' ? start + (c.scheitel - start) * Math.min(1, g.zeit / s.vorlauf)
+          : g.phase === 'aktiv' ? c.scheitel + (c.durchzug - c.scheitel) * Math.min(1, g.zeit / s.aktiv)
+          : c.durchzug + (d - c.durchzug) * Math.min(1, g.zeit / s.erholung);
+        zeit = Math.min(u, d * 0.999);
+      }
+      if (g.schwung !== r.schwung) { r.schwung = g.schwung; neu = true; }
+    }
+    // Im Vorlauf dreht die Regel noch nach (`nachdrehen`) — der Körper folgt halb straff; im Schlag zeigt er genau hin.
+    straff = g.phase === 'vorlauf' ? 0.5 : 1; halten = g.phase === 'vorlauf';
+  } else if (g.phase === 'betaeubt') {
+    unten = schleife(r.aktion(`Idle_HitReact_${pu.seite}`) ?? r.aktion('Kampf_Taumeln')); rate = 0.55;
+    schluessel = 'taumel'; dauer = ub.treffer; halten = false; blick = false;
+  } else if (aufgegeben) {
+    // D426: Er weicht zurück, die Spielerin im Blick (Regel) — Hände oben; steht er, geht er aufs Knie.
+    legeWaffeAb(pu, hoeheAn);
+    const auf = F.teil('Koerper_Aufgabe', true);
+    if (v >= 0.15 && auf) { unten = gehe(v, true); oben = auf.ober; schluessel = 'aufgabe+gang'; }
+    else { unten = einmal(r.aktion('Koerper_Aufgabe')) ?? r.aktion('Idle'); schluessel = 'aufgabe'; steht = true; }
+    dauer = ub.aufgabe;
+  } else if (jetzt - pu.blitz < 450) {
+    unten = einmal(r.aktion(`Idle_HitReact_${pu.seite}`) ?? r.aktion('HitRecieve') ?? r.aktion('Kampf_Rueckstoss'), false);
+    schluessel = 'treffer'; dauer = ub.treffer; halten = false;
+    if (pu.blitz !== r.treffer) { r.treffer = pu.blitz; neu = true; }
+  } else if (mensch && cfg.deckung && jetzt - pu.gedeckt < 380 && r.aktion(cfg.deckung)) {
+    unten = einmal(r.aktion(cfg.deckung)); rate = 2; schluessel = 'deckung'; dauer = ub.deckung;
+  } else if (v < 0.15) {
+    unten = schleife(r.aktion(standClip) ?? r.aktion('Idle')); schluessel = 'stand'; steht = true; F.gleiten = 0;
+  } else {
+    unten = gehe(v);
+    // Kampfbereit im Gehen: Beine aus dem Gang, Oberkörper in der Hut der Waffe (Ebenen, D457).
+    if (mensch) { oben = schleife(F.teil(standClip)?.ober ?? null); if (oben) schluessel += '+hut'; }
+    dauer = ub.gang;
+  }
+  if (!aufgegeben && g.phase !== 'gefallen') haengeWaffeZurueck(r);
+  if (!aufgegeben && !(g.phase === 'gefallen' && g.ausgang === 'verschont')) F.aufgabeSteht = false;
+  if (!unten) return;
+
+  if (schluessel !== F.schluessel || neu) {
+    F.traegheit.wechsel(dauer);
+    for (const a of F.aktiv) if (a !== unten && a !== oben) { a.stop(); F.aktiv.delete(a); }
+    for (const a of [unten, oben]) {
+      if (!a || (F.aktiv.has(a) && !neu)) continue;
+      a.reset().setEffectiveWeight(1).play(); F.aktiv.add(a);
+      // Die Hände sind schon oben: Stehen ↔ Zurückweichen hebt sie nicht neu.
+      if (schluessel.startsWith('aufgabe') && F.aufgabeSteht && a.getClip().name.startsWith('Koerper_Aufgabe')) a.time = a.getClip().duration * 0.999;
+    }
+    if (schluessel.startsWith('aufgabe')) F.aufgabeSteht = true;
+    F.schluessel = schluessel;
+  }
+  unten.timeScale = rate;
+  if (oben) oben.timeScale = 1;
+  if (zeit !== null) { unten.timeScale = 0; unten.time = zeit; }
+  r.aktiv = unten;
+  r.mixer.update(dtK);
+  F.traegheit.nachMixer(dtK);
+
+  // ---- Körper über den Clips
+  const e = F.eingabe;
+  e.gier = gier; e.tempo = tempo; e.rennen = g.werte.tempo ?? 4; e.straff = straff; e.steht = steht;
+  e.hoeheAn = hoeheAn; e.fuesse = fuesse; e.halten = halten; e.weite = 1; e.zusatz = pu.zusatz;
+  // Blick zur Spielfigur (Brusthöhe), solange er kämpft oder aufgibt; im Taumeln, im Tod und im Abgang nicht.
+  if (blick && sp.phase !== 'gefallen') { pu.fokus.x = sp.x; pu.fokus.y = sp.y + sp.werte.hoehe * 0.8; pu.fokus.z = sp.z; e.fokus = pu.fokus; }
+  else e.fokus = null;
+  const lage = F.koerper.schritt(dtK, e);
+  // Drehkette: Die Gruppe (mit Bogen und Kranz) zeigt, wohin die Regel zeigt; der Leib folgt mit der Hüfte nach.
+  const l = pu.leib;
+  l.rotation.y = lage.huefte - pu.gruppe.rotation.y;
+  l.rotation.x += lage.nicken; l.rotation.z += lage.rollen;
+  F.koerper.knochen(dtK, e);
+  F.traegheit.ende();
+  if (!r.waffe?.liegt) r.gleite?.();
 }

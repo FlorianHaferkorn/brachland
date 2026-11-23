@@ -104,6 +104,7 @@ import { hiebClipzeit, uebergangsDauer, type Bewegungsart, type Hiebmarken } fro
 import { leseClipmarken } from '../figur/clipmarken.js';
 import { FIGUR } from '../figur/werte.js';
 import { figurfeinAn } from '../figur/schalter.js';
+import { landeClip, landungLaeuft, meldeLandung, neueLandung, type Landeart, type Landung } from '../figur/landung.js';
 import { wegVomAngreifer } from '../kampf/gewicht.js';
 import { KOMBO_AB } from '../kampf/echtzeit.js';
 /**
@@ -138,8 +139,8 @@ import { verteileKreaturen, rueckkehrVorkommen, type Vorkommen, type KreaturSpaw
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
 import { REITEN_GEHEN, REITEN_RENNEN, REIT_MAX_GRAD } from '../spiel/reiten.js';
-import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG, KLETTERN_TEMPO } from '../spieler/tempo.js';
-import { begrenzeFall, fallschaden, gerolltBeiLandung, kaelteLeben, kaelteSchritt, neueKaelte } from '../spieler/bewegung.js';
+import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG, KLETTERN_TEMPO, BEWEGUNG } from '../spieler/tempo.js';
+import { begrenzeFall, fallhoeheAus, fallschaden, gerolltBeiLandung, kaelteLeben, kaelteSchritt, neueKaelte } from '../spieler/bewegung.js';
 import { GLEIT_TEMPO, bremse, gleitSchritt, neuerFall, type Fall } from '../spieler/gleiten.js';
 
 
@@ -3291,7 +3292,9 @@ export const NEIGUNG_START = 0.32;
  * Look beurteilbar machen soll.
  */
 function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet,
-                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt, sprung, anzug, onKoerper }: {
+                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt, sprung, anzug, onKoerper, landung }: {
+  /** D458: Landezustand für die Figur (`figur/landung.ts`) — nur Bild, die Regel des Fallschadens bleibt D412. */
+  landung?: React.RefObject<Landung>;
   feld: HoehenFeld;
   /** Versetzen (D179): Liegt hier ein Punkt, steht die Figur im nächsten Bild dort, auf dem Boden. */
   /** Versetzen (D179), optional mit Blick (D183: Aufwachen schaut zur Zuflucht). */
@@ -3533,8 +3536,12 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       if (p.y <= boden) {
         // D412: Fallschaden am Aufprall, nicht an der Höhe — der Gleiter landet mit 4 m/s
         // schadlos. D413: Rolltaste K kurz vor dem Aufsetzen halbiert ihn (ohne Clip).
-        const schaden = fallschaden(-steigen.current, gerolltBeiLandung(e0.rolleUm, performance.now()));
+        const gerollt = gerolltBeiLandung(e0.rolleUm, performance.now());
+        const schaden = fallschaden(-steigen.current, gerollt);
         if (schaden > 0) onKoerper?.('sturz', 1 - schaden);
+        // D458: Landezustand aus demselben Aufprall — weich unter der schadlosen Höhe, hart darüber, Rolle mit der
+        // Rolltaste (D413). Die Figur liest ihn (`SpielerFigur`); ins Wasser landet niemand hart.
+        if (landung?.current && !watet) meldeLandung(landung.current, fallhoeheAus(-steigen.current), BEWEGUNG.fall.schadlosBis, gerollt, FIGUR.landung);
         p.y = boden; steigen.current = 0;
       }
     }
@@ -3830,9 +3837,9 @@ const POSE_PROBE: [string, number, 'klinge' | 'axt' | 'speer'] | null = (() => {
 })();
 
 /** Block-Clip je Waffe (D173/D174/D184). */
-const BLOCKCLIP = { klinge: 'Klinge_U_Block', axt: 'Axt_Block', speer: 'Speer_Block' } as const;
-/** D456/D457: Die Deckung der Klinge beginnt in ihrer Hut (`Klinge_Block`); ohne den Clip (alte Wanderin) die von D173. */
-const BLOCKCLIP_HUT: Partial<Record<keyof typeof BLOCKCLIP, string>> = { klinge: 'Klinge_Block' };
+// D458 (A-51 (1)): Die Deckung der Klinge ist `Klinge_Block` (D456, beginnt in der Hut) — der UAL2-Clip
+// `Klinge_U_Block` wird nicht mehr gebraucht; `BLOCKCLIP_HUT` aus D457 ist damit überflüssig.
+const BLOCKCLIP = { klinge: 'Klinge_Block', axt: 'Axt_Block', speer: 'Speer_Block' } as const;
 /** D456/D457: Der Markengriff (D417) hat einen eigenen Clip; fehlt er, steht die Figur wie bisher in der Deckung. */
 const GRIFFCLIP = 'Koerper_Griff';
 
@@ -3882,8 +3889,10 @@ function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
  * Reiten (D93, D145): Im Sattel spielt die Figur Idle, wird um den Widerrist
  * angehoben und bekommt die Sitzpose ueber drei Winkel je Bein (`sitzpose`).
  */
-function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeheAn }: {
+function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeheAn, landung }: {
   gier: React.RefObject<number>;
+  /** D458: Landezustand aus der Bewegung (`Spieler` schreibt ihn beim Aufsetzen). */
+  landung?: React.RefObject<Landung>;
   /** Geländehöhe für die Füsse (D214). Ohne sie bleiben die Füsse, wo der Clip sie hinsetzt. */
   hoeheAn?: (x: number, z: number) => number;
   /** Schmiedestufen (D178): Stufe 1–2 heller geschliffen, Stufe 3 ein anderes Modell. */
@@ -4022,6 +4031,8 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
   const hiebe = useRef(new Set<THREE.AnimationAction>());
   /** Was zuletzt aus dem Kampf gesehen wurde — ein neuer Zählerstand startet den Clip neu. */
   const kampfVor = useRef({ schwung: -1, rollen: -1, getroffen: -1, trefferBis: 0, uhr: 0 });
+  /** D458: zuletzt gesehene Landung — ein neuer Zählerstand startet den Landeclip. */
+  const landVor = useRef({ nr: -1, art: null as Landeart | null, seit: 1e9 });
   /** Klinge und Axt an `Wrist.R`; sichtbar nur mit Kampf (D168). */
   const waffen = useMemo(() => {
     const w = baueWaffen();
@@ -4239,7 +4250,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
         // keinen Griff-Clip (offen, D414); der gehobene Arm ist die nächste vorhandene Haltung.
         const w = k.waffe ?? 'klinge';
         const griff = k.phase === 'reinigen' ? aktionen(GRIFFCLIP, true) : null;
-        const b = griff ?? aktionen(BLOCKCLIP_HUT[w] ?? '', true) ?? aktionen(BLOCKCLIP[w], true)!;
+        const b = griff ?? aktionen(BLOCKCLIP[w], true)!;
         // Die Deckung hebt doppelt so schnell, wie der Clip sie zeigt (D173); der Griff läuft, wie er gebaut ist.
         b.clampWhenFinished = true; b.timeScale = griff ? 1 : 2;
         ziel = b; blende = 0.06; art = 'block';
@@ -4283,6 +4294,31 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
       kv.schwung = k.schwung; kv.rollen = k.rollen;
     }
     const fein = !!lz && figurfeinAn();
+    // ---- D458: Landung (`figur/landung.ts`). Der Zustand kommt aus der Bewegung (Aufprall, D412/D413); gespielt
+    // wird er nur, wo der Kampf die Figur nicht führt. Im Stand der ganze Clip; in Bewegung federt nur der
+    // Oberkörper nach, die Beine laufen weiter (die Landung sperrt keine Eingabe — sie ist kein Spielwert).
+    let landOben: string | null = null, landNeu = false;
+    {
+      const ld = landung?.current, lv = landVor.current;
+      lv.seit += Math.min(dt, 0.1) * ZEITLUPE;
+      if (ld && ld.nr !== lv.nr) {
+        // Der erste Stand zählt nicht (die Figur wird aufgestellt, nicht gelandet).
+        if (lv.nr >= 0 && ld.nr > lv.nr) { lv.art = ld.art; lv.seit = 0; landNeu = true; }
+        lv.nr = ld.nr;
+      }
+      if (fein && lv.art && !reittier && (!k || k.phase === 'bereit')) {
+        const lw = FIGUR.landung, rolle = lv.art === 'rolle', bewegt = tempo >= 0.15;
+        const a = rolle ? clips.rolle : aktionen(landeClip(lv.art, lw), true);
+        if (a && landungLaeuft(lv.seit, rolle ? lw.rolleDauer : a.getClip().duration, bewegt && !rolle, lw)) {
+          if (rolle) {
+            // Bis es eine eigene Landerolle gibt: die Rolle aus dem Kampf, auf `rolleDauer` gestaucht.
+            clips.rolle.timeScale = clips.rolle.getClip().duration / (lw.rolleDauer + 0.2);
+            ziel = clips.rolle; art = 'rolle'; neu = landNeu; blende = 0.06;
+          } else if (bewegt) landOben = a.getClip().name;
+          else { a.timeScale = 1; ziel = a; art = 'landung'; neu = landNeu; blende = lw.uebergang; }
+        } else if (!landNeu) lv.art = null;
+      }
+    }
     if (!fein) {
       if (lz?.an) {
         // Schalter gerade umgelegt: die Aktionen der feinen Laufzeit anhalten, Figur gerade stellen, Idle wie beim Start.
@@ -4331,18 +4367,20 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
       // der ganze Körper dem Clip. Der Zweig für die Deckung greift erst, falls die Regel das Gehen dort je erlaubt.
       let oben: THREE.AnimationAction | null = null;
       if (art === 'block' && tempo >= 0.15) oben = L.teil(ziel.getClip().name, true)?.ober ?? null;
+      else if (art === 'gang' && landOben) oben = L.teil(landOben, true)?.ober ?? null; // D458: Landung über dem Gang
       else if (art === 'gang' && k && k.phase === 'bereit') oben = L.teil(k.haltung)?.ober ?? null;
+      const obenNeu = landNeu && !!oben && oben.getClip().name.startsWith(landOben ?? '\u0000');
       let schluessel: string;
       if (art === 'gang' || oben) {
         sollA.push(g.gehU, g.laufU); sollW.push(1 - gm.rennen, gm.rennen);
         if (oben) { sollA.push(oben); sollW.push(1); schluessel = `gang+${oben.getClip().name}`; }
         else { sollA.push(g.gehO, g.laufO); sollW.push(1 - gm.rennen, gm.rennen); schluessel = 'gang'; }
       } else { sollA.push(ziel); sollW.push(1); schluessel = ziel.getClip().name; }
-      if (schluessel !== L.schluessel || neu) {
-        L.traegheit.wechsel(uebergangsDauer(L.art, art, FIGUR.uebergang));
+      if (schluessel !== L.schluessel || neu || obenNeu) {
+        L.traegheit.wechsel(obenNeu ? FIGUR.landung.uebergang : uebergangsDauer(L.art, art, FIGUR.uebergang));
         for (const a of L.aktiv) if (!sollA.includes(a)) { a.stop(); L.aktiv.delete(a); }
         for (const a of sollA) {
-          if (L.aktiv.has(a) && !(neu && a === ziel)) continue;
+          if (L.aktiv.has(a) && !(neu && a === ziel) && !(obenNeu && a === oben)) continue;
           a.reset().play(); L.aktiv.add(a);
           // Die Deckung stand schon (Stand ↔ Gehen mit gehobener Waffe): am Ende einsteigen, nicht neu heben.
           if (art === 'block' && L.art === 'block' && (a === oben || a === ziel)) a.time = a.getClip().duration * 0.999;
@@ -4408,6 +4446,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
         e.straff = !k ? 0 : art === 'hieb' || art === 'rolle' || art === 'fall' ? 1 : 0.5;
         e.fokus = k?.fokus ?? null;
         e.steht = art === 'stand' || art === 'hut';
+        // (D458: in der Landung steht sie nicht ruhig — kein Atemhub über dem Federn.)
         e.hoeheAn = FUESSE_AN ? hoeheAn : undefined;
         e.fuesse = sitz.current < 0.01;
         // Standfüsse halten nicht, wo die Füsse das Tempo nicht abdecken (Rennen ohne Sprintclip): Halten und Loslassen
@@ -4989,6 +5028,8 @@ export function RegionsSzene({
   }, [tageszeit, geheilt]);
   const neigung = useRef(NEIGUNG_START);
   const schritt = useRef({ phase: 0, tempo: 0 });
+  /** D458: Landezustand — `Spieler` schreibt beim Aufsetzen, `SpielerFigur` spielt den Clip. */
+  const landung = useRef<Landung>(neueLandung());
   // Als Ref gespiegelt: Die Bewegungsschleife liest jedes Bild, und ein Prop-Wechsel
   // soll nicht durch den Callback-Baum von `Spieler` laufen.
   const reitetRef = useRef(false);
@@ -5167,14 +5208,14 @@ export function RegionsSzene({
             jedem geladenen Modell neu. */}
         <Suspense fallback={null}>
           <SpielerFigur gier={gier} schritt={schritt} reittier={reittier} kampf={kampfFigur} waffenStufen={waffenStufen}
-                        hoeheAn={feld.hoehe}
+                        hoeheAn={feld.hoehe} landung={landung}
                         rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
         </Suspense>
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}
                reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten}
-               anzug={anzugRef} onKoerper={onKoerper}
+               anzug={anzugRef} onKoerper={onKoerper} landung={landung}
                meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} kampfZielt={kampfZielt}
                sprung={spielerSprung} />
       {kampfplatz && (

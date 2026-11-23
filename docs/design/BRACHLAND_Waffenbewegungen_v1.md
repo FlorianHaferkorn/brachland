@@ -873,7 +873,7 @@ je erlaubt — das wäre ein Kampfwert und ist hier nicht geändert.) Technik: J
 Teilclips geschnitten (`teileClip`); der Mixer kennt keine Masken. **Neue Clips von D456 verdrahtet:** die Deckung der
 Klinge spielt `Klinge_Block` (beginnt in der Hut) statt `Klinge_U_Block`, der Markengriff (D417) `Koerper_Griff` statt
 des Block-Clips. **Nicht verdrahtet:** `Koerper_Landung_Weich`/`_Hart` (die Figur kennt keinen Landemoment als Zustand)
-und `Koerper_Aufgabe` (Gegner, D458).
+und `Koerper_Aufgabe` (Gegner, D458). **Seit D458 verdrahtet** — Landung und Aufgabe, §8.7 (7) und (5).
 
 **4. Füsse.** Zu D214 (Höhe, Becken) kommen: **Sohle auf der Fläche** (Normale aus vier Höhen, höchstens 22° — ein
 Sprunggelenk kippt nicht beliebig; nur solange der Fuss bodennah ist) und der **Standfuss** (steht ein Fuss laut Clip,
@@ -914,9 +914,137 @@ messen:** `window.__figurfein.msMittel` in der Konsole (Mittel über 120 Bilder,
 Weite, Gleiten). Alles ist gegen einen `Rigplan` gebaut: Menschen teilen `RIG_MENSCH`; ein Vierbeiner bringt einen
 Plan mit vier Beinen (D458) — Standfuss, Normale und Zwei-Gelenk-IK rechnen je Bein, die Drehkette über beliebig
 viele Wirbel. Für Tiere offen: das Becken senkt sich heute um den tiefsten Fuss aller Beine (für Vierbeiner braucht
-es Vorder- und Hinterhand getrennt).
+es Vorder- und Hinterhand getrennt). **Erledigt mit D458:** Rumpf je Beinpaar, §8.7 (1).
 
 **Was Standbilder nicht zeigen** und am M1 zu prüfen ist — siehe Ledger D457.
+
+### 8.7 Tiere und Gegner an der Laufzeit (D458)
+
+Auftrag D455, Teil 3 von 3. Gebaut am 23.11.2026, **nicht am M1 in Bewegung gesehen** (ADR-0005) — Formeln ohne
+Renderer geprüft (`tests/gegnerbewegung.test.ts`, 178 Prüfungen, davon an den echten Skeletten von Wolf, Grathorn,
+Fuchs und Gams), Form im SwiftShader-Standbild (`.cache/bilder/D458/`). **Kein Kampfwert geändert:** `echtzeit.ts`
+und `content/gegner/*.json` sind nicht angefasst, Kampftor und Fingerabdruck unverändert grün. Alles hinter dem
+Schalter `figurfein` (D457); aus heisst der Weg von vor D458.
+
+**Bestand vor D458** (`src/kampf/Kampfplatz.tsx`, Stand D457):
+
+| Gegner | Körper | Clips | Zuordnung zur Regel | Befund |
+|---|---|---|---|---|
+| Wolf, Fuchs | Skelett (D172, 51 Knochen) | `Attack`, `Death`, `Gallop`, `Idle`, `Idle_HitReact_Left/Right`, `Walk` | Vorlauf 0 → Scheitel, Aktiv → Durchzug, Erholung → Rest (Zeit je Bild gesetzt); betäubt `Idle_HitReact` mit 0,55; getroffen 450 ms `Idle_HitReact`; sonst `Idle`/`Walk`/`Gallop` nach Schwelle 0,15 / 2,6 m/s | Kreuzblende 0,08–0,2 s; `Walk` lief mit v / 1,1, `Gallop` mit v / 4 für jedes Tier — gemessen kommt der Wolf im `Walk` mit 1,39 m/s über den Boden, das Grathorn mit 0,84 (bei 1,1 m/s Füsse 26 % zu langsam bzw. 31 % zu schnell); am Hang waagerecht auf der Höhe der Mitte; kein Blick, kein Nachdrehen |
+| Grathorn, Nebelgams | Skelett (38/46 Knochen) | wie oben, Angriff `Attack_Headbutt` | wie oben | wie oben; Fuchs und Gams hatten **keine** Ansage am Körper (nur Clip, Bogen, Glühen) |
+| Wurzelkeiler | **kein Skelett** — Gang im Shader (D138) | keine | starrer Leib: Vorlauf/Aktiv/Erholung als Lage und Neigung (D169) | linear wachsende Ansage; am Hang vorn in der Erde, hinten in der Luft |
+| Wegelagerer, Speerfrau, Axtmann | Skelett der Spielfigur (D175) | Klinge `Klinge_U_A/B/C` + `Klinge_Stich`; `Speer_Stoss`/`_Weit`; `Axt_Quer`/`_Schwer`/`_Lauf`; `Death`, `Kampf_Taumeln`, `Kampf_Rueckstoss`, `Walk` | Clip je Linie; Inertialisierung seit D457 | die UAL2-Clips beginnen nicht in der Hut; **`Kampf_Rueckstoss` wirft die Figur zu Boden** (Becken nach 0,3 s auf 21 cm, am Clip gemessen) und lief bei jedem Treffer 0,45 s an; im Gehen fiel die Waffenhaltung; aufgegeben (D426) stand er nur da |
+| alle | | | gereinigt/verschont: 0,9 s stehen, dann Richtung um 180° **gesprungen** und im Schritt ab | Tod der Tiere mit Skelett: der `Death`-Clip legt sie auf die Seite **und** der Leib kippte starr um 90° dazu — sie lagen auf dem Rücken |
+
+**Wo es liegt.** Drei reine Module in `src/figur/` und die Verdrahtung im Kampfplatz:
+
+| Modul | Was |
+|---|---|
+| `vierbeiner.ts` | `RIG_VIERBEINER`; Rumpf je Beinpaar (`paarHoehe`, `rumpfLage`, `seitLage`), starrer Leib am Hang (`hangLage`), Gangart und Rate (`tierGang`) |
+| `ansage.ts` | Ansage (`ansagePose`), Taumeln, Schütteln, Sturz, Wende; Typ `Zusatz` |
+| `landung.ts` | Landezustand der Spielfigur |
+| `laufzeit.ts` | `Koerperfein` um Vierbeiner und `zusatz` erweitert, `fussKnoten` |
+| `kampf/Kampfplatz.tsx` | `zeichnePuppe` (Körpersprache je Phase), `spieleRigFein` (Clips über die Laufzeit) |
+
+Werte in `content/figurgegner.json` (Schema `Figurgegner`), Landung in `content/figurlaufzeit.json` `landung`.
+
+**1. Vierbeiner: jedes Beinpaar trägt seinen Gürtel.** Der offene Punkt aus §8.6 (7). Die Tierskelette (Quaternius
+Animal Pack) teilen ihre Knochennamen; die Läufe enden **ohne Fussknochen**, `fussKnoten` legt je Lauf einen
+Sohlenpunkt ans Ende des Unterlaufs. Je Bild: (1) Sohlen lesen, wie der Clip sie setzt; (2) Bodenhöhe unter jeder
+Sohle; (3) die Gerade durch Vorder- und Hinterhand gibt Hub und Nicken des Rumpfs — er dreht um **seine eigene
+Höhe**, Schulter und Becken bleiben über ihren Füssen; (4) jeder Lauf per Zwei-Gelenk-IK zurück auf seine Stelle
+am Boden. Am echten Wolfsskelett bei 20° bergauf: Rumpf 20,5°, alle Sohlen am Boden (±2 cm), Läufe ±1 cm an ihrer
+Stelle. Grenzen: Nicken höchstens 28° (darüber folgt der Rumpf dem tieferen Paar, das andere beugt sich — ein Lauf
+kann sich beugen, aber nicht strecken; die Vorderläufe stehen im Clip fast gestreckt, 1,7 cm Reserve beim Wolf);
+am Querhang geht der Rumpf 40 % mit (höchstens 8°), den Rest gleichen die Läufe aus; der Kopf nimmt 60 % des
+Nickens zurück (er bleibt waagerecht). **Der Wurzelkeiler hat kein Skelett** — er liegt als Ganzes auf der Geraden
+Bug–Heck (`hangLage`); **benannte Abweichung (D398):** seine Läufe stehen damit senkrecht zum Hang statt lotrecht.
+
+**2. Gang ans Tempo.** Wie D457 für `Walk`/`Run` der Spielfigur wird jeder Tierclip beim Laden **gemessen**
+(Bahn der Sohlen, Tempo in der Standphase):
+
+| Tier | `Walk` | `Gallop` | Wechsel bei |
+|---|---|---|---|
+| Wolf | 1,39 m/s | 4,38 m/s | 2,47 m/s |
+| Fuchs | 1,29 | 4,20 | 2,33 |
+| Grathorn | 0,84 | 3,76 | 1,78 |
+| Nebelgams | 0,95 | 4,02 | 1,95 |
+
+Die Abspielrate ist Tempo / Cliptempo (0,5–1,8), die Gangart wechselt am geometrischen Mittel mit 10 % Hysterese.
+Schritt und Galopp werden **nicht gemischt** (verschiedene Fussfolgen). **Benannt:** Ein Trab fehlt als Clip —
+zwischen rund 2 und 3 m/s läuft der Schritt bis 1,8-fach bzw. der Galopp ab 0,56-fach. Bei den Tempi der Regel
+(Wolf 4, Fuchs 4,5, Gams 3,5 m/s) deckt der Galopp die Strecke ohne Gleiten. Menschen: `Walk` 1,03 / `Run` 2,07 m/s
+wie die Spielfigur; kampfbereit gehen sie mit den Beinen des Gangs und dem Oberkörper in der Hut ihrer Waffe.
+
+**3. Drehkette, Blick, Atem.** Die Gruppe (mit Bogen und Kranz) zeigt, wohin die Regel zeigt; der Leib folgt mit
+dem Becken nach (Halbwert Kopf 0,05 s, Schulter 0,12 s, Becken 0,20 s, höchstens 40° Rückstand; im Schlag ohne
+Verzögerung). Der Blick geht zur Spielfigur (Brusthöhe), verteilt auf Brust, Halskette und Kopf; im Taumeln, im Tod
+und im Abgang nicht. Der Atem liegt beim Tier am letzten Wirbel (am zweiten hängen die Vorderläufe — sie schwängen
+sonst mit jedem Atemzug 1,7 cm über den Boden; im Test gefunden).
+
+**4. Ansage — der Vorlauf als Körperbewegung.** `ansagePose` liest Phase und Zeit der Regel und gibt einen Zusatz
+über dem Clip: Gewicht zurück, Ducken oder Steigen, Rumpf nicken, Kopf senken, Scharren, Zittern, und für
+Richtungsangriffe (ADR-0009) die **Seite**. Die Spannung steigt früh (1 − (1 − u)³) und **steht nach `anstieg`
+des Vorlaufs** (0,45–0,65), dann hält sie bis zum Schlag — ein gespannter Bogen, kein gleichmässiges Wachsen; im
+Aktiv entlädt sie sich. Vorlauf, Aktiv und Erholung bleiben, wie sie in `content/gegner/*.json` stehen.
+
+| Gegner | Ansage (Endwerte) | Seite / Linie |
+|---|---|---|
+| Keiler | 30 cm zurück, vorn 9° runter, scharrt 2,5 Hz (D169) | unten |
+| Grathorn | steigt 18°, 12 cm hoch, 25 cm zurück (D170) | oben |
+| Wolf | duckt 10 cm, 22 cm zurück, Kopf 12° tief, zittert (D171) | links/rechts: Kopf 20°, Schultern 4°, Rollen 6° |
+| Fuchs (neu) | duckt 6 cm, 12 cm zurück, Kopf 10° tief | unten: Kopf 8° tiefer |
+| Nebelgams (neu) | steigt 10°, 8 cm hoch, 15 cm zurück, stampft | oben |
+| Wegelagerer, Speerfrau, Axtmann (neu) | Rumpf lehnt 2–4° zurück und dreht 8–16° ins Ausholen | oben hebt, unten senkt den Kopf |
+
+Beim Tier mit Skelett bewegt die Ansage den **Rumpf über stehenden Läufen** (Gewicht zurück heisst: die Füsse
+bleiben); im Aktiv trägt der Rumpf, was vom Zurücklehnen übrig ist, und der Leib nur den Satz selbst — zusammen der
+Weg von D169–D171, ohne dass die Läufe beim Wechsel springen. **Seite, festgelegt:** `rechts` ist die Seite, die
+die Spielerin rechts im Bild sieht (so zeigt es die Linienraute), also die **Linke des Angreifers**. Für den
+Wegelagerer heisst das `rechts` → `Klinge_Hieb_B` (Hand am Scheitel 22 cm links des Beckens, am Clip gemessen),
+`links` → `Klinge_Hieb_A` — so lag es mit `Klinge_U_A/B` auch. **Offen:** Axtmann (`Axt_Quer` gibt es nur von
+rechts) und Speerfrau (alle Linien ein Stoss) zeigen die Seite nur über die Rumpfdrehung; gespiegelte Clips wären
+Sache der Clips (D460).
+
+**5. Treffer, Taumeln, Tod, gereinigt, Aufgabe.** *Treffer:* Die Neigung aus D427 (Δv = Impuls / Masse) geht als
+Stoss in die Feder von D457 (`stossGrad`) — sie schwingt aus, statt nach 0,22 s abzubrechen; beim Menschen kippt
+die Wirbelsäule (die Füsse bleiben), beim Tier der Rumpf über stehenden Läufen; der Versatz bleibt der von D427.
+Menschen spielen getroffen `HitRecieve` statt `Kampf_Rueckstoss`. *Taumeln:* ein Körper, der um seine Füsse schwankt,
+ist ein umgekehrtes Pendel — f ∝ 1/√Höhe (Mensch 0,82 Hz, Wolf 1,16 Hz; vorher 1,43 Hz für alle); der Schwerpunkt
+wandert zur Seite, die Beine geben 6 cm nach, der Kopf hängt und kommt mit Verzug nach. Ausschlag und Dauer wie
+bisher (D427 bzw. `betaeubt` der Regel). *Tod:* Tiere mit Skelett legt ihr `Death`-Clip auf die Seite, das starre
+Kippen entfällt dort; der starre Leib und der Mensch (sein `Death` knickt nur, das Becken bleibt oben) kippen
+beschleunigt statt gleichmässig und federn einmal nach. *Gereinigt (D417):* das Tier steht, **schüttelt sich**
+(Welle vom Kopf nach hinten; Frequenz nach Masse, Dickerson/Mills/Hu 2012: Wolf 4,2 Hz, Keiler 3,5 Hz, Fuchs
+6,2 Hz — der Exponent −0,22 ist aus dem Gedächtnis, im Volltext nicht nachgelesen), **wendet sich** mit 200°/s ab
+und geht, wohin es schaut (anfangs im Bogen). *Aufgabe (D426):* `Koerper_Aufgabe` passt (gleiches Skelett) — im
+Zurückweichen der Regel nur der Oberkörper (Hände gehoben) über rückwärts gehenden Beinen, im Stand der ganze Clip
+(aufs rechte Knie); die Waffe liegt am Boden. Verschont hält er 1,2 s, steht auf, wendet sich ab und geht.
+
+**6. Menschliche Gegner auf den Clips von D456 (A-51 (1)).** Wegelagerer: `Klinge_Hieb_A/B`, `Klinge_Schwer`,
+`Klinge_Stich` — Scheitel und Durchzug aus den Clipmarken (6/9, 6/9, 14/18, 9/13: dieselben Bilder wie zuvor);
+Folgeschläge steigen am Einstieg ein, die Erholung davor endet in der Kettenpose (`hiebClipzeit`). Geht ein Hieb der
+Spielerin in die gedeckte Linie, heben alle drei kurz die Deckung (`Klinge_Block`, `Speer_Block`, `Axt_Block`).
+`BLOCKCLIP` der Spielfigur nennt `Klinge_Block`. **Damit unbenutzt:** `Klinge_U_A`, `Klinge_U_B`, `Klinge_U_C`,
+`Klinge_U_Lauf`, `Klinge_U_Block` (rund 60 KB in `held-clips.glb`; genannt noch in `content/waffenfamilien.json`
+und im Posenblick des Figureneditors) — **nicht entfernt**, das Entfernen gehört zu den Clips.
+
+**7. Landung der Spielfigur.** `landeArt` aus dem Aufprall, den `spieler/bewegung.ts` ohnehin misst (gleichwertige
+Fallhöhe v²/2g): unter 0,6 m nichts, bis zur schadlosen Höhe (4,5 m, D412) `Koerper_Landung_Weich`, darüber
+`Koerper_Landung_Hart`, mit der Rolltaste (D413) die vorhandene Rolle (`Roll`, auf 0,75 s gestaucht), bis es einen
+eigenen Clip gibt. Im Stand der ganze Clip, in Bewegung federt nur der Oberkörper nach (55 % des Clips) und die
+Beine laufen. **Kein Spielwert:** Die Landung sperrt keine Eingabe. *Vorschlag (nicht gebaut, wäre eine Regel):*
+nach hartem Aufprall 0,4–0,6 s Landestarre, damit die Hocke nicht über laufenden Beinen liegt.
+
+**8. Kosten.** `npx tsx tools/figurbank.ts`, sechs Gegner gleichzeitig an echten Skeletten (zwei Wölfe, Fuchs,
+Grathorn, zwei Menschen; Clip, Trägheit mit Wechsel alle 12 Bilder, Drehkette, Blick, Atem, Ansage, Trefferfeder,
+Füsse am Hang): **rund 0,29 ms je Bild für alle sechs** (48 µs je Gegner; Cloud-Rechner, Node, ein Kern, unter
+Last), der Mixer allein 0,09 ms. Der Kampfplatz stellt höchstens drei Gegner. **Am M1 zu messen:**
+`window.__gegnerfein` in der Konsole (`msMittel` über 120 Bilder für alle Gegner samt Zeichnen der Puppen, dazu
+gemessenes Cliptempo und Gleiten je Gegner).
+
+**Messadresse.** `?posenprobe=1` (Übungsplatz): nichts rechnet, die Gegner stehen im Profil, der erste an der
+steilsten Stelle in der Nähe, und zeigen die Phase aus `window.__posenprobe = { phase, anteil, linie }`.
 
 ## 9. D456: alle Clips der Spielfigur nach den Handwerksregeln — ausgeführt
 

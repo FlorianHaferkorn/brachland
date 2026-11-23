@@ -1,0 +1,70 @@
+{
+  "stand": "D458, 23.11.2026 — Körpersprache der Tiere und Gegner über den Clips, nur Darstellung, kein Kampfwert. Arbeitswerte aus Rechnung und Formvergleich (SwiftShader); am M1 in Bewegung noch nicht gesehen (ADR-0005).",
+  "lies": "Gelesen von src/figur/gegnerwerte.ts; Formeln in src/figur/vierbeiner.ts und src/figur/ansage.ts, geprüft von tests/gegnerbewegung.test.ts. Längen in m, Winkel in Grad, Zeiten in s. Achsen: vorn −Z, rechts +X; Rumpf-Nicken positiv = vorn hoch, Kopf-Nicken positiv = Kopf senkt sich, Rollen positiv = nach links. Die Ansage liest Phase und Zeit der Regel (src/kampf/echtzeit.ts) und ändert keinen Zeitpunkt.",
+  "vierbeiner": {
+    "drehen": { "kopf": 0.05, "schulter": 0.12, "huefte": 0.2, "maxGrad": 40 },
+    "nickMaxGrad": 28,
+    "rollAnteil": 0.4,
+    "rollMaxGrad": 8,
+    "hubMax": 0.4,
+    "streckReserve": 0.02,
+    "kopfAusgleich": 0.6,
+    "gang": { "gehen": 1.0, "galopp": 4.0, "rateMin": 0.5, "rateMax": 1.8, "hysterese": 0.1, "standHoehe": 0.03 },
+    "real": "Ein Vierbeiner steht am Hang mit lotrechten Läufen, der Rumpf liegt auf der Geraden Schulter–Becken (jedes Beinpaar trägt seinen Gürtel); am Querhang bleibt er fast aufrecht und streckt die talseitigen Läufe. Der Kopf wird beim Steigen und Fallen waagerecht gehalten (Gleichgewichtsorgan). Gangwechsel Schritt → Trab → Galopp mit dem Tempo.",
+    "warum": "nickMaxGrad 28: steiler geht das Gelände für Tiere kaum; darüber gleichen die Läufe aus. rollAnteil 0,4 / 8°: ein Rest Querneigung liest sich als Hang, mehr sähe nach Umfallen aus. kopfAusgleich 0,6: der Hals nimmt 60 % des Nickens zurück. drehen: Kopf führt, dann Schulter, dann Becken — langsamer als beim Menschen (0,03/0,07/0,11 s), weil der Rumpf lang ist. gang: gehen/galopp sind nur Rückfall; das Tempo jedes Clips wird beim Laden gemessen. BENANNT: Es gibt keinen Trab-Clip — zwischen Schritt und Galopp wechselt die Gangart am geometrischen Mittel der gemessenen Tempi; und der Wurzelkeiler hat kein Skelett (Gang im Shader, D138): er liegt als Ganzes auf dem Hang, seine Läufe stehen dann senkrecht zum Hang statt lotrecht.",
+    "quelle": "Überschlag und Beobachtung; nicht einzeln belegt"
+  },
+  "uebergang": { "standard": 0.2, "gang": 0.25, "angriff": 0.1, "treffer": 0.08, "tod": 0.15, "aufgabe": 0.3, "abgang": 0.35, "deckung": 0.08 },
+  "ansage": {
+    "real": "Vor dem Stoss verlagert jedes Tier das Gewicht nach hinten und spannt die Hinterhand (Sprungfeder); Schwarzwild senkt den Kopf und scharrt, Wölfe ducken sich und fixieren, Böcke steigen und stossen von oben. Ein Mensch dreht den Rumpf ins Ausholen, bevor die Waffe kommt.",
+    "warum": "Messlatte D432 (For Honor, Soulframe): der Schlag ist am Körper lesbar, bevor Farbe und Bogen es sagen. anstieg: nach diesem Anteil des Vorlaufs steht die Pose und hält — gespannt, nicht gleichmässig wachsend. Die Endwerte von Keiler, Grathorn und Wolf sind die von D169/D170/D171 (dort starr am Leib; jetzt bei Tieren mit Skelett mit stehenden Läufen). Seite: `rechts` holt nach der LINKEN des Angreifers aus — die Spielerin steht gegenüber und sieht es rechts, wie die Linienraute es zeigt. Menschen: nur Wirbelsäule und Kopf (zurueck/hoch wirken bei ihnen nicht, ihre Clips tragen das Ausholen).",
+    "profile": {
+      "keiler": { "lies": "Kopf runter, Gewicht nach hinten, scharren (D169). Ohne Skelett: der ganze Leib.", "zurueck": 0.3, "hoch": 0, "nickGrad": -9.17, "kopfGrad": 0, "scharrHz": 2.55, "scharrHub": 0.035, "zitterHz": 0, "zitterGrad": 0, "seiteKopfGrad": 0, "seiteRumpfGrad": 0, "seiteRollGrad": 0, "linieKopfGrad": 0, "anstieg": 0.6, "ketteAnteil": 0.4 },
+      "grathorn": { "lies": "steigt: Vorderteil hoch, Kopf zurück (D170) — Linie oben.", "zurueck": 0.25, "hoch": 0.12, "nickGrad": 18.33, "kopfGrad": -6, "scharrHz": 0, "scharrHub": 0, "zitterHz": 0, "zitterGrad": 0, "seiteKopfGrad": 0, "seiteRumpfGrad": 0, "seiteRollGrad": 0, "linieKopfGrad": 0, "anstieg": 0.65, "ketteAnteil": 0.4 },
+      "wolf": { "lies": "duckt sich, Gewicht auf die Hinterläufe, Kopf tief und zur Seite der Linie (D171).", "zurueck": 0.22, "hoch": -0.1, "nickGrad": -5.73, "kopfGrad": 12, "scharrHz": 0, "scharrHub": 0, "zitterHz": 3.5, "zitterGrad": 1.15, "seiteKopfGrad": 20, "seiteRumpfGrad": 4, "seiteRollGrad": 6, "linieKopfGrad": 0, "anstieg": 0.55, "ketteAnteil": 0.4 },
+      "fuchs": { "lies": "duckt sich flach, Kopf tief (Linie unten).", "zurueck": 0.12, "hoch": -0.06, "nickGrad": -6, "kopfGrad": 10, "scharrHz": 0, "scharrHub": 0, "zitterHz": 4.5, "zitterGrad": 1, "seiteKopfGrad": 0, "seiteRumpfGrad": 0, "seiteRollGrad": 0, "linieKopfGrad": 8, "anstieg": 0.55, "ketteAnteil": 0.4 },
+      "gams": { "lies": "steigt kurz und stösst von oben (Linie oben), stampft.", "zurueck": 0.15, "hoch": 0.08, "nickGrad": 10, "kopfGrad": -4, "scharrHz": 2.2, "scharrHub": 0.015, "zitterHz": 0, "zitterGrad": 0, "seiteKopfGrad": 0, "seiteRumpfGrad": 0, "seiteRollGrad": 0, "linieKopfGrad": 0, "anstieg": 0.65, "ketteAnteil": 0.4 },
+      "wegelagerer": { "lies": "Rumpf dreht ins Ausholen, lehnt zurück.", "zurueck": 0, "hoch": 0, "nickGrad": 3, "kopfGrad": 3, "scharrHz": 0, "scharrHub": 0, "zitterHz": 0, "zitterGrad": 0, "seiteKopfGrad": 0, "seiteRumpfGrad": 14, "seiteRollGrad": 3, "linieKopfGrad": 5, "anstieg": 0.5, "ketteAnteil": 0.5 },
+      "speermann": { "lies": "zieht den Schaft zurück, Rumpf dreht wenig.", "zurueck": 0, "hoch": 0, "nickGrad": 2, "kopfGrad": 4, "scharrHz": 0, "scharrHub": 0, "zitterHz": 0, "zitterGrad": 0, "seiteKopfGrad": 0, "seiteRumpfGrad": 8, "seiteRollGrad": 2, "linieKopfGrad": 5, "anstieg": 0.5, "ketteAnteil": 0.5 },
+      "axtmann": { "lies": "schweres Ausholen: Rumpf dreht weit, lehnt zurück.", "zurueck": 0, "hoch": 0, "nickGrad": 4, "kopfGrad": 2, "scharrHz": 0, "scharrHub": 0, "zitterHz": 0, "zitterGrad": 0, "seiteKopfGrad": 0, "seiteRumpfGrad": 16, "seiteRollGrad": 4, "linieKopfGrad": 6, "anstieg": 0.45, "ketteAnteil": 0.5 },
+      "uebungsgegner": { "lies": "Kapsel: nur der Leib.", "zurueck": 0.15, "hoch": 0, "nickGrad": -6, "kopfGrad": 0, "scharrHz": 0, "scharrHub": 0, "zitterHz": 0, "zitterGrad": 0, "seiteKopfGrad": 0, "seiteRumpfGrad": 0, "seiteRollGrad": 0, "linieKopfGrad": 0, "anstieg": 0.6, "ketteAnteil": 0.4 }
+    }
+  },
+  "taumel": {
+    "hzBei1m": 1.1,
+    "grundGrad": 12.6,
+    "rest": 0.35,
+    "nickAnteil": 0.4,
+    "hebel": 0.35,
+    "sinken": 0.06,
+    "kopfGrad": 14,
+    "kopfAnteil": 0.5,
+    "kopfVerzug": 0.9,
+    "real": "Ein Körper, der um seine Standfläche schwankt, schwingt wie ein umgekehrtes Pendel: Periode ∝ √(Höhe des Schwerpunkts). Benommene lassen den Kopf hängen; er folgt dem Rumpf mit Verzug.",
+    "warum": "hzBei1m 1,1: Mensch (1,8 m) 0,82 Hz, Wolf (0,9 m) 1,16 Hz — vorher 1,43 Hz für alle (D169). grundGrad 12,6 = 0,22 rad aus D169; nach Haltungsbruch gilt der Ausschlag aus der Wucht (D427). rest 0,35 wie D169. hebel: Anteil der Höhe, um den der Schwerpunkt seitlich wandert (Läufe stehen). Die Dauer ist `betaeubt` der Regel — hier nur gelesen.",
+    "quelle": "Physik (Pendel); Beobachtung"
+  },
+  "schuetteln": {
+    "beginn": 0.12,
+    "dauer": 0.7,
+    "hzBei30kg": 4.5,
+    "exponent": -0.22,
+    "kopfGrad": 16,
+    "rumpfGrad": 7,
+    "welle": 1.2,
+    "real": "Felltiere schütteln sich mit einer Frequenz, die mit der Körpermasse fällt (Dickerson, Mills, Hu 2012: Maus rund 30 Hz, grosse Hunde 3–4 Hz, Bär rund 4 Hz); die Welle läuft vom Kopf nach hinten.",
+    "warum": "Das gereinigte Tier steht 0,9 s (D417, nur gezeichnet), bevor es abgeht — in dieser Zeit schüttelt es den Befall ab. exponent −0,22 aus dem Gedächtnis (im Volltext nicht nachgelesen; die Arbeit selbst ist belegt); mit 4,5 Hz bei 30 kg: Wolf 4,2 Hz, Keiler 3,5 Hz, Fuchs 6,2 Hz.",
+    "quelle": "Dickerson, Mills, Hu: Wet mammals shake at tuned frequencies to dry, J. R. Soc. Interface 2012, https://pmc.ncbi.nlm.nih.gov/articles/PMC3481573"
+  },
+  "abgang": {
+    "wendeGradJeS": 200,
+    "aufgabeHalten": 1.2,
+    "warum": "Abwenden als Drehung (0,9 s für die Kehre) statt eines Sprungs um 180°. aufgabeHalten: so lange hält ein Mensch nach der Frist die Hände oben, bevor er aufsteht und geht (nur gezeichnet; die Regel hat ihn da schon aus dem Kampf genommen)."
+  },
+  "sturz": {
+    "dauer": 0.6,
+    "prall": 0.05,
+    "nach": 0.25,
+    "warum": "Starrer Leib ohne Todes-Clip (Wurzelkeiler, Kapsel): kippt beschleunigt statt gleichmässig, federt einmal nach. Dauer 0,6 s wie D169."
+  }
+}

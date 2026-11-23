@@ -21,7 +21,7 @@
 import type { Figurlaufzeit } from '../data/schema.js';
 
 /** Was die Figur gerade zeigt — bestimmt die Dauer des Übergangs. */
-export type Bewegungsart = 'stand' | 'gang' | 'hut' | 'hieb' | 'block' | 'rolle' | 'treffer' | 'fall';
+export type Bewegungsart = 'stand' | 'gang' | 'hut' | 'hieb' | 'block' | 'rolle' | 'treffer' | 'fall' | 'landung';
 
 /**
  * Dauer, über die der Versatz beim Wechsel `von` → `nach` abklingt, aus den Daten. `gleicheArt` meint einen
@@ -30,13 +30,15 @@ export type Bewegungsart = 'stand' | 'gang' | 'hut' | 'hieb' | 'block' | 'rolle'
 export function uebergangsDauer(von: Bewegungsart, nach: Bewegungsart, u: Figurlaufzeit['uebergang']): number {
   if (nach === 'fall') return u.fall;
   if (nach === 'treffer') return u.treffer;
+  // D458: in die Landung so schnell wie in einen Treffer — der Aufprall wartet nicht; heraus wie aus dem Treffer.
+  if (nach === 'landung') return u.treffer;
   if (nach === 'rolle') return u.rolle;
   if (nach === 'block') return u.block;
   if (nach === 'hieb') return von === 'hieb' ? u.kette : u.hutHieb;
   // Ab hier: zurück in Stand, Hut oder Gang.
   if (von === 'hieb') return u.hiebHut;
   if (von === 'rolle') return u.rolleEnde;
-  if (von === 'treffer') return u.trefferEnde;
+  if (von === 'treffer' || von === 'landung') return u.trefferEnde;
   if (von === 'block') return u.abbruch;
   if (von === 'gang' || nach === 'gang') return u.gang;
   return u.standard;
