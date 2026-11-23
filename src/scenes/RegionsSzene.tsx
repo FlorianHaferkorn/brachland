@@ -97,6 +97,21 @@ import type { Kampfbericht } from '../kampf/kampfende.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer, gleiteAmStiel, AXT_URSPRUNG_VOR_D429 } from '../kampf/waffenhand.js';
 import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
+import { PosenTraegheit, Koerperfein, sammleKnochen, elternkarte, teileClip, messeGang, type FeinEingabe } from '../figur/laufzeit.js';
+import { nachfahren, RIG_MENSCH } from '../figur/ebenen.js';
+import { gangMischung, type Gang } from '../figur/fortbewegung.js';
+import { hiebClipzeit, uebergangsDauer, type Bewegungsart, type Hiebmarken } from '../figur/kette.js';
+import { leseClipmarken } from '../figur/clipmarken.js';
+import { FIGUR } from '../figur/werte.js';
+import { figurfeinAn } from '../figur/schalter.js';
+import { wegVomAngreifer } from '../kampf/gewicht.js';
+import { KOMBO_AB } from '../kampf/echtzeit.js';
+/**
+ * D457: Clipmarken von D456 (`content/clipmarken.json`) — Kettenpose und Einstieg je Clip. Die Datei darf fehlen:
+ * Dann ist die Karte leer und die Laufzeit kettet über Clipanfang und Clipende (`figur/kette.ts`).
+ */
+const CLIPMARKEN = leseClipmarken(Object.values(import.meta.glob('../../content/clipmarken.json', { eager: true, import: 'default' }))[0]);
+const _feinV = new THREE.Vector3();
 /** `?fuesse=0` schaltet die Fussanpassung ab (D214). */
 /** Bis zu diesem Abstand bekommen Bewohner die Fussanpassung (D217). */
 const BEWOHNER_FUSS_AB = 14;
@@ -3816,6 +3831,10 @@ const POSE_PROBE: [string, number, 'klinge' | 'axt' | 'speer'] | null = (() => {
 
 /** Block-Clip je Waffe (D173/D174/D184). */
 const BLOCKCLIP = { klinge: 'Klinge_U_Block', axt: 'Axt_Block', speer: 'Speer_Block' } as const;
+/** D456/D457: Die Deckung der Klinge beginnt in ihrer Hut (`Klinge_Block`); ohne den Clip (alte Wanderin) die von D173. */
+const BLOCKCLIP_HUT: Partial<Record<keyof typeof BLOCKCLIP, string>> = { klinge: 'Klinge_Block' };
+/** D456/D457: Der Markengriff (D417) hat einen eigenen Clip; fehlt er, steht die Figur wie bisher in der Deckung. */
+const GRIFFCLIP = 'Koerper_Griff';
 
 function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
   const metall = new THREE.MeshStandardMaterial({ color: '#77736b', roughness: 0.45, metalness: 0.6 });
@@ -3937,6 +3956,50 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     // Gestartet wird Idle im Effekt unten, nicht hier (G-137).
     return { idle, walk, run, schlag, axt, rolle, treffer, tod, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
+  /**
+   * D457: Laufzeit der Bewegung (`src/figur/`) — Inertialisierung der Wechsel, Gang ans Tempo gekoppelt, Ebenen,
+   * Körper über den Clips. Nur für die Gestalten mit dem Skelett `RIG_MENSCH`; die alte Wanderin (`?figur=alt`)
+   * und alles mit `figurfein` aus läuft den Weg von vor D457 weiter unten unverändert.
+   */
+  const lz = useMemo(() => {
+    if (!held) return null;
+    const fuesse = RIG_MENSCH.beine.map(b => scene.getObjectByName(b.fuss)).filter((o): o is THREE.Object3D => !!o);
+    const gehClip = animations.find(c => c.name === 'Walk'), laufClip = animations.find(c => c.name === 'Run');
+    if (!gehClip || !laufClip || fuesse.length !== RIG_MENSCH.beine.length) return null;
+    // Wie schnell Geh- und Laufclip wirklich über den Boden kommen: am Clip gemessen, nicht geschätzt.
+    const mg = messeGang(scene, gehClip, fuesse, FIGUR.gang.standHoehe), ml = messeGang(scene, laufClip, fuesse, FIGUR.gang.standHoehe);
+    const ober = nachfahren(elternkarte(scene), RIG_MENSCH.oberAb);
+    const teile = new Map<string, { ober: THREE.AnimationAction; unter: THREE.AnimationAction } | null>();
+    /** Ober- und Unterkörper eines Clips als eigene Aktionen (Ebenen). `halten`: einmal spielen und stehen bleiben. */
+    const teil = (name: string, halten = false) => {
+      if (!teile.has(name)) {
+        const c = animations.find(x => x.name === name);
+        if (!c) teile.set(name, null);
+        else {
+          const t = teileClip(c, ober);
+          const a = { ober: mixer.clipAction(t.ober), unter: mixer.clipAction(t.unter) };
+          if (halten) for (const x of [a.ober, a.unter]) { x.setLoop(THREE.LoopOnce, 1); x.clampWhenFinished = true; }
+          teile.set(name, a);
+        }
+      }
+      return teile.get(name)!;
+    };
+    const geh = teil('Walk')!, lauf = teil('Run')!;
+    const gehen: Gang = { tempo: mg.tempo ?? FIGUR.gang.gehen, dauer: gehClip.duration };
+    const rennen: Gang = { tempo: Math.max((ml.tempo ?? FIGUR.gang.rennen), gehen.tempo + 0.5), dauer: laufClip.duration };
+    const eingabe: FeinEingabe = { gier: 0, tempo: 0, rennen: RENNEN, straff: 0, fokus: null, steht: true, hoeheAn: undefined, fuesse: true, halten: true, staerke: 1, weite: 1 };
+    // Beide Clips im selben Schritt: Versatz der Standmitten des ersten Fusses (Walk und Run beginnen nicht gleich).
+    const versatz = mg.standMitte !== null && ml.standMitte !== null ? (ml.standMitte - mg.standMitte + 1) % 1 : 0;
+    const messung = { bilder: 0, ms: 0, msMittel: 0, gehen: gehen.tempo, rennen: rennen.tempo, versatz, gemessen: mg.tempo !== null && ml.tempo !== null, rate: 0, weite: 1, gleiten: 0 };
+    if (typeof window !== 'undefined') (window as unknown as { __figurfein?: typeof messung }).__figurfein = messung;
+    return {
+      traegheit: new PosenTraegheit(sammleKnochen(scene)), fein: new Koerperfein(scene, RIG_MENSCH, mg.tief),
+      gehen, rennen, versatz, teil, gang: { gehU: geh.unter, gehO: geh.ober, laufU: lauf.unter, laufO: lauf.ober },
+      phase: 0, schluessel: '', art: 'stand' as Bewegungsart, ausKette: false, an: null as boolean | null,
+      aktiv: new Set<THREE.AnimationAction>(), sollA: [] as THREE.AnimationAction[], sollW: [] as number[],
+      marke: { scheitel: 0, durchzug: 0, dauer: 0 } as Hiebmarken, eingabe, messung,
+    };
+  }, [held, scene, mixer, animations]);
   /**
    * Clip je Name, aus der Figur oder aus den Waffenclips (D171), einmal angelegt. `null`, wenn es
    * ihn nicht gibt — dann entscheidet der Aufrufer über den Rückfall.
@@ -4153,8 +4216,11 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     // wenn das Tempo um die Grenze pendelte (Hang, Ausdauer). Hoch bei 5,5, zurück bei 4,8.
     const laeuft = clips.aktiv === clips.run;
     let ziel = reittier || tempo < 0.15 ? clips.idle : tempo < (laeuft ? 4.8 : 5.5) ? clips.walk : clips.run;
+    // D457: was die Figur zeigt — daraus die Dauer des Übergangs (`figur/kette.ts`); der alte Weg braucht es nicht.
+    let art: Bewegungsart = ziel === clips.idle ? 'stand' : 'gang';
+    let hScheitel = -1, hDurchzug = -1, neuGetroffen = false;
     // Im Kampf steht sie in der Haltung ihrer Waffe (D171), nicht in der Ruhe des Wanderns.
-    if (k && k.phase === 'bereit' && ziel === clips.idle) ziel = aktionen(k.haltung, false) ?? clips.idle;
+    if (k && k.phase === 'bereit' && ziel === clips.idle) { ziel = aktionen(k.haltung, false) ?? clips.idle; art = ziel === clips.idle ? 'stand' : 'hut'; }
     // ---- Kampf (D167): Clip nach Phase, gestreckt auf die Dauer der Regel. Die Regel ist die
     // Wahrheit (`echtzeit.ts`, Kampftor); der Clip folgt ihr, nie umgekehrt.
     let neu = false, blende = 0.25;
@@ -4162,20 +4228,23 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     kv.uhr += dt;
     if (k) {
       if (k.getroffen !== kv.getroffen) {
-        if (kv.getroffen >= 0 && k.getroffen > kv.getroffen) kv.trefferBis = kv.uhr + 0.35;
+        if (kv.getroffen >= 0 && k.getroffen > kv.getroffen) { kv.trefferBis = kv.uhr + 0.35; neuGetroffen = true; }
         kv.getroffen = k.getroffen;
       }
       if (k.phase === 'gefallen') {
-        ziel = clips.tod; blende = 0.15;
+        ziel = clips.tod; blende = 0.15; art = 'fall';
       } else if ((k.phase === 'block' || k.phase === 'reinigen') && aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)) {
         // D173: Deckung heben und halten — der Clip bleibt auf seinem letzten Bild stehen. D174: die Axt
         // hat ihren eigenen (Stiel quer, `waffenclips.py`). D417: Auch der Markengriff steht so — es gibt
         // keinen Griff-Clip (offen, D414); der gehobene Arm ist die nächste vorhandene Haltung.
-        const b = aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)!;
-        b.clampWhenFinished = true; b.timeScale = 2;
-        ziel = b; blende = 0.06;
+        const w = k.waffe ?? 'klinge';
+        const griff = k.phase === 'reinigen' ? aktionen(GRIFFCLIP, true) : null;
+        const b = griff ?? aktionen(BLOCKCLIP_HUT[w] ?? '', true) ?? aktionen(BLOCKCLIP[w], true)!;
+        // Die Deckung hebt doppelt so schnell, wie der Clip sie zeigt (D173); der Griff läuft, wie er gebaut ist.
+        b.clampWhenFinished = true; b.timeScale = griff ? 1 : 2;
+        ziel = b; blende = 0.06; art = 'block';
       } else if (k.phase === 'rolle') {
-        ziel = clips.rolle; blende = 0.06;
+        ziel = clips.rolle; blende = 0.06; art = 'rolle';
         neu = k.rollen !== kv.rollen;
         // Der Clip ist 1,67 s lang, die Rolle 0,55 s. Voll gestreckt wäre das ein Wischer; also
         // läuft er 0,2 s über die Rolle hinaus aus und wird dabei in die Fortbewegung überblendet.
@@ -4204,37 +4273,110 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
           : h.durchzug + (dauer - h.durchzug) * Math.min(1, k.zeit / k.erholung);
         hieb.timeScale = 0;
         hieb.time = Math.min(sek, dauer * 0.999);
+        art = 'hieb'; hScheitel = h.scheitel; hDurchzug = h.durchzug;
       } else if (k.phase === 'betaeubt' || k.phase === 'zucken' || kv.uhr < kv.trefferBis) {
         // D173: betäubt taumelt (UAL2 `Kampf_Taumeln`), sonst der Rückstoß; ohne Waffendatei HitRecieve.
         const t = (k.phase === 'betaeubt' ? aktionen('Kampf_Taumeln') : aktionen('Kampf_Rueckstoss')) ?? clips.treffer;
-        ziel = t; blende = 0.08;
+        ziel = t; blende = 0.08; art = 'treffer';
         neu = clips.aktiv !== t;
       }
       kv.schwung = k.schwung; kv.rollen = k.rollen;
     }
-    const hiebZeit = ziel.time;
-    if (ziel !== clips.aktiv || neu) {
-      // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
-      // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
-      const vorher = clips.aktiv;
-      ziel.reset().setEffectiveWeight(1).play();
-      if (hiebe.current.has(ziel)) { ziel.time = hiebZeit; ziel.timeScale = 0; }
-      // D217: Gehen ↔ Laufen im selben Schritt fortsetzen statt bei Bild 0 — sonst setzt der neue
-      // Clip mit dem falschen Fuss auf, und die Überblendung zeigt einen Hüpfer. Beide Clips beginnen
-      // mit demselben Fuss (UAL2), also reicht der Anteil am Zyklus. Länger überblendet als sonst.
-      const gang = (a: THREE.AnimationAction) => a === clips.walk || a === clips.run;
-      if (gang(vorher) && gang(ziel) && vorher !== ziel) {
-        ziel.time = (vorher.time / vorher.getClip().duration) * ziel.getClip().duration;
-        blende = 0.4;
+    const fein = !!lz && figurfeinAn();
+    if (!fein) {
+      if (lz?.an) {
+        // Schalter gerade umgelegt: die Aktionen der feinen Laufzeit anhalten, Figur gerade stellen, Idle wie beim Start.
+        lz.an = false; mixer.stopAllAction(); lz.aktiv.clear(); lz.schluessel = ''; lz.traegheit.ruhe(); lz.fein.ruhe();
+        if (reiter.current) reiter.current.rotation.set(0, 0, 0);
+        clips.idle.reset().play(); clips.aktiv = clips.idle;
       }
-      if (clips.aktiv !== ziel) clips.aktiv.crossFadeTo(ziel, blende, false);
+      const hiebZeit = ziel.time;
+      if (ziel !== clips.aktiv || neu) {
+        // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
+        // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
+        const vorher = clips.aktiv;
+        ziel.reset().setEffectiveWeight(1).play();
+        if (hiebe.current.has(ziel)) { ziel.time = hiebZeit; ziel.timeScale = 0; }
+        // D217: Gehen ↔ Laufen im selben Schritt fortsetzen statt bei Bild 0 — sonst setzt der neue
+        // Clip mit dem falschen Fuss auf, und die Überblendung zeigt einen Hüpfer. Beide Clips beginnen
+        // mit demselben Fuss (UAL2), also reicht der Anteil am Zyklus. Länger überblendet als sonst.
+        const gang = (a: THREE.AnimationAction) => a === clips.walk || a === clips.run;
+        if (gang(vorher) && gang(ziel) && vorher !== ziel) {
+          ziel.time = (vorher.time / vorher.getClip().duration) * ziel.getClip().duration;
+          blende = 0.4;
+        }
+        if (clips.aktiv !== ziel) clips.aktiv.crossFadeTo(ziel, blende, false);
+        clips.aktiv = ziel;
+      }
+      // Abspielgeschwindigkeit an das Tempo koppeln: Walk ist bei 1,0 etwa 1,5 m/s,
+      // Run etwa 6 m/s — darunter rutschen die Fuesse, darueber trippeln sie.
+      clips.walk.timeScale = Math.max(0.8, Math.min(2.4, tempo / 1.7));
+      clips.run.timeScale = Math.max(0.8, Math.min(1.8, tempo / 6.5));
+      // D457: `?zeitlupe=` (Messadresse, D427) verlangsamt auch die Figur — ohne Schalter Faktor 1, nichts anders.
+      mixer.update(Math.min(dt, 0.1) * ZEITLUPE);
+    } else {
+      // ---- D457: Laufzeit der Bewegung. Die Wahl oben (Clip nach Phase und Tempo) bleibt; anders ist, **wie**
+      // gewechselt und gemischt wird: harter Wechsel + abklingender Versatz statt Kreuzblende, Gehen und Rennen
+      // nach Tempo gemischt im selben Schritt, Waffenhaltung über dem Gang.
+      const L = lz!, dtK = Math.min(dt, 0.1) * ZEITLUPE;
+      if (L.an !== true) {
+        L.an = true; mixer.stopAllAction(); L.aktiv.clear(); L.schluessel = ''; L.traegheit.ruhe(); L.fein.ruhe();
+      }
+      const gm = gangMischung(tempo, L.gehen, L.rennen, FIGUR.gang);
+      L.phase = (L.phase + gm.rate * dtK) % 1;
+      const sollA = L.sollA, sollW = L.sollW, g = L.gang;
+      sollA.length = 0; sollW.length = 0;
+      // Ebenen: Wo die Regel Bewegung erlaubt (`frei()`: nur `bereit`), gehen die Beine, und der Oberkörper bleibt in der
+      // Hut der Waffe. Im Schlag, in der Rolle und in der Deckung sperrt die Regel das Gehen (`gesperrt`) — dort gehört
+      // der ganze Körper dem Clip. Der Zweig für die Deckung greift erst, falls die Regel das Gehen dort je erlaubt.
+      let oben: THREE.AnimationAction | null = null;
+      if (art === 'block' && tempo >= 0.15) oben = L.teil(ziel.getClip().name, true)?.ober ?? null;
+      else if (art === 'gang' && k && k.phase === 'bereit') oben = L.teil(k.haltung)?.ober ?? null;
+      let schluessel: string;
+      if (art === 'gang' || oben) {
+        sollA.push(g.gehU, g.laufU); sollW.push(1 - gm.rennen, gm.rennen);
+        if (oben) { sollA.push(oben); sollW.push(1); schluessel = `gang+${oben.getClip().name}`; }
+        else { sollA.push(g.gehO, g.laufO); sollW.push(1 - gm.rennen, gm.rennen); schluessel = 'gang'; }
+      } else { sollA.push(ziel); sollW.push(1); schluessel = ziel.getClip().name; }
+      if (schluessel !== L.schluessel || neu) {
+        L.traegheit.wechsel(uebergangsDauer(L.art, art, FIGUR.uebergang));
+        for (const a of L.aktiv) if (!sollA.includes(a)) { a.stop(); L.aktiv.delete(a); }
+        for (const a of sollA) {
+          if (L.aktiv.has(a) && !(neu && a === ziel)) continue;
+          a.reset().play(); L.aktiv.add(a);
+          // Die Deckung stand schon (Stand ↔ Gehen mit gehobener Waffe): am Ende einsteigen, nicht neu heben.
+          if (art === 'block' && L.art === 'block' && (a === oben || a === ziel)) a.time = a.getClip().duration * 0.999;
+        }
+        // Kette: Dieser Hieb folgt unmittelbar auf einen Hieb — er steigt an der Kettenmarke ein (`figur/kette.ts`).
+        if (art === 'hieb') { if (neu) L.ausKette = L.art === 'hieb'; } else L.ausKette = false;
+        L.schluessel = schluessel; L.art = art;
+      }
+      // Der Start-Effekt (G-137) spielt Idle an — und er kann **nach** dem ersten Bild laufen. Dann liefe Idle neben allem
+      // mit vollem Gewicht mit, und der Mixer mittelte jede Pose zur Hälfte mit dem Stand (gemessen 23.11.2026: Becken im
+      // Ausfall 0,71 statt 0,52 m). Was nicht im Soll steht, läuft nicht.
+      if (clips.idle.isScheduled() && !L.aktiv.has(clips.idle)) clips.idle.stop();
+      // `isScheduled`: Im Dev-Server hängt React die Figur einmal ab und wieder an (G-137) — der Aufräumer stoppt alle Clips.
+      for (let i = 0; i < sollA.length; i++) { const a = sollA[i]; if (!a.isScheduled()) a.play(); a.enabled = true; a.weight = sollW[i]; }
+      if (oben && art === 'block') oben.timeScale = 2;
+      // Gang: Die Phase folgt der Strecke (kein Gleiten), beide Clips stehen an derselben Stelle des Schritts.
+      const tg = L.phase * L.gehen.dauer, tl = ((L.phase + L.versatz) % 1) * L.rennen.dauer;
+      L.eingabe.weite = art === 'gang' || oben ? gm.weite : 1;
+      L.messung.rate = gm.rate; L.messung.weite = gm.weite; L.messung.gleiten = gm.gleiten;
+      g.gehU.timeScale = g.gehO.timeScale = g.laufU.timeScale = g.laufO.timeScale = 0;
+      g.gehU.time = g.gehO.time = tg; g.laufU.time = g.laufO.time = tl;
+      if (art === 'hieb' && k && hScheitel >= 0 && (k.phase === 'vorlauf' || k.phase === 'aktiv' || k.phase === 'erholung')) {
+        const m = L.marke, marke = CLIPMARKEN.get(ziel.getClip().name);
+        m.scheitel = hScheitel; m.durchzug = hDurchzug; m.dauer = ziel.getClip().duration;
+        m.einstieg = marke?.einstieg; m.kettenpose = marke?.kettenpose;
+        ziel.timeScale = 0;
+        ziel.time = hiebClipzeit(k.phase, k.zeit, k, m, L.ausKette, KOMBO_AB);
+      }
       clips.aktiv = ziel;
+      mixer.update(dtK);
+      const t0 = performance.now();
+      L.traegheit.nachMixer(dtK);
+      L.messung.ms += performance.now() - t0;
     }
-    // Abspielgeschwindigkeit an das Tempo koppeln: Walk ist bei 1,0 etwa 1,5 m/s,
-    // Run etwa 6 m/s — darunter rutschen die Fuesse, darueber trippeln sie.
-    clips.walk.timeScale = Math.max(0.8, Math.min(2.4, tempo / 1.7));
-    clips.run.timeScale = Math.max(0.8, Math.min(1.8, tempo / 6.5));
-    mixer.update(Math.min(dt, 0.1));
 
     // Sitzpose ueber die Knochen, nach dem Mixer: Oberschenkel nach vorn und
     // etwas nach aussen (der Reiter sitzt rittlings), Knie zurueck, Fuss gestreckt.
@@ -4251,7 +4393,42 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
       sitzpose(beine, scene, sitz.current, breite ?? 0.2);
     }
     // D214: Füsse auf den Boden, nach Clip und Sitzpose. `?fuesse=0` zum Vergleich.
-    if (hoeheAn && FUESSE_AN) setzeFuesse(beine, scene, hoeheAn, fuss.current, dt, held && sitz.current < 0.01);
+    if (fein) {
+      // D457: Körper über den Clips — Drehkette, Neigen, Blick, Atem, Trefferantwort, Füsse (`figur/laufzeit.ts`).
+      const L = lz!, t0 = performance.now();
+      if (reittier) {
+        // Im Sattel: keine Lage, keine Beckensenkung vom letzten Hang — die Sitzpose stellt die Beine.
+        if (reiter.current) reiter.current.rotation.set(0, 0, 0);
+        scene.position.y = 0;
+      } else {
+        const e = L.eingabe;
+        e.gier = k?.phase === 'rolle' && k.rolleBlick !== null ? k.rolleBlick : gier.current;
+        e.tempo = tempo;
+        // Im Schlag, in der Rolle und im Fall zeigt die Figur genau dorthin, wohin die Regel zeigt.
+        e.straff = !k ? 0 : art === 'hieb' || art === 'rolle' || art === 'fall' ? 1 : 0.5;
+        e.fokus = k?.fokus ?? null;
+        e.steht = art === 'stand' || art === 'hut';
+        e.hoeheAn = FUESSE_AN ? hoeheAn : undefined;
+        e.fuesse = sitz.current < 0.01;
+        // Standfüsse halten nicht, wo die Füsse das Tempo nicht abdecken (Rennen ohne Sprintclip): Halten und Loslassen
+        // im Wechsel wäre ein Stottern, schlimmer als das Gleiten.
+        e.halten = art !== 'rolle' && art !== 'fall' && art !== 'treffer' && Math.abs(L.messung.gleiten) < 0.05;
+        if (neuGetroffen && k?.trefferVon && gruppe.current) {
+          const p = gruppe.current.getWorldPosition(_feinV);
+          const [wx, wz] = wegVomAngreifer(p.x - k.trefferVon.x, p.z - k.trefferVon.z, gruppe.current.rotation.y);
+          L.fein.stoss(wx, wz, k.trefferVon.schaden);
+        }
+        const dtK = Math.min(dt, 0.1) * ZEITLUPE;
+        const lage = L.fein.schritt(dtK, e);
+        if (gruppe.current) gruppe.current.rotation.y = lage.huefte;
+        if (reiter.current) reiter.current.rotation.set(lage.nicken, 0, lage.rollen);
+        L.fein.knochen(dtK, e);
+      }
+      L.traegheit.ende();
+      const m = L.messung;
+      m.ms += performance.now() - t0; m.bilder++;
+      if (m.bilder >= 120) { m.msMittel = m.ms / m.bilder; m.ms = 0; m.bilder = 0; }
+    } else if (hoeheAn && FUESSE_AN) setzeFuesse(beine, scene, hoeheAn, fuss.current, dt, held && sitz.current < 0.01);
     gleiteAxt();
 
     if (reittier) {

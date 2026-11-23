@@ -3,7 +3,7 @@ import { PALETTE } from '../src/world/palette.js';
 import { baueRevierwelt, masseAus } from '../src/spiel/reviere.js';
 import { join } from 'node:path';
 import { Clipmarken } from '../src/data/schema.js';
-import { AufgabeDaten, Bewegung, Gewicht, Kampfton,Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung, Revierkarte,
+import { AufgabeDaten, Bewegung, Gewicht, Figurlaufzeit, Kampfton,Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung, Revierkarte,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -194,6 +194,17 @@ console.log('\nClipmarken (D456, nur Darstellung):');
     console.log(`  ✗ clipmarken.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
   } else {
     console.log(`  ✓ clipmarken.json: ${Object.keys(r.data.clips).length} Clips, ${Object.keys(r.data.hut).length} Huten, ${r.data.bildrate} Bilder/s`);
+  }
+}
+
+console.log('\nLaufzeit der Bewegung (D457, nur Darstellung):');
+{
+  const r = Figurlaufzeit.safeParse(JSON.parse(readFileSync('content/figurlaufzeit.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ figurlaufzeit.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const u = r.data.uebergang;
+    console.log(`  ✓ figurlaufzeit.json: ${Object.keys(u).length} Übergangsarten, ${Math.min(...Object.values(u)) * 1000}–${Math.max(...Object.values(u)) * 1000} ms`);
   }
 }
 

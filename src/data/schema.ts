@@ -1158,6 +1158,56 @@ export const Clipmarken = z.object({
 export type Clipmarken = z.infer<typeof Clipmarken>;
 
 /**
+ * D457: Laufzeit der Bewegung (`content/figurlaufzeit.json`, gelesen von `src/figur/werte.ts`) — **nur Darstellung**:
+ * Dauern der Übergänge je Art (Inertialisierung), Kopplung des Gangs ans Tempo, Fuss am Boden, Neigen, Drehkette,
+ * Blick, Atem, Antwort auf erlittene Treffer. Kein Wert hier ändert eine Kampfregel oder ein Tempo.
+ */
+const sek = (max: number) => z.number().min(0).max(max);
+const grad = (max: number) => z.number().min(0).max(max);
+export const Figurlaufzeit = z.object({
+  stand: z.string(),
+  /** Sekunden, über die der Versatz zur neuen Pose abklingt, je Übergangsart. */
+  uebergang: z.object({
+    standard: sek(0.5), gang: sek(0.5), hutHieb: sek(0.3), kette: sek(0.3), hiebHut: sek(0.5), abbruch: sek(0.3),
+    rolle: sek(0.3), rolleEnde: sek(0.5), treffer: sek(0.3), trefferEnde: sek(0.5), block: sek(0.3), fall: sek(0.5),
+  }).strict(),
+  gang: z.object({
+    gehen: z.number().positive().max(4).describe('m/s des Geh-Clips bei Rate 1, Rückfall, wenn die Messung am Clip nichts ergibt'),
+    rennen: z.number().positive().max(12).describe('m/s des Lauf-Clips bei Rate 1, Rückfall'),
+    rateMin: z.number().positive().max(1), rateMax: z.number().min(1).max(3),
+    weiteMin: z.number().positive().max(1).describe('kleinste Schrittweite gegen den Clip'),
+    weiteMax: z.number().min(1).max(2).describe('grösste Schrittweite gegen den Clip — darüber reicht das Bein nicht'),
+    standHoehe: z.number().positive().max(0.2).describe('m über dem tiefsten Punkt der Fussbahn, bis zu denen ein Fuss als stehend gilt'),
+  }).strict().refine(g => g.gehen < g.rennen, 'gehen muss langsamer sein als rennen'),
+  fuss: z.object({
+    standHoehe: z.number().positive().max(0.2), haltMax: z.number().positive().max(0.3),
+    loesen: z.number().positive().max(0.5), neigungMaxGrad: grad(45),
+  }).strict(),
+  neigen: z.object({
+    kurve: z.number().min(0).max(1).describe('Anteil der physikalischen Kurvenlage atan(v·ω/g)'),
+    kurveMaxGrad: grad(30),
+    schub: z.number().min(0).max(1).describe('Anteil von atan(a/g) beim Anlaufen und Abstoppen'),
+    schubMaxGrad: grad(20), halbwert: sek(1),
+  }).strict(),
+  drehen: z.object({ kopf: sek(0.5), schulter: sek(0.5), huefte: sek(0.5), maxGrad: grad(80) }).strict()
+    .refine(d => d.kopf <= d.schulter && d.schulter <= d.huefte, 'Kopf führt, dann Schultern, dann Hüfte'),
+  blick: z.object({
+    gierMaxGrad: grad(90), nickMaxGrad: grad(60), aufgebenGrad: grad(180), halbwert: sek(1),
+    kopf: z.number().min(0).max(1), hals: z.number().min(0).max(1), brust: z.number().min(0).max(1),
+  }).strict().refine(b => Math.abs(b.kopf + b.hals + b.brust - 1) < 1e-6, 'Anteile Kopf + Hals + Brust = 1')
+    .refine(b => b.aufgebenGrad >= b.gierMaxGrad, 'aufgeben erst jenseits der Grenze'),
+  atem: z.object({
+    ruheHz: z.number().positive().max(1), lastHz: z.number().positive().max(2), hubGrad: grad(5),
+    anstieg: z.number().positive().max(60), erholung: z.number().positive().max(60),
+  }).strict(),
+  treffer: z.object({
+    gradJeSchaden: z.number().min(0).max(2), maxGrad: grad(40),
+    frequenz: z.number().positive().max(10), daempfung: z.number().positive().max(0.99),
+  }).strict(),
+}).strict();
+export type Figurlaufzeit = z.infer<typeof Figurlaufzeit>;
+
+/**
  * D427: Kampfton (D423: freie Aufnahmen, CC0, ADR-0013) — welche Dateien unter `public/ton/kampf/` zu welchem
  * Ereignis gehören, wie laut ein Band im Grund ist und wie weit Tonhöhe und Pegel je Anschlag streuen (gegen
  * Wiederholung). Tonhöhe und Pegel **nach Masse** kommen nicht von hier, sondern aus `content/gewicht.json`

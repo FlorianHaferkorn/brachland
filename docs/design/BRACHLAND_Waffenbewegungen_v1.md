@@ -807,6 +807,117 @@ das als Weichzeichnen, Füsse rutschen. Was die Vorbilder (D432) flüssig macht,
 - Die CMU-Lizenz verlangt keine Namensnennung; ein Eintrag in `assets/HERKUNFT.md` wäre trotzdem fällig, sobald ein
   CMU-abgeleiteter Clip ausgeliefert wird (ADR-0013 Punkt 3).
 
+### 8.6 Laufzeit der Bewegung (D457)
+
+Auftrag D455, Teil 2 von 3: alles, was **zwischen und über den Clips** geschieht. Gebaut am 23.11.2026, **nicht am M1
+in Bewegung gesehen** (ADR-0005) — Formeln renderfrei geprüft (`tests/figurlaufzeit.test.ts`, 83 Prüfungen), Form im
+SwiftShader-Standbild. Kein Kampfwert, kein Tempo, kein Trefferfenster geändert; `echtzeit.ts` ist nicht angefasst.
+
+**Wo es liegt.** `src/figur/` — sieben reine Module ohne three.js und ein Adapter:
+
+| Modul | Was |
+|---|---|
+| `inertial.ts` | Inertialisierung: Kurve fünften Grades, Versatz je Knochen als Achse + Winkel (Drehung) und Richtung + Betrag (Lage) |
+| `kette.ts` | Dauer je Übergangsart; Clipsekunde eines Hiebs aus Phase der Regel, mit Kettenmarken |
+| `clipmarken.ts` | Leser für die Marken von D456 (`content/clipmarken.json`, §9.3) → `einstieg`, `kettenpose`, `halt` in Clipsekunden |
+| `ebenen.ts` | Rigplan (welcher Knochen ist was), Ober-/Unterkörper nach Knochenbaum |
+| `fussboden.ts` | Flächennormale, Klemmung, Standfuss halten/lösen, Zwei-Gelenk-Dreieck |
+| `fortbewegung.ts` | Tempo eines Gangclips messen, Gangmischung (Frequenz × Weite), Kurvenlage, Drehkette, Blick, Atem |
+| `trefferantwort.ts` | Kippung nach Richtung und Schaden, schwingt aus |
+| `feder.ts` | kritische Feder und gedämpfte Schwingung, geschlossen gelöst (unabhängig von der Bildrate) |
+| `laufzeit.ts` | **einziges Modul mit three.js**: `PosenTraegheit`, `Koerperfein`, `teileClip`, `messeGang` |
+
+Werte in `content/figurlaufzeit.json` (Schema `Figurlaufzeit`, `npm run validate`). Ein Schalter für alles: Einstellung
+**„Feine Körperbewegung“** (`figurfein`, Zugänglichkeit) bzw. `?figurfein=0` — dann läuft unverändert der Weg von vor
+D457 (Kreuzblende, Gang nach Schwelle, Fuss-IK von D214).
+
+**1. Übergänge.** David Bollo, „Inertialization: High-Performance Animation Transitions in ‚Gears of War‘“, GDC 2018
+([GDC Vault](https://gdcvault.com/play/1025165/Inertialization-High-Performance-Animation-Transitions)): Die Blende
+zwischen zwei Clips entfällt; der Wechsel ist eine Nachbearbeitung, die den Versatz zur alten Pose mit der
+Geschwindigkeit der alten Bewegung ausklingen lässt, für Vektoren und Quaternionen. Hier: Beim Wechsel wird der alte
+Clip **gestoppt** und nur der neue gespielt; `PosenTraegheit` kennt die zwei zuletzt gezeigten Posen und legt den
+abklingenden Versatz auf die neue. Dauer je Art aus den Daten:
+
+| Übergang | s | | Übergang | s |
+|---|---|---|---|---|
+| Hut → Hieb | 0,10 | | Hieb → Hut | 0,25 |
+| Hieb → Hieb (Kette) | 0,12 | | Rolle → Hut/Gang | 0,22 |
+| → Rolle | 0,10 | | Treffer → Hut | 0,25 |
+| → Treffer | 0,10 | | Stand ↔ Gang | 0,25 |
+| → Deckung | 0,10 | | Deckung → Hut | 0,12 |
+| → Fall | 0,15 | | sonst | 0,20 |
+
+Die Formeln sind aus den Randbedingungen hergeleitet (Lage, Tempo am Anfang; Lage, Tempo, Beschleunigung null am Ende)
+und geprüft, **nicht gegen die Folien gelesen** — der Vortrag war von hier aus nur als Zusammenfassung abrufbar. Läuft die
+alte Bewegung vom Ziel weg, hält der Versatz an (kein Überschwingen); dort ist das Tempo nicht stetig, das ist gewollt.
+Auch die menschlichen Gegner (Wegelagerer, Speermann, Axtmann; `Kampfplatz.tsx` `spieleRig`) wechseln so.
+
+**2. Ketten.** `KOMBO_AB` (0,35 der Erholung) bleibt, wie es ist. Die Darstellung folgt den **Clipmarken von D456**
+(`content/clipmarken.json`, §9.3; gelesen von `clipmarken.ts`): In der Erholung läuft der Clip bis `KOMBO_AB` vom Durchzug
+genau bis `kette` (Kettenpose) — in dem Augenblick, in dem die Regel den nächsten Hieb erlaubt, steht die Figur in der
+Pose, aus der er kommt; der gekettete Hieb steigt bei `einstieg` ein statt bei Bild 1, sein Vorlauf (unverändert lang)
+verteilt sich auf Einstieg → Scheitel. Der Umweg über die Hut entfällt. Wird nicht gekettet, läuft der Rest der Erholung
+von der Kettenpose in die Hut. Beispiel `Klinge_Hieb_A` (Durchzug 9, Kette 12, Ende 26; Erholung 0,32 s): 0,11 s für
+drei Bilder Nachschwung, 0,21 s für den Rückweg — der Körper folgt der Masse langsamer, als er zurückkehrt (D419).
+**Ohne Marke** für einen Clip (alte Wanderin, UAL2-Clips der Gegner) gilt die Zuordnung von D168/D171 unverändert, und
+der Versatz klingt über 0,12 s ab. Abbruch (Rolle, Deckung) blendet aus der Pose, die gerade gezeigt wird. `halt` und
+`vorn` werden gelesen, aber noch nicht ausgewertet (Fuss vorn in der Kettenpose → welcher Standfuss hält).
+
+**3. Ebenen.** Geprüft, was die Regel sperrt: Im Schlag (Vorlauf, Aktiv, Erholung), in der Rolle und betäubt ist das
+Gehen gesperrt (`frei()` in `echtzeit.ts`, `gesperrt` im Kampfplatz); bewegt wird die Figur dort nur um `schritt` des
+Schlags. Dort gehört der ganze Körper dem Hiebclip — er bringt seinen Ausfallschritt mit. Auch die Deckung sperrt das Gehen
+(`frei()` gilt nur für `bereit`). **Geschichtet wird, wo die Regel Bewegung erlaubt:** kampfbereit im Gehen — Beine
+aus dem Gang, Oberkörper in der Hut der Waffe; vorher fiel die Figur beim ersten Schritt in den Wandergang mit
+schwingendem Waffenarm. (Deckung über Gang ist mitgebaut, greift aber erst, falls die Regel das Gehen in der Deckung
+je erlaubt — das wäre ein Kampfwert und ist hier nicht geändert.) Technik: Jeder Clip wird an `spine_01` in zwei
+Teilclips geschnitten (`teileClip`); der Mixer kennt keine Masken. **Neue Clips von D456 verdrahtet:** die Deckung der
+Klinge spielt `Klinge_Block` (beginnt in der Hut) statt `Klinge_U_Block`, der Markengriff (D417) `Koerper_Griff` statt
+des Block-Clips. **Nicht verdrahtet:** `Koerper_Landung_Weich`/`_Hart` (die Figur kennt keinen Landemoment als Zustand)
+und `Koerper_Aufgabe` (Gegner, D458).
+
+**4. Füsse.** Zu D214 (Höhe, Becken) kommen: **Sohle auf der Fläche** (Normale aus vier Höhen, höchstens 22° — ein
+Sprunggelenk kippt nicht beliebig; nur solange der Fuss bodennah ist) und der **Standfuss** (steht ein Fuss laut Clip,
+bleibt er in der Welt stehen, auch wenn der Körper darüber dreht; ab 10 cm lässt er los, der Versatz klingt in 70 ms
+ab). In Rolle, Fall und Treffer und wo die Füsse das Tempo nicht abdecken (siehe 5) hält er nicht.
+
+**5. Fortbewegung — und ein Befund.** Das Tempo der Gangclips wird beim Laden **gemessen** (Fussbahn im Raum der
+Figur, Geschwindigkeit in der Standphase): **`Walk` 1,03 m/s, `Run` 2,07 m/s.** Angenommen waren seit D145 1,7 und
+6,5 m/s. Vor D457 lief der Laufschritt (4,2 m/s) als `Walk` mit 2,4-facher Geschwindigkeit — die Füsse deckten
+2,5 m/s, **41 % der Strecke glitt die Figur**. Jetzt teilen sich Schrittfrequenz und Schrittweite den Faktor (je √F,
+wie ein Mensch schneller läuft): bei 4,2 m/s `Run` mit Frequenz ×1,45 (174 Schritte/min; real 170–180) und Weite ×1,4
+(die Fuss-IK setzt den Fuss in Laufrichtung weiter von der Hüfte) — rechnerisch **kein Gleiten bis 5,5 m/s**.
+**Rennen 8,5 m/s deckt auch das nicht:** Frequenz und Weite schlagen an (×2,2 / ×1,4), rund **25 % gleiten weiter**.
+Dafür braucht es einen **Sprintclip** (Standphase ≥ 4 m/s bei Rate 1) und besser einen Laufschritt-Clip mit ~3 m/s —
+Sache von D456; die Kopplung misst neu, sobald die Clips da sind. Gehen und Rennen werden im selben Schritt gemischt
+(die Clips beginnen 0,32 Zyklen versetzt; gemessen, ausgeglichen).
+
+Dazu: **Kurvenlage** atan(v·ω/g) × 0,4, höchstens 10°; **Anlaufen/Abstoppen** atan(a/g) × 0,5, höchstens 6° (das Tempo
+selbst setzt die Regel weiter ohne Anlauf — Spielwert; die Lage zeigt nur die Beschleunigung, die dazu gehörte);
+**Drehkette** Kopf 30 ms, Schultern 70 ms, Hüfte 110 ms Halbwert, höchstens 35° Rückstand, im Schlag und in der Rolle
+ohne Verzögerung (die Figur zeigt, wohin die Regel schlägt); **Blick** zum aufgeschalteten Ziel bis 70° seitlich und
+30° hoch/tief, verteilt auf Brust 15 %, Hals 30 %, Kopf 55 %, ab 110° aufgegeben; **Atem** 0,25 Hz in Ruhe, bis 0,7 Hz
+nach Anstrengung, klingt über 8 s ab. **Benannte Abweichungen (D398):** Kurvenlage und Schublage sind Anteile der
+physikalischen Lage, weil Drehrate und Tempo von der Eingabe springen. **Blinzeln geht nicht:** `Eyes`/`Eyebrows`
+sind Netze ohne Knochen und ohne Morph-Ziele.
+
+**6. Treffer.** Der Oberkörper kippt vom Angreifer weg, 0,3° je Schadenspunkt (höchstens 14°), und schwingt mit 2,6 Hz
+bei Dämpfung 0,55 aus; der Kopf bleibt ein Viertel zurück. Additiv über dem Rückstoss-Clip. Mass ist der Schaden, weil
+Gegner in den Daten keine Waffenmasse führen (D427 rechnet für Treffer der Spielerin mit Impuls). **Sekundäre
+Bewegung:** Das Rig hat keine Knochen für Kapuze, Haar, Köcher oder Gürteltasche (65 Knochen: Körper und Finger) —
+Umsetzungsliste: je zwei bis drei Knochen in `tools/heldbau.py` einziehen, dann trägt `schwingSchritt` aus `feder.ts`
+sie ohne weiteren Bau.
+
+**7. Kosten und Wiederverwendung.** `npx tsx tools/figurbank.ts` (63 Knochen, Trägheit dauernd im Abklingen, Drehkette,
+Blick, Atem, Füsse mit IK): **35–70 µs je Bild** auf dem Cloud-Rechner (Node, ein Kern, unter Last gemessen); im
+Browser unter SwiftShader 0,2–0,6 ms (derselbe Rechner rendert dabei in Software). Ziel war < 0,3 ms; **am M1 zu
+messen:** `window.__figurfein.msMittel` in der Konsole (Mittel über 120 Bilder, dazu gemessenes Clip-Tempo, Rate,
+Weite, Gleiten). Alles ist gegen einen `Rigplan` gebaut: Menschen teilen `RIG_MENSCH`; ein Vierbeiner bringt einen
+Plan mit vier Beinen (D458) — Standfuss, Normale und Zwei-Gelenk-IK rechnen je Bein, die Drehkette über beliebig
+viele Wirbel. Für Tiere offen: das Becken senkt sich heute um den tiefsten Fuss aller Beine (für Vierbeiner braucht
+es Vorder- und Hinterhand getrennt).
+
+**Was Standbilder nicht zeigen** und am M1 zu prüfen ist — siehe Ledger D457.
+
 ## 9. D456: alle Clips der Spielfigur nach den Handwerksregeln — ausgeführt
 
 Flo 23.11.2026 (D455): „Optimiere alle Bewegungen und mach sie AAA Niveau like ohne dass ich was machen oder hochladen

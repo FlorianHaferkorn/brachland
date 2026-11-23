@@ -53,7 +53,7 @@ const winkel = (u: THREE.Vector3, v: THREE.Vector3) => Math.acos(THREE.MathUtils
  * dann das ganze Bein zum Ziel drehen. `vorne` ist die Blickrichtung der Figur — die Kniebeuge-
  * Achse, falls das Bein ganz gestreckt ist und sich keine Ebene ergibt.
  */
-function zweiKnochen(a: THREE.Object3D, b: THREE.Object3D, c: THREE.Object3D, ziel: THREE.Vector3, vorne: THREE.Vector3): void {
+export function zweiKnochen(a: THREE.Object3D, b: THREE.Object3D, c: THREE.Object3D, ziel: THREE.Vector3, vorne: THREE.Vector3): void {
   a.getWorldPosition(va); b.getWorldPosition(vb); c.getWorldPosition(vc);
   c.getWorldQuaternion(qf);
   const lab = vb.distanceTo(va), lcb = vc.distanceTo(vb);

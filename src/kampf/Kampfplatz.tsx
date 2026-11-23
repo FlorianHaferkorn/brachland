@@ -57,6 +57,8 @@ import { schadenFaktor } from '../spiel/schmiede.js';
 import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
 import { aktionenVon, aktiv, halteZustand, tastenVon, umgeschaltet, type Haltemodus } from '../spieler/eingabe.js';
 import { einstellungen } from '../spiel/einstellungen.js';
+import { PosenTraegheit, sammleKnochen } from '../figur/laufzeit.js';
+import { figurfeinAn } from '../figur/schalter.js';
 
 /**
  * D415: Pfeile, die im Kampf die Linie wählen (Bestand D174), zählen nicht als Richtung für Rolle und
@@ -149,6 +151,8 @@ interface Rig {
   treffer: number;
   /** D429: Die Fällaxt gleitet durch die rechte Hand, die linke hält das Stielende — nach jedem Mixer-Schritt. */
   gleite?: () => void;
+  /** D457: Inertialisierung der Clipwechsel (menschliche Gegner), beim ersten Bild angelegt. */
+  traegheit?: PosenTraegheit;
 }
 
 /** Ein Körper aus der Welt: Geometrie plus ein Material je Tier (der Gang ist ein Uniform). */
@@ -195,6 +199,11 @@ export interface KampfFigur {
    */
   stossGesetzt: Kamerastoss | null;
   stossErlitten: Kamerastoss | null;
+  /**
+   * D457: der schwerste erlittene Treffer dieses Bilds — wo der Angreifer stand und wie viel Schaden er machte.
+   * Die Figur kippt danach vom Angreifer weg (`figur/trefferantwort.ts`); gelesen, wenn `getroffen` steigt.
+   */
+  trefferVon: { x: number; z: number; schaden: number } | null;
 }
 
 /** Nach so vielen Sekunden steht der Übungsplatz wieder — nach einem Sieg wie nach einer Niederlage. */
@@ -883,6 +892,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
 
     // D427: Kamerastoss und Ton nach Wucht (`gewicht.ts`); der stärkste Stoss im Bild zählt.
     let stossGesetzt: Kamerastoss | null = null, stossErlitten: Kamerastoss | null = null;
+    let trefferVon: KampfFigur['trefferVon'] = null;
     const staerker = (a: Kamerastoss | null, b: Kamerastoss) => (!a || b.staerke > a.staerke ? b : a);
     const eigeneWaffe = s.waffe ?? 'klinge';
     for (const e of ereignisse) {
@@ -890,6 +900,8 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         if (!e.ausgewichen && e.schaden > 0) {
           zaehler.current.getroffen++;
           stossErlitten = staerker(stossErlitten, kameraErlitten(e.schaden));
+          const von = w.gegner.find(g => g.id === e.von);
+          if (von && (!trefferVon || e.schaden > trefferVon.schaden)) trefferVon = { x: von.x, z: von.z, schaden: e.schaden };
           spieleKampfton({ art: 'erlitten', schaden: e.schaden });
         }
         if (e.pariert) spieleKampfton({ art: 'parade', waffe: eigeneWaffe });
@@ -1016,7 +1028,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
         vorlauf: sl.vorlauf, aktiv: sl.aktiv, erholung: sl.erholung,
         waffe: s.waffe ?? 'klinge',
         clip: sl.clip ?? 'Sword_Slash', hieb: sl.hieb ?? null, haltung: waffe.haltung, gesetzt: z.gesetzt,
-        stossGesetzt, stossErlitten,
+        stossGesetzt, stossErlitten, trefferVon,
       };
     }
 
@@ -1236,12 +1248,24 @@ function spieleRig(pu: Puppe, g: Kaempfer, v: number, jetzt: number, dt: number)
     if (ziel && ziel === r.aktion('Gallop')) ziel.timeScale = Math.max(0.7, Math.min(1.6, v / 4));
   }
   if (!ziel) return;
+  // D457: Menschen wechseln hart und der Versatz klingt ab (Inertialisierung, `figur/inertial.ts`) statt zwei Clips
+  // zu mitteln — dieselbe Laufzeit wie die Spielfigur. Tiere bleiben bei der Kreuzblende, bis D458 sie umstellt.
+  const fein = !!cfg.linien && figurfeinAn();
+  if (fein) r.traegheit ??= new PosenTraegheit(sammleKnochen(r.mixer.getRoot() as THREE.Object3D));
+  else if (r.traegheit) r.traegheit = undefined;
   if (ziel !== r.aktiv || neu) {
-    ziel.reset().setEffectiveWeight(1).play();
-    if (r.aktiv && r.aktiv !== ziel) r.aktiv.crossFadeTo(ziel, blende, false);
+    if (fein) {
+      r.traegheit!.wechsel(Math.max(0.1, Math.min(0.3, blende * 1.25)));
+      if (r.aktiv && r.aktiv !== ziel) r.aktiv.stop();
+      ziel.reset().setEffectiveWeight(1).play();
+    } else {
+      ziel.reset().setEffectiveWeight(1).play();
+      if (r.aktiv && r.aktiv !== ziel) r.aktiv.crossFadeTo(ziel, blende, false);
+    }
     r.aktiv = ziel;
   }
   if (zeit !== null) { ziel.timeScale = 0; ziel.time = zeit; }
   r.mixer.update(Math.min(dt, 0.1));
+  if (fein) { r.traegheit!.nachMixer(Math.min(dt, 0.1)); r.traegheit!.ende(); }
   r.gleite?.();
 }

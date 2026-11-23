@@ -1,0 +1,67 @@
+{
+  "stand": "D457, 23.11.2026 — Laufzeit der Bewegung, nur Darstellung, kein Kampfwert. Arbeitswerte aus der Rechnung; am M1 in Bewegung noch nicht gesehen (ADR-0005).",
+  "uebergang": {
+    "standard": 0.2,
+    "gang": 0.25,
+    "hutHieb": 0.1,
+    "kette": 0.12,
+    "hiebHut": 0.25,
+    "abbruch": 0.12,
+    "rolle": 0.1,
+    "rolleEnde": 0.22,
+    "treffer": 0.1,
+    "trefferEnde": 0.25,
+    "block": 0.1,
+    "fall": 0.15
+  },
+  "gang": {
+    "gehen": 1.03,
+    "rennen": 2.07,
+    "rateMin": 0.6,
+    "rateMax": 2.2,
+    "weiteMin": 0.7,
+    "weiteMax": 1.4,
+    "standHoehe": 0.04
+  },
+  "fuss": {
+    "standHoehe": 0.05,
+    "haltMax": 0.1,
+    "loesen": 0.07,
+    "neigungMaxGrad": 22
+  },
+  "neigen": {
+    "kurve": 0.4,
+    "kurveMaxGrad": 10,
+    "schub": 0.5,
+    "schubMaxGrad": 6,
+    "halbwert": 0.14
+  },
+  "drehen": {
+    "kopf": 0.03,
+    "schulter": 0.07,
+    "huefte": 0.11,
+    "maxGrad": 35
+  },
+  "blick": {
+    "gierMaxGrad": 70,
+    "nickMaxGrad": 30,
+    "aufgebenGrad": 110,
+    "halbwert": 0.12,
+    "kopf": 0.55,
+    "hals": 0.3,
+    "brust": 0.15
+  },
+  "atem": {
+    "ruheHz": 0.25,
+    "lastHz": 0.7,
+    "hubGrad": 0.7,
+    "anstieg": 3,
+    "erholung": 8
+  },
+  "treffer": {
+    "gradJeSchaden": 0.3,
+    "maxGrad": 14,
+    "frequenz": 2.6,
+    "daempfung": 0.55
+  }
+}
