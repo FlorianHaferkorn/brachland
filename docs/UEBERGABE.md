@@ -83,6 +83,22 @@ Stand holen: `git pull` auf `claude/epic-planck-86z6fy` (PR #16). Nächste freie
    Agent `../.claude/agents/ort-verfahren.md`. Bitte am nächsten Ort einmal mit Sonnet durchspielen und Lücken zurückmelden
    — zuerst an der Felsmulde selbst (zweite Kamera `boden` oder Runde 5), weil Engine und Export nur dort schon passen;
    die Schritte 4, 6, 7, 8 sind in dieser Form am M1 noch nicht gelaufen. Offen dazu: A-52 (Toleranzen), A-53 (Lücken L1–L4).
+6. **Bewegung ansehen, in Bewegung** (Flo 23.11.2026, D455; gebaut in D456–D458, D460, D461). Alles davon ist in der Cloud
+   nur als Standbild-Reihe und unter SwiftShader geprüft, nichts in Bewegung gesehen. Vergleich jeweils gleiche Stelle mit
+   und ohne `?figurfein=0`; Messwerte in `window.__figurfein` und `window.__gegnerfein`. Die vollständigen Listen stehen im
+   Ledger an den Zeilen D456, D457, D458 (a–m), D460 und D461 und in `design/BRACHLAND_Waffenbewegungen_v1.md` §8.6, §8.7,
+   §10.5, §10.6. Die Fragen, die nur der M1 beantwortet:
+   - **Gang:** Liest der gerechnete `Run` (Laufschritt) besser als `Run_Paket`? Liest der Sprint bei Rate 1 als Rennen?
+     Hüpft der Wechsel Laufschritt ↔ Rennen? Hält die Fuss-IK am Hang das Gleiten bei null?
+   - **Stand:** Wirken verdrehter Stand und Umtreten ab 60° natürlich (abschaltbar über `wenden.an` in
+     `../content/figurlaufzeit.json`)? Fällt der Versatz bis 13 cm an Wänden auf?
+   - **Sprung, Landung, Rolle:** Tragen Abdruck und Flughaltung? Die Lande-Rolle ist im Browser nie ausgelöst worden; im
+     Stand rollt sie auf der Stelle. Passt die Hechtrolle nach vorn auch zum seitlichen Ausweichen?
+   - **Kampf:** Ketten nach Clipmarken ohne Ruck? Übergänge der Inertialisierung ohne Schnappen?
+   - **Tiere und Gegner:** Zittern Läufe am Hang? Wirken Ansage und Taumeln nach Gewicht? Nie im Bild gesehen: Schütteln
+     nach dem Reinigen, liegende Waffe, Rückwärtsgehen, Aufstehen und Abwenden bei der Aufgabe.
+   - **Kosten:** Bildzeit mit und ohne `figurfein` bei sechs Gegnern.
+   Befunde bitte als Antwort an A-54 und an den genannten Ledgerzeilen eintragen, nicht in dieser Datei.
 
 **Seit dem Stand unten dazugekommen** (alles im Ledger, Tabelle B): D381 Start draussen, Weg zur Enklave als
 Lehrstrecke · D382/D386 Felsmulde Runde 3 und 4 · D385 Menschen nicht reinigbar · D388/D391 Traversal v2 und
