@@ -292,8 +292,16 @@ export const MSAA: number = (() => {
   const roh = suche.get('msaa');
   const n = roh === null ? NaN : Number(roh);
   if ([0, 2, 4, 8].includes(n)) return n;
-  return ECHT ? 4 : 0;
+  // D450: In der Zielbild-Felsmulde glättet TAA allein — MSAA 4× kostete dort 4 B/s (19 → 23 am M1, 1920×1080)
+  return ECHT && !(LOOK_FELS_AN && TAA_AN) ? 4 : 0;
 })();
+
+/**
+ * Pixeldichte der Zielbild-Felsmulde (D450): `?lookfels=1` rechnet mit 1 statt der Bildschirmdichte. Am M1 bei
+ * 1440 × 900 gemessen: Dichte 2 → 15 B/s, Dichte 1 → 31 B/s; TAA und der Malfilter tragen die Kanten. `?dichte=2`
+ * stellt die Bildschirmdichte wieder her.
+ */
+export const LOOK_FELS_DICHTE: number | null = LOOK_FELS_AN ? (Number(suche.get('dichte')) > 0 ? Number(suche.get('dichte')) : 1) : null;
 
 /**
  * B — Pinselstriche (D269, `laubkarten.ts`, `grasteppich.ts`): Laub als grosse Striche mit Pinselbogen

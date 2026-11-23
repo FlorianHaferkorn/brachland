@@ -96,17 +96,24 @@ def backe_bild(o, mat, art, groesse, dateiname):
     if art != 'DIFFUSE': img.colorspace_settings.name = 'Non-Color'
     node = nt.nodes.new('ShaderNodeTexImage'); node.image = img; nt.nodes.active = node
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+    hoch = HOCH.get(o.name)   # D450: schlankes Netz, Bild vom hochaufgelösten (Relief in der Normalenkarte)
+    kw = dict(margin=MARGIN, use_clear=True)
+    if hoch is not None:
+        hoch.select_set(True); kw.update(use_selected_to_active=True, cage_extrusion=0.08, max_ray_distance=0.3)
     if art == 'DIFFUSE':
-        bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, margin=MARGIN, use_clear=True)
+        bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, **kw)
     elif art == 'ROUGHNESS':
-        bpy.ops.object.bake(type='ROUGHNESS', margin=MARGIN, use_clear=True)
+        bpy.ops.object.bake(type='ROUGHNESS', **kw)
     elif art == 'AO':
-        bpy.ops.object.bake(type='AO', margin=MARGIN, use_clear=True)
+        bpy.ops.object.bake(type='AO', **kw)
     else:
-        bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', margin=MARGIN, use_clear=True)
+        bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', **kw)
     nt.nodes.remove(node)
     img.filepath_raw = os.path.abspath(os.path.join('.cache/blender/bake', dateiname + '.png')); img.file_format = 'PNG'; img.save()
     return img
+
+HOCH = {}   # Name → hochaufgelöste Quelle (D450)
+ANTEIL_NIEDRIG = float(os.environ.get('SZENE_NIEDRIG', '0.12'))
 
 def verschiebe(o, mat, gr):
     """D448: Verschiebung des Shaders als Geometrie. Die Mauern des Zielbilds sind grobe Körper (MauerA 6.500 Flächen),
@@ -139,6 +146,12 @@ def verschiebe(o, mat, gr):
     bpy.ops.object.modifier_apply(modifier=d.name)
     mat.displacement_method = 'BUMP'
     print('verschoben', o.name, 'Stufen', stufen, len(o.data.polygons), 'Flächen, Stärke', round(staerke, 3), flush=True)
+    # D450: Bildrate. Das verschobene Netz (0,1–0,6 Mio. Flächen je Mauer, zusammen 2,5 Mio., im Schattenpass doppelt)
+    # bleibt nur Quelle; ins Spiel geht eine auf ANTEIL_NIEDRIG gekürzte Fassung, das Relief backt als Normale hinein.
+    hoch = o.copy(); hoch.data = o.data.copy(); hoch.name = o.name + '_hoch'; sc.collection.objects.link(hoch); HOCH[o.name] = hoch
+    bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+    dz = o.modifiers.new('Niedrig', 'DECIMATE'); dz.ratio = ANTEIL_NIEDRIG; bpy.ops.object.modifier_apply(modifier=dz.name)
+    print('niedrig', o.name, len(o.data.polygons), 'Flächen', flush=True)
     bpy.data.images.remove(img); bpy.data.textures.remove(tex)
 
 def textur_material(name, farbe, rauheit, normale):
@@ -207,10 +220,11 @@ if ZIELSZENE:
     # Versturz 0,54 Mio.) — das Zusammenfügen sprengte den Speicher (Exit 137, dreimal), und im Spiel wäre es zu viel.
     # Die Mauern behalten ihre volle Auflösung (Flo: „die Wand muss 1:1 dem Zielbild entsprechen“), Kleinteile werden
     # auf das Budget reduziert (Decimate, Kollaps). Netze sind geteilt: je Netz einmal, als Kopie für alle Nutzer.
-    BUDGET = {'Rindenstreu': 80000, 'Wurzel': 80000, 'Wurzelstock': 40000, 'Versturz': 120000, 'Becken': 120000,
-              'Zweig': 40000, 'Stein': 120000, 'Kiesel': 40000, 'Ast': 20000, 'Stubben': 20000, 'Kronmoos': 30000}
+    # D450 (Bildrate, Ziel 30 B/s am M1): Budgets gegenüber D448 etwa gedrittelt; die Scan-Normalen tragen das Feine
+    BUDGET = {'Rindenstreu': 30000, 'Wurzel': 30000, 'Wurzelstock': 15000, 'Versturz': 45000, 'Becken': 45000,
+              'Zweig': 20000, 'Stein': 45000, 'Kiesel': 15000, 'Ast': 10000, 'Stubben': 10000, 'Kronmoos': 15000}
     for m_ in ('MauerA', 'MauerB', 'MauerC', 'Stuetzmauer'):   # Schutt am Fuss: 5,9 Mio. Flächen je Mauer (Scan-Geröll)
-        BUDGET[m_ + '_Schutt'] = 60000; BUDGET[m_ + '_Kronstein'] = 60000
+        BUDGET[m_ + '_Schutt'] = 25000; BUDGET[m_ + '_Kronstein'] = 25000
     gattung = lambda n: re.match(r'^[A-Za-z]+(_Schutt|_Kronstein)?', n).group(0)
     summe = {}
     for o in roh:
@@ -295,6 +309,7 @@ for o in zusammen:
         print('AO-Multiplikation', o.name, e)
     r = backe_bild(o, mat, 'ROUGHNESS', gr // 2, o.name + '_rauheit')
     n = backe_bild(o, mat, 'NORMAL', gr, o.name + '_normale')
+    if o.name in HOCH: bpy.data.objects.remove(HOCH.pop(o.name), do_unlink=True)
     o.data.materials.clear(); o.data.materials.append(textur_material(o.name + '_tex', f, r, n))
     bauten.append(o); print('gebacken', o.name, gr, '%.0f s' % (time.time() - t0))
 gruen = []

@@ -196,7 +196,7 @@ def bau_grathorn():
     if os.environ.get('TIER_ANATOMIE', '1') == '1':
         anatomie(T, dict(yv=0.135, yh=0.12, widerrist=(0.40, 0.95), schulter=(0.55, 0.60), ellbogen=(0.44, 0.40), karpus=(0.415, 0.24), fessel_v=(0.398, 0.07),
                          huefte=(-0.16, 0.86), sitzbein=(-0.44, 0.70), knie=(-0.17, 0.44), sprung=(-0.40, 0.25), fessel_h=(-0.36, 0.07), nacken=(0.78, 1.02),
-                         schinken=(0.018, -0.05), leiste=-0.026, halsfalten=(0.35, 0.55, 0.75)))   # Runde 4 (grathorn-03/-09): Keule schmal, setzt hoch an, keine Wulst vor der Kniefalte
+                         schinken=(0.018, -0.05), leiste=-0.026, halsfalten=(0.35, 0.55, 0.75), rippen=5))   # Runde 4 (grathorn-03/-09): Keule schmal, setzt hoch an, keine Wulst vor der Kniefalte
     return T
 
 
@@ -214,9 +214,9 @@ def bau_wurzelkeiler():
     for n, p in (('vl', vl), ('vr', vr), ('hl', hl), ('hr', hr)): T['teile'].append((n, p, (0, 1, 0), 1))
     T['teile'].append(('schwanz', [(-0.51, 0, 0.71, 0.022, 0.022), (-0.57, 0, 0.64, 0.014, 0.014), (-0.59, 0, 0.53, 0.009, 0.009), (-0.58, 0, 0.45, 0.007, 0.007)], (0, 1, 0), 1))
     for s in (1, -1):
-        T['teile'].append(('ohr', [(0.70, s * 0.100, 0.73, 0.012, 0.048), (0.685, s * 0.130, 0.80, 0.008, 0.055), (0.67, s * 0.145, 0.87, 0.004, 0.018)], (1, 0, 0), 1))   # Runde 3: breit und flach (Teller), nicht Büschel
+        T['teile'].append(('ohr', [(0.70, s * 0.098, 0.72, 0.012, 0.038), (0.692, s * 0.116, 0.785, 0.009, 0.032), (0.684, s * 0.130, 0.845, 0.006, 0.018), (0.680, s * 0.136, 0.880, 0.003, 0.004)], (1, 0, 0), 1))   # Runde 5: aufrecht, dreieckig, spitz (iNat 07/29/38) — der Teller las sich als Blob
         T['klumpen'] += [((0.28, s * 0.16, 0.60), (0.15, 0.08, 0.20)), ((-0.35, s * 0.14, 0.54), (0.18, 0.085, 0.19)), ((0.70, s * 0.10, 0.50), (0.09, 0.035, 0.085)),
-                         ((0.74, s * 0.088, 0.615), (0.035, 0.022, 0.024)), ((0.90, s * 0.058, 0.43), (0.05, 0.025, 0.03))]
+                         ((0.74, s * 0.088, 0.615), (0.035, 0.022, 0.024)), ((0.925, s * 0.060, 0.418), (0.040, 0.022, 0.024))]   # Runde 5: Oberlippe über dem Gewaff aufgeworfen, nicht als Beule davor
     T['klumpen'] += [((0.30, 0, 0.88), (0.20, 0.075, 0.08))]
     T['augen'] = dict(ort=(0.775, 0.092, 0.585), r=0.012, blick=(0.45, 1, 0.15), art='rund', iris=(0.10, 0.045, 0.02))
     # Runde 2b (D443): Foto eines ausgewachsenen Keilers (iNaturalist 26, Kalabrien, CC BY-SA, Seitenansicht im Schritt)
@@ -242,8 +242,21 @@ def bau_wurzelkeiler():
             T['teile'][i] = (e[0], [(*kopf(x, z)[:1], y, kopf(x, z)[1], a, b) for x, y, z, a, b in e[1]]) + tuple(e[2:])
     T['klumpen'] = [(((kopf(m[0], m[2])[0], m[1], kopf(m[0], m[2])[1])), r) for m, r in T['klumpen']]
     a_ = T['augen']; ax_, az_ = kopf(a_['ort'][0], a_['ort'][2]); a_['ort'] = (ax_, a_['ort'][1], az_); a_['blick'] = (a_['blick'][0], a_['blick'][1], a_['blick'][2] - 0.2)
+    a_['lider'] = (0.30, -0.45)   # Runde 5: kleines Auge tief in Lidern und Falten
     T['kamera'] = dict(abstand=16.8, hoehe=0.80, paar=1.10, staffel=0.50, fokus=0.58)
-    if os.environ.get('TIER_ANATOMIE', '1') == '1': anatomie(T, T['anatomie'])
+    if os.environ.get('TIER_ANATOMIE', '1') == '1':
+        anatomie(T, T['anatomie'])
+        # Runde 5: Querfalten auf dem Rüssel und eine Falte unter dem Auge (Kopfnahbild iNat 29/38), in geneigten Koordinaten
+        S = T['widerrist']
+        for xx, zt_ in ((0.935, 0.530), (0.965, 0.514), (0.995, 0.497), (1.022, 0.481)):
+            a1, a2 = kopf(xx, zt_ - 0.012), kopf(xx, zt_ - 0.012)
+            T['muskelfeld'].append(([(a1[0], -0.045, a1[1]), (a2[0], 0.045, a2[1])], -0.0065 * S, 0.0095 * S))
+        for s in (1, -1):
+            b1, b2 = kopf(0.765, 0.560), kopf(0.81, 0.548)
+            T['muskelfeld'].append(([(b1[0], s * 0.096, b1[1]), (b2[0], s * 0.088, b2[1])], -0.004 * S, 0.008 * S))
+            c1 = kopf(0.785, 0.612); T['muskelfeld'].append(([(c1[0], s * 0.090, c1[1])], 0.006 * S, 0.016 * S))   # Brauenwulst
+            m1, m2 = kopf(1.035, 0.352), kopf(0.865, 0.392); T['muskelfeld'].append(([(m1[0], s * 0.046, m1[1]), (m2[0], s * 0.070, m2[1])], -0.007 * S, 0.008 * S))   # Maulspalte
+    T['ruessel'] = dict(mitte=kopf(1.080, 0.389), achse=(math.cos(-math.atan2(0.055, 0.13) - w_), math.sin(-math.atan2(0.055, 0.13) - w_)), r=0.060)
     T['fell'] = dict(anzahl=200000, breite=0.0015, klump=16, staerke=0.75)
     # Runde 4 (Knete): Borsten struppig mit grau-hellen Spitzen (iNat i26), Büschel stehen verschieden, braune Unterwolle in den Scheiteln
     T['fell'].update(anzahl=230000, streu=0.22, wirbel=0.25, buesche=0.12, hebklump=0.08, tonklump=0.14, grannen=0.35, laengestreu=0.30,
@@ -265,11 +278,17 @@ def bau_spuerfuchs():
     vl, vr = bein([(0.17, 0.050, 0.255, 0.045, 0.030), (0.150, 0.055, 0.190, 0.028, 0.021), (0.162, 0.055, 0.075, 0.015, 0.014), (0.170, 0.055, 0.028, 0.016, 0.017), (0.192, 0.055, 0.014, 0.012, 0.017)], 0.03)
     hl, hr = bein([(-0.12, 0.052, 0.290, 0.050, 0.031), (-0.090, 0.060, 0.220, 0.034, 0.023), (-0.150, 0.059, 0.165, 0.021, 0.017), (-0.175, 0.058, 0.125, 0.015, 0.014), (-0.170, 0.058, 0.035, 0.015, 0.015), (-0.142, 0.058, 0.014, 0.012, 0.017)], 0.02)
     for n, p in (('vl', vl), ('vr', vr), ('hl', hl), ('hr', hr)): T['teile'].append((n, p, (0, 1, 0), 1))
-    T['teile'].append(('schwanz', [(-0.19, 0, 0.315, 0.024, 0.024), (-0.245, 0, 0.240, 0.028, 0.028), (-0.285, 0, 0.160, 0.030, 0.030), (-0.325, 0, 0.090, 0.022, 0.022), (-0.350, 0, 0.060, 0.010, 0.010)], (0, 1, 0), 1))
+    # Runde 5 (Flo: „der Schwanz steht so weit vom Körper ab“): am Foto spuerfuchs-07 (855 px/m) setzt die Lunte an der Kruppe an,
+    # läuft dicht hinter der Keule schräg nach unten und endet knapp über dem Boden hinter dem Hinterfuss. Die Bahn lag schon
+    # fast richtig — abstehend machten sie Dicke und Fell: 17 cm samt Fell gegen 8 cm im Foto, Haar aufgestellt. Rübe jetzt 2 cm,
+    # dicht an der Keule, das Volumen kommt aus anliegendem Haar (`fell_spuerfuchs`).
+    T['teile'].append(('schwanz', [(-0.185, 0, 0.318, 0.026, 0.026), (-0.215, 0, 0.262, 0.020, 0.020), (-0.245, 0, 0.185, 0.019, 0.019), (-0.280, 0, 0.110, 0.017, 0.017),
+                                   (-0.315, 0, 0.058, 0.013, 0.013), (-0.335, 0, 0.040, 0.007, 0.007)], (0, 1, 0), 1))
     for s in (1, -1):
         T['teile'].append(('ohr', [(0.345, s * 0.040, 0.452, 0.007, 0.030), (0.370, s * 0.050, 0.518, 0.005, 0.025), (0.398, s * 0.058, 0.572, 0.003, 0.006)], (1, 0, 0), 1))   # 9 cm, leicht nach vorn (Profilfoto)
-        T['klumpen'] += [((0.358, s * 0.046, 0.382), (0.034, 0.020, 0.026)), ((0.20, s * 0.058, 0.30), (0.05, 0.028, 0.07)), ((-0.165, s * 0.052, 0.31), (0.048, 0.022, 0.052))]
-    T['augen'] = dict(ort=(0.400, 0.037, 0.412), r=0.008, blick=(0.75, 1, 0.2), art='hoch', iris=(0.22, 0.11, 0.02))
+        T['klumpen'] += [((0.358, s * 0.046, 0.382), (0.034, 0.020, 0.026)), ((0.20, s * 0.058, 0.30), (0.05, 0.028, 0.07)), ((-0.150, s * 0.048, 0.30), (0.036, 0.016, 0.042))]   # Runde 5: Keulenklumpen kleiner — mit dem stärkeren Muskelfeld war die Keule eine Kugel
+    T['augen'] = dict(ort=(0.400, 0.037, 0.412), r=0.0092, blick=(0.75, 1, 0.2), art='hoch', iris=(0.40, 0.17, 0.03), lider=(0.50, -0.62))   # Runde 5: bernstein mit dunklem Lidrand (Profilfoto)
+    T['muskel_a'] = 1.5   # schlank: die Wölbung des Steinbocks machte die Keule zur Kugel (Tonprobe Runde 5)
     dreh = math.radians(float(os.environ.get('TIER_KOPF_DREH', '0')))   # D443: Kopf zur Kamera (+Y) drehen wie in den Fotos — nur fürs Messblatt
     if dreh:
         px, py = 0.305, 0.0
@@ -345,11 +364,15 @@ def anatomie(T, A):
             m([(K[0] + 0.05 * S, K[1] + 0.00 * S), (K[0] + 0.13 * S, K[1] + 0.16 * S)], 0.007, 0.022, s * yh * 1.20),          # Kniefalte
             m([(E[0] - 0.05 * S, E[1] + 0.05 * S), (E[0] - 0.11 * S, E[1] + 0.17 * S)], -0.006, 0.022, s * yv * 1.30),         # Ellbogenfalte
         ]
+        if A.get('rippen'):   # Runde 5: Rippen leicht sichtbar (grathorn-03/-09): flache Rinnen zwischen den hinteren Rippen, schräg nach vorn unten
+            for j in range(A['rippen']):
+                x0_ = E[0] - (0.18 + 0.07 * j) * S; z0_ = E[1] + 0.40 * S
+                feld.append(m([(x0_, z0_), (x0_ + 0.08 * S, z0_ - 0.28 * S)], -0.0035, 0.014, s * yv * 1.38))
         for t_ in A.get('halsfalten', ()):   # Halsfalten des Bocks (grathorn-09): quer zum Hals, flach
             Nk, Sh = A['nacken'], (Sp[0] + 0.02 * S, Sp[1] + 0.12 * S); mx_, mz_ = Nk[0] + (Sh[0] - Nk[0]) * t_, Nk[1] + (Sh[1] - Nk[1]) * t_
             ax_, az_ = Sh[0] - Nk[0], Sh[1] - Nk[1]; l_ = math.hypot(ax_, az_); qx, qz = -az_ / l_, ax_ / l_
             feld.append(m([(mx_ - qx * 0.06 * S, mz_ - qz * 0.06 * S), (mx_ + qx * 0.06 * S, mz_ + qz * 0.06 * S)], -0.005, 0.020, s * yv * 0.85))
-    T['muskelfeld'] = feld; T['glatt'] = A.get('glatt', T['glatt']); T['A'] = A; T['kante'] = A.get('kante', 2.6)
+    T['muskelfeld'] = feld; T['glatt'] = A.get('glatt', T['glatt']); T['A'] = A; T['kante'] = A.get('kante', 2.0)
     if os.environ.get('TIER_POSE', '1') == '1': pose(T, A)
 
 
@@ -393,8 +416,13 @@ def muskeln_anlegen(T, me):
     so liegen Muskelplatten nebeneinander wie im Foto statt Beulen."""
     n = len(me.vertices); P = np.zeros(n * 3); me.vertices.foreach_get('co', P); P = P.reshape(-1, 3)
     N = np.zeros(n * 3); me.vertices.foreach_get('normal', N); N = N.reshape(-1, 3)
-    off = np.zeros(n); kante = float(os.environ.get('TIER_KANTE', T.get('kante', 2.6)))
+    off = np.zeros(n); kante = float(os.environ.get('TIER_KANTE', T.get('kante', 2.0)))
+    # Runde 5 (Flo: „als wären sie nicht nur aufgeklebt“): flacher Rücken mit hartem Rand (Kante 2,6) las sich als Platte auf
+    # der Tonne (Tonprobe `tiere-r5/ton-r4-grathorn.png`). Jetzt gaussförmig und breiter (rb), dafür höher (ab), und das
+    # Wölbungsfeld wird danach über die Hautkanten geglättet — die Muskeln kommen aus dem Körper, statt auf ihm zu liegen.
+    rb = float(os.environ.get('TIER_MUSKEL_R', T.get('muskel_r', 1.45))); ah = float(os.environ.get('TIER_MUSKEL_A', T.get('muskel_a', 2.0)))
     for pkt, a, r in T['muskelfeld']:
+        if a > 0 and r > 0.045 * T['widerrist']: a, r = a * ah, r * rb   # nur die grossen Muskeln; Höcker, Sehnen und Falten bleiben hart
         Q = np.array(pkt, float)
         if len(Q) > 1:   # genauer Abstand zu den Strecken (Stützpunkte gaben bei hartem Rand Riefen)
             lg = np.linalg.norm(np.diff(Q, axis=0), axis=1); kum = np.concatenate([[0], np.cumsum(lg)]) / max(lg.sum(), 1e-9)
@@ -405,10 +433,16 @@ def muskeln_anlegen(T, me):
                 d = np.where(w_, di, d); tl = np.where(w_, kum[i] + (kum[i + 1] - kum[i]) * t_, tl)
         else: d = np.linalg.norm(P - Q[0], axis=1); tl = None
         g = np.exp(-(d / r) ** kante)
-        if tl is not None and kante > 2.0 and a > 0: g = g * np.sin(math.pi * (0.08 + 0.84 * tl)) ** 0.6   # Spindel
+        if tl is not None and a > 0: g = g * np.sin(math.pi * (0.04 + 0.92 * tl)) ** 0.8   # Spindel: Muskelbauch, an den Enden in die Sehne
         off += a * g
+    glatt = int(os.environ.get('TIER_MUSKEL_GLATT', '6'))
+    if glatt:   # Wölbung über die Kanten verlaufen lassen (Laplace auf dem Feld, nicht auf der Lage)
+        ne = len(me.edges); E = np.zeros(ne * 2, np.int64); me.edges.foreach_get('vertices', E); E = E.reshape(-1, 2)
+        grad = np.bincount(E.ravel(), minlength=n).astype(float) + 1e-9
+        for _ in range(glatt):
+            S_ = np.zeros(n); np.add.at(S_, E[:, 0], off[E[:, 1]]); np.add.at(S_, E[:, 1], off[E[:, 0]]); off = 0.5 * off + 0.5 * S_ / grad
     P = P + N * off[:, None]; me.vertices.foreach_set('co', P.ravel()); me.update()
-    print('TIERFRAME Muskelfeld', len(T['muskelfeld']), 'Wölbung max %.3f m' % off.max(), 'Kante', kante)
+    print('TIERFRAME Muskelfeld', len(T['muskelfeld']), 'Wölbung max %.3f m' % off.max(), 'Kante', kante, 'Breite', rb, 'Höhe', ah, 'Glätten', glatt)
 
 
 BAU = {'grathorn': bau_grathorn, 'wurzelkeiler': bau_wurzelkeiler, 'spuerfuchs': bau_spuerfuchs} if bpy else {}
@@ -529,7 +563,18 @@ def fell_wurzelkeiler(F, befall):
     scheibe = stufe(ux, 1.035, 1.055)
     dichte = np.clip(1 - scheibe * 2, 0, 1) * (0.75 + 0.25 * r1)
     heben = np.full(n, 0.20) + kamm * 0.50
+    # Runde 5, Gesicht (iNat 07/29/38): Ohr spitz mit Haarpinsel an der Spitze, Backenbart grau und abstehend, Auge in dunklen
+    # Falten mit Borsten darüber
+    ohr = F.ist('ohr'); pinsel = ohr * stufe(uz, 0.83, 0.875)
+    laenge = np.where(ohr, 0.010 + 0.030 * pinsel, laenge); heben = np.where(ohr, 0.25 + 0.45 * pinsel, heben)
+    bb = (F.nah((k_(0.70, 0.47)[0], 0.12, k_(0.70, 0.47)[1]), 0.11) + F.nah((k_(0.70, 0.47)[0], -0.12, k_(0.70, 0.47)[1]), 0.11)) * stufe(np.abs(F.N[:, 1]), 0.3, 0.8)
+    laenge = laenge + bb * 0.040; heben = heben + bb * 0.35
+    farbe = mische(farbe, lin(0.10, 0.088, 0.072), bb * 0.6)
+    au = BAU['wurzelkeiler']()['augen']['ort']; d_au = np.minimum(np.linalg.norm(F.P - np.array(au), axis=1), np.linalg.norm(F.P - np.array((au[0], -au[1], au[2])), axis=1))
+    ring = 1 - stufe(d_au, 0.016, 0.030); farbe = mische(farbe, lin(0.008, 0.007, 0.006), ring * 0.8)
+    braue = (1 - stufe(d_au, 0.02, 0.04)) * stufe(F.z - au[2], 0.004, 0.012); laenge = laenge + braue * 0.02; heben = heben + braue * 0.3
     spitze = farbe * 1.6 + 0.008 + kamm[:, None] * lin(0.05, 0.04, 0.028)[None, :]                                          # helle Borstenspitzen: gesprenkelt
+    spitze = np.where(ohr[:, None], farbe * 1.15, spitze)   # Runde 5: Ohr einheitlich schwarz — hell gespitzt las es sich orange gesprenkelt
     haut = farbe * 0.7; haut = mische(haut, lin(0.060, 0.038, 0.034), scheibe)
     moos = np.zeros(n)
     if befall: moos = stufe(F.N[:, 2], 0.78, 0.92) * stufe(rausch(F.P, 7, 11), 0.50, 0.60) * stufe(-F.x, -0.1, 0.1) * 0.8
@@ -546,16 +591,31 @@ def fell_spuerfuchs(F, befall):
     farbe = mische(farbe, weiss, unten * (~lauf) * (~lunte) * stufe(F.x, -0.17, -0.05))                                       # Bauch
     farbe = mische(farbe, weiss, F.nah((0.275, 0, 0.30), 0.11) * stufe(F.N[:, 0] - F.N[:, 2], 0.0, 0.7))                        # Brustlatz
     farbe = mische(farbe, weiss, kopf * stufe(-F.N[:, 2], -0.05, 0.5) * stufe(F.x, 0.34, 0.40))                               # Kehle, Lefzen
+    # Runde 5, Gesicht am Profilfoto (Commons „Frodo“, fuchskopf-k03): weisse Oberlippe und Wange unter einer klaren Linie vom
+    # Nasenrücken unters Auge zum Ohransatz; dunkle Lippenlinie zum Mundwinkel; dunkler Tränenstreif vom Auge zum Fang;
+    # Fangoberseite rostbraun.
+    zlinie = 0.362 + (0.388 - 0.362) * np.clip((0.49 - F.x) / 0.09, 0, 1)
+    wange = kopf * (1 - stufe(F.z - zlinie, -0.002, 0.004)) * stufe(F.x, 0.33, 0.36) * stufe(np.abs(F.N[:, 1]) - F.N[:, 2], -0.2, 0.2)
+    farbe = mische(farbe, lin(0.50, 0.47, 0.42), wange)
+    farbe = mische(farbe, lin(0.115, 0.042, 0.016), kopf * stufe(F.N[:, 2], 0.3, 0.8) * stufe(F.x, 0.40, 0.46))                     # Nasenrücken
+    def strecke(a, b):   # Abstand je Punkt zur Strecke a–b, beidseitig gespiegelt
+        a, b = np.asarray(a, float), np.asarray(b, float); P_ = F.P.copy(); P_[:, 1] = np.abs(P_[:, 1]); ab_ = b - a
+        t_ = np.clip(((P_ - a) @ ab_) / (ab_ @ ab_), 0, 1); return np.linalg.norm(P_ - (a + t_[:, None] * ab_), axis=1)
+    lippe = kopf * (1 - stufe(strecke((0.486, 0.010, 0.346), (0.402, 0.030, 0.342)), 0.0025, 0.006))
+    traene = kopf * (1 - stufe(strecke((0.407, 0.036, 0.404), (0.436, 0.028, 0.372)), 0.002, 0.0055))
+    farbe = mische(farbe, lin(0.012, 0.009, 0.008), lippe); farbe = mische(farbe, lin(0.030, 0.014, 0.008), traene * 0.85)
     farbe = mische(farbe, lin(0.012, 0.010, 0.009), lauf * stufe(F.t, 0.18, 0.42))                                              # Strümpfe
-    farbe = mische(farbe, lin(0.42, 0.37, 0.30), ohr * stufe(F.N[:, 0], 0.0, 0.5))                                                # Gehör innen hell
-    farbe = mische(farbe, lin(0.014, 0.011, 0.010), ohr * np.maximum(stufe(-F.N[:, 0], -0.1, 0.3), stufe(F.z, 0.540, 0.565)))            # hinten und an der Spitze schwarz               # Gehör hinten schwarz
+    farbe = mische(farbe, lin(0.48, 0.44, 0.38), ohr * stufe(F.N[:, 0], 0.0, 0.5))                                                # Gehör innen hell
+    farbe = mische(farbe, lin(0.012, 0.010, 0.009), ohr * np.maximum(stufe(-F.N[:, 0], -0.35, 0.05), stufe(F.z, 0.530, 0.555)))            # Gehör aussen und an der Spitze schwarz (Runde 5: war nur ganz hinten)
     farbe = mische(farbe, lin(0.10, 0.045, 0.02), lunte * 0.6)
     farbe = mische(farbe, lin(0.025, 0.018, 0.015), lunte * stufe(rausch(F.P, 40, 8), 0.42, 0.62) * 0.7)                           # schwarze Grannen in der Lunte
     farbe = mische(farbe, weiss, lunte * stufe(-F.x, 0.325, 0.350))                                                           # Blume
     laenge = np.full(n, 0.031) * (0.8 + 0.4 * r2) + F.nah((0.30, 0, 0.36), 0.10) * 0.012
     laenge = np.where(lauf, 0.013 - 0.004 * stufe(F.t, 0.03, 0.25), laenge)   # D444: Läufe dicht kurz behaart, nicht kahl
-    laenge = np.where(kopf, 0.022 - 0.013 * stufe(F.x, 0.365, 0.440), laenge)   # Schnauze 9 mm statt 4: sonst scheint die Haut durch; laenge = np.where(ohr, 0.006, laenge)
-    laenge = np.where(lunte, 0.060 * (1 - 0.45 * stufe(-F.x, 0.31, 0.355)), laenge)
+    laenge = np.where(kopf, 0.022 - 0.015 * stufe(F.x, 0.365, 0.470), laenge)   # Schnauze vorn 7 mm, Fang schmal (Profilfoto)
+    laenge = np.where(ohr, np.where(F.N[:, 0] > 0.1, 0.013, 0.005), laenge)   # Runde 5: stand im Kommentar — die Gehöre trugen 3 cm Rumpffell (orange Puschel); aussen kurz, innen lang und weiss
+    lt = stufe(-F.x, 0.19, 0.30)   # Lunte: an der Wurzel anliegend kurz, zur Mitte buschig, Spitze schmaler (Foto: 6 cm → 9 cm → 5 cm Durchmesser)
+    laenge = np.where(F.ist('schwanz'), (0.022 + 0.020 * lt) * (1 - 0.35 * stufe(-F.x, 0.315, 0.34)), laenge)
     # Backenbart und Halskrause (spuerfuchs-05/-06): der Kopf ist breit durchs Fell, nicht durch den Schädel — fehlte in Runde 1
     backe = kopf * (F.nah((0.365, 0.050, 0.375), 0.040) + F.nah((0.365, -0.050, 0.375), 0.040)) * stufe(np.abs(F.N[:, 1]), 0.3, 0.8)
     krause = F.nah((0.29, 0, 0.36), 0.11) * (~kopf) * stufe(F.N[:, 2] + 0.3, 0.0, 0.6)   # Nacken und Halsseiten, nicht die Kehle
@@ -563,8 +623,10 @@ def fell_spuerfuchs(F, befall):
     keule = np.clip(F.nah((-0.12, 0.058, 0.26), 0.08) + F.nah((-0.12, -0.058, 0.26), 0.08), 0, 1) * (~lunte)
     laenge = laenge * (1 - 0.40 * keule)   # Runde 3: Keule las sich bauschig — dort anliegend (spuerfuchs-07)   # Profilfoto: Krause 4–6 cm über der Haut
     farbe = mische(farbe, weiss, backe * stufe(-F.N[:, 2], -0.3, 0.2) * 0.7)
-    nase = F.nah((0.493, 0, 0.358), 0.013)
-    dichte = np.clip(1 - nase * 2, 0, 1); heben = np.full(n, 0.26) + 0.32 * lunte + 0.12 * F.nah((0.30, 0, 0.36), 0.09) + 0.35 * backe
+    nase = F.nah((0.493, 0, 0.358), 0.020)
+    laenge = laenge * (1 - 0.6 * lippe)
+    dichte = np.clip(1 - nase * 2, 0, 1); heben = np.full(n, 0.26) + 0.06 * lunte + 0.12 * F.nah((0.30, 0, 0.36), 0.09) + 0.35 * backe   # Runde 5: Lunte anliegend (war +0,32: stand ab)
+    heben = np.where(ohr, np.where(F.N[:, 0] > 0.1, 0.55, 0.10), heben)
     spitze = farbe * 1.3 + 0.006
     haut = farbe * 0.6; haut = mische(haut, lin(0.010, 0.009, 0.009), nase)
     moos = np.zeros(n)
@@ -867,24 +929,77 @@ def hart_grathorn(T, eltern, befall):
 
 def hart_wurzelkeiler(T, eltern, befall):
     huf = mat('huf', lambda: mat_fest('Huf', (0.035, 0.030, 0.027), 0.45, 0.4, 90.0))
-    zahn = mat('zahn', lambda: mat_fest('Hauer', (0.62, 0.52, 0.33), 0.35, 0.3, 40.0, coat=0.3))
+    zahn = mat('zahn', lambda: mat_fest('Hauer', (0.70, 0.64, 0.50), 0.30, 0.3, 40.0, coat=0.4))   # Runde 5: elfenbein statt gelb
     for name, e in zip(T['teilnamen'], T['teile']):
         if name in ('vl', 'vr', 'hl', 'hr'):
             x, y, z = e[1][-1][:3]; klaue(eltern, (x + 0.005, y, 0), 0.07, 0.066, 0.045, huf)
-    for s in (1, -1):
-        gewehr = [(0.895, s * 0.060, 0.385, 0.012, 0.010), (0.915, s * 0.078, 0.415, 0.012, 0.010), (0.910, s * 0.096, 0.460, 0.009, 0.008), (0.885, s * 0.108, 0.495, 0.003, 0.003)]
-        haderer = [(0.905, s * 0.064, 0.445, 0.011, 0.010), (0.925, s * 0.086, 0.452, 0.010, 0.009), (0.915, s * 0.100, 0.478, 0.004, 0.004)]
+    for s in (1, -1):   # Runde 5: schlanker, zur Spitze scharf — die runden Würste lasen sich als Gummi
+        gewehr = [(0.895, s * 0.060, 0.385, 0.010, 0.008), (0.915, s * 0.078, 0.415, 0.009, 0.0075), (0.910, s * 0.096, 0.460, 0.006, 0.005), (0.888, s * 0.106, 0.493, 0.0015, 0.0015)]
+        haderer = [(0.905, s * 0.064, 0.445, 0.009, 0.008), (0.925, s * 0.086, 0.452, 0.0075, 0.007), (0.917, s * 0.098, 0.476, 0.002, 0.002)]
         k_ = T.get('kopf', lambda x, z: (x, z))
         gewehr = [(k_(x, z)[0], y, k_(x, z)[1], a, b) for x, y, z, a, b in gewehr]; haderer = [(k_(x, z)[0], y, k_(x, z)[1], a, b) for x, y, z, a, b in haderer]
         for p in (gewehr, haderer):
             o = netz('Hauer', *rohr(p, ringe=10, unter=6, ref=(1, 0, 0), kappe=(0.5, 1.5)), eltern=eltern); o.data.materials.append(zahn)
-        # Nüstern: zwei dunkle Mulden in der Rüsselscheibe
-        nx_, nz_ = k_(1.068, 0.398); o = netz('Nuester', *kugel((nx_, s * 0.021, nz_), (0.006, 0.011, 0.014)), eltern=eltern)
-        o.data.materials.append(mat('dunkel', lambda: mat_fest('Dunkel', (0.008, 0.006, 0.006), 0.4)))
+    # Runde 5 (Flo: „Gesicht zu simpel“): Rüsselscheibe als eigene Platte — flach, knorpelig gerandet, rosagrau und feucht, mit
+    # zwei ovalen Nasenlöchern (iNat 29/38, Kopfnahbilder). Vorher endete der Rüssel als befellte Rundung mit zwei Punkten.
+    R_ = T['ruessel']; cx_, cz_ = R_['mitte']; ax_, az_ = R_['achse']; achse = Vector((ax_, 0, az_)).normalized()
+    # auf die Haut setzen: Strahl aus dem Rüssel längs der Achse (die Kappe des Lofts endet nicht am letzten Bahnpunkt)
+    ko_ = next(c for c in eltern.children if c.name.endswith('_koerper')); bvh_ = BVHTree.FromObject(ko_, bpy.context.evaluated_depsgraph_get())
+    treffer = bvh_.ray_cast(Vector((cx_, 0, cz_)) - achse * 0.10, achse)
+    if treffer[0] is not None:
+        cx_, cz_ = treffer[0].x - achse.x * 0.006, treffer[0].z - achse.z * 0.006
+        quer = [bvh_.ray_cast(Vector((cx_, 0, cz_)) - achse * 0.02, d_)[0] for d_ in (Vector((0, 1, 0)), Vector((0, -1, 0)))]
+        if all(q is not None for q in quer): R_['r'] = max(0.040, min(0.065, abs(quer[0].y - quer[1].y) * 0.5 + 0.004))
+    print('TIERFRAME Rüsselscheibe', round(cx_, 3), round(cz_, 3), 'r', round(R_['r'], 3))
+    bm_ = bmesh.new(); bmesh.ops.create_cone(bm_, cap_ends=True, segments=28, radius1=R_['r'] * 1.0, radius2=R_['r'] * 0.90, depth=0.024)
+    bmesh.ops.bevel(bm_, geom=[e for e in bm_.edges if abs(e.verts[0].co.z - e.verts[1].co.z) < 1e-6 and e.verts[0].co.z > 0], offset=0.004, segments=3, affect='EDGES')
+    me_ = bpy.data.meshes.new('Ruesselscheibe'); bm_.to_mesh(me_); bm_.free()
+    o = bpy.data.objects.new('Ruesselscheibe', me_); bpy.context.scene.collection.objects.link(o); o.parent = eltern
+    o.location = (cx_, 0, cz_); o.rotation_euler = achse.to_track_quat('Z', 'X').to_euler(); o.scale = (1.0, 0.88, 1.0)
+    for p_ in me_.polygons: p_.use_smooth = True
+    o.data.materials.append(mat('ruessel', lambda: mat_fest('Ruessel', (0.16, 0.12, 0.11), 0.38, 0.9, 260.0, coat=0.25)))
+    vorn = Vector((cx_, 0, cz_)) + achse * 0.0095   # Nasenlöcher in der Stirnfläche der Scheibe
+    for s in (1, -1):
+        quer = Vector((0, s * 0.017, 0)); hoch = Vector((-achse.z, 0, achse.x)).normalized() * 0.006   # senkrecht zur Achse, nach oben
+        o = netz('Nuester', *kugel(tuple(vorn + quer + hoch), (0.0045, 0.0042, 0.0045)), eltern=eltern)   # klein: standen als Perle über
+        o.data.materials.append(mat('dunkel', lambda: mat_fest('Dunkel', (0.004, 0.003, 0.003), 0.4)))
+
+
+def vibrissen(eltern, wurzeln, richtungen, laengen, radius, farbe, rng, name='Vibrissen'):
+    """Runde 5: Tasthaare als einzelne Kurven — steif, sanft gebogen, zur Spitze dünn (Profilfoto: schwarz, 5–8 cm)."""
+    anzahl = len(wurzeln); s_ = np.linspace(0, 1, 6)
+    d = np.asarray(richtungen, float); d /= np.linalg.norm(d, axis=1)[:, None]
+    pos = np.asarray(wurzeln, float)[:, None, :] + np.asarray(laengen, float)[:, None, None] * (s_[None, :, None] * d[:, None, :] + (s_ ** 2)[None, :, None] * np.array([0, 0, -0.18])[None, None, :])
+    cu = bpy.data.hair_curves.new(name); cu.add_curves([6] * anzahl)
+    cu.attributes['position'].data.foreach_set('vector', pos.astype(np.float32).ravel())
+    rad = radius * (1 - 0.85 * s_)[None, :].repeat(anzahl, 0)
+    cu.attributes.new('radius', 'FLOAT', 'POINT').data.foreach_set('value', rad.astype(np.float32).ravel())
+    for attr in ('farbe', 'spitze'):
+        cu.attributes.new(attr, 'FLOAT_COLOR', 'CURVE').data.foreach_set('color', np.tile([*farbe, 1.0], anzahl).astype(np.float32))
+    o = bpy.data.objects.new(name, cu); bpy.context.scene.collection.objects.link(o); o.parent = eltern
+    o.data.materials.append(mat('vibrisse', lambda: mat_fell('Vibrisse', 0.25, zufall=0.1)))
+    return o
 
 
 def hart_spuerfuchs(T, eltern, befall):
-    return
+    """Runde 5 (Flo: „Gesichtspartien zu simpel“): Nasenspiegel schwarz und feucht, Schnurrhaare aus dem Polster,
+    Tasthaare über dem Auge und am Kinn (Profilfoto)."""
+    nass = mat('nasenspiegel', lambda: mat_fest('Nasenspiegel', (0.006, 0.005, 0.005), 0.30, 0.3, 500.0, coat=0.3))   # feucht: Lack über rauer Haut
+    o = netz('Nase', *kugel((0.496, 0, 0.359), (0.0100, 0.0120, 0.0100), 18, 12), eltern=eltern)   # vor dem Fell (8,5 mm verschwand darin)
+    o.data.materials.append(nass)
+    for s in (1, -1):   # Nasenlöcher: kleine dunkle Kerben vorn unten
+        o = netz('Nasenloch', *kugel((0.5045, s * 0.0055, 0.3555), (0.002, 0.0028, 0.0022)), eltern=eltern)
+        o.data.materials.append(mat('dunkel', lambda: mat_fest('Dunkel', (0.002, 0.002, 0.002), 0.4)))
+    rng = np.random.default_rng(55); w, d, l = [], [], []
+    for s in (1, -1):
+        for i in range(14):   # Schnurrhaarpolster: vier Reihen an der Oberlippe
+            x = rng.uniform(0.452, 0.478); z = rng.uniform(0.343, 0.356); y = s * (0.0105 + (0.49 - x) * 0.28)
+            w.append((x, y, z)); d.append((-0.75, s * rng.uniform(0.45, 0.75), rng.uniform(-0.25, 0.10))); l.append(rng.uniform(0.045, 0.080))
+        for i in range(4):    # über dem Auge
+            w.append((0.402 + rng.uniform(-0.004, 0.004), s * 0.034, 0.424)); d.append((-0.3, s * 0.6, 0.6)); l.append(rng.uniform(0.025, 0.040))
+        for i in range(3):    # Kinn
+            w.append((0.452 + rng.uniform(-0.004, 0.004), s * 0.008, 0.328)); d.append((-0.4, s * 0.4, -0.7)); l.append(rng.uniform(0.018, 0.028))
+    vibrissen(eltern, w, d, l, 0.00042, (0.008, 0.007, 0.006), rng)
 
 
 HART = {'grathorn': hart_grathorn, 'wurzelkeiler': hart_wurzelkeiler, 'spuerfuchs': hart_spuerfuchs}
@@ -1140,6 +1255,7 @@ def tier(name, befall, ort=(0, 0, 0), kurs=None, saat=384):
         tief = stufe(cav, a_, b_); hoch = stufe(-cav, a_, b_); f_ = (1 - k_ * tief + 0.25 * k_ * hoch)[:, None]
         for key in ('farbe', 'spitze', 'haut'): W[key] = W[key] * f_
         W['heben'] = W['heben'] * (1 - 0.5 * tief)
+        W['laenge'] = W['laenge'] * (1 - 0.30 * tief) * (1 + 0.10 * hoch)   # Runde 5: in den Furchen kürzer und gescheitelt, auf den Muskelbäuchen voller
         print('TIERFRAME Furchen Perzentile (mm)', np.percentile(cav, [1, 5, 25, 50, 75, 95, 99]).round(4) * 1000)
         print('TIERFRAME Furchen: Anteil tief %.3f, hoch %.3f' % ((tief > 0.5).mean(), (hoch > 0.5).mean()))
     fl = F.fluss + np.array([0, 0, -0.38]); W['fluss'] = fl
@@ -1391,6 +1507,10 @@ def modus_foto():
     tier(name, False, (0, 0, 0), kurs=math.pi / 2)
     weite = {'grathorn': 10.5, 'wurzelkeiler': 10.0, 'spuerfuchs': 5.2}[name]; hoehe = T['widerrist'] * 0.8
     kam.location = (-weite, 0.25, hoehe); ziel = Vector((0, 0.10, T['widerrist'] * 0.78)); kam.rotation_euler = (ziel - kam.location).to_track_quat('-Z', 'Y').to_euler()
+    if os.environ.get('TIER_KOPF') == '1':   # Runde 5: Kopf-Nahbild (Seitenansicht, leicht von vorn) gegen das Profilfoto
+        kx, kz = T.get('kopf', lambda x, z: (x, z))(*{'grathorn': (0.90, 0.92), 'wurzelkeiler': (0.92, 0.50), 'spuerfuchs': (0.43, 0.39)}[name])
+        ab_ = {'grathorn': 2.2, 'wurzelkeiler': 2.4, 'spuerfuchs': 1.35}[name]
+        ziel = Vector((0, kx, kz)); kam.location = ziel + Vector((-ab_, 0.22 * ab_, 0.05 * ab_)); kam.rotation_euler = (ziel - kam.location).to_track_quat('-Z', 'Y').to_euler()
     if os.environ.get('TIER_TON') == '1':   # Formprüfung: graue Plastik, nur der Körper
         m = bpy.data.materials.new('Ton'); m.use_nodes = True; m.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (0.32, 0.30, 0.28, 1)
         m.node_tree.nodes['Principled BSDF'].inputs['Roughness'].default_value = 0.7

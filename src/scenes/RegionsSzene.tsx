@@ -82,7 +82,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { LOOK_FELS_AN } from '../world/echt.js';
+import { LOOK_FELS_AN, LOOK_FELS_DICHTE } from '../world/echt.js';
 import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
@@ -2289,7 +2289,7 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
               {teil === 'wasser'
                 ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
                 : teil === 'boden' ? <BauwerkBoden bauwerk={b} />
-                : teil === 'pflanzen' ? <BauwerkPflanzen bauwerk={b} />
+                : teil === 'pflanzen' ? (istAus('pflanzen') ? null : <BauwerkPflanzen bauwerk={b} />)
                 : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
           ))}
@@ -2349,22 +2349,57 @@ function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
  */
 function BauwerkPflanzen({ bauwerk }: { bauwerk: Bauwerk }) {
   const { scene } = useGLTF(bauwerkPfad(bauwerk, 'pflanzen'));
-  const objekt = useMemo(() => {
-    const klon = scene.clone(true);
+  const camera = useThree(st => st.camera);
+  const { objekt, felder } = useMemo(() => {
+    const gruppe = new THREE.Group();
     const fertig = new Set<THREE.Material>();
-    klon.traverse(o => {
+    const felder: { mesh: THREE.InstancedMesh; mitte: THREE.Vector3; anzahl: number }[] = [];
+    scene.updateMatrixWorld(true);
+    const m4 = new THREE.Matrix4(), p = new THREE.Vector3();
+    scene.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return;
-      o.castShadow = true; o.receiveShadow = true; o.frustumCulled = !(o instanceof THREE.InstancedMesh);
       for (const m of (Array.isArray(o.material) ? o.material : [o.material]) as THREE.MeshStandardMaterial[]) {
         if (fertig.has(m)) continue; fertig.add(m);
         m.side = THREE.DoubleSide;
         if (m.transparent || m.alphaTest > 0 || m.map) { m.transparent = false; m.alphaTest = Math.max(m.alphaTest, 0.5); m.depthWrite = true; }
       }
+      if (!(o instanceof THREE.InstancedMesh)) {   // Efeu und Laubstreu: ein Netz, keine Lagen
+        const k = o.clone(); k.matrixAutoUpdate = false; k.matrix.copy(o.matrixWorld); k.castShadow = false; k.receiveShadow = true; gruppe.add(k); return;
+      }
+      // D450: Lagen in 12-m-Felder teilen — ein InstancedMesh über 60 m wird nie verworfen, Felder ausserhalb des Bildes schon
+      const je = new Map<string, number[]>();
+      for (let i = 0; i < o.count; i++) {
+        o.getMatrixAt(i, m4); p.setFromMatrixPosition(m4.premultiply(o.matrixWorld));
+        const schl = `${Math.floor(p.x / FELD_PFLANZEN)},${Math.floor(p.z / FELD_PFLANZEN)}`;
+        (je.get(schl) ?? je.set(schl, []).get(schl)!).push(i);
+      }
+      for (const idx of je.values()) {
+        // gemischt, damit eine gekürzte Anzahl (Ferne) gleichmässig ausdünnt statt eine Ecke zu leeren
+        for (let k = idx.length - 1; k > 0; k--) { const j = (k * 7919 + 13) % (k + 1); [idx[k], idx[j]] = [idx[j], idx[k]]; }
+        const feld = new THREE.InstancedMesh(o.geometry, o.material, idx.length);
+        idx.forEach((i, k) => { o.getMatrixAt(i, m4); feld.setMatrixAt(k, m4.premultiply(o.matrixWorld)); });
+        feld.computeBoundingSphere(); feld.castShadow = false; feld.receiveShadow = true;   // kleine Pflanzen werfen keinen Schatten (Schattenpass ×2)
+        gruppe.add(feld); felder.push({ mesh: feld, mitte: feld.boundingSphere!.center.clone(), anzahl: idx.length });
+      }
     });
-    return klon;
+    return { objekt: gruppe, felder };
   }, [scene]);
+  // Ferne: ab 18 m auf ein Drittel ausgedünnt, ab 35 m ein Achtel — Halme sind dort kleiner als ein Pixel
+  const letzte = useRef(new THREE.Vector3(Infinity, 0, 0));
+  const welt = useRef(new THREE.Vector3());
+  useFrame(() => {
+    if (letzte.current.distanceToSquared(camera.position) < 1) return;
+    letzte.current.copy(camera.position);
+    for (const f of felder) {
+      welt.current.copy(f.mitte).applyMatrix4(objekt.matrixWorld);
+      const d = welt.current.distanceTo(camera.position);
+      f.mesh.count = d < 18 ? f.anzahl : d < 35 ? Math.ceil(f.anzahl / 3) : Math.ceil(f.anzahl / 8);
+    }
+  });
   return <primitive object={objekt} />;
 }
+/** Kantenlänge der Pflanzenfelder in Metern (D450). */
+const FELD_PFLANZEN = 12;
 
 /**
  * Stauweiher (D268, `world/weiher.ts`): nur für Bauwerke mit einem Objekt `Wehr`. Teilt sich die
@@ -2421,7 +2456,9 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
     let fussEcken = 0;
     klon.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return;
-      o.castShadow = true; o.receiveShadow = true;
+      // D450: In der Zielbild-Szene werfen nur grosse Körper Schatten — Streu, Kiesel, Moos und Schutt sind 2 Mio. Dreiecke
+      // im Schattenpass und werfen Schatten unter einem Pixel der Schattenkarte (24 cm je Texel)
+      o.castShadow = bauwerk.ordner !== 'bauten-ziel' || /^(Mauer[ABC]|Stuetzmauer|Fels|Hof|Becken|Stein|Versturz|Wurzel|Stubben|Balken)(?!.*_Schutt)/.test(o.name); o.receiveShadow = true;
       // Ein vereinigtes Netz kann mit einem Material-Array kommen (erster Stauwehr-Export: 105 Kronen,
       // 105 Materialien). Alle Teile tragen dieselbe Vertexfarbe — das erste Material reicht als Basis,
       // und ein einzelnes Material zeichnet das ganze Netz. Vorher war die Basis das Array selbst: weiss.
@@ -4923,9 +4960,9 @@ export function RegionsSzene({
     <Canvas
       // ADR-0015: three r18x hat PCFSoftShadowMap entfernt (R3F-Vorgabe bei `true`) und fiel mit
       // Warnung auf PCFShadowMap zurück — die filtert jetzt selbst weich (Vogel-Disk). Ausdrücklich.
-      shadows={qualitaet.schatten ? 'percentage' : false}
+      shadows={qualitaet.schatten && !istAus('schatten') ? 'percentage' : false}
       frameloop={angehalten ? 'never' : 'always'}
-      dpr={[1, qualitaet.dpr]}
+      dpr={LOOK_FELS_DICHTE !== null ? LOOK_FELS_DICHTE : [1, qualitaet.dpr]}
       camera={{ fov: 55, near: 0.2, far: KAMERA_FERN, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
@@ -4998,7 +5035,7 @@ export function RegionsSzene({
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
       <EzBaumProbe ziel={ref} lokal={HOF_GRUEN_AN} milbinger={MILBINGERLICHT_AN && !!wiesenbereich} />
-      {LOOK_FELS_AN && <Suspense fallback={null}><Rahmenkronen hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} /></Suspense>}
+      {LOOK_FELS_AN && !istAus('kronen') && <Suspense fallback={null}><Rahmenkronen hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} /></Suspense>}
       {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
       <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
               bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />
