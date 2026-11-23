@@ -2,12 +2,14 @@
 last-reviewed: 2026-11-23
 shelf-life-days: 180
 ---
-<!-- BRACHLAND — Waffenbewegungen aus freien Quellen (D428, D430). Stand 23.11.2026. -->
+<!-- BRACHLAND — Waffenbewegungen aus freien Quellen (D428, D430, D452). Stand 23.11.2026. -->
 
 # BRACHLAND — Waffenbewegungen aus freien Quellen v1 (D428)
 
 > **D452 (23.11.2026):** Körper von `Axt_Hieb` und `Axt_Schwer` nach dem Spaltvideo nachgezogen (tieferes Becken, Hüftknick,
 > Schwerpunkt über den Füssen), Trefferfenster A gegen B mit dem Kampfbot gemessen — A übernommen, B Vorschlag (§5.2, A-49).
+> **D453 (23.11.2026):** Fertige Bewegungsquellen (Mocap, Animationspakete, Datensätze, KI, Werkzeuge) mit
+> Lizenzurteil für den Browser, CMU-Probe, Empfehlung in drei Stufen und Übergangssystem in §8; Fragen: Ledger **A-50**.
 >
 > **D430 (23.11.2026):** Bewegungen aus frei lizenzierten Videos — Quellen, Kette (`tools/videoposen.py`), Probeclip und
 > ehrliche Bewertung in §7; Fragen an Flo: Ledger **A-45**.
@@ -661,3 +663,140 @@ Anderthalbhänder zeigen eine stimmige Stellung, aber keine brauchbare Waffenfü
 - **UNKLAR:** Lizenzen freier Mehrkamera-Werkzeuge (Triangulation) — nicht geprüft.
 - Die Phasenerkennung braucht Hilfe (`--abwaerts`, `--hiebe`, `--ausschnitt`), sobald mehrere Personen im Bild sind oder
   der Mensch zwischen den Hieben umhergeht (Kõrvemaa: 13 „Hiebe“, die meisten Gehen und Holz Legen).
+
+## 8. Fertige Bewegungsquellen (D453)
+
+Flo 23.11.2026: „ich will die Videos nicht selber machen und ich kenn auch niemanden. Es muss doch hierzu schon etwas
+geben was man nutzen kann und passt oder wir als Vorlage nehmen können und bei uns implementieren.“ Ziel bleibt die
+Messlatte D432 (Gewicht, lesbares Ausholen, flüssige Übergänge, Richtungsführung) — als Qualität, nicht als Kopie
+(D431). Gesucht: fertiges Motion Capture und Animationen für Nahkampf mit Waffen, frei **und** kostenpflichtig.
+Lizenzen an der Primärquelle gelesen, wo erreichbar, **Abruf 23.11.2026**; wo nur eine Wiedergabe erreichbar war, steht
+das dabei. **Keine Rechtsberatung.** Ledger D453, Fragen A-50.
+
+**Die Kernfrage ist dieselbe wie bei ADR-0021:** Ein Browser-Spiel liefert jede Animation als Datei (`.glb`) aus, die
+jeder Besucher mit den Entwicklerwerkzeugen des Browsers speichern kann. Fast alle kommerziellen Mocap-Lizenzen
+erlauben den Einsatz in Spielen nur, wenn die Daten **nicht herauslösbar** bzw. **kompiliert** sind. Ein komprimierter
+GLB-Clip ist umgearbeitet, aber herauslösbar. Darum lautet bei diesen Quellen die Antwort „unklar“ bis „nein“, auch
+wenn der Preis klein ist.
+
+### 8.1 Vergleich
+
+**Browser** = darf es in einem Browser-Spiel mitgeliefert werden: **ja** / **nein** / **unklar** (mit Grund).
+
+| Quelle | Inhalt (Waffen, Hände, Clips, Art) | Format, Skelett | Lizenz (Primärzitat, Quelle, Abruf 23.11.2026) | Browser | Preis |
+|---|---|---|---|---|---|
+| **Quaternius UAL2 Standard** | 43 Clips, zehn mit Waffe, alle einhändig (Schwertkombo, Block, Wurf, Hacken), von Hand animiert (§1–3) | GLB/FBX, UE-Mannequin | „CC0 1.0 Universal“ (`License.txt`; https://quaternius.itch.io/universal-animation-library-2, D428) | **ja** | 0 $ (geladen, D428) |
+| **Quaternius UAL2 Source** | +~90 Clips: `Sword_Heavy_A–D`, `Sword_Light_A–D` (+ `_Rec`), `Sword_Aerial_*`, `Melee_Combo`, `Mining` (Spitzhacke, vermutlich zweihändig), Bogen; von Hand animiert, stilisiert; nicht angesehen | `.blend` + Exporte, UE-Mannequin | CC0 wie oben; Source-Zip „if you pay $14.99 USD or more“ (itch.io) | **ja** (CC0) | 14,99 $ |
+| **CMU Graphics Lab Mocap** | 2.605 Aufnahmen, optisch, 120/s. Mit Waffe: **`02_07`–`02_09` „swordplay“** (Stab ohne Marker, zweihändig, langsam: Hand ≤ 2,7 m/s), **`79_01`, `80_71` „chopping wood“** (Pantomime ohne Axt, zweihändig, Hand 7–10 m/s); dazu Schläge, Tritte, Karate-Formen (`135_*`) | ASF/AMC (eigenes Skelett, 31 Knochen); BVH-Umwandlungen Dritter | „free for all uses“ (Startseite); „You may include this data in commercially-sold products, but you may not resell this data directly“ (http://mocap.cs.cmu.edu/faqs.php) | **ja** — im Spiel eingebaut ist „include … in products“; nicht als eigenes Datenpaket anbieten | 0 $ |
+| **Mixamo (Adobe)** | Pakete u. a. *Sword And Shield*, *Great Sword* (zweihändig); Axt- oder Speerpaket nicht gefunden (Liste nicht am Primärtext geprüft); Mocap mit Nacharbeit | FBX, Mixamo-Skelett | Adobe-FAQ (helpx vom Rechner aus **HTTP 403**; Wortlaut aus Community-FAQ vom 29.09.2022 und Suchauszug): Spiele royalty-free erlaubt; „the only thing you can't do is distribute the raw character and animation files“; „may not distribute the files to customers“ (https://community.adobe.com/t5/mixamo-discussions/mixamo-faq-licensing-royalties-ownership-eula-and-tos/td-p/13234775); kein ML-Training | **unklar → eher nein**: ein GLB-Clip im Browser ist die Animationsdatei beim Kunden | 0 $ (Adobe-Konto) |
+| **MoCap Online**, freies *T.C. Sword* | Schwertkampf-Auswahl (Angriff, Block, Bewegung), Mocap | FBX, BIP, Blender, Unity, UE; MotusMan v55 | Standard License §1.1: „prevents their extraction for further distribution, reproduction“; §2.1: „cannot be extractable in a format that allows their reuse“, „Distribution is allowed only as binary-only“ (https://mocaponline.com/pages/license) | **nein** — GLB im Browser ist herauslösbar | 0 $ |
+| **MoCap Online**, Bezahlpakete | Im Shop (Katalog mit 34 Produkten) **kein** Schwert-, Axt- oder Speerpaket mehr; Nahkampf nur *Ninja* (139,99 $), *Punch* (10,99 $) | wie oben | wie oben | **nein** | — |
+| **Unity Asset Store** (z. B. Kubold *Spear And Halberd Animset*: 176 Mocap-Clips, Stangenwaffe, laut Anbieter auch Zweihandschwert/-axt; Protofactor *Animset 2-Handed Melee Weapon*; Kubolds *Longsword Animset Pro* ist zurückgezogen) | Mocap (Kubold); Protofactor-Inhalt auf der Seite nicht lesbar | FBX, Humanoid/HumanIK | EULA §2.2.1(b): Weitergabe nur „as incorporated and embedded in that Licensed Product“; keine Engine-Bindung (https://unity.com/legal/as-terms). Kubold-FAQ: andere Engines ja, das Spiel muss vor der Weitergabe kompiliert („built“, „cooked“) sein (https://www.kubold.com/faq-unity) | **unklar** (EULA) / **eher nein** (Kubold: „kompiliert“ trifft auf GLB nicht zu) | Kubold 49,99 $, Protofactor 21,99 $ |
+| **Fab** (Epic; z. B. Kubold *FPP Melee Animset* — nur Ich-Perspektive) und itch.io-Pakete (GameDevHero *Two Handed Sword V3*: 471 Clips, UE5-Manny/Mixamo) | Mocap/Hand, meist UE-Skelett | FBX, UE | Fab Standard License: Endnutzer am Herauslösen hindern (nur Wiedergabe aus dem Forum; Volltext wie bei ADR-0021 nicht gelesen); GameDevHero: externe Lizenz nicht gelesen | **unklar** (gleiche Frage wie ADR-0021) | 19,99–74,99 $ |
+| **Rokoko Motion Library** | 100 freie Clips nach Anmeldung, Rest „for the price of a coffee“; Waffenpakete nicht erwähnt | FBX über Rokoko Studio | Preisseite: „Export and use in any of your projects, including commercial ones.“ (https://rokoko.com/pricing/); Bedingungen der Bibliothek nicht gefunden | **unklar** (Weitergabe nicht geregelt) | 0 $ bis wenige $ je Clip |
+| **ActorCore / Reallusion** | Mocap-Bibliothek (u. a. Kampf) | FBX/iClone | Content-EULA §6.3: „must be packaged in proprietary, compiled, or encrypted formats“; „strictly prohibited from distributing Content in any deployment architecture that permits end-users to extract“ (https://www.reallusion.com/Content/EULA/EULA.htm) | **nein** | kostenpflichtig |
+| **Bandai Namco Research Motiondataset 1/2** | Alltag, Kampf (Waffe nicht genannt), Tanz in Stilen; drei Profi-Darsteller | BVH | „CC BY-NC 4.0“ (https://github.com/BandaiNamcoResearchInc/Bandai-Namco-Research-Motiondataset) | **nein** (NC) | 0 $ |
+| **LaFAN1 (Ubisoft)** | 77 Sequenzen, 4,6 h, 30/s; 5 × „fight“, Zielen mit Gewehr | BVH | „Attribution-NonCommercial-NoDerivatives 4.0“ (https://github.com/ubisoft/ubisoft-laforge-animation-dataset) | **nein** (NC, ND) | 0 $ |
+| **AMASS** und alles daraus (**HumanML3D**, MDM, MotionGPT) | Sammlung vieler Datensätze, SMPL | SMPL/NPZ | „for the sole purpose of performing non-commercial scientific research“; verboten u. a. „incorporation in a commercial product“ (https://amass.is.tue.mpg.de/license.html); HumanML3D „originates from a combination of HumanAct12 and Amass“ | **nein** | 0 $ |
+| **100STYLE** | 100 Gangstile, kein Kampf | BVH | „Creative Commons Attribution 4.0“ (https://ianxmason.github.io/100style/) | **ja**, aber ohne Waffe | 0 $ |
+| **SFU / NUS Mocap** | gemischt | BVH | nur Forschung, keine kommerziellen Produkte (https://mocap.cs.sfu.ca/) | **nein** | 0 $ |
+| **BONES-SEED** (Hugging Face) | 142.220 Bewegungen, 120/s, 20 „Martial Arts“, keine Waffe genannt | BVH (SOMA) | eigene „bones-seed-license“, zugangsbeschränkt, Text nicht gelesen | **unklar** | 0 $ (Anmeldung) |
+| **Text-zu-Bewegung, Forschung** (MDM, MotionGPT) | aus Text erzeugt; Trainingsdaten ohne Waffen — Waffenhiebe taugen nicht | SMPL | trainiert auf HumanML3D/AMASS (s. o.); Ausgabe-Lizenz nicht geregelt | **nein** (Herkunft NC) | 0 $ |
+| **DeepMotion** (Animate 3D, SayMotion) | KI aus Video/Text; Waffe wird nicht erfasst | FBX/GLB | Nutzungsbedingungen unter der verlinkten Adresse **404**; 2024 (Beta) laut CG Channel kommerziell erlaubt | **unklar** | Abo |
+| **Cascadeur** (Werkzeug: Schlüsselbilder mit Physikhilfe, AutoPosing) | kein Inhalt — eigene Animation, Schwerpunkt-, Impuls- und Flugbahnprüfung | Export FBX/DAE/USD ab Indie | Free: „Only non-commercial use“, Export nur im eigenen CASC-Format, 300 Bilder; Indie: „The revenue must be less than $100k per year“; Pro: „Commercial use with no limits“ (https://cascadeur.com/plans) | Ausgabe ist **eigene Arbeit** → **ja** ab Indie; Free **nein** (kein Export) | Indie 96 $/Jahr, Pro 396 $/Jahr |
+
+Nicht geprüft: Plask, Move.ai (Bibliotheken), Kevin Iglesias und weitere Asset-Store-Anbieter einzeln — die
+Asset-Store-EULA gilt für alle gleich, Anbieter-FAQs können strenger sein.
+
+### 8.2 Probe: CMU auf der Hauptfigur
+
+Die einzige freie **und** eindeutig erlaubte Quelle mit zweihändiger Waffenbewegung ist CMU. Geladen nach
+`.cache/mocap-d451/cmu-daten/` (`02.asf`, `02_07–09.amc`, `79.asf`, `79_01.amc`, `80.asf`, `80_71.amc` und die Videos
+`.mpg` zur Ansicht; nichts im Repo). Weg (`tools/cmuprobe.py`, neu, nicht im Gate): ASF/AMC → BVH mit eigener Umrechnung
+(Welt = Eltern · C · R · C⁻¹ nach CMU-Dokumentation) → **Ruhelage auf die der Hauptfigur gedreht** (die ASF-Ruhe spreizt
+die Beine 20° und hebt das Schlüsselbein; ohne diese Drehung stand die Figur im ersten Versuch mit gebeugten Knien in
+der Luft) → Blender-BVH-Import → `weltformel.py` wie bei UAL2 → `clipnachbau.mjs einfuegen` **in eine Kopie** von
+`held-clips.glb` (66 Knoten gleiche Ruhelage, 786 → 880 KB) → `kontaktbogen.py`. Keine Waffe zugewiesen, kein Kampfwert
+berührt.
+
+| Probeclip (Quelle, Bilder bei 120/s) | s | Hände auseinander cm (min/Median/max) | rechte Hand max m/s (Bild) | Becken tiefer cm | Rumpf ° | Fuss nah am Boden m/s |
+|---|---|---|---|---|---|---|
+| `Axt_CMU_Hieb` (`79_01`, 220–420) | 1,67 | 8 / 10 / 19 | 10,4 (26) | 6 | −13…49 | 0,37 |
+| `Axt_CMU_Hacken` (`80_71`, 240–600, drei Hiebe) | 3,0 | 2 / 4 / 8 | 7,5 (56) | 1 | −36…16 | 0,53 |
+| `Messer_CMU_Stab` (`02_07`, 1440–1800) | 3,0 | 13 / 18 / 23 | 2,6 (6) | 1 | −54…104 | 0,31 |
+
+Bilder: `.cache/bilder/D453/cmu_axt_hieb_kontakt.png`, `.cache/bilder/D453/cmu_axt_hacken_kontakt.png`,
+`.cache/bilder/D453/cmu_messer_stab_kontakt.png`, Vergleich mit derselben Kamera
+`.cache/bilder/D453/bestand_axt_hieb_kontakt.png`; Probedatei `.cache/bilder/D453/probe_cmu.glb`, Messung
+`.cache/bilder/D453/probe_cmu_messung.json`. Formprüfung in Blender Cycles (CPU), keine Look-Abnahme, Bewegung nur am
+M1 (ADR-0005). Kein Vorher/Nachher-Paar, weil im Spiel nichts geändert ist.
+
+**Ehrlich:** Der Körper überträgt sauber — Füsse stehen, Stellung und Ausholen über den Kopf lesen sich, beide Hände
+bleiben zusammen. **Die Waffe nicht:** Die Darsteller hielten keine Axt bzw. einen unmarkierten Stab; die Klinge folgt
+der Drehung der rechten Hand und zeigt deshalb in vielen Bildern quer (die Spitze rechnet sich auf 30 m/s hoch —
+Artefakt). Gewicht fehlt: Pantomime ohne Last, Becken nur 1–6 cm tiefer (Spaltvideo D430: 30 cm, `Axt_Hieb` 18 cm). Das
+CMU-„swordplay“ ist langsam und unbestimmt, kein Fechten. **Brauchbar als Vorlage für Körper und Rhythmus des
+Ausholens, nicht als fertiger Waffenclip.** Mit der Waffe nach Regel (`--regel` aus D430) wäre ein Fällaxt-Hieb
+daraus baubar — Gewicht und Waffenführung kämen dann wieder von Hand.
+
+Die UAL2 Standard ist schon in D428 geprobt (§3); weitere freie und klar erlaubte Quellen mit Waffe gibt es nicht.
+
+### 8.3 Empfehlung in drei Stufen
+
+1. **Frei und sofort nutzbar.** Mehr als heute gibt es nicht: **CMU** (zweihändiges Hacken und Stabübungen, Körper und
+   Rhythmus, optisch erfasst, „free for all uses“), die **UAL2 Standard** (einhändige Schwertclips, schon verwendet),
+   **100STYLE** (Gangstile, kein Kampf) und die freien Videos aus D430. Keine dieser Quellen bringt eine erfasste Waffe
+   oder Kampfqualität nach D432. Ehrliche Antwort auf Flos Frage: **Fertiges, freies, browser-taugliches Waffen-Mocap
+   gibt es nicht.**
+2. **Kostet wenig und wäre klar erlaubt** (bräuchte Flos Ausnahme von ADR-0013 Punkt 2):
+   - **UAL2 Source, 14,99 $ einmalig, CC0** — die einzige Kaufquelle mit Waffenhieben, deren Lizenz die Auslieferung im
+     Browser **zweifelsfrei** erlaubt. Schwere und leichte Schwerthiebe einzeln mit Erholung, `Mining` (zweihändig?);
+     handanimiert und stilisiert, also Gerüst, nicht Messlatte (gleiche Frage wie A-43 (3)).
+   - **Cascadeur Indie, 96 $/Jahr** (unter 100.000 $ Umsatz; Pro 396 $/Jahr) — kein Inhalt, sondern das Werkzeug, mit dem
+     wir selbst Schlüsselbilder mit Physikhilfe bauen (Schwerpunkt, Impuls, Flugbahn); die Ausgabe ist eigene Arbeit. Die
+     Free-Fassung taugt nicht: nur nicht kommerziell und kein FBX-Export.
+   - **Nicht** in dieser Stufe: Kubold, MoCap Online, Mixamo, Reallusion, Fab-Pakete — günstig (0–75 $), aber ihre
+     Lizenzen verlangen „nicht herauslösbar“ oder „kompiliert“. Möglich wäre eine **schriftliche Zusage** des Anbieters
+     für die Browser-Auslieferung (A-50 (2)); Kubolds *Spear And Halberd Animset* (49,99 $, 176 Mocap-Clips) deckt
+     Saufeder und laut Anbieter Zweihandwaffen ab.
+3. **Vorlage zum Nachbauen** (ansehen, eigene Schlüsselbilder bauen). Reale Bewegung gehört niemandem (D431); fremde
+   Gestaltung — unverwechselbare Kombos — bleibt tabu. Ohne Bedenken: **Fechtbücher** (§4, gemeinfrei),
+   **Forsthandbuch** (§4.3), **CMU** (frei, auch zum Ableiten), **freie Videos** (D430). Öffentliche Vorschauvideos von
+   Mocap-Paketen dürfen im Browser angesehen werden (nicht herunterladen — Plattformbedingungen, ADR-0013 Punkt 5 b), als
+   Eindruck von Gewicht und Timing, nicht Bild für Bild. **Nicht** als Vorlage: Datensätze mit NC/ND (Bandai Namco,
+   LaFAN1, AMASS) — schon das Ableiten nutzt das Material für ein Spiel, das kommerziell werden könnte (**UNKLAR**, ob es
+   das soll). Der Bauweg bleibt `waffenclips.py` (D184/D414) mit den Vorgaben aus §4 und §5.1; die Qualität nach D432
+   kommt aus Handwerk — klare Phasen (Ausholen lesbar lang, Schlag kurz, Halt), Körper vor Arm, Gewichtsverlagerung,
+   Nachschwung — und aus den Übergängen (§8.4).
+
+### 8.4 Übergänge: welches System wir brauchen
+
+Heute: `AnimationMixer.crossFadeTo` mit 0,08–0,2 s (`src/kampf/Kampfplatz.tsx`), Clips mit eigener Anfangs- und
+Endhaltung. Ein Kreuzblenden mittelt zwei Posen; bei schnellen Wechseln (Hieb → Parade, Kombo-Glied → nächstes) sieht man
+das als Weichzeichnen, Füsse rutschen. Was die Vorbilder (D432) flüssig macht, ist kein einzelnes Verfahren, sondern:
+
+1. **Gemeinsame Grundhaltung je Waffe** — jeder Clip beginnt und endet in derselben Hut (z. B. Pflug fürs Messer, Stand
+   mit linker Hand am Stielende für die Axt); dann genügen kurze Blenden.
+2. **Abbruch- und Kettenfenster im Clip** (Daten, `content/waffen/*.json`): ab wann ein Hieb in den nächsten, in Parade
+   oder Rolle übergehen darf — Kampfwert (D423), nicht Darstellung.
+3. **Inertialisierung statt Kreuzblende** (David Bollo, GDC 2018, *Gears of War 4*): Beim Wechsel spielt sofort nur der
+   neue Clip; der Unterschied zur alten Pose klingt je Knochen über 0,1–0,2 s mit einer Kurve ab, die Tempo der alten
+   Bewegung erhält. Billiger als zwei Clips gleichzeitig, kein Weichzeichnen; ein kleines eigenes Modul neben dem Mixer
+   (Knochenversatz + Abklingkurve), renderfrei testbar.
+4. **Ebenen:** Oberkörper-Angriff über Unterkörper-Gang (Maske ab `spine_01`), Treffer-Reaktion additiv obendrauf.
+5. **Füsse:** Fussverriegelung bzw. Bein-IK, solange ein Fuss steht — gegen Rutschen beim Blenden und am Hang.
+6. **Richtung (ADR-0009):** je Hieb drei bis vier Richtungsvarianten aus derselben Grundhaltung, gewählt statt gemischt.
+
+*Motion Matching* (aus grossen Mocap-Mengen die passende Stelle suchen) bräuchte genau die Mengen, die es frei nicht gibt
+— nicht empfohlen. Empfehlung: 1–3 vor neuen Clips (A-50 (3)), 4–6 danach.
+
+### 8.5 Unklar (D453)
+
+- **UNKLAR:** Ob BRACHLAND kommerziell werden soll — entscheidet über NC-Quellen und über Cascadeur Indie/Pro.
+- **UNKLAR:** Adobe-Primärtext (helpx-FAQ, Nutzungsbedingungen) war vom Rechner aus nicht abrufbar (HTTP 403); die
+  Mixamo-Zitate stammen aus einer Community-Wiedergabe von 2022 und einem Suchauszug.
+- **UNKLAR:** Fab-EULA-Volltext und externe Lizenzen einzelner Anbieter (GameDevHero, Protofactor) nicht gelesen;
+  DeepMotion-Bedingungen nicht erreichbar (404); Rokoko-Bibliotheksbedingungen nicht gefunden.
+- **UNKLAR:** Inhalt der UAL2-Source-Clips nur nach Namen bekannt (wie §6).
+- Die CMU-Lizenz verlangt keine Namensnennung; ein Eintrag in `assets/HERKUNFT.md` wäre trotzdem fällig, sobald ein
+  CMU-abgeleiteter Clip ausgeliefert wird (ADR-0013 Punkt 3).
