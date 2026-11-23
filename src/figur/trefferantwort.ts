@@ -41,6 +41,15 @@ export function stosseFigur(a: Trefferantwort, wegX: number, wegZ: number, schad
   a.x.v += wegX * v; a.z.v += wegZ * v;
 }
 
+/**
+ * D458: Stoss mit vorgegebenem Scheitel in **Grad** — für Gegner, deren Kippung D427 aus dem Impuls rechnet
+ * (`kampf/gewicht.ts` `reaktion().neigung`), statt aus dem Schaden.
+ */
+export function stosseGrad(a: Trefferantwort, wegX: number, wegZ: number, grad: number, w: Pick<Figurlaufzeit['treffer'], 'frequenz' | 'daempfung'>): void {
+  const v = (Math.max(0, grad) * GRAD) / scheitelJeTempo(w.frequenz, w.daempfung);
+  a.x.v += wegX * v; a.z.v += wegZ * v;
+}
+
 /** Zeit laufen lassen. Zurück: Kippung (rad) zur Seite und nach hinten; unter einem Zehntelgrad null. */
 export function trefferSchritt(a: Trefferantwort, dt: number, w: Figurlaufzeit['treffer']): [number, number] {
   const x = schwingSchritt(a.x, w.frequenz, w.daempfung, dt);

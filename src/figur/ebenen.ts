@@ -11,13 +11,24 @@
  * das Schneiden der Clips macht `laufzeit.ts`.
  */
 
-export interface BeinPlan { ober: string; unter: string; fuss: string }
+export interface BeinPlan {
+  ober: string; unter: string; fuss: string;
+  /** D458, Vierbeiner: zu welchem Gürtel das Bein gehört. Mit Paaren trägt jedes Paar seinen Gürtel (`vierbeiner.ts`). */
+  paar?: 'vorn' | 'hinten';
+  /**
+   * D458: `fuss` ist kein Knochen der Datei, sondern ein Hilfspunkt an der Sohle am Ende von `unter` (Tierläufe
+   * enden ohne Fussknochen); `laufzeit.ts` `fussKnoten` legt ihn an.
+   */
+  spitze?: boolean;
+}
 
 export interface Rigplan {
   becken: string;
   /** Von unten nach oben. */
   wirbel: readonly string[];
   hals: string;
+  /** D458: Hals aus mehreren Wirbeln, von unten nach oben; ohne Angabe nur `hals`. */
+  halsKette?: readonly string[];
   kopf: string;
   beine: readonly BeinPlan[];
   /** Ab diesem Knochen (einschliesslich, mit allen Nachfahren) beginnt der Oberkörper. */

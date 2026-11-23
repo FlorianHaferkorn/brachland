@@ -1209,8 +1209,67 @@ export const Figurlaufzeit = z.object({
     gradJeSchaden: z.number().min(0).max(2), maxGrad: grad(40),
     frequenz: z.number().positive().max(10), daempfung: z.number().positive().max(0.99),
   }).strict(),
+  /** D458: Landung der Spielfigur als Bild (`src/figur/landung.ts`) — die Grenze weich/hart ist `fall.schadlosBis` (D412). */
+  landung: z.object({
+    merklichAb: z.number().positive().max(3).describe('m gleichwertige Fallhöhe, ab der ein Landeclip spielt'),
+    gehtAb: z.number().positive().max(1).describe('Anteil des Clips, nach dem er in Bewegung dem Gang weicht'),
+    clipWeich: z.string().min(1), clipHart: z.string().min(1), clipRolle: z.string().min(1),
+    uebergang: sek(0.5), rolleDauer: z.number().positive().max(2),
+    warum: z.string().min(1),
+  }).strict(),
 }).strict();
 export type Figurlaufzeit = z.infer<typeof Figurlaufzeit>;
+
+/**
+ * D458: Körpersprache der Tiere und Gegner über den Clips (`content/figurgegner.json`) — Vierbeiner am Hang,
+ * Ansage des Angriffs je Gegner, Taumeln, Schütteln, Abgang, Sturz. **Nur Darstellung**: Jede Zeit, zu der etwas
+ * trifft oder endet, steht in `content/gegner/*.json` und wird hier nur gelesen (`src/figur/ansage.ts`).
+ */
+const Ansageprofil = z.object({
+  lies: z.string(),
+  zurueck: z.number().min(0).max(0.6).describe('m, Gewicht nach hinten'),
+  hoch: z.number().min(-0.3).max(0.3).describe('m, + hebt, − duckt'),
+  nickGrad: z.number().min(-30).max(30).describe('Rumpf, + vorn hoch'),
+  kopfGrad: z.number().min(-30).max(40).describe('+ Kopf senkt sich'),
+  scharrHz: z.number().min(0).max(8), scharrHub: z.number().min(0).max(0.1),
+  zitterHz: z.number().min(0).max(10), zitterGrad: grad(5),
+  seiteKopfGrad: grad(40), seiteRumpfGrad: grad(30), seiteRollGrad: grad(15), linieKopfGrad: grad(20),
+  anstieg: z.number().min(0.2).max(1).describe('Anteil des Vorlaufs, nach dem die Pose steht'),
+  ketteAnteil: z.number().min(0).max(1).describe('Stärke beim Folgeschlag einer Kette'),
+}).strict();
+export const Figurgegner = z.object({
+  stand: z.string(), lies: z.string(),
+  vierbeiner: z.object({
+    drehen: z.object({ kopf: sek(0.5), schulter: sek(0.5), huefte: sek(0.5), maxGrad: grad(80) }).strict()
+      .refine(d => d.kopf <= d.schulter && d.schulter <= d.huefte, 'Kopf führt, dann Schulter, dann Becken'),
+    nickMaxGrad: grad(45), rollAnteil: z.number().min(0).max(1), rollMaxGrad: grad(20),
+    hubMax: z.number().positive().max(1), streckReserve: z.number().min(0).max(0.3), kopfAusgleich: z.number().min(0).max(1),
+    gang: z.object({
+      gehen: z.number().positive().max(4), galopp: z.number().positive().max(15),
+      rateMin: z.number().positive().max(1), rateMax: z.number().min(1).max(3),
+      hysterese: z.number().min(0).max(0.4), standHoehe: z.number().positive().max(0.2),
+    }).strict().refine(g => g.gehen < g.galopp, 'Schritt muss langsamer sein als Galopp'),
+    real: z.string().min(1), warum: z.string().min(1), quelle: z.string().min(1),
+  }).strict(),
+  uebergang: z.object({
+    standard: sek(0.5), gang: sek(0.5), angriff: sek(0.3), treffer: sek(0.3), tod: sek(0.5), aufgabe: sek(0.6), abgang: sek(0.6), deckung: sek(0.3),
+  }).strict(),
+  ansage: z.object({ real: z.string().min(1), warum: z.string().min(1), profile: z.record(Kennung, Ansageprofil) }).strict(),
+  taumel: z.object({
+    hzBei1m: z.number().positive().max(4), grundGrad: grad(40), rest: z.number().min(0).max(1), nickAnteil: z.number().min(0).max(1),
+    hebel: z.number().min(0).max(1), sinken: z.number().min(0).max(0.3), kopfGrad: grad(40), kopfAnteil: z.number().min(0).max(1),
+    kopfVerzug: z.number().min(0).max(3.2),
+    real: z.string().min(1), warum: z.string().min(1), quelle: z.string().min(1),
+  }).strict(),
+  schuetteln: z.object({
+    beginn: sek(1), dauer: z.number().positive().max(2), hzBei30kg: z.number().positive().max(10), exponent: z.number().min(-1).max(0),
+    kopfGrad: grad(40), rumpfGrad: grad(30), welle: z.number().min(0).max(3.2),
+    real: z.string().min(1), warum: z.string().min(1), quelle: z.string().min(1),
+  }).strict(),
+  abgang: z.object({ wendeGradJeS: z.number().positive().max(720), aufgabeHalten: sek(5), warum: z.string().min(1) }).strict(),
+  sturz: z.object({ dauer: z.number().positive().max(2), prall: z.number().min(0).max(0.3), nach: z.number().positive().max(1), warum: z.string().min(1) }).strict(),
+}).strict();
+export type Figurgegner = z.infer<typeof Figurgegner>;
 
 /**
  * D427: Kampfton (D423: freie Aufnahmen, CC0, ADR-0013) — welche Dateien unter `public/ton/kampf/` zu welchem

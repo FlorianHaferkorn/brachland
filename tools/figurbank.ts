@@ -38,3 +38,66 @@ for (let r = 0; r < runden; r++) {
   summe += performance.now() - a;
 }
 console.log(`${knochen.length} Knochen, ${runden} Bilder: ${(summe / runden * 1000).toFixed(1)} µs je Bild (Trägheit dauernd im Abklingen, Drehkette, Blick, Atem, Füsse mit IK und Neigung); gesamt ${((performance.now() - t0) / runden * 1000).toFixed(1)} µs mit Posenschreiben`);
+
+// ---- D458: sechs Gegner gleichzeitig — vier Tiere (echte Skelette aus `public/creatures/kampf/`) und zwei Menschen
+// (Skelett aus `held-clips.glb`). Je Bild und Gegner: Clip im Mixer, Trägheit (alle 12 Bilder ein Wechsel),
+// Drehkette, Blick, Atem, Trefferfeder, Ansage als Zusatz, Füsse am Hang — Tiere mit Rumpflage je Beinpaar.
+{
+  const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+  const { MeshoptDecoder } = await import('meshoptimizer');
+  const { readFileSync } = await import('node:fs');
+  const { fussKnoten, messeGang } = await import('../src/figur/laufzeit.js');
+  const { RIG_VIERBEINER } = await import('../src/figur/vierbeiner.js');
+  const { GEGNERBILD, ansageProfil } = await import('../src/figur/gegnerwerte.js');
+  const { ansagePose, neuerZusatz } = await import('../src/figur/ansage.js');
+  (globalThis as unknown as { self: unknown }).self = globalThis;
+  const lade = async (f: string) => {
+    const b = readFileSync(f);
+    const l = new GLTFLoader(); l.setMeshoptDecoder(MeshoptDecoder);
+    return await new Promise<{ scene: THREE.Object3D; animations: THREE.AnimationClip[] }>((ok, err) =>
+      l.parse(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer, '', g => ok(g as never), err));
+  };
+  const vw = GEGNERBILD.vierbeiner;
+  const hang = (x: number, z: number) => 0.25 * x - 0.2 * z + 0.05 * Math.sin(z * 2);
+  type Eingabe = Parameters<Koerperfein['schritt']>[1];
+  const gegner = [] as { name: string; mixer: THREE.AnimationMixer; tr: PosenTraegheit; fein: Koerperfein; leib: THREE.Group; e: Eingabe; profil: ReturnType<typeof ansageProfil>; knochen: number }[];
+  for (const [datei, art, mensch] of [['creatures/kampf/k7-wolf', 'wolf', false], ['creatures/kampf/k7-wolf', 'wolf', false], ['creatures/kampf/spuerfuchs', 'fuchs', false],
+    ['creatures/kampf/grathorn', 'grathorn', false], ['figuren/held/held-clips', 'wegelagerer', true], ['figuren/held/held-clips', 'axtmann', true]] as const) {
+    const g = await lade(`public/${datei}.glb`);
+    const gr = new THREE.Group(), leib = new THREE.Group(); gr.add(leib); leib.add(g.scene); gr.position.set(gegner.length * 2, 0, 0);
+    const plan = mensch ? RIG_MENSCH : RIG_VIERBEINER;
+    const fuesse = fussKnoten(g.scene, plan) as THREE.Object3D[];
+    const walk = g.animations.find(c => c.name === 'Walk')!;
+    const mg = messeGang(g.scene, walk, fuesse, 0.04);
+    const fein = mensch ? new Koerperfein(g.scene, plan, mg.tief) : new Koerperfein(g.scene, plan, fuesse.map(() => 0), { drehen: vw.drehen, vier: vw });
+    const mixer = new THREE.AnimationMixer(g.scene);
+    mixer.clipAction(walk).play();
+    // `held-clips.glb` trägt das Skelett ohne Haut — seine Knoten sind dort keine `Bone`; für die Messung zählen alle.
+    let kn = sammleKnochen(g.scene);
+    if (!kn.length) g.scene.traverse(o => { if (o !== g.scene && o.name) kn.push(o); });
+    gegner.push({ name: art, mixer, tr: new PosenTraegheit(kn), fein, leib, profil: ansageProfil(art), knochen: kn.length,
+      e: { gier: 0, tempo: 2, rennen: 4, straff: 0, fokus: { x: 0, y: 1.2, z: -6 }, steht: false, hoeheAn: hang, fuesse: true, halten: true, staerke: 1, weite: 1, zusatz: neuerZusatz() } });
+  }
+  const n = 4000;
+  let nurMixer = 0, laufzeit = 0;
+  for (let r = 0; r < n; r++) {
+    for (const g of gegner) {
+      let a = performance.now();
+      g.mixer.update(dt);
+      nurMixer += performance.now() - a;
+      a = performance.now();
+      if (r % 12 === 0) g.tr.wechsel(0.2);
+      g.tr.nachMixer(dt);
+      ansagePose(g.profil, 'vorlauf', (r % 60) / 60 * 0.5, { vorlauf: 0.5, aktiv: 0.1 }, 'rechts', 1, g.e.zusatz);
+      if (r % 90 === 0) g.fein.stossGrad(0.6, 0.8, 10);
+      g.e.gier = Math.sin(r * 0.01) * 0.8;
+      g.leib.rotation.y = g.fein.schritt(dt, g.e).huefte;
+      g.fein.knochen(dt, g.e);
+      g.tr.ende();
+      laufzeit += performance.now() - a;
+    }
+  }
+  console.log(`\nD458 — ${gegner.length} Gegner gleichzeitig (${gegner.map(g => `${g.name} ${g.knochen}`).join(', ')} Knochen), ${n} Bilder:`);
+  console.log(`  Laufzeit der Bewegung: ${(laufzeit / n * 1000).toFixed(0)} µs je Bild für alle ${gegner.length} (${(laufzeit / n / gegner.length * 1000).toFixed(0)} µs je Gegner)`);
+  console.log(`  zum Vergleich der Mixer allein (ein Clip je Gegner): ${(nurMixer / n * 1000).toFixed(0)} µs je Bild`);
+}
