@@ -347,7 +347,12 @@ let axtTreffer = NaN;
     (['vorlauf', 'aktiv', 'erholung', 'reichweite', 'halbwinkel', 'schaden', 'haltungsschaden', 'kosten'] as const)
       .every(f => k[f] === SPIELERIN.schlag[f]));
   pruefe('die Axt reicht weiter', a.reichweite > k.reichweite, `${a.reichweite} gegen ${k.reichweite} m`);
-  pruefe('die Axt holt länger aus', a.vorlauf > k.vorlauf * 2, `${a.vorlauf} gegen ${k.vorlauf} s`);
+  // D454 (Flo 23.11.2026, Variante B aus D452): Vorher galt Vorlauf > 2 × Klinge. Jetzt trägt die Axt ihre Masse im
+  // Schlag selbst (Aktivfenster nach Physik länger), das Ausholen ist kürzer; Ausholen + Schlag bleiben gleich lang.
+  pruefe('die Axt holt länger aus', a.vorlauf > k.vorlauf * 1.5, `${a.vorlauf} gegen ${k.vorlauf} s`);
+  pruefe('der Schlag der Axt dauert länger (Masse, D454)', a.aktiv > k.aktiv * 1.5, `${a.aktiv} gegen ${k.aktiv} s`);
+  pruefe('Ausholen + Schlag der Axt mindestens 1,7 × Klinge (D454)', a.vorlauf + a.aktiv >= (k.vorlauf + k.aktiv) * 1.7,
+    `${f3(a.vorlauf + a.aktiv)} gegen ${f3(k.vorlauf + k.aktiv)} s`);
   pruefe('die Axt macht je Sekunde NICHT mehr Schaden als die Klinge',
     a.schaden / dauer(a) <= k.schaden / dauer(k), `${f3(a.schaden / dauer(a))} gegen ${f3(k.schaden / dauer(k))}`);
   const jeAusdauer = (s: typeof k) => s.schaden / s.kosten;
