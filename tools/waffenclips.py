@@ -92,21 +92,27 @@ CLIPS = {
     # Bilder (Clipdauer, Scheitel, Durchzug) wie vor D429 — es sind die Trefferfenster (`content/waffen/axt.json`).
     #
     # Axthieb von oben (ersetzt `Axe_Overhead`, D169: einhändig, Rumpf still, Nacken voran — D428 §5 Nr. 3).
+    # D452 nach dem Spaltvideo (D430 §7.4): Der linke Fuss setzt beim Ausholen eine Handbreit weiter vor und steht, das
+    # Gewicht liegt im Scheitel hinten und der Körper richtet sich auf (+4 cm über der Hut), dann klappt er in der Hüfte
+    # nach vorn: Becken 29 cm hinunter, Rumpf bis 51° vor (Hut + Pose; Video 68° — das Spalten zielt auf Kniehöhe, der
+    # Fällhieb auf Hüfthöhe, also weniger). Das Becken wandert dabei nur 13 cm vor — der Schwerpunkt wandert über das
+    # Vorbeugen (Überschlag 0,33 m) und bleibt über den Füssen (Physik D398: weiter vor fiele die Figur nach vorn; im
+    # Video geht das Becken im Treffen sogar zurück). Die Hände treffen tiefer und weiter vorn (Schultern sinken mit).
     'Axt_Hieb': ('Axt_Stand', 'einmal', [
         (1, 'stand'),
-        (5, dict(hand=(0.2, 0.2, 1.38), richt=(0.25, 0.15, 0.96), zwei='axt', griff=-0.5, rumpf=(-15, 2), koerper=(-0.02, -0.04))),
-        (9, dict(hand=(0.26, -0.05, 1.7), richt=(0.2, -0.45, 0.87), zwei='axt', griff=-0.6, rumpf=(-26, -6), huefte=4,
-                 koerper=(-0.04, -0.02), pol=(0.7, 0.2, -0.3))),
-        (12, dict(hand=(0.24, -0.12, 1.72), richt=(0.15, -0.7, 0.7), zwei='axt', griff=-0.62, rumpf=(-30, -10), huefte=12,
-                  koerper=(-0.04, -0.01), pol=(0.7, 0.2, -0.3))),
-        (14, dict(hand=(0.14, 0.25, 1.62), richt=(0.06, 0.25, 0.97), zwei='axt', griff=-0.36, rumpf=(-10, 10), huefte=10,
-                  koerper=(0.03, -0.06))),
-        (16, dict(hand=(0.05, 0.45, 1.15), richt=(0, 0.85, -0.53), zwei='axt', griff=-0.11, rumpf=(5, 25), huefte=2,
-                  koerper=(0.1, -0.12))),
-        (21, dict(hand=(0.03, 0.42, 0.95), richt=(0, 0.15, -0.99), zwei='axt', griff=-0.11, rumpf=(8, 32), huefte=-6,
-                  koerper=(0.12, -0.18))),
-        (29, dict(hand=(0.06, 0.38, 1.0), richt=(0.02, 0.3, -0.95), zwei='axt', griff=-0.13, rumpf=(5, 28), huefte=-3,
-                  koerper=(0.11, -0.16))),
+        (5, dict(hand=(0.2, 0.2, 1.38), richt=(0.25, 0.15, 0.96), zwei='axt', griff=-0.5, rumpf=(-15, 2), koerper=(-0.03, -0.04))),
+        (9, dict(hand=(0.26, -0.07, 1.7), richt=(0.2, -0.45, 0.87), zwei='axt', griff=-0.6, rumpf=(-26, -6), huefte=4,
+                 koerper=(-0.07, -0.01), fuss_l=(0.1, -0.02), pol=(0.7, 0.2, -0.3))),
+        (12, dict(hand=(0.24, -0.14, 1.74), richt=(0.15, -0.7, 0.7), zwei='axt', griff=-0.62, rumpf=(-30, -8), huefte=12,
+                  koerper=(-0.08, 0.04), fuss_l=(0.1, -0.02), pol=(0.7, 0.2, -0.3))),
+        (14, dict(hand=(0.14, 0.27, 1.56), richt=(0.06, 0.25, 0.97), zwei='axt', griff=-0.36, rumpf=(-10, 16), huefte=10,
+                  koerper=(-0.01, -0.06), fuss_l=(0.1, -0.02))),
+        (16, dict(hand=(0.05, 0.62, 0.98), richt=(0, 0.97, -0.24), zwei='axt', griff=-0.11, rumpf=(5, 40), huefte=2,
+                  koerper=(0.05, -0.18), fuss_l=(0.1, -0.02))),
+        (21, dict(hand=(0.03, 0.55, 0.84), richt=(0, 0.5, -0.866), zwei='axt', griff=-0.11, rumpf=(8, 48), huefte=-6,
+                  koerper=(0.06, -0.25), fuss_l=(0.1, -0.02))),
+        (29, dict(hand=(0.06, 0.5, 0.88), richt=(0.02, 0.55, -0.83), zwei='axt', griff=-0.13, rumpf=(5, 44), huefte=-3,
+                  koerper=(0.05, -0.22), fuss_l=(0.1, -0.02))),
         (34, 'stand'),
     ]),
     # Querhieb: von rechts hinten über vorn nach links, der linke Fuss tritt beim Ausholen vor und steht.
@@ -128,6 +134,11 @@ CLIPS = {
     ]),
     # Spalthieb: tief über den Kopf ausholen, die Axt hinter dem Rücken, über oben in den Boden. Der linke Fuss tritt
     # beim Ausholen vor; der Hieb endet am Boden, die Beine fangen die Masse.
+    # D452 nach dem Spaltvideo (D430 §7.4, Ziel wie dort tief): im Scheitel aufgerichtet (+3 cm über der Hut, Gewicht
+    # hinten), dann klappt der Körper in der Hüfte: Becken 33 cm hinunter (Video 30 cm), Rumpf bis 63° vor (Video 68°),
+    # das Becken nur 14 cm vor — der Schwerpunkt wandert über das Vorbeugen (Überschlag 0,38 m) und bleibt über den
+    # Füssen (D398). Die Hände gehen mit den Schultern tiefer und weiter vor; der Stiel flacher, damit die Schneide
+    # über dem Boden bleibt (Test: Spitze ≥ 5 cm).
     'Axt_Schwer': ('Axt_Stand', 'einmal', [
         (1, 'stand'),
         (6, dict(hand=(0.15, 0.22, 1.32), richt=(0.1, 0.3, 0.95), zwei='axt', griff=-0.45, rumpf=(-8, 5), koerper=(0, -0.06))),
@@ -137,18 +148,18 @@ CLIPS = {
         # vom Ende, die linke vor der Brust am Ende. Tiefer (Kopf hängt hinter dem Rücken) reicht der linke Arm nicht
         # ans Stielende — geprüft D429: die Hand verliesse den Stiel um 13 cm.
         (17, dict(hand=(0.1, -0.05, 1.68), richt=(0.03, -0.75, 0.66), zwei='axt', griff=-0.5, rumpf=(-8, -12), huefte=3,
-                  koerper=(-0.08, 0), fuss_l=(0.12, -0.02), pol=(0.7, 0.2, -0.3))),
+                  koerper=(-0.1, 0.03), fuss_l=(0.12, -0.02), pol=(0.7, 0.2, -0.3))),
         (20, dict(hand=(0.06, -0.18, 1.62), richt=(0.02, -0.95, 0.3), zwei='axt', griff=-0.42, rumpf=(-6, -10), huefte=8,
-                  koerper=(-0.09, 0), fuss_l=(0.12, -0.02), pol=(0.7, 0.2, -0.3))),
-        (22, dict(hand=(0.06, 0.1, 1.7), richt=(0, 0.15, 0.99), zwei='axt', griff=-0.42, rumpf=(-4, -4), huefte=6,
-                  koerper=(-0.02, 0), fuss_l=(0.12, -0.02), pol=(0.7, 0.3, -0.3))),
-        (23, dict(hand=(0.05, 0.42, 1.52), richt=(0, 0.9, 0.45), zwei='axt', griff=-0.25, rumpf=(0, 12), koerper=(0.06, -0.06),
+                  koerper=(-0.11, 0.03), fuss_l=(0.12, -0.02), pol=(0.7, 0.2, -0.3))),
+        (22, dict(hand=(0.06, 0.1, 1.7), richt=(0, 0.15, 0.99), zwei='axt', griff=-0.42, rumpf=(-4, -2), huefte=6,
+                  koerper=(-0.05, 0.01), fuss_l=(0.12, -0.02), pol=(0.7, 0.3, -0.3))),
+        (23, dict(hand=(0.05, 0.46, 1.46), richt=(0, 0.9, 0.45), zwei='axt', griff=-0.25, rumpf=(0, 20), koerper=(0.0, -0.08),
                   fuss_l=(0.12, -0.02))),
-        (25, dict(hand=(0.02, 0.6, 0.85), richt=(0, 0.5, -0.87), zwei='axt', griff=-0.11, rumpf=(0, 35), koerper=(0.15, -0.2),
+        (25, dict(hand=(0.02, 0.57, 0.78), richt=(0, 0.62, -0.78), zwei='axt', griff=-0.11, rumpf=(0, 50), koerper=(0.03, -0.24),
                   fuss_l=(0.12, -0.02))),
-        (31, dict(hand=(0.02, 0.56, 0.84), richt=(0, 0.45, -0.89), zwei='axt', griff=-0.11, rumpf=(0, 38), koerper=(0.16, -0.25),
+        (31, dict(hand=(0.02, 0.58, 0.71), richt=(0, 0.72, -0.69), zwei='axt', griff=-0.11, rumpf=(0, 60), koerper=(0.04, -0.3),
                   fuss_l=(0.12, -0.02))),
-        (36, dict(hand=(0.04, 0.5, 0.86), richt=(0, 0.5, -0.86), zwei='axt', griff=-0.13, rumpf=(0, 32), koerper=(0.14, -0.22),
+        (36, dict(hand=(0.04, 0.55, 0.75), richt=(0, 0.72, -0.69), zwei='axt', griff=-0.13, rumpf=(0, 54), koerper=(0.03, -0.27),
                   fuss_l=(0.12, -0.02))),
         (40, 'stand'),
     ]),

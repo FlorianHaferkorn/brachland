@@ -6,6 +6,9 @@ shelf-life-days: 180
 
 # BRACHLAND — Waffenbewegungen aus freien Quellen v1 (D428)
 
+> **D452 (23.11.2026):** Körper von `Axt_Hieb` und `Axt_Schwer` nach dem Spaltvideo nachgezogen (tieferes Becken, Hüftknick,
+> Schwerpunkt über den Füssen), Trefferfenster A gegen B mit dem Kampfbot gemessen — A übernommen, B Vorschlag (§5.2, A-49).
+>
 > **D430 (23.11.2026):** Bewegungen aus frei lizenzierten Videos — Quellen, Kette (`tools/videoposen.py`), Probeclip und
 > ehrliche Bewertung in §7; Fragen an Flo: Ledger **A-45**.
 >
@@ -379,6 +382,119 @@ ist 15–50 % schneller als die Physik (Überschlag — Leistung und Zweihandfak
 heisst aber auch länger treffen; die Physik verlangt eigentlich den **Schwung**, nicht das Fenster. Vorschlag: Aktiv wie oben,
 dafür Vorlauf um dieselbe Zeit kürzen (Axthieb 0,37 → 0,30 s), damit die Schlagzeit gleich bleibt — erst messen.
 
+**Nachtrag D452 (23.11.2026):** gemessen — Variante B (dieser Vorschlag) geht durch das Kampftor, bleibt aber Vorschlag (§5.2).
+
+### 5.2 D452: Körper nach dem Spaltvideo, Trefferfenster A gegen B
+
+Flo 23.11.2026 („mach 2“, A-45 (2)): den Körper der Axtclips nach dem Befund aus §7.4 nachziehen und das Timing per Kampfbot
+messen. **Geändert:** `Axt_Hieb` und `Axt_Schwer` (`tools/waffenclips.py`), eingefügt in die Fassung aus git von
+`public/figuren/held/held-clips.glb` (786 → **789 KB**, Budget 800; die übrigen 34 Clips unverändert). Bilder, Scheitel,
+Durchzug und Clipdauer bleiben (Test), ebenso Zweihandgriff, Schneide in Schlagrichtung und alle Prüfungen aus D429
+(`tests/waffenclips.test.ts` 203/203, `tests/axtgriff.test.ts` 53/53). **Kein Kampfwert geändert.**
+
+**Was das Video wirklich zeigt.** Die Schlüsselposen von Hieb 2 (`.cache/d430/cleaving/cleaving.json`) lesen sich anders, als
+die Kurzform „Gewicht 0,43 m nach vorn“ in §7.4 nahelegt: Die 0,43 m sind die **Spanne des Beckens**, und das Becken geht im
+Schlag **zurück** (Scheitel +0,21 m, Treffen −0,20 m), während der Rumpf bis 68° vorklappt — ein Hüftknick. Der Schwerpunkt
+wandert über das Vorbeugen nach vorn, nicht über das Becken. Würde man bei 50–60° Vorbeugen auch das Becken nach vorn
+schieben, läge der Schwerpunkt vor den Zehen (Physik D398). Die Prüfung aus D414 („`koerper` v steigt vom Scheitel zum
+Durchzug um > 0,1 m“) verlangt aber, dass das Becken vorwandert; sie hält, weil das Gewicht im Scheitel jetzt auf dem
+hinteren Fuss liegt (Fechtbuch, §4) und das Becken von dort nur 13–14 cm vor geht. **Vorschlag:** die Prüfung auf den
+Schwerpunkt umstellen (Becken + Rumpfneigung), nicht auf das Becken — nicht gemacht, weil es eine Prüfung aus D414/D429 ist.
+
+**Körperwerte alt → neu** (Pose + Hut wie im Clip; Becken und Rumpf aus den Schlüsseln, Schwerpunkt als Überschlag:
+Rumpf+Kopf 58 % bei 0,6 × 0,45 m entlang des Rumpfs, Beine 32 %, Arme 10 %, Axt 3 %; Stütze = Ferse hinten bis Zehen vorn;
+Axtkopf = Hand + Stielrichtung × Abstand nach D429; Video aus §7.4):
+
+| | `Axt_Hieb` D429 → **D452** | `Axt_Schwer` D429 → **D452** | Video Spalten (Hieb 2) |
+|---|---|---|---|
+| Becken im Scheitel über der Hut | −1 cm → **+4 cm** (aufgerichtet) | 0 → **+3 cm** | +8 cm |
+| Becken Scheitel → tiefster Punkt | 17 → **29 cm** | 25 → **33 cm** | 30 cm |
+| Rumpf vor (grösste Neigung) | 35° → **51°** | 41° → **63°** | 68° |
+| Becken vor Scheitel → Durchzug | 14 → **13 cm** | 24 → **14 cm** | −40 cm (zurück) |
+| Schwerpunkt vor Scheitel → Durchzug (Überschlag) | 28 → **32 cm** | 40 → **35 cm** (bis 38) | — (nicht gemessen) |
+| Schwerpunkt im Durchzug / vordere Stützgrenze | 0,22 / 0,31 → **0,24 / 0,41 m** | 0,28 / 0,43 → **0,24 / 0,43 m** | — |
+| linker Fuss | steht in der Hut → **setzt beim Ausholen 10 cm weiter vor, steht ab Bild 9** | +12 cm ab Bild 17 (unverändert) | stehen, 0,32 m auseinander |
+| Axtkopf im Durchzug (Treffhöhe) | 0,72 → **0,79 m** (Hüfthöhe 0,96 m kurz vor dem Durchzug durchlaufen) | 0,15 → **0,15 m** (am Boden) | Spaltblock in Kniehöhe |
+| Schneide ↔ Bahn Scheitel / Durchzug (`axtgriff.test.ts`) | 19° / 6° → **7° / 4°** | 1° / 4° → **1° / 7°** | — |
+| rechte Hand vom Stielende Scheitel → Durchzug | 63 → 14 cm (gleich) | 44 → 14 cm (gleich) | — |
+| Nachschwung / Halt (Soll 44° / 67 %) | 49° / 72 % → **46° / 72 %** | endet am Boden, Becken −6 cm (Test ≥ 4) / 73 % | Holz hält die Axt |
+
+Die Hände treffen im Hieb tiefer und weiter vorn (Durchzug 1,15 → 0,98 m hoch, 0,45 → 0,62 m vor), weil die Schultern mit
+dem Vorbeugen 13 cm tiefer liegen; im Spalthieb liegt der Stiel im Treffen flacher (Spitze ≥ 5 cm über dem Boden, Test).
+Der Fällhieb bleibt flacher gebeugt als das Spalten (51° gegen 68°), weil er auf Hüfthöhe zielt, nicht auf Kniehöhe.
+**Abweichungen, benannt:** (1) Der Schritt des linken Fusses im Hieb gleitet zwischen Bild 5 und 9 am Boden (Schlüssel ohne
+Anheben, wie die Messerhiebe seit D414). (2) Im Spalthieb reicht die rechte Hand in Bild 17 nur 41 statt 50 cm hinauf (Arm zu
+kurz, die linke Hand rückt am Stiel nach, `_pose` — ob die Fassung D429 dort schon kürzte, nicht geprüft). (3) Der Schwerpunkt ist ein Überschlag, keine Rechnung am Rig.
+
+**`Axt_Quer` und `Axt_Lauf` nicht geändert.** Befund: Der Querhieb senkt das Becken vom Scheitel nur 5 cm (13 cm aus der
+Hut), Rumpf 17°, das Gewicht wandert 16 cm vor — für einen waagrechten Hieb auf Hüfthöhe stimmig; das einzige freie Video eines
+Querhiebs (*Standing Block*, §7.4) zeigt 2 cm auf/ab, die Hände sind dort verdeckt — kein Beleg für mehr Körper. Der
+Laufhieb trägt den Körper schon mit einem Schritt von 45 cm, Becken 30 cm vor, Rumpf 33° — nicht offensichtlich steif.
+
+**Timing: A gegen B.** (A) Trefferfenster unverändert (`content/waffen/axt.json`), nur Körper; (B) Aktiv nach Physik/Video
+(§5.1), Vorlauf um dieselbe Zeit kürzer, Schlagzeit gleich: Axthieb 0,37/**0,16** → 0,30/**0,23** s, Querhieb 0,30/0,20 →
+0,26/0,24, Spalthieb 0,90/0,18 → 0,87/0,21, Laufhieb 0,20/0,16 → 0,12/0,24 (Erholung, Schaden, Kosten gleich; die Clipbilder
+bleiben, die Szene legt jede Phase auf ihren Clipabschnitt). Gemessen mit `tools/waffenmessung.ts` (Bot D407, Axt, Saat 5000…,
+**1.000 Kämpfe je Zelle**, 90 Zellen: elf Tieraufstellungen aus `reinigensim.ts` × drei Profile × töten / immer reinigen,
+dazu Wegelagerer, Speermann, Axtmann, Wegelagerer+Wolf × drei Profile × bis zum Tod / Aufgabe D426). Rohdaten:
+`.cache/d452/messung_A.json`, `.cache/d452/messung_B.json`.
+
+- **Kampftor** (`tests/kampfbot.test.ts`, beide Bots) mit B: **348/348 grün** — kein Band reisst.
+- **Andere Prüfungen mit B:** `tests/echtzeit.test.ts` **fällt** an „die Axt holt länger aus“ (Axthieb-Vorlauf > 2 × Klinge,
+  D180/ADR-0008: 0,30 gegen 2 × 0,18 s) — eine Regel des Waffenwerks, kein Messband; `tests/kampfprotokoll.test.ts` fällt am
+  Fingerabdruck von D171 (erwartet: der Fingerabdruck hält die Kampfwerte fest). Baukasten, Gewicht, Trefferwucht, Aufgabe,
+  Waffenclips grün.
+- **Mittel über alle Zellen:** Tiere Siege −0,6 Punkte (−7,9 … +2,6), Zeit −2 % (−41 … +63 %); Menschen Siege −0,6 Punkte
+  (−9,2 … +3,8), Zeit −4 % (−17 … +3 %). 62 von 90 Zellen bleiben unter 3 Punkten und 5 %.
+
+Zellen mit ≥ 3 Punkten Siege oder ≥ 5 % Zeit (28 von 90):
+
+| Aufstellung | Spiel | Profil | Siege A → B | Zeit A → B | erlitten A → B | Δ Siege | Δ Zeit |
+|---|---|---|---|---|---|---|---|
+| grathorn | töten | parierend | 100 % → 100 % | 7.1 s → 6.7 s | 7 → 24 | +0.0 | -6 % |
+| grathorn | immer reinigen | aufmerksam | 99 % → 96 % | 28.7 s → 46.6 s | 12 → 29 | -3.6 | +63 % |
+| grathorn | immer reinigen | müde | 95 % → 93 % | 27.8 s → 29.8 s | 52 → 60 | -1.3 | +7 % |
+| fuchs | töten | aufmerksam | 100 % → 100 % | 4.2 s → 3.4 s | 2 → 0 | +0.0 | -20 % |
+| fuchs | töten | müde | 100 % → 100 % | 3.8 s → 3.3 s | 9 → 0 | +0.0 | -14 % |
+| fuchs | töten | parierend | 100 % → 100 % | 4.8 s → 2.8 s | 7 → 0 | +0.0 | -41 % |
+| fuchs | immer reinigen | aufmerksam | 100 % → 100 % | 4.2 s → 3.4 s | 2 → 0 | +0.0 | -20 % |
+| fuchs | immer reinigen | müde | 100 % → 100 % | 3.8 s → 3.3 s | 9 → 0 | +0.0 | -14 % |
+| fuchs | immer reinigen | parierend | 100 % → 100 % | 4.8 s → 2.8 s | 7 → 0 | +0.0 | -41 % |
+| wolf+fuchs | töten | aufmerksam | 100 % → 100 % | 24.2 s → 20.9 s | 19 → 20 | -0.1 | -14 % |
+| wolf+fuchs | töten | parierend | 100 % → 100 % | 5.8 s → 5.1 s | 5 → 3 | +0.0 | -11 % |
+| gams+gams | töten | aufmerksam | 99 % → 95 % | 22.9 s → 21.9 s | 22 → 33 | -4.5 | -4 % |
+| gams+gams | immer reinigen | müde | 54 % → 48 % | 21.9 s → 22.3 s | 84 → 87 | -6.1 | +2 % |
+| keiler+grathorn | immer reinigen | aufmerksam | 99 % → 98 % | 48.1 s → 54.1 s | 21 → 24 | -0.8 | +12 % |
+| keiler+grathorn | immer reinigen | müde | 74 % → 66 % | 46.8 s → 52.0 s | 56 → 67 | -7.9 | +11 % |
+| wolf+wolf+wolf | töten | parierend | 14 % → 12 % | 14.5 s → 13.8 s | 15 → 16 | -1.7 | -5 % |
+| wolf+wolf+wolf | immer reinigen | müde | 2 % → 2 % | 29.1 s → 30.6 s | 99 → 99 | +0.1 | +5 % |
+| wolf+fuchs+fuchs | töten | parierend | 3 % → 3 % | 14.0 s → 11.0 s | 7 → 6 | +0.6 | -21 % |
+| wolf+fuchs+fuchs | immer reinigen | parierend | 10 % → 12 % | 18.0 s → 13.1 s | 35 → 33 | +2.6 | -27 % |
+| axtmann | bis zum Tod | müde | 67 % → 58 % | 21.6 s → 20.0 s | 61 → 71 | -9.2 | -7 % |
+| axtmann | bis zum Tod | parierend | 100 % → 99 % | 7.6 s → 7.0 s | 14 → 31 | -0.9 | -7 % |
+| axtmann | Aufgabe D426 | aufmerksam | 99 % → 98 % | 5.4 s → 4.9 s | 6 → 8 | -1.2 | -9 % |
+| axtmann | Aufgabe D426 | müde | 76 % → 68 % | 11.6 s → 9.6 s | 39 → 44 | -7.4 | -17 % |
+| axtmann | Aufgabe D426 | parierend | 100 % → 100 % | 3.7 s → 3.5 s | 4 → 3 | +0.0 | -6 % |
+| wegelagerer+wolf | bis zum Tod | aufmerksam | 100 % → 100 % | 25.2 s → 23.7 s | 23 → 24 | +0.1 | -6 % |
+| wegelagerer+wolf | bis zum Tod | müde | 60 % → 64 % | 22.8 s → 22.2 s | 76 → 76 | +3.4 | -3 % |
+| wegelagerer+wolf | Aufgabe D426 | aufmerksam | 100 % → 100 % | 24.9 s → 23.4 s | 22 → 24 | +0.1 | -6 % |
+| wegelagerer+wolf | Aufgabe D426 | müde | 61 % → 65 % | 22.3 s → 21.5 s | 75 → 74 | +3.8 | -3 % |
+
+**Lesart.** B macht die Axt nicht schwerer, sondern anders: Das längere Aktivfenster fängt schnelle Gegner (Fuchs 20–41 %
+schneller, Wolf+Fuchs −14 %), der kürzere Vorlauf kostet den müden Spieler gegen Haltung und Zweiergruppen Siege (Axtmann
+müde −9/−7 Punkte, Keiler+Grathorn reinigen müde −8, Gämsen müde −6) und lässt mehr Schaden zu (Grathorn parierend 7 → 24,
+Axtmann parierend 14 → 31 — die Parade kommt mit weniger Vorlauf später). Grathorn reinigen aufmerksam +63 % Zeit (28,7 →
+46,6 s). Dass B das Gewicht besser zeigt, gilt nur für die Bewegung zwischen Scheitel und Durchzug (0,16 → 0,23 s, Video
+0,28 s); das Ausholen wird dafür kürzer (Axthieb 0,37 → 0,30 s) — genau der Teil, an dem man im Spiel die Masse liest
+(D419, Telegraf).
+
+**Empfehlung: A übernommen** (Körper neu, Trefferfenster wie bisher). B geht sauber durch das Kampftor, aber (1) es bricht
+die Regel des Waffenwerks „die Axt holt mehr als doppelt so lange aus wie die Klinge“ (ADR-0008, D180) — das wäre Flos
+Entscheidung, nicht die einer Messung; (2) es zeigt das Gewicht nicht eindeutig besser (Schwung langsamer, Ausholen kürzer);
+(3) es verschiebt die Balance gegen schnelle Tiere zugunsten und gegen Menschen und Paare zulasten des müden Spielers. **B bleibt
+Vorschlag** (A-49). Nicht gemessen und vielleicht der physikalisch richtigere Weg: **C** — Aktiv verlängern, Vorlauf lassen
+(Schlagzeit +0,03 … +0,08 s, die Axt wird langsamer, nicht nur anders verteilt); braucht eine eigene Messung.
+
 ## 6. Unklar
 
 - **UNKLAR:** Folio der Ringeck-Glosse — die Zuordnung der ersten Wiktenauer-Spalte zu Mscr.Dresd.C.487 ist aus der
@@ -484,7 +600,8 @@ einem geraden Hieb von oben ist nicht glaubhaft). ² Hände in 98 % der Bilder v
 und holt 4 Bilder länger aus. Das stützt den Vorschlag aus §5.1 (Physik: Aktiv 0,23 s statt Regel 0,16 s) — mit dem
 Vorbehalt, dass der Zeitlupenfaktor geschätzt ist (Faktor 3–5 gäbe 0,21–0,35 s; **UNKLAR**). Kampfwerte bleiben, wie sie
 sind (D423). (2) **Körper:** Im Video arbeitet der ganze Körper viel mehr als in unseren Clips — das Becken fällt 30 cm
-vom Scheitel zum Treffen, der Rumpf beugt sich bis 68° vor, das Gewicht wandert 0,43 m nach vorn; `Axt_Hieb`: 18 cm, 32°,
+vom Scheitel zum Treffen, der Rumpf beugt sich bis 68° vor, das Becken bewegt sich über 0,43 m (**D452:** vom Scheitel zum
+Treffen geht es **zurück**, der Schwerpunkt wandert über das Vorbeugen — §5.2); `Axt_Hieb`: 18 cm, 32°,
 0,16 m. Teils liegt das am Ziel (Spaltblock in Kniehöhe, Fällkerbe in Hüfthöhe), teils ist es genau das, was D419
 (Gewicht sichtbar) verlangt. (3) **Füsse:** stehen im Video während des Hiebs (USFS und D429 bestätigt); im Scheitel
 richtet sich der Körper auf (+8 cm), statt sich hinten hineinzulegen. (4) **Hüftdrehung:** aus einer Kamera nicht
