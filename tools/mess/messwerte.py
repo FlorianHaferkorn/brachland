@@ -4,6 +4,9 @@ mittlere Helligkeit, Fläche unter 0,2 und über 0,7, R−B in den Lichtern (hel
 mittlere Sättigung, Anteil der Signalfarbe, Himmelsanteil.
 
     python3 tools/mess/messwerte.py <bild> [<bild> …]          → Tabelle (Markdown) auf stdout
+    python3 tools/mess/messwerte.py --json <bild> [<bild> …]   → dieselben Werte als JSON {pfad: {…}}, Anteile 0…1 (D459,
+                                                                 Eingabe für `tools/ortverfahren.ts abnahme`); dazu `magenta`
+                                                                 = Anteil reinen Magentas (fehlende Textur, D448)
 
 Helligkeit = Rec.-709-Gewichtung der angezeigten (sRGB-)Werte 0…1, wie im Bild zu sehen. Sättigung nach HSV.
 Himmel: oberes Bilddrittel bis zur ersten Kante — Pixel, die hell (> 0,45), wenig gesättigt (< 0,35) und mit dem
@@ -36,11 +39,14 @@ def werte(pfad):
         for a, c in ((i + 1, j), (i - 1, j), (i, j + 1), (i, j - 1)):
             if 0 <= a < H and 0 <= c < W and kandidat[a, c] and not himmel[a, c]: himmel[a, c] = True; q.append((a, c))
     return dict(mittel=y.mean(), unter02=(y < 0.2).mean(), ueber07=(y > 0.7).mean(), rb_licht=(r - b)[licht].mean(), rb_schatten=(r - b)[schatten].mean(),
-                saett=s.mean(), signal=signal.mean(), himmel=himmel.mean())
+                saett=s.mean(), signal=signal.mean(), himmel=himmel.mean(), magenta=((r > 0.8) & (b > 0.8) & (g < 0.3)).mean())
 
 
 if __name__ == '__main__':
-    namen = sys.argv[1:]; w = [werte(p) for p in namen]
+    namen = [a for a in sys.argv[1:] if a != '--json']; w = [werte(p) for p in namen]
+    if '--json' in sys.argv[1:]:
+        import json
+        print(json.dumps({n: {k: round(float(v), 5) for k, v in x.items()} for n, x in zip(namen, w)}, indent=1)); sys.exit(0)
     print('| Grösse | ' + ' | '.join(n.split('/')[-1] for n in namen) + ' |')
     print('|---|' + '---|' * len(namen))
     for k, t, f in (('mittel', 'mittlere Helligkeit', '%.2f'), ('unter02', 'Fläche unter 0,2', '%.0f %%'), ('ueber07', 'Fläche über 0,7', '%.1f %%'),

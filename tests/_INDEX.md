@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-11-22
+last-reviewed: 2026-11-23
 shelf-life-days: 90
 owns: *.test.ts
 ---
@@ -136,6 +136,7 @@ owns: *.test.ts
 | `siedlung.test.ts` | 9 Tests an einer Kunstwelt: 400 × 400 m Wiese, zwei Häuser 12 m auseinander, eines 150 m entfernt allein. Prüft, dass zwischen den zwei Siedlung entsteht, dass die einzelne Hütte Wiese **bleibt** (D77), und dass kein Prop in einem Grundriss landet (G-82). Bewusst an einer Kunstwelt statt an `oental.json`: Eine Prüfung gegen die Datei bestünde, solange die Datei alt ist |
 | `gleiten.test.ts` | 34 Tests (D412: +3, der Testfall fällt jetzt mit Endgeschwindigkeit; „Aus 400 m > 80 m/s“ ersetzt durch „= 53 m/s und tödlich“). Prüft **die Regel, nicht die Reichweite** — die hängt am Gelände und misst `npm run gleit`. Der wichtigste Test ist der unauffälligste: dass ein Sprung auf ebener Fläche den Gleiter **nicht** öffnet. Läge die Schwelle unter der Sprunghöhe von 1,49 m, schwebte man über jede Geländestufe |
 | `reiten.test.ts` | 42 Tests für Reiten und Wasserfeld (D413: Tragen nach Tragfähigkeit — kein Wildtier trägt, das Tragtier schon, 140 kg nicht tragfähig; die alte Regel geprüft als Probe hinter `?reitprobe=1`). Hält fest, dass die Watbreite die **Linienbreite** ist (4 m) und nicht die Rasterweite (15,6 m) — genau diese Verwechslung hat `../tools/wassercheck.ts` im ersten Anlauf ruiniert |
+| `ortverfahren.test.ts` | D459, Verfahren Ort für Ort (`../tools/ortlogik.ts`): Akte Felsmulde ergibt Kamera, Bildwinkel und Absetzpunkt aus D445 und den Sonnenstand von `zielbildfels`; Abnahme an den Ledgerwerten D445–D448 (vorher: Helligkeit, Sättigung, Himmel; nach D448: Helligkeit, Fläche unter 0,2 und über 0,7 — A-46), Toleranzgrenze, Magenta und schwarzes Bild; Bildraten-Ausgabe lesen, Engpass Welt/Geometrie/Pixel (D450); zehn Schritte, nur Schritt 5 geht zurück, höchstens zwei Nachstellschritte, keine absoluten Pfade |
 
 ## Warum kein Framework
 
