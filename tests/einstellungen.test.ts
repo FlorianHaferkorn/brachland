@@ -28,8 +28,9 @@ const ids = EINSTELLUNGS_DATEN.einstellungen.map(e => e.id);
 pruefe('Daten laden, alle Standards gültig', EINSTELLUNGS_DATEN.einstellungen.every(e => einstellungsWertGueltig(e, e.standard)), `${ids.length} Einstellungen`);
 pruefe('Neu (D415): blocken-modus, Totzonen links/rechts', ['blocken-modus', 'gamepad-totzone-links', 'gamepad-totzone-rechts'].every(i => ids.includes(i)));
 // D427: `?wackeln=` meint genau die Einstellung `kamerawackeln` (0/50/100) — für Messläufe am M1.
-pruefe('URL-Schalter nur, wo sie dasselbe meinen (sichtweite → weite, kamerawackeln → wackeln)',
-  EINSTELLUNGS_DATEN.einstellungen.filter(e => e.url).map(e => e.id).join() === 'sichtweite,kamerawackeln');
+// D457: `?figurfein=0` schaltet die feine Körperbewegung ab (Vergleich am M1, Bewegungsempfindliche).
+pruefe('URL-Schalter nur, wo sie dasselbe meinen (sichtweite → weite, kamerawackeln → wackeln, figurfein)',
+  EINSTELLUNGS_DATEN.einstellungen.filter(e => e.url).map(e => e.id).join() === 'sichtweite,kamerawackeln,figurfein');
 
 // ---- Standard, ohne Speicher
 const leer = erzeugeSpeicher();

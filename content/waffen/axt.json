@@ -6,8 +6,8 @@
     {
       "name": "Axthieb",
       "linie": "oben",
-      "vorlauf": 0.37,
-      "aktiv": 0.16,
+      "vorlauf": 0.3,
+      "aktiv": 0.23,
       "erholung": 0.55,
       "reichweite": 2.9,
       "halbwinkelGrad": 40,
@@ -25,8 +25,8 @@
     {
       "name": "Querhieb",
       "linie": "rechts",
-      "vorlauf": 0.3,
-      "aktiv": 0.2,
+      "vorlauf": 0.26,
+      "aktiv": 0.24,
       "erholung": 0.42,
       "reichweite": 2.9,
       "halbwinkelGrad": 95,
@@ -45,8 +45,8 @@
   "schwer": {
     "name": "Spalthieb",
     "linie": "oben",
-    "vorlauf": 0.9,
-    "aktiv": 0.18,
+    "vorlauf": 0.87,
+    "aktiv": 0.21,
     "erholung": 0.7,
     "reichweite": 3,
     "halbwinkelGrad": 40,
@@ -63,8 +63,8 @@
   "lauf": {
     "name": "Laufhieb",
     "linie": "rechts",
-    "vorlauf": 0.2,
-    "aktiv": 0.16,
+    "vorlauf": 0.12,
+    "aktiv": 0.24,
     "erholung": 0.6,
     "reichweite": 3,
     "halbwinkelGrad": 55,

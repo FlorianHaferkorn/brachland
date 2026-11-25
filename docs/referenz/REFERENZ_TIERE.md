@@ -353,10 +353,10 @@ für die Haltung.
 | Wurzelkeiler | `wurzelkeiler-03.jpg` | rechtwinklig, alle Läufe und Schalen frei; **junges Tier** — für den Keiler Rumpf tiefer und Läufe kürzer nach `wurzelkeiler-08` |
 | Spürfuchs | `spuerfuchs-07.jpg` | rechtwinklig, alle Läufe und Lunte frei; Fähe (Rüde etwas grösser, Literatur); Kopf zur Kamera gedreht (Kopflänge am Skelett `-09` nehmen); Sommerfell |
 
-## 7. Freie 3D-Modelle als Grundkörper (23.11.2026, D456)
+## 7. Freie 3D-Modelle als Grundkörper (23.11.2026, D463)
 
 Anlass: Die prozeduralen Körper (Loft aus Querschnitten, Voxelnetz, Haarkurven) stoßen nach sechs Runden an eine
-Grenze — Gelenke, Lidränder und Übergänge verwischen (D455). Gesucht wurden freie, realistische Modelle, auf die
+Grenze — Gelenke, Lidränder und Übergänge verwischen (D462). Gesucht wurden freie, realistische Modelle, auf die
 unser Fell, Material und Befall kommen. Lizenz je Modellseite am 23.11.2026 geprüft (ADR-0013); Vorschaubilder
 und die volle Liste mit je fünf Kandidaten liegen lokal unter `.cache/referenz/tiere-modelle/` (nicht im Repo).
 
@@ -382,4 +382,4 @@ nach ADR-0021 für Zielbilder sofort, im Spiel erst nach EULA-Prüfung.
 **Skelette/Schädel als Anatomievorlage:** CC0 nur Schädel eines Japanischen Wildschweins; CC-BY gute Schädel von
 Iberiensteinbock (mit Hornscheiden), Wildschwein und Rotfuchs.
 
-**Offen (A-51):** Download nur mit Konto (Sketchfab, BlendSwap, Fab) — die Sitzung loggt sich nicht ein.
+**Offen (A-56):** Download nur mit Konto (Sketchfab, BlendSwap, Fab) — die Sitzung loggt sich nicht ein.

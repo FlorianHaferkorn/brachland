@@ -167,7 +167,7 @@ export function baueGrasteppich(
   const n = Math.ceil((2 * halb) / zelle);
   const halm = foto ? baueHorst() : baueHalm();
   // Foto-Büschel haben eigene, vom Atlas abhängige Ausdehnungen.
-  // D457: auch an der Zielbild-Felsmulde in Kacheln — dort ist der ganze 30-m-Teppich freigehalten (Dichte 0), und
+  // D464: auch an der Zielbild-Felsmulde in Kacheln — dort ist der ganze 30-m-Teppich freigehalten (Dichte 0), und
   // ohne Kacheln liefen trotzdem 1,9 Mio. Dreiecke durch den Vertex-Shader (8 ms je Bild am M1, nichts davon sichtbar).
   const kachelnAn = (HOF_BILDTAKT_AN && HOF_GRAS_AN && !foto) || nurWiesenbereich || LOOK_FELS_AN;
   const kachelZellen = kachelnAn ? Math.ceil(8 / zelle) : n;
@@ -523,7 +523,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
         tief = Math.min(tief, h);
         hoch = Math.max(hoch, h);
       }
-      // D457: Kachel ohne einen Halm (Dichte überall 0: Freihaltung, Wasser, Weg, Fels) gar nicht zeichnen
+      // D464: Kachel ohne einen Halm (Dichte überall 0: Freihaltung, Wasser, Weg, Fels) gar nicht zeichnen
       if (!wiesenbereich) mesh.visible = dicht > 0;
       if (dicht <= 0) { mesh.visible = false; continue; }
       box.min.set(x0 - ueberstand, tief - 0.01, z0 - ueberstand);

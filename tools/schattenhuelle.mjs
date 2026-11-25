@@ -1,5 +1,5 @@
 /**
- * BRACHLAND — Schattenhülle eines Bauwerks (D457): grobe Kopie der schattenwerfenden Körper, nur Lage, keine Textur.
+ * BRACHLAND — Schattenhülle eines Bauwerks (D464): grobe Kopie der schattenwerfenden Körper, nur Lage, keine Textur.
  *   node tools/schattenhuelle.mjs public/bauten-ziel/felsmulde-bauten.glb public/bauten-ziel/felsmulde-schatten.glb [anteil=0.08] [fehler=0.01]
  * Anlass: Die Zielbild-Felsmulde zeichnete ihre 1,2 Mio. Dreiecke ein zweites Mal in die Schattenkarte (5 ms je Bild am
  * M1). Die Karte löst 24 cm je Texel auf — dafür reichen wenige Prozent der Flächen. Das Spiel lässt die sichtbaren

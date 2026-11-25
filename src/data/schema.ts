@@ -1101,6 +1101,210 @@ export const Gewicht = z.object({
 }).strict();
 export type Gewicht = z.infer<typeof Gewicht>;
 
+// ------------------------------------------------------- Clipmarken (D456, nur Darstellung)
+
+/**
+ * D456: Marken in den Clips der Spielfigur für Übergänge und Ketten (`content/clipmarken.json`) — gelesen von der
+ * Laufzeit (D457) und von `tests/clipguete.test.ts`. **Kein Kampfwert:** Scheitel und Durchzug stehen hier nur noch
+ * einmal neben `hieb` in `content/waffen/` (der Test hält beide gleich). Alle Zahlen sind **Bildnummern** bei
+ * `bildrate` Bildern je Sekunde, gezählt wie die Schlüsselbilder in `tools/waffenclips.py` (Bild 1 = erstes Bild,
+ * Clipzeit = Bild / `bildrate`).
+ */
+const Clipname = z.string().regex(/^[A-Z][A-Za-z0-9]*(_[A-Za-z0-9]+)+$/);
+const Bild = z.number().int().min(1).max(400);
+export const Clipmarke = z.object({
+  /** Schlüssel aus `hut`, oder `koerper` für Clips ohne Waffenbezug. */
+  waffe: z.string().regex(/^[a-z0-9-]+$/),
+  art: z.enum(['hut', 'hieb', 'stoss', 'block', 'geraet', 'koerper']),
+  /** `hut`: Bild 1 ist genau die Hut (Pose und Fusslage). `anlauf`: beginnt in einer Anlaufpose. `frei`: eigener Anfang. */
+  beginn: z.enum(['hut', 'anlauf', 'frei']),
+  /** `hut`: letztes Bild ist die Hut. `gehalten`: letztes Bild wird gehalten. `schleife`: Schleife. `liegt`: endet am Boden. */
+  ende: z.enum(['hut', 'gehalten', 'schleife', 'liegt']),
+  /** Letztes Bild des Clips. */
+  bilder: Bild,
+  /**
+   * D460: eigene Bildrate eines gerechneten Clips (Gang, Lauf, Rolle …). Ein Clip mit diesem Feld beginnt bei 0 s:
+   * Bild b liegt bei (b − 1) / bildrate — Schleifen ohne gehaltenes erstes Bild, schnelle Zyklen mit 48 Bildern/s.
+   */
+  bildrate: z.number().int().positive().max(120).optional(),
+  /** Bild im Ausholen, ab dem ein geketteter Schlag beginnen darf (aus der Kettenpose des vorigen, ohne Hut). */
+  einstieg: Bild.optional(),
+  scheitel: Bild.optional(),
+  durchzug: Bild.optional(),
+  /** Kettenpose: erstes Schlüsselbild nach dem Durchzug — frühester Absprung in den nächsten Schlag. */
+  kette: Bild.optional(),
+  /** Letztes Schlüsselbild vor der Rückkehr in die Hut — bis hierher folgt der Körper der Masse. */
+  halt: Bild.optional(),
+  /** Welcher Fuss in der Kettenpose vorn steht. */
+  vorn: z.enum(['links', 'rechts', 'gleich']).optional(),
+}).strict().superRefine((m, ctx) => {
+  const schlag = m.art === 'hieb' || m.art === 'stoss';
+  for (const f of ['einstieg', 'scheitel', 'durchzug', 'kette', 'halt', 'vorn'] as const) {
+    if (schlag && m[f] === undefined) ctx.addIssue({ code: 'custom', message: `${m.art} braucht ${f}`, path: [f] });
+    if (!schlag && m[f] !== undefined) ctx.addIssue({ code: 'custom', message: `${f} nur bei hieb und stoss`, path: [f] });
+  }
+  if (m.art === 'hut' && (m.beginn !== 'hut' || m.ende !== 'schleife')) ctx.addIssue({ code: 'custom', message: 'eine Hut beginnt als hut und endet als schleife' });
+});
+export const Clipmarken = z.object({
+  stand: z.string().min(1),
+  lies: z.string().min(1).describe('das Format in Worten — für Menschen und für die Laufzeit-Sitzung'),
+  bildrate: z.number().int().positive(),
+  /** Die eine Grundhaltung je Waffe (Schleifenclip). */
+  hut: z.record(z.string().regex(/^[a-z0-9-]+$/), Clipname),
+  clips: z.record(Clipname, Clipmarke),
+}).strict().superRefine((d, ctx) => {
+  for (const [w, h] of Object.entries(d.hut)) {
+    if (d.clips[h]?.art !== 'hut') ctx.addIssue({ code: 'custom', message: `Hut ${h} von ${w} fehlt in clips oder ist keine hut`, path: ['hut', w] });
+  }
+  for (const [n, c] of Object.entries(d.clips)) {
+    if (c.waffe !== 'koerper' && !d.hut[c.waffe]) ctx.addIssue({ code: 'custom', message: `Waffe ${c.waffe} hat keine Hut`, path: ['clips', n, 'waffe'] });
+  }
+});
+export type Clipmarken = z.infer<typeof Clipmarken>;
+
+/**
+ * D457: Laufzeit der Bewegung (`content/figurlaufzeit.json`, gelesen von `src/figur/werte.ts`) — **nur Darstellung**:
+ * Dauern der Übergänge je Art (Inertialisierung), Kopplung des Gangs ans Tempo, Fuss am Boden, Neigen, Drehkette,
+ * Blick, Atem, Antwort auf erlittene Treffer. Kein Wert hier ändert eine Kampfregel oder ein Tempo.
+ */
+const sek = (max: number) => z.number().min(0).max(max);
+const grad = (max: number) => z.number().min(0).max(max);
+export const Figurlaufzeit = z.object({
+  stand: z.string(),
+  /** Sekunden, über die der Versatz zur neuen Pose abklingt, je Übergangsart. */
+  uebergang: z.object({
+    standard: sek(0.5), gang: sek(0.5), hutHieb: sek(0.3), kette: sek(0.3), hiebHut: sek(0.5), abbruch: sek(0.3),
+    rolle: sek(0.3), rolleEnde: sek(0.5), treffer: sek(0.3), trefferEnde: sek(0.5), block: sek(0.3), fall: sek(0.5),
+    luft: sek(0.3),
+  }).strict(),
+  gang: z.object({
+    gehen: z.number().positive().max(4).describe('m/s des Geh-Clips bei Rate 1, Rückfall, wenn die Messung am Clip nichts ergibt'),
+    rennen: z.number().positive().max(12).describe('m/s des Lauf-Clips bei Rate 1, Rückfall'),
+    rateMin: z.number().positive().max(1), rateMax: z.number().min(1).max(3),
+    weiteMin: z.number().positive().max(1).describe('kleinste Schrittweite gegen den Clip'),
+    weiteMax: z.number().min(1).max(2).describe('grösste Schrittweite gegen den Clip — darüber reicht das Bein nicht'),
+    standHoehe: z.number().positive().max(0.2).describe('m über dem tiefsten Punkt der Fussbahn, bis zu denen ein Fuss als stehend gilt'),
+    /** D461: Gangarten der Spielfigur, aufsteigend — je zwei Nachbarn werden nach Tempo gemischt (`gangStufen`). */
+    stufen: z.array(z.object({
+      clip: z.string().min(1),
+      tempo: z.number().positive().max(12).describe('m/s bei Rate 1, Rückfall, wenn die Messung am Clip nichts ergibt'),
+    }).strict()).min(2).max(4).refine(s => s.every((x, i) => i === 0 || x.tempo > s[i - 1].tempo), 'Gangarten aufsteigend nach Tempo'),
+    /** D461: Sohle der Hauptfigur im Rahmen Knöchel → Ballen (vor) und senkrecht dazu (hoch), für die Messung am Aufstandspunkt. */
+    sohle: z.object({
+      ferseVor: z.number().min(-0.2).max(0.2), ferseHoch: z.number().min(-0.2).max(0),
+      ballenVor: z.number().min(-0.2).max(0.2), ballenHoch: z.number().min(-0.2).max(0),
+      toleranz: z.number().positive().max(0.03).describe('m über dem tiefsten Punkt, bis zu denen ein Aufstandspunkt als aufliegend gilt'),
+    }).strict(),
+    wechselAb: z.number().positive().max(1).describe('D461: springt die Mischung der Gangarten in einem Bild um mehr als diesen Anteil (das Tempo der Regel springt), klingt der Wechsel als Übergang ab'),
+    warum: z.string().min(1),
+  }).strict().refine(g => g.gehen < g.rennen, 'gehen muss langsamer sein als rennen'),
+  fuss: z.object({
+    standHoehe: z.number().positive().max(0.2), haltMax: z.number().positive().max(0.3),
+    loesen: z.number().positive().max(0.5), neigungMaxGrad: grad(45),
+  }).strict(),
+  neigen: z.object({
+    kurve: z.number().min(0).max(1).describe('Anteil der physikalischen Kurvenlage atan(v·ω/g)'),
+    kurveMaxGrad: grad(30),
+    schub: z.number().min(0).max(1).describe('Anteil von atan(a/g) beim Anlaufen und Abstoppen'),
+    schubMaxGrad: grad(20), halbwert: sek(1),
+  }).strict(),
+  drehen: z.object({ kopf: sek(0.5), schulter: sek(0.5), huefte: sek(0.5), maxGrad: grad(80) }).strict()
+    .refine(d => d.kopf <= d.schulter && d.schulter <= d.huefte, 'Kopf führt, dann Schultern, dann Hüfte'),
+  blick: z.object({
+    gierMaxGrad: grad(90), nickMaxGrad: grad(60), aufgebenGrad: grad(180), halbwert: sek(1),
+    kopf: z.number().min(0).max(1), hals: z.number().min(0).max(1), brust: z.number().min(0).max(1),
+  }).strict().refine(b => Math.abs(b.kopf + b.hals + b.brust - 1) < 1e-6, 'Anteile Kopf + Hals + Brust = 1')
+    .refine(b => b.aufgebenGrad >= b.gierMaxGrad, 'aufgeben erst jenseits der Grenze'),
+  atem: z.object({
+    ruheHz: z.number().positive().max(1), lastHz: z.number().positive().max(2), hubGrad: grad(5),
+    anstieg: z.number().positive().max(60), erholung: z.number().positive().max(60),
+  }).strict(),
+  treffer: z.object({
+    gradJeSchaden: z.number().min(0).max(2), maxGrad: grad(40),
+    frequenz: z.number().positive().max(10), daempfung: z.number().positive().max(0.99),
+  }).strict(),
+  /** D458: Landung der Spielfigur als Bild (`src/figur/landung.ts`) — die Grenze weich/hart ist `fall.schadlosBis` (D412). */
+  landung: z.object({
+    merklichAb: z.number().positive().max(3).describe('m gleichwertige Fallhöhe, ab der ein Landeclip spielt'),
+    gehtAb: z.number().positive().max(1).describe('Anteil des Clips, nach dem er in Bewegung dem Gang weicht'),
+    clipWeich: z.string().min(1), clipHart: z.string().min(1), clipRolle: z.string().min(1),
+    uebergang: sek(0.5),
+    rolleAb: z.number().min(0).max(1).describe('D461: Clipsekunde, bei der die Lande-Rolle in `clipRolle` einsteigt (D460: Bild 5 = 4/24 s)'),
+    warum: z.string().min(1),
+  }).strict(),
+  /** D461: Sprung der Spielfigur als Bild (`src/figur/sprung.ts`) — Absprungtempo und Höhe sind `content/bewegung.json`. */
+  sprung: z.object({
+    clipAb: z.string().min(1), clipFlug: z.string().min(1),
+    fallAb: sek(1).describe('s in der Luft ohne Absprung, bevor die Flughaltung kommt'),
+    warum: z.string().min(1),
+  }).strict(),
+  /** D461: Wenden im freien Stand (`src/figur/wende.ts`) — nur wohin der Körper zeigt; der Blick bleibt die Regel. */
+  wenden: z.object({
+    an: z.boolean(),
+    abGrad: z.number().min(20).max(89).describe('Blick − Hüfte, ab dem die Figur um 90° umtritt'),
+    kehrtAbGrad: z.number().min(91).max(179).describe('ab dem sie kehrtmacht (180°)'),
+    rumpfAnteil: z.number().min(0).max(1).describe('Anteil des Winkels in der Wirbelsäule, der Rest im Hals'),
+    versatzHalbwert: sek(1).describe('so schnell klingt der Versatz um die Standmitte ab, wenn die Figur losgeht'),
+    clips: z.object({
+      wendenLinks: z.string().min(1), wendenRechts: z.string().min(1), kehrtLinks: z.string().min(1), kehrtRechts: z.string().min(1),
+    }).strict(),
+    stand: z.string().min(1).describe('Clip des Stands, an dem die Standmitte gelesen wird'),
+    warum: z.string().min(1),
+  }).strict().refine(w => w.abGrad < 90 && w.kehrtAbGrad > w.abGrad, 'Wenden vor Kehrt'),
+}).strict();
+export type Figurlaufzeit = z.infer<typeof Figurlaufzeit>;
+
+/**
+ * D458: Körpersprache der Tiere und Gegner über den Clips (`content/figurgegner.json`) — Vierbeiner am Hang,
+ * Ansage des Angriffs je Gegner, Taumeln, Schütteln, Abgang, Sturz. **Nur Darstellung**: Jede Zeit, zu der etwas
+ * trifft oder endet, steht in `content/gegner/*.json` und wird hier nur gelesen (`src/figur/ansage.ts`).
+ */
+const Ansageprofil = z.object({
+  lies: z.string(),
+  zurueck: z.number().min(0).max(0.6).describe('m, Gewicht nach hinten'),
+  hoch: z.number().min(-0.3).max(0.3).describe('m, + hebt, − duckt'),
+  nickGrad: z.number().min(-30).max(30).describe('Rumpf, + vorn hoch'),
+  kopfGrad: z.number().min(-30).max(40).describe('+ Kopf senkt sich'),
+  scharrHz: z.number().min(0).max(8), scharrHub: z.number().min(0).max(0.1),
+  zitterHz: z.number().min(0).max(10), zitterGrad: grad(5),
+  seiteKopfGrad: grad(40), seiteRumpfGrad: grad(30), seiteRollGrad: grad(15), linieKopfGrad: grad(20),
+  anstieg: z.number().min(0.2).max(1).describe('Anteil des Vorlaufs, nach dem die Pose steht'),
+  ketteAnteil: z.number().min(0).max(1).describe('Stärke beim Folgeschlag einer Kette'),
+}).strict();
+export const Figurgegner = z.object({
+  stand: z.string(), lies: z.string(),
+  vierbeiner: z.object({
+    drehen: z.object({ kopf: sek(0.5), schulter: sek(0.5), huefte: sek(0.5), maxGrad: grad(80) }).strict()
+      .refine(d => d.kopf <= d.schulter && d.schulter <= d.huefte, 'Kopf führt, dann Schulter, dann Becken'),
+    nickMaxGrad: grad(45), rollAnteil: z.number().min(0).max(1), rollMaxGrad: grad(20),
+    hubMax: z.number().positive().max(1), streckReserve: z.number().min(0).max(0.3), kopfAusgleich: z.number().min(0).max(1),
+    gang: z.object({
+      gehen: z.number().positive().max(4), galopp: z.number().positive().max(15),
+      rateMin: z.number().positive().max(1), rateMax: z.number().min(1).max(3),
+      hysterese: z.number().min(0).max(0.4), standHoehe: z.number().positive().max(0.2),
+    }).strict().refine(g => g.gehen < g.galopp, 'Schritt muss langsamer sein als Galopp'),
+    real: z.string().min(1), warum: z.string().min(1), quelle: z.string().min(1),
+  }).strict(),
+  uebergang: z.object({
+    standard: sek(0.5), gang: sek(0.5), angriff: sek(0.3), treffer: sek(0.3), tod: sek(0.5), aufgabe: sek(0.6), abgang: sek(0.6), deckung: sek(0.3),
+  }).strict(),
+  ansage: z.object({ real: z.string().min(1), warum: z.string().min(1), profile: z.record(Kennung, Ansageprofil) }).strict(),
+  taumel: z.object({
+    hzBei1m: z.number().positive().max(4), grundGrad: grad(40), rest: z.number().min(0).max(1), nickAnteil: z.number().min(0).max(1),
+    hebel: z.number().min(0).max(1), sinken: z.number().min(0).max(0.3), kopfGrad: grad(40), kopfAnteil: z.number().min(0).max(1),
+    kopfVerzug: z.number().min(0).max(3.2),
+    real: z.string().min(1), warum: z.string().min(1), quelle: z.string().min(1),
+  }).strict(),
+  schuetteln: z.object({
+    beginn: sek(1), dauer: z.number().positive().max(2), hzBei30kg: z.number().positive().max(10), exponent: z.number().min(-1).max(0),
+    kopfGrad: grad(40), rumpfGrad: grad(30), welle: z.number().min(0).max(3.2),
+    real: z.string().min(1), warum: z.string().min(1), quelle: z.string().min(1),
+  }).strict(),
+  abgang: z.object({ wendeGradJeS: z.number().positive().max(720), aufgabeHalten: sek(5), warum: z.string().min(1) }).strict(),
+  sturz: z.object({ dauer: z.number().positive().max(2), prall: z.number().min(0).max(0.3), nach: z.number().positive().max(1), warum: z.string().min(1) }).strict(),
+}).strict();
+export type Figurgegner = z.infer<typeof Figurgegner>;
+
 /**
  * D427: Kampfton (D423: freie Aufnahmen, CC0, ADR-0013) — welche Dateien unter `public/ton/kampf/` zu welchem
  * Ereignis gehören, wie laut ein Band im Grund ist und wie weit Tonhöhe und Pegel je Anschlag streuen (gegen

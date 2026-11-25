@@ -12,13 +12,13 @@ shelf-life-days: 30
 
 | Thema | Stand | Wo |
 |---|---|---|
-| **Fokus** | Flo: Tiere und Menschen **geparkt**, „die Welt endlich finalisieren“ (D467). Reihenfolge: Felsmulde fertig, dann Ort für Ort nach derselben Methode | Ledger D467, A-19 |
-| **Methode** | Zielbild-Szene selbst ins Spiel backen statt nachbauen; Abnahme je Ort = Messbild Spiel │ Zielbild + 10 s Video, 60 B/s am M1 | **`WELT_METHODE.md`** (Pflichtlektüre), Kette `../tools/ortkette.sh` |
-| **Felsmulde** | Läuft hinter `?lookfels=1&stimmung=zielbildfels` mit Mauern, Felsen, Teich, Boden, Pflanzen, Efeu, Schattenhülle und Kartenkronen; 58 B/s im Retina-Fenster 1440×900; Helligkeit wie Zielbild. Scan-Bäume des Zielbilds in Arbeit hinter `?scanbaeume=1` (Laub zerfällt noch) | D445, D450, D457, D467, D468, D471 |
-| **Waffen** | Zielbild Runde 2 (eigene Geometrie, Stahl mit Zunder, Herkunft je Waffe als Vorschlag); Holz noch flach | D465, D470, `../tools/waffenframe.py` |
-| **Tiere** | geparkt nach Runde 9; Grenze der Methode erreicht; Vorlagen-Liste und Bild-zu-3D-Wege geprüft | D463, D456, D466, A-51 |
-| **Menschen** | geparkt; Zähler aus Einar (Blender Studio, CC-BY) als echtes Altersgesicht; Scans für Brachgänger/Schmiedin brauchen Flos Download | D460, D461, D462, D464, A-53 |
-| **Befallgrade** | entschieden: stufenloser Regler mit vier lesbaren Graden, Narben nach dem Reinigen | A-52 |
+| **Fokus** | Flo: Tiere und Menschen **geparkt**, „die Welt endlich finalisieren“ (D474). Reihenfolge: Felsmulde fertig, dann Ort für Ort nach derselben Methode | Ledger D474, A-19 |
+| **Methode** | Zielbild-Szene selbst ins Spiel backen statt nachbauen; Abnahme je Ort = Messbild Spiel │ Zielbild + 10 s Video, 60 B/s am M1 | **`VERFAHREN_ORT.md`** (Hauptdokument, Akte je Ort) + **`WELT_METHODE.md`** (Backkette `../tools/ortkette.sh`, Fallen) |
+| **Felsmulde** | Läuft hinter `?lookfels=1&stimmung=zielbildfels` mit Mauern, Felsen, Teich, Boden, Pflanzen, Efeu, Schattenhülle und Kartenkronen; 58 B/s im Retina-Fenster 1440×900; Helligkeit wie Zielbild. Scan-Bäume des Zielbilds in Arbeit hinter `?scanbaeume=1` (Laub zerfällt noch) | D445, D450, D464, D474, D475, D478 |
+| **Waffen** | Zielbild Runde 2 (eigene Geometrie, Stahl mit Zunder, Herkunft je Waffe als Vorschlag); Holz noch flach | D472, D477, `../tools/waffenframe.py` |
+| **Tiere** | geparkt nach Runde 9; Grenze der Methode erreicht; Vorlagen-Liste und Bild-zu-3D-Wege geprüft | D470, D463, D473, A-56 |
+| **Menschen** | geparkt; Zähler aus Einar (Blender Studio, CC-BY) als echtes Altersgesicht; Scans für Brachgänger/Schmiedin brauchen Flos Download | D467, D468, D469, D471, A-58 |
+| **Befallgrade** | entschieden: stufenloser Regler mit vier lesbaren Graden, Narben nach dem Reinigen | A-57 |
 
 ## 2. Was **nicht** im Repo liegt (wichtig für eine Sitzung ohne den M1)
 
@@ -32,20 +32,20 @@ ansehen noch neu backen. Für Look-Arbeit: am M1 arbeiten oder Flo die Dateien b
 
 ## 3. Nächste Schritte (Reihenfolge)
 
-1. **Felsmulde abschliessen** (Ledger D468 „Offen“, A-46):
-   - Scan-Bäume (D471) fertig machen: Krone als Büschel-Karten backen statt aus der Geometrie ableiten (vier Läufe
-     und ihre Fehler stehen in D471); erst wenn sie besser aussehen als die Kartenkronen, `?scanbaeume=1` zur Vorgabe.
+1. **Felsmulde abschliessen** (Ledger D475 „Offen“, A-46):
+   - Scan-Bäume (D478) fertig machen: Krone als Büschel-Karten backen statt aus der Geometrie ableiten (vier Läufe
+     und ihre Fehler stehen in D478); erst wenn sie besser aussehen als die Kartenkronen, `?scanbaeume=1` zur Vorgabe.
    - Himmel im Bogen: warmer Dunst mit Bergstaffel statt hell und blau; Fernberg rechts als graue Fläche.
    - Lichter wärmer (R−B Lichter −0,01 statt +0,13), Boden grüner.
    - 10 s Video (`tools/mess/messbild.mjs` ohne `MESS_NUR_STAND`) und Bildpaar an Flo → Freigabe.
-2. **Werkzeuge verallgemeinern** (Voraussetzung für den zweiten Ort, `WELT_METHODE.md` „Was je Ort anzupassen ist“):
+2. **Werkzeuge verallgemeinern** (Voraussetzung für den zweiten Ort; deckt sich mit A-53 der Cloud, Lücken L1–L4, und `WELT_METHODE.md` „Was je Ort anzupassen ist“):
    Bodenmitte/Radius, Objektnamen-Muster, Budgets als Parameter; Schalter `?ziel=<ort>` statt `?lookfels=1`;
    Rahmenkronen ortsunabhängig oder weg (die Scan-Bäume ersetzen sie).
 3. **Zweiter Ort:** Flo entscheidet, welcher (Stauwehr, Hof/Milbinger Straße, Siedlung) und ob es dafür ein
    freigegebenes Zielbild als Szene gibt. Ohne Zielbild-Szene zuerst das Zielbild (Blender) — Flos Freigabe.
-4. **Waffen:** Formliste aus D465/D470 in `tools/waffenmodelle.py` übernehmen (Spielmodelle; Länge, Griffpunkte,
+4. **Waffen:** Formliste aus D472/D477 in `tools/waffenmodelle.py` übernehmen (Spielmodelle; Länge, Griffpunkte,
    Masse bleiben); im Zielbild Holz aus Poly-Haven-Scans statt prozedural.
-5. Geparkt, nur auf Flos Wort: Tiere (Vorlagen A-51 laden oder Bild-zu-3D D466), Menschen (Scans A-53, Einar-Weg).
+5. Geparkt, nur auf Flos Wort: Tiere (Vorlagen A-56 laden oder Bild-zu-3D D473), Menschen (Scans A-58, Einar-Weg).
 
 ## 4. Regeln, die in dieser Sitzung teuer gelernt wurden
 

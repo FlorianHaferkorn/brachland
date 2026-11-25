@@ -5,6 +5,16 @@ BRACHLAND — neue Waffenclips der Hauptfigur ohne Quellpakete bauen (D414).
   blender --background --factory-startup --python tools/clipnachbau.py -- .cache/d414/figur-roh.glb .cache/d414/neu-clips.glb
   node tools/clipnachbau.mjs einfuegen .cache/d414/neu-clips.glb public/figuren/held/held-clips.glb
 
+D460 — Fortbewegung und Trage-Huten (nur diese Clips gebaut, in die Fassung aus git eingefügt; der Bestand bleibt Wert für Wert):
+  NUR=Koerper_Gang,Koerper_Laufschritt,Koerper_Sprint,Koerper_Anlauf,Koerper_Abstoppen,Koerper_Wenden,Koerper_Kehrt,Koerper_Rolle,Koerper_Sprung,Koerper_Klettern,Koerper_Schwimmen,Axt_Trage,Speer_Trage,Messer_Trage \
+    blender --background --factory-startup --python tools/clipnachbau.py -- <figur-roh.glb> <neu.glb>
+  node tools/clipnachbau.mjs einfuegen <neu.glb> public/figuren/held/held-clips.glb \
+    --takt=Koerper_Gang:24,Koerper_Laufschritt:48,Koerper_Sprint:48,Koerper_Anlauf:24,Koerper_Abstoppen:24,Koerper_Wenden_Links:24,Koerper_Wenden_Rechts:24,Koerper_Kehrt_Links:24,Koerper_Kehrt_Rechts:24,Koerper_Rolle:24,Koerper_Sprung_Ab:24,Koerper_Sprung_Flug:24,Koerper_Klettern:24,Koerper_Schwimmen:24 \
+    --um=Run:Run_Paket,Roll:Roll_Paket --auch=Koerper_Laufschritt:Run,Koerper_Rolle:Roll
+(`--takt` muss dieselbe Rate nennen wie `_melde`/`_gang` in `waffenclips.py` und `bildrate` in `content/clipmarken.json`;
+`tests/clipguete.test.ts` prüft die Dauer. Ob ein Neubau **aller** Clips die von D456 bitgleich liefert, ist nach den
+Erweiterungen von `_pose` nicht geprüft — deshalb `NUR`.)
+
 Derselbe Weg wie `menschbau.py` + `heldbau.py`, nur aus den ausgelieferten Dateien: Die Clips entstehen aus
 Schlüsselbildern (`waffenclips.py`) auf dem Rig der alten Wanderin (`public/figuren/wanderin.glb`, trägt Idle)
 und gehen über die Weltformel (`weltformel.py`) auf das Skelett der Hauptfigur. Den Griff der Finger liest das
@@ -24,12 +34,14 @@ import bpy, sys, os, math
 from mathutils import Matrix, Vector, Quaternion
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from waffenclips import baue_waffenclips, NAMEN, CLIPS, GRIFF
+import waffenclips
+from waffenclips import baue_waffenclips, NAMEN, CLIPS, GRIFF     # NAMEN: am Modulende, mit den gerechneten Clips (D460)
 from weltformel import ALT_KARTE, FINGER, GRIFF_ZWEI, uebertrage
 
 ARGS = sys.argv[sys.argv.index('--') + 1:]
 FIGUR, AUS = ARGS[0], ARGS[1]
-NEU = [n for n in NAMEN if n.startswith(('Messer_', 'Geraet_', 'Axt_'))]
+# D456: alle Clips aus Schlüsselbildern — auch Klinge, Speer, Hirschfänger und die Körperclips.
+NEU = list(NAMEN)
 # D429: Seit D429 sind auch die Axtclips aus Schlüsselbildern gebaut (Zweihand-Fällaxt). `NUR=Axt_` gibt nur sie aus —
 # so wird `held-clips.glb` in der Fassung aus git nur um diese Clips ergänzt, die übrigen bleiben bitgleich.
 if os.environ.get('NUR'):
@@ -64,7 +76,7 @@ if PROBE:
     waffenclips.NAMEN = tuple(waffenclips.CLIPS)
 # Idle prüft die Übertragung allein (hart, `GRENZE`), die drei Waffenclips den ganzen Weg (nur gemeldet, s. o.).
 # D429: `Axt_Quer` ist seit D429 selbst neu gebaut — die Gegenprobe läuft nur noch an Speer und Klinge.
-PRUEFE = ['Idle', 'Speer_Stoss', 'Klinge_Stich']
+PRUEFE = ['Idle']   # D456: Speer und Klinge sind selbst neu gebaut — die Gegenprobe läuft nur noch am Idle
 GRENZE = 0.01   # Meter
 MESSPUNKTE = ['hand_r', 'hand_l', 'foot_l', 'foot_r', 'Head']
 
@@ -113,6 +125,10 @@ for b in held.pose.bones:
 # 2. Die alte Wanderin: Clips aus Schlüsselbildern.
 alt_objs = importiere('public/figuren/wanderin.glb')
 alt = next(o for o in alt_objs if o.type == 'ARMATURE')
+# D460: Die gerechneten Clips (Gang, Lauf, Rolle …) sind in Metern der Hauptfigur beschrieben — das Verhältnis der
+# Beckenhöhen ist derselbe Massstab, mit dem `uebertrage` Becken und Füsse versetzt.
+waffenclips.MASS = (held.matrix_world @ held.data.bones['pelvis'].head_local).z / (alt.matrix_world @ alt.data.bones['Body'].head_local).z
+print(f'  MASSSTAB Ziel/Quelle: {waffenclips.MASS:.4f}')
 baue_waffenclips(alt, nur=set(NEU + PRUEFE))
 for tr in list(alt.animation_data.nla_tracks):
     alt.animation_data.nla_tracks.remove(tr)
@@ -147,6 +163,9 @@ for tr in list(held.animation_data.nla_tracks):
 # D429: Fällaxt — die linke Hand sitzt je Schlüssel an der Stelle `griff` des Stiels (dazwischen linear), genau auf
 # der Stielachse; 'stand' ist der erste Schlüssel der Grundhaltung.
 def _stielgriff(n):
+    # D456: `waffenclips.baue_clip` rechnet den Griff je Bild (Kurve durch die Schlüssel) — dieselben Werte hier.
+    if n in waffenclips.GRIFFVERLAUF:
+        return waffenclips.GRIFFVERLAUF[n]
     grund, _, schluessel = CLIPS[n]
     aus = []
     for bild, pose in schluessel:
@@ -156,9 +175,13 @@ def _stielgriff(n):
     return aus
 
 
-STIEL = {n: _stielgriff(n) for n in NEU if n.startswith('Axt_')}
+# D456: auch Saufeder und Langes Messer — die linke Hand liegt je Bild genau auf der Achse (Speer vorher bis 10 cm daneben).
+STIEL = {n: _stielgriff(n) for n in NEU if n.startswith('Axt_') or n in waffenclips.GRIFFVERLAUF}
 gebaut = uebertrage(alt, held, {n: [(n, 1, None)] for n in NEU + PRUEFE}, ALT_KARTE, ('Body', 'pelvis'), griff,
-                    seiten=SEITEN, versatz=versatz, stiel=STIEL)
+                    seiten=SEITEN, versatz=versatz, stiel=STIEL,
+                    fuesse={n: waffenclips.RECHNE[n]['fuesse'] if n in waffenclips.RECHNE
+                            else 'stand' if n.startswith('Koerper_') else 'gerade' for n in NEU},
+                    zehen=waffenclips.ZEHEN, kreis=waffenclips.KREIS)
 
 # 4. Gegenprobe gegen die ausgelieferten Clips.
 schlecht = []

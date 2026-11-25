@@ -853,10 +853,10 @@ def blatt2():
         fuss = ('Foto: %s — %s, %s' % (q[0]['titel'].replace('File:', '')[:60], q[0]['urheber'][:30], q[0]['lizenz'])) if q else 'Kein Foto geladen'
         reihe(os.path.join(ordner, 'paar-%s.jpg' % w),
               ['Herkunft (Vorschlag): ' + HERKUNFT[w], fuss + ' · Blender/Cycles, Standbild, keine Look-Abnahme · Hauptmaße wie im Spiel'],
-              foto + [('Runde 1 (D465): %s' % NAMEN[w], os.path.join(alt, 'ziel-%s.png' % w)), ('Runde 2: eigene Form, Stahl, Holz', os.path.join(ordner, 'ziel-%s.png' % w)),
+              foto + [('Runde 1 (D472): %s' % NAMEN[w], os.path.join(alt, 'ziel-%s.png' % w)), ('Runde 2: eigene Form, Stahl, Holz', os.path.join(ordner, 'ziel-%s.png' % w)),
                       ('Runde 2: Griff', os.path.join(ordner, 'ziel-%s-griff.png' % w))])
     reihe(os.path.join(ordner, 'paar-gesamt.jpg'), ['Von oben: Saufeder, Fällaxt, Langes Messer, Klinge, Hirschfänger · Blender/Cycles, Standbild, keine Look-Abnahme', ''],
-          [('Runde 1 (D465)', os.path.join(alt, 'ziel-gesamt.png')), ('Runde 2: eigene Zielbild-Geometrie', os.path.join(ordner, 'ziel-gesamt.png'))], h=760)
+          [('Runde 1 (D472)', os.path.join(alt, 'ziel-gesamt.png')), ('Runde 2: eigene Zielbild-Geometrie', os.path.join(ordner, 'ziel-gesamt.png'))], h=760)
     with open(os.path.join(ordner, 'herkunft.md'), 'w', encoding='utf-8') as f:
         f.write('# Waffen Runde 2 — Herkunft je Waffe (Vorschlag, von Flo nicht bestätigt)\n\n')
         for w in WAFFEN: f.write('- **%s:** %s\n' % (NAMEN[w], HERKUNFT[w]))

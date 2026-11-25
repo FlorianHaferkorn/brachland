@@ -139,9 +139,9 @@ export const AFRAME_AN = an('aframe');
 /** D446: Look-Durchgang Felsmulde nach dem Messbild D445 — Rahmenkronen (`scenes/Rahmenkronen.tsx`); mit `?stimmung=zielbildfels`. */
 export const LOOK_FELS_AN = an('lookfels');
 /**
- * D471, in Arbeit: Scan-Bäume des Zielbilds statt Kartenkronen (`tools/baumexport.py`, `dateien: baeume`). Hinter
+ * D478, in Arbeit: Scan-Bäume des Zielbilds statt Kartenkronen (`tools/baumexport.py`, `dateien: baeume`). Hinter
  * eigenem Schalter, weil die Laubkarten beim Kürzen noch zerfallen (Splitter, freistehende Aststücke); Vorgabe bleiben
- * die Rahmenkronen (D446/D467/D468). `?lookfels=1&scanbaeume=1`.
+ * die Rahmenkronen (D446/D474/D475). `?lookfels=1&scanbaeume=1`.
  */
 export const SCAN_BAEUME_AN = LOOK_FELS_AN && an('scanbaeume');
 export const ECHT = an('echt') || MALEREI || HOF_AN || AFRAME_AN;
@@ -303,7 +303,7 @@ export const MSAA: number = (() => {
 })();
 
 /**
- * Sichtweite der Props an der Zielbild-Felsmulde (D457): Bäume werden ab 110 m × 1,3 = 143 m zum Fernbild statt ab
+ * Sichtweite der Props an der Zielbild-Felsmulde (D464): Bäume werden ab 110 m × 1,3 = 143 m zum Fernbild statt ab
  * 176 m (Sichtweite „weit“ 1,6). Im Band 143–176 m standen 0,5 Mio. Dreiecke der Mittelstufe, dort ist ein Baum
  * noch ~120 Pixel hoch — die Fernbilder (D367) sind für 110 m gebaut. `?propweite=1.6` stellt den alten Wert her.
  */

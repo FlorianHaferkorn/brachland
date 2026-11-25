@@ -1802,7 +1802,7 @@ def stil():
     hf.stil()
 
 
-# ───────────────────────────── Runde 3: Kopf aus einer freien Vorlage (D460 → Runde 3) ─────────────────────────────
+# ───────────────────────────── Runde 3: Kopf aus einer freien Vorlage (D467 → Runde 3) ─────────────────────────────
 # Flo 23.11.2026 zu Runde 2: „Menschen sehen aus wie Knete … Alterszeichen fehlen, Bart nicht richtig platziert, Haare
 # unnatürlich.“ Die MakeHuman-Köpfe tragen kein echtes Gesicht. Der Zähler bekommt deshalb einen Kopf, der von **Einar**
 # abgeleitet ist (Blender Studio, „Charge“, CC-BY 4.0 — Namensnennung Pflicht; lokal unter

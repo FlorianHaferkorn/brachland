@@ -28,13 +28,13 @@ const BAEUME: [Art, number, number, number][] = [
 /** Kronenform je Art: Ansatz und Breite als Anteil der Höhe (island_tree_01 breit und tief, 02 schlanker). */
 const FORM: Record<Art, { ansatz: number; breite: number }> = { a: { ansatz: 0.32, breite: 0.46 }, b: { ansatz: 0.40, breite: 0.34 }, k: { ansatz: 0.30, breite: 0.40 } };
 
-/** Helligkeit des Laubs (D468): Kronen im Render 0,38/0,35/0,23, im Spiel 0,18/0,16/0,09 — Faktor 2. `?kronenlicht=`. */
+/** Helligkeit des Laubs (D475): Kronen im Render 0,38/0,35/0,23, im Spiel 0,18/0,16/0,09 — Faktor 2. `?kronenlicht=`. */
 const KRONEN_LICHT: number = (() => {
   const roh = typeof location === 'undefined' ? NaN : Number(new URLSearchParams(location.search).get('kronenlicht') ?? NaN);
   return Number.isFinite(roh) && roh > 0 ? roh : 2.0;
 })();
 
-/** Anteil der Karten, die Schatten werfen (D467); am Messbild auf die Bodenhelligkeit des Zielbilds eingestellt. */
+/** Anteil der Karten, die Schatten werfen (D474); am Messbild auf die Bodenhelligkeit des Zielbilds eingestellt. */
 const SCHATTENANTEIL: number = (() => {
   const roh = typeof location === 'undefined' ? NaN : Number(new URLSearchParams(location.search).get('kronenschatten') ?? NaN);
   return Number.isFinite(roh) && roh >= 0 && roh <= 1 ? roh : 0.15;
@@ -91,7 +91,7 @@ export function Rahmenkronen({ hoeheAn }: { hoeheAn: (x: number, z: number) => n
         .replace('#include <map_fragment>', `#include <map_fragment>\n  diffuseColor.rgb *= vTon * ${KRONEN_LICHT.toFixed(2)};`);
     };
     const tiefe = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: textur, alphaTest: 0.45 });
-    // D467: Lichtflecken statt Schattendecke. Alle Karten zusammen warfen einen fast geschlossenen Schatten (Boden im
+    // D474: Lichtflecken statt Schattendecke. Alle Karten zusammen warfen einen fast geschlossenen Schatten (Boden im
     // Messbild 0,13 statt 0,22 im Zielbild; ohne Kronen 0,21) — die Scan-Bäume des Renders lassen Sonne durch. Nur ein
     // Anteil der Karten wirft Schatten, ausgewählt über den Zufallswert `ton` der Karte. `?kronenschatten=0…1`.
     tiefe.onBeforeCompile = (sh) => {
@@ -116,7 +116,7 @@ export function Rahmenkronen({ hoeheAn }: { hoeheAn: (x: number, z: number) => n
     stMesh.castShadow = true; stMesh.receiveShadow = true;
     return { karten, staemme: stMesh, matrizen, kachel, ton };
   }, [textur, hoeheAn]);
-  // D457: Karten von vorn nach hinten zeichnen. Die Kronen sind tausende sich überdeckende Karten mit Alphatest; in
+  // D464: Karten von vorn nach hinten zeichnen. Die Kronen sind tausende sich überdeckende Karten mit Alphatest; in
   // Bauordnung wurde jede Lage voll schattiert, bevor die nächste sie verdeckte (~1,5 ms je Bild am M1). Sortiert
   // verwirft der Tiefentest die verdeckten Pixel vor dem Shader — dasselbe Bild. Neu sortiert alle 6 m Kameraweg.
   const sortiertBei = useRef(new THREE.Vector3(Infinity, 0, 0));

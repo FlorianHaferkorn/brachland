@@ -2,7 +2,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
 import { baueRevierwelt, masseAus } from '../src/spiel/reviere.js';
 import { join } from 'node:path';
-import { AufgabeDaten, Bewegung, Gewicht, Kampfton,Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung, Revierkarte,
+import { Clipmarken } from '../src/data/schema.js';
+import { AufgabeDaten, Bewegung, Gewicht, Figurlaufzeit, Figurgegner, Kampfton,Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung, Revierkarte,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -183,6 +184,41 @@ console.log('\nBewegung (D412):');
       console.log(`  ✓ bewegung.json: Rennen ${b.laufen.rennen} m/s (Probe ${b.laufen.rennenProbe.join(' / ')}), Reiten ${b.reiten.gehen} / ${b.reiten.rennen}, Klettern ${b.klettern.tempo}, Fall ${b.fall.schadlosBis}–${b.fall.toedlichAb} m; Tauchen und Tragtier Entwurf`);
       ok++;
     }
+  }
+}
+
+console.log('\nClipmarken (D456, nur Darstellung):');
+{
+  const r = Clipmarken.safeParse(JSON.parse(readFileSync('content/clipmarken.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ clipmarken.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    console.log(`  ✓ clipmarken.json: ${Object.keys(r.data.clips).length} Clips, ${Object.keys(r.data.hut).length} Huten, ${r.data.bildrate} Bilder/s`);
+  }
+}
+
+console.log('\nLaufzeit der Bewegung (D457, nur Darstellung):');
+{
+  const r = Figurlaufzeit.safeParse(JSON.parse(readFileSync('content/figurlaufzeit.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ figurlaufzeit.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const u = r.data.uebergang;
+    console.log(`  ✓ figurlaufzeit.json: ${Object.keys(u).length} Übergangsarten, ${Math.min(...Object.values(u)) * 1000}–${Math.max(...Object.values(u)) * 1000} ms`);
+  }
+}
+
+console.log('\nKörpersprache der Gegner (D458, nur Darstellung):');
+{
+  const r = Figurgegner.safeParse(JSON.parse(readFileSync('content/figurgegner.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ figurgegner.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    // Jeder Gegner mit Bauplan hat ein Ansageprofil — sonst stünde er im Vorlauf nur da.
+    const profile = Object.keys(r.data.ansage.profile);
+    const ohne = readdirSync('content/gegner').filter(f => f.endsWith('.json')).map(f => f.slice(0, -5)).filter(id => !profile.includes(id));
+    if (ohne.length) { console.log(`  ✗ figurgegner.json: kein Ansageprofil für ${ohne.join(', ')}`); fehler++; }
+    else console.log(`  ✓ figurgegner.json: ${profile.length} Ansageprofile, Vierbeiner, Taumeln, Schütteln, Abgang, Sturz`);
   }
 }
 

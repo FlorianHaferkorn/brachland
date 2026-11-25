@@ -1,0 +1,122 @@
+{
+  "stand": "D457, 23.11.2026 — Laufzeit der Bewegung, nur Darstellung, kein Kampfwert. Arbeitswerte aus der Rechnung; am M1 in Bewegung noch nicht gesehen (ADR-0005). D461, 23.11.2026: drei Gangarten der Spielfigur, Messung am Aufstandspunkt, Sprung, Lande-Rolle, Wenden im Stand.",
+  "uebergang": {
+    "standard": 0.2,
+    "gang": 0.25,
+    "hutHieb": 0.1,
+    "kette": 0.12,
+    "hiebHut": 0.25,
+    "abbruch": 0.12,
+    "rolle": 0.1,
+    "rolleEnde": 0.22,
+    "treffer": 0.1,
+    "trefferEnde": 0.25,
+    "block": 0.1,
+    "fall": 0.15,
+    "luft": 0.1
+  },
+  "gang": {
+    "gehen": 1.03,
+    "rennen": 4.04,
+    "rateMin": 0.6,
+    "rateMax": 2.2,
+    "weiteMin": 0.7,
+    "weiteMax": 1.4,
+    "standHoehe": 0.04,
+    "stufen": [
+      {
+        "clip": "Koerper_Gang",
+        "tempo": 1.4
+      },
+      {
+        "clip": "Koerper_Laufschritt",
+        "tempo": 4.19
+      },
+      {
+        "clip": "Koerper_Sprint",
+        "tempo": 8.49
+      }
+    ],
+    "sohle": {
+      "ferseVor": -0.0167,
+      "ferseHoch": -0.0928,
+      "ballenVor": 0.0089,
+      "ballenHoch": -0.0223,
+      "toleranz": 0.006
+    },
+    "wechselAb": 0.15,
+    "warum": "gehen/rennen: Rückfall für `Walk` und `Run`, wie die Knöchelmessung (D457) sie liest — `Run` ist seit D460 der Laufschritt (4,04 statt 2,07; Gegner und Bewohner, Kampfplatz.tsx). D461, stufen: die Gangarten der Spielfigur, je zwei Nachbarn nach Tempo gemischt (gangStufen); `tempo` ist der Rückfall, gemessen wird beim Laden am Aufstandspunkt (docs/design/BRACHLAND_Waffenbewegungen_v1.md §10.2: 1,40 / 4,19 / 8,49 m/s). Die Spieltempi 4,2 und 8,5 m/s (content/bewegung.json) liegen damit auf einem Clip bei Rate 1. sohle: Fersenkante und Ballen der Hauptfigur gegen Knöchel und Ballenknochen, Meter — dieselben Masse wie tools/waffenclips.py (FUSS_VOR, SOHLE, FERSE_HINTER) und tests/clipguete.test.ts; toleranz 6 mm wie dort. wechselAb: Die Regel setzt das Tempo ohne Anlauf (4,2 → 8,5 m/s in einem Bild); springt die Mischung dabei um mehr als 15 % einer Gangart, klingt der Versatz zwischen den Clips über uebergang.gang ab, statt hart zu wechseln."
+  },
+  "fuss": {
+    "standHoehe": 0.05,
+    "haltMax": 0.1,
+    "loesen": 0.07,
+    "neigungMaxGrad": 22
+  },
+  "neigen": {
+    "kurve": 0.4,
+    "kurveMaxGrad": 10,
+    "schub": 0.5,
+    "schubMaxGrad": 6,
+    "halbwert": 0.14
+  },
+  "drehen": {
+    "kopf": 0.03,
+    "schulter": 0.07,
+    "huefte": 0.11,
+    "maxGrad": 35
+  },
+  "blick": {
+    "gierMaxGrad": 70,
+    "nickMaxGrad": 30,
+    "aufgebenGrad": 110,
+    "halbwert": 0.12,
+    "kopf": 0.55,
+    "hals": 0.3,
+    "brust": 0.15
+  },
+  "atem": {
+    "ruheHz": 0.25,
+    "lastHz": 0.7,
+    "hubGrad": 0.7,
+    "anstieg": 3,
+    "erholung": 8
+  },
+  "treffer": {
+    "gradJeSchaden": 0.3,
+    "maxGrad": 14,
+    "frequenz": 2.6,
+    "daempfung": 0.55
+  },
+  "landung": {
+    "merklichAb": 0.6,
+    "gehtAb": 0.55,
+    "clipWeich": "Koerper_Landung_Weich",
+    "clipHart": "Koerper_Landung_Hart",
+    "clipRolle": "Koerper_Rolle",
+    "uebergang": 0.08,
+    "warum": "D458. merklichAb: gleichwertige Fallhöhe v²/2g, ab der die Landung einen Clip bekommt — darunter (Absatz, Kante) folgen die Füsse dem Boden; der eigene Sprung (1,49 m) landet weich. Die Grenze weich/hart ist `fall.schadlosBis` aus content/bewegung.json (D412), nicht hier. gehtAb: in Bewegung federt nur der Oberkörper und nur bis zu diesem Anteil des Clips. D461, clipRolle/rolleAb: die Lande-Rolle (Rolltaste, D413) ist die Hechtrolle von D460 ab Bild 5 (4/24 s) — sie beginnt gestreckt in der Luft, das Tiefgehen und der Abdruck davor entfallen; bei Rate 1 bis zum Clipende (0,58 s). Kein Spielwert: die Landung sperrt nichts.",
+    "rolleAb": 0.1667
+  },
+  "sprung": {
+    "clipAb": "Koerper_Sprung_Ab",
+    "clipFlug": "Koerper_Sprung_Flug",
+    "fallAb": 0.15,
+    "warum": "D461. Nach dem Absprung der Regel einmal der Abdruck (0,33 s), dann die Flughaltung bis zum Aufsetzen; danach die Landung (landung). fallAb: Über eine Kante ohne Absprung kommt die Flughaltung erst nach 0,15 s in der Luft (11 cm Fall) — ein Absatz ist kein Flug. Benannte Abweichung (D398): Die Regel hebt im Bild des Tastendrucks ab, der Abdruck läuft, während die Figur schon steigt; ein echtes Beugen und Strecken am Boden (0,2–0,3 s) hiesse den Sprung verzögern (Spielwert). Übergang: uebergang.luft."
+  },
+  "wenden": {
+    "an": true,
+    "abGrad": 60,
+    "kehrtAbGrad": 135,
+    "rumpfAnteil": 0.6,
+    "versatzHalbwert": 0.12,
+    "clips": {
+      "wendenLinks": "Koerper_Wenden_Links",
+      "wendenRechts": "Koerper_Wenden_Rechts",
+      "kehrtLinks": "Koerper_Kehrt_Links",
+      "kehrtRechts": "Koerper_Kehrt_Rechts"
+    },
+    "stand": "Idle",
+    "warum": "D461, nur im freien Stand (kein Kampf, kein Tempo, nicht im Sattel): Die Hüfte hält ihre Richtung, Rumpf (60 %) und Hals (40 %) drehen zum Blick; ab 60° Abstand tritt die Figur um 90° um, ab 135° macht sie kehrt (Schwellen aus §10.4 Punkt 6 der Waffenbewegungen). Die Hüfte springt um genau den Winkel des Clips, der um ihn zurückgedreht beginnt — die Füsse gleiten nicht. Real: Ein Mensch dreht Schultern gegen Becken um rund 35–45° und den Kopf um 70–80° (Gedächtnis, nicht belegt); bei 60° Abstand trägt die Wirbelsäule hier 36°, der Hals 24°. versatzHalbwert: Die Clips drehen um die Standmitte, die 6 cm neben dem Ursprung der Figur liegt; im Stand bleibt die Standmitte liegen, beim Losgehen klingt der Versatz (höchstens 13 cm) so ab. an=false: die Hüfte folgt dem Blick wie vor D461."
+  }
+}

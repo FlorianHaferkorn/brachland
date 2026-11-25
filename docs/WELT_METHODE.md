@@ -2,19 +2,20 @@
 last-reviewed: 2026-11-23
 shelf-life-days: 90
 ---
-# Welt-Methode — einen Ort aus dem Zielbild ins Spiel bringen
+# Welt-Methode — Backkette und Fallen (Ergänzung zu `VERFAHREN_ORT.md`)
 
-> Arbeitsanleitung für **jede** Sitzung, auch mit einem günstigeren Modell (Flo, 23.11.2026: „Ort für Ort nach derselben
-> Methode soll dann mit billigeren Modellen funktionieren“). Sie beschreibt, was an der Felsmulde funktioniert hat
-> (D445, D450, D457, D467, D468), als feste Schrittfolge mit Prüfpunkten. Offen/erledigt steht im Ledger (`_INDEX.md`),
-> nicht hier. **Nicht abweichen, nicht neu erfinden** — wenn ein Prüfpunkt nicht hält, anhalten und berichten.
+> **Hauptdokument ist `VERFAHREN_ORT.md`** (D459, Cloud; Akte je Ort, zehn Schritte, Abnahme, Eskalation). Diese Datei
+> ergänzt es um das, was die M1-Sitzung beim Backen gelernt hat: die Kette `../tools/ortkette.sh` für den Schritt
+> „Szene exportieren“, die Messbefehle am M1 und acht Fallen, die alle schon passiert sind (D474–D478). Beide wurden
+> am 23.11.2026 parallel geschrieben; bei Widerspruch gilt `VERFAHREN_ORT.md`, Abweichungen im Ledger melden.
+> Offen/erledigt steht im Ledger (`_INDEX.md`), nicht hier.
 
 ## Grundsatz
 
 Der Ort wird **nicht nachgebaut**. Die Blender-Szene des Zielbilds wird gebacken und selbst ins Spiel gesetzt: Mauern
 und Felsen mit Relief, Boden, Pflanzen, Schattenhülle. Alles liegt hinter dem Schalter des Orts (Felsmulde:
 `?lookfels=1`), bis Flo den Ort freigibt. Abnahme je Ort: Messbild Spiel │ Zielbild mit gleicher Kamera, 10 s Gang
-als Video, 60 B/s am M1 (D467).
+als Video, 60 B/s am M1 (D474).
 
 ## Voraussetzungen (vor Schritt 1 prüfen)
 
@@ -65,7 +66,7 @@ python3 tools/mess/messwerte.py <zielbild.png> <vorher.png> <nachher.png>
 ```
 
 Zielwerte Felsmulde (Zielbild): Helligkeit 0,27 · unter 0,2: 41 % · über 0,7: 0,5 % · Sättigung 0,46. Abweichung je
-Bildfeld messen, **bevor** etwas verstellt wird (Muster: Ledger D467/D468): erst Ursache einzeln abschalten
+Bildfeld messen, **bevor** etwas verstellt wird (Muster: Ledger D474/D475): erst Ursache einzeln abschalten
 (`&aus=kronen`, `&aus=schatten`, `&ao=0`), dann genau einen Wert ändern, wieder messen.
 
 ## Schritt 4 — Bildrate
@@ -99,7 +100,7 @@ teuersten angehen. Faustwerte am M1: rund 3 ms je Million Dreiecke; ein parallel
 4. **Pflanzen als 10 000 Einzelaufrufe:** Blender exportiert keine GPU-Instanzen; `bautenpack.ts --instanz` macht sie.
 5. **Efeu/Laub weiss oder leer:** Geometrie-Knoten müssen ausgerechnet werden, solange Mauer und Gelände noch in der
    Szene sind; Blattfarbe kommt als Eckenfarbe (`pflanzenexport.py`).
-6. **Unsichtbare Kosten:** Der Grasteppich der Spielwelt rechnete 1,9 Mio. Dreiecke ohne einen Halm (D457). Vor dem
+6. **Unsichtbare Kosten:** Der Grasteppich der Spielwelt rechnete 1,9 Mio. Dreiecke ohne einen Halm (D464). Vor dem
    Optimieren immer zerlegen, nie raten.
 7. **Messung verfälscht:** läuft Blender, ist die Bildrate zu niedrig. Variantenname in `bildrate.mjs` darf kein `=`
    enthalten.

@@ -14,7 +14,7 @@ const BASIS = process.env.MESS_URL ?? 'http://127.0.0.1:4173';
 const [width, height] = (process.env.MESS_FORMAT ?? '1920x1080').split('x').map(Number);
 const dpr = Number(process.env.MESS_DPR ?? '1');
 const { chromium } = await playwright();
-// MESS_UNGEDECKELT=1: ohne Bildsynchronisation — zeigt, wie viel Luft über 60 B/s bleibt (D457)
+// MESS_UNGEDECKELT=1: ohne Bildsynchronisation — zeigt, wie viel Luft über 60 B/s bleibt (D464)
 const frei = process.env.MESS_UNGEDECKELT === '1' ? ['--disable-gpu-vsync', '--disable-frame-rate-limit'] : [];
 const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist', ...frei] });
 const median = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };

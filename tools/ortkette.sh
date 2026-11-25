@@ -1,5 +1,5 @@
 #!/bin/bash
-# BRACHLAND — Ortkette (D469): eine Zielbild-Szene (.blend) in einem Lauf ins Spiel bringen.
+# BRACHLAND — Ortkette (D476): eine Zielbild-Szene (.blend) in einem Lauf ins Spiel bringen.
 #
 #   tools/ortkette.sh <zielbild.blend> <name> <terrain.json> [schritte]
 #   Beispiel: tools/ortkette.sh .cache/blender/felsmulde/szene4.blend felsmulde .cache/blender/felsmulde/terrain.json

@@ -1,5 +1,5 @@
 """
-BRACHLAND — Bäume des Zielbilds fürs Spiel (D471).
+BRACHLAND — Bäume des Zielbilds fürs Spiel (D478).
 
     blender --background <zielbild.blend> --python tools/baumexport.py -- public/bauten-ziel felsmulde
 
@@ -50,7 +50,7 @@ for o in baeume:
         inseln.append(insel)
     # Jede behaltene Karte wird ein einziges Viereck: Ecken = die Inselpunkte, deren UV den Ecken des UV-Rechtecks der
     # Karte am nächsten liegen, UV = das Rechteck selbst. Die Karten sind gewölbte Streifen mit ~24 Flächen; als Viereck
-    # sind es 2 Dreiecke, und es bleiben genug Karten, dass die Blätter in Originalgrösse stehen (D471, zweiter Lauf:
+    # sind es 2 Dreiecke, und es bleiben genug Karten, dass die Blätter in Originalgrösse stehen (D478, zweiter Lauf:
     # vergrösserte Karten lasen als Riesenblätter).
     uvl = bm.loops.layers.uv.active
     weg = []; vierecke = []; skala = LAUB ** -0.25   # halb ausgeglichen: Fläche fehlt etwas, Blätter bleiben nahe Originalgrösse
@@ -85,7 +85,7 @@ for o in baeume:
         bpy.ops.object.select_all(action='DESELECT'); tmp.select_set(True); bpy.context.view_layer.objects.active = tmp
         bpy.ops.object.modifier_apply(modifier=d.name)
     tmp.vertex_groups.clear()
-    # Gesamtbudget je Vorlage (D471): die Blattkarten sind gewölbt und lassen sich nicht flach zusammenfassen
+    # Gesamtbudget je Vorlage (D478): die Blattkarten sind gewölbt und lassen sich nicht flach zusammenfassen
     if len(me.polygons) > ZIEL_FL:
         d = tmp.modifiers.new('Ziel', 'DECIMATE'); d.ratio = ZIEL_FL / len(me.polygons)
         bpy.ops.object.select_all(action='DESELECT'); tmp.select_set(True); bpy.context.view_layer.objects.active = tmp

@@ -21,7 +21,7 @@ sc = bpy.context.scene
 pflanzen = [o for o in sc.objects if o.type == 'MESH' and MUSTER.match(o.name)]
 # Efeu und Laubstreu sind Geometrie-Knoten (Instanzen auf Mauer und Boden): ausrechnen, solange Mauer und Gelände noch da sind
 # (danach gelöscht: erster Lauf ergab 0 Flächen), sonst exportiert glTF nichts
-# D457: Fallaub-Vorlage kürzen, bevor sie 4 161-mal ausgerechnet wird — 72 Flächen je Blatt am Boden sind 0,3 Mio. Dreiecke
+# D464: Fallaub-Vorlage kürzen, bevor sie 4 161-mal ausgerechnet wird — 72 Flächen je Blatt am Boden sind 0,3 Mio. Dreiecke
 # für Blätter von 5 cm; 12 tragen die Wölbung. Efeublatt 12 → 6: 57 651 Blätter waren 0,69 Mio. Dreiecke, der Umriss bleibt.
 for nm, ziel_fl in (('Fallaub', 12), ('Efeublatt', int(os.environ.get('EFEU_FLAECHEN', '6')))):
     vo = bpy.data.objects.get(nm)

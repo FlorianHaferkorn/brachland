@@ -480,6 +480,7 @@ Eigenes Menü, vom Titel und aus der Pause direkt erreichbar, und Teil des erste
 | `signal-verstaerken` | An / Aus (Befall mit Umrisslinie und Puls) | Aus | – | S |
 | `blitzen-reduzieren` | An / Aus (kein Vollbildblitz, Bloom gedeckelt) | folgt `prefers-reduced-motion` | – | S |
 | `kamerawackeln` | 0–100 % | 100 % | seit D427 im Speicher, Regler in 50er-Schritten (0 aus, 50 gering, 100 voll), `?wackeln=`; skaliert Kamerastoss und Zittern bei Treffern (`src/kampf/kamerastoss.ts`) | S |
+| `figurfein` | an/aus | an | seit D457 im Speicher, `?figurfein=0`; schaltet die Bewegungs-Laufzeit ab (`src/figur/`: Neigen in Kurven, Nachdrehen von Kopf und Schultern, Blick zum Ziel, Wanken bei Treffern, Sohlen am Hang, weiche Clipwechsel) — die Figuren spielen dann nur ihre Clips | S |
 | `bewegung-reduzieren` | An / Aus (Menüs ohne Animation, Kamera ohne Nachschwingen) | folgt `prefers-reduced-motion` | – | S |
 | `ton-sichtbar` | An / Aus (Richtungsanzeige für Angriffe und Geräusche ausserhalb des Bildes) | Aus | Witterung zeigt Tiere | S |
 | `halten-vermeiden` | An / Aus (setzt alle Halten-Aktionen auf Umschalten, Reinigen-Griff läuft nach einem Druck von selbst) | Aus | – | S |

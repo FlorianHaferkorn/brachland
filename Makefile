@@ -1,6 +1,6 @@
 # Single-Entry-Gate (claude-repo-kit). `make check` MUSS grün sein vor Commit/PR.
 # Der pre-commit-Hook ruft dieses Target automatisch.
-.PHONY: check check-index ledger-ids test typecheck validate quality geometrie massstab roi-check install dev build preview help
+.PHONY: check check-index ledger-ids test typecheck validate quality geometrie massstab roi-check install dev build preview ort help
 
 PY := $(shell command -v python3 2>/dev/null || command -v python)
 
@@ -68,3 +68,10 @@ build:   ## Produktionsbuild
 
 preview:   ## Produktionsbuild lokal prüfen
 	@npm run preview
+
+# ── Verfahren Ort für Ort (D459, docs/VERFAHREN_ORT.md) ──────────────────
+# make ort ORT=felsmulde            alle Schritte mit ausgefüllten Befehlen
+# make ort ORT=felsmulde SCHRITT=4  ein Schritt;  D=D460 setzt den Bildordner .cache/bilder/D460/
+ort:   ## Verfahren Ort für Ort: Schritte und Befehle für ORT=<id> [SCHRITT=<n>] [D=Dxxx]
+	@test -n "$(ORT)" || { echo "Aufruf: make ort ORT=<id> [SCHRITT=<n>] [D=Dxxx] — Akten: tools/ort/"; exit 2; }
+	@npx tsx tools/ortverfahren.ts $(ORT) $(if $(SCHRITT),schritt $(SCHRITT),plan) $(if $(D),$(D),Dxxx)

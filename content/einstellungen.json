@@ -190,6 +190,12 @@
       "name": "Kamerawackeln",
       "hilfe": "Stoss und Zittern der Kamera bei Treffern (D427). 0 % aus, 50 % gering, 100 % voll — für Bewegungsempfindliche.",
       "min": 0, "max": 100, "schritt": 50, "standard": 100, "einheit": "%"
+    },
+    {
+      "id": "figurfein", "gruppe": "zugaenglichkeit", "art": "schalter", "prioritaet": "S", "wirkt": "spieler", "url": "figurfein",
+      "name": "Feine Körperbewegung",
+      "hilfe": "Neigen in Kurven, Nachdrehen von Kopf und Schultern, Blick zum Ziel, Wanken bei Treffern, Füsse am Hang (D457). Aus: die Figur spielt nur ihre Clips — für Bewegungsempfindliche und schwache Geräte.",
+      "standard": true
     }
   ],
   "automatik": {

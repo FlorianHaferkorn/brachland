@@ -26,14 +26,15 @@ function pruefe(name: string, ok: boolean, hinweis = '') {
 // Kampf); Treffer, erlittener Schaden, Siege und Reinigungen sind die von fce9a34 (geprüft unten).
 // D429: Axtkopf 1,65 → 1,40 kg, Stiel 0,45 → 0,70 kg (wie das Modell) — der Axthieb hält 90 statt 96 ms an, die Zeit
 // 4800,475 → 4799,392 s (−3 ms je Kampf); sonst gleich.
-const FINGERABDRUCK_D171 = { treffer: 1239, zeit: 4799.392, erlitten: 10681.5, siege: 269, rein: 97 };
+// D454: Axt-Fenster nach Variante B (Flo 23.11.2026) — ein Kampfwert ist bewusst geändert, der Abdruck neu gesetzt.
+const FINGERABDRUCK_D171 = { treffer: 1238, zeit: 4709.633, erlitten: 10363.5, siege: 268, rein: 97 };
 const GAMS_D407: KampfWerte = { ...GAMS, schlag: { ...GAMS.schlag, erholung: 0.7 } };
 const WOLF_D407: KampfWerte = { ...WOLF, reinigen: { dauer: 4.25 } };
 const ALT: Record<string, KampfWerte[]> = { wolf: [WOLF_D407], gams: [GAMS_D407], wegelagerer: GEGNER.wegelagerer, 'wolf+fuchs': [WOLF_D407, FUCHS] };
 {
   const { zeit: _z, ...ohneZeit } = abdruck(kampf);
-  pruefe('D427: ohne die Zeit derselbe Fingerabdruck wie fce9a34', JSON.stringify(ohneZeit)
-    === JSON.stringify({ treffer: 1239, erlitten: 10681.5, siege: 269, rein: 97 }), JSON.stringify(ohneZeit));
+  pruefe('ohne die Zeit derselbe Fingerabdruck wie D454', JSON.stringify(ohneZeit)
+    === JSON.stringify({ treffer: 1238, erlitten: 10363.5, siege: 268, rein: 97 }), JSON.stringify(ohneZeit));
 }
 type K = typeof kampf;
 function abdruck(k: (...a: Parameters<K>) => ReturnType<K>) {
