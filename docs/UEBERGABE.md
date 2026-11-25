@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-11-23
+last-reviewed: 2026-11-25
 shelf-life-days: 30
 ---
 # Übergabe Cloud → M1 (22.11.2026)
