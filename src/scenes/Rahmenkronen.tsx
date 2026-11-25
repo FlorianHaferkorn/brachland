@@ -28,6 +28,18 @@ const BAEUME: [Art, number, number, number][] = [
 /** Kronenform je Art: Ansatz und Breite als Anteil der Höhe (island_tree_01 breit und tief, 02 schlanker). */
 const FORM: Record<Art, { ansatz: number; breite: number }> = { a: { ansatz: 0.32, breite: 0.46 }, b: { ansatz: 0.40, breite: 0.34 }, k: { ansatz: 0.30, breite: 0.40 } };
 
+/** Helligkeit des Laubs (D468): Kronen im Render 0,38/0,35/0,23, im Spiel 0,18/0,16/0,09 — Faktor 2. `?kronenlicht=`. */
+const KRONEN_LICHT: number = (() => {
+  const roh = typeof location === 'undefined' ? NaN : Number(new URLSearchParams(location.search).get('kronenlicht') ?? NaN);
+  return Number.isFinite(roh) && roh > 0 ? roh : 2.0;
+})();
+
+/** Anteil der Karten, die Schatten werfen (D467); am Messbild auf die Bodenhelligkeit des Zielbilds eingestellt. */
+const SCHATTENANTEIL: number = (() => {
+  const roh = typeof location === 'undefined' ? NaN : Number(new URLSearchParams(location.search).get('kronenschatten') ?? NaN);
+  return Number.isFinite(roh) && roh >= 0 && roh <= 1 ? roh : 0.15;
+})();
+
 function zufall(saat: number) { let s = saat >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
 export function Rahmenkronen({ hoeheAn }: { hoeheAn: (x: number, z: number) => number }) {
@@ -70,16 +82,24 @@ export function Rahmenkronen({ hoeheAn }: { hoeheAn: (x: number, z: number) => n
     matrizen.forEach((mm, i) => karten.setMatrixAt(i, mm));
     geo.setAttribute('kachel', new THREE.InstancedBufferAttribute(new Float32Array(kachel), 1));
     geo.setAttribute('ton', new THREE.InstancedBufferAttribute(new Float32Array(ton), 1));
-    const mat = new THREE.MeshStandardMaterial({ map: textur, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.85, emissive: new THREE.Color('#5a6a20'), emissiveIntensity: 0.35, emissiveMap: textur });
+    const mat = new THREE.MeshStandardMaterial({ map: textur, alphaTest: 0.45, side: THREE.DoubleSide, roughness: 0.85, emissive: new THREE.Color('#5a6a20'), emissiveIntensity: KRONEN_LICHT * 0.35, emissiveMap: textur });
     // Lichtdurchlass (Blätter im Gegenlicht leuchten gelbgrün, Zielbild): Eigenleuchten aus der Blattfarbe statt Transmission
     mat.onBeforeCompile = (sh) => {
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float kachel;\nattribute float ton;\nvarying float vTon;')
         .replace('#include <uv_vertex>', '#include <uv_vertex>\n  vMapUv = (uv + vec2(mod(kachel, 4.0), floor(kachel / 4.0))) / 4.0;\n  vTon = ton;');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vTon;')
-        .replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= vTon;');
+        .replace('#include <map_fragment>', `#include <map_fragment>\n  diffuseColor.rgb *= vTon * ${KRONEN_LICHT.toFixed(2)};`);
     };
     const tiefe = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: textur, alphaTest: 0.45 });
-    tiefe.onBeforeCompile = mat.onBeforeCompile;
+    // D467: Lichtflecken statt Schattendecke. Alle Karten zusammen warfen einen fast geschlossenen Schatten (Boden im
+    // Messbild 0,13 statt 0,22 im Zielbild; ohne Kronen 0,21) — die Scan-Bäume des Renders lassen Sonne durch. Nur ein
+    // Anteil der Karten wirft Schatten, ausgewählt über den Zufallswert `ton` der Karte. `?kronenschatten=0…1`.
+    tiefe.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float kachel;\nattribute float ton;\nvarying float vWirft;')
+        .replace('#include <uv_vertex>', '#include <uv_vertex>\n  vMapUv = (uv + vec2(mod(kachel, 4.0), floor(kachel / 4.0))) / 4.0;\n  vWirft = fract(ton * 37.31 + kachel * 0.173);');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vWirft;')
+        .replace('#include <map_fragment>', `if (vWirft > ${SCHATTENANTEIL.toFixed(3)}) discard;\n#include <map_fragment>`);
+    };
     karten.material = mat; karten.customDepthMaterial = tiefe; karten.castShadow = true; karten.receiveShadow = false;   // Eigenschatten der Karten machte die Kronen schwarz (erste Probe)
     karten.frustumCulled = false;
     let stamm: THREE.BufferGeometry | null = null;

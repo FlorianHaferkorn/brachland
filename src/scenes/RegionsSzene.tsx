@@ -82,7 +82,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE } from '../world/echt.js';
+import { LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE, SCAN_BAEUME_AN } from '../world/echt.js';
 import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
@@ -2299,6 +2299,7 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
                 ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
                 : teil === 'boden' ? <BauwerkBoden bauwerk={b} />
                 : teil === 'schatten' ? <BauwerkSchatten bauwerk={b} />
+                : teil === 'baeume' ? (istAus('kronen') || !SCAN_BAEUME_AN ? null : <BauwerkBaeume bauwerk={b} />)
                 : teil === 'pflanzen' ? (istAus('pflanzen') ? null : <BauwerkPflanzen bauwerk={b} />)
                 : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
@@ -2349,6 +2350,32 @@ function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
     BODEN_LOCH.value.set(bauwerk.ursprung.x + b.mitte.x, bauwerk.ursprung.z - b.mitte.y, b.radius - 6, 0);
     return () => { BODEN_LOCH.value.set(0, 0, 0, 0); };
   }, [bauwerk, b]);
+  return <primitive object={objekt} />;
+}
+
+/**
+ * Bäume des Zielbilds (D471, `tools/baumexport.py`): die Poly-Haven-Scans der Zielbild-Szene, Holz gekürzt, Laubkarten
+ * ausgedünnt und vergrössert, als GPU-Instanzen. Ersetzt an diesem Ort die Kartenkronen (`Rahmenkronen.tsx`). Laub mit
+ * Alphatest, beidseitig; der Schattenpass nimmt Karte und Alphatest mit, so fällt Licht in Flecken durch.
+ */
+function BauwerkBaeume({ bauwerk }: { bauwerk: Bauwerk }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'baeume'));
+  const objekt = useMemo(() => {
+    const klon = scene.clone(true);
+    const fertig = new Set<THREE.Material>();
+    klon.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.castShadow = true; o.receiveShadow = true;
+      if (o instanceof THREE.InstancedMesh) o.computeBoundingSphere();
+      for (const m of (Array.isArray(o.material) ? o.material : [o.material]) as THREE.MeshStandardMaterial[]) {
+        if (fertig.has(m)) continue; fertig.add(m);
+        if (m.transparent || m.alphaTest > 0 || /leaves/i.test(m.name)) {
+          m.transparent = false; m.alphaTest = Math.max(m.alphaTest, 0.5); m.depthWrite = true; m.side = THREE.DoubleSide;
+        }
+      }
+    });
+    return klon;
+  }, [scene]);
   return <primitive object={objekt} />;
 }
 
@@ -5080,7 +5107,7 @@ export function RegionsSzene({
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
       <EzBaumProbe ziel={ref} lokal={HOF_GRUEN_AN} milbinger={MILBINGERLICHT_AN && !!wiesenbereich} />
-      {LOOK_FELS_AN && !istAus('kronen') && <Suspense fallback={null}><Rahmenkronen hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} /></Suspense>}
+      {LOOK_FELS_AN && !istAus('kronen') && !(SCAN_BAEUME_AN && BAUWERKE.some(b => b.dateien.includes('baeume'))) && <Suspense fallback={null}><Rahmenkronen hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} /></Suspense>}
       {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
       <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
               bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />

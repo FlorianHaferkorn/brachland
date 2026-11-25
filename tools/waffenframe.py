@@ -3,6 +3,7 @@ BRACHLAND — Zielbild für die Waffen (Design-Runde 1, Flo 23.11.2026), Blender
 
     blender --background --factory-startup --python tools/waffenframe.py -- bild <aus.png> <ansicht> [b h spp]
     python3 tools/waffenframe.py blatt <bilderordner> <referenzordner>
+    python3 tools/waffenframe.py blatt2 <ordner-r2> <ordner-r1> <referenzordner>
 
 `ansicht`: `gesamt` oder eine Waffe (`hirschfaenger`, `klinge`, `messer`, `axt`, `speer`). `WAFFE_ROH=1` rendert die
 Modelle, wie sie im Spiel sind (flach schattiert, eine Farbe je Teil) — das Vorher-Bild an derselben Kamera.
@@ -21,6 +22,16 @@ Was passiert:
   tragen, D398), Himmel und Sonnenfarbe aus `hausframe.py` (nur importiert), Sonne als Streiflicht von links vorn.
 - Ausgabe direkt als PNG mit AgX: Der Stil-Durchgang von `hausframe.stil` lässt die Nähe unberührt (Pinsel erst in
   der Ferne), eine Waffe auf der Werkbank ist nur Nähe.
+
+Runde 2 (Flo 23.11.2026: „realer darstellen, so wie Stahl auch aussieht und Holz, und die Waffen individueller
+gestalten, passend zum Setting“) ist die Vorgabe; `WAFFE_RUNDE=1` rendert Runde 1. Runde 2 baut je Waffe eine
+**eigene Zielbild-Geometrie** mit denselben Hauptmaßen (Spitze, Ende, Klingenansatz werden an den Spielmodellen
+gemessen und im Protokoll verglichen) — Axt mit Nacken, gewölbten Wangen, Bart, Stiel mit Schwung und Keil im Auge;
+Saufeder mit Blatt, Grat, konischer Tülle und Knebel an der Tülle; Klinge mit Hohlkehle und Scheibenknauf;
+Hirschfänger einschneidig mit Kehle und Muschel; Langes Messer mit Wehrnagel und sichtbarer Angel. Dazu Stahl als
+Kohlenstoffstahl (graue Patina, Anlaufflecken, Hammerschläge unter Zunder, blanker Anschliff), Holz mit Jahrringen um
+die Markröhre (Hirnholz am Ende zeigt Ringe) und je Waffe Spuren ihrer Herkunft (`HERKUNFT`, Vorschlag — nicht von
+Flo bestätigt). Ansicht `<waffe>-griff` zeigt den Griff nah.
 """
 import sys, os, math
 
@@ -36,6 +47,7 @@ NAMEN = {'hirschfaenger': 'Hirschfänger', 'klinge': 'Klinge (Seitschwert)', 'me
 # Blick fürs Nahbild: Punkt auf der Waffenachse (Modell-z, Meter; Klinge liegt bei −z) — Übergang Griff/Klinge bzw. Kopf
 NAH = {'hirschfaenger': -0.07, 'klinge': -0.08, 'messer': -0.10, 'axt': -0.27, 'speer': -1.50}
 # Griffstellen auf der Achse (Modell-z): rechte Hand im Ursprung; Axt linke Hand 0,62 m dahinter (D429), Saufeder vorn
+NAH_GRIFF = {'hirschfaenger': 0.0, 'klinge': 0.03, 'messer': 0.09, 'axt': 0.50, 'speer': -1.42}
 GRIFFE = {'hirschfaenger': (0.0,), 'klinge': (0.0,), 'messer': (0.0, 0.14), 'axt': (0.0, 0.62), 'speer': (0.0, -0.55)}
 TISCH = 0.90     # Höhe der Werkbank, Meter
 ROH = os.environ.get('WAFFE_ROH') == '1'
@@ -226,6 +238,418 @@ def material(waffe, alt):
     print('WAFFENFRAME unbekanntes Material', n); return alt
 
 
+
+# ───────────────────────────── Runde 2: eigene Geometrie, Stahl und Holz, Herkunft ─────────────────────────────
+RUNDE = int(os.environ.get('WAFFE_RUNDE', '2'))
+# Herkunft je Waffe — Vorschlag aus Baukasten §„Aus der Welt: Forst, Jagd, Steinbruch, Hof, Werk“ und der
+# Materialliste (Federstahl = Blattfedern und Sägeblätter der Betriebe); von Flo nicht bestätigt.
+HERKUNFT = {
+    'axt': 'Forstaxt aus dem Altbestand: alter Kopf, in Brannburg neu eingestielt (Esche, frischer Keil), Draht gegen Fehlschläge.',
+    'messer': 'Von der Schmiedin aus einer Blattfeder geschmiedet: Federbohrung blieb stehen, Schmiedehaut am Rücken, Buchenschalen, ein Niet ersetzt.',
+    'speer': 'Saufeder vom Försterhof: Jagdwaffe mit Hornknebel am Riemen, Brandzeichen im Eschenschaft, viel getragen.',
+    'hirschfaenger': 'Erbstück eines Jägers: Messing blank gegriffen, Horngriff poliert, Klinge oft nachgeschliffen und gepflegt.',
+    'klinge': 'Fundstück aus einem Spind: lange gelegen (Rostnarben), in der Enklave nachgeschliffen und neu mit Leder gewickelt.',
+}
+K_PROFIL = 12
+
+
+def _theta(i, n): return math.pi * (1 - (i + 0.5) / n)
+
+
+def profil_klinge(b, d, art='zwei', kehle=0.0, rs=0.0, n=K_PROFIL):
+    """Klingenquerschnitt als 2n Punkte (oben von −x nach +x, unten zurück). `zwei`: linsenförmig mit Hohlkehle in der
+    Mitte; `ein`: Schneide bei −x, Rücken bei +x mit voller Stärke, Kehle unter dem Rücken, `rs` = Rückenschliff."""
+    oben = []
+    for i in range(n):
+        s = math.cos(_theta(i, n)); x = s * b / 2
+        if art == 'zwei':
+            t = d / 2 * (1 - abs(s) ** 1.7) - kehle * d / 2 * math.exp(-(s / 0.26) ** 2)
+        else:
+            u = (s + 1) / 2
+            t = d / 2 * min(1.0, u / 0.62) ** 0.92 - kehle * d / 2 * math.exp(-((u - 0.80) / 0.09) ** 2)
+            if rs: t *= 1 - rs * max(0.0, (u - 0.55) / 0.45) ** 1.5 * 0.93
+        oben.append((x, max(t, 0.00012)))
+    return oben + [(x, -t) for x, t in reversed(oben)]
+
+
+def profil_ellipse(rx, ry, n=K_PROFIL, dx=0.0, dy=0.0, e=2.0):
+    """Ellipse (oder Superellipse mit Exponent `e`) in derselben Punktfolge wie `profil_klinge` — damit lässt sich
+    ein Blatt in eine Tülle überblenden."""
+    pkt = []
+    for k in range(2 * n):
+        th = _theta(k, n) if k < n else -_theta(2 * n - 1 - k, n)
+        c, si = math.cos(th), math.sin(th)
+        pkt.append((dx + rx * math.copysign(abs(c) ** (2 / e), c), dy + ry * math.copysign(abs(si) ** (2 / e), si)))
+    return pkt
+
+
+def blende(p, q, w): return [(a[0] * (1 - w) + b[0] * w, a[1] * (1 - w) + b[1] * w) for a, b in zip(p, q)]
+
+
+class Bau:
+    """Ein Netz je Waffe, Teile mit eigenem Material (Flächenindex)."""
+    def __init__(s, name):
+        import bmesh
+        s.name = name; s.bm = bmesh.new(); s.mats = []
+
+    def mat(s, m):
+        if m not in s.mats: s.mats.append(m)
+        return s.mats.index(m)
+
+    def haut(s, ringe, m, zu=(True, True), abb=None):
+        """Ringe aus 3D-Punkten (gleiche Anzahl) zu einer Haut; `abb` bildet (x, y, z) vorher ab."""
+        idx = s.mat(m); vr = []
+        for r in ringe:
+            vr.append([s.bm.verts.new(abb(q) if abb else q) for q in r])
+        n = len(vr[0])
+        for a, b in zip(vr, vr[1:]):
+            for i in range(n):
+                f = s.bm.faces.new((a[i], a[(i + 1) % n], b[(i + 1) % n], b[i])); f.material_index = idx; f.smooth = True
+        for ende, r in ((zu[0], vr[0]), (zu[1], vr[-1])):
+            if ende:
+                try: f = s.bm.faces.new(r); f.material_index = idx
+                except ValueError: pass
+
+    def stab(s, schnitte, m, zu=(True, True), abb=None):
+        """Schnitte (z, [(x, y)…]) entlang z."""
+        s.haut([[(x, y, z) for x, y in p] for z, p in schnitte], m, zu, abb)
+
+    def fertig(s):
+        import bmesh
+        bmesh.ops.recalc_face_normals(s.bm, faces=s.bm.faces)
+        me = bpy.data.meshes.new(s.name); s.bm.to_mesh(me); s.bm.free()
+        for m in s.mats: me.materials.append(m)
+        o = bpy.data.objects.new(s.name, me); bpy.context.scene.collection.objects.link(o)
+        return o
+
+
+def _glatt(punkte, n):
+    """Stützstellen (t, wert…) mit Catmull-Rom auf n Schritte verfeinern — weiche Konturen statt Knicken."""
+    aus = []
+    P = [punkte[0]] + list(punkte) + [punkte[-1]]
+    for i in range(1, len(P) - 2):
+        for k in range(n):
+            u = k / n; u2, u3 = u * u, u * u * u
+            aus.append(tuple(0.5 * ((2 * P[i][j]) + (-P[i - 1][j] + P[i + 1][j]) * u + (2 * P[i - 1][j] - 5 * P[i][j] + 4 * P[i + 1][j] - P[i + 2][j]) * u2
+                                    + (-P[i - 1][j] + 3 * P[i][j] - 3 * P[i + 1][j] + P[i + 2][j]) * u3) for j in range(len(P[i]))))
+    aus.append(tuple(punkte[-1])); return aus
+
+
+# ---- Stahl und Holz, Runde 2
+def mat_stahl2(name, art='klinge', hell=(0.47, 0.48, 0.50), schneide=0.0, fase_x=None, ansatz=None, narben=0.0, rost=0.5, haut_x=None, blau=None):
+    """Kohlenstoffstahl. `klinge`: geschliffen, graue Patina mit Anlaufflecken, Riefen längs, blanke Schneidenfase
+    (`schneide` = halbe Blattstärke, unter der geschliffen ist), Rost am Ansatz (`ansatz` = z) und in Kehlen, `narben` =
+    Rostnarben eines Fundstücks, `haut_x` = (x0, x1): dort bleibt Schmiedehaut stehen (Rücken). `schmiede`:
+    Hammerschläge unter blauschwarzem Zunder, an Kanten und Graten braun-grau gegriffen, `fase_x` = (x0, x1) blanker
+    Anschliff (Axt)."""
+    m, nt, b = _nt(name); k = N(nt)
+    tc = k.k('ShaderNodeTexCoord'); xyz = k.k('ShaderNodeSeparateXYZ'); nt.links.new(tc.outputs['Object'], xyz.inputs[0])
+    wolke = k.rauschen((7, 7, 5), 1.0, 5.0, 0.6); fleck = k.rauschen((38, 38, 24), 1.0, 4.0, 0.62); korn = k.rauschen((1100, 1100, 1100), 1.0, 2.0, 0.5)
+    riefen = k.rauschen((1400, 1400, 6), 1.0, 3.0, 0.65); finger = k.bereich(k.rauschen((22, 22, 22), 1.0, 2.0, 0.5), 0.52, 0.60)
+    kante = k.kante(); kehle = k.kehle()
+    schlag = k.k('ShaderNodeTexVoronoi', feature='SMOOTH_F1'); nt.links.new(k.ort((30, 30, 30)), schlag.inputs['Vector'])   # Hammerbahn ~3 cm
+    try: schlag.inputs['Smoothness'].default_value = 1.0
+    except Exception: pass
+    delle = k.bereich(schlag.outputs['Distance'], 0.0, 0.55)                       # 0 in der Delle, 1 am Grat
+    if art == 'schmiede':
+        # Zunder platzt in Schollen ab: wo er fehlt, liegt braungrauer, gegriffener Stahl; in den Dellen hält er sich
+        scholle = k.math('ADD', k.math('MULTIPLY', wolke, 0.55), k.math('ADD', k.math('MULTIPLY', fleck, 0.45), k.math('MULTIPLY', k.math('SUBTRACT', 1.0, delle), 0.18)))
+        zunder = k.math('MULTIPLY', k.math('SUBTRACT', 1.0, k.math('MULTIPLY', kante, 0.95)), k.bereich(scholle, 0.44, 0.54), clamp=True)
+        blank_ = k.mix(k.bereich(fleck, 0.3, 0.7), (0.27, 0.25, 0.23), (0.17, 0.15, 0.135))                   # gegriffener Stahl, fleckig
+        farbe = k.mix(zunder, blank_, k.mix(k.bereich(wolke, 0.3, 0.7), (0.040, 0.042, 0.050), (0.060, 0.048, 0.040)))   # Zunder blauschwarz bis braunschwarz
+        farbe = k.mix(k.math('MULTIPLY', kante, 0.75), farbe, (0.50, 0.50, 0.51))
+        rau = k.math('ADD', k.mixf(zunder, 0.36, 0.60), k.math('MULTIPLY', finger, 0.08)); metall = k.mixf(zunder, 1.0, 0.6)
+        hoehe = k.math('ADD', k.math('MULTIPLY', delle, 1.0), k.math('ADD', k.math('MULTIPLY', zunder, 0.35), k.math('MULTIPLY', korn, 0.05))); staerke, abstand = 0.30, 0.0011
+    else:
+        zunder = 0.0
+        farbe = k.mix(k.bereich(wolke, 0.34, 0.70), hell if blau is None else blau, (0.25, 0.245, 0.245))   # graue Patina in Wolken
+        farbe = k.mix(k.math('MULTIPLY', k.bereich(fleck, 0.60, 0.76), 0.55), farbe, (0.17, 0.125, 0.095))   # Anlaufflecken, braun
+        farbe = k.mix(k.math('MULTIPLY', k.math('SUBTRACT', 1.0, k.bereich(fleck, 0.20, 0.34)), 0.35), farbe, (0.20, 0.23, 0.30))     # bläulich angelaufen
+        rau = k.math('ADD', 0.24, k.math('ADD', k.math('MULTIPLY', k.bereich(riefen, 0.3, 0.7), 0.16), k.math('ADD', k.math('MULTIPLY', wolke, 0.16), k.math('MULTIPLY', finger, 0.10))))
+        metall = 1.0
+        hoehe = k.math('MULTIPLY', riefen, 0.30); staerke, abstand = 0.22, 0.0004
+        try: b.inputs['Anisotropic'].default_value = 0.55; tg = k.k('ShaderNodeTangent', direction_type='RADIAL', axis='Z'); nt.links.new(tg.outputs[0], b.inputs['Tangent'])
+        except Exception as e: print('Anisotropie', e)
+        if haut_x:   # Schmiedehaut am Rücken (Blattfeder): dunkel, matt, mit Hammerschlägen
+            zunder = k.math('MULTIPLY', k.bereich(k.math('ADD', xyz.outputs['X'], k.math('MULTIPLY', k.math('SUBTRACT', wolke, 0.5), 0.012)), haut_x[0], haut_x[1]), 0.92)
+            farbe = k.mix(zunder, farbe, (0.034, 0.035, 0.040)); rau = k.mixf(zunder, rau, 0.66)
+            hoehe = k.math('ADD', hoehe, k.math('MULTIPLY', zunder, k.math('MULTIPLY', delle, 3.0)))
+    blank = None
+    if schneide:
+        duenn = k.math('SUBTRACT', 1.0, k.bereich(k.math('ABSOLUTE', xyz.outputs['Y']), schneide * 0.25, schneide))
+        scharte = k.bereich(k.rauschen((70, 70, 480), 1.0, 2.0, 0.5), 0.67, 0.74)
+        blank = k.math('MULTIPLY', duenn, k.math('SUBTRACT', 1.0, k.math('MULTIPLY', scharte, 0.85)))
+    if fase_x:
+        f = k.math('SUBTRACT', 1.0, k.bereich(k.math('ADD', xyz.outputs['X'], k.math('MULTIPLY', k.math('SUBTRACT', fleck, 0.5), 0.006)), fase_x[0], fase_x[1]))
+        # Anschliffzone: Zunder ist weggeschliffen, die Fläche grau angelaufen — blank bleibt nur die Schneide selbst
+        zone = k.mix(k.bereich(wolke, 0.3, 0.7), (0.36, 0.36, 0.37), (0.24, 0.235, 0.23))
+        farbe = k.mix(f, farbe, zone); rau = k.mixf(f, rau, k.math('ADD', 0.26, k.math('MULTIPLY', k.rauschen((9, 1500, 1500), 1.0, 2.0, 0.6), 0.18))); metall = k.mixf(f, metall, 1.0)
+        hoehe = k.mixf(f, hoehe, 0.0)
+    if blank is not None:
+        quer = k.rauschen((9, 1500, 1500), 1.0, 2.0, 0.6)                           # Schleifstein: Riefen quer zur Schneide
+        farbe = k.mix(blank, farbe, k.mix(k.bereich(quer, 0.3, 0.7), (0.62, 0.63, 0.65), (0.80, 0.81, 0.83)))
+        rau = k.mixf(blank, rau, k.math('ADD', 0.13, k.math('MULTIPLY', quer, 0.14))); metall = k.mixf(blank, metall, 1.0)
+        hoehe = k.mixf(blank, hoehe, k.math('MULTIPLY', quer, 0.3))
+    rostmaske = k.math('MULTIPLY', k.math('MAXIMUM', kehle, k.bereich(fleck, 0.66, 0.80)), k.bereich(korn, 0.3, 0.7))
+    if ansatz is not None:   # am Übergang zum Griff sammelt sich Feuchte
+        nah = k.math('SUBTRACT', 1.0, k.bereich(k.math('ABSOLUTE', k.math('SUBTRACT', xyz.outputs['Z'], ansatz)), 0.004, 0.035))
+        rostmaske = k.math('MAXIMUM', rostmaske, k.math('MULTIPLY', nah, k.bereich(fleck, 0.38, 0.62)))
+    rostmaske = k.math('MULTIPLY', rostmaske, rost, clamp=True)
+    if blank is not None: rostmaske = k.math('MULTIPLY', rostmaske, k.math('SUBTRACT', 1.0, k.math('MULTIPLY', blank, 0.9)))
+    farbe = k.mix(rostmaske, farbe, k.mix(korn, (0.23, 0.085, 0.03), (0.11, 0.045, 0.02)))
+    if narben:
+        nb = k.k('ShaderNodeTexVoronoi', feature='F1'); nt.links.new(k.ort((420, 420, 420)), nb.inputs['Vector'])
+        narbe = k.math('MULTIPLY', k.math('SUBTRACT', 1.0, k.bereich(nb.outputs['Distance'], 0.10, 0.30)), k.math('MULTIPLY', k.bereich(fleck, 0.42, 0.60), narben), clamp=True)
+        if blank is not None: narbe = k.math('MULTIPLY', narbe, k.math('SUBTRACT', 1.0, k.math('MULTIPLY', blank, 0.6)))
+        farbe = k.mix(narbe, farbe, (0.055, 0.04, 0.03)); rau = k.mixf(narbe, rau, 0.8); hoehe = k.math('SUBTRACT', hoehe, k.math('MULTIPLY', narbe, 4.0))
+    k.setze(b.inputs['Base Color'], farbe)
+    k.setze(b.inputs['Metallic'], k.math('MULTIPLY', metall, k.math('SUBTRACT', 1.0, k.math('MULTIPLY', rostmaske, 0.9))))
+    k.setze(b.inputs['Roughness'], k.mixf(rostmaske, rau, 0.88))
+    k.relief(b, k.math('ADD', hoehe, k.math('MULTIPLY', rostmaske, korn)), staerke, abstand)
+    return m
+
+
+def mat_holz2(name, hell, dunkel, stellen, mark=(0.004, 0.011), ringbreite=0.0021, oel=0.3, brand=(), risse_z=None, frisch=0.0):
+    """Ringporiges Holz (Esche, Hickory) mit Jahrringen als Zylinder um die Markröhre `mark` (x, y) neben der Achse —
+    der Stiel ist aus dem Stamm gespalten, also laufen die Ringe als Bänder längs und zeigen sich am Hirnholz als
+    Bögen. Frühholz = dunkle Porenzeile, Spätholz dicht und hell. `brand` = z-Stellen mit eingebranntem Zeichen,
+    `risse_z` = (z0, z1) Trockenrisse (am Auge), `frisch` = neues Holz (hell, matt, ohne Handglanz)."""
+    m, nt, b = _nt(name); k = N(nt)
+    tc = k.k('ShaderNodeTexCoord'); xyz = k.k('ShaderNodeSeparateXYZ'); nt.links.new(tc.outputs['Object'], xyz.inputs[0])
+    welle = k.rauschen((14, 14, 1.6), 1.0, 3.0, 0.5)
+    dx = k.math('SUBTRACT', xyz.outputs['X'], mark[0]); dy = k.math('SUBTRACT', xyz.outputs['Y'], mark[1])
+    r = k.math('SQRT', k.math('ADD', k.math('MULTIPLY', dx, dx), k.math('MULTIPLY', dy, dy)))
+    r = k.math('ADD', r, k.math('ADD', k.math('MULTIPLY', k.math('SUBTRACT', welle, 0.5), 0.006), k.math('MULTIPLY', xyz.outputs['Z'], 0.004)))
+    band = k.math('FRACT', k.math('MULTIPLY', r, 1.0 / ringbreite))
+    frueh = k.math('SUBTRACT', 1.0, k.bereich(band, 0.10, 0.30))                    # Frühholzzone am Ringanfang
+    faser = k.rauschen((900, 900, 9), 1.0, 4.0, 0.62); pore = k.bereich(k.rauschen((2600, 2600, 26), 1.0, 2.0, 0.5), 0.50, 0.62)
+    strahl = k.bereich(k.rauschen((60, 1800, 30), 1.0, 2.0, 0.5), 0.64, 0.72)          # Markstrahlen: kurze helle Spiegel
+    ton = k.rauschen((5, 5, 1.2), 1.0, 2.0, 0.5)
+    farbe = k.mix(k.bereich(ton, 0.3, 0.7), hell, tuple(c * 0.86 for c in hell))
+    farbe = k.mix(k.math('MULTIPLY', k.bereich(band, 0.30, 1.0), 0.45), farbe, tuple(c * 0.66 for c in hell))   # Spätholz satter
+    farbe = k.mix(k.math('MULTIPLY', frueh, k.math('ADD', 0.55, k.math('MULTIPLY', pore, 0.45))), farbe, dunkel)
+    farbe = k.mix(k.math('MULTIPLY', k.bereich(faser, 0.55, 0.8), 0.18), farbe, dunkel)
+    farbe = k.mix(k.math('MULTIPLY', strahl, 0.25), farbe, tuple(min(1.0, c * 1.25) for c in hell))
+    hand = k.math('MULTIPLY', k.griff(stellen, 0.10), 1.0 - frisch)
+    schmutz = k.math('MULTIPLY', hand, k.math('ADD', 0.35, k.math('MULTIPLY', k.math('ADD', frueh, pore), 0.25)), clamp=True)
+    farbe = k.mix(schmutz, farbe, tuple(c * 0.5 for c in dunkel))                    # Handschweiss sitzt in den Poren
+    dl = k.k('ShaderNodeTexVoronoi', feature='F1'); nt.links.new(k.ort((30, 30, 30)), dl.inputs['Vector'])
+    delle = k.math('MULTIPLY', k.math('SUBTRACT', 1.0, k.bereich(dl.outputs['Distance'], 0.0, 0.09)), k.bereich(k.rauschen((8, 8, 8)), 0.52, 0.66))
+    delle = k.math('MULTIPLY', delle, 1.0 - 0.8 * frisch)
+    farbe = k.mix(k.math('MULTIPLY', delle, 0.55), farbe, tuple(c * 0.42 for c in dunkel))
+    hoehe = k.math('SUBTRACT', k.math('SUBTRACT', k.math('MULTIPLY', faser, 0.35), k.math('MULTIPLY', k.math('MULTIPLY', frueh, pore), 0.9)), k.math('MULTIPLY', delle, 1.6))
+    rau = k.mixf(hand, 0.68 - 0.16 * oel + 0.08 * frisch, 0.36)
+    if risse_z:
+        riss = k.math('MULTIPLY', k.bereich(k.rauschen((70, 70, 1.2), 1.0, 0.0, 0.5), 0.735, 0.745), k.math('SUBTRACT', 1.0, k.bereich(xyz.outputs['Z'], risse_z[0], risse_z[1])))   # ein, zwei lange Trockenrisse
+        farbe = k.mix(riss, farbe, (0.02, 0.014, 0.01)); hoehe = k.math('SUBTRACT', hoehe, k.math('MULTIPLY', riss, 5.0))
+    for bz in brand:   # Brandzeichen: Ring mit Querstrich, in die Seite gebrannt (y > 0), verkohlt und eingesunken
+        u = k.math('DIVIDE', xyz.outputs['X'], 0.009); v = k.math('DIVIDE', k.math('SUBTRACT', xyz.outputs['Z'], bz), 0.009)
+        rr = k.math('SQRT', k.math('ADD', k.math('MULTIPLY', u, u), k.math('MULTIPLY', v, v)))
+        ringm = k.math('SUBTRACT', 1.0, k.bereich(k.math('ABSOLUTE', k.math('SUBTRACT', rr, 1.0)), 0.10, 0.22))
+        strich = k.math('MULTIPLY', k.math('SUBTRACT', 1.0, k.bereich(k.math('ABSOLUTE', u), 0.10, 0.20)), k.math('SUBTRACT', 1.0, k.bereich(k.math('ABSOLUTE', v), 0.9, 1.5)))
+        zeichen = k.math('MULTIPLY', k.math('MAXIMUM', ringm, strich), k.bereich(xyz.outputs['Y'], 0.004, 0.009), clamp=True)
+        farbe = k.mix(k.math('MULTIPLY', zeichen, 0.9), farbe, (0.022, 0.014, 0.01)); hoehe = k.math('SUBTRACT', hoehe, k.math('MULTIPLY', zeichen, 3.0)); rau = k.mixf(zeichen, rau, 0.8)
+    k.setze(b.inputs['Base Color'], farbe); k.setze(b.inputs['Roughness'], k.math('ADD', rau, k.math('MULTIPLY', faser, 0.08)))
+    k.relief(b, hoehe, 0.40, 0.0007)
+    return m
+
+
+def _wicklung(bau, z0, z1, r, mat, staerke=0.0016, rx_ry=1.0):
+    """Draht- oder Riemenwicklung als echte Windungen (Ringe mit rundem Querschnitt, Windung an Windung)."""
+    n = max(2, int((z1 - z0) / (staerke * 2)))
+    schn = []
+    for i in range(n * 4 + 1):
+        z = z0 + (z1 - z0) * i / (n * 4); w = 0.5 - 0.5 * math.cos(2 * math.pi * i / 4)   # 0 Rille … 1 Rücken
+        rr = r + staerke * (0.35 + 0.65 * w)
+        schn.append((z, profil_ellipse(rr, rr * rx_ry, 16)))
+    bau.stab(schn, mat)
+
+
+def _quer(q):  # entlang z gebaut → quer legen (Achse x)
+    return (q[2], q[1], q[0])
+
+
+def bau_axt(o_z, e_z):
+    """Fällaxt (Vorbild axt-01): Kopf mit Nacken, gewölbten Wangen und Bart, Schneide leicht gebaucht; Stiel mit Schwung
+    und Knauf („Rehfuss“), oben im Auge verkeilt. `o_z` = Oberkante Kopf (Waffenende), `e_z` = Stielende."""
+    b = Bau('Axt')
+    kopf = mat_stahl2('axt_Kopf', 'schmiede', fase_x=(-0.128, -0.106), rost=0.6, schneide=0.0016)
+    # Kontur des Kopfs entlang x (Nacken +x → Schneide −x): halbe Stärke, Oberkante, Höhe, Exponent des Querschnitts
+    stuetz = [(0.036, 0.0128, 0.0075, 0.058, 5.0), (0.026, 0.0140, 0.0060, 0.061, 4.5), (0.0, 0.0150, 0.0050, 0.063, 3.4), (-0.028, 0.0140, 0.0052, 0.063, 3.0),
+              (-0.060, 0.0088, 0.0040, 0.068, 2.6), (-0.100, 0.0046, 0.0018, 0.082, 2.3), (-0.135, 0.0021, 0.0002, 0.093, 2.1), (-0.152, 0.0007, 0.0, 0.096, 2.0), (-0.158, 0.00025, 0.0012, 0.0935, 2.0)]
+    ringe = []
+    for x, dy, oben, hoehe, e in _glatt(stuetz, 6):
+        zt = o_z + 0.0005 + oben; zm = zt + hoehe / 2
+        # Schneide gebaucht: zur Mitte der Höhe steht sie 3 mm weiter vor (über den Querschnitt verteilt)
+        ringe.append([(x - 0.003 * max(0.0, (-x - 0.13) / 0.03) * (1 - ((qz - zm) / (hoehe / 2)) ** 2), qy, qz) for qy, qz in profil_ellipse(max(dy, 0.0002), hoehe / 2, 20, dy=zm, e=e)])
+    b.haut(ringe, kopf)
+    # Stiel: Mittellinie mit Schwung (x) — Bauch zur Schneide, Knauf nach vorn gezogen; Querschnitte wie ein Ersatzstiel 36"
+    stiel = mat_holz2('axt_Stiel', (0.36, 0.25, 0.135), (0.13, 0.075, 0.035), GRIFFE['axt'], mark=(0.006, 0.019), ringbreite=0.0026, oel=0.3, risse_z=(o_z + 0.08, o_z + 0.19), frisch=0.3)
+    zs = [(o_z + 0.0012, 0.0165, 0.0105, 0.0), (o_z + 0.006, 0.017, 0.011, 0.0), (o_z + 0.062, 0.0185, 0.0118, 0.0), (o_z + 0.085, 0.0225, 0.0152, 0.0), (o_z + 0.16, 0.021, 0.0146, -0.002),
+          (o_z + 0.36, 0.0189, 0.013, -0.006), (e_z - 0.30, 0.0203, 0.0144, -0.004), (e_z - 0.10, 0.0205, 0.0146, 0.003), (e_z - 0.045, 0.0225, 0.0158, -0.004), (e_z - 0.018, 0.0250, 0.0173, -0.011), (e_z, 0.0205, 0.0145, -0.015)]
+    b.stab([(z, profil_ellipse(rx, ry, 18, dx=dx, e=2.3)) for z, rx, ry, dx in _glatt(zs, 5)], stiel)
+    # Keil im Auge: frisches Hartholz längs im Sägeschnitt, quer dazu ein Eisenkeil (Ringkeil wäre Baumarkt — hier Flachkeil)
+    keil = mat_holz2('axt_Keil', (0.62, 0.50, 0.30), (0.30, 0.2, 0.1), (99.0,), frisch=1.0, ringbreite=0.0012)
+    b.stab([(o_z + 0.0004, profil_ellipse(0.0145, 0.0019, 8, e=6)), (o_z + 0.004, profil_ellipse(0.0150, 0.0022, 8, e=6))], keil)
+    eisen = mat_stahl2('axt_Eisenkeil', 'schmiede', rost=0.9)
+    b.stab([(o_z + 0.0, profil_ellipse(0.0016, 0.0075, 8, e=6)), (o_z + 0.004, profil_ellipse(0.0019, 0.008, 8, e=6))], eisen)
+    # Draht unter dem Kopf: Schutz gegen Fehlschläge, geglüht und angerostet (Herkunft)
+    _wicklung(b, o_z + 0.094, o_z + 0.150, 0.0236, mat_stahl2('axt_Draht', 'schmiede', rost=0.8), 0.0013, rx_ry=0.70)
+    return b.fertig()
+
+
+def bau_speer(sp_z, e_z):
+    """Saufeder (Vorbild Met 14.25.323): breites Blatt mit Grat, über einen Hals in die konische Tülle, Niet; Knebel
+    aus Horn mit Riemen an der Tülle gebunden; Eschenschaft mit zwei Wicklungen."""
+    b = Bau('Speer'); blatt_l = 0.25; basis = sp_z + blatt_l; tuelle = 0.11
+    stahl = mat_stahl2('speer_Blatt', 'klinge', schneide=0.0026, rost=0.45, ansatz=basis)
+    stuetz = [(0.0, 0.026, 0.021), (0.06, 0.036, 0.0125), (0.20, 0.058, 0.0100), (0.34, 0.064, 0.0092), (0.55, 0.054, 0.0078), (0.78, 0.034, 0.0058), (0.93, 0.014, 0.0042), (1.0, 0.0012, 0.0016)]
+    schn = []
+    for u, br, d in _glatt(stuetz, 5):
+        pr = [(x, math.copysign(max(abs(y), 0.00012) * (1.0 + 0.55 * math.exp(-(x / (0.08 * br + 1e-6)) ** 2)), y)) for x, y in profil_klinge(br, d * 0.62, 'zwei')]   # Grat: Mitte verstärkt
+        w = max(0.0, 1 - u / 0.07)                                                   # Hals: Blatt blendet in den Tüllenkreis
+        schn.append((basis - u * blatt_l, blende(pr, profil_ellipse(0.0118, 0.0118), w)))
+    b.stab(list(reversed(schn)), stahl, zu=(True, False))
+    eisen = mat_stahl2('speer_Tuelle', 'schmiede', rost=0.55)
+    b.stab([(z, profil_ellipse(r, r, 16)) for z, r in ((basis - 0.001, 0.0118), (basis + 0.03, 0.0132), (basis + tuelle - 0.006, 0.0176), (basis + tuelle - 0.002, 0.0186), (basis + tuelle, 0.0180))], eisen)
+    b.stab([(0.0, profil_ellipse(0.0042, 0.0042, 8)), (0.0022, profil_ellipse(0.0036, 0.0036, 8)), (0.0032, profil_ellipse(0.0016, 0.0016, 8))], eisen,
+           abb=lambda q: (q[0], 0.0158 + q[2], basis + tuelle - 0.028 + q[1]))            # Nietkopf seitlich
+    esche = mat_holz2('speer_Schaft', (0.36, 0.25, 0.13), (0.12, 0.07, 0.035), GRIFFE['speer'], mark=(0.002, 0.019), oel=0.5, brand=(0.20,))
+    b.stab([(z, profil_ellipse(r, r, 16)) for z, r in ((basis + 0.03, 0.0128), (basis + tuelle, 0.0148), (-0.5, 0.0150), (e_z - 0.012, 0.0158), (e_z - 0.003, 0.0150), (e_z, 0.0125))], esche)
+    # Knebel: Hornstück (Sprosse), mit Riemen unter der Tülle angebunden — hängt am Riemen, liegt quer zum Blatt
+    kz = basis + tuelle + 0.016
+    horn = mat_horn('speer_Knebel', (0.34, 0.27, 0.19), (0.05, 0.035, 0.025), rillen=0.8, glanz=0.36)
+    b.stab([(t, profil_ellipse(r, r * 0.9, 10)) for t, r in _glatt([(-0.048, 0.0038), (-0.040, 0.0062), (0.0, 0.0078), (0.040, 0.0066), (0.050, 0.0040)], 4)], horn,
+           abb=lambda q: (q[0] + 0.0215, q[2], kz + q[1] + 0.022))                       # quer (y), dicht am Schaft
+    leder = mat_leder('speer_Riemen', (0.075, 0.038, 0.018))
+    _wicklung(b, kz + 0.006, kz + 0.036, 0.0150, leder, 0.0021)
+    for z0, z1 in ((-0.08, 0.08), (-0.58, -0.42)): _wicklung(b, z0, z1, 0.0150, leder, 0.0026)
+    return b.fertig()
+
+
+def bau_klinge(sp_z, e_z):
+    """Einhandschwert (Vorbild CMA 1916.1600): Klinge mit Hohlkehle über 55 %, Parierstange zu den Enden verjüngt,
+    lederner Griff über Schnur, Scheibenknauf mit Vernietknopf."""
+    b = Bau('Klinge'); unter = -0.085
+    stahl = mat_stahl2('klinge_Klinge', 'klinge', schneide=0.0016, rost=0.55, ansatz=unter, narben=0.8)
+    stuetz = [(0.0, 0.046, 0.0066, 0.55), (0.3, 0.041, 0.0056, 0.55), (0.55, 0.037, 0.0048, 0.35), (0.62, 0.0355, 0.0045, 0.0), (0.86, 0.030, 0.0034, 0.0), (0.95, 0.019, 0.0028, 0.0), (1.0, 0.0012, 0.0015, 0.0)]
+    b.stab(list(reversed([(unter - u * (unter - sp_z), profil_klinge(br, d, 'zwei', kehle=max(0.0, ke))) for u, br, d, ke in _glatt(stuetz, 6)])), stahl, zu=(True, False))
+    eisen = mat_stahl2('klinge_Gefaess', 'schmiede', rost=0.7)
+    b.stab([(t, profil_ellipse(rx, ry, 10, e=3.2)) for t, rx, ry in _glatt([(-0.098, 0.0040, 0.0036), (-0.090, 0.0060, 0.0050), (-0.045, 0.0052, 0.0050), (0.0, 0.0080, 0.0068), (0.045, 0.0052, 0.0050), (0.090, 0.0060, 0.0050), (0.098, 0.0040, 0.0036)], 4)],
+           eisen, abb=lambda q: (q[2], q[1], unter + 0.0068 + q[0]))
+    knauf = 0.045; go = e_z - knauf
+    leder = mat_leder('klinge_Griff', (0.11, 0.05, 0.022), neu=True)
+    schn = []
+    for i in range(41):                                   # Leder über Schnurwulsten: drei Wülste, an denen die Hand Halt findet
+        t = i / 40; z = unter + 0.014 + t * (go - unter - 0.014)
+        r = 0.0128 + 0.0022 * math.sin(math.pi * t) + 0.0011 * max(0.0, math.cos(2 * math.pi * (t * 4 - 0.5))) ** 6
+        schn.append((z, profil_ellipse(r, r * 0.80, 14)))
+    b.stab(schn, leder)
+    # Scheibenknauf: Scheibe in der Klingenebene (x–z), 5 cm, mit erhabener Mitte; oben der Vernietknopf der Angel
+    zk = go + knauf * 0.50; R = knauf * 0.50
+    b.stab([(t, profil_ellipse(r, r, 20)) for t, r in ((-0.0085, R * 0.80), (-0.0060, R * 0.985), (-0.0030, R), (0.0030, R), (0.0060, R * 0.985), (0.0085, R * 0.80))], eisen,
+           abb=lambda q: (q[0], q[2], zk + q[1]))
+    for vz in (-1, 1):
+        b.stab([(t, profil_ellipse(r, r, 16)) for t, r in ((0.0080, R * 0.52), (0.0105, R * 0.44), (0.0115, R * 0.2))], eisen, abb=lambda q, vz=vz: (q[0], vz * q[2], zk + q[1]))
+    b.stab([(e_z - 0.0035, profil_ellipse(0.0050, 0.0042, 8, e=4)), (e_z, profil_ellipse(0.0036, 0.0030, 8, e=4))], eisen)
+    return b.fertig()
+
+
+def bau_hirschfaenger():
+    """Hirschfänger (Vorbild CMA 1916.1626): einschneidige Klinge mit Rücken und schmaler Kehle, Rückenschliff an der
+    Spitze; Messingkreuz mit Knöpfen und Muschel auf der Aussenseite; Griff aus Hirschhorn mit Perlung, Messingkappe."""
+    b = Bau('Hirschfaenger'); L = 0.50; an = -0.07; sp = an - L - 0.012
+    stahl = mat_stahl2('hirschfaenger_Klinge', 'klinge', hell=(0.55, 0.56, 0.58), schneide=0.0013, rost=0.25, ansatz=an)
+    stuetz = [(0.0, 0.032, 0.0056, 0.0, 0.0), (0.05, 0.032, 0.0055, 0.30, 0.0), (0.5, 0.0295, 0.0044, 0.30, 0.0), (0.76, 0.0275, 0.0036, 0.25, 0.0), (0.82, 0.026, 0.0033, 0.0, 0.5), (0.93, 0.017, 0.0026, 0.0, 1.0), (1.0, 0.001, 0.0012, 0.0, 1.0)]
+    schn = [(an - u * (an - sp), [(x + (0.5 * (0.032 - br)), y) for x, y in profil_klinge(br, d, 'ein', kehle=max(0.0, ke), rs=min(1.0, max(0.0, rs)))]) for u, br, d, ke, rs in _glatt(stuetz, 6)]
+    b.stab(list(reversed(schn)), stahl, zu=(True, False))                      # Rücken bleibt gerade: Breite geht an der Schneide ab
+    messing = mat_messing('hirschfaenger_Messing')
+    b.stab([(t, profil_ellipse(rx, ry, 10)) for t, rx, ry in _glatt([(-0.050, 0.0030, 0.0030), (-0.046, 0.0062, 0.0062), (-0.040, 0.0040, 0.0040), (-0.012, 0.0048, 0.0052), (0.0, 0.0066, 0.0072), (0.012, 0.0048, 0.0052), (0.040, 0.0040, 0.0040), (0.046, 0.0062, 0.0062), (0.050, 0.0030, 0.0030)], 4)],
+           messing, abb=lambda q: (q[2], q[1], -0.063 + q[0]))
+    # Muschel: gewölbter Fächer mit Rippen, steht vom Kreuz auf der Aussenseite (+y) zur Klinge hin
+    ringe = []
+    for i in range(9):
+        t = i / 8; rr = 0.004 + 0.024 * t; reihe = []
+        for kx in range(25):
+            a = math.pi * (kx / 24 - 0.5) * 0.92
+            rippe = 1 + 0.07 * math.cos(9 * a) * t
+            reihe.append((rr * rippe * math.sin(a), 0.0075 + 0.006 * math.sin(math.pi * t * 0.5) + 0.0012 * math.cos(9 * a) * t, -0.064 - rr * rippe * math.cos(a) * 0.82))
+        ringe.append(reihe)
+    for d in (0.0, -0.0014):
+        idx = b.mat(messing); vr = [[b.bm.verts.new((x, y + d, z)) for x, y, z in r] for r in ringe]
+        for a_, b_ in zip(vr, vr[1:]):
+            for i in range(len(a_) - 1):
+                f = b.bm.faces.new((a_[i], a_[i + 1], b_[i + 1], b_[i])); f.material_index = idx; f.smooth = True
+    import random
+    rnd = random.Random(414)
+    horn = mat_horn('hirschfaenger_Griff', (0.66, 0.56, 0.40), (0.11, 0.065, 0.035), rillen=1.0, glanz=0.30)
+    schn = []
+    for i in range(33):
+        u = i / 32; z = -0.058 + u * 0.118
+        rx, ry = 0.0135 + 0.002 * math.sin(math.pi * u), 0.0115 + 0.0015 * math.sin(math.pi * u)
+        pk = profil_ellipse(rx, ry, 16, dx=0.004 * math.sin(math.pi * u))
+        schn.append((z, [(x * (1 + (0.085 * rnd.random() if 0.08 < u < 0.95 else 0)), y * (1 + (0.085 * rnd.random() if 0.08 < u < 0.95 else 0))) for x, y in pk]))
+    b.stab(schn, horn)
+    b.stab([(z, profil_ellipse(r, r * 0.9, 14)) for z, r in ((0.058, 0.0140), (0.061, 0.0146), (0.066, 0.0128), (0.070, 0.0085), (0.072, 0.0040))], messing)
+    return b.fertig()
+
+
+def bau_messer():
+    """Langes Messer aus einer Blattfeder: breite einschneidige Klinge, Rücken vorn abgesetzt, Schmiedehaut am Rücken,
+    die Bohrung des Federbolzens blieb am Ansatz stehen; kräftiges Kreuz mit Wehrnagel; Angel sichtbar zwischen
+    Buchenschalen, drei Niete (einer durch einen Eisennagel ersetzt), Knaufkappe zur Schneide gebogen."""
+    b = Bau('Messer'); L = 0.82; an = -0.065; sp = an - L - 0.014
+    stahl = mat_stahl2('messer_Klinge', 'klinge', schneide=0.0015, rost=0.4, ansatz=an, haut_x=(0.004, 0.015))
+    stuetz = [(0.0, 0.038, 0.0062, 0.0, 0.0), (0.4, 0.0362, 0.0052, 0.0, 0.0), (0.6, 0.0348, 0.0046, 0.0, 0.0), (0.78, 0.0330, 0.0039, 0.006, 0.0), (0.80, 0.0325, 0.0038, 0.008, 0.25), (0.92, 0.021, 0.0030, 0.011, 1.0), (1.0, 0.0012, 0.0014, 0.016, 1.0)]
+    schn = [(an - u * (an - sp), [(x - bo, y) for x, y in profil_klinge(br, d, 'ein', rs=min(1.0, max(0.0, rs)))]) for u, br, d, bo, rs in _glatt(stuetz, 7)]
+    b.stab(list(reversed(schn)), stahl, zu=(True, False))
+    eisen = mat_stahl2('messer_Kreuz', 'schmiede', rost=0.6)
+    b.stab([(t, profil_ellipse(rx, ry, 10, e=4.0)) for t, rx, ry in _glatt([(-0.092, 0.0038, 0.0050), (-0.085, 0.0052, 0.0066), (-0.03, 0.0056, 0.0070), (0.0, 0.0066, 0.0080), (0.03, 0.0056, 0.0070), (0.085, 0.0052, 0.0066), (0.092, 0.0038, 0.0050)], 4)],
+           eisen, abb=lambda q: (q[2], q[1], -0.0605 + q[0]))
+    # Wehrnagel: kräftiger Zapfen auf der Aussenseite, schützt die Knöchel (Lecküchner) — hier 3 cm, vorn breitgeschlagen
+    b.stab([(t, profil_ellipse(rx, rz, 10)) for t, rx, rz in ((0.0, 0.0062, 0.0062), (0.006, 0.0050, 0.0048), (0.024, 0.0046, 0.0040), (0.029, 0.0064, 0.0030), (0.031, 0.0050, 0.0018))], eisen,
+           abb=lambda q: (q[0], 0.006 + q[2], -0.0605 + q[1]))
+    # Angel: Flachstahl durch den ganzen Griff, an den Schmalseiten zwischen den Schalen sichtbar
+    angel = mat_stahl2('messer_Angel', 'klinge', rost=0.5, hell=(0.36, 0.36, 0.37))
+    b.stab([(z, profil_ellipse(rx, 0.0030, 8, e=8)) for z, rx in ((-0.056, 0.0162), (0.05, 0.0164), (0.15, 0.0164), (0.236, 0.0168))], angel)
+    buche = mat_holz2('messer_Griff', (0.30, 0.165, 0.085), (0.10, 0.05, 0.025), GRIFFE['messer'], mark=(0.03, 0.04), ringbreite=0.0016, oel=0.6)
+    for sy in (1, -1):
+        schn = []
+        for z, br in _glatt([(-0.055, 0.0150), (0.0, 0.0158), (0.10, 0.0160), (0.20, 0.0158), (0.234, 0.0164)], 6):
+            pk = [(x, y) for x, y in profil_ellipse(br, 0.0098, 12, e=3.0) if y >= -1e-9]
+            schn.append((z, [(x, sy * (0.0030 + y)) for x, y in pk]))
+        b.stab(schn, buche)
+    messing = mat_messing('messer_Niet')
+    for z, m_, r in ((-0.02, messing, 0.0036), (0.09, eisen, 0.0030), (0.2, messing, 0.0036)):      # mittlerer Niet ersetzt: Eisennagel, vernietet
+        b.stab([(t, profil_ellipse(rr, rr, 8)) for t, rr in ((-0.0133, r * 0.6), (-0.0128, r), (0.0128, r), (0.0133, r * 0.6))], m_, abb=lambda q, z=z: (q[0], q[2], z + q[1]))
+    b.stab([(z, profil_ellipse(rx, ry, 14, dx=dx, e=3.0)) for z, rx, ry, dx in _glatt([(0.234, 0.0172, 0.0132, 0.0), (0.246, 0.0170, 0.0130, -0.002), (0.257, 0.0150, 0.0118, -0.008), (0.2655, 0.0105, 0.0095, -0.017), (0.268, 0.0050, 0.0050, -0.021)], 4)], eisen)
+    o = b.fertig()
+    # Bohrung des Federbolzens (8 mm) am Ansatz, 3,5 cm vor dem Kreuz, nahe dem Rücken
+    bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.004, depth=0.03, location=(0.006, 0.0, an - 0.035), rotation=(math.pi / 2, 0, 0))
+    loch = bpy.context.active_object; loch.name = 'Federbohrung'
+    md = o.modifiers.new('Bohrung', 'BOOLEAN'); md.operation = 'DIFFERENCE'; md.object = loch
+    try: md.solver = 'EXACT'
+    except Exception: pass
+    bpy.context.view_layer.objects.active = o
+    try: bpy.ops.object.modifier_apply(modifier=md.name)
+    except Exception as e: print('Bohrung', e)
+    bpy.data.objects.remove(loch, do_unlink=True)
+    return o
+
+
+def baue_runde2(mass):
+    """Die fünf Waffen neu bauen, an den Maßen der Spielmodelle (`mass`: Name → (z_min, z_max)) ausrichten und prüfen."""
+    bau = {'Axt': lambda: bau_axt(*mass['Axt']), 'Speer': lambda: bau_speer(*mass['Speer']), 'Klinge': lambda: bau_klinge(*mass['Klinge']),
+           'Hirschfaenger': bau_hirschfaenger, 'Messer': bau_messer}
+    for name, f in bau.items():
+        alt = bpy.data.objects.get(name)
+        if alt: bpy.data.objects.remove(alt, do_unlink=True)
+        o = f(); o.name = name
+        zs = [v.co.z for v in o.data.vertices]
+        print('WAFFENFRAME Runde 2 %-14s z %.3f…%.3f (Spiel %.3f…%.3f) Abweichung %.1f / %.1f mm, %d Flächen' %
+              (name, min(zs), max(zs), mass[name][0], mass[name][1], (min(zs) - mass[name][0]) * 1000, (max(zs) - mass[name][1]) * 1000, len(o.data.polygons)))
+
+
 # ───────────────────────────── Szene ─────────────────────────────
 def baue_modelle():
     """`waffenmodelle.py` ausführen (baut alle Modelle in eine leere Szene und schreibt eine Kopie in den Cache)."""
@@ -268,13 +692,13 @@ def lege(o, y):
     print('WAFFENFRAME liegt', o.name, 'Kipp %.2f°' % math.degrees(kipp), 'Länge %.3f m' % (max(p.x for p in pts2) - min(p.x for p in pts2)))
 
 
-def kanten(o):
+def kanten(o, breite=0.0004):
     """Fase an harten Kanten, alles andere weich — die Spielmodelle sind flach schattiert und haben keine Normalen."""
     for p in o.data.polygons: p.use_smooth = True
     bpy.context.view_layer.objects.active = o; o.select_set(True)
     try: bpy.ops.object.shade_smooth()
     except Exception as e: print('weich', e)
-    f = o.modifiers.new('Fase', 'BEVEL'); f.width = 0.0004; f.segments = 2; f.limit_method = 'ANGLE'; f.angle_limit = math.radians(46)
+    f = o.modifiers.new('Fase', 'BEVEL'); f.width = breite; f.segments = 2; f.limit_method = 'ANGLE'; f.angle_limit = math.radians(46)
     f.harden_normals = True
     w = o.modifiers.new('Normalen', 'WEIGHTED_NORMAL'); w.keep_sharp = False
     o.select_set(False)
@@ -329,10 +753,15 @@ def bild():
     for o in list(bpy.data.objects):
         if o.name not in OBJEKT.values(): bpy.data.objects.remove(o, do_unlink=True)
     lage = {'speer': 0.50, 'axt': 0.22, 'messer': -0.04, 'klinge': -0.28, 'hirschfaenger': -0.50}
+    neu = RUNDE >= 2 and not ROH
+    if neu:   # Hauptmaße an den Spielmodellen messen, dann die Zielbild-Geometrie an ihre Stelle setzen
+        mass = {n: (min(v.co.z for v in bpy.data.objects[n].data.vertices), max(v.co.z for v in bpy.data.objects[n].data.vertices)) for n in OBJEKT.values()}
+        baue_runde2(mass)
     for w in WAFFEN:
         o = bpy.data.objects[OBJEKT[w]]
         lege(o, lage[w])
-        if not ROH:
+        if neu: kanten(o, 0.00025)
+        elif not ROH:
             for i, slot in enumerate(o.material_slots): slot.material = material(w, slot.material)
             kanten(o)
     werkbank()
@@ -343,9 +772,11 @@ def bild():
     if ansicht == 'gesamt':
         kam = kamera('gesamt', (0.0, -1.35, 2.75), (0.0, 0.0, TISCH), 40)
     else:
-        o = bpy.data.objects[OBJEKT[ansicht]]
-        ziel = o.matrix_world @ Vector((0, 0, NAH[ansicht]))
-        kam = kamera(ansicht, (ziel.x + 0.04, ziel.y - 0.40, ziel.z + 0.58), ziel, 50)
+        griff = ansicht.endswith('-griff'); waffe = ansicht.replace('-griff', '')
+        o = bpy.data.objects[OBJEKT[waffe]]
+        ziel = o.matrix_world @ Vector((0, 0, NAH_GRIFF[waffe] if griff else NAH[waffe]))
+        nah = float(os.environ.get('WAFFE_NAH', '1.0'))      # < 1 rückt die Kamera heran
+        kam = kamera(ansicht, (ziel.x + 0.04 * nah, ziel.y - 0.40 * nah, ziel.z + 0.58 * nah), ziel, 50)
     sc = bpy.context.scene; sc.camera = kam
     sc.render.engine = 'CYCLES'; sc.cycles.device = 'CPU'; sc.cycles.samples = spp
     sc.cycles.use_adaptive_sampling = True; sc.cycles.adaptive_threshold = 0.02
@@ -396,7 +827,43 @@ def blatt():
           [('heute im Spiel', os.path.join(ordner, 'roh-gesamt.png')), ('Zielbild (Runde 1): Stahl, Holz, Leder, Horn mit Substanz', os.path.join(ordner, 'ziel-gesamt.png'))], h=760)
 
 
+def blatt2():
+    """Runde 2: je Waffe Foto │ Runde 1 │ Runde 2 (dazu das Griffbild, wo es eines gibt), Übersicht Runde 1 │ Runde 2
+    und `herkunft.md`. Aufruf: `python3 tools/waffenframe.py blatt2 <ordner-r2> <ordner-r1> <referenzordner>`."""
+    import json
+    from PIL import Image, ImageDraw, ImageFont
+    ordner, alt, ref = sys.argv[2], sys.argv[3], sys.argv[4]
+    quellen = json.load(open(os.path.join(ref, 'quellen.json'), encoding='utf-8'))
+    def schrift(g, fett=False):
+        pf = '/System/Library/Fonts/Supplemental/Arial%s.ttf' % (' Bold' if fett else '')
+        return ImageFont.truetype(pf, g) if os.path.exists(pf) else ImageFont.load_default()
+    def reihe(aus, unten, teile, h=600):
+        bilder = [(t, Image.open(pf).convert('RGB')) for t, pf in teile if os.path.exists(pf)]
+        bilder = [(t, b.resize((round(b.width * h / b.height), h), Image.LANCZOS)) for t, b in bilder]
+        w = sum(b.width for _, b in bilder) + 8 * (len(bilder) - 1)
+        bl = Image.new('RGB', (w, h + 44 + 62), (18, 18, 18)); d = ImageDraw.Draw(bl); x = 0
+        for t, b in bilder:
+            bl.paste(b, (x, 44)); d.text((x + 10, 10), t, font=schrift(24, True), fill=(235, 235, 235)); x += b.width + 8
+        for i, z in enumerate(unten): d.text((10, h + 50 + i * 26), z, font=schrift(18), fill=(200, 200, 200))
+        bl.save(aus, quality=90); print('WAFFENFRAME Blatt', aus, bl.size)
+    ref_name = {'speer': 'saufeder'}
+    for w in WAFFEN:
+        q = [x for x in quellen if x['waffe'] == ref_name.get(w, w)]
+        foto = [('Foto', os.path.join(ref, q[0]['datei']))] if q else []
+        fuss = ('Foto: %s — %s, %s' % (q[0]['titel'].replace('File:', '')[:60], q[0]['urheber'][:30], q[0]['lizenz'])) if q else 'Kein Foto geladen'
+        reihe(os.path.join(ordner, 'paar-%s.jpg' % w),
+              ['Herkunft (Vorschlag): ' + HERKUNFT[w], fuss + ' · Blender/Cycles, Standbild, keine Look-Abnahme · Hauptmaße wie im Spiel'],
+              foto + [('Runde 1 (D465): %s' % NAMEN[w], os.path.join(alt, 'ziel-%s.png' % w)), ('Runde 2: eigene Form, Stahl, Holz', os.path.join(ordner, 'ziel-%s.png' % w)),
+                      ('Runde 2: Griff', os.path.join(ordner, 'ziel-%s-griff.png' % w))])
+    reihe(os.path.join(ordner, 'paar-gesamt.jpg'), ['Von oben: Saufeder, Fällaxt, Langes Messer, Klinge, Hirschfänger · Blender/Cycles, Standbild, keine Look-Abnahme', ''],
+          [('Runde 1 (D465)', os.path.join(alt, 'ziel-gesamt.png')), ('Runde 2: eigene Zielbild-Geometrie', os.path.join(ordner, 'ziel-gesamt.png'))], h=760)
+    with open(os.path.join(ordner, 'herkunft.md'), 'w', encoding='utf-8') as f:
+        f.write('# Waffen Runde 2 — Herkunft je Waffe (Vorschlag, von Flo nicht bestätigt)\n\n')
+        for w in WAFFEN: f.write('- **%s:** %s\n' % (NAMEN[w], HERKUNFT[w]))
+
+
 if __name__ == '__main__':
     if bpy and '--' in sys.argv: bild()
     elif len(sys.argv) > 1 and sys.argv[1] == 'blatt': blatt()
+    elif len(sys.argv) > 1 and sys.argv[1] == 'blatt2': blatt2()
     else: print(__doc__)
