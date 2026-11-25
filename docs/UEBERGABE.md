@@ -4,6 +4,9 @@ shelf-life-days: 30
 ---
 # Übergabe Cloud → M1 (22.11.2026)
 
+> **Stand 25.11.2026:** Einstieg für die nächste Sitzung ist `UEBERGABE_CODEX.md`. Tiere und Menschen (Punkte 2a, 2b)
+> sind geparkt (D474); von Abschnitt 0 gilt vor allem noch Punkt 6 (Prüfliste Bewegung) und Punkt 5 (Verfahren).
+
 > Flo, 22.11.2026: Ab jetzt arbeitet **eine** Sitzung, lokal auf dem M1 (CLAUDE.md: „Arbeit läuft im Repo, nie in
 > einer Sandbox“). Die Cloud-Sitzung, die D349–D376 gebaut hat, schliesst ihre laufenden Aufträge ab, pusht auf
 > `claude/epic-planck-86z6fy` (PR #16) und ruht dann. Diese Datei ist der Einstieg; offen/erledigt steht im Ledger

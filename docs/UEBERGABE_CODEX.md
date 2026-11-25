@@ -18,6 +18,7 @@ shelf-life-days: 30
 | **Waffen** | Zielbild Runde 2 (eigene Geometrie, Stahl mit Zunder, Herkunft je Waffe als Vorschlag); Holz noch flach | D472, D477, `../tools/waffenframe.py` |
 | **Tiere** | geparkt nach Runde 9; Grenze der Methode erreicht; Vorlagen-Liste und Bild-zu-3D-Wege geprüft | D470, D463, D473, A-56 |
 | **Menschen** | geparkt; Zähler aus Einar (Blender Studio, CC-BY) als echtes Altersgesicht; Scans für Brachgänger/Schmiedin brauchen Flos Download | D467, D468, D469, D471, A-58 |
+| **Bewegung** | Cloud-Sitzung D455–D461: Clips der Spielfigur gerechnet (Waffen, Gang, Laufschritt, Sprint, Rolle, Sprung), Laufzeit mit Inertialisierung und Fuss-IK, Tiere und Gegner an der Laufzeit, alles hinter `figurfein` (`?figurfein=0` = alt). Nichts davon in Bewegung gesehen; nicht der Fokus, aber am M1 einmal ansehen | `UEBERGABE.md` Abschnitt 0 Punkt 6 (Prüfliste), A-54, A-55, `design/BRACHLAND_Waffenbewegungen_v1.md` §8–§10 |
 | **Befallgrade** | entschieden: stufenloser Regler mit vier lesbaren Graden, Narben nach dem Reinigen | A-57 |
 
 ## 2. Was **nicht** im Repo liegt (wichtig für eine Sitzung ohne den M1)
@@ -50,8 +51,9 @@ ansehen noch neu backen. Für Look-Arbeit: am M1 arbeiten oder Flo die Dateien b
 ## 4. Regeln, die in dieser Sitzung teuer gelernt wurden
 
 - **Ledger-Nummern:** Cloud-Chat und M1 haben mehrfach dieselben Nummern vergeben. Vor jeder Nummer `git fetch` und
-  `git show origin/claude/epic-planck-86z6fy:docs/_INDEX.md` prüfen; die später gemergte Seite nummeriert um, nur in
-  Zeilen, die es auf der anderen Seite nicht gibt (Skript-Muster: `.cache/merge-d441/umnummern.py` am M1).
+  `git show origin/claude/epic-planck-86z6fy:docs/_INDEX.md` prüfen (`make ledger-ids` nennt die nächste freie Nummer);
+  die später gemergte Seite nummeriert um, nur in Zeilen, die es auf der anderen Seite nicht gibt (Skript-Muster:
+  `.cache/merge-d441/umnummern.py`, liegt nur am M1). `scripts/check_ledger_ids.py` in `make check` fängt Dubletten.
 - **8 GB Speicher:** nie zwei Blender gleichzeitig (Sperre `.cache/blender.sperre`), keine Bildratenmessung während
   eines Renders; Exit 137 heisst Speicher.
 - **Messen statt raten:** Bildrate je Posten mit `tools/mess/bildrate.mjs` zerlegen (`&aus=…`); Bildfarben je Feld gegen

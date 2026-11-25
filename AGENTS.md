@@ -4,12 +4,13 @@
 
 1. `GOI_DOKTRIN.md`, danach `CLAUDE.md`: gemeinsame Arbeitsregeln für dieses Repo.
 2. `docs/_INDEX.md`: Tabelle A für offene Punkte, Tabelle B für Entscheidungen.
-   **Aktueller Stand (25.11.2026):** Branch `claude/epic-planck-86z6fy` (PR #16), zuletzt D461; Einstieg in die
-   laufende Arbeit ist `docs/UEBERGABE.md` Abschnitt 0 (Aufträge an den M1, Punkt 6 = Prüfliste Bewegung D456–D461).
-   Offene Fragen an Flo: A-43 bis A-55. Bewegung: `docs/design/BRACHLAND_Waffenbewegungen_v1.md` §8–§10.
+   **Aktueller Stand (25.11.2026):** Branch `claude/epic-planck-86z6fy` (PR #16), zuletzt D478. **Erster Einstieg ist
+   `docs/UEBERGABE_CODEX.md`** (Fokus Welt, Reihenfolge der nächsten Schritte). `docs/UEBERGABE.md` Abschnitt 0 sind
+   ältere Aufträge an den M1; davon gilt noch Punkt 6 (Prüfliste Bewegung D456–D461, nur am M1 in Bewegung prüfbar).
+   Offene Fragen an Flo: A-43 bis A-58. Bewegung: `docs/design/BRACHLAND_Waffenbewegungen_v1.md` §8–§10.
    Der ältere Ausgangsstand D155/D156 (15.09.2026) ist nur noch Geschichte.
-   **Welt (M1-Sitzung bis 25.11.2026, D462–D478):** Flo hat Tiere und Menschen geparkt und will die Welt finalisieren —
-   Einstieg `docs/UEBERGABE_CODEX.md` (Stand, was **nicht** im Repo liegt, nächste Schritte), Verfahren
+   **Welt (M1-Sitzung bis 25.11.2026, D462–D478):** Flo hat Tiere und Menschen geparkt (Modelle, nicht ihre schon
+   gebaute Bewegung) und will die Welt finalisieren — Einstieg `docs/UEBERGABE_CODEX.md` (Stand, was **nicht** im Repo liegt, nächste Schritte), Verfahren
    `docs/VERFAHREN_ORT.md` mit der Backkette aus `docs/WELT_METHODE.md` (`tools/ortkette.sh`).
 3. Für Look-/Szenenarbeit `docs/adr/0006-zielbild-vor-zielgeraet.md`, danach
    `docs/MESSLAUF.md` für Kameras und die Bau-/Messkette.
