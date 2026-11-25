@@ -20,15 +20,21 @@ shelf-life-days: 30
 | **Menschen** | geparkt; Zähler aus Einar (Blender Studio, CC-BY) als echtes Altersgesicht; Scans für Brachgänger/Schmiedin brauchen Flos Download | D467, D468, D469, D471, A-58 |
 | **Befallgrade** | entschieden: stufenloser Regler mit vier lesbaren Graden, Narben nach dem Reinigen | A-57 |
 
-## 2. Was **nicht** im Repo liegt (wichtig für eine Sitzung ohne den M1)
+## 2. Was im Repo liegt und was nur auf dem M1 (D479)
 
-- `public/bauten-ziel/*.glb` (Felsmulde, rund 60 MB) — per `.gitignore` ausgenommen, Entscheidung offen (A-46).
-  Ohne diese Dateien lädt `?lookfels=1` nichts Neues.
-- `.cache/blender/felsmulde/szene4.blend` (361 MB, Zielbild-Szene Runde 4) — Quelle für `tools/ortkette.sh`.
-- `.cache/bilder/…` (alle Bildpaare), `.cache/referenz/…` (Fotos, Kandidatenlisten, geladene CC-BY-Modelle wie Einar).
+**Im Repo:** die gebackenen Felsmulde-Dateien `public/bauten-ziel/felsmulde-*.glb` (46 MB) und ihr Register. Damit
+zeigt `?lookfels=1&stimmung=zielbildfels` die Felsmulde in jeder Sitzung — Code, Licht, Shader, Bildrate und
+Messungen gehen überall (Bildrate nur am M1 aussagekräftig).
 
-Eine Sitzung ohne diese Dateien kann Code, Werkzeuge, Ledger und Dokumente bearbeiten, aber die Felsmulde weder
-ansehen noch neu backen. Für Look-Arbeit: am M1 arbeiten oder Flo die Dateien bereitstellen lassen.
+**Nur auf dem M1 (Flos Mac, `/Users/Flo/Documents/Claude/Projects/brachland`):**
+- `.cache/blender/felsmulde/szene4.blend` (361 MB, Zielbild-Szene Runde 4) — zu gross für GitHub (100 MB je Datei),
+  Git-LFS ist nicht eingerichtet (A-5).
+- `.cache/cc0/…` (Scan-Quellen), `.cache/bilder/…` (alle Bildpaare), `.cache/referenz/…` (Fotos, Kandidatenlisten,
+  geladene CC-BY-Modelle wie Einar).
+
+**Folge: Alles, was neu gebacken wird, muss auf dem M1 laufen** — Mauern, Boden, Pflanzen, Bäume
+(`tools/ortkette.sh`, `tools/baumexport.py`), Zielbild-Renders, Blender überhaupt. Das betrifft vor allem den nächsten
+Schritt Scan-Bäume (D478). Eine Cloud-Sitzung bereitet so etwas höchstens vor und übergibt.
 
 ## 3. Nächste Schritte (Reihenfolge)
 
