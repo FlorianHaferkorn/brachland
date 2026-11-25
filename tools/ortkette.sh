@@ -3,7 +3,7 @@
 #
 #   tools/ortkette.sh <zielbild.blend> <name> <terrain.json> [schritte]
 #   Beispiel: tools/ortkette.sh .cache/blender/felsmulde/szene4.blend felsmulde .cache/blender/felsmulde/terrain.json
-#   schritte (Vorgabe: alle): pruefen,bauten,boden,pflanzen,schatten — z. B. "pflanzen,schatten" für einen Teil.
+#   schritte (Vorgabe: alle): pruefen,bauten,boden,pflanzen,schatten — z. B. "pflanzen,schatten" für einen Teil. Optionale Zielbildteile: bergruecken,bueschel.
 #
 # Ergebnis: public/bauten-ziel/<name>-{bauten,wasser,boden,pflanzen,schatten}.glb und register.json.
 # Anleitung, Prüfpunkte und Fallen: docs/WELT_METHODE.md. Jeder Blender-Lauf hält die Sperre .cache/blender.sperre
@@ -70,7 +70,7 @@ for b in r['bauwerke']:
 json.dump(r, open(p, 'w'), indent=1, ensure_ascii=False)
 PY
   fi
-  for t in boden pflanzen schatten; do [ -f "$ZIEL/$NAME-$t.glb" ] && register_merke "$t" >/dev/null; done
+  for t in boden pflanzen schatten baeume bergruecken bueschel; do [ -f "$ZIEL/$NAME-$t.glb" ] && register_merke "$t" >/dev/null; done
 fi
 if will boden; then
   echo "== 3/5 boden: Scan-Boden backen (10–12 min)"
@@ -87,6 +87,19 @@ if will schatten; then
   echo "== 5/5 schatten: grobe Schattenhülle"
   node tools/schattenhuelle.mjs "$ZIEL/$NAME-bauten.glb" "$ZIEL/$NAME-schatten.glb" 0.1 0.01 2>&1 | tail -1
   register_merke schatten
+fi
+if will bergruecken; then
+  blender_lauf "$LOG/bergruecken.log" --python-exit-code 1 --python tools/bergrueckenexport.py -- "$ZIEL/$NAME-bergruecken.glb" || exit 1
+  register_merke bergruecken
+fi
+if will bueschel; then
+  # scanlagen/scanbacken verlangen neue Ausgabepfade. Ein fehlgeschlagener Lauf lässt
+  # dadurch die bisherige Spielkrone samt Register intakt.
+  lauf=$(mktemp -d "$LOG/bueschel.XXXXXX") || exit 1
+  blender_lauf "$lauf/lagen.log" --python-exit-code 1 --python tools/laubbueschel/scanlagen.py -- "$lauf/lagen.json" || exit 1
+  node tools/laubbueschel/scanbacken.mjs "$lauf/lagen.json" .cache/cc0 "$lauf/krone.glb" > "$lauf/backen.log" 2>&1 || exit 1
+  mv "$lauf/krone.glb" "$ZIEL/$NAME-bueschel.glb" || exit 1
+  register_merke bueschel
 fi
 register_merke
 ls -la "$ZIEL"/"$NAME"-*.glb | awk '{printf "  %6.1f MB  %s\n", $5/1048576, $NF}'

@@ -18,8 +18,7 @@ auszulegen noch den Projektverlauf zu kennen; was davon gilt, steht in Abschnitt
 - Es **überträgt** eine fertige, von Flo freigegebene Blender-Szene ins Spiel und **misst** den Abstand. Es baut
   kein Zielbild. Ein Zielbild ist Gestaltung über mehrere Runden mit Flo (Felsmulde: fünf Runden, D372–D442) und
   bleibt bei einem starken Modell.
-- Es macht den Look nicht „fertig“. Die Felsmulde selbst besteht die Abnahme in Schritt 7 **nicht** (Schatten zu
-  dunkel, A-46). Das Verfahren stellt das fest und gibt es zurück; es behebt es nicht.
+- Es macht den Look nicht „fertig“. Die Felsmulde besteht die sieben Bildkennzahlen seit D480. A-46 bleibt für die Abnahme in Bewegung offen. Das Verfahren stellt das fest und gibt es zurück; es behebt es nicht.
 - Die Abnahme des Looks ist und bleibt Flo am M1, in Bewegung (ADR-0005). Messwerte aus einem Standbild sind eine
   Vorprüfung, keine Look-Aussage.
 - Die Engine-Seite ist heute **nur für die Felsmulde** verdrahtet: Schalter `?lookfels=1`, Kronen in
@@ -50,7 +49,7 @@ keine Spielwerte enthält (gleiche Begründung wie bei den Rahmenkronen, D446).
 
 **Toleranzen (Vorschlag D459, von Flo nicht bestätigt — A-52):** mittlere Helligkeit ±0,05 · Fläche unter 0,2
 ±10 Punkte · Fläche über 0,7 ±5 Punkte · R−B Lichter ±0,08 · R−B Schatten ±0,05 · Sättigung ±0,08 · Himmel
-±5 Punkte. **Bildrate:** ≥ 30 B/s am M1 bei 1600 × 900, Pixeldichte 1 (Flo 23.11.2026, D450). **Budget:**
+±5 Punkte. **Bildrate:** Der technische Standtest D450 hat eine Untergrenze von 30 B/s bei 1600 × 900, Pixeldichte 1. Für die Freigabe der Felsmulde gilt seit D474 der Gang mit 60 B/s am M1. Den Gang bei 1440 × 900 (Pixeldichte 1 wie D464) ohne Videoaufnahme messen. `MESS_GANG=1 MESS_FORMAT=1440x900 node tools/mess/bildrate.mjs "absetzen=-814,597.2,-101&echt=1&lookfels=1&stimmung=zielbildfels" "voll="` meldet die zurückgelegten Meter und die Bildzeiten. **Budget:**
 Dateien ≤ 60 MB, Bauwerke ≤ 1,3 Mio. Dreiecke, ≤ 2 000 Aufrufe (Richtwerte aus dem Stand D450: 55 MB,
 1,18 Mio.; ob die Dateien ins Repo gehören, ist offen, A-46 Punkt 4).
 

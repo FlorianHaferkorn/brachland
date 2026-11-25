@@ -20,6 +20,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import { z } from 'zod';
 import {
   Akte, abnahme, abnahmeTabelle, adresse, bildratenUrteil, budgetUrteil, leseBildrate, regelpruefung, schritte, sonnenstand,
   sonnenstandImQuelltext, stimmungsVorlage, zeige, type Messwerte, type Schritt,
@@ -103,7 +104,14 @@ if (befehl === 'plan') {
   console.log(u.bestanden ? 'BILDRATE BESTANDEN' : 'BILDRATE NICHT BESTANDEN');
   ok = u.bestanden;
 } else if (befehl === 'budget') {
-  const dateien = [...new Set(a.bauteile.flatMap(b => (b.datei ? [b.datei] : [])))];
+  // Die Akte nennt die erwarteten Dateien. Das Register enthält zusätzlich auch optionale
+  // Varianten und Hilfsnetze, die mit der Szene ausgeliefert werden und zum Budget gehören.
+  const register = z.object({ bauwerke: z.array(z.object({ name: z.string(), dateien: z.array(z.string().regex(/^[a-z0-9-]+$/)) })) })
+    .parse(JSON.parse(readFileSync(join('public', a.spiel.ordner, 'register.json'), 'utf8')));
+  const bauwerk = register.bauwerke.find(b => b.name === a.id);
+  if (!bauwerk) throw new Error(`Ort ${a.id} fehlt im Bauregister.`);
+  const dateien = new Set([...a.bauteile.flatMap(b => b.datei ? [b.datei] : []),
+    ...bauwerk.dateien.map(teil => `${a.id}-${teil}.glb`)]);
   let summe = 0;
   for (const d of dateien) {
     const p = join('public', a.spiel.ordner, d);

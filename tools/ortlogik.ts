@@ -67,7 +67,7 @@ export const Akte = z.object({
   bauteile: z.array(z.object({
     id: z.string().min(1), art: z.enum(['wand', 'fels', 'boden', 'wasser', 'pflanzen', 'kronen', 'streu', 'himmel', 'ferne']),
     /** Womit das Bauteil ins Spiel kommt; `hand` heisst: kein Werkzeug, Eskalation. */
-    weg: z.enum(['szenenexport', 'bodenexport', 'pflanzenexport', 'engine', 'hand']),
+    weg: z.enum(['szenenexport', 'bodenexport', 'pflanzenexport', 'bergrueckenexport', 'bueschelexport', 'engine', 'hand']),
     datei: z.string().optional(), hinweis: z.string().optional(),
   })).min(1),
   quellen: z.array(z.object({ name: z.string().min(1), lizenz: z.string().min(1), imSpiel: z.boolean() })).min(1),
@@ -274,6 +274,8 @@ export function schritte(a: Akte, d = 'Dxxx', kamera?: string): Schritt[] {
   if (hat('szenenexport')) export_.push(`SZENE_ZIEL=1 SZENE_TERRAIN=${a.zielbild.terrain}/terrain.json ${BLENDER} --background ${a.zielbild.blend} --python tools/szenenexport.py -- ${ziel} ${a.id} 1024`);   // Mauern werden doppelt so gross gebacken: 2048 (D448)
   if (hat('bodenexport')) export_.push(`SZENE_TERRAIN=${a.zielbild.terrain}/terrain.json ${BLENDER} --background ${a.zielbild.blend} --python tools/bodenexport.py -- ${ziel} ${a.id}`);
   if (hat('pflanzenexport')) export_.push(`${BLENDER} --background ${a.zielbild.blend} --python tools/pflanzenexport.py -- ${ziel} ${a.id}`);
+  if (hat('bergrueckenexport')) export_.push(`tools/ortkette.sh ${a.zielbild.blend} ${a.id} ${a.zielbild.terrain}/terrain.json bergruecken`);
+  if (hat('bueschelexport')) export_.push(`tools/ortkette.sh ${a.zielbild.blend} ${a.id} ${a.zielbild.terrain}/terrain.json bueschel`);
   if (hat('szenenexport')) export_.push(`npx tsx tools/bautenpack.ts --kante 2048 ${ziel}/${a.id}-bauten.glb`);
   if (hat('bodenexport')) export_.push(`npx tsx tools/bautenpack.ts --kante 2048 ${ziel}/${a.id}-boden.glb`);
   if (hat('pflanzenexport')) export_.push(`npx tsx tools/bautenpack.ts --kante 1024 --instanz ${ziel}/${a.id}-pflanzen.glb`);

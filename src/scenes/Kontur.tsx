@@ -256,6 +256,7 @@ const FRAGMENT = /* glsl */`
   uniform vec2 uTexel;
   uniform vec2 uTexelAO;
   uniform float uStaerke;
+  uniform float uFernWeich;
   uniform float uSchwelle;
   uniform float uAO;
   uniform sampler2D tBloom;
@@ -329,6 +330,8 @@ const FRAGMENT = /* glsl */`
     // bekommt sie an der Hangkante.
     float sprung = max(max(zl - z, zr - z), max(zu - z, zo - z)) / z;
     float kante = smoothstep(uSchwelle, uSchwelle * 3.0, sprung);
+    // Luftperspektive des Blender-Zielbilds: die Fernkämme tragen keine schwarze Konturlinie.
+    kante *= 1.0 - uFernWeich * smoothstep(120.0, 550.0, z);
     // AO: vier Proben um den Pixel weichgezeichnet — das Rauschen des Passes verschwindet,
     // die Verdeckung bleibt. Potenz statt Faktor, damit 0,5 sichtbar dunkler ist als 0,8.
     float ao = 1.0;
@@ -364,7 +367,7 @@ const FRAGMENT = /* glsl */`
     gl_FragColor = vec4(rgb, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
-    __AFRAME_TON__
+    __AUSGABETON__
   }
 `;
 
@@ -429,6 +432,17 @@ const AFRAME_TON = /* glsl */`
     }
 `;
 
+/** Farbentwicklung der Zielbild-Felsmulde im Anzeigeraum. Der Helligkeitswert bleibt
+ * beim Entsättigen erhalten. Nur die Lichter erhalten den warmen Ton des Blender-Renders. */
+const FELS_TON = /* glsl */`
+    {
+      float helligkeit = dot(gl_FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+      vec3 farbe = mix(vec3(helligkeit), gl_FragColor.rgb, 0.84);
+      farbe += vec3(0.042, -0.006, -0.052) * smoothstep(0.34, 0.68, helligkeit);
+      gl_FragColor.rgb = clamp(farbe, 0.0, 1.0);
+    }
+`;
+
 /** Letzter Pass mit TAA: Verlauf auf den Bildschirm, mit Tone Mapping und Ausgabefarbraum. */
 const TAA_AUSGABE = /* glsl */`
   #include <common>
@@ -438,7 +452,7 @@ const TAA_AUSGABE = /* glsl */`
     gl_FragColor = vec4(texture2D(tQuelle, vUv).rgb, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
-    __AFRAME_TON__
+    __AUSGABETON__
   }
 `;
 
@@ -449,9 +463,9 @@ function halton(i: number, basis: number): number {
   return r - 0.5;
 }
 
-export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius = 8,
+export function Kontur({ an, felsAtmosphaere = false, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius = 8,
   bloom = 0, schacht = 0, sonne, sonnenFarbe = '#ffffff' }: {
-  an: boolean; staerke?: number; schwelle?: number;
+  an: boolean; felsAtmosphaere?: boolean; staerke?: number; schwelle?: number;
   /** Verdeckungsstaerke als Exponent; 0 = aus. */
   ao?: number; aoRadius?: number;
   /** D210: Bloom-Staerke (0 = aus) und Lichtschaechte (0 = aus); `sonne` ist die Richtung zur Sonne. */
@@ -495,15 +509,16 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
   }), [ziel]);
 
   const quad = useMemo(() => {
+    const ausgabeton = felsAtmosphaere ? FELS_TON : AFRAME_AN ? AFRAME_TON : '';
     const material = new THREE.ShaderMaterial({
       vertexShader: SCHEITEL, fragmentShader: FRAGMENT.replace('__TIEFE__', TIEFE_GLSL)
         .replace('__AO_FEINANTEIL__', BLATTVERLAUF_AN ? '1.0' : '0.85')
-        .replace('__AFRAME_TON__', AFRAME_AN && !TAA_AN ? AFRAME_TON : ''),
+        .replace('__AUSGABETON__', TAA_AN ? '' : ausgabeton),
       uniforms: {
         tFarbe: { value: null }, tTiefe: { value: null }, tAO: { value: null },
         uTexel: { value: new THREE.Vector2() }, uTexelAO: { value: new THREE.Vector2() },
         uNah: { value: 0.2 }, uFern: { value: 1000 },
-        uStaerke: { value: an ? staerke : 0 }, uSchwelle: { value: schwelle }, uAO: { value: ao },
+        uStaerke: { value: an ? staerke : 0 }, uFernWeich: { value: felsAtmosphaere ? 1 : 0 }, uSchwelle: { value: schwelle }, uAO: { value: ao },
         tBloom: { value: null }, tSchacht: { value: null },
         uBloom: { value: 0 }, uSchacht: { value: new THREE.Color(0, 0, 0) },
         uAbgleich: { value: ABGLEICH_AN ? 1 : 0 }, uRuhig: { value: AO_RUHIG ? 1 : 0 },
@@ -572,14 +587,14 @@ export function Kontur({ an, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius 
       depthTest: false, depthWrite: false,
     }) : null;
     const ausgabeMaterial = TAA_AN ? new THREE.ShaderMaterial({
-      vertexShader: SCHEITEL, fragmentShader: TAA_AUSGABE.replace('__AFRAME_TON__', AFRAME_AN ? AFRAME_TON : ''), uniforms: { tQuelle: { value: null } },
+      vertexShader: SCHEITEL, fragmentShader: TAA_AUSGABE.replace('__AUSGABETON__', ausgabeton), uniforms: { tQuelle: { value: null } },
       depthTest: false, depthWrite: false,
     }) : null;
     return { material, aoMaterial, hellMaterial, schachtMaterial, weichMaterial, bild, aoBild,
       hellBild: vollbild(hellMaterial), schachtBild: vollbild(schachtMaterial), weichBild: vollbild(weichMaterial), kam,
       taaMaterial, ausgabeMaterial,
       taaBild: taaMaterial ? vollbild(taaMaterial) : null, ausgabeBild: ausgabeMaterial ? vollbild(ausgabeMaterial) : null };
-  }, [an, staerke, schwelle, ao, aoRadius, dpr]);
+  }, [an, felsAtmosphaere, staerke, schwelle, ao, aoRadius, dpr]);
   useEffect(() => () => {
     quad.material.dispose(); quad.aoMaterial.dispose();
     quad.hellMaterial.dispose(); quad.schachtMaterial.dispose(); quad.weichMaterial.dispose();

@@ -10,9 +10,9 @@
     "werkzeug": "tools/stilframes.py",
     "modus": "zielbild4",
     "bild": "docs/bilder/zielbild/d386-zielbild.jpg",
-    "blend": ".cache/blender/felsmulde/zielbild4.blend",
+    "blend": ".cache/blender/felsmulde/szene4.blend",
     "terrain": ".cache/blender/felsmulde",
-    "hinweis": "Der Pfad der .blend ist ein Vorschlag (D459): in D448 lag die Datei im Scratchpad und ist nicht belegt. Erzeugen am M1: AFRAME_BLEND=<pfad> BRACHLAND_CPU=1 blender --background --python tools/stilframes.py -- zielbild4 .cache/blender/felsmulde <präfix> 1920 1080 48 ziel. Messkamera ist Runde 4 (Blick z 2,45); Runde 5 (D441/D442, Tümpel) ist noch nicht übertragen."
+    "hinweis": "Die nach D479 lokal gespeicherte Zielbild-Szene liegt auf dem M1. Messkamera ist Runde 4 (Blick z 2,45); Runde 5 (D441/D442, Tümpel) ist noch nicht übertragen."
   },
   "kameras": [
     { "name": "ziel", "ort": [-11.0, 2.2, 1.9], "blick": [5.0, -1.0, 2.45], "brennweite": 24, "sensor": 36 },
@@ -32,8 +32,8 @@
     { "id": "teich", "art": "wasser", "weg": "szenenexport", "datei": "felsmulde-wasser.glb", "hinweis": "Becken der Runde 4; der Tümpel der Runde 5 (D441) ist noch nicht übertragen" },
     { "id": "boden", "art": "boden", "weg": "bodenexport", "datei": "felsmulde-boden.glb", "hinweis": "25-cm-Raster, Radius 30 m, Spielboden mit Loch 24 m (D448)" },
     { "id": "pflanzen", "art": "pflanzen", "weg": "pflanzenexport", "datei": "felsmulde-pflanzen.glb", "hinweis": "6 676 Lagen aus 69 Vorlagen, Efeu, Laubstreu" },
-    { "id": "kronen", "art": "kronen", "weg": "engine", "hinweis": "src/scenes/Rahmenkronen.tsx (D446): 13 Bäume des Renders als Kartenkronen, fest im Code — für einen neuen Ort Eskalation" },
-    { "id": "ferne", "art": "ferne", "weg": "engine", "hinweis": "Fernberge und Dunst sind Engine (fernland.ts, Stimmung), nicht übertragen" }
+    { "id": "kronen", "art": "kronen", "weg": "bueschelexport", "datei": "felsmulde-bueschel.glb", "hinweis": "13 originale Baumpositionen aus der Szene, zwei instanzierte Poly-Haven-Scans. Direkter Vergleich per scanbaeume=0 (Rahmenkronen), 1 (D478), 2 (gebackene Büschel)." },
+    { "id": "ferne", "art": "ferne", "weg": "bergrueckenexport", "datei": "felsmulde-bergruecken.glb", "hinweis": "Vier gestaltete Kammprofile aus Runde 4 des Zielbilds. In 55–125 m Entfernung vom Hof blenden sie in die Höhenkulisse des Œntals aus (D480)." }
   ],
   "quellen": [
     { "name": "Poly Haven (Scans, HDRI)", "lizenz": "CC0", "imSpiel": true },
@@ -50,6 +50,7 @@
     { "ledger": "D445", "stand": "Spiel vorher (echt=1, Sonne des Renders)", "werte": { "mittel": 0.36, "unter02": 0.36, "ueber07": 0.027, "rb_licht": 0.06, "rb_schatten": 0.01, "saett": 0.28, "himmel": 0.289 } },
     { "ledger": "D446", "stand": "Spiel nach Look-Durchgang (lookfels=1)", "werte": { "mittel": 0.24, "unter02": 0.55, "ueber07": 0.065, "rb_licht": -0.07, "saett": 0.43, "himmel": 0.015 } },
     { "ledger": "D448", "stand": "Spiel mit übertragener Szene", "werte": { "mittel": 0.21, "unter02": 0.68, "ueber07": 0.075, "saett": 0.45, "himmel": 0.016 }, "bildrate": 13 },
-    { "ledger": "D450", "stand": "Spiel nach Bildraten-Durchgang, 1600 × 900, Pixeldichte 1", "werte": { "mittel": 0.23, "unter02": 0.64 }, "bildrate": 30 }
+    { "ledger": "D450", "stand": "Spiel nach Bildraten-Durchgang, 1600 × 900, Pixeldichte 1", "werte": { "mittel": 0.23, "unter02": 0.64 }, "bildrate": 30 },
+    {"ledger": "D480", "stand": "Scan-Büschel, Bergrücken, Zielbildlicht. Im Spiel gemessen, Zielkamera 1920 × 1080.", "werte": {"mittel": 0.26979, "unter02": 0.41281, "ueber07": 0.0203, "rb_licht": 0.13657, "rb_schatten": 0.01089, "saett": 0.51647, "signal": 0.0, "himmel": 0.05781, "magenta": 0.0}}
   ]
 }

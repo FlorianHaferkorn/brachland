@@ -138,6 +138,8 @@ export interface FernLicht {
   umgebungStaerke: number;
   sonnenstand: readonly [number, number, number];
   beweglicherDunst?: boolean;
+  /** Glatte Hangbeleuchtung des groben Höhenrasters, auch ohne zusätzlichen DGM1-Ring. */
+  glattesFernlicht?: boolean;
 }
 
 export function baueFernland(
@@ -248,20 +250,40 @@ export function baueFernland(
   type Punkt = readonly [number, number, number, number];
   const fernPunkte = new Map<string, Punkt>();
   const punktFern = (lat: number, lon: number): Punkt => {
-    const key = detail ? `${lat}:${lon}` : '';
-    if (detail) {
+    const teilen = detail || licht.glattesFernlicht;
+    const key = teilen ? `${lat}:${lon}` : '';
+    if (teilen) {
       const punkt = fernPunkte.get(key);
       if (punkt) return punkt;
     }
     const h = fernBei(lat, lon), [x, z] = zuWelt(lat, lon);
     const punkt: Punkt = [x, zuHoehe(h), z, h];
-    if (detail) fernPunkte.set(key, punkt);
+    if (teilen) fernPunkte.set(key, punkt);
     return punkt;
   };
   const punktNah = (lat: number, lon: number): Punkt => {
     const h = feineHoehe(lat, lon), [x, z] = zuWelt(lat, lon);
     return [x, zuHoehe(h), z, h];
   };
+
+  // Die Kammbeleuchtung folgt dem zentralen Höhengradienten. So hat ein Gitterpunkt auf
+  // beiden Seiten einer Dreieckskante dieselbe Farbe. Einmal beim Bau auswerten und teilen.
+  const hanglicht = new Map<Punkt, number>();
+  function lambertAmPunkt(p: Punkt): number {
+    const ausCache = hanglicht.get(p);
+    if (ausCache !== undefined) return ausCache;
+    const lat = rn - (p[2] / regTiefe + .5) * (rn - rs);
+    const lon = rw + (p[0] / regBreite + .5) * (re - rw);
+    const dLat = (fn - fs) / (n - 1), dLon = (fe - fw) / (n - 1);
+    const dx = (zuHoehe(fernBei(lat, lon - dLon)) - zuHoehe(fernBei(lat, lon + dLon)))
+      / (2 * dLon * regBreite / (re - rw));
+    const dz = (zuHoehe(fernBei(lat + dLat, lon)) - zuHoehe(fernBei(lat - dLat, lon)))
+      / (2 * dLat * METER_JE_GRAD);
+    const lambert = Math.max(0, (dx * sonnenRichtung.x + sonnenRichtung.y + dz * sonnenRichtung.z)
+      / Math.hypot(dx, 1, dz));
+    hanglicht.set(p, lambert);
+    return lambert;
+  }
 
   function schiebe(v: Punkt) {
     if (detail) {
@@ -276,6 +298,9 @@ export function baueFernland(
     if (detail) {
       farben.push(farbe.r, farbe.g, farbe.b);
       return;
+    }
+    if (licht.glattesFernlicht) {
+      beleuchtet.copy(sonnenLicht).multiplyScalar(lambertAmPunkt(v)).add(grundLicht);
     }
     farbe.multiply(beleuchtet);
     /**
@@ -313,7 +338,7 @@ export function baueFernland(
     const vx = r[0] - p[0], vy = r[1] - p[1], vz = r[2] - p[2];
     const ny = uz * vx - ux * vz;
     const dreh = ny < 0;
-    if (!detail) {
+    if (!detail && !licht.glattesFernlicht) {
       const nx = uy * vz - uz * vy, nz = ux * vy - uy * vx;
       const laenge = Math.hypot(nx, ny, nz) || 1;
       const w = (dreh ? -1 : 1) / laenge;

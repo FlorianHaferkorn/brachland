@@ -138,12 +138,10 @@ export const HOF_AN = an('scanhof') || HOF_GRUEN_AN;
 export const AFRAME_AN = an('aframe');
 /** D446: Look-Durchgang Felsmulde nach dem Messbild D445 — Rahmenkronen (`scenes/Rahmenkronen.tsx`); mit `?stimmung=zielbildfels`. */
 export const LOOK_FELS_AN = an('lookfels');
-/**
- * D478, in Arbeit: Scan-Bäume des Zielbilds statt Kartenkronen (`tools/baumexport.py`, `dateien: baeume`). Hinter
- * eigenem Schalter, weil die Laubkarten beim Kürzen noch zerfallen (Splitter, freistehende Aststücke); Vorgabe bleiben
- * die Rahmenkronen (D446/D474/D475). `?lookfels=1&scanbaeume=1`.
- */
-export const SCAN_BAEUME_AN = LOOK_FELS_AN && an('scanbaeume');
+/** Scan-Kronen nur in der Zielbild-Felsmulde. 0 zeigt D475 (Rahmenkarten), 1 D478, 2 die Büschel D480. */
+const scanStufe = suche.get('scanbaeume') ?? '2';
+export const SCAN_BUESCHEL_AN = LOOK_FELS_AN && scanStufe === '2';
+export const SCAN_BAEUME_AN = LOOK_FELS_AN && (scanStufe === '1' || SCAN_BUESCHEL_AN);
 export const ECHT = an('echt') || MALEREI || HOF_AN || AFRAME_AN;
 /** Einzelschalter: `?x=1` schaltet ein, `?x=0` nimmt ihn aus `?echt=1` heraus. */
 const teil = (name: string) => (suche.get(name) === '0' ? false : ECHT || an(name));

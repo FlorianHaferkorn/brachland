@@ -24,7 +24,7 @@ export function leseHerkunft(pfad = 'assets/HERKUNFT.md'): Herkunft[] {
   const text = readFileSync(pfad, 'utf8');
   // Beide Tabellen: Kreaturen (## Modelle) und Menschen (## Menschen, D143).
   // D290: auch Weltdaten (LoD2, CC BY 4.0 — Namensnennung im Spiel Pflicht).
-  const bloecke = ['## Modelle', '## Menschen', '## Weltdaten', '## Straßenmobiliar'].map(kopf => {
+  const bloecke = ['## Modelle', '## Menschen', '## Weltdaten', '## Straßenmobiliar', '## Zielbild Felsmulde'].map(kopf => {
     const ab = text.indexOf(kopf);
     if (ab < 0) return '';
     const bis = text.indexOf('\n## ', ab + 1);

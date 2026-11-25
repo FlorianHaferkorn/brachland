@@ -292,5 +292,19 @@
   "autor": "tevy",
   "lizenz": "CC0 1.0",
   "quelle": "[Five-Door Hatchback](https://tevy.dev/models/hatchback), v1 LOD1. Quelle mit tools/kompaktwagen-pack.mjs für WebGL gepackt. Rost, Schmutz und veränderte Glasoberflächen entstehen im Spiel."
+ },
+ {
+  "datei": "bauten-ziel/felsmulde-bueschel.glb",
+  "rolle": "Scan-Bäume der Felsmulde, Stamm und gebackene Büschelkarten aus Originalblättern und Ästen",
+  "autor": "Rob Tuytel (Scan), Rico Cilliers und Rob Tuytel (Aufbereitung)",
+  "lizenz": "CC0 1.0",
+  "quelle": "Poly Haven [Island Tree 01](https://polyhaven.com/a/island_tree_01) und [Island Tree 02](https://polyhaven.com/a/island_tree_02), glTF 2K. Lagen aus der eigenen Zielbild-Szene, Spielaufbereitung mit tools/laubbueschel/scanbacken.mjs."
+ },
+ {
+  "datei": "bauten-ziel/felsmulde-bergruecken.glb",
+  "rolle": "Vier gestaffelte Fernrücken, Farbverlauf und Waldsilhouette",
+  "autor": "BRACHLAND",
+  "lizenz": "Eigene Gestaltung",
+  "quelle": "Eigene Blender-Szene aus tools/stilframes.py (Runde 4), aufbereitet mit tools/bergrueckenexport.py."
  }
 ]

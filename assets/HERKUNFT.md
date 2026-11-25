@@ -262,3 +262,7 @@ Felsen und Steine `rock_moss_set_01`, `rock_moss_set_02`; Moos `moss_01`; Pflanz
 `celandine_01`, `periwinkle_plant`, `nettle_plant`, `weed_plant_02`, `dandelion_01`, `fern_02`, `fir_sapling`,
 `shrub_sorrel_01`. Efeu, Laub, Balken und Mauerformen sind prozedural (eigene Werkzeuge). Lizenz: polyhaven.com/license (CC0).
 
+| Datei unter `public/` | Rolle | Autor | Lizenz | Quelle |
+|---|---|---|---|---|
+| `bauten-ziel/felsmulde-bueschel.glb` | Scan-Bäume der Felsmulde, Stamm und gebackene Büschelkarten aus Originalblättern und Ästen | Rob Tuytel (Scan), Rico Cilliers und Rob Tuytel (Aufbereitung) | CC0 1.0 | Poly Haven [Island Tree 01](https://polyhaven.com/a/island_tree_01) und [Island Tree 02](https://polyhaven.com/a/island_tree_02), glTF 2K. Lagen aus der eigenen Zielbild-Szene, Spielaufbereitung mit `tools/laubbueschel/scanbacken.mjs`. |
+| `bauten-ziel/felsmulde-bergruecken.glb` | Vier gestaffelte Fernrücken, Farbverlauf und Waldsilhouette | BRACHLAND | Eigene Gestaltung | Eigene Blender-Szene aus `tools/stilframes.py` (Runde 4), aufbereitet mit `tools/bergrueckenexport.py`. |

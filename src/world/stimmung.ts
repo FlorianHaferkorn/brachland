@@ -386,21 +386,14 @@ STIMMUNG.zielbild = {
 STIMMUNG.zielbildfels = {
   ...STIMMUNG.zielbild,
   sonnenstand: [-22.0, 41.5, 88.3] as const,
-  // D446 Look-Durchgang, Schritt 1 Licht und Tonwert (Messbild D445: Spiel 0,36 hell, Lichter weiss R−B +0,06,
-  // Sättigung 0,28 — Render 0,27, +0,13, 0,46): Sonne warm und kräftig, Fülllicht schwächer und warm-neutral,
-  // Belichtung runter, Himmel blau im Zenit und golden am Horizont wie das HDRI des Renders, Dunst golden.
-  // D475 Feldvergleich: besonnte Mauer im Render 0,63/0,51/0,35, im Spiel 0,44/0,30/0,16 — Sonne zu orange und zu
-  // schwach; Mauer im Schatten stimmte schon auf 10 %. Deshalb heller und weniger gesättigt (vorher #ffbf7a, 3,8).
-  sonne: '#ffd9a8', sonneStaerke: 5.0,
+  // Sonnenstärke und Fülllicht halten die Schattenmauern lesbar (D475). Die leicht wärmere
+  // Sonne gleicht in den Lichtern den kühlen Farbabgleich des Spielbilds aus (D480).
+  sonne: '#ffd49b', sonneStaerke: 5.0,
   umgebung: '#6f6252', umgebungStaerke: 1.7,
   belichtung: 1.95,
-  // Horizont ist zugleich die Dunstfarbe der Fernberge (`fernland.ts`): kühl grauoliv wie die Luftschichten des Renders
-  // (Dunst 0,070/0,074/0,066 linear), sonst stehen die Berge als beige Fläche.
-  // D475: Himmel im Bogen im Render 0,40/0,38/0,33, im Spiel 0,61/0,62/0,62 — Horizont dunkler und wärmer (vorher #b3ab98).
-  zenit: '#3a5478', horizont: '#857c68', himmel: '#7a6a58', wolken: 0.6,
-  // Schritt 2 Luftschichten: Nebel reicht weiter, damit die Berge Form behalten und sich nach hinten aufhellen,
-  // statt als eine beige Fläche zu stehen; Dunstfarbe kühler, näher am Horizont des Renders.
-  nebel: '#8a8478', nebelNah: 60, nebelFern: 2400,
+  // Grauolives Zenit und warmer Dunst über den gestaffelten Fernrücken des Zielbilds.
+  zenit: '#62685e', horizont: '#82755e', himmel: '#7a6a58', wolken: 0.68,
+  nebel: '#736a55', nebelNah: 60, nebelFern: 2400,
   randFarbe: '#ffd29a', randStaerke: 0.45,
 };
 /** D317: bewölktes, leicht warmes Licht der Hofreferenz als eigene Messstimmung. */

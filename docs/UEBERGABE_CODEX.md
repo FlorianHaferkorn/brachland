@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-11-25
+last-reviewed: 2026-11-26
 shelf-life-days: 30
 ---
 # Übergabe M1-Sitzung → Codex (25.11.2026)
@@ -7,6 +7,10 @@ shelf-life-days: 30
 > Flo, 25.11.2026: „Committe alles, so dass Codex weitermachen kann.“ Diese Datei ist der Einstieg für die nächste
 > Sitzung. Offen/erledigt steht im Ledger (`_INDEX.md`), nicht hier. Wenn alles übernommen ist: Datei löschen und im
 > Index austragen.
+
+**Fortsetzung am 26.11.2026 (D480).** Die Felsmulde verwendet die gebackenen Scan-Büschel und die vier
+Bergrücken aus der Blender-Szene. Der Stand der Bild- und Bewegungsprüfung steht in D480 und A-46.
+Der folgende Sitzungsstand und die ursprüngliche Reihenfolge dokumentieren Claudes Übergabe vom 25.11.2026.
 
 ## 1. Wo wir stehen
 

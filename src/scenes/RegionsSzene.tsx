@@ -82,7 +82,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE, SCAN_BAEUME_AN } from '../world/echt.js';
+import { LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE, SCAN_BAEUME_AN, SCAN_BUESCHEL_AN } from '../world/echt.js';
 import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
@@ -244,6 +244,9 @@ haengeAgxLookEin(typeof location !== 'undefined'
   && ['hofziel','hofdachbruch'].includes(new URLSearchParams(location.search).get('stimmung') ?? ''), HOF_ZIELTREUE_AN);
 // D204: Nebel mit Auslauf und Höhendunst — wie der Look vor dem ersten Material einhängen.
 haengeNebelEin();
+
+/** Nur die Sonnenkamera sieht die grobe Ersatzgeometrie (three r187, WebGLShadowMap). */
+const SCHATTENHUELLEN_EBENE = 1;
 
 /** Kurve ohne Adresse: der Look des Renders (D164). */
 const KURVE_VORGABE: THREE.ToneMapping = THREE.CustomToneMapping;
@@ -2315,9 +2318,10 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
                 ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
+                : teil === 'bergruecken' ? (STIMMUNG_MESSLAUF === STIMMUNG.zielbildfels && <BauwerkFernruecken bauwerk={b} />)
                 : teil === 'boden' ? <BauwerkBoden bauwerk={b} />
                 : teil === 'schatten' ? <BauwerkSchatten bauwerk={b} />
-                : teil === 'baeume' ? (istAus('kronen') || !SCAN_BAEUME_AN ? null : <BauwerkBaeume bauwerk={b} />)
+                : teil === 'bueschel' || teil === 'baeume' ? (SCAN_BAEUME_AN && !istAus('kronen') && teil === (SCAN_BUESCHEL_AN && b.dateien.includes('bueschel') ? 'bueschel' : 'baeume') && <BauwerkBaeume bauwerk={b} teil={teil} />)
                 : teil === 'pflanzen' ? (istAus('pflanzen') ? null : <BauwerkPflanzen bauwerk={b} />)
                 : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
@@ -2338,6 +2342,29 @@ function bauwerkHoehe(b: Bauwerk, hoeheAn: (x: number, z: number) => number): nu
   return hoeheAn(b.ursprung.x + b.boden.mitte.x, b.ursprung.z - b.boden.mitte.y) - b.boden.zt;
 }
 
+/** Die vier komponierten Horizonte des Blender-Bilds stehen in ihren Szenenmetern.
+ * Außerhalb des Hofs blenden sie vor Erreichen der Kulissen in das echte Fernland über. */
+function BauwerkFernruecken({ bauwerk }: { bauwerk: Bauwerk }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'bergruecken'));
+  const material = useMemo(() => new THREE.MeshBasicMaterial({
+    vertexColors: true, toneMapped: false, fog: false, transparent: true,
+    // Der Szenenabgleich und ACES wirken im Schlussbild auch auf die gebackenen Farbtöne.
+    color: new THREE.Color(.70, .61, .53),
+  }), []);
+  const objekt = useMemo(() => {
+    const klon = scene.clone(true);
+    klon.traverse(o => { if (o instanceof THREE.Mesh) o.material = material; });
+    return klon;
+  }, [scene, material]);
+  useFrame(({ camera }) => {
+    const abstand = Math.hypot(camera.position.x - bauwerk.ursprung.x, camera.position.z - bauwerk.ursprung.z);
+    material.opacity = 1 - THREE.MathUtils.smoothstep(abstand, 55, 125);
+    objekt.visible = material.opacity > 0;
+  });
+  useEffect(() => () => material.dispose(), [material]);
+  return <primitive object={objekt} />;
+}
+
 /**
  * Boden aus dem Zielbild (D448, `tools/bodenexport.py`): Scan-Mischmaterial des Renders als Farbe, Normale und
  * Rauheit gebacken, auf einem 25-cm-Raster. Darunter schneidet `BODEN_LOCH` den Spielboden aus; die äusseren 6 m
@@ -2353,6 +2380,10 @@ function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
       o.receiveShadow = true; o.castShadow = false;
       const m = (o.material as THREE.MeshStandardMaterial).clone();
       m.alphaHash = true; m.metalness = 0;
+      if (bauwerk.name === 'felsmulde' && STIMMUNG_MESSLAUF === STIMMUNG.zielbildfels) {
+        // Im Scan-Boden sind grüne Halme und Moos gelbbraun unter dem tiefen warmen Sonnenlicht.
+        m.color.multiply(new THREE.Color(.91, 1.08, .96));
+      }
       const innen = 1 - 6 / b.radius;
       m.onBeforeCompile = sh => {
         sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>',
@@ -2362,7 +2393,7 @@ function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
     });
     klon.position.y = 0.02;
     return klon;
-  }, [scene, b.radius]);
+  }, [scene, b.radius, bauwerk.name]);
   useEffect(() => {
     // Loch: so weit, wie der Boden deckend ist (Rand 6 m bleibt über dem Spielboden)
     BODEN_LOCH.value.set(bauwerk.ursprung.x + b.mitte.x, bauwerk.ursprung.z - b.mitte.y, b.radius - 6, 0);
@@ -2371,44 +2402,81 @@ function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
   return <primitive object={objekt} />;
 }
 
-/**
- * Bäume des Zielbilds (D478, `tools/baumexport.py`): die Poly-Haven-Scans der Zielbild-Szene, Holz gekürzt, Laubkarten
- * ausgedünnt und vergrössert, als GPU-Instanzen. Ersetzt an diesem Ort die Kartenkronen (`Rahmenkronen.tsx`). Laub mit
- * Alphatest, beidseitig; der Schattenpass nimmt Karte und Alphatest mit, so fällt Licht in Flecken durch.
- */
-function BauwerkBaeume({ bauwerk }: { bauwerk: Bauwerk }) {
-  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'baeume'));
-  const objekt = useMemo(() => {
+/** Scan-Büschel fassen viele unterschiedlich geneigte Blätter auf einer Fläche zusammen.
+ * Gegen- und Streulicht kommen aus derselben Sonne wie die übrige Szene. Der Schattendurchlass
+ * wird je Büschel im Atlas gewählt und bleibt so bei Kamerabewegung ortsfest. */
+function scanBlattlicht(material: THREE.MeshStandardMaterial) {
+  material.onBeforeCompile = shader => {
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
+        normal = normalize(vNormal);`)
+      .replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
+        #if NUM_DIR_LIGHTS > 0
+          vec3 sonne = directionalLights[0].direction;
+          float ruecklicht = max(-dot(normal, sonne), 0.0);
+          float streiflicht = 1.0 - abs(dot(normal, sonne));
+          vec2 kachel = floor(vMapUv * 16.0);
+          float streuung = 0.62 + 0.26 * fract(dot(kachel, vec2(0.361, 0.723)));
+          float durchlass = streuung * (0.11 + 0.28 * ruecklicht + 0.17 * streiflicht);
+          reflectedLight.directDiffuse += diffuseColor.rgb * directionalLights[0].color * durchlass;
+        #endif`);
+  };
+  material.customProgramCacheKey = () => 'fels-scan-bueschel-licht';
+  const tiefe = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: material.map });
+  tiefe.onBeforeCompile = shader => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <alphatest_fragment>', `
+      #include <alphatest_fragment>
+      vec2 gruppe = floor(vMapUv * 16.0);
+      if (fract(0.7548777 * gruppe.x + 0.5698403 * gruppe.y) > 0.46) discard;`);
+  };
+  tiefe.customProgramCacheKey = () => 'fels-scan-bueschel-schatten';
+  return tiefe;
+}
+
+/** Die Scan-Stämme und -Kronen teilen Netze und Texturen über alle Lagen des Zielbilds. */
+function BauwerkBaeume({ bauwerk, teil }: { bauwerk: Bauwerk; teil: 'bueschel' | 'baeume' }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, teil));
+  const bueschel = teil === 'bueschel';
+  const { objekt, tiefen } = useMemo(() => {
     const klon = scene.clone(true);
-    const fertig = new Set<THREE.Material>();
+    const tiefen = new Map<THREE.Material, THREE.MeshDepthMaterial>();
     klon.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return;
-      o.castShadow = true; o.receiveShadow = true;
+      o.castShadow = true;
+      o.receiveShadow = true;
       if (o instanceof THREE.InstancedMesh) o.computeBoundingSphere();
       for (const m of (Array.isArray(o.material) ? o.material : [o.material]) as THREE.MeshStandardMaterial[]) {
-        if (fertig.has(m)) continue; fertig.add(m);
         if (m.transparent || m.alphaTest > 0 || /leaves/i.test(m.name)) {
-          m.transparent = false; m.alphaTest = Math.max(m.alphaTest, 0.5); m.depthWrite = true; m.side = THREE.DoubleSide;
+          m.transparent = false;
+          m.alphaTest = Math.max(m.alphaTest, 0.5);
+          m.depthWrite = true;
+          m.side = THREE.DoubleSide;
+          if (bueschel) {
+            const tiefe = tiefen.get(m) ?? scanBlattlicht(m);
+            tiefen.set(m, tiefe);
+            o.customDepthMaterial = tiefe;
+          }
         }
       }
     });
-    return klon;
-  }, [scene]);
+    return { objekt: klon, tiefen };
+  }, [scene, bueschel]);
+  useEffect(() => () => { for (const tiefe of tiefen.values()) tiefe.dispose(); }, [tiefen]);
   return <primitive object={objekt} />;
 }
 
 /**
  * Schattenhülle (D464, `tools/schattenhuelle.mjs`): grobe Kopie der grossen Körper, die an ihrer Stelle den Schatten
- * wirft. Im Bild unsichtbar — das Material schreibt weder Farbe noch Tiefe —, in der Schattenkarte voll da.
+ * wirft. Die eigene Ebene hält die Hülle aus Hauptbild, Tiefenpass und Spiegelung heraus.
  */
 function BauwerkSchatten({ bauwerk }: { bauwerk: Bauwerk }) {
   const { scene } = useGLTF(bauwerkPfad(bauwerk, 'schatten'));
   const objekt = useMemo(() => {
     const klon = scene.clone(true);
-    const material = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false });
     klon.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return;
-      o.material = material; o.castShadow = true; o.receiveShadow = false; o.renderOrder = -1;
+      o.layers.set(SCHATTENHUELLEN_EBENE);
+      o.castShadow = true; o.receiveShadow = false;
     });
     return klon;
   }, [scene]);
@@ -3087,6 +3155,7 @@ function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial, geheilt }: {
         castShadow shadow-mapSize={[SCHATTENKARTE.aufloesung, SCHATTENKARTE.aufloesung]}
         shadow-camera-left={-SCHATTENKARTE.halb} shadow-camera-right={SCHATTENKARTE.halb}
         shadow-camera-top={SCHATTENKARTE.halb} shadow-camera-bottom={-SCHATTENKARTE.halb}
+        shadow-camera-layers-mask={1 | (1 << SCHATTENHUELLEN_EBENE)}
         shadow-camera-far={700} shadow-bias={-0.0008}
         shadow-intensity={schatten}
       />
@@ -5356,6 +5425,7 @@ export function RegionsSzene({
       umgebung: s.umgebung, umgebungStaerke: s.umgebungStaerke,
       sonnenstand: s.sonnenstand,
       beweglicherDunst: MILBINGERLICHT_AN,
+      glattesFernlicht: LOOK_FELS_AN && STIMMUNG_MESSLAUF === STIMMUNG.zielbildfels,
     }, FERNHALB_AN ? FERN_FEIN_BIS_M : Infinity) : null),
     [fernland, welt, s],
   );
@@ -5447,9 +5517,9 @@ export function RegionsSzene({
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
       <EzBaumProbe ziel={ref} lokal={HOF_GRUEN_AN} milbinger={MILBINGERLICHT_AN && !!wiesenbereich} />
-      {LOOK_FELS_AN && !istAus('kronen') && !(SCAN_BAEUME_AN && BAUWERKE.some(b => b.dateien.includes('baeume'))) && <Suspense fallback={null}><Rahmenkronen hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} /></Suspense>}
+      {LOOK_FELS_AN && !istAus('kronen') && !(SCAN_BAEUME_AN && BAUWERKE.some(b => b.name === 'felsmulde' && (b.dateien.includes('baeume') || (SCAN_BUESCHEL_AN && b.dateien.includes('bueschel'))))) && <Suspense fallback={null}><Rahmenkronen hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} /></Suspense>}
       {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
-      <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
+      <Kontur an={konturAn(true)} felsAtmosphaere={LOOK_FELS_AN && STIMMUNG_MESSLAUF === STIMMUNG.zielbildfels} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
               bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />
       <Messung melde={onMessung} />
       </WasserUmgebung>
