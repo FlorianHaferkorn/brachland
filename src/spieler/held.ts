@@ -83,6 +83,8 @@ export function pronomen(g: Geschlecht): { er: string; sein: string } {
 /** Knochen des neuen Skeletts für Sitzpose und Waffen (UE-Mannequin). */
 export const HELD_KNOCHEN = {
   hand: 'hand_r',
+  // D429: die linke Hand — an der Fällaxt hält sie das Stielende (`gleiteAmStiel`, `src/kampf/waffenhand.ts`).
+  handL: 'hand_l',
   ol: 'thigh_l', or: 'thigh_r', ul: 'calf_l', ur: 'calf_r', fl: 'foot_l', fr: 'foot_r',
   al: 'upperarm_l', ar: 'upperarm_r', el: 'lowerarm_l', er: 'lowerarm_r',
 } as const;
@@ -113,6 +115,46 @@ export function setzeFigurSaum(farbe: THREE.ColorRepresentation, staerke: number
   FIGUR_LICHT.saumStaerke.value = staerke;
 }
 
+/** Stoffanteil, Erdsaum. Die Metallic-Karte schützt Schnallen und Beschläge. */
+function kleiderwerte(name: string): THREE.Vector2 {
+  if (name.includes('_Feet')) return new THREE.Vector2(.12, 1);
+  if (name.includes('_Legs')) return new THREE.Vector2(1, .42);
+  if (/_Belt_|_Bracer|_Pauldron/.test(name)) return new THREE.Vector2(.08, 0);
+  return new THREE.Vector2(1, 0);
+}
+
+const KLEIDER_GLSL = /* glsl */ `
+varying vec3 vKleiderPos;
+uniform vec2 uKleiderwerte;
+
+float kleiderFleck(vec3 p) {
+  p = sin(p * vec3(2.11, 2.73, 1.93) + p.yzx * vec3(.87, .56, 1.31));
+  return .5 + .5 * p.x * p.y * p.z;
+}
+`;
+
+const KLEIDER_ALTERUNG_GLSL = /* glsl */ `
+  float faser = uKleiderwerte.x;
+  float lederStoff = 1.0 - smoothstep(.06, .42, metalnessFactor);
+  float fleck = kleiderFleck(vKleiderPos * 6.3);
+  float aufgeraut = smoothstep(.46, .86, fleck * .76 + .24 * kleiderFleck(vKleiderPos * 19.0));
+  // Die eingebettete Albedo behält die Konturen von Nähten, Säumen und Schnallen.
+  vec3 getragen = diffuseColor.rgb * mix(vec3(1.10, 1.09, 1.06), vec3(.76, .78, .74), fleck);
+  getragen = mix(getragen, vec3(dot(getragen, vec3(.2126, .7152, .0722))), .16 + .13 * aufgeraut);
+  #ifdef USE_MAP
+    // Fadenkreuzung im Stoff. Vor der Subpixelgrenze ausblenden.
+    vec2 fadenuv = vMapUv * 248.0;
+    vec2 faden = cos(fadenuv * 6.2831853);
+    float fadendeckung = 1.0 - smoothstep(.22, .58, max(fwidth(fadenuv.x), fwidth(fadenuv.y)));
+    getragen *= 1.0 + faser * fadendeckung * (.034 * faden.x + .022 * faden.y + .014 * faden.x * faden.y);
+  #endif
+  // Im Modell jedes Schuhs bzw. Hosenbeins liegt der Saum am unteren Rand der Bindepose.
+  float erde = (1.0 - smoothstep(-.84, -.27 + .38 * fleck, vKleiderPos.y)) * uKleiderwerte.y;
+  vec3 staubig = mix(getragen * vec3(.78, .74, .65), vec3(.15, .107, .067), .37 + .11 * aufgeraut);
+  diffuseColor.rgb = mix(diffuseColor.rgb, mix(getragen, staubig, erde * (.50 + .48 * fleck)), lederStoff);
+  roughnessFactor = mix(roughnessFactor, max(roughnessFactor, .69 + .20 * faser + .08 * aufgeraut), lederStoff);
+`;
+
 /**
  * Figurshader (D213, ADR-0012): ein Eingriff für alle Materialien einer Gestalt.
  * - **Saum:** Fresnel an der Silhouette in der Randfarbe der Stimmung — löst die Figur im
@@ -121,19 +163,28 @@ export function setzeFigurSaum(farbe: THREE.ColorRepresentation, staerke: number
  *   Licht dringt in Haut ein und tritt hinter dem Terminator wieder aus. Ohne das wirkt Haut wie
  *   bemalter Kunststoff. Eine Näherung (Wrap-Lighting), keine Streuung.
  */
-function figurShader(mat: THREE.MeshStandardMaterial, ton: THREE.Color | null): void {
+function figurShader(mat: THREE.MeshStandardMaterial, ton: THREE.Color | null, kleid: THREE.Vector2 | null = null): void {
   if (ton) {
     const u = (mat.userData.haut ??= { value: ton.clone() }) as { value: THREE.Color };
     u.value.copy(ton);
     mat.color.set(1, 1, 1);
   }
-  if (mat.userData.figurShader) return;
-  mat.userData.figurShader = true;
   const haut = !!ton;
+  const schluessel = haut ? 'brachland-figur-haut-v1' : kleid ? 'brachland-figur-kleidung-v1' : 'brachland-figur-v1';
+  if (mat.userData.figurShader === schluessel) return;
+  mat.userData.figurShader = schluessel;
   mat.onBeforeCompile = sh => {
     sh.uniforms.uSaum = FIGUR_LICHT.saum;
     sh.uniforms.uSaumStaerke = FIGUR_LICHT.saumStaerke;
     let f = 'uniform vec3 uSaum;\nuniform float uSaumStaerke;\n' + sh.fragmentShader;
+    if (kleid) {
+      sh.uniforms.uKleiderwerte = { value: kleid };
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vKleiderPos;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvKleiderPos = position;');
+      f = f.replace('#include <common>', '#include <common>\n' + KLEIDER_GLSL)
+        .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n' + KLEIDER_ALTERUNG_GLSL);
+    }
     if (haut) {
       sh.uniforms.hautTon = mat.userData.haut;
       f = 'uniform vec3 hautTon;\n' + f.replace('#include <map_fragment>', `#include <map_fragment>
@@ -151,11 +202,11 @@ function figurShader(mat: THREE.MeshStandardMaterial, ton: THREE.Color | null): 
       #endif` : ''}
       {
         float saumKante = 1.0 - abs(dot(geometryNormal, geometryViewDir));
-        reflectedLight.indirectSpecular += uSaum * pow(saumKante, 3.0) * uSaumStaerke;
+        reflectedLight.indirectSpecular += uSaum * pow(saumKante, 3.0) * uSaumStaerke${kleid ? ' * mix(1.0, .65 - .30 * faser, lederStoff)' : ''};
       }`);
     sh.fragmentShader = f;
   };
-  mat.customProgramCacheKey = () => (haut ? 'brachland-figur-haut-v1' : 'brachland-figur-v1');
+  mat.customProgramCacheKey = () => schluessel;
   mat.needsUpdate = true;
 }
 
@@ -181,7 +232,7 @@ export function setzeFigurUmgebung(obj: THREE.Object3D, karte: THREE.Texture | n
  * Wahl auf ein geladenes Gestalt-Modell legen: Frisur/Bart sichtbar, Haut und Haar getönt. Klont
  * die Materialien beim ersten Mal — mehrere Figuren aus derselben Datei teilen sonst die Farbe.
  */
-export function legeWahlAn(obj: THREE.Object3D, w: HeldWahl): void {
+export function legeWahlAn(obj: THREE.Object3D, w: HeldWahl, mitKleiderdetail = false): void {
   const haut = hautFarbe(w.haut), haar = new THREE.Color(w.haarfarbe);
   obj.traverse(o => {
     const m = o as THREE.Mesh;
@@ -200,8 +251,9 @@ export function legeWahlAn(obj: THREE.Object3D, w: HeldWahl): void {
       const mn = mat.name;
       if (/Superhero|Regular/.test(mn)) { figurShader(mat, haut); continue; }
       if (/Hair/.test(mn)) mat.color.copy(haar);
-      else if (/Peasant|Ranger/.test(mn)) mat.color.set(1, 1, 1).lerp(new THREE.Color(w.kleidfarbe ?? '#ffffff'), w.kleidfarbe ? 0.45 : 0).multiplyScalar(w.kleidfarbe ? 1.25 : 1);
-      figurShader(mat, null);
+      const kleidung = /Peasant|Ranger/.test(mn);
+      if (kleidung) mat.color.set(1, 1, 1).lerp(new THREE.Color(w.kleidfarbe ?? '#ffffff'), w.kleidfarbe ? 0.45 : 0).multiplyScalar(w.kleidfarbe ? 1.25 : 1);
+      figurShader(mat, null, kleidung && mitKleiderdetail ? kleiderwerte(n) : null);
     }
   });
 }

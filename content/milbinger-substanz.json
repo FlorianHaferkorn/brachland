@@ -1,0 +1,22 @@
+{
+  "bbox": [47.715, 12.055, 47.751, 12.108],
+  "luftbild": "DOP20, Bayerische Vermessungsverwaltung – www.geodaten.bayern.de. Bezugsachse und Abruf wie D337.",
+  "achse": [1416.823859366637, 541.9057599998127, -0.4125419822057297, -0.910938588993664],
+  "sandkasten": { "garten": 506, "station": 133.8, "quer": 12.1, "breite": 1.92, "tiefe": 1.69 },
+  "haeuser": [
+    { "index": 410, "stufe": 1 },
+    { "index": 413, "stufe": 2 },
+    { "index": 444, "stufe": 1 },
+    { "index": 506, "stufe": 2, "dach": { "flaeche": 1, "radius": 2.62, "saat": 347506 } },
+    { "index": 507, "stufe": 1 },
+    { "index": 509, "stufe": 2, "dach": { "flaeche": 1, "radius": 2.18, "saat": 347509 } },
+    { "index": 511, "stufe": 2 },
+    { "index": 513, "stufe": 1 }
+  ],
+  "gaerten": [
+    { "haus": 509, "saum": [[122, -21], [123, -16], [121, -10], [119, -9]], "tiefe": 1.55 },
+    { "haus": 506, "saum": [[137, 7], [137, 15], [137, 24]], "tiefe": 2.15 },
+    { "haus": 511, "saum": [[109, -21], [108, -15], [106, -9]], "tiefe": 1.85 },
+    { "haus": 513, "saum": [[92, -29], [94, -22], [94, -14], [93, -7.5]], "tiefe": 2.35 }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "abwurf",
+  "name": "Abwurf",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "dauersud"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Was ein Tier fallen lässt, wenn der Befall es loslässt: Bast, Schuppe, ein Stück Kruste. Es hat nichts mehr damit zu tun und ging einfach weiter.",
+  "gewicht": 0.3
+}

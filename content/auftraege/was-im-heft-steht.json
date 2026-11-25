@@ -1,0 +1,11 @@
+{
+  "id": "was-im-heft-steht",
+  "region": "oental",
+  "geber": "dorf-alte",
+  "titel": "Was im Heft steht",
+  "text": "In der Kirche am Nordhang liegt ein Heft, in dem einer zählt wie ich. Das Zählen hat er von mir, das andere nicht. Lesen Sie die letzte Seite und sagen Sie mir, ob meine Zahl darin vorkommt. Seinen Namen brauche ich nicht zu hören.",
+  "ziel": {"art": "finde", "fragment": "opferstock"},
+  "belohnung": {"quellwasser": 1, "zunder": 1},
+  "vorher": "die-zahl-am-morgen",
+  "lohn": ["marke", "wissen"]
+}

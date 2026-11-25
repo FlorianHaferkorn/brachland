@@ -1,0 +1,13 @@
+{
+  "id": "schlussstein-stange",
+  "name": "Brechstange vom Bruch",
+  "wirkung": {
+    "art": "zugang",
+    "oeffnet": "stollenmauer"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Sechskant, ein Ende flachgeschmiedet. Der Vorarbeiter hat sie mitgenommen, damit die Mauer zubleibt.",
+  "einmalig": true,
+  "gewicht": 3.0
+}

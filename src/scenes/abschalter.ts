@@ -27,8 +27,13 @@
  */
 
 /** Gruppen, die sich abschalten lassen. */
-/** `wasser` (D267): Bach- und Teichbänder — zur Frage, welche Fläche im Bild überhaupt Wasser ist. */
-export type Gruppe = 'fels' | 'gras' | 'baeume' | 'kulisse' | 'haeuser' | 'menschen' | 'bauwerke' | 'teppich' | 'nahgras' | 'ferngras' | 'wasser';
+/** `wasser` (D267): Bach- und Teichbänder — zur Frage, welche Fläche im Bild überhaupt Wasser ist.
+ *  `becken` (D279): die Wasserbecken, die die Blender-Szene selbst mitbringt (`BauwerkWasser`, Form `becken`).
+ *  `wege` (D282): Weg-Bänder — zur Frage, ob schmale graue Keile auf der Wiese halb versunkene Wege sind.
+ *  D450 (Bildrate der Zielbild-Felsmulde, `?lookfels=1`): `pflanzen` (Gras, Kraut, Efeu des Zielbilds), `kronen`
+ *  (Rahmenkronen), `schatten` (kein Schattenwurf der Sonne — fragt, was die Schattenkarte kostet). */
+export type Gruppe = 'fels' | 'gras' | 'baeume' | 'kulisse' | 'haeuser' | 'menschen' | 'bauwerke' | 'teppich' | 'nahgras' | 'ferngras' | 'wasser' | 'becken' | 'wege'
+  | 'pflanzen' | 'kronen' | 'schatten';
 
 const AUS: ReadonlySet<string> = new Set(
   (typeof location === 'undefined'

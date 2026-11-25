@@ -23,14 +23,27 @@ GROESSE = int(ARGS[2]) if len(ARGS) > 2 else 512
 MARGIN = 24        # Pixel Bleed je UV-Insel (D159); 6 war zu wenig, das Schwarz dazwischen blutete ein
 os.makedirs(ZIEL, exist_ok=True)
 sc = bpy.context.scene
+# D448: Zielbild-Szene (`stilframes.py` Runde 4, gespeichert per `AFRAME_BLEND`) statt Szenenbau — Mauern, Steine, Felsen,
+# Moos und Streu aus Scans; Gras, Kraut und die Scan-Bäume bleiben draussen (Rahmenkronen, D446). `SZENE_ZIEL=1`.
+ZIELSZENE = os.environ.get('SZENE_ZIEL') == '1'
+ZIEL_BAU = ('Stein', 'Fels', 'Versturz', 'Kiesel', 'Balken', 'Stubben', 'Kronmoos', 'Moospolster', 'Fallaub', 'Zweig', 'Rindenstreu', 'Ast')
+if ZIELSZENE:   # Schweres vor dem Backen löschen: die Bake-Strahlen sehen sonst Millionen Halme und vier Scan-Bäume (Grafikspeicher)
+    weg = [o for o in sc.objects if o.type == 'MESH' and re.match(r'^(Baum|Wald|Gras|Kantengras|GrasW|Kantenkraut|Kraut|Nessel|Sauerklee|Ampfer|FarnW|FarnZ|Loewenzahn|Immergruen|Krongras|Kronkraut|Kronfarn|Karte_|fern_|Ruecken|Halm|Jungfichte|Strauch|Blattpflanze|Icosphere|Hofdunst|terrain)', o.name)]
+    for o in weg: bpy.data.objects.remove(o, do_unlink=True)
+    # Gelöschte Objekte geben ihre Netze erst beim Aufräumen frei (Scan-Bäume, 13 000 Pflanzen) — ohne das lief der
+    # Export bei 8 GB Speicher fünfmal in Exit 137
+    bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
+    print('ZIELSZENE entfernt', len(weg), flush=True)
 
 def ist_bau(o):
     n = o.name
+    if ZIELSZENE and o.type == 'MESH' and n.startswith(ZIEL_BAU) and not n.endswith('_Wasser'): return True
     return o.type in ('MESH', 'CURVE') and (n.startswith(('MauerA', 'MauerB', 'MauerC', 'Stuetzmauer', 'Hof', 'Becken', 'Moosblock', 'Geroell', 'Wurzel', 'Steg', 'Wehr', 'Wasserblock', 'Sturzstamm'))
             or (n.startswith(('Held', 'Weide')) and ('_Stamm' in n or '_Ast' in n or '_Anlauf' in n or '_Rute' in n))) and not n.endswith('_Wasser')
 
 def ist_gruen(o):
     n = o.name
+    if ZIELSZENE: return False   # D448: Pflanzen des Zielbilds mit ihren Scan-Texturen über `tools/pflanzenexport.py`
     return (o.type == 'MESH' and (n.startswith(('Farn', 'Efeu', 'Schilf')) or (n.startswith(('Held', 'Wald', 'Weide')) and (n.endswith('_Krone') or n.endswith('_Nadeln'))))) \
         or (o.type == 'CURVE' and n.startswith('Wald')) \
         or (o.type == 'MESH' and n.startswith('Wald') and n.endswith('_Stamm'))   # Fichtenstamm ist ein Kegelnetz, kein Kurvenobjekt — fehlte im ersten Export (Nadeln schwebten)
@@ -83,17 +96,63 @@ def backe_bild(o, mat, art, groesse, dateiname):
     if art != 'DIFFUSE': img.colorspace_settings.name = 'Non-Color'
     node = nt.nodes.new('ShaderNodeTexImage'); node.image = img; nt.nodes.active = node
     bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+    hoch = HOCH.get(o.name)   # D450: schlankes Netz, Bild vom hochaufgelösten (Relief in der Normalenkarte)
+    kw = dict(margin=MARGIN, use_clear=True)
+    if hoch is not None:
+        hoch.select_set(True); kw.update(use_selected_to_active=True, cage_extrusion=0.08, max_ray_distance=0.3)
     if art == 'DIFFUSE':
-        bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, margin=MARGIN, use_clear=True)
+        bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, **kw)
     elif art == 'ROUGHNESS':
-        bpy.ops.object.bake(type='ROUGHNESS', margin=MARGIN, use_clear=True)
+        bpy.ops.object.bake(type='ROUGHNESS', **kw)
     elif art == 'AO':
-        bpy.ops.object.bake(type='AO', margin=MARGIN, use_clear=True)
+        bpy.ops.object.bake(type='AO', **kw)
     else:
-        bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', margin=MARGIN, use_clear=True)
+        bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', **kw)
     nt.nodes.remove(node)
     img.filepath_raw = os.path.abspath(os.path.join('.cache/blender/bake', dateiname + '.png')); img.file_format = 'PNG'; img.save()
     return img
+
+HOCH = {}   # Name → hochaufgelöste Quelle (D450)
+ANTEIL_NIEDRIG = float(os.environ.get('SZENE_NIEDRIG', '0.12'))
+
+def verschiebe(o, mat, gr):
+    """D448: Verschiebung des Shaders als Geometrie. Die Mauern des Zielbilds sind grobe Körper (MauerA 6.500 Flächen),
+    das Bruchsteinrelief entsteht im Render durch adaptive Unterteilung mit echter Verschiebung — die der Export nicht
+    anwenden kann („Modifier is disabled“). Ohne sie wäre die Wand im Spiel eine bemalte Fläche. Also: Höhe (Eingang des
+    Displacement-Knotens) als Bild backen, einfach unterteilen bis ~400.000 Flächen, mit dem Bild verschieben (gleiche
+    Mitte und Stärke wie im Shader), anwenden. Danach backt die Normale nur noch das Feine (Methode BUMP)."""
+    nt = mat.node_tree
+    aus_ = next((n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output), None) or next(n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL')
+    if not aus_.inputs['Displacement'].is_linked: print('keine Verschiebung', o.name); return
+    dk = aus_.inputs['Displacement'].links[0].from_node
+    if dk.type != 'DISPLACEMENT' or not dk.inputs['Height'].is_linked: print('Verschiebung unbekannt', o.name, dk.type); return
+    quelle = dk.inputs['Height'].links[0].from_socket
+    mitte, staerke = dk.inputs['Midlevel'].default_value, dk.inputs['Scale'].default_value
+    alt_surf = aus_.inputs['Surface'].links[0].from_socket if aus_.inputs['Surface'].is_linked else None
+    em = nt.nodes.new('ShaderNodeEmission'); nt.links.new(quelle, em.inputs['Color']); nt.links.new(em.outputs[0], aus_.inputs['Surface'])
+    img = bpy.data.images.new(o.name + '_hoehe', gr, gr, alpha=False, float_buffer=True); img.colorspace_settings.name = 'Non-Color'
+    node = nt.nodes.new('ShaderNodeTexImage'); node.image = img; nt.nodes.active = node
+    bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+    methode = mat.displacement_method; mat.displacement_method = 'BUMP'
+    bpy.ops.object.bake(type='EMIT', margin=MARGIN, use_clear=True)
+    nt.nodes.remove(node); nt.nodes.remove(em)
+    if alt_surf is not None: nt.links.new(alt_surf, aus_.inputs['Surface'])
+    stufen = max(0, min(4, int(math.log(max(1.0, 400000 / max(1, len(o.data.polygons))), 4))))
+    tex = bpy.data.textures.new(o.name + '_hoehe', 'IMAGE'); tex.image = img; tex.extension = 'EXTEND'
+    if stufen:
+        u = o.modifiers.new('Unterteilen', 'SUBSURF'); u.subdivision_type = 'SIMPLE'; u.levels = stufen; u.render_levels = stufen
+        bpy.ops.object.modifier_apply(modifier=u.name)
+    d = o.modifiers.new('Relief', 'DISPLACE'); d.texture = tex; d.texture_coords = 'UV'; d.mid_level = mitte; d.strength = staerke
+    bpy.ops.object.modifier_apply(modifier=d.name)
+    mat.displacement_method = 'BUMP'
+    print('verschoben', o.name, 'Stufen', stufen, len(o.data.polygons), 'Flächen, Stärke', round(staerke, 3), flush=True)
+    # D450: Bildrate. Das verschobene Netz (0,1–0,6 Mio. Flächen je Mauer, zusammen 2,5 Mio., im Schattenpass doppelt)
+    # bleibt nur Quelle; ins Spiel geht eine auf ANTEIL_NIEDRIG gekürzte Fassung, das Relief backt als Normale hinein.
+    hoch = o.copy(); hoch.data = o.data.copy(); hoch.name = o.name + '_hoch'; sc.collection.objects.link(hoch); HOCH[o.name] = hoch
+    bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+    dz = o.modifiers.new('Niedrig', 'DECIMATE'); dz.ratio = ANTEIL_NIEDRIG; bpy.ops.object.modifier_apply(modifier=dz.name)
+    print('niedrig', o.name, len(o.data.polygons), 'Flächen', flush=True)
+    bpy.data.images.remove(img); bpy.data.textures.remove(tex)
 
 def textur_material(name, farbe, rauheit, normale):
     m = bpy.data.materials.new(name); m.use_nodes = True; nt = m.node_tree
@@ -149,9 +208,41 @@ def gruppe_von(name):
     if name.startswith('Wurzel'): return 'Wurzeln'
     if name.startswith('Moosblock'): return 'Moosbloecke'
     if name.startswith('Becken') and not name.endswith('_Wasser'): return 'Becken'
+    if ZIELSZENE and re.match(r'^(Fels|FelsR)\d+$', name): return name   # D448: Scan-Felsen einzeln (eigenes Material, Relief)
+    if ZIELSZENE:   # alle Kleinteile je Gattung zu einem Objekt (900 Moospolster backt niemand einzeln)
+        for p_ in ZIEL_BAU + ('MauerA_Kronstein', 'MauerB_Kronstein', 'MauerC_Kronstein', 'Stuetzmauer_Kronstein', 'MauerA_Schutt', 'MauerB_Schutt', 'MauerC_Schutt'):
+            if name.startswith(p_): return p_
     return name
 
 roh = [o for o in list(sc.objects) if ist_bau(o)]
+if ZIELSZENE:
+    # D448: Flächenbudget je Gattung. Die Zielbild-Szene hat an der Ruine 5,4 Mio. Flächen (Rindenstreu allein 1,5 Mio.,
+    # Versturz 0,54 Mio.) — das Zusammenfügen sprengte den Speicher (Exit 137, dreimal), und im Spiel wäre es zu viel.
+    # Die Mauern behalten ihre volle Auflösung (Flo: „die Wand muss 1:1 dem Zielbild entsprechen“), Kleinteile werden
+    # auf das Budget reduziert (Decimate, Kollaps). Netze sind geteilt: je Netz einmal, als Kopie für alle Nutzer.
+    # D450 (Bildrate, Ziel 30 B/s am M1): Budgets gegenüber D448 etwa gedrittelt; die Scan-Normalen tragen das Feine
+    BUDGET = {'Rindenstreu': 30000, 'Wurzel': 30000, 'Wurzelstock': 15000, 'Versturz': 45000, 'Becken': 45000,
+              'Zweig': 20000, 'Stein': 45000, 'Kiesel': 15000, 'Ast': 10000, 'Stubben': 10000, 'Kronmoos': 15000}
+    for m_ in ('MauerA', 'MauerB', 'MauerC', 'Stuetzmauer'):   # Schutt am Fuss: 5,9 Mio. Flächen je Mauer (Scan-Geröll)
+        BUDGET[m_ + '_Schutt'] = 25000; BUDGET[m_ + '_Kronstein'] = 25000
+    gattung = lambda n: re.match(r'^[A-Za-z]+(_Schutt|_Kronstein)?', n).group(0)
+    summe = {}
+    for o in roh:
+        k = gattung(o.name)
+        if o.type == 'MESH': summe[k] = summe.get(k, 0) + len(o.data.polygons)
+    neu = {}
+    for o in roh:
+        k = gattung(o.name)
+        if o.type != 'MESH' or k not in BUDGET or summe[k] <= BUDGET[k]: continue
+        if o.data.name not in neu:
+            kopie = o.data.copy(); tmp = bpy.data.objects.new('_dez', kopie); sc.collection.objects.link(tmp)
+            mod = tmp.modifiers.new('Dez', 'DECIMATE'); mod.ratio = BUDGET[k] / summe[k]
+            bpy.ops.object.select_all(action='DESELECT'); tmp.select_set(True); bpy.context.view_layer.objects.active = tmp
+            bpy.ops.object.modifier_apply(modifier='Dez')
+            neu[o.data.name] = tmp.data; bpy.data.objects.remove(tmp, do_unlink=True)
+        o.data = neu[o.data.name]
+    bpy.data.orphans_purge(do_local_ids=True, do_linked_ids=True, do_recursive=True)
+    print('ZIELSZENE reduziert', {k: '%d → %d' % (v, BUDGET[k]) for k, v in summe.items() if k in BUDGET and v > BUDGET[k]}, flush=True)
 gruppen = {}
 for o in roh:
     o = zu_mesh(o)
@@ -161,8 +252,17 @@ for o in roh:
         except Exception as e: print('Modifikator', o.name, m.name, e)
     if len(o.data.polygons) == 0 or not o.data.materials: continue
     gruppen.setdefault(gruppe_von(o.name), []).append(o)
+if ZIELSZENE:
+    import resource
+    for g_, os_ in gruppen.items():
+        print('GRUPPE', g_, len(os_), 'Obj', sum(len(x.data.polygons) for x in os_), 'Fl', len({x.data.name for x in os_}), 'Netze',
+              '%.0f MB' % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20), flush=True)
+
 zusammen = []
 for gname, objs in gruppen.items():
+    if ZIELSZENE:   # geteilte Netze (Scan-Vorlagen) vor dem Zusammenfügen lösen — sonst wächst das geteilte Netz in jede
+        for x in objs:   # spätere Gruppe mit (gemessen: Becken 56,7 Mio. Flächen, Exit 137)
+            if x.data.users > 1: x.data = x.data.copy()
     if len(objs) > 1:
         # Materialien vorher vereinheitlichen: gleiche Gattung, ein Material — sonst hat das Ergebnis n Slots
         bpy.ops.object.select_all(action='DESELECT')
@@ -175,12 +275,22 @@ for gname, objs in gruppen.items():
     else:
         o = objs[0]; o.name = gname
     zusammen.append(o)
+    if ZIELSZENE: print('VEREINT', gname, len(objs), len(o.data.polygons), 'Fl, ausgewählt waren', len(bpy.context.selected_objects),
+                        '%.0f MB' % (resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20), flush=True)
+if ZIELSZENE and os.environ.get('SZENE_NURGRUPPEN') == '1': sys.exit(0)
 bauten = []
 for o in zusammen:
     gr = GROESSE * 4 if o.name == 'WaldHolz' else GROESSE * 2 if o.name.startswith(('MauerA', 'MauerB', 'Stuetzmauer', 'Hof', 'Geroell', 'Moosbloecke', 'Wurzeln')) or o.name.endswith('Holz') else GROESSE
     if not o.data.materials: continue
     mat = o.data.materials[0].copy(); o.data.materials[0] = mat
     uv(o)
+    if ZIELSZENE:   # D448: nur das gebackene Objekt rendern — sonst lädt Cycles je Bake alle Scans der Szene (8 GB, Exit 137)
+        for a in sc.objects: a.hide_render = a is not o
+        print('backe', o.name, len(o.data.polygons), gr, flush=True)
+        if re.match(r'^(MauerA|MauerB|MauerC|Stuetzmauer)(_Bogen)?$|^(Fels|FelsR)\d+$|^(Hof|Balken)$', o.name): verschiebe(o, mat, gr)
+        # Übrige Scans: Verschiebung nur als Relief in die Normale. Mit BOTH auf dem groben (oder gekürzten) Netz verschob der
+        # Bake die Ecken selbst und lieferte schwarzblaue Facetten (Probe 1: Steine am Becken)
+        mat.displacement_method = 'BUMP'
     f = backe_bild(o, mat, 'DIFFUSE', gr, o.name + '_farbe')
     # AO in die Grundfarbe multiplizieren: die Mikroverdeckung in Fugen und Kerben, die der
     # SSAO-Pass bei einem Pixel Breite nicht mehr aufloest (Reichweite oben, D159)
@@ -199,6 +309,7 @@ for o in zusammen:
         print('AO-Multiplikation', o.name, e)
     r = backe_bild(o, mat, 'ROUGHNESS', gr // 2, o.name + '_rauheit')
     n = backe_bild(o, mat, 'NORMAL', gr, o.name + '_normale')
+    if o.name in HOCH: bpy.data.objects.remove(HOCH.pop(o.name), do_unlink=True)
     o.data.materials.clear(); o.data.materials.append(textur_material(o.name + '_tex', f, r, n))
     bauten.append(o); print('gebacken', o.name, gr, '%.0f s' % (time.time() - t0))
 gruen = []
@@ -218,6 +329,8 @@ if staemme:
     while len(o.data.materials) > 1: o.data.materials.pop(index=len(o.data.materials) - 1)
     roh_gruen.append(o)
 for o in roh_gruen:
+    if ZIELSZENE:
+        for a in sc.objects: a.hide_render = a is not o
     backe_vertexfarbe(o, o.data.materials[0]); gruen.append(o); print('vertexfarbe', o.name, len(o.data.vertices))
 # Waldkronen zu einem Netz je Art (Laub / Nadeln): 180 Objekte waeren 180 Aufrufe je Bild
 for art, endung in (('WaldLaub', '_Krone'), ('WaldNadeln', '_Nadeln')):
@@ -230,7 +343,8 @@ for art, endung in (('WaldLaub', '_Krone'), ('WaldNadeln', '_Nadeln')):
         gruen = [g for g in gruen if g not in teile] + [o]
 wasser = [o for o in sc.objects if ist_wasser(o)]
 for o in wasser: o.data.materials.clear()
-meta = json.load(open('.cache/blender/terrain.json'))
+meta = json.load(open(os.environ.get('SZENE_TERRAIN', '.cache/blender/terrain.json')))
+for a in sc.objects: a.hide_render = False
 if bauten: exportiere(bauten, os.path.abspath(os.path.join(ZIEL, NAME + '-bauten.glb')))
 if gruen: exportiere(gruen, os.path.abspath(os.path.join(ZIEL, NAME + '-gruen.glb')))
 if wasser: exportiere(wasser, os.path.abspath(os.path.join(ZIEL, NAME + '-wasser.glb')))

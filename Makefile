@@ -1,6 +1,6 @@
 # Single-Entry-Gate (claude-repo-kit). `make check` MUSS grün sein vor Commit/PR.
 # Der pre-commit-Hook ruft dieses Target automatisch.
-.PHONY: check check-index ledger-ids test typecheck validate quality geometrie roi-check install dev build preview help
+.PHONY: check check-index ledger-ids test typecheck validate quality geometrie massstab roi-check install dev build preview ort help
 
 PY := $(shell command -v python3 2>/dev/null || command -v python)
 
@@ -19,7 +19,7 @@ help:   ## Verfügbare Targets
 # Befunde behoben sind." Sie sind behoben — 0 Blocker bei 2.033 Gebäuden, 87.052
 # Wasservertices und 23 Marken, Grundgesamtheit. Es prüft, was kein anderes Tor
 # prüft: dass Geometrie richtig in der Welt sitzt. Laufzeit rund 2 Minuten.
-check: check-index ledger-ids typecheck test validate quality geometrie   ## Vollständiges Gate vor jedem Commit
+check: check-index ledger-ids typecheck test validate quality geometrie massstab   ## Vollständiges Gate vor jedem Commit
 	@echo "✓ make check grün"
 
 check-index:   ## Doku-Drift-Gate strict (blockt {{…}}-Stubs, tote Pfade, fehlende Register)
@@ -44,6 +44,10 @@ quality:   ## Qualitätstor — Kreatur-, Regions-, Balance- und Asset-Budgets
 	@test -d node_modules || { echo "⏭  node_modules fehlt — 'make install' zuerst (übersprungen)"; exit 0; }
 	@npm run --silent quality
 
+massstab:   ## Maßstab-Tor (D352) — gebaute Geometrie gegen reale Maße aus content/massstab.json
+	@test -d node_modules || { echo "⏭  node_modules fehlt — 'make install' zuerst (übersprungen)"; exit 0; }
+	@npm run --silent massstab
+
 geometrie:   ## Geometrie-Tor (ADR-0005 W1/W3/W4/W5) — nichts schwebt, nichts versinkt, nichts ist offen
 	@test -d node_modules || { echo "⏭  node_modules fehlt — 'make install' zuerst (übersprungen)"; exit 0; }
 	@npm run --silent geometrie
@@ -64,3 +68,10 @@ build:   ## Produktionsbuild
 
 preview:   ## Produktionsbuild lokal prüfen
 	@npm run preview
+
+# ── Verfahren Ort für Ort (D459, docs/VERFAHREN_ORT.md) ──────────────────
+# make ort ORT=felsmulde            alle Schritte mit ausgefüllten Befehlen
+# make ort ORT=felsmulde SCHRITT=4  ein Schritt;  D=D460 setzt den Bildordner .cache/bilder/D460/
+ort:   ## Verfahren Ort für Ort: Schritte und Befehle für ORT=<id> [SCHRITT=<n>] [D=Dxxx]
+	@test -n "$(ORT)" || { echo "Aufruf: make ort ORT=<id> [SCHRITT=<n>] [D=Dxxx] — Akten: tools/ort/"; exit 2; }
+	@npx tsx tools/ortverfahren.ts $(ORT) $(if $(SCHRITT),schritt $(SCHRITT),plan) $(if $(D),$(D),Dxxx)

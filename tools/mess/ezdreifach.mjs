@@ -1,6 +1,6 @@
 /**
  * Deterministischer Dreifach-LOD-Wechsel im echten, spielbaren Renderer (D254).
- * node tools/mess/ezdreifach.mjs <neuer-name>
+ * node tools/mess/ezdreifach.mjs <neuer-name> [url-parameter]
  * Preview auf 127.0.0.1:4173. Eine temporaere, zusaetzliche Bauminstanz wird in
  * der laufenden Szene erzeugt und per Mesh-Austausch schnell umgeschaltet.
  * Original-Spielstand und Quelldateien bleiben unberuehrt. Ausgabe ist append-only.
@@ -8,7 +8,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { playwright } from './pw.mjs';
 
-const [name] = process.argv.slice(2);
+const [name, extra = ''] = process.argv.slice(2);
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
 const ziel = `.cache/mess/${name}`;
 if (existsSync(ziel)) throw new Error(`Ausgabe existiert bereits: ${ziel}`);
@@ -22,7 +22,9 @@ const fehler = [], abschnitte = [];
 seite.on('pageerror', e => fehler.push(String(e)));
 seite.on('console', m => { if (m.type() === 'error') fehler.push(m.text()); });
 try {
-  await seite.goto('http://127.0.0.1:4173/?absetzen=0,0,310&zeit=0.26&kontur=0&ezbaum=1&ezdiagnose=1', { waitUntil: 'domcontentloaded' });
+  const parameter = new URLSearchParams('absetzen=0,0,310&zeit=0.26&kontur=0&ezbaum=1&ezdiagnose=1');
+  for (const [k, v] of new URLSearchParams(extra)) parameter.set(k, v);
+  await seite.goto(`http://127.0.0.1:4173/?${parameter}`, { waitUntil: 'domcontentloaded' });
   await seite.waitForSelector('button[aria-label="Menü"]', { timeout: 240000 });
   await seite.waitForFunction(() => document.body.textContent.includes('Ladezeit') && window.__szene?.userData.ezKamera, undefined, { timeout: 120000 });
   await seite.waitForTimeout(12000);

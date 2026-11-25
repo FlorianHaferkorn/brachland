@@ -6,5 +6,7 @@
   },
   "imKampf": true,
   "beuteChance": 0.08,
-  "beschreibung": "Unbefallene Sporenkultur. Verdrängt, was sich eingenistet hat."
+  "beschreibung": "Unbefallene Sporenkultur. Verdrängt, was sich eingenistet hat.",
+  "gewicht": 0.4,
+  "traglast": 3
 }

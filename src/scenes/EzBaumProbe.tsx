@@ -6,12 +6,14 @@ import type { Tree } from '@dgreenheck/ez-tree';
 import { blenderBaum } from '../world/props.js';
 import { EZ_BLEND_DAUER, EZ_STUFEN, ezIntervall, ezWechsel } from './ezlod.js';
 import type { EzIntervall, EzVerlauf } from './ezlod.js';
-import { ergaenzeEzLaublicht } from '../world/ezlaubmaterial.js';
+import { ergaenzeEzLaublicht, ergaenzeEzRinde, bewahreEzBlattschatten, beruhigeEzBlattkante } from '../world/ezlaubmaterial.js';
+import { getLeafTexture, warteEzBlattkarten } from '../world/eztexturen.js';
+import { HOF_BILDSPITZEN_AN, HOF_GRUEN_AN, HOF_SILHOUETTE_AN, BLATTRUHE_AN, BLATTVERLAUF_AN, MSAA } from '../world/echt.js';
 
 type Stufe = 'nah' | 'mittel' | 'fern';
 type BaumArt = 'nadelbaum' | 'laubbaum';
 type GeometriePaar = { stamm: THREE.BufferGeometry; laub: THREE.BufferGeometry };
-type BaumSatz = { baum: Tree; hoehe: number; tiefe: THREE.MeshDepthMaterial; stammTiefe: THREE.MeshDepthMaterial; stufen: Record<Stufe, GeometriePaar> };
+type BaumSatz = { baum: Tree; hoehe: number; milbinger: boolean; tiefe: THREE.MeshDepthMaterial; stammTiefe: THREE.MeshDepthMaterial; stufen: Record<Stufe, GeometriePaar> };
 type Ersatz = {
   original: THREE.InstancedMesh; stamm: THREE.InstancedMesh; laub: THREE.InstancedMesh;
   version: number; farbversion: number; anzahl: number; welt: THREE.Matrix4;
@@ -46,7 +48,25 @@ function baumHistorie(e: Historie): Historie {
 // EZ-Vorbereitung muessen ihre Refs bereits beim Anhaengen unsichtbar sein, damit
 // sie nicht neben einem noch vorhandenen Ersatz beobachtet oder gezeichnet werden.
 let ezBereit = false;
-export function istEzProbeBereit(): boolean { return ezBereit; }
+let ezNurHof = false;
+/** Lokale EZ-Proben dürfen die übrigen Originalgruppen beim Montieren nicht ausblenden. */
+export function istEzProbeBereit(hofBaum = false): boolean { return ezBereit && (!ezNurHof || hofBaum); }
+const EZ_VARIANTEN = 4;
+
+/** Eine zurückgestellte Originalform wird erst beim sichtbaren Rückfall gebaut. */
+function zeigeOriginal(o: THREE.InstancedMesh): void {
+  if (HOF_BILDSPITZEN_AN && o.userData.ezOriginalGeometrie) {
+    if (!o.parent || !o.count) return;
+    o.geometry = o.userData.ezOriginalGeometrie() as THREE.BufferGeometry;
+    o.computeBoundingSphere();
+    delete o.userData.ezOriginalGeometrie;
+  }
+  o.visible = true;
+}
+
+export function uebernimmtEzVariante(variante: number, hofBaum: boolean): boolean {
+  return Number.isInteger(variante) && variante >= 0 && variante < EZ_VARIANTEN && istEzProbeBereit(hofBaum);
+}
 
 // Die zwei Farb-/Tiefenpasses erhalten exakt dieselbe Verschiebung. Der eigene
 // EZ-Shader ersetzt project_vertex und unterstuetzt keine Instanzmatrix.
@@ -144,7 +164,29 @@ function stammStufe(quelle: THREE.BufferGeometry, anteil: number, vereinfacher: 
   return kopie;
 }
 
-export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | null> }) {
+/** Gleiche Helligkeit für beide Karten eines Blattbüschels und über alle LOD-Stufen. */
+function setzeKronentiefe(baum: Tree): void {
+  const geo = baum.leavesMesh.geometry;
+  geo.computeBoundingBox();
+  const mitte = geo.boundingBox!.getCenter(new THREE.Vector3());
+  const breite = geo.boundingBox!.getSize(new THREE.Vector3());
+  const position = geo.getAttribute('position'), werte = new Float32Array(position.count);
+  if (position.count % 8 !== 0) throw new Error('EZ-Tree: Kronentiefe erwartet zwei Karten je Büschel.');
+  for (let i = 0; i < position.count; i += 8) {
+    let x = 0, y = 0, z = 0;
+    for (let v = i; v < i + 8; v++) { x += position.getX(v); y += position.getY(v); z += position.getZ(v); }
+    const radius = Math.hypot((x / 8 - mitte.x) / breite.x, (z / 8 - mitte.z) / breite.z);
+    const kronenrand = THREE.MathUtils.smoothstep(radius, .10, .43);
+    const oberlicht = THREE.MathUtils.smoothstep((y / 8 - mitte.y) / breite.y, -.29, .35);
+    const saat = (Math.imul(i + baum.options.seed, 0x45d9f3b) >>> 0) / 0x100000000;
+    werte.fill(.65 + .19 * kronenrand + .15 * oberlicht + .08 * saat, i, i + 8);
+  }
+  geo.setAttribute('aEzKronentiefe', new THREE.BufferAttribute(werte, 1));
+}
+
+export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
+  ziel: React.RefObject<THREE.Object3D | null>; lokal?: boolean; milbinger?: boolean;
+}) {
   const { scene, camera } = useThree();
   const saetze = useRef<Map<string, BaumSatz> | null>(null);
   const paare = useRef(new Map<THREE.InstancedMesh, Ersatz>());
@@ -161,7 +203,11 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
   const blickmatrix = useMemo(() => new THREE.Matrix4(), []);
   const kameraWelt = useMemo(() => new THREE.Vector3(), []);
   const baumKugel = useMemo(() => new THREE.Sphere(new THREE.Vector3(), BAUM_SICHTRADIUS), []);
-  const aktiv = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1';
+  const globalAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1';
+  const hofAn = lokal ?? HOF_GRUEN_AN;
+  const nurHof = hofAn && !globalAn;
+  const ortsKulisse = milbinger && nurHof;
+  const aktiv = globalAn || hofAn;
   const diagnose = useMemo<Diagnose | null>(() => typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezdiagnose') === '1'
     ? { ereignisse: [], naechster: 0, gesamt: 0 } : null, []);
   const diagnoseBild = useRef(0);
@@ -176,39 +222,82 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
     void Promise.all([import('@dgreenheck/ez-tree'), import('meshoptimizer/simplifier')]).then(async ([ez, meshopt]) => {
       await meshopt.MeshoptSimplifier.ready;
       if (beendet) return;
+      if (HOF_GRUEN_AN) {
+        getLeafTexture('oak'); getLeafTexture('pine');
+        await warteEzBlattkarten();
+        if (beendet) return;
+      }
       const alle = new Map<string, BaumSatz>();
-      for (const art of ['nadelbaum', 'laubbaum'] as const) for (let variante = 0; variante < 4; variante++) {
+      for (const ortsVariante of ortsKulisse ? [false, true] : [false])
+        for (const art of ['nadelbaum', 'laubbaum'] as const) for (let variante = 0; variante < EZ_VARIANTEN; variante++) {
         const baum = new ez.Tree();
-        baum.loadPreset(art === 'nadelbaum' ? 'Pine Medium' : 'Oak Medium');
-        if (variante) { baum.options.seed += variante * 137; baum.generate(); }
+        const laubform = ortsVariante ? ['Oak Medium', 'Ash Medium', 'Oak Medium', 'Aspen Medium'][variante] : 'Oak Medium';
+        baum.loadPreset(art === 'nadelbaum' ? 'Pine Medium' : laubform);
+        const hofKulisse = HOF_SILHOUETTE_AN && nurHof && !ortsVariante;
+        const breiteKrone = hofKulisse && art === 'laubbaum';
+        if (breiteKrone) {
+          // Gleiche Anzahl von Ästen und Blattkarten. Die unteren Äste reichen weiter aus.
+          baum.options.branch.start[1] *= 0.86;
+          baum.options.branch.length[1] *= 1.24;
+          baum.options.branch.length[2] *= 1.10;
+          baum.options.leaves.size *= 1.08;
+          baum.options.leaves.sizeVariance *= 0.79;
+        }
+        if (ortsVariante) {
+          const nadeln = art === 'nadelbaum';
+          baum.options.leaves.size *= nadeln ? .88 : .74;
+          baum.options.leaves.sizeVariance *= .82;
+          baum.options.leaves.count = Math.round(baum.options.leaves.count * (nadeln ? 1.12 : variante === 3 ? 1.65 : 1.28));
+          if (!nadeln && variante === 1) baum.options.branch.length[1] *= .78;
+        }
+        if (variante || breiteKrone || ortsVariante) { baum.options.seed += variante * 137; baum.generate(); }
         const material = baum.leavesMesh.material;
         if (Array.isArray(material)) throw new Error('EZ-Baumprobe erwartet ein Laubmaterial.');
         const laub = material as THREE.MeshPhongMaterial;
+        // Fein aufgelöste Kartennormalen tragen keine verlässlich gefilterten Glanzspitzen.
+        if (BLATTVERLAUF_AN) laub.specular.setRGB(0, 0, 0);
+        // MSAA kann die fotografische Blattkante nur mit Sample-Deckung glätten.
+        // Die nicht multisampelte Schattenkarte behält ihren harten Alpha-Test.
+        laub.alphaToCoverage = BLATTRUHE_AN && MSAA > 0;
         const tiefe = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking,
           map: laub.map, alphaTest: laub.alphaTest, side: laub.side });
         windEinbauen(laub, windZeit); windEinbauen(tiefe, windZeit);
         blendeEinbauen(laub, windZeit); blendeEinbauen(tiefe, windZeit);
-        ergaenzeEzLaublicht(laub);
+        ergaenzeEzLaublicht(laub, BLATTVERLAUF_AN, hofKulisse ? art : undefined, ortsVariante);
+        if (laub.alphaToCoverage) beruhigeEzBlattkante(laub);
         const stammMaterial = baum.branchesMesh.material;
         if (Array.isArray(stammMaterial)) throw new Error('EZ-Baumprobe erwartet ein Stammmaterial.');
+        if (ortsVariante && stammMaterial instanceof THREE.MeshPhongMaterial) {
+          stammMaterial.color.set(art === 'nadelbaum' ? '#ac9e8e' : '#b8ac97');
+          ergaenzeEzRinde(stammMaterial);
+        }
+        if (ortsVariante) setzeKronentiefe(baum);
         blendeEinbauen(stammMaterial, windZeit);
         const stammTiefe = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
         blendeEinbauen(stammTiefe, windZeit);
         const box = new THREE.Box3().setFromObject(baum);
         const nah = { stamm: baum.branchesMesh.geometry, laub: baum.leavesMesh.geometry };
+        if (HOF_BILDSPITZEN_AN) {
+          // Die Stufen ändern nur die Indizes. Three kopiert beim Klonen dieselbe
+          // Sphäre, die sonst jede Ersatzgruppe aus allen Vertices ermittelt.
+          nah.stamm.computeBoundingSphere();
+          nah.laub.computeBoundingSphere();
+        }
         const mittel = { stamm: stammStufe(nah.stamm, 0.30, meshopt.MeshoptSimplifier), laub: laubStufe(nah.laub, 0.50) };
         const fern = { stamm: stammStufe(nah.stamm, 0.025, meshopt.MeshoptSimplifier), laub: laubStufe(nah.laub, 0.05) };
-        alle.set(`${art}:${variante}`, { baum, hoehe: box.max.y - box.min.y, tiefe, stammTiefe, stufen: { nah, mittel, fern } });
+        const schluessel = `${ortsVariante ? 'milbinger:' : ''}${art}:${variante}`;
+        alle.set(schluessel, { baum, hoehe: box.max.y - box.min.y, milbinger: ortsVariante, tiefe, stammTiefe, stufen: { nah, mittel, fern } });
       }
-      if (!beendet) { saetze.current = alle; ezBereit = true; }
+      if (!beendet) { saetze.current = alle; ezNurHof = nurHof; ezBereit = true; }
     }).catch(fehler => console.error('EZ-Baumprobe:', fehler));
     return () => {
       beendet = true;
       ezBereit = false;
+      ezNurHof = false;
       if (scene.userData.ezKamera === camera) delete scene.userData.ezKamera;
       if (diagnose && scene.userData.ezDiagnose === diagnose) delete scene.userData.ezDiagnose;
       diagnoseEntfernt.current.clear();
-      for (const p of paare.current.values()) { p.original.visible = true; scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); }
+      for (const p of paare.current.values()) { zeigeOriginal(p.original); scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); }
       for (const p of uebergaenge.current.values()) { scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); }
       for (const p of wartendeMeshes.current.values()) { scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); }
       wartendeMeshes.current.clear();
@@ -223,7 +312,7 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
       }
       saetze.current = null;
     };
-  }, [aktiv, camera, diagnose, scene, windZeit]);
+  }, [aktiv, nurHof, ortsKulisse, camera, diagnose, scene, windZeit]);
 
   useFrame((_, dt) => {
     if (!aktiv || !saetze.current || !ziel.current) return;
@@ -236,11 +325,12 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
     const kandidaten: { original: THREE.InstancedMesh; art: BaumArt; variante: number; stufe: Stufe; satz: BaumSatz }[] = [];
     scene.traverse(o => {
       if (!(o instanceof THREE.InstancedMesh) || !o.name.startsWith('baum:') || !o.count || !o.instanceColor) return;
+      if (nurHof && o.userData.hofGruen !== true) return;
       const [, rohArt, rohVariante, rohStufe] = o.name.split(':');
       if ((rohArt !== 'nadelbaum' && rohArt !== 'laubbaum') ||
           (rohStufe !== 'nah' && rohStufe !== 'mittel' && rohStufe !== 'fern')) return;
       const variante = Number(rohVariante);
-      const satz = saetze.current?.get(`${rohArt}:${variante}`);
+      const satz = saetze.current?.get(`${ortsKulisse && o.userData.milbingerBaum === true ? 'milbinger:' : ''}${rohArt}:${variante}`);
       if (satz) kandidaten.push({ original: o, art: rohArt, variante, stufe: rohStufe, satz });
     });
     let geaendert = false;
@@ -250,7 +340,7 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
     const behalten = new Set(kandidaten.map(k => k.original));
     for (const [o, p] of paare.current) if (!behalten.has(o)) {
       for (const e of p.eintraege) { entfernteIds.add(e.id); diagnoseGrund?.set(e.id, 'gruppe-entfernt'); }
-      o.visible = true; scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); paare.current.delete(o); geaendert = true;
+      zeigeOriginal(o); scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); paare.current.delete(o); geaendert = true;
     }
     for (const { original: o, art, variante, stufe, satz } of kandidaten) {
       let p = paare.current.get(o);
@@ -274,7 +364,9 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
         stamm.name = `ezbaum:${art}:${variante}:${stufe}`;
         laub.name = `ezlaub:${art}:${variante}:${stufe}`;
         stamm.userData.ezQuelle = o.name;
+        if (satz.milbinger) { stamm.userData.ezMilbinger = true; laub.userData.ezMilbinger = true; }
         laub.customDepthMaterial = satz.tiefe; stamm.customDepthMaterial = satz.stammTiefe;
+        bewahreEzBlattschatten(laub as THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshPhongMaterial>);
         stamm.castShadow = o.castShadow; laub.castShadow = o.castShadow;
         stamm.receiveShadow = o.receiveShadow; laub.receiveShadow = o.receiveShadow;
         stamm.frustumCulled = o.frustumCulled; laub.frustumCulled = o.frustumCulled;
@@ -433,6 +525,7 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
           stamm.castShadow = e.schatten; laub.castShadow = e.schatten;
           stamm.receiveShadow = e.empfaengt; laub.receiveShadow = e.empfaengt;
           laub.customDepthMaterial = e.satz.tiefe; stamm.customDepthMaterial = e.satz.stammTiefe;
+          bewahreEzBlattschatten(laub as THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshPhongMaterial>);
           p = { stamm, laub, kapazitaet, stammBlende: stammGeo.blende, laubBlende: laubGeo.blende,
             stammIntervall: stammGeo.intervall, laubIntervall: laubGeo.intervall };
           wartendeMeshes.current.set(id, p); scene.add(stamm, laub);
@@ -484,6 +577,7 @@ export function EzBaumProbe({ ziel }: { ziel: React.RefObject<THREE.Object3D | n
         stamm.castShadow = e.schatten; laub.castShadow = e.schatten;
         stamm.receiveShadow = e.empfaengt; laub.receiveShadow = e.empfaengt;
         laub.customDepthMaterial = e.satz.tiefe; stamm.customDepthMaterial = e.satz.stammTiefe;
+        bewahreEzBlattschatten(laub as THREE.InstancedMesh<THREE.BufferGeometry, THREE.MeshPhongMaterial>);
         p = { stamm, laub, kapazitaet, stammBlende: stammGeo.blende, laubBlende: laubGeo.blende,
             stammIntervall: stammGeo.intervall, laubIntervall: laubGeo.intervall };
         uebergaenge.current.set(id, p); scene.add(stamm, laub);

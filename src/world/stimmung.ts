@@ -26,6 +26,41 @@ import { PALETTE } from './palette.js';
  * ist, kommt nicht ins Bild — die Signalfarbe des Befalls bleibt die einzige
  * Ausnahme (ADR-0002).
  */
+/**
+ * D368: Zusammensetzung der Luft für den physikalischen Himmel (`?himmel=physik`,
+ * `atmosphaere.ts`). Nur dort gelesen; der Verlaufshimmel bleibt die Vorgabe.
+ *
+ * Der Hebel fürs Zielbild ist das Aerosol: Klare Luft (wenig Aerosol, Rayleigh dominiert) ergibt das
+ * blaue Zenit, das der Blender-Render verworfen hat (`tools/szenenbau.py` `welt()`). Dichter Dunst,
+ * dessen Teilchen Blau stärker schlucken als Rot (Albedo je Kanal, wie Rauch oder Staub), macht den
+ * Himmel physikalisch warm und gedeckt.
+ */
+export interface Atmosphaere {
+  /** Rayleigh-Streuung relativ zur Standardluft (1). */
+  rayleigh: number;
+  /** Aerosol-optische Dicke bei 550 nm (senkrecht). Klar 0,05–0,1, Dunst 0,3–0,6, Höhenrauch 0,8–2. */
+  aerosol: number;
+  /** Ångström-Exponent der Aerosol-Extinktion: 0 = graue Tröpfchen/Staub, 1,3 = feiner Stadtdunst. */
+  angstroem: number;
+  /** Einfachstreu-Albedo des Aerosols je Kanal (R 680, G 550, B 440 nm). Unter 1 = Absorption. */
+  albedo: readonly [number, number, number];
+  /** Vorwärtsstreuung des Aerosols (Henyey-Greenstein-g), Dunst 0,7–0,85. Formt den Sonnenhof. */
+  g: number;
+  /** Skalenhöhe des Aerosols in m. Klar 1200, Bodendunst 500–800. */
+  aerosolHoehe: number;
+  /** Ozon relativ zum Standard (1). Färbt den Dämmerungshimmel. */
+  ozon: number;
+  /** Bodenalbedo für die Mehrfachstreuung; ohne Angabe 0,15. */
+  bodenAlbedo?: number;
+  /**
+   * Senkrechte optische Tiefe der Bodendunstschicht, durch die man den Himmel sieht. Sie legt das
+   * Dunstband über den Horizont, das Fernland und Himmel verbindet (früher `band` in `himmel.ts`).
+   */
+  dunstTiefe: number;
+  /** Höhe der Wolkenschicht über der Kamera in m; ohne Angabe 2000. */
+  wolkenHoehe?: number;
+}
+
 export interface Stimmung {
   himmel: string; nebel: string; nebelNah: number; nebelFern: number;
   sonne: string; sonneStaerke: number; umgebung: string; umgebungStaerke: number;
@@ -52,6 +87,8 @@ export interface Stimmung {
    * hellen Boden gegen reines Schwarz, der Tag nicht — eine globale Zahl musste beides können.
    */
   hemiBoden?: string;
+  /** D368: Luft für `?himmel=physik`; ohne Angabe `ATMOSPHAERE_VORGABE` (`atmosphaere.ts`). */
+  atmosphaere?: Atmosphaere;
 }
 
 /**
@@ -122,6 +159,9 @@ export const STIMMUNG: Record<string, Stimmung> = {
     // Nachts trägt der Umriss fast das ganze Bild — deshalb hier am stärksten.
     randFarbe: '#4d6b82', randStaerke: 0.30,
     himmelAnteil: 0,
+    // D368: klare Nachtluft, Standarddunst. Der Mond ist im Modell eine schwache Sonne.
+    atmosphaere: { rayleigh: 1, aerosol: 0.2, angstroem: 1.0, albedo: [0.93, 0.9, 0.88], g: 0.76,
+      aerosolHoehe: 1000, ozon: 1, dunstTiefe: 0.03 },
   },
   daemmerung: {
     himmel: '#141d20', nebel: '#1b2a2b', nebelNah: 60, nebelFern: 420,
@@ -141,6 +181,9 @@ export const STIMMUNG: Record<string, Stimmung> = {
     zenit: '#1b3550', horizont: '#4a4238', scheibe: 0.0016, hof: 190,
     randFarbe: '#6e7f86', randStaerke: 0.22,
     himmelAnteil: 0.35,   // Dämmerung trägt sich über die Umgebung (D118) — halb
+    // D368: leichter Dunst, mehr Ozon — das Blau der Dämmerung kommt vom Ozon, nicht vom Rayleigh.
+    atmosphaere: { rayleigh: 1, aerosol: 0.6, angstroem: 0.8, albedo: [0.93, 0.88, 0.8], g: 0.78,
+      aerosolHoehe: 900, ozon: 1.5, dunstTiefe: 0.03 },
   },
   nebelmorgen: {
     himmel: '#20282a', nebel: '#2c3a39', nebelNah: 30, nebelFern: 240,
@@ -160,6 +203,11 @@ export const STIMMUNG: Record<string, Stimmung> = {
     // Tag: dunklerer Hemisphärenboden (D167). Der Tag trägt sich über die Sonne; der helle Boden
     // war gegen die ACES-Schwarzgrenze gesetzt und hob hier nur die Unterseiten an.
     hemiBoden: HEMI_BODEN_TAG,
+    // D368: helle Tröpfchen ohne Absorption, wenig Aerosol über der Kamera — den Nebel selbst macht der
+    // Spielnebel. Gittersuche gegen die Kunstwerte: Zenit #282f3d (#26333a), Horizont #4b4a4b
+    // (#3e4a48), Nebel #383738 (#2c3a39). Das Blaugrün der Kunst gibt keine Luft her: neutralgrau.
+    atmosphaere: { rayleigh: 1, aerosol: 0.3, angstroem: 0.5, albedo: [0.97, 0.97, 0.97], g: 0.6,
+      aerosolHoehe: 700, ozon: 1, dunstTiefe: 0.05 },
   },
   abendrot: {
     himmel: '#1a1614', nebel: '#2a221d', nebelNah: 50, nebelFern: 380,
@@ -197,6 +245,12 @@ export const STIMMUNG: Record<string, Stimmung> = {
     zenit: '#13202c', horizont: '#5c4030', scheibe: 0.0020, hof: 120,
     randFarbe: '#c07a4e', randStaerke: 0.26,
     himmelAnteil: 0.35,
+    // D368: klarer Abend, feiner Dunst (Ångström 1,2), Ozon ×2 für das kühle Zenit über warmem
+    // Horizont. Gittersuche: Zenit #1a202b (#13202c), Horizont #4c433a (#5c4030), Nebel #28231d
+    // (#2a221d). Die Sonne bleibt physikalisch blasser (#b6987c) als die Kunst (#d98b5b): Bei 20°
+    // Höhe färbt Luft das Licht nicht so stark — das Rot des Abendrots ist hier Kunst, nicht Physik.
+    atmosphaere: { rayleigh: 1, aerosol: 0.3, angstroem: 1.2, albedo: [0.97, 0.97, 0.85], g: 0.76,
+      aerosolHoehe: 700, ozon: 2, dunstTiefe: 0.03 },
   },
   /**
    * Probe D152: warmer Dunst. **Nicht im Tageslauf**, nur per `?stimmung=goldnebel`.
@@ -235,6 +289,20 @@ export const STIMMUNG: Record<string, Stimmung> = {
     zenit: '#4c4340', horizont: '#9c7f6c', scheibe: 0.0030, hof: 60,
     randFarbe: '#e8cba8', randStaerke: 0.32,
     hemiBoden: HEMI_BODEN_TAG,   // erbt `zielbild`
+    /**
+     * D368: Goldnebel physikalisch — dichter, Blau schluckender Dunst wie Höhenrauch oder Staub
+     * (AOD 0,6, Albedo im Blau 0,45; klare Alpenluft 0,05–0,1). Erbt `zielbild`. Gesucht unter Node
+     * gegen die Kunstwerte bei Sonne 13° (Skala: Zenit und Horizont im geometrischen Mittel):
+     * Zenit #534d55 (Kunst #4c4340), Horizont #8e6e51 (#9c7f6c), Nebel #604935 (#5a4b40), Fülllicht
+     * #816c63 (#7b6e63). Grenze der Physik: Ein warmes Zenit braucht so viel Dunst, dass Zenit und
+     * Horizont fast gleich hell werden (AOD 1,0: Zenit #64585a, Horizont #7a614e); das dunkle Zenit
+     * über hellem Horizont der Kunst gibt es nur mit wenig Dunst — und dann ist das Zenit blaugrau
+     * (AOD 0,3: #3e4152), das Blau, das `tools/szenenbau.py` am Render verworfen hat. 0,6 ist der
+     * Kompromiss. g 0,6 statt 0,76: Mit stärker vorwärts streuendem Dunst überstrahlte der Hof beim
+     * Blick zur Sonne das halbe Bild (Bildpaar D368, zweiter Lauf).
+     */
+    atmosphaere: { rayleigh: 1, aerosol: 0.6, angstroem: 0.15, albedo: [0.88, 0.68, 0.45], g: 0.6,
+      aerosolHoehe: 700, ozon: 1, dunstTiefe: 0.03 },
   },
 };
 /**
@@ -263,6 +331,9 @@ STIMMUNG.kaltnebel = {
   zenit: '#22313b', horizont: '#4a565c', scheibe: 0.0, hof: 60,
   randFarbe: '#8496a0', randStaerke: 0.2,
   hemiBoden: HEMI_BODEN_TAG,
+  // D368: wie `nebelmorgen` — Tröpfchennebel ohne Absorption.
+  atmosphaere: { rayleigh: 1, aerosol: 1.2, angstroem: 0, albedo: [0.99, 0.99, 0.99], g: 0.85,
+    aerosolHoehe: 500, ozon: 1, dunstTiefe: 0.04 },
 };
 export type StimmungsName = keyof typeof STIMMUNG;
 
@@ -306,6 +377,47 @@ STIMMUNG.zielbild = {
   schatten: 1.0,
   // Azimut 42° von Nord im Uhrzeigersinn, Hoehe 13°: (sin·cos, sin, −cos·cos)
   sonnenstand: [65.2, 22.5, -72.4] as const,
+};
+/**
+ * D445: `zielbildfels` — Messstimmung für das Messbild Spiel │ Zielbild Felsmulde (UEBERGABE 2d, D425). Wie `zielbild`,
+ * aber mit der Sonne des freigegebenen Felsmulde-Renders (`tools/stilframes.py` Runde 3/4: Azimut 194°, Höhe 24,5°;
+ * dort gewählt, weil der Hang im Südwesten tiefere Sonne abschattet). Nur per `?stimmung=zielbildfels`.
+ */
+STIMMUNG.zielbildfels = {
+  ...STIMMUNG.zielbild,
+  sonnenstand: [-22.0, 41.5, 88.3] as const,
+  // D446 Look-Durchgang, Schritt 1 Licht und Tonwert (Messbild D445: Spiel 0,36 hell, Lichter weiss R−B +0,06,
+  // Sättigung 0,28 — Render 0,27, +0,13, 0,46): Sonne warm und kräftig, Fülllicht schwächer und warm-neutral,
+  // Belichtung runter, Himmel blau im Zenit und golden am Horizont wie das HDRI des Renders, Dunst golden.
+  // D475 Feldvergleich: besonnte Mauer im Render 0,63/0,51/0,35, im Spiel 0,44/0,30/0,16 — Sonne zu orange und zu
+  // schwach; Mauer im Schatten stimmte schon auf 10 %. Deshalb heller und weniger gesättigt (vorher #ffbf7a, 3,8).
+  sonne: '#ffd9a8', sonneStaerke: 5.0,
+  umgebung: '#6f6252', umgebungStaerke: 1.7,
+  belichtung: 1.95,
+  // Horizont ist zugleich die Dunstfarbe der Fernberge (`fernland.ts`): kühl grauoliv wie die Luftschichten des Renders
+  // (Dunst 0,070/0,074/0,066 linear), sonst stehen die Berge als beige Fläche.
+  // D475: Himmel im Bogen im Render 0,40/0,38/0,33, im Spiel 0,61/0,62/0,62 — Horizont dunkler und wärmer (vorher #b3ab98).
+  zenit: '#3a5478', horizont: '#857c68', himmel: '#7a6a58', wolken: 0.6,
+  // Schritt 2 Luftschichten: Nebel reicht weiter, damit die Berge Form behalten und sich nach hinten aufhellen,
+  // statt als eine beige Fläche zu stehen; Dunstfarbe kühler, näher am Horizont des Renders.
+  nebel: '#8a8478', nebelNah: 60, nebelFern: 2400,
+  randFarbe: '#ffd29a', randStaerke: 0.45,
+};
+/** D317: bewölktes, leicht warmes Licht der Hofreferenz als eigene Messstimmung. */
+STIMMUNG.hofziel = {
+  ...STIMMUNG.zielbild, himmel: '#705e54', nebel: '#837363', nebelNah: 17, nebelFern: 142,
+  zenit: '#574a41', horizont: '#a58268', wolken: .59, scheibe: .0001, hof: 55,
+  sonne: '#f4d3aa', umgebung: '#9d8e7e', hemiBoden: '#736351', belichtung: 2.10,
+};
+/** D318: wärmeres Streulicht unter der niedrigen Wolkendecke am Hof. */
+STIMMUNG.hofdachbruch = {
+  ...STIMMUNG.hofziel, zenit: '#665142', horizont: '#a9886d', wolken: .55,
+  sonne: '#ffdaac', umgebung: '#ac9b85', hemiBoden: '#7b6c56',
+};
+/** D320: warme Schichtwolken, graubrauner Ferndunst und ruhigeres Streulicht wie im Hofbild. */
+STIMMUNG.hofbild = {
+  ...STIMMUNG.hofdachbruch, zenit: '#877263', horizont: '#bb967d', nebel: '#91806e',
+  nebelNah: 15, nebelFern: 114, wolken: .61, umgebung: '#ac9b88', hemiBoden: '#77654f',
 };
 /**
  * `tag` (D168) ist `zielbild` im Tageslauf — dasselbe Objekt, damit die Messadresse

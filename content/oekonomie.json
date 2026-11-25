@@ -1,0 +1,271 @@
+{
+  "schmiede": [
+    {
+      "stufe": 1,
+      "preis": {
+        "chitinspan": 8
+      }
+    },
+    {
+      "stufe": 2,
+      "preis": {
+        "chitinspan": 14,
+        "federstahl": 3
+      }
+    },
+    {
+      "stufe": 3,
+      "preis": {
+        "chitinspan": 22,
+        "federstahl": 4,
+        "haertling": 3
+      }
+    },
+    {
+      "stufe": 4,
+      "preis": {
+        "kernschlacke": 1,
+        "haertling": 2,
+        "federstahl": 6
+      },
+      "vorschlag": true
+    }
+  ],
+  "beute": {
+    "tier": {
+      "gegenstand": "chitinspan",
+      "chance": 0.15
+    },
+    "mensch": {
+      "gegenstand": "federstahl",
+      "menge": 1
+    },
+    "verhaerteter": {
+      "gegenstand": "haertling",
+      "menge": 1
+    },
+    "regent": {
+      "gegenstand": "kernschlacke",
+      "menge": 1
+    }
+  },
+  "marke": {
+    "laeuterung": {
+      "tier": 1,
+      "verhaerteter": 5,
+      "regent": 15
+    },
+    "schwellen": [
+      25,
+      60,
+      110,
+      170
+    ],
+    "fassungJeStufe": 1,
+    "ruhigAb": 0.6,
+    "ruhigMindestens": 0.25,
+    "ruhigeRast": 0.5,
+    "ruhigesRevier": {
+      "setzling": 1,
+      "reinprobe": 1
+    }
+  },
+  "flasche": {
+    "schlucke": {
+      "start": 3,
+      "max": 6,
+      "preis": {
+        "setzling": 2
+      }
+    },
+    "staerke": {
+      "start": 0.35,
+      "jeStufe": 0.1,
+      "stufen": 2,
+      "preis": {
+        "quellwasser": 1
+      }
+    }
+  },
+  "tausch": [
+    {
+      "bei": "dorf-schmied",
+      "gibt": {
+        "federstahl": 1
+      },
+      "nimmt": {
+        "chitinspan": 5
+      },
+      "braucht": "lieferbuch-esse"
+    },
+    {
+      "bei": "dorf-schmied",
+      "gibt": {
+        "chitinweste": 1
+      },
+      "nimmt": {
+        "chitinspan": 20,
+        "federstahl": 2
+      }
+    },
+    {
+      "bei": "dorf-magd",
+      "gibt": {
+        "harzverband": 1
+      },
+      "nimmt": {
+        "zunder": 1
+      },
+      "braucht": "zettel-harz-auf-leinen",
+      "jeRast": true
+    },
+    {
+      "bei": "dorf-alte",
+      "gibt": {
+        "reinkultur": 1
+      },
+      "nimmt": {
+        "reinprobe": 2
+      }
+    },
+    {
+      "bei": "dorf-foerster",
+      "gibt": {
+        "koeder": 2
+      },
+      "nimmt": {
+        "chitinspan": 1
+      },
+      "jeRast": true
+    },
+    {
+      "bei": "dorf-wirt",
+      "gibt": {
+        "zunder": 2
+      },
+      "nimmt": {
+        "koeder": 1
+      },
+      "jeRast": true
+    }
+  ],
+  "regionen": {
+    "oental": {
+      "annahmen": {
+        "begegnungen": 180,
+        "tiere": 280,
+        "rasten": 20,
+        "verhaertete": 5,
+        "menschen": 4,
+        "reviere": 12
+      },
+      "einmalig": {
+        "chitinspan": 10,
+        "federstahl": 6,
+        "eichsiegel": 5,
+        "setzling": 4,
+        "reinprobe": 2,
+        "reinkultur": 2,
+        "quellwasser": 3,
+        "herzfunke": 2,
+        "meisterwurz": 6,
+        "enzianwurzel": 6,
+        "einsicht": 5
+      }
+    }
+  },
+  "brauen": {
+    "bossteil": {
+      "getoetet": "mark",
+      "gereinigt": "abwurf"
+    },
+    "dauersude": [
+      {
+        "id": "lebenssud",
+        "name": "Marksud",
+        "wert": "leben",
+        "plus": 5,
+        "hoechstens": 10,
+        "preis": {
+          "meisterwurz": 3
+        },
+        "bossteile": [
+          "mark",
+          "abwurf"
+        ]
+      },
+      {
+        "id": "atemsud",
+        "name": "Bittersud",
+        "wert": "ausdauer",
+        "plus": 5,
+        "hoechstens": 10,
+        "preis": {
+          "enzianwurzel": 3
+        },
+        "bossteile": [
+          "abwurf"
+        ]
+      }
+    ],
+    "beigaben": [
+      {
+        "gegenstand": "fichtenspitzen",
+        "wirkung": "Ausdauer erholt sich schneller",
+        "werte": {
+          "ausdauerErholung": 0.15
+        },
+        "dauerSek": 300
+      },
+      {
+        "gegenstand": "baldrianwurzel",
+        "wirkung": "ruhige Hand: im Griff weniger verwundbar, Ausdauer erholt sich langsamer",
+        "werte": {
+          "verwundbarImGriff": -0.1,
+          "ausdauerErholung": -0.1
+        },
+        "dauerSek": 300
+      },
+      {
+        "gegenstand": "schafgarbe",
+        "wirkung": "jeder Schluck heilt über zehn Sekunden nach",
+        "werte": {
+          "nachheilung": 0.1
+        },
+        "dauerSek": 300
+      },
+      {
+        "gegenstand": "birkenporling",
+        "wirkung": "Befallswirkungen (Fäulnis, Sporen) halten kürzer",
+        "werte": {
+          "zustandDauer": -0.3
+        },
+        "dauerSek": 300
+      }
+    ],
+    "beigabePlaetze": 1
+  },
+  "erfahrung": {
+    "jeLinie": 2,
+    "linien": 3
+  },
+  "toeten": {
+    "leerAb": 0.6,
+    "verhaertungJeLeeremRevier": 0.5
+  },
+  "reviere": {
+    "bezug": "begegnet",
+    "mindestBestand": 0.25,
+    "nachwachsen": {
+      "abRasten": 3,
+      "anteil": 0.5,
+      "jeRast": 2
+    }
+  },
+  "baukasten": {
+    "umbau": {
+      "chitinspan": 2,
+      "federstahl": 2
+    }
+  }
+}

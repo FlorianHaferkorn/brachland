@@ -1,0 +1,13 @@
+{
+  "id": "schafgarbe",
+  "name": "Schafgarbe",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "beigabe"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Weisse Dolden vom Wegrand. Stillt, was sickert. Früher steckte man sie den Mähern an den Hut.",
+  "gewicht": 0.03,
+  "traglast": 4
+}

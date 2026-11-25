@@ -1,0 +1,44 @@
+{
+  "id": "zaehler",
+  "region": "oental",
+  "fraktion": "moenche",
+  "name": "Der Zähler",
+  "figur": "wanderer",
+  "stationen": [
+    {
+      "wo": "Hof am Stau",
+      "ort": [47.72614, 12.0947],
+      "blick": -142,
+      "text": "Er sitzt über dem Stau und legt Kiesel in eine Reihe, einen je Tier, das er heute rein gesehen hat. Die Reihe ist kurz. Er sagt, ohne aufzusehen: Er reinigt nur. Zählen Sie nach, bevor Sie etwas tun.",
+      "bis": { "art": "finde", "fragment": "stauwehr" }
+    },
+    {
+      "wo": "Ufer am Absetzbecken",
+      "ort": [47.74647, 12.0835],
+      "blick": -30,
+      "text": "Er steht bis zu den Knien im Becken und zählt, was sich bewegt. Hier unten, sagt er, ist es weiter als oben. Was Sie auf dem Grund finden, gehört nicht der Terrasse. Es gehört dem, was fertig werden will.",
+      "bis": { "art": "finde", "fragment": "absetzbecken" }
+    },
+    {
+      "wo": "Hof am Stau, zweite Reihe",
+      "ort": [47.72629, 12.09479],
+      "blick": -142,
+      "text": "Die Kieselreihe ist länger geworden. Er hat eine zweite angefangen, für das, was Sie getan haben, und zeigt nicht, welche Steine wofür liegen. Drei Dinge, sagt er, oder eine Klinge. Er wird es sehen.",
+      "bis": { "art": "regent", "regent": "flussvater" }
+    },
+    {
+      "wo": "Wehrkrone",
+      "ort": [47.72527, 12.09552],
+      "blick": -110,
+      "text": "Er steht auf der Krone über dem leeren Stau. Die Kiesel hat er ins Wasser geworfen, alle. Er sagt: Jetzt fehlt nur noch, dass es einer aushält. Dabei sieht er auf Ihren Arm, nicht in Ihr Gesicht.",
+      "ab": { "art": "heile", "regent": "flussvater" },
+      "bis": { "art": "misstraut", "anzahl": 40, "gewichte": { "getoetet": 1, "gereinigt": 0.25 }, "unberuehrtMindestens": 0.5 }
+    },
+    {
+      "wo": "Kirche am Nordhang, Stufe",
+      "ort": [47.74882, 12.07798],
+      "blick": 160,
+      "text": "Er sitzt auf der Kirchenstufe und hat das Heft zugeklappt. Die Schrauben im Opferstock reichen für Sie nicht mehr. Er sagt: Sie meinen es gut. Das Land merkt den Unterschied nicht. Dann sieht er hinunter aufs Moos."
+    }
+  ]
+}

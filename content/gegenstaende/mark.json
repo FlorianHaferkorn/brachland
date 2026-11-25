@@ -1,0 +1,12 @@
+{
+  "id": "mark",
+  "name": "Mark",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "dauersud"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Aus dem Röhrenknochen eines Verhärteten. Schwer, fett, noch warm. Für die Brühe taugt es. Für alles andere ist es zu spät.",
+  "gewicht": 0.3
+}

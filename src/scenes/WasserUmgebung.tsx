@@ -51,14 +51,14 @@ export function baueWasserUmgebung(renderer: THREE.WebGLRenderer, werte: HimmelW
 export function WasserUmgebung({ werte, children }: { werte: HimmelWerte; children: ReactNode }) {
   const { gl } = useThree();
   const [textur, setzeTextur] = useState<THREE.Texture | null>(null);
-  const { zenit, horizont, dunst, sonne, sonnenstand: [x, y, z], scheibe, hof } = werte;
+  const { zenit, horizont, dunst, sonne, sonnenstand: [x, y, z], scheibe, hof, wolken, atmosphaere } = werte;
   useEffect(() => {
     const ziel = baueWasserUmgebung(gl, {
-      zenit, horizont, dunst, sonne, sonnenstand: [x, y, z], scheibe, hof,
+      zenit, horizont, dunst, sonne, sonnenstand: [x, y, z], scheibe, hof, wolken, atmosphaere,
     });
     setzeTextur(ziel.texture);
     return () => ziel.dispose();
-  }, [gl, zenit, horizont, dunst, sonne, x, y, z, scheibe, hof]);
+  }, [gl, zenit, horizont, dunst, sonne, x, y, z, scheibe, hof, wolken, atmosphaere]);
   return <WasserHimmel.Provider value={textur}>{children}</WasserHimmel.Provider>;
 }
 

@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-10-18
+last-reviewed: 2026-11-22
 shelf-life-days: 90
 owns: *.json
 ---
@@ -18,6 +18,7 @@ owns: *.json
 | Verstehen, wie ein Gegenstand wirkt | `../../src/spiel/gegenstaende.ts` |
 | Beute-Wahrscheinlichkeiten ändern | `beuteChance` hier, Verteilung in `../../src/spiel/gegenstaende.ts` |
 | Wissen, was der Beutel zu Beginn enthält | `../../src/spiel/spielstand.ts` (`LEERER_STAND`) |
+| Material, Werkzeug, Zeug, Wissen anlegen oder eine Belohnungs-Kategorie füllen | `../belohnungen.json`, `../oekonomie.json` → `../../docs/design/BRACHLAND_Gegenstaende-und-Aufwertung_v1.md` |
 
 ## Register
 
@@ -33,10 +34,27 @@ owns: *.json
 | `saatgut-rein.json` · `katalysator-v3.json` · `wasserprobe-quell.json` | **Reinkultur-Komponenten des Flussvaters** (D240) — Wirkung `komponente`, nicht im Kampf, keine Beute. Je eine als Belohnung von `nach-vorher-schmecken`, `was-am-stollen-steht`, `was-der-tresen-weiss` (Ruine/Hof, Altstollen, Becken — Story-Bibel §9). Am Regentenort nach dem Sieg eingesetzt (`src/spiel/heilung.ts`); `npm run validate` prüft, dass jede Komponente existiert und erreichbar ist |
 | `torfkern.json` · `eiprobe-rein.json` · `regelkarte-inkubator.json` | **Reinkultur-Komponenten der Brutmutter** (D246) — wie beim Flussvater `komponente`, nicht im Kampf, keine Beute. Noch **keine** Auftragsbelohnung, weil die Region Fahlmoos fehlt; `validate` prüft die Erreichbarkeit, sobald es sie gibt (G-140) |
 | `zunder.json` | **Zunder** — Fokus +4, 12 % Beutechance. Trockener Baumschwamm, glimmt lange. Sammelt den Kopf für den nächsten Zug. |
+| `chitinspan.json` · `federstahl.json` · `haertling.json` · `kernschlacke.json` | **Aufwertungsmaterial Stufe 1–4** (D393, Wirkung `material`). Span von getöteten Tieren, Federstahl aus dem Altbestand, Härtling vom getöteten Verhärteten, Kernschlacke vom getöteten Regenten. Span und Federstahl bleiben beim Tod liegen (`liegtBeiTod`) |
+| `eichsiegel.json` | **Eichsiegel** — Wirkung `marke`, 5 Läuterung. Die Gegengabe für den, der nicht reinigt |
+| `setzling.json` · `reinprobe.json` | **Zutaten** (Wirkung `zutat`): Setzling für die Sudflasche (Magd), Reinprobe für die Reinkultur (Alte). Beide aus ruhigen Revieren |
+| `tauchzeug.json` · `kletterzeug.json` · `gleiter.json` · `halfter.json` | **Werkzeuge** (Wirkung `werkzeug`, einmalig; Traversal v2 §4–§5, D391). `kletterzeug` und `halfter` sind Auftragsbelohnungen. **D412** (Entscheidungen D411): Tauchzeug ist auch Anzug (hält die Kälteuhr an, `../bewegung.json` `kaelte.anzug`); Gleiter = Leinen und Gurtzeug vom Grathorn, Kappe neu genäht aus gewachstem Leinen; Halfter bindet das letzte Tragtier des Försterhofs — drei Texte neu |
+| `chitinweste.json` · `wachstuchkittel.json` · `flechtenkutte.json` · `werkskluft.json` | **Zeug** (Wirkung `zeug`, einmalig, ein Platz): je ein Vor- und ein Nachteil, je einer Fraktion oder Spielweise zugeordnet. Werte sind Entwurf, nicht simuliert |
+| `fundwaffe-axt.json` · `fundwaffe-speer.json` | **Fundwaffen** (Wirkung `waffe`, einmalig): schalten Axt und Speer aus `../waffen/` frei, ändern keinen Kampfwert. Vorschlag (Ledger A-28) — heute besitzt man alle drei ab Start |
+| `lieferbuch-esse.json` · `zettel-harz-auf-leinen.json` · `flurkarte-west.json` · `pegelbuch.json` · `wartungsblatt-k7.json` | **Wissen** (Wirkung `wissen`, einmalig): öffnet einen Tausch oder eine Anzeige (`schaltet`) |
+| `schlussstein-stange.json` · `schluessel-schieberhaus.json` · `plombenzange.json` | **Zugang** (Wirkung `zugang`, einmalig): öffnet einen Ort oder eine Art Verschluss (`oeffnet`) |
+| `meisterwurz.json` · `enzianwurzel.json` | **Bruchstücke** (D400, Wirkung `zutat` für `dauersud`, Kategorie `vital`): drei davon und ein Bossteil ergeben einen Dauersud — Meisterwurz Leben, Enzianwurzel Ausdauer. Nur einmalig, nie Beute |
+| `mark.json` · `abwurf.json` | **Bossteile** (D400): was ein Verhärteter oder Regent hinterlässt — getötet Mark (nur Marksud), gereinigt Abwurf (beide Sude) |
+| `fichtenspitzen.json` · `baldrianwurzel.json` · `schafgarbe.json` · `birkenporling.json` | **Beigaben** (D400, Wirkung `zutat` für `beigabe`): eine je Rast in die Sudflasche, wirkt bis zur nächsten Rast. Wirkwerte in `../oekonomie.json` `brauen.beigaben`, Entwurf |
+| `einsicht.json` | **Einsicht** (D400, Wirkung `erfahrung`, Kategorie `erfahrung`): aus Aufträgen, Linien und Orten, nie aus Kämpfen; bezahlt Techniken (`../techniken.json`). Wiegt nichts |
+| `gaskartusche.json` · `kohlensaeure.json` · `zaunbatterie.json` · `branntkalk.json` | **Betriebsstoffe der Geräte** (D410, Wirkung `zutat` für `geraet`, mit Traglast): Gas, Kohlensäure und Batterie sind Altbestand, Branntkalk wächst nach; die Räucherkanne brennt den vorhandenen `zunder`. Welche Füllung wie weit reicht, steht in `../geraete.json` |
 
 ## Regeln
 
-- **Wenige Arten.** Fünf Wirkungen, nicht fünfzehn. Ein Beutel voller Varianten
+- **Jedes Stück wiegt etwas** (D398): `gewicht` in kg ist Pflicht (`validate`), Herleitung in
+  `../../docs/design/BRACHLAND_Gegenstaende-und-Aufwertung_v1.md` §11. Loses Material und Verbrauch tragen `traglast`.
+- **Einmaliges liegt in genau einem Vorrat** (D393): Werkzeug, Zeug, Fundwaffe, Wissen und Zugang tragen
+  `einmalig: true` und stehen in `../belohnungen.json` `unikate` — `validate` lehnt alles andere ab.
+- **Wenige Arten.** Fünf Wirkungen im Kampf, nicht fünfzehn. Ein Beutel voller Varianten
   derselben Sache ist Verwaltung, keine Entscheidung.
 - **Benutzen kostet den Zug.** Sonst ist Heilen in jeder Runde die dominante
   Handlung und der Kampf ein Abnutzungsrennen, das über Vorratshaltung entschieden

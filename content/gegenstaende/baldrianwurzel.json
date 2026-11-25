@@ -1,0 +1,13 @@
+{
+  "id": "baldrianwurzel",
+  "name": "Baldrianwurzel",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "beigabe"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Riecht nach nassem Hund. Macht die Hände ruhig und den Kopf langsam. Im Stall hing sie über der Tür.",
+  "gewicht": 0.05,
+  "traglast": 4
+}

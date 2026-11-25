@@ -9,7 +9,9 @@
  * Solange beides dasselbe ist, kostet die zweite Prüfung nur Millisekunden; sobald es
  * auseinanderläuft, fällt es beim Start auf statt mitten im Kampf.
  */
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, NARBE } from './schema.js';
+import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, NARBE, Fassade, Wanderfigur, Revierkarte, Oekonomie } from './schema.js';
+import { baueRevierwelt, regelnAus } from '../spiel/reviere.js';
+import OEKONOMIE_ROH from '../../content/oekonomie.json';
 import { erstelle, type Kaempfer, type MoveDef, type Band } from '../engine/battle.js';
 import { mutationBei, werteBei, STUFE_MAX } from '../spiel/fortschritt.js';
 
@@ -21,8 +23,11 @@ const regentRoh = import.meta.glob('../../content/regenten/*.json', { eager: tru
 const gegenstandRoh = import.meta.glob('../../content/gegenstaende/*.json', { eager: true, import: 'default' }) as Roh;
 const fragmentRoh = import.meta.glob('../../content/fragmente/*.json', { eager: true, import: 'default' }) as Roh;
 const ortRoh = import.meta.glob('../../content/orte/*.json', { eager: true, import: 'default' }) as Roh;
+const fassadeRoh = import.meta.glob('../../content/fassaden/*.json', { eager: true, import: 'default' }) as Roh;
 const auftragRoh = import.meta.glob('../../content/auftraege/*.json', { eager: true, import: 'default' }) as Roh;
 const regionRoh = import.meta.glob('../../content/regions/*.json', { eager: true, import: 'default' }) as Roh;
+const wanderfigurRoh = import.meta.glob('../../content/wanderfiguren/*.json', { eager: true, import: 'default' }) as Roh;
+const revierRoh = import.meta.glob('../../content/reviere/*.json', { eager: true, import: 'default' }) as Roh;
 
 function lade<T>(roh: Roh, schema: { parse: (x: unknown) => T }, was: string): Map<string, T> {
   const karte = new Map<string, T>();
@@ -43,8 +48,22 @@ export const REGENTEN = lade(regentRoh, Regent, 'Regent');
 export const GEGENSTAENDE = lade(gegenstandRoh, Gegenstand, 'Gegenstand');
 export const FRAGMENTE = lade(fragmentRoh, Fragment, 'Fragment');
 export const ORTE = lade(ortRoh, Ort, 'Ort');
+/** D291: Fassaden-Steckbriefe der story-relevanten Gebäude (leer, bis Fotos da sind). */
+export const FASSADEN = lade(fassadeRoh, Fassade, 'Fassade');
 export const AUFTRAEGE = [...lade(auftragRoh, Auftrag, 'Auftrag').values()];
 export const REGIONEN = lade(regionRoh, Region, 'Region');
+/** D375: Fraktionsfiguren mit Stationen (Story-Bibel v2 §5). Wo sie steht, sagt `spiel/wanderfiguren.ts`. */
+export const WANDERFIGUREN = [...lade(wanderfigurRoh, Wanderfigur, 'Wanderfigur').values()];
+
+/**
+ * D416: Reviere aller Regionen und die Regeln daran (`spiel/reviere.ts`). Die Karten tragen keine `id`, sondern eine
+ * `region` — deshalb nicht über `lade`. Die Regeln stehen in `content/oekonomie.json` (`marke`, `toeten`, `reviere`).
+ */
+export const REVIERKARTEN = Object.entries(revierRoh).map(([pfad, wert]) => {
+  try { return Revierkarte.parse(wert); } catch (e) { throw new Error(`Revierkarte ${pfad} passt nicht ins Schema: ${String(e)}`); }
+});
+export const REVIERWELT = baueRevierwelt(REVIERKARTEN, [...REGIONEN.values()]);
+export const REVIERREGELN = regelnAus(Oekonomie.parse(OEKONOMIE_ROH));
 
 /**
  * Alles, was streift — daraus werden Begegnungen gebaut.

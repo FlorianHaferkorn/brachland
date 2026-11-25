@@ -51,3 +51,6 @@ Thumbs.db
 # Zehnfache des gesamten Offline-Precache und nichts, was in eine History
 # gehoert. Was ins Spiel kommt, ist das reduzierte Ergebnis unter assets/.
 raw/
+
+# Arbeitskopien von Hilfsagenten (Claude Code, isolation: worktree) — nie einchecken
+.claude/worktrees/

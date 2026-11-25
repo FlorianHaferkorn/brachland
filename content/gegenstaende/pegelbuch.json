@@ -1,0 +1,14 @@
+{
+  "id": "pegelbuch",
+  "name": "Pegelbuch",
+  "wirkung": {
+    "art": "wissen",
+    "form": "schrift",
+    "schaltet": "anzeige-fallhoehen"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Jeden Morgen eine Zahl, seit dem Frühjahr. Am Rand, mit anderem Stift: was bei welchem Stand wieder herausschaut.",
+  "einmalig": true,
+  "gewicht": 0.3
+}

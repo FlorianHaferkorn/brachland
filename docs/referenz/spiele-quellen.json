@@ -1,0 +1,884 @@
+{
+ "hinweis": "Urheberrechtlich geschuetzte Referenzbilder, ausschliesslich zur internen Analyse der Bildwirkung (Licht, Dichte, Schichtung, Material). Kein Asset, kein Nachbau konkreter Motive (ADR-0004). Nur lokal unter .cache/ (gitignored), nicht committen, nicht nach public/.",
+ "abgerufen": "2026-11-22",
+ "mess_legende": "sRGB-Werte 0..1 auf 480 px Breite; L = Rec.709-Luma; anteil_dunkel_lt20 = Pixelanteil L<0.2; anteil_hell_gt70 = L>0.7; warm_* = Mittel(R-B) in den hellsten 20 % bzw. dunkelsten 30 % (positiv = warm, negativ = kuehl)",
+ "bilder": [
+  {
+   "datei": "soulframe/steam_01.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4095380/a05d1061794948be6d1fc8a75be71bead51eb196/ss_a05d1061794948be6d1fc8a75be71bead51eb196.1920x1080.jpg?t=1795193474",
+   "quelle_seite": "https://store.steampowered.com/app/4095380/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.395,
+    "anteil_dunkel_lt20": 0.273,
+    "anteil_hell_gt70": 0.158,
+    "L_oberes_drittel": 0.601,
+    "L_untere_zwei_drittel": 0.293,
+    "saettigung_mittel": 0.205,
+    "warm_lichter_RminusB": 0.028,
+    "warm_schatten_RminusB": 0.045
+   }
+  },
+  {
+   "datei": "soulframe/steam_02.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4095380/f6dc348355aa38eb1b54303297b5b0785d2eea4a/ss_f6dc348355aa38eb1b54303297b5b0785d2eea4a.1920x1080.jpg?t=1795193474",
+   "quelle_seite": "https://store.steampowered.com/app/4095380/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.429,
+    "anteil_dunkel_lt20": 0.162,
+    "anteil_hell_gt70": 0.135,
+    "L_oberes_drittel": 0.499,
+    "L_untere_zwei_drittel": 0.393,
+    "saettigung_mittel": 0.292,
+    "warm_lichter_RminusB": 0.1,
+    "warm_schatten_RminusB": 0.07
+   }
+  },
+  {
+   "datei": "soulframe/steam_03.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4095380/f7c4474dccc89376d98953a17c6594bcc70a7a2a/ss_f7c4474dccc89376d98953a17c6594bcc70a7a2a.1920x1080.jpg?t=1795193474",
+   "quelle_seite": "https://store.steampowered.com/app/4095380/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.245,
+    "anteil_dunkel_lt20": 0.55,
+    "anteil_hell_gt70": 0.005,
+    "L_oberes_drittel": 0.342,
+    "L_untere_zwei_drittel": 0.197,
+    "saettigung_mittel": 0.309,
+    "warm_lichter_RminusB": 0.159,
+    "warm_schatten_RminusB": 0.03
+   }
+  },
+  {
+   "datei": "soulframe/steam_04.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4095380/9b6fd90cc5b1dfceb2a9e2f65cc2a84af96d1b95/ss_9b6fd90cc5b1dfceb2a9e2f65cc2a84af96d1b95.1920x1080.jpg?t=1795193474",
+   "quelle_seite": "https://store.steampowered.com/app/4095380/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.269,
+    "anteil_dunkel_lt20": 0.304,
+    "anteil_hell_gt70": 0.001,
+    "L_oberes_drittel": 0.301,
+    "L_untere_zwei_drittel": 0.253,
+    "saettigung_mittel": 0.365,
+    "warm_lichter_RminusB": 0.153,
+    "warm_schatten_RminusB": 0.071
+   }
+  },
+  {
+   "datei": "soulframe/steam_05.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4095380/0ddd29433808d8cfffdade0a706d678fd0504128/ss_0ddd29433808d8cfffdade0a706d678fd0504128.1920x1080.jpg?t=1795193474",
+   "quelle_seite": "https://store.steampowered.com/app/4095380/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.343,
+    "anteil_dunkel_lt20": 0.375,
+    "anteil_hell_gt70": 0.037,
+    "L_oberes_drittel": 0.306,
+    "L_untere_zwei_drittel": 0.361,
+    "saettigung_mittel": 0.175,
+    "warm_lichter_RminusB": -0.077,
+    "warm_schatten_RminusB": 0.021
+   }
+  },
+  {
+   "datei": "soulframe/steam_06.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4095380/54f9cf848b1d96421e841e34c31ffc4ae470658e/ss_54f9cf848b1d96421e841e34c31ffc4ae470658e.1920x1080.jpg?t=1795193474",
+   "quelle_seite": "https://store.steampowered.com/app/4095380/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.374,
+    "anteil_dunkel_lt20": 0.222,
+    "anteil_hell_gt70": 0.085,
+    "L_oberes_drittel": 0.428,
+    "L_untere_zwei_drittel": 0.347,
+    "saettigung_mittel": 0.237,
+    "warm_lichter_RminusB": 0.081,
+    "warm_schatten_RminusB": 0.044
+   }
+  },
+  {
+   "datei": "soulframe/web_01.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://www-static.soulframe.com/mainframe/dynamic-config/landing-page/3/conversions/3de7e327-b001-4a50-9cb3-0d8658a3cd7a-webp.webp",
+   "quelle_seite": "https://www.soulframe.com/",
+   "quelle_typ": "Offizielle Website (Landing-Page)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.245,
+    "anteil_dunkel_lt20": 0.451,
+    "anteil_hell_gt70": 0.011,
+    "L_oberes_drittel": 0.249,
+    "L_untere_zwei_drittel": 0.243,
+    "saettigung_mittel": 0.492,
+    "warm_lichter_RminusB": 0.206,
+    "warm_schatten_RminusB": 0.064
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "soulframe/web_02.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://www-static.soulframe.com/mainframe/dynamic-config/landing-page/3/conversions/5aacf50e-4c17-43c2-b314-b91a8e92df84-webp.webp",
+   "quelle_seite": "https://www.soulframe.com/",
+   "quelle_typ": "Offizielle Website (Landing-Page)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.367,
+    "anteil_dunkel_lt20": 0.023,
+    "anteil_hell_gt70": 0.0,
+    "L_oberes_drittel": 0.391,
+    "L_untere_zwei_drittel": 0.355,
+    "saettigung_mittel": 0.088,
+    "warm_lichter_RminusB": 0.026,
+    "warm_schatten_RminusB": -0.018
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "soulframe/web_03.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://www-static.soulframe.com/mainframe/dynamic-config/landing-page/3/conversions/5df6bef9-f4d9-4931-8403-bb82d15cf43e-webp.webp",
+   "quelle_seite": "https://www.soulframe.com/",
+   "quelle_typ": "Offizielle Website (Landing-Page)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.205,
+    "anteil_dunkel_lt20": 0.595,
+    "anteil_hell_gt70": 0.017,
+    "L_oberes_drittel": 0.193,
+    "L_untere_zwei_drittel": 0.211,
+    "saettigung_mittel": 0.4,
+    "warm_lichter_RminusB": 0.251,
+    "warm_schatten_RminusB": 0.008
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "soulframe/web_04.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://www-static.soulframe.com/mainframe/dynamic-config/landing-page/3/conversions/643453cd-ab0b-4a41-81b7-040fd54ba68f-webp.webp",
+   "quelle_seite": "https://www.soulframe.com/",
+   "quelle_typ": "Offizielle Website (Landing-Page)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1918,
+   "hoehe": 1079,
+   "mess": {
+    "L_mittel": 0.292,
+    "anteil_dunkel_lt20": 0.328,
+    "anteil_hell_gt70": 0.038,
+    "L_oberes_drittel": 0.386,
+    "L_untere_zwei_drittel": 0.245,
+    "saettigung_mittel": 0.295,
+    "warm_lichter_RminusB": 0.11,
+    "warm_schatten_RminusB": 0.057
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "soulframe/web_05.jpg",
+   "spiel": "soulframe",
+   "quelle_url": "https://www-static.soulframe.com/mainframe/dynamic-config/landing-page/3/conversions/ebd75fcf-293b-463d-8df5-1d0bc99910fe-webp.webp",
+   "quelle_seite": "https://www.soulframe.com/",
+   "quelle_typ": "Offizielle Website (Landing-Page)",
+   "rechteinhaber": "© Digital Extremes Ltd.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.215,
+    "anteil_dunkel_lt20": 0.505,
+    "anteil_hell_gt70": 0.002,
+    "L_oberes_drittel": 0.299,
+    "L_untere_zwei_drittel": 0.174,
+    "saettigung_mittel": 0.421,
+    "warm_lichter_RminusB": 0.107,
+    "warm_schatten_RminusB": 0.04
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "phantom-blade-zero/steam_00.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4115450/b2ebc232d3d88eafa8546f65b90d8dc8d2ece0b4/ss_b2ebc232d3d88eafa8546f65b90d8dc8d2ece0b4.1920x1080.jpg?t=1793261976",
+   "quelle_seite": "https://store.steampowered.com/app/4115450/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.365,
+    "anteil_dunkel_lt20": 0.405,
+    "anteil_hell_gt70": 0.21,
+    "L_oberes_drittel": 0.662,
+    "L_untere_zwei_drittel": 0.217,
+    "saettigung_mittel": 0.151,
+    "warm_lichter_RminusB": 0.046,
+    "warm_schatten_RminusB": -0.022
+   }
+  },
+  {
+   "datei": "phantom-blade-zero/steam_01.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4115450/53cc6faf8d70d29593495b2eaffc4c08761989ce/ss_53cc6faf8d70d29593495b2eaffc4c08761989ce.1920x1080.jpg?t=1793261976",
+   "quelle_seite": "https://store.steampowered.com/app/4115450/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.381,
+    "anteil_dunkel_lt20": 0.208,
+    "anteil_hell_gt70": 0.085,
+    "L_oberes_drittel": 0.475,
+    "L_untere_zwei_drittel": 0.333,
+    "saettigung_mittel": 0.292,
+    "warm_lichter_RminusB": 0.064,
+    "warm_schatten_RminusB": -0.109
+   }
+  },
+  {
+   "datei": "phantom-blade-zero/steam_02.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4115450/b0e2a5cbc38c67ffa2264d4067a6dc26aff2d9c6/ss_b0e2a5cbc38c67ffa2264d4067a6dc26aff2d9c6.1920x1080.jpg?t=1793261976",
+   "quelle_seite": "https://store.steampowered.com/app/4115450/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.338,
+    "anteil_dunkel_lt20": 0.313,
+    "anteil_hell_gt70": 0.083,
+    "L_oberes_drittel": 0.537,
+    "L_untere_zwei_drittel": 0.238,
+    "saettigung_mittel": 0.28,
+    "warm_lichter_RminusB": -0.08,
+    "warm_schatten_RminusB": -0.044
+   }
+  },
+  {
+   "datei": "phantom-blade-zero/steam_04.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4115450/90f17b4095bdd04874edb954e9cfa9b97f8aa0f0/ss_90f17b4095bdd04874edb954e9cfa9b97f8aa0f0.1920x1080.jpg?t=1793261976",
+   "quelle_seite": "https://store.steampowered.com/app/4115450/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.375,
+    "anteil_dunkel_lt20": 0.123,
+    "anteil_hell_gt70": 0.008,
+    "L_oberes_drittel": 0.428,
+    "L_untere_zwei_drittel": 0.349,
+    "saettigung_mittel": 0.24,
+    "warm_lichter_RminusB": -0.082,
+    "warm_schatten_RminusB": -0.051
+   }
+  },
+  {
+   "datei": "phantom-blade-zero/steam_06.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4115450/c6399f479abbecfd9d691705adc7c262f8b5bb86/ss_c6399f479abbecfd9d691705adc7c262f8b5bb86.1920x1080.jpg?t=1793261976",
+   "quelle_seite": "https://store.steampowered.com/app/4115450/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.474,
+    "anteil_dunkel_lt20": 0.138,
+    "anteil_hell_gt70": 0.256,
+    "L_oberes_drittel": 0.698,
+    "L_untere_zwei_drittel": 0.362,
+    "saettigung_mittel": 0.146,
+    "warm_lichter_RminusB": -0.003,
+    "warm_schatten_RminusB": 0.009
+   }
+  },
+  {
+   "datei": "phantom-blade-zero/steam_07.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4115450/20fa9dbc0f6bd0a7d9f95f2692ba6f8dcd1de73a/ss_20fa9dbc0f6bd0a7d9f95f2692ba6f8dcd1de73a.1920x1080.jpg?t=1793261976",
+   "quelle_seite": "https://store.steampowered.com/app/4115450/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.322,
+    "anteil_dunkel_lt20": 0.323,
+    "anteil_hell_gt70": 0.085,
+    "L_oberes_drittel": 0.462,
+    "L_untere_zwei_drittel": 0.251,
+    "saettigung_mittel": 0.377,
+    "warm_lichter_RminusB": 0.283,
+    "warm_schatten_RminusB": 0.054
+   }
+  },
+  {
+   "datei": "phantom-blade-zero/web_004.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://pbz.s-game.com/assets/media/screenshots/004.jpg",
+   "quelle_seite": "https://pbz.s-game.com/ (Media > Screenshots)",
+   "quelle_typ": "Offizielle Website (Media-Download)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.104,
+    "anteil_dunkel_lt20": 0.913,
+    "anteil_hell_gt70": 0.001,
+    "L_oberes_drittel": 0.078,
+    "L_untere_zwei_drittel": 0.117,
+    "saettigung_mittel": 0.166,
+    "warm_lichter_RminusB": 0.093,
+    "warm_schatten_RminusB": 0.002
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "phantom-blade-zero/web_005.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://pbz.s-game.com/assets/media/screenshots/005.jpg",
+   "quelle_seite": "https://pbz.s-game.com/ (Media > Screenshots)",
+   "quelle_typ": "Offizielle Website (Media-Download)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.156,
+    "anteil_dunkel_lt20": 0.771,
+    "anteil_hell_gt70": 0.008,
+    "L_oberes_drittel": 0.166,
+    "L_untere_zwei_drittel": 0.152,
+    "saettigung_mittel": 0.248,
+    "warm_lichter_RminusB": 0.04,
+    "warm_schatten_RminusB": 0.012
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "phantom-blade-zero/web_008.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://pbz.s-game.com/assets/media/screenshots/008.jpg",
+   "quelle_seite": "https://pbz.s-game.com/ (Media > Screenshots)",
+   "quelle_typ": "Offizielle Website (Media-Download)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.486,
+    "anteil_dunkel_lt20": 0.11,
+    "anteil_hell_gt70": 0.191,
+    "L_oberes_drittel": 0.532,
+    "L_untere_zwei_drittel": 0.463,
+    "saettigung_mittel": 0.456,
+    "warm_lichter_RminusB": 0.345,
+    "warm_schatten_RminusB": 0.139
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "phantom-blade-zero/web_3.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://pbz.s-game.com/assets/media/screenshots/3.png",
+   "quelle_seite": "https://pbz.s-game.com/ (Media > Screenshots)",
+   "quelle_typ": "Offizielle Website (Media-Download)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.326,
+    "anteil_dunkel_lt20": 0.325,
+    "anteil_hell_gt70": 0.074,
+    "L_oberes_drittel": 0.37,
+    "L_untere_zwei_drittel": 0.303,
+    "saettigung_mittel": 0.143,
+    "warm_lichter_RminusB": -0.054,
+    "warm_schatten_RminusB": -0.028
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "phantom-blade-zero/web_4.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://pbz.s-game.com/assets/media/screenshots/4.png",
+   "quelle_seite": "https://pbz.s-game.com/ (Media > Screenshots)",
+   "quelle_typ": "Offizielle Website (Media-Download)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.254,
+    "anteil_dunkel_lt20": 0.572,
+    "anteil_hell_gt70": 0.076,
+    "L_oberes_drittel": 0.339,
+    "L_untere_zwei_drittel": 0.212,
+    "saettigung_mittel": 0.19,
+    "warm_lichter_RminusB": -0.05,
+    "warm_schatten_RminusB": -0.031
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "phantom-blade-zero/web_6.jpg",
+   "spiel": "phantom-blade-zero",
+   "quelle_url": "https://pbz.s-game.com/assets/media/screenshots/6.png",
+   "quelle_seite": "https://pbz.s-game.com/ (Media > Screenshots)",
+   "quelle_typ": "Offizielle Website (Media-Download)",
+   "rechteinhaber": "© S-GAME",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.46,
+    "anteil_dunkel_lt20": 0.157,
+    "anteil_hell_gt70": 0.146,
+    "L_oberes_drittel": 0.687,
+    "L_untere_zwei_drittel": 0.346,
+    "saettigung_mittel": 0.168,
+    "warm_lichter_RminusB": -0.096,
+    "warm_schatten_RminusB": -0.024
+   },
+   "anmerkung": "Von der offiziellen Website; auf max. 1920 px Breite als JPEG (q90) gespeichert."
+  },
+  {
+   "datei": "blood-of-dawnwalker/steam_00.jpg",
+   "spiel": "blood-of-dawnwalker",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3751260/1af5d14d9b6a36c14eae3bebf56c0e0f63235633/ss_1af5d14d9b6a36c14eae3bebf56c0e0f63235633.1920x1080.jpg?t=1795190297",
+   "quelle_seite": "https://store.steampowered.com/app/3751260/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Rebel Wolves / Bandai Namco Entertainment",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.243,
+    "anteil_dunkel_lt20": 0.557,
+    "anteil_hell_gt70": 0.071,
+    "L_oberes_drittel": 0.333,
+    "L_untere_zwei_drittel": 0.198,
+    "saettigung_mittel": 0.3,
+    "warm_lichter_RminusB": 0.002,
+    "warm_schatten_RminusB": 0.012
+   }
+  },
+  {
+   "datei": "blood-of-dawnwalker/steam_02.jpg",
+   "spiel": "blood-of-dawnwalker",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3751260/b91c26c945ec2453f7dbb1f6a3f8992edcccc484/ss_b91c26c945ec2453f7dbb1f6a3f8992edcccc484.1920x1080.jpg?t=1795190297",
+   "quelle_seite": "https://store.steampowered.com/app/3751260/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Rebel Wolves / Bandai Namco Entertainment",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.259,
+    "anteil_dunkel_lt20": 0.493,
+    "anteil_hell_gt70": 0.061,
+    "L_oberes_drittel": 0.368,
+    "L_untere_zwei_drittel": 0.205,
+    "saettigung_mittel": 0.309,
+    "warm_lichter_RminusB": 0.091,
+    "warm_schatten_RminusB": 0.003
+   }
+  },
+  {
+   "datei": "blood-of-dawnwalker/steam_03.jpg",
+   "spiel": "blood-of-dawnwalker",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3751260/2aeb99f7ea9968e69ea460e4c994a1ff280fb32d/ss_2aeb99f7ea9968e69ea460e4c994a1ff280fb32d.1920x1080.jpg?t=1795190297",
+   "quelle_seite": "https://store.steampowered.com/app/3751260/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Rebel Wolves / Bandai Namco Entertainment",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.11,
+    "anteil_dunkel_lt20": 0.885,
+    "anteil_hell_gt70": 0.021,
+    "L_oberes_drittel": 0.166,
+    "L_untere_zwei_drittel": 0.081,
+    "saettigung_mittel": 0.453,
+    "warm_lichter_RminusB": -0.075,
+    "warm_schatten_RminusB": 0.006
+   }
+  },
+  {
+   "datei": "blood-of-dawnwalker/steam_04.jpg",
+   "spiel": "blood-of-dawnwalker",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3751260/533e61e6ba42cfebbd3b6d3926ecbbc4edd285dc/ss_533e61e6ba42cfebbd3b6d3926ecbbc4edd285dc.1920x1080.jpg?t=1795190297",
+   "quelle_seite": "https://store.steampowered.com/app/3751260/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Rebel Wolves / Bandai Namco Entertainment",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.086,
+    "anteil_dunkel_lt20": 0.891,
+    "anteil_hell_gt70": 0.001,
+    "L_oberes_drittel": 0.112,
+    "L_untere_zwei_drittel": 0.073,
+    "saettigung_mittel": 0.187,
+    "warm_lichter_RminusB": -0.009,
+    "warm_schatten_RminusB": 0.0
+   },
+   "anmerkung": "Innenraum/Kampf; nur als Beleg fuer Volumenlicht aufgenommen."
+  },
+  {
+   "datei": "blood-of-dawnwalker/steam_05.jpg",
+   "spiel": "blood-of-dawnwalker",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3751260/5c76f48ae1487a08118132512ea932afb238cebf/ss_5c76f48ae1487a08118132512ea932afb238cebf.1920x1080.jpg?t=1795190297",
+   "quelle_seite": "https://store.steampowered.com/app/3751260/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Rebel Wolves / Bandai Namco Entertainment",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.215,
+    "anteil_dunkel_lt20": 0.654,
+    "anteil_hell_gt70": 0.038,
+    "L_oberes_drittel": 0.251,
+    "L_untere_zwei_drittel": 0.197,
+    "saettigung_mittel": 0.325,
+    "warm_lichter_RminusB": 0.096,
+    "warm_schatten_RminusB": 0.018
+   },
+   "anmerkung": "Dialogszene; Umgebung nur im Hintergrund (Blockhaus, Turm, Dunststaffelung)."
+  },
+  {
+   "datei": "blood-of-dawnwalker/steam_extra_01.jpg",
+   "spiel": "blood-of-dawnwalker",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3751260/extras/774793038a237d8eae82893ba5cc2b9e.poster.avif?t=1795190297",
+   "quelle_seite": "https://store.steampowered.com/app/3751260/",
+   "quelle_typ": "Steam-Store (Beschreibungsgrafik, 780x292)",
+   "rechteinhaber": "© Rebel Wolves / Bandai Namco Entertainment",
+   "breite": 780,
+   "hoehe": 292,
+   "mess": {
+    "L_mittel": 0.364,
+    "anteil_dunkel_lt20": 0.255,
+    "anteil_hell_gt70": 0.075,
+    "L_oberes_drittel": 0.539,
+    "L_untere_zwei_drittel": 0.277,
+    "saettigung_mittel": 0.28,
+    "warm_lichter_RminusB": -0.192,
+    "warm_schatten_RminusB": -0.007
+   },
+   "anmerkung": "Nur 780x292 (Banner aus der Store-Beschreibung, aus AVIF konvertiert); taugt fuer Grossform/Tiefenstaffelung, nicht fuer Materialdetail."
+  },
+  {
+   "datei": "blood-of-dawnwalker/steam_extra_02.jpg",
+   "spiel": "blood-of-dawnwalker",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3751260/extras/ea61cb221e1e5a75208fb066d978f944.poster.avif?t=1795190297",
+   "quelle_seite": "https://store.steampowered.com/app/3751260/",
+   "quelle_typ": "Steam-Store (Beschreibungsgrafik, 780x292)",
+   "rechteinhaber": "© Rebel Wolves / Bandai Namco Entertainment",
+   "breite": 780,
+   "hoehe": 292,
+   "mess": {
+    "L_mittel": 0.389,
+    "anteil_dunkel_lt20": 0.223,
+    "anteil_hell_gt70": 0.044,
+    "L_oberes_drittel": 0.548,
+    "L_untere_zwei_drittel": 0.309,
+    "saettigung_mittel": 0.333,
+    "warm_lichter_RminusB": -0.233,
+    "warm_schatten_RminusB": 0.007
+   },
+   "anmerkung": "Nur 780x292 (Banner aus der Store-Beschreibung, aus AVIF konvertiert); taugt fuer Grossform/Tiefenstaffelung, nicht fuer Materialdetail."
+  },
+  {
+   "datei": "blood-of-dawnwalker/steam_eclipse_01.jpg",
+   "spiel": "blood-of-dawnwalker",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4417550/6fcf95f4c678edcab31ee3933338a0e18b196f58/ss_6fcf95f4c678edcab31ee3933338a0e18b196f58.1920x1080.jpg?t=1794909178",
+   "quelle_seite": "https://store.steampowered.com/app/4417550/",
+   "quelle_typ": "Steam-Store (Eclipse Edition Content, Screenshot mit Kompendium-UI)",
+   "rechteinhaber": "© Rebel Wolves / Bandai Namco Entertainment",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.145,
+    "anteil_dunkel_lt20": 0.745,
+    "anteil_hell_gt70": 0.006,
+    "L_oberes_drittel": 0.189,
+    "L_untere_zwei_drittel": 0.123,
+    "saettigung_mittel": 0.246,
+    "warm_lichter_RminusB": -0.03,
+    "warm_schatten_RminusB": -0.015
+   },
+   "anmerkung": "Offizielles Concept-Painting im Kompendium-Viewer (UI-Rahmen, Textkasten); Messwerte durch schwarzen Rahmen verfaelscht (zu dunkel)."
+  },
+  {
+   "datei": "blood-of-dawnwalker/steam_eclipse_02.jpg",
+   "spiel": "blood-of-dawnwalker",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/4417550/800157349e0d0c0665eb401e2fca35fb2fc0b99c/ss_800157349e0d0c0665eb401e2fca35fb2fc0b99c.1920x1080.jpg?t=1794909178",
+   "quelle_seite": "https://store.steampowered.com/app/4417550/",
+   "quelle_typ": "Steam-Store (Eclipse Edition Content, Screenshot mit Kompendium-UI)",
+   "rechteinhaber": "© Rebel Wolves / Bandai Namco Entertainment",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.25,
+    "anteil_dunkel_lt20": 0.519,
+    "anteil_hell_gt70": 0.068,
+    "L_oberes_drittel": 0.366,
+    "L_untere_zwei_drittel": 0.192,
+    "saettigung_mittel": 0.219,
+    "warm_lichter_RminusB": 0.071,
+    "warm_schatten_RminusB": -0.019
+   },
+   "anmerkung": "Offizielles Concept-Painting im Kompendium-Viewer (UI-Rahmen, Textkasten); Messwerte durch schwarzen Rahmen verfaelscht (zu dunkel)."
+  },
+  {
+   "datei": "elden-ring/steam_00.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1245620/ss_943bf6fe62352757d9070c1d33e50b92fe8539f1.1920x1080.jpg?t=1790290043",
+   "quelle_seite": "https://store.steampowered.com/app/1245620/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.432,
+    "anteil_dunkel_lt20": 0.164,
+    "anteil_hell_gt70": 0.135,
+    "L_oberes_drittel": 0.59,
+    "L_untere_zwei_drittel": 0.352,
+    "saettigung_mittel": 0.285,
+    "warm_lichter_RminusB": 0.233,
+    "warm_schatten_RminusB": -0.05
+   }
+  },
+  {
+   "datei": "elden-ring/steam_01.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1245620/ss_dcdac9e4b26ac0ee5248bfd2967d764fd00cdb42.1920x1080.jpg?t=1790290043",
+   "quelle_seite": "https://store.steampowered.com/app/1245620/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.272,
+    "anteil_dunkel_lt20": 0.444,
+    "anteil_hell_gt70": 0.024,
+    "L_oberes_drittel": 0.355,
+    "L_untere_zwei_drittel": 0.23,
+    "saettigung_mittel": 0.196,
+    "warm_lichter_RminusB": 0.09,
+    "warm_schatten_RminusB": -0.023
+   }
+  },
+  {
+   "datei": "elden-ring/steam_03.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1245620/ss_e0316c76f8197405c1312d072b84331dd735d60b.1920x1080.jpg?t=1790290043",
+   "quelle_seite": "https://store.steampowered.com/app/1245620/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.374,
+    "anteil_dunkel_lt20": 0.228,
+    "anteil_hell_gt70": 0.07,
+    "L_oberes_drittel": 0.452,
+    "L_untere_zwei_drittel": 0.336,
+    "saettigung_mittel": 0.176,
+    "warm_lichter_RminusB": 0.034,
+    "warm_schatten_RminusB": 0.048
+   }
+  },
+  {
+   "datei": "elden-ring/steam_04.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1245620/ss_ef61b771ee6b269b1f0cb484233e07a0bfb5f81b.1920x1080.jpg?t=1790290043",
+   "quelle_seite": "https://store.steampowered.com/app/1245620/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.318,
+    "anteil_dunkel_lt20": 0.237,
+    "anteil_hell_gt70": 0.021,
+    "L_oberes_drittel": 0.451,
+    "L_untere_zwei_drittel": 0.251,
+    "saettigung_mittel": 0.244,
+    "warm_lichter_RminusB": -0.019,
+    "warm_schatten_RminusB": -0.021
+   }
+  },
+  {
+   "datei": "elden-ring/steam_06.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1245620/ss_510a02cf3045e841e180f2b77fb87545e0c8b59d.1920x1080.jpg?t=1790290043",
+   "quelle_seite": "https://store.steampowered.com/app/1245620/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.188,
+    "anteil_dunkel_lt20": 0.726,
+    "anteil_hell_gt70": 0.031,
+    "L_oberes_drittel": 0.294,
+    "L_untere_zwei_drittel": 0.135,
+    "saettigung_mittel": 0.492,
+    "warm_lichter_RminusB": 0.029,
+    "warm_schatten_RminusB": -0.029
+   }
+  },
+  {
+   "datei": "elden-ring/steam_07.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1245620/ss_c494372930ca791bdc6221eca134f2270fb2cb9f.1920x1080.jpg?t=1790290043",
+   "quelle_seite": "https://store.steampowered.com/app/1245620/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.419,
+    "anteil_dunkel_lt20": 0.116,
+    "anteil_hell_gt70": 0.032,
+    "L_oberes_drittel": 0.475,
+    "L_untere_zwei_drittel": 0.39,
+    "saettigung_mittel": 0.206,
+    "warm_lichter_RminusB": -0.078,
+    "warm_schatten_RminusB": -0.023
+   }
+  },
+  {
+   "datei": "elden-ring/steam_09.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1245620/ss_c2baf8aada6140beee79d701d14043899e91af47.1920x1080.jpg?t=1790290043",
+   "quelle_seite": "https://store.steampowered.com/app/1245620/",
+   "quelle_typ": "Steam-Store (appdetails API, screenshots[].path_full)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.263,
+    "anteil_dunkel_lt20": 0.475,
+    "anteil_hell_gt70": 0.038,
+    "L_oberes_drittel": 0.353,
+    "L_untere_zwei_drittel": 0.217,
+    "saettigung_mittel": 0.45,
+    "warm_lichter_RminusB": 0.014,
+    "warm_schatten_RminusB": -0.124
+   }
+  },
+  {
+   "datei": "elden-ring/steam_sote_00.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2778580/ss_c97bcad291f4f45d4be4594f34bd78921d961099.1920x1080.jpg?t=1787586064",
+   "quelle_seite": "https://store.steampowered.com/app/2778580/",
+   "quelle_typ": "Steam-Store (Shadow of the Erdtree, appdetails API)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.28,
+    "anteil_dunkel_lt20": 0.386,
+    "anteil_hell_gt70": 0.024,
+    "L_oberes_drittel": 0.222,
+    "L_untere_zwei_drittel": 0.308,
+    "saettigung_mittel": 0.404,
+    "warm_lichter_RminusB": 0.224,
+    "warm_schatten_RminusB": -0.078
+   }
+  },
+  {
+   "datei": "elden-ring/steam_sote_03.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2778580/ss_c27ceb209a6d3a215181b98e19dd8ab0632c4de3.1920x1080.jpg?t=1787586064",
+   "quelle_seite": "https://store.steampowered.com/app/2778580/",
+   "quelle_typ": "Steam-Store (Shadow of the Erdtree, appdetails API)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.34,
+    "anteil_dunkel_lt20": 0.148,
+    "anteil_hell_gt70": 0.003,
+    "L_oberes_drittel": 0.339,
+    "L_untere_zwei_drittel": 0.341,
+    "saettigung_mittel": 0.392,
+    "warm_lichter_RminusB": 0.27,
+    "warm_schatten_RminusB": 0.091
+   }
+  },
+  {
+   "datei": "elden-ring/steam_sote_04.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2778580/ss_d18059b5260bf730d3942343f9de3027db4b4afe.1920x1080.jpg?t=1787586064",
+   "quelle_seite": "https://store.steampowered.com/app/2778580/",
+   "quelle_typ": "Steam-Store (Shadow of the Erdtree, appdetails API)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.271,
+    "anteil_dunkel_lt20": 0.47,
+    "anteil_hell_gt70": 0.044,
+    "L_oberes_drittel": 0.357,
+    "L_untere_zwei_drittel": 0.228,
+    "saettigung_mittel": 0.409,
+    "warm_lichter_RminusB": 0.197,
+    "warm_schatten_RminusB": 0.019
+   }
+  },
+  {
+   "datei": "elden-ring/steam_sote_09.jpg",
+   "spiel": "elden-ring",
+   "quelle_url": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2778580/ss_e8f6fb2cc557190ae280fac5dd3cb5cd38ea2980.1920x1080.jpg?t=1787586064",
+   "quelle_seite": "https://store.steampowered.com/app/2778580/",
+   "quelle_typ": "Steam-Store (Shadow of the Erdtree, appdetails API)",
+   "rechteinhaber": "© Bandai Namco Entertainment Inc. / © FromSoftware, Inc.",
+   "breite": 1920,
+   "hoehe": 1080,
+   "mess": {
+    "L_mittel": 0.323,
+    "anteil_dunkel_lt20": 0.256,
+    "anteil_hell_gt70": 0.01,
+    "L_oberes_drittel": 0.322,
+    "L_untere_zwei_drittel": 0.324,
+    "saettigung_mittel": 0.349,
+    "warm_lichter_RminusB": -0.06,
+    "warm_schatten_RminusB": -0.006
+   }
+  }
+ ]
+}

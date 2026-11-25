@@ -1,0 +1,749 @@
+---
+last-reviewed: 2026-11-18
+shelf-life-days: 365
+---
+# Hof-Zielbilder für BRACHLAND
+
+Der Hof im Œntal zeigt 40–60 Jahre nach dem Kollaps drei Zustände auf engem Raum: ein eingestürztes Haus, ein verlassenes Haus mit intakter Silhouette und, wo Bewohner verortet sind, geflickte Bauten. Das Mauerwerk aus Feldstein und Kalkputz, das hölzerne Obergeschoss und das flache Satteldach geben dem Ort seine Inntaler Identität. [Story-Bibel](design/BRACHLAND_Story-Bibel_v1.md) · [Bauwelt](design/BRACHLAND_Bauwelt_v1.md)
+
+## Maßstab für reale Orte
+
+Ein Spielbild soll aus demselben Standpunkt und Blickwinkel wie ein Foto vor Ort wirken. Bei vergleichbarem Licht müssen Hausformen, Proportionen, Straßenverlauf, Höhen und Entfernungen wiedererkennbar sein. Materialien, Bewuchs und der Verfall seit dem Kollaps sollen genauso glaubwürdig aussehen, als hätte man den Ort in diesem Zustand fotografiert.
+
+## Referenzen für später
+
+- Fotorealismus als visueller Maßstab. [Instagram-Reel De6cZjkhpuL](https://www.instagram.com/reel/De6cZjkhpuL/)
+- **Zusammenhängender Verfall, Jesse Miettinen.** Abgeplatzte Kanten, freiliegendes Mauerwerk und dunkle Ablaufspuren formen gemeinsam dieselbe Schadensstelle. Für Milbinger lässt sich derselbe räumliche Verlauf auf Putz, Fuge, Schutt und Moos anwenden. Kleine Spuren können in Farbkarten und Normalen gebacken werden. Tiefe Ausbrüche brauchen ein Mesh. [Reel](https://www.instagram.com/reel/DezPQxtoGPz/) · [Damage Control und Masken](https://embracefx.gumroad.com/l/damagecontrol)
+- **Baumformen und Material, That3dGuy.** Unregelmäßige Kronengruppen und sichtbare Äste geben dem gezeigten Laubbaum Tiefe. Das ebenfalls gezeigte Fichtenangebot trägt eine Royalty-Free-Lizenz mit No-AI-Zusatz. Für einen CC0-Vergleich kommt Fir Tree 01 in Frage. Poly Haven nennt für das Quellasset acht Millionen Dreiecke. Gegenprobe sind die vorhandenen Bäume bei gleicher Kamera, sichtbarer Silhouette und Bildzeit. [Reel](https://www.instagram.com/reel/DexGTbSzB42/) · [CGTrader-Fichtenangebot](https://www.cgtrader.com/free-3d-models/plant/other/spruce-plant-trees) · [Fir Tree 01](https://polyhaven.com/a/fir_tree_01)
+- **Überwachsener Zugang, Extraordinary3D.** Laubstreu und niedrige Kräuter laufen bis in den schmalen Pfad. Farn, Sträucher und überhängende Zweige verdichten sich an den Seiten. Das Dach verschwindet teilweise im Bewuchs, während die Tür ablesbar bleibt. Für die [Milbinger Kieszufahrt und den Garten](#böden-gärten-und-verfall-an-der-milbinger-straße-d347) liefert das Reel eine Referenz dafür, wie sich Erdauflage, abgestufter Bewuchs und offene Trittspur in derselben Fläche überlagern. [Reel](https://www.instagram.com/reel/Df4thC2AqMY/)
+
+## Gesichtet am 18.11.2026
+
+| Referenz | Im Bild beobachtet | Ziel für den Hof |
+|---|---|---|
+| **S.T.A.L.K.E.R. 2, World & Locations** | Ein Haus mit erhaltenem Satteldach steht neben einem Bau mit offenem Dachstuhl. Warmes Seitenlicht fällt auf Bruchkanten und einen durchbrochenen Holzzaun. Ein schmaler brauner Pfad bleibt zwischen den Büschen sichtbar. | Leitmotiv für den Hof. Verfallsstufen nebeneinander lesbar machen. Vegetation wächst von Rändern und Fugen in die Gasse, Feuchte sammelt sich in Senken. [Offizieller Clip bei 1:50](https://www.youtube.com/watch?v=Z5TmiZUOosE&t=110s) · [Publisher-Spielbild zum Boden](https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1643320/6dd918e8d8fd9697b281cffa9ca3d8935f5d870d/ss_6dd918e8d8fd9697b281cffa9ca3d8935f5d870d.1920x1080.jpg) |
+| **The Last of Us Part II, Hillcrest** | Bruch in der Dachsilhouette, dichter Bewuchs an Gebäudekanten und in Rissen, lesbare Lücken auf der feuchten Straße. Vordergrundlaub und dunstige Hügel geben Tiefe. | Efeu vom Sockel über die Fassade wachsen lassen. Büschel an Fugen und Rändern verdichten. Einen sichtbaren Gehstreifen lassen. [Offizielles Spielbild](https://live.staticflickr.com/65535/48797065106_7e4fa520dd_h.jpg) · [PlayStation](https://blog.playstation.com/2019/09/26/new-the-last-of-us-part-ii-gameplay-details-revealed/) |
+| **Metro Exodus, ländliche Holzhausgruppe** | Verwittertes graues Holz neben dunklen Giebelöffnungen, helle Balkenkanten und hohes Gras an Resten von Zäunen. Bodendunst trennt die hinteren Gebäude. | Ausgebleichtes Holz im Licht, dunkles, gealtertes Holz unter der Traufe. Eine tragende Konstruktion bleibt im Bruch erkennbar. [Publisher-Spielbild](https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/412020/ss_f0f073a59827827ab32960ae280f178b4d89732b.1920x1080.jpg) · [Galerie](https://store.steampowered.com/app/412020/Metro_Exodus/) |
+| **Days Gone, ländliches Anwesen** | Graues Holzhaus und dichter Bewuchs am Sockel. Der freie Erdweg zieht durch das Bild, warmes Streiflicht und kühler Walddunst trennen die Ebenen. | Weg und Lichtrichtung als Führung. Alte Gegenstände oder Schutt an wenigen plausiblen Stellen konzentrieren. Die Verfallsstufe richtet sich nach der längeren Zeitspanne in BRACHLAND. [Publisher-Spielbild](https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1259420/ss_7b63c1b0d9bd6e3951a1358f374ecd473e0f10b0.1920x1080.jpg?t=1750947718) · [Bend Studio zur Zeitspanne](https://blog.playstation.com/2019/04/19/how-bend-studio-built-the-merciless-world-of-days-gone/) |
+
+## 1. Einsturz und Efeu an Haus 308
+
+![Hof-Zielbild 1 mit abgesacktem Dach, gesplitterten Balken und dichtem Efeu an der Hausecke](bilder/d315-hof-einsturz.webp)
+
+**Soll im Lauf aus Spielhöhe erkennbar sein:** Der Schaden setzt sich als zusammenhängende Spur vom abgesackten Dach über die gebrochene Schalung bis unter die Öffnung fort. Licht trennt ausgefaserte Kanten vom Innenraum. Kräftige, bodengebundene Efeutriebe fassen die Ecke ein und werden nach oben unregelmäßig dünner. Das Blattwerk hat sichtbare Lücken, Giebel und Dachüberstand bleiben ablesbar.
+
+**Abstand zu D314:** Der bestehende Bruch hat noch gleichförmige Balken, eine gestufte Bretterkante und vergleichsweise dünnen Efeu. Die größte sichtbare Änderung liegt zuerst in der Silhouette und im Materialkontrast der Bruchflächen.
+
+## 2. Sockel, Tür und Schutt
+
+![Hof-Zielbild 2 mit rissigem Putz, abgestuftem Schuttfächer und freien Trittplatten](bilder/d315-hof-sockel.webp)
+
+**Soll beim Vorbeigehen erkennbar sein:** Direkt unter dem Bruch liegen das gröbste Holz und die schwersten Steine. Nach außen lösen sie sich in Ziegelscherben, Splitter, feuchte Erde und einzelne Triebe auf. Die Trittplatten bleiben in der Spur zur Tür sichtbar. Kalkputz platzt bis auf mineralische Körnung und Fugen ab. Unter Fensterbänken, an der Sockelkante und im Regenabfluss zeigen sich unterschiedliche Feuchtespuren.
+
+**Abstand zu D314:** Der kleine Schutthaufen sitzt bereits seitlich der Tür. Im Zielbild ist seine Verbindung zur Bruchstelle über gefallenes Holz sichtbar. Mehr Materialtiefe lässt sich aus einer gemeinsamen Maske für Farbe, Rauheit und Normalen gewinnen. Die Bruchkante am Mauerwerk wird nur da als Geometrie gesetzt, wo sie aus Spielhöhe Tiefe oder Silhouette verändert.
+
+## 3. Gasse und Verfallsstufen
+
+![Hof-Zielbild 3 mit begehbarer Kiesgasse, bewachsenen Rändern und gestaffelten Gehöften im Dunst](bilder/d315-hof-gasse.webp)
+
+**Soll beim Anlaufen erkennbar sein:** Eine zusammenhängende, begangene Mitte führt durch die Gasse. Farn, Gräser und Sträucher stehen gestaffelt am Mauerfuß und an feuchten Rändern. Jeder Bau behält eine eigene Silhouette. Dachbruch, Moosdach und geflicktes Holz zeigen Unterschiede im Zustand. Pflegezeichen wie Rauch oder frischere Bretter setzen eine tatsächliche Bewohnung voraus. Warmes Streiflicht hebt vereinzelte Kanten, und der Dunst trennt die hinteren Häuser.
+
+**Abstand zu D314:** Der Spielstand hat viele gleichmäßig niedrige Halme und relativ glatte Ränder. Mehr Wirkung entsteht durch wenige dichte Gruppen, ausgefranste Wegränder und hellere Abstufungen in der Ferne.
+
+## Kameras für den Vergleich
+
+Alle Angaben folgen `kamera=x,y,z,zielX,zielY,zielZ&fov=60`. Der beste Rückvergleich nutzt zuerst dieselben Ansichten mit `stimmung=zielbild` und anschliessend die Bewegung. Das Konzeptbild für den Sockel ist bewusst etwas tiefer eingerahmt, damit die Trittplatten ganz im Bild liegen.
+
+| Bild | Spielaufnahme | Kamera und Ziel im Ausgangsbild |
+|---|---|---|
+| 1 | `hauslauf.mjs <name> 1 fahrt ruine`, Bild 064 | `1428.529,36.400,403.898,1426.084,37.884,409.300` |
+| 2 | dasselbe Profil, Bild 183 | `1434.822,36.325,410.344,1426.240,38.040,409.300` |
+| 3 | `hauslauf.mjs <name> 1 fahrt verfall`, Bild 143 | `1447,36.4,436,1457,38,432` |
+
+Für die Umsetzung werden zuerst die Bruchsilhouette von Haus 308, dann Material und Schuttstaffelung, anschließend die Gasse verglichen. Die drei Konzeptbilder geben Motive, Materialverhalten und Licht vor. Für numerischen Bildvergleich dient ein eigener Blender-Render mit derselben Kamera nach [ADR-0006](adr/0006-zielbild-vor-zielgeraet.md). Der [Messlauf](MESSLAUF.md) prüft zusätzlich Bewegung und Bildzeiten im spielbaren Ausschnitt.
+
+## Bildherkunft
+
+Die drei Konzeptbilder wurden mit dem eingebauten ImageGen-Werkzeug aus eigenen BRACHLAND-Spielaufnahmen erstellt und als WebP mit 1536 × 864 Pixeln abgelegt. Die AAA-Spielbilder sind als Quellen verlinkt.
+
+<details>
+<summary>Bildprompts und verwendete Spielaufnahmen</summary>
+
+### Zielbild 1
+
+Eingabe `.cache/mess/d314-nach/064.png` aus der oben genannten Messkette.
+
+```text
+Use case: stylized-concept. Asset: BRACHLAND visual target, damaged alpine farm from ordinary gameplay eye height, wide landscape. Image 1 is OUR game's camera and building reference. Preserve the view angle, two-story Inn valley farmhouse, corner, dark horizontal timber beam, shallow gable, plaster base fieldstone plinth, entrance and real single connected ivy climbing around the corner. Render a grounded human-scaled rural collapse after fifty years. One roof bay has genuinely sagged and failed with irregular fractured rafters, fractured and curled gray-brown cladding, layered breaks, and an interior shadow cavity with legible depth. Rooted European ivy forms dense overlapping leaves around that corner, with stem and young growth, intermittent bare wood. Soft amber overcast sky, cool bounce under eaves, quiet mist in distance. Materials should read in the mids and one could implement it as a real-time game. Original design. Avoid any game-identifiable imagery, sci-fi, fantasy effects, fire, violence, text, UI, and excessive saturation.
+```
+
+### Zielbild 2
+
+Eingabe `.cache/mess/d314-nach/183.png` aus der oben genannten Messkette.
+
+```text
+Use case: stylized-concept. Asset: BRACHLAND visual target of ground-level weathering and collapse debris, wide landscape. Image 1 is OUR gameplay location and framing reference for the same original Inn valley farm. Keep the existing paired entrance and window on the left half with visible pale local aggregate plaster, wood framing upstairs and broken roof silhouettes. Lower the aim a little to show the entire doorstep and rubble fan. Fifty years after collapse. From the damaged bay a connected pile of layered roof tiles, fallen gray wood and irregular limestone rubble decreases gradually into small scattered chips, damp soil and weeds. Keep two visibly clear door stepping stones next to the debris. Local damp stains at stone base, eroded lime plaster with exposed mortar, wet wood below eaves, dry silver faces in soft warm afternoon. Windows recessed with a dull dark interior. Modest lived-in architecture, natural seasonal grass, weathered muted tones, a credible realtime game framing. Original design. No UI, characters, fireworks, text, or brands.
+```
+
+### Zielbild 3
+
+Eingabe `.cache/mess/d312-nach/143.png` aus der oben genannten Messkette.
+
+```text
+Use case: stylized-concept. Asset: BRACHLAND visual target, approach through a reclaimed Inn valley farm lane, wide landscape, game camera about two meters high. Image 1 is OUR game composition and architecture reference. Preserve rows of two-story alpine farmhouses with plaster ground floor, wooden upper floors, broad shallow dark gabled roofs, tree-lined depth, and route into the middle distance. Set it fifty years after collapse under soft hazy golden daylight. Show visibly distinct fates: one near ruined bay with missing rafters and a dark roof hole, one abandoned intact mossy roof where shrubs colonize a wet edge, a distant discreet repaired inhabited building with patched timber and small hints of maintained ground. Groundcover grows from verges, wall toes and old drainage, in uneven clumps of ivy, ferns, saplings and tall grasses among broken verge edges. Keep a readable continuous band of foot-worn gravel along the middle and clear access patches. Restrained muted greens, weathered gray wood, pale stone and subtle mountain haze; natural bounce with silhouette separation. Original design, camera remains credible at running speed, no text, no HUD, no urban skyline, no fire or fantasy glow.
+```
+
+</details>
+
+## Spielbare Fassung von Haus 308 (D317)
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt hofziel` erfasst die Hausruine aus denselben Kamerapositionen wie D316. Mit Probe `0` läuft der D316-Vergleich. Bild 064 ist der direkte Rückvergleich zum Konzept oben. Die neue Spielvariante nutzt `hofziel=1` und die separate Lichtstimmung `stimmung=hofziel`.
+
+Der Vergleich liegt lokal unter `.cache/bilder/d317-hof-zielbild/index.html`. Die acht Sekunden Fahrt verwenden 192 Bilder pro Fassung bei 24 Bildern pro Sekunde. Die geladene Haus- und Gartengeometrie steigt von 406.999 auf 411.781 Dreiecke. Der Dachüberstand, die Tiefe des Bruchs und die Dichte des Efeus weichen im Spiel noch vom Konzeptbild ab.
+
+Vier separate 12-s-Spielmessungen am M1 bei 960 × 540 und gleicher Beleuchtung (`stimmung=hofziel`) schalten am Startpunkt 1436/398/171 nur `hofziel` in der Reihenfolge 0/1/1/0 um. Im Mittel ergeben sich 45,68 → 46,00 FPS und 33,65 → 33,70 ms p95. Die längsten Einzelbilder liegen bei 50,9 ms ohne und 67,8 ms mit Probe. In beiden neuen Läufen trat je ein Bild über 50 ms auf, in den beiden Gegenläufen zusammen eines. Die Stichprobe reicht für die Einordnung des stabilen Bildzeitniveaus im Ausschnitt, größere Einzelspitzen bleiben messbar. Rohberichte unter `.cache/mess/d317-fps-{1,2,3,4}`.
+
+Die vier Karten für Kalkputz, Schalung, Schindeldach und Feldsteinsockel wurden mit ImageGen aus dem obigen eigenen Zielbild als vier Quadranten erzeugt, zugeschnitten und mit umlaufenden Filtrierungsrändern in einen WebP-Atlas gepackt. Die Normalenkarte leitet ihr Relief aus Helligkeitsgradienten ab. Beide Atlanten sind 1280 × 1280 Pixel groß.
+
+<details>
+<summary>Prompt für die Materialkarten</summary>
+
+```text
+Use case: stylized-concept. Make a new 1:1 square texture swatch image divided exactly into four equal square quadrants that touch with no separators or borders. It will be cropped at the halfway lines to make four PBR base color maps for BRACHLAND's own original farmhouse. The supplied BRACHLAND rendering is our material reference only. Extract the same authentic hues and material meaning at the same human scale. Top-left quadrant: pale lightly warm beige lime render with flat peeling areas and exposed grey-brown stone aggregate, a fine small network of cracks, mineral colors, with fissures no bigger than a few centimeters. Top-right quadrant: very old faded gray-brown timber plank cladding, boards aligned strictly vertical in the image, irregular shallow scratches, dark thin seams, gray wood fibers, rough dryness, no visible moss and no large damage holes. Bottom-left quadrant: irregular weathered grey wooden roof shingles aligned in horizontal rows, some silver tones and warm grey, touches of thin brown-green moss in the seams, natural aged roof. Bottom-right quadrant: small dark charcoal-brown fieldstones with brown mortar and fine gray textures, scattered muted moss. Every quadrant is a flat evenly lit, orthographic seamless PBR base color texture crop, no scene perspective, no shadows, no depth of field, no light gradients, no vignettes. No architecture objects, windows or trims. No text, no graphic layout, no frame or gutters. Four equally sized fully filled materials. Heavy physical realism at ground level, muted natural colors.
+```
+
+</details>
+
+## Dachbruch und Efeu (D318)
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt hofdachbruch` nutzt dieselbe Kamerafahrt wie D317. Probe `0` ruft D317 auf. D318 ergänzt an Haus 308 die abgesackte, weit in die Öffnung ragende Schindelhaut, übereinander verkeilte Holzstücke, einen tiefer liegenden Innenraum, dichteren Efeu und den bemoosten Sockel. Die Variante verwendet die D317-Materialkarten bei wärmerem Himmelslicht. Eingang und Trittplatten bleiben frei.
+
+Der lokale Vergleich unter `.cache/bilder/d318-hof-dachbruch/index.html` zeigt Zielbild, D317 und D318 nebeneinander. Beide Spielaufnahmen nutzen 192 Bilder über acht Sekunden. Die geladenen Haus- und Gartenpuffer steigen von 411.781 auf 422.536 Dreiecke. Der Spielrender behält die ursprünglichen Hausgrundrisse und weicht durch die Dachform und die Himmelsbeleuchtung sichtbar von der Vorlage ab.
+
+Ein Raster aus 96 × 54 Sichtstrahlen an Kamera 064 trifft am isolierten Haus 308 in D317 bei 290 von 2.322 Haustrefferpunkten auf Efeublätter. In D318 sind es 422 von 2.391. Der Anteil steigt von 12,5 auf 17,6 %. Die Messung nutzt das originale Höhenfeld und betrachtet die Geometrie ohne vorstehende Geländeobjekte.
+
+Vier getrennte 12-s-Spielmessungen am M1 bei 960 × 540, Startpunkt 1436/398/171 und identischer Beleuchtung (`stimmung=hofdachbruch`) schalten nur `hofdachbruch` in der Reihenfolge 0/1/1/0 um. Die Mittelwerte betragen 47,04 → 46,79 FPS und 33,4 → 33,6 ms p95. Längstes Einzelbild 35,3 → 50,6 ms. In der neuen Fassung gab es über beide Läufe ein Bild über 50 ms. Rohberichte unter `.cache/mess/d318-fps-{1,2,3,4}`.
+
+## Hoflicht aus der Blender-Probe (D319)
+
+Die Blender-Probe vergleicht auf dem D318-Mesh und mit Kamera 064 hartes Sonnenlicht, breitere Schatten und eine zusätzliche flächige Aufhellung. Die Spielvariante nähert die Aufhellung über die Oberflächenausrichtung im Hausshader an. Helligkeit und warme Tönung konzentrieren sich an Holz, Traufe und Efeu von Haus 308. Der Filterradius derselben Sonnen-Schattenkarte blendet zwischen 44 und 65 m Hofabstand des Spielers zurück.
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt hoflicht` zeichnet die neue Fassung auf. Probe `0` läuft mit derselben Kamera, Stimmung und Geometrie wie D318. Der Rückschalter lautet `hoflicht=0`.
+
+Der lokale Vergleich unter `.cache/bilder/d319-hoflicht/index.html` zeigt acht Sekunden Bewegung in beiden Fassungen. Die 20 geladenen Haus-/Gartenpuffer stimmen in Größe und Dreieckszahl überein (422.536 Dreiecke). Im gewählten 100 × 58 Pixel großen Ausschnitt der rechten Traufe (x=846, y=72 in Bild 064) steigt die mittlere lineare sRGB-Leuchtdichte von 0,00925 auf 0,01233.
+
+Vier 12-s-Spielmessungen auf dem M1 bei 960 × 540 und Startpunkt 1436/398/171 schalten nur `hoflicht` in der Reihenfolge 0/1/1/0. Im Mittel 46,77 → 47,40 FPS, p95 über alle Läufe 33,4–33,5 ms. Längstes Einzelbild 51,7 → 49,9 ms. Die Unterschiede liegen im Bereich der Schwankung zwischen den Läufen. Rohberichte unter `.cache/mess/d319-fps-{1,2,3,4}`.
+
+## Ausarbeitung am Zielbild (D320)
+
+Haus 308 erhält eine asymmetrische Bruchkante mit überlappenden Schindeln und ausgefaserten Sparren. An der Ecke liegen mehr Efeublätter in mehreren Tiefen. Feuchtes Mauerwerk, abgeblätterte Fensterfarbe, dunkle Erde und ein verwitterter Gartenzaun verbinden die Ruine mit dem Vorfeld. Die Trittplatten und der Türquerschnitt bleiben frei.
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt zieltreue` erfasst dieselbe 8-s-Kamerafahrt wie D319. Mit Probe `0` läuft D319. Die Bildwirkung wird in der Zielkamera 064 und beim Vorbeigehen geprüft.
+
+Die Fahrten unter `.cache/mess/d319-nach` und `.cache/mess/d320-nach` enthalten je 192 Bilder in 1280 × 720 bei 60° Blickfeld. Der Vergleich unter `.cache/bilder/d320-zielbild-hof/index.html` zeigt Zielbild, Kamera 064 und beide Fassungen in Bewegung. Die 20 geladenen Haus- und Gartenpuffer steigen von 422.536 auf 428.291 Dreiecke (+1,36 %). Die Integrationstests prüfen unveränderte Puffer der Vergleichshäuser, verlustfreie Kompaktierung und gleichen freien Türquerschnitt. In der Spielaufnahme bleiben die Platten sichtbar. Dachprofil, Efeuverteilung und der Baumbestand am Horizont weichen weiterhin von der Vorlage ab.
+
+Vier getrennte 12-s-Spielmessungen auf dem M1 bei 960 × 540 und Startpunkt 1436/398/171 schalten `zieltreue` in der Reihenfolge 0/1/1/0 um. Mittlere FPS 46,75 → 45,60 und mittlere p95-Bildzeit 33,45 → 33,65 ms. In den beiden neuen Läufen dauerte je ein Einzelbild 50,8 bzw. 51,7 ms. In den beiden bisherigen Läufen war das längste Einzelbild 35,3 ms. Keine Browserfehler in den vier Läufen. Rohdaten unter `.cache/mess/d320-fps-{1,2,3,4}`.
+
+Die Blattfarbkarte `public/material/hof-efeu-farbe.webp` stammt aus dem eingebauten ImageGen. Sie wurde auf 512 × 512 Pixel verkleinert und als WebP gespeichert. Adern und Pigmente liegen in der Farbkarte, die gelappte Kontur und die Überlappung entstehen im bestehenden Hauspuffer.
+
+Das Wolkenpanorama `public/material/hof-himmel-farbe.webp` stammt aus demselben Verfahren. Der Himmelshader legt es auf die vorhandene Kuppel und blendet es am Nebelband sowie an der Panoramanaht aus.
+
+<details>
+<summary>Prompt der Wolkenkarte</summary>
+
+```text
+Use case: photorealistic-natural. Generate a wide 2:1 equirectangular sky-dome color texture for the original BRACHLAND ruin scene. Use the supplied BRACHLAND image only as the color and cloud appearance reference, specifically the upper left sky, with realistic layered peach-gray low clouds as at a late overcast alpine afternoon. Render sky only over the entire image, a coherent 360-degree panorama with luminance and softness varied across the frame but left and right edges able to meet. The equator at center height is warm muted distant haze blending upwards into layered darker grey-peach cloud banks and small warm luminous openings between layers. Preserve readable medium-scale, finely textured cloud billows like the reference, no visible sun disk or light shafts. No ground, landscape, architecture, trees, silhouettes, water, frame, seams, labels, or text. Soft amber cloud breaks, pale air, natural low-contrast photographic style. Every pixel sky.
+```
+
+</details>
+
+<details>
+<summary>Prompt der Blattfarbkarte</summary>
+
+```text
+Use case: photorealistic-natural. Create one square diffuse-only texture for a real-time European ivy (Hedera helix) leaf mesh for the original BRACHLAND farmhouse. The supplied original BRACHLAND concept is a color and material reference. Crop face-on very closely to an ivy blade, so the deep muted olive leaf epidermis fills every single pixel of the square, extending past all four borders. The mesh already supplies the lobed silhouette. Photograph texture reading with fine understated silver pale-green branching veins, tiny scuffs and subtle mottled olive greens, muted organic hue. Stalk junction centered horizontally near bottom, a narrow central pale vein runs up the center, side veins branch upward and out at natural angles. Uniform flat diffuse illumination, subtle nonuniform leaf pigments, no brightness gradient, tactile fine botanical details. No backdrop, no vignette, no specimen border, no shadow, no other leaves, no petiole outside the blade, no text, no high-gloss highlights.
+```
+
+</details>
+
+## Verlauf des Verfalls (D321)
+
+Die Dachhaut hängt über einem größeren Bereich durch. An den Rändern leiten erhaltene, verschobene und ausgebrochene Schindeln in den offenen Dachstuhl über. Ausgefaserte Bretter und der unterbrochene Fassadenriegel treffen auf eine ausgebrochene Putzkante. Feuchte folgt am Holz, Putz und den Einfassungen denselben Niederschlagsspuren. An Abplatzungen kommt die Bruchsteinfarbe und -normale des vorhandenen Sockels zum Vorschein. Kleinere Blätter auf auslaufenden Trieben und fleckiges Moos verbinden Bewuchs und Mauerfuß mit der Erde.
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt verfallverlauf` nimmt dieselbe 8-s-Fahrt wie D320 auf. Probe `0` zeigt D320. Die Hausgrundrisse, Trittplatten und Höhe und Tiefe des Türquerschnitts bleiben erhalten.
+
+In der 60°-Kamerafahrt unter `.cache/bilder/d321-verfallverlauf/index.html` ist der Bruch am Riegel und der obere Putzrand in Bild 127 am deutlichsten zu sehen. Je 192 Bilder in 1280 × 720, ohne Browserfehler. Die Zahl der Dreiecke in den 20 geladenen Haus- und Gartenpuffern sinkt von 428.291 auf 427.566. Auf dem Prüfhang reichen vier horizontale Strahlen im oberen Bruchfeld in D320 zwischen 0,72 und 0,93 m und in D321 zwischen 0,53 und 3,80 m in das Haus. Beide Trittplatten und die vier Türstrahltiefen bleiben in der Integrationsprobe gleich. Die gestaffelte Bruchkante bleibt in der Bewegung sichtbar. Verlauf der Dachlinie und Dichte des Bewuchses weichen vom Zielbild ab.
+
+Vier 12-s-Spielmessungen auf dem M1 bei 960 × 540 und Startpunkt 1436/398/171 schalten nur `verfallverlauf` in der Reihenfolge 0/1/1/0 um. Mittlere FPS 45,36 → 45,48. Mittlere p95-Bildzeit 33,50 → 33,50 ms, längstes Einzelbild 152,0 → 50,1 ms. Bilder über 50 ms in je zwei Läufen 3 → 1. Rohberichte unter `.cache/mess/d321-fps-{1,2,3,4}`.
+
+## Alterung in Hof und Wohnstrasse (D322)
+
+Haus 308 bekommt eine breitere Dachsenke, mattere Blattpigmente und Efeutriebe, die sich an der Traufe weiter ausbreiten. Erdpfade verbinden den Eingang mit dem Vorfeld. Kies liegt in Nestern und die Horste variieren in Höhe, Farbe und Abstand. Die Pfadkontur liegt im vorhandenen Grasraster und wird mit denselben Parametern auf dem Boden gezeichnet. Die zwei Trittplatten und deren Zugangsmaske bleiben frei.
+
+Im erweiterten Ausschnitt wählt der Generator Feuchte, Abnutzung und Dachschaden aus Nutzung, Spannweite, Hanglage und ortsfestem Seed. Materialalterung läuft je Fassade unterschiedlich weit. Satteldächer geeigneter ungepflegter Häuser erhalten eine örtliche Dachsenke mit Schindelresten. Der Referenzbruch von Haus 308 bleibt die eigene Einzelfassung. Das genauere Fassadenbild realer Gebäude hängt weiterhin an A-20. Die Gebäuderegel erzeugt keine Texturdateien und verwendet das bestehende, kompaktierbare Zustandsattribut.
+
+`node tools/mess/hauslauf.mjs <name> 1 fahrt ortsalterung` nutzt D321-Kamera und -Licht. `ortsstrasse` folgt der Wohnstraße südöstlich des Hofes mit den Häusern 316, 343 und Garage 355 außerhalb der früheren Auswahl. Probe `0` zeigt D321. Beide Fahrten haben je 192 Bilder bei 24 Bildern pro Sekunde und 60° Blickfeld.
+
+Der lokale Vergleich `.cache/bilder/d322-hof-und-strasse/index.html` zeigt beide Fahrten parallel. In der Hofaufnahme steigen die geladenen Haus- und Gartendreiecke von 427.566 auf 444.366. An der Wohnstraße steigen sie von 404.418 auf 421.218. Die Vergleichsläufe meldeten keine Browserfehler. Der Prüfhang bestätigt unterschiedliche Alterungswerte und geänderte Dachgeometrie in der zweiten Straße. Das außerhalb liegende Gebäude 693 bleibt bytegleich. An 1.496 geprüften Punkten der vorher freigehaltenen Zugänge bleibt die Grasmaske null. Am Hofstart 1425/403 sinkt die Zahl der Nahgräser von 836 auf 797.
+
+Vier 12-s-Spielmessungen auf dem M1 bei 960 × 540 und Startpunkt 1436/398/171 schalten nur `ortsalterung` in der Reihenfolge 0/1/1/0 um. Mittlere FPS 39,89 → 39,25. Mittlere p95-Bildzeit 34,95 → 34,95 ms, längstes Einzelbild 51,9 → 83,3 ms. Bilder über 50 ms in je zwei Läufen 1 → 4. Rohberichte unter `.cache/mess/d322-fps-final-{1,2,3,4}`.
+
+## Dach, Baumkulisse und Weststrasse (D323)
+
+Die abgesackte Seite von Haus 308 läuft in herabhängende Schindelenden aus. Der Giebel tritt an der Ecke zurück. An der gemeinsamen Fuge enden Dachhaut, Ortgang und Rinnen von 346 am selben, gekürzten Anschluss. In fünf Zeugenpixeln traf der erste Sichtstrahl vorher auf den überlappenden Dachteil von 346 und in D323 auf andere Geometrie oder ins Freie. Die gegenüberliegende Rinnenstrecke bleibt erhalten. Beide Trittplatten und die Türstrahlen stimmen überein. Der Geometrievergleich ändert nur 308 und 346.
+
+Die Baumkulisse nutzt dieselben Baumstandorte. Am Giebel haben die Eichen tiefer ansetzende und breitere Kronen in gedämpfterem Oliv. Eine vorhandene Fichte im Hintergrund füllt den Saum hinter der anderen Dachseite. Vier geprüfte Eichenvarianten behalten je 10.640 Blatt- und 3.166 Astdreiecke. In der Szenenverteilung bleiben 71.328 Baumpositionen erhalten. Rendering und Kollision beziehen die Bäume weiterhin aus derselben Propquelle.
+
+Die Weststraße (Weg 600) führt 47,19 m an den freistehenden Satteldachhäusern 508, 510 und 512 vorbei. Damit prüft sie die D322-Regeln an anderen Häusern außerhalb des ursprünglichen Hofverbunds. Die Kamera bleibt 1,63–1,91 m über dem Gelände. In der realen Geometrieprobe ändern sich die Dreiecke von Haus 508 von 1.162 auf 1.006 und bei 512 von 1.286 auf 1.800. 510 behält seine 702 Dreiecke bei geändertem Materialzustand. Das Kontrollhaus 506 bleibt bytegleich.
+
+`node tools/mess/hauslauf.mjs <name> 0|1 fahrt hofsilhouette` nutzt die bisherige Hofkamera. `weststrasse` prüft nur den Alterungsschalter `ortsalterung`. Beide Bildfolgen haben 192 Bilder bei 60° Blickfeld. Der lokale Vergleich liegt in `.cache/bilder/d323-hof-und-west/index.html`.
+
+Alle Aufnahmen melden null Browserfehler. Die geladenen Haus- und Gartenpuffer der Hofaufnahme enthalten 444.366 → 444.720 Dreiecke. An der Weststraße enthält die Fassung mit Verwitterung 432.116 statt 415.316 Haus- und Gartendreiecke. Die Hofbilder zeigen die abgeschattete Traufe und die neue Baumstaffelung. Die Eichenkrone bleibt gegenüber dem Zielbild offener.
+
+Zwei CPU-Profile auf dem unveränderten D322-Build hängen beim Spielerstart 1436/398/171 in je einem ungefähr 67-ms-Bild 32,6 bzw. 34,8 ms in `waehleProps`. Beim ersten Tastendruck fällt außerdem Arbeit im WebAudio-Graph für den Lagerton an. In den erfassten langen Bildern liegen keine WebGL-Pufferuploads ab 256 KiB. Weitere Spitzen enthalten Browserarbeit oder Ladevorgänge ohne gleich eindeutige Zuordnung. CPU-Sampling erfasst die Arbeit des Hauptthreads, die gesonderten Spielläufe messen Bildzeiten ohne Sampling.
+
+`bildruhe=1` merkt sich Nahkandidaten und Fernzuordnung bis der Fernanker, die Quelldaten oder die Sichtweite wechseln. Nah- und Mittelstufe werden weiter mit der aktuellen Kamera gewählt. Der Klanggraph entsteht nach der Eingabefreigabe erst in Hörweite eines Lagers im Leerlauf. `bildruhe=0` führt die bisherige Auswahl und Toninitialisierung aus.
+
+Im Gegenprofil mit `bildruhe=1` bei derselben D322-Kulisse tauchen die beiden beobachteten Muster im Laufabschnitt nicht auf. Der beobachtete Aufbau der fünf Gain-Knoten fällt am Startpunkt ohne hörbares Lager weg. Ein 50-ms-Bild mit Lade- und Renderarbeit bleibt. Die lange Browserphase vor der Eingabe bleibt ebenfalls, ohne eindeutig eigenen Verursacher im CPU-Profil. Rohberichte `.cache/mess/d323-cpu-d322-{a,b}` und `.cache/mess/d323-cpu-bildruhe`.
+
+Vier 12-s-Spielmessungen auf dem M1 bei 960 × 540 und Startpunkt 1436/398/171 bei gleichbleibender D323-Kulisse schalten nur `bildruhe` in der Reihenfolge 0/1/1/0 um. Mittlere FPS 34,93 → 32,50. Mittlere p95-Bildzeit 34,75 → 42,15 ms, längstes Einzelbild 100,1 → 52,0 ms. Bilder über 50 ms in je zwei Läufen 6 → 13. Rohberichte unter `.cache/mess/d323-fps-{1,2,3,4}`.
+
+## Bildzeiten bei gleicher Hofkulisse (D324)
+
+Beide Seiten verwenden die D323-Dächer, -Baumkulisse und -Beleuchtung mit `hofsilhouette=1&bildruhe=1`. Im CPU-Profil mit dieser Kulisse fiel rund 1,4 s nach dem Loslaufen ein 50,3-ms-Bild mit fünf Anfragen für Blender-Nahbaumvarianten, Pufferaufbau und Szenenarbeit zusammen. Die Spielmessung erfasst die Bildzeit gesondert. Der Grasteppich schickte je Ring das volle Raster in den Shader, einschließlich der Halme hinter der Kamera.
+
+`bildtakt=1` zeichnet das vorhandene Raster in rund 8 m großen Instanzkacheln. Die Hüllkugeln berücksichtigen die aus der Feldtextur interpolierten Bodentiefen und den maximalen Halmüberstand durch Wind. Der Renderer kann ganze Kacheln außerhalb des Sichtfelds auslassen. Die Halmzellen, der Shader und die Maske der Trittplatten bleiben gleich. Auf der Spielroute liegen zum Start rund 0,61 Mio. weniger Dreiecke an, verteilt auf 167 zusätzliche Aufrufe. Der Foto-Grasmodus verwendet weiterhin seine ursprüngliche Geometrie. Die Nahbaumvarianten werden zusammen mit den bereits vorbereiteten Prop-Modellen vorgeladen. `bildtakt=0` stellt den D323-Pfad wieder her.
+
+Die erste 0/1/1/0-Gegenprobe für die Kachelung allein stieg von 37,22 auf 40,75 FPS. Die Summe über 50 ms sank von vier auf zwei. In beiden Kachelläufen blieb je ein Bild mit rund 67 ms. Rohdaten unter `.cache/mess/d324-kacheln-{a1,b1,b2,a2}`.
+
+Die abschließende 0/1/1/0-Reihe vergleicht dieselbe Kulisse auf dem M1 bei 960 × 540. Der spielbare Lauf startet bei 1436/398/171 mit 15 s Aufwärmen und 12 s Shift+W. A steht für D323, B für Kacheln plus Vorladen. Jedes erfasste Bild bleibt im Messwert.
+
+| Lauf | FPS | Median in ms | p95 in ms | Maximum in ms | Bilder über 50 ms |
+|---|---:|---:|---:|---:|---:|
+| A1 | 37,65 | 31,9 | 35,1 | 35,4 | 0 |
+| B1 | 40,34 | 18,6 | 35,0 | 50,0 | 0 |
+| B2 | 41,18 | 18,5 | 35,1 | 35,4 | 0 |
+| A2 | 37,98 | 31,7 | 35,2 | 51,9 | 2 |
+
+D324 liegt bei 40,76 FPS und 35,05 ms mittlerem p95. Die historische D323-Serie mit Bildruhe lag bei 32,50 FPS und 42,15 ms, mit 13 Bildern über 50 ms und einer Spitze von 52,0 ms. Die aktuelle D323-Kontrolle erreicht bereits 35,15 ms p95. Die isolierte Verbesserung liegt vor allem in FPS, Median und der Zahl der langen Bilder dieser Stichprobe. Rohdaten inklusive Tastengrenzen und aller Bildzeitpunkte liegen unter `.cache/mess/d324-bildtakt-{a1,b1,b2,a2}`.
+
+Das CPU-Gegenprofil erfasst während der Fahrt keine neuen GLB-Anfragen. Beide Profile zeigen eine lange Browserphase unmittelbar zu Beginn ihrer Aufzeichnung. Die Laufwerte in der Tabelle stammen aus den separaten Durchgängen ohne Sampling. Profile unter `.cache/mess/d324-cpu-{vor,nach}`.
+
+Die Echtzeitaufnahmen `.cache/mess/d324-fahrt-{vor,nach}` zeigen den Lauf aus normaler Spielperspektive. `echtzeitfahrt.mjs` schneidet mit den Zeitmarken des Tastendrucks. Browserbilder behalten ihre Standzeiten im 60-Hz-Ausgabevideo. Die Aufnahmen enthalten 347 und 367 CDP-Bilder in je 12,02 s. Die Aufnahme hat eigene Last. Der direkte Bewegungsvergleich liegt unter `.cache/bilder/d324-bildzeit/index.html`.
+
+Auf der unveränderten D323-Route erreicht die Spielfigur nach einigen Sekunden die Fassade und bleibt dort. In den ersten fünf Sekunden nach W-down (vor dem Stehen an der Fassade) steigt die mittlere Bildrate von 37,29 auf 39,43 FPS. Die Zahl der Bilder über 50 ms in diesem Abschnitt sinkt von eins auf null.
+
+`node tools/mess/hauslauf.mjs <name> 0|1 stand bildtakt` prüft die ganze Dachkante, die Kronen und das Vorfeld an vier identischen Kamera- und Windzuständen. Alle 20 geladenen Haus- und Gartenpuffer stimmen mit insgesamt 444.720 Dreiecken überein. In den vier Bildpaaren beträgt die mittlere absolute RGB-Abweichung höchstens 0,014 von 255. Beide Echtzeitaufnahmen und alle acht Kontrollbilder entstanden ohne Browserfehler.
+
+## Durchgehender Lauf vom Hof zur Weststraße (D325)
+
+Die Spielfigur geht von der östlichen Hofzufahrt bei 1451/395,5 an Haus 308 vorbei. Sie nimmt die Verbindung bei z=412 und folgt anschließend Weg 600 bis 1384,8/471. Die 12 Wegpunkte liegen in der gemeinsamen Eingabesteuerung `tools/mess/hofwestroute.mjs`. Sie hält W, lenkt über den Mauspfad und prüft anhand der Spielerposition, ob die Strecke frei bleibt. Der Wechsel zur Weststraße liegt am neunten Wegpunkt bei 1362/420. Die Kamera bleibt im Spielbetrieb.
+
+Vier Messläufe auf dem Apple M1 bei 960 × 540 wechseln nur `bildtakt` in der Reihenfolge 0/1/1/0. Sie enthalten je 15 s Aufwärmzeit. Die Bildzeiten sind die vollständigen Abstände aufeinanderfolgender Animationsframes während der Route. p95 wird je Lauf berechnet und je Variante gemittelt. Die Bilder über 50 ms werden je Variante aus zwei Läufen addiert. Das separate Video benutzt dieselbe Wegpunktsteuerung. Die Rohberichte enthalten die Position zu jedem Bildzeitpunkt.
+
+```sh
+hof='&hofgruen=1&referenzhaus=1&hofhaeuser=1&hauskompakt=1&hoflauben=1&hofboden=1&hofgras=1&teppichspar=1&kachelpuffer=1&hofverfall=1&hofranke=1&hofruine=1&hofeinsturz=1&hofziel=1&hofdachbruch=1&hoflicht=1&stimmung=hofdachbruch&umgebung=6.4&sonne=.73&umlichtstaerke=1.2&schatten=.4&zieltreue=1&verfallverlauf=1&ortsalterung=1&hofsilhouette=1&bildruhe=1'
+node tools/mess/vergleich.mjs neuer-hofwest-a "${hof}&bildtakt=0" hofwest
+node tools/mess/echtzeitfahrt.mjs neuer-hofwest-film-b "${hof}&bildtakt=1" hofwest 960x540
+```
+
+Alle vier Messläufe erreichen die 12 Wegpunkte in 36,4–36,5 s und legen 152,1–152,2 m zurück. Die niedrigste mittlere horizontale Geschwindigkeit in einem Fenster von mindestens 500 ms beträgt 3,02 m/s. Die Figur bleibt auf keinem der Läufe an der Fassade stehen.
+
+| Abschnitt | FPS D323 → D324 | p95 D323 → D324 | Bilder über 50 ms D323 → D324 | Maximum D323 → D324 |
+|---|---:|---:|---:|---:|
+| Gesamt | 37,59 → 40,62 | 35,15 → 35,15 ms | 26 → 29 | 218,6 → 200,0 ms |
+| Hof und Übergang | 37,09 → 40,54 | 35,05 → 35,15 ms | 18 → 21 | 218,6 → 200,0 ms |
+| Weststraße | 38,45 → 40,75 | 35,25 → 35,15 ms | 8 → 8 | 149,5 → 116,7 ms |
+
+Die Steigerung der mittleren Bildrate aus D324 bestätigt sich. Die kurzen D324-Läufe an der Fassade hatten höchstens 50,0 ms erreicht. Auf der durchgehenden Route dauern die längsten Bilder in allen vier Durchgängen 183–219 ms und fallen um die achte Sekunde bei x≈1420 und z≈405,6 an. Weitere wiederkehrende lange Bilder liegen im Durchgang bei z≈412 und auf der Weststraße bei z≈441. Die Positionsaufzeichnung lokalisiert die Ausreißer. Ihre Ursache lässt sich aus der Messung der Bildzeiten allein nicht bestimmen.
+
+Die Rohberichte liegen unter `.cache/mess/d325-hofwest-{a1,b1,b2,a2}`. Die Echtzeitaufnahmen liegen unter `.cache/mess/d325-film-{a,b}`, der Seitenvergleich unter `.cache/bilder/d325-hof-weststrasse/index.html`.
+
+## Kachelwechsel mit getrennten Puffern (D326)
+
+Die Spitze der 152-m-Route liegt am ersten 32-m-Kachelwechsel bei x≈1420 und z≈405,6. Im CPU-Profil belegen `mergeAttributes` und `bufferData` zusammen rund 195 ms des längsten Frames. Die WebGL-Sonde zählt 53,4 MB große Pufferuploads in diesem Frame. Gärten beziehen ihre Höhen aus der Gelände-LOD-Stufe. Ein neuer Gartenpuffer ersetzte zuvor auch die vollständige Geometrie der unveränderten Häuser in derselben 256-m-Gruppe. In den folgenden Frames kamen Shader-Kompilierungen erstmals sichtbarer, teils noch leerer Instanzgruppen hinzu.
+
+`bildfluss=1` baut Haus- und Gartenpuffer unabhängig. Gelände-Kacheln speichern identische Eckwerte einmal und verweisen über Indizes darauf. Instanzgruppen der Nah- und Fern-Props werden ab der ersten Befüllung gezeichnet. Dazu gehört beim Baumersatz dieselbe bisherige Sichtbarkeitsentscheidung. Leere Klippengruppen werden ebenfalls ausgeblendet. Ein zusätzliches Profil erfasste bei x≈1372 einen 85,7-ms-Shaderaufruf beim Zeichnen einer solchen Gruppe mit null Instanzen. Materialien, Verfall, Dreiecke und LOD-Schwellen stammen aus dem bisherigen Bau. `bildfluss=0` gibt auf derselben Kulisse den D325-Vergleichspfad.
+
+In einer CPU-Probe an sechs Kacheln und fünf LOD-Stufen sind nach Indexexpansion alle vier Geländeattribute und die Hüllkugeln identisch. Das Datenvolumen dieser Stichprobe sinkt von 2,32 auf 0,53 MB. Der Median für den Aufbau von zwölf Kacheln auf dem M1 fällt von 64,2 auf 12,5 ms. Die Summe der Pufferuploads ab 256 KiB sinkt im separaten Profil vor der letzten Shaderkorrektur von rund 453 auf 77 MB. Messwerkzeug `node tools/mess/cpuprofil.mjs <name> "<D325-Parameter>&bildtakt=1&bildfluss=0" 4173 dist hofwest 48`. Profile haben Eigenlast. Die A/B-Bildzeiten stammen aus gesonderten Spielläufen.
+
+Vier 152-m-Läufe am M1 bei 960 × 540 vergleichen `bildfluss=0/1/1/0`. Alle erreichen dieselben 12 Wegpunkte. Der historische D325-Maximalwert von 200,0 ms tritt in der frischen D325-Kontrolle an derselben Stelle mit 249,9 und 252,0 ms auf. Die Spitzen der beiden D326-Läufe sind 66,7 bzw. 83,3 ms. Mit D326 bleiben in beiden Durchgängen je zwei Bilder über 50 ms am Hof und im Übergang.
+
+| Abschnitt | FPS D325 → D326 | p95 D325 → D326 | Bilder über 50 ms D325 → D326 | Maximum D325 → D326 |
+|---|---:|---:|---:|---:|
+| Gesamt | 40,38 → 42,55 | 35,20 → 34,45 ms | 26 → 4 | 252,0 → 83,3 ms |
+| Hof und Übergang | 39,52 → 42,17 | 35,20 → 34,60 ms | 18 → 4 | 252,0 → 83,3 ms |
+| Weststraße | 41,88 → 43,21 | 35,05 → 34,25 ms | 8 → 0 | 116,7 → 50,0 ms |
+
+Die Rohberichte liegen unter `.cache/mess/d326-hofwest-{a1,b1,b2,a2}`. Die CPU-Profile sind `.cache/mess/d326-cpu-{vor,programme,zwischenschritt,nach,rest}`. Die Aufnahmen entstehen getrennt von der Zeitmessung. Der D325-Referenzclip und die neue D326-Aufnahme laufen nebeneinander in `.cache/bilder/d326-hofruckler/index.html`.
+
+Vier Kontrollbildpaare ohne HUD vergleichen dieselbe Kamera und Windphase über `hauslauf.mjs <name> 1 stand bildfluss` mit dem D324-Referenzsatz `.cache/mess/d324-stand-nach`. Beide Fassungen enthalten in den geladenen Haus- und Gartenpuffern exakt 444.720 Dreiecke. Die mittlere absolute RGB-Abweichung beträgt je Bild höchstens 0,014 von 255. Die Bewegungsaufnahme der korrigierten Fassung erreicht dieselben 12 Wegpunkte in 36,26 s. Messung und Aufnahmen melden keine Browserfehler.
+
+## Gemeinsamer Kachelwechsel mit vorbereiteten Uploads (D327)
+
+Das frische D326-Profil reproduziert den verbliebenen Hofruckler mit 82,4 ms bei x≈1420,1 und z≈405,6. Im Frame liegen rund 7 ms Gartenindizierung, mehrere Zusammenführungen von Gelände- und Haus-/Gartenpuffern und 1,735 MB Straßenattribute. Die bekannten späten Fernanker-Frames enthalten zudem Arbeit in `waehleProps` für die Fernschlüsselliste. Ein Gegenprofil mit gestaffeltem CPU-Bau allein zeigt verbleibende Uploadspitzen an der gemeinsamen Freigabe. Beim längsten dieser Frames entfallen rund 42 ms auf `bufferData`.
+
+`kachelnachlauf=1` hält nach dem Laden die letzte vollständige Geländefassung sichtbar. Der 32-m-Anker bestimmt dieselbe stabil sortierte Kachelauswahl für Gelände und Bänder. Der Bau und die Zusammenführungen laufen schrittweise mit einer gemeinsamen 3-ms-Frist. Eine einzelne Operation darf die Frist überschreiten. Große neue GPU-Puffer werden vor ihrer Freigabe in einem separaten 1×1-Renderziel mit leerem Zeichenbereich vorbereitet. Danach wechseln Boden, Wege, Wasser, Häuser und Gärten gemeinsam. Identische Bandquellen behalten ihren Puffer und ihre Dreieckfolge. Alte Puffer werden nach dem Szenenwechsel freigegeben. Bei Sprung oder Pegelwechsel lässt sich ein laufender Auftrag ersetzen. Der Fernanker speichert seine Zuordnung als Position und bildet vollständige Fernschlüssel nur bei Bedarf. Die bisherigen Stufen, Geometrien und Materialien gelten weiter. `kachelnachlauf=0` schaltet auf den direkten Kachelwechsel zurück.
+
+Die 152-m-Route bleibt dieselbe. Beide neuen Läufe erreichen alle 12 Wegpunkte. In einem Radius von 1 m um die drei Koordinaten der vier D326-Ausreißer liegen die längsten Frames in D327 bei 33,8 ms (Hof bei x≈1420), 34,2 ms (Übergang bei x≈1385) und 34,3 ms (Fernanker bei x≈1393). Die zwei verbliebenen langen Frames aus den D327-Läufen liegen an anderen Stellen. Es sind 66,6 ms nach 2,23 s und 50,1 ms nach 28,27 s.
+
+| Unabhängige Spielläufe auf dem M1 bei 960 × 540 | FPS | p95 | Bilder über 50 ms | Maximum |
+|---|---:|---:|---:|---:|
+| D326-Messreihe aus dem vorherigen Stand, zwei Läufe | 42,55 | 34,45 ms | 4 | 83,3 ms |
+| Unveränderter D326-Build aus `afd9bfc`, zwei neue Läufe | 46,45 | 33,80 ms | 4 | 99,9 ms |
+| Gemeinsamer Build mit direktem Wechsel, zwei Läufe | 46,54 | 33,75 ms | 1 | 50,1 ms |
+| D327 mit gestaffeltem Wechsel, zwei Läufe | 46,03 | 33,65 ms | 2 | 66,6 ms |
+
+Im frisch gebauten D326 lagen alle vier langen Bilder am Hof bei x≈1420. Die beiden D326-Läufe erreichten 46,08 und 46,81 FPS, die D327-Läufe 45,52 und 46,54 FPS. Damit liegen die Mittelwerte rund 0,9 % auseinander und die Laufspannen überlappen. Ein zusätzlicher D327-Kontrolllauf erreichte 45,50 FPS, 34,20 ms p95 und maximal 48,7 ms.
+
+Die Umschaltmessung läuft in der Reihenfolge 0/1/1/0. Der direkte Wechsel enthält bereits die gemeinsamen Änderungen am Kachellauf und bleibt als Gegenprobe verfügbar. Die vier Berichte liegen unter `.cache/mess/d327-hofwest-{a1,b1,b2,a2}`, die beiden CPU-Diagnosen unter `.cache/mess/d327-cpu-{vor,kandidat}`. Die frischen D326-Berichte liegen unter `.cache/mess/d327-d326-kontrolle{,-zwei}`, der zusätzliche D327-Bericht unter `.cache/mess/d327-aktuell-kontrolle`. Der Seitenvergleich verwendet die bestehende D326-Echtzeitaufnahme und die neue D327-Aufnahme der vollständigen Route. Er liegt unter `.cache/bilder/d327-hofwest-vergleich/index.html`.
+
+Vier Kontrollbilder mit gleicher Kamera und Windphase vergleichen `.cache/mess/d326-stand-nach` mit `.cache/mess/d327-stand-nach`. Die Haus- und Gartenpuffer enthalten in beiden Fassungen 444.720 Dreiecke. Die mittlere absolute RGB-Abweichung beträgt höchstens 0,011 von 255. Die vollständige neue Aufnahme dauert 36,28 s und erreicht alle 12 Wegpunkte. Die Messungen, Bilder und Aufnahmen melden keine Browserfehler.
+
+## Kürzere Baum- und Kachelwechsel im Hoflauf (D328)
+
+Bei x≈1442,7 und z≈400,2 überschreitet die Kamera erstmals den 8-m-Anker der Nah-Props. Die 66,6-ms-Stelle aus D327 deckt sich mit früheren Profilen von 65,6 bis 81,5 ms und einem erneuten D327-Profil von 50,0 ms. Im neuen Profil entfallen 9,8 ms auf Kopien von BufferAttributes, 6,2 ms auf das Lesen von Vertexattributen und 2,6 ms auf Matrixanwendung. Es erscheinen weder große Pufferuploads noch neue Shaderprogramme in diesem Frame. An der Weststraße wird um x≈1371 und z≈440 die nächste Auswahl an Geländekacheln gebaut. Im neuen D327-Profil folgen auf einen 50,0-ms-Frame bei x≈1370,7 kurz darauf 66,7 ms mit 14,3 ms beim Zusammenführen von Terrainattributen. Der längere Frame enthält auch andere Render- und Spielarbeit.
+
+Bei aktivem Kachelnachlauf halten die EZ-Baumsätze ihre Sphären vor der Kopie der LOD-Stufen bereit. Ersatz- und Wartegruppen übernehmen diese Sphären samt der bisherigen Windreserve. Verdeckt übernommene Blender-Bäume behalten ihre Instanzen und bauen das Blender-Netz erst bei einem sichtbaren Rückfall. Prop-Montagen bauen die Attrappe bei Bedarf und bestimmen ihre Hüllkugel einmal. Beim Kachelwechsel entstehen die Indizes direkt im passenden typisierten Array. Attribute und Hüllkugeln werden in Teilschritten vorbereitet, danach folgt der bestehende GPU-Vorlauf. Der Geometrietest vergleicht Indizes, Vertexattribute und Hüllkugeln direkt mit dem bisherigen Merge, auch für die 32-Bit-Indizes. `bildspitzen=0` dient als Gegenprobe.
+
+| 152-m-Route auf dem M1 bei 960 × 540 | FPS | p95 | Bilder über 50 ms | Maximum |
+|---|---:|---:|---:|---:|
+| D327, vorige Laufreihe | 46,03 | 33,65 ms | 2 | 66,6 ms |
+| Gemeinsamer Build, D327 mit `bildspitzen=0` | 45,88 | 34,35 ms | 2 | 81,3 ms |
+| Gemeinsamer Build, D328 mit `bildspitzen=1` | 45,88 | 34,20 ms | 0 | 48,5 ms |
+
+Je zwei Läufe ohne Videoaufnahme, in der Umschaltfolge 1/0/0/1. Alle vier Läufe erreichen alle 12 Wegpunkte nach 152,18 bis 152,30 m. Die D328-Einzelläufe erreichen 45,86 und 45,90 FPS. In 1 m Umkreis der beiden bisherigen Ausreißerstellen bleibt D328 bei höchstens 35,3 ms am Hof und 35,4 ms auf der Weststraße. Der frische D327-Gegenlauf reproduziert die Hofspitze bei x≈1442,6 und z≈400,25. Am ursprünglichen Weststraßenpunkt bleiben die frischen D327-Läufe unter 50 ms. Im CPU-Profil liegt im selben Straßenabschnitt weiterhin die Arbeit des ungeteilten Kachel-Merges. Ein zusätzlicher Lauf des unveränderten D327-Builds vor den Änderungen erreicht 43,61 FPS, p95 34,20 ms und maximal 49,9 ms an der frühen Hofstelle.
+
+Berichte liegen unter `.cache/mess/d328-ab-{a2,a3,b1,b2}`. Der CPU-Bericht stammt aus `.cache/mess/d328-d327-cpu-a1`, der unveränderte D327-Lauf aus `.cache/mess/d328-vor-a1`. Der direkte Bewegungsvergleich der getrennten Echtzeitaufnahmen liegt in `.cache/bilder/d328-hofwest-vergleich/index.html`.
+
+Vier Kontrollbilder unter `.cache/mess/d328-stand-{a,b}` nutzen dieselbe Kamera und Windphase. Die Haus- und Gartenpuffer umfassen in beiden Fassungen 444.720 Dreiecke. Die mittlere absolute RGB-Abweichung beträgt in jedem Paar höchstens 0,013 von 255. Beide Echtzeitaufnahmen zeigen aus normaler Spielperspektive dieselben 12 Wegpunkte in rund 36,3 s. Messungen und Aufnahmen melden keine Browserfehler.
+
+## Drei Nutzungszustände an der Weststraße (D329)
+
+Die Häuser 508, 510 und 512 am Wohnweg 600 bauen auf den vorhandenen OSM-Grundrissen und LoD2-Dächern auf. Der Giebel, die Hanglage und die Blickrichtung vom Wohnweg bestimmen die zugewandte Traufe und die Fassaden.
+
+| Haus | Lesbares Merkmal in Spielhöhe | Ableitung |
+|---|---|---|
+| 508 | Eingesackte Traufe, freiliegende Sparren, gebrochene Scheiben und Schutt am Fuß derselben Wand | Spannweite und Hangfeuchte verstärken die Dachsenke. Die Dachkante folgt mehreren Teilabschnitten um die Bruchstelle. Wiederverwendete Schindeln und Holzquerschnitte hängen am Bruch. |
+| 510 | Zusammenhängende Efeupolster vom Sockel bis zum Obergeschoss unter intakter Dachkante | Straßenfassade und kühle Seiten bestimmen Blattdichte und Ausladung. Wurzeln, Verästelung und Blattverteilung kommen aus Wandlänge, Geländehöhe und Gebäudeseed. |
+| 512 | Geflicktes Blechdach, Ersatzholz, gefasste Tür und gesetzte Steine im Vorfeld | Die Tür nutzt die zum Wohnweg gewandte geeignete Wand. Ersatzblech folgt einer bestehenden Dachseite. Dünne Falze und unterschiedlich alte Bretter machen die Reparatur lesbar. |
+
+`content/regions/oental.json` hält je Haus einen Punkt im Grundriss, einen Punkt auf dem Wohnweg und den Nutzungszustand. Diese drei Werte reichen für den Generator. Der Umschalter `westverfall=1` aktiviert die Fassungen bei aktiver Ortsalterung. Probe `0` zeigt D328. Die Details gehen in die vorhandenen Hauspuffer ein. Dieselbe Shaderlogik nutzt den vorhandenen Zustandskanal für Feuchte und Abnutzung. Die Geometrieprobe prüft die eindeutige Zuordnung, die drei Zustände, Indexierung und Fensterglut. Bei den Kontrollgebäuden stimmen die Vertexdaten byteweise.
+
+Die dreifache Ansicht mit gleichem Licht und gleicher 55-Grad-Kamera in Spielhöhe liegt als Vorher-Nachher-Vergleich neben der normalen 152-m-Fahrt. Die Straßenansicht zeigt Bruch und Gerüst bei 508 klar an der linken Traufe. Der Efeu von 510 hat Nester aus Geometrie und eine auslaufende Grunddeckung an derselben Fassade. Bei 512 sind Türstock und geflicktes Vordach aus Spielhöhe deutlicher als das Blechfeld auf der Hauptdachfläche. In der gleich gerahmten Detailprobe wachsen die geladenen Haus- und Gartenpuffer von 432.470 auf 439.350 Dreiecke. Alle sechs Bildbelege meldeten null Browserfehler.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | D328 | D329 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 50,44 | 50,20 |
+| FPS, Weststraße | 50,87 | 51,01 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame | 35,4 ms | 35,3 ms |
+| Bilder über 50 ms | 0 | 0 |
+
+Alle Läufe erreichten alle 12 Wegpunkte ohne Browserfehler. Die Messungen liefen ohne Video in der Folge `westverfall=0/1/1/0` bei aktiven D328-Optimierungen. Die Einzelberichte liegen unter `.cache/mess/d329-finale-ab-{a1,b1,b2,a2}`. Zwei separate Echtzeitaufnahmen unter `.cache/mess/d329-finale-film-{a,b}` ergeben den direkten Vergleich unter `.cache/bilder/d329-weststrasse/index.html`. Die drei abgestimmten Ansichten je Fassung liegen unter `.cache/mess/d329-finale-stand-{a,b}` und lassen sich mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westverfall` wiederholen.
+
+## Materialtiefe und Bruchanschlüsse an der Weststraße (D330)
+
+Der Vergleich mit Haus 308 und dem eigenen Zielbild zeigt drei klare Abstände in D329. Unter der ausgeschnittenen Traufe von 508 bleiben ganze Bretterreihen stehen. Putz, Holz und Fenster wirken vor allem bei schrägem Licht gleichförmig. Der Efeu von 510 verteilt sich in gering entwickelten Trieben über dieselbe Wand. Das Zielbild zeigt tiefen Innenraum, lokal freigelegtes Mauerwerk und zusammenhängenden Bewuchs an einer Hausecke.
+
+`westdetail=1` setzt die D329-Nutzungszustände mit derselben Texturgrundlage für Kalkputz, Bruchstein, Holz und Dachhaut wie am Hof um. Flächenbasis, Regenläufer und Bodenabstand bestimmen Ausbrüche, Normalen und Rauheit. Das instand gesetzte Haus erhält eine hellere Kalkschicht, und Ersatzholz bleibt als jüngeres Material ablesbar. Der Generator setzt geländefolgende Sockel, Fensterbänke und Läden mit tatsächlicher Tiefe an zugewandten Fassaden. Der Efeu nutzt Blätter und Stämme aus dem Hofgenerator.
+
+Bei 508 benutzen Dachöffnung, ausgefaserte Bretter und Riegel denselben entlang des Firsts berechneten Abschnitt. Gebrochene Hölzer sitzen zwischen Dachhaut und zurückgesetztem Innenraum. Die Schindelverteilung verwendet einen aus dem Gebäude abgeleiteten Seed. Bei 510 wurzelt eine zusammenhängende Ranke an der kühleren Ecke der zum Wohnweg gewandten Fassade, mit kleineren Trieben am Sockel. Die Probe bleibt auf den drei vorhandenen Nutzungsdaten begrenzt. `westdetail=0` ruft D329 auf.
+
+Im Geometrietest treffen bei 508 fünf Prüfblickstrahlen auf Geometrie mehr als einen Meter hinter der Fassadenebene im neuen Innenraum. In D329 zählt der Test dort null solcher Treffer. Die geladenen Haus- und Gartenpuffer enthalten in der Bildprobe je Fassung 439.350 bzw. 459.653 Dreiecke. Die drei Bildpaare aus Spielhöhe zeigen die Öffnung, die Efeuecke und die Ausbesserungen bei gleicher Kamera und gleicher Beleuchtung. Gegenüber dem Hofziel bleiben die Übergänge von Gras und Schutt zum Sockel sowie vom Efeu zum Dach zu gleichförmig. Die Dachränder der Weststraße lesen sich insgesamt gerader als im Zielbild.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | D329 | D330 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,95 | 49,63 |
+| FPS, Weststraße | 50,45 | 49,88 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame | 35,4 ms | 48,2 ms |
+| Bilder über 50 ms | 0 | 0 |
+
+Alle vier Messungen ohne Videoaufnahme liefen im selben Build mit `westdetail=0/1/1/0` und aktivem D328. Jeder Lauf erreichte alle zwölf Wegpunkte. Die Einzelberichte liegen unter `.cache/mess/d330-finale-ab-{a1,b1,b2,a2}`. Die Detailbilder unter `.cache/mess/d330-finale-stand-{a,b}` lassen sich mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westdetail` wiederholen. Der Vergleich mit getrennt aufgenommenen Echtzeitfahrten und der Hofreferenz liegt unter `.cache/bilder/d330-weststrasse/index.html`.
+
+## Maßprobe für die Dachkörper
+
+Am 19.11.2026 wurden die vier Dachkörper mit den Dachpolygonen der CityGML-Kachel `732_5290` abgeglichen. Die Richtung ist der Winkel der längsten waagerechten Firstkante in den Spielachsen X Ost und Z Süd. Die Quellenwerte stammen aus direkt nach WGS84 umgerechneten Firstendpunkten. Die Dachneigung der Hauptfläche ergibt sich aus dem Höhenunterschied senkrecht zum First. Bei 508 gilt links die intakte Dachfläche vor der Verformung. Bei 512 steht rechts der größere der zugeordneten Satteldachkörper.
+
+| Haus | Firstwinkel D330 / LoD2 | Dachneigung D330 / LoD2 |
+|---|---:|---:|
+| 308 | 57,1° / 61,74° | 17,6° / 18,5° |
+| 508 | −30,8° / −26,25° | 15,8° / 24,5° |
+| 510 | 146,2° / 150,69° | 17,0° / 23,3° |
+| 512 | 150,4° / 154,97° | 14,8° / 20,2° |
+
+Der Import dreht den UTM-Richtungsvektor bei der Meridiankonvergenz mit vertauschtem Vorzeichen. Der Generator spannt den Dachkörper über die gedrehte rechteckige Hülle des OSM-Grundrisses samt Überständen. Dadurch sinkt die Neigung und bei 510 verlängert sich der First von 18,07 m im Quellmodell auf 26,44 m im Spielgenerator. Bei 512 liegen mehrere amtliche Dachkörper in einem OSM-Grundriss. Ein Dachobjekt mit einer einzigen Firstachse bildet diese Gliederung unzureichend ab. Die LoD2-BY-Höhen sind standardisierte Näherungen. Öffnungen von 1,05 × 2,10 m (Tür) und 0,90 × 1,15 m (Fenster) sind Spielvorgaben. [Bayerische Vermessungsverwaltung, LoD2-BY](https://www.ldbv.bayern.de/produkte/liegenschaftsinformationen/gebaeudemodell.html)
+
+Die lokale Blender-Maßprobe für 510 hält den OSM-Grundriss und die Firsthöhe fest. Die Studie setzt die amtliche Richtung ein, nimmt die Traufhöhe an der Wand auf und verlängert die Ebene über 0,65 m Traufüberstand. Am Giebel nimmt sie den Überstand von 2,20 auf 0,85 m zurück. Beide Überstände der Studie sind Entwurfsmaße. Der First misst in der Studie 22,63 m, die Neigung beträgt 21,1°. Render in gleicher Übersicht und aus 1,80 m Höhe sowie die Blender-Datei und das Probe-GLB liegen unter `.cache/d331-massprobe/`. Der glTF-Rückimport erhält die gemessenen Dachabmessungen bis unter 0,1 mm. Die Probe misst die Konstruktion getrennt von Material, Verfall und Spielperformance.
+
+Für wiederverwendbare Bautypen aus dem vermessenen Blockout zuerst Trauf-/Giebelansicht und eine Kamera in Spielhöhe freigeben. Von diesem Blockout aus das Zielbild rendern und gezielt Putz, Dachdeckung, tragende Teile und Bewuchs gestalten. Generierte Varianten beziehen dieselben Materialatlanten und Bauteilmaße. Grundriss, Dachkörper und Kontakt zum Gelände stammen aus den Gebäudedaten, der Verfall aus konstruktiv gebundenen Standortregeln. Ein Vorbild pro Bautyp und ausgewählte Einzelgebäude tragen den Gestaltungsaufwand. Weitere Varianten benötigen keinen Modellaufruf.
+
+## Maßstäbliche Dächer an der Weststraße (D331)
+
+Die drei Probegebäude übernehmen die korrigierte Firstachse aus der Projektion der beiden amtlichen Firstendpunkte. Das Dach setzt mit der Traufhöhe an der Wand an und zieht die geneigte Fläche 0,65 m weiter. An den Giebeln stehen 0,85 m über. Beide Überstände stammen aus der Blender-Studie. Dachhaut, Untersicht, Sparren, Rinnen und Ortgänge beziehen ihre Höhe aus derselben Querlinie. Der vorhandene OSM-Grundriss bildet weiterhin den Wandanschluss. Der Zustandsschalter `westdach=1` baut diese Fassung bei aktiven Details, `westdach=0` hält die D330-Gegenprobe.
+
+Bei 508 bleibt der Einsturz an der bisher sichtbaren Traufseite. Der Straßenpunkt liegt fast in der Firstverlängerung. Die neue Achse drehte die Auswahl zunächst um. Der Schaden verwendet deshalb dieselbe Traufseite wie in D330, aufgebaut auf der korrigierten Dachlinie. Bei 510 sinkt die am gebauten Netz gemessene Firstlänge von 26,445 m auf 22,632 m bei 150,69°. Bei 512 setzen die beiden Satteldachkörper mit ihren jeweiligen Trauf- und Firsthöhen an der gemessenen U-Teilung an. Ein Abdeckstreifen überdeckt den Stoß. Die Querform beider Körper ist an den heutigen OSM-Grundriss angepasst. Der kleine amtliche Pultabschnitt steht zusätzlich in den LoD2-Daten. Das Spielfeld stellt die beiden Hauptkörper dar.
+
+Reproduktion der Datenprobe mit `python3 tools/lod2import.py --dachmasse 508 510 512 --kachelordner .cache/d331-massprobe`. Ein neuer Vollimport berechnet `w` aus den projizierten Endpunkten. Im eingecheckten Datensatz liegen die korrigierten Winkel der Probe separat in `p`. Das erlaubt den direkten Vergleich im selben Build.
+
+Die Geometrieprobe misst bei 512 auf der dem Reparaturblech abgewandten Traufseite 1,0 cm Höhenunterschied in D330 und 17,6 cm Stufe in D331. Bei 508 treffen drei der Prüfblickstrahlen auf den zurückgesetzten Innenraum gegenüber fünf in D330. Alle 103 Prüfungen bestehen, die nicht zur Probe gehörenden Vergleichshäuser sind bytegleich. Vier Bildpaare aus der Engine zeigen drei Ansichten aus Spielhöhe und eine Aufsicht auf die Dachteilung von 512. Der 508er Bruch, der Eingang von 512 und das geflickte Blech sind sichtbar. Die geladenen Haus- und Gartenpuffer enthalten 459.653 → 459.679 Dreiecke bei 72.499.004 → 72.498.676 Bytes. Bildaufnahmen unter `.cache/mess/d331-finale-stand-{a,b}`, reproduzierbar mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westdach`.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | D330 | D331 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 48,76 | 49,47 |
+| FPS, Weststraße | 50,03 | 49,74 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 51,9 ms | 50,7 ms |
+| Bilder über 50 ms, gesamte Route | 2 | 1 |
+| Bilder über 50 ms, Weststraße | 0 | 0 |
+
+Je zwei Läufe ohne Aufnahme im selben Build mit `westdach=0/1/1/0`. Alle Läufe erreichen die zwölf Wegpunkte ohne Browserfehler. Einzelberichte unter `.cache/mess/d331-finale-ab-{a1,b1,b2,a2}`. Die getrennten Echtzeitaufnahmen liegen unter `.cache/mess/d331-finale-film-{a,b}` und der direkte Vergleich unter `.cache/bilder/d331-weststrasse/index.html`.
+
+## Reale Bauform und stärkerer Verfall (D332)
+
+Für den Batch dient das tatsächliche Gebäude als Referenz für Grundriss, Baukörper, Anbauten, Geschosszahl, First, Traufe und Dachflächen. Amtliche Gebäudedaten und belegte Fassadenansichten bestimmen das intakte Grundmodell. Fehlende Maße und Widersprüche zwischen Grundriss und Dachflächen werden zur Sichtprüfung ausgewiesen. Der Bautyp liefert die passenden Bauteile und Materialien.
+
+Stärkerer Verfall ist zulässig. Einstürze, Fehlstellen und Bewuchs leiten sich anschließend aus Konstruktion, Lage und Nutzung des Hauses ab. Ein Einsturz darf die Silhouette deutlich verändern. Erhaltene Dachabschnitte und Wände folgen der ursprünglichen Bauform. Zur Abnahme werden das intakte Grundmodell gegen die Quellen und die verfallene Spielfassung aus derselben Kamera geprüft.
+
+## Verwachsene Straßen nach realen Vorlagen (D333)
+
+Gerüst des Entwurfs sind erhaltene Straßen und gelesene Ortsnamen zwischen überwachsenen Flächen. Die Weltgestaltung von Guerrilla liefert dafür das Prinzip, noch erkennbare Orte durch Gelände und Pflanzen zurückzuerobern. Inhaltliche und bauliche Vorlage ist der Inntal-Ausschnitt. [Guerrilla über reale Orte in Horizon Forbidden West](https://blog.playstation.com/?p=367869)
+
+Der Œntal-Weltimport behält für alle 1.195 bestehenden Wegsegmente die OSM-ID und, soweit vorhanden, Name, Belag, Breitenangabe und Beleuchtung. Beim Nachrüsten aus dem lokalen Rohsnapshot wurden alle 1.195 Wegkörper und die restlichen Weltfelder gegen die gepackte Welt abgeglichen. 370 Segmente haben einen Namen, 951 eine Belagsangabe, 164 eine Breitenangabe in Metern und 87 eine Beleuchtungsangabe. Die Rohdatei wächst um 71.098 Bytes. `strassenkulisse` bindet Verfall und Straßenobjekte über OSM-IDs an. Das bestehende Band legt die Höhen fest. Der Shader lässt am Rand stellenweise Boden durchscheinen. Risse, Wildkräuter und Splitt folgen denselben Wegdreiecken. Die Pflanzen halten einen mittleren Korridor frei. Jede Ortsgruppe wird einmal gebaut und ist bis 240 m von ihrem Umfeld sichtbar.
+
+| Ort | Beleg und Übernahme |
+|---|---|
+| Milbinger Straße | [OSM-Weg 198749032](https://www.openstreetmap.org/way/198749032), Wohnstraße und Asphalt. Die Renderprobe zeigt stärkeren Verfall. |
+| Ortseinfahrt Brannenburg | [OSM-Knoten 290649874](https://www.openstreetmap.org/node/290649874) mit Namen an der Holzhausener Straße / St 2089. Er markiert die Station auf der Straßenachse. Die Front blickt mit 323,48° zur Anfahrt. Der rechte seitliche Abstand von 4,65 m ist ein Entwurfsmaß. |
+| Bahnhof- und Wendelsteinstraße | Fünf bestätigte Laternenpositionen. Knoten 13867049286, 13866815952, 13866843514, 13866865284 und 13866842099. Die generischen Mastkörper stehen an den Koordinaten, die Arme richten sich zur Fahrbahn. |
+
+OSM-Knoten wurden am 20.11.2026 direkt mit OpenStreetMap abgeglichen. Der Inventurlauf fand im Œntal-Rechteck 32 Laternenknoten und fünf Ortstafeleinträge. Diese Zahl bezeichnet Einträge im Datensatz. DOP20-Luftbilder der Bayerischen Vermessungsverwaltung dienen als Lagekontrolle. Die KartaView-Abfrage lieferte im geprüften Umkreis der drei Stellen keine Aufnahmen. Mastmodell, Einbaulage der Ortstafel und einzelne Straßennamensschilder brauchen Seitenansichten. Die Ortstafel folgt im Modell der amtlichen Vorlage und verwendet den belegten Ortsnamen. [OpenStreetMap und ODbL](https://www.openstreetmap.org/copyright) · [StVO Anlage 3](https://www.gesetze-im-internet.de/stvo_2013/anlage_3.html) · [KartaView-Fotoabfrage](https://kartaview.org/doc/photos)
+
+`strassenverfall=1` aktiviert die sieben gewählten Wegabschnitte und die sechs Straßenobjekte. `strassenverfall=0` hält die vorherige Oberfläche für den Vergleich. Das Paket ergänzt keine Straßenbildtexturen. Atlas und Geometrie entstehen lokal aus den Daten und vorhandenen Texturen.
+
+Vier Bildpaare zeigen die drei Kulissen bei gleicher Kamera. Die Milbinger Gruppe enthält 48 Risse, 4.291 Wildkraut- und 763 Splittinstanzen. Die Gruppe an der Ortseinfahrt trägt ein Objekt und die Bahnhof-/Wendelstein-Gruppe fünf. Alle acht Aufnahmen melden null Browserfehler. Kameras und Parameter stehen in `.cache/mess/d333-finale/bericht.json` für die Gegenprobe und `.cache/mess/d333-nach/bericht.json` für die neue Fassung.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | Vorher | Straßenverfall |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,22 | 49,67 |
+| FPS, Milbinger Straße | 50,38 | 50,29 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 66,6 ms | 35,3 ms |
+| Bilder über 50 ms, gesamte Route | 2 | 0 |
+
+Messungen ohne Aufnahme im selben Build mit `strassenverfall=0/1/1/0` bei aktivem D331. Alle Läufe erreichen die zwölf Wegpunkte. Die Route prüft den Bewuchs an der Milbinger Straße. Schild und Laternen sind an ihren eigenen Standorten im Spiel fotografiert. Einzelberichte unter `.cache/mess/d333-finale-ab-{a1,b1,b2,a2}`. Die getrennten Echtzeitaufnahmen liegen unter `.cache/mess/d333-finale-film-{a,b}` und der zusammengefügte Vergleich unter `.cache/bilder/d333-strassenverfall/index.html`.
+
+## Fahrbahnprofile nach Luftbild (D334)
+
+An der Ortstafel Brannenburg misst die unverschattete Asphaltdecke der St 2089 im bayerischen DOP20 rund 6,0 m (Ableseunsicherheit etwa ±0,4 m). Die Mitte liegt dort etwa 0,8 m neben der OSM-Achse. Das Spiel übernimmt die Breite als Näherung für beide anschließenden OSM-Wege und zeichnet ihre Fahrbahn 0,6 m parallel versetzt. An die neue Fahrbahnkante rückt auch der modellierte Schildmast. Der genaue Maststandort bleibt über Seitenaufnahmen zu prüfen. Luftbildausschnitt in WGS84: 47,74455–47,74519° N und 12,09051–12,09148° E. [Bayerische Vermessungsverwaltung, Digitale Orthophotos](https://www.ldbv.bayern.de/produkte/luftbilder/orthophotos.html)
+
+| OSM-Weg | Sichtbare Leitlinie ab dem ersten Stützpunkt | Abgelesene Randlinie |
+|---|---|---|
+| [26518481](https://www.openstreetmap.org/way/26518481) | 0–2,4 m, 21,1–25,7 m und 56,0 m bis zum Übergang bei 59,95 m | Nordostseite ab 22,0 m, Südwestseite ab 54,5 m. Davor begrenzen Baumkrone und Schatten die Ablesung der Südwestseite. |
+| [42330343](https://www.openstreetmap.org/way/42330343) | Fortsetzung bis 0,35 m, nächster Strich bei 7,8–12,2 m | Beide Seiten über die ersten 28 m. |
+
+Die Endpunkte der Striche sind auf etwa ±0,35 m ablesbar. Die Strichbreite von 12 cm ist ein Modellmaß unterhalb der nativen Bildauflösung von 20 cm. Die rechtwinkligen Schnitte an der Milbinger Straße ergeben lokal 5,6 und 6,6 m (je etwa ±0,6 m). Einfahrten, Gehweg und ein seitlicher Unterschied zur OSM-Achse erfordern einen eigenen Lageabgleich vor einer Geometriekorrektur. Auf den geprüften Schnitten ist kein Farbstreifen erkennbar, ebenso an der Bahnhofstraße.
+
+`strassenkulisse.wege[].profil` erfasst die gemessenen Straßenabschnitte einmal je OSM-Weg. Die Längenstationen folgen der OSM-Achse, die Querabstände der neuen Fahrbahnmitte. `strassenprofil=1` aktiviert bei aktivem D333 den grauen Asphalt, dunklere Reifenspuren und Reparaturflecken. Aufgebrochene Asphaltschollen, der gezackte Krautsaum und abgeriebene Farbreste nutzen das vorhandene Auflagen-Mesh. Asphalt und Farbreste teilen die Bruchmaske. Das Spiel benötigt dafür keine zusätzlichen Texturen oder Draw Calls. Die amtlichen Aufnahmen dienen der Vermessung.
+
+Die drei A/B-Bildpaare zeigen Ortseinfahrt, Milbinger Straße und Bahnhofstraße aus identischen Kameras. An der Ortseinfahrt kommen 115 m Markierungsgeometrie vor Abreibung und Bewuchs sowie 98 kleine Asphaltschollen hinzu. An der Milbinger Straße und an der Bahnhofstraße zeigen die Bilder die neue Asphaltoberfläche und die Bruchstücke. Die sechs Aufnahmen melden null Browserfehler.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | D333 | D334 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,55 | 49,56 |
+| FPS, Milbinger Straße | 50,18 | 49,72 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 35,3 ms | 51,2 ms |
+| Frames über 50 ms, gesamte Route | 0 | 1 |
+
+Alle vier Läufe erreichen die zwölf Wegpunkte. Gemessen wurde im selben Build ohne Videoaufnahme mit `strassenprofil=0/1/1/0`. Der einzelne Frame über 50 ms trat nach 2,22 s noch im Hof auf. In beiden D334-Läufen blieb die Spitze an der Milbinger Straße unter 36 ms. Einzelberichte liegen unter `.cache/mess/d334-finale-ab-{a1,b1,b2,a2}`. Die Bilder und separaten Bewegungsvergleiche der 152-m-Route und der Ortseinfahrt liegen unter `.cache/bilder/d334-fahrbahnprofil/index.html`.
+
+## Fassadenbaukasten an der Weststraße (D335)
+
+Die drei Weststraßenhäuser teilen sich geneigte Fensterbänke, Laibungen, Läden, Türstöcke und abgewinkelte Fallrohre. Der Generator baut sie in Metermaßen an die vorhandenen Fassadenachsen und Dachfelder. Das Glas liegt an den zugewandten Seiten 23 cm hinter der Außenkante. Fensterbänke an Mauerwerk ragen 19 cm über die Wand, an Holzschalung 13 cm. OSM und LoD2-BY liefern die Grundrisse und Dachkörper. Fenstermaße, Fensterachsen und Entwässerungspositionen sind Entwurfswerte. Der Fotoabgleich ist unter A-20 erfasst. [Fassaden-Fotoliste](design/BRACHLAND_Fassaden_Fotoliste_v1.md)
+
+| Haus | Geometrie und Nutzung |
+|---|---|
+| 508 · Ruine | Unter der beschädigten Traufe brechen Bretter und Regenrinne ab. Ein Regenläufer beginnt am Bruchrand. Einzelne Scheiben und Läden fehlen, und der Blick in den Dachbruch bleibt frei. |
+| 510 · Verwachsen | Die Efeuranke sitzt an der kühleren Ecke. Laibungen bleiben zwischen den Trieben ablesbar. Das Fallrohr hängt mit versetztem Knie an der Rinne und endet über dem verwachsenen Sockel. |
+| 512 · Instand gesetzt | Nachgedunkeltes Ersatzholz sitzt an ausgewählten Läden und an den erneuerten Fensterrahmen. Die Tür liegt hinter dem Putz und hat eine Trittfläche. Entwässerung und Türfeld folgen den Anschlussmaßen des Hauses. |
+
+`hausnutzung[].fassadenbaukasten` schaltet das gemeinsame Verfahren pro Grundstück frei. Ein anderer Baukörper durchläuft dieselbe Montage mit seinem Grundriss, seinen Öffnungsachsen und seinem Nutzungszustand. Die Bauteile fließen in die vorhandenen Kachelmeshes und verwenden den bestehenden Materialatlas. Die Regenmaske nutzt den vorhandenen UV-Kanal auf den betroffenen Putzflächen. Für diese Montage gibt es keinen KI-Aufruf pro Gebäude.
+
+Die Geometrieprüfung misst zurückgesetztes Glas in allen drei Gebäuden. Die Firstlänge und Firstachse bei 510, die Dachstufe bei 512 und der tiefe Innenraum bei 508 bleiben in der Stichprobe erhalten. Die übrigen geprüften Häuser liefern bitgleiche Meshattribute.
+
+In den Spielansichten enthält der Haus- und Gartenpuffer 459.679 Dreiecke und 72,50 MB vor der Probe, 478.957 Dreiecke und 75,41 MB mit Baukasten. Die drei Bildpaare verwenden dieselben Blickpunkte und dieselbe Windphase. Alle sechs Aufnahmen sind frei von Browserfehlern.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | Vorher | Fassadenbaukasten |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 40,81 | 41,91 |
+| FPS, Weststraße | 40,66 | 42,49 |
+| p95, gesamte Route | 34,95 ms | 34,75 ms |
+| Längster Frame, gesamte Route | 49,9 ms | 50,1 ms |
+| Frames über 50 ms, gesamte Route | 0 | 1 |
+
+Die vier Läufe erreichen je zwölf Wegpunkte. Ein 50,1-ms-Frame tritt nach 8,38 s im Hof auf. Die Weststraße bleibt in beiden Baukastenläufen unter 36 ms. Gemessen wurde im selben Build bei aktivem D334 und `westfassade=0/1/1/0`. Einzelberichte liegen unter `.cache/mess/d335-finale-ab-{a1,b1,b2,a2}`. Die getrennten Echtzeitaufnahmen liegen unter `.cache/mess/d335-finale-film-{a,b}`. Die Standbilder lassen sich mit `node tools/mess/hauslauf.mjs <name> <0|1> stand westfassade` wiederholen. Die Galerie liegt unter `.cache/bilder/d335-fassadenbaukasten/index.html`.
+
+## Übergänge an Haus und Straßenrand (D336)
+
+Feuchte und sichtbare Steine ziehen sich in unterschiedlich hohen Flecken über den Sockel in den unteren Putz. Die Sockelkappe folgt dem Gelände. Frostabtrag verändert ihre Höhe an der Ruine stärker als am instand gesetzten Haus. Alle Sockelstücke und Kappen bleiben geschlossen, und benachbarte Stücke teilen die Kanten. Die Texturprobe nutzt den vorhandenen Atlas und die Höhe über dem örtlichen Boden.
+
+An Haus 512 sind vier einzelne Holzkästen über die Brüstung verteilt. Metallhaken hängen über den Handlauf, und zwischen den Kästen bleibt das Holz sichtbar. Die Pflanzen bestehen aus unterschiedlich großen olivgrünen Gruppen. Der lokale Geometrietest zählt acht Haken und null rote Balkonvertices.
+
+Am Milbinger Wohnweg 198749032 stellt `wohnwegrand` die Mischung auf niedriges Gras, Kräuter und trockene Halme um. Kleine Gruppen wechseln mit offenen Stellen. Die meisten Pflanzen sind 9–22 cm hoch, einzelne Rispen am Außenrand erreichen 28 cm. Die CPU-Probe des tatsächlich gebauten Wegbands zählt 4.291 Pflanzenkarten vorher und 1.062 nachher. Laufspur und der erfasste gepflegte Zugang bleiben frei. Die Probe nutzt die drei bestehenden Rendergruppen und den Grasatlas. Die allgemeine Streuschicht hält sich im Umfeld der drei Häuser vom Straßenband fern und staffelt die Breite und Höhe ihrer Büschel im angrenzenden Vorfeld.
+
+`westanschluss=1` aktiviert die Probe bei aktivem D335. `tools/mess/hauslauf.mjs <name> <0|1> stand westanschluss` nimmt die drei Häuser und den Straßenrand aus festen Kameras auf.
+
+Die acht Aufnahmen verwenden identische Blickpunkte, Beleuchtung und Windphase ohne Browserfehler. Der geladene Haus- und Gartenpuffer wächst von 478.957 auf 480.267 Dreiecke und von 75,41 auf 75,67 MB.
+
+| Zwei Spielläufe pro Fassung auf dem M1 bei 960 × 540 | D335 | D336 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 42,11 | 44,00 |
+| FPS, Weststraße | 42,39 | 44,22 |
+| p95, gesamte Route | 34,80 ms | 34,45 ms |
+| Längster Frame, Weststraße | 100,0 ms | 35,4 ms |
+| Frames über 50 ms, gesamte Route | 11 | 1 |
+
+Alle vier Läufe erreichen zwölf Wegpunkte. Die elf langen Frames der alten Fassung stammen aus dem ersten Gegenlauf. Der einzelne lange Frame von D336 tritt bei 2,23 s im Hof auf und misst 51,9 ms. Gemessen wurde ohne Videoaufnahme in der Folge `westanschluss=0/1/1/0`. Die Einzelberichte liegen unter `.cache/mess/d336-abgabe-ab-{a1,b1,b2,a2}`. Die separaten Echtzeitaufnahmen und die Bildvergleiche sind in `.cache/bilder/d336-westanschluss/index.html` gesammelt.
+
+## Vermessener Querschnitt der Milbinger Straße (D337)
+
+Auf der ersten Geraden des OSM-Wegs 198749032 liegen 13 Querprofile zwischen Station 65 und 147 m. Die Abstände zur OSM-Achse stammen aus dem amtlichen RGB-Orthofoto DOP20. Die Fahrbahn ist in der Probe 4,1 bis 5,8 m breit. Ihre Mitte liegt 3,1 bis 5,0 m links der OSM-Achse in Kartierungsrichtung. Zwei Übergänge von je 8 m schließen an das vorhandene 5-m-Wegband an. [OpenStreetMap-Weg](https://www.openstreetmap.org/way/198749032) · [Bayerische Vermessungsverwaltung, DOP20 RGB](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?active=SERVICE&pn=dop20rgb)
+
+Die Luftbildprobe stammt aus dem WMS-Layer `by_dop20c` in EPSG:4326, abgefragt am 20.11.2026. Die BBox reicht von 12,09905° bis 12,10090° Ost und von 47,72810° bis 47,72983° Nord. Auf sichtbarem Asphalt liegt die Ablesegenauigkeit bei ungefähr ±0,4–0,7 m. Abschnitte 94–108 und 125–136 m sind unter Baumkronen interpoliert. Der OSM-Tag erfasst den Gehweg links. Das Luftbild zeigt ihn besonders zwischen Station 65 und 73 m. Seine durchgehende Breite von 1,65 m und die 11 cm hohen Borde mit Absenkung auf 2,5 cm sind Modellannahmen. Die vier Zufahrten sind an sichtbaren Belaganschlüssen vereinfacht erfasst.
+
+| Zufahrt | Station in m | Seite in Kartierungsrichtung |
+|---|---:|---|
+| 1 | 71,4–74,5 | links |
+| 2 | 75,2–79,0 | rechts |
+| 3 | 80,7–84,7 | rechts |
+| 4 | 137,6–141,7 | links |
+
+Der Generator baut aus den 13 Profilen ein statisches, vertexgefärbtes Mesh mit 1.002 Dreiecken. Blender verwendet dasselbe Mesh und vereinfachte Nachbarhäuser auf OSM-Grundrissen. Die Spielprobe hält Fahrbahn, Gehweg und Zufahrten von Gras und größeren Props frei. Die Fortbewegung liest weiterhin die vorhandene Geländehöhe. `wohnwegquerschnitt=1` aktiviert den Prüfabschnitt bei aktivem D336 und `strassenverfall=1`. Das untexturierte Mesh dient der Prüfung der Anschlüsse und Proportionen vor dem Material- und Verwitterungsdurchgang.
+
+`npx tsx tools/terrainexport.ts 1370 447 220 2 .cache/milbinger-export --querschnitte` exportiert den Straßenkörper mit Fahrbahn, Gehweg, Bordstein und Zufahrten als OBJ-Gruppen. Gelände und Querschnitte teilen den Ursprung und die Achsenabbildung für Blender. Weitere gerade Prüfabschnitte können dieselbe Geometrie und Freihaltung mit ihren eigenen gemessenen Kanten nutzen.
+
+Die festen Spielkameras zeigen denselben Blick auf den Straßenverlauf und die Bordabsenkung. Alle vier Standbilder wurden ohne Browserfehler erfasst. Eine aus dem Querschnitt erzeugte Ortsmaske hält auch die per Shader gesetzten Halme aus dem Straßenkörper und den Einfahrten fern. Der Laufvergleich zu Fuß verwendet denselben Start und dieselbe Eingabe. Die Vergleichsbilder und das Video liegen lokal unter `.cache/bilder/d337-milbinger/index.html`.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D336 | D337 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 48,61 | 49,69 |
+| FPS, Weststraße | 49,17 | 51,62 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 35,3 ms | 35,4 ms |
+| Frames über 50 ms, gesamte Route | 0 | 0 |
+
+Alle Läufe erreichen zwölf Wegpunkte. Die Zeitmessung läuft ohne Videoaufnahme im selben Build in der Folge `wohnwegquerschnitt=0/1/1/0`. Einzelberichte liegen unter `.cache/mess/d337-abnahme-ab-{a1,b1,b2,a2}`.
+
+## Belag und Bewuchs an der Milbinger Einfahrt (D338)
+
+Die linke Zufahrt bei Station 71,4 bis 74,5 m dient als Detailprobe. Ein eigener Blender-Render verwendet das Straßenmesh und die Detailkamera aus D337. Die beiden Reels zeigen ungleich verteilten Bewuchs und eine in der Bewegung lesbare Abstufung vom Weg bis zur höheren Vegetation. Im BRACHLAND-Entwurf wachsen kleine Kräuter an der befestigten Kante, höhere trockene Horste folgen dahinter. [Rithick Sundar, Sunlit Meadowlands](https://www.instagram.com/reel/Dc04v3RBRu1/) · [Gourav Mohanty, Can Blender beat AI](https://www.instagram.com/reel/DflzH6JsWy5/)
+
+Der Spielshader unterscheidet Fahrbahn, Gehweg, Bord und Zufahrt im selben Mesh. Die Fahrbahn trägt den vorhandenen Asphalt-Scan und dunklere Nutzungs- und Reparaturstellen. Feine Randrisse laufen zur Fahrspur aus. Die Zufahrt verwendet die vorhandene Schotterkachel. An der Bordkante mischt der Shader stellenweise dunklere Erde und Moos ein. Die Oberflächen sind eine Ausgestaltung des Weltzustands. Asphaltlage und Bordabsenkung stammen aus der D337-Probe. [Herkunft der Weg- und Pflanzenatlanten](../assets/HERKUNFT.md)
+
+Der Saum ist im Regionsprofil für Station 65 bis 98 m aktiviert. Seine Positionen folgen der gemessenen Fahrbahnkante und der modellierten äußeren Kante von Gehweg und Zufahrt. Der Seed pro Station erzeugt Gruppen aus vorhandenen Gras-, Stroh-, Kräuter- und Blütenkarten. Der Generator prüft Wasser, Gebäude und die befestigte Fläche vor der Platzierung. Die Welt braucht für neue Abschnitte weder individuelle Texturbilder noch einen KI-Aufruf je Grundstück.
+
+`milbingerbelag=0/1` trennt D337 und D338 bei aktivem `wohnwegquerschnitt=1`. Die Geometrieprüfung vergleicht Positionen und Indizes und prüft die Horstwurzeln gegen die Freihaltemaske. Die Spielgalerie liegt lokal unter `.cache/bilder/d338-milbinger/index.html`.
+
+Der Fußwegvergleich zeigt denselben Start, dieselbe W-Eingabe und rund 43 m Laufstrecke aus der normalen Spielkamera. Beide Filmhälften sind 10,2 s lang. Zwei Standbildpaare zeigen die abgesenkte Zufahrt und die Anfahrt. Beide Spielfassungen zeichnen 1.002 Dreiecke für den Straßenkörper. Die Aufnahmen melden keine Browserfehler.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D337 | D338 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,51 | 49,66 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 49,30 ms | 50,20 ms |
+| Frames über 50 ms, gesamte Route | 0 | 1 |
+| FPS, Weststraße | 51,69 | 51,63 |
+| p95, Weststraße | 33,30 ms | 33,30 ms |
+| Längster Frame, Weststraße | 34,90 ms | 49,50 ms |
+
+Alle Läufe erreichen zwölf Wegpunkte. Gemessen wurde ohne Videoaufnahme im selben Build in der Folge `milbingerbelag=0/1/1/0`. Der Frame mit 50,2 ms lag bei 7,95 s im Hof, an derselben Position wie ein 49,3-ms-Frame im Gegenlauf. Auf der Weststraße blieben alle Frames bei höchstens 49,5 ms. Die Rohberichte liegen unter `.cache/mess/d338-abnahme-ab-{a1,b1,b2,a2}`.
+
+## Schotterspuren an der oberen Milbinger Einfahrt (D339)
+
+Die zweite Detailprobe liegt an der linken Zufahrt von Station 137,6 bis 141,7 m. Der Blender-Entwurf verwendet dasselbe Straßenmesh und denselben Kamerablick wie das Spiel. Der im D337-Luftbildabgleich bestimmte Verlauf gibt die Lage vor. Schotter, Feuchte und Flankenbewuchs sind Ausgestaltungen des Weltzustands.
+
+Zwei verdichtete Fahrspuren beginnen hinter dem Gehweg und verlieren sich im helleren Schotter. Ihr Abstand beträgt im Entwurf 1,54 m. Ein unregelmäßiger, 18 bis 41 cm breiter Erd- und Kiesstreifen legt sich von der befestigten Kante ins Gelände. Je nach Abstand zum Gehweg wechseln niedrige Kräuter, Gräser und höhere Rispen. In der Spielprobe liegen 35 neue Horste und einzelne kleine Steine außerhalb der befestigten Flächen. Der Straßenkörper bleibt bei 1.002 Dreiecken. Erdanschluss, Splitt und Horste nutzen die bisherigen Auflagen und Instanzgruppen. Der Shader nutzt den vorhandenen Wegatlas.
+
+`schotterspuren` im Regionsprofil speichert Abstand und Saumdichte pro Zufahrt. `milbingeroben=0/1` trennt die Fassungen bei aktivem D338. Die Regressionstests vergleichen die Positionen und Indizes des Straßenkörpers und prüfen, dass die Spuren hinter dem Gehweg beginnen und die Zugangsmaske frei bleibt. Die Galerie mit Spielbildern, Blender-Zielbild und Fußwegvergleich liegt lokal unter `.cache/bilder/d339-milbinger/index.html`.
+
+Der 10,2-s-Vergleich läuft mit derselben Spielkamera und W-Eingabe von Station 152,5 bis rund 109,5 m. Die Figuren bewegen sich 42,92 beziehungsweise 43,03 m und passieren die obere Zufahrt. Beide Standbildpaare und beide Filme melden keine Browserfehler.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D338 | D339 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,26 | 49,83 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 133,20 ms | 35,40 ms |
+| Frames über 50 ms, gesamte Route | 2 | 0 |
+| FPS, Weststraße | 50,59 | 51,49 |
+| p95, Weststraße | 33,40 ms | 33,30 ms |
+
+Alle Läufe erreichen zwölf Wegpunkte. Gemessen wurde ohne Videoaufnahme im selben Build in der Folge `milbingeroben=0/1/1/0`. Die beiden langen Frames stammen aus dem ersten D338-Lauf um Sekunde 32. Der zweite D338-Lauf erreichte 50,08 FPS. Der Unterschied bei den Spitzen erlaubt daher keine Zuordnung zur Straßenänderung. Die Rohberichte liegen unter `.cache/mess/d339-final-ab-{a1,b1,b2,a2}`.
+
+## Dächer, Straßenhöhe und Wiesenscan an der Milbinger Straße (D340)
+
+Die acht sichtbaren Gebäude 410, 413, 444, 506, 507, 509, 511 und 513 erhalten 36 Dachflächen von 13 Baukörpern aus amtlichem LoD2-BY. Dachkontur, Höhen und getrennte Anbauten folgen den Quelldaten. Die Fassaden unterhalb der Traufe kommen aus dem Hausgenerator. Bei 509 verkürzt sich die im Spiel erzeugte Firstspanne von 23,21 auf 8,72 m. 506 erhält einen 21,33 m spannenden Hauptfirst und zwei niedrigere Anbauten. LoD2-BY beschreibt standardisierte Bauformen und ungefähr metergenaue Höhen. [Bayerische Vermessungsverwaltung, LoD2-BY](https://www.ldbv.bayern.de/produkte/liegenschaftsinformationen/gebaeudemodell.html)
+
+Der Nahbereich verwendet ein DGM1-Raster mit 89 × 141 Stützpunkten im Abstand von 1 m. Ein 12-m-Übergang verbindet es mit dem Höhenfeld der Region. Geländekacheln, Fundament, Straßenkörper und Spielerhöhe lesen dasselbe Feld. Zwischen Station 65 und 147 m liegt die Fahrbahn rund 1,8 cm über dem gezeichneten und begehbaren Boden. D339 lag dort ungefähr 10–17 cm darüber. Am Ende der oberen Einfahrt sinkt diese Differenz von 11,6 auf 0,9 cm. Im Original-DGM liegt das Ende der Einfahrt an Station 139,65 etwa 9,7 cm höher als die Fahrbahnmitte. Das Modell trifft dieses Gefälle. Die Bordabsenkung von 2,5 cm bleibt ein Entwurfsmaß. Der Straßenkörper verwendet 6.019 Dreiecke. 6.849 vertikale Stichproben trafen die vorbereiteten Belagsflächen. [Bayerische Vermessungsverwaltung, DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)
+
+Die Wiese verwendet den bestehenden Wiesenscan mit Farb- und Normalenkarte sowie den am Stauwehr erprobten Foto-Horst-Atlas. Die D340-Abstimmung erzeugt dichtere Gruppen mit kleinen freiliegenden Erdstellen. Eine gemeinsame Ortsmaske verbindet Foto-Horste, Nahboden und die angrenzenden Halme in einem 9-m-Übergang. Die Freihaltung der gepflasterten Flächen bleibt in beiden Graspfaden aktiv. [Herkunft der Materialien](../assets/HERKUNFT.md)
+
+`milbingermasse=0/1` trennt D339 und D340. Drei Standbildpaare vergleichen feste Weltkameras auf Höhe der Spielfigur und in Schrägaufsicht. Der 10,2-s-Fußweg verwendet dieselbe W-Eingabe und die normale Spielkamera ab Station 152,5 m. Die Figuren gehen 42,94 beziehungsweise 42,98 m und passieren die obere Einfahrt. Beide Aufnahmen melden keine Browserfehler. Die Vergleichsgalerie liegt lokal unter `.cache/bilder/d340-milbinger/index.html`.
+
+In den ersten beiden D340-Messläufen erscheint bei 2,17 s und Weltposition x1442,96/z400,05 jeweils ein Frame um 100 ms. Im Gegenlauf mit `compileAsync` bleibt ein Frame mit 83,3 ms an derselben Stelle. Das separate CPU-Profil misst dort 67,6 ms allein in `getProgramInfoLog` beim ersten Zeichnen der Fotowiese. Die abschließende Fassung bereitet das konkrete Renderprogramm beim Szenenaufbau mit einer Instanzzahl von null vor. Sobald Gelände und Bänder vollständig sind, blendet sich allein das Vorlauf-Mesh aus. Die Rohdaten der Ursachenprüfung liegen unter `.cache/mess/d340-final-ab-{a1,b1,b2,a2}` und `.cache/mess/d340-vorbereitet-{b1,cpu}`.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D339 | D340 mit Shader-Vorlauf |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 49,42 | 53,09 |
+| p95, gesamte Route | 33,40 ms | 33,30 ms |
+| Längster Frame, gesamte Route | 49,90 ms | 35,30 ms |
+| Frames über 50 ms, gesamte Route | 0 | 0 |
+| FPS, Weststraße | 50,94 | 55,91 |
+| p95, Weststraße | 33,35 ms | 32,50 ms |
+
+Alle vier Läufe erreichen zwölf Wegpunkte ohne Browserfehler. Die Messung läuft ohne Videoaufnahme. D339 stammt aus den beiden Gegenläufen der Erstmessung. Die beiden abschließenden D340-Läufe unter `.cache/mess/d340-vorlauf-bereit-b{1,2}` verwenden denselben Start und dieselbe Route. Der Shader-Vorlauf wird bei `milbingermasse=0` übersprungen.
+
+## Gealterte Bauteile und bewachsene Fugen an der Milbinger Straße (D341)
+
+`milbingermasse=1&milbingerdetail=0/1` vergleicht die vermessene Fassung D340 und die Detailprobe. Die 13 Teilkörper der acht LoD2-Häuser behalten ihre amtlichen Dachflächen und Wandabschlüsse. Untersicht, Traufe, Ortgang und sparsame Rinnen sind Entwurfsdetails. Die Überstände reichen vom amtlichen Kern bis zu 47 cm hinaus. Die Zusatzflächen laufen an den Stößen zu benachbarten Baukörpern aus. 1.472 zusätzliche Dachdreiecke bleiben in den gemeinsamen Hauspuffern.
+
+Wohnteile erhalten echte Laibungen mit 18 cm zurückgesetzten Scheiben, räumliche Fensterbänke, Holzläden und zurückgesetzte Türen. Bei verlassenen Häusern bestimmt ein ortsfester Seed die abgenommenen Läden, Bretterreparaturen, einzelnen Glasreste und den Zustand der Oberflächen. Gebietsbezogene Fassadensteckbriefe haben Vorrang. An kühlen Hausecken wächst Efeu aus dem Boden. Der Übergang bündelt dort die Putzflecken und das freiliegende Mauerwerk, wo Feuchte vom Boden oder von Läufern kommt. Farb-, Normalen- und Rauheitskarten stammen aus den bereits eingebundenen Haus- und Hofatlanten. Die Materialmaske läuft außerhalb des örtlichen Wiesenrahmens aus, damit seitliche Fassaden desselben Straßenzugs mitbehandelt werden. Der bestehende Hof und die drei gestalteten Weststraßen-Fassaden behalten ihren eigenen Materialpfad.
+
+Schmutz und Moos liegen am Rinnstein und in unregelmäßigen Betonfugen. Senkrechte Bordflächen lesen ihre Textur in der Stirnebene. Fahrbahn und Einfahrten behalten das DGM1-Höhenprofil. 17 niedrig wachsende Nahtrandpflanzen kommen im vorhandenen Instanzsatz hinzu. Die Prüfung hält selbst den um 23 cm erweiterten Korridor für Gehweg und Zufahrten frei. Boden und Horste lesen dieselben ortsfesten Wuchsinseln. Wo Halme auslaufen, werden die vorhandenen Schutt- und Streuscans sichtbar. Für D341 kommen keine Texturdateien hinzu.
+
+Die Blender-Bauteilstudie verwendet die exportierten Spielnetze und dieselbe Fassadenkamera. Sie prüft Laibungen, Dachüberstände und Materialtiefe bei separat gewähltem Licht. Die Blender-Datei und das Bild stehen unter `.cache/d341-milbinger/blender-studie-bauteile-fassade.{blend,png}`. Die spielbaren Vorher-Nachher-Bilder und der Fußweg liegen unter `.cache/bilder/d341-milbinger/index.html`. Fensterachsen, Farben einzelner Gebäude und Originaldetails brauchen weiterhin Ansichten vor Ort. D341 ist eine örtliche Ausarbeitung des Spielmaterials.
+
+Der Fußweg nutzt in beiden Fassungen dieselbe Spielkamera und Eingabe über 10,2 s. Er führt 43,02 m (D340) bzw. 42,89 m (D341) weit und quert die obere Einfahrt vollständig. In fünf zeitgleichen Ansichten sind Dachziegel, Laibungen, Bewuchs und Übergänge zum lockeren Boden sichtbar. Das freiliegende Mauerwerk ist in der Nähe besser lesbar. Die Baumkulisse und das warme Dunstlicht prägen den weiterhin stilisierten Gesamteindruck. Die Aufnahmen melden keine Browserfehler. Die Bildzeitmessung läuft separat ohne Video.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D340 | D341 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 52,89 | 51,38 |
+| p95, gesamte Route | 33,30 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 51,10 ms | 50,00 ms |
+| Frames über 50 ms, gesamte Route | 1 | 0 |
+| FPS, Weststraße | 56,13 | 53,95 |
+| p95, Weststraße | 32,40 ms | 33,30 ms |
+
+Alle vier Läufe erreichen zwölf Wegpunkte ohne Browserfehler. Gemessen wurde in demselben Build in der Folge `milbingerdetail=0/1/1/0`. D341 kostet auf der gesamten Route 2,85 % mittlere FPS. Ein Frame mit genau 50 ms liegt bei 28,008 s auf der Weststraße. Der andere D341-Lauf bleibt bei höchstens 35,30 ms. Die Rohberichte liegen unter `.cache/mess/d341-final2-ab-{a1,b1,b2,a2}`.
+
+## Übergang von Haus und Boden an der Milbinger Straße (D342)
+
+Der D341-Sockel lag als durchgehend waagerechtes Band am Gebäudeminimum. Außerdem sperrte der allgemeine Pflegestreifen Gras bis 1,6 m von der Wand. `milbingerboden=1` ersetzt den Aufbau bei den 13 amtlichen Teilkörpern der acht Milbinger Gebäude. Niedrige Feldsteinfronten greifen in den Hang, benachbarte Wandabschnitte schließen an den Gehrungen. Fassade, Sockel und Bodenkontakt lesen dieselbe gezeichnete Geländeoberfläche. Zehn geprüfte Türen erhalten eine kurze Steintrittfläche, deren vordere Kante 11,3–14,6 cm über dem örtlichen Gelände liegt. Am Haus 509 sind es 11,7 cm. Die höchsten Dachpunkte und die geprüften Hauspuffer von Hof und Weststraße bleiben erhalten. 4.648 zusätzliche Dreiecke liegen im bestehenden Gebäudebatch.
+
+Das Kontaktfeld nimmt die amtlichen Teilgrundrisse als Ausgangspunkt. Es läuft bis 2,15 m nach außen weich aus und spart Gebäudeinneres aus. In diesem Feld wechseln sich vorhandene Erd-, Streu- und Schuttscans ab. Der Fotograsring lässt ausgedünnte und kürzere Horste näher an die Fassaden. Der zweite Kanal hält das unmittelbare Türvorfeld auch zwischen den Abtastpunkten des 1-m-Grasfelds frei. Die vorhandene Straßenmaske sperrt belegte Wegflächen. Milbinger- und Hofkontakt teilen im Geländeshader einen RG8-Texturslot mit zwei getrennten UV-Teilrahmen. Der Rastervergleich erhält die Hofwerte bytegleich.
+
+Die Blender-Studie am Sockel von Haus 509 verwendet die exportierten Spielflächen und separat gewähltes Licht. Quellen sind die vorhandenen Scan-Atlanten und das DGM1-Mesh. Bild und Szene liegen unter `.cache/d342-milbinger/blender-bodenkontakt-v2-sockel509.{png,blend}`. Die spielbaren Gegenläufe setzen `milbingermasse=1&milbingerdetail=1` und variieren allein `milbingerboden=0/1`.
+
+Vier feste Kamerapaare zeigen die Sockel von 509 und 506, die Straßenseite und die Trittfläche. Die Spielkamera läuft mit derselben W-Eingabe 4,75 s an Haus 509 entlang. Sie legt 19,95 bzw. 20,08 m zurück und steigt in beiden Fassungen um rund 31 cm. An der Tür bleibt die Trittfläche sichtbar, die Halme stehen seitlich. Beide Aufnahmen und alle acht Standbilder melden keine Browser- oder Shaderfehler. Die Galerie mit beiden spielbaren Fassungen liegt unter `.cache/bilder/d342-milbinger/index.html`.
+
+| Zwei Läufe pro Fassung bei 960 × 540, M1 | D341 | D342 |
+|---|---:|---:|
+| FPS, gesamte 152-m-Route | 50,85 | 50,74 |
+| p95, gesamte Route | 33,40 ms | 33,40 ms |
+| Längster Frame, gesamte Route | 51,10 ms | 35,40 ms |
+| Frames über 50 ms, gesamte Route | 1 | 0 |
+| FPS, Weststraße | 53,20 | 53,46 |
+| p95, Weststraße | 33,30 ms | 33,30 ms |
+
+Alle vier Läufe erreichen zwölf Wegpunkte ohne Browserfehler. Gemessen wurde ohne Videoaufnahme im selben Build in der Folge `milbingerboden=0/1/1/0`. Die Differenz von 0,11 FPS liegt unter der Schwankung der beiden D341-Läufe. Die Rohberichte liegen unter `.cache/mess/d342-final-ab-{a1,b1,b2,a2}`.
+
+## Tageslicht, Baumkulisse und Spielfigur an der Milbinger Straße (D343)
+
+Hyperrealismus gilt für jedes sichtbare Element. Die Probe setzt ihn im bestehenden Milbinger Ausschnitt gemeinsam für Bebauung, Gelände, Straßenraum, Licht, Vegetation und Figur an. Der spielbare Vergleich variiert `milbingerlicht=0/1` bei aktiven D340–D342-Details. Die amtlichen Gebäudeformen, der vermessene Straßenquerschnitt und der DGM1-Höhenausschnitt bilden in beiden Fassungen die Grundlage.
+
+Das vorhandene Alpenpanorama von Andreas Mischok (Poly Haven, CC0) liefert die Wolken. Für die Spielansicht blendet der Shader fotografiertes Gelände und Kondensstreifen aus. Die helle Stelle des Panoramas liegt bei rund 42° Sonnenhöhe. Sie bestimmt die Richtung der vorhandenen Lichtquelle. Direktlicht, Fülllicht, Nebel und Belichtung variieren gemeinsam am Ortsrand. Dieselbe Dunstfarbe greift in die aus Höhenwerten gebaute Fernkulisse ein. Die Beleuchtung nutzt die bestehenden Lichtquellen und Schattenpässe. Die gesonderte Blender-Studie `.cache/d343-milbinger/blender-tageslicht-haus509.{blend,png}` prüft Sockel, Fassadenrelief und Schatten am exportierten Netz aus derselben Fassadenkamera. Sie verwendet ein eigenes Grasmaterial und eine separat eingestellte HDR-Umgebung.
+
+53 vorhandene Bäume erhalten acht örtliche Varianten. Kleinere Fotokarten, offene Kronenränder und dichteres inneres Laub machen die Verzweigung lesbar. Der vorhandene Rindenatlas liefert das Relief. Die Varianten laufen durch die bestehenden Übergänge für Entfernung, Wind und Schatten. Das Material der Spielfigur variiert Stoff, Leder und abgelaufene Stiefel mit den vorhandenen Texturen. Oberflächenspuren bewegen sich mit dem animierten Körper.
+
+Vier feste Kamerapaare zeigen Hauptbaum, Straßenrand, Haus 509 und Spielfigur. Zwei Gegenläufe mit normaler Spielkamera folgen dem Sockel von Haus 509 (20,00 m / 19,97 m) und der Straße (35,31 m / 35,37 m). Gerade in Bewegung zeichnen sich Astschatten auf Weg und Fassade ab. Die acht Bilder und vier Clips melden keine Browserfehler. Die beiden synchron dargestellten Videovergleiche und die spielbaren Fassungen liegen unter `.cache/bilder/d343-milbinger/index.html`.
+
+| Bildzeitmessung bei 960 × 540, M1 | D342 | D343 |
+|---|---:|---:|
+| FPS, Milbinger Straße (35 m) | 46,73 | 51,57 |
+| p95, Milbinger Straße | 34,30 ms | 33,40 ms |
+| Frames über 50 ms, Milbinger Straße | 0 | 0 |
+| FPS, Hof und Weststraße (152 m) | 49,91 | 51,85 |
+| p95, Hof und Weststraße | 33,50 ms | 33,30 ms |
+| Längster Frame, Hof und Weststraße | 49,50 ms | 83,20 ms |
+| Frames über 50 ms, Hof und Weststraße | 0 | 2 |
+
+Gemessen wurde ohne Video, zweimal je Fassung über 152 m in der Folge 0/1/1/0, einmal je Fassung über 35 m. Beide langen Frames (83,20 und 82,90 ms) liegen in den ersten 100 ms nach dem Loslaufen am Hof. Das separate CPU-Profil zeigt im entsprechenden 84,3-ms-Frame 69 ms in der ersten Auswertung eines Tiefenprogramms beim Schilf im Schattenpass. Ein Vorlauf nur für das Schilf ließ den Ausschlag in beiden Gegenläufen bestehen. Beim Ausschalten des Schilfschattens trat der blockierende Aufruf mit demselben Programmschlüssel beim Waldholz auf. Der punktuelle Vorlauf wurde verworfen. Die Rohberichte liegen unter `.cache/mess/d343-final-ab-{a1,b1,b2,a2}` und `.cache/mess/d343-final-nah-{0,1}`. Ursache und Gegenproben stehen in `.cache/mess/d343-anlaufprofil-b`, `.cache/mess/d343-schilf-ab-*` und `.cache/mess/d343-anlaufprofil-ohneschilf-b`.
+
+Für die Abnahme nach A-19 bleiben glatte Fernhänge, vereinfachte Figurenanatomie und örtlich generische Bauteile offen. Die vermessene Form eines Gebäudes belegt seine Geometrie im Großen. Originale Fassadenachsen, Dachdetails, Bordhöhen und Straßenausstattung brauchen Seitenansichten vor Ort (H-255c). Der Vergleich im Spiel zeigt den örtlichen Stand dieses Durchgangs.
+
+## Fotografierte Wolkendecke vor der Heilung (D344)
+
+Der Flussvater staut den Fluss und flutet Teile des Œntals. Der klare D343-Himmel vermittelte für diesen Weltzustand zu viel ungebrochenes Tageslicht. In der Milbinger Probe zeigt D344 über der Talsohle eine fotografierte Wolkendecke mit weicheren Schatten, schwächerem Direktlicht und kühlerem, grauem Taldunst. Die Lichtquelle folgt dem helleren Wolkenbereich bei rund 38° über dem Horizont. Die Farbe am unteren Rand der Himmelshalbkugel läuft in denselben Dunstton wie die Fernkulisse. [Story-Bibel, §§ 5–6](design/BRACHLAND_Story-Bibel_v1.md#5-die-regenten-serie-regent) · [Herkunft der Wolkenaufnahme](../assets/HERKUNFT.md#milbinger-wolkenaufnahme-d344)
+
+Das Spiel nutzt mit `milbingerlicht=1` den bewölkten Himmel vor der Heilung und das hellere Tageslicht nach der Heilung des Flussvaters. `geheilt=1` lässt den zweiten Zustand ohne Spielstand prüfen. Die Ortsmischung läuft am Rand des Milbinger Ausschnitts und bei Nacht aus. `milbingerklar=1` ruft für den direkten Vergleich den klaren D343-Himmel bei gleichem Weltzustand auf. Beide Fassungen nutzen dieselbe Lichtquelle und denselben Schattenpass. Die Blender-Studie am Haus 509 wertet die vollständige HDR-Aufnahme fürs Umgebungslicht aus, im Spiel braucht der obere Ausschnitt nur eine 15,7 KiB große WebP-Karte. Die Blender-Datei und ihr Render liegen unter `.cache/d344-milbinger/blender-wolkendecke-haus509.{blend,png}`.
+
+Die feste Kamera auf Giebel und Hauptbaum zeigt den direkten Unterschied. Im freien Himmelsfeld (x 242–431, y 15–71 bei 960 × 540) sinkt die mittlere HSV-Sättigung von 61,7 auf 19,5 %. Der Spiellauf erreicht bei gleicher Eingabe 35,33 bzw. 35,35 m. Der Himmelsvergleich, die hellere Ansicht nach der Heilung und die Bewegungsaufnahmen zeigen keine Browser- oder Shaderfehler. Galerie und Video liegen unter `.cache/bilder/d344-milbinger/index.html`.
+
+In der separaten Paarmessung auf derselben Strecke bei 960 × 540 (M1, je ein Lauf ohne Video) erreicht D343 52,03 FPS bei 33,40 ms p95 und D344 51,79 FPS bei 33,30 ms p95. In beiden Läufen liegen alle Frames unter 36 ms. Rohberichte: `.cache/mess/d344-nah-{0,1}`.
+
+## Amtliches Fernrelief hinter der Milbinger Straße (D345)
+
+Die Gegenprobe ohne Fernkulisse und die Sichtstrahlen aus der Spielkamera ordnen den hellen, kantigen Hang dem bisherigen 125-m-Fernraster zu. Die sichtbare Flanke liegt rund 1,9–2,5 km entfernt. Der DGM1-Ausschnitt trägt 101 × 101 Stützpunkte im Abstand von rund 31 m. Sein Rand läuft auf 220 m ins vorhandene Raster aus. Der Anschluss an die Region übernimmt weiterhin die Höhen an der Regionskante. Die vertikale Überhöhung der Spielwelt um 15 % gilt auch für die Kulisse. [DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1) · [Herkunft und Erzeugung](../assets/HERKUNFT.md#weltdaten-publicworld-d290)
+
+Bei 276 Stichproben an den amtlichen Stützpunkten des sichtbaren Ausschnitts lag das alte Mesh im Mittel 10,34 m und höchstens 56,00 m neben dem Höhenwert. Das neue Mesh trifft die Stützpunkte auf unter 1 cm. An 55 Punkten der Ostnaht beträgt die größte Abweichung 0,26 mm. Diese Prüfung misst die Übereinstimmung mit dem resampelten Höhenraster. Der Wechsel von Flächennormalen zu glatten Normalen beseitigt die dreieckigen Lichtkanten. Der Materialshader übernimmt Lichtfarbe und Dunst des jeweiligen Weltzustands und berechnet die Luftperspektive ab der Kamera. Wald- und Felsflecken sind aus Höhe, Hangneigung und Weltposition angenähert.
+
+Die Fernkulisse bleibt ein Draw Call mit 49.504 statt 19.192 Dreiecken. Die indizierte Fassung nutzt 28.613 statt 57.576 Vertices. Das zusätzliche Raster kostet rund 42 KiB. `milbingerfern=0` zeigt im selben Build die alte Kulisse. Die Wolkendecke von D344 ist in beiden Fassungen aktiv.
+
+Beide 8,4-s-Aufnahmen legen mit normaler Spielkamera praktisch dieselbe Strecke zurück (je rund 35,29 m). Zwei Ortsansichten und der synchronisierte Straßenlauf zeigen den feiner gegliederten Kamm und die unterschiedlichen Grautöne der Flanken. Bilder und Clips melden keine Browserfehler. Die Galerie liegt unter `.cache/bilder/d345-milbinger/index.html`.
+
+Getrennt von der Aufnahme wurden je zwei Läufe bei 960 × 540 auf dem M1 gemessen (`0/1/1/0`). Mittlere FPS 51,60 → 51,20, p95 33,30 → 33,40 ms. Der Spitzenwert beträgt in beiden Fassungen 35,30 ms. Rohberichte stehen unter `.cache/mess/d345-nah-{a1,b1,b2,a2}`.
+
+## Ausgebrochene Gehwegkante an der Milbinger Straße (D346)
+
+Der vermessene Querschnitt aus D337 und D340 bestimmt die Lage von Gehweg, Bord und vier Zufahrten. D346 lässt die Betonaußenkante in unterschiedlich langen Abschnitten um bis zu 18 cm einrücken und um bis zu 3,8 cm absinken. Einzelne Bordvorderkanten liegen bis zu 5,4 cm tiefer. Der Erdsaum greift an den abgesenkten Stellen auf den Beton, die Rinne sammelt dunkleres Sediment. Feine Nebenrisse laufen von der Asphaltkante aus. Der Bodenrasterzuschnitt bleibt Grundlage für alle Bauteile.
+
+Der gleiche Schadensverlauf steuert 36 Erdlinsen, 88 niedrige Horste und 85 kleine Bruchstücke. 1.981 vertikale Stichproben auf Auflagen und Instanzumrissen trafen keine befestigte Fläche. Die Erdauflagen reichen bis rund 8,6 cm über das Gelände. Der Test des Querschnitts prüft die Zufahrtsbreiten, die Bordabsenkung, die Fahrbahnhöhe und 150 Punkte der gebrochenen Kante am synthetischen Raster. Die Straßengeometrie und die vorhandenen Auflagen- und Instanzbatches tragen die Ergänzungen. Der Zustand der Bruchstellen ist ausgestaltet. Die vermessene Geometrie stammt aus DOP und DGM1, der heutige Zustand einzelner Borde braucht Vor-Ort-Fotos (H-255c).
+
+`milbingerrand=0/1` variiert den Randverfall im gleichen Spielbuild. Beide Fassungen nutzen die Wolkendecke D344 und das Fernrelief D345. Die separate Blender-Materialstudie am Gehwegrand nutzt den exportierten D346-Straßenkörper, die vorhandenen Bodenscans und die fotografierte Wolkendecke. Bild und Szene liegen unter `.cache/d346-milbinger/blender-randverfall-saumstudie.{png,blend}`.
+
+Der Straßenkörper wächst von 6.019 auf 9.646 Dreiecke im bestehenden Draw Call. Fugen und Randabrieb nutzen Querprofil und Weltkoordinaten. Die vorhandenen Farb- und Normalenkarten liefern die Oberflächenstruktur. Drei Kamerapaare zeigen den beschädigten Gehwegrand, die freigehaltene Zufahrt und den Laufblick. Bei gleicher W-Eingabe und aus der normalen Spielkamera führt der 8,4-s-Gegenlauf 35,33 m bzw. 35,42 m weit. Der Unterschied ist auf den schmalen Straßenrand begrenzt und in der Vergrößerung besser erkennbar. Alle Bilder und Clips melden keine Browserfehler. Die Vergleichsgalerie liegt unter `.cache/bilder/d346-milbinger/index.html`.
+
+Getrennt von der Aufnahme wurden je zwei Läufe bei 960 × 540 auf dem M1 gemessen (`0/1/1/0`). Die mittlere Bildrate liegt bei 51,26 bzw. 51,44 FPS. p95 beträgt in beiden Fassungen 33,40 ms. Die längsten Frames liegen bei 48,90 ms (D345) und 35,40 ms (D346). Keiner der vier Läufe enthält einen Frame über 50 ms. Rohberichte: `.cache/mess/d346-final-nah-{a1,b1,b2,a2}`.
+
+## Böden, Gärten und Verfall an der Milbinger Straße (D347)
+
+Sand erhält eine flache Mulde und eine körnige Oberfläche mit feuchteren, dunkleren Taschen. An der Schotterzufahrt liegen einzelne Kiesel über dem gemessenen Gelände. In den Fahrspuren überwiegt der verdichtete Belag. Erde zeigt dunkle Mulden und helle Klumpen. Wiese verbindet Halme, Wurzelfilz und Streu. Beton und Asphalt bleiben dichter und sammeln Erde an Rissen und Rändern. Höhenableitungen, Farbe und Rauheit geben den Oberflächen je nach Zustand unterschiedliche Tiefe. Der Shader nutzt vorhandene Karten und ortsfestes Rauschen. Die Blender-Materialstudie auf dem DGM1-Straßenexport liegt unter `.cache/d347-milbinger/blender-substanz-boden.{png,blend}`.
+
+Acht Gebäude im Ausschnitt erhalten verschiedene Verfallsstufen. Haus 509 öffnet rund 3,50 m² der Dachfläche, Haus 506 rund 5,06 m². Sparren, Bruchkante und der rund 1,34 m tiefe Dachraum bleiben im Blick ablesbar. Grundrisse, Firste und Dachneigungen folgen dem jeweiligen amtlichen LoD2-Körper. Freigelegte Fugen, beschädigte Fenster, Schutt und bis zur Traufe wachsende Ranken setzen die Alterung an der Fassade fort.
+
+Vier im DOP20 erkennbare Gartensäume geben die Lage der bewachsenen Grenzen vor. Die Spielprobe setzt dort 47 Sträucher und 106 Farne und ergänzt einen gealterten Sandkasten im Garten 506. Der Name „Milbinger Straße“ stammt aus OSM. Laternen- und Schildstandort, Sandkasten, Kompaktwagen, Reifen und Kinderroller sind örtlich platzierte Relikte der Spielwelt. Ihre Positionen und Maße sind auf freien Straßenraum und Bodenkontakt geprüft. Der Wagen hat 10.512 Dreiecke und belegt gepackt 153.580 Byte. [Bayerische Vermessungsverwaltung, DOP20](https://geoportal.bayern.de/geoportalbayern/details-suche?1=&resId=51d0c109-8bcb-4f05-b0d1-21d69ff856e4) · [Straßenname in OpenStreetMap](https://www.openstreetmap.org/way/198749032) · [Modellherkunft](../assets/HERKUNFT.md#straßenmobiliar-d347)
+
+`milbingersubstanz=0/1` schaltet die zusammenhängende Probe auf dem D346-Spielstand um. Beide Fassungen verwenden dieselbe Wolkendecke und dasselbe Fernrelief. Die Probe betrifft den Milbinger Abschnitt. Eine ortsgetreue Seitenansicht der Häuser, Gärten, Mastformen und Schilder erfordert weiterhin Fotos am Ort.
+
+Die Vergleichsgalerie unter `.cache/bilder/d347-milbinger/index.html` zeigt sechs Kamerapaare, die Blender-Materialstudie und eine 8,42 s lange Fahrt in normaler Spielperspektive. Gleiche Eingabe führt auf 35,42 m (D346) und 35,35 m (D347) über dieselbe Straße. Die zwölf Einzelaufnahmen und beide Fahrten liefen ohne Browserfehler. Besonders gut sichtbar sind die losen Kiesel, die Öffnung im Dach und der bewachsene Streifen am Sandkasten. Der bestehende harte Höhenanschluss zwischen Kieszufahrt und Wiese ist im Nahbild noch erkennbar.
+
+Vier getrennte Läufe ohne Aufnahme am M1 bei 960 × 540 (`0/1/1/0`) ergeben 48,27 → 46,23 FPS aus der jeweiligen Gesamtzahl von Bildern und Bildzeit. Der mittlere p95-Wert der beiden Läufe je Variante liegt bei 33,40 → 33,70 ms. Die Maxima betragen 35,20 → 35,30 ms. Keiner der vier Läufe enthält ein Bild über 50 ms. Rohdaten liegen unter `.cache/mess/d347-abnahme-nah-{a1,b1,b2,a2}`.
+
+## Ausgearbeitete Milbinger Fahrbahn (D348)
+
+Die 82 vermessenen Meter sind eine Wohnstraße ohne durchgehende Leitlinie. Der OSM-Weg führt seit 20.08.2024 `lane_markings=no`. In den frei sichtbaren Bereichen der amtlichen Luftbilder von 2015, 2018, 2020, 2022 und 2024 ist keine Mittel- oder Randlinie erkennbar. Unter Baumkronen ist der Blick eingeschränkt. Ein runder Befund bei Station 140,2 m begründet die Lage des dargestellten Schachtdeckels. Sein Durchmesser und die Gussstruktur sind gestaltet. [OSM-Weggeschichte](https://api.openstreetmap.org/api/0.6/way/198749032/history.json) · [Historische Orthophotos](https://geodatenonline.bayern.de/geodatenonline/seiten/wms_dop_hist)
+
+Die Spielversion setzt auf Höhe des Kleinwagens fünf ausgebleichte Farbreste einer früheren Baustellenführung. Der Asphalt trägt alte Reparaturnähte, örtliche Frostschäden, offenliegendes Korn und dunklere, verdichtete Fahrspuren. Zwei gealterte Rinnenroste liegen entlang des Gehwegs. Feuchte sammelt sich am Bord und örtlich in Ausbrüchen. Die Lage der einzelnen Schäden und Rinnenroste ist Spielgestaltung. [Referenz zu typischen Asphalt-Schadensbildern](https://www.fhwa.dot.gov/publications/research/infrastructure/pavements/ltpp/13092/001.cfm)
+
+Die Kieszufahrt behält 4,10 m Breite und 6,70 m Tiefe. Die Flanken sinken im Referenzschnitt von rund 26 auf 4 mm über Grund und der hintere Rand von rund 9 auf 2,6 mm. Der Asphalt läuft an der unbebordeten Seite bis auf rund 2,7 mm aus. Die Übergänge folgen dem gezeichneten DGM1-Raster. Durch den dünnen, unregelmäßig auslaufenden Belag schimmern Erde und Wiese. Im Fahrkern greifen die vorhandenen Geometrie und die Freihaltung der Zufahrten. Neue Wuchs- und Splittgruppen teilen die vorhandenen Straßenbatches.
+
+`milbingerfinale=0/1` schaltet zwischen D347 und D348 um. Karosserie, Gebäude und Wolken bleiben in beiden Fassungen gleich. Ausbrüche, Markierungen und Metallabdeckungen werden im Straßenmaterial gezeichnet. Das sichtbare Relief von Rissen und Schachtdeckeln entsteht im Material, die begehbare Höhe folgt dem DGM1. Die Blender-Materialstudie mit der Asphaltkamera liegt unter `.cache/d348-milbinger/blender-strassenfinale.{png,blend}`.
+
+Die Galerie `.cache/bilder/d348-milbinger/index.html` zeigt drei Kamerapaare und einen 14,62 s langen 61-m-Lauf aus der Spielkamera. Mit derselben Eingabe erreicht die Figur 61,36 m in D347 und 61,31 m in D348. Beide Aufnahmen laufen ohne Blockade und Browserfehler. Der Vergleich zeigt abgeriebenen Lack und Reparaturspuren aus normaler Spielhöhe und den unregelmäßig auslaufenden Kies ohne die zuvor sichtbare gerade Kante.
+
+Vier separate Läufe ohne Aufnahme am M1 bei 960 × 540 (`0/1/1/0`) ergeben 50,83 → 48,97 FPS. Gepoolt liegt p95 in beiden Varianten bei 33,40 ms. Die längsten Bildzeiten liegen bei 50,10 → 35,30 ms. Die Zahl der Frames über 50 ms liegt bei 1 → 0. Der Straßenkörper wächst im selben Draw Call von 9.646 auf 11.530 Dreiecke. Bei ausgeschaltetem Schalter bleibt das Mesh bytegleich zu D347. Rohdaten: `.cache/mess/d348-final-nah-{a1,b1,b2,a2}`.
+
+## DGM1-Fernrelief rund um die Region (D349)
+
+D345 ersetzte das grobe 125-m-Raster nur am Südosthang hinter der Milbinger Straße. Nach Norden, Westen und Osten standen weiter die glatten Flanken aus EU-DEM 25 m, abgetastet auf 125 m. An den 4.900 gemeinsamen Knoten liegt dieses Raster im Median 6 m, im 95. Perzentil 28 m und höchstens 84 m neben dem amtlichen DGM1.
+
+`npm run fernland -- oental --dgm1-ring` legt dasselbe 31-m-Raster als Ring um die ganze Region: 18 grobe Zellen (rund 2,25 km) über jede Regionskante, 69 × 69 Zellen, 277 × 277 Stützpunkte aus 100 DGM1-Kacheln, keine Lücke. Die Kanten liegen auf Gitterlinien des groben Rasters, damit `fernAchse` die vier Feinlinien je Zelle ohne T-Stoß einzieht; der 220-m-Auslauf aus D345 führt am Außenrand auf das grobe Raster zurück. Der Ring schließt den D345-Ausschnitt ein. [DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1) · [Herkunft](../assets/HERKUNFT.md#weltdaten-publicworld-d290)
+
+`fernring=0/1` schaltet zwischen D345 und D349, beide hinter `milbingerfern`. Die Kulisse bleibt ein Draw Call, wächst aber von 49.504 auf 153.720 Dreiecke und von 28.613 auf 81.288 Vertices. Der Neubau bei einem Stimmungswechsel dauert unter Node 0,29 statt 0,12 s. `tests/fernring.test.ts` prüft Rasterlage, 5.720 Stützpunkte im Ringinneren (Abweichung < 0,1 mm), 280 Randpunkte gegen das grobe Raster (< 0,1 mm) und die Ausrichtung aller Dreiecke.
+
+Ungeprüft: Look und Bildzeit. Die Arbeit lief in einer Cloud-Sandbox ohne GPU; die SwiftShader-Aufnahmen blieben im Ladezustand und taugen nicht als Vergleich. Am M1 zu prüfen: Gegenlauf `fernring=0/1` an der Milbinger Straße mit Blick nach Norden und Osten, Bildzeit wie D345 (`0/1/1/0`, 960 × 540). Falls die 104.000 zusätzlichen Dreiecke messbar kosten, ist der nächste Hebel ein halber Feinraster jenseits von rund 1 km Ringtiefe.
+
+**Nachtrag D350.** Jenseits 1 km Ringtiefe trägt der Ring nur jede zweite Feinlinie (~62 m), innerhalb bleibt er bei ~31 m. Die Achsen bleiben getrennt, damit keine T-Stöße entstehen; Zeilen, die den Innenbereich kreuzen, bleiben deshalb bis zum Rand fein. Œntal 153.720 → 104.440 Dreiecke. `fernhalb=0` zeigt den vollen Ring.
+
+**Nachtrag D351.** Das Fahlmoos hat denselben Ring (`fahlmoos-fern-ring.json`, 100 Kacheln). Das grobe EU-DEM-Raster weicht dort weniger ab als im Œntal (Median 2 m, p95 16 m, max 46 m), weil das Umland flacher ist; der Gewinn liegt vor allem in den Flanken nach Süden. Ohne Milbinger Kette schaltet `fernring=1` den Ring zu. Das Relief-Material wird dabei aus der Stimmung beleuchtet, statt mit festen Vorgabewerten zu stehen.

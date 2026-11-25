@@ -121,29 +121,43 @@ durchgehend, auch Kommentare. Der Bestandscode ist so; eine Mischung wäre schle
 als jede der beiden Varianten konsequent.
 
 ### Das Zielgerät ist der Test, nicht das Standbild
-Zielgerät ist seit ADR-0006 der **Desktop-Browser** (M1 als Referenzmaschine); das Handy ist
+Zielgerät ist seit ADR-0006 der **Desktop-Browser** (M1 als Mess-Referenz; seit ADR-0016/D357 geht Qualität
+vor den M1-Grenzen — was er nicht schafft, wird eine höhere Stufe; WebGPU ist der Qualitätspfad, ADR-0015); das Handy ist
 nachrangig und eine spätere eigene Qualitätsstufe. Look, Nebel und Performance beurteilen sich
 nur dort, in Bewegung (ADR-0005). Keine Look-Aussage aus Standbildern: genau das hat das
 Projekt mehrere Runden gekostet.
 
+**Vorher/Nachher-Bilder sind Pflicht** (Flo, 21.11.2026): Jede sichtbare Änderung kommt mit einem Bildpaar an
+Flo — gleiche Kamera, gleiche Ladezeit, beschriftet, abgelegt unter `.cache/bilder/<Dxxx>/`. Ohne GPU (Cloud,
+SwiftShader) ist das ein Größen- und Formvergleich, keine Look-Abnahme; das steht dann dabei.
+
 ### Art Direction ist entschieden, nicht offen
-Dämmerung, Nebel als Werkzeug, Silhouetten, **eine** Signalfarbe für Befall. Messlatte ist
+**Gemalter Realismus (ADR-0018, D370):** Substanz real (Maserung, Brüche, Tiefe, Masse), Darstellung gemalt; kein
+Mikrorauschen. Dämmerung, Nebel als Werkzeug, Silhouetten, **eine** Signalfarbe für Befall. Messlatte ist
 Soulframe-Ingame (ADR-0012), gemessen wird am Blender-Referenzbild (ADR-0006): Die Engine folgt dem Render, Texturen sind seit
 ADR-0006 erlaubt, die Tagesstimmung ist `zielbild` (warm, Goldnebel). Ein Gegenentwurf mit kühler
 Palette liegt als ADR-0011 **Proposed** vor (Ledger A-9). Die Werte in
 `src/scenes/RegionsSzene.tsx` sind erarbeitet; nicht ohne Grund daran drehen.
 
+### Physik muss stimmen
+Flo, 22.11.2026 (D398): Gemalt ist die Darstellung, nicht das Verhalten. Licht, Wasser, Gewicht, Wuchs, Statik,
+Anatomie und Bewegung sowie Spielwerte (Tempo, Reichweite, Fallhöhe, Gleiten, Schwimmen, Tauchen) folgen der
+Wirklichkeit. Abweichungen zugunsten des Spiels sind erlaubt, aber benannt und begründet — nie still.
+
 ### Performance-Invarianten
 Props **immer** als `InstancedMesh` (40.000 Einzelobjekte erledigen jedes Handy).
 Positionen aus einem **Seed** erzeugen, nie speichern. Das Precache-Budget von 60 MB
-(`npm run quality`) ist ein Gate, kein Richtwert.
+(`npm run quality`) ist ein Gate, kein Richtwert — **seit D286 (15.11.2026) vorübergehend aufgehoben** (nur Warnung).
 
 ### Scope-Guardrails sind bindend
-ADR-0004 parkt Party-Game und ein Spiel, das primär von Grafik lebt (Photoreal), als
-**eigene spätere Projekte** und schließt Online-Multiplayer aus. Echtzeit-Nahkampf mit dem
+ADR-0004 parkt Party-Game (Photoreal seit ADR-0016/D357 nicht mehr geparkt; **Stil seit ADR-0018/D370: gemalter Realismus** — Substanz real, Darstellung gemalt) als
+**eigenes späteres Projekt** und schließt Online-Multiplayer aus. Echtzeit-Nahkampf mit dem
 Regelwerk der Gattung (Ausdauer, Rolle, Parade, Lock-On, Haltung) ist seit ADR-0007
 entschieden und löst den Soulslike-Park-Punkt aus ADR-0004 für das Regelwerk ab (Nachtrag
-D196); die Gestalt fremder Vorbilder bleibt tabu. Anfragen in die geparkten Richtungen werden
+D196); **fremde Gestaltung wird nicht übernommen** (Figuren, Designs, Namen, Texte, UI, Musik, Orte,
+unverwechselbare Bewegungsfolgen) — Mechaniken, Handwerk und reale Techniken sind frei; Begründung und Grenze
+in ADR-0007 §1 (Nachtrag D431). Ob ein Bild oder Video benutzt werden darf, regelt ADR-0013 Punkt 5, nicht diese
+Regel. Anfragen in die geparkten Richtungen werden
 nicht still umgesetzt, erst ADR-0004 ablösen.
 
 ### Compliance-Check

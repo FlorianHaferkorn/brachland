@@ -3,10 +3,11 @@
  *
  * Zwei Dinge sollen sie festhalten, weil beide leicht kaputtgehen:
  *
- * 1. **Die Kletterhöhe.** 16/s Zehrung bei 2,2 m/s Steiggeschwindigkeit ergeben
- *    13,8 m. Die höchsten Klippen messen 14 m. Wer an einer der beiden Zahlen
- *    dreht, hebelt die Aussage „die höchste Wand geht nicht in einem Zug" aus,
- *    ohne es zu merken — deshalb steht sie hier als Rechnung, nicht als Kommentar.
+ * 1. **Die Kletterhöhe.** Bis D412 16/s Zehrung bei 2,2 m/s, seither rund 7,3/s bei
+ *    1,0 m/s (`content/bewegung.json`) — beide ergeben 13,75 m. Die höchsten Klippen
+ *    messen 14 m. Wer an einer der Zahlen dreht, hebelt die Aussage „die höchste Wand
+ *    geht nicht in einem Zug" aus, ohne es zu merken — deshalb steht sie hier als
+ *    Rechnung, nicht als Kommentar.
  * 2. **Die Hysterese.** Am Nullpunkt ohne Sperre flackert die Bewegung im
  *    Bildtakt. Der Fall ist unauffällig, solange man nicht bis auf null klettert.
  */
@@ -14,6 +15,7 @@ import {
   AUSDAUER_MAX, ERHOLT_AB, ERHOLUNG_JE_SEK, KLETTERN_JE_SEK, RUHE_BIS, SPRUNG_KOSTEN,
   anteil, neueAusdauer, reicht, schritt, verbrauche, type Ausdauer,
 } from '../src/spieler/ausdauer.js';
+import { KLETTERN_TEMPO } from '../src/spieler/tempo.js';
 
 let ok = 0, fehler = 0;
 
@@ -42,13 +44,15 @@ console.log('Ausdauer — Klettern zehrt, Rennen nicht\n');
 
 // ---- Die Kletterhöhe — der eigentliche Balanceweft -------------------------
 {
-  const KLETTERN_TEMPO = 2.2;                       // m/s, siehe RegionsSzene
   const dauer = AUSDAUER_MAX / KLETTERN_JE_SEK;     // s bis leer
   const hoehe = dauer * KLETTERN_TEMPO;
   pruefe('Aus vollem Vorrat 12–14 m Wand', hoehe > 12 && hoehe < 14,
          `${hoehe.toFixed(1)} m in ${dauer.toFixed(2)} s`);
   pruefe('Die höchste Klippe (14 m) geht NICHT in einem Zug', hoehe < 14,
          `fehlen ${(14 - hoehe).toFixed(1)} m`);
+  // D412: 1,0 statt 2,2 m/s bei gleicher Reichweite — die Wand dauert, statt zu springen.
+  pruefe('Klettertempo 1,0 m/s (D412)', KLETTERN_TEMPO === 1.0, `${KLETTERN_TEMPO} m/s`);
+  pruefe('Die volle Wand dauert über 12 s', dauer > 12, `${dauer.toFixed(1)} s`);
 
   const leer = laufe(neueAusdauer(), dauer + 0.5, KLETTERN_JE_SEK);
   pruefe('Klettern bis zum Nullpunkt setzt erschöpft', leer.erschoepft && leer.wert === 0);
@@ -57,7 +61,8 @@ console.log('Ausdauer — Klettern zehrt, Rennen nicht\n');
 
 // ---- Hysterese ------------------------------------------------------------
 {
-  const leer = laufe(neueAusdauer(), 7, KLETTERN_JE_SEK);
+  // Bis D412 „7 s“ (bei 16/s leer nach 6,25 s); seither aus der Rate, leer nach 13,75 s.
+  const leer = laufe(neueAusdauer(), AUSDAUER_MAX / KLETTERN_JE_SEK + 0.5, KLETTERN_JE_SEK);
   // Knapp unter der Schwelle: noch gesperrt, obwohl schon Punkte da sind.
   const knapp = laufe(leer, RUHE_BIS + (AUSDAUER_MAX * ERHOLT_AB * 0.8) / ERHOLUNG_JE_SEK);
   pruefe('Unter 30 % bleibt gesperrt', knapp.erschoepft && knapp.wert > 0,
@@ -69,9 +74,10 @@ console.log('Ausdauer — Klettern zehrt, Rennen nicht\n');
 
 // ---- Ruhepause vor der Erholung -------------------------------------------
 {
-  // Vier Sekunden Klettern lassen 36 Punkte übrig — genug Abstand zum Maximum,
-  // dass die Erholung messbar ist, ohne oben anzuschlagen.
-  const nach = schritt(neueAusdauer(), 4, KLETTERN_JE_SEK);
+  // Acht Sekunden Klettern lassen rund 42 Punkte übrig (bis D412: vier Sekunden bei
+  // 16/s, 36 Punkte) — genug Abstand zum Maximum, dass die Erholung messbar ist, ohne
+  // oben anzuschlagen.
+  const nach = schritt(neueAusdauer(), 8, KLETTERN_JE_SEK);
   const gleich = laufe(nach, RUHE_BIS * 0.7);
   pruefe('In der Ruhepause regeneriert nichts', Math.abs(gleich.wert - nach.wert) < 0.001,
          `${gleich.wert.toFixed(1)}`);

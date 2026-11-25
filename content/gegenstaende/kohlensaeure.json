@@ -1,0 +1,13 @@
+{
+  "id": "kohlensaeure",
+  "name": "Kohlensäureflasche",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "geraet"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Zwei Kilo, grau, aus einem Löscher im Schankraum. Der Wirt füllt nach, solange die grosse Flasche im Keller noch Druck hat.",
+  "gewicht": 3.0,
+  "traglast": 2
+}

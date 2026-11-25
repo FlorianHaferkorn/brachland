@@ -1,0 +1,37 @@
+{
+ "kachel": 512,
+ "rollen": [
+  {
+   "rolle": "asphalt",
+   "quelle": "worn_asphalt",
+   "meter": 2.0,
+   "autoren": [
+    "Amal Kumar"
+   ]
+  },
+  {
+   "rolle": "schotter",
+   "quelle": "gravel_road",
+   "meter": 2.0,
+   "autoren": [
+    "Amal Kumar"
+   ]
+  },
+  {
+   "rolle": "erdpfad",
+   "quelle": "stony_dirt_path",
+   "meter": 2.17,
+   "autoren": [
+    "eye-candy.xyz"
+   ]
+  },
+  {
+   "rolle": "graspfad",
+   "quelle": "grass_path_2",
+   "meter": 1.0,
+   "autoren": [
+    "Rob Tuytel"
+   ]
+  }
+ ]
+}

@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-10-18
+last-reviewed: 2026-11-22
 shelf-life-days: 180
 owns: *.json
 ---
@@ -14,7 +14,7 @@ owns: *.json
 | Deine Aufgabe ist … | Lies |
 |---|---|
 | Ein Fundstück anlegen | eine bestehende `.json` → `../../src/data/schema.ts` (`Fragment`) |
-| Den Ton treffen | `../../docs/design/BRACHLAND_Story-Bibel_v1.md` |
+| Den Ton treffen | `../../docs/design/BRACHLAND_Story-Bibel_v2.md` (Ton: v1 §8) |
 | Verstehen, wie die Story aufgebaut ist | `../../docs/design/BRACHLAND_Story-Struktur_v1.md` |
 | Sehen, wie ein Fund im Spiel wirkt | `../../src/scenes/RegionsSzene.tsx` (`Fundstellen`) |
 
@@ -39,6 +39,23 @@ Felsgrate. Die Welt liefert die Orte umsonst; sie mussten nur belegt werden.
 | `absetzbecken.json` | **weiher** | 47.74678, 12.08377 | **Auf dem Grund** — liegt auf der Sohle des größten Weihers (62 × 71 m, 2,40 m tief), rund 30 m vom Ufer. Der Auslöser misst waagerecht 9 m; erreichbar ist das nur schwimmend. Das erste Fundstück, das eine Fähigkeit voraussetzt |
 | `diensthuette-hochrunst.json` | **hof** | 47.79671, 12.05471 | **Dienstvorschrift, dritte Fassung** — Fahlmoos (D248), an der realen Diensthütte Hochrunstfilze (1910). Die Brutanlage hinter der Brutmutter; Ziel von `die-karte-hinter-glas` |
 | `stollenmund.json` | ruine | 47.73038, 12.07810 | **Am Stollenmund** |
+| `oberstollen.json` | ruine | 47.73342, 12.06773 | **Am oberen Mundloch** — D375, Reinkultur West: 963 m hoch unter dem Grat, Ziel von `was-am-stollen-steht` |
+| `saatkammer.json` | hof | 47.72308, 12.08712 | **In der Saatkammer** — D375, Reinkultur Süd: Hof am Südhang, Ziel von `nach-vorher-schmecken` |
+| `kirchturm.json` | ruine | 47.73585, 12.10339 | **Im Glockenstuhl** — D375, **verborgener Ort**: Kirche der versunkenen Stadt, 15,6 m unter der Flutlinie |
+| `jagdhuette.json` | hof | 47.73883, 12.07153 | **Hütte im Bannwald** — D375, **verborgener Ort** im Westwald |
+| `quelltopf.json` | bach | 47.72716, 12.05902 | **Am Quelltopf** — D375, **verborgener Ort**: Bachquelle auf 971 m |
+| `alter-tresen.json` | hof | 47.72839, 12.09938 | **Am alten Tresen** — D375: das geräumte Dorf, 493 m, unter der Flutlinie |
+| `hoftor-fahrweg.json` | hof | 47.73280, 12.08381 | **Am Hoftor** — D390, Lehrstrecke Station 2: Hofpaar am Fahrweg, 222 Wegmeter vom Start |
+| `halle-gabelung.json` | ruine | 47.73462, 12.08791 | **Am Rolltor** — D390, Lehrstrecke Station 6: Halle an der Gabelung von Fahrweg und Fussweg; die Kreide nennt den Weg |
+| `steg-an-der-furt.json` | bach | 47.73641, 12.08902 | **Am Steg** — D390, Lehrstrecke Station 7: Bachquerung des Fussweges, 313 m vor der Enklave |
+| `erstes-haus.json` | hof | 47.73713, 12.08845 | **Am ersten Haus** — D390, Lehrstrecke Station 8: das erste Haus der Terrasse am Fussweg |
+| `pegellatte.json` | bach | 47.73872, 12.09362 | **An der Pegellatte** — D392, Linie F1: neunzehn Kerben auf derselben Höhe. Ziel von `die-letzte-kerbe` |
+| `mulde-im-heu.json` | hof | 47.73203, 12.09243 | **Im Heu** — D392, Linie F4, im Stadel am Hangweg: Mulde, durchgebissener Spieß, vier Fuchsfährten. Ziel von `wer-wirklich-kommt` |
+| `boot-kieloben.json` | hof | 47.74414, 12.08741 | **Unter dem Boot** — D392, Rätsel zum Tauchzeug (Traversal v2 §5): Spind mit vier Zahlenrädern im Schuppen am Nordufer; die Zahl steht auf `absetzbecken`. Kein Auftrag zeigt darauf, das Schloss selbst ist nicht gebaut |
+| `opferstock.json` | ruine | 47.74906, 12.07765 | **Das Heft im Opferstock** — D392, Linien F2/F5, Kirche am Nordhang: die Zählung der Mönche in einem Satz. Ziel von `was-im-heft-steht` |
+| `huettenbuch.json` | hof | 47.74568, 12.06186 | **Hüttenbuch** — D392, Almhütte: Spur zum verborgenen Ort Quelltopf (Gleiter, Traversal v2 §5). Kein Auftrag zeigt darauf |
+| `werkstor-aushang.json` | ruine | 47.72228, 12.09905 | **Aushang am Werkstor** — D392, Linien F3/F6: Ausgabeliste Armklammer Typ B, elf aus, zehn zurück. Ziel von `was-am-werkstor-haengt` |
+| `tuer-im-schlamm.json` | hof | 47.72950, 12.09940 | **An der Haustür** — D392, Linie F1, altes Dorf unter der Flutlinie: Der Mann der Pegelwartin ist geblieben. Vor dem Wandel nur mit Tauchzeug gedacht; solange die Flut nicht gebaut ist, liegt es offen |
 
 ## Regeln
 
@@ -46,6 +63,10 @@ Felsgrate. Die Welt liefert die Orte umsonst; sie mussten nur belegt werden.
   ist keins.
 - **Kein Sprecher.** Wer das geschrieben hat, steht nie dabei. Das ist der Ton.
 - **Keine Erklärung.** Ein Fragment stellt fest, es deutet nicht.
+- **Auf ein Fundstück an einem verborgenen Ort zeigt kein Auftrag** (D375, `verborgeneOrte` in der Region) —
+  `npm run validate` lehnt das ab.
+- **Zeiten folgen der lokalen Linie** (D375): Kollaps vor 40–60 Jahren, Befall im Tal seit achtzehn Jahren,
+  Flut seit dem Frühjahr. Beleg: `../../docs/design/BRACHLAND_Enklave_Lage_v2.md` §6.
 - **Nicht zwei am selben Ort** — `npm run validate` prüft das, weil der zweite
   Auslöser sonst nie feuern würde.
 

@@ -53,7 +53,7 @@ const winkel = (u: THREE.Vector3, v: THREE.Vector3) => Math.acos(THREE.MathUtils
  * dann das ganze Bein zum Ziel drehen. `vorne` ist die Blickrichtung der Figur — die Kniebeuge-
  * Achse, falls das Bein ganz gestreckt ist und sich keine Ebene ergibt.
  */
-function zweiKnochen(a: THREE.Object3D, b: THREE.Object3D, c: THREE.Object3D, ziel: THREE.Vector3, vorne: THREE.Vector3): void {
+export function zweiKnochen(a: THREE.Object3D, b: THREE.Object3D, c: THREE.Object3D, ziel: THREE.Vector3, vorne: THREE.Vector3, geradeAb = 1e-8): void {
   a.getWorldPosition(va); b.getWorldPosition(vb); c.getWorldPosition(vc);
   c.getWorldQuaternion(qf);
   const lab = vb.distanceTo(va), lcb = vc.distanceTo(vb);
@@ -64,7 +64,9 @@ function zweiKnochen(a: THREE.Object3D, b: THREE.Object3D, c: THREE.Object3D, zi
   const acab1 = Math.acos(THREE.MathUtils.clamp((lcb * lcb - lab * lab - lat * lat) / (-2 * lab * lat), -1, 1));
   const babc1 = Math.acos(THREE.MathUtils.clamp((lat * lat - lab * lab - lcb * lcb) / (-2 * lab * lcb), -1, 1));
   achse0.crossVectors(ac, ab);
-  if (achse0.lengthSq() < 1e-8) achse0.crossVectors(ac, vorne);
+  // D458: `geradeAb` — ab welchem sin² des Kniewinkels die Kette als gestreckt gilt und die Beugeachse aus `vorne`
+  // kommt statt aus dem (dann verrauschten) Kreuzprodukt. Tierläufe stehen im Clip oft fast gestreckt.
+  if (achse0.lengthSq() < geradeAb) achse0.crossVectors(ac, vorne);
   achse0.normalize();
   achse1.crossVectors(ac, at);
   const mitDrehung = achse1.lengthSq() > 1e-10;

@@ -1,5 +1,7 @@
 # BRACHLAND — Story-Bibel v1
 
+> **Überholt durch `BRACHLAND_Story-Bibel_v2.md` (22.11.2026, D374)** in Genre, Marke, Weltstruktur und Kapitelbogen. Weiter gültig sind §2, §5, §8 und §10. Offener/erledigter Stand: `../_INDEX.md`.
+
 Arbeitstitel: **BRACHLAND** (Alternativen: *Reinkultur*, *Brachgang*)
 Genre: 3D-Creature-Collector-RPG (Low-Poly), rundenbasierte Kämpfe, reale Karte (OSM Bayern, umbenannt), regionsweise erweiterbar, offline-fähig (PWA).
 Ton: dunkel, wortkarg, melancholisch — Elden-Ring-Fragmente statt Cutscenes.

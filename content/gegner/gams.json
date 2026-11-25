@@ -5,7 +5,7 @@
     "name": "Kopfstoss",
     "vorlauf": 0.45,
     "aktiv": 0.12,
-    "erholung": 0.7,
+    "erholung": 0.85,
     "reichweite": 2,
     "halbwinkelGrad": 30,
     "schaden": 18,
@@ -24,5 +24,6 @@
   "betaeubt": 0.9,
   "radius": 0.26,
   "hoehe": 1.1,
-  "halbLaenge": 0.4
+  "halbLaenge": 0.4,
+  "reinigen": { "dauer": 4, "halten": 1.6 }
 }

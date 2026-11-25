@@ -1,0 +1,14 @@
+{
+  "id": "zettel-harz-auf-leinen",
+  "name": "Zettel: Harz auf Leinen",
+  "wirkung": {
+    "art": "wissen",
+    "form": "rezept",
+    "schaltet": "tausch-harzverband"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Drei Zeilen in Bleistift. Fichte, nicht Kiefer. Warm auftragen, kalt binden. Darunter: Hat bei Sepp nicht mehr gereicht.",
+  "einmalig": true,
+  "gewicht": 0.005
+}

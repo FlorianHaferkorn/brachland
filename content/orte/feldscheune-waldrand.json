@@ -1,0 +1,10 @@
+{
+  "id": "feldscheune-waldrand",
+  "region": "oental",
+  "innen": "stadel",
+  "art": "zuflucht",
+  "name": "Feldscheune am Waldrand",
+  "ort": [47.7415, 12.08345],
+  "aufwachen": [-2.0, 8.0],
+  "text": "Eine Scheune allein in der Wiese, der Wald dreißig Schritte dahinter. Von der Schwelle sieht man die Terrasse und dahinter das Wasser. Jemand hat die Richtung ins Türblatt geritzt, für den Rückweg."
+}

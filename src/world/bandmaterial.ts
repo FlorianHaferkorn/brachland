@@ -12,10 +12,15 @@
  *   die weiche Kante: außen durchsichtig, innen deckend.
  * - `uv.y` ist die Strecke in Metern flussabwärts. Daraus laufen die Wellen.
  */
-import { BACH_ECHT } from './echt.js';
+import { BACH_ECHT, BELAG_ECHT, GEWAESSER_ECHT, MILBINGERBELAG_AN, MILBINGERSUBSTANZ_AN, STRASSENPROFIL_AN, STRASSENVERFALL_AN, WELLEN_ECHT } from './echt.js';
+import WEG_SCANS from '../../public/material/weg-scans.json';
 import * as THREE from 'three';
 import { BODEN_HIMMEL } from './bodenmaterial.js';
+import { OBERFLAECHEN_GLSL } from './oberflaechen.js';
+import { STRASSENALTERUNG_GLSL } from './strassenalterung.js';
+import type { Strassenalterung } from '../data/schema.js';
 import { PALETTE } from './palette.js';
+import { SPIEGELBILD } from './spiegelbild.js';
 
 /** Optionale lokale Echtzeitprobe; ohne sie bleibt der bisherige Shader unveraendert. */
 export interface WasserReflexProbe {
@@ -24,7 +29,7 @@ export interface WasserReflexProbe {
   bereit: { value: number };
 }
 
-const HASH_GLSL = /* glsl */ `
+export const BAND_RAUSCHEN_GLSL = /* glsl */ `
 float bandHash(vec2 p) {
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
@@ -35,6 +40,16 @@ float bandRauschen(vec2 p) {
   f = f * f * (3.0 - 2.0 * f);
   return mix(mix(bandHash(i), bandHash(i + vec2(1.0, 0.0)), f.x),
              mix(bandHash(i + vec2(0.0, 1.0)), bandHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+`;
+
+export const ASPHALTRAND_GLSL = /* glsl */ `
+float asphaltRandbreite(float korn) {
+  return .038 + .030 * korn;
+}
+float asphaltAufbruch(float quer, float bucht, float kante, float verfall) {
+  return verfall * smoothstep(.49, .82, quer)
+    * smoothstep(.69, 1.00, quer * .58 + bucht * .55 + kante * .15);
 }
 `;
 
@@ -116,14 +131,15 @@ export function baueWasserMaterial(
     // Ohne Transmission darf die durchsichtige Grundfarbe nicht als deckende
     // Albedo leuchten. Absorption wird dann als neutrales Abdunkeln geblendet;
     // der Farbton kommt vom sichtbaren Gewaesserbett, nicht von Selbstleuchten.
-    color: physikalisch ? new THREE.Color(PALETTE.wasser.durchsicht) : new THREE.Color(0, 0, 0),
+    // D280 (`?gewaesser=1`): dunkler, olivgrüner Wasserkörper (Streulicht im Wasser) statt schwarz.
+    color: physikalisch ? new THREE.Color(PALETTE.wasser.durchsicht) : GEWAESSER_ECHT ? new THREE.Color(0.018, 0.03, 0.024) : new THREE.Color(0, 0, 0),
     roughness: 0.03, metalness: 0, transmission: physikalisch ? 1 : 0, ior: 1.333,
     thickness: 0.4,
     attenuationColor: PALETTE.wasser.absorption,
     attenuationDistance: 1 / 0.6,
     // Der Himmel ist die einzige Umgebung in der Karte. Ohne die verdeckenden
     // Baeume des Blender-Renders darf er das Wasser nicht vollstaendig aufhellen.
-    envMapIntensity: form === 'becken' ? 0.15 : form === 'weiher' ? 0.25 : 0.35,
+    envMapIntensity: GEWAESSER_ECHT ? 0.6 : form === 'becken' ? 0.15 : form === 'weiher' ? 0.25 : 0.35,
     transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false,
     forceSinglePass: true,
   });
@@ -150,6 +166,10 @@ export function baueWasserMaterial(
     shader.uniforms.uTempo = { value: fallend ? 4.5 : 1 };
     shader.uniforms.uBodenHimmel = BODEN_HIMMEL.karte;
     shader.uniforms.uBodenRahmen = BODEN_HIMMEL.rahmen;
+    if (GEWAESSER_ECHT && !fallend) {
+      shader.uniforms.uSpiegelKarte = SPIEGELBILD.karte; shader.uniforms.uSpiegelMatrix = SPIEGELBILD.matrix;
+      shader.uniforms.uSpiegelHoehe = SPIEGELBILD.hoehe; shader.uniforms.uSpiegelAn = SPIEGELBILD.an;
+    }
     if (probe && !fallend) {
       shader.uniforms.uWehrReflex = probe.karte;
       shader.uniforms.uWehrMitte = probe.mitte;
@@ -160,7 +180,7 @@ export function baueWasserMaterial(
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vBand = uv;\n  vWasserPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\nvarying vec3 vWasserPos;\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\n' + HASH_GLSL + (probe && !fallend ? /* glsl */ `
+      .replace('#include <common>', '#include <common>\nuniform float zeit;\nuniform float uTempo;\nvarying vec2 vBand;\nvarying vec3 vWasserPos;\nuniform sampler2D uBodenHimmel;\nuniform vec4 uBodenRahmen;\n' + BAND_RAUSCHEN_GLSL + (probe && !fallend ? /* glsl */ `
 uniform samplerCube uWehrReflex;
 uniform vec3 uWehrMitte;
 uniform float uWehrBereit;
@@ -200,7 +220,7 @@ float wehrAnteil(vec3 p) {
 ` + GISCHT_GLSL : /* glsl */ `#include <color_fragment>
   float ufer = ${UFER_AUSDRUCK};
   // Dichte .6 aus der Blender-Quelle; die Bandmitte ist nur eine Tiefennaeherung.
-  float dicke = mix(0.08, 0.8, smoothstep(0.0, 0.75, ufer));
+  float dicke = mix(0.08, ${GEWAESSER_ECHT ? (form === 'band' ? '1.6' : '3.0') : '0.8'}, smoothstep(0.0, ${GEWAESSER_ECHT ? '0.6' : '0.75'}, ufer));
   diffuseColor.a *= smoothstep(0.0, 0.28, ufer);
 `)
       .replace('#include <normal_fragment_maps>', /* glsl */ `#include <normal_fragment_maps>
@@ -212,7 +232,27 @@ float wehrAnteil(vec3 p) {
   // normal liegt im Sichtraum. Die Weltwelle muss mitgedreht werden, sonst
   // aendert ein Kameraschwenk die Wasseroberflaeche selbst.
   vec3 wellenNormale = vec3(w2 * 0.10 + kraus * 0.16, 0.0, w1 * 0.14);
-  normal = normalize(normal + mat3(viewMatrix) * wellenNormale * ${fallend ? '1.0' : '0.15'});
+  ${GEWAESSER_ECHT && !fallend ? `
+  // D280: Wellen aus drei Rauschlagen (5 m, 1,7 m, 0,5 m), die mit dem Wind treiben — kein Sinus-Streifen.
+  // Normale aus dem Gefälle der Höhe (Differenzen); ruhig auf Teich und Weiher, bewegter im Bach.
+  {
+    vec2 wp = vWasserPos.xz;
+    vec2 wind = vec2(0.35, 0.22) * zeit * uTempo;
+    float e = 0.12;
+    #define WH0(p) (bandRauschen((p) * 0.2 + wind * 0.25) * 0.55 + bandRauschen((p) * 0.6 - wind * 0.6) * 0.3 + bandRauschen((p) * 2.0 + wind * 1.4) * 0.15)
+    ${WELLEN_ECHT ? `
+    // D293 (Blender-Aufbau): Ringwelle um einen fernen Mittelpunkt, Phase mit Rauschen verzerrt (Distortion ~4,8),
+    // Wellenlänge 1,3 m, läuft mit der Zeit nach aussen; dazu eine feine Lage (0,15 m) für das Glitzern. Mischung
+    // 1:1 mit dem Rauschen wie im Mix-Knoten (Faktor 0,5).
+    #define WRING(p) (0.5 + 0.5 * sin(length((p) - vec2(-180.0, 140.0)) * 4.83 + 4.8 * (bandRauschen((p) * 0.35 + wind * 0.1) - 0.5) * 2.0 - zeit * uTempo * 1.6))
+    #define WH(p) (mix(WH0(p), WRING(p), 0.5) + bandRauschen((p) * 6.5 + wind * 2.0) * 0.06)` : '#define WH(p) WH0(p)'}
+    float h0 = WH(wp), hx = WH(wp + vec2(e, 0.0)), hz = WH(wp + vec2(0.0, e));
+    #undef WH0
+    ${WELLEN_ECHT ? '#undef WRING' : ''}
+    #undef WH
+    wellenNormale = vec3(h0 - hx, 0.0, h0 - hz) / e;
+  }` : ''}
+  normal = normalize(normal + mat3(viewMatrix) * wellenNormale * ${fallend ? '1.0' : GEWAESSER_ECHT ? (form === 'band' ? '0.18' : WELLEN_ECHT ? '0.10' : '0.04') : '0.15'});
 `);
     if (BACH_ECHT && !fallend) {
       // D267: Waldkante in der Spiegelung. Unter ihr liegt das gegenüberliegende Ufer mit Bäumen,
@@ -226,6 +266,23 @@ float wehrAnteil(vec3 p) {
   }
   #endif
 `);
+    }
+    if (GEWAESSER_ECHT && !fallend) {
+      // D280: Spiegelbild der Szene (`spiegelbild.ts`) statt Himmelskarte, wo die Fläche auf der Spiegelhöhe
+      // des nächsten Stillgewässers liegt. Die Wellennormale verzieht das Bild; am Bildrand weich zurück
+      // zur Himmelskarte. Fresnel und BRDF macht three.js danach wie bisher.
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform sampler2D uSpiegelKarte;\nuniform mat4 uSpiegelMatrix;\nuniform float uSpiegelHoehe;\nuniform float uSpiegelAn;')
+        .replace('#include <lights_fragment_end>', /* glsl */ `
+  #if defined( USE_ENVMAP ) && defined( RE_IndirectSpecular )
+  if (uSpiegelAn > 0.5 && gl_FrontFacing && abs(vWasserPos.y - uSpiegelHoehe) < 0.6) {
+    vec4 sp = uSpiegelMatrix * vec4(vWasserPos, 1.0);
+    vec2 suv = sp.xy / sp.w + normal.xy * 0.03;
+    float imBild = smoothstep(0.0, 0.04, suv.x) * smoothstep(1.0, 0.96, suv.x) * smoothstep(0.0, 0.04, suv.y) * smoothstep(1.0, 0.96, suv.y);
+    radiance = mix(radiance, texture2D(uSpiegelKarte, suv).rgb, imBild);
+  }
+  #endif
+  #include <lights_fragment_end>`);
     }
     if (probe && !fallend) {
       // PBR verarbeitet die lokale Strahlung ueber denselben Fresnel-/BRDF-Pfad
@@ -251,14 +308,17 @@ float wehrAnteil(vec3 p) {
   float f0 = pow((1.333 - 1.0) / (1.333 + 1.0), 2.0);
   float reflexion = f0 + (1.0 - f0) * pow(1.0 - cosBlick, 5.0);
   float deckung = 1.0 - (1.0 - reflexion) * exp(-0.6 * dicke);
-  outgoingLight /= max(deckung, 0.0001);
+${BACH_ECHT ? `  // D274: Spitzen der Spiegelung weich begrenzen (Reinhard auf die Reflexion). Sonne und heller Himmel
+  // spiegelten als harte weisse Platte mit Streifenmuster; die Spiegelung bleibt, brennt aber nicht aus.
+  outgoingLight = outgoingLight / (1.0 + 0.6 * outgoingLight);
+` : ''}  outgoingLight /= max(deckung, 0.0001);
   diffuseColor.a *= deckung;
   #include <opaque_fragment>
 `);
     }
   };
 
-  material.customProgramCacheKey = () => `brachland-wasser-v8-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}${BACH_ECHT && !fallend ? '-bach' : ''}`;
+  material.customProgramCacheKey = () => `brachland-wasser-v8${GEWAESSER_ECHT ? '-gewaesser' : ''}${WELLEN_ECHT ? '-wellen' : ''}-${form}-${fallend ? 'fall' : physikalisch ? 'physikalisch' : 'lauf'}${probe && !fallend ? '-wehrprobe-v1' : ''}${BACH_ECHT && !fallend ? '-bach' : ''}`;
   return material;
 }
 
@@ -269,6 +329,310 @@ float wehrAnteil(vec3 p) {
  * Spurrinnen über `uv.x`, Flecken über die Weltposition. Ein Weg soll ausgetreten
  * wirken, nicht gestreichelt.
  */
+/**
+ * D285: Wegscans (`tools/hausscans.py weg`): 2 × 2-Atlas Asphalt, Schotter, Erdpfad, Graspfad — Farbe als
+ * Modulation (Mittel 0,5 → ×2), der Ton bleibt `WEGBELAG`. Welcher Scan, folgt aus dem Belag: Randschärfe
+ * (`vBelag.y`) unter 0,3 Asphalt, bis 0,8 Schotter, darüber Erdpfad; Feldwege mit Spurrinnen (`vBelag.x` > 0,4)
+ * tragen zwischen den Spuren den Graspfad. Projektion von oben in Weltmetern.
+ */
+const WEG_TEXTUREN = (() => {
+  if ((!BELAG_ECHT && !MILBINGERBELAG_AN) || typeof document === 'undefined') return null;
+  const lade = (pfad: string) => {
+    const t = new THREE.TextureLoader().load(pfad);
+    t.colorSpace = THREE.NoColorSpace; t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; t.anisotropy = 8;
+    return t;
+  };
+  return { farbe: lade('/material/weg-scans.webp'), normal: lade('/material/weg-scans-nor.webp') };
+})();
+const WEG_METER = new THREE.Vector4(...(WEG_SCANS as { rollen: { meter: number }[] }).rollen.map(r => r.meter) as [number, number, number, number]);
+const WEG_SCAN_GLSL = /* glsl */ `
+uniform sampler2D uWegFarbe;
+uniform sampler2D uWegNormal;
+uniform vec4 uWegMeter;
+vec4 wegLiesAn(sampler2D t, float r, vec2 ort) {
+  float m = r < 0.5 ? uWegMeter.x : r < 1.5 ? uWegMeter.y : r < 2.5 ? uWegMeter.z : uWegMeter.w;
+  vec2 p = ort / m;
+  vec2 off = vec2(mod(r, 2.0), 1.0 - floor(r / 2.0)) * 0.5;
+  vec2 uv = off + (fract(p) * 0.996 + 0.002) * 0.5;
+  return textureGrad(t, uv, dFdx(p) * 0.5, dFdy(p) * 0.5);
+}
+vec4 wegLies(sampler2D t, float r) {
+  return wegLiesAn(t, r, vWeltPos.xz);
+}
+`;
+
+const QUERSCHNITT_DETAIL_GLSL = /* glsl */ `
+  // Schmale Betonstöße, mit Streuung pro Stein. Im Fernbild klingt die Fuge aus.
+  float beton = (1.0 - asphalt) * (1.0 - zufahrt);
+  float feldlaenge = mix(2.6, 1.0, bord);
+  float stoss = station / feldlaenge + .06 * korn;
+  float feld = floor(stoss + .5);
+  float fugenversatz = (bandHash(vec2(feld, bord + step(0.5, quer))) - .5) * .16;
+  float fugendistanz = abs(stoss - feld + fugenversatz) * feldlaenge;
+  float fugenpixel = fwidth(station);
+  float fuge = beton * (1.0 - smoothstep(.003 + korn * .008, .014 + fugenpixel, fugendistanz))
+    * (1.0 - smoothstep(.028, .11, fugenpixel)) * mix(.26, .49, bord);
+  float steinton = bandHash(vec2(floor(stoss + fugenversatz), bord + step(0.5, quer)));
+  diffuseColor.rgb *= 1.0 - fuge * alter;
+  diffuseColor.rgb *= mix(1.0, .91 + .15 * steinton, beton);
+
+  // Sand und organisches Material sammeln sich am Rinnstein und stückweise in den Stößen.
+  float saum = 1.0 - smoothstep(.025, .12 + .28 * fleck, rand);
+  float ablagerung = smoothstep(.42, .76, fleck * .64 + korn * .36);
+  float dunkel = (.53 * saum + .44 * fuge) * ablagerung * alter;
+  vec3 sediment = mix(vec3(.106, .092, .065), vec3(.059, .075, .041),
+    smoothstep(.43, .69, fleck * .46 + korn * .54));
+  diffuseColor.rgb = mix(diffuseColor.rgb, sediment, dunkel);
+
+  // Feiner heller Splitt tritt nur in den ausgewaschenen Rändern zu Tage.
+  float klein = mix(.5, bandRauschen(scanOrt * 20.0), 1.0 - smoothstep(.23, .8, length(fwidth(scanOrt)) * 20.0));
+  float abrieb = smoothstep(.58, .79, klein * .68 + .32 * korn);
+  diffuseColor.rgb *= 1.0 + abrieb * alter * (.30 * zufahrt + .15 * saum + .23 * beton);
+`;
+
+const QUERSCHNITT_RANDVERFALL_GLSL = /* glsl */ `
+  // Die Erde sitzt in abgesenkten Außenecken und breitet sich fleckenweise auf dem Beton aus.
+  float randSchaden = vAbriebkante.y;
+  float randBoden = bandRauschen(welt * 2.8 + vec2(14.6, 2.3));
+  float randKorn = bandRauschen(welt * 13.1);
+  randKorn = mix(randKorn, .5, smoothstep(.20,.62,length(fwidth(welt))*13.1));
+  float erdFleck = smoothstep(.32,.71, randBoden*.73 + randKorn*.27);
+  float randSaum = (1.0 - smoothstep(.025,.27 + .58*randBoden, vAbriebkante.x))
+    * randSchaden * (1.0 - max(asphalt, max(zufahrt,bord)));
+  float ausbruch = randSaum * smoothstep(.30,.66, randBoden*.65 + randKorn*.35);
+  vec3 erdton = mix(vec3(.098,.081,.054), vec3(.057,.071,.033), erdFleck);
+  diffuseColor.rgb = mix(diffuseColor.rgb, erdton * (.76 + .59*randKorn), min(.95, 1.52*ausbruch));
+
+  // Geplatzter Betonzuschlag ist in trockeneren Taschen am Bruchrand heller als die feuchte Erde.
+  float kies = randSaum * smoothstep(.58,.81, randKorn + .14*randBoden) * (1.0 - erdFleck);
+  diffuseColor.rgb += kies * vec3(.071,.063,.050);
+  float bordAusbruch = smoothstep(.43,.88,randSchaden) * bord;
+  diffuseColor.rgb = mix(diffuseColor.rgb, erdton * 1.62, bordAusbruch * smoothstep(.29,.76,randBoden));
+
+  // Wasser und Feinsediment sammeln sich am straßenseitigen Rinnstein. Verzweigungen
+  // verlieren sich im Bereich der Reifen und an den Zufahrten.
+  float rinntiefe = .09 + .29 * randBoden + .30 * fleck;
+  float rinnenSchmutz = (1.0 - smoothstep(.035,rinntiefe,rand))
+    * smoothstep(.28,.67, .58*fleck + .42*randBoden) * alter;
+  float verzweigt = abs(fract((bruch - .28*rand + .24*randBoden) * .28 + .17) - .48) / .28;
+  float nebenriss = (1.0 - smoothstep(.005,.013 + pixelbreite*.54,verzweigt))
+    * (1.0 - smoothstep(.025,.13,pixelbreite)) * smoothstep(.10,.37,rand)
+    * (1.0 - smoothstep(.53,1.08,rand)) * smoothstep(.39,.71,fleck);
+  diffuseColor.rgb = mix(diffuseColor.rgb, erdton * .72, asphalt*rinnenSchmutz*.72);
+  diffuseColor.rgb *= 1.0 - asphalt * (nebenriss*.51 + riss*rinnenSchmutz*.31);
+  float nasseKante = max(asphalt*rinnenSchmutz, ausbruch * erdFleck);
+`;
+
+const querschnittSubstrat = (mitSchotterspuren: boolean) => /* glsl */ `
+  float substratPixel = max(length(dFdx(welt)), length(dFdy(welt)));
+  float einfahrtKies = ${mitSchotterspuren ? 'step(.001,vSchotterspur.z) * smoothstep(.01,.19,vSchotterspur.y)' : '0.0'};
+  float schotter = min(1.0, einfahrtKies + randSaum*.69);
+  float feinteil = asphalt * rinnenSchmutz * (1.0 - smoothstep(.45,.81,randBoden));
+  float packung = 0.0;
+  if (schotter > 0.0) {
+    float grobkies = substratKiesel(welt,substratPixel,12.5);
+    vec2 gedreht = mat2(.71,-.71,.71,.71)*welt;
+    float feinkies = substratKiesel(gedreht + vec2(6.3,8.7),substratPixel,22.7);
+    packung = .73*grobkies + .47*feinkies;
+  }
+  vec2 sand = feinteil > 0.0 ? substratSand(welt,substratPixel) : vec2(0.0);
+  float verdichtet = mix(1.0,.63,spur*asphalt);
+  float bindemittel = substratKorn(welt,substratPixel,mix(21.0,36.0,asphalt))-.5;
+  float substratBeton = (1.0-asphalt)*(1.0-einfahrtKies);
+  float substratHoehe = (.004*bindemittel - .009*riss - .011*nebenriss)*asphalt*verdichtet
+    + .020*packung*schotter + sand.x*feinteil + .010*bindemittel*substratBeton;
+  vec3 kiesbett = diffuseColor.rgb*(.75 + .40*packung);
+  vec3 zuschlag = vec3(.251,.227,.191) * (.67 + .67*randBoden);
+  diffuseColor.rgb = mix(diffuseColor.rgb,mix(kiesbett,zuschlag,packung*.69),schotter);
+  diffuseColor.rgb = mix(diffuseColor.rgb,vec3(.147,.119,.083)*sand.y,feinteil*.59);
+  float erdansaum = asphalt*(1.0 - smoothstep(.012,.074 + .28*randBoden,rand))
+    * smoothstep(.30,.75,.58*randBoden + .42*randKorn);
+  diffuseColor.rgb = mix(diffuseColor.rgb,erdton*(.82 + .43*randKorn),erdansaum*.58);
+  diffuseColor.rgb *= 1.0 + bindemittel*(asphalt*.26 + substratBeton*.42);
+`;
+
+/** Asphalt, Bord und Zufahrt liegen im selben Mesh und verwenden den vorhandenen Wegatlas. */
+export function baueQuerschnittMaterial(
+  mitSchotterspuren = false, mitStrassendetail = false, mitRandverfall = false,
+  alterung?: Strassenalterung,
+): THREE.MeshStandardMaterial {
+  const material = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .94 });
+  const scans = WEG_TEXTUREN;
+  const substrat = mitRandverfall && MILBINGERSUBSTANZ_AN;
+  const endzustand = mitRandverfall ? alterung : undefined;
+  // Derselbe Boden bleibt unter dem teilweise erodierten Material sichtbar.
+  material.alphaToCoverage = !!endzustand;
+  if (endzustand) material.defines = {
+    ...material.defines,
+    FARBRESTE: endzustand.farbreste.length,
+    SCHLAGLOECHER: endzustand.ausbrueche.length,
+    RINNENROSTE: endzustand.ablaeufe.length,
+    ...(endzustand.schachtdeckel ? { SCHACHTDECKEL: 1 } : {}),
+  };
+  material.onBeforeCompile = shader => {
+    if (scans) {
+      shader.uniforms.uWegFarbe = { value: scans.farbe };
+      shader.uniforms.uWegNormal = { value: scans.normal };
+      shader.uniforms.uWegMeter = { value: WEG_METER };
+    }
+    if (endzustand) {
+      shader.uniforms.uFarbrest = { value: endzustand.farbreste.map(m => new THREE.Vector4(m.von,m.bis,m.quer,m.breite)) };
+      shader.uniforms.uSchlagloch = { value: endzustand.ausbrueche.map(m => new THREE.Vector4(m.station,m.quer,m.laenge/2,m.breite/2)) };
+      shader.uniforms.uRinnenrost = { value: endzustand.ablaeufe.map(a => new THREE.Vector2(a.station,a.seite)) };
+      const deckel = endzustand.schachtdeckel;
+      if (deckel) shader.uniforms.uSchachtdeckel = { value: new THREE.Vector3(deckel.station,deckel.quer,deckel.durchmesser/2) };
+    }
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+attribute vec4 querprofil;
+attribute float rolle;
+varying vec4 vQuerprofil;
+varying float vRolle;
+varying vec3 vWeltPos;
+${mitStrassendetail ? 'varying float vProfilNormalY;' : ''}
+${endzustand ? 'attribute float auslauf; varying float vAuslauf;' : ''}
+${mitRandverfall ? 'attribute vec2 abriebkante; varying vec2 vAbriebkante;' : ''}
+${mitSchotterspuren ? 'attribute vec4 schotterspur; varying vec4 vSchotterspur;' : ''}`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+vQuerprofil = querprofil;
+vRolle = rolle;
+vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+${mitStrassendetail ? 'vProfilNormalY = normal.y;' : ''}
+${endzustand ? 'vAuslauf = auslauf;' : ''}
+${mitRandverfall ? 'vAbriebkante = abriebkante;' : ''}
+${mitSchotterspuren ? 'vSchotterspur = schotterspur;' : ''}`);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+varying vec4 vQuerprofil;
+varying float vRolle;
+varying vec3 vWeltPos;
+${mitStrassendetail ? 'varying float vProfilNormalY;' : ''}
+${endzustand ? /* glsl */ `
+varying float vAuslauf;
+#if FARBRESTE > 0
+uniform vec4 uFarbrest[FARBRESTE];
+#endif
+#if SCHLAGLOECHER > 0
+uniform vec4 uSchlagloch[SCHLAGLOECHER];
+#endif
+#if RINNENROSTE > 0
+uniform vec2 uRinnenrost[RINNENROSTE];
+#endif
+#ifdef SCHACHTDECKEL
+uniform vec3 uSchachtdeckel;
+#endif
+` : ''}
+${mitRandverfall ? 'varying vec2 vAbriebkante;' : ''}
+${mitSchotterspuren ? 'varying vec4 vSchotterspur;' : ''}` + BAND_RAUSCHEN_GLSL + (scans ? WEG_SCAN_GLSL : '')
+        + (substrat || endzustand ? OBERFLAECHEN_GLSL : ''))
+      .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
+  float asphalt = 1.0 - step(.5, vRolle);
+  float bord = step(1.5, vRolle) * (1.0 - step(2.5, vRolle));
+  float zufahrt = step(2.5, vRolle);
+  float quer = vQuerprofil.y / (vQuerprofil.y - vQuerprofil.z);
+  float rand = abs(min(vQuerprofil.y, -vQuerprofil.z));
+  float alter = vQuerprofil.w;
+  float station = vQuerprofil.x;
+  vec2 welt = vWeltPos.xz;
+  float fleck = bandRauschen(welt * .63);
+  float korn = bandRauschen(welt * 4.6);
+  float fugendreck = (1.0 - smoothstep(.03, .44 + fleck * .38, rand))
+    * smoothstep(.19, .67, fleck * .51 + korn * .49);
+  float belagTon = ${mitStrassendetail ? 'mix(.57 + zufahrt * .32 + bord * .05, 1.03, asphalt)' : 'mix(.74 + zufahrt * .18, 1.10, asphalt)'};
+  diffuseColor.rgb *= belagTon * (.87 + .24 * fleck + .09 * korn);
+  ${mitStrassendetail ? /* glsl */ `
+  // Seitenfläche in Stationsmetern und Höhe abbilden, damit sie nicht auf einen Texelstreifen fällt.
+  float stirn = 1.0 - step(.55, abs(vProfilNormalY));
+  vec2 scanOrt = mix(welt, vec2(station, vWeltPos.y), stirn);
+  scanOrt *= mix(1.65, 1.0, max(asphalt, zufahrt));` : ''}
+  ${scans ? `float scanRolle = zufahrt;
+  vec3 scanFarbe = ${mitStrassendetail ? 'wegLiesAn(uWegFarbe, scanRolle, scanOrt)' : 'wegLies(uWegFarbe, scanRolle)'}.rgb;
+  diffuseColor.rgb *= mix(vec3(1.0), scanFarbe * 2.0, mix(${mitStrassendetail ? '.78 + bord * .05' : '.49 - bord * .17'}, .94, max(asphalt, zufahrt)));
+  vec3 scanNormale = ${mitStrassendetail ? 'wegLiesAn(uWegNormal, scanRolle, scanOrt)' : 'wegLies(uWegNormal, scanRolle)'}.xyz * 2.0 - 1.0;` : ''}
+
+  // Die Risse starten an der Kante und verlieren sich vor der befahrenen Mitte.
+  float querMeter = (vQuerprofil.y + vQuerprofil.z) * .5;
+  float periode = floor(station * .28);
+  float bruch = station + .49 * querMeter
+    ${mitStrassendetail ? '+ (bandHash(vec2(periode, step(0.5, quer))) - .5) * 1.4' : ''}
+    + .46 * bandRauschen(vec2(querMeter * 3.0, periode));
+  float linie = abs(fract(bruch * .28 + .17) - .48) / .28;
+  float pixelbreite = fwidth(bruch);
+  float riss = (1.0 - smoothstep(.009, .017 + pixelbreite * .65, linie))
+    * (1.0 - smoothstep(.045, .15, pixelbreite)) * (1.0 - smoothstep(.38, 1.38 + .55 * fleck, rand));
+  ${mitStrassendetail ? 'riss *= smoothstep(.24, .66, fleck * .59 + korn * .41);' : ''}
+  float spurabstand = min(abs(quer - .29), abs(quer - .71));
+  float spur = 1.0 - smoothstep(.05, .16, spurabstand);
+  float reparatur = smoothstep(.64, .78, bandRauschen(welt * .27) + korn * .11);
+  diffuseColor.rgb *= 1.0 - alter * asphalt * (.17 * spur + .22 * reparatur + .62 * riss);
+  vec3 feuchte = mix(vec3(.097, .074, .045), vec3(.047, .065, .026), smoothstep(.42, .67, korn * .58 + fleck * .42));
+  diffuseColor.rgb = mix(diffuseColor.rgb, feuchte, fugendreck * alter * mix(.87, .64, asphalt));
+${mitSchotterspuren ? /* glsl */ `
+  if (vSchotterspur.z > 0.0) {
+    float tiefe = vSchotterspur.y;
+    float seite = vSchotterspur.x + (fleck - .5) * .20 + (korn - .5) * .13;
+    float spurDistanz = abs(abs(seite) - vSchotterspur.z);
+    float verdichtet = (1.0 - smoothstep(.13, .37, spurDistanz))
+      * smoothstep(.015, .23, tiefe) * (1.0 - .42 * smoothstep(.84, 1.0, tiefe));
+    float randabstand = min(vSchotterspur.w - abs(seite), (1.0 - tiefe) * 4.0);
+    float abtrag = (1.0 - smoothstep(.035, .66, randabstand))
+      * smoothstep(.25, .81, fleck * .61 + korn * .39);
+    vec3 schotter = diffuseColor.rgb * vec3(1.40, 1.31, 1.12);
+    schotter *= mix(1.0, .55 + .12 * fleck, verdichtet);
+    schotter = mix(schotter, feuchte * 1.58, abtrag * .76);
+    diffuseColor.rgb = mix(diffuseColor.rgb, schotter, smoothstep(0.0, .18, tiefe));
+  }
+` : ''}
+${mitStrassendetail ? QUERSCHNITT_DETAIL_GLSL : ''}
+${mitRandverfall ? QUERSCHNITT_RANDVERFALL_GLSL : ''}
+${substrat ? querschnittSubstrat(mitSchotterspuren) : ''}
+${endzustand ? STRASSENALTERUNG_GLSL + /* glsl */ `
+  // Im Raster folgt dieselbe auslaufende Schicht der Geländeoberfläche.
+  float auslaufOrt = vAuslauf + (randKorn-.5)*.31 + (randBoden-.5)*.38;
+  float auslaufSchmutz = smoothstep(.10,.78,auslaufOrt)*smoothstep(0.0,.30,vAuslauf);
+  vec3 auslaufBoden = mix(vec3(.071,.055,.037),vec3(.048,.063,.031),
+    smoothstep(.33,.78,randBoden*.66 + randKorn*.34));
+  diffuseColor.rgb = mix(diffuseColor.rgb,auslaufBoden*(.82+.33*randKorn),auslaufSchmutz*.57);
+  float auslaufDeckung = 1.0 - smoothstep(.21,.88,auslaufOrt)*smoothstep(0.0,.34,vAuslauf);
+  diffuseColor.a *= auslaufDeckung;
+  if (auslaufDeckung < .025) discard;
+` : ''}
+`)
+      .replace('#include <roughnessmap_fragment>', /* glsl */ `#include <roughnessmap_fragment>
+${mitStrassendetail ? 'roughnessFactor = clamp(mix(.98, .78, dunkel * 1.6 + spur * asphalt * .35) + .04 * (korn - .5), .76, .99);' : ''}
+${mitRandverfall ? 'roughnessFactor = mix(roughnessFactor, .71, nasseKante * .65);' : ''}
+${substrat ? 'roughnessFactor = mix(mix(roughnessFactor,.94,schotter*.77),.86,feinteil);' : ''}
+${endzustand ? 'roughnessFactor = mix(mix(roughnessFactor,.88,farbRest),.42,stehendesWasser*.72);' : ''}`)
+      .replace('#include <normal_fragment_maps>', scans ? /* glsl */ `#include <normal_fragment_maps>
+  vec3 belagNormal = inverseTransformDirection(normal, viewMatrix);
+${mitStrassendetail ? /* glsl */ `
+  vec3 seitentangente = normalize(vec3(belagNormal.z, 0.0, -belagNormal.x) + vec3(.0001, 0.0, 0.0));
+  vec3 scanRelief = mix(vec3(scanNormale.x, 0.0, scanNormale.y),
+    seitentangente * scanNormale.x + vec3(0.0, scanNormale.y, 0.0), stirn);
+  belagNormal = normalize(belagNormal + scanRelief * mix(.41, .50, max(asphalt, zufahrt)));
+` : /* glsl */ `
+  float relief = smoothstep(.55, .93, belagNormal.y) * mix(.26, .48, max(asphalt, zufahrt));
+  belagNormal = normalize(belagNormal + vec3(scanNormale.x, 0.0, scanNormale.y) * relief);
+`}
+  normal = normalize((viewMatrix * vec4(belagNormal, 0.0)).xyz);
+` : '#include <normal_fragment_maps>');
+    if (substrat) shader.fragmentShader = shader.fragmentShader
+      .replace('#include <normal_fragment_begin>', /* glsl */ `#include <normal_fragment_begin>
+        normal = substratNormale(normal, vViewPosition,
+          substratHoehe * (1.0 - smoothstep(9.0,32.0,length(vViewPosition))), faceDirection);`);
+    if (endzustand) shader.fragmentShader = shader.fragmentShader
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = max(metalnessFactor,ablaufMetall);')
+      .replace('#include <normal_fragment_begin>', /* glsl */ `#include <normal_fragment_begin>
+        normal = substratNormale(normal, vViewPosition,
+          fahrbahnRelief * (1.0 - smoothstep(13.0,38.0,length(vViewPosition))), faceDirection);`);
+  };
+  material.customProgramCacheKey = () => 'brachland-querschnitt' + (scans ? '-scans' : '')
+    + (mitSchotterspuren ? '-schotterspuren' : '') + (mitStrassendetail ? '-strassendetail' : '')
+    + (mitRandverfall ? '-randverfall' : '') + (substrat ? '-substrat' : '')
+    + (endzustand ? '-strassenalterung' : '');
+  return material;
+}
+
 export function baueWegMaterial(): THREE.MeshStandardMaterial {
   // `vertexColors` statt einer festen Farbe: In den Weltdaten stehen neun
   // OSM-Klassen über 170,5 km, von 8 m Asphalt bis 1,6 m Trampelpfad. Sie
@@ -278,16 +642,24 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
   const material = new THREE.MeshStandardMaterial({
     color: '#ffffff', vertexColors: true, roughness: 1, metalness: 0, transparent: true,
   });
+  const belagTyp = STRASSENVERFALL_AN ? 'vec3' : 'vec2';
+  const scans = BELAG_ECHT && WEG_TEXTUREN;
 
   material.onBeforeCompile = (shader) => {
+    if (scans) {
+      shader.uniforms.uWegFarbe = { value: scans.farbe };
+      shader.uniforms.uWegNormal = { value: scans.normal };
+      shader.uniforms.uWegMeter = { value: WEG_METER };
+    }
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>',
-        '#include <common>\nattribute vec2 belag;\nvarying vec2 vBand;\nvarying vec2 vBelag;\nvarying vec3 vWeltPos;')
+        `#include <common>\nattribute ${belagTyp} belag;\nvarying vec2 vBand;\nvarying ${belagTyp} vBelag;\nvarying vec3 vWeltPos;`)
       .replace('#include <begin_vertex>',
         '#include <begin_vertex>\n  vBand = uv;\n  vBelag = belag;\n  vWeltPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
 
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec2 vBand;\nvarying vec2 vBelag;\nvarying vec3 vWeltPos;\n' + HASH_GLSL)
+      .replace('#include <common>', `#include <common>\nvarying vec2 vBand;\nvarying ${belagTyp} vBelag;\nvarying vec3 vWeltPos;\n`
+        + BAND_RAUSCHEN_GLSL + (STRASSENPROFIL_AN ? ASPHALTRAND_GLSL : '') + (scans ? WEG_SCAN_GLSL : ''))
       .replace('#include <color_fragment>', /* glsl */ `#include <color_fragment>
   float quer = abs(vBand.x);
   float rand = 1.0 - quer;
@@ -308,10 +680,56 @@ export function baueWegMaterial(): THREE.MeshStandardMaterial {
   /* Ausgefranster Rand. vBelag.y entscheidet, wie weich die Kante ist:
    * Asphalt hat eine gebaute Kante (0,15), ein Trampelpfad gar keine (1,2). */
   float franse = bandRauschen(vec2(vBand.y * 1.4, vBand.x * 2.0)) * 0.22 * vBelag.y;
-  diffuseColor.a *= smoothstep(0.0, 0.12 + 0.28 * vBelag.y + franse, rand);
-`);
+  float randbreite = 0.12 + 0.28 * vBelag.y + franse;
+${STRASSENPROFIL_AN ? `
+  if (vBelag.z > 0.0 && vBelag.y < .30) randbreite = asphaltRandbreite(fleck);
+` : ''}
+  diffuseColor.a *= smoothstep(0.0, randbreite, rand);
+${scans ? `
+  // D285: Scan nach Belag; Feldweg zwischen den Spuren Graspfad.
+  float wegR = vBelag.y < 0.3 ? 0.0 : vBelag.y < 0.8 ? 1.0 : 2.0;
+  float wegGras = step(0.4, vBelag.x) * (1.0 - smoothstep(0.22, 0.38, quer));
+  vec3 wegScan = mix(wegLies(uWegFarbe, wegR).rgb, wegLies(uWegFarbe, 3.0).rgb, wegGras) * 2.0;
+  // Alter Asphalt ist grau, nicht schwarz: die Palette bleibt der Ton, der Belag hellt um 30 % auf.
+  diffuseColor.rgb *= wegScan * (wegR < 0.5 ? 1.3 : 1.0);
+  vec3 wegNt = mix(wegLies(uWegNormal, wegR).xyz, wegLies(uWegNormal, 3.0).xyz, wegGras) * 2.0 - 1.0;` : ''}
+${STRASSENVERFALL_AN ? /* glsl */ `
+  if (vBelag.z > 0.0) {
+    // Meterfeste, versetzte Frostaufbrüche am Rand. Hohe Verfallswerte lassen
+    // Boden durchscheinen. Die Laufspur in der Mitte bleibt durchgängig.
+    float bucht = bandRauschen(vWeltPos.xz * .29);
+    float kante = bandRauschen(vWeltPos.xz * 2.1);
+    float spur = smoothstep(.32, .53, quer);
+    float aufbruch = spur * vBelag.z *
+      smoothstep(.37, .69, quer * .65 + bucht * .43 + kante * .17);
+${STRASSENPROFIL_AN ? /* glsl */ `
+    if (vBelag.y < .30) {
+      // Ausgebleichte Deckschicht und freigefahrener, dichterer Asphalt.
+      aufbruch = asphaltAufbruch(quer, bucht, kante, vBelag.z);
+      float helligkeit = dot(diffuseColor.rgb, vec3(.2126, .7152, .0722));
+      vec3 decke = vec3(.96, 1.015, 1.065) * helligkeit;
+      float spurabstand = (quer - .44) * 5.4;
+      float poliert = exp(-spurabstand * spurabstand);
+      float reparatur = smoothstep(.57, .80, bucht * .77 + kante * .23);
+      diffuseColor.rgb = mix(diffuseColor.rgb, decke, .95)
+        * (1.08 + .18 * kante - .26 * poliert - .32 * reparatur);
+    }
+  ` : ''}
+    vec3 erde = vec3(.14, .103, .049) * (.78 + .54 * kante);
+    diffuseColor.rgb = mix(diffuseColor.rgb, erde, aufbruch * .88);
+    diffuseColor.a *= 1.0 - aufbruch * .92;
+  }
+` : ''}
+`)
+      .replace('#include <normal_fragment_maps>', scans ? `#include <normal_fragment_maps>
+  {
+    vec3 wn = inverseTransformDirection(normal, viewMatrix);
+    wn = normalize(wn + vec3(wegNt.x, 0.0, wegNt.y) * 0.8);
+    normal = normalize((viewMatrix * vec4(wn, 0.0)).xyz);
+  }` : '#include <normal_fragment_maps>');
   };
 
-  material.customProgramCacheKey = () => 'brachland-weg-v2';
+  material.customProgramCacheKey = () => 'brachland-weg-v2' + (scans ? '-scans' : '')
+    + (STRASSENVERFALL_AN ? '-verfall' : '') + (STRASSENPROFIL_AN ? '-profil' : '');
   return material;
 }

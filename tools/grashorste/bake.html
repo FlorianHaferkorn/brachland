@@ -1,0 +1,34 @@
+<!doctype html><meta charset="utf-8"><body style="margin:0;background:#f0f">
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search);
+const id = q.get('id'), H = Number(q.get('h') ?? 256), az = Number(q.get('az') ?? 0);
+const loader = new GLTFLoader();
+const gltf = await loader.loadAsync(`/modelle/${id}/${id}.gltf`);
+gltf.scene.updateMatrixWorld(true);
+const meshes = [];
+gltf.scene.traverse(o => { if (o.isMesh) meshes.push(o); });
+const renderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
+renderer.setClearColor(0xff00ff, 1);
+const results = [];
+for (const m of meshes) {
+  const g = m.geometry.clone(); g.applyMatrix4(m.matrixWorld);
+  g.rotateY(az * Math.PI / 180);
+  g.computeBoundingBox();
+  const b = g.boundingBox, sz = b.getSize(new THREE.Vector3()), c = b.getCenter(new THREE.Vector3());
+  const w = sz.x, h = sz.y;
+  const pad = 0.02 * Math.max(w, h);
+  const pxH = H, pxW = Math.max(8, Math.round(H * (w + 2 * pad) / (h + 2 * pad)));
+  renderer.setSize(pxW, pxH, false);
+  const cam = new THREE.OrthographicCamera(-(w / 2 + pad), w / 2 + pad, (h / 2 + pad) + 0, -(h / 2 + pad), 0.01, 100);
+  cam.position.set(c.x, c.y, c.z + 5); cam.lookAt(c.x, c.y, c.z);
+  const mat = m.material.clone(); mat.side = THREE.DoubleSide; mat.transparent = false; mat.alphaTest = 0;
+  const bas = new THREE.MeshBasicMaterial({ map: m.material.map, side: THREE.DoubleSide });
+  const sc = new THREE.Scene(); sc.add(new THREE.Mesh(g, bas));
+  renderer.render(sc, cam);
+  results.push({ name: m.name, w, h, pxW, pxH, tris: (g.index ? g.index.count : g.attributes.position.count) / 3, png: renderer.domElement.toDataURL('image/png') });
+}
+window.__ergebnis = results; document.title = 'fertig';
+</script>

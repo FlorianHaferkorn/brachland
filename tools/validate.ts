@@ -1,7 +1,9 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { PALETTE } from '../src/world/palette.js';
+import { baueRevierwelt, masseAus } from '../src/spiel/reviere.js';
 import { join } from 'node:path';
-import { Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, WaffenDaten, GegnerDaten,
+import { Clipmarken } from '../src/data/schema.js';
+import { AufgabeDaten, Bewegung, Gewicht, Figurlaufzeit, Figurgegner, Kampfton,Belohnungen, Oekonomie, Techniken, Waffenbaukasten, Waffenfamilienplan, Wirken, Geraete, BELOHNUNGS_KATEGORIEN, Kreatur, Move, Regent, Gegenstand, Fragment, Ort, Auftrag, Region, Wanderfigur, Strecke, LEKTIONEN, WaffenDaten, GegnerDaten, ReinigenDaten, Fassade, Massstab, Hofbauten, Hofbaukasten, Einstellungen, QUALITAETSSTUFEN, Belegung, Revierkarte,
          effektivitaet, schadensfaktor, ELEMENTE } from '../src/data/schema.js';
 
 let ok = 0, fehler = 0;
@@ -34,10 +36,40 @@ console.log('\nFragmente:');
 const fragmente = pruefe<any>('content/fragmente', Fragment);
 console.log('\nOrte:');
 const orte = pruefe<any>('content/orte', Ort);
+console.log('\nFassaden:');
+pruefe<any>('content/fassaden', Fassade);
+{
+  const h = Hofbauten.safeParse(JSON.parse(readFileSync('content/hofbauten.json', 'utf8')));
+  if (!h.success) { console.log('  ✗ content/hofbauten.json', JSON.stringify(h.error.issues)); fehler++; }
+  else for (const b of h.data.hofbauten) {
+    if (!existsSync(`public/bauten/${b.modell}.glb`)) { console.log(`  ✗ hofbauten: public/bauten/${b.modell}.glb fehlt`); fehler++; }
+    else ok++;
+  }
+  const r = Massstab.safeParse(JSON.parse(readFileSync('content/massstab.json', 'utf8')));
+  if (!r.success) { console.log('  ✗ content/massstab.json', JSON.stringify(r.error.issues)); fehler++; }
+  else ok++;
+}
+{
+  // D360: Hof-Baukasten. Eine Zahl ohne annahme muss auf die Bauwelt-Notiz oder eine Ledger-Zeile zeigen.
+  const r = Hofbaukasten.safeParse(JSON.parse(readFileSync('content/hofbaukasten.json', 'utf8')));
+  if (!r.success) { console.log('  ✗ content/hofbaukasten.json', JSON.stringify(r.error.issues)); fehler++; }
+  else {
+    const eintraege: [string, { quelle: string; annahme: boolean }][] = [
+      ...Object.entries(r.data.masse), ...Object.entries(r.data.farben),
+      ...r.data.verfall.flatMap(s => Object.entries(s).filter(([, w]) => typeof w === 'object') as [string, any][])
+        .map(([k, w]) => [`verfall.${k}`, w] as [string, any]),
+    ];
+    const ohne = eintraege.filter(([, w]) => !w.annahme && !/Bauwelt|Ledger D\d+/.test(w.quelle));
+    ohne.forEach(([k]) => console.log(`  ✗ hofbaukasten ${k}: kein Beleg und nicht als annahme gekennzeichnet`));
+    if (ohne.length) fehler++; else { console.log(`  ✓ hofbaukasten.json (${eintraege.filter(([, w]) => w.annahme).length} Annahmen)`); ok++; }
+  }
+}
 console.log('\nAufträge:');
 const auftraege = pruefe<any>('content/auftraege', Auftrag);
 console.log('\nRegionen:');
 const regionen = pruefe<any>('content/regions', Region);
+console.log('\nWanderfiguren:');
+const wanderfiguren = pruefe<any>('content/wanderfiguren', Wanderfigur);
 console.log('\nWaffen:');
 const waffen = pruefe<any>('content/waffen', WaffenDaten);
 {
@@ -54,11 +86,189 @@ const waffen = pruefe<any>('content/waffen', WaffenDaten);
   else console.log(`  ✓ ${namen.length} Schlagnamen eindeutig`);
 }
 console.log('\nGegner:');
-pruefe<any>('content/gegner', GegnerDaten);
+const gegnerDaten = pruefe<any>('content/gegner', GegnerDaten);
+console.log('\nStrecken:');
+const strecken = pruefe<any>('content/strecken', Strecke);
 // Wie bei den Waffen: Dateiname = id, `echtzeit.ts` importiert über den Namen.
 for (const f of readdirSync('content/gegner').filter(f => f.endsWith('.json'))) {
   const id = JSON.parse(readFileSync(join('content/gegner', f), 'utf8')).id;
   if (`${id}.json` !== f) { console.log(`  ✗ ${f} trägt id '${id}'`); fehler++; }
+}
+
+console.log('\nReinigen (D376):');
+{
+  const r = ReinigenDaten.safeParse(JSON.parse(readFileSync('content/reinigen.json', 'utf8')));
+  if (r.success) { console.log('  ✓ reinigen.json'); ok++; }
+  else { console.log(`  ✗ reinigen.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++; }
+  // D389: Jedes Tier trägt seine eigene Reinigungsdauer, kein Mensch eine (ausser freiwillig befallen,
+  // D385); die Griffzahl `ceil(dauer / halten)` bleibt im bestätigten Band (D379).
+  if (r.success) {
+    const band = r.data.griffe;
+    let gut = 0;
+    for (const f of readdirSync('content/gegner').filter(f => f.endsWith('.json'))) {
+      const g = GegnerDaten.safeParse(JSON.parse(readFileSync(join('content/gegner', f), 'utf8')));
+      if (!g.success) continue;
+      const tier = !!g.data.elemente?.length && !g.data.mensch;
+      if (tier && !g.data.reinigen) { console.log(`  ✗ ${f}: Tier ohne \`reinigen\` (D389)`); fehler++; continue; }
+      if (!g.data.reinigen) continue;
+      const griffe = Math.ceil(g.data.reinigen.dauer / (g.data.reinigen.halten ?? r.data.halten) - 1e-9);
+      if (griffe < band.min || griffe > band.max) {
+        console.log(`  ✗ ${f}: ${griffe} Griffe, erlaubt ${band.min}–${band.max} (reinigen.json griffe)`); fehler++;
+      } else gut++;
+    }
+    console.log(`  ✓ ${gut} Gegner mit eigener Reinigungsdauer, Griffzahl ${band.min}–${band.max}`); ok++;
+  }
+}
+
+console.log('\nAufgabe (D426):');
+{
+  const r = AufgabeDaten.safeParse(JSON.parse(readFileSync('content/aufgabe.json', 'utf8')));
+  if (r.success) { console.log('  ✓ aufgabe.json'); ok++; }
+  else { console.log(`  ✗ aufgabe.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++; }
+}
+
+console.log('\nEinstellungen (D394):');
+{
+  // Das Schema prüft Eindeutigkeit, Standard und Stufenwerte im Wertebereich. Hier zusätzlich: Eine
+  // Grafik-Einstellung mit Stufenwerten nennt alle vier Stufen — sonst bliebe beim Wechsel der
+  // Qualitätsstufe ein Wert der alten Stufe stehen.
+  const r = Einstellungen.safeParse(JSON.parse(readFileSync('content/einstellungen.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ einstellungen.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    let luecken = 0;
+    for (const e of r.data.einstellungen) {
+      const fehlt = e.stufen ? QUALITAETSSTUFEN.filter(s => !(s in e.stufen!)) : [];
+      if (fehlt.length) { console.log(`  ✗ ${e.id}: Stufenwert fehlt für ${fehlt.join(', ')}`); fehler++; luecken++; }
+    }
+    if (!luecken) { console.log(`  ✓ einstellungen.json: ${r.data.einstellungen.length} Einstellungen, Stufenwerte vollständig`); ok++; }
+  }
+}
+
+console.log('\nBelegung (D415):');
+{
+  // Das Schema prüft ids, Sperrliste und die Verweise in `geteilt`. Hier zusätzlich: Die Automatik der
+  // Einstellungen hat Zielbildzeiten für alle vier Stufen, und keine ungeduldete Kollision steht in der
+  // Standardbelegung (die Kontextregel steht in `src/spieler/eingabe.ts`, getestet in `tests/eingabe.test.ts`).
+  const r = Belegung.safeParse(JSON.parse(readFileSync('content/belegung.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ belegung.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const { kollisionen, standardKarte } = await import('../src/spieler/eingabe.js');
+    const offen = kollisionen(standardKarte()).filter(k => !k.geduldet);
+    if (offen.length) { for (const k of offen) console.log(`  ✗ belegung.json: ${k.taste} doppelt (${k.aktionen.join(' / ')}) in ${k.zustaende.join(', ')}`); fehler += offen.length; }
+    else { console.log(`  ✓ belegung.json: ${r.data.aktionen.length} Aktionen, ${r.data.geteilt.length} geduldete Überschneidungen, keine Kollision`); ok++; }
+  }
+  const e = Einstellungen.safeParse(JSON.parse(readFileSync('content/einstellungen.json', 'utf8')));
+  const z = e.success ? e.data.automatik?.zielBildzeitMs : undefined;
+  const fehltZiel = z ? QUALITAETSSTUFEN.filter(s => !(s in z)) : ['automatik fehlt'];
+  if (fehltZiel.length) { console.log(`  ✗ einstellungen.json automatik: Zielbildzeit fehlt für ${fehltZiel.join(', ')}`); fehler++; }
+  else { console.log('  ✓ einstellungen.json automatik: Zielbildzeiten für alle vier Stufen'); ok++; }
+}
+
+console.log('\nBewegung (D412):');
+{
+  // Das Schema prüft Grenzen, Reihenfolge der Schwellen und dass das leichteste Tragtier den Reiter
+  // bei seinem Traglastanteil trägt (D398). Hier zusätzlich die Querverweise: Der Anzug der Kälteuhr
+  // ist ein Gegenstand, der Auftrag des Tragtiers gibt es.
+  const r = Bewegung.safeParse(JSON.parse(readFileSync('content/bewegung.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ bewegung.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const b = r.data;
+    const fehlt: string[] = [];
+    if (!existsSync(join('content/gegenstaende', `${b.kaelte.anzug}.json`))) fehlt.push(`kaelte.anzug '${b.kaelte.anzug}' ist kein Gegenstand`);
+    if (!existsSync(join('content/auftraege', `${b.tragtier.auftrag}.json`))) fehlt.push(`tragtier.auftrag '${b.tragtier.auftrag}' fehlt`);
+    if (fehlt.length) { for (const f of fehlt) console.log(`  ✗ bewegung.json: ${f}`); fehler += fehlt.length; }
+    else {
+      console.log(`  ✓ bewegung.json: Rennen ${b.laufen.rennen} m/s (Probe ${b.laufen.rennenProbe.join(' / ')}), Reiten ${b.reiten.gehen} / ${b.reiten.rennen}, Klettern ${b.klettern.tempo}, Fall ${b.fall.schadlosBis}–${b.fall.toedlichAb} m; Tauchen und Tragtier Entwurf`);
+      ok++;
+    }
+  }
+}
+
+console.log('\nClipmarken (D456, nur Darstellung):');
+{
+  const r = Clipmarken.safeParse(JSON.parse(readFileSync('content/clipmarken.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ clipmarken.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    console.log(`  ✓ clipmarken.json: ${Object.keys(r.data.clips).length} Clips, ${Object.keys(r.data.hut).length} Huten, ${r.data.bildrate} Bilder/s`);
+  }
+}
+
+console.log('\nLaufzeit der Bewegung (D457, nur Darstellung):');
+{
+  const r = Figurlaufzeit.safeParse(JSON.parse(readFileSync('content/figurlaufzeit.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ figurlaufzeit.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const u = r.data.uebergang;
+    console.log(`  ✓ figurlaufzeit.json: ${Object.keys(u).length} Übergangsarten, ${Math.min(...Object.values(u)) * 1000}–${Math.max(...Object.values(u)) * 1000} ms`);
+  }
+}
+
+console.log('\nKörpersprache der Gegner (D458, nur Darstellung):');
+{
+  const r = Figurgegner.safeParse(JSON.parse(readFileSync('content/figurgegner.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ figurgegner.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    // Jeder Gegner mit Bauplan hat ein Ansageprofil — sonst stünde er im Vorlauf nur da.
+    const profile = Object.keys(r.data.ansage.profile);
+    const ohne = readdirSync('content/gegner').filter(f => f.endsWith('.json')).map(f => f.slice(0, -5)).filter(id => !profile.includes(id));
+    if (ohne.length) { console.log(`  ✗ figurgegner.json: kein Ansageprofil für ${ohne.join(', ')}`); fehler++; }
+    else console.log(`  ✓ figurgegner.json: ${profile.length} Ansageprofile, Vierbeiner, Taumeln, Schütteln, Abgang, Sturz`);
+  }
+}
+
+console.log('\nGewicht (D420, nur Darstellung):');
+{
+  // Schema: Grenzen und Reihenfolge der Schwellen. Hier die Querverweise: jede Waffe ist eine Waffenfamilie, jede
+  // Baukasten-Familie gibt es in waffenteile.json, jedes Ziel ist ein Gegner, die Tonreferenz ist eine der Waffen.
+  const r = Gewicht.safeParse(JSON.parse(readFileSync('content/gewicht.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ gewicht.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const g = r.data, fehlt: string[] = [];
+    const familien = (JSON.parse(readFileSync('content/waffenfamilien.json', 'utf8')).familien as { id: string }[]).map(f => f.id);
+    const teile = JSON.parse(readFileSync('content/waffenteile.json', 'utf8')).familien as Record<string, unknown>;
+    for (const [id, w] of Object.entries(g.waffen)) {
+      if (!familien.includes(id)) fehlt.push(`waffen.${id} ist keine Waffenfamilie`);
+      if ('baukasten' in w && !(w.baukasten in teile)) fehlt.push(`waffen.${id}.baukasten '${w.baukasten}' fehlt in waffenteile.json`);
+    }
+    for (const id of Object.keys(g.ziele.je)) if (!existsSync(join('content/gegner', `${id}.json`))) fehlt.push(`ziele.${id} ist kein Gegner`);
+    if (!(g.ton.referenz in g.waffen)) fehlt.push(`ton.referenz '${g.ton.referenz}' ist keine der Waffen`);
+    if (fehlt.length) { for (const f of fehlt) console.log(`  ✗ gewicht.json: ${f}`); fehler += fehlt.length; }
+    else {
+      console.log(`  ✓ gewicht.json: ${Object.keys(g.waffen).length} Waffen, ${Object.keys(g.ziele.je).length} Ziele, Trefferstopp ${g.trefferstopp.min * 1000}–${g.trefferstopp.max * 1000} ms`);
+      ok++;
+    }
+  }
+}
+
+console.log('\nKampfton (D427):');
+{
+  // Jede Datei liegt unter public/<ordner>/ und steht mit Namen in assets/HERKUNFT.md (ADR-0013); jede Oberfläche
+  // gehört zu einem Gegner; jede Waffe, die einen Klang braucht, hat Masse in gewicht.json.
+  const r = Kampfton.safeParse(JSON.parse(readFileSync('content/kampfton.json', 'utf8')));
+  if (!r.success) {
+    console.log(`  ✗ kampfton.json: ${r.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`); fehler++;
+  } else {
+    const k = r.data, fehlt: string[] = [];
+    const herkunft = existsSync('assets/HERKUNFT.md') ? readFileSync('assets/HERKUNFT.md', 'utf8') : '';
+    let dateien = 0;
+    for (const [band, b] of Object.entries(k.baender)) for (const f of b.dateien) {
+      dateien++;
+      if (!existsSync(join('public', k.ordner, f))) fehlt.push(`${band}: public/${k.ordner}/${f} fehlt`);
+      if (!herkunft.includes(f)) fehlt.push(`${band}: ${f} ohne Herkunft in assets/HERKUNFT.md`);
+    }
+    for (const id of Object.keys(k.oberflaechen.je)) if (!existsSync(join('content/gegner', `${id}.json`))) fehlt.push(`oberflaechen.${id} ist kein Gegner`);
+    for (const o of new Set([k.oberflaechen.standard, k.oberflaechen.spielerin, k.oberflaechen.gedeckt, ...Object.values(k.oberflaechen.je)]))
+      if (!(`treffer-${o}` in k.baender)) fehlt.push(`Oberfläche '${o}' hat kein Band treffer-${o}`);
+    if (fehlt.length) { for (const f of fehlt) console.log(`  ✗ kampfton.json: ${f}`); fehler += fehlt.length; }
+    else { console.log(`  ✓ kampfton.json: ${Object.keys(k.baender).length} Bänder, ${dateien} Dateien mit Herkunft`); ok++; }
+  }
 }
 
 // Querverweise: jede referenzierte Move-ID muss es geben. Ohne diese Pruefung
@@ -122,6 +332,116 @@ const fragmentIds = new Set(fragmente.map((f: any) => f.id));
 const regentIds = new Set(regenten.map((r: any) => r.id));
 const auftragIds = new Set(auftraege.map((a: any) => a.id));
 
+// Belohnungen und Ökonomie (D393): Jede Kategorie des Vertrags mit D392 löst sich in vorhandene
+// Gegenstände der passenden Art auf; Unikate sind einmalig und liegen in genau einem Vorrat.
+{
+  const meldeB = (was: string) => { console.log(`  ✗ Belohnungen: ${was}`); auftragsfehler++; };
+  const art = (id: string) => gegenstaende.find((g: any) => g.id === id)?.wirkung.art;
+  const einmalig = (id: string) => gegenstaende.find((g: any) => g.id === id)?.einmalig === true;
+  const b = Belohnungen.safeParse(JSON.parse(readFileSync('content/belohnungen.json', 'utf8')));
+  if (!b.success) meldeB(b.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; '));
+  else {
+    for (const k of BELOHNUNGS_KATEGORIEN) if (!(k in b.data.mengen) && !(k in b.data.unikate)) meldeB(`Kategorie '${k}' fehlt`);
+    for (const [k, liste] of Object.entries(b.data.mengen)) for (const e of liste!) {
+      if (!gegenstandIds.has(e.gegenstand)) { meldeB(`${k}: '${e.gegenstand}' gibt es nicht`); continue; }
+      if (einmalig(e.gegenstand)) meldeB(`${k}: '${e.gegenstand}' ist einmalig und keine Mengenware`);
+      const stufe = /^aufwertung-(\d)$/.exec(k)?.[1];
+      const g = gegenstaende.find((x: any) => x.id === e.gegenstand);
+      if (stufe && !(g.wirkung.art === 'material' && g.wirkung.stufe === Number(stufe))) meldeB(`${k}: '${e.gegenstand}' ist kein Material der Stufe ${stufe}`);
+      if (k === 'marke' && g.wirkung.art !== 'marke') meldeB(`marke: '${e.gegenstand}' stärkt die Marke nicht`);
+    }
+    const ARTEN: Record<string, string> = { werkzeug: 'werkzeug', waffe: 'waffe', ruestung: 'zeug', wissen: 'wissen', zugang: 'zugang' };
+    const gesehen = new Set<string>();
+    for (const [k, jeRegion] of Object.entries(b.data.unikate)) for (const [region, vorrat] of Object.entries(jeRegion!)) {
+      if (!regionen.some((r: any) => r.id === region)) meldeB(`${k}: Region '${region}' gibt es nicht`);
+      for (const id of vorrat) {
+        if (!gegenstandIds.has(id)) { meldeB(`${k}: '${id}' gibt es nicht`); continue; }
+        if (!einmalig(id)) meldeB(`${k}: '${id}' ist nicht einmalig`);
+        if (ARTEN[k] && art(id) !== ARTEN[k]) meldeB(`${k}: '${id}' hat Art '${art(id)}', erwartet '${ARTEN[k]}'`);
+        if (gesehen.has(id)) meldeB(`'${id}' liegt in zwei Vorräten — das wäre eine Kopier-Belohnung`);
+        gesehen.add(id);
+      }
+    }
+    for (const g of gegenstaende) if (g.gewicht === undefined) meldeB(`'${g.id}' hat kein Gewicht (D398)`);
+    for (const g of gegenstaende) if (g.einmalig && !gesehen.has(g.id)) meldeB(`'${g.id}' ist einmalig, liegt aber in keinem Vorrat`);
+    for (const sprosse of b.data.leiter) if (sprosse.unikat && !sprosse.kategorien.some(k => k in b.data.unikate))
+      meldeB(`Sprosse '${sprosse.rang}' verspricht ein Unikat, nennt aber keine Unikat-Kategorie`);
+  }
+  const o = Oekonomie.safeParse(JSON.parse(readFileSync('content/oekonomie.json', 'utf8')));
+  if (!o.success) meldeB(`oekonomie.json: ${o.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+  else {
+    const d = o.data;
+    const kenne = (wo: string, ids: string[]) => { for (const id of ids) if (!gegenstandIds.has(id)) meldeB(`oekonomie.json ${wo}: '${id}' gibt es nicht`); };
+    d.schmiede.forEach(s => kenne(`schmiede Stufe ${s.stufe}`, Object.keys(s.preis)));
+    if (d.schmiede.some((s, i) => s.stufe !== i + 1)) meldeB('oekonomie.json schmiede: Stufen lückenlos ab 1');
+    kenne('beute', [d.beute.tier.gegenstand, d.beute.mensch.gegenstand, d.beute.verhaerteter.gegenstand, d.beute.regent.gegenstand]);
+    kenne('marke.ruhigesRevier', Object.keys(d.marke.ruhigesRevier));
+    kenne('flasche', [...Object.keys(d.flasche.schlucke.preis), ...Object.keys(d.flasche.staerke.preis)]);
+    for (const t of d.tausch) {
+      if (!bewohner.has(t.bei)) meldeB(`oekonomie.json tausch: '${t.bei}' ist kein Bewohner-Ort`);
+      kenne(`tausch bei ${t.bei}`, [...Object.keys(t.gibt), ...Object.keys(t.nimmt), ...(t.braucht ? [t.braucht] : [])]);
+      if (t.braucht && art(t.braucht) !== 'wissen') meldeB(`oekonomie.json tausch: '${t.braucht}' ist kein Wissen`);
+    }
+    // D400: Brauen und Techniken.
+    kenne('brauen.bossteil', [d.brauen.bossteil.getoetet, d.brauen.bossteil.gereinigt]);
+    for (const sud of d.brauen.dauersude) {
+      kenne(`brauen.${sud.id}`, [...Object.keys(sud.preis), ...sud.bossteile]);
+      for (const id of [...Object.keys(sud.preis), ...sud.bossteile]) {
+        const g = gegenstaende.find((x: any) => x.id === id);
+        if (g && !(g.wirkung.art === 'zutat' && g.wirkung.fuer === 'dauersud')) meldeB(`brauen.${sud.id}: '${id}' ist keine Zutat für Dauersude`);
+      }
+      if (!sud.bossteile.every(t => t === d.brauen.bossteil.getoetet || t === d.brauen.bossteil.gereinigt)) meldeB(`brauen.${sud.id}: unbekanntes Bossteil`);
+    }
+    for (const bg of d.brauen.beigaben) {
+      kenne('brauen.beigaben', [bg.gegenstand]);
+      const g = gegenstaende.find((x: any) => x.id === bg.gegenstand);
+      if (g && !(g.wirkung.art === 'zutat' && g.wirkung.fuer === 'beigabe')) meldeB(`brauen.beigaben: '${bg.gegenstand}' ist keine Beigabe`);
+    }
+    // D403: Baukasten — Schema, Preise, Zeug-Grundstücke.
+    const wb = Waffenbaukasten.safeParse(JSON.parse(readFileSync('content/waffenteile.json', 'utf8')));
+    if (!wb.success) meldeB(`waffenteile.json: ${wb.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    else {
+      for (const [fam, f] of Object.entries(wb.data.familien)) for (const t of [...f.kopf, ...f.schaft]) kenne(`waffenteile ${fam}/${t.id}`, Object.keys(t.preis));
+      for (const m of wb.data.material) kenne(`waffenteile material ${m.id}`, Object.keys(m.preis));
+      kenne('waffenteile zeug', wb.data.zeug.grundstuecke.map(g => g.gegenstand));
+      for (const g of wb.data.gestalten) kenne(`waffenteile gestalten ${g.id}`, Object.keys(g.preis ?? {}));
+    }
+    if (d.baukasten) kenne('baukasten.umbau', Object.keys(d.baukasten.umbau));
+    // D405: Waffenfamilien (Plan), Fernkampf-Entwurf, Wirken der Marke.
+    const wf = Waffenfamilienplan.safeParse(JSON.parse(readFileSync('content/waffenfamilien.json', 'utf8')));
+    if (!wf.success) meldeB(`waffenfamilien.json: ${wf.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    else {
+      for (const fam of wf.data.familien.filter(x => x.status === 'bestand'))
+        if (!existsSync(`content/waffen/${fam.id}.json`)) meldeB(`waffenfamilien.json: Bestandsfamilie '${fam.id}' hat keine Datei in content/waffen/`);
+      const fernIds = new Set(wf.data.fernkampf.waffen.map(x => x.id));
+      for (const g of wf.data.fernkampf.geschosse) {
+        kenne(`waffenfamilien fernkampf ${g.id}`, Object.keys(g.preis));
+        for (const w of g.fuer) if (!fernIds.has(w)) meldeB(`waffenfamilien.json: Geschoss '${g.id}' nennt die Fernwaffe '${w}', die es nicht gibt`);
+      }
+      const k1 = wf.data.familien.filter(x => x.kapitel === 1 && x.status !== 'zurueckgestellt').length;
+      if (k1 < 4 || k1 > 6) meldeB(`waffenfamilien.json: ${k1} Familien in Kapitel 1, vorgesehen sind etwa fünf (D404)`);
+    }
+    // D410: Geräte — Betriebsstoff gibt es als Gegenstand, Nahbereich, je Element eines.
+    const ge = Geraete.safeParse(JSON.parse(readFileSync('content/geraete.json', 'utf8')));
+    if (!ge.success) meldeB(`geraete.json: ${ge.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    else for (const g of ge.data.filter(x => x.status !== 'geparkt')) {
+      kenne(`geraete ${g.id}`, [g.betriebsstoff.gegenstand]);
+      const stoff = gegenstaende.find((x: any) => x.id === g.betriebsstoff.gegenstand);
+      if (stoff && stoff.traglast === undefined) meldeB(`geraete.json: Betriebsstoff '${stoff.id}' von '${g.id}' hat keine Traglast`);
+      for (const a of g.aufsaetze) if (a.verbrauch > g.betriebsstoff.jeFuellung) meldeB(`geraete.json: ${g.id}/${a.id} verbraucht mehr als eine Füllung`);
+    }
+    const wk = Wirken.safeParse(JSON.parse(readFileSync('content/wirken.json', 'utf8')));
+    if (!wk.success) meldeB(`wirken.json: ${wk.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    else for (const w of wk.data) if (w.markenStufe > d.marke.schwellen.length) meldeB(`wirken.json: '${w.id}' verlangt Markenstufe ${w.markenStufe}, es gibt nur ${d.marke.schwellen.length}`);
+    const tk = Techniken.safeParse(JSON.parse(readFileSync('content/techniken.json', 'utf8')));
+    if (!tk.success) meldeB(`techniken.json: ${tk.error.issues.map(i => `${i.path.join('.')} ${i.message}`).join('; ')}`);
+    for (const [region, r] of Object.entries(d.regionen)) {
+      if (!regionen.some((x: any) => x.id === region)) meldeB(`oekonomie.json: Region '${region}' gibt es nicht`);
+      kenne(`regionen.${region}.einmalig`, Object.keys(r.einmalig));
+    }
+  }
+}
+
 for (const a of auftraege) {
   if (!bewohner.has(a.geber)) meldeA(a.id, `Geber '${a.geber}' ist kein Bewohner-Ort`);
   if (a.vorher && !auftragIds.has(a.vorher)) meldeA(a.id, `Vorbedingung '${a.vorher}' gibt es nicht`);
@@ -129,7 +449,7 @@ for (const a of auftraege) {
   for (const g of Object.keys(a.belohnung))
     if (!gegenstandIds.has(g)) meldeA(a.id, `Belohnung '${g}' gibt es nicht`);
   const z = a.ziel;
-  if ((z.art === 'besiege' || z.art === 'fange') && !kreaturIds.has(z.kreatur))
+  if ((z.art === 'besiege' || z.art === 'reinige') && !kreaturIds.has(z.kreatur))
     meldeA(a.id, `Ziel-Kreatur '${z.kreatur}' gibt es nicht`);
   if (z.art === 'finde' && !fragmentIds.has(z.fragment))
     meldeA(a.id, `Ziel-Fragment '${z.fragment}' gibt es nicht`);
@@ -305,6 +625,187 @@ if (orte.length && existsSync(`public/world/${region.id}.json`)) {
     + `im 70-m-Umkreis (${schlimmster.id}), ${nachbarn.filter(x => x.n === 0).length} ganz allein`);
 }
 
+/**
+ * Lage der Enklave, Flut und Wege (Story-Bibel v2 §3–§5, D375).
+ *
+ * Alles hier misst gegen das Höhenraster der Region. Die Schwellen sind Entwurfsregeln aus der Story-Bibel, keine
+ * Spielwerte: Sie entscheiden nicht, was im Spiel passiert, sondern ob die Ortsliste noch zu dem passt, was
+ * entschieden wurde.
+ */
+{
+  /** Reinkultur-Orte: Mindestabstand zur Enklave und zur Regionsmitte (Spielstart), Story-Bibel v2 §4 / D375. */
+  const REINKULTUR_FERN = 900;
+  /** „In drei Himmelsrichtungen“: Zwei Reinkultur-Orte liegen von der Enklave aus mindestens so weit auseinander. */
+  const REINKULTUR_WINKEL = 45;
+  /** Der Abendweg (D177) ist eine Gerade durch alles, was im Weg steht — länger soll sie nicht sein. */
+  const ABENDWEG_MAX = 150;
+  const meldeL = (was: string) => { console.log(`  ✗ ${was}`); auftragsfehler++; };
+  for (const region of regionen) {
+    if (!existsSync(`public/world/${region.id}.json`)) continue;
+    const welt = JSON.parse(readFileSync(`public/world/${region.id}.json`, 'utf8')).welt;
+    const [sued, west, nord, ost] = region.bbox as number[];
+    const n: number = welt.aufloesung;
+    const roh = Buffer.from(welt.hoehenB64, 'base64');
+    const breite = (ost - west) * 111_320 * Math.cos((sued + nord) / 2 * Math.PI / 180), tiefe = (nord - sued) * 111_320;
+    /** Wie `nachMetern` (`src/data/inhalte.ts`) und `weltZuRaster` (`src/world/terrain.ts`). */
+    const meter = ([lat, lon]: number[]): [number, number] =>
+      [((lon - west) / (ost - west) - 0.5) * breite, ((nord - lat) / (nord - sued) - 0.5) * tiefe];
+    const hoehe = (ort: number[]) => {
+      const [x, z] = meter(ort);
+      const i = Math.max(0, Math.min(n - 1, Math.round((z / tiefe + 0.5) * (n - 1))));
+      const j = Math.max(0, Math.min(n - 1, Math.round((x / breite + 0.5) * (n - 1))));
+      return roh.readInt16LE((i * n + j) * 2) / 10;
+    };
+    const weite = (a: number[], b: number[]) => { const p = meter(a), q = meter(b); return Math.hypot(p[0] - q[0], p[1] - q[1]); };
+    const hiesige = alleOrte.filter((o: any) => o.region === region.id);
+
+    // Tagesroutine: Ziel gibt es, ist ein Bewohner derselben Region, und der Weg ist kurz.
+    for (const o of hiesige.filter((x: any) => x.abends)) {
+      const zielOrt = hiesige.find((x: any) => x.id === o.abends);
+      if (!zielOrt || zielOrt.art !== 'bewohner') meldeL(`${o.id}: Abendziel '${o.abends}' ist kein Bewohner in ${region.id}`);
+      else if (weite(o.ort, zielOrt.ort) > ABENDWEG_MAX)
+        meldeL(`${o.id}: Abendweg ${weite(o.ort, zielOrt.ort).toFixed(0)} m zu '${o.abends}' — höchstens ${ABENDWEG_MAX} m`);
+    }
+
+    const flut: number | undefined = region.flutlinie;
+    if (flut !== undefined) {
+      if (flut <= welt.hoeheMin || flut >= welt.hoeheMax) meldeL(`${region.id}: Flutlinie ${flut} m liegt ausserhalb des Geländes`);
+      // Wer wohnt oder rastet, tut es über dem Wasser.
+      const nass = hiesige.filter((o: any) => hoehe(o.ort) <= flut);
+      nass.forEach((o: any) => meldeL(`${o.id}: liegt auf ${hoehe(o.ort)} m unter der Flutlinie ${flut} m`));
+      const unter = welt.gebaeude.filter((g: any) => hoehe(g.punkte[0]) < flut).length;
+      if (!nass.length) console.log(`  ✓ ${region.id}: Flutlinie ${flut} m — ${hiesige.length} Orte darüber, ${unter} von ${welt.gebaeude.length} Gebäuden darunter`);
+    }
+
+    const enklave = region.enklave;
+    if (enklave) {
+      if (flut !== undefined && hoehe(enklave.ort) <= flut + 3) meldeL(`${region.id}: Enklave „${enklave.name}“ liegt nicht über der Flut`);
+      // Keine Nabe (Story-Struktur v1): nicht die Mehrheit der Enklaven-Bewohner in einem 80-m-Kreis.
+      const nah = hiesige.filter((o: any) => o.art === 'bewohner' && weite(o.ort, enklave.ort) < 600);
+      const dichtester = Math.max(0, ...nah.map((a: any) => nah.filter((b: any) => weite(a.ort, b.ort) <= 80).length));
+      if (nah.length >= 4 && dichtester > nah.length / 2) meldeL(`${region.id}: ${dichtester} von ${nah.length} Enklaven-Bewohnern in einem 80-m-Kreis — das ist eine Nabe`);
+      // Reinkulturen: fern von Enklave und Start, und nicht alle in einer Richtung.
+      const regent = regenten.find((r: any) => r.id === region.regent);
+      const stellen: { k: string; ort: number[] }[] = [];
+      for (const k of regent?.reinkulturen ?? []) {
+        const a = auftraege.find((x: any) => k in x.belohnung && x.ziel.art === 'finde');
+        const f = a && fragmente.find((x: any) => x.id === a.ziel.fragment);
+        if (f) stellen.push({ k, ort: f.ort });
+      }
+      const peil = (ort: number[]) => { const p = meter(ort), e = meter(enklave.ort); return Math.atan2(p[0] - e[0], -(p[1] - e[1])) * 180 / Math.PI; };
+      for (const st of stellen) {
+        const zurEnklave = weite(st.ort, enklave.ort), zumStart = Math.hypot(...meter(st.ort));
+        if (zurEnklave < REINKULTUR_FERN || zumStart < REINKULTUR_FERN)
+          meldeL(`${region.id}: Reinkultur '${st.k}' liegt ${zurEnklave.toFixed(0)} m von der Enklave und ${zumStart.toFixed(0)} m vom Start — mindestens ${REINKULTUR_FERN} m`);
+      }
+      for (let i = 0; i < stellen.length; i++) for (let j = i + 1; j < stellen.length; j++) {
+        const d = Math.abs(((peil(stellen[i].ort) - peil(stellen[j].ort) + 540) % 360) - 180);
+        if (d < REINKULTUR_WINKEL) meldeL(`${region.id}: Reinkulturen '${stellen[i].k}' und '${stellen[j].k}' liegen in derselben Richtung (${d.toFixed(0)}°)`);
+      }
+      console.log(`  ✓ ${region.id}: Enklave „${enklave.name}“ auf ${hoehe(enklave.ort)} m, ${nah.length} Bewohner (dichtester 80-m-Kreis: ${dichtester}), ${stellen.length} Reinkultur-Orte: `
+        + stellen.map(st => `${st.k} ${weite(st.ort, enklave.ort).toFixed(0)} m/${((peil(st.ort) + 360) % 360).toFixed(0)}°`).join(', '));
+    }
+
+    // Verborgene Orte: Die Kreatur lebt hier, das Fundstück gibt es, und kein Auftrag zeigt darauf.
+    for (const v of region.verborgeneOrte ?? []) {
+      const [lat, lon] = v.ort;
+      if (lat < sued || lat > nord || lon < west || lon > ost) meldeL(`${region.id}: verborgener Ort '${v.id}' liegt ausserhalb der Bbox`);
+      if (!region.kreaturen.includes(v.verhaerteter)) meldeL(`${region.id}: verborgener Ort '${v.id}' nennt '${v.verhaerteter}', das hier nicht lebt`);
+      const f = v.fragment ? fragmente.find((x: any) => x.id === v.fragment) : undefined;
+      if (v.fragment && !f) meldeL(`${region.id}: verborgener Ort '${v.id}' nennt ein Fundstück '${v.fragment}', das es nicht gibt`);
+      if (f && weite(f.ort, v.ort) > 30) meldeL(`${region.id}: Fundstück '${f.id}' liegt ${weite(f.ort, v.ort).toFixed(0)} m vom verborgenen Ort '${v.id}'`);
+      const verraeter = auftraege.find((a: any) => a.ziel.art === 'finde' && a.ziel.fragment === v.fragment);
+      if (verraeter) meldeL(`${region.id}: Auftrag '${verraeter.id}' zeigt auf den verborgenen Ort '${v.id}' — dann ist er nicht verborgen`);
+    }
+    if (region.verborgeneOrte?.length) console.log(`  ✓ ${region.id}: ${region.verborgeneOrte.length} verborgene Orte, von keinem Auftrag genannt`);
+
+    // Wanderfiguren: Bedingungen zeigen auf Vorhandenes; unter der Flutlinie steht niemand, solange der Regent staut.
+    const hiesigeFiguren = wanderfiguren.filter((f: any) => f.region === region.id);
+    for (const f of hiesigeFiguren) {
+      let trocken = false;          // ab hier ist der Regent sicher besiegt
+      for (const st of f.stationen) {
+        for (const b of [st.ab, st.bis].filter(Boolean)) {
+          if (b.art === 'finde' && !fragmente.some((x: any) => x.id === b.fragment && x.region === region.id)) meldeL(`Wanderfigur '${f.id}': Fundstück '${b.fragment}' gibt es in ${region.id} nicht`);
+          if ((b.art === 'regent' || b.art === 'heile') && b.regent !== region.regent) meldeL(`Wanderfigur '${f.id}': Regent '${b.regent}' ist nicht der von ${region.id}`);
+          if (b.art === 'auftrag' && !auftraege.some((x: any) => x.id === b.auftrag)) meldeL(`Wanderfigur '${f.id}': Auftrag '${b.auftrag}' gibt es nicht`);
+        }
+        const [lat, lon] = st.ort;
+        if (lat < sued || lat > nord || lon < west || lon > ost) meldeL(`Wanderfigur '${f.id}': Station „${st.wo}“ liegt ausserhalb der Bbox`);
+        if (st.ab && (st.ab.art === 'regent' || st.ab.art === 'heile')) trocken = true;
+        if (flut !== undefined && !trocken && hoehe(st.ort) <= flut) meldeL(`Wanderfigur '${f.id}': Station „${st.wo}“ liegt auf ${hoehe(st.ort)} m unter der Flutlinie, bevor das Wasser sinkt`);
+        // Im Grundriss stünde sie in der Wand.
+        const drin = welt.gebaeude.some((g: any) => { const q: number[][] = g.punkte; let c = false;
+          for (let i = 0; i < q.length - 1; i++) { const [y1, x1] = q[i], [y2, x2] = q[i + 1];
+            if ((y1 > lat) !== (y2 > lat) && lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1) c = !c; }
+          return c; });
+        if (drin) meldeL(`Wanderfigur '${f.id}': Station „${st.wo}“ steht im Grundriss`);
+        if (st.bis && (st.bis.art === 'regent' || st.bis.art === 'heile')) trocken = true;
+      }
+    }
+    if (enklave) for (const fr of ['enklave', 'moenche', 'erbe'])
+      if (hiesigeFiguren.filter((f: any) => f.fraktion === fr).length !== 1) meldeL(`${region.id}: genau eine Wanderfigur der Fraktion '${fr}' erwartet (Story-Bibel v2 §5)`);
+    if (hiesigeFiguren.length) console.log(`  ✓ ${region.id}: ${hiesigeFiguren.length} Wanderfiguren mit ${hiesigeFiguren.reduce((a: number, f: any) => a + f.stationen.length, 0)} Stationen`);
+
+    // Lehrstrecken (D381, D390): Lage, Verweise, Lektionen. Schwellen sind Entwurfsregeln wie oben, keine Spielwerte.
+    /** So nah an der Station liegen ihr Fundstück und ihre Zuflucht (Fundradius 9 m, Ortsradius 7 m, dazu Spielraum). */
+    const STATION_NAH = 40;
+    for (const s of strecken.filter((x: any) => x.region === region.id)) {
+      const meldeS = (was: string) => meldeL(`Strecke '${s.id}': ${was}`);
+      const imGrundriss = ([lat, lon]: number[]) => welt.gebaeude.some((g: any) => { const q: number[][] = g.punkte; let c = false;
+        for (let i = 0; i < q.length - 1; i++) { const [y1, x1] = q[i], [y2, x2] = q[i + 1];
+          if ((y1 > lat) !== (y2 > lat) && lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1) c = !c; }
+        return c; });
+      const ziel = hiesige.find((o: any) => o.id === s.ankunft.bewohner);
+      if (!ziel || ziel.art !== 'bewohner') meldeS(`Ankunft '${s.ankunft.bewohner}' ist kein Bewohner in ${region.id}`);
+      else if (enklave && weite(ziel.ort, enklave.ort) > 600) meldeS(`Ankunft '${ziel.id}' liegt ${weite(ziel.ort, enklave.ort).toFixed(0)} m von der Enklave — das ist nicht die Enklave`);
+      if (!hiesige.some((o: any) => o.id === s.ankunft.zuflucht && o.art === 'zuflucht')) meldeS(`Ankunfts-Zuflucht '${s.ankunft.zuflucht}' gibt es in ${region.id} nicht`);
+      if (weite(s.start.ort, s.stationen[0].ort) > STATION_NAH) meldeS(`die erste Station liegt ${weite(s.start.ort, s.stationen[0].ort).toFixed(0)} m vom Start`);
+      const gelehrt = new Set<string>();
+      let davor = Infinity, luftlinie = 0;
+      s.stationen.forEach((st: any, i: number) => {
+        const wo = `Station „${st.name}“`;
+        const [lat, lon] = st.ort;
+        if (lat < sued || lat > nord || lon < west || lon > ost) meldeS(`${wo} liegt ausserhalb der Bbox`);
+        if (flut !== undefined && hoehe(st.ort) <= flut) meldeS(`${wo} liegt auf ${hoehe(st.ort)} m unter der Flutlinie`);
+        if (imGrundriss(st.ort)) meldeS(`${wo} steht im Grundriss`);
+        // Jede Station führt näher ans Ziel — sonst ist es keine Strecke, sondern eine Liste von Orten.
+        if (ziel) { const d = weite(st.ort, ziel.ort); if (d >= davor) meldeS(`${wo} liegt nicht näher an der Ankunft als die Station davor`); davor = d; }
+        if (i > 0) luftlinie += weite(s.stationen[i - 1].ort, st.ort);
+        st.lehrt.forEach((l: string) => gelehrt.add(l));
+        const arten = st.gegner.map((g: any) => gegnerDaten.find((x: any) => x.id === g.art));
+        st.gegner.forEach((g: any, k: number) => {
+          if (!arten[k]) meldeS(`${wo}: Gegner '${g.art}' gibt es nicht in content/gegner`);
+          else if (!arten[k].linien && !arten[k].mensch) meldeS(`${wo}: '${g.art}' ist der Platzhalter ohne Körperbau, kein Gegner für die Welt`);
+        });
+        // Die Marke greift nur bei Befallenen (D385): Reinigen lernt man an einem Tier.
+        if (st.lehrt.includes('reinigen') && !arten.some((a: any) => a && !a.mensch)) meldeS(`${wo} lehrt Reinigen, hat aber kein Tier`);
+        const kampf = ['leichter-angriff', 'ausdauer', 'rolle', 'block', 'parade', 'lock-on', 'haltung', 'reinigen'];
+        if (st.lehrt.some((l: string) => kampf.includes(l)) && !st.gegner.length) meldeS(`${wo} lehrt eine Kampfhandlung ohne Gegner`);
+        if (st.lehrt.includes('lock-on') && st.gegner.reduce((a: number, g: any) => a + g.anzahl, 0) < 2) meldeS(`${wo} lehrt den Zielwechsel an weniger als zwei Gegnern`);
+        if (st.lehrt.includes('rast') && !st.zuflucht) meldeS(`${wo} lehrt die Rast ohne Zuflucht`);
+        if (st.fragment) {
+          const f = fragmente.find((x: any) => x.id === st.fragment && x.region === region.id);
+          if (!f) meldeS(`${wo}: Fundstück '${st.fragment}' gibt es in ${region.id} nicht`);
+          else if (weite(f.ort, st.ort) > STATION_NAH) meldeS(`${wo}: Fundstück '${f.id}' liegt ${weite(f.ort, st.ort).toFixed(0)} m entfernt`);
+          if ((region.verborgeneOrte ?? []).some((v: any) => v.fragment === st.fragment)) meldeS(`${wo} zeigt auf das Fundstück eines verborgenen Orts`);
+        }
+        if (st.zuflucht) {
+          const z = hiesige.find((o: any) => o.id === st.zuflucht && o.art === 'zuflucht');
+          if (!z) meldeS(`${wo}: Zuflucht '${st.zuflucht}' gibt es in ${region.id} nicht`);
+          else if (weite(z.ort, st.ort) > STATION_NAH) meldeS(`${wo}: Zuflucht '${z.id}' liegt ${weite(z.ort, st.ort).toFixed(0)} m entfernt`);
+        }
+      });
+      const fehlt = LEKTIONEN.filter(l => !gelehrt.has(l));
+      if (fehlt.length) meldeS(`lehrt nicht: ${fehlt.join(', ')}`);
+      if (ziel) luftlinie += weite(s.stationen[s.stationen.length - 1].ort, ziel.ort);
+      console.log(`  ✓ ${region.id}: Strecke „${s.name}“ — ${s.stationen.length} Stationen, ${luftlinie.toFixed(0)} m von Station zu Station bis zur Ankunft, `
+        + `${s.stationen.reduce((a: number, st: any) => a + st.gegner.reduce((b: number, g: any) => b + g.anzahl, 0), 0)} Gegner, ${gelehrt.size} von ${LEKTIONEN.length} Lektionen`);
+    }
+  }
+  for (const f of wanderfiguren) if (!regionen.some((r: any) => r.id === f.region)) meldeL(`Wanderfigur '${f.id}' nennt eine Region, die es nicht gibt`);
+  for (const s of strecken) if (!regionen.some((r: any) => r.id === s.region)) meldeL(`Strecke '${s.id}' nennt eine Region, die es nicht gibt`);
+}
+
 const zufluchten = orte.filter((o: any) => o.art === 'zuflucht').length;
 for (const r of regionen) if (!orte.some((o: any) => o.art === 'zuflucht' && o.region === r.id)) {
   console.log(`  ✗ ${r.id}: keine Zuflucht — dann bleibt die Niederlage der beste Weg zu vollen KP`);
@@ -314,6 +815,93 @@ console.log(auftragsfehler === 0
   ? `  ✓ ${auftraege.length} Aufträge und ${orte.length} Orte hängen zusammen (${zufluchten} Zufluchten)`
   : `  ${auftragsfehler} Fehler in Aufträgen und Orten`);
 fehler += auftragsfehler;
+
+// D416: Reviere — Raster lückenlos (jede Zelle genau ein bekanntes Revier, also auch keine Überlappung), jedes Revier
+// zusammenhängend, Nachbarschaft symmetrisch und gleich der Zellkante, jede Zuflucht in genau einem Revier.
+console.log('\nReviere (D416):');
+{
+  let rf = 0;
+  const melde = (was: string) => { console.log(`  ✗ ${was}`); rf++; };
+  const karten = existsSync('content/reviere') ? pruefe<any>('content/reviere', Revierkarte) : [];
+  const alleIds = new Map<string, any>();
+  for (const k of karten) for (const r of k.reviere) alleIds.set(r.id, r);
+  for (const k of karten) {
+    const region = regionen.find((r: any) => r.id === k.region);
+    if (!region) { melde(`reviere/${k.region}: Region gibt es nicht`); continue; }
+    const { spalten, zeilen, karte, vorkommenRaster } = k.raster;
+    const welt = existsSync(`public/world/${k.region}.json`) ? JSON.parse(readFileSync(`public/world/${k.region}.json`, 'utf8')).welt : null;
+    if (welt && welt.aufloesung !== vorkommenRaster) melde(`reviere/${k.region}: vorkommenRaster ${vorkommenRaster} ≠ Weltraster ${welt.aufloesung}`);
+    const nachZeichen = new Map<string, any>(k.reviere.map((r: any) => [r.zeichen, r]));
+    const zellen = new Map<string, number>(), kante = new Map<string, Set<string>>();
+    for (let i = 0; i < zeilen; i++) for (let j = 0; j < spalten; j++) {
+      const ch = karte[i][j];
+      if (!nachZeichen.has(ch)) { melde(`reviere/${k.region}: Zelle ${i}/${j} '${ch}' gehört keinem Revier (Lücke)`); continue; }
+      zellen.set(ch, (zellen.get(ch) ?? 0) + 1);
+      for (const [di, dj] of [[1, 0], [0, 1]]) {
+        const ni = i + di, nj = j + dj;
+        if (ni >= zeilen || nj >= spalten || karte[ni][nj] === ch || !nachZeichen.has(karte[ni][nj])) continue;
+        const a = nachZeichen.get(ch).id, b = nachZeichen.get(karte[ni][nj]).id;
+        (kante.get(a) ?? kante.set(a, new Set()).get(a)!).add(b);
+        (kante.get(b) ?? kante.set(b, new Set()).get(b)!).add(a);
+      }
+    }
+    const { breite, tiefe } = masseAus(region.bbox);
+    const zellKm2 = breite * tiefe / (spalten * zeilen) / 1e6;
+    const kreaturIds = new Set(kreaturen.map((x: any) => x.id));
+    for (const r of k.reviere) {
+      if (!r.id.startsWith(`${k.region}-`)) melde(`Revier '${r.id}': ID ohne Vorsilbe '${k.region}-' (ADR-0020: Nachbarn über die Grenze)`);
+      const n = zellen.get(r.zeichen) ?? 0;
+      if (!n) { melde(`Revier '${r.id}': keine Zelle im Raster`); continue; }
+      // Zusammenhang: Flutfüllung von der ersten Zelle.
+      const start = karte.flatMap((z: string, i: number) => [...z].map((c, j) => [c, i, j] as const)).find(([c]: readonly [string, number, number]) => c === r.zeichen)!;
+      const gesehen = new Set<string>([`${start[1]}/${start[2]}`]);
+      const offen: [number, number][] = [[start[1], start[2]]];
+      while (offen.length) {
+        const [i, j] = offen.pop()!;
+        for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const ni = i + di, nj = j + dj, s = `${ni}/${nj}`;
+          if (ni < 0 || nj < 0 || ni >= zeilen || nj >= spalten || gesehen.has(s) || karte[ni][nj] !== r.zeichen) continue;
+          gesehen.add(s); offen.push([ni, nj]);
+        }
+      }
+      if (gesehen.size !== n) melde(`Revier '${r.id}': zerfällt in Teile (${gesehen.size} von ${n} Zellen zusammenhängend)`);
+      if (Math.abs(r.flaecheKm2 - n * zellKm2) > 0.011) melde(`Revier '${r.id}': flaecheKm2 ${r.flaecheKm2} ≠ ${(n * zellKm2).toFixed(2)} aus dem Raster`);
+      const soll = [...(kante.get(r.id) ?? [])].sort();
+      const hier = r.nachbarn.filter((id: string) => alleIds.has(id) && id.startsWith(`${k.region}-`)).sort();
+      if (soll.join() !== hier.join()) melde(`Revier '${r.id}': Nachbarn ${hier.join(',')} ≠ Zellkante ${soll.join(',')}`);
+      for (const id of r.nachbarn) {
+        const nb = alleIds.get(id);
+        if (!nb) melde(`Revier '${r.id}': Nachbar '${id}' gibt es nicht`);
+        else if (!nb.nachbarn.includes(r.id)) melde(`Revier '${r.id}': Nachbarschaft zu '${id}' nicht symmetrisch`);
+      }
+      for (const kr of Object.keys(r.tiere)) if (!kreaturIds.has(kr)) melde(`Revier '${r.id}': Kreatur '${kr}' gibt es nicht`);
+    }
+    // Jede Zuflucht und jeder verborgene Ort der Region in genau einem Revier — und zwar in dem, in dessen Zellen er liegt.
+    const rw = baueRevierwelt([k], [{ id: k.region, bbox: region.bbox }]);
+    const pruefeOrt = (id: string, ort: [number, number], feld: 'zufluchten' | 'verborgeneOrte') => {
+      const in_ = k.reviere.filter((r: any) => r[feld].includes(id));
+      const [sued, west, nord, ost] = region.bbox;
+      const x = ((ort[1] - west) / (ost - west) - 0.5) * breite, z = ((nord - ort[0]) / (nord - sued) - 0.5) * tiefe;
+      const da = rw.revierAn(k.region, x, z);
+      if (in_.length !== 1) melde(`reviere/${k.region}: '${id}' steht in ${in_.length} Revieren (${feld}), nicht in genau einem`);
+      else if (da?.id !== in_[0].id) melde(`reviere/${k.region}: '${id}' liegt in '${da?.id}', steht aber bei '${in_[0].id}'`);
+    };
+    for (const o of orte.filter((o: any) => o.region === k.region && o.art === 'zuflucht')) pruefeOrt(o.id, o.ort, 'zufluchten');
+    for (const v of region.verborgeneOrte ?? []) pruefeOrt(v.id, v.ort, 'verborgeneOrte');
+    const bekannt = new Set([...orte.filter((o: any) => o.region === k.region && o.art === 'zuflucht').map((o: any) => o.id), ...(region.verborgeneOrte ?? []).map((v: any) => v.id)]);
+    for (const r of k.reviere) for (const id of [...r.zufluchten, ...r.verborgeneOrte]) if (!bekannt.has(id)) melde(`Revier '${r.id}': '${id}' ist keine Zuflucht/kein verborgener Ort der Region`);
+    if (!rf) {
+      const tiere = k.reviere.reduce((n: number, r: any) => n + Object.values(r.tiere as Record<string, number>).reduce((a, b) => a + b, 0), 0);
+      console.log(`  ✓ ${k.region}: ${k.reviere.length} Reviere, ${spalten}×${zeilen} Zellen lückenlos, zusammenhängend, Nachbarn symmetrisch, ${bekannt.size} Zufluchten/Orte je in genau einem, ${tiere} Tiere`);
+      ok++;
+    }
+  }
+  // Die Regel am Zähler (`misstraut`) braucht Reviere in ihrer Region.
+  for (const f of wanderfiguren) for (const s of f.stationen) for (const b of [s.ab, s.bis]) {
+    if (b?.art === 'misstraut' && !karten.some((k: any) => k.region === f.region)) melde(`Wanderfigur '${f.id}': 'misstraut' ohne Reviere in '${f.region}'`);
+  }
+  fehler += rf;
+}
 
 console.log(`\n${ok} gültig, ${fehler} fehlerhaft\n`);
 

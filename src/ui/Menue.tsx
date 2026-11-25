@@ -33,6 +33,7 @@ import { KREATUREN, GEGENSTAENDE, FRAGMENTE, ORTE, ausKaempferId, nachMetern }
 import { wendeAn, wirktAuf } from '../spiel/gegenstaende.js';
 import { verschiebe, zustandsAnzeige } from '../spiel/team.js';
 import { zeichneKarte, zeichneMarken, type Kartenmarke } from './karte.js';
+import { aktionenVon } from '../spieler/eingabe.js';
 
 export type Reiter = 'karte' | 'beutel' | 'team' | 'verzeichnis';
 
@@ -59,6 +60,9 @@ export interface MenueProps {
   onSchliessen: () => void;
   /** Charakter-Editor öffnen (D175). */
   onFigur?: () => void;
+  /** D355: Richtungskampf (vier Linien) an oder aus. */
+  richtung?: boolean;
+  onRichtung?: (an: boolean) => void;
 }
 
 const FARBE = {
@@ -90,7 +94,8 @@ export function Menue(p: MenueProps) {
   const [wartetAufZiel, setWartetAufZiel] = useState<Gegenstand | null>(null);
 
   useEffect(() => {
-    const auf = (e: KeyboardEvent) => { if (e.key === 'Escape') p.onSchliessen(); };
+    // D415: Aktion `menue` (Esc, Gamepad Start) aus `spieler/eingabe.ts`; `key` bleibt als Rückfall.
+    const auf = (e: KeyboardEvent) => { if (e.key === 'Escape' || aktionenVon(e.code).includes('menue')) p.onSchliessen(); };
     window.addEventListener('keydown', auf);
     return () => window.removeEventListener('keydown', auf);
   }, [p.onSchliessen]);
@@ -132,12 +137,17 @@ export function Menue(p: MenueProps) {
               color: reiter === id ? FARBE.akzent : FARBE.matt,
             }}>{text}</button>
         ))}
-        {p.onFigur && <button onClick={p.onFigur} style={{
+        {p.onRichtung && <button onClick={() => p.onRichtung!(!p.richtung)}
+          title="Richtungskampf: Block und Angriff in vier Linien (ADR-0009)" style={{
           minHeight: 34, padding: '4px 11px', borderRadius: 7, fontSize: 12, marginLeft: 'auto',
+          background: 'transparent', border: `1px solid ${FARBE.rand}`, color: p.richtung ? FARBE.akzent : FARBE.matt,
+        }}>Richtung {p.richtung ? 'an' : 'aus'}</button>}
+        {p.onFigur && <button onClick={p.onFigur} style={{
+          minHeight: 34, padding: '4px 11px', borderRadius: 7, fontSize: 12, marginLeft: p.onRichtung ? 0 : 'auto',
           background: 'transparent', border: '1px solid transparent', color: FARBE.matt,
         }}>Figur</button>}
         <button onClick={p.onSchliessen} style={{
-          marginLeft: p.onFigur ? 0 : 'auto', minHeight: 34, minWidth: 44, borderRadius: 7,
+          marginLeft: p.onFigur || p.onRichtung ? 0 : 'auto', minHeight: 34, minWidth: 44, borderRadius: 7,
           background: 'transparent', border: `1px solid ${FARBE.rand}`,
           color: FARBE.text, fontSize: 15,
         }}>✕</button>

@@ -1,0 +1,13 @@
+{
+  "id": "zaunbatterie",
+  "name": "Zaunbatterie",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "geraet"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Neun Volt im Blechkasten, für den Weidezaun gebaut. Am Bach beim Stadel hängt ein Modul, das sie in zwei Tagen wieder füllt.",
+  "gewicht": 1.2,
+  "traglast": 2
+}

@@ -18,6 +18,10 @@ shelf-life-days: 365
 > bei 4.000 Dreiecken (`zielTris`) im Nebel; Referenzbilder haben Rim Light und
 > Glow. Ein Modell ist richtig, wenn seine **Silhouette** und sein Farbwert
 > stimmen — nicht, wenn es dem Bild näher kommt.
+>
+> **Hinweis 22.11.2026 (Ledger D384):** Dieses Fidelity-Ziel stammt aus der Low-Poly-Zeit und steht im
+> Widerspruch zu ADR-0018 (Substanz real). Die Gestaltregeln §1–§5 gelten unverändert; ob „4.000 Dreiecke,
+> nur Silhouette“ fällt, entscheidet Flo am Zielbild der Tiere — siehe `../_INDEX.md` D384 und A-30.
 
 **Quelle:** Referenzbild von Flo, 16.08.2026. Vier Linien in je drei Mutationsstufen:
 Steinbock, Gämse, Alpenmurmel, Alpenschneehuhn.

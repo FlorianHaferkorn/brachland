@@ -1,0 +1,84 @@
+{
+  "id": "weg-nach-brannburg",
+  "region": "oental",
+  "name": "Der Weg nach Brannburg",
+  "start": { "ort": [47.733, 12.0815], "blick": -77 },
+  "stationen": [
+    {
+      "id": "aufbruch",
+      "name": "Am Talweg",
+      "ort": [47.733, 12.0815],
+      "lehrt": ["bewegen", "kamera"],
+      "bild": "Unten steht Wasser, wo das Tal war. Dächer schauen heraus. Links davon, hinter der nächsten Kuppe und über der Wasserlinie, steigt Rauch auf — der einzige weit und breit. Ein Fahrweg führt in diese Richtung."
+    },
+    {
+      "id": "hof-am-fahrweg",
+      "name": "Zwei Höfe am Fahrweg",
+      "ort": [47.73262, 12.08397],
+      "lehrt": ["leichter-angriff", "ausdauer"],
+      "gegner": [{ "art": "fuchs", "anzahl": 1 }],
+      "fragment": "hoftor-fahrweg"
+    },
+    {
+      "id": "steig",
+      "name": "Im Steig",
+      "ort": [47.73359, 12.08532],
+      "lehrt": ["rolle"],
+      "gegner": [{ "art": "keiler", "anzahl": 1 }],
+      "bild": "Der Steig ist quer zum Hang aufgewühlt, immer an derselben Stelle. Die Buchenwurzeln liegen frei und sind blank gescheuert. Über die Kante sieht man zum ersten Mal Dächer, aus denen es raucht.",
+      "wege": [
+        { "art": "beschwerlich", "text": "Der Steig in Kehren durch die Hangstufe, 170 m für 37 Höhenmeter, am Keiler vorbei." },
+        { "art": "werkzeug", "werkzeug": "klettern", "text": "Die Stufe in der Falllinie, rund 60 m. Im Höhenraster 24–35° und damit gehbar; eine Abkürzung für Kletternde wird es erst, wenn dort eine Wand gebaut ist." }
+      ]
+    },
+    {
+      "id": "steigfuss",
+      "name": "Unter dem Steig",
+      "ort": [47.73406, 12.08623],
+      "lehrt": ["reinigen"],
+      "gegner": [{ "art": "keiler", "anzahl": 1 }],
+      "bild": "Ein zweiter Keiler steht in der Wiese vor der Remise und frisst nicht. Der Schimmer sitzt ihm zwischen den Schultern. Wenn er wund ist und den Kopf hängen lässt, meldet sich das Zeichen am Arm."
+    },
+    {
+      "id": "remise",
+      "name": "Remise am Steig",
+      "ort": [47.73446, 12.0864],
+      "lehrt": ["rast"],
+      "zuflucht": "remise-am-steig",
+      "bild": "Der Keiler von vorhin grast vor dem Tor und hebt den Kopf nicht. Drinnen ist es still genug zum Schlafen. Wer hier geschlafen hat, dessen Zeichen greift wieder."
+    },
+    {
+      "id": "halle",
+      "name": "Halle an der Gabelung",
+      "ort": [47.7344, 12.08778],
+      "lehrt": ["lock-on"],
+      "gegner": [{ "art": "fuchs", "anzahl": 2 }],
+      "fragment": "halle-gabelung",
+      "wege": [
+        { "art": "beschwerlich", "text": "Der Fussweg nach Norden über die Furt: 518 m bis zur Magd, an Wolf und Grathorn vorbei." },
+        { "art": "werkzeug", "werkzeug": "reiten", "text": "Der Fahrweg nach Osten und ums Nordende der Terrasse zur Schmiedin: zu Fuss 242 m länger und ohne Station, mit Reittier der schnelle Rückweg zum Talweg." }
+      ]
+    },
+    {
+      "id": "furt",
+      "name": "An der Furt",
+      "ort": [47.73621, 12.0891],
+      "lehrt": ["block", "parade"],
+      "gegner": [{ "art": "wolf", "anzahl": 1 }],
+      "fragment": "steg-an-der-furt"
+    },
+    {
+      "id": "tor",
+      "name": "Vor dem ersten Haus",
+      "ort": [47.73696, 12.08832],
+      "lehrt": ["haltung"],
+      "gegner": [{ "art": "grathorn", "anzahl": 1 }],
+      "fragment": "erstes-haus"
+    }
+  ],
+  "ankunft": {
+    "bewohner": "dorf-magd",
+    "zuflucht": "terrasse-saal",
+    "text": "Sie stellt die Eimer nicht ab. Sie sieht auf Ihren Arm, dann den Weg hinauf, den Sie gekommen sind. Am Bock ist seit Wochen keiner vorbeigekommen, sagt sie. Im Saal ist ein Platz frei. Zeigen Sie das Zeichen keinem, der nicht fragt."
+  }
+}

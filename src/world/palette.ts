@@ -106,7 +106,6 @@ export const PALETTE = {
     busch:       '#4d603f',
     findling:    '#858a8e',
     totholz:     '#5a5146',
-    grasbuschel: '#708154',
     farn:        '#5f7a47',
     blume:       '#97935f',
     pilz:        '#817364',
@@ -202,6 +201,8 @@ export const PALETTE = {
     grasFuss:   '#5d6f40',
     grasSpitze: '#8fa069',
     stein:      '#6f716a',
+    /** D292: Äste der Nahstreuung — vergrautes Totholz. Mit der Steinfarbe lasen die gestreckten Körper als weisse Scherben. */
+    ast:        '#4f4337',
   },
 
   /** Elementfarben der Silhouetten — ein Ton je Element, gedämpft. */

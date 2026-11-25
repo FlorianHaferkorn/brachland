@@ -3,8 +3,12 @@
  *
  * Die Zahlen kommen aus `npm run gleit`: 9.600 simulierte Flüge über das echte
  * Höhenfeld, in drei Gleitverhältnissen. 3:1 hat gewonnen, weil 2:1 gegen die
- * 11,0 m/s Rennen nur 0,7 s spart und 4:1 mit 2,9 km Spitzenweite den Rest der
- * Karte zur Kulisse macht.
+ * damaligen 11,0 m/s Rennen nur 0,7 s spart und 4:1 mit 2,9 km Spitzenweite den Rest
+ * der Karte zur Kulisse macht. (Seit D412 rennt man 8,5 m/s; die Messung ist nicht
+ * wiederholt.)
+ *
+ * D412: Der Fall im Test folgt der Bildschleife und endet bei der Endgeschwindigkeit
+ * (`begrenzeFall`, 53 m/s); `fallgeschwindigkeit` ist ebenso gedeckelt.
  *
  * Geprüft wird hier nicht die Weite — die hängt am Gelände und misst das Werkzeug.
  * Geprüft wird die **Regel**: wann der Gleiter aufgeht, wann nicht, und dass er
@@ -15,6 +19,7 @@ import {
   bremse, fallgeschwindigkeit, flugdauer, gleitSchritt, gleiterFrei, neuerFall, reichweite,
 } from '../src/spieler/gleiten.js';
 import { ABSPRUNG, RENNEN, SPRUNGHOEHE, fussweg } from '../src/spieler/tempo.js';
+import { FALL_MAX, begrenzeFall, fallschaden } from '../src/spieler/bewegung.js';
 
 let ok = 0, fehler = 0;
 function pruefe(was: string, bedingung: boolean, notiz = '') {
@@ -28,7 +33,7 @@ function falle(hoehe: number, frei: boolean, faltenBei = -1) {
   let y = hoehe, steigen = 0, t = 0, gleitBilder = 0, strecke = 0;
   const dt = 1 / 60;
   for (let i = 0; i < 60 * 120 && y > 0; i++) {
-    steigen -= 9.81 * dt;
+    steigen = begrenzeFall(steigen - 9.81 * dt);
     const s = gleitSchritt(fall, {
       y, steigen, amBoden: false, gesperrt: false, frei,
       falten: faltenBei >= 0 && t >= faltenBei && t < faltenBei + dt,
@@ -103,6 +108,7 @@ console.log('Gleiten — Regel, nicht Reichweite\n');
   const mit = falle(200, true);
   pruefe('Ohne Gleiter schlägt man hart auf', ohne.aufschlag > 50,
          `${ohne.aufschlag.toFixed(0)} m/s`);
+  pruefe('… und zwar mit Endgeschwindigkeit', Math.abs(ohne.aufschlag - FALL_MAX) < 1e-9);
   pruefe('Mit Gleiter landet man mit Sinkrate', Math.abs(mit.aufschlag - GLEIT_SINKEN) < 0.2,
          `${mit.aufschlag.toFixed(1)} m/s`);
   pruefe('Der Flug dauert deutlich länger', mit.dauer > ohne.dauer * 5,
@@ -145,8 +151,13 @@ console.log('Gleiten — Regel, nicht Reichweite\n');
          `${GLEIT_TEMPO} gegen ${RENNEN} m/s`);
   pruefe('Verhältnis und Tempo passen zusammen',
          Math.abs(GLEIT_TEMPO / GLEIT_SINKEN - GLEIT_VERHAELTNIS) < 1e-9);
-  pruefe('Aus 400 m wäre der Aufschlag tödlich', fallgeschwindigkeit(400) > 80,
+  // Bis D412: `fallgeschwindigkeit(400) > 80` (89 m/s ohne Endgeschwindigkeit). Seither
+  // gedeckelt — tödlich bleibt es trotzdem, das prüft der Fallschaden.
+  pruefe('Aus 400 m: Endgeschwindigkeit, nicht 89 m/s', fallgeschwindigkeit(400) === FALL_MAX,
          `${fallgeschwindigkeit(400).toFixed(0)} m/s`);
+  pruefe('Aus 400 m wäre der Aufschlag tödlich', fallschaden(fallgeschwindigkeit(400)) === 1);
+  pruefe('Mit Gleiter landet man schadlos', fallschaden(GLEIT_SINKEN) === 0,
+         `${GLEIT_SINKEN} m/s`);
 }
 
 // ---- Robustheit -----------------------------------------------------------

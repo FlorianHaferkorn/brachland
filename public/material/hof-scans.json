@@ -1,0 +1,224 @@
+{
+  "geprueft": "2026-11-17",
+  "kachel": 1024,
+  "rand": 8,
+  "innen": 1008,
+  "farbe": "originale sRGB-Albedo; keine Mittelwertnormalisierung",
+  "normal": "OpenGL, lineare Daten",
+  "arm": "R=AO, G=Rauheit, B=Metallanteil 0; lineare Daten",
+  "rollen": [
+    {
+      "rolle": "putz",
+      "quelle": "plastered_wall_03",
+      "quelleUrl": "https://polyhaven.com/a/plastered_wall_03",
+      "meter": 4,
+      "autoren": {
+        "Rob Tuytel": "All"
+      },
+      "lizenz": "CC0-1.0",
+      "lizenzUrl": "https://polyhaven.com/license",
+      "karten": [
+        {
+          "art": "Diffuse",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plastered_wall_03/plastered_wall_03_diff_1k.jpg",
+          "bytes": 555233,
+          "sha256": "3d60687bae1d9cd2c14a46c4b2673e0fe753cf4b5eb82c22cc399271e16d8d5b"
+        },
+        {
+          "art": "nor_gl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plastered_wall_03/plastered_wall_03_nor_gl_1k.jpg",
+          "bytes": 530434,
+          "sha256": "c913b9c5f04e499b11f5f5a0214c0a388038f850ccf1084ca84087e1c59dd304"
+        },
+        {
+          "art": "Rough",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plastered_wall_03/plastered_wall_03_rough_1k.jpg",
+          "bytes": 301836,
+          "sha256": "0f005efa43089f10d40cc0f96c6739beb8d1d5813ddb1acb51a0fdda75ee62ba"
+        },
+        {
+          "art": "AO",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/plastered_wall_03/plastered_wall_03_ao_1k.jpg",
+          "bytes": 31292,
+          "sha256": "f8fcfdfa51f66e7ef57ceb9662052396222005bf9be7929f5a350118606bc853"
+        }
+      ]
+    },
+    {
+      "rolle": "schalung",
+      "quelle": "weathered_planks",
+      "quelleUrl": "https://polyhaven.com/a/weathered_planks",
+      "meter": 2,
+      "autoren": {
+        "Dario Barresi": "Processing",
+        "Dimitrios Savva": "Photography"
+      },
+      "lizenz": "CC0-1.0",
+      "lizenzUrl": "https://polyhaven.com/license",
+      "karten": [
+        {
+          "art": "Diffuse",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_planks/weathered_planks_diff_1k.jpg",
+          "bytes": 599581,
+          "sha256": "01c9a372cfd7a7bf471b59c2458ed3ccecc93448aebf7ba0cc5b3b5b6ed24349"
+        },
+        {
+          "art": "nor_gl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_planks/weathered_planks_nor_gl_1k.jpg",
+          "bytes": 681552,
+          "sha256": "381d298f3194ec4961b04b4912b9b6efea4b2ff7b914dac57e24c8b6b0be6a25"
+        },
+        {
+          "art": "Rough",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_planks/weathered_planks_rough_1k.jpg",
+          "bytes": 218802,
+          "sha256": "a017728183597417a350d1846a5a46db9702ee6d472a21c5da2f23015d606aa3"
+        },
+        {
+          "art": "AO",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/weathered_planks/weathered_planks_ao_1k.jpg",
+          "bytes": 594177,
+          "sha256": "a4ff0df66640229e315f75637a135622504094cf4d6d57c6cca4dacf619b1a5b"
+        }
+      ]
+    },
+    {
+      "rolle": "dach",
+      "quelle": "grey_roof_tiles",
+      "quelleUrl": "https://polyhaven.com/a/grey_roof_tiles",
+      "meter": 3,
+      "autoren": {
+        "Rob Tuytel": "All"
+      },
+      "lizenz": "CC0-1.0",
+      "lizenzUrl": "https://polyhaven.com/license",
+      "karten": [
+        {
+          "art": "Diffuse",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_roof_tiles/grey_roof_tiles_diff_1k.jpg",
+          "bytes": 596156,
+          "sha256": "f61107b70cf56074c9db09384a332620c94c678ed2baabfae78029a8242e49a3"
+        },
+        {
+          "art": "nor_gl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_roof_tiles/grey_roof_tiles_nor_gl_1k.jpg",
+          "bytes": 522186,
+          "sha256": "99546fdc2978d0950a2c61fe94dbd4230bb7825944bb4e4e7ad586839fdc721d"
+        },
+        {
+          "art": "Rough",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_roof_tiles/grey_roof_tiles_rough_1k.jpg",
+          "bytes": 260780,
+          "sha256": "edc3185b560a71b2b5f5f568710b8674da41becb39ca374f5e8efeca15b5794f"
+        },
+        {
+          "art": "AO",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_roof_tiles/grey_roof_tiles_ao_1k.jpg",
+          "bytes": 251878,
+          "sha256": "41b2c8e7f8120082725923e8262852ce44aee90f568acc6bf08616588e9edebb"
+        }
+      ]
+    },
+    {
+      "rolle": "sockel",
+      "quelle": "old_stone_wall",
+      "quelleUrl": "https://polyhaven.com/a/old_stone_wall",
+      "meter": 2,
+      "autoren": {
+        "Charlotte Baglioni": "All"
+      },
+      "lizenz": "CC0-1.0",
+      "lizenzUrl": "https://polyhaven.com/license",
+      "karten": [
+        {
+          "art": "Diffuse",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_diff_1k.jpg",
+          "bytes": 880453,
+          "sha256": "76210155ce0a17f006664f602305583e145a8a00be77bea8a0e3341df5148710"
+        },
+        {
+          "art": "nor_gl",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_nor_gl_1k.jpg",
+          "bytes": 1186893,
+          "sha256": "f847656c8f8e62dd78189ca6ff3ee2f42f9127cfa7834ebd3d313df1699e9c28"
+        },
+        {
+          "art": "Rough",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_rough_1k.jpg",
+          "bytes": 233946,
+          "sha256": "d6811fb6431f30d3c9295a8b3f3e22b66f61bafcf11f53d98709ad0a8ddcf4d5"
+        },
+        {
+          "art": "AO",
+          "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/old_stone_wall/old_stone_wall_ao_1k.jpg",
+          "bytes": 586171,
+          "sha256": "a9d902356ad0768c8bbf840967bbacb1644c580e9d7f805ebf9f387989729d62"
+        }
+      ]
+    }
+  ],
+  "boden": {
+    "rolle": "boden",
+    "quelle": "gravel_road",
+    "quelleUrl": "https://polyhaven.com/a/gravel_road",
+    "meter": 2,
+    "autoren": {
+      "Amal Kumar": "All"
+    },
+    "lizenz": "CC0-1.0",
+    "lizenzUrl": "https://polyhaven.com/license",
+    "karten": [
+      {
+        "art": "Diffuse",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_road/gravel_road_diff_1k.jpg",
+        "bytes": 684038,
+        "sha256": "bccbb077a825bdd0eb6f607939578a6ee549822824278fb3a828f6eed3d05d45"
+      },
+      {
+        "art": "nor_gl",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_road/gravel_road_nor_gl_1k.jpg",
+        "bytes": 983723,
+        "sha256": "0920996cab9f2d62a2eb73a3589804527aa0273c4ca61b9f526ce4cba37edebc"
+      },
+      {
+        "art": "Rough",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_road/gravel_road_rough_1k.jpg",
+        "bytes": 361584,
+        "sha256": "de602a8ce72aea4ef931b25c9b15fb5e38636bfb32c7df91d0656f7aace193b0"
+      },
+      {
+        "art": "AO",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel_road/gravel_road_ao_1k.jpg",
+        "bytes": 422803,
+        "sha256": "edc97d68db30ab6e3a75aebe155e958e424919d8a27691905b64cb9c49d15b27"
+      }
+    ]
+  },
+  "rohBytes": 10483518,
+  "ausgaben": {
+    "hof-scans.webp": {
+      "bytes": 1233238,
+      "sha256": "2159bd0af5d83e857364c9c4672e60b324e1f854376b8ca45dd5ceb3573e243d"
+    },
+    "hof-scans-nor.webp": {
+      "bytes": 1339050,
+      "sha256": "cc5302c3de7cdd7bcdc9055fb1d7922f8f48f55e2bf56cd9b3d63a3d25969276"
+    },
+    "hof-scans-arm.webp": {
+      "bytes": 611446,
+      "sha256": "92db82ec14733da0384fc043bceb71bfee61afb3a11eb8c2cfdcc3615883fb02"
+    },
+    "hof-boden-farbe.webp": {
+      "bytes": 288146,
+      "sha256": "8ee7ecb6b678267c1b4032294d0be41c9260ec64b05caa3bde294f5f434a4bb9"
+    },
+    "hof-boden-normal.webp": {
+      "bytes": 456422,
+      "sha256": "b288392ddf7a5ad3374ea92f086e81b766ed2db65c02bcf82524cd132af1a258"
+    },
+    "hof-boden-arm.webp": {
+      "bytes": 135808,
+      "sha256": "30ad6d47b2b1036489cf35b95a2b861796c7816a000dff87597e89f69cc27232"
+    }
+  }
+}

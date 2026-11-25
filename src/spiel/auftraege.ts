@@ -32,6 +32,11 @@ export interface Taten {
   besiegt: readonly string[];
   /** IDs gefangener Vorkommen, gleiches Format. */
   gefangen: readonly string[];
+  /**
+   * IDs über die Marke gereinigter Vorkommen (Story-Bibel v2 §2, D375). Die Kampfhandlung „Reinigen“ ist noch
+   * nicht gebaut; bis sie einen eigenen Eintrag im Spielstand schreibt, reicht `main.tsx` hier `gefangen` durch.
+   */
+  gereinigt: readonly string[];
   /** Gelesene Fragmente. */
   fragmente: readonly string[];
   /** Besiegte Regenten. */
@@ -61,8 +66,8 @@ export function werteZiel(ziel: Auftragsziel, t: Taten): Fortschritt {
       const ist = Math.min(ziel.anzahl, zaehle(t.besiegt, ziel.kreatur));
       return { ist, soll: ziel.anzahl, erfuellt: ist >= ziel.anzahl };
     }
-    case 'fange': {
-      const ist = Math.min(ziel.anzahl, zaehle(t.gefangen, ziel.kreatur));
+    case 'reinige': {
+      const ist = Math.min(ziel.anzahl, zaehle(t.gereinigt, ziel.kreatur));
       return { ist, soll: ziel.anzahl, erfuellt: ist >= ziel.anzahl };
     }
     case 'finde': {
@@ -84,7 +89,7 @@ export function werteZiel(ziel: Auftragsziel, t: Taten): Fortschritt {
 export function zielText(ziel: Auftragsziel, f: Fortschritt): string {
   switch (ziel.art) {
     case 'besiege': return `${ziel.kreatur} besiegen · ${f.ist}/${f.soll}`;
-    case 'fange':   return `${ziel.kreatur} fangen · ${f.ist}/${f.soll}`;
+    case 'reinige': return `${ziel.kreatur} reinigen · ${f.ist}/${f.soll}`;
     case 'finde':   return f.erfuellt ? 'Fundstück gelesen' : 'ein Fundstück lesen';
     case 'regent':  return f.erfuellt ? 'Regent besiegt' : 'den Regenten besiegen';
     case 'heile':   return f.erfuellt ? 'Region geheilt' : 'Reinkulturen am Regentenort einsetzen';

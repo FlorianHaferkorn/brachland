@@ -1,0 +1,71 @@
+{
+  "stand": "D420, 22.11.2026 — Arbeitswerte für die Darstellung, nicht am M1 gesehen. Kein Kampfwert: Fenster, Schaden, Haltungsschaden, Kosten und Rückstoss der Regel stehen in content/waffen/ (D419).",
+  "physik": {
+    "leistung": 600,
+    "zweihand": 1.4,
+    "bogenGrad": 120,
+    "stossWeg": 0.6,
+    "bremsmoment": 60,
+    "unterarm": 0.3,
+    "real": "Die Baukasten-Formel (§3.2) absolut gerechnet: konstante Leistung P dreht Arm und Waffe (I_Arm + I) um 120° bzw. schiebt Arme und Waffe (m_Arm + M) 0,6 m. Daraus Endgeschwindigkeit und Impuls der Waffe am Kopfschwerpunkt (I·ω/d bzw. M·v). Die Leistung eines kurzen Hiebs aus Arm und Rumpf ist nicht belegt (Überschlag 600 W einhändig, ×1,4 mit zwei Händen); das Bremsmoment, mit dem der Arm die Waffe abfängt, ebenso (Überschlag 60 N·m je Hand).",
+    "warum": "Für die Darstellung zählt die Reihenfolge und das Verhältnis zwischen den Waffen, nicht der Absolutwert. Gegengeprüft: Klingenspitze rund 14 m/s, Axtkopf rund 11 m/s — Grössenordnung echter Hiebe, aber ungemessen.",
+    "quelle": "Formel: docs/design/BRACHLAND_Waffen-Baukasten_v1.md §3.2, src/kampf/baukasten.ts; I_Arm 0,5 kg·m² und m_Arm 6 kg aus content/waffenteile.json physik. Leistung, Zweihandfaktor, Bremsmoment: Überschlag, nicht belegt."
+  },
+  "waffen": {
+    "klinge": { "baukasten": "klinge", "zweihand": false },
+    "axt": { "baukasten": "axt", "zweihand": true },
+    "speer": { "baukasten": "speer", "zweihand": true },
+    "hirschfaenger": {
+      "masse": 0.591, "traegheit": 0.046, "kopfAbstand": 0.25, "spitze": 0.55, "bewegung": "schwung", "zweihand": false,
+      "quelle": "Modell tools/waffenmodelle.py (D414): 0,591 kg, Trägheit um die Hand 0,046 kg·m² (Stab-Überschlag je Teil). Kopfabstand und Spitze aus der Klingenlänge 50 cm geschätzt, nicht gemessen."
+    },
+    "kriegsmesser": {
+      "masse": 1.393, "traegheit": 0.231, "kopfAbstand": 0.38, "spitze": 0.92, "bewegung": "schwung", "zweihand": true,
+      "quelle": "Modell tools/waffenmodelle.py (D414): 1,393 kg, Trägheit um die Hand 0,231 kg·m². Kopfabstand und Spitze aus der Klingenlänge 82 cm geschätzt, nicht gemessen."
+    }
+  },
+  "ziele": {
+    "standard": 75,
+    "je": { "keiler": 100, "wolf": 40, "gams": 50, "fuchs": 7, "grathorn": 60, "wegelagerer": 75, "speermann": 70, "axtmann": 85, "uebungsgegner": 75 },
+    "real": "Schwarzwild 70–150 kg (Deutscher Jagdverband, Fährten und Spuren 2015) → Keiler 100; Wolf 30–50 kg → 40; Gamswild 40–70 kg (dieselbe Broschüre) → 50; Fuchs nicht belegt (Überschlag 7); Grathorn ist erfunden (Überschlag 60); Menschen 70–85 kg Überschlag.",
+    "warum": "Nur für die Reaktion des Getroffenen im Bild (Δv = Impuls / Masse). Die Regel kennt keine Masse; ihr Rückstoss bleibt Kampfwert.",
+    "quelle": "https://www.jagdverband.de/sites/default/files/Faehrten-und-Spuren_2015_RZ-vs.pdf; https://www.outdoor-magazin.com/wandertipps/diese-5-wildtiere-sind-die-groessten-in-deutschland-wusstest-du-s/"
+  },
+  "trefferstopp": {
+    "min": 0.03, "max": 0.12, "impulsVon": 2, "impulsBis": 25,
+    "gebrochen": 0.02, "toedlich": 0.03, "geblockt": 0.5,
+    "real": "Real hält nichts an — der Stopp ist das Mittel des Spiels für den Widerstand, den die Hand beim Einschlag spürt (Monster Hunter: nach der Beta von Wilds auf Wunsch der Spieler zurückgeholt). Gewöhnlich 60–120 ms; länger wirkt wie Ruckeln.",
+    "warum": "Linear im Impuls zwischen 2 und 25 N·s: Hirschfänger rund 36 ms, Klinge 47, Messer 68, Axt 87, Spalthieb 120. Heute gilt für jeden Treffer 60 ms (TREFFERSTOPP, D171).",
+    "quelle": "https://www.pcgamer.com/games/rpg/monster-hunter-wilds-game-director-says-the-betas-missing-hitstop-has-already-been-tweaked-thanks-to-very-positive-feedback-from-hitstop-hungry-veteran-hunters; https://gamingbolt.com/monster-hunter-wilds-weapon-hitstops-will-be-closer-to-what-people-are-looking-forward-to/amp; https://dev.to/saltmire/godot-4-screen-shake-and-hit-stop-in-one-script-11eh"
+  },
+  "kamera": {
+    "gesetzt": { "grund": 0.012, "jeImpuls": 0.0025, "max": 0.08 },
+    "erlitten": { "grund": 0.06, "jeSchaden": 0.0015, "max": 0.12 },
+    "abklingen": { "grund": 0.08, "jeImpuls": 0.004, "max": 0.2 },
+    "richtung": 0.6,
+    "real": "Kein Vorbild in der Wirklichkeit — der Kopf ruckt beim eigenen Hieb kaum. Spielmittel: ein kurzer Stoss der Kamera in Schlagrichtung, der mit der Wucht wächst und länger ausklingt (Vlambeer „Art of Screenshake“, God of War 2018: kleiner Kameraruck beim Fangen der Axt).",
+    "warum": "Heute ruckt jeder eigene Treffer gleich (0,035 m, 0,12 s) und jeder erlittene 0,09 m. Neu: Klinge 0,028 m, Axt 0,054, Spalthieb 0,076; erlitten nach dem Schaden des Gegners.",
+    "quelle": "https://gamedeveloper.com/design/recalling-the-leviathan-axe; https://medienwissenschaft.uni-bayreuth.de/wp-content/uploads/GxD-10-Game-Feel.pdf; src/scenes/RegionsSzene.tsx `ruck` (D171)"
+  },
+  "reaktion": {
+    "neigungJeMps": 30, "neigungMax": 25, "versatzMax": 0.25, "dauer": 0.22,
+    "taumelGrund": 8, "taumelJeMps": 40, "taumelMax": 35,
+    "real": "Impulserhaltung: Der Getroffene erhält Δv = J / m. Ein Axthieb (≈17 N·s) gibt einem Wolf (40 kg) 0,42 m/s, einem Keiler (100 kg) 0,17 m/s; eine Klinge dem Keiler 0,06 m/s — er steht. Neigung und Versatz des Körpers im Bild folgen Δv.",
+    "warum": "Nur der Leib unter der Kapsel bewegt sich (wie Ausfall und Taumeln, Kampfplatz D169); der Rückstoss der Regel (Kapsel, Reichweiten) bleibt Kampfwert. Ein Taumeln nach Haltungsbruch schwingt mit der Wucht des brechenden Schlags weiter aus.",
+    "quelle": "Physik (Impuls); Massen in `ziele`"
+  },
+  "ton": {
+    "referenz": "klinge",
+    "schwungGrund": 0.25, "schwungJeMps": 0.04,
+    "trefferGrund": 0.5, "trefferJeOktave": 0.15,
+    "real": "Schwunggeräusch wächst mit der Geschwindigkeit der Spitze, seine Tonhöhe fällt mit der Grösse (Wirbelablösung: f ∝ v / Breite); der Treffer wird mit der Energie lauter und mit der Masse tiefer (Eigenfrequenz ∝ 1 / Grösse). Exponenten nicht belegt — Überschlag (Masse^⅓ als Grössenmass).",
+    "warum": "Es gibt noch keinen Kampfton (src/ton/ hat nur den Lagerton). Die Werte sind Faktoren für eine spätere Quelle: Tonhöhe als Abspielrate, Pegel 0…1.",
+    "quelle": "God of War 2018: Ton am Objekt, an die Drehgeschwindigkeit gekoppelt (https://gamedeveloper.com/design/recalling-the-leviathan-axe); Sekiro: lauter, scharfer Klang bei gelungener Abwehr (Fan-Wiki, nicht Entwickler)"
+  },
+  "clips": {
+    "haltGrund": 0.25, "haltJeKg": 0.2, "haltMax": 0.7,
+    "real": "Eine schwere Klinge läuft nach dem Treffer weiter, bis der Arm sie abgefangen hat (Bremsweg = Energie / Bremsmoment), und der Körper steht so lange im Schritt, das Gewicht auf dem vorderen Fuss. Wie lange genau, ist nicht belegt.",
+    "warum": "Setzung: Der letzte Schlüssel vor der Rückkehr liegt bei mindestens (0,25 + 0,2 · Masse) der Erholung im Clip — Klinge 47 %, Messer 53 %, Axt 62 %. Scheitel, Durchzug und Clipdauer bleiben (Trefferfenster).",
+    "quelle": "D419; Formel in src/kampf/gewicht.ts `nachschwung`"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "kletterzeug",
+  "name": "Kletterzeug",
+  "wirkung": {
+    "art": "werkzeug",
+    "faehigkeit": "klettern"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Geschirr, Seil und Eisen aus dem Bruch. Vierzehn Jahre benutzt, dann eingemauert. Wer zumauert, will nicht wiederkommen.",
+  "einmalig": true,
+  "gewicht": 4.5
+}

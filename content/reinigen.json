@@ -1,0 +1,18 @@
+{
+  "reichweite": 1.8,
+  "grunddauer": 0.5,
+  "lebenJeSekunde": 24,
+  "schwelle": 0.35,
+  "wundAb": 0.35,
+  "halten": 1.2,
+  "loesen": 0.2,
+  "nachhall": 0.4,
+  "behaltBeiTreffer": 0.5,
+  "verfallJeSekunde": 0.02,
+  "verwundbar": 1.25,
+  "ausdauer": 0,
+  "ladung": 1,
+  "verhaertet": { "dauerFaktor": 2, "ladung": 3 },
+  "fassung": { "start": 4, "jeRegent": 2 },
+  "griffe": { "min": 3, "max": 6 }
+}

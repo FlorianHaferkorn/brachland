@@ -4,7 +4,7 @@ shelf-life-days: 365
 ---
 # ADR-0013 — Assets: jede kostenlose Lizenz statt nur CC0
 
-**Status:** Accepted · 2026-10-09 · erweitert ADR-0002 (CC0) und ersetzt dessen Ausnahme „CC-BY nur für Kreaturen“ (`assets/HERKUNFT.md`, 31.08.2026) · ADR-0004, ADR-0006 und ADR-0012 gelten unverändert
+**Status:** Accepted · 2026-10-09 · erweitert durch [ADR-0021](0021-megascans-fuer-zielbilder.md) (22.11.2026: Megascans für Zielbilder, im Spiel nach Lizenzprüfung) · erweitert ADR-0002 (CC0) und ersetzt dessen Ausnahme „CC-BY nur für Kreaturen“ (`assets/HERKUNFT.md`, 31.08.2026) · ADR-0004, ADR-0006 und ADR-0012 gelten unverändert
 
 ## Kontext
 
@@ -29,6 +29,14 @@ Flo hat am 09.10.2026 zwei Vorgaben gemacht: „keine kostenpflichtigen Assets, 
    ausgedehnt.
 4. **Lizenz vor Download prüfen und mit Datum festhalten.** Gratis-Bedingungen ändern sich: Megascans
    waren bis Ende 2024 frei und kosten seit 2025. Massgeblich ist der Stand am Tag der Übernahme.
+5. **Referenzmaterial (Nachtrag D431, 23.11.2026):** Auch Bilder und Videos, die nicht ins Spiel kommen, aber
+   als Vorlage dienen (Posen, Bewegungen, Stimmung), brauchen eine Erlaubnis für diese Nutzung. Zwei
+   getrennte Fragen: (a) **Rechte am Material** — frei nutzbar sind gemeinfreie und frei lizenzierte Werke
+   (CC0, CC-BY, CC-BY-SA mit Namensnennung); bei allem anderen gilt höchstens lokales Ansehen zur Analyse,
+   nie Weitergabe, nie ins Repo. (b) **Nutzungsbedingungen der Plattform** — YouTube, Instagram und
+   ähnliche verbieten das Herunterladen ausserhalb ihrer eigenen Funktionen; daran ändert eine Analyseabsicht
+   nichts. Abgeleitete Daten (z. B. Schlüsselposen aus einem freien Video) sind eigene Arbeit; die Quelle
+   wird genannt. Mit ADR-0004/0007 (fremde Gestaltung) hat das nichts zu tun.
 
 ## Konsequenzen
 

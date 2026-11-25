@@ -1,0 +1,14 @@
+{
+  "id": "chitinspan",
+  "name": "Chitinspan",
+  "wirkung": {
+    "art": "material",
+    "stufe": 1
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Platte von einem, der nicht mehr aufsteht. Leicht wie Horn, hart wie Blech. Die Schmiedin nimmt sie, ohne zu fragen, woher.",
+  "liegtBeiTod": true,
+  "gewicht": 0.1,
+  "traglast": 40
+}

@@ -6,7 +6,8 @@
    "stufe": "nah",
    "datei": "baum-buche-0-nah",
    "hoehe": 29.33,
-   "dreiecke": 4968
+   "dreiecke": 5632,
+   "bhd": 0.748
   },
   {
    "art": "buche",
@@ -14,7 +15,8 @@
    "stufe": "mittel",
    "datei": "baum-buche-0-mittel",
    "hoehe": 29.33,
-   "dreiecke": 2732
+   "dreiecke": 3097,
+   "bhd": 0.748
   },
   {
    "art": "buche",
@@ -22,7 +24,18 @@
    "stufe": "fern",
    "datei": "baum-buche-0-fern",
    "hoehe": 29.33,
-   "dreiecke": 1242
+   "dreiecke": 2,
+   "bhd": 0.748,
+   "impostor": {
+    "breite": 15.933,
+    "hoehe": 31.866,
+    "unten": -0.737,
+    "ansichten": 8,
+    "zelle": [
+     256,
+     512
+    ]
+   }
   },
   {
    "art": "buche",
@@ -30,7 +43,8 @@
    "stufe": "nah",
    "datei": "baum-buche-1-nah",
    "hoehe": 25.78,
-   "dreiecke": 4784
+   "dreiecke": 5206,
+   "bhd": 0.647
   },
   {
    "art": "buche",
@@ -38,7 +52,8 @@
    "stufe": "mittel",
    "datei": "baum-buche-1-mittel",
    "hoehe": 25.78,
-   "dreiecke": 2631
+   "dreiecke": 2862,
+   "bhd": 0.647
   },
   {
    "art": "buche",
@@ -46,7 +61,18 @@
    "stufe": "fern",
    "datei": "baum-buche-1-fern",
    "hoehe": 25.78,
-   "dreiecke": 1196
+   "dreiecke": 2,
+   "bhd": 0.647,
+   "impostor": {
+    "breite": 14.021,
+    "hoehe": 28.042,
+    "unten": -0.688,
+    "ansichten": 8,
+    "zelle": [
+     256,
+     512
+    ]
+   }
   },
   {
    "art": "buche",
@@ -54,7 +80,8 @@
    "stufe": "nah",
    "datei": "baum-buche-2-nah",
    "hoehe": 29.88,
-   "dreiecke": 4784
+   "dreiecke": 5566,
+   "bhd": 0.774
   },
   {
    "art": "buche",
@@ -62,7 +89,8 @@
    "stufe": "mittel",
    "datei": "baum-buche-2-mittel",
    "hoehe": 29.88,
-   "dreiecke": 2630
+   "dreiecke": 3061,
+   "bhd": 0.774
   },
   {
    "art": "buche",
@@ -70,7 +98,18 @@
    "stufe": "fern",
    "datei": "baum-buche-2-fern",
    "hoehe": 29.88,
-   "dreiecke": 1196
+   "dreiecke": 2,
+   "bhd": 0.774,
+   "impostor": {
+    "breite": 13.912,
+    "hoehe": 27.824,
+    "unten": -0.723,
+    "ansichten": 8,
+    "zelle": [
+     256,
+     512
+    ]
+   }
   },
   {
    "art": "buche",
@@ -78,7 +117,8 @@
    "stufe": "nah",
    "datei": "baum-buche-3-nah",
    "hoehe": 20.56,
-   "dreiecke": 4968
+   "dreiecke": 5242,
+   "bhd": 0.559
   },
   {
    "art": "buche",
@@ -86,7 +126,8 @@
    "stufe": "mittel",
    "datei": "baum-buche-3-mittel",
    "hoehe": 20.56,
-   "dreiecke": 2732
+   "dreiecke": 2883,
+   "bhd": 0.559
   },
   {
    "art": "buche",
@@ -94,7 +135,18 @@
    "stufe": "fern",
    "datei": "baum-buche-3-fern",
    "hoehe": 20.56,
-   "dreiecke": 1242
+   "dreiecke": 2,
+   "bhd": 0.559,
+   "impostor": {
+    "breite": 13.277,
+    "hoehe": 26.553,
+    "unten": -0.651,
+    "ansichten": 8,
+    "zelle": [
+     256,
+     512
+    ]
+   }
   },
   {
    "art": "fichte",
@@ -102,7 +154,8 @@
    "stufe": "nah",
    "datei": "baum-fichte-0-nah",
    "hoehe": 21.1,
-   "dreiecke": 848
+   "dreiecke": 2002,
+   "bhd": 0.47
   },
   {
    "art": "fichte",
@@ -110,7 +163,8 @@
    "stufe": "mittel",
    "datei": "baum-fichte-0-mittel",
    "hoehe": 21.1,
-   "dreiecke": 678
+   "dreiecke": 1601,
+   "bhd": 0.47
   },
   {
    "art": "fichte",
@@ -118,7 +172,18 @@
    "stufe": "fern",
    "datei": "baum-fichte-0-fern",
    "hoehe": 21.1,
-   "dreiecke": 508
+   "dreiecke": 2,
+   "bhd": 0.47,
+   "impostor": {
+    "breite": 11.132,
+    "hoehe": 22.265,
+    "unten": -0.668,
+    "ansichten": 8,
+    "zelle": [
+     256,
+     512
+    ]
+   }
   },
   {
    "art": "fichte",
@@ -126,7 +191,8 @@
    "stufe": "nah",
    "datei": "baum-fichte-1-nah",
    "hoehe": 21.97,
-   "dreiecke": 848
+   "dreiecke": 2174,
+   "bhd": 0.484
   },
   {
    "art": "fichte",
@@ -134,7 +200,8 @@
    "stufe": "mittel",
    "datei": "baum-fichte-1-mittel",
    "hoehe": 21.97,
-   "dreiecke": 678
+   "dreiecke": 1738,
+   "bhd": 0.484
   },
   {
    "art": "fichte",
@@ -142,7 +209,18 @@
    "stufe": "fern",
    "datei": "baum-fichte-1-fern",
    "hoehe": 21.97,
-   "dreiecke": 508
+   "dreiecke": 2,
+   "bhd": 0.484,
+   "impostor": {
+    "breite": 11.658,
+    "hoehe": 23.316,
+    "unten": -0.679,
+    "ansichten": 8,
+    "zelle": [
+     256,
+     512
+    ]
+   }
   },
   {
    "art": "fichte",
@@ -150,7 +228,8 @@
    "stufe": "nah",
    "datei": "baum-fichte-2-nah",
    "hoehe": 21.45,
-   "dreiecke": 848
+   "dreiecke": 2146,
+   "bhd": 0.483
   },
   {
    "art": "fichte",
@@ -158,7 +237,8 @@
    "stufe": "mittel",
    "datei": "baum-fichte-2-mittel",
    "hoehe": 21.45,
-   "dreiecke": 678
+   "dreiecke": 1715,
+   "bhd": 0.483
   },
   {
    "art": "fichte",
@@ -166,7 +246,18 @@
    "stufe": "fern",
    "datei": "baum-fichte-2-fern",
    "hoehe": 21.45,
-   "dreiecke": 508
+   "dreiecke": 2,
+   "bhd": 0.483,
+   "impostor": {
+    "breite": 11.283,
+    "hoehe": 22.565,
+    "unten": -0.671,
+    "ansichten": 8,
+    "zelle": [
+     256,
+     512
+    ]
+   }
   },
   {
    "art": "fichte",
@@ -174,7 +265,8 @@
    "stufe": "nah",
    "datei": "baum-fichte-3-nah",
    "hoehe": 25.69,
-   "dreiecke": 848
+   "dreiecke": 2058,
+   "bhd": 0.543
   },
   {
    "art": "fichte",
@@ -182,7 +274,8 @@
    "stufe": "mittel",
    "datei": "baum-fichte-3-mittel",
    "hoehe": 25.69,
-   "dreiecke": 678
+   "dreiecke": 1645,
+   "bhd": 0.543
   },
   {
    "art": "fichte",
@@ -190,7 +283,18 @@
    "stufe": "fern",
    "datei": "baum-fichte-3-fern",
    "hoehe": 25.69,
-   "dreiecke": 508
+   "dreiecke": 2,
+   "bhd": 0.543,
+   "impostor": {
+    "breite": 13.469,
+    "hoehe": 26.937,
+    "unten": -0.714,
+    "ansichten": 8,
+    "zelle": [
+     256,
+     512
+    ]
+   }
   }
  ]
 }

@@ -6,6 +6,8 @@
  * ist), Decke bei `NEBEL_MAX`, Höhendunst dünnt nur über der Kamera aus.
  */
 import { nebelAnteil, NEBEL_MAX, OBEN_REST } from '../src/scenes/nebel.js';
+import { Vector4 } from 'three';
+import { milbingerLichtanteil } from '../src/world/milbingerlicht.js';
 
 let ok = 0, fehler = 0;
 const pruefe = (name: string, wahr: boolean, info = '') => {
@@ -24,6 +26,12 @@ pruefe('monoton', steigt);
 pruefe('unter der Kamera voll', nebelAnteil(300, 0, 200, -50) === nebelAnteil(300, 0, 200, 0));
 const hoch = nebelAnteil(300, 0, 200, 5000) / nebelAnteil(300, 0, 200, 0);
 pruefe('hoch oben bis OBEN_REST', Math.abs(hoch - OBEN_REST) < 1e-3, hoch.toFixed(3));
+const straße = new Vector4(0,0,80,100);
+pruefe('Milbinger Ortslicht bleibt nachts und außerhalb aus',
+  milbingerLichtanteil(straße,40,50,.2) === 0 && milbingerLichtanteil(straße,140,50,2.5) === 0);
+pruefe('Milbinger Ortslicht blendet stetig über die rechteckige Begrenzung',
+  milbingerLichtanteil(straße,40,50,2.5) === 1 && milbingerLichtanteil(straße,90,50,2.5) === 1
+  && milbingerLichtanteil(straße,112,50,2.5) > .4 && milbingerLichtanteil(straße,112,50,2.5) < .7);
 
 console.log(`\n${ok} bestanden, ${fehler} fehlgeschlagen`);
 if (fehler) process.exit(1);

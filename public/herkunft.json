@@ -42,11 +42,11 @@
   "quelle": "dasselbe Modell, Skelett und Clips der Quelle (Animated Animal Pack, „Deer“: Idle, Walk, Gallop, Attack_Headbutt, HitReact links/rechts, Death)"
  },
  {
-  "datei": "kampf/waffen.glb",
-  "rolle": "Schwert und Axt der Wanderin (D173)",
-  "autor": "Quaternius",
+  "datei": "kampf/waffen.glb (alle Knoten: Klinge, Klinge3, Axt, Axt3, Speer, Speer3 seit D421; Hirschfaenger, Messer, Raeucherkanne seit D414)",
+  "rolle": "Waffenmodelle der Hauptfigur und der Gegner (D414, D421)",
+  "autor": "eigene Arbeit (BRACHLAND)",
   "lizenz": "CC0",
-  "quelle": "Medieval Weapons Pack („Sword“, „Axe“, OBJ), gedreht, skaliert und im Griff zentriert mit tools/waffenbau.py"
+  "quelle": "aus Grundformen gebaut mit tools/waffenmodelle.py, in die Datei gelegt mit tools/waffenmodelle_pack.mjs; keine fremde Vorlage, keine Textur; D429: Axt als Zweihand-Fällaxt neu (Kopf 1,41 kg, Hickorystiel 0,68 kg, zwei Griffpunkte)"
  },
  {
   "datei": "held/m-waldlaeufer.glb, held/m-bauer.glb, held/w-waldlaeufer.glb, held/w-bauer.glb",
@@ -61,6 +61,13 @@
   "autor": "Quaternius",
   "lizenz": "CC0",
   "quelle": "Universal Animation Library 2 (Schwertkombos, Block, Rückstoss, Taumeln) und die Clips der alten Wanderin (Quaternius-Rig, eigene Waffenclips), übertragen mit tools/heldbau.py"
+ },
+ {
+  "datei": "held/held-clips.glb (Clips Messer_*, Geraet_Blasebalg; seit D429 Axt_*, Axt_Hieb statt Axe_Overhead)",
+  "rolle": "Langes Messer und Räucherkanne (D414), Zweihand-Fällaxt (D429); D452: Körper von Axt_Hieb/Axt_Schwer von Hand nachgezogen nach Messwerten (Becken, Rumpfneigung, Zeiten) aus dem Commons-Video *Wood cleaving - 2016* (CC BY-SA 4.0, Jarek Tuszyński) — Zahlen als Vorlage, keine Pose übernommen",
+  "autor": "eigene Arbeit (BRACHLAND), Rig Quaternius",
+  "lizenz": "CC0",
+  "quelle": "Schlüsselbilder in tools/waffenclips.py auf der alten Wanderin (public/figuren/wanderin.glb), über die Weltformel auf die Hauptfigur mit tools/clipnachbau.py, eingefügt mit tools/clipnachbau.mjs D456: alle Clips aus Schlüsselbildern neu gebaut (eigene Arbeit, tools/waffenclips.py), dazu Klinge_Hieb_A/B, Klinge_Schwer, Klinge_Lauf, Klinge_Block, Hirsch_*, Koerper_* — Vorlagen: Fechtbücher (Liechtenauer/Ringeck, Meyer; gemeinfrei) und USDA *An Ax to Grind*; keine fremde Animation; 45 Clips, 1024 KB D460: Fortbewegung (Koerper_Gang, _Laufschritt = Run, _Sprint, _Anlauf, _Abstoppen, _Wenden_*, _Kehrt_*, _Rolle = Roll, _Sprung_*, _Klettern, _Schwimmen) und Trage-Huten (Axt_Trage, Speer_Trage, Messer_Trage) — eigene Arbeit, gerechnet in tools/waffenclips.py nach Kennwerten der Ganganalyse (Zahlen als Anker, keine fremde Animation); Run_Paket, Roll_Paket sind die umbenannten Paketclips (Quaternius, CC0); 68 Clips, 1339 KB"
  },
  {
   "datei": "held/m-waldlaeufer-leicht.glb, held/m-bauer-leicht.glb, held/w-waldlaeufer-leicht.glb, held/w-bauer-leicht.glb",
@@ -243,5 +250,47 @@
   "autor": "Quaternius",
   "lizenz": "CC0",
   "quelle": "Teile aus poly.pizza qJ2gsTUBHL (Rumpf, Beine, Füße) und ZwF0K7WBmu (Kopf, „Adventurer“), Ultimate Modular Women"
+ },
+ {
+  "datei": "oental-lod2.json",
+  "rolle": "Gebäudedachmaße aus CityGML, auf Trauf- und Firsthöhe, Dachform und Firstrichtung verdichtet und den OSM-Grundrissen zugeordnet. D331 ergänzt die aus Firstendpunkten berechnete Richtung für 508, 510 und 512 sowie die Dachkörpermaße für 512. D340 übernimmt die Dachflächen und Teilbauten für 410, 413, 444, 506, 507, 509, 511 und 513 aus Kachel 732_5290. Die Dachfarben stammen aus Dachpixeln der Orthophotos (D291). tools/lod2import.py erzeugt die Daten.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "CC BY 4.0",
+  "quelle": "3D-Gebäudemodelle LoD2 (OpenData), Kacheln 728–732 / 5288–5292 (UTM 32), abgerufen 15.11.2026, für D331 Kachel 732_5290 am 19.11.2026. Digitale Orthophotos DOP20 (WMS by_dop20c, OpenData), 121 Kacheln à 256 m, abgerufen 15.11.2026"
+ },
+ {
+  "datei": "content/regions/oental.json, nahhoehen",
+  "rolle": "D340. DGM1-Kachel 732_5290, ins lokale Spielraster resampelt, in Zentimetern relativ zum lokalen Datum gespeichert",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
+  "datei": "oental-fern-sued.json",
+  "rolle": "D345. 25 DGM1-Kacheln zum Fernraster des südöstlichen Hangs resampelt und auf Meter gerundet. Erzeugt mit npm run fernland -- oental --dgm1-sued.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
+  "datei": "oental-fern-ring.json",
+  "rolle": "D349. 100 DGM1-Kacheln (E 726–735, N 5286–5295) auf 277² Punkte im Fernraster-Ring resampelt und auf Meter gerundet, 0 % Lücken. Erzeugt mit npm run fernland -- oental --dgm1-ring.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
+  "datei": "fahlmoos-fern-ring.json",
+  "rolle": "D351. 100 DGM1-Kacheln (E 724–733, N 5292–5301) auf 277² Punkte im Fernraster-Ring resampelt und auf Meter gerundet, 0 % Lücken. Erzeugt mit npm run fernland -- fahlmoos --dgm1-ring.",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DGM1 OpenData](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)"
+ },
+ {
+  "datei": "bauten/milbinger-kleinwagen.glb",
+  "rolle": "Verlassener Kompaktwagen",
+  "autor": "tevy",
+  "lizenz": "CC0 1.0",
+  "quelle": "[Five-Door Hatchback](https://tevy.dev/models/hatchback), v1 LOD1. Quelle mit tools/kompaktwagen-pack.mjs für WebGL gepackt. Rost, Schmutz und veränderte Glasoberflächen entstehen im Spiel."
  }
 ]

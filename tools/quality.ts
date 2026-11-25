@@ -22,6 +22,14 @@ type Befund = { schwere: 'stop' | 'warnung'; bereich: string; text: string };
 const befunde: Befund[] = [];
 const stop = (bereich: string, text: string) => befunde.push({ schwere: 'stop', bereich, text });
 const warn = (bereich: string, text: string) => befunde.push({ schwere: 'warnung', bereich, text });
+/**
+ * D286: Budgetgrenzen aufgehoben (Flo 15.11.2026: „Budgetgrenzen sind erstmal aufgehoben“, ADR-0016: Zielgerät
+ * ist der neue Laptop, nicht mehr M1/Handy). Grössen-Budgets (Kreatur-GLB, Gesamtpaket, Materialien, Dreiecke je
+ * Kreatur) melden nur noch als Warnung, damit die Zahl sichtbar bleibt; Herkunft und Lizenz bleiben hart.
+ * Zurück: `BUDGET_HART = true`.
+ */
+const BUDGET_HART = false;
+const budget = (bereich: string, text: string) => (BUDGET_HART ? stop : warn)(bereich, text);
 
 // ---------------------------------------------------------------- Schwellen
 const BUDGET = {
@@ -121,7 +129,7 @@ for (const { f, k } of kreaturen) {
   if (/TODO|TBD|xxx|placeholder/i.test(JSON.stringify(k)))
     stop('Inhalt', `${f}: enthält Platzhalter-Marker`);
   if ((k.zielTris ?? 4000) > BUDGET.trisMax)
-    stop('Assets', `${f}: zielTris ${k.zielTris} über Budget ${BUDGET.trisMax}`);
+    budget('Assets', `${f}: zielTris ${k.zielTris} über Budget ${BUDGET.trisMax}`);
 
   // Werteprogression: Zuwachs je Stufe muss im Korridor liegen
   for (let i = 1; i < k.stufen.length; i++) {
@@ -216,10 +224,10 @@ if (existsSync('public/creatures')) {
   for (const f of readdirSync('public/creatures').filter(f => f.endsWith('.glb'))) {
     const kb = statSync(join('public/creatures', f)).size / 1024;
     gesamt += kb;
-    if (kb > BUDGET.glbKB) stop('Assets', `${f}: ${kb.toFixed(0)} KB über Budget ${BUDGET.glbKB} KB`);
+    if (kb > BUDGET.glbKB) budget('Assets', `${f}: ${kb.toFixed(0)} KB über Budget ${BUDGET.glbKB} KB`);
   }
   if (gesamt / 1024 > BUDGET.paketMB)
-    stop('Assets', `Gesamtpaket ${(gesamt / 1024).toFixed(1)} MB über ${BUDGET.paketMB} MB — Offline-Cache gefährdet`);
+    budget('Assets', `Gesamtpaket ${(gesamt / 1024).toFixed(1)} MB über ${BUDGET.paketMB} MB — Offline-Cache gefährdet`);
 } else warn('Assets', 'kein Kreaturenmodell — offener Posten, nicht mehr Absicht: ADR-0002 ist seit dem '
   + '16.08.2026 erfüllt und die Stilreferenz steht. Es fehlen Rohmodelle (G-119, G-120)');
 
@@ -316,9 +324,23 @@ if (existsSync('public/material')) {
   const ohne = dateien.filter(f => !herkunft.includes(f));
   if (ohne.length) stop('Materialien', `ohne Herkunftsangabe: ${ohne.join(', ')}`);
   const gesamt = dateien.reduce((s, f) => s + statSync(join('public/material', f)).size, 0) / 1024;
-  if (gesamt > 12 * 1024) stop('Materialien', `${(gesamt / 1024).toFixed(1)} MB über Budget 12 MB`);
+  if (gesamt > 12 * 1024) budget('Materialien', `${(gesamt / 1024).toFixed(1)} MB über Budget 12 MB`);
   if (!ohne.length)
     console.log(`  · [Materialien] ${dateien.length} Bilder mit Herkunft, zusammen ${(gesamt / 1024).toFixed(1)} MB`);
+}
+
+/**
+ * Kampfton (`public/ton`, D427, ADR-0013): Herkunft je Datei wie bei den Materialien, Budget 400 KB — kurze
+ * Opus-Aufnahmen, die im Precache stehen (`vite.config.ts`).
+ */
+if (existsSync('public/ton/kampf')) {
+  const dateien = readdirSync('public/ton/kampf').filter(f => f.endsWith('.ogg'));
+  const herkunft = existsSync('assets/HERKUNFT.md') ? readFileSync('assets/HERKUNFT.md', 'utf8') : '';
+  const ohne = dateien.filter(f => !herkunft.includes(f));
+  if (ohne.length) stop('Kampfton', `ohne Herkunftsangabe: ${ohne.join(', ')}`);
+  const gesamt = dateien.reduce((s, f) => s + statSync(join('public/ton/kampf', f)).size, 0) / 1024;
+  if (gesamt > 400) budget('Kampfton', `${gesamt.toFixed(0)} KB über Budget 400 KB`);
+  if (!ohne.length) console.log(`  · [Kampfton] ${dateien.length} Aufnahmen mit Herkunft, zusammen ${gesamt.toFixed(0)} KB`);
 }
 
 /**
@@ -371,7 +393,7 @@ if (existsSync('public/figuren/kampf')) {
 
 /**
  * Hauptfigur (D175, `tools/heldbau.py`): eine Datei je Gestalt, texturiert, plus gemeinsame Clips.
- * Budget 1,3 MB je Gestalt (lädt einmal, nur die gewählte) und 700 KB für die Clips (seit D184).
+ * Budget 1,3 MB je Gestalt (lädt einmal, nur die gewählte) und 800 KB für die Clips (seit D414, vorher 700).
  */
 if (existsSync('public/figuren/held')) {
   const herkunft = readFileSync('assets/HERKUNFT.md', 'utf8');
@@ -379,7 +401,18 @@ if (existsSync('public/figuren/held')) {
     const kb = statSync(join('public/figuren/held', f)).size / 1024;
     if (!herkunft.includes(f)) stop('Held', `${f} ohne Herkunftsangabe`);
     // D184: Clips 600 → 700 KB für die fünf Speerclips (+89 KB).
-    const grenze = f === 'held-clips.glb' ? 700 : f.includes('-leicht') ? 650 : 1300;
+    // D414: 700 → 800 KB für sechs Messerclips und Geraet_Blasebalg (+128 KB, 657 → 785). Lädt einmal, mit der Figur.
+    // D456: 800 → 1100 KB (789 → 1024). 33 Clips sind neu aus Schlüsselbildern gebaut, davon 17 zusätzlich (fünf Klinge,
+    // vier Hirschfänger, vier Körper; die vier UAL2-Klingenhiebe bleiben für den Wegelagerer), und jeder trägt jetzt
+    // jedes Bild statt nur der Schlüssel (Bögen, Überlappung, stehende Füsse — `tests/clipguete.test.ts`). Das
+    // Gesamtbudget ist seit D286 nur Warnung; sparen liesse sich mit den UAL2-Hieben (rund 60 KB), sobald der
+    // Wegelagerer die eigenen Clips spielt.
+    // D460: 1100 → 1400 KB (1024 → 1339). Siebzehn Clips dazu: die Fortbewegung als gerechnete Zyklen (Gang, Laufschritt,
+    // Sprint, Anlauf, Abstoppen, Wenden ×4, Rolle, Sprung ×2, Klettern, Schwimmen — jedes Bild steht in der Datei, Lauf
+    // und Sprint mit 48 Bildern/s, weil der Fuss dort nur 0,10–0,21 s steht) und drei Trage-Huten. `Run_Paket` und
+    // `Roll_Paket` (die abgelösten Paketclips, rund 30 KB) bleiben für den Vergleich am M1 und als Rückweg; die fünf
+    // UAL2-Klingenclips bleiben, bis D458 die Gegner umgestellt hat. Das Gesamtbudget ist seit D286 nur Warnung.
+    const grenze = f === 'held-clips.glb' ? 1400 : f.includes('-leicht') ? 650 : 1300;
     if (kb > grenze) stop('Held', `${f}: ${kb.toFixed(0)} KB über Budget ${grenze} KB`);
     console.log(`  · [Held] ${f}: ${kb.toFixed(0)} KB`);
   }

@@ -10,6 +10,8 @@
  * Attribution: OSM-Daten stehen unter ODbL — Namensnennung ist Pflicht.
  */
 
+import type { Hausnutzung } from '../data/schema.js';
+
 export type BBox = [sued: number, west: number, nord: number, ost: number];
 
 export interface OsmWay {
@@ -18,6 +20,34 @@ export interface OsmWay {
   geometry: { lat: number; lon: number }[];
   /** Nur bei Flächen aus Relationen (G-143): innere Ringe, also Lichtungen und ausgesparte Moore. */
   loecher?: { lat: number; lon: number }[][];
+}
+
+/** Optionaler OSM-Steckbrief. Ältere Weltdaten haben nur die Weggeometrie. */
+export interface Wegquelle {
+  osmId: number;
+  name?: string;
+  oberflaeche?: string;
+  gemesseneBreite?: number;
+  beleuchtung?: 'yes' | 'no';
+}
+
+/** Amtliche Dachflächen und Wandabschlüsse in WGS84, Höhe relativ zum LoD2-Gebäudesockel. */
+export interface LoD2Koerper {
+  t: number; f: number; d: number; w: number | null;
+  grundriss: [number, number][];
+  dachflaechen: [lat: number, lon: number, hoehe: number][][];
+  wandabschluesse: [lat: number, lon: number, hoehe: number][][];
+}
+
+export function wegquelle({ id, tags }: OsmWay): Wegquelle {
+  const breite = Number(tags.width?.replace(',', '.').replace(/\s*m$/, ''));
+  return {
+    osmId: id,
+    ...(tags.name && { name: tags.name }),
+    ...(tags.surface && { oberflaeche: tags.surface }),
+    ...(breite > 0 && Number.isFinite(breite) && { gemesseneBreite: breite }),
+    ...(tags.lit === 'yes' || tags.lit === 'no' ? { beleuchtung: tags.lit } : {}),
+  };
 }
 
 /** Biome, auf die OSM-Tags abgebildet werden. Bestimmen Aussehen UND Spawns. */
@@ -224,9 +254,28 @@ export interface Weltdaten {
   /** Flächen und Linien für die Geometrie-Erzeugung. */
   flaechen: { biom: Biom; punkte: [number, number][]; loecher?: [number, number][][] }[];
   linien: { art: string; punkte: [number, number][]; breite: number }[];
-  gebaeude: { punkte: [number, number][]; ebenen: number; art: string }[];
+  gebaeude: {
+    punkte: [number, number][]; ebenen: number; art: string;
+    hausnutzung?: Hausnutzung;
+    /** D290: echte Silhouette aus LoD2 (Traufe t, First f über Grund in m, Dachform d nach AdV, Firstrichtung w in Grad). */
+    lod2?: {
+      t: number; f: number; d: number; w: number | null; c?: string | null;
+      /** Aus den Firstendpunkten in Spielachsen projizierte Richtung in Grad. */
+      p?: number;
+      koerper?: LoD2Koerper[];
+      /** Abschnitte in Metern ab Minimum der auf p projizierten OSM-Hülle. Höhen ab LoD2-Grund. */
+      teile?: readonly (readonly [
+        art: number, u0: number, u1: number, v0: number, v1: number, firstV: number, traufe: number, first: number,
+      ])[];
+    } | null;
+    /** D291: Fassaden-Steckbrief (content/fassaden), falls für dieses Gebäude vorhanden. */
+    fassade?: {
+      fensterachsen: { traufe: number; giebel: number }; laube: 'keine' | 'traufseite' | 'giebel' | 'umlaufend';
+      hochlaube: boolean; putz: string; holz: string; laeden: string | null; malerei: string | null; stufe?: number;
+    } | null;
+  }[];
   /** Wege und Straßen — strukturieren die Landschaft stark. */
-  wege: { art: string; punkte: [number, number][]; breite: number }[];
+  wege: { art: string; punkte: [number, number][]; breite: number; quelle?: Wegquelle }[];
   /** Feste Positionen für Verwachsene und Uniques. */
   marker: { tag: string; position: [number, number] }[];
   attribution: string;
@@ -270,7 +319,7 @@ export function baueWelt(bbox: BBox, ways: OsmWay[], hoehen: number[][]): Weltda
     }
     if (way.tags.highway) {
       const b = WEG_BREITE[way.tags.highway];
-      if (b) wege.push({ art: way.tags.highway, punkte, breite: b });
+      if (b) wege.push({ art: way.tags.highway, punkte, breite: b, quelle: wegquelle(way) });
       continue;
     }
     if (way.tags.waterway) {

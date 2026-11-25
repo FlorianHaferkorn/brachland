@@ -24,7 +24,8 @@
  * das könnte ein langsames Bild (100 ms) das aktive Fenster eines Schlags (120 ms) überspringen,
  * und ob ein Treffer zählt, hinge an der Bildrate statt am Spiel.
  */
-import { schadensfaktor, GegnerDaten, WaffenDaten, type Element as ElementName, type SchlagDaten } from '../data/schema.js';
+import { schadensfaktor, GegnerDaten, WaffenDaten, ReinigenDaten, type Element as ElementName, type SchlagDaten } from '../data/schema.js';
+import REINIGEN_ROH from '../../content/reinigen.json';
 import KLINGE_ROH from '../../content/waffen/klinge.json';
 import AXT_ROH from '../../content/waffen/axt.json';
 import SPEER_ROH from '../../content/waffen/speer.json';
@@ -37,9 +38,15 @@ import GAMS_ROH from '../../content/gegner/gams.json';
 import WEGELAGERER_ROH from '../../content/gegner/wegelagerer.json';
 import SPEERMANN_ROH from '../../content/gegner/speermann.json';
 import AXTMANN_ROH from '../../content/gegner/axtmann.json';
+import AUFGABE_ROH from '../../content/aufgabe.json';
+import { AufgabeDaten } from '../data/schema.js';
 import { neueAusdauer, reicht, schritt as ausdauerSchritt, verbrauche, type Ausdauer } from '../spieler/ausdauer.js';
+// D427: Trefferstopp nach Wucht. `gewicht.ts` nimmt aus diesem Modul nur Typen — kein Kreis zur Laufzeit.
+import { schlagWucht, trefferImpuls, trefferstopp } from './gewicht.js';
 
-export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen';
+export type Phase = 'bereit' | 'vorlauf' | 'aktiv' | 'erholung' | 'rolle' | 'block' | 'betaeubt' | 'zucken' | 'gefallen'
+  /** D376: Die Spielerin kanalisiert die Marke auf einen gebundenen Gegner — nur mit `Kampfwelt.marke`. */
+  | 'reinigen';
 
 /**
  * Linien (ADR-0009 Stufe 2, D174): woher ein Schlag kommt. Block und Deckung gelten je Linie — gegen
@@ -141,12 +148,20 @@ export interface KampfWerte {
    * Mensch (D174): schlägt in Linien (`linienFolge`, reihum nach Schwung), deckt eine Linie und liest
    * die Spielerin — dreimal dieselbe Linie getroffen, dann deckt er sie.
    */
-  mensch?: { linienFolge: readonly Linie[]; deckung: Linie };
+  mensch?: { linienFolge: readonly Linie[]; deckung: Linie;
+    /** D426: gibt beim ersten Haltungsbruch auf (ohne Angabe ja) — `false` für die, die nicht aufgeben. */
+    gibtAuf?: boolean };
   /**
    * Linien eines Tiers (ADR-0009 Stufe 3, D175) — aus dem Körperbau, reihum nach Schwung: Keiler und
    * Fuchs von unten, Grathorn und Gams von oben, der Wolf dreht den Kopf (links, dann rechts).
    */
   linien?: readonly Linie[];
+  /**
+   * D389: eigene Reinigungswerte (`content/gegner/*.json` `reinigen`) — Kanaldauer über alle Griffe,
+   * Griffdauer, und `freiwillig` für den Menschen, der den Befall gewählt hat (D385). Ohne den Block
+   * rechnet `reinigungsDauer` nach der Grösse (`content/reinigen.json`).
+   */
+  reinigen?: { dauer: number; halten?: number; freiwillig?: true };
 }
 
 const GRAD = Math.PI / 180;
@@ -299,7 +314,10 @@ export const WURF_SPERRE = 2.0;
 export const KOMBO_AB = 0.35;
 /** So lange nach dem Ende eines Schlags setzt der nächste leichte die Kette fort (D171). */
 export const KOMBO_FENSTER = 0.45;
-/** Trefferstopp (D171): Nach einem Treffer steht die Welt so lange still. */
+/**
+ * Trefferstopp (D171): Nach einem Treffer steht die Welt so lange still. Seit D427 (D423) gilt das nur noch für
+ * Treffer **ohne Waffenmasse** (Gegner); ein Treffer der Spielerin hält nach seiner Wucht an (`trefferstoppVon`).
+ */
 export const TREFFERSTOPP = 0.06;
 /** Über so viele Sekunden läuft ein Rückstoss aus (D171) — ein Ruck statt eines Sprungs. */
 export const STOSS_DAUER = 0.15;
@@ -497,6 +515,8 @@ export interface Kaempfer {
   stoss?: { x: number; z: number; rest: number } | null;
   /** Gewählte Linie (D174): Pfeiltasten der Spielerin — für Angriff und Block. */
   linie?: Linie;
+  /** D355: Richtungskampf ausgeschaltet — Schläge tragen keine Linie, jeder frontale Block hält voll. */
+  ohneLinien?: boolean;
   /** Linie des laufenden Schlags, beim Ansetzen festgelegt. */
   schlagLinie?: Linie;
   /** Gedeckte Linie eines Menschen (D174). */
@@ -509,6 +529,20 @@ export interface Kaempfer {
   betaeubtFuer?: number;
   /** D182: Sekunden seit dem letzten Wurf (`wirft`) — darunter `WURF_SPERRE` wirft ihn nichts. */
   seitWurf?: number;
+  /**
+   * D376: Zustand nach der Creature-Bible §3. Ohne Angabe gilt ein Tier (Gegner mit `elemente`) als
+   * befallen; `verhaertet` lässt sich nur mit Reinkultur reinigen, `rueckgefuehrt` ist gereinigt.
+   */
+  zustand?: 'befallen' | 'verhaertet' | 'rueckgefuehrt';
+  /** D376: Fortschritt der Reinigung, 0…1 — bleibt am Tier, verfällt ohne Kanal. */
+  reinigung?: number;
+  /**
+   * D376: Wie einer aus dem Kampf ging. `phase === 'gefallen'` heisst seit D376 „aus dem Kampf“;
+   * gereinigt steht hier. Ohne Angabe: besiegt, wie bisher. D426: `verschont` — ein Mensch, der aufgab und ging.
+   */
+  ausgang?: 'gereinigt' | 'verschont';
+  /** D426: Sekunden seit der Aufgabe (erster Haltungsbruch eines Menschen); ohne Angabe kämpft er. */
+  aufgegeben?: number;
 }
 
 export function neuerKaempfer(id: string, werte: KampfWerte, x: number, z: number, blick = 0, y = 0): Kaempfer {
@@ -563,6 +597,7 @@ export function setzeSchlagAn(k: Kaempfer, s: Schlag = k.werte.schlag): boolean 
 
 /** Die Linie, aus der `k` den Schlag `s` jetzt führt (D174). */
 function linieFuer(k: Kaempfer, s: Schlag): Linie | undefined {
+  if (k.ohneLinien) return undefined;
   const m = k.werte.mensch;
   if (m) return m.linienFolge[k.schwung % m.linienFolge.length];
   const t = k.werte.linien;
@@ -731,6 +766,29 @@ export interface Treffer {
   falscheLinie?: boolean;
   /** Linie des Schlags. */
   linie?: Linie;
+  /** D427: Waffe der Spielerin, die getroffen hat (Gegner führen keine). */
+  waffe?: WaffenArt;
+  /** D427: Wucht des Schlags gegen den ersten leichten derselben Waffe (`gewicht.ts` `schlagWucht`). */
+  wucht?: number;
+}
+
+/** Impuls je Waffe beim ersten leichten Schlag, einmal gerechnet (`gewicht.ts`). */
+const IMPULS: Partial<Record<WaffenArt, number>> = {};
+
+/**
+ * D427 (D423): Trefferstopp nach Wucht — der stärkste Treffer mit Schaden in diesem Teilschritt zählt
+ * (`trefferstopp(trefferImpuls(waffe, wucht))`, 30–120 ms, +Haltungsbruch, +tödlich, höchstens 150 ms).
+ * Treffer ohne Waffe (Gegner) behalten `TREFFERSTOPP` (60 ms) bis zur Messung (Baukasten §28 Nr. 7). 0 = kein Stopp.
+ */
+export function trefferstoppVon(neu: readonly Treffer[]): number {
+  let s = 0;
+  for (const e of neu) {
+    if (e.schaden <= 0) continue;
+    if (!e.waffe) { s = Math.max(s, TREFFERSTOPP); continue; }
+    const j = (IMPULS[e.waffe] ??= trefferImpuls(e.waffe)) * (e.wucht ?? 1);
+    s = Math.max(s, trefferstopp(j, e));
+  }
+  return s;
 }
 
 /**
@@ -793,7 +851,7 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
     z.haltung -= s.haltungsschaden * f * (stein ? BRUCH.haltung : 1);
     if (stein && z.werte.mensch) { z.deckung = undefined; z.gelesen = []; }
     // D174: Ein Mensch liest — dreimal dieselbe Linie, dann deckt er sie; sonst wechselt er weg.
-    if (z.werte.mensch && linie) {
+    if (z.werte.mensch && linie && z.aufgegeben === undefined) {
       z.gelesen = [...(z.gelesen ?? []), linie].slice(-3);
       z.deckung = z.gelesen.length === 3 && z.gelesen.every(l => l === linie) ? linie : andereLinie(z.deckung, linie);
     }
@@ -820,6 +878,7 @@ export function loeseTreffer(a: Kaempfer, ziele: readonly Kaempfer[]): Treffer[]
       if (wasser && !gebrochen) betaeube(z, (z.werte.mensch ? FLUT.betaeubtMensch : FLUT.betaeubt) * ef);
     }
     raus.push({ von: a.id, auf: z.id, schaden, gebrochen, toedlich, ausgewichen: false,
+      ...(a.waffe ? { waffe: a.waffe, wucht: schlagWucht(s, WAFFEN[a.waffe].leicht[0]) } : {}),
       ...(f < 1 ? { falscheLinie: true } : {}), ...(flut ? { element: a.element, wirkung: ef > 1.05 ? 'stark' as const : ef < 0.95 ? 'schwach' as const : undefined } : {}), linie });
   }
   return raus;
@@ -930,6 +989,7 @@ export function schrittKaempfer(k: Kaempfer, dt: number, schiebe?: Schieber): vo
  */
 export function denkeGegner(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schieber, darf = true, platz?: number): void {
   if (g.phase === 'gefallen' || s.phase === 'gefallen') return;
+  if (g.aufgegeben !== undefined) { weicheZurueck(g, s, dt, schiebe); return; }
   const dx = s.x - g.x, dz = s.z - g.z;
   const d = Math.hypot(dx, dz);
   if (d > GEGNER_KI.wachAb) return;
@@ -1004,7 +1064,7 @@ function warte(g: Kaempfer, s: Kaempfer, dx: number, dz: number, d: number, halt
 export function wartePlaetze(w: Kampfwelt): Map<string, number> {
   const s = w.spielerin;
   const winkel = (g: Kaempfer) => Math.atan2(g.x - s.x, g.z - s.z);
-  const lebend = w.gegner.filter(g => g.phase !== 'gefallen');
+  const lebend = w.gegner.filter(imKampf);
   const angreifer = lebend.find(g => g.id === w.recht);
   const wartend = lebend.filter(g => g !== angreifer);
   const plaetze = new Map<string, number>();
@@ -1038,7 +1098,7 @@ export function angriffsrecht(w: Kampfwelt): string | null {
   if (dran) return dran.id;
   let beste: Kaempfer | null = null;
   for (const g of w.gegner) {
-    if (g.phase !== 'bereit') continue;
+    if (g.phase !== 'bereit' || g.aufgegeben !== undefined) continue;
     const d = Math.hypot(g.x - s.x, g.z - s.z);
     if (d > GEGNER_KI.wachAb) continue;
     if (!beste || g.seitSchlag > beste.seitSchlag + 1e-9
@@ -1106,6 +1166,11 @@ export interface Kampfwelt {
   uebrig?: number;
   /** D187: Galerie — die Gegner stehen nur da, denken nicht, greifen nicht an. */
   friedlich?: boolean;
+  /**
+   * D355: Richtungskampf (ADR-0009) an oder aus; ohne Angabe an wie bisher. Aus heisst: keine Linien,
+   * keine Deckung der Menschen, kein Lesen — Block und Parade wie in Stufe 1 (D173).
+   */
+  richtung?: boolean;
   /** Wer im letzten Teilschritt angreifen durfte — nur zum Ansehen (`kampf.mjs`). */
   recht?: string | null;
   /** Restzeit des Trefferstopps (D171). */
@@ -1113,6 +1178,282 @@ export interface Kampfwelt {
   /** Restzeit der Atempause und ob im letzten Teilschritt jemand angriff (D172). */
   atem?: number;
   warDran?: boolean;
+  /**
+   * D376: Die Marke — der Schalter für das Reinigen. Ohne sie gibt es die Handlung nicht, und der
+   * Kampf rechnet Teilschritt für Teilschritt wie vor D376 (`tests/reinigen.test.ts` prüft das).
+   */
+  marke?: Marke;
+  /**
+   * D426: Menschen geben beim ersten Haltungsbruch auf (`gibtAuf`). Ohne Angabe an — so spielt das Spiel; `false`
+   * rechnet wie vor D426 (der Kampfbot ohne `aufgabe`, damit ältere Tabellen nachrechenbar bleiben).
+   */
+  aufgabe?: boolean;
+}
+
+// ------------------------------------------------------------------ Reinigen (D376)
+
+/**
+ * Reinigen (Story-Bibel v2 §2, D374/D376): Die Marke heilt statt zu töten.
+ *
+ * Ein niedergerungenes Tier — betäubt durch Haltungsbruch, Parade, Wurf oder Flutstoss, oder wund
+ * und in der Erholung — wird in Reichweite mit **einer** Eingabe gegriffen und kanalisiert. Die Marke
+ * hält es `halten` s am Boden; ein schon Betäubtes zusätzlich den Rest seiner Betäubung — das ist
+ * der Lohn des Haltungsbruchs. Dann steht das Tier wieder auf und der Kanal löst sich; der
+ * Fortschritt bleibt am Tier und verfällt langsam. Eine Reinigung braucht also meist mehrere Griffe,
+ * und vor jedem steht ein Angriff, dem man ausweichen muss.
+ *
+ * Greifbar ist ein Tier erst, wenn es niedergerungen ist: Leben höchstens `schwelle`. Die Dauer trägt
+ * seit D389 jeder Gegner selbst (`content/gegner/*.json` `reinigen`: Kanaldauer und Griffdauer, gemessen
+ * je Tier); ohne den Block hängt sie an der Grösse: `grunddauer + lebenMax / lebenJeSekunde`. Menschen
+ * greift die Marke nicht (D385) — ausser `reinigen.freiwillig`. Währenddessen kann die Spielerin
+ * nichts — nicht rollen, nicht blocken — und nimmt `verwundbar`-fachen Schaden. Ein Treffer bricht ab
+ * und kostet einen Teil des Fortschritts; wer selbst löst (`loeseReinigen`, dann rollen), behält ihn.
+ *
+ * Werte: `content/reinigen.json`, Schema `ReinigenDaten`. Herleitung, Varianten und Messreihe:
+ * `docs/design/BRACHLAND_Reinigen_v1.md`, nachrechenbar mit `tools/reinigensim.ts`.
+ */
+export type ReinigenWerte = ReinigenDaten;
+export const REINIGEN: ReinigenWerte = ReinigenDaten.parse(REINIGEN_ROH);
+
+export interface MarkenEreignis {
+  /** `getroffen`: ein Treffer hat den Kanal gebrochen; `geloest`: die Spielerin hat selbst gelöst. */
+  art: 'begonnen' | 'gereinigt' | 'getroffen' | 'geloest';
+  ziel: string;
+}
+
+export interface Marke {
+  werte: ReinigenWerte;
+  /** Ladungen in der Marke; eine gelungene Reinigung verbraucht `werte.ladung`. */
+  ladung: number;
+  /** Trägt die Spielerin die Reinkultur dieser Region? Ohne sie greift die Marke bei Verhärteten nicht. */
+  reinkultur?: boolean;
+  /** Wen die Marke gerade bindet. */
+  ziel: string | null;
+  /** Restzeit des Lösens (`werte.loesen`) — so lange hängt die Spielerin noch am Tier. */
+  loest?: number;
+  /** Was geschah — die Szene (oder der Bot) liest und leert die Liste. */
+  ereignisse: MarkenEreignis[];
+}
+
+/** Eine volle Marke: Fassung nach der Zahl der gereinigten oder besiegten Regenten. */
+export function neueMarke(regenten = 0, werte: ReinigenWerte = REINIGEN): Marke {
+  return { werte, ladung: werte.fassung.start + werte.fassung.jeRegent * regenten, ziel: null, ereignisse: [] };
+}
+
+/**
+ * Befallen ist ein Tier (Gegner mit Element), das noch im Kampf und noch nicht gereinigt ist. Menschen
+ * nie — ausser sie haben den Befall gewählt (D385, `reinigen.freiwillig` in den Gegnerdaten).
+ */
+export function istBefallen(k: Kaempfer): boolean {
+  const reinigbar = k.werte.mensch ? k.werte.reinigen?.freiwillig === true : !!k.werte.elemente?.length;
+  return reinigbar && k.zustand !== 'rueckgefuehrt' && k.phase !== 'gefallen';
+}
+
+/** Abstand von `a` bis zum Rand der Pille von `z`. */
+export function randAbstand(a: Kaempfer, z: Kaempfer): number {
+  const h = z.werte.halbLaenge ?? 0;
+  const [bx, bz] = vorwaerts(z.blick);
+  const t = Math.max(-h, Math.min(h, (a.x - z.x) * bx + (a.z - z.z) * bz));
+  return Math.hypot(z.x + bx * t - a.x, z.z + bz * t - a.z) - z.werte.radius;
+}
+
+/**
+ * Wie lange der Kanal für dieses Tier insgesamt dauert, Sekunden. Seit D389 trägt jeder Gegner seinen
+ * eigenen Wert (`reinigen.dauer`); wer keinen hat, wird nach seinem vollen Leben gerechnet, nicht nach
+ * dem Rest: Ein Keiler ist mehr Arbeit als ein Fuchs, egal wie wund er ist.
+ */
+export function reinigungsDauer(werte: ReinigenWerte, z: Kaempfer): number {
+  const grund = z.werte.reinigen?.dauer ?? werte.grunddauer + z.werte.lebenMax / werte.lebenJeSekunde;
+  return grund * (z.zustand === 'verhaertet' ? werte.verhaertet.dauerFaktor : 1);
+}
+
+/** Wie lange ein Griff dieses Tier hält, Sekunden (D389: je Gegner, sonst `halten` aus den Markenwerten). */
+export function reinigungsHalten(werte: ReinigenWerte, z: Kaempfer): number {
+  return z.werte.reinigen?.halten ?? werte.halten;
+}
+
+/** Wie viele volle Griffe eine Reinigung dieses Tiers mindestens braucht (ohne Treffer, ohne Verfall, ohne Betäubungsrest). */
+export function reinigungsGriffe(werte: ReinigenWerte, z: Kaempfer): number {
+  return Math.ceil(reinigungsDauer(werte, z) / reinigungsHalten(werte, z) - 1e-9);
+}
+
+/** Was eine Reinigung dieses Ziels an Markenladung kostet. */
+export function reinigungsLadung(werte: ReinigenWerte, z: Kaempfer): number {
+  return z.zustand === 'verhaertet' ? werte.verhaertet.ladung : werte.ladung;
+}
+
+/**
+ * Steht das Ziel so, dass die Marke greifen kann? Niedergerungen (Leben ≤ `schwelle`) und betäubt —
+ * oder wund (≤ `wundAb`) und offen: in der Erholung nach seinem letzten Schlag, oder lauernd, während
+ * die Meute Atem holt (`lauert`, D172 — wer wartet, steht offen; allein lauert keiner).
+ */
+export function reinigenFenster(werte: ReinigenWerte, z: Kaempfer, lauert = false): boolean {
+  if (z.leben > werte.schwelle * z.werte.lebenMax + 1e-9) return false;
+  if (z.phase === 'betaeubt') return true;
+  if (z.leben > werte.wundAb * z.werte.lebenMax + 1e-9) return false;
+  return (z.phase === 'erholung' && z.folge.length === 0) || (lauert && z.phase === 'bereit');
+}
+
+/** Holt die Meute gerade Atem (D172)? Dann sind die Wartenden greifbar. */
+export function meuteAtmet(w: Kampfwelt): boolean {
+  return (w.atem ?? 0) > 1e-9;
+}
+
+/** Darf die Spielerin die Marke jetzt auf `z` legen? */
+export function kannReinigen(w: Kampfwelt, z: Kaempfer): boolean {
+  const m = w.marke, s = w.spielerin;
+  if (!m || !istBefallen(z)) return false;
+  const abbrechbar = s.phase === 'erholung' && s.zeit >= s.schlag.erholung * KOMBO_AB;
+  if (s.phase !== 'bereit' && !abbrechbar) return false;
+  if (z.zustand === 'verhaertet' && !m.reinkultur) return false;
+  if (m.ladung < reinigungsLadung(m.werte, z) - 1e-9) return false;
+  if (m.werte.ausdauer > 0 && !reicht(s.ausdauer, m.werte.ausdauer)) return false;
+  if (randAbstand(s, z) > m.werte.reichweite) return false;
+  return reinigenFenster(m.werte, z, meuteAtmet(w));
+}
+
+/**
+ * Die eine Eingabe: Marke auf das aufgeschaltete Ziel, sonst auf das nächste, das greifbar ist.
+ * `true`, wenn der Kanal begann.
+ */
+export function setzeReinigenAn(w: Kampfwelt, zielId: string | null = w.ziel): boolean {
+  const m = w.marke, s = w.spielerin;
+  if (!m) return false;
+  let z = zielId ? w.gegner.find(g => g.id === zielId && kannReinigen(w, g)) : undefined;
+  if (!z) {
+    for (const g of w.gegner) if (kannReinigen(w, g) && (!z || randAbstand(s, g) < randAbstand(s, z))) z = g;
+  }
+  if (!z) return false;
+  if (m.werte.ausdauer > 0) s.ausdauer = verbrauche(s.ausdauer, m.werte.ausdauer);
+  s.phase = 'reinigen'; s.zeit = 0; s.puffer = null; s.kombo = 0; s.komboOffen = 0;
+  s.blick = blickAuf(s.x, s.z, z.x, z.z);
+  m.ziel = z.id; m.loest = undefined;
+  // Die Marke hält das Tier `halten` s unten — ein schon Betäubtes zusätzlich den Rest seiner Betäubung.
+  const rest = z.phase === 'betaeubt' ? Math.max(0, (z.betaeubtFuer ?? z.werte.betaeubt) - z.zeit) : 0;
+  z.phase = 'betaeubt'; z.zeit = 0; z.folge = []; z.betaeubtFuer = rest + reinigungsHalten(m.werte, z);
+  m.ereignisse.push({ art: 'begonnen', ziel: z.id });
+  return true;
+}
+
+/** Das gehaltene Ziel freigeben: Es bleibt höchstens noch `nachhall` s benommen, dann steht es wieder. */
+function gibFrei(m: Marke, z: Kaempfer | undefined): void {
+  if (z && z.phase === 'betaeubt') {
+    z.betaeubtFuer = Math.min(m.werte.nachhall, Math.max(0, (z.betaeubtFuer ?? z.werte.betaeubt) - z.zeit)); z.zeit = 0;
+  }
+  m.ziel = null;
+}
+
+/**
+ * Selbst lösen (vor der Rolle): Der Fortschritt bleibt am Tier und verfällt von da an. Die Marke
+ * reisst nicht sofort ab — erst nach `loesen` s ist die Spielerin frei. Das ist der Preis des
+ * Kanals im Rudel: Wer den Biss kommen sieht, ist gegen die Schnellen trotzdem zu spät.
+ */
+export function loeseReinigen(w: Kampfwelt): void {
+  const m = w.marke;
+  if (!m || w.spielerin.phase !== 'reinigen' || m.loest !== undefined) return;
+  m.loest = m.werte.loesen;
+  if (m.loest <= 0) beendeReinigen(w, m);
+}
+
+/** Der Kanal endet ohne Treffer: frei, das Tier kommt hoch, der Fortschritt bleibt. */
+function beendeReinigen(w: Kampfwelt, m: Marke): void {
+  const s = w.spielerin, id = m.ziel;
+  s.phase = 'bereit'; s.zeit = 0;
+  m.loest = undefined;
+  gibFrei(m, w.gegner.find(g => g.id === id));
+  if (id) m.ereignisse.push({ art: 'geloest', ziel: id });
+}
+
+/** Ein Teilschritt der Marke — nach den Treffern, damit ein Treffer im selben Schritt den Kanal bricht. */
+function schrittReinigen(w: Kampfwelt, m: Marke, dt: number): void {
+  const s = w.spielerin;
+  for (const g of w.gegner) {
+    if (g.id !== m.ziel && (g.reinigung ?? 0) > 0) g.reinigung = Math.max(0, (g.reinigung ?? 0) - m.werte.verfallJeSekunde * dt);
+  }
+  if (m.ziel === null) return;
+  const z = w.gegner.find(g => g.id === m.ziel);
+  if (s.phase !== 'reinigen') {
+    // Ein Treffer hat sie herausgerissen (Zucken, Betäubung, Sturz): Der Kanal bricht, ein Teil bleibt.
+    const id = m.ziel;
+    if (z) z.reinigung = (z.reinigung ?? 0) * m.werte.behaltBeiTreffer;
+    m.loest = undefined;
+    gibFrei(m, z);
+    m.ereignisse.push({ art: 'getroffen', ziel: id });
+    return;
+  }
+  // Der Kanal hält nur, solange die Marke das Tier unten hält — steht es wieder, löst er sich von selbst.
+  if (!z || z.phase !== 'betaeubt') { beendeReinigen(w, m); return; }
+  z.reinigung = (z.reinigung ?? 0) + dt / reinigungsDauer(m.werte, z);
+  if (z.reinigung < 1 - 1e-9) {
+    if (m.loest !== undefined && (m.loest -= dt) <= 1e-9) beendeReinigen(w, m);
+    return;
+  }
+  m.loest = undefined;
+  m.ladung = Math.max(0, m.ladung - reinigungsLadung(m.werte, z));
+  z.reinigung = 1; z.zustand = 'rueckgefuehrt'; z.ausgang = 'gereinigt';
+  z.phase = 'gefallen'; z.zeit = 0; z.folge = []; z.betaeubtFuer = undefined;
+  s.phase = 'bereit'; s.zeit = 0;
+  m.ziel = null;
+  m.ereignisse.push({ art: 'gereinigt', ziel: z.id });
+}
+
+// ------------------------------------------------------------------ Aufgabe (D426)
+
+/**
+ * Aufgabe menschlicher Gegner (D385/D426): Menschen sind nicht reinigbar; ihr Kampf endet mit dem **ersten
+ * Haltungsbruch**, den die Spielerin setzt. Dann lässt er die Waffe fallen, hebt die Hände (im Bild noch nicht — der
+ * Clip fehlt, Reinigen v1 §6 „Nachmessung D426“) und weicht zurück — er
+ * greift nicht mehr an, deckt keine Linie mehr und liest die Spielerin nicht mehr. Bis `frist` s nach dem Bruch kann sie
+ * ihn trotzdem töten (Schaden wie immer, er wehrt sich nicht); danach geht er und ist aus dem Kampf: `ausgang`
+ * `verschont`. Tiere geben nie auf; ein Mensch mit `mensch.gibtAuf: false` (Anführer) auch nicht.
+ *
+ * Warum der Bruch und nicht das Leben: Die Haltung ist das, was ein Mensch im Kampf aufrecht hält — wer sie verliert,
+ * steht betäubt und weiss, dass der nächste Hieb sitzt. Folge, benannt (A-33 (3)): Die Axt bricht Haltung, der Speer
+ * kaum — gegen Menschen ist die Axt die Waffe, gegen Tiere der Speer.
+ *
+ * Werte: `content/aufgabe.json`, Schema `AufgabeDaten`. Getötet oder verschont liest `kampf/kampfende.ts`.
+ */
+export const AUFGABE: AufgabeDaten = AufgabeDaten.parse(AUFGABE_ROH);
+
+/** Gibt dieser Gegner beim ersten Haltungsbruch auf? Nur Menschen, und nur ohne `gibtAuf: false`. */
+export function gibtAuf(werte: KampfWerte): boolean {
+  return !!werte.mensch && werte.mensch.gibtAuf !== false;
+}
+
+/** Kämpft er noch — nicht gefallen, nicht aufgegeben? Wer aufgab, steht noch, zählt aber für Meute und Angriffsrecht nicht. */
+export function imKampf(k: Kaempfer): boolean {
+  return k.phase !== 'gefallen' && k.aufgegeben === undefined;
+}
+
+/** Aufgeben: keine Kette, keine Deckung, kein Lesen mehr. Die Betäubung aus dem Bruch läuft weiter. */
+export function gibAuf(k: Kaempfer): void {
+  k.aufgegeben = 0; k.folge = []; k.deckung = undefined; k.gelesen = []; k.puffer = null;
+}
+
+/** Wer aufgab, weicht zurück, die Spielerin im Blick, bis er `abstand` m von ihrem Rand steht. */
+function weicheZurueck(g: Kaempfer, s: Kaempfer, dt: number, schiebe?: Schieber): void {
+  if (g.phase !== 'bereit') return;
+  const dx = s.x - g.x, dz = s.z - g.z, d = Math.hypot(dx, dz);
+  if (d < 1e-6) return;
+  drehe(g, blickAuf(g.x, g.z, s.x, s.z), GEGNER_KI.drehrate, dt);
+  const rand = d - s.werte.radius;
+  if (rand >= AUFGABE.abstand) return;
+  const w = Math.min(AUFGABE.rueckzug * dt, AUFGABE.abstand - rand);
+  geheUm(g, -dx / d * w, -dz / d * w, schiebe);
+}
+
+/** Ein Teilschritt der Aufgabe — nach den Treffern: Uhr der Aufgegebenen, dann gibt auf, wessen Haltung eben brach. */
+function schrittAufgabe(w: Kampfwelt, neu: readonly Treffer[], h: number): void {
+  for (const g of w.gegner) {
+    if (g.aufgegeben === undefined || g.phase === 'gefallen') continue;
+    g.aufgegeben += h;
+    if (g.aufgegeben >= AUFGABE.frist - 1e-9 && g.phase === 'bereit') { g.phase = 'gefallen'; g.zeit = 0; g.ausgang = 'verschont'; }
+  }
+  for (const e of neu) {
+    if (e.von !== w.spielerin.id || !e.gebrochen || e.toedlich || e.geblockt) continue;
+    const g = w.gegner.find(x => x.id === e.auf);
+    if (g && g.aufgegeben === undefined && g.phase !== 'gefallen' && gibtAuf(g.werte)) gibAuf(g);
+  }
 }
 
 /**
@@ -1128,6 +1469,8 @@ export interface Kampfwelt {
  * und soll das spüren.
  */
 export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer[] {
+  const ohne = w.richtung === false;
+  for (const k of [w.spielerin, ...w.gegner]) k.ohneLinien = ohne;
   const ereignisse: Treffer[] = [];
   w.uebrig = (w.uebrig ?? 0) + Math.max(0, dt);
   while (w.uebrig >= SCHRITT - 1e-12) {
@@ -1137,7 +1480,7 @@ export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer
     if ((w.stopp ?? 0) > 1e-9) { w.stopp = Math.max(0, (w.stopp ?? 0) - h); continue; }
     verarbeitePuffer(w.spielerin);
     const dran = w.gegner.some(g => g.phase === 'vorlauf' || g.phase === 'aktiv' || g.phase === 'erholung');
-    if (w.warDran && !dran && w.gegner.filter(g => g.phase !== 'gefallen').length > 1) w.atem = GEGNER_KI.atempause;
+    if (w.warDran && !dran && w.gegner.filter(imKampf).length > 1) w.atem = GEGNER_KI.atempause;
     w.warDran = dran;
     const atmet = (w.atem ?? 0) > 1e-9;
     if (atmet) w.atem = Math.max(0, (w.atem ?? 0) - h);
@@ -1150,8 +1493,24 @@ export function simuliere(w: Kampfwelt, dt: number, schiebe?: Schieber): Treffer
     schrittKaempfer(w.spielerin, h, schiebe);
     for (const g of w.gegner) schrittKaempfer(g, h, schiebe);
     const neu = loeseTreffer(w.spielerin, w.gegner);
+    const kanal = !!w.marke && w.spielerin.phase === 'reinigen';
     for (const g of w.gegner) neu.push(...loeseTreffer(g, [w.spielerin]));
-    if (neu.some(e => e.schaden > 0)) w.stopp = TREFFERSTOPP;
+    // D426: Menschen geben beim ersten Haltungsbruch auf; wer aufgab und nicht getötet wird, geht nach der Frist.
+    if (w.aufgabe !== false) schrittAufgabe(w, neu, h);
+    if (w.marke) {
+      // D376: Wer kanalisiert, steht offen — der Treffer wiegt `verwundbar`-fach.
+      if (kanal) for (const e of neu) {
+        if (e.auf !== w.spielerin.id || e.schaden <= 0) continue;
+        const mehr = e.schaden * (w.marke.werte.verwundbar - 1);
+        w.spielerin.leben = Math.max(0, w.spielerin.leben - mehr);
+        e.schaden += mehr;
+        if (w.spielerin.leben <= 0) { w.spielerin.phase = 'gefallen'; w.spielerin.zeit = 0; e.toedlich = true; }
+      }
+      schrittReinigen(w, w.marke, h);
+    }
+    // D427: nach Wucht statt einheitlich 60 ms (D423).
+    const stopp = trefferstoppVon(neu);
+    if (stopp > 0) w.stopp = stopp;
     ereignisse.push(...neu);
     if (w.ziel && w.gegner.find(g => g.id === w.ziel)?.phase === 'gefallen') w.ziel = null;
   }

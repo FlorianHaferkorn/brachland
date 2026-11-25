@@ -1,8 +1,13 @@
 ---
-last-reviewed: 2026-08-16
+last-reviewed: 2026-11-22
 shelf-life-days: 180
 ---
 # BRACHLAND — Traversal v1
+
+> **Abgelöst durch [Traversal v2](BRACHLAND_Traversal_v2.md) (22.11.2026, Ledger D388, offene Fragen A-25).**
+> Überholt: „öffnet Gelände, das vorher zu war“, die Tabelle „Reihenfolge und Freischaltung“, die Kopplung an Team
+> und Mutation, die Zahlen der Ausdauer-Tabelle. Weiter gültig: Auswahl der Verben, Ausdauer als gemeinsame Währung,
+> der Nachtrag zum Gleiten (3:1, D71, kein eigener Knopf). Was genau gilt, steht in v2 §2. Diese Datei bleibt als Beleg.
 
 > Welche Bewegungen das Spiel braucht, in welcher Reihenfolge sie kommen, und warum
 > jede einzelne existiert. Enshrouded diente als Vorlage für die Auswahl — **nicht**

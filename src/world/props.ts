@@ -14,9 +14,24 @@ import BAEUME_REGISTER from '../../public/props/baeume.json';
 import type { Weltdaten, Biom } from './osm.js';
 import type { TerrainErgebnis } from './terrain.js';
 import { MASSSTAB } from './terrain.js';
+import { bestimmeHof, hofDeckung, hofRandProps, hofEingangFrei } from './hofplatz.js';
+import { bestimmeHofhaeuser, hofhausZugangFrei } from './hofhaeuser.js';
+import { hofbodenZugang } from './hofboden.js';
+import { HAUSFRONT_AN, HOF_AN, REFERENZHAUS_AN, HOF_HAEUSER_AN, HOF_BODEN_AN } from './echt.js';
 
-export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbuschel' | 'totholz'
+export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'totholz'
                     | 'blume' | 'pilz' | 'farn';
+
+/**
+ * D366: Die Grasbüschel-Props (Scan-Blattkarten `gras_scan_*`, D234) sind entfernt — sie standen als grosse,
+ * flache, hellgrüne Blattkarten einzeln über Wiese, Weg und Waldboden (Flo, 21.11.2026: „gefallen mir so
+ * überhaupt nicht"). Die Wiese tragen Grasteppich (`grasteppich.ts`) und Streuschicht (`streuung.ts`).
+ *
+ * `leerwurf` steht in `DICHTE` an der alten Stelle der Grasbüschel und würfelt deren Lage weiter, ohne etwas zu
+ * setzen: Alle Arten teilen einen Zufallsstrom, ohne die Würfe stünde jeder Baum, Busch und Farn hinter dem
+ * ersten Gras-Eintrag an einem anderen Ort (geprüft: die übrigen 315.744 Instanzen bleiben bitgleich).
+ */
+type DichteEintrag = PropArt | 'leerwurf';
 
 /**
  * Props je Hektar und Biom.
@@ -30,28 +45,28 @@ export type PropArt = 'nadelbaum' | 'laubbaum' | 'busch' | 'findling' | 'grasbus
  * und damit als Wald lesbar, aber weiter licht. Der nächste Hebel wären
  * Fernattrappen statt voller Modelle (Ledger G-15), nicht noch mehr Dichte.
  */
-export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
+export const DICHTE: Record<Biom, Partial<Record<DichteEintrag, number>>> = {
   // D212/D216: Farn als Waldunterwuchs, in Beständen (`farnBestand`). Gesät werden 700/ha, stehen
   // bleiben rund 45 % — im Bestand bis 700/ha (ein Stock je 14 m²), dazwischen nackter Boden.
   // Gleichverteilt (D212, 350/ha) las sich aus Spielerhöhe als vereinzelte Pflanze, nicht als Farn.
   // D236: Totholz im Wald 8 → 30/ha, im Gebüsch neu 6/ha — Äste, Stümpfe und Wurzeln (D230/D233) an der Waldkante.
-  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 30, grasbuschel: 30, pilz: 14, blume: 4, farn: 700 },
-  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, grasbuschel: 34, blume: 9, farn: 25, totholz: 6 },
-  // D235: Wiese 40 → 250 Grasbüschel/ha (Scan-Büschel, D234) — mit dem dichten Nahteppich die echte Wiese.
-  wiese:     { grasbuschel: 250, busch: 3, laubbaum: 1.2, blume: 22 },
-  acker:     { grasbuschel: 8, blume: 2 },
-  fels:      { findling: 18, busch: 4, nadelbaum: 1.6, grasbuschel: 6 },
+  wald:      { nadelbaum: 95, laubbaum: 32, busch: 26, totholz: 30, leerwurf: 30, pilz: 14, blume: 4, farn: 700 },
+  gebuesch:  { busch: 55, nadelbaum: 6, findling: 5, leerwurf: 34, blume: 9, farn: 25, totholz: 6 },
+  // D235: Wiese 40 → 250 Grasbüschel/ha (Scan-Büschel, D234); seit D366 nur noch Leerwürfe (siehe oben).
+  wiese:     { leerwurf: 250, busch: 3, laubbaum: 1.2, blume: 22 },
+  acker:     { leerwurf: 8, blume: 2 },
+  fels:      { findling: 18, busch: 4, nadelbaum: 1.6, leerwurf: 6 },
   wasser:    {},
   // Siedlung: siehe den Block unter dieser Tabelle. Kurz — ein bayerisches Dorf ist
   // nicht leerer als die Wiese daneben, sondern anders bewachsen: weniger Horstgras,
   // deutlich mehr Holz.
-  siedlung:  { laubbaum: 22, nadelbaum: 3, busch: 34, grasbuschel: 20, blume: 14, totholz: 3 },
-  industrie: { busch: 4, totholz: 3, grasbuschel: 9 },
-  ruine:     { busch: 9, totholz: 5, findling: 5, grasbuschel: 14, blume: 3 },
-  unbekannt: { grasbuschel: 10 },
+  siedlung:  { laubbaum: 22, nadelbaum: 3, busch: 34, leerwurf: 20, blume: 14, totholz: 3 },
+  industrie: { busch: 4, totholz: 3, leerwurf: 9 },
+  ruine:     { busch: 9, totholz: 5, findling: 5, leerwurf: 14, blume: 3 },
+  unbekannt: { leerwurf: 10 },
   // G-143: Hochmoor — Bulten aus Wollgras und Pfeifengras, Latschen und Heide als Busch, einzelne
   // Spirken und Moorbirken, viel totes Holz. Kein Farn, kein geschlossener Bestand. Erstwert, am M1 prüfen.
-  moor:      { grasbuschel: 160, busch: 22, nadelbaum: 5, laubbaum: 3, totholz: 10, blume: 6 },
+  moor:      { leerwurf: 160, busch: 22, nadelbaum: 5, laubbaum: 3, totholz: 10, blume: 6 },
 };
 
 /**
@@ -105,7 +120,7 @@ export const DICHTE: Record<Biom, Partial<Record<PropArt, number>>> = {
  */
 export const SICHTWEITE: Record<PropArt, number> = {
   nadelbaum: 420, laubbaum: 420, findling: 300,
-  busch: 180, totholz: 160, grasbuschel: 90,
+  busch: 180, totholz: 160,
   // Eine Blume ist 25 cm hoch und ein Pilz 15 — jenseits von 45 m sind sie
   // weniger als ein Pixel und kosten trotzdem einen ganzen Draw Call je Chunk.
   blume: 55, pilz: 45,
@@ -114,8 +129,8 @@ export const SICHTWEITE: Record<PropArt, number> = {
 };
 
 /** Ab dieser Neigung wächst nichts mehr — verhindert Bäume an Felswänden. */
-const MAX_NEIGUNG_GRAD: Partial<Record<PropArt, number>> = {
-  nadelbaum: 38, laubbaum: 32, busch: 45, totholz: 35, grasbuschel: 40, findling: 60,
+const MAX_NEIGUNG_GRAD: Partial<Record<DichteEintrag, number>> = {
+  nadelbaum: 38, laubbaum: 32, busch: 45, totholz: 35, leerwurf: 40, findling: 60,
   blume: 35, pilz: 30, farn: 42,
 };
 
@@ -149,7 +164,7 @@ export function mulberry(seed: number) {
  * Durchlauf; erst wenn die Hülle passt, wird das Polygon geprüft.
  */
 function hausTest(
-  welt: Weltdaten, terrain: TerrainErgebnis,
+  welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>, kantenAbstand = 0,
 ): (x: number, z: number) => boolean {
   const [sued, west, nord, ost] = welt.bbox;
   const zuWelt = (lat: number, lon: number): [number, number] => [
@@ -157,7 +172,7 @@ function hausTest(
     ((nord - lat) / (nord - sued) - 0.5) * terrain.tiefeMeter,
   ];
   /** Abstand zur Wand, den ein Prop mindestens hält. */
-  const RAND = 0.7;
+  const RAND = Math.max(0.7, kantenAbstand);
   const RASTER = 32;
   const huellen = welt.gebaeude.map(g => {
     const p = g.punkte.map(([lat, lon]) => zuWelt(lat, lon));
@@ -187,8 +202,46 @@ function hausTest(
         if ((za > z) !== (zb > z) && x < ((xb - xa) * (z - za)) / (zb - za) + xa) drin = !drin;
       }
       if (drin) return true;
+      // D297: Die bisherige Hüllenerweiterung allein hält noch keinen Abstand
+      // zur echten Wand. Nur die Probe fragt zusätzlich die Grundrisskanten ab.
+      if (kantenAbstand > 0) for (let a = 0, b = p.length - 1; a < p.length; b = a++) {
+        const [ax, az] = p[b], [bx, bz] = p[a];
+        const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+        const t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0;
+        if ((x - ax - t * dx) ** 2 + (z - az - t * dz) ** 2 < kantenAbstand ** 2) return true;
+      }
     }
     return false;
+  };
+}
+
+/**
+ * D297: schmaler Pflege-/Gehstreifen am Gebäudesockel in Siedlungen.
+ * Der tatsächliche Nutzungszustand des Hauses ist hier nicht verfügbar; deshalb
+ * ist dies ausdrücklich eine Siedlungsprobe, keine Zuordnung „bewohnt“ je Haus.
+ * Raster und Kantenprüfung werden einmal beim Bau vorbereitet, nicht pro Bild.
+ */
+export function hausfrontPflegeTest(
+  welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>,
+): (x: number, z: number) => boolean {
+  const amHaus = hausTest(welt, terrain, 1.6);
+  const amSockel = HOF_BODEN_AN ? hausTest(welt, terrain, .38) : amHaus;
+  const hof = HOF_AN ? bestimmeHof(welt, terrain) : null;
+  const hofHaeuser = HOF_HAEUSER_AN ? bestimmeHofhaeuser(welt, terrain, hof) : null;
+  const n = welt.aufloesung;
+  return (x, z) => {
+    const bodenProbe = HOF_BODEN_AN && hof && Math.hypot(x-hof.mitte[0],z-hof.mitte[1]) < 38;
+    if (bodenProbe && hofHaeuser) {
+      if (hofhausZugangFrei(x,z,hofHaeuser) || hofbodenZugang(x,z,hofHaeuser) > .15 || amSockel(x,z)) return true;
+      const rest = .18 + .68 * (.5 + .5 * Math.sin(x*12.9898+z*7.233));
+      return hofDeckung(x,z,hof) > rest;
+    }
+    if (hofHaeuser ? hofhausZugangFrei(x,z,hofHaeuser) : REFERENZHAUS_AN && hofEingangFrei(x,z,hof)) return true;
+    const i = Math.max(0, Math.min(n - 1, Math.round((z / terrain.tiefeMeter + 0.5) * (n - 1))));
+    const j = Math.max(0, Math.min(n - 1, Math.round((x / terrain.breiteMeter + 0.5) * (n - 1))));
+    // Gleiche Ortsmaske wie der Kies; am Rand bleiben einzelne Horste stehen.
+    const rest = 0.12 + 0.76 * (0.5 + 0.5 * Math.sin(x * 12.9898 + z * 7.233));
+    return hofDeckung(x, z, hof) > rest || (welt.biome[i][j] === 'siedlung' && amHaus(x, z));
   };
 }
 
@@ -208,7 +261,12 @@ function hausTest(
  */
 export function wegTest(
   welt: Weltdaten, terrain: Pick<TerrainErgebnis, 'breiteMeter' | 'tiefeMeter'>,
+  /** Dieselbe Sockelmaske erreicht so auch den Grasteppich über dessen Wegprädikat. */
+  mitHausfrontPflege = HAUSFRONT_AN,
+  /** Örtlicher Wuchs darf den Pflegestreifen besiedeln. Wegsegmente bleiben gesperrt. */
+  pflegeAusnahme?: (x: number, z: number) => boolean,
 ): (x: number, z: number) => boolean {
+  const pflege = mitHausfrontPflege ? hausfrontPflegeTest(welt, terrain) : null;
   const [sued, west, nord, ost] = welt.bbox;
   /** Abstand zur Wegkante, den ein Prop mindestens hält. */
   const RAND = 0.6;
@@ -236,6 +294,7 @@ export function wegTest(
       }
   });
   return (x, z) => {
+    if (pflege?.(x, z) && !pflegeAusnahme?.(x, z)) return true;
     for (const i of eimer.get(`${Math.floor(x / RASTER)}:${Math.floor(z / RASTER)}`) ?? []) {
       const s = segmente[i];
       const dx = s.bx - s.ax, dz = s.bz - s.az;
@@ -280,7 +339,8 @@ export function verteileProps(
   const zellTiefe = terrain.tiefeMeter / (n - 1);
   const hektarJeZelle = (zellBreite * zellTiefe * MASSSTAB.stauchung ** 2) / 10_000;
   const imHaus = hausTest(welt, terrain);
-  const aufWeg = wegTest(welt, terrain);
+  const aufWeg = wegTest(welt, terrain, false);
+  const pflege = HAUSFRONT_AN ? hausfrontPflegeTest(welt, terrain) : null;
 
   const props: PropInstanz[] = [];
 
@@ -299,7 +359,7 @@ export function verteileProps(
       );
       const neigung = Math.atan(dh / (zellBreite || 1)) * 180 / Math.PI;
 
-      for (const [art, jeHektar] of Object.entries(dichte) as [PropArt, number][]) {
+      for (const [art, jeHektar] of Object.entries(dichte) as [DichteEintrag, number][]) {
         if (neigung > (MAX_NEIGUNG_GRAD[art] ?? 90)) continue;
         const erwartet = jeHektar * hektarJeZelle;
         // Nachkommaanteil als Wahrscheinlichkeit — sonst verschwinden seltene Props ganz
@@ -312,6 +372,14 @@ export function verteileProps(
           if (imHaus(x, z)) continue;
           // Und 4.975 standen auf dem Belag, darunter 1.488 Fichten (G-84).
           if (aufWeg(x, z)) continue;
+          // D366: Leerwurf der entfernten Grasbüschel — drei Instanzwürfe wie eine gesetzte Instanz, nichts setzen.
+          if (art === 'leerwurf') { zufall(); zufall(); zufall(); continue; }
+          // Nur niedrigen Bewuchs zurücknehmen; Bäume, Findlinge und Totholz bleiben.
+          // Die drei Instanzwürfe mitnehmen, damit spätere Pflanzen denselben Seed behalten.
+          if (pflege && (art === 'farn' || art === 'busch' || art === 'blume' || art === 'pilz') && pflege(x, z)) {
+            zufall(); zufall(); zufall();
+            continue;
+          }
           // Farn in Beständen (D216): die Schwelle aus der Lage, nicht aus dem Zufallsstrom.
           if (art === 'farn' && lageRauschen(x * 3.1, z * 3.1) > farnBestand(x, z)) {
             zufall(); zufall(); zufall();   // Strom wie bei einer gesetzten Instanz weiterdrehen
@@ -328,6 +396,8 @@ export function verteileProps(
       }
     }
   }
+  if (HOF_AN) props.push(...hofRandProps(bestimmeHof(welt, terrain), terrain.hoeheAn,
+    (x, z) => imHaus(x, z) || aufWeg(x, z)));
   return props;
 }
 
@@ -383,16 +453,6 @@ export const VARIANTEN: Record<PropArt, Variante[]> = {
     { textur: 'farn', datei: 'farn_scan_a',    hoehe: 0.46 },
     { textur: 'farn', datei: 'farn_scan_c',    hoehe: 0.56 },
     { textur: 'farn', datei: 'farn_scan_b',    hoehe: 0.68 },
-  ],
-  // D234: gescannte Grasbüschel (Poly Haven `grass_medium_02`, CC0, `tools/phprops.ts`) auf die Höhen
-  // der prozeduralen; Blattkarten mit Alpha. Die prozeduralen bleiben in `propbau.ts` (Rückfall).
-  grasbuschel: [
-    { datei: 'gras_scan_a',    hoehe: 0.18, textur: 'gras' },
-    { datei: 'gras_scan_b',    hoehe: 0.24, textur: 'gras' },
-    { datei: 'gras_scan_c',    hoehe: 0.34, textur: 'gras' },
-    { datei: 'gras_scan_d',    hoehe: 0.48, textur: 'gras' },
-    { datei: 'gras_scan_e',    hoehe: 0.62, textur: 'gras' },
-    { datei: 'gras_scan_f',    hoehe: 0.85, textur: 'gras' },
   ],
   // D230: bemooste Steine (Poly Haven `rock_moss_set_01/02`, CC0), auf die Höhen der alten Varianten.
   findling: [
@@ -467,7 +527,13 @@ export const PROZEDURALE_VARIANTEN: Partial<Record<PropArt, number>> = {
  * Datei statt `baueBaum`; fehlt er, bleibt der prozedurale Baum (D40). Die Liste kommt aus dem
  * Werkzeug, nicht von Hand (G-129).
  */
-export interface BlenderBaum { art: 'buche' | 'fichte'; variante: number; stufe: 'nah' | 'mittel' | 'fern'; datei: string; hoehe: number; dreiecke: number }
+export interface BlenderBaum {
+  art: 'buche' | 'fichte'; variante: number; stufe: 'nah' | 'mittel' | 'fern'; datei: string; hoehe: number; dreiecke: number;
+  /** D364: Brusthöhendurchmesser (1,3 m) am gebauten Netz, Meter — gemessen vom Maßstab-Tor. */
+  bhd?: number;
+  /** D367: Fernstufe als Impostor (Atlas `public/material/<datei>-farbe/-normal.webp`). */
+  impostor?: { breite: number; hoehe: number; unten: number; ansichten: number; zelle: [number, number] };
+}
 export const BLENDER_BAEUME: BlenderBaum[] = (BAEUME_REGISTER as { baeume: BlenderBaum[] }).baeume;
 export function blenderBaum(art: 'buche' | 'fichte', variante: number, stufe: 'nah' | 'mittel' | 'fern'): BlenderBaum | null {
   const je = BLENDER_BAEUME.filter(b => b.art === art && b.stufe === stufe);
@@ -497,7 +563,6 @@ const TON_STREUUNG: Record<PropArt, { hell: number; warm: number }> = {
   nadelbaum:   { hell: 0.16, warm: 0.10 },
   laubbaum:    { hell: 0.18, warm: 0.16 },
   busch:       { hell: 0.20, warm: 0.18 },
-  grasbuschel: { hell: 0.22, warm: 0.20 },
   findling:    { hell: 0.16, warm: 0.08 },
   totholz:     { hell: 0.16, warm: 0.12 },
   blume:       { hell: 0.14, warm: 0.06 },
@@ -543,7 +608,7 @@ export function propTon(
 /** Reale Zielhöhe je Art in Metern — nur noch für die Fernattrappe. */
 export const ZIELHOEHE: Record<PropArt, number> = {
   nadelbaum: 22, laubbaum: 14, busch: 1.6, findling: 1.1, totholz: 0.9,
-  grasbuschel: 0.35, blume: 0.26, pilz: 0.18, farn: 0.7,
+  blume: 0.26, pilz: 0.18, farn: 0.7,
 };
 
 export const propPfad = (datei: string) => `/props/${datei}.glb`;
@@ -559,7 +624,6 @@ export const propPfad = (datei: string) => `/props/${datei}.glb`;
  *   nadelbaum    146          9    16,2x
  *   laubbaum     191         20     9,5x
  *   totholz      160         11    14,1x
- *   grasbuschel  109          6    17,2x
  * ```
  *
  * Mit voller Modellqualität bis zur Sichtweite kostet der dichteste Standort
@@ -617,11 +681,6 @@ export function propGeometrie(art: PropArt): THREE.BufferGeometry {
       const g = new THREE.CylinderGeometry(0.14, 0.2, 3.4, 5);
       g.rotateZ(Math.PI * 0.42);
       g.translate(0, 0.35, 0);
-      return g;
-    }
-    case 'grasbuschel': {
-      const g = new THREE.ConeGeometry(0.3, 0.9, 4);
-      g.translate(0, 0.45, 0);
       return g;
     }
     case 'blume': {

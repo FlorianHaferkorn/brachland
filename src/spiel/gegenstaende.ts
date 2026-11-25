@@ -80,6 +80,9 @@ export function wendeAn(
       return { gewirkt: true, meldung: `${g.name} ausgelegt.`, fangBonus: w.bonus };
     case 'komponente':
       return { gewirkt: false, meldung: `${g.name} gehört an den Ort des Regenten, nicht an ${ziel.name}.` };
+    // D393: Material, Werkzeug, Zeug, Wissen … wirken auf keinen Kämpfer.
+    default:
+      return { gewirkt: false, meldung: `${g.name} lässt sich so nicht anwenden.` };
   }
 }
 
@@ -92,6 +95,7 @@ export function wirktAuf(g: Gegenstand, ziel: Kaempfer): boolean {
     case 'fokus': return ziel.kp > 0 && ziel.fokus < REGELN.FOKUS_MAX;
     case 'fanghilfe': return true;
     case 'komponente': return false;
+    default: return false;
   }
 }
 

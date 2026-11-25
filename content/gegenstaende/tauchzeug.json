@@ -1,0 +1,13 @@
+{
+  "id": "tauchzeug",
+  "name": "Tauchzeug",
+  "wirkung": {
+    "art": "werkzeug",
+    "faehigkeit": "tauchen"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Atemgerät der Klärwerkswartung, Anzug und Leine. Der Anzug hält die Kälte ab, die Flasche reicht für Abstiege, nicht für Strecken. Auf dem Zettel im Spind dieselbe Zahl, andere Handschrift.",
+  "einmalig": true,
+  "gewicht": 5.0
+}

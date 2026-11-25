@@ -1,0 +1,82 @@
+{
+ "bauwerke": [
+  {
+   "name": "felsmulde",
+   "ursprung": {
+    "x": -800,
+    "z": 600
+   },
+   "h0": 452.91191750150034,
+   "frei": {
+    "x": -801.0,
+    "z": 600.5,
+    "props": 150.0,
+    "streu": 9.0,
+    "haeuser": 160.0
+   },
+   "dateien": [
+    "bauten",
+    "wasser",
+    "boden",
+    "pflanzen",
+    "schatten",
+    "baeume"
+   ],
+   "objekte": {
+    "bauten": [
+     "MauerA",
+     "MauerA_Bogen",
+     "MauerA_Kronstein",
+     "MauerA_Schutt",
+     "MauerB",
+     "MauerB_Bogen",
+     "MauerB_Kronstein",
+     "MauerB_Schutt",
+     "MauerC",
+     "MauerC_Kronstein",
+     "MauerC_Schutt",
+     "Stuetzmauer",
+     "Stuetzmauer_Kronstein",
+     "Hof",
+     "Becken",
+     "Fels0",
+     "Fels1",
+     "Fels2",
+     "Fels3",
+     "Stein",
+     "FelsR0",
+     "FelsR1",
+     "FelsR2",
+     "Kiesel",
+     "Balken",
+     "Ast",
+     "Rindenstreu",
+     "Zweig",
+     "Wurzeln",
+     "Stubben",
+     "Moospolster",
+     "Kronmoos",
+     "Versturz"
+    ],
+    "gruen": [],
+    "wasser": [
+     "Becken_Wasser"
+    ]
+   },
+   "terrasse": {
+    "x": -802.0,
+    "z": 601.0,
+    "rInnen": 12.0,
+    "rAussen": 22.0
+   },
+   "boden": {
+    "mitte": {
+     "x": -2.0,
+     "y": -1.0
+    },
+    "radius": 30.0,
+    "zt": 0.3638156056404114
+   }
+  }
+ ]
+}

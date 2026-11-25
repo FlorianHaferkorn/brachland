@@ -1,0 +1,13 @@
+{
+  "id": "fichtenspitzen",
+  "name": "Fichtenspitzen",
+  "wirkung": {
+    "art": "zutat",
+    "fuer": "beigabe"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Hellgrüne Triebe, eine Handvoll. Sauer, harzig. Die Magd kocht sie mit, wenn einer am nächsten Tag weit muss.",
+  "gewicht": 0.05,
+  "traglast": 4
+}

@@ -7,5 +7,7 @@
   },
   "imKampf": true,
   "beuteChance": 0.1,
-  "beschreibung": "Fichtenharz auf Leinen. Schließt auch, was ein Sud nicht mehr erreicht."
+  "beschreibung": "Fichtenharz auf Leinen. Schließt auch, was ein Sud nicht mehr erreicht.",
+  "gewicht": 0.08,
+  "traglast": 3
 }

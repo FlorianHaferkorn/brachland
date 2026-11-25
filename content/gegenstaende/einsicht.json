@@ -1,0 +1,12 @@
+{
+  "id": "einsicht",
+  "name": "Einsicht",
+  "wirkung": {
+    "art": "erfahrung",
+    "punkte": 1
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Eine Seite im Heft, die man zweimal gelesen hat. Kein Fund. Etwas, das man jetzt weiss und vorher nicht.",
+  "gewicht": 0
+}

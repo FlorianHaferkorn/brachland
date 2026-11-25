@@ -4,13 +4,10 @@
   "innen": "werkstatt",
   "art": "bewohner",
   "name": "Die Schmiedin",
-  "ort": [
-    47.7285,
-    12.09892
-  ],
+  "ort": [47.73533, 12.09172],
   "text": "Die Esse ist kalt, der Amboss nicht. Wer Harz und Funken bringt, bekommt eine Schneide, die hält.",
   "figur": "werkfrau",
-  "blick": -33,
+  "blick": -169,
   "schmied": true,
   "textAbend": "Die Esse glüht noch nach. Sie trinkt am Amboss, nicht am Tresen — der Amboss hört besser zu."
 }

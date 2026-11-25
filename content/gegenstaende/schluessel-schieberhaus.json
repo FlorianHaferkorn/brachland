@@ -1,0 +1,13 @@
+{
+  "id": "schluessel-schieberhaus",
+  "name": "Schlüssel zum Schieberhaus",
+  "wirkung": {
+    "art": "zugang",
+    "oeffnet": "schieberhaus"
+  },
+  "imKampf": false,
+  "beuteChance": 0,
+  "beschreibung": "Vierkant mit Blechmarke, Nummer 3. Passt auf die Tür am Wehr. Dahinter die Treppe, die man von unten nicht findet.",
+  "einmalig": true,
+  "gewicht": 0.1
+}

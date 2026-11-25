@@ -1,0 +1,37 @@
+{
+ "kachel": 512,
+ "rollen": [
+  {
+   "rolle": "putz",
+   "quelle": "grey_plaster_02",
+   "meter": 1.0,
+   "autoren": [
+    "Rob Tuytel"
+   ]
+  },
+  {
+   "rolle": "schalung",
+   "quelle": "old_planks_02",
+   "meter": 2.0,
+   "autoren": [
+    "Rob Tuytel"
+   ]
+  },
+  {
+   "rolle": "dach",
+   "quelle": "grey_roof_tiles",
+   "meter": 3.0,
+   "autoren": [
+    "Rob Tuytel"
+   ]
+  },
+  {
+   "rolle": "sockel",
+   "quelle": "old_stone_wall",
+   "meter": 2.0,
+   "autoren": [
+    "Charlotte Baglioni"
+   ]
+  }
+ ]
+}

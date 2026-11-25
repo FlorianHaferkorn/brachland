@@ -23,6 +23,19 @@
  * Spielraum und keine Wechselwirkung mit Nebel oder Schatten.
  */
 import * as THREE from 'three';
+import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
+import { HOF_ZIELTREUE_AN } from './echt.js';
+import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT } from './milbingerlicht.js';
+import { bauePhysikHimmel } from './physikhimmel.js';
+import type { Atmosphaere } from './stimmung.js';
+
+/**
+ * D368: `?himmel=physik` ersetzt den Verlaufshimmel durch den physikalischen (`physikhimmel.ts`) und
+ * koppelt Nebel, Fernland, Sonne und Fülllicht an ihn (`atmosphaere.ts` `koppleStimmung`).
+ * Vorgabe aus.
+ */
+export const HIMMEL_PHYSIK_AN = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('himmel') === 'physik';
 
 export interface HimmelWerte {
   zenit: string;
@@ -38,6 +51,8 @@ export interface HimmelWerte {
   hof: number;
   /** D203: Wolkenbedeckung 0…1; ohne Angabe `WOLKEN_VORGABE`. */
   wolken?: number;
+  /** D368: Luft der Stimmung; nur mit `?himmel=physik` gelesen. */
+  atmosphaere?: Atmosphaere;
 }
 
 /**
@@ -70,6 +85,7 @@ uniform float scheibe;
 uniform float hof;
 uniform float wolken;
 uniform float uZeit;
+${HOF_ZIELTREUE_AN ? 'uniform sampler2D uHofWolken;\nuniform float uHofWolkenAnteil;' : ''}
 varying vec3 vRichtung;
 
 // D203: Wertrauschen und FBM für die Wolken — dieselbe Machart wie das Bodenrauschen, null Bytes.
@@ -122,7 +138,20 @@ void main() {
     float licht = 0.5 + 0.5 * pow(d, 2.0);
     vec3 wolkenFarbe = mix(horizont * 0.82, mix(horizont, sonnenfarbe, 0.4) * 1.2, licht);
     wolkenFarbe += sonnenfarbe * dichte * (1.0 - dichte) * 4.0 * pow(d, 5.0) * 0.45;
-    farbe = mix(farbe, wolkenFarbe, bedeckt * 0.9);
+    ${HOF_ZIELTREUE_AN ? /* glsl */ `
+    // Dünne, warm erhellte Wolkenlücken zwischen dunkleren Schichtwolken.
+    float aufbruch = pow(max(0.0,dot(r,vec3(.13,.40,.904))),9.0);
+    float durchlass = 1.0 - smoothstep(.31,.72,n);
+    vec3 wolkenSchatten = mix(zenit * .83,horizont * .74,smoothstep(.14,.53,h));
+    vec3 warmesLicht = mix(horizont,sonnenfarbe,.44) * (.60 + .48 * aufbruch);
+    vec3 schicht = mix(wolkenSchatten,warmesLicht,durchlass * (.34 + .66 * aufbruch));
+    farbe = mix(farbe,schicht,smoothstep(.025,.24,h)*.92);
+    // Blickrichtungsfeste Wolkenkarte. Am Horizont bleibt der Nebel farbgleich.
+    vec2 wolkenUv = vec2(fract(atan(r.x,r.z)*.15915494 + .24), asin(clamp(h,-1.0,1.0))*.31830989 + .50);
+    vec3 wolkenKarte = texture2D(uHofWolken,wolkenUv).rgb;
+    float naht = smoothstep(0.0,.045,min(wolkenUv.x,1.0-wolkenUv.x));
+    farbe = mix(farbe,wolkenKarte * vec3(.84,.70,.56),uHofWolkenAnteil * smoothstep(.025,.17,h) * naht);
+    ` : 'farbe = mix(farbe, wolkenFarbe, bedeckt * 0.9);'}
   }
 
   // Hof: weiter, weicher Abfall. Das ist der Teil, der die Stimmung macht. Durch Wolken gedämpft,
@@ -148,10 +177,86 @@ void main() {
 }
 `;
 
-export function baueHimmel(w: HimmelWerte): THREE.Mesh {
+let hofWolken: THREE.Texture | undefined;
+let hofWolkenSeit = Infinity;
+let alpenhimmel: THREE.Texture | undefined;
+let alpenhimmelSeit = Infinity;
+let wolkendecke: THREE.Texture | undefined;
+let wolkendeckeSeit = Infinity;
+
+type Ortsfoto = 'klar' | 'bedeckt';
+
+export function baueHimmel(w: HimmelWerte, ortsfoto?: Ortsfoto): THREE.Mesh {
+  if (HIMMEL_PHYSIK_AN && w.atmosphaere && !ortsfoto) return bauePhysikHimmel({ ...w, atmosphaere: w.atmosphaere });
+  if (HOF_ZIELTREUE_AN && !hofWolken) {
+    hofWolken = new THREE.TextureLoader().load('/material/hof-himmel-farbe.webp', () => {
+      hofWolkenSeit = performance.now();
+    });
+    hofWolken.colorSpace = THREE.SRGBColorSpace;
+    hofWolken.wrapS = THREE.RepeatWrapping;
+  }
+  if (ortsfoto === 'klar' && !alpenhimmel) {
+    alpenhimmel = new HDRLoader().load('/himmel/alps_field_1k.hdr', () => { alpenhimmelSeit = performance.now(); });
+    alpenhimmel.wrapS = THREE.RepeatWrapping;
+  }
+  if (ortsfoto === 'bedeckt' && !wolkendecke) {
+    wolkendecke = new THREE.TextureLoader().load('/material/milbinger-wolkendecke.webp', () => {
+      wolkendeckeSeit = performance.now();
+    });
+    wolkendecke.colorSpace = THREE.SRGBColorSpace;
+    wolkendecke.wrapS = THREE.RepeatWrapping;
+  }
+  const fragment = ortsfoto === 'klar' ? FRAGMENT
+    .replace('uniform float uZeit;', `uniform float uZeit;
+uniform sampler2D uAlpenhimmel;
+uniform float uAlpenanteil, uAlpendrehung;
+// Oberkante des Geländes im 1024 × 512 großen Ausgangspanorama, alle 64 Pixel.
+// Nur Himmel übernehmen, der Gebirgsumriss stammt aus dem Spielgelände.
+const float fotokamm[17] = float[17](193.,199.,221.,221.,234.,226.,194.,183.,185.,178.,185.,214.,233.,222.,208.,199.,193.);`)
+    .replace('  gl_FragColor =', `
+  if (uAlpenanteil > 0.0 && h > .04) {
+    vec2 uv = vec2(fract(atan(r.z,r.x)*.15915494 + .5 + uAlpendrehung), asin(clamp(h,-1.0,1.0))*.31830989 + .5);
+    float x = uv.x * 1024.0, y = (1.0 - uv.y) * 512.0;
+    float spalte = x / 64.0;
+    int links = int(spalte);
+    float kamm = mix(fotokamm[links], fotokamm[links+1], fract(spalte));
+    float fotoGewicht = 1.0 - smoothstep(kamm - 30.0, kamm - 8.0, y);
+    // Dunst aus derselben Palette wie Fernland und Spielnebel unterhalb des Fotohimmels.
+    vec3 hellesBlau = zenit * (.68 + .22 * bedeckt);
+    vec3 ortshimmel = mix(dunst, hellesBlau, smoothstep(.035,.40,h));
+    if (fotoGewicht > 0.0) {
+      vec3 foto = texture2D(uAlpenhimmel,uv).rgb;
+      // Kondensstreifen im Foto entlang der gemessenen Kurve aus Nachbarzeilen ersetzen.
+      float p = (x - 430.0) / 200.0;
+      float streifen = ((-15.27*p + 90.89)*p - 26.33)*p + 93.01;
+      float abstand = abs(y - streifen);
+      if (x > 235.0 && x < 600.0 && abstand < 10.0) {
+        vec2 versatz = vec2(0.0, 15.0 / 512.0);
+        vec3 klar = .5 * (texture2D(uAlpenhimmel,uv+versatz).rgb + texture2D(uAlpenhimmel,uv-versatz).rgb);
+        float entfernen = smoothstep(235.0,265.0,x) * (1.0-smoothstep(572.0,600.0,x));
+        foto = mix(foto, klar, entfernen * (1.0 - smoothstep(4.0,10.0,abstand)));
+      }
+      foto = mix(foto, vec3(dot(foto,vec3(.2126,.7152,.0722))), .14);
+      ortshimmel = mix(ortshimmel, foto * .64, fotoGewicht);
+    }
+    farbe = mix(farbe, ortshimmel, uAlpenanteil * smoothstep(.04,.08,h));
+  }
+  gl_FragColor =`) : ortsfoto === 'bedeckt' ? FRAGMENT
+    .replace('uniform float uZeit;', `uniform float uZeit;
+uniform sampler2D uWolkendecke;
+uniform float uWolkenanteil, uWolkendrehung;`)
+    .replace('  gl_FragColor =', `
+  if (uWolkenanteil > 0.0) {
+    // Das Foto enthält nur die obere Hemisphäre. Bodendunst deckt ihren unteren Rand.
+    vec2 uv = vec2(fract(atan(r.z,r.x)*.15915494 + .5 + uWolkendrehung), asin(clamp(h,0.0,1.0))*.63661977);
+    vec3 foto = texture2D(uWolkendecke, uv).rgb;
+    vec3 decke = mix(dunst, foto * .72, smoothstep(.005,.29,h));
+    farbe = mix(farbe, decke, uWolkenanteil);
+  }
+  gl_FragColor =`) : FRAGMENT;
   const material = new THREE.ShaderMaterial({
     vertexShader: VERTEX,
-    fragmentShader: FRAGMENT,
+    fragmentShader: fragment,
     side: THREE.BackSide,
     depthWrite: false,
     fog: false,
@@ -165,6 +270,15 @@ export function baueHimmel(w: HimmelWerte): THREE.Mesh {
       hof: { value: w.hof },
       wolken: { value: w.wolken ?? WOLKEN_VORGABE },
       uZeit: { value: 0 },
+      ...(ortsfoto === 'klar' ? {
+        uAlpenhimmel: { value: alpenhimmel }, uAlpenanteil: { value: 0 },
+        uAlpendrehung: { value: MILBINGER_TAGESLICHT.wolkenDrehung },
+      } : {}),
+      ...(ortsfoto === 'bedeckt' ? {
+        uWolkendecke: { value: wolkendecke }, uWolkenanteil: { value: 0 },
+        uWolkendrehung: { value: MILBINGER_WOLKENLICHT.wolkenDrehung },
+      } : {}),
+      ...(hofWolken && HOF_ZIELTREUE_AN ? { uHofWolken: { value: hofWolken }, uHofWolkenAnteil: { value: 0 } } : {}),
     },
   });
 
@@ -174,11 +288,21 @@ export function baueHimmel(w: HimmelWerte): THREE.Mesh {
   mesh.frustumCulled = false;
   mesh.renderOrder = -1000;
   // Wolken ziehen: Zeit je Bild, ohne dass die Szene davon wissen muss.
-  mesh.onBeforeRender = () => { material.uniforms.uZeit.value = performance.now() / 1000; };
+  mesh.onBeforeRender = () => {
+    const jetzt = performance.now();
+    material.uniforms.uZeit.value = jetzt / 1000;
+    if (HOF_ZIELTREUE_AN) material.uniforms.uHofWolkenAnteil.value = THREE.MathUtils.smoothstep(jetzt - hofWolkenSeit, 0, 550);
+    if (ortsfoto === 'klar') material.uniforms.uAlpenanteil.value = (mesh.userData.ortsfotoAnteil ?? 0)
+      * THREE.MathUtils.smoothstep(jetzt - alpenhimmelSeit, 0, 650);
+    if (ortsfoto === 'bedeckt') material.uniforms.uWolkenanteil.value = (mesh.userData.ortsfotoAnteil ?? 0)
+      * THREE.MathUtils.smoothstep(jetzt - wolkendeckeSeit, 0, 650);
+  };
   return mesh;
 }
 
 export function setzeHimmel(mesh: THREE.Mesh, w: HimmelWerte): void {
+  // Der physikalische Himmel wird je Stimmung neu gebaut, seine Uniforms heissen anders.
+  if (mesh.userData.physik) return;
   const u = (mesh.material as THREE.ShaderMaterial).uniforms;
   (u.zenit.value as THREE.Color).set(w.zenit);
   (u.horizont.value as THREE.Color).set(w.horizont);

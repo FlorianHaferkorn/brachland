@@ -11,6 +11,7 @@ import { Suspense, useMemo, useRef, useEffect, useState, useCallback } from 'rea
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
+import { imPolygon } from '../world/osm.js';
 import { baueTerrain, baueGebaeude, GROESSE, type TerrainErgebnis } from '../world/terrain.js';
 import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel, senkePegel, type Pegelsenke,
          baueGartenKachel, type Bandsatz } from '../world/baender.js';
@@ -19,7 +20,8 @@ import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
 import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
 import { WasserUmgebung, WasserSzeneProbe, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
-import { EzBaumProbe, istEzProbeBereit } from './EzBaumProbe.js';
+import { EzBaumProbe, istEzProbeBereit, uebernimmtEzVariante } from './EzBaumProbe.js';
+import { Rahmenkronen } from './Rahmenkronen.js';
 import { TakramProbe } from './TakramProbe.js';
 import { STIMMUNG, HEMI_BODEN, heileStimmung, type Stimmung } from '../world/stimmung.js';
 export { STIMMUNG, HEMI_BODEN, HEMI_BODEN_TAG, type Stimmung, type StimmungsName } from '../world/stimmung.js';
@@ -29,15 +31,25 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { baueHoehenfeld, baueKachelraster, lodFuerAbstand, baueKachelGeometrie,
          hoeheAufFlaeche, spiegelAufFlaeche, aufsatzboden, type HoehenFeld, type Kachel } from '../world/lod.js';
 import { benutzeSteuerung, type Stoecke } from '../spieler/steuerung.js';
+import { aktionenVon } from '../spieler/eingabe.js';
 import { peilung } from '../spieler/peilung.js';
-import { baueBueschelGeometrie, baueKleinzeugGeometrie, baueStreuMaterial,
-         streueUmgebung, streueKleinzeug,
-         STREU_MAX, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
-import { baueBodenMaterial, setzeBodenHimmel } from '../world/bodenmaterial.js';
+import { baueKleinzeugGeometrie, streueKleinzeug, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
+import { baueBodenMaterial, setzeBodenHimmel, BODEN_LOCH } from '../world/bodenmaterial.js';
+import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
+import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
+import { baueMilbingerSandkasten } from '../world/milbingersubstanz.js';
+import { ersetzteGebaeude, hofbauLagen, ladeHofbauten } from '../world/hofbau.js';
+import LOD2_ROH from '../../public/world/oental-lod2.json';
+import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
-import { baueHimmel, setzeHimmel } from '../world/himmel.js';
-import { baueFernland, baueFernlandMaterial, type Fernland } from '../world/fernland.js';
-import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot } from '../world/windmaterial.js';
+import { baueHimmel, setzeHimmel, HIMMEL_PHYSIK_AN } from '../world/himmel.js';
+import { koppleStimmung, mischeAtmosphaere, ATMOSPHAERE_VORGABE } from '../world/atmosphaere.js';
+import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
+import { baumRaster, streuBaeume, streuMatrizen } from '../world/streukarten.js';
+import { BODEN_NAH, bodenMaterial, bodenMatrizen, buschGeometrie, flachGeometrie, type BodenMatrizen } from '../world/bodenpflanzen.js';
+import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
+import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot, type RindenArt } from '../world/windmaterial.js';
+import { BAUM_UEBERBLEND, UEBERBLEND_BAND, impostorGeometrie, impostorMaterial } from '../world/impostor.js';
 import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { randSeite, type Seite } from '../spiel/region.js';
@@ -46,26 +58,63 @@ import { haengeNebelEin } from './nebel.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
 import { baueWasserMaterial, baueWegMaterial, type WasserReflexProbe } from '../world/bandmaterial.js';
+import { baueStrassenkulissen } from '../world/strassenkulisse.js';
+import { BODEN_AN, EFEUKARTEN_AN, HOFBAU_AN, STREU_AN, FERNHALB_AN, LOD2_AN, MILBINGERBODEN_AN, MILBINGERKLAR_AN, MILBINGERLICHT_AN, MILBINGERMASSE_AN, MILBINGERSUBSTANZ_AN, STRASSENVERFALL_AN, WOHNWEGQUERSCHNITT_AN } from '../world/echt.js';
+import { baueQuerschnittGrasmaske, querschnittFreihaltung, type QuerschnittGrasmaske } from '../world/strassenquerschnitt.js';
+import type { Strassenkulisse } from '../data/schema.js';
 import { HUEFTE } from '../spieler/figur.js';
 import { lagerTon } from '../ton/lagerton.js';
-import { kameraZustand } from '../kampf/kamerazustand.js';
+import { kameraZustand, ZEITLUPE } from '../kampf/kamerazustand.js';
 import { armMitSicht, sichtFrei, ZIEL_RAND, type Versperrt } from '../kampf/sichtlinie.js';
+import { klingeAb, neuerStoss, stosse, stossVersatz } from '../kampf/kamerastoss.js';
+import { einstellungen } from '../spiel/einstellungen.js';
 import { baueKollision, type Kollisionsfeld } from '../spieler/kollision.js';
 import { propsWieSzene } from '../world/szenenprops.js';
-import { chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
+import { BLENDER_BAEUME, chunkeProps, propGeometrie, attrappeGeometrie, propPfad, propTon,
          VARIANTEN, type PropArt, type PropChunk, type PropInstanz, blenderBaum, wegTest } from '../world/props.js';
-import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, type KartenArt } from '../world/laubkarten.js';
-import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE } from '../world/echt.js';
+import { baueLaubkarten, schrumpfeHuelle, kartenArtFuer, LAUBKARTEN_AN, bueschelTextur, type KartenArt } from '../world/laubkarten.js';
+import { richteHofPropEin } from '../world/hofmaterial.js';
+import { indexiereHausGeometrie } from '../world/hausindex.js';
+import { aktualisiereKachelpuffer, bereiteKachelpuffer, geometrienAusKachelpuffern, sammleKachel } from '../world/kachelgruppen.js';
+import type { Kachelpuffer, Kachelsammlung } from '../world/kachelgruppen.js';
+import { baueKachelupload } from '../world/kachelupload.js';
+import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
+import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
+import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
+import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
+import { LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE, SCAN_BAEUME_AN } from '../world/echt.js';
+import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
+import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
 import { setzeStammfuss } from '../world/stammfuss.js';
-import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, TEPPICH_HALB, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
-import { GRAS_ECHT, WEIHER_AN } from '../world/echt.js';
+import { baueGrasteppich, NAH_HALB, NAH_ZELLE, NAH_HALB_ECHT, NAH_ZELLE_ECHT, NAH_ZELLE_FEIN, TEPPICH_HALB, TEPPICH_ZELLE_FEIN, FERN_ZELLE, TEPPICH_FRIST_MS } from '../world/grasteppich.js';
+import { GRAS_ECHT, GRAS_FEIN, WEIHER_AN, GEWAESSER_ECHT, LAUB_FEIN } from '../world/echt.js';
+import { meldeSpiegelflaeche, Spiegelbild } from '../world/spiegelbild.js';
 import { baueWeiher } from '../world/weiher.js';
 import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
-import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer } from '../kampf/waffenhand.js';
+import type { Kampfbericht } from '../kampf/kampfende.js';
+import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer, gleiteAmStiel, AXT_URSPRUNG_VOR_D429 } from '../kampf/waffenhand.js';
 import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
+import { PosenTraegheit, Koerperfein, sammleKnochen, elternkarte, teileClip, messeGang, type FeinEingabe } from '../figur/laufzeit.js';
+import { nachfahren, RIG_MENSCH } from '../figur/ebenen.js';
+import { gangStufen, type Gang } from '../figur/fortbewegung.js';
+import { hiebClipzeit, uebergangsDauer, type Bewegungsart, type Hiebmarken } from '../figur/kette.js';
+import { leseClipmarken } from '../figur/clipmarken.js';
+import { FIGUR } from '../figur/werte.js';
+import { figurfeinAn } from '../figur/schalter.js';
+import { landeClip, landungLaeuft, meldeLandung, neueLandung, type Landeart, type Landung } from '../figur/landung.js';
+import { luftBild, luftClip, meldeLuft, neueLuft, type Luft } from '../figur/sprung.js';
+import { neueWende, standVersatz, wendeSchritt } from '../figur/wende.js';
+import { wegVomAngreifer } from '../kampf/gewicht.js';
+import { KOMBO_AB } from '../kampf/echtzeit.js';
+/**
+ * D457: Clipmarken von D456 (`content/clipmarken.json`) — Kettenpose und Einstieg je Clip. Die Datei darf fehlen:
+ * Dann ist die Karte leer und die Laufzeit kettet über Clipanfang und Clipende (`figur/kette.ts`).
+ */
+const CLIPMARKEN = leseClipmarken(Object.values(import.meta.glob('../../content/clipmarken.json', { eager: true, import: 'default' }))[0]);
+const _feinV = new THREE.Vector3();
 /** `?fuesse=0` schaltet die Fussanpassung ab (D214). */
 /** Bis zu diesem Abstand bekommen Bewohner die Fussanpassung (D217). */
 const BEWOHNER_FUSS_AB = 14;
@@ -86,13 +135,14 @@ const BEWOHNER_ALT = new URLSearchParams(location.search).get('bewohner') === 'a
 const KEINE_CLIPS: THREE.AnimationClip[] = [];
 import type { KampfStand } from '../ui/Kampfanzeige.js';
 import { meldeFertig, ladezeit } from './ladezeit.js';
-import { TERRAIN_SICHT, NEUAUFBAU_AB, WEITE_WEIT } from './sichtweiten.js';
-import { buendleFernProps, propListenNeu, waehleProps, type PropStufe } from './propauswahl.js';
+import { TERRAIN_SICHT, NEUAUFBAU_AB, WEITE_WEIT, ATTRAPPE_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
+import { buendleFernProps, propListenNeu, waehleProps, type PropAnkerCache, type PropStufe } from './propauswahl.js';
 import { verteileKreaturen, rueckkehrVorkommen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
 import { neueAusdauer, reicht, verbrauche, schritt as ausdauerSchritt,
          KLETTERN_JE_SEK, SPRUNG_KOSTEN, type Ausdauer as Ausdauerzustand } from '../spieler/ausdauer.js';
 import { REITEN_GEHEN, REITEN_RENNEN, REIT_MAX_GRAD } from '../spiel/reiten.js';
-import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG } from '../spieler/tempo.js';
+import { GEHEN, RENNEN, SCHWERKRAFT, ABSPRUNG, KLETTERN_TEMPO, BEWEGUNG } from '../spieler/tempo.js';
+import { begrenzeFall, fallhoeheAus, fallschaden, gerolltBeiLandung, kaelteLeben, kaelteSchritt, neueKaelte } from '../spieler/bewegung.js';
 import { GLEIT_TEMPO, bremse, gleitSchritt, neuerFall, type Fall } from '../spieler/gleiten.js';
 
 
@@ -190,7 +240,8 @@ const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
  * `?kurve=` würde die Tabelle nie ausgewertet und der Baustein nie ersetzt, das Bild liefe auf
  * `CustomToneMapping` ohne Kurve — also stockdunkel.
  */
-haengeAgxLookEin();
+haengeAgxLookEin(typeof location !== 'undefined'
+  && ['hofziel','hofdachbruch'].includes(new URLSearchParams(location.search).get('stimmung') ?? ''), HOF_ZIELTREUE_AN);
 // D204: Nebel mit Auslauf und Höhendunst — wie der Look vor dem ersten Material einhängen.
 haengeNebelEin();
 
@@ -206,6 +257,12 @@ const SCHATTENKARTE = (() => {
   const roh = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('schattenkarte');
   const [a, h] = (roh ?? '').split(',').map(Number);
   return { aufloesung: Number.isFinite(a) && a >= 512 ? a : SCHATTEN_AUFLOESUNG, halb: Number.isFinite(h) && h >= 20 ? h : 250 };
+})();
+
+/** `?schattenart=basic|percentage|soft|variance` — Messparameter für den Schattenfilter (D464); Vorgabe `percentage`. */
+const SCHATTENART: 'basic' | 'percentage' | 'soft' | 'variance' = (() => {
+  const roh = typeof location === 'undefined' ? null : new URLSearchParams(location.search).get('schattenart');
+  return roh === 'basic' || roh === 'soft' || roh === 'variance' ? roh : 'percentage';
 })();
 
 /**
@@ -313,6 +370,7 @@ const GEHEILT_ANSICHT = typeof location !== 'undefined'
 
 const STIMMUNG_MESSLAUF: Stimmung | null = (() => {
   if (typeof location === 'undefined') return null;
+  if (HOF_ZIELTREUE_AN) return STIMMUNG.hofbild;
   const name = new URLSearchParams(location.search).get('stimmung');
   return name !== null && Object.prototype.hasOwnProperty.call(STIMMUNG, name) ? STIMMUNG[name] : null;
 })();
@@ -378,6 +436,8 @@ export function stimmungBei(zeit: number): Stimmung {
     randStaerke: z(A.randStaerke, B.randStaerke),
     hemiBoden: mischeFarbe(A.hemiBoden ?? HEMI_BODEN, B.hemiBoden ?? HEMI_BODEN, f),
     himmelAnteil: z(A.himmelAnteil ?? 0.7, B.himmelAnteil ?? 0.7),
+    // D368: die Luft wandert mit (nur `?himmel=physik` liest sie).
+    atmosphaere: mischeAtmosphaere(A.atmosphaere ?? ATMOSPHAERE_VORGABE, B.atmosphaere ?? ATMOSPHAERE_VORGABE, f),
   };
 }
 
@@ -398,55 +458,174 @@ export const TAGESZEITEN = TAGESLAUF.map(k => ({ name: k.name, zeit: k.zeit }));
  * - Gebaute Kacheln bleiben im Cache. Ein Neuaufbau pro Bild wäre unbezahlbar, und
  *   ohne Bewegung ändert sich die Zuordnung ohnehin nicht.
  */
-function LodTerrain({ feld, kacheln, ziel }: {
+const HOF_KACHELPUFFER_AN = HOF_AN && typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('kachelpuffer') !== '0';
+const KACHELNACHLAUF_AN = HOF_KACHELPUFFER_AN && HOF_KACHELNACHLAUF_AN;
+const KACHEL_FRIST_MS = 3;
+
+type Sichtkachel = { kachel: Kachel; lod: number };
+type Kachelbau = Generator<void, () => void>;
+type KachelVorladen = (geometrie: THREE.BufferGeometry) => boolean;
+type BereiteKacheln = (auswahl: readonly Sichtkachel[], gestaffelt: boolean, anker: THREE.Vector3,
+  vorladen?: KachelVorladen) => Kachelbau;
+type Kachelnachlauf = {
+  bodenFertig: boolean;
+  baenderFertig: boolean;
+  pegelNeu: boolean;
+  baender?: BereiteKacheln;
+};
+
+function kachelauswahl(kacheln: Kachel[], p: THREE.Vector3): Sichtkachel[] {
+  const distanz = (k: Kachel) => Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z);
+  const quelle = KACHELNACHLAUF_AN ? kacheln : [...kacheln].sort((a, b) => distanz(a) - distanz(b));
+  const auswahl = [];
+  for (const kachel of quelle) {
+    const abstand = distanz(kachel);
+    const d = Math.max(0, abstand - kachel.radius);
+    if (d <= TERRAIN_SICHT) auswahl.push({ kachel, lod: lodFuerAbstand(d), abstand });
+  }
+  if (KACHELNACHLAUF_AN) auswahl.sort((a, b) => a.abstand - b.abstand);
+  return auswahl;
+}
+
+function fülleKachelbau(arbeit: Kachelbau, frist: number): (() => void) | undefined {
+  do {
+    const schritt = arbeit.next();
+    if (schritt.done) return schritt.value;
+  } while (performance.now() < frist);
+}
+
+function entsorgeErsetzteKacheln(vorher: readonly THREE.BufferGeometry[], nachher: readonly THREE.BufferGeometry[]): void {
+  const erhalten = new Set(nachher);
+  for (const g of vorher) if (!erhalten.has(g)) g.dispose();
+}
+
+function LodTerrain({ feld, kacheln, ziel, nachlauf, wiesenbereich }: {
   feld: HoehenFeld; kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
+  nachlauf: Kachelnachlauf;
+  wiesenbereich?: Wiesenbereich;
 }) {
   const cache = useRef(new Map<string, THREE.BufferGeometry>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  const puffer = useRef<Kachelpuffer>(new Map());
   const [stufen, setStufen] = useState<THREE.BufferGeometry[]>([]);
+  const angezeigt = useRef(stufen);
+  const lauf = useRef<{ anker: THREE.Vector3; arbeit: Kachelbau; vorgeladen: THREE.BufferGeometry[] } | null>(null);
+  const gl = useThree(s => s.gl);
+  const upload = useRef<ReturnType<typeof baueKachelupload> | null>(null);
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    const vorbereitung = baueKachelupload(gl);
+    upload.current = vorbereitung;
+    return () => {
+      for (const g of lauf.current?.vorgeladen ?? []) g.dispose();
+      lauf.current = null;
+      upload.current = null;
+      vorbereitung.dispose();
+    };
+  }, [gl, nachlauf]);
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    entsorgeErsetzteKacheln(angezeigt.current, stufen);
+    angezeigt.current = stufen;
+  }, [stufen]);
 
-  const material = useMemo(() => baueBodenMaterial(), []);
+  const material = useMemo(() => baueBodenMaterial(wiesenbereich), [wiesenbereich]);
+  useEffect(() => () => material.dispose(), [material]);
 
-  useFrame(() => {
-    const p = ziel.current?.position;
-    if (!p) return;
-    // Himmelsanteil des Bodens (D171): das Raster des nächsten Set-Pieces im Ladekreis.
-    const nah = sichtbareBauwerke(p.x, p.z)
-      .sort((a, b) => Math.hypot(a.ursprung.x - p.x, a.ursprung.z - p.z) - Math.hypot(b.ursprung.x - p.x, b.ursprung.z - p.z))[0];
-    setzeBodenHimmel(nah?.name ?? null);
-    // Beim ersten Bild ist der Abstand NaN — der Vergleich schlägt fehl, also wird gebaut.
-    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
-    letzte.current.copy(p);
-
+  const baue: BereiteKacheln = function* (auswahl, gestaffelt, anker, vorladen) {
     // Höchstens so viele Kacheln je Bild neu bauen. Alle 226 auf einmal kosten
     // gemessen 68 ms — ein sichtbarer Ruckler alle 32 m. Fehlende Kacheln werden im
     // nächsten Bild nachgezogen; bis dahin fehlt am Rand ein Stück, das im Nebel liegt.
     let budget = 12;
     const jeStufe = new Map<number, THREE.BufferGeometry[]>();
-    for (const k of kacheln) {
-      const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
-      if (d > TERRAIN_SICHT) continue;
-      const lod = lodFuerAbstand(d);
+    const kachelgruppen: Kachelsammlung = new Map();
+    // D289: nächste Kacheln zuerst (siehe Bänder) — sonst fehlt bei wenigen Bildern je Sekunde der Boden am Spieler.
+    for (const { kachel: k, lod } of auswahl) {
       const schluessel = `${k.ix}:${k.iz}:${lod}`;
       let g = cache.current.get(schluessel);
       if (!g) {
-        if (budget-- <= 0) { letzte.current.set(NaN, NaN, NaN); continue; }
-        g = baueKachelGeometrie(feld, k, lod);
+        if (!gestaffelt && budget-- <= 0) continue;
+        g = baueKachelGeometrie(feld, k, lod, undefined, HOF_BILDFLUSS_AN);
         cache.current.set(schluessel, g);
+        if (gestaffelt) yield;
       }
-      const liste = jeStufe.get(lod);
-      if (liste) liste.push(g); else jeStufe.set(lod, [g]);
+      if (HOF_KACHELPUFFER_AN) sammleKachel(kachelgruppen, k, g, String(lod));
+      else {
+        const liste = jeStufe.get(lod);
+        if (liste) liste.push(g); else jeStufe.set(lod, [g]);
+      }
     }
 
     // Budget nicht ausgeschöpft: alle Kacheln in Sicht stehen — Ladezeit (D146).
-    if (budget >= 0) meldeFertig('terrain');
+    if (budget >= 0) { meldeFertig('terrain'); nachlauf.bodenFertig = true; }
 
+    if (HOF_KACHELPUFFER_AN) {
+      const neu = gestaffelt ? yield* bereiteKachelpuffer(puffer.current, kachelgruppen, vorladen, HOF_BILDSPITZEN_AN)
+        : aktualisiereKachelpuffer(puffer.current, kachelgruppen);
+      const geometrien = geometrienAusKachelpuffern(neu);
+      return () => {
+        letzte.current.copy(anker);
+        if (budget < 0) letzte.current.set(NaN, NaN, NaN);
+        puffer.current = neu;
+        if (KACHELNACHLAUF_AN) setStufen(geometrien);
+        else setStufen(vorher => {
+          entsorgeErsetzteKacheln(vorher, geometrien);
+          return geometrien;
+        });
+      };
+    }
     const zusammengefasst: THREE.BufferGeometry[] = [];
     for (const gs of jeStufe.values()) {
       const m = mergeGeometries(gs, false);
       if (m) zusammengefasst.push(m);
     }
-    setStufen(vorher => { vorher.forEach(g => g.dispose()); return zusammengefasst; });
+    return () => {
+      letzte.current.copy(anker);
+      if (budget < 0) letzte.current.set(NaN, NaN, NaN);
+      setStufen(vorher => { vorher.forEach(g => g.dispose()); return zusammengefasst; });
+    };
+  };
+
+  useFrame(() => {
+    const p = ziel.current?.position;
+    if (!p) return;
+    const nah = sichtbareBauwerke(p.x, p.z)
+      .sort((a, b) => Math.hypot(a.ursprung.x - p.x, a.ursprung.z - p.z) - Math.hypot(b.ursprung.x - p.x, b.ursprung.z - p.z))[0];
+    setzeBodenHimmel(nah?.name ?? null);
+    const baender = nachlauf.baender;
+    if (KACHELNACHLAUF_AN && nachlauf.bodenFertig && nachlauf.baenderFertig && baender) {
+      // Boden und Aufsätze bleiben bis zur gemeinsamen Freigabe auf ihrer alten Höhe.
+      // Ein Sprung oder geänderter Pegel ersetzt einen noch nicht freigegebenen Auftrag.
+      if (lauf.current && (nachlauf.pegelNeu || p.distanceTo(lauf.current.anker) >= NEUAUFBAU_AB)) {
+        for (const g of lauf.current.vorgeladen) g.dispose();
+        lauf.current = null;
+      }
+      const frist = performance.now() + KACHEL_FRIST_MS;
+      if (!lauf.current) {
+        if (!nachlauf.pegelNeu && letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+        nachlauf.pegelNeu = false;
+        const anker = p.clone();
+        const auswahl = kachelauswahl(kacheln, anker);
+        const vorgeladen: THREE.BufferGeometry[] = [];
+        const vorladen: KachelVorladen = g => {
+          if (!upload.current?.ladeGrossenPuffer(g)) return false;
+          vorgeladen.push(g);
+          return true;
+        };
+        const arbeit = (function* (): Kachelbau {
+          const bodenFreigeben = yield* baue(auswahl, true, anker, vorladen);
+          const baenderFreigeben = yield* baender(auswahl, true, anker, vorladen);
+          return () => { bodenFreigeben(); baenderFreigeben(); };
+        })();
+        lauf.current = { anker, arbeit, vorgeladen };
+      }
+      const freigeben = fülleKachelbau(lauf.current.arbeit, frist);
+      if (freigeben) { lauf.current = null; freigeben(); }
+      return;
+    }
+    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+    fülleKachelbau(baue(kachelauswahl(kacheln, p), false, p), Infinity)?.();
   });
 
   return <>{stufen.map((g, i) => (
@@ -454,8 +633,11 @@ function LodTerrain({ feld, kacheln, ziel }: {
   ))}</>;
 }
 
-function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, rand, fenster, senke }: {
+function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, rand, fenster, senke, strassen, strassenmaske, wiesenbereich }: {
   welt: Weltdaten; terrain: TerrainErgebnis; feld: HoehenFeld;
+  strassen?: readonly Strassenkulisse[];
+  strassenmaske?: QuerschnittGrasmaske;
+  wiesenbereich?: Wiesenbereich;
   /** Gesunkener Pegel am Regentenort nach der Heilung (D241). */
   senke?: Pegelsenke | null;
   kacheln: Kachel[]; ziel: React.RefObject<THREE.Object3D | null>;
@@ -478,9 +660,20 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * (G-73).
    */
   const aufBoden = useMemo(() => aufsatzboden(feld), [feld]);
+  const hofBaeume = useMemo(() => {
+    const globalEz = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1';
+    const rahmen = MILBINGERLICHT_AN && !globalEz ? wiesenbereich?.rahmen : undefined;
+    const milbinger = rahmen ? teileMilbingerBaeume(props, [rahmen.x, rahmen.y, rahmen.z, rahmen.w])
+      : { rest: props, lokaleBaeume: [] };
+    const hof = HOF_GRUEN_AN && !globalEz
+      ? teileHofBaeume(milbinger.rest, HOF_UNIFORM.bereit.value ? [HOF_UNIFORM.mitte.value.x, HOF_UNIFORM.mitte.value.y] : null)
+      : { rest: milbinger.rest, lokaleBaeume: [] };
+    return { ...hof, milbingerBaeume: milbinger.lokaleBaeume };
+  }, [props, wiesenbereich]);
   /* Wand, Holz, Fenster, Sockel, Gesims, Tür und Garten stecken als Vertexfarben
      in der Geometrie. Ein Material für alles davon bleibt es trotzdem. */
-  const hausMaterial = useMemo(() => baueHausMaterial(), []);
+  const hausMaterial = useMemo(() => baueHausMaterial(wiesenbereich), [wiesenbereich]);
+  useEffect(() => () => hausMaterial.dispose(), [hausMaterial]);
   useEffect(() => { (hausMaterial.userData.glut as { value: number }).value = fenster; }, [hausMaterial, fenster]);
   const wasserProbe = useMemo<WasserReflexProbe | null>(() => {
     if (typeof location === 'undefined') return null;
@@ -498,16 +691,6 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
   }), []);
   /**
-   * Gras-Attrappen: derselbe Wind, aber **glatt** schattiert (D121). Die
-   * Grasbüschel tragen seit D121 Normalen senkrecht nach oben wie die Streuung
-   * — mit `flatShading` würde three.js sie ignorieren und die Flächennormale
-   * aus den Ableitungen nehmen, und ein Halm stünde wieder halb im
-   * Eigenschatten. Kleinere Amplitude: ein Büschel schwingt, es peitscht nicht.
-   */
-  const grasWind = useMemo(() => baueWindMaterial({
-    amplitude: 0.25, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5,
-  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 1, metalness: 0 })), []);
-  /**
    * Farn (D212): eigener Wind ohne Saum. Mit Normalen nach oben ist `1 - |N·V|` kein Rand, sondern
    * nur der Blickwinkel — auf dem dunklen Farn lag der Saum als grauer Schleier über der ganzen
    * Pflanze (Render 08.10.2026). Dafür Durchlass: Wedel leuchten im Gegenlicht.
@@ -518,30 +701,44 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const farnWind = useMemo(() => baueWindMaterial({
     amplitude: 0.2, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
   }, scanBasis('farn', 'farn', true)), []);
-  /** Scan-Gras (D234): Blattkarten wie der Farn, ohne Saum, Durchlass im Gegenlicht. */
-  const grasScanWind = useMemo(() => baueWindMaterial({
-    amplitude: 0.25, randFarbe: new THREE.Color(0, 0, 0), randStaerke: 0, durchlass: 0.35,
-  }, scanBasis('gras', 'grasbuschel', true)), []);
 
   /**
    * Blender-Baeume (D155): derselbe Wind, aber glatt schattiert (die Blattmassen tragen Normalen),
    * Loecher im Laub (`COLOR_0.a` = Laubmaske) und Durchlass fuer das Gegenlicht — dasselbe Rezept
    * wie die Bauwerke, nur als Instanz. Der Saum bleibt schwach: Klumpen mit Loechern sind lauter Kanten.
    */
-  const baumWind = useMemo(() => baueWindMaterial({
+  // D364: Rinde je Art (Scan-Albedo, Normale, Rauheit, Moos) — Buche und Fichte darum immer zwei Materialien.
+  // D367: `ueberblend` gibt die Mittelstufe im Band vor der Impostor-Grenze nach einem Raster ab.
+  const baumWerte = (bueschel: THREE.Texture | undefined, rinde: RindenArt) => ({
     amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.2,
     // Schaerfe 3 -> 10 (D160): Auf Blattmassen aus kleinen Kugeln ist `1 - |N·V|` fast ueberall hoch,
     // der Saum lag deshalb als heller Flaum ueber der ganzen Krone statt als Kante — gemessen am
     // Stauwehr 30 % der Bildhelligkeit (Median 0,100 -> 0,069 ohne Saum). Kreaturen und Figur behalten
     // ihre weichen 1,6: dort ist die Flaeche gross und die Silhouette wirklich ein Rand.
     randSchaerfe: 10,
-    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde: true,
-  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide })), []);
+    loecher: 0.42, loecherSkala: 9, durchlass: 0.45, rinde, bueschel, ueberblend: BAUM_UEBERBLEND,
+  });
+  const baumBasis = () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
+  // D283 (`?laub=2`): Buchen bekommen den Laub-, Fichten den Nadel-Büschelatlas — darum zwei Materialien.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  /**
+   * D289: Büsche mit Büschelatlas (D283) — eigenes Material ohne Löcher. Auf dem Baum-Material (Löcher für die ganze
+   * Fläche, weil Büsche keine Laubmaske tragen) verschwand der Busch im Dorf-Prüfbild fast ganz (D285).
+   */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const buschWind = useMemo(() => LAUB_FEIN ? baueWindMaterial({
+    amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5, durchlass: 0.3,
+    bueschel: bueschelTextur('laub'),
+  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.9, metalness: 0 })) : null, []);
+  const baumWind = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('laub') : undefined, 'buche'), baumBasis()), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const baumWindNadel = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('nadel') : undefined, 'fichte'), baumBasis()), []);
   useEffect(() => {
     wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);
-    grasWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
     baumWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
-  }, [wind, grasWind, baumWind, rand]);
+    if (baumWindNadel !== baumWind) baumWindNadel.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
+    buschWind?.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
+  }, [wind, baumWind, baumWindNadel, buschWind, rand]);
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
@@ -559,10 +756,11 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       if (z) z.value += dt;
     }
     wind.setzeZeit(uhr.current);
-    grasWind.setzeZeit(uhr.current);
     farnWind.setzeZeit(uhr.current);
-    grasScanWind.setzeZeit(uhr.current);
+    if (HOF_GRUEN_AN) setzeHofStrauchZeit(uhr.current);
     baumWind.setzeZeit(uhr.current);
+    if (baumWindNadel !== baumWind) baumWindNadel.setzeZeit(uhr.current);
+    buschWind?.setzeZeit(uhr.current);
   });
   /**
    * Bänder einmal zerlegen, dann je Kachel bauen.
@@ -571,7 +769,11 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * und passiert genau einmal je Welt. Was danach je Kachel gebaut wird, ist ein
    * Bruchteil davon — und es fällt weg, sobald die Kachel außer Sicht gerät.
    */
-  const satz = useMemo(() => zerlegeBaender(welt, feld), [welt, feld]);
+  const satz = useMemo(() => {
+    const zustand = strassen && new Map(strassen.flatMap(s => s.wege.map(w => [w.osmWeg, w] as const)));
+    return zerlegeBaender(welt, feld, zustand);
+  }, [welt, feld, strassen]);
+  const nachlauf = useMemo<Kachelnachlauf>(() => ({ bodenFertig: false, baenderFertig: false, pegelNeu: false }), [feld, satz]);
   const reflexMitte = useMemo(() => {
     if (!wasserProbe) return null;
     // Naechster wirklicher liegender Bachabschnitt zur registrierten Wehrmitte;
@@ -590,21 +792,48 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   return (
     <group>
       {wasserProbe && reflexMitte && <WasserSzeneProbe probe={wasserProbe} mitte={reflexMitte} ziel={ziel} />}
-      <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} />
+      <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} wiesenbereich={wiesenbereich} />
+      {STREU_AN && <StreuSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} props={props} />}
+      {BODEN_AN && <BodenSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} props={props} />}
 
-      <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel}
+      <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf}
                   boden={aufBoden}
                   wegMaterial={wegMaterial} wasserMaterial={wasserMaterial}
                   fallMaterial={fallMaterial} hausMaterial={hausMaterial} senke={senke ?? null} />
+      {strassen && <Strassenkulissen welt={welt} feld={feld} abschnitte={strassen} />}
 
       {!istAus('fels') && klippen.length > 0 && (
         <Klippen klippen={klippen} ziel={ziel} material={wind.material} />)}
 
-      <Props props={props} wind={wind.material} grasWind={grasWind.material} farnWind={farnWind.material} grasScanWind={grasScanWind.material} baumWind={baumWind.material} baumTiefe={baumWind.tiefe} weite={weite} />
+      {[{ props: hofBaeume.rest, hofBaum: false, milbingerBaum: false }, { props: hofBaeume.lokaleBaeume, hofBaum: true, milbingerBaum: false },
+        { props: hofBaeume.milbingerBaeume, hofBaum: true, milbingerBaum: true }]
+        .filter(g => g.props.length > 0).map(g => <Props key={g.milbingerBaum ? 'milbinger' : String(g.hofBaum)}
+          props={g.props} hofBaum={g.hofBaum} milbingerBaum={g.milbingerBaum}
+          wind={wind.material} farnWind={farnWind.material}
+          baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material}
+          baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={LOOK_FELS_AN ? Math.min(weite, LOOK_FELS_PROPWEITE) : weite} />)}
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
-      {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite} />}
+      {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite}
+        strassenmaske={strassenmaske} wiesenbereich={wiesenbereich} />}
+      {GEWAESSER_ECHT && <Spiegelung feld={feld} />}
     </group>
   );
+}
+
+function Strassenkulissen({ welt, feld, abschnitte }: {
+  welt: Weltdaten; feld: HoehenFeld; abschnitte: readonly Strassenkulisse[];
+}) {
+  const kulissen = useMemo(() => baueStrassenkulissen(welt, feld, abschnitte), [welt, feld, abschnitte]);
+  useEffect(() => () => { for (const s of kulissen) s.entsorge(); }, [kulissen]);
+  useFrame(({ camera }) => {
+    const { x, z } = camera.position;
+    for (const { gruppe, grenzen } of kulissen) {
+      const dx = Math.max(0, grenzen.min.x - x, x - grenzen.max.x);
+      const dz = Math.max(0, grenzen.min.z - z, z - grenzen.max.z);
+      gruppe.visible = dx * dx + dz * dz < 240 * 240;
+    }
+  });
+  return <>{kulissen.map(({ gruppe }) => <primitive key={gruppe.uuid} object={gruppe} />)}</>;
 }
 
 /**
@@ -622,21 +851,32 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
  * nächsten Bild nachgezogen.
  */
 function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
-                     wegMaterial, wasserMaterial, fallMaterial, hausMaterial, senke }: {
+                     wegMaterial, wasserMaterial, fallMaterial, hausMaterial, senke, nachlauf }: {
   senke: Pegelsenke | null;
   welt: Weltdaten; feld: HoehenFeld; satz: Bandsatz; kacheln: Kachel[];
   ziel: React.RefObject<THREE.Object3D | null>;
   boden: ReturnType<typeof aufsatzboden>;
   wegMaterial: THREE.Material; wasserMaterial: THREE.Material;
   fallMaterial: THREE.Material; hausMaterial: THREE.Material;
+  nachlauf: Kachelnachlauf;
 }) {
   const cache = useRef(new Map<string, THREE.BufferGeometry | null>());
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  const hausPuffer = useRef<Kachelpuffer>(new Map());
+  /** D358: Efeukarten je Hauskachel; `stand` zählt Änderungen, die Schicht baut danach neu. */
+  const efeuKarten = useRef({ je: new Map<string, EfeuKarte[]>(), stand: 0 });
+  const bandPuffer = useRef(new Map<string, { quellen: THREE.BufferGeometry[]; geometrien: THREE.BufferGeometry[] }>());
   const [teile, setTeile] = useState<{ weg: THREE.BufferGeometry[];
                                        wasser: THREE.BufferGeometry[];
                                        fall: THREE.BufferGeometry[];
                                        haus: THREE.BufferGeometry[] }>(
     { weg: [], wasser: [], fall: [], haus: [] });
+  const angezeigt = useRef(teile);
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    entsorgeErsetzteKacheln(Object.values(angezeigt.current).flat(), Object.values(teile).flat());
+    angezeigt.current = teile;
+  }, [teile]);
 
   /**
    * Häuser einer Kachel. Sie hängen nicht an der LOD-Stufe — ein Haus ist ein
@@ -644,14 +884,51 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
    * darum geht es: 214.000 Dreiecke lagen vorher in einem Mesh, das gezeichnet
    * wurde, sobald ein Zipfel der Region im Bild war.
    */
+  /**
+   * D289: Bewohnte Orte (Bewohner und Zufluchten aus `content/orte`) in Weltmetern — um sie herum stehen die Häuser
+   * in Verfallsstufe 0 (Bauwelt D287). Aus den Inhalten, nicht hartkodiert.
+   */
+  const bewohnt = useMemo(() => [...ORTE.values()]
+    .filter(o => o.art === 'bewohner' || o.art === 'zuflucht')
+    .map(o => nachMetern(o.ort, welt.bbox)), [welt]);
+  const fassaden = useMemo(() => [...FASSADEN.values()].filter(f => f.region === 'oental'), []);
+  const hausnutzung = useMemo(() => WESTVERFALL_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.hausnutzung
+    : undefined, [welt]);
+  const hofHaeuser = useMemo(() => HOF_HAEUSER_AN
+    ? bestimmeHofhaeuser(welt, boden, bestimmeHof(welt, boden)) : null, [welt, boden]);
+  const hofbauRegion = useMemo(() => HOFBAU_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))?.id : undefined, [welt]);
+  const hofbauErsetzt = useMemo(() => hofbauRegion ? ersetzteGebaeude(hofbauRegion) : new Set<number>(), [hofbauRegion]);
   const hausKachel = useMemo(() => (
     _feld: HoehenFeld, s: Bandsatz, k: Kachel, _lod: number,
   ) => {
     if (istAus('haeuser')) return null;
-    const indizes = s.gebaeude.get(`${k.ix}:${k.iz}`);
+    const alle = s.gebaeude.get(`${k.ix}:${k.iz}`);
+    // D363: Gebäude mit Hof-Baukasten-Modell baut das Spiel nicht selbst.
+    const indizes = hofbauErsetzt.size ? alle?.filter(i => !hofbauErsetzt.has(i)) : alle;
     if (!indizes?.length) return null;
-    return baueGebaeude(welt, boden, indizes.map(i => welt.gebaeude[i]));
-  }, [welt, boden]);
+    // D290: LoD2-Silhouette je Gebäude (gleiche Reihenfolge wie `welt.gebaeude`; nur für die Region, zu der die Datei passt).
+    const lod2 = LOD2_DATEN.length === welt.gebaeude.length ? LOD2_DATEN : null;
+    const karten: EfeuKarte[] = [];
+    if (EFEUKARTEN_AN) setzeEfeuSammler(kk => { karten.push(kk); });
+    const geb = baueGebaeude(welt, boden, indizes.map(i => {
+      const g = welt.gebaeude[i];
+      // D291: Fassaden-Steckbrief, dessen Punkt im Grundriss liegt.
+      const fassade = fassaden.find(f => imPolygon(f.ort, g.punkte)) ?? null;
+      const nutzung = hausnutzung?.find(n => imPolygon(n.ort, g.punkte));
+      return lod2 || fassade || nutzung ? { ...g, lod2: lod2 ? lod2[i] : g.lod2, fassade, hausnutzung: nutzung } : g;
+    }), bewohnt, hofHaeuser ?? (REFERENZHAUS_AN && HOF_UNIFORM.bereit.value ? {
+      mitte: HOF_UNIFORM.mitte.value.toArray(),
+      vorne: [-HOF_UNIFORM.achse.value.y, HOF_UNIFORM.achse.value.x],
+    } : undefined));
+    if (EFEUKARTEN_AN) {
+      setzeEfeuSammler(null);
+      efeuKarten.current.je.set(`${k.ix}:${k.iz}`, karten);
+      efeuKarten.current.stand++;
+    }
+    return geb;
+  }, [welt, boden, bewohnt, fassaden, hausnutzung, hofHaeuser, hofbauErsetzt]);
 
   /** Wasser mit gesunkenem Pegel (D241); der Zustand steht im Cache-Schlüssel. */
   const wasserKachel = useMemo(() => (
@@ -662,55 +939,113 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
   }, [senke]);
   const pegel = senke ? `:${senke.x}:${senke.z}` : '';
   // Pegel gewechselt (Heilung): sofort neu sammeln, nicht erst nach dem nächsten Schritt.
-  useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [pegel]);
+  useEffect(() => {
+    letzte.current.set(NaN, NaN, NaN);
+    if (nachlauf.baenderFertig) nachlauf.pegelNeu = true;
+  }, [pegel, nachlauf]);
 
-  useFrame(() => {
-    const p = ziel.current?.position;
-    if (!p) return;
-    if (letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
-    letzte.current.copy(p);
-
+  const baue: BereiteKacheln = function* (auswahl, gestaffelt, anker, vorladen) {
     let budget = 12;
+    const hausGruppen: Kachelsammlung = new Map();
     const sammeln = { weg: [] as THREE.BufferGeometry[],
                       wasser: [] as THREE.BufferGeometry[],
                       fall: [] as THREE.BufferGeometry[],
                       haus: [] as THREE.BufferGeometry[] };
-    for (const k of kacheln) {
-      const d = Math.max(0, Math.hypot(k.mitte[0] - p.x, k.mitte[1] - p.z) - k.radius);
-      if (d > TERRAIN_SICHT) continue;
-      const lod = lodFuerAbstand(d);
-      for (const [art, bauen] of [
-        ['weg', baueWegKachel], ['wasser', wasserKachel], ['fall', baueFallKachel],
-        ['haus', hausKachel], ['garten', baueGartenKachel],
-      ] as const) {
-        if (art === 'wasser' && istAus('wasser')) continue;
-        const schluessel = `${art}:${k.ix}:${k.iz}:${lod}${art === 'wasser' ? pegel : ''}`;
+    // D289: nächste Kacheln zuerst. In Rasterreihenfolge kamen die Kacheln am Spieler bei wenigen Bildern je Sekunde
+    // als letzte an die Reihe (Budget 12 je Bild) — Häuser und Wege vor der Nase fehlten minutenlang, ferne standen.
+    const arten = [
+      ['weg', baueWegKachel], ['wasser', wasserKachel], ['fall', baueFallKachel],
+      ['haus', hausKachel], ['garten', baueGartenKachel],
+    ] as const;
+    const ohneWasser = istAus('wasser'), ohneWege = istAus('wege');
+    for (const { kachel: k, lod } of auswahl) {
+      const id = `${k.ix}:${k.iz}`;
+      for (const [art, bauen] of arten) {
+        if (art === 'wasser' && ohneWasser) continue;
+        if (art === 'weg' && ohneWege) continue;
+        const stufe = HOF_KACHELPUFFER_AN && art === 'haus' ? 0 : lod;
+        const schluessel = `${art}:${id}:${stufe}${art === 'wasser' ? pegel : ''}`;
         let g = cache.current.get(schluessel);
         if (g === undefined) {
           // `null` heißt „hier liegt nichts" und wird genauso gemerkt wie eine
           // Geometrie — sonst probiert jede Neubewertung die leeren Kacheln erneut,
           // und das sind die meisten.
-          if (budget-- <= 0) { letzte.current.set(NaN, NaN, NaN); continue; }
+          if (gestaffelt) {
+            const hatQuelle = art === 'weg' ? satz.wege.has(id)
+              : art === 'wasser' ? satz.baeche.has(id) || satz.teiche.has(id)
+              : art === 'fall' ? satz.faelle.has(id)
+              : art === 'haus' ? satz.gebaeude.has(id) : satz.gaerten.has(id);
+            if (!hatQuelle) continue;
+          } else if (budget-- <= 0) continue;
           g = bauen(feld, satz, k, lod);
+          // Vor dem Cache, auch für Gärten: mergeGeometries verlangt einheitliche Indizes.
+          // Normalen sind bereits fertig; nur vollständig identische Eckattribute teilen Speicher.
+          if (g && HAUS_KOMPAKT_AN && (art === 'haus' || art === 'garten')) {
+            const roh=g;g=indexiereHausGeometrie(roh);if(g!==roh)roh.dispose();
+          }
           cache.current.set(schluessel, g);
+          if (gestaffelt && g) yield;
         }
         // Gärten teilen sich das Material mit den Häusern: beides Vertexfarbe,
         // beides undurchsichtig, beides derselbe Draw Call je Kachelgruppe.
-        if (g) sammeln[art === 'garten' ? 'haus' : art].push(g);
+        if (!g) continue;
+        // Gartenhöhen wechseln mit dem Gelände-LOD. Feste Häuser behalten ihren
+        // GPU-Puffer auch dann, wenn nur die Zaun- und Beetgeometrie ersetzt wird.
+        if (HOF_KACHELPUFFER_AN && (art === 'haus' || art === 'garten')) {
+          sammleKachel(hausGruppen, k, g, HOF_BILDFLUSS_AN ? art : 'haus');
+        }
+        else sammeln[art === 'garten' ? 'haus' : art].push(g);
       }
     }
 
-    if (budget >= 0) meldeFertig('baender');
+    if (budget >= 0) { meldeFertig('baender'); nachlauf.baenderFertig = true; }
 
     const fassen = (gs: THREE.BufferGeometry[]) =>
       gs.length ? [mergeGeometries(gs, false)].filter(Boolean) as THREE.BufferGeometry[] : [];
-    const neu = { weg: fassen(sammeln.weg), wasser: fassen(sammeln.wasser),
-                  fall: fassen(sammeln.fall), haus: fassen(sammeln.haus) };
-    setTeile(vorher => {
-      for (const liste of [vorher.weg, vorher.wasser, vorher.fall, vorher.haus])
-        liste.forEach(g => g.dispose());
-      return neu;
-    });
+    const hausNeu = !HOF_KACHELPUFFER_AN ? hausPuffer.current
+      : gestaffelt ? yield* bereiteKachelpuffer(hausPuffer.current, hausGruppen, vorladen, HOF_BILDSPITZEN_AN)
+      : aktualisiereKachelpuffer(hausPuffer.current, hausGruppen);
+    const haus = HOF_KACHELPUFFER_AN ? geometrienAusKachelpuffern(hausNeu) : fassen(sammeln.haus);
+    const baenderNeu = new Map<string, { quellen: THREE.BufferGeometry[]; geometrien: THREE.BufferGeometry[] }>();
+    const neu = { weg: [] as THREE.BufferGeometry[], wasser: [] as THREE.BufferGeometry[],
+                  fall: [] as THREE.BufferGeometry[], haus };
+    for (const art of ['weg', 'wasser', 'fall'] as const) {
+      const quellen = sammeln[art];
+      const alt = bandPuffer.current.get(art);
+      // Die Reihenfolge gehört zum Puffer: Transparente Bänder behalten die bisherige Dreieckfolge.
+      const gleich = KACHELNACHLAUF_AN && alt && alt.quellen.length === quellen.length
+        && quellen.every((g, i) => g === alt.quellen[i]);
+      const geometrien = gleich ? alt.geometrien : fassen(quellen);
+      neu[art] = geometrien;
+      baenderNeu.set(art, { quellen, geometrien });
+      if (gestaffelt && !gleich && geometrien.length) {
+        yield;
+        if (vorladen?.(geometrien[0])) yield;
+      }
+    }
+    return () => {
+      letzte.current.copy(anker);
+      if (budget < 0) letzte.current.set(NaN, NaN, NaN);
+      hausPuffer.current = hausNeu;
+      bandPuffer.current = baenderNeu;
+      if (KACHELNACHLAUF_AN) setTeile(neu);
+      else setTeile(vorher => {
+        entsorgeErsetzteKacheln(Object.values(vorher).flat(), Object.values(neu).flat());
+        return neu;
+      });
+    };
+  };
+  useEffect(() => {
+    if (!KACHELNACHLAUF_AN) return;
+    nachlauf.baender = baue;
+    return () => { if (nachlauf.baender === baue) nachlauf.baender = undefined; };
+  }, [nachlauf, baue]);
+
+  useFrame(() => {
+    if (KACHELNACHLAUF_AN && nachlauf.bodenFertig && nachlauf.baenderFertig && nachlauf.baender) return;
+    const p = ziel.current?.position;
+    if (!p || letzte.current.distanceTo(p) < NEUAUFBAU_AB) return;
+    fülleKachelbau(baue(kachelauswahl(kacheln, p), false, p), Infinity)?.();
   });
 
   return <>
@@ -720,7 +1055,112 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
     {teile.haus.map((g, i) => (
       <mesh key={`h${i}`} geometry={g} material={hausMaterial} castShadow receiveShadow />
     ))}
+    {EFEUKARTEN_AN && <EfeuKartenSchicht quelle={efeuKarten} />}
+    {hofbauRegion && <HofbauSchicht region={hofbauRegion} welt={welt} boden={boden} />}
   </>;
+}
+
+/** D363: Höfe aus dem Hof-Baukasten (`content/hofbauten.json`) an ihren Grundrissen. */
+function HofbauSchicht({ region, welt, boden }: { region: string; welt: Weltdaten; boden: ReturnType<typeof aufsatzboden> }) {
+  const gruppe = useRef<THREE.Group>(null);
+  useEffect(() => {
+    if (!gruppe.current) return;
+    return ladeHofbauten(hofbauLagen(region, welt, boden), gruppe.current);
+  }, [region, welt, boden]);
+  return <group ref={gruppe} />;
+}
+
+/** D361: Bodenstreu-Karten im Umkreis von 45 m; neu gelegt, wenn die Figur 15 m gewandert ist. */
+const STREU_RADIUS = 45, STREU_NEU_AB = 15;
+let streuMaterial: THREE.MeshStandardMaterial | null = null;
+
+function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
+  hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
+  ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
+}) {
+  // D362/D366: Bäume legen unter ihrer Krone eine geschlossene Decke ihrer Art.
+  const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
+  const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
+  const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
+  const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
+  useEffect(() => () => geometrien.forEach(g => g.dispose()), [geometrien]);
+  if (!streuMaterial) {
+    streuMaterial = kartenMaterial('streu', 0.55, true);
+    // D362: weicher Rand statt Ausstanzkante — mit MSAA wird die Deckung über die Abtastpunkte verteilt.
+    streuMaterial.alphaToCoverage = true;
+  }
+  useFrame(() => {
+    const p = ziel.current?.position, jetzt = performance.now();
+    if (!p || jetzt - zuletzt.current < 500) return;
+    zuletzt.current = jetzt;
+    if (mitte.current && mitte.current.distanceTo(new THREE.Vector2(p.x, p.z)) < STREU_NEU_AB) return;
+    mitte.current = new THREE.Vector2(p.x, p.z);
+    setMatrizen(streuMatrizen(p.x, p.z, STREU_RADIUS, hoeheAn, biomAn, baeume));
+  });
+  return <>{matrizen.map((liste, i) => liste.length > 0 && (
+    <instancedMesh key={`${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[i], streuMaterial!, liste.length]}
+      receiveShadow frustumCulled={false}
+      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  ))}</>;
+}
+
+/**
+ * D366: Bodenpflanzen-Karten (Sauerklee, Waldmeister, Moos, Kräuter liegend; Brombeere, Jungwuchs stehend) im
+ * Nahbereich. Gebaut bis `BODEN_NAH` + 8 m, neu gelegt nach 8 m Weg — die Ausblendung im Shader (ab 75 % von
+ * `BODEN_NAH`) liegt damit immer innerhalb des gebauten Kreises.
+ */
+let bodenFlachMaterial: THREE.MeshStandardMaterial | null = null;
+let bodenBuschMaterial: THREE.MeshStandardMaterial | null = null;
+
+function BodenSchicht({ hoeheAn, biomAn, ziel, props }: {
+  hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
+  ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
+}) {
+  const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
+  const [matrizen, setMatrizen] = useState<BodenMatrizen>({ flach: [[], [], [], []], busch: [[], [], [], []] });
+  const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
+  const geometrien = useMemo(() => ({ flach: [0, 1, 2, 3].map(flachGeometrie), busch: [0, 1, 2, 3].map(buschGeometrie) }), []);
+  useEffect(() => () => [...geometrien.flach, ...geometrien.busch].forEach(g => g.dispose()), [geometrien]);
+  bodenFlachMaterial ??= bodenMaterial('bodenflach');
+  bodenBuschMaterial ??= bodenMaterial('bodenbusch');
+  useFrame(() => {
+    const p = ziel.current?.position, jetzt = performance.now();
+    if (!p || jetzt - zuletzt.current < 500) return;
+    zuletzt.current = jetzt;
+    if (mitte.current && mitte.current.distanceTo(new THREE.Vector2(p.x, p.z)) < 8) return;
+    mitte.current = new THREE.Vector2(p.x, p.z);
+    setMatrizen(bodenMatrizen(p.x, p.z, BODEN_NAH + 8, hoeheAn, biomAn, baeume));
+  });
+  const schicht = (art: 'flach' | 'busch', material: THREE.MeshStandardMaterial) => matrizen[art].map((liste, i) => liste.length > 0 && (
+    <instancedMesh key={`${art}${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[art][i], material, liste.length]}
+      receiveShadow frustumCulled={false}
+      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  ));
+  return <>{schicht('flach', bodenFlachMaterial)}{schicht('busch', bodenBuschMaterial)}</>;
+}
+
+/**
+ * D358: Efeukarten aller gebauten Hauskacheln als vier InstancedMesh (eine je Atlas-Kachel). Neu gebaut wird nur,
+ * wenn eine Hauskachel Karten gemeldet hat — geprüft alle 0,5 s (nach Zeit, nicht nach Bildern: bei niedriger
+ * Bildrate kam eine Bildzählung zu spät).
+ */
+function EfeuKartenSchicht({ quelle }: { quelle: React.RefObject<{ je: Map<string, EfeuKarte[]>; stand: number }> }) {
+  const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
+  const gesehen = useRef(-1), zuletzt = useRef(0);
+  const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
+  useEffect(() => () => geometrien.forEach(g => g.dispose()), [geometrien]);
+  useFrame(() => {
+    const jetzt = performance.now();
+    if (jetzt - zuletzt.current < 500 || !quelle.current || quelle.current.stand === gesehen.current) return;
+    zuletzt.current = jetzt;
+    gesehen.current = quelle.current.stand;
+    setMatrizen(kartenMatrizen([...quelle.current.je.values()].flat()));
+  });
+  return <>{matrizen.map((liste, i) => liste.length > 0 && (
+    <instancedMesh key={`${i}:${liste.length}`} args={[geometrien[i], efeuKartenMaterial(), liste.length]} receiveShadow
+      castShadow customDepthMaterial={efeuKartenTiefe()} frustumCulled={false}
+      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  ))}</>;
 }
 
 /**
@@ -735,7 +1175,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
  * Jetzt hält eine einzige Schleife die Liste, und montiert werden nur die sichtbaren.
  * Neu bestimmt wird erst, wenn sich der Spieler PROP_NEUBEWERTUNG Meter bewegt hat.
  */
-type FernGruppe = { art: PropArt; variante: number; instanzen: PropInstanz[]; zelle?: string };
+type FernGruppe = { art: PropArt; variante: number; instanzen: PropInstanz[]; zelle?: string; hofStrauch?: boolean; hofSchatten?: boolean };
 
 /** EZ-Test: Fernbaeume raeumlich gruppieren, damit Frustum-Culling sie nicht alle zeichnet. */
 function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
@@ -753,16 +1193,20 @@ function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
   return ergebnis;
 }
 
-function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe, weite }: { props: PropInstanz[]; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; weite: number }) {
+function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, buschWind, weite }: { props: PropInstanz[]; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial; weite: number }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
-  const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string }[]>([]);
+  const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string; ohneSchatten: boolean }[]>([]);
   const [fern, setFern] = useState<FernGruppe[]>([]);
+  /** D367: Mittelstufen-Bäume im Übergabeband — stehen zusätzlich als Impostor (komplementäres Raster). */
+  const [band, setBand] = useState<FernGruppe[]>([]);
+  useEffect(() => { BAUM_UEBERBLEND.value.set(ATTRAPPE_AB * weite, UEBERBLEND_BAND); }, [weite]);
   // Messbarer Standard der EZ-Probe; ?ezcluster=0 erhaelt den A/B-Rueckweg.
-  const ezZellen = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1' && new URLSearchParams(location.search).get('ezcluster') !== '0';
+  const ezZellen = typeof location !== 'undefined' && (new URLSearchParams(location.search).get('ezbaum') === '1' || (HOF_GRUEN_AN && hofBaum)) && new URLSearchParams(location.search).get('ezcluster') !== '0';
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
   const letzteFern = useRef(new THREE.Vector3(NaN, NaN, NaN));
   /** Kacheln, die im vorigen Durchlauf Attrappen waren — siehe `waehleProps` (D164). */
   const vorigeAttrappen = useRef<ReadonlySet<string> | undefined>(undefined);
+  const propAnker = useRef<PropAnkerCache>({ fernschluesselBeiBedarf: HOF_KACHELNACHLAUF_AN });
   // Neue Sichtweite (D247): beide Listen sofort neu, statt auf die nächsten 8/60 m Lauf zu warten.
   useEffect(() => { letzte.current.set(NaN, NaN, NaN); letzteFern.current.set(NaN, NaN, NaN); }, [weite]);
 
@@ -789,30 +1233,49 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
     // `vorigeAttrappen` sind die Kacheln, die beim **letzten** Durchlauf Attrappen waren.
     // Sie zwingen die Kette über die Mittelstufe, statt vom Kegel aufs volle Modell zu
     // springen — gemessen 6 solcher Sprünge in 24 s Lauf (D164, `propauswahl.ts`).
-    const { nah, buendel, buendelKacheln } = waehleProps(
-      chunks, [p.x, p.z], anker, fernNeu, vorigeAttrappen.current, weite);
-    vorigeAttrappen.current = buendelKacheln;
+    const auswahl = waehleProps(chunks, [p.x, p.z], anker, fernNeu,
+      HOF_KACHELNACHLAUF_AN ? undefined : vorigeAttrappen.current, weite,
+      HOF_BILDRUHE_AN ? propAnker.current : undefined);
+    const { nah, buendel } = auswahl;
+    if (!HOF_KACHELNACHLAUF_AN) vorigeAttrappen.current = auswahl.buendelKacheln;
 
     // Ein neuer Fernanker verschiebt auch die Grenze zwischen Chunk und Bündel.
     // Deshalb beide Listen gemeinsam ersetzen, selbst wenn die letzte 8-m-
     // Nahbewertung erst ein Bild zuvor lief; sonst steht ein Randchunk kurz doppelt.
     if (nahNeu || fernNeu) {
       letzte.current.copy(p);
+      // Band: alle Bäume der Mittelstufe, die bis zur nächsten Neubewertung ins Band laufen können.
+      const bandAb = ATTRAPPE_AB * weite - UEBERBLEND_BAND - PROP_NEUBEWERTUNG;
+      const jeVariante = new Map<string, FernGruppe>();
+      for (const { c, stufe } of nah) {
+        if (stufe !== 'mittel' || (c.art !== 'laubbaum' && c.art !== 'nadelbaum')) continue;
+        for (const q of c.instanzen) {
+          if (Math.hypot(q.position[0] - p.x, q.position[2] - p.z) < bandAb) continue;
+          const k = `${c.art}:${c.variante}`;
+          let g = jeVariante.get(k);
+          if (!g) jeVariante.set(k, g = { art: c.art, variante: c.variante, instanzen: [] });
+          g.instanzen.push(q);
+        }
+      }
+      setBand([...jeVariante.values()]);
       setSichtbar(nah.map(({ c, stufe }) => ({
         // Die Stufe gehört in den Schlüssel: Seit die Mittelstufe ihre Varianten
         // zusammenlegt (D100), tragen alle zusammengelegten Chunks `variante 0`,
         // und ohne die Stufe könnte ein Nahchunk derselben Kachel mit Variante 0
         // denselben Schlüssel bekommen.
         c, stufe, id: `${c.art}:${c.variante}:${stufe}:${c.mitte[0]}:${c.mitte[1]}`,
+        // D464 (`?lookfels=1`): Mittelstufe jenseits von 110 m wirft keinen Schatten — an der Zielbild-Felsmulde waren das
+        // 0,58 Mio. Dreiecke im Schattenpass für Schatten hinter Mauern und Kronen. Hysterese über die 8-m-Neubewertung.
+        ohneSchatten: LOOK_FELS_AN && stufe !== 'nah' && Math.hypot(c.mitte[0] - p.x, c.mitte[1] - p.z) > ATTRAPPE_AB,
       })));
     }
     if (fernNeu) {
       const gruppen = buendleFernProps(buendel);
       if (!ezZellen) setFern(gruppen);
       else setFern(alt => {
-        const vorher = new Map(alt.map(g => [`${g.art}:${g.variante}:${g.zelle ?? ''}`, g]));
+        const vorher = new Map(alt.map(g => [`${g.art}:${g.variante}:${g.zelle ?? ''}:${!!g.hofStrauch}:${!!g.hofSchatten}`, g]));
         return zellteileFern(gruppen).map(g => {
-          const v = vorher.get(`${g.art}:${g.variante}:${g.zelle ?? ''}`);
+          const v = vorher.get(`${g.art}:${g.variante}:${g.zelle ?? ''}:${!!g.hofStrauch}:${!!g.hofSchatten}`);
           return v && v.instanzen.length === g.instanzen.length && v.instanzen.every((p, i) => p === g.instanzen[i]) ? v : g;
         });
       });
@@ -824,13 +1287,17 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
       {/* Blender-Baumstufen werden bei Bedarf geladen. Eine eigene Grenze je
           Gruppe verhindert, dass React waehrenddessen Licht und ganze Szene
           ausblendet. Bereits geladene Gruppen bleiben sichtbar. */}
-      {sichtbar.map(({ c, stufe, id }) =>
+      {sichtbar.map(({ c, stufe, id, ohneSchatten }) =>
         <Suspense key={id} fallback={null}>
-          <PropChunkMesh chunk={c} stufe={stufe} wind={wind} grasWind={grasWind} farnWind={farnWind} grasScanWind={grasScanWind} baumWind={baumWind} baumTiefe={baumTiefe} />
+          <PropChunkMesh chunk={c} stufe={stufe} ohneSchatten={ohneSchatten} hofBaum={hofBaum} milbingerBaum={milbingerBaum} wind={wind} farnWind={farnWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
         </Suspense>)}
-      {fern.map(({ art, variante, instanzen, zelle }) =>
-        <Suspense key={`${art}:${variante}:${zelle ?? ''}`} fallback={null}>
-          <PropFernMesh art={art} variante={variante} instanzen={instanzen} baumWind={baumWind} zellCulling={zelle !== undefined} />
+      {fern.map(({ art, variante, instanzen, zelle, hofStrauch, hofSchatten }) =>
+        <Suspense key={`${art}:${variante}:${zelle ?? ''}:${hofStrauch ? 'hof' : ''}:${hofSchatten ? 'schatten' : ''}`} fallback={null}>
+          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} milbingerBaum={milbingerBaum} hofStrauch={hofStrauch} hofSchatten={hofSchatten} instanzen={instanzen} zellCulling={zelle !== undefined} />
+        </Suspense>)}
+      {band.map(({ art, variante, instanzen }) =>
+        <Suspense key={`band:${art}:${variante}`} fallback={null}>
+          <PropFernMesh art={art} variante={variante} hofBaum={hofBaum} milbingerBaum={milbingerBaum} instanzen={instanzen} zellCulling={false} band />
         </Suspense>)}
     </>
   );
@@ -869,32 +1336,33 @@ function Props({ props, wind, grasWind, farnWind, grasScanWind, baumWind, baumTi
  * `InstancedMesh` neu auf, und das ist genau der Fall, den `PropChunkMesh` im
  * Kommentar als teuer beschreibt.
  */
-function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling }: { art: PropArt; variante: number; instanzen: PropInstanz[]; baumWind: THREE.MeshStandardMaterial; zellCulling: boolean }) {
-  // Dieselbe Baumvariante in allen Stufen; die Fernstufe reduziert nur Dreiecke.
+function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, milbingerBaum = false, hofStrauch = false, hofSchatten = false, band = false }: { art: PropArt; variante: number; instanzen: PropInstanz[]; zellCulling: boolean; hofBaum?: boolean; milbingerBaum?: boolean; hofStrauch?: boolean; hofSchatten?: boolean; band?: boolean }) {
+  // D367: Die Fernstufe der Blender-Bäume ist ein Impostor desselben Nahbaums (acht gebackene Ansichten, zwei
+  // Dreiecke je Baum) statt der dezimierten Krone; ohne Registereintrag bleibt die Attrappe.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   const blender = eigen ? blenderBaum(eigen, variante, 'fern') : null;
-  const { scene } = useGLTF(propPfad(blender ? blender.datei : VARIANTEN.busch[0].datei));
+  const rahmen = blender?.impostor ?? null;
   const geo = useMemo(() => {
-    if (!blender) return attrappeGeometrie(art);
-    let g: THREE.BufferGeometry | null = null;
-    scene.updateMatrixWorld(true);
-    scene.traverse(o => {
-      if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry.clone().applyMatrix4(o.matrixWorld);
-    });
-    if (g) {
-      const geometrie = g as THREE.BufferGeometry;
-      const gewicht = geometrie.getAttribute('_wind');
-      if (gewicht) geometrie.setAttribute('aWind', gewicht);
-    }
-    return (g ?? attrappeGeometrie(art)) as THREE.BufferGeometry;
-  }, [art, blender, scene]);
+    if (hofStrauch) return hofStrauchGeometrie(variante, VARIANTEN.busch[variante]?.hoehe ?? 1.2);
+    if (!rahmen) return attrappeGeometrie(art);
+    return impostorGeometrie(rahmen);
+  }, [art, rahmen, hofStrauch, variante]);
+  useEffect(() => () => { if (rahmen) geo.dispose(); }, [geo, rahmen]);
+  const impMaterial = useMemo(() => blender && rahmen ? impostorMaterial(blender.datei, rahmen, BAUM_UEBERBLEND) : null, [blender, rahmen]);
+  const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
   const ref = useRef<THREE.InstancedMesh>(null);
   const [kapazitaet, setKapazitaet] = useState(() => Math.ceil(instanzen.length * 1.4) + 64);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
     ref.current = mesh;
-    if (mesh && !mesh.instanceColor) mesh.count = 0; // Vor dem ersten Befuellen keine Identitaetsmatrizen zeichnen.
-    if (mesh && blender && istEzProbeBereit()) mesh.visible = false;
-  }, [blender]);
+    if (mesh && !mesh.instanceColor) {
+      mesh.count = 0;
+      // Auch bei count=0 wählt three.js ein Shaderprogramm. Ein leeres Bündel
+      // würde dabei die Variante ohne Instanzfarben erstmals kompilieren.
+      if (HOF_BILDFLUSS_AN) mesh.visible = false;
+    }
+    if (mesh) { mesh.userData.hofGruen = hofBaum; mesh.userData.milbingerBaum = milbingerBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = variante; }
+    if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
+  }, [blender, hofBaum, milbingerBaum, hofStrauch, variante]);
 
   useEffect(() => {
     if (instanzen.length > kapazitaet) {
@@ -903,7 +1371,9 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling }: { art
     }
     const m = ref.current;
     if (!m) return;
-    if (blender && istEzProbeBereit()) m.visible = false;
+    const ezErsetzt = blender && istEzProbeBereit(hofBaum);
+    const anfang = !m.instanceColor;
+    if (ezErsetzt) m.visible = false;
     const hilfe = new THREE.Object3D();
     const ton = new THREE.Color();
     instanzen.forEach((p, i) => {
@@ -918,17 +1388,26 @@ function PropFernMesh({ art, variante, instanzen, baumWind, zellCulling }: { art
     m.count = instanzen.length;
     m.instanceMatrix.needsUpdate = true;
     if (m.instanceColor) m.instanceColor.needsUpdate = true;
-    if (zellCulling) m.computeBoundingSphere();
-  }, [instanzen, kapazitaet, zellCulling]);
+    if (rahmen) {
+      // D367: 1 = Instanz im Übergabeband (zeichnet nur das Gegenraster zur Mittelstufe)
+      let a = geo.getAttribute('aUeberblend') as THREE.InstancedBufferAttribute | undefined;
+      if (!a || a.count < kapazitaet) geo.setAttribute('aUeberblend', a = new THREE.InstancedBufferAttribute(new Float32Array(kapazitaet), 1));
+      (a.array as Float32Array).fill(band ? 1 : 0);
+      a.needsUpdate = true;
+    }
+    if (zellCulling || hofStrauch) m.computeBoundingSphere();
+    if (HOF_BILDFLUSS_AN && anfang && m.count > 0 && !ezErsetzt) m.visible = true;
+  }, [instanzen, kapazitaet, zellCulling, hofBaum, hofStrauch, rahmen, geo, band]);
 
   return (
     <instancedMesh
       ref={setzeMesh} args={[undefined, undefined, kapazitaet]}
-      name={blender ? `baum:${art}:${variante}:fern` : `prop:${art}:fern`}
-      geometry={geo} material={blender ? baumWind : FERN_MATERIAL}
+      name={blender ? `baum:${art}:${variante}:fern${band ? ':band' : ''}` : `prop:${art}:fern${hofStrauch ? `:hof:${variante}` : ''}`}
+      geometry={geo} material={impMaterial ?? strauchMaterial ?? FERN_MATERIAL}
+      receiveShadow={hofStrauch && hofSchatten}
       // Der Bündel umspannt den ganzen Sichtring; ein Frustum-Test daran wäre
       // immer wahr und damit verlorene Zeit.
-      frustumCulled={zellCulling}
+      frustumCulled={zellCulling || hofStrauch}
     />
   );
 }
@@ -967,6 +1446,7 @@ function scanBasis(textur: string, art: PropArt, alpha: boolean): THREE.MeshStan
   };
   m.map = karte(`${textur}-farbe`);
   m.normalMap = karte(`${textur}-normal`);
+  if (HOF_AN && ['fels-moos-1', 'fels-moos-2', 'farn'].includes(textur)) richteHofPropEin(m, textur);
   return m;
 }
 
@@ -1015,64 +1495,78 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
   // Auch der prozedurale Fallback braucht einen unbedingten Lade-Hook.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
   // Blender-Baum (D155), wenn das Register einen hat — sonst der prozedurale (D40)
-  const blender = eigen ? blenderBaum(eigen, variante, stufe) : null;
+  // D367: Die Fernstufe ist ein Impostor ohne Netz; ein Chunk in Fernstufe zeigt die Mittelstufe.
+  const blender = eigen ? blenderBaum(eigen, variante, stufe === 'fern' ? 'mittel' : stufe) : null;
   const pfad = propPfad(blender ? blender.datei : ((liste[variante] ?? liste[0])?.datei ?? VARIANTEN.busch[0].datei));
   const { scene } = useGLTF(pfad);
-  return useMemo(() => {
-    if (eigen && !blender) return { geo: baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel'), blender: false };
+  const normalisiert = useMemo(() => {
     let geo: THREE.BufferGeometry | null = null;
-    // Der Blender-Ursprung kann am Kronenzentrum liegen. Beim Herausloesen
-    // muss die Knotenmatrix mit: sonst versinkt etwa Fichte 0 um 10,25 m.
-    scene.updateMatrixWorld(true);
-    scene.traverse(o => {
-      if (!geo && (o as THREE.Mesh).isMesh) geo = (o as THREE.Mesh).geometry.clone().applyMatrix4(o.matrixWorld);
-    });
-    if (!eigen && geo) {
-      // D229/D230: Scan-Props bringen ihr Windgewicht als `_WIND` mit; vorher standen Farne still.
-      const w = (geo as THREE.BufferGeometry).getAttribute('_wind');
-      if (w) (geo as THREE.BufferGeometry).setAttribute('aWind', w);
-    }
-    if (eigen && geo) {
-      // Windgewicht aus der Datei (`_WIND` → `_wind`), sonst aus der Hoehe; Laubmaske steht in COLOR_0.a
-      const g = geo as THREE.BufferGeometry;
-      const w = g.getAttribute('_wind');
-      if (w) g.setAttribute('aWind', w); else windAusHoehe(g, g.boundingBox?.max.y ?? 20);
-    }
-    // Keine Normierung mehr. Die Höhe steht in `VARIANTEN` und ist beim Bauen in
-    // die Datei eingerechnet — sie hier erneut auf eine Zielhöhe je Art zu ziehen,
-    // hätte alle sechs Grasvarianten wieder auf dieselben 0,35 m gestreckt.
-    return { geo: (geo ?? propGeometrie(art)) as THREE.BufferGeometry, blender: !!(eigen && blender) };
+    return () => {
+      if (geo) return geo;
+      if (eigen && !blender) return geo = baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel');
+      // Der Blender-Ursprung kann am Kronenzentrum liegen. Beim Herausloesen
+      // muss die Knotenmatrix mit: sonst versinkt etwa Fichte 0 um 10,25 m.
+      scene.updateMatrixWorld(true);
+      const mesh = scene.getObjectByProperty('isMesh', true) as THREE.Mesh | undefined;
+      if (!mesh) return geo = propGeometrie(art);
+      geo = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
+      // Scan-Props und Blender-Bäume bringen ihr Windgewicht als `_WIND` mit.
+      const w = geo.getAttribute('_wind');
+      if (w) geo.setAttribute('aWind', w);
+      else if (eigen) windAusHoehe(geo, geo.boundingBox?.max.y ?? 20);
+      // Die Höhe steht in VARIANTEN und ist bereits in die Datei eingerechnet.
+      return geo;
+    };
   }, [scene, art, eigen, blender, variante, stufe]);
+  return { normalisiert, blender: !!(eigen && blender) };
 }
 
 const LEER: ReadonlySet<string> = new Set();
+const LEERES_PROP_NETZ = new THREE.BufferGeometry();
 
 /** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, baumWind, baumTiefe }: {
-  chunk: PropChunk; stufe: PropStufe; wind: THREE.MeshStandardMaterial; grasWind: THREE.MeshStandardMaterial;
-  farnWind: THREE.MeshStandardMaterial; grasScanWind: THREE.MeshStandardMaterial;
-  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial;
+function PropChunkMesh({ chunk, stufe, ohneSchatten = false, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, buschWind }: {
+  chunk: PropChunk; stufe: PropStufe; ohneSchatten?: boolean; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial;
+  farnWind: THREE.MeshStandardMaterial;
+  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial;
 }) {
   const fern = stufe === 'fern';
-  const { geo, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
-  const fernGeo = useMemo(() => attrappeGeometrie(chunk.art), [chunk.art]);
+  const { normalisiert, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
+  const ezOriginal = HOF_BILDSPITZEN_AN && blender && uebernimmtEzVariante(chunk.variante, hofBaum) ? normalisiert : undefined;
+  const hofStrauch = HOF_GRUEN_AN && chunk.art === 'busch' && istHofBusch(chunk.mitte, chunk.radius);
+  const strauchBleibt = HOF_STRAUCH_WEIT && hofStrauch;
+  const strauchGeo = useMemo(() => hofStrauch ? hofStrauchGeometrie(chunk.variante, VARIANTEN.busch[chunk.variante]?.hoehe ?? 1.2) : null, [hofStrauch, chunk.variante]);
+  const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
+  const attrappe = fern && !blender && !strauchBleibt;
+  const fernGeo = useMemo(() => !HOF_BILDSPITZEN_AN || attrappe ? attrappeGeometrie(chunk.art) : null, [attrappe, chunk.art]);
+  const geo = ezOriginal ? LEERES_PROP_NETZ : normalisiert();
+  const netz = strauchBleibt ? strauchGeo! : attrappe ? fernGeo! : strauchGeo ?? geo;
   // Nur was sich biegen kann, bekommt das Windmaterial. Findlinge und Totholz
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
   // als bewegtes Laub aufbaut.
   const biegsam = chunk.art === 'nadelbaum' || chunk.art === 'laubbaum' || chunk.art === 'busch';
   /** D230: Scan-Props tragen ihren Textursatz in `VARIANTEN`. */
   const textur = VARIANTEN[chunk.art][chunk.variante]?.textur;
-  const gras = chunk.art === 'grasbuschel' || chunk.art === 'farn';
   const ref = useRef<THREE.InstancedMesh>(null);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
     ref.current = mesh;
-    if (mesh && !mesh.instanceColor) mesh.count = 0; // Bereits befuellte Meshes beim erneuten Anhaengen erhalten.
-    if (mesh && blender && istEzProbeBereit()) mesh.visible = false;
-  }, [blender]);
+    if (mesh && !mesh.instanceColor) {
+      mesh.count = 0;
+      if (HOF_BILDFLUSS_AN) mesh.visible = false;
+    }
+    if (mesh) {
+      mesh.userData.hofGruen = hofBaum; mesh.userData.milbingerBaum = milbingerBaum; mesh.userData.hofStrauch = hofStrauch; mesh.userData.strauchVariante = chunk.variante;
+      mesh.userData.ezOriginalGeometrie = ezOriginal;
+    }
+    if (mesh && blender && istEzProbeBereit(hofBaum)) mesh.visible = false;
+  }, [blender, ezOriginal, hofBaum, milbingerBaum, hofStrauch, chunk.variante]);
 
   useEffect(() => {
-    if (!ref.current) return;
-    if (blender && istEzProbeBereit()) ref.current.visible = false;
+    const mesh = ref.current;
+    if (!mesh) return;
+    const ezErsetzt = blender && istEzProbeBereit(hofBaum);
+    const anfang = !mesh.instanceColor;
+    if (ezErsetzt) mesh.visible = false;
     const m = new THREE.Object3D();
     const ton = new THREE.Color();
     chunk.instanzen.forEach((p, i) => {
@@ -1080,22 +1574,28 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
       m.rotation.y = p.drehung;
       m.scale.setScalar(p.skalierung);
       m.updateMatrix();
-      ref.current!.setMatrixAt(i, m.matrix);
+      mesh.setMatrixAt(i, m.matrix);
       // Farbe je Instanz (D79). `setRGB` ohne Farbraum schreibt direkt in den
       // Arbeitsraum — die Werte sind Faktoren um 1,0, keine Farben, und dürfen
       // deshalb nicht durch die sRGB-Umrechnung.
       const [r, g, b] = propTon(p.art, p.variante, p.drehung);
-      ref.current!.setColorAt(i, ton.setRGB(r, g, b));
+      mesh.setColorAt(i, ton.setRGB(r, g, b));
     });
-    ref.current.instanceMatrix.needsUpdate = true;
-    if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
-    ref.current.count = chunk.instanzen.length;
-    ref.current.computeBoundingSphere();
-  }, [chunk]);
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+    mesh.count = chunk.instanzen.length;
+    if (!HOF_BILDSPITZEN_AN) mesh.computeBoundingSphere();
+    if (HOF_BILDFLUSS_AN && anfang && mesh.count > 0 && !ezErsetzt) mesh.visible = true;
+  }, [chunk, hofBaum]);
 
   // Der Umriss ändert sich beim Wechsel auf die Attrappe; ohne Neuberechnung
   // schneidet das Frustum-Culling falsch.
-  useEffect(() => { ref.current?.computeBoundingSphere(); }, [fern]);
+  useEffect(() => {
+    if (!HOF_BILDSPITZEN_AN) ref.current?.computeBoundingSphere();
+  }, [fern]);
+  useEffect(() => {
+    if (HOF_BILDSPITZEN_AN && !ezOriginal) ref.current?.computeBoundingSphere();
+  }, [chunk, ezOriginal, netz]);
 
   // Kein useFrame mehr in dieser Komponente. Sichtbarkeit und Attrappen-Entscheidung
   // trifft die Verwaltung — bei 16.663 Chunks wären 16.663 Callbacks je Bild der
@@ -1110,12 +1610,12 @@ function PropChunkMesh({ chunk, stufe, wind, grasWind, farnWind, grasScanWind, b
     <instancedMesh
       ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
-      geometry={fern && !blender ? fernGeo : geo}
-      material={blender ? baumWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
-        : textur === 'gras' ? grasScanWind : textur ? statischesScanMaterial(textur, chunk.art)
-        : gras ? grasWind : (biegsam ? wind : PROP_MATERIAL)}
+      geometry={netz}
+      material={blender ? baumWind : strauchMaterial && (!fern || strauchBleibt) ? strauchMaterial : buschWind && chunk.art === 'busch' && !fern ? buschWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
+        : textur ? statischesScanMaterial(textur, chunk.art)
+        : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
-      castShadow={grossesTeil && !fern} receiveShadow={grossesTeil && !fern}
+      castShadow={grossesTeil && !fern && !ohneSchatten} receiveShadow={(!fern || strauchBleibt) && (grossesTeil || (HOF_AN && HOF_UNIFORM.bereit.value > 0 && Math.hypot(chunk.mitte[0] - HOF_UNIFORM.mitte.value.x, chunk.mitte[1] - HOF_UNIFORM.mitte.value.y) < 60))}
     />
   );
 }
@@ -1711,6 +2211,44 @@ export interface Ortsmarke {
   gang?: number;
   /** Laufzeitfarben je Slot (D146). */
   farben?: Partial<Record<RollenSlot, string>>;
+  /** Tagesroutine (D177/D375): ID des Orts, zu dem der Bewohner abends geht. */
+  abends?: string;
+}
+
+/**
+ * D285 (`?umlicht=1`): Umgebungslicht aus dem eigenen Himmel. Eine Kopie der Himmelskugel und eine Bodenscheibe
+ * im Hemisphären-Bodenton (Gegenlicht vom Gelände statt Himmel von unten) werden einmal je Stimmung in eine
+ * PMREM-Karte gerendert und als `scene.environment` gesetzt. Die Hemisphäre bleibt mit 35 % für die eigenen
+ * Shader, die keine Umgebungskarte lesen.
+ */
+function HimmelLicht({ s }: { s: Stimmung }) {
+  const { gl, scene } = useThree();
+  useEffect(() => {
+    const werte = {
+      zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
+      sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
+      atmosphaere: s.atmosphaere,
+    };
+    const himmel = baueHimmel(werte);
+    setzeHimmel(himmel, werte);
+    const boden = new THREE.Mesh(new THREE.CircleGeometry(400, 32).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN).multiplyScalar(0.6), fog: false }));
+    boden.position.y = -2;
+    const fang = new THREE.Scene();
+    fang.add(himmel, boden);
+    const pmrem = new THREE.PMREMGenerator(gl);
+    const karte = pmrem.fromScene(fang, 0.02, 0.1, 2000).texture;
+    scene.environment = karte;
+    scene.environmentIntensity = UMLICHT_STAERKE;
+    console.info('[umlicht] Himmel als Umgebungslicht, Stärke', UMLICHT_STAERKE);
+    return () => {
+      if (scene.environment === karte) scene.environment = null;
+      karte.dispose(); pmrem.dispose();
+      himmel.geometry.dispose(); (himmel.material as THREE.Material).dispose();
+      boden.geometry.dispose(); (boden.material as THREE.Material).dispose();
+    };
+  }, [gl, scene, s]);
+  return null;
 }
 
 /**
@@ -1769,14 +2307,18 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
   return (
     <>
       {sichtbar.map(b => (
-        <group key={b.name} position={[b.ursprung.x, b.h0, b.ursprung.z]}>
+        <group key={b.name} position={[b.ursprung.x, bauwerkHoehe(b, hoeheAn), b.ursprung.z]}>
           {WEIHER_AN && b.dateien.includes('bauten') && (
             <Suspense fallback={null}><BauwerkWeiher bauwerk={b} hoeheAn={hoeheAn} /></Suspense>
           )}
           {b.dateien.map(teil => (
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
-                ? <BauwerkWasser bauwerk={b} />
+                ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
+                : teil === 'boden' ? <BauwerkBoden bauwerk={b} />
+                : teil === 'schatten' ? <BauwerkSchatten bauwerk={b} />
+                : teil === 'baeume' ? (istAus('kronen') || !SCAN_BAEUME_AN ? null : <BauwerkBaeume bauwerk={b} />)
+                : teil === 'pflanzen' ? (istAus('pflanzen') ? null : <BauwerkPflanzen bauwerk={b} />)
                 : <Bauwerkteil bauwerk={b} teil={teil} rand={rand} hoeheAn={hoeheAn} />}
             </Suspense>
           ))}
@@ -1785,6 +2327,168 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
     </>
   );
 }
+
+/**
+ * Höhe der Bauwerksgruppe. Szenenbau: `h0` aus dem Terrainexport. Zielbild-Szene (D448): so, dass die Terrasse des
+ * Renders (`boden.zt`) auf der Terrasse des Spiels liegt — beide Gelände kommen aus verschiedenen Exporten, und eine
+ * Mauer, die 20 cm schwebt oder versinkt, ist im Spiel sofort zu sehen.
+ */
+function bauwerkHoehe(b: Bauwerk, hoeheAn: (x: number, z: number) => number): number {
+  if (!b.boden) return b.h0;
+  return hoeheAn(b.ursprung.x + b.boden.mitte.x, b.ursprung.z - b.boden.mitte.y) - b.boden.zt;
+}
+
+/**
+ * Boden aus dem Zielbild (D448, `tools/bodenexport.py`): Scan-Mischmaterial des Renders als Farbe, Normale und
+ * Rauheit gebacken, auf einem 25-cm-Raster. Darunter schneidet `BODEN_LOCH` den Spielboden aus; die äusseren 6 m
+ * blenden mit Rauschtransparenz (alphaHash, keine Sortierung) über dem Spielboden aus, 2 cm darüber.
+ */
+function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'boden'));
+  const b = bauwerk.boden!;
+  const objekt = useMemo(() => {
+    const klon = scene.clone(true);
+    klon.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.receiveShadow = true; o.castShadow = false;
+      const m = (o.material as THREE.MeshStandardMaterial).clone();
+      m.alphaHash = true; m.metalness = 0;
+      const innen = 1 - 6 / b.radius;
+      m.onBeforeCompile = sh => {
+        sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>',
+          `#include <map_fragment>\n  diffuseColor.a *= 1.0 - smoothstep(${innen.toFixed(4)}, 1.0, length(vMapUv * 2.0 - 1.0));`);
+      };
+      o.material = m;
+    });
+    klon.position.y = 0.02;
+    return klon;
+  }, [scene, b.radius]);
+  useEffect(() => {
+    // Loch: so weit, wie der Boden deckend ist (Rand 6 m bleibt über dem Spielboden)
+    BODEN_LOCH.value.set(bauwerk.ursprung.x + b.mitte.x, bauwerk.ursprung.z - b.mitte.y, b.radius - 6, 0);
+    return () => { BODEN_LOCH.value.set(0, 0, 0, 0); };
+  }, [bauwerk, b]);
+  return <primitive object={objekt} />;
+}
+
+/**
+ * Bäume des Zielbilds (D478, `tools/baumexport.py`): die Poly-Haven-Scans der Zielbild-Szene, Holz gekürzt, Laubkarten
+ * ausgedünnt und vergrössert, als GPU-Instanzen. Ersetzt an diesem Ort die Kartenkronen (`Rahmenkronen.tsx`). Laub mit
+ * Alphatest, beidseitig; der Schattenpass nimmt Karte und Alphatest mit, so fällt Licht in Flecken durch.
+ */
+function BauwerkBaeume({ bauwerk }: { bauwerk: Bauwerk }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'baeume'));
+  const objekt = useMemo(() => {
+    const klon = scene.clone(true);
+    const fertig = new Set<THREE.Material>();
+    klon.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.castShadow = true; o.receiveShadow = true;
+      if (o instanceof THREE.InstancedMesh) o.computeBoundingSphere();
+      for (const m of (Array.isArray(o.material) ? o.material : [o.material]) as THREE.MeshStandardMaterial[]) {
+        if (fertig.has(m)) continue; fertig.add(m);
+        if (m.transparent || m.alphaTest > 0 || /leaves/i.test(m.name)) {
+          m.transparent = false; m.alphaTest = Math.max(m.alphaTest, 0.5); m.depthWrite = true; m.side = THREE.DoubleSide;
+        }
+      }
+    });
+    return klon;
+  }, [scene]);
+  return <primitive object={objekt} />;
+}
+
+/**
+ * Schattenhülle (D464, `tools/schattenhuelle.mjs`): grobe Kopie der grossen Körper, die an ihrer Stelle den Schatten
+ * wirft. Im Bild unsichtbar — das Material schreibt weder Farbe noch Tiefe —, in der Schattenkarte voll da.
+ */
+function BauwerkSchatten({ bauwerk }: { bauwerk: Bauwerk }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'schatten'));
+  const objekt = useMemo(() => {
+    const klon = scene.clone(true);
+    const material = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false });
+    klon.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      o.material = material; o.castShadow = true; o.receiveShadow = false; o.renderOrder = -1;
+    });
+    return klon;
+  }, [scene]);
+  return <primitive object={objekt} />;
+}
+
+/**
+ * Pflanzen des Zielbilds (D448, `tools/pflanzenexport.py`): Poly-Haven-Scans (Gras, Kraut, Farn, Nessel, Efeu …) mit
+ * ihren Lagen als GPU-Instanzen (`EXT_mesh_gpu_instancing` → `InstancedMesh`). Blätter mit Alphatest und beidseitig,
+ * Schatten werfend; ein Klon je Szene, Materialien geteilt.
+ */
+function BauwerkPflanzen({ bauwerk }: { bauwerk: Bauwerk }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'pflanzen'));
+  const camera = useThree(st => st.camera);
+  const { objekt, felder } = useMemo(() => {
+    const gruppe = new THREE.Group();
+    const fertig = new Set<THREE.Material>();
+    const felder: { mesh: THREE.InstancedMesh; mitte: THREE.Vector3; anzahl: number; basis: THREE.Matrix4[]; sortiert: boolean }[] = [];
+    scene.updateMatrixWorld(true);
+    const m4 = new THREE.Matrix4(), p = new THREE.Vector3();
+    scene.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      for (const m of (Array.isArray(o.material) ? o.material : [o.material]) as THREE.MeshStandardMaterial[]) {
+        if (fertig.has(m)) continue; fertig.add(m);
+        m.side = THREE.DoubleSide;
+        if (m.transparent || m.alphaTest > 0 || m.map) { m.transparent = false; m.alphaTest = Math.max(m.alphaTest, 0.5); m.depthWrite = true; }
+      }
+      if (!(o instanceof THREE.InstancedMesh)) {   // Efeu und Laubstreu: ein Netz, keine Lagen
+        const k = o.clone(); k.matrixAutoUpdate = false; k.matrix.copy(o.matrixWorld); k.castShadow = false; k.receiveShadow = true; gruppe.add(k); return;
+      }
+      // D450: Lagen in 12-m-Felder teilen — ein InstancedMesh über 60 m wird nie verworfen, Felder ausserhalb des Bildes schon
+      const je = new Map<string, number[]>();
+      for (let i = 0; i < o.count; i++) {
+        o.getMatrixAt(i, m4); p.setFromMatrixPosition(m4.premultiply(o.matrixWorld));
+        const schl = `${Math.floor(p.x / FELD_PFLANZEN)},${Math.floor(p.z / FELD_PFLANZEN)}`;
+        (je.get(schl) ?? je.set(schl, []).get(schl)!).push(i);
+      }
+      for (const idx of je.values()) {
+        // gemischt, damit eine gekürzte Anzahl (Ferne) gleichmässig ausdünnt statt eine Ecke zu leeren
+        for (let k = idx.length - 1; k > 0; k--) { const j = (k * 7919 + 13) % (k + 1); [idx[k], idx[j]] = [idx[j], idx[k]]; }
+        const feld = new THREE.InstancedMesh(o.geometry, o.material, idx.length);
+        const basis = idx.map(i => { o.getMatrixAt(i, m4); return m4.premultiply(o.matrixWorld).clone(); });
+        basis.forEach((b, k) => feld.setMatrixAt(k, b));
+        feld.computeBoundingSphere(); feld.castShadow = false; feld.receiveShadow = true;   // kleine Pflanzen werfen keinen Schatten (Schattenpass ×2)
+        gruppe.add(feld); felder.push({ mesh: feld, mitte: feld.boundingSphere!.center.clone(), anzahl: idx.length, basis, sortiert: false });
+      }
+    });
+    return { objekt: gruppe, felder };
+  }, [scene]);
+  // Ferne: ab 18 m auf ein Drittel ausgedünnt, ab 35 m ein Achtel — Halme sind dort kleiner als ein Pixel
+  const letzte = useRef(new THREE.Vector3(Infinity, 0, 0));
+  const welt = useRef(new THREE.Vector3());
+  const ort = useRef(new THREE.Vector3());
+  const invers = useRef(new THREE.Matrix4());
+  useFrame(() => {
+    if (letzte.current.distanceToSquared(camera.position) < 1) return;
+    letzte.current.copy(camera.position);
+    // D464: Überdeckung sparen — Pflanzen nach Mauern und Boden zeichnen (renderOrder), Felder von nah nach fern, und in
+    // den vollen Nahfeldern die Lagen von vorn nach hinten. Verdeckte Pixel fallen dann am Tiefentest, vor dem Shader.
+    const lokal = welt.current.copy(camera.position).applyMatrix4(invers.current.copy(objekt.matrixWorld).invert()).clone();
+    const nachAbstand: { f: typeof felder[number]; d: number }[] = [];
+    for (const f of felder) {
+      const d = f.mitte.distanceTo(lokal);
+      const voll = d < 18;
+      f.mesh.count = voll ? f.anzahl : d < 35 ? Math.ceil(f.anzahl / 3) : Math.ceil(f.anzahl / 8);
+      if (voll) {
+        const ab = f.basis.map(b => ort.current.setFromMatrixPosition(b).distanceToSquared(lokal));
+        f.basis.map((_, i) => i).sort((x, y) => ab[x] - ab[y]).forEach((q, z) => f.mesh.setMatrixAt(z, f.basis[q]));
+        f.mesh.instanceMatrix.needsUpdate = true; f.sortiert = true;
+      } else if (f.sortiert) {   // gemischte Ordnung zurück, sonst dünnt die Ferne eine Ecke aus
+        f.basis.forEach((b, z) => f.mesh.setMatrixAt(z, b)); f.mesh.instanceMatrix.needsUpdate = true; f.sortiert = false;
+      }
+      nachAbstand.push({ f, d });
+    }
+    nachAbstand.sort((x, y) => x.d - y.d).forEach(({ f }, i) => { f.mesh.renderOrder = 1 + i * 1e-4; });
+  });
+  return <primitive object={objekt} />;
+}
+/** Kantenlänge der Pflanzenfelder in Metern (D450). */
+const FELD_PFLANZEN = 12;
 
 /**
  * Stauweiher (D268, `world/weiher.ts`): nur für Bauwerke mit einem Objekt `Wehr`. Teilt sich die
@@ -1806,6 +2510,14 @@ function BauwerkWeiher({ bauwerk, hoeheAn }: { bauwerk: Bauwerk; hoeheAn: (x: nu
     return w;
   }, [scene, bauwerk, hoeheAn]);
   useEffect(() => () => { weiher?.geometrie.dispose(); material.dispose(); }, [weiher, material]);
+  // D280: Spiegelebene anmelden (Welt: Gruppenraum + Ursprung + h0).
+  useEffect(() => {
+    if (!weiher || !GEWAESSER_ECHT) return;
+    weiher.geometrie.computeBoundingSphere();
+    const k = weiher.geometrie.boundingSphere!;
+    return meldeSpiegelflaeche({ x: k.center.x + bauwerk.ursprung.x, z: k.center.z + bauwerk.ursprung.z,
+      hoehe: weiher.spiegel + bauwerk.h0, radius: k.radius });
+  }, [weiher, bauwerk]);
   return weiher ? <mesh geometry={weiher.geometrie} material={material} renderOrder={1} /> : null;
 }
 
@@ -1833,7 +2545,10 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
     let fussEcken = 0;
     klon.traverse(o => {
       if (!(o instanceof THREE.Mesh)) return;
-      o.castShadow = true; o.receiveShadow = true;
+      // D450: In der Zielbild-Szene werfen nur grosse Körper Schatten — Streu, Kiesel, Moos und Schutt sind 2 Mio. Dreiecke
+      // im Schattenpass und werfen Schatten unter einem Pixel der Schattenkarte (24 cm je Texel)
+      // D464: Bringt das Bauwerk eine Schattenhülle mit (`-schatten.glb`, 78 000 statt 981 000 Dreiecke), wirft nur sie.
+      o.castShadow = !bauwerk.dateien.includes('schatten') && (bauwerk.ordner !== 'bauten-ziel' || /^(Mauer[ABC]|Stuetzmauer|Fels|Hof|Becken|Stein|Versturz|Wurzel|Stubben|Balken)(?!.*_Schutt)/.test(o.name)); o.receiveShadow = true;
       // Ein vereinigtes Netz kann mit einem Material-Array kommen (erster Stauwehr-Export: 105 Kronen,
       // 105 Materialien). Alle Teile tragen dieselbe Vertexfarbe — das erste Material reicht als Basis,
       // und ein einzelnes Material zeichnet das ganze Netz. Vorher war die Basis das Array selbst: weiss.
@@ -1978,14 +2693,15 @@ function Orte({ orte, ziel, onNah, rand, hoeheAn, tageszeit = 0.39 }: {
   const gemeldet = useRef<string | null>(null);
   /** Wo die Bewohner gerade stehen (D178) — Ansprechen folgt der Figur, auch ins Wirtshaus. */
   const lage = useRef(new Map<string, [number, number]>());
-  // D177, Tagesroutine: Abends (Abendrot bis vor der Dämmerung) gehen die Dorfbewohner ins Wirtshaus
-  // und stehen im Halbkreis vor dem Tresen; morgens gehen sie zurück. Der Wirt und die Schmiedin
-  // bleiben, wo sie arbeiten.
+  // D177, Tagesroutine: Abends (Abendrot bis vor der Dämmerung) gehen Bewohner ins Wirtshaus und
+  // stehen im Halbkreis vor dem Tresen; morgens gehen sie zurück. Wer geht und wohin, steht seit
+  // D375 im Ort (`abends`) statt im Namen — die Enklave liegt über die Terrasse verteilt, und der
+  // Weg ist eine Gerade: Die Wache am Abstieg und der Förster bleiben, wo sie sind.
   const abends = tageszeit >= 0.74 || tageszeit < 0.2;
-  const wirt = orte.find(o => o.id === 'dorf-wirt');
-  const gaeste = orte.filter(o => o.id.startsWith('dorf-') && o.id !== 'dorf-wirt' && o.id !== 'dorf-schmied' && o.figur);
   const abendZiel = (o: Ortsmarke): [number, number] | undefined => {
+    const wirt = o.abends ? orte.find(z => z.id === o.abends) : undefined;
     if (!wirt) return undefined;
+    const gaeste = orte.filter(g => g.abends === wirt.id && g.figur);
     const i = gaeste.indexOf(o);
     if (i < 0) return undefined;
     const w = THREE.MathUtils.degToRad(wirt.blick ?? 0) + (i - (gaeste.length - 1) / 2) * 0.55;
@@ -2080,6 +2796,9 @@ function Klippen({ klippen, ziel, material }: {
         if (n >= liste.length) break;
       }
       m.count = n;
+      // Außerhalb der Reichweite bleiben manche Varianten leer. Kein erster
+      // Shader-Einsatz beim Schwenk auf ein leeres Instanz-Mesh.
+      if (HOF_BILDFLUSS_AN) m.visible = n > 0;
       m.instanceMatrix.needsUpdate = true;
       m.computeBoundingSphere();
     });
@@ -2106,6 +2825,8 @@ function Klippen({ klippen, ziel, material }: {
  * groß wie jede Kreatur, und der Kampf beginnt nicht von selbst. Ein Bosskampf, der
  * einen im Vorbeigehen erwischt, ist ein Unfall, kein Höhepunkt.
  */
+/** D290: LoD2-Silhouetten (`tools/lod2import.py`), Reihenfolge wie `welt.gebaeude` des Œntals. */
+const LOD2_DATEN = LOD2_ROH as (NonNullable<Weltdaten['gebaeude'][number]['lod2']> | null)[];
 const REGENT_HOEHE = 4.2;
 /**
  * Das Modell (D241) ist 1,6 Einheiten lang statt der 1,2 der Silhouette: 3,8 ergibt gut sechs
@@ -2206,11 +2927,28 @@ function Regentenort({ ort, kreatur, gestalt, ziel, onNah }: {
   );
 }
 
-function Beleuchtung({ s, ziel }: {
-  s: Stimmung; ziel: React.RefObject<THREE.Object3D | null>;
+function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial, geheilt }: {
+  s: Stimmung; ziel: React.RefObject<THREE.Object3D | null>; wiesenbereich?: Wiesenbereich;
+  fernMaterial: THREE.ShaderMaterial; geheilt: boolean;
 }) {
   const { scene, gl } = useThree();
   const sonne = useRef<THREE.DirectionalLight>(null);
+  const halbkugel = useRef<THREE.HemisphereLight>(null);
+  const ortslicht = MILBINGERLICHT_AN && wiesenbereich;
+  const wolkendecke = !geheilt && !MILBINGERKLAR_AN;
+  const tageslicht = wolkendecke ? MILBINGER_WOLKENLICHT : MILBINGER_TAGESLICHT;
+  const ortsfoto = ortslicht ? (wolkendecke ? 'bedeckt' : 'klar') : undefined;
+  const bodenfarbe = HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN;
+  const fuelllicht = (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? .25 : UMLICHT_AN ? .35 : 1);
+  const direktlicht = SONNE_MESSLAUF ?? s.sonneStaerke;
+  const umfeldlicht = HDRI_AN ? HDRI_STAERKE : UMLICHT_STAERKE;
+  const schatten = SCHATTEN_MESSLAUF ?? s.schatten ?? 1;
+  const belichtung = BELICHTUNG_MESSLAUF ?? s.belichtung;
+  const lichtbasis = useMemo(() => ortslicht ? {
+    sonne: new THREE.Color(s.sonne), himmel: new THREE.Color(s.umgebung),
+    erde: new THREE.Color(bodenfarbe), nebel: new THREE.Color(s.nebel),
+    horizont: new THREE.Color(s.horizont), zenit: new THREE.Color(s.zenit),
+  } : null, [ortslicht, s, bodenfarbe]);
   const [takramBereit, setzeTakramBereit] = useState(false);
   const takramAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('takram') === '1';
 
@@ -2230,7 +2968,8 @@ function Beleuchtung({ s, ziel }: {
   const himmel = useMemo(() => baueHimmel({
     zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
     sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof, wolken: s.wolken,
-  }), [s]);
+    atmosphaere: s.atmosphaere,
+  }, ortsfoto), [s, ortsfoto]);
   useEffect(() => {
     setzeHimmel(himmel, {
       zenit: s.zenit, horizont: s.horizont, dunst: s.nebel, sonne: s.sonne,
@@ -2251,8 +2990,8 @@ function Beleuchtung({ s, ziel }: {
    */
   useEffect(() => {
     gl.toneMapping = KURVE_MESSLAUF ?? KURVE_VORGABE;
-    gl.toneMappingExposure = BELICHTUNG_MESSLAUF ?? s.belichtung;
-  }, [gl, s]);
+    gl.toneMappingExposure = belichtung;
+  }, [gl, belichtung]);
   // Himmelsanteil im Fülllicht je Stimmung (D170) — ein Uniform für alle Set-Pieces.
   useEffect(() => { setzeHimmelStaerke(s.himmelAnteil ?? 0.7); }, [s.himmelAnteil]);
 
@@ -2274,9 +3013,62 @@ function Beleuchtung({ s, ziel }: {
     const p = ziel.current?.position;
     const l = sonne.current;
     if (!p || !l) return;
-    l.position.set(p.x + s.sonnenstand[0], p.y + s.sonnenstand[1], p.z + s.sonnenstand[2]);
+    const ort = ortslicht ? milbingerLichtanteil(ortslicht.rahmen, p.x, p.z, s.sonneStaerke) : 0;
+    const misch = THREE.MathUtils.lerp;
+    l.position.set(p.x + misch(s.sonnenstand[0], tageslicht.sonnenstand.x, ort),
+      p.y + misch(s.sonnenstand[1], tageslicht.sonnenstand.y, ort), p.z + misch(s.sonnenstand[2], tageslicht.sonnenstand.z, ort));
     l.target.position.copy(p);
     l.target.updateMatrixWorld();
+    if (HOF_LICHT_AN) {
+      const mitte = HOF_UNIFORM.mitte.value;
+      const hofAnteil = HOF_UNIFORM.bereit.value
+        * (1 - THREE.MathUtils.smoothstep(Math.hypot(p.x - mitte.x, p.z - mitte.y), 44, 65));
+      l.shadow.radius = misch(1 + 1.9 * hofAnteil, wolkendecke ? 2.7 : 1.75, ort);
+    }
+    if (lichtbasis) {
+      // Licht, Horizont und Nebel folgen demselben ortsfesten Übergang. Keine
+      // Lichtquellen oder Renderpässe wechseln beim Überschreiten einer Kachel.
+      const h = halbkugel.current;
+      if (h) {
+        h.color.lerpColors(lichtbasis.himmel, tageslicht.himmel, ort);
+        h.groundColor.lerpColors(lichtbasis.erde, tageslicht.erde, ort);
+        h.intensity = misch(fuelllicht, tageslicht.hemisphaere, ort);
+      }
+      l.color.lerpColors(lichtbasis.sonne, tageslicht.sonne, ort);
+      l.intensity = misch(direktlicht, tageslicht.direkt, ort);
+      l.shadow.intensity = misch(schatten, tageslicht.schatten, ort);
+      l.shadow.normalBias = .035 * ort;
+      const zoom = misch(1, 1.56, ort);
+      if (l.shadow.camera.zoom !== zoom) {
+        l.shadow.camera.zoom = zoom;
+        l.shadow.camera.updateProjectionMatrix();
+      }
+      gl.toneMappingExposure = misch(belichtung, tageslicht.belichtung, ort);
+      if (HDRI_AN || UMLICHT_AN) scene.environmentIntensity = misch(umfeldlicht, tageslicht.umfeld, ort);
+      if (scene.fog instanceof THREE.Fog) {
+        scene.fog.color.lerpColors(lichtbasis.nebel, tageslicht.dunst, ort);
+        scene.fog.near = misch(s.nebelNah, tageslicht.nebelNah, ort);
+        scene.fog.far = misch(s.nebelFern, tageslicht.nebelFern, ort);
+      }
+      const u = (himmel.material as THREE.ShaderMaterial).uniforms;
+      const richtung: THREE.Vector3 = u.sonnenrichtung.value;
+      richtung.copy(l.position).sub(p).normalize();
+      u.sonnenfarbe.value.copy(l.color);
+      u.zenit.value.lerpColors(lichtbasis.zenit, tageslicht.himmel, ort);
+      u.horizont.value.lerpColors(lichtbasis.horizont, tageslicht.dunst, ort);
+      u.dunst.value.lerpColors(lichtbasis.nebel, tageslicht.dunst, ort);
+      const versatz: THREE.Vector3 | undefined = fernMaterial.uniforms.uDunstversatz?.value;
+      versatz?.set(tageslicht.dunst.r - lichtbasis.horizont.r, tageslicht.dunst.g - lichtbasis.horizont.g,
+        tageslicht.dunst.b - lichtbasis.horizont.b).multiplyScalar(ort);
+      const fern = fernMaterial.uniforms;
+      if (fern.uFernDunst) {
+        fern.uFernDunst.value.copy(u.horizont.value);
+        fern.uFernSonne.value.copy(richtung);
+        fern.uFernDirekt.value.copy(l.color).multiplyScalar(l.intensity / Math.PI);
+        if (h) fern.uFernUmfeld.value.copy(h.color).multiplyScalar(h.intensity / Math.PI);
+      }
+      himmel.userData.ortsfotoAnteil = ort;
+    }
   });
 
   return (
@@ -2285,17 +3077,18 @@ function Beleuchtung({ s, ziel }: {
           kein Schatten. Er ist Hintergrund, kein Objekt. */}
       {!takramBereit && <primitive object={himmel} />}
       {takramAn && <TakramProbe sonnenstand={s.sonnenstand} meldeBereit={setzeTakramBereit} />}
-      <hemisphereLight args={[s.umgebung, HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN, (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? 0.25 : 1)]} />
+      <hemisphereLight ref={halbkugel} args={[s.umgebung, bodenfarbe, fuelllicht]} />
       {HDRI_AN && <HdriLicht />}
+      {UMLICHT_AN && <HimmelLicht s={s} />}
       <directionalLight
         ref={sonne}
         position={s.sonnenstand as unknown as [number, number, number]}
-        color={s.sonne} intensity={SONNE_MESSLAUF ?? s.sonneStaerke}
+        color={s.sonne} intensity={direktlicht}
         castShadow shadow-mapSize={[SCHATTENKARTE.aufloesung, SCHATTENKARTE.aufloesung]}
         shadow-camera-left={-SCHATTENKARTE.halb} shadow-camera-right={SCHATTENKARTE.halb}
         shadow-camera-top={SCHATTENKARTE.halb} shadow-camera-bottom={-SCHATTENKARTE.halb}
         shadow-camera-far={700} shadow-bias={-0.0008}
-        shadow-intensity={SCHATTEN_MESSLAUF ?? s.schatten ?? 1}
+        shadow-intensity={schatten}
       />
     </>
   );
@@ -2304,26 +3097,71 @@ function Beleuchtung({ s, ziel }: {
 /**
  * Einzelhalme im Nahbereich, auf der GPU (D211, `world/grasteppich.ts`). `?aus=teppich` schaltet ab.
  */
-function Grasteppich({ welt, feld, ziel, dichte, weite }: {
+/**
+ * Spiegelbild auf stillem Wasser (D280, `world/spiegelbild.ts`): meldet die Teiche des Höhenfelds als
+ * Spiegelebenen an und rechnet je Bild das Spiegelbild des nächsten — vor dem Hauptbild (Priorität 0,5,
+ * `Kontur` zeichnet mit 1).
+ */
+function Spiegelung({ feld }: { feld: HoehenFeld }) {
+  const { gl, scene, camera } = useThree();
+  const spiegel = useMemo(() => new Spiegelbild(), []);
+  useEffect(() => () => spiegel.dispose(), [spiegel]);
+  useEffect(() => {
+    const ab = feld.teiche.map((t) => {
+      let x = 0, z = 0, hoehe = Infinity;
+      // Dieselbe Höhe wie die gezeichnete Teichfläche (`baender.ts`: tiefster Uferpunkt auf dem Netz).
+      for (const [px, pz] of t.punkte) { x += px; z += pz; hoehe = Math.min(hoehe, spiegelAufFlaeche(feld, px, pz)); }
+      x /= t.punkte.length; z /= t.punkte.length;
+      const radius = Math.max(...t.punkte.map(([px, pz]) => Math.hypot(px - x, pz - z)));
+      return meldeSpiegelflaeche({ x, z, hoehe, radius });
+    });
+    return () => ab.forEach((f) => f());
+  }, [feld]);
+  useFrame(() => spiegel.aktualisiere(gl, scene, camera as THREE.PerspectiveCamera), 0.5);
+  return null;
+}
+
+function Grasteppich({ welt, feld, ziel, dichte, weite, strassenmaske, wiesenbereich }: {
   welt: Weltdaten; feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number; weite: number;
+  strassenmaske?: QuerschnittGrasmaske;
+  wiesenbereich?: Wiesenbereich;
 }) {
   const aufWeg = useMemo(() => wegTest(welt, feld), [welt, feld]);
-  const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte), [feld, aufWeg, dichte]);
+  const lokal = GRAS_FEIN ? undefined : wiesenbereich;
+  const fotoWeg = useMemo(() => lokal?.kontakt
+    ? wegTest(welt, feld, undefined, lokal.kontakt.freigabe) : aufWeg, [welt, feld, lokal, aufWeg]);
+  const teppich = useMemo(() => baueGrasteppich(feld, aufWeg, dichte, undefined, undefined, 0, 1, strassenmaske, lokal),
+    [feld, aufWeg, dichte, strassenmaske, lokal]);
   // D235: dichte Wiese im Nahfeld, nur auf voller Qualität; `?aus=nahgras` schaltet sie ab.
   const nah = useMemo(() => (dichte >= 1 && !istAus('nahgras')
-    ? (GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT)
-      : baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE)) : null), [feld, aufWeg, dichte]);
+    ? (GRAS_FEIN ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_FEIN, 0, 1, strassenmaske)
+      : GRAS_ECHT ? baueGrasteppich(feld, aufWeg, dichte, NAH_HALB_ECHT, NAH_ZELLE_ECHT, 0, 1, strassenmaske, lokal)
+      : baueGrasteppich(feld, aufWeg, dichte, NAH_HALB, NAH_ZELLE, 0, 1, strassenmaske, lokal)) : null),
+    [feld, aufWeg, dichte, strassenmaske, lokal]);
   // D247: Fernring hinter dem Teppich, nur bei Sichtweite „weit“; `?aus=ferngras` schaltet ab.
   const fern = useMemo(() => (weite > 1 && dichte > 0 && !istAus('ferngras')
-    ? baueGrasteppich(feld, aufWeg, dichte, Math.round(TEPPICH_HALB * 1.5 * weite), FERN_ZELLE, TEPPICH_HALB, 3)
-    : null), [feld, aufWeg, dichte, weite]);
-  useEffect(() => () => { teppich.dispose(); nah?.dispose(); fern?.dispose(); }, [teppich, nah, fern]);
+    ? baueGrasteppich(feld, aufWeg, dichte, Math.round(TEPPICH_HALB * 1.5 * weite), FERN_ZELLE, TEPPICH_HALB, 3, strassenmaske)
+    : null), [feld, aufWeg, dichte, weite, strassenmaske]);
+  const fotoWiese = useMemo(() => lokal && dichte > 0
+    ? baueGrasteppich(feld, fotoWeg, dichte, TEPPICH_HALB, TEPPICH_ZELLE_FEIN, 0, 1, strassenmaske, lokal, true)
+    : null, [feld, fotoWeg, dichte, strassenmaske, lokal]);
+  useEffect(() => () => { teppich.dispose(); nah?.dispose(); fern?.dispose(); fotoWiese?.dispose(); },
+    [teppich, nah, fern, fotoWiese]);
+  useEffect(() => {
+    const vorlauf = fotoWiese?.vorlauf;
+    if (!vorlauf) return;
+    vorlauf.onAfterRender = () => {
+      // Licht, Nebel und Tonwertkurve können während des Aufbaus wechseln.
+      if (ladezeit() !== null) vorlauf.visible = false;
+    };
+  }, [fotoWiese]);
   const erstesBild = useRef(true);
-  useEffect(() => { erstesBild.current = true; }, [teppich, nah, fern]);
+  useEffect(() => { erstesBild.current = true; }, [teppich, nah, fern, fotoWiese]);
   useFrame(({ clock }) => {
     teppich.setzeZeit(clock.elapsedTime);
     nah?.setzeZeit(clock.elapsedTime);
     fern?.setzeZeit(clock.elapsedTime);
+    fotoWiese?.setzeZeit(clock.elapsedTime);
     const p = ziel.current?.position;
     // G-141: Alle drei Ringe teilen sich je Bild eine Frist für das Nachziehen, statt ~55 + ~30 ms
     // in einem Bild (D247). Das allererste Füllen läuft ohne Frist, sonst fehlt der Rasen anfangs.
@@ -2331,71 +3169,64 @@ function Grasteppich({ welt, feld, ziel, dichte, weite }: {
       const frist = erstesBild.current ? Infinity : performance.now() + TEPPICH_FRIST_MS;
       erstesBild.current = false;
       teppich.ziehNach(p.x, p.z, frist); nah?.ziehNach(p.x, p.z, frist); fern?.ziehNach(p.x, p.z, frist);
+      if (fotoWiese && lokal) {
+        const r = lokal.rahmen;
+        fotoWiese.mesh.visible = p.x > r.x - TEPPICH_HALB && p.x < r.z + TEPPICH_HALB
+          && p.z > r.y - TEPPICH_HALB && p.z < r.w + TEPPICH_HALB;
+        if (fotoWiese.mesh.visible) fotoWiese.ziehNach(p.x, p.z, frist);
+      }
     }
   });
-  return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}{fern && <primitive object={fern.mesh} />}</>;
+  return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}{fern && <primitive object={fern.mesh} />}
+    {fotoWiese && <primitive object={fotoWiese.mesh} />}
+    {fotoWiese?.vorlauf && <primitive object={fotoWiese.vorlauf} />}</>;
 }
 
 /**
- * Bodendecker im Nahbereich.
+ * Steine und Äste im Nahbereich.
  *
  * Wird beim Gehen nachgezogen statt einmalig verteilt: 30.000 Props über 16 km²
  * lassen den Boden direkt vor dem Spieler leer, und genau dort schaut man hin.
+ * D366: Die Grasbüschel dieser Schicht sind entfernt (siehe `streuung.ts`).
  */
 function Streuschicht({ feld, ziel, dichte }: {
   feld: HoehenFeld; ziel: React.RefObject<THREE.Object3D | null>; dichte: number;
 }) {
-  const grasGeo = useMemo(() => baueBueschelGeometrie(), []);
   const kleinGeo = useMemo(() => baueKleinzeugGeometrie(), []);
-  const gras = useMemo(() => baueStreuMaterial(), []);
   // Steine und Äste bewegen sich nicht — eigenes Material ohne Wind.
   const kleinMaterial = useMemo(() => new THREE.MeshStandardMaterial({
     vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
   }), []);
 
   // Kein Schattenwurf und kein Schattenempfang: Ein Shadow-Texel ist bei ±250 m
-  // Schattenkamera und 2048² rund 24 cm — die Büschel sind kleiner als ein Texel.
+  // Schattenkamera und 2048² rund 24 cm — Steine und Äste sind kleiner als ein Texel.
   // Sie würden sich selbst beschatten und schwarz rendern.
-  const grasMesh = useRef<THREE.InstancedMesh>(null);
   const kleinMesh = useRef<THREE.InstancedMesh>(null);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
 
   // Dichteänderung erzwingt ein Nachziehen beim nächsten Bild.
   useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [dichte]);
 
-  useFrame(({ clock }) => {
-    gras.setzeZeit(clock.elapsedTime);
-
+  useFrame(() => {
     const p = ziel.current?.position;
     if (!p) return;
     if (letzte.current.distanceTo(p) < STREU_NACHZIEHEN) return;
     letzte.current.copy(p);
 
-    const g = grasMesh.current;
-    if (g) {
-      g.count = streueUmgebung(feld, p.x, p.z, g, dichte);
-      g.instanceMatrix.needsUpdate = true;
-      g.computeBoundingSphere();
-    }
     const k = kleinMesh.current;
     if (k) {
       k.count = streueKleinzeug(feld, p.x, p.z, k, dichte);
       k.instanceMatrix.needsUpdate = true;
+      if (k.instanceColor) k.instanceColor.needsUpdate = true;
       k.computeBoundingSphere();
     }
   });
 
   return (
-    <>
-      <instancedMesh
-        ref={grasMesh} args={[grasGeo, gras.material, STREU_MAX]}
-        frustumCulled={false} receiveShadow={false} castShadow={false}
-      />
-      <instancedMesh
-        ref={kleinMesh} args={[kleinGeo, kleinMaterial, KLEIN_MAX]}
-        frustumCulled={false} receiveShadow={false} castShadow={false}
-      />
-    </>
+    <instancedMesh
+      ref={kleinMesh} args={[kleinGeo, kleinMaterial, KLEIN_MAX]}
+      frustumCulled={false} receiveShadow={false} castShadow={false}
+    />
   );
 }
 
@@ -2407,8 +3238,9 @@ function Streuschicht({ feld, ziel, dichte }: {
  * masstab` beschrieb dadurch einen Fußgänger, den es im Spiel nicht gibt. Ein
  * reines Modul können die Werkzeuge importieren, eine `.tsx` mit React nicht.
  *
- * 4,2 und 11,0 m/s sind schneller als der Mensch: eine bewusste Abweichung vom
- * 1:1-Maßstab an genau einer Stelle (Ledger G-27, D18). 9,81 m/s² und 5,4 m/s
+ * 4,2 und 8,5 m/s (bis D412 11,0; seither `content/bewegung.json`) sind schneller als
+ * der Mensch: eine bewusste Abweichung vom 1:1-Maßstab an genau einer Stelle (Ledger
+ * G-27, D18). 9,81 m/s² und 5,4 m/s
  * Absprung ergeben knapp 1,5 m Sprunghöhe und 1,1 s in der Luft — genug für
  * Geländestufen, zu wenig für Felswände. Genau so gemeint.
  */
@@ -2436,8 +3268,10 @@ const BODEN_TOLERANZ = 0.12;
  * Was das Klettern begrenzt, ist die Ausdauer (`src/spieler/ausdauer.ts`), nicht
  * eine Regel darüber, wo geklettert werden darf. Deshalb gibt es keine
  * ausgewiesenen Kletterstellen: Jede Wand geht, solange der Vorrat reicht.
+ *
+ * Das Klettertempo (`KLETTERN_TEMPO`) stand hier bis D412 als 2,2 m/s; seither 1,0 m/s
+ * aus `content/bewegung.json`, gelesen über `spieler/tempo.ts`.
  */
-const KLETTERN_TEMPO = 2.2;
 /** Vortrieb in die Wand beim Klettern. Trägt am Ende über die Kante. */
 const KLETTERN_VOR = 0.55;
 /**
@@ -2532,7 +3366,11 @@ export const NEIGUNG_START = 0.32;
  * Look beurteilbar machen soll.
  */
 function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reitet,
-                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt, sprung }: {
+                   gleiterFrei, onGleiten, meldeRand, stoecke, kampfSperre, kampfZielt, sprung, anzug, onKoerper, landung, luft }: {
+  /** D458: Landezustand für die Figur (`figur/landung.ts`) — nur Bild, die Regel des Fallschadens bleibt D412. */
+  landung?: React.RefObject<Landung>;
+  /** D461: Luftzustand für die Figur (`figur/sprung.ts`) — nur Bild; Absprung und Schwerkraft bleiben, wie sie sind. */
+  luft?: React.RefObject<Luft>;
   feld: HoehenFeld;
   /** Versetzen (D179): Liegt hier ein Punkt, steht die Figur im nächsten Bild dort, auf dem Boden. */
   /** Versetzen (D179), optional mit Blick (D183: Aufwachen schaut zur Zuflucht). */
@@ -2551,6 +3389,13 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   gleiterFrei?: React.RefObject<boolean>;
   /** Meldet, ob gerade geglitten wird — für die Anzeige. Nur bei Änderung. */
   onGleiten?: (gleitet: boolean) => void;
+  /** D412: Trägt die Figur einen Anzug (Tauchzeug)? Dann läuft die Kälteuhr nicht. */
+  anzug?: React.RefObject<boolean>;
+  /**
+   * D412: Sturz und Kälte (`spieler/bewegung.ts`). `leben` ist, was davon übrig bleibt (0 … 1).
+   * Sturz bei jedem Aufprall mit Schaden, Kälte nur beim Übergang „sinkt“ und „aufgebraucht“.
+   */
+  onKoerper?: (art: 'sturz' | 'kaelte', leben: number) => void;
   /** Wird in jedem Bild gerufen, in dem an der Regionsgrenze geklemmt wird. */
   meldeRand?: (seite: Seite | null) => void;
   /** Zustand der beiden Daumenknüppel — die Anzeige liegt im DOM und liest ihn. */
@@ -2570,6 +3415,9 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
   const fall = useRef<Fall>(neuerFall(0));
   /** Letzter gemeldeter Gleitzustand — damit nur Änderungen nach oben gehen. */
   const gleitetVor = useRef(false);
+  /** D412: Kälteuhr im tiefen Wasser und die zuletzt gemeldete Stufe (0 warm, 1 sinkt, 2 leer). */
+  const kaelte = useRef(neueKaelte());
+  const kaelteStufe = useRef(0);
 
   useFrame((_, rohDt) => {
     const p = ziel.current?.position;
@@ -2580,6 +3428,7 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       if (sb !== undefined) gier.current = sb;
       p.set(sx, hoeheAufFlaeche(feld, sx, sz), sz);
       steigen.current = 0; fall.current = neuerFall(p.y);
+      kaelte.current = neueKaelte(); kaelteStufe.current = 0;
     }
     // Nach einem Tab-Wechsel kommt ein riesiges dt — sonst teleportiert man.
     const dt = Math.min(rohDt, 0.1);
@@ -2723,11 +3572,14 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
     // stetigen Funktion — sonst schwebt die Figur auf Kuppen sichtbar darüber.
     const boden = hoeheAufFlaeche(feld, p.x, p.z);
 
+    // D461: für das Bild der Figur — ist sie in diesem Bild abgesprungen, hängt sie danach in der Luft?
+    let abgesprungen = false, inLuft = false;
     if (e.springen) {
       e.springen = false;
       // Kein Sprung im Wasser. Das ist die eigentliche Wirkung des Watens: Ein
       // Bach wird zum Hindernis, weil man nicht mittendrin abspringen kann.
       if (amBoden && !watet && reicht(ausdauer.current, SPRUNG_KOSTEN)) {
+        abgesprungen = true;
         steigen.current = ABSPRUNG;
         ausdauer.current = verbrauche(ausdauer.current, SPRUNG_KOSTEN);
       }
@@ -2754,17 +3606,42 @@ function Spieler({ feld, ziel, gier, neigung, schritt, kollision, ausdauer, reit
       p.y = boden;
       steigen.current = 0;
     } else {
-      steigen.current -= SCHWERKRAFT * dt;
+      // D412: höchstens mit Endgeschwindigkeit (53 m/s) — bis dahin ohne Grenze.
+      steigen.current = begrenzeFall(steigen.current - SCHWERKRAFT * dt);
       // Erst fallen lassen, dann bremsen — sonst frisst die Schwerkraft des
       // nächsten Bildes die Bremsung wieder auf und die Sinkrate driftet nach oben.
       if (gleitet) steigen.current = bremse(steigen.current);
       p.y += steigen.current * dt;
-      if (p.y <= boden) { p.y = boden; steigen.current = 0; }
+      if (p.y <= boden) {
+        // D412: Fallschaden am Aufprall, nicht an der Höhe — der Gleiter landet mit 4 m/s
+        // schadlos. D413: Rolltaste K kurz vor dem Aufsetzen halbiert ihn (ohne Clip).
+        const gerollt = gerolltBeiLandung(e0.rolleUm, performance.now());
+        const schaden = fallschaden(-steigen.current, gerollt);
+        if (schaden > 0) onKoerper?.('sturz', 1 - schaden);
+        // D458: Landezustand aus demselben Aufprall — weich unter der schadlosen Höhe, hart darüber, Rolle mit der
+        // Rolltaste (D413). Die Figur liest ihn (`SpielerFigur`); ins Wasser landet niemand hart.
+        if (landung?.current && !watet) meldeLandung(landung.current, fallhoeheAus(-steigen.current), BEWEGUNG.fall.schadlosBis, gerollt, FIGUR.landung);
+        p.y = boden; steigen.current = 0;
+      } else inLuft = !gleitet && !reitet.current;
     }
+    // D461: Luftzustand an die Figur (Sprung-Clips). Am Gleiter, im Wasser, am Fels und im Sattel ist sie nicht „in der Luft“.
+    if (luft?.current) meldeLuft(luft.current, inLuft, abgesprungen, dt);
     // Nie unter das Gelände: Beim Klettern über eine Kante liegt der Boden am
     // neuen Standort sonst über der Figur. Beim Schwimmen gilt das nicht — dort
     // IST die Figur über der Sohle, nur eben im Wasser.
     if (!schwimmt && p.y < boden) p.y = boden;
+
+    // D412: Kälteuhr. Läuft nur im tiefen Wasser (ab Schwimmtiefe), steht am Ufer wieder
+    // auf null, hält mit Anzug an. Gemeldet wird nur der Übergang, nicht jedes Bild.
+    kaelte.current = kaelteSchritt(kaelte.current, dt, schwimmt, anzug?.current ?? false);
+    const warm = kaelteLeben(kaelte.current);
+    const stufeK = warm <= 0 ? 2 : warm < 1 ? 1 : 0;
+    if (stufeK !== kaelteStufe.current) {
+      kaelteStufe.current = stufeK;
+      if (stufeK > 0) onKoerper?.('kaelte', warm);
+      // Wer ausgekühlt aufwacht, fängt warm an — das Versetzen setzt die Uhr ohnehin zurück.
+      if (stufeK === 2) kaelte.current = neueKaelte();
+    }
 
     // Waten zehrt nur, wenn man sich auch bewegt: Im Bach zu stehen ist keine
     // Anstrengung, gegen die Strömung zu gehen schon. Schwimmen zehrt immer —
@@ -3041,7 +3918,11 @@ const POSE_PROBE: [string, number, 'klinge' | 'axt' | 'speer'] | null = (() => {
 })();
 
 /** Block-Clip je Waffe (D173/D174/D184). */
-const BLOCKCLIP = { klinge: 'Klinge_U_Block', axt: 'Axt_Block', speer: 'Speer_Block' } as const;
+// D458 (A-51 (1)): Die Deckung der Klinge ist `Klinge_Block` (D456, beginnt in der Hut) — der UAL2-Clip
+// `Klinge_U_Block` wird nicht mehr gebraucht; `BLOCKCLIP_HUT` aus D457 ist damit überflüssig.
+const BLOCKCLIP = { klinge: 'Klinge_Block', axt: 'Axt_Block', speer: 'Speer_Block' } as const;
+/** D456/D457: Der Markengriff (D417) hat einen eigenen Clip; fehlt er, steht die Figur wie bisher in der Deckung. */
+const GRIFFCLIP = 'Koerper_Griff';
 
 function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
   const metall = new THREE.MeshStandardMaterial({ color: '#77736b', roughness: 0.45, metalness: 0.6 });
@@ -3089,8 +3970,12 @@ function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
  * Reiten (D93, D145): Im Sattel spielt die Figur Idle, wird um den Widerrist
  * angehoben und bekommt die Sitzpose ueber drei Winkel je Bein (`sitzpose`).
  */
-function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeheAn }: {
+function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeheAn, landung, luft }: {
   gier: React.RefObject<number>;
+  /** D461: Luftzustand aus der Bewegung (`Spieler` schreibt ihn je Bild) — Absprung, Flughaltung. */
+  luft?: React.RefObject<Luft>;
+  /** D458: Landezustand aus der Bewegung (`Spieler` schreibt ihn beim Aufsetzen). */
+  landung?: React.RefObject<Landung>;
   /** Geländehöhe für die Füsse (D214). Ohne sie bleiben die Füsse, wo der Clip sie hinsetzt. */
   hoeheAn?: (x: number, z: number) => number;
   /** Schmiedestufen (D178): Stufe 1–2 heller geschliffen, Stufe 3 ein anderes Modell. */
@@ -3132,7 +4017,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
   // D213: Saum für die neuen Gestalten aus derselben Randfarbe wie Kreaturen und alte Figur.
   useEffect(() => { setzeFigurSaum(rand.farbe, rand.staerke); }, [rand]);
   useEffect(() => {
-    if (held) { legeWahlAn(scene, wahl!); setzeFigurUmgebung(scene, himmelKarte); return; }
+    if (held) { legeWahlAn(scene, wahl!, MILBINGERLICHT_AN); setzeFigurUmgebung(scene, himmelKarte); return; }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
@@ -3164,6 +4049,101 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     return { idle, walk, run, schlag, axt, rolle, treffer, tod, aktiv: idle as THREE.AnimationAction };
   }, [mixer, animations]);
   /**
+   * D457: Laufzeit der Bewegung (`src/figur/`) — Inertialisierung der Wechsel, Gang ans Tempo gekoppelt, Ebenen,
+   * Körper über den Clips. Nur für die Gestalten mit dem Skelett `RIG_MENSCH`; die alte Wanderin (`?figur=alt`)
+   * und alles mit `figurfein` aus läuft den Weg von vor D457 weiter unten unverändert.
+   */
+  const lz = useMemo(() => {
+    if (!held) return null;
+    const fuesse = RIG_MENSCH.beine.map(b => scene.getObjectByName(b.fuss)).filter((o): o is THREE.Object3D => !!o);
+    if (fuesse.length !== RIG_MENSCH.beine.length) return null;
+    // D461: Gangarten der Spielfigur aus den Daten (`gang.stufen`: Gang, Laufschritt, Sprint — die Clips von D460). Fehlt
+    // einer in der Datei, gilt das Paar `Walk`/`Run` von D457. `Walk` bleibt, wie es ist: Gegner und Bewohner spielen ihn.
+    const g = FIGUR.gang;
+    const neueClips = g.stufen.map(s => animations.find(c => c.name === s.clip));
+    const mitStufen = neueClips.every(c => !!c);
+    const gangClips = (mitStufen ? neueClips : ['Walk', 'Run'].map(n => animations.find(c => c.name === n))) as (THREE.AnimationClip | undefined)[];
+    if (gangClips.some(c => !c)) return null;
+    // Wie schnell jeder Gangclip wirklich über den Boden kommt: am Clip gemessen, nicht geschätzt — die Clips von D460
+    // am **Aufstandspunkt** (Fersenkante/Ballen; sie rollen ab, der Knöchel läuft dem Boden voraus), 64 Proben, weil
+    // der Sprint nur 0,10 s am Boden steht.
+    const ballen = RIG_MENSCH.beine.map(b => (b.ballen ? scene.getObjectByName(b.ballen) : null)).filter((o): o is THREE.Object3D => !!o);
+    const sohle = mitStufen && ballen.length === fuesse.length ? { ballen, mass: g.sohle } : undefined;
+    const mess = gangClips.map(c => messeGang(scene, c!, fuesse, g.standHoehe, sohle ? 64 : 32, sohle));
+    const rueckfall = mitStufen ? g.stufen.map(s => s.tempo) : [g.gehen, g.rennen];
+    const ober = nachfahren(elternkarte(scene), RIG_MENSCH.oberAb);
+    const teile = new Map<string, { ober: THREE.AnimationAction; unter: THREE.AnimationAction } | null>();
+    /** Ober- und Unterkörper eines Clips als eigene Aktionen (Ebenen). `halten`: einmal spielen und stehen bleiben. */
+    const teil = (name: string, halten = false) => {
+      if (!teile.has(name)) {
+        const c = animations.find(x => x.name === name);
+        if (!c) teile.set(name, null);
+        else {
+          const t = teileClip(c, ober);
+          const a = { ober: mixer.clipAction(t.ober), unter: mixer.clipAction(t.unter) };
+          if (halten) for (const x of [a.ober, a.unter]) { x.setLoop(THREE.LoopOnce, 1); x.clampWhenFinished = true; }
+          teile.set(name, a);
+        }
+      }
+      return teile.get(name)!;
+    };
+    // Aufsteigend nach Tempo (`gangStufen` verlangt es): eine Messung, die das umkehrte, wird auf Abstand gehalten.
+    const gaenge: Gang[] = [];
+    gangClips.forEach((c, i) => {
+      const v = mess[i].tempo ?? rueckfall[i];
+      gaenge.push({ tempo: i ? Math.max(v, gaenge[i - 1].tempo + 0.5) : v, dauer: c!.duration });
+    });
+    // Alle Gangarten im selben Schritt: Versatz der Kontaktmitten des ersten Fusses gegen die langsamste (die Clips
+    // beginnen nicht an derselben Stelle des Schritts).
+    const m0 = mess[0].standMitte;
+    const stufen = gangClips.map((c, i) => {
+      const t = teil(c!.name)!, mi = mess[i].standMitte;
+      return { unter: t.unter, ober: t.ober, dauer: c!.duration, versatz: m0 !== null && mi !== null ? (mi - m0 + 1) % 1 : 0 };
+    });
+    const eingabe: FeinEingabe = { gier: 0, tempo: 0, rennen: RENNEN, straff: 0, fokus: null, steht: true, hoeheAn: undefined, fuesse: true, halten: true, staerke: 1, weite: 1 };
+    // `gehen`/`rennen`/`versatz` bleiben für die Konsole von D457 stehen: langsamste und schnellste Gangart, Versatz der zweiten.
+    const messung = {
+      bilder: 0, ms: 0, msMittel: 0, gehen: gaenge[0].tempo, rennen: gaenge[gaenge.length - 1].tempo, versatz: stufen[1].versatz,
+      gemessen: mess.every(m => m.tempo !== null), rate: 0, weite: 1, gleiten: 0,
+      // D461: je Gangart Clip, gemessenes Tempo (m/s bei Rate 1), ob am Aufstandspunkt gemessen, die Knöchelmessung daneben;
+      // im Bild: Stufe, Anteil der nächsten, Abspielrate gegen den Clip (1 = wie gebaut).
+      clips: gangClips.map(c => c!.name), tempi: gaenge.map(x => x.tempo), amAufstand: mess.map(m => m.amAufstand),
+      knoechel: mess.map(m => m.tempoKnoechel), stufe: 0, anteil: 0, clipRate: 1, wenden: 0,
+    };
+    if (typeof window !== 'undefined') (window as unknown as { __figurfein?: typeof messung }).__figurfein = messung;
+    // D461, Wenden im Stand: Mitte des Stands im Raum der Figurgruppe (dort drehen die Wendeclips), am Standclip gelesen.
+    const mitte: [number, number] = [0, 0];
+    const fein = new Koerperfein(scene, RIG_MENSCH, mess[0].tief);
+    const standClip = animations.find(c => c.name === FIGUR.wenden.stand);
+    if (standClip) {
+      const mx = new THREE.AnimationMixer(scene), a = mx.clipAction(standClip), v = new THREE.Vector3();
+      a.play(); mx.update(0);
+      scene.updateMatrixWorld(true);
+      const eltern = scene.parent;
+      for (const f of fuesse) {
+        f.getWorldPosition(v);
+        if (eltern) eltern.worldToLocal(v); else v.applyMatrix4(scene.matrixWorld.clone().invert()).applyMatrix4(scene.matrix);
+        mitte[0] += v.x / fuesse.length; mitte[1] += v.z / fuesse.length;
+      }
+      // Die Hüftlinie des Stands ist der Nullpunkt, gegen den der Winkel eines Wendeclips gelesen wird.
+      fein.eicheHuefte();
+      mx.stopAllAction(); mx.uncacheRoot(scene);
+    }
+    const wendeClips = FIGUR.wenden.clips;
+    const wd = (n: string) => animations.find(c => c.name === n)?.duration ?? 0;
+    const wendeDauern = { wenden: Math.min(wd(wendeClips.wendenLinks), wd(wendeClips.wendenRechts)), kehrt: Math.min(wd(wendeClips.kehrtLinks), wd(wendeClips.kehrtRechts)) };
+    // Knochen unter dem Oberkörper (Wurzel, Becken, Beine): Sie wechseln in den Wendeclip hart (`PosenTraegheit.wechsel`).
+    const unterKnochen = new Set(sammleKnochen(scene).map(k => k.name).filter(n => !ober.has(n)));
+    return {
+      traegheit: new PosenTraegheit(sammleKnochen(scene)), fein,
+      gaenge, stufen, teil,
+      wende: neueWende(), mitte, wendeDauern, wendeDa: wendeDauern.wenden > 0 && wendeDauern.kehrt > 0 && !!standClip, unterKnochen,
+      phase: 0, gangLage: 0, schluessel: '', art: 'stand' as Bewegungsart, ausKette: false, an: null as boolean | null,
+      aktiv: new Set<THREE.AnimationAction>(), sollA: [] as THREE.AnimationAction[], sollW: [] as number[],
+      marke: { scheitel: 0, durchzug: 0, dauer: 0 } as Hiebmarken, eingabe, messung,
+    };
+  }, [held, scene, mixer, animations]);
+  /**
    * Clip je Name, aus der Figur oder aus den Waffenclips (D171), einmal angelegt. `null`, wenn es
    * ihn nicht gibt — dann entscheidet der Aufrufer über den Rückfall.
    */
@@ -3185,6 +4165,10 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
   const hiebe = useRef(new Set<THREE.AnimationAction>());
   /** Was zuletzt aus dem Kampf gesehen wurde — ein neuer Zählerstand startet den Clip neu. */
   const kampfVor = useRef({ schwung: -1, rollen: -1, getroffen: -1, trefferBis: 0, uhr: 0 });
+  /** D458: zuletzt gesehene Landung — ein neuer Zählerstand startet den Landeclip. */
+  const landVor = useRef({ nr: -1, art: null as Landeart | null, seit: 1e9 });
+  /** D461: zuletzt gesehener Flug — ein neuer Zählerstand startet den Abdruck von vorn. */
+  const luftVor = useRef(-1);
   /** Klinge und Axt an `Wrist.R`; sichtbar nur mit Kampf (D168). */
   const waffen = useMemo(() => {
     const w = baueWaffen();
@@ -3197,13 +4181,14 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     }
     return { ...w, ruecken: trageAmKoerper(scene, w) };
   }, [scene]);
-  // D173: die Modelle aus dem Medieval Weapons Pack (CC0, `tools/waffenbau.py`) ersetzen die Kästen,
-  // sobald die Datei geladen ist. Ohne Datei bleiben die Kästen.
+  // D173: die Modelle aus `waffen.glb` ersetzen die Kästen, sobald die Datei geladen ist. Ohne Datei bleiben die
+  // Kästen. D421: eigene, realistische Modelle (`tools/waffenmodelle.py`) statt des Medieval Weapons Pack, und der
+  // Speer kommt jetzt auch aus der Datei (Saufeder, `Speer`/`Speer3`) statt aus `baueSpeer` — Länge und Griff gleich.
   useEffect(() => {
     let lebt = true;
     new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(WAFFENMODELLE).then(g => {
       if (!lebt) return;
-      for (const [name, gruppe] of [['Klinge', waffen.klinge], ['Axt', waffen.axt]] as const) {
+      for (const [name, gruppe] of [['Klinge', waffen.klinge], ['Axt', waffen.axt], ['Speer', waffen.speer]] as const) {
         const m = g.scene.getObjectByName(name);
         if (!m) continue;
         gruppe.traverse(o => { if (o instanceof THREE.Mesh) o.geometry.dispose(); });
@@ -3221,15 +4206,39 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
           });
           gruppe.add(teil);
         }
+        // D429: Zweihand-Fällaxt — der Ursprung liegt an der vorderen Griffstelle, die linke Hand hält das Stielende
+        // (`griff_links` aus `tools/waffenmodelle.py`); die Szene lässt den Stiel je Bild durch die rechte Hand gleiten.
+        // Die alte Wanderin spielt noch die alten Clips (rechte Hand am Ende): ihr Modell sitzt wie vor D429.
+        const griffLinks = (m.userData as { griff_links?: number }).griff_links;
+        if (name === 'Axt' && typeof griffLinks === 'number') {
+          if (held) gruppe.userData.griffLinks = griffLinks;
+          else for (const c of gruppe.children) c.position.y += AXT_URSPRUNG_VOR_D429;
+        }
         // D185: Die Kopie am Körper bekommt dasselbe Modell (Materialien geteilt — die Schmiedestufe
-        // färbt beide), statt der Kästen.
-        const koerper = waffen.ruecken[name === 'Klinge' ? 'klinge' : 'axt'];
-        if (koerper) { koerper.clear(); for (const c of gruppe.children) koerper.add(c.clone()); }
+        // färbt beide), statt der Kästen. D429: Die Axt am Rücken sitzt wie vor D429 (Versatz des Ursprungs).
+        const koerper = waffen.ruecken[name === 'Klinge' ? 'klinge' : name === 'Axt' ? 'axt' : 'speer'];
+        if (koerper) {
+          koerper.clear();
+          for (const c of gruppe.children) {
+            const k = c.clone();
+            if (name === 'Axt' && held && typeof griffLinks === 'number') k.position.y += AXT_URSPRUNG_VOR_D429;
+            koerper.add(k);
+          }
+        }
       }
       setWaffenGeladen(true);
     }).catch(() => { /* Rückfall: Kästen */ });
     return () => { lebt = false; };
-  }, [waffen]);
+  }, [waffen, held]);
+  /** D429: Die Fällaxt gleitet durch die rechte Hand, die linke hält das Stielende — nach jedem Mixer-Schritt. */
+  const stielHaende = useMemo(() => {
+    const r = scene.getObjectByName(HELD_KNOCHEN.hand), l = scene.getObjectByName(HELD_KNOCHEN.handL);
+    return r && l ? { r, l } : null;
+  }, [scene]);
+  const gleiteAxt = () => {
+    const links = waffen.axt.userData.griffLinks as number | undefined;
+    if (held && stielHaende && waffen.axt.visible && typeof links === 'number') gleiteAmStiel(waffen.axt, stielHaende.r, stielHaende.l, links);
+  };
   // D178: Aussehen nach Schmiedestufe. Stufe 1/2: Stahl heller und glänzender (geschliffen, gehärtet),
   // Stufe 3: das meisterliche Modell statt des einfachen.
   const [waffenGeladen, setWaffenGeladen] = useState(false);
@@ -3317,6 +4326,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
         if (!a.isRunning()) { mixer.stopAllAction(); a.play(); }
         a.paused = false; a.time = a.getClip().duration * anteil; a.timeScale = 0; a.weight = 1;
         mixer.update(0);
+        gleiteAxt();
       }
       if (gruppe.current) gruppe.current.rotation.y = gier.current;
       return;
@@ -3353,8 +4363,11 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     // wenn das Tempo um die Grenze pendelte (Hang, Ausdauer). Hoch bei 5,5, zurück bei 4,8.
     const laeuft = clips.aktiv === clips.run;
     let ziel = reittier || tempo < 0.15 ? clips.idle : tempo < (laeuft ? 4.8 : 5.5) ? clips.walk : clips.run;
+    // D457: was die Figur zeigt — daraus die Dauer des Übergangs (`figur/kette.ts`); der alte Weg braucht es nicht.
+    let art: Bewegungsart = ziel === clips.idle ? 'stand' : 'gang';
+    let hScheitel = -1, hDurchzug = -1, neuGetroffen = false;
     // Im Kampf steht sie in der Haltung ihrer Waffe (D171), nicht in der Ruhe des Wanderns.
-    if (k && k.phase === 'bereit' && ziel === clips.idle) ziel = aktionen(k.haltung, false) ?? clips.idle;
+    if (k && k.phase === 'bereit' && ziel === clips.idle) { ziel = aktionen(k.haltung, false) ?? clips.idle; art = ziel === clips.idle ? 'stand' : 'hut'; }
     // ---- Kampf (D167): Clip nach Phase, gestreckt auf die Dauer der Regel. Die Regel ist die
     // Wahrheit (`echtzeit.ts`, Kampftor); der Clip folgt ihr, nie umgekehrt.
     let neu = false, blende = 0.25;
@@ -3362,19 +4375,23 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     kv.uhr += dt;
     if (k) {
       if (k.getroffen !== kv.getroffen) {
-        if (kv.getroffen >= 0 && k.getroffen > kv.getroffen) kv.trefferBis = kv.uhr + 0.35;
+        if (kv.getroffen >= 0 && k.getroffen > kv.getroffen) { kv.trefferBis = kv.uhr + 0.35; neuGetroffen = true; }
         kv.getroffen = k.getroffen;
       }
       if (k.phase === 'gefallen') {
-        ziel = clips.tod; blende = 0.15;
-      } else if (k.phase === 'block' && aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)) {
+        ziel = clips.tod; blende = 0.15; art = 'fall';
+      } else if ((k.phase === 'block' || k.phase === 'reinigen') && aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)) {
         // D173: Deckung heben und halten — der Clip bleibt auf seinem letzten Bild stehen. D174: die Axt
-        // hat ihren eigenen (Stiel quer, `waffenclips.py`).
-        const b = aktionen(BLOCKCLIP[k.waffe ?? 'klinge'], true)!;
-        b.clampWhenFinished = true; b.timeScale = 2;
-        ziel = b; blende = 0.06;
+        // hat ihren eigenen (Stiel quer, `waffenclips.py`). D417: Auch der Markengriff steht so — es gibt
+        // keinen Griff-Clip (offen, D414); der gehobene Arm ist die nächste vorhandene Haltung.
+        const w = k.waffe ?? 'klinge';
+        const griff = k.phase === 'reinigen' ? aktionen(GRIFFCLIP, true) : null;
+        const b = griff ?? aktionen(BLOCKCLIP[w], true)!;
+        // Die Deckung hebt doppelt so schnell, wie der Clip sie zeigt (D173); der Griff läuft, wie er gebaut ist.
+        b.clampWhenFinished = true; b.timeScale = griff ? 1 : 2;
+        ziel = b; blende = 0.06; art = 'block';
       } else if (k.phase === 'rolle') {
-        ziel = clips.rolle; blende = 0.06;
+        ziel = clips.rolle; blende = 0.06; art = 'rolle';
         neu = k.rollen !== kv.rollen;
         // Der Clip ist 1,67 s lang, die Rolle 0,55 s. Voll gestreckt wäre das ein Wischer; also
         // läuft er 0,2 s über die Rolle hinaus aus und wird dabei in die Fortbewegung überblendet.
@@ -3403,37 +4420,183 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
           : h.durchzug + (dauer - h.durchzug) * Math.min(1, k.zeit / k.erholung);
         hieb.timeScale = 0;
         hieb.time = Math.min(sek, dauer * 0.999);
+        art = 'hieb'; hScheitel = h.scheitel; hDurchzug = h.durchzug;
       } else if (k.phase === 'betaeubt' || k.phase === 'zucken' || kv.uhr < kv.trefferBis) {
         // D173: betäubt taumelt (UAL2 `Kampf_Taumeln`), sonst der Rückstoß; ohne Waffendatei HitRecieve.
         const t = (k.phase === 'betaeubt' ? aktionen('Kampf_Taumeln') : aktionen('Kampf_Rueckstoss')) ?? clips.treffer;
-        ziel = t; blende = 0.08;
+        ziel = t; blende = 0.08; art = 'treffer';
         neu = clips.aktiv !== t;
       }
       kv.schwung = k.schwung; kv.rollen = k.rollen;
     }
-    const hiebZeit = ziel.time;
-    if (ziel !== clips.aktiv || neu) {
-      // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
-      // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
-      const vorher = clips.aktiv;
-      ziel.reset().setEffectiveWeight(1).play();
-      if (hiebe.current.has(ziel)) { ziel.time = hiebZeit; ziel.timeScale = 0; }
-      // D217: Gehen ↔ Laufen im selben Schritt fortsetzen statt bei Bild 0 — sonst setzt der neue
-      // Clip mit dem falschen Fuss auf, und die Überblendung zeigt einen Hüpfer. Beide Clips beginnen
-      // mit demselben Fuss (UAL2), also reicht der Anteil am Zyklus. Länger überblendet als sonst.
-      const gang = (a: THREE.AnimationAction) => a === clips.walk || a === clips.run;
-      if (gang(vorher) && gang(ziel) && vorher !== ziel) {
-        ziel.time = (vorher.time / vorher.getClip().duration) * ziel.getClip().duration;
-        blende = 0.4;
+    const fein = !!lz && figurfeinAn();
+    // ---- D458: Landung (`figur/landung.ts`). Der Zustand kommt aus der Bewegung (Aufprall, D412/D413); gespielt
+    // wird er nur, wo der Kampf die Figur nicht führt. Im Stand der ganze Clip; in Bewegung federt nur der
+    // Oberkörper nach, die Beine laufen weiter (die Landung sperrt keine Eingabe — sie ist kein Spielwert).
+    let landOben: string | null = null, landNeu = false, landRolle = -1;
+    {
+      const ld = landung?.current, lv = landVor.current;
+      lv.seit += Math.min(dt, 0.1) * ZEITLUPE;
+      if (ld && ld.nr !== lv.nr) {
+        // Der erste Stand zählt nicht (die Figur wird aufgestellt, nicht gelandet).
+        if (lv.nr >= 0 && ld.nr > lv.nr) { lv.art = ld.art; lv.seit = 0; landNeu = true; }
+        lv.nr = ld.nr;
       }
-      if (clips.aktiv !== ziel) clips.aktiv.crossFadeTo(ziel, blende, false);
-      clips.aktiv = ziel;
+      if (fein && lv.art && !reittier && (!k || k.phase === 'bereit')) {
+        const lw = FIGUR.landung, rolle = lv.art === 'rolle', bewegt = tempo >= 0.15;
+        const a = aktionen(landeClip(lv.art, lw), true) ?? (rolle ? clips.rolle : null);
+        // D461: Die Lande-Rolle ist die Hechtrolle von D460 ab `rolleAb` (Bild 5: gestreckt in der Luft), bei Rate 1 bis
+        // zu ihrem Ende. Der Einstieg wird unten gesetzt, wo der Clip neu beginnt (`landRolle`).
+        const ab = rolle && a ? Math.min(lw.rolleAb, a.getClip().duration * 0.5) : 0;
+        if (a && landungLaeuft(lv.seit, a.getClip().duration - ab, bewegt && !rolle, lw)) {
+          if (rolle) {
+            a.timeScale = 1;
+            ziel = a; art = 'rolle'; neu = landNeu; blende = 0.06; landRolle = ab;
+          } else if (bewegt) landOben = a.getClip().name;
+          else { a.timeScale = 1; ziel = a; art = 'landung'; neu = landNeu; blende = lw.uebergang; }
+        } else if (!landNeu) lv.art = null;
+      }
     }
-    // Abspielgeschwindigkeit an das Tempo koppeln: Walk ist bei 1,0 etwa 1,5 m/s,
-    // Run etwa 6 m/s — darunter rutschen die Fuesse, darueber trippeln sie.
-    clips.walk.timeScale = Math.max(0.8, Math.min(2.4, tempo / 1.7));
-    clips.run.timeScale = Math.max(0.8, Math.min(1.8, tempo / 6.5));
-    mixer.update(Math.min(dt, 0.1));
+    // ---- D461: Sprung (`figur/sprung.ts`). In der Luft — nach einem Absprung oder über eine Kante — gehört der Körper
+    // dem Abdruck und dann der Flughaltung, wo der Kampf die Figur nicht führt. Das Aufsetzen ist die Landung oben.
+    if (fein && luft?.current && !reittier && (!k || k.phase === 'bereit')) {
+      const sw = FIGUR.sprung, abClip = aktionen(sw.clipAb, true);
+      const bild = luftBild(luft.current, abClip?.getClip().duration ?? 0, sw);
+      const a = bild ? (bild === 'ab' ? abClip : aktionen(luftClip(bild, sw), false)) : null;
+      if (a) {
+        if (bild === 'ab') { a.clampWhenFinished = true; neu = luft.current.nr !== luftVor.current; }
+        a.timeScale = 1;
+        ziel = a; art = 'luft'; blende = FIGUR.uebergang.luft; landOben = null; landRolle = -1;
+        luftVor.current = luft.current.nr;
+      }
+    }
+    // ---- D461: Wenden im freien Stand (`figur/wende.ts`). Die Hüfte hält ihre Richtung, bis der Blick ihr um `abGrad`
+    // davongelaufen ist; dann tritt die Figur mit einem Wendeclip um genau dessen Winkel um. Nur wo nichts anderes die
+    // Figur führt: kein Kampf, kein Tempo, nicht im Sattel, keine Landung.
+    let wendeWinkel = 0, standFrei = false;
+    if (fein) {
+      const L = lz!, w = L.wende;
+      standFrei = L.wendeDa && !k && !reittier && art === 'stand' && sitz.current < 0.01;
+      wendeWinkel = wendeSchritt(w, gier.current, Math.min(dt, 0.1) * ZEITLUPE, standFrei, !L.traegheit.laeuft && L.art === 'stand', L.wendeDauern, FIGUR.wenden);
+      const wa = w.clip ? aktionen(FIGUR.wenden.clips[w.clip], true) : null;
+      if (wa) {
+        wa.clampWhenFinished = true; wa.timeScale = 1;
+        ziel = wa; art = 'wende'; neu = wendeWinkel !== 0;
+      }
+    }
+    if (!fein) {
+      if (lz?.an) {
+        // Schalter gerade umgelegt: die Aktionen der feinen Laufzeit anhalten, Figur gerade stellen, Idle wie beim Start.
+        lz.an = false; mixer.stopAllAction(); lz.aktiv.clear(); lz.schluessel = ''; lz.traegheit.ruhe(); lz.fein.ruhe();
+        if (reiter.current) { reiter.current.rotation.set(0, 0, 0); reiter.current.position.x = 0; reiter.current.position.z = 0; }
+        lz.wende = neueWende();
+        clips.idle.reset().play(); clips.aktiv = clips.idle;
+      }
+      const hiebZeit = ziel.time;
+      if (ziel !== clips.aktiv || neu) {
+        // Ein ausgeblendeter Clip ist `enabled = false` — `reset()` schaltet ihn
+        // wieder an (und beginnt bei 0, was beim Gangwechsel nicht auffaellt).
+        const vorher = clips.aktiv;
+        ziel.reset().setEffectiveWeight(1).play();
+        if (hiebe.current.has(ziel)) { ziel.time = hiebZeit; ziel.timeScale = 0; }
+        // D217: Gehen ↔ Laufen im selben Schritt fortsetzen statt bei Bild 0 — sonst setzt der neue
+        // Clip mit dem falschen Fuss auf, und die Überblendung zeigt einen Hüpfer. Beide Clips beginnen
+        // mit demselben Fuss (UAL2), also reicht der Anteil am Zyklus. Länger überblendet als sonst.
+        const gang = (a: THREE.AnimationAction) => a === clips.walk || a === clips.run;
+        if (gang(vorher) && gang(ziel) && vorher !== ziel) {
+          ziel.time = (vorher.time / vorher.getClip().duration) * ziel.getClip().duration;
+          blende = 0.4;
+        }
+        if (clips.aktiv !== ziel) clips.aktiv.crossFadeTo(ziel, blende, false);
+        clips.aktiv = ziel;
+      }
+      // Abspielgeschwindigkeit an das Tempo koppeln: Walk ist bei 1,0 etwa 1,5 m/s,
+      // Run etwa 6 m/s — darunter rutschen die Fuesse, darueber trippeln sie.
+      clips.walk.timeScale = Math.max(0.8, Math.min(2.4, tempo / 1.7));
+      clips.run.timeScale = Math.max(0.8, Math.min(1.8, tempo / 6.5));
+      // D457: `?zeitlupe=` (Messadresse, D427) verlangsamt auch die Figur — ohne Schalter Faktor 1, nichts anders.
+      mixer.update(Math.min(dt, 0.1) * ZEITLUPE);
+    } else {
+      // ---- D457: Laufzeit der Bewegung. Die Wahl oben (Clip nach Phase und Tempo) bleibt; anders ist, **wie**
+      // gewechselt und gemischt wird: harter Wechsel + abklingender Versatz statt Kreuzblende, Gehen und Rennen
+      // nach Tempo gemischt im selben Schritt, Waffenhaltung über dem Gang.
+      const L = lz!, dtK = Math.min(dt, 0.1) * ZEITLUPE;
+      if (L.an !== true) {
+        L.an = true; mixer.stopAllAction(); L.aktiv.clear(); L.schluessel = ''; L.traegheit.ruhe(); L.fein.ruhe();
+      }
+      // D461: drei Gangarten (Gang, Laufschritt, Sprint), je zwei Nachbarn nach Tempo gemischt — bei den Spieltempi
+      // spielt ein Clip allein und bei Rate 1.
+      const gm = gangStufen(tempo, L.gaenge, FIGUR.gang);
+      L.phase = (L.phase + gm.rate * dtK) % 1;
+      const sollA = L.sollA, sollW = L.sollW, st = L.stufen;
+      const gewicht = (i: number) => (i === gm.stufe ? 1 - gm.rennen : i === gm.stufe + 1 ? gm.rennen : 0);
+      sollA.length = 0; sollW.length = 0;
+      // Ebenen: Wo die Regel Bewegung erlaubt (`frei()`: nur `bereit`), gehen die Beine, und der Oberkörper bleibt in der
+      // Hut der Waffe. Im Schlag, in der Rolle und in der Deckung sperrt die Regel das Gehen (`gesperrt`) — dort gehört
+      // der ganze Körper dem Clip. Der Zweig für die Deckung greift erst, falls die Regel das Gehen dort je erlaubt.
+      let oben: THREE.AnimationAction | null = null;
+      if (art === 'block' && tempo >= 0.15) oben = L.teil(ziel.getClip().name, true)?.ober ?? null;
+      else if (art === 'gang' && landOben) oben = L.teil(landOben, true)?.ober ?? null; // D458: Landung über dem Gang
+      else if (art === 'gang' && k && k.phase === 'bereit') oben = L.teil(k.haltung)?.ober ?? null;
+      const obenNeu = landNeu && !!oben && oben.getClip().name.startsWith(landOben ?? '\u0000');
+      let schluessel: string;
+      if (art === 'gang' || oben) {
+        st.forEach((s, i) => { sollA.push(s.unter); sollW.push(gewicht(i)); });
+        if (oben) { sollA.push(oben); sollW.push(1); schluessel = `gang+${oben.getClip().name}`; }
+        else { st.forEach((s, i) => { sollA.push(s.ober); sollW.push(gewicht(i)); }); schluessel = 'gang'; }
+      } else { sollA.push(ziel); sollW.push(1); schluessel = ziel.getClip().name; }
+      if (schluessel !== L.schluessel || neu || obenNeu) {
+        // D461, Wende: Der Clip beginnt um seinen Winkel zurückgedreht, die Hüfte springt gegenläufig (unten) — in der
+        // Welt steht das Bild. Wurzel, Becken und Beine wechseln deshalb hart; nur der Oberkörper klingt aus.
+        L.traegheit.wechsel(obenNeu ? FIGUR.landung.uebergang : uebergangsDauer(L.art, art, FIGUR.uebergang), wendeWinkel !== 0 ? L.unterKnochen : undefined);
+        for (const a of L.aktiv) if (!sollA.includes(a)) { a.stop(); L.aktiv.delete(a); }
+        for (const a of sollA) {
+          if (L.aktiv.has(a) && !(neu && a === ziel) && !(obenNeu && a === oben)) continue;
+          a.reset().play(); L.aktiv.add(a);
+          // Die Deckung stand schon (Stand ↔ Gehen mit gehobener Waffe): am Ende einsteigen, nicht neu heben.
+          if (art === 'block' && L.art === 'block' && (a === oben || a === ziel)) a.time = a.getClip().duration * 0.999;
+          // D461: Die Lande-Rolle steigt bei `rolleAb` ein — das Tiefgehen und der Abdruck davor entfallen.
+          if (landRolle > 0 && a === ziel) a.time = landRolle;
+        }
+        // Kette: Dieser Hieb folgt unmittelbar auf einen Hieb — er steigt an der Kettenmarke ein (`figur/kette.ts`).
+        if (art === 'hieb') { if (neu) L.ausKette = L.art === 'hieb'; } else L.ausKette = false;
+        L.schluessel = schluessel; L.art = art;
+      }
+      // D461: Die Regel setzt das Tempo ohne Anlauf — von Laufschritt auf Rennen springt die Mischung in einem Bild von
+      // einem Clip auf den anderen. Ohne Übergang wäre das ein harter Posenwechsel; so klingt der Versatz ab wie Stand → Gang.
+      const gangLage = gm.stufe + gm.rennen;
+      if ((art === 'gang' || oben) && Math.abs(gangLage - L.gangLage) > FIGUR.gang.wechselAb) L.traegheit.wechsel(FIGUR.uebergang.gang);
+      L.gangLage = gangLage;
+      // Der Start-Effekt (G-137) spielt Idle an — und er kann **nach** dem ersten Bild laufen. Dann liefe Idle neben allem
+      // mit vollem Gewicht mit, und der Mixer mittelte jede Pose zur Hälfte mit dem Stand (gemessen 23.11.2026: Becken im
+      // Ausfall 0,71 statt 0,52 m). Was nicht im Soll steht, läuft nicht.
+      if (clips.idle.isScheduled() && !L.aktiv.has(clips.idle)) clips.idle.stop();
+      // `isScheduled`: Im Dev-Server hängt React die Figur einmal ab und wieder an (G-137) — der Aufräumer stoppt alle Clips.
+      for (let i = 0; i < sollA.length; i++) { const a = sollA[i]; if (!a.isScheduled()) a.play(); a.enabled = true; a.weight = sollW[i]; }
+      if (oben && art === 'block') oben.timeScale = 2;
+      // Gang: Die Phase folgt der Strecke (kein Gleiten), beide Clips stehen an derselben Stelle des Schritts.
+      L.eingabe.weite = art === 'gang' || oben ? gm.weite : 1;
+      const mm = L.messung;
+      mm.rate = gm.rate; mm.weite = gm.weite; mm.gleiten = gm.gleiten; mm.stufe = gm.stufe; mm.anteil = gm.rennen;
+      // Abspielrate gegen den Clip, der gerade am meisten trägt (1 = wie gebaut).
+      mm.clipRate = gm.rate * st[gm.rennen >= 0.5 ? Math.min(gm.stufe + 1, st.length - 1) : gm.stufe].dauer;
+      for (const s of st) {
+        s.unter.timeScale = s.ober.timeScale = 0;
+        s.unter.time = s.ober.time = ((L.phase + s.versatz) % 1) * s.dauer;
+      }
+      if (art === 'hieb' && k && hScheitel >= 0 && (k.phase === 'vorlauf' || k.phase === 'aktiv' || k.phase === 'erholung')) {
+        const m = L.marke, marke = CLIPMARKEN.get(ziel.getClip().name);
+        m.scheitel = hScheitel; m.durchzug = hDurchzug; m.dauer = ziel.getClip().duration;
+        m.einstieg = marke?.einstieg; m.kettenpose = marke?.kettenpose;
+        ziel.timeScale = 0;
+        ziel.time = hiebClipzeit(k.phase, k.zeit, k, m, L.ausKette, KOMBO_AB);
+      }
+      clips.aktiv = ziel;
+      mixer.update(dtK);
+      const t0 = performance.now();
+      L.traegheit.nachMixer(dtK);
+      L.messung.ms += performance.now() - t0;
+    }
 
     // Sitzpose ueber die Knochen, nach dem Mixer: Oberschenkel nach vorn und
     // etwas nach aussen (der Reiter sitzt rittlings), Knie zurueck, Fuss gestreckt.
@@ -3450,7 +4613,54 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
       sitzpose(beine, scene, sitz.current, breite ?? 0.2);
     }
     // D214: Füsse auf den Boden, nach Clip und Sitzpose. `?fuesse=0` zum Vergleich.
-    if (hoeheAn && FUESSE_AN) setzeFuesse(beine, scene, hoeheAn, fuss.current, dt, held && sitz.current < 0.01);
+    if (fein) {
+      // D457: Körper über den Clips — Drehkette, Neigen, Blick, Atem, Trefferantwort, Füsse (`figur/laufzeit.ts`).
+      const L = lz!, t0 = performance.now();
+      if (reittier) {
+        // Im Sattel: keine Lage, keine Beckensenkung vom letzten Hang — die Sitzpose stellt die Beine.
+        if (reiter.current) { reiter.current.rotation.set(0, 0, 0); reiter.current.position.x = 0; reiter.current.position.z = 0; }
+        scene.position.y = 0;
+      } else {
+        const e = L.eingabe;
+        e.gier = k?.phase === 'rolle' && k.rolleBlick !== null ? k.rolleBlick : gier.current;
+        e.tempo = tempo;
+        // Im Schlag, in der Rolle und im Fall zeigt die Figur genau dorthin, wohin die Regel zeigt.
+        e.straff = !k ? 0 : art === 'hieb' || art === 'rolle' || art === 'fall' ? 1 : 0.5;
+        e.fokus = k?.fokus ?? null;
+        e.steht = art === 'stand' || art === 'hut';
+        // (D458: in der Landung steht sie nicht ruhig — kein Atemhub über dem Federn.)
+        e.hoeheAn = FUESSE_AN ? hoeheAn : undefined;
+        e.fuesse = sitz.current < 0.01;
+        // Standfüsse halten nicht, wo die Füsse das Tempo nicht abdecken (Rennen ohne Sprintclip): Halten und Loslassen
+        // im Wechsel wäre ein Stottern, schlimmer als das Gleiten.
+        e.halten = art !== 'rolle' && art !== 'fall' && art !== 'treffer' && art !== 'luft' && Math.abs(L.messung.gleiten) < 0.05;
+        // D461: Im freien Stand hält die Hüfte ihre Richtung (Blick − Standrichtung geht in Rumpf und Kopf); beginnt in
+        // diesem Bild ein Wendeclip, springt sie um seinen Winkel.
+        e.standAbstand = standFrei && L.wende.frei ? L.wende.ziel - L.wende.richtung : undefined;
+        if (wendeWinkel !== 0) { L.fein.dreheHuefte(wendeWinkel); L.messung.wenden = L.wende.nr; }
+        if (neuGetroffen && k?.trefferVon && gruppe.current) {
+          const p = gruppe.current.getWorldPosition(_feinV);
+          const [wx, wz] = wegVomAngreifer(p.x - k.trefferVon.x, p.z - k.trefferVon.z, gruppe.current.rotation.y);
+          L.fein.stoss(wx, wz, k.trefferVon.schaden);
+        }
+        const dtK = Math.min(dt, 0.1) * ZEITLUPE;
+        const lage = L.fein.schritt(dtK, e);
+        if (gruppe.current) gruppe.current.rotation.y = lage.huefte;
+        if (reiter.current) {
+          reiter.current.rotation.set(lage.nicken, 0, lage.rollen);
+          // D461: Im freien Stand bleibt die Mitte des Stands in der Welt liegen (die Wendeclips drehen um sie, die
+          // Gruppe um ihren Ursprung); beim Losgehen klingt der Versatz ab.
+          const [vx, vz] = standVersatz(L.wende, lage.huefte, L.mitte, dtK, FIGUR.wenden.versatzHalbwert);
+          reiter.current.position.x = vx; reiter.current.position.z = vz;
+        }
+        L.fein.knochen(dtK, e);
+      }
+      L.traegheit.ende();
+      const m = L.messung;
+      m.ms += performance.now() - t0; m.bilder++;
+      if (m.bilder >= 120) { m.msMittel = m.ms / m.bilder; m.ms = 0; m.bilder = 0; }
+    } else if (hoeheAn && FUESSE_AN) setzeFuesse(beine, scene, hoeheAn, fuss.current, dt, held && sitz.current < 0.01);
+    gleiteAxt();
 
     if (reittier) {
       const hoehe = (mitModell ? sitzHoehe.current?.hoehe : null) ?? reittier.hoehe;
@@ -3524,8 +4734,12 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   const blickZiel = useRef(new THREE.Vector3());
   /** Arm der Schulterkamera nach Sichtprüfung (D192): zieht hart ein, fährt weich aus. */
   const schulterArm = useRef<number>(GROESSE.kameraAbstand);
-  /** Ruck bei Treffern (D171): Stärke in Metern, klingt in ~0,12 s ab. */
-  const ruck = useRef({ getroffen: -1, gesetzt: -1, staerke: 0, uhr: 0 });
+  /**
+   * Ruck bei Treffern (D171), seit D427 nach Wucht: Stärke, Abklingen und Richtung je Treffer aus
+   * `kampf/gewicht.ts` (über `KampfFigur.stoss`), skaliert mit der Einstellung `kamerawackeln`.
+   */
+  const ruck = useRef({ getroffen: -1, gesetzt: -1, stoss: neuerStoss() });
+  const versatz = useRef(new THREE.Vector3());
   /**
    * Nahkamera (D179): V schaltet durch drei Abstände (voll, 60 %, 40 %), das Mausrad stellt stufenlos
    * zwischen 35 % und 100 %. Im Kampf liest man so Waffe, Pose und Linie; beim Wandern bleibt es aus.
@@ -3549,7 +4763,9 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   useEffect(() => {
     const taste = (e: KeyboardEvent) => {
       if (e.repeat || e.target instanceof HTMLInputElement) return;
-      if (e.code === 'KeyC') {
+      // D415: Aktionen `umschau` (C) und `ansicht` (V) aus `spieler/eingabe.ts`.
+      const aktionen = aktionenVon(e.code);
+      if (aktionen.includes('umschau')) {
         if (gegnerSicht.current) { gegnerSicht.current = false; umschauZiel.current = 0; return; }
         const stufen = [0, Math.PI, Math.PI / 2];
         const i = stufen.findIndex(x => Math.abs(x - umschauZiel.current) < 0.01);
@@ -3558,7 +4774,7 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
         umschauZiel.current = stufen[(i + 1) % stufen.length];
         return;
       }
-      if (e.code !== 'KeyV') return;
+      if (!aktionen.includes('ansicht')) return;
       zoomZiel.current = zoomZiel.current > 0.8 ? 0.6 : zoomZiel.current > 0.5 ? 0.4 : 1;
     };
     const rad = (e: WheelEvent) => {
@@ -3572,21 +4788,25 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     const p = ziel.current?.position ?? new THREE.Vector3();
     const fokus = kampf?.current?.fokus ?? null;
     const kf = kampf?.current ?? null, rk = ruck.current;
-    rk.uhr += dt;
     if (kf) {
       // Eingesteckt ruckt es stärker als ausgeteilt — der eigene Treffer soll Gewicht haben, der
-      // fremde soll wehtun.
-      if (rk.getroffen >= 0 && kf.getroffen > rk.getroffen) rk.staerke = Math.max(rk.staerke, 0.09);
-      if (rk.gesetzt >= 0 && kf.gesetzt > rk.gesetzt) rk.staerke = Math.max(rk.staerke, 0.035);
+      // fremde soll wehtun. D427: Stärke nach Wucht bzw. Schaden (`kf.stossGesetzt`/`stossErlitten`,
+      // `kampf/gewicht.ts`), der eigene in Schlagrichtung; ohne Angabe die festen Werte von D171.
+      const faktor = Number(einstellungen().wert('kamerawackeln')) / 100;
+      if (rk.getroffen >= 0 && kf.getroffen > rk.getroffen)
+        stosse(rk.stoss, kf.stossErlitten ?? { staerke: 0.09, abklingen: 0.12, richtung: null, anteil: 0 }, faktor);
+      if (rk.gesetzt >= 0 && kf.gesetzt > rk.gesetzt)
+        stosse(rk.stoss, kf.stossGesetzt ?? { staerke: 0.035, abklingen: 0.12, richtung: null, anteil: 0 }, faktor);
       rk.getroffen = kf.getroffen; rk.gesetzt = kf.gesetzt;
     }
-    rk.staerke *= Math.exp(-dt / 0.12);
+    klingeAb(rk.stoss, ZEITLUPE === 1 ? dt : Math.min(dt, 0.1) * ZEITLUPE);
     const wackle = () => {
-      if (rk.staerke < 0.002) return;
-      const u = rk.uhr;
-      camera.position.x += rk.staerke * Math.sin(u * 71);
-      camera.position.y += rk.staerke * Math.sin(u * 83 + 1.3);
-      camera.position.z += rk.staerke * Math.sin(u * 59 + 2.1);
+      const [x, y, z] = stossVersatz(rk.stoss);
+      if (x === 0 && y === 0 && z === 0) return;
+      // Kameraraum → Welt: x rechts, y oben, z vor (three.js schaut entlang −Z). Nach `lookAt`, damit die
+      // Ausrichtung des Bildes gilt; der Blick selbst dreht nicht mit, nur die Kamera rückt.
+      versatz.current.set(x, y, -z).applyQuaternion(camera.quaternion);
+      camera.position.add(versatz.current);
     };
     schulter.current += ((fokus ? 1 : 0) - schulter.current) * Math.min(1, dt / SCHULTER.blende);
     if (fokus) blickZiel.current.set(fokus.x, fokus.y, fokus.z);
@@ -3717,6 +4937,9 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
   return null;
 }
 
+/** D350: Ringtiefe ab Regionskante, bis zu der das DGM1-Fernrelief mit ~31 m Linienabstand bleibt. */
+const FERN_FEIN_BIS_M = 1000;
+
 /**
  * `?kamera=x,y,z,tx,ty,tz` stellt die Kamera fest (Weltmeter, y absolut) und `?fov=42.6`
  * setzt das senkrechte Sichtfeld — Messparameter fuer den Vergleich Spielbild gegen
@@ -3739,6 +4962,12 @@ const FOV_MESSLAUF: number | null = (() => {
 // Alle Prop-Modelle vorladen — sonst poppen sie im ersten Bild nach.
 for (const varianten of Object.values(VARIANTEN))
   for (const v of varianten) useGLTF.preload(propPfad(v.datei));
+// Die Nahstufe verwendet das Blender-Register. Ohne Vorbereitung begann ihr
+// Laden und Dekodieren am ersten LOD-Wechsel während der Hofroute.
+if (HOF_BILDTAKT_AN) {
+  for (const baum of BLENDER_BAEUME)
+    if (baum.stufe === 'nah') useGLTF.preload(propPfad(baum.datei));
+}
 
 /** Was die Szene je halbe Sekunde über sich meldet. */
 export interface Messwerte {
@@ -3768,7 +4997,10 @@ function Messung({ melde }: { melde?: (m: Messwerte) => void }) {
   const stand = useRef({ bilder: 0, zeit: 0 });
   // Messlauf-Sonde (D155): der Szenengraph fuer `.cache/mess/sonde.mjs` — welche Instanzbuendel zeichnen
   // mit welcher Geometrie und welchem Material. Ohne das ist „welcher Baum ist das im Bild" Raten.
-  useEffect(() => { (window as unknown as { __szene?: THREE.Scene }).__szene = scene; }, [scene]);
+  useEffect(() => {
+    (window as unknown as { __szene?: THREE.Scene }).__szene = scene;
+    if (HOF_AN) scene.userData.hofProbe = HOF_UNIFORM;
+  }, [scene]);
   useFrame((_, dt) => {
     if (!melde) return;
     const s = stand.current;
@@ -3864,13 +5096,17 @@ export interface RegionsSzeneProps {
   gleiterFrei?: boolean;
   /** Meldet den Wechsel in den und aus dem Gleitflug. Für die Anzeige. */
   onGleiten?: (gleitet: boolean) => void;
+  /** D412: Anzug an (das Tauchzeug im Beutel) — hält die Kälteuhr an. */
+  anzug?: boolean;
+  /** D412: Folgen von Sturz und Kälte, `leben` 0 … 1 (`spieler/bewegung.ts`). */
+  onKoerper?: (art: 'sturz' | 'kaelte', leben: number) => void;
   /** Fundstellen in Weltkoordinaten (x, z) — die Szene kennt keine Texte. */
   fundstellen?: { id: string; ort: [number, number] }[];
   gelesen?: ReadonlySet<string>;
   onFund?: (id: string) => void;
   /** Zufluchten und Bewohner in Weltkoordinaten (x, z). */
   orte?: { id: string; art: OrtsArt; ort: [number, number]; figur?: string; blick?: number;
-           gang?: number; farben?: Partial<Record<RollenSlot, string>> }[];
+           gang?: number; farben?: Partial<Record<RollenSlot, string>>; abends?: string }[];
   /** ID des nächsten Ortes in Reichweite, oder null. Nur bei Wechsel gerufen. */
   onOrtNah?: (id: string | null) => void;
   /** Startposition; ohne Angabe die Regionsmitte. Der Spielstand setzt sie. */
@@ -3939,12 +5175,16 @@ export interface RegionsSzeneProps {
   kampfplatz?: boolean;
   /** Wer auf dem Platz steht (D169/D170): zwei Arten, je Platz eine. */
   kampfAufstellung?: readonly GegnerArt[];
-  /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen. */
-  kampfEnde?: (sieg: boolean) => void;
+  /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen; seit D417 mit Bericht je Gegner. */
+  kampfEnde?: (sieg: boolean, bericht: Kampfbericht) => void;
+  /** D417: Marke aus dem Spielstand (Ladungen, Fassung, Reinkultur) — ohne Angabe eine volle (Übungsplatz). */
+  kampfMarke?: { ladung: number; fassung: number; reinkultur?: boolean };
   /** Schmiedestufen der Waffen (D177). */
   waffenStufen?: { klinge: number; axt: number; speer?: number; funke?: 'wasser' | 'stein' };
   /** Begegnung bei Nacht (D179). */
   kampfNacht?: boolean;
+  /** D355: Richtungskampf an/aus aus dem Spielstand. */
+  kampfRichtung?: boolean;
   /** Spieler versetzen (D179, Aufwachen in der Zuflucht). */
   spielerSprung?: React.RefObject<[number, number, number?] | null>;
   /** Stand für die Kampfanzeige im DOM, wie `ausdauer` als Ref. */
@@ -3954,9 +5194,9 @@ export interface RegionsSzeneProps {
 export function RegionsSzene({
   welt, tageszeit = 0.26, spielerRef, onMessung,
   qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
-  regent, geheilt, onRegentNah, gleiterFrei, onGleiten, fundstellen, gelesen, onFund, orte, onOrtNah,
+  regent, geheilt, onRegentNah, gleiterFrei, onGleiten, anzug, onKoerper, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, waffenStufen, kampfNacht, spielerSprung, kampfStand, lagerstellen,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, kampfMarke, waffenStufen, kampfNacht, kampfRichtung, spielerSprung, kampfStand, lagerstellen,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -3973,10 +5213,17 @@ export function RegionsSzene({
   // hängt an einem Regler und nicht an der Bildrate.
   const s = useMemo(() => {
     const basis = STIMMUNG_MESSLAUF ?? stimmungBei(tageszeit);
-    return geheilt || GEHEILT_ANSICHT ? heileStimmung(basis) : basis;
+    const gemischt = geheilt || GEHEILT_ANSICHT ? heileStimmung(basis) : basis;
+    // D368: Farben von Nebel, Fernland, Sonne und Fülllicht aus dem physikalischen Himmel; alle
+    // Stärken bleiben die der Stimmung. Ohne `?himmel=physik` unverändert.
+    return HIMMEL_PHYSIK_AN ? koppleStimmung(gemischt) : gemischt;
   }, [tageszeit, geheilt]);
   const neigung = useRef(NEIGUNG_START);
   const schritt = useRef({ phase: 0, tempo: 0 });
+  /** D458: Landezustand — `Spieler` schreibt beim Aufsetzen, `SpielerFigur` spielt den Clip. */
+  const landung = useRef<Landung>(neueLandung());
+  /** D461: Luftzustand — `Spieler` schreibt je Bild, `SpielerFigur` spielt Abdruck und Flughaltung. */
+  const luft = useRef<Luft>(neueLuft());
   // Als Ref gespiegelt: Die Bewegungsschleife liest jedes Bild, und ein Prop-Wechsel
   // soll nicht durch den Callback-Baum von `Spieler` laufen.
   const reitetRef = useRef(false);
@@ -3985,19 +5232,51 @@ export function RegionsSzene({
   // einmal je Spielstand ändert, soll keine Bildschleife neu aufsetzen.
   const gleiterRef = useRef(false);
   gleiterRef.current = gleiterFrei ?? false;
+  const anzugRef = useRef(false);
+  anzugRef.current = anzug ?? false;
 
   // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
   // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
   const terrain = useMemo(() => baueTerrain(welt), [welt]);
+  const regionsinhalt = useMemo(() => STRASSENVERFALL_AN || MILBINGERMASSE_AN
+    ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))
+    : undefined, [welt]);
 
   // Höhenfeld mit Mikrorelief — die gemeinsame Wahrheit für Boden, Props und Spawn.
-  const feld = useMemo(() => baueHoehenfeld(welt, MIKRO_MESSLAUF ?? undefined), [welt]);
+  const nahhoehen = MILBINGERMASSE_AN ? regionsinhalt?.nahhoehen : undefined;
+  const feld = useMemo(() => baueHoehenfeld(welt, MIKRO_MESSLAUF ?? undefined, undefined, nahhoehen), [welt, nahhoehen]);
+  useMemo(() => { if (HOF_AN) waehleHof(welt, feld); }, [welt, feld]);
   const kacheln = useMemo(() => baueKachelraster(feld), [feld]);
+  const strassen = STRASSENVERFALL_AN ? regionsinhalt?.strassenkulisse : undefined;
+  const strassenmaske = useMemo(() => {
+    if (!WOHNWEGQUERSCHNITT_AN || !strassen) return undefined;
+    const masken = strassen.flatMap(abschnitt => abschnitt.wege.flatMap(({ osmWeg, querschnitt }) => {
+      if (!querschnitt) return [];
+      const weg = welt.wege.find(w => w.quelle?.osmId === osmWeg);
+      return weg ? [querschnittFreihaltung(weg.punkte.map(p => nachMetern(p, welt.bbox)), querschnitt, weg.breite)] : [];
+    }));
+    return baueQuerschnittGrasmaske(masken);
+  }, [welt, strassen]);
+  useEffect(() => () => { strassenmaske?.textur.dispose(); }, [strassenmaske]);
+  const wiesenbereich = useMemo(() => {
+    if (!MILBINGERMASSE_AN || !strassenmaske) return undefined;
+    const hofkarte = HOF_UNIFORM.kontakt.value;
+    const kontakt = MILBINGERBODEN_AN && LOD2_AN && !istAus('haeuser') && LOD2_DATEN.length === welt.gebaeude.length
+      ? baueWiesenHauskontakt(welt, LOD2_DATEN, ort => nachMetern(ort, welt.bbox),
+        hofkarte instanceof THREE.DataTexture ? hofkarte : undefined) : undefined;
+    return baueWiesenbereich(strassenmaske.rahmen, kontakt);
+  }, [welt, strassenmaske, feld]);
+  useEffect(() => () => { wiesenbereich?.kontakt?.textur.dispose(); }, [wiesenbereich]);
+  const sandkasten = useMemo(() => MILBINGERSUBSTANZ_AN && strassenmaske
+    ? baueMilbingerSandkasten(welt, (x, z) => hoeheAufFlaeche(feld, x, z), strassenmaske.enthaelt)
+    : undefined, [welt, feld, strassenmaske]);
+  useEffect(() => () => sandkasten?.entsorge(), [sandkasten]);
 
   // Props einmal zentral: Die Szene zeichnet sie, die Kollision braucht dieselben
   // Positionen. Zweimal verteilen hieße, gegen unsichtbare Bäume zu laufen.
   // D232: dieselbe Funktion wie die Werkzeuge (`szenenprops.ts`).
-  const props = useMemo(() => propsWieSzene(welt, terrain, feld), [welt, terrain, feld]);
+  const props = useMemo(() => propsWieSzene(welt, terrain, feld, strassenmaske?.enthaelt,
+    LOD2_AN && LOD2_DATEN.length === welt.gebaeude.length ? LOD2_DATEN : undefined), [welt, terrain, feld, strassenmaske]);
   const kollision = useMemo(
     () => baueKollision(props, welt, feld.breiteMeter, feld.tiefeMeter),
     [props, welt, feld],
@@ -4047,7 +5326,7 @@ export function RegionsSzene({
 
   const ortsmarken = useMemo<Ortsmarke[]>(
     () => (orte ?? []).map(o => ({
-      id: o.id, art: o.art, figur: o.figur, blick: o.blick, gang: o.gang, farben: o.farben,
+      id: o.id, art: o.art, figur: o.figur, blick: o.blick, gang: o.gang, farben: o.farben, abends: o.abends,
       position: [o.ort[0], hoeheAufFlaeche(feld, o.ort[0], o.ort[1]), o.ort[1]],
     })),
     [orte, feld],
@@ -4076,33 +5355,43 @@ export function RegionsSzene({
       dunst: s.horizont, sonne: s.sonne, sonneStaerke: s.sonneStaerke,
       umgebung: s.umgebung, umgebungStaerke: s.umgebungStaerke,
       sonnenstand: s.sonnenstand,
-    }) : null),
+      beweglicherDunst: MILBINGERLICHT_AN,
+    }, FERNHALB_AN ? FERN_FEIN_BIS_M : Infinity) : null),
     [fernland, welt, s],
   );
-  const fernMaterial = useMemo(() => baueFernlandMaterial(), []);
+  const fernDetail = !!fernland?.detail;
+  const fernMaterial = useMemo(() => baueFernlandMaterial(MILBINGERLICHT_AN, fernDetail), [fernDetail]);
+  useEffect(() => stelleReliefLicht(fernMaterial, {
+    dunst: s.horizont, sonne: s.sonne, sonneStaerke: s.sonneStaerke,
+    umgebung: s.umgebung, umgebungStaerke: s.umgebungStaerke, sonnenstand: s.sonnenstand,
+  }), [fernMaterial, s]);
+  useEffect(() => () => fernMaterial.dispose(), [fernMaterial]);
   useEffect(() => () => { fernGeo?.dispose(); }, [fernGeo]);
 
   return (
     <Canvas
       // ADR-0015: three r18x hat PCFSoftShadowMap entfernt (R3F-Vorgabe bei `true`) und fiel mit
       // Warnung auf PCFShadowMap zurück — die filtert jetzt selbst weich (Vogel-Disk). Ausdrücklich.
-      shadows={qualitaet.schatten ? 'percentage' : false}
+      shadows={qualitaet.schatten && !istAus('schatten') ? SCHATTENART : false}
       frameloop={angehalten ? 'never' : 'always'}
-      dpr={[1, qualitaet.dpr]}
+      dpr={LOOK_FELS_DICHTE !== null ? LOOK_FELS_DICHTE : [1, qualitaet.dpr]}
       camera={{ fov: 55, near: 0.2, far: KAMERA_FERN, position: [0, GROESSE.kameraHoehe, GROESSE.kameraAbstand] }}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
     >
       <WasserUmgebung werte={{ zenit: s.zenit, horizont: s.horizont, dunst: s.nebel,
-        sonne: s.sonne, sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof }}>
-      <Beleuchtung s={s} ziel={ref} />
+        sonne: s.sonne, sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof,
+        atmosphaere: s.atmosphaere }}>
+      <Beleuchtung s={s} ziel={ref} wiesenbereich={wiesenbereich} fernMaterial={fernMaterial} geheilt={!!geheilt || GEHEILT_ANSICHT} />
       {!istAus('kulisse') && fernGeo && (
         <mesh geometry={fernGeo} material={fernMaterial} frustumCulled={false} renderOrder={-500} />
       )}
       <Terrain welt={welt} terrain={terrain} feld={feld} kacheln={kacheln} ziel={ref} senke={senke}
+               strassen={strassen} strassenmaske={strassenmaske} wiesenbereich={wiesenbereich}
                props={istAus('baeume') ? LEERE_PROPS : props}
                dichte={istAus('gras') ? 0 : qualitaet.gras} weite={qualitaet.weite}
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
                fenster={s.fenster ?? 0} />
+      {sandkasten && <primitive object={sandkasten.gruppe} />}
       {(felsArt === 'ki' || felsArt === 'scan') && <Suspense fallback={null}>
         <FelsVergleich art={felsArt} position={[felsX, hoeheAufFlaeche(feld, felsX, felsZ), felsZ]} />
       </Suspense>}
@@ -4113,13 +5402,14 @@ export function RegionsSzene({
             jedem geladenen Modell neu. */}
         <Suspense fallback={null}>
           <SpielerFigur gier={gier} schritt={schritt} reittier={reittier} kampf={kampfFigur} waffenStufen={waffenStufen}
-                        hoeheAn={feld.hoehe}
+                        hoeheAn={feld.hoehe} landung={landung} luft={luft}
                         rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} />
         </Suspense>
       </object3D>
       <Spieler feld={feld} ziel={ref} gier={gier} neigung={neigung}
                schritt={schritt} kollision={kollision} ausdauer={kraft}
                reitet={reitetRef} gleiterFrei={gleiterRef} onGleiten={onGleiten}
+               anzug={anzugRef} onKoerper={onKoerper} landung={landung} luft={luft}
                meldeRand={meldeRand} stoecke={stoecke} kampfSperre={kampfSperre} kampfZielt={kampfZielt}
                sprung={spielerSprung} />
       {kampfplatz && (
@@ -4127,7 +5417,7 @@ export function RegionsSzene({
         <Suspense fallback={null}>
           <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
                       ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} waffenStufen={waffenStufen} nacht={kampfNacht}
+                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} marke={kampfMarke} waffenStufen={waffenStufen} nacht={kampfNacht} richtung={kampfRichtung}
                       key={kampfEnde ? `welt-${kampfAufstellung?.join(',')}` : 'platz'} />
         </Suspense>
       )}
@@ -4156,7 +5446,8 @@ export function RegionsSzene({
                    hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} kollision={kollision} />
       )}
       <Kamera ziel={ref} gier={gier} neigung={neigung} feld={feld} kollision={kollision} kampf={kampfFigur} />
-      <EzBaumProbe ziel={ref} />
+      <EzBaumProbe ziel={ref} lokal={HOF_GRUEN_AN} milbinger={MILBINGERLICHT_AN && !!wiesenbereich} />
+      {LOOK_FELS_AN && !istAus('kronen') && !(SCAN_BAEUME_AN && BAUWERKE.some(b => b.dateien.includes('baeume'))) && <Suspense fallback={null}><Rahmenkronen hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} /></Suspense>}
       {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
       <Kontur an={konturAn(true)} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
               bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />

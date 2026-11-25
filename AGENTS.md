@@ -3,8 +3,15 @@
 ## Zuerst lesen
 
 1. `GOI_DOKTRIN.md`, danach `CLAUDE.md`: gemeinsame Arbeitsregeln für dieses Repo.
-2. `docs/_INDEX.md`: Tabelle A für offene Punkte, Tabelle B für Entscheidungen;
-   Übergabe D156 und fachlicher Ausgangsstand D155 vom 15.09.2026.
+2. `docs/_INDEX.md`: Tabelle A für offene Punkte, Tabelle B für Entscheidungen.
+   **Aktueller Stand (25.11.2026):** Branch `claude/epic-planck-86z6fy` (PR #16), zuletzt D479. **Erster Einstieg ist
+   `docs/UEBERGABE_CODEX.md`** (Fokus Welt, Reihenfolge der nächsten Schritte). `docs/UEBERGABE.md` Abschnitt 0 sind
+   ältere Aufträge an den M1; davon gilt noch Punkt 6 (Prüfliste Bewegung D456–D461, nur am M1 in Bewegung prüfbar).
+   Offene Fragen an Flo: A-43 bis A-58. Bewegung: `docs/design/BRACHLAND_Waffenbewegungen_v1.md` §8–§10.
+   Der ältere Ausgangsstand D155/D156 (15.09.2026) ist nur noch Geschichte.
+   **Welt (M1-Sitzung bis 25.11.2026, D462–D478):** Flo hat Tiere und Menschen geparkt (Modelle, nicht ihre schon
+   gebaute Bewegung) und will die Welt finalisieren — Einstieg `docs/UEBERGABE_CODEX.md` (Stand, was **nicht** im Repo liegt, nächste Schritte), Verfahren
+   `docs/VERFAHREN_ORT.md` mit der Backkette aus `docs/WELT_METHODE.md` (`tools/ortkette.sh`).
 3. Für Look-/Szenenarbeit `docs/adr/0006-zielbild-vor-zielgeraet.md`, danach
    `docs/MESSLAUF.md` für Kameras und die Bau-/Messkette.
 
@@ -30,6 +37,16 @@ ist veraltet. Bestehende Gate-Befunde nicht durch angehobene Budgets verdecken.
   eigenen Branch pushen, nicht tagelang lokal sammeln. Kollidiert eine Nummer trotzdem,
   nummeriert die **später gemergte** Seite um; das Gate `scripts/check_ledger_ids.py`
   (in `make check` und CI) lässt doppelte IDs nicht durch.
+- **Vorher/Nachher-Bilder** zu jeder sichtbaren Änderung an Flo (seit 21.11.2026): gleiche Kamera und
+  Ladezeit, beschriftet, unter `.cache/bilder/<Dxxx>/`.
+- **Physik muss stimmen** (D398): Abweichungen zugunsten des Spiels benennen und begründen, nie still. Getestete
+  Kampfwerte (Fenster, Schaden, Tempo) ändern sich nur mit Bot-Messung (`tools/kampfbot.ts`) und ausdrücklich benannt;
+  nie einen Test abschwächen, um grün zu werden.
+- **Nichts kaufen** (D454) und nur freie Lizenzen im Spiel (ADR-0013); Megascans nur für Blender-Zielbilder (ADR-0021).
+  Fremde Gestaltung nicht übernehmen (ADR-0007 §1, D431) ist etwas anderes als Materialrechte (ADR-0013 Punkt 5) —
+  immer den richtigen Grund nennen.
+- **Bildpfade in Ledger und Docs nur relativ** (`.cache/bilder/<Dxxx>/…`); `.cache/` gibt es in CI nicht. Die Bilder
+  der Cloud-Sitzung liegen nicht im Repo.
 - Deutsch für Bezeichner und Kommentare; TypeScript strikt, ESM-Importe auf
   TS-Quellen mit `.js`. Spielinhalte bleiben Daten unter `content/`.
 - `src/engine/` und `src/data/` bleiben ohne three.js. Instancing für Massenobjekte,

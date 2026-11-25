@@ -1,0 +1,202 @@
+{
+  "referenzen": [
+    {
+      "id": "efeublatt",
+      "was": "Blattlänge Efeu (Hedera helix), Spreite ohne Stiel",
+      "min": 0.04,
+      "max": 0.12,
+      "ziel": 0.07,
+      "quelle": "VicFlora, Hedera helix: Blätter nicht blühender Triebe 4–12 cm lang, 4–7 cm breit; NYBG EcoQuest 2018: juvenile Blätter 4–10 cm",
+      "url": "https://vicflora.rbg.vic.gov.au/flora/taxon/c4a3febc-0516-4d68-83ff-3712dd984839",
+      "messung": "hausbewuchs",
+      "belegt": true
+    },
+    {
+      "id": "figur",
+      "was": "Körpergröße der Spielfigur (erwachsener Mensch)",
+      "min": 1.6,
+      "max": 1.95,
+      "ziel": 1.8,
+      "quelle": "Destatis, Der Durchschnittsmensch (Mikrozensus 2025, Selbstauskunft): Frauen 1,66 m, Männer 1,79 m",
+      "url": "https://www.destatis.de/DE/Im-Fokus/Durchschnittsmensch/_inhalt.html",
+      "messung": "figur",
+      "belegt": true
+    },
+    {
+      "id": "bordstein",
+      "was": "Sichtbare Bordhöhe an der Fahrbahn (Hochbord)",
+      "min": 0.08,
+      "max": 0.15,
+      "ziel": 0.12,
+      "quelle": "OSM-Wiki DE:Key:kerb: übliche Höhen in Deutschland 12 cm Hochbord, 3 cm abgesenkt",
+      "url": "https://wiki.openstreetmap.org/wiki/DE:Key:kerb",
+      "messung": "bordstein",
+      "belegt": true
+    },
+    {
+      "id": "baum-buche",
+      "was": "Höhe ausgewachsene Rotbuche (Fagus sylvatica)",
+      "min": 20,
+      "max": 45,
+      "ziel": 30,
+      "quelle": "SDW Faltblatt Buche: bis über 40 m; Untergrenze 20 m für jüngere und freistehende Bäume ist eigene Annahme",
+      "url": "https://www.sdw.de/fileadmin/Bundesverband/01_Dateien/Infoblätter/Faltblatt_Buche.pdf",
+      "messung": "baum",
+      "belegt": true
+    },
+    {
+      "id": "baum-fichte",
+      "was": "Höhe ausgewachsene Fichte (Picea abies)",
+      "min": 20,
+      "max": 50,
+      "ziel": 35,
+      "quelle": "UNKLAR: Spanne 20–50 m nicht belegt, Recherche 21.11.2026 ohne Primärquelle",
+      "url": "",
+      "messung": "baum",
+      "belegt": false
+    },
+    {
+      "id": "buchenblatt",
+      "was": "Blattlänge Rotbuche (Fagus sylvatica), Falllaub",
+      "min": 0.05,
+      "max": 0.1,
+      "ziel": 0.075,
+      "quelle": "Gartenjournal Rotbuche-Steckbrief: 5–10 cm lang, 3–7 cm breit; SDW Faltblatt Buche (Blattbau). Gartenportal = Richtwert",
+      "url": "https://www.gartenjournal.net/rotbuche-steckbrief",
+      "messung": "streu",
+      "belegt": true
+    },
+    {
+      "id": "fichtennadel",
+      "was": "Nadellänge Fichte (Picea abies)",
+      "min": 0.01,
+      "max": 0.025,
+      "ziel": 0.017,
+      "quelle": "Gartenjournal Fichte: Nadeln 1–2,5 cm. Gartenportal = Richtwert",
+      "url": "https://www.gartenjournal.net/fichte",
+      "messung": "streu",
+      "belegt": true
+    },
+    {
+      "id": "fichtenzapfen",
+      "was": "Zapfenlänge Fichte (Picea abies), reif",
+      "min": 0.1,
+      "max": 0.15,
+      "ziel": 0.125,
+      "quelle": "Gartenjournal Fichte: reife Zapfen 10–15 cm lang, 3–4 cm dick. Gartenportal = Richtwert",
+      "url": "https://www.gartenjournal.net/fichte",
+      "messung": "streu",
+      "belegt": true
+    },
+    {
+      "id": "sauerklee",
+      "was": "Wuchshöhe Wald-Sauerklee (Oxalis acetosella); Blättchen 0,5–2 cm lang, 0,8–3 cm breit",
+      "min": 0.05,
+      "max": 0.15,
+      "ziel": 0.09,
+      "quelle": "Wikipedia DE „Wald-Sauerklee“: „Wuchshöhen von 5 bis 15 Zentimetern“; Teilblättchen 0,5–2 cm lang, 0,8–3 cm breit (abgerufen 21.11.2026)",
+      "url": "https://de.wikipedia.org/wiki/Wald-Sauerklee",
+      "messung": "boden",
+      "belegt": true
+    },
+    {
+      "id": "waldmeister",
+      "was": "Wuchshöhe Waldmeister (Galium odoratum); Blätter 15–50 mm, zu 6–8 im Quirl",
+      "min": 0.05,
+      "max": 0.5,
+      "ziel": 0.2,
+      "quelle": "Wikipedia DE „Waldmeister“: „Wuchshöhen von 5 bis 50 cm“, Blattlänge meist 15–50 mm, zu sechst bis acht in Scheinwirteln (abgerufen 21.11.2026)",
+      "url": "https://de.wikipedia.org/wiki/Waldmeister",
+      "messung": "boden",
+      "belegt": true
+    },
+    {
+      "id": "moospolster",
+      "was": "Polsterbreite Gemeines Weißmoos (Leucobryum glaucum), Stämmchen meist um 10 cm",
+      "min": 0.1,
+      "max": 0.2,
+      "ziel": 0.15,
+      "quelle": "Wikipedia DE „Gemeines Weißmoos“: „etwa 10 bis 20 cm breite, kompakte, rundliche Polster“ (abgerufen 21.11.2026)",
+      "url": "https://de.wikipedia.org/wiki/Gemeines_Weißmoos",
+      "messung": "boden",
+      "belegt": true
+    },
+    {
+      "id": "brombeere-jung",
+      "was": "Höhe junger Brombeeren (Rubus sect. Rubus) im Waldunterwuchs",
+      "min": 0.3,
+      "max": 0.6,
+      "ziel": 0.45,
+      "quelle": "UNKLAR: Spanne aus dem Auftrag D366 (Flo, 21.11.2026), keine Fachquelle für Jungpflanzen; Wikipedia DE „Brombeeren“ nennt für ausgewachsene Sträucher 0,5–3 m und 3-, 5- oder 7-zählige Blätter",
+      "url": "https://de.wikipedia.org/wiki/Brombeeren",
+      "messung": "boden",
+      "belegt": false
+    },
+    {
+      "id": "jungwuchs-buche",
+      "was": "Höhe junger Rotbuchen in der Naturverjüngung (Kraut- bis Strauchschicht)",
+      "min": 0.2,
+      "max": 0.6,
+      "ziel": 0.4,
+      "quelle": "UNKLAR: Spanne aus dem Auftrag D366 (Flo, 21.11.2026), nicht gegen eine Fachquelle geprüft",
+      "url": "",
+      "messung": "boden",
+      "belegt": false
+    },
+    {
+      "id": "jungwuchs-fichte",
+      "was": "Höhe junger Fichten in der Naturverjüngung (Kraut- bis Strauchschicht)",
+      "min": 0.2,
+      "max": 0.6,
+      "ziel": 0.4,
+      "quelle": "UNKLAR: Spanne aus dem Auftrag D366 (Flo, 21.11.2026), nicht gegen eine Fachquelle geprüft",
+      "url": "",
+      "messung": "boden",
+      "belegt": false
+    },
+    {
+      "id": "bhd-buche",
+      "was": "Brusthöhendurchmesser (1,3 m) Rotbuche, Baumholz im Hochwald bei 20–30 m Höhe",
+      "min": 0.3,
+      "max": 0.8,
+      "ziel": 0.5,
+      "quelle": "UNKLAR: Richtwert nach Ertragstafel-Grössenordnung (Buche I. Bonität, Alter 100–140: Mittelhöhe ~30 m, Durchmesser ~40–55 cm), Primärquelle am 21.11.2026 nicht geprüft",
+      "url": "",
+      "messung": "stamm",
+      "belegt": false
+    },
+    {
+      "id": "bhd-fichte",
+      "was": "Brusthöhendurchmesser (1,3 m) Fichte bei 20–26 m Höhe",
+      "min": 0.25,
+      "max": 0.65,
+      "ziel": 0.4,
+      "quelle": "UNKLAR: Richtwert nach Ertragstafel-Grössenordnung (Fichte, Alter 60–90: Mittelhöhe 22–28 m, Durchmesser ~30–40 cm), Primärquelle am 21.11.2026 nicht geprüft",
+      "url": "",
+      "messung": "stamm",
+      "belegt": false
+    },
+    {
+      "id": "rinde-buche",
+      "was": "Kachelbreite Rindenscan Buche (Poly Haven chinese_hackberry_bark)",
+      "min": 1.7,
+      "max": 1.9,
+      "ziel": 1.8,
+      "quelle": "Poly Haven API `info/chinese_hackberry_bark`, dimensions 1800 × 1800 mm (Bild 2048 × 4096, also 1,8 × 3,6 m), abgerufen 21.11.2026",
+      "url": "https://polyhaven.com/a/chinese_hackberry_bark",
+      "messung": "rinde",
+      "belegt": true
+    },
+    {
+      "id": "rinde-fichte",
+      "was": "Kachelbreite Rindenscan Fichte (Poly Haven pine_bark)",
+      "min": 1.9,
+      "max": 2.1,
+      "ziel": 2.0,
+      "quelle": "Poly Haven API `info/pine_bark`, dimensions 2000 × 2000 mm, abgerufen 21.11.2026",
+      "url": "https://polyhaven.com/a/pine_bark",
+      "messung": "rinde",
+      "belegt": true
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-09-16
+last-reviewed: 2026-11-22
 shelf-life-days: 90
 owns: *.glb, *.md
 ---
@@ -17,7 +17,7 @@ owns: *.glb, *.md
 | `rigs/serpent.glb` | **Archetyp-Rig Schlange** — 23 KB, 10 Knochen in einer Kette, Animationen `Ruhe`/`Gehen`/`Rennen`. **Gerechnet, nicht geliehen** (`../tools/rigbau.mjs`): Schlangenbewegung ist eine Sinuswelle durch den Körper, und die schreibt man besser hin, als sie zu suchen |
 | `rigs/biped_bird.glb` | **Archetyp-Rig Vogel** — 26 KB, 15 Knochen, zwei Beine, zwei Flügel. Ebenfalls gerechnet. Beine im Gegentakt (31° Ausschlag beim Gehen, 54° beim Rennen), im Leerlauf atmen nur die Flügel (2,9°) |
 | `creatures/` | **Leer, und das ist kein Versehen.** Die Kette aus D105 (`../tools/kreaturbau.py`) schreibt direkt nach `../public/creatures` — ein CC0-Handmodell braucht keine Zwischenstufe, weil es weder Reduktion noch Rigging durchlaeuft. Der Ordner bleibt fuer den Weg ueber `npm run assets` stehen. **Das Budget wird an `public/creatures` gemessen**, nicht hier (D107); die Schleife zeigte zwoelf Tage lang auf diesen leeren Ordner und hat deshalb nie etwas gefunden |
-| `HERKUNFT.md` | **Autor und Lizenz je Modelldatei** in `../public/creatures`. Pflichtlektuere vor jedem neuen Modell: `wurzelkeiler.glb` steht unter **CC BY 3.0** und muss genannt werden, die vier anderen sind CC0. Das Qualitaetstor blockiert jede `.glb` in `public/creatures` ohne Zeile hier — eine Namensnennung, die man vergessen kann, ist keine |
+| `HERKUNFT.md` | **Autor und Lizenz je Modelldatei** in `../public/creatures` (und je Fremddatei sonst unter `../public/`, seit D427 auch der Kampfton `../public/ton/kampf/`). Pflichtlektuere vor jedem neuen Modell: `wurzelkeiler.glb` steht unter **CC BY 3.0** und muss genannt werden, die vier anderen sind CC0. Das Qualitaetstor blockiert jede `.glb` in `public/creatures` ohne Zeile hier — eine Namensnennung, die man vergessen kann, ist keine |
 
 ## Was hier gestanden hat — und was es wirklich war
 
