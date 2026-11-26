@@ -70,25 +70,40 @@ export function streuBaeume(props: readonly { art: string; position: readonly nu
   }));
 }
 
-/** Baumraster für schnelle Nachbarsuche (8-m-Zellen). */
-export function baumRaster(baeume: readonly StreuBaum[]): Map<string, StreuBaum[]> {
-  const raster = new Map<string, StreuBaum[]>();
-  for (const b of baeume) {
-    const k = `${Math.floor(b.x / 8)}:${Math.floor(b.z / 8)}`;
-    const l = raster.get(k); if (l) l.push(b); else raster.set(k, [b]);
+/** Bäume aus der eigenen 8-m-Zelle und ihren acht Nachbarzellen. */
+export type BaumRaster = Map<number, Map<number, StreuBaum[]>>;
+
+export function baumRaster(baeume: readonly StreuBaum[]): BaumRaster {
+  const raster: BaumRaster = new Map();
+  // Die Schleifenreihenfolge bewahrt bei gleichem Kronenrand die bisherige Baumwahl.
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) {
+    for (const b of baeume) {
+      const ix = Math.floor(b.x / 8) - dx, iz = Math.floor(b.z / 8) - dz;
+      let spalte = raster.get(ix);
+      if (!spalte) { spalte = new Map(); raster.set(ix, spalte); }
+      const liste = spalte.get(iz);
+      if (liste) liste.push(b); else spalte.set(iz, [b]);
+    }
   }
   return raster;
 }
 
-/** Der Baum, dessen Kronenrand am nächsten liegt: `rand` < 0 heisst unter der Krone (Meter bis zum Rand). */
-export function naechsteKrone(raster: Map<string, StreuBaum[]>, x: number, z: number): { rand: number; nadel: boolean } | null {
-  const cx = Math.floor(x / 8), cz = Math.floor(z / 8);
-  let best: { rand: number; nadel: boolean } | null = null;
-  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const b of raster.get(`${cx + i}:${cz + j}`) ?? []) {
-    const rand = Math.hypot(b.x - x, b.z - z) - b.krone;
-    if (!best || rand < best.rand) best = { rand, nadel: b.nadel };
+/** Nächster Kronenrand in derselben Nachbarschaft wie bei der Aussaat. Für die
+ * Streudecke zählen nur Kronen innerhalb ihres weichen Übergangs. */
+export function naechsteKrone(raster: BaumRaster, x: number, z: number, nurDeckung = false): { rand: number; nadel: boolean } | null {
+  const liste = raster.get(Math.floor(x / 8))?.get(Math.floor(z / 8));
+  if (!liste) return null;
+  let besterRand = nurDeckung ? KRONE_UEBERGANG / 2 : Infinity;
+  let baum: StreuBaum | undefined;
+  for (const b of liste) {
+    const dx = b.x - x, dz = b.z - z;
+    // Ein Quadrat um die Krone genügt zum Ausschluss. Der genaue Abstand
+    // verwendet weiterhin hypot, auch bei überlappenden Kronen.
+    if (nurDeckung && (Math.abs(dx) > b.krone + KRONE_UEBERGANG || Math.abs(dz) > b.krone + KRONE_UEBERGANG)) continue;
+    const rand = Math.hypot(dx, dz) - b.krone;
+    if (rand < besterRand) { besterRand = rand; baum = b; }
   }
-  return best;
+  return baum ? { rand: besterRand, nadel: baum.nadel } : null;
 }
 
 /** Deckung der Kronendecke an einem Punkt: 1 unter der Krone, über `KRONE_UEBERGANG` am Rand auf 0 (geglättet). */
@@ -121,7 +136,7 @@ export function streuMatrizen(
   mx: number, mz: number, radius: number,
   hoeheAn: (x: number, z: number) => number, biomAn: (x: number, z: number) => Biom,
   /** D362/D366: Bäume legen unter ihrer Krone eine geschlossene Decke ihrer Art (Laub oder Nadel). */
-  baeume?: Map<string, StreuBaum[]>, cache?: StreuCache,
+  baeume?: BaumRaster, cache?: StreuCache,
 ): THREE.Matrix4[][] {
   const kacheln: THREE.Matrix4[][] = [[], [], [], []];
   const z = new THREE.Vector3(0, 0, 1), n = new THREE.Vector3(), q = new THREE.Quaternion(), dreh = new THREE.Quaternion();
@@ -145,23 +160,22 @@ export function streuMatrizen(
   // 1. Inseln (D361) — nur ausserhalb der Kronen; auf Wiese und Acker dort gar nichts (D363/D366).
   const inseln = cache && (cache.inseln = streuFenster(cache.inseln, x0, x1, z0, z1));
   for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) {
+    const index = (ix - x0) * (z1 - z0 + 1) + iz - z0;
+    const alt = inseln?.zellen[index];
+    if (alt !== undefined) {
+      if (alt && imKreis(alt.matrix.elements[12], alt.matrix.elements[14])) kacheln[alt.art].push(alt.matrix);
+      continue;
+    }
     let h = zellHash(ix, iz, 361);
     const wurf = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };
     const x = ix + wurf(), zz = iz + wurf();
     if (!imKreis(x, zz)) continue;
-    const index = (ix - x0) * (z1 - z0 + 1) + iz - z0;
-    const alt = inseln?.zellen[index];
-    if (alt !== undefined) {
-      if (alt) kacheln[alt.art].push(alt.matrix);
-      continue;
-    }
     if (inseln) inseln.zellen[index] = null;
     const regel = STREU[biomAn(x, zz)];
-    if (!regel) continue;
-    const krone = baeume ? naechsteKrone(baeume, x, zz) : null;
+    if (!regel || (regel.nurUnterBaum && baeume)) continue;
+    const krone = baeume ? naechsteKrone(baeume, x, zz, true) : null;
     // Was die Decke trägt, tragen die Inseln nicht noch einmal: nur der Rest neben der Deckung.
     const frei = 1 - (krone ? kronenDeckung(krone.rand) : 0);
-    if (regel.nurUnterBaum && baeume) continue;
     const insel = 0.65 * haeufung(x, zz, 9) + 0.35 * haeufung(x, zz, 3);
     const inselAnteil = Math.min(1, Math.max(0, (insel - 0.32) * 2.6));
     if (wurf() > Math.min(0.95, regel.p * (baeume ? 0.6 : 1)) * inselAnteil * frei) continue;
@@ -175,22 +189,21 @@ export function streuMatrizen(
     const g0z = Math.floor((mz - radius) / DECKE_RASTER), g1z = Math.ceil((mz + radius) / DECKE_RASTER);
     const kronen = cache && (cache.kronen = streuFenster(cache.kronen, g0x, g1x, g0z, g1z));
     for (let gx = g0x; gx <= g1x; gx++) for (let gz = g0z; gz <= g1z; gz++) {
+      const index = (gx - g0x) * (g1z - g0z + 1) + gz - g0z;
+      const alt = kronen?.zellen[index];
+      if (alt !== undefined) {
+        if (alt && imKreis(alt.matrix.elements[12], alt.matrix.elements[14])) kacheln[alt.art].push(alt.matrix);
+        continue;
+      }
       let h = zellHash(gx, gz, 366);
       const wurf = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };
       // Leicht gerüttelt (±0,1 m), sonst liest die Decke als Raster.
       const x = (gx + 0.5) * DECKE_RASTER + (wurf() - 0.5) * 0.2, zz = (gz + 0.5) * DECKE_RASTER + (wurf() - 0.5) * 0.2;
       if (!imKreis(x, zz)) continue;
-      const index = (gx - g0x) * (g1z - g0z + 1) + gz - g0z;
-      const alt = kronen?.zellen[index];
-      if (alt !== undefined) {
-        if (alt) kacheln[alt.art].push(alt.matrix);
-        continue;
-      }
       if (kronen) kronen.zellen[index] = null;
-      const biom = biomAn(x, zz);
-      if (biom === 'wasser' || !STREU[biom]) continue;
-      const krone = naechsteKrone(baeume, x, zz);
+      const krone = naechsteKrone(baeume, x, zz, true);
       if (!krone || wurf() >= kronenDeckung(krone.rand)) continue;
+      if (!STREU[biomAn(x, zz)]) continue;
       const karte = lege(x, zz, wurf() < 0.08 ? ZWEIGE : krone.nadel ? NADEL : LAUB, wurf);
       if (kronen) kronen.zellen[index] = karte;
     }

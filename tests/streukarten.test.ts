@@ -1,6 +1,6 @@
 /** D361/D366: Bodenstreu — deterministisch, Dichte nach Biom, Wasser frei, auf dem Gelände; unter der Krone geschlossen. */
 import assert from 'node:assert/strict';
-import { baumRaster, kronenDeckung, streuMatrizen } from '../src/world/streukarten.js';
+import { baumRaster, KRONE_UEBERGANG, kronenDeckung, naechsteKrone, streuMatrizen } from '../src/world/streukarten.js';
 import type { Biom } from '../src/world/osm.js';
 import { Vector3, Quaternion } from 'three';
 
@@ -78,4 +78,23 @@ const cache = {};
 for (const [x, z] of [[0, 0], [15.2, -.7], [-.3, 1], [440, -200], [0, 0]]) {
   const normal = streuMatrizen(x, z, 18, hoehe, () => 'wald', raster);
   assert.deepEqual(streuMatrizen(x, z, 18, hoehe, () => 'wald', raster, cache), normal);
+}
+
+// Randzellen und unmittelbar benachbarte, gleich weit entfernte Bäume:
+// Die Reihenfolge der alten 3 × 3-Suche entscheidet über Laub oder Nadeln.
+const baumliste = [
+  { x: 1, z: 0, nadel: false, krone: 3 }, { x: -1, z: 0, nadel: true, krone: 3 },
+  { x: 4, z: -8, nadel: true, krone: 6 }, { x: -17, z: 1, nadel: false, krone: 10 },
+];
+const nachbarn = baumRaster(baumliste);
+for (const x of [-24, -16.01, -8, -0.01, 0, 1.25, 8, 24]) for (const z of [-16, -8, -0.01, 0, 1.25, 8, 24]) {
+  const ix = Math.floor(x / 8), iz = Math.floor(z / 8);
+  let soll: { rand: number; nadel: boolean } | null = null;
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (const b of baumliste) {
+    if (Math.floor(b.x / 8) !== ix + dx || Math.floor(b.z / 8) !== iz + dz) continue;
+    const rand = Math.hypot(b.x - x, b.z - z) - b.krone;
+    if (!soll || rand < soll.rand) soll = { rand, nadel: b.nadel };
+  }
+  assert.deepEqual(naechsteKrone(nachbarn, x, z), soll);
+  assert.deepEqual(naechsteKrone(nachbarn, x, z, true), soll && soll.rand < KRONE_UEBERGANG / 2 ? soll : null);
 }

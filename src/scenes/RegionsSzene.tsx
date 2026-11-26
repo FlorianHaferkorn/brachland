@@ -8,7 +8,7 @@ import { ORTSPARAMETER, ZIELORT } from '../spiel/zielort.js';
  * Props laufen als InstancedMesh — 40.000 Bäume als Einzelobjekte würden jedes
  * Handy erledigen, als Instanzen sind es eine Handvoll Draw Calls.
  */
-import { Suspense, useMemo, useRef, useEffect, useState, useCallback } from 'react';
+import { Suspense, useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
@@ -46,7 +46,7 @@ import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel, HIMMEL_PHYSIK_AN } from '../world/himmel.js';
 import { koppleStimmung, mischeAtmosphaere, ATMOSPHAERE_VORGABE } from '../world/atmosphaere.js';
 import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
-import { baumRaster, streuBaeume, streuMatrizen, type StreuCache } from '../world/streukarten.js';
+import { baumRaster, streuBaeume, streuMatrizen, type BaumRaster, type StreuCache } from '../world/streukarten.js';
 import { BODEN_NAH, bodenMaterial, bodenMatrizen, buschGeometrie, flachGeometrie, type BodenMatrizen, type BodenpflanzenCache } from '../world/bodenpflanzen.js';
 import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot, type RindenArt } from '../world/windmaterial.js';
@@ -667,6 +667,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
    * (G-73).
    */
   const aufBoden = useMemo(() => aufsatzboden(feld), [feld]);
+  const kronen = useMemo(() => STREU_AN || BODEN_AN ? baumRaster(streuBaeume(props)) : null, [props]);
   const hofBaeume = useMemo(() => {
     const globalEz = typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezbaum') === '1';
     const rahmen = MILBINGERLICHT_AN && !globalEz ? wiesenbereich?.rahmen : undefined;
@@ -800,8 +801,8 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     <group>
       {wasserProbe && reflexMitte && <WasserSzeneProbe probe={wasserProbe} mitte={reflexMitte} ziel={ziel} />}
       <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} wiesenbereich={wiesenbereich} />
-      {STREU_AN && <StreuSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} props={props} />}
-      {BODEN_AN && <BodenSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} props={props} />}
+      {STREU_AN && kronen && <StreuSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} baeume={kronen} />}
+      {BODEN_AN && kronen && <BodenSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} baeume={kronen} />}
 
       <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf}
                   boden={aufBoden}
@@ -1077,16 +1078,42 @@ function HofbauSchicht({ region, welt, boden }: { region: string; welt: Weltdate
   return <group ref={gruppe} />;
 }
 
+/** Eine Atlasgruppe behält ihren Instanzpuffer beim Nachziehen des Suchkreises.
+ * Nur Wachstum über die reservierte Kapazität erfordert ein größeres Mesh. */
+function BodenkartenGruppe({ geometrie, material, matrizen }: {
+  geometrie: THREE.BufferGeometry; material: THREE.MeshStandardMaterial; matrizen: readonly THREE.Matrix4[];
+}) {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const bisher = useRef(1);
+  const kapazitaet = Math.max(bisher.current, 2 ** Math.ceil(Math.log2(Math.max(1, matrizen.length))));
+  useLayoutEffect(() => {
+    const m = mesh.current;
+    if (!m) return;
+    bisher.current = kapazitaet;
+    m.count = matrizen.length;
+    // Three nutzt die Kugel auch bei abgeschaltetem Frustum-Culling zum Sortieren.
+    m.boundingSphere = null;
+    m.boundingBox = null;
+    if (m.count === 0) return;
+    const puffer = m.instanceMatrix;
+    puffer.setUsage(THREE.DynamicDrawUsage);
+    for (let i = 0; i < m.count; i++) m.setMatrixAt(i, matrizen[i]);
+    puffer.clearUpdateRanges();
+    puffer.addUpdateRange(0, m.count * 16);
+    puffer.needsUpdate = true;
+  }, [geometrie, material, matrizen, kapazitaet]);
+  return <instancedMesh ref={mesh} args={[geometrie, material, kapazitaet]}
+    receiveShadow frustumCulled={false} visible={matrizen.length > 0} />;
+}
+
 /** D361: Bodenstreu-Karten im Umkreis von 45 m; neu gelegt, wenn die Figur 15 m gewandert ist. */
 const STREU_RADIUS = 45, STREU_NEU_AB = 15;
 let streuMaterial: THREE.MeshStandardMaterial | null = null;
 
-function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
+function StreuSchicht({ hoeheAn, biomAn, ziel, baeume }: {
   hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
-  ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
+  ziel: React.RefObject<THREE.Object3D | null>; baeume: BaumRaster;
 }) {
-  // D362/D366: Bäume legen unter ihrer Krone eine geschlossene Decke ihrer Art.
-  const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
   const cache = useMemo<StreuCache | undefined>(() => ORTS_BILDTAKT_AN ? {} : undefined, [baeume, biomAn, hoeheAn]);
   const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
   const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
@@ -1105,10 +1132,8 @@ function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
     mitte.current = new THREE.Vector2(p.x, p.z);
     setMatrizen(streuMatrizen(p.x, p.z, STREU_RADIUS, hoeheAn, biomAn, baeume, cache));
   });
-  return <>{matrizen.map((liste, i) => liste.length > 0 && (
-    <instancedMesh key={`${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[i], streuMaterial!, liste.length]}
-      receiveShadow frustumCulled={false}
-      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  return <>{matrizen.map((liste, i) => (
+    <BodenkartenGruppe key={i} geometrie={geometrien[i]} material={streuMaterial!} matrizen={liste} />
   ))}</>;
 }
 
@@ -1120,11 +1145,10 @@ function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
 let bodenFlachMaterial: THREE.MeshStandardMaterial | null = null;
 let bodenBuschMaterial: THREE.MeshStandardMaterial | null = null;
 
-function BodenSchicht({ hoeheAn, biomAn, ziel, props }: {
+function BodenSchicht({ hoeheAn, biomAn, ziel, baeume }: {
   hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
-  ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
+  ziel: React.RefObject<THREE.Object3D | null>; baeume: BaumRaster;
 }) {
-  const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
   const zellcache = useMemo(() => ORTS_BILDTAKT_AN ? new Map() as BodenpflanzenCache : undefined,
     [baeume, biomAn, hoeheAn]);
   const [matrizen, setMatrizen] = useState<BodenMatrizen>({ flach: [[], [], [], []], busch: [[], [], [], []] });
@@ -1141,10 +1165,8 @@ function BodenSchicht({ hoeheAn, biomAn, ziel, props }: {
     mitte.current = new THREE.Vector2(p.x, p.z);
     setMatrizen(bodenMatrizen(p.x, p.z, BODEN_NAH + 8, hoeheAn, biomAn, baeume, zellcache));
   });
-  const schicht = (art: 'flach' | 'busch', material: THREE.MeshStandardMaterial) => matrizen[art].map((liste, i) => liste.length > 0 && (
-    <instancedMesh key={`${art}${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[art][i], material, liste.length]}
-      receiveShadow frustumCulled={false}
-      ref={m => { if (m) { liste.forEach((mat, j) => m.setMatrixAt(j, mat)); m.instanceMatrix.needsUpdate = true; } }} />
+  const schicht = (art: 'flach' | 'busch', material: THREE.MeshStandardMaterial) => matrizen[art].map((liste, i) => (
+    <BodenkartenGruppe key={art + i} geometrie={geometrien[art][i]} material={material} matrizen={liste} />
   ));
   return <>{schicht('flach', bodenFlachMaterial)}{schicht('busch', bodenBuschMaterial)}</>;
 }

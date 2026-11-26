@@ -361,11 +361,12 @@ function aufNetz(
   const ux = -feld.breiteMeter / 2, uz = -feld.tiefeMeter / 2;
   const x0 = Math.floor((x - ux) / s) * s + ux, z0 = Math.floor((z - uz) / s) * s + uz;
   const fx = (x - x0) / s, fz = (z - z0) / s;
-  return fx + fz <= 1
-    ? f(x0, z0) + (f(x0 + s, z0) - f(x0, z0)) * fx + (f(x0, z0 + s) - f(x0, z0)) * fz
-    : f(x0 + s, z0 + s)
-      + (f(x0, z0 + s) - f(x0 + s, z0 + s)) * (1 - fx)
-      + (f(x0 + s, z0) - f(x0 + s, z0 + s)) * (1 - fz);
+  if (fx + fz <= 1) {
+    const h = f(x0, z0);
+    return h + (f(x0 + s, z0) - h) * fx + (f(x0, z0 + s) - h) * fz;
+  }
+  const h = f(x0 + s, z0 + s);
+  return h + (f(x0, z0 + s) - h) * (1 - fx) + (f(x0 + s, z0) - h) * (1 - fz);
 }
 
 /**

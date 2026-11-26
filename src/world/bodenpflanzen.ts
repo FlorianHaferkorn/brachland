@@ -20,7 +20,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import KARTEN from '../../public/material/boden-karten.json';
 import type { Biom } from './osm.js';
 import { farnBestand } from './props.js';
-import { haeufung, kronenDeckung, naechsteKrone, type StreuBaum } from './streukarten.js';
+import { haeufung, kronenDeckung, naechsteKrone, type BaumRaster } from './streukarten.js';
 import { kachelGeometrie, kartenMaterial } from './efeukarten.js';
 
 /** Radius, in dem Bodenpflanzen stehen; ab 75 % davon schrumpfen sie zum Rand hin. */
@@ -78,7 +78,7 @@ export type BodenpflanzenCache = Map<number, Map<number, Zellpflanze[]>>;
 export function bodenMatrizen(
   mx: number, mz: number, radius: number,
   hoeheAn: (x: number, z: number) => number, biomAn: (x: number, z: number) => Biom,
-  baeume: Map<string, StreuBaum[]>, cache?: BodenpflanzenCache,
+  baeume: BaumRaster, cache?: BodenpflanzenCache,
 ): BodenMatrizen {
   const flach: THREE.Matrix4[][] = [[], [], [], []], busch: THREE.Matrix4[][] = [[], [], [], []];
   const z = new THREE.Vector3(0, 0, 1), n = new THREE.Vector3(), q = new THREE.Quaternion(), dreh = new THREE.Quaternion();
