@@ -138,6 +138,8 @@ export const HOF_AN = an('scanhof') || HOF_GRUEN_AN;
 export const AFRAME_AN = an('aframe');
 /** D446: Look-Durchgang Felsmulde nach dem Messbild D445 — Rahmenkronen (`scenes/Rahmenkronen.tsx`); mit `?stimmung=zielbildfels`. */
 export const LOOK_FELS_AN = an('lookfels');
+/** D481: gestaffelte Geländewechsel und Vorbereitung für den Gang aus der Felsmulde. */
+export const FELS_BILDTAKT_AN = LOOK_FELS_AN && suche.get('felstakt') !== '0';
 /** Scan-Kronen nur in der Zielbild-Felsmulde. 0 zeigt D475 (Rahmenkarten), 1 D478, 2 die Büschel D480. */
 const scanStufe = suche.get('scanbaeume') ?? '2';
 export const SCAN_BUESCHEL_AN = LOOK_FELS_AN && scanStufe === '2';

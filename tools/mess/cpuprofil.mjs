@@ -1,5 +1,7 @@
 /** CPU-Profil desselben spielbaren Laufs wie vergleich.mjs, ohne Video.
  * node tools/mess/cpuprofil.mjs <neuer-name> [url-zusatz] [port] [build-verzeichnis] [x,z,grad|hofwest] [ausreisser-ms]
+ * MESS_GANG=1 misst denselben zehnsekündigen W-Gang wie bildrate.mjs, ohne zusätzliche Lookparameter.
+ * MESS_FORMAT=1440x900 überschreibt die Auflösung (Vorgabe 960x540).
  * Fuer Zuordnung: Vite-Produktionsbuild mit Sourcemaps und passenden Preview-Port starten.
  * CPU-Profiling kostet selbst Zeit; Bildraten separat mit vergleich.mjs messen.
  */
@@ -11,6 +13,8 @@ import { HOFWEST_START, bereiteHofwestroute, laufeHofwestroute } from './hofwest
 
 const [name, extra = '', port = '4174', build = '.cache/cpuprofil-build', strecke = '0,0,310', schwellenText = '100'] = process.argv.slice(2);
 const hofwest = strecke === 'hofwest';
+const gang = !hofwest && process.env.MESS_GANG === '1';
+const [width, height] = (process.env.MESS_FORMAT ?? '960x540').split('x').map(Number);
 const ort = hofwest ? HOFWEST_START : strecke;
 const ausreisserMs = Number(schwellenText);
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
@@ -22,7 +26,7 @@ if (existsSync(ziel)) throw new Error(`Ausgabe existiert bereits: ${ziel}`);
 mkdirSync(ziel, { recursive: true });
 const { chromium } = await playwright();
 const browser = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist'] });
-const seite = await browser.newPage({ viewport: { width: 960, height: 540 }, deviceScaleFactor: 1 });
+const seite = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
 const fehler = [], anfragen = [];
 let messen = false;
 await seite.addInitScript(() => {
@@ -99,7 +103,7 @@ seite.on('pageerror', e => fehler.push(String(e)));
 seite.on('console', m => { if (m.type() === 'error') fehler.push(m.text()); });
 seite.on('request', r => { if (messen && r.url().endsWith('.glb')) anfragen.push({ zeit: Date.now(), url: r.url() }); });
 try {
-  await seite.goto(`http://127.0.0.1:${port}/?absetzen=${ort}&zeit=0.26&kontur=0${extra}`, { waitUntil: 'domcontentloaded' });
+  await seite.goto(`http://127.0.0.1:${port}/?absetzen=${ort}${gang ? '' : '&zeit=0.26&kontur=0'}${extra}`, { waitUntil: 'domcontentloaded' });
   await seite.waitForSelector('button[aria-label="Menü"]', { timeout: 240000 });
   await seite.waitForFunction(() => document.body.textContent.includes('Ladezeit'), undefined, { timeout: 120000 });
   await seite.waitForTimeout(15000);
@@ -145,9 +149,11 @@ try {
     route = await laufeHofwestroute(seite);
     if (route.fehler) fehler.push(route.fehler);
   } else {
-    await seite.keyboard.down('Shift'); await seite.keyboard.down('w');
-    await seite.waitForTimeout(12000);
-    await seite.keyboard.up('w'); await seite.keyboard.up('Shift');
+    if (!gang) await seite.keyboard.down('Shift');
+    await seite.keyboard.down('w');
+    await seite.waitForTimeout(gang ? 10000 : 12000);
+    await seite.keyboard.up('w');
+    if (!gang) await seite.keyboard.up('Shift');
   }
   messen = false;
   const { profile } = await cdp.send('Profiler.stop');

@@ -144,6 +144,9 @@ const AO_FRAGMENT = /* glsl */`
     vec3 P = sicht(vUv);
     if (-P.z > uFern * 0.95) { gl_FragColor = vec4(1.0); return; }   // Himmel
     __AO_NORMALE__
+    // Ab dieser Tiefe läuft die unten verwendete Ausblendung vollständig auf Weiß.
+    // Die Normale bleibt vor dem Abbruch, damit Ableitungen an Silhouetten gültig sind.
+    if (-P.z >= 350.0) { gl_FragColor = vec4(1.0); return; }
     // Halbkugel um N: Basis aus einem je Pixel gedrehten Zufallsvektor
     float w = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
     // D263 (\`?echt=1\`): statt weissem Rauschen ein 4×4-Bayer-Muster. Jede Drehung kommt in jedem

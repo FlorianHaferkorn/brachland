@@ -279,6 +279,7 @@ export function schritte(a: Akte, d = 'Dxxx', kamera?: string): Schritt[] {
   if (hat('szenenexport')) export_.push(`npx tsx tools/bautenpack.ts --kante 2048 ${ziel}/${a.id}-bauten.glb`);
   if (hat('bodenexport')) export_.push(`npx tsx tools/bautenpack.ts --kante 2048 ${ziel}/${a.id}-boden.glb`);
   if (hat('pflanzenexport')) export_.push(`npx tsx tools/bautenpack.ts --kante 1024 --instanz ${ziel}/${a.id}-pflanzen.glb`);
+  if (hat('pflanzenexport') && a.id === 'felsmulde') export_.push(`tools/ortkette.sh ${a.zielbild.blend} ${a.id} ${a.zielbild.terrain}/terrain.json uferfelder`);
   const messbild = (stand: 'vorher' | 'nachher', schalter: readonly string[]) =>
     `node tools/mess/messbild.mjs ${aus}/${stand} "${adr.absetzen}" "${adr.zusatz(schalter)}" 1920x1080`;
   return [

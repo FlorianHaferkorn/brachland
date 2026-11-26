@@ -45,7 +45,7 @@ export const Bauwerk = z.object({
     x: z.number(), z: z.number(),
     props: z.number().nonnegative(), streu: z.number().nonnegative(), haeuser: z.number().nonnegative().default(0),
   }).optional(),
-  dateien: z.array(z.enum(['bauten', 'gruen', 'wasser', 'boden', 'pflanzen', 'schatten', 'baeume', 'bergruecken', 'bueschel'])),
+  dateien: z.array(z.enum(['bauten', 'gruen', 'wasser', 'boden', 'pflanzen', 'schatten', 'baeume', 'bergruecken', 'fernhang', 'bueschel'])),
   objekte: z.record(z.array(z.string())).optional(),
   /** Ordner unter `public/`: `bauten` (Szenenbau) oder `bauten-ziel` (Zielbild-Szene, D448, `?lookfels=1`). */
   ordner: z.enum(['bauten', 'bauten-ziel']).default('bauten'),

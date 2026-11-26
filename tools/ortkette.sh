@@ -3,7 +3,7 @@
 #
 #   tools/ortkette.sh <zielbild.blend> <name> <terrain.json> [schritte]
 #   Beispiel: tools/ortkette.sh .cache/blender/felsmulde/szene4.blend felsmulde .cache/blender/felsmulde/terrain.json
-#   schritte (Vorgabe: alle): pruefen,bauten,boden,pflanzen,schatten — z. B. "pflanzen,schatten" für einen Teil. Optionale Zielbildteile: bergruecken,bueschel.
+#   schritte (Vorgabe: alle): pruefen,bauten,boden,pflanzen,schatten — z. B. "pflanzen,schatten" für einen Teil. Optionale Zielbildteile: bergruecken,bueschel. uferfelder ergänzt und kachelt einen frisch gepackten Felsmulde-Pflanzenexport.
 #
 # Ergebnis: public/bauten-ziel/<name>-{bauten,wasser,boden,pflanzen,schatten}.glb und register.json.
 # Anleitung, Prüfpunkte und Fallen: docs/WELT_METHODE.md. Jeder Blender-Lauf hält die Sperre .cache/blender.sperre
@@ -70,7 +70,7 @@ for b in r['bauwerke']:
 json.dump(r, open(p, 'w'), indent=1, ensure_ascii=False)
 PY
   fi
-  for t in boden pflanzen schatten baeume bergruecken bueschel; do [ -f "$ZIEL/$NAME-$t.glb" ] && register_merke "$t" >/dev/null; done
+  for t in boden pflanzen schatten baeume bergruecken fernhang bueschel; do [ -f "$ZIEL/$NAME-$t.glb" ] && register_merke "$t" >/dev/null; done
 fi
 if will boden; then
   echo "== 3/5 boden: Scan-Boden backen (10–12 min)"
@@ -83,6 +83,12 @@ if will pflanzen; then
   grep -a "^PFLANZEN\|^AUSGERECHNET" "$LOG/pflanzen.log" | cut -c1-110
   npx tsx tools/bautenpack.ts --kante 1024 --instanz "$ZIEL/$NAME-pflanzen.glb" 2>&1 | grep MiB
 fi
+if [ "$NAME" = felsmulde ] && { will pflanzen || will uferfelder; }; then
+  lauf=$(mktemp -d "$LOG/ufer.XXXXXX") || exit 1
+  npx tsx tools/uferpflanzen.ts "$ZIEL/$NAME" "$lauf/ufer.glb" || exit 1
+  npx tsx tools/bautenpack.ts --verlustfrei --pflanzenfelder --aus "$lauf/felder.glb" "$lauf/ufer.glb" || exit 1
+  mv "$lauf/felder.glb" "$ZIEL/$NAME-pflanzen.glb" || exit 1
+fi
 if will schatten; then
   echo "== 5/5 schatten: grobe Schattenhülle"
   node tools/schattenhuelle.mjs "$ZIEL/$NAME-bauten.glb" "$ZIEL/$NAME-schatten.glb" 0.1 0.01 2>&1 | tail -1
@@ -90,7 +96,12 @@ if will schatten; then
 fi
 if will bergruecken; then
   blender_lauf "$LOG/bergruecken.log" --python-exit-code 1 --python tools/bergrueckenexport.py -- "$ZIEL/$NAME-bergruecken.glb" || exit 1
-  register_merke bergruecken
+  if [ "$NAME" = felsmulde ]; then
+    npx tsx tools/fernhang.ts || exit 1
+    register_merke bergruecken fernhang
+  else
+    register_merke bergruecken
+  fi
 fi
 if will bueschel; then
   # scanlagen/scanbacken verlangen neue Ausgabepfade. Ein fehlgeschlagener Lauf lässt

@@ -67,3 +67,10 @@ assert.ok(vk > 0.4, `Unterwuchs zu gleichmässig verstreut (VK ${vk.toFixed(2)})
 assert.ok(Math.max(...werte) >= 30, `kein dichtes Polster (höchstens ${Math.max(...werte)} Karten auf 16 m²)`);
 console.log(`bodenpflanzen: Polster VK ${vk.toFixed(2)}, dichtestes ${Math.max(...werte)} Karten/16 m²; Wald ${zahl(wald)} Karten im 40-m-Kreis; Sauerklee Schatten/Licht ${klee.map(v => v.toFixed(3)).join('/')} je m², `
   + `Brombeere ${brom.map(v => v.toFixed(3)).join('/')} je m², Moos Kuppe/Mulde ${aufKuppe}/${inMulde}`);
+
+// D481: Beim Verschieben und beim Rückweg bleiben alle Matrizen in der ursprünglichen Zeichenreihenfolge.
+const zellcache = new Map();
+for (const [x, z] of [[0, 0], [8.4, -2], [12, -15], [-140, 8], [0, 0]]) {
+  const neu = bodenMatrizen(x, z, 25, buckel, () => 'wald', buchen);
+  assert.deepEqual(bodenMatrizen(x, z, 25, buckel, () => 'wald', buchen, zellcache), neu);
+}

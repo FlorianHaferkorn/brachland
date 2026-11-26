@@ -45,8 +45,8 @@ import { baueBaum } from '../world/baum.js';
 import { baueHimmel, setzeHimmel, HIMMEL_PHYSIK_AN } from '../world/himmel.js';
 import { koppleStimmung, mischeAtmosphaere, ATMOSPHAERE_VORGABE } from '../world/atmosphaere.js';
 import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } from '../world/fernland.js';
-import { baumRaster, streuBaeume, streuMatrizen } from '../world/streukarten.js';
-import { BODEN_NAH, bodenMaterial, bodenMatrizen, buschGeometrie, flachGeometrie, type BodenMatrizen } from '../world/bodenpflanzen.js';
+import { baumRaster, streuBaeume, streuMatrizen, type StreuCache } from '../world/streukarten.js';
+import { BODEN_NAH, bodenMaterial, bodenMatrizen, buschGeometrie, flachGeometrie, type BodenMatrizen, type BodenpflanzenCache } from '../world/bodenpflanzen.js';
 import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
 import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot, type RindenArt } from '../world/windmaterial.js';
 import { BAUM_UEBERBLEND, UEBERBLEND_BAND, impostorGeometrie, impostorMaterial } from '../world/impostor.js';
@@ -82,7 +82,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE, SCAN_BAEUME_AN, SCAN_BUESCHEL_AN } from '../world/echt.js';
+import { FELS_BILDTAKT_AN, LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE, SCAN_BAEUME_AN, SCAN_BUESCHEL_AN } from '../world/echt.js';
 import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
@@ -95,7 +95,7 @@ import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import type { Kampfbericht } from '../kampf/kampfende.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer, gleiteAmStiel, AXT_URSPRUNG_VOR_D429 } from '../kampf/waffenhand.js';
-import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
+import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, begrenzeBewohner, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
 import { PosenTraegheit, Koerperfein, sammleKnochen, elternkarte, teileClip, messeGang, type FeinEingabe } from '../figur/laufzeit.js';
 import { nachfahren, RIG_MENSCH } from '../figur/ebenen.js';
@@ -461,9 +461,9 @@ export const TAGESZEITEN = TAGESLAUF.map(k => ({ name: k.name, zeit: k.zeit }));
  * - Gebaute Kacheln bleiben im Cache. Ein Neuaufbau pro Bild wäre unbezahlbar, und
  *   ohne Bewegung ändert sich die Zuordnung ohnehin nicht.
  */
-const HOF_KACHELPUFFER_AN = HOF_AN && typeof location !== 'undefined'
+const KACHELPUFFER_AN = (HOF_AN || FELS_BILDTAKT_AN) && typeof location !== 'undefined'
   && new URLSearchParams(location.search).get('kachelpuffer') !== '0';
-const KACHELNACHLAUF_AN = HOF_KACHELPUFFER_AN && HOF_KACHELNACHLAUF_AN;
+const KACHELNACHLAUF_AN = KACHELPUFFER_AN && (HOF_KACHELNACHLAUF_AN || FELS_BILDTAKT_AN);
 const KACHEL_FRIST_MS = 3;
 
 type Sichtkachel = { kachel: Kachel; lod: number };
@@ -549,11 +549,11 @@ function LodTerrain({ feld, kacheln, ziel, nachlauf, wiesenbereich }: {
       let g = cache.current.get(schluessel);
       if (!g) {
         if (!gestaffelt && budget-- <= 0) continue;
-        g = baueKachelGeometrie(feld, k, lod, undefined, HOF_BILDFLUSS_AN);
+        g = baueKachelGeometrie(feld, k, lod, undefined, HOF_BILDFLUSS_AN || FELS_BILDTAKT_AN);
         cache.current.set(schluessel, g);
         if (gestaffelt) yield;
       }
-      if (HOF_KACHELPUFFER_AN) sammleKachel(kachelgruppen, k, g, String(lod));
+      if (KACHELPUFFER_AN) sammleKachel(kachelgruppen, k, g, String(lod));
       else {
         const liste = jeStufe.get(lod);
         if (liste) liste.push(g); else jeStufe.set(lod, [g]);
@@ -563,8 +563,8 @@ function LodTerrain({ feld, kacheln, ziel, nachlauf, wiesenbereich }: {
     // Budget nicht ausgeschöpft: alle Kacheln in Sicht stehen — Ladezeit (D146).
     if (budget >= 0) { meldeFertig('terrain'); nachlauf.bodenFertig = true; }
 
-    if (HOF_KACHELPUFFER_AN) {
-      const neu = gestaffelt ? yield* bereiteKachelpuffer(puffer.current, kachelgruppen, vorladen, HOF_BILDSPITZEN_AN)
+    if (KACHELPUFFER_AN) {
+      const neu = gestaffelt ? yield* bereiteKachelpuffer(puffer.current, kachelgruppen, vorladen, HOF_BILDSPITZEN_AN || FELS_BILDTAKT_AN)
         : aktualisiereKachelpuffer(puffer.current, kachelgruppen);
       const geometrien = geometrienAusKachelpuffern(neu);
       return () => {
@@ -966,7 +966,7 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       for (const [art, bauen] of arten) {
         if (art === 'wasser' && ohneWasser) continue;
         if (art === 'weg' && ohneWege) continue;
-        const stufe = HOF_KACHELPUFFER_AN && art === 'haus' ? 0 : lod;
+        const stufe = KACHELPUFFER_AN && art === 'haus' ? 0 : lod;
         const schluessel = `${art}:${id}:${stufe}${art === 'wasser' ? pegel : ''}`;
         let g = cache.current.get(schluessel);
         if (g === undefined) {
@@ -994,8 +994,8 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
         if (!g) continue;
         // Gartenhöhen wechseln mit dem Gelände-LOD. Feste Häuser behalten ihren
         // GPU-Puffer auch dann, wenn nur die Zaun- und Beetgeometrie ersetzt wird.
-        if (HOF_KACHELPUFFER_AN && (art === 'haus' || art === 'garten')) {
-          sammleKachel(hausGruppen, k, g, HOF_BILDFLUSS_AN ? art : 'haus');
+        if (KACHELPUFFER_AN && (art === 'haus' || art === 'garten')) {
+          sammleKachel(hausGruppen, k, g, HOF_BILDFLUSS_AN || FELS_BILDTAKT_AN ? art : 'haus');
         }
         else sammeln[art === 'garten' ? 'haus' : art].push(g);
       }
@@ -1005,10 +1005,10 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
 
     const fassen = (gs: THREE.BufferGeometry[]) =>
       gs.length ? [mergeGeometries(gs, false)].filter(Boolean) as THREE.BufferGeometry[] : [];
-    const hausNeu = !HOF_KACHELPUFFER_AN ? hausPuffer.current
-      : gestaffelt ? yield* bereiteKachelpuffer(hausPuffer.current, hausGruppen, vorladen, HOF_BILDSPITZEN_AN)
+    const hausNeu = !KACHELPUFFER_AN ? hausPuffer.current
+      : gestaffelt ? yield* bereiteKachelpuffer(hausPuffer.current, hausGruppen, vorladen, HOF_BILDSPITZEN_AN || FELS_BILDTAKT_AN)
       : aktualisiereKachelpuffer(hausPuffer.current, hausGruppen);
-    const haus = HOF_KACHELPUFFER_AN ? geometrienAusKachelpuffern(hausNeu) : fassen(sammeln.haus);
+    const haus = KACHELPUFFER_AN ? geometrienAusKachelpuffern(hausNeu) : fassen(sammeln.haus);
     const baenderNeu = new Map<string, { quellen: THREE.BufferGeometry[]; geometrien: THREE.BufferGeometry[] }>();
     const neu = { weg: [] as THREE.BufferGeometry[], wasser: [] as THREE.BufferGeometry[],
                   fall: [] as THREE.BufferGeometry[], haus };
@@ -1083,6 +1083,7 @@ function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
 }) {
   // D362/D366: Bäume legen unter ihrer Krone eine geschlossene Decke ihrer Art.
   const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
+  const cache = useMemo<StreuCache | undefined>(() => FELS_BILDTAKT_AN ? {} : undefined, [baeume, biomAn, hoeheAn]);
   const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
   const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
   const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
@@ -1098,7 +1099,7 @@ function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
     zuletzt.current = jetzt;
     if (mitte.current && mitte.current.distanceTo(new THREE.Vector2(p.x, p.z)) < STREU_NEU_AB) return;
     mitte.current = new THREE.Vector2(p.x, p.z);
-    setMatrizen(streuMatrizen(p.x, p.z, STREU_RADIUS, hoeheAn, biomAn, baeume));
+    setMatrizen(streuMatrizen(p.x, p.z, STREU_RADIUS, hoeheAn, biomAn, baeume, cache));
   });
   return <>{matrizen.map((liste, i) => liste.length > 0 && (
     <instancedMesh key={`${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[i], streuMaterial!, liste.length]}
@@ -1120,6 +1121,8 @@ function BodenSchicht({ hoeheAn, biomAn, ziel, props }: {
   ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
 }) {
   const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
+  const zellcache = useMemo(() => FELS_BILDTAKT_AN ? new Map() as BodenpflanzenCache : undefined,
+    [baeume, biomAn, hoeheAn]);
   const [matrizen, setMatrizen] = useState<BodenMatrizen>({ flach: [[], [], [], []], busch: [[], [], [], []] });
   const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
   const geometrien = useMemo(() => ({ flach: [0, 1, 2, 3].map(flachGeometrie), busch: [0, 1, 2, 3].map(buschGeometrie) }), []);
@@ -1132,7 +1135,7 @@ function BodenSchicht({ hoeheAn, biomAn, ziel, props }: {
     zuletzt.current = jetzt;
     if (mitte.current && mitte.current.distanceTo(new THREE.Vector2(p.x, p.z)) < 8) return;
     mitte.current = new THREE.Vector2(p.x, p.z);
-    setMatrizen(bodenMatrizen(p.x, p.z, BODEN_NAH + 8, hoeheAn, biomAn, baeume));
+    setMatrizen(bodenMatrizen(p.x, p.z, BODEN_NAH + 8, hoeheAn, biomAn, baeume, zellcache));
   });
   const schicht = (art: 'flach' | 'busch', material: THREE.MeshStandardMaterial) => matrizen[art].map((liste, i) => liste.length > 0 && (
     <instancedMesh key={`${art}${i}:${liste.length}:${liste[0].elements[12].toFixed(1)}`} args={[geometrien[art][i], material, liste.length]}
@@ -1209,7 +1212,7 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, 
   const letzteFern = useRef(new THREE.Vector3(NaN, NaN, NaN));
   /** Kacheln, die im vorigen Durchlauf Attrappen waren — siehe `waehleProps` (D164). */
   const vorigeAttrappen = useRef<ReadonlySet<string> | undefined>(undefined);
-  const propAnker = useRef<PropAnkerCache>({ fernschluesselBeiBedarf: HOF_KACHELNACHLAUF_AN });
+  const propAnker = useRef<PropAnkerCache>({ fernschluesselBeiBedarf: HOF_KACHELNACHLAUF_AN || FELS_BILDTAKT_AN });
   // Neue Sichtweite (D247): beide Listen sofort neu, statt auf die nächsten 8/60 m Lauf zu warten.
   useEffect(() => { letzte.current.set(NaN, NaN, NaN); letzteFern.current.set(NaN, NaN, NaN); }, [weite]);
 
@@ -1238,7 +1241,7 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, 
     // springen — gemessen 6 solcher Sprünge in 24 s Lauf (D164, `propauswahl.ts`).
     const auswahl = waehleProps(chunks, [p.x, p.z], anker, fernNeu,
       HOF_KACHELNACHLAUF_AN ? undefined : vorigeAttrappen.current, weite,
-      HOF_BILDRUHE_AN ? propAnker.current : undefined);
+      HOF_BILDRUHE_AN || FELS_BILDTAKT_AN ? propAnker.current : undefined);
     const { nah, buendel } = auswahl;
     if (!HOF_KACHELNACHLAUF_AN) vorigeAttrappen.current = auswahl.buendelKacheln;
 
@@ -2067,7 +2070,10 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
   useEffect(() => { setzeRollen(farben ?? null); }, [setzeRollen, farben]);
   const himmelKarte = useHimmelKarte();
   useEffect(() => {
-    if (hg) { legeWahlAn(scene, hg); setzeFigurUmgebung(scene, himmelKarte); return; }
+    if (hg) {
+      legeWahlAn(scene, hg); setzeFigurUmgebung(scene, himmelKarte);
+      return FELS_BILDTAKT_AN ? begrenzeBewohner(scene) : undefined;
+    }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
@@ -2292,6 +2298,7 @@ function HdriLicht() {
  * Windattribut fehlt). Jede Datei hat ihre eigene Suspense-Grenze (G-134).
  */
 const BAUWERK_NEUBEWERTUNG = 100;
+const FERNHANG_AN = typeof location === 'undefined' || new URLSearchParams(location.search).get('fernhang') !== '0';
 
 function Bauwerke({ rand, ziel, hoeheAn }: {
   rand: { farbe: string; staerke: number };
@@ -2318,7 +2325,9 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
             <Suspense key={teil} fallback={null}>
               {teil === 'wasser'
                 ? (istAus('becken') ? null : <BauwerkWasser bauwerk={b} />)
-                : teil === 'bergruecken' ? (STIMMUNG_MESSLAUF === STIMMUNG.zielbildfels && <BauwerkFernruecken bauwerk={b} />)
+                : teil === 'bergruecken' || teil === 'fernhang' ? (STIMMUNG_MESSLAUF === STIMMUNG.zielbildfels
+                  && teil === (FERNHANG_AN && b.dateien.includes('fernhang') ? 'fernhang' : 'bergruecken')
+                  && <BauwerkFernruecken bauwerk={b} teil={teil} />)
                 : teil === 'boden' ? <BauwerkBoden bauwerk={b} />
                 : teil === 'schatten' ? <BauwerkSchatten bauwerk={b} />
                 : teil === 'bueschel' || teil === 'baeume' ? (SCAN_BAEUME_AN && !istAus('kronen') && teil === (SCAN_BUESCHEL_AN && b.dateien.includes('bueschel') ? 'bueschel' : 'baeume') && <BauwerkBaeume bauwerk={b} teil={teil} />)
@@ -2344,8 +2353,8 @@ function bauwerkHoehe(b: Bauwerk, hoeheAn: (x: number, z: number) => number): nu
 
 /** Die vier komponierten Horizonte des Blender-Bilds stehen in ihren Szenenmetern.
  * Außerhalb des Hofs blenden sie vor Erreichen der Kulissen in das echte Fernland über. */
-function BauwerkFernruecken({ bauwerk }: { bauwerk: Bauwerk }) {
-  const { scene } = useGLTF(bauwerkPfad(bauwerk, 'bergruecken'));
+function BauwerkFernruecken({ bauwerk, teil }: { bauwerk: Bauwerk; teil: 'bergruecken' | 'fernhang' }) {
+  const { scene } = useGLTF(bauwerkPfad(bauwerk, teil));
   const material = useMemo(() => new THREE.MeshBasicMaterial({
     vertexColors: true, toneMapped: false, fog: false, transparent: true,
     // Der Szenenabgleich und ACES wirken im Schlussbild auch auf die gebackenen Farbtöne.
@@ -2353,7 +2362,11 @@ function BauwerkFernruecken({ bauwerk }: { bauwerk: Bauwerk }) {
   }), []);
   const objekt = useMemo(() => {
     const klon = scene.clone(true);
-    klon.traverse(o => { if (o instanceof THREE.Mesh) o.material = material; });
+    klon.traverse(o => {
+      if (!(o instanceof THREE.Mesh)) return;
+      material.map = (o.material as THREE.MeshStandardMaterial).map ?? null;
+      o.material = material;
+    });
     return klon;
   }, [scene, material]);
   useFrame(({ camera }) => {
@@ -2494,7 +2507,7 @@ function BauwerkPflanzen({ bauwerk }: { bauwerk: Bauwerk }) {
   const { objekt, felder } = useMemo(() => {
     const gruppe = new THREE.Group();
     const fertig = new Set<THREE.Material>();
-    const felder: { mesh: THREE.InstancedMesh; mitte: THREE.Vector3; anzahl: number; basis: THREE.Matrix4[]; sortiert: boolean }[] = [];
+    const felder: { mesh: THREE.InstancedMesh; mitte: THREE.Vector3; kugeln: THREE.Sphere[]; anzahl: number; basis: THREE.Matrix4[]; reihenfolge: number[]; abstand2: Float64Array; sortiert: boolean }[] = [];
     scene.updateMatrixWorld(true);
     const m4 = new THREE.Matrix4(), p = new THREE.Vector3();
     scene.traverse(o => {
@@ -2521,7 +2534,19 @@ function BauwerkPflanzen({ bauwerk }: { bauwerk: Bauwerk }) {
         const basis = idx.map(i => { o.getMatrixAt(i, m4); return m4.premultiply(o.matrixWorld).clone(); });
         basis.forEach((b, k) => feld.setMatrixAt(k, b));
         feld.computeBoundingSphere(); feld.castShadow = false; feld.receiveShadow = true;   // kleine Pflanzen werfen keinen Schatten (Schattenpass ×2)
-        gruppe.add(feld); felder.push({ mesh: feld, mitte: feld.boundingSphere!.center.clone(), anzahl: idx.length, basis, sortiert: false });
+        const kugeln = [feld.boundingSphere!];
+        if (FELS_BILDTAKT_AN) {
+          // Die gekürzten Stufen zeichnen jeweils den Anfang der gemischten Basisfolge.
+          for (const teiler of [3, 8]) {
+            feld.count = Math.ceil(idx.length / teiler);
+            feld.boundingSphere = new THREE.Sphere();
+            feld.computeBoundingSphere();
+            kugeln.push(feld.boundingSphere);
+          }
+          feld.count = idx.length;
+          feld.boundingSphere = kugeln[0]!;
+        }
+        gruppe.add(feld); felder.push({ mesh: feld, kugeln, mitte: feld.boundingSphere!.center.clone(), anzahl: idx.length, basis, reihenfolge: basis.map((_, i) => i), abstand2: new Float64Array(basis.length), sortiert: false });
       }
     });
     return { objekt: gruppe, felder };
@@ -2542,9 +2567,11 @@ function BauwerkPflanzen({ bauwerk }: { bauwerk: Bauwerk }) {
       const d = f.mitte.distanceTo(lokal);
       const voll = d < 18;
       f.mesh.count = voll ? f.anzahl : d < 35 ? Math.ceil(f.anzahl / 3) : Math.ceil(f.anzahl / 8);
+      if (FELS_BILDTAKT_AN) f.mesh.boundingSphere = f.kugeln[voll ? 0 : d < 35 ? 1 : 2]!;
       if (voll) {
-        const ab = f.basis.map(b => ort.current.setFromMatrixPosition(b).distanceToSquared(lokal));
-        f.basis.map((_, i) => i).sort((x, y) => ab[x] - ab[y]).forEach((q, z) => f.mesh.setMatrixAt(z, f.basis[q]));
+        for (let i = 0; i < f.anzahl; i++) f.abstand2[i] = ort.current.setFromMatrixPosition(f.basis[i]).distanceToSquared(lokal);
+        f.reihenfolge.sort((x, y) => f.abstand2[x] - f.abstand2[y] || x - y);
+        f.reihenfolge.forEach((q, z) => f.mesh.setMatrixAt(z, f.basis[q]));
         f.mesh.instanceMatrix.needsUpdate = true; f.sortiert = true;
       } else if (f.sortiert) {   // gemischte Ordnung zurück, sonst dünnt die Ferne eine Ecke aus
         f.basis.forEach((b, z) => f.mesh.setMatrixAt(z, b)); f.mesh.instanceMatrix.needsUpdate = true; f.sortiert = false;
@@ -2649,6 +2676,18 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
       }
       // Rinden-Scan nur, wo keine gebackene Textur liegt (die Weiden bringen ihre eigene mit).
       const rinde = holz && !basis.map ? { rinde: 'ganz' as const, rindeMeter: skalaVon(o) } : {};
+      // Gebackene, starre Einzelnetze ohne Zusatzattribute verwenden das glTF-Material direkt.
+      // Hier sind Wind, Rollen, Durchlass und Saum null; die Instanz-Farbvariation ist exakt eins.
+      if (bauwerk.ordner === 'bauten-ziel' && teil === 'bauten' && !holz && !himmel
+        && !(o instanceof THREE.InstancedMesh) && basis instanceof THREE.MeshStandardMaterial && !laub) {
+        o.material = basis;
+        if (NORMAL_MESSLAUF !== null && basis.normalMap) {
+          const probe = basis.clone();
+          probe.normalScale.setScalar(NORMAL_MESSLAUF);
+          o.material = probe;
+        }
+        return;
+      }
       const w = baueWindMaterial(laub
         ? { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, randSchaerfe: 10, loecher: 0.42, loecherSkala: 9, durchlass: 0.55, himmel }
         : { amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * anteil, himmel, fuss, ...rinde }, basis);
@@ -3217,13 +3256,14 @@ function Grasteppich({ welt, feld, ziel, dichte, weite, strassenmaske, wiesenber
   useEffect(() => () => { teppich.dispose(); nah?.dispose(); fern?.dispose(); fotoWiese?.dispose(); },
     [teppich, nah, fern, fotoWiese]);
   useEffect(() => {
-    const vorlauf = fotoWiese?.vorlauf;
-    if (!vorlauf) return;
-    vorlauf.onAfterRender = () => {
+    for (const ring of [teppich, nah, fern, fotoWiese]) {
+      const vorlauf = ring?.vorlauf;
+      if (vorlauf) vorlauf.onAfterRender = () => {
       // Licht, Nebel und Tonwertkurve können während des Aufbaus wechseln.
-      if (ladezeit() !== null) vorlauf.visible = false;
-    };
-  }, [fotoWiese]);
+        if (ladezeit() !== null) vorlauf.visible = false;
+      };
+    }
+  }, [teppich, nah, fern, fotoWiese]);
   const erstesBild = useRef(true);
   useEffect(() => { erstesBild.current = true; }, [teppich, nah, fern, fotoWiese]);
   useFrame(({ clock }) => {
@@ -3248,7 +3288,7 @@ function Grasteppich({ welt, feld, ziel, dichte, weite, strassenmaske, wiesenber
   });
   return <>{<primitive object={teppich.mesh} />}{nah && <primitive object={nah.mesh} />}{fern && <primitive object={fern.mesh} />}
     {fotoWiese && <primitive object={fotoWiese.mesh} />}
-    {fotoWiese?.vorlauf && <primitive object={fotoWiese.vorlauf} />}</>;
+    {[teppich, nah, fern, fotoWiese].map(r => r?.vorlauf && <primitive key={r.vorlauf.uuid} object={r.vorlauf} />)}</>;
 }
 
 /**

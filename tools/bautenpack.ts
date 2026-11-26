@@ -15,11 +15,12 @@ import { ALL_EXTENSIONS, EXTMeshoptCompression } from '@gltf-transform/extension
 import { dedup, instance, prune, quantize, textureCompress, weld } from '@gltf-transform/functions';
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer';
 import sharp from 'sharp';
+import { teilePflanzenfelder } from './pflanzenfelder.js';
 import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export async function packeBauwerk(eingabe: string, ausgabe: string, verlustfrei = false, kante = 1024, instanzen = false) {
+export async function packeBauwerk(eingabe: string, ausgabe: string, verlustfrei = false, kante = 1024, instanzen = false, pflanzenfelder = false) {
   await Promise.all([MeshoptEncoder.ready, MeshoptDecoder.ready]);
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
     'meshopt.encoder': MeshoptEncoder, 'meshopt.decoder': MeshoptDecoder,
@@ -37,6 +38,7 @@ export async function packeBauwerk(eingabe: string, ausgabe: string, verlustfrei
       textureCompress({ encoder: sharp, targetFormat: 'webp', quality: 82, resize: [kante, kante] }),
     );
   }
+  if (pflanzenfelder) console.log('Pflanzenfelder:', await teilePflanzenfelder(doc));
   // Nur der Codec, ohne meshopt()-Transform: der wuerde erneut quantisieren und umsortieren.
   // QUANTIZE bezeichnet hier den Codec-Modus fuer vorhandene Attribute, keinen neuen Quantisierungsschritt.
   // FILTER waere verlustbehaftet. TRIANGLES darf lediglich den Startindex eines Dreiecks zyklisch drehen.
@@ -55,10 +57,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   let ausgabe: string | undefined;
   let kante = 1024;
   let instanzen = false;
+  let pflanzenfelder = false;
   const args = process.argv.slice(2);
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--verlustfrei') verlustfrei = true;
     else if (args[i] === '--kante') kante = Number(args[++i]);
+    else if (args[i] === '--pflanzenfelder') pflanzenfelder = true;
     else if (args[i] === '--instanz') instanzen = true;
     else if (args[i] === '--aus') {
       if (ausgabe || !args[i + 1] || args[i + 1].startsWith('--')) throw new Error('--aus braucht genau einen Ausgabepfad.');
@@ -70,7 +74,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   if (ausgabe && existsSync(ausgabe)) throw new Error(`Ausgabe existiert bereits: ${ausgabe}. Fuer einen neuen Lauf einen neuen Namen verwenden.`);
   for (const eingabe of eingaben) {
     const ziel = ausgabe ?? eingabe;
-    const m = await packeBauwerk(eingabe, ziel, verlustfrei, kante, instanzen);
+    const m = await packeBauwerk(eingabe, ziel, verlustfrei, kante, instanzen, pflanzenfelder);
     console.log(`${ziel}: ${(m.vorher / 1048576).toFixed(2)} → ${(m.nachher / 1048576).toFixed(2)} MiB · ${m.texturen} Texturen · ${Math.round(m.dreiecke)} Dreiecke · ${m.netze} Netze`);
   }
 }

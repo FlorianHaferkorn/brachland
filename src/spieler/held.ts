@@ -228,6 +228,57 @@ export function setzeFigurUmgebung(obj: THREE.Object3D, karte: THREE.Texture | n
   });
 }
 
+/** Konservative Hülle der gerade gespielten Skelettpose (D481). Jeder gewichtete Eckpunkt
+ * liegt in der konvexen Hülle seiner Knochenbeiträge. So dürfen Haupt- und Schattenkamera
+ * dieselbe Figur unabhängig prüfen; Tagesroutine, Mixer und Fußsetzung laufen weiter. */
+export function begrenzeBewohner(obj: THREE.Object3D): () => void {
+  const ecke = new THREE.Vector3(), mitte = new THREE.Vector3();
+  const matrix = new THREE.Matrix4(), box = new THREE.Box3();
+  const teile: { mesh: THREE.SkinnedMesh; alt: THREE.Sphere; pruefte: boolean; knochen: { index: number; radius: number }[] }[] = [];
+  obj.traverse(o => {
+    if (!(o instanceof THREE.SkinnedMesh) || !o.visible || o.geometry.morphAttributes.position?.length) return;
+    const pos = o.geometry.getAttribute('position'), ind = o.geometry.getAttribute('skinIndex');
+    const gew = o.geometry.getAttribute('skinWeight');
+    if (!pos || !ind || !gew) return;
+    const radien = new Map<number, number>();
+    for (let i = 0; i < pos.count; i++) {
+      for (let j = 0; j < 4; j++) {
+        if (gew.getComponent(i, j) <= 0) continue;
+        const k = ind.getComponent(i, j);
+        ecke.fromBufferAttribute(pos, i).applyMatrix4(o.bindMatrix).applyMatrix4(o.skeleton.boneInverses[k]);
+        radien.set(k, Math.max(radien.get(k) ?? 0, ecke.lengthSq()));
+      }
+    }
+    if (!radien.size) return;
+    teile.push({ mesh: o, alt: o.boundingSphere, pruefte: o.frustumCulled, knochen: [...radien].map(([index, r]) => ({ index, radius: Math.sqrt(r) })) });
+    o.boundingSphere = new THREE.Sphere();
+    o.frustumCulled = true;
+  });
+  const fortschreiben = obj.updateMatrixWorld;
+  obj.updateMatrixWorld = function (force) {
+    fortschreiben.call(this, force);
+    // Nach den Kindmatrizen rechnen: Die Füße können im laufenden Bild bereits aufgesetzt haben.
+    for (const { mesh, knochen } of teile) {
+      box.makeEmpty();
+      for (const { index, radius } of knochen) {
+        matrix.multiplyMatrices(mesh.bindMatrixInverse, mesh.skeleton.bones[index].matrixWorld);
+        mitte.setFromMatrixPosition(matrix);
+        // Länge jeder Zeile = größtmögliche Verschiebung der Kugel entlang der jeweiligen Achse.
+        const e = matrix.elements;
+        const x = radius * Math.hypot(e[0], e[4], e[8]), y = radius * Math.hypot(e[1], e[5], e[9]);
+        const z = radius * Math.hypot(e[2], e[6], e[10]);
+        box.expandByPoint(ecke.set(mitte.x - x, mitte.y - y, mitte.z - z));
+        box.expandByPoint(ecke.set(mitte.x + x, mitte.y + y, mitte.z + z));
+      }
+      box.getBoundingSphere(mesh.boundingSphere!);
+    }
+  };
+  return () => {
+    obj.updateMatrixWorld = fortschreiben;
+    for (const { mesh, alt, pruefte } of teile) { mesh.frustumCulled = pruefte; mesh.boundingSphere = alt; }
+  };
+}
+
 /**
  * Wahl auf ein geladenes Gestalt-Modell legen: Frisur/Bart sichtbar, Haut und Haar getönt. Klont
  * die Materialien beim ersten Mal — mehrere Figuren aus derselben Datei teilen sonst die Farbe.

@@ -70,79 +70,104 @@ function waehle(wurf: number, gewichte: readonly number[]): number {
   return -1;
 }
 
+/** Nur Zellen im aktuellen Suchquadrat behalten. Gespeichert werden die unveränderten
+ * Matrizen der ortsfesten Saat. Die Auswahl im Kreis und die Zeichenreihenfolge bleiben gleich. */
+type Zellpflanze = { art: keyof BodenMatrizen; kachel: number; matrix: THREE.Matrix4 };
+export type BodenpflanzenCache = Map<number, Map<number, Zellpflanze[]>>;
+
 export function bodenMatrizen(
   mx: number, mz: number, radius: number,
   hoeheAn: (x: number, z: number) => number, biomAn: (x: number, z: number) => Biom,
-  baeume: Map<string, StreuBaum[]>,
+  baeume: Map<string, StreuBaum[]>, cache?: BodenpflanzenCache,
 ): BodenMatrizen {
   const flach: THREE.Matrix4[][] = [[], [], [], []], busch: THREE.Matrix4[][] = [[], [], [], []];
   const z = new THREE.Vector3(0, 0, 1), n = new THREE.Vector3(), q = new THREE.Quaternion(), dreh = new THREE.Quaternion();
   const p = new THREE.Vector3(), s = new THREE.Vector3(), y = new THREE.Vector3(0, 1, 0);
   const x0 = Math.floor(mx - radius), x1 = Math.ceil(mx + radius), z0 = Math.floor(mz - radius), z1 = Math.ceil(mz + radius);
-  for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) {
-    let h = zellHash(ix, iz, 366);
-    const wurf = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };
-    const x = ix + wurf(), zz = iz + wurf();
-    if ((x - mx) ** 2 + (zz - mz) ** 2 > radius * radius) continue;
-    const regel = BIOM[biomAn(x, zz)];
-    if (!regel) continue;
-    const krone = naechsteKrone(baeume, x, zz);
-    // Schatten: unter der Krone voll, am Rand über 1,5 m auslaufend; in Lücken bis 6 m vom Rand noch Halbschatten.
-    const schatten = krone ? Math.max(kronenDeckung(krone.rand), 0.5 * (1 - Math.min(1, Math.max(0, krone.rand) / 6))) : 0;
-    const licht = 1 - schatten, nadel = krone?.nadel ?? false;
-    const farn = 1 - 0.75 * farnBestand(x, zz);
-    const hier = hoeheAn(x, zz);
-    // Erhebung: Höhe gegen das Mittel im 1,5-m-Kreuz (Buckel, Wurzelanlauf).
-    const buckel = hier - (hoeheAn(x - 1.5, zz) + hoeheAn(x + 1.5, zz) + hoeheAn(x, zz - 1.5) + hoeheAn(x, zz + 1.5)) / 4;
+  const ergebnis = { flach, busch };
+  if (cache) for (const [ix, zeile] of cache) {
+    if (ix < x0 || ix > x1) cache.delete(ix);
+    else for (const iz of zeile.keys()) if (iz < z0 || iz > z1) zeile.delete(iz);
+  }
+  for (let ix = x0; ix <= x1; ix++) {
+    let zeile = cache?.get(ix);
+    if (cache && !zeile) { zeile = new Map(); cache.set(ix, zeile); }
+    for (let iz = z0; iz <= z1; iz++) {
+      let h = zellHash(ix, iz, 366);
+      const wurf = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return ((h >>> 0) % 100000) / 100000; };
+      const x = ix + wurf(), zz = iz + wurf();
+      if ((x - mx) ** 2 + (zz - mz) ** 2 > radius * radius) continue;
+      const vorhanden = zeile?.get(iz);
+      if (vorhanden) {
+        for (const pflanze of vorhanden) ergebnis[pflanze.art][pflanze.kachel].push(pflanze.matrix);
+        continue;
+      }
+      const neu: Zellpflanze[] | undefined = zeile ? [] : undefined;
+      if (neu) zeile!.set(iz, neu);
+      const regel = BIOM[biomAn(x, zz)];
+      if (!regel) continue;
+      const krone = naechsteKrone(baeume, x, zz);
+      // Schatten: unter der Krone voll, am Rand über 1,5 m auslaufend; in Lücken bis 6 m vom Rand noch Halbschatten.
+      const schatten = krone ? Math.max(kronenDeckung(krone.rand), 0.5 * (1 - Math.min(1, Math.max(0, krone.rand) / 6))) : 0;
+      const licht = 1 - schatten, nadel = krone?.nadel ?? false;
+      const farn = 1 - 0.75 * farnBestand(x, zz);
+      const hier = hoeheAn(x, zz);
+      // Erhebung: Höhe gegen das Mittel im 1,5-m-Kreuz (Buckel, Wurzelanlauf).
+      const buckel = hier - (hoeheAn(x - 1.5, zz) + hoeheAn(x + 1.5, zz) + hoeheAn(x, zz - 1.5) + hoeheAn(x, zz + 1.5)) / 4;
 
-    // D366 (Stilreferenz Flo): Unterwuchs wächst in dichten, zusammenhängenden Polstern, nicht als verstreute
-    // Einzelpflanzen. Ein weiches Rauschen (7 m und 2,5 m) legt die Polster; darin bis zu 2 Felder und 3 Büschel je m²,
-    // dazwischen fast nichts. Am Kronenrand (Wald- und Wegrand, Lücken) stehen die Polster am dichtesten.
-    const polsterRauschen = 0.65 * haeufung(x + 17.3, zz - 9.1, 7) + 0.35 * haeufung(x - 4.2, zz + 3.7, 2.5);
-    const polster = 0.15 + 2.2 * glatt(0.38, 0.68, polsterRauschen);
-    const rand = krone ? Math.max(0, 1 - Math.abs(krone.rand - 2) / 4) : 0;
+      // D366 (Stilreferenz Flo): Unterwuchs wächst in dichten, zusammenhängenden Polstern, nicht als verstreute
+      // Einzelpflanzen. Ein weiches Rauschen (7 m und 2,5 m) legt die Polster; darin bis zu 2 Felder und 3 Büschel je m²,
+      // dazwischen fast nichts. Am Kronenrand (Wald- und Wegrand, Lücken) stehen die Polster am dichtesten.
+      const polsterRauschen = 0.65 * haeufung(x + 17.3, zz - 9.1, 7) + 0.35 * haeufung(x - 4.2, zz + 3.7, 2.5);
+      const polster = 0.15 + 2.2 * glatt(0.38, 0.68, polsterRauschen);
+      const rand = krone ? Math.max(0, 1 - Math.abs(krone.rand - 2) / 4) : 0;
 
-    // 1. Flache Felder: zwei Würfe je Zelle (versetzt), damit Polster lückenlos überlappen.
-    const moos = Math.min(0.6, Math.max(0, buckel * 12)) + (nadel ? 0.15 : 0.05) * schatten;
-    const gewichteFlach = deckeln(regel.nurMoos ? [0, moos, 0, 0] : [
-      (nadel ? 0.32 : 0.22) * schatten,                    // Sauerklee: Schatten, Fichten- und Buchenwald
-      moos,
-      (nadel ? 0.04 : 0.26) * schatten,                    // Waldmeister: Buchenwald, Schatten
-      0.18 * Math.min(1, 2 * Math.min(schatten, licht)) + 0.06, // Kräuter und Keimlinge: Halbschatten
-    ].map(g => g * regel.flach * farn * polster));
-    for (let versuch = 0; versuch < 2; versuch++) {
-      const kf = waehle(wurf(), gewichteFlach);
-      if (kf < 0) continue;
-      const fx = x + versuch * (wurf() - 0.5), fz = zz + versuch * (wurf() - 0.5);
-      const e = 0.4;
-      n.set(hoeheAn(fx - e, fz) - hoeheAn(fx + e, fz), 2 * e, hoeheAn(fx, fz - e) - hoeheAn(fx, fz + e)).normalize();
-      q.setFromUnitVectors(z, n);
-      dreh.setFromAxisAngle(z, wurf() * Math.PI * 2);
-      const k = KACHELN.bodenflach[kf].kante * (0.85 + 0.3 * wurf());
-      p.set(fx, hoeheAn(fx, fz) + 0.03, fz);
-      s.set(k, k, 1);
-      flach[kf].push(new THREE.Matrix4().compose(p, q.clone().multiply(dreh), s));
-    }
+      // 1. Flache Felder: zwei Würfe je Zelle (versetzt), damit Polster lückenlos überlappen.
+      const moos = Math.min(0.6, Math.max(0, buckel * 12)) + (nadel ? 0.15 : 0.05) * schatten;
+      const gewichteFlach = deckeln(regel.nurMoos ? [0, moos, 0, 0] : [
+        (nadel ? 0.32 : 0.22) * schatten,                    // Sauerklee: Schatten, Fichten- und Buchenwald
+        moos,
+        (nadel ? 0.04 : 0.26) * schatten,                    // Waldmeister: Buchenwald, Schatten
+        0.18 * Math.min(1, 2 * Math.min(schatten, licht)) + 0.06, // Kräuter und Keimlinge: Halbschatten
+      ].map(g => g * regel.flach * farn * polster));
+      for (let versuch = 0; versuch < 2; versuch++) {
+        const kf = waehle(wurf(), gewichteFlach);
+        if (kf < 0) continue;
+        const fx = x + versuch * (wurf() - 0.5), fz = zz + versuch * (wurf() - 0.5);
+        const e = 0.4;
+        n.set(hoeheAn(fx - e, fz) - hoeheAn(fx + e, fz), 2 * e, hoeheAn(fx, fz - e) - hoeheAn(fx, fz + e)).normalize();
+        q.setFromUnitVectors(z, n);
+        dreh.setFromAxisAngle(z, wurf() * Math.PI * 2);
+        const k = KACHELN.bodenflach[kf].kante * (0.85 + 0.3 * wurf());
+        p.set(fx, hoeheAn(fx, fz) + 0.03, fz);
+        s.set(k, k, 1);
+        const matrix = new THREE.Matrix4().compose(p, q.multiply(dreh), s);
+        flach[kf].push(matrix);
+        neu?.push({ art: 'flach', kachel: kf, matrix });
+      }
 
-    // 2. Stehende Büschel: drei Würfe je Zelle, eigene Gewichte, am Kronenrand bis 2,5-fach.
-    const gewichteBusch = deckeln([
-      (nadel ? 0.03 : 0.16) * schatten,                    // Waldmeister-Büschel
-      0.32 * licht * regel.brombeere * (krone ? 1 : 0.4),  // Brombeere: Kronenrand und Lücken
-      (nadel ? 0.03 : 0.12) * Math.min(1, 2 * Math.min(schatten + 0.2, licht + 0.2)), // Jungbuche: Halbschatten
-      (nadel ? 0.12 : 0.03) * Math.min(1, 2 * Math.min(schatten + 0.2, licht + 0.2)), // Jungfichte
-    ].map(g => g * regel.busch * farn * polster * (1 + 1.5 * rand)));
-    for (let versuch = 0; versuch < 3; versuch++) {
-      const kb = waehle(wurf(), gewichteBusch);
-      if (kb < 0) continue;
-      const k = KACHELN.bodenbusch[kb].kante * (0.8 + 0.4 * wurf());
-      p.set(x + (wurf() - 0.5) * 0.9, 0, zz + (wurf() - 0.5) * 0.9);
-      p.y = hoeheAn(p.x, p.z) - 0.02;                       // 2 cm eingesenkt: kein Spalt am Hang
-      dreh.setFromAxisAngle(y, wurf() * Math.PI);
-      s.set(k, k, k);
-      busch[kb].push(new THREE.Matrix4().compose(p, dreh, s));
+      // 2. Stehende Büschel: drei Würfe je Zelle, eigene Gewichte, am Kronenrand bis 2,5-fach.
+      const gewichteBusch = deckeln([
+        (nadel ? 0.03 : 0.16) * schatten,                    // Waldmeister-Büschel
+        0.32 * licht * regel.brombeere * (krone ? 1 : 0.4),  // Brombeere: Kronenrand und Lücken
+        (nadel ? 0.03 : 0.12) * Math.min(1, 2 * Math.min(schatten + 0.2, licht + 0.2)), // Jungbuche: Halbschatten
+        (nadel ? 0.12 : 0.03) * Math.min(1, 2 * Math.min(schatten + 0.2, licht + 0.2)), // Jungfichte
+      ].map(g => g * regel.busch * farn * polster * (1 + 1.5 * rand)));
+      for (let versuch = 0; versuch < 3; versuch++) {
+        const kb = waehle(wurf(), gewichteBusch);
+        if (kb < 0) continue;
+        const k = KACHELN.bodenbusch[kb].kante * (0.8 + 0.4 * wurf());
+        p.set(x + (wurf() - 0.5) * 0.9, 0, zz + (wurf() - 0.5) * 0.9);
+        p.y = hoeheAn(p.x, p.z) - 0.02;                       // 2 cm eingesenkt: kein Spalt am Hang
+        dreh.setFromAxisAngle(y, wurf() * Math.PI);
+        s.set(k, k, k);
+        const matrix = new THREE.Matrix4().compose(p, dreh, s);
+        busch[kb].push(matrix);
+        neu?.push({ art: 'busch', kachel: kb, matrix });
+      }
     }
   }
-  return { flach, busch };
+  return ergebnis;
 }
 
 /** Liegende Karte 1 × 1 (Ebene z = 0, wie die Streu). */

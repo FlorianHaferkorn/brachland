@@ -301,6 +301,13 @@
   "quelle": "Poly Haven [Island Tree 01](https://polyhaven.com/a/island_tree_01) und [Island Tree 02](https://polyhaven.com/a/island_tree_02), glTF 2K. Lagen aus der eigenen Zielbild-Szene, Spielaufbereitung mit tools/laubbueschel/scanbacken.mjs."
  },
  {
+  "datei": "bauten-ziel/felsmulde-fernhang.glb",
+  "rolle": "D481. Vorderer Waldhang aus regionalem Höhenraster, auf den gestalteten Kamm angehoben. Digitales Orthophoto desselben Gebiets im Œntal aufgelöst und für Ferndunst farblich bearbeitet",
+  "autor": "Bayerische Vermessungsverwaltung – www.geodaten.bayern.de (DOP20 und DGM1), BRACHLAND (Bearbeitung)",
+  "lizenz": "[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet",
+  "quelle": "[DOP20 OpenData, Layer by_dop20c](https://geoservices.bayern.de/od/wms/dop/v1/dop20?SERVICE=WMS&REQUEST=GetCapabilities), abgerufen 26.11.2026, 47,717549–47,737671° N und 12,071884–12,080966° O. Gelände abgeleitet aus dem vorhandenen [DGM1-Spielraster](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1)."
+ },
+ {
   "datei": "bauten-ziel/felsmulde-bergruecken.glb",
   "rolle": "Vier gestaffelte Fernrücken, Farbverlauf und Waldsilhouette",
   "autor": "BRACHLAND",

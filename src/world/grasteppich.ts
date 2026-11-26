@@ -21,7 +21,7 @@ import type { QuerschnittGrasmaske } from './strassenquerschnitt.js';
 import { WIESENBEREICH_GLSL, wiesenKontaktGlsl, WIESENWUCHS_GLSL, type Wiesenbereich } from './wiesenbereich.js';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN, MILBINGERDETAIL_AN, LOOK_FELS_AN } from './echt.js';
+import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN, MILBINGERDETAIL_AN, LOOK_FELS_AN, FELS_BILDTAKT_AN } from './echt.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_BLUME, HORST_GRUEN, HORST_HALM, HORST_KRAUT, HORST_SCHWELLE, HORST_STROH, HORST_ZAHL } from './grashorst.js';
 import { HOF_UNIFORM } from './hofplatz.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
@@ -157,7 +157,7 @@ export function baueGrasteppich(
   // D255: gezielte Vergleichsprobe; ohne Parameter bleibt der bestehende Look.
   // Alle Ringe verwenden denselben ortsfesten Faktor, ohne neue Geometrie.
   // D310: Vergleichsschalter am Hof. Halme ohne Fläche brauchen keine weitere Shaderarbeit.
-  const sparsam = HOF_GRAS_AN && new URLSearchParams(location.search).get('teppichspar') !== '0';
+  const sparsam = (HOF_GRAS_AN || FELS_BILDTAKT_AN) && new URLSearchParams(location.search).get('teppichspar') !== '0';
   const schneideAb = (bedingung: string) => sparsam
     ? `if (${bedingung}) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }` : '';
   const strukturAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('grasstruktur') === '1';
@@ -454,7 +454,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
     const basis = material.customProgramCacheKey;
     material.customProgramCacheKey = () => basis() + (kontakt ? '-wildwiese-kontakt' : '-wildwiese');
   }
-  const teile: { mesh: THREE.Mesh<THREE.InstancedBufferGeometry>; x: number; z: number; breite: number; tiefe: number }[] = [];
+  const teile: { mesh: THREE.Mesh<THREE.InstancedBufferGeometry>; x: number; z: number; breite: number; tiefe: number; bewachsen: boolean }[] = [];
   const gruppe = new THREE.Group();
   for (let z = 0; z < n; z += kachelZellen) {
     for (let x = 0; x < n; x += kachelZellen) {
@@ -479,12 +479,12 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       teil.frustumCulled = kachelnAn;
       teil.receiveShadow = true;
       gruppe.add(teil);
-      teile.push({ mesh: teil, x: x - n / 2, z: z - n / 2, breite, tiefe });
+      teile.push({ mesh: teil, x: x - n / 2, z: z - n / 2, breite, tiefe, bewachsen: false });
     }
   }
   const mesh = kachelnAn ? gruppe : gruppe.children[0]!;
   mesh.name = nurWiesenbereich ? 'Grasteppich-Milbinger-Foto' : innen > 0 ? 'Grasteppich-fern' : halb === TEPPICH_HALB ? 'Grasteppich' : 'Grasteppich-nah';
-  const vorlauf = nurWiesenbereich ? new THREE.Mesh(teile[0].mesh.geometry.clone(), material) : undefined;
+  const vorlauf = nurWiesenbereich || FELS_BILDTAKT_AN ? new THREE.Mesh(teile[0].mesh.geometry.clone(), material) : undefined;
   if (vorlauf) {
     // Three bindet das Shaderprogramm auch bei null Instanzen. Damit landet
     // das erste Warten auf den Treiber beim Szenenstart und keine Karte im Bild.
@@ -496,11 +496,28 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   // Größtmöglicher Überstand in x/z inklusive Wind, Biegung und breitem Fernhalm.
   const ueberstand = echt || viel ? 5 : 1.3;
 
+  const ringtest = FELS_BILDTAKT_AN && sparsam && kachelnAn;
+  // Dieselben gerundeten Grenzen wie im GLSL; Spielraum für Float32 am Weltort.
+  const aussen2 = (Number((halb * 0.98).toFixed(1)) + 0.01) ** 2;
+  const innen2 = Math.max(0, Number((innen * 0.45).toFixed(1)) - 0.01) ** 2;
+  function pruefeRing(mx: number, mz: number): void {
+    const raster = uniforms.uRaster.value;
+    for (const t of teile) {
+      if (!t.bewachsen) continue;
+      const x0 = (raster.x + t.x) * zelle - mx, x1 = x0 + t.breite * zelle;
+      const z0 = (raster.y + t.z) * zelle - mz, z1 = z0 + t.tiefe * zelle;
+      const dx = Math.max(0, x0, -x1), dz = Math.max(0, z0, -z1);
+      const ax = Math.max(Math.abs(x0), Math.abs(x1)), az = Math.max(Math.abs(z0), Math.abs(z1));
+      t.mesh.visible = dx * dx + dz * dz <= aussen2 && ax * ax + az * az >= innen2;
+    }
+  }
   function setzeKachelgrenzen(): void {
     const raster = uniforms.uRaster.value;
     const texelIndex = (wert: number, ursprung: number) =>
       Math.max(0, Math.min(FELD_TEXEL - 1, Math.floor((wert - ursprung) / texel - 0.5)));
-    for (const { mesh, x, z, breite, tiefe } of teile) {
+    for (const teil of teile) {
+      const { mesh, x, z, breite, tiefe } = teil;
+      teil.bewachsen = false;
       const x0 = (raster.x + x) * zelle, x1 = x0 + breite * zelle;
       const z0 = (raster.y + z) * zelle, z1 = z0 + tiefe * zelle;
       if (wiesenbereich) {
@@ -526,6 +543,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
       // D464: Kachel ohne einen Halm (Dichte überall 0: Freihaltung, Wasser, Weg, Fels) gar nicht zeichnen
       if (!wiesenbereich) mesh.visible = dicht > 0;
       if (dicht <= 0) { mesh.visible = false; continue; }
+      teil.bewachsen = true;
       box.min.set(x0 - ueberstand, tief - 0.01, z0 - ueberstand);
       box.max.set(x1 + ueberstand, hoch + ueberstand, z1 + ueberstand);
       box.getBoundingSphere(mesh.geometry.boundingSphere!);
@@ -543,8 +561,21 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   /** Laufende Füllung: Ursprung, Mitte und nächste Zeile; `zeile < 0` heisst keine. */
   const lauf = { x0: 0, z0: 0, mx: 0, mz: 0, zeile: -1 };
 
+  // Beide Felder haben ein ortsfestes Raster. Gemeinsame Texel ändern sich beim Gehen
+  // nicht, ihr alter Wert stammt aus demselben Höhenfeld, Wegtest und Biomeintrag.
+  let hatVorderfeld = false, versatzX = 0, versatzZ = 0;
+
   function fuelleZeile(i: number): void {
+    const altI = i + versatzZ;
+    const start = Math.max(0, -versatzX), ende = Math.min(FELD_TEXEL, FELD_TEXEL - versatzX);
+    const gemeinsam = FELS_BILDTAKT_AN && hatVorderfeld && altI >= 0 && altI < FELD_TEXEL && start < ende;
+    if (gemeinsam) {
+      const von = 4 * (altI * FELD_TEXEL + start + versatzX), bis = von + 4 * (ende - start);
+      const ziel = 4 * (i * FELD_TEXEL + start);
+      datenNeu.set(daten.subarray(von, bis), ziel); tonNeu.set(ton.subarray(von, bis), ziel);
+    }
     for (let j = 0; j < FELD_TEXEL; j++) {
+      if (gemeinsam && j === start) { j = ende - 1; continue; }
       const x = lauf.x0 + (j + 0.5) * texel, z = lauf.z0 + (i + 0.5) * texel, k = (i * FELD_TEXEL + j) * 4;
       const h = nurWiesenbereich ? hoeheAufFlaeche(feld, x, z) : feld.hoehe(x, z);
       const biom = feld.biom(x, z);
@@ -573,21 +604,25 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
 
   function ziehNach(mx: number, mz: number, frist = Infinity): boolean {
     uniforms.uMitte.value.set(mx, mz);
+    if (ringtest) pruefeRing(mx, mz);
     if (lauf.zeile < 0) {
       if (Math.hypot(mx - letzte.x, mz - letzte.y) < nachziehen) return false;
       letzte.set(mx, mz);
       lauf.mx = mx; lauf.mz = mz; lauf.zeile = 0;
       lauf.x0 = (Math.floor(mx / texel) - FELD_TEXEL / 2) * texel;
       lauf.z0 = (Math.floor(mz / texel) - FELD_TEXEL / 2) * texel;
+      versatzX = Math.round((lauf.x0 - uniforms.uFeldUrsprung.value.x) / texel);
+      versatzZ = Math.round((lauf.z0 - uniforms.uFeldUrsprung.value.y) / texel);
     }
     do fuelleZeile(lauf.zeile++);
     while (lauf.zeile < FELD_TEXEL && performance.now() < frist);
     if (lauf.zeile < FELD_TEXEL) return true;
     lauf.zeile = -1;
-    daten.set(datenNeu); ton.set(tonNeu);
+    daten.set(datenNeu); ton.set(tonNeu); hatVorderfeld = true;
     uniforms.uFeldUrsprung.value.set(lauf.x0, lauf.z0, 1 / FELD_TEXEL);
     uniforms.uRaster.value.set(Math.round(lauf.mx / zelle), Math.round(lauf.mz / zelle), zelle);
     if (kachelnAn) setzeKachelgrenzen();
+    if (ringtest) pruefeRing(mx, mz);
     feldTextur.needsUpdate = true;
     tonTextur.needsUpdate = true;
     return true;

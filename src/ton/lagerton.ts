@@ -8,7 +8,7 @@
  * Der AudioContext wird ohne Ton im Leerlauf vorbereitet. Der Klanggraph und
  * `resume()` entstehen erst bei einer expliziten Eingabe (Autoplay-Regel).
  */
-import { HOF_BILDRUHE_AN } from '../world/echt.js';
+import { FELS_BILDTAKT_AN, HOF_BILDRUHE_AN } from '../world/echt.js';
 
 const VOLL = 8, STILL = 45;
 
@@ -83,7 +83,7 @@ if (typeof window !== 'undefined') {
   if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(() => { bereiteVor(); }, { timeout: 1500 });
   else window.setTimeout(() => { bereiteVor(); }, 0);
   const an = () => {
-    if (HOF_BILDRUHE_AN) {
+    if (HOF_BILDRUHE_AN || FELS_BILDTAKT_AN) {
       gesteGesehen = true;
       bereiteVor();
       if (ctx?.state === 'running') return;
@@ -97,7 +97,7 @@ if (typeof window !== 'undefined') {
 
 /** Pro Bild: Abstand zum nächsten besetzten Lager (m) und ob es Nacht ist. `Infinity` = kein Lager. */
 export function lagerTon(abstand: number, nacht: boolean): void {
-  if (HOF_BILDRUHE_AN && !master) {
+  if ((HOF_BILDRUHE_AN || FELS_BILDTAKT_AN) && !master) {
     // Entsperren bleibt in der Eingabegeste. Der Klanggraph wird erst am hörbaren Lager gebraucht.
     lagerHoerbar = abstand < STILL;
     if (gesteGesehen && ctx?.state === 'running' && lagerHoerbar && !graphGeplant) {

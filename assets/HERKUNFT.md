@@ -255,7 +255,7 @@ Abschnitt „Herkunft" hat.
 
 ## Zielbild Felsmulde im Spiel (D448)
 
-`public/bauten-ziel/felsmulde-*.glb` sind aus der Zielbild-Szene (`tools/stilframes.py` Runde 4) gebacken. Alle Oberflächen
+`public/bauten-ziel/felsmulde-*.glb` sind aus der Zielbild-Szene (`tools/stilframes.py` Runde 4) gebacken. Die Oberflächen der Mauern, Pflanzen und des Bodens
 stammen aus Poly-Haven-Scans, CC0 1.0 (keine Nennung nötig, hier zur Nachverfolgung): Mauerwerk `broken_wall`,
 `castle_wall_slates`; Boden `forest_leaves_02`, `forest_leaves_04`, `forest_ground_04`, `brown_mud_leaves_01`, `mud_forest`;
 Felsen und Steine `rock_moss_set_01`, `rock_moss_set_02`; Moos `moss_01`; Pflanzen `grass_medium_01`, `grass_medium_02`,
@@ -265,4 +265,5 @@ Felsen und Steine `rock_moss_set_01`, `rock_moss_set_02`; Moos `moss_01`; Pflanz
 | Datei unter `public/` | Rolle | Autor | Lizenz | Quelle |
 |---|---|---|---|---|
 | `bauten-ziel/felsmulde-bueschel.glb` | Scan-Bäume der Felsmulde, Stamm und gebackene Büschelkarten aus Originalblättern und Ästen | Rob Tuytel (Scan), Rico Cilliers und Rob Tuytel (Aufbereitung) | CC0 1.0 | Poly Haven [Island Tree 01](https://polyhaven.com/a/island_tree_01) und [Island Tree 02](https://polyhaven.com/a/island_tree_02), glTF 2K. Lagen aus der eigenen Zielbild-Szene, Spielaufbereitung mit `tools/laubbueschel/scanbacken.mjs`. |
+| `bauten-ziel/felsmulde-fernhang.glb` | D481. Vorderer Waldhang aus regionalem Höhenraster, auf den gestalteten Kamm angehoben. Digitales Orthophoto desselben Gebiets im Œntal aufgelöst und für Ferndunst farblich bearbeitet | Bayerische Vermessungsverwaltung – www.geodaten.bayern.de (DOP20 und DGM1), BRACHLAND (Bearbeitung) | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) · bearbeitet | [DOP20 OpenData, Layer by_dop20c](https://geoservices.bayern.de/od/wms/dop/v1/dop20?SERVICE=WMS&REQUEST=GetCapabilities), abgerufen 26.11.2026, 47,717549–47,737671° N und 12,071884–12,080966° O. Gelände abgeleitet aus dem vorhandenen [DGM1-Spielraster](https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dgm1). |
 | `bauten-ziel/felsmulde-bergruecken.glb` | Vier gestaffelte Fernrücken, Farbverlauf und Waldsilhouette | BRACHLAND | Eigene Gestaltung | Eigene Blender-Szene aus `tools/stilframes.py` (Runde 4), aufbereitet mit `tools/bergrueckenexport.py`. |

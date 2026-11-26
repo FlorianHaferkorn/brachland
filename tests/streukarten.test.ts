@@ -71,3 +71,11 @@ assert.ok(unter > 3 * zwischen, `Decke nicht dichter als die Inseln (${unter.toF
 assert.ok(kronenDeckung(-1) === 1 && kronenDeckung(1) === 0 && kronenDeckung(0) > 0.3 && kronenDeckung(0) < 0.7, 'Übergang am Kronenrand');
 console.log(`streukarten: Deckung unter der Krone Wald ${(wald45.anteil * 100).toFixed(0)} %, Wiese ${(wiese45.anteil * 100).toFixed(0)} %; `
   + `Decke ${unter.toFixed(2)}/m² gegen Inseln ${zwischen.toFixed(2)}/m²; Häufung VK ${vk.toFixed(2)}; Wald ${wald}, Wiese ${wiese}, Wasser ${wasser} (ohne Bäume, 30-m-Kreis)`);
+
+// Das wandernde Suchfenster muss auch am Kreisrand und nach einem Sprung
+// dieselben Karten in derselben Reihenfolge ergeben wie die volle Aussaat.
+const cache = {};
+for (const [x, z] of [[0, 0], [15.2, -.7], [-.3, 1], [440, -200], [0, 0]]) {
+  const normal = streuMatrizen(x, z, 18, hoehe, () => 'wald', raster);
+  assert.deepEqual(streuMatrizen(x, z, 18, hoehe, () => 'wald', raster, cache), normal);
+}
