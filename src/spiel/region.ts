@@ -9,6 +9,7 @@
  * Moduls, und das läuft auch unter `tsx` in den Tests, wo `import.meta.glob` fehlt.
  * Ob es die Region gibt, prüft deshalb erst `main.tsx` gegen `REGIONEN`.
  */
+import { ORTSPARAMETER } from './zielort.js';
 import type { Region } from '../data/schema.js';
 
 export const START_REGION = 'oental';
@@ -21,7 +22,7 @@ export function regionAusSuche(suche: string): string {
 }
 
 export const AKTIVE_REGION: string =
-  typeof location === 'undefined' ? START_REGION : regionAusSuche(location.search);
+  ORTSPARAMETER.get('region')?.trim().toLowerCase() || START_REGION;
 
 /** Nur, was in dieser Region liegt. Aufträge, Orte und Fundstücke tragen ihre Region selbst. */
 export const inRegion = <T extends { region: string }>(liste: Iterable<T>, region: string): T[] =>

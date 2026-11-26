@@ -734,6 +734,30 @@ Die Galerie `.cache/bilder/d348-milbinger/index.html` zeigt drei Kamerapaare und
 
 Vier separate Läufe ohne Aufnahme am M1 bei 960 × 540 (`0/1/1/0`) ergeben 50,83 → 48,97 FPS. Gepoolt liegt p95 in beiden Varianten bei 33,40 ms. Die längsten Bildzeiten liegen bei 50,10 → 35,30 ms. Die Zahl der Frames über 50 ms liegt bei 1 → 0. Der Straßenkörper wächst im selben Draw Call von 9.646 auf 11.530 Dreiecke. Bei ausgeschaltetem Schalter bleibt das Mesh bytegleich zu D347. Rohdaten: `.cache/mess/d348-final-nah-{a1,b1,b2,a2}`.
 
+## Vom Hof auf die Milbinger Straße (D482)
+
+Das Luftbild legt Grenzen und Verlauf der geschotterten Zufahrt bei Station 137,6–141,7 m fest. Über 6,70 m fällt
+das vorhandene Höhenmodell um 10 cm zur Rinne. An der tieferen Seite liegen 33 Splittkiesel und bis zu 13 mm
+modelliertes Schwemmsediment. Zwei mit 24 Gras- und Krauthorsten besetzte Wurzelinseln zwischen den Radspuren
+tragen bis zu 45 mm auf. Für diese kleinen Auflagen bleibt die begehbare Fläche das regionale Geländemodell.
+Beide Radspuren und der abgesenkte Bord behalten ihre Höhe. Das sind gestaltete Spuren nach dem Verlassen des Orts.
+Die fünf fiktiven Baustellen-Farbreste aus D348 entfallen in dieser Fassung. Der bestehende Straßenkörper
+wächst um 494 Dreiecke, die Bewuchsgruppen zusammen um 96 Dreiecke. Die Anzahl der Aufrufe für diese Gruppen bleibt gleich.
+
+[`?ziel=milbinger`](../tools/ort/milbinger.json) startet am Grundstück. Die Ortsakte enthält die Spielposition,
+die Wegpunkte und die feste Kamera `kies`. Das [Blender-Bild der Zufahrt](bilder/zielbild/d482-milbinger-zufahrt.jpg)
+zeigt die unabhängige D348-Materialstudie aus dieser Kamera. Die Kamera und die realen Maße sind die Grundlage für den
+Vergleich. Der Zustand einzelner Schäden und Pflanzen ist gestaltet. Bildvergleich, Gang und getrennte Bildzeitmessung
+liegen lokal unter `.cache/bilder/D482/`.
+
+Auf dem M1 bei 960 × 540 und DPR 1 erreichten beide D481-Läufe das zweite Wegziel mit 47,62 und 50,58 B/s
+(p95 34,1 und 33,4 ms, je sechs Frames über 50 ms). Mit D482 waren es 49,81 und 50,41 B/s
+(p95 33,5 und 33,4 ms, fünf und vier Frames über 50 ms). Alle langen Frames lagen auf der Fahrbahn.
+Die höchste Bildzeit betrug in den beiden D482-Läufen 115,9 und 66,6 ms. Ein weiterer Start erreichte
+das Ladezeitsignal innerhalb von 120 s nicht und lieferte keine Bildzeitmessung.
+Im festen Kiesblick erfüllen sechs der sieben Bildwerte die Toleranz. Die Lichter sind kühler als in Blender
+(Rot minus Blau −0,03 statt +0,08). Hier meldet das Spiel 4,37 Millionen Dreiecke bei einem Ortsbudget von 1,3 Millionen.
+
 ## DGM1-Fernrelief rund um die Region (D349)
 
 D345 ersetzte das grobe 125-m-Raster nur am Südosthang hinter der Milbinger Straße. Nach Norden, Westen und Osten standen weiter die glatten Flanken aus EU-DEM 25 m, abgetastet auf 125 m. An den 4.900 gemeinsamen Knoten liegt dieses Raster im Median 6 m, im 95. Perzentil 28 m und höchstens 84 m neben dem amtlichen DGM1.

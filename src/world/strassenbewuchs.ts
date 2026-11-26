@@ -7,7 +7,7 @@ import { WEG_TEILUNG } from './terrain.js';
 import { MILBINGERSUBSTANZ_AN } from './echt.js';
 import {
   BORD_ABSENKUNG, DECKE_UEBER_GRUND, GEHWEG_RANDABTRAG, ZUFAHRT_UEBER_GRUND,
-  gehwegRandverfall, querschnittFreihaltung, querschnittSaum,
+  gehwegRandverfall, querschnittFreihaltung, querschnittSaum, wurzelinsel,
 } from './strassenquerschnitt.js';
 import type { WohnwegQuerschnitt } from '../data/schema.js';
 
@@ -31,6 +31,7 @@ export interface StrassenbewuchsWeg {
   randverfall?: boolean;
   /** Pflanzeninseln in ausgespülten, offenen Fahrbahnrändern. */
   strassenfinale?: boolean;
+  hofzufahrt?: boolean;
   bodenpassend?: boolean;
   /** Erhaltene Zugänge an der Straße, in Weltmetern. */
   wohnwegZugaenge?: readonly (readonly [number, number])[];
@@ -181,6 +182,7 @@ export function baueStrassenbewuchs(
   };
   const matrix = new THREE.Matrix4(), skalierung = new THREE.Vector3(), farbe = new THREE.Color();
 
+  let inselhorste = 0, schwemmkiesel = 0;
   let saumhorste = 0, saumflecken = 0, zufahrtshorste = 0, nahthorste = 0;
   let randlinsen = 0, randhorste = 0, randbruch = 0, zufahrtskiesel = 0, fahrbahnsaum = 0;
   const bepflanzeQuerschnitt = (weg: StrassenbewuchsWeg) => {
@@ -351,6 +353,63 @@ export function baueStrassenbewuchs(
           && g.von <= mitte && g.bis >= mitte)?.breite ?? 0;
         const anzahl = Math.ceil((zufahrt.bis - zufahrt.von) * Math.max(0, zufahrt.tiefe - gehweg) * 7.5);
         const hubInnen = DECKE_UEBER_GRUND + (gehweg > 0 ? BORD_ABSENKUNG : 0);
+        const bodenAuftrag = (s: number, t: number) => THREE.MathUtils.lerp(hubInnen, ZUFAHRT_UEBER_GRUND, t)
+          + (weg.hofzufahrt ? .045 * wurzelinsel(s - mitte, t, belag.spurabstand / 2) : 0);
+        if (weg.hofzufahrt) {
+          const saat = mulberry(weg.saat ^ Math.round(zufahrt.von * 1000));
+          const laenge = zufahrt.tiefe - gehweg, proben = Math.ceil(laenge * 26);
+          for (let i = 0; i < proben; i++) {
+            const t = (i + saat()) / proben, versatz = (saat() - .5) * belag.spurabstand;
+            const humus = wurzelinsel(versatz, t, belag.spurabstand / 2);
+            if (saat() >= humus * belag.saumdichte) continue;
+            const s = mitte + versatz, ort = aussen(s, zufahrt.seite, gehweg + t * laenge, true);
+            if (!ort || !freierBoden(...ort)) continue;
+            const [x, z] = ort, wuchs = saat(), art = saat();
+            // Der Wurzelansatz steckt im Kies; in den lichten Fugen wachsen nur niedrige Rosetten.
+            wildkraut.push({ ort: [x, boden(x, z) + bodenAuftrag(s, t) - .014, z],
+              groesse: .069 + humus * (.11 + .16 * wuchs), breite: .095 + humus * (.11 + wuchs * .16),
+              drehung: saat() * TAU, ton: .64 + saat() * .29, auswahl: saat(),
+              sorte: humus < .27 || art < .46 ? 'kraut' : art < .79 ? 'gruen' : 'stroh' });
+            inselhorste++;
+          }
+          // Abgerollter Splitt bleibt unten am abgesenkten Bord. Sowohl Gefälle zur
+          // Fahrbahn als auch Richtung entlang der Rinne stammen aus dem Geländeraster.
+          const muendung = aussen(mitte, zufahrt.seite, -.04, true);
+          const hof = aussen(mitte, zufahrt.seite, zufahrt.tiefe - .12, true);
+          const davor = aussen(mitte - .7, zufahrt.seite, -.14, true);
+          const danach = aussen(mitte + .7, zufahrt.seite, -.14, true);
+          if (muendung && hof && davor && danach && boden(...hof) - boden(...muendung) > .045) {
+            const talab = boden(...davor) > boden(...danach) ? 1 : -1;
+            const ausgang = mitte + talab * belag.spurabstand / 2;
+            const reihen = 8, spalten = 6;
+            const punkte: (number | undefined)[][] = [];
+            for (let j = 0; j <= reihen; j++) {
+              const t = j / reihen, laenge = -.04 - .73 * t;
+              const halb = .12 + .41 * Math.sin(t * 2.4), drift = .47 * t;
+              const reihe: (number | undefined)[] = [];
+              for (let i = 0; i <= spalten; i++) {
+                const u = i / spalten * 2 - 1, rand = 1 - Math.abs(u);
+                const station = ausgang + drift * talab + halb * u;
+                const ort = aussen(station, zufahrt.seite, laenge + .07 * Math.sin(7*u + 2*t) * t, true);
+                if (!ort || !freierBoden(...ort)) { reihe.push(undefined); continue; }
+                const kern = rand * (1-t*t), y = boden(...ort) + DECKE_UEBER_GRUND + .002 + kern * .011;
+                farbe.copy(ERDE).lerp(SPLITT, .29 + .48 * t).multiplyScalar(.84 + .23 * saat());
+                reihe.push(vertex([ort[0], y, ort[1]], farbe, .92 * Math.sqrt(kern)));
+                if (i && j && t < 1 && saat() < .75) {
+                  splitt.push({ ort: [ort[0], y - .003, ort[1]], groesse: .012 + .032 * kern * saat(),
+                    drehung: saat() * TAU, ton: .91 + .45*saat(), auswahl: saat() });
+                  schwemmkiesel++;
+                }
+              }
+              punkte.push(reihe);
+            }
+            for (let j=1; j<=reihen; j++) for (let i=1; i<=spalten; i++) {
+              const [a,b,c,d] = [punkte[j-1][i-1],punkte[j-1][i],punkte[j][i],punkte[j][i-1]];
+              if (a !== undefined && b !== undefined && c !== undefined && d !== undefined)
+                indizes.push(a,b,c,a,c,d);
+            }
+          }
+        }
         for (let i = 0; i < anzahl; i++) {
           const abstand = weg.strassenfinale ? .55 : .16;
           const s = THREE.MathUtils.lerp(zufahrt.von + abstand, zufahrt.bis - abstand, kiesSaat());
@@ -360,7 +419,7 @@ export function baueStrassenbewuchs(
           const punkt = aussen(s, zufahrt.seite, THREE.MathUtils.lerp(gehweg, zufahrt.tiefe, t), true);
           if (!punkt) continue;
           const [x, z] = punkt;
-          const y = boden(x, z) + THREE.MathUtils.lerp(hubInnen, ZUFAHRT_UEBER_GRUND, t);
+          const y = boden(x, z) + bodenAuftrag(s, t);
           const groesse = .019 + .041 * kiesSaat() ** 1.65;
           splitt.push({ ort: [x, y, z], groesse, drehung: kiesSaat() * TAU,
             ton: 1.02 + .46 * kiesSaat(), auswahl: kiesSaat() });
@@ -725,6 +784,8 @@ ${hatMarkierungen ? /* glsl */ `
   gruppe.userData.strassenbewuchs = {
     wildkraut: wildkraut.length, splitt: splitt.length, zufahrtskiesel, risse, auflageDreiecke: indizes.length / 3,
     ...(fahrbahnsaum ? { fahrbahnsaum } : {}),
+    ...(inselhorste ? { inselhorste } : {}),
+    ...(schwemmkiesel ? { schwemmkiesel } : {}),
     ...(saumhorste || saumflecken ? { saumhorste, saumflecken } : {}),
     ...(zufahrtshorste ? { zufahrtshorste } : {}),
     ...(nahthorste ? { nahthorste } : {}),

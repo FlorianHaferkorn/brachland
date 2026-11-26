@@ -19,6 +19,7 @@
     { "name": "boden", "ort": [-5.4, 2.6, 1.05], "blick": [-1.2, -0.6, 0.1], "brennweite": 30, "sensor": 36 }
   ],
   "sonne": { "azimut": 194, "hoehe": 24.5 },
+  "laufzeit": { "start": [-814, 597.2, -101], "modellgruppe": "felsmulde", "bodenrand": 6, "pixeldichte": 1 },
   "spiel": {
     "stimmung": "zielbildfels",
     "schalterVorher": ["echt=1"],
@@ -42,7 +43,7 @@
   ],
   "abnahme": {
     "toleranz": { "mittel": 0.05, "unter02": 0.10, "ueber07": 0.05, "rb_licht": 0.08, "rb_schatten": 0.05, "saett": 0.08, "himmel": 0.05 },
-    "bildrate": { "min": 30, "format": "1600x900", "dpr": 1 },
+    "bildrate": { "min": 60, "format": "1440x900", "dpr": 1 },
     "budget": { "dateienMB": 60, "dreieckeMio": 1.3, "aufrufe": 2000 }
   },
   "protokoll": [

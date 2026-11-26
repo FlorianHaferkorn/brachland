@@ -1,0 +1,185 @@
+{
+  "id": "milbinger",
+  "name": "Obere Milbinger Straße – Hofzufahrt",
+  "region": "oental",
+  "ursprung": {
+    "x": 1354,
+    "z": 425
+  },
+  "h0": 36,
+  "hoehenversatz": 0,
+  "zielbild": {
+    "freigabe": null,
+    "werkzeug": "tools/ortkamera.py",
+    "modus": "kies",
+    "bild": "docs/bilder/zielbild/d482-milbinger-zufahrt.jpg",
+    "blend": ".cache/d348-milbinger/blender-strassenfinale.blend",
+    "terrain": ".cache/d348-milbinger",
+    "hinweis": "Material- und Maßstabsstudie des Straßenabschnitts. Schauplatzfreigabe durch Flo offen."
+  },
+  "kameras": [
+    {
+      "name": "kies",
+      "ort": [
+        0.2,
+        4.53,
+        1.478584
+      ],
+      "blick": [
+        -3.97,
+        6.13,
+        -0.082588
+      ],
+      "brennweite": 18.265983522123165,
+      "sensor": 36
+    }
+  ],
+  "sonne": {
+    "ortslicht": "wolken",
+    "azimut": 38.073,
+    "hoehe": 37.744
+  },
+  "laufzeit": {
+    "kamerastellen": 6,
+    "start": [
+      1346.5503,
+      420.4275,
+      -65.622077
+    ],
+    "bildstart": [
+      1356.534085,
+      421.365572,
+      69.008539
+    ]
+  },
+  "messweg": {
+    "punkte": [
+      [
+        1346.5503,
+        420.4275
+      ],
+      [
+        1356.1,
+        416.1
+      ],
+      [
+        1369.3,
+        445.3
+      ]
+    ],
+    "fahrbahnAb": 1
+  },
+  "spiel": {
+    "stimmung": "hofdachbruch",
+    "schalterVorher": [
+      "ziel=milbinger",
+      "hofzufahrt=0"
+    ],
+    "schalterNachher": [
+      "hofgruen=1",
+      "referenzhaus=1",
+      "hofhaeuser=1",
+      "hauskompakt=1",
+      "hoflauben=1",
+      "hofboden=1",
+      "hofgras=1",
+      "teppichspar=1",
+      "kachelpuffer=1",
+      "hofverfall=1",
+      "hofranke=1",
+      "hofruine=1",
+      "hofeinsturz=1",
+      "hofziel=1",
+      "hofdachbruch=1",
+      "hoflicht=1",
+      "umgebung=6.4",
+      "sonne=.73",
+      "umlichtstaerke=1.2",
+      "schatten=.4",
+      "zieltreue=1",
+      "verfallverlauf=1",
+      "ortsalterung=1",
+      "hofsilhouette=1",
+      "bildruhe=1",
+      "bildtakt=1",
+      "bildfluss=1",
+      "kachelnachlauf=1",
+      "bildspitzen=1",
+      "westverfall=1",
+      "westdetail=1",
+      "westdach=1",
+      "westfassade=1",
+      "bau=1",
+      "lod2=1",
+      "belag=1",
+      "strassenverfall=1",
+      "strassenprofil=1",
+      "westanschluss=1",
+      "wohnwegquerschnitt=1",
+      "milbingerbelag=1",
+      "milbingeroben=1",
+      "milbingermasse=1",
+      "milbingerdetail=1",
+      "milbingerboden=1",
+      "milbingerlicht=1",
+      "milbingerklar=0",
+      "milbingerfern=1",
+      "milbingerrand=1",
+      "milbingersubstanz=1",
+      "zeit=.26",
+      "kontur=0",
+      "milbingerfinale=1",
+      "hofzufahrt=1",
+      "ortstakt=1"
+    ],
+    "ordner": "bauten"
+  },
+  "bauteile": [
+    {
+      "id": "hofzufahrt",
+      "art": "boden",
+      "weg": "engine",
+      "hinweis": "Höhenfeld, gescannte Bodenmaterialien, Belag, Gehweg, Schotter und Bewuchs im Straßenprofil."
+    },
+    {
+      "id": "hofhaeuser",
+      "art": "wand",
+      "weg": "engine",
+      "hinweis": "OSM-Grundrisse mit LoD2-Maßen und örtlicher Verwitterung."
+    }
+  ],
+  "quellen": [
+    {
+      "name": "Bayerische Vermessungsverwaltung, DGM1, LoD2 und DOP20",
+      "lizenz": "CC BY 4.0",
+      "imSpiel": true
+    },
+    {
+      "name": "OpenStreetMap-Mitwirkende",
+      "lizenz": "ODbL",
+      "imSpiel": true
+    }
+  ],
+  "abnahme": {
+    "toleranz": {
+      "mittel": 0.05,
+      "unter02": 0.1,
+      "ueber07": 0.05,
+      "rb_licht": 0.08,
+      "rb_schatten": 0.05,
+      "saett": 0.08,
+      "himmel": 0.05
+    },
+    "bildrate": {
+      "min": 60,
+      "format": "1440x900",
+      "dpr": 1
+    },
+    "budget": {
+      "dateienMB": 60,
+      "dreieckeMio": 1.3,
+      "aufrufe": 2000
+    }
+  },
+  "protokoll": []
+}

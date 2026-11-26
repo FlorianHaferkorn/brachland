@@ -93,3 +93,24 @@ assert.throws(() => Akte.parse({ ...fels, zielbild: { ...fels.zielbild, freigabe
 assert.throws(() => Akte.parse({ ...fels, kameras: [] }));
 
 console.log('ortverfahren: Adresse D445, Sonnenstand, Abnahme D445–D448, Bildrate D450, zehn Schritte — in Ordnung');
+
+
+// Ortskurzlinks lesen dieselbe Kamera wie die Backkette. Der normale Start bleibt frei beweglich.
+const { waehleZielort } = await import('../src/spiel/zielort.js');
+const fest = waehleZielort('?ziel=felsmulde&zielkamera=1');
+assert.equal(fest.parameter.get('kamera'), adr.kamera);
+assert.equal(fest.parameter.get('fov'), adr.fov);
+assert.equal(fest.parameter.get('absetzen'), '-814,597.2,-101');
+assert.equal(fest.ort?.laufzeit.modellgruppe, 'felsmulde');
+const frei = waehleZielort('?ziel=milbinger');
+assert.equal(frei.parameter.get('kamera'), null);
+assert.equal(frei.parameter.get('milbingerfinale'), '1');
+assert.equal(frei.parameter.get('hofzufahrt'), '1');
+const kies = waehleZielort('?ziel=milbinger&zielkamera=kies&hofzufahrt=0');
+assert.equal(kies.parameter.get('hofzufahrt'), '0');
+assert.equal(kies.parameter.get('kamera'), '1354.2,37.478584,420.47,1350.03,35.917412,418.87');
+assert.equal(kies.parameter.get('fov'), '58');
+assert.equal(waehleZielort('?ziel=felsmulde&absetzen=4,5,6').parameter.get('absetzen'), '4,5,6');
+for (const suche of ['', '?lookfels=1', '?ziel=unbekannt', '?region=fahlmoos&ziel=milbinger']) {
+  assert.deepEqual([...waehleZielort(suche).parameter], [...new URLSearchParams(suche)]);
+}

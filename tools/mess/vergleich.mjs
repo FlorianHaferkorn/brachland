@@ -1,12 +1,12 @@
 /** Gleicher spielbarer Lauf fuer A/B-Proben; neue Ausgabe, keine Bilder waehrend der Zeitmessung.
- * node tools/mess/vergleich.mjs <name> [zusaetzliche-urlparameter] [x,z,grad|hofwest] [port] */
+ * node tools/mess/vergleich.mjs <name> [zusaetzliche-urlparameter] [x,z,grad|hofwest|ort:<id>] [port] */
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { playwright } from './pw.mjs';
-import { HOFWEST_START, bereiteHofwestroute, hofwestZeiten, laufeHofwestroute } from './hofwestroute.mjs';
+import { messroute, bereiteHofwestroute, hofwestZeiten, laufeHofwestroute } from './hofwestroute.mjs';
 
 const [name, extra = '', strecke = '0,0,310', port = '4173'] = process.argv.slice(2);
-const hofwest = strecke === 'hofwest';
-const ort = hofwest ? HOFWEST_START : strecke;
+const weg = messroute(strecke);
+const ort = weg?.start ?? strecke;
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
 if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) throw new Error('Gültigen lokalen Preview-Port angeben.');
 if (!/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(ort)) throw new Error('Ort als x,z,grad angeben.');
@@ -33,11 +33,17 @@ try {
   await seite.waitForTimeout(15000);
   await seite.screenshot({ path: `${ziel}/start.png` });
   const startHud = await seite.textContent('body');
-  if (hofwest) {
-    await bereiteHofwestroute(seite);
+  if (weg) {
+    await bereiteHofwestroute(seite, weg);
     const route = await laufeHofwestroute(seite);
     const abschnitte = Object.fromEntries(Object.entries(hofwestZeiten(route))
       .map(([abschnitt, zeiten]) => [abschnitt, kennzahlen(zeiten)]));
+    if (strecke.startsWith('ort:')) {
+      abschnitte.zufahrt = abschnitte.hof;
+      abschnitte.fahrbahn = abschnitte.weststrasse;
+      delete abschnitte.hof;
+      delete abschnitte.weststrasse;
+    }
     if (route.fehler) fehler.push(route.fehler);
     const bericht = { ort, extra, ...abschnitte.gesamt, abschnitte, route, fehler };
     writeFileSync(`${ziel}/bericht.json`, JSON.stringify(bericht, null, 2));

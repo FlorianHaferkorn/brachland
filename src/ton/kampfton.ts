@@ -16,7 +16,7 @@
  * Der Lagerton hängt weiter direkt am Ausgang (ihn an den Gesamtregler zu hängen, machte ihn 20 % leiser als
  * heute — Menü-Dokument §8 Phase 0.1); der Kampfton ist neu und hat kein „heute“.
  */
-import { FELS_BILDTAKT_AN } from '../world/echt.js';
+import { ORTS_BILDTAKT_AN } from '../world/echt.js';
 import ROH from '../../content/kampfton.json';
 import type { Kampfton as KampftonDaten } from '../data/schema.js';
 import { GEWICHT, toene } from '../kampf/gewicht.js';
@@ -179,7 +179,7 @@ export function spieleKampfton(e: KampfEreignis, verzoegerung = 0): void {
 }
 
 if (typeof window !== 'undefined') {
-  if (FELS_BILDTAKT_AN) {
+  if (ORTS_BILDTAKT_AN) {
     // Der erste Schritt darf nicht auf das Öffnen des Audiogeräts warten.
     if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(kontext, { timeout: 1500 });
     else window.setTimeout(kontext, 0);

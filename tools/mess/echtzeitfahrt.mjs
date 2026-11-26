@@ -1,5 +1,5 @@
 /** Visueller A/B-Lauf mit normaler Spielkamera, fester Eingabe und echter Zeitbasis.
- * node tools/mess/echtzeitfahrt.mjs <name> [url-zusatz] [x,z,grad|hofwest] [960x540|1280x720]
+ * node tools/mess/echtzeitfahrt.mjs <name> [url-zusatz] [x,z,grad|hofwest|ort:<id>] [960x540|1280x720] [port]
  * Ausgabe: .cache/mess/<name>/fahrt.mp4 und bericht.json. Braucht Playwright und FFmpeg (libx264).
  * CDP liefert Unix-Zeitstempel am Bild. Der Clip beginnt bei W-down und endet bei W-up,
  * auf der gleichen Zeitachse wie die Browserereignisse. Bildlücken bleiben als Standzeit sichtbar.
@@ -10,18 +10,19 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { playwright } from './pw.mjs';
-import { HOFWEST_START, bereiteHofwestroute, laufeHofwestroute } from './hofwestroute.mjs';
+import { messroute, bereiteHofwestroute, laufeHofwestroute } from './hofwestroute.mjs';
 
-const [name, extra = '', strecke = '1436,398,171', format = '960x540'] = process.argv.slice(2);
-const hofwest = strecke === 'hofwest';
-const ort = hofwest ? HOFWEST_START : strecke;
+const [name, extra = '', strecke = '1436,398,171', format = '960x540', port = '4173'] = process.argv.slice(2);
+const weg = messroute(strecke);
+const ort = weg?.start ?? strecke;
+if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) throw new Error('Ungültiger Preview-Port.');
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
 if (extra && !extra.startsWith('&')) throw new Error('Zusatzparameter mit & beginnen und in Anführungszeichen setzen.');
 if (!/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(ort)) throw new Error('Ort als x,z,grad angeben.');
 if (format !== '960x540' && format !== '1280x720') throw new Error('Format als 960x540 oder 1280x720 angeben.');
 
 const [width, height] = format.split('x').map(Number);
-const url = `http://127.0.0.1:4173/?absetzen=${ort}&zeit=0.26&kontur=0${extra}`;
+const url = `http://127.0.0.1:${port}/?absetzen=${ort}&zeit=0.26&kontur=0${extra}`;
 const warmupMs = 15000;
 const dauerZielMs = 12000;
 const vorlaufMs = 600;
@@ -47,7 +48,8 @@ try {
   await seite.waitForSelector('button[aria-label="Menü"]', { timeout: 240000 });
   await seite.waitForFunction(() => document.body.textContent.includes('Ladezeit'), undefined, { timeout: 120000 });
   await seite.waitForTimeout(warmupMs);
-  if (hofwest) await bereiteHofwestroute(seite);
+  if (strecke.startsWith('ort:')) await seite.addStyleTag({ content: '* {visibility:hidden!important} canvas {visibility:visible!important}' });
+  if (weg) await bereiteHofwestroute(seite, weg);
   else await seite.evaluate(() => {
     window.__echtzeitfahrtMarken = {};
     window.addEventListener('keydown', ereignis => {
@@ -65,7 +67,7 @@ try {
   });
   await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 90, maxWidth: width, maxHeight: height, everyNthFrame: 1 });
   await seite.waitForTimeout(vorlaufMs);
-  if (hofwest) {
+  if (weg) {
     route = await laufeHofwestroute(seite);
     marken = route;
     if (route.fehler) fehler.push(route.fehler);
@@ -121,7 +123,7 @@ try {
 
 const bericht = {
   url, ort, format, warmupMs, dauerMs,
-  ...(hofwest ? { eingabe: 'W und Maus', route } : { eingabe: 'Shift+W', dauerZielMs }),
+  ...(weg ? { eingabe: 'W und Maus', route } : { eingabe: 'Shift+W', dauerZielMs }),
   zeitbasis: 'Unix-Millisekunden, DOM-Tastenereignisse und CDP-Bildzeitstempel',
   schnittUnixMs: { startMs, endeMs },
   erstesCDPBildRelativMs: bilder[0].zeitMs - startMs,

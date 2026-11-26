@@ -1,4 +1,6 @@
 /** Spielsteuerung für den zusammenhängenden Prüflauf vom Hof zur Weststraße (Weg 600). */
+import { readFileSync } from 'node:fs';
+
 const punkte = [
   [1451, 395.5], [1434.4, 404.9], [1427.5, 406], [1418, 405.5], [1411, 407],
   [1396, 407], [1392, 412], [1388.5, 412], [1369, 412], [1362, 420],
@@ -9,11 +11,29 @@ const [start, erster] = punkte;
 const blick = Math.atan2(start[0] - erster[0], start[1] - erster[1]);
 export const HOFWEST_START = [...start, blick * 180 / Math.PI].join(',');
 
+/** Ein benannter Ortsgang verwendet beim Filmen und bei der Bildzeitmessung dieselben Wegpunkte. */
+export function messroute(strecke) {
+  if (strecke === 'hofwest') return { punkte, fahrbahnAb: weststrasse, start: HOFWEST_START, blick };
+  if (!strecke.startsWith('ort:')) return null;
+  const id = strecke.slice(4);
+  if (!/^[a-z0-9-]+$/.test(id)) throw new Error('Ungültiger Ortsname.');
+  const akte = JSON.parse(readFileSync(new URL(`../ort/${id}.json`, import.meta.url), 'utf8'));
+  const weg = akte.messweg;
+  if (!Array.isArray(weg?.punkte) || weg.punkte.length < 3
+    || !weg.punkte.every(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite))
+    || !Number.isInteger(weg.fahrbahnAb) || weg.fahrbahnAb < 1 || weg.fahrbahnAb >= weg.punkte.length) {
+    throw new Error('Wegpunkte oder Fahrbahnbeginn fehlen in der Ortsakte ' + id);
+  }
+  const [a, b] = weg.punkte;
+  const richtung = Math.atan2(a[0] - b[0], a[1] - b[1]);
+  return { ...weg, start: [...a, richtung * 180 / Math.PI].join(','), blick: richtung };
+}
+
 /** Beobachtet die Spielfigur und lenkt über denselben Mauspfad wie normale Eingabe.
  * Der Test bewegt weder Figur noch Kamera direkt. Wegpunkte und Bildzeiten
  * haben dieselbe Browser-Uhr wie die Echtzeitaufnahme.
  */
-export async function bereiteHofwestroute(seite) {
+export async function bereiteHofwestroute(seite, weg = messroute('hofwest')) {
   await seite.evaluate(({ punkte, blick, weststrasse }) => {
     const [sx, sz] = punkte[0];
     const kandidaten = window.__szene?.children.filter(o => o.type === 'Object3D'
@@ -76,7 +96,7 @@ export async function bereiteHofwestroute(seite) {
       };
       requestAnimationFrame(schritt);
     }, { capture: true });
-  }, { punkte, blick, weststrasse });
+  }, { punkte: weg.punkte, blick: weg.blick, weststrasse: weg.fahrbahnAb });
 }
 
 export async function laufeHofwestroute(seite) {

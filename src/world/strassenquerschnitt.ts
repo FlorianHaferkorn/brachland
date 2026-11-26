@@ -180,6 +180,20 @@ function aufBodenraster(
   return ergebnis;
 }
 
+/** Durchwurzelter Feinkies zwischen den historischen Radspuren. Die normierte Tiefe
+ * reicht vom Gehwegrand bis zum Hof. In den Fahrgassen und an den Anschlüssen ist der Auftrag null. */
+export function wurzelinsel(versatz: number, tiefe: number, halbeSpur: number): number {
+  const mitte = .07 * Math.sin(9.7 * tiefe) - .055 * Math.cos(17 * tiefe);
+  const breite = Math.max(0, halbeSpur - .29);
+  if (!breite || Math.abs(versatz) >= breite) return 0;
+  const rand = 1 - THREE.MathUtils.smoothstep(Math.abs(versatz - mitte), breite * .19, breite);
+  const mitteFrei = 1 - THREE.MathUtils.smoothstep(Math.abs(versatz), breite * .72, breite);
+  const ein = THREE.MathUtils.smoothstep(tiefe, .018, .18);
+  const aus = 1 - THREE.MathUtils.smoothstep(tiefe, .91, 1);
+  const luecke = THREE.MathUtils.smoothstep(Math.abs(tiefe - .46), .012, .13);
+  return rand * mitteFrei * ein * aus * (.19 + .81 * luecke);
+}
+
 /** Ein statischer Vertexfarben-Mesh für Fahrbahn, Gehweg, Bord und Zufahrten. */
 export function baueStrassenquerschnitt(
   punkte: readonly Ort[], hoehe: (x: number, z: number) => number, profil: WohnwegQuerschnitt, breiteAlt: number,
@@ -188,6 +202,7 @@ export function baueStrassenquerschnitt(
   bodenraster?: Bodenraster,
   mitRandverfall = false,
   mitStrassenfinale = false,
+  mitHofzufahrt = false,
 ): THREE.BufferGeometry {
   const abschnitte = achsabschnitte(punkte);
   const [start, ende] = querschnittGrenzen(profil);
@@ -200,6 +215,10 @@ export function baueStrassenquerschnitt(
   }
   if (auslaufAktiv) {
     for (const z of profil.zufahrten) if (z.schotterspuren) {
+      if (mitHofzufahrt) {
+        const inselbreite = Math.max(0, z.schotterspuren.spurabstand * .5 - .29), mitte = (z.von + z.bis) * .5;
+        for (const anteil of [-1, -.65, -.3, 0, .3, .65, 1]) halte.push(mitte + anteil * inselbreite);
+      }
       for (const n of [.14, .36, .62]) if (n < (z.bis - z.von) / 2) halte.push(z.von + n, z.bis - n);
     }
     for (const rand of [...profil.gehwege, ...profil.zufahrten]) halte.push(rand.von - .72, rand.bis + .72);
@@ -315,8 +334,9 @@ export function baueStrassenquerschnitt(
             const uebergang = Math.max(1 - THREE.MathUtils.smoothstep(quer, 0, .43), Math.min(seitlich, hinten));
             const fahrbahn = deckenAuftrag(station, profil);
             const auftrag = THREE.MathUtils.lerp(fahrbahn + bord, ZUFAHRT_UEBER_GRUND, quer / tiefe);
-            return { punkt: punkt(station, kante + seite * (gehwegbreite + quer),
-              THREE.MathUtils.lerp(SAUM_UEBER_GRUND, auftrag, uebergang) - fahrbahn),
+            const humus = mitHofzufahrt ? wurzelinsel(station - mitte, quer / tiefe, spuren) : 0;
+            return { humus, punkt: punkt(station, kante + seite * (gehwegbreite + quer),
+              THREE.MathUtils.lerp(SAUM_UEBER_GRUND, auftrag, uebergang) - fahrbahn + .045 * humus),
               auslauf: 1 - uebergang };
           };
           for (let n = 1; n < stufen.length; n++) {
@@ -324,6 +344,15 @@ export function baueStrassenquerschnitt(
             const ls = lage(s, qa, ha, innen), rs = lage(s, qa, ha, aussen);
             const lt = lage(t, qb, hb, innen), rt = lage(t, qb, hb, aussen);
             viereck(ls.punkt, rs.punkt, rt.punkt, lt.punkt, 3, seite < 0, [ls.auslauf, rs.auslauf, rt.auslauf, lt.auslauf]);
+            if (mitHofzufahrt) {
+              const start = farben.length - 12;
+              for (const [i, ecke] of [ls, rs, rt, lt].entries()) {
+                // Zwischen dem lockeren Kies bleiben dunkle, bemooste Wurzelballen stehen.
+                farben[start + 3*i] *= 1 - .72 * ecke.humus;
+                farben[start + 3*i+1] *= 1 - .48 * ecke.humus;
+                farben[start + 3*i+2] *= 1 - .78 * ecke.humus;
+              }
+            }
             if (mitSchotterspuren) spurdaten.splice(spurdaten.length - 16, 16,
               s - mitte, innen / tiefe, spuren, halb, s - mitte, aussen / tiefe, spuren, halb,
               t - mitte, aussen / tiefe, spuren, halb, t - mitte, innen / tiefe, spuren, halb);

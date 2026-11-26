@@ -10,6 +10,8 @@
  * `content/` (gleiche Begründung wie die Rahmenkronen in D446).
  */
 import { z } from 'zod';
+import { weltpunkt, bildwinkel } from '../src/spiel/zielort.js';
+export { weltpunkt, bildwinkel };
 
 const Punkt3 = z.tuple([z.number(), z.number(), z.number()]);
 
@@ -38,7 +40,7 @@ export const Akte = z.object({
   hoehenversatz: z.number().default(0),
   zielbild: z.object({
     /** Ledgerzeile, mit der Flo das Zielbild freigegeben hat. Ohne Freigabe läuft das Verfahren nicht an. */
-    freigabe: z.string().regex(/^D\d+$/),
+    freigabe: z.string().regex(/^D\d+$/).nullable(),
     werkzeug: z.string().min(1),
     modus: z.string().min(1),
     /** Das fertige Bild (mit Stil), relativ zum Repo. */
@@ -54,7 +56,12 @@ export const Akte = z.object({
     ort: Punkt3, blick: Punkt3, brennweite: z.number().positive(), sensor: z.number().positive().default(36),
   })).min(1),
   /** Sonne des Renders: Azimut von Nord im Uhrzeigersinn, Höhe über dem Horizont, beides in Grad. */
-  sonne: z.object({ azimut: z.number().min(0).max(360), hoehe: z.number().min(0).max(90) }),
+  sonne: z.object({ azimut: z.number().min(0).max(360), hoehe: z.number().min(0).max(90), ortslicht: z.enum(['wolken', 'klar']).optional() }),
+  laufzeit: z.object({
+    start: Punkt3, bildstart: Punkt3.optional(), modellgruppe: z.string().regex(/^[a-z0-9-]+$/).optional(),
+    bodenrand: z.number().positive().optional(), pixeldichte: z.number().positive().optional(),
+    kamerastellen: z.number().int().min(0).max(8).optional(),
+  }).optional(),
   spiel: z.object({
     /** Messstimmung in `src/world/stimmung.ts`; ihr `sonnenstand` muss zur Sonne oben passen. */
     stimmung: z.string().regex(/^[a-z0-9]+$/),
@@ -88,16 +95,6 @@ export function kurz(n: number, stellen = 2): string {
   return t === '-0' ? '0' : t;
 }
 
-/** Blender-Punkt (X, Y, Z über der Terrasse) → Weltpunkt des Spiels (x, y, z). Abbildung von `tools/terrainexport.ts`. */
-export function weltpunkt(a: Pick<Akte, 'ursprung' | 'h0' | 'hoehenversatz'>, p: readonly [number, number, number]): [number, number, number] {
-  return [a.ursprung.x + p[0], a.h0 + a.hoehenversatz + p[2], a.ursprung.z - p[1]];
-}
-
-/** Senkrechter Bildwinkel in Grad für Brennweite auf `sensor` mm Bildbreite und Seitenverhältnis b : h. */
-export function bildwinkel(brennweite: number, sensor = 36, verhaeltnis = 16 / 9): number {
-  return 2 * Math.atan(sensor / verhaeltnis / 2 / brennweite) * 180 / Math.PI;
-}
-
 /** Sonnenstand als Vektor der Stimmung: (sin az · cos el, sin el, −cos az · cos el) · 100. */
 export function sonnenstand(azimut: number, hoehe: number): [number, number, number] {
   const az = azimut * Math.PI / 180, el = hoehe * Math.PI / 180;
@@ -115,7 +112,7 @@ export function adresse(a: Akte, k: Kamera, abstand = 3): Adresse {
   const dx = t[0] - o[0], dz = t[2] - o[2], l = Math.hypot(dx, dz);
   if (l < 1e-6) throw new Error(`Kamera ${k.name}: Standort und Blickpunkt liegen übereinander`);
   const grad = Math.atan2(-dx / l, -dz / l) * 180 / Math.PI;
-  const kamera = [...o, ...t].map(n => kurz(n)).join(',');
+  const kamera = [...o, ...t].map(n => kurz(n, a.laufzeit?.kamerastellen ?? 2)).join(',');
   const fov = kurz(bildwinkel(k.brennweite, k.sensor));
   const absetzen = [kurz(o[0] - dx / l * abstand, 1), kurz(o[2] - dz / l * abstand, 1), kurz(grad, 0)].join(',');
   return { kamera, fov, absetzen, zusatz: schalter => `&stimmung=${a.spiel.stimmung}${schalter.map(s => '&' + s).join('')}&kamera=${kamera}&fov=${fov}` };
@@ -134,7 +131,7 @@ export function sonnenstandImQuelltext(quelltext: string, name: string): [number
 /** Die vier Zeilen, die eine Messstimmung mit eigener Sonnenrichtung anlegen (D445, vor dem Look-Durchgang). */
 export function stimmungsVorlage(a: Akte): string {
   const s = sonnenstand(a.sonne.azimut, a.sonne.hoehe).map(n => n.toFixed(1)).join(', ');
-  return `/** ${a.zielbild.freigabe}/D459: Messstimmung ${a.name} — wie \`zielbild\`, Sonne des Renders (Azimut ${kurz(a.sonne.azimut, 1)}°, Höhe ${kurz(a.sonne.hoehe, 1)}°). */\n`
+  return `/** ${a.zielbild.freigabe ?? 'Studie'}/D459: Messstimmung ${a.name} — wie \`zielbild\`, Sonne des Renders (Azimut ${kurz(a.sonne.azimut, 1)}°, Höhe ${kurz(a.sonne.hoehe, 1)}°). */\n`
     + `STIMMUNG.${a.spiel.stimmung} = {\n  ...STIMMUNG.zielbild,\n  sonnenstand: [${s}] as const,\n};`;
 }
 
@@ -323,7 +320,7 @@ export function schritte(a: Akte, d = 'Dxxx', kamera?: string): Schritt[] {
       abnahme: `\`BILDRATE BESTANDEN\`: Variante \`voll\` ≥ ${a.abnahme.bildrate.min} B/s bei ${a.abnahme.bildrate.format}, Pixeldichte ${a.abnahme.bildrate.dpr}; kein Blender-Render parallel.`,
       beiVerfehlen: ['Nachstellschritt A oder B ausführen, wenn das Urteil ihn nennt (Pflanzen mit `--instanz` packen; `SZENE_NIEDRIG=0.12`), dann einmal neu messen.', 'Engpass `welt` oder `pixel` oder immer noch unter dem Ziel: stoppen und melden.'] },
     { nr: 9, titel: 'Bildpaar', zweck: 'Vorher und Nachher neben dem Zielbild für Flo, gleiche Kamera, beschriftet.', wo: 'cloud', wer: 'guenstig',
-      befehle: [`python3 tools/mess/bildpaar.py ${aus}/paar-${a.id}.jpg "Zielbild ${a.zielbild.freigabe}=${a.zielbild.bild}" "Spiel vorher=${aus}/vorher/spiel-standbild.png" "Spiel nachher ${d}=${aus}/nachher/spiel-standbild.png"`],
+      befehle: [`python3 tools/mess/bildpaar.py ${aus}/paar-${a.id}.jpg "Zielbild ${a.zielbild.freigabe ?? 'Studie'}=${a.zielbild.bild}" "Spiel vorher=${aus}/vorher/spiel-standbild.png" "Spiel nachher ${d}=${aus}/nachher/spiel-standbild.png"`],
       ausgabe: `\`${aus}/paar-${a.id}.jpg\``,
       abnahme: 'Datei vorhanden, drei beschriftete Felder gleicher Höhe.',
       beiVerfehlen: ['Fehlt ein Bild: den zugehörigen Schritt (4 oder 7) nachholen.', 'Sonst stoppen und melden.'] },

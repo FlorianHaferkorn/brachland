@@ -3,6 +3,13 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "imports": {
+    "#ortsakten": {
+      "browser": "./src/spiel/ortsakten.ts",
+      "node": "./tools/ortsakten.ts",
+      "default": "./src/spiel/ortsakten.ts"
+    }
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

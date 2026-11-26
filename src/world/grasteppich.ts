@@ -21,7 +21,7 @@ import type { QuerschnittGrasmaske } from './strassenquerschnitt.js';
 import { WIESENBEREICH_GLSL, wiesenKontaktGlsl, WIESENWUCHS_GLSL, type Wiesenbereich } from './wiesenbereich.js';
 import { gesperrt } from './bauwerke.js';
 import { PALETTE } from './palette.js';
-import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN, MILBINGERDETAIL_AN, LOOK_FELS_AN, FELS_BILDTAKT_AN } from './echt.js';
+import { GRAS_ECHT, GRAS_FEIN, GRAS_VIEL, PINSEL_AN, HOF_BILDTAKT_AN, HOF_GRAS_AN, MILBINGERDETAIL_AN, LOOK_FELS_AN, ORTS_BILDTAKT_AN } from './echt.js';
 import { ladeHorstAtlas, leereHorstTextur, HORST_BLUME, HORST_GRUEN, HORST_HALM, HORST_KRAUT, HORST_SCHWELLE, HORST_STROH, HORST_ZAHL } from './grashorst.js';
 import { HOF_UNIFORM } from './hofplatz.js';
 import { PINSEL_BAND_GLSL } from './pinsel.js';
@@ -157,7 +157,7 @@ export function baueGrasteppich(
   // D255: gezielte Vergleichsprobe; ohne Parameter bleibt der bestehende Look.
   // Alle Ringe verwenden denselben ortsfesten Faktor, ohne neue Geometrie.
   // D310: Vergleichsschalter am Hof. Halme ohne Fläche brauchen keine weitere Shaderarbeit.
-  const sparsam = (HOF_GRAS_AN || FELS_BILDTAKT_AN) && new URLSearchParams(location.search).get('teppichspar') !== '0';
+  const sparsam = (HOF_GRAS_AN || ORTS_BILDTAKT_AN) && new URLSearchParams(location.search).get('teppichspar') !== '0';
   const schneideAb = (bedingung: string) => sparsam
     ? `if (${bedingung}) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }` : '';
   const strukturAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('grasstruktur') === '1';
@@ -484,7 +484,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   }
   const mesh = kachelnAn ? gruppe : gruppe.children[0]!;
   mesh.name = nurWiesenbereich ? 'Grasteppich-Milbinger-Foto' : innen > 0 ? 'Grasteppich-fern' : halb === TEPPICH_HALB ? 'Grasteppich' : 'Grasteppich-nah';
-  const vorlauf = nurWiesenbereich || FELS_BILDTAKT_AN ? new THREE.Mesh(teile[0].mesh.geometry.clone(), material) : undefined;
+  const vorlauf = nurWiesenbereich || ORTS_BILDTAKT_AN ? new THREE.Mesh(teile[0].mesh.geometry.clone(), material) : undefined;
   if (vorlauf) {
     // Three bindet das Shaderprogramm auch bei null Instanzen. Damit landet
     // das erste Warten auf den Treiber beim Szenenstart und keine Karte im Bild.
@@ -496,7 +496,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   // Größtmöglicher Überstand in x/z inklusive Wind, Biegung und breitem Fernhalm.
   const ueberstand = echt || viel ? 5 : 1.3;
 
-  const ringtest = FELS_BILDTAKT_AN && sparsam && kachelnAn;
+  const ringtest = ORTS_BILDTAKT_AN && sparsam && kachelnAn;
   // Dieselben gerundeten Grenzen wie im GLSL; Spielraum für Float32 am Weltort.
   const aussen2 = (Number((halb * 0.98).toFixed(1)) + 0.01) ** 2;
   const innen2 = Math.max(0, Number((innen * 0.45).toFixed(1)) - 0.01) ** 2;
@@ -568,7 +568,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   function fuelleZeile(i: number): void {
     const altI = i + versatzZ;
     const start = Math.max(0, -versatzX), ende = Math.min(FELD_TEXEL, FELD_TEXEL - versatzX);
-    const gemeinsam = FELS_BILDTAKT_AN && hatVorderfeld && altI >= 0 && altI < FELD_TEXEL && start < ende;
+    const gemeinsam = ORTS_BILDTAKT_AN && hatVorderfeld && altI >= 0 && altI < FELD_TEXEL && start < ende;
     if (gemeinsam) {
       const von = 4 * (altI * FELD_TEXEL + start + versatzX), bis = von + 4 * (ende - start);
       const ziel = 4 * (i * FELD_TEXEL + start);

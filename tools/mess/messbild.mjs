@@ -1,6 +1,6 @@
 /**
  * Messbild Spiel │ Zielbild (D445, UEBERGABE 2d / D425): Standbild an fester Kamera und 10 s Bewegung, mit echter GPU.
- *   node tools/mess/messbild.mjs <ausordner> "<x,z,grad>" "<url-zusatz mit &kamera=…&fov=…>" [1920x1080]
+ *   node tools/mess/messbild.mjs <ausordner> "<x,z,grad oder ort:kennung>" "<url-zusatz mit &kamera=…&fov=…>" [1920x1080]
  * Ausgabe: <ausordner>/spiel-standbild.png (feste Kamera aus dem Zusatz), <ausordner>/spiel-bewegung.webm
  * (Spielkamera ab <x,z,grad>, 10 s Taste W) und bericht.json (Ladezeit, Dreiecke, Bildrate aus dem HUD).
  * Für die Aufnahme wird alles ausser der 3D-Leinwand ausgeblendet (Menü, Messwerte, Questtext) — das Spiel hat dafür
@@ -16,6 +16,8 @@ const [width, height] = format.split('x').map(Number);
 mkdirSync(aus, { recursive: true });
 const { chromium } = await playwright();
 const b = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist'] });
+const ortskennung = /^ort:([a-z0-9-]+)$/.exec(ort)?.[1];
+const einstieg = ortskennung ? 'ziel=' + ortskennung : 'absetzen=' + ort;
 const BASIS = process.env.MESS_URL ?? 'http://127.0.0.1:4173';   // Entwicklungsserver: MESS_URL=http://127.0.0.1:5174
 const NUR_LEINWAND = '* { visibility: hidden !important; } canvas { visibility: visible !important; }';
 
@@ -37,7 +39,8 @@ async function bereit(p) {
 const bericht = {};
 { // Standbild an der Zielbild-Kamera
   const p = await b.newPage({ viewport: { width, height } });
-  await p.goto(`${BASIS}/?absetzen=${ort}${zusatz}`, { waitUntil: 'domcontentloaded' });
+  const standardkamera = ortskennung && !new URLSearchParams(zusatz).has('zielkamera') ? '&zielkamera=1' : '';
+  await p.goto(`${BASIS}/?${einstieg}${standardkamera}${zusatz}`, { waitUntil: 'domcontentloaded' });
   bericht.standbild = await bereit(p);
   await p.waitForTimeout(3000);
   await p.addStyleTag({ content: NUR_LEINWAND }); await p.waitForTimeout(500);
@@ -45,10 +48,10 @@ const bericht = {};
   await p.close();
 }
 if (process.env.MESS_NUR_STAND !== '1') { // 10 s Bewegung mit der Spielkamera (ohne feste Kamera), auf den Bogen zu
-  const ohneKamera = zusatz.replace(/&kamera=[^&]*/, '').replace(/&fov=[^&]*/, '');
+  const ohneKamera = zusatz.replace(/&(kamera|fov|zielkamera)=[^&]*/g, '');
   const ctx = await b.newContext({ viewport: { width: 1280, height: 720 }, recordVideo: { dir: aus, size: { width: 1280, height: 720 } } });
   const p = await ctx.newPage();
-  await p.goto(`${BASIS}/?absetzen=${ort}${ohneKamera}`, { waitUntil: 'domcontentloaded' });
+  await p.goto(`${BASIS}/?${einstieg}${ohneKamera}`, { waitUntil: 'domcontentloaded' });
   bericht.bewegung = await bereit(p);
   // Kein Mausklick: der setzt die Zeigersperre und kippt die Kamera (erster Lauf D445). Ausblenden als fester Knoten am
   // Ende von <body> und je Sekunde erneut, weil die Oberfläche Knoten neu einhängt.

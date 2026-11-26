@@ -21,6 +21,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { z } from 'zod';
+import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT } from '../src/world/milbingerlicht.js';
 import {
   Akte, abnahme, abnahmeTabelle, adresse, bildratenUrteil, budgetUrteil, leseBildrate, regelpruefung, schritte, sonnenstand,
   sonnenstandImQuelltext, stimmungsVorlage, zeige, type Messwerte, type Schritt,
@@ -53,7 +54,7 @@ const a = ladeAkte(ort);
 let ok = true;
 
 if (befehl === 'plan') {
-  console.log(`# Verfahren Ort für Ort — ${a.name} (${a.id}), Zielbild ${a.zielbild.freigabe}, Runde ${rest[0] ?? 'Dxxx'}`);
+  console.log(`# Verfahren Ort für Ort — ${a.name} (${a.id}), Zielbild ${a.zielbild.freigabe ?? '(Studie, Freigabe offen)'}, Runde ${rest[0] ?? 'Dxxx'}`);
   schritte(a, rest[0], rest[1]).forEach(drucke);
 } else if (befehl === 'schritt') {
   const s = schritte(a, rest[1], rest[2]).find(x => x.nr === Number(rest[0]));
@@ -61,9 +62,10 @@ if (befehl === 'plan') {
   drucke(s);
 } else if (befehl === 'pruefe') {
   console.log(`Ort ${a.name} (${a.id}), Region ${a.region}, Ursprung ${a.ursprung.x}/${a.ursprung.z}, h0 ${a.h0.toFixed(2)} m`);
-  console.log(`Zielbild: ${a.zielbild.werkzeug} Modus ${a.zielbild.modus}, freigegeben ${a.zielbild.freigabe}, Bild ${a.zielbild.bild}`);
+  console.log(`Zielbild: ${a.zielbild.werkzeug} Modus ${a.zielbild.modus}, ${a.zielbild.freigabe ? 'freigegeben mit ' + a.zielbild.freigabe : 'Studie, Freigabe offen'}, Bild ${a.zielbild.bild}`);
   const ledger = readFileSync('docs/_INDEX.md', 'utf8');
-  if (!new RegExp(`^\\| ${a.zielbild.freigabe} \\|`, 'm').test(ledger)) { ok = false; console.log(`FEHLER: Freigabe ${a.zielbild.freigabe} steht nicht im Ledger (docs/_INDEX.md Tabelle B)`); }
+  if (!a.zielbild.freigabe) { ok = false; console.log('Zielbildstudie liegt zur Freigabe vor.'); }
+  else if (!new RegExp(`^\\| ${a.zielbild.freigabe} \\|`, 'm').test(ledger)) { ok = false; console.log(`FEHLER: Freigabe ${a.zielbild.freigabe} steht nicht im Ledger (docs/_INDEX.md Tabelle B)`); }
   if (!existsSync(a.zielbild.bild)) { ok = false; console.log(`FEHLER: Zielbild ${a.zielbild.bild} fehlt`); }
   for (const b of a.bauteile) {
     console.log(`  Bauteil ${b.id.padEnd(10)} ${b.art.padEnd(9)} über ${b.weg}${b.datei ? ' → ' + b.datei : ''}`);
@@ -86,7 +88,10 @@ if (befehl === 'plan') {
   console.log(`Adresszusatz nachher: ${adr.zusatz(a.spiel.schalterNachher)}`);
   const soll = sonnenstand(a.sonne.azimut, a.sonne.hoehe);
   console.log(`Sonne Azimut ${a.sonne.azimut}°, Höhe ${a.sonne.hoehe}° → sonnenstand [${soll.map(n => n.toFixed(1)).join(', ')}]`);
-  const ist = sonnenstandImQuelltext(readFileSync('src/world/stimmung.ts', 'utf8'), a.spiel.stimmung);
+  const ortslicht = a.sonne.ortslicht;
+  const ist = ortslicht
+    ? (ortslicht === 'wolken' ? MILBINGER_WOLKENLICHT : MILBINGER_TAGESLICHT).sonnenstand.clone().normalize().multiplyScalar(100).toArray()
+    : sonnenstandImQuelltext(readFileSync('src/world/stimmung.ts', 'utf8'), a.spiel.stimmung);
   if (!ist) { ok = false; console.log(`STIMMUNG FEHLT: \`${a.spiel.stimmung}\` steht nicht in src/world/stimmung.ts. Diesen Block unverändert einfügen:\n\n${stimmungsVorlage(a)}\n`); }
   else if (ist.some((n, i) => Math.abs(n - soll[i]) > 0.5)) { ok = false; console.log(`STIMMUNG WEICHT AB: \`${a.spiel.stimmung}\` hat sonnenstand [${ist.join(', ')}] — nicht überschreiben, melden.`); }
   else console.log('STIMMUNG PASST');
@@ -108,10 +113,12 @@ if (befehl === 'plan') {
   // Varianten und Hilfsnetze, die mit der Szene ausgeliefert werden und zum Budget gehören.
   const register = z.object({ bauwerke: z.array(z.object({ name: z.string(), dateien: z.array(z.string().regex(/^[a-z0-9-]+$/)) })) })
     .parse(JSON.parse(readFileSync(join('public', a.spiel.ordner, 'register.json'), 'utf8')));
-  const bauwerk = register.bauwerke.find(b => b.name === a.id);
-  if (!bauwerk) throw new Error(`Ort ${a.id} fehlt im Bauregister.`);
+  const gruppe = a.laufzeit?.modellgruppe ?? (a.laufzeit ? undefined : a.id);
+  const bauwerk = register.bauwerke.find(b => b.name === gruppe);
+  if (!gruppe) console.log('Engine-Szene mit regional geteilten Assets. Gemessen werden nur exklusive Dateien des Orts.');
+  if (gruppe && !bauwerk) throw new Error(`Ort ${a.id} fehlt im Bauregister.`);
   const dateien = new Set([...a.bauteile.flatMap(b => b.datei ? [b.datei] : []),
-    ...bauwerk.dateien.map(teil => `${a.id}-${teil}.glb`)]);
+    ...(bauwerk?.dateien ?? []).map(teil => `${gruppe}-${teil}.glb`)]);
   let summe = 0;
   for (const d of dateien) {
     const p = join('public', a.spiel.ordner, d);

@@ -20,6 +20,7 @@ import REGISTER from '../../public/bauten/register.json';
 import ZIEL_REGISTER from '../../public/bauten-ziel/register.json';
 import STAEMME from '../../public/bauten/staemme.json';
 import { AKTIVE_REGION } from '../spiel/region.js';
+import { ZIELORT } from '../spiel/zielort.js';
 import { LOOK_FELS_AN } from './echt.js';
 
 export const Terrasse = z.object({ x: z.number(), z: z.number(), rInnen: z.number().positive(), rAussen: z.number().positive() });
@@ -66,15 +67,19 @@ const SZENENBAU: Bauwerk[] = z.object({ bauwerke: z.array(Bauwerk) }).parse(REGI
  * Freihaltung bleiben die des Szenenbaus (gleiche Scheibe im Hang); die Streuschicht der Engine weicht dem
  * gebackenen Boden ganz.
  */
-const ZIELBAU: Bauwerk[] = LOOK_FELS_AN
-  ? z.object({ bauwerke: z.array(Bauwerk) }).parse(ZIEL_REGISTER).bauwerke.map(b => {
-    const alt = SZENENBAU.find(a => a.name === b.name);
-    const frei = alt?.frei && b.boden ? { ...alt.frei, streu: b.boden.radius } : alt?.frei;
-    return { ...b, ordner: 'bauten-ziel' as const, terrasse: alt?.terrasse ?? b.terrasse, frei };
-  })
-  : [];
-export const BAUWERKE: Bauwerk[] = SZENENBAU.map(b => ZIELBAU.find(ziel => ziel.name === b.name) ?? b)
-  .filter(b => b.region === AKTIVE_REGION);
+const gruppe = ZIELORT ? ZIELORT.laufzeit.modellgruppe : LOOK_FELS_AN ? 'felsmulde' : undefined;
+const basis = SZENENBAU.filter(b => b.region === AKTIVE_REGION);
+const ziel = gruppe && z.object({ bauwerke: z.array(Bauwerk) }).parse(ZIEL_REGISTER).bauwerke
+  .find(b => b.name === gruppe && b.region === AKTIVE_REGION);
+function bauwerkeAmOrt(): Bauwerk[] {
+  if (!ziel) return basis;
+  const alt = basis.find(b => b.name === ziel.name);
+  const frei = alt?.frei ?? ziel.frei;
+  const neu: Bauwerk = { ...ziel, ordner: 'bauten-ziel', terrasse: alt?.terrasse ?? ziel.terrasse,
+    frei: frei && ziel.boden ? { ...frei, streu: ziel.boden.radius } : frei };
+  return alt ? basis.map(b => b === alt ? neu : b) : [...basis, neu];
+}
+export const BAUWERKE = bauwerkeAmOrt();
 
 /**
  * Stämme der Szenen als Kreise `[x, z, r]` in Weltmetern (G-136) — aus den GLB geschnitten von

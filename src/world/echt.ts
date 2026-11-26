@@ -6,7 +6,9 @@
  * Bewegung verglichen werden kann (ADR-0005/0006). `?echt=1` schaltet alles zusammen ein,
  * die Einzelschalter erlauben den Vergleich Stück für Stück.
  */
-const suche = typeof location === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
+import { waehleZielort } from '../spiel/zielort.js';
+
+const { parameter: suche, ort: zielort } = waehleZielort(typeof location === 'undefined' ? '' : location.search);
 const an = (name: string) => suche.get(name) === '1';
 
 /**
@@ -140,6 +142,8 @@ export const AFRAME_AN = an('aframe');
 export const LOOK_FELS_AN = an('lookfels');
 /** D481: gestaffelte Geländewechsel und Vorbereitung für den Gang aus der Felsmulde. */
 export const FELS_BILDTAKT_AN = LOOK_FELS_AN && suche.get('felstakt') !== '0';
+/** Gemeinsame Arbeit für ortsfeste Pflanzen und ihre Sichtprüfung auf begehbaren Ortsrouten. */
+export const ORTS_BILDTAKT_AN = FELS_BILDTAKT_AN || an('ortstakt');
 /** Scan-Kronen nur in der Zielbild-Felsmulde. 0 zeigt D475 (Rahmenkarten), 1 D478, 2 die Büschel D480. */
 const scanStufe = suche.get('scanbaeume') ?? '2';
 export const SCAN_BUESCHEL_AN = LOOK_FELS_AN && scanStufe === '2';
@@ -314,7 +318,7 @@ export const LOOK_FELS_PROPWEITE: number = Number(suche.get('propweite')) > 0 ? 
  * 1440 × 900 gemessen: Dichte 2 → 15 B/s, Dichte 1 → 31 B/s; TAA und der Malfilter tragen die Kanten. `?dichte=2`
  * stellt die Bildschirmdichte wieder her.
  */
-export const LOOK_FELS_DICHTE: number | null = LOOK_FELS_AN ? (Number(suche.get('dichte')) > 0 ? Number(suche.get('dichte')) : 1) : null;
+export const LOOK_FELS_DICHTE: number | null = (zielort?.laufzeit.pixeldichte || LOOK_FELS_AN) ? (Number(suche.get('dichte')) > 0 ? Number(suche.get('dichte')) : zielort?.laufzeit.pixeldichte ?? 1) : null;
 
 /**
  * B — Pinselstriche (D269, `laubkarten.ts`, `grasteppich.ts`): Laub als grosse Striche mit Pinselbogen

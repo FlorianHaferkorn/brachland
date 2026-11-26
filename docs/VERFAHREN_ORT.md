@@ -1,5 +1,5 @@
 ---
-last-reviewed: 2026-11-23
+last-reviewed: 2026-11-26
 shelf-life-days: 60
 ---
 # Verfahren „Ort für Ort“ — vom freigegebenen Zielbild ins Spiel (D459)
@@ -21,10 +21,13 @@ auszulegen noch den Projektverlauf zu kennen; was davon gilt, steht in Abschnitt
 - Es macht den Look nicht „fertig“. Die Felsmulde besteht die sieben Bildkennzahlen seit D480. A-46 bleibt für die Abnahme in Bewegung offen. Das Verfahren stellt das fest und gibt es zurück; es behebt es nicht.
 - Die Abnahme des Looks ist und bleibt Flo am M1, in Bewegung (ADR-0005). Messwerte aus einem Standbild sind eine
   Vorprüfung, keine Look-Aussage.
-- Die Engine-Seite ist heute **nur für die Felsmulde** verdrahtet: Schalter `?lookfels=1`, Kronen in
-  `../src/scenes/Rahmenkronen.tsx`, Objektnamen in `../tools/szenenexport.py`. Für einen zweiten Ort muss ein
-  starkes Modell das einmal verallgemeinern (Abschnitt 9, Lücken L1–L3; Ledger A-53). Bis dahin läuft das Verfahren an einem
-  neuen Ort bis Schritt 5 durch und stoppt in Schritt 6 mit einer Rückmeldung.
+- Der Ortslader liest die Akte unter `tools/ort/`. Mit `?ziel=milbinger` beginnt das Spiel an der Hofzufahrt, mit
+  `?ziel=felsmulde` vor dem Tor. `&zielkamera=1` wählt die erste Vergleichskamera, ein Kameraname eine weitere.
+  Vorhandene Kartenbauten können wie in Milbinger verwendet werden. Für neue Blender-Modellfamilien gelten die offenen Exportaufgaben in A-53.
+- Die unabhängige Milbinger Maßstabsstudie wird direkt aus ihrer gespeicherten Blender-Szene gerendert.
+  Beispiel mit neuer Ausgabe: `blender -b .cache/d348-milbinger/blender-strassenfinale.blend --python-exit-code 1 -P tools/ortkamera.py -- tools/ort/milbinger.json kies .cache/bilder/D482/kies-neu.jpg`.
+  Der Ortsgang mit `ort:milbinger` benutzt die Wegpunkte der Akte sowohl im Film (`tools/mess/echtzeitfahrt.mjs`)
+  als auch in der separaten Bildzeitmessung (`tools/mess/vergleich.mjs`).
 
 ## 1. Eingaben: die Akte des Ortes
 
@@ -190,7 +193,7 @@ Meshopt-Vereinfachung allein reichte nicht (Relief steckt in jeder Ecke) · 10 0
 | 4, 7 Messbild | ja (am M1) | wahrscheinlich | langer Lauf mit Server im Hintergrund; Fehlerbilder sind als Messwert abgefangen |
 | 5 Look-Durchgang | **nein** | **nein** | reines Urteil; in D446 half ein Reel und Abwägen (warm machte die Berge beige, kühl den Himmel blau) |
 | 6 Export an der Felsmulde | ja | unsicher | drei lange Blender-Läufe, Speichergrenzen; Abbruchregel greift |
-| 6 Export an einem **neuen** Ort | **nein** | **nein** | `szenenexport.py` kennt nur die Objektnamen der Felsmulde, die Engine nur `?lookfels=1` (Lücken L1–L3) |
+| 6 Export an einem **neuen** Ort | **nein** | **nein** | `szenenexport.py` kennt nur die Objektnamen der Felsmulde, bei weiteren Blender-Modellfamilien bleiben Export und Kronenzuordnung zu prüfen (L2–L3) |
 | 8 Bildrate messen und Engpass benennen | ja | ja | Urteil kommt aus `ortverfahren.ts bildrate` |
 | 8 Bildrate **beheben** jenseits A/B | **nein** | **nein** | MSAA, AO, Pixeldichte, Schattenwerfer sind Engine-Entscheidungen (D450) |
 | 9 Bildpaar, 10 Ledger und Gate | ja | ja, Ledgerzeile prüfen lassen | Vorlagen vorhanden |
@@ -198,12 +201,9 @@ Meshopt-Vereinfachung allein reichte nicht (Relief steckt in jeder Ecke) · 10 0
 Ungeprüft: Ob Sonnet oder Haiku den Ablauf wirklich fehlerfrei fahren, hat noch niemand ausprobiert. Die
 Schritte 4, 6, 7, 8 sind in dieser Form (ein Aufruf über die Akte) am M1 noch nicht gelaufen.
 
-**Lücken, die ein starkes Modell einmal schliessen muss, bevor ein zweiter Ort durchläuft** (Stand im Ledger: A-53):
+**Stand der Übertragbarkeit auf weitere Orte** (Stand im Ledger: A-53):
 
-- **L1 Engine:** `?lookfels=1`, `ZIELBAU` (`../src/world/bauwerke.ts`), Boden-Loch und Pixeldichte hängen an der
-  Felsmulde. Nötig: ein Schalter je Ort oder ein allgemeiner, der das Register `public/bauten-ziel/register.json`
-  für jeden Eintrag nimmt. Ein neuer Ort braucht zusätzlich einen Eintrag im Szenenbau-Register (Terrasse,
-  Freihaltung).
+- **L1 Engine, D482 umgesetzt.** Die Ortsakte bestimmt den Einstieg, Kamera, Render-Vorgaben und wahlweise die Modellgruppe. Ein Ort kann vorhandene Straßen und Kartenbauten verwenden. Der gebackene Boden einer Modellgruppe bringt Position und Radius über das Bauregister mit.
 - **L2 Export:** `szenenexport.py` (`ZIEL_BAU`, Löschliste) und `pflanzenexport.py` (`MUSTER`) erkennen Objekte an
   den Namen der Felsmulden-Szene. Nötig: Namen aus der Akte oder eine Namensregel für alle Zielbild-Skripte.
 - **L3 Kronen:** `Rahmenkronen.tsx` trägt 13 Bäume der Felsmulde fest im Code. Nötig: Baumliste aus Daten

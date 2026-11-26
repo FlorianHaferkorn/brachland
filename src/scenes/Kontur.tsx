@@ -1,3 +1,4 @@
+import { ORTSPARAMETER } from '../spiel/zielort.js';
 /**
  * BRACHLAND — Nachbearbeitung: Kontur (dunkle Linie an jeder Tiefenkante) und AO (Stufe 2)
  *
@@ -49,7 +50,7 @@ import { TAA_MASKE_GLSL } from '../world/taamaske.js';
 
 const KONTUR_ADRESSE: boolean | null = (() => {
   if (typeof location === 'undefined') return null;
-  const roh = new URLSearchParams(location.search).get('kontur');
+  const roh = ORTSPARAMETER.get('kontur');
   return roh === null ? null : roh !== '0';
 })();
 

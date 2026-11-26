@@ -1,3 +1,4 @@
+import { ORTSPARAMETER, ZIELORT } from '../spiel/zielort.js';
 /**
  * BRACHLAND — Regionsszene
  *
@@ -54,6 +55,7 @@ import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
 import { randSeite, type Seite } from '../spiel/region.js';
 import { haengeAgxLookEin } from './tonwert.js';
+import { kuerzeSonnenlicht, legePcfKarteAn } from './sonnenschatten.js';
 import { haengeNebelEin } from './nebel.js';
 import { findeKlippen, baueKlippenGeometrie, KLIPPEN_VARIANTEN, type Klippe } from '../world/klippen.js';
 import { baueHausMaterial } from '../world/hausmaterial.js';
@@ -82,7 +84,7 @@ import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
 import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
-import { FELS_BILDTAKT_AN, LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE, SCAN_BAEUME_AN, SCAN_BUESCHEL_AN } from '../world/echt.js';
+import { FELS_BILDTAKT_AN, ORTS_BILDTAKT_AN, LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE, SCAN_BAEUME_AN, SCAN_BUESCHEL_AN } from '../world/echt.js';
 import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
 import { HDRLoader } from 'three/examples/jsm/loaders/HDRLoader.js';
@@ -175,7 +177,7 @@ const UMGEBUNG_MESSLAUF: number | null = (() => {
   // Erst auf `null` pruefen, dann rechnen: `Number(null)` ist 0, und 0 ist hier ein gueltiger Wert
   // (Fuelllicht aus). Dieselbe Falle wie bei `?schatten=` unten — hier im ersten Lauf hineingetappt:
   // jede Szene ohne Parameter stand ohne Fuelllicht da, Schatten #000000, Grashang 0,134 -> 0,064.
-  const text = new URLSearchParams(location.search).get('umgebung');
+  const text = ORTSPARAMETER.get('umgebung');
   if (text === null) return null;
   const roh = Number(text);
   return Number.isFinite(roh) && roh >= 0 && roh <= 20 ? roh : null;
@@ -184,7 +186,7 @@ const UMGEBUNG_MESSLAUF: number | null = (() => {
 /** `?sonne=3.2` überschreibt die Sonnenstärke (D172, Messparameter) — für das Verhältnis Sonne zu Fülllicht. */
 const SONNE_MESSLAUF: number | null = (() => {
   if (typeof location === 'undefined') return null;
-  const text = new URLSearchParams(location.search).get('sonne');
+  const text = ORTSPARAMETER.get('sonne');
   if (text === null) return null;
   const roh = Number(text);
   return Number.isFinite(roh) && roh >= 0 && roh <= 20 ? roh : null;
@@ -241,9 +243,11 @@ const KURVE_MESSLAUF: THREE.ToneMapping | null = (() => {
  * `CustomToneMapping` ohne Kurve — also stockdunkel.
  */
 haengeAgxLookEin(typeof location !== 'undefined'
-  && ['hofziel','hofdachbruch'].includes(new URLSearchParams(location.search).get('stimmung') ?? ''), HOF_ZIELTREUE_AN);
+  && ['hofziel','hofdachbruch'].includes(ORTSPARAMETER.get('stimmung') ?? ''), HOF_ZIELTREUE_AN);
 // D204: Nebel mit Auslauf und Höhendunst — wie der Look vor dem ersten Material einhängen.
 haengeNebelEin();
+const FELS_SCHATTENTAKT_AN = FELS_BILDTAKT_AN && ORTSPARAMETER.get('schattentakt') !== '0';
+if (FELS_SCHATTENTAKT_AN) kuerzeSonnenlicht();
 
 /** Nur die Sonnenkamera sieht die grobe Ersatzgeometrie (three r187, WebGLShadowMap). */
 const SCHATTENHUELLEN_EBENE = 1;
@@ -276,7 +280,7 @@ const SCHATTENART: 'basic' | 'percentage' | 'soft' | 'variance' = (() => {
  */
 const SCHATTEN_MESSLAUF: number | null = (() => {
   if (typeof location === 'undefined') return null;
-  const text = new URLSearchParams(location.search).get('schatten');
+  const text = ORTSPARAMETER.get('schatten');
   // `Number(null)` ist 0 — und 0 ist hier ein gültiger Wert. Ohne diese Zeile
   // stand jede Szene ohne Parameter ohne Schatten da (gemessen: Dorf 0,248
   // statt 0,140, bevor es auffiel).
@@ -374,7 +378,7 @@ const GEHEILT_ANSICHT = typeof location !== 'undefined'
 const STIMMUNG_MESSLAUF: Stimmung | null = (() => {
   if (typeof location === 'undefined') return null;
   if (HOF_ZIELTREUE_AN) return STIMMUNG.hofbild;
-  const name = new URLSearchParams(location.search).get('stimmung');
+  const name = ORTSPARAMETER.get('stimmung');
   return name !== null && Object.prototype.hasOwnProperty.call(STIMMUNG, name) ? STIMMUNG[name] : null;
 })();
 
@@ -462,7 +466,7 @@ export const TAGESZEITEN = TAGESLAUF.map(k => ({ name: k.name, zeit: k.zeit }));
  *   ohne Bewegung ändert sich die Zuordnung ohnehin nicht.
  */
 const KACHELPUFFER_AN = (HOF_AN || FELS_BILDTAKT_AN) && typeof location !== 'undefined'
-  && new URLSearchParams(location.search).get('kachelpuffer') !== '0';
+  && ORTSPARAMETER.get('kachelpuffer') !== '0';
 const KACHELNACHLAUF_AN = KACHELPUFFER_AN && (HOF_KACHELNACHLAUF_AN || FELS_BILDTAKT_AN);
 const KACHEL_FRIST_MS = 3;
 
@@ -1083,7 +1087,7 @@ function StreuSchicht({ hoeheAn, biomAn, ziel, props }: {
 }) {
   // D362/D366: Bäume legen unter ihrer Krone eine geschlossene Decke ihrer Art.
   const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
-  const cache = useMemo<StreuCache | undefined>(() => FELS_BILDTAKT_AN ? {} : undefined, [baeume, biomAn, hoeheAn]);
+  const cache = useMemo<StreuCache | undefined>(() => ORTS_BILDTAKT_AN ? {} : undefined, [baeume, biomAn, hoeheAn]);
   const [matrizen, setMatrizen] = useState<THREE.Matrix4[][]>([[], [], [], []]);
   const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
   const geometrien = useMemo(() => [0, 1, 2, 3].map(kachelGeometrie), []);
@@ -1121,7 +1125,7 @@ function BodenSchicht({ hoeheAn, biomAn, ziel, props }: {
   ziel: React.RefObject<THREE.Object3D | null>; props: PropInstanz[];
 }) {
   const baeume = useMemo(() => baumRaster(streuBaeume(props)), [props]);
-  const zellcache = useMemo(() => FELS_BILDTAKT_AN ? new Map() as BodenpflanzenCache : undefined,
+  const zellcache = useMemo(() => ORTS_BILDTAKT_AN ? new Map() as BodenpflanzenCache : undefined,
     [baeume, biomAn, hoeheAn]);
   const [matrizen, setMatrizen] = useState<BodenMatrizen>({ flach: [[], [], [], []], busch: [[], [], [], []] });
   const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
@@ -2072,7 +2076,7 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
   useEffect(() => {
     if (hg) {
       legeWahlAn(scene, hg); setzeFigurUmgebung(scene, himmelKarte);
-      return FELS_BILDTAKT_AN ? begrenzeBewohner(scene) : undefined;
+      return ORTS_BILDTAKT_AN ? begrenzeBewohner(scene) : undefined;
     }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
@@ -2386,6 +2390,7 @@ function BauwerkFernruecken({ bauwerk, teil }: { bauwerk: Bauwerk; teil: 'bergru
 function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
   const { scene } = useGLTF(bauwerkPfad(bauwerk, 'boden'));
   const b = bauwerk.boden!;
+  const rand = Math.min(b.radius, (bauwerk.name === ZIELORT?.laufzeit.modellgruppe ? ZIELORT.laufzeit.bodenrand : undefined) ?? 6);
   const objekt = useMemo(() => {
     const klon = scene.clone(true);
     klon.traverse(o => {
@@ -2397,7 +2402,7 @@ function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
         // Im Scan-Boden sind grüne Halme und Moos gelbbraun unter dem tiefen warmen Sonnenlicht.
         m.color.multiply(new THREE.Color(.91, 1.08, .96));
       }
-      const innen = 1 - 6 / b.radius;
+      const innen = 1 - rand / b.radius;
       m.onBeforeCompile = sh => {
         sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>',
           `#include <map_fragment>\n  diffuseColor.a *= 1.0 - smoothstep(${innen.toFixed(4)}, 1.0, length(vMapUv * 2.0 - 1.0));`);
@@ -2406,12 +2411,12 @@ function BauwerkBoden({ bauwerk }: { bauwerk: Bauwerk }) {
     });
     klon.position.y = 0.02;
     return klon;
-  }, [scene, b.radius, bauwerk.name]);
+  }, [scene, b.radius, rand, bauwerk.name]);
   useEffect(() => {
     // Loch: so weit, wie der Boden deckend ist (Rand 6 m bleibt über dem Spielboden)
-    BODEN_LOCH.value.set(bauwerk.ursprung.x + b.mitte.x, bauwerk.ursprung.z - b.mitte.y, b.radius - 6, 0);
+    BODEN_LOCH.value.set(bauwerk.ursprung.x + b.mitte.x, bauwerk.ursprung.z - b.mitte.y, b.radius - rand, 0);
     return () => { BODEN_LOCH.value.set(0, 0, 0, 0); };
-  }, [bauwerk, b]);
+  }, [bauwerk, b, rand]);
   return <primitive object={objekt} />;
 }
 
@@ -3119,6 +3124,7 @@ function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial, geheilt }: {
 
     const p = ziel.current?.position;
     const l = sonne.current;
+    if (FELS_SCHATTENTAKT_AN && l && !l.shadow.map) legePcfKarteAn(l, gl);
     if (!p || !l) return;
     const ort = ortslicht ? milbingerLichtanteil(ortslicht.rahmen, p.x, p.z, s.sonneStaerke) : 0;
     const misch = THREE.MathUtils.lerp;
@@ -5057,14 +5063,14 @@ const FERN_FEIN_BIS_M = 1000;
  */
 const KAMERA_MESSLAUF: number[] | null = (() => {
   if (typeof location === 'undefined') return null;
-  const roh = new URLSearchParams(location.search).get('kamera');
+  const roh = ORTSPARAMETER.get('kamera');
   if (!roh) return null;
   const n = roh.split(',').map(Number);
   return n.length === 6 && n.every(Number.isFinite) ? n : null;
 })();
 const FOV_MESSLAUF: number | null = (() => {
   if (typeof location === 'undefined') return null;
-  const roh = Number(new URLSearchParams(location.search).get('fov'));
+  const roh = Number(ORTSPARAMETER.get('fov'));
   return Number.isFinite(roh) && roh > 5 && roh < 150 ? roh : null;
 })();
 

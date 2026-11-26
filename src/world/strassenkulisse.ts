@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ORTSPARAMETER } from '../spiel/zielort.js';
 import { nachMetern, REGIONEN } from '../data/inhalte.js';
 import type { Strassenalterung, Strassenkulisse } from '../data/schema.js';
 import { baueStrassenbewuchs } from './strassenbewuchs.js';
@@ -58,9 +59,12 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
       const verwitterung = MILBINGERBELAG_AN ? vermessen?.verwitterung : undefined;
       const schotterspuren = MILBINGEROBEN_AN && !!verwitterung;
       const randverfall = MILBINGERRAND_AN && !!verwitterung;
-      const alterung = MILBINGERFINALE_AN && randverfall ? vermessen?.alterung : undefined;
+      const alt = MILBINGERFINALE_AN && randverfall ? vermessen?.alterung : undefined;
+      const hofzufahrt = !!alt && ORTSPARAMETER.get('hofzufahrt') === '1';
+      // Die fünf früher gestalteten Baustellenstreifen haben keinen Luftbildbeleg.
+      const alterung = hofzufahrt && alt ? { ...alt, farbreste: [] } : alt;
       if (vermessen) querschnitte.push({
-        geometrie: baueStrassenquerschnitt(punkte, boden, vermessen, weg.breite, verwitterung, schotterspuren, bodenraster, randverfall, !!alterung),
+        geometrie: baueStrassenquerschnitt(punkte, boden, vermessen, weg.breite, verwitterung, schotterspuren, bodenraster, randverfall, !!alterung, hofzufahrt),
         verwittert: !!verwitterung,
         alterung,
       });
@@ -75,7 +79,7 @@ export function baueStrassenkulissen(welt: Weltdaten, feld: HoehenFeld, abschnit
         schotterspuren,
         nahtbewuchs: MILBINGERDETAIL_AN && !!verwitterung,
         randverfall,
-        strassenfinale: !!alterung,
+        strassenfinale: !!alterung, hofzufahrt,
         bodenpassend: !!bodenraster,
         wohnwegZugaenge: WESTANSCHLUSS_AN && wohnwegrand ? wohnwegZugaenge : undefined,
         fahrbahnprofil: STRASSENPROFIL_AN,

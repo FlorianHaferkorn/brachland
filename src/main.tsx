@@ -1,3 +1,4 @@
+import { ORTSPARAMETER } from './spiel/zielort.js';
 import { StrictMode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as THREE from 'three';
@@ -107,7 +108,7 @@ const KAMPF_AUFSTELLUNG: readonly KampfArt[] = RUDEL ? ['wolf', 'wolf', 'wolf']
  * Ungültige Eingaben ergeben `null`, also den normalen Spielstand.
  */
 const ABSETZEN: { ort: [number, number]; blick: number } | null = (() => {
-  const roh = new URLSearchParams(location.search).get('absetzen');
+  const roh = ORTSPARAMETER.get('absetzen');
   if (!roh) return null;
   const [x, z, grad] = roh.split(',').map(Number);
   if (!Number.isFinite(x) || !Number.isFinite(z)) return null;
@@ -129,7 +130,7 @@ function mutationVon(v: Vorkommen): number {
  * zeigt den Wechsel. Messwerkzeug wie `absetzen`; ohne Angabe beginnt er mit vollen KP.
  */
 const REGENT_PHASE = Number(new URLSearchParams(location.search).get('regent')) || 0;
-const MESSADRESSE = ['absetzen', 'kampf', 'stimmung', 'kamera', 'zeit', 'ansicht', 'regent'].some(k => new URLSearchParams(location.search).has(k));
+const MESSADRESSE = ['absetzen', 'kampf', 'stimmung', 'kamera', 'zeit', 'ansicht', 'regent'].some(k => ORTSPARAMETER.has(k));
 /** `?waffenstufe=3`: beide Waffen auf dieser Stufe (Messlauf, D178). */
 const WAFFENSTUFE_PROBE = (() => { const w = new URLSearchParams(location.search).get('waffenstufe'); return w === null ? undefined : { klinge: Number(w), axt: Number(w), speer: Number(w) }; })();
 /** Länge eines Spieltags in Sekunden (D178): 24 Minuten, ein Abend dauert damit gut 5. */
@@ -183,7 +184,7 @@ function App() {
    * den Standard zurück; ein Tippfehler soll die Szene nicht anhalten.
    */
   const [tageszeit, setTageszeit] = useState(() => {
-    const roh = Number(new URLSearchParams(location.search).get('zeit'));
+    const roh = Number(ORTSPARAMETER.get('zeit'));
     return Number.isFinite(roh) && roh >= 0 && roh < 1 ? roh : 0.26;
   });
   /**

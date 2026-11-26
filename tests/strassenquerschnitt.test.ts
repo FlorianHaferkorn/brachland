@@ -232,6 +232,23 @@ assert.ok(Math.abs(ueberGrund(32, links - 5.996) - .0025) < .00023);
 assert.ok(ueberGrund(30.01, kanten(30.01)[0] - 4) < .005, 'Auch die seitliche Fläche verliert ihre Aufsatzkante');
 assert.ok(Math.abs(ueberGrund(22, kanten(22)[1] - .7) - .018) < .00002, 'Die Fahrbahnmitte behält ihre Höhe');
 assert.ok(ueberGrund(22, kanten(22)[1] - .002) < .003, 'Am unbebordeten Asphalt übernimmt das Gelände');
+// Zwischen den Radspuren darf sich Humus aufbauen. Beide Radspuren, Bord und Hofanschluss
+// müssen in der begehbaren Höhe zum vermessenen D348-Netz passen.
+const hofNetz = baueStrassenquerschnitt(punkte, grund, variante, 5, verwitterung, true, randRaster, true, true, true);
+const hubGegenD348 = (s: number, tiefe: number) => {
+  const q = kanten(s)[0] - tiefe;
+  gezeichnet.geometry = finaleNetz;
+  const alt = ueberGrund(s, q);
+  gezeichnet.geometry = hofNetz;
+  return ueberGrund(s, q) - alt;
+};
+assert.ok(hubGegenD348(32, 2.7) > .032, 'Der durchwurzelte Mittelstreifen trägt echtes Relief');
+for (const s of [31.23,32.77]) for (const tiefe of [1.85,2.7,4.8]) {
+  assert.ok(Math.abs(hubGegenD348(s, tiefe)) < .0001, 'Spuren bleiben frei');
+}
+assert.ok(Math.abs(hubGegenD348(32, 1.5)) < .0001, 'Abgesenkter Gehweg bleibt anschlussgleich');
+assert.ok(Math.abs(hubGegenD348(32, 5.998)) < .00025, 'Hinterer Anschluss läuft auf das Gelände aus');
+hofNetz.dispose();
 finaleNetz.dispose();
 console.log(`✓ D348: ${kiesrand} bündige Kiesrand- und ${fahrbahnrand} Asphaltrandpunkte auf dem Geländeraster`);
 
