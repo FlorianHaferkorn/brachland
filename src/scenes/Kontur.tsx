@@ -625,7 +625,7 @@ export function Kontur({ an, felsAtmosphaere = false, staerke = 0.6, schwelle = 
   // Materialtexturen und Vertexpuffer. Je Ansicht ein Ladebild.
   const vorlauf = useMemo(() => ORTSVORLAUF_AN ? {
     kamera: new THREE.PerspectiveCamera(), ausschnitt: new THREE.Vector4(), mitte: new THREE.Vector3(), start: new THREE.Vector3(),
-    richtung: 0, frist: 0, fertig: false,
+    richtung: 0, frist: 0, bereitGemeldet: false, fertig: false,
     marke: `ortsvorlauf-${ORTSPARAMETER.get('ziel') ?? 'start'}`,
   } : null, [gl, scene]);
   // Prioritaet 1 uebernimmt das Zeichnen von fiber — auch wenn der Pass aus ist,
@@ -641,11 +641,14 @@ export function Kontur({ an, felsAtmosphaere = false, staerke = 0.6, schwelle = 
         vorlauf.start.copy(camera.position);
         vorlauf.frist = performance.now() + 5000;
       }
-      const gruppe = vorlauf.richtung >= 3 ? offen?.entries().next().value : undefined;
-      // Bei fehlendem GLB darf das HUD weiter laden. Wer schon losläuft, bekommt
-      // keine nachträgliche Vorwärmung während der Bewegung.
-      if (vorlauf.richtung >= 3 && (performance.now() > vorlauf.frist || camera.position.distanceToSquared(vorlauf.start) > 9)) offen?.clear();
-      if (vorlauf.richtung < 3 || (gruppe?.[1] && offen?.size)) {
+      // Das HUD hat ein eigenes Zeitlimit. Solange die Kamera am Start steht,
+      // können danach eintreffende Grünteile ihre Puffer noch in Ruhe laden.
+      if (vorlauf.richtung >= 3 && camera.position.distanceToSquared(vorlauf.start) > 0.25) offen?.clear();
+      let gruppe: [string, THREE.Object3D | null] | undefined;
+      if (vorlauf.richtung >= 3 && offen) {
+        for (const eintrag of offen) if (eintrag[1]) { gruppe = eintrag; break; }
+      }
+      if (vorlauf.richtung < 3 || gruppe) {
         gl.setRenderTarget(passAn ? ziel.rt : null);
         const scissorTest = gl.getScissorTest(), schatten = gl.shadowMap.autoUpdate;
         gl.getScissor(vorlauf.ausschnitt);
@@ -667,15 +670,19 @@ export function Kontur({ an, felsAtmosphaere = false, staerke = 0.6, schwelle = 
           gl.setScissorTest(scissorTest);
           gl.shadowMap.autoUpdate = schatten;
         }
-        if (gruppe) offen?.delete(gruppe[0]);
+        if (gruppe) {
+          offen?.delete(gruppe[0]);
+          performance.mark(vorlauf.marke + '-gruen-' + gruppe[0]);
+        }
         else vorlauf.richtung++;
       }
-      if (vorlauf.richtung === 3 && !offen?.size) {
-        vorlauf.fertig = true;
+      if (vorlauf.richtung === 3 && !vorlauf.bereitGemeldet && (!offen?.size || performance.now() >= vorlauf.frist)) {
+        vorlauf.bereitGemeldet = true;
         performance.mark(vorlauf.marke + '-bereit');
         performance.measure(vorlauf.marke, vorlauf.marke + '-beginn', vorlauf.marke + '-bereit');
         meldeFertig('ortsvorlauf');
       }
+      vorlauf.fertig = vorlauf.bereitGemeldet && !offen?.size;
     }
     gl.info.reset();
     if (!passAn) { gl.setRenderTarget(null); gl.render(scene, camera); return; }

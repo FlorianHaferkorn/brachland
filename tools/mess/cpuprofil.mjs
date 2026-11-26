@@ -21,13 +21,36 @@ if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Name
 if (!/^\d+$/.test(port)) throw new Error('Numerischen lokalen Preview-Port angeben.');
 if (!/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(ort)) throw new Error('Ort als x,z,grad angeben.');
 if (!Number.isFinite(ausreisserMs) || ausreisserMs < 16) throw new Error('Ausreisserschwelle ab 16 ms angeben.');
+const gruenVerzug = process.env.MESS_GRUEN_VERZUG_MS ? Number(process.env.MESS_GRUEN_VERZUG_MS) : null;
+if (gruenVerzug !== null && (strecke !== 'ort:milbinger' || !Number.isFinite(gruenVerzug) || gruenVerzug < 0)) {
+  throw new Error('Für den Grünverzug sind ort:milbinger und eine nichtnegative Zeit in ms erforderlich.');
+}
 const ziel = `.cache/mess/${name}`;
 if (existsSync(ziel)) throw new Error(`Ausgabe existiert bereits: ${ziel}`);
 mkdirSync(ziel, { recursive: true });
 const { chromium } = await playwright();
 const browser = await chromium.launch({ args: ['--use-angle=metal', '--enable-gpu-rasterization', '--ignore-gpu-blocklist'] });
-const seite = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
+const seite = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1,
+  ...(gruenVerzug !== null ? { serviceWorkers: 'block' } : {}) });
 const fehler = [], anfragen = [];
+// Den Fristfall unabhängig von Dateicache und Netz wiederholen. Die normale Messung
+// behält alle Browserstandards. Die Verzögerung beginnt erst mit dem Ortsvorlauf.
+let gruenFreigegebenMs = null;
+if (gruenVerzug !== null) {
+  await seite.route('**/stauwehr-gruen.glb', async route => {
+    try {
+      const antwort = await route.fetch();
+      await seite.waitForFunction(() => performance.getEntriesByName('ortsvorlauf-milbinger-beginn').length > 0,
+        null, { timeout: 60000 });
+      await seite.waitForTimeout(gruenVerzug);
+      gruenFreigegebenMs = await seite.evaluate(() => performance.now());
+      await route.fulfill({ response: antwort });
+    } catch (e) {
+      fehler.push(String(e));
+      await route.abort().catch(() => {});
+    }
+  });
+}
 let messen = false;
 await seite.addInitScript(() => {
   const messung = { aufrufe: {}, tasten: [] };
@@ -63,11 +86,11 @@ await seite.addInitScript(() => {
       const quelle = args[name === 'bufferData' ? 1 : 2];
       const offset = args[3] ?? 0;
       const anzahl = args[4] || (quelle?.length ?? 0) - offset;
-      const byte = anzahl * (quelle?.BYTES_PER_ELEMENT ?? 0) || quelle?.byteLength || 0;
+      const byte = anzahl * (quelle?.BYTES_PER_ELEMENT ?? 0) || quelle?.byteLength || (typeof quelle === 'number' ? quelle : 0);
       if (byte < 256 * 1024) return original.apply(this, args);
       const beginn = performance.now();
       const ergebnis = original.apply(this, args);
-      window.__cpuUploads.push({ beginnMs: beginn, name, byte, cpuMs: performance.now() - beginn });
+      window.__cpuUploads.push({ beginnMs: beginn, name, byte, quelle, cpuMs: performance.now() - beginn });
       return ergebnis;
     };
   }
@@ -157,10 +180,28 @@ try {
   }
   messen = false;
   const { profile } = await cdp.send('Profiler.stop');
-  const { zeitpunkte, ursprung, audio, uploads, programme, langzeit } = await seite.evaluate(() => {
+  const { zeitpunkte, ursprung, audio, uploads, programme, langzeit, vorlauf } = await seite.evaluate(() => {
     window.__cpuBildlauf.aktiv = false;
+    // Erst nach dem Lauf die gemessenen Arrays ihren Geometrien zuordnen. Auch
+    // Instanz- und verschachtelte Attribute können denselben GPU-Puffer verwenden.
+    const eigentuemer = new WeakMap();
+    window.__szene?.traverse(objekt => {
+      const g = objekt.geometry;
+      if (!g) return;
+      let gruppe = objekt;
+      while (gruppe.parent && !gruppe.name) gruppe = gruppe.parent;
+      for (const [attribut, wert] of Object.entries({ ...g.attributes, index: g.index,
+        instanceMatrix: objekt.instanceMatrix, instanceColor: objekt.instanceColor })) {
+        const array = wert?.array ?? wert?.data?.array;
+        if (array && !eigentuemer.has(array)) eigentuemer.set(array, { objekt: gruppe.name, attribut });
+      }
+    });
+    const uploads = window.__cpuUploads.map(({ quelle, ...messung }) => ({
+      ...messung, ...eigentuemer.get(quelle),
+    }));
     return { zeitpunkte: window.__cpuBildlauf.zeitpunkte, ursprung: performance.timeOrigin,
-      audio: window.__cpuAudio, uploads: window.__cpuUploads, programme: window.__cpuProgramm, langzeit: window.__cpuLangzeit };
+      vorlauf: performance.getEntriesByType('mark').filter(e => e.name.startsWith('ortsvorlauf-')).map(e => ({ name: e.name, ms: e.startTime })),
+      audio: window.__cpuAudio, uploads, programme: window.__cpuProgramm, langzeit: window.__cpuLangzeit };
   });
   const bildzeitpunkte = route ? route.bilder.map(([zeit]) => zeit - ursprung) : zeitpunkte;
   const hud = await seite.textContent('body');
@@ -216,9 +257,9 @@ try {
       programme: programme.filter(u => u.beginnMs + zeitVersatz < ende && u.beginnMs + u.dauerMs + zeitVersatz > anfang),
       top: [...anteile].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([funktion, ms]) => ({ funktion, ms: +ms.toFixed(1) })) });
   }
-  const bericht = { ort, extra, port, build, ausreisserMs, dauerMs: (profile.endTime - profile.startTime) / 1000,
+  const bericht = { gruenVerzug, gruenFreigegebenMs, ort, extra, port, build, ausreisserMs, dauerMs: (profile.endTime - profile.startTime) / 1000,
     samples: profile.samples?.length ?? 0, topSelbst: [...rang].sort((a, b) => b.selbstMs - a.selbstMs).slice(0, 60),
-    topInklusive: [...rang].sort((a, b) => b.inklusiveMs - a.inklusiveMs).slice(0, 60), langeBilder, audio, uploads, programme, route, hud, anfragen, fehler,
+    topInklusive: [...rang].sort((a, b) => b.inklusiveMs - a.inklusiveMs).slice(0, 60), langeBilder, audio, uploads, programme, vorlauf, route, hud, anfragen, fehler,
     hinweis: 'Sampling-Hauptthread, weder GPU-Zeit noch kausaler Beweis fuer Bildausreisser; Profiler erzeugt Eigenlast.' };
   writeFileSync(`${ziel}/profil.cpuprofile`, JSON.stringify(profile));
   writeFileSync(`${ziel}/bericht.json`, JSON.stringify(bericht, null, 2));

@@ -4,7 +4,7 @@
 
 1. `GOI_DOKTRIN.md`, danach `CLAUDE.md`: gemeinsame Arbeitsregeln für dieses Repo.
 2. `docs/_INDEX.md`: Tabelle A für offene Punkte, Tabelle B für Entscheidungen.
-   **Aktueller Stand (25.11.2026):** Claude-Basis `claude/epic-planck-86z6fy` (PR #16), D479. Fortsetzung am 26.11.2026 bis `codex/d483-milbinger-bildzeiten` (D480–D483). **Erster Einstieg ist
+   **Aktueller Stand (25.11.2026):** Claude-Basis `claude/epic-planck-86z6fy` (PR #16), D479. Fortsetzung am 26.11.2026 bis `codex/d484-milbinger-puffer` (D480–D484). **Erster Einstieg ist
    `docs/UEBERGABE_CODEX.md`** (Fokus Welt, Reihenfolge der nächsten Schritte). `docs/UEBERGABE.md` Abschnitt 0 sind
    ältere Aufträge an den M1; davon gilt noch Punkt 6 (Prüfliste Bewegung D456–D461, nur am M1 in Bewegung prüfbar).
    Offene Fragen an Flo: A-43 bis A-58. Bewegung: `docs/design/BRACHLAND_Waffenbewegungen_v1.md` §8–§10.

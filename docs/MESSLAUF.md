@@ -24,6 +24,12 @@ Die Zeitmessung erfasst auch HUD-Ladezeit und Dauer des Materialvorlaufs. Im Ein
 Für den Gegenlauf im selben Build `&ortsvorlauf=0` ergänzen. Kameraaufnahme und CPU-Profil getrennt
 von den Bildzeitläufen starten.
 
+Für den D484-Gegenlauf mit verspätetem Stauwehr-Grün `MESS_GRUEN_VERZUG_MS=6200` vor
+den Profilbefehl setzen. Das Messwerkzeug hält nur diese GLB-Antwort bis 6,2 s nach dem Beginn
+des Ortsvorlaufs zurück. `gruenFreigegebenMs` und die Einträge in `vorlauf` verwenden die Browseruhr.
+Im Uploadbericht stehen Objekt und Attribut, wenn das übertragene Array am Ende des Gangs noch in
+der Szene registriert ist. Bei gemeinsam genutzten Attributen steht das erste gefundene Objekt.
+
 ## Voraussetzungen
 
 Node-Abhängigkeiten installiert, Blender im PATH; der Blender-Pfad benutzt

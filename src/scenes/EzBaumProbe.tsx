@@ -88,13 +88,20 @@ function windEinbauen(material: THREE.Material, zeit: { value: number }): void {
   material.needsUpdate = true;
 }
 
-/** Eigene Instanzattribute, aber gemeinsame unveraenderliche Vertex- und Indexdaten. */
-function mitBlende(quelle: THREE.BufferGeometry, kapazitaet: number): { geo: THREE.BufferGeometry; blende: THREE.InstancedBufferAttribute; intervall: THREE.InstancedBufferAttribute } {
+/** Alle Stufen und Instanzgruppen eines Baumsatzes nutzen dieselben statischen
+ * Vertexpuffer. Nur der Index legt fest, welche Dreiecke die Stufe zeichnet. */
+function mitGleichenEcken(quelle: THREE.BufferGeometry): THREE.BufferGeometry {
   const geo = new THREE.BufferGeometry();
-  geo.setIndex(quelle.getIndex());
   for (const [name, attribut] of Object.entries(quelle.attributes)) geo.setAttribute(name, attribut);
   geo.boundingSphere = quelle.boundingSphere?.clone() ?? null;
   geo.boundingBox = quelle.boundingBox?.clone() ?? null;
+  return geo;
+}
+
+/** Eigene Instanzattribute, aber gemeinsame unveraenderliche Vertex- und Indexdaten. */
+function mitBlende(quelle: THREE.BufferGeometry, kapazitaet: number): { geo: THREE.BufferGeometry; blende: THREE.InstancedBufferAttribute; intervall: THREE.InstancedBufferAttribute } {
+  const geo = mitGleichenEcken(quelle);
+  geo.setIndex(quelle.getIndex());
   const blende = new THREE.InstancedBufferAttribute(new Float32Array(kapazitaet), 1);
   blende.setUsage(THREE.DynamicDrawUsage);
   geo.setAttribute('aEzBlende', blende);
@@ -145,7 +152,7 @@ function laubStufe(quelle: THREE.BufferGeometry, anteil: number): THREE.BufferGe
     if (h / 0x100000000 >= anteil) continue;
     for (let j = 0; j < 12; j++) zahlen.push(index.getX(k * 12 + j));
   }
-  const kopie = quelle.clone();
+  const kopie = mitGleichenEcken(quelle);
   kopie.setIndex(zahlen);
   return kopie;
 }
@@ -159,7 +166,7 @@ function stammStufe(quelle: THREE.BufferGeometry, anteil: number, vereinfacher: 
   const eingang = Uint32Array.from(index.array);
   const ziel = Math.max(3, Math.floor(eingang.length * anteil / 3) * 3);
   const [indices] = vereinfacher.simplify(eingang, position.array, 3, ziel, 0.02);
-  const kopie = quelle.clone();
+  const kopie = mitGleichenEcken(quelle);
   kopie.setIndex(new THREE.BufferAttribute(indices, 1));
   return kopie;
 }
