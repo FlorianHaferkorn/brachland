@@ -68,6 +68,7 @@ export function mikrorelief(x: number, z: number): number {
 // -------------------------------------------------- Höhe mit Zwischenwerten
 
 export interface HoehenFeld {
+  trittweg?: import('./hoftrittweg.js').Hoftrittweg;
   /**
    * Höhe der **Geländeoberfläche** an beliebiger Weltposition, inkl. Interpolation,
    * Mikrorelief und **ausgeschnittenem Gewässerbett**.

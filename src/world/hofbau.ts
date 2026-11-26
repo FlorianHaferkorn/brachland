@@ -15,6 +15,7 @@ import { mulberry } from './props.js';
 import type { Hofbau } from '../data/schema.js';
 import daten from '../../content/hofbauten.json';
 import type { Weltdaten } from './osm.js';
+import { baueHoftrittweg } from './hoftrittweg.js';
 import type { HoehenFeld } from './lod.js';
 import { orientierteHuelle, type Aufsatzboden } from './terrain.js';
 
@@ -26,6 +27,7 @@ export interface HofbauLage {
   drehung: number;
   querSpiegeln: boolean;
   efeuecke?: Hofbau['efeuecke'];
+  trittwege?: readonly (readonly (readonly number[])[])[];
   saat: number;
   /** Gemessene Grundrissmasse, zum Abgleich mit dem Modell. */
   laenge: number; breite: number;
@@ -60,7 +62,7 @@ export function hofbauLagen(region: string, welt: Weltdaten, boden: Aufsatzboden
     const terrasse = THREE.MathUtils.lerp(boden.hoeheAn(mx, mz), boden.hoeheAn(x, z), .35);
     // Blender +x → three +x, Blender +y → three −z; u liegt in (cos, sin) der xz-Ebene → Drehung −achse um y.
     lagen.push({ modell: h.modell, ort: [x, terrasse, z], drehung: -hl.achse, querSpiegeln: h.querSpiegeln === true,
-      efeuecke: h.efeuecke, saat: h.saat, laenge: hl.maxU - hl.minU, breite: hl.maxV - hl.minV });
+      efeuecke: h.efeuecke, trittwege: h.trittwege, saat: h.saat, laenge: hl.maxU - hl.minU, breite: hl.maxV - hl.minV });
   }
   return lagen;
 }
@@ -75,7 +77,9 @@ export function mitHofterrassen(feld: HoehenFeld, lagen: readonly HofbauLage[]):
     return { x: x + l * c, z: z + l * s, y: y - .04, c, s, l, b,
       randX: l * Math.abs(c) + b * Math.abs(s) + 9, randZ: l * Math.abs(s) + b * Math.abs(c) + 9 };
   });
-  return { ...feld, hoehe: (x, z) => {
+  const trittweg = baueHoftrittweg(lagen);
+  return { ...feld, trittweg, hoehe: (x, z) => {
+    const abrieb = trittweg ? .07 * THREE.MathUtils.smoothstep(trittweg.deckung(x, z), .2, 1) : 0;
     const grund = feld.hoehe(x, z);
     for (const t of terrassen) {
       const dx = x - t.x, dz = z - t.z;
@@ -83,9 +87,9 @@ export function mitHofterrassen(feld: HoehenFeld, lagen: readonly HofbauLage[]):
       const u = Math.max(0, Math.abs(dx * t.c + dz * t.s) - t.l);
       const v = Math.max(0, Math.abs(dz * t.c - dx * t.s) - t.b);
       const abstand = Math.hypot(u, v);
-      if (abstand < 9) return THREE.MathUtils.lerp(t.y, grund, THREE.MathUtils.smoothstep(abstand, .8, 9));
+      if (abstand < 9) return THREE.MathUtils.lerp(t.y, grund, THREE.MathUtils.smoothstep(abstand, .8, 9)) - abrieb;
     }
-    return grund;
+    return grund - abrieb;
   } };
 }
 

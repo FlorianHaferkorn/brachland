@@ -16,12 +16,12 @@ function zufall(saat: number): () => number {
 }
 
 /** Einmal je Variante. Alle Karten sitzen an derselben verzweigten Quellform, auch in der Mittelstufe. */
-export function baueHofStrauch(variante: number, hoehe: number): THREE.BufferGeometry {
+export function baueHofStrauch(variante: number, hoehe: number, leicht = false): THREE.BufferGeometry {
   if (!Number.isFinite(hoehe) || hoehe <= 0) throw Error('Strauchhöhe muss positiv sein.');
   const rnd = zufall(3071 + variante * 137), teile: THREE.BufferGeometry[] = [];
   const farbe = new THREE.Color('#4a4033');
   const ast = (von: THREE.Vector3, bis: THREE.Vector3, dicke: number) => {
-    const d = bis.clone().sub(von), g = new THREE.CylinderGeometry(dicke * 0.38, dicke, d.length(), 5, 1);
+    const d = bis.clone().sub(von), g = new THREE.CylinderGeometry(dicke * 0.38, dicke, d.length(), leicht ? 3 : 5, 1, leicht);
     g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.clone().normalize()));
     g.translate(...von.clone().add(bis).multiplyScalar(0.5).toArray());
     const n = g.getAttribute('position').count;
@@ -34,6 +34,7 @@ export function baueHofStrauch(variante: number, hoehe: number): THREE.BufferGeo
   };
   const karte = (mitte: THREE.Vector3, ursprung: THREE.Vector3) => {
     const g = new THREE.PlaneGeometry(0.24 + rnd() * 0.09, 0.22 + rnd() * 0.1);
+    if (leicht) g.scale(2, 2, 1);
     const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rnd() * Math.PI, rnd() * Math.PI * 2, rnd() * Math.PI));
     g.applyQuaternion(q); g.translate(...mitte.toArray());
     // Glatte Hüllnormale des Zweigbüschels statt Lichtwechsel auf jeder einzelnen Karte.
@@ -52,16 +53,16 @@ export function baueHofStrauch(variante: number, hoehe: number): THREE.BufferGeo
     teile.push(g.toNonIndexed()); g.dispose();
   };
   // Ungleich hohe Stämme und seitliche Endzweige lassen Zwischenräume statt einer Kugelhülle.
-  for (let stamm = 0; stamm < 5; stamm++) {
+  for (let stamm = 0; stamm < (leicht ? 3 : 5); stamm++) {
     const winkel = rnd() * Math.PI * 2, laenge = 0.3 + rnd() * 0.2;
     const fuss = new THREE.Vector3(Math.cos(winkel) * 0.08, 0, Math.sin(winkel) * 0.08);
     const gabel = new THREE.Vector3(Math.cos(winkel) * laenge * 0.6, 0.3 + rnd() * 0.26, Math.sin(winkel) * laenge * 0.6);
     ast(fuss, gabel, 0.018 + rnd() * 0.007);
-    for (let zweig = 0; zweig < 3; zweig++) {
+    for (let zweig = 0; zweig < (leicht ? 2 : 3); zweig++) {
       const a = winkel + (rnd() - 0.5) * 2.6;
       const ende = new THREE.Vector3(Math.cos(a) * laenge, gabel.y + 0.08 + rnd() * 0.24, Math.sin(a) * laenge);
       ast(gabel, ende, 0.008);
-      for (let blatt = 0; blatt < 12; blatt++) {
+      for (let blatt = 0; blatt < (leicht ? 3 : 12); blatt++) {
         const az = rnd() * Math.PI * 2, z = rnd() * 2 - 1, r = Math.sqrt(Math.max(0, 1 - z * z));
         const mitte = ende.clone().add(new THREE.Vector3(Math.cos(az) * r * 0.19, z * 0.18, Math.sin(az) * r * 0.19));
         karte(mitte, ende);
@@ -76,6 +77,12 @@ export function baueHofStrauch(variante: number, hoehe: number): THREE.BufferGeo
   g.computeBoundingBox(); g.computeBoundingSphere();
   g.boundingSphere!.radius += 0.25; // Reserve für Wind; kein Abschneiden am Bildrand.
   return g;
+}
+
+/** Ein genormtes Netz für alle Landschaftssträucher, auch im gebündelten Fernring. */
+let landschaft: THREE.BufferGeometry | undefined;
+export function landschaftsStrauchGeometrie(): THREE.BufferGeometry {
+  return landschaft ??= baueHofStrauch(0, 1, true);
 }
 
 const geometrien = new Map<string, THREE.BufferGeometry>();

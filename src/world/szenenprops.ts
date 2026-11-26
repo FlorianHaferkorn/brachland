@@ -24,7 +24,7 @@ export function propsWieSzene(
 ): PropInstanz[] {
   const props = verteileProps(welt, { ...terrain, hoeheAn: feld.hoehe }, 1)
     // Freihaltung der Bauwerke (ADR-0006): Die Blender-Szene bringt ihren eigenen Wald mit.
-    .filter(p => !freihalten?.(p.position[0], p.position[2]) && !gesperrt(p.position[0], p.position[2], 'props'))
+    .filter(p => !freihalten?.(p.position[0], p.position[2]) && !(feld.trittweg && feld.trittweg.deckung(p.position[0], p.position[2]) > .25) && !gesperrt(p.position[0], p.position[2], 'props'))
     .map(p => ({ ...p, position: [p.position[0], feld.hoehe(p.position[0], p.position[2]), p.position[2]] }) as PropInstanz);
   if (HOF_SILHOUETTE_AN) {
     const hof = bestimmeHof(welt, terrain);

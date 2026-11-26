@@ -152,9 +152,8 @@ export const LEERER_STAND: Spielstand = {
   position: [0, 0],
   region: 'oental',
   gesehen: [],
-  // Zwei Sude und ein Köder zum Anfangen. Ohne Startausstattung ist der erste
-  // verlorene Kampf eine Sackgasse, und der erste Fang reiner Zufall.
-  beutel: { kraeutersud: 2, koeder: 1 },
+  // Zwei Sude als Reisevorrat.
+  beutel: { kraeutersud: 2 },
   fragmente: [],
   orte: [],
   regenten: [],

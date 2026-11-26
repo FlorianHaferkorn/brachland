@@ -893,10 +893,10 @@ export function baueAnbau(kreatur: string, koerper: THREE.BufferGeometry, mutati
 }
 
 /** Koerper plus Anbau aus der geladenen Datei — fuer Welt, Reittier (D145) und Kampf (D169). */
-export function kreaturGeometrie(scene: THREE.Object3D, kreatur: string, mutation: number): THREE.BufferGeometry | null {
+export function kreaturGeometrie(scene: THREE.Object3D, kreatur: string, mutation: number, befallen = true): THREE.BufferGeometry | null {
   let g: THREE.BufferGeometry | null = null;
   scene.traverse(o => { if (!g && (o as THREE.Mesh).isMesh) g = (o as THREE.Mesh).geometry; });
-  if (!g || !MIT_ANBAU.has(kreatur)) return g;
+  if (!g || !befallen || !MIT_ANBAU.has(kreatur)) return g;
   const koerper = g as THREE.BufferGeometry;
   // Der Anbau kommt ohne Normalen und UV (D107: das Modell hat keine), sonst
   // verweigert `mergeGeometries` — gleiche Attribute sind Pflicht. Seit D128

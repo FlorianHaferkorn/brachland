@@ -78,7 +78,7 @@ export type BodenpflanzenCache = Map<number, Map<number, Zellpflanze[]>>;
 export function bodenMatrizen(
   mx: number, mz: number, radius: number,
   hoeheAn: (x: number, z: number) => number, biomAn: (x: number, z: number) => Biom,
-  baeume: BaumRaster, cache?: BodenpflanzenCache,
+  baeume: BaumRaster, cache?: BodenpflanzenCache, tritt?: (x: number, z: number) => number,
 ): BodenMatrizen {
   const flach: THREE.Matrix4[][] = [[], [], [], []], busch: THREE.Matrix4[][] = [[], [], [], []];
   const z = new THREE.Vector3(0, 0, 1), n = new THREE.Vector3(), q = new THREE.Quaternion(), dreh = new THREE.Quaternion();
@@ -141,6 +141,7 @@ export function bodenMatrizen(
         const k = KACHELN.bodenflach[kf].kante * (0.85 + 0.3 * wurf());
         p.set(fx, hoeheAn(fx, fz) + 0.03, fz);
         s.set(k, k, 1);
+        if (tritt && tritt(p.x, p.z) > .25) continue;
         const matrix = new THREE.Matrix4().compose(p, q.multiply(dreh), s);
         flach[kf].push(matrix);
         neu?.push({ art: 'flach', kachel: kf, matrix });
@@ -161,6 +162,7 @@ export function bodenMatrizen(
         p.y = hoeheAn(p.x, p.z) - 0.02;                       // 2 cm eingesenkt: kein Spalt am Hang
         dreh.setFromAxisAngle(y, wurf() * Math.PI);
         s.set(k, k, k);
+        if (tritt && tritt(p.x, p.z) > .25) continue;
         const matrix = new THREE.Matrix4().compose(p, dreh, s);
         busch[kb].push(matrix);
         neu?.push({ art: 'busch', kachel: kb, matrix });

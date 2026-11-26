@@ -13,7 +13,7 @@
  * Mitte, neu unten. Wer vor jemandem steht, will zuerst wissen, was fertig ist.
  */
 import type { Ort, Auftrag } from '../data/schema.js';
-import { angebot, bezahlbar, type WaffenStufen , WAFFENNAME, FUNKE_PREIS } from '../spiel/schmiede.js';
+import { angebot, bezahlbar, type WaffenStufen, WAFFENNAME } from '../spiel/schmiede.js';
 import { GEGENSTAENDE } from '../data/inhalte.js';
 import { zielText, type Fortschritt, type Lage } from '../spiel/auftraege.js';
 
@@ -26,7 +26,7 @@ export interface Auftragszeile {
 const RAHMEN = '#2a3632';
 const GRUEN = '#3fd9a0';
 
-export function Ortsfenster({ ort, innen, auftraege, onRasten, onAnnehmen, onAbholen, onSchliessen, beutel, waffenStufen, onSchmiede, onFunke, funkeFrei, abends, kopfgeld }: {
+export function Ortsfenster({ ort, innen, auftraege, onRasten, onAnnehmen, onAbholen, onSchliessen, beutel, waffenStufen, onSchmiede, abends, kopfgeld }: {
   ort: Ort;
   /** Hinter dem Fenster steht der Raum (D242): Abdunkeln nur am Rand, Karte rechts statt mittig. */
   innen?: boolean;
@@ -38,9 +38,6 @@ export function Ortsfenster({ ort, innen, auftraege, onRasten, onAnnehmen, onAbh
   beutel?: Record<string, number>;
   waffenStufen?: WaffenStufen;
   onSchmiede?: (waffe: 'klinge' | 'axt' | 'speer') => void;
-  /** D188: Wasserfunke einsetzen — nur nach dem Flussvater und solange keiner sitzt. */
-  onFunke?: () => void;
-  funkeFrei?: boolean;
   auftraege: Auftragszeile[];
   onRasten: () => void;
   onAnnehmen: (id: string) => void;
@@ -92,19 +89,6 @@ export function Ortsfenster({ ort, innen, auftraege, onRasten, onAnnehmen, onAbh
                 </button>
               );
             })}
-            {funkeFrei && onFunke && (() => {
-              const kann = bezahlbar({ waffe: 'klinge', stufe: 0, name: '', preis: FUNKE_PREIS }, beutel);
-              return (
-                <button disabled={!kann} onClick={onFunke} style={{
-                  textAlign: 'left', minHeight: 44, borderRadius: 9, padding: '8px 12px', fontSize: 13,
-                  background: 'transparent', border: `1px solid ${kann ? '#7fd4ff' : RAHMEN}`,
-                  color: kann ? '#7fd4ff' : '#5c6b64', cursor: kann ? 'pointer' : 'default',
-                }}>
-                  Wasserfunke einsetzen
-                  <div style={{ fontSize: 11, opacity: 0.8 }}>Der Kern des Flussvaters, in Harz gefasst · Harzverband ×2 ({beutel.harzverband ?? 0})</div>
-                </button>
-              );
-            })()}
           </div>
         )}
 
@@ -112,7 +96,7 @@ export function Ortsfenster({ ort, innen, auftraege, onRasten, onAnnehmen, onAbh
           <button onClick={onRasten} style={{
             width: '100%', minHeight: 44, borderRadius: 9, fontSize: 14,
             background: 'transparent', border: `1px solid ${GRUEN}`, color: GRUEN,
-          }}>Rasten — Team auf volle Kraft</button>
+          }}>Rasten</button>
         )}
 
         {ort.art === 'bewohner' && (

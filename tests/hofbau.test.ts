@@ -77,3 +77,16 @@ for (const [nx, nz] of [[-1, 0], [0, 1]]) {
   assert.ok(wand.some(k => k.ort[1] < .5), 'Wurzel an der Wandecke');
   assert.ok(wand.some(k => k.ort[1] > l.efeuecke!.traufe - .7), 'Ranke am Laubenpfosten');
 }
+
+// Beide Gänge liegen im gespiegelten und gedrehten Hofsystem. Mitte, Saum und
+// freie Wiese sowie die sieben Zentimeter Trittiefe sind mit denselben Daten prüfbar.
+const spur = feld.trittweg;
+assert.ok(spur && l.trittwege);
+const hauspunkt = (u: number, v: number): [number, number] =>
+  [l.ort[0] + ax*u - az*v, l.ort[2] + az*u + ax*v];
+for (const linie of l.trittwege) {
+  for (const [u, v] of linie) assert.equal(spur.deckung(...hauspunkt(u, v)), 1);
+}
+const trittprobe = hauspunkt(-16.5, -18);
+assert.ok(Math.abs(feld.hoehe(...trittprobe) - (rohhoehe(...trittprobe) - .07)) < 1e-6);
+assert.equal(spur.deckung(...hauspunkt(-16.5, -12)), 0);

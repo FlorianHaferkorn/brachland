@@ -440,7 +440,7 @@ const MIT_UFER: boolean = typeof location === 'undefined'
  */
 export const BODEN_LOCH = { value: new THREE.Vector4(0, 0, 0, 0) };
 
-export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStandardMaterial {
+export function baueBodenMaterial(wiesenbereich?: Wiesenbereich, trittweg?: import('./hoftrittweg.js').Hoftrittweg): THREE.MeshStandardMaterial {
   const milbinger = MILBINGERDETAIL_AN && wiesenbereich;
   const substrat = MILBINGERSUBSTANZ_AN && !!milbinger;
   const kontakt = wiesenbereich?.kontakt;
@@ -452,6 +452,7 @@ export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStan
   });
 
   material.onBeforeCompile = (shader) => {
+    if (trittweg) Object.assign(shader.uniforms, trittweg.uniforms);
     if (wiesenbereich) shader.uniforms.uWiesenbereich = { value: wiesenbereich.rahmen };
     if (HOF_AN) Object.assign(shader.uniforms, hofUniforms(), {
       uHofBodenFarbe: { value: hofTextur('kies-farbe', true) },
@@ -483,8 +484,13 @@ export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStan
     shader.uniforms.uBodenLoch = BODEN_LOCH;
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n  if (uBodenLoch.z > 0.0 && distance(vWeltPos.xz, uBodenLoch.xy) < uBodenLoch.z) discard;')
-      .replace('#include <common>', '#include <common>\nuniform vec4 uBodenLoch;\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL + (wiesenbereich ? WIESENBEREICH_GLSL : '') + (milbinger ? WIESENWUCHS_GLSL : '') + (HOF_AN ? HOF_BODEN_PARS : '') + (kontakt ? wiesenKontaktGlsl(!!hofTeil) : ''))
-      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (milbinger ? MILBINGER_BODEN : '') + (kontakt ? SOCKELBODEN : '') + (MIT_UFER ? NASS_GLSL : '') + (HOF_AN ? hofFarben : ''))
+      .replace('#include <common>', '#include <common>\nuniform vec4 uBodenLoch;\n' + RAUSCH_GLSL + '\nvarying vec3 vWeltNormal;\nvarying float vNass;\nuniform vec3 uFels;\nuniform vec3 uSchutt;\nuniform vec3 uWaldTon;\nuniform vec3 uMoos;\n' + SCAN_PARS_GLSL + (trittweg?.glsl ?? '') + (wiesenbereich ? WIESENBEREICH_GLSL : '') + (milbinger ? WIESENWUCHS_GLSL : '') + (HOF_AN ? HOF_BODEN_PARS : '') + (kontakt ? wiesenKontaktGlsl(!!hofTeil) : ''))
+      .replace('#include <color_fragment>', '#include <color_fragment>\n' + MOOS_GLSL + VARIATION_GLSL + HANG_GLSL + SCAN_GLSL + (milbinger ? MILBINGER_BODEN : '') + (kontakt ? SOCKELBODEN : '') + (MIT_UFER ? NASS_GLSL : '') + (HOF_AN ? hofFarben : '') + (trittweg ? `
+        float spur = hofTritt(vWeltPos.xz);
+        float erdanteil = smoothstep(.35,.69,spur + (sWald.a-.5)*.35);
+        vec3 erdton = vec3(.145,.093,.054) * mix(sWald.rgb,sSchutt.rgb,.22)*2.0;
+        diffuseColor.rgb = mix(diffuseColor.rgb, erdton, erdanteil);
+        scanGewicht = mix(scanGewicht,vec4(0.,.78,.22,0.),erdanteil);` : ''))
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n'
         // D281 (`?gewaesser=1`): 0,55 spiegelte den hellen Himmel als weissen Reif-Streifen am Ufer; nasse Erde ist
         // dunkel und matter, glänzend nur der dünne Wasserfilm direkt an der Linie.
@@ -524,7 +530,7 @@ export function baueBodenMaterial(wiesenbereich?: Wiesenbereich): THREE.MeshStan
   if (GRAS_ECHT) material.defines = { ...material.defines, GRAS_ECHT: '' };
   if (GRAS_VIEL) material.defines = { ...material.defines, GRAS_VIEL: '' };
   if (wiesenbereich) material.defines = { ...material.defines, WIESENBEREICH: '' };
-  material.customProgramCacheKey = () => 'brachland-boden-v8' + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken') + (HOF_AN ? '-scanhof' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? (HOF_GRAS_AN ? '-ortsalterung-pfad' : '-ortsalterung') : '') + (wiesenbereich ? '-wiesenbereich' : '');
+  material.customProgramCacheKey = () => 'brachland-boden-v8' + (trittweg ? '-trittweg' + trittweg.anzahl : '') + (GRAS_ECHT ? '-gras' : '') + (GRAS_VIEL ? '-viel' : '') + (GEWAESSER_ECHT ? '-gewaesser' : '') + (BODEN_KANTIG ? '-kantig' : '') + (MIT_UFER ? '' : '-trocken') + (HOF_AN ? '-scanhof' : '') + (HOF_BODEN_AN ? '-hofboden' : '') + (HOF_ZIELTREUE_AN ? '-zieltreue' : '') + (HOF_VERFALLVERLAUF_AN ? '-verfallverlauf' : '') + (HOF_ORTSALTERUNG_AN ? (HOF_GRAS_AN ? '-ortsalterung-pfad' : '-ortsalterung') : '') + (wiesenbereich ? '-wiesenbereich' : '');
 
   if (milbinger) {
     const basis = material.customProgramCacheKey;

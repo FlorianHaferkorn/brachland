@@ -31,6 +31,8 @@ import { FUNKE_PREIS, MAX_STUFE, angebot } from './schmiede.js';
 export interface Begegnungsrahmen {
   /** Wo es geschah: Lager-ID, auf dem Übungsplatz nichts (der zählt nicht). */
   begegnung: string;
+  /** Stabile ID eines einzelnen Wildtiers; Lager können nach einer Rast neu besetzt sein. */
+  vorkommen?: string;
   region: string;
   zeit: number;
 }
@@ -56,7 +58,7 @@ export function folgenDerBegegnung(stand: Spielstand, b: Kampfbericht, r: Begegn
   let nTot = 0, nRein = 0, nSchon = 0;
   for (const g of b.gegner) {
     if (g.ausgang === 'steht') continue;
-    const id = `${g.kreatur}:${r.begegnung}:${g.platz}:${r.zeit}`;
+    const id = r.vorkommen ?? `${g.kreatur}:${r.begegnung}:${g.platz}:${r.zeit}`;
     if (g.ausgang === 'gereinigt') { gereinigt.push(id); nRein++; }
     else if (g.ausgang === 'verschont') nSchon++;
     else { if (!g.mensch) besiegt.push(id); nTot++; }

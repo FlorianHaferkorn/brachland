@@ -182,6 +182,11 @@ const basis = (): Spielstand => ({ ...LEERER_STAND, gefangen: ['k7-wolf:3:4'], b
   a.ausgang = 'gereinigt'; b.ausgang = undefined; w.marke!.ladung = 3;
   const bericht = kampfbericht(w, ['wegelagerer', 'wolf', 'fuchs']);
   const f = folgenDerBegegnung(basis(), bericht, { begegnung: 'lager-bruchweg', region: 'oental', zeit: 1000 });
+  const wildId = 'k7-wolf:3:7';
+  const wild = folgenDerBegegnung(basis(), { ...bericht, gegner: [bericht.gegner[1]] },
+    { begegnung: wildId, vorkommen: wildId, region: 'oental', zeit: 1000 });
+  pruefe('Freilebender Wolf wird unter seiner Vorkommen-ID gereinigt und im Revier verbucht',
+    gleich(wild.stand.gereinigt, [wildId]) && wild.ereignisse[0].gegnerId === wildId);
   const gemeldet = f.ereignisse;
   pruefe('Folgen: Wolf in `gereinigt` mit Kreatur vorn', gleich(f.stand.gereinigt, ['k7-wolf:lager-bruchweg:2:1000']));
   pruefe('Folgen: getöteter Fuchs in `besiegt`, der Mensch nicht (D385)',

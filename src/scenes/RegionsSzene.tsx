@@ -8,7 +8,7 @@ import { ORTSPARAMETER, ZIELORT } from '../spiel/zielort.js';
  * Props laufen als InstancedMesh — 40.000 Bäume als Einzelobjekte würden jedes
  * Handy erledigen, als Instanzen sind es eine Handvoll Draw Calls.
  */
-import { Suspense, useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react';
+import { Suspense, memo, useMemo, useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { Weltdaten } from '../world/osm.js';
@@ -37,7 +37,7 @@ import { peilung } from '../spieler/peilung.js';
 import { baueKleinzeugGeometrie, streueKleinzeug, KLEIN_MAX, STREU_NACHZIEHEN } from '../world/streuung.js';
 import { baueBodenMaterial, setzeBodenHimmel, BODEN_LOCH } from '../world/bodenmaterial.js';
 import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
-import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
+import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT, MODELLHOF_LICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
 import { baueMilbingerSandkasten } from '../world/milbingersubstanz.js';
 import { ersetzteGebaeude, hofbauLagen, ladeHofbauten, mitHofterrassen, type HofbauLage } from '../world/hofbau.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
@@ -83,7 +83,7 @@ import { baueKachelupload } from '../world/kachelupload.js';
 import { bestimmeHof, waehleHof, HOF_UNIFORM } from '../world/hofplatz.js';
 import { bestimmeHofhaeuser } from '../world/hofhaeuser.js';
 import { teileHofBaeume, teileMilbingerBaeume, istHofBusch } from '../world/hofgruenwahl.js';
-import { hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
+import { landschaftsStrauchGeometrie, hofStrauchGeometrie, hofStrauchMaterial, setzeHofStrauchZeit } from '../world/hofstrauch.js';
 import { FELS_BILDTAKT_AN, ORTS_BILDTAKT_AN, LOOK_FELS_AN, LOOK_FELS_DICHTE, LOOK_FELS_PROPWEITE, SCAN_BAEUME_AN, SCAN_BUESCHEL_AN } from '../world/echt.js';
 import { HOF_AN, HOF_BILDFLUSS_AN, HOF_BILDRUHE_AN, HOF_BILDSPITZEN_AN, HOF_BILDTAKT_AN, HOF_GRUEN_AN, HOF_KACHELNACHLAUF_AN, HOF_STRAUCH_WEIT, REFERENZHAUS_AN, HOF_HAEUSER_AN, HAUS_KOMPAKT_AN, HOF_LICHT_AN, HOF_ZIELTREUE_AN, WESTVERFALL_AN } from '../world/echt.js';
 import { STAMM_AN, WASSERREFLEX_AN, SCHATTEN_AUFLOESUNG, HDRI_AN, HDRI_STAERKE, UMLICHT_AN, UMLICHT_STAERKE } from '../world/echt.js';
@@ -537,7 +537,7 @@ function LodTerrain({ feld, kacheln, ziel, nachlauf, wiesenbereich }: {
     angezeigt.current = stufen;
   }, [stufen]);
 
-  const material = useMemo(() => baueBodenMaterial(wiesenbereich), [wiesenbereich]);
+  const material = useMemo(() => baueBodenMaterial(wiesenbereich, feld.trittweg), [wiesenbereich, feld.trittweg]);
   useEffect(() => () => material.dispose(), [material]);
 
   const baue: BereiteKacheln = function* (auswahl, gestaffelt, anker, vorladen) {
@@ -729,15 +729,6 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   const baumBasis = () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.95, metalness: 0, side: THREE.DoubleSide });
   // D283 (`?laub=2`): Buchen bekommen den Laub-, Fichten den Nadel-Büschelatlas — darum zwei Materialien.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  /**
-   * D289: Büsche mit Büschelatlas (D283) — eigenes Material ohne Löcher. Auf dem Baum-Material (Löcher für die ganze
-   * Fläche, weil Büsche keine Laubmaske tragen) verschwand der Busch im Dorf-Prüfbild fast ganz (D285).
-   */
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const buschWind = useMemo(() => LAUB_FEIN ? baueWindMaterial({
-    amplitude: 0.55, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 0.5, durchlass: 0.3,
-    bueschel: bueschelTextur('laub'),
-  }, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: false, roughness: 0.9, metalness: 0 })) : null, []);
   const baumWind = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('laub') : undefined, 'buche'), baumBasis()), []);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const baumWindNadel = useMemo(() => baueWindMaterial(baumWerte(LAUB_FEIN ? bueschelTextur('nadel') : undefined, 'fichte'), baumBasis()), []);
@@ -745,8 +736,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     wind.setzeRand(new THREE.Color(rand.farbe), rand.staerke);
     baumWind.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
     if (baumWindNadel !== baumWind) baumWindNadel.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.2);
-    buschWind?.setzeRand(new THREE.Color(rand.farbe), rand.staerke * 0.5);
-  }, [wind, baumWind, baumWindNadel, buschWind, rand]);
+  }, [wind, baumWind, baumWindNadel, rand]);
 
   // Die Strömung braucht eine Uhr. Ein Uniform je Bild ist der billigste Weg — die
   // Alternative wäre, die Geometrie zu bewegen, und das wären 200.000 Vertices.
@@ -765,10 +755,9 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
     }
     wind.setzeZeit(uhr.current);
     farnWind.setzeZeit(uhr.current);
-    if (HOF_GRUEN_AN) setzeHofStrauchZeit(uhr.current);
+    setzeHofStrauchZeit(uhr.current);
     baumWind.setzeZeit(uhr.current);
     if (baumWindNadel !== baumWind) baumWindNadel.setzeZeit(uhr.current);
-    buschWind?.setzeZeit(uhr.current);
   });
   /**
    * Bänder einmal zerlegen, dann je Kachel bauen.
@@ -803,7 +792,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
       {ORTSVORLAUF_AN && <HolztexturVorlauf props={props} ziel={ziel} />}
       <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} wiesenbereich={wiesenbereich} />
       {STREU_AN && kronen && <StreuSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} baeume={kronen} />}
-      {BODEN_AN && kronen && <BodenSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} baeume={kronen} />}
+      {BODEN_AN && kronen && <BodenSchicht trittweg={feld.trittweg} hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} baeume={kronen} />}
 
       <LodBaender welt={welt} feld={feld} satz={satz} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf}
                   boden={aufBoden}
@@ -820,7 +809,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
           props={g.props} hofBaum={g.hofBaum} milbingerBaum={g.milbingerBaum}
           wind={wind.material} farnWind={farnWind.material}
           baumWind={baumWind.material} baumTiefe={baumWind.tiefe} baumWindNadel={baumWindNadel.material}
-          baumTiefeNadel={baumWindNadel.tiefe} buschWind={buschWind?.material} weite={LOOK_FELS_AN ? Math.min(weite, LOOK_FELS_PROPWEITE) : weite} />)}
+          baumTiefeNadel={baumWindNadel.tiefe} weite={LOOK_FELS_AN ? Math.min(weite, LOOK_FELS_PROPWEITE) : weite} />)}
       <Streuschicht feld={feld} ziel={ziel} dichte={dichte} />
       {!istAus('teppich') && <Grasteppich welt={welt} feld={feld} ziel={ziel} dichte={dichte} weite={weite}
         strassenmaske={strassenmaske} wiesenbereich={wiesenbereich} />}
@@ -1145,12 +1134,13 @@ function StreuSchicht({ hoeheAn, biomAn, ziel, baeume }: {
 let bodenFlachMaterial: THREE.MeshStandardMaterial | null = null;
 let bodenBuschMaterial: THREE.MeshStandardMaterial | null = null;
 
-function BodenSchicht({ hoeheAn, biomAn, ziel, baeume }: {
+function BodenSchicht({ hoeheAn, biomAn, ziel, baeume, trittweg }: {
+  trittweg?: HoehenFeld['trittweg'];
   hoeheAn: (x: number, z: number) => number; biomAn: TerrainErgebnis['biomAn'];
   ziel: React.RefObject<THREE.Object3D | null>; baeume: BaumRaster;
 }) {
   const zellcache = useMemo(() => ORTS_BILDTAKT_AN ? new Map() as BodenpflanzenCache : undefined,
-    [baeume, biomAn, hoeheAn]);
+    [baeume, biomAn, hoeheAn, trittweg]);
   const [matrizen, setMatrizen] = useState<BodenMatrizen>({ flach: [[], [], [], []], busch: [[], [], [], []] });
   const mitte = useRef<THREE.Vector2 | null>(null), zuletzt = useRef(0);
   const geometrien = useMemo(() => ({ flach: [0, 1, 2, 3].map(flachGeometrie), busch: [0, 1, 2, 3].map(buschGeometrie) }), []);
@@ -1163,7 +1153,7 @@ function BodenSchicht({ hoeheAn, biomAn, ziel, baeume }: {
     zuletzt.current = jetzt;
     if (mitte.current && mitte.current.distanceTo(new THREE.Vector2(p.x, p.z)) < 8) return;
     mitte.current = new THREE.Vector2(p.x, p.z);
-    setMatrizen(bodenMatrizen(p.x, p.z, BODEN_NAH + 8, hoeheAn, biomAn, baeume, zellcache));
+    setMatrizen(bodenMatrizen(p.x, p.z, BODEN_NAH + 8, hoeheAn, biomAn, baeume, zellcache, trittweg?.deckung));
   });
   const schicht = (art: 'flach' | 'busch', material: THREE.MeshStandardMaterial) => matrizen[art].map((liste, i) => (
     <BodenkartenGruppe key={art + i} geometrie={geometrien[art][i]} material={material} matrizen={liste} />
@@ -1225,7 +1215,7 @@ function zellteileFern(gruppen: FernGruppe[]): FernGruppe[] {
   return ergebnis;
 }
 
-function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, buschWind, weite }: { props: PropInstanz[]; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial; weite: number }) {
+function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, baumWindNadel, baumTiefeNadel, weite }: { props: PropInstanz[]; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial; farnWind: THREE.MeshStandardMaterial; baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; baumWindNadel: THREE.MeshStandardMaterial; baumTiefeNadel?: THREE.MeshDepthMaterial; weite: number }) {
   const chunks = useMemo(() => chunkeProps(props), [props]);
   const [sichtbar, setSichtbar] = useState<{ c: PropChunk; stufe: PropStufe; id: string; ohneSchatten: boolean }[]>([]);
   const [fern, setFern] = useState<FernGruppe[]>([]);
@@ -1321,7 +1311,7 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, 
           ausblendet. Bereits geladene Gruppen bleiben sichtbar. */}
       {sichtbar.map(({ c, stufe, id, ohneSchatten }) =>
         <Suspense key={id} fallback={null}>
-          <PropChunkMesh chunk={c} stufe={stufe} ohneSchatten={ohneSchatten} hofBaum={hofBaum} milbingerBaum={milbingerBaum} wind={wind} farnWind={farnWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} buschWind={buschWind} />
+          <PropChunkMesh chunk={c} stufe={stufe} ohneSchatten={ohneSchatten} hofBaum={hofBaum} milbingerBaum={milbingerBaum} wind={wind} farnWind={farnWind} baumWind={c.art === 'nadelbaum' ? baumWindNadel : baumWind} baumTiefe={c.art === 'nadelbaum' ? baumTiefeNadel : baumTiefe} />
         </Suspense>)}
       {fern.map(({ art, variante, instanzen, zelle, hofStrauch, hofSchatten }) =>
         <Suspense key={`${art}:${variante}:${zelle ?? ''}:${hofStrauch ? 'hof' : ''}:${hofSchatten ? 'schatten' : ''}`} fallback={null}>
@@ -1368,7 +1358,7 @@ function Props({ props, hofBaum = false, milbingerBaum = false, wind, farnWind, 
  * `InstancedMesh` neu auf, und das ist genau der Fall, den `PropChunkMesh` im
  * Kommentar als teuer beschreibt.
  */
-function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, milbingerBaum = false, hofStrauch = false, hofSchatten = false, band = false }: { art: PropArt; variante: number; instanzen: PropInstanz[]; zellCulling: boolean; hofBaum?: boolean; milbingerBaum?: boolean; hofStrauch?: boolean; hofSchatten?: boolean; band?: boolean }) {
+const PropFernMesh = memo(function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, milbingerBaum = false, hofStrauch = false, hofSchatten = false, band = false }: { art: PropArt; variante: number; instanzen: PropInstanz[]; zellCulling: boolean; hofBaum?: boolean; milbingerBaum?: boolean; hofStrauch?: boolean; hofSchatten?: boolean; band?: boolean }) {
   // D367: Die Fernstufe der Blender-Bäume ist ein Impostor desselben Nahbaums (acht gebackene Ansichten, zwei
   // Dreiecke je Baum) statt der dezimierten Krone; ohne Registereintrag bleibt die Attrappe.
   const eigen = art === 'nadelbaum' ? 'fichte' : art === 'laubbaum' ? 'buche' : null;
@@ -1376,12 +1366,13 @@ function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, 
   const rahmen = blender?.impostor ?? null;
   const geo = useMemo(() => {
     if (hofStrauch) return hofStrauchGeometrie(variante, VARIANTEN.busch[variante]?.hoehe ?? 1.2);
+    if (art === 'busch') return landschaftsStrauchGeometrie();
     if (!rahmen) return attrappeGeometrie(art);
     return impostorGeometrie(rahmen);
   }, [art, rahmen, hofStrauch, variante]);
   useEffect(() => () => { if (rahmen) geo.dispose(); }, [geo, rahmen]);
   const impMaterial = useMemo(() => blender && rahmen ? impostorMaterial(blender.datei, rahmen, BAUM_UEBERBLEND) : null, [blender, rahmen]);
-  const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
+  const strauchMaterial = useMemo(() => art === 'busch' ? hofStrauchMaterial() : null, [art]);
   const ref = useRef<THREE.InstancedMesh>(null);
   const [kapazitaet, setKapazitaet] = useState(() => Math.ceil(instanzen.length * 1.4) + 64);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
@@ -1412,7 +1403,7 @@ function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, 
     instanzen.forEach((p, i) => {
       hilfe.position.set(...p.position);
       hilfe.rotation.y = p.drehung;
-      hilfe.scale.setScalar(p.skalierung);
+      hilfe.scale.setScalar(instanzMass(p, art === 'busch' && !hofStrauch));
       hilfe.updateMatrix();
       m.setMatrixAt(i, hilfe.matrix);
       const [r, g, b] = propTon(p.art, p.variante, p.drehung);
@@ -1430,7 +1421,7 @@ function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, 
     }
     if (zellCulling || hofStrauch) m.computeBoundingSphere();
     if (HOF_BILDFLUSS_AN && anfang && m.count > 0 && !ezErsetzt) m.visible = true;
-  }, [instanzen, kapazitaet, zellCulling, hofBaum, hofStrauch, rahmen, geo, band]);
+  }, [instanzen, kapazitaet, zellCulling, hofBaum, hofStrauch, rahmen, geo, band, art]);
 
   return (
     <instancedMesh
@@ -1443,7 +1434,7 @@ function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, 
       frustumCulled={zellCulling || hofStrauch}
     />
   );
-}
+});
 
 /**
  * Lädt das Modell der Variante und normiert es auf die reale Zielhöhe.
@@ -1571,7 +1562,7 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
   // Blender-Baum (D155), wenn das Register einen hat — sonst der prozedurale (D40)
   // D367: Die Fernstufe ist ein Impostor ohne Netz; ein Chunk in Fernstufe zeigt die Mittelstufe.
   const blender = eigen ? blenderBaum(eigen, variante, stufe === 'fern' ? 'mittel' : stufe) : null;
-  const pfad = propPfad(blender ? blender.datei : ((liste[variante] ?? liste[0])?.datei ?? VARIANTEN.busch[0].datei));
+  const pfad = propPfad(blender ? blender.datei : ((liste[variante] ?? liste[0])?.datei ?? VARIANTEN.farn[0].datei));
   const { scene } = useGLTF(pfad);
   const normalisiert = useMemo(() => {
     let geo: THREE.BufferGeometry | null = null;
@@ -1603,22 +1594,40 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
 const LEER: ReadonlySet<string> = new Set();
 const LEERES_PROP_NETZ = new THREE.BufferGeometry();
 
-/** Welche Auflösung ein Chunk gerade zeigt. */
-function PropChunkMesh({ chunk, stufe, ohneSchatten = false, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe, buschWind }: {
+/** Das Fernbündel mischt Varianten. Die Meterhöhe folgt der jeweiligen Instanz. */
+function instanzMass(p: PropInstanz, leichterStrauch: boolean): number {
+  return leichterStrauch ? p.skalierung * VARIANTEN.busch[p.variante].hoehe : p.skalierung;
+}
+
+type PropChunkEigenschaften = {
   chunk: PropChunk; stufe: PropStufe; ohneSchatten?: boolean; hofBaum?: boolean; milbingerBaum?: boolean; wind: THREE.MeshStandardMaterial;
   farnWind: THREE.MeshStandardMaterial;
-  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial; buschWind?: THREE.MeshStandardMaterial;
-}) {
+  baumWind: THREE.MeshStandardMaterial; baumTiefe?: THREE.MeshDepthMaterial;
+};
+
+// Ein neuer Sichtkreis ändert nur die Kacheln an seinem Rand.
+const PropChunkMesh = memo(function PropChunkMesh(e: PropChunkEigenschaften) {
+  return e.chunk.art === 'busch' ? <PropChunkDarstellung {...e} /> : <GeladenesPropChunkMesh {...e} />;
+});
+
+function GeladenesPropChunkMesh(e: PropChunkEigenschaften) {
+  const modell = useNormiertesPropMesh(e.chunk.art, e.chunk.variante, e.stufe);
+  return <PropChunkDarstellung {...e} {...modell} />;
+}
+
+function PropChunkDarstellung({ chunk, stufe, ohneSchatten = false, hofBaum = false, milbingerBaum = false, wind, farnWind, baumWind, baumTiefe,
+  normalisiert, blender = false }: PropChunkEigenschaften & { normalisiert?: () => THREE.BufferGeometry; blender?: boolean }) {
   const fern = stufe === 'fern';
-  const { normalisiert, blender } = useNormiertesPropMesh(chunk.art, chunk.variante, stufe);
   const ezOriginal = HOF_BILDSPITZEN_AN && blender && uebernimmtEzVariante(chunk.variante, hofBaum) ? normalisiert : undefined;
   const hofStrauch = HOF_GRUEN_AN && chunk.art === 'busch' && istHofBusch(chunk.mitte, chunk.radius);
   const strauchBleibt = HOF_STRAUCH_WEIT && hofStrauch;
-  const strauchGeo = useMemo(() => hofStrauch ? hofStrauchGeometrie(chunk.variante, VARIANTEN.busch[chunk.variante]?.hoehe ?? 1.2) : null, [hofStrauch, chunk.variante]);
-  const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
-  const attrappe = fern && !blender && !strauchBleibt;
-  const fernGeo = useMemo(() => !HOF_BILDSPITZEN_AN || attrappe ? attrappeGeometrie(chunk.art) : null, [attrappe, chunk.art]);
-  const netz = strauchBleibt ? strauchGeo! : attrappe ? fernGeo! : strauchGeo ?? (ezOriginal ? LEERES_PROP_NETZ : normalisiert());
+  const leichterStrauch = chunk.art === 'busch' && !(hofStrauch && (!fern || strauchBleibt));
+  const strauchGeo = useMemo(() => leichterStrauch ? landschaftsStrauchGeometrie() : hofStrauch
+    ? hofStrauchGeometrie(chunk.variante, VARIANTEN.busch[chunk.variante]?.hoehe ?? 1.2) : null, [leichterStrauch, hofStrauch, chunk.variante]);
+  const strauchMaterial = useMemo(() => chunk.art === 'busch' ? hofStrauchMaterial() : null, [chunk.art]);
+  const attrappe = fern && !blender && !strauchGeo;
+  const fernGeo = useMemo(() => attrappe ? attrappeGeometrie(chunk.art) : null, [attrappe, chunk.art]);
+  const netz = strauchGeo ?? fernGeo ?? (ezOriginal ? LEERES_PROP_NETZ : normalisiert!());
   // Nur was sich biegen kann, bekommt das Windmaterial. Findlinge und Totholz
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
   // als bewegtes Laub aufbaut.
@@ -1651,7 +1660,7 @@ function PropChunkMesh({ chunk, stufe, ohneSchatten = false, hofBaum = false, mi
     chunk.instanzen.forEach((p, i) => {
       m.position.set(...p.position);
       m.rotation.y = p.drehung;
-      m.scale.setScalar(p.skalierung);
+      m.scale.setScalar(instanzMass(p, leichterStrauch));
       m.updateMatrix();
       mesh.setMatrixAt(i, m.matrix);
       // Farbe je Instanz (D79). `setRGB` ohne Farbraum schreibt direkt in den
@@ -1665,7 +1674,7 @@ function PropChunkMesh({ chunk, stufe, ohneSchatten = false, hofBaum = false, mi
     mesh.count = chunk.instanzen.length;
     if (!HOF_BILDSPITZEN_AN) mesh.computeBoundingSphere();
     if (HOF_BILDFLUSS_AN && anfang && mesh.count > 0 && !ezErsetzt) mesh.visible = true;
-  }, [chunk, hofBaum]);
+  }, [chunk, hofBaum, leichterStrauch]);
 
   // Der Umriss ändert sich beim Wechsel auf die Attrappe; ohne Neuberechnung
   // schneidet das Frustum-Culling falsch.
@@ -1690,7 +1699,7 @@ function PropChunkMesh({ chunk, stufe, ohneSchatten = false, hofBaum = false, mi
       ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]} matrixAutoUpdate={false}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={netz}
-      material={blender ? baumWind : strauchMaterial && (!fern || strauchBleibt) ? strauchMaterial : buschWind && chunk.art === 'busch' && !fern ? buschWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
+      material={blender ? baumWind : strauchMaterial ? strauchMaterial : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
         : textur ? statischesScanMaterial(textur, chunk.art)
         : (biegsam ? wind : PROP_MATERIAL)}
       customDepthMaterial={blender && !fern ? baumTiefe : undefined}
@@ -1767,9 +1776,8 @@ function laufWuerfel(id: string): () => number {
   return () => { h = Math.imul(h ^ (h >>> 15), 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^= h >>> 16) >>> 0) / 4294967296; };
 }
 
-function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbraucht, rand, hoeheAn, kollision }: {
+function Kreaturen({ vorkommen, befallen, ziel, gier, naehe, onBegegnung, verbraucht, rand, hoeheAn, kollision }: {
   vorkommen: Vorkommen[];
-  gestalt: (kreatur: string, mutation?: number) => THREE.BufferGeometry;
   ziel: React.RefObject<THREE.Object3D | null>;
   gier: React.RefObject<number>;
   /** Hoehe der gezeichneten Flaeche — ein gehendes Tier bleibt auf dem Boden (D138). */
@@ -1778,17 +1786,19 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
   kollision: Kollisionsfeld;
   /** Wird jedes Bild beschrieben: nächste Kreatur, Abstand und Richtung relativ zum Blick. */
   naehe?: React.RefObject<Naehe>;
-  onBegegnung?: (v: Vorkommen) => void;
+  befallen?: (id: string) => boolean;
+  onBegegnung?: (v: Vorkommen, x: number, z: number) => boolean;
   /** Bereits gefangen oder besiegt — steht nicht mehr in der Welt. */
   verbraucht?: ReadonlySet<string>;
   rand: { farbe: string; staerke: number };
 }) {
   const uebrig = useMemo(
-    () => (verbraucht?.size ? vorkommen.filter(v => !verbraucht.has(v.id)) : vorkommen),
+    () => vorkommen.filter(v => MIT_MODELL.has(v.kreatur) && !verbraucht?.has(v.id)),
     [vorkommen, verbraucht],
   );
   const [nah, setNah] = useState<Vorkommen[]>([]);
   const letzte = useRef(new THREE.Vector3(NaN, NaN, NaN));
+  useEffect(() => { letzte.current.set(NaN, NaN, NaN); }, [uebrig]);
   // Sperre nach einer Begegnung: Nach einem Rückzug steht der Spieler noch neben der
   // Kreatur. Ohne Abstandssperre startet der Kampf im nächsten Bild erneut.
   const sperre = useRef<THREE.Vector3 | null>(null);
@@ -1806,27 +1816,7 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
     return l;
   };
 
-  // Kreaturen sind das, wonach der Spieler sucht — ihr Umriss muss vom Hang
-  // wegstehen. Wind bekommen sie keinen (Amplitude 0): Ein schwingendes Tier
-  // sieht nicht nach Wind aus, sondern nach kaputter Animation.
-  const { material, setzeRand, setzeZeit } = useMemo(() => baueWindMaterial({
-    amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke * 1.4,
-    // Atmen und Kopfwenden statt Wind (D136) — die Bewegung, die ein Tier vom
-    // Prop unterscheidet, ohne Rig.
-    atmen: true,
-    // Breiterer Saum als der Rest der Welt (3,0): Seit Kreaturen Modelle mit 2.000
-    // bis 3.000 Flaechen sind, steht fast jede Facette frontal zur Kamera, und ein
-    // schmaler Fresnel-Saum trifft davon nichts — dasselbe, was G-118 an der
-    // Fichtenkrone gemessen hat. Mehr Staerke hilft dort nicht, ein kleinerer
-    // Exponent schon.
-    randSchaerfe: 1.6,
-  }), []);
-  useEffect(() => {
-    setzeRand(new THREE.Color(rand.farbe), rand.staerke * 1.4);
-  }, [setzeRand, rand]);
-
   useFrame((state, dt) => {
-    setzeZeit(state.clock.elapsedTime);
     const p = ziel.current?.position;
     if (!p) return;
 
@@ -1841,7 +1831,6 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
     const t = state.clock.elapsedTime;
     const schritt = Math.min(dt, 0.1);
     for (const v of nah) {
-      if (!MIT_MODELL.has(v.kreatur)) continue;
       const l = laufVon(v);
       const w = wuerfel.current.get(v.id)!;
       const dSpieler = Math.hypot(p.x - l.x, p.z - l.z);
@@ -1925,30 +1914,22 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
     for (const v of nah) {
       const l = laeufe.current.get(v.id);
       const d = l ? Math.hypot(l.x - p.x, l.z - p.z) : Math.hypot(v.position[0] - p.x, v.position[2] - p.z);
-      if (d > BEGEGNUNG_AB) continue;
+      if (d > BEGEGNUNG_AB || !onBegegnung(v, l?.x ?? v.position[0], l?.z ?? v.position[2])) continue;
       sperre.current = p.clone();
-      onBegegnung(v);
       break;
     }
   });
 
   return (
     <>
-      {nah.map(v => (
-        MIT_MODELL.has(v.kreatur)
-          // Eigene Suspense-Grenze je Tier (G-134): Bis die Datei da ist, steht
-          // nichts — aber die uebrige Szene laeuft weiter, statt neu aufzubauen.
-          ? <Suspense key={v.id} fallback={null}>
-              <KreaturModell kreatur={v.kreatur} rand={rand} lauf={laufVon(v)}
-                             position={v.position} drehung={v.drehung} mutation={v.mutation}
-                             // Stufe 2 ist 15–25 % groesser, Stufe 3 nochmal — aus der Stilreferenz.
-                             skalierung={1 + v.mutation * 0.2} />
-            </Suspense>
-          : <mesh key={v.id} geometry={gestalt(v.kreatur, v.mutation)} material={material}
-                  position={v.position} rotation={[0, v.drehung, 0]}
-                  scale={1 + v.mutation * 0.2}
-                  castShadow receiveShadow />
-      ))}
+      {nah.map(v => {
+        const krank = befallen?.(v.id) ?? true;
+        const skala = krank ? 1 + v.mutation * 0.2 : 1;
+        return <Suspense key={v.id} fallback={null}>
+          <KreaturModell kreatur={v.kreatur} rand={rand} lauf={laufVon(v)} position={v.position}
+            drehung={v.drehung} mutation={v.mutation} befallen={krank} skalierung={skala} />
+        </Suspense>;
+      })}
     </>
   );
 }
@@ -1964,7 +1945,7 @@ function Kreaturen({ vorkommen, gestalt, ziel, gier, naehe, onBegegnung, verbrau
  * Die Datei ist auf Widerristhöhe und Ursprung zwischen den Füßen genormt
  * (`tools/kreaturbau.py`) — hier bleibt deshalb nur die Mutationsskalierung.
  */
-function KreaturModell({ kreatur, rand, lauf, position, drehung, mutation, skalierung }: {
+function KreaturModell({ kreatur, rand, lauf, position, drehung, mutation, skalierung, befallen }: {
   kreatur: string;
   rand: { farbe: string; staerke: number };
   /** Laufzustand (D138), jedes Bild von `Kreaturen` fortgeschrieben. */
@@ -1973,6 +1954,7 @@ function KreaturModell({ kreatur, rand, lauf, position, drehung, mutation, skali
   drehung: number;
   mutation: number;
   skalierung: number;
+  befallen: boolean;
 }) {
   const { scene } = useGLTF(`/creatures/${kreatur}.glb`);
   /**
@@ -2006,7 +1988,7 @@ function KreaturModell({ kreatur, rand, lauf, position, drehung, mutation, skali
    * greift über (Art, Mutationsstufe): fünf Modelle mal drei Stufen sind
    * höchstens fünfzehn Geometrien für die ganze Welt.
    */
-  const geo = useMemo(() => kreaturGeometrie(scene, kreatur, mutation), [scene, kreatur, mutation]);
+  const geo = useMemo(() => kreaturGeometrie(scene, kreatur, mutation, befallen), [scene, kreatur, mutation, befallen]);
   if (!geo) return null;
   return (
     <mesh ref={mesh} geometry={geo} material={material} position={position}
@@ -3115,28 +3097,28 @@ function Regentenort({ ort, kreatur, gestalt, ziel, onNah }: {
   );
 }
 
-function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial, geheilt }: {
+function Beleuchtung({ s, ziel, wiesenbereich, hofgiebel, fernMaterial, geheilt }: {
   s: Stimmung; ziel: React.RefObject<THREE.Object3D | null>; wiesenbereich?: Wiesenbereich;
-  fernMaterial: THREE.ShaderMaterial; geheilt: boolean;
+  hofgiebel?: HofbauLage; fernMaterial: THREE.ShaderMaterial; geheilt: boolean;
 }) {
   const { scene, gl } = useThree();
   const sonne = useRef<THREE.DirectionalLight>(null);
   const halbkugel = useRef<THREE.HemisphereLight>(null);
   const ortslicht = MILBINGERLICHT_AN && wiesenbereich;
   const wolkendecke = !geheilt && !MILBINGERKLAR_AN;
-  const tageslicht = wolkendecke ? MILBINGER_WOLKENLICHT : MILBINGER_TAGESLICHT;
-  const ortsfoto = ortslicht ? (wolkendecke ? 'bedeckt' : 'klar') : undefined;
+  const strassenlicht = wolkendecke ? MILBINGER_WOLKENLICHT : MILBINGER_TAGESLICHT;
+  const ortsfoto = ortslicht || hofgiebel ? (wolkendecke ? 'bedeckt' : 'klar') : undefined;
   const bodenfarbe = HEMIBODEN_MESSLAUF ?? s.hemiBoden ?? HEMI_BODEN;
   const fuelllicht = (UMGEBUNG_MESSLAUF ?? s.umgebungStaerke) * (HDRI_AN ? .25 : UMLICHT_AN ? .35 : 1);
   const direktlicht = SONNE_MESSLAUF ?? s.sonneStaerke;
   const umfeldlicht = HDRI_AN ? HDRI_STAERKE : UMLICHT_STAERKE;
   const schatten = SCHATTEN_MESSLAUF ?? s.schatten ?? 1;
   const belichtung = BELICHTUNG_MESSLAUF ?? s.belichtung;
-  const lichtbasis = useMemo(() => ortslicht ? {
+  const lichtbasis = useMemo(() => ortslicht || hofgiebel ? {
     sonne: new THREE.Color(s.sonne), himmel: new THREE.Color(s.umgebung),
     erde: new THREE.Color(bodenfarbe), nebel: new THREE.Color(s.nebel),
     horizont: new THREE.Color(s.horizont), zenit: new THREE.Color(s.zenit),
-  } : null, [ortslicht, s, bodenfarbe]);
+  } : null, [ortslicht, hofgiebel, s, bodenfarbe]);
   const [takramBereit, setzeTakramBereit] = useState(false);
   const takramAn = typeof location !== 'undefined' && new URLSearchParams(location.search).get('takram') === '1';
 
@@ -3202,7 +3184,11 @@ function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial, geheilt }: {
     const l = sonne.current;
     if (FELS_SCHATTENTAKT_AN && l && !l.shadow.map) legePcfKarteAn(l, gl);
     if (!p || !l) return;
-    const ort = ortslicht ? milbingerLichtanteil(ortslicht.rahmen, p.x, p.z, s.sonneStaerke) : 0;
+    const amHof = hofgiebel ? (1 - THREE.MathUtils.smoothstep(
+      Math.hypot(p.x - hofgiebel.ort[0], p.z - hofgiebel.ort[2]), 55, 135))
+      * THREE.MathUtils.smoothstep(s.sonneStaerke, .85, 1.8) : 0;
+    const ort = amHof || (ortslicht ? milbingerLichtanteil(ortslicht.rahmen, p.x, p.z, s.sonneStaerke) : 0);
+    const tageslicht = amHof ? MODELLHOF_LICHT : strassenlicht;
     const misch = THREE.MathUtils.lerp;
     l.position.set(p.x + misch(s.sonnenstand[0], tageslicht.sonnenstand.x, ort),
       p.y + misch(s.sonnenstand[1], tageslicht.sonnenstand.y, ort), p.z + misch(s.sonnenstand[2], tageslicht.sonnenstand.z, ort));
@@ -3256,7 +3242,7 @@ function Beleuchtung({ s, ziel, wiesenbereich, fernMaterial, geheilt }: {
         fern.uFernDirekt.value.copy(l.color).multiplyScalar(l.intensity / Math.PI);
         if (h) fern.uFernUmfeld.value.copy(h.color).multiplyScalar(h.intensity / Math.PI);
       }
-      himmel.userData.ortsfotoAnteil = ort;
+      himmel.userData.ortsfotoAnteil = amHof ? .78 * amHof : ort;
     }
   });
 
@@ -5151,8 +5137,8 @@ const FOV_MESSLAUF: number | null = (() => {
 })();
 
 // Alle Prop-Modelle vorladen — sonst poppen sie im ersten Bild nach.
-for (const varianten of Object.values(VARIANTEN))
-  for (const v of varianten) useGLTF.preload(propPfad(v.datei));
+for (const [art, varianten] of Object.entries(VARIANTEN))
+  if (art !== 'busch') for (const v of varianten) useGLTF.preload(propPfad(v.datei));
 // Die Nahstufe verwendet das Blender-Register. Ohne Vorbereitung begann ihr
 // Laden und Dekodieren am ersten LOD-Wechsel während der Hofroute.
 if (HOF_BILDTAKT_AN) {
@@ -5264,11 +5250,10 @@ export interface RegionsSzeneProps {
    * schweben die Kreaturen — derselbe Fehler wie einst bei den Props.
    */
   kreaturen?: KreaturSpawn[];
-  /** Silhouette je Kreatur-ID und Mutation. Von aussen, damit die Szene keine Inhalte kennt. */
-  gestalt?: (kreatur: string, mutation?: number) => THREE.BufferGeometry;
   /** Bereits gefangene oder besiegte Vorkommen. */
   verbraucht?: ReadonlySet<string>;
-  onBegegnung?: (v: Vorkommen) => void;
+  befallen?: (id: string) => boolean;
+  onBegegnung?: (v: Vorkommen, x: number, z: number) => boolean;
   /** Wird jedes Bild mit der nächsten Kreatur beschrieben — Grundlage der Anzeige. */
   naehe?: React.RefObject<Naehe>;
   /** Ort des Regenten in Weltkoordinaten (x, z) plus seine Silhouette. */
@@ -5366,6 +5351,7 @@ export interface RegionsSzeneProps {
   kampfplatz?: boolean;
   /** Wer auf dem Platz steht (D169/D170): zwei Arten, je Platz eine. */
   kampfAufstellung?: readonly GegnerArt[];
+  wildtierOrt?: readonly [number, number];
   /** Begegnung in der Welt (D175): Ausgang melden statt neu aufstellen; seit D417 mit Bericht je Gegner. */
   kampfEnde?: (sieg: boolean, bericht: Kampfbericht) => void;
   /** D417: Marke aus dem Spielstand (Ladungen, Fassung, Reinkultur) — ohne Angabe eine volle (Übungsplatz). */
@@ -5384,10 +5370,10 @@ export interface RegionsSzeneProps {
 
 export function RegionsSzene({
   welt, tageszeit = 0.26, spielerRef, onMessung,
-  qualitaet = QUALITAET_STANDARD, kreaturen, gestalt, verbraucht, onBegegnung, naehe,
+  qualitaet = QUALITAET_STANDARD, kreaturen, befallen, verbraucht, onBegegnung, naehe,
   regent, geheilt, onRegentNah, gleiterFrei, onGleiten, anzug, onKoerper, fundstellen, gelesen, onFund, orte, onOrtNah,
   startPosition, startBlick = 0, ausdauer, reittier = null, angehalten = false,
-  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, kampfEnde, kampfMarke, waffenStufen, kampfNacht, kampfRichtung, spielerSprung, kampfStand, lagerstellen,
+  fernland = null, meldeRand, stoecke, kampfplatz = false, kampfAufstellung, wildtierOrt, kampfEnde, kampfMarke, waffenStufen, kampfNacht, kampfRichtung, spielerSprung, kampfStand, lagerstellen,
 }: RegionsSzeneProps) {
   const eigenerRef = useRef<THREE.Object3D>(null);
   /** Führt der Kampf gerade die Figur? `Kampfplatz` schreibt, `Spieler` liest. */
@@ -5576,7 +5562,8 @@ export function RegionsSzene({
       <WasserUmgebung werte={{ zenit: s.zenit, horizont: s.horizont, dunst: s.nebel,
         sonne: s.sonne, sonnenstand: s.sonnenstand, scheibe: s.scheibe, hof: s.hof,
         atmosphaere: s.atmosphaere }}>
-      <Beleuchtung s={s} ziel={ref} wiesenbereich={wiesenbereich} fernMaterial={fernMaterial} geheilt={!!geheilt || GEHEILT_ANSICHT} />
+      <Beleuchtung s={s} ziel={ref} wiesenbereich={wiesenbereich}
+        hofgiebel={!HIMMEL_PHYSIK_AN && !STIMMUNG_MESSLAUF ? hoflagen.find(h => h.modell === 'hof-708') : undefined} fernMaterial={fernMaterial} geheilt={!!geheilt || GEHEILT_ANSICHT} />
       {!istAus('kulisse') && fernGeo && (
         <mesh geometry={fernGeo} material={fernMaterial} frustumCulled={false} renderOrder={-500} />
       )}
@@ -5613,7 +5600,7 @@ export function RegionsSzene({
         <Suspense fallback={null}>
           <Kampfplatz ziel={ref} gier={gier} feld={feld} kollision={kollision}
                       ausdauer={kraft} gesperrt={kampfSperre} stand={kampfStand} figur={kampfFigur}
-                      zielt={kampfZielt} aufstellung={kampfAufstellung} onEnde={kampfEnde} marke={kampfMarke} waffenStufen={waffenStufen} nacht={kampfNacht} richtung={kampfRichtung}
+                      zielt={kampfZielt} aufstellung={kampfAufstellung} wildtierOrt={wildtierOrt} onEnde={kampfEnde} marke={kampfMarke} waffenStufen={waffenStufen} nacht={kampfNacht} richtung={kampfRichtung}
                       key={kampfEnde ? `welt-${kampfAufstellung?.join(',')}` : 'platz'} />
         </Suspense>
       )}
@@ -5635,8 +5622,8 @@ export function RegionsSzene({
       {!istAus('bauwerke') && BAUWERKE.length > 0 && (
         <Bauwerke ziel={ref} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }} hoeheAn={feld.hoehe} />
       )}
-      {vorkommen.length > 0 && gestalt && (
-        <Kreaturen vorkommen={vorkommen} gestalt={gestalt} ziel={ref} gier={gier}
+      {vorkommen.length > 0 && (
+        <Kreaturen vorkommen={vorkommen} befallen={befallen} ziel={ref} gier={gier}
                    naehe={naehe} onBegegnung={onBegegnung} verbraucht={verbraucht}
                    rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
                    hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} kollision={kollision} />

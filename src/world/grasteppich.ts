@@ -212,7 +212,7 @@ export function baueGrasteppich(
     vertexColors: false, roughness: echt ? 1 : 0.85, metalness: 0, side: THREE.DoubleSide,
   });
   material.onBeforeCompile = (shader) => {
-    Object.assign(shader.uniforms, uniforms);
+    Object.assign(shader.uniforms, uniforms, feld.trittweg?.uniforms);
     if (HOF_GRAS_AN) Object.assign(shader.uniforms, {
       uHofMitte: HOF_UNIFORM.mitte, uHofGras: HOF_UNIFORM.gras,
       uHofGrasRahmen: HOF_UNIFORM.grasRahmen,
@@ -229,6 +229,7 @@ export function baueGrasteppich(
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
 ${HOF_GRAS_AN ? 'uniform vec2 uHofMitte;\nuniform sampler2D uHofGras;\nuniform vec4 uHofGrasRahmen;' : ''}
+${feld.trittweg?.glsl ?? ''}
 ${strassenmaske ? 'uniform sampler2D uStrassenGras;\nuniform vec4 uStrassenGrasRahmen;' : ''}
 ${wiesenbereich ? WIESENBEREICH_GLSL : ''}
 ${wildwiese ? WIESENWUCHS_GLSL : ''}
@@ -274,6 +275,9 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   if (${nurWiesenbereich ? 'ortsgewicht <= 0.0' : 'ortsgewicht >= 1.0'}) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     return;
+  }` : ''}
+  ${feld.trittweg ? `if (smoothstep(0.0,.45,hofTritt(ort)) > h4) {
+    gl_Position = vec4(2.0,2.0,2.0,1.0); return;
   }` : ''}
   ${strassenmaske ? `
   vec2 uvStrasse = (ort - uStrassenGrasRahmen.xy) * uStrassenGrasRahmen.zw;
@@ -446,7 +450,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   }
 #endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${echt ? '-echt' : ''}${viel ? '-viel' : ''}${foto ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras-raster' : ''}${sparsam ? '-teppichspar' : ''}${strassenmaske ? '-strassenmaske' : ''}${wiesenbereich ? (nurWiesenbereich ? '-wiesenbereich' : '-wiesenumfeld') : ''}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${feld.trittweg ? 'tritt' + feld.trittweg.anzahl : ''}-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${echt ? '-echt' : ''}${viel ? '-viel' : ''}${foto ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras-raster' : ''}${sparsam ? '-teppichspar' : ''}${strassenmaske ? '-strassenmaske' : ''}${wiesenbereich ? (nurWiesenbereich ? '-wiesenbereich' : '-wiesenumfeld') : ''}`;
 
   // D272: Halmkarten mit Alpha-Test; mit MSAA (Kontur) weiche Kanten über alphaToCoverage.
   if (foto) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }

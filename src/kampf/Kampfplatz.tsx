@@ -381,7 +381,7 @@ interface Puppe {
 /** Bauplan des Gegners (`content/gegner/<id>.json`) zur Art des Platzes — Masse und Oberfläche hängen daran. */
 const bauplan = (art: GegnerArt): string => (art === 'kapsel' ? 'uebungsgegner' : art);
 
-function baueWelt(x: number, z: number, blick: number, aufstellung: readonly GegnerArt[], nacht = false): Kampfwelt {
+function baueWelt(x: number, z: number, blick: number, aufstellung: readonly GegnerArt[], nacht = false, wildtierOrt?: readonly [number, number]): Kampfwelt {
   const spielerin = neuerKaempfer('spielerin', SPIELERIN, x, z, blick);
   // Zwei Gegner vor der Spielerin, versetzt — der zweite kommt etwas später an, damit man den
   // ersten Telegraf allein lesen kann, bevor es eng wird.
@@ -394,7 +394,7 @@ function baueWelt(x: number, z: number, blick: number, aufstellung: readonly Geg
   return {
     spielerin,
     gegner: aufstellung.slice(0, 3).map((art, i) => {
-      const [gx, gz] = vor(...plaetze[i]);
+      const [gx, gz] = i === 0 && wildtierOrt ? wildtierOrt : vor(...plaetze[i]);
       return neuerKaempfer(`${art}-${i + 1}`, nacht ? naechtlich(WERTE[art]) : WERTE[art], gx, gz, blickAuf(gx, gz, x, z));
     }),
     ziel: null,
@@ -417,6 +417,8 @@ type PlatzProps = {
   zielt?: React.RefObject<boolean>;
   /** Wer auf dem Platz steht, zwei oder drei Plätze (D169–D172). Vorgabe: ein Keiler, ein Grathorn. */
   aufstellung?: readonly GegnerArt[];
+  /** Aktuelle Position des einzelnen freilaufenden Tieres beim Übergang in den Kampf. */
+  wildtierOrt?: readonly [number, number];
   /**
    * Begegnung in der Welt (D175): kein Übungsplatz — es beginnt sofort (ohne erste Taste) und endet
    * einmal. Statt neu aufzustellen, meldet der Platz den Ausgang — seit D417 mit Bericht je Gegner
@@ -638,7 +640,7 @@ function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeome
   return { obj, koerper: koerper as THREE.SkinnedMesh | null, material, rig, setzeZeit: w.setzeZeit };
 }
 
-function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, leiber, rigs, onEnde, waffenStufen, nacht, richtung, marke }:
+function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand, figur, zielt, aufstellung = VORGABE, wildtierOrt, leiber, rigs, onEnde, waffenStufen, nacht, richtung, marke }:
   PlatzProps & { leiber: Partial<Record<GegnerArt, Leib | null>>; rigs: Partial<Record<GegnerArt, RigVorlage>> }) {
   const aufKey = aufstellung.join(',');
   const welt = useRef<Kampfwelt | null>(null);
@@ -890,7 +892,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
     const dt = Math.min(rohDt, 0.1) * ZEITLUPE;
     const jetzt = kampfUhr(dt);
     if (!welt.current) {
-      welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht); welt.current.spielerin.ausdauerFremd = true;
+      welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht, wildtierOrt); welt.current.spielerin.ausdauerFremd = true;
       welt.current.richtung = RICHTUNG_ADRESSE ?? richtung;
       // D417: Die Marke ist im echten Kampf an — ohne Druck auf F rechnet der Kampf wie vorher
       // (`tests/reinigen.test.ts`: eine unbenutzte Marke ändert keinen Teilschritt).
@@ -1127,7 +1129,7 @@ function KampfplatzKern({ ziel, gier, feld, kollision, ausdauer, gesperrt, stand
       onEnde(s.phase !== 'gefallen', kampfbericht(w, aufstellung));
     }
     if (!onEnde && ende.current !== null && jetzt - ende.current > NEUSTART * 1000) {
-      welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht);
+      welt.current = baueWelt(p.x, p.z, gier.current, aufstellung, nacht, wildtierOrt);
       welt.current.spielerin.ausdauerFremd = true;
       welt.current.richtung = RICHTUNG_ADRESSE ?? richtung;
       setzeMarke(welt.current);

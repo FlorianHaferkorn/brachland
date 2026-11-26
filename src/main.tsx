@@ -27,8 +27,7 @@ import { Stube } from './ui/Stube.js';
 import { beiGeber, type Taten } from './spiel/auftraege.js';
 import { fehlende, heile, heillage, wildZustand } from './spiel/heilung.js';
 import { Menue } from './ui/Menue.js';
-import { verschiebe, zustandsAnzeige } from './spiel/team.js';
-import { besteReittier, warumNicht, type Reitkandidat } from './spiel/reiten.js';
+import { besteReittier, REITPROBE, type Reitkandidat } from './spiel/reiten.js';
 import { gleiterFrei as gleiterOffen, GLEIT_VERHAELTNIS } from './spieler/gleiten.js';
 import { BEWEGUNG } from './spieler/tempo.js';
 import { koerperFolge } from './spieler/bewegung.js';
@@ -41,9 +40,9 @@ import type { KaempferBild } from './ui/Kampfbuehne.js';
 import { kpVorPhase, type Kaempfer, type Team } from './engine/battle.js';
 import { HeldEditor } from './ui/HeldEditor.js';
 import { GALERIE, galerieAuto } from './kampf/Kampfplatz.js';
-import { angebot, bezahlbar, bezahle, KEINE_STUFEN, FUNKE_PREIS, FUNKE_REGENT } from './spiel/schmiede.js';
+import { angebot, bezahlbar, bezahle, KEINE_STUFEN } from './spiel/schmiede.js';
 import type { GegnerArt } from './kampf/Kampfplatz.js';
-import type { Kampfbericht } from './kampf/kampfende.js';
+import { KREATUR_DER_ART, type Kampfbericht } from './kampf/kampfende.js';
 import { folgenDerBegegnung, teileBeute, SCHMIEDE_WAEHRUNG } from './spiel/begegnungen.js';
 import { markenFassung, markenLadung } from './spiel/marke.js';
 import { setzeHeldWahl, STANDARD_HELD } from './spieler/held.js';
@@ -221,6 +220,9 @@ function App() {
   // `?stube=<ortId>` öffnet das Ortsfenster samt Raum gleich beim Start (D242) — zum Ansehen.
   const [ortOffen, setOrtOffen] = useState<string | null>(() => new URLSearchParams(location.search).get('stube'));
   /** Sitzt der Spieler auf? Nicht im Spielstand — beim Laden steht man wieder am Boden. */
+  // Die Regenten haben bislang ausschließlich ein Rundenmodell. Ihre Vorbereitung
+  // öffnet man am Regentenort. Im Revier gilt der Echtzeitkampf mit der Marke.
+  const [regentenvorbereitung, setRegentenvorbereitung] = useState(false);
   const [imSattel, setImSattel] = useState(false);
   /** Menü offen? Nicht im Spielstand — ein Spiel startet nie im Menü. */
   const [menueOffen, setMenueOffen] = useState(false);
@@ -302,17 +304,14 @@ function App() {
     location.search = adresseFuer(nach, location.search);
   }, []);
 
-  // Spielstand laden, sonst neu anfangen. Beides ergibt am Ende ein Team.
+  // Spielstand laden, sonst neu anfangen. Das frühere Regententeam gehört zum Spielstand.
   useEffect(() => {
     let abgebrochen = false;
     ladeStand().then(geladen => {
       if (abgebrochen) return;
       // D415: Migriert, Rückfall auf die Rast, Sicherung aufbewahrt, Speicher gesperrt — nie mehr still.
       if (letzteMeldungen.length) setHinweis(letzteMeldungen[0]);
-      const s = geladen ?? {
-        ...LEERER_STAND,
-        team: [{ kreatur: START_KREATUR, stufe: 3, erfahrung: 0, kp: 0 }],
-      };
+      const s = geladen ?? LEERER_STAND;
       setStand(s);
       // D175: Figur aus dem Stand; bei Messadressen die Vorgabe, damit kein Editor den Lauf anhält.
       if (s.held) setzeHeldWahl(s.held);
@@ -320,29 +319,12 @@ function App() {
       erfahrungRef.current = s.team.map(e => e.erfahrung ?? 0);
       setTeam(s.team.map(e => {
         const k = baueKaempfer(e.kreatur, e.stufe, e.zustand ?? 'rein');
-        if (e.kp > 0) k.kp = Math.min(e.kp, k.maxKp);
+        if (Number.isFinite(e.kp)) k.kp = Math.max(0, Math.min(e.kp, k.maxKp));
         return k;
       }));
     });
     return () => { abgebrochen = true; };
   }, []);
-
-  // Silhouetten einmal je Kreatur — 19 Geometrien statt einer je Vorkommen.
-  const gestalten = useMemo(() => {
-    const karte = new Map<string, THREE.BufferGeometry>();
-    // Je Kreatur eine Gestalt **je Mutation**: Der Pilzfächer wächst mit, und genau
-    // daran soll man auf Entfernung sehen, wie weit eine Kreatur ist.
-    for (const k of KREATUREN.values())
-      for (let m = 0; m < k.stufen.length; m++)
-        karte.set(`${k.id}:${m}`,
-          baueKreaturGeometrie(k.basisRig, k.elemente, m, k.ursprung, saatAusId(k.id)));
-    return karte;
-  }, []);
-  const gestalt = useCallback((id: string, mutation = 0) =>
-    gestalten.get(`${id}:${mutation}`) ?? gestalten.get(`${id}:0`)
-    ?? gestalten.values().next().value!,
-    [gestalten],
-  );
 
   /**
    * Aussehen je Kämpfer-ID für die Kampfbühne.
@@ -453,9 +435,9 @@ function App() {
     return [{ ...l, x: x + l.versatz[0], z: z + l.versatz[1] }];
   }) : []), [welt]);
   const lagerstellenOffen = useMemo(() => (stand ? lager.filter(l => lagerOffen(stand, l.id)) : []), [lager, stand]);
-  const [weltKampf, setWeltKampf] = useState<{ id: string; aufstellung: readonly GegnerArt[]; beute: Record<string, number>; stufe: number; nacht: boolean } | null>(null);
+  const [weltKampf, setWeltKampf] = useState<{ id: string; aufstellung: readonly GegnerArt[]; beute: Record<string, number>; stufe: number; nacht: boolean; wild?: Vorkommen; wildtierOrt?: readonly [number, number] } | null>(null);
   useEffect(() => {
-    if (KAMPFPLATZ || (MESSADRESSE && !LAGER_PROBE) || !stand) return;
+    if (KAMPFPLATZ || (MESSADRESSE && !LAGER_PROBE) || !stand || begegnung || regentKampf || regentenvorbereitung) return;
     const id = setInterval(() => {
       const p = spielerRef.current?.position;
       if (!p || weltKampf) return;
@@ -472,7 +454,7 @@ function App() {
       }
     }, 500);
     return () => clearInterval(id);
-  }, [lager, stand, weltKampf]);
+  }, [lager, stand, weltKampf, begegnung, regentKampf, regentenvorbereitung]);
   const lagerRuhe = useRef(new Set<string>());
   const standRef = useRef(stand); standRef.current = stand;
   const weltRef = useRef(welt); weltRef.current = welt;
@@ -545,7 +527,19 @@ function App() {
     // D417: Wer getötet und wer gereinigt ist, gilt auch nach einer Niederlage — und die Ladung der
     // Marke ist verbraucht. Jedes Ende geht als Begegnung an die Reviere (D416, `meldeBegegnungRef`, unten).
     const st0 = standRef.current;
-    const folgen = st0 && bericht ? folgenDerBegegnung(st0, bericht, { begegnung: alt.id, region: AKTIVE_REGION, zeit: Date.now() }) : null;
+    const folgen = st0 && bericht ? folgenDerBegegnung(st0, bericht, {
+      begegnung: alt.id, region: AKTIVE_REGION, zeit: Date.now(), vorkommen: alt.wild?.id,
+    }) : null;
+    if (alt.wild) {
+      if (folgen && st0) {
+        sichereRef.current?.({ gereinigt: folgen.stand.gereinigt, besiegt: folgen.stand.besiegt, marke: folgen.stand.marke,
+          gesehen: [...new Set([...st0.gesehen, alt.wild.kreatur])] }, teamRef.current);
+        for (const e of folgen.ereignisse) meldeBegegnungRef.current(e);
+      }
+      if (!sieg) { if (!wacheAuf(zusatz)) setHinweis(zusatz || 'Du hast dich zurückgezogen.'); }
+      else setHinweis(folgen?.gereinigt ? 'Das Tier ist gereinigt und bleibt im Revier.' : null);
+      return;
+    }
     const reinText = (folgen?.gereinigt ? ` ${folgen.gereinigt === 1 ? 'Ein Tier ist' : `${folgen.gereinigt} Tiere sind`} gereinigt.` : '')
       // D426: wer aufgab und ging
       + (folgen?.verschont ? ` ${folgen.verschont === 1 ? 'Einer hat aufgegeben und ist gegangen' : `${folgen.verschont} haben aufgegeben und sind gegangen`}.` : '');
@@ -568,31 +562,12 @@ function App() {
     const istMaterial = (g: string) => SCHMIEDE_WAEHRUNG.has(g) || GEGENSTAENDE.get(g)?.wirkung.art === 'material';
     const erbeutet = bericht ? teileBeute(doppelt, bericht, istMaterial) : doppelt;
     for (const [g, n] of Object.entries(erbeutet)) beutel[g] = (beutel[g] ?? 0) + n;
-    // D177: Erfahrung wie nach einem Kampf in der Welt — für den ersten stehenden Kämpfer im Team
-    // (dieselbe Regel wie `belohne`: Wechseln hat seinen Preis). Wer mitgekommen ist, lernt zuzusehen.
-    const tm = teamRef.current;
-    const i = Math.max(0, tm.findIndex(k => k.kp > 0));
-    const k = tm[i];
-    let stufenText = '';
-    let teamNeu = tm;
-    if (k) {
-      const a = ausKaempferId(k.id);
-      const kr = KREATUREN.get(a.kreatur);
-      const auf = gutschrift(a.stufe, erfahrungRef.current[i] ?? 0, erfahrungAusSieg(alt.stufe, 0), kr?.stufen.length ?? 1);
-      erfahrungRef.current[i] = auf.erfahrung;
-      if (auf.gestiegen > 0) {
-        const neu = baueKaempfer(a.kreatur, auf.stufe, k.zustand);
-        neu.kp = Math.max(1, Math.round(neu.maxKp * (k.maxKp > 0 ? k.kp / k.maxKp : 1)));
-        teamNeu = [...tm]; teamNeu[i] = neu; setTeam(teamNeu);
-        stufenText = auf.mutiert ? ` ${k.name} wird zu ${neu.name}.` : ` ${neu.name} erreicht Stufe ${auf.stufe}.`;
-      }
-    }
     sichereRef.current?.({ lagerSieg: { ...(st.lagerSieg ?? {}), [alt.id]: Date.now() }, beutel,
-      gereinigt: st.gereinigt, besiegt: st.besiegt, marke: st.marke }, teamNeu);
+      gereinigt: st.gereinigt, besiegt: st.besiegt, marke: st.marke }, teamRef.current);
     const liste = Object.entries(erbeutet).map(([g, n]) => `${GEGENSTAENDE.get(g)?.name ?? g} ×${n}`).join(', ');
     // D416 → D417: je Gegner eine Begegnung an die Reviere — nach dem Sichern, damit die Updater aufeinander aufbauen.
     for (const e of folgen?.ereignisse ?? []) meldeBegegnungRef.current(e);
-    setHinweis(`Das Lager ist still.${reinText} ${liste ? `Du nimmst: ${liste}.` : 'Es bleibt nichts zu nehmen.'}${stufenText}`);
+    setHinweis(`Das Lager ist still.${reinText} ${liste ? `Du nimmst: ${liste}.` : 'Es bleibt nichts zu nehmen.'}`);
   }, [wacheAuf]);
   /**
    * D412: Folgen für den Körper aus der Bewegung (`spieler/bewegung.ts`) — Sturz und Kälte. Leben
@@ -644,7 +619,9 @@ function App() {
   const reittier = useMemo(() => {
     if (!imSattel || !reittierKandidat) return null;
     const skala = 1 + reittierKandidat.mutation * 0.2;
-    const geo = gestalt(reittierKandidat.kreatur, reittierKandidat.mutation).clone();
+    const k = KREATUREN.get(reittierKandidat.kreatur);
+    if (!k) return null;
+    const geo = baueKreaturGeometrie(k.basisRig, k.elemente, reittierKandidat.mutation, k.ursprung, saatAusId(k.id));
     geo.scale(skala, skala, skala);
     // Sitz aus der Geometrie lesen, nicht aus einer Konstanten: `RIG_HOEHE`
     // stand auf 1, die Silhouette ist bei Mutation 2 gemessen 2,28 m hoch und
@@ -654,7 +631,7 @@ function App() {
     // Art und Stufe dazu (D145): Die Szene laedt damit das Modell; Silhouette
     // und Sitzhoehe bleiben der Rueckfall fuer Arten ohne Datei.
     return { geometrie: geo, hoehe: sitz.hoehe, kreatur: reittierKandidat.kreatur, mutation: reittierKandidat.mutation };
-  }, [imSattel, reittierKandidat, gestalt]);
+  }, [imSattel, reittierKandidat]);
 
   // Wer sein Reittier verliert (Tausch, Niederlage), sitzt nicht weiter auf nichts.
   useEffect(() => { if (!reittierKandidat) setImSattel(false); }, [reittierKandidat]);
@@ -673,8 +650,8 @@ function App() {
   }, []);
 
   const verbraucht = useMemo(
-    () => new Set([...(stand?.gefangen ?? []), ...(stand?.besiegt ?? [])]),
-    [stand],
+    () => new Set([...(stand?.gefangen ?? []), ...(stand?.besiegt ?? []), ...(weltKampf?.wild ? [weltKampf.wild.id] : [])]),
+    [stand?.gefangen, stand?.besiegt, weltKampf?.wild],
   );
 
   /** Stand mit Änderung, aktueller Position und dem Team in Speicherform. */
@@ -743,16 +720,6 @@ function App() {
     sichere({ beutel: bezahle(a, st.beutel), waffenStufen: { ...stufen, [waffe]: a.stufe } }, teamRef.current);
     setHinweis(`${a.name} — sie trifft jetzt härter.`);
   }, [sichere]);
-  // D188: Kernfunke einsetzen (Schmiedin). Gilt für alle Waffen — die Marke trägt ihn.
-  const funkeEinsetzen = useCallback(() => {
-    const st = standRef.current;
-    if (!st || !bezahlbar({ waffe: 'klinge', stufe: 0, name: '', preis: FUNKE_PREIS }, st.beutel)) return;
-    const beutel = { ...st.beutel };
-    for (const [g, n] of Object.entries(FUNKE_PREIS)) beutel[g] = (beutel[g] ?? 0) - n;
-    sichere({ beutel, waffenStufen: { ...(st.waffenStufen ?? KEINE_STUFEN), funke: 'wasser' } }, teamRef.current);
-    setHinweis('Der Kern sitzt. Die Marke am Unterarm wird kalt, wenn du zuschlägst — Wasserfunke (schwerer Schlag, wenn er voll ist).');
-  }, [sichere]);
-
   /**
    * Ort aufmachen — und ihn dabei als besucht vermerken.
    *
@@ -814,36 +781,41 @@ function App() {
     });
   }, []);
 
-  /**
-   * Teamreihenfolge ändern.
-   *
-   * **Beide** Listen müssen dieselbe Bewegung machen: das Team und `erfahrungRef`,
-   * das daneben liegt, weil die Engine keinen Fortschritt kennt. Getrennt bewegt,
-   * trüge nach dem Umsortieren die falsche Kreatur die falsche Erfahrung — und
-   * man sähe es erst beim nächsten Stufenaufstieg. Deshalb dieselbe Funktion für
-   * beide (`spiel/team.ts`).
-   */
-  const ordneTeam = useCallback((neu: Kaempfer[], [von, nach]: [number, number]) => {
-    erfahrungRef.current = verschiebe(erfahrungRef.current, von, nach);
-    setTeam(neu);
-    sichere({}, neu);
-  }, [sichere]);
-
-  /** Nach einer Gegenstandswirkung ausserhalb des Kampfes: KP festhalten. */
-  const sichereTeam = useCallback(() => {
-    setTeam(t => {
-      const kopie = [...t];
-      sichere({}, kopie);
-      return kopie;
-    });
-  }, [sichere]);
-
   const regionGeheilt = !!stand?.geheilt?.includes(REGENT_ID);
-  const beginneKampf = useCallback((v: Vorkommen) => {
-    // Vor der Heilung ist ein Teil der Wildlinge befallen, danach keiner (D241).
-    const zustand = wildZustand(v.id, REGENTEN.get(REGENT_ID)?.befall ?? 0, regionGeheilt);
-    setBegegnung({ v, gegner: baueKaempfer(v.kreatur, v.stufe, zustand) });
-  }, [regionGeheilt]);
+  const gereinigte = useMemo(() => new Set(stand?.gereinigt), [stand?.gereinigt]);
+  const istBefallen = useCallback((id: string) => !gereinigte.has(id)
+    && wildZustand(id, REGENTEN.get(REGENT_ID)?.befall ?? 0, regionGeheilt) === 'befallen', [gereinigte, regionGeheilt]);
+
+  // Den früheren Starter erst erzeugen, wenn der noch nicht umgestellte Regentenpfad ihn braucht.
+  const regentenTeam = useCallback(() => {
+    if (team.length) return;
+    const start = [baueKaempfer(START_KREATUR, 3, 'rein')];
+    erfahrungRef.current = [0];
+    setTeam(start);
+    sichere({}, start);
+  }, [team, sichere]);
+
+  const auftragstiere = useMemo(() => new Set(HIESIGE_AUFTRAEGE.flatMap(a =>
+    stand?.auftraege[a.id] === 'angenommen' && a.ziel.art === 'besiege' ? [a.ziel.kreatur] : [])), [stand?.auftraege]);
+  const kampfWaffenStufen = useMemo(() => WAFFENSTUFE_PROBE ?? (stand?.waffenStufen && {
+    ...stand.waffenStufen, funke: undefined,
+  }), [stand?.waffenStufen]);
+  const beginneKampf = useCallback((v: Vorkommen, x: number, z: number) => {
+    if (kampfLaeuftRef.current || KAMPFPLATZ || gereinigte.has(v.id)) return false;
+    const befallen = istBefallen(v.id);
+    const art = KAMPF_ARTEN.find(a => KREATUR_DER_ART[a] === v.kreatur);
+    // Bestehende Jagdaufträge müssen auch für Arten ohne Echtzeit-Kampfprofil abschließbar sein.
+    if (regentenvorbereitung || (!art && auftragstiere.has(v.kreatur))) {
+      regentenTeam();
+      setBegegnung({ v, gegner: baueKaempfer(v.kreatur, v.stufe, befallen ? 'befallen' : 'rein') });
+      return true;
+    }
+    if (art && befallen) {
+      setWeltKampf({ id: v.id, wild: v, wildtierOrt: [x, z], aufstellung: [art], beute: {}, stufe: v.stufe, nacht: false });
+      return true;
+    }
+    return false;
+  }, [istBefallen, gereinigte, regentenvorbereitung, auftragstiere, regentenTeam]);
 
   const beendeKampf = useCallback((ende: KampfEnde) => {
     const v = begegnung?.v;
@@ -896,6 +868,7 @@ function App() {
   const belohne = useCallback((v: Vorkommen): string[] => {
     if (!stand) return [];
     const meldungen: string[] = [];
+    let teamDanach = team;
     const i = Math.max(0, team.findIndex(k => k.kp > 0));
     const k = team[i];
     if (k) {
@@ -910,7 +883,7 @@ function App() {
         const anteil = k.maxKp > 0 ? k.kp / k.maxKp : 1;
         const neu = baueKaempfer(a.kreatur, auf.stufe, k.zustand);
         neu.kp = Math.max(1, Math.round(neu.maxKp * anteil));
-        const kopie = [...team]; kopie[i] = neu; setTeam(kopie);
+        teamDanach = [...team]; teamDanach[i] = neu; setTeam(teamDanach);
         meldungen.push(auf.mutiert
           ? `${k.name} wird zu ${neu.name}`
           : `${neu.name} erreicht Stufe ${auf.stufe}`);
@@ -928,7 +901,7 @@ function App() {
       besiegt: [...stand.besiegt, v.id],
       gesehen: [...new Set([...stand.gesehen, v.kreatur])],
       beutel: beutelNeu,
-    }, team);
+    }, teamDanach);
     return meldungen;
   }, [stand, team, sichere]);
 
@@ -947,7 +920,7 @@ function App() {
     if (!stand) return;
     const voll = team.map(k => { k.kp = k.maxKp; return k; });
     setTeam([...voll]);
-    setHinweis(voll.length ? 'Ausgeruht. Das Team ist wieder bei Kräften.' : 'Ausgeruht.');
+    setHinweis('Ausgeruht.');
     // D179: Hier wacht man auf, wenn ein Wegelager einen schlägt.
     const hier = ortOffen;
     setOrtOffen(null);
@@ -1058,8 +1031,8 @@ function App() {
         qualitaet={qualitaet}
         spielerRef={spielerRef}
         kreaturen={HIESIGE_KREATUREN}
-        gestalt={gestalt}
         verbraucht={verbraucht}
+        befallen={istBefallen}
         onBegegnung={beginneKampf}
         naehe={naehe}
         regent={regent}
@@ -1085,13 +1058,14 @@ function App() {
         stoecke={stoecke}
         kampfplatz={KAMPFPLATZ || !!weltKampf}
         kampfAufstellung={weltKampf?.aufstellung ?? KAMPF_AUFSTELLUNG}
+        wildtierOrt={weltKampf?.wildtierOrt}
         kampfStand={kampfStand}
         kampfEnde={weltKampf ? kampfEndeMelden : undefined}
         kampfMarke={kampfMarke}
         kampfNacht={weltKampf?.nacht}
         kampfRichtung={stand.richtungskampf !== false}
         spielerSprung={spielerSprung}
-        waffenStufen={WAFFENSTUFE_PROBE ?? stand?.waffenStufen}
+        waffenStufen={kampfWaffenStufen}
       />
       {!imKampf && !menueOffen && <Stockanzeige stoecke={stoecke} />}
 
@@ -1118,7 +1092,7 @@ function App() {
           <Kampfbildschirm
             team={kampfTeam}
             gegner={regentKampf ?? begegnung!.gegner}
-            fangbar={!regentKampf && (KREATUREN.get(begegnung!.v.kreatur)?.fangbar ?? false)}
+            fangbar={regentenvorbereitung && !regentKampf && (KREATUREN.get(begegnung!.v.kreatur)?.fangbar ?? false)}
             bild={bild}
             beutel={stand.beutel}
             onVerbraucht={verbrauche}
@@ -1182,11 +1156,8 @@ function App() {
             </div>
           )}
 
-          {/* Auf- und Absitzen. Der Knopf steht nur da, wenn es ein Reittier gibt —
-              ein dauerhaft grauer Knopf erklärt nichts, ein Hinweis beim Versuch
-              schon. Deshalb liegt die Erklärung (`warumNicht`) im Teamfenster,
-              nicht hier. */}
-          {reittierKandidat && (
+          {/* Bestehende Reitprobe für alte Spielstände. */}
+          {REITPROBE && reittierKandidat && (
             <button onClick={() => setImSattel(v => !v)} style={{
               position: 'fixed', right: 8, bottom: 'calc(env(safe-area-inset-bottom, 8px) + 34px)',
               zIndex: 12, minHeight: 34, padding: '0 12px', borderRadius: 8, fontSize: 11,
@@ -1262,18 +1233,11 @@ function App() {
               richtung={stand.richtungskampf !== false}
               onRichtung={an => { const neu = { ...stand, richtungskampf: an }; setStand(neu); void speichereStand(neu); }}
               welt={welt}
-              team={team}
               beutel={stand.beutel}
               fragmente={stand.fragmente}
-              gesehen={stand.gesehen}
-              gefangen={stand.gefangen}
               besuchteOrte={stand.orte}
               spieler={[spielerRef.current?.position.x ?? 0, spielerRef.current?.position.z ?? 0]}
               ziel={auftragsziel}
-              narbeFuer={narbeFuer}
-              onTeam={ordneTeam}
-              onVerbraucht={verbrauche}
-              onGeaendert={sichereTeam}
               onSchliessen={() => setMenueOffen(false)}
             />
           )}
@@ -1302,8 +1266,6 @@ function App() {
               beutel={stand.beutel}
               waffenStufen={stand.waffenStufen ?? KEINE_STUFEN}
               onSchmiede={schmiede}
-              onFunke={funkeEinsetzen}
-              funkeFrei={stand.regenten.includes(FUNKE_REGENT.wasser) && !stand.waffenStufen?.funke}
               abends={tageszeit >= 0.74 || tageszeit < 0.2}
               kopfgeld={ortOffen === 'dorf-wirt' ? lager.map(l => {
                 const p = spielerRef.current?.position;
@@ -1370,6 +1332,8 @@ function App() {
                 Das Wasser steht. Er wartet nicht, aber er kommt auch nicht.
               </div>
               <button onClick={() => {
+                regentenTeam();
+                setRegentenvorbereitung(false);
                 const r = baueRegent(REGENT_ID);
                 if (REGENT_PHASE > 0) r.kp = kpVorPhase(r, REGENT_PHASE);
                 setRegentKampf(r);
@@ -1377,35 +1341,19 @@ function App() {
                 minHeight: 40, padding: '0 20px', borderRadius: 9, fontSize: 13,
                 background: 'transparent', border: '1px solid #c4553f', color: '#c4553f',
               }}>Stellen</button>
+              {!regentenvorbereitung && <button onClick={() => {
+                regentenTeam();
+                setRegentenvorbereitung(true);
+              }}>Regentenkampf vorbereiten</button>}
             </div>
           )}
 
-          {/* Team — ohne diese Anzeige weiß niemand, womit er in den nächsten Kampf geht. */}
+          {regentenvorbereitung && <button onClick={() => setRegentenvorbereitung(false)}
+            style={{position: 'fixed', left: 8, bottom: 72, zIndex: 21}}>Regentenvorbereitung beenden</button>}
           <div style={{
             position: 'fixed', left: 8, bottom: 'calc(env(safe-area-inset-bottom, 8px) + 34px)',
             display: 'flex', flexDirection: 'column', gap: 3, zIndex: 10, pointerEvents: 'none',
           }}>
-            {team.map((k, i) => (
-              <div key={i} style={{
-                fontFamily: 'ui-monospace, monospace', fontSize: 11,
-                color: k.kp > 0 ? '#9fb0a8' : '#6b5450',
-                background: '#0d121099', padding: '2px 6px', borderRadius: 5,
-              }}>
-                {k.name} <span style={{ color: '#6f8079' }}>S{ausKaempferId(k.id).stufe}</span>
-                {' '}{Math.max(0, k.kp)}/{k.maxKp}
-                {/* Befall in der Signalfarbe (D244): Er zehrt im nächsten Kampf, das soll man vorher sehen. */}
-                {k.zustand === 'befallen' && <span style={{ color: '#3fd9a0' }}> · {zustandsAnzeige(k.zustand)!.kurz}</span>}
-              </div>
-            ))}
-            {/* Warum kein Reittier? Ein Satz, und nur solange es einen gibt. Eine
-                Fähigkeit, die nicht auslöst und nicht sagt warum, liest sich als
-                Fehler — deshalb steht der Grund da, wo das Team steht. */}
-            {team.length > 0 && !reittierKandidat && warumNicht(kandidaten) && (
-              <div style={{
-                fontSize: 10, color: '#5c6b64', background: '#0d121099',
-                padding: '2px 6px', borderRadius: 5, maxWidth: 220,
-              }}>{warumNicht(kandidaten)}</div>
-            )}
             {/* Beutel draussen: Was drin ist, und ob es sich lohnt stehenzubleiben. */}
             {Object.entries(stand.beutel).filter(([, n]) => n > 0).length > 0 && (
               <div style={{

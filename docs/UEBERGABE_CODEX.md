@@ -8,6 +8,8 @@ shelf-life-days: 30
 > Sitzung. Offen/erledigt steht im Ledger (`_INDEX.md`), nicht hier. Wenn alles übernommen ist: Datei löschen und im
 > Index austragen.
 
+**Hof und Spielwelt (D489).** Der Trittweg von Hof 708 und sein Abzweig liegen als lokale Linien in `content/hofbauten.json`. Sie folgen der Ausrichtung des Hauses. Der Vergleich mit D440 nutzt weiterhin dieselbe Kamera und Tageszeit. Karte, Beutel und Heft sind der reguläre Einstieg ins Menü. Die vorher massiven grünen Büsche vor dem Eckpfosten und am Wegrand nutzen jetzt instanzierte Laubkarten. Die Story-Bibel v2 ist für den Befall der Tiere maßgeblich. Für die Reinigungsaufträge zu Alpenmurmel, Firnhase und Myzelmolch fehlen noch Echtzeitprofile. Der Regentenort bietet noch den älteren Rundenkampf, bis ein geprüfter Echtzeit-Regent existiert.
+
 **Häuser (D487–D488).** Maßstab ist Claudes Blender-Hof 708, siehe [Ortsverfahren](VERFAHREN_ORT.md#qualitätsziel-für-alle-häuser-d487). Die modellierte Hofterrasse hebt das Erdgeschoss um 1,65 m. Efeu an der Laubenecke und Regenschatten am Holz sind am Einzelmodell im Spiel. Vorher/Nachher aus derselben Kamera und der Gang zum Haus liegen in `.cache/bilder/D488/`. Der durchgehende Weg zum Eingang und die Ausleuchtung des Wohngiebels weichen weiterhin von D440 ab.
 
 **Fortsetzung am 26.11.2026 (D480–D486).** Die Felsmulde verwendet die gebackenen Scan-Büschel und die vier
