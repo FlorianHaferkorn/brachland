@@ -1,4 +1,5 @@
 import { ORTSPARAMETER } from '../spiel/zielort.js';
+import { ORTSVORLAUF_AN, gelaendeGeladen, meldeFertig } from './ladezeit.js';
 /**
  * BRACHLAND — Nachbearbeitung: Kontur (dunkle Linie an jeder Tiefenkante) und AO (Stufe 2)
  *
@@ -467,6 +468,18 @@ function halton(i: number, basis: number): number {
   return r - 0.5;
 }
 
+// Nur Grünteile aus dem ersten Ladeumkreis nehmen am Materialvorlauf teil.
+const startGruen = new WeakMap<THREE.Scene, Map<string, THREE.Object3D | null>>();
+
+export function erwarteStartgruen(szene: THREE.Scene, namen: readonly string[]): void {
+  if (!startGruen.has(szene)) startGruen.set(szene, new Map(namen.map(name => [name, null])));
+}
+
+export function meldeGruenVorlauf(szene: THREE.Scene, name: string, teil: THREE.Object3D): void {
+  const offen = startGruen.get(szene);
+  if (offen?.has(name)) offen.set(name, teil);
+}
+
 export function Kontur({ an, felsAtmosphaere = false, staerke = 0.6, schwelle = 0.03, ao = 1.4, aoRadius = 8,
   bloom = 0, schacht = 0, sonne, sonnenFarbe = '#ffffff' }: {
   an: boolean; felsAtmosphaere?: boolean; staerke?: number; schwelle?: number;
@@ -607,12 +620,63 @@ export function Kontur({ an, felsAtmosphaere = false, staerke = 0.6, schwelle = 
   const sonnenFarbeLinear = useMemo(() => new THREE.Color(sonnenFarbe), [sonnenFarbe]);
   const hilf = useMemo(() => ({ v: new THREE.Vector3(), vor: new THREE.Vector3() }), []);
 
+  // Nach dem Geländeaufbau auch die seitlichen Startansichten einmal mit dem echten
+  // Licht und dem Farbraum des Hauptpasses zeichnen. Ein Pixel genügt für Programme,
+  // Materialtexturen und Vertexpuffer. Je Ansicht ein Ladebild.
+  const vorlauf = useMemo(() => ORTSVORLAUF_AN ? {
+    kamera: new THREE.PerspectiveCamera(), ausschnitt: new THREE.Vector4(), mitte: new THREE.Vector3(), start: new THREE.Vector3(),
+    richtung: 0, frist: 0, fertig: false,
+    marke: `ortsvorlauf-${ORTSPARAMETER.get('ziel') ?? 'start'}`,
+  } : null, [gl, scene]);
   // Prioritaet 1 uebernimmt das Zeichnen von fiber — auch wenn der Pass aus ist,
   // damit der Vergleich A/B denselben Weg nimmt und nur der Pass fehlt.
   // fiber setzt `gl.info` je `render()` zurueck — nach dem Quad staende im HUD
   // „2 Dreiecke, 1 Aufruf". Deshalb von Hand: einmal je Bild, vor der Szene.
   useEffect(() => { gl.info.autoReset = false; return () => { gl.info.autoReset = true; }; }, [gl]);
   useFrame(() => {
+    if (vorlauf && !vorlauf.fertig && camera instanceof THREE.PerspectiveCamera && gelaendeGeladen()) {
+      const offen = startGruen.get(scene);
+      if (vorlauf.richtung === 0) {
+        performance.mark(vorlauf.marke + '-beginn');
+        vorlauf.start.copy(camera.position);
+        vorlauf.frist = performance.now() + 5000;
+      }
+      const gruppe = vorlauf.richtung >= 3 ? offen?.entries().next().value : undefined;
+      // Bei fehlendem GLB darf das HUD weiter laden. Wer schon losläuft, bekommt
+      // keine nachträgliche Vorwärmung während der Bewegung.
+      if (vorlauf.richtung >= 3 && (performance.now() > vorlauf.frist || camera.position.distanceToSquared(vorlauf.start) > 9)) offen?.clear();
+      if (vorlauf.richtung < 3 || (gruppe?.[1] && offen?.size)) {
+        gl.setRenderTarget(passAn ? ziel.rt : null);
+        const scissorTest = gl.getScissorTest(), schatten = gl.shadowMap.autoUpdate;
+        gl.getScissor(vorlauf.ausschnitt);
+        try {
+          gl.shadowMap.autoUpdate = false;
+          gl.setScissor(0, 0, 1, 1);
+          gl.setScissorTest(true);
+          const k = vorlauf.kamera;
+          k.copy(camera, false);
+          k.fov = 115;
+          k.aspect = 1.5;
+          k.zoom = 1;
+          if (gruppe?.[1]) k.lookAt(gruppe[1].getWorldPosition(vorlauf.mitte));
+          else k.rotation.set(0, vorlauf.richtung * 2 * Math.PI / 3, 0);
+          k.updateProjectionMatrix();
+          gl.render(scene, k);
+        } finally {
+          gl.setScissor(vorlauf.ausschnitt);
+          gl.setScissorTest(scissorTest);
+          gl.shadowMap.autoUpdate = schatten;
+        }
+        if (gruppe) offen?.delete(gruppe[0]);
+        else vorlauf.richtung++;
+      }
+      if (vorlauf.richtung === 3 && !offen?.size) {
+        vorlauf.fertig = true;
+        performance.mark(vorlauf.marke + '-bereit');
+        performance.measure(vorlauf.marke, vorlauf.marke + '-beginn', vorlauf.marke + '-bereit');
+        meldeFertig('ortsvorlauf');
+      }
+    }
     gl.info.reset();
     if (!passAn) { gl.setRenderTarget(null); gl.render(scene, camera); return; }
     const k = camera as THREE.PerspectiveCamera;

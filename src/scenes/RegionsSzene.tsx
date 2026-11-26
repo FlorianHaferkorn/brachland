@@ -19,7 +19,7 @@ import { zerlegeBaender, baueWegKachel, baueWasserKachel, baueFallKachel, senkeP
 import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
-import { Kontur, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
+import { Kontur, erwarteStartgruen, meldeGruenVorlauf, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
 import { WasserUmgebung, WasserSzeneProbe, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
 import { EzBaumProbe, istEzProbeBereit, uebernimmtEzVariante } from './EzBaumProbe.js';
 import { Rahmenkronen } from './Rahmenkronen.js';
@@ -136,7 +136,7 @@ const BEWOHNER_ALT = new URLSearchParams(location.search).get('bewohner') === 'a
  */
 const KEINE_CLIPS: THREE.AnimationClip[] = [];
 import type { KampfStand } from '../ui/Kampfanzeige.js';
-import { meldeFertig, ladezeit } from './ladezeit.js';
+import { ORTSVORLAUF_AN, meldeFertig, ladezeit } from './ladezeit.js';
 import { TERRAIN_SICHT, NEUAUFBAU_AB, WEITE_WEIT, ATTRAPPE_AB, PROP_NEUBEWERTUNG } from './sichtweiten.js';
 import { buendleFernProps, propListenNeu, waehleProps, type PropAnkerCache, type PropStufe } from './propauswahl.js';
 import { verteileKreaturen, rueckkehrVorkommen, type Vorkommen, type KreaturSpawn } from '../world/vorkommen.js';
@@ -2310,13 +2310,16 @@ function Bauwerke({ rand, ziel, hoeheAn }: {
   hoeheAn: (x: number, z: number) => number;
   ziel: React.RefObject<THREE.Object3D | null>;
 }) {
+  const szene = useThree(zustand => zustand.scene);
   const [sichtbar, setzeSichtbar] = useState<Bauwerk[]>([]);
   const letzte = useRef(new THREE.Vector2(NaN, NaN));
   useFrame(() => {
     const p = ziel.current?.position;
     if (!p || Math.hypot(letzte.current.x - p.x, letzte.current.y - p.z) < BAUWERK_NEUBEWERTUNG) return;
     letzte.current.set(p.x, p.z);
-    setzeSichtbar(sichtbareBauwerke(p.x, p.z));
+    const nah = sichtbareBauwerke(p.x, p.z);
+    if (ORTSVORLAUF_AN) erwarteStartgruen(szene, nah.filter(b => b.dateien.includes('gruen')).map(b => b.name));
+    setzeSichtbar(nah);
   });
   return (
     <>
@@ -2626,6 +2629,7 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
   hoeheAn: (x: number, z: number) => number;
 }) {
   const { scene } = useGLTF(bauwerkPfad(bauwerk, teil));
+  const spielszene = useThree(zustand => zustand.scene);
   const { objekt, materialien, karten, kerne } = useMemo(() => {
     const klon = scene.clone(true);
     const huellen: { o: THREE.Mesh; art: KartenArt; w: ReturnType<typeof baueWindMaterial> }[] = [];
@@ -2734,6 +2738,9 @@ function Bauwerkteil({ bauwerk, teil, rand, hoeheAn }: {
     if (karten.length) console.info(`[laubkarten] ${bauwerk.name}: ${karten.length} Hüllen, ${karten.reduce((s, k) => s + k.anzahl, 0)} Karten auf ${Math.round(karten.reduce((s, k) => s + k.flaeche, 0))} m² (${karten.map(k => `${k.mesh.name.split(':')[1]} ${k.anzahl}/${Math.round(k.flaeche)}`).join(', ')})`);
     return { objekt: klon, materialien, karten, kerne };
   }, [scene, teil, rand.farbe, rand.staerke]);
+  useEffect(() => {
+    if (ORTSVORLAUF_AN && teil === 'gruen') meldeGruenVorlauf(spielszene, bauwerk.name, objekt);
+  }, [spielszene, bauwerk.name, objekt, teil]);
   useEffect(() => {
     materialien.forEach(({ w, anteil }) => w.setzeRand(new THREE.Color(rand.farbe), rand.staerke * anteil));
   }, [materialien, rand.farbe, rand.staerke]);

@@ -45,7 +45,11 @@ try {
       delete abschnitte.weststrasse;
     }
     if (route.fehler) fehler.push(route.fehler);
-    const bericht = { ort, extra, ...abschnitte.gesamt, abschnitte, route, fehler };
+    const ladezeit = /Ladezeit\s*([\d.,]+)\s*s/.exec(startHud);
+    const ladezeitSek = ladezeit ? Number(ladezeit[1].replace(',', '.')) : null;
+    const vorlaufMs = await seite.evaluate(() => performance.getEntriesByType('measure')
+      .filter(e => e.name.startsWith('ortsvorlauf-')).at(-1)?.duration ?? null);
+    const bericht = { ort, extra, ladezeitSek, vorlaufMs, ...abschnitte.gesamt, abschnitte, route, fehler };
     writeFileSync(`${ziel}/bericht.json`, JSON.stringify(bericht, null, 2));
     console.log(JSON.stringify({ ort, extra, abschnitte, wegpunkte: route.wegpunkte, fehler }, null, 2));
     await seite.screenshot({ path: `${ziel}/ende.png` });

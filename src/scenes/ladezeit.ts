@@ -13,16 +13,24 @@
  *
  * Gemessen ab `performance.timeOrigin` (Beginn der Navigation), in Sekunden.
  */
-const fertig: Record<'terrain' | 'baender', number | null> = { terrain: null, baender: null };
+import { ORTSPARAMETER } from '../spiel/zielort.js';
+
+export const ORTSVORLAUF_AN = ORTSPARAMETER.get('ortstakt') === '1' && ORTSPARAMETER.get('ortsvorlauf') !== '0';
+const fertig: Record<'terrain' | 'baender' | 'ortsvorlauf', number | null> = { terrain: null, baender: null, ortsvorlauf: null };
 
 /** Ein Teil der Szene ist zum ersten Mal vollständig gebaut. Spätere Meldungen ändern nichts. */
-export function meldeFertig(teil: 'terrain' | 'baender'): void {
+export function meldeFertig(teil: keyof typeof fertig): void {
   if (fertig[teil] === null) fertig[teil] = performance.now();
 }
 
-/** Sekunden bis beide Teile standen, oder null solange eines fehlt. */
+/** Gelände und Aufsätze sind für alle Blickrichtungen gebaut. */
+export function gelaendeGeladen(): boolean {
+  return fertig.terrain !== null && fertig.baender !== null;
+}
+
+/** Sekunden bis zum vollständigen Aufbau einschließlich des örtlichen Materialvorlaufs. */
 export function ladezeit(): number | null {
-  return fertig.terrain !== null && fertig.baender !== null
-    ? Math.max(fertig.terrain, fertig.baender) / 1000
-    : null;
+  const { terrain, baender, ortsvorlauf } = fertig;
+  if (terrain === null || baender === null || (ORTSVORLAUF_AN && ortsvorlauf === null)) return null;
+  return Math.max(terrain, baender, ortsvorlauf ?? 0) / 1000;
 }

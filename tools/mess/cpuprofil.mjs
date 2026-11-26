@@ -1,5 +1,5 @@
 /** CPU-Profil desselben spielbaren Laufs wie vergleich.mjs, ohne Video.
- * node tools/mess/cpuprofil.mjs <neuer-name> [url-zusatz] [port] [build-verzeichnis] [x,z,grad|hofwest] [ausreisser-ms]
+ * node tools/mess/cpuprofil.mjs <neuer-name> [url-zusatz] [port] [build-verzeichnis] [x,z,grad|hofwest|ort:kennung] [ausreisser-ms]
  * MESS_GANG=1 misst denselben zehnsekündigen W-Gang wie bildrate.mjs, ohne zusätzliche Lookparameter.
  * MESS_FORMAT=1440x900 überschreibt die Auflösung (Vorgabe 960x540).
  * Fuer Zuordnung: Vite-Produktionsbuild mit Sourcemaps und passenden Preview-Port starten.
@@ -9,13 +9,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping';
 import { playwright } from './pw.mjs';
-import { HOFWEST_START, bereiteHofwestroute, laufeHofwestroute } from './hofwestroute.mjs';
+import { messroute, bereiteHofwestroute, laufeHofwestroute } from './hofwestroute.mjs';
 
 const [name, extra = '', port = '4174', build = '.cache/cpuprofil-build', strecke = '0,0,310', schwellenText = '100'] = process.argv.slice(2);
-const hofwest = strecke === 'hofwest';
-const gang = !hofwest && process.env.MESS_GANG === '1';
+const weg = messroute(strecke);
+const gang = !weg && process.env.MESS_GANG === '1';
 const [width, height] = (process.env.MESS_FORMAT ?? '960x540').split('x').map(Number);
-const ort = hofwest ? HOFWEST_START : strecke;
+const ort = weg?.start ?? strecke;
 const ausreisserMs = Number(schwellenText);
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
 if (!/^\d+$/.test(port)) throw new Error('Numerischen lokalen Preview-Port angeben.');
@@ -107,7 +107,7 @@ try {
   await seite.waitForSelector('button[aria-label="Menü"]', { timeout: 240000 });
   await seite.waitForFunction(() => document.body.textContent.includes('Ladezeit'), undefined, { timeout: 120000 });
   await seite.waitForTimeout(15000);
-  if (hofwest) await bereiteHofwestroute(seite);
+  if (weg) await bereiteHofwestroute(seite, weg);
   await seite.evaluate(() => {
     const szene = window.__szene;
     if (!szene) return;
@@ -142,10 +142,10 @@ try {
   await cdp.send('Profiler.enable');
   await cdp.send('Profiler.setSamplingInterval', { interval: 1000 });
   await cdp.send('Profiler.start');
-  if (hofwest) await seite.waitForTimeout(750);
+  if (weg) await seite.waitForTimeout(750);
   messen = true;
   let route;
-  if (hofwest) {
+  if (weg) {
     route = await laufeHofwestroute(seite);
     if (route.fehler) fehler.push(route.fehler);
   } else {

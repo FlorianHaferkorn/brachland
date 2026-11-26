@@ -8,9 +8,10 @@ shelf-life-days: 30
 > Sitzung. Offen/erledigt steht im Ledger (`_INDEX.md`), nicht hier. Wenn alles übernommen ist: Datei löschen und im
 > Index austragen.
 
-**Fortsetzung am 26.11.2026 (D480–D482).** Die Felsmulde verwendet die gebackenen Scan-Büschel und die vier
+**Fortsetzung am 26.11.2026 (D480–D483).** Die Felsmulde verwendet die gebackenen Scan-Büschel und die vier
 Bergrücken aus der Blender-Szene. D481 ergänzt den bewaldeten Fernhang und die Pflanzen am Teich. Bildzeiten und Vergleich aus der Spielkamera stehen in D481 und A-46.
 D482 erschließt mit demselben Ortslader die Milbinger Hofzufahrt. Kameras, Referenzbilder und Messweg stehen in den beiden Akten unter `../tools/ort/`.
+D483 dokumentiert Shader- und Texturkosten beim ersten Abbiegen in die Milbinger Straße. Gegenläufe und Bildzeiten stehen im Ledger.
 Der folgende Sitzungsstand und die ursprüngliche Reihenfolge dokumentieren Claudes Übergabe vom 25.11.2026.
 
 ## 1. Wo wir stehen

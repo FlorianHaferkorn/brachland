@@ -8,6 +8,22 @@ Arbeitsrezept ab D156, erweitert in D157. Fachlicher Ausgangsstand: Ledger in `_
 Qualitätsmaßstab: ADR-0006. Offene Befunde und Entscheidungen werden ausschließlich
 im Ledger gepflegt. Alle Befehle laufen aus dem Repo-Root.
 
+## Kameraschwenk auf der Milbinger Straße (D483)
+
+`ort:milbinger` verwendet für alle drei Werkzeuge dieselben Wegpunkte aus der Ortsakte.
+Nach dem Produktionsbuild und Start der Vorschau auf Port 4173 jeweils einen neuen Ausgabenamen verwenden.
+
+```sh
+node tools/mess/vergleich.mjs milbinger-lauf-01 '&ziel=milbinger' ort:milbinger 4173
+node tools/mess/cpuprofil.mjs milbinger-profil-01 '&ziel=milbinger' 4173 dist ort:milbinger 50
+node tools/mess/echtzeitfahrt.mjs milbinger-film-01 '&ziel=milbinger' ort:milbinger 1280x720 4173
+```
+
+Die Zeitmessung erfasst auch HUD-Ladezeit und Dauer des Materialvorlaufs. Im Einzelbildprofil ordnet
+`programme` Treiberaufrufe ab 2 ms dem gezeichneten Objekt zu, soweit der Browser die Zuordnung erlaubt.
+Für den Gegenlauf im selben Build `&ortsvorlauf=0` ergänzen. Kameraaufnahme und CPU-Profil getrennt
+von den Bildzeitläufen starten.
+
 ## Voraussetzungen
 
 Node-Abhängigkeiten installiert, Blender im PATH; der Blender-Pfad benutzt
