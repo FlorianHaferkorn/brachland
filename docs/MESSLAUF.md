@@ -8,6 +8,15 @@ Arbeitsrezept ab D156, erweitert in D157. Fachlicher Ausgangsstand: Ledger in `_
 Qualitätsmaßstab: ADR-0006. Offene Befunde und Entscheidungen werden ausschließlich
 im Ledger gepflegt. Alle Befehle laufen aus dem Repo-Root.
 
+## Automatischer Hof-Test am M1 (D486)
+
+`npm run test:hof` baut den aktuellen Quellstand, startet eine eigene lokale Vorschau und beendet sie nach dem Lauf. Auf dem Apple M1 startet `npm test` den Hof-Test automatisch nach den Fachtests. Chromium und Playwright müssen gemäß [Messwerkzeugen](../tools/mess/pw.mjs) installiert sein. Andere Renderer während der Messung schließen.
+
+Zwei feste Kamerastandorte prüfen Atlas-Ausschnitt, Anzahl und SHA-256 der tatsächlich verwendeten Streumatrizen gegen D485. Die Referenz in `tools/mess/hofdetails.json` wird beim Test ausschließlich gelesen. Danach folgen zwei vollständige, getrennt geladene Läufe auf der 152-m-Route mit allen zwölf Wegpunkten (960 × 540, DPR 1). Fehlende Wegpunkte, Browserfehler oder abweichende Streu lassen den Test fehlschlagen.
+
+Die Bildzeitgrenzen orientieren sich an den beiden D485-Läufen. Je Lauf gilt p95 ≤ 35 ms und Spitze < 100 ms, über beide Läufe mindestens 50 B/s im Mittel und höchstens zwei Bilder über 50 ms. Zu jedem Ausreißer stehen Position und Abschnitt im JSON-Bericht unter `.cache/mess/hoftest-<Zeitstempel>/`. Ein separater Profillauf folgt bei jedem Überschreiten von 50 ms. Im Profil zählen verspätete Uploads ab 2 ms der bekannten Stumpf- und Fichtenkarten als Fehler. Seine Bildzeiten gehen nicht in die Wertung ein. Die Matrixprüfung deckt Anordnung und Größe der Streukarten ab. Licht, übrige Materialien und die Wahrnehmung von Flimmern brauchen weiterhin eine Sichtprüfung.
+
+
 ## Kameraschwenk auf der Milbinger Straße (D483)
 
 `ort:milbinger` verwendet für alle drei Werkzeuge dieselben Wegpunkte aus der Ortsakte.

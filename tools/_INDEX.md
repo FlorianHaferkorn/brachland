@@ -25,6 +25,7 @@ owns: *.ts, *.mjs, *.py, *.sh
 | Ganze Ordner durch die Kette schicken | `batch.mjs`, `pipeline.sh` |
 | Prüfen, ob das Dreiecksbudget hält | `lodcheck.ts`, `scenecheck.ts` |
 | Gelände- oder Baumqualität beurteilen | `hoehenvergleich.ts`, `baumcheck.ts` |
+| Den 152-m-Hoflauf automatisch gegen Bildzeit- und Streudetailgrenzen prüfen | [hoftest.mjs](mess/hoftest.mjs) mit [Wertung](mess/hofwertung.mjs), [Referenzmatrizen](mess/hofdetails.json), [Messbedingungen](../docs/MESSLAUF.md) |
 | Herausfinden, warum es ruckelt, obwohl die Geometrie passt | `lastcheck.ts` |
 | Prüfen, ob man beim Spielen überhaupt Kreaturen findet | `vorkommencheck.ts` |
 | Größenverhältnisse prüfen | `masstab.ts` |
@@ -145,6 +146,8 @@ owns: *.ts, *.mjs, *.py, *.sh
 | `mess/lodlauf.mjs` | Reproduzierbarer Lauf im Spiel: Video, Szenenproben, LOD-Wechsel, Haupt-/Warte-/Blendinstanzen und Duplikate, Browserfehler und Bildzeiten; mit `?ezdiagnose=1` begrenztes Ereignisprotokoll und bei Reflexionsprobe Capture-Zähler. Fünfter Parameter: Prüfintervall in Sekunden; `schwenk` ergänzt zwei Maus-Kameraschwenks, `schwenk-dialog` schließt Fundstück-Dialoge. Sichtbare Wechsel sind Stichproben. Video/Sonde belasten die Bildzeit; für unbelastetere Zeiten `mess/vergleich.mjs` nutzen. |
 | `mess/ezdreifach.mjs` | Reproduziert schnelle mehrfache LOD-Wechsel eines zusaetzlichen Baums im laufenden Spiel und zeichnet Instanz-/Shaderattribute, Diagnose und Video auf; keine Welt- oder Spielstandaenderung. Neuer Ausgabename erforderlich; optionaler zweiter URL-Parameter erlaubt den lokalen Hofmodus. |
 | `mess/lichterlauf.mjs` | D252: 24-s-Spiellauf mit Video, Sichtbarkeit der Hauptlichter pro Browserbild und Zeitpunkten lokaler GLB-Anfragen; erkennt das Abdunkeln beim Nachladen. Zweiter Parameter ergänzt URL-Schalter, dritter die Laufdauer. Sonde/Video belasten die Bildzeit, daher kein Performance-Messlauf; neue Ausgabe unter dem Laufnamen im Cache. |
+| `mess/hoftest.mjs` | Führt die beiden Standorte und zwei vollständige Hofläufe automatisch aus. |
+| `mess/hofwertung.mjs` | Prüft die M1-Bildzeitgrenzen für die Hofroute. |
 | `mess/vergleich.mjs` | A/B-Lauf mit 15 s Aufwärmen und 12 s Rennen. Bildzeiten und Tastendrücke im JSON mit Start- und Endbild in einem neuen Cache-Ordner. Der zweite Parameter ergänzt URL-Schalter. Der dritte ist `x,z,grad` oder `hofwest` für die durchgehende Strecke. Über den optionalen vierten Parameter lässt sich ein lokaler Preview-Port für einen historischen Build wählen. Bei Reflexionsprobe werden Capture-Zähler gesichert. |
 | `mess/echtzeitfahrt.mjs` | Spielkamera mit Zeitmarken von Tastendruck und Browseraufnahme. FFmpeg schreibt MP4 mit den tatsächlichen Bildstandzeiten. Neuer Ausgabename, optional URL-Zusatz, `x,z,grad` oder `hofwest` bzw. `ort:<id>`, Auflösung und optional Preview-Port. Die Aufnahme hat eigene Last. |
 | `mess/messbild.mjs` | D445: **Messbild Spiel │ Zielbild** (UEBERGABE 2d) — `node tools/mess/messbild.mjs <ausordner> "<x,z,grad>" "<&kamera=…&fov=…>" [1920x1080]`: Standbild an fester Kamera und 10 s Gang mit der Spielkamera (Playwright-Video), echte GPU (Metal), alles ausser der Leinwand ausgeblendet. Mit `ort:<id>` als Absetzadresse kommen Start und Zielkamera direkt aus der Ortsakte. Blickwinkel der Absetzadresse: vorwärts = (−sin g, −cos g). Braucht `npm run preview` |

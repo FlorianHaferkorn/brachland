@@ -13,6 +13,18 @@ shelf-life-days: 60
 **Lies nur dieses Dokument und die Akte deines Ortes** (`../tools/ort/<ort>.json`). Du brauchst weder `CLAUDE.md`
 auszulegen noch den Projektverlauf zu kennen; was davon gilt, steht in Abschnitt 2.
 
+## Qualitätsziel für alle Häuser (D487)
+
+Flo setzt den Blender-Hof 708 als Maßstab für die Häuser der gesamten Karte. Die freigegebene Gesamtansicht ist [D373](bilder/zielbild/d373-zielbild-haus.jpg), die [Nahansicht](bilder/zielbild/d373-nah-fassade.jpg) zeigt die Fassade. Die weiter ausgearbeitete Fassung D440 liegt am M1 unter `.cache/bilder/D440/nachher-haus.png` und `nachher-nah.png`.
+
+Beim Einfirsthof werden Giebel und Traufseite desselben Gebäudes mit dem Blender-Modell verglichen. Für andere Haustypen gelten dessen Materialmaßstab und konstruktive Tiefe. Grundriss, Dachkörper, Fassadenangaben und Nutzungszustand stammen jeweils vom örtlichen Haus. Sichtbar zu prüfen sind Dachstärke und Überstand, Schatten in Laibungen und unter Balkonen, Holzfaser und Brettbreite, Putzabtrag und Bodenanschluss. Schäden folgen einer konstruktiv plausiblen Stelle. Ein bewohntes Haus darf intakt und gepflegt sein. Pro Haustyp dienen eine Gesamtansicht aus Spielhöhe, eine schräge Nahansicht und ein Gang entlang der Fassade zur Abnahme. Das Ziel gilt auch für separat geladene Modelle.
+
+Die Hauskamera aus `tools/hausframe.py` lässt sich mit der laufenden Spielvorschau (Port 4173) nachstellen. Der Schalter `hofbau=1` lädt Hof 708 als Einzelmodell. Zeit, Kamera und Bildwinkel für spätere Vergleiche beibehalten.
+
+```sh
+node tools/mess/messbild.mjs .cache/bilder/hof708-pruefung '189,231,-94' '&hofbau=1&echt=1&zeit=.26&kamera=200.17886,180.29976,233.00289,230.51142,177.95026,234.56349&fov=37.3' 1280x720
+```
+
 ## 0. Was dieses Verfahren kann und was nicht (ehrlich)
 
 - Es **überträgt** eine fertige, von Flo freigegebene Blender-Szene ins Spiel und **misst** den Abstand. Es baut

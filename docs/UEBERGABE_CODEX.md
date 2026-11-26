@@ -8,10 +8,12 @@ shelf-life-days: 30
 > Sitzung. Offen/erledigt steht im Ledger (`_INDEX.md`), nicht hier. Wenn alles übernommen ist: Datei löschen und im
 > Index austragen.
 
-**Fortsetzung am 26.11.2026 (D480–D485).** Die Felsmulde verwendet die gebackenen Scan-Büschel und die vier
+**Häuser (D487–D488).** Maßstab ist Claudes Blender-Hof 708, siehe [Ortsverfahren](VERFAHREN_ORT.md#qualitätsziel-für-alle-häuser-d487). Die modellierte Hofterrasse hebt das Erdgeschoss um 1,65 m. Efeu an der Laubenecke und Regenschatten am Holz sind am Einzelmodell im Spiel. Vorher/Nachher aus derselben Kamera und der Gang zum Haus liegen in `.cache/bilder/D488/`. Der durchgehende Weg zum Eingang und die Ausleuchtung des Wohngiebels weichen weiterhin von D440 ab.
+
+**Fortsetzung am 26.11.2026 (D480–D486).** Die Felsmulde verwendet die gebackenen Scan-Büschel und die vier
 Bergrücken aus der Blender-Szene. D481 ergänzt den bewaldeten Fernhang und die Pflanzen am Teich. Bildzeiten und Vergleich aus der Spielkamera stehen in D481 und A-46.
 D482 erschließt mit demselben Ortslader die Milbinger Hofzufahrt. Kameras, Referenzbilder und Messweg stehen in den beiden Akten unter `../tools/ort/`.
-D483 dokumentiert Shader- und Texturkosten beim ersten Abbiegen in die Milbinger Straße. D484 teilt die statischen Baumpuffer zwischen den Detailstufen und prüft zusätzlich verspätet geladenes Stauwehr-Grün. D485 beschleunigt die Kronensuche für Bodenstreu und Bodenpflanzen. Gegenläufe und Bildzeiten stehen im Ledger.
+D483 dokumentiert Shader- und Texturkosten beim ersten Abbiegen in die Milbinger Straße. D484 teilt die statischen Baumpuffer zwischen den Detailstufen und prüft zusätzlich verspätet geladenes Stauwehr-Grün. D485 beschleunigt die Kronensuche für Bodenstreu und Bodenpflanzen. D486 prüft den Textur-Upload von Totholz und automatisiert die Abnahme für den 152-m-Hoflauf mit `npm run test:hof`. Gegenläufe und Bildzeiten stehen im Ledger.
 Der folgende Sitzungsstand und die ursprüngliche Reihenfolge dokumentieren Claudes Übergabe vom 25.11.2026.
 
 ## 1. Wo wir stehen

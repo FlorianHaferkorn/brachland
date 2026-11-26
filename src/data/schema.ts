@@ -327,6 +327,12 @@ export const Hofbau = z.object({
   region: z.string(),
   gebaeude: z.number().int().nonnegative(),
   modell: z.string().regex(/^[a-z0-9-]+$/),
+  firstrichtungGrad: z.number().min(-180).max(180).optional(),
+  querSpiegeln: z.boolean().optional(),
+  efeuecke: z.object({
+    halbeBreite: z.number().positive(), laubentiefe: z.number().positive(), laubenboden: z.number().positive(),
+    bruestung: z.number().positive(), traufe: z.number().positive(),
+  }).optional(),
   saat: z.number().int(),
   stufe: z.number().int().min(0).max(3),
   grund: z.string().min(10),

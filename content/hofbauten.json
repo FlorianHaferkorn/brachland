@@ -5,6 +5,9 @@
       "gebaeude": 708,
       "modell": "hof-708",
       "saat": 708,
+      "firstrichtungGrad": -29.96,
+      "querSpiegeln": true,
+      "efeuecke": { "halbeBreite": 7.35, "laubentiefe": 1.007, "laubenboden": 2.806, "bruestung": 0.918, "traufe": 6.013 },
       "stufe": 1,
       "grund": "D363: erster Hof aus dem Baukasten (D360) im Spiel. Einfirsthof-Grundriss 36 × 14,7 m nahe dem Silo-Hof, ausserhalb 150 m um Bewohner — verlassen (Bauwelt Stufe 1)."
     }

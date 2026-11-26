@@ -21,7 +21,7 @@ import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
 import { Kontur, erwarteStartgruen, meldeGruenVorlauf, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
 import { WasserUmgebung, WasserSzeneProbe, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
-import { EzBaumProbe, istEzProbeBereit, uebernimmtEzVariante } from './EzBaumProbe.js';
+import { EzBaumProbe, istEzProbeBereit, meldeEzGruppenwechsel, uebernimmtEzVariante } from './EzBaumProbe.js';
 import { Rahmenkronen } from './Rahmenkronen.js';
 import { TakramProbe } from './TakramProbe.js';
 import { STIMMUNG, HEMI_BODEN, heileStimmung, type Stimmung } from '../world/stimmung.js';
@@ -39,7 +39,7 @@ import { baueBodenMaterial, setzeBodenHimmel, BODEN_LOCH } from '../world/bodenm
 import { baueWiesenbereich, baueWiesenHauskontakt, type Wiesenbereich } from '../world/wiesenbereich.js';
 import { MILBINGER_TAGESLICHT, MILBINGER_WOLKENLICHT, milbingerLichtanteil } from '../world/milbingerlicht.js';
 import { baueMilbingerSandkasten } from '../world/milbingersubstanz.js';
-import { ersetzteGebaeude, hofbauLagen, ladeHofbauten } from '../world/hofbau.js';
+import { ersetzteGebaeude, hofbauLagen, ladeHofbauten, mitHofterrassen, type HofbauLage } from '../world/hofbau.js';
 import LOD2_ROH from '../../public/world/oental-lod2.json';
 import { ORTE, FASSADEN, REGIONEN, nachMetern } from '../data/inhalte.js';
 import { baueBaum } from '../world/baum.js';
@@ -49,7 +49,7 @@ import { baueFernland, baueFernlandMaterial, stelleReliefLicht, type Fernland } 
 import { baumRaster, streuBaeume, streuMatrizen, type BaumRaster, type StreuCache } from '../world/streukarten.js';
 import { BODEN_NAH, bodenMaterial, bodenMatrizen, buschGeometrie, flachGeometrie, type BodenMatrizen, type BodenpflanzenCache } from '../world/bodenpflanzen.js';
 import { efeuKartenMaterial, efeuKartenTiefe, kachelGeometrie, kartenMaterial, kartenMatrizen, setzeEfeuSammler, type EfeuKarte } from '../world/efeukarten.js';
-import { baueWindMaterial, windAusHoehe, setzeHimmelStaerke, type RollenSlot, type RindenArt } from '../world/windmaterial.js';
+import { baueWindMaterial, rindenLadekarten, windAusHoehe, setzeHimmelStaerke, type RollenSlot, type RindenArt } from '../world/windmaterial.js';
 import { BAUM_UEBERBLEND, UEBERBLEND_BAND, impostorGeometrie, impostorMaterial } from '../world/impostor.js';
 import { PALETTE } from '../world/palette.js';
 import { BAUWERKE, bauwerkPfad, sichtbareBauwerke, type Bauwerk } from '../world/bauwerke.js';
@@ -800,6 +800,7 @@ function Terrain({ welt, terrain, feld, kacheln, ziel, props, dichte, weite, ran
   return (
     <group>
       {wasserProbe && reflexMitte && <WasserSzeneProbe probe={wasserProbe} mitte={reflexMitte} ziel={ziel} />}
+      {ORTSVORLAUF_AN && <HolztexturVorlauf props={props} ziel={ziel} />}
       <LodTerrain feld={feld} kacheln={kacheln} ziel={ziel} nachlauf={nachlauf} wiesenbereich={wiesenbereich} />
       {STREU_AN && kronen && <StreuSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} baeume={kronen} />}
       {BODEN_AN && kronen && <BodenSchicht hoeheAn={aufBoden.hoeheAn} biomAn={terrain.biomAn} ziel={ziel} baeume={kronen} />}
@@ -1064,17 +1065,16 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
       <mesh key={`h${i}`} geometry={g} material={hausMaterial} castShadow receiveShadow />
     ))}
     {EFEUKARTEN_AN && <EfeuKartenSchicht quelle={efeuKarten} />}
-    {hofbauRegion && <HofbauSchicht region={hofbauRegion} welt={welt} boden={boden} />}
   </>;
 }
 
 /** D363: Höfe aus dem Hof-Baukasten (`content/hofbauten.json`) an ihren Grundrissen. */
-function HofbauSchicht({ region, welt, boden }: { region: string; welt: Weltdaten; boden: ReturnType<typeof aufsatzboden> }) {
+function HofbauSchicht({ lagen }: { lagen: readonly HofbauLage[] }) {
   const gruppe = useRef<THREE.Group>(null);
   useEffect(() => {
     if (!gruppe.current) return;
-    return ladeHofbauten(hofbauLagen(region, welt, boden), gruppe.current);
-  }, [region, welt, boden]);
+    return ladeHofbauten(lagen, gruppe.current);
+  }, [lagen]);
   return <group ref={gruppe} />;
 }
 
@@ -1385,6 +1385,7 @@ function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, 
   const ref = useRef<THREE.InstancedMesh>(null);
   const [kapazitaet, setKapazitaet] = useState(() => Math.ceil(instanzen.length * 1.4) + 64);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
+    if (blender) meldeEzGruppenwechsel();
     ref.current = mesh;
     if (mesh && !mesh.instanceColor) {
       mesh.count = 0;
@@ -1433,7 +1434,7 @@ function PropFernMesh({ art, variante, instanzen, zellCulling, hofBaum = false, 
 
   return (
     <instancedMesh
-      ref={setzeMesh} args={[undefined, undefined, kapazitaet]}
+      ref={setzeMesh} args={[undefined, undefined, kapazitaet]} matrixAutoUpdate={false}
       name={blender ? `baum:${art}:${variante}:fern${band ? ':band' : ''}` : `prop:${art}:fern${hofStrauch ? `:hof:${variante}` : ''}`}
       geometry={geo} material={impMaterial ?? strauchMaterial ?? FERN_MATERIAL}
       receiveShadow={hofStrauch && hofSchatten}
@@ -1516,12 +1517,53 @@ function statischesScanMaterial(textur: string, art: PropArt): THREE.MeshStandar
   return m;
 }
 
+/** Scan-Karten der Holzvarianten im ersten Umkreis vor dem ersten Sichtkontakt
+ * hochladen. Pro Ladebild höchstens eine fertige Karte, nur solange die Figur steht. */
+function HolztexturVorlauf({ props, ziel }: { props: PropInstanz[]; ziel: React.RefObject<THREE.Object3D | null> }) {
+  const stand = useMemo(() => ({ start: null as THREE.Vector3 | null, offen: new Set<THREE.Texture>(), fertig: false }), [props]);
+  useFrame(({ gl }) => {
+    const position = ziel.current?.position;
+    if (stand.fertig || !position) return;
+    if (!stand.start) {
+      stand.start = position.clone();
+      const varianten = new Set<number>();
+      const rinden = new Set<RindenArt>();
+      for (const p of props) {
+        if ((p.position[0] - position.x) ** 2 + (p.position[2] - position.z) ** 2 > 160 ** 2) continue;
+        if (p.art === 'totholz') varianten.add(p.variante);
+        if (p.art === 'nadelbaum') rinden.add('fichte');
+        if (p.art === 'laubbaum') rinden.add('buche');
+      }
+      for (const art of rinden) for (const karte of rindenLadekarten(art)) stand.offen.add(karte);
+      for (const i of varianten) {
+        const name = VARIANTEN.totholz[i]?.textur;
+        if (!name) continue;
+        const m = statischesScanMaterial(name, 'totholz');
+        if (m.map) stand.offen.add(m.map);
+        if (m.normalMap) stand.offen.add(m.normalMap);
+      }
+    }
+    if (Math.hypot(position.x - stand.start.x, position.z - stand.start.z) > 0.5) stand.offen.clear();
+    for (const karte of stand.offen) {
+      if (!(karte.image instanceof HTMLImageElement) || !karte.image.naturalWidth) continue;
+      gl.initTexture(karte);
+      stand.offen.delete(karte);
+      break;
+    }
+    stand.fertig = stand.offen.size === 0;
+  });
+  return null;
+}
+
 const PROP_MATERIAL = new THREE.MeshStandardMaterial({
   vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
 });
 const FERN_MATERIAL = new THREE.MeshStandardMaterial({
   vertexColors: true, flatShading: true, roughness: 1, metalness: 0,
 });
+// Jede geladene GLTF-Szene hat genau eine feste Knotenmatrix. Alle Chunks eines
+// Scan-Props lesen dieselben Vertexdaten; nur ihre Instanzmatrizen unterscheiden sich.
+const normalisierteProps = new WeakMap<THREE.Object3D, THREE.BufferGeometry>();
 function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe = 'nah') {
   const liste = VARIANTEN[art];
   // Auch der prozedurale Fallback braucht einen unbedingten Lade-Hook.
@@ -1536,6 +1578,10 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
     return () => {
       if (geo) return geo;
       if (eigen && !blender) return geo = baueBaum(eigen, variante, stufe === 'nah' ? 'voll' : 'mittel');
+      if (!eigen) {
+        const vorhanden = normalisierteProps.get(scene);
+        if (vorhanden) return geo = vorhanden;
+      }
       // Der Blender-Ursprung kann am Kronenzentrum liegen. Beim Herausloesen
       // muss die Knotenmatrix mit: sonst versinkt etwa Fichte 0 um 10,25 m.
       scene.updateMatrixWorld(true);
@@ -1546,6 +1592,7 @@ function useNormiertesPropMesh(art: PropArt, variante: number, stufe: PropStufe 
       const w = geo.getAttribute('_wind');
       if (w) geo.setAttribute('aWind', w);
       else if (eigen) windAusHoehe(geo, geo.boundingBox?.max.y ?? 20);
+      if (!eigen) normalisierteProps.set(scene, geo);
       // Die Höhe steht in VARIANTEN und ist bereits in die Datei eingerechnet.
       return geo;
     };
@@ -1571,8 +1618,7 @@ function PropChunkMesh({ chunk, stufe, ohneSchatten = false, hofBaum = false, mi
   const strauchMaterial = useMemo(() => hofStrauch ? hofStrauchMaterial() : null, [hofStrauch]);
   const attrappe = fern && !blender && !strauchBleibt;
   const fernGeo = useMemo(() => !HOF_BILDSPITZEN_AN || attrappe ? attrappeGeometrie(chunk.art) : null, [attrappe, chunk.art]);
-  const geo = ezOriginal ? LEERES_PROP_NETZ : normalisiert();
-  const netz = strauchBleibt ? strauchGeo! : attrappe ? fernGeo! : strauchGeo ?? geo;
+  const netz = strauchBleibt ? strauchGeo! : attrappe ? fernGeo! : strauchGeo ?? (ezOriginal ? LEERES_PROP_NETZ : normalisiert());
   // Nur was sich biegen kann, bekommt das Windmaterial. Findlinge und Totholz
   // schwingen nicht, und ein wackelnder Findling zerstört mehr Glaubwürdigkeit,
   // als bewegtes Laub aufbaut.
@@ -1581,6 +1627,7 @@ function PropChunkMesh({ chunk, stufe, ohneSchatten = false, hofBaum = false, mi
   const textur = VARIANTEN[chunk.art][chunk.variante]?.textur;
   const ref = useRef<THREE.InstancedMesh>(null);
   const setzeMesh = useCallback((mesh: THREE.InstancedMesh | null) => {
+    if (blender) meldeEzGruppenwechsel();
     ref.current = mesh;
     if (mesh && !mesh.instanceColor) {
       mesh.count = 0;
@@ -1640,7 +1687,7 @@ function PropChunkMesh({ chunk, stufe, ohneSchatten = false, hofBaum = false, mi
 
   return (
     <instancedMesh
-      ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]}
+      ref={setzeMesh} args={[undefined, undefined, chunk.instanzen.length]} matrixAutoUpdate={false}
       name={blender ? `baum:${chunk.art}:${chunk.variante}:${stufe}` : `prop:${chunk.art}:${stufe}`}
       geometry={netz}
       material={blender ? baumWind : strauchMaterial && (!fern || strauchBleibt) ? strauchMaterial : buschWind && chunk.art === 'busch' && !fern ? buschWind : fern ? FERN_MATERIAL : chunk.art === 'farn' ? farnWind
@@ -5382,13 +5429,16 @@ export function RegionsSzene({
   // Grobes Terrain: liefert weiterhin Wege, Gewässer, Gebäude und die XZ-Verteilung
   // der Props. Der sichtbare Boden kommt aus den LOD-Kacheln.
   const terrain = useMemo(() => baueTerrain(welt), [welt]);
-  const regionsinhalt = useMemo(() => STRASSENVERFALL_AN || MILBINGERMASSE_AN
+  const regionsinhalt = useMemo(() => STRASSENVERFALL_AN || MILBINGERMASSE_AN || HOFBAU_AN
     ? [...REGIONEN.values()].find(r => r.bbox.every((wert, i) => wert === welt.bbox[i]))
     : undefined, [welt]);
 
   // Höhenfeld mit Mikrorelief — die gemeinsame Wahrheit für Boden, Props und Spawn.
   const nahhoehen = MILBINGERMASSE_AN ? regionsinhalt?.nahhoehen : undefined;
-  const feld = useMemo(() => baueHoehenfeld(welt, MIKRO_MESSLAUF ?? undefined, undefined, nahhoehen), [welt, nahhoehen]);
+  const rohfeld = useMemo(() => baueHoehenfeld(welt, MIKRO_MESSLAUF ?? undefined, undefined, nahhoehen), [welt, nahhoehen]);
+  const hoflagen = useMemo(() => HOFBAU_AN && regionsinhalt
+    ? hofbauLagen(regionsinhalt.id, welt, aufsatzboden(rohfeld)) : [], [regionsinhalt, welt, rohfeld]);
+  const feld = useMemo(() => mitHofterrassen(rohfeld, hoflagen), [rohfeld, hoflagen]);
   useMemo(() => { if (HOF_AN) waehleHof(welt, feld); }, [welt, feld]);
   const kacheln = useMemo(() => baueKachelraster(feld), [feld]);
   const strassen = STRASSENVERFALL_AN ? regionsinhalt?.strassenkulisse : undefined;
@@ -5536,6 +5586,7 @@ export function RegionsSzene({
                dichte={istAus('gras') ? 0 : qualitaet.gras} weite={qualitaet.weite}
                rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
                fenster={s.fenster ?? 0} />
+      {hoflagen.length > 0 && <HofbauSchicht lagen={hoflagen} />}
       {sandkasten && <primitive object={sandkasten.gruppe} />}
       {(felsArt === 'ki' || felsArt === 'scan') && <Suspense fallback={null}>
         <FelsVergleich art={felsArt} position={[felsX, hoeheAufFlaeche(feld, felsX, felsZ), felsZ]} />

@@ -53,6 +53,11 @@ let ezNurHof = false;
 export function istEzProbeBereit(hofBaum = false): boolean { return ezBereit && (!ezNurHof || hofBaum); }
 const EZ_VARIANTEN = 4;
 
+// Nur PropChunkMesh und PropFernMesh erzeugen die Originalgruppen. Ihre Refs
+// melden Montage, Ausbau und Ersatz eines Meshes während des React-Commits.
+let gruppenstand = 0;
+export function meldeEzGruppenwechsel(): void { gruppenstand++; }
+
 /** Eine zurückgestellte Originalform wird erst beim sichtbaren Rückfall gebaut. */
 function zeigeOriginal(o: THREE.InstancedMesh): void {
   if (HOF_BILDSPITZEN_AN && o.userData.ezOriginalGeometrie) {
@@ -217,6 +222,9 @@ export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
   const aktiv = globalAn || hofAn;
   const diagnose = useMemo<Diagnose | null>(() => typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezdiagnose') === '1'
     ? { ereignisse: [], naechster: 0, gesamt: 0 } : null, []);
+  const originalgruppen = useRef<{ szene: THREE.Scene | null; stand: number; meshes: THREE.InstancedMesh[] }>({
+    szene: null, stand: -1, meshes: [],
+  });
   const diagnoseBild = useRef(0);
   const diagnoseEntfernt = useRef(new Map<string, DiagnoseEreignis>());
 
@@ -330,16 +338,24 @@ export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
       wartende.current.delete(id); wartungGeaendert = true;
     }
     const kandidaten: { original: THREE.InstancedMesh; art: BaumArt; variante: number; stufe: Stufe; satz: BaumSatz }[] = [];
-    scene.traverse(o => {
-      if (!(o instanceof THREE.InstancedMesh) || !o.name.startsWith('baum:') || !o.count || !o.instanceColor) return;
-      if (nurHof && o.userData.hofGruen !== true) return;
+    const bestand = originalgruppen.current;
+    if (bestand.szene !== scene || bestand.stand !== gruppenstand) {
+      bestand.meshes.length = 0;
+      scene.traverse(o => {
+        if (o instanceof THREE.InstancedMesh && o.name.startsWith('baum:')) bestand.meshes.push(o);
+      });
+      bestand.szene = scene;
+      bestand.stand = gruppenstand;
+    }
+    for (const o of bestand.meshes) {
+      if (!o.count || !o.instanceColor || (nurHof && o.userData.hofGruen !== true)) continue;
       const [, rohArt, rohVariante, rohStufe] = o.name.split(':');
       if ((rohArt !== 'nadelbaum' && rohArt !== 'laubbaum') ||
-          (rohStufe !== 'nah' && rohStufe !== 'mittel' && rohStufe !== 'fern')) return;
+          (rohStufe !== 'nah' && rohStufe !== 'mittel' && rohStufe !== 'fern')) continue;
       const variante = Number(rohVariante);
       const satz = saetze.current?.get(`${ortsKulisse && o.userData.milbingerBaum === true ? 'milbinger:' : ''}${rohArt}:${variante}`);
       if (satz) kandidaten.push({ original: o, art: rohArt, variante, stufe: rohStufe, satz });
-    });
+    }
     let geaendert = false;
     const entfernteIds = new Set<string>();
     const diagnoseGrund = diagnose ? new Map<string, string>() : null;
@@ -367,6 +383,8 @@ export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
         laubGeo.geo.setAttribute('aEzIntervall', stammGeo.intervall);
         const stamm = new THREE.InstancedMesh(stammGeo.geo, satz.baum.branchesMesh.material, kapazitaet);
         const laub = new THREE.InstancedMesh(laubGeo.geo, satz.baum.leavesMesh.material, kapazitaet);
+        // Ortslagen stecken in instanceMatrix. Die lokalen Objektmatrizen bleiben Identitäten.
+        stamm.matrixAutoUpdate = false; laub.matrixAutoUpdate = false;
         stamm.count = 0; laub.count = 0;
         stamm.name = `ezbaum:${art}:${variante}:${stufe}`;
         laub.name = `ezlaub:${art}:${variante}:${stufe}`;
@@ -526,6 +544,8 @@ export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
           if (laubGeo.geo.boundingSphere) laubGeo.geo.boundingSphere.radius += 0.2;
           const stamm = new THREE.InstancedMesh(stammGeo.geo, e.satz.baum.branchesMesh.material, kapazitaet);
           const laub = new THREE.InstancedMesh(laubGeo.geo, e.satz.baum.leavesMesh.material, kapazitaet);
+          // Ortslagen stecken in instanceMatrix. Die lokalen Objektmatrizen bleiben Identitäten.
+          stamm.matrixAutoUpdate = false; laub.matrixAutoUpdate = false;
           stamm.name = `ezwarten:${id}`; laub.name = `ezwartenlaub:${id}`;
           stamm.userData.ezWarten = true; laub.userData.ezWarten = true;
           stamm.frustumCulled = true; laub.frustumCulled = true;
@@ -578,6 +598,8 @@ export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
         const stammGeo = mitBlende(e.satz.stufen[e.stufe].stamm, kapazitaet), laubGeo = mitBlende(e.satz.stufen[e.stufe].laub, kapazitaet);
         const stamm = new THREE.InstancedMesh(stammGeo.geo, e.satz.baum.branchesMesh.material, kapazitaet);
         const laub = new THREE.InstancedMesh(laubGeo.geo, e.satz.baum.leavesMesh.material, kapazitaet);
+        // Ortslagen stecken in instanceMatrix. Die lokalen Objektmatrizen bleiben Identitäten.
+        stamm.matrixAutoUpdate = false; laub.matrixAutoUpdate = false;
         stamm.name = `ezblend:${id}`; laub.name = `ezblendlaub:${id}`;
         stamm.userData.ezUebergang = true; laub.userData.ezUebergang = true;
         stamm.frustumCulled = false; laub.frustumCulled = false;

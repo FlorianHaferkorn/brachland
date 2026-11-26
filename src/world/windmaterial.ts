@@ -115,7 +115,7 @@ export const RINDE_KACHEL: Record<RindenArt, [number, number]> = { buche: [1.8, 
 /** Moos/Algen an der Wetterseite (D364): Richtung in Weltlage (West = −X) und Farbe (linear). */
 const RINDE_WETTER = new THREE.Vector3(-1, 0, -0.25).normalize();
 const RINDE_MOOS = new THREE.Color(0.055, 0.085, 0.018);
-const RINDE_ART = new Map<RindenArt, { farbe: { value: THREE.Texture }; normal: { value: THREE.Texture } }>();
+const RINDE_ART = new Map<RindenArt, { farbe: { value: THREE.Texture }; normal: { value: THREE.Texture }; ladekarten: THREE.Texture[] }>();
 function rindenArt(art: RindenArt) {
   let r = RINDE_ART.get(art);
   if (r) return r;
@@ -125,20 +125,26 @@ function rindenArt(art: RindenArt) {
     t.needsUpdate = true;
     return t as THREE.Texture;
   };
-  r = { farbe: { value: neutral(false) }, normal: { value: neutral(true) } };
+  r = { farbe: { value: neutral(false) }, normal: { value: neutral(true) }, ladekarten: [] };
   RINDE_ART.set(art, r);
   if (typeof document !== 'undefined' && new URLSearchParams(location.search).get('detail') !== '0') {
     const lader = new THREE.TextureLoader();
     for (const karte of ['farbe', 'normal'] as const) {
-      lader.load(`/material/rinde-${art}-${karte}.webp`, (t) => {
+      const karteImLader = lader.load(`/material/rinde-${art}-${karte}.webp`, (t) => {
         t.wrapS = t.wrapT = THREE.RepeatWrapping;
         t.colorSpace = karte === 'farbe' ? THREE.SRGBColorSpace : THREE.NoColorSpace;
         t.anisotropy = 8;
         r![karte].value = t;
       });
+      r.ladekarten.push(karteImLader);
     }
   }
   return r;
+}
+
+/** Dieselben Texturobjekte wie im Shader, einschließlich noch ladender Karten. */
+export function rindenLadekarten(art: RindenArt): readonly THREE.Texture[] {
+  return rindenArt(art).ladekarten;
 }
 
 /**

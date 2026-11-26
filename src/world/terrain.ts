@@ -426,6 +426,10 @@ export function baueGebaeude(
     return f;
   };
 
+  // Winkel ab wandparallel. Ein loser Flügel dreht um die senkrechte Bandachse.
+  const ladenOeffnung = (saat: number, stufe: number) =>
+    .08 + .19 * saat + stufe * 1.05 * Math.pow(saat, 3);
+
   /** Ein Dreieck mit Farbe. */
   const tri = (
     a: [number, number, number], b: [number, number, number], c: [number, number, number],
@@ -1493,15 +1497,18 @@ export function baueGebaeude(
             for(const seite of [-1,1]) {
               const zustandLaden = glutHash(cx + seite * 1.7, y0, cz);
               if (fensterSchaden > 0 && zustandLaden < fensterSchaden * .26) continue;
-              const winkel=seite*(.24 + (fensterSchaden > 0 ? zustandLaden * .65 : 0)), c=Math.cos(winkel), s=Math.sin(winkel);
+              const winkel = seite * ladenOeffnung(zustandLaden, fensterSchaden);
+              const c = Math.cos(winkel), s = Math.sin(winkel);
               const richtung=[dx*c+nx*s,dz*c+nz*s];
               const n=[nx*c-dx*s,nz*c-dz*s];
               const ursprung=[cx+dx*seite*(a+.15)+nx*.06,cz+dz*seite*(a+.15)+nz*.06];
               const L=fassadenKasten(quadNach,ursprung,richtung,n);
-              const lo=seite<0 ? -.4 : 0, hi=lo+.4;
+              const breite = Math.min(breiteF / 2, (laenge / anzahl - breiteF) / 2 - .16);
+              if (breite < .18) continue;
+              const lo = seite < 0 ? -breite : 0, hi = lo + breite;
               const ton = reparatur && glutHash(cx+seite,y0,cz)<.42
                 ? (fassadenWand ? FASSADEN_ERSATZHOLZ : ERSATZHOLZ) : LADEN;
-              for(let b=0;b<3;b++) L(lo+b*.134,Math.min(hi,lo+(b+1)*.134-.009),y0-.02,y1+.02,-.025,.025,ton);
+              for(let b=0;b<3;b++) L(lo+b*breite/3,lo+(b+1)*breite/3-.006,y0-.02,y1+.02,-.025,.025,ton);
               for(const y of [y0+.14,y1-.18]) L(lo,hi,y,y+.065,.025,.055,TUER);
               for(const y of [y0+.18,y1-.22]) L(seite<0 ? -.07 : 0,seite<0 ? 0 : .07,y,y+.045,.055,.075,RINNE);
             }
@@ -1546,16 +1553,22 @@ export function baueGebaeude(
           quad([cx - rx + nx * 0.10, bankY, cz - rz + nz * 0.10], [cx + rx + nx * 0.10, bankY, cz + rz + nz * 0.10],
                [cx + rx + nx * 0.10, yUnten - r, cz + rz + nz * 0.10], [cx - rx + nx * 0.10, yUnten - r, cz - rz + nz * 0.10],
                RAHMEN);
-          const lb = 0.40, o2 = fensterVertieft ? 0.05 : o + 0.01;
+          const lb = Math.min(breiteF / 2, (laenge / anzahl - breiteF) / 2 - r - .03), o2 = fensterVertieft ? 0.05 : o + 0.01;
           for (const s of [-1, 1]) {
             // D289: Verlassene Häuser haben Läden verloren — 30 % (Stufe 1) bzw. 60 % (Stufe 2) fehlen.
             if (BAUWELT_AN && stufeJetzt > 0 && glutHash(cx + s * 1.7, yUnten + 0.3, cz) < stufeJetzt * 0.3) continue;
-            const a0 = s * (breiteF / 2 + r + 0.03), a1 = a0 + s * lb;
-            const lo = Math.min(a0, a1), hi = Math.max(a0, a1);
-            quad([cx + dx * lo + nx * o2, yUnten - 0.02, cz + dz * lo + nz * o2],
-                 [cx + dx * hi + nx * o2, yUnten - 0.02, cz + dz * hi + nz * o2],
-                 [cx + dx * hi + nx * o2, yUnten + hoeheF + 0.02, cz + dz * hi + nz * o2],
-                 [cx + dx * lo + nx * o2, yUnten + hoeheF + 0.02, cz + dz * lo + nz * o2],
+            if (lb < .18 || g.fassade?.laeden === null) continue;
+            // Der vereinfachte Flügel hat nur eine Schauseite. Er bleibt vor dem Totpunkt.
+            const winkel = Math.min(1.48, ladenOeffnung(glutHash(cx + s * 1.7, yUnten, cz), stufeJetzt));
+            const angel = s * (breiteF / 2 + r + .03);
+            const frei = angel + s * lb * Math.cos(winkel);
+            const ausladung = o2 + lb * Math.sin(winkel);
+            const lo = Math.min(angel, frei), hi = Math.max(angel, frei);
+            const vLo = s < 0 ? ausladung : o2, vHi = s < 0 ? o2 : ausladung;
+            quad([cx + dx * lo + nx * vLo, yUnten - .02, cz + dz * lo + nz * vLo],
+                 [cx + dx * hi + nx * vHi, yUnten - .02, cz + dz * hi + nz * vHi],
+                 [cx + dx * hi + nx * vHi, yUnten + hoeheF + .02, cz + dz * hi + nz * vHi],
+                 [cx + dx * lo + nx * vLo, yUnten + hoeheF + .02, cz + dz * lo + nz * vLo],
                  reparatur && strassenWand > .55 && glutHash(cx + s, yUnten, cz) < .42 ? ERSATZHOLZ : LADEN);
           }
           if (ebene >= 1 && k === tuerWand && (!BAUWELT_AN || bewohntHaus)) {

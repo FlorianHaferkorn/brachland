@@ -70,8 +70,10 @@ await seite.addInitScript(() => {
           const programm = name === 'getProgramInfoLog'
             ? window.__cpuRenderer?.info.programs?.find(p => p.program === args[0])
             : undefined;
-          const objekt = name === 'getProgramInfoLog' ? window.__cpuZeichnen : undefined;
+          const objekt = window.__cpuZeichnen;
+          const bild = name === 'texSubImage2D' ? args.at(-1) : null;
           window.__cpuProgramm.push({ name, beginnMs, dauerMs,
+            bild: bild?.currentSrc || bild?.src, breite: bild?.width, hoehe: bild?.height,
             material: programm?.name, schluessel: programm?.cacheKey,
             objekt: objekt && { name: objekt.name, typ: objekt.type, instanzen: objekt.count,
               instanzfarbe: !!objekt.instanceColor, eltern: objekt.parent?.name } });

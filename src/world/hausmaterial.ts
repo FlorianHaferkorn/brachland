@@ -153,6 +153,76 @@ vec4 scanLies(sampler2D t, vec2 p, float r) {
 }
 `;
 
+/** Hof-Baukasten in seiner ursprünglichen X-Firstrichtung. Der Dachumriss kommt
+ * aus der geladenen Deckung, inklusive Trauf- und Giebelüberständen. */
+export function bereiteHofholzVor(szene: THREE.Object3D) {
+  const dach = new THREE.Box3();
+  const hoelzer: THREE.Mesh[] = [];
+  szene.updateMatrixWorld(true);
+  szene.traverse(teil => {
+    if (!(teil instanceof THREE.Mesh)) return;
+    if (['ziegel', 'schindel', 'blech'].includes(teil.name)) dach.expandByObject(teil);
+    if (teil.name === 'holz_block' || teil.name === 'holz_brett') hoelzer.push(teil);
+  });
+  const halbeBreite = (dach.max.z - dach.min.z) / 2;
+  if (!(halbeBreite > 0)) return;
+  const mitte = dach.min.z + halbeBreite;
+  const neigung = (dach.max.y - dach.min.y) / halbeBreite;
+  const punkt = new THREE.Vector3();
+  for (const holz of hoelzer) {
+    const ecken = holz.geometry.getAttribute('position');
+    const anteile = new Uint8Array(ecken.count);
+    for (let i = 0; i < ecken.count; i++) {
+      punkt.fromBufferAttribute(ecken, i).applyMatrix4(holz.matrixWorld);
+      const quer = Math.abs(punkt.z - mitte);
+      const ueberstand = Math.min(punkt.x - dach.min.x, dach.max.x - punkt.x, halbeBreite - quer);
+      // hausframe.py: Schlagregen rund 27° gegen das Lot; Abstand zur Dachkante in Metern.
+      const regen = .5 * (dach.max.y - quer * neigung - punkt.y) - ueberstand;
+      anteile[i] = Math.round(255 * THREE.MathUtils.smoothstep(regen, .7, 2));
+    }
+    holz.geometry.setAttribute('hofRegen', new THREE.Uint8BufferAttribute(anteile, 1, true));
+  }
+}
+
+/** Dieselben metrischen Scans für den Blender-Baukasten. Die gebackene
+ * Farbkarte enthält Holzton, Anstrich und Verschleiß des individuellen Hofs. */
+export function verfeinereHofbaumaterial(material: THREE.MeshStandardMaterial) {
+  const atlas = SCAN_TEXTUREN;
+  const rollen: Record<string, number> = { putz_gltf: 0, holz_block_gltf: 1, holz_brett_gltf: 1, ziegel_gltf: 2, stein_gltf: 3 };
+  const rolle = rollen[material.name];
+  if (!atlas || rolle === undefined) return;
+  const holz = rolle === 1;
+  const querholz = material.name === 'holz_block_gltf';
+  material.customProgramCacheKey = () => `hofbau-scan-${rolle}-${querholz}`;
+  material.onBeforeCompile = shader => {
+    Object.assign(shader.uniforms, { uScanFarbe: { value: atlas.farbe }, uScanNormal: { value: atlas.normal },
+      uScanMeter: { value: SCAN_METER } });
+    shader.vertexShader = shader.vertexShader.replace('#include <common>', `#include <common>\nvarying vec3 vHausPos, vHausNormal;
+        ${holz ? 'attribute float hofRegen; varying float vHofRegen;' : ''}`)
+      .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>
+        ${holz ? 'vHofRegen = hofRegen;' : ''}
+        vHausPos = (modelMatrix * vec4(transformed,1.0)).xyz;
+        vHausNormal = normalize(mat3(modelMatrix) * objectNormal);`);
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', '#include <common>\n' + SCAN_PARS.replace('varying float vRolle;', holz ? 'varying float vHofRegen;' : ''))
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        vec2 p = scanUv(${rolle}.0);
+        ${querholz ? 'p = vec2(p.y,-p.x); vec3 t = scanT; scanT = scanB; scanB = -t;' : ''}
+        vec3 probe = scanLies(uScanFarbe,p,${rolle}.0).rgb;
+        ${rolle === 2 ? `// Die verwitterte Deckung behält die Helligkeitsunterschiede der gebackenen Ziegel.
+        float grund = dot(diffuseColor.rgb, vec3(.2126,.7152,.0722));
+        diffuseColor.rgb = mix(diffuseColor.rgb, probe * (.18 + .42 * grund), .88);` :
+        holz ? `// Der Scan moduliert um 0,5. Frei bewittertes Holz verliert den braunen Oberflächenton.
+        float faser = dot(2.0 * probe, vec3(.2126,.7152,.0722));
+        float grund = dot(diffuseColor.rgb, vec3(.2126,.7152,.0722));
+        vec3 silber = vec3(.18,.167,.148) * faser * clamp(grund / .065, .32, 1.65);
+        diffuseColor.rgb = mix(diffuseColor.rgb * (.65 + .35 * faser), silber, .22 + .78 * vHofRegen);` :
+        'diffuseColor.rgb *= mix(vec3(1.0), 2.0 * probe,.42);'}`)
+      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+        vec3 relief = scanLies(uScanNormal,p,${rolle}.0).xyz * 2.0 - 1.0;
+        normal = normalize(normal + mat3(viewMatrix) * (scanT * relief.x + scanB * relief.y) * .60 * faceDirection);`);
+  };
+}
+
 // Nach dem Hofscan, damit dessen Originalalbedo die Alterung nicht mehr übermalt.
 const HOF_VERFALL_FARBE = /* glsl */ `
   float hofSchaden = step(0.5, vStufe) * hofHausAnteil;
@@ -674,6 +744,26 @@ ${HOF_ORTSALTERUNG_AN ? ORTSALTERUNG_FARBE : ''}
 ${WESTVERFALL_AN ? 'if (vZustand.x >= 24.0 && vStufe > 1.5 && scanR > 4.5) diffuseColor.rgb *= .51;' : ''}
 ${WESTDETAIL_AN ? WESTDETAIL_FARBE : ''}
 ${milbinger ? milbingerFarbe(substrat) : ''}
+  // Hof 708: verwitterte Brettflächen bleiben im Schatten lesbar. Maß aus
+  // hofbaukasten.json. Kanten verschwinden vor der Unterpixelgrenze.
+  ${BAUWELT_AN ? /* glsl */ `
+  float brettFlanke = 0.0;
+  if (vRolle > .5 && vRolle < 1.5 && abs(vHausNormal.y) < .35) {
+    vec3 quer = normalize(vec3(-vHausNormal.z, 0.0, vHausNormal.x));
+    float achse = dot(vHausPos, quer) / .22;
+    float ort = fract(achse);
+    float nah = (1.0 - smoothstep(.014,.055,verfallPixel)) * (1.0 - efeuDeckung);
+    float rinne = 1.0 - smoothstep(.012,.056,min(ort,1.0-ort));
+    brettFlanke = (smoothstep(.5,.95,ort)*smoothstep(0.0,.04,1.0-ort)
+      - smoothstep(.0,.04,ort)*(1.0-smoothstep(.04,.5,ort))) * .28 * nah;
+    float bahn = verfallHash(vec2(floor(achse), floor(dot(vHausPos.xz, normalize(vHausNormal.xz)) + .5)));
+    float grau = dot(diffuseColor.rgb, vec3(.2126,.7152,.0722));
+    vec3 silber = vec3(.96,.90,.79) * (.10 + .45*sqrt(max(0.0,grau)));
+    float wetter = .20 + .28*vStufe + .19*vHausNormal.z;
+    diffuseColor.rgb = mix(diffuseColor.rgb, silber, clamp(wetter,0.0,.8)*(.22+.54*bahn*nah)*(1.0-efeuDeckung));
+    diffuseColor.rgb *= 1.0 - .38 * rinne * nah;
+  }
+  ` : ''}
 ${POM_AN ? POM_FUGE : ''}`)
         .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
   if (scanR < 3.5${HAUS_SHADER_SPAR_AN ? ' && !hofVoll' : ''}${WESTDETAIL_AN ? ' && !westMaterial' : ''}) {
@@ -685,6 +775,7 @@ ${POM_AN ? POM_FUGE : ''}`)
 ${HOF_AN ? hofNormal : ''}
 ${WESTDETAIL_AN ? WESTDETAIL_NORMAL : ''}
 ${milbinger ? MILBINGER_NORMAL : ''}
+${BAUWELT_AN ? 'if (brettFlanke != 0.0) normal = normalize(normal + brettFlanke * mat3(viewMatrix) * normalize(vec3(-vHausNormal.z,0.0,vHausNormal.x)));' : ''}
 ${substrat ? 'normal = substratNormale(normal, vViewPosition, fassadenRelief * (1.0 - smoothstep(9.0,32.0,length(vViewPosition))), faceDirection);' : ''}`)
         .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
   if (scanR > 1.5 && scanR < 2.5) roughnessFactor = 0.72;

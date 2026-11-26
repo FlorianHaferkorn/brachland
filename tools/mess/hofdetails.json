@@ -1,0 +1,100 @@
+[
+  {
+    "ort": "1346.5503,420.4275,-65.622077",
+    "gruppen": [
+      {
+        "art": "streu",
+        "uv": [
+          0,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "anzahl": 131,
+        "hash": "289305274c755ba9e1e400674cd5dc64ba62f2612f18d0ca18991371b4f084cc"
+      },
+      {
+        "art": "streu",
+        "uv": [
+          0.5,
+          1,
+          1,
+          1
+        ],
+        "anzahl": 235,
+        "hash": "6875f79d19dfb992dc21c97cf6d4ebbb355e9e4e5ca43d7effaa1b073bf76f5b"
+      },
+      {
+        "art": "streu",
+        "uv": [
+          0.5,
+          0.5,
+          1,
+          0.5
+        ],
+        "anzahl": 459,
+        "hash": "95611a14436d88961a2a68c871bef893e074b56ea9f191f4eb5d8b9eb2831ec2"
+      },
+      {
+        "art": "streu",
+        "uv": [
+          0,
+          1,
+          0.5,
+          1
+        ],
+        "anzahl": 3489,
+        "hash": "a50232907d79cd08b3f852cd6f79d5909dafbe752646145183313d6b416db4a7"
+      }
+    ]
+  },
+  {
+    "ort": "1363,430.1,200",
+    "gruppen": [
+      {
+        "art": "streu",
+        "uv": [
+          0,
+          1,
+          0.5,
+          1
+        ],
+        "anzahl": 3415,
+        "hash": "25509a786b2a0b969f09a70f5222c320b7e2a05cdc187bc65a98c5d8195aca94"
+      },
+      {
+        "art": "streu",
+        "uv": [
+          0,
+          0.5,
+          0.5,
+          0.5
+        ],
+        "anzahl": 143,
+        "hash": "5f2e32d3413905bf8240ad379089dbb5e29087103f5b86ef6c5e965175062d1c"
+      },
+      {
+        "art": "streu",
+        "uv": [
+          0.5,
+          1,
+          1,
+          1
+        ],
+        "anzahl": 93,
+        "hash": "8fec788f6b21754fe81f6c86e676307a1dbc895fcad37e3bff8d531137e21fdf"
+      },
+      {
+        "art": "streu",
+        "uv": [
+          0.5,
+          0.5,
+          1,
+          0.5
+        ],
+        "anzahl": 450,
+        "hash": "9591125c62c2351f22af133cbe1c4537607a06d72716e9562463afcc8bdf7459"
+      }
+    ]
+  }
+]

@@ -17,6 +17,7 @@ owns: *.test.ts
 
 | Deine Aufgabe ist … | Lies |
 |---|---|
+| Bildzeitgrenzen der 152-m-Hofroute prüfen | [hofwertung.test.mjs](hofwertung.test.mjs) |
 | Hausfront-Räume, Fenster-UV oder Haus/Garten-Attribute ändern | `hausfront.test.ts` → `../src/world/terrain.ts`, `../src/world/baender.ts` |
 | Referenzhaus oder lokale Bauteile ändern | `referenzhaus.test.ts` |
 | Hofauswahl oder freie Eingänge ändern | `hofhaeuser.test.ts` |
