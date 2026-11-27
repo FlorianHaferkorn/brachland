@@ -1040,3 +1040,15 @@ D489 → D490 am M1: Der mittlere absolute Fehler der Subpixelprobe sank von 14,
 `MESS_HEAP=1 node tools/mess/vergleich.mjs <neuer-name> '&ziel=milbinger' hofwest 4173` führt den 152-m-Gang unter dem CDP-Heap-Profiler aus. Die 32-KiB-Stichprobe umfasst freigegebene Objekte. Für Bildzeitvergleiche dieselbe Route ohne Profiler verwenden. Die geschätzte Allokation je Bild sank von 699,4 auf 489,9 KiB (`.cache/mess/d491-heap-vor/` und `.cache/mess/d491-heap-kombi/`).
 
 Der Vorhang sitzt im offenen Fenster neben dem Eingang von Gebäude 708. Für die Detailaufnahme bei `hofbau=1&echt=1&zeit=.26` stehen Auge und Blickziel bei `kamera=219.195,176.191,241.949,222.391,175.871,239.103`, Bildwinkel 42°. Der Anlauf bei `absetzen=189,231,-94` und die Standkamera entsprechen D490. Standbilder und Film liegen in `.cache/bilder/D491/`.
+
+### Hofgras und Gewandsaum (D492)
+
+Im D491-Originalfilm erscheint bei 22,48 s ein gelbgrüner Fleck links unten vor dem dunklen Hofboden. Einzeln gerenderte Grasgruppen reproduzieren den extrem hellen Pixel bereits im linearen Szenenbild. Bloom verbreitert ihn. Beim synchronen Vergleich laufen Kamera, Wind und Detailstufen einmal pro Bild weiter, während beide Materialvarianten denselben Zustand zeichnen. Die Änderung beschränkt sich auf die Interpolation der Halmwerte an den vom Dreieck bedeckten MSAA-Proben.
+
+Bei gleicher Kamera und gleichem Wind lag das Maximum im grünen Kanal der Bloom-Quelle vor der Korrektur bei 26,97 und danach bei 0 (73 Bildpaare, untere 65 % des Bilds). Ein unabhängiger Lauf mit dem geänderten Shader ergab in 335 Bildern ebenfalls keine Spitze. Der automatische Test kontrolliert alle drei Farbkanäle sowie die Beteiligung beider Grasstufen.
+
+`node tools/mess/hofblitz.mjs 4173 .cache/mess/hofblitz` prüft den Vordergrund im Spiel. Der Pixelabruf synchronisiert CPU und GPU. Bildzeiten stammen deshalb weiter aus den beiden getrennten 152-m-Läufen des Hoftests.
+
+`npx tsx tests/heldmaterial.test.ts` lädt beide Körper, beide Tuniken und die jeweiligen leichten Modelle. Der Test misst den Saum mit Skinning im Raum der Figur. Bei 3 m/s beträgt die größte Abweichung von der Ruhepose je Modell 4,3–5,3 cm. Geprüft werden auch Wendung, Landung, Naht, Sichtkugel und vollständige Rückkehr in die Ruhepose. Ausgelenkt wird das untere Drittel des Gewands. Es handelt sich um sechs kombinierte Verformungen mit gedämpfter Rückstellung.
+
+Für die Filmaufnahme steuert `node tools/mess/stofflauf.mjs .cache/bilder/D492/spielerin-nachher spielerin nachher` die echte Figur bei fester Aufnahmeuhr. Für den Gegenlauf zweimal `nachher` durch `vorher` ersetzen. `bewohnerin` wählt den autonomen Weg von Hofbesitzerin Tremmel. Die Kameras und der Weltstand bleiben je Paar gleich. `?kleiderfall=0` schaltet die Verformung zum Vergleich aus.

@@ -54,6 +54,7 @@ import { haengeAnHand, baueSpeer, gleiteAmStiel } from './waffenhand.js';
 import { kameraZustand, kampfUhr, ZEITLUPE } from './kamerazustand.js';
 import { baueSpritzer, SPRITZER_FARBE } from './spritzer.js';
 import { schadenFaktor } from '../spiel/schmiede.js';
+import { baueKleiderfall } from '../spieler/kleiderfall.js';
 import { gestaltPfad, HELD_CLIPS, legeWahlAn, type HeldWahl } from '../spieler/held.js';
 import { aktionenVon, aktiv, halteZustand, tastenVon, umgeschaltet, type Haltemodus } from '../spieler/eingabe.js';
 import { einstellungen } from '../spiel/einstellungen.js';
@@ -169,6 +170,7 @@ interface RigVorlage {
   wahl?: HeldWahl;
 }
 interface Rig {
+  stoff?: ReturnType<typeof baueKleiderfall>;
   mixer: THREE.AnimationMixer;
   aktion(name: string): THREE.AnimationAction | null;
   aktiv: THREE.AnimationAction | null;
@@ -586,6 +588,7 @@ function baueRigLeib(v: RigVorlage, kreatur: string, statisch: THREE.BufferGeome
       if (!cache.has(name)) { const c = v.clips.find(x => x.name === name); cache.set(name, c ? mixer.clipAction(c) : null); }
       return cache.get(name)!;
     } };
+    if (v.wahl) rig.stoff = baueKleiderfall(obj);
     // D429: Der Axtmann führt die Fällaxt wie die Spielerin — linke Hand am Stielende (`griff_links` aus dem Modell).
     const griffLinks = (waffe.userData as { griff_links?: number }).griff_links;
     const handR = obj.getObjectByName('hand_r'), handL = obj.getObjectByName('hand_l');
@@ -1491,6 +1494,7 @@ function zeichnePuppe(pu: Puppe, g: Kaempfer, feld: HoehenFeld, hoeheAn: (x: num
       }
       spieleRig(pu, g, v, jetzt, dt);
     }
+    pu.rig.stoff?.schritt(dt, pu.gruppe.position, pu.gruppe.rotation.y + pu.leib.rotation.y);
   }
 }
 const HANG = { hub: 0, nick: 0, roll: 0 };

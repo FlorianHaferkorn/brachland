@@ -10,6 +10,7 @@
  * Vorgabe für den Körper — umstellen darf man ihn trotzdem.
  */
 import * as THREE from 'three';
+import { saumRadius } from './kleiderfall.js';
 import { useSyncExternalStore } from 'react';
 
 export type Geschlecht = 'm' | 'w' | 'n';
@@ -236,7 +237,9 @@ export function begrenzeBewohner(obj: THREE.Object3D): () => void {
   const minima = new Float64Array(3), maxima = new Float64Array(3);
   const teile: { mesh: THREE.SkinnedMesh; alt: THREE.Sphere; pruefte: boolean; knochen: { index: number; radius: number }[] }[] = [];
   obj.traverse(o => {
-    if (!(o instanceof THREE.SkinnedMesh) || !o.visible || o.geometry.morphAttributes.position?.length) return;
+    if (!(o instanceof THREE.SkinnedMesh) || !o.visible) return;
+    const saum = saumRadius.get(o.geometry) ?? 0;
+    if (o.geometry.morphAttributes.position?.length && !saum) return;
     const pos = o.geometry.getAttribute('position'), ind = o.geometry.getAttribute('skinIndex');
     const gew = o.geometry.getAttribute('skinWeight');
     if (!pos || !ind || !gew) return;
@@ -246,7 +249,10 @@ export function begrenzeBewohner(obj: THREE.Object3D): () => void {
         if (gew.getComponent(i, j) <= 0) continue;
         const k = ind.getComponent(i, j);
         ecke.fromBufferAttribute(pos, i).applyMatrix4(o.bindMatrix).applyMatrix4(o.skeleton.boneInverses[k]);
-        radien.set(k, Math.max(radien.get(k) ?? 0, ecke.lengthSq()));
+        // Saumformen werden vor dem Skinning addiert; die maximale Binderaum-Auslenkung
+        // bleibt auch bei voller Drehung am Frustumrand in der Knochenhülle.
+        const radius = saum ? ecke.length() + saum * o.bindMatrix.getMaxScaleOnAxis() * o.skeleton.boneInverses[k].getMaxScaleOnAxis() : 0;
+        radien.set(k, Math.max(radien.get(k) ?? 0, saum ? radius * radius : ecke.lengthSq()));
       }
     }
     if (!radien.size) return;

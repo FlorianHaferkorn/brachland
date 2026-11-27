@@ -86,6 +86,8 @@ try {
   console.log('Messbericht:', ausgabe, befund);
   writeFileSync(ausgabe + '/ergebnis.json', JSON.stringify({ laeufe, befund }, null, 2));
   assert.equal(befund.length, 0, befund.join(', '));
+  // Der synchrone Pixelabruf gehört ausserhalb der beiden Bildzeitmessungen.
+  await messe(['tools/mess/hofblitz.mjs', port, join(ausgabe, 'hofblitz')]);
 } catch (e) {
   writeFileSync(ausgabe + '/fehler.txt', String(e) + '\n');
   throw e;

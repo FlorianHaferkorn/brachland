@@ -212,6 +212,13 @@ export function baueGrasteppich(
     // D266: Mit `echt` matt — bei 0,85 glänzte jede Spitze im Streiflicht grau-weiss.
     vertexColors: false, roughness: echt ? 1 : 0.85, metalness: 0, side: THREE.DoubleSide,
   });
+  // Bei subpixelbreiten Halmen kann die Pixelmitte ausserhalb des Dreiecks liegen.
+  // MSAA interpoliert die Halmwerte deshalb an einer gedeckten Probe.
+  const halmDaten = `centroid varying vec3 vHalmFarbe;
+${halmfilter ? 'centroid varying vec3 vUntergrund;' : ''}
+centroid varying float vHalmY;
+centroid varying float vQ;
+centroid varying vec2 vKartenUv;`;
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms, feld.trittweg?.uniforms);
     if (HOF_GRAS_AN) Object.assign(shader.uniforms, {
@@ -244,11 +251,7 @@ uniform vec3 uRaster;
 uniform vec2 uMitte;
 uniform vec3 uFuss;
 uniform vec3 uSpitze;
-varying vec3 vHalmFarbe;
-${halmfilter ? 'varying vec3 vUntergrund;' : ''}
-varying float vHalmY;
-varying float vQ;
-varying vec2 vKartenUv;
+${halmDaten}
 uniform sampler2D uKarte;
 uniform vec4 uKachel[${HORST_ZAHL}];
 uniform float uKachelGr[${HORST_ZAHL}];
@@ -431,7 +434,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   #endif`)
       .replace('#include <begin_vertex>', 'vec3 transformed = halmPos;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;\nvarying float vQ;\nvarying vec2 vKartenUv;\nuniform sampler2D uKarte;' + (halmfilter ? '\nvarying vec3 vUntergrund;' : ''))
+      .replace('#include <common>', `#include <common>\n${halmDaten}\nuniform sampler2D uKarte;`)
       .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;' + (foto ? `
   { vec4 horst = texture2D(uKarte, vKartenUv);   // D272: Foto-Büschel — Farbe, Deckung, Verdeckung am Fuss
     diffuseColor.rgb = vHalmFarbe * horst.rgb * 1.9 * mix(0.55, 1.0, smoothstep(0.0, 0.5, vHalmY));   // 1,9: Foto-Albedo (Mittel 0,125 linear) auf die Helligkeit der Szene (alte Spitze ~0,3); 2,4 überbelichtete
@@ -458,7 +461,7 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   }
 #endif` : '#include <lights_fragment_end>');
   };
-  material.customProgramCacheKey = () => `brachland-grasteppich-v4-${feld.trittweg ? 'tritt' + feld.trittweg.anzahl : ''}-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${echt ? '-echt' : ''}${viel ? '-viel' : ''}${foto ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras-raster' : ''}${sparsam ? '-teppichspar' : ''}${strassenmaske ? '-strassenmaske' : ''}${wiesenbereich ? (nurWiesenbereich ? '-wiesenbereich' : '-wiesenumfeld') : ''}`;
+  material.customProgramCacheKey = () => `brachland-grasteppich-v5-${feld.trittweg ? 'tritt' + feld.trittweg.anzahl : ''}-${halb}-${innen}-${texel}-${strukturAn ? 'struktur' : 'standard'}${echt ? '-echt' : ''}${viel ? '-viel' : ''}${foto ? '-fein' : ''}${PINSEL_AN ? '-pinsel' : ''}${HOF_GRAS_AN ? '-hofgras-raster' : ''}${sparsam ? '-teppichspar' : ''}${strassenmaske ? '-strassenmaske' : ''}${wiesenbereich ? (nurWiesenbereich ? '-wiesenbereich' : '-wiesenumfeld') : ''}`;
 
   // D272: Halmkarten mit Alpha-Test; mit MSAA (Kontur) weiche Kanten über alphaToCoverage.
   if (foto) { material.alphaTest = HORST_SCHWELLE; material.alphaToCoverage = true; }

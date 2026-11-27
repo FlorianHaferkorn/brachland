@@ -97,6 +97,7 @@ import { istAus } from './abschalter.js';
 import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz.js';
 import type { Kampfbericht } from '../kampf/kampfende.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer, gleiteAmStiel, AXT_URSPRUNG_VOR_D429 } from '../kampf/waffenhand.js';
+import { baueKleiderfall } from '../spieler/kleiderfall.js';
 import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, begrenzeBewohner, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
 import { PosenTraegheit, Koerperfein, sammleKnochen, elternkarte, teileClip, messeGang, type FeinEingabe } from '../figur/laufzeit.js';
@@ -2125,10 +2126,13 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
   useEffect(() => { setzeRand(new THREE.Color(rand.farbe), rand.staerke); }, [setzeRand, rand]);
   useEffect(() => { setzeRollen(farben ?? null); }, [setzeRollen, farben]);
   const himmelKarte = useHimmelKarte();
+  const stoff = useRef<ReturnType<typeof baueKleiderfall>>(null);
   useEffect(() => {
     if (hg) {
       legeWahlAn(scene, hg); setzeFigurUmgebung(scene, himmelKarte);
-      return ORTS_BILDTAKT_AN ? begrenzeBewohner(scene) : undefined;
+      stoff.current = baueKleiderfall(scene);
+      const loeseGrenze = ORTS_BILDTAKT_AN ? begrenzeBewohner(scene) : undefined;
+      return () => { loeseGrenze?.(); stoff.current?.loese(); stoff.current = null; };
     }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
@@ -2255,6 +2259,7 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
       const nah = Math.hypot(p.x - wp.x, p.z - wp.z) < BEWOHNER_FUSS_AB;
       if (nah || fuss.current.an > 0) setzeFuesse(fussBeine, scene, hoeheAn, fuss.current, dt, nah);
     }
+    if (g) stoff.current?.schritt(dt, g.position, g.rotation.y);
     if (melde && g) { const wp = g.getWorldPosition(_meldeV); melde(wp.x, wp.z); }
   });
   return (
@@ -4192,6 +4197,12 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
   // und bekommt die Wahl aus dem Editor (Frisur, Haut, Haar).
   const fuss = useRef<FussZustand>(neuerFussZustand());
   const himmelKarte = useHimmelKarte();
+  const stoff = useRef<ReturnType<typeof baueKleiderfall>>(null);
+  useEffect(() => {
+    if (!held) return;
+    stoff.current = baueKleiderfall(scene);
+    return () => { stoff.current?.loese(); stoff.current = null; };
+  }, [scene, held]);
   // D213: Saum für die neuen Gestalten aus derselben Randfarbe wie Kreaturen und alte Figur.
   useEffect(() => { setzeFigurSaum(rand.farbe, rand.staerke); }, [rand]);
   useEffect(() => {
@@ -4853,6 +4864,8 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     } else if (reiter.current) {
       reiter.current.position.y = 0;
     }
+    const g = gruppe.current;
+    if (g?.parent) stoff.current?.schritt(dt, g.parent.position, g.rotation.y);
   });
 
   return (

@@ -8,6 +8,8 @@ shelf-life-days: 30
 > Sitzung. Offen/erledigt steht im Ledger (`_INDEX.md`), nicht hier. Wenn alles übernommen ist: Datei löschen und im
 > Index austragen.
 
+**Hof und Menschen (D492).** Ein heller Ausreißer einzelner Grashalme vor dem Bloom-Pass wurde bis in Nah- und Ferngras zurückverfolgt. Die vorhandenen Tuniken folgen jetzt der Bewegung des Trägers, auch beim Bremsen und Landen. Film- und Testverfahren stehen in [MESSLAUF.md](MESSLAUF.md#hofgras-und-gewandsaum-d492). Für die nächste Straße bietet sich eine Materialprobe an einem bestehenden Haus an. Wasserlauf unter einer undichten Rinne, Ausblühungen im Spritzwasserbereich und abgewaschener Mörtel lassen sich am selben Mauerabschnitt gegen den Modellhof prüfen.
+
 **Weststraße und Modellhof (D491).** Die CDP-Stichprobe auf der 152-m-Route ordnet die früheren Allokationen den Knochenhüllen der Bewohner und der Baumgruppenverwaltung zu. Die Hüllen werden numerisch äquivalent berechnet, die Gruppen bei einer Änderung ihres Bestands neu aufgebaut. Messweg und Befehle stehen in [MESSLAUF.md](MESSLAUF.md#weststraße-und-hofeingang-d491). Gebäude 708 trägt Feuchtespuren vom Sockel in den Putz und einen vom Graswind bewegten Leinenvorhang. Standbilder und Anlauf: `.cache/bilder/D491/`.
 
 **Modellhof (D490).** Der Vergleich in `.cache/bilder/D490/` zeigt die ruhigere Hofwiese und die Kollision am Haus. Die damals zu langen Bildzeiten stehen in `.cache/mess/hoftest-1795719128504/ergebnis.json`. In der Weststraße entfielen in einem Diagnoselauf 463 ms eines 534-ms-Bilds auf die Speicherbereinigung. D491 nimmt diesen Befund auf.
