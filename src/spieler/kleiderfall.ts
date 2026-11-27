@@ -88,8 +88,12 @@ export function baueKleiderfall(figur: THREE.Object3D) {
       // Z-Komponente der beiden animierten Knochenachsen (lokal +Y). Damit kommt der seitliche
       // Impuls direkt vom vorgezogenen Bein, auch wenn der Mixer während eines Schritts überblendet.
       const schere = links && rechts ? 2 * (links.x * links.w + links.y * links.z - rechts.x * rechts.w - rechts.y * rechts.z) : 0;
-      const quer = -(dx * c - dz * s) / (dt * 4) + druck * .32 * schere;
-      const laengs = -(dx * s + dz * c) / (dt * 4);
+      // Die Feder arbeitet in Weltkoordinaten: beim Wenden behält ein bereits
+      // ausschwingender Saum seine Richtung. Nur der Schrittdruck wirkt lokal quer.
+      const schrittdruck = druck * .32 * schere;
+      const zugX = -dx / (dt * 4) + c * schrittdruck;
+      const zugZ = -dz / (dt * 4) - s * schrittdruck;
+      const norm = Math.max(1, Math.hypot(zugX, zugZ));
       // Beim schlagartigen Wenden wirkt der ganze Winkel als Impuls. Bei der Landung trägt
       // das Gewand sein letztes Falltempo noch kurz weiter, während der Körper schon bremst.
       tempo[2] -= 19 * Math.atan2(Math.sin(dreh), Math.cos(dreh));
@@ -99,14 +103,15 @@ export function baueKleiderfall(figur: THREE.Object3D) {
       // Gedämpfte Feder analytisch fortschreiben: gleicher Fall bei 30/60/120 Hz, Nachlauf beim Anhalten.
       const omega = 13, abfall = Math.exp(-omega * dt);
       for (let i = 0; i < 4; i++) {
-        const ziel = THREE.MathUtils.clamp(i === 0 ? quer : i === 1 ? laengs : i === 3 ? -hubtempo * .12 : 0, -1, 1);
+        const ziel = THREE.MathUtils.clamp(i === 0 ? zugX / norm : i === 1 ? zugZ / norm : i === 3 ? -hubtempo * .12 : 0, -1, 1);
         const abstand = lage[i] - ziel, impuls = tempo[i] + omega * abstand;
         lage[i] = ziel + (abstand + impuls * dt) * abfall;
         tempo[i] = (tempo[i] - omega * impuls * dt) * abfall;
         if (!ziel && Math.abs(lage[i]) < .0001 && Math.abs(tempo[i]) < .001) lage[i] = tempo[i] = 0;
       }
-      gewicht[0] = Math.max(0, lage[0]); gewicht[1] = Math.max(0, -lage[0]);
-      gewicht[2] = Math.max(0, lage[1]); gewicht[3] = Math.max(0, -lage[1]);
+      const quer = c * lage[0] - s * lage[1], laengs = s * lage[0] + c * lage[1];
+      gewicht[0] = Math.max(0, quer); gewicht[1] = Math.max(0, -quer);
+      gewicht[2] = Math.max(0, laengs); gewicht[3] = Math.max(0, -laengs);
       gewicht[4] = THREE.MathUtils.clamp(lage[2], -1, 1); gewicht[5] = THREE.MathUtils.clamp(lage[3], -1, 1);
     },
     loese() {

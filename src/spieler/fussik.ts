@@ -99,8 +99,9 @@ export function setzeFuesse(
   z: FussZustand, dt: number, aktiv: boolean,
 ): void {
   if (!k.ol || !k.ul || !k.fl || !k.or || !k.ur || !k.fr) return;
+  // Weltabfragen aktualisieren die jeweilige Elternkette. Die komplette Figur samt
+  // Haut- und Schattenhüllen schreibt der Renderer nach der fertigen Pose fort.
   figur.position.y = 0;
-  figur.updateMatrixWorld(true);
   figur.getWorldPosition(vt);
   const mitte = hoeheAn(vt.x, vt.z);
   const amBoden = aktiv && Math.abs(vt.y - mitte) < LUFT;
@@ -117,7 +118,6 @@ export function setzeFuesse(
 
   const becken = z.becken * z.an;
   figur.position.y = becken;
-  figur.updateMatrixWorld(true);
   vor.set(0, 0, 1).applyQuaternion(figur.getWorldQuaternion(qa));
 
   for (const [o, u, f, versatz] of [[k.ol, k.ul, k.fl, z.links], [k.or, k.ur, k.fr, z.rechts]] as const) {

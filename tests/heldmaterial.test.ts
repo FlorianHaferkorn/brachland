@@ -1,7 +1,8 @@
 /** D343: Die Materialprobe bleibt beim Spieler opt-in und am animierten Kleidungsstück befestigt. */
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { begrenzeBewohner, legeWahlAn, STANDARD_HELD } from '../src/spieler/held.js';
+import { neuerFussZustand, setzeFuesse } from '../src/spieler/fussik.js';
+import { begrenzeBewohner, HELD_KNOCHEN, legeWahlAn, STANDARD_HELD } from '../src/spieler/held.js';
 
 const albedo = new THREE.Texture(), normale = new THREE.Texture(), metall = new THREE.Texture();
 const original = new THREE.MeshStandardMaterial({ map: albedo, normalMap: normale, metalnessMap: metall });
@@ -46,6 +47,20 @@ assert.match(detail.fragmentShader, /smoothstep\(\.06, \.42, metalnessFactor\)/)
 assert.equal(detail.uniforms.uKleiderwerte.value.y, 1);
 assert.equal(shader(tunika.material).uniforms.uKleiderwerte.value.y, 0);
 assert.doesNotMatch(shader(arm.material[1]).fragmentShader, /uKleiderwerte/);
+
+// Standardlicht und Schatten bleiben für Haut, Ausrüstung und Stoff identisch.
+// Zusätze innerhalb dieses Abschnitts hatten Haut und Silhouette im Schatten aufgehellt.
+function lichtrechnung(quelle: string): string {
+  return quelle.slice(quelle.indexOf('#include <lights_physical_fragment>'), quelle.indexOf('#include <opaque_fragment>'));
+}
+const weltlicht = lichtrechnung(THREE.ShaderLib.standard.fragmentShader);
+assert.ok(weltlicht.includes('#include <lights_fragment_begin>'));
+for (const mat of [stiefelMaterial, tunika.material, ...arm.material]) {
+  assert.equal(lichtrechnung(shader(mat).fragmentShader), weltlicht);
+  assert.equal(mat.envMap, null);
+  assert.ok(mat.emissive.getHex() === 0);
+}
+assert.equal(lichtrechnung(vorher.fragmentShader), weltlicht);
 
 legeWahlAn(figur, STANDARD_HELD, false);
 assert.deepEqual(shader(stiefelMaterial), vorher, 'Die Kleiderprobe kann nach der Aktivierung vollständig abgeschaltet werden');
@@ -115,6 +130,16 @@ for (const koerper of ['m', 'w']) for (const kleid of ['bauer', 'waldlaeufer']) 
     weg = Math.max(weg, d);
   }
   assert(weg > .015 && weg < .09, datei + ': Auslenkung am tatsächlichen Modell in Metern ' + weg);
+  // Eine abrupte Vierteldrehung darf den bereits nach +Z ausgelenkten Stoff
+  // nicht seitlich durch die Welt schleudern. In der neuen Körperbasis ist +Z jetzt −X.
+  for (const richtung of [-1, 1]) {
+    const vorher: number = w[2] - w[3];
+    stoff.schritt(1 / 60, ort, richtung * Math.PI / 2);
+    const weltZ = -richtung * (w[0] - w[1]);
+    assert(weltZ > .95 * vorher && Math.abs(w[2] - w[3]) < .05, datei + ': Saum behält bei der Wende seine Weltrichtung');
+    stoff.schritt(1, ort, 0);
+    for (let i = 0; i < 90; i++) { ort.z -= 3 / 60; stoff.schritt(1 / 60, ort, 0); }
+  }
   for (let i = 1; i <= 12; i++) stoff.schritt(1 / 60, ort, Math.PI / 2 * i / 12);
   assert(w[4] < -.3, 'Hüfte wendet nach links, Saum dreht relativ dazu rechts');
   for (let i = 0; i < 90; i++) { ort.x -= 3 / 60; stoff.schritt(1 / 60, ort, Math.PI / 2); }
@@ -142,10 +167,45 @@ for (const koerper of ['m', 'w']) for (const kleid of ['bauer', 'waldlaeufer']) 
       werte.push([...w]);
     }
     for (let j = 0; j < w.length; j++) assert(Math.abs(werte[0][j] - werte[2][j]) < .025, '30/120 Hz: gleiche Gangpose ergibt vergleichbaren Saum');
+    stoff.schritt(1, ort, 0);
+    for (let j = 0; j < 90; j++) { ort.x -= .1; ort.z -= .1; stoff.schritt(1 / 60, ort, 0); }
+    const diagonal = Math.hypot(w[0] - w[1], w[2] - w[3]);
+    assert(diagonal > .99 && diagonal <= 1.000001, 'Diagonaler Sprint bleibt im radialen Bewegungsraum des Saums');
     ort.x = 800;
     stoff.schritt(1 / 60, ort, 0); assert(w.every(v => v === 0), 'Versetzen beginnt ohne veralteten Impuls');
     mixer.stopAllAction();
   }
   ende(); stoff.loese(); assert.equal(rock.geometry, original);
   console.log('✓ ' + datei + ': Laufsaum ' + (weg * 100).toFixed(1) + ' cm, Wende, Landung, Halt und Schattenhülle geprüft');
+}
+
+// D493: Die Weltabfragen der Fußsetzung brauchen nur die betroffenen Elternketten.
+// Referenzpositionen der bisherigen vollständigen Matrixfortschreibung bei Bild 90.
+{
+  const lade = (name: string) => lader.parseAsync(Uint8Array.from(readFileSync('public/figuren/held/' + name + '.glb')).buffer, '');
+  const { scene } = await lade('w-bauer-leicht'), { animations } = await lade('held-clips');
+  const mixer = new THREE.AnimationMixer(scene);
+  mixer.clipAction(animations.find(c => c.name === 'Koerper_Gang')!).play();
+  const bein = (n: 'ol' | 'ul' | 'fl' | 'or' | 'ur' | 'fr') => scene.getObjectByName(HELD_KNOCHEN[n])!;
+  const beine = { ol: bein('ol'), ul: bein('ul'), fl: bein('fl'), or: bein('or'), ur: bein('ur'), fr: bein('fr') };
+  const wurzel = new THREE.Group().add(scene), zustand = neuerFussZustand();
+  const hoehe = (x: number, z: number) => .14 * x - .09 * z;
+  const loese = begrenzeBewohner(scene), fort = scene.updateMatrixWorld;
+  let huellen = 0;
+  scene.updateMatrixWorld = function (kraft) { huellen++; fort.call(this, kraft); };
+  for (let i = 0; i < 90; i++) {
+    wurzel.position.set(i * .008, hoehe(i * .008, .1), .1);
+    wurzel.rotation.y = .45 * Math.sin(i * .04);
+    mixer.setTime(i / 60);
+    setzeFuesse(beine, scene, hoehe, zustand, 1 / 60, true);
+    wurzel.updateMatrixWorld(true);
+  }
+  assert.equal(huellen, 90, 'Ein vollständiger Hüllendurchlauf je gezeichneter Pose');
+  const soll = [
+    [.5837435, .9551870, .1366588], [.5813810, .5488998, .1906395], [.5250051, .1831085, .4739555],
+    [.8049841, .9480431, .1619846], [.8807153, .7001008, -.1554711], [.8313551, .2385156, -.1136118],
+  ];
+  Object.values(beine).forEach((b, i) => assert(b.getWorldPosition(new THREE.Vector3())
+    .distanceTo(new THREE.Vector3().fromArray(soll[i])) < 1e-6, b.name + ': Referenzpose auf dem Hang'));
+  loese();
 }

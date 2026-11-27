@@ -20,7 +20,7 @@ import { useGLTF } from '@react-three/drei';
 import { MIT_MODELL, reitsitz, kreaturGeometrie }
   from '../world/kreaturgestalt.js';
 import { Kontur, erwarteStartgruen, meldeGruenVorlauf, konturAn, aoStaerke, aoReichweite } from './Kontur.js';
-import { WasserUmgebung, WasserSzeneProbe, useWasserUmgebung, useHimmelKarte } from './WasserUmgebung.js';
+import { WasserUmgebung, WasserSzeneProbe, useWasserUmgebung } from './WasserUmgebung.js';
 import { EzBaumProbe, istEzProbeBereit, meldeEzGruppenwechsel, uebernimmtEzVariante } from './EzBaumProbe.js';
 import { Rahmenkronen } from './Rahmenkronen.js';
 import { TakramProbe } from './TakramProbe.js';
@@ -98,7 +98,7 @@ import { Kampfplatz, type KampfFigur, type GegnerArt } from '../kampf/Kampfplatz
 import type { Kampfbericht } from '../kampf/kampfende.js';
 import { WAFFE_AN_HAND, legeAnHeldHand, baueSpeer, gleiteAmStiel, AXT_URSPRUNG_VOR_D429 } from '../kampf/waffenhand.js';
 import { baueKleiderfall } from '../spieler/kleiderfall.js';
-import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, begrenzeBewohner, bewohnerWahl, setzeFigurUmgebung, setzeFigurSaum } from '../spieler/held.js';
+import { useHeldWahl, gestaltPfad, HELD_CLIPS, HELD_KNOCHEN, legeWahlAn, begrenzeBewohner, bewohnerWahl } from '../spieler/held.js';
 import { setzeFuesse, neuerFussZustand, type FussZustand } from '../spieler/fussik.js';
 import { PosenTraegheit, Koerperfein, sammleKnochen, elternkarte, teileClip, messeGang, type FeinEingabe } from '../figur/laufzeit.js';
 import { nachfahren, RIG_MENSCH } from '../figur/ebenen.js';
@@ -2097,7 +2097,7 @@ const MENSCH_PAUSE: [number, number] = [6, 14];
  * Dasselbe Wind-/Randmaterial wie Kreaturen und Spielerin, ein Material je
  * Figur (eigene Uniforms), ein Draw Call.
  */
-function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, ausflug, unterwegs = false, melde }: {
+function Mensch({ figur, blick, gang = 0, farben, ziel, hoeheAn, marke, ausflug, unterwegs = false, melde }: {
   figur: string; blick: number;
   /** Meldet die Weltlage der Figur (D178) — für das Ansprechen. */
   melde?: (x: number, z: number) => void;
@@ -2110,7 +2110,6 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
   gang?: number;
   farben?: Partial<Record<RollenSlot, string>>;
   ziel: React.RefObject<THREE.Object3D | null>;
-  rand: { farbe: string; staerke: number };
   hoeheAn: (x: number, z: number) => number;
 }) {
   // D176: Bewohner als leichte Gestalten der neuen Figuren (`*-leicht.glb`), geklont — mehrere
@@ -2120,16 +2119,14 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
   const g2 = useGLTF(hg ? HELD_CLIPS : `/figuren/${figur}.glb`);
   const scene = useMemo(() => (hg ? klonSkelett(g1.scene) : g1.scene), [g1.scene, !!hg]);
   const animations = hg ? g2.animations : g1.animations;
-  const { material, setzeRand, setzeRollen } = useMemo(() => baueWindMaterial({
-    amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
+  const { material, setzeRollen } = useMemo(() => baueWindMaterial({
+    amplitude: 0, randFarbe: new THREE.Color(0), randStaerke: 0,
   }), []);
-  useEffect(() => { setzeRand(new THREE.Color(rand.farbe), rand.staerke); }, [setzeRand, rand]);
   useEffect(() => { setzeRollen(farben ?? null); }, [setzeRollen, farben]);
-  const himmelKarte = useHimmelKarte();
   const stoff = useRef<ReturnType<typeof baueKleiderfall>>(null);
   useEffect(() => {
     if (hg) {
-      legeWahlAn(scene, hg); setzeFigurUmgebung(scene, himmelKarte);
+      legeWahlAn(scene, hg);
       stoff.current = baueKleiderfall(scene);
       const loeseGrenze = ORTS_BILDTAKT_AN ? begrenzeBewohner(scene) : undefined;
       return () => { loeseGrenze?.(); stoff.current?.loese(); stoff.current = null; };
@@ -2138,7 +2135,7 @@ function Mensch({ figur, blick, gang = 0, farben, ziel, rand, hoeheAn, marke, au
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
     });
-  }, [scene, material, himmelKarte]);
+  }, [scene, material]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
   const clips = useMemo(() => {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
@@ -2832,14 +2829,13 @@ function BauwerkWasser({ bauwerk }: { bauwerk: Bauwerk }) {
   return <primitive object={objekt} />;
 }
 
-function Orte({ orte, ziel, onNah, rand, hoeheAn, tageszeit = 0.39 }: {
+function Orte({ orte, ziel, onNah, hoeheAn, tageszeit = 0.39 }: {
   orte: Ortsmarke[];
   /** Für die Tagesroutine der Dorfbewohner (D177). */
   tageszeit?: number;
   ziel: React.RefObject<THREE.Object3D | null>;
   /** Der nächste Ort in Reichweite, oder null. Wird nur bei Wechsel gerufen. */
   onNah?: (id: string | null) => void;
-  rand: { farbe: string; staerke: number };
   hoeheAn: (x: number, z: number) => number;
 }) {
   const pfahl = useMemo(() => {
@@ -2910,7 +2906,7 @@ function Orte({ orte, ziel, onNah, rand, hoeheAn, tageszeit = 0.39 }: {
           ) : o.figur && !istAus('menschen') ? (
             <Suspense fallback={null}>
               <Mensch figur={o.figur} blick={o.blick ?? 0} gang={o.gang} farben={o.farben}
-                      ziel={ziel} rand={rand} hoeheAn={hoeheAn} marke={{ geometry: punkt, material: punktMat }}
+                      ziel={ziel} hoeheAn={hoeheAn} marke={{ geometry: punkt, material: punktMat }}
                       ausflug={abendZiel(o)} unterwegs={abends}
                       melde={(x, z) => lage.current.set(o.id, [x, z])} />
             </Suspense>
@@ -4111,7 +4107,7 @@ function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
   const metall = new THREE.MeshStandardMaterial({ color: '#77736b', roughness: 0.45, metalness: 0.6 });
   const holz = new THREE.MeshStandardMaterial({ color: '#5a4431', roughness: 0.8 });
   const teil = (geo: THREE.BufferGeometry, mat: THREE.Material, y: number, x = 0) => {
-    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, 0); m.castShadow = true; return m;
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, 0); m.castShadow = true; m.receiveShadow = true; return m;
   };
   const klinge = new THREE.Group();
   klinge.add(teil(new THREE.CylinderGeometry(0.018, 0.02, 0.2, 8), holz, 0));
@@ -4154,6 +4150,7 @@ function baueWaffen(): Record<'klinge' | 'axt' | 'speer', THREE.Group> {
  * angehoben und bekommt die Sitzpose ueber drei Winkel je Bein (`sitzpose`).
  */
 function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeheAn, landung, luft }: {
+  rand: { farbe: string; staerke: number };
   gier: React.RefObject<number>;
   /** D461: Luftzustand aus der Bewegung (`Spieler` schreibt ihn je Bild) — Absprung, Flughaltung. */
   luft?: React.RefObject<Luft>;
@@ -4166,7 +4163,6 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
   /** Kampfzustand (D167): Schlag, Rolle, Treffer, Fall als Clip. Ohne Kampf null. */
   kampf?: React.RefObject<KampfFigur | null>;
   schritt: React.RefObject<{ phase: number; tempo: number }>;
-  rand: { farbe: string; staerke: number };
   /**
    * Silhouette und Widerristhöhe des Reittiers, oder null.
    *
@@ -4187,31 +4183,25 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
   /** Sitzhoehe aus dem Modell (`ReittierModell` schreibt sie), sonst aus der Silhouette. */
   const sitzHoehe = useRef<{ hoehe: number; breite: number } | null>(null);
   const mitModell = !!reittier && MIT_MODELL.has(reittier.kreatur);
-  const { material, setzeRand } = useMemo(() => baueWindMaterial({
-    amplitude: 0, randFarbe: new THREE.Color(rand.farbe), randStaerke: rand.staerke,
+  const { material } = useMemo(() => baueWindMaterial({
+    amplitude: 0, randFarbe: new THREE.Color(0), randStaerke: 0,
   }), []);
-  useEffect(() => {
-    setzeRand(new THREE.Color(rand.farbe), rand.staerke);
-  }, [setzeRand, rand]);
   // Material tauschen und Schatten setzen — einmal je Szene. Die neue Figur behält ihre Texturen
   // und bekommt die Wahl aus dem Editor (Frisur, Haut, Haar).
   const fuss = useRef<FussZustand>(neuerFussZustand());
-  const himmelKarte = useHimmelKarte();
   const stoff = useRef<ReturnType<typeof baueKleiderfall>>(null);
   useEffect(() => {
     if (!held) return;
     stoff.current = baueKleiderfall(scene);
     return () => { stoff.current?.loese(); stoff.current = null; };
   }, [scene, held]);
-  // D213: Saum für die neuen Gestalten aus derselben Randfarbe wie Kreaturen und alte Figur.
-  useEffect(() => { setzeFigurSaum(rand.farbe, rand.staerke); }, [rand]);
   useEffect(() => {
-    if (held) { legeWahlAn(scene, wahl!, MILBINGERLICHT_AN); setzeFigurUmgebung(scene, himmelKarte); return; }
+    if (held) { legeWahlAn(scene, wahl!, MILBINGERLICHT_AN); return; }
     scene.traverse(o => {
       const m = o as THREE.Mesh;
       if (m.isMesh) { m.material = material; m.castShadow = true; m.receiveShadow = true; m.frustumCulled = false; }
     });
-  }, [scene, material, held, wahl, himmelKarte]);
+  }, [scene, material, held, wahl]);
   const mixer = useMemo(() => new THREE.AnimationMixer(scene), [scene]);
   const clips = useMemo(() => {
     const finde = (n: string) => animations.find(c => c.name === n) ?? animations[0];
@@ -4390,7 +4380,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
           // mitten auf dem Blatt und die Axt am Kopf (im Standbild `?pose=` gefunden).
           teil.traverse(o => {
             if (!(o instanceof THREE.Mesh)) return;
-            o.castShadow = true;
+            o.castShadow = true; o.receiveShadow = true;
             o.material = (o.material as THREE.Material).clone();
           });
           gruppe.add(teil);
@@ -4431,6 +4421,7 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
   // D178: Aussehen nach Schmiedestufe. Stufe 1/2: Stahl heller und glänzender (geschliffen, gehärtet),
   // Stufe 3: das meisterliche Modell statt des einfachen.
   const [waffenGeladen, setWaffenGeladen] = useState(false);
+  const leuchtendeWaffe = useRef<THREE.Group | null>(null);
   useEffect(() => {
     for (const [art, gruppe] of [['klinge', waffen.klinge], ['axt', waffen.axt], ['speer', waffen.speer]] as const) {
       const stufe = waffenStufen?.[art] ?? 0;
@@ -4530,10 +4521,20 @@ function SpielerFigur({ gier, schritt, rand, reittier, kampf, waffenStufen, hoeh
     waffen.axt.visible = !!k && k.waffe === 'axt';
     waffen.speer.visible = !!k && k.waffe === 'speer';
     // D188: Kernfunke — die Waffe in der Hand schimmert mit der Ladung, voll pulsiert sie wasserblau.
-    if (k?.waffe) {
-      const l = k.element ? k.ladung ?? 0 : 0;
-      const staerke = l >= 1 ? 0.55 + 0.35 * Math.sin(performance.now() / 140) : l * 0.25;
-      waffen[k.waffe].traverse(o => {
+    const ladung = k?.element ? k.ladung ?? 0 : 0;
+    const geladen = k?.waffe && ladung > 0 ? waffen[k.waffe] : null;
+    // Die Kopie auf dem Rücken teilt ihr Material mit dem Handmodell.
+    // Beim Wegstecken oder Wechseln muss auch die zuletzt aktive Waffe erlöschen.
+    if (leuchtendeWaffe.current && leuchtendeWaffe.current !== geladen) {
+      leuchtendeWaffe.current.traverse(o => {
+        const m = (o as THREE.Mesh).material;
+        if (m instanceof THREE.MeshStandardMaterial) m.emissiveIntensity = 0;
+      });
+    }
+    leuchtendeWaffe.current = geladen;
+    if (geladen && k) {
+      const staerke = ladung >= 1 ? 0.55 + 0.35 * Math.sin(performance.now() / 140) : ladung * 0.25;
+      geladen.traverse(o => {
         const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
         if (!m || !('emissive' in m)) return;
         if (k.element === 'stein') m.emissive.setRGB(0.85, 0.6, 0.3); else m.emissive.setRGB(0.15, 0.55, 1.0);
@@ -5623,7 +5624,7 @@ export function RegionsSzene({
         <Fundstellen orte={funde} ziel={ref} gelesen={gelesen ?? LEER} onFund={onFund} />
       )}
       {ortsmarken.length > 0 && (
-        <Orte orte={ortsmarken} ziel={ref} onNah={onOrtNah} rand={{ farbe: s.randFarbe, staerke: s.randStaerke }}
+        <Orte orte={ortsmarken} ziel={ref} onNah={onOrtNah}
               tageszeit={tageszeit}
               hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} />
       )}

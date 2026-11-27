@@ -102,20 +102,6 @@ export function hautFarbe(haut: number): THREE.Color {
 /** Mittlere Leuchtdichte der Hauttexturen (linear), gemessen im Editorbild — die Zeichnung um 1. */
 const HAUT_MITTEL = 0.22;
 
-/**
- * Licht, das alle Figuren teilen (D213): Saum aus der Stimmung (dieselbe Randfarbe, die Kreaturen
- * und die alte Figur über `windmaterial.ts` tragen — die neuen Gestalten hatten ihn nie, ihr Pfad
- * kehrte vor dem Materialtausch zurück). Die Szene setzt die Werte, die Materialien lesen sie.
- */
-export const FIGUR_LICHT = {
-  saum: { value: new THREE.Color(0, 0, 0) },
-  saumStaerke: { value: 0 },
-};
-export function setzeFigurSaum(farbe: THREE.ColorRepresentation, staerke: number): void {
-  FIGUR_LICHT.saum.value.set(farbe);
-  FIGUR_LICHT.saumStaerke.value = staerke;
-}
-
 /** Stoffanteil, Erdsaum. Die Metallic-Karte schützt Schnallen und Beschläge. */
 function kleiderwerte(name: string): THREE.Vector2 {
   if (name.includes('_Feet')) return new THREE.Vector2(.12, 1);
@@ -156,14 +142,8 @@ const KLEIDER_ALTERUNG_GLSL = /* glsl */ `
   roughnessFactor = mix(roughnessFactor, max(roughnessFactor, .69 + .20 * faser + .08 * aufgeraut), lederStoff);
 `;
 
-/**
- * Figurshader (D213, ADR-0012): ein Eingriff für alle Materialien einer Gestalt.
- * - **Saum:** Fresnel an der Silhouette in der Randfarbe der Stimmung — löst die Figur im
- *   Gegenlicht und im Dunst vom Hintergrund (die stärkste Einzelwirkung in Soulframe-Bildern).
- * - **Haut** (nur mit `ton`): Farbton aus der Wahl (D176), dazu eine weiche, rötliche Lichtkante —
- *   Licht dringt in Haut ein und tritt hinter dem Terminator wieder aus. Ohne das wirkt Haut wie
- *   bemalter Kunststoff. Eine Näherung (Wrap-Lighting), keine Streuung.
- */
+/** Hautzeichnung und Stoffabrieb verändern die Oberflächeneigenschaften vor der
+ * PBR-Beleuchtung. Die Gestalten beziehen Licht, Schatten und Reflexe aus der Spielszene. */
 function figurShader(mat: THREE.MeshStandardMaterial, ton: THREE.Color | null, kleid: THREE.Vector2 | null = null): void {
   if (ton) {
     const u = (mat.userData.haut ??= { value: ton.clone() }) as { value: THREE.Color };
@@ -171,13 +151,11 @@ function figurShader(mat: THREE.MeshStandardMaterial, ton: THREE.Color | null, k
     mat.color.set(1, 1, 1);
   }
   const haut = !!ton;
-  const schluessel = haut ? 'brachland-figur-haut-v1' : kleid ? 'brachland-figur-kleidung-v1' : 'brachland-figur-v1';
+  const schluessel = haut ? 'brachland-figur-haut-v2' : kleid ? 'brachland-figur-kleidung-v2' : 'brachland-figur-v2';
   if (mat.userData.figurShader === schluessel) return;
   mat.userData.figurShader = schluessel;
   mat.onBeforeCompile = sh => {
-    sh.uniforms.uSaum = FIGUR_LICHT.saum;
-    sh.uniforms.uSaumStaerke = FIGUR_LICHT.saumStaerke;
-    let f = 'uniform vec3 uSaum;\nuniform float uSaumStaerke;\n' + sh.fragmentShader;
+    let f = sh.fragmentShader;
     if (kleid) {
       sh.uniforms.uKleiderwerte = { value: kleid };
       sh.vertexShader = sh.vertexShader
@@ -192,41 +170,10 @@ function figurShader(mat: THREE.MeshStandardMaterial, ton: THREE.Color | null, k
       float hautL = dot(diffuseColor.rgb, vec3(0.2126, 0.7152, 0.0722));
       diffuseColor.rgb = hautTon * clamp(hautL / ${HAUT_MITTEL.toFixed(3)}, 0.35, 1.8);`);
     }
-    f = f.replace('#include <lights_fragment_end>', `#include <lights_fragment_end>
-      ${haut ? `#if NUM_DIR_LIGHTS > 0
-      {
-        float nl = dot(geometryNormal, directionalLights[0].direction);
-        float wickel = max(0.0, (nl + 0.5) / 1.5) - max(0.0, nl);
-        reflectedLight.directDiffuse += BRDF_Lambert(diffuseColor.rgb) * vec3(1.0, 0.42, 0.3)
-          * directionalLights[0].color * wickel * 0.55;
-      }
-      #endif` : ''}
-      {
-        float saumKante = 1.0 - abs(dot(geometryNormal, geometryViewDir));
-        reflectedLight.indirectSpecular += uSaum * pow(saumKante, 3.0) * uSaumStaerke${kleid ? ' * mix(1.0, .65 - .30 * faser, lederStoff)' : ''};
-      }`);
     sh.fragmentShader = f;
   };
   mat.customProgramCacheKey = () => schluessel;
   mat.needsUpdate = true;
-}
-
-/**
- * Umgebungskarte auf alle Materialien einer Gestalt (D213): Bis hierher hatte keine Figur eine —
- * die PBR-Texturen (Rauheit, Metall an Gürtel und Schnallen) hatten nichts zu spiegeln und lasen
- * sich stumpf. Schwach (`staerke`), weil die Karte nur Himmel enthält und das Fülllicht schon da ist.
- */
-export function setzeFigurUmgebung(obj: THREE.Object3D, karte: THREE.Texture | null, staerke = 0.35): void {
-  obj.traverse(o => {
-    const m = o as THREE.Mesh;
-    if (!m.isMesh) return;
-    for (const mat of (Array.isArray(m.material) ? m.material : [m.material]) as THREE.MeshStandardMaterial[]) {
-      if (!('envMap' in mat) || mat.envMap === karte) continue;
-      mat.envMap = karte;
-      mat.envMapIntensity = staerke;
-      mat.needsUpdate = true;
-    }
-  });
 }
 
 /** Konservative Hülle der gerade gespielten Skelettpose (D481). Jeder gewichtete Eckpunkt

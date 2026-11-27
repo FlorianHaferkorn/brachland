@@ -417,7 +417,20 @@ export function baueGebaeude(
    */
   let aoBoden = -Infinity, aoTraufe = -Infinity;
   let lokalerBodenkontakt = false;
-  const kontaktBoden = (v: readonly number[]) => lokalerBodenkontakt ? terrain.hoeheAn(v[0], v[2]) : aoBoden;
+  // Benachbarte Wanddreiecke teilen Bodenkoordinaten, auch über mehrere Geschosse.
+  // Die letzten acht exakten Höhen bleiben für diesen Bauaufruf verfügbar.
+  const bodenX = new Float64Array(8).fill(NaN), bodenZ = new Float64Array(8), bodenH = new Float64Array(8);
+  let naechsteHoehe = 0;
+  const kontaktBoden = (v: readonly number[]) => {
+    if (!lokalerBodenkontakt) return aoBoden;
+    const x = v[0], z = v[2];
+    for (let i = 0; i < bodenX.length; i++)
+      if (bodenX[i] === x && bodenZ[i] === z) return bodenH[i];
+    const h = terrain.hoeheAn(x, z);
+    bodenX[naechsteHoehe] = x; bodenZ[naechsteHoehe] = z; bodenH[naechsteHoehe] = h;
+    naechsteHoehe = (naechsteHoehe + 1) % bodenX.length;
+    return h;
+  };
   const ao = (y: number, ueber: number): number => {
     let f = 1;
     if (ueber < 0.9) f *= 0.68 + 0.32 * Math.max(0, ueber) / 0.9;
