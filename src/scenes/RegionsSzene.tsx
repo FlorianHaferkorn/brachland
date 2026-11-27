@@ -1059,11 +1059,12 @@ function LodBaender({ welt, feld, satz, kacheln, ziel, boden,
 
 /** D363: Höfe aus dem Hof-Baukasten (`content/hofbauten.json`) an ihren Grundrissen. */
 function HofbauSchicht({ lagen }: { lagen: readonly HofbauLage[] }) {
+  const uhr = useThree(s => s.clock);
   const gruppe = useRef<THREE.Group>(null);
   useEffect(() => {
     if (!gruppe.current) return;
-    return ladeHofbauten(lagen, gruppe.current);
-  }, [lagen]);
+    return ladeHofbauten(lagen, gruppe.current, () => uhr.elapsedTime);
+  }, [lagen, uhr]);
   return <group ref={gruppe} />;
 }
 
@@ -5041,7 +5042,8 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
       if (versperrt(p.x + rx * d, blickY + ry * d, p.z + rz * d)) { frei = d - SICHT_PUFFER; break; }
     }
     const ziel_ = Math.max(KAMERA_MIN, Math.min(weit, frei));
-    abstand.current = ziel_ < abstand.current
+    const einziehen = ziel_ < abstand.current;
+    abstand.current = einziehen
       ? ziel_
       : abstand.current + (ziel_ - abstand.current) * Math.min(1, dt * 2.5);
 
@@ -5052,7 +5054,7 @@ function Kamera({ ziel, gier, neigung, feld, kollision, kampf }: {
     if (!gesetzt.current) { geglaettet.current.copy(wunsch); gesetzt.current = true; }
     // Der Glättungsfaktor folgt dem Einziehen: Wo die Sichtlinie frei ist, darf die
     // Kamera weich nachlaufen; beim Einziehen muss sie sofort da sein.
-    geglaettet.current.lerp(wunsch, ziel_ < r - 0.01 ? 1 : Math.min(1, dt * 4));
+    geglaettet.current.lerp(wunsch, einziehen ? 1 : Math.min(1, dt * 4));
     if (KAMERA_MESSLAUF) {
       // Feste Kamera (Stufe 2): dieselbe Position und Brennweite wie die Blender-Szene, sonst
       // vergleicht man zwei Bilder von zwei Standpunkten.
@@ -5632,7 +5634,7 @@ export function RegionsSzene({
       <EzBaumProbe ziel={ref} lokal={HOF_GRUEN_AN} milbinger={MILBINGERLICHT_AN && !!wiesenbereich} />
       {LOOK_FELS_AN && !istAus('kronen') && !(SCAN_BAEUME_AN && BAUWERKE.some(b => b.name === 'felsmulde' && (b.dateien.includes('baeume') || (SCAN_BUESCHEL_AN && b.dateien.includes('bueschel'))))) && <Suspense fallback={null}><Rahmenkronen hoeheAn={(x, z) => hoeheAufFlaeche(feld, x, z)} /></Suspense>}
       {/* D210: Bloom und Lichtschaechte (ADR-0012, Hebel 6); `?bloom=0`, `?schacht=0` zum Vergleich. */}
-      <Kontur an={konturAn(true)} felsAtmosphaere={LOOK_FELS_AN && STIMMUNG_MESSLAUF === STIMMUNG.zielbildfels} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
+      <Kontur an={konturAn(!HOFBAU_AN)} felsAtmosphaere={LOOK_FELS_AN && STIMMUNG_MESSLAUF === STIMMUNG.zielbildfels} ao={aoStaerke(1.4)} aoRadius={aoReichweite(8)}
               bloom={0.12} schacht={0.45} sonne={s.sonnenstand} sonnenFarbe={s.sonne} />
       <Messung melde={onMessung} />
       </WasserUmgebung>

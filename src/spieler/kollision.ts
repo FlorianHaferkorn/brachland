@@ -10,7 +10,7 @@
  * Handvoll Kandidaten.
  */
 import type { PropArt, PropInstanz } from '../world/props.js';
-import type { Weltdaten } from '../world/osm.js';
+import { imPolygon, type Weltdaten } from '../world/osm.js';
 import { gesperrt, SZENEN_STAEMME } from '../world/bauwerke.js';
 
 /** Stammradius je Art in Metern, wird mit der Instanzskalierung multipliziert. */
@@ -29,8 +29,11 @@ export const SPIELER_RADIUS = 0.35;
 
 interface Hindernis { x: number; z: number; r: number }
 
-/** Gebäude als achsenparalleles Rechteck — Grundrisse sind überwiegend rechteckig. */
-interface Rechteck { x0: number; x1: number; z0: number; z1: number }
+interface Grundriss {
+  ring: [number, number][];
+  x0: number; x1: number; z0: number; z1: number;
+  umlauf: number;
+}
 
 export interface Kollisionsfeld {
   /** Schiebt eine Position aus allen überlappenden Hindernissen heraus. */
@@ -41,34 +44,52 @@ export interface Kollisionsfeld {
 
 const schluessel = (ix: number, iz: number) => ix * 100003 + iz;
 
-/**
- * Gebäudegrundrisse als Rechtecke in Weltkoordinaten.
- *
- * Eine exakte Polygonprüfung wäre genauer, aber OSM-Grundrisse sind fast immer
- * rechteckig, und der Unterschied ist ein halber Meter an einer Ecke. Ein Spieler,
- * der an einer Hauswand entlangläuft, merkt davon nichts — dass er *durch* das Haus
- * läuft, merkt er sofort.
- */
-function baueGebaeudeRechtecke(
-  welt: Weltdaten, breiteMeter: number, tiefeMeter: number,
-): Rechteck[] {
+/** Grundrisse in Weltmetern. Die Rastergrenzen schließen die Schulterbreite ein. */
+function baueGrundrisse(welt: Weltdaten, breiteMeter: number, tiefeMeter: number): Grundriss[] {
   const [sued, west, nord, ost] = welt.bbox;
-  const zuWelt = (lat: number, lon: number): [number, number] => [
-    ((lon - west) / (ost - west) - 0.5) * breiteMeter,
-    ((nord - lat) / (nord - sued) - 0.5) * tiefeMeter,
-  ];
-  const aus: Rechteck[] = [];
+  const aus: Grundriss[] = [];
   for (const g of welt.gebaeude ?? []) {
-    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
-    for (const [lat, lon] of g.punkte) {
-      const [x, z] = zuWelt(lat, lon);
+    if (g.punkte.length < 3) continue;
+    const ring: [number, number][] = g.punkte.map(([lat, lon]) => [
+      ((lon - west) / (ost - west) - .5) * breiteMeter,
+      ((nord - lat) / (nord - sued) - .5) * tiefeMeter,
+    ]);
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, flaeche = 0;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [x, z] = ring[i];
       x0 = Math.min(x0, x); x1 = Math.max(x1, x);
       z0 = Math.min(z0, z); z1 = Math.max(z1, z);
+      flaeche += ring[j][0] * z - x * ring[j][1];
     }
-    // Ausgeblendete Haeuser (Freihaltung eines Bauwerks, `terrain.ts`) duerfen auch nicht unsichtbar im Weg stehen
-    if (Number.isFinite(x0) && !gesperrt((x0 + x1) / 2, (z0 + z1) / 2, 'haeuser')) aus.push({ x0, x1, z0, z1 });
+    if (!flaeche || gesperrt((x0 + x1) / 2, (z0 + z1) / 2, 'haeuser')) continue;
+    aus.push({ ring, umlauf: Math.sign(flaeche), x0: x0 - SPIELER_RADIUS, x1: x1 + SPIELER_RADIUS,
+      z0: z0 - SPIELER_RADIUS, z1: z1 + SPIELER_RADIUS });
   }
   return aus;
+}
+
+/** Kürzester Weg zur Fassade, einschließlich konkaver Grundrisse und gedrehter Giebel. */
+function vonWandAbruecken(x: number, z: number, g: Grundriss): [number, number] | null {
+  if (x <= g.x0 || x >= g.x1 || z <= g.z0 || z >= g.z1) return null;
+  let d2 = Infinity, randX = x, randZ = z, nx = 0, nz = 0;
+  for (let i = 0, j = g.ring.length - 1; i < g.ring.length; j = i++) {
+    const [ax, az] = g.ring[j], [bx, bz] = g.ring[i];
+    const dx = bx - ax, dz = bz - az, laenge2 = dx * dx + dz * dz;
+    if (laenge2 === 0) continue;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / laenge2));
+    const rx = ax + t * dx, rz = az + t * dz, abstand2 = (x - rx) ** 2 + (z - rz) ** 2;
+    if (abstand2 >= d2) continue;
+    d2 = abstand2; randX = rx; randZ = rz;
+    nx = dz * g.umlauf; nz = -dx * g.umlauf;
+  }
+  const innen = imPolygon([x, z], g.ring);
+  if (!innen && d2 >= SPIELER_RADIUS ** 2 - 1e-10) return null;
+  if (d2 > 1e-12) {
+    const seite = innen ? -1 : 1;
+    nx = (x - randX) * seite; nz = (z - randZ) * seite;
+  }
+  const schub = SPIELER_RADIUS / Math.hypot(nx, nz);
+  return [randX + nx * schub, randZ + nz * schub];
 }
 
 export function baueKollision(
@@ -81,11 +102,11 @@ export function baueKollision(
   szenenStaemme: readonly (readonly [number, number, number])[] = SZENEN_STAEMME,
 ): Kollisionsfeld {
   const raster = new Map<number, Hindernis[]>();
-  const bauten = new Map<number, Rechteck[]>();
+  const bauten = new Map<number, Grundriss[]>();
   let anzahl = 0;
 
-  const rechtecke = welt ? baueGebaeudeRechtecke(welt, breiteMeter, tiefeMeter) : [];
-  for (const r of rechtecke) {
+  const grundrisse = welt ? baueGrundrisse(welt, breiteMeter, tiefeMeter) : [];
+  for (const r of grundrisse) {
     // In jede berührte Zelle eintragen — Gebäude sind größer als eine Zelle.
     for (let iz = Math.floor(r.z0 / ZELLE); iz <= Math.floor(r.z1 / ZELLE); iz++)
       for (let ix = Math.floor(r.x0 / ZELLE); ix <= Math.floor(r.x1 / ZELLE); ix++) {
@@ -118,7 +139,7 @@ export function baueKollision(
 
   return {
     anzahl,
-    gebaeude: rechtecke.length,
+    gebaeude: grundrisse.length,
     schiebeRaus(x, z) {
       const ix = Math.floor(x / ZELLE), iz = Math.floor(z / ZELLE);
       // Zwei Durchgänge: Wer zwischen zwei Stämmen steckt, wird sonst in den
@@ -139,23 +160,13 @@ export function baueKollision(
               z = h.z + (ez / d) * mindest;
               bewegt = true;
             }
-            const bl = bauten.get(schluessel(ix + dx, iz + dz));
-            if (!bl) continue;
-            for (const r of bl) {
-              const ax0 = r.x0 - SPIELER_RADIUS, ax1 = r.x1 + SPIELER_RADIUS;
-              const az0 = r.z0 - SPIELER_RADIUS, az1 = r.z1 + SPIELER_RADIUS;
-              if (x <= ax0 || x >= ax1 || z <= az0 || z >= az1) continue;
-              // Auf der kürzesten Strecke hinausschieben — sonst springt man durch.
-              const links = x - ax0, rechts = ax1 - x;
-              const vorne = z - az0, hinten = az1 - z;
-              const min = Math.min(links, rechts, vorne, hinten);
-              if (min === links) x = ax0;
-              else if (min === rechts) x = ax1;
-              else if (min === vorne) z = az0;
-              else z = az1;
-              bewegt = true;
-            }
           }
+        }
+        // Häuser liegen in jeder von ihnen berührten Rasterzelle, auch in Zellen ohne Stamm.
+        const haeuser = bauten.get(schluessel(Math.floor(x / ZELLE), Math.floor(z / ZELLE)));
+        if (haeuser) for (const haus of haeuser) {
+          const korrigiert = vonWandAbruecken(x, z, haus);
+          if (korrigiert) { [x, z] = korrigiert; bewegt = true; }
         }
         if (!bewegt) break;
       }

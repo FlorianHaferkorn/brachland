@@ -126,13 +126,49 @@ export function hofEfeukarten(ecke: NonNullable<Hofbau['efeuecke']>, saat: numbe
   return karten;
 }
 
+/** Die beiden in Blender gebogenen Stoffposen haben dieselbe feste Oberkante.
+ * Die Welle trifft das Fenster in derselben Phase wie das Gras an seinem Weltort. */
+function haengeVorhangEin(haus: THREE.Object3D, stoff: THREE.Object3D, spielzeit: () => number): void {
+  haus.add(stoff);
+  const tuch = stoff.getObjectByName('Vorhang');
+  if (!(tuch instanceof THREE.Mesh) || !tuch.morphTargetInfluences || !tuch.morphTargetDictionary) return;
+  const gewichte = tuch.morphTargetInfluences;
+  const { Boe: boe, Zipfel: zipfel } = tuch.morphTargetDictionary;
+  const ort = haus.localToWorld(new THREE.Vector3(.24, 1.33, 1.12));
+  const phase = (ort.x * .8 + ort.z * .6) * .35;
+  tuch.receiveShadow = true;
+  tuch.onBeforeRender = () => {
+    const zeit = spielzeit();
+    const welle = .5 + .5 * Math.sin(phase - zeit * 1.6);
+    const stoss = welle * welle;
+    gewichte[boe] = .84 * stoss;
+    gewichte[zipfel] = (1 - gewichte[boe]) * (.12 + .65 * welle) *
+      (.5 + .5 * Math.sin(phase - zeit * 3.2 + .8));
+  };
+}
+
+declare const __HOFDATEIEN__: Readonly<Record<string, string>>;
+
+function hofdatei(modell: string): string {
+  const name = modell + '.glb';
+  const stand = __HOFDATEIEN__[name];
+  return '/bauten/' + name + (stand ? '?v=' + stand : '');
+}
+
+/** Das Leinwandbild gehört ausschließlich diesem geladenen Vorhang. */
+function entsorgeStoffmaterial(material: THREE.Material): void {
+  if (material instanceof THREE.MeshStandardMaterial) material.map?.dispose();
+  material.dispose();
+}
+
 /** Lädt die Modelle in `ziel`; Rückgabe räumt auf. */
-export function ladeHofbauten(lagen: readonly HofbauLage[], ziel: THREE.Group): () => void {
+export function ladeHofbauten(lagen: readonly HofbauLage[], ziel: THREE.Group, spielzeit: () => number): () => void {
   let frei = false;
   const geladen: THREE.Object3D[] = [];
+  const stoffmaterialien = new Set<THREE.Material>();
   const lader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   for (const l of lagen) {
-    void lader.loadAsync(`/bauten/${l.modell}.glb`).then(({ scene }) => {
+    void lader.loadAsync(hofdatei(l.modell)).then(({ scene }) => {
       if (frei) return;
       bereiteHofholzVor(scene);
       scene.position.set(...l.ort);
@@ -157,10 +193,24 @@ export function ladeHofbauten(lagen: readonly HofbauLage[], ziel: THREE.Group): 
         });
       }
       ziel.add(scene); geladen.push(scene);
+      if (l.modell === 'hof-708') {
+        void lader.loadAsync(hofdatei('hof-708-vorhang')).then(({ scene: stoff }) => {
+          stoff.traverse(o => {
+            if (!(o instanceof THREE.Mesh)) return;
+            if (frei) o.geometry.dispose();
+            for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+              if (frei) entsorgeStoffmaterial(m);
+              else stoffmaterialien.add(m);
+            }
+          });
+          if (!frei) haengeVorhangEin(scene, stoff, spielzeit);
+        }).catch((f: unknown) => { if (!frei) console.warn('Hofvorhang fehlt.', f); });
+      }
     }).catch((f: unknown) => { if (!frei) console.warn(`Hofbau ${l.modell} fehlt.`, f); });
   }
   return () => {
     frei = true;
+    for (const m of stoffmaterialien) entsorgeStoffmaterial(m);
     for (const o of geladen) {
       o.removeFromParent();
       o.traverse(teil => {

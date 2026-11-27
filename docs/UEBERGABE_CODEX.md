@@ -8,6 +8,10 @@ shelf-life-days: 30
 > Sitzung. Offen/erledigt steht im Ledger (`_INDEX.md`), nicht hier. Wenn alles übernommen ist: Datei löschen und im
 > Index austragen.
 
+**Weststraße und Modellhof (D491).** Die CDP-Stichprobe auf der 152-m-Route ordnet die früheren Allokationen den Knochenhüllen der Bewohner und der Baumgruppenverwaltung zu. Die Hüllen werden numerisch äquivalent berechnet, die Gruppen bei einer Änderung ihres Bestands neu aufgebaut. Messweg und Befehle stehen in [MESSLAUF.md](MESSLAUF.md#weststraße-und-hofeingang-d491). Gebäude 708 trägt Feuchtespuren vom Sockel in den Putz und einen vom Graswind bewegten Leinenvorhang. Standbilder und Anlauf: `.cache/bilder/D491/`.
+
+**Modellhof (D490).** Der Vergleich in `.cache/bilder/D490/` zeigt die ruhigere Hofwiese und die Kollision am Haus. Die damals zu langen Bildzeiten stehen in `.cache/mess/hoftest-1795719128504/ergebnis.json`. In der Weststraße entfielen in einem Diagnoselauf 463 ms eines 534-ms-Bilds auf die Speicherbereinigung. D491 nimmt diesen Befund auf.
+
 **Hof und Spielwelt (D489).** Der Trittweg von Hof 708 und sein Abzweig liegen als lokale Linien in `content/hofbauten.json`. Sie folgen der Ausrichtung des Hauses. Der Vergleich mit D440 nutzt weiterhin dieselbe Kamera und Tageszeit. Karte, Beutel und Heft sind der reguläre Einstieg ins Menü. Die vorher massiven grünen Büsche vor dem Eckpfosten und am Wegrand nutzen jetzt instanzierte Laubkarten. Die Story-Bibel v2 ist für den Befall der Tiere maßgeblich. Für die Reinigungsaufträge zu Alpenmurmel, Firnhase und Myzelmolch fehlen noch Echtzeitprofile. Der Regentenort bietet noch den älteren Rundenkampf, bis ein geprüfter Echtzeit-Regent existiert.
 
 **Häuser (D487–D488).** Maßstab ist Claudes Blender-Hof 708, siehe [Ortsverfahren](VERFAHREN_ORT.md#qualitätsziel-für-alle-häuser-d487). Die modellierte Hofterrasse hebt das Erdgeschoss um 1,65 m. Efeu an der Laubenecke und Regenschatten am Holz sind am Einzelmodell im Spiel. Vorher/Nachher aus derselben Kamera und der Gang zum Haus liegen in `.cache/bilder/D488/`. Der durchgehende Weg zum Eingang und die Ausleuchtung des Wohngiebels weichen weiterhin von D440 ab.

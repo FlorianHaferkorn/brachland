@@ -232,8 +232,8 @@ export function setzeFigurUmgebung(obj: THREE.Object3D, karte: THREE.Texture | n
  * liegt in der konvexen Hülle seiner Knochenbeiträge. So dürfen Haupt- und Schattenkamera
  * dieselbe Figur unabhängig prüfen; Tagesroutine, Mixer und Fußsetzung laufen weiter. */
 export function begrenzeBewohner(obj: THREE.Object3D): () => void {
-  const ecke = new THREE.Vector3(), mitte = new THREE.Vector3();
-  const matrix = new THREE.Matrix4(), box = new THREE.Box3();
+  const ecke = new THREE.Vector3(), box = new THREE.Box3();
+  const minima = new Float64Array(3), maxima = new Float64Array(3);
   const teile: { mesh: THREE.SkinnedMesh; alt: THREE.Sphere; pruefte: boolean; knochen: { index: number; radius: number }[] }[] = [];
   obj.traverse(o => {
     if (!(o instanceof THREE.SkinnedMesh) || !o.visible || o.geometry.morphAttributes.position?.length) return;
@@ -259,17 +259,25 @@ export function begrenzeBewohner(obj: THREE.Object3D): () => void {
     fortschreiben.call(this, force);
     // Nach den Kindmatrizen rechnen: Die Füße können im laufenden Bild bereits aufgesetzt haben.
     for (const { mesh, knochen } of teile) {
-      box.makeEmpty();
-      for (const { index, radius } of knochen) {
-        matrix.multiplyMatrices(mesh.bindMatrixInverse, mesh.skeleton.bones[index].matrixWorld);
-        mitte.setFromMatrixPosition(matrix);
-        // Länge jeder Zeile = größtmögliche Verschiebung der Kugel entlang der jeweiligen Achse.
-        const e = matrix.elements;
-        const x = radius * Math.hypot(e[0], e[4], e[8]), y = radius * Math.hypot(e[1], e[5], e[9]);
-        const z = radius * Math.hypot(e[2], e[6], e[10]);
-        box.expandByPoint(ecke.set(mitte.x - x, mitte.y - y, mitte.z - z));
-        box.expandByPoint(ecke.set(mitte.x + x, mitte.y + y, mitte.z + z));
+      minima.fill(Infinity); maxima.fill(-Infinity);
+      const bind = mesh.bindMatrixInverse.elements;
+      for (let i = 0; i < knochen.length; i++) {
+        const { index, radius } = knochen[i];
+        const welt = mesh.skeleton.bones[index].matrixWorld.elements;
+        // Affine Zeile von Bindinverse × Knochenwelt: Translation ist die Mitte,
+        // die Länge der ersten drei Komponenten die Ausdehnung je Radius.
+        for (let achse = 0; achse < 3; achse++) {
+          const a = bind[achse], b = bind[achse + 4], c = bind[achse + 8];
+          const x = a * welt[0] + b * welt[1] + c * welt[2];
+          const y = a * welt[4] + b * welt[5] + c * welt[6];
+          const z = a * welt[8] + b * welt[9] + c * welt[10];
+          const mitte = a * welt[12] + b * welt[13] + c * welt[14] + bind[achse + 12];
+          const halb = radius * Math.sqrt(x * x + y * y + z * z);
+          minima[achse] = Math.min(minima[achse], mitte - halb);
+          maxima[achse] = Math.max(maxima[achse], mitte + halb);
+        }
       }
+      box.min.fromArray(minima); box.max.fromArray(maxima);
       box.getBoundingSphere(mesh.boundingSphere!);
     }
   };

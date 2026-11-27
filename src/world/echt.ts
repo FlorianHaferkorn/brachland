@@ -25,7 +25,7 @@ export const HOF_STRAUCH_WEIT = HOF_GRUEN_AN && suche.get('strauchweit') !== '0'
 /** D300: abgestufte Blattkanten im MSAA-Ziel; `blattruhe=0` erhält den D299-Gegenlauf. */
 export const BLATTRUHE_AN = HOF_GRUEN_AN && suche.get('blattruhe') !== '0';
 /** D301: kontinuierliche AO-Flächen statt Normalen über Blatt-/Himmel-Tiefensprünge. */
-export const BLATTVERLAUF_AN = BLATTRUHE_AN && suche.get('blattverlauf') !== '0';
+export const BLATTVERLAUF_AN = (BLATTRUHE_AN || (an('hofbau') && suche.get('blattruhe') !== '0')) && suche.get('blattverlauf') !== '0';
 /** D304: Bauteile auf den örtlichen Hofverbund übertragen; D303 bleibt separat abrufbar. */
 export const HOF_HAEUSER_AN = HOF_GRUEN_AN && an('hofhaeuser');
 /** D307: örtliche Bodenmischung, Zugänge und Geländekontakt; Rückfall hofboden=0. */

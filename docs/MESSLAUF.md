@@ -1020,3 +1020,23 @@ p9566,6/66,7/83,3/66,7ms. Mittel30,94→30,13FPS, lokal−2,6%;
 kleine Stichprobe und Systemlast, kein allgemeiner Gerätebenchmark.
 Renderaufrufe656jeweils; gezählte Dreiecke einschließlich Renderpässen
 7.644.993→7.664.953.
+
+### Hofwiese am Modellhof 708 (D490)
+
+Am Startpunkt des D489-Anlaufs vergleicht die Probe ein 300 × 145 Pixel großes Wiesenfeld links unterhalb des Hauses. `subpixel` verschiebt die Projektion bei festem Wind um bis zu einen Pixel. `taa` prüft 48 Bilder mit zeitlicher Kantenglättung bei ruhender Kamera. Die Werte beschreiben die Schwankung der Pixelkanäle (0–255). Die Aufnahme mit ausgeblendetem Grasteppich zeigt, wie viel der übrige Bildinhalt beiträgt.
+
+```sh
+node tools/mess/blattlauf.mjs hof708-raster 1 subpixel '' hof708
+node tools/mess/blattlauf.mjs hof708-raster-ohne-gras 1 subpixel 'aus=teppich' hof708
+node tools/mess/blattlauf.mjs hof708-zeitlich 1 taa '' hof708
+```
+
+Der Gang mit W folgt anschließend der normalen Spielkamera wie in D489. Bildzeiten separat ohne Aufnahme messen.
+
+D489 → D490 am M1: Der mittlere absolute Fehler der Subpixelprobe sank von 14,35 auf 8,81 (Vergleich ohne Grasteppich 1,58). Die mittlere zeitliche Schwankung bei aktivem TAA sank von 2,43 auf 0,50 (ohne Grasteppich 0,44). Die PNG-Folgen liegen unter `.cache/mess/d490-*`, der spielbare Kameravergleich unter `.cache/bilder/D490/`.
+
+### Weststraße und Hofeingang (D491)
+
+`MESS_HEAP=1 node tools/mess/vergleich.mjs <neuer-name> '&ziel=milbinger' hofwest 4173` führt den 152-m-Gang unter dem CDP-Heap-Profiler aus. Die 32-KiB-Stichprobe umfasst freigegebene Objekte. Für Bildzeitvergleiche dieselbe Route ohne Profiler verwenden. Die geschätzte Allokation je Bild sank von 699,4 auf 489,9 KiB (`.cache/mess/d491-heap-vor/` und `.cache/mess/d491-heap-kombi/`).
+
+Der Vorhang sitzt im offenen Fenster neben dem Eingang von Gebäude 708. Für die Detailaufnahme bei `hofbau=1&echt=1&zeit=.26` stehen Auge und Blickziel bei `kamera=219.195,176.191,241.949,222.391,175.871,239.103`, Bildwinkel 42°. Der Anlauf bei `absetzen=189,231,-94` und die Standkamera entsprechen D490. Standbilder und Film liegen in `.cache/bilder/D491/`.

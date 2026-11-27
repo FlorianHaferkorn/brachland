@@ -7,6 +7,8 @@ import { messroute, bereiteHofwestroute, hofwestZeiten, laufeHofwestroute } from
 const [name, extra = '', strecke = '0,0,310', port = '4173'] = process.argv.slice(2);
 const weg = messroute(strecke);
 const ort = weg?.start ?? strecke;
+const heapProbe = process.env.MESS_HEAP === '1';
+if (heapProbe && !weg) throw new Error('Die Heap-Stichprobe braucht eine benannte Messroute.');
 if (!name || !/^[a-z0-9_-]+$/i.test(name)) throw new Error('Neuen einfachen Namen angeben.');
 if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) throw new Error('Gültigen lokalen Preview-Port angeben.');
 if (!/^-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?,-?\d+(?:\.\d+)?$/.test(ort)) throw new Error('Ort als x,z,grad angeben.');
@@ -35,7 +37,20 @@ try {
   const startHud = await seite.textContent('body');
   if (weg) {
     await bereiteHofwestroute(seite, weg);
+    // CDP zählt auch die während des Laufs wieder freigegebenen Objekte.
+    const profiler = heapProbe ? await seite.context().newCDPSession(seite) : null;
+    if (profiler) {
+      await profiler.send('HeapProfiler.enable');
+      await profiler.send('HeapProfiler.startSampling', {
+        samplingInterval: 32768, includeObjectsCollectedByMajorGC: true, includeObjectsCollectedByMinorGC: true,
+      });
+    }
     const route = await laufeHofwestroute(seite);
+    if (profiler) {
+      const { profile } = await profiler.send('HeapProfiler.stopSampling');
+      writeFileSync(`${ziel}/speicher.heapprofile`, JSON.stringify(profile));
+      await profiler.detach();
+    }
     const abschnitte = Object.fromEntries(Object.entries(hofwestZeiten(route))
       .map(([abschnitt, zeiten]) => [abschnitt, kennzahlen(zeiten)]));
     if (strecke.startsWith('ort:')) {
@@ -49,7 +64,7 @@ try {
     const ladezeitSek = ladezeit ? Number(ladezeit[1].replace(',', '.')) : null;
     const vorlaufMs = await seite.evaluate(() => performance.getEntriesByType('measure')
       .filter(e => e.name.startsWith('ortsvorlauf-')).at(-1)?.duration ?? null);
-    const bericht = { ort, extra, ladezeitSek, vorlaufMs, ...abschnitte.gesamt, abschnitte, route, fehler };
+    const bericht = { ort, extra, ...(heapProbe ? { heapProfil: 'speicher.heapprofile', stichprobeByte: 32768 } : {}), ladezeitSek, vorlaufMs, ...abschnitte.gesamt, abschnitte, route, fehler };
     writeFileSync(`${ziel}/bericht.json`, JSON.stringify(bericht, null, 2));
     console.log(JSON.stringify({ ort, extra, abschnitte, wegpunkte: route.wegpunkte, fehler }, null, 2));
     await seite.screenshot({ path: `${ziel}/ende.png` });

@@ -14,6 +14,7 @@ type Stufe = 'nah' | 'mittel' | 'fern';
 type BaumArt = 'nadelbaum' | 'laubbaum';
 type GeometriePaar = { stamm: THREE.BufferGeometry; laub: THREE.BufferGeometry };
 type BaumSatz = { baum: Tree; hoehe: number; milbinger: boolean; tiefe: THREE.MeshDepthMaterial; stammTiefe: THREE.MeshDepthMaterial; stufen: Record<Stufe, GeometriePaar> };
+type Baumgruppe = { original: THREE.InstancedMesh; art: BaumArt; variante: number; stufe: Stufe; satz: BaumSatz };
 type Ersatz = {
   original: THREE.InstancedMesh; stamm: THREE.InstancedMesh; laub: THREE.InstancedMesh;
   version: number; farbversion: number; anzahl: number; welt: THREE.Matrix4;
@@ -222,8 +223,8 @@ export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
   const aktiv = globalAn || hofAn;
   const diagnose = useMemo<Diagnose | null>(() => typeof location !== 'undefined' && new URLSearchParams(location.search).get('ezdiagnose') === '1'
     ? { ereignisse: [], naechster: 0, gesamt: 0 } : null, []);
-  const originalgruppen = useRef<{ szene: THREE.Scene | null; stand: number; meshes: THREE.InstancedMesh[] }>({
-    szene: null, stand: -1, meshes: [],
+  const originalgruppen = useRef<{ szene: THREE.Scene | null; stand: number; saetze: Map<string, BaumSatz> | null; gruppen: Baumgruppe[]; meshes: Set<THREE.InstancedMesh> }>({
+    szene: null, stand: -1, saetze: null, gruppen: [], meshes: new Set(),
   });
   const diagnoseBild = useRef(0);
   const diagnoseEntfernt = useRef(new Map<string, DiagnoseEreignis>());
@@ -326,6 +327,8 @@ export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
         }
       }
       saetze.current = null;
+      const bestand = originalgruppen.current;
+      bestand.saetze = null; bestand.szene = null; bestand.gruppen.length = 0; bestand.meshes.clear();
     };
   }, [aktiv, nurHof, ortsKulisse, camera, diagnose, scene, windZeit]);
 
@@ -337,35 +340,38 @@ export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
     for (const [id, w] of wartende.current) if (w.bis <= windZeit.value) {
       wartende.current.delete(id); wartungGeaendert = true;
     }
-    const kandidaten: { original: THREE.InstancedMesh; art: BaumArt; variante: number; stufe: Stufe; satz: BaumSatz }[] = [];
     const bestand = originalgruppen.current;
-    if (bestand.szene !== scene || bestand.stand !== gruppenstand) {
-      bestand.meshes.length = 0;
+    const aktuelleSaetze = saetze.current;
+    if (bestand.szene !== scene || bestand.stand !== gruppenstand || bestand.saetze !== aktuelleSaetze) {
+      bestand.gruppen.length = 0;
+      bestand.meshes.clear();
       scene.traverse(o => {
-        if (o instanceof THREE.InstancedMesh && o.name.startsWith('baum:')) bestand.meshes.push(o);
+        if (!(o instanceof THREE.InstancedMesh) || !o.name.startsWith('baum:') || (nurHof && o.userData.hofGruen !== true)) return;
+        const [, art, rohVariante, stufe] = o.name.split(':');
+        if ((art !== 'nadelbaum' && art !== 'laubbaum') || (stufe !== 'nah' && stufe !== 'mittel' && stufe !== 'fern')) return;
+        const variante = Number(rohVariante);
+        const satz = aktuelleSaetze.get(`${ortsKulisse && o.userData.milbingerBaum === true ? 'milbinger:' : ''}${art}:${variante}`);
+        if (satz) {
+          bestand.gruppen.push({ original: o, art, variante, stufe, satz });
+          bestand.meshes.add(o);
+        }
       });
       bestand.szene = scene;
       bestand.stand = gruppenstand;
-    }
-    for (const o of bestand.meshes) {
-      if (!o.count || !o.instanceColor || (nurHof && o.userData.hofGruen !== true)) continue;
-      const [, rohArt, rohVariante, rohStufe] = o.name.split(':');
-      if ((rohArt !== 'nadelbaum' && rohArt !== 'laubbaum') ||
-          (rohStufe !== 'nah' && rohStufe !== 'mittel' && rohStufe !== 'fern')) continue;
-      const variante = Number(rohVariante);
-      const satz = saetze.current?.get(`${ortsKulisse && o.userData.milbingerBaum === true ? 'milbinger:' : ''}${rohArt}:${variante}`);
-      if (satz) kandidaten.push({ original: o, art: rohArt, variante, stufe: rohStufe, satz });
+      bestand.saetze = aktuelleSaetze;
     }
     let geaendert = false;
     const entfernteIds = new Set<string>();
     const diagnoseGrund = diagnose ? new Map<string, string>() : null;
     const geaendertePaare = new Set<Ersatz>();
-    const behalten = new Set(kandidaten.map(k => k.original));
-    for (const [o, p] of paare.current) if (!behalten.has(o)) {
+    for (const p of paare.current.values()) {
+      const o = p.original;
+      if (bestand.meshes.has(o) && o.count && o.instanceColor) continue;
       for (const e of p.eintraege) { entfernteIds.add(e.id); diagnoseGrund?.set(e.id, 'gruppe-entfernt'); }
       zeigeOriginal(o); scene.remove(p.stamm, p.laub); entsorgeInstanzGeo(p.stamm.geometry); entsorgeInstanzGeo(p.laub.geometry); p.stamm.dispose(); p.laub.dispose(); paare.current.delete(o); geaendert = true;
     }
-    for (const { original: o, art, variante, stufe, satz } of kandidaten) {
+    for (const { original: o, art, variante, stufe, satz } of bestand.gruppen) {
+      if (!o.count || !o.instanceColor) continue;
       let p = paare.current.get(o);
       const kapazitaet = o.instanceMatrix.count;
       if (!p) {
@@ -572,9 +578,13 @@ export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
         p.stamm.computeBoundingSphere(); p.laub.computeBoundingSphere();
       }
     }
-    const gruppen = new Map<string, BlendInstanz[]>();
     for (const [id, a] of ausblendungen.current) {
-      if (windZeit.value - a.verlauf.beginn >= EZ_BLEND_DAUER) { ausblendungen.current.delete(id); uebergaengeGeaendert = true; continue; }
+      if (windZeit.value - a.verlauf.beginn >= EZ_BLEND_DAUER) { ausblendungen.current.delete(id); uebergaengeGeaendert = true; }
+    }
+    // Sichtbare Instanzen bleiben während der Überblendung gleich, nur die Shaderzeit läuft.
+    if (!uebergaengeGeaendert) return;
+    const gruppen = new Map<string, BlendInstanz[]>();
+    for (const a of ausblendungen.current.values()) {
       for (const stufe of EZ_STUFEN) {
         if (stufe === a.verlauf.ziel || a.verlauf.start[EZ_STUFEN.indexOf(stufe)] <= 0) continue;
         const e = a.historien[stufe];
@@ -585,9 +595,6 @@ export function EzBaumProbe({ ziel, lokal, milbinger = false }: {
         gruppen.set(idGruppe, gruppe);
       }
     }
-    // Matrizen und Farben sind waehrend der Blende konstant. Die GPU-Puffer
-    // nur bei Zu-/Abgaengen hochladen; der Shader aktualisiert die Zeit selbst.
-    if (!uebergaengeGeaendert) return;
     for (const [id, p] of uebergaenge.current) if (!gruppen.has(id)) { p.stamm.count = 0; p.laub.count = 0; }
     for (const [id, gruppe] of gruppen) {
       const e = gruppe[0].eintrag;

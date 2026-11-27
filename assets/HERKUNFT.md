@@ -211,7 +211,8 @@ Poimandres, CC0-1.0); D223 hat sie ersetzt.
 
 | Datei | Was | Urheber | Lizenz | Quelle |
 |---|---|---|---|---|
-| `bauten/hof-708.glb` | Inntaler Einfirsthof, Verfallsstufe 1, für Gebäude 708 (Œntal) | BRACHLAND (prozedural) | eigenes Werk | `tools/hofbaukasten.py` Saat 708 Stufe 1, Masse 36 × 14,7 m aus dem OSM-Grundriss; Materialien prozedural in Blender gebacken, gepackt mit `tools/hofbau_pack.mjs`. Keine Fremdtexturen. |
+| `bauten/hof-708.glb` | Inntaler Einfirsthof, Verfallsstufe 1, für Gebäude 708 (Œntal) | BRACHLAND (prozedural) | eigenes Werk | `tools/hofbaukasten.py` Saat 708 Stufe 1, Masse 36 × 14,7 m aus dem OSM-Grundriss; Materialien prozedural in Blender gebacken, gepackt mit `tools/hofbau_pack.mjs`. D491 nutzt zusätzlich den Feldstein aus dem vorhandenen CC0-Atlas `public/material/hof-scans.webp` für ausgewaschenen Putz und Sockel. |
+| `bauten/hof-708-vorhang.glb` | Eingerissener Leinenvorhang mit zwei Stoffposen | BRACHLAND | eigenes Werk | Vorhanggeometrie, Stofffärbung und Shape-Keys aus `tools/hofvorhang.py`. |
 
 ## Kampfton (D427)
 

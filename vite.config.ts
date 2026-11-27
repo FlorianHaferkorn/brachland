@@ -100,6 +100,12 @@ export default defineConfig({
       },
     }),
   ],
-  define: { __WELTSTAND__: JSON.stringify(weltstand()) },
+  define: {
+    __WELTSTAND__: JSON.stringify(weltstand()),
+    // Jede geänderte Hofdatei bekommt ihren eigenen Schlüssel im Bauwerke-Cache.
+    __HOFDATEIEN__: JSON.stringify(Object.fromEntries(readdirSync('public/bauten')
+      .filter(name => name.startsWith('hof-') && name.endsWith('.glb'))
+      .map(name => [name, createHash('sha256').update(readFileSync(`public/bauten/${name}`)).digest('hex').slice(0, 16)]))),
+  },
   server: { host: true },   // vom Handy im selben WLAN erreichbar
 });

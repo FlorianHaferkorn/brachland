@@ -5,9 +5,11 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import sharp from 'sharp';
 import { playwright } from './pw.mjs';
-const [name, probe, modus = 'subpixel', extra = ''] = process.argv.slice(2);
+const [name, probe, modus = 'subpixel', extra = '', ausschnitt = 'krone'] = process.argv.slice(2);
 if (!name || !/^[a-z0-9_-]+$/i.test(name) || !['0', '1'].includes(probe)) throw Error('Neuen Namen und 0|1 angeben.');
 if (!['subpixel', 'taa', 'fahrt'].includes(modus)) throw Error('Modus subpixel, taa oder fahrt angeben.');
+const hof = ausschnitt === 'hof708';
+if (!['krone', 'hof708'].includes(ausschnitt) || (hof && modus === 'fahrt')) throw Error('Hof 708 unterstützt Subpixel- und TAA-Probe.');
 const anzahl = modus === 'fahrt' ? 96 : modus === 'taa' ? 48 : 24;
 const ziel = `.cache/mess/${name}`;
 if (existsSync(ziel)) throw Error(`Ausgabe existiert: ${ziel}`);
@@ -32,10 +34,12 @@ const fehler = [], bilder = [];
 seite.on('pageerror', e => fehler.push(String(e)));
 seite.on('console', m => { if (m.type() === 'error') fehler.push(m.text()); });
 try {
-  const parameter = new URLSearchParams(`absetzen=1441,418,0&zeit=0.26&kontur=0&stimmung=zielbild&hofgruen=1&blattruhe=${probe}&taa=${modus !== 'subpixel' ? 1 : 0}&kamera=1441,35.66,418,1441,39,462&fov=42.6`);
+  const parameter = new URLSearchParams(hof
+    ? `absetzen=189,231,-94&zeit=.26&hofbau=1&echt=1&blattruhe=${probe}&taa=${modus === 'taa' ? 1 : 0}`
+    : `absetzen=1441,418,0&zeit=0.26&kontur=0&stimmung=zielbild&hofgruen=1&blattruhe=${probe}&taa=${modus !== 'subpixel' ? 1 : 0}&kamera=1441,35.66,418,1441,39,462&fov=42.6`);
   for (const [k, v] of new URLSearchParams(extra)) parameter.set(k, v);
   await seite.goto(`http://127.0.0.1:4173/?${parameter}`);
-  await seite.waitForFunction(() => document.body.textContent.includes('Ladezeit') && window.__szene?.userData.ezKamera, undefined, { timeout: 180000 });
+  await seite.waitForFunction(hof => document.body.textContent.includes('Ladezeit') && (hof ? window.__szene : window.__szene?.userData.ezKamera), hof, { timeout: 180000 });
   await seite.waitForTimeout(15000);
   // Diagnose nur im Messbrowser: Geometrie, Spielcode und gespeicherte Materialien bleiben erhalten.
   if (parameter.get('messglanz') === '0') await seite.evaluate(() => {
@@ -89,8 +93,8 @@ try {
   }
   const lauf = await seite.evaluate(() => window.__blatt);
   const roh = await Promise.all(bilder.map(async b => ({ ...b, data: await sharp(b.pfad).removeAlpha().raw().toBuffer() })));
-  // Oberes linkes Kronenfeld; Kamera/LOD/Material bleiben gleich, nur 0…1 Pixel Bildverschiebung.
-  const roi = { x: 20, y: 25, b: 550, h: 240 };
+  // Bildfelder ohne Figur: links unten die Hofwiese, links oben die Krone.
+  const roi = hof ? { x: 55, y: 340, b: 300, h: 145 } : { x: 20, y: 25, b: 550, h: 240 };
   let fehlerSumme = 0, proben = 0;
   const basis = roh[0].data;
   for (const bild of roh.slice(1)) for (let y = roi.y; y < roi.y + roi.h; y++) for (let x = roi.x; x < roi.x + roi.b; x++) {
@@ -105,7 +109,7 @@ try {
     const i = (y * 960 + x) * 3 + c, mittel = roh.reduce((s, b) => s + b.data[i], 0) / roh.length;
     schwankung += roh.reduce((s, b) => s + Math.abs(b.data[i] - mittel), 0) / roh.length;
   }
-  const bericht = { probe, methode: modus === 'fahrt' ? '96 TAA-Bilder mit gleicher Kamerafahrt und Windphase; 24 Schritte/s Spielzeit, keine FPS-Messung'
+  const bericht = { probe, ausschnitt, methode: modus === 'fahrt' ? '96 TAA-Bilder mit gleicher Kamerafahrt und Windphase; 24 Schritte/s Spielzeit, keine FPS-Messung'
     : modus === 'taa' ? '48 aufeinanderfolgende TAA-Bilder, drei vollständige 16er-AO-Zyklen nach 96 Aufwärmbildern; Kamera und Winduniformen fest; kein FPS-Lauf'
     : '24 Subpixelstellungen 0…1…0 Pixel; Winduniformen fest, TAA aus; kein FPS-Lauf',
     modus, extra, parameter: parameter.toString(),

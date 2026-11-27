@@ -153,6 +153,7 @@ export function baueGrasteppich(
   const wildwiese = MILBINGERDETAIL_AN && nurWiesenbereich;
   const kontakt = wildwiese ? wiesenbereich?.kontakt : undefined;
   const viel = GRAS_VIEL || foto;
+  const halmfilter = !foto && GRAS_ECHT;
   const echt = GRAS_ECHT || viel;
   // D255: gezielte Vergleichsprobe; ohne Parameter bleibt der bestehende Look.
   // Alle Ringe verwenden denselben ortsfesten Faktor, ohne neue Geometrie.
@@ -244,6 +245,7 @@ uniform vec2 uMitte;
 uniform vec3 uFuss;
 uniform vec3 uSpitze;
 varying vec3 vHalmFarbe;
+${halmfilter ? 'varying vec3 vUntergrund;' : ''}
 varying float vHalmY;
 varying float vQ;
 varying vec2 vKartenUv;
@@ -413,12 +415,13 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   vec3 artFarbe = mix(mix(graeser, strohF, stroh), krautF, kraut);
   artFarbe = mix(vec3(dot(artFarbe, vec3(0.299, 0.587, 0.114))), artFarbe, 0.85);
   spitze = artFarbe * (0.85 + h5 * 0.3);
-  fuss = mix(bodenTon * 0.35, strohF * 0.45, stroh);
-  vQ = position.x / max(1.0 - 0.75 * y, 0.05);` : 'vQ = 0.0;'}
+  fuss = mix(bodenTon * 0.35, strohF * 0.45, stroh);` : ''}
+  vQ = ${viel || halmfilter ? 'position.x / max(1.0 - 0.75 * y, 0.05)' : '0.0'};
   ${foto ? `vec4 kr = uKachel[kachel];
   vKartenUv = vec2(kr.x + uv.x * kr.z, (1.0 - kr.y - kr.w) + uv.y * kr.w);` : 'vKartenUv = vec2(0.0);'}
   vHalmFarbe = mix(mix(fuss, spitze, smoothstep(0.0, 1.0, y)), bodenTon, zumBoden);
   vHalmY = y * (1.0 - zumBoden);
+  ${halmfilter ? 'vUntergrund = bodenTon;' : ''}
   ${foto ? `// D272: Helligkeit je Büschel; grüne Kacheln saftiger (Grün ×1,3, Blau ×0,85), Stroh ×0,8, Kraut leicht grüner.
   vHalmFarbe = vec3(0.8 + 0.4 * h5) * (strohKachel ? vec3(0.8) : kachel < ${HORST_GRUEN} ? vec3(1.15, 1.3, 0.85) : vec3(1.05, 1.15, 0.9));` : ''}
   ${wildwiese ? 'vHalmFarbe *= mix(vec3(.79,.87,.75), vec3(1.02,.96,.78), wuchs.y);' : ''}
@@ -428,13 +431,18 @@ vec4 bilinear(sampler2D tex, vec2 welt) {
   #endif`)
       .replace('#include <begin_vertex>', 'vec3 transformed = halmPos;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;\nvarying float vQ;\nvarying vec2 vKartenUv;\nuniform sampler2D uKarte;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vHalmFarbe;\nvarying float vHalmY;\nvarying float vQ;\nvarying vec2 vKartenUv;\nuniform sampler2D uKarte;' + (halmfilter ? '\nvarying vec3 vUntergrund;' : ''))
       .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb = vHalmFarbe;' + (foto ? `
   { vec4 horst = texture2D(uKarte, vKartenUv);   // D272: Foto-Büschel — Farbe, Deckung, Verdeckung am Fuss
     diffuseColor.rgb = vHalmFarbe * horst.rgb * 1.9 * mix(0.55, 1.0, smoothstep(0.0, 0.5, vHalmY));   // 1,9: Foto-Albedo (Mittel 0,125 linear) auf die Helligkeit der Szene (alte Spitze ~0,3); 2,4 überbelichtete
     diffuseColor.a = horst.a; }` : '') + (viel && !foto ? `
   { float kante = abs(vQ);   // D271: Kante dunkler, Mittelrippe heller — der Halm hat Körper statt Flachband
-    diffuseColor.rgb *= (1.0 - 0.3 * kante * kante) * (1.0 + 0.18 * (1.0 - smoothstep(0.0, 0.12, kante))); }` : ''))
+    diffuseColor.rgb *= (1.0 - 0.3 * kante * kante) * (1.0 + 0.18 * (1.0 - smoothstep(0.0, 0.12, kante))); }` : '') + (halmfilter ? `
+  // Die Halmkoordinate reicht quer von -1 bis +1. Eine Änderung von zwei
+  // pro Bildpunkt entspricht einem einzelnen Pixel projizierter Halmbreite.
+  float querProPixel = length(vec2(dFdx(vQ), dFdy(vQ)));
+  float halmDetail = 1.0 - smoothstep(1.0, 3.0, querProPixel);
+  diffuseColor.rgb = mix(vUntergrund, diffuseColor.rgb, mix(0.20, 1.0, halmDetail));` : ''))
       // Beide Seiten mit derselben (nach oben gekippten) Normale: three dreht sie für die
       // Rückseite um, dann zeigte sie in den Boden und der halbe Rasen wäre schwarz.
       .replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n  normal = normalize(vNormal);')
